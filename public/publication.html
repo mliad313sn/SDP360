@@ -26,6 +26,16 @@
   </header>
   <p class="db-note" id="pb-status" role="status" aria-live="polite"></p>
 
+  <section class="db-w" id="pb-settings-w" aria-labelledby="pb-settings-h" hidden>
+    <h2 id="pb-settings-h">Réglages</h2>
+    <form class="ck-form" id="pb-settings-form">
+      <label class="dc-inline ck-wide" for="pb-s-email"><input type="checkbox" id="pb-s-email"> Envoyer aussi par e-mail les alertes et le résumé quotidien des notifications (serveur de messagerie d’Admin ▸ Rapports)</label>
+      <label class="ck-wide" for="pb-s-base">Adresse publique du tableau de bord (liens des e-mails et des cartes Teams)<input id="pb-s-base" type="url" placeholder="https://…"></label>
+      <label class="ck-wide" for="pb-s-metrics">Indicateurs publiés (flux Power BI et publications) — aucun choisi = la sélection par défaut<select id="pb-s-metrics" multiple size="6"></select></label>
+      <button class="db-btn db-primary" type="submit">Enregistrer les réglages</button>
+    </form>
+  </section>
+
   <section class="db-w" id="pb-clients-w" aria-labelledby="pb-clients-h">
     <h2 id="pb-clients-h">Consommateurs de l’API (Power BI, systèmes partenaires)</h2>
     <p class="db-note">Power BI : Obtenir des données ▸ Flux OData ▸ <code id="pb-odata"></code>, authentification « De base » avec l’identifiant du consommateur et sa clé.</p>

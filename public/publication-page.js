@@ -68,6 +68,26 @@
     }).catch(function (e2) { st(e2.message, true); });
   });
 
+  function loadSettings() {
+    return S.api('GET', '/api/reports/config').then(function (c) {
+      $('pb-s-email').checked = String(c.engagement_email) === '1';
+      $('pb-s-base').value = c.public_base_url || '';
+      var chosen = String(c.published_metrics || '').split(',').filter(Boolean);
+      return S.api('GET', '/api/publication/jobs').then(function (j) {
+        $('pb-s-metrics').innerHTML = j.metrics.map(function (m) { return opt(m.key, m.fr || m.key, chosen.indexOf(m.key) >= 0); }).join('');
+      });
+    });
+  }
+  $('pb-settings-form').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var base = $('pb-s-base').value.trim().replace(/\/$/, '');
+    if (base && !/^https?:\/\/[^\s]+$/.test(base)) { st('L’adresse publique doit commencer par https://', true); return; }
+    S.api('PUT', '/api/reports/config', { engagement_email: $('pb-s-email').checked ? '1' : '0', public_base_url: base,
+      published_metrics: Array.prototype.slice.call($('pb-s-metrics').selectedOptions).map(function (o) { return o.value; }).join(',') })
+      .then(function () { st('Réglages enregistrés.'); }).catch(function (e2) { st(e2.message, true); });
+  });
+  $('pb-settings-w').hidden = !superAdmin;
+  if (superAdmin) loadSettings().catch(function (e) { st(e.message, true); });
   $('pb-clients-w').hidden = !superAdmin; $('pb-jobs-w').hidden = !superAdmin;
   (superAdmin ? loadClients().then(loadJobs) : S.api('GET', '/api/reportgen/templates').then(function (j) {
     $('pb-e-template').innerHTML = j.templates.filter(function (t) { return t.published_version; }).map(function (t) { return opt(t.id, S.label(t.title)); }).join('');

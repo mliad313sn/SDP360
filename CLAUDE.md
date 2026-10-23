@@ -153,6 +153,7 @@ editing it. Nothing was deleted: the old sections moved verbatim (see `docs/hist
 | work on business trackers / the tracker builder / the tracker 2026 migration (step 7) | `docs/design/ETAPE-07-trackers.md` — ONE engine `public/lib/trackerEngine.js`; prove fidelity with `tools/trackers/compare-legacy.js` |
 | add a 2.0 page | `services/pages.js` (served + cached + strict CSP from that one list; never a line in `server.js`) |
 | work on the meeting cockpit, the requests register, the portfolio or governance (step 8) | `docs/design/ETAPE-08-cockpit-portefeuille.md` — agendas reuse the dashboard data resolver (never a second formula); minutes are never sent automatically |
+| work on report generation, alerts / notifications or external publication (step 9) | `docs/design/ETAPE-09-rapports-engagement-publication.md` — an AI draft is rejected on any number not in the facts; nothing leaves the server until a super_admin arms it; the external API (`/api/v1/`) bypasses the dash-key gate and uses its own per-consumer keys |
 | handle a secret or a security control | `docs/adr/ADR-006-*`, `docs/design/ETAPE-04-securite.md`, `docs/ops/INCIDENT-RESPONSE.md` |
 | add a scheduled job | `docs/design/ETAPE-01-synchronisations.md` (`services/sync/jobs.js`) |
 | add a KPI or an RAG threshold | `docs/design/ETAPE-03-kpi.md` (`services/metrics/registry.js`, `public/lib/kpiRag.js`) |

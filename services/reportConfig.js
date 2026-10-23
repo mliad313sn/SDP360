@@ -127,6 +127,11 @@ const DEFAULTS = {
   //    WORKSPACE_ID / ORG_ID) — services/analyticsSettings resolves database → .env → default.
   analytics_client_id: '', analytics_client_secret: '', analytics_refresh_token: '',
   analytics_workspace_id: '', analytics_org_id: '', analytics_accounts_url: '',
+  // Step 9 — e-mail delivery of the alert rules and of the daily notification digest: armed OFF (in-app only).
+  engagement_email: '0',
+  // Step 9 — the indicators published to the OData feed / scheduled publications (comma list of dictionary keys).
+  // EMPTY = the default set of services/publication/snapshot.js (the six service objectives + volume and backlog).
+  published_metrics: '',
 };
 const KEYS = Object.keys(DEFAULTS);
 

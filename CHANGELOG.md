@@ -5,6 +5,27 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — SDP-Dashboard 2.0, step 9: report studio, alerts and notifications, external publication (2026-10-23)
+
+### Added
+- **Report studio** (`report-studio.html`, nav ▸ Reports ▸ Rapports rédigés): templates made of dashboard widgets +
+  commentary sections; runs computed from the KPI dictionary; deterministic analysis always available; optional AI
+  draft fed with the canonical figures only and REJECTED on any unknown number; draft → review → approval by a
+  `report-reviewer`; journal; outputs HTML, PDF, PPTX, CSV; signed expiring share links. System templates: monthly
+  executive pack, monthly site review.
+- **Alerts and notification centre** (`notifications.html`, nav ▸ Reports ▸ Notifications et alertes): rules on an
+  indicator, tickets open > 30/45/60 days, a major incident, the sync health; persistence, cooldown, one alert per
+  episode, recovery notice; in-app notifications with read receipts and a discussion per alert; subscriptions;
+  daily digest; Teams / signed webhook channels (URLs encrypted, write-only); catalogue of 12 proposed rules, all
+  disabled; role `alert-manager`. Jobs `engagement.evaluate`, `engagement.digest`.
+- **External publication** (`publication.html`, nav ▸ Admin): per-consumer API keys (hashed, shown once, scopes,
+  daily quota, journal) for `/api/v1/*` and an OData feed `/odata` for Power BI read from a nightly snapshot
+  (job `publication.snapshot`); scheduled publications to Teams, webhook, e-mail (latest approved report), Excel
+  (job `publication.run`); embeddable signed view framable by SharePoint only (`EMBED_FRAME_ANCESTORS`).
+- Settings `engagement_email`, `published_metrics`; env `SDP_LINK_KEY` (or derived from `SDP_CONFIG_KEY`);
+  migration `db/postgres/reports/021_engagement_reports_publication.sql`; `services/sqlStore.js` (one schema per
+  module, executed as is on SQLite).
+
 ## [Unreleased] — SDP-Dashboard 2.0, step 8: meeting cockpit, requests, portfolio, governance (2026-10-23)
 
 ### Added
