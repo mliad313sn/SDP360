@@ -23,7 +23,7 @@ async function createRun(x, by) {
     VALUES (?, ?, ?, ?, ?, 'draft', ?, ?, ?, ?, ?, ?, ?)`)
     .run(id, x.template_id, x.template_version || null, x.month, x.site_code || null, JSON.stringify(x.data), JSON.stringify(x.analysis), x.ai ? JSON.stringify(x.ai) : null,
       JSON.stringify(x.commentary || {}), x.html || null, by || null, now());
-  await event(id, by, 'generated', x.ai ? (x.ai.accepted ? 'AI draft accepted by the number check' : (x.ai.skipped ? 'AI: ' + x.ai.skipped : 'AI draft rejected: unknown numbers ' + (x.ai.unknown || []).join(', '))) : 'deterministic commentary');
+  await event(id, by, 'generated', x.ai ? (x.ai.accepted ? 'texte de l’assistant accepté : tous ses chiffres existent dans les données' : (x.ai.skipped ? x.ai.skipped : 'texte de l’assistant rejeté, chiffres inconnus : ' + (x.ai.unknown || []).join(', '))) : 'analyse automatique');
   return getRun(id, true);
 }
 async function getRun(id, full) { const { H } = handle(); return runRow(await H.prepare(`SELECT * FROM rp_runs WHERE id = ?`).get(id), full); }

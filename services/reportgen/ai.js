@@ -43,12 +43,12 @@ function check(text, facts, ctx) {
 
 /** Draft with the model; returns { text, accepted, unknown, provider } or { skipped }. Never throws. */
 async function draft(facts, ctx, ai) {
-  if (!ai || ai.disabled) return { skipped: 'AI is switched off on this server (AI_PROVIDER=off): the deterministic commentary is used.' };
+  if (!ai || ai.disabled) return { skipped: 'L’intelligence artificielle est désactivée sur ce serveur (AI_PROVIDER=off) : l’analyse automatique est utilisée.' };
   try {
     const text = String(await ai.call(buildRequest(facts, ctx)) || '').trim().slice(0, 4000);
-    if (!text) return { skipped: 'the model returned nothing' };
+    if (!text) return { skipped: 'le modèle n’a rien renvoyé : l’analyse automatique est utilisée' };
     return { text, provider: ai.provider, ...check(text, facts, ctx) };
-  } catch (e) { return { skipped: 'the model did not answer (' + String(e.message || e).slice(0, 120) + ')' }; }
+  } catch (e) { return { skipped: 'le modèle n’a pas répondu (' + String(e.message || e).slice(0, 120) + ') : l’analyse automatique est utilisée' }; }
 }
 
 module.exports = { buildRequest, allowedNumbers, numbersIn, check, draft };

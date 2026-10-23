@@ -7,6 +7,7 @@
   var st = function (m, e) { S.status($('rs-status'), m, e); };
   var templates = [], cur = null;
   var STATUS = { draft: 'Brouillon', approved: 'Validé' };
+  var ACTION = { generated: 'généré', edited: 'commentaire modifié', approved: 'validé', shared: 'partagé' };
   var opt = function (v, t, sel) { return '<option value="' + esc(v) + '"' + (sel ? ' selected' : '') + '>' + esc(t) + '</option>'; };
 
   function load() {
@@ -28,7 +29,7 @@
     S.api('POST', '/api/reportgen/runs', { template_id: $('rs-template').value, month: $('rs-month').value, site: $('rs-site').value }).then(function (j) {
       return load().then(function () { return openRun(j.run.id); }).then(function () {
         var ai = j.run.ai;
-        st('Brouillon généré.' + (ai ? (ai.accepted ? ' Commentaire rédigé par l’assistant, chiffres vérifiés.' : ai.skipped ? ' ' + ai.skipped : ' Texte de l’assistant rejeté (chiffres inconnus : ' + ai.unknown.join(', ') + ') : analyse automatique conservée.') : ''));
+        st('Brouillon généré.' + (ai ? (ai.accepted ? ' Commentaire rédigé par l’assistant, chiffres vérifiés.' : ai.skipped ? ' ' + ai.skipped.charAt(0).toUpperCase() + ai.skipped.slice(1) + '.' : ' Texte de l’assistant rejeté (chiffres inconnus : ' + ai.unknown.join(', ') + ') : analyse automatique conservée.') : ''));
       });
     }).catch(function (e2) { st(e2.message, true); });
   });
@@ -46,7 +47,7 @@
         var txt = (j.run.commentary || {})[s.id] || '';
         return '<label class="ck-wide" for="rs-c-' + esc(s.id) + '"><b>' + esc(s.title) + '</b><textarea class="ck-notes" id="rs-c-' + esc(s.id) + '" data-sec="' + esc(s.id) + '"' + (j.can_edit ? '' : ' readonly') + '>' + esc(txt) + '</textarea></label>';
       }).join('') || '<p class="db-note">Ce modèle n’a pas de section de commentaire.</p>';
-      $('rs-events').innerHTML = (j.events || []).map(function (ev) { return '<li>' + esc(ev.at.slice(0, 16).replace('T', ' ')) + ' — ' + esc(ev.action) + (ev.by ? ' par ' + esc(ev.by) : '') + (ev.note ? ' : ' + esc(ev.note) : '') + '</li>'; }).join('') || '<li class="ck-muted">—</li>';
+      $('rs-events').innerHTML = (j.events || []).map(function (ev) { return '<li>' + esc(ev.at.slice(0, 16).replace('T', ' ')) + ' — ' + esc(ACTION[ev.action] || ev.action) + (ev.by ? ' par ' + esc(ev.by) : '') + (ev.note ? ' : ' + esc(ev.note) : '') + '</li>'; }).join('') || '<li class="ck-muted">—</li>';
     }).catch(function (e) { st(e.message, true); });
   }
   $('rs-save').addEventListener('click', function () {

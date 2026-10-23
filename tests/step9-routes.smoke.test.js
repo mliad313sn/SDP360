@@ -94,7 +94,7 @@ test('report studio: draft → edit → approve → outputs → shared link (ano
   assert.equal(g.status, 201, JSON.stringify(g.body));
   const id = g.body.run.id;
   assert.equal(g.body.run.status, 'draft');
-  assert.ok(g.body.run.ai.skipped, 'AI off: deterministic commentary');
+  assert.match(g.body.run.ai.skipped, /désactivée/, 'AI off: deterministic commentary');
   assert.equal((await get('/api/reportgen/runs/' + id, tok['s9-exec'])).status, 403, 'a draft is not read by the audience');
   const ed = await json(await send('PUT', `/api/reportgen/runs/${id}/commentary`, tok['s9-author'], { commentary: { c2: 'Mois stable.' } }));
   assert.equal(ed.body.commentary.c2, 'Mois stable.');
