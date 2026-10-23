@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Gouvernance · Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="_shell.css">
+<link rel="stylesheet" href="dashboard.css">
+<link rel="stylesheet" href="trackers.css">
+<link rel="stylesheet" href="cockpit.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/sdpApi.js"></script>
+</head>
+<body>
+<div id="__shell" data-section="reports" data-current="cockpit"></div>
+<main class="db-page" id="gv-root" aria-live="polite">
+  <header class="db-head">
+    <div>
+      <div class="db-eyebrow"><a href="cockpit.html">Cockpit de réunion</a></div>
+      <h1>Gouvernance</h1>
+      <p class="db-desc">Comment le comité tient ses engagements : jalons livrés à l’heure, glissement des échéances, délai entre une demande et sa décision, réunions tenues avec procès-verbal, adoption des outils par rôle.</p>
+    </div>
+    <div class="db-toolbar">
+      <label for="gv-from">Du<input type="date" id="gv-from"></label>
+      <label for="gv-to">Au<input type="date" id="gv-to"></label>
+    </div>
+  </header>
+  <p class="db-note" id="gv-status" role="status" aria-live="polite"></p>
+  <div class="gv-cards" id="gv-cards"></div>
+  <section class="db-w" aria-labelledby="gv-ad-h">
+    <h2 id="gv-ad-h">Adoption par rôle (personnes distinctes ayant agi sur la période)</h2>
+    <div class="db-scroll"><table class="db-table" id="gv-adoption"></table></div>
+  </section>
+</main>
+<script nonce="%%CSP_NONCE%%" src="governance-page.js"></script>
+</body>
+</html>

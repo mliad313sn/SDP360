@@ -8,6 +8,11 @@ const V2_PAGES = [
   ['dashboard-composer.html', 'Dashboard composer'],
   ['trackers.html', 'Trackers'],                      // step 7: business trackers
   ['tracker-builder.html', 'Tracker builder'],
+  ['cockpit.html', 'Meeting cockpit'],                // step 8: meetings, requests, portfolio, governance
+  ['cockpit-session.html', 'Meeting'],
+  ['rfi.html', 'Requests to the committee'],
+  ['portfolio.html', 'Portfolio'],
+  ['governance.html', 'Governance'],
 ];
 
 module.exports = { V2_PAGES };

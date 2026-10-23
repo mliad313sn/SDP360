@@ -242,5 +242,8 @@
     return head + grid;
   }
 
-  return { render: render, markdown: markdown, fmt: fmt, esc: esc, T: T, WIDGET_TYPES: Object.keys(W) };
+  /** One widget alone (no page header) — the meeting cockpit shows each agenda section with it (step 8). */
+  function renderWidget(w, data, opts) { var lang = (opts && opts.lang) === 'en' ? 'en' : 'fr'; return widget(w, data, {}, T[lang], lang); }
+
+  return { render: render, renderWidget: renderWidget, markdown: markdown, fmt: fmt, esc: esc, T: T, WIDGET_TYPES: Object.keys(W) };
 }));

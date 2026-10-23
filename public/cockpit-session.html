@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Réunion · Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="_shell.css">
+<link rel="stylesheet" href="dashboard.css">
+<link rel="stylesheet" href="trackers.css">
+<link rel="stylesheet" href="cockpit.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/sdpApi.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/dashboardRender.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/cockpitRender.js"></script>
+</head>
+<body>
+<div id="__shell" data-section="reports" data-current="cockpit"></div>
+<main class="db-page ck-fs" id="ss-root" aria-live="polite">
+  <header class="db-head">
+    <div>
+      <div class="db-eyebrow"><a href="cockpit.html">Cockpit de réunion</a></div>
+      <h1 id="ss-title">Réunion</h1>
+      <p class="db-desc" id="ss-meta"></p>
+    </div>
+    <div class="db-toolbar">
+      <span class="ck-timer" id="ss-timer" aria-live="off"></span>
+      <button class="db-btn db-primary" type="button" id="ss-start" hidden>Ouvrir la réunion</button>
+      <button class="db-btn" type="button" id="ss-full">Plein écran</button>
+      <button class="db-btn db-danger" type="button" id="ss-close" hidden>Clore et rédiger le procès-verbal</button>
+    </div>
+  </header>
+  <p class="db-note" id="ss-status" role="status" aria-live="polite"></p>
+  <div class="db-w" id="ss-minutes" hidden>
+    <h2>Procès-verbal</h2>
+    <div class="db-toolbar">
+      <button class="db-btn" type="button" id="ss-pv-html">Lire le procès-verbal</button>
+      <button class="db-btn" type="button" id="ss-pv-pdf">Télécharger en PDF</button>
+      <button class="db-btn db-primary" type="button" id="ss-pv-send" hidden>Envoyer aux participants</button>
+    </div>
+    <p class="db-note" id="ss-sent"></p>
+  </div>
+  <div class="ck-session" id="ss-body" hidden>
+    <nav aria-label="Ordre du jour"><ol class="ck-agenda" id="ss-agenda"></ol></nav>
+    <div>
+      <div id="ss-section"></div>
+      <section class="db-w" id="ss-live" hidden aria-labelledby="ss-live-h">
+        <h2 id="ss-live-h">En séance</h2>
+        <div class="db-toolbar"><button class="db-btn db-primary" type="button" id="ss-item-start">Commencer ce point</button><button class="db-btn" type="button" id="ss-item-end">Terminer ce point</button><span class="db-note" id="ss-item-time"></span></div>
+        <label class="ck-wide" for="ss-notes">Notes du point (enregistrées automatiquement)<textarea class="ck-notes" id="ss-notes"></textarea></label>
+        <h3>Décision</h3>
+        <form class="ck-form" id="ss-dec-form">
+          <label class="ck-wide" for="ss-dec-text">Décision<input id="ss-dec-text" maxlength="1000" required></label>
+          <label for="ss-dec-owner">Porteur<input id="ss-dec-owner" maxlength="80"></label>
+          <button class="db-btn" type="submit">Noter la décision</button>
+        </form>
+        <h3>Action</h3>
+        <form class="ck-form" id="ss-act-form">
+          <label class="ck-wide" for="ss-act-title">Action<input id="ss-act-title" maxlength="300" required></label>
+          <label for="ss-act-owner">Responsable<input id="ss-act-owner" maxlength="80"></label>
+          <label for="ss-act-due">Échéance<input id="ss-act-due" type="date"></label>
+          <label for="ss-act-src">Rattachée à<select id="ss-act-src"><option value="free">—</option><option value="incident">Un incident</option><option value="metric">Un indicateur</option><option value="issue">Un problème de réunion</option><option value="rfi">Une demande au comité</option><option value="project">Un projet du portefeuille</option><option value="decision">Une décision</option></select></label>
+          <label for="ss-act-ref">Référence (numéro, clé, identifiant)<input id="ss-act-ref" maxlength="80"></label>
+          <button class="db-btn" type="submit">Noter l’action</button>
+        </form>
+      </section>
+      <section class="db-w" aria-labelledby="ss-rec-h">
+        <h2 id="ss-rec-h">Décidé pendant ce point</h2>
+        <div id="ss-recorded"></div>
+      </section>
+    </div>
+  </div>
+</main>
+<script nonce="%%CSP_NONCE%%" src="cockpit-session.js"></script>
+</body>
+</html>

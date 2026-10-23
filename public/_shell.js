@@ -159,6 +159,7 @@
         { id: 'site-reports',    label: 'Site Reports', icon: ICON_LIB['file-text'], href: 'reports.html',          roles: ['any'] },
         { id: 'dashboards',      label: 'Tableaux de bord', icon: ICON_LIB['bar-chart-3'], href: 'dashboard.html',   roles: ['any'] },   // step 6
         { id: 'trackers',        label: 'Trackers métier', icon: ICON_LIB.target,          href: 'trackers.html',    roles: ['any'] },   // step 7
+        { id: 'cockpit',         label: 'Cockpit de réunion', icon: ICON_LIB.users,        href: 'cockpit.html',     roles: ['any'] },   // step 8
         { id: 'reports-builder', label: 'Deck Builder', icon: ICON_LIB.presentation, href: 'executive-report.html', roles: ['super_admin'] }  // = the page's data-require (RBAC audit 2026-10-02, A19)
       ]
     },

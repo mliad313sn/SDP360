@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portefeuille · Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="_shell.css">
+<link rel="stylesheet" href="dashboard.css">
+<link rel="stylesheet" href="trackers.css">
+<link rel="stylesheet" href="cockpit.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/sdpApi.js"></script>
+</head>
+<body>
+<div id="__shell" data-section="reports" data-current="cockpit"></div>
+<main class="db-page" id="pf-root" aria-live="polite">
+  <header class="db-head">
+    <div>
+      <div class="db-eyebrow"><a href="cockpit.html">Cockpit de réunion</a></div>
+      <h1>Portefeuille</h1>
+      <p class="db-desc">Programmes, objectifs, projets, jalons et livrables. Une échéance dépassée sans livraison est « en retard » d’office ; un objectif peut porter une preuve lue dans le dictionnaire des indicateurs.</p>
+    </div>
+    <div class="db-toolbar">
+      <label for="pf-month">Mois<input type="month" id="pf-month"></label>
+      <button class="db-btn" type="button" id="pf-report">Rapport du mois</button>
+      <button class="db-btn" type="button" id="pf-roadmap" hidden>Copier ma Roadmap ITSM</button>
+    </div>
+  </header>
+  <p class="db-note" id="pf-status" role="status" aria-live="polite"></p>
+  <section class="db-w" aria-labelledby="pf-alerts-h"><h2 id="pf-alerts-h">Alertes</h2><div id="pf-alerts"></div></section>
+  <section class="db-w" aria-labelledby="pf-tree-h">
+    <div class="tk-row"><h2 id="pf-tree-h">Arborescence</h2><button class="db-btn" type="button" id="pf-add-root" hidden>Nouveau programme</button></div>
+    <div class="db-scroll"><table class="db-table pf-tree" id="pf-tree"></table></div>
+  </section>
+  <section class="db-w" aria-labelledby="pf-gantt-h">
+    <h2 id="pf-gantt-h">Planning</h2>
+    <p class="db-sr" id="pf-gantt-words"></p>
+    <div class="db-scroll" id="pf-gantt"></div>
+  </section>
+  <section class="db-w" id="pf-edit" hidden aria-labelledby="pf-edit-h">
+    <h2 id="pf-edit-h">Élément</h2>
+    <form class="ck-form" id="pf-form">
+      <label for="pf-kind">Type<select id="pf-kind"><option value="programme">Programme</option><option value="objective">Objectif</option><option value="project">Projet</option><option value="milestone">Jalon</option><option value="deliverable">Livrable</option></select></label>
+      <label class="ck-wide" for="pf-title">Titre<input id="pf-title" maxlength="160" required></label>
+      <label for="pf-owner">Responsable<input id="pf-owner" maxlength="80"></label>
+      <label for="pf-st">État<select id="pf-st"><option value="not_started">Pas commencé</option><option value="on_track">En bonne voie</option><option value="at_risk">À risque</option><option value="late">En retard</option><option value="done">Terminé</option><option value="cancelled">Annulé</option></select></label>
+      <label for="pf-conf">Confiance (%)<input id="pf-conf" type="number" min="0" max="100"></label>
+      <label for="pf-start">Début<input id="pf-start" type="date"></label>
+      <label for="pf-due">Échéance<input id="pf-due" type="date"></label>
+      <label for="pf-done">Livré le<input id="pf-done" type="date"></label>
+      <label for="pf-budget">Budget<input id="pf-budget" inputmode="decimal"></label>
+      <label for="pf-spent">Dépensé<input id="pf-spent" inputmode="decimal"></label>
+      <label for="pf-metric">Preuve : indicateur<select id="pf-metric"></select></label>
+      <label for="pf-target">Preuve : cible<input id="pf-target" inputmode="decimal"></label>
+      <label for="pf-scope">Preuve : périmètre<select id="pf-scope"></select></label>
+      <label for="pf-deps">Dépend de<select id="pf-deps" multiple size="4"></select></label>
+      <label class="ck-wide" for="pf-risk">Risques<input id="pf-risk" maxlength="600"></label>
+      <label class="ck-wide" for="pf-inc">Incidents liés (numéros séparés par des virgules)<input id="pf-inc" maxlength="400"></label>
+      <div class="db-toolbar ck-wide">
+        <button class="db-btn db-primary" type="submit" id="pf-save">Enregistrer</button>
+        <button class="db-btn" type="button" id="pf-cancel">Fermer</button>
+        <button class="db-btn db-danger" type="button" id="pf-del">Supprimer</button>
+      </div>
+    </form>
+  </section>
+</main>
+<script nonce="%%CSP_NONCE%%" src="portfolio-page.js"></script>
+</body>
+</html>

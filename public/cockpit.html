@@ -1,0 +1,114 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cockpit de réunion · Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="_shell.css">
+<link rel="stylesheet" href="dashboard.css">
+<link rel="stylesheet" href="trackers.css">
+<link rel="stylesheet" href="cockpit.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/sdpApi.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/dashboardRender.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/cockpitRender.js"></script>
+</head>
+<body>
+<div id="__shell" data-section="reports" data-current="cockpit"></div>
+<main class="db-page" id="ck-root" aria-live="polite">
+  <header class="db-head">
+    <div>
+      <div class="db-eyebrow">Pilotage</div>
+      <h1>Cockpit de réunion</h1>
+      <p class="db-desc">Chaque réunion part d’une cadence : son ordre du jour est généré avec les chiffres du dictionnaire au début de la séance, les décisions et les actions sont saisies en direct et le procès-verbal s’écrit à la clôture.</p>
+    </div>
+    <div class="db-toolbar">
+      <a class="db-btn" href="rfi.html">Demandes au comité</a>
+      <a class="db-btn" href="portfolio.html">Portefeuille</a>
+      <a class="db-btn" href="governance.html">Gouvernance</a>
+    </div>
+  </header>
+  <div class="ck-tabs" role="tablist" aria-label="Sections">
+    <button class="db-btn ck-tab" role="tab" id="t-meetings" aria-controls="p-meetings" aria-selected="true" type="button">Réunions</button>
+    <button class="db-btn ck-tab" role="tab" id="t-cadences" aria-controls="p-cadences" aria-selected="false" type="button" hidden>Cadences</button>
+    <button class="db-btn ck-tab" role="tab" id="t-actions" aria-controls="p-actions" aria-selected="false" type="button">Actions</button>
+  </div>
+  <p class="db-note" id="ck-status" role="status" aria-live="polite"></p>
+
+  <section id="p-meetings" role="tabpanel" aria-labelledby="t-meetings">
+    <div class="db-w" id="ck-plan" hidden>
+      <h2>Planifier une réunion</h2>
+      <form class="ck-form" id="ck-plan-form">
+        <label for="ck-plan-cad">Cadence<select id="ck-plan-cad" required></select></label>
+        <label for="ck-plan-date">Date<input type="date" id="ck-plan-date" required></label>
+        <button class="db-btn db-primary" type="submit">Planifier</button>
+      </form>
+    </div>
+    <div class="db-w">
+      <h2>Réunions</h2>
+      <div class="db-scroll"><table class="db-table" id="ck-sessions"></table></div>
+    </div>
+  </section>
+
+  <section id="p-cadences" role="tabpanel" aria-labelledby="t-cadences" hidden>
+    <div class="db-w">
+      <div class="tk-row"><h2>Cadences</h2><label for="ck-cad-pick">Cadence<select id="ck-cad-pick"></select></label>
+        <button class="db-btn" type="button" id="ck-cad-new">Nouvelle cadence</button></div>
+      <form class="ck-form" id="ck-cad-new-form" hidden>
+        <label for="ck-new-id">Identifiant<input id="ck-new-id" required pattern="[a-z0-9][a-z0-9-]{1,47}"></label>
+        <label for="ck-new-title">Titre<input id="ck-new-title" required maxlength="120"></label>
+        <label for="ck-new-type">Type (ordre du jour type)<select id="ck-new-type"></select></label>
+        <label for="ck-new-site">Site<select id="ck-new-site"></select></label>
+        <button class="db-btn db-primary" type="submit">Créer</button>
+      </form>
+    </div>
+    <div id="ck-cad-editor" hidden>
+      <div class="db-w">
+        <h2>Propriétés</h2>
+        <div class="ck-form">
+          <label for="ck-c-title">Titre<input id="ck-c-title" maxlength="120"></label>
+          <label for="ck-c-type">Type<select id="ck-c-type"></select></label>
+          <label for="ck-c-site">Site<select id="ck-c-site"></select></label>
+          <label for="ck-c-rhythm">Rythme<select id="ck-c-rhythm"><option value="weekly">Chaque semaine</option><option value="biweekly">Toutes les deux semaines</option><option value="monthly">Chaque mois</option></select></label>
+          <label for="ck-c-weekday">Jour<select id="ck-c-weekday"><option value="1">Lundi</option><option value="2">Mardi</option><option value="3">Mercredi</option><option value="4">Jeudi</option><option value="5">Vendredi</option><option value="6">Samedi</option><option value="7">Dimanche</option></select></label>
+          <label for="ck-c-time">Heure<input id="ck-c-time" type="time"></label>
+          <label for="ck-c-duration">Durée (minutes)<input id="ck-c-duration" type="number" min="15" max="240"></label>
+          <label for="ck-c-preparer">Préparateur<input id="ck-c-preparer" maxlength="80"></label>
+          <label class="ck-wide" for="ck-c-participants">Participants (une ligne par personne : nom ; adresse e-mail ; rôle)<textarea id="ck-c-participants" rows="4"></textarea></label>
+        </div>
+      </div>
+      <div class="db-w">
+        <h2>Ordre du jour type</h2>
+        <div class="db-scroll"><table class="db-table tb-table" id="ck-c-agenda"></table></div>
+        <div class="ck-row"><label for="ck-c-addkind">Ajouter une section<select id="ck-c-addkind"></select></label><button class="db-btn" type="button" id="ck-c-add">Ajouter</button></div>
+      </div>
+      <div class="db-w">
+        <h2>Vérification et publication</h2>
+        <div id="ck-c-issues" class="tb-issues"></div>
+        <div class="db-toolbar">
+          <button class="db-btn" type="button" id="ck-c-save">Enregistrer le brouillon</button>
+          <button class="db-btn" type="button" id="ck-c-preview">Aperçu de l’ordre du jour (aujourd’hui)</button>
+          <button class="db-btn db-primary" type="button" id="ck-c-publish">Publier</button>
+          <button class="db-btn db-danger" type="button" id="ck-c-retire">Retirer</button>
+        </div>
+        <ul class="db-list" id="ck-c-versions"></ul>
+      </div>
+      <div id="ck-c-preview-out"></div>
+    </div>
+  </section>
+
+  <section id="p-actions" role="tabpanel" aria-labelledby="t-actions" hidden>
+    <div class="db-w">
+      <div class="tk-row"><h2>Actions de réunion</h2>
+        <label for="ck-a-status">État<select id="ck-a-status"><option value="open">Ouvertes</option><option value="done">Faites</option><option value="cancelled">Abandonnées</option><option value="">Toutes</option></select></label></div>
+      <p class="db-note">Une action se met à jour par son responsable ou par l’animateur de la réunion.</p>
+      <div class="db-scroll"><table class="db-table" id="ck-actions"></table></div>
+    </div>
+  </section>
+</main>
+<script nonce="%%CSP_NONCE%%" src="cockpit-page.js"></script>
+</body>
+</html>

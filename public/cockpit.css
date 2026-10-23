@@ -1,0 +1,44 @@
+/* Step 8 — meeting cockpit, requests, portfolio, governance. Builds on dashboard.css and trackers.css; text colours
+ * come from the AA tokens (checked by tests/a11y-step6.test.js). */
+.ck-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.ck-tab { min-height: 38px; }
+.ck-tab[aria-selected="true"] { background: #FFF3EA; color: var(--text-orange-aa, #B4510F); border-color: var(--text-orange-aa, #B4510F); }
+.ck-form { display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); align-items: end; }
+.ck-form label { display: grid; gap: 3px; font-size: .8rem; color: var(--text-muted-aa, #666); }
+.ck-form input, .ck-form select, .ck-form textarea, .ck-notes { font: inherit; font-size: .88rem; padding: 6px 8px; border: 1px solid var(--color-border-strong, #C5C6C4); border-radius: 6px; background: #fff; color: var(--color-text-strong, #2A2A2A); width: 100%; min-width: 0; }
+.ck-wide { grid-column: 1 / -1; }
+.ck-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ck-late { color: var(--text-danger-aa, #C0002F); font-weight: 600; }
+.ck-ok { color: var(--text-success-aa, #157A2E); font-weight: 600; }
+.ck-risk { color: var(--text-warning-aa, #9A5200); font-weight: 600; }
+.ck-muted { color: var(--text-muted-aa, #666); }
+
+/* Session mode */
+.ck-session { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+@media (min-width: 1000px) { .ck-session { grid-template-columns: minmax(220px, 280px) minmax(0, 1fr); } }
+.ck-agenda { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.ck-agenda button { width: 100%; text-align: left; display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--color-border, #E2E5EA); border-radius: 8px; background: #fff; color: var(--color-text-strong, #2A2A2A); font: inherit; font-size: .88rem; cursor: pointer; min-height: 44px; }
+.ck-agenda button[aria-current="true"] { border-color: var(--text-orange-aa, #B4510F); background: #FFF3EA; }
+.ck-agenda small { color: var(--text-muted-aa, #666); }
+.ck-timer { font-variant-numeric: tabular-nums; font-weight: 700; color: var(--color-text-strong, #2A2A2A); }
+.ck-notes { min-height: 110px; }
+.ck-list { margin: 6px 0; padding-left: 1.2em; display: grid; gap: 4px; }
+.ck-fs:fullscreen { background: var(--color-bg, #F4F5F7); overflow: auto; padding: 16px; }
+
+/* Portfolio tree and Gantt */
+.pf-tree td:first-child { white-space: normal; }
+.pf-kind { display: inline-block; min-width: 5.5em; font-size: .72rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted-aa, #666); }
+.pf-gantt { width: 100%; min-width: 720px; height: auto; display: block; }
+.pf-gantt text { font: 11px var(--font-sans, 'Segoe UI', Arial, sans-serif); fill: var(--color-text, #524F4E); }
+.pf-gantt .pf-axis { stroke: var(--color-border-strong, #C5C6C4); stroke-width: 1; }
+.pf-gantt .pf-today { stroke: var(--text-orange-aa, #B4510F); stroke-width: 1.5; stroke-dasharray: 4 3; }
+.pf-gantt .pf-dep { stroke: var(--text-muted-aa, #666); stroke-width: 1; fill: none; marker-end: url(#pf-arrow); }
+.pf-gantt .pf-bar { rx: 3; }
+.pf-gantt .pf-on_track, .pf-gantt .pf-done { fill: #1B9A3A; }
+.pf-gantt .pf-at_risk { fill: #D97706; }
+.pf-gantt .pf-late { fill: #D90038; }
+.pf-gantt .pf-not_started, .pf-gantt .pf-cancelled { fill: #A49F9E; }
+.gv-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.gv-card { background: #fff; border: 1px solid var(--color-border, #E2E5EA); border-radius: 10px; padding: 14px 16px; display: grid; gap: 4px; }
+.gv-card b { font-size: 1.5rem; font-weight: 800; color: var(--color-text-strong, #2A2A2A); font-variant-numeric: tabular-nums; }
+.gv-card span { font-size: .84rem; color: var(--text-muted-aa, #666); }

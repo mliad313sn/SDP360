@@ -2525,6 +2525,8 @@ app.use(require('./routes/metrics')({ express, requireReportSession, requireAdmi
 // Step 6 — composed dashboards + the direction space (routes/dashboards.js)
 app.use(require('./routes/dashboards')({ express, rdb, requireReportSession, requireRole }));
 app.use(require('./routes/trackers')({ express, rdb, requireReportSession, requireRole }));
+app.use(require('./routes/cockpit')({ express, rdb, requireReportSession, requireRole }));
+app.use(require('./routes/portfolio')({ express, rdb, requireReportSession, requireRole }));
 
 // ══════════════════════════════════════════════════════════════════
 // MEETINGS — Department Meetings & Council Escalations (v2 schema)

@@ -10,7 +10,7 @@ const path = require('path');
 
 const read = (f) => fs.readFileSync(path.join(__dirname, '..', f), 'utf8').replace(/\r\n/g, '\n');
 // Every stylesheet of the 2.0 pages (step 6 onwards). A new one is added here.
-const CSS_FILES = ['public/dashboard.css', 'public/trackers.css'];
+const CSS_FILES = ['public/dashboard.css', 'public/trackers.css', 'public/cockpit.css'];
 const CSS = CSS_FILES.map(read).join('\n');
 
 // The FIRST definition of each custom property (the light theme :root).

@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Demandes au comité · Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="_shell.css">
+<link rel="stylesheet" href="dashboard.css">
+<link rel="stylesheet" href="trackers.css">
+<link rel="stylesheet" href="cockpit.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/sdpApi.js"></script>
+</head>
+<body>
+<div id="__shell" data-section="reports" data-current="cockpit"></div>
+<main class="db-page" id="rf-root" aria-live="polite">
+  <header class="db-head">
+    <div>
+      <div class="db-eyebrow"><a href="cockpit.html">Cockpit de réunion</a></div>
+      <h1>Demandes au comité</h1>
+      <p class="db-desc">Toute personne connectée soumet une demande d’information ou de décision. Le comité la trie, la note (valeur × urgence ÷ effort) et la tranche ; la décision est tracée.</p>
+    </div>
+  </header>
+  <p class="db-note" id="rf-status" role="status" aria-live="polite"></p>
+  <section class="db-w" aria-labelledby="rf-new-h">
+    <h2 id="rf-new-h">Nouvelle demande</h2>
+    <form class="ck-form" id="rf-form">
+      <label class="ck-wide" for="rf-title">Objet<input id="rf-title" maxlength="200" required></label>
+      <label for="rf-cat">Catégorie<select id="rf-cat"><option value="decision">Demande de décision</option><option value="information">Demande d’information</option><option value="budget">Budget</option><option value="priorite">Priorité de projet</option><option value="autre">Autre</option></select></label>
+      <label class="ck-wide" for="rf-desc">Contexte et demande<textarea id="rf-desc" rows="4" maxlength="4000"></textarea></label>
+      <button class="db-btn db-primary" type="submit">Soumettre</button>
+    </form>
+  </section>
+  <section class="db-w" aria-labelledby="rf-list-h">
+    <div class="tk-row"><h2 id="rf-list-h">Registre</h2>
+      <label for="rf-filter">État<select id="rf-filter"><option value="">Toutes</option><option value="new">Nouvelles</option><option value="triage">En tri</option><option value="scored">Notées</option><option value="decided">Tranchées</option><option value="rejected">Rejetées</option></select></label></div>
+    <div class="db-scroll"><table class="db-table" id="rf-list"></table></div>
+  </section>
+  <section class="db-w" id="rf-panel" hidden aria-labelledby="rf-panel-h">
+    <h2 id="rf-panel-h">Traiter la demande</h2>
+    <p id="rf-panel-desc"></p>
+    <form class="ck-form" id="rf-triage">
+      <label for="rf-value">Valeur (1-5)<input id="rf-value" type="number" min="1" max="5"></label>
+      <label for="rf-urgency">Urgence (1-5)<input id="rf-urgency" type="number" min="1" max="5"></label>
+      <label for="rf-effort">Effort (1-5)<input id="rf-effort" type="number" min="1" max="5"></label>
+      <label class="ck-wide" for="rf-note">Note de tri<input id="rf-note" maxlength="1000"></label>
+      <button class="db-btn" type="submit">Enregistrer le tri</button>
+    </form>
+    <form class="ck-form" id="rf-decide">
+      <label class="ck-wide" for="rf-dec">Décision du comité<input id="rf-dec" maxlength="1000" required></label>
+      <label for="rf-owner">Porteur<input id="rf-owner" maxlength="80"></label>
+      <label class="dc-inline" for="rf-reject"><input type="checkbox" id="rf-reject"> La demande est rejetée</label>
+      <button class="db-btn db-primary" type="submit">Trancher</button>
+    </form>
+  </section>
+</main>
+<script nonce="%%CSP_NONCE%%" src="rfi-page.js"></script>
+</body>
+</html>

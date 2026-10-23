@@ -84,16 +84,7 @@ module.exports = function dashboardsRoutes(d) {
       choices: canReadGroup(rdb, user) ? sites.filter(s => s.code) : own.filter(s => s.code) };
   }
 
-  function readers() {
-    const r = rdb;
-    return {
-      listSites: () => r.listSites(),
-      getActiveMajorIncidentsForSite: r.getActiveMajorIncidentsForSite,
-      getPendingCabDecisions: r.getPendingCabDecisions,
-      meetingsDb: require('../meetings-db'), inspectionDb: require('../inspection-db'),
-      trackerDb: require('../tracker-db'), trackerScore: require('../tracker-pptx'),
-    };
-  }
+  const readers = () => require('../services/dashboards/readers').readers(rdb);
   const deps = () => d.dashboardDeps || { metrics: live.liveDeps(rdb), readers: readers() };
 
   // Five-minute cache of a published dashboard's data, per version, scope, site and month (a preview is never
