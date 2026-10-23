@@ -5,6 +5,32 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
 
+## [Unreleased] — SDP-Dashboard 2.0, step 8: meeting cockpit, requests, portfolio, governance (2026-10-23)
+
+### Added
+- **Meeting cockpit** (`cockpit.html`, nav ▸ Reports ▸ Cockpit de réunion): cadences (type, site, rhythm, participants,
+  preparer, agenda template — 6 meeting types), meetings whose agenda is generated from the KPI dictionary and
+  frozen at the start, meeting screen (`cockpit-session.html`, full screen) with time-stamped points, live notes,
+  decisions and actions tied to their source (incident, indicator, issue, request, project, decision), automatic
+  minutes at the close (HTML, PDF, e-mail to the participants on request), follow-up register of the actions.
+- **Requests to the committee** (`rfi.html`): anyone submits; the committee triages, scores (value × urgency ÷ effort)
+  and decides; every decision is traced.
+- **Portfolio** (`portfolio.html`): programmes → objectives → projects → milestones → deliverables, effective status
+  (a passed due date is late), drift against the baseline, alerts (late, slip, dependency conflict, beyond parent,
+  budget), evidence from the KPI dictionary, Gantt with dependencies, monthly "state of the portfolio" report;
+  repeatable copy of the ITSM Roadmap (super_admin).
+- **Governance** (`governance.html`): milestones on time, mean drift, request → decision delay, evidence coverage,
+  meetings held, adoption by role.
+- Feature roles `meeting-chair`, `portfolio-manager`, `committee-member`; migration
+  `db/postgres/reports/020_cockpit_portfolio.sql` (executed as is on SQLite).
+- `public/lib/sdpApi.js` (API client of the 2.0 pages), `public/lib/cockpitRender.js`, `DashboardRender.renderWidget`,
+  `services/dashboards/readers.js`.
+
+### Fixed
+- The shared top bar scrolled every page sideways between 640 and 1,240 px for a super_admin; below 640 px its labels
+  were removed for screen readers. Compact below 1,240 px, icons only below 1,000 px with visually hidden labels and
+  tooltips.
+
 ## [Unreleased] — SDP-Dashboard 2.0, step 7: business trackers (2026-10-23)
 
 ### Added
