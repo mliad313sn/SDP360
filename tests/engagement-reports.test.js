@@ -4,6 +4,8 @@
 process.env.REPORTS_BACKEND = 'sqlite';
 const _os = require('os'), _fs = require('fs'), _p = require('path');
 process.env.SDP_DATA_DIR = _fs.mkdtempSync(_p.join(_os.tmpdir(), 'engagement-'));
+process.env.DASH_USER = process.env.DASH_USER || 'en-admin';
+process.env.DASH_PASS = process.env.DASH_PASS || 'en-admin-pass-0000';
 const test = require('node:test');
 const assert = require('node:assert');
 const rules = require('../services/engagement/rules');

@@ -10,6 +10,8 @@ const os = require('os');
 const path = require('path');
 
 process.env.SDP_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'sdp-hd-readers-'));
+process.env.DASH_USER = process.env.DASH_USER || 'hd-admin';
+process.env.DASH_PASS = process.env.DASH_PASS || 'hd-admin-pass-0000';
 const rdb = require('../reports-db');
 
 const site = rdb.createSite({ name: 'Readers Site', zoho_group: 'G-A, G-B' });
