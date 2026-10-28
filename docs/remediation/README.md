@@ -89,7 +89,7 @@ Full history (1236 commits from `samaziz679/sdp-dashboard`) pushed to `mliad313s
 
 ### Run 8 — 2026-10-28 · M14 CSV injection
 - **F-M14-001 fixed:** every CSV export (WAN SLA evidence, System Log, report studio, helpdesk exports, deck builder data, Assets drill, roadmap, WAN, site report, tracker input) now prefixes `'` to text starting with `=`, `+`, `-`, `@`, TAB or CR; real numbers stay numeric. Static guard test keeps every writer covered.
-- **Found while verifying:** the reported test total varies run to run (2630 / 2578 / 2618) with 0 failures — the runner drops results silently (F-M01-004, under investigation).
+- **F-M01-004 fixed:** the reported test total varied run to run (2630 / 2578 / 2618, always "fail 0") because `--test-force-exit` killed workers before their piped report flushed. `npm test` now runs `tools/test/run-all.js` (ported from SDP360 G8.6): blocking stdio in every worker, and the run FAILS if any test file reports nothing or the total drops under `tests/.min-test-count`. Two runs: 352/352 files, 2638 tests, 0 fail.
 
 ## Dependency DAG
 
@@ -109,7 +109,7 @@ M00 ─┬─ M01 deps/CI ── (env WP-M01-001/002 open)
 ```
 
 ## Next dependency-safe work packages
-1. **M14** — exports/downloads per persona: every export route's scope + CSV/formula injection check.
+1. **M14 (cont.)** — export routes' scope per persona (assets, risk register, report studio, publication).
 2. **M02** — same read-scope rule for the remaining site-keyed modules (assets, site-actions hub, field) — verify, then align.
 2. **DEC-06 / R-02** — decide whether the 19 dash-key-only routes move behind a session (needs inventory of external X-Dash-Key clients).
 3. **T-M01-005** — run the pg half (`PG_TESTS_REQUIRED=1`) in a nonprod with PostgreSQL.

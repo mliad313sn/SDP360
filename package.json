@@ -7,7 +7,7 @@
     "start": "node server.js",
     "build": "node tools/build/build-frontend.js",
     "dev": "nodemon server.js",
-    "test": "node --require ./tests/_default-env.js --test --test-force-exit tests/*.test.js",
+    "test": "node tools/test/run-all.js",
     "lint": "node tools/ci/lint.js && eslint .",
     "audit": "npm audit --omit=dev --audit-level=high"
   },
