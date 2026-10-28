@@ -71,6 +71,9 @@ Full history (1236 commits from `samaziz679/sdp-dashboard`) pushed to `mliad313s
 - WP-M02-004 — `tests/cross-site-object-writes.smoke.test.js`: a site-A editor is refused on every site-B meetings/inspection id-keyed write (action/issue update, add action, sign, delete, export) and the object is verified unchanged server-side; positive control on own site. Handlers already enforced it — no source change. Proven by a mutation check.
 - Branch on `samaziz679/sdp-dashboard`: deletion requested by the user; the session proxy refuses ref deletion → to be deleted in the GitHub UI.
 
+### Run 4 — 2026-10-28
+- WP-M02-005 — reviewed the remaining id-keyed site writes. Trackers, field inspections and report actions already had cross-site tests. **F-M02-003 fixed** (field quick actions without a site leaked across sites). **F-M02-004 logged** (cockpit action ownership by display name). Note: the field app derives the site from "Name (CODE)"; an inspection without a code now gets a 403 on its quick ticket instead of a site-less ticket.
+
 ## Dependency DAG
 
 Validated against the repository (no deviation from the roadmap order found yet):
@@ -89,7 +92,7 @@ M00 ─┬─ M01 deps/CI ── (env WP-M01-001/002 open)
 ```
 
 ## Next dependency-safe work packages
-1. **WP-M02-005** — same object-substitution sweep for trackers (`/entries`, `/import`), field (`/inspections/:id`, `quick-actions`), cockpit `actions/:id`, engagement `fires/:id/comments`, reports `action/:uid/*`.
+1. **WP-M02-006** — engagement `fires/:id/comments` access (`fireAccess`) and the read side: site-scoped GET of id-keyed objects across modules.
 2. **DEC-06 / R-02** — decide whether the 19 dash-key-only routes move behind a session (needs inventory of external X-Dash-Key clients).
 3. **T-M01-005** — run the pg half (`PG_TESTS_REQUIRED=1`) in a nonprod with PostgreSQL.
 4. Obtain the Batch 2 artifacts (blocks F01-F24 + 41 chart-contract import, M05).

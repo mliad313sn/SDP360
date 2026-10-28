@@ -103,3 +103,21 @@ test('positive control: the site-A editor CAN update an action on their own site
   const r = await post(`/api/meetings/actions/${mine.actions[0].id}/update`, edTok, { status_change: 'in_progress', body: 'ok' });
   assert.equal(r.status, 200, await r.text());
 });
+
+// WP-M02-005 — field quick actions: a site-scoped user could submit one with NO site, which every
+// site's coordinator then saw and could mark done. Now the scoped submitter must name one of
+// their own sites; a stored site-less action is closable by the admin tier only.
+test('field quick action: scoped editor must give one of their own sites', async () => {
+  const put = (b) => post('/api/field/quick-actions', edTok, { kind: 'sdp_ticket', subject: 'printer down', ...b });
+  assert.equal((await put({ id: 'xs-qa-nosite-01' })).status, 403, 'empty site refused');
+  assert.equal((await put({ id: 'xs-qa-other-001', site: 'SGO' })).status, 403, 'other site refused');
+  assert.ok([200, 201].includes((await put({ id: 'xs-qa-own-0001', site: 'HGO' })).status), 'own site accepted');
+});
+
+test('field quick action: a site-less action (legacy row) is not closable by a scoped editor', async () => {
+  const r = await post('/api/field/quick-actions', superTok, { id: 'xs-qa-legacy-01', kind: 'sdp_ticket', subject: 'no site' });
+  assert.ok([200, 201].includes(r.status), 'admin tier may still record a site-less action');
+  denied(await post('/api/field/quick-actions/xs-qa-legacy-01/done', edTok, { note: 'x' }));
+  const list = await (await get('/api/field/quick-actions', edTok)).json();
+  assert.ok(!list.actions.some((a) => a.id === 'xs-qa-legacy-01'), 'not listed to the scoped editor');
+});

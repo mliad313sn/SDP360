@@ -111,7 +111,9 @@ module.exports = function fieldRoutes(d) {
       const v = quick.validate(req.body || {});
       if (!v.ok) return res.status(400).json({ error: 'Invalid action', details: v.errors });
       const codes = await inspectionCodes(req.reportUser);
-      if (codes && v.action.payload.site && !codes.includes(v.action.payload.site)) return res.status(403).json({ error: 'Not your site.' });
+      // WP-M02-005: a site-scoped user must name one of their own sites — a site-less action used to be
+      // visible to, and closable by, every site's coordinator.
+      if (codes && !codes.includes(v.action.payload.site)) return res.status(403).json({ error: v.action.payload.site ? 'Not your site.' : 'site: one of your sites is required.' });
       const r = await quick.submit(v.action, me(req), await writer());
       if (!r.duplicate) log(req, 'field_quick_action', r.action.id, { kind: r.action.kind, status: r.action.status });
       res.status(r.duplicate ? 200 : 201).json(r);
@@ -122,7 +124,7 @@ module.exports = function fieldRoutes(d) {
       const codes = await inspectionCodes(req.reportUser);
       const all = await quick.list({ status: req.query.status ? String(req.query.status) : undefined });
       const mineOnly = !has(req.reportUser, 'editor');   // a field technician sees their own actions
-      res.json({ actions: all.filter(a => (mineOnly ? a.username === me(req) : true) && (codes === null || !a.payload.site || codes.includes(a.payload.site))),
+      res.json({ actions: all.filter(a => (mineOnly ? a.username === me(req) : true) && (codes === null || (a.payload.site ? codes.includes(a.payload.site) : a.username === me(req)))),
         sdp_write: await sdpArmed() });
     } catch (e) { fail(res, e); }
   });
@@ -131,7 +133,7 @@ module.exports = function fieldRoutes(d) {
       const a = await quick.get(String(req.params.id));
       if (!a) return res.status(404).json({ error: 'Action not found' });
       const codes = await inspectionCodes(req.reportUser);
-      if (codes && a.payload.site && !codes.includes(a.payload.site)) return res.status(403).json({ error: 'Not your site.' });
+      if (codes && !codes.includes(a.payload.site)) return res.status(403).json({ error: 'Not your site.' });   // site-less → admin tier only (WP-M02-005)
       const out = await quick.markDone(a.id, me(req), (req.body || {}).note);
       log(req, 'field_quick_action_done', a.id, { kind: a.kind });
       res.json({ action: out });

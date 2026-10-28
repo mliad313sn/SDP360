@@ -13,3 +13,6 @@
 | F01-F24 | `GAP-BACKLOG.csv` | — | — | — | — | **BLOCKED — file not in repository** |
 | 41 chart contracts | `CHART-CONTRACT-REGISTER.csv` | M05 | — | — | — | **BLOCKED — file not in repository** |
 | WP-M02-004 object-ID substitution on id-keyed meetings/inspection writes (no prior cross-site test) | RBAC-MATRIX | M02 | WP-M02-004 | test only — handlers already enforce | T-M02-005 | TESTED_SYNTHETICALLY |
+| F-M02-003 field quick action with empty `site`: visible to every site's coordinator and closable by any editor (site check skipped when site empty) | WP-M02-005 review | M02/M13 | WP-M02-005 | `routes/field.js` — scoped submitter must name an own site; site-less rows listed to their author only and closable by admin tier only | T-M02-005 (tests 6-7, fail on base) | FIXED_IN_SOURCE · TESTED_SYNTHETICALLY |
+| F-M02-004 cockpit `POST /api/cockpit/actions/:id`: ownership matched on `username`/`full_name` text, and any `admin` edits any site's action | WP-M02-005 review | M02/M02A | WP-M02A-001 | — | — | OPEN — needs stable owner id (M02A rule 1) + DEC-04 |
+| Trackers `/entries` `/import`, field `/inspections/:id`, report `action/:uid/*` cross-site | WP-M02-005 review | M02 | — | — | `trackers-routes.smoke`, `field-routes.smoke`, `audit-report-write-auth.smoke` | VERIFIED (existing tests) |
