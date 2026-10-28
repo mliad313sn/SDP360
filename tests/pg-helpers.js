@@ -100,7 +100,17 @@ async function provisionTestDb() {
   if (admin) {
     try {
       const name = 'sdp_tracker_test_' + Math.random().toString(36).slice(2, 8);
-      await admin.query(`CREATE DATABASE ${name}`);   // can't run inside a transaction — bare conn
+      // Collation like CI (postgres image = en_US.utf8) and prod (English Windows locale): a
+      // linguistic collation ignores punctuation in TEXT comparisons, which a C cluster hides
+      // (CI-only failure of 2026-10-28). SDP_TEST_PG_LOCALE overrides; '' keeps the cluster
+      // default. Falls back to the default when the locale is not installed.
+      const loc = process.env.SDP_TEST_PG_LOCALE ?? 'en_US.utf8';
+      let made = false;
+      if (loc && /^[A-Za-z0-9_.@-]+$/.test(loc)) {
+        try { await admin.query(`CREATE DATABASE ${name} TEMPLATE template0 LOCALE '${loc}'`); made = true; }
+        catch (_) { /* locale not installed on this cluster */ }
+      }
+      if (!made) await admin.query(`CREATE DATABASE ${name}`);   // can't run inside a transaction — bare conn
       await admin.end();
       return { url: ADMIN.replace(/\/postgres$/, '/' + name), name, adminUrl: ADMIN, schema: null };
     } catch (e) {

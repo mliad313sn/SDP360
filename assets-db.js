@@ -957,7 +957,7 @@ function snapshotEffort(opts = {}) {
   return _snapshotEffortPg(opts);
 }
 async function _snapshotEffortPg(opts = {}) {
-  const date = (opts && opts.asOf) || new Date().toISOString().slice(0, 10);
+  const date = _isoDayOrToday(opts && opts.asOf);
   const h = pgHandle();
   const records = (await h.prepare(_EFFORT_AGG_SELECT).all()).map(r => _effortRecord(date, r)).filter(Boolean);
   const ph = _EFFORT_COLS.map(() => '?').join(', ');   // pgDb translates ? -> $N
@@ -987,7 +987,7 @@ function recordAssetSightings(opts = {}) {
   return _recordAssetSightingsPg(opts);
 }
 async function _recordAssetSightingsPg(opts = {}) {
-  const date = (opts && opts.asOf) || new Date().toISOString().slice(0, 10);
+  const date = _isoDayOrToday(opts && opts.asOf);
   const h = pgHandle();
   return h.runTransaction(async () => {
     const assets = await countRows('assets');
@@ -1136,6 +1136,17 @@ function _scoreFromCounts(total, gaps) {
   return Math.round(100 * sum / 6);
 }
 
+// A caller-supplied asOf must be a real 'YYYY-MM-DD' day, else today. Compared as TEXT, a
+// non-date string is not harmless: under a locale collation (en_US.utf8, the postgres image
+// default) punctuation is ignored, so "' OR 1=1" sorts AFTER every date and the date maths
+// downstream throw (CI failure 2026-10-28). Parameter binding already prevents injection;
+// this keeps a malformed value from becoming a 500.
+function _isoDayOrToday(v) {
+  const s = v == null ? '' : String(v);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s + 'T00:00:00Z'))) return s;
+  return new Date().toISOString().slice(0, 10);
+}
+
 function _buildLeaderboard(histRows, asOf, opts = {}) {
   const minAssets = Number.isFinite(opts.minAssets) ? opts.minAssets : MIN_RANKED_ASSETS;
   const empty = { rows: [], most_improved: null, needs_attention: null, ranked_count: 0, min_assets: minAssets };
@@ -1212,7 +1223,7 @@ function getEffortLeaderboard(opts = {}) {
   return _getEffortLeaderboardPg(opts);
 }
 async function _getEffortLeaderboardPg(opts = {}) {
-  const asOf = (opts && opts.asOf) || new Date().toISOString().slice(0, 10);
+  const asOf = _isoDayOrToday(opts && opts.asOf);
   const h = pgHandle();
   const rows = await h.prepare(
     `SELECT snapshot_date, site, total, no_cost, no_age, no_owner, never_scanned,
@@ -1410,7 +1421,7 @@ function _recHistRecord(view, who, date) {
 
 /** Capture UN point pour la journée (idempotent : le dernier du jour gagne). */
 function snapshotReconcile(view, who, opts = {}) {
-  const date = (opts && opts.asOf) || new Date().toISOString().slice(0, 10);
+  const date = _isoDayOrToday(opts && opts.asOf);
   const rec = _recHistRecord(view, who, date);
   return _snapshotReconcilePg(rec);
 }

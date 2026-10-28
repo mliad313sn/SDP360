@@ -38,7 +38,15 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - run: npm ci --no-audit --no-fund
+      # G-01 — the registry is outside our control (ECONNRESET on 85ede0b). Bounded retry; the job still
+      # fails if every attempt fails.
+      - name: Install dependencies (npm ci, bounded retry)
+        run: |
+          for i in 1 2 3; do
+            npm ci --no-audit --no-fund && exit 0
+            echo "npm ci attempt $i failed; retrying in $((i * 20)) s"; sleep $((i * 20))
+          done
+          exit 1
       - name: Dependency audit (SCA) — fails on high/critical
         run: npm audit --omit=dev --audit-level=high
       - name: Apply schema migrations on a fresh database (installer/CI path)

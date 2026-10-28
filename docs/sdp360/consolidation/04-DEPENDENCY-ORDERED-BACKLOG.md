@@ -4,6 +4,11 @@ Source backlogs: [2027 delivery backlog](../2027/03-DELIVERY-BACKLOG.md) (E0…E
 [remediation plan](../review/2026-10-20-PLAN-DE-REMEDIATION-PROMPTS.md). Ordered by dependency; a package
 starts only when its dependencies are met; human gates never block independent packages.
 
+**Superseded for planning on 2026-10-28** by the committee review's 40-gap programme:
+[`../completion/MASTER-PLAN.md`](../completion/MASTER-PLAN.md) and [`../completion/GAPS.csv`](../completion/GAPS.csv).
+The rows below keep their history; each open row maps to a G-item there (#6→G-03/G-04/G-05, #8→G-08, #10→G-17/G-18,
+#11→G-19, #12→G-12, #13→G-25/G-26, #14→G-29/G-30, #15→G-31/G-32, #16→G-11/G-33/G-34).
+
 | # | Package | Depends on | Status |
 |---|---|---|---|
 | 1 | P0-C test census, default env, skip reasons | — | done `645f940` |

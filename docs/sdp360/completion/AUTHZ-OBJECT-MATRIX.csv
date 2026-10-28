@@ -1,0 +1,111 @@
+route,persona,object_site,status,site_b_content_returned,verdict
+/api/reports/config (site=B),editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/config,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/recipients (site=B),editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/recipients,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/schedule (site=B),editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/schedule,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/exec-editorial (site=B),editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/exec-editorial,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/site-data (site=B),editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/site-data,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/site-actions (site=B),editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/site-actions,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/:id/importable-actions,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/review-data (site=B),editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/review-data,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/sites (site=B),editor@siteA,B,200,no,DENIED_OR_EMPTY
+/api/reports/sites,editor@siteA,B,200,no,DENIED_OR_EMPTY
+/api/reports/users (site=B),editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/users,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/sessions/active (site=B),editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/sessions/active,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/departments (site=B),editor@siteA,B,200,no,DENIED_OR_EMPTY
+/api/reports/departments,editor@siteA,B,200,no,DENIED_OR_EMPTY
+/api/reports/current-week (site=B),editor@siteA,B,200,no,DENIED_OR_EMPTY
+/api/reports/current-week,editor@siteA,B,200,no,DENIED_OR_EMPTY
+/api/reports (site=B),editor@siteA,B,200,no,DENIED_OR_EMPTY
+/api/reports,editor@siteA,B,200,no,DENIED_OR_EMPTY
+/api/reports/:id/carry-over-actions,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/:id/action-weeks,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/:id/actions-from/:source_report_id,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/:id/asset-followups,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/:id/site-open-actions,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/:id/light-weeks,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/:id/lights-from/:source_report_id,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/:id/carry-over-infra,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/:id/audit,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/helpdesk-live (site=B),editor@siteA,B,400,no,DENIED_OR_EMPTY
+/api/reports/helpdesk-live,editor@siteA,B,400,no,DENIED_OR_EMPTY
+/api/reports/helpdesk-charts (site=B),editor@siteA,B,400,no,DENIED_OR_EMPTY
+/api/reports/helpdesk-charts,editor@siteA,B,400,no,DENIED_OR_EMPTY
+/api/reports/technicians (site=B),editor@siteA,B,200,no,DENIED_OR_EMPTY
+/api/reports/technicians,editor@siteA,B,200,no,DENIED_OR_EMPTY
+/api/reports/system-log (site=B),editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/system-log,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/system-log/analytics (site=B),editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/system-log/analytics,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/system-log/export.json (site=B),editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/system-log/export.json,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/system-log/export.csv (site=B),editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/system-log/export.csv,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/:id,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/:id/open-changes,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/sites/:siteId/open-changes,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/:id/active-incidents,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/:id/infra-auto,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/sites/:siteId/active-incidents,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/:id/pptx,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/monthly/all-sites/:year/:month/pptx,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/monthly/:site_id/:year/:month/pptx,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/weekly-summary/:year/:week/pptx,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/monthly/:site_id/:year/:month,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/monthly/:site_id/:year/:month/edits,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/yearly/:site_id/:year,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/objectives/:site_id/:year,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/monthly/:site_id/:year/:month/pptx-v2,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/reports/monthly/:site_id/:year/:month/site-template/pptx,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/inspection/list (site=B),editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/inspection/list,editor@siteA,B,200,no,DENIED_OR_EMPTY
+/api/inspection/aggregate (site=B),editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/inspection/aggregate,editor@siteA,B,200,no,DENIED_OR_EMPTY
+/api/inspection/actions (site=B),editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/inspection/actions,editor@siteA,B,200,no,DENIED_OR_EMPTY
+/api/inspection/:id,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/inspection/export.xlsx (site=B),editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/inspection/export.xlsx,editor@siteA,B,200,no,DENIED_OR_EMPTY
+/api/actions/open (site=B),editor@siteA,B,401,no,DENIED_OR_EMPTY
+/api/actions/open,editor@siteA,B,401,no,DENIED_OR_EMPTY
+/api/commitments (site=B),editor@siteA,B,404,no,DENIED_OR_EMPTY
+/api/commitments,editor@siteA,B,404,no,DENIED_OR_EMPTY
+/api/commitments/metrics (site=B),editor@siteA,B,404,no,DENIED_OR_EMPTY
+/api/commitments/metrics,editor@siteA,B,404,no,DENIED_OR_EMPTY
+/api/commitments/:id,editor@siteA,B,404,no,DENIED_OR_EMPTY
+/api/meetings/list (site=B),editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/meetings/list,editor@siteA,B,200,no,DENIED_OR_EMPTY
+/api/meetings/aggregate (site=B),editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/meetings/aggregate,editor@siteA,B,200,no,DENIED_OR_EMPTY
+/api/meetings/insights (site=B),editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/meetings/insights,editor@siteA,B,200,no,DENIED_OR_EMPTY
+/api/meetings/issues (site=B),editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/meetings/issues,editor@siteA,B,200,no,DENIED_OR_EMPTY
+/api/meetings/escalations (site=B),editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/meetings/escalations,editor@siteA,B,200,no,DENIED_OR_EMPTY
+/api/meetings/actions (site=B),editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/meetings/actions,editor@siteA,B,200,no,DENIED_OR_EMPTY
+/api/meetings/unsigned (site=B),editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/meetings/unsigned,editor@siteA,B,200,no,DENIED_OR_EMPTY
+/api/meetings/progress (site=B),editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/meetings/progress,editor@siteA,B,400,no,DENIED_OR_EMPTY
+/api/meetings/progress/export-pptx (site=B),editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/meetings/progress/export-pptx,editor@siteA,B,400,no,DENIED_OR_EMPTY
+/api/meetings/compliance (site=B),editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/meetings/compliance,editor@siteA,B,200,no,DENIED_OR_EMPTY
+/api/meetings/:id,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/meetings/:id/export-pptx,editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/meetings/export.xlsx (site=B),editor@siteA,B,403,no,DENIED_OR_EMPTY
+/api/meetings/export.xlsx,editor@siteA,B,200,no,DENIED_OR_EMPTY
+/api/meetings/import/template (site=B),editor@siteA,B,200,no,DENIED_OR_EMPTY
+/api/meetings/import/template,editor@siteA,B,200,no,DENIED_OR_EMPTY
+/api/meetings/import/incubation-template (site=B),editor@siteA,B,200,no,DENIED_OR_EMPTY
+/api/meetings/import/incubation-template,editor@siteA,B,200,no,DENIED_OR_EMPTY

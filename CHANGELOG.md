@@ -1,5 +1,12 @@
 # Changelog
 
+### Unreleased — consolidation branch `claude/sdp360-consolidation` (not deployed, NO-GO)
+- **PO-08 — PostgreSQL is the only database** (`f44591a`): SQLite removed from code, tests and dependencies; the server refuses to start without `PG_URL`; a fresh database seeds itself; the suite runs on PostgreSQL only (one throwaway database per test file).
+- **Completion programme (G00)**: `docs/sdp360/completion/` — master plan, 40-gap register (`GAPS.csv`), human release gates, daily evidence log, all from the 2026-10-28 committee review.
+- **CI-only failure fixed (G-02)**: under the `en_US.utf8` collation of the CI `postgres:17` image, a malformed `asOf` (`' OR 1=1`) sorted after every date and returned 500 on `/api/assets/progress/leaderboard`. The assets readers now take a real `YYYY-MM-DD` or today (`_isoDayOrToday`). Test databases are now created with `en_US.utf8` (`SDP_TEST_PG_LOCALE`), as in CI and on prod.
+- **Repository hygiene**: a `node_modules` symlink committed in `f44591a` is removed; `.gitignore` covers it whatever its type; `tests/repo-hygiene.test.js` refuses tracked symlinks, dependency folders, local databases and `.env`.
+- **CI (G-01)**: `npm ci` is retried up to three times; the job still fails if every attempt fails.
+
 ## 2.0.0-alpha.14 — 2026-10-21 — 2027 Goal 02 : engagement canonique
 - **Engagement canonique + clôture vérifiée**, derrière le drapeau `commitments_enabled` (défaut `'0'` : aucun changement de comportement, routes en 404, hub inchangé). Migration additive `db/postgres/reports/021_commitments.sql` (+ miroir sqlite) : `commitments`, `commitment_source_links`, `commitment_events` (en ajout seul), `evidence_items`, `closure_verifications` ; script de retrait manuel `db/postgres_rollback/021_commitments_drop.sql` (hors du migrateur).
 - `services/commitmentLifecycle.js` (pur) : table de transitions explicite (captured → triaged → committed → in_progress → awaiting_verification → verified_closed, + blocked, deferred, cancelled_with_reason, rejected_for_rework, reopened, accepted_risk_exception) ; vérification réservée au vérificateur désigné ou au palier admin, **jamais** par le responsable, un exécutant ou le créateur (super_admin compris) ; règle élevé/critique : responsable + échéance (ou exception approuvée) + plan de traitement pour quitter `captured` ; fin technique ≠ vérification ; un statut « fermé » de la source ne vérifie jamais.

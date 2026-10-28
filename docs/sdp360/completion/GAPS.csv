@@ -1,0 +1,41 @@
+id,priority,wave,domain,review_status_at_85ede0b,current_status,evidence,owner_role,depends_on,human_gate,next_action,strengthening
+G-01,P0,0,CI install,npm ci ECONNRESET on 85ede0b,IMPLEMENTED,CI run 40702147721 on f44591a: npm ci OK; bounded retry added to ci.yml,CI owner,-,-,Confirm green CI on the next pushed SHA,Retry is bounded (3 attempts) and still fails the job if all attempts fail
+G-02,P0,0,Test census,380/380 earlier; 384 files now,IMPLEMENTED,"f44591a CI: 381 files, 2761 tests, 1 fail (collation), 11 skips; fixed; tests/repo-hygiene.test.js",QA lead,G-01,-,Full suite at one SHA under en_US.utf8 + TZ=UTC,Test DBs created with en_US.utf8 (CI/prod collation); tracked symlinks/node_modules refused
+G-03,P0,1,Authorization matrix,444-route inventory; object/channel matrix incomplete,"TESTED (in-process, site axis)","tests/cross-site-read-sweep.smoke.test.js — every GET route under meetings/inspection/reports/sites/commitments/site-actions/actions replayed with site-B ids (110 probes, 0 leaks, XLSX/PPTX unzipped); AUTHZ-OBJECT-MATRIX.csv",Delivery team,G-02,Security sign-off,"Extend to department axis (D-14), API-key channel and blob/photo URLs",Include revoked session and API-key channel rows
+G-04,P0,1,Business-only isolation,CG-01 in-process tested,TESTED (in-process),efd92e9; business-only-boundary.smoke,Delivery team,G-03,Security sign-off,Extend sweep to every method and page route,Sweep is generated from the live router so new routes are covered automatically
+G-05,P0,1,Meetings/inspection scope,CG-02 port in-process,TESTED (in-process),"efd92e9; cross-site-object-writes.smoke (writes) + cross-site-read-sweep.smoke (reads incl. PV PPTX, exports)",Delivery team,G-03,Security sign-off + staging,Staging re-test (human),Staging re-test remains human (no staging access)
+G-06,P0,1,IAM group-first,No group-first policy,OPEN,AdminUsers per-user roles/sites,IAM architect,G-03,D-14 + Security,Design ADR + data model only,No policy activated before D-14
+G-07,P0,1,Revocation,Not fully evidenced,TESTED (in-process),"tests/access-revocation.smoke.test.js — deactivation, role removal, site move, extra-site removal deny on the next request of the same token; roles are re-read per request (no cache)",Delivery team,G-03,-,Re-run after any session cache is introduced (G-37),Includes userHasRole fail-closed (PO-08) regression
+G-08,P0,1,Export/share boundary,CSV unit-tested; 16 dash-key routes pinned,PARTIAL,csv-safe.test; dashkey-only-routes.smoke,Delivery team,G-03,D-15,Negative export/share suite; key-client inventory template,Restriction of the 16 routes waits on D-15
+G-09,P0,5,Signing,Placeholder key; no Authenticode cert,HUMAN_GATE,update-package-signature test (code only),Information Security + CI owner,-,D-12,-,Agent never creates or stores a real key
+G-10,P0,-,Approval gates,Open,HUMAN_GATE,RELEASE-GATES.md,Security/CAB/Data/Finance/Product,-,All,-,Cells stay empty until signed by a named person
+G-11,P0,5,Backup/recovery,Sandbox restore only,PARTIAL,"backup-encrypt, restore-drill (sandbox); docs/DB_RECOVERY.md (PG)",SRE,G-26,CAB (RPO/RTO),PG 17 restore drill with measured time in CI service,On-prem drill is human
+G-12,P0,2,Official score,Three legacy models; D-01..03 open,HUMAN_GATE,"siteScore, siteComposite, scoreboard (shadow)",KPI Committee,-,D-01/02/03,Keep SHADOW; complete registry metadata,No official ranking published
+G-13,P0,2,Report integrity,draft/reviewed/published without SoD,OPEN,reportStore,Delivery team,G-03,D-13 (channels),SoD state machine + immutable snapshot + revoke/reissue,Same user cannot hold two roles on one release
+G-14,P0,2,Stale data,Freshness not global,PARTIAL,services/sync (sync_job_state),Delivery team,-,-,Freshness gate suppressing authoritative publication when a source is stale,Stale = BLOCKED label never a value
+G-15,P0,-,Representative data,10 snapshot tests skipped,BLOCKED,skip reason 'no prod-snapshot',Data owner,-,Data/privacy owner,-,Anonymised fixture must be approved; never generated from prod by the agent
+G-16,P0,4,Field/offline,No device pilot,PARTIAL,"field.html, outbox, idempotent sends",Delivery team,G-23,D-05,Browser offline test matrix,Pilot sign-off human
+G-17,P1,2,Commitments,Flag OFF; scenarios 1-2,TESTED (store),85ede0b scenario 2; commitments_enabled=0,Delivery team,G-03,D-04,Backfill dry-run report on PG,Flag stays 0
+G-18,P1,2,Serious findings,Draft metrics,PARTIAL,commitmentMetrics.seriousExposure,Delivery team,G-17,D-04,Server validation + escalation dedup tests,-
+G-19,P1,3,Portfolio,Tables present; lifecycle incomplete,PARTIAL,portfolio routes,Delivery team,G-17,Finance (G14),WBS tasks/dependencies/gates end to end,-
+G-20,P1,3,Roadmap duplication,Personal roadmap coexists,OPEN,itsm-roadmap.html + portfolio,PO,-,PO decision,Deprecation plan with deep links,-
+G-21,P1,3,Meeting routines,Cadence partial,PARTIAL,cadence schema,Delivery team,G-17,-,Planned/held/logged/accepted lifecycle,-
+G-22,P1,3,Business handoffs,Not proven,OPEN,-,Delivery team,G-21,-,Intake/acceptance state machine,-
+G-23,P1,3,Tracker workflow,Versioned foundation,PARTIAL,trackerEngine,Delivery team,G-03,-,Approve/publish/rollback tests,-
+G-24,P1,3,Composer,Foundation,PARTIAL,dashboard-composer,Delivery team,G-13,DEC-6.x,Draft/review/publish workflow,-
+G-25,P1,3,Report catalogue,R01-R16 not certified,PARTIAL,reportStore,Reporting owner,G-13,D-13,Catalogue rows with honest status,-
+G-26,P1,3,Alert rules,A01-A16 partial,PARTIAL,alert runner; A01/A02 draft,Delivery team,G-18,D-13,Map each A-rule; negative dispatch tests,Dispatch stays disarmed
+G-27,P1,-,41 charts,Register missing,BLOCKED,CG-11,Requester,-,Committee,-,Never fabricated
+G-28,P1,-,F01-F24,GAP-BACKLOG.csv missing,BLOCKED,CG-11,Requester,-,Committee,-,Never fabricated
+G-29,P1,4,OpManager coverage,Not established,PARTIAL,routes/opmanager.js /coverage,Delivery team,-,Infra owner,Coverage view with NOT MONITORED/STALE/UNKNOWN,No false green
+G-30,P1,4,Connector retirement,Meraki/Meridian present,HUMAN_GATE,-,Platform owner,-,D-06/D-07,Excluded-connector audit test,Audit blocks new calls to prohibited systems
+G-31,P1,4,Information architecture,Multiple entry paths,OPEN,48 top-level public HTML,UX,G-03,DEC-6.5,Navigation tree + page map,-
+G-32,P1,4,EN/FR + WCAG,Shell smoke only,PARTIAL,a11y-step6 test,UX,G-31,-,Per-page EN/FR and WCAG checks,-
+G-33,P1,4,Frontend size,Large pages,OPEN,"executive.html, reports.html",Delivery team,G-32,-,Incremental extraction with screenshot parity,-
+G-34,P1,5,On-prem install,Not tested,HUMAN_GATE,docs/INSTALLER.md,SRE,-,DEC-2 E2E,-,Installer frozen until TEST E2E
+G-35,P1,-,UAT,No pilot,HUMAN_GATE,-,Sponsor,-,D-05,-,-
+G-36,P1,5,Observability,Version endpoint only,PARTIAL,/api/health/version,SRE,-,-,Health/SLO document + checks,-
+G-37,P2,5,Access performance,Not certified,OPEN,-,Delivery team,G-06,-,Load test with synthetic users,-
+G-38,P2,6,IP/legal,Unverified,OPEN,-,Legal,-,Legal,Licence inventory (SBOM),-
+G-39,P2,6,Commercial packaging,None,HUMAN_GATE,-,Commercial lead,-,Commercial,-,-
+G-40,P2,6,Adoption value,No baselines,OPEN,-,PO,-,-,Instrument task time and duplicate entry,-

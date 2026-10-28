@@ -1,8 +1,9 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 2761,
+ "total": 2770,
  "files": {
   "a11y-static.test.js": 11,
+  "access-revocation.smoke.test.js": 5,
   "action-import-window.smoke.test.js": 3,
   "action-items-upsert.test.js": 3,
   "action-relineage.smoke.test.js": 6,
@@ -86,6 +87,7 @@
   "config-secrets.test.js": 21,
   "coordinator-actions-block.test.js": 3,
   "cross-site-object-writes.smoke.test.js": 9,
+  "cross-site-read-sweep.smoke.test.js": 2,
   "csp-headers.smoke.test.js": 4,
   "csp-no-inline-handlers-new-pages.test.js": 2,
   "csv-safe.test.js": 4,
@@ -232,6 +234,7 @@
   "reconcile-readers.test.js": 9,
   "reconcile-routes.smoke.test.js": 17,
   "reconcile-view.test.js": 21,
+  "repo-hygiene.test.js": 2,
   "report-action-groups.test.js": 7,
   "report-action-status.smoke.test.js": 1,
   "report-analysis.test.js": 5,
