@@ -121,3 +121,4 @@ test('field quick action: a site-less action (legacy row) is not closable by a s
   const list = await (await get('/api/field/quick-actions', edTok)).json();
   assert.ok(!list.actions.some((a) => a.id === 'xs-qa-legacy-01'), 'not listed to the scoped editor');
 });
+

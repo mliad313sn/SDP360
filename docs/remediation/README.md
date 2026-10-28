@@ -74,6 +74,9 @@ Full history (1236 commits from `samaziz679/sdp-dashboard`) pushed to `mliad313s
 ### Run 4 — 2026-10-28
 - WP-M02-005 — reviewed the remaining id-keyed site writes. Trackers, field inspections and report actions already had cross-site tests. **F-M02-003 fixed** (field quick actions without a site leaked across sites). **F-M02-004 logged** (cockpit action ownership by display name). Note: the field app derives the site from "Name (CODE)"; an inspection without a code now gets a 403 on its quick ticket instead of a site-less ticket.
 
+### Run 5 — 2026-10-28
+- WP-M02-006 — engagement alert access verified (recipient or alert-manager). **F-M02-005**: meetings and inspection reads are fleet-wide for every signed-in user (lists and by-id, incl. inspection photos/signatures) while report reads are site-scoped — inconsistent; restricting it changes what users see, so it waits on **DEC-07**.
+
 ## Dependency DAG
 
 Validated against the repository (no deviation from the roadmap order found yet):
@@ -92,7 +95,7 @@ M00 ─┬─ M01 deps/CI ── (env WP-M01-001/002 open)
 ```
 
 ## Next dependency-safe work packages
-1. **WP-M02-006** — engagement `fires/:id/comments` access (`fireAccess`) and the read side: site-scoped GET of id-keyed objects across modules.
+1. **DEC-07 → WP-M02-007** — if approved, apply the reports-style central read guard to meetings + inspection (lists, by-id, exports).
 2. **DEC-06 / R-02** — decide whether the 19 dash-key-only routes move behind a session (needs inventory of external X-Dash-Key clients).
 3. **T-M01-005** — run the pg half (`PG_TESTS_REQUIRED=1`) in a nonprod with PostgreSQL.
 4. Obtain the Batch 2 artifacts (blocks F01-F24 + 41 chart-contract import, M05).

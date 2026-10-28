@@ -18,3 +18,4 @@ Overall: **NO-GO** (development only). An agent cannot grant any gate.
 - **DEC-04** Security: is a site-less `admin` meant to be global (current behaviour) — "inherited site-admin over-privilege".
 - **DEC-05** Security/data: field device storage, encryption and retention policy (M13).
 - **DEC-06** Ops: rotate `DASHBOARD_API_KEY` after deploying F-M02-001 (R-01).
+- **DEC-07** Product/security: should meetings and inspection data be readable only within the reader's site(s) (like reports since lot 4), or stay fleet-wide? Today any viewer reads every site's PVs and inspections, including photos and signatures.
