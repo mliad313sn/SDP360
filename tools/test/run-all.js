@@ -28,6 +28,7 @@ const r = spawnSync(process.execPath, [
   '--test', '--test-force-exit',
   '--test-reporter=spec', '--test-reporter-destination=stdout',
   '--test-reporter=' + path.join(__dirname, 'file-reporter.mjs'), '--test-reporter-destination=' + evFile,
+  ...process.argv.slice(2),   // extra node:test flags, e.g. CI coverage options
   ...files,
 ], { cwd: root, stdio: 'inherit', env });
 

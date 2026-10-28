@@ -84,7 +84,8 @@ jobs:
           if grep -Eq "pending=[1-9]|changed=[1-9]" migrate-status.txt; then echo "replay is not a no-op"; exit 1; fi
 
       - name: Test suite (sqlite + PostgreSQL) with coverage
-        run: node --test --test-force-exit --experimental-test-coverage --test-coverage-include='**/*.js' --test-coverage-exclude='tests/**' --test-coverage-exclude='node_modules/**' tests/*.test.js 2>&1 | tee test-output.txt; exit ${PIPESTATUS[0]}
+        # tools/test/run-all.js = --test-force-exit + blocking stdio + per-file guard (F-M01-004)
+        run: node tools/test/run-all.js --experimental-test-coverage --test-coverage-include='**/*.js' --test-coverage-exclude='tests/**' --test-coverage-exclude='node_modules/**' 2>&1 | tee test-output.txt; exit ${PIPESTATUS[0]}
 
       - name: Keep the test log
         if: always()
