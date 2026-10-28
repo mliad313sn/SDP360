@@ -27,7 +27,7 @@ const MONTH = '2026-09';
 before(async () => {
   const { app } = require('../server');
   rdb = require('../reports-db');
-  [siteA, siteB] = rdb.listSites();
+  [siteA, siteB] = (await rdb.listSites());
   for (const [site, start] of [[siteA, '2026-09-10T08:00:00Z'], [siteB, '2026-09-11T08:00:00Z']]) {
     await rdb.upsertWanOutage({ site_id: site.id, sub_site: '', uplink: 'wan1', detected_start: start,
       restored_end: start.replace('08:00', '09:00'), duration_s: 3600, attribution: 'isp' });

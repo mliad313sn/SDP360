@@ -21,9 +21,9 @@ const F = require('../services/fieldOutbox');
 
 function createStore(rdbMod, { log = console.log } = {}) {
   const pg = rdbMod.REPORTS_BACKEND === 'postgres';
-  const st = require('../services/fieldStore').makeFieldStore(pg ? { prepare: (sql) => rdbMod.pgHandle().prepare(sql) } : rdbMod.db, { isPg: pg });
-  if (!pg) st.init().catch((e) => console.warn('[field] init failed:', e.message));
-  st.initAtBoot = async () => { if (pg) { await st.init(); log('[field] store ready (pg, migration 020)'); } };
+  const st = require('../services/fieldStore').makeFieldStore(({ prepare: (sql) => rdbMod.pgHandle().prepare(sql) }), { isPg: pg });
+  
+  st.initAtBoot = async () => { await st.init(); log('[field] store ready (pg, migration 020)'); };
   return st;
 }
 

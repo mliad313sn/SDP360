@@ -28,10 +28,10 @@ const get = (path, t) => fetch(base + path, { headers: { 'x-report-token': t } }
 before(async () => {
   const { app } = require('../server');
   rdb = require('../reports-db');
-  const sites = rdb.listSites();
+  const sites = (await rdb.listSites());
   siteA = sites[0]; siteB = sites[1];
-  repA = rdb.ensureReport(siteA.id, 2026, 30);
-  repB = rdb.ensureReport(siteB.id, 2026, 30);
+  repA = (await rdb.ensureReport(siteA.id, 2026, 30));
+  repB = (await rdb.ensureReport(siteB.id, 2026, 30));
   const mk = async (username, roles, site_id) => {
     await rdb.createUser({ username, full_name: username, password: username + '-0000', roles, site_id });
     return (await rdb.login(username, username + '-0000')).token;

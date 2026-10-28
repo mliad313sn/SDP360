@@ -1,51 +1,19 @@
 'use strict';
 // SDP360 — sync run / watermark / lock persistence for services/sync/syncRunner.js.
 //
-// Works against EITHER backend through the shared `prepare(sql).run/get/all` surface:
-//   • better-sqlite3 (synchronous — `await` on a plain value is a no-op)
-//   • services/pgDb.js makePgDb() (asynchronous)
-// Placeholders are written in sqlite `?` style; pgDb translates them to $n.
-// Schema: db/postgres/sync/001_init.sql (pg) — the sqlite DDL below is its byte-for-byte twin.
+// PostgreSQL only (PO-08), through services/pgDb.js makePgDb() (`?` placeholders → $n).
+// Schema: db/postgres/sync/001_init.sql, applied by db/migrate.js.
 
-const SQLITE_DDL = `
-CREATE TABLE IF NOT EXISTS sync_runs (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  job TEXT NOT NULL,
-  started_at TEXT NOT NULL,
-  finished_at TEXT,
-  status TEXT NOT NULL DEFAULT 'running',
-  attempts INTEGER NOT NULL DEFAULT 0,
-  rows INTEGER,
-  duplicates INTEGER,
-  upserted INTEGER,
-  deleted INTEGER,
-  error TEXT,
-  meta TEXT
-);
-CREATE INDEX IF NOT EXISTS idx_sync_runs_job_started ON sync_runs(job, started_at);
-CREATE TABLE IF NOT EXISTS sync_watermarks (
-  job TEXT PRIMARY KEY,
-  value TEXT,
-  updated_at TEXT NOT NULL
-);
-CREATE TABLE IF NOT EXISTS sync_locks (
-  job TEXT PRIMARY KEY,
-  locked_at TEXT NOT NULL,
-  owner TEXT
-);`;
 
 function iso(ms) { return new Date(ms).toISOString(); }
 
 /**
- * @param {object} db   - better-sqlite3 Database or pgDb instance
+ * @param {object} db   - pgDb instance
  * @param {object} [o]
  * @param {string} [o.owner] - lock owner label (host:pid)
- * @param {boolean} [o.init=true] - create tables (sqlite only; pg uses the SQL migration file)
  */
 function makeSyncStore(db, o = {}) {
   const owner = o.owner || `${require('os').hostname()}:${process.pid}`;
-  const isSqlite = typeof db.exec === 'function' && typeof db.pragma === 'function';
-  if (isSqlite && o.init !== false) db.exec(SQLITE_DDL);
 
   return {
     async acquireLock(job, nowMs, ttlMs) {
@@ -77,7 +45,7 @@ function makeSyncStore(db, o = {}) {
     async startRun(job, nowMs, meta) {
       const r = await db.prepare('INSERT INTO sync_runs (job, started_at, status, meta) VALUES (?, ?, ?, ?)')
         .run(job, iso(nowMs), 'running', meta == null ? null : JSON.stringify(meta));
-      return r.lastInsertRowid != null ? Number(r.lastInsertRowid) : r.lastID;
+      return r.lastID != null ? Number(r.lastID) : null;
     },
     async finishRun(id, p) {
       await db.prepare(
@@ -109,4 +77,4 @@ function makeSyncStore(db, o = {}) {
   };
 }
 
-module.exports = { makeSyncStore, SQLITE_DDL };
+module.exports = { makeSyncStore };

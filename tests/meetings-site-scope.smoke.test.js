@@ -37,7 +37,7 @@ before(async () => {
   mdb = require('../meetings-db');
   const L = await mdb.loadLookups();
   dept = L.departments[0].code;
-  const coded = rdb.listSites().map(s => ({ s, code: require('../inspection-db').siteNameToCode(s.name) }))
+  const coded = (await rdb.listSites()).map(s => ({ s, code: require('../inspection-db').siteNameToCode(s.name) }))
     .filter(x => x.code && L.sites.some(ls => ls.code === x.code));
   assert.ok(coded.length >= 2, 'two seeded sites with a meetings code');
   const [A, B] = coded; codeA = A.code; codeB = B.code;

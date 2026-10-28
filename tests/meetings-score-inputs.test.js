@@ -1,5 +1,4 @@
 'use strict';
-process.env.MEETINGS_BACKEND = 'sqlite';
 
 // meetings-db.getSiteScoreInputs — the windowed measurements behind 4 of the 6
 // sbDims dimensions (reviews / resolution / signoff / overdue). The pure core is
@@ -85,8 +84,8 @@ test('_computeMeetingsScoreInputs: no meetings → zeros, no divide-by-zero', ()
 // and asserts getSiteScoreInputs() returns exactly what the pure core returns
 // for the same rows — so a mis-shaped SELECT (wrong column, lost JOIN, leaked
 // other site) fails here rather than silently reading zeros in prod.
-test('getSiteScoreInputs: seeded sqlite DB agrees with the pure core', () => {
-  mdb.loadLookups();
+test('getSiteScoreInputs: seeded sqlite DB agrees with the pure core', async () => {
+  (await mdb.loadLookups());
   const conn = mdb.getDB();
   const meeting = conn.prepare(
     'INSERT INTO md_meetings (reference, site_code, department, meeting_date, status, dept_head_signed_at, site_it_signed_at) VALUES (?,?,?,?,?,?,?)');
@@ -96,31 +95,31 @@ test('getSiteScoreInputs: seeded sqlite DB agrees with the pure core', () => {
     'INSERT INTO md_actions (meeting_id, description, status, target_date, closed_at) VALUES (?,?,?,?,?)');
 
   // In-window, fully signed.
-  const m1 = meeting.run('HGO_Network_PV_2026-05', 'HGO', 'Network', '2026-05-02', 'signed',
-    '2026-05-03 10:00:00', '2026-05-03 10:01:00').lastInsertRowid;
+  const m1 = (await meeting.run('HGO_Network_PV_2026-05', 'HGO', 'Network', '2026-05-02', 'signed',
+    '2026-05-03 10:00:00', '2026-05-03 10:01:00')).lastID;
   // In-window, half-signed.
-  const m2 = meeting.run('HGO_Maintenance_PV_2026-06', 'HGO', 'Maintenance', '2026-06-02', 'submitted',
-    '2026-06-03 10:00:00', null).lastInsertRowid;
+  const m2 = (await meeting.run('HGO_Maintenance_PV_2026-06', 'HGO', 'Maintenance', '2026-06-02', 'submitted',
+    '2026-06-03 10:00:00', null)).lastID;
   // Before the window → excluded from reviews/signoff.
-  const m0 = meeting.run('HGO_Finance_PV_2026-04', 'HGO', 'Finance', '2026-04-01', 'signed',
-    '2026-04-02 10:00:00', '2026-04-02 10:00:00').lastInsertRowid;
+  const m0 = (await meeting.run('HGO_Finance_PV_2026-04', 'HGO', 'Finance', '2026-04-01', 'signed',
+    '2026-04-02 10:00:00', '2026-04-02 10:00:00')).lastID;
   // Another site → must never leak in.
-  const mX = meeting.run('MGO_Network_PV_2026-05', 'MGO', 'Network', '2026-05-02', 'signed',
-    '2026-05-03 10:00:00', '2026-05-03 10:01:00').lastInsertRowid;
+  const mX = (await meeting.run('MGO_Network_PV_2026-05', 'MGO', 'Network', '2026-05-02', 'signed',
+    '2026-05-03 10:00:00', '2026-05-03 10:01:00')).lastID;
 
-  issue.run(m1, 'a', 'HW', 'MEDIUM', 'resolved',    '2026-05-30', '2026-06-01 09:00:00', '2026-06-01 09:00:00');
-  issue.run(m1, 'b', 'HW', 'MEDIUM', 'in_progress', '2026-06-01', null,                  '2026-06-05 09:00:00');
+  (await issue.run(m1, 'a', 'HW', 'MEDIUM', 'resolved',    '2026-05-30', '2026-06-01 09:00:00', '2026-06-01 09:00:00'));
+  (await issue.run(m1, 'b', 'HW', 'MEDIUM', 'in_progress', '2026-06-01', null,                  '2026-06-05 09:00:00'));
   // resolved with NO closed_at → exercises _effClose's updated_at FALLBACK.
-  issue.run(m2, 'c', 'HW', 'MEDIUM', 'resolved',    '2026-06-20', null,                  '2026-06-11 09:00:00');
-  issue.run(m0, 'd', 'HW', 'MEDIUM', 'open',        '2026-02-01', null,                  '2026-04-02 09:00:00');
-  issue.run(mX, 'x', 'HW', 'MEDIUM', 'open',        '2026-01-01', null,                  '2026-05-02 09:00:00');
+  (await issue.run(m2, 'c', 'HW', 'MEDIUM', 'resolved',    '2026-06-20', null,                  '2026-06-11 09:00:00'));
+  (await issue.run(m0, 'd', 'HW', 'MEDIUM', 'open',        '2026-02-01', null,                  '2026-04-02 09:00:00'));
+  (await issue.run(mX, 'x', 'HW', 'MEDIUM', 'open',        '2026-01-01', null,                  '2026-05-02 09:00:00'));
 
-  action.run(m1, 'act overdue', 'in_progress', '2026-06-15', null);
-  action.run(m1, 'act closed',  'resolved',    '2026-05-01', '2026-06-01 09:00:00');
-  action.run(mX, 'act other site', 'open',     '2026-01-01', null);
+  (await action.run(m1, 'act overdue', 'in_progress', '2026-06-15', null));
+  (await action.run(m1, 'act closed',  'resolved',    '2026-05-01', '2026-06-01 09:00:00'));
+  (await action.run(mX, 'act other site', 'open',     '2026-01-01', null));
 
   const W = { from: '2026-04-14', to: '2026-07-14' };
-  const got = mdb.getSiteScoreInputs('HGO', W.from, W.to);
+  const got = (await mdb.getSiteScoreInputs('HGO', W.from, W.to));
 
   // The same rows, hand-mirrored, through the pure core.
   const expected = _computeMeetingsScoreInputs({

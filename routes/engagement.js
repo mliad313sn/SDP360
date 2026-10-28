@@ -20,10 +20,12 @@ const { renderHtml } = require('../services/reportPack');
 
 function createStore(rdbMod) {
   const pg = rdbMod.REPORTS_BACKEND === 'postgres';
-  const st = require('../services/engagementStore').makeEngagementStore(pg ? { prepare: (sql) => rdbMod.pgHandle().prepare(sql) } : rdbMod.db, { isPg: pg });
+  const st = require('../services/engagementStore').makeEngagementStore(({ prepare: (sql) => rdbMod.pgHandle().prepare(sql) }), { isPg: pg });
   const { SEED_RULES } = require('../services/alertRulesSeed');
-  if (!pg) { st.init(); st.seedRules(SEED_RULES).catch(() => {}); }
-  st.seedAtBoot = async () => { if (pg) { await st.init(); return st.seedRules(SEED_RULES); } return []; };
+  
+  st.seedAtBoot = async () => {
+                                await st.init(); return st.seedRules(SEED_RULES);
+                              };
   return st;
 }
 

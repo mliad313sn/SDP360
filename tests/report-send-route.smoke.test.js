@@ -17,7 +17,6 @@ const _os = require('os'), _fs = require('fs'), _path = require('path');
 // SQLite-path smoke — force it so a dev box whose .env pins REPORTS_BACKEND=postgres
 // doesn't drag the harness onto the (uninitialised) PG adapter. Set BEFORE any
 // require of server/reports-db, and before dotenv.
-process.env.REPORTS_BACKEND = 'sqlite';
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'report-send-route-'));
 process.env.DASH_USER = process.env.DASH_USER || 'report-send-route-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'report-send-route-pass-0000';
@@ -33,15 +32,15 @@ const http = require('http');
 
 let server, base, adminToken, rdb;
 
-const sentLogCount = () =>
-  rdb.db.prepare('SELECT COUNT(*) AS n FROM report_sent_log').get().n;
+const sentLogCount = async () =>
+  (await rdb.db.prepare('SELECT COUNT(*) AS n FROM report_sent_log').get()).n;
 
 before(async () => {
   const { app } = require('../server');        // start() guarded → no port bind
   rdb = require('../reports-db');
-  const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
+  const me = ((await rdb.listUsers()) || []).find(u => u.username === process.env.DASH_USER);
   assert.ok(me, 'seeded admin user exists');
-  rdb.setUserRoles(me.id, ['super_admin']);   // /api/reports/send is super_admin-gated since 5e2f40e (2026-08-16)
+  (await rdb.setUserRoles(me.id, ['super_admin']));   // /api/reports/send is super_admin-gated since 5e2f40e (2026-08-16)
   const sess = await rdb.login(process.env.DASH_USER, process.env.DASH_PASS);
   assert.ok(sess && sess.token, 'login seeded admin + returned a token');
   adminToken = sess.token;
@@ -84,7 +83,7 @@ const postJson = (url, body) => fetch(base + url, {
 });
 
 test('preview=1 → 200 {preview,subject} and writes NO sent-log row', async () => {
-  const before_ = sentLogCount();
+  const before_ = (await sentLogCount());
   const res = await fetch(base + '/api/reports/send?type=coordinator&site=HGO&preview=1', {
     method: 'POST', headers: authHeaders(),
   });
@@ -92,14 +91,14 @@ test('preview=1 → 200 {preview,subject} and writes NO sent-log row', async () 
   const body = await res.json();
   assert.equal(body.preview, true, 'the route reports a preview');
   assert.ok(body.subject, 'preview body carries a subject');
-  assert.equal(sentLogCount(), before_, 'preview must NOT write a report_sent_log row');
+  assert.equal((await sentLogCount()), before_, 'preview must NOT write a report_sent_log row');
 });
 
 // The core of Task 1: the body actually reaches the pipeline. If the route
 // dropped `recipients`, this send would fall through to the confirmed
 // coordinator and try to MAIL — so a 200 {skipped} here is the proof.
 test('a body selection naming a foreign address → 200 {skipped}, nothing sent or logged', async () => {
-  const before_ = sentLogCount();
+  const before_ = (await sentLogCount());
   const res = await postJson('/api/reports/send?type=coordinator&site=HGO',
     { recipients: { to: 'not@allowed.com' } });
 
@@ -109,11 +108,11 @@ test('a body selection naming a foreign address → 200 {skipped}, nothing sent 
   assert.match(body.reason || '', /not@allowed\.com/, 'the reason names the offending address');
   assert.match(body.reason || '', /not a confirmed recipient/i, 'the reason names the rule');
   assert.ok(!body.messageId, 'no message was sent');
-  assert.equal(sentLogCount(), before_, 'a refused selection writes no report_sent_log row');
+  assert.equal((await sentLogCount()), before_, 'a refused selection writes no report_sent_log row');
 });
 
 test('a body selection with a bad CC → 200 {skipped}, nothing sent', async () => {
-  const before_ = sentLogCount();
+  const before_ = (await sentLogCount());
   const res = await postJson('/api/reports/send?type=coordinator&site=HGO',
     { recipients: { to: 'coord@example.invalid', cc: ['nope@else.com'] } });
 
@@ -121,7 +120,7 @@ test('a body selection with a bad CC → 200 {skipped}, nothing sent', async () 
   const body = await res.json();
   assert.equal(body.skipped, true, 'a bad CC poisons the whole selection');
   assert.match(body.reason || '', /nope@else\.com/);
-  assert.equal(sentLogCount(), before_, 'nothing logged');
+  assert.equal((await sentLogCount()), before_, 'nothing logged');
 });
 
 test('an EMPTY body still previews — the selection is optional', async () => {

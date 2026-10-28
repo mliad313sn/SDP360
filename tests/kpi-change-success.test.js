@@ -22,24 +22,24 @@ process.env.DASH_PASS = process.env.DASH_PASS || 'smoke-pass-0000';
 const rdb = require('../reports-db');
 
 let n = 0;
-function addChange(status, stage, site_id) {
-  rdb.db.prepare(
+async function addChange(status, stage, site_id) {
+  (await rdb.db.prepare(
     `INSERT INTO change_records (change_id, status, stage, site_id, created_time)
      VALUES (?,?,?,?,?)`
-  ).run('CRQ-SMOKE-' + (++n), status, stage || 'Implement', site_id || 'S1', '2026-06-01T00:00:00');
+  ).run('CRQ-SMOKE-' + (++n), status, stage || 'Implement', site_id || 'S1', '2026-06-01T00:00:00'));
 }
 
-before(() => {
+before(async () => {
   // 7 Completed, 2 Failed, 1 Backout(Close), 3 Cancelled, 1 Rejected
-  for (let i = 0; i < 7; i++) addChange('Completed', 'Close');
-  for (let i = 0; i < 2; i++) addChange('Failed', 'Implement');
-  addChange('Backout', 'Close');
-  for (let i = 0; i < 3; i++) addChange('Cancelled', 'Close');
-  addChange('Rejected', 'Review');
+  for (let i = 0; i < 7; i++) (await addChange('Completed', 'Close'));
+  for (let i = 0; i < 2; i++) (await addChange('Failed', 'Implement'));
+  (await addChange('Backout', 'Close'));
+  for (let i = 0; i < 3; i++) (await addChange('Cancelled', 'Close'));
+  (await addChange('Rejected', 'Review'));
 });
 
-test('Change Success Rate uses Completed / (Completed + Failed + Backout)', () => {
-  const m = rdb.getChangeMetrics();
+test('Change Success Rate uses Completed / (Completed + Failed + Backout)', async () => {
+  const m = (await rdb.getChangeMetrics());
   assert.strictEqual(m.total, 14, 'total rows');
   assert.strictEqual(m.completed_count, 7, 'completed');
   assert.strictEqual(m.failed_count, 3, 'failed = 2 Failed + 1 Close/Backout');
@@ -52,8 +52,8 @@ test('Change Success Rate uses Completed / (Completed + Failed + Backout)', () =
   assert.strictEqual(m.change_success_rate, 70.0, 'ITSM rate excludes cancelled/rejected');
 });
 
-test('Change Success Rate is null when nothing executed', () => {
-  const m = rdb.getChangeMetrics({ site_id: 'NO_SUCH_SITE' });
+test('Change Success Rate is null when nothing executed', async () => {
+  const m = (await rdb.getChangeMetrics({ site_id: 'NO_SUCH_SITE' }));
   assert.strictEqual(m.executed_count, 0);
   assert.strictEqual(m.change_success_rate, null, 'null, not 0 or NaN, when executed = 0');
 });

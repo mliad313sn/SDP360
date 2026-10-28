@@ -8,7 +8,6 @@
 //      requireSuperAdmin to assert GET returns the 9 seeded rows + the super_admin gate.
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'roadmap-training-'));
-process.env.REPORTS_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'roadmap-super';
 process.env.DASH_PASS = process.env.DASH_PASS || 'roadmap-pass-0000';
 
@@ -20,8 +19,8 @@ const express = require('express');
 const rdb = require('../reports-db');
 
 // ── Part A: readers direct ─────────────────────────────────────────────
-test('lazy-seed: a fresh user gets the 9 default training rows (3 sessions × 3 sites)', () => {
-  const t = rdb.getRoadmapTraining(999);
+test('lazy-seed: a fresh user gets the 9 default training rows (3 sessions × 3 sites)', async () => {
+  const t = (await rdb.getRoadmapTraining(999));
   assert.ok(t && Array.isArray(t.entries), 'shape { entries, stats }');
   assert.equal(t.entries.length, 9, 'exactly 9 seeded rows');
   assert.equal(t.stats.entries_count, 9, 'entries_count');
@@ -32,38 +31,38 @@ test('lazy-seed: a fresh user gets the 9 default training rows (3 sessions × 3 
   assert.ok(t.entries.every((e) => e.technicians == null), 'technicians seeded blank (null)');
 });
 
-test('lazy-seed is idempotent — second call still returns exactly 9', () => {
-  const t = rdb.getRoadmapTraining(999);
+test('lazy-seed is idempotent — second call still returns exactly 9', async () => {
+  const t = (await rdb.getRoadmapTraining(999));
   assert.equal(t.entries.length, 9);
 });
 
-test('updateRoadmapTraining sets technicians → technicians_total recomputes in JS', () => {
-  const t0 = rdb.getRoadmapTraining(999);
+test('updateRoadmapTraining sets technicians → technicians_total recomputes in JS', async () => {
+  const t0 = (await rdb.getRoadmapTraining(999));
   const one = t0.entries[0];
-  rdb.updateRoadmapTraining(999, one.uid, { technicians: 3 });
-  const t1 = rdb.getRoadmapTraining(999);
+  (await rdb.updateRoadmapTraining(999, one.uid, { technicians: 3 }));
+  const t1 = (await rdb.getRoadmapTraining(999));
   assert.equal(t1.entries.find((e) => e.uid === one.uid).technicians, 3);
   assert.equal(t1.stats.technicians_total, 3, 'SUM of non-null technicians');
 });
 
-test('training add → uid, user-scoped update/delete guards, then owner delete', () => {
-  const uid = rdb.addRoadmapTraining(999, { session_date: '2026-08-05', module: 'Module ITAM SDP', site: 'HGO', technicians: 4, notes: 'extra' });
+test('training add → uid, user-scoped update/delete guards, then owner delete', async () => {
+  const uid = (await rdb.addRoadmapTraining(999, { session_date: '2026-08-05', module: 'Module ITAM SDP', site: 'HGO', technicians: 4, notes: 'extra' }));
   assert.ok(uid && typeof uid === 'string' && uid.length >= 8, 'server-minted uid');
-  let t = rdb.getRoadmapTraining(999);
+  let t = (await rdb.getRoadmapTraining(999));
   const added = t.entries.find((x) => x.uid === uid);
   assert.ok(added, 'training row persisted');
   assert.equal(added.site, 'HGO');
 
   // user-scoped: a foreign user cannot mutate this row.
-  rdb.updateRoadmapTraining(888, uid, { site: 'HACKED' });
-  t = rdb.getRoadmapTraining(999);
+  (await rdb.updateRoadmapTraining(888, uid, { site: 'HACKED' }));
+  t = (await rdb.getRoadmapTraining(999));
   assert.equal(t.entries.find((x) => x.uid === uid).site, 'HGO', 'update is user-scoped');
-  rdb.deleteRoadmapTraining(888, uid);
-  t = rdb.getRoadmapTraining(999);
+  (await rdb.deleteRoadmapTraining(888, uid));
+  t = (await rdb.getRoadmapTraining(999));
   assert.ok(t.entries.find((x) => x.uid === uid), 'delete is user-scoped');
 
-  rdb.deleteRoadmapTraining(999, uid);
-  t = rdb.getRoadmapTraining(999);
+  (await rdb.deleteRoadmapTraining(999, uid));
+  t = (await rdb.getRoadmapTraining(999));
   assert.ok(!t.entries.find((x) => x.uid === uid), 'deleted by owner');
 });
 

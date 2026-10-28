@@ -8,8 +8,6 @@ const fetch = require('./_http-fetch');   // core-http shim — undici keep-aliv
 // already-set var). Run with --test-force-exit (top-level cron keeps the loop alive).
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'exec-ed-routes-'));
-process.env.REPORTS_BACKEND = 'sqlite';
-process.env.ASSETS_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'exec-ed-route-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'exec-ed-route-pass-0000';
 process.env.DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || 'exec-ed-route-key';
@@ -28,9 +26,9 @@ before(async () => {
   const { app } = require('../server');        // start() guarded → no port bind
   const rdb = require('../reports-db');
 
-  const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
+  const me = ((await rdb.listUsers()) || []).find(u => u.username === process.env.DASH_USER);
   assert.ok(me, 'seeded admin user exists');
-  rdb.setUserRoles(me.id, ['admin']);
+  (await rdb.setUserRoles(me.id, ['admin']));
   const sess = await rdb.login(process.env.DASH_USER, process.env.DASH_PASS);
   assert.ok(sess && sess.token, 'login seeded admin + returned a token');
   adminToken = sess.token;

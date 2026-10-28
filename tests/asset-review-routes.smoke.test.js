@@ -25,25 +25,25 @@ before(async () => {
   rdb = require('../reports-db');
   const adb = require('../assets-db');
   const COLS = ['asset_id', 'asset_name', 'site', 'state', 'user_name', 'department', 'purchase_cost', 'acquisition_date'];
-  adb.replaceTable('assets', COLS, [{ asset_id: 'B1', asset_name: 'B', site: 'Hounde', state: 'In Use', user_name: 'x', department: 'IT', purchase_cost: '5', acquisition_date: '2024-01-01' }]);
-  adb.recordAssetSightings({ asOf: '2026-07-20' });
-  adb.replaceTable('assets', COLS, [
+  (await adb.replaceTable('assets', COLS, [{ asset_id: 'B1', asset_name: 'B', site: 'Hounde', state: 'In Use', user_name: 'x', department: 'IT', purchase_cost: '5', acquisition_date: '2024-01-01' }]));
+  (await adb.recordAssetSightings({ asOf: '2026-07-20' }));
+  (await adb.replaceTable('assets', COLS, [
     { asset_id: 'B1', asset_name: 'B', site: 'Hounde', state: 'In Use', user_name: 'x', department: 'IT', purchase_cost: '5', acquisition_date: '2024-01-01' },
     { asset_id: 'N1', asset_name: 'N', site: 'Hounde', state: 'In Use', user_name: '', department: '', purchase_cost: '0.00', acquisition_date: '' },
-  ]);
-  adb.recordAssetSightings({ asOf: '2026-07-28' });
+  ]));
+  (await adb.recordAssetSightings({ asOf: '2026-07-28' }));
 
-  const sites = rdb.listSites();
+  const sites = (await rdb.listSites());
   hounde = sites.find(s => s.name === 'Hounde');
   mana = sites.find(s => s.name === 'MANA');
   explo = sites.find(s => s.name === 'Exploration');
-  repPrev = rdb.ensureReport(hounde.id, 2026, 29);
-  rdb.saveReportAssetReview(repPrev.id, { applicable: true, counts: { new: 0, unassigned: 3, no_cost: 3, no_date: 3 } }, 'seed');
-  repH = rdb.ensureReport(hounde.id, 2026, 30);      // 2026-07-26 .. 2026-08-01
-  repExplo = rdb.ensureReport(explo.id, 2026, 30);
+  repPrev = (await rdb.ensureReport(hounde.id, 2026, 29));
+  (await rdb.saveReportAssetReview(repPrev.id, { applicable: true, counts: { new: 0, unassigned: 3, no_cost: 3, no_date: 3 } }, 'seed'));
+  repH = (await rdb.ensureReport(hounde.id, 2026, 30));      // 2026-07-26 .. 2026-08-01
+  repExplo = (await rdb.ensureReport(explo.id, 2026, 30));
 
-  const me = rdb.listUsers().find(u => u.username === process.env.DASH_USER);
-  rdb.setUserRoles(me.id, ['super_admin']);
+  const me = (await rdb.listUsers()).find(u => u.username === process.env.DASH_USER);
+  (await rdb.setUserRoles(me.id, ['super_admin']));
   tok.super = (await rdb.login(process.env.DASH_USER, process.env.DASH_PASS)).token;
   const mk = async (username, roles, site_id) => {
     await rdb.createUser({ username, full_name: username, password: username + '-0000', roles, site_id });
@@ -94,7 +94,7 @@ test('PUT asset-review: server freezes counts (client counts ignored), trims not
   const r = await put(`/api/reports/${repH.id}/asset-review`, tok.editorH,
     { handled_note: '  Tagged N1 ', plan_note: 'Assign user', counts: { new: 99 }, applicable: false });
   assert.strictEqual(r.status, 200);
-  const rev = rdb.getReportAssetReview(repH.id);
+  const rev = (await rdb.getReportAssetReview(repH.id));
   assert.deepStrictEqual(rev.counts, { new: 1, no_tag: 2, unassigned: 1, no_cost: 1, no_date: 1,
     active_total: 2, unassigned_in_use: 1, unassigned_other: 0 });
   assert.strictEqual(rev.applicable, true);
@@ -115,7 +115,7 @@ test('PUT asset-review: assets layer throwing → 200, notes saved, frozen count
     const r = await put(`/api/reports/${repH.id}/asset-review`, tok.editorH, { handled_note: 'during outage', plan_note: 'p' });
     assert.strictEqual(r.status, 200);
   } finally { adb.getSiteAssetFollowups = orig; }
-  const rev = rdb.getReportAssetReview(repH.id);
+  const rev = (await rdb.getReportAssetReview(repH.id));
   assert.strictEqual(rev.handled_note, 'during outage');
   assert.deepStrictEqual(rev.counts, { new: 1, no_tag: 2, unassigned: 1, no_cost: 1, no_date: 1,
     active_total: 2, unassigned_in_use: 1, unassigned_other: 0 }, 'counts from the previous save kept');
@@ -124,11 +124,11 @@ test('PUT asset-review: assets layer throwing → 200, notes saved, frozen count
 test('PUT asset-review: a body with one note keeps the other; null clears; non-text → 400', async () => {
   assert.strictEqual((await put(`/api/reports/${repH.id}/asset-review`, tok.editorH, { handled_note: 'A', plan_note: 'B' })).status, 200);
   assert.strictEqual((await put(`/api/reports/${repH.id}/asset-review`, tok.editorH, { plan_note: ' C ' })).status, 200);
-  let rev = rdb.getReportAssetReview(repH.id);
+  let rev = (await rdb.getReportAssetReview(repH.id));
   assert.strictEqual(rev.handled_note, 'A', 'absent handled_note kept');
   assert.strictEqual(rev.plan_note, 'C');
   assert.strictEqual((await put(`/api/reports/${repH.id}/asset-review`, tok.editorH, { handled_note: null })).status, 200);
-  rev = rdb.getReportAssetReview(repH.id);
+  rev = (await rdb.getReportAssetReview(repH.id));
   assert.strictEqual(rev.handled_note || '', '', 'null clears');
   assert.strictEqual(rev.plan_note, 'C');
   for (const bad of [5, { x: 1 }, ['a'], true]) {
@@ -136,7 +136,7 @@ test('PUT asset-review: a body with one note keeps the other; null clears; non-t
     assert.strictEqual(r.status, 400);
     assert.strictEqual((await r.json()).error, 'note must be text');
   }
-  assert.strictEqual(rdb.getReportAssetReview(repH.id).plan_note, 'C', 'rejected body wrote nothing');
+  assert.strictEqual((await rdb.getReportAssetReview(repH.id)).plan_note, 'C', 'rejected body wrote nothing');
 });
 
 test('GET asset-followups: assets layer throwing → 503 with a generic body', async () => {
@@ -153,20 +153,20 @@ test('GET asset-followups: assets layer throwing → 503 with a generic body', a
 });
 
 test('GET asset-followups: previous_counts ignores a later report and another site', async () => {
-  const later = rdb.ensureReport(hounde.id, 2026, 31);
-  rdb.saveReportAssetReview(later.id, { applicable: true, counts: { new: 7, unassigned: 7, no_cost: 7, no_date: 7 } }, 'seed');
-  const manaPrev = rdb.ensureReport(mana.id, 2026, 29);
-  rdb.saveReportAssetReview(manaPrev.id, { applicable: true, counts: { new: 5, unassigned: 5, no_cost: 5, no_date: 5 } }, 'seed');
+  const later = (await rdb.ensureReport(hounde.id, 2026, 31));
+  (await rdb.saveReportAssetReview(later.id, { applicable: true, counts: { new: 7, unassigned: 7, no_cost: 7, no_date: 7 } }, 'seed'));
+  const manaPrev = (await rdb.ensureReport(mana.id, 2026, 29));
+  (await rdb.saveReportAssetReview(manaPrev.id, { applicable: true, counts: { new: 5, unassigned: 5, no_cost: 5, no_date: 5 } }, 'seed'));
   const j = await (await get(`/api/reports/${repH.id}/asset-followups`, tok.viewerH)).json();
   assert.deepStrictEqual(j.previous_counts, { new: 0, unassigned: 3, no_cost: 3, no_date: 3 });
 });
 
 test('PUT asset-review on a SUBMITTED report (super_admin): notes only, counts never recomputed', async () => {
-  rdb.saveReportAssetReview(repH.id, { applicable: true, counts: { new: 9, unassigned: 9, no_cost: 9, no_date: 9 } }, 'freeze');
-  rdb.updateReportStatus(repH.id, 'submitted', 1);
+  (await rdb.saveReportAssetReview(repH.id, { applicable: true, counts: { new: 9, unassigned: 9, no_cost: 9, no_date: 9 } }, 'freeze'));
+  (await rdb.updateReportStatus(repH.id, 'submitted', 1));
   const r = await put(`/api/reports/${repH.id}/asset-review`, tok.super, { handled_note: 'late fix', plan_note: 'p2' });
   assert.strictEqual(r.status, 200);
-  const rev = rdb.getReportAssetReview(repH.id);
+  const rev = (await rdb.getReportAssetReview(repH.id));
   assert.deepStrictEqual(rev.counts, { new: 9, unassigned: 9, no_cost: 9, no_date: 9 });
   assert.strictEqual(rev.handled_note, 'late fix');
   assert.strictEqual((await put(`/api/reports/${repH.id}/asset-review`, tok.editorH, { plan_note: 'x' })).status, 403, 'editor frozen out after submission');

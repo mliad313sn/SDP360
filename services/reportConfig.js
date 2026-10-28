@@ -165,20 +165,9 @@ const _SECRET_BLANK_KEEP = new Set([
 
 function _h(db) {
   const rdb = require('../reports-db');
-  if (rdb.REPORTS_BACKEND === 'postgres') return { H: rdb.pgHandle(), isPg: true };
-  return { H: db, isPg: false };
+  return { H: rdb.pgHandle(), isPg: true };
 }
 
-const _inited = new WeakSet();
-function _initSchema(db) {
-  if (_h(db).isPg) return;
-  if (_inited.has(db)) return;
-  db.exec(`CREATE TABLE IF NOT EXISTS report_config (
-    key TEXT PRIMARY KEY, value TEXT,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_by TEXT
-  );`);
-  _inited.add(db);
-}
 
 // A-13 (audit 2026-09-24) — the six secret-shaped values are encrypted at rest when
 // SDP_CONFIG_KEY is set, so a database dump (or a restore point) no longer hands whoever
@@ -211,10 +200,7 @@ function _fold(rows, key) {
 function getConfig(db, opts) {
   const key = _keyOf(opts);
   const { H, isPg } = _h(db);
-  if (isPg) return (async () => _fold(await H.prepare('SELECT key, value FROM report_config').all(), key))();
-  _initSchema(db);
-  try { return _fold(H.prepare('SELECT key, value FROM report_config').all(), key); }
-  catch (e) { console.warn('[report-config] get failed:', e.message); return { ...DEFAULTS }; }
+  return (async () => _fold(await H.prepare('SELECT key, value FROM report_config').all(), key))();
 }
 
 const _UPSERT = `INSERT INTO report_config (key, value, updated_at, updated_by)
@@ -231,16 +217,12 @@ function setConfig(db, patch, user, opts) {
     // legible so an operator can still read the table when something is wrong.
     .map(([k, v]) => [k, _SECRET_BLANK_KEEP.has(k) ? _secrets.encryptValue(String(v), _key) : v]);
   const { H, isPg } = _h(db);
-  if (isPg) return (async () => {
+  return (async () => {
     await H.runTransaction(async () => {
       for (const [k, v] of clean) await H.prepare(_UPSERT.replace('{NOW}', 'now()')).run(k, String(v), user || 'unknown');
     });
     return getConfig(db, opts);
   })();
-  _initSchema(db);
-  const stmt = H.prepare(_UPSERT.replace('{NOW}', "datetime('now')"));
-  H.transaction(() => { for (const [k, v] of clean) stmt.run(k, String(v), user || 'unknown'); })();
-  return getConfig(db, opts);
 }
 
-module.exports = { DEFAULTS, KEYS, _SECRET_BLANK_KEEP, _initSchema, getConfig, setConfig };
+module.exports = { DEFAULTS, KEYS, _SECRET_BLANK_KEEP, getConfig, setConfig };

@@ -34,9 +34,9 @@ function req(method, path, headers) {
 before(async () => {
   const { app } = require('../server');
   const rdb = require('../reports-db');
-  const su = (rdb.listUsers() || []).find((u) => u.username === process.env.DASH_USER);
+  const su = ((await rdb.listUsers()) || []).find((u) => u.username === process.env.DASH_USER);
   assert.ok(su, 'seeded super_admin user exists');
-  rdb.setUserRoles(su.id, ['super_admin']);
+  (await rdb.setUserRoles(su.id, ['super_admin']));
   superToken = (await rdb.login(process.env.DASH_USER, process.env.DASH_PASS)).token;
   await rdb.createUser({ username: 'apikey-viewer', full_name: 'Plain Viewer', password: 'apikey-pass-1111', role: 'viewer' });
   viewerToken = (await rdb.login('apikey-viewer', 'apikey-pass-1111')).token;

@@ -108,7 +108,7 @@ test('--type parsing from args', async () => {
   const { deps } = stub({ type: undefined, args: { type: 'asset_new_alert' } });
   assert.strictEqual((await cli.main(deps)).type, 'asset_new_alert');
   const bad = stub({ type: undefined, args: { type: 'nope' } });
-  await assert.rejects(() => cli.main(bad.deps), /unknown --type/);
+  await assert.rejects(async () => cli.main(bad.deps), /unknown --type/);
 });
 
 test('dedup lookup is keyed (asset_reminder, site, Zoho week label)', async () => {
@@ -153,7 +153,7 @@ test('parseArgs flags: --preview=0 is off, bare --preview on; --type with no val
   assert.strictEqual((await cli.main(on.deps)).previewed, true);
   for (const argv of [['--type'], ['--type=']]) {
     const bad = stub({ type: undefined, args: cli.parseArgs(argv) });
-    await assert.rejects(() => cli.main(bad.deps), /--type needs a value/);
+    await assert.rejects(async () => cli.main(bad.deps), /--type needs a value/);
   }
 });
 

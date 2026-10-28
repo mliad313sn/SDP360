@@ -22,7 +22,7 @@ let server, base, routes, tok = {};
 before(async () => {
   const { app } = require('../server');
   const rdb = require('../reports-db');
-  const A = (rdb.listSites() || []).find((s) => s.name === 'Hounde');
+  const A = ((await rdb.listSites()) || []).find((s) => s.name === 'Hounde');
   const mk = async (u, roles, extra = {}) => { await rdb.createUser({ username: u, full_name: u, password: u + '-pw-0000', roles, ...extra }); tok[u] = (await rdb.login(u, u + '-pw-0000')).token; };
   await mk('bo-site', ['site-business'], { site_id: A.id });
   await mk('bo-group', ['group-business']);

@@ -4,16 +4,6 @@
 // reviewed → published; one row per generation = the version log). sqlite + PostgreSQL
 // (db/postgres/reports/019_reports_engagement.sql). No formula here.
 
-const SQLITE_DDL = `
-CREATE TABLE IF NOT EXISTS report_templates (
-  key TEXT PRIMARY KEY, name TEXT NOT NULL, audience TEXT NOT NULL DEFAULT 'site', dashboard_key TEXT NOT NULL, lang TEXT NOT NULL DEFAULT 'en',
-  cadence TEXT NOT NULL DEFAULT 'monthly', sections TEXT, recipients TEXT, ai_enabled INTEGER NOT NULL DEFAULT 1, enabled INTEGER NOT NULL DEFAULT 1,
-  owner_id INTEGER, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
-CREATE TABLE IF NOT EXISTS report_runs (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, template_key TEXT NOT NULL REFERENCES report_templates(key) ON DELETE CASCADE, site_id INTEGER, window_label TEXT,
-  status TEXT NOT NULL DEFAULT 'draft', figures TEXT, analysis TEXT, commentary TEXT, html TEXT, provider TEXT, deviation INTEGER DEFAULT 0,
-  created_by INTEGER, created_at TEXT DEFAULT CURRENT_TIMESTAMP, reviewed_by INTEGER, reviewed_at TEXT, review_note TEXT, rating INTEGER, published_at TEXT);
-CREATE INDEX IF NOT EXISTS idx_report_runs_tpl ON report_runs(template_key, created_at);`;
 
 const AUDIENCES = ['site', 'executive', 'council'];
 const CADENCES = ['weekly', 'monthly', 'quarterly', 'manual'];
@@ -24,10 +14,10 @@ const P_ = (s, d) => { if (s == null) return d; if (typeof s !== 'string') retur
 function makeReportStore(db, { isPg = false, now = () => new Date().toISOString() } = {}) {
   if (!db) throw new Error('reportStore needs a db handle');
   const P = (sql) => db.prepare(sql);
-  async function init() { if (!isPg) { db.exec('PRAGMA foreign_keys=ON'); db.exec(SQLITE_DDL); } }
+  async function init() {  }
   async function insert(table, cols, vals) {
-    const r = await P(`INSERT INTO ${table} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})${isPg ? ' RETURNING id' : ''}`).run(...vals);
-    return isPg ? Number(r && (r.id != null ? r.id : r.lastID != null ? r.lastID : (r.rows && r.rows[0] && r.rows[0].id))) : Number(r.lastInsertRowid);
+    const r = await P(`INSERT INTO ${table} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})${(' RETURNING id')}`).run(...vals);
+    return (Number(r && (r.id != null ? r.id : r.lastID != null ? r.lastID : (r.rows && r.rows[0] && r.rows[0].id))));
   }
   const tplRow = (r) => r && ({ ...r, sections: P_(r.sections, []), recipients: P_(r.recipients, []), ai_enabled: Number(r.ai_enabled) !== 0, enabled: Number(r.enabled) !== 0 });
   const runRow = (r, { full = false } = {}) => r && ({ ...r, id: Number(r.id), site_id: r.site_id == null ? null : Number(r.site_id), deviation: Number(r.deviation) || 0, figures: full ? P_(r.figures, null) : undefined, analysis: full ? P_(r.analysis, null) : undefined, commentary: full ? P_(r.commentary, null) : undefined, html: full ? r.html : undefined, html_bytes: r.html ? String(r.html).length : 0 });
@@ -78,4 +68,4 @@ function makeReportStore(db, { isPg = false, now = () => new Date().toISOString(
   return { init, listTemplates, getTemplate, saveTemplate, removeTemplate, seed, createRun, getRun, listRuns, setStatus, updateCommentary, updateHtml, ratingStats, AUDIENCES, CADENCES, STATUSES };
 }
 
-module.exports = { makeReportStore, SQLITE_DDL, AUDIENCES, CADENCES, STATUSES };
+module.exports = { makeReportStore, AUDIENCES, CADENCES, STATUSES };

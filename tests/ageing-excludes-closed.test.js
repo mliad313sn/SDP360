@@ -4,7 +4,6 @@
 // what protected the July-2026 ageing chart from the corrupt PG pending_status.
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'ageing-'));
-process.env.REPORTS_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'ageing-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'ageing-pass-0000';
 

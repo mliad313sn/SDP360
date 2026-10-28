@@ -47,9 +47,9 @@ async function run(deps, { apply = false, log = () => {} } = {}) {
 async function main() {
   const apply = process.argv.includes('--apply');
   const rdb = require('../../reports-db'), mdb = require('../../meetings-db'), idb = require('../../inspection-db');
-  if (rdb.REPORTS_BACKEND === 'postgres') { await rdb.initPgReports(); await require('../../db/migrate').migrateAtBoot({ log: () => {} }); }   // 021 tables
-  if (mdb.MEETINGS_BACKEND === 'postgres') await mdb.initPgMeetings();
-  if (idb.INSPECTION_BACKEND === 'postgres') await idb.initPgInspection();
+  await rdb.initPgReports(); await require('../../db/migrate').migrateAtBoot({ log: () => {} });   // 021 tables
+  await mdb.initPgMeetings();
+  await idb.initPgInspection();
   const store = require('../../routes/commitments').createStore(rdb);
   await store.init();
   const out = await run({ rdb, mdb, idb, store }, { apply, log: console.log });

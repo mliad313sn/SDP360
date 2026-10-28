@@ -20,16 +20,11 @@ test('compareCounts: equal → ok; a one-row drift or a table missing on one sid
   assert.equal(D.compareCounts({ a: 0 }, { a: 0 }, ['a']).ok, true, 'zero on both sides is a measured match');
 });
 
-test('compareCounts on real sqlite-shaped databases (two in-memory copies, generic counter)', () => {
-  const Database = require('better-sqlite3');
-  const mk = (n) => { const db = new Database(':memory:'); db.exec('CREATE TABLE users(id INTEGER PRIMARY KEY); CREATE TABLE action_items(id INTEGER PRIMARY KEY)'); for (let i = 0; i < n; i++) db.prepare('INSERT INTO users DEFAULT VALUES').run(); return db; };
-  const count = (db) => Object.fromEntries(D.MAIN_TABLES.map((t) => {
-    const has = db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(t);
-    return [t, has ? db.prepare(`SELECT count(*) AS n FROM ${t}`).get().n : null];
-  }));
+test('compareCounts on count maps read from two databases (generic counter: absent table = null)', () => {
+  const mk = (users) => Object.fromEntries(D.MAIN_TABLES.map((t) => [t, t === 'users' ? users : (t === 'action_items' ? 0 : null)]));
   const live = mk(5), restored = mk(5), bad = mk(4);
-  assert.equal(D.compareCounts(count(live), count(restored)).ok, true);
-  const c = D.compareCounts(count(live), count(bad));
+  assert.equal(D.compareCounts(live, restored).ok, true);
+  const c = D.compareCounts(live, bad);
   assert.equal(c.ok, false); assert.equal(c.rows.find((r) => r.table === 'users').diff, -1);
   assert.equal(c.rows.find((r) => r.table === 'md_meetings').status, 'n/a');
 });
@@ -109,7 +104,7 @@ test('PG: fresh dump → restore into a disposable database → counts match; th
     const sql = B.openDump(out.dumpFile, { key }).toString('utf8').replace(/^(COPY public\.users[^\n]*\n)1\tu1\n/m, '$1');
     const doctored = path.join(tmp, 'sdp_dashboard_20991231T000000Z.sql'); fs.writeFileSync(doctored, sql);
     const p = B.packDump(doctored, { key });
-    await assert.rejects(() => drill.run({ env, dir: tmp, dumpFile: p.file, reportDir: path.join(tmp, 'reports3'), logEvent: (ev) => logged.push(ev), log: () => {}, actor: 'test' }),
+    await assert.rejects(async () => drill.run({ env, dir: tmp, dumpFile: p.file, reportDir: path.join(tmp, 'reports3'), logEvent: (ev) => logged.push(ev), log: () => {}, actor: 'test' }),
       (e) => /restore drill FAILED: 1 table/.test(e.message) && e.result && e.result.ok === false);
     assert.equal(logged[logged.length - 1].details.ok, false);
   } finally { await dropTestDb(ctx); }

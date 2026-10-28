@@ -1,5 +1,4 @@
 'use strict';
-process.env.INSPECTION_BACKEND = 'sqlite';
 
 // inspection-db.getSiteScoreInputs — the windowed measurements behind 2 of the
 // 6 sbDims dimensions (inspections / findings). The pure core is tested
@@ -66,8 +65,8 @@ test('empty → zeros', () => {
 // and asserts getSiteScoreInputs() returns exactly what the pure core returns
 // for the same rows — so a lost JOIN (findings losing their inspection's date)
 // or a leaked site fails here rather than reading zeros in prod.
-test('getSiteScoreInputs: seeded sqlite DB agrees with the pure core', () => {
-  idb.loadLookups();
+test('getSiteScoreInputs: seeded sqlite DB agrees with the pure core', async () => {
+  (await idb.loadLookups());
   const conn = idb.getDB();
   const insp = conn.prepare(
     'INSERT INTO insp_inspections (id, site_code, inspection_date, status) VALUES (?,?,?,?)');
@@ -75,21 +74,21 @@ test('getSiteScoreInputs: seeded sqlite DB agrees with the pure core', () => {
     'INSERT INTO insp_findings (inspection_id, category, item_index, status) VALUES (?,?,?,?)');
 
   // HGO — 2 in-window inspections, 1 before the window.
-  insp.run('HGO-1', 'HGO', '2026-05-01', 'submitted');
-  insp.run('HGO-2', 'HGO', '2026-06-01', 'submitted');
-  insp.run('HGO-0', 'HGO', '2026-01-01', 'submitted');   // before the window
+  (await insp.run('HGO-1', 'HGO', '2026-05-01', 'submitted'));
+  (await insp.run('HGO-2', 'HGO', '2026-06-01', 'submitted'));
+  (await insp.run('HGO-0', 'HGO', '2026-01-01', 'submitted'));   // before the window
   // Another site → must never leak in.
-  insp.run('MGO-1', 'MGO', '2026-05-01', 'submitted');
+  (await insp.run('MGO-1', 'MGO', '2026-05-01', 'submitted'));
 
-  find.run('HGO-1', 'net', 1, 'critical');   // counted
-  find.run('HGO-1', 'net', 2, 'major');      // counted
-  find.run('HGO-1', 'net', 3, 'minor');      // not counted
-  find.run('HGO-2', 'srv', 1, 'major');      // counted
-  find.run('HGO-2', 'srv', 2, 'ok');         // not counted
-  find.run('HGO-0', 'net', 1, 'critical');   // out of window
-  find.run('MGO-1', 'net', 1, 'critical');   // other site
+  (await find.run('HGO-1', 'net', 1, 'critical'));   // counted
+  (await find.run('HGO-1', 'net', 2, 'major'));      // counted
+  (await find.run('HGO-1', 'net', 3, 'minor'));      // not counted
+  (await find.run('HGO-2', 'srv', 1, 'major'));      // counted
+  (await find.run('HGO-2', 'srv', 2, 'ok'));         // not counted
+  (await find.run('HGO-0', 'net', 1, 'critical'));   // out of window
+  (await find.run('MGO-1', 'net', 1, 'critical'));   // other site
 
-  const got = idb.getSiteScoreInputs('HGO', W.from, W.to);
+  const got = (await idb.getSiteScoreInputs('HGO', W.from, W.to));
 
   // The same rows, hand-mirrored, through the pure core.
   const expected = _computeInspectionScoreInputs({

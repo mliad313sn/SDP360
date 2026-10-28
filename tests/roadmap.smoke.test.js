@@ -7,7 +7,6 @@
 //      requireSuperAdmin to assert GET returns the 4 seeded objectives + the super_admin gate.
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'roadmap-smoke-'));
-process.env.REPORTS_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'roadmap-super';
 process.env.DASH_PASS = process.env.DASH_PASS || 'roadmap-pass-0000';
 
@@ -19,8 +18,8 @@ const express = require('express');
 const rdb = require('../reports-db');
 
 // ── Part A: readers direct ─────────────────────────────────────────────
-test('lazy-seed: a fresh user gets the 4 default objectives (35/25/25/15)', () => {
-  const rm = rdb.getRoadmap(999);
+test('lazy-seed: a fresh user gets the 4 default objectives (35/25/25/15)', async () => {
+  const rm = (await rdb.getRoadmap(999));
   assert.ok(rm && Array.isArray(rm.objectives), 'shape { objectives, deliverables }');
   assert.equal(rm.objectives.length, 4, 'exactly 4 seeded objectives');
   assert.deepEqual(rm.objectives.map((o) => o.weight), [35, 25, 25, 15], 'weights in sort_order');
@@ -32,61 +31,61 @@ test('lazy-seed: a fresh user gets the 4 default objectives (35/25/25/15)', () =
   assert.ok(rm.deliverables.every((d) => ['catalogue', 'platform', 'incidents', 'knowledge'].includes(d.obj_key)), 'every deliverable maps to an objective');
 });
 
-test('lazy-seed is idempotent — second call still returns exactly 4', () => {
-  const rm = rdb.getRoadmap(999);
+test('lazy-seed is idempotent — second call still returns exactly 4', async () => {
+  const rm = (await rdb.getRoadmap(999));
   assert.equal(rm.objectives.length, 4);
 });
 
-test('upsertRoadmapObjective updates an editable field', () => {
-  rdb.upsertRoadmapObjective(999, 'catalogue', { progress_pct: 90, status: 'green' });
-  const rm = rdb.getRoadmap(999);
+test('upsertRoadmapObjective updates an editable field', async () => {
+  (await rdb.upsertRoadmapObjective(999, 'catalogue', { progress_pct: 90, status: 'green' }));
+  const rm = (await rdb.getRoadmap(999));
   const cat = rm.objectives.find((o) => o.obj_key === 'catalogue');
   assert.equal(cat.progress_pct, 90);
 });
 
-test('deliverable add → uid, then update, then user-scoped guards, then delete', () => {
-  const uid = rdb.addRoadmapDeliverable(999, { obj_key: 'catalogue', label: 'Publish adoption metric', delivery_date: '2026-09-30', status: 'open' });
+test('deliverable add → uid, then update, then user-scoped guards, then delete', async () => {
+  const uid = (await rdb.addRoadmapDeliverable(999, { obj_key: 'catalogue', label: 'Publish adoption metric', delivery_date: '2026-09-30', status: 'open' }));
   assert.ok(uid && typeof uid === 'string' && uid.length >= 8, 'server-minted uid');
-  let rm = rdb.getRoadmap(999);
+  let rm = (await rdb.getRoadmap(999));
   const d = rm.deliverables.find((x) => x.uid === uid);
   assert.ok(d, 'deliverable persisted');
   assert.equal(d.label, 'Publish adoption metric');
 
-  rdb.updateRoadmapDeliverable(999, uid, { status: 'executed' });
-  rm = rdb.getRoadmap(999);
+  (await rdb.updateRoadmapDeliverable(999, uid, { status: 'executed' }));
+  rm = (await rdb.getRoadmap(999));
   assert.equal(rm.deliverables.find((x) => x.uid === uid).status, 'executed');
 
   // user-scoped: a different user cannot touch this row.
-  rdb.updateRoadmapDeliverable(888, uid, { status: 'HACKED' });
-  rm = rdb.getRoadmap(999);
+  (await rdb.updateRoadmapDeliverable(888, uid, { status: 'HACKED' }));
+  rm = (await rdb.getRoadmap(999));
   assert.equal(rm.deliverables.find((x) => x.uid === uid).status, 'executed', 'update is user-scoped');
-  rdb.deleteRoadmapDeliverable(888, uid);
-  rm = rdb.getRoadmap(999);
+  (await rdb.deleteRoadmapDeliverable(888, uid));
+  rm = (await rdb.getRoadmap(999));
   assert.ok(rm.deliverables.find((x) => x.uid === uid), 'delete is user-scoped');
 
-  rdb.deleteRoadmapDeliverable(999, uid);
-  rm = rdb.getRoadmap(999);
+  (await rdb.deleteRoadmapDeliverable(999, uid));
+  rm = (await rdb.getRoadmap(999));
   assert.ok(!rm.deliverables.find((x) => x.uid === uid), 'deleted by owner');
 });
 
-test('project tab: lazy-seeds 14 actions + 8 resources, CRUD + user-scoped', () => {
-  const p = rdb.getRoadmapProject(4242);
+test('project tab: lazy-seeds 14 actions + 8 resources, CRUD + user-scoped', async () => {
+  const p = (await rdb.getRoadmapProject(4242));
   assert.equal(p.actions.length, 14, '14 seeded actions');
   assert.equal(p.resources.length, 8, '8 seeded resources');
   assert.equal([...new Set(p.actions.map((a) => a.workstream))].length, 4, '4 workstreams');
   // add → update → user-scoped guard → delete
-  const uid = rdb.addRoadmapAction(4242, { workstream: 'X', label: 'T', status: 'todo', sort_order: 99 });
-  rdb.updateRoadmapAction(4242, uid, { status: 'done' });
-  rdb.updateRoadmapAction(111, uid, { status: 'HACK' });                       // other user must not touch
-  assert.equal(rdb.getRoadmapProject(4242).actions.find((x) => x.uid === uid).status, 'done', 'update user-scoped');
-  rdb.deleteRoadmapAction(111, uid);                                          // other user cannot delete
-  assert.ok(rdb.getRoadmapProject(4242).actions.find((x) => x.uid === uid), 'delete user-scoped');
-  rdb.deleteRoadmapAction(4242, uid);
-  assert.ok(!rdb.getRoadmapProject(4242).actions.find((x) => x.uid === uid), 'deleted by owner');
+  const uid = (await rdb.addRoadmapAction(4242, { workstream: 'X', label: 'T', status: 'todo', sort_order: 99 }));
+  (await rdb.updateRoadmapAction(4242, uid, { status: 'done' }));
+  (await rdb.updateRoadmapAction(111, uid, { status: 'HACK' }));                       // other user must not touch
+  assert.equal((await rdb.getRoadmapProject(4242)).actions.find((x) => x.uid === uid).status, 'done', 'update user-scoped');
+  (await rdb.deleteRoadmapAction(111, uid));                                          // other user cannot delete
+  assert.ok((await rdb.getRoadmapProject(4242)).actions.find((x) => x.uid === uid), 'delete user-scoped');
+  (await rdb.deleteRoadmapAction(4242, uid));
+  assert.ok(!(await rdb.getRoadmapProject(4242)).actions.find((x) => x.uid === uid), 'deleted by owner');
   // resource add/delete
-  const ruid = rdb.addRoadmapResource(4242, { name: 'R', kind: 'Outil', sort_order: 9 });
-  assert.ok(rdb.getRoadmapProject(4242).resources.find((x) => x.uid === ruid), 'resource added');
-  rdb.deleteRoadmapResource(4242, ruid);
+  const ruid = (await rdb.addRoadmapResource(4242, { name: 'R', kind: 'Outil', sort_order: 9 }));
+  assert.ok((await rdb.getRoadmapProject(4242)).resources.find((x) => x.uid === ruid), 'resource added');
+  (await rdb.deleteRoadmapResource(4242, ruid));
 });
 
 // ── Part B: routes with fake middlewares ───────────────────────────────

@@ -22,6 +22,7 @@ assumptions (`AS-`).
 | PO-05 | Site-less `admin` = central IT, all sites (1.11 DEC-04) | Coordinators are `editor` locked to sites since 2026-10-02 | yes |
 | PO-06 | Apply security dependency fixes on the branch with full regression proof; release stays CAB (D-11) | "Resolve present high-severity advisories with regression proof" | yes |
 | PO-07 | Test suite census: every file's test count is reviewed; adding/removing tests needs `--update-manifest` in the same commit | Goal P0-C | yes |
+| PO-08 | **PostgreSQL is the only database** — SQLite removed from code, tests and dependencies (user instruction 2026-10-28: "all must be under PostgreSQL… remove sqlite at all"). Offline mode stays browser-side (service worker + local queue) | Prod has run 100 % PostgreSQL since 2026-07; the sqlite forks were dead code that let the suite pass while the production path was untested | partial: revert the branch commits (no data migration involved) |
 
 ## Human gates (not decided here)
 

@@ -45,7 +45,7 @@ function _siteClause(col, site, params, form) {
 }
 const { inScope: _inScope } = require('./services/userSites');   // multi-site editors: a scope may be a list of codes
 
-const Database = require('better-sqlite3');
+
 const path     = require('path');
 const fs       = require('fs');
 
@@ -62,23 +62,7 @@ const BLOB_MODULE = 'inspection';
 // directory; unset in prod so the default data/ path is unchanged.
 const DATA_DIR  = process.env.SDP_DATA_DIR ? path.resolve(process.env.SDP_DATA_DIR) : path.join(__dirname, 'data');
 const INSPECTION_DB_PATH = path.join(DATA_DIR, 'inspection.db');
-function _ensureDbLocation() {
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  const legacyPath = path.join(__dirname, 'inspection.db');
-  if (fs.existsSync(legacyPath) && !fs.existsSync(INSPECTION_DB_PATH)) {
-    try {
-      fs.renameSync(legacyPath, INSPECTION_DB_PATH);
-      for (const ext of ['-wal', '-shm']) {
-        if (fs.existsSync(legacyPath + ext)) {
-          try { fs.renameSync(legacyPath + ext, INSPECTION_DB_PATH + ext); } catch (e) { /* ignore */ }
-        }
-      }
-      console.log('[Inspection-DB] Migrated inspection.db from root to data/ (one-time)');
-    } catch (e) {
-      console.error('[Inspection-DB] Could not migrate inspection.db to data/:', e.message);
-    }
-  }
-}
+
 
 // ── Site-name → inspection code map ─────────────────────────────────────────
 // Mirrors the structure of tracker-db.js SITE_MAP. Names come from the
@@ -148,26 +132,18 @@ function parseSiteCode(formValue) {
   return null;
 }
 
-// ── DB singleton ────────────────────────────────────────────────────────────
-let _idb = null;
 
-function getDB() {
-  if (!_idb) {
-    _ensureDbLocation();
-    _idb = new Database(INSPECTION_DB_PATH);
-    _idb.pragma('journal_mode = WAL');
-    _idb.pragma('foreign_keys = ON');
-    _initSchema(_idb);
-  }
-  return _idb;
-}
+
+// PostgreSQL is the only database (PO-08): getDB() is the pg handle.
+// PostgreSQL is the only database (PO-08): getDB() is the pg handle.
+function getDB() { return pgHandle(); }
 
 // ── PostgreSQL backend selector + handle (Chunk 3) ──────────────────────────
 // INSPECTION_BACKEND=postgres routes every DB function through an async pg
 // fork; default 'sqlite' is a no-op (existing better-sqlite3 path unchanged).
 // The blobStore (filesystem) + all pure-JS helpers are backend-agnostic and
 // reused verbatim, so the save/load contract is byte-identical across backends.
-const INSPECTION_BACKEND = (process.env.INSPECTION_BACKEND || 'sqlite').toLowerCase();
+const INSPECTION_BACKEND = 'postgres';
 let _pg = null;
 
 // Connect the pool once at boot, apply the schema, and seed lookups on first run.
@@ -227,249 +203,9 @@ async function _seedLookupsPg(H) {
   }
 }
 
-// ── Schema creation & seeding ───────────────────────────────────────────────
-function _initSchema(db) {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS insp_sites (
-      code           TEXT PRIMARY KEY,
-      name_en        TEXT NOT NULL,
-      name_fr        TEXT,
-      country        TEXT,
-      site_type      TEXT DEFAULT 'mine',
-      display_order  INTEGER DEFAULT 0,
-      active         INTEGER DEFAULT 1
-    );
 
-    CREATE TABLE IF NOT EXISTS insp_areas (
-      code           TEXT PRIMARY KEY,
-      name_en        TEXT NOT NULL,
-      name_fr        TEXT,
-      area_group     TEXT,
-      display_order  INTEGER DEFAULT 0,
-      active         INTEGER DEFAULT 1
-    );
 
-    CREATE TABLE IF NOT EXISTS insp_types (
-      code           TEXT PRIMARY KEY,
-      label_en       TEXT NOT NULL,
-      label_fr       TEXT,
-      display_order  INTEGER DEFAULT 0
-    );
 
-    CREATE TABLE IF NOT EXISTS insp_inspections (
-      id                   TEXT PRIMARY KEY,
-      label                TEXT,
-      inspection_date      TEXT,
-      inspection_time      TEXT,
-      inspection_type      TEXT,
-      site_code            TEXT,
-      area_code            TEXT,
-      area_text            TEXT,
-      specific_location    TEXT,
-      inspector_name       TEXT,
-      inspector_role       TEXT,
-      accompanied_by       TEXT,
-      weather              TEXT,
-      last_inspection_date TEXT,
-      scope                TEXT,
-      overall_risk         TEXT,
-      operational_impact   TEXT,
-      key_observations     TEXT,
-      positive_findings    TEXT,
-      distribution         TEXT,
-      state_json           TEXT,
-      status               TEXT DEFAULT 'draft',
-      created_by           INTEGER,
-      created_at           TEXT DEFAULT (datetime('now')),
-      updated_at           TEXT DEFAULT (datetime('now')),
-      submitted_at         TEXT
-    );
-
-    CREATE INDEX IF NOT EXISTS ix_insp_site_date
-      ON insp_inspections(site_code, inspection_date);
-    CREATE INDEX IF NOT EXISTS ix_insp_status
-      ON insp_inspections(status);
-
-    CREATE TABLE IF NOT EXISTS insp_findings (
-      id              INTEGER PRIMARY KEY AUTOINCREMENT,
-      inspection_id   TEXT NOT NULL,
-      category        TEXT NOT NULL,
-      item_index      INTEGER NOT NULL,
-      item_code       TEXT,
-      item_text_en    TEXT,
-      item_text_fr    TEXT,
-      status          TEXT,
-      notes           TEXT,
-      UNIQUE(inspection_id, category, item_index),
-      FOREIGN KEY (inspection_id) REFERENCES insp_inspections(id) ON DELETE CASCADE
-    );
-
-    CREATE INDEX IF NOT EXISTS ix_insp_findings_status
-      ON insp_findings(status);
-
-    CREATE TABLE IF NOT EXISTS insp_actions (
-      id              INTEGER PRIMARY KEY AUTOINCREMENT,
-      inspection_id   TEXT NOT NULL,
-      ord             INTEGER NOT NULL DEFAULT 0,
-      description     TEXT,
-      linked_item     TEXT,
-      priority        TEXT,
-      owner           TEXT,
-      due_date        TEXT,
-      status          TEXT DEFAULT 'Open',
-      notes           TEXT,
-      created_at      TEXT DEFAULT (datetime('now')),
-      updated_at      TEXT DEFAULT (datetime('now')),
-      closed_at       TEXT,
-      FOREIGN KEY (inspection_id) REFERENCES insp_inspections(id) ON DELETE CASCADE
-    );
-
-    CREATE INDEX IF NOT EXISTS ix_insp_actions_inspection
-      ON insp_actions(inspection_id);
-
-    -- Audit trail for corrective-action status changes. Lets the Actions
-    -- Register close/track an action from a flat list (who/when/comment),
-    -- independent of the parent inspection's lifecycle (a corrective action
-    -- routinely outlives a submitted/closed inspection).
-    CREATE TABLE IF NOT EXISTS insp_action_updates (
-      id            INTEGER PRIMARY KEY AUTOINCREMENT,
-      action_id     INTEGER NOT NULL,
-      author_id     INTEGER, author_name TEXT,
-      body          TEXT,
-      status_change TEXT,
-      created_at    TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (action_id) REFERENCES insp_actions(id) ON DELETE CASCADE
-    );
-    CREATE INDEX IF NOT EXISTS ix_insp_action_updates_action
-      ON insp_action_updates(action_id);
-
-    CREATE TABLE IF NOT EXISTS insp_photos (
-      id              INTEGER PRIMARY KEY AUTOINCREMENT,
-      inspection_id   TEXT NOT NULL,
-      finding_key     TEXT,
-      action_id       INTEGER,
-      caption         TEXT,
-      mime_type       TEXT DEFAULT 'image/jpeg',
-      data_b64        TEXT,
-      file_ref        TEXT,
-      size_bytes      INTEGER,
-      created_at      TEXT DEFAULT (datetime('now')),
-      FOREIGN KEY (inspection_id) REFERENCES insp_inspections(id) ON DELETE CASCADE
-    );
-
-    CREATE INDEX IF NOT EXISTS ix_insp_photos_inspection
-      ON insp_photos(inspection_id);
-
-    CREATE TABLE IF NOT EXISTS insp_signatures (
-      inspection_id   TEXT NOT NULL,
-      signer_type     TEXT NOT NULL,
-      signer_name     TEXT,
-      signer_date     TEXT,
-      signature_b64   TEXT,
-      file_ref        TEXT,
-      signed_at       TEXT DEFAULT (datetime('now')),
-      PRIMARY KEY (inspection_id, signer_type),
-      FOREIGN KEY (inspection_id) REFERENCES insp_inspections(id) ON DELETE CASCADE
-    );
-
-    -- ── PALIER 1 — Canonical category catalogue (additive, 2026-06-05) ──
-    -- Until 2026-06-05 the 17 inspection categories existed only in
-    -- inspection-init.json AND in an inline 'const CATEGORIES' in
-    -- inspection.html (documented as a footgun in CLAUDE.md). This
-    -- table makes the catalogue queryable from SQL. NO foreign key is
-    -- added to insp_findings.category for compatibility — that table
-    -- continues to accept any string. Future features can JOIN against
-    -- this catalogue when they need the canonical EN/FR labels.
-    CREATE TABLE IF NOT EXISTS insp_categories (
-      code          TEXT PRIMARY KEY,
-      name_en       TEXT NOT NULL,
-      name_fr       TEXT,
-      icon          TEXT,
-      display_order INTEGER DEFAULT 0,
-      active        INTEGER DEFAULT 1,
-      created_at    TEXT DEFAULT (datetime('now'))
-    );
-  `);
-
-  // Idempotent ALTERs — add file_ref to existing DBs (blobs-on-filesystem).
-  // SQLite has no "ADD COLUMN IF NOT EXISTS"; probe table_info first.
-  const _hasCol = (table, col) =>
-    db.prepare(`PRAGMA table_info(${table})`).all().some(c => c.name === col);
-  if (!_hasCol('insp_photos', 'file_ref'))
-    db.exec('ALTER TABLE insp_photos ADD COLUMN file_ref TEXT');
-  if (!_hasCol('insp_signatures', 'file_ref'))
-    db.exec('ALTER TABLE insp_signatures ADD COLUMN file_ref TEXT');
-
-  // Seed lookup tables on first run only
-  const n = db.prepare('SELECT COUNT(*) AS n FROM insp_sites').get().n;
-  if (n === 0) {
-    console.log('[inspection-db] First run — seeding lookup tables…');
-    _seedLookups(db);
-    console.log('[inspection-db] ✅ Lookups seeded');
-  }
-
-  // ── PALIER 1 — Seed insp_categories independently ─────────────────
-  // Seeded separately because v1 DBs may already have insp_sites
-  // populated (so the seed-gate above won't fire). Idempotent: skips
-  // rows that already exist.
-  try {
-    const catCount = db.prepare('SELECT COUNT(*) AS n FROM insp_categories').get().n;
-    if (catCount === 0 && Array.isArray(INIT.categories)) {
-      const insCat = db.prepare(
-        `INSERT OR IGNORE INTO insp_categories (code, name_en, name_fr, icon, display_order, active)
-         VALUES (?, ?, ?, ?, ?, 1)`
-      );
-      const seed = db.transaction(() => {
-        INIT.categories.forEach((c, i) => insCat.run(
-          c.id || c.code,
-          c.name_en || c.id,
-          c.name_fr || c.name_en || c.id,
-          c.icon || null,
-          c.display_order != null ? c.display_order : i
-        ));
-      });
-      seed();
-      console.log(`[inspection-db] ✅ Seeded ${INIT.categories.length} insp_categories (Palier 1)`);
-    }
-  } catch (e) {
-    console.error('[inspection-db] insp_categories seed failed:', e.message);
-  }
-}
-
-function _seedLookups(db) {
-  const insSite = db.prepare(`
-    INSERT OR REPLACE INTO insp_sites
-      (code, name_en, name_fr, country, site_type, display_order, active)
-    VALUES (?, ?, ?, ?, ?, ?, ?)
-  `);
-  const insArea = db.prepare(`
-    INSERT OR REPLACE INTO insp_areas
-      (code, name_en, name_fr, area_group, display_order, active)
-    VALUES (?, ?, ?, ?, ?, ?)
-  `);
-  const insType = db.prepare(`
-    INSERT OR REPLACE INTO insp_types
-      (code, label_en, label_fr, display_order)
-    VALUES (?, ?, ?, ?)
-  `);
-
-  const seed = db.transaction(() => {
-    (INIT.sites || []).forEach(s => insSite.run(
-      s.code, s.name_en, s.name_fr || s.name_en,
-      s.country || '', s.site_type || 'mine',
-      s.display_order || 0, s.active === 0 ? 0 : 1
-    ));
-    (INIT.areas || []).forEach(a => insArea.run(
-      a.code, a.name_en, a.name_fr || a.name_en,
-      a.area_group || '', a.display_order || 0,
-      a.active === 0 ? 0 : 1
-    ));
-    (INIT.types || []).forEach(t => insType.run(
-      t.code, t.label_en, t.label_fr || t.label_en, t.display_order || 0
-    ));
-  });
-  seed();
-}
 
 // ── Public API ──────────────────────────────────────────────────────────────
 
@@ -486,73 +222,7 @@ function _seedLookups(db) {
  * (which would only happen in isolated unit tests).
  */
 function loadLookups() {
-  if (INSPECTION_BACKEND === 'postgres') return _loadLookupsPg();
-  const db = getDB();
-
-  // ── Canonical site list from reports.db, merged with form metadata ──
-  let sites;
-  try {
-    const rdb = require('./reports-db.js');
-    const canonical = rdb.listSites() || [];
-    if (canonical.length) {
-      const metaByCode = {};
-      (INIT.sites || []).forEach(s => { metaByCode[s.code] = s; });
-
-      sites = canonical.map(cs => {
-        const code = siteNameToCode(cs.name) || cs.name; // fall back to raw name if unmapped
-        const meta = metaByCode[code] || {};
-        return {
-          id:            cs.id,
-          code,
-          name_en:       meta.name_en || cs.name,
-          name_fr:       meta.name_fr || cs.name,
-          country:       meta.country || '',
-          site_type:     meta.site_type || (meta.country ? 'mine' : ''),
-          display_order: meta.display_order || cs.sort_order || 99,
-          zoho_group:    cs.zoho_group || null,
-          source:        'reports-db',
-          active:        cs.active === 0 ? 0 : 1,
-        };
-      });
-
-      // Append inspection-only sites (e.g. "Other") that don't appear in reports.db
-      const seenCodes = new Set(sites.map(s => s.code));
-      (INIT.sites || []).forEach(s => {
-        if (!seenCodes.has(s.code) && s.site_type === 'other') {
-          sites.push({ ...s, source: 'init', active: 1 });
-        }
-      });
-
-      sites.sort((a, b) => (a.display_order || 99) - (b.display_order || 99));
-    }
-  } catch(e) {
-    // reports-db not available — fall through to the static seed
-  }
-
-  if (!sites) {
-    sites = db.prepare(`
-      SELECT code, name_en, name_fr, country, site_type, display_order
-        FROM insp_sites WHERE active = 1 ORDER BY display_order, name_en
-    `).all().map(s => ({ ...s, source: 'init' }));
-  }
-
-  const areas = db.prepare(`
-    SELECT code, name_en, name_fr, area_group, display_order
-      FROM insp_areas WHERE active = 1 ORDER BY display_order, name_en
-  `).all();
-  const types = db.prepare(`
-    SELECT code, label_en, label_fr FROM insp_types ORDER BY display_order
-  `).all();
-
-  return {
-    sites,
-    areas,
-    types,
-    statuses:     INIT.statuses    || [],
-    categories:   INIT.categories  || [],
-    priorityMap:  INIT.priorityMap || {},
-    siteAliases:  INIT.siteAliases || {}
-  };
+  return _loadLookupsPg();
 }
 
 /**
@@ -606,29 +276,7 @@ async function listPeople(opts = {}) {
 
 /** Paginated header list. Filters all optional. */
 function listInspections(opts = {}) {
-  if (INSPECTION_BACKEND === 'postgres') return _listInspectionsPg(opts);
-  const db = getDB();
-  const where  = [];
-  const params = {};
-  if (opts.site)   { where.push(_siteClause('site_code', opts.site, params, 'eq')); }
-  if (opts.from)   { where.push('inspection_date >= @from');              params.from   = opts.from; }
-  if (opts.to)     { where.push('inspection_date <= @to');                params.to     = opts.to; }
-  if (opts.risk)   { where.push("overall_risk LIKE '%' || @risk || '%'"); params.risk   = opts.risk; }
-  if (opts.status) { where.push('status = @status');                      params.status = opts.status; }
-
-  const sql = `
-    SELECT id, label, inspection_date, inspection_time, inspection_type,
-           site_code, area_code, area_text, specific_location,
-           inspector_name, overall_risk, operational_impact,
-           status, created_at, updated_at, submitted_at
-      FROM insp_inspections
-      ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
-      ORDER BY inspection_date DESC, updated_at DESC
-      LIMIT @limit OFFSET @offset
-  `;
-  params.limit  = opts.limit  || 200;
-  params.offset = opts.offset || 0;
-  return db.prepare(sql).all(params);
+  return _listInspectionsPg(opts);
 }
 
 /** Full record including findings / actions / photos / signatures. */
@@ -661,51 +309,7 @@ function _inflateState(state) {
 }
 
 function getInspection(id) {
-  if (INSPECTION_BACKEND === 'postgres') return _getInspectionPg(id);
-  const db = getDB();
-  const header = db.prepare('SELECT * FROM insp_inspections WHERE id = ?').get(id);
-  if (!header) return null;
-
-  // Round-trip safe — return the state blob alongside denormalised fields.
-  let stateBlob = null;
-  try { stateBlob = header.state_json ? JSON.parse(header.state_json) : null; }
-  catch(e) { console.warn('[inspection-db] state_json parse failed for', id, e.message); }
-  stateBlob = _inflateState(stateBlob);
-
-  const findings = db.prepare(`
-    SELECT category, item_index, item_code, item_text_en, item_text_fr, status, notes
-      FROM insp_findings WHERE inspection_id = ?
-      ORDER BY category, item_index
-  `).all(id);
-
-  const actions = db.prepare(`
-    SELECT id, ord, description, linked_item, priority, owner, due_date,
-           status, notes, created_at, updated_at, closed_at
-      FROM insp_actions WHERE inspection_id = ?
-      ORDER BY ord, id
-  `).all(id);
-
-  const photos = db.prepare(`
-    SELECT id, finding_key, action_id, caption, mime_type, data_b64, file_ref, size_bytes
-      FROM insp_photos WHERE inspection_id = ?
-      ORDER BY id
-  `).all(id).map(p => {
-    // Dual-read: prefer the filesystem blob, fall back to legacy inline b64.
-    if (p.file_ref) p.data_b64 = blobStore.getB64(p.file_ref) || p.data_b64 || '';
-    delete p.file_ref;
-    return p;
-  });
-
-  const signatures = db.prepare(`
-    SELECT signer_type, signer_name, signer_date, signature_b64, file_ref, signed_at
-      FROM insp_signatures WHERE inspection_id = ?
-  `).all(id).map(s => {
-    if (s.file_ref) s.signature_b64 = blobStore.getB64(s.file_ref) || s.signature_b64 || '';
-    delete s.file_ref;
-    return s;
-  });
-
-  return { header, findings, actions, photos, signatures, state: stateBlob };
+  return _getInspectionPg(id);
 }
 
 // Move inline base64 photo/signature payloads out of `state` onto the
@@ -750,232 +354,29 @@ function _externalizeBlobs(state, id) {
  * @returns {{id:string, created:boolean}}
  */
 function saveInspection(state, userSiteCode, createdBy) {
-  if (INSPECTION_BACKEND === 'postgres') return _saveInspectionPg(state, userSiteCode, createdBy);
-  if (!state || !state.meta) throw new Error('Missing state.meta');
-  const db   = getDB();
-  const meta = state.meta;
-  const id   = meta.f_id || _genId();
-
-  const siteCode = parseSiteCode(meta.f_site);
-  // RBAC audit 2026-10-02 (lot 4b): a scoped user must name THEIR site (an empty site
-  // used to pass) and may not touch a stored row of another site — the old check only
-  // looked at the incoming site, so reusing another site's f_id overwrote it.
-  if (userSiteCode && !_inScope(siteCode, userSiteCode)) {
-    throw new Error(`Cross-site save blocked: user is scoped to ${userSiteCode}, inspection is for ${siteCode || 'no site'}`);
-  }
-
-  // Externalize photo/signature blobs to the filesystem (mutates `state` so
-  // state_json below stores refs, not multi-MB data: URLs). Done outside the
-  // tx — FS writes are not transactional; orphaned files (if the tx later
-  // fails, or a photo is removed on a re-save) are harmless and cleaned on
-  // deleteInspection.
-  _externalizeBlobs(state, id);
-
-  // Area: store both the structured code (if we can resolve it) and the
-  // free text — early adopters will paste in "Other" / custom strings.
-  const areaText = meta.f_area || '';
-  const areaCode = _resolveAreaCode(db, areaText);
-
-  // Find existing row for upsert decision
-  const existing = db.prepare('SELECT id, site_code FROM insp_inspections WHERE id = ?').get(id);
-  if (userSiteCode && existing && !_inScope(existing.site_code, userSiteCode)) {
-    throw new Error(`Cross-site save blocked: inspection ${id} belongs to ${existing.site_code}`);
-  }
-
-  const tx = db.transaction(() => {
-    if (existing) {
-      db.prepare(`
-        UPDATE insp_inspections SET
-          label = @label,
-          inspection_date = @date,
-          inspection_time = @time,
-          inspection_type = @type,
-          site_code = @siteCode,
-          area_code = @areaCode,
-          area_text = @areaText,
-          specific_location = @loc,
-          inspector_name = @inspector,
-          inspector_role = @role,
-          accompanied_by = @witness,
-          weather = @weather,
-          last_inspection_date = @lastdate,
-          scope = @scope,
-          overall_risk = @risk,
-          operational_impact = @impact,
-          key_observations = @obs,
-          positive_findings = @pos,
-          distribution = @dist,
-          state_json = @stateJson,
-          status = @status,
-          updated_at = datetime('now'),
-          submitted_at = CASE WHEN @status = 'submitted' AND submitted_at IS NULL
-                              THEN datetime('now') ELSE submitted_at END
-        WHERE id = @id
-      `).run(_headerParams(id, meta, siteCode, areaCode, areaText, state));
-    } else {
-      db.prepare(`
-        INSERT INTO insp_inspections
-          (id, label, inspection_date, inspection_time, inspection_type,
-           site_code, area_code, area_text, specific_location,
-           inspector_name, inspector_role, accompanied_by,
-           weather, last_inspection_date, scope,
-           overall_risk, operational_impact,
-           key_observations, positive_findings, distribution,
-           state_json, status, created_by,
-           submitted_at)
-        VALUES
-          (@id, @label, @date, @time, @type,
-           @siteCode, @areaCode, @areaText, @loc,
-           @inspector, @role, @witness,
-           @weather, @lastdate, @scope,
-           @risk, @impact,
-           @obs, @pos, @dist,
-           @stateJson, @status, @createdBy,
-           CASE WHEN @status = 'submitted' THEN datetime('now') ELSE NULL END)
-      `).run({ ..._headerParams(id, meta, siteCode, areaCode, areaText, state), createdBy: createdBy || null });
-    }
-
-    // Findings — wipe + re-insert per save (small payload, atomic via tx)
-    db.prepare('DELETE FROM insp_findings WHERE inspection_id = ?').run(id);
-    const insFind = db.prepare(`
-      INSERT INTO insp_findings
-        (inspection_id, category, item_index, item_code, item_text_en, item_text_fr, status, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    for (const [key, val] of Object.entries(state.items || {})) {
-      if (!val) continue;
-      const [cat, ixStr] = String(key).split('__');
-      const ix = parseInt(ixStr, 10);
-      if (isNaN(ix)) continue;
-      const itemDef  = _findItemDef(cat, ix);
-      const itemCode = `${cat.toUpperCase()}-${String(ix + 1).padStart(2, '0')}`;
-      insFind.run(
-        id, cat, ix, itemCode,
-        itemDef ? itemDef.l  : null,
-        itemDef ? itemDef.fr : null,
-        val.status || null,
-        val.notes  || null
-      );
-    }
-
-    // Actions — wipe + re-insert
-    db.prepare('DELETE FROM insp_actions WHERE inspection_id = ?').run(id);
-    const insAct = db.prepare(`
-      INSERT INTO insp_actions
-        (inspection_id, ord, description, linked_item, priority, owner, due_date, status, notes)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    (state.actions || []).forEach((a, ix) => {
-      insAct.run(
-        id, ix,
-        a.desc || a.description || '',
-        a.link || a.linked_item || '',
-        a.priority || 'Medium',
-        a.owner    || '',
-        a.due      || a.due_date || null,
-        a.status   || 'Open',
-        a.notes    || ''
-      );
-    });
-
-    // Photos — wipe + re-insert. The browser may send each photo as
-    // either:
-    //   • a raw dataUrl string  (legacy shape from the original PWA)
-    //   • { dataUrl, caption, ts, gps, w, h, sizeKB }  (current shape)
-    // Normalise so the DB always sees the latter.
-    // _externalizeBlobs (above, pre-tx) has already moved every photo to the
-    // filesystem and set p.__blob; we store the file_ref (data_b64 stays NULL).
-    // The dataUrl branch is a defensive fallback for any photo that slipped
-    // through un-externalized.
-    db.prepare('DELETE FROM insp_photos WHERE inspection_id = ?').run(id);
-    const insPhoto = db.prepare(`
-      INSERT INTO insp_photos
-        (inspection_id, finding_key, caption, mime_type, data_b64, file_ref, size_bytes)
-      VALUES (?, ?, ?, ?, ?, ?, ?)
-    `);
-    for (const [key, val] of Object.entries(state.items || {})) {
-      if (!val || !Array.isArray(val.photos)) continue;
-      for (const raw of val.photos) {
-        if (!raw) continue;
-        const p = (typeof raw === 'string') ? { dataUrl: raw, caption: '' } : raw;
-        if (p.__blob) {
-          insPhoto.run(id, key, p.caption || '', p.mime || 'image/jpeg', null, p.__blob, p.sizeBytes || null);
-        } else if (p.dataUrl) {
-          const { mime, b64 } = _splitDataUrl(p.dataUrl);
-          insPhoto.run(id, key, p.caption || '', mime, b64, null, b64.length);
-        }
-      }
-    }
-
-    // Signatures — replace both rows
-    db.prepare('DELETE FROM insp_signatures WHERE inspection_id = ?').run(id);
-    const insSig = db.prepare(`
-      INSERT INTO insp_signatures
-        (inspection_id, signer_type, signer_name, signer_date, signature_b64, file_ref)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `);
-    const _runSig = (type, name, date, v) => {
-      if (v && typeof v === 'object' && v.__blob) insSig.run(id, type, name, date, null, v.__blob);
-      else { const { b64 } = _splitDataUrl(v); insSig.run(id, type, name, date, b64, null); }
-    };
-    const sigInsp = state.signatures && state.signatures.sig_inspector;
-    if (sigInsp) _runSig('inspector', meta.sign_insp_name || meta.f_inspector || '', meta.sign_insp_date || null, sigInsp);
-    const sigSite = state.signatures && state.signatures.sig_site;
-    if (sigSite) _runSig('site', meta.sign_site_name || '', meta.sign_site_date || null, sigSite);
-  });
-  tx();
-
-  return { id, created: !existing };
+  return _saveInspectionPg(state, userSiteCode, createdBy);
 }
 
 function deleteInspection(id) {
-  if (INSPECTION_BACKEND === 'postgres') return _deleteInspectionPg(id);
-  const db = getDB();
-  // Snapshot the DB BEFORE the destructive write. Photos + signatures
-  // for an inspection can be 10-30 MB inline; a full DB copy is the
-  // simplest restore mechanism if the deletion turns out to be a
-  // mistake. If the backup throws, the delete never runs.
-  // Backup path is in pm2 logs ([Backup] inspection -> …); we keep
-  // the API returning a boolean for compatibility with existing
-  // route handlers.
-  _backup(db, 'pre-delete-' + String(id || 'unknown').slice(0, 30));
-  const info = db.prepare('DELETE FROM insp_inspections WHERE id = ?').run(id);
-  if (info.changes > 0) {
-    // Remove the filesystem blobs for this inspection (photos + signatures).
-    try { blobStore.removeOwner(BLOB_MODULE, id); } catch (_) {}
-  }
-  return info.changes > 0;
+  return _deleteInspectionPg(id);
 }
 
-// Shared backup wrapper — delegates to db-backup.js so every module
-// produces backups with the same filename convention. Used by every
-// destructive operation in this file (deleteInspection, resetLookups).
-function _backup(db, reason) {
-  const { backupDatabase } = require('./db-backup.js');
-  return backupDatabase(db, 'inspection', reason);
-}
+
 
 // Returns the current status of an inspection row, or null if no such row.
 // Used by the route handler to enforce submission-lock RBAC: an editor
 // cannot modify a submitted/closed record; only admin+ can.
 function getInspectionStatus(id) {
   if (!id) return null;
-  if (INSPECTION_BACKEND === 'postgres') return _getInspectionStatusPg(id);
-  const db  = getDB();
-  const row = db.prepare('SELECT status FROM insp_inspections WHERE id = ?').get(id);
-  return row ? (row.status || 'draft') : null;
+  return _getInspectionStatusPg(id);
 }
 
 // { status, site_code } of an inspection, or null — the route checks a scoped user's
 // site before a delete / single export (RBAC audit 2026-10-02, lot 4b).
 function getInspectionHeader(id) {
   if (!id) return null;
-  if (INSPECTION_BACKEND === 'postgres') {
-    return pgHandle().prepare('SELECT status, site_code FROM insp_inspections WHERE id = ?').get(id)
-      .then(r => (r ? { status: r.status || 'draft', site_code: r.site_code } : null));
-  }
-  const r = getDB().prepare('SELECT status, site_code FROM insp_inspections WHERE id = ?').get(id);
-  return r ? { status: r.status || 'draft', site_code: r.site_code } : null;
+  return pgHandle().prepare('SELECT status, site_code FROM insp_inspections WHERE id = ?').get(id)
+    .then(r => (r ? { status: r.status || 'draft', site_code: r.site_code } : null));
 }
 
 // ── Site score inputs (the user's sbDims model — see the score-alignment plan) ──
@@ -1008,15 +409,7 @@ function _computeInspectionScoreInputs({ inspections, findings }, { from, to }) 
  * via the JOIN.
  */
 function getSiteScoreInputs(siteCode, from, to) {
-  if (INSPECTION_BACKEND === 'postgres') return _getSiteScoreInputsPg(siteCode, from, to);
-  const db = getDB();
-  const inspections = db.prepare(
-    `SELECT inspection_date FROM insp_inspections WHERE site_code = ? COLLATE NOCASE`).all(siteCode);
-  const findings = db.prepare(
-    `SELECT f.status, i.inspection_date
-       FROM insp_findings f JOIN insp_inspections i ON i.id = f.inspection_id
-      WHERE i.site_code = ? COLLATE NOCASE`).all(siteCode);
-  return _computeInspectionScoreInputs({ inspections, findings }, { from, to });
+  return _getSiteScoreInputsPg(siteCode, from, to);
 }
 
 async function _getSiteScoreInputsPg(siteCode, from, to) {
@@ -1038,62 +431,7 @@ async function _getSiteScoreInputsPg(siteCode, from, to) {
 
 /** Roll-up counts for the list page KPI tiles + simple time-series. */
 function aggregate(opts = {}) {
-  if (INSPECTION_BACKEND === 'postgres') return _aggregatePg(opts);
-  const db = getDB();
-  const where  = [];
-  const params = {};
-  if (opts.site) { where.push(_siteClause('i.site_code', opts.site, params, 'eq')); }
-  if (opts.from) { where.push('i.inspection_date >= @from'); params.from = opts.from; }
-  if (opts.to)   { where.push('i.inspection_date <= @to');   params.to   = opts.to; }
-  const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
-
-  const counts = db.prepare(`
-    SELECT COUNT(*) AS total,
-           SUM(CASE WHEN overall_risk LIKE '%Critical%' THEN 1 ELSE 0 END) AS critical_count,
-           SUM(CASE WHEN status = 'draft'     THEN 1 ELSE 0 END) AS draft_count,
-           SUM(CASE WHEN status = 'submitted' THEN 1 ELSE 0 END) AS submitted_count,
-           SUM(CASE WHEN status = 'closed'    THEN 1 ELSE 0 END) AS closed_count,
-           COUNT(DISTINCT site_code) AS sites_covered
-      FROM insp_inspections i ${w}
-  `).get(params);
-
-  const findingStatus = db.prepare(`
-    SELECT f.status, COUNT(*) AS n
-      FROM insp_findings f
-      JOIN insp_inspections i ON i.id = f.inspection_id
-      ${w}
-      GROUP BY f.status
-  `).all(params);
-
-  const actionsOpen = db.prepare(`
-    SELECT COUNT(*) AS n
-      FROM insp_actions a
-      JOIN insp_inspections i ON i.id = a.inspection_id
-      ${w} ${w ? 'AND' : 'WHERE'} a.status != 'Closed' AND a.status != 'Cancelled'
-  `).get(params);
-
-  const overdue = db.prepare(`
-    SELECT COUNT(*) AS n
-      FROM insp_actions a
-      JOIN insp_inspections i ON i.id = a.inspection_id
-      ${w} ${w ? 'AND' : 'WHERE'} a.due_date IS NOT NULL
-            AND a.due_date < date('now')
-            AND a.status != 'Closed' AND a.status != 'Cancelled'
-  `).get(params);
-
-  const monthly = db.prepare(`
-    SELECT substr(inspection_date, 1, 7) AS ym, COUNT(*) AS n
-      FROM insp_inspections i ${w}
-      GROUP BY ym ORDER BY ym
-  `).all(params);
-
-  return {
-    counts,
-    findingStatus,
-    open_actions:    actionsOpen ? actionsOpen.n : 0,
-    overdue_actions: overdue     ? overdue.n     : 0,
-    monthly
-  };
+  return _aggregatePg(opts);
 }
 
 /**
@@ -1104,46 +442,17 @@ function aggregate(opts = {}) {
  * (Site-scoping for editors is enforced at the route layer.)
  */
 function addActionUpdate(actionId, opts = {}) {
-  if (INSPECTION_BACKEND === 'postgres') return _addActionUpdatePg(actionId, opts);
-  const db = getDB();
-  const action = db.prepare('SELECT id, status FROM insp_actions WHERE id = ?').get(actionId);
-  if (!action) throw new Error('Action not found');
-  const tx = db.transaction(() => {
-    db.prepare(`
-      INSERT INTO insp_action_updates (action_id, author_id, author_name, body, status_change)
-      VALUES (?, ?, ?, ?, ?)
-    `).run(actionId, opts.author_id || null, opts.author_name || null, opts.body || null,
-      opts.status_change || null);
-    if (opts.status_change && opts.status_change !== action.status) {
-      const terminal = (opts.status_change === 'Closed' || opts.status_change === 'Cancelled');
-      db.prepare(`
-        UPDATE insp_actions
-          SET status = ?, closed_at = CASE WHEN ? = 1 THEN datetime('now') ELSE closed_at END,
-              updated_at = datetime('now')
-        WHERE id = ?
-      `).run(opts.status_change, terminal ? 1 : 0, actionId);
-    }
-  });
-  tx();
+  return _addActionUpdatePg(actionId, opts);
 }
 
 /** Audit thread for one action (newest first). */
 function listActionUpdates(actionId) {
-  if (INSPECTION_BACKEND === 'postgres')
-    return pgHandle().prepare('SELECT * FROM insp_action_updates WHERE action_id = ? ORDER BY id DESC').all(actionId);
-  return getDB().prepare(
-    'SELECT * FROM insp_action_updates WHERE action_id = ? ORDER BY id DESC'
-  ).all(actionId);
+  return pgHandle().prepare('SELECT * FROM insp_action_updates WHERE action_id = ? ORDER BY id DESC').all(actionId);
 }
 
 /** Parent inspection's site + status for one action (route-layer site scoping). */
 function getActionParent(actionId) {
-  if (INSPECTION_BACKEND === 'postgres') return _getActionParentPg(actionId);
-  return getDB().prepare(`
-    SELECT i.site_code AS site_code, i.status AS inspection_status
-      FROM insp_actions a JOIN insp_inspections i ON i.id = a.inspection_id
-     WHERE a.id = ?
-  `).get(actionId) || null;
+  return _getActionParentPg(actionId);
 }
 async function _getActionParentPg(actionId) {
   return (await pgHandle().prepare(`
@@ -1159,45 +468,7 @@ async function _getActionParentPg(actionId) {
  * overdue, q. Joins the parent inspection for label / site / date / status.
  */
 function listActions(opts = {}) {
-  if (INSPECTION_BACKEND === 'postgres') return _listActionsPg(opts);
-  const db = getDB();
-  const where = [];
-  const params = {};
-  if (opts.site)     { where.push(_siteClause('i.site_code', opts.site, params, 'nocase')); }
-  if (opts.status)   { where.push('a.status = @status');                 params.status = opts.status; }
-  if (opts.priority) { where.push('a.priority = @priority');             params.priority = opts.priority; }
-  if (opts.owner)    { where.push('a.owner LIKE @owner');                params.owner = '%' + opts.owner + '%'; }
-  if (opts.overdue) {
-    where.push("a.due_date IS NOT NULL AND a.due_date < date('now') AND a.status != 'Closed' AND a.status != 'Cancelled'");
-  }
-  if (opts.from)     { where.push('i.inspection_date >= @from'); params.from = opts.from; }
-  if (opts.to)       { where.push('i.inspection_date <= @to');   params.to = opts.to; }
-  if (opts.q) {
-    where.push('(a.description LIKE @q OR a.owner LIKE @q OR a.linked_item LIKE @q)');
-    params.q = '%' + opts.q + '%';
-  }
-  const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
-  const sql = `
-    SELECT
-      a.*,
-      i.label            AS inspection_label,
-      i.site_code        AS site_code,
-      i.area_code        AS area_code,
-      i.inspection_date  AS inspection_date,
-      i.status           AS inspection_status
-    FROM insp_actions a
-    JOIN insp_inspections i ON i.id = a.inspection_id
-    ${w}
-    ORDER BY
-      CASE WHEN a.status IN ('Closed','Cancelled') THEN 1 ELSE 0 END,
-      CASE WHEN a.due_date IS NULL THEN 1 ELSE 0 END,
-      a.due_date ASC,
-      i.inspection_date DESC
-    LIMIT @limit OFFSET @offset
-  `;
-  params.limit = opts.limit || 1000;
-  params.offset = opts.offset || 0;
-  return db.prepare(sql).all(params);
+  return _listActionsPg(opts);
 }
 
 /**
@@ -1209,7 +480,7 @@ function listActions(opts = {}) {
  */
 // opts.site: limit every sheet to one site code (a scoped user's export, lot 4b).
 async function exportRows(opts = {}) {
-  const H = INSPECTION_BACKEND === 'postgres' ? pgHandle() : getDB();
+  const H = (pgHandle());
   const site = opts.site || null;
   const w  = site ? ' WHERE site_code = ?' : '';
   const wi = site ? ' WHERE i.site_code = ?' : '';
@@ -1239,17 +510,7 @@ async function exportRows(opts = {}) {
 }
 
 function resetLookups() {
-  if (INSPECTION_BACKEND === 'postgres') return _resetLookupsPg();
-  const db = getDB();
-  // Backup BEFORE wiping the lookup tables. resetLookups doesn't
-  // touch inspection rows themselves, but losing the site/area/type
-  // lookups would break the form's dropdowns and the dashboard's
-  // filters until the seed re-runs — a backup gives a quick rollback
-  // if the seed file changed in an unexpected way. Backup path is
-  // logged to pm2 — `findstr Backup` to find it.
-  _backup(db, 'pre-reset-lookups');
-  db.exec('DELETE FROM insp_sites; DELETE FROM insp_areas; DELETE FROM insp_types;');
-  _seedLookups(db);
+  return _resetLookupsPg();
 }
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -1288,16 +549,7 @@ function _headerParams(id, meta, siteCode, areaCode, areaText, state) {
   };
 }
 
-function _resolveAreaCode(db, areaText) {
-  if (!areaText) return null;
-  // Exact match on English or French name, case-insensitive
-  const row = db.prepare(`
-    SELECT code FROM insp_areas
-     WHERE LOWER(name_en) = LOWER(@t) OR LOWER(name_fr) = LOWER(@t)
-     LIMIT 1
-  `).get({ t: areaText });
-  return row ? row.code : null;
-}
+
 
 function _findItemDef(catId, ix) {
   const cat = (INIT.categories || []).find(c => c.id === catId);

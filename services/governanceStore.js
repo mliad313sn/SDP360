@@ -3,49 +3,10 @@
 // the decision register (DEC-YYYY-NNN), the RFI register (rfi_requests, created by 016 on pg),
 // and the portfolio (programmes → objectives → projects → milestones → deliverables, risks).
 //
-// PG tables come from db/postgres/reports/018_governance.sql (migrator); sqlite runs SQLITE_DDL.
+// PG tables come from db/postgres/reports/018_governance.sql (migrator).
 // `db` = better-sqlite3 handle or a services/pgDb-shaped { prepare } (prepare().get/all/run async).
 // No business formula here: agenda, minutes, evidence and slippage live in pure services.
 
-const SQLITE_DDL = `
-CREATE TABLE IF NOT EXISTS meeting_cadences (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT UNIQUE NOT NULL, name TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'site_weekly',
-  site_id INTEGER, weekday INTEGER, time_local TEXT, duration_min INTEGER DEFAULT 60, participants TEXT, chair_id INTEGER, secretary_id INTEGER,
-  agenda_template TEXT, active INTEGER NOT NULL DEFAULT 1, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
-CREATE TABLE IF NOT EXISTS meeting_sessions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, cadence_id INTEGER NOT NULL REFERENCES meeting_cadences(id) ON DELETE CASCADE, scheduled_at TEXT NOT NULL,
-  status TEXT NOT NULL DEFAULT 'planned', agenda TEXT, items TEXT, attendees TEXT, notes TEXT, minutes_html TEXT, started_at TEXT, closed_at TEXT,
-  minutes_sent_at TEXT, created_by INTEGER, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
-CREATE TABLE IF NOT EXISTS decisions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, ref TEXT UNIQUE NOT NULL, session_id INTEGER REFERENCES meeting_sessions(id) ON DELETE SET NULL, title TEXT NOT NULL, text TEXT,
-  owner TEXT, due_date TEXT, status TEXT NOT NULL DEFAULT 'open', source_kind TEXT, source_ref TEXT, site_id INTEGER, created_by INTEGER,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, closed_at TEXT);
-CREATE TABLE IF NOT EXISTS session_actions (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, session_id INTEGER NOT NULL REFERENCES meeting_sessions(id) ON DELETE CASCADE, title TEXT NOT NULL, owner TEXT, due_date TEXT,
-  status TEXT NOT NULL DEFAULT 'open', source_kind TEXT, source_ref TEXT, decision_ref TEXT, created_by INTEGER, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, closed_at TEXT);
-CREATE TABLE IF NOT EXISTS rfi_requests (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, ref TEXT UNIQUE, kind TEXT NOT NULL, title TEXT NOT NULL, problem TEXT NOT NULL, proposal TEXT, site_id INTEGER, requester_id INTEGER,
-  impact INTEGER NOT NULL DEFAULT 2, effort INTEGER NOT NULL DEFAULT 2, data_risk INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'submitted', decision TEXT, decided_at TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
-CREATE TABLE IF NOT EXISTS portfolio_programmes (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, key TEXT UNIQUE NOT NULL, name TEXT NOT NULL, sponsor TEXT, description TEXT, status TEXT NOT NULL DEFAULT 'active', created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
-CREATE TABLE IF NOT EXISTS portfolio_objectives (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, programme_id INTEGER NOT NULL REFERENCES portfolio_programmes(id) ON DELETE CASCADE, key TEXT UNIQUE NOT NULL, name TEXT NOT NULL, weight REAL DEFAULT 1,
-  owner TEXT, target_date TEXT, status TEXT NOT NULL DEFAULT 'on_track', confidence TEXT DEFAULT 'medium', progress_pct REAL, evidence_metric TEXT, evidence_target REAL, evidence_hib INTEGER DEFAULT 1,
-  manual_evidence TEXT, sort_order INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
-CREATE TABLE IF NOT EXISTS portfolio_projects (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, objective_id INTEGER NOT NULL REFERENCES portfolio_objectives(id) ON DELETE CASCADE, key TEXT UNIQUE NOT NULL, name TEXT NOT NULL, owner TEXT, site_id INTEGER,
-  start_date TEXT, end_date TEXT, baseline_end TEXT, status TEXT NOT NULL DEFAULT 'planned', confidence TEXT DEFAULT 'medium', progress_pct REAL, budget REAL, spent REAL, currency TEXT DEFAULT 'USD',
-  depends_on TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
-CREATE TABLE IF NOT EXISTS portfolio_milestones (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL REFERENCES portfolio_projects(id) ON DELETE CASCADE, name TEXT NOT NULL, due_date TEXT, baseline_date TEXT, done_at TEXT,
-  status TEXT NOT NULL DEFAULT 'planned', sort_order INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
-CREATE TABLE IF NOT EXISTS portfolio_deliverables (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL REFERENCES portfolio_projects(id) ON DELETE CASCADE, milestone_id INTEGER, name TEXT NOT NULL, owner TEXT, due_date TEXT,
-  status TEXT NOT NULL DEFAULT 'todo', action_kind TEXT, action_ref TEXT, sort_order INTEGER DEFAULT 0, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, closed_at TEXT);
-CREATE TABLE IF NOT EXISTS portfolio_risks (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, project_id INTEGER NOT NULL REFERENCES portfolio_projects(id) ON DELETE CASCADE, title TEXT NOT NULL, probability INTEGER DEFAULT 2, impact INTEGER DEFAULT 2,
-  mitigation TEXT, owner TEXT, status TEXT NOT NULL DEFAULT 'open', incident_ref TEXT, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, closed_at TEXT);`;
 
 const CADENCE_KINDS = ['site_weekly', 'site_monthly', 'group_monthly', 'committee', 'cab', 'custom'];
 const SESSION_STATUSES = ['planned', 'live', 'closed', 'cancelled'];
@@ -63,13 +24,12 @@ const str = (v, max = 4000) => (v == null ? null : String(v).slice(0, max));
 function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOString() } = {}) {
   if (!db) throw new Error('governanceStore needs a db handle');
   const P = (sql) => db.prepare(sql);
-  async function init() { if (!isPg) { db.exec('PRAGMA foreign_keys=ON'); db.exec(SQLITE_DDL); } }
+  async function init() {  }
   /** INSERT returning the new id on both backends. */
   async function insert(table, cols, vals) {
     const sql = `INSERT INTO ${table} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`;
-    const r = await P(sql + (isPg ? ' RETURNING id' : '')).run(...vals);
-    if (isPg) return Number(r && (r.id != null ? r.id : r.lastID != null ? r.lastID : (r.rows && r.rows[0] && r.rows[0].id)));
-    return Number(r.lastInsertRowid);
+    const r = await P(sql + ((' RETURNING id'))).run(...vals);
+    return Number(r && (r.id != null ? r.id : r.lastID != null ? r.lastID : (r.rows && r.rows[0] && r.rows[0].id)));
   }
   async function updateRow(table, id, patch, allowed) {
     const keys = Object.keys(patch || {}).filter(k => allowed.includes(k));
@@ -246,4 +206,4 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     CADENCE_KINDS, SESSION_STATUSES, DECISION_STATUSES, RFI_KINDS, RFI_STATUSES, PROJECT_STATUSES, CONFIDENCE };
 }
 
-module.exports = { makeGovernanceStore, SQLITE_DDL, CADENCE_KINDS, SESSION_STATUSES, DECISION_STATUSES, RFI_KINDS, RFI_STATUSES, PROJECT_STATUSES, CONFIDENCE };
+module.exports = { makeGovernanceStore, CADENCE_KINDS, SESSION_STATUSES, DECISION_STATUSES, RFI_KINDS, RFI_STATUSES, PROJECT_STATUSES, CONFIDENCE };

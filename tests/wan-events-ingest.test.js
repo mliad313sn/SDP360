@@ -7,7 +7,6 @@
 // default seed's real Meraki mappings (Ity/Mana/Hounde/Sabodala) and fan out unexpectedly.
 const _os = require('os'), _fs = require('fs'), _p = require('path');
 process.env.SDP_DATA_DIR = _fs.mkdtempSync(_p.join(_os.tmpdir(), 'wanevt-'));
-process.env.REPORTS_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'wanevt-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'wanevt-pass-0000';
 const { test } = require('node:test');
@@ -16,9 +15,9 @@ const rdb = require('../reports-db');
 const ingester = require('../tools/meraki/sync-wan-events');
 
 // A site + its (unique) Meraki network name, so listSiteMerakiMap() maps the network to a target.
-function seedSite(name, network) {
-  const s = rdb.createSite({ name });
-  rdb.setSiteMerakiCode(s.id, network);
+async function seedSite(name, network) {
+  const s = (await rdb.createSite({ name }));
+  (await rdb.setSiteMerakiCode(s.id, network));
   return s.id;
 }
 
@@ -31,7 +30,7 @@ function fakeClient(networks) {
 const CFG = { meraki_api_key: 'k', meraki_org_id: 'o' }; // sla_wan_config omitted → parsed defaults
 
 test('down+up on a mapped network → one authoritative outage upserted (source=meraki_event, isp)', async () => {
-  const siteId = seedSite('WANEVT Site A', 'WANEVT-NET-A');
+  const siteId = (await seedSite('WANEVT Site A', 'WANEVT-NET-A'));
   const events = {
     N1: [
       { type: 'wan_1_down', occurredAt: '2026-08-10T08:00:00Z', deviceSerial: 'Q2-AA' },
@@ -61,7 +60,7 @@ test('down+up on a mapped network → one authoritative outage upserted (source=
 });
 
 test('a pre-existing open provisional row is reconciled in place (no dup, notified_at preserved)', async () => {
-  const siteId = seedSite('WANEVT Site B', 'WANEVT-NET-B');
+  const siteId = (await seedSite('WANEVT Site B', 'WANEVT-NET-B'));
   // The poller left an OPEN provisional row (source meraki_status) with a notification stamp,
   // detected slightly before the event-log down (within the 60-min tolerance window).
   await rdb.upsertWanOutage({
@@ -97,7 +96,7 @@ test('a pre-existing open provisional row is reconciled in place (no dup, notifi
 });
 
 test('unconfigured (no meraki_api_key) → {skipped:true}, nothing written', async () => {
-  const siteId = seedSite('WANEVT Site C', 'WANEVT-NET-C');
+  const siteId = (await seedSite('WANEVT Site C', 'WANEVT-NET-C'));
   const res = await ingester.main({
     rdb,
     getConfig: async () => ({}),
@@ -113,7 +112,7 @@ test('unconfigured (no meraki_api_key) → {skipped:true}, nothing written', asy
 });
 
 test('a throwing client → {ok:false}, prior rows intact', async () => {
-  const siteId = seedSite('WANEVT Site D', 'WANEVT-NET-D');
+  const siteId = (await seedSite('WANEVT Site D', 'WANEVT-NET-D'));
   // Seed a row that must survive the failed run untouched.
   await rdb.upsertWanOutage({
     site_id: siteId, sub_site: '', uplink: 'wan1', source: 'meraki_status',

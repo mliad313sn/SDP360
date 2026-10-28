@@ -3,10 +3,6 @@
 // Meetings + Inspection actions (to pull into the report as references).
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'impact-'));
-process.env.ASSETS_BACKEND = 'sqlite';
-process.env.REPORTS_BACKEND = 'sqlite';
-process.env.MEETINGS_BACKEND = 'sqlite';
-process.env.INSPECTION_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'impact-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'impact-pass-0000';
 process.env.DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || 'impact-key';
@@ -38,15 +34,15 @@ before(async () => {
   rid = (await rdb.ensureReport(site.site_id, 2026, 40)).id;
 
   const db = mdb.getDB();
-  const m = db.prepare("INSERT INTO md_meetings (reference, site_code, department, meeting_date, status) VALUES ('IMP_Test_2026-07',?,?,?,?)")
-    .run(site.code, 'Technical Services', '2026-07-01', 'signed');
-  db.prepare("INSERT INTO md_actions (meeting_id, description, owner_it, target_date, status) VALUES (?,?,?,?,?)")
-    .run(m.lastInsertRowid, 'Fix VSAT', 'Ousmane', '2026-07-01', 'open');
-  db.prepare("INSERT INTO md_actions (meeting_id, description, status) VALUES (?,?,?)")
-    .run(m.lastInsertRowid, 'Done thing', 'closed'); // excluded
+  const m = (await db.prepare("INSERT INTO md_meetings (reference, site_code, department, meeting_date, status) VALUES ('IMP_Test_2026-07',?,?,?,?)")
+    .run(site.code, 'Technical Services', '2026-07-01', 'signed'));
+  (await db.prepare("INSERT INTO md_actions (meeting_id, description, owner_it, target_date, status) VALUES (?,?,?,?,?)")
+    .run(m.lastID, 'Fix VSAT', 'Ousmane', '2026-07-01', 'open'));
+  (await db.prepare("INSERT INTO md_actions (meeting_id, description, status) VALUES (?,?,?)")
+    .run(m.lastID, 'Done thing', 'closed')); // excluded
 
-  const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
-  rdb.setUserRoles(me.id, ['admin']);
+  const me = ((await rdb.listUsers()) || []).find(u => u.username === process.env.DASH_USER);
+  (await rdb.setUserRoles(me.id, ['admin']));
   token = (await rdb.login(process.env.DASH_USER, process.env.DASH_PASS)).token;
   await new Promise(r => { server = http.createServer(app).listen(0, '127.0.0.1', r); });
   base = `http://127.0.0.1:${server.address().port}`;

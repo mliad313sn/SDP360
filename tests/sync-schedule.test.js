@@ -32,6 +32,6 @@ test('start(): one cron task per job + the staleness sweep; runJob goes through 
   await new Promise((res) => setTimeout(res, 20));
   assert.equal(sent.length, 1, 'e-mail alert after 2 consecutive failures');
   assert.match(sent[0].subject, /zoho\.requests/);
-  await assert.rejects(() => s.runJob('nope'), /unknown job/);
+  await assert.rejects(async () => s.runJob('nope'), /unknown job/);
   schedule._reset();
 });

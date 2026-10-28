@@ -2,13 +2,12 @@
 // Step 6 — dashboard definition store on sqlite: draft → publish (versioned) → retire, seeds never overwrite.
 const test = require('node:test');
 const assert = require('node:assert');
-const Database = require('better-sqlite3');
 const { makeDashboardStore } = require('../services/dashboardStore');
 const { SEED_DASHBOARDS, EXEC_HOME } = require('../services/dashboardSeeds');
 const { SEED } = require('../services/metricRegistry');
 
 const METRICS = SEED.map(m => m.key);
-async function fresh() { const s = makeDashboardStore(new Database(':memory:')); await s.init(); return s; }
+async function fresh() { const s = makeDashboardStore((await require('./_pg-fresh').freshStore(['metric_registry', 'dashboard_definitions', 'dashboard_definition_versions', 'rfi_requests']))); await s.init(); return s; }
 const doc = (over) => ({ key: 'k1', title: 'K1', audience: 'site', grid: { columns: 12 }, widgets: [{ id: 'a', type: 'kpi', metric: 'assets.total', layout: { x: 0, y: 0, w: 3, h: 2 } }], ...over });
 
 test('draft saved, not visible as published until publish; publish numbers versions', async () => {

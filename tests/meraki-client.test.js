@@ -37,7 +37,7 @@ test('orgUplinkStatuses hits the MX appliance uplink path (v1), with org id + ne
 
 test('_get surfaces the failing path + HTTP status on error (404 diagnosis)', async () => {
   const c = makeMerakiClient({ apiKey: 'K', orgId: 'O', get: async () => { const e = new Error('Request failed with status code 404'); e.response = { status: 404 }; throw e; } });
-  await assert.rejects(() => c.orgUplinkStatuses({}), /Meraki GET \/organizations\/O\/appliance\/uplink\/statuses → HTTP 404/);
+  await assert.rejects(async () => c.orgUplinkStatuses({}), /Meraki GET \/organizations\/O\/appliance\/uplink\/statuses → HTTP 404/);
 });
 
 test('orgUplinksLossLatency hits the org devices path', async () => {

@@ -6,8 +6,6 @@ const fetch = require('./_http-fetch');   // core-http shim — undici keep-aliv
 // keeps the loop alive).
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'reconcile-smoke-'));
-process.env.ASSETS_BACKEND = 'sqlite';
-process.env.REPORTS_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'reconcile-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'reconcile-pass-0000';
 process.env.DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || 'reconcile-key';
@@ -33,20 +31,20 @@ before(async () => {
   const adb = require('../assets-db');
 
   // PC-01 est dans SDP, PC-99 non → exactement un ecart attendu.
-  adb.replaceTable('assets',
+  (await adb.replaceTable('assets',
     ['asset_id', 'asset_name', 'site', 'state', 'product_type', 'manufacturer', 'serial_number'],
     [{ asset_id: 'A1', asset_name: 'PC-01', site: 'MANA', state: 'In Use',
-       product_type: 'Workstation', manufacturer: 'Dell', serial_number: 'SN-1' }]);
+       product_type: 'Workstation', manufacturer: 'Dell', serial_number: 'SN-1' }]));
 
-  const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
+  const me = ((await rdb.listUsers()) || []).find(u => u.username === process.env.DASH_USER);
   assert.ok(me, 'seeded admin user exists');
-  rdb.setUserRoles(me.id, ['admin']);
+  (await rdb.setUserRoles(me.id, ['admin']));
   adminToken = (await rdb.login(process.env.DASH_USER, process.env.DASH_PASS)).token;
 
   // full_name est NOT NULL dans le schema users — l'omettre fait echouer le
   // hook avant, et TOUS les tests tombent sur la meme contrainte.
-  rdb.createUser({ username: 'reconcile-viewer', full_name: 'Lecteur Reconciliation',
-    password: 'reconcile-viewer-0000', roles: ['viewer'] });
+  (await rdb.createUser({ username: 'reconcile-viewer', full_name: 'Lecteur Reconciliation',
+    password: 'reconcile-viewer-0000', roles: ['viewer'] }));
   viewerToken = (await rdb.login('reconcile-viewer', 'reconcile-viewer-0000')).token;
 
   await new Promise(r => { server = http.createServer(app).listen(0, '127.0.0.1', r); });

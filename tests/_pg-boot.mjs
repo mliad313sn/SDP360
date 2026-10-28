@@ -8,8 +8,14 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { provisionTestDb, dropTestDb } = require('./pg-helpers.js');
 
+// Only the test-file process itself: children spawned by a test (stubs, CLIs, the
+// node --test parent) inherit NODE_OPTIONS but must not provision a database.
+const IS_TEST_FILE = /[\\/]tests[\\/][^\\/]+\.test\.js$/.test(process.argv[1] || '');
 const MODULES = ['REPORTS', 'TRACKER', 'MEETINGS', 'INSPECTION', 'ASSETS'];
-const ctx = await provisionTestDb();
+if (IS_TEST_FILE) {
+// SDP_TEST_PG_URL points the file at an existing database instead (e.g. a restored prod
+// snapshot for the QA suites) — never provisioned, never dropped.
+const ctx = process.env.SDP_TEST_PG_URL ? { url: process.env.SDP_TEST_PG_URL, keep: true } : await provisionTestDb();
 if (!ctx) throw new Error('[pg-boot] PostgreSQL is required for the test suite (set PG_ADMIN_URL or PG_URL)');
 process.env.PG_URL = ctx.url;
 process.env.DATABASE_URL = ctx.url;
@@ -27,5 +33,6 @@ try {
 } finally { console.log = quiet; }
 
 let dropped = false;
-async function cleanup() { if (dropped) return; dropped = true; try { await dropTestDb(ctx); } catch (_) {} }
+async function cleanup() { if (dropped) return; dropped = true; try { if (!ctx.keep) await dropTestDb(ctx); } catch (_) {} }
 process.once('beforeExit', cleanup);
+}

@@ -2,18 +2,17 @@
 // Step 9 — report store on sqlite: template validation + partial update, runs lifecycle, html omitted from lists, rating stats.
 const { test } = require('node:test');
 const assert = require('node:assert');
-const Database = require('better-sqlite3');
 const { makeReportStore } = require('../services/reportStore');
 const { SEED_TEMPLATES } = require('../services/reportGenerator');
 
-async function fresh() { const s = makeReportStore(new Database(':memory:'), { now: () => '2026-10-19T10:00:00.000Z' }); await s.init(); return s; }
+async function fresh() { const s = makeReportStore((await require('./_pg-fresh').freshStore(['report_templates', 'report_runs'])), { now: () => '2026-10-19T10:00:00.000Z' }); await s.init(); return s; }
 
 test('templates: key/name/dashboard/audience/cadence validation, seed once, partial update keeps other fields, disabled hidden', async () => {
   const s = await fresh();
-  await assert.rejects(() => s.saveTemplate({ key: 'bad key', name: 'x', dashboard_key: 'd' }), /template key/);
-  await assert.rejects(() => s.saveTemplate({ key: 'ok', name: 'x' }), /dashboard_key/);
-  await assert.rejects(() => s.saveTemplate({ key: 'ok', name: 'x', dashboard_key: 'd', audience: 'board' }), /audience must be/);
-  await assert.rejects(() => s.saveTemplate({ key: 'ok', name: 'x', dashboard_key: 'd', cadence: 'daily' }), /bad cadence/);
+  await assert.rejects(async () => s.saveTemplate({ key: 'bad key', name: 'x', dashboard_key: 'd' }), /template key/);
+  await assert.rejects(async () => s.saveTemplate({ key: 'ok', name: 'x' }), /dashboard_key/);
+  await assert.rejects(async () => s.saveTemplate({ key: 'ok', name: 'x', dashboard_key: 'd', audience: 'board' }), /audience must be/);
+  await assert.rejects(async () => s.saveTemplate({ key: 'ok', name: 'x', dashboard_key: 'd', cadence: 'daily' }), /bad cadence/);
   assert.deepEqual(await s.seed(SEED_TEMPLATES), SEED_TEMPLATES.map(t => t.key)); assert.deepEqual(await s.seed(SEED_TEMPLATES), []);
   const t = await s.getTemplate('council-pack'); assert.equal(t.lang, 'fr'); assert.equal(t.ai_enabled, true); assert.deepEqual(t.sections.slice(0, 2), ['headline', 'figures']);
   const u = await s.saveTemplate({ key: 'council-pack', enabled: false }); assert.equal(u.enabled, false); assert.equal(u.name, 'Mine IT Council pack', 'untouched field kept'); assert.equal(u.lang, 'fr');
@@ -25,7 +24,7 @@ test('runs: draft → reviewed (note, rating clamped) → published; publish sta
   const s = await fresh(); await s.seed(SEED_TEMPLATES);
   const run = await s.createRun({ templateKey: 'site-weekly-pack', siteId: 3, windowLabel: '2026-W42', figures: [{ id: 'a', value: 1 }], analysis: { headline: 'h' }, commentary: { text: 'c', source: 'deterministic' }, html: '<html>x</html>', provider: 'deterministic', user: { id: 7 } });
   assert.equal(run.status, 'draft'); assert.equal(run.created_by, 7); assert.deepEqual(run.figures, [{ id: 'a', value: 1 }]); assert.equal(run.html, '<html>x</html>');
-  await assert.rejects(() => s.setStatus(run.id, 'weird'), /bad run status/);
+  await assert.rejects(async () => s.setStatus(run.id, 'weird'), /bad run status/);
   const rv = await s.setStatus(run.id, 'reviewed', { user: { id: 9 }, note: 'fine', rating: 9 }); assert.equal(rv.rating, 5); assert.equal(rv.reviewed_by, 9); assert.equal(rv.review_note, 'fine');
   const pb = await s.setStatus(run.id, 'published'); assert.equal(pb.published_at, '2026-10-19T10:00:00.000Z');
   const l = await s.listRuns({ templateKey: 'site-weekly-pack' }); assert.equal(l.length, 1); assert.equal(l[0].html, undefined); assert.equal(l[0].html_bytes, 14); assert.equal(l[0].figures, undefined);

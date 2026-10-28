@@ -8,8 +8,6 @@ const fetch = require('./_http-fetch');   // core-http shim — undici keep-aliv
 // require against SDP_DATA_DIR. Run with --test-force-exit (top-level cron keeps the loop alive).
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'assets-effort-smoke-'));
-process.env.ASSETS_BACKEND = 'sqlite';
-process.env.REPORTS_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'assets-effort-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'assets-effort-pass-0000';
 process.env.DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || 'assets-effort-key';
@@ -30,7 +28,7 @@ before(async () => {
 
   // Seed a couple of assets so a snapshot has something to aggregate (leaderboard/trend
   // history may still be empty — that's an accepted shape, we only assert 200 + keys).
-  adb.replaceTable('assets',
+  (await adb.replaceTable('assets',
     ['asset_id', 'asset_name', 'site', 'state', 'product_type', 'manufacturer',
      'serial_number', 'months_since_acquisition', 'purchase_cost', 'current_book_value'],
     [
@@ -40,11 +38,11 @@ before(async () => {
       { asset_id: 'A2', asset_name: 'PC-02', site: 'HGO', state: 'In Use',
         product_type: 'Workstation', manufacturer: 'HP', serial_number: 'SN-0002',
         months_since_acquisition: '18', purchase_cost: '820,000.00', current_book_value: '410,000.00' },
-    ]);
+    ]));
 
-  const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
+  const me = ((await rdb.listUsers()) || []).find(u => u.username === process.env.DASH_USER);
   assert.ok(me, 'seeded admin user exists');
-  rdb.setUserRoles(me.id, ['admin']);
+  (await rdb.setUserRoles(me.id, ['admin']));
   const sess = await rdb.login(process.env.DASH_USER, process.env.DASH_PASS);
   assert.ok(sess && sess.token, 'login seeded admin + returned a token');
   adminToken = sess.token;

@@ -42,11 +42,12 @@ test('isSupportedType accepts only coordinator — finance/group are not impleme
 
 // The strongest proof available without SMTP: the guard sits ABOVE every require
 // in main(), so a refused run cannot have composed, resolved, mailed or logged
-// anything — it never even loaded reports-db. Asserting the module stayed out of
+// anything — it never even loaded the mailer. Asserting the module stayed out of
 // require.cache is that proof: reaching ANY send code is impossible without it.
+// (reports-db itself is loaded by the PostgreSQL test boot, so the mailer is the witness.)
 test('main() --type=finance returns without sending — no DB/mailer is even loaded', async () => {
-  const dbPath = require.resolve('../reports-db');
-  assert.ok(!require.cache[dbPath], 'precondition: reports-db not yet loaded by this file');
+  const mailerPath = require.resolve('../services/mailer');
+  assert.ok(!require.cache[mailerPath], 'precondition: mailer not yet loaded by this file');
 
   const argv = process.argv;
   const log = console.log;
@@ -60,8 +61,8 @@ test('main() --type=finance returns without sending — no DB/mailer is even loa
     console.log = log;
   }
 
-  assert.ok(!require.cache[dbPath],
-    'a refused run must not load reports-db — if it did, it reached the send pipeline');
+  assert.ok(!require.cache[mailerPath],
+    'a refused run must not load the mailer — if it did, it reached the send pipeline');
   assert.ok(lines.some(l => /not implemented yet/i.test(l)), `expected a refusal log, got: ${JSON.stringify(lines)}`);
   assert.ok(!lines.some(l => /SENT/.test(l)), 'nothing was sent');
 });
@@ -79,7 +80,7 @@ test('main() --type=group is refused the same way', async () => {
     console.log = log;
   }
   assert.ok(lines.some(l => /type=group not implemented yet/i.test(l)));
-  assert.ok(!require.cache[require.resolve('../reports-db')], 'no DB loaded');
+  assert.ok(!require.cache[require.resolve('../services/mailer')], 'no mailer loaded');
 });
 
 test('confirmed + active → sendable', () => {

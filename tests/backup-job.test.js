@@ -19,8 +19,8 @@ test('planBackup names the file by UTC stamp; prune keeps the newest N', () => {
 test('runBackup: skips without PG_URL, fails loudly on a bad exit or a tiny file, succeeds and prunes', async () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bk-'));
   assert.deepEqual((await runBackup({ dir, env: {} })).skipped, true);
-  await assert.rejects(() => runBackup({ dir, env: { PG_URL: 'x' }, spawn: () => ({ status: 1, stderr: 'pg_dump: boom' }) }), /pg_dump failed/);
-  await assert.rejects(() => runBackup({ dir, env: { PG_URL: 'x' }, spawn: (c, a) => { fs.writeFileSync(a[1], 'tiny'); return { status: 0 }; } }), /suspiciously small/);
+  await assert.rejects(async () => runBackup({ dir, env: { PG_URL: 'x' }, spawn: () => ({ status: 1, stderr: 'pg_dump: boom' }) }), /pg_dump failed/);
+  await assert.rejects(async () => runBackup({ dir, env: { PG_URL: 'x' }, spawn: (c, a) => { fs.writeFileSync(a[1], 'tiny'); return { status: 0 }; } }), /suspiciously small/);
   // E11: a real dump ends with pg_dump's trailer — the stub writes one (a size-only payload is now refused, see backup-encrypt.test.js).
   const DUMP = 'x'.repeat(5000) + '\n-- PostgreSQL database dump complete\n';
   const out = await runBackup({ dir, keep: 1, env: { PG_URL: 'x' }, spawn: (c, a) => { fs.writeFileSync(a[1], DUMP); return { status: 0 }; }, log: () => {} });

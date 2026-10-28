@@ -22,10 +22,11 @@ const U = (n) => `2f1e4c3a-9b7d-4e21-a3f5-0c8d1e2f3a${String(n).padStart(2, '0')
 
 before(async () => {
   const { app } = require('../server');
+  await require('../server').seedStores();
   rdb = require('../reports-db'); idb = require('../inspection-db');
   const tdb = require('../tracker-db');
-  for (let i = 0; i < 60; i++) { if (rdb.db.prepare("SELECT 1 FROM sqlite_master WHERE name='field_outbox'").get() && tdb.getDB().prepare("SELECT 1 FROM sqlite_master WHERE name='tracker_definitions'").get() && rdb.db.prepare("SELECT 1 FROM sqlite_master WHERE name='dashboard_definitions'").get()) break; await new Promise(r => setTimeout(r, 100)); }
-  const sites = rdb.listSites({ includeInactive: true });
+  for (let i = 0; i < 60; i++) { if ((await rdb.db.prepare("SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'field_outbox'").get()) && (await tdb.getDB().prepare("SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'tracker_definitions'").get()) && (await rdb.db.prepare("SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'dashboard_definitions'").get())) break; await new Promise(r => setTimeout(r, 100)); }
+  const sites = (await rdb.listSites({ includeInactive: true }));
   hounde = sites.find((s) => /hounde/i.test(s.name)); const mana = sites.find((s) => /mana/i.test(s.name));
   const mk = async (u, role, roles, site) => { try { await rdb.createUser({ username: u, full_name: u, password: u + 'pass1234', role, roles, site_id: site }); } catch {} return (await rdb.login(u, u + 'pass1234')).token; };
   admin = await mk('fd_admin', 'admin', ['admin']); tech = await mk('fd_tech', 'viewer', ['viewer', 'field-tech'], hounde.id); other = await mk('fd_other', 'editor', ['editor'], mana.id); viewer = await mk('fd_viewer', 'viewer', ['viewer'], hounde.id);

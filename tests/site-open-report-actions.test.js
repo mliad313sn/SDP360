@@ -4,7 +4,6 @@
 // (latest week wins), each carrying its own report_id + week_label.
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'sora-'));
-process.env.REPORTS_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'sora-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'sora-pass-0000';
 

@@ -5,10 +5,6 @@
 // /api/ dash-key gate. Backends pinned sqlite. Run with --test-force-exit.
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'meridian-smoke-'));
-process.env.ASSETS_BACKEND = 'sqlite';
-process.env.REPORTS_BACKEND = 'sqlite';
-process.env.MEETINGS_BACKEND = 'sqlite';
-process.env.INSPECTION_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'meridian-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'meridian-pass-0000';
 process.env.DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || 'meridian-key';
@@ -41,13 +37,13 @@ before(async () => {
   const reportConfig = require('../services/reportConfig');
 
   // Arm the inbound key.
-  reportConfig.setConfig(rdb.db, { meridian_in_key: IN_KEY }, 'test');
+  (await reportConfig.setConfig(rdb.db, { meridian_in_key: IN_KEY }, 'test'));
 
   // Seed one non-closed meetings action for site MGO.
   const db = mdb.getDB();
-  const m = db.prepare("INSERT INTO md_meetings (reference, site_code, department, meeting_date, status) VALUES ('MGO_Mer_2026-07','MGO','Technical Services','2026-07-01','signed')").run();
-  db.prepare("INSERT INTO md_actions (meeting_id, description, owner_it, target_date, status, created_at) VALUES (?,?,?,?,?,?)")
-    .run(m.lastInsertRowid, 'Fix VSAT', 'Ousmane', '2026-07-01', 'open', '2026-06-27T00:00:00Z');
+  const m = (await db.prepare("INSERT INTO md_meetings (reference, site_code, department, meeting_date, status) VALUES ('MGO_Mer_2026-07','MGO','Technical Services','2026-07-01','signed')").run());
+  (await db.prepare("INSERT INTO md_actions (meeting_id, description, owner_it, target_date, status, created_at) VALUES (?,?,?,?,?,?)")
+    .run(m.lastID, 'Fix VSAT', 'Ousmane', '2026-07-01', 'open', '2026-06-27T00:00:00Z'));
 
   await new Promise((r) => { server = http.createServer(app).listen(0, '127.0.0.1', r); });
   base = `http://127.0.0.1:${server.address().port}`;

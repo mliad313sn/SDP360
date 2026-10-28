@@ -6,10 +6,6 @@
 // loop alive).
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'siteact-smoke-'));
-process.env.ASSETS_BACKEND = 'sqlite';
-process.env.REPORTS_BACKEND = 'sqlite';
-process.env.MEETINGS_BACKEND = 'sqlite';
-process.env.INSPECTION_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'siteact-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'siteact-pass-0000';
 process.env.DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || 'siteact-key';
@@ -39,16 +35,16 @@ before(async () => {
 
   // Seed one non-closed meetings action for site MGO (created 2026-06-27).
   const db = mdb.getDB();
-  const m = db.prepare("INSERT INTO md_meetings (reference, site_code, department, meeting_date, status) VALUES ('MGO_Test_2026-07','MGO','Technical Services','2026-07-01','signed')").run();
-  db.prepare("INSERT INTO md_actions (meeting_id, description, owner_it, target_date, status, created_at) VALUES (?,?,?,?,?,?)")
-    .run(m.lastInsertRowid, 'Fix VSAT', 'Ousmane', '2026-07-01', 'open', '2026-06-27T00:00:00Z');
-  const iss = db.prepare("INSERT INTO md_issues (meeting_id, ord, title, category, severity, status) VALUES (?,?,?,?,?,?)")
-    .run(m.lastInsertRowid, 1, 'Wifi atelier instable', 'CN', 'HIGH', 'open');
-  issueId = Number(iss.lastInsertRowid);
+  const m = (await db.prepare("INSERT INTO md_meetings (reference, site_code, department, meeting_date, status) VALUES ('MGO_Test_2026-07','MGO','Technical Services','2026-07-01','signed')").run());
+  (await db.prepare("INSERT INTO md_actions (meeting_id, description, owner_it, target_date, status, created_at) VALUES (?,?,?,?,?,?)")
+    .run(m.lastID, 'Fix VSAT', 'Ousmane', '2026-07-01', 'open', '2026-06-27T00:00:00Z'));
+  const iss = (await db.prepare("INSERT INTO md_issues (meeting_id, ord, title, category, severity, status) VALUES (?,?,?,?,?,?)")
+    .run(m.lastID, 1, 'Wifi atelier instable', 'CN', 'HIGH', 'open'));
+  issueId = Number(iss.lastID);
 
-  const me = (rdb.listUsers() || []).find((u) => u.username === process.env.DASH_USER);
+  const me = ((await rdb.listUsers()) || []).find((u) => u.username === process.env.DASH_USER);
   assert.ok(me, 'seeded admin user exists');
-  rdb.setUserRoles(me.id, ['admin']);
+  (await rdb.setUserRoles(me.id, ['admin']));
   adminToken = (await rdb.login(process.env.DASH_USER, process.env.DASH_PASS)).token;
 
   await new Promise((r) => { server = http.createServer(app).listen(0, '127.0.0.1', r); });

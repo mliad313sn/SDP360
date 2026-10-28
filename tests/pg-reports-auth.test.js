@@ -210,45 +210,9 @@ test('pg SSO (E2): findUserByEntra is oid-first, e-mail fallback restricted, lin
   } finally { try { await rdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
 });
 
-// ── Task 3: copy-reports-auth.js parity ─────────────────────────────────────
-function _makeAuthSqliteFixture() {
-  const Database = require('better-sqlite3');
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'rauth-fix-'));
-  const p = path.join(dir, 'reports.db');
-  const db = new Database(p);
-  db.exec(`
-    CREATE TABLE sites (id INTEGER PRIMARY KEY, name TEXT UNIQUE, zoho_group TEXT, active INTEGER, sort_order INTEGER);
-    CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT UNIQUE, full_name TEXT, password_hash TEXT, salt TEXT, site_id INTEGER, role TEXT, active INTEGER, created_at TEXT);
-    CREATE TABLE user_roles (user_id INTEGER, role TEXT, granted_at TEXT, PRIMARY KEY(user_id,role));
-    CREATE TABLE sessions (token TEXT PRIMARY KEY, user_id INTEGER, expires_at TEXT, created_at TEXT, last_seen TEXT);
-  `);
-  db.prepare(`INSERT INTO sites VALUES (1,'Hounde','Hounde IT Agents',1,0)`).run();
-  db.prepare(`INSERT INTO users VALUES (1,'admin','Admin','hash','salt',1,'admin',1,'2026-06-01 00:00:00')`).run();
-  db.prepare(`INSERT INTO user_roles VALUES (1,'admin','2026-06-01 00:00:00')`).run();
-  db.prepare(`INSERT INTO sessions VALUES ('tok-1',1,'2030-01-01 00:00:00','2026-06-01 00:00:00',NULL)`).run();
-  db.close();
-  return p;
-}
 
-test('copy-reports-auth: reports.db auth → pg parity + FK + sequence advance', async (t) => {
-  const ctx = await provisionTestDb(); if (!ctx) return t.skip('no pg');
-  const { copyReportsAuth } = require('../tools/pg/copy-reports-auth');
-  const src = _makeAuthSqliteFixture();
-  const db = makePgDb(ctx.url); await db.connect();
-  try {
-    const c = await copyReportsAuth(src, db);
-    assert.equal(c.sites, 1); assert.equal(c.users, 1); assert.equal(c.user_roles, 1); assert.equal(c.sessions, 1);
-    // users.site_id FK resolved (LEFT JOIN sites)
-    const u = await db.prepare(`SELECT u.username, s.name AS site_name FROM users u LEFT JOIN sites s ON s.id=u.site_id WHERE u.id=1`).get();
-    assert.equal(u.site_name, 'Hounde');
-    // idempotent re-copy
-    await copyReportsAuth(src, db);
-    assert.equal((await db.prepare(`SELECT count(*)::int n FROM users`).get()).n, 1);
-    // sequence advanced past copied id 1
-    const r = await db.prepare(`INSERT INTO sites (name) VALUES ('Mana')`).run();
-    assert.ok(r.lastID > 1, 'sites identity advanced past copied id, got ' + r.lastID);
-  } finally { await db.close(); await dropTestDb(ctx); fs.rmSync(path.dirname(src), { recursive: true, force: true }); }
-});
+
+
 
 test('pg users: extra sites (multi-site editor) saved, listed, carried by the session', async (t) => {
   const b = await boot(); if (!b) return t.skip('no pg');

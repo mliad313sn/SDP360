@@ -4,10 +4,6 @@
 // the merge. Backends sqlite; --test-force-exit (cron keeps the loop alive).
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'samerge-'));
-process.env.ASSETS_BACKEND = 'sqlite';
-process.env.REPORTS_BACKEND = 'sqlite';
-process.env.MEETINGS_BACKEND = 'sqlite';
-process.env.INSPECTION_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'samerge-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'samerge-pass-0000';
 process.env.DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || 'samerge-key';
@@ -46,8 +42,8 @@ before(async () => {
   uid = (await rdb.getReport(rid)).action_items[0].uid;
   assert.ok(uid, 'action got a uid');
 
-  const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
-  rdb.setUserRoles(me.id, ['admin']);
+  const me = ((await rdb.listUsers()) || []).find(u => u.username === process.env.DASH_USER);
+  (await rdb.setUserRoles(me.id, ['admin']));
   token = (await rdb.login(process.env.DASH_USER, process.env.DASH_PASS)).token;
   await new Promise(res => { server = http.createServer(app).listen(0, '127.0.0.1', res); });
   base = `http://127.0.0.1:${server.address().port}`;

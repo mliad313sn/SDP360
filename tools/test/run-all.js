@@ -34,6 +34,9 @@ const r = spawnSync(process.execPath, [
   ...files,
 ], { cwd: root, stdio: 'inherit', env });
 
+try {   // throwaway PostgreSQL databases from tests/_pg-boot.mjs
+  spawnSync(process.execPath, [path.join(__dirname, 'drop-test-dbs.js')], { cwd: root, stdio: 'inherit', env: process.env });
+} catch (_) {}
 let events = [];
 try { events = parseEvents(fs.readFileSync(evFile, 'utf8')); } catch {}
 try { fs.unlinkSync(evFile); } catch {}

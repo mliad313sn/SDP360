@@ -7,10 +7,6 @@
 // Run with --test-force-exit.
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'wanwin-smoke-'));
-process.env.ASSETS_BACKEND = 'sqlite';
-process.env.REPORTS_BACKEND = 'sqlite';
-process.env.MEETINGS_BACKEND = 'sqlite';
-process.env.INSPECTION_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'wanwin-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'wanwin-pass-0000';
 process.env.DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || 'wanwin-key';
@@ -52,9 +48,9 @@ before(async () => {
   // Arm the poller heartbeat; first-run far in the past so the window start is NOT clamped.
   await reportConfig.setConfig(rdb.db, { wan_poll_last_run: '2026-08-01T00:00:00.000Z', wan_poll_first_run: '2020-01-01T00:00:00.000Z' }, 'test');
 
-  const me = (rdb.listUsers() || []).find((u) => u.username === process.env.DASH_USER);
+  const me = ((await rdb.listUsers()) || []).find((u) => u.username === process.env.DASH_USER);
   assert.ok(me, 'seeded admin user exists');
-  rdb.setUserRoles(me.id, ['admin']);
+  (await rdb.setUserRoles(me.id, ['admin']));
   token = (await rdb.login(process.env.DASH_USER, process.env.DASH_PASS)).token;
 
   await new Promise((resolve) => { const s = http.createServer(app).listen(0, '127.0.0.1', () => { base = 'http://127.0.0.1:' + s.address().port; resolve(); }); });

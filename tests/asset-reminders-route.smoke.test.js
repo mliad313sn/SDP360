@@ -23,12 +23,12 @@ before(async () => {
   rdb = require('../reports-db');
   const adb = require('../assets-db');
   const COLS = ['asset_id', 'asset_name', 'site', 'state', 'user_name', 'department', 'purchase_cost', 'acquisition_date'];
-  adb.replaceTable('assets', COLS, [{ asset_id: 'U1', asset_name: 'U', site: 'Hounde', state: 'In Use', user_name: '', department: '', purchase_cost: '5', acquisition_date: '2024-01-01' }]);
-  adb.recordAssetSightings({});
-  require('../services/reportDirectory').upsertRecipient(rdb.db, 'HGO',
-    { coordinator_email: 'coord@edv-ops.com', coordinator_email_confirmed: 1, active: 1 }, 'seed');
-  const me = rdb.listUsers().find(u => u.username === process.env.DASH_USER);
-  rdb.setUserRoles(me.id, ['super_admin']);
+  (await adb.replaceTable('assets', COLS, [{ asset_id: 'U1', asset_name: 'U', site: 'Hounde', state: 'In Use', user_name: '', department: '', purchase_cost: '5', acquisition_date: '2024-01-01' }]));
+  (await adb.recordAssetSightings({}));
+  (await require('../services/reportDirectory').upsertRecipient(rdb.db, 'HGO',
+    { coordinator_email: 'coord@edv-ops.com', coordinator_email_confirmed: 1, active: 1 }, 'seed'));
+  const me = (await rdb.listUsers()).find(u => u.username === process.env.DASH_USER);
+  (await rdb.setUserRoles(me.id, ['super_admin']));
   tok.super = (await rdb.login(process.env.DASH_USER, process.env.DASH_PASS)).token;
   await rdb.createUser({ username: 'rem-admin', full_name: 'a', password: 'rem-admin-0000', roles: ['admin'] });
   tok.admin = (await rdb.login('rem-admin', 'rem-admin-0000')).token;

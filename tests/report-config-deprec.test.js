@@ -6,11 +6,10 @@
 // depreciation.parseDepreciationConfig at read time.
 const test = require('node:test');
 const assert = require('node:assert');
-const Database = require('better-sqlite3');
 const cfg = require('../services/reportConfig');
 const { DEFAULT_DEPRECIATION_CONFIG, parseDepreciationConfig } = require('../services/depreciation');
 
-function freshDb() { const db = new Database(':memory:'); cfg._initSchema(db); return db; }
+async function freshDb() { return require('./_pg-fresh').fresh(['report_config']); }
 
 test('asset_depreciation_config default is the DEFAULT_DEPRECIATION_CONFIG JSON', () => {
   assert.strictEqual(
@@ -22,10 +21,10 @@ test('asset_depreciation_config default is the DEFAULT_DEPRECIATION_CONFIG JSON'
     DEFAULT_DEPRECIATION_CONFIG);
 });
 
-test('setConfig round-trips a custom asset_depreciation_config', () => {
-  const db = freshDb();
+test('setConfig round-trips a custom asset_depreciation_config', async () => {
+  const db = (await freshDb());
   const custom = { default: { method: 'straight_line', useful_life_months: 36, salvage_pct: 0 }, by_type: {} };
-  cfg.setConfig(db, { asset_depreciation_config: JSON.stringify(custom) }, 'u');
-  const all = cfg.getConfig(db);
+  (await cfg.setConfig(db, { asset_depreciation_config: JSON.stringify(custom) }, 'u'));
+  const all = (await cfg.getConfig(db));
   assert.deepStrictEqual(JSON.parse(all.asset_depreciation_config), custom);
 });

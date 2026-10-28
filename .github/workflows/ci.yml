@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
-      # reports-db refuses first boot without a bootstrap admin; throwaway values for the CI sqlite DBs.
+      # reports-db refuses first boot without a bootstrap admin; throwaway values for the CI test databases.
       DASH_USER: ci-admin
       DASH_PASS: ci-password-0000!
       TZ: UTC

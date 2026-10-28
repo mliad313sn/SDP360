@@ -30,8 +30,8 @@ const load = (t) => fetch(base + '/api/tracker/load', { headers: H(t) });
 before(async () => {
   const { app } = require('../server');
   rdb = require('../reports-db');
-  if (!rdb.listSites().some(s => s.name === 'Hounde')) rdb.createSite({ name: 'Hounde', zoho_group: 'Hounde IT Agents' });
-  const hounde = rdb.listSites().find(s => s.name === 'Hounde');
+  if (!(await rdb.listSites()).some(s => s.name === 'Hounde')) (await rdb.createSite({ name: 'Hounde', zoho_group: 'Hounde IT Agents' }));
+  const hounde = (await rdb.listSites()).find(s => s.name === 'Hounde');
   const mk = async (username, roles, site_id) => {
     await rdb.createUser({ username, full_name: username, password: username + '-0000', roles, site_id });
     return (await rdb.login(username, username + '-0000')).token;

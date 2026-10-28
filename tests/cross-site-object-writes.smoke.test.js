@@ -26,12 +26,12 @@ const del = (p, t) => fetch(base + p, { method: 'DELETE', headers: H(t) });
 before(async () => {
   const { app } = require('../server');
   const rdb = require('../reports-db');
-  const A = (rdb.listSites() || []).find((s) => s.name === 'Hounde');
+  const A = ((await rdb.listSites()) || []).find((s) => s.name === 'Hounde');
   assert.ok(A, 'seeded site Hounde');
-  const me = (rdb.listUsers() || []).find((u) => u.username === process.env.DASH_USER);
-  rdb.setUserRoles(me.id, ['super_admin']);
+  const me = ((await rdb.listUsers()) || []).find((u) => u.username === process.env.DASH_USER);
+  (await rdb.setUserRoles(me.id, ['super_admin']));
   superTok = (await rdb.login(process.env.DASH_USER, process.env.DASH_PASS)).token;
-  rdb.createUser({ username: 'xs-editor', full_name: 'Site A editor', password: 'xs-editor-0000', roles: ['editor'], site_id: A.id });
+  (await rdb.createUser({ username: 'xs-editor', full_name: 'Site A editor', password: 'xs-editor-0000', roles: ['editor'], site_id: A.id }));
   edTok = (await rdb.login('xs-editor', 'xs-editor-0000')).token;
   await new Promise((r) => { server = http.createServer(app).listen(0, '127.0.0.1', r); });
   base = `http://127.0.0.1:${server.address().port}`;

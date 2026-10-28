@@ -3,7 +3,6 @@
 // resolved by site NAME (not probe). Fresh sqlite DB seeds DEFAULT_SITES + the map.
 const _os = require('os'), _fs = require('fs'), _p = require('path');
 process.env.SDP_DATA_DIR = _fs.mkdtempSync(_p.join(_os.tmpdir(), 'mrkseed-'));
-process.env.REPORTS_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'mrkseed-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'mrkseed-pass-0000';
 const { test } = require('node:test');

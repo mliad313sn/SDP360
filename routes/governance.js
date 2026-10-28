@@ -28,9 +28,9 @@ const PE = require('../services/portfolioEvidence');
 
 function createStore(rdbMod, { log = console.log } = {}) {
   const pg = rdbMod.REPORTS_BACKEND === 'postgres';
-  const st = require('../services/governanceStore').makeGovernanceStore(pg ? { prepare: (sql) => rdbMod.pgHandle().prepare(sql) } : rdbMod.db, { isPg: pg });
-  if (!pg) st.init();
-  st.initAtBoot = async () => { if (pg) await st.init(); return []; };
+  const st = require('../services/governanceStore').makeGovernanceStore(({ prepare: (sql) => rdbMod.pgHandle().prepare(sql) }), { isPg: pg });
+  
+  st.initAtBoot = async () => { await st.init(); return []; };
   return st;
 }
 
@@ -76,7 +76,7 @@ module.exports = function governanceRoutes(deps) {
         const list = []; for (const g of ['meetings', 'incubation', 'inspection', 'report']) for (const it of (sa.groups[g] && sa.groups[g].items) || []) if (it.overdue) list.push({ source: g, title: it.task || it.description || it.title, owner: it.owner, due_date: it.target_date || it.due_date, age_days: it.age_days });
         out.actions = { open: sa.totals.open, overdue: list.length, list: list.sort((a, b) => (b.age_days || 0) - (a.age_days || 0)).slice(0, 15) };
       }
-    } catch (e) { out.actions.error = 'internal_error'; out.actions.correlation_id = logError(e, req); }
+    } catch (e) { out.actions.error = 'internal_error'; out.actions.correlation_id = logError(e); }
     try { const groups = String(site.zoho_group || '').split(',').map(x => x.trim()).filter(Boolean); out.incidents = groups.length ? (await rdb().getActiveMajorIncidentsForSite(groups)) || [] : []; } catch (e) { out.incidents = []; }
     return out;
   }

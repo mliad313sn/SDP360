@@ -9,8 +9,6 @@ const fetch = require('./_http-fetch');   // core-http shim — undici keep-aliv
 // Backends pinned to sqlite. Run with --test-force-exit (top-level cron keeps the loop alive).
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'assets-deprec-smoke-'));
-process.env.ASSETS_BACKEND = 'sqlite';
-process.env.REPORTS_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'assets-deprec-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'assets-deprec-pass-0000';
 process.env.DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || 'assets-deprec-key';
@@ -38,11 +36,11 @@ before(async () => {
 
   // Pin the conversion rate in config so the assertion is deterministic (also proves
   // the route reads config, not a hardcoded constant).
-  reportConfig.setConfig(rdb.db, { xof_usd_rate: String(RATE) }, 'smoke');
+  (await reportConfig.setConfig(rdb.db, { xof_usd_rate: String(RATE) }, 'smoke'));
 
   // Seed finance-bearing, depreciable assets (purchase_cost RAW XOF, acquisition_date
   // in the past so the book value has genuinely depreciated). USD is derived ×rate.
-  adb.replaceTable('assets',
+  (await adb.replaceTable('assets',
     ['asset_id', 'asset_name', 'site', 'state', 'product_type',
      'purchase_cost', 'current_book_value', 'acquisition_date'],
     [
@@ -52,11 +50,11 @@ before(async () => {
       { asset_id: 'D2', asset_name: 'PC-DEP-02', site: 'HGO', state: 'In Use',
         product_type: 'Server', purchase_cost: '500,000.00',
         current_book_value: '250,000.00', acquisition_date: '2022-06-01' },
-    ]);
+    ]));
 
-  const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
+  const me = ((await rdb.listUsers()) || []).find(u => u.username === process.env.DASH_USER);
   assert.ok(me, 'seeded admin user exists');
-  rdb.setUserRoles(me.id, ['super_admin']);   // the routes under test are super_admin-gated (admin settings → super_admin since 5e2f40e / 2026-08-16; IT Review → executive since 7162ac7)
+  (await rdb.setUserRoles(me.id, ['super_admin']));   // the routes under test are super_admin-gated (admin settings → super_admin since 5e2f40e / 2026-08-16; IT Review → executive since 7162ac7)
   const sess = await rdb.login(process.env.DASH_USER, process.env.DASH_PASS);
   assert.ok(sess && sess.token, 'login seeded admin + returned a token');
   adminToken = sess.token;

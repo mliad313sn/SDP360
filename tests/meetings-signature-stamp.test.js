@@ -16,7 +16,6 @@ const os   = require('os');
 const path = require('path');
 
 process.env.SDP_DATA_DIR   = fs.mkdtempSync(path.join(os.tmpdir(), 'sdp-mtg-sig-'));
-process.env.MEETINGS_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'smoke-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'smoke-pass-0000';
 
@@ -48,12 +47,12 @@ function header(dept, extra) {
   };
 }
 
-before(() => { mdb.loadLookups(); });
+before(async () => { (await mdb.loadLookups()); });
 
 for (const field of ['dept_head_signed_at', 'site_it_signed_at']) {
-  test(`${field}: a bogus client clock is REPLACED by the server timestamp`, () => {
-    const r = mdb.saveMeeting({ header: header(`${field}-replace`, { [field]: BOGUS_1 }) }, null, 1);
-    const rec = mdb.getMeeting(r.id);
+  test(`${field}: a bogus client clock is REPLACED by the server timestamp`, async () => {
+    const r = (await mdb.saveMeeting({ header: header(`${field}-replace`, { [field]: BOGUS_1 }) }, null, 1));
+    const rec = (await mdb.getMeeting(r.id));
 
     assert.notStrictEqual(rec.header[field], BOGUS_1,
       `${field}: the client-supplied clock was stored verbatim — the server must stamp it`);
@@ -62,23 +61,23 @@ for (const field of ['dept_head_signed_at', 'site_it_signed_at']) {
 
   test(`${field}: a re-save does NOT rewrite an existing signature`, async () => {
     const dept = `${field}-immutable`;
-    const r = mdb.saveMeeting({ header: header(dept, { [field]: BOGUS_1 }) }, null, 1);
-    const first = mdb.getMeeting(r.id).header[field];
+    const r = (await mdb.saveMeeting({ header: header(dept, { [field]: BOGUS_1 }) }, null, 1));
+    const first = (await mdb.getMeeting(r.id)).header[field];
     assertServerNow(first, field);
 
     // Let the clock move so a rewrite would be visible.
     await new Promise(res => setTimeout(res, 1100));
 
-    mdb.saveMeeting({ id: r.id, header: header(dept, { [field]: BOGUS_2 }) }, null, 1);
-    const second = mdb.getMeeting(r.id).header[field];
+    (await mdb.saveMeeting({ id: r.id, header: header(dept, { [field]: BOGUS_2 }) }, null, 1));
+    const second = (await mdb.getMeeting(r.id)).header[field];
 
     assert.strictEqual(second, first,
       `${field}: an existing signature was overwritten — COALESCE first-write-wins is broken`);
   });
 
-  test(`${field}: never stamped stays null`, () => {
-    const r = mdb.saveMeeting({ header: header(`${field}-unstamped`, { [field]: null }) }, null, 1);
-    const rec = mdb.getMeeting(r.id);
+  test(`${field}: never stamped stays null`, async () => {
+    const r = (await mdb.saveMeeting({ header: header(`${field}-unstamped`, { [field]: null }) }, null, 1));
+    const rec = (await mdb.getMeeting(r.id));
     assert.strictEqual(rec.header[field] || null, null,
       `${field}: an unstamped signature must stay null, got ${JSON.stringify(rec.header[field])}`);
   });

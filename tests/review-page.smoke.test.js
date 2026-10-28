@@ -11,12 +11,9 @@ const fetch = require('./_http-fetch');   // core-http shim — undici keep-aliv
 // overrides an already-set process.env var) — otherwise a dev box whose .env pins
 // *_BACKEND=postgres drags this harness onto the uninitialised PG adapter.
 const _os = require('os'), _fs = require('fs'), _path = require('path');
-process.env.REPORTS_BACKEND = 'sqlite';
-process.env.MEETINGS_BACKEND = 'sqlite';
 // ⚠️ loadReviewData reads BOTH the meetings AND inspection handles
 // (services/reviewData.js:114-115) — without this pin the inspection side hits
 // the un-inited pg adapter and every review-data request 500s.
-process.env.INSPECTION_BACKEND = 'sqlite';
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'review-smoke-'));
 process.env.DASH_USER = process.env.DASH_USER || 'review-smoke-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'review-smoke-pass-0000';
@@ -35,9 +32,9 @@ let server, base, adminToken;
 before(async () => {
   const { app } = require('../server');        // start() guarded → no port bind
   const rdb = require('../reports-db');
-  const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
+  const me = ((await rdb.listUsers()) || []).find(u => u.username === process.env.DASH_USER);
   assert.ok(me, 'seeded admin user exists');
-  rdb.setUserRoles(me.id, ['executive']);   // the routes under test are executive-gated (admin settings → super_admin since 5e2f40e / 2026-08-16; IT Review → executive since 7162ac7)
+  (await rdb.setUserRoles(me.id, ['executive']));   // the routes under test are executive-gated (admin settings → super_admin since 5e2f40e / 2026-08-16; IT Review → executive since 7162ac7)
   const sess = await rdb.login(process.env.DASH_USER, process.env.DASH_PASS);
   assert.ok(sess && sess.token, 'login seeded admin + returned a token');
   adminToken = sess.token;

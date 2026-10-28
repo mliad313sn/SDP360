@@ -1,7 +1,9 @@
 // tests/assets-hygiene-readers.test.js  — seeds sqlite directly, then reads the
 // six hygiene exception kinds + the completeness summary (Task 0, sub-project B).
 'use strict';
-process.env.ASSETS_BACKEND = 'sqlite';
+// Top-level async setup, run IN ORDER before the first test (PostgreSQL-only conversion, PO-08).
+const __bootChain = (() => { let p = Promise.resolve(), hooked = false;
+  return (fn) => { p = p.then(fn); if (!hooked) { hooked = true; require('node:test').beforeEach(() => p); } }; })();
 const test = require('node:test');
 const assert = require('node:assert');
 const os = require('node:os'), path = require('node:path'), fs = require('node:fs');
@@ -36,38 +38,38 @@ const rows = [
   { ...base, asset_id: 'R10', asset_name: 'Asset R10', site: 'ABJ', barcode: 'SN-123', asset_tag: '' },         // QR generated (barcode = service tag) → EXCLUDED
   { ...base, asset_id: 'R11', asset_name: 'Asset R11', site: 'ABJ', state: 'In Repair' },                      // lifecycle_exception
 ];
-adb.replaceTable('assets', cols, rows);
+__bootChain(async () => { (await adb.replaceTable('assets', cols, rows)); });
 
-test('by_kind counts match the hand-computed seed', () => {
-  const bk = adb.getHygieneSummary({}).by_kind;
+test('by_kind counts match the hand-computed seed', async () => {
+  const bk = (await adb.getHygieneSummary({})).by_kind;
   assert.strictEqual(bk.discovered, 1, 'R2');
   assert.strictEqual(bk.never_scanned, 3, 'R3 + R4 + R8');
   assert.strictEqual(bk.ghost, 1, 'R5');
   assert.strictEqual(bk.no_owner, 1, 'R7');
   assert.strictEqual(bk.no_age, 1, 'R7');
   assert.strictEqual(bk.no_cost, 1, 'R6');
-  assert.strictEqual(adb.getHygieneSummary({}).total, 11);
+  assert.strictEqual((await adb.getHygieneSummary({})).total, 11);
 });
 
-test('Task 4 — no_asset_tag counts the untagged row and NOT the tagged one', () => {
-  const bk = adb.getHygieneSummary({}).by_kind;
+test('Task 4 — no_asset_tag counts the untagged row and NOT the tagged one', async () => {
+  const bk = (await adb.getHygieneSummary({})).by_kind;
   assert.strictEqual(bk.no_asset_tag, 1, 'R9 only (R10 and the other rows carry a Barcode / QR code)');
-  const ids = adb.getHygieneExceptions('no_asset_tag', {}).map(r => r.asset_id);
+  const ids = (await adb.getHygieneExceptions('no_asset_tag', {})).map(r => r.asset_id);
   assert.deepStrictEqual(ids, ['R9'], 'exception rows = R9 only');
   assert.ok(!ids.includes('R10'), 'the row with a QR code is excluded');
 });
 
-test('Task 4 — lifecycle_exception counts the In-Repair row', () => {
-  const bk = adb.getHygieneSummary({}).by_kind;
+test('Task 4 — lifecycle_exception counts the In-Repair row', async () => {
+  const bk = (await adb.getHygieneSummary({})).by_kind;
   assert.strictEqual(bk.lifecycle_exception, 1, 'R11');
-  const rows = adb.getHygieneExceptions('lifecycle_exception', {});
+  const rows = (await adb.getHygieneExceptions('lifecycle_exception', {}));
   assert.deepStrictEqual(rows.map(r => r.asset_id), ['R11'], 'exception row = R11 (In Repair)');
 });
 
-test('Task 4 — completeness (by_site) is UNCHANGED by the two new kinds', () => {
+test('Task 4 — completeness (by_site) is UNCHANGED by the two new kinds', async () => {
   // The new kinds are NOT in _PRESENT_SELECT, and the ABJ rows are present-on-everything,
   // so the pinned MANA/HGO/SGO completeness numbers below stay exactly as sub-project B shipped.
-  const bySite = adb.getHygieneSummary({}).by_site;
+  const bySite = (await adb.getHygieneSummary({})).by_site;
   const bs = Object.fromEntries(bySite.map(s => [s.site, s]));
   assert.strictEqual(bs.MANA.completeness, 75);
   assert.strictEqual(bs.HGO.completeness, 87.5);
@@ -75,8 +77,8 @@ test('Task 4 — completeness (by_site) is UNCHANGED by the two new kinds', () =
   assert.strictEqual(bs.ABJ.completeness, 100);   // the 3 new rows are all clean
 });
 
-test('ghost === over90 on ALL data — single-sourced NOT(never_scanned) AND >90d', () => {
-  const s = adb.getHygieneSummary({});
+test('ghost === over90 on ALL data — single-sourced NOT(never_scanned) AND >90d', async () => {
+  const s = (await adb.getHygieneSummary({}));
   // by_kind.ghost (a COUNT over ghost.where) and scan_freshness.over90 (a SUM in the
   // freshness SELECT) are now the SAME expression, so they reconcile on every dataset —
   // including the contradictory R8, which lands in never_scanned and in NEITHER of these.
@@ -84,41 +86,41 @@ test('ghost === over90 on ALL data — single-sourced NOT(never_scanned) AND >90
   assert.strictEqual(s.by_kind.ghost, 1, 'R5 only');
 });
 
-test('contradictory row (Success + blank success-time + >90d) is never_scanned ONLY', () => {
-  const never = adb.getHygieneExceptions('never_scanned', {}).map(r => r.asset_id);
-  const ghost = adb.getHygieneExceptions('ghost', {}).map(r => r.asset_id);
+test('contradictory row (Success + blank success-time + >90d) is never_scanned ONLY', async () => {
+  const never = (await adb.getHygieneExceptions('never_scanned', {})).map(r => r.asset_id);
+  const ghost = (await adb.getHygieneExceptions('ghost', {})).map(r => r.asset_id);
   assert.ok(never.includes('R8'), 'R8 lands in never_scanned (blank success-time wins)');
   assert.ok(!ghost.includes('R8'), 'R8 is NOT double-listed in ghost');
 });
 
-test('ghost and never_scanned are DISJOINT by construction (R4 proves it)', () => {
-  const ghost = adb.getHygieneExceptions('ghost', {});
+test('ghost and never_scanned are DISJOINT by construction (R4 proves it)', async () => {
+  const ghost = (await adb.getHygieneExceptions('ghost', {}));
   assert.deepStrictEqual(ghost.map(r => r.asset_id), ['R5'], 'ghost is R5 only — NOT R3/R4');
 
-  const never = adb.getHygieneExceptions('never_scanned', {}).map(r => r.asset_id);
+  const never = (await adb.getHygieneExceptions('never_scanned', {})).map(r => r.asset_id);
   assert.ok(never.includes('R3') && never.includes('R4'), 'never_scanned holds R3 AND the stale-failing R4');
   assert.ok(!never.includes('R5'), 'the healthy-but-stale R5 is ghost, never never_scanned');
   // R4 is failing AND >90d — it lands in never_scanned, NEVER in ghost.
   assert.ok(!ghost.map(r => r.asset_id).includes('R4'));
 });
 
-test('no_cost fires on 0.00 via IN (…), not IS NULL', () => {
-  const nc = adb.getHygieneExceptions('no_cost', {});
+test('no_cost fires on 0.00 via IN (…), not IS NULL', async () => {
+  const nc = (await adb.getHygieneExceptions('no_cost', {}));
   assert.deepStrictEqual(nc.map(r => r.asset_id), ['R6']);
 });
 
-test('an unknown kind throws — never a silent empty', () => {
-  assert.throws(() => adb.getHygieneExceptions('nonsense', {}), /unknown/i);
+test('an unknown kind throws — never a silent empty', async () => {
+  await assert.rejects(async () => (await adb.getHygieneExceptions('nonsense', {})), /unknown/i);
 });
 
-test('exception rows never carry a cost amount', () => {
-  for (const r of adb.getHygieneExceptions('never_scanned', {})) {
+test('exception rows never carry a cost amount', async () => {
+  for (const r of (await adb.getHygieneExceptions('never_scanned', {}))) {
     assert.ok(!('purchase_cost' in r), 'no money in the hygiene worklist');
   }
 });
 
-test('by_site completeness — mixed site is the computed mean, present attribute reads 100', () => {
-  const bySite = adb.getHygieneSummary({}).by_site;
+test('by_site completeness — mixed site is the computed mean, present attribute reads 100', async () => {
+  const bySite = (await adb.getHygieneSummary({})).by_site;
   const bs = Object.fromEntries(bySite.map(s => [s.site, s]));
 
   assert.strictEqual(bs.MANA.total, 3);
@@ -135,8 +137,8 @@ test('by_site completeness — mixed site is the computed mean, present attribut
   assert.strictEqual(bs.SGO.cost_pct, 50);          // R6 is 0.00
 });
 
-test('M-4 reconciliation — Σ_site(present) + by_kind[gap] === total, per gap kind', () => {
-  const s = adb.getHygieneSummary({});
+test('M-4 reconciliation — Σ_site(present) + by_kind[gap] === total, per gap kind', async () => {
+  const s = (await adb.getHygieneSummary({}));
   const sum = (k) => s.by_site.reduce((a, r) => a + r[k], 0);
   // present-count per attribute is derived independently from the by_kind COUNT,
   // so equality here proves the two SQL paths agree (not a tautology).
@@ -146,8 +148,8 @@ test('M-4 reconciliation — Σ_site(present) + by_kind[gap] === total, per gap 
   assert.strictEqual(s.by_kind.never_scanned, s.total - sum('scan_present'));
 });
 
-test('a site filter narrows the whole summary', () => {
-  const s = adb.getHygieneSummary({ site: 'MANA' });
+test('a site filter narrows the whole summary', async () => {
+  const s = (await adb.getHygieneSummary({ site: 'MANA' }));
   assert.strictEqual(s.total, 3);
   assert.strictEqual(s.by_site.length, 1);
   assert.strictEqual(s.by_site[0].site, 'MANA');

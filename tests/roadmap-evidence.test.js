@@ -3,10 +3,9 @@
 //   (a) pure composer `platformEvidence` — CMDB completeness = mean over 4 gaps, null-not-zero
 //       when hygiene.total is 0, missing kind → 0 gap (attribute 100%), sdp_total passthrough.
 //   (b) glue `loadPlatformEvidence` with injected stub deps — awaits the 3 readers, composes.
-//   (c) reader `getAssetCountsByType` against a temp sqlite (SDP_DATA_DIR + ASSETS_BACKEND=sqlite).
+//   (c) reader `getAssetCountsByType` against the test PostgreSQL database (SDP_DATA_DIR + ASSETS_BACKEND=sqlite).
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'roadmap-evidence-'));
-process.env.ASSETS_BACKEND = 'sqlite';
 process.env.REPORTS_BACKEND = process.env.REPORTS_BACKEND || 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'roadmap-super';
 process.env.DASH_PASS = process.env.DASH_PASS || 'roadmap-pass-0000';
@@ -68,11 +67,11 @@ test('loadPlatformEvidence: composes from injected async stub readers', async ()
   assert.equal(out.asset_classes[1].product_type, 'Unknown');
 });
 
-// ── (c) reader against a temp sqlite ───────────────────────────────────
-test('getAssetCountsByType: grouped by product_type desc, null/empty folds to Unknown', () => {
+// ── (c) reader against the test PostgreSQL database ───────────────────────────────────
+test('getAssetCountsByType: grouped by product_type desc, null/empty folds to Unknown', async () => {
   const assetsDb = require('../assets-db');
   const cols = ['asset_id', 'product_type'];
-  assetsDb.replaceTable('assets', cols, [
+  (await assetsDb.replaceTable('assets', cols, [
     { asset_id: 1, product_type: 'Laptop' },
     { asset_id: 2, product_type: 'Laptop' },
     { asset_id: 3, product_type: 'Laptop' },
@@ -80,8 +79,8 @@ test('getAssetCountsByType: grouped by product_type desc, null/empty folds to Un
     { asset_id: 5, product_type: 'Desktop' },
     { asset_id: 6, product_type: null },
     { asset_id: 7, product_type: '' },
-  ]);
-  const rows = assetsDb.getAssetCountsByType();
+  ]));
+  const rows = (await assetsDb.getAssetCountsByType());
   assert.ok(Array.isArray(rows));
   assert.equal(rows[0].product_type, 'Laptop', 'ordered by count desc');
   assert.equal(rows[0].count, 3);
@@ -213,12 +212,11 @@ test('loadCatalogueEvidence: composes + passes since = 90d before nowMs (ISO), w
   assert.equal(capturedArg.since, expectedSince, 'since = 90 days before nowMs, ISO');
 });
 
-// (c) reader `getCatalogueStats` against a temp sqlite — mode classification IN JS
-test('getCatalogueStats: web_form via JS /web|portal|self-service/, categorized counts, window + by_mode', () => {
-  const Database = require('better-sqlite3');
-  const rdb = require('../reports-db'); // ensures request_records table exists
-  const raw = new Database(_path.join(process.env.SDP_DATA_DIR, 'reports.db'));
-  raw.prepare('DELETE FROM request_records').run();
+// (c) reader `getCatalogueStats` against the test PostgreSQL database — mode classification IN JS
+test('getCatalogueStats: web_form via JS /web|portal|self-service/, categorized counts, window + by_mode', async () => {
+  const rdb = require('../reports-db');
+  const raw = rdb.pgHandle();
+  await raw.prepare('DELETE FROM request_records').run();
   const ins = raw.prepare(
     `INSERT INTO request_records (request_id, created_time, mode, category, sub_category) VALUES (?,?,?,?,?)`
   );
@@ -230,10 +228,9 @@ test('getCatalogueStats: web_form via JS /web|portal|self-service/, categorized 
     ['c5', '2026-08-05T00:00:00Z', 'Self Service', 'Software', 'Office'],
     ['c6', '2020-01-01T00:00:00Z', 'Web Portal', 'Old', 'Old'],    // BEFORE the window
   ];
-  for (const r of rows) ins.run(...r);
-  raw.close();
+  for (const r of rows) await ins.run(...r);
 
-  const stats = rdb.getCatalogueStats({ since: '2026-01-01T00:00:00Z' });
+  const stats = (await rdb.getCatalogueStats({ since: '2026-01-01T00:00:00Z' }));
   assert.equal(stats.total, 5, 'only rows within created_time >= since');
   assert.equal(stats.web_form, 3, 'Web Portal(2) + Self Service(1) — classified in JS');
   assert.equal(stats.categorized, 4, 'non-empty category: c1,c2,c3,c5');

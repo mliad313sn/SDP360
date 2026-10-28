@@ -26,12 +26,9 @@ const { resolveWidgets } = require('../services/dashboardData');
 /** Build the store against the reports DB (sqlite: DDL + seed now; pg: migration 016, seed at boot). */
 function createStore(rdbMod, { log = console.log } = {}) {
   const pg = rdbMod.REPORTS_BACKEND === 'postgres';
-  const st = require('../services/dashboardStore').makeDashboardStore(pg ? { prepare: (sql) => rdbMod.pgHandle().prepare(sql) } : rdbMod.db, { isPg: pg });
-  if (!pg) {
-    st.init();
-    st.seed(require('../services/dashboardSeeds').SEED_DASHBOARDS).then((a) => { if (a.length) log(`[dashboards] seeded ${a.join(', ')}`); }).catch((e) => console.warn('[dashboards] seed failed:', e.message));
-  }
-  st.seedAtBoot = async () => { if (!pg) return []; await st.init(); const a = await st.seed(require('../services/dashboardSeeds').SEED_DASHBOARDS); if (a.length) log(`[dashboards] seeded ${a.join(', ')}`); return a; };
+  const st = require('../services/dashboardStore').makeDashboardStore(({ prepare: (sql) => rdbMod.pgHandle().prepare(sql) }), { isPg: pg });
+  
+  st.seedAtBoot = async () => {  await st.init(); const a = await st.seed(require('../services/dashboardSeeds').SEED_DASHBOARDS); if (a.length) log(`[dashboards] seeded ${a.join(', ')}`); return a; };
   return st;
 }
 

@@ -83,7 +83,7 @@ test('E4: a transport failure never leaks the API key (message, stack, config)',
     throw e;
   };
   const c = makeOpmanagerClient({ apiKey: KEY, baseUrl: 'https://opm:8061', get: boom });
-  await assert.rejects(() => c.listDevices({}), (e) => {
+  await assert.rejects(async () => c.listDevices({}), (e) => {
     assert.ok(!e.message.includes(KEY), 'key must not be in e.message');
     assert.ok(e.message.includes('<key>'), 'the key is replaced by <key>, not just dropped');
     assert.ok(!String(e.stack).includes(KEY), 'nor in the stack');

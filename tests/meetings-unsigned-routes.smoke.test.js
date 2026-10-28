@@ -10,8 +10,6 @@
 
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'mtg-unsigned-smoke-'));
-process.env.MEETINGS_BACKEND = 'sqlite';
-process.env.REPORTS_BACKEND  = 'sqlite';   // dev .env forces postgres → pg-not-init; pin sqlite for this smoke
 process.env.DASH_USER = process.env.DASH_USER || 'mtg-smoke-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'mtg-smoke-pass-0000';
 process.env.DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || 'mtg-smoke-key';
@@ -42,8 +40,8 @@ before(async () => {
   const rdb = require('../reports-db');
   const mdb = require('../meetings-db');
   apiKey = process.env.DASHBOARD_API_KEY;
-  mdb.loadLookups();
-  const m = mdb.saveMeeting({ header: { site_code: 'HGO', department: 'smoke-unsigned', meeting_date: '2026-07-15', status: 'draft' } }, null, 1);
+  (await mdb.loadLookups());
+  const m = (await mdb.saveMeeting({ header: { site_code: 'HGO', department: 'smoke-unsigned', meeting_date: '2026-07-15', status: 'draft' } }, null, 1));
   meetingId = m.id;
   const me = ((await rdb.listUsers()) || []).find(u => u.username === process.env.DASH_USER);
   assert.ok(me, 'seeded admin user exists');

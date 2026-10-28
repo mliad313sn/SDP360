@@ -1,6 +1,7 @@
 'use strict';
 // M00/M02 — Route authorization matrix (development evidence, NOT certification).
-// Boots the app in-process against a throwaway sqlite data dir, enumerates every
+// Boots the app in-process against the PostgreSQL database named by PG_URL (use a
+// throwaway database — the probe creates a viewer account), with a temp data dir; enumerates every
 // registered Express route (incl. nested routers), records its middleware chain,
 // and probes each route as three anonymous-ish callers:
 //   none    : no credentials at all
@@ -9,7 +10,6 @@
 // Writes JSON to argv[2] (default: stdout). Side effects stay in the temp dir.
 const os = require('os'), fs = require('fs'), path = require('path'), http = require('http');
 process.env.SDP_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'route-matrix-'));
-for (const k of ['ASSETS', 'REPORTS', 'MEETINGS', 'INSPECTION', 'TRACKER']) process.env[k + '_BACKEND'] = 'sqlite';
 process.env.DASH_USER = 'rm-super'; process.env.DASH_PASS = 'rm-pass-0000-xyz';
 process.env.DASHBOARD_API_KEY = 'rm-dash-key';
 for (const k of ['ZOHO_CLIENT_ID', 'ZOHO_CLIENT_SECRET', 'ZOHO_REFRESH_TOKEN']) process.env[k] = 'dummy';
@@ -45,6 +45,10 @@ function call(base, method, p, headers) {
 async function main() {
   const { app } = require('../../server');
   const rdb = require('../../reports-db');
+  await rdb.initPgReports();
+  for (const [m, f] of [['tracker-db', 'initPgTracker'], ['meetings-db', 'initPgMeetings'], ['inspection-db', 'initPgInspection'], ['assets-db', 'initPgAssets']])
+    await require('../../' + m)[f]();
+  await require('../../db/migrate').migrateAtBoot({ log: () => {} });
   await rdb.createUser({ username: 'rm-viewer', full_name: 'Viewer', password: 'rm-pass-1111-xyz', role: 'viewer' });
   const viewer = (await rdb.login('rm-viewer', 'rm-pass-1111-xyz')).token;
   const server = await new Promise((r) => { const s = http.createServer(app).listen(0, '127.0.0.1', () => r(s)); });

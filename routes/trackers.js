@@ -34,10 +34,10 @@ const Lock = require('../public/lib/trackerMonthLock');
 /** Store against tracker.db (sqlite: DDL + template seed now) or the shared PG (migration tracker/002, seed at boot). */
 function createStore(trackerDb, { log = console.log } = {}) {
   const pg = trackerDb.TRACKER_BACKEND === 'postgres';
-  const st = require('../services/trackerStore').makeTrackerStore(pg ? { prepare: (sql) => trackerDb.pgHandle().prepare(sql) } : trackerDb.getDB(), { isPg: pg });
+  const st = require('../services/trackerStore').makeTrackerStore(({ prepare: (sql) => trackerDb.pgHandle().prepare(sql) }), { isPg: pg });
   const seedTemplates = async () => { const { TEMPLATES } = require('../services/trackerTemplates'); const added = []; for (const t of TEMPLATES) { if (await st.get(t.key)) continue; await st.saveDraft(t, { user: null }); added.push(t.key); } if (added.length) log(`[trackers] seeded templates ${added.join(', ')}`); return added; };
-  if (!pg) { st.init(); seedTemplates().catch((e) => console.warn('[trackers] seed failed:', e.message)); }
-  st.seedAtBoot = async () => { if (!pg) return []; await st.init(); return seedTemplates(); };
+  
+  st.seedAtBoot = async () => {  await st.init(); return seedTemplates(); };
   return st;
 }
 

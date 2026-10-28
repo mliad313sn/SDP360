@@ -20,17 +20,18 @@ const trace = (...a) => console.log('[demo]', ...a);
 
 before(async () => {
   const { app } = require('../server');
+  await require('../server').seedStores();
   rdb = require('../reports-db');
-  for (let i = 0; i < 50; i++) { if (rdb.db.prepare("SELECT 1 FROM sqlite_master WHERE name='commitments'").get()) break; await new Promise((r) => setTimeout(r, 100)); }
-  const sites = rdb.listSites({ includeInactive: true });
+  for (let i = 0; i < 50; i++) { if ((await rdb.db.prepare("SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'commitments'").get())) break; await new Promise((r) => setTimeout(r, 100)); }
+  const sites = (await rdb.listSites({ includeInactive: true }));
   hounde = sites.find((s) => /hounde/i.test(s.name)).id; mana = sites.find((s) => /mana/i.test(s.name)).id;
   const mk = async (u, role, roles, site) => { try { await rdb.createUser({ username: u, full_name: u, password: u + 'pass1234', role, roles, site_id: site }); } catch {} return (await rdb.login(u, u + 'pass1234')).token; };
   editor = await mk('cm_editor', 'editor', ['editor'], hounde); otherEditor = await mk('cm_other', 'editor', ['editor'], mana);
   reviewer = await mk('cm_reviewer', 'viewer', ['viewer']); superT = await mk('cm_super', 'super_admin', ['super_admin']);
   siteless = await mk('cm_siteless', 'editor', ['editor']);
-  const m = require('../meetings-db').saveMeeting({ header: { reference: 'CMT_PV_HGO_2026-10', site_code: 'HGO', department: 'mining', meeting_date: '2026-10-05', intake_source: 'dept_meeting', status: 'draft' },
-    actions: [{ description: 'Provide rugged laptops to the geology team', status: 'open', target_date: '2026-11-30', owner_it: 'cm_editor' }] }, null, null);
-  mdActionId = require('../meetings-db').getMeeting(m.id).actions[0].id;
+  const m = (await require('../meetings-db').saveMeeting({ header: { reference: 'CMT_PV_HGO_2026-10', site_code: 'HGO', department: 'mining', meeting_date: '2026-10-05', intake_source: 'dept_meeting', status: 'draft' },
+    actions: [{ description: 'Provide rugged laptops to the geology team', status: 'open', target_date: '2026-11-30', owner_it: 'cm_editor' }] }, null, null));
+  mdActionId = (await require('../meetings-db').getMeeting(m.id)).actions[0].id;
   await new Promise((r) => { server = http.createServer(app).listen(0, '127.0.0.1', r); });
   base = 'http://127.0.0.1:' + server.address().port;
 });
@@ -47,7 +48,7 @@ test('flag off: every commitments route is 404 and the hub carries no commitment
   assert.equal((await send('POST', '/api/commitments', editor, { kind: 'issue', title: 'x', site_id: hounde })).status, 404);
   const hub = await (await get('/api/reports/site-actions?site=HGO', editor)).json();
   assert.ok(!JSON.stringify(hub).includes('"commitment"'));
-  require('../services/reportConfig').setConfig(rdb.db, { commitments_enabled: '1' }, 'test');
+  (await require('../services/reportConfig').setConfig(rdb.db, { commitments_enabled: '1' }, 'test'));
 });
 
 let id, ver;

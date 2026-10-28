@@ -3,14 +3,13 @@
 // per-unit targets merged into the engine, template seed idempotent, legacy import + parallel run ±0.1 pt.
 const { test } = require('node:test');
 const assert = require('node:assert');
-const Database = require('better-sqlite3');
 const { makeTrackerStore } = require('../services/trackerStore');
 const { TEMPLATES } = require('../services/trackerTemplates');
 const Legacy = require('../services/trackerLegacy');
 
 const DEF = { key: 'ut-1', name: 'Unit test', version: 1, period: { kind: 'monthly', start: '2026', count: 12 }, units: [{ code: 'HGO', name: 'Houndé' }, { code: 'MGO', name: 'Mana' }], ragPolicy: 'tracker-activity',
   groups: [{ code: 'G1', name: 'A', weight: 0.5, items: [{ code: 'G1-01', name: 'Visits', kpiType: 'COUNT', weight: 1, target: 12, start: 1, end: 12 }] }, { code: 'G2', name: 'B', weight: 0.5, items: [{ code: 'G2-01', name: 'Plan', kpiType: 'BOOLEAN', weight: 1, start: 1, end: 12 }] }] };
-const mk = () => { const s = makeTrackerStore(new Database(':memory:')); return s.init().then(() => s); };
+const mk = async () => { const s = makeTrackerStore((await require('./_pg-fresh').freshStore(['tracker_definitions', 'tracker_definition_versions', 'tracker_entries', 'tracker_unit_targets']))); return s.init().then(() => s); };
 
 test('draft → publish → version snapshot → rollback; invalid draft is refused', async () => {
   const s = await mk();
@@ -53,7 +52,6 @@ test('templates validate and seed once as drafts', async () => {
 });
 
 test('legacy import + parallel run: engine reproduces tracker-pptx within ±0.1 pt on the shipped 2026 programme', async () => {
-  process.env.TRACKER_BACKEND = 'sqlite';
   process.env.SDP_DATA_DIR = require('fs').mkdtempSync(require('path').join(require('os').tmpdir(), 'trk-leg-'));
   const tdb = require('../tracker-db');
   const D = await tdb.loadTracker();

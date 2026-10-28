@@ -19,8 +19,8 @@ const { fail: httpFail, typed } = require('../services/httpError');
 
 function createStore(rdbMod) {
   const pg = rdbMod.REPORTS_BACKEND === 'postgres';
-  const st = require('../services/commitmentStore').makeCommitmentStore(pg ? { prepare: (sql) => rdbMod.pgHandle().prepare(sql) } : rdbMod.db, { isPg: pg });
-  if (!pg) st.init();
+  const st = require('../services/commitmentStore').makeCommitmentStore(({ prepare: (sql) => rdbMod.pgHandle().prepare(sql) }), { isPg: pg });
+  
   return st;
 }
 

@@ -122,7 +122,7 @@ async function main(argv = process.argv.slice(2)) {
 
 if (require.main === module) {
   (async () => {
-    if ((process.env.REPORTS_BACKEND || 'sqlite').toLowerCase() === 'postgres') await require('../../reports-db').initPgReports();
+    await require('../../reports-db').initPgReports();
     await main();
     process.exit(0);
   })().catch(e => { console.error('[teams-sla]', _scrub(e.message)); process.exit(1); });

@@ -1,6 +1,5 @@
 // tests/site-helpdesk.test.js
 'use strict';
-process.env.REPORTS_BACKEND = 'sqlite';
 const test = require('node:test');
 const assert = require('node:assert');
 const { _computeSiteHelpdesk } = require('../reports-db');   // pure inner, see Step 3

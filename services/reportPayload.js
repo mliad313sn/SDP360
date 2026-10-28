@@ -45,13 +45,7 @@ const { aggregateYearlyMI } = require('./execYearly');   // slide 9b (Major Inci
 let trackerDb = null;
 try { trackerDb = require('../tracker-db'); } catch (_) { /* tracker offline → slides 10/11 stub */ }
 
-// ── Backend-aware DB read helpers ──────────────────────────────────────────
-// Prod now runs reports.db under REPORTS_BACKEND=postgres, where reportsDb.db
-// is the EMPTY sqlite file. Route every raw SELECT through _get/_all so it hits
-// the async pg adapter (reportsDb.pgHandle()) under postgres and the synchronous
-// better-sqlite3 handle under sqlite. _toPg translates the sqlite idioms these
-// queries use to the SAME dialect contract the reports-db.js PG forks apply.
-const _isPg = () => reportsDb.REPORTS_BACKEND === 'postgres';
+
 
 // SQLite → Postgres dialect translation for the exec-deck queries.
 // Idioms present across the 7 queries: strftime('%Y-%m', X)= / strftime('%Y-%m-%d',…),
@@ -74,12 +68,10 @@ function _toPg(sql) {
     .replace(/\bLIKE\b/gi, 'ILIKE');
 }
 async function _all(sql, ...params) {
-  if (_isPg()) return await reportsDb.pgHandle().prepare(_toPg(sql)).all(...params);
-  return reportsDb.db.prepare(sql).all(...params);
+  return await reportsDb.pgHandle().prepare(_toPg(sql)).all(...params);
 }
 async function _get(sql, ...params) {
-  if (_isPg()) return await reportsDb.pgHandle().prepare(_toPg(sql)).get(...params);
-  return reportsDb.db.prepare(sql).get(...params);
+  return await reportsDb.pgHandle().prepare(_toPg(sql)).get(...params);
 }
 
 const MONTH_NAMES = [
@@ -97,10 +89,7 @@ function _safeNum(v, def = 0) {
   return Number(v);
 }
 
-function _pct(num, den) {
-  if (!den) return 0;
-  return Math.round((num / den) * 1000) / 10;
-}
+
 
 // ── Helpdesk KPIs from request_records ─────────────────────────────────────
 async function _helpdeskKpis(filters) {

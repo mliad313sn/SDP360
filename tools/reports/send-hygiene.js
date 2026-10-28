@@ -74,9 +74,9 @@ async function main(deps = {}) {
   let rdb = deps.reportsDb;
   if (!db || !cfg) {
     rdb = rdb || require('../../reports-db');
-    if ((process.env.REPORTS_BACKEND || 'sqlite').toLowerCase() === 'postgres') await rdb.initPgReports();
+    await rdb.initPgReports();
     const assetsDb = deps.assetsDb || require('../../assets-db');
-    if (assetsDb.ASSETS_BACKEND === 'postgres') await assetsDb.initPgAssets();
+    await assetsDb.initPgAssets();
     if (!db) db = rdb.db;
     if (!cfg) cfg = await require('../../services/reportConfig').getConfig(db);
   }

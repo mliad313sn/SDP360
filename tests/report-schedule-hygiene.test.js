@@ -4,10 +4,9 @@
 // 'hygiene' as a valid TYPES so setSchedule persists a hygiene row.
 const test = require('node:test');
 const assert = require('node:assert');
-const Database = require('better-sqlite3');
 const rs = require('../services/reportSchedule');
 
-function freshDb() { const db = new Database(':memory:'); rs._initSchema(db); return db; }
+async function freshDb() { return require('./_pg-fresh').fresh(['report_schedules']); }
 
 test('cliFor maps hygiene → send-hygiene.js, coordinator → send-reports.js', () => {
   assert.ok(rs.cliFor('hygiene').endsWith('send-hygiene.js'));
@@ -17,7 +16,7 @@ test('cliFor maps hygiene → send-hygiene.js, coordinator → send-reports.js',
 });
 
 test('setSchedule accepts report_type=hygiene (TYPES includes it)', async () => {
-  const db = freshDb();
+  const db = (await freshDb());
   let captured = null;
   const r = await rs.setSchedule(
     db,
@@ -28,7 +27,7 @@ test('setSchedule accepts report_type=hygiene (TYPES includes it)', async () => 
   assert.strictEqual(r.ok, true);
   assert.ok(captured, 'runTask was invoked');
   assert.strictEqual(captured.report_type, 'hygiene');
-  const row = rs.getSchedules(db).find(x => x.report_type === 'hygiene' && x.cadence === 'weekly');
+  const row = (await rs.getSchedules(db)).find(x => x.report_type === 'hygiene' && x.cadence === 'weekly');
   assert.ok(row, 'hygiene row persisted');
   assert.strictEqual(row.enabled, 1);
 });

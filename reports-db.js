@@ -1,14 +1,12 @@
 /**
- * Endeavour Mining — Reports Database Module
- * SQLite (WAL mode) — handles concurrent reads + sequential writes safely.
- * Tables: users, sites, sessions, weeks, weekly_reports,
- *         infra_kpis, helpdesk_data, lights, action_items,
- *         sync_metadata, change_records, cab_approvals,
- *         survey_results, survey_answers
+ * Endeavour Mining — Reports Database Module (PostgreSQL only — PO-08, 2026-10-28)
+ * Tables: users, sites, sessions, weeks, weekly_reports, infra_kpis, helpdesk_data,
+ *         lights, action_items, sync_metadata, change_records, cab_approvals,
+ *         survey_results, survey_answers, … — schema in db/postgres/reports/*.sql.
  */
 'use strict';
 
-const Database = require('better-sqlite3');
+
 const crypto   = require('crypto');
 const path     = require('path');
 const fs       = require('fs');
@@ -18,738 +16,8 @@ const fs       = require('fs');
 // directory; unset in prod so the default data/ path is unchanged.
 const DATA_DIR = process.env.SDP_DATA_DIR ? path.resolve(process.env.SDP_DATA_DIR) : path.join(__dirname, 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-// PostgreSQL-only operation (user decision, 2026-10-28: "all under PostgreSQL, no SQLite except offline").
-// With REPORTS_BACKEND=postgres no reports.db FILE is opened: the historical sqlite schema/seed code at
-// module load runs against a throw-away in-memory database, then the handle is LOCKED at the end of this
-// module — any later sqlite use throws an explicit error naming the call instead of silently reading or
-// writing a file nobody else reads. Runtime trace (276 GET routes, all modules on PG): 0 sqlite calls.
-const _PG_MODE = String(process.env.REPORTS_BACKEND || '').toLowerCase() === 'postgres';
-const _sqlite = new Database(_PG_MODE ? ':memory:' : path.join(DATA_DIR, 'reports.db'));
-let _sqliteLocked = false;
-const db = !_PG_MODE ? _sqlite : new Proxy(_sqlite, {
-  get(target, key) {
-    const v = target[key];
-    if (typeof v !== 'function') return v;
-    return (...a) => {
-      if (_sqliteLocked) {
-        const e = new Error(`[reports-db] SQLite is disabled (REPORTS_BACKEND=postgres): db.${String(key)}() called — this path needs a PostgreSQL fork`);
-        e.code = 'SQLITE_DISABLED'; throw e;
-      }
-      return v.apply(target, a);
-    };
-  },
-});
+// The schema (and its history) lives in db/postgres/reports/*.sql, applied by db/migrate.js.
 
-// Performance & safety
-db.pragma('journal_mode = WAL');
-db.pragma('foreign_keys = ON');
-db.pragma('synchronous = NORMAL');
-
-// ── SCHEMA ────────────────────────────────────────────────────────
-// Meraki WAN link availability & quality snapshots (V1b / V1b-E). Per-LINK (wan1/wan2)
-// AND per-SUB-SITE (sub_site='' for normal sites; 'FETEKRO'/'TANDA'/… for the multi-
-// location Exploration report). Kept SEPARATE from infra_metric_snapshots (whose PK
-// can't hold two 'wan' rows). availability_pct is DERIVED (calibration-gated); null =
-// no data (never 0). Archives the vendor's numbers before Meraki purges (~60d).
-// Composite PK, no surrogate id. Factored into a const so the initial CREATE and the
-// one-time sub_site rebuild below use the SAME schema.
-const _WAN_CREATE_SQL = `
-CREATE TABLE IF NOT EXISTS wan_link_snapshots (
-  site_id          INTEGER NOT NULL,
-  sub_site         TEXT NOT NULL DEFAULT '',  -- '' for normal sites; sub-site token for Exploration
-  uplink           TEXT NOT NULL,        -- 'wan1' | 'wan2' | 'wan3' | 'cellular'
-  period_type      TEXT NOT NULL,        -- 'week' | 'month'
-  period_start     TEXT NOT NULL,
-  period_end       TEXT,
-  availability_pct REAL,
-  status_color     TEXT,
-  loss_pct_avg     REAL,
-  latency_ms_avg   REAL,
-  jitter_ms_avg    REAL,
-  goodput_avg      REAL,
-  avail_quality_pct REAL,             -- quality-weighted effective availability (loss/latency/jitter), Meraki-aligned
-  loss_pct_max     REAL,
-  latency_ms_max   REAL,
-  avail_samples    INTEGER,           -- sample count behind availability_pct (resolution floor: 1 sample = 100/N pts)
-  status_current   TEXT,
-  uplink_label     TEXT,
-  device_serial    TEXT,
-  network_id       TEXT,
-  data_through     TEXT,
-  collected_at     TEXT,
-  source           TEXT,
-  raw_json         TEXT,
-  PRIMARY KEY (site_id, sub_site, uplink, period_type, period_start)
-);`;
-
-// WAN SLA / ISP chargeback — one row per detected WAN outage. Composite PK (no surrogate
-// id → sqlite/pg parity). detected_start/restored_end are TEXT timestamps; duration_s is
-// computed in JS (never date math in SQL — the pg-strict trap). Mirrors _WAN_CREATE_SQL so
-// the sqlite boot CREATE and initPgReports share one schema.
-const _WAN_OUTAGES_CREATE_SQL = `
-CREATE TABLE IF NOT EXISTS wan_outages (
-  site_id            INTEGER NOT NULL,
-  sub_site           TEXT NOT NULL DEFAULT '',
-  uplink             TEXT NOT NULL,
-  isp                TEXT,
-  circuit_id         TEXT,
-  detected_start     TEXT NOT NULL,
-  restored_end       TEXT,
-  notified_at        TEXT,
-  duration_s         INTEGER,
-  attribution        TEXT,
-  attribution_reason TEXT,
-  network_id         TEXT,
-  device_serial      TEXT,
-  source             TEXT,
-  raw_json           TEXT,
-  PRIMARY KEY (site_id, sub_site, uplink, detected_start)
-);`;
-
-// Personal Roadmap Manager — a private, per-user, super_admin-only tool. Composite PK
-// (user_id, obj_key) for objectives / stable uid PK for deliverables (no surrogate id →
-// sqlite/pg parity). updated_at is a TEXT ISO stamp; mirrored into 010_roadmap.sql for
-// fresh pg installs and initPgReports for existing ones.
-const _ROADMAP_CREATE_SQL = `
-CREATE TABLE IF NOT EXISTS roadmap_objectives (
-  user_id      INTEGER NOT NULL,
-  obj_key      TEXT NOT NULL,
-  title        TEXT,
-  weight       INTEGER,
-  progress_pct INTEGER,
-  status       TEXT,
-  confidence   TEXT,
-  evidence     TEXT,
-  gap_note     TEXT,
-  target_date  TEXT,
-  sort_order   INTEGER,
-  updated_at   TEXT,
-  PRIMARY KEY (user_id, obj_key)
-);
-CREATE TABLE IF NOT EXISTS roadmap_deliverables (
-  uid           TEXT NOT NULL,
-  user_id       INTEGER NOT NULL,
-  obj_key       TEXT,
-  label         TEXT,
-  delivery_date TEXT,
-  status        TEXT,
-  notes         TEXT,
-  sort_order    INTEGER,
-  updated_at    TEXT,
-  PRIMARY KEY (uid)
-);
-CREATE TABLE IF NOT EXISTS roadmap_training (
-  uid          TEXT NOT NULL,
-  user_id      INTEGER NOT NULL,
-  session_date TEXT,
-  module       TEXT,
-  site         TEXT,
-  technicians  INTEGER,
-  notes        TEXT,
-  sort_order   INTEGER,
-  updated_at   TEXT,
-  PRIMARY KEY (uid)
-);
-CREATE TABLE IF NOT EXISTS roadmap_actions (
-  uid         TEXT NOT NULL,
-  user_id     INTEGER NOT NULL,
-  workstream  TEXT,
-  label       TEXT,
-  owner       TEXT,
-  target_date TEXT,
-  effort      TEXT,
-  status      TEXT,
-  notes       TEXT,
-  sort_order  INTEGER,
-  updated_at  TEXT,
-  PRIMARY KEY (uid)
-);
-CREATE TABLE IF NOT EXISTS roadmap_resources (
-  uid        TEXT NOT NULL,
-  user_id    INTEGER NOT NULL,
-  name       TEXT,
-  kind       TEXT,
-  detail     TEXT,
-  status     TEXT,
-  sort_order INTEGER,
-  updated_at TEXT,
-  PRIMARY KEY (uid)
-);`;
-
-db.exec(`
-CREATE TABLE IF NOT EXISTS sites (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  name       TEXT UNIQUE NOT NULL,
-  zoho_group TEXT,             -- Zoho AP group name (e.g. "Hounde IT Agents")
-  active     INTEGER DEFAULT 1,
-  sort_order INTEGER DEFAULT 0
-);
-
-CREATE TABLE IF NOT EXISTS users (
-  id            INTEGER PRIMARY KEY AUTOINCREMENT,
-  username      TEXT UNIQUE NOT NULL,
-  full_name     TEXT NOT NULL,
-  password_hash TEXT NOT NULL,
-  salt          TEXT NOT NULL,
-  site_id       INTEGER,          -- NULL = admin (all sites)
-  role          TEXT DEFAULT 'editor',  -- admin | editor | viewer
-  active        INTEGER DEFAULT 1,
-  created_at    TEXT DEFAULT (datetime('now')),
-  FOREIGN KEY (site_id) REFERENCES sites(id)
-);
-
-CREATE TABLE IF NOT EXISTS sessions (
-  token       TEXT PRIMARY KEY,
-  user_id     INTEGER NOT NULL,
-  expires_at  TEXT NOT NULL,
-  created_at  TEXT DEFAULT (datetime('now')),
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS weeks (
-  id           INTEGER PRIMARY KEY AUTOINCREMENT,
-  year         INTEGER NOT NULL,
-  week_number  INTEGER NOT NULL,
-  start_date   TEXT NOT NULL,
-  end_date     TEXT NOT NULL,
-  label        TEXT NOT NULL,
-  UNIQUE(year, week_number)
-);
-
-CREATE TABLE IF NOT EXISTS weekly_reports (
-  id           INTEGER PRIMARY KEY AUTOINCREMENT,
-  site_id      INTEGER NOT NULL,
-  week_id      INTEGER NOT NULL,
-  status       TEXT DEFAULT 'draft',   -- draft | submitted
-  submitted_at TEXT,
-  submitted_by INTEGER,
-  created_at   TEXT DEFAULT (datetime('now')),
-  updated_at   TEXT DEFAULT (datetime('now')),
-  UNIQUE(site_id, week_id),
-  FOREIGN KEY (site_id) REFERENCES sites(id),
-  FOREIGN KEY (week_id) REFERENCES weeks(id)
-);
-
-CREATE TABLE IF NOT EXISTS infra_kpis (
-  id           INTEGER PRIMARY KEY AUTOINCREMENT,
-  report_id    INTEGER NOT NULL,
-  service      TEXT NOT NULL,
-  kpi          TEXT NOT NULL,
-  target       TEXT,
-  status_value TEXT,
-  status_color TEXT DEFAULT 'green',   -- green | orange | red | none
-  trend        TEXT DEFAULT 'stable',  -- up | down | stable | no_change
-  sort_order   INTEGER DEFAULT 0,
-  FOREIGN KEY (report_id) REFERENCES weekly_reports(id) ON DELETE CASCADE
-);
-
--- OPManager infra availability snapshots (V1a). Automated measurement history,
--- SEPARATE from infra_kpis (per-report rows). Keyed by the composite PK (no
--- surrogate id → avoids the sqlite/pg autoinc divergence). status_color uses the
--- same green|orange|red|none vocabulary. metric_value null = no data (never 0).
-CREATE TABLE IF NOT EXISTS infra_metric_snapshots (
-  site_id               INTEGER NOT NULL,
-  period_type           TEXT NOT NULL,        -- 'week' | 'month'
-  period_start          TEXT NOT NULL,
-  period_end            TEXT NOT NULL,
-  kpi_family            TEXT NOT NULL,        -- 'lan' | 'wifi' | 'wan' | 'servers'
-  metric_name           TEXT NOT NULL,        -- 'availability'
-  metric_value          REAL,
-  target_value          REAL,
-  status_color          TEXT,
-  trend                 TEXT,
-  source                TEXT,
-  source_view           TEXT,
-  data_through          TEXT,
-  device_count          INTEGER,
-  included_device_count INTEGER,
-  collected_at          TEXT NOT NULL,
-  raw_json              TEXT,
-  PRIMARY KEY (site_id, period_type, period_start, kpi_family, metric_name)
-);
-
--- wan_link_snapshots is created below from the _WAN_CREATE_SQL const (factored so the
--- initial CREATE and the one-time sub_site rebuild share one schema).
-
-CREATE TABLE IF NOT EXISTS helpdesk_data (
-  id                    INTEGER PRIMARY KEY AUTOINCREMENT,
-  report_id             INTEGER NOT NULL UNIQUE,
-  time_to_assign        REAL,
-  time_to_assign_prev   REAL,
-  first_reply           REAL,
-  first_reply_prev      REAL,
-  resolution_time       REAL,
-  resolution_time_prev  REAL,
-  closing_time          REAL,
-  closing_time_prev     REAL,
-  comments_metrics      TEXT,
-  comments_sla          TEXT,
-  tech_on_break         TEXT,
-  techs_on_duty         TEXT,
-  sla_violations        TEXT,   -- JSON: [{category, pct}]
-  group_metrics         TEXT,   -- JSON: weekly array [{label,inbound,closed,res_ok_pct,fr_ok_pct,techs}]
-  all_groups            TEXT,   -- JSON: full fetched list (all groups, unfiltered)
-  selected_group        TEXT,   -- name of the currently selected group
-  chart_data            TEXT,   -- JSON: full chart object {group,weeks,ageing,ageing_total,top10}
-  fetched_at            TEXT,   -- ISO timestamp when live data was last fetched
-  updated_at            TEXT DEFAULT (datetime('now')),
-  FOREIGN KEY (report_id) REFERENCES weekly_reports(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS lights (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  report_id  INTEGER NOT NULL,
-  type       TEXT NOT NULL,  -- low_light | high_light | change_in_progress | change_pending
-  content    TEXT NOT NULL,
-  sort_order INTEGER DEFAULT 0,
-  FOREIGN KEY (report_id) REFERENCES weekly_reports(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS action_items (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  report_id  INTEGER NOT NULL,
-  task       TEXT NOT NULL,
-  priority   TEXT DEFAULT 'Medium',  -- High | Medium | Low
-  due_date   TEXT,
-  owner      TEXT,
-  status     TEXT DEFAULT 'open',    -- open | in_progress | closed
-  sort_order INTEGER DEFAULT 0,
-  FOREIGN KEY (report_id) REFERENCES weekly_reports(id) ON DELETE CASCADE
-);
-
-CREATE TABLE IF NOT EXISTS action_departments (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  name       TEXT NOT NULL UNIQUE COLLATE NOCASE,
-  sort_order INTEGER DEFAULT 0,
-  active     INTEGER DEFAULT 1,
-  created_at TEXT DEFAULT (datetime('now')),
-  updated_at TEXT
-);
-CREATE INDEX IF NOT EXISTS idx_action_departments_active ON action_departments(active);
-
--- ── SYNC METADATA ─────────────────────────────────────────────────
--- Tracks when each background sync job last ran successfully.
--- job_name values: 'helpdesk' | 'change_cab' | 'survey'
-CREATE TABLE IF NOT EXISTS sync_metadata (
-  job_name        TEXT PRIMARY KEY,
-  last_sync_at    TEXT,              -- ISO datetime of last SUCCESSFUL sync
-  last_sync_rows  INTEGER DEFAULT 0, -- rows upserted on last run
-  last_error      TEXT,              -- last error message (NULL if clean)
-  last_error_at   TEXT,              -- ISO datetime of last error
-  sync_count      INTEGER DEFAULT 0  -- total successful sync runs
-);
-
--- ── CHANGE RECORDS ────────────────────────────────────────────────
--- One row per Change Request, synced from CHANGE_TABLE view every 6 hours.
-CREATE TABLE IF NOT EXISTS change_records (
-  id               INTEGER PRIMARY KEY AUTOINCREMENT,
-  change_id        TEXT UNIQUE NOT NULL,  -- Zoho Change ID
-  display_id       TEXT,                  -- CRQ-XXXX human-readable ref
-  subject          TEXT,
-  status           TEXT,
-  stage            TEXT,
-  risk             TEXT,
-  change_type      TEXT,
-  emergency        INTEGER DEFAULT 0,     -- 0 | 1
-  category         TEXT,
-  sub_category     TEXT,
-  requester        TEXT,
-  requester_id     TEXT,
-  owner_id         TEXT,
-  manager          TEXT,
-  site_id          TEXT,                  -- maps to sites table
-  group_id         TEXT,
-  scheduled_start  TEXT,                  -- ISO datetime
-  scheduled_end    TEXT,                  -- ISO datetime
-  completed_time   TEXT,                  -- ISO datetime (nullable)
-  created_time     TEXT,                  -- ISO datetime
-  closure_code     TEXT,
-  udf_json         TEXT,                  -- JSON blob: all UDF custom fields
-  fetched_at       TEXT                   -- ISO datetime of last upsert
-);
-CREATE INDEX IF NOT EXISTS idx_cr_created  ON change_records(created_time);
-CREATE INDEX IF NOT EXISTS idx_cr_status   ON change_records(status);
-CREATE INDEX IF NOT EXISTS idx_cr_site     ON change_records(site_id);
-
--- ── CAB APPROVALS ─────────────────────────────────────────────────
--- One row per CAB approval record, synced alongside change_records.
-CREATE TABLE IF NOT EXISTS cab_approvals (
-  id                       INTEGER PRIMARY KEY AUTOINCREMENT,
-  approval_id              TEXT UNIQUE NOT NULL, -- Zoho Approval ID
-  change_id                TEXT NOT NULL,        -- FK → change_records.change_id
-  approver_name            TEXT,
-  approval_status          TEXT,                 -- Approved | Rejected | Pending
-  approval_stage           TEXT,
-  approval_level           TEXT,
-  approval_level_status    TEXT,
-  recommendation_requested TEXT,                 -- ISO datetime
-  action_taken_on          TEXT,                 -- ISO datetime (nullable)
-  turnaround_minutes       INTEGER,              -- SLA metric
-  rule_type                TEXT,
-  comments                 TEXT,
-  fetched_at               TEXT                  -- ISO datetime of last upsert
-);
-CREATE INDEX IF NOT EXISTS idx_cab_change  ON cab_approvals(change_id);
-CREATE INDEX IF NOT EXISTS idx_cab_status  ON cab_approvals(approval_status);
-
--- ── SURVEY RESULTS ────────────────────────────────────────────────
--- One row per submitted survey response, synced daily.
--- Links CSAT scores back to helpdesk tickets via request_display_id.
-CREATE TABLE IF NOT EXISTS survey_results (
-  id                    INTEGER PRIMARY KEY AUTOINCREMENT,
-  result_id             TEXT UNIQUE NOT NULL, -- Zoho Result ID
-  response_id           TEXT,                 -- Zoho Response ID
-  survey_id             TEXT,                 -- FK → Zoho Surveys.Survey ID
-  survey_name           TEXT,                 -- denormalized
-  request_id            TEXT,                 -- FK → SDP Request ID
-  request_display_id    TEXT,                 -- e.g. #INC-12345
-  change_id             TEXT,                 -- FK → change_records (nullable)
-  user_id               TEXT,                 -- respondent
-  overall_score         REAL,                 -- 0–100 percentage
-  survey_sent_on        TEXT,                 -- ISO datetime
-  survey_responded_on   TEXT,                 -- ISO datetime (nullable)
-  fetched_at            TEXT                  -- ISO datetime of last upsert
-);
-CREATE INDEX IF NOT EXISTS idx_sr_request  ON survey_results(request_display_id);
-CREATE INDEX IF NOT EXISTS idx_sr_change   ON survey_results(change_id);
-CREATE INDEX IF NOT EXISTS idx_sr_sent     ON survey_results(survey_sent_on);
-
--- ── SURVEY ANSWERS ────────────────────────────────────────────────
--- One row per individual question answer, synced daily.
-CREATE TABLE IF NOT EXISTS survey_answers (
-  id            INTEGER PRIMARY KEY AUTOINCREMENT,
-  response_id   TEXT NOT NULL,  -- FK → survey_results.response_id
-  result_id     TEXT NOT NULL,  -- FK → survey_results.result_id
-  question_id   TEXT,           -- FK → Zoho Survey Questions
-  question_text TEXT,           -- denormalized question text
-  question_type TEXT,           -- single_choice | star_rating | textarea | etc.
-  answer_text   TEXT,           -- free-text answer (nullable)
-  answer_option TEXT,           -- selected option label (nullable)
-  score         INTEGER,        -- numeric score (nullable)
-  skipped       INTEGER DEFAULT 0,
-  fetched_at    TEXT            -- ISO datetime of last upsert
-);
-CREATE INDEX IF NOT EXISTS idx_sa_response ON survey_answers(response_id);
-CREATE INDEX IF NOT EXISTS idx_sa_result   ON survey_answers(result_id);
-
--- ── REQUEST RECORDS ───────────────────────────────────────────────
--- One row per helpdesk request/incident, synced from REQUEST_TABLE view.
--- Stores the raw fields used by Zoho Analytics aggregate formulas.
-CREATE TABLE IF NOT EXISTS request_records (
-  id                     INTEGER PRIMARY KEY AUTOINCREMENT,
-  request_id             TEXT UNIQUE NOT NULL,  -- Zoho RequestID (numeric string)
-  display_id             TEXT,                  -- #INC-XXXX / #SR-XXXX human-readable ref
-  subject                TEXT,
-  request_status         TEXT,                  -- 'Open', 'Resolved', 'Closed', etc.
-  pending_status         INTEGER DEFAULT 1,     -- 1=open, 0=closed  (Request Pending Status)
-  overdue_status         INTEGER DEFAULT 0,     -- 1=SLA violated, 0=within SLA
-  request_type           TEXT,                  -- 'Incident', 'Service Request', 'Major Incident' (raw Zoho text)
-  service_request        INTEGER DEFAULT 0,     -- 1=Service Request, 0=Incident (derived)
-  is_escalated           INTEGER DEFAULT 0,     -- 0 | 1
-  reopen_count           INTEGER DEFAULT 0,
-  due_by_time            TEXT,                  -- ISO datetime (SLA deadline)
-  time_elapsed_ms        INTEGER,               -- raw milliseconds (Time Elapsed) — divide by 3_600_000 for hours
-  created_time           TEXT,                  -- ISO datetime
-  resolved_time          TEXT,                  -- ISO datetime (nullable)
-  completed_time         TEXT,                  -- ISO datetime (nullable)
-  responded_time         TEXT,                  -- ISO datetime (nullable)
-  assigned_time          TEXT,                  -- ISO datetime (nullable)
-  last_updated_time      TEXT,                  -- ISO datetime (nullable)
-  first_response_overdue TEXT,                  -- 'true' | 'false' text string (as returned by Zoho)
-  technician             TEXT,
-  requester              TEXT,
-  category               TEXT,
-  sub_category           TEXT,
-  site                   TEXT,                  -- site name (matches sites.name)
-  tech_group             TEXT,                  -- Group field from Zoho
-  impact                 TEXT,                  -- 'Enterprise' / 'Single department' / 'Multiple departments' / 'Individual' — for Risk Register scope filter
-  fetched_at             TEXT                   -- ISO datetime of last upsert
-);
-CREATE INDEX IF NOT EXISTS idx_rr_created   ON request_records(created_time);
-CREATE INDEX IF NOT EXISTS idx_rr_status    ON request_records(request_status);
-CREATE INDEX IF NOT EXISTS idx_rr_site      ON request_records(site);
-CREATE INDEX IF NOT EXISTS idx_rr_pending   ON request_records(pending_status);
-CREATE INDEX IF NOT EXISTS idx_rr_overdue   ON request_records(overdue_status);
-`);
-
-// ── MIGRATIONS (add columns if upgrading existing DB) ─────────────
-try { db.exec(`ALTER TABLE helpdesk_data ADD COLUMN group_metrics   TEXT`); } catch(e) {}
-try { db.exec(`ALTER TABLE helpdesk_data ADD COLUMN all_groups      TEXT`); } catch(e) {}
-try { db.exec(`ALTER TABLE helpdesk_data ADD COLUMN fetched_at      TEXT`); } catch(e) {}
-try { db.exec(`ALTER TABLE helpdesk_data ADD COLUMN selected_group  TEXT`); } catch(e) {}
-try { db.exec(`ALTER TABLE helpdesk_data ADD COLUMN chart_data      TEXT`); } catch(e) {}
-// sync_metadata: extended columns for drift detection + full-sync tracking
-try { db.exec(`ALTER TABLE sync_metadata ADD COLUMN last_full_sync_at TEXT`);           } catch(e) {}
-try { db.exec(`ALTER TABLE sync_metadata ADD COLUMN schema_snapshot   TEXT`);           } catch(e) {}
-try { db.exec(`ALTER TABLE sync_metadata ADD COLUMN deleted_count     INTEGER DEFAULT 0`); } catch(e) {}
-
-// System Logs v1 — unified security/audit event log (auth · identity · config ·
-// report). Written by logEvent() (fire-and-forget). sqlite id = rowid.
-db.exec(`
-  CREATE TABLE IF NOT EXISTS system_log (
-    id INTEGER PRIMARY KEY, ts TEXT NOT NULL, category TEXT NOT NULL, action TEXT NOT NULL,
-    actor TEXT, actor_id INTEGER, target TEXT, details TEXT, ip TEXT, risk INTEGER NOT NULL DEFAULT 0
-  );
-  CREATE INDEX IF NOT EXISTS idx_syslog_ts       ON system_log(ts);
-  CREATE INDEX IF NOT EXISTS idx_syslog_category ON system_log(category);
-  CREATE INDEX IF NOT EXISTS idx_syslog_action   ON system_log(action);
-  CREATE INDEX IF NOT EXISTS idx_syslog_actor    ON system_log(actor);
-  CREATE INDEX IF NOT EXISTS idx_syslog_risk     ON system_log(risk);
-  CREATE TABLE IF NOT EXISTS rate_limit_hits (
-    scope TEXT NOT NULL, key TEXT NOT NULL, window_start INTEGER NOT NULL, count INTEGER NOT NULL DEFAULT 0,
-    PRIMARY KEY (scope, key)
-  );
-`);
-// request_records: add request_type text column (stores "Major Incident" etc.)
-try { db.exec(`ALTER TABLE request_records ADD COLUMN request_type TEXT`); } catch(e) {}
-// request_records: add template column. The team marks a Major Incident via the
-// SDP "Template" field ("Major Incident Report") while Request Type stays
-// "Incident", so major-incident detection must also read this. Backfilled by a
-// full requests sync.
-try { db.exec(`ALTER TABLE request_records ADD COLUMN template TEXT`); } catch(e) {}
-// request_records: add mode column (submission channel: Email, Web Portal, Phone, etc.)
-try { db.exec(`ALTER TABLE request_records ADD COLUMN mode TEXT`); } catch(e) {}
-// request_records: add impact column (Risk Register filter — 'Enterprise', 'Single department',
-// 'Multiple departments', 'Individual'; only the first three count as operational risk)
-try { db.exec(`ALTER TABLE request_records ADD COLUMN impact TEXT`); } catch(e) {}
-// sessions: add last_seen column (drives the Active Sessions admin card).
-// validateSession() bumps it on every authenticated request. Defaults to
-// created_at for historical rows so the first read works without backfill.
-try { db.exec(`ALTER TABLE sessions ADD COLUMN last_seen TEXT`); } catch(e) {}
-// V1b-B — recent-vs-window label for device-availability snapshots (OpManager REST).
-try { db.exec(`ALTER TABLE infra_metric_snapshots ADD COLUMN basis TEXT`); } catch(e) {}
-// V1b / V1b-E — WAN link snapshots. Create (fresh DBs) from the shared const, then a
-// guarded one-time rebuild adds sub_site to the PK on DBs created before V1b-E. The table
-// has NO secondary indexes and NO foreign keys, so the rebuild recreates nothing else.
-// The INSERT below omits sub_site so its DEFAULT '' applies (kept column-explicit and
-// _WAN_SNAP_COLS-free — that const is in the temporal dead zone at module load).
-try {
-  db.exec(_WAN_CREATE_SQL);
-  const _wanCols = db.prepare(`PRAGMA table_info(wan_link_snapshots)`).all().map(c => c.name);
-  if (!_wanCols.includes('sub_site')) {
-    db.exec('ALTER TABLE wan_link_snapshots RENAME TO _wan_old');
-    db.exec(_WAN_CREATE_SQL);
-    db.exec(`INSERT INTO wan_link_snapshots
-      (site_id,uplink,period_type,period_start,period_end,availability_pct,status_color,loss_pct_avg,latency_ms_avg,jitter_ms_avg,goodput_avg,status_current,uplink_label,device_serial,network_id,data_through,collected_at,source,raw_json)
-      SELECT
-      site_id,uplink,period_type,period_start,period_end,availability_pct,status_color,loss_pct_avg,latency_ms_avg,jitter_ms_avg,goodput_avg,status_current,uplink_label,device_serial,network_id,data_through,collected_at,source,raw_json
-      FROM _wan_old`);
-    db.exec('DROP TABLE _wan_old');
-  }
-  // Additive quality columns (V1c) — guarded ALTERs for existing DBs.
-  const _wanCols3 = db.prepare(`PRAGMA table_info(wan_link_snapshots)`).all().map(c => c.name);
-  for (const [col, decl] of [['avail_quality_pct', 'REAL'], ['loss_pct_max', 'REAL'], ['latency_ms_max', 'REAL'], ['avail_samples', 'INTEGER']]) {
-    if (!_wanCols3.includes(col)) db.exec(`ALTER TABLE wan_link_snapshots ADD COLUMN ${col} ${decl}`);
-  }
-} catch(e) {}
-// V1b-E — editable map of a site's sub-site tokens to Meraki networks (Exploration).
-try { db.exec(`CREATE TABLE IF NOT EXISTS wan_subsite_networks (
-  site_id  INTEGER NOT NULL,
-  sub_site TEXT NOT NULL,
-  network  TEXT NOT NULL,
-  PRIMARY KEY (site_id, sub_site)
-)`); } catch(e) {}
-// WAN SLA / ISP chargeback — one row per detected WAN outage (created from _WAN_OUTAGES_CREATE_SQL).
-try { db.exec(_WAN_OUTAGES_CREATE_SQL); } catch(e) {}
-// Personal Roadmap Manager — per-user objectives + deliverables (created from _ROADMAP_CREATE_SQL).
-try { db.exec(_ROADMAP_CREATE_SQL); } catch(e) {}
-try { db.exec(`CREATE INDEX IF NOT EXISTS idx_sessions_last_seen ON sessions(last_seen)`); } catch(e) {}
-// sites: add zoho_group column for group-based helpdesk filtering
-try { db.exec(`ALTER TABLE sites ADD COLUMN zoho_group TEXT`); } catch(e) {}
-// users: Entra ID (Azure AD) SSO — email is the pre-provisioning match key;
-// entra_oid is the stable object-id linked on first successful Microsoft login.
-try { db.exec(`ALTER TABLE users ADD COLUMN email TEXT`); } catch(e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN entra_oid TEXT`); } catch(e) {}
-try { db.exec(`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)`); } catch(e) {}
-try { db.exec(`CREATE INDEX IF NOT EXISTS idx_users_entra ON users(entra_oid)`); } catch(e) {}
-// users profile — first/last/title/office. Auto-synced FROM Entra on each SSO
-// login (given_name / family_name / jobTitle / officeLocation). full_name kept
-// as the display field; site_id remains the authorization/scoping key.
-try { db.exec(`ALTER TABLE users ADD COLUMN first_name TEXT`); } catch(e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN last_name  TEXT`); } catch(e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN title      TEXT`); } catch(e) {}
-try { db.exec(`ALTER TABLE users ADD COLUMN office     TEXT`); } catch(e) {}
-// v1.10.9 — change_records: add group_name for site-based change filtering
-try { db.exec(`ALTER TABLE change_records ADD COLUMN group_name TEXT`); } catch(e) {}
-try { db.exec(`CREATE INDEX IF NOT EXISTS idx_cr_group_name ON change_records(group_name)`); } catch(e) {}
-// v1.10.10 — change_records: add stage_status (Zoho "Stage and Status" combined column)
-try { db.exec(`ALTER TABLE change_records ADD COLUMN stage_status TEXT`); } catch(e) {}
-// department feature — action_items: nullable department + comment columns
-try { db.exec(`ALTER TABLE action_items ADD COLUMN department TEXT`); } catch(e) {}
-try { db.exec(`ALTER TABLE action_items ADD COLUMN comment    TEXT`); } catch(e) {}
-// SP1b — action_items: stable uid + cross-source merge link (source/origin_id).
-// The uid lets a per-row merge survive report re-saves (saveActionItems became
-// an upsert-by-uid). source/origin_id are written ONLY by the merge endpoint.
-try { db.exec(`ALTER TABLE action_items ADD COLUMN uid       TEXT`); } catch(e) {}
-try { db.exec(`ALTER TABLE action_items ADD COLUMN source    TEXT`); } catch(e) {}
-try { db.exec(`ALTER TABLE action_items ADD COLUMN origin_id INTEGER`); } catch(e) {}
-// SP1b-lignée — carry-forward chain root (a carried copy stores the root's uid);
-// NULL = native row (its own root). Immutable once set. No backfill needed.
-try { db.exec(`ALTER TABLE action_items ADD COLUMN lineage   TEXT`); } catch(e) {}
-// 2026-10-16 — when the status last changed (hub "recently closed" list; action_items has no
-// other timestamp). NULL on rows untouched since the column appeared.
-try { db.exec(`ALTER TABLE action_items ADD COLUMN status_changed_at TEXT`); } catch(e) {}
-// Backfill uids for rows that predate the column — REQUIRED before the upsert
-// runs: a NULL uid never matches `uid NOT IN (…)`, so an unbackfilled row would
-// escape the delete step and duplicate on the first save.
-function _backfillActionUids(database) {
-  const rows = database.prepare(`SELECT id FROM action_items WHERE uid IS NULL`).all();
-  if (!rows.length) return 0;
-  const upd = database.prepare(`UPDATE action_items SET uid=? WHERE id=?`);
-  database.transaction(() => { for (const r of rows) upd.run(crypto.randomUUID(), r.id); })();
-  return rows.length;
-}
-try { _backfillActionUids(db); } catch(e) {}
-// 2026-07-09 — survey_answers duplicate purge + UNIQUE key. The writer used
-// "ON CONFLICT DO NOTHING" but the table had NO unique constraint, so every
-// survey sync re-INSERTed every answer row (prod audit: 70% of 16,991 rows
-// were duplicates; worst respondent row repeated 88x). This inflated any
-// per-comment analysis — e.g. the exec-deck TOP PAIN POINTS showed
-// "14 mentions" for what was really 2 respondents. (response_id, question_id)
-// is a verified natural key: zero legitimate multi-content pairs in prod.
-// Dedup keeps the OLDEST row (MIN id); the unique index then makes the
-// existing ON CONFLICT DO NOTHING writer actually idempotent.
-try {
-  const _saDup = db.prepare(`SELECT COUNT(*) c FROM sqlite_master WHERE type='index' AND name='uq_sa_response_question'`).get();
-  if (_saDup.c === 0) {
-    const del = db.prepare(`DELETE FROM survey_answers WHERE id NOT IN (
-      SELECT MIN(id) FROM survey_answers GROUP BY response_id, question_id)`).run();
-    db.exec(`CREATE UNIQUE INDEX uq_sa_response_question ON survey_answers(response_id, question_id)`);
-    if (del.changes > 0) console.log(`[Reports-DB] survey_answers: purged ${del.changes} duplicate rows + added UNIQUE(response_id, question_id)`);
-  }
-} catch (e) { console.error('[Reports-DB] survey_answers dedup migration failed:', e.message); }
-// v1.11.5 — request_records: add udf_json for major-incident UDFs
-// (Root Cause Analysis, Corrective Action, Lessons Learned, Preventive Measures,
-//  Workaround Details, PIR Required). The base REQUEST_TABLE Zoho view does NOT
-// return UDF columns, so this column is populated only via the secondary
-// MAJOR_INCIDENTS view (790842) backfill in zoho-sync.js syncRequestData.
-try { db.exec(`ALTER TABLE request_records ADD COLUMN udf_json TEXT`); } catch(e) {}
-
-// v1.10.0 — audit trail + super_admin role
-db.exec(`
-CREATE TABLE IF NOT EXISTS audit_log (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  report_id  INTEGER,                     -- weekly_reports.id (NULL for non-report actions)
-  site_id    INTEGER,
-  user_id    INTEGER,
-  username   TEXT,
-  action     TEXT NOT NULL,              -- created|edited_infra|edited_helpdesk|edited_lights|edited_actions|submitted|reverted|deleted|edited_monthly|edited_objectives
-  details    TEXT,                        -- JSON optional extra context
-  created_at TEXT DEFAULT (datetime('now'))
-);
-CREATE INDEX IF NOT EXISTS idx_al_report ON audit_log(report_id);
-CREATE INDEX IF NOT EXISTS idx_al_site   ON audit_log(site_id);
-CREATE INDEX IF NOT EXISTS idx_al_time   ON audit_log(created_at);
-`);
-// v1.10.0 — weekly_reports: add created_by column for creator tracking
-try { db.exec(`ALTER TABLE weekly_reports ADD COLUMN created_by INTEGER`); } catch(e) {}
-
-// v1.11.6 — multi-role support (orthogonal feature roles + hierarchical roles)
-// ───────────────────────────────────────────────────────────────────────────
-// Each user now has a set of roles instead of a single role string. The
-// existing 5 hierarchical roles (super_admin > executive > admin > editor >
-// viewer) live in this table just like the new feature roles do — they're
-// just stored as discrete rows with hierarchy resolved by userHasRole() at
-// check time. Backward compat: users.role column is kept as the user's
-// HIGHEST tier role for legacy display/queries that haven't been refactored.
-//
-// Feature roles (orthogonal to the hierarchy):
-//   tracker-admin   — edit Activity Tracker config (activities, weights, targets)
-//   tracker-editor  — enter own-site monthly tracker actuals
-//   report-author   — run AI Analyze + Export PPTX + Executive New Report
-//   audit-viewer    — read audit-log + sync status (no sync trigger)
-//   scorecard-viewer — READ-ONLY access to executive.html + analytics.html
-//                      (pages otherwise gated executive/admin). Does NOT
-//                      grant AI Analyze or PPTX export (report-author gates
-//                      those server-side). Added 2026-06-12.
-db.exec(`
-CREATE TABLE IF NOT EXISTS user_roles (
-  user_id  INTEGER NOT NULL,
-  role     TEXT NOT NULL,
-  granted_at TEXT DEFAULT (datetime('now')),
-  PRIMARY KEY (user_id, role),
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-);
-CREATE INDEX IF NOT EXISTS idx_ur_user ON user_roles(user_id);
-CREATE INDEX IF NOT EXISTS idx_ur_role ON user_roles(role);
-`);
-// Multi-site editors (2026-10-05) — EXTRA sites of a user (primary stays users.site_id).
-db.exec(`
-CREATE TABLE IF NOT EXISTS user_sites (
-  user_id INTEGER NOT NULL,
-  site_id INTEGER NOT NULL,
-  PRIMARY KEY (user_id, site_id),
-  FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-  FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
-);
-CREATE INDEX IF NOT EXISTS idx_us_user ON user_sites(user_id);
-`);
-
-// One-shot migration: backfill user_roles from users.role for any user that
-// doesn't have a row yet. Also auto-promote admin/executive/super_admin
-// users to all 4 new feature roles so existing privileged accounts keep
-// working without manual re-grants.
-try {
-  const usersWithoutRoles = db.prepare(`
-    SELECT u.id, u.role FROM users u
-    LEFT JOIN user_roles ur ON ur.user_id = u.id
-    WHERE ur.user_id IS NULL
-  `).all();
-  if (usersWithoutRoles.length > 0) {
-    const FEATURE_ROLES = ['tracker-admin', 'tracker-editor', 'report-author', 'audit-viewer'];
-    const ADMIN_OR_HIGHER = new Set(['admin', 'executive', 'super_admin']);
-    const insertRole = db.prepare(`INSERT OR IGNORE INTO user_roles (user_id, role) VALUES (?, ?)`);
-    const tx = db.transaction((rows) => {
-      for (const r of rows) {
-        // Always insert their existing hierarchy role
-        insertRole.run(r.id, r.role || 'viewer');
-        // Auto-promote admin+ users to all 4 feature roles (zero-disruption migration)
-        if (ADMIN_OR_HIGHER.has(r.role)) {
-          for (const fr of FEATURE_ROLES) insertRole.run(r.id, fr);
-        }
-      }
-    });
-    tx(usersWithoutRoles);
-    console.log(`[Reports-DB] Migrated ${usersWithoutRoles.length} user(s) to multi-role schema`);
-  }
-} catch (e) {
-  console.warn('[Reports-DB] user_roles migration warning:', e.message);
-}
-
-// v1.9.0 — monthly report system
-// New tables: monthly_reports, annual_objectives
-db.exec(`
-CREATE TABLE IF NOT EXISTS monthly_reports (
-  id             INTEGER PRIMARY KEY AUTOINCREMENT,
-  site_id        INTEGER NOT NULL,
-  year           INTEGER NOT NULL,
-  month          INTEGER NOT NULL,
-  edited_lights  TEXT,   -- JSON: [{type,content,week_label}] — user-edited merge
-  edited_actions TEXT,   -- JSON: [{task,priority,due_date,owner,status,week_label}]
-  notes          TEXT,   -- free-form monthly notes
-  status         TEXT DEFAULT 'draft',  -- draft | finalized
-  updated_at     TEXT DEFAULT (datetime('now')),
-  UNIQUE(site_id, year, month),
-  FOREIGN KEY (site_id) REFERENCES sites(id)
-);
-
-CREATE TABLE IF NOT EXISTS annual_objectives (
-  id         INTEGER PRIMARY KEY AUTOINCREMENT,
-  site_id    INTEGER NOT NULL,
-  year       INTEGER NOT NULL,
-  objective  TEXT NOT NULL,
-  target     TEXT,
-  status     TEXT DEFAULT 'in_progress',  -- in_progress | achieved | deferred
-  sort_order INTEGER DEFAULT 0,
-  updated_at TEXT DEFAULT (datetime('now')),
-  FOREIGN KEY (site_id) REFERENCES sites(id)
-);
-CREATE INDEX IF NOT EXISTS idx_ao_site_year ON annual_objectives(site_id, year);
-`);
-
-// ── SEED DEFAULT SITES ────────────────────────────────────────────
-// zoho_group: single group name, OR comma-separated list for multi-group sites
-// (e.g. Exploration aggregates all 3 Exploration sub-groups)
 const DEFAULT_SITES = [
   { name: 'Sabodala',    zoho_group: 'Sabodala IT Agents',                                                              sort_order: 0,  active: 1 },
   { name: 'MANA',        zoho_group: 'Mana IT Agent',                                                                   sort_order: 1,  active: 1 },
@@ -764,30 +32,14 @@ const DEFAULT_SITES = [
   { name: 'Tanda',       zoho_group: 'Tanda IT Agents',                                                                 sort_order: 10, active: 1 }, // v1.10.9: new mining site
   { name: 'Wahgnion',    zoho_group: 'Wahgnion IT Agents',                                                              sort_order: 11, active: 0 }, // deactivated — no longer used
 ];
-const insertSite = db.prepare(`INSERT OR IGNORE INTO sites (name, zoho_group, sort_order, active) VALUES (?, ?, ?, ?)`);
-const _backfillSiteGroup  = db.prepare(`UPDATE sites SET zoho_group=? WHERE name=? AND (zoho_group IS NULL OR zoho_group='')`);
-const _deactivateSite     = db.prepare(`UPDATE sites SET active=0 WHERE name=? AND active=1`);
-const _forceUpdateGroup   = db.prepare(`UPDATE sites SET zoho_group=? WHERE name=?`);
-DEFAULT_SITES.forEach(s => {
-  insertSite.run(s.name, s.zoho_group, s.sort_order, s.active);
-  _backfillSiteGroup.run(s.zoho_group, s.name);
-  if (s.active === 0) _deactivateSite.run(s.name);
-  // Force-update Exploration group to include all 3 sub-groups (in case it was seeded with just one)
-  if (s.name === 'Exploration') _forceUpdateGroup.run(s.zoho_group, s.name);
-});
+
+
+
+
 
 // ── SEED DEFAULT ACTION DEPARTMENTS ──────────────────────────────
-const deptCount = db.prepare(`SELECT COUNT(*) AS n FROM action_departments`).get().n;
-if (deptCount === 0) {
-  const seedDept = db.prepare(`INSERT INTO action_departments (name, sort_order) VALUES (?, ?)`);
-  const defaults = [
-    'Mining', 'Technical Service', 'Processing', 'Maintenance',
-    'Supply Chain', 'Security', 'Finance', 'Human Resource',
-    'Social performance', 'General Manager'
-  ];
-  defaults.forEach((name, i) => seedDept.run(name, i + 1));
-  console.log(`[seed] Inserted ${defaults.length} default action_departments`);
-}
+
+
 
 // ══════════════════════════════════════════════════════════════════
 //  PALIER 1 — Canonical catalogues (additive, opt-in, non-breaking)
@@ -803,18 +55,7 @@ if (deptCount === 0) {
 // Replaces the 4 duplicate SITE_MAP hashmaps in tracker-db.js,
 // inspection-db.js, meetings-db.js (via inspection), risk-register-export.js.
 // Source of truth assembled from those 4 files + DATA_ARCHITECTURE.md §1.
-db.exec(`
-CREATE TABLE IF NOT EXISTS site_module_codes (
-  site_id    INTEGER NOT NULL,
-  module     TEXT    NOT NULL,            -- 'tracker' | 'inspection' | 'meetings' | 'risk_register'
-  code       TEXT    NOT NULL,            -- e.g. 'MGO', 'HGO', 'KLN', 'OUAGA OFF1'
-  updated_at TEXT    DEFAULT (datetime('now')),
-  PRIMARY KEY (site_id, module),
-  FOREIGN KEY (site_id) REFERENCES sites(id) ON DELETE CASCADE
-);
-CREATE INDEX IF NOT EXISTS idx_smc_module ON site_module_codes(module);
-CREATE INDEX IF NOT EXISTS idx_smc_code   ON site_module_codes(code);
-`);
+
 
 // Backfill — canonical site name → { module → code }.
 // 'meetings' reuses inspection codes (per meetings-db.js _userMeetingsSite).
@@ -881,84 +122,22 @@ const _ASSET_LABEL_CODES = {
 const _WAN_SUBSITE_SEED = {
   Exploration: { FETEKRO: 'Exploration Fetekro' },
 };
-{
-  const upsertCode = db.prepare(
-    `INSERT OR IGNORE INTO site_module_codes (site_id, module, code) VALUES (?, ?, ?)`
-  );
-  const findSite = db.prepare(`SELECT id FROM sites WHERE name = ? COLLATE NOCASE`);
-  let inserted = 0;
-  for (const [siteName, modCodes] of Object.entries(_SITE_MODULE_CODES_SEED)) {
-    const row = findSite.get(siteName);
-    if (!row) continue;
-    for (const [mod, code] of Object.entries(modCodes)) {
-      const r = upsertCode.run(row.id, mod, code);
-      if (r.changes > 0) inserted++;
-    }
-  }
-  // Step 3 — asset labels (module='assets'); PK is (site_id, module) so the labels of one site
-  // are stored comma-joined in `code` and split by the reader (listAssetLabelCodes).
-  for (const [siteName, labels] of Object.entries(_ASSET_LABEL_CODES)) {
-    const row = findSite.get(siteName); if (!row) continue;
-    const r = upsertCode.run(row.id, 'assets', labels.join(',')); if (r.changes > 0) inserted++;
-  }
-  if (inserted > 0) console.log(`[seed] site_module_codes — inserted ${inserted} (site,module,code) mappings`);
-  // Correct the 3 stale V1b-A guesses by exact old-string match (INSERT OR IGNORE
-  // won't update). Scoped to module='meraki'; never touches an admin-edited value.
-  const renameMeraki = db.prepare(`UPDATE site_module_codes SET code = ? WHERE module = 'meraki' AND code = ?`);
-  for (const [oldN, newN] of _MERAKI_RENAMES) renameMeraki.run(newN, oldN);
-  // V1b-E sub-site seed: INSERT OR IGNORE on the (site_id, sub_site) PK → never overrides
-  // a value set through Admin → ⚡ Infra → "Exploration sub-sites".
-  const seedSub = db.prepare(`INSERT OR IGNORE INTO wan_subsite_networks (site_id, sub_site, network) VALUES (?, ?, ?)`);
-  for (const [siteName, subs] of Object.entries(_WAN_SUBSITE_SEED)) {
-    const row = findSite.get(siteName);
-    if (!row) continue;
-    for (const [sub, net] of Object.entries(subs)) seedSub.run(row.id, sub, net);
-  }
-}
+
 
 // ── 1.B infra_kpi_catalog ─────────────────────────────────────────
 // Reference catalogue of canonical (service, kpi) pairs. Today the
 // infra_kpis table stores free-text values per report; renames silently
 // break trend charts. This catalogue captures the universe of values
 // in use today + lets a future admin UI manage them centrally.
-db.exec(`
-CREATE TABLE IF NOT EXISTS infra_kpi_catalog (
-  id            INTEGER PRIMARY KEY AUTOINCREMENT,
-  service       TEXT    NOT NULL,         -- 'Network' | 'Email' | 'WAN1 Fetekro Explo' | ...
-  kpi           TEXT    NOT NULL,         -- 'Availability' | 'Latency' | ...
-  target_default TEXT,                    -- the most recently used target for this pair
-  display_order INTEGER DEFAULT 0,
-  active        INTEGER DEFAULT 1,
-  created_at    TEXT DEFAULT (datetime('now')),
-  UNIQUE(service, kpi)
-);
-CREATE INDEX IF NOT EXISTS idx_infra_kpi_cat_service ON infra_kpi_catalog(service);
-`);
+
 // Backfill from any existing infra_kpis rows. Idempotent — re-runs on
 // every boot just pick up newly-seen (service, kpi) combinations.
-try {
-  const r = db.prepare(
-    `INSERT OR IGNORE INTO infra_kpi_catalog (service, kpi, target_default)
-     SELECT service, kpi, MAX(target) FROM infra_kpis
-     WHERE service IS NOT NULL AND service != ''
-       AND kpi     IS NOT NULL AND kpi     != ''
-     GROUP BY service, kpi`
-  ).run();
-  if (r.changes > 0) console.log(`[seed] infra_kpi_catalog — backfilled ${r.changes} new (service, kpi) pairs from history`);
-} catch (e) { /* infra_kpis may be empty on a fresh DB — no problem */ }
+
 
 // ── 1.C exec_view_editorial ───────────────────────────────────────
 // Exec View editorial (SharePoint executive page) — per-month highlights/focus.
 // PG fork: db/postgres/reports/002_config.sql + _getExecEditorialPg/_setExecEditorialPg.
-db.exec(`
-CREATE TABLE IF NOT EXISTS exec_view_editorial (
-  period          TEXT PRIMARY KEY,       -- 'YYYY-MM'
-  highlights_json TEXT,
-  focus_json      TEXT,
-  updated_at      TEXT,
-  updated_by      TEXT
-);
-`);
+
 
 // Shared row→{highlights, focus} mapping (both forks).
 function _mapExecEditorial(row) {
@@ -980,11 +159,7 @@ function _normExecEditorial({ highlights, focus }) {
  * Returns { highlights: [], focus: [] } when the period has never been set.
  */
 function getExecEditorial(period) {
-  if (REPORTS_BACKEND === 'postgres') return _getExecEditorialPg(period);
-  try {
-    const row = db.prepare('SELECT highlights_json, focus_json FROM exec_view_editorial WHERE period=?').get(period);
-    return _mapExecEditorial(row);
-  } catch { return { highlights: [], focus: [] }; }
+  return _getExecEditorialPg(period);
 }
 async function _getExecEditorialPg(period) {
   try {
@@ -1000,18 +175,7 @@ async function _getExecEditorialPg(period) {
  * stays predictable regardless of what an admin pastes in.
  */
 function setExecEditorial(period, { highlights, focus }, user) {
-  if (REPORTS_BACKEND === 'postgres') return _setExecEditorialPg(period, { highlights, focus }, user);
-  const { H, F } = _normExecEditorial({ highlights, focus });
-  db.prepare(`
-    INSERT INTO exec_view_editorial (period, highlights_json, focus_json, updated_at, updated_by)
-    VALUES (?, ?, ?, datetime('now'), ?)
-    ON CONFLICT(period) DO UPDATE SET
-      highlights_json = excluded.highlights_json,
-      focus_json      = excluded.focus_json,
-      updated_at      = excluded.updated_at,
-      updated_by      = excluded.updated_by
-  `).run(period, JSON.stringify(H), JSON.stringify(F), user || 'unknown');
-  return { highlights: H, focus: F };
+  return _setExecEditorialPg(period, { highlights, focus }, user);
 }
 // PG fork — datetime('now') → now(); ON CONFLICT … DO UPDATE SET x=excluded.x is pg-valid as-is.
 async function _setExecEditorialPg(period, { highlights, focus }, user) {
@@ -1038,30 +202,11 @@ async function _setExecEditorialPg(period, { highlights, focus }, user) {
 //                                collapsing the grains would let one filter's text
 //                                overwrite another's).
 // PG fork: db/postgres/reports/002_config.sql + _getExecReportEditorialPg/_setExecReportEditorialPg.
-db.exec(`
-CREATE TABLE IF NOT EXISTS exec_report_editorial (
-  period       TEXT NOT NULL,          -- 'YYYY-MM'
-  scope        TEXT NOT NULL,          -- 'ops' | 'commentary:<site>:<grp>'
-  payload_json TEXT,
-  updated_at   TIMESTAMP,
-  updated_by   TEXT,
-  PRIMARY KEY (period, scope)
-);
-`);
+
 
 // Asset engagement (2026-09-18) — weekly report "Parc informatique" tab. Same DDL
 // as db/postgres/reports/012_report_asset_review.sql. Deleted explicitly by deleteReport.
-db.exec(`
-CREATE TABLE IF NOT EXISTS report_asset_review (
-  report_id     INTEGER PRIMARY KEY,
-  applicable    INTEGER NOT NULL DEFAULT 1,
-  counts_json   TEXT,
-  handled_note  TEXT,
-  plan_note     TEXT,
-  updated_by    TEXT,
-  updated_at    TEXT
-);
-`);
+
 
 // Shared row→payload mapping (both forks). An absent row AND an unparseable
 // payload both read back as null — the caller can't tell "never saved" from
@@ -1080,12 +225,7 @@ function _mapExecReportEditorial(row) {
  * been set (or the stored JSON is unreadable).
  */
 function getExecReportEditorial(period, scope) {
-  if (REPORTS_BACKEND === 'postgres') return _getExecReportEditorialPg(period, scope);
-  try {
-    const row = db.prepare('SELECT payload_json FROM exec_report_editorial WHERE period=? AND scope=?')
-      .get(period, scope);
-    return _mapExecReportEditorial(row);
-  } catch { return null; }
+  return _getExecReportEditorialPg(period, scope);
 }
 async function _getExecReportEditorialPg(period, scope) {
   try {
@@ -1102,16 +242,7 @@ async function _getExecReportEditorialPg(period, scope) {
  * belongs to the deck builder, not to us). Returns the payload.
  */
 function setExecReportEditorial(period, scope, payload, user) {
-  if (REPORTS_BACKEND === 'postgres') return _setExecReportEditorialPg(period, scope, payload, user);
-  db.prepare(`
-    INSERT INTO exec_report_editorial (period, scope, payload_json, updated_at, updated_by)
-    VALUES (?, ?, ?, datetime('now'), ?)
-    ON CONFLICT(period, scope) DO UPDATE SET
-      payload_json = excluded.payload_json,
-      updated_at   = excluded.updated_at,
-      updated_by   = excluded.updated_by
-  `).run(period, scope, JSON.stringify(payload ?? null), user || 'unknown');
-  return payload;
+  return _setExecReportEditorialPg(period, scope, payload, user);
 }
 // PG fork — datetime('now') → now(); ON CONFLICT … DO UPDATE SET x=excluded.x is pg-valid as-is.
 async function _setExecReportEditorialPg(period, scope, payload, user) {
@@ -1133,16 +264,7 @@ async function _setExecReportEditorialPg(period, scope, payload, user) {
 // summary is regenerated ONLY when the underlying text changes — the public
 // endpoint never calls the model on the request path, it just reads this cache.
 // PG fork: db/postgres/reports/002_config.sql + _getExecMiSummariesPg/_setExecMiSummaryPg.
-db.exec(`
-CREATE TABLE IF NOT EXISTS exec_mi_summary (
-  request_id      TEXT PRIMARY KEY,
-  src_hash        TEXT NOT NULL,
-  root_cause_summary  TEXT,
-  action_summary      TEXT,
-  model           TEXT,
-  updated_at      TEXT
-);
-`);
+
 
 /**
  * getExecMiSummaries(ids) — batch-read cached MI summaries.
@@ -1150,19 +272,7 @@ CREATE TABLE IF NOT EXISTS exec_mi_summary (
  * Missing ids are simply absent from the map.
  */
 function getExecMiSummaries(ids) {
-  if (REPORTS_BACKEND === 'postgres') return _getExecMiSummariesPg(ids);
-  const out = {};
-  const list = (ids || []).filter(Boolean).map(String);
-  if (!list.length) return out;
-  try {
-    const ph = list.map(() => '?').join(',');
-    const rows = db.prepare(
-      `SELECT request_id, src_hash, root_cause_summary, action_summary, model
-         FROM exec_mi_summary WHERE request_id IN (${ph})`
-    ).all(...list);
-    for (const r of rows) out[r.request_id] = r;
-  } catch (e) { console.warn('[exec-mi-summary] read failed:', e.message); }
-  return out;
+  return _getExecMiSummariesPg(ids);
 }
 // PG fork — sqlite's dynamic IN (?,?,…) becomes `= ANY(?)` with ONE array param:
 // pgDb passes positional args straight to node-postgres, which serialises a JS
@@ -1186,21 +296,7 @@ async function _getExecMiSummariesPg(ids) {
  * — upsert one incident's cached summary.
  */
 function setExecMiSummary(request_id, s) {
-  if (REPORTS_BACKEND === 'postgres') return _setExecMiSummaryPg(request_id, s);
-  if (!request_id || !s || !s.src_hash) return;
-  try {
-    db.prepare(`
-      INSERT INTO exec_mi_summary (request_id, src_hash, root_cause_summary, action_summary, model, updated_at)
-      VALUES (?, ?, ?, ?, ?, datetime('now'))
-      ON CONFLICT(request_id) DO UPDATE SET
-        src_hash           = excluded.src_hash,
-        root_cause_summary = excluded.root_cause_summary,
-        action_summary     = excluded.action_summary,
-        model              = excluded.model,
-        updated_at         = excluded.updated_at
-    `).run(String(request_id), String(s.src_hash),
-           s.root_cause_summary || null, s.action_summary || null, s.model || null);
-  } catch (e) { console.warn('[exec-mi-summary] write failed:', e.message); }
+  return _setExecMiSummaryPg(request_id, s);
 }
 // PG fork — datetime('now') → now(); upsert syntax is pg-valid as-is.
 async function _setExecMiSummaryPg(request_id, s) {
@@ -1228,25 +324,8 @@ function makeSession() {
   return crypto.randomBytes(32).toString('hex');
 }
 
-const adminExists = db.prepare(`SELECT id FROM users WHERE role='admin' LIMIT 1`).get();
-if (!adminExists) {
-  // Refuse to seed a default admin with hardcoded credentials. Operators must
-  // set both DASH_USER and DASH_PASS in the .env file BEFORE first boot.
-  // (Removed inline fallbacks 2026-06-05 — credentials never appear in source;
-  // see the .env template file for the expected variable names.)
-  if (!process.env.DASH_USER || !process.env.DASH_PASS) {
-    throw new Error(
-      '[Reports-DB] FATAL: cannot create default admin — DASH_USER and DASH_PASS ' +
-      'must be set in .env before first boot. See DOTENV.example for the template.'
-    );
-  }
-  const salt = crypto.randomBytes(16).toString('hex');
-  const hash = hashPassword(process.env.DASH_PASS, salt);
-  db.prepare(`INSERT OR IGNORE INTO users (username, full_name, password_hash, salt, site_id, role)
-              VALUES (?, ?, ?, ?, NULL, 'admin')`)
-    .run(process.env.DASH_USER, 'Administrator', hash, salt);
-  if (!_PG_MODE) console.log('[Reports-DB] Default admin created:', process.env.DASH_USER);
-}
+
+
 
 // ── WEEK HELPERS (Zoho Sunday-start, mirrors AP Analytics Plus convention) ────
 // W01 = first Sunday of the year; weeks run Sun–Sat, same as AP.
@@ -1283,13 +362,7 @@ function getWeekRange(year, week) {
 }
 
 function ensureWeek(year, week) {
-  if (REPORTS_BACKEND === 'postgres') return _ensureWeekPg(year, week);
-  const existing = db.prepare(`SELECT id FROM weeks WHERE year=? AND week_number=?`).get(year, week);
-  if (existing) return existing.id;
-  const range = getWeekRange(year, week);
-  const r = db.prepare(`INSERT INTO weeks (year, week_number, start_date, end_date, label) VALUES (?,?,?,?,?)`)
-              .run(year, week, range.start, range.end, range.label);
-  return r.lastInsertRowid;
+  return _ensureWeekPg(year, week);
 }
 
 // Report period = PREVIOUS week (what's being filled during the current week)
@@ -1317,11 +390,7 @@ const FEATURE_ROLES_KNOWN = ['tracker-admin', 'tracker-editor', 'report-author',
  * stable display.
  */
 function getUserRoles(userId) {
-  if (REPORTS_BACKEND === 'postgres') return _getUserRolesPg(userId);
-  if (!userId) return [];
-  return db.prepare(`SELECT role FROM user_roles WHERE user_id=? ORDER BY role`)
-           .all(userId)
-           .map(r => r.role);
+  return _getUserRolesPg(userId);
 }
 async function _getUserRolesPg(userId) {
   if (!userId) return [];
@@ -1334,22 +403,7 @@ async function _getUserRolesPg(userId) {
  * against malformed UI input).
  */
 function setUserRoles(userId, roles) {
-  if (REPORTS_BACKEND === 'postgres') return _setUserRolesPg(userId, roles);
-  if (!userId) return;
-  const allowed = new Set([...ROLE_HIERARCHY, ...FEATURE_ROLES_KNOWN]);
-  const clean = (Array.isArray(roles) ? roles : []).filter(r => allowed.has(r));
-  // Always ensure user has at least 'viewer' so downstream "must have ANY role"
-  // checks don't lock them out by accident.
-  if (clean.length === 0) clean.push('viewer');
-  const tx = db.transaction(() => {
-    db.prepare(`DELETE FROM user_roles WHERE user_id=?`).run(userId);
-    const ins = db.prepare(`INSERT OR IGNORE INTO user_roles (user_id, role) VALUES (?, ?)`);
-    for (const r of clean) ins.run(userId, r);
-    // Update users.role to the highest hierarchical tier present (legacy column).
-    const highest = ROLE_HIERARCHY.find(h => clean.includes(h)) || 'viewer';
-    db.prepare(`UPDATE users SET role=? WHERE id=?`).run(highest, userId);
-  });
-  tx();
+  return _setUserRolesPg(userId, roles);
 }
 
 /**
@@ -1366,8 +420,9 @@ function userHasRole(userOrId, requiredRole) {
   if (typeof userOrId === 'object' && Array.isArray(userOrId.roles)) {
     roles = userOrId.roles;
   } else {
-    const id = (typeof userOrId === 'object') ? userOrId.id : userOrId;
-    roles = getUserRoles(id);
+    // PostgreSQL only (PO-08): getUserRoles is async, so a bare id cannot be resolved here.
+    // Fail closed — callers pass the session user, whose `.roles` is pre-loaded.
+    roles = [];
   }
   if (roles.length === 0) return false;
   // Exact match (covers feature roles + same-tier hierarchy)
@@ -1389,7 +444,7 @@ function userHasRole(userOrId, requiredRole) {
 // The module-level sqlite `db` stays the default handle untouched; the pg path uses
 // pgHandle(). `listSites`/`createSite`/`updateSite` + `userHasRole` are NOT forked in
 // A (spec §4/§5.4). Prod stays sqlite (all-or-nothing flip later).
-const REPORTS_BACKEND = (process.env.REPORTS_BACKEND || 'sqlite').toLowerCase();
+const REPORTS_BACKEND = 'postgres';
 let _pg = null;
 async function initPgReports() {            // called once at server boot
   const { makePgDb } = require('./services/pgDb');
@@ -1405,6 +460,7 @@ async function initPgReports() {            // called once at server boot
   // Chunk 4B — config tables (action_departments / audit_log / dashboard_preset_groups).
   await _pg.exec(require('fs').readFileSync(
     require('path').join(__dirname, 'db', 'postgres', 'reports', '002_config.sql'), 'utf8'));
+  await _seedSitesPg(_pg);
   await _seedConfigPg(_pg);
   // Chunk 4C — report-editor tables (weeks / weekly_reports / kpis / lights / actions / monthly / objectives / catalogs).
   await _pg.exec(require('fs').readFileSync(
@@ -1564,8 +620,20 @@ function pgHandle() {
   return _pg;
 }
 
-// Seed config tables on a fresh pg DB (idempotent — only fills empty tables,
-// mirroring the sqlite seed-gates). sites is owned by the 4A copy/seed path.
+// Default sites (idempotent): insert missing names, fill a missing zoho_group, deactivate the
+// retired ones, and keep Exploration on its three support groups. Runs BEFORE the catalog seed,
+// which resolves site_module_codes by site name.
+async function _seedSitesPg(H) {
+  for (const s of DEFAULT_SITES) {
+    await H.prepare(`INSERT INTO sites (name, zoho_group, sort_order, active) VALUES (?, ?, ?, ?)
+      ON CONFLICT (name) DO NOTHING`).run(s.name, s.zoho_group, s.sort_order, s.active);
+    await H.prepare(`UPDATE sites SET zoho_group = ? WHERE name = ? AND (zoho_group IS NULL OR zoho_group = '')`).run(s.zoho_group, s.name);
+    if (s.active === 0) await H.prepare('UPDATE sites SET active = 0 WHERE name = ?').run(s.name);
+    if (s.name === 'Exploration') await H.prepare('UPDATE sites SET zoho_group = ? WHERE name = ?').run(s.zoho_group, s.name);
+  }
+}
+
+// Seed config tables on a fresh pg DB (idempotent — only fills empty tables).
 async function _seedConfigPg(H) {
   // action_departments — verbatim from the sqlite seed (reports-db.js defaults).
   const dn = Number((await H.prepare('SELECT COUNT(*) AS n FROM action_departments').get()).n);
@@ -1621,38 +689,15 @@ async function _seedConfigPg(H) {
 function sessionHours(env = process.env) { const h = Number(env.SESSION_HOURS); return Number.isFinite(h) && h > 0 && h <= 24 * 30 ? h : 24; }
 
 function login(username, password) {
-  if (REPORTS_BACKEND === 'postgres') return _loginPg(username, password);
-  const user = db.prepare(`SELECT * FROM users WHERE username=? AND active=1`).get(username);
-  if (!user) return null;
-  const hash = hashPassword(password, user.salt);
-  if (hash !== user.password_hash) return null;
-  // Create session (24h)
-  const token     = makeSession();
-  const expiresAt = new Date(Date.now() + sessionHours() * 3600 * 1000).toISOString();
-  db.prepare(`INSERT INTO sessions (token, user_id, expires_at) VALUES (?,?,?)`).run(token, user.id, expiresAt);
-  return { token, user: safeUser(user) };
+  return _loginPg(username, password);
 }
 
 function validateSession(token) {
-  if (REPORTS_BACKEND === 'postgres') return _validateSessionPg(token);
-  if (!token) return null;
-  const s = db.prepare(`SELECT * FROM sessions WHERE token=? AND expires_at > datetime('now')`).get(token);
-  if (!s) return null;
-  const user = db.prepare(`SELECT * FROM users WHERE id=? AND active=1`).get(s.user_id);
-  if (!user) return null;
-  // Stamp last_seen — drives the "Active Sessions" admin card. Cheap
-  // (~50µs on warm WAL DB) so done unconditionally on every validation.
-  // Wrapped in try/catch so a transient DB write failure never blocks
-  // a legitimate auth check.
-  try {
-    db.prepare(`UPDATE sessions SET last_seen = datetime('now') WHERE token = ?`).run(token);
-  } catch (_) { /* non-fatal */ }
-  return safeUser(user);
+  return _validateSessionPg(token);
 }
 
 function logout(token) {
-  if (REPORTS_BACKEND === 'postgres') return _logoutPg(token);
-  db.prepare(`DELETE FROM sessions WHERE token=?`).run(token);
+  return _logoutPg(token);
 }
 
 // ── Async postgres forks of the auth/session path (Sub-chunk A) ──────────────
@@ -1690,38 +735,13 @@ async function _logoutPg(token) {
 // session as active when last_seen falls within the supplied window
 // (default 5 minutes). Returns enriched rows joined with users.
 function listActiveSessions(idleMinutes) {
-  if (REPORTS_BACKEND === 'postgres') return _listActiveSessionsPg(idleMinutes);
-  const m = Math.max(1, Math.min(1440, Number(idleMinutes) || 5));
-  // LEFT JOIN sites because users without a site_id ("All Groups" — admins)
-  // still need to appear. site_name resolves to NULL for those, which the
-  // UI renders as "All".
-  return db.prepare(`
-    SELECT s.token,
-           s.created_at,
-           s.expires_at,
-           COALESCE(s.last_seen, s.created_at) AS last_seen,
-           CAST(ROUND((julianday('now') - julianday(COALESCE(s.last_seen, s.created_at))) * 86400) AS INTEGER) AS seconds_idle,
-           u.id   AS user_id,
-           u.username,
-           u.full_name,
-           u.role,
-           site.name AS site_name
-    FROM sessions s
-    JOIN users u    ON u.id = s.user_id
-    LEFT JOIN sites site ON site.id = u.site_id
-    WHERE COALESCE(s.last_seen, s.created_at) > datetime('now', '-' || ? || ' minutes')
-      AND s.expires_at > datetime('now')
-      AND u.active = 1
-    ORDER BY last_seen DESC
-  `).all(m);
+  return _listActiveSessionsPg(idleMinutes);
 }
 
 // Force-logout a session by token. Returns the number of rows affected
 // (0 if the token didn't exist or had already been deleted).
 function forceLogoutByToken(token) {
-  if (REPORTS_BACKEND === 'postgres') return _forceLogoutByTokenPg(token);
-  const r = db.prepare(`DELETE FROM sessions WHERE token = ?`).run(token);
-  return { deleted: r.changes };
+  return _forceLogoutByTokenPg(token);
 }
 async function _listActiveSessionsPg(idleMinutes) {
   const m = Math.max(1, Math.min(1440, Number(idleMinutes) || 5));
@@ -1756,9 +776,7 @@ function _cleanExtraSites(ids, primary) {
   return out.sort((a, b) => a - b);
 }
 function getUserExtraSiteIds(userId) {
-  if (REPORTS_BACKEND === 'postgres') return _getUserExtraSiteIdsPg(userId);
-  if (!userId) return [];
-  return db.prepare('SELECT site_id FROM user_sites WHERE user_id=? ORDER BY site_id').all(userId).map(r => r.site_id);
+  return _getUserExtraSiteIdsPg(userId);
 }
 async function _getUserExtraSiteIdsPg(userId) {
   if (!userId) return [];
@@ -1766,14 +784,7 @@ async function _getUserExtraSiteIdsPg(userId) {
 }
 /** Replace the extra sites of a user (the primary is filtered out). */
 function setUserExtraSites(userId, ids, primary) {
-  if (REPORTS_BACKEND === 'postgres') return _setUserExtraSitesPg(userId, ids, primary);
-  if (!userId) return;
-  const clean = _cleanExtraSites(ids, primary);
-  db.transaction(() => {
-    db.prepare('DELETE FROM user_sites WHERE user_id=?').run(userId);
-    const ins = db.prepare('INSERT OR IGNORE INTO user_sites (user_id, site_id) SELECT ?, id FROM sites WHERE id=?');
-    for (const sid of clean) ins.run(userId, sid);
-  })();
+  return _setUserExtraSitesPg(userId, ids, primary);
 }
 async function _setUserExtraSitesPg(userId, ids, primary) {
   if (!userId) return;
@@ -1814,111 +825,20 @@ function safeUser(u) {
 
 // ── USER MANAGEMENT ───────────────────────────────────────────────
 function listUsers() {
-  if (REPORTS_BACKEND === 'postgres') return _listUsersPg();
-  const users = db.prepare(`
-    SELECT u.id, u.username, u.full_name, u.site_id, s.name as site_name, s.zoho_group, u.role, u.active, u.created_at,
-           u.email, u.entra_oid, u.first_name, u.last_name, u.title, u.office
-    FROM users u LEFT JOIN sites s ON u.site_id=s.id ORDER BY u.id
-  `).all();
-  // Attach roles array to each user — single GROUP_CONCAT query is cheaper
-  // than N+1 lookups for large user lists.
-  const allRoles = db.prepare(`
-    SELECT user_id, GROUP_CONCAT(role, ',') AS roles_csv FROM user_roles GROUP BY user_id
-  `).all();
-  const rolesByUser = {};
-  for (const r of allRoles) rolesByUser[r.user_id] = r.roles_csv ? r.roles_csv.split(',').sort() : [];
-  const extraByUser = {};
-  for (const r of db.prepare('SELECT user_id, site_id FROM user_sites ORDER BY site_id').all()) (extraByUser[r.user_id] = extraByUser[r.user_id] || []).push(r.site_id);
-  return users.map(u => ({ ...u, has_entra: !!u.entra_oid, entra_oid: undefined, roles: rolesByUser[u.id] || [],
-    extra_site_ids: (extraByUser[u.id] || []).filter(x => x !== u.site_id) }));
+  return _listUsersPg();
 }
 
 function createUser({ username, full_name, password, site_id, role, roles, email, extra_site_ids }) {
-  if (REPORTS_BACKEND === 'postgres') return _createUserPg({ username, full_name, password, site_id, role, roles, email, extra_site_ids });
-  const salt = crypto.randomBytes(16).toString('hex');
-  const hash = hashPassword(password, salt);
-  // Resolve final roles set: prefer the new `roles` array; fall back to the
-  // legacy single `role` string for backward-compat callers.
-  let finalRoles = Array.isArray(roles) && roles.length > 0
-    ? roles
-    : [role || 'editor'];
-  // Ensure 'editor'/'viewer' alone gets a sensible legacy users.role value
-  const ROLE_HIERARCHY_LOCAL = ['super_admin', 'executive', 'admin', 'editor', 'viewer'];
-  const highest = ROLE_HIERARCHY_LOCAL.find(h => finalRoles.includes(h)) || 'viewer';
-  const result = db.prepare(`INSERT INTO users (username, full_name, password_hash, salt, site_id, role) VALUES (?,?,?,?,?,?)`)
-           .run(username, full_name, hash, salt, site_id || null, highest);
-  // Persist all roles to user_roles
-  if (result.lastInsertRowid) setUserRoles(result.lastInsertRowid, finalRoles);
-  // Email (Entra SSO match key) — additive so the branchy password logic above
-  // stays untouched. Stored lowercase; blank → NULL.
-  if (result.lastInsertRowid && email !== undefined) {
-    const e = (email && String(email).trim().toLowerCase()) || null;
-    db.prepare(`UPDATE users SET email=? WHERE id=?`).run(e, result.lastInsertRowid);
-  }
-  if (result.lastInsertRowid && Array.isArray(extra_site_ids)) setUserExtraSites(result.lastInsertRowid, extra_site_ids, site_id);
-  return result;
+  return _createUserPg({ username, full_name, password, site_id, role, roles, email, extra_site_ids });
 }
 
 // Change own password — verifies current password before updating
 function changePassword(userId, currentPassword, newPassword) {
-  if (REPORTS_BACKEND === 'postgres') return _changePasswordPg(userId, currentPassword, newPassword);
-  const user = db.prepare('SELECT * FROM users WHERE id=? AND active=1').get(userId);
-  if (!user) return { ok: false, error: 'User not found' };
-  const currentHash = hashPassword(currentPassword, user.salt);
-  if (currentHash !== user.password_hash) return { ok: false, error: 'Current password is incorrect' };
-  if (newPassword.length < 8) return { ok: false, error: 'New password must be at least 8 characters' };
-  const salt = crypto.randomBytes(16).toString('hex');
-  const hash = hashPassword(newPassword, salt);
-  db.prepare('UPDATE users SET password_hash=?, salt=? WHERE id=?').run(hash, salt, userId);
-  return { ok: true };
+  return _changePasswordPg(userId, currentPassword, newPassword);
 }
 
 function updateUser(id, { full_name, password, site_id, role, roles, active, email, extra_site_ids }) {
-  if (REPORTS_BACKEND === 'postgres') return _updateUserPg(id, { full_name, password, site_id, role, roles, active, email, extra_site_ids });
-  // Resolve roles to update: prefer the new `roles` array; fall back to
-  // single `role` for legacy callers. If neither is provided, leave the
-  // current user_roles set alone.
-  const willUpdateRoles = Array.isArray(roles) || typeof role === 'string';
-  const finalRoles = Array.isArray(roles) && roles.length > 0
-    ? roles
-    : (typeof role === 'string' ? [role] : null);
-  // The legacy users.role column gets the highest tier from finalRoles
-  // (or stays untouched if we're not changing roles at all).
-  const ROLE_HIERARCHY_LOCAL = ['super_admin', 'executive', 'admin', 'editor', 'viewer'];
-  const highest = finalRoles
-    ? (ROLE_HIERARCHY_LOCAL.find(h => finalRoles.includes(h)) || 'viewer')
-    : null;
-
-  if (password) {
-    const salt = crypto.randomBytes(16).toString('hex');
-    const hash = hashPassword(password, salt);
-    if (willUpdateRoles && highest) {
-      db.prepare(`UPDATE users SET full_name=?, password_hash=?, salt=?, site_id=?, role=?, active=? WHERE id=?`)
-        .run(full_name, hash, salt, site_id ?? null, highest, active ?? 1, id);
-    } else {
-      db.prepare(`UPDATE users SET full_name=?, password_hash=?, salt=?, site_id=?, active=? WHERE id=?`)
-        .run(full_name, hash, salt, site_id ?? null, active ?? 1, id);
-    }
-  } else {
-    if (willUpdateRoles && highest) {
-      db.prepare(`UPDATE users SET full_name=?, site_id=?, role=?, active=? WHERE id=?`)
-        .run(full_name, site_id ?? null, highest, active ?? 1, id);
-    } else {
-      db.prepare(`UPDATE users SET full_name=?, site_id=?, active=? WHERE id=?`)
-        .run(full_name, site_id ?? null, active ?? 1, id);
-    }
-  }
-  if (willUpdateRoles && finalRoles) {
-    setUserRoles(id, finalRoles);
-  }
-  // Email (Entra SSO match key) — additive; only touched when explicitly sent.
-  if (email !== undefined) {
-    const e = (email && String(email).trim().toLowerCase()) || null;
-    db.prepare(`UPDATE users SET email=? WHERE id=?`).run(e, id);
-  }
-  // Extra sites: replaced only when sent; the (possibly new) primary never stays an extra.
-  if (Array.isArray(extra_site_ids)) setUserExtraSites(id, extra_site_ids, site_id);
-  else if (site_id) db.prepare('DELETE FROM user_sites WHERE user_id=? AND site_id=?').run(id, site_id);
+  return _updateUserPg(id, { full_name, password, site_id, role, roles, active, email, extra_site_ids });
 }
 
 // ── Entra ID (Azure AD) SSO helpers ──────────────────────────────────────────
@@ -1945,15 +865,7 @@ function _ssoCandidateAllowed(u, roles, breakglassUser) {
   return true;
 }
 function findUserByEntra({ oid, email, email_source, breakglassUser } = {}) {
-  if (REPORTS_BACKEND === 'postgres') return _findUserByEntraPg({ oid, email, email_source, breakglassUser });
-  if (oid) {
-    const u = db.prepare(`SELECT * FROM users WHERE entra_oid=? AND active=1`).get(oid);
-    if (u) return u;
-  }
-  if (!_ssoEmailFallbackAllowed({ email, email_source })) return null;
-  const c = db.prepare(`SELECT * FROM users WHERE lower(email)=lower(?) AND active=1 AND entra_oid IS NULL`).get(email);
-  if (!c) return null;
-  return _ssoCandidateAllowed(c, getUserRoles(c.id), breakglassUser) ? c : null;
+  return _findUserByEntraPg({ oid, email, email_source, breakglassUser });
 }
 // linkUserEntra: on first successful SSO match, stamp the stable oid. Set the
 // email too only if the row didn't already have one (don't clobber a curated value).
@@ -1967,28 +879,14 @@ function _ssoLinkConflict(u, oid) {
   return err;
 }
 function linkUserEntra(userId, oid, email) {
-  if (REPORTS_BACKEND === 'postgres') return _linkUserEntraPg(userId, oid, email);
-  const u = db.prepare(`SELECT id, username, entra_oid FROM users WHERE id=?`).get(userId);
-  if (!u) return false;
-  if (u.entra_oid && oid && String(u.entra_oid) !== String(oid)) throw _ssoLinkConflict(u, oid);
-  db.prepare(`UPDATE users SET entra_oid=COALESCE(entra_oid, ?), email=COALESCE(email, ?) WHERE id=?`)
-    .run(oid || null, (email && String(email).toLowerCase()) || null, userId);
-  return true;
+  return _linkUserEntraPg(userId, oid, email);
 }
 // updateUserProfileFromEntra: refresh the display profile FROM Microsoft on each
 // SSO login. COALESCE so a field only overwrites when Entra actually supplied it
 // (jobTitle/office can be absent if the Graph call is skipped/fails).
 function _nz(v) { const s = (v == null ? '' : String(v)).trim(); return s || null; }
 function updateUserProfileFromEntra(userId, p = {}) {
-  if (REPORTS_BACKEND === 'postgres') return _updateUserProfileFromEntraPg(userId, p);
-  db.prepare(`UPDATE users SET
-      first_name = COALESCE(?, first_name),
-      last_name  = COALESCE(?, last_name),
-      title      = COALESCE(?, title),
-      office     = COALESCE(?, office),
-      full_name  = COALESCE(?, full_name)
-    WHERE id = ?`)
-    .run(_nz(p.first_name), _nz(p.last_name), _nz(p.title), _nz(p.office), _nz(p.full_name), userId);
+  return _updateUserProfileFromEntraPg(userId, p);
 }
 async function _updateUserProfileFromEntraPg(userId, p = {}) {
   await pgHandle().prepare(`UPDATE users SET
@@ -2000,8 +898,7 @@ async function _updateUserProfileFromEntraPg(userId, p = {}) {
 
 // setUserEmail: used by the bulk email-mapping screen. Lowercased; blank → NULL.
 function setUserEmail(userId, email) {
-  if (REPORTS_BACKEND === 'postgres') return _setUserEmailPg(userId, email);
-  db.prepare(`UPDATE users SET email=? WHERE id=?`).run(_nz(email && String(email).toLowerCase()), userId);
+  return _setUserEmailPg(userId, email);
 }
 async function _setUserEmailPg(userId, email) {
   await pgHandle().prepare(`UPDATE users SET email=? WHERE id=?`).run(_nz(email && String(email).toLowerCase()), userId);
@@ -2010,13 +907,7 @@ async function _setUserEmailPg(userId, email) {
 // createSessionForUser: mint the SAME 24h session token as password login, but
 // without a password (identity already proven by Entra). Mirrors login().
 function createSessionForUser(userId) {
-  if (REPORTS_BACKEND === 'postgres') return _createSessionForUserPg(userId);
-  const user = db.prepare(`SELECT * FROM users WHERE id=? AND active=1`).get(userId);
-  if (!user) return null;
-  const token     = makeSession();
-  const expiresAt = new Date(Date.now() + sessionHours() * 3600 * 1000).toISOString();
-  db.prepare(`INSERT INTO sessions (token, user_id, expires_at) VALUES (?,?,?)`).run(token, user.id, expiresAt);
-  return { token, user: safeUser(user) };
+  return _createSessionForUserPg(userId);
 }
 
 // PostgreSQL forks — reports.db may run under REPORTS_BACKEND=postgres later.
@@ -2057,8 +948,7 @@ async function _safeUserPg(u) {
 }
 
 function deleteUser(id) {
-  if (REPORTS_BACKEND === 'postgres') return _deleteUserPg(id);
-  db.prepare(`DELETE FROM users WHERE id=?`).run(id);
+  return _deleteUserPg(id);
 }
 
 // ── Async postgres forks of user management (Sub-chunk A) ────────────────────
@@ -2080,7 +970,7 @@ async function _listUsersPg() {
   const h = pgHandle();
   const users = await h.prepare(`
     SELECT u.id, u.username, u.full_name, u.site_id, s.name as site_name, s.zoho_group, u.role, u.active, u.created_at,
-           u.email, u.entra_oid
+           u.email, u.entra_oid, u.first_name, u.last_name, u.title, u.office
     FROM users u LEFT JOIN sites s ON u.site_id=s.id ORDER BY u.id`).all();
   const allRoles = await h.prepare(`
     SELECT user_id, string_agg(role, ',' ORDER BY role) AS roles_csv FROM user_roles GROUP BY user_id`).all();
@@ -2149,11 +1039,7 @@ async function _deleteUserPg(id) {
 // hides from new dropdowns while preserving historical reports.
 
 function listSites({ includeInactive = false } = {}) {
-  if (REPORTS_BACKEND === 'postgres') return _listSitesPg({ includeInactive });
-  if (includeInactive) {
-    return db.prepare(`SELECT id, name, zoho_group, active, sort_order FROM sites ORDER BY sort_order, name`).all();
-  }
-  return db.prepare(`SELECT id, name, zoho_group, active, sort_order FROM sites WHERE active=1 ORDER BY sort_order, name`).all();
+  return _listSitesPg({ includeInactive });
 }
 async function _listSitesPg({ includeInactive = false } = {}) {
   const H = pgHandle();
@@ -2171,15 +1057,7 @@ async function _listSitesPg({ includeInactive = false } = {}) {
  * meetings code). Case-insensitive on the code.
  */
 function getSiteIdByModuleCode(module, code) {
-  if (REPORTS_BACKEND === 'postgres') return _getSiteIdByModuleCodePg(module, code);
-  if (!module || !code) return null;
-  try {
-    const row = db.prepare(`
-      SELECT c.site_id AS site_id, s.name AS name, s.zoho_group AS zoho_group
-      FROM site_module_codes c JOIN sites s ON s.id = c.site_id
-      WHERE c.module = ? AND c.code = ? COLLATE NOCASE`).get(module, code);
-    return row || null;
-  } catch (e) { console.warn('[site-resolve] failed:', e.message); return null; }
+  return _getSiteIdByModuleCodePg(module, code);
 }
 async function _getSiteIdByModuleCodePg(module, code) {
   if (!module || !code) return null;
@@ -2198,14 +1076,7 @@ async function _getSiteIdByModuleCodePg(module, code) {
  * (e.g. Exploration/Tanda have no meetings code) simply don't appear.
  */
 function listSiteModuleCodes(module) {
-  if (REPORTS_BACKEND === 'postgres') return _listSiteModuleCodesPg(module);
-  if (!module) return [];
-  try {
-    return db.prepare(`
-      SELECT c.site_id AS site_id, c.code AS code, s.name AS name
-      FROM site_module_codes c JOIN sites s ON s.id = c.site_id
-      WHERE c.module = ? ORDER BY s.name`).all(module);
-  } catch (e) { console.warn('[site-resolve] listSiteModuleCodes failed:', e.message); return []; }
+  return _listSiteModuleCodesPg(module);
 }
 async function _listSiteModuleCodesPg(module) {
   if (!module) return [];
@@ -2222,11 +1093,7 @@ async function _listSiteModuleCodesPg(module) {
 // is the sync's own source (site_module_codes, module='meraki'); the seed only
 // pre-fills defaults.
 function listSiteMerakiMap() {
-  if (REPORTS_BACKEND === 'postgres') return _listSiteMerakiMapPg();
-  return db.prepare(`
-    SELECT s.id AS site_id, s.name AS name, c.code AS network
-    FROM sites s LEFT JOIN site_module_codes c ON c.site_id = s.id AND c.module = 'meraki'
-    WHERE s.active = 1 ORDER BY s.name`).all();
+  return _listSiteMerakiMapPg();
 }
 async function _listSiteMerakiMapPg() {
   return await pgHandle().prepare(`
@@ -2236,12 +1103,7 @@ async function _listSiteMerakiMapPg() {
 }
 // Set (or clear, when network is blank) one site's Meraki network name.
 function setSiteMerakiCode(site_id, network) {
-  if (REPORTS_BACKEND === 'postgres') return _setSiteMerakiCodePg(site_id, network);
-  const net = String(network == null ? '' : network).trim();
-  if (!net) { db.prepare(`DELETE FROM site_module_codes WHERE site_id = ? AND module = 'meraki'`).run(site_id); return { site_id, network: null }; }
-  db.prepare(`INSERT INTO site_module_codes (site_id, module, code) VALUES (?, 'meraki', ?)
-    ON CONFLICT (site_id, module) DO UPDATE SET code = excluded.code`).run(site_id, net);
-  return { site_id, network: net };
+  return _setSiteMerakiCodePg(site_id, network);
 }
 async function _setSiteMerakiCodePg(site_id, network) {
   const H = pgHandle();
@@ -2255,11 +1117,7 @@ async function _setSiteMerakiCodePg(site_id, network) {
 // V1b-E — the editable sub-site → Meraki-network map (Exploration). INNER JOIN sites so
 // only rows for existing sites are returned. Normal sites simply have no rows here.
 function listWanSubsiteNetworks() {
-  if (REPORTS_BACKEND === 'postgres') return _listWanSubsiteNetworksPg();
-  return db.prepare(`
-    SELECT wsn.site_id AS site_id, wsn.sub_site AS sub_site, wsn.network AS network, s.name AS site_name
-    FROM wan_subsite_networks wsn JOIN sites s ON s.id = wsn.site_id
-    ORDER BY s.name, wsn.sub_site`).all();
+  return _listWanSubsiteNetworksPg();
 }
 async function _listWanSubsiteNetworksPg() {
   return await pgHandle().prepare(`
@@ -2282,18 +1140,9 @@ function _wanSubsiteBySite(rows) {
   return bySite;
 }
 function setWanSubsiteNetworks(rows) {
-  if (REPORTS_BACKEND === 'postgres') return _setWanSubsiteNetworksPg(rows);
-  return _setWanSubsiteNetworksSqlite(rows);
+  return _setWanSubsiteNetworksPg(rows);
 }
-const _setWanSubsiteNetworksSqlite = db.transaction((rows) => {
-  const bySite = _wanSubsiteBySite(rows);
-  const del = db.prepare(`DELETE FROM wan_subsite_networks WHERE site_id = ?`);
-  const ins = db.prepare(`INSERT INTO wan_subsite_networks (site_id, sub_site, network) VALUES (?, ?, ?)`);
-  for (const [site_id, list] of bySite) {
-    del.run(site_id);
-    for (const r of list) ins.run(site_id, r.sub_site, r.network);
-  }
-});
+
 async function _setWanSubsiteNetworksPg(rows) {
   const H = pgHandle();
   const bySite = _wanSubsiteBySite(rows);
@@ -2339,17 +1188,7 @@ function _computeSiteHelpdesk(rows) {
  * Returns the all-zero block when the site has no zoho_group.
  */
 function getSiteHelpdeskMonthly(site_id, year, month) {
-  if (REPORTS_BACKEND === 'postgres') return _getSiteHelpdeskMonthlyPg(site_id, year, month);
-  const site = db.prepare('SELECT zoho_group FROM sites WHERE id=?').get(site_id);
-  const groups = String(site?.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
-  if (!groups.length) return _computeSiteHelpdesk([]);
-  const ym = `${year}-${String(month).padStart(2, '0')}`;
-  const ph = groups.map(() => '?').join(',');
-  const rows = db.prepare(`
-    SELECT pending_status, overdue_status, request_type, template, category, sub_category
-    FROM request_records
-    WHERE tech_group IN (${ph}) AND strftime('%Y-%m', created_time) = ?`).all(...groups, ym);
-  return _computeSiteHelpdesk(rows);
+  return _getSiteHelpdeskMonthlyPg(site_id, year, month);
 }
 // pg fork — strftime → to_char(created_time::timestamptz,'YYYY-MM').
 async function _getSiteHelpdeskMonthlyPg(site_id, year, month) {
@@ -2380,16 +1219,7 @@ async function _getSiteHelpdeskMonthlyPg(site_id, year, month) {
  * with an exclusive to+1day would be correct AND sargable if this ever profiles hot.
  */
 function getSiteHelpdeskWindow(site_id, from, to) {
-  if (REPORTS_BACKEND === 'postgres') return _getSiteHelpdeskWindowPg(site_id, from, to);
-  const site = db.prepare('SELECT zoho_group FROM sites WHERE id=?').get(site_id);
-  const groups = String(site?.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
-  if (!groups.length) return _computeSiteHelpdesk([]);
-  const ph = groups.map(() => '?').join(',');
-  const rows = db.prepare(`
-    SELECT pending_status, overdue_status, request_type, template, category, sub_category
-    FROM request_records
-    WHERE tech_group IN (${ph}) AND substr(created_time,1,10) BETWEEN ? AND ?`).all(...groups, from, to);
-  return _computeSiteHelpdesk(rows);
+  return _getSiteHelpdeskWindowPg(site_id, from, to);
 }
 // pg fork — SAME SQL. created_time is TEXT in pg (004_hot.sql:22), so substr
 // replaces the monthly fork's to_char(created_time::timestamptz,…) cast entirely.
@@ -2436,10 +1266,7 @@ function _bucketSiteImpact(sites, rows) {
 const _SITE_IMPACT_SITES_SQL = "SELECT id, name, zoho_group FROM sites WHERE zoho_group IS NOT NULL AND zoho_group != ''";
 const _SITE_IMPACT_ROWS_SQL = 'SELECT tech_group, request_type, pending_status, overdue_status FROM request_records WHERE substr(created_time,1,10) BETWEEN ? AND ?';
 function getSiteImpactCounts(from, to) {
-  if (REPORTS_BACKEND === 'postgres') return _getSiteImpactCountsPg(from, to);
-  const sites = db.prepare(_SITE_IMPACT_SITES_SQL).all();
-  const rows = db.prepare(_SITE_IMPACT_ROWS_SQL).all(from, to);
-  return _bucketSiteImpact(sites, rows);
+  return _getSiteImpactCountsPg(from, to);
 }
 async function _getSiteImpactCountsPg(from, to) {
   const H = pgHandle();
@@ -2542,16 +1369,7 @@ function _computeSiteChanges(rows) {
  * Returns the all-zero block when the site has no zoho_group.
  */
 function getSiteChangesWindow(site_id, from, to) {
-  if (REPORTS_BACKEND === 'postgres') return _getSiteChangesWindowPg(site_id, from, to);
-  const site = db.prepare('SELECT zoho_group FROM sites WHERE id=?').get(site_id);
-  const groups = String(site?.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
-  if (!groups.length) return _computeSiteChanges([]);
-  const ph = groups.map(() => '?').join(',');
-  const rows = db.prepare(`
-    SELECT status, closure_code, emergency, udf_json, completed_time, created_time
-    FROM change_records
-    WHERE group_name IN (${ph}) AND substr(created_time,1,10) BETWEEN ? AND ?`).all(...groups, from, to);
-  return _computeSiteChanges(rows);
+  return _getSiteChangesWindowPg(site_id, from, to);
 }
 // pg fork — SAME SQL (created_time is TEXT in pg too); only await + pgHandle differ.
 async function _getSiteChangesWindowPg(site_id, from, to) {
@@ -2580,17 +1398,7 @@ async function _getSiteChangesWindowPg(site_id, from, to) {
  * sites.zoho_group) — NEVER change_records.site_id, which is unreliable.
  */
 function getSiteOpenChanges(site_id, asOf) {
-  if (REPORTS_BACKEND === 'postgres') return _getSiteOpenChangesPg(site_id, asOf);
-  const site = db.prepare('SELECT zoho_group FROM sites WHERE id=?').get(site_id);
-  const groups = String(site?.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
-  if (!groups.length) return _computeOpenChanges([], asOf);
-  const ph = groups.map(() => '?').join(',');
-  const rows = db.prepare(`
-    SELECT change_id, display_id, subject, stage, status, risk, emergency,
-           manager, requester, scheduled_end, created_time
-    FROM change_records
-    WHERE group_name IN (${ph}) AND lower(coalesce(status,'')) NOT IN ('completed','cancelled')`).all(...groups);
-  return _computeOpenChanges(rows, asOf);
+  return _getSiteOpenChangesPg(site_id, asOf);
 }
 // pg fork — SAME SQL; only await + pgHandle differ.
 async function _getSiteOpenChangesPg(site_id, asOf) {
@@ -2682,18 +1490,7 @@ function _computeTechStats(rows) {
 
 /** getSiteTechnicianStats(site_id, year, month) — group-scoped, per technician. */
 function getSiteTechnicianStats(site_id, year, month) {
-  if (REPORTS_BACKEND === 'postgres') return _getSiteTechnicianStatsPg(site_id, year, month);
-  const site = db.prepare('SELECT zoho_group FROM sites WHERE id=?').get(site_id);
-  const groups = String(site?.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
-  if (!groups.length) return [];
-  const ym = `${year}-${String(month).padStart(2, '0')}`;
-  const ph = groups.map(() => '?').join(',');
-  const rows = db.prepare(`
-    SELECT technician, pending_status, overdue_status, reopen_count,
-           (julianday(COALESCE(resolved_time, completed_time)) - julianday(created_time)) * 24 AS hours
-    FROM request_records
-    WHERE tech_group IN (${ph}) AND strftime('%Y-%m', created_time) = ?`).all(...groups, ym);
-  return _computeTechStats(rows);
+  return _getSiteTechnicianStatsPg(site_id, year, month);
 }
 // PG fork — NULLIF guards the ''::timestamptz error (same hazard the siblings at
 // _getCalendarMonthlyHelpdeskPg / _getSurveyMetricsPg cover). Their WHERE-style
@@ -2720,33 +1517,14 @@ async function _getSiteTechnicianStatsPg(site_id, year, month) {
 }
 
 function updateSiteGroup(site_id, zoho_group) {
-  if (REPORTS_BACKEND === 'postgres') return _updateSiteGroupPg(site_id, zoho_group);
-  db.prepare(`UPDATE sites SET zoho_group=? WHERE id=?`).run(zoho_group || null, site_id);
+  return _updateSiteGroupPg(site_id, zoho_group);
 }
 async function _updateSiteGroupPg(site_id, zoho_group) {
   await pgHandle().prepare('UPDATE sites SET zoho_group=? WHERE id=?').run(zoho_group || null, site_id);
 }
 
 function createSite({ name, zoho_group, sort_order } = {}) {
-  if (REPORTS_BACKEND === 'postgres') return _createSitePg({ name, zoho_group, sort_order });
-  const trimmed = String(name || '').trim();
-  if (!trimmed) throw new Error('name is required');
-  if (trimmed.length > 60) throw new Error('name too long (max 60)');
-
-  // If a site already exists with the same name, reactivate it instead of failing UNIQUE
-  const existing = db.prepare(`SELECT id, active FROM sites WHERE name = ? COLLATE NOCASE`).get(trimmed);
-  if (existing) {
-    if (existing.active) throw new Error('site already exists');
-    db.prepare(`UPDATE sites SET active=1, zoho_group=COALESCE(?, zoho_group) WHERE id=?`).run(zoho_group || null, existing.id);
-    return { id: existing.id, name: trimmed, reactivated: true };
-  }
-
-  const order = Number.isFinite(sort_order)
-    ? sort_order
-    : db.prepare(`SELECT COALESCE(MAX(sort_order),0)+1 AS n FROM sites`).get().n;
-  const result = db.prepare(`INSERT INTO sites (name, zoho_group, sort_order, active) VALUES (?, ?, ?, 1)`)
-                   .run(trimmed, zoho_group || null, order);
-  return { id: result.lastInsertRowid, name: trimmed, zoho_group: zoho_group || null, sort_order: order, active: 1 };
+  return _createSitePg({ name, zoho_group, sort_order });
 }
 // read-then-UPDATE reactivation (NOT INSERT OR REPLACE); .lastID not .lastInsertRowid
 async function _createSitePg({ name, zoho_group, sort_order } = {}) {
@@ -2768,22 +1546,7 @@ async function _createSitePg({ name, zoho_group, sort_order } = {}) {
 }
 
 function updateSite(id, { zoho_group, sort_order, active } = {}) {
-  if (REPORTS_BACKEND === 'postgres') return _updateSitePg(id, { zoho_group, sort_order, active });
-  // Note: `name` is intentionally NOT in the partial-update fields — sites cannot be
-  // renamed via this API (Q2 design decision: external integrations may reference by name).
-  const cur = db.prepare(`SELECT * FROM sites WHERE id=?`).get(id);
-  if (!cur) throw new Error('site not found');
-
-  const updates = [];
-  const params  = [];
-  if (zoho_group !== undefined) { updates.push('zoho_group=?'); params.push(zoho_group || null); }
-  if (sort_order !== undefined) { updates.push('sort_order=?'); params.push(sort_order); }
-  if (active     !== undefined) { updates.push('active=?');     params.push(active ? 1 : 0); }
-  if (!updates.length) return cur;
-
-  params.push(id);
-  db.prepare(`UPDATE sites SET ${updates.join(', ')} WHERE id=?`).run(...params);
-  return db.prepare(`SELECT * FROM sites WHERE id=?`).get(id);
+  return _updateSitePg(id, { zoho_group, sort_order, active });
 }
 async function _updateSitePg(id, { zoho_group, sort_order, active } = {}) {
   const H = pgHandle();
@@ -2800,75 +1563,26 @@ async function _updateSitePg(id, { zoho_group, sort_order, active } = {}) {
 }
 
 function setSiteActive(id, active) {
-  if (REPORTS_BACKEND === 'postgres') return _updateSitePg(id, { active: active ? 1 : 0 });
-  return updateSite(id, { active: active ? 1 : 0 });
+  return _updateSitePg(id, { active: active ? 1 : 0 });
 }
 
 // ── REPORT CRUD ───────────────────────────────────────────────────
 function ensureReport(site_id, year, week) {
-  if (REPORTS_BACKEND === 'postgres') return _ensureReportPg(site_id, year, week);
-  const week_id = ensureWeek(year, week);
-  const existing = db.prepare(`SELECT * FROM weekly_reports WHERE site_id=? AND week_id=?`).get(site_id, week_id);
-  if (existing) return existing;
-  const r = db.prepare(`INSERT INTO weekly_reports (site_id, week_id) VALUES (?,?)`).run(site_id, week_id);
-  return db.prepare(`SELECT * FROM weekly_reports WHERE id=?`).get(r.lastInsertRowid);
+  return _ensureReportPg(site_id, year, week);
 }
 
 function getReport(report_id) {
-  if (REPORTS_BACKEND === 'postgres') return _getReportPg(report_id);
-  const report = db.prepare(`
-    SELECT wr.*, w.year, w.week_number, w.start_date, w.end_date, w.label as week_label,
-           s.name as site_name, s.zoho_group
-    FROM weekly_reports wr
-    JOIN weeks w ON w.id=wr.week_id
-    JOIN sites s ON s.id=wr.site_id
-    WHERE wr.id=?
-  `).get(report_id);
-  if (!report) return null;
-  report.infra_kpis    = db.prepare(`SELECT * FROM infra_kpis WHERE report_id=? ORDER BY sort_order`).all(report_id);
-  report.helpdesk      = db.prepare(`SELECT * FROM helpdesk_data WHERE report_id=?`).get(report_id) || {};
-  report.lights        = db.prepare(`SELECT * FROM lights WHERE report_id=? ORDER BY type, sort_order`).all(report_id);
-  report.action_items  = db.prepare(`SELECT * FROM action_items WHERE report_id=? ORDER BY sort_order`).all(report_id);
-  report.asset_review  = getReportAssetReview(report_id);
-  if (report.helpdesk.sla_violations) {
-    try { report.helpdesk.sla_violations = JSON.parse(report.helpdesk.sla_violations); } catch(e) {}
-  }
-  if (report.helpdesk.group_metrics) {
-    try { report.helpdesk.group_metrics = JSON.parse(report.helpdesk.group_metrics); } catch(e) {}
-  }
-  if (report.helpdesk.all_groups) {
-    try { report.helpdesk.all_groups = JSON.parse(report.helpdesk.all_groups); } catch(e) {}
-  }
-  if (report.helpdesk.chart_data) {
-    try { report.helpdesk.chart_data = JSON.parse(report.helpdesk.chart_data); } catch(e) {}
-  }
-  return report;
+  return _getReportPg(report_id);
 }
 
 function listReports(site_id, year, week) {
-  if (REPORTS_BACKEND === 'postgres') return _listReportsPg(site_id, year, week);
-  let sql = `SELECT wr.id, wr.status, wr.updated_at, wr.submitted_at, w.label as week_label,
-             w.year, w.week_number, w.start_date, w.end_date, s.name as site_name, s.zoho_group
-             FROM weekly_reports wr
-             JOIN weeks w ON w.id=wr.week_id
-             JOIN sites s ON s.id=wr.site_id WHERE 1=1`;
-  const params = [];
-  if (site_id) { sql += ` AND wr.site_id=?`; params.push(site_id); }
-  if (year)    { sql += ` AND w.year=?`;     params.push(year); }
-  if (week)    { sql += ` AND w.week_number=?`; params.push(week); }
-  sql += ` ORDER BY w.year DESC, w.week_number DESC`;
-  return db.prepare(sql).all(...params);
+  return _listReportsPg(site_id, year, week);
 }
 
 function saveInfraKpis(report_id, kpis) {
-  if (REPORTS_BACKEND === 'postgres') return _saveInfraKpisPg(report_id, kpis);
-  return _saveInfraKpisSqlite(report_id, kpis);
+  return _saveInfraKpisPg(report_id, kpis);
 }
-const _saveInfraKpisSqlite = db.transaction((report_id, kpis) => {
-  db.prepare(`DELETE FROM infra_kpis WHERE report_id=?`).run(report_id);
-  const ins = db.prepare(`INSERT INTO infra_kpis (report_id,service,kpi,target,status_value,status_color,trend,sort_order) VALUES (?,?,?,?,?,?,?,?)`);
-  kpis.forEach((k, i) => ins.run(report_id, k.service, k.kpi, k.target, k.status_value, k.status_color||'green', k.trend||'stable', i));
-});
+
 // Serialise the DELETE+INSERT section writers on ONE report (2026-09-11). Under READ
 // COMMITTED two concurrent saves (autosave + manual Save within the 1.5 s debounce) each
 // DELETE the rows they can see, then both INSERT → every row doubled (Lafigue W36: 14 infra
@@ -2914,13 +1628,9 @@ function _snapWhere(f) {
   return { where: w.length ? ' WHERE ' + w.join(' AND ') : '', params: p };
 }
 function upsertInfraSnapshots(rows) {
-  if (REPORTS_BACKEND === 'postgres') return _upsertInfraSnapshotsPg(rows);
-  return _upsertInfraSnapshotsSqlite(rows);
+  return _upsertInfraSnapshotsPg(rows);
 }
-const _upsertInfraSnapshotsSqlite = db.transaction((rows) => {
-  const st = db.prepare(_INFRA_SNAP_UPSERT);
-  for (const r of (rows || [])) st.run(..._snapVals(r));
-});
+
 async function _upsertInfraSnapshotsPg(rows) {
   const H = pgHandle();
   await H.runTransaction(async () => {
@@ -2928,13 +1638,9 @@ async function _upsertInfraSnapshotsPg(rows) {
   });
 }
 function getInfraSnapshots(f) {
-  if (REPORTS_BACKEND === 'postgres') return _getInfraSnapshotsPg(f);
-  return _getInfraSnapshotsSqlite(f);
+  return _getInfraSnapshotsPg(f);
 }
-function _getInfraSnapshotsSqlite(f) {
-  const { where, params } = _snapWhere(f);
-  return db.prepare(`SELECT * FROM infra_metric_snapshots${where} ORDER BY period_start DESC, kpi_family`).all(...params);
-}
+
 async function _getInfraSnapshotsPg(f) {
   const { where, params } = _snapWhere(f);
   return pgHandle().prepare(`SELECT * FROM infra_metric_snapshots${where} ORDER BY period_start DESC, kpi_family`).all(...params);
@@ -2968,13 +1674,9 @@ function _wanWhere(f) {
   return { where: w.length ? ' WHERE ' + w.join(' AND ') : '', params: p };
 }
 function upsertWanSnapshots(rows) {
-  if (REPORTS_BACKEND === 'postgres') return _upsertWanSnapshotsPg(rows);
-  return _upsertWanSnapshotsSqlite(rows);
+  return _upsertWanSnapshotsPg(rows);
 }
-const _upsertWanSnapshotsSqlite = db.transaction((rows) => {
-  const st = db.prepare(_WAN_SNAP_UPSERT);
-  for (const r of (rows || [])) st.run(..._wanVals(r));
-});
+
 async function _upsertWanSnapshotsPg(rows) {
   const H = pgHandle();
   await H.runTransaction(async () => {
@@ -2982,13 +1684,9 @@ async function _upsertWanSnapshotsPg(rows) {
   });
 }
 function getWanSnapshots(f) {
-  if (REPORTS_BACKEND === 'postgres') return _getWanSnapshotsPg(f);
-  return _getWanSnapshotsSqlite(f);
+  return _getWanSnapshotsPg(f);
 }
-function _getWanSnapshotsSqlite(f) {
-  const { where, params } = _wanWhere(f);
-  return db.prepare(`SELECT * FROM wan_link_snapshots${where} ORDER BY period_start DESC, uplink`).all(...params);
-}
+
 async function _getWanSnapshotsPg(f) {
   const { where, params } = _wanWhere(f);
   return pgHandle().prepare(`SELECT * FROM wan_link_snapshots${where} ORDER BY period_start DESC, uplink`).all(...params);
@@ -3017,23 +1715,16 @@ function _wanOutageWhere(f) {
   return { where: w.length ? ' WHERE ' + w.join(' AND ') : '', params: p };
 }
 function upsertWanOutage(row) {
-  if (REPORTS_BACKEND === 'postgres') return _upsertWanOutagePg(row);
-  return _upsertWanOutageSqlite(row);
+  return _upsertWanOutagePg(row);
 }
-function _upsertWanOutageSqlite(row) {
-  return db.prepare(_WAN_OUTAGE_UPSERT).run(..._wanOutageVals(row));
-}
+
 async function _upsertWanOutagePg(row) {
   return pgHandle().prepare(_WAN_OUTAGE_UPSERT).run(..._wanOutageVals(row));
 }
 function getWanOutages(f) {
-  if (REPORTS_BACKEND === 'postgres') return _getWanOutagesPg(f);
-  return _getWanOutagesSqlite(f);
+  return _getWanOutagesPg(f);
 }
-function _getWanOutagesSqlite(f) {
-  const { where, params } = _wanOutageWhere(f);
-  return db.prepare(`SELECT * FROM wan_outages${where} ORDER BY detected_start`).all(...params);
-}
+
 async function _getWanOutagesPg(f) {
   const { where, params } = _wanOutageWhere(f);
   return pgHandle().prepare(`SELECT * FROM wan_outages${where} ORDER BY detected_start`).all(...params);
@@ -3042,22 +1733,16 @@ async function _getWanOutagesPg(f) {
 // over a window: an outage counts if it started at/before `to` AND is still open OR restored
 // at/after `from`. from/to are ISO strings; TEXT-column string compare (no ::date).
 function getWanOutagesOverlapping(from, to) {
-  if (REPORTS_BACKEND === 'postgres') return _getWanOutagesOverlappingPg(from, to);
-  return _getWanOutagesOverlappingSqlite(from, to);
+  return _getWanOutagesOverlappingPg(from, to);
 }
-function _getWanOutagesOverlappingSqlite(from, to) {
-  return db.prepare('SELECT * FROM wan_outages WHERE detected_start<=? AND (restored_end IS NULL OR restored_end>=?) ORDER BY detected_start').all(to, from);
-}
+
 async function _getWanOutagesOverlappingPg(from, to) {
   return pgHandle().prepare('SELECT * FROM wan_outages WHERE detected_start<=? AND (restored_end IS NULL OR restored_end>=?) ORDER BY detected_start').all(to, from);
 }
 function listOpenWanOutages() {
-  if (REPORTS_BACKEND === 'postgres') return _listOpenWanOutagesPg();
-  return _listOpenWanOutagesSqlite();
+  return _listOpenWanOutagesPg();
 }
-function _listOpenWanOutagesSqlite() {
-  return db.prepare(`SELECT * FROM wan_outages WHERE restored_end IS NULL ORDER BY detected_start`).all();
-}
+
 async function _listOpenWanOutagesPg() {
   return pgHandle().prepare(`SELECT * FROM wan_outages WHERE restored_end IS NULL ORDER BY detected_start`).all();
 }
@@ -3073,12 +1758,9 @@ function _wanOutageCloseArgs(o) {
   return [o.restored_end, dur, o.site_id, sub, o.uplink, o.detected_start];
 }
 function closeWanOutage(o) {
-  if (REPORTS_BACKEND === 'postgres') return _closeWanOutagePg(o);
-  return _closeWanOutageSqlite(o);
+  return _closeWanOutagePg(o);
 }
-function _closeWanOutageSqlite(o) {
-  return db.prepare(_WAN_OUTAGE_CLOSE_SQL).run(..._wanOutageCloseArgs(o));
-}
+
 async function _closeWanOutagePg(o) {
   return pgHandle().prepare(_WAN_OUTAGE_CLOSE_SQL).run(..._wanOutageCloseArgs(o));
 }
@@ -3103,12 +1785,9 @@ function _wanOutageReconcileArgs(key, a) {
   ];
 }
 function reconcileProvisionalOutage(key, a) {
-  if (REPORTS_BACKEND === 'postgres') return _reconcileProvisionalOutagePg(key, a);
-  return _reconcileProvisionalOutageSqlite(key, a);
+  return _reconcileProvisionalOutagePg(key, a);
 }
-function _reconcileProvisionalOutageSqlite(key, a) {
-  return db.prepare(_WAN_OUTAGE_RECONCILE_SQL).run(..._wanOutageReconcileArgs(key, a)).changes;
-}
+
 async function _reconcileProvisionalOutagePg(key, a) {
   return (await pgHandle().prepare(_WAN_OUTAGE_RECONCILE_SQL).run(..._wanOutageReconcileArgs(key, a))).changes;
 }
@@ -3171,27 +1850,9 @@ const _roadmapObjSeedArgs = (user_id, o, now) =>
   [user_id, o.obj_key, o.title, o.weight, o.progress_pct, o.status, o.confidence, o.evidence, o.gap_note, null, o.sort_order, now];
 
 function getRoadmap(user_id) {
-  if (REPORTS_BACKEND === 'postgres') return _getRoadmapPg(user_id);
-  return _getRoadmapSqlite(user_id);
+  return _getRoadmapPg(user_id);
 }
-function _getRoadmapSqlite(user_id) {
-  const n = db.prepare('SELECT COUNT(*) AS n FROM roadmap_objectives WHERE user_id=?').get(user_id).n;
-  if (!Number(n)) {
-    const now = new Date().toISOString();
-    const ins = db.prepare(_ROADMAP_OBJ_SEED_SQL);
-    db.transaction(() => { for (const o of _ROADMAP_DEFAULT_OBJECTIVES) ins.run(..._roadmapObjSeedArgs(user_id, o, now)); })();
-  }
-  // Lazy-seed the default deliverables once (when the user has none). Resurrection-safe:
-  // only re-fires if every deliverable is deleted (a deliberate reset).
-  const nd = db.prepare('SELECT COUNT(*) AS n FROM roadmap_deliverables WHERE user_id=?').get(user_id).n;
-  if (!Number(nd)) {
-    const insD = db.prepare(_ROADMAP_DELIV_INSERT_SQL);
-    db.transaction(() => { for (const d of _ROADMAP_DEFAULT_DELIVERABLES) insD.run(..._roadmapDelivInsertArgs(crypto.randomUUID(), user_id, d)); })();
-  }
-  const objectives   = db.prepare('SELECT * FROM roadmap_objectives WHERE user_id=? ORDER BY sort_order').all(user_id);
-  const deliverables = db.prepare('SELECT * FROM roadmap_deliverables WHERE user_id=? ORDER BY obj_key, sort_order').all(user_id);
-  return { objectives, deliverables };
-}
+
 async function _getRoadmapPg(user_id) {
   const H = pgHandle();
   const n = Number((await H.prepare('SELECT COUNT(*) AS n FROM roadmap_objectives WHERE user_id=?').get(user_id)).n);
@@ -3223,13 +1884,9 @@ function _roadmapSet(editable, patch) {
 }
 
 function upsertRoadmapObjective(user_id, obj_key, patch) {
-  if (REPORTS_BACKEND === 'postgres') return _upsertRoadmapObjectivePg(user_id, obj_key, patch);
-  return _upsertRoadmapObjectiveSqlite(user_id, obj_key, patch);
+  return _upsertRoadmapObjectivePg(user_id, obj_key, patch);
 }
-function _upsertRoadmapObjectiveSqlite(user_id, obj_key, patch) {
-  const { setSql, params } = _roadmapSet(_ROADMAP_OBJ_EDITABLE, patch);
-  return db.prepare(`UPDATE roadmap_objectives SET ${setSql} WHERE user_id=? AND obj_key=?`).run(...params, user_id, obj_key);
-}
+
 async function _upsertRoadmapObjectivePg(user_id, obj_key, patch) {
   const { setSql, params } = _roadmapSet(_ROADMAP_OBJ_EDITABLE, patch);
   return pgHandle().prepare(`UPDATE roadmap_objectives SET ${setSql} WHERE user_id=? AND obj_key=?`).run(...params, user_id, obj_key);
@@ -3243,14 +1900,9 @@ const _roadmapDelivInsertArgs = (uid, user_id, d) =>
    d.sort_order == null ? null : d.sort_order, new Date().toISOString()];
 
 function addRoadmapDeliverable(user_id, d) {
-  if (REPORTS_BACKEND === 'postgres') return _addRoadmapDeliverablePg(user_id, d);
-  return _addRoadmapDeliverableSqlite(user_id, d);
+  return _addRoadmapDeliverablePg(user_id, d);
 }
-function _addRoadmapDeliverableSqlite(user_id, d) {
-  const uid = crypto.randomUUID();
-  db.prepare(_ROADMAP_DELIV_INSERT_SQL).run(..._roadmapDelivInsertArgs(uid, user_id, d || {}));
-  return uid;
-}
+
 async function _addRoadmapDeliverablePg(user_id, d) {
   const uid = crypto.randomUUID();
   await pgHandle().prepare(_ROADMAP_DELIV_INSERT_SQL).run(..._roadmapDelivInsertArgs(uid, user_id, d || {}));
@@ -3258,25 +1910,18 @@ async function _addRoadmapDeliverablePg(user_id, d) {
 }
 
 function updateRoadmapDeliverable(user_id, uid, patch) {
-  if (REPORTS_BACKEND === 'postgres') return _updateRoadmapDeliverablePg(user_id, uid, patch);
-  return _updateRoadmapDeliverableSqlite(user_id, uid, patch);
+  return _updateRoadmapDeliverablePg(user_id, uid, patch);
 }
-function _updateRoadmapDeliverableSqlite(user_id, uid, patch) {
-  const { setSql, params } = _roadmapSet(_ROADMAP_DELIV_EDITABLE, patch);
-  return db.prepare(`UPDATE roadmap_deliverables SET ${setSql} WHERE uid=? AND user_id=?`).run(...params, uid, user_id);
-}
+
 async function _updateRoadmapDeliverablePg(user_id, uid, patch) {
   const { setSql, params } = _roadmapSet(_ROADMAP_DELIV_EDITABLE, patch);
   return pgHandle().prepare(`UPDATE roadmap_deliverables SET ${setSql} WHERE uid=? AND user_id=?`).run(...params, uid, user_id);
 }
 
 function deleteRoadmapDeliverable(user_id, uid) {
-  if (REPORTS_BACKEND === 'postgres') return _deleteRoadmapDeliverablePg(user_id, uid);
-  return _deleteRoadmapDeliverableSqlite(user_id, uid);
+  return _deleteRoadmapDeliverablePg(user_id, uid);
 }
-function _deleteRoadmapDeliverableSqlite(user_id, uid) {
-  return db.prepare('DELETE FROM roadmap_deliverables WHERE uid=? AND user_id=?').run(uid, user_id);
-}
+
 async function _deleteRoadmapDeliverablePg(user_id, uid) {
   return pgHandle().prepare('DELETE FROM roadmap_deliverables WHERE uid=? AND user_id=?').run(uid, user_id);
 }
@@ -3318,18 +1963,9 @@ function _roadmapTrainingStats(entries) {
 }
 
 function getRoadmapTraining(user_id) {
-  if (REPORTS_BACKEND === 'postgres') return _getRoadmapTrainingPg(user_id);
-  return _getRoadmapTrainingSqlite(user_id);
+  return _getRoadmapTrainingPg(user_id);
 }
-function _getRoadmapTrainingSqlite(user_id) {
-  const n = db.prepare('SELECT COUNT(*) AS n FROM roadmap_training WHERE user_id=?').get(user_id).n;
-  if (!Number(n)) {
-    const ins = db.prepare(_ROADMAP_TRAINING_INSERT_SQL);
-    db.transaction(() => { for (const t of _ROADMAP_TRAINING_SEED) ins.run(..._roadmapTrainingInsertArgs(crypto.randomUUID(), user_id, t)); })();
-  }
-  const entries = db.prepare('SELECT * FROM roadmap_training WHERE user_id=? ORDER BY session_date, site').all(user_id);
-  return { entries, stats: _roadmapTrainingStats(entries) };
-}
+
 async function _getRoadmapTrainingPg(user_id) {
   const H = pgHandle();
   const n = Number((await H.prepare('SELECT COUNT(*) AS n FROM roadmap_training WHERE user_id=?').get(user_id)).n);
@@ -3343,14 +1979,9 @@ async function _getRoadmapTrainingPg(user_id) {
 }
 
 function addRoadmapTraining(user_id, t) {
-  if (REPORTS_BACKEND === 'postgres') return _addRoadmapTrainingPg(user_id, t);
-  return _addRoadmapTrainingSqlite(user_id, t);
+  return _addRoadmapTrainingPg(user_id, t);
 }
-function _addRoadmapTrainingSqlite(user_id, t) {
-  const uid = crypto.randomUUID();
-  db.prepare(_ROADMAP_TRAINING_INSERT_SQL).run(..._roadmapTrainingInsertArgs(uid, user_id, t || {}));
-  return uid;
-}
+
 async function _addRoadmapTrainingPg(user_id, t) {
   const uid = crypto.randomUUID();
   await pgHandle().prepare(_ROADMAP_TRAINING_INSERT_SQL).run(..._roadmapTrainingInsertArgs(uid, user_id, t || {}));
@@ -3358,25 +1989,18 @@ async function _addRoadmapTrainingPg(user_id, t) {
 }
 
 function updateRoadmapTraining(user_id, uid, patch) {
-  if (REPORTS_BACKEND === 'postgres') return _updateRoadmapTrainingPg(user_id, uid, patch);
-  return _updateRoadmapTrainingSqlite(user_id, uid, patch);
+  return _updateRoadmapTrainingPg(user_id, uid, patch);
 }
-function _updateRoadmapTrainingSqlite(user_id, uid, patch) {
-  const { setSql, params } = _roadmapSet(_ROADMAP_TRAINING_EDITABLE, patch);
-  return db.prepare(`UPDATE roadmap_training SET ${setSql} WHERE uid=? AND user_id=?`).run(...params, uid, user_id);
-}
+
 async function _updateRoadmapTrainingPg(user_id, uid, patch) {
   const { setSql, params } = _roadmapSet(_ROADMAP_TRAINING_EDITABLE, patch);
   return pgHandle().prepare(`UPDATE roadmap_training SET ${setSql} WHERE uid=? AND user_id=?`).run(...params, uid, user_id);
 }
 
 function deleteRoadmapTraining(user_id, uid) {
-  if (REPORTS_BACKEND === 'postgres') return _deleteRoadmapTrainingPg(user_id, uid);
-  return _deleteRoadmapTrainingSqlite(user_id, uid);
+  return _deleteRoadmapTrainingPg(user_id, uid);
 }
-function _deleteRoadmapTrainingSqlite(user_id, uid) {
-  return db.prepare('DELETE FROM roadmap_training WHERE uid=? AND user_id=?').run(uid, user_id);
-}
+
 async function _deleteRoadmapTrainingPg(user_id, uid) {
   return pgHandle().prepare('DELETE FROM roadmap_training WHERE uid=? AND user_id=?').run(uid, user_id);
 }
@@ -3432,15 +2056,7 @@ const _ROADMAP_RESOURCE_SEED = [
 ];
 const _RESOURCE_CFG = { table:'roadmap_resources', insertSql:_ROADMAP_RESOURCE_INSERT_SQL, insertArgs:_roadmapResourceInsertArgs, editable:_ROADMAP_RESOURCE_EDITABLE, seed:_ROADMAP_RESOURCE_SEED, orderBy:'sort_order' };
 
-// Parameterized core (NOT dispatchers) — sqlite + pg, shared by both stores.
-function _rmSeedGetSqlite(cfg, user_id) {
-  const n = db.prepare(`SELECT COUNT(*) AS n FROM ${cfg.table} WHERE user_id=?`).get(user_id).n;
-  if (!Number(n) && cfg.seed.length) {
-    const ins = db.prepare(cfg.insertSql);
-    db.transaction(() => { for (const s of cfg.seed) ins.run(...cfg.insertArgs(crypto.randomUUID(), user_id, s)); })();
-  }
-  return db.prepare(`SELECT * FROM ${cfg.table} WHERE user_id=? ORDER BY ${cfg.orderBy}`).all(user_id);
-}
+
 async function _rmSeedGetPg(cfg, user_id) {
   const H = pgHandle();
   const n = Number((await H.prepare(`SELECT COUNT(*) AS n FROM ${cfg.table} WHERE user_id=?`).get(user_id)).n);
@@ -3451,59 +2067,41 @@ async function _rmSeedGetPg(cfg, user_id) {
   }
   return H.prepare(`SELECT * FROM ${cfg.table} WHERE user_id=? ORDER BY ${cfg.orderBy}`).all(user_id);
 }
-function _rmAddSqlite(cfg, user_id, row) { const uid = crypto.randomUUID(); db.prepare(cfg.insertSql).run(...cfg.insertArgs(uid, user_id, row || {})); return uid; }
+
 async function _rmAddPg(cfg, user_id, row) { const uid = crypto.randomUUID(); await pgHandle().prepare(cfg.insertSql).run(...cfg.insertArgs(uid, user_id, row || {})); return uid; }
-function _rmUpdSqlite(cfg, user_id, uid, patch) { const { setSql, params } = _roadmapSet(cfg.editable, patch); return db.prepare(`UPDATE ${cfg.table} SET ${setSql} WHERE uid=? AND user_id=?`).run(...params, uid, user_id); }
+
 async function _rmUpdPg(cfg, user_id, uid, patch) { const { setSql, params } = _roadmapSet(cfg.editable, patch); return pgHandle().prepare(`UPDATE ${cfg.table} SET ${setSql} WHERE uid=? AND user_id=?`).run(...params, uid, user_id); }
-function _rmDelSqlite(cfg, user_id, uid) { return db.prepare(`DELETE FROM ${cfg.table} WHERE uid=? AND user_id=?`).run(uid, user_id); }
+
 async function _rmDelPg(cfg, user_id, uid) { return pgHandle().prepare(`DELETE FROM ${cfg.table} WHERE uid=? AND user_id=?`).run(uid, user_id); }
 
 // Public dispatchers (backend selector shape kept explicit for the await-precedence test).
 function getRoadmapProject(user_id) {
-  if (REPORTS_BACKEND === 'postgres') return _getRoadmapProjectPg(user_id);
-  return { actions: _rmSeedGetSqlite(_ACTION_CFG, user_id), resources: _rmSeedGetSqlite(_RESOURCE_CFG, user_id) };
+  return _getRoadmapProjectPg(user_id);
 }
 async function _getRoadmapProjectPg(user_id) {
   return { actions: await _rmSeedGetPg(_ACTION_CFG, user_id), resources: await _rmSeedGetPg(_RESOURCE_CFG, user_id) };
 }
-function addRoadmapAction(user_id, a)          { if (REPORTS_BACKEND === 'postgres') return _rmAddPg(_ACTION_CFG, user_id, a);          return _rmAddSqlite(_ACTION_CFG, user_id, a); }
-function updateRoadmapAction(user_id, uid, p)  { if (REPORTS_BACKEND === 'postgres') return _rmUpdPg(_ACTION_CFG, user_id, uid, p);      return _rmUpdSqlite(_ACTION_CFG, user_id, uid, p); }
-function deleteRoadmapAction(user_id, uid)     { if (REPORTS_BACKEND === 'postgres') return _rmDelPg(_ACTION_CFG, user_id, uid);         return _rmDelSqlite(_ACTION_CFG, user_id, uid); }
-function addRoadmapResource(user_id, r)        { if (REPORTS_BACKEND === 'postgres') return _rmAddPg(_RESOURCE_CFG, user_id, r);        return _rmAddSqlite(_RESOURCE_CFG, user_id, r); }
-function updateRoadmapResource(user_id, uid, p){ if (REPORTS_BACKEND === 'postgres') return _rmUpdPg(_RESOURCE_CFG, user_id, uid, p);    return _rmUpdSqlite(_RESOURCE_CFG, user_id, uid, p); }
-function deleteRoadmapResource(user_id, uid)   { if (REPORTS_BACKEND === 'postgres') return _rmDelPg(_RESOURCE_CFG, user_id, uid);       return _rmDelSqlite(_RESOURCE_CFG, user_id, uid); }
+function addRoadmapAction(user_id, a)          {
+                                                 return _rmAddPg(_ACTION_CFG, user_id, a);
+                                               }
+function updateRoadmapAction(user_id, uid, p)  {
+                                                 return _rmUpdPg(_ACTION_CFG, user_id, uid, p);
+                                               }
+function deleteRoadmapAction(user_id, uid)     {
+                                                 return _rmDelPg(_ACTION_CFG, user_id, uid);
+                                               }
+function addRoadmapResource(user_id, r)        {
+                                                 return _rmAddPg(_RESOURCE_CFG, user_id, r);
+                                               }
+function updateRoadmapResource(user_id, uid, p){
+                                                 return _rmUpdPg(_RESOURCE_CFG, user_id, uid, p);
+                                               }
+function deleteRoadmapResource(user_id, uid)   {
+                                                 return _rmDelPg(_RESOURCE_CFG, user_id, uid);
+                                               }
 
 function saveHelpdeskData(report_id, data) {
-  if (REPORTS_BACKEND === 'postgres') return _saveHelpdeskDataPg(report_id, data);
-  const sla = data.sla_violations ? JSON.stringify(data.sla_violations) : null;
-  const gm  = data.group_metrics  ? JSON.stringify(data.group_metrics)  : null;
-  const ag  = data.all_groups     ? JSON.stringify(data.all_groups)     : null;
-  const cd  = data.chart_data     ? JSON.stringify(data.chart_data)     : null;
-  db.prepare(`INSERT INTO helpdesk_data
-    (report_id,time_to_assign,time_to_assign_prev,first_reply,first_reply_prev,
-     resolution_time,resolution_time_prev,closing_time,closing_time_prev,
-     comments_metrics,comments_sla,tech_on_break,techs_on_duty,sla_violations,
-     group_metrics,all_groups,fetched_at,selected_group,chart_data)
-    VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    ON CONFLICT(report_id) DO UPDATE SET
-    time_to_assign=excluded.time_to_assign, time_to_assign_prev=excluded.time_to_assign_prev,
-    first_reply=excluded.first_reply, first_reply_prev=excluded.first_reply_prev,
-    resolution_time=excluded.resolution_time, resolution_time_prev=excluded.resolution_time_prev,
-    closing_time=excluded.closing_time, closing_time_prev=excluded.closing_time_prev,
-    comments_metrics=excluded.comments_metrics, comments_sla=excluded.comments_sla,
-    tech_on_break=excluded.tech_on_break, techs_on_duty=excluded.techs_on_duty,
-    sla_violations=excluded.sla_violations,
-    group_metrics=excluded.group_metrics, all_groups=excluded.all_groups,
-    fetched_at=excluded.fetched_at, selected_group=excluded.selected_group,
-    chart_data=excluded.chart_data,
-    updated_at=datetime('now')`)
-  .run(report_id, data.time_to_assign||null, data.time_to_assign_prev||null,
-       data.first_reply||null, data.first_reply_prev||null,
-       data.resolution_time||null, data.resolution_time_prev||null,
-       data.closing_time||null, data.closing_time_prev||null,
-       data.comments_metrics||null, data.comments_sla||null,
-       data.tech_on_break||null, data.techs_on_duty||null, sla, gm, ag,
-       data.fetched_at||null, data.selected_group||null, cd);
+  return _saveHelpdeskDataPg(report_id, data);
 }
 // Full-column ON CONFLICT replace (no COALESCE) — identical semantics to sqlite.
 async function _saveHelpdeskDataPg(report_id, data) {
@@ -3540,14 +2138,9 @@ async function _saveHelpdeskDataPg(report_id, data) {
 }
 
 function saveLights(report_id, lights) {
-  if (REPORTS_BACKEND === 'postgres') return _saveLightsPg(report_id, lights);
-  return _saveLightsSqlite(report_id, lights);
+  return _saveLightsPg(report_id, lights);
 }
-const _saveLightsSqlite = db.transaction((report_id, lights) => {
-  db.prepare(`DELETE FROM lights WHERE report_id=?`).run(report_id);
-  const ins = db.prepare(`INSERT INTO lights (report_id,type,content,sort_order) VALUES (?,?,?,?)`);
-  lights.forEach((l, i) => ins.run(report_id, l.type, l.content, i));
-});
+
 async function _saveLightsPg(report_id, lights) {
   const H = pgHandle();
   await H.runTransaction(async () => {
@@ -3564,61 +2157,19 @@ async function _saveLightsPg(report_id, lights) {
 // for the same site. Used by the "carry over" button in the weekly report UI.
 // Imports: open, in_progress, on_hold, cancelled — excludes: closed only.
 function getPreviousWeekOpenActions(site_id, current_report_id) {
-  if (REPORTS_BACKEND === 'postgres') return _getPreviousWeekOpenActionsPg(site_id, current_report_id);
-  const prev = db.prepare(`
-    SELECT wr.id, w.label as week_label
-    FROM weekly_reports wr
-    JOIN weeks w ON w.id = wr.week_id
-    WHERE wr.site_id = ? AND wr.id != ?
-    ORDER BY w.year DESC, w.week_number DESC
-    LIMIT 1
-  `).get(site_id, current_report_id);
-  if (!prev) return { week_label: null, actions: [] };
-  const actions = db.prepare(`
-    SELECT task, priority, due_date, owner, status, department, comment, sort_order, uid, source, origin_id, lineage
-    FROM action_items
-    WHERE report_id = ? AND status != 'closed'
-    ORDER BY sort_order
-  `).all(prev.id);
-  return { week_label: prev.week_label, actions };
+  return _getPreviousWeekOpenActionsPg(site_id, current_report_id);
 }
 
 // Returns a list of all past weeks for the site (excluding current report),
 // each with their non-closed action count. Used to populate the week-picker modal.
 function listAllWeeksWithActions(site_id, current_report_id) {
-  if (REPORTS_BACKEND === 'postgres') return _listAllWeeksWithActionsPg(site_id, current_report_id);
-  const weeks = db.prepare(`
-    SELECT wr.id as report_id, w.label as week_label, w.year, w.week_number,
-           w.start_date, w.end_date,
-           COUNT(ai.id) as action_count
-    FROM weekly_reports wr
-    JOIN weeks w ON w.id = wr.week_id
-    LEFT JOIN action_items ai ON ai.report_id = wr.id AND ai.status != 'closed'
-    WHERE wr.site_id = ? AND wr.id != ?
-    GROUP BY wr.id
-    ORDER BY w.year DESC, w.week_number DESC
-  `).all(site_id, current_report_id);
-  return weeks;
+  return _listAllWeeksWithActionsPg(site_id, current_report_id);
 }
 
 // Returns all non-closed actions from a specific report_id.
 // Used when the user picks a specific week in the week-picker modal.
 function getActionsForReport(report_id) {
-  if (REPORTS_BACKEND === 'postgres') return _getActionsForReportPg(report_id);
-  const meta = db.prepare(`
-    SELECT wr.id, w.label as week_label
-    FROM weekly_reports wr
-    JOIN weeks w ON w.id = wr.week_id
-    WHERE wr.id = ?
-  `).get(report_id);
-  if (!meta) return { week_label: null, actions: [] };
-  const actions = db.prepare(`
-    SELECT task, priority, due_date, owner, status, department, comment, sort_order, uid, source, origin_id, lineage
-    FROM action_items
-    WHERE report_id = ? AND status != 'closed'
-    ORDER BY sort_order
-  `).all(report_id);
-  return { week_label: meta.week_label, actions };
+  return _getActionsForReportPg(report_id);
 }
 
 // ── ACTION DEPARTMENTS (action item categories) ──────────────────
@@ -3627,11 +2178,7 @@ function getActionsForReport(report_id) {
 // (department is stored as TEXT snapshot, not FK). See spec §3-§4.
 
 function listDepartments({ includeInactive = false } = {}) {
-  if (REPORTS_BACKEND === 'postgres') return _listDepartmentsPg({ includeInactive });
-  if (includeInactive) {
-    return db.prepare(`SELECT id, name, sort_order, active FROM action_departments ORDER BY sort_order, name`).all();
-  }
-  return db.prepare(`SELECT id, name, sort_order, active FROM action_departments WHERE active=1 ORDER BY sort_order, name`).all();
+  return _listDepartmentsPg({ includeInactive });
 }
 async function _listDepartmentsPg({ includeInactive = false } = {}) {
   const H = pgHandle();
@@ -3642,24 +2189,7 @@ async function _listDepartmentsPg({ includeInactive = false } = {}) {
 }
 
 function createDepartment({ name, sort_order } = {}) {
-  if (REPORTS_BACKEND === 'postgres') return _createDepartmentPg({ name, sort_order });
-  const trimmed = String(name || '').trim();
-  if (!trimmed) throw new Error('name is required');
-  if (trimmed.length > 60) throw new Error('name too long (max 60)');
-
-  // If a row already exists with the same name (case-insensitive), reactivate it instead of failing UNIQUE
-  const existing = db.prepare(`SELECT id, active FROM action_departments WHERE name = ? COLLATE NOCASE`).get(trimmed);
-  if (existing) {
-    if (existing.active) throw new Error('department already exists');
-    db.prepare(`UPDATE action_departments SET active=1, updated_at=datetime('now') WHERE id=?`).run(existing.id);
-    return { id: existing.id, name: trimmed, reactivated: true };
-  }
-
-  const order = Number.isFinite(sort_order)
-    ? sort_order
-    : db.prepare(`SELECT COALESCE(MAX(sort_order),0)+1 AS n FROM action_departments`).get().n;
-  const result = db.prepare(`INSERT INTO action_departments (name, sort_order) VALUES (?, ?)`).run(trimmed, order);
-  return { id: result.lastInsertRowid, name: trimmed, sort_order: order, active: 1 };
+  return _createDepartmentPg({ name, sort_order });
 }
 async function _createDepartmentPg({ name, sort_order } = {}) {
   const H = pgHandle();
@@ -3679,28 +2209,7 @@ async function _createDepartmentPg({ name, sort_order } = {}) {
 }
 
 function updateDepartment(id, { name, sort_order, active } = {}) {
-  if (REPORTS_BACKEND === 'postgres') return _updateDepartmentPg(id, { name, sort_order, active });
-  const cur = db.prepare(`SELECT * FROM action_departments WHERE id=?`).get(id);
-  if (!cur) throw new Error('department not found');
-
-  const updates = [];
-  const params  = [];
-  if (name !== undefined) {
-    const trimmed = String(name || '').trim();
-    if (!trimmed) throw new Error('name cannot be empty');
-    if (trimmed.length > 60) throw new Error('name too long (max 60)');
-    const dup = db.prepare(`SELECT id FROM action_departments WHERE name=? COLLATE NOCASE AND id<>?`).get(trimmed, id);
-    if (dup) throw new Error('another department already has this name');
-    updates.push('name=?'); params.push(trimmed);
-  }
-  if (sort_order !== undefined) { updates.push('sort_order=?'); params.push(sort_order); }
-  if (active     !== undefined) { updates.push('active=?');     params.push(active ? 1 : 0); }
-  if (!updates.length) return cur;
-
-  updates.push(`updated_at=datetime('now')`);
-  params.push(id);
-  db.prepare(`UPDATE action_departments SET ${updates.join(', ')} WHERE id=?`).run(...params);
-  return db.prepare(`SELECT * FROM action_departments WHERE id=?`).get(id);
+  return _updateDepartmentPg(id, { name, sort_order, active });
 }
 async function _updateDepartmentPg(id, { name, sort_order, active } = {}) {
   const H = pgHandle();
@@ -3725,81 +2234,26 @@ async function _updateDepartmentPg(id, { name, sort_order, active } = {}) {
 }
 
 function setDepartmentActive(id, active) {
-  if (REPORTS_BACKEND === 'postgres') return _updateDepartmentPg(id, { active: active ? 1 : 0 });
-  return updateDepartment(id, { active: active ? 1 : 0 });
+  return _updateDepartmentPg(id, { active: active ? 1 : 0 });
 }
 
 // Returns a list of all past weeks for the site with their lights counts per type.
 // Used to populate the week-picker modal for Low/High Lights carry-over.
 function listAllWeeksWithLights(site_id, current_report_id) {
-  if (REPORTS_BACKEND === 'postgres') return _listAllWeeksWithLightsPg(site_id, current_report_id);
-  const weeks = db.prepare(`
-    SELECT wr.id as report_id, w.label as week_label, w.year, w.week_number,
-           w.start_date, w.end_date,
-           COUNT(l.id) as light_count
-    FROM weekly_reports wr
-    JOIN weeks w ON w.id = wr.week_id
-    LEFT JOIN lights l ON l.report_id = wr.id
-    WHERE wr.site_id = ? AND wr.id != ?
-    GROUP BY wr.id
-    ORDER BY w.year DESC, w.week_number DESC
-  `).all(site_id, current_report_id);
-  return weeks;
+  return _listAllWeeksWithLightsPg(site_id, current_report_id);
 }
 
 // Returns all lights (low_light + high_light) from a specific report_id.
 // Used when the user picks a specific week in the lights week-picker modal.
 function getLightsForReport(report_id) {
-  if (REPORTS_BACKEND === 'postgres') return _getLightsForReportPg(report_id);
-  const meta = db.prepare(`
-    SELECT wr.id, w.label as week_label
-    FROM weekly_reports wr
-    JOIN weeks w ON w.id = wr.week_id
-    WHERE wr.id = ?
-  `).get(report_id);
-  if (!meta) return { week_label: null, lights: [] };
-  const lights = db.prepare(`
-    SELECT type, content, sort_order
-    FROM lights
-    WHERE report_id = ?
-    ORDER BY sort_order
-  `).all(report_id);
-  return { week_label: meta.week_label, lights };
+  return _getLightsForReportPg(report_id);
 }
 
 function getPreviousWeekInfraKpis(site_id, current_report_id) {
-  if (REPORTS_BACKEND === 'postgres') return _getPreviousWeekInfraKpisPg(site_id, current_report_id);
-  const prev = db.prepare(`
-    SELECT wr.id, w.label as week_label
-    FROM weekly_reports wr
-    JOIN weeks w ON w.id = wr.week_id
-    WHERE wr.site_id = ? AND wr.id != ?
-    ORDER BY w.year DESC, w.week_number DESC
-    LIMIT 1
-  `).get(site_id, current_report_id);
-  if (!prev) return { week_label: null, kpis: [] };
-  const kpis = db.prepare(`
-    SELECT service, kpi, target, status_value, status_color, trend, sort_order
-    FROM infra_kpis
-    WHERE report_id = ?
-    ORDER BY sort_order
-  `).all(prev.id);
-  return { week_label: prev.week_label, kpis };
+  return _getPreviousWeekInfraKpisPg(site_id, current_report_id);
 }
 
-// SP1b-lignée — every open, NON-merged report follow-up for a site across ALL
-// its reports, deduped by carry-forward lineage (latest week wins), each row
-// carrying its own report_id + week_label. Feeds the Site Actions hub so an
-// open follow-up on an OLD report never carried forward still surfaces, once.
-function _dedupLineage(rows) {
-  const best = new Map();
-  for (const r of rows) {
-    const key = r.lineage || r.uid;
-    const cur = best.get(key);
-    if (!cur || r._y > cur._y || (r._y === cur._y && r._w > cur._w)) best.set(key, r);
-  }
-  return [...best.values()].map(r => { const { _y, _w, ...rest } = r; return rest; });
-}
+
 // Newest-wins semantics: for each lineage keep only its MOST RECENT row (across
 // weeks), then treat the group as open iff that latest row is not terminal. This
 // is why the SQL does NOT pre-filter by status — a lineage whose latest entry was
@@ -3838,8 +2292,7 @@ const _SORA_SQL = `
   JOIN weeks w ON w.id = wr.week_id
   WHERE wr.site_id = ? AND ai.source IS NULL`;
 function getSiteOpenReportActions(site_id) {
-  if (REPORTS_BACKEND === 'postgres') return _getSiteOpenReportActionsPg(site_id);
-  return { actions: _dedupLineageNewestOpen(db.prepare(_SORA_SQL).all(site_id)) };
+  return _getSiteOpenReportActionsPg(site_id);
 }
 async function _getSiteOpenReportActionsPg(site_id) {
   const rows = await pgHandle().prepare(_SORA_SQL).all(site_id);
@@ -3847,8 +2300,7 @@ async function _getSiteOpenReportActionsPg(site_id) {
 }
 
 function saveActionItems(report_id, items) {
-  if (REPORTS_BACKEND === 'postgres') return _saveActionItemsPg(report_id, items);
-  return _saveActionItemsSqlite(report_id, items);
+  return _saveActionItemsPg(report_id, items);
 }
 // SP1b — upsert-by-uid (was DELETE-all+INSERT-all). Matches incoming rows to
 // existing ones by `uid`: UPDATE the EDITABLE fields in place, INSERT new rows
@@ -3856,28 +2308,7 @@ function saveActionItems(report_id, items) {
 // writes `source`/`origin_id` — those are owned by setActionMerge — so a report
 // re-save (even from a stale client) can never wipe a merge. Empty incoming →
 // delete all. `uid NOT IN (…)` is guarded against the empty list (invalid SQL).
-const _saveActionItemsSqlite = db.transaction((report_id, items) => {
-  items = items || [];
-  const keep = items.filter(a => a.uid).map(a => a.uid);
-  if (keep.length) {
-    db.prepare(`DELETE FROM action_items WHERE report_id=? AND uid NOT IN (${keep.map(() => '?').join(',')})`).run(report_id, ...keep);
-  } else {
-    db.prepare(`DELETE FROM action_items WHERE report_id=?`).run(report_id);
-  }
-  const exists = db.prepare(`SELECT 1 FROM action_items WHERE report_id=? AND uid=?`);
-  const upd = db.prepare(`UPDATE action_items SET status_changed_at=CASE WHEN COALESCE(status,'')<>? THEN datetime('now') ELSE status_changed_at END, task=?,priority=?,due_date=?,owner=?,status=?,department=?,comment=?,sort_order=? WHERE report_id=? AND uid=?`);
-  // SP3: source/origin_id are written HERE on INSERT (client-set from the import
-  // picker) — the UPDATE branch never writes them, so a re-save can't wipe an
-  // existing merge/reference (SP1b durability holds).
-  const ins = db.prepare(`INSERT INTO action_items (report_id,task,priority,due_date,owner,status,department,comment,sort_order,uid,lineage,source,origin_id,status_changed_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,datetime('now'))`);
-  items.forEach((a, i) => {
-    if (a.uid && exists.get(report_id, a.uid)) {
-      upd.run(a.status||'open', a.task, a.priority||'Medium', a.due_date||null, a.owner||null, a.status||'open', a.department||null, a.comment||null, i, report_id, a.uid);
-    } else {
-      ins.run(report_id, a.task, a.priority||'Medium', a.due_date||null, a.owner||null, a.status||'open', a.department||null, a.comment||null, i, a.uid || crypto.randomUUID(), a.lineage || null, a.source || null, a.origin_id || null);
-    }
-  });
-});
+
 async function _saveActionItemsPg(report_id, items) {
   items = items || [];
   const H = pgHandle();
@@ -3908,9 +2339,7 @@ async function _saveActionItemsPg(report_id, items) {
 // report follow-up references its Meetings/Inspection twin; the hub folds it
 // under the origin. Both dual-backend, keyed by the stable uid.
 function setActionMerge(uid, opts) {
-  if (REPORTS_BACKEND === 'postgres') return _setActionMergePg(uid, opts);
-  const info = db.prepare(`UPDATE action_items SET source=?, origin_id=? WHERE uid=?`).run(opts.source, opts.origin_id, uid);
-  return { ok: info.changes > 0 };
+  return _setActionMergePg(uid, opts);
 }
 async function _setActionMergePg(uid, opts) {
   const H = pgHandle();
@@ -3918,9 +2347,7 @@ async function _setActionMergePg(uid, opts) {
   return { ok: (info.changes || info.rowCount || 0) > 0 };
 }
 function clearActionMerge(uid) {
-  if (REPORTS_BACKEND === 'postgres') return _clearActionMergePg(uid);
-  const info = db.prepare(`UPDATE action_items SET source=NULL, origin_id=NULL WHERE uid=?`).run(uid);
-  return { ok: info.changes > 0 };
+  return _clearActionMergePg(uid);
 }
 async function _clearActionMergePg(uid) {
   const H = pgHandle();
@@ -3932,10 +2359,7 @@ async function _clearActionMergePg(uid) {
 // check: the report it belongs to + that report's site + status. null when the uid
 // is unknown. Dual-backend (a Promise on pg — await it).
 function getActionItemOwner(uid) {
-  if (REPORTS_BACKEND === 'postgres') return _getActionItemOwnerPg(uid);
-  return db.prepare(`SELECT ai.uid, ai.report_id, wr.site_id, wr.status AS report_status
-                       FROM action_items ai JOIN weekly_reports wr ON wr.id = ai.report_id
-                      WHERE ai.uid = ?`).get(uid) || null;
+  return _getActionItemOwnerPg(uid);
 }
 async function _getActionItemOwnerPg(uid) {
   const H = pgHandle();
@@ -3955,10 +2379,7 @@ const _SET_STATUS_SQL = (now) => `UPDATE action_items SET status=?,
     comment=CASE WHEN CAST(? AS TEXT) IS NULL THEN comment WHEN COALESCE(comment,'')='' THEN CAST(? AS TEXT) ELSE comment || ' — ' || CAST(? AS TEXT) END
   WHERE uid=?`;
 function setActionStatus(uid, status, note) {
-  if (REPORTS_BACKEND === 'postgres') return _setActionStatusPg(uid, status, note);
-  const n = note ? String(note).trim().slice(0, 2000) : null;
-  const info = db.prepare(_SET_STATUS_SQL(`datetime('now')`)).run(status, status, n, n, n, uid);
-  return { ok: info.changes > 0 };
+  return _setActionStatusPg(uid, status, note);
 }
 // Deliberate merge of an ALREADY-SAVED follow-up into another's carry-forward
 // lineage (the per-row "Fusionner avec…" button). Unlike a report re-save (which
@@ -3968,11 +2389,7 @@ function setActionStatus(uid, status, note) {
 // group's divergent labels onto the most-recent (winning) one. `task`
 // undefined/null → lineage only (leaves the label untouched).
 function setActionLineage(uid, lineage, task) {
-  if (REPORTS_BACKEND === 'postgres') return _setActionLineagePg(uid, lineage, task);
-  const info = (task == null)
-    ? db.prepare(`UPDATE action_items SET lineage=? WHERE uid=?`).run(lineage, uid)
-    : db.prepare(`UPDATE action_items SET lineage=?, task=? WHERE uid=?`).run(lineage, task, uid);
-  return { ok: info.changes > 0 };
+  return _setActionLineagePg(uid, lineage, task);
 }
 async function _setActionLineagePg(uid, lineage, task) {
   const H = pgHandle();
@@ -3992,17 +2409,7 @@ const _RELIN_GROUP_SQL = `UPDATE action_items SET lineage = ?, task = COALESCE(?
 const _RELIN_ROW_SQL = `SELECT ai.uid, ai.lineage, ai.report_id, wr.site_id
   FROM action_items ai JOIN weekly_reports wr ON wr.id = ai.report_id WHERE ai.uid = ?`;
 function relineageGroup(uid, newKey, task) {
-  if (REPORTS_BACKEND === 'postgres') return _relineageGroupPg(uid, newKey, task);
-  const row = db.prepare(_RELIN_ROW_SQL).get(uid);
-  if (!row) return { ok: false, rows: 0 };
-  const fromKey = row.lineage || row.uid;
-  const base = { ok: true, from_key: fromKey, site_id: row.site_id, report_id: row.report_id };
-  if (fromKey === newKey) {
-    if (task != null) db.prepare('UPDATE action_items SET task=? WHERE uid=?').run(task, uid);
-    return { ...base, rows: 0 };
-  }
-  const info = db.prepare(_RELIN_GROUP_SQL).run(newKey, task == null ? null : task, fromKey, fromKey, row.site_id);
-  return { ...base, rows: info.changes };
+  return _relineageGroupPg(uid, newKey, task);
 }
 async function _relineageGroupPg(uid, newKey, task) {
   const H = pgHandle();
@@ -4020,9 +2427,7 @@ async function _relineageGroupPg(uid, newKey, task) {
 // Every follow-up row of a site (all weeks, module references excluded), with its week —
 // the input of services/reportActionGroups (import window, per-week counts, identity).
 async function getSiteActionRows(site_id) {
-  const rows = REPORTS_BACKEND === 'postgres'
-    ? await pgHandle().prepare(_SORA_SQL).all(site_id)
-    : db.prepare(_SORA_SQL).all(site_id);
+  const rows = (await pgHandle().prepare(_SORA_SQL).all(site_id));
   return rows.map(({ _y, _w, ...r }) => ({ ...r, year: _y, week_number: _w }));
 }
 // Hub "recently closed" (2026-10-16): the follow-ups whose group is now closed or cancelled
@@ -4053,26 +2458,13 @@ async function _setActionStatusPg(uid, status, note) {
 }
 
 function updateReportStatus(report_id, status, user_id) {
-  if (REPORTS_BACKEND === 'postgres') return _updateReportStatusPg(report_id, status, user_id);
-  const now = new Date().toISOString();
-  const submitted_at = status === 'submitted' ? now : null;
-  const submitted_by = status === 'submitted' ? user_id : null;
-  db.prepare(`UPDATE weekly_reports SET status=?, submitted_at=?, submitted_by=?, updated_at=? WHERE id=?`)
-    .run(status, submitted_at, submitted_by, now, report_id);
+  return _updateReportStatusPg(report_id, status, user_id);
 }
 
 function deleteReport(id) {
-  if (REPORTS_BACKEND === 'postgres') return _deleteReportPg(id);
-  return _deleteReportSqlite(id);
+  return _deleteReportPg(id);
 }
-const _deleteReportSqlite = db.transaction((id) => {
-  db.prepare(`DELETE FROM infra_kpis    WHERE report_id=?`).run(id);
-  db.prepare(`DELETE FROM helpdesk_data WHERE report_id=?`).run(id);
-  db.prepare(`DELETE FROM lights        WHERE report_id=?`).run(id);
-  db.prepare(`DELETE FROM action_items  WHERE report_id=?`).run(id);
-  db.prepare(`DELETE FROM report_asset_review WHERE report_id=?`).run(id);
-  db.prepare(`DELETE FROM weekly_reports WHERE id=?`).run(id);
-});
+
 // Explicit child deletes inside a tx (mirrors sqlite; not relying on FK CASCADE).
 async function _deleteReportPg(id) {
   const H = pgHandle();
@@ -4090,15 +2482,9 @@ async function _deleteReportPg(id) {
 // {duplicateReportId} (the occupying report id, or null if reassigned). updated_at is TIMESTAMPTZ
 // → now() in pg (matching touchReport/updateReportStatus), datetime('now') in sqlite.
 function reassignReportWeek({ reportId, siteId, newWeekId } = {}) {
-  if (REPORTS_BACKEND === 'postgres') return _reassignReportWeekPg({ reportId, siteId, newWeekId });
-  return _reassignReportWeekSqlite({ reportId, siteId, newWeekId });
+  return _reassignReportWeekPg({ reportId, siteId, newWeekId });
 }
-const _reassignReportWeekSqlite = db.transaction(({ reportId, siteId, newWeekId }) => {
-  const dup = db.prepare('SELECT id FROM weekly_reports WHERE site_id=? AND week_id=? AND id!=?').get(siteId, newWeekId, reportId);
-  if (dup) return { duplicateReportId: dup.id };
-  db.prepare("UPDATE weekly_reports SET week_id=?, updated_at=datetime('now') WHERE id=?").run(newWeekId, reportId);
-  return { duplicateReportId: null };
-});
+
 async function _reassignReportWeekPg({ reportId, siteId, newWeekId }) {
   const H = pgHandle();
   return await H.runTransaction(async () => {
@@ -4111,16 +2497,14 @@ async function _reassignReportWeekPg({ reportId, siteId, newWeekId }) {
 
 // 4D-wiring-2: existence check for the refresh-major-incident-udfs diagnostic.
 function requestRecordExists(requestId) {
-  if (REPORTS_BACKEND === 'postgres') return _requestRecordExistsPg(requestId);
-  return !!db.prepare('SELECT 1 FROM request_records WHERE request_id = ? LIMIT 1').get(requestId);
+  return _requestRecordExistsPg(requestId);
 }
 async function _requestRecordExistsPg(requestId) {
   return !!(await pgHandle().prepare('SELECT 1 FROM request_records WHERE request_id = ? LIMIT 1').get(requestId));
 }
 
 function touchReport(report_id) {
-  if (REPORTS_BACKEND === 'postgres') return _touchReportPg(report_id);
-  db.prepare(`UPDATE weekly_reports SET updated_at=datetime('now') WHERE id=?`).run(report_id);
+  return _touchReportPg(report_id);
 }
 
 // ── Asset engagement — report_asset_review ──────────────────────────────────
@@ -4153,18 +2537,13 @@ function _assetReviewUpsertSql(cols) {
           ON CONFLICT(report_id) DO UPDATE SET ${upd}`;
 }
 function getReportAssetReview(report_id) {
-  if (REPORTS_BACKEND === 'postgres') return _getReportAssetReviewPg(report_id);
-  return _mapAssetReview(db.prepare('SELECT * FROM report_asset_review WHERE report_id=?').get(report_id));
+  return _getReportAssetReviewPg(report_id);
 }
 async function _getReportAssetReviewPg(report_id) {
   return _mapAssetReview(await pgHandle().prepare('SELECT * FROM report_asset_review WHERE report_id=?').get(report_id));
 }
 function saveReportAssetReview(report_id, patch, user) {
-  if (REPORTS_BACKEND === 'postgres') return _saveReportAssetReviewPg(report_id, patch, user);
-  const p = _assetReviewPatch(patch), cols = Object.keys(p);
-  if (!cols.length) return getReportAssetReview(report_id);   // empty patch must never create a row
-  db.prepare(_assetReviewUpsertSql(cols)).run(report_id, ...cols.map(c => p[c]), user || 'unknown', new Date().toISOString());
-  return getReportAssetReview(report_id);
+  return _saveReportAssetReviewPg(report_id, patch, user);
 }
 async function _saveReportAssetReviewPg(report_id, patch, user) {
   const p = _assetReviewPatch(patch), cols = Object.keys(p);
@@ -4291,51 +2670,7 @@ async function _getPreviousWeekInfraKpisPg(site_id, current_report_id) {
 
 // ── MONTHLY DATA ──────────────────────────────────────────────────
 function getMonthlyData(site_id, year, month) {
-  if (REPORTS_BACKEND === 'postgres') return _getMonthlyDataPg(site_id, year, month);
-  // Get all weeks that fall within the month
-  const weeks = db.prepare(`
-    SELECT w.*, wr.id as report_id, wr.status
-    FROM weeks w
-    LEFT JOIN weekly_reports wr ON wr.week_id=w.id AND wr.site_id=?
-    WHERE (substr(w.start_date,1,7)=? OR substr(w.end_date,1,7)=?)
-    ORDER BY w.week_number
-  `).all(site_id, `${year}-${String(month).padStart(2,'0')}`, `${year}-${String(month).padStart(2,'0')}`);
-
-  const reports = weeks
-    .filter(w => w.report_id)
-    .map(w => getReport(w.report_id));
-
-  // Past months KPI averages (last 6 months)
-  const pastMonths = [];
-  for (let m = 0; m < 6; m++) {
-    const d  = new Date(year, month - 1 - m, 1);
-    const py = d.getFullYear();
-    const pm = d.getMonth() + 1;
-    const pmStr = `${py}-${String(pm).padStart(2,'0')}`;
-    const pmWeeks = db.prepare(`
-      SELECT wr.id as report_id FROM weeks w
-      JOIN weekly_reports wr ON wr.week_id=w.id AND wr.site_id=?
-      WHERE substr(w.start_date,1,7)=? OR substr(w.end_date,1,7)=?
-    `).all(site_id, pmStr, pmStr);
-    if (pmWeeks.length) {
-      const pmReports = pmWeeks.map(w => getReport(w.report_id)).filter(Boolean);
-      pastMonths.push({ year: py, month: pm, label: d.toLocaleString('en',{month:'short',year:'numeric'}), reports: pmReports });
-    }
-  }
-  // Previous month — for month-over-month timing delta in PPTX Row 2
-  const prevD     = new Date(year, month - 2, 1);  // month is 1-based; month-2 gives JS 0-based prev
-  const prevYear  = prevD.getFullYear();
-  const prevMonth = prevD.getMonth() + 1;
-
-  return {
-    weeks,
-    reports,
-    pastMonths,
-    calendar_hd:      getCalendarMonthlyHelpdesk(site_id, year, month),
-    prev_calendar_hd: getCalendarMonthlyHelpdesk(site_id, prevYear, prevMonth),
-    monthly_top10:    getCalendarMonthlyTop10(site_id, year, month),
-    history6m:        getHelpdesk6MonthHistory(site_id, year, month),
-  };
+  return _getMonthlyDataPg(site_id, year, month);
 }
 async function _getMonthlyDataPg(site_id, year, month) {
   const H = pgHandle();
@@ -4379,65 +2714,7 @@ async function _getMonthlyDataPg(site_id, year, month) {
  * Returns null when request_records is empty for this site (data not yet synced).
  */
 function getCalendarMonthlyHelpdesk(site_id, year, month) {
-  if (REPORTS_BACKEND === 'postgres') return _getCalendarMonthlyHelpdeskPg(site_id, year, month);
-  // zoho_group may be a comma-separated list of Zoho group names (e.g. Exploration has 3).
-  // Split and query all groups together using IN (?, ?, ...) — matches server.js behaviour.
-  const siteRow = db.prepare(`SELECT zoho_group FROM sites WHERE id=?`).get(site_id);
-  if (!siteRow || !siteRow.zoho_group) return null;
-  const groups = siteRow.zoho_group.split(',').map(g => g.trim()).filter(Boolean);
-  if (!groups.length) return null;
-
-  // Build IN clause placeholders: (?, ?, ...)
-  const inClause = groups.map(() => '?').join(',');
-
-  // First and last day of the month
-  const from  = `${year}-${String(month).padStart(2,'0')}-01`;
-  const lastD = new Date(year, month, 0);   // day 0 of next month = last day of this month
-  const to    = `${lastD.getFullYear()}-${String(lastD.getMonth()+1).padStart(2,'0')}-${String(lastD.getDate()).padStart(2,'0')}`;
-
-  // All queries: [...groups, from, to] as params
-  const gft = [...groups, from, to];
-
-  const total  = db.prepare(`SELECT COUNT(*) as n FROM request_records WHERE tech_group IN (${inClause}) AND date(created_time)>=? AND date(created_time)<=?`).get(...gft).n;
-  if (!total) return { inbound:0, closed:0, close_pct:0, sla_res_pct:null, sla_reply_pct:null, source:'calendar' };
-
-  const closed         = db.prepare(`SELECT COUNT(*) as n FROM request_records WHERE tech_group IN (${inClause}) AND date(created_time)>=? AND date(created_time)<=? AND pending_status=0`).get(...gft).n;
-  // 2026-06-02 ITSM-alignment (FORMULA_RECONCILIATION.md §6 D2): SLA% denominator
-  // is closed (verdict rendered), not all incoming. Numerator is closed AND not
-  // overdue. AP `(overdue_status=0)/total` previously here was inflated by
-  // open-not-yet-due tickets counted as "compliant".
-  const slaResOkClosed = db.prepare(`SELECT COUNT(*) as n FROM request_records WHERE tech_group IN (${inClause}) AND date(created_time)>=? AND date(created_time)<=? AND pending_status=0 AND overdue_status=0`).get(...gft).n;
-  // FRT (§6 D3): denominator is responded (responded_time set). Already mostly
-  // correct via rplyTotal (counts rows where first_response_overdue is set
-  // which closely tracks responded_time) — tighten numerator to also gate on
-  // responded_time being present so any row with field='false' but no actual
-  // response (rare edge case) doesn't inflate numerator.
-  const rplyOk    = db.prepare(`SELECT COUNT(*) as n FROM request_records WHERE tech_group IN (${inClause}) AND date(created_time)>=? AND date(created_time)<=? AND responded_time IS NOT NULL AND responded_time!='' AND LOWER(first_response_overdue)='false'`).get(...gft).n;
-  const rplyTotal = db.prepare(`SELECT COUNT(*) as n FROM request_records WHERE tech_group IN (${inClause}) AND date(created_time)>=? AND date(created_time)<=? AND responded_time IS NOT NULL AND responded_time!=''`).get(...gft).n;
-
-  // Timing averages — computed from same date range so they match the monthly totals
-  // avg_tta_h:           hours from created_time → assigned_time  (tickets with assigned_time set)
-  // avg_first_reply_h:   hours from created_time → responded_time (tickets with responded_time set)
-  // avg_resolution_d:    days  from created_time → resolved/completed (closed tickets)
-  const avgTtaRow  = db.prepare(`SELECT AVG((julianday(assigned_time)-julianday(created_time))*24) as v FROM request_records WHERE tech_group IN (${inClause}) AND date(created_time)>=? AND date(created_time)<=? AND assigned_time IS NOT NULL AND assigned_time!=''`).get(...gft);
-  const avgFrRow   = db.prepare(`SELECT AVG((julianday(responded_time)-julianday(created_time))*24) as v FROM request_records WHERE tech_group IN (${inClause}) AND date(created_time)>=? AND date(created_time)<=? AND responded_time IS NOT NULL AND responded_time!=''`).get(...gft);
-  const avgRtRow   = db.prepare(`SELECT AVG((julianday(COALESCE(resolved_time,completed_time))-julianday(created_time))) as v FROM request_records WHERE tech_group IN (${inClause}) AND date(created_time)>=? AND date(created_time)<=? AND COALESCE(resolved_time,completed_time) IS NOT NULL`).get(...gft);
-
-  return {
-    inbound:           total,
-    closed,
-    close_pct:         Math.round(closed / total * 100),
-    // 2026-06-02 ITSM: SLA% = closed-and-not-overdue / closed. NULL when no
-    // tickets in the period have a verdict yet (pure open backlog or empty).
-    sla_res_pct:       closed > 0 ? Math.round(slaResOkClosed / closed * 100) : null,
-    sla_reply_pct:     rplyTotal > 0 ? Math.round(rplyOk / rplyTotal * 100) : null,
-    avg_tta_h:         avgTtaRow.v  != null ? Math.round(avgTtaRow.v)  : null,
-    avg_first_reply_h: avgFrRow.v   != null ? Math.round(avgFrRow.v)   : null,
-    avg_resolution_d:  avgRtRow.v   != null ? Math.round(avgRtRow.v)   : null,
-    source:            'calendar',
-    from,
-    to,
-  };
+  return _getCalendarMonthlyHelpdeskPg(site_id, year, month);
 }
 
 // ── MONTHLY SLA VIOLATION TOP-10 (full month, by category) ──────
@@ -4449,39 +2726,7 @@ function getCalendarMonthlyHelpdesk(site_id, year, month) {
  *   pct        = violations / total tickets in that category × 100
  */
 function getCalendarMonthlyTop10(site_id, year, month) {
-  if (REPORTS_BACKEND === 'postgres') return _getCalendarMonthlyTop10Pg(site_id, year, month);
-  const siteRow = db.prepare(`SELECT zoho_group FROM sites WHERE id=?`).get(site_id);
-  if (!siteRow || !siteRow.zoho_group) return [];
-  const groups = siteRow.zoho_group.split(',').map(g => g.trim()).filter(Boolean);
-  if (!groups.length) return [];
-  const inClause = groups.map(() => '?').join(',');
-
-  const from  = `${year}-${String(month).padStart(2,'0')}-01`;
-  const lastD = new Date(year, month, 0);
-  const to    = `${lastD.getFullYear()}-${String(lastD.getMonth()+1).padStart(2,'0')}-${String(lastD.getDate()).padStart(2,'0')}`;
-  const gft   = [...groups, from, to];
-
-  // Per-category: count all tickets and violated tickets in the month
-  const rows = db.prepare(`
-    SELECT
-      COALESCE(NULLIF(TRIM(category),''), 'Uncategorised') AS category,
-      COUNT(*) AS total,
-      SUM(CASE WHEN overdue_status=1 THEN 1 ELSE 0 END) AS violations
-    FROM request_records
-    WHERE tech_group IN (${inClause})
-      AND date(created_time)>=?
-      AND date(created_time)<=?
-    GROUP BY category
-    HAVING violations > 0
-    ORDER BY violations DESC, total DESC
-    LIMIT 10
-  `).all(...gft);
-
-  return rows.map(r => ({
-    category:   r.category,
-    violations: r.violations,
-    pct:        Math.round(r.violations / r.total * 100),
-  }));
+  return _getCalendarMonthlyTop10Pg(site_id, year, month);
 }
 
 // ── Chunk 4D-2a pg forks (calendar) ─────────────────────────────────────────
@@ -4573,46 +2818,7 @@ async function _getCalendarMonthlyTop10Pg(site_id, year, month) {
  *     '% of First Responses SLA Violated':   <0..100 number> }
  */
 function getMonthlyHelpdeskHistory(monthsBack = 12) {
-  if (REPORTS_BACKEND === 'postgres') return _getMonthlyHelpdeskHistoryPg(monthsBack);
-  const MN = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-                  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const today = new Date();
-  const rows = [];
-  for (let ago = monthsBack - 1; ago >= 0; ago--) {
-    const d  = new Date(today.getFullYear(), today.getMonth() - ago, 1);
-    const yr = d.getFullYear();
-    const mo = d.getMonth() + 1;       // 1-12
-    const start = `${yr}-${String(mo).padStart(2, '0')}-01`;
-    // Last day of month: day 0 of next month
-    const last  = new Date(yr, mo, 0).getDate();
-    const end   = `${yr}-${String(mo).padStart(2, '0')}-${String(last).padStart(2, '0')}`;
-
-    const params = [start, end];
-    // ALL groups, ALL sites — no filtering. Per user spec (Q2 = b).
-    const total       = db.prepare(`SELECT COUNT(*) AS n FROM request_records WHERE date(created_time) >= ? AND date(created_time) <= ?`).get(...params).n;
-    const closed      = db.prepare(`SELECT COUNT(*) AS n FROM request_records WHERE date(created_time) >= ? AND date(created_time) <= ? AND pending_status = 0`).get(...params).n;
-    // 2026-06-02 ITSM-alignment (FORMULA_RECONCILIATION.md §6 D2):
-    // SLA violation rate denominator = closed (verdict-rendered), not all
-    // incoming. Open-but-not-yet-due tickets shouldn't dilute the ratio.
-    const slaViolClosed = db.prepare(`SELECT COUNT(*) AS n FROM request_records WHERE date(created_time) >= ? AND date(created_time) <= ? AND pending_status = 0 AND overdue_status = 1`).get(...params).n;
-    // 1st reply violated: count rows where first_response_overdue='true' AND responded.
-    // Denominator (replyTotal) tightened to responded_time present — was looser before
-    // (checked first_response_overdue IS NOT NULL which silently included open-without-reply).
-    const replyViol   = db.prepare(`SELECT COUNT(*) AS n FROM request_records WHERE date(created_time) >= ? AND date(created_time) <= ? AND responded_time IS NOT NULL AND responded_time != '' AND LOWER(first_response_overdue) = 'true'`).get(...params).n;
-    const replyTotal  = db.prepare(`SELECT COUNT(*) AS n FROM request_records WHERE date(created_time) >= ? AND date(created_time) <= ? AND responded_time IS NOT NULL AND responded_time != ''`).get(...params).n;
-
-    rows.push({
-      'Created Time':                       `${MN[mo]} ${yr}`,        // "Mar 2026"
-      'Requests':                            total,
-      'Closed Requests Count':               closed,
-      // ITSM-aligned: SLA violations % is computed against the closed (verdict)
-      // population and FRT against the responded population. Column names
-      // preserved for executive.html consumer compatibility.
-      '% of SLA Violated':                   closed     > 0 ? Math.round(slaViolClosed / closed     * 1000) / 10 : 0,
-      '% of First Responses SLA Violated':   replyTotal > 0 ? Math.round(replyViol     / replyTotal * 1000) / 10 : 0,
-    });
-  }
-  return rows;
+  return _getMonthlyHelpdeskHistoryPg(monthsBack);
 }
 async function _getMonthlyHelpdeskHistoryPg(monthsBack = 12) {
   const H = pgHandle();
@@ -4723,30 +2929,7 @@ function fmtDowntime(hours) {
  * by total descending so the biggest backlog sites appear first.
  */
 function getAgeingBySiteDB() {
-  if (REPORTS_BACKEND === 'postgres') return _getAgeingBySiteDBPg();
-  const rows = db.prepare(`
-    SELECT site,
-           SUM(CASE WHEN age_days <=  30                  THEN 1 ELSE 0 END) AS d0,
-           SUM(CASE WHEN age_days >   30 AND age_days<=45 THEN 1 ELSE 0 END) AS d31,
-           SUM(CASE WHEN age_days >   45 AND age_days<=60 THEN 1 ELSE 0 END) AS d46,
-           SUM(CASE WHEN age_days >   60                  THEN 1 ELSE 0 END) AS d60,
-           COUNT(*) AS total
-    FROM (
-      SELECT site,
-             CAST((julianday('now') - julianday(created_time)) AS INTEGER) AS age_days
-      FROM request_records
-      WHERE pending_status = 1
-        AND LOWER(TRIM(COALESCE(request_status,''))) NOT IN ('closed','resolved','confirmed resolution','confirm resolution','cancelled')
-        AND site IS NOT NULL
-        AND TRIM(site) != ''
-        AND LOWER(TRIM(site)) NOT IN ('-no value-', '-no value', 'no value', '(blank)')
-        AND created_time IS NOT NULL
-    )
-    GROUP BY site
-    HAVING total > 0
-    ORDER BY total DESC, site ASC
-  `).all();
-  return _mapAgeingSite(rows);
+  return _getAgeingBySiteDBPg();
 }
 // PG fork — CAST(julianday-days AS INTEGER) → TRUNC(EXTRACT-EPOCH/86400)::integer (sqlite
 // CAST truncates; pg CAST rounds). HAVING output-alias → HAVING COUNT(*) (pg forbids alias).
@@ -4801,35 +2984,7 @@ function _mapAgeingSite(rows) {
  * Rendered next to the group name in the executive.html table.
  */
 function getAgeingByGroupDB() {
-  if (REPORTS_BACKEND === 'postgres') return _getAgeingByGroupDBPg();
-  const rows = db.prepare(`
-    SELECT tech_group AS grp,
-           SUM(CASE WHEN age_days <=  30                  THEN 1 ELSE 0 END) AS t0_30,
-           SUM(CASE WHEN age_days >   30 AND age_days<=45 THEN 1 ELSE 0 END) AS t31_45,
-           SUM(CASE WHEN age_days >   45 AND age_days<=60 THEN 1 ELSE 0 END) AS t46_60,
-           SUM(CASE WHEN age_days >   60                  THEN 1 ELSE 0 END) AS tOver60,
-           COUNT(*) AS total,
-           SUM(CASE WHEN frt_ok = 1 THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(*),0) AS sla_pct
-    FROM (
-      SELECT tech_group,
-             CAST((julianday('now') - julianday(created_time)) AS INTEGER) AS age_days,
-             CASE WHEN LOWER(TRIM(COALESCE(first_response_overdue,''))) IN ('true','yes','1')
-                  THEN 0 ELSE 1 END AS frt_ok
-      FROM request_records
-      WHERE pending_status = 1
-        -- defence-in-depth: a ticket is open only if its Request Status is not
-        -- terminal (mirrors the browser isClosed). Guards against a stale/corrupt
-        -- pending_status marking closed tickets as open (July-2026 PG diagnosis).
-        AND LOWER(TRIM(COALESCE(request_status,''))) NOT IN ('closed','resolved','confirmed resolution','confirm resolution','cancelled')
-        AND tech_group IS NOT NULL
-        AND TRIM(tech_group) != ''
-        AND created_time IS NOT NULL
-    )
-    GROUP BY grp
-    HAVING total > 0
-    ORDER BY total DESC, grp ASC
-  `).all();
-  return _mapAgeingGroup(rows);
+  return _getAgeingByGroupDBPg();
 }
 // PG fork — same TRUNC-days + HAVING COUNT(*) rewrites; `sla_pct` 100.0 literal is numeric
 // so the division resolves natively; derived table aliased `q`.
@@ -4890,29 +3045,7 @@ function _mapAgeingGroup(rows) {
  * stuck ticket from blowing the monthly mean.
  */
 function getFirstResponseTrendDB(monthsBack = 12) {
-  if (REPORTS_BACKEND === 'postgres') return _getFirstResponseTrendDBPg(monthsBack);
-  const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
-  cutoff.setDate(1); cutoff.setHours(0,0,0,0);
-  const cutoffISO = cutoff.toISOString();
-
-  const rows = db.prepare(`
-    SELECT strftime('%Y-%m', created_time) AS yyyymm,
-           AVG(CASE WHEN responded_time IS NOT NULL AND responded_time > created_time
-                    THEN (julianday(responded_time) - julianday(created_time)) * 24
-                    END) AS avg_frt_hrs,
-           AVG(CASE WHEN resolved_time IS NOT NULL AND resolved_time > created_time
-                         AND (julianday(resolved_time) - julianday(created_time)) <= 365
-                    THEN (julianday(resolved_time) - julianday(created_time))
-                    END) AS avg_rt_days,
-           COUNT(*) AS n
-    FROM request_records
-    WHERE created_time >= ?
-    GROUP BY yyyymm
-    ORDER BY yyyymm
-  `).all(cutoffISO);
-
-  return _mapFrtTrend(rows);
+  return _getFirstResponseTrendDBPg(monthsBack);
 }
 // PG fork — strftime→to_char; julianday-hours `*24` → EXTRACT-EPOCH/3600; julianday-days →
 // /86400 (incl the 365-day RT cap); raw ISO cutoff UNCHANGED; GROUP BY yyyymm safe. AVG keeps
@@ -4976,60 +3109,7 @@ function _mapFrtTrend(rows) {
  *             detractor = overall_score <  70
  */
 function getCustomerVoiceDB(monthsBack = 12) {
-  if (REPORTS_BACKEND === 'postgres') return _getCustomerVoiceDBPg(monthsBack);
-  const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
-  cutoff.setDate(1); cutoff.setHours(0,0,0,0);
-  const cutoffISO = cutoff.toISOString();
-
-  // ── Sent vs responded counts (response-rate inputs) ──────────────────
-  // Zoho's "Survey Results" view (the source of survey_results) stores
-  // BOTH sent-only and sent-and-responded rows. `survey_responded_on` is
-  // NULL for the former. This is what makes a meaningful response rate
-  // possible without joining back to request_records.
-  //
-  // Rate = responded / sent. Per the SDP Survey Settings ("Send Survey:
-  // When a request is closed"), every closed ticket triggers one row,
-  // so `survey_results` row count ≈ closed-ticket count in period.
-  const sendCounts = db.prepare(`
-    SELECT
-      COUNT(*)                                                       AS total_sent,
-      SUM(CASE WHEN survey_responded_on IS NOT NULL THEN 1 ELSE 0 END) AS total_responded
-    FROM survey_results
-    WHERE COALESCE(survey_sent_on, survey_responded_on) >= ?
-  `).get(cutoffISO);
-
-  // ── Roll up scored totals (for CSAT / NPS / avgRating) ───────────────
-  const tot = db.prepare(`
-    SELECT COUNT(*) AS total_responses,
-           AVG(overall_score) AS avg_score,
-           SUM(CASE WHEN overall_score >= 80 THEN 1 ELSE 0 END) AS satisfied,
-           SUM(CASE WHEN overall_score >= 90 THEN 1 ELSE 0 END) AS promoters,
-           SUM(CASE WHEN overall_score >= 70 AND overall_score < 90 THEN 1 ELSE 0 END) AS passives,
-           SUM(CASE WHEN overall_score <  70 THEN 1 ELSE 0 END) AS detractors,
-           SUM(CASE WHEN overall_score IS NOT NULL THEN 1 ELSE 0 END) AS scored
-    FROM survey_results
-    WHERE overall_score IS NOT NULL
-  `).get();
-
-  // ── Monthly breakdown (with per-month sent + responded counts) ───────
-  const monthlyRows = db.prepare(`
-    SELECT strftime('%Y-%m', COALESCE(survey_sent_on, survey_responded_on)) AS yyyymm,
-           COUNT(*)                                                          AS sent,
-           SUM(CASE WHEN survey_responded_on IS NOT NULL THEN 1 ELSE 0 END)  AS responses,
-           AVG(overall_score) AS avg_score,
-           SUM(CASE WHEN overall_score >= 80 THEN 1 ELSE 0 END) AS satisfied,
-           SUM(CASE WHEN overall_score >= 90 THEN 1 ELSE 0 END) AS promoters,
-           SUM(CASE WHEN overall_score >= 70 AND overall_score < 90 THEN 1 ELSE 0 END) AS passives,
-           SUM(CASE WHEN overall_score <  70 THEN 1 ELSE 0 END) AS detractors,
-           SUM(CASE WHEN overall_score IS NOT NULL THEN 1 ELSE 0 END) AS scored
-    FROM survey_results
-    WHERE COALESCE(survey_sent_on, survey_responded_on) >= ?
-    GROUP BY yyyymm
-    ORDER BY yyyymm
-  `).all(cutoffISO);
-
-  return _assembleCustomerVoice({ sendCounts, tot, monthlyRows });
+  return _getCustomerVoiceDBPg(monthsBack);
 }
 // PG fork — 3 queries awaited. Raw ISO cutoff (COALESCE(...) >= ?) UNCHANGED (sendCounts +
 // monthlyRows). monthly bucket `strftime('%Y-%m', COALESCE(...))` → direct
@@ -5146,34 +3226,7 @@ function _assembleCustomerVoice({ sendCounts, tot, monthlyRows }) {
  * render time (see line ~8054), so we don't pre-invert here.
  */
 function getSlaTrendDB(monthsBack = 12) {
-  if (REPORTS_BACKEND === 'postgres') return _getSlaTrendDBPg(monthsBack);
-  const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
-  cutoff.setDate(1); cutoff.setHours(0,0,0,0);
-  const cutoffISO = cutoff.toISOString();
-
-  // 2026-06-02 ITSM-alignment (FORMULA_RECONCILIATION.md §6 D2/D3):
-  // The percentages below are violation rates. ITSM convention:
-  //   SLA violated %  = (overdue AND closed) / closed                    — verdict-rendered
-  //   FRT violated %  = (FR overdue AND responded) / responded            — verdict-rendered
-  // The single SQL aggregates all the building blocks per month; we divide
-  // in the JS pass to keep null-safe handling.
-  const rows = db.prepare(`
-    SELECT strftime('%Y-%m', created_time) AS yyyymm,
-           COUNT(*) AS total,
-           SUM(CASE WHEN pending_status = 0 THEN 1 ELSE 0 END) AS closed,
-           SUM(CASE WHEN pending_status = 0 AND overdue_status = 1 THEN 1 ELSE 0 END) AS sla_viol_closed,
-           SUM(CASE WHEN responded_time IS NOT NULL AND responded_time != '' THEN 1 ELSE 0 END) AS responded,
-           SUM(CASE WHEN responded_time IS NOT NULL AND responded_time != ''
-                     AND LOWER(TRIM(COALESCE(first_response_overdue,''))) IN ('true','yes','1')
-                    THEN 1 ELSE 0 END) AS frt_viol_responded
-    FROM request_records
-    WHERE created_time >= ?
-    GROUP BY yyyymm
-    ORDER BY yyyymm
-  `).all(cutoffISO);
-
-  return _mapSlaTrend(rows);
+  return _getSlaTrendDBPg(monthsBack);
 }
 // PG fork — strftime→to_char; closed-only / responded-only denominators preserved; the raw
 // ISO cutoff (`created_time >= ?`) is a lexical TEXT compare, left UNCHANGED. GROUP BY yyyymm
@@ -5228,30 +3281,7 @@ function _mapSlaTrend(rows) {
  * Consumer at executive.html:8643 reads r['Category'] + r['% of SLA Violated'].
  */
 function getSlaByCategoryDB() {
-  if (REPORTS_BACKEND === 'postgres') return _getSlaByCategoryDBPg();
-  // 2026-06-02 ITSM-alignment (FORMULA_RECONCILIATION.md §6 D2):
-  // SLA violation % per category uses the closed-only denominator. AP
-  // `/total` previously inflated open-heavy categories' apparent SLA
-  // performance because their open tickets weren't yet in violation.
-  // Sort still ranks by violation volume so the per-category list is
-  // stable across refreshes.
-  const rows = db.prepare(`
-    SELECT TRIM(COALESCE(category, '(Uncategorised)')) AS cat,
-           COUNT(*) AS total,
-           SUM(CASE WHEN pending_status = 0 THEN 1 ELSE 0 END) AS closed,
-           SUM(CASE WHEN pending_status = 0 AND overdue_status = 1 THEN 1 ELSE 0 END) AS violated_closed
-    FROM request_records
-    WHERE created_time >= datetime('now', '-12 months')
-      AND category IS NOT NULL
-      AND TRIM(category) != ''
-      AND LOWER(TRIM(category)) NOT IN ('-no value-', '-no value', 'no value', '(blank)')
-    GROUP BY cat
-    HAVING total >= 5            -- ignore long-tail categories with too few tickets
-    ORDER BY violated_closed DESC, total DESC, cat ASC
-    LIMIT 20
-  `).all();
-
-  return _mapSlaByCategory(rows);
+  return _getSlaByCategoryDBPg();
 }
 // PG fork — the 12-month cutoff MUST mirror sqlite's LEXICAL text compare, not a typed
 // timestamptz compare. sqlite compares the ISO 'YYYY-MM-DDTHH:MM:SSZ' column against a
@@ -5312,22 +3342,7 @@ function _mapSlaByCategory(rows) {
  *   [{ Group: 'MANA IT Agent', 'Request Count': 412 }, …]
  */
 function getGroupRequestsDB(monthsBack = 12) {
-  if (REPORTS_BACKEND === 'postgres') return _getGroupRequestsDBPg(monthsBack);
-  const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
-  cutoff.setDate(1); cutoff.setHours(0,0,0,0);
-  const cutoffISO = cutoff.toISOString();
-
-  const rows = db.prepare(`
-    SELECT tech_group AS grp, COUNT(*) AS cnt
-    FROM request_records
-    WHERE created_time >= ?
-      AND tech_group IS NOT NULL
-      AND TRIM(tech_group) != ''
-    GROUP BY grp
-    ORDER BY cnt DESC, grp ASC
-  `).all(cutoffISO);
-  return rows.map(r => ({ 'Group': r.grp, 'Request Count': r.cnt }));
+  return _getGroupRequestsDBPg(monthsBack);
 }
 // PG fork — no strftime/julianday; raw ISO cutoff UNCHANGED; GROUP BY grp safe.
 async function _getGroupRequestsDBPg(monthsBack = 12) {
@@ -5359,20 +3374,7 @@ async function _getGroupRequestsDBPg(monthsBack = 12) {
  * (Subject, Site, Change Type, Status, Created Time, etc.).
  */
 function getEmergencyChangesDB(monthsBack = 12) {
-  if (REPORTS_BACKEND === 'postgres') return _getEmergencyChangesDBPg(monthsBack);
-  const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
-  cutoff.setDate(1); cutoff.setHours(0,0,0,0);
-  const cutoffISO = cutoff.toISOString();
-
-  const rows = db.prepare(`
-    SELECT * FROM change_records
-    WHERE LOWER(COALESCE(change_type, '')) LIKE '%emergency%'
-      AND created_time >= ?
-    ORDER BY created_time DESC
-  `).all(cutoffISO);
-
-  return _mapEmergencyChanges(rows);
+  return _getEmergencyChangesDBPg(monthsBack);
 }
 // PG fork — raw ISO cutoff (created_time>=?) UNCHANGED; LIKE/LOWER/COALESCE valid as-is.
 async function _getEmergencyChangesDBPg(monthsBack = 12) {
@@ -5416,30 +3418,7 @@ function _mapEmergencyChanges(rows) {
  * by upstream code that wants the raw pivot, so we preserve it.
  */
 function getAgeingSummaryDB() {
-  if (REPORTS_BACKEND === 'postgres') return _getAgeingSummaryDBPg();
-  const rows = db.prepare(`
-    SELECT tech_group AS grp,
-           SUM(CASE WHEN age_days <= 30                  THEN 1 ELSE 0 END) AS d0_30,
-           SUM(CASE WHEN age_days > 30 AND age_days<=45  THEN 1 ELSE 0 END) AS d31_45,
-           SUM(CASE WHEN age_days > 45 AND age_days<=60  THEN 1 ELSE 0 END) AS d46_60,
-           SUM(CASE WHEN age_days > 60                   THEN 1 ELSE 0 END) AS d_over_60
-    FROM (
-      SELECT tech_group,
-             CAST((julianday('now') - julianday(created_time)) AS INTEGER) AS age_days
-      FROM request_records
-      WHERE pending_status = 1
-        -- defence-in-depth: a ticket is open only if its Request Status is not
-        -- terminal (mirrors the browser isClosed). Guards against a stale/corrupt
-        -- pending_status marking closed tickets as open (July-2026 PG diagnosis).
-        AND LOWER(TRIM(COALESCE(request_status,''))) NOT IN ('closed','resolved','confirmed resolution','confirm resolution','cancelled')
-        AND tech_group IS NOT NULL
-        AND TRIM(tech_group) != ''
-        AND created_time IS NOT NULL
-    )
-    GROUP BY grp
-    ORDER BY (d0_30 + d31_45 + d46_60 + d_over_60) DESC, grp ASC
-  `).all();
-  return _mapAgeingSummary(rows);
+  return _getAgeingSummaryDBPg();
 }
 // PG fork — TRUNC-days; NO HAVING (matches source). ORDER BY is an EXPRESSION over output
 // aliases (pg forbids that) → repeat the four SUM(CASE …) expressions. Derived table aliased `q`.
@@ -5504,23 +3483,7 @@ function _mapAgeingSummary(rows) {
  *   [{ 'Created Time': 'Apr 2026', 'Incidents': 432, 'Service Requests': 1203 }, …]
  */
 function getIncidentVsSrDB(monthsBack = 12) {
-  if (REPORTS_BACKEND === 'postgres') return _getIncidentVsSrDBPg(monthsBack);
-  const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
-  cutoff.setDate(1); cutoff.setHours(0,0,0,0);
-  const cutoffISO = cutoff.toISOString();
-
-  const rows = db.prepare(`
-    SELECT strftime('%Y-%m', created_time) AS yyyymm,
-           SUM(CASE WHEN service_request = 0 THEN 1 ELSE 0 END) AS incidents,
-           SUM(CASE WHEN service_request = 1 THEN 1 ELSE 0 END) AS srs
-    FROM request_records
-    WHERE created_time >= ?
-    GROUP BY yyyymm
-    ORDER BY yyyymm
-  `).all(cutoffISO);
-
-  return _mapIncidentVsSr(rows);
+  return _getIncidentVsSrDBPg(monthsBack);
 }
 // PG fork — strftime→to_char; raw ISO cutoff UNCHANGED; GROUP BY yyyymm safe;
 // service_request is INTEGER so the = 0/1 compares are unchanged.
@@ -5566,39 +3529,7 @@ function _mapIncidentVsSr(rows) {
  * cab_approvals doesn't have Subject — we LEFT JOIN change_records for it.
  */
 function getCabApprovalsDB(monthsBack = 12) {
-  if (REPORTS_BACKEND === 'postgres') return _getCabApprovalsDBPg(monthsBack);
-  const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
-  cutoff.setDate(1); cutoff.setHours(0,0,0,0);
-  const cutoffISO = cutoff.toISOString();
-
-  // NOTE: `c.site` was dropped here (and in the pg fork) — change_records has NO `site` column
-  // (only site_id), so the original query threw `no such column: c.site` on EVERY call. The JS
-  // map's `'Site': r.site || ''` now yields '' (matching "Site is empty upstream"). See spec.
-  const rows = db.prepare(`
-    SELECT
-      a.approver_name           AS approver,
-      a.approval_status         AS status,
-      a.approval_stage          AS stage,
-      a.approval_level          AS level,
-      a.approval_level_status   AS level_status,
-      a.recommendation_requested AS req_at,
-      a.action_taken_on         AS taken_at,
-      a.turnaround_minutes      AS turnaround,
-      a.rule_type               AS rule_type,
-      a.comments                AS comments,
-      a.change_id               AS change_id,
-      c.display_id              AS change_display_id,
-      c.subject                 AS subject
-    FROM cab_approvals a
-    LEFT JOIN change_records c ON c.change_id = a.change_id
-    WHERE a.recommendation_requested >= ?
-       OR a.recommendation_requested IS NULL
-    ORDER BY a.recommendation_requested DESC NULLS LAST
-    LIMIT 500
-  `).all(cutoffISO);
-
-  return _mapCabApprovals(rows);
+  return _getCabApprovalsDBPg(monthsBack);
 }
 // PG fork — raw ISO bound (recommendation_requested>=?) UNCHANGED; LEFT JOIN + NULLS LAST valid.
 // `c.site` dropped (non-existent column — see sqlite body note).
@@ -5668,34 +3599,7 @@ function _mapCabApprovals(rows) {
  * actually happened, not pending).
  */
 function getCabRecommendationsDB(monthsBack = 12) {
-  if (REPORTS_BACKEND === 'postgres') return _getCabRecommendationsDBPg(monthsBack);
-  const cutoff = new Date();
-  cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
-  cutoff.setDate(1); cutoff.setHours(0,0,0,0);
-  const cutoffISO = cutoff.toISOString();
-
-  // `c.site` dropped (non-existent column) — see getCabApprovalsDB note.
-  const rows = db.prepare(`
-    SELECT
-      a.approver_name           AS approver,
-      a.approval_status         AS status,
-      a.approval_stage          AS stage,
-      a.approval_level          AS level,
-      a.recommendation_requested AS req_at,
-      a.action_taken_on         AS taken_at,
-      a.turnaround_minutes      AS turnaround,
-      a.change_id               AS change_id,
-      c.display_id              AS change_display_id,
-      c.subject                 AS subject
-    FROM cab_approvals a
-    LEFT JOIN change_records c ON c.change_id = a.change_id
-    WHERE a.turnaround_minutes IS NOT NULL
-      AND a.recommendation_requested >= ?
-    ORDER BY a.recommendation_requested DESC
-    LIMIT 500
-  `).all(cutoffISO);
-
-  return _mapCabRecommendations(rows);
+  return _getCabRecommendationsDBPg(monthsBack);
 }
 // PG fork — raw ISO bound (recommendation_requested>=?) UNCHANGED; `c.site` dropped.
 async function _getCabRecommendationsDBPg(monthsBack = 12) {
@@ -5761,29 +3665,7 @@ function _mapCabRecommendations(rows) {
  *   }
  */
 function getCustomerVoiceByDimensionDB() {
-  if (REPORTS_BACKEND === 'postgres') return _getCustomerVoiceByDimensionDBPg();
-  // Pull surveys + ticket metadata in ONE query (instead of two Zoho views).
-  const rows = db.prepare(`
-    SELECT
-      s.overall_score                                                AS score,
-      s.request_display_id                                           AS display_id,
-      COALESCE(s.survey_responded_on, s.survey_sent_on)              AS month_src,
-      r.technician                                                   AS tech,
-      r.site                                                         AS site,
-      r.tech_group                                                   AS grp
-    FROM survey_results s
-    LEFT JOIN request_records r ON r.display_id = s.request_display_id
-    WHERE s.overall_score IS NOT NULL
-  `).all();
-
-  // Closed-ticket denominator (for response-rate sub-metric)
-  const closedRow = db.prepare(`
-    SELECT COUNT(*) AS n
-    FROM request_records
-    WHERE pending_status = 0
-  `).get();
-
-  return _assembleCustomerVoiceByDimension(rows, closedRow);
+  return _getCustomerVoiceByDimensionDBPg();
 }
 // PG fork — awaits the survey⨝request LEFT JOIN + the closed-ticket count. NO dialect rewrite in
 // the SQL (no strftime/julianday/datetime/ROUND); ALL aggregation is engine-agnostic JS reused via
@@ -5882,19 +3764,7 @@ function _assembleCustomerVoiceByDimension(rows, closedRow) {
 }
 
 function getMajorIncidentsHistory(monthsBack = 12) {
-  if (REPORTS_BACKEND === 'postgres') return _getMajorIncidentsHistoryPg(monthsBack);
-  const today = new Date();
-  const cutoff = new Date(today.getFullYear(), today.getMonth() - monthsBack + 1, 1);
-  const cutoffISO = cutoff.toISOString();
-
-  const rows = db.prepare(`
-    SELECT * FROM request_records
-    WHERE (LOWER(COALESCE(request_type, '')) LIKE '%major%' OR LOWER(COALESCE(template, '')) LIKE '%major incident%')
-      AND created_time >= ?
-    ORDER BY created_time DESC
-  `).all(cutoffISO);
-
-  return _mapMajorIncidentRows(rows);
+  return _getMajorIncidentsHistoryPg(monthsBack);
 }
 
 // PG fork — same raw-TEXT cutoff comparison (created_time >= ISO bound is a
@@ -6025,24 +3895,7 @@ function _mapMajorIncidentRows(rows) {
  * matching the Zoho field naming, so the client code reads them transparently.
  */
 function getChangeRecordsHistory(monthsBack = 12) {
-  if (REPORTS_BACKEND === 'postgres') return _getChangeRecordsHistoryPg(monthsBack);
-  const today = new Date();
-  const cutoff = new Date(today.getFullYear(), today.getMonth() - monthsBack + 1, 1);
-  const cutoffISO = cutoff.toISOString();
-
-  // Build a Zoho-group-name → site-name lookup from the sites table.
-  // sites.zoho_group can be a comma-separated list (e.g. Exploration has 3
-  // groups). Splitting + lower-casing both sides for case-insensitive match.
-  const siteRows = db.prepare(`SELECT name, zoho_group FROM sites WHERE active = 1`).all();
-  const groupToSite = _buildGroupToSite(siteRows);
-
-  const rows = db.prepare(`
-    SELECT * FROM change_records
-    WHERE created_time >= ?
-    ORDER BY created_time DESC
-  `).all(cutoffISO);
-
-  return _mapChangeRecordsHistory(rows, groupToSite);
+  return _getChangeRecordsHistoryPg(monthsBack);
 }
 // PG fork — awaits BOTH the sites lookup AND the change_records query; raw ISO cutoff
 // (created_time>=?) UNCHANGED. JS map (group→site derivation + udf_json unpack) reused.
@@ -6138,63 +3991,9 @@ function isoToZohoStr(iso) {
   } catch(e) { return null; }
 }
 
-// Aggregate 6-month helpdesk history directly from request_records, scoped
-// to a specific site + group subset. Used by getHelpdesk6MonthHistory when a
-// group filter is active (the calendar fast-path doesn't carry group-level
-// breakdown). 2026-06-02 — ITSM-aligned: SLA% uses closed-only denominator
-// (FORMULA_RECONCILIATION.md §6 D2); FRT% uses responded-only denominator
-// (§6 D3). Returns the same shape as the calendar path.
-function _aggregateHelpdesk6MoFromRaw(siteName, py, pm, groups) {
-  if (REPORTS_BACKEND === 'postgres') return _aggregateHelpdesk6MoFromRawPg(siteName, py, pm, groups);
-  const mStr = `${py}-${String(pm).padStart(2, '0')}`;
-  const gParams = Array.isArray(groups) ? groups : [];
-  const groupWhere = gParams.length > 0
-    ? `AND tech_group IN (${gParams.map(() => '?').join(',')})`
-    : '';
-  const siteClause = siteName ? `AND site=?` : '';
-  const siteParam  = siteName ? [siteName] : [];
 
-  // One single aggregate query — much faster than the per-week fan-out
-  // the fallback path does. SQLite's CASE expressions compute all four
-  // counters in a single full scan of the month's rows.
-  const row = db.prepare(`
-    SELECT
-      COUNT(*) as inbound,
-      SUM(CASE WHEN pending_status = 0 THEN 1 ELSE 0 END) as closed,
-      SUM(CASE WHEN pending_status = 0
-                AND LOWER(COALESCE(overdue_status,'')) NOT IN ('1','true','yes')
-               THEN 1 ELSE 0 END) as sla_ok_closed,
-      SUM(CASE WHEN responded_time IS NOT NULL
-                AND TRIM(responded_time) != ''
-               THEN 1 ELSE 0 END) as responded,
-      SUM(CASE WHEN responded_time IS NOT NULL
-                AND TRIM(responded_time) != ''
-                AND LOWER(COALESCE(first_response_overdue,'')) NOT IN ('1','true','yes')
-               THEN 1 ELSE 0 END) as frt_ok_responded
-    FROM request_records
-    WHERE strftime('%Y-%m', created_time) = ?
-      ${siteClause}
-      ${groupWhere}
-  `).get(mStr, ...siteParam, ...gParams);
 
-  return {
-    inbound:        row.inbound        || 0,
-    closed:         row.closed         || 0,
-    res_sla_pct:    row.closed    > 0  ? Math.round(row.sla_ok_closed   / row.closed    * 100) : null,
-    reply_sla_pct:  row.responded > 0  ? Math.round(row.frt_ok_responded / row.responded * 100) : null,
-  };
-}
 
-// Resolve a sites-table id to the canonical site name used in request_records.
-// Returns null when site_id is unset (= All Sites filter).
-function _siteIdToName(site_id) {
-  if (REPORTS_BACKEND === 'postgres') return _siteIdToNamePg(site_id);
-  if (!site_id) return null;
-  try {
-    const row = db.prepare('SELECT name FROM sites WHERE id = ?').get(site_id);
-    return row ? row.name : null;
-  } catch (_) { return null; }
-}
 async function _siteIdToNamePg(site_id) {
   if (!site_id) return null;
   try {
@@ -6227,90 +4026,7 @@ async function _aggregateHelpdesk6MoFromRawPg(siteName, py, pm, groups) {
 }
 
 function getHelpdesk6MonthHistory(site_id, year, month, groups) {
-  if (REPORTS_BACKEND === 'postgres') return _getHelpdesk6MonthHistoryPg(site_id, year, month, groups);
-  // 2026-06-02: added `groups` param. When set, the calendar fast-path can't
-  // satisfy the request (it's site-wide / group-wide aggregate) — fall through
-  // to _aggregateHelpdesk6MoFromRaw which scans request_records with the group
-  // filter. The KPI card on slide 2 reads h.total from buildAiSnapshot
-  // (group-scoped); the 6-month bar chart on slide 3 used to read the
-  // calendar fast-path (all-groups), producing a 4× scale difference on the
-  // same slide. Now they match.
-  const groupList = Array.isArray(groups) ? groups.filter(Boolean) : [];
-  const useRaw    = groupList.length > 0;
-  const siteName  = useRaw ? _siteIdToName(site_id) : null;
-
-  const history = [];
-  for (let ago = 5; ago >= 0; ago--) {
-    const d   = new Date(year, month - 1 - ago, 1);   // JS months are 0-indexed
-    const py  = d.getFullYear();
-    const pm  = d.getMonth() + 1;
-    const lbl = d.toLocaleString('en', { month: 'short', year: 'numeric' }); // "Nov 2025"
-
-    if (useRaw) {
-      const agg = _aggregateHelpdesk6MoFromRaw(siteName, py, pm, groupList);
-      history.push({
-        label:         lbl,
-        inbound:       agg.inbound       || null,
-        closed:        agg.closed        || null,
-        res_sla_pct:   agg.res_sla_pct,
-        reply_sla_pct: agg.reply_sla_pct,
-      });
-      continue;
-    }
-
-    // ── Try calendar-based totals first (most accurate, matches Zoho AP) ──
-    const cal = getCalendarMonthlyHelpdesk(site_id, py, pm);
-    if (cal && cal.inbound > 0) {
-      history.push({
-        label:         lbl,
-        inbound:       cal.inbound,
-        closed:        cal.closed,
-        res_sla_pct:   cal.sla_res_pct,
-        reply_sla_pct: cal.sla_reply_pct,
-      });
-      continue;
-    }
-
-    // ── Fallback: aggregate from weekly chart_data stored in helpdesk_data ──
-    const pmStr  = `${py}-${String(pm).padStart(2, '0')}`;
-    const rptRows = db.prepare(`
-      SELECT wr.id as report_id, w.label as week_label
-      FROM weeks w
-      JOIN weekly_reports wr ON wr.week_id=w.id AND wr.site_id=?
-      WHERE substr(w.start_date,1,7)=? OR substr(w.end_date,1,7)=?
-    `).all(site_id, pmStr, pmStr);
-
-    if (!rptRows.length) {
-      history.push({ label: lbl, inbound: null, closed: null, res_sla_pct: null, reply_sla_pct: null });
-      continue;
-    }
-
-    let mIn = 0, mCl = 0, resSum = 0, resN = 0, frSum = 0, frN = 0;
-    for (const row of rptRows) {
-      const hdRow = db.prepare(`SELECT chart_data FROM helpdesk_data WHERE report_id=?`).get(row.report_id);
-      if (!hdRow || !hdRow.chart_data) continue;
-      let cd;
-      try { cd = JSON.parse(hdRow.chart_data); } catch(e) { continue; }
-      const wks = Array.isArray(cd.weeks) ? cd.weeks : [];
-      // Match week label; fall back to last entry
-      const wk = wks.find(w => (w.label||'').trim().toLowerCase() === (row.week_label||'').trim().toLowerCase())
-              || (wks.length ? wks[wks.length - 1] : null);
-      if (!wk) continue;
-      mIn += wk.inbound || 0;
-      mCl += wk.closed  || 0;
-      if (wk.res_ok_pct != null) { resSum += wk.res_ok_pct; resN++; }
-      if (wk.fr_ok_pct  != null) { frSum  += wk.fr_ok_pct;  frN++;  }
-    }
-
-    history.push({
-      label:         lbl,
-      inbound:       mIn  || null,
-      closed:        mCl  || null,
-      res_sla_pct:   resN > 0 ? Math.round(resSum / resN) : null,
-      reply_sla_pct: frN  > 0 ? Math.round(frSum  / frN)  : null,
-    });
-  }
-  return history;
+  return _getHelpdesk6MonthHistoryPg(site_id, year, month, groups);
 }
 async function _getHelpdesk6MonthHistoryPg(site_id, year, month, groups) {
   const H = pgHandle();
@@ -6363,24 +4079,7 @@ async function _getHelpdesk6MonthHistoryPg(site_id, year, month, groups) {
  * where reports[] contains every submitted report across active sites for that week.
  */
 function getWeekSummaryData(year, week) {
-  if (REPORTS_BACKEND === 'postgres') return _getWeekSummaryDataPg(year, week);
-  const rows = db.prepare(`
-    SELECT wr.id as report_id
-    FROM weekly_reports wr
-    JOIN weeks w ON w.id=wr.week_id
-    JOIN sites s ON s.id=wr.site_id
-    WHERE w.year=? AND w.week_number=? AND wr.status='submitted' AND s.active=1
-    ORDER BY s.sort_order, s.name
-  `).all(year, week);
-
-  const weekRange = getWeekRange(year, week);
-  return {
-    year, week,
-    week_label: weekRange.label,
-    start_date: weekRange.start,
-    end_date:   weekRange.end,
-    reports:    rows.map(r => getReport(r.report_id)).filter(Boolean)
-  };
+  return _getWeekSummaryDataPg(year, week);
 }
 async function _getWeekSummaryDataPg(year, week) {
   const H = pgHandle();
@@ -6397,29 +4096,22 @@ async function _getWeekSummaryDataPg(year, week) {
 // ── SYNC METADATA HELPERS ─────────────────────────────────────────
 
 /** Seed default job rows so the status endpoint always has something to return */
-const SYNC_JOBS = ['helpdesk', 'change_cab', 'survey', 'requests'];
-const _seedJob = db.prepare(`INSERT OR IGNORE INTO sync_metadata (job_name) VALUES (?)`);
-SYNC_JOBS.forEach(j => _seedJob.run(j));
 
 /** Get the sync status for all jobs (used by /api/sync/status) */
 function getSyncStatus() {
-  if (REPORTS_BACKEND === 'postgres') return pgHandle().prepare(`SELECT * FROM sync_metadata ORDER BY job_name`).all();
-  return db.prepare(`SELECT * FROM sync_metadata ORDER BY job_name`).all();
+  return pgHandle().prepare(`SELECT * FROM sync_metadata ORDER BY job_name`).all();
 }
 
 /** Row count of one hot-path table — used by the Zoho truncation guard (Step 1). Whitelisted. */
 const _COUNTABLE = new Set(['request_records', 'change_records', 'cab_approvals', 'survey_responses', 'survey_answers']);
 function countTable(table) {
   if (!_COUNTABLE.has(table)) throw new Error(`countTable: table not allowed: ${table}`);
-  if (REPORTS_BACKEND === 'postgres') return pgHandle().prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().then(r => Number(r && r.n) || 0);
-  return db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().n;
+  return pgHandle().prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().then(r => Number(r && r.n) || 0);
 }
 
 /** Get last_sync_at for a single job (used by zoho-sync.js as the incremental cursor) */
 function getLastSyncAt(jobName) {
-  if (REPORTS_BACKEND === 'postgres') return _getLastSyncAtPg(jobName);
-  const row = db.prepare(`SELECT last_sync_at FROM sync_metadata WHERE job_name=?`).get(jobName);
-  return row ? row.last_sync_at : null;
+  return _getLastSyncAtPg(jobName);
 }
 async function _getLastSyncAtPg(jobName) {
   const row = await pgHandle().prepare(`SELECT last_sync_at FROM sync_metadata WHERE job_name=?`).get(jobName);
@@ -6435,20 +4127,7 @@ async function _getLastSyncAtPg(jobName) {
  *  @param {boolean} [opts.fullSync]       - true if this was a full reconciliation run
  */
 function markSyncSuccess(jobName, rowsUpserted, opts = {}) {
-  if (REPORTS_BACKEND === 'postgres') return _markSyncSuccessPg(jobName, rowsUpserted, opts);
-  const { deleted = 0, schemaSnapshot = null, fullSync = false } = opts;
-  db.prepare(`
-    INSERT INTO sync_metadata (job_name, last_sync_at, last_sync_rows, last_error, sync_count, deleted_count, schema_snapshot, last_full_sync_at)
-    VALUES (?, datetime('now'), ?, NULL, 1, ?, ?, CASE WHEN ? THEN datetime('now') ELSE NULL END)
-    ON CONFLICT(job_name) DO UPDATE SET
-      last_sync_at      = datetime('now'),
-      last_sync_rows    = excluded.last_sync_rows,
-      last_error        = NULL,
-      sync_count        = sync_count + 1,
-      deleted_count     = excluded.deleted_count,
-      schema_snapshot   = COALESCE(excluded.schema_snapshot, schema_snapshot),
-      last_full_sync_at = CASE WHEN excluded.last_full_sync_at IS NOT NULL THEN excluded.last_full_sync_at ELSE last_full_sync_at END
-  `).run(jobName, rowsUpserted, deleted, schemaSnapshot, fullSync ? 1 : 0);
+  return _markSyncSuccessPg(jobName, rowsUpserted, opts);
 }
 // pg: qualify every DO-UPDATE existing-row column ref with the table name (pg requirement).
 async function _markSyncSuccessPg(jobName, rowsUpserted, { deleted = 0, schemaSnapshot = null, fullSync = false } = {}) {
@@ -6468,14 +4147,7 @@ async function _markSyncSuccessPg(jobName, rowsUpserted, { deleted = 0, schemaSn
 
 /** Record a sync error without clearing the last successful timestamp */
 function markSyncError(jobName, errorMessage) {
-  if (REPORTS_BACKEND === 'postgres') return _markSyncErrorPg(jobName, errorMessage);
-  db.prepare(`
-    INSERT INTO sync_metadata (job_name, last_error, last_error_at)
-    VALUES (?, ?, datetime('now'))
-    ON CONFLICT(job_name) DO UPDATE SET
-      last_error    = excluded.last_error,
-      last_error_at = datetime('now')
-  `).run(jobName, String(errorMessage).slice(0, 500));
+  return _markSyncErrorPg(jobName, errorMessage);
 }
 async function _markSyncErrorPg(jobName, errorMessage) {
   await pgHandle().prepare(`
@@ -6489,87 +4161,19 @@ async function _markSyncErrorPg(jobName, errorMessage) {
 
 // ── CHANGE / CAB UPSERT HELPERS ───────────────────────────────────
 
-const _upsertChange = db.prepare(`
-  INSERT INTO change_records
-    (change_id, display_id, subject, status, stage, stage_status, risk, change_type, emergency,
-     category, sub_category, requester, requester_id, owner_id, manager, site_id,
-     group_id, group_name, scheduled_start, scheduled_end, completed_time, created_time,
-     closure_code, udf_json, fetched_at)
-  VALUES
-    (@change_id, @display_id, @subject, @status, @stage, @stage_status, @risk, @change_type, @emergency,
-     @category, @sub_category, @requester, @requester_id, @owner_id, @manager, @site_id,
-     @group_id, @group_name, @scheduled_start, @scheduled_end, @completed_time, @created_time,
-     @closure_code, @udf_json, datetime('now'))
-  ON CONFLICT(change_id) DO UPDATE SET
-    display_id       = excluded.display_id,
-    subject          = excluded.subject,
-    status           = excluded.status,
-    stage            = excluded.stage,
-    stage_status     = excluded.stage_status,
-    risk             = excluded.risk,
-    change_type      = excluded.change_type,
-    emergency        = excluded.emergency,
-    category         = excluded.category,
-    sub_category     = excluded.sub_category,
-    requester        = excluded.requester,
-    requester_id     = excluded.requester_id,
-    owner_id         = excluded.owner_id,
-    manager          = excluded.manager,
-    site_id          = excluded.site_id,
-    group_id         = excluded.group_id,
-    group_name       = excluded.group_name,
-    scheduled_start  = excluded.scheduled_start,
-    scheduled_end    = excluded.scheduled_end,
-    completed_time   = excluded.completed_time,
-    created_time     = excluded.created_time,
-    closure_code     = excluded.closure_code,
-    udf_json         = excluded.udf_json,
-    fetched_at       = datetime('now')
-`);
 
-const _upsertCAB = db.prepare(`
-  INSERT INTO cab_approvals
-    (approval_id, change_id, approver_name, approval_status, approval_stage,
-     approval_level, approval_level_status, recommendation_requested, action_taken_on,
-     turnaround_minutes, rule_type, comments, fetched_at)
-  VALUES
-    (@approval_id, @change_id, @approver_name, @approval_status, @approval_stage,
-     @approval_level, @approval_level_status, @recommendation_requested, @action_taken_on,
-     @turnaround_minutes, @rule_type, @comments, datetime('now'))
-  ON CONFLICT(approval_id) DO UPDATE SET
-    change_id                = excluded.change_id,
-    approver_name            = excluded.approver_name,
-    approval_status          = excluded.approval_status,
-    approval_stage           = excluded.approval_stage,
-    approval_level           = excluded.approval_level,
-    approval_level_status    = excluded.approval_level_status,
-    recommendation_requested = excluded.recommendation_requested,
-    action_taken_on          = excluded.action_taken_on,
-    turnaround_minutes       = excluded.turnaround_minutes,
-    rule_type                = excluded.rule_type,
-    comments                 = excluded.comments,
-    fetched_at               = datetime('now')
-`);
+
+
 
 function upsertChangeBatch(rows) {
-  if (REPORTS_BACKEND === 'postgres') return _upsertChangeBatchPg(rows);
-  return _upsertChangeBatchSqlite(rows);
+  return _upsertChangeBatchPg(rows);
 }
-const _upsertChangeBatchSqlite = db.transaction((rows) => {
-  let n = 0;
-  for (const r of rows) { _upsertChange.run(r); n++; }
-  return n;
-});
+
 
 function upsertCABBatch(rows) {
-  if (REPORTS_BACKEND === 'postgres') return _upsertCABBatchPg(rows);
-  return _upsertCABBatchSqlite(rows);
+  return _upsertCABBatchPg(rows);
 }
-const _upsertCABBatchSqlite = db.transaction((rows) => {
-  let n = 0;
-  for (const r of rows) { _upsertCAB.run(r); n++; }
-  return n;
-});
+
 
 // ── Chunk 4D-1 pg writer forks ──────────────────────────────────────────────
 // Same INSERT…ON CONFLICT bodies as the sqlite prepared statements, with
@@ -6623,58 +4227,19 @@ async function _upsertCABBatchPg(rows) {
 
 // ── SURVEY UPSERT HELPERS ─────────────────────────────────────────
 
-const _upsertSurveyResult = db.prepare(`
-  INSERT INTO survey_results
-    (result_id, response_id, survey_id, survey_name, request_id,
-     request_display_id, change_id, user_id, overall_score,
-     survey_sent_on, survey_responded_on, fetched_at)
-  VALUES
-    (@result_id, @response_id, @survey_id, @survey_name, @request_id,
-     @request_display_id, @change_id, @user_id, @overall_score,
-     @survey_sent_on, @survey_responded_on, datetime('now'))
-  ON CONFLICT(result_id) DO UPDATE SET
-    response_id         = excluded.response_id,
-    survey_id           = excluded.survey_id,
-    survey_name         = excluded.survey_name,
-    request_id          = excluded.request_id,
-    request_display_id  = excluded.request_display_id,
-    change_id           = excluded.change_id,
-    user_id             = excluded.user_id,
-    overall_score       = excluded.overall_score,
-    survey_sent_on      = excluded.survey_sent_on,
-    survey_responded_on = excluded.survey_responded_on,
-    fetched_at          = datetime('now')
-`);
 
-const _upsertSurveyAnswer = db.prepare(`
-  INSERT INTO survey_answers
-    (response_id, result_id, question_id, question_text, question_type,
-     answer_text, answer_option, score, skipped, fetched_at)
-  VALUES
-    (@response_id, @result_id, @question_id, @question_text, @question_type,
-     @answer_text, @answer_option, @score, @skipped, datetime('now'))
-  ON CONFLICT DO NOTHING
-`);
+
+
 
 function upsertSurveyResultBatch(rows) {
-  if (REPORTS_BACKEND === 'postgres') return _upsertSurveyResultBatchPg(rows);
-  return _upsertSurveyResultBatchSqlite(rows);
+  return _upsertSurveyResultBatchPg(rows);
 }
-const _upsertSurveyResultBatchSqlite = db.transaction((rows) => {
-  let n = 0;
-  for (const r of rows) { _upsertSurveyResult.run(r); n++; }
-  return n;
-});
+
 
 function upsertSurveyAnswerBatch(rows) {
-  if (REPORTS_BACKEND === 'postgres') return _upsertSurveyAnswerBatchPg(rows);
-  return _upsertSurveyAnswerBatchSqlite(rows);
+  return _upsertSurveyAnswerBatchPg(rows);
 }
-const _upsertSurveyAnswerBatchSqlite = db.transaction((rows) => {
-  let n = 0;
-  for (const r of rows) { _upsertSurveyAnswer.run(r); n++; }
-  return n;
-});
+
 
 const _SURVEY_RESULT_UPSERT_PG = `
   INSERT INTO survey_results
@@ -6713,59 +4278,12 @@ async function _upsertSurveyAnswerBatchPg(rows) {
 
 // ── REQUEST UPSERT HELPERS ────────────────────────────────────────
 
-const _upsertRequest = db.prepare(`
-  INSERT INTO request_records
-    (request_id, display_id, subject, request_status, pending_status, overdue_status,
-     request_type, template, service_request, is_escalated, reopen_count, due_by_time, time_elapsed_ms,
-     created_time, resolved_time, completed_time, responded_time, assigned_time,
-     last_updated_time, first_response_overdue, technician, requester,
-     category, sub_category, site, tech_group, mode, impact, fetched_at)
-  VALUES
-    (@request_id, @display_id, @subject, @request_status, @pending_status, @overdue_status,
-     @request_type, @template, @service_request, @is_escalated, @reopen_count, @due_by_time, @time_elapsed_ms,
-     @created_time, @resolved_time, @completed_time, @responded_time, @assigned_time,
-     @last_updated_time, @first_response_overdue, @technician, @requester,
-     @category, @sub_category, @site, @tech_group, @mode, @impact, datetime('now'))
-  ON CONFLICT(request_id) DO UPDATE SET
-    display_id             = excluded.display_id,
-    subject                = excluded.subject,
-    request_status         = excluded.request_status,
-    pending_status         = excluded.pending_status,
-    overdue_status         = excluded.overdue_status,
-    request_type           = excluded.request_type,
-    template               = excluded.template,
-    service_request        = excluded.service_request,
-    is_escalated           = excluded.is_escalated,
-    reopen_count           = excluded.reopen_count,
-    due_by_time            = excluded.due_by_time,
-    time_elapsed_ms        = excluded.time_elapsed_ms,
-    created_time           = excluded.created_time,
-    resolved_time          = excluded.resolved_time,
-    completed_time         = excluded.completed_time,
-    responded_time         = excluded.responded_time,
-    assigned_time          = excluded.assigned_time,
-    last_updated_time      = excluded.last_updated_time,
-    first_response_overdue = excluded.first_response_overdue,
-    technician             = excluded.technician,
-    requester              = excluded.requester,
-    category               = excluded.category,
-    sub_category           = excluded.sub_category,
-    site                   = excluded.site,
-    tech_group             = excluded.tech_group,
-    mode                   = excluded.mode,
-    impact                 = excluded.impact,
-    fetched_at             = datetime('now')
-`);
+
 
 function upsertRequestBatch(rows) {
-  if (REPORTS_BACKEND === 'postgres') return _upsertRequestBatchPg(rows);
-  return _upsertRequestBatchSqlite(rows);
+  return _upsertRequestBatchPg(rows);
 }
-const _upsertRequestBatchSqlite = db.transaction((rows) => {
-  let n = 0;
-  for (const r of rows) { _upsertRequest.run(r); n++; }
-  return n;
-});
+
 // NOTE: no udf_json here — udf_json is written ONLY by upsertRequestUdfBatch.
 const _REQUEST_UPSERT_PG = `
   INSERT INTO request_records
@@ -6806,46 +4324,19 @@ async function _upsertRequestBatchPg(rows) {
 // (because the regular REQUEST sync hasn't run yet, or the row was deleted),
 // we silently skip rather than create a phantom row missing all the base
 // fields. Returns count of rows actually updated (changes > 0).
-const _upsertRequestUdf = db.prepare(`
-  UPDATE request_records
-     SET udf_json = ?,
-         fetched_at = datetime('now')
-   WHERE request_id = ?
-`);
+
 
 // 2026-06-02 fallback: when the long Zoho request_id doesn't match (typically
 // because the MAJOR_INCIDENTS view exposes only the short display_id), try
 // matching on display_id instead. This is safe because display_id is also a
 // unique identifier in request_records (PRIMARY KEY-like in practice — Zoho
 // allocates them monotonically per workspace).
-const _upsertRequestUdfByDisplayId = db.prepare(`
-  UPDATE request_records
-     SET udf_json = ?,
-         fetched_at = datetime('now')
-   WHERE display_id = ?
-`);
+
 
 function upsertRequestUdfBatch(rows) {
-  if (REPORTS_BACKEND === 'postgres') return _upsertRequestUdfBatchPg(rows);
-  return _upsertRequestUdfBatchSqlite(rows);
+  return _upsertRequestUdfBatchPg(rows);
 }
-const _upsertRequestUdfBatchSqlite = db.transaction((rows) => {
-  let n = 0;
-  for (const r of rows) {
-    // Primary path: match on the long Zoho id.
-    let result = _upsertRequestUdf.run(r.udf_json, r.request_id);
-    if (result.changes === 0) {
-      // Fallback: match on display id. zoho-sync.js sets _ridKind='display'
-      // when it had to fall back to the display-id column on the source row;
-      // even when it set 'long', the value MAY accidentally be a display id
-      // if the view's "Request ID" column was misconfigured, so we try the
-      // display-id path unconditionally on miss.
-      result = _upsertRequestUdfByDisplayId.run(r.udf_json, r.request_id);
-    }
-    if (result.changes > 0) n++;
-  }
-  return n;
-});
+
 // Two-step UPDATE (positional ?): by request_id, fallback by display_id on miss.
 async function _upsertRequestUdfBatchPg(rows) {
   const H = pgHandle(); let n = 0;
@@ -6869,34 +4360,14 @@ async function _upsertRequestUdfBatchPg(rows) {
  * Returns number of rows deleted.
  */
 function reconcileChangeRecords(liveIds) {
-  if (REPORTS_BACKEND === 'postgres') return _reconcilePg('change_records', 'change_id', liveIds);
-  if (!liveIds || liveIds.size === 0) return 0;
-  // SQLite doesn't support NOT IN with very large arrays well,
-  // so we get all local IDs and delete the diff in a transaction.
-  const localIds = db.prepare(`SELECT change_id FROM change_records`).all().map(r => r.change_id);
-  const toDelete = localIds.filter(id => !liveIds.has(id));
-  if (toDelete.length === 0) return 0;
-  const del = db.prepare(`DELETE FROM change_records WHERE change_id = ?`);
-  const runAll = db.transaction(ids => { ids.forEach(id => del.run(id)); });
-  runAll(toDelete);
-  console.log(`[DB] reconcileChangeRecords — deleted ${toDelete.length} stale records`);
-  return toDelete.length;
+  return _reconcilePg('change_records', 'change_id', liveIds);
 }
 
 /**
  * Delete cab_approvals whose approval_id is NOT in the provided set.
  */
 function reconcileCABApprovals(liveIds) {
-  if (REPORTS_BACKEND === 'postgres') return _reconcilePg('cab_approvals', 'approval_id', liveIds);
-  if (!liveIds || liveIds.size === 0) return 0;
-  const localIds = db.prepare(`SELECT approval_id FROM cab_approvals`).all().map(r => r.approval_id);
-  const toDelete = localIds.filter(id => !liveIds.has(id));
-  if (toDelete.length === 0) return 0;
-  const del = db.prepare(`DELETE FROM cab_approvals WHERE approval_id = ?`);
-  const runAll = db.transaction(ids => { ids.forEach(id => del.run(id)); });
-  runAll(toDelete);
-  console.log(`[DB] reconcileCABApprovals — deleted ${toDelete.length} stale records`);
-  return toDelete.length;
+  return _reconcilePg('cab_approvals', 'approval_id', liveIds);
 }
 
 /**
@@ -6904,35 +4375,14 @@ function reconcileCABApprovals(liveIds) {
  * Also cascades: survey_answers with those response_ids are removed.
  */
 function reconcileSurveyResults(liveIds) {
-  if (REPORTS_BACKEND === 'postgres') return _reconcileSurveyResultsPg(liveIds);
-  if (!liveIds || liveIds.size === 0) return 0;
-  const localRows = db.prepare(`SELECT result_id, response_id FROM survey_results`).all();
-  const toDelete  = localRows.filter(r => !liveIds.has(r.result_id));
-  if (toDelete.length === 0) return 0;
-  const delResult  = db.prepare(`DELETE FROM survey_results  WHERE result_id   = ?`);
-  const delAnswers = db.prepare(`DELETE FROM survey_answers  WHERE response_id = ?`);
-  const runAll = db.transaction(rows => {
-    rows.forEach(r => { delResult.run(r.result_id); delAnswers.run(r.response_id); });
-  });
-  runAll(toDelete);
-  console.log(`[DB] reconcileSurveyResults — deleted ${toDelete.length} stale results (+answers)`);
-  return toDelete.length;
+  return _reconcileSurveyResultsPg(liveIds);
 }
 
 /**
  * Delete request_records whose request_id is NOT in the provided set.
  */
 function reconcileRequestRecords(liveIds) {
-  if (REPORTS_BACKEND === 'postgres') return _reconcilePg('request_records', 'request_id', liveIds);
-  if (!liveIds || liveIds.size === 0) return 0;
-  const localIds = db.prepare(`SELECT request_id FROM request_records`).all().map(r => r.request_id);
-  const toDelete = localIds.filter(id => !liveIds.has(id));
-  if (toDelete.length === 0) return 0;
-  const del = db.prepare(`DELETE FROM request_records WHERE request_id = ?`);
-  const runAll = db.transaction(ids => { ids.forEach(id => del.run(id)); });
-  runAll(toDelete);
-  console.log(`[DB] reconcileRequestRecords — deleted ${toDelete.length} stale records`);
-  return toDelete.length;
+  return _reconcilePg('request_records', 'request_id', liveIds);
 }
 
 // ── Chunk 4D-1 pg reconcilers ───────────────────────────────────────────────
@@ -6968,15 +4418,7 @@ async function _reconcileSurveyResultsPg(liveIds) {
 // ── QUERY HELPERS FOR API ENDPOINTS ──────────────────────────────
 
 function getChangeRecords({ limit = 200, offset = 0, status, site_id, since } = {}) {
-  if (REPORTS_BACKEND === 'postgres') return _getChangeRecordsPg({ limit, offset, status, site_id, since });
-  let sql = `SELECT * FROM change_records WHERE 1=1`;
-  const p = [];
-  if (status)  { sql += ` AND status=?`;       p.push(status); }
-  if (site_id) { sql += ` AND site_id=?`;      p.push(site_id); }
-  if (since)   { sql += ` AND created_time>=?`; p.push(since); }
-  sql += ` ORDER BY created_time DESC LIMIT ? OFFSET ?`;
-  p.push(limit, offset);
-  return db.prepare(sql).all(...p);
+  return _getChangeRecordsPg({ limit, offset, status, site_id, since });
 }
 async function _getChangeRecordsPg({ limit = 200, offset = 0, status, site_id, since } = {}) {
   let sql = `SELECT * FROM change_records WHERE 1=1`; const p = [];
@@ -6988,14 +4430,7 @@ async function _getChangeRecordsPg({ limit = 200, offset = 0, status, site_id, s
 }
 
 function getCABApprovals({ change_id, status, limit = 500 } = {}) {
-  if (REPORTS_BACKEND === 'postgres') return _getCABApprovalsPg({ change_id, status, limit });
-  let sql = `SELECT * FROM cab_approvals WHERE 1=1`;
-  const p = [];
-  if (change_id) { sql += ` AND change_id=?`;       p.push(change_id); }
-  if (status)    { sql += ` AND approval_status=?`; p.push(status); }
-  sql += ` ORDER BY recommendation_requested DESC LIMIT ?`;
-  p.push(limit);
-  return db.prepare(sql).all(...p);
+  return _getCABApprovalsPg({ change_id, status, limit });
 }
 async function _getCABApprovalsPg({ change_id, status, limit = 500 } = {}) {
   let sql = `SELECT * FROM cab_approvals WHERE 1=1`; const p = [];
@@ -7006,13 +4441,7 @@ async function _getCABApprovalsPg({ change_id, status, limit = 500 } = {}) {
 }
 
 function getSurveyResults({ limit = 500, offset = 0, since } = {}) {
-  if (REPORTS_BACKEND === 'postgres') return _getSurveyResultsPg({ limit, offset, since });
-  let sql = `SELECT * FROM survey_results WHERE 1=1`;
-  const p = [];
-  if (since) { sql += ` AND survey_sent_on>=?`; p.push(since); }
-  sql += ` ORDER BY survey_sent_on DESC LIMIT ? OFFSET ?`;
-  p.push(limit, offset);
-  return db.prepare(sql).all(...p);
+  return _getSurveyResultsPg({ limit, offset, since });
 }
 async function _getSurveyResultsPg({ limit = 500, offset = 0, since } = {}) {
   let sql = `SELECT * FROM survey_results WHERE 1=1`; const p = [];
@@ -7022,16 +4451,14 @@ async function _getSurveyResultsPg({ limit = 500, offset = 0, since } = {}) {
 }
 
 function getSurveyAnswers(response_id) {
-  if (REPORTS_BACKEND === 'postgres') return pgHandle().prepare(`SELECT * FROM survey_answers WHERE response_id=? ORDER BY id`).all(response_id);
-  return db.prepare(`SELECT * FROM survey_answers WHERE response_id=? ORDER BY id`).all(response_id);
+  return pgHandle().prepare(`SELECT * FROM survey_answers WHERE response_id=? ORDER BY id`).all(response_id);
 }
 
 // ── /api/survey/voice readers (replace the route's raw rdb.db.prepare reads) ──
 // Per-response context (full table, voice columns) — feeds the voice cache's resultMap.
 const _VOICE_RESULTS_SQL = `SELECT response_id, request_id, request_display_id, overall_score, survey_responded_on, survey_sent_on FROM survey_results`;
 function getSurveyResultsForVoice() {
-  if (REPORTS_BACKEND === 'postgres') return pgHandle().prepare(_VOICE_RESULTS_SQL).all();
-  return db.prepare(_VOICE_RESULTS_SQL).all();
+  return pgHandle().prepare(_VOICE_RESULTS_SQL).all();
 }
 // Candidate free-text answers — skipped=0 with non-empty text OR a long option (>25 chars).
 // No dialect rewrite: skipped is INTEGER; TRIM/LENGTH/IS NOT NULL are pg-valid. (The route's
@@ -7043,22 +4470,11 @@ const _VOICE_ANSWERS_SQL = `
     AND ( (answer_text   IS NOT NULL AND TRIM(answer_text)   != '')
        OR (answer_option IS NOT NULL AND LENGTH(answer_option) > 25) )`;
 function getSurveyVoiceAnswers() {
-  if (REPORTS_BACKEND === 'postgres') return pgHandle().prepare(_VOICE_ANSWERS_SQL).all();
-  return db.prepare(_VOICE_ANSWERS_SQL).all();
+  return pgHandle().prepare(_VOICE_ANSWERS_SQL).all();
 }
 
 function getRequestRecords({ limit = 200, offset = 0, status, site, since, pending_only, overdue_only } = {}) {
-  if (REPORTS_BACKEND === 'postgres') return _getRequestRecordsPg({ limit, offset, status, site, since, pending_only, overdue_only });
-  let sql = `SELECT * FROM request_records WHERE 1=1`;
-  const p = [];
-  if (status)       { sql += ` AND request_status=?`;   p.push(status); }
-  if (site)         { sql += ` AND site=?`;              p.push(site); }
-  if (since)        { sql += ` AND created_time>=?`;     p.push(since); }
-  if (pending_only) { sql += ` AND pending_status=1`; }
-  if (overdue_only) { sql += ` AND overdue_status=1`; }
-  sql += ` ORDER BY created_time DESC LIMIT ? OFFSET ?`;
-  p.push(limit, offset);
-  return db.prepare(sql).all(...p);
+  return _getRequestRecordsPg({ limit, offset, status, site, since, pending_only, overdue_only });
 }
 async function _getRequestRecordsPg({ limit = 200, offset = 0, status, site, since, pending_only, overdue_only } = {}) {
   let sql = `SELECT * FROM request_records WHERE 1=1`; const p = [];
@@ -7076,8 +4492,7 @@ async function _getRequestRecordsPg({ limit = 200, offset = 0, status, site, sin
 // ALL request_records since a cutoff, ASC — feeds server.js _rebuildCacheFromSQLite (_rawCache).
 // Unpaginated (vs the paginated getRequestRecords above). Raw-ISO cutoff on TEXT created_time → no cast.
 function getRequestRecordsSince(cutoffISO) {
-  if (REPORTS_BACKEND === 'postgres') return _getRequestRecordsSincePg(cutoffISO);
-  return db.prepare(`SELECT * FROM request_records WHERE created_time >= ? ORDER BY created_time ASC`).all(cutoffISO);
+  return _getRequestRecordsSincePg(cutoffISO);
 }
 async function _getRequestRecordsSincePg(cutoffISO) {
   return await pgHandle().prepare(`SELECT * FROM request_records WHERE created_time >= ? ORDER BY created_time ASC`).all(cutoffISO);
@@ -7086,9 +4501,7 @@ async function _getRequestRecordsSincePg(cutoffISO) {
 // Submission-channels counts — feeds server.js /api/data/submission-channels. strftime→to_char;
 // GROUP BY channel (alias ≠ the `mode` column it transforms → no shadowing). Returns {channel, cnt}.
 function getSubmissionChannelsDB({ yr, mo, site, groups } = {}) {
-  if (REPORTS_BACKEND === 'postgres') return _getSubmissionChannelsDBPg({ yr, mo, site, groups });
-  const { where, p } = _submChWhere({ yr, mo, site, groups }, 'sqlite');
-  return db.prepare(`SELECT CASE WHEN mode IS NULL OR mode='' OR lower(mode)='unknown' THEN NULL ELSE mode END AS channel, COUNT(*) AS cnt FROM request_records WHERE 1=1 ${where} GROUP BY channel ORDER BY cnt DESC`).all(...p);
+  return _getSubmissionChannelsDBPg({ yr, mo, site, groups });
 }
 async function _getSubmissionChannelsDBPg({ yr, mo, site, groups } = {}) {
   const { where, p } = _submChWhere({ yr, mo, site, groups }, 'pg');
@@ -7115,9 +4528,7 @@ function _submChWhere({ yr, mo, site, groups }, dialect) {
 // computed here from yr/mo — mirrors the route's old inline block). strftime→to_char on q1; the
 // q2 COALESCE(...) >= ? cutoff is a lexical TEXT compare → UNCHANGED. JOIN sr.request_id=rr.request_id.
 function getSurveyKpisDB({ yr, mo, groups } = {}) {
-  if (REPORTS_BACKEND === 'postgres') return _getSurveyKpisDBPg({ yr, mo, groups });
-  const q = _surveyKpiQueries({ yr, mo, groups }, 'sqlite');
-  return { rows1: db.prepare(q.q1).all(...q.p1), rows2: db.prepare(q.q2).all(...q.p2) };
+  return _getSurveyKpisDBPg({ yr, mo, groups });
 }
 async function _getSurveyKpisDBPg({ yr, mo, groups } = {}) {
   const H = pgHandle();
@@ -7157,45 +4568,7 @@ function _surveyKpiQueries({ yr, mo, groups }, dialect) {
  * Optional filters: site_id, since (ISO date string for created_time).
  */
 function getChangeMetrics({ site_id, since } = {}) {
-  if (REPORTS_BACKEND === 'postgres') return _getChangeMetricsPg({ site_id, since });
-  let where = 'WHERE 1=1';
-  const p = [];
-  if (site_id) { where += ' AND site_id=?';      p.push(site_id); }
-  if (since)   { where += ' AND created_time>=?'; p.push(since);   }
-
-  const total    = db.prepare(`SELECT COUNT(*) as n FROM change_records ${where}`).get(...p).n;
-  const byStatus = db.prepare(`SELECT status, COUNT(*) as count FROM change_records ${where} GROUP BY status ORDER BY count DESC`).all(...p);
-
-  const failedCount = db.prepare(
-    `SELECT COUNT(*) as n FROM change_records ${where}
-     AND (status='Failed' OR (stage='Close' AND status='Backout'))`
-  ).get(...p).n;
-
-  const byRisk  = db.prepare(`SELECT risk, COUNT(*) as count FROM change_records ${where} GROUP BY risk ORDER BY count DESC`).all(...p);
-  const byType  = db.prepare(`SELECT change_type, COUNT(*) as count FROM change_records ${where} GROUP BY change_type ORDER BY count DESC`).all(...p);
-  const bySite  = db.prepare(`SELECT site_id, COUNT(*) as count FROM change_records ${where} GROUP BY site_id ORDER BY count DESC`).all(...p);
-
-  // Emergency changes — field stored as INTEGER 1/0 or text 'true'/'false'
-  const emergCount = db.prepare(
-    `SELECT COUNT(*) as n FROM change_records ${where} AND (emergency=1 OR emergency='true' OR emergency='1')`
-  ).get(...p).n;
-
-  // In Progress: scheduled_start is in the past AND not yet closed
-  // Mirrors Zoho formula: Days Left Until Scheduled Start <= 0 AND Stage+Status != 'Close - Completed'/'Close - Cancelled'
-  const inProgress = db.prepare(
-    `SELECT COUNT(*) as n FROM change_records ${where}
-     AND scheduled_start <= datetime('now')
-     AND (stage || ' - ' || status) NOT IN ('Close - Completed','Close - Cancelled')`
-  ).get(...p).n;
-
-  // Avg completion time: scheduled_start → completed_time (for Completed records only)
-  const avgDaysRow = db.prepare(
-    `SELECT ROUND(AVG(JULIANDAY(completed_time) - JULIANDAY(scheduled_start)), 1) as avg_days
-     FROM change_records ${where}
-     AND status='Completed' AND completed_time IS NOT NULL AND scheduled_start IS NOT NULL`
-  ).get(...p);
-
-  return _assembleChangeMetrics({ total, byStatus, failedCount, byRisk, byType, bySite, emergCount, inProgress, avgDaysRow });
+  return _getChangeMetricsPg({ site_id, since });
 }
 // PG fork — dynamic ${where} with `?` placeholders (adapter translates ?→$N per-statement).
 // Rewrites: emergency INTEGER→`emergency::text IN ('1','true')`; `scheduled_start <= datetime('now')`
@@ -7283,34 +4656,7 @@ function _assembleChangeMetrics({ total, byStatus, failedCount, byRisk, byType, 
  * Optional filter: since (ISO date for recommendation_requested).
  */
 function getCABMetrics({ since } = {}) {
-  if (REPORTS_BACKEND === 'postgres') return _getCABMetricsPg({ since });
-  let where = 'WHERE 1=1';
-  const p = [];
-  if (since) { where += ' AND recommendation_requested>=?'; p.push(since); }
-
-  const total    = db.prepare(`SELECT COUNT(*) as n FROM cab_approvals ${where}`).get(...p).n;
-  const byStatus = db.prepare(
-    `SELECT approval_status, COUNT(*) as count FROM cab_approvals ${where} GROUP BY approval_status ORDER BY count DESC`
-  ).all(...p);
-
-  const distinctChanges   = db.prepare(`SELECT COUNT(DISTINCT change_id) as n FROM cab_approvals ${where}`).get(...p).n;
-  const approvedChanges   = db.prepare(
-    `SELECT COUNT(DISTINCT change_id) as n FROM cab_approvals ${where} AND approval_status='Approved'`
-  ).get(...p).n;
-
-  const avgTurnaround = db.prepare(
-    `SELECT ROUND(AVG(turnaround_minutes), 1) as avg FROM cab_approvals ${where}
-     AND turnaround_minutes IS NOT NULL AND turnaround_minutes > 0`
-  ).get(...p).avg;
-
-  const byRuleType = db.prepare(
-    `SELECT rule_type, COUNT(*) as count FROM cab_approvals ${where} GROUP BY rule_type ORDER BY count DESC`
-  ).all(...p);
-  const byStage = db.prepare(
-    `SELECT approval_stage, COUNT(*) as count FROM cab_approvals ${where} GROUP BY approval_stage ORDER BY count DESC`
-  ).all(...p);
-
-  return _assembleCABMetrics({ total, byStatus, distinctChanges, approvedChanges, avgTurnaround, byRuleType, byStage });
+  return _getCABMetricsPg({ since });
 }
 // PG fork — dynamic ${where}; `since` bound (recommendation_requested>=?) UNCHANGED; no julianday/
 // strftime/datetime. `ROUND(AVG(turnaround_minutes),1)` stays as-is (INTEGER → AVG = numeric, no cast).
@@ -7364,39 +4710,7 @@ function _assembleCABMetrics({ total, byStatus, distinctChanges, approvedChanges
  * Optional filter: since (ISO date for survey_sent_on).
  */
 function getSurveyMetrics({ since } = {}) {
-  if (REPORTS_BACKEND === 'postgres') return _getSurveyMetricsPg({ since });
-  let where = 'WHERE 1=1';
-  const p = [];
-  if (since) { where += ' AND survey_sent_on>=?'; p.push(since); }
-
-  const total     = db.prepare(`SELECT COUNT(*) as n FROM survey_results ${where}`).get(...p).n;
-  const responded = db.prepare(
-    `SELECT COUNT(*) as n FROM survey_results ${where} AND survey_responded_on IS NOT NULL`
-  ).get(...p).n;
-  const avgScore  = db.prepare(
-    `SELECT ROUND(AVG(overall_score), 1) as avg FROM survey_results ${where} AND overall_score IS NOT NULL`
-  ).get(...p).avg;
-
-  // CSAT score buckets: <60 = dissatisfied, 60–80 = neutral, ≥80 = satisfied
-  const buckets = db.prepare(`
-    SELECT
-      SUM(CASE WHEN overall_score < 60                          THEN 1 ELSE 0 END) as dissatisfied,
-      SUM(CASE WHEN overall_score >= 60 AND overall_score < 80  THEN 1 ELSE 0 END) as neutral,
-      SUM(CASE WHEN overall_score >= 80                         THEN 1 ELSE 0 END) as satisfied
-    FROM survey_results ${where} AND overall_score IS NOT NULL
-  `).get(...p);
-
-  // Monthly trend — last 12 responded months
-  const monthly = db.prepare(`
-    SELECT strftime('%Y-%m', survey_sent_on) as month,
-           COUNT(*) as sent_count,
-           SUM(CASE WHEN survey_responded_on IS NOT NULL THEN 1 ELSE 0 END) as responded_count,
-           ROUND(AVG(CASE WHEN overall_score IS NOT NULL THEN overall_score END), 1) as avg_score
-    FROM survey_results ${where}
-    GROUP BY month ORDER BY month DESC LIMIT 12
-  `).all(...p);
-
-  return _assembleSurveyMetrics({ total, responded, avgScore, buckets, monthly });
+  return _getSurveyMetricsPg({ since });
 }
 // PG fork — `since` bound (survey_sent_on>=?) UNCHANGED; overall_score is double precision →
 // `ROUND(AVG(...),1)` needs `::numeric` (×2: top avgScore + monthly avg_score). monthly bucket
@@ -7464,127 +4778,7 @@ function _assembleSurveyMetrics({ total, responded, avgScore, buckets, monthly }
  * Optional filters: site (site name), since (ISO date for created_time).
  */
 function getRequestMetrics(opts = {}) {
-  if (REPORTS_BACKEND === 'postgres') return _getRequestMetricsPg(opts);
-  const { site, since, statuses, rtypes, impacts, modes } = opts;
-  // AP formula: Inbound = count(RequestID) — ALL tickets, no filter (AP chart has Filters: 0).
-  // Closed = countif(pending_status = 0). No SLA exclusion needed.
-  let where = 'WHERE 1=1';
-  const p = [];
-  if (site)  { where += ' AND site=?';          p.push(site); }
-  if (since) { where += ' AND created_time>=?'; p.push(since); }
-  // ── Multi-value filters (2026-06-11, analytics.html Status/Type/Impact/Mode) ──
-  // Each is an optional array of allowed values → SQL IN clause. Because every
-  // sub-query below reuses the same `${where}` + `...p`, these filters apply
-  // uniformly to ALL the KPIs this function computes. Empty/absent = no filter.
-  const addIn = (col, vals) => {
-    if (Array.isArray(vals) && vals.length > 0) {
-      where += ` AND ${col} IN (${vals.map(() => '?').join(',')})`;
-      p.push(...vals);
-    }
-  };
-  addIn('request_status', statuses);
-  addIn('request_type',   rtypes);
-  addIn('impact',         impacts);
-  addIn('mode',           modes);
-
-  const total           = db.prepare(`SELECT COUNT(*) as n FROM request_records ${where}`).get(...p).n;
-  const openCount       = db.prepare(`SELECT COUNT(*) as n FROM request_records ${where} AND pending_status=1`).get(...p).n;
-  const closedCount     = db.prepare(`SELECT COUNT(*) as n FROM request_records ${where} AND pending_status=0`).get(...p).n;
-  const backlogCount    = db.prepare(`SELECT COUNT(*) as n FROM request_records ${where} AND pending_status=1 AND overdue_status=1`).get(...p).n;
-  const withinSlaCount  = db.prepare(`SELECT COUNT(*) as n FROM request_records ${where} AND overdue_status=0`).get(...p).n;
-  const slaViolated     = db.prepare(`SELECT COUNT(*) as n FROM request_records ${where} AND overdue_status=1`).get(...p).n;
-  // 2026-06-02 ITSM-alignment (§6 D2): SLA% denominator = closed (verdict-rendered);
-  // numerator = closed AND not overdue. AP `/total` was diluted by open-not-yet-due.
-  const withinSlaClosed = db.prepare(`SELECT COUNT(*) as n FROM request_records ${where} AND pending_status=0 AND overdue_status=0`).get(...p).n;
-  const slaOkPct        = closedCount > 0 ? +(withinSlaClosed / closedCount * 100).toFixed(1) : null;
-
-  const reopenCount     = db.prepare(`SELECT COUNT(*) as n FROM request_records ${where} AND reopen_count > 0`).get(...p).n;
-  // 2026-06-02 ITSM-alignment (§6 D1): Reopen Rate = reopened-of-closed / closed.
-  // An open ticket cannot have been reopened, so it doesn't belong in the denominator.
-  const reopenedClosed  = db.prepare(`SELECT COUNT(*) as n FROM request_records ${where} AND pending_status=0 AND reopen_count > 0`).get(...p).n;
-  const reopenPct       = closedCount > 0 ? +(reopenedClosed / closedCount * 100).toFixed(1) : null;
-
-  const resolvedCount   = db.prepare(`SELECT COUNT(*) as n FROM request_records ${where} AND request_status='Resolved'`).get(...p).n;
-  const resolvedSameWeek = db.prepare(
-    `SELECT COUNT(*) as n FROM request_records ${where}
-     AND request_status='Resolved'
-     AND resolved_time IS NOT NULL AND created_time IS NOT NULL
-     AND (JULIANDAY(resolved_time) - JULIANDAY(created_time)) <= 7`
-  ).get(...p).n;
-
-  const serviceReqCount = db.prepare(`SELECT COUNT(*) as n FROM request_records ${where} AND service_request=1`).get(...p).n;
-  const incidentCount   = db.prepare(`SELECT COUNT(*) as n FROM request_records ${where} AND service_request=0`).get(...p).n;
-  const escalatedCount  = db.prepare(
-    `SELECT COUNT(*) as n FROM request_records ${where} AND (is_escalated=1 OR is_escalated='true' OR is_escalated='1')`
-  ).get(...p).n;
-
-  // First Response SLA: field stored as 'true'/'false', '1'/'0', or 'Yes'/'No' depending on Zoho version
-  const firstRespViolated    = db.prepare(`SELECT COUNT(*) as n FROM request_records ${where} AND (LOWER(first_response_overdue) IN ('true','1','yes'))`).get(...p).n;
-  // 2026-06-02 ITSM-alignment (§6 D3): FRT % denominator = responded
-  // (responded_time set); numerator = responded AND first-response overdue.
-  const respondedCount       = db.prepare(`SELECT COUNT(*) as n FROM request_records ${where} AND responded_time IS NOT NULL AND responded_time != ''`).get(...p).n;
-  const firstRespViolatedResp= db.prepare(`SELECT COUNT(*) as n FROM request_records ${where} AND responded_time IS NOT NULL AND responded_time != '' AND (LOWER(first_response_overdue) IN ('true','1','yes'))`).get(...p).n;
-  const firstRespViolatedPct = respondedCount > 0 ? +(firstRespViolatedResp / respondedCount * 100).toFixed(1) : null;
-
-  // Avg resolution time in hours for closed tickets (Time Elapsed stored in ms)
-  const avgHrsRow = db.prepare(
-    `SELECT ROUND(AVG(time_elapsed_ms) / 3600000.0, 2) as avg_hrs
-     FROM request_records ${where}
-     AND pending_status=0 AND time_elapsed_ms IS NOT NULL AND time_elapsed_ms > 0`
-  ).get(...p);
-
-  // Breakdowns
-  // Deterministic tiebreak on the grouped label (sqlite ASC = NULLs first, BINARY collation —
-  // pg forks mirror with NULLS FIRST + COLLATE "C"). Matters ON the LIMITed breakdowns too:
-  // count-ties at the LIMIT boundary must pick the same rows under both engines.
-  const byStatus   = db.prepare(`SELECT request_status as status, COUNT(*) as count FROM request_records ${where} GROUP BY request_status ORDER BY count DESC, request_status ASC`).all(...p);
-  const bySite     = db.prepare(`SELECT site, COUNT(*) as count FROM request_records ${where} GROUP BY site ORDER BY count DESC, site ASC`).all(...p);
-  const byCategory = db.prepare(`SELECT category, COUNT(*) as count FROM request_records ${where} GROUP BY category ORDER BY count DESC, category ASC LIMIT 10`).all(...p);
-  const byTech     = db.prepare(`SELECT technician, COUNT(*) as count FROM request_records ${where} GROUP BY technician ORDER BY count DESC, technician ASC LIMIT 10`).all(...p);
-  const byGroup    = db.prepare(`SELECT tech_group, COUNT(*) as count FROM request_records ${where} GROUP BY tech_group ORDER BY count DESC, tech_group ASC LIMIT 10`).all(...p);
-
-  // Monthly incoming trend (last 12 months) — chronological order.
-  // 2026-06-02 ITSM-aligned sla_ok_pct: closed-and-not-overdue / closed
-  // (rather than AP `/total`). NULL when a month has no closed tickets yet.
-  const monthly = db.prepare(`
-    SELECT strftime('%Y-%m', created_time) as month,
-           COUNT(*) as total_count,
-           SUM(CASE WHEN pending_status=0  THEN 1 ELSE 0 END) as closed_count,
-           SUM(CASE WHEN overdue_status=1  THEN 1 ELSE 0 END) as sla_violated_count,
-           SUM(CASE WHEN pending_status=0 AND overdue_status=0 THEN 1 ELSE 0 END) as within_sla_closed,
-           CASE WHEN SUM(CASE WHEN pending_status=0 THEN 1 ELSE 0 END) > 0
-                THEN ROUND(100.0 * SUM(CASE WHEN pending_status=0 AND overdue_status=0 THEN 1 ELSE 0 END)
-                                  / SUM(CASE WHEN pending_status=0 THEN 1 ELSE 0 END), 1)
-                ELSE NULL END as sla_ok_pct
-    FROM request_records ${where}
-    GROUP BY month ORDER BY month DESC LIMIT 12
-  `).all(...p);
-
-  return {
-    total,
-    open_count:                openCount,         // Zoho "Open Requests Count"
-    closed_count:              closedCount,        // Zoho "Closed Requests Count"
-    backlog_count:             backlogCount,       // Zoho "Backlog Requests Count"
-    within_sla_count:          withinSlaCount,     // Zoho "Requests within SLA"
-    sla_violated_count:        slaViolated,        // Zoho "SLA Violated Requests"
-    sla_ok_pct:                slaOkPct,           // Zoho "% of Requests within SLA"
-    reopen_count:              reopenCount,        // Zoho "Reopen Requests Count"
-    reopen_pct:                reopenPct,          // Zoho "% ReOpened Vs Incoming Tickets"
-    resolved_count:            resolvedCount,      // Zoho "Resolved Request Count"
-    resolved_same_week:        resolvedSameWeek,   // Zoho "Resolved the same week"
-    service_request_count:     serviceReqCount,    // Zoho "Service Request Count"
-    incident_count:            incidentCount,      // Zoho "Incident Request Count"
-    escalated_count:           escalatedCount,
-    first_resp_violated_count: firstRespViolated,
-    first_resp_violated_pct:   firstRespViolatedPct, // Zoho "% of First Responses SLA Violated"
-    avg_resolution_hrs:        avgHrsRow?.avg_hrs ?? null,
-    by_status:     byStatus,
-    by_site:       bySite,
-    by_category:   byCategory,
-    by_technician: byTech,
-    by_group:      byGroup,
-    monthly_trend: monthly.reverse(),
-  };
+  return _getRequestMetricsPg(opts);
 }
 async function _getRequestMetricsPg({ site, since, statuses, rtypes, impacts, modes } = {}) {
   const H = pgHandle();
@@ -7659,17 +4853,7 @@ async function _getRequestMetricsPg({ site, since, statuses, rtypes, impacts, mo
 //   subcategorized = has a non-empty sub_category
 //   by_mode        = per-channel counts, blank/NULL folded to '(unknown)'
 function getCatalogueStats(opts = {}) {
-  if (REPORTS_BACKEND === 'postgres') return _getCatalogueStatsPg(opts);
-  const { since } = opts;
-  let where = 'WHERE 1=1';
-  const p = [];
-  if (since) { where += ' AND created_time>=?'; p.push(since); }
-  const total          = db.prepare(`SELECT COUNT(*) as n FROM request_records ${where}`).get(...p).n;
-  const categorized    = db.prepare(`SELECT COUNT(*) as n FROM request_records ${where} AND category IS NOT NULL AND TRIM(category)<>''`).get(...p).n;
-  const subcategorized = db.prepare(`SELECT COUNT(*) as n FROM request_records ${where} AND sub_category IS NOT NULL AND TRIM(sub_category)<>''`).get(...p).n;
-  const by_mode        = db.prepare(`SELECT COALESCE(NULLIF(TRIM(mode),''),'(unknown)') AS mode, COUNT(*) n FROM request_records ${where} GROUP BY 1 ORDER BY n DESC`).all(...p);
-  const web_form = by_mode.filter((r) => /web|portal|self.?service/i.test(r.mode)).reduce((a, r) => a + (Number(r.n) || 0), 0);
-  return { total, web_form, categorized, subcategorized, by_mode };
+  return _getCatalogueStatsPg(opts);
 }
 async function _getCatalogueStatsPg({ since } = {}) {
   const H = pgHandle();
@@ -7690,9 +4874,7 @@ async function _getCatalogueStatsPg({ since } = {}) {
  * Return the stored monthly_reports row for a site/year/month, or null.
  */
 function getMonthlyReport(site_id, year, month) {
-  if (REPORTS_BACKEND === 'postgres') return _getMonthlyReportPg(site_id, year, month);
-  return db.prepare(`SELECT * FROM monthly_reports WHERE site_id=? AND year=? AND month=?`)
-           .get(site_id, year, month) || null;
+  return _getMonthlyReportPg(site_id, year, month);
 }
 async function _getMonthlyReportPg(site_id, year, month) {
   return (await pgHandle().prepare('SELECT * FROM monthly_reports WHERE site_id=? AND year=? AND month=?')
@@ -7705,79 +4887,7 @@ async function _getMonthlyReportPg(site_id, year, month) {
  * Otherwise auto-merge from the weekly_reports for that month.
  */
 function getMonthlyEdits(site_id, year, month) {
-  if (REPORTS_BACKEND === 'postgres') return _getMonthlyEditsPg(site_id, year, month);
-  const saved = getMonthlyReport(site_id, year, month);
-  if (saved && (saved.edited_lights || saved.edited_actions)) {
-    return {
-      edited_lights:  saved.edited_lights  ? JSON.parse(saved.edited_lights)  : [],
-      edited_actions: saved.edited_actions ? JSON.parse(saved.edited_actions) : [],
-      notes:  saved.notes || '',
-      status: saved.status,
-      source: 'saved'
-    };
-  }
-
-  // Auto-merge from weekly_reports for this month
-  const mStr = `${year}-${String(month).padStart(2,'0')}`;
-  const weekRows = db.prepare(`
-    SELECT wr.id as report_id, w.label as week_label
-    FROM weeks w
-    JOIN weekly_reports wr ON wr.week_id=w.id AND wr.site_id=?
-    WHERE substr(w.start_date,1,7)=?
-    ORDER BY w.year, w.week_number
-  `).all(site_id, mStr);
-
-  const lightsRaw  = [];
-  const actionsRaw = [];
-
-  for (const wk of weekRows) {
-    const ls = db.prepare(`SELECT * FROM lights WHERE report_id=? ORDER BY type, sort_order`).all(wk.report_id);
-    ls.forEach(l => lightsRaw.push({ type: l.type, content: l.content, week_label: wk.week_label }));
-
-    const as = db.prepare(`SELECT * FROM action_items WHERE report_id=? ORDER BY sort_order`).all(wk.report_id);
-    as.forEach(a => actionsRaw.push({
-      task:       a.task,
-      priority:   a.priority,
-      due_date:   a.due_date,
-      owner:      a.owner,
-      status:     a.status,
-      department: a.department,
-      comment:    a.comment,
-      week_label: wk.week_label
-    }));
-  }
-
-  // ── Deduplicate lights ────────────────────────────────────────────
-  // Low/High lights: keep EARLIEST week (first occurrence of each unique item)
-  // Changes (in_progress/pending): keep LATEST week (most recent status of each change)
-  const lightsMap = new Map();
-  for (const l of lightsRaw) {
-    const key = l.type + '||' + (l.content || '').trim().toLowerCase();
-    const isChange = l.type === 'change_in_progress' || l.type === 'change_pending';
-    if (!lightsMap.has(key)) {
-      lightsMap.set(key, l);
-    } else if (isChange) {
-      // Changes: overwrite with latest week (weekRows is ordered ASC so later = higher index)
-      lightsMap.set(key, l);
-    }
-    // Low/High lights: keep first occurrence — do nothing if key already exists
-  }
-  const lights = Array.from(lightsMap.values());
-
-  // ── Deduplicate actions ───────────────────────────────────────────
-  // Key: task text + owner — keep LATEST week entry (most recent status)
-  const actionsMap = new Map();
-  for (const a of actionsRaw) {
-    const key = (a.task || '').trim().toLowerCase() + '||' + (a.owner || '').trim().toLowerCase();
-    // weekRows ordered ASC — each later entry overwrites the earlier one
-    actionsMap.set(key, a);
-  }
-  // Sort: open / in_progress first → closed / completed / cancelled last
-  const _actionOrder = s => ['open','in_progress'].includes((s||'open').toLowerCase()) ? 0 : 1;
-  const actions = Array.from(actionsMap.values())
-    .sort((a, b) => _actionOrder(a.status) - _actionOrder(b.status));
-
-  return { edited_lights: lights, edited_actions: actions, notes: '', status: 'draft', source: 'auto' };
+  return _getMonthlyEditsPg(site_id, year, month);
 }
 
 /**
@@ -7826,19 +4936,7 @@ async function _getMonthlyEditsPg(site_id, year, month) {
 }
 
 function saveMonthlyEdits(site_id, year, month, { edited_lights, edited_actions, notes, status }) {
-  if (REPORTS_BACKEND === 'postgres') return _saveMonthlyEditsPg(site_id, year, month, { edited_lights, edited_actions, notes, status });
-  const el = edited_lights  != null ? JSON.stringify(edited_lights)  : null;
-  const ea = edited_actions != null ? JSON.stringify(edited_actions) : null;
-  db.prepare(`
-    INSERT INTO monthly_reports (site_id, year, month, edited_lights, edited_actions, notes, status, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
-    ON CONFLICT(site_id, year, month) DO UPDATE SET
-      edited_lights  = COALESCE(excluded.edited_lights,  edited_lights),
-      edited_actions = COALESCE(excluded.edited_actions, edited_actions),
-      notes          = COALESCE(excluded.notes,          notes),
-      status         = COALESCE(excluded.status,         status),
-      updated_at     = datetime('now')
-  `).run(site_id, year, month, el, ea, notes || null, status || 'draft');
+  return _saveMonthlyEditsPg(site_id, year, month, { edited_lights, edited_actions, notes, status });
 }
 async function _saveMonthlyEditsPg(site_id, year, month, { edited_lights, edited_actions, notes, status }) {
   const el = edited_lights  != null ? JSON.stringify(edited_lights)  : null;
@@ -7859,13 +4957,7 @@ async function _saveMonthlyEditsPg(site_id, year, month, { edited_lights, edited
  * Get annual objectives for a site+year, sorted by sort_order.
  */
 function getAnnualObjectives(site_id, year) {
-  if (REPORTS_BACKEND === 'postgres') return _getAnnualObjectivesPg(site_id, year);
-  return db.prepare(`
-    SELECT id, objective, target, status, sort_order
-    FROM annual_objectives
-    WHERE site_id=? AND year=?
-    ORDER BY sort_order, id
-  `).all(site_id, year);
+  return _getAnnualObjectivesPg(site_id, year);
 }
 async function _getAnnualObjectivesPg(site_id, year) {
   return pgHandle().prepare(`SELECT id, objective, target, status, sort_order
@@ -7877,19 +4969,9 @@ async function _getAnnualObjectivesPg(site_id, year) {
  * objectives: [{objective, target, status}]
  */
 function saveAnnualObjectives(site_id, year, objectives) {
-  if (REPORTS_BACKEND === 'postgres') return _saveAnnualObjectivesPg(site_id, year, objectives);
-  return _saveAnnualObjectivesSqlite(site_id, year, objectives);
+  return _saveAnnualObjectivesPg(site_id, year, objectives);
 }
-const _saveAnnualObjectivesSqlite = db.transaction((site_id, year, objectives) => {
-  db.prepare(`DELETE FROM annual_objectives WHERE site_id=? AND year=?`).run(site_id, year);
-  const ins = db.prepare(`
-    INSERT INTO annual_objectives (site_id, year, objective, target, status, sort_order, updated_at)
-    VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
-  `);
-  (objectives || []).forEach((o, i) => {
-    ins.run(site_id, year, o.objective || '', o.target || null, o.status || 'in_progress', i);
-  });
-});
+
 async function _saveAnnualObjectivesPg(site_id, year, objectives) {
   const H = pgHandle();
   await H.runTransaction(async () => {
@@ -7912,42 +4994,7 @@ async function _saveAnnualObjectivesPg(site_id, year, objectives) {
  * - hd figures are SUMMED/AVERAGED across all weekly reports of the month
  */
 function getYearlySummary(site_id, year) {
-  if (REPORTS_BACKEND === 'postgres') return _getYearlySummaryPg(site_id, year);
-  const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const result = [];
-
-  for (let m = 1; m <= 12; m++) {
-    const mStr = `${year}-${String(m).padStart(2,'0')}`;
-
-    // All report IDs for this month (de-duped by distinct report id)
-    const reportRows = db.prepare(`
-      SELECT DISTINCT wr.id as report_id, w.week_number
-      FROM weeks w
-      JOIN weekly_reports wr ON wr.week_id=w.id AND wr.site_id=?
-      WHERE substr(w.start_date,1,7)=?
-      ORDER BY w.week_number
-    `).all(site_id, mStr);
-
-    if (!reportRows.length) {
-      // Still try calendar helpdesk even without weekly reports (tickets may exist)
-      const hd = getCalendarMonthlyHelpdesk(site_id, year, m) || null;
-      result.push({ month: m, label: monthNames[m-1], has_data: false, kpis: [], hd });
-      continue;
-    }
-
-    // Infra KPIs from last week of the month
-    const lastRid = reportRows[reportRows.length - 1].report_id;
-    const kpis = db.prepare(
-      `SELECT service, kpi, target, status_value, status_color, trend FROM infra_kpis WHERE report_id=? ORDER BY sort_order`
-    ).all(lastRid);
-
-    // Use calendar-based helpdesk totals (matches Analytics Plus: tickets by created_time)
-    const hd = getCalendarMonthlyHelpdesk(site_id, year, m)
-              || { inbound:0, closed:0, close_pct:0, sla_res_pct:null, sla_reply_pct:null };
-
-    result.push({ month: m, label: monthNames[m-1], has_data: true, kpis, hd });
-  }
-  return result;
+  return _getYearlySummaryPg(site_id, year);
 }
 async function _getYearlySummaryPg(site_id, year) {
   const H = pgHandle();
@@ -7984,19 +5031,7 @@ function logAudit({ report_id, site_id, user_id, username, action, details } = {
   logEvent({ category: 'report', action: /^report_/.test(action) ? action : 'report_' + action,
     actor: username, actor_id: user_id, target: report_id != null ? String(report_id) : null,
     details, risk: action === 'deleted' ? 1 : undefined });
-  if (REPORTS_BACKEND === 'postgres') return _logAuditPg({ report_id, site_id, user_id, username, action, details });
-  try {
-    db.prepare(
-      `INSERT INTO audit_log (report_id, site_id, user_id, username, action, details)
-       VALUES (?,?,?,?,?,?)`
-    ).run(
-      report_id || null, site_id || null, user_id || null,
-      username  || null, action,
-      details   ? JSON.stringify(details) : null
-    );
-  } catch(e) {
-    console.error('[audit_log] write error:', e.message);
-  }
+  return _logAuditPg({ report_id, site_id, user_id, username, action, details });
 }
 // async under pg. logAudit is fire-and-forget on the sqlite path (callers don't
 // await); the returned Promise resolves later — callers that ignore it still work.
@@ -8014,12 +5049,7 @@ async function _logAuditPg({ report_id, site_id, user_id, username, action, deta
  * Return the last N audit entries for a specific report (most recent first).
  */
 function getReportAuditLog(report_id, limit = 30) {
-  if (REPORTS_BACKEND === 'postgres') return _getReportAuditLogPg(report_id, limit);
-  return db.prepare(
-    `SELECT id, user_id, username, action, details, created_at
-     FROM audit_log WHERE report_id=?
-     ORDER BY created_at DESC LIMIT ?`
-  ).all(report_id, limit);
+  return _getReportAuditLogPg(report_id, limit);
 }
 async function _getReportAuditLogPg(report_id, limit = 30) {
   return pgHandle().prepare(
@@ -8029,29 +5059,16 @@ async function _getReportAuditLogPg(report_id, limit = 30) {
 }
 
 // ── CLEANUP EXPIRED SESSIONS ──────────────────────────────────────
-setInterval(() => {
-  db.prepare(`DELETE FROM sessions WHERE expires_at < datetime('now')`).run();
-}, 3600000); // every hour
+ // every hour
 
-console.log(_PG_MODE ? '[Reports-DB] PostgreSQL mode — SQLite disabled' : '[Reports-DB] ✅ SQLite ready — reports.db');
+console.log(('[Reports-DB] PostgreSQL mode — SQLite disabled'));
 
 // ── OPEN CHANGES FOR SITE ─────────────────────────────────────────
 // Returns all non-closed change records for a site's group(s).
 // groups: string[] matching sites.zoho_group (e.g. ['Mana IT Agent']
 //         or ['Exploration BF Support','Exploration CI Support','Exploration IT Support'])
 function getOpenChangesForSite(groups) {
-  if (REPORTS_BACKEND === 'postgres') return _getOpenChangesForSitePg(groups);
-  if (!groups || !groups.length) return [];
-  const ph = groups.map(() => '?').join(',');
-  return db.prepare(`
-    SELECT display_id, subject, status, stage, stage_status, risk, emergency, requester,
-           scheduled_start, scheduled_end, created_time
-    FROM change_records
-    WHERE stage != 'Close'
-      AND group_name IN (${ph})
-    ORDER BY scheduled_end ASC, created_time DESC
-    LIMIT 25
-  `).all(...groups);
+  return _getOpenChangesForSitePg(groups);
 }
 // PG fork — no dialect hazard (string ORDER BY, IN list). Empty-groups guard preserved.
 async function _getOpenChangesForSitePg(groups) {
@@ -8082,31 +5099,7 @@ async function _getOpenChangesForSitePg(groups) {
 // handful of *open* major incidents at any one time, but the LIMIT is
 // defensive in case a backlog has built up.
 function getActiveMajorIncidentsForSite(groups) {
-  if (REPORTS_BACKEND === 'postgres') return _getActiveMajorIncidentsForSitePg(groups);
-  if (!groups || !groups.length) return [];
-  const ph = groups.map(() => '?').join(',');
-  const rows = db.prepare(`
-    SELECT request_id, display_id, subject, request_status, pending_status,
-           overdue_status, request_type, technician, requester, site,
-           tech_group, category, sub_category, created_time, due_by_time,
-           resolved_time, last_updated_time, impact, udf_json
-    FROM request_records
-    WHERE pending_status = 1
-      AND (LOWER(COALESCE(request_type, '')) LIKE '%major%' OR LOWER(COALESCE(template, '')) LIKE '%major incident%')
-      -- request_status is the FRESH truth for the always-re-upserted MI rows;
-      -- pending_status can be stale (=1 on a closed MI). Drop terminal states
-      -- so closed / resolved / cancelled incidents never show as "active".
-      AND LOWER(COALESCE(request_status, '')) NOT LIKE '%closed%'
-      AND LOWER(COALESCE(request_status, '')) NOT LIKE '%resolved%'
-      AND LOWER(COALESCE(request_status, '')) NOT LIKE '%cancel%'
-      AND tech_group IN (${ph})
-    ORDER BY
-      overdue_status DESC,             -- breached SLAs first
-      datetime(created_time) ASC       -- then oldest open
-    LIMIT 25
-  `).all(...groups);
-
-  return _mapActiveMajorIncidentRows(rows);
+  return _getActiveMajorIncidentsForSitePg(groups);
 }
 
 // PG fork — only dialect hazard is the datetime() in the ORDER BY →
@@ -8204,19 +5197,7 @@ function _mapActiveMajorIncidentRows(rows) {
  * Deliberately selects ONLY those columns (never requester/owner/manager).
  */
 function getUpcomingChanges(days = 7) {
-  if (REPORTS_BACKEND === 'postgres') return _getUpcomingChangesPg(days);
-  const n = Number(days) > 0 ? Number(days) : 7;
-  const rows = db.prepare(`
-    SELECT subject, risk, site_id, scheduled_start, scheduled_end
-    FROM change_records
-    WHERE stage != 'Close'
-      AND scheduled_start IS NOT NULL AND scheduled_start != ''
-      AND datetime(scheduled_start) >= datetime('now')
-      AND datetime(scheduled_start) <= datetime('now', '+' || ? || ' days')
-    ORDER BY datetime(scheduled_start) ASC
-    LIMIT 25
-  `).all(n);
-  return _mapUpcomingChanges(rows);
+  return _getUpcomingChangesPg(days);
 }
 // PG fork — scheduled_start/_end are TEXT ISO columns: sqlite's
 // datetime(col) >= datetime('now', '+N days') window becomes a typed
@@ -8266,19 +5247,7 @@ function _mapUpcomingChanges(rows) {
  * enough that DISTINCT scans are sub-millisecond at current volume.
  */
 function getRequestFilterOptions() {
-  if (REPORTS_BACKEND === 'postgres') return _getRequestFilterOptionsPg();
-  // .sort() (UTF-16 code-unit) applied in BOTH forks — SQL ORDER BY collation differs between
-  // sqlite (BINARY) and pg (locale), so the deterministic ordering lives in shared-shape JS.
-  const distinct = (col) => db.prepare(
-    `SELECT DISTINCT ${col} AS v FROM request_records
-     WHERE ${col} IS NOT NULL AND ${col} != '' ORDER BY 1`
-  ).all().map(r => r.v).sort();
-  return {
-    statuses: distinct('request_status'),
-    types:    distinct('request_type'),
-    impacts:  distinct('impact'),
-    modes:    distinct('mode'),
-  };
+  return _getRequestFilterOptionsPg();
 }
 async function _getRequestFilterOptionsPg() {
   const H = pgHandle();
@@ -8319,15 +5288,7 @@ async function _logEventPg(row) {
 // Step 4 — persistent rate-limit bucket: one row per (scope, key); a row older than the
 // window restarts. Returns { start, count }. Dual-backend; same SQL shape.
 function rateLimitBump(scope, key, now, windowMs) {
-  if (REPORTS_BACKEND === 'postgres') return _rateLimitBumpPg(scope, key, now, windowMs);
-  const row = db.prepare(`SELECT window_start, count FROM rate_limit_hits WHERE scope=? AND key=?`).get(scope, key);
-  if (!row || now - Number(row.window_start) > windowMs) {
-    db.prepare(`INSERT INTO rate_limit_hits (scope, key, window_start, count) VALUES (?,?,?,1)
-      ON CONFLICT (scope, key) DO UPDATE SET window_start = excluded.window_start, count = 1`).run(scope, key, now);
-    return { start: now, count: 1 };
-  }
-  db.prepare(`UPDATE rate_limit_hits SET count = count + 1 WHERE scope=? AND key=?`).run(scope, key);
-  return { start: Number(row.window_start), count: Number(row.count) + 1 };
+  return _rateLimitBumpPg(scope, key, now, windowMs);
 }
 async function _rateLimitBumpPg(scope, key, now, windowMs) {
   const H = pgHandle();
@@ -8346,9 +5307,7 @@ async function _rateLimitBumpPg(scope, key, now, windowMs) {
 function purgeSystemLog({ months = 12, riskMonths = 24, now = new Date() } = {}) {
   const cut = (m) => { const d = new Date(now); d.setUTCMonth(d.getUTCMonth() - m); return d.toISOString(); };
   const sql = `DELETE FROM system_log WHERE (risk = 0 AND ts < ?) OR (risk = 1 AND ts < ?)`;
-  if (REPORTS_BACKEND === 'postgres') return pgHandle().prepare(sql).run(cut(months), cut(riskMonths)).then((r) => ({ deleted: Number(r && (r.changes ?? r.rowCount)) || 0 }));
-  const r = db.prepare(sql).run(cut(months), cut(riskMonths));
-  return { deleted: r.changes };
+  return pgHandle().prepare(sql).run(cut(months), cut(riskMonths)).then((r) => ({ deleted: Number(r && (r.changes ?? r.rowCount)) || 0 }));
 }
 
 async function logEvent(ev = {}) {
@@ -8364,13 +5323,7 @@ async function logEvent(ev = {}) {
       ip: ev.ip != null ? String(ev.ip) : null,
       risk: ev.risk != null ? (ev.risk ? 1 : 0) : (_isRiskAction(ev.action) ? 1 : 0),
     };
-    if (REPORTS_BACKEND === 'postgres') { await _logEventPg(row); }
-    else {
-      db.prepare(
-        `INSERT INTO system_log (ts,category,action,actor,actor_id,target,details,ip,risk)
-         VALUES (@ts,@category,@action,@actor,@actor_id,@target,@details,@ip,@risk)`
-      ).run(row);
-    }
+    await _logEventPg(row);
   } catch (e) { console.warn('[system-log] logEvent failed (swallowed):', e.message); }
 }
 
@@ -8391,24 +5344,19 @@ function _syslogWhere(f = {}) {
 async function countSystemLog(filters = {}) {
   const { where, params } = _syslogWhere(filters);
   const sql = `SELECT COUNT(*) AS n FROM system_log ${where}`;
-  if (REPORTS_BACKEND === 'postgres') return Number((await pgHandle().prepare(sql).get(...params)).n);
-  return db.prepare(sql).get(...params).n;
+  return Number((await pgHandle().prepare(sql).get(...params)).n);
 }
 async function listSystemLog(filters = {}, { limit = 50, offset = 0 } = {}) {
   const { where, params } = _syslogWhere(filters);
   const sql = `SELECT * FROM system_log ${where} ORDER BY ts DESC, id DESC LIMIT ? OFFSET ?`;
-  const rows = REPORTS_BACKEND === 'postgres'
-    ? await pgHandle().prepare(sql).all(...params, limit, offset)
-    : db.prepare(sql).all(...params, limit, offset);
+  const rows = (await pgHandle().prepare(sql).all(...params, limit, offset));
   return { rows, total: await countSystemLog(filters) };
 }
 async function getSystemLogAnalytics({ window: win = '30d' } = {}) {
   const days = { '7d':7, '30d':30, '90d':90 }[win] || 30;
   const since = new Date(Date.now() - days * 86400000).toISOString();
-  const q = async (sql, ...a) => (REPORTS_BACKEND === 'postgres'
-    ? pgHandle().prepare(sql).all(...a) : db.prepare(sql).all(...a));
-  const g = async (sql, ...a) => (REPORTS_BACKEND === 'postgres'
-    ? pgHandle().prepare(sql).get(...a) : db.prepare(sql).get(...a));
+  const q = async (sql, ...a) => ((pgHandle().prepare(sql).all(...a)));
+  const g = async (sql, ...a) => ((pgHandle().prepare(sql).get(...a)));
   const t = await g(`SELECT COUNT(*) AS events, COALESCE(SUM(risk),0) AS risk_events,
       COUNT(DISTINCT actor) AS distinct_actors, COUNT(DISTINCT ip) AS distinct_ips
       FROM system_log WHERE ts >= ?`, since);
@@ -8435,9 +5383,7 @@ async function _backfillSystemLogFromAudit() {
   try {
     const have = await countSystemLog({ category: 'report' });
     if (have > 0) return;
-    const rows = REPORTS_BACKEND === 'postgres'
-      ? await pgHandle().prepare(`SELECT report_id, user_id, username, action, details, created_at FROM audit_log`).all()
-      : db.prepare(`SELECT report_id, user_id, username, action, details, created_at FROM audit_log`).all();
+    const rows = (await pgHandle().prepare(`SELECT report_id, user_id, username, action, details, created_at FROM audit_log`).all());
     for (const r of rows) {
       await logEvent({ category: 'report',
         action: /^report_/.test(r.action) ? r.action : 'report_' + r.action,
@@ -8448,7 +5394,13 @@ async function _backfillSystemLogFromAudit() {
   } catch (e) { console.warn('[system-log] backfill skipped:', e.message); }
 }
 
-if (_PG_MODE) _sqliteLocked = true;   // load-time schema/seed done in memory; from here on, PostgreSQL only
+
+// PostgreSQL is the only database (PO-08). `db` stays exported as an opaque handle for the
+// services that take one (reportConfig, reportDirectory, …); it forwards to the pg pool.
+const db = {
+  prepare: (sql) => pgHandle().prepare(sql),
+  exec: (sql) => pgHandle().exec(sql),
+};
 
 module.exports = {
   rateLimitBump, purgeSystemLog, sessionHours,
@@ -8483,7 +5435,7 @@ module.exports = {
   getSiteTechnicianStats, _computeTechStats,
   getPreviousWeek, ensureWeek, getWeekRange,
   ensureReport, getReport, listReports,
-  saveInfraKpis, upsertInfraSnapshots, getInfraSnapshots, upsertWanSnapshots, getWanSnapshots, upsertWanOutage, getWanOutages, getWanOutagesOverlapping, listOpenWanOutages, closeWanOutage, reconcileProvisionalOutage, saveHelpdeskData, saveLights, saveActionItems, _backfillActionUids,
+  saveInfraKpis, upsertInfraSnapshots, getInfraSnapshots, upsertWanSnapshots, getWanSnapshots, upsertWanOutage, getWanOutages, getWanOutagesOverlapping, listOpenWanOutages, closeWanOutage, reconcileProvisionalOutage, saveHelpdeskData, saveLights, saveActionItems,
   getRoadmap, upsertRoadmapObjective, addRoadmapDeliverable, updateRoadmapDeliverable, deleteRoadmapDeliverable,
   getRoadmapTraining, addRoadmapTraining, updateRoadmapTraining, deleteRoadmapTraining,
   getRoadmapProject, addRoadmapAction, updateRoadmapAction, deleteRoadmapAction,

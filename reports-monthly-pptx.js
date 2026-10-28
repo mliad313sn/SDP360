@@ -34,29 +34,15 @@ const { C, EDV, FONTS } = require('./public/brand/brand-tokens');
 const { statusColor, trendArrow, trendColor, computeTrends, autoStatusColor,
         slideDepartmentMeetings, hasDeptMeetingData, splitInfraKpiColumns } = require('./reports-pptx-shared');
 
-function slaColor(pct) {
-  if (pct == null) return C.midGrey;
-  return pct >= 90 ? '27AE60' : pct >= 70 ? 'F39C12' : 'E74C3C';
-}
 
-function pctColor(pct) {
-  if (pct == null) return C.midGrey;
-  return pct >= 80 ? '27AE60' : pct >= 50 ? 'F39C12' : 'E74C3C';
-}
+
+
 
 /**
  * Color a trend-table cell background based on value vs target.
  * Returns a hex color string, or null if no color should be applied.
  */
-function infraCellColor(avg, targetStr) {
-  if (avg === null) return null;
-  const tgt = parseFloat(String(targetStr || '').replace('%', '').trim());
-  if (isNaN(tgt) || tgt <= 0) return null;
-  const val = parseFloat(avg);
-  if (val >= tgt)        return '2D9C4A';   // green
-  if (val >= tgt * 0.90) return 'E87722';   // orange
-  return 'D0312D';                           // red
-}
+
 
 // Title at top of every content slide
 function addTitle(slide, text, subtitle) {

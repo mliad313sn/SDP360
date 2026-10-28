@@ -5,7 +5,6 @@
 // guarantee — a report re-save can never wipe a merge.
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'ai-upsert-'));
-process.env.REPORTS_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'ai-upsert-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'ai-upsert-pass-0000';
 

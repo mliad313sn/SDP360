@@ -633,7 +633,7 @@ app.use(require('./routes/health')({ express, checkZohoViewSchema, requireReport
 //   - on a deploy windowing badly with the cron, the workspace could be
 //     pushed into a multi-hour throttle (see incident 2026-05-27)
 //
-// New behaviour: rebuild the in-memory cache from local SQLite ONLY.
+// New behaviour: rebuild the in-memory cache from PostgreSQL ONLY.
 // Pages serve instantly from this cache (≤26k rows, instant). Cron jobs
 // are the SOLE Zoho-touching code path. The user-facing dashboard never
 // triggers a Zoho fetch during a startup or first-load — by design.
@@ -642,8 +642,8 @@ app.use(require('./routes/health')({ express, checkZohoViewSchema, requireReport
 // /api/sync/trigger/requests from the browser. The cron will also fire
 // at the next clock tick (:00 survey, :30 change_cab, :45 requests).
 setTimeout(async () => {
-  console.log('[Startup] Rebuilding raw cache from SQLite (DB-only, no Zoho)…');
-  await _rebuildCacheFromSQLite().catch(e => console.error('[Startup:rebuild]', e.message));
+  console.log('[Startup] Rebuilding raw cache from PostgreSQL (DB-only, no Zoho)…');
+  await _rebuildCacheFromDb().catch(e => console.error('[Startup:rebuild]', e.message));
   // Zoho view schema health check still useful for diagnostics — keep it,
   // but defer to 5min so it doesn't race the first cron token refresh.
   setTimeout(() => {
@@ -1632,16 +1632,7 @@ function parseScore(raw) {
 /**
  * Parse Analytics Plus date string: "18 Jun, 2025 11:35:06"
  */
-function parseAPDate(str) {
-  if (!str) return null;
-  try {
-    // "18 Jun, 2025 11:35:06" → strip comma
-    const clean = str.replace(',', '');
-    const d = new Date(clean);
-    if (!isNaN(d)) return d;
-  } catch(e) {}
-  return null;
-}
+
 
 const MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -1702,7 +1693,7 @@ app.get('/api/survey/summary', requireReportSession, async (req, res) => {
         const result = {
           surveyId:     SURVEY_VIEW_ID,
           surveyName:   'IT Helpdesk CSAT',
-          source:       'SQLite (survey_results)',
+          source:       'PostgreSQL (survey_results)',
           totalResponses:  dbVoice.totalResponses,
           // New (2026-05-27): server now computes responseRate from
           // survey_results itself (sent vs responded counts), so the
@@ -1772,7 +1763,7 @@ app.get('/api/survey/kpis', requireReportSession, async (req, res) => {
     const groupList = groups ? groups.split(',').map(g => g.trim()).filter(Boolean) : [];
     const rdb = require('./reports-db');
 
-    // Forked reader (sqlite/pg dispatch) — q1 period+group-filtered scores, q2 12-mo trend rows.
+    // Forked reader  — q1 period+group-filtered scores, q2 12-mo trend rows.
     const { rows1: kpiRows, rows2: trendRows } = await rdb.getSurveyKpisDB({ yr, mo, groups: groupList });
 
     let scoreSum = 0, n = 0, satisfied = 0, promoters = 0, passives = 0, detractors = 0;
@@ -1885,7 +1876,7 @@ app.get('/api/survey/by-dimension', requireReportSession, async (req, res) => {
   // DB-first (Phase 3 of executive.html rewrite, 2026-05-26).
   // Was 500'ing because both Zoho calls (survey view + 30k REQUEST_TABLE
   // rows) were getting rate-limited. JOIN survey_results to
-  // request_records inside SQLite — single round-trip, no Zoho calls.
+  // request_records inside PostgreSQL — single round-trip, no Zoho calls.
   try {
     const rdb2 = require('./reports-db');
     if (typeof rdb2.getCustomerVoiceByDimensionDB === 'function') {
@@ -1917,162 +1908,6 @@ app.get('/api/survey/by-dimension', requireReportSession, async (req, res) => {
   };
   _dimCache.data = safeEmpty; _dimCache.ts = Date.now();
   return res.json(safeEmpty);
-
-  // ── Unreachable below — kept commented for emergency restore.
-  // To re-enable Zoho fallback: delete the early-return above and
-  // uncomment the try/catch block below. NOT recommended while Zoho
-  // is rate-limiting (will cause 502 spikes through IIS).
-  /* eslint-disable no-unreachable, no-unused-labels */
-  // eslint-disable-next-line no-constant-condition
-  if (false) try {
-    // Fetch both tables in parallel
-    // Survey: fetchAllViewRows (5k cap — fine for survey rows)
-    // Requests: last 13 months only (surveys are always recent, no need for full history)
-    // Fetch ALL request rows (not filtered to 13 months) — surveys can reference any historical ticket.
-    // 30 000 row cap is safe: SDP tables are ~15-25k rows for Endeavour Mining's volume.
-    console.log('[survey/by-dim] Fetching survey rows + full request table (no time filter)...');
-    const [surveyResult, requestRaw] = await Promise.all([
-      fetchAllViewRows(SURVEY_VIEW_ID),
-      fetchView(VIEWS.REQUEST_TABLE, 30000),
-    ]);
-    const requestResult = requestRaw.rows || []; // keep ALL rows — no month filter for join
-
-    // Count closed/resolved tickets — used for survey response rate calculation
-    // Survey is sent "When a request is closed" per SDP Survey Settings config
-    const closedStatuses = ['closed','resolved','completed'];
-    const closedCount = requestResult.filter(r =>
-      closedStatuses.includes((r['Status'] || r['status'] || '').toLowerCase().trim())
-    ).length;
-    console.log(`[survey/by-dim] Survey rows: ${surveyResult.length}, Request rows: ${requestResult.length}, Closed tickets: ${closedCount}`);
-
-    // Build request lookup map: Request ID → { Technician, Site, Group }
-    // Index by ALL available ID variants so survey row can match on any of them.
-    // Analytics Plus entity IDs (18-digit) and SDP display IDs (shorter) may both appear.
-    const reqMap = {};
-    requestResult.forEach(r => {
-      const data = {
-        tech:  (r['Technician'] || r['Assigned To'] || '').trim() || null,
-        site:  (r['Site'] || '').trim() || null,
-        group: (r['Group'] || '').trim() || null,
-      };
-      // Index by every ID field variant found on this row
-      ['Request ID', 'RequestID', 'Request Display ID', 'ID'].forEach(field => {
-        const v = (r[field] || '').toString().trim();
-        if (v && v !== '-No Value-') reqMap[v] = data;
-      });
-    });
-    console.log(`[survey/by-dim] Built reqMap with ${Object.keys(reqMap).length} unique IDs from ${requestResult.length} request rows`);
-
-    // Aggregate CSAT + NPS + monthly breakdown by dimension
-    const techMap  = {};
-    const siteMap  = {};
-    const groupMap = {};
-    let joined = 0;
-
-    // Month parser for survey dates: "17 Aug, 2025 11:35:06" → "Aug 2025"
-    const MN3_SRV = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const parseSurveyMonth = (s) => {
-      if (!s) return null;
-      const p = s.trim().replace(/,/g, '').split(/\s+/);
-      // "17 Aug 2025 ..." → p[0]=day, p[1]=mon, p[2]=year
-      if (p.length >= 3 && isNaN(parseInt(p[1])) && MN3_SRV.includes(p[1])) return p[1] + ' ' + p[2];
-      // "Aug 2025" → p[0]=mon, p[1]=year
-      if (p.length >= 2 && isNaN(parseInt(p[0])) && MN3_SRV.includes(p[0])) return p[0] + ' ' + p[1];
-      return null;
-    };
-
-    // Accumulate into a bucket {sum,n,satisfied,promoters,passives,detractors,byMonth}
-    const _acc = (map, key, score, monthKey) => {
-      if (!map[key]) map[key] = { sum:0, n:0, satisfied:0, promoters:0, passives:0, detractors:0, byMonth:{} };
-      const b = map[key];
-      b.sum += score; b.n++;
-      if (score >= 80) b.satisfied++;
-      // NPS classification (mirrors /api/survey/summary logic)
-      if      (score >= 90) b.promoters++;
-      else if (score >= 70) b.passives++;
-      else                  b.detractors++;
-      // Monthly CSAT breakdown
-      if (monthKey) {
-        if (!b.byMonth[monthKey]) b.byMonth[monthKey] = { n:0, satisfied:0 };
-        b.byMonth[monthKey].n++;
-        if (score >= 80) b.byMonth[monthKey].satisfied++;
-      }
-    };
-
-    let noMatchCount = 0;
-    surveyResult.forEach(row => {
-      const rid   = (row['Request ID'] || row['RequestID'] || row['request_id'] || '').toString().trim();
-      const score = parseScore(row['Overall Score']);
-      if (score === null || !rid) return;
-
-      const req = reqMap[rid];
-      if (!req) { noMatchCount++; return; }
-      joined++;
-
-      // Month from survey response date (when the customer filled out the survey)
-      const monthKey = parseSurveyMonth(row['Survey Responded on'] || row['Survey Sent on'] || '');
-
-      if (req.tech)  _acc(techMap,  req.tech,  score, monthKey);
-      if (req.site)  _acc(siteMap,  req.site,  score, monthKey);
-      if (req.group) _acc(groupMap, req.group, score, monthKey);
-    });
-
-    // Convert bucket map → sorted array with full metric set
-    const toArr = (map, keyField) =>
-      Object.entries(map)
-        .filter(([k]) => k && k !== '-No Value-' && k !== 'Unassigned')
-        .map(([k, v]) => {
-          const npsBase = v.promoters + v.passives + v.detractors;
-          // Monthly CSAT as sorted array [{month, responses, csatPct}]
-          const MO_ORD = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
-          const byMonth = Object.entries(v.byMonth)
-            .map(([mo, d]) => ({ month: mo, responses: d.n, csatPct: Math.round(d.satisfied/d.n*100) }))
-            .sort((a, b) => {
-              const [am, ay] = a.month.split(' '), [bm, by] = b.month.split(' ');
-              return parseInt(ay) !== parseInt(by) ? parseInt(ay)-parseInt(by) : MO_ORD[am]-MO_ORD[bm];
-            });
-          return {
-            [keyField]: k,
-            csatPct:    Math.round(v.satisfied / v.n * 100),
-            avgScore:   Math.round(v.sum / v.n),
-            responses:  v.n,
-            promoters:  v.promoters,
-            passives:   v.passives,
-            detractors: v.detractors,
-            nps:        npsBase > 0 ? Math.round((v.promoters - v.detractors) / npsBase * 100) : null,
-            byMonth,    // monthly CSAT trend for this dimension
-          };
-        })
-        .sort((a, b) => b.responses - a.responses);
-
-    const result = {
-      byTech:       toArr(techMap,  'name'),
-      bySite:       toArr(siteMap,  'site'),
-      byGroup:      toArr(groupMap, 'group'),
-      totalSurvey:  surveyResult.length,
-      totalJoined:  joined,
-      joinRate:     surveyResult.length > 0 ? Math.round(joined / surveyResult.length * 100) : 0,
-      closedCount,  // closed tickets — denominator for per-group response rate
-      _meta: {
-        requestRowsFetched: requestResult.length,
-        surveyRowsFetched:  surveyResult.length,
-        joinedRows:         joined,
-        techCount:          Object.keys(techMap).length,
-        siteCount:          Object.keys(siteMap).length,
-        groupCount:         Object.keys(groupMap).length,
-      },
-    };
-
-    _dimCache.data = result;
-    _dimCache.ts   = Date.now();
-
-    console.log(`[survey/by-dim] ✅ Joined ${joined}/${surveyResult.length} (${result.joinRate}%), no-match: ${noMatchCount}, techs: ${result._meta.techCount}, sites: ${result._meta.siteCount}`);
-    res.json(result);
-
-  } catch(err) {
-    console.error('[survey/by-dim]', err.message);
-    fail(res, err, 500, { byTech: [], bySite: [], byGroup: [] });
-  }
 });
 
 // POST /api/survey/dimension-cache/clear
@@ -3585,7 +3420,7 @@ app.get('/api/survey/:response_id/answers', requireReportSession, async (req, re
 });
 
 // ═══════════════════════════════════════════════════════════════════
-// COMPUTED METRICS — local SQLite, replicate Zoho Analytics aggregates
+// COMPUTED METRICS — PostgreSQL, replicate Zoho Analytics aggregates
 // ═══════════════════════════════════════════════════════════════════
 
 /**
@@ -3636,7 +3471,7 @@ app.get('/api/metrics/cab', requireReportSession, async (req, res) => {
  * GET /api/metrics/survey
  * Survey / CSAT KPIs computed from survey_results (no Zoho API call).
  * Includes: avg score, response rate %, CSAT buckets (<60/60-80/≥80),
- *           monthly trend (last 12 months) — all from local SQLite.
+ *           monthly trend (last 12 months) — all from PostgreSQL.
  *
  * Query params:
  *   since    — ISO date string — only surveys sent on/after this date (optional)
@@ -3702,7 +3537,7 @@ app.get('/api/metrics/request-filter-options', requireReportSession, async (req,
 
 /**
  * GET /api/requests
- * Returns paginated raw request records from local SQLite.
+ * Returns paginated raw request records from PostgreSQL.
  *
  * Query params:
  *   limit         — max rows (default 200)
@@ -3918,13 +3753,13 @@ app.post('/api/admin/refresh-major-incident-udfs', requireReportSession, require
 });
 
 // GET /api/cache/status — returns raw cache freshness for the "Data as of" indicator
-app.get('/api/cache/status', requireReportSession, (req, res) => {
+app.get('/api/cache/status', requireReportSession, async (req, res) => {
   let changeCount = 0;
-  try { changeCount = db.prepare('SELECT COUNT(*) as n FROM change_records').get().n; } catch(e) {}
+  try { changeCount = Number((await rdb.pgHandle().prepare('SELECT COUNT(*) AS n FROM change_records').get()).n) || 0; } catch(e) {}
   res.json({
     ts:        _rawCache.ts || 0,                           // epoch ms of last successful raw sync
     rows:      _rawCache.data ? _rawCache.data.rows.length : 0,
-    changes:   changeCount,                                 // SQLite change_records count
+    changes:   changeCount,                                 // change_records count
     refreshing: _rawCacheRefreshing || false,
     ageMs:     _rawCache.ts ? Date.now() - _rawCache.ts : null,
   });
@@ -4349,7 +4184,7 @@ function _saveRawCacheToDisk() {
 }
 
 /// Convert ISO datetime (stored in SQLite) back to Zoho SDP format "DD Mon YYYY, HH:MM:SS AM/PM"
-// Used by the SQLite cache fallback so browser-side date parsers still work.
+// Used by the database cache fallback so browser-side date parsers still work.
 const _ISO_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function isoToZohoStr(iso) {
   if (!iso) return null;
@@ -4384,15 +4219,15 @@ function parseZohoStr(str) {
   return new Date(y, m, d, h, mi, sc);
 }
 
-// Rebuild raw cache directly from SQLite — instant, no Zoho API call.
+// Rebuild raw cache directly from PostgreSQL — instant, no Zoho API call.
 // Used at startup and as fallback when Zoho API is unavailable.
-async function _rebuildCacheFromSQLite() {
+async function _rebuildCacheFromDb() {
   if (_rawCacheRefreshing) return;
   _rawCacheRefreshing = true;
   try {
     const cutoff = new Date();
     cutoff.setMonth(cutoff.getMonth() - 13); cutoff.setDate(1); cutoff.setHours(0,0,0,0);
-    // Forked reader (sqlite/pg dispatch) — in pg mode reads from Postgres, not the empty sqlite handle.
+    // Forked reader  — in pg mode reads from Postgres, not the empty sqlite handle.
     const dbRows = await require('./reports-db').getRequestRecordsSince(cutoff.toISOString());
     if (dbRows.length > 0) {
       const rows = dbRows.map(r => ({
@@ -4437,10 +4272,10 @@ async function _rebuildCacheFromSQLite() {
       _rawCache.data = { rows, columns: rows.length > 0 ? Object.keys(rows[0]) : [] };
       _rawCache.ts   = Date.now();
       _saveRawCacheToDisk();
-      console.log(`[getRawRequestRows] ✅ SQLite cache built — ${rows.length} rows`);
+      console.log(`[getRawRequestRows] ✅ database cache built — ${rows.length} rows`);
     }
   } catch(e) {
-    console.warn('[getRawRequestRows] ⚠️ SQLite cache build failed:', e.message);
+    console.warn('[getRawRequestRows] ⚠️ database cache build failed:', e.message);
   } finally {
     _rawCacheRefreshing = false;
   }
@@ -4496,9 +4331,9 @@ async function _backgroundRefreshRawCache() {
     console.log(`[getRawRequestRows] ✅ Background refresh done — ${freshRows.length} fresh + ${existingRows.length} existing → ${rows.length} merged rows cached`);
   } catch(err) {
     console.warn('[getRawRequestRows] ⚠️ Background refresh (Zoho) failed:', err.message);
-    // Rebuild from SQLite so new sync data is never lost when Zoho API is unavailable
-    _rawCacheRefreshing = false; // release lock before calling _rebuildCacheFromSQLite
-    await _rebuildCacheFromSQLite();
+    // Rebuild from PostgreSQL so new sync data is never lost when Zoho API is unavailable
+    _rawCacheRefreshing = false; // release lock before calling _rebuildCacheFromDb
+    await _rebuildCacheFromDb();
     return;
   } finally {
     _rawCacheRefreshing = false;
@@ -4524,7 +4359,7 @@ async function getRawRequestRows() {
 
   // ── DB-only fallback (2026-05-28) ──────────────────────────────────────
   // No in-memory cache (post-restart with no disk cache, or manually cleared).
-  // Build from local SQLite — instant, no Zoho call. The cron jobs keep
+  // Build from PostgreSQL — instant, no Zoho call. The cron jobs keep
   // request_records fresh; page loads NEVER hit Zoho directly.
   //
   // Previous behaviour fetched 20k rows from Zoho here, which:
@@ -4533,13 +4368,13 @@ async function getRawRequestRows() {
   //   - caused 502s through IIS ARR on cold-cache cases
   //
   // The user explicitly asked (2026-05-28): "load direct from DB only,
-  // rely on cron". So this path now ONLY rebuilds from SQLite, even if
+  // rely on cron". So this path now ONLY rebuilds from PostgreSQL, even if
   // the resulting cache is empty.
-  console.log('[getRawRequestRows] Cache cold — rebuilding from SQLite (no Zoho call)…');
-  await _rebuildCacheFromSQLite();
+  console.log('[getRawRequestRows] Cache cold — rebuilding from PostgreSQL (no Zoho call)…');
+  await _rebuildCacheFromDb();
 
   if (_rawCache.data && _rawCache.data.rows && _rawCache.data.rows.length > 0) {
-    console.log(`[getRawRequestRows] ✅ Served ${_rawCache.data.rows.length} rows from SQLite rebuild`);
+    console.log(`[getRawRequestRows] ✅ Served ${_rawCache.data.rows.length} rows from PostgreSQL rebuild`);
     return _rawCache.data.rows;
   }
 
@@ -4550,7 +4385,7 @@ async function getRawRequestRows() {
   return [];
 }
 
-// GET /api/data/submission-channels — counts tickets by Mode (submission channel) from SQLite.
+// GET /api/data/submission-channels — counts tickets by Mode (submission channel) from PostgreSQL.
 // Uses request_records.mode column (populated during every sync run) instead of the raw Zoho
 // view cache, where the Mode field is sparsely present.
 // Query params: yr (YYYY), mo (1-12), site (optional), groups (comma-separated, optional)
@@ -4558,7 +4393,7 @@ app.get('/api/data/submission-channels', requireReportSession, async (req, res) 
   try {
     const { yr, mo, site, groups } = req.query;
     const groupList = groups ? groups.split(',').map(g => g.trim()).filter(Boolean) : [];
-    // Forked reader (sqlite/pg dispatch) — to_char period filter + GROUP BY channel collapse.
+    // Forked reader  — to_char period filter + GROUP BY channel collapse.
     const rows = await require('./reports-db').getSubmissionChannelsDB({ yr, mo, site, groups: groupList });
 
     const total       = rows.reduce((s, r) => s + r.cnt, 0);
@@ -5064,7 +4899,7 @@ app.get('/api/sample/:viewId', requireReportSession, async (req, res) => {
   } catch(err) { safeError(err, res); }
 });
 
-// ── SITE REPORTS (SQLite) ─────────────────────────────────────────
+// ── SITE REPORTS (PostgreSQL) ─────────────────────────────────────────
 let rdb;
 try {
   rdb = require('./reports-db.js');
@@ -5241,12 +5076,7 @@ const reportSchedule  = require('./services/reportSchedule');
 const { siteReportData } = require('./services/siteReport');
 const { buildSiteReportDeps } = require('./services/siteReportDeps');
 
-if ((process.env.REPORTS_BACKEND || 'sqlite').toLowerCase() !== 'postgres' && rdb && rdb.db) {
-  reportConfig._initSchema(rdb.db);
-  reportDirectory._initSchema(rdb.db);
-  reportSentLog._initSchema(rdb.db);
-  reportSchedule._initSchema(rdb.db);
-}
+
 
 // Report config · Zoho Analytics connection · test-smtp — routes/adminConfig.js (M12-a).
 // tokenState is passed by reference (the handlers mutate its fields, never reassign it).
@@ -6218,7 +6048,7 @@ app.get('/api/reports/:id/audit', requireReportSession, requireRole(['audit-view
 });
 
 // GET /api/reports/helpdesk-live?start=YYYY-MM-DD&end=YYYY-MM-DD
-// Returns per-group metrics for the week — reads from local SQLite DB (no live Zoho call).
+// Returns per-group metrics for the week — reads from PostgreSQL DB (no live Zoho call).
 // Mirrors public/lib/dashboard-shared.js OPS_GROUPS_DEFAULT — the
 // browser file is the canonical source of truth, but server.js can't
 // import from it. When updating either, mirror the change here.
@@ -7242,15 +7072,7 @@ try {
   console.error('[Tracker] ❌ tracker-pptx failed to load:', e.message);
 }
 
-// GET /api/tracker/load — return full D object from SQLite
-// RBAC audit 2026-10-02 (A1/B1): the load was admin-only while the save accepts
-// tracker-editor, and the client could not lock the site picker (the session user has
-// no site name). Readers = admin tier OR a tracker feature role; the response carries
-// the caller's save scope — null = every site, else the one tracker code it may edit.
-async function _trackerScopeFor(user) {
-  const codes = await _trackerScopesFor(user);
-  return codes === null ? null : (codes[0] || '');
-}
+
 // Multi-site editors: every tracker code the user may edit, primary first (null = all sites).
 async function _trackerScopesFor(user) {
   if (rdb.userHasRole(user, 'super_admin') || rdb.userHasRole(user, 'tracker-admin')) return null;
@@ -7632,12 +7454,7 @@ app.post('/api/reports/exec-pptx', requireReportSession, requireAdmin, async (re
 app.post('/api/tracker/reset', requireReportSession, requireRole(['super_admin', 'tracker-admin']), async (req, res) => {
   try {
     if (!trackerDb) return res.status(503).json({ error: 'Tracker module not available' });
-    if (trackerDb.TRACKER_BACKEND === 'postgres') {
-      return res.status(501).json({ error: 'Reset is not supported on the PostgreSQL backend (Chunk 1 scope).' });
-    }
-    await trackerDb.resetTracker();
-    const D = await trackerDb.loadTracker();
-    res.json({ ok: true, D });
+    return res.status(501).json({ error: 'Reset is not supported on the PostgreSQL backend (Chunk 1 scope).' });
   } catch(e) {
     console.error('[Tracker] reset error:', e.message);
     fail(res, e);
@@ -7804,39 +7621,23 @@ app.use(require('./services/httpError').errorHandler); // M9 — final error han
 
 // ── START ─────────────────────────────────────────────────────────
 async function start() {
-  // PostgreSQL only (user decision 2026-10-28): refuse to start while a module is on SQLite, unless
-  // SDP_ALLOW_SQLITE=1 (tests / local development). services/backendGuard.js.
-  {
-    const bg = require('./services/backendGuard').assertBootAllowed();
-    if (bg.sqlite.length) console.warn(`[DB] ⚠ SDP_ALLOW_SQLITE=1 — ${bg.message}`);
-  }
+  // PostgreSQL is the only database (PO-08): refuse to start without PG_URL. services/backendGuard.js.
+  require('./services/backendGuard').assertBootAllowed();
 
-  // PostgreSQL backends (Chunks 1-4) — connect each pool + apply its schema
-  // before serving. Every module defaults to sqlite (the *_BACKEND env vars are
-  // unset in prod), so each block is a no-op until the operator flips a flag.
-  if (require('./tracker-db').TRACKER_BACKEND === 'postgres') {
-    await require('./tracker-db').initPgTracker();
-    console.log('[Tracker] PostgreSQL backend ready');
-  }
-  if (require('./reports-db').REPORTS_BACKEND === 'postgres') {
-    await require('./reports-db').initPgReports();
-    console.log('[Reports] PostgreSQL auth backend ready');
-  }
+  // Connect each module pool + apply its schema before serving.
+  await require('./tracker-db').initPgTracker();
+  console.log('[Tracker] PostgreSQL backend ready');
+  await require('./reports-db').initPgReports();
+  console.log('[Reports] PostgreSQL auth backend ready');
   // System Logs v1 — one-time idempotent backfill of the report audit trail into
-  // system_log (non-blocking; runs after the pg schema exists / sqlite is ready).
+  // system_log (non-blocking; runs after the pg schema exists).
   require('./reports-db')._backfillSystemLogFromAudit().catch(() => {});
-  if (require('./meetings-db').MEETINGS_BACKEND === 'postgres') {
-    await require('./meetings-db').initPgMeetings();
-    console.log('[Meetings] PostgreSQL backend ready');
-  }
-  if (require('./inspection-db').INSPECTION_BACKEND === 'postgres') {
-    await require('./inspection-db').initPgInspection();
-    console.log('[Inspection] PostgreSQL backend ready');
-  }
-  if (require('./assets-db').ASSETS_BACKEND === 'postgres') {
-    await require('./assets-db').initPgAssets();
-    console.log('[Assets] PostgreSQL backend ready');
-  }
+  await require('./meetings-db').initPgMeetings();
+  console.log('[Meetings] PostgreSQL backend ready');
+  await require('./inspection-db').initPgInspection();
+  console.log('[Inspection] PostgreSQL backend ready');
+  await require('./assets-db').initPgAssets();
+  console.log('[Assets] PostgreSQL backend ready');
   // Step 2 — one schema migrator for every db/postgres/**/*.sql (records schema_migrations).
   // Best-effort at boot: the module inits above already applied the DDL they own.
   try {
@@ -7850,8 +7651,7 @@ async function start() {
     const _rdbMod = require('./reports-db');
     const _pgh = _rdbMod.REPORTS_BACKEND === 'postgres' && typeof _rdbMod.pgHandle === 'function' ? _rdbMod.pgHandle() : null;
     _mr.setCurrent(await _mr.load({ pg: _pgh, log: console.log }));
-    await _dashStore.seedAtBoot();   // Step 6 — pg: tables from migration 016, shipped definitions once
-    await _trkStore.seedAtBoot(); await _govStore.initAtBoot(); await _repStore.seedAtBoot(); await _engStore.seedAtBoot(); await _fieldStore.initAtBoot();    // Steps 7-10 — pg: tables from migrations tracker/002 + reports/018-019, templates/rules once
+    await seedStores();
   } catch (e) { console.warn('[metrics] registry load failed (seed in use):', e.message); }
 
   // Zoho Analytics token — AFTER the databases are open, because the credentials may now
@@ -7894,12 +7694,12 @@ async function start() {
     }
     console.log('╚══════════════════════════════════════════════════════════════╝');
 
-    // ── Startup pre-warm: load SQLite cache immediately so first user load never
+    // ── Startup pre-warm: load database cache immediately so first user load never
     // blocks. Skip the Zoho API attempt here — startup requests sync (below) will
     // fetch any new tickets and trigger a full cache rebuild once it completes.
     setTimeout(async () => {
       console.log('[startup] 🔄 Pre-warming raw request cache from the database…');
-      await _rebuildCacheFromSQLite();
+      await _rebuildCacheFromDb();
     }, 3000);
   });
 }
@@ -7907,4 +7707,11 @@ async function start() {
 // Boot only when run directly (pm2/prod); skip when required by a test harness so the
 // express app can be mounted in-process (http.createServer(app)) without binding a port.
 if (require.main === module) start();
-module.exports = { app };
+// Steps 6-10 — shipped dashboards / tracker templates / report templates / alert rules, once.
+// Tables come from the migrations; called at boot (start) and by the route smoke tests.
+async function seedStores() {
+  await _dashStore.seedAtBoot();
+  await _trkStore.seedAtBoot(); await _govStore.initAtBoot(); await _repStore.seedAtBoot(); await _engStore.seedAtBoot(); await _fieldStore.initAtBoot();
+}
+
+module.exports = { app, seedStores };

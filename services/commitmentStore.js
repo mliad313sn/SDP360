@@ -1,7 +1,7 @@
 'use strict';
 // 2027 Goal 02 — canonical commitment persistence on both backends (sqlite + PostgreSQL).
 //
-// PG tables come from db/postgres/reports/021_commitments.sql (migrator); sqlite runs SQLITE_DDL.
+// PG tables come from db/postgres/reports/021_commitments.sql (migrator).
 // `db` = better-sqlite3 handle or a services/pgDb-shaped { prepare } (prepare().get/all/run async).
 // Every status change goes through services/commitmentLifecycle.checkTransition and is guarded by
 // an optimistic `version` (a stale writer gets CONFLICT / 409). commitment_events is append-only.
@@ -13,31 +13,6 @@ const crypto = require('crypto');
 const L = require('./commitmentLifecycle');
 const { typed } = require('./httpError');
 
-const SQLITE_DDL = `
-CREATE TABLE IF NOT EXISTS commitments (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, uid TEXT UNIQUE NOT NULL, kind TEXT NOT NULL, title TEXT NOT NULL,
-  site_id INTEGER, department TEXT, process TEXT, impact_dimension TEXT, priority TEXT, severity TEXT NOT NULL DEFAULT 'medium',
-  accountable_owner TEXT, execution_owners TEXT, reviewer TEXT, due_date TEXT, baseline_due_date TEXT,
-  exception_approved_by TEXT, exception_approved_at TEXT, exception_reason TEXT, treatment_plan TEXT,
-  status TEXT NOT NULL DEFAULT 'captured', technical_completed_at TEXT, verified_at TEXT, verified_by TEXT,
-  version INTEGER NOT NULL DEFAULT 1, created_by TEXT, created_at TEXT, updated_at TEXT);
-CREATE INDEX IF NOT EXISTS idx_commitments_site_status ON commitments(site_id, status);
-CREATE TABLE IF NOT EXISTS commitment_source_links (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, commitment_id INTEGER NOT NULL REFERENCES commitments(id) ON DELETE CASCADE,
-  source_system TEXT NOT NULL, source_id TEXT NOT NULL, relation TEXT NOT NULL DEFAULT 'origin', created_by TEXT, created_at TEXT,
-  UNIQUE (commitment_id, source_system, source_id));
-CREATE INDEX IF NOT EXISTS idx_commitment_links_source ON commitment_source_links(source_system, source_id);
-CREATE TABLE IF NOT EXISTS commitment_events (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, commitment_id INTEGER NOT NULL REFERENCES commitments(id) ON DELETE CASCADE,
-  at TEXT NOT NULL, actor TEXT, action TEXT NOT NULL, from_status TEXT, to_status TEXT, details TEXT);
-CREATE INDEX IF NOT EXISTS idx_commitment_events_c ON commitment_events(commitment_id, id);
-CREATE TABLE IF NOT EXISTS evidence_items (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, commitment_id INTEGER NOT NULL REFERENCES commitments(id) ON DELETE CASCADE,
-  type TEXT NOT NULL DEFAULT 'document', file_ref TEXT, url TEXT, filename TEXT, sha256 TEXT, size_bytes INTEGER, mime TEXT,
-  uploaded_by TEXT, uploaded_at TEXT, site_id INTEGER, retention_class TEXT NOT NULL DEFAULT 'standard', version INTEGER NOT NULL DEFAULT 1, superseded_by INTEGER);
-CREATE TABLE IF NOT EXISTS closure_verifications (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, commitment_id INTEGER NOT NULL REFERENCES commitments(id) ON DELETE CASCADE,
-  attempt INTEGER NOT NULL, reviewer TEXT NOT NULL, decision TEXT NOT NULL, reason TEXT, at TEXT NOT NULL);`;
 
 const EVIDENCE_MIME = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'text/plain', 'text/csv'];
 const EVIDENCE_TYPES = ['document', 'photo', 'screenshot', 'report', 'link', 'sign_off', 'other'];
@@ -69,12 +44,12 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
   if (!db) throw new Error('commitmentStore needs a db handle');
   const P = (sql) => db.prepare(sql);
   const blob = () => blobs || require('./blobStore');
-  async function init() { if (!isPg) { db.exec('PRAGMA foreign_keys=ON'); db.exec(SQLITE_DDL); } }
+  async function init() {  }
   async function insert(table, obj) {
     const cols = Object.keys(obj);
     const sql = `INSERT INTO ${table} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`;
-    const r = await P(sql + (isPg ? ' RETURNING id' : '')).run(...cols.map((c) => obj[c]));
-    return isPg ? Number(r.lastID != null ? r.lastID : r.id) : Number(r.lastInsertRowid);
+    const r = await P(sql + ((' RETURNING id'))).run(...cols.map((c) => obj[c]));
+    return (Number(r.lastID != null ? r.lastID : r.id));
   }
   const actorName = (u) => (u ? String(u.username || u.full_name || u.id || 'system') : 'system');
   async function event(cid, actor, action, from, to, details) {
@@ -276,4 +251,4 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
   return { init, create, get, getRaw, findBySource, update, transition, approveException, link, unlink, addEvidence, getEvidenceFile, list, linksFor, metricRows };
 }
 
-module.exports = { makeCommitmentStore, SQLITE_DDL, EVIDENCE_MIME, EVIDENCE_TYPES, EVIDENCE_MAX_BYTES, sniffOk };
+module.exports = { makeCommitmentStore, EVIDENCE_MIME, EVIDENCE_TYPES, EVIDENCE_MAX_BYTES, sniffOk };

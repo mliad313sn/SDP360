@@ -6,7 +6,6 @@
 // client + injected mailer spy + injected `now` drive every branch without network/clock.
 const _os = require('os'), _fs = require('fs'), _p = require('path');
 process.env.SDP_DATA_DIR = _fs.mkdtempSync(_p.join(_os.tmpdir(), 'wanpoll-'));
-process.env.REPORTS_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'wanpoll-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'wanpoll-pass-0000';
 const { test, beforeEach } = require('node:test');
@@ -20,11 +19,11 @@ const { main } = require('../tools/meraki/poll-wan-outages');
 beforeEach(() => { rdb.db.exec('DELETE FROM wan_outages'); });
 
 let _seq = 0;
-function seedSite() {
+async function seedSite() {
   _seq++;
   const name = `PollSite${_seq}`, network = `PollNet${_seq}`, networkId = `PN${_seq}`;
-  const siteId = Number(rdb.db.prepare('INSERT INTO sites (name, active) VALUES (?, 1)').run(name).lastInsertRowid);
-  rdb.setSiteMerakiCode(siteId, network);
+  const siteId = Number((await rdb.db.prepare('INSERT INTO sites (name, active) VALUES (?, 1)').run(name)).lastID);
+  (await rdb.setSiteMerakiCode(siteId, network));
   return { siteId, network, networkId };
 }
 
@@ -88,21 +87,21 @@ function makeClientTwoDev(site, s1, s2) {
 }
 
 test('warm-spare: master wan1 up + spare wan1 not-connected → NO false outage', async () => {
-  const s = seedSite();
+  const s = (await seedSite());
   await main({ rdb, getConfig: getConfig(s.siteId, {}), client: makeClientTwoDev(s, 'active', 'not connected'), mailer: makeMailer(), now: '2026-08-10T08:00:00Z' });
   const rows = await rdb.getWanOutages({ site_id: s.siteId });
   assert.equal(rows.length, 0, 'the site uplink is UP because the master reports it up — no outage from the spare');
 });
 
 test('dual-MX: BOTH appliances report wan1 down → exactly one real outage', async () => {
-  const s = seedSite();
+  const s = (await seedSite());
   await main({ rdb, getConfig: getConfig(s.siteId, {}), client: makeClientTwoDev(s, 'failed', 'not connected'), mailer: makeMailer(), now: '2026-08-10T08:00:00Z' });
   const rows = await rdb.getWanOutages({ site_id: s.siteId });
   assert.equal(rows.length, 1, 'a real outage opens only when NO appliance reports the uplink up');
 });
 
 test('a down uplink opens exactly ONE provisional row; a 2nd poll while still down opens no second', async () => {
-  const s = seedSite();
+  const s = (await seedSite());
   const T0 = '2026-08-10T08:00:00Z';
   await poll(s, T0, { status: 'failed' }, makeMailer());
   let rows = await rdb.getWanOutages({ site_id: s.siteId });
@@ -120,7 +119,7 @@ test('a down uplink opens exactly ONE provisional row; a 2nd poll while still do
 });
 
 test('armed + open ≥15min + contact set → mailer.send once + notified_at stamped; a 2nd poll does NOT re-send', async () => {
-  const s = seedSite();
+  const s = (await seedSite());
   const T0 = '2026-08-10T08:00:00Z';
   const m0 = makeMailer();
   await poll(s, T0, { status: 'failed', notifyEnabled: true }, m0);
@@ -141,7 +140,7 @@ test('armed + open ≥15min + contact set → mailer.send once + notified_at sta
 });
 
 test('armed down email → cc includes the service desk + body is HTML carrying the ISP', async () => {
-  const s = seedSite();
+  const s = (await seedSite());
   await poll(s, '2026-08-10T08:00:00Z', { status: 'failed', notifyEnabled: true }, makeMailer());
   const m = makeMailer();
   await poll(s, '2026-08-10T08:20:00Z', { status: 'failed', notifyEnabled: true }, m);
@@ -152,7 +151,7 @@ test('armed down email → cc includes the service desk + body is HTML carrying 
 });
 
 test('BOTH uplinks down = site/power outage → NO ISP email (never blame the operator)', async () => {
-  const s = seedSite();
+  const s = (await seedSite());
   const cfg = getConfig(s.siteId, { notifyEnabled: true });
   await main({ rdb, getConfig: cfg, client: makeClientBothDown(s), mailer: makeMailer(), now: '2026-08-10T08:00:00Z' });
   const m = makeMailer();
@@ -161,7 +160,7 @@ test('BOTH uplinks down = site/power outage → NO ISP email (never blame the op
 });
 
 test('recovery: a NOTIFIED outage that recovers → one RESTORED email', async () => {
-  const s = seedSite();
+  const s = (await seedSite());
   const cfg = getConfig(s.siteId, { notifyEnabled: true });
   await main({ rdb, getConfig: cfg, client: makeClient(s, 'failed'), mailer: makeMailer(), now: '2026-08-10T08:00:00Z' });
   await main({ rdb, getConfig: cfg, client: makeClient(s, 'failed'), mailer: makeMailer(), now: '2026-08-10T08:20:00Z' }); // down email → notified_at set
@@ -174,7 +173,7 @@ test('recovery: a NOTIFIED outage that recovers → one RESTORED email', async (
 });
 
 test('disarmed (notify.enabled=false) → mailer NEVER called even past 15 min', async () => {
-  const s = seedSite();
+  const s = (await seedSite());
   const T0 = '2026-08-10T08:00:00Z';
   await poll(s, T0, { status: 'failed', notifyEnabled: false }, makeMailer());
   const T1 = '2026-08-10T09:00:00Z'; // 60 min later
@@ -186,7 +185,7 @@ test('disarmed (notify.enabled=false) → mailer NEVER called even past 15 min',
 });
 
 test('recovery: an open row whose uplink is now up → closed (restored_end set); mailer NOT called after restore', async () => {
-  const s = seedSite();
+  const s = (await seedSite());
   const T0 = '2026-08-10T08:00:00Z';
   await poll(s, T0, { status: 'failed', notifyEnabled: true }, makeMailer());
   // 20 min later the uplink is back up — past the 15-min trigger, but a restored row must NEVER notify.
@@ -202,7 +201,7 @@ test('recovery: an open row whose uplink is now up → closed (restored_end set)
 });
 
 test('B: an open outage whose device DROPPED from the poll (MX offline) stays OPEN — no false recovery', async () => {
-  const s = seedSite();
+  const s = (await seedSite());
   const T0 = '2026-08-10T08:00:00Z';
   await poll(s, T0, { status: 'failed' }, makeMailer());              // open
   assert.equal((await rdb.getWanOutages({ site_id: s.siteId }))[0].restored_end, null, 'opened');
@@ -224,7 +223,7 @@ test('B: an open outage whose device DROPPED from the poll (MX offline) stays OP
 });
 
 test('stale-open guard: a 25h-open still-down row is closed with source "stale_open", and a fresh outage then opens', async () => {
-  const s = seedSite();
+  const s = (await seedSite());
   const T0 = '2026-08-10T08:00:00Z';
   await poll(s, T0, { status: 'failed' }, makeMailer());
   const T1 = '2026-08-11T09:00:00Z'; // 25h after T0, still down
@@ -246,7 +245,7 @@ test('stale-open guard: a 25h-open still-down row is closed with source "stale_o
 });
 
 test('heartbeat: the FIRST poll stamps both wan_poll_last_run AND wan_poll_first_run (now)', async () => {
-  const s = seedSite();
+  const s = (await seedSite());
   const stamped = [];
   await main({ rdb, getConfig: getConfig(s.siteId, {}), client: makeClient(s, 'active'), mailer: makeMailer(),
     now: '2026-08-10T08:00:00Z', setConfig: async (kv) => stamped.push(kv) });
@@ -254,7 +253,7 @@ test('heartbeat: the FIRST poll stamps both wan_poll_last_run AND wan_poll_first
 });
 
 test('heartbeat: a later poll updates last_run but NEVER overwrites first_run', async () => {
-  const s = seedSite();
+  const s = (await seedSite());
   const stamped = [];
   const getCfg = async () => ({ meraki_api_key: 'k',
     sla_wan_config: JSON.stringify({ tiers: { SILVER: {} }, circuits: [] }),

@@ -17,16 +17,17 @@ let server, base, admin, editor, viewer, superT, member, rdb, hounde, editorId, 
 
 before(async () => {
   const { app } = require('../server');
+  await require('../server').seedStores();
   rdb = require('../reports-db');
-  for (let i = 0; i < 50; i++) { if (rdb.db.prepare("SELECT 1 FROM sqlite_master WHERE name='meeting_cadences'").get()) break; await new Promise(r => setTimeout(r, 100)); }
-  const sites = rdb.listSites({ includeInactive: true });
+  for (let i = 0; i < 50; i++) { if ((await rdb.db.prepare("SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'meeting_cadences'").get())) break; await new Promise(r => setTimeout(r, 100)); }
+  const sites = (await rdb.listSites({ includeInactive: true }));
   hounde = sites.find((s) => /hounde/i.test(s.name)).id; const mana = sites.find((s) => /mana/i.test(s.name)).id;
   const mk = async (u, role, roles, site) => { try { await rdb.createUser({ username: u, full_name: u, password: u + 'pass1234', role, roles, site_id: site }); } catch {} return (await rdb.login(u, u + 'pass1234')).token; };
   admin = await mk('gv_admin', 'admin', ['admin']); superT = await mk('gv_super', 'super_admin', ['super_admin']);
   member = await mk('gv_member', 'viewer', ['viewer', 'committee-member']);
   editor = await mk('gv_editor', 'editor', ['editor'], hounde); otherEditor = await mk('gv_other', 'editor', ['editor'], mana);
   viewer = await mk('gv_viewer', 'viewer', ['viewer'], hounde);
-  editorId = rdb.db.prepare("SELECT id FROM users WHERE username='gv_editor'").get().id;
+  editorId = (await rdb.db.prepare("SELECT id FROM users WHERE username='gv_editor'").get()).id;
   await new Promise((r) => { server = http.createServer(app).listen(0, '127.0.0.1', r); });
   base = 'http://127.0.0.1:' + server.address().port;
 });

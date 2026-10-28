@@ -20,8 +20,9 @@ let server, base, admin, rdb, key, key2, key3;
 
 before(async () => {
   const { app } = require('../server');
+  await require('../server').seedStores();
   rdb = require('../reports-db');
-  for (let i = 0; i < 60; i++) { if (rdb.db.prepare("SELECT 1 FROM sqlite_master WHERE name='api_consumers'").get()) break; await new Promise(r => setTimeout(r, 100)); }
+  for (let i = 0; i < 60; i++) { if ((await rdb.db.prepare("SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'api_consumers'").get())) break; await new Promise(r => setTimeout(r, 100)); }
   try { await rdb.createUser({ username: 'ext_admin', full_name: 'ext_admin', password: 'ext_adminpass1234', role: 'admin', roles: ['admin'] }); } catch {}
   admin = (await rdb.login('ext_admin', 'ext_adminpass1234')).token;
   await new Promise((r) => { server = http.createServer(app).listen(0, '127.0.0.1', r); });

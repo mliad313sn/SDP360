@@ -17,7 +17,6 @@ const _os = require('os'), _fs = require('fs'), _path = require('path');
 // doesn't drag the harness onto the (uninitialised) PG adapter. Set BEFORE any
 // require of server/reports-db, and before dotenv (which never overrides an
 // already-set process.env var).
-process.env.REPORTS_BACKEND = 'sqlite';
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'reporting-send-smoke-'));
 process.env.DASH_USER = process.env.DASH_USER || 'reporting-send-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'reporting-send-pass-0000';
@@ -33,15 +32,15 @@ const http = require('http');
 
 let server, base, adminToken, rdb;
 
-const sentLogCount = () =>
-  rdb.db.prepare('SELECT COUNT(*) AS n FROM report_sent_log').get().n;
+const sentLogCount = async () =>
+  (await rdb.db.prepare('SELECT COUNT(*) AS n FROM report_sent_log').get()).n;
 
 before(async () => {
   const { app } = require('../server');        // start() guarded → no port bind
   rdb = require('../reports-db');
-  const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
+  const me = ((await rdb.listUsers()) || []).find(u => u.username === process.env.DASH_USER);
   assert.ok(me, 'seeded admin user exists');
-  rdb.setUserRoles(me.id, ['super_admin']);   // /api/reports/send is super_admin-gated since 5e2f40e (2026-08-16)
+  (await rdb.setUserRoles(me.id, ['super_admin']));   // /api/reports/send is super_admin-gated since 5e2f40e (2026-08-16)
   const sess = await rdb.login(process.env.DASH_USER, process.env.DASH_PASS);
   assert.ok(sess && sess.token, 'login seeded admin + returned a token');
   adminToken = sess.token;
@@ -86,7 +85,7 @@ after(async () => {
 const authHeaders = () => ({ 'x-report-token': adminToken });
 
 test('POST /api/reports/send?preview=1 (admin) → 200 {subject,html} and writes NO sent-log row', async () => {
-  const before_ = sentLogCount();
+  const before_ = (await sentLogCount());
   const res = await fetch(base + '/api/reports/send?type=coordinator&site=HGO&preview=1', {
     method: 'POST', headers: authHeaders(),
   });
@@ -94,11 +93,11 @@ test('POST /api/reports/send?preview=1 (admin) → 200 {subject,html} and writes
   const body = await res.json();
   assert.ok(body.subject, 'preview body carries a subject');
   assert.ok(body.html && /<html/i.test(body.html), 'preview body carries the full html document');
-  assert.equal(sentLogCount(), before_, 'preview must NOT write a report_sent_log row');
+  assert.equal((await sentLogCount()), before_, 'preview must NOT write a report_sent_log row');
 });
 
 test('POST /api/reports/send with an UNCONFIRMED recipient → 200 {skipped} and sends nothing', async () => {
-  const before_ = sentLogCount();
+  const before_ = (await sentLogCount());
   const res = await fetch(base + '/api/reports/send?type=coordinator&site=HGO', {
     method: 'POST', headers: authHeaders(),
   });
@@ -108,7 +107,7 @@ test('POST /api/reports/send with an UNCONFIRMED recipient → 200 {skipped} and
   assert.match(body.reason || '', /unconfirmed|no confirmed recipient/i, 'reason names the safety gate');
   assert.ok(!body.messageId, 'no message was sent');
   // The gate fires BEFORE the send, so no outcome row is recorded either.
-  assert.equal(sentLogCount(), before_, 'a gated send writes no report_sent_log row');
+  assert.equal((await sentLogCount()), before_, 'a gated send writes no report_sent_log row');
 });
 
 // ── the unresolvable-site gate ───────────────────────────────────────────────
@@ -126,7 +125,7 @@ test('POST /api/reports/send with an UNCONFIRMED recipient → 200 {skipped} and
 test('an unresolvable site code → {skipped} — no compose, no mail, no sent-log row', async () => {
   const { sendCoordinatorReport } = require('../services/sendCoordinator');
   const called = [];
-  const before_ = sentLogCount();
+  const before_ = (await sentLogCount());
 
   const out = await sendCoordinatorReport({
     db: rdb.db, site: 'ZZZ-TYPO', period: '2026-07', kind: 'weekly',
@@ -154,7 +153,7 @@ test('an unresolvable site code → {skipped} — no compose, no mail, no sent-l
   assert.match(out.reason || '', /no meetings module code/i, 'reason names the unresolved site');
   assert.ok(!out.ok && !out.messageId, 'nothing was sent');
   assert.deepStrictEqual(called, [], `must skip BEFORE compose/pdf/mail/log — reached: ${called.join(', ')}`);
-  assert.equal(sentLogCount(), before_, 'an unresolvable site writes no report_sent_log row');
+  assert.equal((await sentLogCount()), before_, 'an unresolvable site writes no report_sent_log row');
 });
 
 test('a RESOLVABLE site still composes — the guard is not a blanket refusal', async () => {

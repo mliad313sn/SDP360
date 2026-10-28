@@ -8,7 +8,6 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 
-process.env.REPORTS_BACKEND = 'sqlite';
 process.env.SDP_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'syslog-'));
 process.env.DASH_USER = process.env.DASH_USER || 'seedadmin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'seedpass123';
@@ -39,8 +38,8 @@ test('logEvent round-trips + derives risk + JSON details', async () => {
 });
 
 test('logEvent NEVER throws to the caller (bare/fire-and-forget)', async () => {
-  await assert.doesNotReject(() => Promise.resolve(rdb.logEvent({ action:'x' })));
-  await assert.doesNotReject(() => Promise.resolve(rdb.logEvent({})));
+  await assert.doesNotReject(async () => Promise.resolve((await rdb.logEvent({ action:'x' }))));
+  await assert.doesNotReject(async () => Promise.resolve((await rdb.logEvent({}))));
 });
 
 test('listSystemLog filters: category, risk, actor, q, date', async () => {

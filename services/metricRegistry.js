@@ -262,7 +262,7 @@ function ragFor(m, v) {
  */
 async function load({ pg = null, log = () => {} } = {}) {
   const reg = createRegistry(SEED.map((m) => ({ ...m })));
-  if (!pg) return reg;
+  
   try {
     const pols = await pg.prepare('SELECT name, scale, green, amber, source FROM kpi_rag_policies').all();
     for (const p of pols) { try { KpiRag.definePolicy(p.name, { scale: p.scale || 'ratio', green: Number(p.green), amber: Number(p.amber), source: p.source || 'kpi_rag_policies' }); } catch (e) { log(`[metrics] policy ${p.name} rejected: ${e.message}`); } }

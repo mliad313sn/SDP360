@@ -1,4 +1,7 @@
 'use strict';
+// Top-level async setup, run IN ORDER before the first test (PostgreSQL-only conversion, PO-08).
+const __bootChain = (() => { let p = Promise.resolve(), hooked = false;
+  return (fn) => { p = p.then(fn); if (!hooked) { hooked = true; require('node:test').beforeEach(() => p); } }; })();
 // Activity Tracker — closed months (2026-10-16, user request): below super_admin only the
 // current month — and the previous one until the 5th — can be changed. The server keeps the
 // STORED value of a closed month whatever the page sends (public/lib/trackerMonthLock.js).
@@ -7,20 +10,21 @@ const assert = require('node:assert');
 const fs = require('fs'), os = require('os'), path = require('path');
 
 process.env.SDP_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'trk-lock-'));
-process.env.TRACKER_BACKEND = 'sqlite';
 process.env.TRACKER_PER_YEAR_EDITS = '1';
 const ML = require('../public/lib/trackerMonthLock');
 const td = require('../tracker-db');
 const db = td.getDB();
-
 const YEAR = 2099;
-db.prepare('INSERT OR IGNORE INTO tracker_years (year) VALUES (?)').run(YEAR);
-const pid = Number(db.prepare('INSERT INTO tracker_pillars (year, code, name, weight, display_order) VALUES (?,?,?,?,?)')
-  .run(YEAR, 'PL', 'Lock pillar', 1, 1).lastInsertRowid);
-const aid = Number(db.prepare('INSERT INTO tracker_activities (pillar_id, code, name, kpi_type, start_month, end_month, display_order) VALUES (?,?,?,?,?,?,?)')
-  .run(pid, 'act-lock', 'Monthly Department Meeting', 'COUNT', 1, 12, 0).lastInsertRowid);
-const read = (site) => {
-  const r = db.prepare('SELECT months_json FROM tracker_inputs_v2 WHERE year=? AND site=? AND activity_id=?').get(YEAR, site, aid);
+let pid, aid;
+__bootChain(async () => {
+  await db.prepare('INSERT INTO tracker_years (year) VALUES (?) ON CONFLICT DO NOTHING').run(YEAR);
+  pid = Number((await db.prepare('INSERT INTO tracker_pillars (year, code, name, weight, display_order) VALUES (?,?,?,?,?)')
+    .run(YEAR, 'PL', 'Lock pillar', 1, 1)).lastID);
+  aid = Number((await db.prepare('INSERT INTO tracker_activities (pillar_id, code, name, kpi_type, start_month, end_month, display_order) VALUES (?,?,?,?,?,?,?)')
+    .run(pid, 'act-lock', 'Monthly Department Meeting', 'COUNT', 1, 12, 0)).lastID);
+});
+const read = async (site) => {
+  const r = (await db.prepare('SELECT months_json FROM tracker_inputs_v2 WHERE year=? AND site=? AND activity_id=?').get(YEAR, site, aid));
   return r ? JSON.parse(r.months_json) : null;
 };
 const at = (m, d) => new Date(YEAR, m, d, 10, 0, 0);   // local time, month 0-based
@@ -46,23 +50,23 @@ test('mergeClosed keeps the stored value of closed months and counts the blocked
 });
 
 test('saveTracker: lockClosed keeps closed months, super_admin (no lock) may change them', async () => {
-  db.prepare('INSERT INTO tracker_inputs_v2 (year, site, activity_id, months_json) VALUES (?,?,?,?)')
-    .run(YEAR, 'HGO', aid, JSON.stringify([1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0]));
+  (await db.prepare('INSERT INTO tracker_inputs_v2 (year, site, activity_id, months_json) VALUES (?,?,?,?)')
+    .run(YEAR, 'HGO', aid, JSON.stringify([1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0])));
   const D = { inputs: { [YEAR]: { HGO: [[5, 5, 5, 5, 5, 6, 0, 0, 0, 0, 0, 0]] } } };
   const r = await td.saveTracker(D, ['HGO'], { lockClosed: true, now: at(5, 10) });
   assert.equal(r.blocked, 5);
-  assert.deepEqual(read('HGO'), [1, 1, 1, 1, 1, 6, 0, 0, 0, 0, 0, 0]);
+  assert.deepEqual((await read('HGO')), [1, 1, 1, 1, 1, 6, 0, 0, 0, 0, 0, 0]);
   await td.saveTracker(D, ['HGO'], { now: at(5, 10) });
-  assert.deepEqual(read('HGO'), [5, 5, 5, 5, 5, 6, 0, 0, 0, 0, 0, 0], 'no lock: every month written');
+  assert.deepEqual((await read('HGO')), [5, 5, 5, 5, 5, 6, 0, 0, 0, 0, 0, 0], 'no lock: every month written');
 });
 
 test('import of department meetings respects the closed months too', async () => {
-  db.prepare('INSERT OR REPLACE INTO tracker_inputs_v2 (year, site, activity_id, months_json) VALUES (?,?,?,?)')
-    .run(YEAR, 'MGO', aid, JSON.stringify([2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]));
+  (await db.prepare('INSERT INTO tracker_inputs_v2 (year, site, activity_id, months_json) VALUES (?,?,?,?) ON CONFLICT (year, site, activity_id) DO UPDATE SET months_json = excluded.months_json')
+    .run(YEAR, 'MGO', aid, JSON.stringify([2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])));
   const r = await td.setActivityMonthsByName(YEAR, 'MGO', 'Monthly Department Meeting',
     [3, 3, 3, 3, 3, 3, 0, 0, 0, 0, 0, 0], { lockClosed: true, now: at(5, 3) });   // 3 June: May still open
   assert.equal(r.ok, true);
-  assert.deepEqual(read('MGO'), [2, 0, 0, 0, 3, 3, 0, 0, 0, 0, 0, 0]);
+  assert.deepEqual((await read('MGO')), [2, 0, 0, 0, 3, 3, 0, 0, 0, 0, 0, 0]);
 });
 
 test('the page loads the rule and disables closed cells below super_admin', () => {

@@ -27,8 +27,8 @@ before(async () => {
   rdb = require('../reports-db');
   await rdb.createUser({ username: 'an-admin', full_name: 'an-admin', password: 'an-admin-0000', roles: ['admin'], site_id: null });
   tok.admin = (await rdb.login('an-admin', 'an-admin-0000')).token;
-  const me = rdb.listUsers().find(u => u.username === process.env.DASH_USER);
-  rdb.setUserRoles(me.id, ['super_admin']);
+  const me = (await rdb.listUsers()).find(u => u.username === process.env.DASH_USER);
+  (await rdb.setUserRoles(me.id, ['super_admin']));
   tok.super = (await rdb.login(process.env.DASH_USER, process.env.DASH_PASS)).token;
   await new Promise(r => { server = http.createServer(app).listen(0, '127.0.0.1', r); });
   base = `http://127.0.0.1:${server.address().port}`;

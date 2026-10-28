@@ -19,36 +19,36 @@ const mdb = require('../meetings-db');
 
 let S; // summary
 
-before(() => {
-  mdb.loadLookups();
+before(async () => {
+  (await mdb.loadLookups());
   const conn = mdb.getDB();
   const meeting = conn.prepare('INSERT INTO md_meetings (reference, site_code, department, meeting_date, status) VALUES (?,?,?,?,?)');
   const issue   = conn.prepare('INSERT INTO md_issues (meeting_id, title, category, severity, status, escalate, created_at, closed_at) VALUES (?,?,?,?,?,?,?,?)');
 
   // Network — PV 12 Jun. open=4 (1 HIGH, 1 escalated), resolved_m=1, new_m=2
-  const net = meeting.run('HGO_Network_PV_2026-06', 'HGO', 'Network', '2026-06-12', 'signed').lastInsertRowid;
-  issue.run(net, 'a', 'HW', 'HIGH',   'open',     1, '2026-05-10', null);
-  issue.run(net, 'b', 'HW', 'MEDIUM', 'open',     0, '2026-05-11', null);
-  issue.run(net, 'c', 'HW', 'MEDIUM', 'open',     0, '2026-06-03', null);
-  issue.run(net, 'd', 'HW', 'MEDIUM', 'open',     0, '2026-06-04', null);
-  issue.run(net, 'e', 'HW', 'MEDIUM', 'resolved', 0, '2026-05-01', '2026-06-15');
+  const net = (await meeting.run('HGO_Network_PV_2026-06', 'HGO', 'Network', '2026-06-12', 'signed')).lastID;
+  (await issue.run(net, 'a', 'HW', 'HIGH',   'open',     1, '2026-05-10', null));
+  (await issue.run(net, 'b', 'HW', 'MEDIUM', 'open',     0, '2026-05-11', null));
+  (await issue.run(net, 'c', 'HW', 'MEDIUM', 'open',     0, '2026-06-03', null));
+  (await issue.run(net, 'd', 'HW', 'MEDIUM', 'open',     0, '2026-06-04', null));
+  (await issue.run(net, 'e', 'HW', 'MEDIUM', 'resolved', 0, '2026-05-01', '2026-06-15'));
 
   // Maintenance — PV 5 Jun. open=2 (0 HIGH), resolved_m=2, new_m=1
-  const mnt = meeting.run('HGO_Maintenance_PV_2026-06', 'HGO', 'Maintenance', '2026-06-05', 'signed').lastInsertRowid;
-  issue.run(mnt, 'f', 'HW', 'MEDIUM', 'open',     0, '2026-05-20', null);
-  issue.run(mnt, 'g', 'HW', 'MEDIUM', 'open',     0, '2026-06-02', null);
-  issue.run(mnt, 'h', 'HW', 'MEDIUM', 'resolved', 0, '2026-04-10', '2026-06-10');
-  issue.run(mnt, 'i', 'HW', 'MEDIUM', 'resolved', 0, '2026-05-09', '2026-06-12');
+  const mnt = (await meeting.run('HGO_Maintenance_PV_2026-06', 'HGO', 'Maintenance', '2026-06-05', 'signed')).lastID;
+  (await issue.run(mnt, 'f', 'HW', 'MEDIUM', 'open',     0, '2026-05-20', null));
+  (await issue.run(mnt, 'g', 'HW', 'MEDIUM', 'open',     0, '2026-06-02', null));
+  (await issue.run(mnt, 'h', 'HW', 'MEDIUM', 'resolved', 0, '2026-04-10', '2026-06-10'));
+  (await issue.run(mnt, 'i', 'HW', 'MEDIUM', 'resolved', 0, '2026-05-09', '2026-06-12'));
 
   // Finance — last PV May 20 (NO PV in June). open=1
-  const fin = meeting.run('HGO_Finance_PV_2026-05', 'HGO', 'Finance', '2026-05-20', 'signed').lastInsertRowid;
-  issue.run(fin, 'j', 'HW', 'MEDIUM', 'open', 0, '2026-05-21', null);
+  const fin = (await meeting.run('HGO_Finance_PV_2026-05', 'HGO', 'Finance', '2026-05-20', 'signed')).lastID;
+  (await issue.run(fin, 'j', 'HW', 'MEDIUM', 'open', 0, '2026-05-21', null));
 
   // Operations — PV 9 Jun. open=0, resolved_m=1, new_m=1
-  const ops = meeting.run('HGO_Operations_PV_2026-06', 'HGO', 'Operations', '2026-06-09', 'signed').lastInsertRowid;
-  issue.run(ops, 'k', 'HW', 'MEDIUM', 'resolved', 0, '2026-06-07', '2026-06-08');
+  const ops = (await meeting.run('HGO_Operations_PV_2026-06', 'HGO', 'Operations', '2026-06-09', 'signed')).lastID;
+  (await issue.run(ops, 'k', 'HW', 'MEDIUM', 'resolved', 0, '2026-06-07', '2026-06-08'));
 
-  S = mdb.getSiteMonthlyMeetingSummary('HGO', 2026, 6);
+  S = (await mdb.getSiteMonthlyMeetingSummary('HGO', 2026, 6));
 });
 
 test('cadence + flow KPIs', () => {
@@ -91,8 +91,8 @@ test('auto-commentary names the blockers', () => {
   assert.match(S.commentary, /escalated to Council/);
 });
 
-test('unknown site → available:false, no throw', () => {
-  const empty = mdb.getSiteMonthlyMeetingSummary(null, 2026, 6);
+test('unknown site → available:false, no throw', async () => {
+  const empty = (await mdb.getSiteMonthlyMeetingSummary(null, 2026, 6));
   assert.strictEqual(empty.available, false);
   assert.deepStrictEqual(empty.departments, []);
 });

@@ -169,17 +169,13 @@ test('a forced re-send still dedups a later send the same day', async () => {
   // 'resent' must also count for alreadySentToday, or a force-first send would
   // leave the period looking un-sent.
   const os = require('os'), fs = require('fs'), path = require('path');
-  process.env.REPORTS_BACKEND = 'sqlite';
   process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR
     || fs.mkdtempSync(path.join(os.tmpdir(), 'send-rcpt-'));
-  const Database = require('better-sqlite3');
-  const db = new Database(':memory:');
+  const db = await require('./_pg-fresh').fresh(['report_sent_log']);
   const log = require('../services/reportSentLog');
-  log._initSchema(db);
-  log.record(db, { report_type: 'coordinator', site_code: SITE, period: '2026-07', recipients: 'a@b.c', result: 'resent' });
-  assert.equal(log.alreadySentToday(db, 'coordinator', SITE, '2026-07'), true,
+  (await log.record(db, { report_type: 'coordinator', site_code: SITE, period: '2026-07', recipients: 'a@b.c', result: 'resent' }));
+  assert.equal((await log.alreadySentToday(db, 'coordinator', SITE, '2026-07')), true,
     'a "resent" row must count for dedup');
-  db.close();
 });
 
 // ── 8 · tolerance ───────────────────────────────────────────────────────────

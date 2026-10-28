@@ -47,7 +47,7 @@ before(async () => {
 });
 after(() => { try { server && server.close(); } catch {} });
 
-const meeting = () => mdb.getMeeting(mid);
+const meeting = async () => (await mdb.getMeeting(mid));
 
 test('the rule: comment for the three transfer statuses, ticket number for helpdesk_ticket', () => {
   assert.equal(ST.validate('in_progress', '', null), null);

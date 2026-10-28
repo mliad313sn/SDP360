@@ -78,58 +78,58 @@ async function fingerprint(buf) {
 
 before(async () => {
   // 1 site
-  SITE = rdb.createSite({ name: 'Houndé', zoho_group: 'Hounde IT Agents', sort_order: 1 });
+  SITE = (await rdb.createSite({ name: 'Houndé', zoho_group: 'Hounde IT Agents', sort_order: 1 }));
 
   // helper: seed one submitted weekly report with varied RAG/trend so every
   // helper branch (green/orange/red + up/down/stable + numeric/stored color)
   // is exercised by the generators.
-  function seedWeek(week, label) {
-    const rep = rdb.ensureReport(SITE.id, YEAR, week);
-    rdb.saveInfraKpis(rep.id, [
+  async function seedWeek(week, label) {
+    const rep = (await rdb.ensureReport(SITE.id, YEAR, week));
+    (await rdb.saveInfraKpis(rep.id, [
       { service: 'WAN1 Houndé', kpi: 'Uptime', target: '98%', status_value: '99.4', status_color: 'green',  trend: 'up' },
       { service: 'WAN2 Houndé', kpi: 'Uptime', target: '98%', status_value: '95.8', status_color: 'orange', trend: 'down' },
       { service: 'LAN Houndé',  kpi: 'Uptime', target: '99%', status_value: '88.0', status_color: 'red',    trend: 'down' },
       { service: 'Servers',     kpi: 'Availability', target: '99%', status_value: '100', status_color: 'green', trend: 'stable' },
       { service: 'Backup',      kpi: 'Success Rate', target: '100%', status_value: 'N/A', status_color: 'none', trend: 'stable' },
-    ]);
-    rdb.saveHelpdeskData(rep.id, {
-      time_to_assign: '0h 30m', first_reply: '1h 10m', resolution_time: '4h 20m', closing_time: '6h 00m',
+    ]));
+    (await rdb.saveHelpdeskData(rep.id, {
+      time_to_assign: 0.5, first_reply: 1.17, resolution_time: 4.33, closing_time: 6,   // hours (double precision columns)
       techs_on_duty: 4, tech_on_break: 'None',
       comments_metrics: 'Stable week, no major escalation.',
       selected_group: 'Hounde IT Agents',
       group_metrics: [{ label: label, inbound: 60, closed: 58 }],
       chart_data: { weeks: [{ label: 'W' + (week - 1), inbound: 55, closed: 50 }, { label: label, inbound: 60, closed: 58 }], top10: [] },
-    });
-    rdb.saveLights(rep.id, [
+    }));
+    (await rdb.saveLights(rep.id, [
       { type: 'high', content: 'Backup success restored to 100%.' },
       { type: 'low',  content: 'WAN2 degraded link under investigation with ISP.' },
-    ]);
-    rdb.saveActionItems(rep.id, [
+    ]));
+    (await rdb.saveActionItems(rep.id, [
       { task: 'Replace WAN2 router', priority: 'High', due_date: '2026-06-30', owner: 'IT Houndé', status: 'in_progress', department: 'Network', comment: 'RMA pending' },
       { task: 'Review backup retention', priority: 'Medium', due_date: '2026-07-15', owner: 'IT Houndé', status: 'open', department: 'Systems', comment: '' },
-    ]);
-    rdb.updateReportStatus(rep.id, 'submitted', 1);
+    ]));
+    (await rdb.updateReportStatus(rep.id, 'submitted', 1));
     return rep;
   }
 
-  seedWeek(23, 'W23 2026');
-  seedWeek(24, 'W24 2026');
+  (await seedWeek(23, 'W23 2026'));
+  (await seedWeek(24, 'W24 2026'));
 
   // monthly edits + annual objectives (consumed by the V2 / all-sites decks)
-  rdb.saveMonthlyEdits(SITE.id, YEAR, MONTH, {
+  (await rdb.saveMonthlyEdits(SITE.id, YEAR, MONTH, {
     edited_lights:  [{ type: 'high', content: 'Month highlight: SLA recovered.' }, { type: 'low', content: 'WAN2 still flaky.' }],
     edited_actions: [{ task: 'Finalise WAN2 RMA', priority: 'High', due_date: '2026-06-30', owner: 'IT Houndé', status: 'in_progress', department: 'Network', comment: '' }],
     notes: 'Monthly rollup notes.', status: 'draft',
-  });
-  rdb.saveAnnualObjectives(SITE.id, YEAR, [
+  }));
+  (await rdb.saveAnnualObjectives(SITE.id, YEAR, [
     { objective: 'Migrate site to redundant WAN', target: 'Q3', status: 'in_progress', progress: 60 },
     { objective: 'Backup DR test', target: 'Q2', status: 'done', progress: 100 },
-  ]);
+  ]));
 
-  monthlyData = rdb.getMonthlyData(SITE.id, YEAR, MONTH);
-  edits       = rdb.getMonthlyEdits(SITE.id, YEAR, MONTH);
-  objectives  = rdb.getAnnualObjectives(SITE.id, YEAR);
-  yearlyData  = rdb.getYearlySummary(SITE.id, YEAR);
+  monthlyData = (await rdb.getMonthlyData(SITE.id, YEAR, MONTH));
+  edits       = (await rdb.getMonthlyEdits(SITE.id, YEAR, MONTH));
+  objectives  = (await rdb.getAnnualObjectives(SITE.id, YEAR));
+  yearlyData  = (await rdb.getYearlySummary(SITE.id, YEAR));
 
   assert.ok(monthlyData.reports.length >= 2, `expected >=2 weekly reports in month, got ${monthlyData.reports.length}`);
 });

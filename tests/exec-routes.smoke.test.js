@@ -49,9 +49,9 @@ before(async () => {
   // The default-admin seed only sets the legacy users.role column; grant the
   // 'admin' role in the user_roles table so requireAdmin (which reads via
   // userHasRole → user_roles) recognises the account.
-  const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
+  const me = ((await rdb.listUsers()) || []).find(u => u.username === process.env.DASH_USER);
   assert.ok(me, 'seeded admin user exists');
-  rdb.setUserRoles(me.id, ['super_admin']);   // the routes under test are super_admin-gated (admin settings → super_admin since 5e2f40e / 2026-08-16; IT Review → executive since 7162ac7)
+  (await rdb.setUserRoles(me.id, ['super_admin']));   // the routes under test are super_admin-gated (admin settings → super_admin since 5e2f40e / 2026-08-16; IT Review → executive since 7162ac7)
   const sess = await rdb.login(process.env.DASH_USER, process.env.DASH_PASS);
   assert.ok(sess && sess.token, 'login seeded admin + returned a token');
   assert.ok(((sess.user && sess.user.roles) || []).includes('super_admin'), 'session carries super_admin role');
@@ -97,7 +97,7 @@ test('PUT /api/exec/editorial persists for an admin and reflects on read', async
 
   // Reflected on a subsequent read via the db reader.
   const rdb = require('../reports-db');
-  const stored = rdb.getExecEditorial('2026-06');
+  const stored = (await rdb.getExecEditorial('2026-06'));
   assert.deepEqual(stored.highlights, highlights, 'persisted highlights readable');
   assert.equal(stored.focus.length, 1, 'persisted one focus area');
 });

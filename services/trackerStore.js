@@ -13,22 +13,6 @@
 const Defs = require('./trackerDefinitions');
 const Lock = require('../public/lib/trackerMonthLock');
 
-const SQLITE_DDL = `
-CREATE TABLE IF NOT EXISTS tracker_definitions (
-  key TEXT PRIMARY KEY, name TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'draft',
-  definition TEXT NOT NULL, owner_id INTEGER, rfi_ref TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, published_at TEXT);
-CREATE TABLE IF NOT EXISTS tracker_definition_versions (
-  key TEXT NOT NULL REFERENCES tracker_definitions(key) ON DELETE CASCADE, version INTEGER NOT NULL,
-  definition TEXT NOT NULL, note TEXT, created_by INTEGER, created_at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (key, version));
-CREATE TABLE IF NOT EXISTS tracker_entries (
-  key TEXT NOT NULL REFERENCES tracker_definitions(key) ON DELETE CASCADE, unit_code TEXT NOT NULL, item_code TEXT NOT NULL,
-  slot INTEGER NOT NULL, value REAL, note TEXT, source TEXT NOT NULL DEFAULT 'manual', updated_by INTEGER,
-  updated_at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (key, unit_code, item_code, slot));
-CREATE INDEX IF NOT EXISTS idx_tracker_entries_unit ON tracker_entries(key, unit_code);
-CREATE TABLE IF NOT EXISTS tracker_unit_targets (
-  key TEXT NOT NULL REFERENCES tracker_definitions(key) ON DELETE CASCADE, unit_code TEXT NOT NULL, item_code TEXT NOT NULL,
-  target REAL, active INTEGER NOT NULL DEFAULT 1, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (key, unit_code, item_code));`;
 
 const STATUSES = ['draft', 'review', 'published', 'retired'];
 
@@ -49,7 +33,7 @@ function slotClosed(def, slot, now) { const c = slotCalendar(def, slot); return 
 function makeTrackerStore(db, { isPg = false, now = () => new Date().toISOString() } = {}) {
   if (!db) throw new Error('trackerStore needs a db handle');
   const P = (sql) => db.prepare(sql);
-  async function init() { if (!isPg) db.exec(SQLITE_DDL); }
+  async function init() {  }
 
   function row2def(r) {
     if (!r) return null;
@@ -146,14 +130,9 @@ function makeTrackerStore(db, { isPg = false, now = () => new Date().toISOString
       if (lockClosed && slotClosed(d, slot, at)) { blocked++; continue; }
       const val = c.value == null || c.value === '' ? null : Number(c.value);
       if (val != null && !Number.isFinite(val)) { rejected++; continue; }
-      if (isPg) {
-        await P(`INSERT INTO tracker_entries (key, unit_code, item_code, slot, value, note, source, updated_by, updated_at) VALUES (?,?,?,?,?,?,?,?,?)
-                 ON CONFLICT (key, unit_code, item_code, slot) DO UPDATE SET value=EXCLUDED.value, note=EXCLUDED.note, source=EXCLUDED.source, updated_by=EXCLUDED.updated_by, updated_at=EXCLUDED.updated_at`)
-          .run(key, c.unit, c.item, slot, val, c.note == null ? null : String(c.note).slice(0, 500), source, user ? user.id : null, ts);
-      } else {
-        await P(`INSERT OR REPLACE INTO tracker_entries (key, unit_code, item_code, slot, value, note, source, updated_by, updated_at) VALUES (?,?,?,?,?,?,?,?,?)`)
-          .run(key, c.unit, c.item, slot, val, c.note == null ? null : String(c.note).slice(0, 500), source, user ? user.id : null, ts);
-      }
+      await P(`INSERT INTO tracker_entries (key, unit_code, item_code, slot, value, note, source, updated_by, updated_at) VALUES (?,?,?,?,?,?,?,?,?)
+               ON CONFLICT (key, unit_code, item_code, slot) DO UPDATE SET value=EXCLUDED.value, note=EXCLUDED.note, source=EXCLUDED.source, updated_by=EXCLUDED.updated_by, updated_at=EXCLUDED.updated_at`)
+        .run(key, c.unit, c.item, slot, val, c.note == null ? null : String(c.note).slice(0, 500), source, user ? user.id : null, ts);
       saved++;
     }
     return { saved, blocked, rejected };
@@ -172,8 +151,7 @@ function makeTrackerStore(db, { isPg = false, now = () => new Date().toISOString
       if (Array.isArray(allowedUnits) && !allowedUnits.includes(t.unit)) continue;
       const tgt = t.target == null || t.target === '' ? null : Number(t.target);
       const act = t.active === false || t.active === 0 ? 0 : 1;
-      if (isPg) await P(`INSERT INTO tracker_unit_targets (key, unit_code, item_code, target, active, updated_at) VALUES (?,?,?,?,?,?) ON CONFLICT (key, unit_code, item_code) DO UPDATE SET target=EXCLUDED.target, active=EXCLUDED.active, updated_at=EXCLUDED.updated_at`).run(key, t.unit, t.item, tgt, act, ts);
-      else await P(`INSERT OR REPLACE INTO tracker_unit_targets (key, unit_code, item_code, target, active, updated_at) VALUES (?,?,?,?,?,?)`).run(key, t.unit, t.item, tgt, act, ts);
+      await P(`INSERT INTO tracker_unit_targets (key, unit_code, item_code, target, active, updated_at) VALUES (?,?,?,?,?,?) ON CONFLICT (key, unit_code, item_code) DO UPDATE SET target=EXCLUDED.target, active=EXCLUDED.active, updated_at=EXCLUDED.updated_at`).run(key, t.unit, t.item, tgt, act, ts);
       saved++;
     }
     return { saved };
@@ -212,4 +190,4 @@ function makeTrackerStore(db, { isPg = false, now = () => new Date().toISOString
   return { init, get, list, saveDraft, publish, setStatus, versions, version, rollback, published, remove, entries, saveEntries, targets, saveTargets, mergeTargets, scoreTracker, seed, slotCalendar, slotClosed, STATUSES };
 }
 
-module.exports = { makeTrackerStore, SQLITE_DDL, STATUSES, slotCalendar, slotClosed };
+module.exports = { makeTrackerStore, STATUSES, slotCalendar, slotClosed };

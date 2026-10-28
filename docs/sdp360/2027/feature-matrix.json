@@ -94,7 +94,7 @@
     {
       "feature": "Sync runner (job registry, lock, retry, run log, freshness)",
       "paths": ["services/sync/jobs.js", "services/sync/syncRunner.js", "services/sync/schedule.js", "services/sync/syncStore.js", "services/sync/alerts.js", "routes/sync.js"],
-      "tests": ["tests/sync-jobs-registry.test.js", "tests/sync-runner.test.js", "tests/sync-schedule.test.js", "tests/sync-store-sqlite.test.js", "tests/sync-routes.smoke.test.js"],
+      "tests": ["tests/sync-jobs-registry.test.js", "tests/sync-runner.test.js", "tests/sync-schedule.test.js", "tests/sync-routes.smoke.test.js"],
       "statuses": { "documented": "yes", "implemented_in_code": "yes", "automated_test_passed": "yes", "integrated_test_passed": "unknown", "field_validated": "unknown", "security_approved": "unknown", "deployed": "unknown", "business_accepted": "unknown" },
       "evidence": "21 jobs declared in buildJobs(); FRESHNESS_HOURS and OPTIONAL sets",
       "notes": "Freshness is not yet propagated to report publication (A08)."

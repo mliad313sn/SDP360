@@ -22,9 +22,11 @@ const { runLang } = require('../services/reportGenerator');
 
 function createStore(rdbMod) {
   const pg = rdbMod.REPORTS_BACKEND === 'postgres';
-  const st = require('../services/reportStore').makeReportStore(pg ? { prepare: (sql) => rdbMod.pgHandle().prepare(sql) } : rdbMod.db, { isPg: pg });
-  if (!pg) { st.init(); st.seed(SEED_TEMPLATES).catch(() => {}); }
-  st.seedAtBoot = async () => { if (pg) { await st.init(); return st.seed(SEED_TEMPLATES); } return []; };
+  const st = require('../services/reportStore').makeReportStore(({ prepare: (sql) => rdbMod.pgHandle().prepare(sql) }), { isPg: pg });
+  
+  st.seedAtBoot = async () => {
+                                await st.init(); return st.seed(SEED_TEMPLATES);
+                              };
   return st;
 }
 

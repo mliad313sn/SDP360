@@ -4,16 +4,6 @@
 // business write and finished after it, so a crash between the two leaves a `received` row that the
 // next identical PUT completes instead of applying twice.
 
-const SQLITE_DDL = `
-CREATE TABLE IF NOT EXISTS field_outbox (
-  uuid TEXT PRIMARY KEY, user_id INTEGER NOT NULL, kind TEXT NOT NULL, payload_hash TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'received',
-  result TEXT, client_ts TEXT, device TEXT, received_at TEXT DEFAULT CURRENT_TIMESTAMP, applied_at TEXT);
-CREATE INDEX IF NOT EXISTS idx_field_outbox_user ON field_outbox(user_id, received_at);
-CREATE TABLE IF NOT EXISTS field_uploads (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, owner_kind TEXT NOT NULL, owner_id TEXT NOT NULL, name TEXT NOT NULL, mime TEXT NOT NULL,
-  size INTEGER NOT NULL, chunk_bytes INTEGER NOT NULL, chunks_total INTEGER NOT NULL, received TEXT NOT NULL DEFAULT '[]', ref TEXT, status TEXT NOT NULL DEFAULT 'open',
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP, completed_at TEXT);
-CREATE TABLE IF NOT EXISTS field_chunks (upload_id INTEGER NOT NULL REFERENCES field_uploads(id) ON DELETE CASCADE, idx INTEGER NOT NULL, data TEXT NOT NULL, PRIMARY KEY (upload_id, idx));`;
 
 const STATUSES = ['received', 'applied', 'rejected', 'failed'];
 const J = (v) => (v == null ? null : JSON.stringify(v));
@@ -22,10 +12,10 @@ const P_ = (s, d) => { if (s == null) return d; if (typeof s !== 'string') retur
 function makeFieldStore(db, { isPg = false, now = () => new Date().toISOString() } = {}) {
   if (!db) throw new Error('fieldStore needs a db handle');
   const P = (sql) => db.prepare(sql);
-  async function init() { if (!isPg) { db.exec('PRAGMA foreign_keys=ON'); db.exec(SQLITE_DDL); } }
+  async function init() {  }
   async function insert(table, cols, vals) {
-    const r = await P(`INSERT INTO ${table} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})${isPg ? ' RETURNING id' : ''}`).run(...vals);
-    return isPg ? Number(r && (r.id != null ? r.id : r.lastID != null ? r.lastID : (r.rows && r.rows[0] && r.rows[0].id))) : Number(r.lastInsertRowid);
+    const r = await P(`INSERT INTO ${table} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})${(' RETURNING id')}`).run(...vals);
+    return (Number(r && (r.id != null ? r.id : r.lastID != null ? r.lastID : (r.rows && r.rows[0] && r.rows[0].id))));
   }
   const obRow = (r) => r && ({ ...r, user_id: Number(r.user_id), result: P_(r.result, null) });
 
@@ -88,4 +78,4 @@ function makeFieldStore(db, { isPg = false, now = () => new Date().toISOString()
   return { init, getOutbox, receive, finish, listOutbox, outboxStats, purgeOutbox, createUpload, getUpload, putChunk, chunksOf, completeUpload, listUploads, purgeUploads, STATUSES };
 }
 
-module.exports = { makeFieldStore, SQLITE_DDL, STATUSES };
+module.exports = { makeFieldStore, STATUSES };

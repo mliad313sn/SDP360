@@ -2,7 +2,9 @@
 // investment history summary + the hardware/software forecast (dual-backend readers
 // that delegate to the PURE services/assetForecast.js builders).
 'use strict';
-process.env.ASSETS_BACKEND = 'sqlite';
+// Top-level async setup, run IN ORDER before the first test (PostgreSQL-only conversion, PO-08).
+const __bootChain = (() => { let p = Promise.resolve(), hooked = false;
+  return (fn) => { p = p.then(fn); if (!hooked) { hooked = true; require('node:test').beforeEach(() => p); } }; })();
 const test = require('node:test');
 const assert = require('node:assert');
 const os = require('node:os'), path = require('node:path'), fs = require('node:fs');
@@ -26,7 +28,7 @@ const aRows = [
   { asset_id: 'A3', asset_name: 'HGO Laptop', product_type: 'Laptop', site: 'HGO',
     manufacturer: 'Dell', state: 'In Use', purchase_cost: '0.00', acquisition_date: '2019-01-01' },
 ];
-adb.replaceTable('assets', aCols, aRows);
+__bootChain(async () => { (await adb.replaceTable('assets', aCols, aRows)); });
 
 // ── software_licenses: 2 sites ──────────────────────────────────────────────
 const lCols = ['license_id', 'license_name', 'license_type', 'license_state', 'expiry_date',
@@ -41,11 +43,11 @@ const lRows = [
     expiry_date: '30 Jun 2025', cost: '100', site: 'HGO', vendor: 'Cloudy',
     license_option: 'Subscription', acquisition_date: '2022-05-01' },
 ];
-adb.replaceTable('software_licenses', lCols, lRows);
+__bootChain(async () => { (await adb.replaceTable('software_licenses', lCols, lRows)); });
 
 // ── getInvestmentSummary ─────────────────────────────────────────────────────
-test('getInvestmentSummary — shape + XOF→USD conversion in the right year', () => {
-  const s = adb.getInvestmentSummary({}, { rate: RATE });
+test('getInvestmentSummary — shape + XOF→USD conversion in the right year', async () => {
+  const s = (await adb.getInvestmentSummary({}, { rate: RATE }));
   assert.ok(Array.isArray(s.years), 'years is an array');
   assert.ok(s.coverage && s.coverage.hardware && s.coverage.software, 'coverage.hardware/software present');
   const y2020 = s.years.find(y => y.year === 2020);
@@ -55,19 +57,19 @@ test('getInvestmentSummary — shape + XOF→USD conversion in the right year', 
   assert.ok(y2023 && y2023.software_usd === 300, 'MANA licence 300 USD in 2023 software_usd');
 });
 
-test('getInvestmentSummary — product_type narrows hardware coverage (ONLY hardware)', () => {
-  const all = adb.getInvestmentSummary({}, { rate: RATE });
-  const lap = adb.getInvestmentSummary({ product_type: 'Laptop' }, { rate: RATE });
+test('getInvestmentSummary — product_type narrows hardware coverage (ONLY hardware)', async () => {
+  const all = (await adb.getInvestmentSummary({}, { rate: RATE }));
+  const lap = (await adb.getInvestmentSummary({ product_type: 'Laptop' }, { rate: RATE }));
   assert.strictEqual(all.coverage.hardware.total, 3, 'unfiltered = 3 assets');
   assert.strictEqual(lap.coverage.hardware.total, 2, 'Laptop = A1 + A3');
   assert.ok(lap.coverage.hardware.total < all.coverage.hardware.total, 'product_type narrows hardware');
 });
 
 // ── getInvestmentForecast ────────────────────────────────────────────────────
-test('getInvestmentForecast — shape + past-life asset lands in hardware.due_now', () => {
-  const f = adb.getInvestmentForecast({}, {
+test('getInvestmentForecast — shape + past-life asset lands in hardware.due_now', async () => {
+  const f = (await adb.getInvestmentForecast({}, {
     config: DEFAULT_DEPRECIATION_CONFIG, rate: RATE, upliftPct: 0, horizonYears: 5, asOf: '2026-07-01',
-  });
+  }));
   assert.ok(f.hardware && f.software, 'both hardware + software blocks present');
   for (const k of ['years', 'due_now', 'beyond_horizon', 'total_forecast_usd', 'coverage']) {
     assert.ok(k in f.hardware, `hardware.${k} present`);
@@ -76,10 +78,10 @@ test('getInvestmentForecast — shape + past-life asset lands in hardware.due_no
   assert.ok(f.hardware.due_now.count >= 1, 'MANA Laptop (acquired 2020) is due_now');
 });
 
-test('getInvestmentForecast — site narrows BOTH hardware AND software coverage', () => {
+test('getInvestmentForecast — site narrows BOTH hardware AND software coverage', async () => {
   const opts = { config: DEFAULT_DEPRECIATION_CONFIG, rate: RATE, upliftPct: 0, horizonYears: 5, asOf: '2026-07-01' };
-  const all = adb.getInvestmentForecast({}, opts);
-  const mana = adb.getInvestmentForecast({ site: 'MANA' }, opts);
+  const all = (await adb.getInvestmentForecast({}, opts));
+  const mana = (await adb.getInvestmentForecast({ site: 'MANA' }, opts));
   assert.ok(mana.hardware.coverage.total < all.hardware.coverage.total, 'site narrows hardware');
   assert.strictEqual(all.software.coverage.total, 2, 'unfiltered = 2 licences');
   assert.strictEqual(mana.software.coverage.total, 1, 'site=MANA → 1 licence (L1)');
@@ -87,14 +89,14 @@ test('getInvestmentForecast — site narrows BOTH hardware AND software coverage
 });
 
 // ── empty-but-valid ──────────────────────────────────────────────────────────
-test('empty result set (filter matches nothing) → empty-but-valid, no throw', () => {
-  const s = adb.getInvestmentSummary({ site: 'NOWHERE' }, { rate: RATE });
+test('empty result set (filter matches nothing) → empty-but-valid, no throw', async () => {
+  const s = (await adb.getInvestmentSummary({ site: 'NOWHERE' }, { rate: RATE }));
   assert.deepStrictEqual(s.years, []);
   assert.strictEqual(s.coverage.hardware.total, 0);
   assert.strictEqual(s.coverage.software.total, 0);
-  const f = adb.getInvestmentForecast({ site: 'NOWHERE' }, {
+  const f = (await adb.getInvestmentForecast({ site: 'NOWHERE' }, {
     config: DEFAULT_DEPRECIATION_CONFIG, rate: RATE, upliftPct: 0, horizonYears: 5, asOf: '2026-07-01',
-  });
+  }));
   assert.deepStrictEqual(f.hardware.years, []);
   assert.strictEqual(f.hardware.coverage.total, 0);
   assert.strictEqual(f.software.coverage.total, 0);

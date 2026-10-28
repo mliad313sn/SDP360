@@ -1,25 +1,18 @@
 'use strict';
-process.env.REPORTS_BACKEND = 'sqlite';
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-// reports-db opens data/reports.db AT REQUIRE TIME and runs its boot migrations
-// on whatever it opens — so we point SDP_DATA_DIR at a COPY of the snapshot,
-// never at prod-snapshot/ itself (that would mutate the QA asset).
-const SNAP = path.join(__dirname, '..', 'prod-snapshot', 'reports.db');
-const hasSnap = fs.existsSync(SNAP);
-if (hasSnap) {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'sdp-win-readers-'));
-  fs.copyFileSync(SNAP, path.join(tmp, 'reports.db'));
-  process.env.SDP_DATA_DIR = tmp;
-}
+// The snapshot tests run against a restored COPY of the prod database (PostgreSQL):
+//   SDP_SNAPSHOT=1 SDP_TEST_PG_URL=postgres://…/sdp_snapshot_copy node --test tests/site-window-readers.test.js
+// (tests/_pg-boot.mjs then uses that database instead of a throwaway one, and never drops it).
+const hasSnap = process.env.SDP_SNAPSHOT === '1' && !!process.env.SDP_TEST_PG_URL;
 const rdb = require('../reports-db');
 const { _computeSiteChanges, _changeOutcome, getSiteHelpdeskWindow, getSiteChangesWindow } = rdb;
 const skipSnap = !hasSnap && 'no prod-snapshot';
-const siteId = (code) => rdb.getSiteIdByModuleCode('meetings', code).site_id;
+const siteId = async (code) => (await rdb.getSiteIdByModuleCode('meetings', code)).site_id;
 
 // The shipped classifier reads the RAW ZOHO key names off a row object:
 //   r['Change Closure Code'] · r['UDF:Change Implementation Outcome'] · r['UDF:Review decision']
@@ -120,22 +113,22 @@ test('emergency accepts 1 and "1"', () => {
 // ── INTEGRATION — against a copy of prod-snapshot/reports.db. These prove the
 // GROUP SCOPING and the window, which no pure-core test can.
 
-test('getSiteHelpdeskWindow: MGO June 2026, group-scoped', { skip: skipSnap }, () => {
-  const r = getSiteHelpdeskWindow(siteId('MGO'), '2026-06-01', '2026-06-30');
+test('getSiteHelpdeskWindow: MGO June 2026, group-scoped', { skip: skipSnap }, async () => {
+  const r = getSiteHelpdeskWindow((await siteId('MGO')), '2026-06-01', '2026-06-30');
   assert.strictEqual(r.sla_overdue, 7);        // real field names — _computeSiteHelpdesk
   assert.strictEqual(r.major_incidents, 1);
   assert.ok(r.created > 0);
 });
 
-test('getSiteChangesWindow: MGO May 2026 → 4 rows', { skip: skipSnap }, () => {
+test('getSiteChangesWindow: MGO May 2026 → 4 rows', { skip: skipSnap }, async () => {
   // NOT June: MGO has 0 changes in June, so a June test would pass against an
   // empty set and prove nothing about the scoping.
-  assert.strictEqual(getSiteChangesWindow(siteId('MGO'), '2026-05-01', '2026-05-31').total, 4);
+  assert.strictEqual(getSiteChangesWindow((await siteId('MGO')), '2026-05-01', '2026-05-31').total, 4);
 });
 
 test('getSiteChangesWindow: the panel window (2026-04-15..2026-07-14) is group-scoped per site', { skip: skipSnap }, () => {
   const per = ['SML', 'SMI', 'HGO', 'MGO', 'SGO']
-    .map(c => getSiteChangesWindow(siteId(c), '2026-04-15', '2026-07-14').total);
+    .map(async c => getSiteChangesWindow((await siteId(c)), '2026-04-15', '2026-07-14').total);
   assert.deepStrictEqual(per, [4, 3, 2, 6, 2]);
   // Sum is 17, NOT 43. 43 is every change_records row with NO group filter —
   // it includes Ouagadougou/Abidjan/Exploration and ungrouped rows. This reader

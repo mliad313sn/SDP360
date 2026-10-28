@@ -7,10 +7,6 @@
 // — proving the swap was surgical, not blanket. sqlite-pinned. --test-force-exit.
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'adminguard-smoke-'));
-process.env.ASSETS_BACKEND = 'sqlite';
-process.env.REPORTS_BACKEND = 'sqlite';
-process.env.MEETINGS_BACKEND = 'sqlite';
-process.env.INSPECTION_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'adminguard-super';
 process.env.DASH_PASS = process.env.DASH_PASS || 'adminguard-pass-0000';
 process.env.DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || 'adminguard-key';
@@ -39,9 +35,9 @@ before(async () => {
   const rdb = require('../reports-db');
 
   // The seeded default user is our super_admin.
-  const su = (rdb.listUsers() || []).find((u) => u.username === process.env.DASH_USER);
+  const su = ((await rdb.listUsers()) || []).find((u) => u.username === process.env.DASH_USER);
   assert.ok(su, 'seeded super_admin user exists');
-  rdb.setUserRoles(su.id, ['super_admin']);
+  (await rdb.setUserRoles(su.id, ['super_admin']));
   superToken = (await rdb.login(process.env.DASH_USER, process.env.DASH_PASS)).token;
 
   // A second, plain admin-role user.

@@ -11,14 +11,6 @@
 
 const { validateDashboard } = require('./dashboardWidgets');
 
-const SQLITE_DDL = `
-CREATE TABLE IF NOT EXISTS dashboard_definitions (
-  key TEXT PRIMARY KEY, title TEXT NOT NULL, audience TEXT NOT NULL DEFAULT 'site',
-  status TEXT NOT NULL DEFAULT 'draft', definition TEXT NOT NULL, owner_id INTEGER, site_id INTEGER, rfi_ref TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, published_at TEXT);
-CREATE TABLE IF NOT EXISTS dashboard_definition_versions (
-  key TEXT NOT NULL REFERENCES dashboard_definitions(key) ON DELETE CASCADE, version INTEGER NOT NULL,
-  definition TEXT NOT NULL, note TEXT, created_by INTEGER, created_at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (key, version));`;
 
 const STATUSES = ['draft', 'review', 'published', 'retired'];
 
@@ -26,7 +18,7 @@ function makeDashboardStore(db, { isPg = false, now = () => new Date().toISOStri
   if (!db) throw new Error('dashboardStore needs a db handle');
   const P = (sql) => db.prepare(sql);
 
-  async function init() { if (!isPg) db.exec(SQLITE_DDL); }   // pg DDL = db/postgres/reports/016 (migrator)
+  async function init() {  }   // pg DDL = db/postgres/reports/016 (migrator)
 
   function row2def(r) {
     if (!r) return null;
@@ -108,7 +100,7 @@ function makeDashboardStore(db, { isPg = false, now = () => new Date().toISOStri
     return v ? { ...d, definition: v.definition } : null;
   }
 
-  async function remove(key) { await P(`DELETE FROM dashboard_definitions WHERE key=? AND status IN ('draft','retired')`).run(key); if (!isPg) await P(`DELETE FROM dashboard_definition_versions WHERE key=? AND NOT EXISTS (SELECT 1 FROM dashboard_definitions WHERE key=?)`).run(key, key); }
+  async function remove(key) { await P(`DELETE FROM dashboard_definitions WHERE key=? AND status IN ('draft','retired')`).run(key);  }
 
   /** Insert + publish the shipped definitions that do not exist yet (never overwrites a user's). */
   async function seed(defs, { note = 'seed' } = {}) {
@@ -125,4 +117,4 @@ function makeDashboardStore(db, { isPg = false, now = () => new Date().toISOStri
   return { init, get, list, saveDraft, publish, setStatus, versions, version, published, remove, seed, STATUSES };
 }
 
-module.exports = { makeDashboardStore, SQLITE_DDL, STATUSES };
+module.exports = { makeDashboardStore, STATUSES };

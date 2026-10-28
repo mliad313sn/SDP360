@@ -17,10 +17,11 @@ let server, base, admin, editor, viewer, siteId, otherSite, rdb;
 
 before(async () => {
   const { app } = require('../server');
+  await require('../server').seedStores();
   rdb = require('../reports-db');
   // the boot block seeds asynchronously — wait until the store has the executive home
-  for (let i = 0; i < 50; i++) { if (rdb.db.prepare("SELECT 1 FROM sqlite_master WHERE name='dashboard_definitions'").get() && rdb.db.prepare("SELECT 1 FROM dashboard_definitions WHERE key='exec-home'").get()) break; await new Promise(r => setTimeout(r, 100)); }
-  const sites = rdb.listSites({ includeInactive: true });
+  for (let i = 0; i < 50; i++) { if ((await rdb.db.prepare("SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'dashboard_definitions'").get()) && (await rdb.db.prepare("SELECT 1 FROM dashboard_definitions WHERE key='exec-home'").get())) break; await new Promise(r => setTimeout(r, 100)); }
+  const sites = (await rdb.listSites({ includeInactive: true }));
   siteId = sites.find((s) => /hounde/i.test(s.name)).id; otherSite = sites.find((s) => s.id !== siteId).id;
   try { await rdb.createUser({ username: 'dx_admin', full_name: 'A', password: 'adminpass1234', role: 'admin', roles: ['admin'] }); } catch {}
   try { await rdb.createUser({ username: 'dx_editor', full_name: 'E', password: 'editorpass1234', role: 'editor', roles: ['editor', 'dashboard-publisher'], site_id: siteId }); } catch {}
@@ -90,6 +91,6 @@ test('a field dashboard that is not phone-ready cannot be published', async () =
 test('view log: one dashboard_viewed event per actor per day', async () => {
   for (let i = 0; i < 3; i++) assert.equal((await send('POST', '/api/dashboards/exec-home/view', viewer)).status, 200);
   await new Promise(r => setTimeout(r, 150));
-  const n = rdb.db.prepare("SELECT COUNT(*) AS n FROM system_log WHERE action='dashboard_viewed' AND target='exec-home' AND actor='dx_viewer'").get().n;
+  const n = (await rdb.db.prepare("SELECT COUNT(*) AS n FROM system_log WHERE action='dashboard_viewed' AND target='exec-home' AND actor='dx_viewer'").get()).n;
   assert.equal(n, 1);
 });

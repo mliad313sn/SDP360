@@ -6,28 +6,6 @@
 
 const crypto = require('crypto');
 
-const SQLITE_DDL = `
-CREATE TABLE IF NOT EXISTS alert_rules (
-  key TEXT PRIMARY KEY, name TEXT NOT NULL, metric TEXT NOT NULL, scope TEXT NOT NULL DEFAULT 'site', site_id INTEGER, window_label TEXT, op TEXT NOT NULL, threshold TEXT NOT NULL,
-  streak INTEGER NOT NULL DEFAULT 1, cooldown_min INTEGER NOT NULL DEFAULT 1440, channels TEXT, recipients TEXT, enabled INTEGER NOT NULL DEFAULT 1, description TEXT,
-  created_by INTEGER, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
-CREATE TABLE IF NOT EXISTS alert_state (state_key TEXT PRIMARY KEY, rule_key TEXT NOT NULL, breaches INTEGER NOT NULL DEFAULT 0, last_fired_at TEXT, last_value TEXT, updated_at TEXT);
-CREATE TABLE IF NOT EXISTS alert_firings (id INTEGER PRIMARY KEY AUTOINCREMENT, rule_key TEXT NOT NULL, site_id INTEGER, value TEXT, message TEXT, channels TEXT, fired_at TEXT DEFAULT CURRENT_TIMESTAMP, false_positive INTEGER DEFAULT 0, note TEXT);
-CREATE TABLE IF NOT EXISTS notifications (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, kind TEXT NOT NULL, title TEXT NOT NULL, body TEXT, link TEXT, source_kind TEXT, source_ref TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP, read_at TEXT, digested_at TEXT);
-CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, read_at);
-CREATE TABLE IF NOT EXISTS notification_comments (id INTEGER PRIMARY KEY AUTOINCREMENT, source_kind TEXT NOT NULL, source_ref TEXT NOT NULL, user_id INTEGER, user_name TEXT, body TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-CREATE TABLE IF NOT EXISTS subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, kind TEXT NOT NULL, target_key TEXT NOT NULL, channel TEXT NOT NULL DEFAULT 'inapp', digest TEXT NOT NULL DEFAULT 'none', created_at TEXT DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, kind, target_key, channel));
-CREATE TABLE IF NOT EXISTS share_links (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, token_hash TEXT UNIQUE NOT NULL, target_kind TEXT NOT NULL, target_key TEXT NOT NULL, site_id INTEGER, label TEXT, embed INTEGER NOT NULL DEFAULT 0,
-  expires_at TEXT NOT NULL, max_views INTEGER, views INTEGER NOT NULL DEFAULT 0, created_by INTEGER, created_at TEXT DEFAULT CURRENT_TIMESTAMP, revoked_at TEXT);
-CREATE TABLE IF NOT EXISTS share_views (id INTEGER PRIMARY KEY AUTOINCREMENT, link_id INTEGER NOT NULL REFERENCES share_links(id) ON DELETE CASCADE, viewed_at TEXT DEFAULT CURRENT_TIMESTAMP, agent TEXT, ip_hash TEXT);
-CREATE TABLE IF NOT EXISTS api_consumers (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, key_hash TEXT UNIQUE NOT NULL, key_hint TEXT, scopes TEXT, quota_per_day INTEGER NOT NULL DEFAULT 5000, enabled INTEGER NOT NULL DEFAULT 1,
-  created_by INTEGER, created_at TEXT DEFAULT CURRENT_TIMESTAMP, last_used_at TEXT, revoked_at TEXT);
-CREATE TABLE IF NOT EXISTS api_calls (id INTEGER PRIMARY KEY AUTOINCREMENT, consumer_id INTEGER NOT NULL, path TEXT, status INTEGER, ms INTEGER, called_at TEXT DEFAULT CURRENT_TIMESTAMP);
-CREATE INDEX IF NOT EXISTS idx_api_calls_day ON api_calls(consumer_id, called_at);`;
 
 const CHANNELS = ['inapp', 'email', 'teams', 'webhook'];
 const SUB_KINDS = ['report_template', 'dashboard', 'alert_rule'];
@@ -42,10 +20,10 @@ const token = (bytes = 24) => crypto.randomBytes(bytes).toString('base64url');
 function makeEngagementStore(db, { isPg = false, now = () => new Date().toISOString() } = {}) {
   if (!db) throw new Error('engagementStore needs a db handle');
   const P = (sql) => db.prepare(sql);
-  async function init() { if (!isPg) { db.exec('PRAGMA foreign_keys=ON'); db.exec(SQLITE_DDL); } }
+  async function init() {  }
   async function insert(table, cols, vals) {
-    const r = await P(`INSERT INTO ${table} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})${isPg ? ' RETURNING id' : ''}`).run(...vals);
-    return isPg ? Number(r && (r.id != null ? r.id : r.lastID != null ? r.lastID : (r.rows && r.rows[0] && r.rows[0].id))) : Number(r.lastInsertRowid);
+    const r = await P(`INSERT INTO ${table} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})${(' RETURNING id')}`).run(...vals);
+    return (Number(r && (r.id != null ? r.id : r.lastID != null ? r.lastID : (r.rows && r.rows[0] && r.rows[0].id))));
   }
 
   // ── alert rules ───────────────────────────────────────────────────────────────────
@@ -158,4 +136,4 @@ function makeEngagementStore(db, { isPg = false, now = () => new Date().toISOStr
     CHANNELS, SUB_KINDS, DIGESTS, SHARE_KINDS, SCOPES };
 }
 
-module.exports = { makeEngagementStore, SQLITE_DDL, CHANNELS, SUB_KINDS, DIGESTS, SHARE_KINDS, SCOPES, hash };
+module.exports = { makeEngagementStore, CHANNELS, SUB_KINDS, DIGESTS, SHARE_KINDS, SCOPES, hash };

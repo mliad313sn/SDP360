@@ -10,7 +10,9 @@
 // key is `﻿Asset ID`, asset_id maps to null, every row is dropped by the
 // pkCol filter, and the count is 0. Stripping it is what makes this test pass.
 'use strict';
-process.env.ASSETS_BACKEND = 'sqlite';
+// Top-level async setup, run IN ORDER before the first test (PostgreSQL-only conversion, PO-08).
+const __bootChain = (() => { let p = Promise.resolve(), hooked = false;
+  return (fn) => { p = p.then(fn); if (!hooked) { hooked = true; require('node:test').beforeEach(() => p); } }; })();
 const test = require('node:test');
 const assert = require('node:assert');
 const os = require('node:os'), path = require('node:path'), fs = require('node:fs');
@@ -64,11 +66,13 @@ const CSV_FOR = {
   software_licenses: 'Software_Licenses.csv',
   software: 'Software.csv',
 };
-for (const def of ASSET_VIEWS) {
-  const raw = readCsvObjects(CSV_FOR[def.name]);
-  const mapped = raw.map(r => DEFAULT_MAP(r, def)).filter(m => m[def.pkCol]);   // same PK-drop as syncAssetView
-  adb.replaceTable(def.table, Object.values(def.columns), mapped);
-}
+__bootChain(async () => {
+  for (const def of ASSET_VIEWS) {
+    const raw = readCsvObjects(CSV_FOR[def.name]);
+    const mapped = raw.map(r => DEFAULT_MAP(r, def)).filter(m => m[def.pkCol]);   // same PK-drop as syncAssetView
+    await adb.replaceTable(def.table, Object.values(def.columns), mapped);
+  }
+});
 const db = adb.getDB();
 
 // Real observed numbers (recon 2026-07-17): 2473 assets, 2246 no-cost, first machine
@@ -76,8 +80,8 @@ const db = adb.getDB();
 const EXPECTED_ASSETS  = 2473;
 const EXPECTED_NO_COST = 2246;
 
-test('all 2473 assets land — proves the BOM was stripped', () => {
-  const n = db.prepare('SELECT COUNT(*) c FROM assets').get().c;
+test('all 2473 assets land — proves the BOM was stripped', async () => {
+  const n = (await db.prepare('SELECT COUNT(*) c FROM assets').get()).c;
   console.log(`[assets-integration] assets rows loaded = ${n}`);
   assert.ok(n > 2000, `expected >2000 assets, got ${n} (BOM likely unstripped if 0)`);
   assert.strictEqual(n, EXPECTED_ASSETS, `expected exactly ${EXPECTED_ASSETS} assets`);
@@ -89,18 +93,18 @@ test('all 2473 assets land — proves the BOM was stripped', () => {
 const EXPECTED_SOFTWARE        = 9830;   // Software.csv = 9831 lines - 1 header
 const EXPECTED_UNDER_LICENSED  = 32;
 
-test('all 9830 software rows land — proves the BOM was stripped', () => {
-  const n = db.prepare('SELECT COUNT(*) c FROM software').get().c;
+test('all 9830 software rows land — proves the BOM was stripped', async () => {
+  const n = (await db.prepare('SELECT COUNT(*) c FROM software').get()).c;
   console.log(`[assets-integration] software rows loaded = ${n}`);
   assert.ok(n > 9000, `expected >9000 software rows, got ${n} (BOM likely unstripped if 0)`);
   assert.strictEqual(n, EXPECTED_SOFTWARE, `expected exactly ${EXPECTED_SOFTWARE} software rows`);
 });
 
-test('PIX4Dmapper row is captured RAW (compliance / installations / allowed)', () => {
-  const r = db.prepare(
+test('PIX4Dmapper row is captured RAW (compliance / installations / allowed)', async () => {
+  const r = (await db.prepare(
     "SELECT compliance_type, installations, installations_allowed FROM software " +
     "WHERE software_name LIKE 'PIX4Dmapper%'"
-  ).get();
+  ).get());
   assert.ok(r, 'PIX4Dmapper row exists');
   console.log(`[assets-integration] PIX4Dmapper compliance=${r.compliance_type} ` +
     `installs=${r.installations} allowed=${r.installations_allowed}`);
@@ -109,25 +113,25 @@ test('PIX4Dmapper row is captured RAW (compliance / installations / allowed)', (
   assert.strictEqual(r.installations_allowed, '1');
 });
 
-test("32 software rows are compliance_type = 'Under Licensed'", () => {
-  const n = db.prepare("SELECT COUNT(*) c FROM software WHERE compliance_type = 'Under Licensed'").get().c;
+test("32 software rows are compliance_type = 'Under Licensed'", async () => {
+  const n = (await db.prepare("SELECT COUNT(*) c FROM software WHERE compliance_type = 'Under Licensed'").get()).c;
   console.log(`[assets-integration] Under Licensed rows = ${n}`);
   assert.strictEqual(n, EXPECTED_UNDER_LICENSED, `expected exactly ${EXPECTED_UNDER_LICENSED} Under Licensed rows`);
 });
 
-test('no-cost filter (0.00/0/"") matches 2246 rows — NOT via IS NULL', () => {
-  const n = db.prepare("SELECT COUNT(*) c FROM assets WHERE purchase_cost IN ('0.00','0','')").get().c;
-  const viaReader = adb.getEnrichedAssets({}).filter(r => ['0.00','0',''].includes(r.purchase_cost)).length;
+test('no-cost filter (0.00/0/"") matches 2246 rows — NOT via IS NULL', async () => {
+  const n = (await db.prepare("SELECT COUNT(*) c FROM assets WHERE purchase_cost IN ('0.00','0','')").get()).c;
+  const viaReader = (await adb.getEnrichedAssets({})).filter(r => ['0.00','0',''].includes(r.purchase_cost)).length;
   console.log(`[assets-integration] no-cost rows = ${n}`);
   assert.strictEqual(n, EXPECTED_NO_COST, `expected exactly ${EXPECTED_NO_COST} no-cost assets`);
   assert.strictEqual(viaReader, EXPECTED_NO_COST, 'reader path agrees with the raw count');
 });
 
-test('getEnrichedAssets returns a real machine with ram_total_gb > 0 (RAM join works)', () => {
-  const rows = adb.getEnrichedAssets({});
+test('getEnrichedAssets returns a real machine with ram_total_gb > 0 (RAM join works)', async () => {
+  const rows = (await adb.getEnrichedAssets({}));
   // find the first asset_id that has memory rows in the fixture, programmatically
   const memWs = new Set(
-    db.prepare('SELECT DISTINCT workstation_id v FROM asset_memory WHERE workstation_id IS NOT NULL').all().map(r => r.v)
+    (await db.prepare('SELECT DISTINCT workstation_id v FROM asset_memory WHERE workstation_id IS NOT NULL').all()).map(r => r.v)
   );
   const target = rows.find(r => memWs.has(r.asset_id));
   assert.ok(target, 'at least one asset joins to memory');
@@ -135,8 +139,8 @@ test('getEnrichedAssets returns a real machine with ram_total_gb > 0 (RAM join w
   assert.ok(target.ram_total_gb > 0, 'ram_total_gb aggregated from asset_memory');
 });
 
-test('monitor_count and system_disk_free_pct are sane across the fleet', () => {
-  const rows = adb.getEnrichedAssets({});
+test('monitor_count and system_disk_free_pct are sane across the fleet', async () => {
+  const rows = (await adb.getEnrichedAssets({}));
   assert.ok(rows.every(r => r.monitor_count >= 0), 'monitor_count is never negative');
   assert.ok(rows.every(r => r.system_disk_free_pct == null || r.system_disk_free_pct >= 0),
     'free pct is null or non-negative');
@@ -147,12 +151,12 @@ test('monitor_count and system_disk_free_pct are sane across the fleet', () => {
 // Task 1 (Licence/Finance) — the finance columns + licence extras must now be captured
 // RAW from the real CSV. These assertions fail until 001_init.sql carries the new columns
 // AND the ASSET_VIEWS column maps are extended (nothing computes yet — just raw capture).
-test('finance columns populate on a real asset (current_book_value + total_cost_of_ownership)', () => {
+test('finance columns populate on a real asset (current_book_value + total_cost_of_ownership)', async () => {
   // pick the assertion target programmatically: the first asset with a non-empty book value
-  const target = db.prepare(
+  const target = (await db.prepare(
     "SELECT asset_id, current_book_value, total_cost_of_ownership FROM assets " +
     "WHERE current_book_value IS NOT NULL AND current_book_value != '' LIMIT 1"
-  ).get();
+  ).get());
   assert.ok(target, 'at least one asset has a non-empty current_book_value');
   console.log(`[assets-integration] finance sample ${target.asset_id} ` +
     `book=${target.current_book_value} tco=${target.total_cost_of_ownership}`);
@@ -162,11 +166,11 @@ test('finance columns populate on a real asset (current_book_value + total_cost_
     'total_cost_of_ownership captured (non-empty)');
 });
 
-test('licence extras populate (installations_allowed + license_option)', () => {
-  const target = db.prepare(
+test('licence extras populate (installations_allowed + license_option)', async () => {
+  const target = (await db.prepare(
     "SELECT license_id, installations_allowed, license_option FROM software_licenses " +
     "WHERE installations_allowed IS NOT NULL AND installations_allowed != '' LIMIT 1"
-  ).get();
+  ).get());
   assert.ok(target, 'at least one licence has a non-empty installations_allowed');
   console.log(`[assets-integration] licence sample ${target.license_id} ` +
     `installs=${target.installations_allowed} option=${target.license_option}`);
@@ -176,24 +180,4 @@ test('licence extras populate (installations_allowed + license_option)', () => {
     'license_option captured (non-empty)');
 });
 
-// copy-assets.js is CLI-guarded (require.main === module) so it is require-safe.
-// No prod assets.db exists, so a full parity copy is out of reach here — a require +
-// SQL-parse + table/column-coverage smoke is the guard.
-test('copy-assets module is require-safe and its TABLES cover every AP-synced asset table (plus the irreplaceable capture tables)', () => {
-  const cp = require('../tools/pg/copy-assets');
-  assert.strictEqual(typeof cp.copyAssets, 'function');
-  const names = cp.TABLES.map(t => t[0]);
-  // The 6 AP-synced view tables MUST all be copied. copy-assets ALSO (deliberately) copies the
-  // append-only capture tables (asset_effort_history, asset_reconcile_history, …) that a re-sync
-  // cannot rebuild — so TABLES is a SUPERSET of the synced views, never an exact match.
-  // (Re-aligned 2026-09-05: this used to assert equality and had been red since those tables landed.)
-  for (const v of ASSET_VIEWS) assert.ok(names.includes(v.table), `copy-assets TABLES covers synced view table ${v.table}`);
-  // every copy column exists in the live schema (assets.db was created from 001_init.sql)
-  for (const [table, cols] of cp.TABLES) {
-    const dbCols = new Set(db.prepare(`PRAGMA table_info(${table})`).all().map(r => r.name));
-    for (const c of cols) assert.ok(dbCols.has(c), `${table}.${c} exists in schema`);
-    // upsert SQL builds without throwing
-    const pk = cp.TABLES.find(t => t[0] === table)[2];
-    assert.match(cp._upsertSql(table, cols, pk), /^INSERT INTO/);
-  }
-});
+

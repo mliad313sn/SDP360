@@ -20,10 +20,11 @@ const DEF = { key: 'smoke-1', name: 'Smoke', version: 1, period: { kind: 'monthl
 
 before(async () => {
   const { app } = require('../server');
+  await require('../server').seedStores();
   rdb = require('../reports-db');
   const tdb = require('../tracker-db');
-  for (let i = 0; i < 50; i++) { if (tdb.getDB().prepare("SELECT 1 FROM sqlite_master WHERE name='tracker_definitions'").get() && tdb.getDB().prepare("SELECT 1 FROM tracker_definitions WHERE key='tpl-field-dispatch'").get()) break; await new Promise(r => setTimeout(r, 100)); }
-  const sites = rdb.listSites({ includeInactive: true });
+  for (let i = 0; i < 50; i++) { if ((await tdb.getDB().prepare("SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'tracker_definitions'").get()) && (await tdb.getDB().prepare("SELECT 1 FROM tracker_definitions WHERE key='tpl-field-dispatch'").get())) break; await new Promise(r => setTimeout(r, 100)); }
+  const sites = (await rdb.listSites({ includeInactive: true }));
   const hounde = sites.find((s) => /hounde/i.test(s.name)).id;
   try { await rdb.createUser({ username: 'tk_admin', full_name: 'A', password: 'adminpass1234', role: 'admin', roles: ['admin'] }); } catch {}
   try { await rdb.createUser({ username: 'tk_super', full_name: 'S', password: 'superpass1234', role: 'super_admin', roles: ['super_admin'] }); } catch {}

@@ -47,10 +47,10 @@ async function assertValidPptx(buf, label) {
 
 let D, inspLookups, mtgLookups;
 
-before(() => {
-  D           = trackerDb.loadTracker();
-  inspLookups = inspectionDb.loadLookups();
-  mtgLookups  = meetingsDb.loadLookups();
+before(async () => {
+  D           = (await trackerDb.loadTracker());
+  inspLookups = (await inspectionDb.loadLookups());
+  mtgLookups  = (await meetingsDb.loadLookups());
 });
 
 test('tracker-pptx — generateTrackerPptx produces a valid deck', async () => {

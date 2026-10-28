@@ -60,7 +60,7 @@ test('the access token is cached between calls', async () => {
 
 test('a refused token surfaces a readable error, never the secret', async () => {
   const c = makeSdpClient({ ...CFG, transport: fakeTransport([], { tokenFail: true }) });
-  await assert.rejects(() => c.listOpenRequests(), (e) => /invalid_client/.test(e.message) && !/csec|rtok/.test(e.message));
+  await assert.rejects(async () => c.listOpenRequests(), (e) => /invalid_client/.test(e.message) && !/csec|rtok/.test(e.message));
 });
 
 test('pagination is bounded (maxPages) so a runaway API cannot loop forever', async () => {

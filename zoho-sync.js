@@ -219,10 +219,7 @@ const EXPECTED_REQUEST_COLS = [
   'Request Template',
 ];
 
-// ── FULL-SYNC CADENCE ─────────────────────────────────────────────
-// Run reconciliation every FULL_SYNC_EVERY incremental syncs.
-// This keeps the daily cost low while still catching deletions promptly.
-const FULL_SYNC_EVERY = 4;
+
 
 /**
  * Decide whether this run should be a full-sync (reconciliation) run.
@@ -232,10 +229,7 @@ const FULL_SYNC_EVERY = 4;
  * @param {object|null} meta — row from sync_metadata (may be null first run)
  * @returns {boolean}
  */
-function shouldFullSync(meta) {
-  if (!meta || meta.sync_count == null) return true;  // first run
-  return meta.sync_count % FULL_SYNC_EVERY === 0;
-}
+
 
 
 // ── Truncation guard (Step 1, 2026-10-19) ─────────────────────────

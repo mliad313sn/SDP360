@@ -1,17 +1,15 @@
 'use strict';
-process.env.MEETINGS_BACKEND = 'sqlite';
-process.env.INSPECTION_BACKEND = 'sqlite';
 const test = require('node:test');
 const assert = require('node:assert');
 const path = require('path');
 const fs = require('fs');
 const { loadReviewData } = require('../services/reviewData');
 
-const SNAP = path.join(__dirname, '..', 'prod-snapshot');
-const hasSnap = fs.existsSync(path.join(SNAP, 'meetings.db'));
+// Snapshot mode: a restored COPY of the prod database (PostgreSQL), see tests/site-window-readers.test.js.
+const hasSnap = process.env.SDP_SNAPSHOT === '1' && !!process.env.SDP_TEST_PG_URL;
 
 test('returns the 7 EM_DATA arrays', { skip: !hasSnap && 'no prod-snapshot' }, async () => {
-  const D = await loadReviewData('2026-07-14', _snapDeps());
+  const D = await loadReviewData('2026-07-14', (await _snapDeps()));
   assert.deepStrictEqual(Object.keys(D).sort(),
     ['actions', 'findings', 'inspActions', 'inspections', 'issues', 'meetings', 'projects']);
 });
@@ -22,7 +20,7 @@ test('returns the 7 EM_DATA arrays', { skip: !hasSnap && 'no prod-snapshot' }, a
 // — a bare 7-way count test fails against a CORRECT reader.
 test('reproduces the fixture row counts (six arrays)', { skip: !hasSnap && 'no prod-snapshot' }, async () => {
   const EM = require('./fixtures/em-data.json');
-  const D = await loadReviewData('2026-07-14', _snapDeps());
+  const D = await loadReviewData('2026-07-14', (await _snapDeps()));
   for (const k of ['meetings', 'issues', 'actions', 'inspections', 'findings', 'projects']) {
     assert.strictEqual(D[k].length, EM[k].length, `${k}: ours ${D[k].length} vs fixture ${EM[k].length}`);
   }
@@ -30,7 +28,7 @@ test('reproduces the fixture row counts (six arrays)', { skip: !hasSnap && 'no p
 
 test('inspActions: the fixture is one row ahead of the snapshot — known, documented drift', { skip: !hasSnap && 'no prod-snapshot' }, async () => {
   const EM = require('./fixtures/em-data.json');
-  const D = await loadReviewData('2026-07-14', _snapDeps());
+  const D = await loadReviewData('2026-07-14', (await _snapDeps()));
   const ourIds = new Set(D.inspActions.map(a => String(a.id)));
   const extra = EM.inspActions.filter(a => !ourIds.has(String(a.id))).map(a => a.id);
   assert.deepStrictEqual(extra, ['84'], 'only id=84 (created 2026-07-12) should be fixture-only');
@@ -43,7 +41,7 @@ test('inspActions: the fixture is one row ahead of the snapshot — known, docum
 // THE REAL PROOF — the 5 denormalisation joins put the right value on the right row.
 test('denormalised site_code/meeting_date match the fixture row-for-row', { skip: !hasSnap && 'no prod-snapshot' }, async () => {
   const EM = require('./fixtures/em-data.json');
-  const D = await loadReviewData('2026-07-14', _snapDeps());
+  const D = await loadReviewData('2026-07-14', (await _snapDeps()));
   const byId = (arr) => Object.fromEntries(arr.map(r => [String(r.id), r]));
   for (const [k, fields] of [
     ['issues',   ['site_code', 'meeting_date', 'department', 'status', 'severity', 'target_date', 'closed_at', 'champion', 'title']],
@@ -71,21 +69,18 @@ test('denormalised site_code/meeting_date match the fixture row-for-row', { skip
 // findings have no id in EM_DATA — compare the (site_code, inspection_date) multiset instead.
 test('findings carry their parent inspection site/date', { skip: !hasSnap && 'no prod-snapshot' }, async () => {
   const EM = require('./fixtures/em-data.json');
-  const D = await loadReviewData('2026-07-14', _snapDeps());
+  const D = await loadReviewData('2026-07-14', (await _snapDeps()));
   const key = (f) => `${f.site_code}|${f.inspection_date}|${f.status}|${f.category}`;
   const tally = (arr) => arr.reduce((m, f) => (m[key(f)] = (m[key(f)] || 0) + 1, m), {});
   assert.deepStrictEqual(tally(D.findings), tally(EM.findings));
 });
 
 test('does NOT filter drafts — the boss export contains one and his model counts it', { skip: !hasSnap && 'no prod-snapshot' }, async () => {
-  const D = await loadReviewData('2026-07-14', _snapDeps());
+  const D = await loadReviewData('2026-07-14', (await _snapDeps()));
   assert.strictEqual(D.meetings.filter(m => m.status === 'draft').length, 1);
 });
 
-function _snapDeps() {
-  // point the two db modules at prod-snapshot/ read-only
-  const Database = require('better-sqlite3');
-  const mdb = new Database(path.join(SNAP, 'meetings.db'), { readonly: true });
-  const idb = new Database(path.join(SNAP, 'inspection.db'), { readonly: true });
-  return { meetingsHandle: mdb, inspectionHandle: idb };
+async function _snapDeps() {
+  // both modules read the snapshot database the file was booted on
+  return { meetingsHandle: require('../meetings-db').pgHandle(), inspectionHandle: require('../inspection-db').pgHandle() };
 }

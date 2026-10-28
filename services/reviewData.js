@@ -52,7 +52,7 @@ const _ISSUE_UPDATED_AT = {
 const sqlIssues = (pg) => `
   SELECT i.id, i.status, i.closed_at, i.target_date, i.severity, i.escalate,
          i.champion, i.champion_email, i.title,
-         ${pg ? _ISSUE_UPDATED_AT.pg : _ISSUE_UPDATED_AT.sqlite} AS updated_at,
+         ${(_ISSUE_UPDATED_AT.pg)} AS updated_at,
          m.site_code, m.meeting_date, m.department
     FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id`;
 

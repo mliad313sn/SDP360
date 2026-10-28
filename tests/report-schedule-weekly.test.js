@@ -9,10 +9,9 @@
 // "not implemented yet" and silently never send.
 const test = require('node:test');
 const assert = require('node:assert');
-const Database = require('better-sqlite3');
 const rs = require('../services/reportSchedule');
 
-function freshDb() { const db = new Database(':memory:'); rs._initSchema(db); return db; }
+async function freshDb() { return require('./_pg-fresh').fresh(['report_schedules']); }
 
 test('cliFor maps weekly_report → send-weekly.js and leaves the others alone', () => {
   assert.ok(rs.cliFor('weekly_report').endsWith('send-weekly.js'));
@@ -31,7 +30,7 @@ test('weekly_report must NOT route through send-reports.js (which would refuse i
 });
 
 test('setSchedule accepts report_type=weekly_report (TYPES includes it)', async () => {
-  const db = freshDb();
+  const db = (await freshDb());
   let captured = null;
   const r = await rs.setSchedule(
     db,
@@ -44,7 +43,7 @@ test('setSchedule accepts report_type=weekly_report (TYPES includes it)', async 
   assert.strictEqual(captured.report_type, 'weekly_report');
   assert.strictEqual(captured.taskName, 'SDP-Report-weekly_report-weekly');
 
-  const row = rs.getSchedules(db).find(x => x.report_type === 'weekly_report' && x.cadence === 'weekly');
+  const row = (await rs.getSchedules(db)).find(x => x.report_type === 'weekly_report' && x.cadence === 'weekly');
   assert.ok(row, 'weekly_report row persisted');
   assert.strictEqual(row.enabled, 1);
   assert.strictEqual(row.day, 'MON');

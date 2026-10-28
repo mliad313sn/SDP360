@@ -1,7 +1,8 @@
 'use strict';
-// PostgreSQL-only server (user decision 2026-10-28). (1) the boot guard refuses SQLite unless
-// SDP_ALLOW_SQLITE=1; (2) with REPORTS_BACKEND=postgres no reports.db file is created, the default admin
-// is seeded in PostgreSQL, and any sqlite use after load throws SQLITE_DISABLED.
+// PostgreSQL is the only database (PO-08, 2026-10-28 — SQLite removed from the code base).
+// (1) the boot guard refuses to start without PG_URL; (2) a fresh database gets its default
+// admin and default sites from PostgreSQL, and no SQLite file is ever created; (3) nothing in
+// the shipped code (outside tests/vendor) still loads better-sqlite3.
 const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('fs'), os = require('os'), path = require('path');
@@ -9,23 +10,20 @@ const { execFileSync } = require('child_process');
 const G = require('../services/backendGuard');
 const { provisionTestDb, dropTestDb } = require('./pg-helpers');
 
-const ALL_PG = { REPORTS_BACKEND: 'postgres', TRACKER_BACKEND: 'postgres', MEETINGS_BACKEND: 'postgres', INSPECTION_BACKEND: 'postgres', ASSETS_BACKEND: 'postgres' };
-
-test('guard: all modules on PostgreSQL → allowed', () => {
-  assert.equal(G.assertBootAllowed({ ...ALL_PG }).sqlite.length, 0);
+test('guard: PG_URL set → allowed', () => {
+  assert.equal(G.assertBootAllowed({ PG_URL: 'postgres://x@h/db' }).ok, true);
+  assert.equal(G.assertBootAllowed({ DATABASE_URL: 'postgres://x@h/db' }).ok, true);
 });
-test('guard: one module on SQLite → refused by default, naming the variable', () => {
-  assert.throws(() => G.assertBootAllowed({ ...ALL_PG, ASSETS_BACKEND: '' }), (e) => e.code === 'SQLITE_NOT_ALLOWED' && /ASSETS_BACKEND=postgres/.test(e.message));
-});
-test('guard: SDP_ALLOW_SQLITE=1 (tests/dev) → allowed with the list', () => {
-  assert.deepEqual(G.assertBootAllowed({ SDP_ALLOW_SQLITE: '1' }).sqlite, ['reports', 'tracker', 'meetings', 'inspection', 'assets']);
+test('guard: no PG_URL → refused, whatever the old *_BACKEND variables say', () => {
+  assert.throws(() => G.assertBootAllowed({ REPORTS_BACKEND: 'sqlite' }), (e) => e.code === 'PG_URL_REQUIRED');
+  assert.throws(() => G.assertBootAllowed({}), (e) => e.code === 'PG_URL_REQUIRED');
 });
 test('guard: explicit production without a secrets key → refused', () => {
-  assert.throws(() => G.assertBootAllowed({ ...ALL_PG, REQUIRE_POSTGRES: '1' }), (e) => e.code === 'CONFIG_KEY_REQUIRED');
-  assert.ok(G.assertBootAllowed({ ...ALL_PG, REQUIRE_POSTGRES: '1', SDP_CONFIG_KEY: 'x'.repeat(16) }));
+  assert.throws(() => G.assertBootAllowed({ PG_URL: 'postgres://x@h/db', REQUIRE_POSTGRES: '1' }), (e) => e.code === 'CONFIG_KEY_REQUIRED');
+  assert.ok(G.assertBootAllowed({ PG_URL: 'postgres://x@h/db', REQUIRE_POSTGRES: '1', SDP_CONFIG_KEY: 'x'.repeat(16) }));
 });
 
-test('reports-db on PostgreSQL: no reports.db file, admin seeded in PG, sqlite locked', async (t) => {
+test('fresh PostgreSQL database: admin + default sites seeded, no .db file anywhere', async (t) => {
   const ctx = await provisionTestDb(); if (!ctx) return t.skip('no pg');
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pgonly-'));
   try {
@@ -34,14 +32,29 @@ test('reports-db on PostgreSQL: no reports.db file, admin seeded in PG, sqlite l
       (async () => {
         await rdb.initPgReports();
         const u = await rdb.pgHandle().prepare("SELECT username, role FROM users WHERE username = 'pg-only-admin'").get();
-        let locked = null; try { rdb.db.prepare('SELECT 1').get(); } catch (e) { locked = e.code; }
-        console.log(JSON.stringify({ admin: u, locked }));
+        const sites = (await rdb.listSites()).map((s) => s.name);
+        console.log(JSON.stringify({ admin: u, sites }));
         process.exit(0);
       })().catch((e) => { console.error(e.message); process.exit(1); });`],
-    { env: { ...process.env, ...ALL_PG, PG_URL: ctx.url, SDP_DATA_DIR: dir, DASH_USER: 'pg-only-admin', DASH_PASS: 'pg-only-pass-0000' }, encoding: 'utf8' });
+    { env: { ...process.env, PG_URL: ctx.url, SDP_DATA_DIR: dir, DASH_USER: 'pg-only-admin', DASH_PASS: 'pg-only-pass-0000', NODE_OPTIONS: '' }, encoding: 'utf8' });
     const r = JSON.parse(out.trim().split('\n').pop());
     assert.deepEqual(r.admin, { username: 'pg-only-admin', role: 'admin' }, 'default admin seeded in PostgreSQL');
-    assert.equal(r.locked, 'SQLITE_DISABLED', 'sqlite use after load throws');
-    assert.ok(!fs.existsSync(path.join(dir, 'reports.db')), 'no reports.db file created');
+    for (const n of ['Sabodala', 'MANA', 'Hounde']) assert.ok(r.sites.includes(n), 'default site ' + n);
+    assert.deepEqual(fs.readdirSync(dir).filter((f) => /\.db$/.test(f)), [], 'no SQLite file created');
   } finally { await dropTestDb(ctx); }
+});
+
+test('no shipped code loads better-sqlite3, and the dependency is gone', () => {
+  const root = path.join(__dirname, '..');
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  assert.equal((pkg.dependencies || {})['better-sqlite3'], undefined, 'package.json dependency');
+  const hits = [];
+  const walk = (d) => { for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+    if (['node_modules', '.git', 'vendor', 'tests', 'docs'].includes(e.name)) continue;
+    const p = path.join(d, e.name);
+    if (e.isDirectory()) walk(p);
+    else if (/\.(c?js|mjs)$/.test(e.name) && /require\(['"]better-sqlite3['"]\)/.test(fs.readFileSync(p, 'utf8'))) hits.push(path.relative(root, p));
+  } };
+  walk(root);
+  assert.deepEqual(hits, []);
 });
