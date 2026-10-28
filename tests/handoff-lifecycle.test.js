@@ -20,11 +20,12 @@ test('only the named receiver accepts; reasons required; terminal states are fin
   assert.equal(L.check(h({ status: 'requested' }), 'verified', req).code, 'BAD_STAGE');
 });
 
-test('verification by the requesting side, never by the deliverer; admin may verify if it did not deliver', () => {
+test('verification by the requesting side, never by the deliverer; an admin never verifies in place of the requester', () => {
   const d = h({ status: 'delivered', delivered_by: 2 });
   assert.equal(L.check(d, 'verified', rec).status, 403);
   assert.equal(L.check(d, 'verified', req), null);
   assert.equal(L.check(h({ status: 'delivered', delivered_by: 9 }), 'verified', admin).code, 'SOD');
+  assert.equal(L.check(h({ status: 'delivered', delivered_by: 2 }), 'verified', admin).status, 403, 'an admin never verifies for the requester');
   assert.equal(L.check(d, 'accepted', req, { reason: 'redo it' }), null, 'rework');
 });
 

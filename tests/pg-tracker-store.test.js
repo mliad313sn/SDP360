@@ -31,7 +31,7 @@ test('pg: tracker store parity (draft → publish → entries upsert → targets
     assert.equal((await s.rollback('pgk', 1)).definition.name, 'PG');
     for (const tpl of TEMPLATES) await s.saveDraft(tpl, {});
     assert.equal((await s.list({ status: 'draft' })).length, TEMPLATES.length);
-    await s.setStatus('pgk', 'retired'); await s.remove('pgk'); assert.equal(await s.get('pgk'), null);
-    assert.equal(Number((await tdb.pgHandle().prepare('SELECT COUNT(*) AS n FROM tracker_entries WHERE key=?').get('pgk')).n), 0, 'cascade');
+    await s.setStatus('pgk', 'retired'); await assert.rejects(async () => s.remove('pgk'), (e) => e.status === 409);
+    assert.ok(Number((await tdb.pgHandle().prepare('SELECT COUNT(*) AS n FROM tracker_definition_versions WHERE key=?').get('pgk')).n) >= 2, 'versions kept');
   } finally { await dropTestDb(ctx); }
 });

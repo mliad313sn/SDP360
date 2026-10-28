@@ -26,7 +26,7 @@ before(async () => {
   const sites = await rdb.listSites({ includeInactive: true });
   hounde = sites.find((s) => /hounde/i.test(s.name)).id; mana = sites.find((s) => /^mana$/i.test(s.name)).id;
   const mk = async (k, roles, site) => { const u = 'gp_' + k; try { await rdb.createUser({ username: u, full_name: u, password: u + 'pass1234', roles, site_id: site }); } catch {} T[k] = (await rdb.login(u, u + 'pass1234')).token; };
-  await mk('super', ['super_admin']); await mk('admin', ['admin']); await mk('member', ['viewer', 'committee-member']);
+  await mk('super', ['super_admin']); await mk('super2', ['super_admin']); await mk('admin', ['admin']); await mk('member', ['viewer', 'committee-member']);
   await mk('pub', ['editor', 'dashboard-publisher'], hounde); await mk('manaEd', ['editor'], mana); await mk('viewer', ['viewer'], hounde);
   await mk('recv', ['viewer'], hounde);
   await new Promise((r) => { server = http.createServer(app).listen(0, '127.0.0.1', r); });
@@ -42,8 +42,17 @@ test('read / write rights: committee reads, admin writes, protected relaxation n
   assert.equal(v.ok, true); assert.equal(v.can_write, false); assert.ok(v.policies.length >= 20);
   assert.equal((await put(T.member, 'global', 'handoffs.reason_min', 8, 'tighter')).status, 403);
   assert.equal((await put(T.admin, `site:${hounde}`, 'publication.four_eyes', false, 'one-person site office')).status, 403);
+  // dual approval: the first super_admin only proposes (202); the same person cannot approve; a second one does
   const ok = await put(T.super, `site:${hounde}`, 'publication.four_eyes', false, 'one-person site office for now');
-  assert.equal(ok.status, 200); assert.equal((await ok.json()).change.relaxes, true);
+  assert.equal(ok.status, 202); const prop = (await ok.json()).pending; assert.ok(prop && prop.id);
+  const pl = await (await send('GET', '/api/governance/policies/proposals', T.member)).json();
+  assert.ok(pl.proposals.some((x) => x.id === prop.id));
+  assert.equal((await send('POST', `/api/governance/policies/proposals/${prop.id}/approve`, T.super, { reason: 'self approve' })).status, 403);
+  assert.equal((await send('POST', `/api/governance/policies/proposals/${prop.id}/approve`, T.admin, { reason: 'admin approve' })).status, 403);
+  const ap = await send('POST', `/api/governance/policies/proposals/${prop.id}/approve`, T.super2, { reason: 'agreed until a second person is hired' });
+  assert.equal(ap.status, 200);
+  const proposed = await rdb.db.prepare("SELECT COUNT(*) AS n FROM system_log WHERE action='policy_relaxation_proposed'").get();
+  assert.ok(Number(proposed.n) >= 1, 'proposal logged');
   const h = await (await send('GET', '/api/governance/policies/history', T.member)).json();
   assert.ok(h.history.some((x) => x.key === 'publication.four_eyes' && x.relaxes));
   const logged = await rdb.db.prepare("SELECT COUNT(*) AS n FROM system_log WHERE action='policy_relaxed'").get();
@@ -80,12 +89,25 @@ test('handoff reason minimum and missed grace follow the policy', async () => {
   const c = await (await send('PUT', '/api/governance/cadences', T.admin, { key: 'gp-cad', name: 'GP', kind: 'site_weekly', site_id: hounde })).json();
   const s = (await (await send('POST', `/api/governance/cadences/${c.cadence.id}/sessions`, T.admin, { scheduled_at: new Date(Date.now() - 10 * 3600e3).toISOString() })).json()).session;
   assert.equal((await (await send('GET', `/api/governance/sessions/${s.id}`, T.admin)).json()).session.stage, 'planned');
+  const missedBefore = (await (await send('GET', '/api/governance/overview', T.admin)).json()).compliance_30d.missed;
   await put(T.admin, `site:${hounde}`, 'meetings.missed_grace_hours', 6, 'weekly site meetings start on time');
   assert.equal((await (await send('GET', `/api/governance/sessions/${s.id}`, T.admin)).json()).session.stage, 'missed');
+  // the overview judges each cadence with its own site's policy (committee QA P1-7) — same answer as the detail
+  assert.equal((await (await send('GET', '/api/governance/overview', T.admin)).json()).compliance_30d.missed, missedBefore + 1);
 });
 
 test('bounds are enforced and platform-only rules refuse a site value', async () => {
   assert.equal((await put(T.super, 'global', 'meetings.missed_grace_hours', 0, 'never miss')).status, 400);
   assert.equal((await put(T.super, `site:${hounde}`, 'freshness.helpdesk_hours', 1, 'site value')).status, 400);
   assert.equal((await put(T.super, 'site:abc', 'handoffs.reason_min', 6, 'bad scope')).status, 400);
+});
+
+test('oversight register: relaxations and deviations, JSON and CSV; committee only', async () => {
+  assert.equal((await send('GET', '/api/governance/oversight', T.viewer)).status, 403);
+  const o = await (await send('GET', '/api/governance/oversight', T.member)).json();
+  assert.ok(o.relaxations.some((x) => x.key === 'publication.four_eyes'));
+  assert.ok(Array.isArray(o.deviations));
+  const csv = await send('GET', '/api/governance/oversight?format=csv', T.member);
+  assert.equal(csv.status, 200); assert.match(csv.headers.get('content-type') || '', /csv/);
+  assert.match(await csv.text(), /publication\.four_eyes/);
 });

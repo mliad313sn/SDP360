@@ -60,6 +60,7 @@ function check(s, action, actor, o = {}) {
       if (st === 'cancelled') return no(409, 'BAD_STAGE', 'the session is cancelled');
       return null;
     case 'reschedule':
+      if (st === 'missed') return no(409, 'MISSED', 'a missed session cannot be moved to erase the miss — cancel it with a reason (an exception the committee approves)');
       if (s.status !== 'planned') return no(409, 'BAD_STAGE', 'only a planned session can be rescheduled');
       return null;
     case 'cancel':
@@ -118,4 +119,17 @@ function compliance(sessions, now = new Date(), pol = null) {
   return c;
 }
 
-module.exports = { GRACE_HOURS, STAGES, stage, check, inEffectiveWindow, compliance };
+/**
+ * Compliance over several contexts (committee architect P1-4 / QA P1-7): each group of sessions is
+ * judged with ITS OWN policy (a site's grace and cancellation rules), then the counts are summed —
+ * the overview and the per-site view can no longer disagree on "missed".
+ */
+function complianceByContext(groups, now = new Date()) {
+  const tot = { planned: 0, held: 0, logged: 0, accepted: 0, missed: 0, cancelled: 0, excused: 0, unexcused: 0, in_progress: 0 };
+  for (const g of groups || []) { const c = compliance(g.sessions, now, g.policy); for (const k of Object.keys(tot)) tot[k] += c[k]; }
+  const due = tot.held + tot.unexcused;
+  tot.held_pct = due ? Math.round(1000 * tot.held / due) / 10 : null;
+  return tot;
+}
+
+module.exports = { GRACE_HOURS, STAGES, stage, check, inEffectiveWindow, compliance, complianceByContext };

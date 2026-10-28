@@ -115,11 +115,10 @@ module.exports = function reportStudioRoutes(deps) {
       // Switch, limits, override and reason length are governance policies (services/governancePolicy).
       const mods = gate.modulesOf(r, registry()); const fr = gate.freshness(mods, await lastOkFor(gate.jobsFor(mods)), Date.now(), pol);
       let override = null;
-      if (!fr.fresh && pol['reports.freshness_gate'] !== false) {
-        const reason = String((req.body && req.body.override_reason) || '').trim(); const min = Number(pol['reports.override_reason_min']) || 10;
-        const canOverride = pol['reports.override_allowed'] !== false && isAdmin(req.reportUser);
-        if (!(canOverride && reason.length >= min)) return res.status(409).json({ ok: false, error: 'stale_sources', message: pol['reports.override_allowed'] === false ? 'a source behind this report is stale or has never synced; override is disabled by policy' : `a source behind this report is stale or has never synced; an admin may publish with override_reason (${min}+ characters)`, sources: fr.sources.filter(x => x.state !== 'FRESH') });
-        override = { by: req.reportUser.id, at: new Date().toISOString(), reason: reason.slice(0, 1000), sources: fr.sources.filter(x => x.state !== 'FRESH') };
+      const fd = gate.reportFreshnessDecision(fr, { isAdmin: isAdmin(req.reportUser), reason: req.body && req.body.override_reason, policy: pol });
+      if (!fd.allow) return res.status(fd.status).json({ ok: false, error: fd.error, message: fd.message, sources: fr.sources.filter(x => x.state !== 'FRESH') });
+      if (fd.override) {
+        override = { by: req.reportUser.id, at: new Date().toISOString(), reason: fd.override.reason, sources: fr.sources.filter(x => x.state !== 'FRESH') };
         try { rdb().logEvent({ category: 'reports', action: 'report_publish_override', target: String(r.id), details: override, risk: 1, ...rdb()._logCtx(req) }); } catch (_) {}
       }
       const out = await store.setStatus(r.id, 'published', { user: req.reportUser, override }); await rerenderRun(out); log(req, 'report_published', r.id, { override: !!override });
@@ -141,8 +140,7 @@ module.exports = function reportStudioRoutes(deps) {
   router.post('/api/report-studio/runs/:id/withdraw', requireReportSession, json, async (req, res) => {
     try { if (!isAdmin(req.reportUser)) return res.status(403).json({ ok: false, error: 'admin role required' });
       const r = await visibleRun(req, res, { write: true }); if (!r) return; if (r.status !== 'published') return res.status(409).json({ ok: false, error: 'only a published run can be withdrawn' });
-      const wmin = Number((await policyFor(r))['reports.withdraw_reason_min']) || 5;
-      const reason = String((req.body && req.body.reason) || '').trim(); if (reason.length < wmin) return res.status(400).json({ ok: false, error: `reason required (${wmin}+ characters)` });
+      const reason = String((req.body && req.body.reason) || '').trim(); const wErr = gate.withdrawReasonError(reason, await policyFor(r)); if (wErr) return res.status(400).json({ ok: false, error: wErr });
       const out = await store.setStatus(r.id, 'withdrawn', { user: req.reportUser, note: reason }); await rerenderRun(out); log(req, 'report_withdrawn', r.id, { reason });
       res.json({ ok: true, run: { ...out, html: undefined } }); } catch (e) { fail(res, e); }
   });

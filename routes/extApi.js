@@ -67,11 +67,12 @@ module.exports = function extApiRoutes(deps) {
     for (const m of mods) out[m] = gate.moduleFreshness(m, lastOk, nowMs, pol).state;
     return out;
   }
+  const isPublished = (m) => !m.status || m.status === 'published';
   async function values(keys, { site = null, window = null } = {}) {
     const reg = registry(); const dd = readerDeps(); const now = new Date(); const all = await sites(); const out = [];
     const fr = await freshnessByModule([...new Set(keys.slice(0, MAX_METRICS).map((k) => reg.get(k)).filter(Boolean).map((m) => m.module))]);
-    const tag = (row) => { const st = fr[row.module] || 'FRESH'; row.freshness = st; row.authoritative = st === 'FRESH'; return row; };
-    for (const k of keys.slice(0, MAX_METRICS)) { const m = reg.get(k); if (!m) continue; const fleet = /\.fleet$/.test(m.reader || ''); const targets = fleet ? [null] : (site != null ? all.filter(s => s.id === Number(site)) : all);
+    const tag = (row) => { const st = fr[row.module] || 'UNKNOWN'; row.freshness = st; row.authoritative = st === 'FRESH'; return row; };
+    for (const k of keys.slice(0, MAX_METRICS)) { const m = reg.get(k); if (!m || !isPublished(m)) continue; /* a draft KPI never leaves the platform (committee security) */ const fleet = /\.fleet$/.test(m.reader || ''); const targets = fleet ? [null] : (site != null ? all.filter(s => s.id === Number(site)) : all);
       for (const s of targets) { try { const r = await reg.resolve(k, { site: s ? s.id : null, window, deps: dd, now }); out.push(tag({ metric: k, name: m.name, module: m.module, site_id: s ? s.id : null, site: s ? s.name : 'fleet', window: r && r.window && r.window.label || null, value: r ? r.value : null, unit: m.unit, rag: r ? r.rag : 'NA', as_of: r && r.as_of || null })); } catch (e) { out.push(tag({ metric: k, module: m.module, site_id: s ? s.id : null, site: s ? s.name : 'fleet', value: null, unit: m.unit, rag: 'NA', error: 'reader_error' })); } } }
     return out;
   }
@@ -82,7 +83,7 @@ module.exports = function extApiRoutes(deps) {
   router.use(['/ext/v1', '/ext/odata'], auth);
   router.get('/ext/v1/metrics', needScope('metrics:read'), (req, res) => res.json({ metrics: dict(), as_of: new Date().toISOString() }));
   router.get('/ext/v1/sites', needScope('sites:read'), async (req, res) => { try { res.json({ sites: await sites() }); } catch (e) { res.status(500).json({ error: 'internal_error' }); } });
-  router.get('/ext/v1/metrics/:key/values', needScope('values:read'), async (req, res) => { try { if (!registry().has(req.params.key)) return res.status(404).json({ error: 'unknown metric' }); const vs = await values([req.params.key], { site: req.query.site, window: req.query.window ? String(req.query.window).slice(0, 24) : null }); freshHeader(res, vs); res.json({ metric: req.params.key, values: vs }); } catch (e) { res.status(500).json({ error: 'internal_error' }); } });
+  router.get('/ext/v1/metrics/:key/values', needScope('values:read'), async (req, res) => { try { if (!registry().has(req.params.key) || !isPublished(registry().get(req.params.key))) return res.status(404).json({ error: 'unknown metric' }); const vs = await values([req.params.key], { site: req.query.site, window: req.query.window ? String(req.query.window).slice(0, 24) : null }); freshHeader(res, vs); res.json({ metric: req.params.key, values: vs }); } catch (e) { res.status(500).json({ error: 'internal_error' }); } });
   router.get('/ext/v1/values', needScope('values:read'), async (req, res) => { try { const keys = String(req.query.metrics || '').split(',').map(k => k.trim()).filter(Boolean); if (!keys.length) return res.status(400).json({ error: 'metrics=a,b required' }); if (keys.length > MAX_METRICS) return res.status(400).json({ error: `at most ${MAX_METRICS} metrics per call` }); const vs = await values(keys, { site: req.query.site, window: req.query.window ? String(req.query.window).slice(0, 24) : null }); freshHeader(res, vs); res.json({ values: vs }); } catch (e) { res.status(500).json({ error: 'internal_error' }); } });
 
   // Fiche M7 — the OData base is the configured `public_base_url` (the address Power BI really

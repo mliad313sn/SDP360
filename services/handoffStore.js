@@ -29,11 +29,12 @@ function makeHandoffStore(db, { now = () => new Date().toISOString() } = {}) {
       .map((e) => ({ ...e, id: Number(e.id), actor_id: e.actor_id == null ? null : Number(e.actor_id), details: e.details ? JSON.parse(e.details) : null }));
     return h;
   }
+  // References come from a sequence (migration 029): unique under concurrent creates, never reused.
   async function nextRef(year) {
-    const rows = await P('SELECT ref FROM handoffs WHERE ref LIKE ?').all(`HO-${year}-%`);
-    const n = rows.reduce((m, r) => Math.max(m, Number(String(r.ref).split('-').pop()) || 0), 0) + 1;
-    return `HO-${year}-${String(n).padStart(3, '0')}`;
+    const r = await P("SELECT nextval('handoff_ref_seq') AS n").get();
+    return `HO-${year}-${String(Number(r.n)).padStart(4, '0')}`;
   }
+  const tx = async (fn) => (db.runTransaction ? db.runTransaction(fn) : fn());
 
   /** d = { title, description, site_id, from_department, to_department, receiver_id, due_date, source_kind, source_ref, commitment_id, idem_key } */
   async function create(d, { user } = {}) {
@@ -54,6 +55,7 @@ function makeHandoffStore(db, { now = () => new Date().toISOString() } = {}) {
         str(d.source_kind, 40), str(d.source_ref, 120), d.commitment_id == null || d.commitment_id === '' ? null : Number(d.commitment_id), idem, t, t);
     const id = r && (r.id != null ? Number(r.id) : r.lastID != null ? Number(r.lastID) : null);
     if (!id && idem) { const ex = await P('SELECT id FROM handoffs WHERE requested_by=? AND idem_key=?').get(Number(user.id), idem); return { handoff: await get(ex.id), created: false }; }   // concurrent double submit
+    if (!id) throw typed('CONFLICT', 'the handoff could not be created — retry', 409);
     await event(id, user.id, 'created', null, 'requested', { receiver_id: Number(d.receiver_id), to_department: str(d.to_department, 120) });
     return { handoff: await get(id), created: true };
   }
@@ -75,8 +77,12 @@ function makeHandoffStore(db, { now = () => new Date().toISOString() } = {}) {
     if (to === 'verified') { sets.verified_at = t; sets.verified_by = Number(actor.id); }
     if (to === 'accepted' && h.status === 'delivered') { sets.delivered_at = null; sets.delivered_by = null; }   // rework
     if (h.status === 'escalated') { sets.escalated_from = null; }
-    await bump(h, expectedVersion, sets);
-    await event(h.id, actor.id, to === 'accepted' && h.status === 'delivered' ? 'rework' : 'transition', h.status, to, reason ? { reason: str(reason, 1000) } : null);
+    // the change and its audit event are one unit (audit P1-2); "acting for" is explicit (audit P2-10)
+    const actingFor = actor.isAdmin && !L.isRequester(h, actor) && !L.isReceiver(h, actor) ? 'admin_for_requester' : null;
+    await tx(async () => {
+      await bump(h, expectedVersion, sets);
+      await event(h.id, actor.id, to === 'accepted' && h.status === 'delivered' ? 'rework' : 'transition', h.status, to, reason || actingFor ? { reason: reason ? str(reason, 1000) : undefined, acting_for: actingFor || undefined } : null);
+    });
     return get(h.id);
   }
 
@@ -84,8 +90,10 @@ function makeHandoffStore(db, { now = () => new Date().toISOString() } = {}) {
     const h = await getRaw(id); if (!h) throw typed('NOT_FOUND', 'handoff not found', 404);
     const c = L.checkReassign(h, actor, newReceiverId, { reason, policy });
     if (c) throw typed(c.code, c.error, c.status);
-    await bump(h, expectedVersion, { receiver_id: Number(newReceiverId), status: 'requested', accepted_at: null, escalated_from: null, last_reason: str(reason, 1000) });
-    await event(h.id, actor.id, 'reassigned', h.status, 'requested', { from_receiver: h.receiver_id, to_receiver: Number(newReceiverId), reason: str(reason, 1000) });
+    await tx(async () => {
+      await bump(h, expectedVersion, { receiver_id: Number(newReceiverId), status: 'requested', accepted_at: null, escalated_from: null, last_reason: str(reason, 1000) });
+      await event(h.id, actor.id, 'reassigned', h.status, 'requested', { from_receiver: h.receiver_id, to_receiver: Number(newReceiverId), reason: str(reason, 1000) });
+    });
     return get(h.id);
   }
 
@@ -93,16 +101,21 @@ function makeHandoffStore(db, { now = () => new Date().toISOString() } = {}) {
   /** policyFor(siteId) → resolved policy (per-site switch and grace). Absent → defaults. */
   async function escalateOverdue({ today, policyFor = null } = {}) {
     const d = String(today || now()).slice(0, 10);
-    const rows = (await P(`SELECT * FROM handoffs WHERE status IN ('requested','accepted','blocked') AND due_date IS NOT NULL AND due_date < ?`).all(d)).map(row);
+    // escalated ONCE per due date: a handoff resumed after an escalation is not re-escalated every hour (QA P1-2);
+    // a new due date (moved by reassignment or agreement) can escalate again.
+    const rows = (await P(`SELECT * FROM handoffs WHERE status IN ('requested','accepted','blocked') AND due_date IS NOT NULL AND due_date < ? AND (escalated_for_due IS NULL OR escalated_for_due <> due_date)`).all(d)).map(row);
     const out = [];
     const bySite = new Map(); for (const h of rows) { if (!bySite.has(h.site_id)) bySite.set(h.site_id, []); bySite.get(h.site_id).push(h); }
     const due = [];
     for (const [sid, list] of bySite) due.push(...L.overdue(list, d, policyFor ? await policyFor(sid) : null));
     for (const h of due) {
-      const r = await P(`UPDATE handoffs SET status='escalated', escalated_from=?, escalated_at=?, version=version+1, updated_at=? WHERE id=? AND version=?`).run(h.status, now(), now(), h.id, h.version);
-      if (Number(r && r.changes) !== 1) continue;
-      await event(h.id, null, 'escalated_overdue', h.status, 'escalated', { due_date: h.due_date });
-      out.push({ ...h, escalated_from: h.status, status: 'escalated' });
+      const ok = await tx(async () => {
+        const r = await P(`UPDATE handoffs SET status='escalated', escalated_from=?, escalated_at=?, escalated_for_due=due_date, version=version+1, updated_at=? WHERE id=? AND version=?`).run(h.status, now(), now(), h.id, h.version);
+        if (Number(r && r.changes) !== 1) return false;
+        await event(h.id, null, 'escalated_overdue', h.status, 'escalated', { due_date: h.due_date });
+        return true;
+      });
+      if (ok) out.push({ ...h, escalated_from: h.status, status: 'escalated' });
     }
     return out;
   }

@@ -115,6 +115,10 @@ test('overdue handoffs are escalated once; the scheduled job is inert while the 
   const first = await store.escalateOverdue({ today: '2026-10-28' });
   assert.ok(first.some((x) => x.id === h.id && x.escalated_from === 'requested'));
   assert.equal((await store.escalateOverdue({ today: '2026-10-28' })).filter((x) => x.id === h.id).length, 0, 'escalated once');
+  // resumed (accepted) but still late with the SAME due date → not escalated again
+  await rdb.db.prepare("UPDATE handoffs SET status='accepted' WHERE id=?").run(h.id);
+  assert.equal((await store.escalateOverdue({ today: '2026-10-29' })).filter((x) => x.id === h.id).length, 0, 'not re-escalated for the same due date');
+  await rdb.db.prepare("UPDATE handoffs SET status='escalated' WHERE id=?").run(h.id);
   const after = (await json(await send('GET', `/api/handoffs/${h.id}`, P.itlead))).body.handoff;
   assert.equal(after.status, 'escalated'); assert.ok(after.events.some((e) => e.action === 'escalated_overdue' && e.actor_id === null));
   void H;
@@ -137,4 +141,19 @@ test('scope: another site sees nothing and gets 404 on a Hounde handoff; the adm
   assert.equal((await send('POST', `/api/handoffs/${ID.h2}/transition`, P.mana, { to: 'cancelled', version: 1, reason: 'not mine' })).status, 404);
   const a = (await json(await send('GET', '/api/handoffs', P.admin))).body;
   assert.ok(a.handoffs.length >= 5);
+});
+
+test('receiver picker is site-scoped; the create form gives one answer for unknown, inactive and other-site receivers; idem_key never leaves the server', async () => {
+  const r = await json(await send('GET', `/api/handoffs/people?site=${hounde}`, P.itlead));
+  assert.equal(r.status, 200); assert.ok(r.body.people.length >= 1); assert.ok(r.body.people.every((p) => p.id && p.name && !('email' in p)));
+  assert.equal((await send('GET', `/api/handoffs/people?site=${hounde}`, P.mana)).status, 403);
+  const msgs = new Set();
+  for (const receiver of ['nobody_here_zz', 'ho_mana']) {
+    const x = await json(await send('POST', '/api/handoffs', P.itlead, mkBody({ title: 'Probe ' + receiver, receiver })));
+    assert.equal(x.status, 400); msgs.add(x.body.error);
+  }
+  assert.equal(msgs.size, 1, 'same message whatever the reason');
+  const list = (await json(await send('GET', '/api/handoffs', P.itlead))).body;
+  assert.ok(Array.isArray(list.sites) && list.sites.every((s) => s.id && s.name));
+  assert.ok(list.handoffs.every((h) => !('idem_key' in h)));
 });

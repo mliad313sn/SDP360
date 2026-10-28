@@ -54,3 +54,22 @@ test('list scopes site-pinned dashboards to the caller sites (fleet ones always 
   assert.deepEqual((await s.list({ status: 'published', siteIds: [5] })).map(d => d.key).sort(), ['fleet', 'sgo']);
   assert.deepEqual((await s.list({ status: 'published', siteIds: null })).map(d => d.key).sort(), ['fleet', 'hgo', 'sgo']);
 });
+
+test('publish race (committee QA P1-1): a draft edited after the decision is never published; two publishers cannot both publish', async () => {
+  const s = await fresh();
+  await s.saveDraft(doc(), { user: { id: 7 }, metrics: METRICS });
+  await s.submit('k1', { user: { id: 7 } });
+  const seen = await s.get('k1');
+  // someone edits the draft after the publisher read it
+  await new Promise((r) => setTimeout(r, 5));
+  await s.saveDraft(doc({ title: 'edited behind your back' }), { user: { id: 7 }, metrics: METRICS });
+  await assert.rejects(async () => s.publish('k1', { user: { id: 8 }, expect: { updated_at: seen.updated_at, submitted_at: seen.submitted_at } }), (e) => e.status === 409 && e.code === 'STALE');
+  assert.equal(await s.published('k1'), null, 'nothing published');
+  // two concurrent publishes of the same reviewed draft: exactly one wins
+  await s.submit('k1', { user: { id: 7 } });
+  const now = await s.get('k1');
+  const exp = { updated_at: now.updated_at, submitted_at: now.submitted_at };
+  const r = await Promise.allSettled([s.publish('k1', { user: { id: 8 }, expect: exp }), s.publish('k1', { user: { id: 9 }, expect: exp })]);
+  assert.equal(r.filter((x) => x.status === 'fulfilled').length, 1);
+  assert.equal((await s.versions('k1')).length, 1, 'one version row');
+});

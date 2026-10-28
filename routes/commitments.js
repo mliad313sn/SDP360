@@ -20,7 +20,7 @@ const { fail: httpFail, typed } = require('../services/httpError');
 
 function createStore(rdbMod) {
   const pg = rdbMod.REPORTS_BACKEND === 'postgres';
-  const st = require('../services/commitmentStore').makeCommitmentStore(({ prepare: (sql) => rdbMod.pgHandle().prepare(sql) }), { isPg: pg });
+  const st = require('../services/commitmentStore').makeCommitmentStore(({ prepare: (sql) => rdbMod.pgHandle().prepare(sql), runTransaction: (fn) => rdbMod.pgHandle().runTransaction(fn) }), { isPg: pg });
   
   return st;
 }
@@ -36,7 +36,7 @@ module.exports = function commitmentsRoutes(deps) {
   const fail = (res, e) => httpFail(res, e);
 
   const isAdmin = (u) => rdb().userHasRole(u, 'admin');
-  const identities = (u) => [u && u.username, u && u.email, u && u.full_name].filter(Boolean);
+  const identities = (u) => [u && u.username, u && u.email].filter(Boolean);   // never the full name (namesakes) — security P1-3
   const actorOf = (u, c) => ({ id: u.id, username: u.username, full_name: u.full_name, email: u.email, isAdmin: isAdmin(u),
     canEdit: rdb().userHasRole(u, 'editor') && c && c.site_id != null && userSites.hasSite(u, c.site_id) });
   const log = (req, action, target, details) => { try { rdb().logEvent({ category: 'commitments', action, target: String(target), details, ...rdb()._logCtx(req) }); } catch (_) {} };

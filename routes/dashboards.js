@@ -161,11 +161,12 @@ module.exports = function dashboardsRoutes(deps) {
       const dec = require('../services/publishGate').publishDecision(d, req.reportUser, { isAdmin: isAdmin(req.reportUser), overrideReason: req.body && req.body.override_reason, policy: await require('../services/governancePolicy').forContext({ siteId: d.site_id }) });
       if (!dec.allow) return res.status(dec.status).json({ ok: false, error: dec.error, code: dec.code, message: dec.message });
       if (dec.override) rdb().logEvent({ category: 'dashboards', action: 'dashboard_publish_override', target: d.key, details: dec.override, risk: 1, ...rdb()._logCtx(req) });
-      const out = await store.publish(d.key, { user: req.reportUser, note: req.body && req.body.note ? String(req.body.note).slice(0, 500) : null, override: dec.override });
+      const out = await store.publish(d.key, { user: req.reportUser, note: req.body && req.body.note ? String(req.body.note).slice(0, 500) : null, override: dec.override, expect: { updated_at: d.updated_at, submitted_at: d.submitted_at } });
       rdb().logEvent({ category: 'dashboards', action: 'dashboard_published', target: d.key, details: { version: out.version, submitted_by: d.submitted_by, override: !!dec.override }, ...rdb()._logCtx(req) });
       res.json({ ok: true, dashboard: out });
     } catch (e) {
       if (e.code === 'INVALID') return fail(res, e, 400, { ok: false });
+      if (e.code === 'STALE') return fail(res, e, 409, { ok: false, code: 'STALE' });
       fail(res, e, 500, { ok: false });
     }
   });
@@ -210,8 +211,9 @@ module.exports = function dashboardsRoutes(deps) {
       if (d.status === 'published') return res.status(409).json({ ok: false, error: 'retire it first' });
       if (!isAdmin(req.reportUser) && d.owner_id != null && d.owner_id !== req.reportUser.id) return res.status(403).json({ ok: false, error: 'owned by another publisher' });
       await store.remove(d.key);
+      rdb().logEvent({ category: 'dashboards', action: 'dashboard_deleted', target: d.key, ...rdb()._logCtx(req) });
       res.json({ ok: true });
-    } catch (e) { fail(res, e, 500, { ok: false }); }
+    } catch (e) { if (e.code === 'CONFLICT') return fail(res, e, 409, { ok: false }); fail(res, e, 500, { ok: false }); }
   });
 
   return router;

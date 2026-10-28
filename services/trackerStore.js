@@ -78,16 +78,22 @@ function makeTrackerStore(db, { isPg = false, now = () => new Date().toISOString
     return get(key);
   }
 
-  async function publish(key, { user, note = null, override = null } = {}) {
+  /** expect = { updated_at, submitted_at } read when the decision was taken — see dashboardStore.publish (QA P1-1). */
+  async function publish(key, { user, note = null, override = null, expect = null } = {}) {
     const d = await get(key); if (!d) return null;
+    if (expect && (!sameTs(d.updated_at, expect.updated_at) || !sameTs(d.submitted_at, expect.submitted_at))) throw stale();
     const v = Defs.validate(d.definition);
     if (!v.ok) { const e = new Error('cannot publish an invalid draft'); e.code = 'INVALID'; e.errors = v.errors; throw e; }
     const next = (d.version || 0) + 1, ts = now();
     const snap = { ...d.definition, version: next };
+    const claim = await P(`UPDATE tracker_definitions SET status='published', version=?, definition=?, published_at=?, updated_at=?, review_state=NULL, submitted_by=NULL, submitted_at=NULL, publish_override=? WHERE key=? AND updated_at IS NOT DISTINCT FROM ? AND submitted_at IS NOT DISTINCT FROM ?`)
+      .run(next, JSON.stringify(snap), ts, ts, override ? JSON.stringify(override) : null, key, d.updated_at == null ? null : d.updated_at, d.submitted_at == null ? null : d.submitted_at);
+    if (!claim || Number(claim.changes) !== 1) throw stale();
     await P(`INSERT INTO tracker_definition_versions (key, version, definition, note, created_by, created_at) VALUES (?,?,?,?,?,?)`).run(key, next, JSON.stringify(snap), note, user ? user.id : null, ts);
-    await P(`UPDATE tracker_definitions SET status='published', version=?, definition=?, published_at=?, updated_at=?, review_state=NULL, submitted_by=NULL, submitted_at=NULL, publish_override=? WHERE key=?`).run(next, JSON.stringify(snap), ts, ts, override ? JSON.stringify(override) : null, key);
     return get(key);
   }
+  function sameTs(a, b) { if (a == null || b == null) return a == null && b == null; const x = +new Date(a), y = +new Date(b); return Number.isFinite(x) && x === y; }
+  function stale() { const e = new Error('the draft changed since you opened it — reload and review it again'); e.code = 'STALE'; e.status = 409; e.expose = true; return e; }
   async function setStatus(key, status) {
     if (!STATUSES.includes(status)) throw new Error('bad status ' + status);
     await P(`UPDATE tracker_definitions SET status=?, updated_at=? WHERE key=?`).run(status, now(), key); return get(key);
@@ -108,6 +114,8 @@ function makeTrackerStore(db, { isPg = false, now = () => new Date().toISOString
     const v = await version(key, d.version); return v ? { ...d, definition: v.definition } : null;
   }
   async function remove(key) {
+    const ever = await P(`SELECT 1 AS x FROM tracker_definitions WHERE key=? AND (published_at IS NOT NULL OR EXISTS (SELECT 1 FROM tracker_definition_versions v WHERE v.key=tracker_definitions.key))`).get(key);
+    if (ever) { const e = new Error('a definition that was ever published is retired, never deleted — its versions are evidence (committee audit P1-7)'); e.code = 'CONFLICT'; e.status = 409; e.expose = true; throw e; }
     for (const t of ['tracker_entries', 'tracker_unit_targets', 'tracker_definition_versions']) await P(`DELETE FROM ${t} WHERE key=? AND EXISTS (SELECT 1 FROM tracker_definitions WHERE key=? AND status IN ('draft','retired'))`).run(key, key);
     await P(`DELETE FROM tracker_definitions WHERE key=? AND status IN ('draft','retired')`).run(key);
   }

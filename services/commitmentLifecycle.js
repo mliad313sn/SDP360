@@ -52,7 +52,11 @@ function isSelf(c, actor) {
   if (!c || !actor) return false;
   return _is(actor, c.accountable_owner) || _execs(c).some((e) => _is(actor, e)) || _is(actor, c.created_by);
 }
-const isReviewer = (c, actor) => _is(actor, c && c.reviewer);
+// A grant (who may VERIFY) matches only a unique identity — username or e-mail — never a full name
+// (namesakes are common) nor a bare numeric id typed into the field (committee security P1-3).
+// Refusals (isSelf) keep the broad match: more matches there only means more caution.
+function _grantIds(actor) { return [actor && actor.username, actor && actor.email].map(_s).filter(Boolean); }
+const isReviewer = (c, actor) => { const w = _s(c && c.reviewer); return !!w && _grantIds(actor).includes(w); };
 
 /** Severity rule (high / critical): owner + (due date OR approved exception) + treatment plan. Returns missing fields. */
 function severityGaps(c) {

@@ -89,3 +89,20 @@ test('edit rule: past captured, a serious commitment cannot lose its owner, plan
   m = await s.update(m.id, { severity: 'critical', accountable_owner: 'bob', due_date: '2026-12-01', treatment_plan: 'fix' }, { user: ed, expectedVersion: m.version });
   assert.equal(m.severity, 'critical');
 });
+
+test('committee P1-1: muting a site leaves its open escalations open (not "cleared"); unmuting does not count a new episode', async () => {
+  const s = makeCommitmentStore(await require('./_pg-fresh').freshStore(TABLES)); await s.init();
+  const a = (await s.create({ kind: 'issue', title: 'Generator down', site_id: 3, severity: 'critical' }, { user: ed })).commitment;
+  let muted = false;
+  const policyFor = async (sid) => ({ 'commitments.escalation_enabled': !(muted && sid === 3) });
+  assert.equal((await s.escalate({ policyFor })).raised.length, 1);
+  muted = true;
+  const r = await s.escalate({ policyFor });
+  assert.equal(r.cleared, 0); assert.equal(r.muted, 1);
+  assert.equal((await s.listEscalations({})).length, 1, 'still open');
+  muted = false;
+  const back = await s.escalate({ policyFor });
+  assert.equal(back.raised.length, 0); assert.equal(back.kept, 1);
+  assert.equal((await s.listEscalations({}))[0].episodes, 1);
+  void a;
+});

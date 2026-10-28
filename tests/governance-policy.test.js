@@ -40,7 +40,7 @@ test('resolveFrom: site → global → default; a platform-only rule ignores a s
 });
 
 test('store on PostgreSQL: guardrails, history, site scope, clear = inherit, cache invalidated', async () => {
-  await require('./_pg-fresh').truncate(['governance_policies', 'governance_policy_history']);
+  await require('./_pg-fresh').truncate(['governance_policies', 'governance_policy_history', 'governance_policy_proposals']);
   const st = GP.makePolicyStore(() => require('../reports-db').pgHandle());
   const admin = { id: 1, isAdmin: true, isSuper: false }, sup = { id: 2, isAdmin: true, isSuper: true };
   await assert.rejects(async () => st.set({ scope: 'global', key: 'nope', value: 1, reason: 'x y z', actor: sup }), /unknown policy/);
@@ -52,9 +52,30 @@ test('store on PostgreSQL: guardrails, history, site scope, clear = inherit, cac
   let c = await st.set({ scope: 'global', key: 'freshness.helpdesk_hours', value: 2, reason: 'tighter SLA', actor: admin });
   assert.equal(c.relaxes, false); assert.equal((await st.snapshot({}))['freshness.helpdesk_hours'], 2);
   // site override of a protected rule, relaxing → super_admin
+  // dual approval (committee P0-1): the relaxation is only a proposal until a SECOND super_admin approves
+  const sup2 = { id: 3, isAdmin: true, isSuper: true };
   c = await st.set({ scope: 'site:7', key: 'publication.four_eyes', value: false, reason: 'one-person office in Dakar', actor: sup });
-  assert.equal(c.relaxes, true);
+  assert.equal(c.relaxes, true); assert.ok(c.pending && c.pending.id, 'pending proposal');
+  assert.equal((await st.snapshot({ siteId: 7 }))['publication.four_eyes'], true, 'nothing changes before approval');
+  await assert.rejects(async () => st.set({ scope: 'site:7', key: 'publication.four_eyes', value: false, reason: 'one-person office in Dakar', actor: sup2 }), (e) => e.status === 409, 'one pending proposal per rule');
+  await assert.rejects(async () => st.decide(c.pending.id, 'approve', { actor: sup, reason: 'self' }), (e) => e.status === 403, 'the proposer never approves');
+  await assert.rejects(async () => st.decide(c.pending.id, 'approve', { actor: admin, reason: 'admin' }), (e) => e.status === 403, 'an admin never approves');
+  const ap = await st.decide(c.pending.id, 'approve', { actor: sup2, reason: 'agreed until hire' });
+  assert.equal(ap.status, 'approved'); assert.ok(ap.expires_at, 'a relaxation is temporary');
+  assert.ok(Date.parse(ap.expires_at) - Date.now() <= 90 * 864e5 + 6e4, 'capped by governance.relaxation_max_days');
+  await assert.rejects(async () => st.decide(c.pending.id, 'approve', { actor: sup2, reason: 'again' }), (e) => e.status === 409);
   assert.equal((await st.snapshot({ siteId: 7 }))['publication.four_eyes'], false);
+  const hp = (await st.history({})).find((x) => x.key === 'publication.four_eyes');
+  assert.equal(Number(hp.proposed_by), 2); assert.equal(Number(hp.approved_by), 3);
+  // a rejected proposal changes nothing
+  const rj = await st.set({ scope: 'site:8', key: 'reports.four_eyes', value: false, reason: 'small office request', actor: sup });
+  assert.equal((await st.decide(rj.pending.id, 'reject', { actor: sup2, reason: 'no, keep four-eyes' })).status, 'rejected');
+  assert.equal((await st.snapshot({ siteId: 8 }))['reports.four_eyes'], true);
+  assert.equal((await st.listProposals({})).length, 0);
+  // oversight: the approved relaxation, and the site-7 deviation flagged less strict
+  const ov = await st.oversight({});
+  assert.equal(ov.relaxations.length, 1); assert.equal(ov.proposals.length, 2);
+  assert.ok(ov.deviations.some((d) => d.scope === 'site:7' && d.key === 'publication.four_eyes' && d.less_strict));
   assert.equal((await st.snapshot({ siteId: 8 }))['publication.four_eyes'], true, 'other sites keep the default');
   // clearing the override re-tightens (not a relaxation) and returns to inherit
   c = await st.set({ scope: 'site:7', key: 'publication.four_eyes', value: null, reason: 'second person hired', actor: admin });

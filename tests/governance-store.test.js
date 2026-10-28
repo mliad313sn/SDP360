@@ -40,7 +40,7 @@ test('decisions + session actions: DEC-YYYY-NNN sequence per year, close stamps 
   await assert.rejects(async () => s.addDecision({}), /title/);
   const c = await s.saveCadence({ key: 'c', name: 'C' }); const ses = await s.createSession({ cadenceId: c.id, agenda: null });
   const a = await s.addSessionAction(ses.id, { title: 'Fix', owner: 'Bob', source_kind: 'decision', source_ref: d2.ref }); assert.equal(a.status, 'open');
-  await s.setSessionActionStatus(a.id, 'done'); assert.ok((await s.sessionActions(ses.id))[0].closed_at);
+  await s.setSessionActionStatus(a.id, 'done', ses.id); assert.ok((await s.sessionActions(ses.id))[0].closed_at);
 });
 
 test('RFI: kinds enforced, score = impact×3 − effort − data_risk, list sorted by score, triage clamps 1..3', async () => {

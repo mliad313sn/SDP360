@@ -103,5 +103,5 @@ test('legacy: compare passes ±0.1 pt, import creates a draft with entries, cut-
   const onr = await send('PUT', '/api/trackers/legacy/cutover', superT, { cutover: true }); const on = await onr.json(); assert.equal(on.cutover, true, 'HTTP ' + onr.status + ' ' + JSON.stringify(on));
   assert.equal((await (await get('/api/trackers/legacy/cutover', admin)).json()).cutover, true);
   await send('PUT', '/api/trackers/legacy/cutover', superT, { cutover: false });
-  await send('POST', '/api/trackers/it-activity-2026/retire', admin); assert.equal((await send('DELETE', '/api/trackers/it-activity-2026', admin)).status, 200);
+  await send('POST', '/api/trackers/it-activity-2026/retire', admin); assert.equal((await send('DELETE', '/api/trackers/it-activity-2026', admin)).status, 200, 'an imported draft that was never published can still be deleted');
 });

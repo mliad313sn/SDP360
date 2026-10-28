@@ -54,6 +54,10 @@ module.exports = function governanceRoutes(deps) {
   const fail = (res, e) => httpFail(res, e, undefined, { ok: false });
   const log = (req, action, target, details) => { try { rdb().logEvent({ category: 'governance', action, target: String(target), details, ...rdb()._logCtx(req) }); } catch (_) {} };
   const canRun = (u, cad) => isCommittee(u) || (cad && (Number(cad.chair_id) === Number(u.id) || Number(cad.secretary_id) === Number(u.id))) || (cad && cad.site_id != null && rdb().userHasRole(u, 'editor') && userSites.hasSite(u, cad.site_id));
+  // A group-level (site-less) cadence is the committee's: its sessions and minutes are read by the
+  // committee, its chair / secretary and its named participants only (committee security review).
+  const isParticipant = (u, cad) => { const me = [u && u.username, u && u.email].filter(Boolean).map(x => String(x).toLowerCase()); return (cad && cad.participants || []).some(p => me.includes(String(p).toLowerCase())); };
+  const seesCadence = (u, cad) => !cad || cad.site_id != null || isCommittee(u) || canRun(u, cad) || isParticipant(u, cad);
   const canDecide = (u, cad) => isAdmin(u) || (cad && (Number(cad.chair_id) === Number(u.id) || Number(cad.secretary_id) === Number(u.id)));
   // The RFI register is the committee's; anyone else sees their own requests and their sites' (G-08).
   const rfiScope = (u) => (isCommittee(u) ? null : { userId: u.id, siteIds: userSites.siteIds(u) });
@@ -71,6 +75,7 @@ module.exports = function governanceRoutes(deps) {
     const cad = await store.getCadence(s.cadence_id);
     const u = req.reportUser;
     if (!isCommittee(u) && cad && cad.site_id != null && !userSites.hasSite(u, cad.site_id) && !canRun(u, cad)) { res.status(403).json({ ok: false, error: 'session belongs to another site' }); return null; }
+    if (!seesCadence(u, cad)) { res.status(403).json({ ok: false, error: 'group sessions are read by the committee and their participants' }); return null; }
     if (run && !canRun(u, cad)) { res.status(403).json({ ok: false, error: 'only the chair, the secretary, the site editors or the committee may run this session' }); return null; }
     if (decide && !canDecide(u, cad)) { res.status(403).json({ ok: false, error: 'only the chair, the secretary or an admin may record a decision' }); return null; }
     return { s, cad };
@@ -140,14 +145,18 @@ module.exports = function governanceRoutes(deps) {
       const today = new Date().toISOString().slice(0, 10);
       const allowedCad = new Set(cad.map(c => c.id));
       const since = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
-      const compliance30d = SL.compliance(sess.filter(s => allowedCad.has(s.cadence_id) && String(s.scheduled_at || '').slice(0, 10) >= since), new Date(), await GP.forContext({}));
+      const recent = sess.filter(s => allowedCad.has(s.cadence_id) && String(s.scheduled_at || '').slice(0, 10) >= since);
+      const cadById = new Map(cad.map(c => [c.id, c]));
+      const groups = [];
+      for (const id of new Set(recent.map(s => s.cadence_id))) groups.push({ sessions: recent.filter(s => s.cadence_id === id), policy: await polFor(cadById.get(id)) });
+      const compliance30d = SL.complianceByContext(groups, new Date());
       res.json({ ok: true, committee: isCommittee(req.reportUser), cadences: cad.length, compliance_30d: compliance30d, sessions_held_30d: sess.filter(s => s.status === 'closed' && String(s.closed_at || '').slice(0, 10) >= new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10)).length, sessions_planned: sess.filter(s => s.status === 'planned').length,
         decisions_open: dec.length, decisions_overdue: dec.filter(d => d.due_date && d.due_date < today).length, rfi_to_triage: rfi.filter(r => r.status === 'submitted').length, rfi_in_flight: rfi.filter(r => r.status !== 'submitted').length });
     } catch (e) { fail(res, e); }
   });
 
   // ---- cadences ---------------------------------------------------------------------------
-  router.get('/api/governance/cadences', requireReportSession, async (req, res) => { try { const ids = await scopeIds(req.reportUser); const sites = ((await rdb().listSites({ includeInactive: false })) || []).filter(s => !ids || ids.includes(Number(s.id))).map(s => ({ id: s.id, name: s.name })); res.json({ ok: true, committee: isCommittee(req.reportUser), sites, cadences: await store.listCadences({ siteIds: ids, includeInactive: isCommittee(req.reportUser) }) }); } catch (e) { fail(res, e); } });
+  router.get('/api/governance/cadences', requireReportSession, async (req, res) => { try { const ids = await scopeIds(req.reportUser); const sites = ((await rdb().listSites({ includeInactive: false })) || []).filter(s => !ids || ids.includes(Number(s.id))).map(s => ({ id: s.id, name: s.name })); res.json({ ok: true, committee: isCommittee(req.reportUser), sites, cadences: (await store.listCadences({ siteIds: ids, includeInactive: isCommittee(req.reportUser) })).filter(c => seesCadence(req.reportUser, c)) }); } catch (e) { fail(res, e); } });
   router.put('/api/governance/cadences', requireReportSession, requireCommittee, json, async (req, res) => { try { const c = await store.saveCadence(req.body, { user: req.reportUser }); log(req, 'cadence_saved', c.key); res.json({ ok: true, cadence: c }); } catch (e) { fail(res, e); } });
   router.delete('/api/governance/cadences/:id', requireReportSession, requireCommittee, async (req, res) => { try { await store.removeCadence(req.params.id); log(req, 'cadence_removed', req.params.id); res.json({ ok: true }); } catch (e) { fail(res, e); } });
   router.post('/api/governance/cadences/:id/sessions', requireReportSession, json, async (req, res) => {
@@ -166,7 +175,7 @@ module.exports = function governanceRoutes(deps) {
 
   // ---- sessions ---------------------------------------------------------------------------
   router.get('/api/governance/sessions', requireReportSession, async (req, res) => {
-    try { const ids = await scopeIds(req.reportUser); const cads = await store.listCadences({ siteIds: ids, includeInactive: true }); const allowed = new Set(cads.map(c => c.id));
+    try { const ids = await scopeIds(req.reportUser); const cads = (await store.listCadences({ siteIds: ids, includeInactive: true })).filter(c => seesCadence(req.reportUser, c)); const allowed = new Set(cads.map(c => c.id));
       const rows = (await store.listSessions({ cadenceId: req.query.cadence || null, status: req.query.status || null, limit: req.query.limit })).filter(s => allowed.has(s.cadence_id));
       res.json({ ok: true, sessions: rows.map(s => ({ ...s, cadence: (cads.find(c => c.id === s.cadence_id) || {}).name })) }); } catch (e) { fail(res, e); }
   });
@@ -174,10 +183,10 @@ module.exports = function governanceRoutes(deps) {
     try { const x = await loadSession(req, res); if (!x) return; res.json({ ok: true, session: (await withStage(x.s, req.reportUser, x.cad)), cadence: x.cad, decisions: await store.listDecisions({ sessionId: x.s.id }), actions: await store.sessionActions(x.s.id), can_run: canRun(req.reportUser, x.cad), can_decide: canDecide(req.reportUser, x.cad) }); } catch (e) { fail(res, e); }
   });
   router.put('/api/governance/sessions/:id', requireReportSession, json, async (req, res) => {
-    try { const x = await loadSession(req, res, { run: true }); if (!x) return; if (await lifecycle(req, res, x, 'edit')) return; if (req.body.scheduled_at && await lifecycle(req, res, x, 'reschedule')) return; const p = {}; if (Array.isArray(req.body.attendees)) p.attendees = req.body.attendees.map(a => String(a).slice(0, 120)).slice(0, 50); if (req.body.notes !== undefined) p.notes = String(req.body.notes).slice(0, 20000); if (req.body.scheduled_at) p.scheduled_at = String(req.body.scheduled_at).slice(0, 25); res.json({ ok: true, session: await store.updateSession(x.s.id, p) }); } catch (e) { fail(res, e); }
+    try { const x = await loadSession(req, res, { run: true }); if (!x) return; if (await lifecycle(req, res, x, 'edit')) return; if (req.body.scheduled_at && await lifecycle(req, res, x, 'reschedule')) return; const p = {}; if (Array.isArray(req.body.attendees)) p.attendees = req.body.attendees.map(a => String(a).slice(0, 120)).slice(0, 50); if (req.body.notes !== undefined) p.notes = String(req.body.notes).slice(0, 20000); if (req.body.scheduled_at) p.scheduled_at = String(req.body.scheduled_at).slice(0, 25); const out = await store.updateSession(x.s.id, p); if (p.scheduled_at) log(req, 'session_rescheduled', x.s.id, { from: x.s.scheduled_at, to: p.scheduled_at }); res.json({ ok: true, session: out }); } catch (e) { fail(res, e); }
   });
   router.post('/api/governance/sessions/:id/start', requireReportSession, async (req, res) => {
-    try { const x = await loadSession(req, res, { run: true }); if (!x) return; if (await lifecycle(req, res, x, 'start')) return; const s = await store.updateSession(x.s.id, { status: 'live', started_at: x.s.started_at || new Date().toISOString() }); log(req, 'session_started', s.id); res.json({ ok: true, session: s }); } catch (e) { fail(res, e); }
+    try { const x = await loadSession(req, res, { run: true }); if (!x) return; if (await lifecycle(req, res, x, 'start')) return; const s = await store.moveSession(x.s.id, 'planned', { status: 'live', started_at: x.s.started_at || new Date().toISOString() }); if (!s) return res.status(409).json({ ok: false, error: 'the session changed meanwhile — reload', code: 'CONFLICT' }); log(req, 'session_started', s.id); res.json({ ok: true, session: s }); } catch (e) { fail(res, e); }
   });
   router.post('/api/governance/sessions/:id/items/:item/:op', requireReportSession, json, async (req, res) => {
     try { const x = await loadSession(req, res, { run: true }); if (!x) return; if (await lifecycle(req, res, x, 'edit')) return; const op = req.params.op; const item = String(req.params.item).slice(0, 40);
@@ -192,7 +201,11 @@ module.exports = function governanceRoutes(deps) {
     try { const x = await loadSession(req, res, { run: true }); if (!x) return; if (await lifecycle(req, res, x, 'edit')) return; const a = await store.addSessionAction(x.s.id, req.body, { user: req.reportUser }); log(req, 'session_action_added', a.id, { session: x.s.id }); res.json({ ok: true, action: a }); } catch (e) { fail(res, e); }
   });
   router.put('/api/governance/sessions/:id/actions/:aid', requireReportSession, json, async (req, res) => {
-    try { const x = await loadSession(req, res, { run: true }); if (!x) return; await store.setSessionActionStatus(req.params.aid, req.body && req.body.status); res.json({ ok: true, actions: await store.sessionActions(x.s.id) }); } catch (e) { fail(res, e); }
+    // follow-up status stays editable after acceptance (the work lives on); the action must belong to THIS session
+    try { const x = await loadSession(req, res, { run: true }); if (!x) return;
+      const n = await store.setSessionActionStatus(req.params.aid, req.body && req.body.status, x.s.id);
+      if (!n) return res.status(404).json({ ok: false, error: 'action not found in this session' });
+      log(req, 'session_action_status', req.params.aid, { session: x.s.id, status: req.body && req.body.status }); res.json({ ok: true, actions: await store.sessionActions(x.s.id) }); } catch (e) { fail(res, e); }
   });
   async function minutesFor(x) {
     const sites = (await rdb().listSites({ includeInactive: true })) || []; const site = x.cad && x.cad.site_id != null ? sites.find(s => Number(s.id) === Number(x.cad.site_id)) : null;
@@ -200,13 +213,14 @@ module.exports = function governanceRoutes(deps) {
     return renderMinutes({ cadence: x.cad, session: x.s, decisions: await store.listDecisions({ sessionId: x.s.id }), actions: await store.sessionActions(x.s.id), siteName: site ? site.name : null, baseUrl: cfg.public_base_url || '' });
   }
   router.post('/api/governance/sessions/:id/close', requireReportSession, async (req, res) => {
-    try { const x = await loadSession(req, res, { run: true }); if (!x) return; if (await lifecycle(req, res, x, 'close')) return; x.s.closed_at = new Date().toISOString(); x.s.status = 'closed'; const html = await minutesFor(x); const s = await store.updateSession(x.s.id, { status: 'closed', closed_at: x.s.closed_at, closed_by: req.reportUser.id, minutes_html: html }); log(req, 'session_closed', s.id); res.json({ ok: true, session: { ...(await withStage(s, req.reportUser, x.cad)), minutes_html: undefined }, minutes_bytes: html.length }); } catch (e) { fail(res, e); }
+    try { const x = await loadSession(req, res, { run: true }); if (!x) return; if (await lifecycle(req, res, x, 'close')) return; x.s.closed_at = new Date().toISOString(); x.s.status = 'closed'; const html = await minutesFor(x); const s = await store.moveSession(x.s.id, 'live', { status: 'closed', closed_at: x.s.closed_at, closed_by: req.reportUser.id, minutes_html: html }); if (!s) return res.status(409).json({ ok: false, error: 'the session changed meanwhile — reload', code: 'CONFLICT' }); log(req, 'session_closed', s.id); res.json({ ok: true, session: { ...(await withStage(s, req.reportUser, x.cad)), minutes_html: undefined }, minutes_bytes: html.length }); } catch (e) { fail(res, e); }
   });
   // G-21 — cancellation (an exception the committee approves), minutes acceptance (four-eyes), admin reopen.
   router.post('/api/governance/sessions/:id/cancel', requireReportSession, json, async (req, res) => {
     try { const x = await loadSession(req, res); if (!x) return; const reason = String((req.body && req.body.reason) || '').trim(); if (await lifecycle(req, res, x, 'cancel', { reason })) return;
       // always pending: the exception is approved by a committee member OTHER than the canceller (four-eyes)
-      const s = await store.updateSession(x.s.id, { status: 'cancelled', cancelled_at: new Date().toISOString(), cancelled_by: req.reportUser.id, cancel_reason: reason.slice(0, 1000), exception_status: 'pending' });
+      const s = await store.moveSession(x.s.id, 'planned', { status: 'cancelled', cancelled_at: new Date().toISOString(), cancelled_by: req.reportUser.id, cancel_reason: reason.slice(0, 1000), exception_status: 'pending' });
+      if (!s) return res.status(409).json({ ok: false, error: 'the session changed meanwhile — reload', code: 'CONFLICT' });
       log(req, 'session_cancelled', s.id, { exception: s.exception_status }); res.json({ ok: true, session: (await withStage(s, req.reportUser, x.cad)) }); } catch (e) { fail(res, e); }
   });
   router.post('/api/governance/sessions/:id/exception/approve', requireReportSession, async (req, res) => {
@@ -222,7 +236,8 @@ module.exports = function governanceRoutes(deps) {
   router.post('/api/governance/sessions/:id/reopen', requireReportSession, json, async (req, res) => {
     try { const x = await loadSession(req, res); if (!x) return; const reason = String((req.body && req.body.reason) || '').trim(); if (await lifecycle(req, res, x, 'reopen', { reason })) return;
       // back to live: the minutes are re-recorded at the next close and need a new acceptance
-      const s = await store.updateSession(x.s.id, { status: 'live', minutes_accepted_at: null, minutes_accepted_by: null, reopen_reason: reason.slice(0, 1000) });
+      const s = await store.moveSession(x.s.id, 'closed', { status: 'live', minutes_accepted_at: null, minutes_accepted_by: null, reopen_reason: reason.slice(0, 1000) });
+      if (!s) return res.status(409).json({ ok: false, error: 'the session changed meanwhile — reload', code: 'CONFLICT' });
       log(req, 'minutes_reopened', s.id, { reason: reason.slice(0, 200) }); res.json({ ok: true, session: { ...(await withStage(s, req.reportUser, x.cad)), minutes_html: undefined } }); } catch (e) { fail(res, e); }
   });
   router.get('/api/governance/sessions/:id/minutes.html', requireReportSession, async (req, res) => { try { const x = await loadSession(req, res); if (!x) return; res.type('html').send(x.s.minutes_html || await minutesFor(x)); } catch (e) { fail(res, e); } });

@@ -5304,10 +5304,16 @@ async function _rateLimitBumpPg(scope, key, now, windowMs) {
 
 // Step 4 — audit retention: delete system_log rows older than `months` (default 12), never
 // the risk-flagged ones younger than `riskMonths` (default 24). Returns the deleted count.
-function purgeSystemLog({ months = 12, riskMonths = 24, now = new Date() } = {}) {
+// Audit-trail retention (committee audit P1-8): risk events AND every governance-class event (policy
+// changes, overrides, handoffs, commitments, publication and minutes decisions) are kept 7 years —
+// UK Companies Act 6 years + one. Ordinary activity rows follow AUDIT_RETENTION_MONTHS (12).
+const GOVERNANCE_LOG_CATEGORIES = Object.freeze(['governance', 'commitments', 'handoffs', 'reports', 'trackers', 'dashboards', 'security']);
+function purgeSystemLog({ months = 12, riskMonths = Number(process.env.AUDIT_RISK_RETENTION_MONTHS) || 84, now = new Date() } = {}) {
   const cut = (m) => { const d = new Date(now); d.setUTCMonth(d.getUTCMonth() - m); return d.toISOString(); };
-  const sql = `DELETE FROM system_log WHERE (risk = 0 AND ts < ?) OR (risk = 1 AND ts < ?)`;
-  return pgHandle().prepare(sql).run(cut(months), cut(riskMonths)).then((r) => ({ deleted: Number(r && (r.changes ?? r.rowCount)) || 0 }));
+  const keep = Math.max(84, Number(riskMonths) || 84);   // never below 7 years, whatever the caller passes
+  const inList = GOVERNANCE_LOG_CATEGORIES.map(() => '?').join(',');
+  const sql = `DELETE FROM system_log WHERE (risk = 0 AND category NOT IN (${inList}) AND ts < ?) OR ((risk = 1 OR category IN (${inList})) AND ts < ?)`;
+  return pgHandle().prepare(sql).run(...GOVERNANCE_LOG_CATEGORIES, cut(months), ...GOVERNANCE_LOG_CATEGORIES, cut(keep)).then((r) => ({ deleted: Number(r && (r.changes ?? r.rowCount)) || 0 }));
 }
 
 async function logEvent(ev = {}) {
@@ -5403,7 +5409,7 @@ const db = {
 };
 
 module.exports = {
-  rateLimitBump, purgeSystemLog, sessionHours,
+  rateLimitBump, purgeSystemLog, GOVERNANCE_LOG_CATEGORIES, sessionHours,
   db,
   REPORTS_BACKEND, initPgReports, pgHandle,
   // System Logs v1

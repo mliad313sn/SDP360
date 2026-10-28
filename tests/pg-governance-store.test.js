@@ -24,7 +24,7 @@ test('pg: governance store parity (cadence → session → stamps → decision r
     const d1 = await s.addDecision({ title: 'A', session_id: ses.id }); const d2 = await s.addDecision({ title: 'B', session_id: ses.id });
     assert.equal(d1.ref.slice(0, 4), 'DEC-'); assert.equal(Number(d2.ref.split('-').pop()), Number(d1.ref.split('-').pop()) + 1);
     assert.equal((await s.listDecisions({ sessionId: ses.id })).length, 2);
-    const a = await s.addSessionAction(ses.id, { title: 'act' }); await s.setSessionActionStatus(a.id, 'done'); assert.ok((await s.sessionActions(ses.id))[0].closed_at);
+    const a = await s.addSessionAction(ses.id, { title: 'act' }); await s.setSessionActionStatus(a.id, 'done', ses.id); assert.ok((await s.sessionActions(ses.id))[0].closed_at);
     const r = await s.submitRfi({ kind: 'metric', title: 'T', problem: 'P', impact: 3, effort: 1, data_risk: 1 }); assert.equal(r.score, 7);
     assert.equal((await s.triageRfi(r.id, { status: 'accepted', effort: 3 })).score, 5);
     const pr = await s.upsertPortfolio('programme', { key: 'pgp', name: 'P' }); const ob = await s.upsertPortfolio('objective', { programme_id: pr, key: 'pgo', name: 'O', weight: 2 });

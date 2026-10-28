@@ -25,8 +25,8 @@ Status: **IMPLEMENTED · TESTED** (synthetic personas). Not FIELD_VALIDATED, not
 | escalated | cancelled | requester (or admin) | yes |
 | rejected | requested | requester (resubmits) | no |
 | rejected | cancelled | requester (or admin) | yes |
-| delivered | verified | requester (or admin) — **never the deliverer** | no |
-| delivered | accepted (rework) | requester (or admin) | yes |
+| delivered | verified | **requester only** — never the deliverer, never an admin in the requester's place (committee 2026-10-28) | no |
+| delivered | accepted (rework) | requester (or admin, recorded `acting_for`) | yes |
 | verified, cancelled | — | final | — |
 
 Reassignment (requester or admin, with a reason, while requested / accepted / blocked / escalated): the receiver
@@ -46,7 +46,7 @@ has passed to **escalated** once (`escalated_from` keeps the previous state). It
 | Late reassignment returns to `requested`; the former receiver loses the power to act | smoke "late reassignment" |
 | Permission downgrade: a receiver moved to another site cannot act, on the same live session | smoke "permission downgrade" |
 | The deliverer cannot verify; rework needs a reason; verified is final; stale version → 409 | smoke "full path" |
-| Overdue escalation happens once | smoke "overdue" |
+| Overdue escalation happens once per due date — a resumed handoff with the same due date is not escalated again (`escalated_for_due`) | smoke "overdue" |
 | Notifications off by default; on → the receiver gets an in-app notification | smoke "notifications" |
 | Another site sees nothing (list empty, detail and writes 404) | smoke "scope" |
 | Every change is an append-only event with time and actor (`null` actor = the scheduler) | smoke "full path", "overdue" |
@@ -63,3 +63,10 @@ first (decision for the platform owner).
 - Enabling `handoffs_enabled` on production (CAB).
 - Who is notified, and on which channel beyond in-app (D-04).
 - Field validation with a pilot site (D-05).
+
+## Hardening after the committee review of 2026-10-28
+
+- References come from a sequence (`handoff_ref_seq`): `HO-YYYY-NNNN`; two creates at the same time no longer collide.
+- A transition writes the new state and its event in one transaction; `handoff_events` is append-only in the database.
+- The receiver is chosen from `GET /api/handoffs/people?site=` (active people of one of the caller's sites); a typed receiver that is unknown, inactive or on another site gets ONE message, so the form cannot be used to probe accounts.
+- `idem_key` is never returned to the browser.

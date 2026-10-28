@@ -43,6 +43,7 @@ function sniffOk(buf, mime) {
 function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOString(), blobs = null } = {}) {
   if (!db) throw new Error('commitmentStore needs a db handle');
   const P = (sql) => db.prepare(sql);
+  const tx = async (fn) => (db.runTransaction ? db.runTransaction(fn) : fn());
   const blob = () => blobs || require('./blobStore');
   async function init() {  }
   async function insert(table, obj) {
@@ -99,9 +100,20 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
     const site = d.site_id == null || d.site_id === '' ? null : Number(d.site_id);
     if (site != null && !Number.isInteger(site)) throw bad('site_id must be an integer');
     const t = now();
-    const id = await insert('commitments', { uid: crypto.randomUUID(), site_id: site, severity: 'medium', ...f, baseline_due_date: f.due_date || null, status: 'captured', version: 1, created_by: actorName(user), created_at: t, updated_at: t });
-    await event(id, user, 'created', null, 'captured', src ? { source: src } : null);
-    if (src) await link(id, { source_system: src.system, source_id: src.id, relation: 'origin' }, { user, silent: true });
+    // one unit: commitment + its creation event + its origin link. Two concurrent creates for the same
+    // source → the unique origin index (migration 029) rejects the second, which returns the first (QA P1-4).
+    let id;
+    try {
+      id = await tx(async () => {
+        const nid = await insert('commitments', { uid: crypto.randomUUID(), site_id: site, severity: 'medium', ...f, baseline_due_date: f.due_date || null, status: 'captured', version: 1, created_by: actorName(user), created_at: t, updated_at: t });
+        await event(nid, user, 'created', null, 'captured', src ? { source: src } : null);
+        if (src) await link(nid, { source_system: src.system, source_id: src.id, relation: 'origin' }, { user, silent: true });
+        return nid;
+      });
+    } catch (e) {
+      if (src && e && e.code === '23505') { const ex = await findBySource(src.system, src.id); if (ex) return { commitment: await get(ex), created: false }; }
+      throw e;
+    }
     return { commitment: await get(id), created: true };
   }
 
@@ -130,9 +142,11 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
     const dueChanged = f.due_date !== undefined && f.due_date !== c.due_date;
     if (dueChanged && c.due_date && !str(reason)) throw bad('a reason is required to change the due date');
     if (dueChanged && !c.baseline_due_date) f.baseline_due_date = f.due_date;
-    await bump(c, expectedVersion, f);
-    await event(c.id, user, dueChanged ? 'due_date_changed' : 'updated', c.status, c.status,
-      { fields: Object.keys(f), ...(dueChanged ? { from: c.due_date, to: f.due_date, reason: str(reason, 500) } : {}) });
+    await tx(async () => {
+      await bump(c, expectedVersion, f);
+      await event(c.id, user, dueChanged ? 'due_date_changed' : 'updated', c.status, c.status,
+        { fields: Object.keys(f), ...(dueChanged ? { from: c.due_date, to: f.due_date, reason: str(reason, 500) } : {}) });
+    });
     return get(c.id);
   }
 
@@ -144,13 +158,15 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
     if (to === 'awaiting_verification') sets.technical_completed_at = t;
     if (to === 'verified_closed') { sets.verified_at = t; sets.verified_by = actorName(actor); }
     if (to === 'reopened') { sets.verified_at = null; sets.verified_by = null; }
-    await bump(c, expectedVersion, sets);
-    const decision = L.VERIFY_DECISION[to];
-    if (decision) {
-      const n = await P('SELECT COUNT(*) AS n FROM closure_verifications WHERE commitment_id=?').get(c.id);
-      await insert('closure_verifications', { commitment_id: c.id, attempt: Number(n.n) + 1, reviewer: actorName(actor), decision, reason: str(reason, 2000), at: t });
-    }
-    await event(c.id, actor, 'transition', c.status, to, reason ? { reason: str(reason, 2000) } : null);
+    await tx(async () => {
+      await bump(c, expectedVersion, sets);
+      const decision = L.VERIFY_DECISION[to];
+      if (decision) {
+        const n = await P('SELECT COUNT(*) AS n FROM closure_verifications WHERE commitment_id=?').get(c.id);
+        await insert('closure_verifications', { commitment_id: c.id, attempt: Number(n.n) + 1, reviewer: actorName(actor), decision, reason: str(reason, 2000), at: t });
+      }
+      await event(c.id, actor, 'transition', c.status, to, reason ? { reason: str(reason, 2000) } : null);
+    });
     return get(c.id);
   }
 
@@ -263,17 +279,23 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
     const E = require('./commitmentEscalation');
     const t = now();
     let cur = E.conditions(await metricRows({}), asOf || t);
+    let ledger = (await P('SELECT key, cleared_at, site_id FROM commitment_escalations').all()).map((r) => ({ ...r, site_id: r.site_id == null ? null : Number(r.site_id) }));
+    let muted = 0;
     if (policyFor) {
+      // A muted site is left OUT of the diff on both sides: its open ledger rows stay open (never stamped
+      // "cleared" — the condition was muted, not resolved) and no new row is raised (committee P1-1).
       const on = new Map();
-      for (const sid of new Set(cur.map((c) => c.site_id))) on.set(sid, (await policyFor(sid))['commitments.escalation_enabled'] !== false);
-      cur = cur.filter((c) => on.get(c.site_id));
+      for (const sid of new Set([...cur.map((c) => c.site_id), ...ledger.map((l) => l.site_id)])) on.set(sid, (await policyFor(sid))['commitments.escalation_enabled'] !== false);
+      const before = cur.length; cur = cur.filter((c) => on.get(c.site_id)); muted = before - cur.length;
+      ledger = ledger.filter((l) => on.get(l.site_id));
     }
-    const d = E.diff(cur, await P('SELECT key, cleared_at FROM commitment_escalations').all());
+    const d = E.diff(cur, ledger);
     for (const c of d.open) await P('INSERT INTO commitment_escalations (key, kind, commitment_id, site_id, opened_at, last_seen_at, episodes) VALUES (?, ?, ?, ?, ?, ?, 1) ON CONFLICT (key) DO NOTHING').run(c.key, c.kind, c.commitment_id, c.site_id, t, t);
-    for (const c of d.reopen) await P('UPDATE commitment_escalations SET opened_at=?, last_seen_at=?, cleared_at=NULL, site_id=?, episodes=episodes+1 WHERE key=?').run(t, t, c.site_id, c.key);
+    // reopening keeps the first opened_at (the episode count says it came back — audit P1-6)
+    for (const c of d.reopen) await P('UPDATE commitment_escalations SET last_seen_at=?, cleared_at=NULL, site_id=?, episodes=episodes+1 WHERE key=?').run(t, c.site_id, c.key);
     for (const k of d.keep) await P('UPDATE commitment_escalations SET last_seen_at=? WHERE key=?').run(t, k);
     for (const k of d.clear) await P('UPDATE commitment_escalations SET cleared_at=? WHERE key=? AND cleared_at IS NULL').run(t, k);
-    return { raised: [...d.open, ...d.reopen], kept: d.keep.length, cleared: d.clear.length, open: d.open.length + d.reopen.length + d.keep.length };
+    return { raised: [...d.open, ...d.reopen], kept: d.keep.length, cleared: d.clear.length, muted, open: d.open.length + d.reopen.length + d.keep.length };
   }
   /** Ledger rows; siteIds null = all, [] = nothing; openOnly = cleared_at IS NULL. */
   async function listEscalations({ siteIds = null, openOnly = true } = {}) {

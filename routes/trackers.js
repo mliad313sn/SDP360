@@ -168,17 +168,17 @@ module.exports = function trackersRoutes(deps) {
       const dec = require('../services/publishGate').publishDecision(cur, req.reportUser, { isAdmin: isAdmin(req.reportUser), overrideReason: req.body && req.body.override_reason, policy: await require('../services/governancePolicy').forContext({}) });
       if (!dec.allow) return res.status(dec.status).json({ ok: false, error: dec.error, code: dec.code, message: dec.message });
       if (dec.override) rdb().logEvent({ category: 'trackers', action: 'tracker_publish_override', target: cur.key, details: dec.override, risk: 1, ...rdb()._logCtx(req) });
-      const d = await store.publish(cur.key, { user: req.reportUser, note: req.body && req.body.note, override: dec.override });
+      const d = await store.publish(cur.key, { user: req.reportUser, note: req.body && req.body.note, override: dec.override, expect: { updated_at: cur.updated_at, submitted_at: cur.submitted_at } });
       rdb().logEvent({ category: 'trackers', action: 'tracker_published', target: d.key, details: { version: d.version, submitted_by: cur.submitted_by, override: !!dec.override }, ...rdb()._logCtx(req) });
       res.json({ ok: true, tracker: d });
     } catch (e) { fail(res, e); }
   });
-  router.post('/api/trackers/:key/retire', requireReportSession, requireBuilder, async (req, res) => { try { res.json({ ok: true, tracker: await store.setStatus(key(req), 'retired') }); } catch (e) { fail(res, e); } });
+  router.post('/api/trackers/:key/retire', requireReportSession, requireBuilder, async (req, res) => { try { const t = await store.setStatus(key(req), 'retired'); rdb().logEvent({ category: 'trackers', action: 'tracker_retired', target: key(req), ...rdb()._logCtx(req) }); res.json({ ok: true, tracker: t }); } catch (e) { fail(res, e); } });
   router.get('/api/trackers/:key/versions', requireReportSession, requireBuilder, async (req, res) => { try { res.json({ ok: true, versions: await store.versions(key(req)) }); } catch (e) { fail(res, e); } });
   router.post('/api/trackers/:key/rollback/:n', requireReportSession, requireBuilder, async (req, res) => {
     try { const d = await store.rollback(key(req), Number(req.params.n), { user: req.reportUser }); if (!d) return res.status(404).json({ ok: false, error: 'version not found' }); rdb().logEvent({ category: 'trackers', action: 'tracker_rolled_back', target: d.key, details: { to: Number(req.params.n) }, ...rdb()._logCtx(req) }); res.json({ ok: true, tracker: d }); } catch (e) { fail(res, e); }
   });
-  router.delete('/api/trackers/:key', requireReportSession, requireBuilder, async (req, res) => { try { await store.remove(key(req)); res.json({ ok: true }); } catch (e) { fail(res, e); } });
+  router.delete('/api/trackers/:key', requireReportSession, requireBuilder, async (req, res) => { try { await store.remove(key(req)); rdb().logEvent({ category: 'trackers', action: 'tracker_deleted', target: key(req), ...rdb()._logCtx(req) }); res.json({ ok: true }); } catch (e) { fail(res, e); } });
 
   // ---- entries / targets / score ---------------------------------------------------------
   router.get('/api/trackers/:key/entries', requireReportSession, async (req, res) => {

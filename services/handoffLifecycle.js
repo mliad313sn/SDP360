@@ -54,6 +54,8 @@ function check(h, to, actor, o = {}) {
   if (rule.who === 'requester' && !(isRequester(h, actor) || actor.isAdmin)) return no(403, 'FORBIDDEN', 'only the requester (or the admin tier) can do this');
   if (rule.who === 'admin' && !actor.isAdmin) return no(403, 'FORBIDDEN', 'only the admin tier can do this');
   if (to === 'verified' && h.delivered_by != null && Number(h.delivered_by) === Number(actor.id)) return no(403, 'SOD', 'the person who delivered the work cannot verify it');
+  // verification belongs to the requesting side: the admin tier does not verify for the requester (audit P2-10)
+  if (to === 'verified' && !isRequester(h, actor)) return no(403, 'FORBIDDEN', 'only the requester verifies the delivered work');
   const rmin = _rmin(o.policy);
   if (rule.reason && String(o.reason || '').trim().length < rmin) return no(400, 'VALIDATION', `a reason (${rmin}+ characters) is required for ${to}`);
   return null;

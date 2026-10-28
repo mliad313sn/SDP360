@@ -110,10 +110,10 @@ test('RFI: anyone submits, committee triages, list sorted by score; portfolio up
 
 test('G-21 lifecycle end to end: planned → held → logged → accepted (four-eyes), frozen, reopen; cancel = exception; effective window', async () => {
   const memberId = (await rdb.db.prepare("SELECT id FROM users WHERE username='gv_member'").get()).id;
-  const c = await (await send('PUT', '/api/governance/cadences', member, { key: 'hgo-lc', name: 'HGO lifecycle', kind: 'site_weekly', site_id: hounde, chair_id: editorId, secretary_id: memberId, effective_from: '2026-10-01', effective_to: '2026-12-31' })).json();
+  const c = await (await send('PUT', '/api/governance/cadences', member, { key: 'hgo-lc', name: 'HGO lifecycle', kind: 'site_weekly', site_id: hounde, chair_id: editorId, secretary_id: memberId, effective_from: '2026-10-01', effective_to: '2099-12-31' })).json();
   assert.equal(c.cadence.effective_from, '2026-10-01');
   assert.equal((await send('PUT', '/api/governance/cadences', member, { key: 'hgo-lc2', name: 'x', effective_from: '01/10/2026' })).status, 400);
-  assert.equal((await send('POST', `/api/governance/cadences/${c.cadence.id}/sessions`, editor, { scheduled_at: '2027-01-05T09:00:00Z' })).status, 400, 'outside the effective window');
+  assert.equal((await send('POST', `/api/governance/cadences/${c.cadence.id}/sessions`, editor, { scheduled_at: '2100-01-05T09:00:00Z' })).status, 400, 'outside the effective window');
   let s = (await (await send('POST', `/api/governance/cadences/${c.cadence.id}/sessions`, editor, { scheduled_at: '2026-10-27T09:00:00Z' })).json()).session;
   const id = s.id;
   assert.equal((await send('POST', `/api/governance/sessions/${id}/close`, editor)).status, 409, 'a session that never started is not held');
@@ -134,7 +134,7 @@ test('G-21 lifecycle end to end: planned → held → logged → accepted (four-
   assert.equal(s.stage, 'held'); assert.equal(s.minutes_accepted_at, null);
 
   // cancellation by a runner = pending exception; approved by the committee (not the canceller)
-  const s2 = (await (await send('POST', `/api/governance/cadences/${c.cadence.id}/sessions`, editor, { scheduled_at: '2026-11-03T09:00:00Z' })).json()).session;
+  const s2 = (await (await send('POST', `/api/governance/cadences/${c.cadence.id}/sessions`, editor, { scheduled_at: new Date(Date.now() + 7 * 864e5).toISOString() })).json()).session;
   assert.equal((await send('POST', `/api/governance/sessions/${s2.id}/cancel`, editor, { reason: '' })).status, 400);
   const can = (await (await send('POST', `/api/governance/sessions/${s2.id}/cancel`, editor, { reason: 'site shutdown for maintenance' })).json()).session;
   assert.equal(can.stage, 'cancelled'); assert.equal(can.exception_status, 'pending');
@@ -147,4 +147,19 @@ test('G-21 lifecycle end to end: planned → held → logged → accepted (four-
   assert.equal(past.status, 200, await past.text());
   const o = await (await get('/api/governance/overview', admin)).json();
   assert.ok(o.compliance_30d.missed >= 1, JSON.stringify(o.compliance_30d)); assert.ok(o.compliance_30d.excused >= 1);
+  // a missed session is not quietly moved to a new date (it stays a no-show; a new session is planned)
+  const missedId = (await past.json()).session.id;
+  const rs = await send('PUT', `/api/governance/sessions/${missedId}`, editor, { scheduled_at: new Date(Date.now() + 864e5).toISOString() });
+  assert.equal(rs.status, 409); assert.equal((await rs.json()).code, 'MISSED');
+});
+
+test('session actions: an action id from another session is never reachable through this one (IDOR)', async () => {
+  const a1 = (await (await send('POST', `/api/governance/cadences/${cadId}/sessions`, editor, { scheduled_at: new Date(Date.now() + 864e5).toISOString() })).json()).session;
+  const a2 = (await (await send('POST', `/api/governance/cadences/${cadId}/sessions`, editor, { scheduled_at: new Date(Date.now() + 2 * 864e5).toISOString() })).json()).session;
+  await send('POST', `/api/governance/sessions/${a1.id}/start`, editor);
+  const act = (await (await send('POST', `/api/governance/sessions/${a1.id}/actions`, editor, { title: 'Only in a1', owner: 'Bob' })).json()).action;
+  const r = await send('PUT', `/api/governance/sessions/${a2.id}/actions/${act.id}`, editor, { status: 'done' });
+  assert.equal(r.status, 404);
+  const still = (await (await get(`/api/governance/sessions/${a1.id}`, editor)).json()).actions.find((x) => x.id === act.id);
+  assert.equal(still.status, 'open', 'untouched');
 });

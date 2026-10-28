@@ -40,6 +40,10 @@ function dutyConflict(action, run, user, pol) {
     if (editor != null && editor === me) return { code: 'SOD_REVIEW_EDIT', error: 'the person who last edited the commentary cannot review it' };
   } else if (action === 'publish') {
     if (creator != null && creator === me) return { code: 'SOD_PUBLISH_OWN', error: 'the person who generated a run cannot publish it' };
+    // a scheduled run has no human creator: the second pair of eyes is then the reviewer, so the
+    // reviewer and the publisher must be two people (committee audit P1-4)
+    const reviewer = _uid(run && run.reviewed_by);
+    if (creator == null && reviewer != null && reviewer === me) return { code: 'SOD_PUBLISH_REVIEWED', error: 'a scheduled run is published by someone other than its reviewer' };
   }
   return null;
 }
@@ -133,4 +137,23 @@ async function lastOkFromSyncStore(jobs) {
 
 function jobsFor(modules) { return [...new Set((modules || []).flatMap((m) => (SOURCES[m] || []).map(([j]) => j)))]; }
 
-module.exports = { SOURCES, dutyConflict, definitionConflict, publishDecision, modulesOf, freshness, moduleFreshness, jobsFor, lastOkFromSyncStore };
+/**
+ * G-14 report publication behind stale sources — pure, policy-driven (committee QA P1-5).
+ * fr = freshness() result. Returns { allow:true, override|null } or { allow:false, status, error, message }.
+ */
+function reportFreshnessDecision(fr, { isAdmin = false, reason = '', policy = null } = {}) {
+  const P = _pol(policy);
+  if (!fr || fr.fresh || P['reports.freshness_gate'] === false) return { allow: true, override: null };
+  const why = String(reason || '').trim(); const min = Number(P['reports.override_reason_min']) || 10;
+  const allowed = P['reports.override_allowed'] !== false;
+  if (allowed && isAdmin && why.length >= min) return { allow: true, override: { reason: why.slice(0, 1000) } };
+  return { allow: false, status: 409, error: 'stale_sources', min,
+    message: allowed ? `a source behind this report is stale or has never synced; an admin may publish with override_reason (${min}+ characters)` : 'a source behind this report is stale or has never synced; override is disabled by policy' };
+}
+/** Minimum reason to withdraw a published report (reports.withdraw_reason_min). null = ok. */
+function withdrawReasonError(reason, policy = null) {
+  const min = Number(_pol(policy)['reports.withdraw_reason_min']) || 5;
+  return String(reason || '').trim().length >= min ? null : `reason required (${min}+ characters)`;
+}
+
+module.exports = { SOURCES, reportFreshnessDecision, withdrawReasonError, dutyConflict, definitionConflict, publishDecision, modulesOf, freshness, moduleFreshness, jobsFor, lastOkFromSyncStore };

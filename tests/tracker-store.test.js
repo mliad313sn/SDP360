@@ -20,7 +20,8 @@ test('draft → publish → version snapshot → rollback; invalid draft is refu
   await s.publish('ut-1', {}); assert.equal((await s.versions('ut-1')).length, 2);
   const rb = await s.rollback('ut-1', 1); assert.equal(rb.definition.name, 'Unit test');
   assert.deepEqual((await s.list({ status: 'published' })).map(x => x.key), ['ut-1']);
-  await s.setStatus('ut-1', 'retired'); await s.remove('ut-1'); assert.equal(await s.get('ut-1'), null);
+  await s.setStatus('ut-1', 'retired'); await assert.rejects(async () => s.remove('ut-1'), (e) => e.status === 409); assert.equal((await s.get('ut-1')).status, 'retired', 'kept as evidence');
+  await s.saveDraft({ ...DEF, key: 'ut-draft', name: 'Never published' }, {}); await s.remove('ut-draft'); assert.equal(await s.get('ut-draft'), null, 'a never-published draft can be deleted');
 });
 
 test('entries: closed months keep their value, unit scope enforced, targets merged, engine scores', async () => {

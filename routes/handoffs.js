@@ -15,7 +15,7 @@
 const { fail: httpFail, typed } = require('../services/httpError');
 
 function createStore(rdbMod) {
-  return require('../services/handoffStore').makeHandoffStore({ prepare: (sql) => rdbMod.pgHandle().prepare(sql) });
+  return require('../services/handoffStore').makeHandoffStore({ prepare: (sql) => rdbMod.pgHandle().prepare(sql), runTransaction: (fn) => rdbMod.pgHandle().runTransaction(fn) });
 }
 
 module.exports = function handoffRoutes(deps) {
@@ -42,7 +42,8 @@ module.exports = function handoffRoutes(deps) {
     if (!visible(req.reportUser, h)) { res.status(404).json({ error: 'handoff not found' }); return null; }
     return h;
   }
-  const view = (h, u) => ({ ...h, allowed: L.allowed(h, actorOf(u, h)), can_reassign: !L.checkReassign(h, actorOf(u, h), -1, { reason: 'xxxxx' }) });
+  // idem_key stays server-side; can_reassign is probed with a reason long enough for any policy minimum
+  const view = (h, u) => { const { idem_key: _idem, ...rest } = h || {}; void _idem; return { ...rest, allowed: L.allowed(h, actorOf(u, h)), can_reassign: !L.checkReassign(h, actorOf(u, h), -1, { reason: 'x'.repeat(500) }) }; };
 
   /** The receiver must be a real, active user who has the handoff's site (no hand-off into the void). */
   async function resolveReceiver(ref, siteId) {
@@ -50,9 +51,12 @@ module.exports = function handoffRoutes(deps) {
     const users = (await rdb().listUsers()) || [];
     const key = String(ref).trim().toLowerCase();
     const u = users.find((x) => String(x.id) === key || String(x.username || '').toLowerCase() === key || String(x.email || '').toLowerCase() === key);
-    if (!u || u.active === 0 || u.active === false) throw typed('VALIDATION', 'the receiver is not an active user', 400);
+    // ONE answer for "no such account", "inactive" and "another site": the form cannot be used to probe
+    // which accounts exist (committee security). The site-scoped picker (GET /api/handoffs/people) is the way to choose.
+    const NOPE = 'no active person with this username or e-mail works on this site — pick the receiver from the list';
+    if (!u || u.active === 0 || u.active === false) throw typed('VALIDATION', NOPE, 400);
     const ids = [u.site_id, ...((u.extra_site_ids) || [])].filter((x) => x != null).map(Number);
-    if (!rdb().userHasRole(u, 'admin') && !ids.includes(Number(siteId))) throw typed('VALIDATION', 'the receiver does not work on this site', 400);
+    if (!rdb().userHasRole(u, 'admin') && !ids.includes(Number(siteId))) throw typed('VALIDATION', NOPE, 400);
     return Number(u.id);
   }
   async function checkDepartments(from, to) {
@@ -66,11 +70,27 @@ module.exports = function handoffRoutes(deps) {
 
   router.get('/handoffs.html', (req, res) => deps.sendHtmlPage(res, 'handoffs.html', false, 'Handoffs page unavailable'));
 
+  // Site-scoped receiver picker: the active people of ONE of the caller's sites (id + name only).
+  router.get('/api/handoffs/people', requireReportSession, enabled, async (req, res) => {
+    try {
+      const u = req.reportUser; const site = Number(req.query.site);
+      if (!Number.isFinite(site)) return res.status(400).json({ ok: false, error: 'site is required' });
+      if (!isAdmin(u) && !userSites.hasSite(u, site)) return res.status(403).json({ ok: false, error: 'not one of your sites' });
+      const people = ((await rdb().listUsers()) || []).filter((x) => x.active !== 0 && x.active !== false && Number(x.id) !== Number(u.id)
+        && [x.site_id, ...((x.extra_site_ids) || [])].filter((v) => v != null).map(Number).includes(site))
+        .map((x) => ({ id: Number(x.id), username: x.username, name: x.full_name || x.username }))
+        .sort((a, b) => String(a.name).localeCompare(String(b.name), 'fr'));
+      res.json({ ok: true, people });
+    } catch (e) { fail(res, e); }
+  });
+
   router.get('/api/handoffs', requireReportSession, enabled, async (req, res) => {
     try {
       const u = req.reportUser;
       const rows = await store.list({ siteIds: isAdmin(u) ? null : userSites.siteIds(u), userId: u.id, status: req.query.status || null });
-      res.json({ handoffs: rows, statuses: L.STATUSES, departments: ((await rdb().listDepartments()) || []).map((d) => d.name) });
+      const mine = isAdmin(u) ? null : userSites.siteIds(u).map(Number);
+      const sites = ((await rdb().listSites({ includeInactive: false })) || []).filter((x) => !mine || mine.includes(Number(x.id))).map((x) => ({ id: Number(x.id), name: x.name }));
+      res.json({ handoffs: rows.map(({ idem_key: _i, ...r }) => r), statuses: L.STATUSES, sites, departments: ((await rdb().listDepartments()) || []).map((d) => d.name) });
     } catch (e) { fail(res, e); }
   });
   router.get('/api/handoffs/:id', requireReportSession, enabled, async (req, res) => {

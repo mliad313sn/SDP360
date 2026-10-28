@@ -107,9 +107,18 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       [Number(sessionId), str(a.title, 500), str(a.owner, 120), str(a.due_date, 10), 'open', str(a.source_kind, 40), str(a.source_ref, 120), str(a.decision_ref, 40), user ? user.id : null, now(), now()]);
     return (await sessionActions(sessionId)).find(x => x.id === id);
   }
-  async function setSessionActionStatus(id, status) {
+  /** sessionId is REQUIRED: an action is only changed through the session that owns it (security P1-1). Returns rows changed. */
+  async function setSessionActionStatus(id, status, sessionId) {
     if (!DECISION_STATUSES.includes(status)) throw Object.assign(new Error('bad status'), { code: 'INVALID' });
-    await P(`UPDATE session_actions SET status=?, closed_at=CASE WHEN ? IN ('done','cancelled') THEN ? ELSE NULL END, updated_at=? WHERE id=?`).run(status, status, now(), now(), Number(id));
+    if (sessionId == null) throw Object.assign(new Error('session id required'), { code: 'INVALID' });
+    const r = await P(`UPDATE session_actions SET status=?, closed_at=CASE WHEN ? IN ('done','cancelled') THEN ? ELSE NULL END, updated_at=? WHERE id=? AND session_id=?`).run(status, status, now(), now(), Number(id), Number(sessionId));
+    return Number(r && r.changes) || 0;
+  }
+  /** Status change guarded by the expected current status (two runners cannot both close — QA P2). */
+  async function moveSession(id, fromStatus, patch) {
+    const p = { ...patch }; const keys = Object.keys(p);
+    const r = await P(`UPDATE meeting_sessions SET ${keys.map((k) => `${k}=?`).join(', ')}, version=version+1, updated_at=? WHERE id=? AND status=?`).run(...keys.map((k) => p[k]), now(), Number(id), fromStatus);
+    return Number(r && r.changes) === 1 ? getSession(id) : null;
   }
 
   // ── decisions ─────────────────────────────────────────────────────────────────────
@@ -214,7 +223,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   }
   async function removePortfolio(kind, id) { const T = TABLES[kind]; if (!T) throw new Error('unknown portfolio entity'); await P(`DELETE FROM ${T.table} WHERE id=?`).run(Number(id)); }
 
-  return { init, listCadences, getCadence, saveCadence, removeCadence, listSessions, getSession, createSession, updateSession, stampItem, sessionActions, addSessionAction, setSessionActionStatus,
+  return { init, listCadences, getCadence, saveCadence, removeCadence, listSessions, getSession, createSession, updateSession, stampItem, sessionActions, addSessionAction, setSessionActionStatus, moveSession,
     listDecisions, addDecision, updateDecision, listRfi, submitRfi, triageRfi, rfiScore, portfolio, upsertPortfolio, removePortfolio,
     CADENCE_KINDS, SESSION_STATUSES, DECISION_STATUSES, RFI_KINDS, RFI_STATUSES, PROJECT_STATUSES, CONFIDENCE };
 }

@@ -35,3 +35,11 @@ Code: `services/sessionLifecycle.js` (pure rules), `routes/governance.js`, `publ
   path without re-entry (goal G10 step 3) — the commitment backfill (G-17) and handoffs (G-22) are the building
   blocks; the joined cockpit view is the next step.
 - Per-site exception calendars (holidays, shutdowns) — today an exception is per session.
+
+## Hardening after the committee review of 2026-10-28
+
+- A missed session cannot be rescheduled (409 `MISSED`): the miss stays; a new session is planned or the miss is cancelled as an exception. Every reschedule is logged (`session_rescheduled`).
+- Start, close, cancel and reopen are conditional on the current status and bump `meeting_sessions.version`: two runners closing at once → one wins, the other gets 409.
+- Session actions are changed only through their own session (`WHERE id=? AND session_id=?`), and every change is logged.
+- The overview's 30-day compliance judges each cadence with its own site's policy (grace, cancellation approval) — same answer as the session page.
+- Group-level (site-less) cadences: sessions and minutes are read by the committee, the chair / secretary and the named participants only.

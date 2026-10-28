@@ -85,7 +85,8 @@ test('publisher gate: viewer cannot save; publisher saves a draft (own site), in
   const vs = await (await get('/api/dashboards/hgo-test/versions', editor)).json(); assert.equal(vs.versions[0].note, 'go');
   assert.equal((await send('DELETE', '/api/dashboards/hgo-test', editor)).status, 409, 'retire before delete');
   assert.equal((await send('POST', '/api/dashboards/hgo-test/retire', editor)).status, 200);
-  assert.equal((await send('DELETE', '/api/dashboards/hgo-test', editor)).status, 200);
+  assert.equal((await send('DELETE', '/api/dashboards/hgo-test', editor)).status, 409, 'ever published → retired, never deleted');
+  assert.equal((await get('/api/dashboards/hgo-test/versions', editor)).status, 200, 'its versions survive');
 });
 
 test('a field dashboard that is not phone-ready cannot be published', async () => {
