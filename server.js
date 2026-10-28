@@ -1282,6 +1282,19 @@ function loadHtml(name) {
   ...require('./services/pages').V2_PAGES.map(p => p[0]),   // step 6+: services/pages.js
 ].forEach(loadHtml);
 
+// M02 / P0 (2026-10-28): the dash key is a bearer credential for every /api route that
+// sits behind the global gate only. It used to be injected for ANY visitor, so an
+// unauthenticated GET of one of the 5 keyed pages leaked it. It is now injected only when
+// the request carries a valid session (cookie or header); otherwise the page is served
+// without it — auth.js sends the visitor to the login page, and after login the
+// report_token cookie is present so the next page load gets the key as before.
+async function sendKeyedHtmlPage(req, res, name, fallbackMsg) {
+  let user = null;
+  const token = req.headers['x-report-token'] || getCookie(req, 'report_token');
+  if (rdb && token) { try { user = await rdb.validateSession(token); } catch (e) { user = null; } }
+  sendHtmlPage(res, name, !!user, fallbackMsg);
+}
+
 // Helper: build the per-request HTML, inject api-key + nonce, send. Pages
 // that don't need the api-key call this with `injectApiKey=false`.
 function sendHtmlPage(res, name, injectApiKey, fallbackMsg) {
@@ -1306,7 +1319,7 @@ function sendHtmlPage(res, name, injectApiKey, fallbackMsg) {
 // ── Serve executive.html with injected API key + CSP nonce ───────────────────
 // Must be registered BEFORE express.static so this route takes precedence.
 app.get(['/executive.html'], (req, res) => {
-  sendHtmlPage(res, 'executive.html', true, 'Dashboard unavailable');
+  sendKeyedHtmlPage(req, res, 'executive.html', 'Dashboard unavailable');
 });
 
 // ── Serve exec-view.html — PUBLIC (no auth, no api-key injection) ─────────────
@@ -1344,22 +1357,22 @@ app.get('/login.html', (req, res) => {
 
 // ── Serve index.html with injected API key + CSP nonce — also the default root page ──
 app.get(['/', '/index.html'], (req, res) => {
-  sendHtmlPage(res, 'index.html', true, 'Operations Center unavailable');
+  sendKeyedHtmlPage(req, res, 'index.html', 'Operations Center unavailable');
 });
 
 // ── Serve analytics.html with injected API key + CSP nonce ───────────────────
 app.get('/analytics.html', (req, res) => {
-  sendHtmlPage(res, 'analytics.html', true, 'Analytics dashboard unavailable');
+  sendKeyedHtmlPage(req, res, 'analytics.html', 'Analytics dashboard unavailable');
 });
 
 // ── Serve reports.html with injected API key + CSP nonce ─────────────────────
 app.get('/reports.html', (req, res) => {
-  sendHtmlPage(res, 'reports.html', true, 'Reports unavailable');
+  sendKeyedHtmlPage(req, res, 'reports.html', 'Reports unavailable');
 });
 
 // ── Serve executive-report.html with injected API key + CSP nonce ────────────
 app.get('/executive-report.html', (req, res) => {
-  sendHtmlPage(res, 'executive-report.html', true, 'Executive Report unavailable');
+  sendKeyedHtmlPage(req, res, 'executive-report.html', 'Executive Report unavailable');
 });
 
 // ── Serve inspection.html (IT Inspection form) with CSP nonce ──────────────
