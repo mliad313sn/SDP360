@@ -21,7 +21,8 @@ const evFile = path.join(os.tmpdir(), 'sdp-test-events-' + process.pid + '.jsonl
 // + tests/_default-env.js: throwaway admin credentials so the suite runs without a .env
 // (transplanted from the 1.11 line, WP-M01-001; never overrides a value already set).
 const preload = ['--require ' + JSON.stringify(path.join(__dirname, 'blocking-stdio.js')),
-  '--require ' + JSON.stringify(path.join(testsDir, '_default-env.js'))].join(' ');
+  '--require ' + JSON.stringify(path.join(testsDir, '_default-env.js')),
+  '--import ' + JSON.stringify(require('url').pathToFileURL(path.join(testsDir, '_pg-boot.mjs')).href)].join(' ');
 const env = Object.assign({}, process.env, {
   NODE_OPTIONS: ((process.env.NODE_OPTIONS || '') + ' ' + preload).trim(),
 });

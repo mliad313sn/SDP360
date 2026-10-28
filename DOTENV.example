@@ -20,13 +20,16 @@ ZOHO_REFRESH_TOKEN=
 WORKSPACE_ID=
 ORG_ID=
 
-# ── Storage backends: sqlite (default) | postgres ───────────────────
-# PG_URL=postgres://sdp_app:<PG_PASSWORD>@localhost:5432/sdp_dashboard
-# REPORTS_BACKEND=postgres
-# MEETINGS_BACKEND=postgres
-# INSPECTION_BACKEND=postgres
-# TRACKER_BACKEND=postgres
-# ASSETS_BACKEND=sqlite
+# ── Storage: PostgreSQL ONLY (decision 2026-10-28) ───────────────────
+# The server refuses to start while any module is on SQLite (services/backendGuard.js).
+# SDP_ALLOW_SQLITE=1 exists only for the test suite and local development — never in production.
+# Offline field capture runs in the browser; it does not use a server-side SQLite.
+PG_URL=postgres://sdp_app:<PG_PASSWORD>@localhost:5432/sdp_dashboard
+REPORTS_BACKEND=postgres
+MEETINGS_BACKEND=postgres
+INSPECTION_BACKEND=postgres
+TRACKER_BACKEND=postgres
+ASSETS_BACKEND=postgres
 # TRACKER_PER_YEAR_EDITS=1
 # SDP_DATA_DIR=./data
 

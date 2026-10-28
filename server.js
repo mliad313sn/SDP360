@@ -7804,6 +7804,12 @@ app.use(require('./services/httpError').errorHandler); // M9 — final error han
 
 // ── START ─────────────────────────────────────────────────────────
 async function start() {
+  // PostgreSQL only (user decision 2026-10-28): refuse to start while a module is on SQLite, unless
+  // SDP_ALLOW_SQLITE=1 (tests / local development). services/backendGuard.js.
+  {
+    const bg = require('./services/backendGuard').assertBootAllowed();
+    if (bg.sqlite.length) console.warn(`[DB] ⚠ SDP_ALLOW_SQLITE=1 — ${bg.message}`);
+  }
 
   // PostgreSQL backends (Chunks 1-4) — connect each pool + apply its schema
   // before serving. Every module defaults to sqlite (the *_BACKEND env vars are
@@ -7892,7 +7898,7 @@ async function start() {
     // blocks. Skip the Zoho API attempt here — startup requests sync (below) will
     // fetch any new tickets and trigger a full cache rebuild once it completes.
     setTimeout(async () => {
-      console.log('[startup] 🔄 Pre-warming raw request cache from SQLite…');
+      console.log('[startup] 🔄 Pre-warming raw request cache from the database…');
       await _rebuildCacheFromSQLite();
     }, 3000);
   });

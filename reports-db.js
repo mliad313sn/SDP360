@@ -18,7 +18,27 @@ const fs       = require('fs');
 // directory; unset in prod so the default data/ path is unchanged.
 const DATA_DIR = process.env.SDP_DATA_DIR ? path.resolve(process.env.SDP_DATA_DIR) : path.join(__dirname, 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-const db = new Database(path.join(DATA_DIR, 'reports.db'));
+// PostgreSQL-only operation (user decision, 2026-10-28: "all under PostgreSQL, no SQLite except offline").
+// With REPORTS_BACKEND=postgres no reports.db FILE is opened: the historical sqlite schema/seed code at
+// module load runs against a throw-away in-memory database, then the handle is LOCKED at the end of this
+// module — any later sqlite use throws an explicit error naming the call instead of silently reading or
+// writing a file nobody else reads. Runtime trace (276 GET routes, all modules on PG): 0 sqlite calls.
+const _PG_MODE = String(process.env.REPORTS_BACKEND || '').toLowerCase() === 'postgres';
+const _sqlite = new Database(_PG_MODE ? ':memory:' : path.join(DATA_DIR, 'reports.db'));
+let _sqliteLocked = false;
+const db = !_PG_MODE ? _sqlite : new Proxy(_sqlite, {
+  get(target, key) {
+    const v = target[key];
+    if (typeof v !== 'function') return v;
+    return (...a) => {
+      if (_sqliteLocked) {
+        const e = new Error(`[reports-db] SQLite is disabled (REPORTS_BACKEND=postgres): db.${String(key)}() called — this path needs a PostgreSQL fork`);
+        e.code = 'SQLITE_DISABLED'; throw e;
+      }
+      return v.apply(target, a);
+    };
+  },
+});
 
 // Performance & safety
 db.pragma('journal_mode = WAL');
@@ -1225,7 +1245,7 @@ if (!adminExists) {
   db.prepare(`INSERT OR IGNORE INTO users (username, full_name, password_hash, salt, site_id, role)
               VALUES (?, ?, ?, ?, NULL, 'admin')`)
     .run(process.env.DASH_USER, 'Administrator', hash, salt);
-  console.log('[Reports-DB] Default admin created:', process.env.DASH_USER);
+  if (!_PG_MODE) console.log('[Reports-DB] Default admin created:', process.env.DASH_USER);
 }
 
 // ── WEEK HELPERS (Zoho Sunday-start, mirrors AP Analytics Plus convention) ────
@@ -1469,6 +1489,17 @@ async function initPgReports() {            // called once at server boot
   // Asset engagement — per-site asset manager contact on the recipients directory.
   for (const c of ['asset_manager_name TEXT', 'asset_manager_email TEXT', 'asset_manager_email_confirmed INTEGER DEFAULT 0']) {
     await _pg.exec(`ALTER TABLE report_recipients ADD COLUMN IF NOT EXISTS ${c}`);
+  }
+  // Default admin on PostgreSQL (consolidation 2026-10-28). Before, it was seeded into the sqlite file only,
+  // so a fresh PostgreSQL-only install had an empty users table and nobody could sign in.
+  // Same rule as sqlite: refuse without DASH_USER / DASH_PASS; never overwrite an existing admin.
+  const _adm = await _pg.prepare(`SELECT id FROM users WHERE role IN ('admin','super_admin') LIMIT 1`).get();
+  if (!_adm) {
+    if (!process.env.DASH_USER || !process.env.DASH_PASS) {
+      throw new Error('[Reports-DB] FATAL: cannot create default admin on PostgreSQL — DASH_USER and DASH_PASS must be set in .env before first boot.');
+    }
+    const _exists = await _pg.prepare('SELECT id FROM users WHERE username = ?').get(process.env.DASH_USER);
+    if (!_exists) { await _createUserPg({ username: process.env.DASH_USER, full_name: 'Administrator', password: process.env.DASH_PASS, role: 'admin' }); console.log('[Reports-DB] Default admin created on PostgreSQL:', process.env.DASH_USER); }
   }
   return _pg;
 }
@@ -8002,7 +8033,7 @@ setInterval(() => {
   db.prepare(`DELETE FROM sessions WHERE expires_at < datetime('now')`).run();
 }, 3600000); // every hour
 
-console.log('[Reports-DB] ✅ SQLite ready — reports.db');
+console.log(_PG_MODE ? '[Reports-DB] PostgreSQL mode — SQLite disabled' : '[Reports-DB] ✅ SQLite ready — reports.db');
 
 // ── OPEN CHANGES FOR SITE ─────────────────────────────────────────
 // Returns all non-closed change records for a site's group(s).
@@ -8416,6 +8447,8 @@ async function _backfillSystemLogFromAudit() {
     if (rows.length) console.log(`[system-log] backfilled ${rows.length} report audit rows`);
   } catch (e) { console.warn('[system-log] backfill skipped:', e.message); }
 }
+
+if (_PG_MODE) _sqliteLocked = true;   // load-time schema/seed done in memory; from here on, PostgreSQL only
 
 module.exports = {
   rateLimitBump, purgeSystemLog, sessionHours,
