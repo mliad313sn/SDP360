@@ -62,7 +62,7 @@ function compare(D, year, legacyScore, { upToMonth = 12, tolerance = 0.1 } = {})
   const deltas = rows.map(r => r.delta_pt).filter(d => d != null);
   const maxDelta = deltas.length ? Math.max(...deltas) : 0;
   const csv = ['site,month,legacy_pct,engine_pct,legacy_green,engine_green,delta_pt,ok']
-    .concat(rows.map(r => [r.site, r.month, r.legacy_pct ?? '', r.engine_pct ?? '', r.legacy_g, r.engine_g, r.delta_pt ?? '', r.ok ? 'yes' : 'no'].join(','))).join('\n');
+    .concat(rows.map(r => [r.site, r.month, r.legacy_pct ?? '', r.engine_pct ?? '', r.legacy_g, r.engine_g, r.delta_pt ?? '', r.ok ? 'yes' : 'no'].map(require('../public/lib/csvSafe').neutralize).join(','))).join('\n');
   return { rows, maxDelta, ok: rows.every(r => r.ok), tolerance, csv, definition: imp.definition };
 }
 

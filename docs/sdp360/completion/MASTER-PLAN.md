@@ -35,7 +35,8 @@ The review's evidence predates three facts. Each one updates the plan:
 5. **Inputs are never invented.** F01–F24 and the 41 chart contracts stay BLOCKED (CG-11) until the original
    `GAP-BACKLOG.csv` and `CHART-CONTRACT-REGISTER.csv`, or approved replacements, are supplied. The same applies
    to KPI formulas and thresholds (D-01…D-03) and financial figures (G14).
-6. **Excluded connectors are checked by a test, not by policy alone.** G19 adds an automated audit that fails
+6. **Meraki is kept (D-06, requester decision 2026-10-28).** The Meraki connectors are supported scope, not dormant legacy: they stay in the connector register as active, and the excluded-connector audit allows them.
+7. **Excluded connectors are checked by a test, not by policy alone.** G19 adds an automated audit that fails
    if new code calls a prohibited system: Pronto, OT/HSE, ISP, Nutanix, backup platforms, Defender, or an
    external PPM tool.
 
@@ -58,7 +59,7 @@ the item waits on a person. Gated items never block independent agent work.
 | 2 | 10 | G-12 | Score stays SHADOW/DRAFT; registry metadata complete | D-01/02/03 |
 | 3 | 11 | G-19…G-23 | Native WBS/tasks/dependencies/gates; roadmap deprecation plan; cadence lifecycle; handoff state machine; tracker lifecycle | G-20 decision, Finance for G14 |
 | 3 | 12 | G-24/G-25/G-26 | Composer publish workflow; R01–R16 / A01–A16 catalogue rows with honest status | D-13 |
-| 4 | 13 | G-29/G-30 | Connector register + excluded-connector audit test; OpManager coverage view with NOT MONITORED / STALE / UNKNOWN | D-06/D-07, infra owner |
+| 4 | 13 | G-29/G-30 | Connector register + excluded-connector audit test; OpManager coverage view with NOT MONITORED / STALE / UNKNOWN | D-07, infra owner (D-06 decided: Meraki kept) |
 | 4 | 14 | G-31/G-32/G-33 | Navigation tree + page map; EN/FR + WCAG checks; incremental extraction from executive.html and reports.html with screenshot parity | — |
 | 4 | 15 | G-16 | Offline test matrix (network loss, conflicts, purge) in a browser harness | D-05 pilot |
 | 5 | 16 | G-11/G-34/G-36/G-37 | Restore drill on PG 17; install/upgrade/rollback runbook; health/SLO doc; load test with synthetic users | CAB, D-12 signing |
@@ -84,4 +85,7 @@ Independent, non-destructive work continues while these hold.
 
 ## 5. Next work item
 
-Wave 1, remaining: G-08 negative export/share suite and key-client inventory template; then G-04 sweep for every HTTP method (writes) generated from the router, like the read sweep.
+Done on 2026-10-28: G-01, G-02, G-03, G-04, G-05, G-07, G-08, G-13, G-14, G-30 (see `DAILY-EVIDENCE.md`).
+Next, in order: G-17/G-18 (commitments backfill dry-run report on PostgreSQL, A01/A02 escalation dedup), then
+G-23/G-24 (tracker and dashboard publication lifecycle — extend the G-14 freshness gate to dashboard publication and
+`/api/v1` values), then G-21/G-22 (cadence lifecycle, handoff state machine). Human gates are listed in `RELEASE-GATES.md`.

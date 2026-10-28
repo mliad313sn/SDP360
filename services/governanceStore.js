@@ -134,8 +134,16 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   const rfiRow = (r) => r && ({ ...r, id: Number(r.id), impact: Number(r.impact), effort: Number(r.effort), data_risk: Number(r.data_risk), site_id: r.site_id == null ? null : Number(r.site_id), score: rfiScore(r) });
   /** Committee rubric (docs/sdp360/02): value = impact × 3 − effort − data_risk, 1..3 each → −3..7; higher first. */
   function rfiScore(r) { return Number(r.impact) * 3 - Number(r.effort) - Number(r.data_risk); }
-  async function listRfi({ status = null, limit = 500 } = {}) {
+  // scope: null = the whole register (committee); otherwise { userId, siteIds } — the reader's own
+  // requests plus those of their sites (G-08, spec 04 §146: "the Help page lists the user's RFIs").
+  async function listRfi({ status = null, limit = 500, scope = null } = {}) {
     const where = [], args = [];
+    if (scope) {
+      const ids = (scope.siteIds || []).map(Number).filter(Number.isFinite);
+      const own = ['requester_id = ?']; args.push(Number(scope.userId) || -1);
+      if (ids.length) { own.push(`site_id IN (${ids.map(() => '?').join(',')})`); args.push(...ids); }
+      where.push(`(${own.join(' OR ')})`);
+    }
     if (status) { const st = Array.isArray(status) ? status : [status]; where.push(`status IN (${st.map(() => '?').join(',')})`); args.push(...st); }
     const rows = (await P(`SELECT * FROM rfi_requests${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY created_at DESC LIMIT ${Math.min(2000, Number(limit) || 500)}`).all(...args)).map(rfiRow);
     return rows.sort((a, b) => b.score - a.score || String(b.created_at).localeCompare(String(a.created_at)));

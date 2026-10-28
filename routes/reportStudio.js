@@ -46,6 +46,15 @@ module.exports = function reportStudioRoutes(deps) {
   const provider = () => deps.aiProvider || 'off';
   async function scope(u) { const all = ((await rdb().listSites({ includeInactive: false })) || []).map(s => ({ id: Number(s.id), name: s.name })); if (isAdmin(u)) return all; const ids = new Set(userSites.siteIds(u).map(Number)); return all.filter(s => ids.has(s.id)); }
   async function baseUrl() { try { return String((await reportConfig.getConfig(rdb().db)).public_base_url || ''); } catch (_) { return ''; } }
+  const gate = require('../services/publishGate');
+  // G-14 — last successful sync per job (sync_runs); injectable for tests.
+  async function lastOkFor(jobs) {
+    if (deps.lastSyncOk) return deps.lastSyncOk(jobs);
+    const out = {}; if (!jobs.length) return out;
+    try { const st = require('../services/sync'); await st.ensureReady(); for (const j of jobs) { const r = await st.getStore().lastSuccessfulRun(j); out[j] = r ? (r.finished_at || r.started_at) : null; } } catch (_) { for (const j of jobs) out[j] = null; }
+    return out;
+  }
+  const sod = (res, action, r, u) => { const c = gate.dutyConflict(action, r, u); if (c) { res.status(403).json({ ok: false, error: c.error, code: c.code }); return true; } return false; };
   async function visibleRun(req, res, { write = false } = {}) {
     const r = await store.getRun(req.params.id); if (!r) { res.status(404).json({ ok: false, error: 'run not found' }); return null; }
     const u = req.reportUser;
@@ -95,21 +104,44 @@ module.exports = function reportStudioRoutes(deps) {
   async function rerenderRun(r) { const t = await store.getTemplate(r.template_key); const sites = await rdb().listSites({ includeInactive: true }); const s = r.site_id != null ? (sites || []).find(x => Number(x.id) === r.site_id) : null; await store.updateHtml(r.id, rerender({ template: t, run: r, siteName: s ? s.name : null, baseUrl: await baseUrl() })); }
   router.post('/api/report-studio/runs/:id/review', requireReportSession, json, async (req, res) => {
     try { const r = await visibleRun(req, res, { write: true }); if (!r) return; const st = req.body && req.body.status; if (st !== 'reviewed' && st !== 'rejected') return res.status(400).json({ ok: false, error: 'status must be reviewed | rejected' });
+      if (r.status !== 'draft' && r.status !== 'rejected') return res.status(409).json({ ok: false, error: `a ${r.status} run cannot be reviewed` });
+      if (sod(res, 'review', r, req.reportUser)) return;
       const out = await store.setStatus(r.id, st, { user: req.reportUser, note: req.body.note, rating: req.body.rating }); await rerenderRun(out); log(req, 'report_reviewed', r.id, { status: st, rating: out.rating }); res.json({ ok: true, run: { ...out, html: undefined } }); } catch (e) { fail(res, e); }
   });
-  router.post('/api/report-studio/runs/:id/publish', requireReportSession, async (req, res) => {
+  router.post('/api/report-studio/runs/:id/publish', requireReportSession, json, async (req, res) => {
     try { const r = await visibleRun(req, res, { write: true }); if (!r) return; if (r.status !== 'reviewed') return res.status(409).json({ ok: false, error: 'a run must be reviewed by a human before publication' });
-      const out = await store.setStatus(r.id, 'published', { user: req.reportUser }); await rerenderRun(out); log(req, 'report_published', r.id);
+      if (sod(res, 'publish', r, req.reportUser)) return;
+      // G-14 — a stale or never-synced source blocks publication; an admin may override with a written reason.
+      const mods = gate.modulesOf(r, registry()); const fr = gate.freshness(mods, await lastOkFor(gate.jobsFor(mods)), Date.now());
+      let override = null;
+      if (!fr.fresh) {
+        const reason = String((req.body && req.body.override_reason) || '').trim();
+        if (!(isAdmin(req.reportUser) && reason.length >= 10)) return res.status(409).json({ ok: false, error: 'stale_sources', message: 'a source behind this report is stale or has never synced; an admin may publish with override_reason (10+ characters)', sources: fr.sources.filter(x => x.state !== 'FRESH') });
+        override = { by: req.reportUser.id, at: new Date().toISOString(), reason: reason.slice(0, 1000), sources: fr.sources.filter(x => x.state !== 'FRESH') };
+        try { rdb().logEvent({ category: 'reports', action: 'report_publish_override', target: String(r.id), details: override, risk: 1, ...rdb()._logCtx(req) }); } catch (_) {}
+      }
+      const out = await store.setStatus(r.id, 'published', { user: req.reportUser, override }); await rerenderRun(out); log(req, 'report_published', r.id, { override: !!override });
       if (deps.engStore) { for (const s of await deps.engStore.subscribersOf('report_template', r.template_key)) await deps.engStore.notify({ userId: s.user_id, kind: 'report', title: `Report published: ${r.template_key}`, body: out.analysis && out.analysis.headline, link: `${await baseUrl()}/report-studio.html?run=${r.id}`, sourceKind: 'report_run', sourceRef: r.id }); }
       res.json({ ok: true, run: { ...out, html: undefined } }); } catch (e) { fail(res, e); }
   });
   router.put('/api/report-studio/runs/:id/commentary', requireReportSession, json, async (req, res) => {
-    try { const r = await visibleRun(req, res, { write: true }); if (!r) return; if (r.status === 'published') return res.status(409).json({ ok: false, error: 'published run is frozen' }); const text = String(req.body && req.body.text || '').slice(0, 8000);
-      const out = await store.updateCommentary(r.id, { ...(r.commentary || {}), text, source: 'human', edited_by: req.reportUser.id, edited_at: new Date().toISOString(), verified: true, offending: [] }); await rerenderRun(out); log(req, 'report_commentary_edited', r.id); res.json({ ok: true, run: { ...out, html: undefined } }); } catch (e) { fail(res, e); }
+    try { const r = await visibleRun(req, res, { write: true }); if (!r) return; if (r.status === 'published' || r.status === 'withdrawn') return res.status(409).json({ ok: false, error: `${r.status} run is frozen` }); const text = String(req.body && req.body.text || '').slice(0, 8000);
+      let out = await store.updateCommentary(r.id, { ...(r.commentary || {}), text, source: 'human', edited_by: req.reportUser.id, edited_at: new Date().toISOString(), verified: true, offending: [] });
+      if (r.status === 'reviewed') out = await store.setStatus(r.id, 'draft', { user: req.reportUser });   // G-13 — an edit after review voids the review
+      await rerenderRun(out); log(req, 'report_commentary_edited', r.id); res.json({ ok: true, run: { ...out, html: undefined } }); } catch (e) { fail(res, e); }
   });
   router.post('/api/report-studio/runs/:id/commentary/regenerate', requireReportSession, async (req, res) => {
-    try { const r = await visibleRun(req, res, { write: true }); if (!r) return; if (r.status === 'published') return res.status(409).json({ ok: false, error: 'published run is frozen' }); const t = await store.getTemplate(r.template_key);
-      const c = await generateCommentary({ analysis: { ...(r.analysis || {}), figures: r.figures || [] }, audience: t.audience, lang: runLang(t, r), provider: provider(), aiCall: deps.aiCall || null }); const out = await store.updateCommentary(r.id, c); await rerenderRun(out); log(req, 'report_commentary_regenerated', r.id, { source: c.source, verified: c.verified }); res.json({ ok: true, commentary: c }); } catch (e) { fail(res, e); }
+    try { const r = await visibleRun(req, res, { write: true }); if (!r) return; if (r.status === 'published' || r.status === 'withdrawn') return res.status(409).json({ ok: false, error: `${r.status} run is frozen` }); const t = await store.getTemplate(r.template_key);
+      const c = await generateCommentary({ analysis: { ...(r.analysis || {}), figures: r.figures || [] }, audience: t.audience, lang: runLang(t, r), provider: provider(), aiCall: deps.aiCall || null }); let out = await store.updateCommentary(r.id, c); if (r.status === 'reviewed') out = await store.setStatus(r.id, 'draft', { user: req.reportUser }); await rerenderRun(out); log(req, 'report_commentary_regenerated', r.id, { source: c.source, verified: c.verified }); res.json({ ok: true, commentary: c }); } catch (e) { fail(res, e); }
+  });
+  // G-13 — take a published run back (admin, reason required). Readers and share links stop seeing it; a corrected
+  // version is a new run (generate → review → publish), so the withdrawn one stays as the audit record.
+  router.post('/api/report-studio/runs/:id/withdraw', requireReportSession, json, async (req, res) => {
+    try { if (!isAdmin(req.reportUser)) return res.status(403).json({ ok: false, error: 'admin role required' });
+      const r = await visibleRun(req, res, { write: true }); if (!r) return; if (r.status !== 'published') return res.status(409).json({ ok: false, error: 'only a published run can be withdrawn' });
+      const reason = String((req.body && req.body.reason) || '').trim(); if (reason.length < 5) return res.status(400).json({ ok: false, error: 'reason required (5+ characters)' });
+      const out = await store.setStatus(r.id, 'withdrawn', { user: req.reportUser, note: reason }); await rerenderRun(out); log(req, 'report_withdrawn', r.id, { reason });
+      res.json({ ok: true, run: { ...out, html: undefined } }); } catch (e) { fail(res, e); }
   });
   router.get('/api/report-studio/stats', requireReportSession, requireAuthor, async (req, res) => { try { res.json({ ok: true, provider: provider(), ...(await store.ratingStats()) }); } catch (e) { fail(res, e); } });
   return router;

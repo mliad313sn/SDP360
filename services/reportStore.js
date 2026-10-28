@@ -7,7 +7,7 @@
 
 const AUDIENCES = ['site', 'executive', 'council'];
 const CADENCES = ['weekly', 'monthly', 'quarterly', 'manual'];
-const STATUSES = ['draft', 'reviewed', 'published', 'rejected'];
+const STATUSES = ['draft', 'reviewed', 'published', 'rejected', 'withdrawn'];
 const J = (v) => (v == null ? null : JSON.stringify(v));
 const P_ = (s, d) => { if (s == null) return d; if (typeof s !== 'string') return s; try { return JSON.parse(s); } catch (_) { return d; } };
 
@@ -53,10 +53,12 @@ function makeReportStore(db, { isPg = false, now = () => new Date().toISOString(
     const rows = (await P(`SELECT id, template_key, site_id, window_label, status, provider, deviation, created_by, created_at, reviewed_by, reviewed_at, rating, published_at, html FROM report_runs${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY created_at DESC, id DESC LIMIT ${Math.min(500, Number(limit) || 50)}`).all(...args)).map(r => runRow(r));
     return Array.isArray(siteIds) ? rows.filter(r => r.site_id == null || siteIds.includes(r.site_id)) : rows;
   }
-  async function setStatus(id, status, { user, note, rating } = {}) {
+  async function setStatus(id, status, { user, note, rating, override } = {}) {
     if (!STATUSES.includes(status)) throw Object.assign(new Error('bad run status'), { code: 'INVALID' });
     const p = { status }; if (status === 'reviewed' || status === 'rejected') { p.reviewed_by = user ? user.id : null; p.reviewed_at = now(); p.review_note = note == null ? null : String(note).slice(0, 2000); if (rating != null) p.rating = Math.min(5, Math.max(1, Number(rating) || 0)) || null; }
-    if (status === 'published') p.published_at = now();
+    if (status === 'published') { p.published_at = now(); p.published_by = user ? user.id : null; if (override) p.publish_override = J(override); }
+    if (status === 'withdrawn') { p.withdrawn_at = now(); p.withdrawn_by = user ? user.id : null; p.withdraw_reason = note == null ? null : String(note).slice(0, 2000); }
+    if (status === 'draft') { p.reviewed_by = null; p.reviewed_at = null; }
     await P(`UPDATE report_runs SET ${Object.keys(p).map(k => `${k}=?`).join(', ')} WHERE id=?`).run(...Object.values(p), Number(id));
     return getRun(id);
   }

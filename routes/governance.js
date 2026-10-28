@@ -53,6 +53,8 @@ module.exports = function governanceRoutes(deps) {
   const log = (req, action, target, details) => { try { rdb().logEvent({ category: 'governance', action, target: String(target), details, ...rdb()._logCtx(req) }); } catch (_) {} };
   const canRun = (u, cad) => isCommittee(u) || (cad && (Number(cad.chair_id) === Number(u.id) || Number(cad.secretary_id) === Number(u.id))) || (cad && cad.site_id != null && rdb().userHasRole(u, 'editor') && userSites.hasSite(u, cad.site_id));
   const canDecide = (u, cad) => isAdmin(u) || (cad && (Number(cad.chair_id) === Number(u.id) || Number(cad.secretary_id) === Number(u.id)));
+  // The RFI register is the committee's; anyone else sees their own requests and their sites' (G-08).
+  const rfiScope = (u) => (isCommittee(u) ? null : { userId: u.id, siteIds: userSites.siteIds(u) });
   async function scopeIds(u) { if (isAdmin(u)) return null; return userSites.siteIds(u).map(Number); }
   async function loadSession(req, res, { run = false, decide = false } = {}) {
     const s = await store.getSession(req.params.id); if (!s) { res.status(404).json({ ok: false, error: 'session not found' }); return null; }
@@ -124,7 +126,7 @@ module.exports = function governanceRoutes(deps) {
   router.get('/api/governance/overview', requireReportSession, async (req, res) => {
     try {
       const ids = await scopeIds(req.reportUser);
-      const [cad, dec, rfi, sess] = [await store.listCadences({ siteIds: ids }), await store.listDecisions({ status: ['open', 'in_progress'], siteIds: ids }), await store.listRfi({ status: ['submitted', 'triaged', 'accepted', 'scheduled'] }), await store.listSessions({ limit: 200 })];
+      const [cad, dec, rfi, sess] = [await store.listCadences({ siteIds: ids }), await store.listDecisions({ status: ['open', 'in_progress'], siteIds: ids }), await store.listRfi({ status: ['submitted', 'triaged', 'accepted', 'scheduled'], scope: rfiScope(req.reportUser) }), await store.listSessions({ limit: 200 })];
       const today = new Date().toISOString().slice(0, 10);
       res.json({ ok: true, committee: isCommittee(req.reportUser), cadences: cad.length, sessions_held_30d: sess.filter(s => s.status === 'closed' && String(s.closed_at || '').slice(0, 10) >= new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10)).length, sessions_planned: sess.filter(s => s.status === 'planned').length,
         decisions_open: dec.length, decisions_overdue: dec.filter(d => d.due_date && d.due_date < today).length, rfi_to_triage: rfi.filter(r => r.status === 'submitted').length, rfi_in_flight: rfi.filter(r => r.status !== 'submitted').length });
@@ -203,7 +205,7 @@ module.exports = function governanceRoutes(deps) {
   // ---- decisions / RFI --------------------------------------------------------------------
   router.get('/api/governance/decisions', requireReportSession, async (req, res) => { try { res.json({ ok: true, decisions: await store.listDecisions({ status: req.query.status ? String(req.query.status).split(',') : null, siteIds: await scopeIds(req.reportUser) }) }); } catch (e) { fail(res, e); } });
   router.put('/api/governance/decisions/:id', requireReportSession, requireCommittee, json, async (req, res) => { try { const d = await store.updateDecision(req.params.id, req.body || {}); log(req, 'decision_updated', d && d.ref); res.json({ ok: true, decision: d }); } catch (e) { fail(res, e); } });
-  router.get('/api/governance/rfi', requireReportSession, async (req, res) => { try { res.json({ ok: true, committee: isCommittee(req.reportUser), rfi: await store.listRfi({ status: req.query.status ? String(req.query.status).split(',') : null }), kinds: store.RFI_KINDS, statuses: store.RFI_STATUSES }); } catch (e) { fail(res, e); } });
+  router.get('/api/governance/rfi', requireReportSession, async (req, res) => { try { res.json({ ok: true, committee: isCommittee(req.reportUser), rfi: await store.listRfi({ status: req.query.status ? String(req.query.status).split(',') : null, scope: rfiScope(req.reportUser) }), kinds: store.RFI_KINDS, statuses: store.RFI_STATUSES }); } catch (e) { fail(res, e); } });
   router.post('/api/governance/rfi', requireReportSession, json, async (req, res) => { try { const r = await store.submitRfi({ ...req.body, site_id: req.body && req.body.site_id != null ? req.body.site_id : (userSites.siteIds(req.reportUser)[0] || null) }, { user: req.reportUser }); log(req, 'rfi_submitted', r.ref, { kind: r.kind }); res.json({ ok: true, rfi: r }); } catch (e) { fail(res, e); } });
   router.put('/api/governance/rfi/:id', requireReportSession, requireCommittee, json, async (req, res) => { try { const r = await store.triageRfi(req.params.id, req.body || {}); log(req, 'rfi_triaged', r && r.ref, { status: r && r.status }); res.json({ ok: true, rfi: r }); } catch (e) { fail(res, e); } });
 

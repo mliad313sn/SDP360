@@ -25,6 +25,10 @@ made so far so that future sessions can pick up exactly where the last one ended
 >   pre-loaded `user.roles` (a bare id now fails closed).
 > - Backups/recovery = PostgreSQL dumps and restore points only: `docs/DB_RECOVERY.md`.
 > - Offline field capture stays in the browser (service worker + local queue); it never used a server SQLite.
+>
+> **D-06 decided 2026-10-28 (requester): Meraki connectors are KEPT** — WAN health, calibrated % Time Up, WAN SLA
+> chargeback, poller and ingester stay supported scope. Never propose retiring or removing them; they are allowed by the
+> excluded-connector audit. (Meridian D-07 is unchanged: dormant.) Completion programme: `docs/sdp360/completion/`.
 
 ---
 

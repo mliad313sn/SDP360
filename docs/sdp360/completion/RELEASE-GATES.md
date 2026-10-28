@@ -15,7 +15,7 @@ The release stays **NO-GO** while any mandatory row is empty.
 | Report authority and channels D-13 (G-13/G-25) | external report release | Reporting owner | | | | |
 | Pilot sites D-05 and field UAT (G-16/G-35) | field acceptance | Sponsor + Group IT | | | | |
 | Data owner — anonymised fixtures (G-15), 2026 history D-10 | data claims | Data owners | | | | |
-| Connectors D-06/D-07/D-08/D-09, dash-key clients D-15 | connector changes | Platform/infra owners | | | | |
+| Connectors D-07/D-08/D-09, dash-key clients D-15 (D-06 Meraki: kept by requester decision) | connector changes | Platform/infra owners | | | | |
 | Finance — budgets and benefits (G14) | financial figures | Finance | | | | |
 | Product — business acceptance | release | Sponsor / PO | | | | |
 | Legal / commercial (G-38/G-39) | market release | Legal + commercial lead | | | | |

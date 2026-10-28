@@ -34,7 +34,7 @@ assumptions (`AS-`).
 | D-01/D-02/D-03 KPI definitions, thresholds, scorecard | any official 2027 score | Committee |
 | D-04 closure policy | `commitments_enabled=1` | Business/control owners + Committee |
 | D-05 pilot sites | UAT/field validation | Sponsor + Group IT |
-| D-06/D-07 Meraki / Meridian retirement | connector removal | CAB |
+| D-07 Meridian retirement (D-06 Meraki: decided 2026-10-28 — kept) | connector removal | CAB |
 | D-15 (new) inventory of server-to-server dash-key clients | restricting CG-08 routes | Platform owner |
 | Production deployment, CAB GO/NO-GO, real secrets, Finance approval, business acceptance | — | People only |
 
