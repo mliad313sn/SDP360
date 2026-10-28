@@ -4210,7 +4210,7 @@ function exportDpCSV() {
   const slug = document.getElementById('dpTitle').textContent.replace(/[^a-z0-9]/gi, '_').slice(0, 40);
   const hdr = _dpCols.map(c => `"${c}"`).join(',');
   const rows = _dpFiltered.map(r =>
-    _dpCols.map(c => `"${String(r[c]??'').replace(/"/g,'""')}"`).join(',')
+    _dpCols.map(c => { const s = String(r[c]??''); return `"${(/^[=+\-@\t\r]/.test(s) && !/^[+-]?\d+(\.\d+)?$/.test(s) ? "'" + s : s).replace(/"/g,'""')}"`; }).join(',')   // M14 guard
   );
   const blob = new Blob([hdr + '\n' + rows.join('\n')], { type: 'text/csv' });
   const url = URL.createObjectURL(blob);

@@ -975,7 +975,7 @@ function InputPanel({ D, S, setS, roles, onMutate }) {
   function exportInputCsv() {
     const yr = S.year, mo = S.month;
     const R = TR.score(D, site, yr, mo);
-    const esc = v => { const s = String(v == null ? '' : v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const esc = v => { let s = String(v == null ? '' : v); s = /^[=+\-@\t\r]/.test(s) && !/^[+-]?\d+(\.\d+)?$/.test(s) ? "'" + s : s; /* M14 guard */ return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
     const head = ['#', 'Pillar', 'Activity', 'KPI', 'Shared', 'Active', 'Window', 'Annual target',
       ...MO, 'Sum Jan-' + MO[mo - 1], 'Engine YTD (ya)', 'Engine target (yt)', 'Score', 'RAG'];
     const lines = [head.map(esc).join(',')];

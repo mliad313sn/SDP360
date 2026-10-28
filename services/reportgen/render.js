@@ -39,7 +39,7 @@ function html(def, run, data, commentary) {
 /** CSV: one line per figure. */
 function csv(def, data) {
   const lines = [['section', 'indicateur', 'site', 'valeur', 'mois precedent', 'unite', 'etat']];
-  const q = (v) => { const s = v == null ? '' : String(v); return /[",;\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const q = (v) => { const s = require('../../public/lib/csvSafe').neutralize(v); return /[",;\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
   const lbl = (l) => (l && typeof l === 'object' ? (l.fr || l.en || '') : String(l || ''));
   for (const s of def.sections) {
     if (s.type === 'commentary') continue;

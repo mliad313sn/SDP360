@@ -613,7 +613,7 @@ module.exports = function reportsRoutes(deps) {
     try {
       const { rows } = await rdb.listSystemLog(_syslogFilters(req), { limit: 100000, offset: 0 });
       const COLS = ['ts','category','action','actor','actor_id','target','ip','risk','details'];
-      const esc = v => { const s = v == null ? '' : String(v); return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+      const esc = v => { const s = require('../public/lib/csvSafe').neutralize(v); return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
       const csv = '﻿' + [COLS.join(','), ...rows.map(r => COLS.map(c => esc(r[c])).join(','))].join('\r\n');
       res.setHeader('Content-Type', 'text/csv; charset=utf-8');
       res.setHeader('Content-Disposition', 'attachment; filename="system-log.csv"');

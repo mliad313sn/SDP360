@@ -493,7 +493,7 @@
       </tr>`).join('') : '<tr><td colspan="10" class="sl-muted">Aucune coupure ne correspond au filtre.</td></tr>';
     const c = $('sl-of-count'); if (c) c.textContent = rows.length + ' / ' + outageRows.length + ' coupure(s)';
   }
-  function _csvCell(v) { const s = v == null ? '' : String(v); return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+  function _csvCell(v) { let s = v == null ? '' : String(v); s = /^[=+\-@\t\r]/.test(s) && !/^[+-]?\d+(\.\d+)?$/.test(s) ? "'" + s : s;   /* M14 guard */ return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
   // "What I see" export → server-built .xlsx (3 sheets: coupures / résumé / chaînes 24h),
   // from the rows currently shown (period + min duration + ISP + uplink + attribution filters).
   async function exportFilteredOutages() {

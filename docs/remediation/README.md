@@ -87,6 +87,10 @@ Full history (1236 commits from `samaziz679/sdp-dashboard`) pushed to `mliad313s
 - **M03:** meetings/inspection site pickers list only the reader's sites (DEC-07 follow-up).
 - Full suite: 2630 tests, **0 fail**, 109 skipped (PG/snapshot).
 
+### Run 8 — 2026-10-28 · M14 CSV injection
+- **F-M14-001 fixed:** every CSV export (WAN SLA evidence, System Log, report studio, helpdesk exports, deck builder data, Assets drill, roadmap, WAN, site report, tracker input) now prefixes `'` to text starting with `=`, `+`, `-`, `@`, TAB or CR; real numbers stay numeric. Static guard test keeps every writer covered.
+- **Found while verifying:** the reported test total varies run to run (2630 / 2578 / 2618) with 0 failures — the runner drops results silently (F-M01-004, under investigation).
+
 ## Dependency DAG
 
 Validated against the repository (no deviation from the roadmap order found yet):

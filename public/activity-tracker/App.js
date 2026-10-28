@@ -553,7 +553,8 @@ function InputPanel({ D, S, setS, roles, onMutate }) {
     const yr = S.year, mo = S.month;
     const R = TR.score(D, site, yr, mo);
     const esc = (v) => {
-      const s = String(v == null ? "" : v);
+      let s = String(v == null ? "" : v);
+      s = /^[=+\-@\t\r]/.test(s) && !/^[+-]?\d+(\.\d+)?$/.test(s) ? "'" + s : s;
       return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
     };
     const head = [
