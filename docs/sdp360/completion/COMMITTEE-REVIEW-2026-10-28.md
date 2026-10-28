@@ -43,11 +43,11 @@ coordinator, Houndé) · AUDIT (internal audit / ITGC) · SEC (group ISO, ISO 27
 | 26 | SEC P2 | Group-level sessions readable by any account | FIXED | Committee, chair / secretary and named participants only (lists and detail). Decisions register stays readable (outcomes are meant to be communicated) — DECISION if the committee wants it closed too |
 | 27 | SEC P2 | `idem_key` and a fixed 5-character probe in handoff responses | FIXED | `idem_key` never returned; `can_reassign` probed with a 500-character reason |
 | 28 | SEC P2, QA P2 | Empty `IN ()`, negative history limit | FIXED / already guarded | Lists return `[]` before querying; history limit clamped to 1–1000 |
-| 29 | FIELD P1-5 | `prompt()` dialogs fail in Teams webview / in-app browsers | FIXED (component) | `public/lib/reasonDialog.js` (accessible, character counter, no innerHTML). OPEN: wire it in handoffs, cockpit, policies, composer, tracker builder |
-| 30 | FIELD P0-2, P1-6, P2-11/13 | Cockpit / policies pages English, server errors English | OPEN | Next batch: cockpit EN/FR, error codes translated client-side |
-| 31 | FIELD P1-3, P1-4 | Meeting notes lost on reload; double tap records a decision twice | OPEN | Next batch: notes autosave to a local draft; `idem_key` on decisions / actions |
-| 32 | FIELD P1-7 | Handoff form asks for a site id and a username | OPEN (API ready) | List response carries `sites`; picker endpoint exists; page to use them |
-| 33 | FIELD P1-10 | "Passation" means a post handover in BF/CI; past-participle buttons | OPEN | Vocabulary "Demande inter-services", verb buttons |
+| 29 | FIELD P1-5 | `prompt()` dialogs fail in Teams webview / in-app browsers | FIXED | `public/lib/reasonDialog.js` (accessible, character counter showing the policy minimum, no innerHTML) in policies, handoffs, cockpit, composer, tracker builder, commitments; `tests/no-native-dialogs.test.js` keeps them out |
+| 30 | FIELD P0-2, P1-6, P2-11/13 | Cockpit / policies pages English, server errors English | FIXED (pages) | Cockpit EN/FR (`lib/i18nText.js` + `lib/cockpit-fr.js`, browser language by default); policies page fully bilingual (rule text first, key second, names in history); handoff errors translated client-side. OPEN: a server-side error-code catalogue for every module |
+| 31 | FIELD P1-3, P1-4 | Meeting notes lost on reload; double tap records a decision twice | FIXED | Notes kept as a local draft and sent 3 s after the last keystroke (restored after a reload); decisions / actions carry an idempotency key (migration 030) and buttons are disabled in flight. `governance-routes.smoke.test.js` (concurrent double submit → one decision); browser check |
+| 32 | FIELD P1-7 | Handoff form asks for a site id and a username | FIXED | Site drop-down limited to the caller's sites, receiver picked from the active people of that site; cockpit weekday is a named day. OPEN: chair / secretary pickers in the cadence form |
+| 33 | FIELD P1-10 | "Passation" means a post handover in BF/CI; past-participle buttons | FIXED | "Demandes inter-services"; verb buttons (Accepter, Refuser, Signaler un blocage, Marquer comme livré, Valider la livraison, Demander une reprise); "remontée à la hiérarchie"; help §29 FR rewritten |
 | 34 | FIELD P0-1 | Department heads without an account cannot take part in a handoff | DECISION | Options: contact receivers, coordinator "on behalf of" with a note under a site policy, light accounts. Changes the "never on behalf" invariant — the committee decides |
 | 35 | FIELD P1-9 | One-person sites accumulate minutes nobody can accept | DECISION | Site profiles (presets) vs. delegate-to-group reviewer; see #37 |
 | 36 | FIELD P1-8 | Escalation notifies nobody while notifications are off | DECISION | Arm `handoff_notify_enabled` per site; name escalation targets (needs #38) |
@@ -64,6 +64,7 @@ coordinator, Houndé) · AUDIT (internal audit / ITGC) · SEC (group ISO, ISO 27
 | 47 | SEC P2 | Commitment replay reveals SDP ticket links across sites | OPEN | Resolve the ticket's site through tech_group / zoho_group; unresolvable systems admin-only |
 | 48 | SEC P2 | Tightening can stop the platform (freshness 0.25 h, reason 500) | DECISION | Large changes in either direction under the same two-person rule? |
 | 49 | ARCH next | Scope beyond site (tenant → BU → country → site) | DECISION | Needs `sites.country` / BU attributes; a second company = a separate instance today |
+| 51 | (browser check) | The site navigation bar sat over the full-screen cockpit session and blocked its Start / Close buttons | FIXED | Session overlay above the navigation (found by the Chromium run used to verify these changes) |
 | 50 | ARCH P2-5 | Data-driven state machines | DOC | Deliberately not done: transitions stay in code so a context cannot remove a separation-of-duties control |
 
 ## Not verified by the committee (and still not verified)

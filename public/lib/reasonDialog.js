@@ -66,7 +66,8 @@
       const id = 'rd-f-' + i + '-' + Date.now();
       let input;
       if (f.type === 'select') { input = el('select', { id }); for (const opt of f.options || []) input.appendChild(el('option', { value: String(opt.value), textContent: opt.label })); if (f.value != null) input.value = String(f.value); }
-      else input = el(f.multiline ? 'textarea' : 'input', { id, type: f.type === 'number' ? 'number' : 'text', value: f.value == null ? '' : String(f.value) });
+      else if (f.multiline) input = el('textarea', { id, rows: 3, value: f.value == null ? '' : String(f.value) });
+      else input = el('input', { id, type: f.type === 'number' ? 'number' : 'text', value: f.value == null ? '' : String(f.value) });
       inputs[f.name] = { input, f };
       body.appendChild(el('label', { htmlFor: id, textContent: f.label + (f.min ? ` (${T[lang].min(f.min)})` : '') })); body.appendChild(input);
     });
@@ -74,5 +75,11 @@
     const collect = () => Object.fromEntries(Object.entries(inputs).map(([k, { input }]) => [k, String(input.value).trim()]));
     return shell(o.title || '', lang, body, valid, collect);
   }
-  root.ReasonDialog = { ask, form };
+  /** Yes / no confirmation (window.confirm is suppressed in some embedded browsers). → Promise<boolean> */
+  function confirm(o) {
+    o = o || {}; const lang = o.lang === 'fr' ? 'fr' : 'en';
+    const body = el('div', {}, [el('p', { textContent: o.message || '' })]);
+    return shell(o.title || '', lang, body, () => true, () => true).then((v) => v === true);
+  }
+  root.ReasonDialog = { ask, form, confirm };
 })(window);

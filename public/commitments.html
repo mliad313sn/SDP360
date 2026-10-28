@@ -11,6 +11,7 @@
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
 <style nonce="%%CSP_NONCE%%">
   body { margin: 0; background: var(--color-bg, #F4F5F7); color: var(--color-text-strong, #1F2A33); font-family: var(--font-sans, sans-serif); font-size: 14px; }
   .cm-wrap { max-width: 1300px; margin: 0 auto; padding: 24px 28px 48px; }
@@ -113,7 +114,7 @@
     const b = ev.target.closest('button[data-to]');
     if (b) {
       let reason = null;
-      if (b.dataset.reason === '1') { reason = window.prompt('Reason (required):'); if (!reason) return; }
+      if (b.dataset.reason === '1') { reason = await window.ReasonDialog.ask({ title: b.textContent, label: 'Reason (required, kept in the history)', min: 3 }); if (!reason) return; }
       try { await api('POST', `/api/commitments/${selected}/transition`, { to: b.dataset.to, version: Number($('cmDetail').dataset.version), reason }); show(selected); }
       catch (e) { $('cmMsg').textContent = e.status === 409 ? 'Someone changed it meanwhile — reloaded.' : e.message; if (e.status === 409) show(selected); }
       return;

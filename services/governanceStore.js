@@ -101,10 +101,19 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     return updateSession(id, { items });
   }
   async function sessionActions(sessionId) { return (await P(`SELECT * FROM session_actions WHERE session_id=? ORDER BY id`).all(Number(sessionId))).map(r => ({ ...r, id: Number(r.id), session_id: Number(r.session_id) })); }
+  // A repeated idem_key in the same session returns the first row (a double tap on a slow link — field P1-4).
+  const idemOf = (x) => (x && x.idem_key ? str(String(x.idem_key).trim(), 80) || null : null);
+  const isDup = (e) => e && (e.code === '23505' || /unique|duplicate/i.test(String(e.message)));
   async function addSessionAction(sessionId, a, { user } = {}) {
     if (!a || !a.title) throw Object.assign(new Error('action title is required'), { code: 'INVALID' });
-    const id = await insert('session_actions', ['session_id', 'title', 'owner', 'due_date', 'status', 'source_kind', 'source_ref', 'decision_ref', 'created_by', 'created_at', 'updated_at'],
-      [Number(sessionId), str(a.title, 500), str(a.owner, 120), str(a.due_date, 10), 'open', str(a.source_kind, 40), str(a.source_ref, 120), str(a.decision_ref, 40), user ? user.id : null, now(), now()]);
+    const idem = idemOf(a);
+    const again = async () => { const r = await P(`SELECT id FROM session_actions WHERE session_id=? AND idem_key=?`).get(Number(sessionId), idem); return r ? (await sessionActions(sessionId)).find(x => x.id === Number(r.id)) : null; };
+    if (idem) { const ex = await again(); if (ex) return ex; }
+    let id;
+    try {
+      id = await insert('session_actions', ['session_id', 'title', 'owner', 'due_date', 'status', 'source_kind', 'source_ref', 'decision_ref', 'idem_key', 'created_by', 'created_at', 'updated_at'],
+        [Number(sessionId), str(a.title, 500), str(a.owner, 120), str(a.due_date, 10), 'open', str(a.source_kind, 40), str(a.source_ref, 120), str(a.decision_ref, 40), idem, user ? user.id : null, now(), now()]);
+    } catch (e) { if (idem && isDup(e)) return again(); throw e; }
     return (await sessionActions(sessionId)).find(x => x.id === id);
   }
   /** sessionId is REQUIRED: an action is only changed through the session that owns it (security P1-1). Returns rows changed. */
@@ -132,9 +141,15 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   }
   async function addDecision(d, { user } = {}) {
     if (!d || !d.title) throw Object.assign(new Error('decision title is required'), { code: 'INVALID' });
+    const idem = d.session_id != null ? idemOf(d) : null;
+    const again = async () => decRow(await P(`SELECT * FROM decisions WHERE session_id=? AND idem_key=?`).get(Number(d.session_id), idem));
+    if (idem) { const ex = await again(); if (ex) return ex; }
     const ref = await nextRef('decisions', 'DEC', (d.date || now()).slice(0, 4));
-    const id = await insert('decisions', ['ref', 'session_id', 'title', 'text', 'owner', 'due_date', 'status', 'source_kind', 'source_ref', 'site_id', 'created_by', 'created_at', 'updated_at'],
-      [ref, num(d.session_id), str(d.title, 300), str(d.text), str(d.owner, 120), str(d.due_date, 10), 'open', str(d.source_kind, 40), str(d.source_ref, 120), num(d.site_id), user ? user.id : null, now(), now()]);
+    let id;
+    try {
+      id = await insert('decisions', ['ref', 'session_id', 'title', 'text', 'owner', 'due_date', 'status', 'source_kind', 'source_ref', 'site_id', 'idem_key', 'created_by', 'created_at', 'updated_at'],
+        [ref, num(d.session_id), str(d.title, 300), str(d.text), str(d.owner, 120), str(d.due_date, 10), 'open', str(d.source_kind, 40), str(d.source_ref, 120), num(d.site_id), idem, user ? user.id : null, now(), now()]);
+    } catch (e) { if (idem && isDup(e)) return again(); throw e; }
     return decRow(await P(`SELECT * FROM decisions WHERE id=?`).get(id));
   }
   async function updateDecision(id, patch) {

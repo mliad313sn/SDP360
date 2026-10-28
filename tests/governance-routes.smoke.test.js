@@ -162,4 +162,13 @@ test('session actions: an action id from another session is never reachable thro
   assert.equal(r.status, 404);
   const still = (await (await get(`/api/governance/sessions/${a1.id}`, editor)).json()).actions.find((x) => x.id === act.id);
   assert.equal(still.status, 'open', 'untouched');
+  // a double tap re-sends the same idempotency key: one decision, one action (field P1-4)
+  const body = { title: 'Replace the UPS battery', owner: 'Bob', idem_key: 'ui-dbl-1' };
+  const [d1, d2] = await Promise.all([1, 2].map(async () => (await (await send('POST', `/api/governance/sessions/${a1.id}/decisions`, editor, body)).json()).decision));
+  assert.equal(d1.ref, d2.ref);
+  const x1 = (await (await send('POST', `/api/governance/sessions/${a1.id}/actions`, editor, { ...body, idem_key: 'ui-dbl-2' })).json()).action;
+  const x2 = (await (await send('POST', `/api/governance/sessions/${a1.id}/actions`, editor, { ...body, idem_key: 'ui-dbl-2' })).json()).action;
+  assert.equal(x1.id, x2.id);
+  const s1 = await (await get(`/api/governance/sessions/${a1.id}`, editor)).json();
+  assert.equal(s1.decisions.filter((d) => d.title === body.title).length, 1); assert.equal(s1.actions.filter((a) => a.title === body.title).length, 1);
 });

@@ -12,6 +12,7 @@
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="admin|dashboard-publisher" data-redirect="login.html"></script>
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/dashboardRender.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
 <style nonce="%%CSP_NONCE%%">
   body { margin:0; background:var(--color-background,#f4f6f7); color:#1F2A33; font-family:var(--font-sans,'Libre Franklin',system-ui,sans-serif); font-size:14px; }
   .wrap { max-width:1360px; margin:0 auto; padding:var(--space-6,24px); }
@@ -164,16 +165,20 @@
   $('preview').addEventListener('click', function () { var d = readDoc(); if (!meta || meta.key !== d.key) return fail(new Error('save the draft first')); window.open('dashboards.html?key=' + encodeURIComponent(d.key), '_blank'); });
   $('publish').addEventListener('click', function () {
     var d = readDoc(); if (!meta || meta.key !== d.key) return fail(new Error('save the draft first'));
-    var note = window.prompt('Version note (what changed, for whom)?', '') || '';
     var url = '/api/dashboards/' + encodeURIComponent(d.key) + '/publish';
     var done = function (j) { meta = j.dashboard; showMeta(); loadVersions(); msg('<div class="ok">Published version ' + meta.version + '</div>'); };
-    api(url, { method: 'POST', body: JSON.stringify({ note: note }) }).then(done).catch(function (e) {
-      // G-24 — four-eyes refusal; the admin tier may override with a written reason (logged as a risk)
-      if (e.status === 409 && window.__userHasRole && window.__userHasRole('admin')) {
-        var reason = window.prompt(e.message + '\n\nPublish without review? Give the reason (10+ characters), it is logged:', '');
-        if (reason && reason.trim().length >= 10) return api(url, { method: 'POST', body: JSON.stringify({ note: note, override_reason: reason.trim() }) }).then(done).catch(fail);
-      }
-      fail(e);
+    // inline dialogs instead of prompt(): prompt is suppressed in some embedded browsers (committee field review)
+    window.ReasonDialog.form({ title: 'Publish', fields: [{ name: 'note', label: 'Version note (what changed, for whom)', optional: true, multiline: true }] }).then(function (f) {
+      if (!f) return; var note = f.note || '';
+      return api(url, { method: 'POST', body: JSON.stringify({ note: note }) }).then(done).catch(function (e) {
+        // G-24 — four-eyes refusal; the admin tier may override with a written reason (logged as a risk)
+        if (e.status === 409 && window.__userHasRole && window.__userHasRole('admin')) {
+          return window.ReasonDialog.ask({ title: 'Publish without review?', label: e.message + ' — give the reason (it is logged as a risk)', min: 10 }).then(function (reason) {
+            if (reason) return api(url, { method: 'POST', body: JSON.stringify({ note: note, override_reason: reason }) }).then(done).catch(fail);
+          });
+        }
+        fail(e);
+      });
     });
   });
   $('submit').addEventListener('click', function () {
@@ -181,8 +186,9 @@
     api('/api/dashboards/' + encodeURIComponent(d.key) + '/submit', { method: 'POST' }).then(function (j) { meta = j.dashboard; showMeta(); msg('<div class="ok">Submitted for review — another publisher publishes it. Any further edit withdraws the submission.</div>'); }).catch(fail);
   });
   $('retire').addEventListener('click', function () {
-    if (!meta) return; if (!window.confirm('Retire this dashboard? Viewers lose access; versions are kept.')) return;
-    api('/api/dashboards/' + encodeURIComponent(meta.key) + '/retire', { method: 'POST' }).then(function (j) { meta = j.dashboard; showMeta(); msg('<div class="ok">Retired</div>'); }).catch(fail);
+    if (!meta) return;
+    window.ReasonDialog.confirm({ title: 'Retire this dashboard?', message: 'Viewers lose access; versions are kept.' }).then(function (ok) { if (!ok) return;
+      return api('/api/dashboards/' + encodeURIComponent(meta.key) + '/retire', { method: 'POST' }).then(function (j) { meta = j.dashboard; showMeta(); msg('<div class="ok">Retired</div>'); }); }).catch(fail);
   });
 
   api('/api/dashboards/catalogue').then(function (c) {
