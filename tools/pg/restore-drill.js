@@ -61,6 +61,7 @@ async function provisionTarget({ env, liveUrl, Client }) {
       const name = 'sdp_drill_' + rnd();
       await c.query(`CREATE DATABASE ${name}`);
       await c.end();
+      // eslint-disable-next-line security/detect-unsafe-regex -- reviewed (consolidation 2026-10-28): anchored at $, [^/?]* and \?.* are disjoint, linear
       const url = admin.replace(/\/[^/?]*(\?.*)?$/, '/' + name);
       return {
         kind: 'database', name, url, schema: 'public',

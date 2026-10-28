@@ -292,6 +292,7 @@ async function _majorIncidents(filters) {
     const _MON3 = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
     const _parseSdpDT = v => {
       if (!v) return null;
+      // eslint-disable-next-line security/detect-unsafe-regex -- reviewed (consolidation 2026-10-28): bounded \d{1,2}/\d{4}, linear
       const m = String(v).match(/(\d{1,2})\s+(\w{3}),?\s+(\d{4})[\s,]+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
       if (m && _MON3[m[2].toLowerCase()] !== undefined) {
         return new Date(+m[3], _MON3[m[2].toLowerCase()], +m[1], +m[4], +m[5], +(m[6] || 0));

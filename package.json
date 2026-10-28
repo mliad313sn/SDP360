@@ -10,7 +10,8 @@
     "dev": "nodemon server.js",
     "test": "node tools/test/run-all.js",
     "test:unit": "node --test --test-force-exit tests/*.test.js --test-name-pattern \"^(?!.*smoke)\"",
-    "test:sdp360": "node --test --test-force-exit tests/sync-*.test.js tests/kpi-rag.test.js tests/tracker-definitions.test.js tests/dashboard-widgets.test.js"
+    "test:sdp360": "node --test --test-force-exit tests/sync-*.test.js tests/kpi-rag.test.js tests/tracker-definitions.test.js tests/dashboard-widgets.test.js",
+    "lint": "eslint ."
   },
   "dependencies": {
     "axios": "^1.6.0",
@@ -28,7 +29,10 @@
     "node": ">=18.0.0"
   },
   "devDependencies": {
-    "esbuild": "^0.28.2"
+    "esbuild": "^0.28.2",
+    "eslint": "^9.39.5",
+    "eslint-plugin-security": "^3.0.1",
+    "globals": "^15.15.0"
   },
   "overrides": {
     "image-size": "^2.0.4"

@@ -45,4 +45,6 @@ jobs:
         run: node db/migrate.js && node db/migrate.js --status
       - name: Front-end bundles are up to date (esbuild, no in-browser Babel)
         run: npm run build:check
+      - name: SAST (ESLint security rules, blocking)
+        run: npm run lint
       - run: npm test

@@ -140,6 +140,7 @@ function verifyManifestSignature(manifest, publicKey) {
 }
 
 // ---- SemVer -------------------------------------------------------------------------
+// eslint-disable-next-line security/detect-unsafe-regex -- reviewed (consolidation 2026-10-28): anchored; the build class excludes '+', groups are disjoint, linear
 const SEMVER = /^v?(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+[0-9A-Za-z.-]+)?$/;
 function parseVersion(v) {
   const m = SEMVER.exec(String(v || '').trim());

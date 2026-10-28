@@ -47,6 +47,7 @@ function buildPrompt(analysis, { audience = 'site', lang = HOUSE_LANG } = {}) {
 /** Every number in the text must be in the canonical set (years and ordinals like 13w are tolerated). Returns {ok, offending:[]}. */
 function verifyNumbers(text, canonicalSet, { allow = [] } = {}) {
   const allowSet = new Set([...allow].map(String));
+  // eslint-disable-next-line security/detect-unsafe-regex -- reviewed (consolidation 2026-10-28): each pattern is a single bounded token match, no nested quantifier
   const nums = String(text || '').replace(/\b(19|20)\d{2}\b/g, ' ').replace(/\b\d+\s?(w|sem|j|d|h|min)\b/gi, ' ').replace(/\bS\d{1,2}\b/g, ' ').match(/-?\d+(?:[.,]\d+)?/g) || [];
   const offending = [];
   for (const raw of nums) { const n = raw.replace(',', '.'); const v = Number(n); if (!Number.isFinite(v)) continue; const forms = [String(v), v.toFixed(1), String(Math.round(v))]; if (!forms.some(f => canonicalSet.has(f) || allowSet.has(f))) offending.push(raw); }

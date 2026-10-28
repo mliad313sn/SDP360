@@ -1217,6 +1217,7 @@ function injectAssetVersion(html) {
   const v = `?v=${APP_VERSION}`;
   const isLocal = (u) =>
     u
+    // eslint-disable-next-line security/detect-unsafe-regex -- reviewed (consolidation 2026-10-28): anchored prefix test, no repetition
     && !/^(https?:)?\/\//i.test(u)
     && !u.startsWith('data:')
     && !u.startsWith('#')
@@ -2214,6 +2215,7 @@ app.get('/api/survey/voice', requireReportSession, async (req, res) => {
         const ratingWords = /^(excellent|good|satisf|poor|bad|very good|very bad|bien|bon|mauvais|parfait|moyen|neutre|neutral|nul|great|ok|okay|fair|average|horrible|terrible|outstanding)$/i;
         const optCandidate = optRaw.length > 25 && !ratingWords.test(optRaw.trim()) ? optRaw : '';
         const text = (textRaw || optCandidate).trim();
+        // eslint-disable-next-line security/detect-unsafe-regex -- reviewed (consolidation 2026-10-28): anchored; \s* / \d+ / [.,]\d+ are disjoint classes, linear
         if (!text || /^\s*\d+([.,]\d+)?\s*$/.test(text)) return;
         if (text.length < 5) return;
         const _ck = rid + '|' + text.toLowerCase();
@@ -5155,6 +5157,7 @@ async function _siteCodeReadDenied(user, code) {
   const hit = await rdb.getSiteIdByModuleCode('meetings', code);
   return !hit || _siteReadDenied(user, hit.site_id);
 }
+// eslint-disable-next-line security/detect-unsafe-regex -- reviewed (consolidation 2026-10-28): anchored; \d+ then [^?]* are disjoint, linear
 const _REPORT_ID_READ = /^\/api\/reports\/(\d+)(\/[^?]*)?$/;
 const _SITE_ID_READ   = /^\/api\/(?:reports\/(?:monthly|yearly|objectives)|sites)\/(\d+)(?:\/|$)/;
 app.get([_REPORT_ID_READ, _SITE_ID_READ], requireReportSession, async (req, res, next) => {

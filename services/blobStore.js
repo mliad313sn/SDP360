@@ -58,6 +58,7 @@ function _ownerDir(module, ownerId) {
 }
 
 function _splitDataUrl(dataUrl) {
+  // eslint-disable-next-line security/detect-unsafe-regex -- reviewed (consolidation 2026-10-28): anchored, classes are disjoint
   const m = /^data:([^;,]+)?(;base64)?,(.*)$/s.exec(dataUrl || '');
   if (!m) return { mime: 'application/octet-stream', b64: '' };
   return { mime: m[1] || 'application/octet-stream', b64: m[3] || '' };

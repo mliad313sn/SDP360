@@ -62,7 +62,7 @@ test('workflow-level permissions are contents: read; contents: write only on the
     if (doc) {
       assert.deepEqual(doc.permissions, { contents: 'read' }, `${f}: parsed workflow permissions`);
       for (const [name, job] of Object.entries(doc.jobs)) {
-        const w = job.permissions && job.permissions.contents === 'write';
+        const w = !!(job.permissions && job.permissions.contents === 'write');   // a job without permissions inherits read
         assert.equal(w, f === 'release.yml' && name === 'publish', `${f}: job ${name} contents:write`);
       }
     }

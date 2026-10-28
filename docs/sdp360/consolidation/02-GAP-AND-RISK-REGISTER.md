@@ -16,7 +16,26 @@ INTEGRATION_TESTED · FIELD_VALIDATED · DEPLOYED · BUSINESS_ACCEPTED` (never c
 | CG-07 | 2.0 suite failed 64/94 on any box without `.env` (handoff "94 to triage") | `b20.log` signature | CI | P0 | Delivery team | IMPLEMENTED | full suite 0 fail | — | — | — |
 | CG-08 | 16 routes reachable with the dash key alone: `GET /api/ping` + 15 `GET /api/data/*` Zoho Analytics view proxies (aggregates, no write). Key is no longer handed to anonymous browsers (2.0 C1) | `tests/dashkey-only-routes.smoke.test.js` (full sweep; an earlier quick probe said 2 — undercount) | Server-to-server | P2 | Delivery team | PINNED (no new key-only route can appear) · restriction OPEN | `dashkey-only-routes.smoke` | inventory of key clients (D-15) | — | — |
 | CG-09 | No authenticated runtime version/build endpoint (E0.3) | `routes/health.js` | Ops | P2 | Delivery team | IMPLEMENTED · INTEGRATION_TESTED: `GET /api/health/version` (session; version, build SHA, node, start time) | `health-version.smoke` | — | — | — |
-| CG-10 | No ESLint/SAST config on 2.0 (1.11 ships `eslint.config.js` + security plugin); CodeQL present | `package.json` scripts | CI | P2 | Delivery team | OPEN | — | — | — | — |
+| CG-10 | No ESLint/SAST config on 2.0 (1.11 ships `eslint.config.js` + security plugin); CodeQL present | `package.json` scripts | CI | P2 | Delivery team | IMPLEMENTED — `eslint.config.js` transplanted, `npm run lint` blocking in CI; 12 unsafe-regex hits reviewed one by one (all anchored/bounded, linear) and exempted with the reason; 1 malformed directive fixed. Side effect: `ci-config.test` parser branch (now active) compared `undefined` to `false` — fixed | `npm run lint` exit 0 | — | — | — |
 | G-ENV-01 | PostgreSQL 17 target; tests ran on PG 16 here | Ubuntu package | CI | P2 | Delivery team | BLOCKED (PG 17 not available offline here) | — | CI service image (`.github/workflows/ci.yml`) | — | — |
 | G-ENV-02 | 10 tests need `prod-snapshot/`, 1 needs python+matplotlib | skip report | CI | P2 | Data owner | BLOCKED | — | approved snapshot | — | Data owner |
 | CG-11 | F01-F24 and the 41 chart contracts (Batch 2) | inputs absent from both repos | — | — | Requester | **BLOCKED** — not fabricated | — | genuine `GAP-BACKLOG.csv`, `CHART-CONTRACT-REGISTER.csv` | — | — |
+
+## Verification of remediation items announced as done (backlog #7, 2026-10-28)
+
+Each item's named tests exist and pass in the full suite (sqlite + PG 16, `23a33a8`); acceptance criteria re-checked in code:
+
+| Item | Named tests | Acceptance re-check | Status |
+|---|---|---|---|
+| C1 key injection | `api-key-injection.smoke` | key only with a session ✔; `/api/orgs`, `/api/workspaces`, risk-register export no longer key-only ✔; matrix "without key-only routes" ✘ — 16 key-only `/api/data/*` + `/api/ping` remain (CG-08) | PARTIAL (exception pinned) |
+| C2 weak fallback key | `boot-config` | no derived fallback (`server.js` header) ✔ | VERIFIED (unit) |
+| E1 package signing | `update-package-signature` | code ✔; real key = D-12 | IMPLEMENTED · signing key HUMAN_GATE |
+| E2 SSO linking | `sso-db`, `sso-entra` | ✔ | VERIFIED (unit) |
+| E3 bind/CORS | `boot-config` | `netBinding.resolveBindHost`; no IP origin found ✔ | VERIFIED (unit); netstat on TEST = human |
+| E4 OpManager TLS | `opmanager-client` | `opmanager_tls_insecure: '0'`, `opmanager_ca_bundle` ✔ | VERIFIED (unit) |
+| E5 token in storage / CSP | `csp-headers.smoke`, `auth-cookie.smoke` | ✔ | VERIFIED (in-process) |
+| E6 account audit | `system-log` | ✔ | VERIFIED (unit) |
+| E11 encrypted backup + drill | `backup-encrypt`, `restore-drill` | sandbox only; production DR = human | IMPLEMENTED (sandbox) |
+| M4 SSRF | `safe-url` | ✔ | VERIFIED (unit) |
+| M7 key in URL / OData Host | `ext-api.smoke` | ✔ | VERIFIED (in-process) |
+| M9 error leaks | `http-error`, `no-message-leak` | `grep -c e.message server.js` = 121 (criterion "< 20" not met literally) but only **1** response returns `e.message`, a typed `MissingColumnError` (400) | VERIFIED in intent; criterion wording outdated |
