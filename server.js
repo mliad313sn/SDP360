@@ -534,13 +534,13 @@ require('./services/sync/schedule').start({
   commitments: { escalate: async () => {   // G-18 — lazy: _cmtStore is created later at boot; inert while the flag is off
     const cfg = await require('./services/reportConfig').getConfig(rdb.db);
     if (String(cfg.commitments_enabled) !== '1') return { skipped: true };
-    const r = await _cmtStore.escalate();
+    const r = await _cmtStore.escalate({ policyFor: (siteId) => require('./services/governancePolicy').forContext({ siteId }) });
     return { rows: r.raised.length, raised: r.raised.length, kept: r.kept, cleared: r.cleared };
   } },
   handoffs: { escalate: async () => {   // G-22 — lazy: _hoStore is created later at boot; inert while the flag is off
     const cfg = await require('./services/reportConfig').getConfig(rdb.db);
     if (String(cfg.handoffs_enabled) !== '1') return { skipped: true };
-    const r = await _hoStore.escalateOverdue({});
+    const r = await _hoStore.escalateOverdue({ policyFor: (siteId) => require('./services/governancePolicy').forContext({ siteId }) });
     return { rows: r.length, escalated: r.length };
   } },
   afterRequests: () => { console.log('[Cron:requests] ✅ Sync done — rebuilding raw cache…'); return _backgroundRefreshRawCache(); },
@@ -1278,7 +1278,7 @@ function loadHtml(name) {
   'site-awareness.html',
   'assets.html', 'assets-hygiene.html', 'assets-finance.html', 'wan.html', 'wan-health.html', 'wan-sla.html', 'itsm-roadmap.html',
   'infra-health.html', 'itsm-integrations-plan.html',
-  'dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html', 'cockpit.html', 'portfolio.html', 'rfi.html', 'report-studio.html', 'notifications.html', 'integrations.html', 'commitments.html', 'handoffs.html',
+  'dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html', 'cockpit.html', 'portfolio.html', 'rfi.html', 'report-studio.html', 'notifications.html', 'integrations.html', 'commitments.html', 'handoffs.html', 'policies.html',
 ].forEach(loadHtml);
 
 // Helper: build the per-request HTML, inject api-key + nonce, send. Pages
@@ -7621,6 +7621,7 @@ app.use(require('./routes/trackers')({ express, requireReportSession, store: _tr
 const _govStore = require('./routes/governance').createStore(require('./reports-db')), _repStore = require('./routes/reportStudio').createStore(require('./reports-db')), _engStore = require('./routes/engagement').createStore(require('./reports-db')), _fieldStore = require('./routes/field').createStore(require('./reports-db'));   // Steps 8-10 — governance (018), report studio + engagement (019), field outbox (020)
 app.use(require('./routes/governance')({ express, requireReportSession, store: _govStore, trackerStore: _trkStore })); app.use(require('./routes/reportStudio')({ express, requireReportSession, store: _repStore, dashStore: _dashStore, engStore: _engStore, aiProvider: AI_PROVIDER, aiCall: require('./services/engagementJobs').aiCallFrom(_execAiCall) })); app.use(require('./routes/engagement')({ express, requireReportSession, store: _engStore, dashStore: _dashStore, reportStore: _repStore })); app.use(require('./routes/extApi')({ express, store: _engStore })); app.use(require('./routes/field')({ express, requireReportSession, store: _fieldStore, dashStore: _dashStore, trackerStore: _trkStore }));
 const _cmtStore = require('./routes/commitments').createStore(require('./reports-db')); app.use(require('./routes/commitments')({ express, requireReportSession, store: _cmtStore, sendHtmlPage }));   // 2027 Goal 02 — canonical commitments (021), flag commitments_enabled
+app.use(require('./routes/policies')({ express, requireReportSession, sendHtmlPage }));   // governance policies (027) — every regulation behaviour as a parameter
 const _hoStore = require('./routes/handoffs').createStore(require('./reports-db')); app.use(require('./routes/handoffs')({ express, requireReportSession, store: _hoStore, commitmentStore: _cmtStore, sendHtmlPage, notify: (n) => _engStore.notify(n) }));   // G-22 — interdepartmental handoffs (026), flags handoffs_enabled + handoff_notify_enabled
 
 // ══════════════════════════════════════════════════════════════════

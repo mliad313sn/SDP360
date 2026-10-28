@@ -126,7 +126,7 @@ module.exports = function dashboardsRoutes(deps) {
       const mods = [...new Set(((def && def.widgets) || []).map(w => w && w.metric && reg.get(w.metric)).filter(Boolean).map(m => m.module))];
       const jobs = gate.jobsFor(mods);
       const lastOk = deps.lastSyncOk ? await deps.lastSyncOk(jobs) : await gate.lastOkFromSyncStore(jobs);
-      const stale = gate.freshness(mods, lastOk, now.getTime()).sources.filter(x => x.state !== 'FRESH');
+      const stale = gate.freshness(mods, lastOk, now.getTime(), await require('../services/governancePolicy').forContext({})).sources.filter(x => x.state !== 'FRESH');
       res.json({ ok: true, key: d.key, version: d.version, site, sites: sites.map(s => ({ id: Number(s.id), name: s.name })), window, as_of: now.toISOString(), widgets: out, stale_sources: stale });
     } catch (e) { fail(res, e, 500, { ok: false }); }
   });
@@ -158,7 +158,7 @@ module.exports = function dashboardsRoutes(deps) {
       if (!isAdmin(req.reportUser) && d.owner_id != null && d.owner_id !== req.reportUser.id) return res.status(403).json({ ok: false, error: 'owned by another publisher' });
       if (d.definition && d.definition.audience === 'field') { const f = fieldReadiness(d.definition); if (!f.ok) return res.status(400).json({ ok: false, error: 'field dashboard not phone-ready', issues: f.issues }); }
       // G-24 — four-eyes: submitted by one publisher, published by another (admin override with a reason, logged as a risk).
-      const dec = require('../services/publishGate').publishDecision(d, req.reportUser, { isAdmin: isAdmin(req.reportUser), overrideReason: req.body && req.body.override_reason });
+      const dec = require('../services/publishGate').publishDecision(d, req.reportUser, { isAdmin: isAdmin(req.reportUser), overrideReason: req.body && req.body.override_reason, policy: await require('../services/governancePolicy').forContext({ siteId: d.site_id }) });
       if (!dec.allow) return res.status(dec.status).json({ ok: false, error: dec.error, code: dec.code, message: dec.message });
       if (dec.override) rdb().logEvent({ category: 'dashboards', action: 'dashboard_publish_override', target: d.key, details: dec.override, risk: 1, ...rdb()._logCtx(req) });
       const out = await store.publish(d.key, { user: req.reportUser, note: req.body && req.body.note ? String(req.body.note).slice(0, 500) : null, override: dec.override });

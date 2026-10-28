@@ -165,7 +165,7 @@ module.exports = function trackersRoutes(deps) {
   router.post('/api/trackers/:key/publish', requireReportSession, requireBuilder, async (req, res) => {
     try {
       const cur = await store.get(key(req)); if (!cur) return res.status(404).json({ ok: false, error: 'tracker not found' });
-      const dec = require('../services/publishGate').publishDecision(cur, req.reportUser, { isAdmin: isAdmin(req.reportUser), overrideReason: req.body && req.body.override_reason });
+      const dec = require('../services/publishGate').publishDecision(cur, req.reportUser, { isAdmin: isAdmin(req.reportUser), overrideReason: req.body && req.body.override_reason, policy: await require('../services/governancePolicy').forContext({}) });
       if (!dec.allow) return res.status(dec.status).json({ ok: false, error: dec.error, code: dec.code, message: dec.message });
       if (dec.override) rdb().logEvent({ category: 'trackers', action: 'tracker_publish_override', target: cur.key, details: dec.override, risk: 1, ...rdb()._logCtx(req) });
       const d = await store.publish(cur.key, { user: req.reportUser, note: req.body && req.body.note, override: dec.override });

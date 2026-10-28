@@ -23,11 +23,16 @@ const SOURCES = {
 };
 
 function _uid(v) { return v == null ? null : Number(v); }
+// Policies (services/governancePolicy.js) — every rule below reads its switch / limit from `pol`;
+// absent → the shipped default, so callers that pass nothing behave exactly as before.
+const _pol = (pol) => ({ ...require('./governancePolicy').DEFAULTS, ...(pol || {}) });
+const _limit = (pol, mod, def) => { const v = _pol(pol)[`freshness.${mod}_hours`]; return Number.isFinite(Number(v)) ? Number(v) : def; };
 
 /** @returns {null | {code:string, error:string}} */
-function dutyConflict(action, run, user) {
+function dutyConflict(action, run, user, pol) {
   const me = _uid(user && user.id);
   if (me == null) return { code: 'NO_USER', error: 'no user' };
+  if (_pol(pol)['reports.four_eyes'] === false) return null;
   const creator = _uid(run && run.created_by);
   const editor = _uid(run && run.commentary && run.commentary.edited_by);
   if (action === 'review') {
@@ -64,10 +69,11 @@ function modulesOf(run, registry) {
  * @param {number} nowMs
  * @returns {{fresh:boolean, sources:Array<{module,job,last_ok,age_h,limit_h,state}>}}
  */
-function freshness(modules, lastOk, nowMs) {
+function freshness(modules, lastOk, nowMs, pol) {
   const sources = [];
   for (const mod of modules || []) {
-    for (const [job, limit] of SOURCES[mod] || []) {
+    for (const [job, def] of SOURCES[mod] || []) {
+      const limit = _limit(pol, mod, def);
       const t = lastOk && lastOk[job] ? new Date(lastOk[job]).getTime() : NaN;
       if (!Number.isFinite(t)) { sources.push({ module: mod, job, last_ok: null, age_h: null, limit_h: limit, state: 'UNKNOWN' }); continue; }
       const age = Math.round((nowMs - t) / 36e5 * 10) / 10;
@@ -80,9 +86,10 @@ function freshness(modules, lastOk, nowMs) {
 // G-23 / G-24 — four-eyes on DEFINITIONS (trackers, dashboards). A definition goes live only after it
 // was submitted for review by one person and published by another; the last editor cannot publish
 // either. def = { review_state, submitted_by, updated_by }.
-function definitionConflict(def, user) {
+function definitionConflict(def, user, pol) {
   const me = _uid(user && user.id);
   if (me == null) return { code: 'NO_USER', error: 'no user' };
+  if (_pol(pol)['publication.four_eyes'] === false) return null;   // context without a second publisher (policy, protected)
   if (!def || def.review_state !== 'submitted') return { code: 'NOT_SUBMITTED', error: 'submit the draft for review first; another person publishes it' };
   if (_uid(def.submitted_by) === me) return { code: 'SOD_PUBLISH_SUBMITTER', error: 'the person who submitted a draft cannot publish it' };
   if (_uid(def.updated_by) === me) return { code: 'SOD_PUBLISH_EDITOR', error: 'the person who last edited a draft cannot publish it' };
@@ -94,18 +101,21 @@ function definitionConflict(def, user) {
  * (10+ characters) — the override is returned so the caller stores and logs it as a risk event.
  * @returns {{allow:true, override:null|object} | {allow:false, status:number, code:string, error:string}}
  */
-function publishDecision(def, user, { isAdmin = false, overrideReason = '', now = new Date() } = {}) {
-  const c = definitionConflict(def, user);
+function publishDecision(def, user, { isAdmin = false, overrideReason = '', now = new Date(), policy = null } = {}) {
+  const pol = _pol(policy);
+  const c = definitionConflict(def, user, pol);
   if (!c) return { allow: true, override: null };
   if (c.code === 'NO_USER') return { allow: false, status: 401, ...c };
   const reason = String(overrideReason || '').trim();
-  if (isAdmin && reason.length >= 10) return { allow: true, override: { by: Number(user.id), at: now.toISOString(), reason: reason.slice(0, 1000), bypassed: c.code } };
-  return { allow: false, status: 409, ...c, message: 'an admin may publish without review with override_reason (10+ characters)' };
+  const min = Number(pol['publication.override_reason_min']) || 10;
+  if (!pol['publication.override_allowed']) return { allow: false, status: 409, ...c, message: 'publication without review is disabled by policy' };
+  if (isAdmin && reason.length >= min) return { allow: true, override: { by: Number(user.id), at: now.toISOString(), reason: reason.slice(0, 1000), bypassed: c.code } };
+  return { allow: false, status: 409, ...c, message: `an admin may publish without review with override_reason (${min}+ characters)` };
 }
 
 /** Freshness state of ONE module now (for a value served to a consumer). Modules without an external source are FRESH. */
-function moduleFreshness(module, lastOk, nowMs) {
-  const f = freshness([module], lastOk, nowMs);
+function moduleFreshness(module, lastOk, nowMs, pol) {
+  const f = freshness([module], lastOk, nowMs, pol);
   if (!f.sources.length) return { state: 'FRESH', sources: [] };
   const worst = f.sources.some((x) => x.state === 'UNKNOWN') ? 'UNKNOWN' : f.sources.some((x) => x.state === 'STALE') ? 'STALE' : 'FRESH';
   return { state: worst, sources: f.sources };

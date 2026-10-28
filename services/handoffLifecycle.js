@@ -28,6 +28,9 @@ const TRANSITIONS = {
   cancelled: [],
 };
 
+// Policies (services/governancePolicy.js): reason length, overdue escalation switch and grace.
+const _pol = (pol) => ({ ...require('./governancePolicy').DEFAULTS, ...(pol || {}) });
+const _rmin = (pol) => Number(_pol(pol)['handoffs.reason_min']) || 5;
 const isRequester = (h, a) => a && a.id != null && Number(h.requested_by) === Number(a.id);
 const isReceiver = (h, a) => a && a.id != null && Number(h.receiver_id) === Number(a.id);
 
@@ -51,7 +54,8 @@ function check(h, to, actor, o = {}) {
   if (rule.who === 'requester' && !(isRequester(h, actor) || actor.isAdmin)) return no(403, 'FORBIDDEN', 'only the requester (or the admin tier) can do this');
   if (rule.who === 'admin' && !actor.isAdmin) return no(403, 'FORBIDDEN', 'only the admin tier can do this');
   if (to === 'verified' && h.delivered_by != null && Number(h.delivered_by) === Number(actor.id)) return no(403, 'SOD', 'the person who delivered the work cannot verify it');
-  if (rule.reason && String(o.reason || '').trim().length < 5) return no(400, 'VALIDATION', `a reason (5+ characters) is required for ${to}`);
+  const rmin = _rmin(o.policy);
+  if (rule.reason && String(o.reason || '').trim().length < rmin) return no(400, 'VALIDATION', `a reason (${rmin}+ characters) is required for ${to}`);
   return null;
 }
 
@@ -65,18 +69,24 @@ function checkReassign(h, actor, newReceiverId, o = {}) {
   if (newReceiverId == null) return no(400, 'VALIDATION', 'receiver is required');
   if (Number(newReceiverId) === Number(h.requested_by)) return no(400, 'VALIDATION', 'the requester cannot be the receiver');
   if (Number(newReceiverId) === Number(h.receiver_id)) return no(400, 'VALIDATION', 'already the receiver');
-  if (String(o.reason || '').trim().length < 5) return no(400, 'VALIDATION', 'a reason (5+ characters) is required to reassign');
+  const rmin = _rmin(o.policy);
+  if (String(o.reason || '').trim().length < rmin) return no(400, 'VALIDATION', `a reason (${rmin}+ characters) is required to reassign`);
   return null;
 }
 
 /** Overdue handoffs to escalate now (due date strictly before `today`, open, not already escalated). */
-function overdue(rows, today) {
-  const d = String(today || '').slice(0, 10);
+function overdue(rows, today, pol) {
+  const P = _pol(pol);
+  if (P['handoffs.overdue_escalation'] === false) return [];
+  const grace = Math.max(0, Number(P['handoffs.escalation_grace_days']) || 0);
+  const t = Date.parse(String(today || '').slice(0, 10) + 'T00:00:00Z');
+  if (!Number.isFinite(t)) return [];
+  const d = new Date(t - grace * 864e5).toISOString().slice(0, 10);   // escalate when due_date < today − grace
   return (rows || []).filter((h) => OPEN.includes(h.status) && h.status !== 'escalated' && h.due_date && String(h.due_date).slice(0, 10) < d);
 }
 
 function allowed(h, actor) {
-  return (TRANSITIONS[h && h.status] || []).filter((t) => !check(h, t.to, actor, { reason: 'xxxxx' })).map((t) => ({ to: t.to, reason: t.reason }));
+  return (TRANSITIONS[h && h.status] || []).filter((t) => !check(h, t.to, actor, { reason: 'x'.repeat(500) })).map((t) => ({ to: t.to, reason: t.reason }));
 }
 
 module.exports = { STATUSES, TERMINAL, OPEN, TRANSITIONS, check, checkReassign, overdue, allowed, isRequester, isReceiver };

@@ -12,12 +12,16 @@
 // No DB, no clock: the caller passes the session row, the actor flags and `now`.
 
 const GRACE_HOURS = 48;
+// Policies (services/governancePolicy.js): grace, reason lengths, four-eyes and approval switches.
+const _pol = (pol) => ({ ...require('./governancePolicy').DEFAULTS, ...(pol || {}) });
+const _grace = (pol) => Number(_pol(pol)['meetings.missed_grace_hours']) || GRACE_HOURS;
 const STAGES = ['planned', 'missed', 'held', 'logged', 'accepted', 'cancelled'];
 
 const _ms = (v) => { const t = Date.parse(String(v || '')); return Number.isFinite(t) ? t : null; };
 
 /** Lifecycle stage of a session at `now`. */
 function stage(s, now = new Date(), graceHours = GRACE_HOURS) {
+  if (graceHours && typeof graceHours === 'object') graceHours = _grace(graceHours);   // a policy object may be passed
   if (!s) return null;
   if (s.status === 'cancelled') return 'cancelled';
   if (s.status === 'live') return 'held';
@@ -38,8 +42,10 @@ function check(s, action, actor, o = {}) {
   const no = (status, code, error) => ({ status, code, error });
   if (!s) return no(404, 'NOT_FOUND', 'session not found');
   if (!actor || actor.id == null) return no(401, 'NO_USER', 'no user');
-  const st = stage(s, o.now || new Date());
+  const pol = _pol(o.policy);
+  const st = stage(s, o.now || new Date(), _grace(pol));
   const reason = String(o.reason || '').trim();
+  const cancelMin = Number(pol['meetings.cancel_reason_min']) || 5, reopenMin = Number(pol['meetings.reopen_reason_min']) || 10;
   switch (action) {
     case 'start':
       if (!actor.canRun) return no(403, 'FORBIDDEN', 'only the chair, the secretary, the site editors or the committee may run this session');
@@ -59,7 +65,7 @@ function check(s, action, actor, o = {}) {
     case 'cancel':
       if (!actor.canRun) return no(403, 'FORBIDDEN', 'only the chair, the secretary, the site editors or the committee may cancel this session');
       if (s.status !== 'planned') return no(409, 'BAD_STAGE', `a ${st} session cannot be cancelled`);
-      if (reason.length < 5) return no(400, 'VALIDATION', 'a reason (5+ characters) is required to cancel a session');
+      if (reason.length < cancelMin) return no(400, 'VALIDATION', `a reason (${cancelMin}+ characters) is required to cancel a session`);
       return null;
     case 'approve_exception':
       if (!actor.isCommittee) return no(403, 'FORBIDDEN', 'only the committee approves a cancellation as an exception');
@@ -70,12 +76,12 @@ function check(s, action, actor, o = {}) {
     case 'accept':
       if (!(actor.canDecide || actor.isCommittee)) return no(403, 'FORBIDDEN', 'only the chair, the secretary, the committee or an admin may accept minutes');
       if (st !== 'logged') return no(409, 'BAD_STAGE', st === 'accepted' ? 'the minutes are already accepted' : 'close the session first — there are no minutes to accept');
-      if (s.closed_by != null && Number(s.closed_by) === Number(actor.id)) return no(403, 'SOD', 'the person who recorded the minutes cannot accept them');
+      if (pol['meetings.minutes_four_eyes'] !== false && s.closed_by != null && Number(s.closed_by) === Number(actor.id)) return no(403, 'SOD', 'the person who recorded the minutes cannot accept them');
       return null;
     case 'reopen':
       if (!actor.isAdmin) return no(403, 'FORBIDDEN', 'only an admin may reopen accepted minutes');
       if (st !== 'accepted') return no(409, 'BAD_STAGE', 'only accepted minutes can be reopened');
-      if (reason.length < 10) return no(400, 'VALIDATION', 'a reason (10+ characters) is required to reopen accepted minutes');
+      if (reason.length < reopenMin) return no(400, 'VALIDATION', `a reason (${reopenMin}+ characters) is required to reopen accepted minutes`);
       return null;
     default:
       return no(400, 'VALIDATION', 'unknown action');
@@ -95,16 +101,17 @@ function inEffectiveWindow(cad, scheduledAt) {
  * Compliance counts for a set of sessions at `now`: held = logged + accepted (never planned, never missed);
  * excused = cancelled with an approved exception; unexcused = missed + cancelled without approval.
  */
-function compliance(sessions, now = new Date()) {
+function compliance(sessions, now = new Date(), pol = null) {
+  const P = _pol(pol);
   const c = { planned: 0, held: 0, logged: 0, accepted: 0, missed: 0, cancelled: 0, excused: 0, unexcused: 0, in_progress: 0 };
   for (const s of sessions || []) {
-    const st = stage(s, now);
+    const st = stage(s, now, _grace(P));
     if (st === 'planned') c.planned++;
     else if (st === 'held') c.in_progress++;
     else if (st === 'logged') { c.held++; c.logged++; }
     else if (st === 'accepted') { c.held++; c.accepted++; }
     else if (st === 'missed') { c.missed++; c.unexcused++; }
-    else if (st === 'cancelled') { c.cancelled++; if (s.exception_status === 'approved') c.excused++; else c.unexcused++; }
+    else if (st === 'cancelled') { c.cancelled++; if (s.exception_status === 'approved' || P['meetings.cancel_requires_approval'] === false) c.excused++; else c.unexcused++; }
   }
   const due = c.held + c.unexcused;
   c.held_pct = due ? Math.round(1000 * c.held / due) / 10 : null;   // null = nothing was due (not 0 %)

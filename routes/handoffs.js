@@ -30,6 +30,7 @@ module.exports = function handoffRoutes(deps) {
   const isAdmin = (u) => rdb().userHasRole(u, 'admin');
   const actorOf = (u, h) => ({ id: u.id, isAdmin: isAdmin(u), active: u.active !== 0 && u.active !== false, hasSite: h ? userSites.hasSite(u, h.site_id) : false });
   const log = (req, action, target, details) => { try { rdb().logEvent({ category: 'handoffs', action, target: String(target), details, ...rdb()._logCtx(req) }); } catch (_) {} };
+  const polFor = (siteId) => require('../services/governancePolicy').forContext({ siteId });
   const cfg = async () => { try { return await reportConfig.getConfig(rdb().db); } catch (_) { return {}; } };
 
   async function enabled(req, res, next) {
@@ -97,7 +98,7 @@ module.exports = function handoffRoutes(deps) {
     try {
       const h = await load(req, res); if (!h) return;
       const b = req.body || {};
-      const out = await store.transition(h.id, String(b.to || ''), { actor: actorOf(req.reportUser, h), expectedVersion: b.version, reason: b.reason });
+      const out = await store.transition(h.id, String(b.to || ''), { actor: actorOf(req.reportUser, h), expectedVersion: b.version, reason: b.reason, policy: await polFor(h.site_id) });
       log(req, 'handoff_transition', h.ref, { from: h.status, to: out.status });
       await notify(Number(req.reportUser.id) === out.requested_by ? out.receiver_id : out.requested_by, out, out.status);
       res.json({ handoff: view(out, req.reportUser) });
@@ -108,7 +109,7 @@ module.exports = function handoffRoutes(deps) {
       const h = await load(req, res); if (!h) return;
       const b = req.body || {};
       const to = await resolveReceiver(b.receiver, h.site_id);
-      const out = await store.reassign(h.id, to, { actor: actorOf(req.reportUser, h), expectedVersion: b.version, reason: b.reason });
+      const out = await store.reassign(h.id, to, { actor: actorOf(req.reportUser, h), expectedVersion: b.version, reason: b.reason, policy: await polFor(h.site_id) });
       log(req, 'handoff_reassigned', h.ref, { from: h.receiver_id, to });
       await notify(to, out, 'handed to you');
       res.json({ handoff: view(out, req.reportUser) });

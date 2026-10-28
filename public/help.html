@@ -216,6 +216,7 @@
       <a href="#en-27">27. Field app (offline)</a>
       <a href="#en-28">28. Commitments &amp; verified closure</a>
       <a href="#en-29">29. Handoffs between departments</a>
+      <a href="#en-30">30. Governance policies</a>
     </div>
 
     <!-- Content -->
@@ -1267,6 +1268,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
           <li><strong>Limit</strong> — user accounts carry no department, so the receiving department is a label checked against the department list; the duty sits with the named receiver.</li>
         </ul>
       </div>
+      <div class="section" id="en-30">
+        <h2><span class="section-num">30</span>Governance policies</h2>
+        <ul>
+          <li><strong>What</strong> — every regulation rule (four-eyes on reports, trackers, dashboards and minutes; source freshness limits; the grace before a session is <em>missed</em>; minimum reason lengths; automatic escalations) is a parameter with a default. Page <code>/policies.html</code> (Operations ▸ Governance policies), read by committee members and the admin tier.</li>
+          <li><strong>Scope</strong> — set a value for the whole platform or for one site; a site value wins. Source freshness limits are platform-wide.</li>
+          <li><strong>Guardrails</strong> — values outside their range are refused; every change needs a reason and is kept in the history; making a <em>protected</em> rule less strict needs a super_admin and a 10+ character reason and is logged as a risk.</li>
+          <li><strong>Not configurable</strong> — site scoping, no self-verification, no acceptance on someone else's behalf, the audit trail, "not measured" shown as —.</li>
+        </ul>
+      </div>
     </div><!-- /content -->
   </div><!-- /doc-layout -->
 </div><!-- /sec-en -->
@@ -1381,6 +1391,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
       <a href="#fr-27">27. Application terrain (hors-ligne)</a>
       <a href="#fr-28">28. Engagements &amp; clôture vérifiée</a>
       <a href="#fr-29">29. Passations entre départements</a>
+      <a href="#fr-30">30. Politiques de gouvernance</a>
     </div>
 
     <div class="content">
@@ -2429,6 +2440,15 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
           <li><strong>Réaffecter</strong> — le demandeur (ou le palier admin) peut nommer un autre destinataire avec un motif ; la passation revient à <em>demandée</em> et la nouvelle personne l'accepte elle-même. Une personne qui quitte le site, ou dont le compte est désactivé, ne peut plus agir dessus.</li>
           <li><strong>En retard</strong> — une passation ouverte dont l'échéance est dépassée est escaladée une fois par la tâche horaire. Les notifications dans l'application sont un réglage distinct (<code>handoff_notify_enabled</code>, désactivé par défaut).</li>
           <li><strong>Limite</strong> — les comptes utilisateurs n'ont pas de département : le département destinataire est une étiquette vérifiée contre la liste des départements ; la responsabilité porte sur le destinataire nommé.</li>
+        </ul>
+      </div>
+      <div class="section" id="fr-30">
+        <h2><span class="section-num">30</span>Politiques de gouvernance</h2>
+        <ul>
+          <li><strong>Quoi</strong> — chaque règle (quatre yeux sur les rapports, trackers, tableaux de bord et comptes rendus ; limites de fraîcheur des sources ; délai avant qu'une séance soit <em>manquée</em> ; longueurs minimales des motifs ; escalades automatiques) est un paramètre avec une valeur par défaut. Page <code>/policies.html</code> (Operations ▸ Governance policies), consultée par les membres du comité et le palier admin.</li>
+          <li><strong>Portée</strong> — une valeur pour toute la plateforme ou pour un site ; la valeur du site l'emporte. Les limites de fraîcheur des sources valent pour toute la plateforme.</li>
+          <li><strong>Garde-fous</strong> — une valeur hors bornes est refusée ; chaque changement exige un motif et reste dans l'historique ; assouplir une règle <em>protégée</em> exige un super_admin et un motif de 10 caractères, journalisé comme risque.</li>
+          <li><strong>Non paramétrable</strong> — le cloisonnement par site, l'interdiction de vérifier son propre travail ou d'accepter à la place d'autrui, la piste d'audit, l'affichage « — » d'une valeur non mesurée.</li>
         </ul>
       </div>
     </div><!-- /content -->

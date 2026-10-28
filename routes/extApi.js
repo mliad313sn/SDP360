@@ -63,8 +63,8 @@ module.exports = function extApiRoutes(deps) {
   async function freshnessByModule(mods) {
     const jobs = gate.jobsFor(mods);
     const lastOk = deps.lastSyncOk ? await deps.lastSyncOk(jobs) : await gate.lastOkFromSyncStore(jobs);
-    const nowMs = Date.now(); const out = {};
-    for (const m of mods) out[m] = gate.moduleFreshness(m, lastOk, nowMs).state;
+    const nowMs = Date.now(); const out = {}; const pol = await require('../services/governancePolicy').forContext({});
+    for (const m of mods) out[m] = gate.moduleFreshness(m, lastOk, nowMs, pol).state;
     return out;
   }
   async function values(keys, { site = null, window = null } = {}) {

@@ -65,9 +65,9 @@ function makeHandoffStore(db, { now = () => new Date().toISOString() } = {}) {
     if (!r || Number(r.changes) !== 1) throw typed('CONFLICT', 'the handoff changed meanwhile — reload', 409);
   }
 
-  async function transition(id, to, { actor, expectedVersion, reason } = {}) {
+  async function transition(id, to, { actor, expectedVersion, reason, policy } = {}) {
     const h = await getRaw(id); if (!h) throw typed('NOT_FOUND', 'handoff not found', 404);
-    const c = L.check(h, to, actor, { reason });
+    const c = L.check(h, to, actor, { reason, policy });
     if (c) throw typed(c.code, c.error, c.status);
     const t = now(), sets = { status: to, last_reason: str(reason, 1000) };
     if (to === 'accepted' && h.status === 'requested') sets.accepted_at = t;
@@ -80,9 +80,9 @@ function makeHandoffStore(db, { now = () => new Date().toISOString() } = {}) {
     return get(h.id);
   }
 
-  async function reassign(id, newReceiverId, { actor, expectedVersion, reason } = {}) {
+  async function reassign(id, newReceiverId, { actor, expectedVersion, reason, policy } = {}) {
     const h = await getRaw(id); if (!h) throw typed('NOT_FOUND', 'handoff not found', 404);
-    const c = L.checkReassign(h, actor, newReceiverId, { reason });
+    const c = L.checkReassign(h, actor, newReceiverId, { reason, policy });
     if (c) throw typed(c.code, c.error, c.status);
     await bump(h, expectedVersion, { receiver_id: Number(newReceiverId), status: 'requested', accepted_at: null, escalated_from: null, last_reason: str(reason, 1000) });
     await event(h.id, actor.id, 'reassigned', h.status, 'requested', { from_receiver: h.receiver_id, to_receiver: Number(newReceiverId), reason: str(reason, 1000) });
@@ -90,11 +90,15 @@ function makeHandoffStore(db, { now = () => new Date().toISOString() } = {}) {
   }
 
   /** Escalate every overdue open handoff once. Returns the escalated rows. */
-  async function escalateOverdue({ today } = {}) {
+  /** policyFor(siteId) → resolved policy (per-site switch and grace). Absent → defaults. */
+  async function escalateOverdue({ today, policyFor = null } = {}) {
     const d = String(today || now()).slice(0, 10);
     const rows = (await P(`SELECT * FROM handoffs WHERE status IN ('requested','accepted','blocked') AND due_date IS NOT NULL AND due_date < ?`).all(d)).map(row);
     const out = [];
-    for (const h of L.overdue(rows, d)) {
+    const bySite = new Map(); for (const h of rows) { if (!bySite.has(h.site_id)) bySite.set(h.site_id, []); bySite.get(h.site_id).push(h); }
+    const due = [];
+    for (const [sid, list] of bySite) due.push(...L.overdue(list, d, policyFor ? await policyFor(sid) : null));
+    for (const h of due) {
       const r = await P(`UPDATE handoffs SET status='escalated', escalated_from=?, escalated_at=?, version=version+1, updated_at=? WHERE id=? AND version=?`).run(h.status, now(), now(), h.id, h.version);
       if (Number(r && r.changes) !== 1) continue;
       await event(h.id, null, 'escalated_overdue', h.status, 'escalated', { due_date: h.due_date });

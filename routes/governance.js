@@ -62,8 +62,10 @@ module.exports = function governanceRoutes(deps) {
   const SL = require('../services/sessionLifecycle');
   const actorFor = (u, cad) => ({ id: u && u.id, canRun: !!canRun(u, cad), canDecide: !!canDecide(u, cad), isCommittee: !!isCommittee(u), isAdmin: !!isAdmin(u) });
   const refuse = (res, c) => { res.status(c.status).json({ ok: false, error: c.error, code: c.code }); return true; };
-  const lifecycle = (req, res, x, action, o) => { const c = SL.check(x.s, action, actorFor(req.reportUser, x.cad), o); return c ? refuse(res, c) : false; };
-  const withStage = (s, u, cad) => s && ({ ...s, stage: SL.stage(s), allowed: ['start', 'close', 'cancel', 'accept', 'approve_exception', 'reopen'].filter((a) => !SL.check(s, a, actorFor(u, cad), { reason: 'x'.repeat(10) })) });
+  const GP = require('../services/governancePolicy');
+  const polFor = (cad) => GP.forContext({ siteId: cad && cad.site_id != null ? cad.site_id : null });
+  const lifecycle = async (req, res, x, action, o) => { const c = SL.check(x.s, action, actorFor(req.reportUser, x.cad), { ...(o || {}), policy: await polFor(x.cad) }); return c ? refuse(res, c) : false; };
+  const withStage = async (s, u, cad) => { if (!s) return s; const policy = await polFor(cad); return { ...s, stage: SL.stage(s, new Date(), policy), allowed: ['start', 'close', 'cancel', 'accept', 'approve_exception', 'reopen'].filter((a) => !SL.check(s, a, actorFor(u, cad), { reason: 'x'.repeat(500), policy })) }; };
   async function loadSession(req, res, { run = false, decide = false } = {}) {
     const s = await store.getSession(req.params.id); if (!s) { res.status(404).json({ ok: false, error: 'session not found' }); return null; }
     const cad = await store.getCadence(s.cadence_id);
@@ -138,7 +140,7 @@ module.exports = function governanceRoutes(deps) {
       const today = new Date().toISOString().slice(0, 10);
       const allowedCad = new Set(cad.map(c => c.id));
       const since = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
-      const compliance30d = SL.compliance(sess.filter(s => allowedCad.has(s.cadence_id) && String(s.scheduled_at || '').slice(0, 10) >= since));
+      const compliance30d = SL.compliance(sess.filter(s => allowedCad.has(s.cadence_id) && String(s.scheduled_at || '').slice(0, 10) >= since), new Date(), await GP.forContext({}));
       res.json({ ok: true, committee: isCommittee(req.reportUser), cadences: cad.length, compliance_30d: compliance30d, sessions_held_30d: sess.filter(s => s.status === 'closed' && String(s.closed_at || '').slice(0, 10) >= new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10)).length, sessions_planned: sess.filter(s => s.status === 'planned').length,
         decisions_open: dec.length, decisions_overdue: dec.filter(d => d.due_date && d.due_date < today).length, rfi_to_triage: rfi.filter(r => r.status === 'submitted').length, rfi_in_flight: rfi.filter(r => r.status !== 'submitted').length });
     } catch (e) { fail(res, e); }
@@ -169,25 +171,25 @@ module.exports = function governanceRoutes(deps) {
       res.json({ ok: true, sessions: rows.map(s => ({ ...s, cadence: (cads.find(c => c.id === s.cadence_id) || {}).name })) }); } catch (e) { fail(res, e); }
   });
   router.get('/api/governance/sessions/:id', requireReportSession, async (req, res) => {
-    try { const x = await loadSession(req, res); if (!x) return; res.json({ ok: true, session: withStage(x.s, req.reportUser, x.cad), cadence: x.cad, decisions: await store.listDecisions({ sessionId: x.s.id }), actions: await store.sessionActions(x.s.id), can_run: canRun(req.reportUser, x.cad), can_decide: canDecide(req.reportUser, x.cad) }); } catch (e) { fail(res, e); }
+    try { const x = await loadSession(req, res); if (!x) return; res.json({ ok: true, session: (await withStage(x.s, req.reportUser, x.cad)), cadence: x.cad, decisions: await store.listDecisions({ sessionId: x.s.id }), actions: await store.sessionActions(x.s.id), can_run: canRun(req.reportUser, x.cad), can_decide: canDecide(req.reportUser, x.cad) }); } catch (e) { fail(res, e); }
   });
   router.put('/api/governance/sessions/:id', requireReportSession, json, async (req, res) => {
-    try { const x = await loadSession(req, res, { run: true }); if (!x) return; if (lifecycle(req, res, x, 'edit')) return; if (req.body.scheduled_at && lifecycle(req, res, x, 'reschedule')) return; const p = {}; if (Array.isArray(req.body.attendees)) p.attendees = req.body.attendees.map(a => String(a).slice(0, 120)).slice(0, 50); if (req.body.notes !== undefined) p.notes = String(req.body.notes).slice(0, 20000); if (req.body.scheduled_at) p.scheduled_at = String(req.body.scheduled_at).slice(0, 25); res.json({ ok: true, session: await store.updateSession(x.s.id, p) }); } catch (e) { fail(res, e); }
+    try { const x = await loadSession(req, res, { run: true }); if (!x) return; if (await lifecycle(req, res, x, 'edit')) return; if (req.body.scheduled_at && await lifecycle(req, res, x, 'reschedule')) return; const p = {}; if (Array.isArray(req.body.attendees)) p.attendees = req.body.attendees.map(a => String(a).slice(0, 120)).slice(0, 50); if (req.body.notes !== undefined) p.notes = String(req.body.notes).slice(0, 20000); if (req.body.scheduled_at) p.scheduled_at = String(req.body.scheduled_at).slice(0, 25); res.json({ ok: true, session: await store.updateSession(x.s.id, p) }); } catch (e) { fail(res, e); }
   });
   router.post('/api/governance/sessions/:id/start', requireReportSession, async (req, res) => {
-    try { const x = await loadSession(req, res, { run: true }); if (!x) return; if (lifecycle(req, res, x, 'start')) return; const s = await store.updateSession(x.s.id, { status: 'live', started_at: x.s.started_at || new Date().toISOString() }); log(req, 'session_started', s.id); res.json({ ok: true, session: s }); } catch (e) { fail(res, e); }
+    try { const x = await loadSession(req, res, { run: true }); if (!x) return; if (await lifecycle(req, res, x, 'start')) return; const s = await store.updateSession(x.s.id, { status: 'live', started_at: x.s.started_at || new Date().toISOString() }); log(req, 'session_started', s.id); res.json({ ok: true, session: s }); } catch (e) { fail(res, e); }
   });
   router.post('/api/governance/sessions/:id/items/:item/:op', requireReportSession, json, async (req, res) => {
-    try { const x = await loadSession(req, res, { run: true }); if (!x) return; if (lifecycle(req, res, x, 'edit')) return; const op = req.params.op; const item = String(req.params.item).slice(0, 40);
+    try { const x = await loadSession(req, res, { run: true }); if (!x) return; if (await lifecycle(req, res, x, 'edit')) return; const op = req.params.op; const item = String(req.params.item).slice(0, 40);
       if (op === 'notes') { const items = x.s.items || []; let it = items.find(i => i.id === item); if (!it) { it = { id: item, started_at: null, ended_at: null }; items.push(it); } it.notes = String(req.body && req.body.notes || '').slice(0, 5000); return res.json({ ok: true, session: await store.updateSession(x.s.id, { items }) }); }
       if (op !== 'start' && op !== 'end') return res.status(400).json({ ok: false, error: 'op must be start | end | notes' });
       res.json({ ok: true, session: await store.stampItem(x.s.id, item, op === 'start' ? 'started_at' : 'ended_at') }); } catch (e) { fail(res, e); }
   });
   router.post('/api/governance/sessions/:id/decisions', requireReportSession, json, async (req, res) => {
-    try { const x = await loadSession(req, res, { decide: true }); if (!x) return; if (lifecycle(req, res, x, 'edit')) return; const d = await store.addDecision({ ...req.body, session_id: x.s.id, site_id: x.cad ? x.cad.site_id : null }, { user: req.reportUser }); log(req, 'decision_recorded', d.ref, { session: x.s.id }); res.json({ ok: true, decision: d }); } catch (e) { fail(res, e); }
+    try { const x = await loadSession(req, res, { decide: true }); if (!x) return; if (await lifecycle(req, res, x, 'edit')) return; const d = await store.addDecision({ ...req.body, session_id: x.s.id, site_id: x.cad ? x.cad.site_id : null }, { user: req.reportUser }); log(req, 'decision_recorded', d.ref, { session: x.s.id }); res.json({ ok: true, decision: d }); } catch (e) { fail(res, e); }
   });
   router.post('/api/governance/sessions/:id/actions', requireReportSession, json, async (req, res) => {
-    try { const x = await loadSession(req, res, { run: true }); if (!x) return; if (lifecycle(req, res, x, 'edit')) return; const a = await store.addSessionAction(x.s.id, req.body, { user: req.reportUser }); log(req, 'session_action_added', a.id, { session: x.s.id }); res.json({ ok: true, action: a }); } catch (e) { fail(res, e); }
+    try { const x = await loadSession(req, res, { run: true }); if (!x) return; if (await lifecycle(req, res, x, 'edit')) return; const a = await store.addSessionAction(x.s.id, req.body, { user: req.reportUser }); log(req, 'session_action_added', a.id, { session: x.s.id }); res.json({ ok: true, action: a }); } catch (e) { fail(res, e); }
   });
   router.put('/api/governance/sessions/:id/actions/:aid', requireReportSession, json, async (req, res) => {
     try { const x = await loadSession(req, res, { run: true }); if (!x) return; await store.setSessionActionStatus(req.params.aid, req.body && req.body.status); res.json({ ok: true, actions: await store.sessionActions(x.s.id) }); } catch (e) { fail(res, e); }
@@ -198,30 +200,30 @@ module.exports = function governanceRoutes(deps) {
     return renderMinutes({ cadence: x.cad, session: x.s, decisions: await store.listDecisions({ sessionId: x.s.id }), actions: await store.sessionActions(x.s.id), siteName: site ? site.name : null, baseUrl: cfg.public_base_url || '' });
   }
   router.post('/api/governance/sessions/:id/close', requireReportSession, async (req, res) => {
-    try { const x = await loadSession(req, res, { run: true }); if (!x) return; if (lifecycle(req, res, x, 'close')) return; x.s.closed_at = new Date().toISOString(); x.s.status = 'closed'; const html = await minutesFor(x); const s = await store.updateSession(x.s.id, { status: 'closed', closed_at: x.s.closed_at, closed_by: req.reportUser.id, minutes_html: html }); log(req, 'session_closed', s.id); res.json({ ok: true, session: { ...withStage(s, req.reportUser, x.cad), minutes_html: undefined }, minutes_bytes: html.length }); } catch (e) { fail(res, e); }
+    try { const x = await loadSession(req, res, { run: true }); if (!x) return; if (await lifecycle(req, res, x, 'close')) return; x.s.closed_at = new Date().toISOString(); x.s.status = 'closed'; const html = await minutesFor(x); const s = await store.updateSession(x.s.id, { status: 'closed', closed_at: x.s.closed_at, closed_by: req.reportUser.id, minutes_html: html }); log(req, 'session_closed', s.id); res.json({ ok: true, session: { ...(await withStage(s, req.reportUser, x.cad)), minutes_html: undefined }, minutes_bytes: html.length }); } catch (e) { fail(res, e); }
   });
   // G-21 — cancellation (an exception the committee approves), minutes acceptance (four-eyes), admin reopen.
   router.post('/api/governance/sessions/:id/cancel', requireReportSession, json, async (req, res) => {
-    try { const x = await loadSession(req, res); if (!x) return; const reason = String((req.body && req.body.reason) || '').trim(); if (lifecycle(req, res, x, 'cancel', { reason })) return;
+    try { const x = await loadSession(req, res); if (!x) return; const reason = String((req.body && req.body.reason) || '').trim(); if (await lifecycle(req, res, x, 'cancel', { reason })) return;
       // always pending: the exception is approved by a committee member OTHER than the canceller (four-eyes)
       const s = await store.updateSession(x.s.id, { status: 'cancelled', cancelled_at: new Date().toISOString(), cancelled_by: req.reportUser.id, cancel_reason: reason.slice(0, 1000), exception_status: 'pending' });
-      log(req, 'session_cancelled', s.id, { exception: s.exception_status }); res.json({ ok: true, session: withStage(s, req.reportUser, x.cad) }); } catch (e) { fail(res, e); }
+      log(req, 'session_cancelled', s.id, { exception: s.exception_status }); res.json({ ok: true, session: (await withStage(s, req.reportUser, x.cad)) }); } catch (e) { fail(res, e); }
   });
   router.post('/api/governance/sessions/:id/exception/approve', requireReportSession, async (req, res) => {
-    try { const x = await loadSession(req, res); if (!x) return; if (lifecycle(req, res, x, 'approve_exception')) return;
+    try { const x = await loadSession(req, res); if (!x) return; if (await lifecycle(req, res, x, 'approve_exception')) return;
       const s = await store.updateSession(x.s.id, { exception_status: 'approved', exception_approved_by: req.reportUser.id, exception_approved_at: new Date().toISOString() });
-      log(req, 'session_exception_approved', s.id); res.json({ ok: true, session: withStage(s, req.reportUser, x.cad) }); } catch (e) { fail(res, e); }
+      log(req, 'session_exception_approved', s.id); res.json({ ok: true, session: (await withStage(s, req.reportUser, x.cad)) }); } catch (e) { fail(res, e); }
   });
   router.post('/api/governance/sessions/:id/accept', requireReportSession, async (req, res) => {
-    try { const x = await loadSession(req, res); if (!x) return; if (lifecycle(req, res, x, 'accept')) return;
+    try { const x = await loadSession(req, res); if (!x) return; if (await lifecycle(req, res, x, 'accept')) return;
       const s = await store.updateSession(x.s.id, { minutes_accepted_at: new Date().toISOString(), minutes_accepted_by: req.reportUser.id });
-      log(req, 'minutes_accepted', s.id); res.json({ ok: true, session: { ...withStage(s, req.reportUser, x.cad), minutes_html: undefined } }); } catch (e) { fail(res, e); }
+      log(req, 'minutes_accepted', s.id); res.json({ ok: true, session: { ...(await withStage(s, req.reportUser, x.cad)), minutes_html: undefined } }); } catch (e) { fail(res, e); }
   });
   router.post('/api/governance/sessions/:id/reopen', requireReportSession, json, async (req, res) => {
-    try { const x = await loadSession(req, res); if (!x) return; const reason = String((req.body && req.body.reason) || '').trim(); if (lifecycle(req, res, x, 'reopen', { reason })) return;
+    try { const x = await loadSession(req, res); if (!x) return; const reason = String((req.body && req.body.reason) || '').trim(); if (await lifecycle(req, res, x, 'reopen', { reason })) return;
       // back to live: the minutes are re-recorded at the next close and need a new acceptance
       const s = await store.updateSession(x.s.id, { status: 'live', minutes_accepted_at: null, minutes_accepted_by: null, reopen_reason: reason.slice(0, 1000) });
-      log(req, 'minutes_reopened', s.id, { reason: reason.slice(0, 200) }); res.json({ ok: true, session: { ...withStage(s, req.reportUser, x.cad), minutes_html: undefined } }); } catch (e) { fail(res, e); }
+      log(req, 'minutes_reopened', s.id, { reason: reason.slice(0, 200) }); res.json({ ok: true, session: { ...(await withStage(s, req.reportUser, x.cad)), minutes_html: undefined } }); } catch (e) { fail(res, e); }
   });
   router.get('/api/governance/sessions/:id/minutes.html', requireReportSession, async (req, res) => { try { const x = await loadSession(req, res); if (!x) return; res.type('html').send(x.s.minutes_html || await minutesFor(x)); } catch (e) { fail(res, e); } });
   router.get('/api/governance/sessions/:id/minutes.pdf', requireReportSession, async (req, res) => {

@@ -2,6 +2,8 @@
 
 ### Unreleased — consolidation branch `claude/sdp360-consolidation` (not deployed, NO-GO)
 
+- **Governance policies**: every regulation rule (four-eyes switches, freshness limits, missed grace, reason lengths, escalation switches — 23 parameters) is configurable globally or per site in `policies.html`; bounds enforced, every change reasoned and kept in an append-only history, relaxing a protected rule needs a super_admin and is logged as a risk (migration 027, `docs/sdp360/completion/GOVERNANCE-POLICIES.md`).
+
 - **Commitments (G-17, G-18)**: the backfill pages its readers (it silently stopped at 1 000 actions per module) and writes a Markdown reconciliation summary (`--out=`); a commitment source must exist and belong to the editor's site, and a replay never returns another site's commitment; a serious commitment past `captured` keeps its owner, date and plan; A01/A02 escalation ledger (migration 023, job `commitments.escalate`, `GET /api/commitments/escalations`).
 - **Trackers and dashboards (G-23, G-24)**: four-eyes publication — *Submit for review*, then another person publishes; an edit withdraws the submission; admin override with a reason, logged as a risk; dashboard rollback (`/rollback/:n`). Migrations `tracker/003`, `reports/024`.
 - **Freshness (G-14)**: `/ext/v1` and OData values carry `freshness` and `authoritative`, header `X-SDP-Freshness`; dashboard data lists `stale_sources`.

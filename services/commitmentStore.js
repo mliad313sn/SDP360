@@ -258,10 +258,16 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
 
   // ── G-18 escalation ledger (023_commitment_escalations) ─────────────────────────────
   /** Evaluate A01 / A02 now against the ledger; write the diff. Returns what was raised (nothing for a kept condition). */
-  async function escalate({ asOf } = {}) {
+  /** policyFor(siteId) → resolved governance policy; a site with commitments.escalation_enabled = false records nothing. */
+  async function escalate({ asOf, policyFor = null } = {}) {
     const E = require('./commitmentEscalation');
     const t = now();
-    const cur = E.conditions(await metricRows({}), asOf || t);
+    let cur = E.conditions(await metricRows({}), asOf || t);
+    if (policyFor) {
+      const on = new Map();
+      for (const sid of new Set(cur.map((c) => c.site_id))) on.set(sid, (await policyFor(sid))['commitments.escalation_enabled'] !== false);
+      cur = cur.filter((c) => on.get(c.site_id));
+    }
     const d = E.diff(cur, await P('SELECT key, cleared_at FROM commitment_escalations').all());
     for (const c of d.open) await P('INSERT INTO commitment_escalations (key, kind, commitment_id, site_id, opened_at, last_seen_at, episodes) VALUES (?, ?, ?, ?, ?, ?, 1) ON CONFLICT (key) DO NOTHING').run(c.key, c.kind, c.commitment_id, c.site_id, t, t);
     for (const c of d.reopen) await P('UPDATE commitment_escalations SET opened_at=?, last_seen_at=?, cleared_at=NULL, site_id=?, episodes=episodes+1 WHERE key=?').run(t, t, c.site_id, c.key);

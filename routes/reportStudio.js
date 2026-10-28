@@ -52,7 +52,8 @@ module.exports = function reportStudioRoutes(deps) {
     if (deps.lastSyncOk) return deps.lastSyncOk(jobs);
     return gate.lastOkFromSyncStore(jobs);
   }
-  const sod = (res, action, r, u) => { const c = gate.dutyConflict(action, r, u); if (c) { res.status(403).json({ ok: false, error: c.error, code: c.code }); return true; } return false; };
+  const policyFor = (r) => require('../services/governancePolicy').forContext({ siteId: r && r.site_id != null ? r.site_id : null });
+  const sod = (res, action, r, u, pol) => { const c = gate.dutyConflict(action, r, u, pol); if (c) { res.status(403).json({ ok: false, error: c.error, code: c.code }); return true; } return false; };
   async function visibleRun(req, res, { write = false } = {}) {
     const r = await store.getRun(req.params.id); if (!r) { res.status(404).json({ ok: false, error: 'run not found' }); return null; }
     const u = req.reportUser;
@@ -103,18 +104,21 @@ module.exports = function reportStudioRoutes(deps) {
   router.post('/api/report-studio/runs/:id/review', requireReportSession, json, async (req, res) => {
     try { const r = await visibleRun(req, res, { write: true }); if (!r) return; const st = req.body && req.body.status; if (st !== 'reviewed' && st !== 'rejected') return res.status(400).json({ ok: false, error: 'status must be reviewed | rejected' });
       if (r.status !== 'draft' && r.status !== 'rejected') return res.status(409).json({ ok: false, error: `a ${r.status} run cannot be reviewed` });
-      if (sod(res, 'review', r, req.reportUser)) return;
+      if (sod(res, 'review', r, req.reportUser, await policyFor(r))) return;
       const out = await store.setStatus(r.id, st, { user: req.reportUser, note: req.body.note, rating: req.body.rating }); await rerenderRun(out); log(req, 'report_reviewed', r.id, { status: st, rating: out.rating }); res.json({ ok: true, run: { ...out, html: undefined } }); } catch (e) { fail(res, e); }
   });
   router.post('/api/report-studio/runs/:id/publish', requireReportSession, json, async (req, res) => {
     try { const r = await visibleRun(req, res, { write: true }); if (!r) return; if (r.status !== 'reviewed') return res.status(409).json({ ok: false, error: 'a run must be reviewed by a human before publication' });
-      if (sod(res, 'publish', r, req.reportUser)) return;
+      const pol = await policyFor(r);
+      if (sod(res, 'publish', r, req.reportUser, pol)) return;
       // G-14 — a stale or never-synced source blocks publication; an admin may override with a written reason.
-      const mods = gate.modulesOf(r, registry()); const fr = gate.freshness(mods, await lastOkFor(gate.jobsFor(mods)), Date.now());
+      // Switch, limits, override and reason length are governance policies (services/governancePolicy).
+      const mods = gate.modulesOf(r, registry()); const fr = gate.freshness(mods, await lastOkFor(gate.jobsFor(mods)), Date.now(), pol);
       let override = null;
-      if (!fr.fresh) {
-        const reason = String((req.body && req.body.override_reason) || '').trim();
-        if (!(isAdmin(req.reportUser) && reason.length >= 10)) return res.status(409).json({ ok: false, error: 'stale_sources', message: 'a source behind this report is stale or has never synced; an admin may publish with override_reason (10+ characters)', sources: fr.sources.filter(x => x.state !== 'FRESH') });
+      if (!fr.fresh && pol['reports.freshness_gate'] !== false) {
+        const reason = String((req.body && req.body.override_reason) || '').trim(); const min = Number(pol['reports.override_reason_min']) || 10;
+        const canOverride = pol['reports.override_allowed'] !== false && isAdmin(req.reportUser);
+        if (!(canOverride && reason.length >= min)) return res.status(409).json({ ok: false, error: 'stale_sources', message: pol['reports.override_allowed'] === false ? 'a source behind this report is stale or has never synced; override is disabled by policy' : `a source behind this report is stale or has never synced; an admin may publish with override_reason (${min}+ characters)`, sources: fr.sources.filter(x => x.state !== 'FRESH') });
         override = { by: req.reportUser.id, at: new Date().toISOString(), reason: reason.slice(0, 1000), sources: fr.sources.filter(x => x.state !== 'FRESH') };
         try { rdb().logEvent({ category: 'reports', action: 'report_publish_override', target: String(r.id), details: override, risk: 1, ...rdb()._logCtx(req) }); } catch (_) {}
       }
@@ -137,7 +141,8 @@ module.exports = function reportStudioRoutes(deps) {
   router.post('/api/report-studio/runs/:id/withdraw', requireReportSession, json, async (req, res) => {
     try { if (!isAdmin(req.reportUser)) return res.status(403).json({ ok: false, error: 'admin role required' });
       const r = await visibleRun(req, res, { write: true }); if (!r) return; if (r.status !== 'published') return res.status(409).json({ ok: false, error: 'only a published run can be withdrawn' });
-      const reason = String((req.body && req.body.reason) || '').trim(); if (reason.length < 5) return res.status(400).json({ ok: false, error: 'reason required (5+ characters)' });
+      const wmin = Number((await policyFor(r))['reports.withdraw_reason_min']) || 5;
+      const reason = String((req.body && req.body.reason) || '').trim(); if (reason.length < wmin) return res.status(400).json({ ok: false, error: `reason required (${wmin}+ characters)` });
       const out = await store.setStatus(r.id, 'withdrawn', { user: req.reportUser, note: reason }); await rerenderRun(out); log(req, 'report_withdrawn', r.id, { reason });
       res.json({ ok: true, run: { ...out, html: undefined } }); } catch (e) { fail(res, e); }
   });
