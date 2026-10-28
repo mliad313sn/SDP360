@@ -8,7 +8,7 @@ Branch `claude/sdp360-consolidation` (from `fb78494`). Release: **NO-GO** (no de
 | P0 security transplant (CG-01/02/03) | `efd92e9` | yes | integration in-process (sqlite + PG 16) | no | no | no |
 | Dependency advisories (CG-05) | `9e7d5f1` | yes | full suite + goldens | n/a | no | n/a (CAB D-11) |
 | DEC-03 (CG-04) | `6a556de` | yes | integration in-process | no | no | no |
-| P0-E version endpoint (CG-09) + CG-08 pin | next commit | yes | integration in-process (sqlite + PG 16) | n/a | no | n/a |
+| P0-E version endpoint (CG-09) + CG-08 pin | `23a33a8` | yes | integration in-process (sqlite + PG 16) | n/a | no | n/a |
 
 ## Remaining GO/NO-GO blockers
 
@@ -17,3 +17,5 @@ Branch `claude/sdp360-consolidation` (from `fb78494`). Release: **NO-GO** (no de
 3. PG 17 run in CI (G-ENV-01); prod snapshot fixtures (G-ENV-02).
 4. UAT with D-05 pilot sites; browser E2E on a non-production target.
 5. Backlog #5-#16 ([04](04-DEPENDENCY-ORDERED-BACKLOG.md)).
+| ESLint SAST blocking (CG-10) + remediation verification | `350e0c4` | yes | lint exit 0, full suite | n/a | no | n/a |
+| Commitments scenario 2 + A01/A02 exposure metrics (draft) | next | yes | sqlite + PG 16 (store) and HTTP (sqlite) | no | no | no — `commitments_enabled` stays 0 (D-04) |

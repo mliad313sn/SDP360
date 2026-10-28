@@ -270,7 +270,7 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
   async function metricRows({ siteIds = null } = {}) {
     if (Array.isArray(siteIds) && !siteIds.length) return [];
     const where = Array.isArray(siteIds) ? ` WHERE site_id IN (${siteIds.map(() => '?').join(',')})` : '';
-    return P(`SELECT id, site_id, status, due_date, baseline_due_date, technical_completed_at, verified_at FROM commitments${where}`).all(...(siteIds || []).map(Number));
+    return P(`SELECT id, site_id, status, severity, accountable_owner, exception_approved_by, due_date, baseline_due_date, technical_completed_at, verified_at FROM commitments${where}`).all(...(siteIds || []).map(Number));
   }
 
   return { init, create, get, getRaw, findBySource, update, transition, approveException, link, unlink, addEvidence, getEvidenceFile, list, linksFor, metricRows };

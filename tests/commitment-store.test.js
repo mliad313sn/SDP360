@@ -76,3 +76,49 @@ test('pg: commitment store scenario (migration reports/021)', async (t) => {
   const s = makeCommitmentStore({ prepare: (sql) => rdb.pgHandle().prepare(sql) }, { isPg: true });
   try { await s.init(); await scenario(s); } finally { await dropTestDb(ctx); }
 });
+
+// Consolidation scenario 2 on BOTH backends: critical inspection finding → A01 (unowned) → owner/date/plan →
+// A02 (overdue, no exception) → evidence → rejected → rework → verified by an independent reviewer → reopened.
+async function scenario2(s) {
+  const { seriousExposure } = require('../services/commitmentMetrics');
+  const alerts = require('../services/alertEngine');
+  const fires = (k, v) => alerts.evaluate([{ key: k, metric: k, op: 'gt', threshold: 0 }], [{ rule_key: k, site_id: 5, value: v }]).firings.length;
+  const exp = async () => seriousExposure(await s.metricRows({ siteIds: [5] }), '2026-10-28');
+  const a = await s.create({ kind: 'inspection_finding', severity: 'critical', title: 'UPS bypassed', site_id: 5, reviewer: 'biz.reviewer', source: { system: 'inspection', id: '77' } }, { user: ed });
+  const id = a.commitment.id;
+  let x = await exp(); assert.equal(x.serious_unowned, 1); assert.equal(fires('A01', x.serious_unowned), 1);
+  await assert.rejects(() => s.transition(id, 'committed', { actor: ed, expectedVersion: 1 }), /needs accountable_owner, due_date, treatment_plan/);
+  let c = await s.update(id, { accountable_owner: 'it.owner', due_date: '2026-01-15', treatment_plan: 'restore UPS inline' }, { user: ed, expectedVersion: 1, reason: 'initial' });
+  c = await s.transition(id, 'committed', { actor: ed, expectedVersion: c.version });
+  c = await s.transition(id, 'in_progress', { actor: ed, expectedVersion: c.version });
+  x = await exp(); assert.equal(x.serious_unowned, 0); assert.deepEqual(x.overdue_ids.map(Number), [Number(id)]); assert.equal(fires('A02', x.serious_overdue), 1);
+  const ev = await s.addEvidence(id, { buffer: PDF, mime: 'application/pdf', filename: 'ups.pdf' }, { user: ed });
+  c = await s.transition(id, 'awaiting_verification', { actor: ed, expectedVersion: ev.commitment.version });
+  assert.equal((await exp()).serious_overdue, 0, 'awaiting verification is not overdue');
+  c = await s.transition(id, 'rejected_for_rework', { actor: rv, expectedVersion: c.version, reason: 'transfer not witnessed' });
+  c = await s.transition(id, 'in_progress', { actor: ed, expectedVersion: c.version });
+  c = await s.transition(id, 'awaiting_verification', { actor: ed, expectedVersion: c.version });
+  await assert.rejects(() => s.transition(id, 'verified_closed', { actor: { ...ed, username: 'it.owner' }, expectedVersion: c.version }), (e) => e.status === 403, 'owner cannot verify');
+  c = await s.transition(id, 'verified_closed', { actor: rv, expectedVersion: c.version });
+  assert.equal((await exp()).serious_open, 0);
+  await assert.rejects(() => s.transition(id, 'reopened', { actor: rv, expectedVersion: c.version }), /reason is required/);
+  c = await s.transition(id, 'reopened', { actor: rv, expectedVersion: c.version, reason: 'bypassed again' });
+  assert.equal(c.status, 'reopened'); assert.equal((await exp()).serious_open, 1, 'reopened exposure counted again');
+  assert.deepEqual(c.events.filter((e) => e.action === 'transition').map((e) => e.to_status),
+    ['committed', 'in_progress', 'awaiting_verification', 'rejected_for_rework', 'in_progress', 'awaiting_verification', 'verified_closed', 'reopened']);
+  assert.deepEqual(c.verifications.map((v) => v.decision), ['rejected_for_rework', 'accepted']);
+}
+
+test('sqlite: critical finding scenario (A01/A02, reject, verify, reopen)', async () => {
+  const s = makeCommitmentStore(new Database(':memory:')); await s.init();
+  await scenario2(s);
+});
+
+test('pg: critical finding scenario (A01/A02, reject, verify, reopen)', async (t) => {
+  const ctx = await provisionTestDb(); if (!ctx) return t.skip('no pg');
+  process.env.PG_URL = ctx.url; process.env.REPORTS_BACKEND = 'postgres';
+  const rdb = require('../reports-db'); await rdb.initPgReports();
+  await require('../db/migrate').migrateAtBoot({ log: () => {} });
+  const s = makeCommitmentStore({ prepare: (sql) => rdb.pgHandle().prepare(sql) }, { isPg: true });
+  try { await s.init(); await scenario2(s); } finally { await dropTestDb(ctx); }
+});

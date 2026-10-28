@@ -103,6 +103,52 @@ test('demo F-2: a high inspection finding without owner / due date is refused se
   }
 });
 
+// Consolidation scenario 2 (goal P1 acceptance): critical inspection finding → A01 (unowned) → owner/date →
+// overdue → A02 → evidence → rejection → rework → independent verification → reopen with reason; audited.
+test('demo F-3: critical finding → A01 → owner/date → A02 overdue → evidence → reject → rework → verified → reopen', async () => {
+  const alerts = require('../services/alertEngine');
+  const metrics = async () => (await (await get(`/api/commitments/metrics?site=${hounde}`, editor)).json());
+  const fire = (metric, value) => alerts.evaluate([{ key: metric, metric: 'commitments.' + metric, op: 'gt', threshold: 0 }],
+    [{ rule_key: metric, site_id: hounde, site: 'Hounde', value, unit: 'count' }]).firings.length;
+  const base = await metrics();
+  let c = (await (await send('POST', '/api/commitments', editor, { kind: 'inspection_finding', severity: 'critical', title: 'UPS bypassed in the server room',
+    site_id: hounde, reviewer: 'cm_reviewer', source: { system: 'inspection', id: '9002' } })).json()).commitment;
+  let m = await metrics();
+  assert.equal(m.serious_unowned, base.serious_unowned + 1, 'the unowned critical finding is counted');
+  assert.equal(fire('serious_unowned', m.serious_unowned), 1, 'A01 fires on the reading');
+  trace(`F-3 1 critical finding #${c.id} captured without owner → serious_unowned=${m.serious_unowned} → A01 fires`);
+  assert.equal((await send('POST', `/api/commitments/${c.id}/transition`, editor, { to: 'committed', version: c.version })).status, 400);
+  const put = await send('PUT', `/api/commitments/${c.id}`, editor, { version: c.version, accountable_owner: 'cm_editor', execution_owners: ['it.tech'],
+    due_date: '2026-01-15', treatment_plan: 'Restore UPS inline, test transfer, lock panel', reason: 'initial due date' });
+  const putBody = await put.text(); assert.equal(put.status, 200, putBody); c = JSON.parse(putBody).commitment;
+  for (const to of ['committed', 'in_progress']) c = (await (await send('POST', `/api/commitments/${c.id}/transition`, editor, { to, version: c.version })).json()).commitment;
+  m = await metrics();
+  assert.equal(m.serious_unowned, base.serious_unowned, 'owned now');
+  assert.ok(m.serious_exposure.overdue_ids.includes(c.id), 'past its due date without an exception');
+  assert.ok(fire('serious_overdue', m.serious_overdue) === 1, 'A02 fires');
+  trace(`F-3 2 owner + due 2026-01-15 + plan set → committed → in_progress; overdue_ids include #${c.id} → A02 fires`);
+  const ev = await (await upload(`/api/commitments/${c.id}/evidence?type=report`, editor, PDF, 'application/pdf', 'ups-test.pdf')).json();
+  c = (await (await send('POST', `/api/commitments/${c.id}/transition`, editor, { to: 'awaiting_verification', version: ev.commitment.version })).json()).commitment;
+  assert.ok(!(await metrics()).serious_exposure.overdue_ids.includes(c.id), 'awaiting verification is not counted as overdue');
+  c = (await (await send('POST', `/api/commitments/${c.id}/transition`, reviewer, { to: 'rejected_for_rework', version: c.version, reason: 'transfer test not witnessed' })).json()).commitment;
+  assert.equal(c.status, 'rejected_for_rework');
+  for (const to of ['in_progress', 'awaiting_verification']) c = (await (await send('POST', `/api/commitments/${c.id}/transition`, editor, { to, version: c.version })).json()).commitment;
+  assert.equal((await send('POST', `/api/commitments/${c.id}/transition`, editor, { to: 'verified_closed', version: c.version })).status, 403, 'owner cannot verify');
+  c = (await (await send('POST', `/api/commitments/${c.id}/transition`, reviewer, { to: 'verified_closed', version: c.version })).json()).commitment;
+  assert.equal(c.status, 'verified_closed');
+  trace(`F-3 3 evidence ${ev.sha256.slice(0, 12)}… → rejected ("transfer test not witnessed") → rework → verified by ${c.verified_by}`);
+  assert.equal((await send('POST', `/api/commitments/${c.id}/transition`, reviewer, { to: 'reopened', version: c.version })).status, 400, 'reopen needs a reason');
+  c = (await (await send('POST', `/api/commitments/${c.id}/transition`, reviewer, { to: 'reopened', version: c.version, reason: 'UPS bypassed again on 2026-10-27' })).json()).commitment;
+  assert.equal(c.status, 'reopened');
+  const fj = await (await get(`/api/commitments/${c.id}`, editor)).json(); const full = fj.commitment || fj;
+  const path = full.events.filter((e) => e.action === 'transition').map((e) => e.to_status);
+  assert.ok(full.events.some((e) => e.action === 'evidence_added') && full.events.some((e) => e.action === 'due_date_changed' || e.action === 'updated'), 'edits and evidence are audited');
+  assert.deepEqual(path, ['committed', 'in_progress', 'awaiting_verification', 'rejected_for_rework', 'in_progress', 'awaiting_verification', 'verified_closed', 'reopened'], 'audited path');
+  assert.ok(full.events.every((e) => e.at && e.actor), 'every event has a time and an actor');
+  assert.deepEqual(full.verifications.map((v) => v.decision), ['rejected_for_rework', 'accepted']);
+  trace(`F-3 4 reopened with reason; audit trail: ${path.join(' → ')}`);
+});
+
 test('IDOR / cross-site: another site editor, a site-less editor, an unrelated viewer get 404 / 403 / empty lists', async () => {
   assert.equal((await get(`/api/commitments/${id}`, otherEditor)).status, 404);
   assert.equal((await send('PUT', `/api/commitments/${id}`, otherEditor, { title: 'hijack', version: 1 })).status, 404);
