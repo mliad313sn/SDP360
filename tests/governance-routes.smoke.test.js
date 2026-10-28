@@ -77,7 +77,7 @@ test('live: start, stamp items, notes, decisions (chair ok, plain editor of the 
   const upd = await (await send('PUT', `/api/governance/sessions/${sessId}/actions/${ac.action.id}`, editor, { status: 'done' })).json(); assert.ok(upd.actions[0].closed_at);
   const closed = await (await send('POST', `/api/governance/sessions/${sessId}/close`, editor)).json(); assert.equal(closed.session.status, 'closed'); assert.ok(closed.minutes_bytes > 500);
   const m = await get(`/api/governance/sessions/${sessId}/minutes.html`, viewer); assert.equal(m.status, 200); const html = await m.text(); assert.ok(html.includes(d.decision.ref)); assert.ok(html.includes('Order UPS')); assert.ok(html.includes('SLA discussed'));
-  assert.equal((await send('POST', `/api/governance/sessions/${sessId}/start`, editor)).status, 400, 'a closed session cannot restart');
+  assert.equal((await send('POST', `/api/governance/sessions/${sessId}/start`, editor)).status, 409, 'a closed session cannot restart');
   const dec = await (await get('/api/governance/decisions?status=open', viewer)).json(); assert.ok(dec.decisions.some(x => x.ref === d.decision.ref));
   assert.equal((await send('PUT', `/api/governance/decisions/${d.decision.id}`, editor, { status: 'done' })).status, 403);
   assert.equal((await (await send('PUT', `/api/governance/decisions/${d.decision.id}`, member, { status: 'done' })).json()).decision.status, 'done');
@@ -106,4 +106,45 @@ test('RFI: anyone submits, committee triages, list sorted by score; portfolio up
   assert.equal((await send('POST', '/api/governance/roadmap-migration', admin, {})).status, 403);
   const dry = await (await send('POST', '/api/governance/roadmap-migration', superT, {})).json(); assert.equal(dry.dry_run, true); assert.equal(dry.plan.programme.key, 'itsm-roadmap'); assert.equal(dry.plan.exists, false);
   assert.equal((await get('/api/governance/portfolio/report.html')).status, 401);
+});
+
+test('G-21 lifecycle end to end: planned → held → logged → accepted (four-eyes), frozen, reopen; cancel = exception; effective window', async () => {
+  const memberId = (await rdb.db.prepare("SELECT id FROM users WHERE username='gv_member'").get()).id;
+  const c = await (await send('PUT', '/api/governance/cadences', member, { key: 'hgo-lc', name: 'HGO lifecycle', kind: 'site_weekly', site_id: hounde, chair_id: editorId, secretary_id: memberId, effective_from: '2026-10-01', effective_to: '2026-12-31' })).json();
+  assert.equal(c.cadence.effective_from, '2026-10-01');
+  assert.equal((await send('PUT', '/api/governance/cadences', member, { key: 'hgo-lc2', name: 'x', effective_from: '01/10/2026' })).status, 400);
+  assert.equal((await send('POST', `/api/governance/cadences/${c.cadence.id}/sessions`, editor, { scheduled_at: '2027-01-05T09:00:00Z' })).status, 400, 'outside the effective window');
+  let s = (await (await send('POST', `/api/governance/cadences/${c.cadence.id}/sessions`, editor, { scheduled_at: '2026-10-27T09:00:00Z' })).json()).session;
+  const id = s.id;
+  assert.equal((await send('POST', `/api/governance/sessions/${id}/close`, editor)).status, 409, 'a session that never started is not held');
+  assert.equal((await send('POST', `/api/governance/sessions/${id}/start`, editor)).status, 200);
+  const closed = await (await send('POST', `/api/governance/sessions/${id}/close`, editor)).json();
+  assert.equal(closed.session.stage, 'logged');
+  assert.equal((await send('POST', `/api/governance/sessions/${id}/close`, editor)).status, 409, 'closing twice would rewrite the minutes');
+  const own = await send('POST', `/api/governance/sessions/${id}/accept`, editor); assert.equal(own.status, 403); assert.equal((await own.json()).code, 'SOD');
+  assert.equal((await send('POST', `/api/governance/sessions/${id}/accept`, viewer)).status, 403);
+  s = (await (await send('POST', `/api/governance/sessions/${id}/accept`, member)).json()).session;
+  assert.equal(s.stage, 'accepted');
+  for (const [m, p, b] of [['PUT', `/api/governance/sessions/${id}`, { notes: 'late edit' }], ['POST', `/api/governance/sessions/${id}/actions`, { title: 'late action' }],
+    ['POST', `/api/governance/sessions/${id}/decisions`, { title: 'late decision' }], ['POST', `/api/governance/sessions/${id}/items/kpis/notes`, { notes: 'x' }]]) {
+    const r = await send(m, p, admin, b); assert.equal(r.status, 409, `${m} ${p}`); assert.equal((await r.json()).code, 'FROZEN');
+  }
+  assert.equal((await send('POST', `/api/governance/sessions/${id}/reopen`, member, { reason: 'decision text was wrong' })).status, 403);
+  s = (await (await send('POST', `/api/governance/sessions/${id}/reopen`, admin, { reason: 'decision text was wrong' })).json()).session;
+  assert.equal(s.stage, 'held'); assert.equal(s.minutes_accepted_at, null);
+
+  // cancellation by a runner = pending exception; approved by the committee (not the canceller)
+  const s2 = (await (await send('POST', `/api/governance/cadences/${c.cadence.id}/sessions`, editor, { scheduled_at: '2026-11-03T09:00:00Z' })).json()).session;
+  assert.equal((await send('POST', `/api/governance/sessions/${s2.id}/cancel`, editor, { reason: '' })).status, 400);
+  const can = (await (await send('POST', `/api/governance/sessions/${s2.id}/cancel`, editor, { reason: 'site shutdown for maintenance' })).json()).session;
+  assert.equal(can.stage, 'cancelled'); assert.equal(can.exception_status, 'pending');
+  assert.equal((await send('POST', `/api/governance/sessions/${s2.id}/exception/approve`, editor)).status, 403);
+  assert.equal((await (await send('POST', `/api/governance/sessions/${s2.id}/exception/approve`, member)).json()).session.exception_status, 'approved');
+  assert.equal((await send('POST', `/api/governance/sessions/${s2.id}/start`, editor)).status, 409, 'a cancelled session cannot start');
+
+  // a planned session whose date passed is missed — the overview never counts it as held
+  const past = await send('POST', `/api/governance/cadences/${c.cadence.id}/sessions`, editor, { scheduled_at: new Date(Date.now() - 5 * 864e5).toISOString() });
+  assert.equal(past.status, 200, await past.text());
+  const o = await (await get('/api/governance/overview', admin)).json();
+  assert.ok(o.compliance_30d.missed >= 1, JSON.stringify(o.compliance_30d)); assert.ok(o.compliance_30d.excused >= 1);
 });

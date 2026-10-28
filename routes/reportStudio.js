@@ -50,9 +50,7 @@ module.exports = function reportStudioRoutes(deps) {
   // G-14 — last successful sync per job (sync_runs); injectable for tests.
   async function lastOkFor(jobs) {
     if (deps.lastSyncOk) return deps.lastSyncOk(jobs);
-    const out = {}; if (!jobs.length) return out;
-    try { const st = require('../services/sync'); await st.ensureReady(); for (const j of jobs) { const r = await st.getStore().lastSuccessfulRun(j); out[j] = r ? (r.finished_at || r.started_at) : null; } } catch (_) { for (const j of jobs) out[j] = null; }
-    return out;
+    return gate.lastOkFromSyncStore(jobs);
   }
   const sod = (res, action, r, u) => { const c = gate.dutyConflict(action, r, u); if (c) { res.status(403).json({ ok: false, error: c.error, code: c.code }); return true; } return false; };
   async function visibleRun(req, res, { write = false } = {}) {

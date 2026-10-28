@@ -43,7 +43,8 @@
     <span style="flex:1"></span>
     <button class="btn" id="validate" type="button">Validate &amp; dry-run</button>
     <button class="btn primary" id="save" type="button">Save draft</button>
-    <button class="btn" id="publish" type="button">Publish</button>
+    <button class="btn" id="submit" type="button" title="Another builder publishes it">Submit for review</button>
+    <button class="btn" id="publish" type="button" title="Only someone other than the submitter and the last editor">Publish</button>
     <button class="btn" id="retire" type="button">Retire</button>
     <button class="btn danger" id="delete" type="button">Delete draft</button>
     <a class="btn" id="open" href="trackers.html">Open runtime</a>
@@ -85,7 +86,7 @@
   var params = new URLSearchParams(location.search), cat = null, meta = null;
   var def = blank();
   function blank() { return { key: '', name: '', version: 1, period: { kind: 'monthly', start: String(new Date().getUTCFullYear() + 1), count: 12 }, units: [], ragPolicy: 'tracker-activity', groups: [] }; }
-  function api(p, o) { return fetch(p, Object.assign({ headers: H(o && o.body ? { 'content-type': 'application/json' } : {}) }, o || {})).then(function (r) { return r.json().then(function (j) { if (!r.ok) { var e = new Error(j.error || ('HTTP ' + r.status)); e.errors = j.errors; throw e; } return j; }); }); }
+  function api(p, o) { return fetch(p, Object.assign({ headers: H(o && o.body ? { 'content-type': 'application/json' } : {}) }, o || {})).then(function (r) { return r.json().then(function (j) { if (!r.ok) { var e = new Error(j.error || ('HTTP ' + r.status)); e.errors = j.errors; e.code = j.code; e.status = r.status; throw e; } return j; }); }); }
   function msg(h, cls) { $('msg').innerHTML = h ? '<div class="' + (cls || 'ok') + '">' + h + '</div>' : ''; }
   function fail(e) { msg(esc(e.message) + (e.errors ? '<ul>' + e.errors.map(function (x) { return '<li>' + esc((x.path ? x.path + ': ' : '') + (x.msg || x)) + '</li>'; }).join('') + '</ul>' : ''), 'errors'); }
   var pct = function (x) { return x == null ? '—' : (Math.round(x * 1000) / 10) + ' %'; };
@@ -155,7 +156,20 @@
     fromForm(); if (!def.key) return msg('Key is required', 'errors');
     api('/api/trackers/' + encodeURIComponent(def.key), { method: 'PUT', body: JSON.stringify({ definition: def, rfi_ref: $('f-rfi').value.trim() || null }) }).then(function (j) { meta = j.tracker; toForm(); msg('Draft saved.'); return refreshPick(def.key); }).catch(fail);
   });
-  $('publish').addEventListener('click', function () { if (!def.key) return; api('/api/trackers/' + encodeURIComponent(def.key) + '/publish', { method: 'POST', body: JSON.stringify({ note: 'published from builder' }) }).then(function (j) { meta = j.tracker; toForm(); msg('Published version ' + meta.version + '.'); refreshPick(def.key); }).catch(fail); });
+  $('publish').addEventListener('click', function () {
+    if (!def.key) return;
+    var url = '/api/trackers/' + encodeURIComponent(def.key) + '/publish';
+    var done = function (j) { meta = j.tracker; toForm(); msg('Published version ' + meta.version + '.'); refreshPick(def.key); };
+    api(url, { method: 'POST', body: JSON.stringify({ note: 'published from builder' }) }).then(done).catch(function (e) {
+      // G-23 — four-eyes refusal; the admin tier may override with a written reason (logged as a risk)
+      if (e.status === 409 && window.__userHasRole && window.__userHasRole('admin')) {
+        var reason = window.prompt(e.message + '\n\nPublish without review? Give the reason (10+ characters), it is logged:', '');
+        if (reason && reason.trim().length >= 10) return api(url, { method: 'POST', body: JSON.stringify({ note: 'published from builder', override_reason: reason.trim() }) }).then(done).catch(fail);
+      }
+      fail(e);
+    });
+  });
+  $('submit').addEventListener('click', function () { if (!def.key) return; api('/api/trackers/' + encodeURIComponent(def.key) + '/submit', { method: 'POST', body: '{}' }).then(function (j) { meta = j.tracker; toForm(); msg('Submitted for review — another builder publishes it. Any further edit withdraws the submission.'); }).catch(fail); });
   $('retire').addEventListener('click', function () { if (!def.key) return; api('/api/trackers/' + encodeURIComponent(def.key) + '/retire', { method: 'POST' }).then(function (j) { meta = j.tracker; toForm(); msg('Retired.'); refreshPick(def.key); }).catch(fail); });
   $('delete').addEventListener('click', function () { if (!def.key || !confirm('Delete this draft/retired tracker and its entries?')) return; api('/api/trackers/' + encodeURIComponent(def.key), { method: 'DELETE' }).then(function () { def = blank(); meta = null; toForm(); msg('Deleted.'); refreshPick(''); }).catch(fail); });
   $('sync').addEventListener('click', function () { if (!def.key) return; msg('Syncing…'); api('/api/trackers/' + encodeURIComponent(def.key) + '/sync', { method: 'POST', body: '{}' }).then(function (j) { msg('Sync: ' + j.saved + ' cell(s) filled, ' + j.skipped + ' skipped (not measured / not bindable)' + (j.errors.length ? ', ' + j.errors.length + ' error(s): ' + esc(j.errors.slice(0, 3).map(function (e) { return (e.unit || '') + ' ' + (e.item || '') + ' ' + e.error; }).join(' · ')) : '') + '.'); }).catch(fail); });
@@ -164,7 +178,7 @@
       $('versions').innerHTML = j.versions.length ? '<table><thead><tr><th>Version</th><th>Note</th><th>Date</th><th></th></tr></thead><tbody>' + j.versions.map(function (v) { return '<tr><td>v' + v.version + '</td><td>' + esc(v.note || '') + '</td><td>' + esc(String(v.created_at || '').slice(0, 19)) + '</td><td><button class="btn" data-rb="' + v.version + '" type="button">Roll draft back to v' + v.version + '</button></td></tr>'; }).join('') + '</tbody></table>' : '<p class="muted">Never published.</p>';
     }).catch(fail);
   });
-  $('versions').addEventListener('click', function (ev) { var b = ev.target.closest('button[data-rb]'); if (!b) return; api('/api/trackers/' + encodeURIComponent(def.key) + '/rollback/' + b.dataset.rb, { method: 'POST' }).then(function (j) { meta = j.tracker; def = meta.definition; toForm(); msg('Draft now equals version ' + b.dataset.rb + ' — publish to make it live.'); }).catch(fail); });
+  $('versions').addEventListener('click', function (ev) { var b = ev.target.closest('button[data-rb]'); if (!b) return; api('/api/trackers/' + encodeURIComponent(def.key) + '/rollback/' + b.dataset.rb, { method: 'POST' }).then(function (j) { meta = j.tracker; def = meta.definition; toForm(); msg('Draft now equals version ' + b.dataset.rb + ' — submit it for review, another builder publishes it.'); }).catch(fail); });
   $('new').addEventListener('click', function () { def = blank(); meta = null; toForm(); $('pick').value = ''; history.replaceState(null, '', 'tracker-builder.html'); });
   $('tpl').addEventListener('change', function () { var k = this.value; this.value = ''; if (!k) return; api('/api/trackers/templates').then(function (j) { var t = j.templates.find(function (x) { return x.key === k; }); if (!t) return; def = JSON.parse(JSON.stringify(t)); def.key = t.key.replace(/^tpl-/, '') + '-' + def.period.start; def.name = t.name.replace(' (template)', ' ' + def.period.start); meta = null; toForm(); msg('Template loaded — adjust units, targets and key, then save.'); }).catch(fail); });
   $('pick').addEventListener('change', function () { if (this.value) load(this.value).catch(fail); });

@@ -39,7 +39,9 @@ function makeTrackerStore(db, { isPg = false, now = () => new Date().toISOString
     if (!r) return null;
     let definition = null; try { definition = JSON.parse(r.definition); } catch (_) { /* unreadable → null */ }
     return { key: r.key, name: r.name, status: r.status, owner_id: r.owner_id, rfi_ref: r.rfi_ref, created_at: r.created_at,
-      updated_at: r.updated_at, published_at: r.published_at, version: r.version == null ? null : Number(r.version), definition };
+      updated_at: r.updated_at, published_at: r.published_at, version: r.version == null ? null : Number(r.version), definition,
+      review_state: r.review_state || null, submitted_by: r.submitted_by == null ? null : Number(r.submitted_by), submitted_at: r.submitted_at || null,
+      updated_by: r.updated_by == null ? null : Number(r.updated_by), publish_override: r.publish_override ? JSON.parse(r.publish_override) : null };
   }
   const SELECT = `SELECT d.*, (SELECT MAX(version) FROM tracker_definition_versions v WHERE v.key = d.key) AS version FROM tracker_definitions d`;
 
@@ -57,23 +59,33 @@ function makeTrackerStore(db, { isPg = false, now = () => new Date().toISOString
     const existing = await get(doc.key);
     const json = JSON.stringify(doc), ts = now();
     if (existing) {
-      await P(`UPDATE tracker_definitions SET name=?, definition=?, rfi_ref=COALESCE(?, rfi_ref), updated_at=?, status = CASE WHEN status='retired' THEN 'draft' ELSE status END WHERE key=?`)
-        .run(doc.name, json, rfiRef, ts, doc.key);
+      // an edit withdraws a pending submission (G-23)
+      await P(`UPDATE tracker_definitions SET name=?, definition=?, rfi_ref=COALESCE(?, rfi_ref), updated_at=?, updated_by=?, review_state=NULL, submitted_by=NULL, submitted_at=NULL, status = CASE WHEN status='retired' THEN 'draft' ELSE status END WHERE key=?`)
+        .run(doc.name, json, rfiRef, ts, user ? user.id : null, doc.key);
     } else {
-      await P(`INSERT INTO tracker_definitions (key, name, status, definition, owner_id, rfi_ref, created_at, updated_at) VALUES (?,?,'draft',?,?,?,?,?)`)
-        .run(doc.key, doc.name, json, user ? user.id : null, rfiRef, ts, ts);
+      await P(`INSERT INTO tracker_definitions (key, name, status, definition, owner_id, rfi_ref, created_at, updated_at, updated_by) VALUES (?,?,'draft',?,?,?,?,?,?)`)
+        .run(doc.key, doc.name, json, user ? user.id : null, rfiRef, ts, ts, user ? user.id : null);
     }
     return get(doc.key);
   }
 
-  async function publish(key, { user, note = null } = {}) {
+  /** G-23 — mark the current draft as submitted for review by `user`. */
+  async function submit(key, { user } = {}) {
+    const d = await get(key); if (!d) return null;
+    const v = Defs.validate(d.definition);
+    if (!v.ok) { const e = new Error('cannot submit an invalid draft'); e.code = 'INVALID'; e.errors = v.errors; throw e; }
+    await P(`UPDATE tracker_definitions SET review_state='submitted', submitted_by=?, submitted_at=? WHERE key=?`).run(user ? user.id : null, now(), key);
+    return get(key);
+  }
+
+  async function publish(key, { user, note = null, override = null } = {}) {
     const d = await get(key); if (!d) return null;
     const v = Defs.validate(d.definition);
     if (!v.ok) { const e = new Error('cannot publish an invalid draft'); e.code = 'INVALID'; e.errors = v.errors; throw e; }
     const next = (d.version || 0) + 1, ts = now();
     const snap = { ...d.definition, version: next };
     await P(`INSERT INTO tracker_definition_versions (key, version, definition, note, created_by, created_at) VALUES (?,?,?,?,?,?)`).run(key, next, JSON.stringify(snap), note, user ? user.id : null, ts);
-    await P(`UPDATE tracker_definitions SET status='published', version=?, definition=?, published_at=?, updated_at=? WHERE key=?`).run(next, JSON.stringify(snap), ts, ts, key);
+    await P(`UPDATE tracker_definitions SET status='published', version=?, definition=?, published_at=?, updated_at=?, review_state=NULL, submitted_by=NULL, submitted_at=NULL, publish_override=? WHERE key=?`).run(next, JSON.stringify(snap), ts, ts, override ? JSON.stringify(override) : null, key);
     return get(key);
   }
   async function setStatus(key, status) {
@@ -88,7 +100,7 @@ function makeTrackerStore(db, { isPg = false, now = () => new Date().toISOString
   /** Roll the draft back to a published version (the snapshot becomes the new draft; publish again to make it live). */
   async function rollback(key, n, { user } = {}) {
     const v = await version(key, n); if (!v) return null;
-    await P(`UPDATE tracker_definitions SET definition=?, updated_at=? WHERE key=?`).run(JSON.stringify(v.definition), now(), key);
+    await P(`UPDATE tracker_definitions SET definition=?, updated_at=?, updated_by=?, review_state=NULL, submitted_by=NULL, submitted_at=NULL WHERE key=?`).run(JSON.stringify(v.definition), now(), user ? user.id : null, key);
     return get(key);
   }
   async function published(key) {
@@ -187,7 +199,7 @@ function makeTrackerStore(db, { isPg = false, now = () => new Date().toISOString
     return added;
   }
 
-  return { init, get, list, saveDraft, publish, setStatus, versions, version, rollback, published, remove, entries, saveEntries, targets, saveTargets, mergeTargets, scoreTracker, seed, slotCalendar, slotClosed, STATUSES };
+  return { init, get, list, saveDraft, submit, publish, setStatus, versions, version, rollback, published, remove, entries, saveEntries, targets, saveTargets, mergeTargets, scoreTracker, seed, slotCalendar, slotClosed, STATUSES };
 }
 
 module.exports = { makeTrackerStore, STATUSES, slotCalendar, slotClosed };

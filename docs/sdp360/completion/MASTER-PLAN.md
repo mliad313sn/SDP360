@@ -85,7 +85,9 @@ Independent, non-destructive work continues while these hold.
 
 ## 5. Next work item
 
-Done on 2026-10-28: G-01, G-02, G-03, G-04, G-05, G-07, G-08, G-13, G-14, G-30 (see `DAILY-EVIDENCE.md`).
-Next, in order: G-17/G-18 (commitments backfill dry-run report on PostgreSQL, A01/A02 escalation dedup), then
-G-23/G-24 (tracker and dashboard publication lifecycle — extend the G-14 freshness gate to dashboard publication and
-`/api/v1` values), then G-21/G-22 (cadence lifecycle, handoff state machine). Human gates are listed in `RELEASE-GATES.md`.
+Done on 2026-10-28: G-01, G-02, G-03, G-04, G-05, G-07, G-08, G-13, G-14 (report publication, `/ext/v1`, OData,
+dashboard data), G-17, G-18, G-21, G-22, G-23, G-24, G-30 (see `DAILY-EVIDENCE.md`; lifecycle documents:
+`GOVERNANCE-LIFECYCLE.md`, `HANDOFF-STATE-MACHINE.md`). Next, in order: G-26 (map A01–A16 to runner rules with
+negative dispatch tests), G-29 (OpManager coverage view with NOT MONITORED / STALE / UNKNOWN), G-31…G-33
+(navigation, EN/FR + WCAG, extraction from executive.html and reports.html), then wave 5 (G-11 restore drill,
+G-34 runbook, G-36 health/SLO, G-37 load test). Human gates are listed in `RELEASE-GATES.md`.

@@ -1,6 +1,12 @@
 # Changelog
 
 ### Unreleased — consolidation branch `claude/sdp360-consolidation` (not deployed, NO-GO)
+
+- **Commitments (G-17, G-18)**: the backfill pages its readers (it silently stopped at 1 000 actions per module) and writes a Markdown reconciliation summary (`--out=`); a commitment source must exist and belong to the editor's site, and a replay never returns another site's commitment; a serious commitment past `captured` keeps its owner, date and plan; A01/A02 escalation ledger (migration 023, job `commitments.escalate`, `GET /api/commitments/escalations`).
+- **Trackers and dashboards (G-23, G-24)**: four-eyes publication — *Submit for review*, then another person publishes; an edit withdraws the submission; admin override with a reason, logged as a risk; dashboard rollback (`/rollback/:n`). Migrations `tracker/003`, `reports/024`.
+- **Freshness (G-14)**: `/ext/v1` and OData values carry `freshness` and `authoritative`, header `X-SDP-Freshness`; dashboard data lists `stale_sources`.
+- **Meetings (G-21)**: planned → held → logged → accepted; a no-show is *missed*; close only once and only after start; minutes accepted by someone other than who closed; accepted = frozen; cancellation = exception approved by another committee member; effective-dated cadences (migration 025).
+- **Handoffs (G-22)**: new page `handoffs.html` (EN/FR) and API `/api/handoffs`, flags `handoffs_enabled` and `handoff_notify_enabled` off by default (migration 026, job `handoffs.escalate`).
 - **PO-08 — PostgreSQL is the only database** (`f44591a`): SQLite removed from code, tests and dependencies; the server refuses to start without `PG_URL`; a fresh database seeds itself; the suite runs on PostgreSQL only (one throwaway database per test file).
 - **Completion programme (G00)**: `docs/sdp360/completion/` — master plan, 40-gap register (`GAPS.csv`), human release gates, daily evidence log, all from the 2026-10-28 committee review.
 - **CI-only failure fixed (G-02)**: under the `en_US.utf8` collation of the CI `postgres:17` image, a malformed `asOf` (`' OR 1=1`) sorted after every date and returned 500 on `/api/assets/progress/leaderboard`. The assets readers now take a real `YYYY-MM-DD` or today (`_isoDayOrToday`). Test databases are now created with `en_US.utf8` (`SDP_TEST_PG_LOCALE`), as in CI and on prod.

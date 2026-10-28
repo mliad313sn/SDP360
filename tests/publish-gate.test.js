@@ -34,3 +34,28 @@ test('freshness: fresh, stale and never-synced sources; typed-in modules always 
   assert.equal(G.freshness(['meetings', 'inspection', 'tracker'], {}, now).fresh, true);
   assert.equal(G.freshness(['wan'], { 'meraki.wan': new Date(now - 3600e3) }, now).fresh, true, 'Date objects accepted');
 });
+
+test('G-23/G-24 definitions: not submitted, submitter, last editor refused; another person allowed; admin override needs 10+ chars', () => {
+  const G = require('../services/publishGate');
+  const def = { review_state: 'submitted', submitted_by: 1, updated_by: 2 };
+  assert.equal(G.definitionConflict({ ...def, review_state: null }, { id: 3 }).code, 'NOT_SUBMITTED');
+  assert.equal(G.definitionConflict(def, { id: 1 }).code, 'SOD_PUBLISH_SUBMITTER');
+  assert.equal(G.definitionConflict(def, { id: 2 }).code, 'SOD_PUBLISH_EDITOR');
+  assert.equal(G.definitionConflict(def, { id: 3 }), null);
+  assert.equal(G.definitionConflict(def, {}).code, 'NO_USER');
+  assert.deepEqual(G.publishDecision(def, { id: 3 }), { allow: true, override: null });
+  assert.equal(G.publishDecision(def, { id: 1 }, { isAdmin: false, overrideReason: 'a long enough reason' }).status, 409);
+  assert.equal(G.publishDecision(def, { id: 1 }, { isAdmin: true, overrideReason: 'short' }).status, 409);
+  const ok = G.publishDecision(def, { id: 1 }, { isAdmin: true, overrideReason: 'reviewer on leave this week', now: new Date('2026-10-28T00:00:00Z') });
+  assert.equal(ok.allow, true); assert.deepEqual(ok.override, { by: 1, at: '2026-10-28T00:00:00.000Z', reason: 'reviewer on leave this week', bypassed: 'SOD_PUBLISH_SUBMITTER' });
+  assert.equal(G.publishDecision(def, {}, { isAdmin: true, overrideReason: 'reviewer on leave this week' }).status, 401, 'no user is never overridable');
+});
+
+test('moduleFreshness: no external source = FRESH; worst state wins', () => {
+  const G = require('../services/publishGate');
+  const now = Date.parse('2026-10-28T12:00:00Z');
+  assert.equal(G.moduleFreshness('meetings', {}, now).state, 'FRESH');
+  assert.equal(G.moduleFreshness('helpdesk', {}, now).state, 'UNKNOWN');
+  assert.equal(G.moduleFreshness('helpdesk', { 'zoho.requests': '2026-10-28T11:00:00Z' }, now).state, 'FRESH');
+  assert.equal(G.moduleFreshness('helpdesk', { 'zoho.requests': '2026-10-28T08:00:00Z' }, now).state, 'STALE');
+});

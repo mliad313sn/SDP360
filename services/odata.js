@@ -6,7 +6,7 @@
 const NS = 'Sdp360.Metrics';
 const ENTITIES = {
   Metrics: { key: 'Key', props: { Key: 'Edm.String', Name: 'Edm.String', Module: 'Edm.String', Unit: 'Edm.String', WindowKind: 'Edm.String', HigherIsBetter: 'Edm.Boolean', Formula: 'Edm.String' } },
-  Values: { key: 'Id', props: { Id: 'Edm.String', Metric: 'Edm.String', SiteId: 'Edm.Int32', Site: 'Edm.String', Window: 'Edm.String', Value: 'Edm.Double', Unit: 'Edm.String', Rag: 'Edm.String', AsOf: 'Edm.DateTimeOffset' } },
+  Values: { key: 'Id', props: { Id: 'Edm.String', Metric: 'Edm.String', SiteId: 'Edm.Int32', Site: 'Edm.String', Window: 'Edm.String', Value: 'Edm.Double', Unit: 'Edm.String', Rag: 'Edm.String', AsOf: 'Edm.DateTimeOffset', Freshness: 'Edm.String', Authoritative: 'Edm.Boolean' } },
   Sites: { key: 'Id', props: { Id: 'Edm.Int32', Name: 'Edm.String', Country: 'Edm.String', Active: 'Edm.Boolean' } },
 };
 

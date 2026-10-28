@@ -20,6 +20,8 @@ const J = (v) => (v == null ? null : JSON.stringify(v));
 const P_ = (s, d) => { if (s == null) return d; if (typeof s !== 'string') return s; try { return JSON.parse(s); } catch (_) { return d; } };
 const num = (v) => (v == null || v === '' ? null : Number(v));
 const str = (v, max = 4000) => (v == null ? null : String(v).slice(0, max));
+// G-21 — effective dates: YYYY-MM-DD or null; anything else is refused rather than stored.
+const _day = (v) => { if (v == null || v === '') return null; const d = String(v).slice(0, 10); if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) throw Object.assign(new Error('effective dates must be YYYY-MM-DD'), { code: 'INVALID' }); return d; };
 
 function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOString() } = {}) {
   if (!db) throw new Error('governanceStore needs a db handle');
@@ -56,7 +58,9 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     if (c.kind && !CADENCE_KINDS.includes(c.kind)) throw Object.assign(new Error('unknown cadence kind'), { code: 'INVALID' });
     const ex = await P(`SELECT id FROM meeting_cadences WHERE key=?`).get(c.key);
     const vals = { name: str(c.name, 200), kind: c.kind || 'site_weekly', site_id: num(c.site_id), weekday: num(c.weekday), time_local: str(c.time_local, 5), duration_min: num(c.duration_min) || 60,
-      participants: J(Array.isArray(c.participants) ? c.participants.slice(0, 50) : []), chair_id: num(c.chair_id), secretary_id: num(c.secretary_id), agenda_template: J(c.agenda_template || null), active: c.active === false ? 0 : 1 };
+      participants: J(Array.isArray(c.participants) ? c.participants.slice(0, 50) : []), chair_id: num(c.chair_id), secretary_id: num(c.secretary_id), agenda_template: J(c.agenda_template || null), active: c.active === false ? 0 : 1,
+      effective_from: _day(c.effective_from), effective_to: _day(c.effective_to) };
+    if (vals.effective_from && vals.effective_to && vals.effective_to < vals.effective_from) throw Object.assign(new Error('effective_to is before effective_from'), { code: 'INVALID' });
     if (ex) { // partial update: a field absent from the payload is left untouched (never wiped)
       const patch = {}; for (const k of Object.keys(vals)) if (c[k] !== undefined) patch[k] = vals[k];
       await updateRow('meeting_cadences', ex.id, patch, Object.keys(patch)); return getCadence(ex.id); }
@@ -71,7 +75,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     const where = [], args = [];
     if (cadenceId) { where.push('cadence_id=?'); args.push(Number(cadenceId)); }
     if (status) { const st = Array.isArray(status) ? status : [status]; where.push(`status IN (${st.map(() => '?').join(',')})`); args.push(...st); }
-    const rows = await P(`SELECT id, cadence_id, scheduled_at, status, started_at, closed_at, minutes_sent_at, created_by, created_at FROM meeting_sessions${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY scheduled_at DESC LIMIT ${Math.min(500, Number(limit) || 50)}`).all(...args);
+    const rows = await P(`SELECT id, cadence_id, scheduled_at, status, started_at, closed_at, closed_by, minutes_sent_at, minutes_accepted_at, minutes_accepted_by, cancelled_at, cancel_reason, exception_status, created_by, created_at FROM meeting_sessions${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY scheduled_at DESC LIMIT ${Math.min(500, Number(limit) || 50)}`).all(...args);
     return rows.map(r => ({ ...r, id: Number(r.id), cadence_id: Number(r.cadence_id) }));
   }
   async function getSession(id) { return sesRow(await P(`SELECT * FROM meeting_sessions WHERE id=?`).get(Number(id))); }
@@ -84,7 +88,8 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     const p = {};
     if (patch.status) { if (!SESSION_STATUSES.includes(patch.status)) throw Object.assign(new Error('bad session status'), { code: 'INVALID' }); p.status = patch.status; }
     for (const k of ['agenda', 'items', 'attendees']) if (patch[k] !== undefined) p[k] = J(patch[k]);
-    for (const k of ['notes', 'minutes_html', 'started_at', 'closed_at', 'minutes_sent_at', 'scheduled_at']) if (patch[k] !== undefined) p[k] = patch[k];
+    for (const k of ['notes', 'minutes_html', 'started_at', 'closed_at', 'minutes_sent_at', 'scheduled_at', 'closed_by', 'minutes_accepted_at', 'minutes_accepted_by',
+      'cancelled_at', 'cancelled_by', 'cancel_reason', 'exception_status', 'exception_approved_by', 'exception_approved_at', 'reopen_reason']) if (patch[k] !== undefined) p[k] = patch[k];
     await updateRow('meeting_sessions', id, p, Object.keys(p));
     return getSession(id);
   }

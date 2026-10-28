@@ -54,7 +54,7 @@
   <div class="panel"><h2>Open decisions</h2><div class="scroll" id="decisions"></div></div>
   <section id="live" class="live" hidden aria-label="Live session">
     <div class="bar"><span class="clock" id="clock">00:00</span><b id="l-title"></b><span class="muted" id="l-meta"></span><span style="flex:1"></span>
-      <button class="btn" id="l-start" type="button">Start session</button><button class="btn primary" id="l-close" type="button">Close &amp; generate minutes</button><a class="btn" id="l-minutes" href="#" target="_blank" rel="noopener">Minutes (HTML)</a><a class="btn" id="l-pdf" href="#">PDF</a><button class="btn" id="l-send" type="button">E-mail minutes</button><button class="btn" id="l-exit" type="button">Exit</button></div>
+      <button class="btn" id="l-start" type="button">Start session</button><button class="btn primary" id="l-close" type="button">Close &amp; generate minutes</button><a class="btn" id="l-minutes" href="#" target="_blank" rel="noopener">Minutes (HTML)</a><a class="btn" id="l-pdf" href="#">PDF</a><button class="btn" id="l-send" type="button">E-mail minutes</button><button class="btn" id="l-accept" type="button" title="Someone other than the person who closed the session">Accept minutes</button><button class="btn" id="l-cancel" type="button">Cancel session</button><button class="btn" id="l-approve" type="button">Approve as exception</button><button class="btn" id="l-exit" type="button">Exit</button></div>
     <div id="msg2" role="status" aria-live="polite"></div>
     <div class="row"><label>Attendees (comma separated) <input id="l-att"></label></div>
     <div id="l-items"></div>
@@ -107,8 +107,10 @@
       cur = j.session; cur._cad = j.cadence; cur._can = j.can_run; cur._dec = j.can_decide;
       $("live").hidden = false; document.body.style.overflow = "hidden";
       $("l-title").textContent = (j.cadence ? j.cadence.name : "Session") + " — " + String(cur.scheduled_at).replace("T", " ").slice(0, 16);
-      $("l-meta").textContent = cur.status + (cur.started_at ? " · started " + String(cur.started_at).slice(11, 16) : "") + (j.can_run ? "" : " · read-only for your account");
-      $("l-start").hidden = cur.status !== "planned" || !j.can_run; $("l-close").hidden = cur.status === "closed" || !j.can_run; $("l-send").hidden = cur.status !== "closed" || !j.can_run;
+      var allowed = cur.allowed || [];
+      $("l-accept").hidden = allowed.indexOf("accept") < 0; $("l-cancel").hidden = allowed.indexOf("cancel") < 0; $("l-approve").hidden = allowed.indexOf("approve_exception") < 0;
+      $("l-meta").textContent = (cur.stage || cur.status) + (cur.exception_status ? " · exception " + cur.exception_status : "") + (cur.started_at ? " · started " + String(cur.started_at).slice(11, 16) : "") + (j.can_run ? "" : " · read-only for your account");
+      $("l-start").hidden = cur.status !== "planned" || !j.can_run; $("l-close").hidden = cur.status !== "live" || !j.can_run; $("l-send").hidden = cur.status !== "closed" || !j.can_run;
       $("l-minutes").href = "/api/governance/sessions/" + cur.id + "/minutes.html"; $("l-pdf").href = "/api/governance/sessions/" + cur.id + "/minutes.pdf";
       $("l-decform").hidden = !j.can_decide; $("d-add").hidden = !j.can_decide; $("a-add").hidden = !j.can_run; $("l-savenotes").hidden = !j.can_run;
       $("l-att").value = (cur.attendees || []).join(", "); $("l-notes").value = cur.notes || "";
@@ -136,6 +138,10 @@
   function renderActs(list) { $("l-act").innerHTML = (list || []).length ? "<table><tbody>" + list.map(function (a) { return "<tr><td>" + esc(a.title) + "<br><small class=\"muted\">" + esc([a.owner, a.due_date, a.source_kind, a.source_ref].filter(Boolean).join(" · ")) + "</small></td><td><span class=\"pill " + a.status + "\">" + a.status + "</span></td><td>" + (cur._can ? "<button class=\"btn\" data-act=\"" + a.id + "\" data-st=\"done\" type=\"button\">Done</button>" : "") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">None yet.</p>"; }
   function stamp(item, op) { api("/api/governance/sessions/" + cur.id + "/items/" + encodeURIComponent(item) + "/" + op, { method: "POST", body: "{}" }).then(function (j) { cur.items = j.session.items; renderItems(); }).catch(fail2); }
   function saveItemNotes(item) { api("/api/governance/sessions/" + cur.id + "/items/" + encodeURIComponent(item) + "/notes", { method: "POST", body: JSON.stringify({ notes: $("n-" + item).value }) }).then(function (j) { cur.items = j.session.items; msg("Notes saved.", "ok", "msg2"); }).catch(fail2); }
+  // G-21 — lifecycle: accept (four-eyes), cancel = exception for the committee to approve
+  $("l-accept").addEventListener("click", function () { api("/api/governance/sessions/" + cur.id + "/accept", { method: "POST" }).then(function () { msg("Minutes accepted — the session is now read-only.", "ok", "msg2"); return openSession(cur.id); }).then(loadAll).catch(fail2); });
+  $("l-cancel").addEventListener("click", function () { var r = prompt("Why is this session cancelled? (the committee approves it as an exception)", ""); if (!r) return; api("/api/governance/sessions/" + cur.id + "/cancel", { method: "POST", body: JSON.stringify({ reason: r }) }).then(function () { return openSession(cur.id); }).then(loadAll).catch(fail2); });
+  $("l-approve").addEventListener("click", function () { api("/api/governance/sessions/" + cur.id + "/exception/approve", { method: "POST" }).then(function () { return openSession(cur.id); }).then(loadAll).catch(fail2); });
   $("l-start").addEventListener("click", function () { api("/api/governance/sessions/" + cur.id + "/start", { method: "POST" }).then(function () { return openSession(cur.id); }).catch(fail2); });
   $("l-close").addEventListener("click", function () { if (!confirm("Close the session and generate the minutes?")) return; api("/api/governance/sessions/" + cur.id + "/close", { method: "POST" }).then(function () { msg("Session closed — minutes generated.", "ok", "msg2"); return openSession(cur.id); }).then(loadAll).catch(fail2); });
   $("l-send").addEventListener("click", function () { api("/api/governance/sessions/" + cur.id + "/minutes/send", { method: "POST", body: "{}" }).then(function (j) { msg(j.ok ? "Minutes sent to " + j.to + " participant(s)" + (j.pdf ? " with PDF." : " (HTML only — no PDF renderer).") : "Send failed: " + (j.error || ""), j.ok ? "ok" : "errors", "msg2"); }).catch(fail2); });

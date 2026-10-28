@@ -56,7 +56,8 @@
         <div class="bar">
           <button class="btn primary" id="save" type="button">Save draft</button>
           <button class="btn" id="preview" type="button">Preview with data</button>
-          <button class="btn" id="publish" type="button">Publish version</button>
+          <button class="btn" id="submit" type="button" title="Another publisher (or the admin tier) publishes it">Submit for review</button>
+          <button class="btn" id="publish" type="button" title="Only someone other than the submitter and the last editor">Publish version</button>
           <button class="btn danger" id="retire" type="button">Retire</button>
         </div>
         <div class="meta" id="d-meta"></div>
@@ -109,7 +110,7 @@
   var params = new URLSearchParams(location.search);
   var cat = null, doc = { key: '', title: '', audience: 'site', grid: { columns: 12 }, filters: [{ key: 'site', type: 'site' }, { key: 'window', type: 'window' }], widgets: [] }, meta = null, selected = null;
 
-  function api(path, opts) { return fetch(path, Object.assign({ headers: H(opts && opts.body ? { 'content-type': 'application/json' } : {}) }, opts || {})).then(function (r) { return r.json().then(function (j) { if (!r.ok) { var e = new Error(j.error || ('HTTP ' + r.status)); e.errors = j.errors || j.issues; throw e; } return j; }); }); }
+  function api(path, opts) { return fetch(path, Object.assign({ headers: H(opts && opts.body ? { 'content-type': 'application/json' } : {}) }, opts || {})).then(function (r) { return r.json().then(function (j) { if (!r.ok) { var e = new Error(j.error || ('HTTP ' + r.status)); e.errors = j.errors || j.issues; e.code = j.code; e.status = r.status; throw e; } return j; }); }); }
   function msg(html, cls) { $('msg').className = cls || ''; $('msg').innerHTML = html; }
   function fail(e) { msg('<div class="errors">' + R.escapeHtml(e.message) + (e.errors ? '<ul>' + e.errors.map(function (x) { return '<li>' + R.escapeHtml((x.path ? x.path + ': ' : '') + (x.msg || x)) + '</li>'; }).join('') + '</ul>' : '') + '</div>'); }
 
@@ -147,7 +148,7 @@
     return w;
   }
   function readDoc() { doc.key = $('d-key').value.trim(); doc.title = $('d-title').value.trim(); doc.audience = $('d-aud').value; return doc; }
-  function showMeta() { $('d-meta').textContent = meta ? ('status ' + meta.status + (meta.version ? ' · version ' + meta.version : ' · never published') + (meta.updated_at ? ' · saved ' + meta.updated_at : '')) : 'new dashboard — not saved yet'; }
+  function showMeta() { $('d-meta').textContent = meta ? ('status ' + meta.status + (meta.version ? ' · version ' + meta.version : ' · never published') + (meta.updated_at ? ' · saved ' + meta.updated_at : '') + (meta.review_state === 'submitted' ? ' · submitted for review ' + (meta.submitted_at || '') : '')) : 'new dashboard — not saved yet'; }
   function loadVersions() { if (!meta) return; api('/api/dashboards/' + encodeURIComponent(meta.key) + '/versions').then(function (j) { $('versions').innerHTML = j.versions.length ? j.versions.map(function (v) { return 'v' + v.version + ' — ' + R.escapeHtml(v.created_at) + (v.note ? ' — ' + R.escapeHtml(v.note) : ''); }).join('<br>') : 'never published'; }).catch(function () {}); }
 
   $('w-add').addEventListener('click', function () {
@@ -164,7 +165,20 @@
   $('publish').addEventListener('click', function () {
     var d = readDoc(); if (!meta || meta.key !== d.key) return fail(new Error('save the draft first'));
     var note = window.prompt('Version note (what changed, for whom)?', '') || '';
-    api('/api/dashboards/' + encodeURIComponent(d.key) + '/publish', { method: 'POST', body: JSON.stringify({ note: note }) }).then(function (j) { meta = j.dashboard; showMeta(); loadVersions(); msg('<div class="ok">Published version ' + meta.version + '</div>'); }).catch(fail);
+    var url = '/api/dashboards/' + encodeURIComponent(d.key) + '/publish';
+    var done = function (j) { meta = j.dashboard; showMeta(); loadVersions(); msg('<div class="ok">Published version ' + meta.version + '</div>'); };
+    api(url, { method: 'POST', body: JSON.stringify({ note: note }) }).then(done).catch(function (e) {
+      // G-24 — four-eyes refusal; the admin tier may override with a written reason (logged as a risk)
+      if (e.status === 409 && window.__userHasRole && window.__userHasRole('admin')) {
+        var reason = window.prompt(e.message + '\n\nPublish without review? Give the reason (10+ characters), it is logged:', '');
+        if (reason && reason.trim().length >= 10) return api(url, { method: 'POST', body: JSON.stringify({ note: note, override_reason: reason.trim() }) }).then(done).catch(fail);
+      }
+      fail(e);
+    });
+  });
+  $('submit').addEventListener('click', function () {
+    var d = readDoc(); if (!meta || meta.key !== d.key) return fail(new Error('save the draft first'));
+    api('/api/dashboards/' + encodeURIComponent(d.key) + '/submit', { method: 'POST' }).then(function (j) { meta = j.dashboard; showMeta(); msg('<div class="ok">Submitted for review — another publisher publishes it. Any further edit withdraws the submission.</div>'); }).catch(fail);
   });
   $('retire').addEventListener('click', function () {
     if (!meta) return; if (!window.confirm('Retire this dashboard? Viewers lose access; versions are kept.')) return;

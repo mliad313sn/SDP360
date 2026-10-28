@@ -135,6 +135,11 @@ function buildJobs(d) {
   // Step 10 — field outbox hygiene: ledger rows > 90 days and abandoned chunk uploads > 48 h (d.field = store, lazy).
   const fld = d.field || null;
   list.push({ name: 'field.purge', cron: '0 3 * * *', freshnessHours: 30, optional: true, job: legacyJob('field.purge', async () => fld ? { outbox: await fld.purgeOutbox({ days: 90 }), uploads: await fld.purgeUploads({ hours: 48 }) } : { skipped: true }) });
+  // G-18 — A01 / A02 escalation ledger. d.commitments.escalate self-skips while commitments_enabled != '1'.
+  const cmt = d.commitments || null;
+  const ho = d.handoffs || null;
+  list.push({ name: 'handoffs.escalate', cron: '35 * * * *', freshnessHours: 3, optional: true, job: legacyJob('handoffs.escalate', () => ho ? ho.escalate() : { skipped: true }, { maxAttempts: 2 }) });
+  list.push({ name: 'commitments.escalate', cron: '20 * * * *', freshnessHours: 3, optional: true, job: legacyJob('commitments.escalate', () => cmt ? cmt.escalate() : { skipped: true }, { maxAttempts: 2 }) });
   return list;
 }
 
@@ -144,10 +149,11 @@ const FRESHNESS_HOURS = {
   'meridian.resources': 30, 'opmanager.availability': 30, 'meraki.wan': 30, 'meraki.wan_events': 30,
   'meraki.wan_events_5m': 1, 'meraki.wan_poller': 1, 'teams.sla_poll': 1, 'db.backup': 30, 'db.restore_drill': 24 * 33, 'audit.retention': 30,
   'engagement.alerts': 1, 'engagement.digest': 30, 'engagement.digest_weekly': 24 * 8, 'reports.weekly': 24 * 8, 'reports.monthly': 24 * 32, 'publish.connectors': 30, 'field.purge': 30,
+  'commitments.escalate': 3, 'handoffs.escalate': 3,
 };
 // Jobs that self-skip until configured (no API key / webhook) — never reported "stale", only "idle".
 const OPTIONAL = new Set(['meridian.resources', 'opmanager.availability', 'meraki.wan', 'meraki.wan_events', 'meraki.wan_events_5m', 'meraki.wan_poller', 'teams.sla_poll', 'db.backup', 'db.restore_drill',
-  'engagement.alerts', 'engagement.digest', 'engagement.digest_weekly', 'reports.weekly', 'reports.monthly', 'publish.connectors', 'field.purge']);
+  'engagement.alerts', 'engagement.digest', 'engagement.digest_weekly', 'reports.weekly', 'reports.monthly', 'publish.connectors', 'field.purge', 'commitments.escalate', 'handoffs.escalate']);
 
 // Map the legacy sync_metadata job names onto the registry names (one health view, D7).
 const LEGACY_NAMES = { requests: 'zoho.requests', change_cab: 'zoho.change_cab', survey: 'zoho.survey',

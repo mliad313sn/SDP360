@@ -111,7 +111,8 @@
       if (!sel.options.length) { d.sites.forEach(function (s) { var o = document.createElement('option'); o.value = s.id; o.textContent = s.name; sel.appendChild(o); }); }
       if (d.site != null) sel.value = String(d.site);
       renderWidgets(def, d);
-      status('Data as of ' + new Date(d.as_of).toLocaleString() + (d.note ? ' — ' + d.note : ''));
+      var st = (d.stale_sources || []).map(function (x) { return x.module + (x.state === 'UNKNOWN' ? ' (never synced)' : ' (last sync ' + x.age_h + ' h ago, limit ' + x.limit_h + ' h)'); });
+      status('Data as of ' + new Date(d.as_of).toLocaleString() + (d.note ? ' — ' + d.note : '') + (st.length ? ' — ⚠ not current: ' + st.join(', ') : ''));
     }).catch(function (e) { status('Data unavailable: ' + e.message); });
   }
 

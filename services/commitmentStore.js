@@ -119,6 +119,14 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
     if (L.TERMINAL.includes(c.status)) throw bad(`a ${c.status} commitment is read-only — reopen it first`);
     const f = validateFields(Object.fromEntries(Object.entries(patch || {}).filter(([k]) => EDITABLE.includes(k))), true);
     if (!Object.keys(f).length) throw bad('nothing to update');
+    // G-18 — once out of `captured`, a high / critical commitment must keep its owner, its due date (or an
+    // approved exception) and its treatment plan: an edit may not raise the severity or blank a field into
+    // the state the A01 / A02 alerts exist to catch.
+    if (c.status !== 'captured') {
+      const gaps = L.severityGaps({ ...c, ...f });
+      const touched = ['severity', 'accountable_owner', 'due_date', 'treatment_plan'].some((k) => f[k] !== undefined);
+      if (gaps.length && touched) throw bad(`a ${String(({ ...c, ...f }).severity)} commitment needs ${gaps.join(', ')}`);
+    }
     const dueChanged = f.due_date !== undefined && f.due_date !== c.due_date;
     if (dueChanged && c.due_date && !str(reason)) throw bad('a reason is required to change the due date');
     if (dueChanged && !c.baseline_due_date) f.baseline_due_date = f.due_date;
@@ -248,7 +256,31 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
     return P(`SELECT id, site_id, status, severity, accountable_owner, exception_approved_by, due_date, baseline_due_date, technical_completed_at, verified_at FROM commitments${where}`).all(...(siteIds || []).map(Number));
   }
 
-  return { init, create, get, getRaw, findBySource, update, transition, approveException, link, unlink, addEvidence, getEvidenceFile, list, linksFor, metricRows };
+  // ── G-18 escalation ledger (023_commitment_escalations) ─────────────────────────────
+  /** Evaluate A01 / A02 now against the ledger; write the diff. Returns what was raised (nothing for a kept condition). */
+  async function escalate({ asOf } = {}) {
+    const E = require('./commitmentEscalation');
+    const t = now();
+    const cur = E.conditions(await metricRows({}), asOf || t);
+    const d = E.diff(cur, await P('SELECT key, cleared_at FROM commitment_escalations').all());
+    for (const c of d.open) await P('INSERT INTO commitment_escalations (key, kind, commitment_id, site_id, opened_at, last_seen_at, episodes) VALUES (?, ?, ?, ?, ?, ?, 1) ON CONFLICT (key) DO NOTHING').run(c.key, c.kind, c.commitment_id, c.site_id, t, t);
+    for (const c of d.reopen) await P('UPDATE commitment_escalations SET opened_at=?, last_seen_at=?, cleared_at=NULL, site_id=?, episodes=episodes+1 WHERE key=?').run(t, t, c.site_id, c.key);
+    for (const k of d.keep) await P('UPDATE commitment_escalations SET last_seen_at=? WHERE key=?').run(t, k);
+    for (const k of d.clear) await P('UPDATE commitment_escalations SET cleared_at=? WHERE key=? AND cleared_at IS NULL').run(t, k);
+    return { raised: [...d.open, ...d.reopen], kept: d.keep.length, cleared: d.clear.length, open: d.open.length + d.reopen.length + d.keep.length };
+  }
+  /** Ledger rows; siteIds null = all, [] = nothing; openOnly = cleared_at IS NULL. */
+  async function listEscalations({ siteIds = null, openOnly = true } = {}) {
+    if (Array.isArray(siteIds) && !siteIds.length) return [];
+    const where = [], args = [];
+    if (openOnly) where.push('e.cleared_at IS NULL');
+    if (Array.isArray(siteIds)) { where.push(`e.site_id IN (${siteIds.map(() => '?').join(',')})`); args.push(...siteIds.map(Number)); }
+    return (await P(`SELECT e.key, e.kind, e.commitment_id, e.site_id, e.opened_at, e.last_seen_at, e.cleared_at, e.episodes, c.title, c.severity, c.due_date, c.status
+      FROM commitment_escalations e JOIN commitments c ON c.id = e.commitment_id${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY e.opened_at DESC LIMIT 1000`).all(...args))
+      .map((r) => ({ ...r, commitment_id: Number(r.commitment_id), site_id: r.site_id == null ? null : Number(r.site_id), episodes: Number(r.episodes) }));
+  }
+
+  return { init, create, get, getRaw, findBySource, update, transition, approveException, link, unlink, addEvidence, getEvidenceFile, list, linksFor, metricRows, escalate, listEscalations };
 }
 
 module.exports = { makeCommitmentStore, EVIDENCE_MIME, EVIDENCE_TYPES, EVIDENCE_MAX_BYTES, sniffOk };

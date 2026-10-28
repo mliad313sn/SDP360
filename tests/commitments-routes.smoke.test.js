@@ -15,7 +15,7 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const crypto = require('crypto');
 const http = require('http');
-let server, base, rdb, hounde, mana, editor, otherEditor, reviewer, superT, siteless, mdActionId;
+let server, base, rdb, hounde, mana, editor, otherEditor, reviewer, superT, siteless, mdActionId, inspA1, inspA2;
 const trace = (...a) => console.log('[demo]', ...a);
 
 before(async () => {
@@ -34,6 +34,12 @@ before(async () => {
   mdActionId = (await require('../meetings-db').getMeeting(m.id)).actions[0].id;
   await new Promise((r) => { server = http.createServer(app).listen(0, '127.0.0.1', r); });
   base = 'http://127.0.0.1:' + server.address().port;
+  // two real Hounde inspection actions (G-18: a source must exist and belong to the editor's site)
+  const ir = await fetch(base + '/api/inspection/save', { method: 'POST', headers: { 'content-type': 'application/json', 'x-report-token': superT },
+    body: JSON.stringify({ state: { meta: { f_site: 'Hounde (HGO)', f_date: '2026-10-05', f_area: 'Server room' }, items: {},
+      actions: [{ desc: 'Lock the server room door', owner: 'x', due: '2026-11-01', priority: 'High' }, { desc: 'Restore UPS inline', owner: 'x', due: '2026-11-01', priority: 'Critical' }] } }) });
+  const insp = await (await fetch(base + '/api/inspection/' + encodeURIComponent((await ir.json()).id), { headers: { 'x-report-token': superT } })).json();
+  [inspA1, inspA2] = insp.actions.map((a) => String(a.id));
 });
 after(() => server && server.close());
 const H = (t, extra) => ({ headers: Object.assign(t ? { 'x-report-token': t } : {}, extra || {}) });
@@ -95,7 +101,7 @@ test('demo F-1: need → commitment → SDP ticket link → technical complete �
 });
 
 test('demo F-2: a high inspection finding without owner / due date is refused server-side', async () => {
-  const r = await send('POST', '/api/commitments', editor, { kind: 'inspection_finding', severity: 'high', title: 'Server room door not locked', site_id: hounde, source: { system: 'inspection', id: '9001' } });
+  const r = await send('POST', '/api/commitments', editor, { kind: 'inspection_finding', severity: 'high', title: 'Server room door not locked', site_id: hounde, source: { system: 'inspection', id: inspA1 } });
   const c = (await r.json()).commitment; assert.equal(c.status, 'captured');
   for (const to of ['triaged', 'committed']) {
     const t = await send('POST', `/api/commitments/${c.id}/transition`, editor, { to, version: c.version });
@@ -113,7 +119,7 @@ test('demo F-3: critical finding → A01 → owner/date → A02 overdue → evid
     [{ rule_key: metric, site_id: hounde, site: 'Hounde', value, unit: 'count' }]).firings.length;
   const base = await metrics();
   let c = (await (await send('POST', '/api/commitments', editor, { kind: 'inspection_finding', severity: 'critical', title: 'UPS bypassed in the server room',
-    site_id: hounde, reviewer: 'cm_reviewer', source: { system: 'inspection', id: '9002' } })).json()).commitment;
+    site_id: hounde, reviewer: 'cm_reviewer', source: { system: 'inspection', id: inspA2 } })).json()).commitment;
   let m = await metrics();
   assert.equal(m.serious_unowned, base.serious_unowned + 1, 'the unowned critical finding is counted');
   assert.equal(fire('serious_unowned', m.serious_unowned), 1, 'A01 fires on the reading');

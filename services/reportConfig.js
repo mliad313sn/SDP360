@@ -129,6 +129,10 @@ const DEFAULTS = {
   analytics_workspace_id: '', analytics_org_id: '', analytics_accounts_url: '',
   // 2027 Goal 02 — canonical commitments (routes/commitments.js, hub badge). OFF = no behaviour change.
   commitments_enabled: '0',
+  // G-22 — interdepartmental handoffs (routes/handoffs.js). OFF = every route 404. Notifications are a
+  // separate switch, also OFF: who is told about a handoff is decision D-04's, not the code's.
+  handoffs_enabled: '0',
+  handoff_notify_enabled: '0',
 };
 // ── Sync alerting (Step 1). Recipients = comma list of e-mail addresses; teams_url = a
 //    Workflows webhook (SECRET, blank-keep). Nothing is sent while both are empty.

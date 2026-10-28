@@ -8,7 +8,10 @@ const { fail } = require('../services/httpError');
 //   GET  /api/dashboards/:key/data?site=&window=   every widget resolved through the metric registry
 //   POST /api/dashboards/:key/view            view log (one event per actor per day — "is it used?")
 //   PUT  /api/dashboards/:key                 save a draft (publisher)      — validated, never SQL
-//   POST /api/dashboards/:key/publish         version++ and publish (publisher)
+//   POST /api/dashboards/:key/submit          submit the draft for review (publisher, owner)
+//   POST /api/dashboards/:key/publish         version++ and publish — by ANOTHER publisher than the submitter / last
+//                                             editor (G-24 four-eyes); admin override_reason (10+ chars) logged as risk
+//   POST /api/dashboards/:key/rollback/:n     restore version n as the draft (publisher)
 //   POST /api/dashboards/:key/retire          (publisher)
 //   GET  /api/dashboards/:key/versions        (publisher)
 //   DELETE /api/dashboards/:key               a draft/retired definition (publisher)
@@ -118,7 +121,13 @@ module.exports = function dashboardsRoutes(deps) {
       const window = req.query.window ? String(req.query.window).slice(0, 24) : null;
       const now = new Date();
       const out = await resolveWidgets({ def, sites, site, window, reg: registry(), dd: readerDeps(), rdb: rdb(), now });
-      res.json({ ok: true, key: d.key, version: d.version, site, sites: sites.map(s => ({ id: Number(s.id), name: s.name })), window, as_of: now.toISOString(), widgets: out });
+      // G-14 — say which source behind these widgets is stale or has never synced (the viewer shows a banner).
+      const gate = require('../services/publishGate'); const reg = registry();
+      const mods = [...new Set(((def && def.widgets) || []).map(w => w && w.metric && reg.get(w.metric)).filter(Boolean).map(m => m.module))];
+      const jobs = gate.jobsFor(mods);
+      const lastOk = deps.lastSyncOk ? await deps.lastSyncOk(jobs) : await gate.lastOkFromSyncStore(jobs);
+      const stale = gate.freshness(mods, lastOk, now.getTime()).sources.filter(x => x.state !== 'FRESH');
+      res.json({ ok: true, key: d.key, version: d.version, site, sites: sites.map(s => ({ id: Number(s.id), name: s.name })), window, as_of: now.toISOString(), widgets: out, stale_sources: stale });
     } catch (e) { fail(res, e, 500, { ok: false }); }
   });
 
@@ -148,13 +157,41 @@ module.exports = function dashboardsRoutes(deps) {
       const d = await store.get(key(req)); if (!d) return res.status(404).json({ ok: false, error: 'dashboard not found' });
       if (!isAdmin(req.reportUser) && d.owner_id != null && d.owner_id !== req.reportUser.id) return res.status(403).json({ ok: false, error: 'owned by another publisher' });
       if (d.definition && d.definition.audience === 'field') { const f = fieldReadiness(d.definition); if (!f.ok) return res.status(400).json({ ok: false, error: 'field dashboard not phone-ready', issues: f.issues }); }
-      const out = await store.publish(d.key, { user: req.reportUser, note: req.body && req.body.note ? String(req.body.note).slice(0, 500) : null });
-      rdb().logEvent({ category: 'dashboards', action: 'dashboard_published', target: d.key, details: { version: out.version }, ...rdb()._logCtx(req) });
+      // G-24 — four-eyes: submitted by one publisher, published by another (admin override with a reason, logged as a risk).
+      const dec = require('../services/publishGate').publishDecision(d, req.reportUser, { isAdmin: isAdmin(req.reportUser), overrideReason: req.body && req.body.override_reason });
+      if (!dec.allow) return res.status(dec.status).json({ ok: false, error: dec.error, code: dec.code, message: dec.message });
+      if (dec.override) rdb().logEvent({ category: 'dashboards', action: 'dashboard_publish_override', target: d.key, details: dec.override, risk: 1, ...rdb()._logCtx(req) });
+      const out = await store.publish(d.key, { user: req.reportUser, note: req.body && req.body.note ? String(req.body.note).slice(0, 500) : null, override: dec.override });
+      rdb().logEvent({ category: 'dashboards', action: 'dashboard_published', target: d.key, details: { version: out.version, submitted_by: d.submitted_by, override: !!dec.override }, ...rdb()._logCtx(req) });
       res.json({ ok: true, dashboard: out });
     } catch (e) {
       if (e.code === 'INVALID') return fail(res, e, 400, { ok: false });
       fail(res, e, 500, { ok: false });
     }
+  });
+
+  router.post('/api/dashboards/:key/submit', requireReportSession, requirePublisher, async (req, res) => {
+    try {
+      const d = await store.get(key(req)); if (!d) return res.status(404).json({ ok: false, error: 'dashboard not found' });
+      if (!isAdmin(req.reportUser) && d.owner_id != null && d.owner_id !== req.reportUser.id) return res.status(403).json({ ok: false, error: 'owned by another publisher' });
+      const out = await store.submit(d.key, { user: req.reportUser });
+      rdb().logEvent({ category: 'dashboards', action: 'dashboard_submitted', target: d.key, ...rdb()._logCtx(req) });
+      res.json({ ok: true, dashboard: out });
+    } catch (e) {
+      if (e.code === 'INVALID') return fail(res, e, 400, { ok: false });
+      fail(res, e, 500, { ok: false });
+    }
+  });
+  // Restore version n as the draft; the live snapshot keeps serving until the restored draft is reviewed and published.
+  router.post('/api/dashboards/:key/rollback/:n', requireReportSession, requirePublisher, async (req, res) => {
+    try {
+      const d = await store.get(key(req)); if (!d) return res.status(404).json({ ok: false, error: 'dashboard not found' });
+      if (!isAdmin(req.reportUser) && d.owner_id != null && d.owner_id !== req.reportUser.id) return res.status(403).json({ ok: false, error: 'owned by another publisher' });
+      const out = await store.rollback(d.key, Number(req.params.n), { user: req.reportUser });
+      if (!out) return res.status(404).json({ ok: false, error: 'version not found' });
+      rdb().logEvent({ category: 'dashboards', action: 'dashboard_rolled_back', target: d.key, details: { to: Number(req.params.n) }, ...rdb()._logCtx(req) });
+      res.json({ ok: true, dashboard: out });
+    } catch (e) { fail(res, e, 500, { ok: false }); }
   });
 
   router.post('/api/dashboards/:key/retire', requireReportSession, requirePublisher, async (req, res) => {
