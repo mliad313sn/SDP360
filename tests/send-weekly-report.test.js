@@ -84,7 +84,7 @@ function makeDeps(over = {}) {
     async generatePptx(...args) {
       calls.pptx.push(args);
       if (over.pptxThrows) throw new Error('deck render blew up');
-      if (over.pptxHangs) return new Promise(() => {});   // never settles
+      if (over.pptxHangs) return new Promise(() => { setTimeout(() => {}, 1000); });   // never settles; the ref'd timer keeps the loop alive so the (unref'd) production timeout can fire
       return PPTX_BUF;
     },
     // The PPTX arg-assembly readers. Injected so the deck path never opens a DB.

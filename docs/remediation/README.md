@@ -58,6 +58,15 @@ Signed-in behaviour is unchanged (login sets the cookie).
 On the base commit: **12 fail** (leak reproduced). With the fix: **18 pass**. `tests/route-authz.smoke.test.js` still green.
 Status: **TESTED_SYNTHETICALLY** — needs staging verification + rotation of the existing production key (human gate, RISKS R-01).
 
+### Run 2 — 2026-10-28 · repository moved to `mliad313sn/SDP360`
+
+Full history (1236 commits from `samaziz679/sdp-dashboard`) pushed to `mliad313sn/SDP360` branch
+`claude/confident-pascal-03veex`; that is now `origin` for all further work.
+- WP-M01-001 FIXED — `npm test` preloads `tests/_default-env.js` (throwaway creds, never overrides). Suite with no `.env`: **0 fail** (was 62).
+- WP-M01-002 FIXED — the 2 cancelled `send-weekly-report` tests were a test artifact; now 10/10.
+- WP-M02-002 REVIEWED — the 31 guard-less routes are classified in TRACEABILITY.md; 19 dash-key-only routes remain an owner decision.
+- WP-M02-003 DONE — T-M02-004 fails CI if any new route answers the dash key without a session.
+
 ## Dependency DAG
 
 Validated against the repository (no deviation from the roadmap order found yet):
@@ -76,7 +85,7 @@ M00 ─┬─ M01 deps/CI ── (env WP-M01-001/002 open)
 ```
 
 ## Next dependency-safe work packages
-1. **WP-M02-002** — review the 31 routes with no named guard in their chain (RBAC-MATRIX) and add per-handler role/site checks or document the in-handler check.
-2. **WP-M02-003** — extend `route-authz.smoke` with the dash-key caller and with editor-of-site-A → site-B object substitution on every `:id` write route.
-3. **WP-M01-001** — make `npm test` set default `DASH_USER`/`DASH_PASS` in a shared test bootstrap so the declared suite is green without a `.env`.
+1. **WP-M02-004** — editor-of-site-A → site-B object substitution sweep on every `:id` write route.
+2. **DEC-06 / R-02** — decide whether the 19 dash-key-only routes move behind a session (needs inventory of external X-Dash-Key clients).
+3. **T-M01-005** — run the pg half (`PG_TESTS_REQUIRED=1`) in a nonprod with PostgreSQL.
 4. Obtain the Batch 2 artifacts (blocks F01-F24 + 41 chart-contract import, M05).
