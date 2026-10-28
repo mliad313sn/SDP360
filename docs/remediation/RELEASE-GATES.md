@@ -11,7 +11,11 @@ Overall: **NO-GO** (development only). An agent cannot grant any gate.
 | E | Performance / a11y / recovery / UAT | OPEN — budgets, RPO/RTO not approved |
 | F | Human approvals (product, security, data, QA, ops, business) | HUMAN_APPROVAL_PENDING |
 
-## Decisions requested
+## Decisions
+
+DEC-01 to DEC-07 are decided — see [DECISIONS.md](DECISIONS.md). Remaining human gates: key rotation (DEC-06), device encryption standard (DEC-05), M02A ADR sign-off (DEC-01), release (M22).
+
+### Original questions
 - **DEC-01** IAM: approve persona→role mapping in PERSONA-COVERAGE.md; commission ADR for the M02A group-first model.
 - **DEC-02** Product: exact Site-business vs Group-business scope (M06).
 - **DEC-03** Product: may `itsm-integrations-plan.html` and the 22 `design-system/` + `dashboard-preview/` pages stay public?

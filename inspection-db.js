@@ -31,6 +31,18 @@
  */
 
 'use strict';
+
+// DEC-07 (2026-10-28): a site filter may be ONE code or a LIST of codes (a site-scoped reader's
+// sites). An empty list matches nothing — a reader with no site sees no site-scoped row.
+// `form`: 'eq' (col = x), 'nocase' (sqlite COLLATE NOCASE), 'lower' (lower(col) = lower(x)).
+function _siteClause(col, site, params, form) {
+  const list = Array.isArray(site) ? site : [site];
+  if (!list.length) return '1=0';
+  const names = list.map((v, i) => { const n = 'site' + (list.length > 1 || Array.isArray(site) ? i : ''); params[n] = v; return '@' + n; });
+  if (form === 'lower') return names.length === 1 ? `lower(${col}) = lower(${names[0]})` : `lower(${col}) IN (${names.map(n => `lower(${n})`).join(', ')})`;
+  const c = form === 'nocase' ? `${col} COLLATE NOCASE` : col;
+  return names.length === 1 ? `${c} = ${names[0]}` : `${c} IN (${names.join(', ')})`;
+}
 const { inScope: _inScope } = require('./services/userSites');   // multi-site editors: a scope may be a list of codes
 
 const Database = require('better-sqlite3');
@@ -597,7 +609,7 @@ function listInspections(opts = {}) {
   const db = getDB();
   const where  = [];
   const params = {};
-  if (opts.site)   { where.push('site_code = @site');                     params.site   = opts.site; }
+  if (opts.site)   { where.push(_siteClause('site_code', opts.site, params, 'eq')); }
   if (opts.from)   { where.push('inspection_date >= @from');              params.from   = opts.from; }
   if (opts.to)     { where.push('inspection_date <= @to');                params.to     = opts.to; }
   if (opts.risk)   { where.push("overall_risk LIKE '%' || @risk || '%'"); params.risk   = opts.risk; }
@@ -1049,7 +1061,7 @@ function aggregate(opts = {}) {
   const db = getDB();
   const where  = [];
   const params = {};
-  if (opts.site) { where.push('i.site_code = @site'); params.site = opts.site; }
+  if (opts.site) { where.push(_siteClause('i.site_code', opts.site, params, 'eq')); }
   if (opts.from) { where.push('i.inspection_date >= @from'); params.from = opts.from; }
   if (opts.to)   { where.push('i.inspection_date <= @to');   params.to   = opts.to; }
   const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
@@ -1170,7 +1182,7 @@ function listActions(opts = {}) {
   const db = getDB();
   const where = [];
   const params = {};
-  if (opts.site)     { where.push('i.site_code = @site COLLATE NOCASE'); params.site = opts.site; }
+  if (opts.site)     { where.push(_siteClause('i.site_code', opts.site, params, 'nocase')); }
   if (opts.status)   { where.push('a.status = @status');                 params.status = opts.status; }
   if (opts.priority) { where.push('a.priority = @priority');             params.priority = opts.priority; }
   if (opts.owner)    { where.push('a.owner LIKE @owner');                params.owner = '%' + opts.owner + '%'; }
@@ -1382,7 +1394,7 @@ async function _loadLookupsPg() {
 async function _listInspectionsPg(opts = {}) {
   const H = pgHandle();
   const where = [], params = {};
-  if (opts.site)   { where.push('site_code = @site');                     params.site   = opts.site; }
+  if (opts.site)   { where.push(_siteClause('site_code', opts.site, params, 'eq')); }
   if (opts.from)   { where.push('inspection_date >= @from');              params.from   = opts.from; }
   if (opts.to)     { where.push('inspection_date <= @to');                params.to     = opts.to; }
   if (opts.risk)   { where.push("overall_risk LIKE '%' || @risk || '%'"); params.risk   = opts.risk; }
@@ -1592,7 +1604,7 @@ async function _getInspectionStatusPg(id) {
 async function _aggregatePg(opts = {}) {
   const H = pgHandle();
   const where = [], params = {};
-  if (opts.site) { where.push('i.site_code = @site'); params.site = opts.site; }
+  if (opts.site) { where.push(_siteClause('i.site_code', opts.site, params, 'eq')); }
   if (opts.from) { where.push('i.inspection_date >= @from'); params.from = opts.from; }
   if (opts.to)   { where.push('i.inspection_date <= @to');   params.to   = opts.to; }
   const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
@@ -1657,7 +1669,7 @@ async function _addActionUpdatePg(actionId, opts = {}) {
 async function _listActionsPg(opts = {}) {
   const H = pgHandle();
   const where = [], params = {};
-  if (opts.site)     { where.push('lower(i.site_code) = lower(@site)'); params.site = opts.site; }
+  if (opts.site)     { where.push(_siteClause('i.site_code', opts.site, params, 'lower')); }
   if (opts.status)   { where.push('a.status = @status');                params.status = opts.status; }
   if (opts.priority) { where.push('a.priority = @priority');            params.priority = opts.priority; }
   if (opts.owner)    { where.push('a.owner ILIKE @owner');              params.owner = '%' + opts.owner + '%'; }

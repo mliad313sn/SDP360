@@ -48,7 +48,7 @@ before(async () => {
   assert.ok(pv.actions && pv.actions.length && pv.issues && pv.issues.length, 'PV children created');
 
   const i = await post('/api/inspection/save', superTok, { state: {
-    meta: { f_site: 'SGO', f_date: '2026-09-10', f_area: 'Server room' },
+    meta: { f_site: 'Sabodala (SGO)', f_date: '2026-09-10', f_area: 'Server room' },
     items: {}, actions: [{ desc: 'B corrective action', owner: 'x', due: '2026-10-01', priority: 'High' }],
   } });
   assert.equal(i.status, 200, await i.text());
@@ -122,3 +122,31 @@ test('field quick action: a site-less action (legacy row) is not closable by a s
   assert.ok(!list.actions.some((a) => a.id === 'xs-qa-legacy-01'), 'not listed to the scoped editor');
 });
 
+
+// DEC-07 (2026-10-28) — meetings + inspection READS are limited to the reader's own site(s).
+test('reads: site-A editor cannot read site-B PV / inspection by id, nor ask ?site=SGO', async () => {
+  const id = pv.header ? pv.header.id : pv.id, iid = encodeURIComponent(insp.id || insp.header.id);
+  assert.equal((await get(`/api/meetings/${id}`, edTok)).status, 403);
+  assert.equal((await get(`/api/meetings/${id}/export-pptx`, edTok)).status, 403);
+  assert.equal((await get(`/api/inspection/${iid}`, edTok)).status, 403);
+  for (const p of ['/api/meetings/list?site=SGO', '/api/meetings/issues?site=SGO', '/api/meetings/actions?site=SGO',
+    '/api/meetings/progress?site=SGO&department=Mining', '/api/inspection/list?site=SGO', '/api/inspection/actions?site=SGO'])
+    assert.equal((await get(p, edTok)).status, 403, p);
+});
+
+test('reads: lists and roll-ups returned to the site-A editor contain no site-B row', async () => {
+  for (const p of ['/api/meetings/list', '/api/meetings/issues', '/api/meetings/escalations', '/api/meetings/actions',
+    '/api/meetings/compliance', '/api/meetings/insights', '/api/meetings/aggregate', '/api/inspection/list', '/api/inspection/actions']) {
+    const r = await get(p, edTok);
+    assert.equal(r.status, 200, p);
+    const b = await r.text();
+    assert.ok(!/"site_code":"SGO"|"site":"SGO"/.test(b), `${p} leaked a SGO row`);
+  }
+});
+
+test('reads: the admin tier still reads every site', async () => {
+  const id = pv.header ? pv.header.id : pv.id;
+  assert.equal((await get(`/api/meetings/${id}`, superTok)).status, 200);
+  assert.match(await (await get('/api/meetings/list', superTok)).text(), /SGO/);
+  assert.match(await (await get('/api/inspection/list', superTok)).text(), /SGO/);
+});

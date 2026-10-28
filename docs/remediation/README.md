@@ -77,6 +77,11 @@ Full history (1236 commits from `samaziz679/sdp-dashboard`) pushed to `mliad313s
 ### Run 5 — 2026-10-28
 - WP-M02-006 — engagement alert access verified (recipient or alert-manager). **F-M02-005**: meetings and inspection reads are fleet-wide for every signed-in user (lists and by-id, incl. inspection photos/signatures) while report reads are site-scoped — inconsistent; restricting it changes what users see, so it waits on **DEC-07**.
 
+### Run 6 — 2026-10-28 · DEC-07 implemented, PO appointed
+- **DEC-07 (user decision):** meetings + inspection reads limited to the reader's own site(s); admin tier unchanged. 3 new tests; full suite **0 fail** (2447 pass, 109 skipped = PG/snapshot).
+- The user appointed a Product Owner to drive decisions; DEC-01…DEC-06 are now decided in [DECISIONS.md](DECISIONS.md). DEC-03 implemented (internal plan page behind login).
+- Fixed a test-fixture defect (inspection stored without a site) that weakened run 3's inspection checks; they are now verified against a real SGO record.
+
 ## Dependency DAG
 
 Validated against the repository (no deviation from the roadmap order found yet):
@@ -95,7 +100,8 @@ M00 ─┬─ M01 deps/CI ── (env WP-M01-001/002 open)
 ```
 
 ## Next dependency-safe work packages
-1. **DEC-07 → WP-M02-007** — if approved, apply the reports-style central read guard to meetings + inspection (lists, by-id, exports).
+1. **M06** — isolation tests for site-business / group-business on every API reachable from Site Awareness (DEC-02).
+2. **M03** — trim site dropdowns to the reader's sites on meetings/inspection pages (DEC-07 follow-up).
 2. **DEC-06 / R-02** — decide whether the 19 dash-key-only routes move behind a session (needs inventory of external X-Dash-Key clients).
 3. **T-M01-005** — run the pg half (`PG_TESTS_REQUIRED=1`) in a nonprod with PostgreSQL.
 4. Obtain the Batch 2 artifacts (blocks F01-F24 + 41 chart-contract import, M05).

@@ -78,3 +78,13 @@ test('dash key alone reaches only the known legacy gate-only routes', async () =
   const unexpected = reached.filter((id) => !KEY_ONLY_KNOWN.has(id));
   assert.deepEqual(unexpected, [], 'routes newly reachable with only the dash key');
 });
+
+// PO decision DEC-03 (2026-10-28) — the internal integrations plan is for signed-in staff only.
+test('itsm-integrations-plan.html: anonymous → redirect to login; signed-in → page', async () => {
+  const anon = await new Promise((resolve) => http.get(base + '/itsm-integrations-plan.html', (r) => { r.resume(); resolve(r); }));
+  assert.equal(anon.statusCode, 302);
+  assert.match(anon.headers.location, /login\.html/);
+  const ok = await fetch(base + '/itsm-integrations-plan.html', { headers: { cookie: `report_token=${token}` } });
+  assert.equal(ok.status, 200);
+  assert.match(await ok.text(), /Plan projet/);
+});

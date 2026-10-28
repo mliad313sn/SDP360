@@ -1282,17 +1282,14 @@ function loadHtml(name) {
   ...require('./services/pages').V2_PAGES.map(p => p[0]),   // step 6+: services/pages.js
 ].forEach(loadHtml);
 
-// M02 / P0 (2026-10-28): the dash key is a bearer credential for every /api route that
-// sits behind the global gate only. It used to be injected for ANY visitor, so an
-// unauthenticated GET of one of the 5 keyed pages leaked it. It is now injected only when
-// the request carries a valid session (cookie or header); otherwise the page is served
-// without it — auth.js sends the visitor to the login page, and after login the
-// report_token cookie is present so the next page load gets the key as before.
-async function sendKeyedHtmlPage(req, res, name, fallbackMsg) {
-  let user = null;
+// M02 / P0 (2026-10-28): the dash key is a bearer credential for /api routes behind the global
+// gate only; it is injected only for a valid session (an anonymous visitor used to receive it).
+async function _sessionUser(req) {
   const token = req.headers['x-report-token'] || getCookie(req, 'report_token');
-  if (rdb && token) { try { user = await rdb.validateSession(token); } catch (e) { user = null; } }
-  sendHtmlPage(res, name, !!user, fallbackMsg);
+  try { return (rdb && token) ? await rdb.validateSession(token) : null; } catch (e) { return null; }
+}
+async function sendKeyedHtmlPage(req, res, name, fallbackMsg) {
+  sendHtmlPage(res, name, !!(await _sessionUser(req)), fallbackMsg);
 }
 
 // Helper: build the per-request HTML, inject api-key + nonce, send. Pages
@@ -1437,7 +1434,9 @@ app.get('/help.html', (req, res) => {
 // The integrations project plan (linked from itsm-roadmap.html) — served through the
 // cache/version-injection path like every other HTML, not express.static (audit 2026-09-05).
 app.get('/itsm-integrations-plan.html', (req, res) => {
-  sendHtmlPage(res, 'itsm-integrations-plan.html', false, 'Integrations plan unavailable');
+  // PO decision DEC-03 (2026-10-28): internal planning document — signed-in staff only.
+  _sessionUser(req).then((u) => (u ? sendHtmlPage(res, 'itsm-integrations-plan.html', false, 'Integrations plan unavailable')
+    : res.redirect(302, '/login.html?next=itsm-integrations-plan.html')));
 });
 
 // ── Meetings & Council Escalations module (v2) — 5 pages ─────────────────
