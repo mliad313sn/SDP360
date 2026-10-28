@@ -1418,7 +1418,11 @@ app.get('/help.html', (req, res) => {
 });
 // The integrations project plan (linked from itsm-roadmap.html) — served through the
 // cache/version-injection path like every other HTML, not express.static (audit 2026-09-05).
-app.get('/itsm-integrations-plan.html', (req, res) => {
+app.get('/itsm-integrations-plan.html', async (req, res) => {
+  // DEC-03 (transplanted 2026-10-28): internal planning document — signed-in staff only.
+  const token = req.headers['x-report-token'] || getCookie(req, 'report_token');
+  let user = null; try { user = (rdb && token) ? await rdb.validateSession(token) : null; } catch (_) { user = null; }
+  if (!user) return res.redirect(302, '/login.html?next=itsm-integrations-plan.html');
   sendHtmlPage(res, 'itsm-integrations-plan.html', false, 'Integrations plan unavailable');
 });
 
