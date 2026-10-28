@@ -52,9 +52,11 @@ function selfSignedCert({ cn = '127.0.0.1', ip = '127.0.0.1', dns = 'localhost',
   const exts = explicit(3, seq(
     seq(oid('2.5.29.17'), octets(seq(sanBody))),                                 // subjectAltName
     seq(oid('2.5.29.19'), bool(true), octets(seq(bool(true)))),                  // basicConstraints CA:TRUE (critical) → usable as its own CA
-    seq(oid('2.5.29.15'), bool(true), octets(bitstr(Buffer.from([0xa4])))),      // keyUsage: digitalSignature, keyEncipherment, keyCertSign
+    seq(oid('2.5.29.15'), bool(true), octets(tlv(0x03, Buffer.from([2, 0xa4])))), // keyUsage: digitalSignature, keyEncipherment, keyCertSign (2 unused bits, DER)
   ));
-  const serial = crypto.randomBytes(8); serial[0] &= 0x7f;
+  // DER INTEGER must be minimal: a leading 0x00 byte followed by a byte < 0x80 is "illegal padding" for
+  // OpenSSL — a random serial hit it about once in 500 runs (CI run 50). Force a non-zero, positive first byte.
+  const serial = crypto.randomBytes(8); serial[0] = (serial[0] & 0x7f) | 0x01;
   const tbs = seq(explicit(0, int(2)), int(serial), sha256WithRsa, name, validity, name, spki, exts);
   const sig = crypto.sign('sha256', tbs, privateKey);
   const cert = seq(tbs, sha256WithRsa, bitstr(sig));

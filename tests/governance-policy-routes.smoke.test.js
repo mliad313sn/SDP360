@@ -111,3 +111,10 @@ test('oversight register: relaxations and deviations, JSON and CSV; committee on
   assert.equal(csv.status, 200); assert.match(csv.headers.get('content-type') || '', /csv/);
   assert.match(await csv.text(), /publication\.four_eyes/);
 });
+
+test('sync health and publication read the same freshness limit (committee architect P1-3)', async () => {
+  assert.equal((await put(T.admin, 'global', 'freshness.assets_hours', 4, 'assets sync runs every 2 h now')).status, 200);
+  const h = await (await send('GET', '/api/sync/health', T.admin)).json();
+  const job = (h.jobs || []).find((j) => j.job === 'assets.sync');
+  assert.ok(job, 'assets.sync listed'); assert.equal(job.freshness_hours, 4);
+});

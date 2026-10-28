@@ -52,6 +52,8 @@ Freshness defaults are taken from the sync job declarations (`services/sync/jobs
 | `handoffs.overdue_escalation` | handoffs | bool | true | — | yes | **protected** | An open handoff past its due date is escalated automatically. |
 | `handoffs.escalation_grace_days` | handoffs | int | 0 | 0 – 60 | yes | **protected** | Days after the due date before the automatic escalation. |
 | `commitments.escalation_enabled` | commitments | bool | true | — | yes | **protected** | Record A01 / A02 escalations (serious commitment without owner / overdue without exception). |
+| `commitments.serious_due_move_needs_admin` | commitments | bool | true | — | yes | **protected** | Moving the due date of a high / critical commitment past its original (baseline) date needs the admin tier — a site editor cannot clear an A02 overdue alert alone. |
+| `commitments.exception_max_days` | commitments | int | 90 | 1 – 365 | yes | **protected** | An approved exception (overdue serious commitment) lapses after this many days; the A02 alert comes back unless it is renewed. |
 
 ## Invariants — deliberately NOT parameters
 

@@ -11,6 +11,7 @@ const GP = require('../services/governancePolicy');
 const G = require('../services/publishGate');
 const SL = require('../services/sessionLifecycle');
 const HL = require('../services/handoffLifecycle');
+const CL = require('../services/commitmentLifecycle');
 
 const NOW = Date.parse('2026-10-28T12:00:00Z');
 const outcome = (c) => (c == null ? 'ok' : `${c.status}:${c.code}`);
@@ -43,6 +44,8 @@ const PROBES = {
   'handoffs.reason_min': [20, (v) => outcome(HL.check({ status: 'requested', requested_by: 1, receiver_id: 2 }, 'rejected', { id: 2, hasSite: true }, { reason: 'not ours', policy: pol('handoffs.reason_min', v) }))],
   'handoffs.overdue_escalation': [false, (v) => HL.overdue([{ id: 1, status: 'requested', due_date: '2026-10-20' }], '2026-10-28', pol('handoffs.overdue_escalation', v)).length],
   'handoffs.escalation_grace_days': [14, (v) => HL.overdue([{ id: 1, status: 'requested', due_date: '2026-10-20' }], '2026-10-28', pol('handoffs.escalation_grace_days', v)).length],
+  'commitments.serious_due_move_needs_admin': [false, (v) => outcome(CL.dueMoveCheck({ severity: 'high', baseline_due_date: '2026-10-01' }, '2026-12-01', { isAdmin: false, policy: pol('commitments.serious_due_move_needs_admin', v) }))],
+  'commitments.exception_max_days': [10, (v) => CL.exceptionExpiry('2026-10-28T00:00:00Z', pol('commitments.exception_max_days', v))],
 };
 
 // Parameters whose behaviour lives in a store (database) — proven by a named test that must mention the key.
@@ -80,4 +83,19 @@ test('boundaries: a reason of exactly the minimum passes, one character less fai
   // a scheduled run (no creator) is published by someone other than its reviewer
   assert.equal(G.dutyConflict('publish', { created_by: null, reviewed_by: 7 }, { id: 7 }).code, 'SOD_PUBLISH_REVIEWED');
   assert.equal(G.dutyConflict('publish', { created_by: null, reviewed_by: 7 }, { id: 8 }), null);
+  // a serious commitment: an earlier date, the baseline itself, or an admin are fine; later than the baseline is not
+  const c = { severity: 'critical', baseline_due_date: '2026-11-15' };
+  assert.equal(CL.dueMoveCheck(c, '2026-11-01'), null);
+  assert.equal(CL.dueMoveCheck(c, '2026-11-15'), null);
+  assert.equal(CL.dueMoveCheck(c, '2026-11-16').status, 403);
+  assert.equal(CL.dueMoveCheck(c, '2026-11-16', { isAdmin: true }), null);
+  assert.equal(CL.dueMoveCheck({ ...c, severity: 'medium' }, '2027-01-01'), null);
+});
+
+test('an approved exception lapses: the A02 overdue alert comes back after commitments.exception_max_days', () => {
+  const M = require('../services/commitmentMetrics');
+  const row = { id: 1, site_id: 3, status: 'in_progress', severity: 'high', accountable_owner: 'x', due_date: '2026-09-01', exception_approved_by: 'boss', exception_expires_at: '2026-10-15T00:00:00Z' };
+  assert.equal(M.seriousExposure([row], '2026-10-10').serious_overdue, 0, 'excused while the exception runs');
+  assert.equal(M.seriousExposure([row], '2026-10-20').serious_overdue, 1, 'lapsed → overdue again');
+  assert.equal(M.seriousExposure([{ ...row, exception_expires_at: null }], '2026-10-20').serious_overdue, 0, 'an exception approved before expiry existed keeps counting');
 });

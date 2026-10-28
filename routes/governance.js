@@ -180,7 +180,7 @@ module.exports = function governanceRoutes(deps) {
       res.json({ ok: true, sessions: rows.map(s => ({ ...s, cadence: (cads.find(c => c.id === s.cadence_id) || {}).name })) }); } catch (e) { fail(res, e); }
   });
   router.get('/api/governance/sessions/:id', requireReportSession, async (req, res) => {
-    try { const x = await loadSession(req, res); if (!x) return; res.json({ ok: true, session: (await withStage(x.s, req.reportUser, x.cad)), cadence: x.cad, decisions: await store.listDecisions({ sessionId: x.s.id }), actions: await store.sessionActions(x.s.id), can_run: canRun(req.reportUser, x.cad), can_decide: canDecide(req.reportUser, x.cad) }); } catch (e) { fail(res, e); }
+    try { const x = await loadSession(req, res); if (!x) return; res.json({ ok: true, session: (await withStage(x.s, req.reportUser, x.cad)), minutes_history: await store.minutesHistory(x.s.id), cadence: x.cad, decisions: await store.listDecisions({ sessionId: x.s.id }), actions: await store.sessionActions(x.s.id), can_run: canRun(req.reportUser, x.cad), can_decide: canDecide(req.reportUser, x.cad) }); } catch (e) { fail(res, e); }
   });
   router.put('/api/governance/sessions/:id', requireReportSession, json, async (req, res) => {
     try { const x = await loadSession(req, res, { run: true }); if (!x) return; if (await lifecycle(req, res, x, 'edit')) return; if (req.body.scheduled_at && await lifecycle(req, res, x, 'reschedule')) return; const p = {}; if (Array.isArray(req.body.attendees)) p.attendees = req.body.attendees.map(a => String(a).slice(0, 120)).slice(0, 50); if (req.body.notes !== undefined) p.notes = String(req.body.notes).slice(0, 20000); if (req.body.scheduled_at) p.scheduled_at = String(req.body.scheduled_at).slice(0, 25); const out = await store.updateSession(x.s.id, p); if (p.scheduled_at) log(req, 'session_rescheduled', x.s.id, { from: x.s.scheduled_at, to: p.scheduled_at }); res.json({ ok: true, session: out }); } catch (e) { fail(res, e); }
@@ -231,6 +231,7 @@ module.exports = function governanceRoutes(deps) {
   router.post('/api/governance/sessions/:id/accept', requireReportSession, async (req, res) => {
     try { const x = await loadSession(req, res); if (!x) return; if (await lifecycle(req, res, x, 'accept')) return;
       const s = await store.updateSession(x.s.id, { minutes_accepted_at: new Date().toISOString(), minutes_accepted_by: req.reportUser.id });
+      await store.addMinutesHistory(s.id, 'accepted', req.reportUser.id, null);
       log(req, 'minutes_accepted', s.id); res.json({ ok: true, session: { ...(await withStage(s, req.reportUser, x.cad)), minutes_html: undefined } }); } catch (e) { fail(res, e); }
   });
   router.post('/api/governance/sessions/:id/reopen', requireReportSession, json, async (req, res) => {
@@ -238,6 +239,7 @@ module.exports = function governanceRoutes(deps) {
       // back to live: the minutes are re-recorded at the next close and need a new acceptance
       const s = await store.moveSession(x.s.id, 'closed', { status: 'live', minutes_accepted_at: null, minutes_accepted_by: null, reopen_reason: reason.slice(0, 1000) });
       if (!s) return res.status(409).json({ ok: false, error: 'the session changed meanwhile — reload', code: 'CONFLICT' });
+      await store.addMinutesHistory(s.id, 'reopened', req.reportUser.id, reason);
       log(req, 'minutes_reopened', s.id, { reason: reason.slice(0, 200) }); res.json({ ok: true, session: { ...(await withStage(s, req.reportUser, x.cad)), minutes_html: undefined } }); } catch (e) { fail(res, e); }
   });
   router.get('/api/governance/sessions/:id/minutes.html', requireReportSession, async (req, res) => { try { const x = await loadSession(req, res); if (!x) return; res.type('html').send(x.s.minutes_html || await minutesFor(x)); } catch (e) { fail(res, e); } });

@@ -113,5 +113,23 @@ function sourceStatusSuggestion(sourceStatus) {
 
 const isVerified = (status) => status === 'verified_closed';
 
-module.exports = { KINDS, SEVERITIES, PRIORITIES, STATUSES, TERMINAL, SOURCE_SYSTEMS, TRANSITIONS, VERIFY_DECISION,
+const _pol = (pol) => ({ ...require('./governancePolicy').DEFAULTS, ...(pol || {}) });
+/**
+ * Due-date move of a serious commitment past its baseline (committee audit P1-6). null = allowed.
+ * A move earlier, a medium / low commitment, or no baseline yet is always allowed (the reason is still required by the store).
+ */
+function dueMoveCheck(c, newDue, { isAdmin = false, policy = null } = {}) {
+  if (!c || !newDue || !c.baseline_due_date) return null;
+  if (!['high', 'critical'].includes(String(c.severity || '').toLowerCase())) return null;
+  if (String(newDue).slice(0, 10) <= String(c.baseline_due_date).slice(0, 10)) return null;
+  if (_pol(policy)['commitments.serious_due_move_needs_admin'] === false || isAdmin) return null;
+  return { status: 403, code: 'FORBIDDEN', error: 'moving the due date of a serious commitment past its baseline needs the admin tier' };
+}
+/** When an exception approved at `at` lapses (commitments.exception_max_days). */
+function exceptionExpiry(at, policy = null) {
+  const days = Math.max(1, Number(_pol(policy)['commitments.exception_max_days']) || 90);
+  const t = Date.parse(at || new Date().toISOString()); return new Date(t + days * 864e5).toISOString();
+}
+
+module.exports = { dueMoveCheck, exceptionExpiry, KINDS, SEVERITIES, PRIORITIES, STATUSES, TERMINAL, SOURCE_SYSTEMS, TRANSITIONS, VERIFY_DECISION,
   checkTransition, allowedTransitions, severityGaps, isSelf, isReviewer, sourceStatusSuggestion, isVerified };

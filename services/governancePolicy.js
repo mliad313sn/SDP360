@@ -86,6 +86,12 @@ const PARAMS = [
   P('commitments.escalation_enabled', 'bool', true, { area: 'commitments', protected: true, stricter: 'true',
     en: 'Record A01 / A02 escalations (serious commitment without owner / overdue without exception).',
     fr: 'Enregistrer les escalades A01 / A02 (engagement grave sans responsable / en retard sans exception).' }),
+  P('commitments.serious_due_move_needs_admin', 'bool', true, { area: 'commitments', protected: true, stricter: 'true',
+    en: 'Moving the due date of a high / critical commitment past its original (baseline) date needs the admin tier — a site editor cannot clear an A02 overdue alert alone.',
+    fr: 'Reporter l\'échéance d\'un engagement élevé / critique au-delà de sa date initiale exige le palier admin — un éditeur de site ne peut pas effacer seul une alerte A02.' }),
+  P('commitments.exception_max_days', 'int', 90, { area: 'commitments', protected: true, stricter: 'lower', min: 1, max: 365,
+    en: 'An approved exception (overdue serious commitment) lapses after this many days; the A02 alert comes back unless it is renewed.',
+    fr: 'Une exception approuvée (engagement grave en retard) expire après ce nombre de jours ; l\'alerte A02 revient si elle n\'est pas renouvelée.' }),
 ];
 const BY_KEY = new Map(PARAMS.map((p) => [p.key, p]));
 const AREAS = [...new Set(PARAMS.map((p) => p.area))];

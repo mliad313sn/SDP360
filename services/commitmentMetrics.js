@@ -40,7 +40,9 @@ function seriousExposure(rows, asOf) {
   const day = d10(asOf instanceof Date ? asOf.toISOString() : (asOf || new Date().toISOString()));
   const open = (rows || []).filter((r) => SERIOUS.includes(_str(r.severity).toLowerCase()) && !TERMINAL.includes(r.status));
   const unowned = open.filter((r) => !_str(r.accountable_owner));
-  const overdue = open.filter((r) => r.status !== 'awaiting_verification' && d10(r.due_date) && d10(r.due_date) < day && !_str(r.exception_approved_by));
+  // an approved exception counts only until it lapses (exception_expires_at) — then the A02 alert is back
+  const excused = (r) => _str(r.exception_approved_by) && (!r.exception_expires_at || d10(r.exception_expires_at) >= day);
+  const overdue = open.filter((r) => r.status !== 'awaiting_verification' && d10(r.due_date) && d10(r.due_date) < day && !excused(r));
   return { serious_open: open.length, serious_unowned: unowned.length, serious_overdue: overdue.length,
     unowned_ids: unowned.map((r) => r.id), overdue_ids: overdue.map((r) => r.id), as_of: day };
 }

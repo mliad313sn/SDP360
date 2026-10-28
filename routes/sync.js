@@ -44,8 +44,12 @@ module.exports = function syncRoutes(deps) {
         }
       } catch (_) { /* legacy table optional */ }
       for (const name of Object.keys(FRESHNESS_HOURS)) if (!byJob.has(name)) byJob.set(name, { job: name, last_ok: null, last_error: null, errors: 0, source: 'none' });
+      // a platform freshness policy (Admin ▸ Governance policies) overrides the declared window, so this page
+      // and the publication gate never disagree on "stale" (committee architect P1-3)
+      const limits = { ...FRESHNESS_HOURS };
+      try { const GP = require('../services/governancePolicy'); const pol = await GP.forContext({}); for (const [m, job] of GP.FRESHNESS_SOURCES) { const v = Number(pol[`freshness.${m}_hours`]); if (Number.isFinite(v) && v > 0) limits[job] = v; } } catch (_) { /* policy store unreadable → declared windows */ }
       const jobs = Array.from(byJob.values()).map((j) => {
-        const hours = FRESHNESS_HOURS[j.job] || null;
+        const hours = limits[j.job] || null;
         const ageH = j.last_ok ? (now - Date.parse(j.last_ok)) / 36e5 : null;
         let status = 'ok';
         if (!j.last_ok) status = OPTIONAL.has(j.job) ? 'idle' : 'never';

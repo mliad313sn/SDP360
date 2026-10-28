@@ -126,7 +126,7 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
   }
 
   /** Edit fields. A due-date change keeps baseline_due_date and needs a reason (logged). */
-  async function update(id, patch, { user, expectedVersion, reason } = {}) {
+  async function update(id, patch, { user, expectedVersion, reason, isAdmin = false, policy = null } = {}) {
     const c = await getRaw(id); if (!c) throw typed('NOT_FOUND', 'commitment not found', 404);
     if (L.TERMINAL.includes(c.status)) throw bad(`a ${c.status} commitment is read-only — reopen it first`);
     const f = validateFields(Object.fromEntries(Object.entries(patch || {}).filter(([k]) => EDITABLE.includes(k))), true);
@@ -141,6 +141,7 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
     }
     const dueChanged = f.due_date !== undefined && f.due_date !== c.due_date;
     if (dueChanged && c.due_date && !str(reason)) throw bad('a reason is required to change the due date');
+    const mv = dueChanged ? L.dueMoveCheck(c, f.due_date, { isAdmin, policy }) : null; if (mv) throw typed(mv.code, mv.error, mv.status);
     if (dueChanged && !c.baseline_due_date) f.baseline_due_date = f.due_date;
     await tx(async () => {
       await bump(c, expectedVersion, f);
@@ -170,11 +171,14 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
     return get(c.id);
   }
 
-  async function approveException(id, { user, expectedVersion, reason } = {}) {
+  async function approveException(id, { user, expectedVersion, reason, policy = null } = {}) {
     const c = await getRaw(id); if (!c) throw typed('NOT_FOUND', 'commitment not found', 404);
     if (!str(reason)) throw bad('a reason is required to approve an exception');
-    await bump(c, expectedVersion, { exception_approved_by: actorName(user), exception_approved_at: now(), exception_reason: str(reason, 1000) });
-    await event(c.id, user, 'exception_approved', c.status, c.status, { reason: str(reason, 1000) });
+    const t = now(); const until = L.exceptionExpiry(t, policy);   // an exception is temporary (committee audit P1-6)
+    await tx(async () => {
+      await bump(c, expectedVersion, { exception_approved_by: actorName(user), exception_approved_at: t, exception_reason: str(reason, 1000), exception_expires_at: until });
+      await event(c.id, user, 'exception_approved', c.status, c.status, { reason: str(reason, 1000), expires_at: until });
+    });
     return get(c.id);
   }
 
@@ -269,7 +273,7 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
   async function metricRows({ siteIds = null } = {}) {
     if (Array.isArray(siteIds) && !siteIds.length) return [];
     const where = Array.isArray(siteIds) ? ` WHERE site_id IN (${siteIds.map(() => '?').join(',')})` : '';
-    return P(`SELECT id, site_id, status, severity, accountable_owner, exception_approved_by, due_date, baseline_due_date, technical_completed_at, verified_at FROM commitments${where}`).all(...(siteIds || []).map(Number));
+    return P(`SELECT id, site_id, status, severity, accountable_owner, exception_approved_by, exception_expires_at, due_date, baseline_due_date, technical_completed_at, verified_at FROM commitments${where}`).all(...(siteIds || []).map(Number));
   }
 
   // ── G-18 escalation ledger (023_commitment_escalations) ─────────────────────────────

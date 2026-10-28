@@ -34,7 +34,7 @@ coordinator, Houndé) · AUDIT (internal audit / ITGC) · SEC (group ISO, ISO 27
 | 17 | AUDIT P2-13, SEC P2 | Reason minimums not protected; grace up to 720 h | FIXED | Reason minimums protected (lowering = relaxation); `meetings.missed_grace_hours` max 168 |
 | 18 | ARCH P1-2 | Per-process policy cache, invalidation reached only the writer | FIXED | Version check (`MAX(id)` of the history) on read; reloads on change everywhere |
 | 19 | ARCH P2-1, SEC P2 | A policy read failure fell back to defaults (dropping stricter site values) | FIXED | Last good snapshot kept; invalid stored values logged `invalid_policy_value` |
-| 20 | ARCH P1-3 | Freshness limits defined in three places | FIXED (partly) | Policy defaults now come from `jobs.js` `FRESHNESS_HOURS`. OPEN: `/api/sync/health` to read the policy override too |
+| 20 | ARCH P1-3 | Freshness limits defined in three places | FIXED | Policy defaults come from `jobs.js` `FRESHNESS_HOURS`; `/api/sync/health` applies the policy override, so it and the publication gate agree. `governance-policy-routes.smoke.test.js` |
 | 21 | ARCH P1-4, QA P1-7, AUDIT P2-12 | Overview compliance used the global policy, detail used the site policy | FIXED | `complianceByContext`: each cadence judged with its site's policy. `governance-policy-routes.smoke.test.js` |
 | 22 | QA P1-5 | Seven parameters had no behaviour test | FIXED | `governance-policy-coverage.test.js`: one probe per parameter; a parameter without a probe fails the test |
 | 23 | QA P1-8 | Tests that expire on 2026-12-03 / 2027-01-05 | FIXED | Dates relative to `Date.now()` |
@@ -59,12 +59,13 @@ coordinator, Houndé) · AUDIT (internal audit / ITGC) · SEC (group ISO, ISO 27
 | 42 | AUDIT P1-3, ARCH P2-4 | Policies not effective-dated; history recomputed with today's rule | DECISION + OPEN | `effective_from` + "as-of" resolution; until then the oversight register shows every change with its date |
 | 43 | AUDIT rec. 4, SEC rec. 4 | No hash chain, no SIEM export; app role owns its tables | DECISION | Hash chain + daily anchor; `REVOKE UPDATE/DELETE` on prod (needs the prod DBA — never done from here) |
 | 44 | AUDIT P2-13 | `override_allowed` defaults to true | DECISION | Default kept (today's behaviour); a listed-company default of false is the committee's call |
-| 45 | AUDIT P1-6 | Due-date moves can clear an A02 escalation without approval; exceptions never expire | OPEN | Serious commitments: a move past the baseline needs the admin tier; exception expiry |
-| 46 | AUDIT P2-11 | Reopening accepted minutes overwrites the previous acceptance | OPEN | Append a reopen / acceptance history; second person for the reopen |
-| 47 | SEC P2 | Commitment replay reveals SDP ticket links across sites | OPEN | Resolve the ticket's site through tech_group / zoho_group; unresolvable systems admin-only |
+| 45 | AUDIT P1-6 | Due-date moves can clear an A02 escalation without approval; exceptions never expire | FIXED | `commitments.serious_due_move_needs_admin` (a high / critical due date moved past its baseline needs the admin tier) and `commitments.exception_max_days` (90 — the A02 alert returns when the exception lapses; migration 031). `commitment-escalation.test.js`, `governance-policy-coverage.test.js` |
+| 46 | AUDIT P2-11 | Reopening accepted minutes overwrites the previous acceptance | FIXED (history) | `minutes_history` append-only (migration 032), shown with the session. OPEN: second person for the reopen (DECISION — today one admin with a 10+ character reason) |
+| 47 | SEC P2 | Commitment replay reveals SDP ticket links across sites | FIXED | Creating a commitment FROM a record whose site cannot be verified (SDP ticket / change, governance, portfolio) is admin-only; a site editor creates from a site record and links the ticket; the editor gets the same answer whether or not the ticket is held elsewhere. `commitment-source-scope.smoke.test.js` |
 | 48 | SEC P2 | Tightening can stop the platform (freshness 0.25 h, reason 500) | DECISION | Large changes in either direction under the same two-person rule? |
 | 49 | ARCH next | Scope beyond site (tenant → BU → country → site) | DECISION | Needs `sites.country` / BU attributes; a second company = a separate instance today |
 | 51 | (browser check) | The site navigation bar sat over the full-screen cockpit session and blocked its Start / Close buttons | FIXED | Session overlay above the navigation (found by the Chromium run used to verify these changes) |
+| 52 | (CI run 50) | Flaky test helper: a random certificate serial starting with 0x00 is an illegal DER integer for OpenSSL (~1 run in 256) | FIXED | `tests/_self-signed-cert.js` (0 failures in 3 000 generated certificates) |
 | 50 | ARCH P2-5 | Data-driven state machines | DOC | Deliberately not done: transitions stay in code so a context cannot remove a separation-of-duties control |
 
 ## Not verified by the committee (and still not verified)

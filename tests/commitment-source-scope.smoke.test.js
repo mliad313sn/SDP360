@@ -62,13 +62,20 @@ test('create: a site-A editor cannot attach a site-B source (meeting action, iss
   assert.equal((await send('POST', '/api/commitments', edH, mine({ system: 'meetings', id: String(houndeAction) }))).status, 201, 'own source works');
 });
 
-test('replay: a source already linked on site B never returns site B\'s commitment', async () => {
-  const b = await send('POST', '/api/commitments', edM, { kind: 'issue', title: 'Mana secret', site_id: mana, source: { system: 'sdp_ticket', id: '777001' } });
-  assert.equal(b.status, 201);
+test('replay: a source already linked on site B never reveals site B\'s commitment', async () => {
+  // an SDP ticket has no verifiable site: a site editor cannot CREATE from it (committee security) — the answer
+  // is the same whether or not another site already holds it, so nothing leaks
+  const free = await send('POST', '/api/commitments', edH, { ...mine({ system: 'sdp_ticket', id: '777099' }) });
+  assert.equal(free.status, 403);
+  const b = await send('POST', '/api/commitments', superT, { kind: 'issue', title: 'Mana secret', site_id: mana, source: { system: 'sdp_ticket', id: '777001' } });
+  assert.equal(b.status, 201, 'the admin tier creates from a ticket');
   const r = await send('POST', '/api/commitments', edH, { ...mine({ system: 'sdp_ticket', id: '777001' }) });
   const body = await r.text();
-  assert.equal(r.status, 409, body);
+  assert.equal(r.status, 403, body); assert.equal(JSON.parse(body).error, (await free.json()).error, 'identical answer: held or not');
   assert.ok(!/Mana secret/.test(body), 'no site-B data in the answer');
+  // a site record already held on site B: replay answers 409 without site-B data
+  const mb = await send('POST', '/api/commitments', edM, { kind: 'issue', title: 'Mana secret 2', site_id: mana, source: { system: 'meetings', id: String(manaAction) } });
+  assert.equal(mb.status, 201);
 });
 
 test('links: a site-A editor cannot link a site-B record to their own commitment; the admin tier can', async () => {

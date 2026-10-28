@@ -53,7 +53,9 @@ test('ledger on PostgreSQL: one raise per episode, re-runs raise nothing, a move
   assert.deepEqual((await s.listEscalations({})).map((e) => e.key), [`A02:${b.id}:2026-10-01`]);
 
   // A02: due date moved (with reason) then missed again = a new key, the old one clears
-  bb = await s.update(b.id, { due_date: '2026-10-20' }, { user: ed, expectedVersion: bb.version, reason: 'vendor delay' });
+  // committee audit P1-6: an editor cannot push a serious due date past its baseline (that would clear A02 alone)
+  await assert.rejects(async () => s.update(b.id, { due_date: '2026-10-20' }, { user: ed, expectedVersion: bb.version, reason: 'vendor delay' }), (e) => e.status === 403);
+  bb = await s.update(b.id, { due_date: '2026-10-20' }, { user: ed, expectedVersion: bb.version, reason: 'vendor delay', isAdmin: true });
   r = await s.escalate();
   assert.deepEqual(r.raised.map((x) => x.key), [`A02:${b.id}:2026-10-20`]); assert.equal(r.cleared, 1);
 

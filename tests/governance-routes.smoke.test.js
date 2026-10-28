@@ -132,6 +132,10 @@ test('G-21 lifecycle end to end: planned → held → logged → accepted (four-
   assert.equal((await send('POST', `/api/governance/sessions/${id}/reopen`, member, { reason: 'decision text was wrong' })).status, 403);
   s = (await (await send('POST', `/api/governance/sessions/${id}/reopen`, admin, { reason: 'decision text was wrong' })).json()).session;
   assert.equal(s.stage, 'held'); assert.equal(s.minutes_accepted_at, null);
+  // the previous acceptance is not lost: accept + reopen are appended (audit P2-11)
+  const mh = (await (await get(`/api/governance/sessions/${id}`, admin)).json()).minutes_history;
+  assert.deepEqual(mh.map((x) => x.action), ['accepted', 'reopened']); assert.equal(mh[1].reason, 'decision text was wrong');
+  await assert.rejects(async () => rdb.db.prepare('DELETE FROM minutes_history').run(), /append-only/);
 
   // cancellation by a runner = pending exception; approved by the committee (not the canceller)
   const s2 = (await (await send('POST', `/api/governance/cadences/${c.cadence.id}/sessions`, editor, { scheduled_at: new Date(Date.now() + 7 * 864e5).toISOString() })).json()).session;

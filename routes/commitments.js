@@ -135,6 +135,10 @@ module.exports = function commitmentsRoutes(deps) {
       if (b.source && b.source.system) {
         const d = await sourceDenied(u, String(b.source.system), b.source.id);
         if (d) return res.status(d.status).json({ error: d.error });
+        // a source whose site cannot be verified (SDP ticket / change, governance, portfolio) is unique across
+        // the platform: a replay would reveal that another site already holds it (committee security). The
+        // admin tier creates from it; a site editor creates from a site record and LINKS the ticket.
+        if (!isAdmin(u) && !(await sourceSite(String(b.source.system), b.source.id)).checked) return res.status(403).json({ error: `only the admin tier creates a commitment from a ${String(b.source.system).slice(0, 40)} record — create it from a site record and link the ticket` });
       }
       const r = await store.create(b, { user: u });
       // idempotent replay: never hand back a commitment the caller cannot see
@@ -148,7 +152,7 @@ module.exports = function commitmentsRoutes(deps) {
       const c = await load(req, res); if (!c) return;
       if (!canEdit(req.reportUser, c)) return res.status(403).json({ error: 'editor of this site required' });
       const b = req.body || {};
-      res.json({ commitment: view(await store.update(c.id, b, { user: req.reportUser, expectedVersion: b.version, reason: b.reason }), req.reportUser) });
+      res.json({ commitment: view(await store.update(c.id, b, { user: req.reportUser, expectedVersion: b.version, reason: b.reason, isAdmin: isAdmin(req.reportUser), policy: await require('../services/governancePolicy').forContext({ siteId: c.site_id }) }), req.reportUser) });
     } catch (e) { fail(res, e); }
   });
   router.post(base + '/:id/transition', requireReportSession, enabled, async (req, res) => {
@@ -166,7 +170,7 @@ module.exports = function commitmentsRoutes(deps) {
       if (!isAdmin(req.reportUser)) return res.status(403).json({ error: 'only the admin tier may approve an exception' });
       if (L.isSelf(c, req.reportUser)) return res.status(403).json({ error: 'the owner or creator cannot approve their own exception' });
       const b = req.body || {};
-      res.json({ commitment: view(await store.approveException(c.id, { user: req.reportUser, expectedVersion: b.version, reason: b.reason }), req.reportUser) });
+      res.json({ commitment: view(await store.approveException(c.id, { user: req.reportUser, expectedVersion: b.version, reason: b.reason, policy: await require('../services/governancePolicy').forContext({ siteId: c.site_id }) }), req.reportUser) });
     } catch (e) { fail(res, e); }
   });
   router.post(base + '/:id/links', requireReportSession, enabled, async (req, res) => {
