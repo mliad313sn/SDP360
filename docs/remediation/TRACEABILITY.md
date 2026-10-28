@@ -12,3 +12,4 @@
 | Roadmap "23 dependency-blocked checks (better-sqlite3, xlsx)" | roadmap §1.2 | M01 | — | — | T-M01-001 | NOT REPRODUCED in this env (deps install; remaining skips are PG/snapshot) |
 | F01-F24 | `GAP-BACKLOG.csv` | — | — | — | — | **BLOCKED — file not in repository** |
 | 41 chart contracts | `CHART-CONTRACT-REGISTER.csv` | M05 | — | — | — | **BLOCKED — file not in repository** |
+| WP-M02-004 object-ID substitution on id-keyed meetings/inspection writes (no prior cross-site test) | RBAC-MATRIX | M02 | WP-M02-004 | test only — handlers already enforce | T-M02-005 | TESTED_SYNTHETICALLY |

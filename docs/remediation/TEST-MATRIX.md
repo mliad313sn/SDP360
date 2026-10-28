@@ -13,3 +13,4 @@
 | T-M02-003 | probe | route × {none, dashkey, viewer} matrix | `SDP_TEST_NO_RATE_LIMIT=1 node tools/qa/route-matrix.js out.json` | sqlite | 0 | RBAC-MATRIX.md |
 | T-M01-007 | unit+smoke | declared suite with NO .env (run 2) | `npm test` | Linux/Node 22/sqlite | 0 fail | 2612 tests · 2501 pass · 0 fail · 2 cancelled (fixed after, 10/10) · 109 skip (PG/snapshot) |
 | T-M02-004 | smoke | dash key alone reaches only the 19 known legacy routes; new key-only route fails | `node --test --test-force-exit tests/dashkey-injection.smoke.test.js` | sqlite | 0 | 19/19 pass; verified to fail when an entry is removed |
+| T-M02-005 | smoke | object-ID substitution: site-A editor vs site-B meetings action/issue/sign/delete + inspection action/delete/export; positive control on own site | `node --test --test-force-exit tests/cross-site-object-writes.smoke.test.js` | sqlite | 0 | 5/5 pass; mutation (site check removed from meetings action update) → fails |

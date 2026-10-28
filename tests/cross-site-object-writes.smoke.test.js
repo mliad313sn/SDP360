@@ -1,0 +1,105 @@
+'use strict';
+const fetch = require('./_http-fetch');
+// WP-M02-004 (remediation M02) — object-ID substitution: an editor scoped to site A (HGO)
+// must not change, sign, delete or export an object that belongs to site B (SGO) by
+// guessing its id. Covers the meetings + inspection id-keyed write routes that had no
+// cross-site test. Each refusal is followed by a server-side check that nothing changed.
+const _os = require('os'), _fs = require('fs'), _p = require('path');
+process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_p.join(_os.tmpdir(), 'xsite-'));
+for (const k of ['REPORTS_BACKEND', 'ASSETS_BACKEND', 'TRACKER_BACKEND', 'MEETINGS_BACKEND', 'INSPECTION_BACKEND']) process.env[k] = 'sqlite';
+process.env.SDP_TEST_NO_RATE_LIMIT = '1';
+process.env.DASH_USER = process.env.DASH_USER || 'xs-super';
+process.env.DASH_PASS = process.env.DASH_PASS || 'xs-super-pass-0000';
+process.env.DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || 'xs-key';
+for (const k of ['ZOHO_CLIENT_ID', 'ZOHO_CLIENT_SECRET', 'ZOHO_REFRESH_TOKEN']) process.env[k] = process.env[k] || 'dummy';
+
+const { test, before, after } = require('node:test');
+const assert = require('node:assert');
+const http = require('http');
+
+let server, base, superTok, edTok, pv, insp;
+const H = (t) => ({ 'Content-Type': 'application/json', 'x-report-token': t });
+const get = (p, t) => fetch(base + p, { headers: H(t) });
+const post = (p, t, b) => fetch(base + p, { method: 'POST', headers: H(t), body: JSON.stringify(b || {}) });
+const del = (p, t) => fetch(base + p, { method: 'DELETE', headers: H(t) });
+
+before(async () => {
+  const { app } = require('../server');
+  const rdb = require('../reports-db');
+  const A = (rdb.listSites() || []).find((s) => s.name === 'Hounde');
+  assert.ok(A, 'seeded site Hounde');
+  const me = (rdb.listUsers() || []).find((u) => u.username === process.env.DASH_USER);
+  rdb.setUserRoles(me.id, ['super_admin']);
+  superTok = (await rdb.login(process.env.DASH_USER, process.env.DASH_PASS)).token;
+  rdb.createUser({ username: 'xs-editor', full_name: 'Site A editor', password: 'xs-editor-0000', roles: ['editor'], site_id: A.id });
+  edTok = (await rdb.login('xs-editor', 'xs-editor-0000')).token;
+  await new Promise((r) => { server = http.createServer(app).listen(0, '127.0.0.1', r); });
+  base = `http://127.0.0.1:${server.address().port}`;
+
+  // Site B (SGO) objects, created by the super admin.
+  const s = await post('/api/meetings/save', superTok, { state: {
+    header: { site_code: 'SGO', department: 'Mining', meeting_date: '2026-09-10', status: 'draft' },
+    issues: [{ ord: 1, title: 'B issue', category: 'CN', severity: 'HIGH', status: 'open' }],
+    actions: [{ ord: 1, description: 'B action', owner_it: 'someone', status: 'open' }],
+  } });
+  assert.equal(s.status, 200, await s.text());
+  const sj = await s.json();
+  pv = await (await get(`/api/meetings/${sj.id}`, superTok)).json();
+  assert.ok(pv.actions && pv.actions.length && pv.issues && pv.issues.length, 'PV children created');
+
+  const i = await post('/api/inspection/save', superTok, { state: {
+    meta: { f_site: 'SGO', f_date: '2026-09-10', f_area: 'Server room' },
+    items: {}, actions: [{ desc: 'B corrective action', owner: 'x', due: '2026-10-01', priority: 'High' }],
+  } });
+  assert.equal(i.status, 200, await i.text());
+  insp = await (await get(`/api/inspection/${(await i.json()).id}`, superTok)).json();
+  assert.ok(insp.actions && insp.actions.length, 'inspection action created');
+});
+after(() => { try { server && server.close(); } catch {} });
+
+const denied = (r) => assert.ok(r.status === 403 || r.status === 404, `expected 403/404, got ${r.status}`);
+
+test('meetings: site-A editor cannot update a site-B action', async () => {
+  const a = pv.actions[0];
+  denied(await post(`/api/meetings/actions/${a.id}/update`, edTok, { status_change: 'resolved', body: 'x' }));
+  const after = await (await get(`/api/meetings/${pv.header ? pv.header.id : pv.id}`, superTok)).json();
+  assert.equal(after.actions.find((x) => x.id === a.id).status, a.status, 'status unchanged');
+});
+
+test('meetings: site-A editor cannot update a site-B issue or add an action to it', async () => {
+  const is = pv.issues[0];
+  denied(await post(`/api/meetings/issues/${is.id}/update`, edTok, { status_change: 'resolved', body: 'x' }));
+  denied(await post(`/api/meetings/issues/${is.id}/actions`, edTok, { description: 'injected' }));
+  const after = await (await get(`/api/meetings/${pv.header ? pv.header.id : pv.id}`, superTok)).json();
+  assert.equal(after.issues.find((x) => x.id === is.id).status, is.status);
+  assert.equal(after.actions.length, pv.actions.length, 'no action injected');
+});
+
+test('meetings: site-A editor cannot sign or delete a site-B PV', async () => {
+  const id = pv.header ? pv.header.id : pv.id;
+  denied(await post(`/api/meetings/${id}/sign`, edTok, { which: 'site_it' }));
+  denied(await del(`/api/meetings/${id}`, edTok));
+  const h = (await (await get(`/api/meetings/${id}`, superTok)).json()); const hdr = h.header || h;
+  assert.ok(!hdr.site_it_signed_at, 'not signed');
+  assert.equal((await get(`/api/meetings/${id}`, superTok)).status, 200, 'PV still exists');
+});
+
+test('inspection: site-A editor cannot update a site-B action, delete or export the inspection', async () => {
+  const a = insp.actions[0];
+  denied(await post(`/api/inspection/actions/${a.id}/update`, edTok, { status_change: 'Closed', body: 'x' }));
+  denied(await del(`/api/inspection/${encodeURIComponent(insp.id || insp.header.id)}`, edTok));
+  denied(await post(`/api/inspection/${encodeURIComponent(insp.id || insp.header.id)}/export`, edTok, {}));
+  const after = await (await get(`/api/inspection/${encodeURIComponent(insp.id || insp.header.id)}`, superTok)).json();
+  assert.equal(after.actions.find((x) => x.id === a.id).status, a.status, 'action unchanged, inspection still exists');
+});
+
+test('positive control: the site-A editor CAN update an action on their own site', async () => {
+  const s = await post('/api/meetings/save', edTok, { state: {
+    header: { site_code: 'HGO', department: 'Mining', meeting_date: '2026-09-11', status: 'draft' },
+    actions: [{ ord: 1, description: 'A action', owner_it: 'me', status: 'open' }],
+  } });
+  assert.equal(s.status, 200, await s.text());
+  const mine = await (await get(`/api/meetings/${(await s.json()).id}`, edTok)).json();
+  const r = await post(`/api/meetings/actions/${mine.actions[0].id}/update`, edTok, { status_change: 'in_progress', body: 'ok' });
+  assert.equal(r.status, 200, await r.text());
+});
