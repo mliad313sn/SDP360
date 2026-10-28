@@ -96,7 +96,11 @@ module.exports = function meetingsRoutes(deps) {
   router.get('/api/meetings/lookups', requireReportSession, async (req, res) => {
     try {
       if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
-      res.json(await meetingsDb.loadLookups());
+      const lk = await meetingsDb.loadLookups();
+      // DEC-07 / M03: a site-scoped reader's site pickers offer only their own sites.
+      const codes = await _userMeetingsSites(req.reportUser);
+      if (codes !== null && Array.isArray(lk.sites)) lk.sites = lk.sites.filter((x) => userSites.inScope(x.code, codes));
+      res.json(lk);
     } catch(e) {
       console.error('[Meetings] lookups error:', e.message);
       res.status(500).json({ error: e.message });

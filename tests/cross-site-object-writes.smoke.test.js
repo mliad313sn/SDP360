@@ -150,3 +150,11 @@ test('reads: the admin tier still reads every site', async () => {
   assert.match(await (await get('/api/meetings/list', superTok)).text(), /SGO/);
   assert.match(await (await get('/api/inspection/list', superTok)).text(), /SGO/);
 });
+
+test('lookups: site pickers offer only the reader\'s sites; admin tier sees all', async () => {
+  const m = await (await get('/api/meetings/lookups', edTok)).json();
+  assert.deepEqual(m.sites.map((x) => x.code), ['HGO']);
+  const i = await (await get('/api/inspection/lookups', edTok)).json();
+  assert.deepEqual(i.sites.map((x) => x.code), ['HGO']);
+  assert.ok((await (await get('/api/meetings/lookups', superTok)).json()).sites.length > 1);
+});

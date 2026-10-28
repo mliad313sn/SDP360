@@ -14,8 +14,8 @@ Legend: ✔ synthetic evidence exists (test named) · ◐ partial · — not yet
 | Central IT administrator | P0 | `admin` (site-less) | ◐ | ✔ | ◐ | — | n/a | — | — | — | ◐ | inherited over-privilege = DEC-04 |
 | Site coordinator/editor | P0 | `editor` + `users.site_id` (+`user_sites`) | ◐ | ✔ | ✔ | ✔ | ✔ | ◐ | ◐ | — | ◐ | `audit-report-write-auth.smoke`, `multi-site-editor.smoke`, `tracker-save-site-scope.smoke`; offline queue unverified |
 | Read-only analyst | P0 | `viewer` | ◐ | ✔ | n/a | ✔ | — | — | ◐ | — | — | `route-authz.smoke` (viewer 403 on role-gated routes); **F-M02-001**: anonymous visitors no longer obtain the dash key |
-| Site business owner | P0 | `site-business` | ◐ | ◐ | n/a | — | — | — | — | — | — | Site Overview isolation untested end-to-end (M06) |
-| Group business sponsor | P0 | `group-business` | ◐ | ◐ | n/a | — | — | — | — | — | — | exact scope = DEC-02 |
+| Site business owner | P0 | `site-business` | ◐ | ✔ | n/a | ✔ | ◐ | — | ✔ | — | — | `business-only-boundary.smoke`: server allowlist enforced (F-M06-001); per-site isolation inside Site Awareness = existing `site-awareness-routes.smoke` |
+| Group business sponsor | P0 | `group-business` | ◐ | ✔ | n/a | ✔ | n/a | — | ✔ | — | — | DEC-02 decided; `business-only-boundary.smoke` |
 | Portfolio manager | P1 | `portfolio-manager` | ◐ | — | — | — | — | — | — | — | — | M08 |
 | Dashboard author | P1 | `dashboard-author` | ◐ | — | — | — | — | — | — | — | — | M09 |
 | Dashboard publisher | P0 | `dashboard-publisher` | ◐ | — | — | — | — | — | — | — | — | M10 |

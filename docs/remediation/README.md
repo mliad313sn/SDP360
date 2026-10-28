@@ -82,6 +82,11 @@ Full history (1236 commits from `samaziz679/sdp-dashboard`) pushed to `mliad313s
 - The user appointed a Product Owner to drive decisions; DEC-01…DEC-06 are now decided in [DECISIONS.md](DECISIONS.md). DEC-03 implemented (internal plan page behind login).
 - Fixed a test-fixture defect (inspection stored without a site) that weakened run 3's inspection checks; they are now verified against a real SGO record.
 
+### Run 7 — 2026-10-28 · M06 business-only boundary + M03 pickers
+- **F-M06-001 (P0) fixed:** business-only accounts were limited in the browser only — a `site-business` session reached ~110 API routes. `services/businessGuard.js` now enforces the DEC-02 allowlist server-side (12 routes reachable, all intended). Writes outside it are 403. Accounts with any other role are unaffected.
+- **M03:** meetings/inspection site pickers list only the reader's sites (DEC-07 follow-up).
+- Full suite: 2630 tests, **0 fail**, 109 skipped (PG/snapshot).
+
 ## Dependency DAG
 
 Validated against the repository (no deviation from the roadmap order found yet):
@@ -100,8 +105,8 @@ M00 ─┬─ M01 deps/CI ── (env WP-M01-001/002 open)
 ```
 
 ## Next dependency-safe work packages
-1. **M06** — isolation tests for site-business / group-business on every API reachable from Site Awareness (DEC-02).
-2. **M03** — trim site dropdowns to the reader's sites on meetings/inspection pages (DEC-07 follow-up).
+1. **M14** — exports/downloads per persona: every export route's scope + CSV/formula injection check.
+2. **M02** — same read-scope rule for the remaining site-keyed modules (assets, site-actions hub, field) — verify, then align.
 2. **DEC-06 / R-02** — decide whether the 19 dash-key-only routes move behind a session (needs inventory of external X-Dash-Key clients).
 3. **T-M01-005** — run the pg half (`PG_TESTS_REQUIRED=1`) in a nonprod with PostgreSQL.
 4. Obtain the Batch 2 artifacts (blocks F01-F24 + 41 chart-contract import, M05).

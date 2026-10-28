@@ -1072,6 +1072,8 @@ app.use('/api/', async (req, res, next) => {
   return res.status(401).json({ error: 'Unauthorized' });
 });
 
+app.use('/api/', require('./services/businessGuard').middleware({ getUser: (req) => _sessionUser(req) }));   // M06 / DEC-02
+
 // ── Executive View — public read + admin editorial write ─────────────────────
 // GET /api/exec/summary is PUBLIC (exempted in the /api/ gate above): a
 // SharePoint-facing, aggregates-only snapshot with a 60 s server-side cache.

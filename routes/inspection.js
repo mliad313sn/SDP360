@@ -84,7 +84,10 @@ module.exports = function inspectionRoutes(deps) {
       // lets the dashboard offer Delete only on the editor's own site rows.
       // `scopes` (multi-site editors): every code of the user; `scope` = the primary (older pages).
       const scopes = rdb.userHasRole(req.reportUser, 'admin') ? null : ((await _userInspectionSites(req.reportUser)) || []);
-      res.json({ ...(await inspectionDb.loadLookups()), scope: scopes === null ? null : (scopes[0] || null), scopes });
+      const lk = await inspectionDb.loadLookups();
+      // DEC-07 / M03: a site-scoped reader's site pickers offer only their own sites.
+      if (scopes !== null && Array.isArray(lk.sites)) lk.sites = lk.sites.filter((x) => userSites.inScope(x.code, scopes));
+      res.json({ ...lk, scope: scopes === null ? null : (scopes[0] || null), scopes });
     } catch(e) {
       console.error('[Inspection] lookups error:', e.message);
       res.status(500).json({ error: e.message });
