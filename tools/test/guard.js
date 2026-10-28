@@ -36,4 +36,49 @@ function check({ expectedFiles, events, minTests }) {
   return { ok: problems.length === 0, problems, missing, tests: s.tests, failed: s.failed, reportedFiles: s.files.size };
 }
 
-module.exports = { parseEvents, summarize, check };
+// ── Suite census (consolidation P0-C, 2026-10-28) ─────────────────────────────
+// tests/.suite-manifest.json records, per test file, the number of tests it reported in a
+// reviewed run. A run FAILS when a listed file is gone or reports fewer tests than recorded
+// (silent drop, accidental deletion, a loop that stopped generating cases) or when a test file
+// is not in the manifest (a new file must be reviewed in: `npm test -- --update-manifest`).
+// Skipped tests count as reported; their reasons are listed separately (environment ≠ defect).
+function census(events) {
+  const out = {};
+  for (const e of events) {
+    if (!e.file || e.kind === 'suite') continue;
+    const k = path.basename(e.file);
+    const c = out[k] || (out[k] = { tests: 0, skipped: 0, reasons: {} });
+    c.tests++;
+    if (e.skip) { c.skipped++; c.reasons[e.skip] = (c.reasons[e.skip] || 0) + 1; }
+  }
+  return out;
+}
+
+function checkManifest({ manifest, census: cs, expectedFiles }) {
+  const problems = [];
+  const files = (manifest && manifest.files) || {};
+  const onDisk = new Set(expectedFiles.map((f) => path.basename(f)));
+  for (const [f, want] of Object.entries(files)) {
+    if (!onDisk.has(f)) { problems.push(`${f} is in the suite manifest but no longer exists (deleted test file?)`); continue; }
+    const got = cs[f] ? cs[f].tests : 0;
+    if (got < want) problems.push(`${f} reported ${got} tests, manifest expects at least ${want}`);
+  }
+  for (const f of onDisk) if (!(f in files)) problems.push(`${f} is not in tests/.suite-manifest.json — review it in with \`npm test -- --update-manifest\``);
+  return problems;
+}
+
+function skipReport(cs) {
+  const byReason = {};
+  for (const [f, c] of Object.entries(cs)) for (const [r, n] of Object.entries(c.reasons)) {
+    const b = byReason[r] || (byReason[r] = { tests: 0, files: [] }); b.tests += n; b.files.push(f);
+  }
+  return Object.entries(byReason).sort((a, b) => b[1].tests - a[1].tests);
+}
+
+function buildManifest(cs) {
+  const files = {};
+  for (const k of Object.keys(cs).sort()) files[k] = cs[k].tests;
+  return { note: 'Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest', total: Object.values(files).reduce((a, b) => a + b, 0), files };
+}
+
+module.exports = { parseEvents, summarize, check, census, checkManifest, skipReport, buildManifest };

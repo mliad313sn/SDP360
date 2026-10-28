@@ -6,7 +6,8 @@ export default async function* fileReporter(source) {
     if (ev.type === 'test:pass' || ev.type === 'test:fail') {
       const d = ev.data || {};
       yield JSON.stringify({ ok: ev.type === 'test:pass', file: d.file || null,
-        name: d.name, nesting: d.nesting, kind: (d.details && d.details.type) || 'test' }) + '\n';
+        name: d.name, nesting: d.nesting, kind: (d.details && d.details.type) || 'test',
+        skip: d.skip === undefined ? null : (d.skip === true ? 'no reason given' : String(d.skip)) }) + '\n';
     }
   }
 }

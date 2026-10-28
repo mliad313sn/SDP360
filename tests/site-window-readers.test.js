@@ -191,7 +191,7 @@ test('_computeOpenChanges: no rows → zeros and a null oldest, never NaN', () =
     { total: 0, overdue: 0, no_planned_end: 0, oldest: null, rows: 0 });
 });
 
-test('getSiteOpenChanges is GROUP-scoped and returns zeros for an unmapped site', { skip: !hasSnap }, () => {
+test('getSiteOpenChanges is GROUP-scoped and returns zeros for an unmapped site', { skip: !hasSnap && 'no prod-snapshot' }, () => {
   // No zoho_group → no groups → an empty (not throwing, not fleet-wide) result.
   // Reading change_records.site_id instead would return the wrong site's changes.
   const out = getSiteOpenChanges(-1, '2026-07-22');
