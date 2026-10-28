@@ -279,8 +279,11 @@ const loginLimiter = require('./services/rateLimit').persistentLimiter({
 });
 
 // Apply global limiter to all routes (except /health which is polled by Docker)
+// SDP_TEST_NO_RATE_LIMIT=1 lets the authorization sweeps hit every route (transplanted from the
+// 1.11 line); IGNORED when REQUIRE_POSTGRES=1 (production mode) so it can never weaken a live server.
+const _noRateLimit = process.env.SDP_TEST_NO_RATE_LIMIT === '1' && process.env.REQUIRE_POSTGRES !== '1';
 app.use((req, res, next) => {
-  if (req.path === '/health') return next();
+  if (req.path === '/health' || _noRateLimit) return next();
   globalLimiter(req, res, next);
 });
 
@@ -1058,6 +1061,7 @@ app.use('/api/', async (req, res, next) => {
   }
   return res.status(401).json({ error: 'Unauthorized' });
 });
+app.use('/api/', require('./services/businessGuard').middleware({ getRdb: () => rdb }));   // business-only accounts: site view only (consolidation P0)
 
 // ── Executive View — public read + admin editorial write ─────────────────────
 // GET /api/exec/summary is PUBLIC (exempted in the /api/ gate above): a
@@ -6514,7 +6518,7 @@ app.get('/api/reports/system-log/export.csv', requireReportSession, _syslogGate,
   try {
     const { rows } = await rdb.listSystemLog(_syslogFilters(req), { limit: 100000, offset: 0 });
     const COLS = ['ts','category','action','actor','actor_id','target','ip','risk','details'];
-    const esc = v => { const s = v == null ? '' : String(v); return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const esc = v => { const s = require('./public/lib/csvSafe').neutralize(v); return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
     const csv = '﻿' + [COLS.join(','), ...rows.map(r => COLS.map(c => esc(r[c])).join(','))].join('\r\n');
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="system-log.csv"');

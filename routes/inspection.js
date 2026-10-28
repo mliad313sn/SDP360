@@ -85,7 +85,9 @@ module.exports = function inspectionRoutes(deps) {
       // lets the dashboard offer Delete only on the editor's own site rows.
       // `scopes` (multi-site editors): every code of the user; `scope` = the primary (older pages).
       const scopes = rdb.userHasRole(req.reportUser, 'admin') ? null : ((await _userInspectionSites(req.reportUser)) || []);
-      res.json({ ...(await inspectionDb.loadLookups()), scope: scopes === null ? null : (scopes[0] || null), scopes });
+      const lk = await inspectionDb.loadLookups();   // DEC-07: pickers offer the reader's sites
+      if (scopes !== null && Array.isArray(lk.sites)) lk.sites = lk.sites.filter((x) => userSites.inScope(x.code, scopes));
+      res.json({ ...lk, scope: scopes === null ? null : (scopes[0] || null), scopes });
     } catch(e) {
       console.error('[Inspection] lookups error:', e.message);
       fail(res, e);
@@ -146,6 +148,23 @@ module.exports = function inspectionRoutes(deps) {
       fail(res, e);
     }
   });
+
+  // DEC-07 (transplanted 2026-10-28): inspection READS limited to the reader's own site(s); admin tier reads all.
+  const _READ_LIST_PATHS = ['/api/inspection/list', '/api/inspection/aggregate', '/api/inspection/actions'];
+  async function _inspectionReadScope(req, res, next) {
+    try {
+      const codes = await _userInspectionSites(req.reportUser);
+      if (codes === null) return next();
+      req.readSites = codes;
+      const wanted = req.query.site;
+      if (wanted && !userSites.inScope(String(wanted), codes)) {
+        return res.status(403).json({ error: `Site ${wanted} is outside your scope (${userSites.scopeLabel(codes) || 'no site'})` });
+      }
+      if (!wanted && _READ_LIST_PATHS.includes(req.path)) req.query.site = codes;
+      next();
+    } catch (e) { fail(res, e); }
+  }
+  router.get([..._READ_LIST_PATHS, '/api/inspection/:id'], requireReportSession, _inspectionReadScope);
 
   // GET /api/inspection/list — paginated header list with optional filters
   router.get('/api/inspection/list', requireReportSession, async (req, res) => {
@@ -266,6 +285,10 @@ module.exports = function inspectionRoutes(deps) {
       if (!inspectionDb) return res.status(503).json({ error: 'Inspection module not available' });
       const rec = await inspectionDb.getInspection(req.params.id);
       if (!rec) return res.status(404).json({ error: 'Not found' });
+      const sc = rec.header && rec.header.site_code;
+      if (req.readSites && !userSites.inScope(sc, req.readSites)) {
+        return res.status(403).json({ error: `This inspection belongs to ${sc}; you are scoped to ${userSites.scopeLabel(req.readSites) || 'no site'}` });
+      }
       res.json(rec);
     } catch(e) {
       console.error('[Inspection] get error:', e.message);

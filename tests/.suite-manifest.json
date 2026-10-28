@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 2744,
+ "total": 2762,
  "files": {
   "a11y-static.test.js": 11,
   "action-import-window.smoke.test.js": 3,
@@ -74,6 +74,7 @@
   "backup-schedule.test.js": 6,
   "bind-cors-cookie.test.js": 6,
   "boot-config.test.js": 4,
+  "business-only-boundary.smoke.test.js": 5,
   "business-roles.test.js": 4,
   "ci-config.test.js": 6,
   "commitment-backfill.test.js": 3,
@@ -85,8 +86,10 @@
   "config-secrets.test.js": 21,
   "coordinator-actions-block.test.js": 3,
   "copy-assets-nullpk.test.js": 5,
+  "cross-site-object-writes.smoke.test.js": 9,
   "csp-headers.smoke.test.js": 4,
   "csp-no-inline-handlers-new-pages.test.js": 2,
+  "csv-safe.test.js": 4,
   "dashboard-store.test.js": 4,
   "dashboard-widgets.test.js": 4,
   "dashboards-routes.smoke.test.js": 5,

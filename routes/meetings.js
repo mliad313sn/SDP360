@@ -100,11 +100,41 @@ async function _userMeetingsSites(user) {
   return userSites.codesFor(user, sites, (s) => inspectionDb.siteNameToCode(s ? s.name : null));
 }
 
+// DEC-07 (transplanted 2026-10-28 from the 1.11 line; consistent with D-14 "site-only scoping"):
+// meetings READS are limited to the reader's own site(s). The admin tier reads every site.
+// Lists/roll-ups: `site` narrowed to the reader's codes; ?site= outside them: 403; by-id: 403.
+const _READ_LIST_PATHS = ['/api/meetings/list', '/api/meetings/aggregate', '/api/meetings/insights',
+  '/api/meetings/issues', '/api/meetings/escalations', '/api/meetings/actions'];
+const _READ_SITE_PATHS = ['/api/meetings/unsigned', '/api/meetings/progress', '/api/meetings/progress/export-pptx',
+  '/api/meetings/compliance', '/api/meetings/:id', '/api/meetings/:id/export-pptx'];
+async function _meetingsReadScope(req, res, next) {
+  try {
+    const codes = await _userMeetingsSites(req.reportUser);
+    if (codes === null) return next();
+    req.readSites = codes;
+    const wanted = req.query.site;
+    if (wanted && !userSites.inScope(String(wanted), codes)) {
+      return res.status(403).json({ error: `Site ${wanted} is outside your scope (${userSites.scopeLabel(codes) || 'no site'})` });
+    }
+    if (!wanted && _READ_LIST_PATHS.includes(req.path)) req.query.site = codes;
+    next();
+  } catch (e) { fail(res, e); }
+}
+router.get([..._READ_LIST_PATHS, ..._READ_SITE_PATHS], requireReportSession, _meetingsReadScope);
+function _readDenied(req, res, siteCode) {
+  if (!req.readSites || userSites.inScope(siteCode, req.readSites)) return false;
+  res.status(403).json({ error: `This record belongs to ${siteCode}; you are scoped to ${userSites.scopeLabel(req.readSites) || 'no site'}` });
+  return true;
+}
+
 // GET /api/meetings/lookups — all bilingual lookups + canonical site list
 router.get('/api/meetings/lookups', requireReportSession, async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
-    res.json(await meetingsDb.loadLookups());
+    const lk = await meetingsDb.loadLookups();
+    const codes = await _userMeetingsSites(req.reportUser);   // DEC-07: pickers offer the reader's sites
+    if (codes !== null && Array.isArray(lk.sites)) lk.sites = lk.sites.filter((x) => userSites.inScope(x.code, codes));
+    res.json(lk);
   } catch(e) {
     console.error('[Meetings] lookups error:', e.message);
     fail(res, e);
@@ -195,7 +225,9 @@ router.get('/api/meetings/insights', requireReportSession, async (req, res) => {
 router.get('/api/meetings/compliance', requireReportSession, async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
-    res.json(await meetingsDb.compliance({ month: req.query.month || undefined }));
+    const out = await meetingsDb.compliance({ month: req.query.month || undefined });
+    if (req.readSites && out && Array.isArray(out.per_site)) out.per_site = out.per_site.filter((r) => userSites.inScope(r.site_code, req.readSites));
+    res.json(out);
   } catch(e) {
     console.error('[Meetings] compliance error:', e.message);
     fail(res, e);
@@ -406,6 +438,7 @@ router.get('/api/meetings/:id', requireReportSession, async (req, res, next) => 
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
     const rec = await meetingsDb.getMeeting(parseInt(req.params.id, 10));
     if (!rec) return res.status(404).json({ error: 'Not found' });
+    if (_readDenied(req, res, (rec.header || rec).site_code)) return;
     res.json(rec);
   } catch(e) {
     console.error('[Meetings] get error:', e.message);
@@ -842,6 +875,7 @@ router.get('/api/meetings/:id/export-pptx', requireReportSession, async (req, re
     if (!meetingsPptx) return res.status(503).json({ error: 'PPTX generator not available' });
     const meeting = await meetingsDb.getMeeting(parseInt(req.params.id, 10));
     if (!meeting) return res.status(404).json({ error: 'Meeting not found' });
+    if (_readDenied(req, res, (meeting.header || meeting).site_code)) return;
     const lookups = await meetingsDb.loadLookups();
     const buf     = await meetingsPptx.generatePvPptx(meeting, lookups);
     // Sanitise the reference for the filename (no path separators or quote

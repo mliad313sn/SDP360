@@ -38,6 +38,18 @@
  */
 
 'use strict';
+
+// DEC-07 (transplanted 2026-10-28 from the 1.11 line): a site filter may be ONE code or a LIST
+// of codes (a site-scoped reader's sites). An empty list matches nothing.
+// `form`: 'eq' (col = x), 'nocase' (sqlite COLLATE NOCASE), 'lower' (lower(col) = lower(x)).
+function _siteClause(col, site, params, form) {
+  const list = Array.isArray(site) ? site : [site];
+  if (!list.length) return '1=0';
+  const names = list.map((v, i) => { const n = 'site' + (list.length > 1 || Array.isArray(site) ? i : ''); params[n] = v; return '@' + n; });
+  if (form === 'lower') return names.length === 1 ? `lower(${col}) = lower(${names[0]})` : `lower(${col}) IN (${names.map(n => `lower(${n})`).join(', ')})`;
+  const c = form === 'nocase' ? `${col} COLLATE NOCASE` : col;
+  return names.length === 1 ? `${c} = ${names[0]}` : `${c} IN (${names.join(', ')})`;
+}
 const { inScope: _inScope } = require('./services/userSites');   // multi-site editors: a scope may be a list of codes
 
 const Database = require('better-sqlite3');
@@ -536,7 +548,7 @@ async function _loadLookupsPg() {
 // Shared WHERE-builder for listMeetings/countMeetings (named @params; ILIKE for q).
 function _meetingsWhere(opts) {
   const where = [], params = {};
-  if (opts.site)       { where.push('m.site_code = @site');       params.site = opts.site; }
+  if (opts.site)       { where.push(_siteClause('m.site_code', opts.site, params, 'eq')); }
   if (opts.department) { where.push('m.department = @department'); params.department = opts.department; }
   if (opts.status)     { where.push('m.status = @status');         params.status = opts.status; }
   if (opts.intake)     { where.push('m.intake_source = @intake');  params.intake = opts.intake; }
@@ -607,7 +619,7 @@ function listMeetings(opts = {}) {
   const db = getDB();
   const where  = [];
   const params = {};
-  if (opts.site)        { where.push('m.site_code = @site');         params.site = opts.site; }
+  if (opts.site)        { where.push(_siteClause('m.site_code', opts.site, params, 'eq')); }
   if (opts.department)  { where.push('m.department = @department');  params.department = opts.department; }
   if (opts.status)      { where.push('m.status = @status');          params.status = opts.status; }
   if (opts.intake)      { where.push('m.intake_source = @intake');   params.intake = opts.intake; }
@@ -650,7 +662,7 @@ function countMeetings(opts = {}) {
   const db = getDB();
   const where  = [];
   const params = {};
-  if (opts.site)        { where.push('m.site_code = @site');         params.site = opts.site; }
+  if (opts.site)        { where.push(_siteClause('m.site_code', opts.site, params, 'eq')); }
   if (opts.department)  { where.push('m.department = @department');  params.department = opts.department; }
   if (opts.status)      { where.push('m.status = @status');          params.status = opts.status; }
   if (opts.intake)      { where.push('m.intake_source = @intake');   params.intake = opts.intake; }
@@ -1288,7 +1300,7 @@ function listIssues(opts = {}) {
   const db = getDB();
   const where = [];
   const params = {};
-  if (opts.site)        { where.push('m.site_code = @site');        params.site = opts.site; }
+  if (opts.site)        { where.push(_siteClause('m.site_code', opts.site, params, 'eq')); }
   if (opts.department)  { where.push('m.department = @department'); params.department = opts.department; }
   if (opts.category)    { where.push('i.category = @category');     params.category = opts.category; }
   if (opts.severity)    { where.push('i.severity = @severity');     params.severity = opts.severity; }
@@ -1462,7 +1474,7 @@ async function _addIssueUpdatePg(issueId, opts = {}) {
 }
 async function _listIssuesPg(opts = {}) {
   const where = [], params = {};
-  if (opts.site)        { where.push('m.site_code = @site');        params.site = opts.site; }
+  if (opts.site)        { where.push(_siteClause('m.site_code', opts.site, params, 'eq')); }
   if (opts.department)  { where.push('m.department = @department'); params.department = opts.department; }
   if (opts.category)    { where.push('i.category = @category');     params.category = opts.category; }
   if (opts.severity)    { where.push('i.severity = @severity');     params.severity = opts.severity; }
@@ -1524,7 +1536,7 @@ function listActions(opts = {}) {
   const db = getDB();
   const where = [];
   const params = {};
-  if (opts.site)       { where.push('m.site_code = @site COLLATE NOCASE');         params.site = opts.site; }
+  if (opts.site)       { where.push(_siteClause('m.site_code', opts.site, params, 'nocase')); }
   if (opts.department) { where.push('m.department = @department COLLATE NOCASE');  params.department = opts.department; }
   if (opts.status)     { where.push('a.status = @status');                          params.status = opts.status; }
   if (opts.owner) {
@@ -1605,7 +1617,7 @@ async function exportRows(opts = {}) {
 
 async function _listActionsPg(opts = {}) {
   const where = [], params = {};
-  if (opts.site)       { where.push('lower(m.site_code) = lower(@site)');        params.site = opts.site; }
+  if (opts.site)       { where.push(_siteClause('m.site_code', opts.site, params, 'lower')); }
   if (opts.department) { where.push('lower(m.department) = lower(@department)'); params.department = opts.department; }
   if (opts.status)     { where.push('a.status = @status');                       params.status = opts.status; }
   if (opts.owner)      { where.push('(a.owner_it ILIKE @owner OR a.owner_email ILIKE @owner)'); params.owner = '%' + opts.owner + '%'; }
@@ -1670,7 +1682,7 @@ function insights(opts = {}) {
 
   const extra = [];
   const params = { from, to };
-  if (opts.site)       { extra.push('m.site_code = @site');         params.site = opts.site; }
+  if (opts.site)       { extra.push(_siteClause('m.site_code', opts.site, params, 'eq')); }
   if (opts.department) { extra.push('m.department = @department');  params.department = opts.department; }
   const extraW = extra.length ? ' AND ' + extra.join(' AND ') : '';
 
@@ -1868,7 +1880,7 @@ async function _insightsPg(opts = {}) {
 
   const extra = [];
   const params = { from, to };
-  if (opts.site)       { extra.push('m.site_code = @site');        params.site = opts.site; }
+  if (opts.site)       { extra.push(_siteClause('m.site_code', opts.site, params, 'eq')); }
   if (opts.department) { extra.push('m.department = @department'); params.department = opts.department; }
   const extraW = extra.length ? ' AND ' + extra.join(' AND ') : '';
 
@@ -2081,7 +2093,7 @@ function aggregate(opts = {}) {
   const db = getDB();
   const where  = [];
   const params = {};
-  if (opts.site)       { where.push('m.site_code = @site');         params.site = opts.site; }
+  if (opts.site)       { where.push(_siteClause('m.site_code', opts.site, params, 'eq')); }
   if (opts.department) { where.push('m.department = @department');  params.department = opts.department; }
   if (opts.from)       { where.push('m.meeting_date >= @from');     params.from = opts.from; }
   if (opts.to)         { where.push('m.meeting_date <= @to');       params.to = opts.to; }
@@ -2197,7 +2209,7 @@ function compliance(opts = {}) {
 async function _aggregatePg(opts = {}) {
   const H = pgHandle();
   const where = [], params = {};
-  if (opts.site)       { where.push('m.site_code = @site');        params.site = opts.site; }
+  if (opts.site)       { where.push(_siteClause('m.site_code', opts.site, params, 'eq')); }
   if (opts.department) { where.push('m.department = @department'); params.department = opts.department; }
   if (opts.from)       { where.push('m.meeting_date >= @from');    params.from = opts.from; }
   if (opts.to)         { where.push('m.meeting_date <= @to');      params.to = opts.to; }

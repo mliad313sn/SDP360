@@ -31,7 +31,7 @@ module.exports = function opmanagerRoutes(deps) {
     return { monthStart, monthEnd, label,
       fromISO: new Date(monthStart).toISOString(), toISO: new Date(monthEnd).toISOString() };
   }
-  function _csvCell(v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }
+  function _csvCell(v) { return '"' + require('../public/lib/csvSafe').neutralize(v).replace(/"/g, '""') + '"'; }
 
   function _safeParse(s, d) { try { return JSON.parse(s); } catch { return d; } }
   function _numOrNull(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }

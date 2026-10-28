@@ -694,7 +694,7 @@
   }
 
   // ── CSV export (UTF-8 BOM + CRLF + quote-escaped) ──
-  function csvCell(v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }
+  function csvCell(v) { var s = String(v == null ? '' : v); s = /^[=+\-@\t\r]/.test(s) && !/^[+-]?\d+(\.\d+)?$/.test(s) ? "'" + s : s; return '"' + s.replace(/"/g, '""') + '"'; }   // formula-injection guard
   function exportCsv() {
     var rows = [];
     rows.push(['type', 'obj_key', 'title/label', 'weight', 'progress_pct', 'status', 'confidence', 'target/delivery_date', 'evidence/notes', 'gap_note', 'sort_order']);

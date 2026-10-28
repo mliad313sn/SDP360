@@ -1382,7 +1382,7 @@ window.addEventListener('beforeprint', function () {
     const cols = state.columns || [], rows = state.rows || [];
     if (!rows.length) return;
     // CSV cell escaper — wrap in double quotes, double any internal quote.
-    const q = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const q = v => { const s = String(v == null ? '' : v); return '"' + (/^[=+\-@\t\r]/.test(s) && !/^[+-]?\d+(\.\d+)?$/.test(s) ? "'" + s : s).replace(/"/g, '""') + '"'; };   // formula-injection guard
     const lines = [cols.map(c => q(c.label)).join(',')];
     rows.forEach(r => lines.push(cols.map(c => q(r[c.key])).join(',')));
     const csv = '﻿' + lines.join('\r\n');   // UTF-8 BOM so Excel reads accents
