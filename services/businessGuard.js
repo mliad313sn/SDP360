@@ -9,7 +9,7 @@
 const { isBusinessOnly } = require('../public/lib/businessRoles');
 
 // 2.0 sends business-only users to site-awareness.html only; it calls nothing else.
-const ALLOWED = [/^\/site-awareness(\/|$)/, /^\/reports\/auth\//, /^\/auth\//, /^\/ping$/];
+const ALLOWED = [/^\/site-awareness(\/|$)/, /^\/reports\/auth\//, /^\/auth\//, /^\/ping$/, /^\/health\/version$/];   // version info: not sensitive
 function isAllowed(path) { return ALLOWED.some((re) => re.test(path)); }
 
 function _cookie(req, name) {

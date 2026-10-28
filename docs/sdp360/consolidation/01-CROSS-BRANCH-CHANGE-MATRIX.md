@@ -5,10 +5,10 @@ the control is missing on 2.0), then the control was ported, adapted to 2.0, and
 
 | 1.11 commit / item | Control | 2.0 evidence before | Disposition | 2.0 commit / test |
 |---|---|---|---|---|
-| `e573016` F-M02-001 dash key injected for anonymous visitors | key only with a session | 18/18 of the 1.11 test pass on 2.0 (2.0's C1 fix) | **ALREADY_PRESENT** (2.0 stricter: 2 key-only routes vs 19 on 1.11) | — (2.0 C1) |
+| `e573016` F-M02-001 dash key injected for anonymous visitors | key only with a session | 18/18 of the 1.11 test pass on 2.0 (2.0's C1 fix) | **ALREADY_PRESENT** (key-only routes: 16 on 2.0 vs 19 on 1.11) | — (2.0 C1) |
 | `7667671` WP-M01-001 suite without `.env` | `tests/_default-env.js` preload | 64 fails on fresh 2.0 run | **PORT_WITH_ADAPTATION** (into 2.0's `run-all.js`) | `645f940` |
 | `7667671` WP-M01-002 send-weekly 2 cancelled | test stub | 10/10 pass on 2.0 | **ALREADY_PRESENT** | — |
-| `7667671` WP-M02-003 pin dash-key-only routes | guard test | 2.0 probe: 2 key-only routes (`/api/ping`, `/api/data/ticket-volume`) | **TEST_ONLY — pending**, backlog WP-C-07 | — |
+| `7667671` WP-M02-003 pin dash-key-only routes | guard test | 2.0 sweep: 16 key-only routes | **TEST_ONLY** — transplanted | `dashkey-only-routes.smoke` |
 | `9b1b831` WP-M02-004 object-ID substitution (meetings/inspection writes) | handlers already enforce | 6/6 write tests pass on 2.0 | **ALREADY_PRESENT** + test transplanted | `efd92e9` `cross-site-object-writes.smoke` |
 | `68594c6` F-M02-003 site-less field quick action | — | 2.0 has **no** field quick actions | **OBSOLETE** (feature absent) | — |
 | `cb66e2d` DEC-07 meetings + inspection reads own sites | read scope + `_siteClause` | 1.11 tests 8-10 fail on 2.0 | **PORT_WITH_ADAPTATION** | `efd92e9` |

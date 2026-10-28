@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 2765,
+ "total": 2768,
  "files": {
   "a11y-static.test.js": 11,
   "action-import-window.smoke.test.js": 3,
@@ -93,6 +93,7 @@
   "dashboard-store.test.js": 4,
   "dashboard-widgets.test.js": 4,
   "dashboards-routes.smoke.test.js": 5,
+  "dashkey-only-routes.smoke.test.js": 1,
   "db-backup-collision.test.js": 2,
   "db-schema-smoke.test.js": 4,
   "deck-governance-composers.test.js": 3,
@@ -126,6 +127,7 @@
   "governance-pure.test.js": 4,
   "governance-routes.smoke.test.js": 4,
   "governance-store.test.js": 5,
+  "health-version.smoke.test.js": 2,
   "help-assets-section.test.js": 9,
   "help-recent-updates.test.js": 6,
   "help-teams-sla-section.test.js": 7,

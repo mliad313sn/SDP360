@@ -8,6 +8,7 @@ Branch `claude/sdp360-consolidation` (from `fb78494`). Release: **NO-GO** (no de
 | P0 security transplant (CG-01/02/03) | `efd92e9` | yes | integration in-process (sqlite + PG 16) | no | no | no |
 | Dependency advisories (CG-05) | `9e7d5f1` | yes | full suite + goldens | n/a | no | n/a (CAB D-11) |
 | DEC-03 (CG-04) | `6a556de` | yes | integration in-process | no | no | no |
+| P0-E version endpoint (CG-09) + CG-08 pin | next commit | yes | integration in-process (sqlite + PG 16) | n/a | no | n/a |
 
 ## Remaining GO/NO-GO blockers
 

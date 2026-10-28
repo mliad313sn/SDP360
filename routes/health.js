@@ -9,12 +9,15 @@ const { fail } = require('../services/httpError');
 //                             data, no token state, no identifiers.
 //   GET /api/health/views   — Zoho view-schema check, session + admin tier (was key/query-token only).
 //   GET /api/health/restore-drill — last `restore_drill` system_log row (E11), super_admin.
+//   GET /api/health/version — package version + build SHA + Node + start time; any signed-in user
+//                             (consolidation P0-E / backlog E0.3). Nothing sensitive: no host, path or config.
 //
 // Wiring in server.js:
 //   app.use(require('./routes/health')({ express, checkZohoViewSchema, requireReportSession, getRdb }));
 // ─────────────────────────────────────────────────────────────────────────
 module.exports = function healthRoutes(deps) {
-  const { express, checkZohoViewSchema, requireReportSession, getRdb } = deps;
+  const { express, checkZohoViewSchema, requireReportSession, getRdb, getBuild } = deps;
+  const startedAt = new Date().toISOString();
   const router = express.Router();
 
 // Readiness: can we reach the database? When was the last sync job marked successful?
@@ -33,6 +36,11 @@ router.get('/ready', async (req, res) => {
     }
   } catch (e) { db = false; }
   res.status(db ? 200 : 503).json({ ok: db, db, last_job_at });
+});
+
+router.get('/api/health/version', requireReportSession, (req, res) => {
+  res.json({ version: require('../package.json').version, build: (getBuild && getBuild()) || null,
+    node: process.version, started_at: startedAt });
 });
 
 // Expose as an admin-only endpoint for manual health checks (session required — the admin tier
