@@ -29,5 +29,8 @@
   },
   "devDependencies": {
     "esbuild": "^0.28.2"
+  },
+  "overrides": {
+    "image-size": "^2.0.4"
   }
 }
