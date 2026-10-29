@@ -1052,6 +1052,7 @@ app.use((req, res, next) => {
 // Fiche C1 (2026-10-20): the x-dash-key ALONE is accepted only for server-to-server callers
 // (tools/, scheduled jobs). A browser context — a report_token cookie OR an Origin header — must
 // carry a valid session; the key is never read from the query string.
+const _dashKeyGate = require('./services/viewLog').makeOncePerDay();   // EX-02: dash-key call evidence
 app.use('/api/', async (req, res, next) => {
   if (req.path.startsWith('/reports/')) return next(); // protected by requireReportSession
   // Public Executive View summary — aggregates-only, no auth (SharePoint-facing).
@@ -1067,7 +1068,15 @@ app.use('/api/', async (req, res, next) => {
   const key   = req.headers['x-dash-key'];
   const cookieToken = getCookie(req, 'report_token');
   const browserContext = !!(cookieToken || req.headers.origin);
-  if (!browserContext && _safeEqual(key, DASH_API_KEY)) return next(); // server-to-server key (constant-time)
+  if (!browserContext && _safeEqual(key, DASH_API_KEY)) {   // server-to-server key (constant-time)
+    // EX-02 / D-15 evidence: who still calls with the key alone — once a day per route and source
+    const _src = (req.ip || '') + ' ' + String(req.headers['user-agent'] || '').slice(0, 80);
+    const _full = '/api' + req.path;   // req.path is relative to the /api/ mount; the query string is never logged
+    if (_dashKeyGate(req.method + ' ' + _full + ' ' + _src, new Date().toISOString().slice(0, 10)) && rdb && rdb.logEvent) {
+      rdb.logEvent({ category: 'api', action: 'dashkey_call', actor: 'dash-key', target: req.method + ' ' + _full, ip: req.ip, details: { user_agent: String(req.headers['user-agent'] || '').slice(0, 160) } });
+    }
+    return next();
+  }
   const token = sessionAuth.sessionToken(req);
   if (rdb && token) {
     let user; try { user = await rdb.validateSession(token); } catch (e) { user = null; }

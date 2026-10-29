@@ -41,3 +41,12 @@ test('dash key alone reaches only the known legacy routes', async () => {
   }
   assert.deepEqual(reached.filter((id) => !KEY_ONLY_KNOWN.has(id)), [], 'new routes reachable with only the dash key');
 });
+
+test('EX-02 / D-15 evidence: a key-only call is recorded once a day per route and source (no secret stored)', async () => {
+  const rdb = require('../reports-db');
+  for (let i = 0; i < 3; i++) await call('GET', '/api/ping', { 'x-dash-key': process.env.DASHBOARD_API_KEY, 'user-agent': 'scheduled-task-probe' });
+  await new Promise((r) => setTimeout(r, 300));          // logEvent is fire-and-forget
+  const rows = (((await rdb.listSystemLog({ action: 'dashkey_call' }, { limit: 50 })) || {}).rows || []).filter((r) => r.target === 'GET /api/ping' && String(r.details || '').includes('scheduled-task-probe'));
+  assert.equal(rows.length, 1, 'once per day, not once per call');
+  assert.ok(!JSON.stringify(rows[0]).includes(process.env.DASHBOARD_API_KEY), 'the key itself is never logged');
+});

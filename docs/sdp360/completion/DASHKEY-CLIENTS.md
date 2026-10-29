@@ -34,6 +34,11 @@ The **external callers** column is for the platform owner: scheduled tasks, Powe
 
 These are read-only checks; nothing is changed:
 
+- **Since 2026-10-29 the dashboard records the evidence itself** (EX-02): every call that passes on the key alone
+  writes one System Log line per route, source address and client name per day (`category = api`,
+  `action = dashkey_call`, target = method + path, user agent; the key and the query string are never logged).
+  System Logs ▸ filter *dashkey_call* over 30 days gives the external callers to put in the table above.
+
 - IIS access logs: requests to `/api/data/` or `/api/ping` that carry no `report_token` cookie.
 - Windows Task Scheduler: tasks whose action calls the dashboard URL.
 - Power BI / Excel workbooks with a web data source pointing at the dashboard.
