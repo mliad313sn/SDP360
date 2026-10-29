@@ -58,3 +58,21 @@ jobs:
       - name: Secret scan of the tracked files (EX-01, blocking)
         run: node tools/security/secret-scan.js
       - run: npm test
+      # EX-03 — release rehearsal on PostgreSQL 17 (the service container): migrations, 100 000 synthetic
+      # tickets, encrypted backup, restore, row-by-row reconciliation, a broken dump rolled back. Timed.
+      - name: PostgreSQL 17 client tools (same major as the server)
+        run: |
+          sudo apt-get install -y -q postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -q postgresql-client-17
+      - name: PostgreSQL 17 backup / restore / rollback rehearsal
+        env:
+          PG_DUMP: /usr/lib/postgresql/17/bin/pg_dump
+          PG_PSQL: /usr/lib/postgresql/17/bin/psql
+        run: node tools/pg/restore-rehearsal.js --rows 100000 --out rehearsal
+      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        if: always()
+        with:
+          name: pg17-rehearsal
+          path: rehearsal/
+          if-no-files-found: warn
