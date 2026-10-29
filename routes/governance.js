@@ -156,7 +156,7 @@ module.exports = function governanceRoutes(deps) {
       const groups = [];
       // one group per distinct policy: per cadence today, per session date when meetings.compliance_as_of is on
       const byPol = new Map();
-      for (const s of recent) { const pol = await polForSession(cadById.get(s.cadence_id), s); const k = JSON.stringify(pol); if (!byPol.has(k)) byPol.set(k, { sessions: [], policy: pol }); byPol.get(k).sessions.push(s); }
+      for (const s of recent) { const pol = await polForSession(cadById.get(s.cadence_id), s); const k = JSON.stringify(pol) + '|' + (pol.__off_days || []).join(','); if (!byPol.has(k)) byPol.set(k, { sessions: [], policy: pol }); byPol.get(k).sessions.push(s); }
       for (const g of byPol.values()) groups.push(g);
       const compliance30d = SL.complianceByContext(groups, new Date());
       res.json({ ok: true, committee: isCommittee(req.reportUser), cadences: cad.length, compliance_30d: compliance30d, sessions_held_30d: sess.filter(s => s.status === 'closed' && String(s.closed_at || '').slice(0, 10) >= new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10)).length, sessions_planned: sess.filter(s => s.status === 'planned').length,

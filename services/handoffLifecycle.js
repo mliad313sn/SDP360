@@ -110,8 +110,10 @@ function overdue(rows, today, pol) {
   const grace = Math.max(0, Number(P['handoffs.escalation_grace_days']) || 0);
   const t = Date.parse(String(today || '').slice(0, 10) + 'T00:00:00Z');
   if (!Number.isFinite(t)) return [];
-  const d = new Date(t - grace * 864e5).toISOString().slice(0, 10);   // escalate when due_date < today − grace
-  return (rows || []).filter((h) => OPEN.includes(h.status) && h.status !== 'escalated' && h.due_date && String(h.due_date).slice(0, 10) < d);
+  // escalate when more than `grace` WORKING days have passed since the due date (committee #40: holidays,
+  // shutdowns and — under calendar.skip_weekends — weekends do not count). No calendar = calendar days.
+  const WC = require('./workCalendar');
+  return (rows || []).filter((h) => OPEN.includes(h.status) && h.status !== 'escalated' && h.due_date && WC.workingDaysAfter(h.due_date, today, pol) > grace);
 }
 
 function allowed(h, actor) {

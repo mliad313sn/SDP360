@@ -97,6 +97,10 @@ const PARAMS = [
   P('handoffs.proxy_accept', 'bool', false, { area: 'handoffs', protected: true, stricter: 'false',
     en: 'A handoff may name a receiver who has no account (e.g. a department head); the receiver account (a coordinator) then records each step on their behalf, with a note every time. Off = only people with an account receive handoffs, the behaviour until now.',
     fr: 'Une demande peut désigner un destinataire sans compte (ex. un chef de service) ; le compte destinataire (un coordinateur) enregistre alors chaque étape en son nom, avec une note à chaque fois. Désactivé = seules les personnes ayant un compte reçoivent des demandes, le fonctionnement actuel.' }),
+  // ── working calendar (committee #40) ───────────────────────────────────────────────────────────
+  P('calendar.skip_weekends', 'bool', false, { area: 'calendar', protected: true, stricter: 'false',
+    en: 'Saturdays and Sundays are not working days for the overdue rules (handoff escalation grace and days overdue, escalation levels, missed sessions). Holidays and shutdowns are listed per site in the calendar. Off = every day counts, the behaviour until now.',
+    fr: 'Samedi et dimanche ne sont pas des jours ouvrés pour les règles de retard (délai d\'escalade et jours de retard des demandes, niveaux d\'escalade, séances manquées). Les fériés et arrêts sont listés par site dans le calendrier. Désactivé = tous les jours comptent, le fonctionnement actuel.' }),
   // ── commitments (G-18) ───────────────────────────────────────────────────────────────────────────
   P('commitments.escalation_enabled', 'bool', true, { area: 'commitments', protected: true, stricter: 'true',
     en: 'Record A01 / A02 escalations (serious commitment without owner / overdue without exception).',
@@ -236,10 +240,20 @@ function makePolicyStore(db, { now = () => new Date().toISOString(), ttlMs = 300
     }
     return groupMap.get(Number(siteId)) || [];
   }
-  const invalidate = () => { cache = null; groupAt = 0; };
+  // committee #40 — holiday / shutdown days per site (+ platform rows), attached to every snapshot
+  let offMap = null, offAt = 0;
+  async function offDaysOf(siteId) {
+    if (!offMap || Date.now() - offAt > ttlMs) {
+      try { const m = new Map(); for (const r of await Q('SELECT site_id, day FROM site_calendar WHERE removed_at IS NULL').all()) { const k = r.site_id == null ? 'all' : Number(r.site_id); if (!m.has(k)) m.set(k, []); m.get(k).push(String(r.day).slice(0, 10)); } offMap = m; offAt = Date.now(); }
+      catch (_) { if (!offMap) offMap = new Map(); }
+    }
+    return [...(offMap.get('all') || []), ...(siteId == null ? [] : (offMap.get(Number(siteId)) || []))];
+  }
+  const WC = require('./workCalendar');
+  const invalidate = () => { cache = null; groupAt = 0; offMap = null; };
   /** All resolved values for a context. Never throws: last good snapshot, else the defaults. */
   async function snapshot({ siteId = null } = {}) {
-    try { return snapshotFrom(await rows(), siteId, await groupsOf(siteId)); } catch (_) { return { ...DEFAULTS }; }
+    try { return WC.withOffDays(snapshotFrom(await rows(), siteId, await groupsOf(siteId)), await offDaysOf(siteId)); } catch (_) { return { ...DEFAULTS }; }
   }
   /** The policy in force at `at` (history replay), cached per history version. */
   let histCache = null, histVersion = null;
@@ -247,7 +261,7 @@ function makePolicyStore(db, { now = () => new Date().toISOString(), ttlMs = 300
     try {
       const v = await version();
       if (!histCache || histVersion !== v) { histCache = await Q('SELECT id, scope, key, new_value, at, expires_at FROM governance_policy_history ORDER BY id').all(); histVersion = v; }
-      return snapshotFrom(rowsAsOf(histCache, at), siteId, await groupsOf(siteId));   // groups as of today (site attributes are not historised)
+      return WC.withOffDays(snapshotFrom(rowsAsOf(histCache, at), siteId, await groupsOf(siteId)), await offDaysOf(siteId));   // groups as of today (site attributes are not historised)
     } catch (_) { return snapshot({ siteId }); }
   }
   async function view({ siteIds = [] } = {}) {

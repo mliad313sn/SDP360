@@ -135,6 +135,7 @@
         { id: 'report-studio', label: 'Report studio',     icon: ICON_LIB['file-text'],       href: 'report-studio.html',    roles: ['any'] },
         { id: 'notifications', label: 'Notifications',     icon: ICON_LIB['alert-circle'],    href: 'notifications.html',    roles: ['any'] },
         { id: 'handoffs',     label: 'Handoffs',           icon: ICON_LIB.users,              href: 'handoffs.html',         roles: ['any'] },
+        { id: 'obligations',  label: 'Site obligations',   icon: ICON_LIB['clipboard-check'], href: 'obligations.html',      roles: ['any'] },
         { id: 'policies',     label: 'Governance policies', icon: ICON_LIB['clipboard-check'], href: 'policies.html',        roles: ['admin', 'committee-member'] },
         { id: 'integrations', label: 'Integrations',       icon: ICON_LIB.zap,                href: 'integrations.html',     roles: ['admin'] },
         { id: 'field',        label: 'Field app',          icon: ICON_LIB['clipboard-check'], href: 'field/index.html',      roles: ['editor', 'field-tech'] }

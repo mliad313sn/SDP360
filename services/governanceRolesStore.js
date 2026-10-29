@@ -84,12 +84,39 @@ function makeGovernanceRolesStore(db, { now = () => new Date().toISOString() } =
       .map((e) => ({ ...e, id: Number(e.id), entity_id: e.entity_id == null ? null : Number(e.entity_id), details: e.details ? JSON.parse(e.details) : null }));
   }
 
+  // committee #40 — holiday / shutdown days (site_calendar, migration 037)
+  async function calendar({ from = null } = {}) {
+    const rows = from ? await P('SELECT * FROM site_calendar WHERE removed_at IS NULL AND day >= ? ORDER BY day, site_id NULLS FIRST').all(from)
+      : await P('SELECT * FROM site_calendar WHERE removed_at IS NULL ORDER BY day, site_id NULLS FIRST').all();
+    return ids(rows);
+  }
+  async function addCalendarDay(b, { actorId }) {
+    const day = String(b.day || '').slice(0, 10);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !Number.isFinite(Date.parse(day + 'T00:00:00Z'))) fail({ status: 400, code: 'VALIDATION', error: 'day must be YYYY-MM-DD' });
+    const kind = String(b.kind || 'holiday'); if (!['holiday', 'shutdown'].includes(kind)) fail({ status: 400, code: 'VALIDATION', error: 'kind must be holiday or shutdown' });
+    if (String(b.label || '').trim().length < 3) fail({ status: 400, code: 'VALIDATION', error: 'name the day (3+ characters)' });
+    return tx(async () => {
+      const dup = await P('SELECT id FROM site_calendar WHERE removed_at IS NULL AND COALESCE(site_id, 0) = ? AND day = ?').get(b.site_id == null || b.site_id === '' ? 0 : Number(b.site_id), day);
+      if (dup) fail({ status: 409, code: 'CONFLICT', error: 'this day is already in the calendar' });
+      const r = await P('INSERT INTO site_calendar (site_id, day, kind, label, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id').get(n(b.site_id), day, kind, str(b.label, 120), n(actorId), now());
+      await event('calendar', r.id, 'added', actorId, { site_id: n(b.site_id), day, kind, label: str(b.label, 120) });
+      return Number(r.id);
+    });
+  }
+  async function removeCalendarDay(id, { actorId, reason }) {
+    if (String(reason || '').trim().length < 5) fail({ status: 400, code: 'VALIDATION', error: 'a reason (5+ characters) is required' });
+    return tx(async () => {
+      const r = await P('UPDATE site_calendar SET removed_by=?, removed_at=? WHERE id=? AND removed_at IS NULL').run(n(actorId), now(), Number(id));
+      if (Number(r && r.changes) !== 1) fail({ status: 404, code: 'NOT_FOUND', error: 'day not found or already removed' });
+      await event('calendar', id, 'removed', actorId, { reason: str(reason) });
+    });
+  }
   /** People a deputy stands in for today (used by the lifecycles). */
   async function principalsOf(userId, today) { return R.principalsOf((await snapshot()).deputies, userId, today || now()); }
   /** Escalation target + targets' ids for one overdue item. */
   async function escalationTarget(q) { return R.escalationTarget(await snapshot(), { today: now(), ...q }); }
 
-  return { snapshot, assign, endAssignment, addDeputy, revokeDeputy, addMatrixRow, retireMatrixRow, events, principalsOf, escalationTarget };
+  return { calendar, addCalendarDay, removeCalendarDay, snapshot, assign, endAssignment, addDeputy, revokeDeputy, addMatrixRow, retireMatrixRow, events, principalsOf, escalationTarget };
 }
 
 module.exports = { makeGovernanceRolesStore };

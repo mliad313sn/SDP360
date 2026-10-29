@@ -97,12 +97,12 @@
       reasonTitle: 'Reason for the change', reasonLabel: 'Why is this value changing? (kept in the history)', relaxNote: 'This makes a protected rule less strict: another super_admin must approve it, and it reverts after the number of days below.',
       days: 'Days before it reverts (max 90 by default)', pending: (id) => `Proposal #${id} recorded — another super_admin must approve it before it applies.`, relaxedRisk: ' (relaxed — logged as a risk)',
       approve: 'Approve', reject: 'Reject', decideTitle: (d) => (d === 'approve' ? 'Approve this relaxation' : 'Reject this proposal'), decideLabel: 'Reason for your decision', none: 'No pending proposal.', proposedBy: 'proposed by', until: 'until',
-      areas: { governance: 'governance', reports: 'reports', freshness: 'freshness', publication: 'publication', meetings: 'meetings', handoffs: 'handoffs', commitments: 'commitments' } },
+      areas: { governance: 'governance', reports: 'reports', freshness: 'freshness', publication: 'publication', meetings: 'meetings', handoffs: 'handoffs', commitments: 'commitments', calendar: 'working calendar' } },
     fr: { inherit: 'hériter', on: 'activé', off: 'désactivé', protected: 'protégée', relaxed: 'assouplie', def: 'défaut', platform: 'plateforme', effective: 'appliquée', rule: 'Règle', thisSite: 'Ce site', platformValue: 'Valeur plateforme', save: 'Enregistrer', platformOnly: 'Règle de plateforme uniquement',
       reasonTitle: 'Motif du changement', reasonLabel: 'Pourquoi cette valeur change-t-elle ? (conservé dans l\'historique)', relaxNote: 'Cette modification assouplit une règle protégée : un autre super_admin doit l\'approuver, et elle prend fin après le nombre de jours ci-dessous.',
       days: 'Jours avant le retour à la règle stricte (90 au plus par défaut)', pending: (id) => `Proposition n° ${id} enregistrée — un autre super_admin doit l'approuver avant qu'elle s'applique.`, relaxedRisk: ' (assouplie — journalisée comme risque)',
       approve: 'Approuver', reject: 'Refuser', decideTitle: (d) => (d === 'approve' ? 'Approuver cet assouplissement' : 'Refuser cette proposition'), decideLabel: 'Motif de votre décision', none: 'Aucune proposition en attente.', proposedBy: 'proposée par', until: 'jusqu\'au',
-      areas: { governance: 'gouvernance', reports: 'rapports', freshness: 'fraîcheur des données', publication: 'publication', meetings: 'réunions', handoffs: 'demandes inter-services', commitments: 'engagements' } },
+      areas: { governance: 'gouvernance', reports: 'rapports', freshness: 'fraîcheur des données', publication: 'publication', meetings: 'réunions', handoffs: 'demandes inter-services', commitments: 'engagements', calendar: 'calendrier ouvré' } },
   };
   const t = () => L[lang === 'fr' ? 'fr' : 'en'];
   const msg = (x, ok) => { $('gpMsg').className = 'gp-msg ' + (ok ? 'gp-ok' : 'gp-err'); $('gpMsg').textContent = !ok && lang === 'fr' && window.ErrorText ? window.ErrorText.fr(x) : x; };

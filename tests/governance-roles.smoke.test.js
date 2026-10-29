@@ -167,3 +167,23 @@ test('an overdue handoff reaches the matrix target and their deputy, the next le
   const csv = await (await send('GET', '/api/governance/oversight?format=csv', P.admin)).text();
   assert.match(csv, /role_gap/);
 });
+
+test('calendar: a shutdown day keeps an overdue handoff inside its grace; admin tier only; history kept', async () => {
+  const GP = require('../services/governancePolicy');
+  assert.equal((await send('POST', '/api/governance/roles/calendar', P.viewer, { day: plus(-1), site_id: mana, label: 'Plant shutdown' })).status, 403);
+  assert.equal((await send('POST', '/api/governance/roles/calendar', P.admin, { day: 'tomorrow', site_id: mana, label: 'Plant shutdown' })).status, 400);
+  const store = require('../routes/handoffs').createStore(rdb);
+  const c = await json(await send('POST', '/api/handoffs', P.mana, { ...mkBody({ site_id: mana, receiver: 'gr_group', title: 'Calendar job' }) }));
+  await rdb.db.prepare('UPDATE handoffs SET due_date=? WHERE id=?').run(plus(-1), c.body.handoff.id);
+  // grace of 0 working days: yesterday's due date is overdue today — unless today is a Mana shutdown day
+  const r = await json(await send('POST', '/api/governance/roles/calendar', P.admin, { day: today(), site_id: mana, label: 'Plant shutdown', kind: 'shutdown' }));
+  assert.equal(r.status, 201);
+  assert.equal((await send('POST', '/api/governance/roles/calendar', P.admin, { day: today(), site_id: mana, label: 'Plant shutdown' })).status, 409, 'once per day and site');
+  let out = await store.escalateOverdue({ policyFor: (siteId) => GP.forContext({ siteId }) });
+  assert.ok(!out.some((h) => h.id === c.body.handoff.id), 'a shutdown day does not count');
+  assert.equal((await send('POST', `/api/governance/roles/calendar/${r.body.id}/remove`, P.admin, { reason: 'shutdown cancelled' })).status, 200);
+  out = await store.escalateOverdue({ policyFor: (siteId) => GP.forContext({ siteId }) });
+  assert.ok(out.some((h) => h.id === c.body.handoff.id), 'once removed, the day counts again');
+  const ev = (await json(await send('GET', '/api/governance/roles/events', P.admin))).body.events;
+  assert.ok(ev.some((e) => e.entity === 'calendar' && e.action === 'removed'));
+});

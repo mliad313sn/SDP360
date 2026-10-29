@@ -72,3 +72,23 @@ test('commitment escalations reach the matrix target only when the notice switch
   r = await route.routeCommitmentEscalations({ cmtStore, rolesStore, notify: async (n) => sent.push(n), notifyEnabled: true, today: '2026-10-22' });
   assert.equal(r.notified, 0, 'below the matrix level (2 d < 5 d): no target'); assert.equal(r.gaps.length, 0);
 });
+
+test('working calendar: holidays, shutdowns and (by policy) weekends do not count', () => {
+  const WC = require('../services/workCalendar');
+  const HL = require('../services/handoffLifecycle');
+  const SL = require('../services/sessionLifecycle');
+  assert.equal(WC.workingDaysAfter('2026-10-20', '2026-10-28', {}), 8, 'no calendar = calendar days (the behaviour until now)');
+  const pol = WC.withOffDays({ 'handoffs.escalation_grace_days': 2 }, ['2026-10-27', '2026-10-28']);
+  assert.deepEqual(Object.keys(pol), ['handoffs.escalation_grace_days'], 'off days are not a policy key');
+  assert.equal(WC.workingDaysAfter('2026-10-25', '2026-10-28', pol), 1);
+  const h = [{ id: 1, status: 'accepted', due_date: '2026-10-25' }];
+  assert.equal(HL.overdue(h, '2026-10-28', { 'handoffs.escalation_grace_days': 2 }).length, 1, 'without the shutdown: escalated');
+  assert.equal(HL.overdue(h, '2026-10-28', pol).length, 0, 'two shutdown days: still inside the grace');
+  const we = WC.withOffDays({ 'calendar.skip_weekends': true }, []);
+  assert.equal(WC.workingDaysAfter('2026-10-23', '2026-10-26', we), 1, 'Friday → Monday = one working day');
+  const s = [{ status: 'planned', scheduled_at: '2026-10-27T09:00:00Z' }, { status: 'planned', scheduled_at: '2026-10-21T09:00:00Z' }];
+  const c0 = SL.compliance(s, new Date('2026-10-29T12:00:00Z'), {});
+  assert.equal(c0.unexcused, 2);
+  const c1 = SL.compliance(s, new Date('2026-10-29T12:00:00Z'), WC.withOffDays({}, ['2026-10-27']));
+  assert.equal(c1.unexcused, 1); assert.equal(c1.calendar_excused, 1, 'missed on a site holiday = excused');
+});

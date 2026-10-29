@@ -102,6 +102,7 @@ function inEffectiveWindow(cad, scheduledAt) {
  * Compliance counts for a set of sessions at `now`: held = logged + accepted (never planned, never missed);
  * excused = cancelled with an approved exception; unexcused = missed + cancelled without approval.
  */
+const WC = require('./workCalendar');
 function compliance(sessions, now = new Date(), pol = null) {
   const P = _pol(pol);
   const c = { planned: 0, held: 0, logged: 0, accepted: 0, missed: 0, cancelled: 0, excused: 0, unexcused: 0, in_progress: 0 };
@@ -111,7 +112,7 @@ function compliance(sessions, now = new Date(), pol = null) {
     else if (st === 'held') c.in_progress++;
     else if (st === 'logged') { c.held++; c.logged++; }
     else if (st === 'accepted') { c.held++; c.accepted++; }
-    else if (st === 'missed') { c.missed++; c.unexcused++; }
+    else if (st === 'missed') { c.missed++; if (WC.isOff(s.scheduled_at, pol)) { c.excused++; c.calendar_excused = (c.calendar_excused || 0) + 1; } else c.unexcused++; }   // committee #40: a session missed on a site holiday / shutdown is excused
     else if (st === 'cancelled') { c.cancelled++; if (s.exception_status === 'approved' || P['meetings.cancel_requires_approval'] === false) c.excused++; else c.unexcused++; }
   }
   const due = c.held + c.unexcused;

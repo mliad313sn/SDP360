@@ -35,7 +35,8 @@ async function routeCommitmentEscalations({ cmtStore, rolesStore, policyFor, not
     for (const c of r.raised || []) {
       const cm = await cmtStore.getRaw(c.commitment_id).catch(() => null);
       if (!cm) continue;
-      const overdueDays = c.kind === 'A02' && cm.due_date ? Math.max(0, Math.round((Date.parse(d + 'T00:00:00Z') - Date.parse(String(cm.due_date).slice(0, 10) + 'T00:00:00Z')) / 864e5)) : 0;
+      const pol = policyFor ? await policyFor(cm.site_id) : null;
+      const overdueDays = c.kind === 'A02' && cm.due_date ? require('./workCalendar').workingDaysAfter(cm.due_date, d, pol) : 0;   // working days (committee #40)
       const e = await rolesStore.escalationTarget({ register: 'commitments', severity: cm.severity || '*', siteId: cm.site_id, overdueDays });
       if (e.gap) gaps.push({ commitment_id: Number(cm.id), role: e.role, site_id: cm.site_id });
       if (notifyEnabled && notify && e.targets.length) {

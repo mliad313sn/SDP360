@@ -111,10 +111,12 @@ function makeHandoffStore(db, { now = () => new Date().toISOString() } = {}) {
     const rows = (await P(`SELECT * FROM handoffs WHERE status IN ('requested','accepted','blocked') AND due_date IS NOT NULL AND due_date < ? AND (escalated_for_due IS NULL OR escalated_for_due <> due_date)`).all(d)).map(row);
     const out = [];
     const bySite = new Map(); for (const h of rows) { if (!bySite.has(h.site_id)) bySite.set(h.site_id, []); bySite.get(h.site_id).push(h); }
-    const due = [];
-    for (const [sid, list] of bySite) due.push(...L.overdue(list, d, policyFor ? await policyFor(sid) : null));
+    const due = []; const pols = new Map();
+    const WC = require('./workCalendar');
+    const polOf = async (sid) => { if (!pols.has(sid)) pols.set(sid, policyFor ? await policyFor(sid) : null); return pols.get(sid); };
+    for (const [sid, list] of bySite) due.push(...L.overdue(list, d, await polOf(sid)));
     for (const h of due) {
-      const overdueDays = Math.max(0, Math.round((Date.parse(d + 'T00:00:00Z') - Date.parse(String(h.due_date).slice(0, 10) + 'T00:00:00Z')) / 864e5));
+      const overdueDays = WC.workingDaysAfter(h.due_date, d, await polOf(h.site_id));   // working days (committee #40)
       let esc = null;
       if (targetFor) { try { esc = await targetFor(h, overdueDays); } catch (_) { esc = null; } }
       const ok = await tx(async () => {
@@ -131,7 +133,7 @@ function makeHandoffStore(db, { now = () => new Date().toISOString() } = {}) {
     if (targetFor) {
       const still = (await P(`SELECT * FROM handoffs WHERE status='escalated' AND due_date IS NOT NULL AND due_date < ?`).all(d)).map(row);
       for (const h of still) {
-        const overdueDays = Math.max(0, Math.round((Date.parse(d + 'T00:00:00Z') - Date.parse(String(h.due_date).slice(0, 10) + 'T00:00:00Z')) / 864e5));
+        const overdueDays = WC.workingDaysAfter(h.due_date, d, await polOf(h.site_id));
         let esc = null; try { esc = await targetFor(h, overdueDays); } catch (_) { esc = null; }
         if (!esc || !esc.matched) continue;
         const seen = (await P(`SELECT details FROM handoff_events WHERE handoff_id=? AND action IN ('escalated_overdue','escalation_level')`).all(h.id))

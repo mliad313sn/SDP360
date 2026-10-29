@@ -45,6 +45,7 @@ const PROBES = {
   'handoffs.overdue_escalation': [false, (v) => HL.overdue([{ id: 1, status: 'requested', due_date: '2026-10-20' }], '2026-10-28', pol('handoffs.overdue_escalation', v)).length],
   'handoffs.escalation_grace_days': [14, (v) => HL.overdue([{ id: 1, status: 'requested', due_date: '2026-10-20' }], '2026-10-28', pol('handoffs.escalation_grace_days', v)).length],
   'handoffs.proxy_accept': [true, (v) => outcome(HL.contactCheck('Chef maintenance', pol('handoffs.proxy_accept', v)))],
+  'calendar.skip_weekends': [true, (v) => HL.overdue([{ id: 1, status: 'requested', due_date: '2026-10-23' }], '2026-10-26', { 'calendar.skip_weekends': v, 'handoffs.escalation_grace_days': 1 }).length],
   'meetings.reopen_two_people': [true, (v) => JSON.stringify(SL.reopenStep([{ action: 'accepted', actor_id: 2 }], { id: 1 }, pol('meetings.reopen_two_people', v)))],
   'commitments.serious_due_move_needs_admin': [false, (v) => outcome(CL.dueMoveCheck({ severity: 'high', baseline_due_date: '2026-10-01' }, '2026-12-01', { isAdmin: false, policy: pol('commitments.serious_due_move_needs_admin', v) }))],
   'commitments.exception_max_days': [10, (v) => CL.exceptionExpiry('2026-10-28T00:00:00Z', pol('commitments.exception_max_days', v))],

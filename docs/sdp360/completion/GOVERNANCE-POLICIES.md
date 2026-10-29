@@ -58,6 +58,7 @@ Freshness defaults are taken from the sync job declarations (`services/sync/jobs
 | `handoffs.overdue_escalation` | handoffs | bool | true | — | yes | **protected** | An open handoff past its due date is escalated automatically. |
 | `handoffs.escalation_grace_days` | handoffs | int | 0 | 0 – 60 | yes | **protected** | Days after the due date before the automatic escalation. |
 | `handoffs.proxy_accept` | handoffs | bool | false | — | yes | **protected** | A handoff may name a receiver who has no account (e.g. a department head); the receiver account (a coordinator) then records each step on their behalf, with a note every time. Off = only people with an account receive handoffs, the behaviour until now. |
+| `calendar.skip_weekends` | calendar | bool | false | — | yes | **protected** | Saturdays and Sundays are not working days for the overdue rules (handoff escalation grace and days overdue, escalation levels, missed sessions). Holidays and shutdowns are listed per site in the calendar. Off = every day counts, the behaviour until now. |
 | `commitments.escalation_enabled` | commitments | bool | true | — | yes | **protected** | Record A01 / A02 escalations (serious commitment without owner / overdue without exception). |
 | `commitments.serious_due_move_needs_admin` | commitments | bool | true | — | yes | **protected** | Moving the due date of a high / critical commitment past its original (baseline) date needs the admin tier — a site editor cannot clear an A02 overdue alert alone. |
 | `commitments.exception_max_days` | commitments | int | 90 | 1 – 365 | yes | **protected** | An approved exception (overdue serious commitment) lapses after this many days; the A02 alert comes back unless it is renewed. |
@@ -71,6 +72,8 @@ Governance policies ▸ **Roles, deputies and escalation** (`GET/POST /api/gover
 - **Deputies** — a person stands in for an absent colleague between two dates (≤ 120 days, same site, admin tier); the deputy acts in their name (`acting_for`), never verifies the work of the person they replace.
 - **Escalation matrix** — register × severity × site × days overdue → role (super_admin). The escalation jobs record the target on the event and, when the notice switch is on, tell the holders (and their deputies). Each further level is raised once.
 - Required roles without a holder and rules that reach nobody appear in the oversight register (`role_gaps`).
+- **Working calendar** (migration 037, admin tier) — holiday / shutdown days per site or for every site: they do not count in the handoff escalation grace and days overdue, in the escalation levels, and a session missed on such a day is excused (`calendar_excused`). Weekends by the rule `calendar.skip_weekends`.
+- **KPI targets per site** (migration 038, super_admin; `GET/POST /api/metrics/targets`) — `GET /api/metrics/:key?site=` returns `target`, `target_source` (site / platform) and `vs_target` (attainment and colour through the shared RAG table, policy `kpi-target`). The KPI definitions stay D-01..D-03.
 - Every change is in `governance_role_events` (append-only, hash-chained). Empty tables = the behaviour until now.
 
 ## Site profiles

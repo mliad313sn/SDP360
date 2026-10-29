@@ -1276,7 +1276,7 @@ function loadHtml(name) {
   'site-awareness.html',
   'assets.html', 'assets-hygiene.html', 'assets-finance.html', 'wan.html', 'wan-health.html', 'wan-sla.html', 'itsm-roadmap.html',
   'infra-health.html', 'itsm-integrations-plan.html',
-  'dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html', 'cockpit.html', 'portfolio.html', 'rfi.html', 'report-studio.html', 'notifications.html', 'integrations.html', 'commitments.html', 'handoffs.html', 'policies.html',
+  'dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html', 'cockpit.html', 'portfolio.html', 'rfi.html', 'report-studio.html', 'notifications.html', 'integrations.html', 'commitments.html', 'handoffs.html', 'obligations.html', 'policies.html',
 ].forEach(loadHtml);
 
 // Helper: build the per-request HTML, inject api-key + nonce, send. Pages
@@ -7622,6 +7622,7 @@ const _cmtStore = require('./routes/commitments').createStore(require('./reports
 app.use(require('./routes/policies')({ express, requireReportSession, sendHtmlPage }));   // governance policies (027) — every regulation behaviour as a parameter
 const _rolesStore = require('./routes/governanceRoles').createStore(require('./reports-db')); app.use(require('./routes/governanceRoles')({ express, requireReportSession, store: _rolesStore }));   // ADR-006 — roles, deputies, escalation matrix (035)
 const _hoStore = require('./routes/handoffs').createStore(require('./reports-db')); app.use(require('./routes/handoffs')({ express, requireReportSession, store: _hoStore, rolesStore: _rolesStore, commitmentStore: _cmtStore, sendHtmlPage, notify: (n) => _engStore.notify(n) }));   // G-22 — interdepartmental handoffs (026), flags handoffs_enabled + handoff_notify_enabled
+app.use(require('./routes/obligations')({ express, requireReportSession, sendHtmlPage, getCommitmentStore: () => _cmtStore, getHandoffStore: () => _hoStore }));   // committee #39 — one read-only view of what a site owes
 
 // ══════════════════════════════════════════════════════════════════
 // MEETINGS — routes live in routes/meetings.js (Step 5 modularisation). The meetings-db

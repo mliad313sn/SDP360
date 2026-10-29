@@ -9,6 +9,8 @@
 //   POST /api/governance/roles/deputies/:id/revoke   { reason }                                                              admin tier
 //   POST /api/governance/roles/matrix                { register, severity, site_id|null, after_days, role, reason }         super_admin
 //   POST /api/governance/roles/matrix/:id/retire     { reason }                                                              super_admin
+//   POST /api/governance/roles/calendar              { site_id|null, day, kind: holiday|shutdown, label }                    admin tier
+//   POST /api/governance/roles/calendar/:id/remove   { reason }                                                              admin tier
 // Who holds authority is a super_admin decision; standing in for an absent colleague is operational (admin
 // tier). A deputy must be active and share a site with the person they replace (or be in the admin tier).
 // Empty tables = the behaviour until now.
@@ -51,7 +53,8 @@ module.exports = function governanceRoleRoutes(deps) {
         .sort((a, b) => String(a.name).localeCompare(String(b.name), 'fr'));
       res.json({ ok: true, today: today(), can_write_roles: isSuper(req.reportUser), can_write_deputies: isAdmin(req.reportUser),
         roles: R.ROLES, registers: R.REGISTERS, required: R.REQUIRED, deputy_max_days: R.DEPUTY_MAX_DAYS,
-        ...snap, gaps: R.coverageGaps(snap, sites, today()), sites, people });
+        ...snap, gaps: R.coverageGaps(snap, sites, today()), sites, people,
+        calendar: await store.calendar({ from: new Date(Date.now() - 31 * 864e5).toISOString().slice(0, 10) }) });
     } catch (e) { fail(res, e); }
   });
   router.get('/api/governance/roles/events', requireReportSession, requireCommittee, async (req, res) => {
@@ -84,6 +87,19 @@ module.exports = function governanceRoleRoutes(deps) {
   });
   router.post('/api/governance/roles/deputies/:id/revoke', requireReportSession, requireAdminTier, json, async (req, res) => {
     try { await store.revokeDeputy(req.params.id, { actorId: req.reportUser.id, reason: (req.body || {}).reason }); log(req, 'deputy_revoked', req.params.id, {}); res.json({ ok: true }); } catch (e) { fail(res, e); }
+  });
+
+  // committee #40 — holiday / shutdown calendar (admin tier); a change applies at once (policy cache reset)
+  router.post('/api/governance/roles/calendar', requireReportSession, requireAdminTier, json, async (req, res) => {
+    try {
+      const b = req.body || {}; const id = await store.addCalendarDay(b, { actorId: req.reportUser.id });
+      require('../services/governancePolicy').shared().invalidate();
+      log(req, 'calendar_day_added', b.day, { id, site_id: b.site_id == null || b.site_id === '' ? null : Number(b.site_id), kind: b.kind || 'holiday' });
+      res.status(201).json({ ok: true, id });
+    } catch (e) { fail(res, e); }
+  });
+  router.post('/api/governance/roles/calendar/:id/remove', requireReportSession, requireAdminTier, json, async (req, res) => {
+    try { await store.removeCalendarDay(req.params.id, { actorId: req.reportUser.id, reason: (req.body || {}).reason }); require('../services/governancePolicy').shared().invalidate(); log(req, 'calendar_day_removed', req.params.id, {}); res.json({ ok: true }); } catch (e) { fail(res, e); }
   });
 
   router.post('/api/governance/roles/matrix', requireReportSession, requireSuper, json, async (req, res) => {
