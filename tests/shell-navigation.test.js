@@ -11,13 +11,14 @@ const SRC = fs.readFileSync(path.join(ROOT, 'public', '_shell.js'), 'utf8').repl
 const ICONS = fs.readFileSync(path.join(ROOT, 'public', 'brand', 'icons.js'), 'utf8');
 
 const j = (x) => JSON.parse(JSON.stringify(x)); // sandbox arrays come from another realm
-function load(roles, { businessOnly = false } = {}) {
+function load(roles, { businessOnly = false, lang = null, navLang = 'en-US' } = {}) {
   const mount = { dataset: { section: 'operations', current: 'portfolio' }, innerHTML: '' };
   const document = { readyState: 'complete', getElementById: (id) => (id === '__shell' ? mount : null), addEventListener() {}, querySelector: () => null, querySelectorAll: () => [] };
   const HIER = ['viewer', 'editor', 'admin', 'executive', 'super_admin'];
   const has = (r) => roles.includes(r) || (HIER.includes(r) && roles.some((x) => HIER.indexOf(x) >= HIER.indexOf(r)));
   const window = { __userHasRole: has, __isBusinessOnly: businessOnly, __authUser: { full_name: 'Ana', role: roles[0] }, EDV_ICONS: { html: (k) => `<svg data-i="${k}"></svg>`, get: () => '' } };
-  vm.runInNewContext(SRC, { window, document, console });
+  const localStorage = { getItem: (k) => (k === 'sdp_lang' ? lang : null), setItem() {} };
+  vm.runInNewContext(SRC, { window, document, console, localStorage, navigator: { language: navLang } });
   return { shell: window.__shell, mount };
 }
 
@@ -85,7 +86,7 @@ test('breadcrumb: section › group › page as plain text (the section has no o
 test('no single-character shortcut (WCAG 2.1.4): only Ctrl/Cmd+K opens the finder', () => {
   assert.ok(!/e\.key === '\/'/.test(SRC), 'the "/" shortcut is gone');
   assert.match(SRC, /\(e\.ctrlKey \|\| e\.metaKey\) && !e\.altKey && \(e\.key === 'k' \|\| e\.key === 'K'\)/);
-  assert.match(SRC, /title="Find a page \(Ctrl\+K\)"/);
+  assert.match(load(['admin']).mount.innerHTML, /title="Find a page \(Ctrl\+K\)"/);
 });
 
 test('menus open only through the caret for keyboard users: no :focus-within opener, no focus stop on the wrapper', () => {
@@ -103,4 +104,25 @@ test('finder announces the result count and remembers who opened it', () => {
   assert.match(mount.innerHTML, /class="shell-search-btn" aria-haspopup="dialog" aria-expanded="false"/);
   assert.match(SRC, /searchOpener = document\.activeElement/);
   assert.match(SRC, /document\.addEventListener\('focusout'/);
+});
+
+test('the header follows the shared language: French labels, English search terms still work', () => {
+  const fr = load(['admin'], { lang: 'fr' });
+  assert.match(fr.mount.innerHTML, /<span class="shell-nav-label">Opérations</);
+  assert.match(fr.mount.innerHTML, /class="shell-dd-heading" aria-hidden="true">Gouvernance</);
+  assert.match(fr.mount.innerHTML, /<nav class="shell-breadcrumb" aria-label="Fil d'Ariane">/);
+  assert.match(fr.mount.innerHTML, /class="shell-lang-btn"[^>]*>EN</);
+  assert.ok(fr.shell.searchEntries('portefeuille').some((e) => e.href === 'portfolio.html'), 'French term');
+  assert.ok(fr.shell.searchEntries('portfolio').some((e) => e.href === 'portfolio.html'), 'English term still found');
+  // no saved choice → the browser language; a saved choice wins over the browser
+  assert.match(load(['admin'], { navLang: 'fr-FR' }).mount.innerHTML, /shell-nav-label">Opérations</);
+  const en = load(['admin'], { lang: 'en', navLang: 'fr-FR' });
+  assert.match(en.mount.innerHTML, /shell-nav-label">Operations</);
+  assert.match(en.mount.innerHTML, /class="shell-lang-btn"[^>]*>FR</);
+});
+
+test('the light breadcrumb style applies to the <nav> trail only, never to a page title bar', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'public', '_shell.css'), 'utf8');
+  assert.doesNotMatch(css, /^\.shell-breadcrumb\s*\{[^}]*background:\s*#F4F6F9/m, 'unscoped rule would paint the Helpdesk title bar white');
+  assert.match(css, /nav\.shell-breadcrumb \{ background: #F4F6F9/);
 });

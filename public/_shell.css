@@ -390,12 +390,12 @@ body {
 .shell-dd-group + .shell-dd-group { border-top: 1px solid rgba(255,255,255,.12); margin-top: 4px; padding-top: 4px; }
 .shell-dd-heading { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--shell-text-mute); padding: 6px 10px 2px; }
 .shell-dropdown a:focus-visible, .shell-nav-caret:focus-visible, .shell-search-btn:focus-visible { outline: 2px solid var(--shell-orange-light); outline-offset: 2px; }
-.shell-breadcrumb { background: #F4F6F9; border-bottom: 1px solid #E2E7EE; font-size: 12.5px; }
-.shell-breadcrumb ol { list-style: none; margin: 0; padding: 6px 20px; display: flex; flex-wrap: wrap; gap: 4px; }
-.shell-breadcrumb li + li::before { content: '›'; color: #6B7785; margin-right: 4px; }
-.shell-breadcrumb a { color: #2A5490; text-decoration: none; }
-.shell-breadcrumb a:hover { text-decoration: underline; }
-.shell-breadcrumb [aria-current="page"] { color: #3A4A60; font-weight: 600; }
+nav.shell-breadcrumb { background: #F4F6F9; border-bottom: 1px solid #E2E7EE; font-size: 12.5px; }
+nav.shell-breadcrumb ol { list-style: none; margin: 0; padding: 6px 20px; display: flex; flex-wrap: wrap; gap: 4px; }
+nav.shell-breadcrumb li + li::before { content: '›'; color: #6B7785; margin-right: 4px; }
+nav.shell-breadcrumb a { color: #2A5490; text-decoration: none; }
+nav.shell-breadcrumb a:hover { text-decoration: underline; }
+nav.shell-breadcrumb [aria-current="page"] { color: #3A4A60; font-weight: 600; }
 .shell-search-btn { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,.08); color: var(--shell-text-strong); border: 1px solid rgba(255,255,255,.18); border-radius: 6px; padding: 5px 9px; font: inherit; font-size: 12.5px; cursor: pointer; }
 .shell-search-btn svg { width: 15px; height: 15px; }
 .shell-search-btn kbd { font: 11px/1 inherit; border: 1px solid rgba(255,255,255,.3); border-radius: 3px; padding: 1px 4px; color: var(--shell-text-mute); }
@@ -410,5 +410,10 @@ body {
 .shell-search-head { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #5B6675; padding: 4px 8px; }
 .shell-search-empty { color: #5B6675; padding: 8px; }
 .shell-sr, .shell-search-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-@media (max-width: 900px) { .shell-search-label, .shell-search-btn kbd { display: none; } .shell-breadcrumb ol { padding: 6px 12px; } }
+@media (max-width: 900px) { .shell-search-label, .shell-search-btn kbd { display: none; } nav.shell-breadcrumb ol { padding: 6px 12px; } }
 @media (max-width: 640px) { .shell-search { top: 100px; } }
+
+/* G18 — language switch in the header (one preference for the whole application) */
+.shell-lang-btn { background: rgba(255,255,255,.08); color: #fff; border: 1px solid rgba(255,255,255,.25); border-radius: 6px; font: 600 12px/1 inherit; padding: 6px 8px; cursor: pointer; min-width: 32px; min-height: 28px; }
+.shell-lang-btn:hover { background: rgba(255,255,255,.18); }
+.shell-lang-btn:focus-visible { outline: 2px solid #FFB366; outline-offset: 2px; }

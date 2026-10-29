@@ -276,6 +276,45 @@
     return out;
   }
 
+  // ── Navigation language (G18): the shared preference 'sdp_lang', else the browser language. Only the shell's own
+  // words are translated here (menus, groups, finder); each page translates its own body.
+  const SHELL_FR = {
+    'Admin': 'Administration', 'Executive': 'Direction', 'Helpdesk': 'Helpdesk', 'Infrastructure': 'Infrastructure',
+    'Operations': 'Opérations', 'Reports': 'Rapports', 'Help': 'Aide', 'Activity Tracker': "Suivi d'activité",
+    'Analytics': 'Analyses', 'Assets': 'Parc informatique', 'Dashboard': 'Tableau de bord', 'Dashboards': 'Tableaux de bord',
+    'Deck Builder': 'Générateur de présentations', 'Executive Home': 'Accueil direction', 'Executive Scorecard': 'Tableau de bord direction',
+    'Field app': 'Application terrain', 'Governance policies': 'Règles de gouvernance', 'Group IT': 'IT Groupe',
+    'Handoffs': 'Demandes inter-services', 'IT Review': 'Revue IT', 'Infrastructure Health': 'Santé des infrastructures',
+    'Inspections': 'Inspections', 'Integrations': 'Intégrations', 'Meeting Cockpit': 'Cockpit de réunion',
+    'Meetings Decisions': 'Réunions et décisions', 'Notifications': 'Notifications', 'Portfolio & projects': 'Portefeuille et projets',
+    'Portfolio': 'Portefeuille', 'RFI register': 'Registre des demandes', 'Report studio': 'Studio de rapports', 'Settings': 'Paramètres',
+    'Site Actions': 'Actions du site', 'Site IT': 'IT du site', 'Site Overview': 'Vue du site', 'Site Reports': 'Rapports de site',
+    'Site business view': 'Vue métier du site', 'Site obligations': 'Obligations du site', 'Start here': 'Pour commencer',
+    'System Logs': 'Journaux système', 'Technician': 'Technicien', 'Trackers': 'Trackers', 'WAN': 'WAN',
+    'Configure': 'Configurer', 'Governance': 'Gouvernance', 'Plan & track': 'Planifier et suivre', 'Report & share': 'Rapporter et partager',
+    'Assets and network estate': 'Parc et réseau', 'Executive dashboards — IT Review and Scorecard': 'Tableaux de bord de direction — Revue IT et tableau de bord',
+    'Service desk — dashboard and analytics': 'Centre de services — tableau de bord et analyses',
+    'Site governance — inspections, meetings, actions, roadmap': 'Gouvernance du site — inspections, réunions, actions, feuille de route',
+    'Site reports and executive deck builder': 'Rapports de site et générateur de présentations',
+    'User management & system settings': 'Utilisateurs et paramètres système', 'User manual': "Manuel d'utilisation",
+    'Read-only business overview of your site': 'Vue métier de votre site, en lecture seule',
+    'Find': 'Rechercher', 'Find a page (Ctrl+K)': 'Rechercher une page (Ctrl+K)', 'Find a page': 'Rechercher une page',
+    'Find a page — e.g. inspections, portfolio': 'Rechercher une page — ex. inspections, portefeuille',
+    'Breadcrumb': "Fil d'Ariane", 'Click to log out': 'Cliquer pour se déconnecter', 'Primary': 'Navigation principale',
+    'No page found': 'Aucune page trouvée', 'Language': 'Langue',
+  };
+  function shellLang() {
+    try { const s = localStorage.getItem('sdp_lang'); if (s === 'fr' || s === 'en') return s; } catch (_) { /* storage blocked */ }
+    try { return /^fr/i.test((typeof navigator !== 'undefined' && navigator.language) || '') ? 'fr' : 'en'; } catch (_) { return 'en'; }
+  }
+  const T = (s) => (shellLang() === 'fr' && SHELL_FR[s]) || s;
+  function translateNav(list) {
+    for (const o of list || []) {
+      for (const k of ['label', 'title', 'group']) if (typeof o[k] === 'string') { const en = o[k + '_en'] || (o[k + '_en'] = o[k]); o[k] = T(en); }
+      if (Array.isArray(o.children)) translateNav(o.children);
+    }
+  }
+
   // ── G17 — role workspaces: the first things each persona needs, in task order. Only entries the user can
   // open are listed (same role check as the menu). A starting point, never a permission.
   const WORKSPACES = [
@@ -293,8 +332,8 @@
   function allEntries() {
     const out = [];
     for (const sec of NAV) {
-      if (sec.href && !sec.children && hasAnyRole(sec.roles)) out.push({ id: sec.id, label: sec.label, href: sec.href, section: sec.label, group: '', target: sec.target });
-      for (const c of visibleItems(sec.children || [])) out.push({ id: c.id, label: c.label, href: c.href, section: sec.label, group: c.group || '', target: c.target });
+      if (sec.href && !sec.children && hasAnyRole(sec.roles)) out.push({ id: sec.id, label: sec.label, en: sec.label_en || '', href: sec.href, section: sec.label, group: '', target: sec.target });
+      for (const c of visibleItems(sec.children || [])) out.push({ id: c.id, label: c.label, en: c.label_en || '', href: c.href, section: sec.label, group: c.group || '', target: c.target });
     }
     return out;
   }
@@ -309,7 +348,7 @@
   function searchEntries(q) {
     const t = fold(q).trim();
     if (!t) return [];
-    return allEntries().filter(e => fold(e.label + ' ' + e.section + ' ' + e.group).includes(t)).slice(0, 12);
+    return allEntries().filter(e => fold(e.label + ' ' + e.section + ' ' + e.group + ' ' + (e.en || '')).includes(t)).slice(0, 12);
   }
   function breadcrumbFor(ctx) {
     const sec = NAV.find(n => n.id === ctx.section);
@@ -387,7 +426,7 @@
     if (!user) return '';
     const name = user.full_name || user.username || '—';
     const role = user.role || '—';
-    return `<div class="shell-user-pill" title="Click to log out" onclick="window.__logout && window.__logout()">
+    return `<div class="shell-user-pill" title="${T('Click to log out')}" onclick="window.__logout && window.__logout()">
       <span class="shell-user-initial" aria-hidden="true">${escapeHtml(String(name || '?').trim().charAt(0).toUpperCase())}</span>
       <span class="shell-user-name">${escapeHtml(name)}</span>
       <span class="shell-user-role">${escapeHtml(role)}</span>
@@ -403,18 +442,21 @@
     };
     const version = mount.dataset.version || '';
     const user    = window.__authUser || null;
+    translateNav(NAV); translateNav(WORKSPACES);
+    const lang = shellLang();
 
     const navHtml = NAV.filter(sectionVisible).map(it => renderNavItem(it, ctx)).join('');
 
     const html = `
-      <div class="shell-header" role="navigation" aria-label="Primary">
+      <div class="shell-header" role="navigation" aria-label="${T('Primary')}">
         <a href="${defaultLanding()}" class="shell-brand" title="Endeavour IT — go home">
           <div class="shell-logo" role="img" aria-label="Endeavour Mining"></div>
           <div class="shell-brand-text">Endeavour Mining<small>IT Dashboard</small></div>
         </a>
         <nav class="shell-nav">${navHtml}</nav>
         <div class="shell-actions">
-          <button type="button" class="shell-search-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="shell-search" title="Find a page (Ctrl+K)">${ICON_LIB.search || ''}<span class="shell-search-label">Find</span><kbd>Ctrl K</kbd></button>
+          <button type="button" class="shell-search-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="shell-search" title="${T('Find a page (Ctrl+K)')}">${ICON_LIB.search || ''}<span class="shell-search-label">${T('Find')}</span><kbd>Ctrl K</kbd></button>
+          <button type="button" class="shell-lang-btn" title="${T('Language')}" aria-label="${lang === 'fr' ? 'Switch to English' : 'Passer en français'}" lang="${lang === 'fr' ? 'en' : 'fr'}">${lang === 'fr' ? 'EN' : 'FR'}</button>
           ${renderUserPill(user)}
           ${version ? `<span class="shell-version">${escapeHtml(version)}</span>` : ''}
         </div>
@@ -426,9 +468,9 @@
     // again after login to refresh the user pill. The mount keeps its
     // data-section / data-current attributes for context.
     const crumbs = mount.dataset.breadcrumb === 'off' ? null : breadcrumbFor(ctx);
-    const crumbHtml = crumbs ? `<nav class="shell-breadcrumb" aria-label="Breadcrumb"><ol>${crumbs.map((c, i) => `<li>${c.href && i < crumbs.length - 1 ? `<a href="${escapeHtml(c.href)}">${escapeHtml(c.label)}</a>` : `<span${i === crumbs.length - 1 ? ' aria-current="page"' : ''}>${escapeHtml(c.label)}</span>`}</li>`).join('')}</ol></nav>` : '';
-    const searchHtml = `<div class="shell-search" id="shell-search" role="dialog" aria-label="Find a page" hidden>
-        <label class="shell-search-field"><span class="shell-sr">Find a page</span><input type="search" id="shell-search-q" placeholder="Find a page — e.g. inspections, portfolio" autocomplete="off" aria-controls="shell-search-list"></label>
+    const crumbHtml = crumbs ? `<nav class="shell-breadcrumb" aria-label="${T('Breadcrumb')}"><ol>${crumbs.map((c, i) => `<li>${c.href && i < crumbs.length - 1 ? `<a href="${escapeHtml(c.href)}">${escapeHtml(c.label)}</a>` : `<span${i === crumbs.length - 1 ? ' aria-current="page"' : ''}>${escapeHtml(c.label)}</span>`}</li>`).join('')}</ol></nav>` : '';
+    const searchHtml = `<div class="shell-search" id="shell-search" role="dialog" aria-label="${T('Find a page')}" hidden>
+        <label class="shell-search-field"><span class="shell-sr">${T('Find a page')}</span><input type="search" id="shell-search-q" placeholder="${T('Find a page — e.g. inspections, portfolio')}" autocomplete="off" aria-controls="shell-search-list"></label>
         <p class="shell-search-status" id="shell-search-status" aria-live="polite"></p>
         <ul id="shell-search-list" class="shell-search-list" aria-label="Pages"></ul>
       </div>`;
@@ -444,10 +486,11 @@
     let items = searchEntries(q), heading = '';
     if (!String(q || '').trim()) { const ws = workspaceFor(); items = ws ? ws.items : []; heading = ws ? ws.label : ''; }
     const st = document.getElementById('shell-search-status');
-    if (st) st.textContent = String(q || '').trim() ? (items.length ? `${items.length} page${items.length > 1 ? 's' : ''} found` : 'No page matches') : (heading ? `Suggested for you: ${items.length} page${items.length > 1 ? 's' : ''}` : '');
+    const fr = shellLang() === 'fr', pl = items.length > 1 ? 's' : '';
+    if (st) st.textContent = String(q || '').trim() ? (items.length ? (fr ? `${items.length} page${pl} trouvée${pl}` : `${items.length} page${pl} found`) : (fr ? 'Aucune page trouvée' : 'No page matches')) : (heading ? (fr ? `Suggestions pour vous : ${items.length} page${pl}` : `Suggested for you: ${items.length} page${pl}`) : '');
     list.innerHTML = (heading ? `<li class="shell-search-head">${escapeHtml(heading)}</li>` : '') +
       (items.length ? items.map(e => `<li><a href="${escapeHtml(e.href)}"${e.target ? ` target="${e.target}"` : ''}>${escapeHtml(e.label)} <small>${escapeHtml(e.section)}${e.group ? ' · ' + escapeHtml(e.group) : ''}</small></a></li>`).join('')
-        : `<li class="shell-search-empty">No page matches “${escapeHtml(q)}”.</li>`);
+        : `<li class="shell-search-empty">${fr ? 'Aucune page pour' : 'No page matches'} “${escapeHtml(q)}”.</li>`);
     return items;
   }
   let searchOpener = null;
@@ -492,6 +535,7 @@
     },
     NAV,
     WORKSPACES,
+    shellLang,
     workspaceFor,
     searchEntries,
     breadcrumbFor,
@@ -522,6 +566,13 @@
     // Caret click — toggle the dropdown without following the parent link (the caret sits inside it).
     const caret = e.target.closest('.shell-nav-caret');
     if (caret) { e.preventDefault(); e.stopPropagation(); toggleMenu(caret); return; }
+    if (e.target.closest('.shell-lang-btn')) {
+      e.preventDefault();
+      // one preference for the whole application; reload so the page body follows too
+      try { localStorage.setItem('sdp_lang', shellLang() === 'fr' ? 'en' : 'fr'); } catch (_) { /* storage blocked: nothing to remember */ }
+      location.reload();
+      return;
+    }
     if (e.target.closest('.shell-search-btn')) {
       e.preventDefault();
       const box = document.getElementById('shell-search');
