@@ -134,3 +134,8 @@ test('release.yml: the installer job builds through build.ps1 around the already
   const text = read('release.yml');
   assert.match(text, /build\.ps1 -Version \$v -PackageZip/);
 });
+
+test('G01: the PostgreSQL service gets enough shared memory (one database per test file exhausted Docker\'s 64 MB default)', () => {
+  const ci = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'ci.yml'), 'utf8');
+  assert.match(ci, /--shm-size=\d+[gm]/);
+});

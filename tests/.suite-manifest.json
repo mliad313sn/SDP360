@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 3016,
+ "total": 3017,
  "files": {
   "a11y-static.test.js": 13,
   "access-denied-log.smoke.test.js": 2,
@@ -81,7 +81,7 @@
   "boot-config.test.js": 4,
   "business-only-boundary.smoke.test.js": 6,
   "business-roles.test.js": 4,
-  "ci-config.test.js": 8,
+  "ci-config.test.js": 9,
   "commitment-backfill-pg.test.js": 3,
   "commitment-backfill.test.js": 3,
   "commitment-escalation.test.js": 5,
