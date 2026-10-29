@@ -5203,15 +5203,12 @@ function initEmptyCharts(){
 }
 
 // ── PROXY BASE — no token needed, proxy handles auth ─────
-// localhost dev → explicit http://localhost:3456
 // Any other hostname → use location.origin so the protocol + port matches the
 // page's own URL. When loaded through the IIS reverse proxy
 // (https://itops-dashboard.edv-ops.com) this becomes the HTTPS URL on :443 —
 // no port hardcode, no mixed-content blocking, no protocol mismatch.
-const _hostname = window.location.hostname;
-const PROXY = (!_hostname || _hostname === 'localhost' || _hostname === '127.0.0.1')
-  ? 'http://localhost:3456'
-  : window.location.origin;
+// Same origin on every served URL (any port chosen at install, IIS, localhost); file:// keeps the dev address.
+const PROXY = /^https?:$/.test(window.location.protocol) ? window.location.origin : 'http://localhost:3456';
 
 // Auto-retry with exponential backoff when proxy is not running
 let _proxyRetryTimer = null;

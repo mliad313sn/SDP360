@@ -433,7 +433,9 @@ const _h = window.location.hostname;
 //     is preserved. Crucially, when the page is loaded via the IIS reverse
 //     proxy (https://itops-dashboard.edv-ops.com), this becomes the HTTPS
 //     URL — no port hardcode, no mixed-content blocking, no protocol mismatch.
-const PROXY = (!_h||_h==='localhost'||_h==='127.0.0.1') ? 'http://localhost:3456' : location.origin;
+// Same origin as the page on every served URL (any port Setup chose, IIS, localhost); only a page opened from
+// a file:// path falls back to the historical dev address.
+const PROXY = /^https?:$/.test(location.protocol) ? location.origin : 'http://localhost:3456';
 
 // ── Nav visibility — apply once DOM is ready ───────────────────────────────
 // Script runs in <head> so DOM elements don't exist yet at parse time.
