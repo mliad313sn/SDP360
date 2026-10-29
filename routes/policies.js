@@ -26,14 +26,42 @@ module.exports = function policyRoutes(deps) {
   const isSuper = (u) => rdb().userHasRole(u, 'super_admin');
   const isCommittee = (u) => isAdmin(u) || rdb().userHasRole(u, 'committee-member');
   const requireCommittee = (req, res, next) => (isCommittee(req.reportUser) ? next() : res.status(403).json({ ok: false, error: 'committee or admin role required' }));
+  const requireSuperTier = (req, res, next) => (isSuper(req.reportUser) ? next() : res.status(403).json({ ok: false, error: 'super_admin role required' }));
   const requireAdminTier = (req, res, next) => (isAdmin(req.reportUser) ? next() : res.status(403).json({ ok: false, error: 'admin role required' }));
+
+  // committee #49 — country / business unit of each site (migration 036); empty map if not migrated
+  async function siteAttrs() {
+    try { const m = new Map(); for (const r of await rdb().pgHandle().prepare('SELECT id, country, business_unit FROM sites').all()) m.set(Number(r.id), { country: r.country || null, business_unit: r.business_unit || null }); return m; }
+    catch (_) { return new Map(); }
+  }
+  //   PUT /api/governance/sites/:id/hierarchy  { country, business_unit, reason }   super_admin — groups a site for group-scoped policies
+  router.put('/api/governance/sites/:id/hierarchy', requireReportSession, requireSuperTier, json, async (req, res) => {
+    try {
+      const b = req.body || {}; const id = Number(req.params.id);
+      const norm = (v) => { if (v == null || String(v).trim() === '') return null; const c = GP.groupCode(v); if (!c) throw require('../services/httpError').typed('VALIDATION', 'a country / business unit code is 2 to 16 letters, digits, - or _', 400); return c; };
+      const country = norm(b.country), bu = norm(b.business_unit);
+      if (String(b.reason || '').trim().length < 5) return res.status(400).json({ ok: false, error: 'a reason (5+ characters) is required' });
+      const before = (await siteAttrs()).get(id);
+      if (!before) return res.status(404).json({ ok: false, error: 'site not found' });
+      const was = await store().snapshot({ siteId: id });
+      await rdb().pgHandle().prepare('UPDATE sites SET country=?, business_unit=? WHERE id=?').run(country, bu, id);
+      store().invalidate();
+      // moving a site between groups can make its rules less strict: named and logged as a risk
+      const now = await store().snapshot({ siteId: id });
+      const relaxed = GP.PARAMS.filter((p) => p.protected && GP.relaxes(p, was[p.key], now[p.key])).map((p) => ({ key: p.key, before: was[p.key], after: now[p.key] }));
+      try { await rdb().logEvent({ category: 'governance', action: 'site_hierarchy_changed', target: `site:${id}`, details: { before, after: { country, business_unit: bu }, relaxed, reason: String(b.reason).slice(0, 300) }, risk: relaxed.length ? 1 : 0, ...rdb()._logCtx(req) }); } catch (_) {}
+      res.json({ ok: true, site_id: id, country, business_unit: bu, relaxed });
+    } catch (e) { fail(res, e); }
+  });
 
   router.get('/policies.html', (req, res) => deps.sendHtmlPage(res, 'policies.html', false, 'Policies page unavailable'));
 
   router.get('/api/governance/policies', requireReportSession, requireCommittee, async (req, res) => {
     try {
-      const sites = ((await rdb().listSites({ includeInactive: false })) || []).map((s) => ({ id: Number(s.id), name: s.name }));
-      res.json({ ok: true, can_write: isAdmin(req.reportUser), is_super: isSuper(req.reportUser), areas: GP.AREAS, sites,
+      const attrs = await siteAttrs();
+      const sites = ((await rdb().listSites({ includeInactive: false })) || []).map((s) => ({ id: Number(s.id), name: s.name, ...(attrs.get(Number(s.id)) || {}) }));
+      const groups = [...new Set(sites.flatMap((s) => GP.groupsFor(s)))].sort();
+      res.json({ ok: true, can_write: isAdmin(req.reportUser), is_super: isSuper(req.reportUser), areas: GP.AREAS, sites, groups,
         policies: await store().view({ siteIds: sites.map((s) => s.id) }) });
     } catch (e) { fail(res, e); }
   });

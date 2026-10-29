@@ -142,18 +142,33 @@ function relaxes(p, from, to) {
 }
 
 const scopeOf = (siteId) => (siteId == null ? 'global' : `site:${Number(siteId)}`);
+// Committee #49 — group scopes between the site and the platform: a site may carry a country and a
+// business unit (sites.country / sites.business_unit, migration 036). Resolution order:
+//   site → country → business unit → platform → default.
+const GROUP_CODE = /^[A-Z0-9_-]{2,16}$/;
+const groupCode = (v) => { const c = String(v == null ? '' : v).trim().toUpperCase(); return GROUP_CODE.test(c) ? c : null; };
+/** The ordered group scopes of a site from its attributes ({ country, business_unit }). */
+function groupsFor(attrs) {
+  const a = attrs || {}; const out = [];
+  const c = groupCode(a.country); if (c) out.push(`country:${c}`);
+  const b = groupCode(a.business_unit); if (b) out.push(`bu:${b}`);
+  return out;
+}
 function parseScope(scope) {
-  if (scope === 'global') return { scope, siteId: null };
+  if (scope === 'global') return { scope, siteId: null, group: null };
   const m = /^site:(\d+)$/.exec(String(scope || ''));
-  if (!m) throw typed('VALIDATION', 'scope must be "global" or "site:<id>"', 400);
-  return { scope, siteId: Number(m[1]) };
+  if (m) return { scope, siteId: Number(m[1]), group: null };
+  const g = /^(country|bu):([A-Z0-9_-]{2,16})$/.exec(String(scope || ''));
+  if (g) return { scope, siteId: null, group: scope };
+  throw typed('VALIDATION', 'scope must be "global", "site:<id>", "country:<CODE>" or "bu:<CODE>"', 400);
 }
 
 /** Pure resolution over a rows map { 'global': {key: value}, 'site:3': {...} }. */
-function resolveFrom(rows, key, siteId) {
+function resolveFrom(rows, key, siteId, groups = []) {
   const p = BY_KEY.get(key); if (!p) throw new Error('unknown policy ' + key);
   const site = siteId != null && p.siteScoped ? (rows[scopeOf(siteId)] || {}) : {};
   if (Object.prototype.hasOwnProperty.call(site, key)) return { value: site[key], source: 'site' };
+  if (p.siteScoped) for (const g of groups || []) { const v = rows[g] || {}; if (Object.prototype.hasOwnProperty.call(v, key)) return { value: v[key], source: g.split(':')[0] }; }
   const g = rows.global || {};
   if (Object.prototype.hasOwnProperty.call(g, key)) return { value: g[key], source: 'global' };
   return { value: p.default, source: 'default' };
@@ -177,8 +192,8 @@ function rowsAsOf(history, at) {
   }
   return out;
 }
-function snapshotFrom(rows, siteId) {
-  const out = {}; for (const p of PARAMS) out[p.key] = resolveFrom(rows, p.key, siteId).value; return out;
+function snapshotFrom(rows, siteId, groups = []) {
+  const out = {}; for (const p of PARAMS) out[p.key] = resolveFrom(rows, p.key, siteId, groups).value; return out;
 }
 /** Defaults only — what the pure modules use when no policy is passed (tests, old callers). */
 const DEFAULTS = Object.freeze(Object.fromEntries(PARAMS.map((p) => [p.key, p.default])));
@@ -211,10 +226,20 @@ function makePolicyStore(db, { now = () => new Date().toISOString(), ttlMs = 300
       throw e;
     }
   }
-  const invalidate = () => { cache = null; };
+  // site → its group scopes (country / business unit), refreshed with the rows; empty if 036 is absent
+  let groupMap = new Map(), groupAt = 0;
+  async function groupsOf(siteId) {
+    if (siteId == null) return [];
+    if (Date.now() - groupAt > ttlMs) {
+      try { const m = new Map(); for (const r of await Q('SELECT id, country, business_unit FROM sites').all()) m.set(Number(r.id), groupsFor(r)); groupMap = m; groupAt = Date.now(); }
+      catch (_) { /* keep the last map */ }
+    }
+    return groupMap.get(Number(siteId)) || [];
+  }
+  const invalidate = () => { cache = null; groupAt = 0; };
   /** All resolved values for a context. Never throws: last good snapshot, else the defaults. */
   async function snapshot({ siteId = null } = {}) {
-    try { return snapshotFrom(await rows(), siteId); } catch (_) { return { ...DEFAULTS }; }
+    try { return snapshotFrom(await rows(), siteId, await groupsOf(siteId)); } catch (_) { return { ...DEFAULTS }; }
   }
   /** The policy in force at `at` (history replay), cached per history version. */
   let histCache = null, histVersion = null;
@@ -222,7 +247,7 @@ function makePolicyStore(db, { now = () => new Date().toISOString(), ttlMs = 300
     try {
       const v = await version();
       if (!histCache || histVersion !== v) { histCache = await Q('SELECT id, scope, key, new_value, at, expires_at FROM governance_policy_history ORDER BY id').all(); histVersion = v; }
-      return snapshotFrom(rowsAsOf(histCache, at), siteId);
+      return snapshotFrom(rowsAsOf(histCache, at), siteId, await groupsOf(siteId));   // groups as of today (site attributes are not historised)
     } catch (_) { return snapshot({ siteId }); }
   }
   async function view({ siteIds = [] } = {}) {
@@ -231,19 +256,21 @@ function makePolicyStore(db, { now = () => new Date().toISOString(), ttlMs = 300
     return PARAMS.map((p) => ({ key: p.key, area: p.area, type: p.type, default: p.default, min: p.min, max: p.max, values: p.values,
       protected: p.protected, site_scoped: p.siteScoped, stricter: p.stricter, en: p.en, fr: p.fr,
       global: (r.global || {})[p.key], effective: resolveFrom(r, p.key, null).value, expires: expiresOf[`global|${p.key}`] || null,
-      sites: p.siteScoped ? Object.fromEntries((siteIds || []).map((sid) => [sid, (r[scopeOf(sid)] || {})[p.key]]).filter(([, v]) => v !== undefined)) : {} }));
+      sites: p.siteScoped ? Object.fromEntries((siteIds || []).map((sid) => [sid, (r[scopeOf(sid)] || {})[p.key]]).filter(([, v]) => v !== undefined)) : {},
+      groups: p.siteScoped ? Object.fromEntries(Object.keys(r).filter((sc) => /^(country|bu):/.test(sc)).map((sc) => [sc, r[sc][p.key]]).filter(([, v]) => v !== undefined)) : {} }));
   }
   const tx = async (fn) => { const h = db(); return h.runTransaction ? h.runTransaction(fn) : fn(); };
 
   /** Compute what a change would do (no write). */
   async function plan({ scope, key, value }) {
     const p = BY_KEY.get(key); if (!p) throw typed('VALIDATION', `unknown policy ${String(key).slice(0, 80)}`, 400);
-    const { siteId } = parseScope(scope);
-    if (siteId != null && !p.siteScoped) throw typed('VALIDATION', `${key} applies to the whole platform, not to one site`, 400);
+    const { siteId, group } = parseScope(scope);
+    if ((siteId != null || group) && !p.siteScoped) throw typed('VALIDATION', `${key} applies to the whole platform, not to one site`, 400);
     const r = await rows(true);
-    const before = resolveFrom(r, key, siteId).value;
+    const groups = group ? [group] : await groupsOf(siteId);
+    const before = resolveFrom(r, key, siteId, groups).value;
     const next = value === null ? null : coerce(p, value);
-    const after = next !== null ? next : (() => { const copy = JSON.parse(JSON.stringify(r)); if (copy[scope]) delete copy[scope][key]; return resolveFrom(copy, key, siteId).value; })();
+    const after = next !== null ? next : (() => { const copy = JSON.parse(JSON.stringify(r)); if (copy[scope]) delete copy[scope][key]; return resolveFrom(copy, key, siteId, groups).value; })();
     return { p, r, before, next, after, rel: p.protected && relaxes(p, before, after), old: (r[scope] || {})[key], dual: resolveFrom(r, 'governance.dual_approval_relaxations', null).value !== false,
       maxDays: Number(resolveFrom(r, 'governance.relaxation_max_days', null).value) || 90, dualTight: resolveFrom(r, 'governance.dual_approval_tightening', null).value === true };
   }
@@ -347,7 +374,7 @@ function makePolicyStore(db, { now = () => new Date().toISOString(), ttlMs = 300
     const proposals = (await listProposals({ status: null })).filter((x) => x.proposed_at >= f && x.proposed_at <= t + '\uffff');
     return { from: from || null, to: to || null, relaxations: rel, overrides, deviations, proposals };
   }
-  return { snapshot, snapshotAt, view, set, history, listProposals, decide, oversight, invalidate };
+  return { snapshot, snapshotAt, view, set, history, listProposals, decide, oversight, invalidate, groupsOf };
 }
 
 // Process-wide store used by the routes (lazy; reports-db PG handle).
@@ -362,4 +389,4 @@ async function forContext({ siteId = null } = {}) { return shared().snapshot({ s
 /** The policy in force at `at` for a site (history replay). */
 async function forContextAt({ siteId = null, at } = {}) { return shared().snapshotAt({ siteId, at }); }
 
-module.exports = { rowsAsOf, FRESHNESS_SOURCES, PARAMS, BY_KEY, AREAS, DEFAULTS, coerce, relaxes, resolveFrom, snapshotFrom, scopeOf, parseScope, makePolicyStore, shared, forContext, forContextAt };
+module.exports = { groupsFor, groupCode, rowsAsOf, FRESHNESS_SOURCES, PARAMS, BY_KEY, AREAS, DEFAULTS, coerce, relaxes, resolveFrom, snapshotFrom, scopeOf, parseScope, makePolicyStore, shared, forContext, forContextAt };

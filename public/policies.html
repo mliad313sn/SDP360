@@ -58,6 +58,12 @@
     <p class="gp-muted" data-lng="fr">Assouplir une règle protégée demande deux personnes : l'une propose, une autre approuve ou refuse. Une proposition expire après 7 jours.</p>
     <table><thead><tr><th><span data-lng="en">When</span><span data-lng="fr">Date</span></th><th><span data-lng="en">Scope</span><span data-lng="fr">Portée</span></th><th><span data-lng="en">Rule</span><span data-lng="fr">Règle</span></th><th><span data-lng="en">New value</span><span data-lng="fr">Nouvelle valeur</span></th><th><span data-lng="en">Proposal</span><span data-lng="fr">Proposition</span></th><th></th></tr></thead><tbody id="gpProp"></tbody></table>
   </div>
+  <div class="gp-card gp-plain">
+    <h2><span data-lng="en">Sites: country and business unit</span><span data-lng="fr">Sites : pays et unité d'affaires</span></h2>
+    <p class="gp-muted" data-lng="en">A rule set for a country or a business unit applies to its sites unless a site sets its own value (site → country → business unit → platform). Empty = not grouped.</p>
+    <p class="gp-muted" data-lng="fr">Une règle fixée pour un pays ou une unité s'applique à ses sites, sauf valeur propre au site (site → pays → unité → plateforme). Vide = non rattaché.</p>
+    <table><thead><tr><th>Site</th><th><span data-lng="en">Country</span><span data-lng="fr">Pays</span></th><th><span data-lng="en">Business unit</span><span data-lng="fr">Unité d'affaires</span></th><th></th></tr></thead><tbody id="gpHier"></tbody></table>
+  </div>
   <div class="gp-card gp-plain" id="gpRoles"></div>
   <div class="gp-card">
     <h2><span data-lng="en">History</span><span data-lng="fr">Historique</span></h2>
@@ -101,7 +107,7 @@
   const t = () => L[lang === 'fr' ? 'fr' : 'en'];
   const msg = (x, ok) => { $('gpMsg').className = 'gp-msg ' + (ok ? 'gp-ok' : 'gp-err'); $('gpMsg').textContent = !ok && lang === 'fr' && window.ErrorText ? window.ErrorText.fr(x) : x; };
   const fmt = (v) => (v === undefined ? '—' : typeof v === 'boolean' ? (v ? t().on : t().off) : String(v));
-  function current(p, scope) { if (scope === 'global') return p.global; const sid = scope.split(':')[1]; return p.sites ? p.sites[sid] : undefined; }
+  function current(p, scope) { if (scope === 'global') return p.global; if (/^(country|bu):/.test(scope)) return p.groups ? p.groups[scope] : undefined; const sid = scope.split(':')[1]; return p.sites ? p.sites[sid] : undefined; }
   function control(p, scope, val) {
     const id = 'v-' + p.key.replace(/\W/g, '_');
     const dis = data.can_write ? '' : ' disabled';
@@ -134,7 +140,12 @@
   async function load() {
     try {
       data = await api('GET', '/api/governance/policies');
-      if ($('gpScope').options.length === 1) for (const s of data.sites) $('gpScope').add(new Option('Site — ' + s.name, 'site:' + s.id));
+      if ($('gpScope').options.length === 1) {
+        // committee #49: country / business-unit scopes sit between the site and the platform
+        for (const g of data.groups || []) $('gpScope').add(new Option((g.startsWith('country:') ? (lang === 'fr' ? 'Pays — ' : 'Country — ') : (lang === 'fr' ? 'Unité — ' : 'Business unit — ')) + g.split(':')[1], g));
+        for (const s of data.sites) $('gpScope').add(new Option('Site — ' + s.name, 'site:' + s.id));
+      }
+      renderHier();
       render(); loadProposals(); if (typeof profileBar === 'function') profileBar();
       const h = await api('GET', '/api/governance/policies/history');
       $('gpHist').innerHTML = h.history.map((x) => `<tr><td>${esc(String(x.at).slice(0, 16).replace('T', ' '))}</td><td>${esc(x.scope)}</td><td class="gp-key">${esc(x.key)}${x.relaxes ? `<span class="gp-tag">${t().relaxed}</span>` : ''}</td><td>${esc(fmt(x.old_value === null ? undefined : x.old_value))} → ${esc(fmt(x.new_value === null ? undefined : x.new_value))}</td><td>${esc(x.actor)}${x.proposer && x.approver ? `<div class="gp-src">${esc(x.proposer)} → ${esc(x.approver)}</div>` : ''}</td><td>${esc(x.reason)}</td></tr>`).join('') || '<tr><td colspan="6" class="gp-muted">—</td></tr>';
@@ -172,7 +183,7 @@
   // site profiles: one action, rule by rule through the guardrails (relaxations become proposals)
   let profiles = [];
   function profileBar() {
-    const site = $('gpScope').value !== 'global'; $('gpProfileBar').hidden = !site || !data || !data.can_write || !profiles.length;
+    const site = /^site:/.test($('gpScope').value); $('gpProfileBar').hidden = !site || !data || !data.can_write || !profiles.length;
     const pr = profiles.find((x) => x.name === $('gpProfile').value); $('gpProfileDesc').textContent = pr ? (lang === 'fr' ? pr.fr : pr.en) : '';
   }
   api('GET', '/api/governance/profiles').then((j) => { profiles = j.profiles || []; for (const p of profiles) $('gpProfile').add(new Option(p.name.replace('_', ' '), p.name)); profileBar(); }).catch(() => {});
@@ -185,6 +196,23 @@
       const n = (k) => r.results.filter((x) => x.result === k).length;
       msg(lang === 'fr' ? `Profil appliqué : ${n('applied')} règle(s) changée(s), ${n('pending')} en attente d'un second super_admin, ${n('unchanged')} inchangée(s), ${n('error')} refusée(s).` : `Profile applied: ${n('applied')} changed, ${n('pending')} awaiting a second super_admin, ${n('unchanged')} unchanged, ${n('error')} refused.`, n('error') === 0);
       load();
+    } catch (e) { msg(e.message); }
+  });
+  // site → country / business unit (super_admin): what a group scope covers
+  function renderHier() {
+    const fr = lang === 'fr'; const canW = !!data.is_super;
+    $('gpHier').innerHTML = data.sites.map((s) => `<tr><td>${esc(s.name)}</td>
+      <td><input data-hc="${Number(s.id)}" value="${esc(s.country || '')}" placeholder="BF" size="6" aria-label="${fr ? 'Pays' : 'Country'} ${esc(s.name)}"${canW ? '' : ' disabled'}></td>
+      <td><input data-hb="${Number(s.id)}" value="${esc(s.business_unit || '')}" placeholder="WA" size="10" aria-label="${fr ? 'Unité' : 'Business unit'} ${esc(s.name)}"${canW ? '' : ' disabled'}></td>
+      <td>${canW ? `<button type="button" data-hier="${Number(s.id)}">${t().save}</button>` : ''}</td></tr>`).join('');
+  }
+  $('gpHier').addEventListener('click', async (ev) => {
+    const b = ev.target.closest('button[data-hier]'); if (!b) return; const id = b.dataset.hier;
+    const reason = await window.ReasonDialog.ask({ title: (lang === 'fr' ? 'Rattachement du site' : 'Site grouping'), label: t().reasonLabel, min: 5, lang }); if (reason == null) return;
+    try {
+      await api('PUT', `/api/governance/sites/${encodeURIComponent(id)}/hierarchy`, { country: document.querySelector(`[data-hc="${id}"]`).value, business_unit: document.querySelector(`[data-hb="${id}"]`).value, reason });
+      msg(lang === 'fr' ? 'Rattachement enregistré.' : 'Grouping saved.', true);
+      while ($('gpScope').options.length > 1) $('gpScope').remove(1); load();
     } catch (e) { msg(e.message); }
   });
   $('gpScope').addEventListener('change', () => { render(); profileBar(); });
