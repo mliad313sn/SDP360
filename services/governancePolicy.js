@@ -94,6 +94,9 @@ const PARAMS = [
     en: 'An open handoff past its due date is escalated automatically.', fr: 'Une passation ouverte en retard est escaladée automatiquement.' }),
   P('handoffs.escalation_grace_days', 'int', 0, { area: 'handoffs', min: 0, max: 60, protected: true, stricter: 'lower',
     en: 'Days after the due date before the automatic escalation.', fr: 'Jours après l\'échéance avant l\'escalade automatique.' }),
+  P('handoffs.proxy_accept', 'bool', false, { area: 'handoffs', protected: true, stricter: 'false',
+    en: 'A handoff may name a receiver who has no account (e.g. a department head); the receiver account (a coordinator) then records each step on their behalf, with a note every time. Off = only people with an account receive handoffs, the behaviour until now.',
+    fr: 'Une demande peut désigner un destinataire sans compte (ex. un chef de service) ; le compte destinataire (un coordinateur) enregistre alors chaque étape en son nom, avec une note à chaque fois. Désactivé = seules les personnes ayant un compte reçoivent des demandes, le fonctionnement actuel.' }),
   // ── commitments (G-18) ───────────────────────────────────────────────────────────────────────────
   P('commitments.escalation_enabled', 'bool', true, { area: 'commitments', protected: true, stricter: 'true',
     en: 'Record A01 / A02 escalations (serious commitment without owner / overdue without exception).',

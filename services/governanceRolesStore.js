@@ -1,0 +1,95 @@
+'use strict';
+// ADR-006 — persistence of role assignments, deputies and the escalation matrix (migration 035).
+// Nothing is ever deleted: an assignment is ended, a deputy revoked, a matrix row retired; every change
+// is written to governance_role_events (append-only, hash-chained) in the same transaction.
+const R = require('./governanceRoles');
+const { typed } = require('./httpError');
+
+const str = (v, max = 1000) => (v == null || v === '' ? null : String(v).slice(0, max));
+const n = (v) => (v == null || v === '' ? null : Number(v));
+
+function makeGovernanceRolesStore(db, { now = () => new Date().toISOString() } = {}) {
+  if (!db) throw new Error('governanceRolesStore needs a db handle');
+  const P = (sql) => db.prepare(sql);
+  const tx = (fn) => (db.runTransaction ? db.runTransaction(fn) : fn());
+  const fail = (c) => { throw typed(c.code, c.error, c.status); };
+  async function event(entity, id, action, actorId, details) {
+    await P('INSERT INTO governance_role_events (entity, entity_id, action, actor_id, at, details) VALUES (?, ?, ?, ?, ?, ?)')
+      .run(entity, id == null ? null : Number(id), action, actorId == null ? null : Number(actorId), now(), details ? JSON.stringify(details) : null);
+  }
+  const ids = (rows) => rows.map((r) => ({ ...r, id: Number(r.id) }));
+
+  async function snapshot() {
+    const [assignments, deputies, matrix] = await Promise.all([
+      P('SELECT * FROM role_assignments ORDER BY role, site_id NULLS FIRST, id').all(),
+      P('SELECT * FROM deputies ORDER BY start_date DESC, id DESC').all(),
+      P('SELECT * FROM escalation_matrix ORDER BY register, site_id NULLS FIRST, after_days, id').all(),
+    ]);
+    return { assignments: ids(assignments), deputies: ids(deputies), matrix: ids(matrix) };
+  }
+
+  async function assign(b, { actorId }) {
+    const c = R.validateAssignment(b); if (c) fail(c);
+    return tx(async () => {
+      const r = await P('INSERT INTO role_assignments (role, site_id, user_id, effective_from, effective_to, reason, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id')
+        .get(b.role, n(b.site_id), Number(b.user_id), b.effective_from, str(b.effective_to, 10), str(b.reason), n(actorId), now());
+      await event('role_assignment', r.id, 'assigned', actorId, { role: b.role, site_id: n(b.site_id), user_id: Number(b.user_id), from: b.effective_from, to: str(b.effective_to, 10), reason: str(b.reason) });
+      return Number(r.id);
+    });
+  }
+  async function endAssignment(id, { actorId, reason }) {
+    if (String(reason || '').trim().length < 5) fail({ status: 400, code: 'VALIDATION', error: 'a reason (5+ characters) is required' });
+    return tx(async () => {
+      const r = await P('UPDATE role_assignments SET ended_by=?, ended_at=? WHERE id=? AND ended_at IS NULL').run(n(actorId), now(), Number(id));
+      if (Number(r && r.changes) !== 1) fail({ status: 404, code: 'NOT_FOUND', error: 'assignment not found or already ended' });
+      await event('role_assignment', id, 'ended', actorId, { reason: str(reason) });
+    });
+  }
+  async function addDeputy(b, { actorId }) {
+    const c = R.validateDeputy(b); if (c) fail(c);
+    return tx(async () => {
+      const r = await P('INSERT INTO deputies (user_id, deputy_id, start_date, end_date, reason, approved_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id')
+        .get(Number(b.user_id), Number(b.deputy_id), b.start_date, b.end_date, str(b.reason), n(actorId), now());
+      await event('deputy', r.id, 'named', actorId, { user_id: Number(b.user_id), deputy_id: Number(b.deputy_id), from: b.start_date, to: b.end_date, reason: str(b.reason) });
+      return Number(r.id);
+    });
+  }
+  async function revokeDeputy(id, { actorId, reason }) {
+    if (String(reason || '').trim().length < 5) fail({ status: 400, code: 'VALIDATION', error: 'a reason (5+ characters) is required' });
+    return tx(async () => {
+      const r = await P('UPDATE deputies SET revoked_by=?, revoked_at=? WHERE id=? AND revoked_at IS NULL').run(n(actorId), now(), Number(id));
+      if (Number(r && r.changes) !== 1) fail({ status: 404, code: 'NOT_FOUND', error: 'deputy not found or already revoked' });
+      await event('deputy', id, 'revoked', actorId, { reason: str(reason) });
+    });
+  }
+  async function addMatrixRow(b, { actorId }) {
+    const c = R.validateMatrix(b); if (c) fail(c);
+    return tx(async () => {
+      const r = await P('INSERT INTO escalation_matrix (register, severity, site_id, after_days, role, reason, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id')
+        .get(b.register, String(b.severity || '*').toLowerCase(), n(b.site_id), Number(b.after_days || 0), b.role, str(b.reason), n(actorId), now());
+      await event('escalation_matrix', r.id, 'added', actorId, { register: b.register, severity: String(b.severity || '*').toLowerCase(), site_id: n(b.site_id), after_days: Number(b.after_days || 0), role: b.role, reason: str(b.reason) });
+      return Number(r.id);
+    });
+  }
+  async function retireMatrixRow(id, { actorId, reason }) {
+    if (String(reason || '').trim().length < 5) fail({ status: 400, code: 'VALIDATION', error: 'a reason (5+ characters) is required' });
+    return tx(async () => {
+      const r = await P('UPDATE escalation_matrix SET retired_by=?, retired_at=? WHERE id=? AND retired_at IS NULL').run(n(actorId), now(), Number(id));
+      if (Number(r && r.changes) !== 1) fail({ status: 404, code: 'NOT_FOUND', error: 'rule not found or already retired' });
+      await event('escalation_matrix', id, 'retired', actorId, { reason: str(reason) });
+    });
+  }
+  async function events(limit = 200) {
+    return (await P(`SELECT id, entity, entity_id, action, actor_id, at, details FROM governance_role_events ORDER BY id DESC LIMIT ${Math.min(1000, Number(limit) || 200)}`).all())
+      .map((e) => ({ ...e, id: Number(e.id), entity_id: e.entity_id == null ? null : Number(e.entity_id), details: e.details ? JSON.parse(e.details) : null }));
+  }
+
+  /** People a deputy stands in for today (used by the lifecycles). */
+  async function principalsOf(userId, today) { return R.principalsOf((await snapshot()).deputies, userId, today || now()); }
+  /** Escalation target + targets' ids for one overdue item. */
+  async function escalationTarget(q) { return R.escalationTarget(await snapshot(), { today: now(), ...q }); }
+
+  return { snapshot, assign, endAssignment, addDeputy, revokeDeputy, addMatrixRow, retireMatrixRow, events, principalsOf, escalationTarget };
+}
+
+module.exports = { makeGovernanceRolesStore };

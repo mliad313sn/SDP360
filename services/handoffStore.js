@@ -49,10 +49,10 @@ function makeHandoffStore(db, { now = () => new Date().toISOString() } = {}) {
     if (d.receiver_id == null) throw bad('receiver is required');
     if (Number(d.receiver_id) === Number(user.id)) throw bad('the requester cannot be the receiver — nothing is accepted on their behalf');
     const t = now();
-    const r = await P(`INSERT INTO handoffs (ref, title, description, site_id, from_department, to_department, requested_by, receiver_id, due_date, status, source_kind, source_ref, commitment_id, idem_key, version, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'requested', ?, ?, ?, ?, 1, ?, ?) ON CONFLICT (requested_by, idem_key) DO NOTHING RETURNING id`)
+    const r = await P(`INSERT INTO handoffs (ref, title, description, site_id, from_department, to_department, requested_by, receiver_id, due_date, status, source_kind, source_ref, commitment_id, idem_key, version, created_at, updated_at, receiver_contact)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'requested', ?, ?, ?, ?, 1, ?, ?, ?) ON CONFLICT (requested_by, idem_key) DO NOTHING RETURNING id`)
       .run(await nextRef(t.slice(0, 4)), str(d.title, 300), str(d.description), Number(d.site_id), str(d.from_department, 120), str(d.to_department, 120), Number(user.id), Number(d.receiver_id), day(d.due_date),
-        str(d.source_kind, 40), str(d.source_ref, 120), d.commitment_id == null || d.commitment_id === '' ? null : Number(d.commitment_id), idem, t, t);
+        str(d.source_kind, 40), str(d.source_ref, 120), d.commitment_id == null || d.commitment_id === '' ? null : Number(d.commitment_id), idem, t, t, str(d.receiver_contact, 120));
     const id = r && (r.id != null ? Number(r.id) : r.lastID != null ? Number(r.lastID) : null);
     if (!id && idem) { const ex = await P('SELECT id FROM handoffs WHERE requested_by=? AND idem_key=?').get(Number(user.id), idem); return { handoff: await get(ex.id), created: false }; }   // concurrent double submit
     if (!id) throw typed('CONFLICT', 'the handoff could not be created — retry', 409);
@@ -78,10 +78,14 @@ function makeHandoffStore(db, { now = () => new Date().toISOString() } = {}) {
     if (to === 'accepted' && h.status === 'delivered') { sets.delivered_at = null; sets.delivered_by = null; }   // rework
     if (h.status === 'escalated') { sets.escalated_from = null; }
     // the change and its audit event are one unit (audit P1-2); "acting for" is explicit (audit P2-10)
-    const actingFor = actor.isAdmin && !L.isRequester(h, actor) && !L.isReceiver(h, actor) ? 'admin_for_requester' : null;
+    // ADR-006: a deputy acts in the name of the person they replace; an account-less contact is recorded too
+    const side = (L.TRANSITIONS[h.status] || []).find((x) => x.to === to);
+    const deputy = side ? L.actingFor(h, actor, side.who) : null;
+    const actingFor = deputy || (actor.isAdmin && !L.actsAsRequester(h, actor) && !L.actsAsReceiver(h, actor) ? 'admin_for_requester' : null);
+    const contact = side && side.who === 'receiver' && h.receiver_contact ? str(h.receiver_contact, 120) : null;
     await tx(async () => {
       await bump(h, expectedVersion, sets);
-      await event(h.id, actor.id, to === 'accepted' && h.status === 'delivered' ? 'rework' : 'transition', h.status, to, reason || actingFor ? { reason: reason ? str(reason, 1000) : undefined, acting_for: actingFor || undefined } : null);
+      await event(h.id, actor.id, to === 'accepted' && h.status === 'delivered' ? 'rework' : 'transition', h.status, to, reason || actingFor || contact ? { reason: reason ? str(reason, 1000) : undefined, acting_for: actingFor || undefined, on_behalf_of_contact: contact || undefined } : null);
     });
     return get(h.id);
   }
@@ -92,14 +96,15 @@ function makeHandoffStore(db, { now = () => new Date().toISOString() } = {}) {
     if (c) throw typed(c.code, c.error, c.status);
     await tx(async () => {
       await bump(h, expectedVersion, { receiver_id: Number(newReceiverId), status: 'requested', accepted_at: null, escalated_from: null, last_reason: str(reason, 1000) });
-      await event(h.id, actor.id, 'reassigned', h.status, 'requested', { from_receiver: h.receiver_id, to_receiver: Number(newReceiverId), reason: str(reason, 1000) });
+      await event(h.id, actor.id, 'reassigned', h.status, 'requested', { from_receiver: h.receiver_id, to_receiver: Number(newReceiverId), reason: str(reason, 1000), acting_for: L.actingFor(h, actor, 'requester') || undefined });
     });
     return get(h.id);
   }
 
   /** Escalate every overdue open handoff once. Returns the escalated rows. */
-  /** policyFor(siteId) → resolved policy (per-site switch and grace). Absent → defaults. */
-  async function escalateOverdue({ today, policyFor = null } = {}) {
+  /** policyFor(siteId) → resolved policy (per-site switch and grace). Absent → defaults.
+   *  targetFor(h, overdueDays) → { role, targets, gap } from the escalation matrix (ADR-006); recorded on the event. */
+  async function escalateOverdue({ today, policyFor = null, targetFor = null } = {}) {
     const d = String(today || now()).slice(0, 10);
     // escalated ONCE per due date: a handoff resumed after an escalation is not re-escalated every hour (QA P1-2);
     // a new due date (moved by reassignment or agreement) can escalate again.
@@ -109,24 +114,45 @@ function makeHandoffStore(db, { now = () => new Date().toISOString() } = {}) {
     const due = [];
     for (const [sid, list] of bySite) due.push(...L.overdue(list, d, policyFor ? await policyFor(sid) : null));
     for (const h of due) {
+      const overdueDays = Math.max(0, Math.round((Date.parse(d + 'T00:00:00Z') - Date.parse(String(h.due_date).slice(0, 10) + 'T00:00:00Z')) / 864e5));
+      let esc = null;
+      if (targetFor) { try { esc = await targetFor(h, overdueDays); } catch (_) { esc = null; } }
       const ok = await tx(async () => {
         const r = await P(`UPDATE handoffs SET status='escalated', escalated_from=?, escalated_at=?, escalated_for_due=due_date, version=version+1, updated_at=? WHERE id=? AND version=?`).run(h.status, now(), now(), h.id, h.version);
         if (Number(r && r.changes) !== 1) return false;
-        await event(h.id, null, 'escalated_overdue', h.status, 'escalated', { due_date: h.due_date });
+        await event(h.id, null, 'escalated_overdue', h.status, 'escalated', { due_date: h.due_date, overdue_days: overdueDays,
+          ...(esc && esc.role ? { escalated_to_role: esc.role, escalated_to: esc.targets, matrix_id: esc.matched && esc.matched.id, no_holder: esc.gap || undefined } : {}) });
         return true;
       });
-      if (ok) out.push({ ...h, escalated_from: h.status, status: 'escalated' });
+      if (ok) out.push({ ...h, escalated_from: h.status, status: 'escalated', overdue_days: overdueDays, escalation: esc });
+    }
+    // ADR-006 levels: a handoff still escalated reaches the NEXT matrix level when its days overdue cross it
+    // (e.g. site target after 1 day, group after 3). Each level is raised once (event 'escalation_level').
+    if (targetFor) {
+      const still = (await P(`SELECT * FROM handoffs WHERE status='escalated' AND due_date IS NOT NULL AND due_date < ?`).all(d)).map(row);
+      for (const h of still) {
+        const overdueDays = Math.max(0, Math.round((Date.parse(d + 'T00:00:00Z') - Date.parse(String(h.due_date).slice(0, 10) + 'T00:00:00Z')) / 864e5));
+        let esc = null; try { esc = await targetFor(h, overdueDays); } catch (_) { esc = null; }
+        if (!esc || !esc.matched) continue;
+        const seen = (await P(`SELECT details FROM handoff_events WHERE handoff_id=? AND action IN ('escalated_overdue','escalation_level')`).all(h.id))
+          .map((e) => { try { return JSON.parse(e.details || '{}').matrix_id; } catch (_) { return null; } }).filter((x) => x != null).map(Number);
+        if (seen.includes(Number(esc.matched.id))) continue;
+        await event(h.id, null, 'escalation_level', 'escalated', 'escalated', { overdue_days: overdueDays, escalated_to_role: esc.role, escalated_to: esc.targets, matrix_id: esc.matched.id, no_holder: esc.gap || undefined });
+        out.push({ ...h, overdue_days: overdueDays, escalation: esc, level_raised: true });
+      }
     }
     return out;
   }
 
   /** siteIds null = all (admin); otherwise the user's sites OR where they are requester / receiver. */
-  async function list({ siteIds = null, userId = null, status = null, limit = 500 } = {}) {
+  async function list({ siteIds = null, userId = null, userIds = [], status = null, limit = 500 } = {}) {
     const where = [], args = [];
     if (Array.isArray(siteIds)) {
       const parts = [];
       if (siteIds.length) { parts.push(`site_id IN (${siteIds.map(() => '?').join(',')})`); args.push(...siteIds.map(Number)); }
-      if (userId != null) { parts.push('requested_by = ? OR receiver_id = ?'); args.push(Number(userId), Number(userId)); }
+      // the user's own handoffs, and those of the people they stand in for today (ADR-006)
+      const people = [...new Set([userId, ...(userIds || [])].filter((x) => x != null).map(Number))];
+      if (people.length) { const q = people.map(() => '?').join(','); parts.push(`requested_by IN (${q}) OR receiver_id IN (${q})`); args.push(...people, ...people); }
       if (!parts.length) return [];
       where.push(`(${parts.join(' OR ')})`);
     }

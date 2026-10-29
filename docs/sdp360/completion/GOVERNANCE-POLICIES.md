@@ -57,9 +57,21 @@ Freshness defaults are taken from the sync job declarations (`services/sync/jobs
 | `handoffs.reason_min` | handoffs | int | 5 | 3 – 500 | yes | **protected** | Minimum length of a reason (reject, block, escalate, cancel, rework, reassign). |
 | `handoffs.overdue_escalation` | handoffs | bool | true | — | yes | **protected** | An open handoff past its due date is escalated automatically. |
 | `handoffs.escalation_grace_days` | handoffs | int | 0 | 0 – 60 | yes | **protected** | Days after the due date before the automatic escalation. |
+| `handoffs.proxy_accept` | handoffs | bool | false | — | yes | **protected** | A handoff may name a receiver who has no account (e.g. a department head); the receiver account (a coordinator) then records each step on their behalf, with a note every time. Off = only people with an account receive handoffs, the behaviour until now. |
 | `commitments.escalation_enabled` | commitments | bool | true | — | yes | **protected** | Record A01 / A02 escalations (serious commitment without owner / overdue without exception). |
 | `commitments.serious_due_move_needs_admin` | commitments | bool | true | — | yes | **protected** | Moving the due date of a high / critical commitment past its original (baseline) date needs the admin tier — a site editor cannot clear an A02 overdue alert alone. |
 | `commitments.exception_max_days` | commitments | int | 90 | 1 – 365 | yes | **protected** | An approved exception (overdue serious commitment) lapses after this many days; the A02 alert comes back unless it is renewed. |
+
+## Who acts — roles, deputies, escalation matrix (ADR-006)
+
+The parameters above say *how strict*; `docs/adr/ADR-006-roles-escalation-delegation-as-data.md` says *who*.
+Governance policies ▸ **Roles, deputies and escalation** (`GET/POST /api/governance/roles…`):
+
+- **Role assignments** — a role from the catalogue held by a person for one site or the platform, dated (super_admin).
+- **Deputies** — a person stands in for an absent colleague between two dates (≤ 120 days, same site, admin tier); the deputy acts in their name (`acting_for`), never verifies the work of the person they replace.
+- **Escalation matrix** — register × severity × site × days overdue → role (super_admin). The escalation jobs record the target on the event and, when the notice switch is on, tell the holders (and their deputies). Each further level is raised once.
+- Required roles without a holder and rules that reach nobody appear in the oversight register (`role_gaps`).
+- Every change is in `governance_role_events` (append-only, hash-chained). Empty tables = the behaviour until now.
 
 ## Site profiles
 

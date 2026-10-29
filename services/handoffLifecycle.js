@@ -33,6 +33,28 @@ const _pol = (pol) => ({ ...require('./governancePolicy').DEFAULTS, ...(pol || {
 const _rmin = (pol) => Number(_pol(pol)['handoffs.reason_min']) || 5;
 const isRequester = (h, a) => a && a.id != null && Number(h.requested_by) === Number(a.id);
 const isReceiver = (h, a) => a && a.id != null && Number(h.receiver_id) === Number(a.id);
+// ADR-006 — a deputy named for the absent person (table deputies, resolved by the route for today)
+// acts IN THEIR NAME: actor.deputyFor = the ids they stand in for. The event records acting_for.
+const standsInFor = (a, id) => !!a && Array.isArray(a.deputyFor) && a.deputyFor.map(Number).includes(Number(id));
+const actsAsRequester = (h, a) => isRequester(h, a) || standsInFor(a, h.requested_by);
+const actsAsReceiver = (h, a) => isReceiver(h, a) || standsInFor(a, h.receiver_id);
+/** 'deputy_for:<id>' when the actor acts only as a deputy for this side; null otherwise. */
+function actingFor(h, a, side) {
+  if (side === 'receiver' && !isReceiver(h, a) && standsInFor(a, h.receiver_id)) return `deputy_for:${Number(h.receiver_id)}`;
+  if (side === 'requester' && !isRequester(h, a) && standsInFor(a, h.requested_by)) return `deputy_for:${Number(h.requested_by)}`;
+  return null;
+}
+/**
+ * Account-less receiver (committee #34): naming a contact who has no account is allowed only under the
+ * site policy handoffs.proxy_accept; the receiver ACCOUNT then records each step on the contact's behalf
+ * and must write a note every time (who said what, when).
+ */
+function contactCheck(contact, pol) {
+  if (contact == null || String(contact).trim() === '') return null;
+  if (_pol(pol)['handoffs.proxy_accept'] !== true) return { status: 403, code: 'FORBIDDEN', error: 'naming a receiver without an account is not allowed on this site (policy handoffs.proxy_accept)' };
+  if (String(contact).trim().length < 3) return { status: 400, code: 'VALIDATION', error: 'name the person who receives the work (3+ characters)' };
+  return null;
+}
 
 /**
  * @param {object} h      handoff row
@@ -50,14 +72,19 @@ function check(h, to, actor, o = {}) {
   if (!rule) return no(409, 'BAD_STAGE', `a ${h.status} handoff cannot become ${to}`);
   // permission downgrade: a person who lost the site (or was deactivated) can no longer act on it
   if (!actor.isAdmin && !actor.hasSite) return no(403, 'FORBIDDEN', 'this handoff belongs to a site you no longer have');
-  if (rule.who === 'receiver' && !isReceiver(h, actor)) return no(403, 'FORBIDDEN', 'only the named receiver can do this — nothing is accepted on their behalf');
-  if (rule.who === 'requester' && !(isRequester(h, actor) || actor.isAdmin)) return no(403, 'FORBIDDEN', 'only the requester (or the admin tier) can do this');
+  if (rule.who === 'receiver' && !actsAsReceiver(h, actor)) return no(403, 'FORBIDDEN', 'only the named receiver (or their named deputy) can do this — nothing is accepted on their behalf');
+  if (rule.who === 'requester' && !(actsAsRequester(h, actor) || actor.isAdmin)) return no(403, 'FORBIDDEN', 'only the requester (or the admin tier) can do this');
   if (rule.who === 'admin' && !actor.isAdmin) return no(403, 'FORBIDDEN', 'only the admin tier can do this');
   if (to === 'verified' && h.delivered_by != null && Number(h.delivered_by) === Number(actor.id)) return no(403, 'SOD', 'the person who delivered the work cannot verify it');
+  // a deputy never satisfies four-eyes against the person they replace (ADR-006): no verifying the work of
+  // someone you stand in for
+  if (to === 'verified' && h.delivered_by != null && standsInFor(actor, h.delivered_by)) return no(403, 'SOD', 'you stand in for the person who delivered the work — you cannot verify it');
   // verification belongs to the requesting side: the admin tier does not verify for the requester (audit P2-10)
-  if (to === 'verified' && !isRequester(h, actor)) return no(403, 'FORBIDDEN', 'only the requester verifies the delivered work');
+  if (to === 'verified' && !actsAsRequester(h, actor)) return no(403, 'FORBIDDEN', 'only the requester verifies the delivered work');
   const rmin = _rmin(o.policy);
   if (rule.reason && String(o.reason || '').trim().length < rmin) return no(400, 'VALIDATION', `a reason (${rmin}+ characters) is required for ${to}`);
+  // on behalf of an account-less contact: every receiver step carries a note
+  if (rule.who === 'receiver' && h.receiver_contact && String(o.reason || '').trim().length < rmin) return no(400, 'VALIDATION', `a note (${rmin}+ characters) is required: you record this on behalf of ${String(h.receiver_contact).slice(0, 80)}`);
   return null;
 }
 
@@ -65,7 +92,7 @@ function check(h, to, actor, o = {}) {
 function checkReassign(h, actor, newReceiverId, o = {}) {
   const no = (status, code, error) => ({ status, code, error });
   if (!actor || actor.id == null) return no(401, 'NO_USER', 'no user');
-  if (!(isRequester(h, actor) || actor.isAdmin)) return no(403, 'FORBIDDEN', 'only the requester (or the admin tier) can reassign');
+  if (!(actsAsRequester(h, actor) || actor.isAdmin)) return no(403, 'FORBIDDEN', 'only the requester (or the admin tier) can reassign');
   if (!actor.isAdmin && !actor.hasSite) return no(403, 'FORBIDDEN', 'this handoff belongs to a site you no longer have');
   if (!OPEN.includes(h.status)) return no(409, 'BAD_STAGE', `a ${h.status} handoff cannot be reassigned`);
   if (newReceiverId == null) return no(400, 'VALIDATION', 'receiver is required');
@@ -91,4 +118,4 @@ function allowed(h, actor) {
   return (TRANSITIONS[h && h.status] || []).filter((t) => !check(h, t.to, actor, { reason: 'x'.repeat(500) })).map((t) => ({ to: t.to, reason: t.reason }));
 }
 
-module.exports = { STATUSES, TERMINAL, OPEN, TRANSITIONS, check, checkReassign, overdue, allowed, isRequester, isReceiver };
+module.exports = { STATUSES, TERMINAL, OPEN, TRANSITIONS, check, checkReassign, overdue, allowed, isRequester, isReceiver, actsAsRequester, actsAsReceiver, actingFor, contactCheck };

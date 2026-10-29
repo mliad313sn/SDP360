@@ -7,7 +7,7 @@
 //                                                 relaxing a PROTECTED rule needs a super_admin + 10-char reason (risk event)
 //   GET  /api/governance/policies/history?key=    append-only change history (with names)                   committee | admin
 //   GET  /api/governance/policies/proposals       pending two-person relaxations · POST …/proposals/:id/approve|reject  super_admin ≠ proposer
-//   GET  /api/governance/oversight?from=&to=[&format=csv]   relaxations, overrides, proposals, deviations (MEA02)  committee | admin
+//   GET  /api/governance/oversight?from=&to=[&format=csv]   relaxations, overrides, proposals, deviations, role gaps (MEA02)  committee | admin
 //   GET  /policies.html
 // The rules, bounds and defaults live in services/governancePolicy.js; nothing here decides a value.
 
@@ -72,6 +72,10 @@ module.exports = function policyRoutes(deps) {
       res.json({ ok: true, profile: b.profile, results });
     } catch (e) { fail(res, e); }
   });
+  // Tamper evidence: recompute the hash chains of the audit tables now (migration 034).
+  router.get('/api/governance/audit-chain', requireReportSession, requireCommittee, async (req, res) => {
+    try { res.json({ ok: true, ...(await require('../services/auditChain').verify(rdb().pgHandle ? rdb().pgHandle() : rdb().db)) }); } catch (e) { fail(res, e); }
+  });
   router.get('/api/governance/policies/history', requireReportSession, requireCommittee, async (req, res) => {
     try { const m = await names(); res.json({ ok: true, history: (await store().history({ key: req.query.key || null, limit: req.query.limit })).map((h) => ({ ...h, actor: named(m, h.actor_id), proposer: named(m, h.proposed_by), approver: named(m, h.approved_by) })) }); } catch (e) { fail(res, e); }
   });
@@ -96,6 +100,13 @@ module.exports = function policyRoutes(deps) {
       const o = await store().oversight({ from: day(req.query.from), to: day(req.query.to) }); const m = await names();
       o.relaxations = o.relaxations.map((h) => ({ ...h, actor: named(m, h.actor_id), proposer: named(m, h.proposed_by), approver: named(m, h.approved_by) }));
       o.proposals = o.proposals.map((x) => ({ ...x, proposer: named(m, x.proposed_by), decider: named(m, x.decided_by) }));
+      // ADR-006 — roles nobody holds (an escalation would reach nobody) belong in the exceptions register
+      try {
+        const R = require('../services/governanceRoles');
+        const snap = await (deps.rolesStore || require('./governanceRoles').createStore(rdb())).snapshot();
+        const sites = ((await rdb().listSites({ includeInactive: false })) || []).map((s) => ({ id: Number(s.id), name: s.name }));
+        o.role_gaps = R.coverageGaps(snap, sites, new Date().toISOString().slice(0, 10));
+      } catch (_) { o.role_gaps = null; }   // null = not measured (migration 035 absent), never "no gap"
       if (req.query.format === 'csv') {
         const { neutralize } = require('../public/lib/csvSafe');
         const q = (v) => '"' + String(neutralize(v == null ? '' : typeof v === 'object' ? JSON.stringify(v) : v)).replace(/"/g, '""') + '"';
@@ -103,6 +114,7 @@ module.exports = function policyRoutes(deps) {
         for (const h of o.relaxations) lines.push(['relaxation', h.at, h.scope, h.key, `${JSON.stringify(h.old_value)} -> ${JSON.stringify(h.new_value)} | ${h.reason}`, h.actor, h.proposer && h.approver ? `${h.proposer} / ${h.approver}` : ''].map(q).join(','));
         for (const x of o.overrides || []) lines.push(['override', x.ts, x.target, x.action, x.details, x.actor, ''].map(q).join(','));
         for (const x of o.proposals) lines.push(['proposal', x.proposed_at, x.scope, x.key, `${x.status} | ${x.reason}`, x.proposer, x.decider || ''].map(q).join(','));
+        for (const g of o.role_gaps || []) lines.push(['role_gap', '', g.site || `site:${g.site_id}`, g.role, g.kind === 'matrix' ? `escalation rule #${g.matrix_id} (${g.register}) reaches nobody` : 'required role has no holder', '', ''].map(q).join(','));
         for (const d of o.deviations) lines.push(['deviation', '', d.scope, d.key, `value ${JSON.stringify(d.value)} default ${JSON.stringify(d.default)}${d.less_strict ? ' LESS STRICT' : ''}`, '', ''].map(q).join(','));
         res.setHeader('Content-Type', 'text/csv; charset=utf-8'); res.setHeader('Content-Disposition', 'attachment; filename="governance-oversight.csv"');
         return res.send('\ufeff' + lines.join('\r\n'));

@@ -124,6 +124,15 @@ function buildJobs(d) {
   // Step 4 — audit retention: system_log kept 12 months (risk events 24). Mandatory job.
   list.push({ name: 'audit.retention', cron: '30 3 * * *', freshnessHours: 30,
     job: legacyJob('audit.retention', async () => { const rdb = d.rdb || require('../../reports-db'); const r = await rdb.purgeSystemLog({ months: Number(process.env.AUDIT_RETENTION_MONTHS) || 12 }); return { deleted: r.deleted, rows: r.deleted }; }) });
+  // Committee review 2026-10-28 — verify the hash-chained audit tables and log the chain heads (daily anchor).
+  // A broken chain is a failed run (alerted like any job) and a risk event.
+  list.push({ name: 'audit.chain_verify', cron: '45 3 * * *', freshnessHours: 30,
+    job: legacyJob('audit.chain_verify', async () => {
+      const rdb = d.rdb || require('../../reports-db'); const r = await require('../auditChain').verify(rdb.pgHandle ? rdb.pgHandle() : rdb.db);
+      await rdb.logEvent({ category: 'governance', action: r.ok ? 'audit_chain_anchor' : 'audit_chain_broken', target: 'audit', details: { tables: r.tables.map((x) => ({ table: x.table, rows: x.rows, ok: x.ok, head: x.head, first_broken_id: x.first_broken_id })) }, risk: r.ok ? 0 : 1 });
+      if (!r.ok) throw new Error('audit chain broken: ' + r.tables.filter((x) => x.ok === false).map((x) => `${x.table}#${x.first_broken_id}`).join(', '));
+      return { rows: r.tables.reduce((n, x) => n + (x.rows || 0), 0) };
+    }, { maxAttempts: 1 }) });
   // Step 9 — engagement + publishing through the same runner (d.engagement = { evaluate, digest, reports, publish } injected by server.js).
   const eng = d.engagement || null;
   list.push({ name: 'engagement.alerts', cron: '*/15 * * * *', freshnessHours: 1, optional: true, job: legacyJob('engagement.alerts', () => eng ? eng.evaluate() : { skipped: true }, { maxAttempts: 2 }) });
@@ -147,7 +156,7 @@ function buildJobs(d) {
 const FRESHNESS_HOURS = {
   'zoho.requests': 3, 'zoho.change_cab': 3, 'zoho.survey': 3, 'assets.sync': 30,
   'meridian.resources': 30, 'opmanager.availability': 30, 'meraki.wan': 30, 'meraki.wan_events': 30,
-  'meraki.wan_events_5m': 1, 'meraki.wan_poller': 1, 'teams.sla_poll': 1, 'db.backup': 30, 'db.restore_drill': 24 * 33, 'audit.retention': 30,
+  'meraki.wan_events_5m': 1, 'meraki.wan_poller': 1, 'teams.sla_poll': 1, 'db.backup': 30, 'db.restore_drill': 24 * 33, 'audit.retention': 30, 'audit.chain_verify': 30,
   'engagement.alerts': 1, 'engagement.digest': 30, 'engagement.digest_weekly': 24 * 8, 'reports.weekly': 24 * 8, 'reports.monthly': 24 * 32, 'publish.connectors': 30, 'field.purge': 30,
   'commitments.escalate': 3, 'handoffs.escalate': 3,
 };

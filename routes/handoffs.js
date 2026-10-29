@@ -5,7 +5,10 @@
 //   GET  /api/handoffs?status=                 scoped list: admin all; others their sites + where they are requester / receiver
 //   GET  /api/handoffs/:id                     detail + events + allowed transitions
 //   POST /api/handoffs                         { title, description, site_id, from_department, to_department, receiver, due_date,
-//                                                source_kind, source_ref, commitment_id, idem_key }     editor of the site | admin
+//                                                source_kind, source_ref, commitment_id, idem_key, receiver_contact? }  editor of the site | admin
+//   (receiver_contact: a named person without an account — only under the site policy handoffs.proxy_accept)
+// ADR-006: a deputy named in Governance ▸ Roles (table deputies) sees and acts on the handoffs of the person
+// they replace, recorded as acting_for; a deputy never verifies the work of the person they replace.
 //   POST /api/handoffs/:id/transition          { to, version, reason }   rules: services/handoffLifecycle
 //   POST /api/handoffs/:id/reassign            { receiver, version, reason }   requester | admin  → back to `requested`
 //   GET  /handoffs.html
@@ -28,7 +31,9 @@ module.exports = function handoffRoutes(deps) {
   const L = require('../services/handoffLifecycle');
   const fail = (res, e) => httpFail(res, e);
   const isAdmin = (u) => rdb().userHasRole(u, 'admin');
-  const actorOf = (u, h) => ({ id: u.id, isAdmin: isAdmin(u), active: u.active !== 0 && u.active !== false, hasSite: h ? userSites.hasSite(u, h.site_id) : false });
+  // ADR-006 — deputyFor = the people this user stands in for today (table deputies; empty = as before)
+  const actorOf = (u, h, deputyFor = []) => ({ id: u.id, isAdmin: isAdmin(u), active: u.active !== 0 && u.active !== false, hasSite: h ? userSites.hasSite(u, h.site_id) : false, deputyFor });
+  const deputyFor = async (u) => { try { return deps.rolesStore ? await deps.rolesStore.principalsOf(u.id) : []; } catch (_) { return []; } };
   const log = (req, action, target, details) => { try { rdb().logEvent({ category: 'handoffs', action, target: String(target), details, ...rdb()._logCtx(req) }); } catch (_) {} };
   const polFor = (siteId) => require('../services/governancePolicy').forContext({ siteId });
   const cfg = async () => { try { return await reportConfig.getConfig(rdb().db); } catch (_) { return {}; } };
@@ -36,14 +41,15 @@ module.exports = function handoffRoutes(deps) {
   async function enabled(req, res, next) {
     try { if (String((await cfg()).handoffs_enabled) !== '1') return res.status(404).json({ error: 'handoffs are not enabled' }); next(); } catch (e) { fail(res, e); }
   }
-  const visible = (u, h) => !!h && (isAdmin(u) || userSites.hasSite(u, h.site_id) || Number(h.requested_by) === Number(u.id) || Number(h.receiver_id) === Number(u.id));
+  const visible = (u, h, dep = []) => !!h && (isAdmin(u) || userSites.hasSite(u, h.site_id) || [u.id, ...dep].map(Number).some((x) => x === Number(h.requested_by) || x === Number(h.receiver_id)));
   async function load(req, res) {
     const h = await store.get(req.params.id);
-    if (!visible(req.reportUser, h)) { res.status(404).json({ error: 'handoff not found' }); return null; }
+    req.deputyFor = await deputyFor(req.reportUser);
+    if (!visible(req.reportUser, h, req.deputyFor)) { res.status(404).json({ error: 'handoff not found' }); return null; }
     return h;
   }
   // idem_key stays server-side; can_reassign is probed with a reason long enough for any policy minimum
-  const view = (h, u) => { const { idem_key: _idem, ...rest } = h || {}; void _idem; return { ...rest, allowed: L.allowed(h, actorOf(u, h)), can_reassign: !L.checkReassign(h, actorOf(u, h), -1, { reason: 'x'.repeat(500) }) }; };
+  const view = (h, u, dep = []) => { const { idem_key: _idem, ...rest } = h || {}; void _idem; const a = actorOf(u, h, dep); return { ...rest, allowed: L.allowed(h, a), can_reassign: !L.checkReassign(h, a, -1, { reason: 'x'.repeat(500) }), acting_for: L.actingFor(h, a, 'receiver') || L.actingFor(h, a, 'requester') }; };
 
   /** The receiver must be a real, active user who has the handoff's site (no hand-off into the void). */
   async function resolveReceiver(ref, siteId) {
@@ -87,14 +93,14 @@ module.exports = function handoffRoutes(deps) {
   router.get('/api/handoffs', requireReportSession, enabled, async (req, res) => {
     try {
       const u = req.reportUser;
-      const rows = await store.list({ siteIds: isAdmin(u) ? null : userSites.siteIds(u), userId: u.id, status: req.query.status || null });
+      const rows = await store.list({ siteIds: isAdmin(u) ? null : userSites.siteIds(u), userId: u.id, userIds: await deputyFor(u), status: req.query.status || null });
       const mine = isAdmin(u) ? null : userSites.siteIds(u).map(Number);
       const sites = ((await rdb().listSites({ includeInactive: false })) || []).filter((x) => !mine || mine.includes(Number(x.id))).map((x) => ({ id: Number(x.id), name: x.name }));
       res.json({ handoffs: rows.map(({ idem_key: _i, ...r }) => r), statuses: L.STATUSES, sites, departments: ((await rdb().listDepartments()) || []).map((d) => d.name) });
     } catch (e) { fail(res, e); }
   });
   router.get('/api/handoffs/:id', requireReportSession, enabled, async (req, res) => {
-    try { const h = await load(req, res); if (h) res.json({ handoff: view(h, req.reportUser) }); } catch (e) { fail(res, e); }
+    try { const h = await load(req, res); if (h) res.json({ handoff: view(h, req.reportUser, req.deputyFor) }); } catch (e) { fail(res, e); }
   });
   router.post('/api/handoffs', requireReportSession, enabled, json, async (req, res) => {
     try {
@@ -104,6 +110,8 @@ module.exports = function handoffRoutes(deps) {
         if (b.site_id == null || !userSites.hasSite(u, b.site_id)) return res.status(403).json({ error: 'Access denied: another site' });
       }
       await checkDepartments(b.from_department, b.to_department);
+      // committee #34: a receiver without an account only under the site policy handoffs.proxy_accept
+      const cc = L.contactCheck(b.receiver_contact, await polFor(b.site_id)); if (cc) return res.status(cc.status).json({ error: cc.error, code: cc.code });
       const receiverId = await resolveReceiver(b.receiver, b.site_id);
       if (b.commitment_id != null && b.commitment_id !== '' && deps.commitmentStore) {
         const c = await deps.commitmentStore.getRaw(b.commitment_id);
@@ -118,10 +126,11 @@ module.exports = function handoffRoutes(deps) {
     try {
       const h = await load(req, res); if (!h) return;
       const b = req.body || {};
-      const out = await store.transition(h.id, String(b.to || ''), { actor: actorOf(req.reportUser, h), expectedVersion: b.version, reason: b.reason, policy: await polFor(h.site_id) });
-      log(req, 'handoff_transition', h.ref, { from: h.status, to: out.status });
-      await notify(Number(req.reportUser.id) === out.requested_by ? out.receiver_id : out.requested_by, out, out.status);
-      res.json({ handoff: view(out, req.reportUser) });
+      const a = actorOf(req.reportUser, h, req.deputyFor);
+      const out = await store.transition(h.id, String(b.to || ''), { actor: a, expectedVersion: b.version, reason: b.reason, policy: await polFor(h.site_id) });
+      log(req, 'handoff_transition', h.ref, { from: h.status, to: out.status, acting_for: L.actingFor(h, a, 'receiver') || L.actingFor(h, a, 'requester') || undefined });
+      await notify(L.actsAsRequester(h, a) ? out.receiver_id : out.requested_by, out, out.status);
+      res.json({ handoff: view(out, req.reportUser, req.deputyFor) });
     } catch (e) { fail(res, e); }
   });
   router.post('/api/handoffs/:id/reassign', requireReportSession, enabled, json, async (req, res) => {
@@ -129,10 +138,10 @@ module.exports = function handoffRoutes(deps) {
       const h = await load(req, res); if (!h) return;
       const b = req.body || {};
       const to = await resolveReceiver(b.receiver, h.site_id);
-      const out = await store.reassign(h.id, to, { actor: actorOf(req.reportUser, h), expectedVersion: b.version, reason: b.reason, policy: await polFor(h.site_id) });
+      const out = await store.reassign(h.id, to, { actor: actorOf(req.reportUser, h, req.deputyFor), expectedVersion: b.version, reason: b.reason, policy: await polFor(h.site_id) });
       log(req, 'handoff_reassigned', h.ref, { from: h.receiver_id, to });
       await notify(to, out, 'handed to you');
-      res.json({ handoff: view(out, req.reportUser) });
+      res.json({ handoff: view(out, req.reportUser, req.deputyFor) });
     } catch (e) { fail(res, e); }
   });
   return router;

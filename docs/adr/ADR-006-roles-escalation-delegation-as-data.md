@@ -1,6 +1,6 @@
 # ADR-006 — Roles, escalation matrix and delegation as configuration data
 
-**Status: PROPOSED — for the committee (DECISION #38 of `docs/sdp360/completion/COMMITTEE-REVIEW-2026-10-28.md`). Nothing here is built.**
+**Status: ACCEPTED (mechanism built 2026-10-29, defaults = the behaviour until now). The values — who holds which role, which rules, who deputises — are the committee's (DECISION #38 of `docs/sdp360/completion/COMMITTEE-REVIEW-2026-10-28.md`).**
 Date: 2026-10-28. Raised by: Group CIO seat (P0-1, P0-2, P1-4), Houndé site IT seat (P0-1, P1-8, P1-9).
 
 ## Context
@@ -56,3 +56,22 @@ people. Profiles depend on the site registry (DEC-4).
 D-14 (department-level access), the account-less participant question (committee #34), and whether
 handoffs become a commitment kind (committee #39) — they interact with this ADR and should be decided
 together.
+
+## Implementation (2026-10-29)
+
+| Piece | Where |
+|---|---|
+| Tables `role_assignments`, `deputies`, `escalation_matrix`, `governance_role_events` (append-only, hash-chained), `handoffs.receiver_contact` | `db/postgres/reports/035_roles_deputies_escalation.sql` |
+| Pure resolver: role catalogue, holders (site → platform), deputies, escalation target (site over platform, highest level reached, exact severity over `*`, holders' deputies added, `gap` when nobody holds the role), coverage gaps, validation | `services/governanceRoles.js` |
+| Store (nothing deleted: end / revoke / retire; every change in the history in the same transaction) | `services/governanceRolesStore.js` |
+| API `GET/POST /api/governance/roles…` — authority (roles, matrix) super_admin; deputies admin tier, same site, at most 120 days | `routes/governanceRoles.js` |
+| Handoffs: a deputy of the receiver / requester sees and acts in their name (`acting_for: deputy_for:<id>`); a deputy never verifies the work of the person they replace | `services/handoffLifecycle.js`, `routes/handoffs.js` |
+| Account-less receiver (#34): `receiver_contact` only under policy `handoffs.proxy_accept` (default off, protected); a note on every receiver step, event `on_behalf_of_contact` | same |
+| Escalation jobs reach a person (#36): handoffs record `escalated_to_role` / `escalated_to` and raise each further matrix level once; commitments A01/A02 notify the matrix target; notices behind `handoff_notify_enabled` / `commitment_notify_enabled` (off) | `services/escalationRouting.js`, `services/handoffStore.js` |
+| Oversight register lists required roles without a holder and matrix rules that reach nobody (`role_gaps`, CSV kind `role_gap`) | `routes/policies.js` |
+| Admin screen: Governance policies ▸ Roles, deputies and escalation | `public/policies.html` |
+| Tests | `tests/governance-roles.test.js`, `tests/governance-roles.smoke.test.js` |
+
+Not wired yet (kept on their fixed actors, listed for the committee): meetings chair / minutes acceptor and the
+commitment reviewer still come from the session / commitment record; `group.reviewer` is in the catalogue for
+the small-site option but the four-eyes checks do not read it yet.

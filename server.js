@@ -534,14 +534,12 @@ require('./services/sync/schedule').start({
   commitments: { escalate: async () => {   // G-18 — lazy: _cmtStore is created later at boot; inert while the flag is off
     const cfg = await require('./services/reportConfig').getConfig(rdb.db);
     if (String(cfg.commitments_enabled) !== '1') return { skipped: true };
-    const r = await _cmtStore.escalate({ policyFor: (siteId) => require('./services/governancePolicy').forContext({ siteId }) });
-    return { rows: r.raised.length, raised: r.raised.length, kept: r.kept, cleared: r.cleared };
+    return require('./services/escalationRouting').routeCommitmentEscalations({ cmtStore: _cmtStore, rolesStore: _rolesStore, policyFor: (siteId) => require('./services/governancePolicy').forContext({ siteId }), notify: (n) => _engStore.notify(n), notifyEnabled: String(cfg.commitment_notify_enabled) === '1' });   // ADR-006 — matrix target
   } },
   handoffs: { escalate: async () => {   // G-22 — lazy: _hoStore is created later at boot; inert while the flag is off
     const cfg = await require('./services/reportConfig').getConfig(rdb.db);
     if (String(cfg.handoffs_enabled) !== '1') return { skipped: true };
-    const r = await _hoStore.escalateOverdue({ policyFor: (siteId) => require('./services/governancePolicy').forContext({ siteId }) });
-    return { rows: r.length, escalated: r.length };
+    return require('./services/escalationRouting').routeHandoffEscalations({ hoStore: _hoStore, rolesStore: _rolesStore, policyFor: (siteId) => require('./services/governancePolicy').forContext({ siteId }), notify: (n) => _engStore.notify(n), notifyEnabled: String(cfg.handoff_notify_enabled) === '1' });   // ADR-006 — matrix target
   } },
   afterRequests: () => { console.log('[Cron:requests] ✅ Sync done — rebuilding raw cache…'); return _backgroundRefreshRawCache(); },
   getAlertConfig: async () => {
@@ -7622,7 +7620,8 @@ const _govStore = require('./routes/governance').createStore(require('./reports-
 app.use(require('./routes/governance')({ express, requireReportSession, store: _govStore, trackerStore: _trkStore })); app.use(require('./routes/reportStudio')({ express, requireReportSession, store: _repStore, dashStore: _dashStore, engStore: _engStore, aiProvider: AI_PROVIDER, aiCall: require('./services/engagementJobs').aiCallFrom(_execAiCall) })); app.use(require('./routes/engagement')({ express, requireReportSession, store: _engStore, dashStore: _dashStore, reportStore: _repStore })); app.use(require('./routes/extApi')({ express, store: _engStore })); app.use(require('./routes/field')({ express, requireReportSession, store: _fieldStore, dashStore: _dashStore, trackerStore: _trkStore }));
 const _cmtStore = require('./routes/commitments').createStore(require('./reports-db')); app.use(require('./routes/commitments')({ express, requireReportSession, store: _cmtStore, sendHtmlPage }));   // 2027 Goal 02 — canonical commitments (021), flag commitments_enabled
 app.use(require('./routes/policies')({ express, requireReportSession, sendHtmlPage }));   // governance policies (027) — every regulation behaviour as a parameter
-const _hoStore = require('./routes/handoffs').createStore(require('./reports-db')); app.use(require('./routes/handoffs')({ express, requireReportSession, store: _hoStore, commitmentStore: _cmtStore, sendHtmlPage, notify: (n) => _engStore.notify(n) }));   // G-22 — interdepartmental handoffs (026), flags handoffs_enabled + handoff_notify_enabled
+const _rolesStore = require('./routes/governanceRoles').createStore(require('./reports-db')); app.use(require('./routes/governanceRoles')({ express, requireReportSession, store: _rolesStore }));   // ADR-006 — roles, deputies, escalation matrix (035)
+const _hoStore = require('./routes/handoffs').createStore(require('./reports-db')); app.use(require('./routes/handoffs')({ express, requireReportSession, store: _hoStore, rolesStore: _rolesStore, commitmentStore: _cmtStore, sendHtmlPage, notify: (n) => _engStore.notify(n) }));   // G-22 — interdepartmental handoffs (026), flags handoffs_enabled + handoff_notify_enabled
 
 // ══════════════════════════════════════════════════════════════════
 // MEETINGS — routes live in routes/meetings.js (Step 5 modularisation). The meetings-db
