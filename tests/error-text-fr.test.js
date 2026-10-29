@@ -26,6 +26,7 @@ test('session and handoff lifecycle messages are all translated', () => {
   add(HL.check({ ...h, status: 'delivered', delivered_by: 2 }, 'verified', { id: 2, hasSite: true }));
   add(HL.check(h, 'accepted', { id: 2, hasSite: false }));
   // ADR-006 / committee #34
+  add(SL.check({ status: 'closed', closed_by: 1 }, 'accept', { id: 2, canDecide: true, deputyFor: [1] }, { now }));
   add(HL.check({ ...h, status: 'delivered', delivered_by: 2 }, 'verified', { id: 5, hasSite: true, deputyFor: [1, 2] }));
   add(HL.check({ ...h, receiver_contact: 'Chef maintenance' }, 'accepted', { id: 2, hasSite: true }));
   add(HL.contactCheck('Chef', { 'handoffs.proxy_accept': false }));

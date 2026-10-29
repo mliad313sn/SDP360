@@ -50,13 +50,23 @@ const _is = (actor, who) => { const w = _s(who); return !!w && _ids(actor).inclu
 /** Is the actor one of the people doing / owning / having created the work? */
 function isSelf(c, actor) {
   if (!c || !actor) return false;
-  return _is(actor, c.accountable_owner) || _execs(c).some((e) => _is(actor, e)) || _is(actor, c.created_by);
+  if (_is(actor, c.accountable_owner) || _execs(c).some((e) => _is(actor, e)) || _is(actor, c.created_by)) return true;
+  // ADR-006: a deputy never satisfies four-eyes against the person they replace — standing in for the
+  // owner, an executor or the creator counts as being them
+  return (actor.principals || []).some((p) => isSelf(c, p));
 }
 // A grant (who may VERIFY) matches only a unique identity — username or e-mail — never a full name
 // (namesakes are common) nor a bare numeric id typed into the field (committee security P1-3).
 // Refusals (isSelf) keep the broad match: more matches there only means more caution.
 function _grantIds(actor) { return [actor && actor.username, actor && actor.email].map(_s).filter(Boolean); }
-const isReviewer = (c, actor) => { const w = _s(c && c.reviewer); return !!w && _grantIds(actor).includes(w); };
+// ADR-006: the named reviewer, their deputy (actor.principals), or — when no person is named on the
+// commitment — a holder of the role commitments.reviewer for its site (actor.roleReviewer, resolved by the route)
+const isReviewer = (c, actor) => {
+  if (!actor) return false;
+  const w = _s(c && c.reviewer);
+  if (w) return _grantIds(actor).includes(w) || (actor.principals || []).some((p) => _grantIds(p).includes(w));
+  return actor.roleReviewer === true;
+};
 
 /** Severity rule (high / critical): owner + (due date OR approved exception) + treatment plan. Returns missing fields. */
 function severityGaps(c) {

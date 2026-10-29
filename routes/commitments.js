@@ -37,8 +37,19 @@ module.exports = function commitmentsRoutes(deps) {
 
   const isAdmin = (u) => rdb().userHasRole(u, 'admin');
   const identities = (u) => [u && u.username, u && u.email].filter(Boolean);   // never the full name (namesakes) — security P1-3
-  const actorOf = (u, c) => ({ id: u.id, username: u.username, full_name: u.full_name, email: u.email, isAdmin: isAdmin(u),
-    canEdit: rdb().userHasRole(u, 'editor') && c && c.site_id != null && userSites.hasSite(u, c.site_id) });
+  const actorOf = (u, c, ex = {}) => ({ id: u.id, username: u.username, full_name: u.full_name, email: u.email, isAdmin: isAdmin(u),
+    canEdit: rdb().userHasRole(u, 'editor') && c && c.site_id != null && userSites.hasSite(u, c.site_id), principals: ex.principals || [], roleReviewer: !!ex.roleReviewer });
+  // ADR-006 — who this user stands in for today, and whether they hold commitments.reviewer for the site.
+  // No rolesStore / empty tables = no extras = the behaviour until now.
+  async function extrasFor(u, c) {
+    const rs = deps.getRolesStore && deps.getRolesStore(); if (!rs || !c) return {};
+    try {
+      const snap = await rs.snapshot(); const R = require('../services/governanceRoles'); const day = new Date().toISOString().slice(0, 10);
+      const ids = R.principalsOf(snap.deputies, u.id, day);
+      const users = ids.length ? ((await rdb().listUsers()) || []).filter((x) => ids.includes(Number(x.id))).map((x) => ({ id: x.id, username: x.username, email: x.email, full_name: x.full_name })) : [];
+      return { principals: users, roleReviewer: R.holders(snap.assignments, 'commitments.reviewer', c.site_id, day).includes(Number(u.id)) };
+    } catch (_) { return {}; }
+  }
   const log = (req, action, target, details) => { try { rdb().logEvent({ category: 'commitments', action, target: String(target), details, ...rdb()._logCtx(req) }); } catch (_) {} };
 
   async function enabled(req, res, next) {
@@ -93,7 +104,7 @@ module.exports = function commitmentsRoutes(deps) {
     if (!userSites.hasSite(u, s.site_id)) return { status: 403, error: 'Access denied: the source belongs to another site' };
     return null;
   }
-  const view = (c, u) => ({ ...c, allowed: L.allowedTransitions(c, actorOf(u, c)), can_edit: canEdit(u, c) });
+  const view = async (c, u) => ({ ...c, allowed: L.allowedTransitions(c, actorOf(u, c, await extrasFor(u, c))), can_edit: canEdit(u, c) });
 
   router.get('/commitments.html', (req, res) => deps.sendHtmlPage(res, 'commitments.html', false, 'Commitments page unavailable'));
 
@@ -123,7 +134,7 @@ module.exports = function commitmentsRoutes(deps) {
     } catch (e) { fail(res, e); }
   });
   router.get(base + '/:id', requireReportSession, enabled, async (req, res) => {
-    try { const c = await load(req, res); if (c) res.json({ commitment: view(c, req.reportUser) }); } catch (e) { fail(res, e); }
+    try { const c = await load(req, res); if (c) res.json({ commitment: await view(c, req.reportUser) }); } catch (e) { fail(res, e); }
   });
   router.post(base, requireReportSession, enabled, async (req, res) => {
     try {
@@ -144,7 +155,7 @@ module.exports = function commitmentsRoutes(deps) {
       // idempotent replay: never hand back a commitment the caller cannot see
       if (!r.created && !visibleTo(u, r.commitment)) return res.status(409).json({ error: 'this source is already linked to another commitment' });
       if (r.created) log(req, 'commitment_created', r.commitment.id, { kind: r.commitment.kind, site_id: r.commitment.site_id });
-      res.status(r.created ? 201 : 200).json({ created: r.created, commitment: view(r.commitment, u) });
+      res.status(r.created ? 201 : 200).json({ created: r.created, commitment: await view(r.commitment, u) });
     } catch (e) { fail(res, e); }
   });
   router.put(base + '/:id', requireReportSession, enabled, async (req, res) => {
@@ -152,16 +163,16 @@ module.exports = function commitmentsRoutes(deps) {
       const c = await load(req, res); if (!c) return;
       if (!canEdit(req.reportUser, c)) return res.status(403).json({ error: 'editor of this site required' });
       const b = req.body || {};
-      res.json({ commitment: view(await store.update(c.id, b, { user: req.reportUser, expectedVersion: b.version, reason: b.reason, isAdmin: isAdmin(req.reportUser), policy: await require('../services/governancePolicy').forContext({ siteId: c.site_id }) }), req.reportUser) });
+      res.json({ commitment: await view(await store.update(c.id, b, { user: req.reportUser, expectedVersion: b.version, reason: b.reason, isAdmin: isAdmin(req.reportUser), policy: await require('../services/governancePolicy').forContext({ siteId: c.site_id }) }), req.reportUser) });
     } catch (e) { fail(res, e); }
   });
   router.post(base + '/:id/transition', requireReportSession, enabled, async (req, res) => {
     try {
       const c = await load(req, res); if (!c) return;
       const b = req.body || {};
-      const out = await store.transition(c.id, String(b.to || ''), { actor: actorOf(req.reportUser, c), expectedVersion: b.version, reason: b.reason });
+      const out = await store.transition(c.id, String(b.to || ''), { actor: actorOf(req.reportUser, c, await extrasFor(req.reportUser, c)), expectedVersion: b.version, reason: b.reason });
       log(req, 'commitment_transition', c.id, { from: c.status, to: out.status });
-      res.json({ commitment: view(out, req.reportUser) });
+      res.json({ commitment: await view(out, req.reportUser) });
     } catch (e) { fail(res, e); }
   });
   router.post(base + '/:id/exception', requireReportSession, enabled, async (req, res) => {
@@ -170,7 +181,7 @@ module.exports = function commitmentsRoutes(deps) {
       if (!isAdmin(req.reportUser)) return res.status(403).json({ error: 'only the admin tier may approve an exception' });
       if (L.isSelf(c, req.reportUser)) return res.status(403).json({ error: 'the owner or creator cannot approve their own exception' });
       const b = req.body || {};
-      res.json({ commitment: view(await store.approveException(c.id, { user: req.reportUser, expectedVersion: b.version, reason: b.reason, policy: await require('../services/governancePolicy').forContext({ siteId: c.site_id }) }), req.reportUser) });
+      res.json({ commitment: await view(await store.approveException(c.id, { user: req.reportUser, expectedVersion: b.version, reason: b.reason, policy: await require('../services/governancePolicy').forContext({ siteId: c.site_id }) }), req.reportUser) });
     } catch (e) { fail(res, e); }
   });
   router.post(base + '/:id/links', requireReportSession, enabled, async (req, res) => {
@@ -180,14 +191,14 @@ module.exports = function commitmentsRoutes(deps) {
       const lb = req.body || {};
       const d = await sourceDenied(req.reportUser, String(lb.source_system || ''), lb.source_id);
       if (d) return res.status(d.status).json({ error: d.error });
-      res.json({ commitment: view(await store.link(c.id, req.body || {}, { user: req.reportUser }), req.reportUser) });
+      res.json({ commitment: await view(await store.link(c.id, req.body || {}, { user: req.reportUser }), req.reportUser) });
     } catch (e) { fail(res, e); }
   });
   router.delete(base + '/:id/links', requireReportSession, enabled, async (req, res) => {
     try {
       const c = await load(req, res); if (!c) return;
       if (!canEdit(req.reportUser, c)) return res.status(403).json({ error: 'editor of this site required' });
-      res.json({ commitment: view(await store.unlink(c.id, req.body || {}, { user: req.reportUser }), req.reportUser) });
+      res.json({ commitment: await view(await store.unlink(c.id, req.body || {}, { user: req.reportUser }), req.reportUser) });
     } catch (e) { fail(res, e); }
   });
   router.post(base + '/:id/evidence', requireReportSession, enabled, raw, async (req, res) => {
@@ -203,7 +214,7 @@ module.exports = function commitmentsRoutes(deps) {
       else if (req.body && req.body.url) r = await store.addEvidence(c.id, { ...opts, type: req.body.type || 'link', url: req.body.url }, { user: u });
       else throw typed('VALIDATION', 'send the file as the request body, or JSON { url }', 400);
       log(req, 'commitment_evidence', c.id, { evidence_id: r.id, sha256: r.sha256 });
-      res.status(201).json({ evidence_id: r.id, sha256: r.sha256, commitment: view(r.commitment, u) });
+      res.status(201).json({ evidence_id: r.id, sha256: r.sha256, commitment: await view(r.commitment, u) });
     } catch (e) { fail(res, e); }
   });
   router.get(base + '/:id/evidence/:eid', requireReportSession, enabled, async (req, res) => {

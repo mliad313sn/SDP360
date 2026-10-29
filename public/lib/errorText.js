@@ -18,6 +18,7 @@
     [/(applies to the whole platform|platform, not to one site)/i, () => 'Cette règle s\'applique à toute la plateforme, pas à un site.'],
     [/a short reason is required for every policy change/i, () => 'Un motif court est requis pour tout changement de règle.'],
     [/you stand in for the person who delivered/i, () => 'Vous remplacez la personne qui a livré — vous ne pouvez pas valider son travail.'],
+    [/you stand in for the person who recorded the minutes/i, () => 'Vous remplacez la personne qui a rédigé le compte rendu — vous ne pouvez pas l\'accepter.'],
     [/a note \((\d+)\+ characters\) is required: you record this on behalf of (.*)/i, (m) => `Une note (${m[1]} caractères au moins) est requise : vous enregistrez cette étape au nom de ${m[2]}.`],
     [/receiver without an account is not allowed/i, () => 'Désigner un destinataire sans compte n\'est pas autorisé sur ce site (règle handoffs.proxy_accept).'],
     [/name the person who receives the work/i, () => 'Nommez la personne qui reçoit le travail (3 caractères au moins).'],

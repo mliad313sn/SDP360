@@ -187,3 +187,37 @@ test('calendar: a shutdown day keeps an overdue handoff inside its grace; admin 
   const ev = (await json(await send('GET', '/api/governance/roles/events', P.admin))).body.events;
   assert.ok(ev.some((e) => e.entity === 'calendar' && e.action === 'removed'));
 });
+
+test('commitments: the holder of commitments.reviewer verifies an unnamed commitment; nobody else on the site', async () => {
+  await require('../services/reportConfig').setConfig(rdb.db, { commitments_enabled: '1' }, 'test');
+  const c = await json(await send('POST', '/api/commitments', P.itlead, { kind: 'corrective_action', title: 'Replace the gate UPS battery', site_id: hounde, source: { system: 'governance', id: 'g-1' } }));
+  let cid = c.body.commitment && c.body.commitment.id;
+  if (c.status !== 201) {   // an editor cannot create from an unverifiable source (committee #47): the admin does
+    const a = await json(await send('POST', '/api/commitments', P.admin, { kind: 'corrective_action', title: 'Replace the gate UPS battery', site_id: hounde, source: { system: 'governance', id: 'g-1' } }));
+    assert.equal(a.status, 201, JSON.stringify(a.body)); cid = a.body.commitment.id;
+  }
+  await rdb.db.prepare("UPDATE commitments SET status='awaiting_verification', reviewer=NULL WHERE id=?").run(cid);
+  const allowed = async (t) => ((await json(await send('GET', `/api/commitments/${cid}`, t))).body.commitment.allowed || []).map((x) => x.to || x);
+  assert.ok(!(await allowed(P.target)).includes('verified_closed'), 'no role yet');
+  assert.equal((await send('POST', '/api/governance/roles/assignments', P.super, { role: 'commitments.reviewer', site_id: hounde, user_id: ID.target, effective_from: today(), reason: 'site IT lead verifies closures' })).status, 201);
+  assert.ok((await allowed(P.target)).includes('verified_closed'), 'the role holder verifies');
+  assert.ok(!(await allowed(P.coord)).includes('verified_closed'), 'another editor of the site does not');
+});
+
+test('meetings: the minutes acceptor role and the chair\'s deputy, never accepting what the person they replace recorded', async () => {
+  const c = await json(await send('PUT', '/api/governance/cadences', P.super, { key: 'hgo-roles', name: 'HGO roles', kind: 'site_weekly', site_id: hounde, chair_id: ID.itlead }));
+  assert.equal(c.status, 200, JSON.stringify(c.body));
+  const s = await json(await send('POST', `/api/governance/cadences/${c.body.cadence.id}/sessions`, P.itlead, { scheduled_at: new Date().toISOString() }));
+  const sid = s.body.session.id;
+  assert.equal((await send('POST', `/api/governance/sessions/${sid}/start`, P.itlead)).status, 200);
+  assert.equal((await send('POST', `/api/governance/sessions/${sid}/close`, P.itlead)).status, 200);
+  const can = async (t) => (await json(await send('GET', `/api/governance/sessions/${sid}`, t))).body;
+  assert.equal((await can(P.target)).can_decide, false, 'a site editor does not accept minutes');
+  assert.equal((await send('POST', '/api/governance/roles/assignments', P.super, { role: 'meetings.minutes_acceptor', site_id: hounde, user_id: ID.target, effective_from: today(), reason: 'second pair of eyes for the site minutes' })).status, 201);
+  const v = await can(P.target); assert.equal(v.can_decide, true); assert.ok(v.session.allowed.includes('accept'));
+  // the chair's deputy may run the session but not accept minutes the chair recorded
+  assert.equal((await send('POST', '/api/governance/roles/deputies', P.admin, { user_id: ID.itlead, deputy_id: ID.coord, start_date: today(), end_date: plus(3), reason: 'chair on leave' })).status, 201);
+  const d = await can(P.coord); assert.equal(d.can_run, true); assert.ok(!d.session.allowed.includes('accept'), 'stands in for the recorder');
+  assert.equal((await send('POST', `/api/governance/sessions/${sid}/accept`, P.coord)).status, 403);
+  assert.equal((await send('POST', `/api/governance/sessions/${sid}/accept`, P.target)).status, 200);
+});

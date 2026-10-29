@@ -111,12 +111,14 @@ function makeGovernanceRolesStore(db, { now = () => new Date().toISOString() } =
       await event('calendar', id, 'removed', actorId, { reason: str(reason) });
     });
   }
+  /** History version: moves on every change (callers re-read their snapshot when it moves). */
+  async function version() { const r = await P('SELECT COALESCE(MAX(id), 0) AS v FROM governance_role_events').get(); return Number(r && r.v) || 0; }
   /** People a deputy stands in for today (used by the lifecycles). */
   async function principalsOf(userId, today) { return R.principalsOf((await snapshot()).deputies, userId, today || now()); }
   /** Escalation target + targets' ids for one overdue item. */
   async function escalationTarget(q) { return R.escalationTarget(await snapshot(), { today: now(), ...q }); }
 
-  return { calendar, addCalendarDay, removeCalendarDay, snapshot, assign, endAssignment, addDeputy, revokeDeputy, addMatrixRow, retireMatrixRow, events, principalsOf, escalationTarget };
+  return { version, calendar, addCalendarDay, removeCalendarDay, snapshot, assign, endAssignment, addDeputy, revokeDeputy, addMatrixRow, retireMatrixRow, events, principalsOf, escalationTarget };
 }
 
 module.exports = { makeGovernanceRolesStore };

@@ -78,6 +78,8 @@ function check(s, action, actor, o = {}) {
       if (!(actor.canDecide || actor.isCommittee)) return no(403, 'FORBIDDEN', 'only the chair, the secretary, the committee or an admin may accept minutes');
       if (st !== 'logged') return no(409, 'BAD_STAGE', st === 'accepted' ? 'the minutes are already accepted' : 'close the session first — there are no minutes to accept');
       if (pol['meetings.minutes_four_eyes'] !== false && s.closed_by != null && Number(s.closed_by) === Number(actor.id)) return no(403, 'SOD', 'the person who recorded the minutes cannot accept them');
+      // ADR-006: a deputy never satisfies four-eyes against the person they replace
+      if (pol['meetings.minutes_four_eyes'] !== false && s.closed_by != null && (actor.deputyFor || []).map(Number).includes(Number(s.closed_by))) return no(403, 'SOD', 'you stand in for the person who recorded the minutes — you cannot accept them');
       return null;
     case 'reopen':
       if (!actor.isAdmin) return no(403, 'FORBIDDEN', 'only an admin may reopen accepted minutes');

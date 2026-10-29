@@ -53,18 +53,32 @@ module.exports = function governanceRoutes(deps) {
   const requireCommittee = (req, res, next) => isCommittee(req.reportUser) ? next() : res.status(403).json({ ok: false, error: 'committee-member or admin role required' });
   const fail = (res, e) => httpFail(res, e, undefined, { ok: false });
   const log = (req, action, target, details) => { try { rdb().logEvent({ category: 'governance', action, target: String(target), details, ...rdb()._logCtx(req) }); } catch (_) {} };
-  const canRun = (u, cad) => isCommittee(u) || (cad && (Number(cad.chair_id) === Number(u.id) || Number(cad.secretary_id) === Number(u.id))) || (cad && cad.site_id != null && rdb().userHasRole(u, 'editor') && userSites.hasSite(u, cad.site_id));
+  // ADR-006 — role holders and deputies, from a snapshot refreshed before every governance request
+  // (empty tables = the behaviour until now). deputyFor(u) = people u stands in for today.
+  let roles = null, rolesVersion = -1;
+  router.use('/api/governance', async (req, res, next) => {
+    const rs = deps.getRolesStore && deps.getRolesStore();
+    if (rs) { try { const v = await rs.version(); if (v !== rolesVersion) { roles = await rs.snapshot(); rolesVersion = v; } } catch (_) { /* keep the last snapshot */ } }
+    next();
+  });
+  const R = require('../services/governanceRoles');
+  const today = () => new Date().toISOString().slice(0, 10);
+  const deputyFor = (u) => (roles && u ? R.principalsOf(roles.deputies, u.id, today()) : []);
+  const holds = (u, role, siteId) => !!(roles && u && R.holders(roles.assignments, role, siteId, today()).includes(Number(u.id)));
+  const leads = (u, cad) => !!cad && [u.id, ...deputyFor(u)].map(Number).some((x) => x === Number(cad.chair_id) || x === Number(cad.secretary_id));
+  const canRun = (u, cad) => isCommittee(u) || leads(u, cad) || (cad && holds(u, 'meetings.chair', cad.site_id)) || (cad && cad.site_id != null && rdb().userHasRole(u, 'editor') && userSites.hasSite(u, cad.site_id));
   // A group-level (site-less) cadence is the committee's: its sessions and minutes are read by the
   // committee, its chair / secretary and its named participants only (committee security review).
   const isParticipant = (u, cad) => { const me = [u && u.username, u && u.email].filter(Boolean).map(x => String(x).toLowerCase()); return (cad && cad.participants || []).some(p => me.includes(String(p).toLowerCase())); };
   const seesCadence = (u, cad) => !cad || cad.site_id != null || isCommittee(u) || canRun(u, cad) || isParticipant(u, cad);
-  const canDecide = (u, cad) => isAdmin(u) || (cad && (Number(cad.chair_id) === Number(u.id) || Number(cad.secretary_id) === Number(u.id)));
+  // minutes acceptor / group reviewer (the second pair of eyes from the group for one-person sites)
+  const canDecide = (u, cad) => isAdmin(u) || leads(u, cad) || (cad && (holds(u, 'meetings.minutes_acceptor', cad.site_id) || holds(u, 'group.reviewer', cad.site_id)));
   // The RFI register is the committee's; anyone else sees their own requests and their sites' (G-08).
   const rfiScope = (u) => (isCommittee(u) ? null : { userId: u.id, siteIds: userSites.siteIds(u) });
   async function scopeIds(u) { if (isAdmin(u)) return null; return userSites.siteIds(u).map(Number); }
   // G-21 — lifecycle rules live in services/sessionLifecycle (pure); routes only map the actor.
   const SL = require('../services/sessionLifecycle');
-  const actorFor = (u, cad) => ({ id: u && u.id, canRun: !!canRun(u, cad), canDecide: !!canDecide(u, cad), isCommittee: !!isCommittee(u), isAdmin: !!isAdmin(u) });
+  const actorFor = (u, cad) => ({ id: u && u.id, canRun: !!canRun(u, cad), canDecide: !!canDecide(u, cad), isCommittee: !!isCommittee(u), isAdmin: !!isAdmin(u), deputyFor: deputyFor(u) });
   const refuse = (res, c) => { res.status(c.status).json({ ok: false, error: c.error, code: c.code }); return true; };
   const GP = require('../services/governancePolicy');
   const polFor = (cad) => GP.forContext({ siteId: cad && cad.site_id != null ? cad.site_id : null });

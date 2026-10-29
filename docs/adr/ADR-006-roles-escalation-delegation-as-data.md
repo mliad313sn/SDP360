@@ -72,6 +72,11 @@ together.
 | Admin screen: Governance policies ▸ Roles, deputies and escalation | `public/policies.html` |
 | Tests | `tests/governance-roles.test.js`, `tests/governance-roles.smoke.test.js` |
 
-Not wired yet (kept on their fixed actors, listed for the committee): meetings chair / minutes acceptor and the
-commitment reviewer still come from the session / commitment record; `group.reviewer` is in the catalogue for
-the small-site option but the four-eyes checks do not read it yet.
+Wired into every lifecycle that names a person:
+
+| Lifecycle | Roles read | Deputies |
+|---|---|---|
+| Handoffs | `handoffs.escalation_target`, `handoffs.group_escalation` (matrix) | act for the receiver / requester; never verify the work of the person replaced |
+| Commitments | `commitments.reviewer` verifies when nobody is named on the commitment; `commitments.escalation_target` / `group_escalation` (matrix) | the named reviewer's deputy verifies; a deputy of the owner, an executor or the creator counts as them (no self-verification by proxy) |
+| Meeting sessions | `meetings.chair` runs a site's sessions; `meetings.minutes_acceptor` and `group.reviewer` accept minutes (the small-site option: the second pair of eyes is in the group) | a deputy of the chair / secretary runs the session; never accepts minutes recorded by the person replaced |
+| Reports | `reports.publisher` is in the catalogue only — publication rights stay with the four-eyes rule of the report studio | — |

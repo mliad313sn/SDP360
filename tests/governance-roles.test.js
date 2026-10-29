@@ -92,3 +92,16 @@ test('working calendar: holidays, shutdowns and (by policy) weekends do not coun
   const c1 = SL.compliance(s, new Date('2026-10-29T12:00:00Z'), WC.withOffDays({}, ['2026-10-27']));
   assert.equal(c1.unexcused, 1); assert.equal(c1.calendar_excused, 1, 'missed on a site holiday = excused');
 });
+
+test('commitment verification: role holder when nobody is named, the named reviewer\'s deputy, never a deputy of the owner', () => {
+  const CL = require('../services/commitmentLifecycle');
+  const c = { status: 'awaiting_verification', reviewer: '', accountable_owner: 'alice', created_by: 'bob', severity: 'low' };
+  const carol = { id: 5, username: 'carol' };
+  assert.equal(CL.checkTransition(c, 'verified_closed', carol).ok, false, 'no role, no name: as before');
+  assert.equal(CL.checkTransition(c, 'verified_closed', { ...carol, roleReviewer: true }).ok, true, 'holds commitments.reviewer for the site');
+  const named = { ...c, reviewer: 'dave' };
+  assert.equal(CL.checkTransition(named, 'verified_closed', { ...carol, roleReviewer: true }).ok, false, 'a named reviewer wins over the role');
+  assert.equal(CL.checkTransition(named, 'verified_closed', { ...carol, principals: [{ username: 'dave' }] }).ok, true, 'the named reviewer\'s deputy');
+  const r = CL.checkTransition(c, 'verified_closed', { ...carol, roleReviewer: true, principals: [{ username: 'alice' }] });
+  assert.equal(r.ok, false); assert.match(r.reason, /cannot verify their own/, 'standing in for the owner = being the owner');
+});
