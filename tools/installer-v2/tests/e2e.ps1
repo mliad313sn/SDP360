@@ -137,3 +137,4 @@ Copy-Item (Join-Path $Dir 'logs\*') $LogDir -ErrorAction SilentlyContinue
 if ($script:fails) { Show-Logs 'end' }
 if ($script:fails) { Write-Host "`n$($script:fails) check(s) failed" -ForegroundColor Red; exit 1 }
 Write-Host "`nAll end-to-end checks passed" -ForegroundColor Green
+exit 0
