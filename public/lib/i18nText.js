@@ -11,6 +11,9 @@
   'use strict';
   let lang = 'en', dict = {}, rev = {}, key = 'ui_lang', obs = null, scope = null; const listeners = [];
   const ATTRS = ['placeholder', 'title', 'aria-label'];
+  // G18 — one language preference for the whole application ('sdp_lang'); the page key is still written so an
+  // older page keeps working. A choice made on one page is the choice on the next.
+  const SHARED = 'sdp_lang';
   function swap(v) { const tr = String(v).trim(); if (!tr) return null; const to = lang === 'fr' ? dict[tr] : rev[tr]; return to == null || to === tr ? null : String(v).replace(tr, to); }
   function walk(node) {
     if (!node) return;
@@ -22,13 +25,13 @@
   }
   function apply() { document.documentElement.lang = lang; walk(scope || document.body); listeners.forEach((f) => { try { f(lang); } catch (_) {} }); }
   function set(l, toggle) {
-    lang = l === 'fr' ? 'fr' : 'en'; try { localStorage.setItem(key, lang); } catch (_) {}
+    lang = l === 'fr' ? 'fr' : 'en'; try { localStorage.setItem(key, lang); localStorage.setItem(SHARED, lang); } catch (_) {}
     if (toggle) { if (toggle.en) toggle.en.setAttribute('aria-pressed', String(lang === 'en')); if (toggle.fr) toggle.fr.setAttribute('aria-pressed', String(lang === 'fr')); }
     apply();
   }
   function install(o) {
     o = o || {}; dict = o.dict || {}; rev = {}; for (const k of Object.keys(dict)) rev[dict[k]] = k; key = o.storageKey || key; scope = o.root || document.body;
-    let saved = null; try { saved = localStorage.getItem(key); } catch (_) {}
+    let saved = null; try { saved = localStorage.getItem(SHARED) || localStorage.getItem(key); } catch (_) {}
     lang = saved || (/^fr/i.test(navigator.language || '') ? 'fr' : 'en');
     if (o.toggle) { if (o.toggle.en) o.toggle.en.addEventListener('click', () => set('en', o.toggle)); if (o.toggle.fr) o.toggle.fr.addEventListener('click', () => set('fr', o.toggle)); }
     if (obs) obs.disconnect();

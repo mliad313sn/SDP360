@@ -309,6 +309,10 @@
     .mi-chart-grid  { grid-template-columns: 1fr; }
   }
   @media (max-width: 720px) {
+    .mi-chart-grid       { grid-template-columns: minmax(0, 1fr); }
+    .mi-chart-card       { min-width: 0; }
+    .mi-chart-body canvas { max-width: 100% !important; }
+    .mi-leaderboard-wrap, .mi-chart-body { overflow-x: auto; }
     .mi-kpis             { grid-template-columns: repeat(2, 1fr); }
     .mi-hero             { grid-template-columns: 1fr; }
     .mi-hero__actions    { align-items: flex-start; }
@@ -575,13 +579,13 @@
       e4Placeholder: 'à venir',
     },
   };
-  const lang = () => (localStorage.getItem('mi_lang') || 'en');
+  const lang = () => (localStorage.getItem('sdp_lang') || localStorage.getItem('mi_lang') || 'en');
   const T = (k) => (I18N[lang()] || I18N.en)[k] || I18N.en[k] || k;
 
   // ───────── Language toggle ────────────────────────────────────────
   function applyLang(lng) {
     if (lng !== 'en' && lng !== 'fr') lng = 'en';
-    localStorage.setItem('mi_lang', lng);
+    localStorage.setItem('mi_lang', lng); localStorage.setItem('sdp_lang', lng);
     document.body.classList.toggle('lang-fr', lng === 'fr');
     document.documentElement.lang = lng;
     document.querySelectorAll('#miLangToggle button').forEach(b => {

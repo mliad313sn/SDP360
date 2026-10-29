@@ -3,6 +3,13 @@
 (function () {
   'use strict';
   var DICT = {
+    // G19 — outbox states and messages
+    'already applied (earlier version)': 'déjà appliqué (version précédente)', 'unknown author — review': 'auteur inconnu — à vérifier', 'Send as me': 'Envoyer en mon nom',
+    '(sending it unchanged will be refused again)': '(renvoyée telle quelle, elle sera de nouveau refusée)', 'Photo upload: ': 'Envoi de la photo : ', 'Could not queue: ': 'Mise en file impossible : ',
+    'waiting': 'en attente', 'will retry': 'nouvel essai prévu', 'refused': 'refusé', 'conflict': 'conflit', 'other user': 'autre utilisateur',
+    'Send again': 'Renvoyer', 'Discard': 'Abandonner', 'waiting for': 'en attente depuis', 'days': 'jours', 'sign in as': 'connectez-vous en tant que', 'to send it': 'pour l’envoyer',
+    'Session expired — sign in again. Nothing was lost: your entries are kept on this phone.': 'Session expirée — reconnectez-vous. Rien n’est perdu : vos saisies restent sur ce téléphone.',
+    'Discard this entry for good?': 'Abandonner définitivement cette saisie ?', 'cached data is': 'les données en cache datent de', 'days old, sync when you can': 'jours, synchronisez dès que possible',
     'Skip to content': 'Aller au contenu', 'IT Field': 'IT Terrain', 'My site': 'Mon site', 'Site': 'Site',
     'Sync now': 'Synchroniser', 'Data as of': 'Données au', 'Data as of —': 'Données au —', 'Low-bandwidth mode (no photos, fewer refreshes)': 'Mode faible débit (sans photos, moins de rafraîchissements)',
     'Today': 'Aujourd’hui', 'Pending on this phone': 'En attente sur ce téléphone', 'Nothing queued.': 'Rien en attente.',

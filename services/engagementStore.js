@@ -37,8 +37,10 @@ function makeEngagementStore(db, { isPg = false, now = () => new Date().toISOStr
     if (!ex && !r.metric) throw Object.assign(new Error('metric is required'), { code: 'INVALID' });
     if (r.op && !OPERATORS.includes(r.op)) throw Object.assign(new Error(`op must be one of ${OPERATORS.join(', ')}`), { code: 'INVALID' });
     if (r.channels && r.channels.some(c => !CHANNELS.includes(c))) throw Object.assign(new Error('bad channel'), { code: 'INVALID' });
+    const { SEVERITIES } = require('./alertEngine');
+    if (r.severity != null && !SEVERITIES.includes(r.severity)) throw Object.assign(new Error(`severity must be one of ${SEVERITIES.join(', ')}`), { code: 'INVALID' });
     const vals = { name: String(r.name || r.key).slice(0, 200), metric: r.metric == null ? null : String(r.metric).slice(0, 80), scope: r.scope === 'fleet' ? 'fleet' : 'site', site_id: r.site_id == null || r.site_id === '' ? null : Number(r.site_id), window_label: r.window_label ? String(r.window_label).slice(0, 24) : null,
-      op: r.op || 'lt', threshold: r.threshold == null ? '0' : String(r.threshold).slice(0, 60), streak: Math.max(1, Number(r.streak) || 1), cooldown_min: Math.max(0, Number(r.cooldown_min) || 0), channels: J(r.channels || ['inapp']), recipients: J(r.recipients || { roles: ['admin'] }), enabled: r.enabled === false ? 0 : 1, description: r.description == null ? null : String(r.description).slice(0, 1000) };
+      op: r.op || 'lt', threshold: r.threshold == null ? '0' : String(r.threshold).slice(0, 60), streak: Math.max(1, Number(r.streak) || 1), cooldown_min: Math.max(0, Number(r.cooldown_min) || 0), channels: J(r.channels || ['inapp']), recipients: J(r.recipients || { roles: ['admin'] }), enabled: r.enabled === false ? 0 : 1, description: r.description == null ? null : String(r.description).slice(0, 1000), severity: r.severity || 'warning' };
     if (ex) { const keys = Object.keys(vals).filter(k => r[k] !== undefined); if (keys.length) await P(`UPDATE alert_rules SET ${keys.map(k => `${k}=?`).join(', ')}, updated_at=? WHERE key=?`).run(...keys.map(k => vals[k]), now(), r.key); return getRule(r.key); }
     await P(`INSERT INTO alert_rules (key, ${Object.keys(vals).join(',')}, created_by, created_at, updated_at) VALUES (?, ${Object.keys(vals).map(() => '?').join(',')}, ?, ?, ?)`).run(r.key, ...Object.values(vals), user ? user.id : null, now(), now());
     return getRule(r.key);
@@ -53,7 +55,7 @@ function makeEngagementStore(db, { isPg = false, now = () => new Date().toISOStr
       else await P(`INSERT INTO alert_state (state_key, rule_key, breaches, last_fired_at, last_value, updated_at) VALUES (?,?,?,?,?,?)`).run(k, k.split('|')[0], st.breaches || 0, st.last_fired_at || null, values[k] == null ? null : String(values[k]), now());
     }
   }
-  async function recordFiring(f) { return insert('alert_firings', ['rule_key', 'site_id', 'value', 'message', 'channels', 'fired_at'], [f.rule.key, f.reading.site_id == null ? null : Number(f.reading.site_id), f.reading.value == null ? null : String(f.reading.value), f.message, J(f.rule.channels), now()]); }
+  async function recordFiring(f) { return insert('alert_firings', ['rule_key', 'severity', 'site_id', 'value', 'message', 'channels', 'fired_at'], [f.rule.key, f.severity || f.rule.severity || 'warning', f.reading.site_id == null ? null : Number(f.reading.site_id), f.reading.value == null ? null : String(f.reading.value), f.message, J(f.rule.channels), now()]); }
   async function listFirings({ limit = 200, since = null } = {}) { return (await P(`SELECT * FROM alert_firings${since ? ' WHERE fired_at>=?' : ''} ORDER BY fired_at DESC, id DESC LIMIT ${Math.max(1, Math.min(2000, Math.floor(Number(limit)) || 200))}`).all(...(since ? [since] : []))).map(r => ({ ...r, id: Number(r.id), false_positive: Number(r.false_positive) === 1 })); }
   async function markFalsePositive(id, { fp = true, note = null } = {}) { await P(`UPDATE alert_firings SET false_positive=?, note=? WHERE id=?`).run(fp ? 1 : 0, note, Number(id)); }
   /** False-positive rate over the window (the "< 5 %" acceptance). */

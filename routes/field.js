@@ -90,7 +90,7 @@ module.exports = function fieldRoutes(deps) {
       }
       const c = await cfg();
       let dashboard = null; try { const d = dashStore ? await dashStore.published('field-site') : null; dashboard = d ? d.definition : null; } catch (_) { dashboard = null; }
-      res.json({ ok: true, user: { id: u.id, name: u.full_name || u.username, roles: u.roles || [u.role] },
+      res.json({ ok: true, user: { id: u.id, username: u.username, name: u.full_name || u.username, roles: u.roles || [u.role] },
         sites: sites.map(s => ({ id: Number(s.id), name: s.name, inspection_code: idb().siteNameToCode(s.name), tracker_code: tdb().siteToCode(s) })),
         scope_codes: codes, lookups, trackers, actions: actions.slice(0, 500), dashboard,
         limits: { photo_max_bytes: Math.min(F.MAX_PHOTO_BYTES, (Number(c.field_photo_max_kb) || 300) * 1024), chunk_bytes: F.CHUNK_BYTES, max_chunks: F.MAX_CHUNKS, conflict_policy: F.CONFLICT_POLICY },
@@ -162,14 +162,21 @@ module.exports = function fieldRoutes(deps) {
       const row = await store.receive({ uuid: env.uuid, userId: u.id, kind: env.kind, payloadHash: hash, clientTs: env.client_ts || null, device: env.device || null });
       if (row.user_id !== Number(u.id)) return res.status(403).json({ ok: false, error: 'uuid belongs to another user' });
       if (row.payload_hash !== hash) return res.status(409).json({ ok: false, error: 'same uuid, different payload — generate a new uuid', status: row.status });
-      if (row.status !== 'received') return res.json({ ok: row.status === 'applied', duplicate: true, status: row.status, result: row.result });
+      if (row.status === 'applied' || row.status === 'rejected') return res.json({ ok: row.status === 'applied', duplicate: true, status: row.status, result: row.result });
+      // G19 — exactly once even with two sends of the same envelope at the same time (two tabs, a retry while the
+      // first send is still running); a transient failure stays retryable instead of becoming a dead duplicate
+      const claimId = await store.claim(env.uuid, { kind: env.kind });
+      if (!claimId) return res.status(409).json({ ok: false, in_progress: true, status: 'applying', error: 'this entry is being applied — try again in a moment' });
       let status = 'applied', result = null, code = 200;
       try { result = await APPLY[env.kind](u, env.payload); }
       catch (e) {
         if (e.code === 'INVALID' || e.code === 'FORBIDDEN' || e.code === 'REJECTED' || e.code === 'WRITE_DISABLED') { status = 'rejected'; result = { error: e.message, errors: e.errors || undefined }; code = e.code === 'FORBIDDEN' ? 403 : e.code === 'INVALID' ? 400 : 200; }
+        // a ticket whose outcome is unknown (SDP may have created it before the error) is NOT retried: a retry would
+        // create a second request. It is refused with a reason to check SDP; other kinds stay retryable.
+        else if (env.kind === 'ticket') { status = 'rejected'; result = { error: 'outcome unknown — check ServiceDesk Plus before sending again', correlation_id: logError(e, req, 500) }; code = 200; }
         else { status = 'failed'; result = { error: 'internal_error', correlation_id: logError(e, req, 500) }; code = 500; }
       }
-      const fin = await store.finish(env.uuid, status, result);
+      const fin = await store.finish(env.uuid, status, result, claimId);
       try { rdb().logEvent({ category: 'field', action: `field_${env.kind}_${status}`, target: env.uuid, details: { device: env.device || null }, ...rdb()._logCtx(req) }); } catch (_) { /* best effort */ }
       res.status(code).json({ ok: status === 'applied', duplicate: false, status, result: fin.result });
     } catch (e) { fail(res, e); }

@@ -5,7 +5,7 @@
 // next identical PUT completes instead of applying twice.
 
 
-const STATUSES = ['received', 'applied', 'rejected', 'failed'];
+const STATUSES = ['received', 'applying', 'applied', 'rejected', 'failed'];
 const J = (v) => (v == null ? null : JSON.stringify(v));
 const P_ = (s, d) => { if (s == null) return d; if (typeof s !== 'string') return s; try { return JSON.parse(s); } catch (_) { return d; } };
 
@@ -27,9 +27,25 @@ function makeFieldStore(db, { isPg = false, now = () => new Date().toISOString()
     await P(`INSERT INTO field_outbox (uuid, user_id, kind, payload_hash, status, client_ts, device, received_at) VALUES (?,?,?,?,'received',?,?,?)`).run(String(uuid), Number(userId), kind, payloadHash, clientTs, device == null ? null : String(device).slice(0, 120), now());
     return getOutbox(uuid);
   }
-  async function finish(uuid, status, result) {
+  /** G19 — take the envelope for applying, atomically: only one request wins (returns its claim id, else null),
+   * and a transient failure stays retryable (failed → applying). A claim that has been 'applying' longer than
+   * staleMs (a crashed request) can be taken again — EXCEPT for kinds whose effect is not idempotent (a ticket
+   * creates an SDP request, an action appends a history row): those are never re-claimed automatically. The
+   * window (15 min) sits well above every upstream timeout (IIS ARR proxy 5 min). */
+  const NO_RECLAIM = ['ticket', 'action'];
+  async function claim(uuid, { staleMs = 15 * 60000, kind = null } = {}) {
+    const cut = new Date(Date.parse(now()) - staleMs).toISOString();
+    const id = require('crypto').randomUUID();
+    const reclaim = kind && NO_RECLAIM.includes(kind) ? '' : " OR (status='applying' AND (claimed_at IS NULL OR claimed_at < ?))";
+    const r = await P(`UPDATE field_outbox SET status='applying', claim_id=?, claimed_at=? WHERE uuid=? AND (status IN ('received','failed')${reclaim})`).run(id, now(), String(uuid), ...(reclaim ? [cut] : []));
+    return Number(r && r.changes) === 1 ? id : null;
+  }
+  /** finish(uuid, status, result, claimId?) — with a claim id, only the holder of the claim may write (a request
+   * whose claim was taken over cannot overwrite the newer outcome). */
+  async function finish(uuid, status, result, claimId = null) {
     if (!STATUSES.includes(status)) throw Object.assign(new Error('bad outbox status'), { code: 'INVALID' });
-    await P(`UPDATE field_outbox SET status=?, result=?, applied_at=? WHERE uuid=?`).run(status, J(result), now(), String(uuid));
+    const r = await P(`UPDATE field_outbox SET status=?, result=?, applied_at=?, claim_id=NULL WHERE uuid=?${claimId ? ' AND claim_id=?' : ''}`).run(status, J(result), now(), String(uuid), ...(claimId ? [claimId] : []));
+    if (claimId && Number(r && r.changes) !== 1) throw Object.assign(new Error('the claim on this entry was lost — its outcome is recorded by another request'), { code: 'CONFLICT' });
     return getOutbox(uuid);
   }
   async function listOutbox(userId, { limit = 100, since = null } = {}) {
@@ -38,7 +54,7 @@ function makeFieldStore(db, { isPg = false, now = () => new Date().toISOString()
   /** Sync health for the admin: counts per status over a window + stuck `received` rows (crash between ledger and write). */
   async function outboxStats({ since = null } = {}) {
     const rows = await P(`SELECT status, COUNT(*) AS n FROM field_outbox${since ? ' WHERE received_at>=?' : ''} GROUP BY status`).all(...(since ? [since] : []));
-    const out = { received: 0, applied: 0, rejected: 0, failed: 0 }; for (const r of rows) out[r.status] = Number(r.n);
+    const out = { received: 0, applying: 0, applied: 0, rejected: 0, failed: 0 }; for (const r of rows) out[r.status] = Number(r.n);
     return out;
   }
   async function purgeOutbox({ days = 90 } = {}) { const r = await P(`DELETE FROM field_outbox WHERE received_at<?`).run(new Date(Date.parse(now()) - days * 864e5).toISOString()); return Number(r && r.changes) || 0; }
@@ -75,7 +91,7 @@ function makeFieldStore(db, { isPg = false, now = () => new Date().toISOString()
   /** Abandoned open uploads older than `hours` are removed with their chunks (cascade). */
   async function purgeUploads({ hours = 48 } = {}) { const cut = new Date(Date.parse(now()) - hours * 3600e3).toISOString(); const rows = await P(`SELECT id FROM field_uploads WHERE status='open' AND created_at<?`).all(cut); for (const r of rows) { await P(`DELETE FROM field_chunks WHERE upload_id=?`).run(Number(r.id)); await P(`DELETE FROM field_uploads WHERE id=?`).run(Number(r.id)); } return rows.length; }
 
-  return { init, getOutbox, receive, finish, listOutbox, outboxStats, purgeOutbox, createUpload, getUpload, putChunk, chunksOf, completeUpload, listUploads, purgeUploads, STATUSES };
+  return { init, getOutbox, receive, claim, finish, listOutbox, outboxStats, purgeOutbox, createUpload, getUpload, putChunk, chunksOf, completeUpload, listUploads, purgeUploads, STATUSES };
 }
 
 module.exports = { makeFieldStore, STATUSES };

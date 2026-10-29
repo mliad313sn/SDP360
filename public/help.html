@@ -9,6 +9,7 @@
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any"></script>
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/tableScroll.js" data-root=".container"></script>
 <style>
   :root{
     --navy:#0d2b4e;--orange:#E8600A;--amber:#F59E0B;
@@ -89,6 +90,12 @@
   @media(max-width:700px){
     .doc-layout{flex-direction:column}
     .toc{width:100%;position:static}
+    .doc-layout{display:block}
+    .content,.section{min-width:0;max-width:100%}
+    .content pre{overflow-x:auto;max-width:100%}
+    .content li{flex-wrap:wrap;min-width:0}
+    .content li>*{min-width:0;max-width:100%}
+    .content{overflow-wrap:anywhere}
   }
 </style>
 </head>
@@ -2475,8 +2482,12 @@ function setLang(lang){
   document.getElementById('sec-fr').classList.toggle('active', lang==='fr');
   document.getElementById('btn-en').classList.toggle('active', lang==='en');
   document.getElementById('btn-fr').classList.toggle('active', lang==='fr');
+  document.documentElement.lang = lang;
+  try { localStorage.setItem('sdp_lang', lang); } catch (_) {}
   window.scrollTo({top:0, behavior:'smooth'});
 }
+// G18 — open the manual in the language chosen anywhere in the application (else the browser language)
+(function(){ var l = null; try { l = localStorage.getItem('sdp_lang'); } catch (_) {} if (!l) l = /^fr/i.test(navigator.language || '') ? 'fr' : 'en'; if (l === 'fr') { setLang('fr'); window.scrollTo(0, 0); } })();
 </script>
 </body>
 </html>

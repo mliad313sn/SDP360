@@ -193,6 +193,9 @@
     @media (max-width: 900px) {
       .chart-grid-2, .chart-grid-3, .commentary-grid { grid-template-columns: 1fr; }
       .chart-card.wide { grid-column: span 1; }
+      .chart-grid-2, .chart-grid-3, .commentary-grid { grid-template-columns: minmax(0, 1fr); }
+      .chart-card { min-width: 0; }
+      .chart-wrap canvas { max-width: 100% !important; }
     }
 
   /* ── Underlying Data Panel ─────────────────────────────────────── */

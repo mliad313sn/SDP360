@@ -124,6 +124,12 @@
       method: 'POST', credentials: 'same-origin'
     }).finally(() => {
       clearSession();
+      // G19 — a shared phone: the next person must not be served this person's cached API answers offline
+      try { if (window.caches) caches.keys().then((ks) => ks.forEach((k) => caches.open(k).then((c) => c.keys().then((rs) => rs.forEach((r) => { if (new URL(r.url).pathname.startsWith('/api/')) c.delete(r); }))))); } catch (_) { /* no cache API */ }
+      // the field app's cached site data (kv) is cleared; its outbox of unsent entries is KEPT (each entry names its
+      // author and is only ever sent by that person). Only an existing database is opened — opening a missing one
+      // would create it empty and break the field app's own upgrade.
+      try { if (window.indexedDB && indexedDB.databases) indexedDB.databases().then((dbs) => { if (!dbs.some((d) => d.name === 'field')) return; const r = indexedDB.open('field'); r.onsuccess = () => { try { const d = r.result; if (d.objectStoreNames.contains('kv')) d.transaction('kv', 'readwrite').objectStore('kv').clear(); d.close(); } catch (_) { /* ignore */ } }; }); } catch (_) { /* no IndexedDB */ }
       location.replace('login.html');
     });
   };

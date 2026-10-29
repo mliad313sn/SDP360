@@ -4753,33 +4753,16 @@ const AI_SYSTEM_PROMPT_LOCAL = AI_SYSTEM_PROMPT +
   ' Always respond with a single valid JSON object only. No markdown, ' +
   'no code fences, no commentary outside the JSON.';
 
-// Sanitise free-text fields before they reach the prompt to reduce injection surface
-function sanitiseForPrompt(text) {
-  if (typeof text !== 'string') return text;
-  return text
-    .replace(/ignore\s+(previous|all|prior)\s+instructions?/gi, '[TEXT REDACTED]')
-    .replace(/you\s+are\s+now\s+/gi,                            '[TEXT REDACTED]')
-    .replace(/disregard\s+(all|previous|prior)/gi,              '[TEXT REDACTED]')
-    .substring(0, 12000); // hard length cap per field (raised from 4000 — analysis prompts can exceed 6000 chars)
+// G20 — free text reaching a model: planted instructions defused (EN + FR), personal identifiers (e-mail, phone, IP,
+// account, URL tokens, directory names) replaced, non-text blocks dropped, length capped — services/aiSanitize.js.
+const _aiSan = require('./services/aiSanitize');
+let _aiNames = { at: 0, list: [] };
+async function _aiDirectoryNames() {
+  if (Date.now() - _aiNames.at < 10 * 60000) return _aiNames.list;
+  try { const us = (await rdb.listUsers()) || []; _aiNames = { at: Date.now(), list: us.flatMap((u) => [u.full_name, u.username]).filter(Boolean) }; } catch (_) { /* keep the previous list */ }
+  return _aiNames.list;
 }
-
-function sanitiseMessages(messages) {
-  if (!Array.isArray(messages)) return messages;
-  return messages.map(msg => {
-    if (typeof msg.content === 'string') {
-      return { ...msg, content: sanitiseForPrompt(msg.content) };
-    }
-    if (Array.isArray(msg.content)) {
-      return {
-        ...msg,
-        content: msg.content.map(block =>
-          block.type === 'text' ? { ...block, text: sanitiseForPrompt(block.text) } : block
-        ),
-      };
-    }
-    return msg;
-  });
-}
+const sanitiseMessages = (messages, o) => _aiSan.sanitiseMessages(messages, o);
 
 // ── Provider: Anthropic Claude API ──────────────────────────────────
 // Cloud path. Forwards an Anthropic-format request as-is and returns the
@@ -4801,7 +4784,7 @@ async function _aiCallAnthropic(body) {
     model:      body.model,
     max_tokens: Math.min(body.max_tokens || AI_MAX_TOKENS, AI_MAX_TOKENS),
     system:     AI_SYSTEM_PROMPT,
-    messages:   sanitiseMessages(body.messages),
+    messages:   sanitiseMessages(body.messages, { names: body.__names }),
   };
   const response = await axios.post('https://api.anthropic.com/v1/messages', safeBody, {
     headers: {
@@ -4837,7 +4820,7 @@ async function _aiCallAnthropic(body) {
 async function _aiCallLocal(body) {
   // Strip the assistant pre-fill (last message if role==='assistant') and
   // remember whether it was present so we can align the response.
-  const inputMsgs = sanitiseMessages(body.messages || []);
+  const inputMsgs = sanitiseMessages(body.messages || [], { names: body.__names });
   let trailingAssistantPrefix = '';
   let chatMsgs = inputMsgs;
   const last = inputMsgs[inputMsgs.length - 1];
@@ -4941,6 +4924,7 @@ app.post('/api/ai/analyze', requireReportSession, requireRole('report-author'), 
   }
 
   try {
+    body.__names = await _aiDirectoryNames();
     const data = AI_PROVIDER === 'local'
       ? await _aiCallLocal(body)
       : await _aiCallAnthropic(body);

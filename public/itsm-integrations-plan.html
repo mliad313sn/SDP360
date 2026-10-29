@@ -36,6 +36,8 @@
   .gantt td{font-family:Consolas,monospace;font-size:.78rem;text-align:center}
   .g1{background:#16A34A;color:#fff} .g2{background:#145FAE;color:#fff} .g3{background:#D97706;color:#fff} .g4{background:#8b5cf6;color:#fff} .gx{background:#e6ebf0}
   footer{margin-top:34px;border-top:1px solid var(--line);padding-top:12px;font-size:.78rem;color:var(--muted)}
+  .tbl-scroll{max-width:100%;overflow-x:auto}
+  .tbl-scroll:focus-visible{outline:2px solid #2A5490;outline-offset:2px}
   @media print{body{background:#fff}.page{max-width:none;padding:0 8mm}h2{break-after:avoid}table,.callout{break-inside:avoid}}
 </style>
 </head>
@@ -60,7 +62,7 @@
 </div>
 
 <h2>1. Tableau de bord des intégrations</h2>
-<table>
+<div class="tbl-scroll" role="region" tabindex="0" aria-label="Table 1 (scrolls sideways)"><table>
 <thead><tr><th style="width:16%">Intégration</th><th>Statut</th><th>Ce qui est fait</th><th>Reste à faire</th><th>Bloqueur / propriétaire</th><th>Effort DEV</th></tr></thead>
 <tbody>
 <tr>
@@ -136,12 +138,12 @@
   <td>≈ 0 dev (config produit)</td>
 </tr>
 </tbody>
-</table>
+</table></div>
 
 <div class="callout"><b>Lecture clé pour la réunion.</b> Le <b>chemin critique n'est presque jamais du dev</b> — c'est une <b>action côté client/tiers</b> : clé Meraki, vue Analytics, app registration Entra, code Meridian du boss, édition SDP Enterprise. Le dev SDP est prêt ou rapide sur chaque volet ; l'ordonnancement ci-dessous se cale sur la levée de ces gates.</div>
 
 <h2>2. Gates externes (le vrai chemin critique)</h2>
-<table>
+<div class="tbl-scroll" role="region" tabindex="0" aria-label="Table 2 (scrolls sideways)"><table>
 <thead><tr><th>Gate</th><th>Propriétaire</th><th>Débloque</th><th>Statut</th></tr></thead>
 <tbody>
 <tr><td>Clé API Meraki + Org ID + calibration</td><td><span class="who">CLIENT</span></td><td>Meraki WAN (dispo fidèle + SLA)</td><td><span class="tag partial">en cours (mapping fait, calibration à lancer)</span></td></tr>
@@ -151,11 +153,11 @@
 <tr><td>SDP Cloud édition Enterprise + rôles OPManager/SDP</td><td><span class="who">CLIENT</span></td><td>Auto-ticketing proactif</td><td><span class="tag todo">à confirmer</span></td></tr>
 <tr><td>Webhook Meraki « WAN Uplink status » → endpoint dashboard</td><td><span class="who">CLIENT</span></td><td>SLA temps-réel (Phase 3)</td><td><span class="tag todo">optionnel</span></td></tr>
 </tbody>
-</table>
+</table></div>
 
 <h2>3. Ordonnancement proposé (timing indicatif)</h2>
 <p>Fenêtres de ~2 semaines. Une case colorée = travail actif ; l'effort dev réel par volet est faible (voir tableau §1), la durée est surtout portée par la levée des gates.</p>
-<table class="gantt">
+<div class="tbl-scroll" role="region" tabindex="0" aria-label="Table 3 (scrolls sideways)"><table class="gantt">
 <thead><tr><th style="text-align:left">Volet</th><th>S1–S2</th><th>S3–S4</th><th>S5–S6</th><th>S7–S8</th></tr></thead>
 <tbody>
 <tr><td style="text-align:left"><b>Meraki WAN</b> — déploiement + calibration + dispo fidèle</td><td class="g1">calibrer + fix</td><td class="g1">autofill mensuel + sélecteur</td><td class="gx"></td><td class="gx"></td></tr>
@@ -165,7 +167,7 @@
 <tr><td style="text-align:left"><b>SLA WAN temps-réel</b> — webhook (optionnel)</td><td class="gx"></td><td class="gx"></td><td class="g4">webhook</td><td class="gx"></td></tr>
 <tr><td style="text-align:left"><b>Meridian PMO</b> — attend Part B (tiers)</td><td class="gx"></td><td class="gx"></td><td class="gx"></td><td class="gx"></td></tr>
 </tbody>
-</table>
+</table></div>
 <p style="font-size:.78rem;color:var(--muted)">Meridian n'est pas planifié tant que le code Part B du boss n'est pas confirmé — placé hors calendrier, réactivé à la levée du gate tiers.</p>
 
 <h2>4. Décisions attendues en réunion</h2>
@@ -179,7 +181,7 @@
 
 <h2>5. Automatismes proposés — feuille de route « service » <span class="tag info">vue Service &amp; Support Manager</span></h2>
 <p class="lead">Objectif d'un Service &amp; Support Manager : <b>moins de tickets</b> (déflection), <b>MTTR plus court</b>, <b>proactivité</b> (agir avant l'appel), <b>posture sécurité</b>, et des <b>métriques démontrables</b>. Voici les leviers, priorisés — la plupart s'appuient sur des outils déjà en place (SDP · OpManager · Meraki · AD/Entra/Defender · le dashboard).</p>
-<table>
+<div class="tbl-scroll" role="region" tabindex="0" aria-label="Table 4 (scrolls sideways)"><table>
 <thead><tr><th style="width:20%">Automatisme</th><th>Ce que ça fait</th><th>Bénéfice (facilite qui)</th><th>Effort / statut</th></tr></thead>
 <tbody>
 <tr><td colspan="4" style="background:#eef4fb;font-weight:700;color:var(--navy)">🟢 Quick wins — fort impact, faible effort</td></tr>
@@ -201,12 +203,12 @@
 <tr><td><b>Base de connaissances + déflection</b></td><td>Réponses suggérées / articles avant l'ouverture d'un ticket.</td><td><b>User</b> (autonomie) + <b>tech</b> (moins de répétitif).</td><td><span class="tag todo">idée (SDP KB)</span></td></tr>
 <tr><td><b>Score de proactivité</b> (dashboard)</td><td>Mesure : % de tickets ouverts par la supervision vs par l'utilisateur.</td><td><b>Manager</b> (piloter la bascule réactif → proactif).</td><td><span class="tag todo">idée (métrique)</span></td></tr>
 </tbody>
-</table>
+</table></div>
 <div class="callout win"><b>Recommandation de séquence.</b> Commencer par les <b>Quick wins</b> : (1) <b>self-service reset</b> (gratuit, déflection immédiate massive), (2) <b>auto-ticketing proactif</b> (le socle « agir avant l'appel »), (3) <b>lot identité A2/A1</b> (sécurité + gain tech). Le reste s'empile dessus. Chaque automatisme est <b>additif et réversible</b> — on peut s'arrêter à tout moment sans dette.</div>
 
 <h2>6. Inventaire des modules du dashboard — but &amp; valeur</h2>
 <p>Vue d'ensemble de ce que le dashboard fait déjà (au-delà des intégrations), pour situer chaque brique en réunion.</p>
-<table>
+<div class="tbl-scroll" role="region" tabindex="0" aria-label="Table 5 (scrolls sideways)"><table>
 <thead><tr><th style="width:22%">Module</th><th>But — pourquoi ça existe</th><th>Statut</th></tr></thead>
 <tbody>
 <tr><td colspan="3" style="background:#eef4fb;font-weight:700;color:var(--navy)">Helpdesk &amp; direction</td></tr>
@@ -230,11 +232,11 @@
 <tr><td><b>WAN Health · SLA WAN · OpManager dispo</b></td><td>Dispo/qualité WAN par lien (Meraki) · refacturation ISP · dispo LAN/WLAN/Serveurs (OpManager).</td><td><span class="tag built">CONSTRUIT</span> / <span class="tag partial">PARTIEL</span></td></tr>
 <tr><td><b>Plateforme</b> (SSO Entra · Meridian · Installer &amp; backups)</td><td>Sign-in Microsoft · lien PMO · déploiement autonome + sauvegardes planifiées.</td><td><span class="tag partial">PARTIEL</span> / <span class="tag live">LIVE</span></td></tr>
 </tbody>
-</table>
+</table></div>
 
 <h2>7. Alignement roadmap — chaque brique dans son objectif</h2>
 <p>Classement de chaque outil / automatisme sous l'objectif manager qu'il sert en premier. Certaines briques servent aussi un objectif secondaire (noté). Le bloc « transversal » = pilotage &amp; communication qui sert les 4.</p>
-<table>
+<div class="tbl-scroll" role="region" tabindex="0" aria-label="Table 6 (scrolls sideways)"><table>
 <thead><tr><th style="width:30%">Outil / action</th><th>Rôle vis-à-vis l'objectif</th><th>Statut</th></tr></thead>
 <tbody>
 <tr><td colspan="3" style="background:#eef4fb;font-weight:700;color:var(--navy)">🎯 Objectif 1 — Catalogue &amp; formulaires <span style="font-weight:400">(35 % · 70 % 🟢 — mesurer adoption &amp; précision)</span></td></tr>
@@ -273,7 +275,7 @@
 <tr><td><b>System Logs · SSO Entra · Meridian</b></td><td>Audit/sécurité · sign-in · lien PMO = socle transversal.</td><td><span class="tag built">CONSTRUIT</span> / <span class="tag partial">PARTIEL</span></td></tr>
 <tr><td><b>Score de proactivité</b></td><td>Métrique de pilotage : bascule réactif → proactif (transverse).</td><td><span class="tag todo">idée</span></td></tr>
 </tbody>
-</table>
+</table></div>
 <div class="callout win"><b>Lecture « délivrer le max ».</b> Deux <b>À FAIRE « gain rapide »</b> ressortent car ils s'appuient sur des données déjà présentes et <b>font bouger les couleurs</b> : le <b>Scorecard ITSM &amp; actifs</b> (Objectif 2 → confirme Vert) et le <b>Tracker conformité RCA + 14 actions</b> (Objectif 3 → Orange→Vert). Puis l'<b>analytics adoption/précision</b> (Objectif 1, plus gros poids) et le <b>tracker formation/KB</b> (Objectif 4).</div>
 
 <footer>

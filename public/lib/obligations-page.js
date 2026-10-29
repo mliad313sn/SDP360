@@ -9,7 +9,7 @@
     if (!tok) tok = localStorage.getItem('report_token'); if (tok) h['x-report-token'] = tok; return h;
   }
   async function api(url) { const r = await fetch(url, { headers: hdr() }); const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status)); return j; }
-  let lang = 'en'; try { lang = localStorage.getItem('policies_lang') || (navigator.language || '').slice(0, 2) || 'en'; } catch (_) {}
+  let lang = 'en'; try { lang = localStorage.getItem('sdp_lang') || localStorage.getItem('policies_lang') || (navigator.language || '').slice(0, 2) || 'en'; } catch (_) {}
   const L = {
     en: { reg: 'Register', item: 'Obligation', owner: 'Owner', due: 'Due', status: 'Status', open: 'open', overdue: 'overdue', all: 'All', none: 'Nothing open.', notRead: 'not read (switched off)', partial: 'partial total — a register is switched off', covers: 'covers',
       names: { commitment: 'Commitment', handoff: 'Handoff', meetings_action: 'Meeting action', incubation_action: 'Incubation action', inspection_action: 'Inspection action', report_followup: 'Report follow-up', session_action: 'Governance session action' } },
@@ -47,7 +47,7 @@
     if ($('obSite').options.length) load(); else render();
   }
   $('obSite').addEventListener('change', load);
-  $('obLang').addEventListener('change', () => { lang = $('obLang').value; document.body.classList.toggle('lang-fr', lang === 'fr'); try { localStorage.setItem('policies_lang', lang); } catch (_) {} render(); });
+  $('obLang').addEventListener('change', () => { lang = $('obLang').value; document.body.classList.toggle('lang-fr', lang === 'fr'); try { localStorage.setItem('policies_lang', lang); localStorage.setItem('sdp_lang', lang); } catch (_) {} render(); });
   $('obLang').value = lang === 'fr' ? 'fr' : 'en'; document.body.classList.toggle('lang-fr', lang === 'fr');
   init();
 })();

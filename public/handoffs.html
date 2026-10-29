@@ -89,13 +89,13 @@
     fr: { accepted: 'Accepter', rejected: 'Refuser', blocked: 'Signaler un blocage', escalated: 'Remonter à la hiérarchie', delivered: 'Marquer comme livré', verified: 'Valider la livraison', cancelled: 'Annuler la demande', requested: 'Renvoyer au destinataire', rework: 'Demander une reprise', resume: 'Reprendre' } };
   const EVENT = { fr: { handoff_created: 'demande créée', handoff_transition: 'changement de statut', handoff_reassigned: 'destinataire changé', escalated_overdue: 'remontée automatique (retard)' },
     en: { handoff_created: 'request created', handoff_transition: 'status changed', handoff_reassigned: 'receiver changed', escalated_overdue: 'escalated automatically (overdue)' } };
-  let lang = 'en'; try { lang = localStorage.getItem('handoffs_lang') || 'en'; } catch (_) {}
+  let lang = 'en'; try { lang = localStorage.getItem('sdp_lang') || localStorage.getItem('handoffs_lang') || 'en'; } catch (_) {}
   const L = () => (lang === 'fr' ? 'fr' : 'en');
   const lbl = (s) => STATUS[L()][s] || s;
   const errText = (e) => (L() === 'fr' && window.ErrorText ? window.ErrorText.fr(e.message) : e.message);
   function setLang(l) {
     lang = l; document.body.classList.toggle('lang-fr', l === 'fr'); document.documentElement.lang = l; $('hoEn').setAttribute('aria-pressed', String(l === 'en')); $('hoFr').setAttribute('aria-pressed', String(l === 'fr'));
-    try { localStorage.setItem('handoffs_lang', l); } catch (_) {}
+    try { localStorage.setItem('handoffs_lang', l); localStorage.setItem('sdp_lang', l); } catch (_) {}
     for (const o of $('hoStatus').options) if (o.value) o.textContent = lbl(o.value);   // the list follows the language
     loadList(); if (selected) show(selected);
   }

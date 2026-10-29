@@ -13,16 +13,27 @@ test('rules: validation, seed 12 once, partial update, state round-trip, firings
   await assert.rejects(async () => s.saveRule({ key: 'x y', metric: 'm' }), /rule key/);
   await assert.rejects(async () => s.saveRule({ key: 'k', metric: 'm', op: 'between' }), /op must be/);
   await assert.rejects(async () => s.saveRule({ key: 'k', metric: 'm', channels: ['sms'] }), /bad channel/);
-  assert.equal((await s.seedRules(SEED_RULES)).length, 12); assert.equal((await s.seedRules(SEED_RULES)).length, 0);
+  assert.equal((await s.seedRules(SEED_RULES)).length, SEED_RULES.length); assert.equal((await s.seedRules(SEED_RULES)).length, 0); assert.equal(SEED_RULES.length, 13);
   const r = await s.getRule('meetings.engagement.red'); assert.equal(r.threshold, 'RED'); assert.equal(r.cooldown_min, 10080); assert.deepEqual(r.recipients, { roles: ['admin'] });
   const u = await s.saveRule({ key: 'sla.resolution.red', threshold: 75, enabled: false }); assert.equal(u.threshold, 75); assert.equal(u.enabled, false); assert.equal(u.name, 'Resolution SLA below 80 %');
-  assert.equal((await s.listRules({ includeDisabled: false })).length, 11);
+  assert.equal((await s.listRules({ includeDisabled: false })).length, SEED_RULES.length - 1);
   await s.saveState({ 'sla.resolution.red|3': { breaches: 2, last_fired_at: clock } }, { 'sla.resolution.red|3': 70 });
   await s.saveState({ 'sla.resolution.red|3': { breaches: 3, last_fired_at: clock } }); assert.deepEqual(await s.loadState(), { 'sla.resolution.red|3': { breaches: 3, last_fired_at: clock } });
   const f = { rule: r, reading: { site_id: 3, value: null }, message: 'm', key: 'k|3' }; const id1 = await s.recordFiring(f); await s.recordFiring(f);
   await s.markFalsePositive(id1, { note: 'holiday' }); const st = await s.firingStats(); assert.deepEqual(st, { firings: 2, false_positives: 1, false_positive_pct: 50 });
   assert.equal((await s.listFirings())[1].value, null, 'null reading stored as null, not 0');
   await s.removeRule('sla.resolution.red'); assert.deepEqual(await s.loadState(), {}, 'state removed with the rule');
+});
+
+test('G16 severity: saved with the rule, refused when unknown, kept on the firing', async () => {
+  const { s } = await fresh();
+  await assert.rejects(async () => s.saveRule({ key: 'k', metric: 'm', severity: 'urgent' }), /severity must be/);
+  const r = await s.saveRule({ key: 'k', metric: 'm', severity: 'critical' }); assert.equal(r.severity, 'critical');
+  assert.equal((await s.saveRule({ key: 'k2', metric: 'm' })).severity, 'warning', 'default warning');
+  assert.equal((await s.saveRule({ key: 'k', threshold: 3 })).severity, 'critical', 'partial update keeps it');
+  await s.recordFiring({ rule: r, severity: 'critical', reading: { site_id: null, value: 1 }, message: 'm', key: 'k|fleet' });
+  await s.saveRule({ key: 'k', severity: 'info' });
+  assert.equal((await s.listFirings())[0].severity, 'critical', 'a later rule change does not rewrite what was fired');
 });
 
 test('notifications: unread count, mark read (own only), digest pull marks digested once, comments require a body', async () => {

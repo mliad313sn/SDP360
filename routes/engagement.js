@@ -6,7 +6,7 @@ const { fail: httpFail } = require('../services/httpError');
 //   GET  /api/engagement/notifications[?unread=1] · GET /notifications/count · POST /notifications/read { ids | all }
 //   GET/POST /api/engagement/comments?source_kind=&source_ref=            comment from a notification
 //   GET/POST /api/engagement/subscriptions · DELETE /subscriptions/:id
-//   GET  /api/engagement/rules (any) · PUT /rules · DELETE /rules/:key · POST /rules/evaluate (run now)       admin
+//   GET  /api/engagement/rules (any) · PUT /rules · DELETE /rules/:key · POST /rules/evaluate (run now; ?dry=1 = preview, nothing saved or sent)       admin
 //   GET  /api/engagement/firings · PUT /firings/:id { false_positive, note } · GET /stats                      admin
 //   POST /api/engagement/share { target_kind, target_key, site_id, ttl_hours, max_views, embed, label } → token (shown once)
 //   GET  /api/engagement/share (mine, admins all) · DELETE /share/:id · GET /share/:id/receipts
@@ -61,8 +61,9 @@ module.exports = function engagementRoutes(deps) {
   router.delete('/api/engagement/rules/:key', requireReportSession, requireAdmin, async (req, res) => { try { await store.removeRule(req.params.key); log(req, 'alert_rule_removed', req.params.key); res.json({ ok: true }); } catch (e) { fail(res, e); } });
   router.post('/api/engagement/rules/evaluate', requireReportSession, requireAdmin, async (req, res) => {
     try { const c = await cfg(); const { evaluateAlerts } = require('../services/engagementJobs'); const { buildMailer } = require('../services/mailer');
-      const r = await evaluateAlerts({ store, registry: registry(), deps: readerDeps(), rdb: rdb(), mailer: c.smtp_host ? buildMailer(c) : null, post: deps.post || require('../services/engagementJobs').safePostFor(c), cfg: c, baseUrl: c.public_base_url || '' });
-      log(req, 'alerts_evaluated', 'manual', r); res.json({ ok: true, ...r }); } catch (e) { fail(res, e); }
+      const dryRun = req.query.dry === '1' || (req.body && req.body.dry_run === true);
+      const r = await evaluateAlerts({ store, registry: registry(), deps: readerDeps(), rdb: rdb(), mailer: c.smtp_host ? buildMailer(c) : null, post: deps.post || require('../services/engagementJobs').safePostFor(c), cfg: c, baseUrl: c.public_base_url || '', dryRun });
+      log(req, dryRun ? 'alerts_dry_run' : 'alerts_evaluated', 'manual', { rules: r.rules, readings: r.readings, firings: r.firings }); res.json({ ok: true, ...r }); } catch (e) { fail(res, e); }
   });
   router.get('/api/engagement/firings', requireReportSession, requireAdmin, async (req, res) => { try { res.json({ ok: true, firings: await store.listFirings({ limit: req.query.limit, since: req.query.since || null }) }); } catch (e) { fail(res, e); } });
   router.put('/api/engagement/firings/:id', requireReportSession, requireAdmin, json, async (req, res) => { try { await store.markFalsePositive(req.params.id, { fp: req.body && req.body.false_positive !== false, note: req.body && req.body.note }); log(req, 'alert_firing_reviewed', req.params.id, { false_positive: req.body && req.body.false_positive !== false }); res.json({ ok: true }); } catch (e) { fail(res, e); } });

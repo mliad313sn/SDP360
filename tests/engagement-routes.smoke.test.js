@@ -55,6 +55,10 @@ test('rules: 12 seeded visible to anyone (admin flag false), PUT/DELETE/evaluate
   assert.equal((await send('PUT', '/api/engagement/rules', admin, { key: 'x', metric: 'nope.metric' })).status, 400);
   const nr = await (await send('PUT', '/api/engagement/rules', admin, { key: 'test.always', name: 'Always', metric: 'helpdesk.resolution_sla_pct', op: 'gte', threshold: -1, streak: 1, cooldown_min: 0, channels: ['inapp', 'teams'], recipients: { roles: ['admin'] } })).json(); assert.equal(nr.rule.threshold, -1);
   assert.equal((await send('POST', '/api/engagement/rules/evaluate', editor)).status, 403);
+  assert.equal((await send('POST', '/api/engagement/rules/evaluate?dry=1', editor)).status, 403);
+  const before = (await (await send('GET', '/api/engagement/firings', admin)).json()).firings.length;
+  const dry = await (await send('POST', '/api/engagement/rules/evaluate?dry=1', admin)).json(); assert.equal(dry.dry_run, true); assert.ok(Array.isArray(dry.preview)); assert.equal(dry.preview.length, dry.firings);
+  assert.equal((await (await send('GET', '/api/engagement/firings', admin)).json()).firings.length, before, 'a dry run records no firing');
   const ev = await (await send('POST', '/api/engagement/rules/evaluate', admin)).json(); assert.equal(ev.ok, true); assert.ok(ev.rules >= 13); assert.ok(ev.readings > 0); assert.equal(typeof ev.firings, 'number'); assert.ok(ev.skipped >= 0, 'teams without a webhook is a counted skip, never a failure');
   const f = await (await get('/api/engagement/firings', admin)).json(); assert.ok(Array.isArray(f.firings));
   if (f.firings.length) { assert.equal((await send('PUT', `/api/engagement/firings/${f.firings[0].id}`, admin, { false_positive: true, note: 'test' })).status, 200); }

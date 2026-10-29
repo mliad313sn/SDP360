@@ -30,13 +30,25 @@ function resolveRecipients(rec, users) {
   return { userIds, emails };
 }
 
-async function evaluateAlerts({ store, registry, deps, rdb, now = new Date(), mailer = null, post = null, cfg = {}, baseUrl = '' }) {
+async function evaluateAlerts({ store, registry, deps, rdb, now = new Date(), mailer = null, post = null, cfg = {}, baseUrl = '', dryRun = false }) {
   const rules = (await store.listRules({ includeDisabled: false }));
-  if (!rules.length) return { rules: 0, readings: 0, firings: 0 };
+  if (!rules.length) return dryRun ? { dry_run: true, rules: 0, readings: 0, firings: 0, preview: [] } : { rules: 0, readings: 0, firings: 0 };
   const sites = ((await rdb.listSites({ includeInactive: false })) || []).map(s => ({ id: Number(s.id), name: s.name }));
   const readings = await readingsFor(rules, { registry, deps, sites, now });
   const state = await store.loadState();
   const { firings, state: next } = evaluate(rules, readings, state, { now });
+  // G16 — dry run: what WOULD fire and who WOULD receive it. Nothing is saved (state, firings, notifications)
+  // and nothing leaves the server, so an admin can check the recipients before arming a channel.
+  if (dryRun) {
+    // the preview ignores cool-downs (an admin checking recipients wants to see every rule that breaches now) and
+    // says which of them a real run would keep quiet
+    const noCool = Object.fromEntries(Object.entries(state).map(([k, v]) => [k, { ...v, last_fired_at: null }]));
+    const all = evaluate(rules, readings, noCool, { now }).firings;
+    const live = new Set(firings.map((f) => f.key));
+    const preview = await previewFirings(all, { rdb, cfg, mailer, post });
+    preview.forEach((p, i) => { p.in_cooldown = !live.has(all[i].key); if (p.in_cooldown) p.would_reach = 0; });
+    return { dry_run: true, rules: rules.length, readings: readings.length, firings: firings.length, breaching: all.length, preview };
+  }
   const values = {}; for (const r of readings) values[`${r.rule_key}|${r.site_id == null ? 'fleet' : r.site_id}`] = r.value;
   await store.saveState(next, values);
   const users = firings.length ? (await rdb.listUsers()) || [] : [];
@@ -49,14 +61,35 @@ async function evaluateAlerts({ store, registry, deps, rdb, now = new Date(), ma
     const rc = resolveRecipients(f.rule.recipients || {}, users);
     if ((f.rule.channels || ['inapp']).includes('inapp')) for (const uid of rc.userIds) { await store.notify({ userId: uid, kind: 'alert', title: f.rule.name || f.rule.key, body: f.message, link: `${baseUrl}/notifications.html?rule=${encodeURIComponent(f.rule.key)}`, sourceKind: 'alert_rule', sourceRef: f.key }); notified++; }
     if (!external) { if ((f.rule.channels || []).some((c) => c !== 'inapp')) skipped++; continue; }
-    if ((f.rule.channels || []).includes('email')) { const to = [...rc.emails, ...users.filter(u => rc.userIds.has(Number(u.id)) && u.email).map(u => u.email)]; if (mailer && to.length) { const r = await mailer.send({ to, subject: `[Alert] ${f.rule.name || f.rule.key}`, html: `<p>${esc(f.message)}</p><p><a href="${esc(baseUrl)}/notifications.html">Open the notification centre</a></p>` }); if (r.ok) mailed++; } else skipped++; }
+    if ((f.rule.channels || []).includes('email')) { const to = [...rc.emails, ...users.filter(u => rc.userIds.has(Number(u.id)) && u.email).map(u => u.email)]; if (mailer && to.length) { const r = await mailer.send({ to, subject: `[Alert · ${f.severity || 'warning'}] ${f.rule.name || f.rule.key}`, html: `<p>${esc(f.message)}</p><p><a href="${esc(baseUrl)}/notifications.html">Open the notification centre</a></p>` }); if (r.ok) mailed++; } else skipped++; }
     if ((f.rule.channels || []).includes('teams')) { const url = String(cfg.engagement_teams_url || '').trim(); if (post && url) { try { await post(url, teamsCard(f)); posted++; } catch (_) { skipped++; } } else skipped++; }
-    if ((f.rule.channels || []).includes('webhook')) { const url = String(cfg.engagement_webhook_url || '').trim(); if (post && url) { try { await post(url, { kind: 'alert', rule: f.rule.key, name: f.rule.name, metric: f.rule.metric, site_id: f.reading.site_id, site: f.reading.site, value: f.reading.value, unit: f.reading.unit, rag: f.reading.rag, message: f.message, fired_at: now.toISOString() }); posted++; } catch (_) { skipped++; } } else skipped++; }
+    if ((f.rule.channels || []).includes('webhook')) { const url = String(cfg.engagement_webhook_url || '').trim(); if (post && url) { try { await post(url, { kind: 'alert', severity: f.severity || 'warning', rule: f.rule.key, name: f.rule.name, metric: f.rule.metric, site_id: f.reading.site_id, site: f.reading.site, value: f.reading.value, unit: f.reading.unit, rag: f.reading.rag, message: f.message, fired_at: now.toISOString() }); posted++; } catch (_) { skipped++; } } else skipped++; }
   }
   return { rules: rules.length, readings: readings.length, firings: firings.length, notified, mailed, posted, skipped, rows: firings.length };
 }
+/** G16 — the per-firing recipient list a dry run shows. Webhook / Teams URLs are secrets: only "configured" is said. */
+async function previewFirings(firings, { rdb, cfg = {}, mailer = null, post = null }) {
+  const users = firings.length ? (await rdb.listUsers()) || [] : [];
+  const armed = String(cfg.alert_external_enabled || '0') === '1';
+  const stoppedAll = String(cfg.notifications_stop || '0') === '1';
+  return firings.map((f) => {
+    const rc = resolveRecipients(f.rule.recipients || {}, users);
+    const ch = f.rule.channels || ['inapp'];
+    const inapp = ch.includes('inapp') ? users.filter((u) => rc.userIds.has(Number(u.id))).map((u) => u.full_name || u.username) : [];
+    const emails = ch.includes('email') ? [...new Set([...rc.emails, ...users.filter((u) => rc.userIds.has(Number(u.id)) && u.email).map((u) => u.email)])] : [];
+    const external = ch.filter((c) => c !== 'inapp');
+    const blocked = !external.length ? null : (stoppedAll ? 'notifications_stop' : (!armed ? 'alert_external_enabled is off' : null));
+    const missing = [];
+    if (ch.includes('email') && !mailer) missing.push('email: SMTP not configured');
+    if (ch.includes('email') && !emails.length) missing.push('email: no recipient address');
+    if (ch.includes('teams') && !(post && String(cfg.engagement_teams_url || '').trim())) missing.push('teams: no channel configured');
+    if (ch.includes('webhook') && !(post && String(cfg.engagement_webhook_url || '').trim())) missing.push('webhook: no URL configured');
+    return { rule: f.rule.key, name: f.rule.name || f.rule.key, severity: f.severity || 'warning', site: f.reading.site || 'fleet', value: f.reading.value == null ? null : f.reading.value, message: f.message, channels: ch,
+      inapp_recipients: inapp, email_recipients: emails, external_blocked: blocked, problems: missing, would_reach: inapp.length + (blocked || !mailer ? 0 : emails.length) };
+  });
+}
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-function teamsCard(f) { return { type: 'message', attachments: [{ contentType: 'application/vnd.microsoft.card.adaptive', content: { type: 'AdaptiveCard', version: '1.4', body: [{ type: 'TextBlock', weight: 'Bolder', size: 'Medium', text: f.rule.name || f.rule.key }, { type: 'TextBlock', wrap: true, text: f.message }] } }] }; }
+function teamsCard(f) { return { type: 'message', attachments: [{ contentType: 'application/vnd.microsoft.card.adaptive', content: { type: 'AdaptiveCard', version: '1.4', body: [{ type: 'TextBlock', weight: 'Bolder', size: 'Medium', text: `${String(f.severity || 'warning').toUpperCase()} · ${f.rule.name || f.rule.key}` }, { type: 'TextBlock', wrap: true, text: f.message }] } }] }; }
 
 async function sendDigest({ store, rdb, mailer, digest = 'daily', baseUrl = '', now = new Date() }) {
   const userIds = await store.digestSubscribers(digest); if (!userIds.length) return { users: 0, sent: 0, rows: 0 };
@@ -104,9 +137,9 @@ async function publishScheduled({ engStore, reportStore, registry, deps, rdb, cf
   if (Object.values(sp).every(Boolean) && post && rows.length) {
     try {
       const tok = await (post.token ? post.token(sp) : graphToken(sp));
-      for (const r of rows) await post(`https://graph.microsoft.com/v1.0/sites/${sp.site}/lists/${sp.list}/items`, { fields: { Title: `${r.metric} · ${r.site}`, Metric: r.metric, Site: r.site, Window: r.window || '', Value: r.value, Unit: r.unit || '', Rag: r.rag, AsOf: r.as_of || now.toISOString() } }, { Authorization: `Bearer ${tok}` });
+      for (const r of rows) await post(`https://graph.microsoft.com/v1.0/sites/${encodeURIComponent(sp.site)}/lists/${encodeURIComponent(sp.list)}/items`, { fields: { Title: `${r.metric} · ${r.site}`, Metric: r.metric, Site: r.site, Window: r.window || '', Value: r.value, Unit: r.unit || '', Rag: r.rag, AsOf: r.as_of || now.toISOString() } }, { Authorization: `Bearer ${tok}` });
       out.sharepoint = rows.length;
-    } catch (e) { out.skipped++; out.sharepoint_error = String(e.message || e).replace(/Bearer\s+\S+/g, 'Bearer <token>').slice(0, 200); }
+    } catch (e) { out.skipped++; out.sharepoint_error = require('./safeUrl').redactMessage(String(e.message || e), [sp.secret, sp.client]).replace(/Bearer\s+\S+/g, 'Bearer <token>').slice(0, 200); }
   } else out.skipped++;
   out.rows = out.excel + out.webhook + out.sharepoint;
   return out;
@@ -147,4 +180,4 @@ function bindJobs({ stores, aiProvider = 'off', execAiCall = null }) {
   };
 }
 
-module.exports = { stopped, bindJobs, aiCallFrom, safePostFor, evaluateAlerts, sendDigest, generateScheduledReports, publishScheduled, readingsFor, resolveRecipients, teamsCard };
+module.exports = { previewFirings, stopped, bindJobs, aiCallFrom, safePostFor, evaluateAlerts, sendDigest, generateScheduledReports, publishScheduled, readingsFor, resolveRecipients, teamsCard };

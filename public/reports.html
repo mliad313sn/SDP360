@@ -237,6 +237,9 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
   #audit-panel .card{overflow-x:auto}
   #audit-panel table{min-width:520px}
   .section-tabs,#section-tabs{display:flex;flex-wrap:wrap;gap:6px}
+  /* G17 — 390 px: the week bar loses its left indent and a long group name no longer widens the page */
+  .week-bar{margin-left:0!important;padding:12px}
+  .week-bar select{max-width:100%;min-width:0;flex:1 1 100%}
 }
 @media(max-width:700px){
   .page{padding:16px}

@@ -143,12 +143,15 @@ function redactUrl(url) {
  * @param {any} s
  * @param {Array<string>} [secrets]
  */
-const _SECRET_PAIR = /\b(api[_-]?key|client[_-]?secret|refresh[_-]?token|access[_-]?token|id[_-]?token|token|password|passwd|secret|authorization)\s*[=:]\s*[^\s&,;"'<>]+/gi;
+// G21 — any key ENDING in one of these words counts (api_token, sessiontoken, x_client_secret…): the fuzz test
+// found `api_token=` and `sessiontoken=` passing through with a leading word boundary
+const _SECRET_PAIR = /([A-Za-z0-9_-]*(?:api[_-]?key|secret|token|password|passwd|pwd|authorization|signature|sig))\s*[=:]\s*[^\s&,;"'<>]+/gi;
 function redactMessage(s, secrets) {
   let out = String(s == null ? '' : s);
   out = out.replace(/https?:\/\/[^\s"'<>)\]]+/gi, (m) => redactUrl(m));
+  // token schemes first: "Authorization: Bearer X" must lose X, not just the word Bearer to the key=value pass
+  out = out.replace(/(Zoho-oauthtoken|Bearer)\s+[^\s"']+/gi, '$1 <redacted>').replace(/\bBasic\s+[A-Za-z0-9+/]{8,}={0,2}/g, 'Basic <redacted>');
   out = out.replace(_SECRET_PAIR, (m, k) => `${k}=<redacted>`);
-  out = out.replace(/\b(Zoho-oauthtoken|Bearer)\s+[^\s"']+/gi, '$1 <redacted>');
   for (const k of Array.isArray(secrets) ? secrets : []) {
     const v = k == null ? '' : String(k);
     if (v.length < 4) continue;

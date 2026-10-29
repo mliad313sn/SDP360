@@ -20,7 +20,7 @@ test('pg: field outbox + uploads parity (idempotent receive, finish, chunk lifec
     const a = await st.receive({ uuid: U, userId: 7, kind: 'inspection', payloadHash: 'h1', device: 'Pixel' }); assert.equal(a.status, 'received');
     assert.equal((await st.receive({ uuid: U, userId: 7, kind: 'inspection', payloadHash: 'h2' })).payload_hash, 'h1');
     const f = await st.finish(U, 'rejected', { error: 'no site' }); assert.equal(f.status, 'rejected'); assert.deepEqual(f.result, { error: 'no site' });
-    assert.deepEqual(await st.outboxStats(), { received: 0, applied: 0, rejected: 1, failed: 0 });
+    assert.deepEqual(await st.outboxStats(), { received: 0, applying: 0, applied: 0, rejected: 1, failed: 0 });
     const up = await st.createUpload({ userId: 7, ownerKind: 'inspection', ownerId: 'EM-IT-1', name: 'p.jpg', mime: 'image/jpeg', size: 3, chunkBytes: 2, chunksTotal: 2 });
     assert.ok(up.id > 0);
     await st.putChunk(up.id, 1, Buffer.from([3]).toString('base64')); await st.putChunk(up.id, 0, Buffer.from([1, 2]).toString('base64'));

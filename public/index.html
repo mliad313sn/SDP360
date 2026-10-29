@@ -70,6 +70,8 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
 .chart-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .chart-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);padding:14px 16px}
 .chart-card.full{grid-column:1/-1}
+/* G17 — 390 px: charts stack and shrink instead of widening the page */
+@media (max-width:700px){.chart-row,.kpi-row{grid-template-columns:minmax(0,1fr)}.chart-card{min-width:0}.chart-card canvas{max-width:100%!important}.sec-hdr{flex-wrap:wrap}}
 .chart-wrap{position:relative}
 .presence-wrap{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);padding:14px 16px}
 .presence-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
