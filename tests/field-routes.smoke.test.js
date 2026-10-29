@@ -73,9 +73,13 @@ test('photo upload: over cap 400, chunks → complete → blob ref; inspection e
   assert.equal((await send('POST', `/api/field/uploads/${up.id}/complete`, tech)).status, 400, 'cannot complete with chunks missing');
   assert.equal((await get(`/api/field/uploads/${up.id}`, other)).status, 404, 'another user cannot see it');
   for (const i of [1, 0]) { const c = await (await send('PUT', `/api/field/uploads/${up.id}/chunks/${i}`, tech, { data: bytes.subarray(i * up.chunk_bytes, (i + 1) * up.chunk_bytes).toString('base64') })).json(); assert.equal(c.ok, true); }
-  const done = await (await send('POST', `/api/field/uploads/${up.id}/complete`, tech)).json(); assert.equal(done.upload.status, 'done'); assert.match(done.upload.ref, /^inspection\//);
+  const done = await (await send('POST', `/api/field/uploads/${up.id}/complete`, tech)).json(); assert.equal(done.upload.status, 'done'); assert.match(done.upload.ref, /^field\/u\d+\/\d+-[0-9a-f-]{36}\./, 'stored under a server-chosen name, never the client owner_id / name');
   assert.equal((await (await send('POST', `/api/field/uploads/${up.id}/complete`, tech)).json()).duplicate, true);
   const meta = { f_id: 'EM-IT-20261019-0001', f_site: `${hounde.name} (HGO)`, f_date: '2026-10-19', f_area: 'dc', f_inspector: 'Tech', f_type: 'routine' };
+  const notMine = await put(14, tech, { kind: 'inspection', author: 'somebody-else', payload: { meta: { ...meta, f_id: 'EM-IT-20261019-0004' }, items: {} } });
+  assert.equal(notMine.status, 403, 'an entry recorded by another person is not applied under this session');
+  const forged = await put(13, tech, { kind: 'inspection', payload: { meta: { ...meta, f_id: 'EM-IT-20261019-0003' }, items: { 'net-04': { status: 'ok', photos: [{ __blob: 'inspection/EM-IT-OTHER/sig-inspector.png' }] } } } });
+  assert.equal(forged.status, 400, 'a phone cannot name a stored file');
   const inline = await put(10, tech, { kind: 'inspection', payload: { meta, items: { net__0: { status: 'ok', photos: [{ dataUrl: 'data:image/jpeg;base64,QUJD' }] } } } });
   assert.equal(inline.status, 400, 'inline data URLs are refused on the field path');
   const ok = await (await put(11, tech, { kind: 'inspection', payload: { meta, items: { net__0: { status: 'major', notes: 'hot', photos: [{ upload_id: up.id, caption: 'rack' }] } }, actions: [], status: 'submitted' } })).json();

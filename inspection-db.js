@@ -323,13 +323,28 @@ function getInspection(id) {
 // carries lightweight `__blob` refs instead of multi-MB data: URLs. Idempotent
 // — entries already carrying `__blob` are left alone. Called BEFORE the save
 // transaction so state_json is stringified in its stripped form.
-function _externalizeBlobs(state, id) {
+// G19/CISO 2026-10-29 — a stored blob reference ({__blob}) is kept only when it belongs to THIS inspection
+// (inspection/<id>/…), was already in this inspection's stored record, or was handed over by the server itself
+// (`allowRefs`: completed field uploads of the caller). Any other reference is refused — otherwise a user could
+// save `{__blob:'inspection/<another site>/sig-inspector.png'}` and read another site's evidence back.
+function _refAllowed(ref, id, allowRefs) {
+  if (typeof ref !== 'string') return false;
+  if (ref.startsWith(`${BLOB_MODULE}/${blobStore._safeSeg(id)}/`)) return true;
+  return !!(allowRefs && allowRefs.has(ref));
+}
+function _refusedRef() { return Object.assign(new Error('photo or signature reference not allowed for this inspection'), { code: 'INVALID' }); }
+function _storedRefs(stateJson) {
+  const out = new Set();
+  try { (function walk(v) { if (!v || typeof v !== 'object') return; if (typeof v.__blob === 'string') out.add(v.__blob); for (const x of Object.values(v)) walk(x); })(JSON.parse(stateJson || 'null')); } catch (_) { /* unreadable → nothing allowed from it */ }
+  return out;
+}
+function _externalizeBlobs(state, id, allowRefs) {
   for (const [key, val] of Object.entries(state.items || {})) {
     if (!val || !Array.isArray(val.photos)) continue;
     val.photos = val.photos.map((raw, i) => {
       if (!raw) return raw;
       const p = (typeof raw === 'string') ? { dataUrl: raw } : raw;
-      if (p.__blob) return p;                       // already externalized
+      if (p.__blob) { if (!_refAllowed(p.__blob, id, allowRefs)) throw _refusedRef(); return p; }   // already externalized
       if (!p.dataUrl || typeof p.dataUrl !== 'string' || !p.dataUrl.startsWith('data:')) return p;
       const { mime, b64 } = blobStore._splitDataUrl(p.dataUrl);
       const { ref, size } = blobStore.putB64(BLOB_MODULE, id, `${key}-${i}`, mime, b64);
@@ -342,7 +357,7 @@ function _externalizeBlobs(state, id) {
   for (const [k, name] of [['sig_inspector', 'sig-inspector'], ['sig_site', 'sig-site']]) {
     const v = sig[k];
     if (!v) continue;
-    if (typeof v === 'object' && v.__blob) continue;       // already externalized
+    if (typeof v === 'object' && v.__blob) { if (!_refAllowed(v.__blob, id, allowRefs)) throw _refusedRef(); continue; }       // already externalized
     if (typeof v !== 'string' || !v.startsWith('data:')) continue;
     const { mime, b64 } = blobStore._splitDataUrl(v);
     const { ref } = blobStore.putB64(BLOB_MODULE, id, name, mime, b64);
@@ -359,8 +374,8 @@ function _externalizeBlobs(state, id) {
  * @param {number|null} createdBy     user id for audit (optional)
  * @returns {{id:string, created:boolean}}
  */
-function saveInspection(state, userSiteCode, createdBy) {
-  return _saveInspectionPg(state, userSiteCode, createdBy);
+function saveInspection(state, userSiteCode, createdBy, opts) {
+  return _saveInspectionPg(state, userSiteCode, createdBy, opts);
 }
 
 function deleteInspection(id) {
@@ -697,7 +712,7 @@ async function _resolveAreaCodePg(H, areaText) {
   return row ? row.code : null;
 }
 
-async function _saveInspectionPg(state, userSiteCode, createdBy) {
+async function _saveInspectionPg(state, userSiteCode, createdBy, { allowRefs = null } = {}) {
   if (!state || !state.meta) throw new Error('Missing state.meta');
   const H    = pgHandle();
   const meta = state.meta;
@@ -711,14 +726,16 @@ async function _saveInspectionPg(state, userSiteCode, createdBy) {
     throw new Error(`Cross-site save blocked: user is scoped to ${userSiteCode}, inspection is for ${siteCode || 'no site'}`);
   }
 
-  _externalizeBlobs(state, id);                       // FS writes, pre-tx (not transactional)
-
   const areaText = meta.f_area || '';
   const areaCode = await _resolveAreaCodePg(H, areaText);
-  const existing = await H.prepare('SELECT id, site_code FROM insp_inspections WHERE id = ?').get(id);
+  const existing = await H.prepare('SELECT id, site_code, state_json FROM insp_inspections WHERE id = ?').get(id);
   if (userSiteCode && existing && !_inScope(existing.site_code, userSiteCode)) {
     throw new Error(`Cross-site save blocked: inspection ${id} belongs to ${existing.site_code}`);
   }
+  // FS writes AFTER the ownership checks (they used to run first: reusing another site's f_id overwrote its photo
+  // files before the cross-site refusal), pre-tx (not transactional)
+  const allowed = new Set([...(existing ? _storedRefs(existing.state_json) : []), ...(allowRefs || [])]);
+  _externalizeBlobs(state, id, allowed);
 
   await H.runTransaction(async () => {
     if (existing) {

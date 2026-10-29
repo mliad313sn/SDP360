@@ -4,6 +4,11 @@
   'use strict';
   var DICT = {
     // G19 — outbox states and messages
+    'outcome unknown — check ServiceDesk Plus': 'résultat inconnu — vérifiez ServiceDesk Plus', 'stuck on the server — ask Group IT': 'bloqué sur le serveur — prévenez l’IT Groupe',
+    'entry of another person': 'saisie d’une autre personne', 'the server has been applying this entry for too long': 'le serveur traite cette saisie depuis trop longtemps',
+    'This phone is signed in as another person — sign in again. Nothing is sent meanwhile.': 'Ce téléphone est connecté au nom d’une autre personne — reconnectez-vous. Rien n’est envoyé en attendant.',
+    'Check ServiceDesk Plus before recording this ticket again: ': 'Vérifiez ServiceDesk Plus avant de recréer ce ticket : ',
+    'Send this entry under your own name? Its original author is unknown.': 'Envoyer cette saisie à votre nom ? Son auteur d’origine est inconnu.',
     'already applied (earlier version)': 'déjà appliqué (version précédente)', 'unknown author — review': 'auteur inconnu — à vérifier', 'Send as me': 'Envoyer en mon nom',
     '(sending it unchanged will be refused again)': '(renvoyée telle quelle, elle sera de nouveau refusée)', 'Photo upload: ': 'Envoi de la photo : ', 'Could not queue: ': 'Mise en file impossible : ',
     'waiting': 'en attente', 'will retry': 'nouvel essai prévu', 'refused': 'refusé', 'conflict': 'conflit', 'other user': 'autre utilisateur',

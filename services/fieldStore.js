@@ -24,7 +24,8 @@ function makeFieldStore(db, { isPg = false, now = () => new Date().toISOString()
   /** First sight of a uuid → row `received`. Returns the existing row untouched when already known. */
   async function receive({ uuid, userId, kind, payloadHash, clientTs = null, device = null }) {
     const ex = await getOutbox(uuid); if (ex) return ex;
-    await P(`INSERT INTO field_outbox (uuid, user_id, kind, payload_hash, status, client_ts, device, received_at) VALUES (?,?,?,?,'received',?,?,?)`).run(String(uuid), Number(userId), kind, payloadHash, clientTs, device == null ? null : String(device).slice(0, 120), now());
+    // two simultaneous first sends: the second INSERT does nothing (no primary-key 500), both read the same row
+    await P(`INSERT INTO field_outbox (uuid, user_id, kind, payload_hash, status, client_ts, device, received_at) VALUES (?,?,?,?,'received',?,?,?) ON CONFLICT (uuid) DO NOTHING`).run(String(uuid), Number(userId), kind, payloadHash, clientTs, device == null ? null : String(device).slice(0, 120), now());
     return getOutbox(uuid);
   }
   /** G19 — take the envelope for applying, atomically: only one request wins (returns its claim id, else null),

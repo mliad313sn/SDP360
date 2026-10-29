@@ -15,7 +15,8 @@
   // G19 — every queued entry carries its author; a phone shared by two people never sends one person's entry
   // under the other's session
   var me = ''; try { me = String((JSON.parse(profile) || {}).username || ''); } catch (_) { me = ''; }
-  var STALE_DAYS = 3, OLD_DAYS = 14;
+  var STALE_DAYS = 3, OLD_DAYS = 14, REVIEW_MS = 15 * 60000;
+  var sessionMismatch = false;   // the server session is not the person this phone's profile names: send nothing
   var ageDays = function (iso) { var t = Date.parse(iso || ''); return isFinite(t) ? Math.floor((Date.now() - t) / 864e5) : null; };
   var H = function (extra) { return Object.assign({}, extra || {}); };
   function api(path, o) {
@@ -57,6 +58,12 @@
     return api('/api/field/bootstrap').then(function (j) {
       // a cached answer from the service worker may belong to the previous user of this phone: refuse it
       if (j.ok && j.__stale && !(j.user && j.user.username === me)) throw new Error('cached data of another user');
+      if (j.ok && !j.__stale && j.user && j.user.username && j.user.username !== me) {
+        sessionMismatch = true;
+        msg(FT('This phone is signed in as another person — sign in again. Nothing is sent meanwhile.'), 'err');
+        location.href = '../login.html?next=' + encodeURIComponent('/field/index.html');
+        throw new Error('session of another user');
+      }
       if (j.ok) { B = j; kvSet('bootstrap:' + me, j); kvSet('bootstrap_at:' + me, new Date().toISOString()); return B; }
       if (j.__status === 401) { location.href = '../login.html?next=' + encodeURIComponent('/field/index.html'); throw new Error('login'); }
       throw new Error(j.error || 'bootstrap failed');
@@ -75,8 +82,8 @@
   }
   // G19 — explicit states on the phone. Only 'applied' / 'duplicate' answers remove an entry; a refusal or a
   // conflict is KEPT and shown, and only the user discards it (with a confirmation) — no silent data loss.
-  var STATE_LABEL = { pending: 'waiting', failed: 'will retry', rejected: 'refused', conflict: 'conflict', applied_before: 'already applied (earlier version)', other_user: 'other user', unknown_author: 'unknown author — review' };
-  var STATE_PILL = { pending: 'slate', failed: 'amber', rejected: 'red', conflict: 'red', applied_before: 'amber', other_user: 'slate', unknown_author: 'amber' };
+  var STATE_LABEL = { pending: 'waiting', failed: 'will retry', rejected: 'refused', conflict: 'conflict', applied_before: 'already applied (earlier version)', other_user: 'other user', unknown_author: 'unknown author — review', unknown_outcome: 'outcome unknown — check ServiceDesk Plus', needs_review: 'stuck on the server — ask Group IT' };
+  var STATE_PILL = { pending: 'slate', failed: 'amber', rejected: 'red', conflict: 'red', applied_before: 'amber', other_user: 'slate', unknown_author: 'amber', unknown_outcome: 'red', needs_review: 'red' };
   function stateOf(e) {
     if (!e.user) return 'unknown_author';                          // queued before authors were recorded: review, never auto-send
     if (me && e.user !== me) return 'other_user';
@@ -92,9 +99,11 @@
         // a refused entry can be sent again (nothing was written); a conflict whose original was applied, or an
         // entry of unknown author, can only be discarded — re-sending would apply it a second time
         var again = (st === 'rejected' || st === 'conflict' || st === 'unknown_author') ? ' <button type="button" data-ob-again="' + esc(e.uuid) + '">' + FT(st === 'unknown_author' ? 'Send as me' : 'Send again') + '</button>' : '';
-        var drop = (st === 'rejected' || st === 'conflict' || st === 'applied_before' || st === 'unknown_author') ? ' <button type="button" class="danger" data-ob-drop="' + esc(e.uuid) + '">' + FT('Discard') + '</button>' : '';
+        var drop = (st === 'rejected' || st === 'conflict' || st === 'applied_before' || st === 'unknown_author' || st === 'unknown_outcome' || st === 'needs_review') ? ' <button type="button" class="danger" data-ob-drop="' + esc(e.uuid) + '">' + FT('Discard') + '</button>' : '';
         var acts = again + drop + (st === 'rejected' ? ' <span class="muted">' + FT('(sending it unchanged will be refused again)') + '</span>' : '');
-        return '<div class="item"><span class="pill ' + STATE_PILL[st] + '">' + esc(FT(STATE_LABEL[st])) + '</span> <span class="pill slate">' + esc(e.kind) + '</span> ' + esc(e.label || '') +
+        // another person's entry: its content stays private (only its kind and date are shown)
+        var label = st === 'other_user' ? FT('entry of another person') : (e.label || '');
+        return '<div class="item"><span class="pill ' + STATE_PILL[st] + '">' + esc(FT(STATE_LABEL[st])) + '</span> <span class="pill slate">' + esc(e.kind) + '</span> ' + esc(label) +
           ' <span class="muted">' + esc(e.client_ts) + (d != null && d >= OLD_DAYS ? ' · ' + FT('waiting for') + ' ' + d + ' ' + FT('days') : '') + (st === 'other_user' ? ' · ' + FT('sign in as') + ' ' + esc(e.user) + ' ' + FT('to send it') : '') + (e.last_error ? ' · ' + esc(e.last_error) : '') + '</span>' + acts + '</div>';
       }).join('') : FT('Nothing queued.');
     });
@@ -110,6 +119,7 @@
     if (flushing || !navigator.onLine) return Promise.resolve();
     flushing = true;
     return obAll().then(function (items) {
+      if (!me || sessionMismatch) return;                        // no known author or a mismatched session: send nothing
       items = items.filter(function (e) { var st = stateOf(e); return st === 'pending' || st === 'failed'; });
       items.sort(function (a, b) { return a.client_ts < b.client_ts ? -1 : 1; });
       return items.reduce(function (p, e) { return p.then(function (stop) { return stop ? stop : sendOne(e).catch(function (err) { return entryError(e, err); }); }); }, Promise.resolve());
@@ -125,11 +135,17 @@
   }
   function sendOne(e) {
     return uploadPhotos(e).then(function () {
-      return api('/api/field/outbox/' + e.uuid, { method: 'PUT', body: { kind: e.kind, payload: e.payload, client_ts: e.client_ts, device: e.device } });
+      return api('/api/field/outbox/' + e.uuid, { method: 'PUT', body: { kind: e.kind, payload: e.payload, client_ts: e.client_ts, device: e.device, author: e.user || me } });
     }).then(function (j) {
       if (j.__status === 503 && j.offline) return true;                             // still offline: keep, stop
       if (j.__status === 401) { msg(FT('Session expired — sign in again. Nothing was lost: your entries are kept on this phone.'), 'err'); return true; }
-      if (j.__status === 409 && j.in_progress) return;                               // being applied elsewhere: retry next sync
+      if (j.__status === 403 && j.wrong_author) { sessionMismatch = true; msg(FT('This phone is signed in as another person — sign in again. Nothing is sent meanwhile.'), 'err'); return true; }
+      if (j.__status === 409 && j.in_progress) {                     // being applied elsewhere: retry next sync, then ask for review
+        e.inprog_since = e.inprog_since || new Date().toISOString();
+        if (Date.now() - Date.parse(e.inprog_since) > REVIEW_MS) { e.state = 'needs_review'; e.last_error = FT('the server has been applying this entry for too long'); }
+        return obPut(e).then(function () {});
+      }
+      if ((j.result && j.result.outcome_unknown) || j.outcome_unknown) { e.state = 'unknown_outcome'; e.last_error = String((j.result && j.result.error) || 'outcome unknown').slice(0, 300); msg(FT('Check ServiceDesk Plus before recording this ticket again: ') + (e.label || e.kind), 'err'); return obPut(e).then(function () {}); }
       if (j.__status >= 500) { e.state = 'failed'; e.last_error = j.error || 'server error'; return obPut(e).then(function () {}); }
       if (j.ok || (j.duplicate && j.status === 'applied')) { msg(FT('Synced: ') + (e.label || e.kind), 'ok'); return obDel(e.uuid).then(function () {}); }
       // refused or conflicting: kept on the phone with the reason, until the user decides
@@ -288,7 +304,8 @@
     obAll().then(function (items) {
       var e = items.find(function (x) { return x.uuid === id; }); if (!e) return;
       if (b.hasAttribute('data-ob-drop')) { if (!window.confirm(FT('Discard this entry for good?') + '\n' + (e.label || e.kind))) return; return obDel(id).then(renderOutbox); }
-      if (stateOf(e) === 'applied_before') return;
+      if (['applied_before', 'unknown_outcome', 'needs_review'].indexOf(stateOf(e)) >= 0) return;
+      if (stateOf(e) === 'unknown_author' && !window.confirm(FT('Send this entry under your own name? Its original author is unknown.') + '\n' + (e.label || e.kind))) return;
       var copy = Object.assign({}, e, { uuid: uuid(), state: 'pending', last_error: null, resent_from: e.uuid, user: me });
       return obSwap(id, copy).then(function () { renderOutbox(); flush(); });
     });

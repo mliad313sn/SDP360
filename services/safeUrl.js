@@ -145,10 +145,14 @@ function redactUrl(url) {
  */
 // G21 — any key ENDING in one of these words counts (api_token, sessiontoken, x_client_secret…): the fuzz test
 // found `api_token=` and `sessiontoken=` passing through with a leading word boundary
-const _SECRET_PAIR = /([A-Za-z0-9_-]*(?:api[_-]?key|secret|token|password|passwd|pwd|authorization|signature|sig))\s*[=:]\s*[^\s&,;"'<>]+/gi;
+const _SECRET_PAIR = /(?<![A-Za-z0-9_-])([A-Za-z0-9_-]{0,40}(?:api[_-]?key|dash[_-]?key|secret|token|password|passwd|pwd|authorization|signature|sig|session[_-]?id|sessionid|cookie))\s{0,3}[=:]\s{0,3}[^\s&,;"'<>]+/gi;
+// the same keys written as JSON ("token": "…")
+const _SECRET_JSON = /"([A-Za-z0-9_-]{0,40}(?:api[_-]?key|dash[_-]?key|secret|token|password|passwd|pwd|authorization|signature|session[_-]?id|cookie))"\s{0,3}:\s{0,3}"[^"]{0,500}"/gi;
+const _REDACT_MAX = 200000;   // bounded work: a longer message is cut before any pattern runs
 function redactMessage(s, secrets) {
-  let out = String(s == null ? '' : s);
+  let out = String(s == null ? '' : s).slice(0, _REDACT_MAX);
   out = out.replace(/https?:\/\/[^\s"'<>)\]]+/gi, (m) => redactUrl(m));
+  out = out.replace(_SECRET_JSON, (m, k) => `"${k}": "<redacted>"`);
   // token schemes first: "Authorization: Bearer X" must lose X, not just the word Bearer to the key=value pass
   out = out.replace(/(Zoho-oauthtoken|Bearer)\s+[^\s"']+/gi, '$1 <redacted>').replace(/\bBasic\s+[A-Za-z0-9+/]{8,}={0,2}/g, 'Basic <redacted>');
   out = out.replace(_SECRET_PAIR, (m, k) => `${k}=<redacted>`);

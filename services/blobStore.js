@@ -122,4 +122,5 @@ module.exports = {
   BLOB_ROOT,
   putB64, putDataUrl, getB64, getDataUrl, exists, removeOwner,
   _splitDataUrl,   // exported for reuse by callers that already have a dataUrl
+  _safeSeg,        // the same segment rule callers use to build an expected ref prefix
 };

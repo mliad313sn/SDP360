@@ -124,13 +124,18 @@
       method: 'POST', credentials: 'same-origin'
     }).finally(() => {
       clearSession();
-      // G19 — a shared phone: the next person must not be served this person's cached API answers offline
-      try { if (window.caches) caches.keys().then((ks) => ks.forEach((k) => caches.open(k).then((c) => c.keys().then((rs) => rs.forEach((r) => { if (new URL(r.url).pathname.startsWith('/api/')) c.delete(r); }))))); } catch (_) { /* no cache API */ }
-      // the field app's cached site data (kv) is cleared; its outbox of unsent entries is KEPT (each entry names its
-      // author and is only ever sent by that person). Only an existing database is opened — opening a missing one
-      // would create it empty and break the field app's own upgrade.
-      try { if (window.indexedDB && indexedDB.databases) indexedDB.databases().then((dbs) => { if (!dbs.some((d) => d.name === 'field')) return; const r = indexedDB.open('field'); r.onsuccess = () => { try { const d = r.result; if (d.objectStoreNames.contains('kv')) d.transaction('kv', 'readwrite').objectStore('kv').clear(); d.close(); } catch (_) { /* ignore */ } }; }); } catch (_) { /* no IndexedDB */ }
-      location.replace('login.html');
+      // G19 — a shared phone: the next person must not be served this person's cached API answers offline, nor see
+      // this person's field cache. The clean-up is AWAITED (bounded to 3 s) before leaving the page. The field
+      // outbox of unsent entries is KEPT (each entry names its author and is only ever sent by that person).
+      const wipeApiCache = () => (window.caches ? caches.keys().then((ks) => Promise.all(ks.map((k) => caches.open(k).then((c) => c.keys().then((rs) => Promise.all(rs.filter((r) => new URL(r.url).pathname.startsWith('/api/')).map((r) => c.delete(r)))))))) : Promise.resolve());
+      const wipeFieldKv = () => new Promise((res) => {
+        try {
+          if (!window.indexedDB) return res();
+          const go = () => { const r = indexedDB.open('field'); r.onupgradeneeded = () => { try { r.transaction.abort(); } catch (_) { /* nothing to clear */ } }; r.onerror = () => res(); r.onsuccess = () => { try { const d = r.result; if (d.objectStoreNames.contains('kv')) { const t = d.transaction('kv', 'readwrite'); t.objectStore('kv').clear(); t.oncomplete = () => { d.close(); res(); }; t.onerror = () => { d.close(); res(); }; } else { d.close(); res(); } } catch (_) { res(); } }; };
+          if (indexedDB.databases) indexedDB.databases().then((dbs) => (dbs.some((x) => x.name === 'field') ? go() : res()), go); else go();
+        } catch (_) { res(); }
+      });
+      Promise.race([Promise.all([wipeApiCache().catch(() => {}), wipeFieldKv()]), new Promise((r) => setTimeout(r, 3000))]).then(() => location.replace('login.html'));
     });
   };
 

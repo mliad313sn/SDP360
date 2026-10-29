@@ -112,17 +112,19 @@ module.exports = function fieldRoutes(deps) {
       const siteCode = idb().parseSiteCode(p.meta.f_site);
       if (codes !== null && !userSites.inScope(siteCode, codes)) throw Object.assign(new Error(`inspection is for ${siteCode || 'no site'}, your scope is ${codes.join(', ')}`), { code: 'FORBIDDEN' });
       // Photos must reference COMPLETED uploads of this user ({upload_id} → {__blob}); inline data: URLs are refused on the field path.
+      const allowRefs = new Set();
       for (const it of Object.values(p.items || {})) {
         if (!it || !Array.isArray(it.photos)) continue;
         const out = [];
         for (const ph of it.photos) {
-          if (ph && ph.__blob) { out.push(ph); continue; }
-          if (ph && ph.upload_id != null) { const up = await store.getUpload(ph.upload_id); if (!up || up.user_id !== Number(u.id) || up.status !== 'done') throw Object.assign(new Error(`upload ${ph.upload_id} not completed`), { code: 'INVALID' }); out.push({ __blob: up.ref, mime: up.mime, sizeBytes: up.size, caption: ph.caption || '' }); continue; }
+          // a phone never names a stored file itself: a client-supplied {__blob} could point at another site's evidence
+          if (ph && ph.__blob) throw Object.assign(new Error('field photos are referenced by upload id only'), { code: 'INVALID' });
+          if (ph && ph.upload_id != null) { const up = await store.getUpload(ph.upload_id); if (!up || up.user_id !== Number(u.id) || up.status !== 'done') throw Object.assign(new Error(`upload ${ph.upload_id} not completed`), { code: 'INVALID' }); allowRefs.add(up.ref); out.push({ __blob: up.ref, mime: up.mime, sizeBytes: up.size, caption: ph.caption || '' }); continue; }
           throw Object.assign(new Error('field photos must be uploaded in chunks first (no inline data URLs)'), { code: 'INVALID' });
         }
         it.photos = out;
       }
-      const r = await idb().saveInspection(p, codes, u.id);
+      const r = await idb().saveInspection(p, codes, u.id, { allowRefs });
       return { inspection_id: (r && r.id) || p.meta.f_id || null };
     },
     async tracker(u, p) {
@@ -159,6 +161,8 @@ module.exports = function fieldRoutes(deps) {
       const v = F.validateEnvelope(env); if (!v.ok) return res.status(400).json({ ok: false, error: v.errors.join('; '), errors: v.errors });
       const hash = F.payloadHash(env.payload);
       const u = req.reportUser;
+      // the phone names the author of the entry; an entry queued by someone else is never applied under this session
+      if (env.author != null && String(env.author) !== String(u.username)) return res.status(403).json({ ok: false, wrong_author: true, error: `this entry was recorded by ${String(env.author).slice(0, 60)} — sign in as that person to send it` });
       const row = await store.receive({ uuid: env.uuid, userId: u.id, kind: env.kind, payloadHash: hash, clientTs: env.client_ts || null, device: env.device || null });
       if (row.user_id !== Number(u.id)) return res.status(403).json({ ok: false, error: 'uuid belongs to another user' });
       if (row.payload_hash !== hash) return res.status(409).json({ ok: false, error: 'same uuid, different payload — generate a new uuid', status: row.status });
@@ -173,12 +177,20 @@ module.exports = function fieldRoutes(deps) {
         if (e.code === 'INVALID' || e.code === 'FORBIDDEN' || e.code === 'REJECTED' || e.code === 'WRITE_DISABLED') { status = 'rejected'; result = { error: e.message, errors: e.errors || undefined }; code = e.code === 'FORBIDDEN' ? 403 : e.code === 'INVALID' ? 400 : 200; }
         // a ticket whose outcome is unknown (SDP may have created it before the error) is NOT retried: a retry would
         // create a second request. It is refused with a reason to check SDP; other kinds stay retryable.
-        else if (env.kind === 'ticket') { status = 'rejected'; result = { error: 'outcome unknown — check ServiceDesk Plus before sending again', correlation_id: logError(e, req, 500) }; code = 200; }
+        else if (env.kind === 'ticket') { status = 'rejected'; result = { error: 'outcome unknown — check ServiceDesk Plus before sending again', outcome_unknown: true, correlation_id: logError(e, req, 500) }; code = 200; }
         else { status = 'failed'; result = { error: 'internal_error', correlation_id: logError(e, req, 500) }; code = 500; }
       }
-      const fin = await store.finish(env.uuid, status, result, claimId);
+      let fin;
+      try { fin = await store.finish(env.uuid, status, result, claimId); }
+      catch (e) {
+        // another request took the claim over and recorded the outcome: report THAT outcome (never a conflict the
+        // phone would "send again" under a new id)
+        if (e.code !== 'CONFLICT') throw e;
+        const now = await store.getOutbox(env.uuid);
+        return res.json({ ok: now && now.status === 'applied', duplicate: true, status: now ? now.status : 'applying', result: now ? now.result : null, in_progress: !now || now.status === 'applying' });
+      }
       try { rdb().logEvent({ category: 'field', action: `field_${env.kind}_${status}`, target: env.uuid, details: { device: env.device || null }, ...rdb()._logCtx(req) }); } catch (_) { /* best effort */ }
-      res.status(code).json({ ok: status === 'applied', duplicate: false, status, result: fin.result });
+      res.status(code).json({ ok: status === 'applied', duplicate: false, status, result: fin.result, outcome_unknown: !!(result && result.outcome_unknown) });
     } catch (e) { fail(res, e); }
   });
 
@@ -218,7 +230,9 @@ module.exports = function fieldRoutes(deps) {
       const up = await ownUpload(req, res); if (!up) return;
       if (up.status === 'done') return res.json({ ok: true, duplicate: true, upload: up });
       const buf = F.assembleChunks(await store.chunksOf(up.id), { total: up.chunks_total, size: up.size });
-      const saved = blobStore.putB64('inspection', up.owner_id, up.name, up.mime, buf.toString('base64'));
+      // the file lands in a namespace only the server names (never the client's owner_id / name: those used to let a
+      // user of site A overwrite site B's photo files); the inspection save then attaches it after its site check
+      const saved = blobStore.putB64('field', `u${Number(up.user_id)}`, `${up.id}-${require('crypto').randomUUID()}`, up.mime, buf.toString('base64'));
       const out = await store.completeUpload(up.id, saved.ref);
       res.json({ ok: true, duplicate: false, upload: out });
     } catch (e) { fail(res, e); }

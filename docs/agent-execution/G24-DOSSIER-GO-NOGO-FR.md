@@ -14,9 +14,9 @@ dépôt ; ce qui n'a pas été mesuré est écrit « non mesuré ».
 
 ## 2. Ce qui est prouvé (code et tests, pas le terrain)
 
-- **Suite complète sur PostgreSQL** : 3 073 tests, 0 échec, 11 tests sautés avec justification et propriétaire
-  (exécution du 29/10 après les ajouts de G16–G23) ; lint de sécurité propre ; aucun secret dans les fichiers suivis.
-- **Intégration continue** sur le commit 4aea9dd (le commit de ce dossier repasse par la même CI) : CI, CodeQL et l'installeur Windows (installation à blanc, mise
+- **Suite complète sur PostgreSQL** : 3 079 tests, 0 échec, 11 tests sautés avec justification et propriétaire
+  (exécution du 29/10 après la seconde revue sécurité) ; lint de sécurité propre ; aucun secret dans les fichiers suivis.
+- **Intégration continue** sur le commit 8d8a789 : CI, CodeQL et l'installeur Windows (installation à blanc, mise
   à jour avec sauvegarde préalable, retour arrière forcé, restauration, désinstallation) — tous verts.
 - **Traçabilité** : 25 objectifs, chaque fichier de preuve cité existe (`TRACEABILITY.md`, vérifié en CI).
 - Statut par objectif : 9 « implémentés », 15 « partiels », 1 en cours (celui-ci). Aucun n'est « validé terrain »,
@@ -30,6 +30,7 @@ dépôt ; ce qui n'a pas été mesuré est écrit « non mesuré ».
 | IA | le proxy du générateur de présentations envoyait au modèle les e-mails, téléphones et noms présents dans les tickets | corrigé, test de bout en bout |
 | Journaux | `api_token=…` et `sessiontoken=…` n'étaient pas masqués ; `Authorization: Bearer X` gardait X | corrigé (trouvé par les tests de fuzz) |
 | Alertes | aucune gravité, aucun essai à blanc ; une règle WAN se disait « contractuelle » sans mesurer le contrat | gravité + essai à blanc ; la règle WAN est « opérationnelle », pas contractuelle |
+| Photos d'inspection | une référence de photo envoyée par le téléphone pouvait désigner, lire ou écraser la photo d'une autre inspection ; les fichiers étaient écrits avant le contrôle de site | corrigé, testé (seconde revue sécurité IA) |
 | Navigation | menu de 16 entrées à plat, raccourci clavier non conforme WCAG 2.1.4, 10 pages débordant sur téléphone | menus groupés, recherche Ctrl+K, 0 débordement à 390 px |
 
 ## 4. Portes humaines ouvertes (aucune ne peut être franchie par l'IA)

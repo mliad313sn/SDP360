@@ -73,5 +73,18 @@ No critical or high finding. Medium/low findings and their fix (all with a regre
 | 11 | append-only triggers can be dropped by the table owner; TRUNCATE not blocked | **DBA step** on the production cluster: application role not owner, no TRUNCATE (rehearsed SQL in `tests/audit-grants-rehearsal.test.js`); the hash chain + nightly anchor detect a rewrite meanwhile | — |
 
 | 12 | (G16) `redactMessage` turned `Authorization: Bearer X` into `Authorization=<redacted> X` — the token survived | token schemes are redacted before the key=value pass; the SharePoint error is also scrubbed of the client secret | `tests/publish-sharepoint-mock.test.js` |
+| 13 | (G19, P1) the field route kept a client-sent photo reference (`__blob`): a technician could point an inspection at another inspection's photo, read it back, or overwrite it by reusing an upload id | a stored reference is kept only if it lives under this inspection or was validated in this request; field photos are referenced by upload id only; each completed upload writes a fresh file name | `tests/inspection-blob-refs.test.js`, `tests/field-routes.smoke.test.js` |
+| 14 | (G19, P1) photos were written to disk BEFORE the cross-site check — a refused save still replaced files | the cross-site and status checks run first, the files are written after | `tests/inspection-blob-refs.test.js` |
+| 15 | (G19, P2) an entry left on a shared phone could be sent under the next person's session | each send carries its author; the server refuses a different session (403); the app stops and offers "send as me" with a confirmation | `tests/field-routes.smoke.test.js`, `tests/field-no-silent-loss.test.js` |
+| 16 | (G19, P2) a ticket whose outcome was unknown (crash during the SDP call) looked like a plain duplicate; a lost claim could overwrite a newer outcome | the answer says `outcome_unknown`, the app shows "to check" and never re-sends it; `finish` refuses a writer that lost its claim (409) | `tests/field-store.test.js`, `tests/pg-field-store.test.js` |
+| 17 | (G20, P2) the AI redaction could be bypassed by invisible or full-width characters, spaced delimiters, model chat tokens, a reversed name, a bare 8-10 digit number or a client-sent `system` turn; a 100 k character input made one redaction regex slow | text normalised (NFKC, invisible characters removed) before matching; name variants, usernames, IPv6 and bare numbers covered; every non-assistant turn becomes `user`; the input is capped before any pattern runs (100 k chars: 0 ms) | `tests/ai-sanitize.test.js`, `tests/fuzz-inputs.test.js` |
+| 18 | (G20, P3) if the user directory had never loaded, the proxy sent text without the name list | the proxy answers 503 until the directory is loaded | `tests/ai-proxy-sanitize.smoke.test.js` |
+| 19 | (G19, P3) logout left another page's cached API answers on a shared phone | logout waits (at most 3 s) for the API cache and the field cache to be cleared; unsent entries are kept with their author | code review (no browser test) |
+
+Still open from this review, with owner: an admin action to resolve an entry stuck in `applying` (today only the
+phone flags it "to check" after 15 minutes) — PO; an expired session that never logs out keeps its cache until the
+next login — accepted for the pilot, PO; requester names from tickets are not added to the AI redaction list (only
+the user directory) — data owner, AI stays off meanwhile; a password made only of digits after `Password:` is
+redacted, which can hide a harmless number in a log — accepted.
 
 This is an AI specialist review, not a human CISO sign-off: the sign-off stays a release gate (RL-07).

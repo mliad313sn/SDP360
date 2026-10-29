@@ -4759,7 +4759,11 @@ const _aiSan = require('./services/aiSanitize');
 let _aiNames = { at: 0, list: [] };
 async function _aiDirectoryNames() {
   if (Date.now() - _aiNames.at < 10 * 60000) return _aiNames.list;
-  try { const us = (await rdb.listUsers()) || []; _aiNames = { at: Date.now(), list: us.flatMap((u) => [u.full_name, u.username]).filter(Boolean) }; } catch (_) { /* keep the previous list */ }
+  try { const us = (await rdb.listUsers()) || []; _aiNames = { at: Date.now(), list: us.flatMap((u) => [u.full_name, u.username]).filter(Boolean) }; }
+  catch (_) {
+    // fail closed: without the directory, names would leave unredacted — refuse rather than send
+    if (!_aiNames.at) { const e = new Error('AI analysis unavailable: the user directory could not be loaded for redaction.'); e.status = 503; throw e; }
+  }
   return _aiNames.list;
 }
 const sanitiseMessages = (messages, o) => _aiSan.sanitiseMessages(messages, o);
