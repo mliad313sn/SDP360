@@ -156,6 +156,16 @@ module.exports = function governanceRoutes(deps) {
   });
 
   // ---- cadences ---------------------------------------------------------------------------
+  // Chair / secretary picker for the cadence form (committee field review): names, never typed ids.
+  router.get('/api/governance/people', requireReportSession, async (req, res) => {
+    try {
+      if (!isCommittee(req.reportUser)) return res.status(403).json({ ok: false, error: 'committee only' });
+      const site = req.query.site == null || req.query.site === '' ? null : Number(req.query.site);
+      const people = ((await rdb().listUsers()) || []).filter((x) => x.active !== 0 && x.active !== false && (site == null || [x.site_id, ...(x.extra_site_ids || [])].filter((v) => v != null).map(Number).includes(site)))
+        .map((x) => ({ id: Number(x.id), name: x.full_name || x.username })).sort((a, b) => String(a.name).localeCompare(String(b.name), 'fr'));
+      res.json({ ok: true, people });
+    } catch (e) { fail(res, e); }
+  });
   router.get('/api/governance/cadences', requireReportSession, async (req, res) => { try { const ids = await scopeIds(req.reportUser); const sites = ((await rdb().listSites({ includeInactive: false })) || []).filter(s => !ids || ids.includes(Number(s.id))).map(s => ({ id: s.id, name: s.name })); res.json({ ok: true, committee: isCommittee(req.reportUser), sites, cadences: (await store.listCadences({ siteIds: ids, includeInactive: isCommittee(req.reportUser) })).filter(c => seesCadence(req.reportUser, c)) }); } catch (e) { fail(res, e); } });
   router.put('/api/governance/cadences', requireReportSession, requireCommittee, json, async (req, res) => { try { const c = await store.saveCadence(req.body, { user: req.reportUser }); log(req, 'cadence_saved', c.key); res.json({ ok: true, cadence: c }); } catch (e) { fail(res, e); } });
   router.delete('/api/governance/cadences/:id', requireReportSession, requireCommittee, async (req, res) => { try { await store.removeCadence(req.params.id); log(req, 'cadence_removed', req.params.id); res.json({ ok: true }); } catch (e) { fail(res, e); } });

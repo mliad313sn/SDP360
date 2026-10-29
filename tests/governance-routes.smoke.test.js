@@ -176,3 +176,11 @@ test('session actions: an action id from another session is never reachable thro
   const s1 = await (await get(`/api/governance/sessions/${a1.id}`, editor)).json();
   assert.equal(s1.decisions.filter((d) => d.title === body.title).length, 1); assert.equal(s1.actions.filter((a) => a.title === body.title).length, 1);
 });
+
+test('people picker for chair / secretary: committee only, names and ids, filtered by site', async () => {
+  assert.equal((await get('/api/governance/people', editor)).status, 403);
+  const all = await (await get('/api/governance/people', member)).json();
+  assert.ok(all.people.length >= 2 && all.people.every((p) => Number.isFinite(p.id) && p.name && !('email' in p)));
+  const site = await (await get(`/api/governance/people?site=${hounde}`, member)).json();
+  assert.ok(site.people.some((p) => p.id === editorId)); assert.ok(site.people.length <= all.people.length);
+});

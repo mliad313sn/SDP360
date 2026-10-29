@@ -5,7 +5,7 @@ window.COCKPIT_FR = {
   'Cadences': 'Cadences', 'Sessions': 'Séances', 'Open decisions': 'Décisions ouvertes', 'Sessions held (30 d)': 'Séances tenues (30 j)', 'Planned': 'Planifiées', 'Overdue decisions': 'Décisions en retard', 'RFIs to triage': 'Demandes à trier',
   'New / edit cadence': 'Créer / modifier une cadence', 'Key': 'Clé', 'Name': 'Nom', 'Kind': 'Type', 'Site': 'Site', 'fleet / group': 'groupe', 'Weekday': 'Jour', 'Time': 'Heure', 'Duration (min)': 'Durée (min)',
   'Monday': 'Lundi', 'Tuesday': 'Mardi', 'Wednesday': 'Mercredi', 'Thursday': 'Jeudi', 'Friday': 'Vendredi', 'Saturday': 'Samedi', 'Sunday': 'Dimanche',
-  'Chair (user id)': 'Président (n° d\'utilisateur)', 'Secretary (user id)': 'Secrétaire (n° d\'utilisateur)', 'Participants (one per line, e-mail for minutes)': 'Participants (un par ligne, e-mail pour le compte rendu)', 'Save cadence': 'Enregistrer la cadence',
+  'Chair': 'Président', 'Secretary': 'Secrétaire', 'Participants (one per line, e-mail for minutes)': 'Participants (un par ligne, e-mail pour le compte rendu)', 'Save cadence': 'Enregistrer la cadence',
   'site_weekly': 'site — hebdomadaire', 'site_monthly': 'site — mensuelle', 'group_monthly': 'groupe — mensuelle', 'committee': 'comité', 'cab': 'CAB (changements)', 'custom': 'autre',
   'Cadence': 'Cadence', 'When': 'Quand', 'Date': 'Date', 'Status': 'Statut', 'Ref': 'Réf.', 'Decision': 'Décision', 'Owner': 'Responsable', 'Due': 'Échéance', 'fleet': 'groupe', 'inactive': 'inactive',
   'Prepare session': 'Préparer la séance', 'Edit': 'Modifier', 'Open': 'Ouvrir', 'Review': 'Relire',
