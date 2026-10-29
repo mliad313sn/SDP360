@@ -1363,6 +1363,10 @@ function _computeSiteChanges(rows) {
     deferred: b.deferred, pending: pendingTot, executed,            // ← _tallyChanges, verbatim
     total, emergency,                                               // ← ours
     success_pct: executed ? Math.round(100 * successful / executed) : null,
+    // EX-04 — the ITSM-doctrine figure, side by side (cancelled excluded from the denominator). Which one
+    // is OFFICIAL is decision D-01 (KPI committee); both stay visible, labelled, until it is taken.
+    executed_itsm: successful + b.partial + failedTot,
+    success_pct_itsm: (successful + b.partial + failedTot) ? Math.round(100 * successful / (successful + b.partial + failedTot)) : null,
   };
 }
 
