@@ -118,3 +118,13 @@ test('G-24 rollback: restores an old version as the draft; the live snapshot kee
   assert.equal(JSON.stringify(live).includes('Second'), true, 'viewers still see version 2');
   assert.equal((await send('POST', '/api/dashboards/rb-test/publish', admin, {})).status, 409, 'the rolled-back draft goes through review again');
 });
+
+test('G15: dashboard figures export as CSV with unit, window, as-of and freshness; scope and auth unchanged', async () => {
+  assert.equal((await get('/api/dashboards/exec-home/data.csv')).status, 401);
+  const r = await get('/api/dashboards/exec-home/data.csv', viewer); assert.equal(r.status, 200);
+  assert.match(r.headers.get('content-type'), /text\/csv/);
+  const lines = (await r.text()).replace(/^﻿/, '').trim().split('\r\n');
+  assert.equal(lines[0], 'widget,metric,site,window,value,unit,rag,freshness,as_of');
+  assert.ok(lines.length > 13, 'series points and single values are rows');
+  assert.ok(lines.slice(1).every((l) => !/^[=+@]/.test(l)), 'no cell starts as a formula');
+});

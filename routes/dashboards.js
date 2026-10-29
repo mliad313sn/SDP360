@@ -108,15 +108,15 @@ module.exports = function dashboardsRoutes(deps) {
   });
 
   // ---- data: every widget in one call ------------------------------------------------
-  router.get('/api/dashboards/:key/data', requireReportSession, async (req, res) => {
-    try {
+  // shared by the JSON view and the CSV export (G15): same scope checks, same figures, same freshness rule
+  async function dashboardData(req, res) {
       const u = req.reportUser;
-      const d = await loadVisible(req, res); if (!d) return;
+      const d = await loadVisible(req, res); if (!d) return null;
       const def = (req.query.draft === '1' && isPublisher(u)) ? d.definition : ((await store.published(d.key)) || d).definition;
       const sites = await scopeSites(u);
-      if (!sites.length) return res.json({ ok: true, key: d.key, site: null, sites: [], widgets: {}, note: 'no site in your scope' });
+      if (!sites.length) { res.json({ ok: true, key: d.key, site: null, sites: [], widgets: {}, note: 'no site in your scope' }); return null; }
       let site = req.query.site == null || req.query.site === '' ? null : Number(req.query.site);
-      if (site != null && !sites.some(s => Number(s.id) === site)) return res.status(403).json({ ok: false, error: 'site not in your scope' });
+      if (site != null && !sites.some(s => Number(s.id) === site)) { res.status(403).json({ ok: false, error: 'site not in your scope' }); return null; }
       if (site == null) site = Number(sites[0].id);
       const window = req.query.window ? String(req.query.window).slice(0, 24) : null;
       const now = new Date();
@@ -128,7 +128,26 @@ module.exports = function dashboardsRoutes(deps) {
       const lastOk = deps.lastSyncOk ? await deps.lastSyncOk(jobs) : await gate.lastOkFromSyncStore(jobs);
       const stale = gate.freshness(mods, lastOk, now.getTime(), await require('../services/governancePolicy').forContext({})).sources.filter(x => x.state !== 'FRESH');
       gate.degradeStale(out, def, reg, stale);   // G05: stale source → value kept, colour withdrawn
-      res.json({ ok: true, key: d.key, version: d.version, site, sites: sites.map(s => ({ id: Number(s.id), name: s.name })), window, as_of: now.toISOString(), widgets: out, stale_sources: stale });
+      return { ok: true, key: d.key, version: d.version, site, sites: sites.map(s => ({ id: Number(s.id), name: s.name })), window, as_of: now.toISOString(), widgets: out, stale_sources: stale };
+  }
+  router.get('/api/dashboards/:key/data', requireReportSession, async (req, res) => {
+    try { const v = await dashboardData(req, res); if (v) res.json(v); } catch (e) { fail(res, e, 500, { ok: false }); }
+  });
+  // G15 — the figures behind a dashboard as CSV (one row per value, with unit, window, as-of and freshness)
+  router.get('/api/dashboards/:key/data.csv', requireReportSession, async (req, res) => {
+    try {
+      const v = await dashboardData(req, res); if (!v) return;
+      const { neutralize } = require('../public/lib/csvSafe'); const csvCell = (x) => { const t = neutralize(x); return /[",\r\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+      const rows = [['widget', 'metric', 'site', 'window', 'value', 'unit', 'rag', 'freshness', 'as_of']];
+      const siteName = (v.sites.find(s => s.id === v.site) || {}).name || '';
+      for (const [id, w] of Object.entries(v.widgets || {})) {
+        if (w.mode === 'single') rows.push([w.title || id, w.metric, siteName, w.window && w.window.label || '', w.value, w.unit, w.rag, w.freshness || 'FRESH', w.as_of || v.as_of]);
+        else if (w.mode === 'per-site') for (const r of w.rows || []) rows.push([w.title || id, w.metric, r.site, '', r.value, w.unit, r.rag, w.freshness || 'FRESH', w.as_of || v.as_of]);
+        else if (w.mode === 'series') for (const p of w.points || []) rows.push([w.title || id, w.metric, siteName, p.label, p.value, w.unit, '', w.freshness || 'FRESH', w.as_of || v.as_of]);
+      }
+      const text = '\ufeff' + rows.map(r => r.map(x => csvCell(x == null ? '' : x)).join(',')).join('\r\n') + '\r\n';
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8'); res.setHeader('Content-Disposition', `attachment; filename="dashboard-${String(v.key).replace(/[^a-z0-9_-]/gi, '')}.csv"`);
+      res.send(text);
     } catch (e) { fail(res, e, 500, { ok: false }); }
   });
 

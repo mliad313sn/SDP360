@@ -4,7 +4,7 @@
 // row's hash; the first row that does not match is reported. The chain heads are the daily anchor:
 // logged by the job `audit.chain_verify` (system_log + the encrypted nightly backup), so a whole-table
 // rewrite with a recomputed chain still differs from yesterday's anchor.
-const TABLES = Object.freeze(['governance_policy_history', 'handoff_events', 'commitment_events', 'closure_verifications', 'minutes_history', 'governance_role_events']);
+const TABLES = Object.freeze(['governance_policy_history', 'handoff_events', 'commitment_events', 'closure_verifications', 'minutes_history', 'governance_role_events', 'ppm_events', 'report_publications']);
 
 async function verify(db) {
   const out = [];

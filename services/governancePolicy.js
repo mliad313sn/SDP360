@@ -389,7 +389,10 @@ function makePolicyStore(db, { now = () => new Date().toISOString(), ttlMs = 300
       deviations.push({ scope, key, value, default: p.default, less_strict: relaxes(p, p.default, value), protected: p.protected });
     }
     const proposals = (await listProposals({ status: null })).filter((x) => x.proposed_at >= f && x.proposed_at <= t + '\uffff');
-    return { from: from || null, to: to || null, relaxations: rel, overrides, deviations, proposals };
+    // G08 — minutes accepted without a second person (four-eyes off for the context) wait for a group review here
+    let single_signature = [];
+    try { single_signature = (await Q(`SELECT session_id, actor_id, at, reason FROM minutes_history WHERE action='accepted_without_second_person' AND at >= ? AND at <= ? ORDER BY id DESC LIMIT 1000`).all(f, t + '\uffff')).map((x) => ({ ...x, session_id: Number(x.session_id), actor_id: x.actor_id == null ? null : Number(x.actor_id) })); } catch (_) { single_signature = null; }
+    return { from: from || null, to: to || null, relaxations: rel, overrides, deviations, proposals, single_signature };
   }
   return { snapshot, snapshotAt, view, set, history, listProposals, decide, oversight, invalidate, groupsOf };
 }

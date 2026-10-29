@@ -117,7 +117,8 @@ module.exports = function commitmentsRoutes(deps) {
     try {
       const u = req.reportUser;
       const rows = await store.list({ siteIds: isAdmin(u) ? null : userSites.siteIds(u), named: isAdmin(u) ? [] : identities(u),
-        status: req.query.status || null, kind: req.query.kind || null, site: req.query.site || null });
+        status: req.query.status || null, kind: req.query.kind || null, site: req.query.site || null, exceptions: req.query.exceptions === '1' });
+      if (req.query.exceptions === '1') { const today = new Date().toISOString(); for (const r of rows) r.exception_state = r.exception_expires_at && String(r.exception_expires_at) < today ? 'lapsed' : 'active'; }
       res.json({ commitments: rows, kinds: L.KINDS, statuses: L.STATUSES, severities: L.SEVERITIES, sites: isAdmin(u) ? null : userSites.siteIds(u) });
     } catch (e) { fail(res, e); }
   });

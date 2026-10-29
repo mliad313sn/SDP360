@@ -134,7 +134,8 @@ module.exports = function handoffRoutes(deps) {
       const h = await load(req, res); if (!h) return;
       const b = req.body || {};
       const a = actorOf(req.reportUser, h, req.deputyFor);
-      const out = await store.transition(h.id, String(b.to || ''), { actor: a, expectedVersion: b.version, reason: b.reason, policy: await polFor(h.site_id) });
+      const out = await store.transition(h.id, String(b.to || ''), { actor: a, expectedVersion: b.version, reason: b.reason, policy: await polFor(h.site_id), idemKey: req.headers['idempotency-key'] || b.idem_key });
+      if (out.replayed) return res.json({ handoff: view(out, req.reportUser, req.deputyFor), replayed: true });
       log(req, 'handoff_transition', h.ref, { from: h.status, to: out.status, acting_for: L.actingFor(h, a, 'receiver') || L.actingFor(h, a, 'requester') || undefined });
       await notify(L.actsAsRequester(h, a) ? out.receiver_id : out.requested_by, out, out.status);
       res.json({ handoff: view(out, req.reportUser, req.deputyFor) });

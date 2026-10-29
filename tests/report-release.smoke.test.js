@@ -85,3 +85,27 @@ test('fresh sources publish without override; a published run cannot be re-revie
   assert.equal((await get(`/share/${share.token}`)).status, 404, 'share link stops working');
   assert.equal((await send('PUT', `/api/report-studio/runs/${id}/commentary`, T.authorB, { text: 'late' })).status, 409, 'withdrawn run is frozen');
 });
+
+test('G07: the released content is frozen in the database; a withdrawn run is corrected by a new run that names it', async () => {
+  const id = await gen(T.authorA);
+  assert.equal((await send('POST', `/api/report-studio/runs/${id}/review`, T.authorB, { status: 'reviewed' })).status, 200);
+  await markSynced('zoho.requests', 0.5);
+  assert.equal((await send('POST', `/api/report-studio/runs/${id}/publish`, T.authorB, {})).status, 200);
+  const pub = await rdb.db.prepare('SELECT html, html_sha256, row_hash FROM report_publications WHERE run_id=?').get(id);
+  assert.ok(pub && pub.html.length > 100 && /^[0-9a-f]{64}$/.test(pub.html_sha256) && pub.row_hash, 'publication stored, hashed and chained');
+  assert.strictEqual(require('crypto').createHash('sha256').update(pub.html, 'utf8').digest('hex'), pub.html_sha256);
+  // a re-render behind the application changes the run row, never what readers get
+  await rdb.db.prepare("UPDATE report_runs SET html='<p>tampered</p>' WHERE id=?").run(id);
+  const h = await get(`/api/report-studio/runs/${id}.html`, T.viewer);
+  assert.equal(h.headers.get('x-sdp-publication-sha256'), pub.html_sha256);
+  assert.ok(!(await h.text()).includes('tampered'), 'served from the frozen publication');
+  let refused = false; try { await rdb.db.prepare("UPDATE report_publications SET html='x' WHERE run_id=?").run(id); } catch (_) { refused = true; }
+  assert.ok(refused, 'publications are append-only');
+  // correction: only a withdrawn run of the same template + site can be superseded
+  const early = await (await send('POST', '/api/report-studio/templates/site-weekly-pack/generate', T.authorA, { site_id: hounde, supersedes_id: id })).json();
+  assert.equal(early.ok, false, 'a published (not withdrawn) run cannot be superseded');
+  await send('POST', `/api/report-studio/runs/${id}/withdraw`, T.admin, { reason: 'site filter was wrong for this week' });
+  const fix = await (await send('POST', '/api/report-studio/templates/site-weekly-pack/generate', T.authorA, { site_id: hounde, supersedes_id: id })).json();
+  assert.equal(fix.ok, true, JSON.stringify(fix)); assert.equal(Number(fix.run.supersedes_id), id);
+  assert.ok(await rdb.db.prepare('SELECT 1 FROM report_publications WHERE run_id=?').get(id), 'the withdrawn publication stays as the record');
+});

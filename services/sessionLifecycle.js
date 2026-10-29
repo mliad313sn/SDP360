@@ -128,7 +128,7 @@ function compliance(sessions, now = new Date(), pol = null) {
  */
 function reopenStep(history, actor, policy = null) {
   if (_pol(policy)['meetings.reopen_two_people'] !== true) return 'reopen';
-  const rows = history || []; let lastAcc = -1; rows.forEach((h, i) => { if (h.action === 'accepted') lastAcc = i; });
+  const rows = history || []; let lastAcc = -1; rows.forEach((h, i) => { if (h.action === 'accepted' || h.action === 'accepted_without_second_person') lastAcc = i; });
   const req = rows.slice(lastAcc + 1).reverse().find((h) => h.action === 'reopen_requested');
   if (!req) return 'request';
   if (Number(req.actor_id) === Number(actor && actor.id)) return { status: 409, code: 'SOD', error: 'the reopening is waiting for a SECOND admin — the requester cannot confirm it' };

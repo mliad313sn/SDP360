@@ -186,3 +186,14 @@ test('self-verification refused for a super_admin; stale version → 409; eviden
   assert.equal((await send('POST', `/api/commitments/${c2.id}/evidence`, editor, { url: 'https://sharepoint.example/doc' })).status, 201);
   const page = await get('/commitments.html', editor); assert.equal(page.status, 200);
 });
+
+test('G09: approved due-date exceptions have their own register, with active / lapsed state', async () => {
+  let c = (await (await send('POST', '/api/commitments', editor, { kind: 'inspection_finding', severity: 'high', title: 'G09 exception register check', site_id: hounde, reviewer: 'cm_reviewer' })).json()).commitment;
+  const before = (await (await get('/api/commitments?exceptions=1', superT)).json()).commitments.length;
+  const ex = await send('POST', `/api/commitments/${c.id}/exception`, superT, { version: c.version, reason: 'vendor part on back-order until next quarter' });
+  assert.equal(ex.status, 200, await ex.text());
+  const list = (await (await get('/api/commitments?exceptions=1', superT)).json()).commitments;
+  assert.equal(list.length, before + 1);
+  const row = list.find((x) => x.id === c.id); assert.ok(row && row.exception_state === 'active' && row.exception_reason, JSON.stringify(row));
+  assert.ok(!(await (await get('/api/commitments?exceptions=1', otherEditor)).json()).commitments.some((x) => x.id === c.id), 'another site does not see it');
+});

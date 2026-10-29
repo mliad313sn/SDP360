@@ -6,13 +6,13 @@
   "pages_without_declared_role": 6,
   "pages_not_in_navigation": 25,
   "pages_with_inline_scripts": 45,
-  "routes": 515,
+  "routes": 520,
   "routes_without_test_reference": 104,
   "routes_in_server_js": 229,
   "jobs": 24,
   "jobs_without_test_reference": 10,
-  "migrations": 46,
-  "test_files": 432
+  "migrations": 48,
+  "test_files": 433
  },
  "pages": [
   {
@@ -586,7 +586,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 14366,
+   "bytes": 14351,
    "tests": [
     "tests/a11y-static.test.js"
    ]
@@ -1543,11 +1543,24 @@
    ]
   },
   {
+   "id": "RT-GET-api-dashboards-key-data-csv",
+   "method": "GET",
+   "path": "/api/dashboards/:key/data.csv",
+   "file": "routes/dashboards.js",
+   "line": 137,
+   "tests": [
+    "tests/business-only-boundary.smoke.test.js",
+    "tests/dashboards-routes.smoke.test.js",
+    "tests/governance-policy-routes.smoke.test.js",
+    "tests/publication-freshness.smoke.test.js"
+   ]
+  },
+  {
    "id": "RT-GET-api-dashboards-key-data",
    "method": "GET",
    "path": "/api/dashboards/:key/data",
    "file": "routes/dashboards.js",
-   "line": 111,
+   "line": 133,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/dashboards-routes.smoke.test.js",
@@ -1560,7 +1573,7 @@
    "method": "POST",
    "path": "/api/dashboards/:key/publish",
    "file": "routes/dashboards.js",
-   "line": 156,
+   "line": 175,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/dashboards-routes.smoke.test.js",
@@ -1573,7 +1586,7 @@
    "method": "POST",
    "path": "/api/dashboards/:key/retire",
    "file": "routes/dashboards.js",
-   "line": 199,
+   "line": 218,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/dashboards-routes.smoke.test.js",
@@ -1586,7 +1599,7 @@
    "method": "POST",
    "path": "/api/dashboards/:key/rollback/:n",
    "file": "routes/dashboards.js",
-   "line": 188,
+   "line": 207,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/dashboards-routes.smoke.test.js",
@@ -1599,7 +1612,7 @@
    "method": "POST",
    "path": "/api/dashboards/:key/submit",
    "file": "routes/dashboards.js",
-   "line": 175,
+   "line": 194,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/dashboards-routes.smoke.test.js",
@@ -1638,7 +1651,7 @@
    "method": "DELETE",
    "path": "/api/dashboards/:key",
    "file": "routes/dashboards.js",
-   "line": 209,
+   "line": 228,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/dashboards-routes.smoke.test.js",
@@ -1664,7 +1677,7 @@
    "method": "PUT",
    "path": "/api/dashboards/:key",
    "file": "routes/dashboards.js",
-   "line": 136,
+   "line": 155,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/dashboards-routes.smoke.test.js",
@@ -2251,7 +2264,7 @@
    "method": "PUT",
    "path": "/api/governance/decisions/:id",
    "file": "routes/governance.js",
-   "line": 334,
+   "line": 338,
    "tests": [
     "tests/governance-policy-routes.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
@@ -2263,7 +2276,7 @@
    "method": "GET",
    "path": "/api/governance/decisions",
    "file": "routes/governance.js",
-   "line": 314,
+   "line": 318,
    "tests": [
     "tests/governance-policy-routes.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
@@ -2278,7 +2291,8 @@
    "line": 174,
    "tests": [
     "tests/governance-policy-routes.smoke.test.js",
-    "tests/governance-roles.smoke.test.js"
+    "tests/governance-roles.smoke.test.js",
+    "tests/governance-routes.smoke.test.js"
    ]
   },
   {
@@ -2398,10 +2412,11 @@
    "method": "DELETE",
    "path": "/api/governance/portfolio/:kind/:id",
    "file": "routes/governance.js",
-   "line": 364,
+   "line": 391,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
-    "tests/governance-routes.smoke.test.js"
+    "tests/governance-routes.smoke.test.js",
+    "tests/ppm-project-lifecycle.smoke.test.js"
    ]
   },
   {
@@ -2409,10 +2424,33 @@
    "method": "PUT",
    "path": "/api/governance/portfolio/:kind",
    "file": "routes/governance.js",
-   "line": 363,
+   "line": 377,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
-    "tests/governance-routes.smoke.test.js"
+    "tests/governance-routes.smoke.test.js",
+    "tests/ppm-project-lifecycle.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-GET-api-governance-portfolio-project-id-history",
+   "method": "GET",
+   "path": "/api/governance/portfolio/project/:id/history",
+   "file": "routes/governance.js",
+   "line": 385,
+   "tests": [
+    "tests/governance-routes.smoke.test.js",
+    "tests/ppm-project-lifecycle.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-POST-api-governance-portfolio-project-id-stage",
+   "method": "POST",
+   "path": "/api/governance/portfolio/project/:id/stage",
+   "file": "routes/governance.js",
+   "line": 378,
+   "tests": [
+    "tests/governance-routes.smoke.test.js",
+    "tests/ppm-project-lifecycle.smoke.test.js"
    ]
   },
   {
@@ -2420,9 +2458,19 @@
    "method": "GET",
    "path": "/api/governance/portfolio/report.html",
    "file": "routes/governance.js",
-   "line": 365,
+   "line": 392,
    "tests": [
     "tests/governance-routes.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-GET-api-governance-portfolio-rfi-id-history",
+   "method": "GET",
+   "path": "/api/governance/portfolio/rfi/:id/history",
+   "file": "routes/governance.js",
+   "line": 386,
+   "tests": [
+    "tests/ppm-project-lifecycle.smoke.test.js"
    ]
   },
   {
@@ -2430,10 +2478,11 @@
    "method": "GET",
    "path": "/api/governance/portfolio",
    "file": "routes/governance.js",
-   "line": 362,
+   "line": 376,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
-    "tests/governance-routes.smoke.test.js"
+    "tests/governance-routes.smoke.test.js",
+    "tests/ppm-project-lifecycle.smoke.test.js"
    ]
   },
   {
@@ -2447,14 +2496,28 @@
    ]
   },
   {
+   "id": "RT-POST-api-governance-rfi-id-to-project",
+   "method": "POST",
+   "path": "/api/governance/rfi/:id/to-project",
+   "file": "routes/governance.js",
+   "line": 387,
+   "tests": [
+    "tests/export-share-boundary.smoke.test.js",
+    "tests/governance-routes.smoke.test.js",
+    "tests/ppm-project-lifecycle.smoke.test.js",
+    "tests/uat-governance-users.smoke.test.js"
+   ]
+  },
+  {
    "id": "RT-POST-api-governance-rfi-id-verify",
    "method": "POST",
    "path": "/api/governance/rfi/:id/verify",
    "file": "routes/governance.js",
-   "line": 352,
+   "line": 356,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
+    "tests/ppm-project-lifecycle.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js"
    ]
   },
@@ -2463,10 +2526,11 @@
    "method": "PUT",
    "path": "/api/governance/rfi/:id",
    "file": "routes/governance.js",
-   "line": 353,
+   "line": 357,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
+    "tests/ppm-project-lifecycle.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js"
    ]
   },
@@ -2475,10 +2539,11 @@
    "method": "GET",
    "path": "/api/governance/rfi",
    "file": "routes/governance.js",
-   "line": 350,
+   "line": 354,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
+    "tests/ppm-project-lifecycle.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js"
    ]
   },
@@ -2487,10 +2552,11 @@
    "method": "POST",
    "path": "/api/governance/rfi",
    "file": "routes/governance.js",
-   "line": 351,
+   "line": 355,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
+    "tests/ppm-project-lifecycle.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js"
    ]
   },
@@ -2499,9 +2565,10 @@
    "method": "POST",
    "path": "/api/governance/roadmap-migration",
    "file": "routes/governance.js",
-   "line": 379,
+   "line": 406,
    "tests": [
-    "tests/governance-routes.smoke.test.js"
+    "tests/governance-routes.smoke.test.js",
+    "tests/ppm-project-lifecycle.smoke.test.js"
    ]
   },
   {
@@ -2721,7 +2788,7 @@
    "method": "GET",
    "path": "/api/governance/sessions/:id/minutes.html",
    "file": "routes/governance.js",
-   "line": 296,
+   "line": 300,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -2735,7 +2802,7 @@
    "method": "GET",
    "path": "/api/governance/sessions/:id/minutes.pdf",
    "file": "routes/governance.js",
-   "line": 297,
+   "line": 301,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -2749,7 +2816,7 @@
    "method": "POST",
    "path": "/api/governance/sessions/:id/minutes/send",
    "file": "routes/governance.js",
-   "line": 301,
+   "line": 305,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -2763,7 +2830,7 @@
    "method": "POST",
    "path": "/api/governance/sessions/:id/reopen",
    "file": "routes/governance.js",
-   "line": 284,
+   "line": 288,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -2873,7 +2940,7 @@
    "method": "POST",
    "path": "/api/handoffs/:id/reassign",
    "file": "routes/handoffs.js",
-   "line": 143,
+   "line": 144,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -3754,7 +3821,7 @@
    "method": "GET",
    "path": "/api/report-studio/runs/:id.:fmt(html|pdf|csv|pptx|xlsx)",
    "file": "routes/reportStudio.js",
-   "line": 92,
+   "line": 99,
    "tests": [
     "tests/report-release.smoke.test.js",
     "tests/report-studio-routes.smoke.test.js"
@@ -3765,7 +3832,7 @@
    "method": "POST",
    "path": "/api/report-studio/runs/:id/commentary/regenerate",
    "file": "routes/reportStudio.js",
-   "line": 134,
+   "line": 147,
    "tests": [
     "tests/report-release.smoke.test.js",
     "tests/report-studio-routes.smoke.test.js"
@@ -3776,7 +3843,7 @@
    "method": "PUT",
    "path": "/api/report-studio/runs/:id/commentary",
    "file": "routes/reportStudio.js",
-   "line": 128,
+   "line": 141,
    "tests": [
     "tests/report-release.smoke.test.js",
     "tests/report-studio-routes.smoke.test.js"
@@ -3787,7 +3854,7 @@
    "method": "POST",
    "path": "/api/report-studio/runs/:id/publish",
    "file": "routes/reportStudio.js",
-   "line": 110,
+   "line": 120,
    "tests": [
     "tests/report-release.smoke.test.js",
     "tests/report-studio-routes.smoke.test.js"
@@ -3798,7 +3865,7 @@
    "method": "POST",
    "path": "/api/report-studio/runs/:id/review",
    "file": "routes/reportStudio.js",
-   "line": 104,
+   "line": 114,
    "tests": [
     "tests/report-release.smoke.test.js",
     "tests/report-studio-routes.smoke.test.js"
@@ -3809,7 +3876,7 @@
    "method": "POST",
    "path": "/api/report-studio/runs/:id/withdraw",
    "file": "routes/reportStudio.js",
-   "line": 140,
+   "line": 153,
    "tests": [
     "tests/report-release.smoke.test.js",
     "tests/report-studio-routes.smoke.test.js"
@@ -3820,7 +3887,7 @@
    "method": "GET",
    "path": "/api/report-studio/runs/:id",
    "file": "routes/reportStudio.js",
-   "line": 102,
+   "line": 112,
    "tests": [
     "tests/report-release.smoke.test.js",
     "tests/report-studio-routes.smoke.test.js"
@@ -3831,7 +3898,7 @@
    "method": "GET",
    "path": "/api/report-studio/runs",
    "file": "routes/reportStudio.js",
-   "line": 87,
+   "line": 94,
    "tests": [
     "tests/report-release.smoke.test.js",
     "tests/report-studio-routes.smoke.test.js"
@@ -3842,7 +3909,7 @@
    "method": "GET",
    "path": "/api/report-studio/stats",
    "file": "routes/reportStudio.js",
-   "line": 147,
+   "line": 160,
    "tests": [
     "tests/report-studio-routes.smoke.test.js"
    ]
@@ -7659,6 +7726,14 @@
   {
    "id": "MG-reports-038-kpi-site-targets",
    "file": "db/postgres/reports/038_kpi_site_targets.sql"
+  },
+  {
+   "id": "MG-reports-039-native-ppm",
+   "file": "db/postgres/reports/039_native_ppm.sql"
+  },
+  {
+   "id": "MG-reports-040-report-publications",
+   "file": "db/postgres/reports/040_report_publications.sql"
   },
   {
    "id": "MG-sync-001-init",

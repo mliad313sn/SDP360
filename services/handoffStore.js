@@ -67,8 +67,12 @@ function makeHandoffStore(db, { now = () => new Date().toISOString() } = {}) {
     if (!r || Number(r.changes) !== 1) throw typed('CONFLICT', 'the handoff changed meanwhile — reload', 409);
   }
 
-  async function transition(id, to, { actor, expectedVersion, reason, policy } = {}) {
+  async function transition(id, to, { actor, expectedVersion, reason, policy, idemKey } = {}) {
     const h = await getRaw(id); if (!h) throw typed('NOT_FOUND', 'handoff not found', 404);
+    // G10 — a repeated call with the same idempotency key (double tap, retry after a dropped connection) returns
+    // the outcome of the first one instead of a 409 or a second transition.
+    const key = idemKey && /^[A-Za-z0-9_-]{8,64}$/.test(String(idemKey)) ? String(idemKey) : null;
+    if (key && actor && (await P(`SELECT 1 AS x FROM handoff_events WHERE handoff_id=? AND actor_id=? AND details LIKE ?`).get(Number(h.id), Number(actor.id), `%"idem":"${key.replace(/_/g, '\\_')}"%`))) return { ...(await get(h.id)), replayed: true };
     const c = L.check(h, to, actor, { reason, policy });
     if (c) throw typed(c.code, c.error, c.status);
     const t = now(), sets = { status: to, last_reason: str(reason, 1000) };
@@ -85,7 +89,7 @@ function makeHandoffStore(db, { now = () => new Date().toISOString() } = {}) {
     const contact = side && side.who === 'receiver' && h.receiver_contact ? str(h.receiver_contact, 120) : null;
     await tx(async () => {
       await bump(h, expectedVersion, sets);
-      await event(h.id, actor.id, to === 'accepted' && h.status === 'delivered' ? 'rework' : 'transition', h.status, to, reason || actingFor || contact ? { reason: reason ? str(reason, 1000) : undefined, acting_for: actingFor || undefined, on_behalf_of_contact: contact || undefined } : null);
+      await event(h.id, actor.id, to === 'accepted' && h.status === 'delivered' ? 'rework' : 'transition', h.status, to, reason || actingFor || contact || key ? { reason: reason ? str(reason, 1000) : undefined, acting_for: actingFor || undefined, on_behalf_of_contact: contact || undefined, idem: key || undefined } : null);
     });
     return get(h.id);
   }

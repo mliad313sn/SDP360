@@ -206,18 +206,33 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     await updateRow('rfi_requests', id, { status: 'verified' }, ['status']);
     return getRfi(id);
   }
-  async function triageRfi(id, patch) {
+  async function triageRfi(id, patch, opts = {}) {
     if (patch && patch.status === 'verified') throw Object.assign(new Error('verified is set by the requester (POST /rfi/:id/verify)'), { code: 'INVALID' });
     const p = {}; const clamp = (v) => Math.min(3, Math.max(1, Number(v)));
     for (const k of ['impact', 'effort', 'data_risk']) if (patch[k] != null) p[k] = clamp(patch[k]);
     if (patch.status) { if (!RFI_STATUSES.includes(patch.status)) throw Object.assign(new Error('bad RFI status'), { code: 'INVALID' }); p.status = patch.status; }
     if (patch.decision !== undefined) { p.decision = str(patch.decision); p.decided_at = now(); }
+    const before = await getRfi(id);
     await updateRow('rfi_requests', id, p, Object.keys(p));
+    // G14 — decision provenance: every status / decision change is kept (append-only ledger), never overwritten
+    if (before && (p.status !== undefined && p.status !== before.status || p.decision !== undefined)) {
+      await ppmEvent({ entity: 'rfi', entity_id: id, action: 'triage', field: 'status', old_value: before.status, new_value: p.status || before.status, note: p.decision !== undefined ? p.decision : null }, opts.user);
+    }
     return rfiRow(await P(`SELECT * FROM rfi_requests WHERE id=?`).get(Number(id)));
   }
 
   // ── portfolio ─────────────────────────────────────────────────────────────────────
   const idRow = (r) => r && ({ ...r, id: Number(r.id) });
+  const taskRow = (r) => r && ({ ...idRow(r), project_id: Number(r.project_id), parent_id: r.parent_id == null ? null : Number(r.parent_id), duration_days: num(r.duration_days), allocation_pct: num(r.allocation_pct), depends_on: P_(r.depends_on, []) });
+  const TASK_STATUSES = ['todo', 'in_progress', 'blocked', 'done', 'cancelled'];
+  const SPEND_TYPES = ['capex', 'opex', 'mixed'];
+  const FINANCE_FIELDS = ['budget', 'spent', 'currency', 'spend_type'];
+  /** G11/G12/G14 — one append-only, hash-chained ledger for gate passages, financial edits and RFI decisions. */
+  async function ppmEvent(e, user) {
+    await insert('ppm_events', ['entity', 'entity_id', 'action', 'field', 'old_value', 'new_value', 'currency', 'note', 'actor_id', 'actor', 'at'],
+      [String(e.entity), Number(e.entity_id), String(e.action), e.field || null, e.old_value == null ? null : String(e.old_value), e.new_value == null ? null : String(e.new_value), e.currency || null, str(e.note, 2000), user && user.id != null ? Number(user.id) : null, user ? String(user.username || user.full_name || '') : null, now()]);
+  }
+  async function ppmEvents(entity, id) { return (await P(`SELECT entity, entity_id, action, field, old_value, new_value, currency, note, actor_id, actor, at FROM ppm_events WHERE entity=? AND entity_id=? ORDER BY id`).all(String(entity), Number(id))).map(r => ({ ...r, entity_id: Number(r.entity_id), actor_id: r.actor_id == null ? null : Number(r.actor_id) })); }
   async function portfolio() {
     const programmes = (await P(`SELECT * FROM portfolio_programmes ORDER BY name`).all()).map(idRow);
     const objectives = (await P(`SELECT * FROM portfolio_objectives ORDER BY programme_id, sort_order, name`).all()).map(r => ({ ...idRow(r), programme_id: Number(r.programme_id), weight: num(r.weight), progress_pct: num(r.progress_pct), evidence_target: num(r.evidence_target), evidence_hib: Number(r.evidence_hib) !== 0 }));
@@ -225,12 +240,14 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     const milestones = (await P(`SELECT * FROM portfolio_milestones ORDER BY project_id, sort_order, due_date`).all()).map(r => ({ ...idRow(r), project_id: Number(r.project_id) }));
     const deliverables = (await P(`SELECT * FROM portfolio_deliverables ORDER BY project_id, sort_order`).all()).map(r => ({ ...idRow(r), project_id: Number(r.project_id), milestone_id: r.milestone_id == null ? null : Number(r.milestone_id) }));
     const risks = (await P(`SELECT * FROM portfolio_risks ORDER BY project_id, id`).all()).map(r => ({ ...idRow(r), project_id: Number(r.project_id), probability: Number(r.probability), impact: Number(r.impact) }));
-    return { programmes, objectives, projects, milestones, deliverables, risks };
+    const tasks = (await P(`SELECT * FROM portfolio_tasks ORDER BY project_id, sort_order, id`).all()).map(taskRow);
+    return { programmes, objectives, projects: projects.map(p => ({ ...p, rfi_id: p.rfi_id == null ? null : Number(p.rfi_id) })), milestones, deliverables, risks, tasks };
   }
   const TABLES = {
     programme: { table: 'portfolio_programmes', cols: ['key', 'name', 'sponsor', 'description', 'status'], req: ['key', 'name'] },
     objective: { table: 'portfolio_objectives', cols: ['programme_id', 'key', 'name', 'weight', 'owner', 'target_date', 'status', 'confidence', 'progress_pct', 'evidence_metric', 'evidence_target', 'evidence_hib', 'manual_evidence', 'sort_order'], req: ['programme_id', 'key', 'name'] },
-    project: { table: 'portfolio_projects', cols: ['objective_id', 'key', 'name', 'owner', 'site_id', 'start_date', 'end_date', 'baseline_end', 'status', 'confidence', 'progress_pct', 'budget', 'spent', 'currency', 'depends_on'], req: ['objective_id', 'key', 'name'] },
+    project: { table: 'portfolio_projects', cols: ['objective_id', 'key', 'name', 'owner', 'site_id', 'start_date', 'end_date', 'baseline_end', 'status', 'confidence', 'progress_pct', 'budget', 'spent', 'currency', 'depends_on', 'charter', 'sponsor', 'baseline_start', 'forecast_end', 'actual_start', 'actual_end', 'spend_type'], req: ['objective_id', 'key', 'name'] },
+    task: { table: 'portfolio_tasks', cols: ['project_id', 'parent_id', 'wbs_code', 'name', 'owner', 'start_date', 'end_date', 'baseline_start', 'baseline_end', 'forecast_end', 'actual_start', 'actual_end', 'duration_days', 'allocation_pct', 'status', 'depends_on', 'sort_order'], req: ['project_id', 'name'] },
     milestone: { table: 'portfolio_milestones', cols: ['project_id', 'name', 'due_date', 'baseline_date', 'done_at', 'status', 'sort_order'], req: ['project_id', 'name'] },
     deliverable: { table: 'portfolio_deliverables', cols: ['project_id', 'milestone_id', 'name', 'owner', 'due_date', 'status', 'action_kind', 'action_ref', 'sort_order', 'closed_at'], req: ['project_id', 'name'] },
     risk: { table: 'portfolio_risks', cols: ['project_id', 'title', 'probability', 'impact', 'mitigation', 'owner', 'status', 'incident_ref', 'closed_at'], req: ['project_id', 'title'] },
@@ -241,21 +258,77 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       let v = body[c];
       if (c === 'depends_on') v = J(Array.isArray(v) ? v.map(Number) : []);
       else if (c === 'evidence_hib') v = v === false || v === 0 ? 0 : 1;
-      else if (/_id$|^sort_order$|^probability$|^impact$/.test(c)) v = num(v);
+      else if (/_id$|^sort_order$|^probability$|^impact$|^duration_days$|^allocation_pct$/.test(c)) v = num(v);
       else if (/pct$|^weight$|^budget$|^spent$|evidence_target/.test(c)) v = num(v);
       else v = str(v, c === 'description' || c === 'mitigation' || c === 'manual_evidence' ? 4000 : 300);
       out[c] = v;
     }
     if (kind === 'project' && out.status && !PROJECT_STATUSES.includes(out.status)) throw Object.assign(new Error('bad project status'), { code: 'INVALID' });
+    if (kind === 'task' && out.status && !TASK_STATUSES.includes(out.status)) throw Object.assign(new Error('task status must be ' + TASK_STATUSES.join(' | ')), { code: 'INVALID' });
+    if (kind === 'task' && out.allocation_pct != null && !(out.allocation_pct >= 0 && out.allocation_pct <= 100)) throw Object.assign(new Error('allocation_pct must be 0..100'), { code: 'INVALID' });
+    if (kind === 'project' && out.spend_type && !SPEND_TYPES.includes(out.spend_type)) throw Object.assign(new Error('spend_type must be capex | opex | mixed'), { code: 'INVALID' });
+    if (kind === 'project' && out.currency != null && !/^[A-Z]{3}$/.test(out.currency)) throw Object.assign(new Error('currency must be an ISO code such as USD or XOF'), { code: 'INVALID' });
+    if (kind === 'project' && ['budget', 'spent'].some(k => out[k] != null && !(Number.isFinite(out[k]) && out[k] >= 0))) throw Object.assign(new Error('budget and spent must be positive numbers (leave empty when unknown)'), { code: 'INVALID' });
     if (out.confidence && !CONFIDENCE.includes(out.confidence)) throw Object.assign(new Error('confidence must be low | medium | high'), { code: 'INVALID' });
     return out;
   }
-  async function upsertPortfolio(kind, body) {
+  async function upsertPortfolio(kind, body, opts = {}) {
     const T = TABLES[kind]; if (!T) throw Object.assign(new Error('unknown portfolio entity'), { code: 'INVALID' });
     const vals = normalise(kind, body || {});
-    if (body && body.id) { await updateRow(T.table, body.id, vals, T.cols); return Number(body.id); }
+    const id = body && body.id ? Number(body.id) : null;
+    // G11 — dependencies must exist, stay inside their family (projects / tasks of the same project) and never loop
+    if ((kind === 'project' || kind === 'task') && body && body.depends_on !== undefined) {
+      const S = require('./projectSchedule');
+      let siblings;
+      if (kind === 'project') siblings = (await P(`SELECT id, depends_on FROM portfolio_projects`).all()).map(r => ({ id: Number(r.id), depends_on: P_(r.depends_on, []) }));
+      else { const pid = vals.project_id != null ? vals.project_id : id ? Number((await P(`SELECT project_id FROM portfolio_tasks WHERE id=?`).get(id) || {}).project_id) : null; siblings = (await P(`SELECT id, depends_on FROM portfolio_tasks WHERE project_id=?`).all(pid)).map(r => ({ id: Number(r.id), depends_on: P_(r.depends_on, []) })); }
+      const prob = S.dependencyProblem(siblings, id, P_(vals.depends_on, []));
+      if (prob) throw Object.assign(new Error(prob.error), { code: 'INVALID', reason: prob.code });
+    }
+    if (id) {
+      if (kind === 'project') {
+        const before = await P(`SELECT * FROM portfolio_projects WHERE id=?`).get(id);
+        if (!before) throw Object.assign(new Error('project not found'), { code: 'NOT_FOUND', status: 404 });
+        // the baseline is frozen once the project passed its approval gate (a re-baseline is a decision, not an edit)
+        if (['in_progress', 'on_hold', 'closure', 'closed'].includes(before.stage) && ['baseline_end', 'baseline_start'].some(k => vals[k] !== undefined && String(vals[k] || '') !== String(before[k] || ''))) throw Object.assign(new Error('the baseline is frozen after approval'), { code: 'CONFLICT', status: 409, reason: 'BASELINE_FROZEN' });
+        await updateRow(T.table, id, vals, T.cols);
+        // G12 — every financial edit is kept with its old and new value
+        const same = (f) => (['budget', 'spent'].includes(f) ? (vals[f] == null ? before[f] == null : before[f] != null && Number(before[f]) === Number(vals[f])) : String(vals[f] ?? '') === String(before[f] ?? ''));
+        for (const f of FINANCE_FIELDS) if (vals[f] !== undefined && !same(f)) await ppmEvent({ entity: 'project', entity_id: id, action: 'finance_edit', field: f, old_value: before[f], new_value: vals[f], currency: vals.currency || before.currency, note: opts.reason || null }, opts.user);
+        return id;
+      }
+      await updateRow(T.table, id, vals, T.cols); return id;
+    }
     for (const r of T.req) if (vals[r] == null || vals[r] === '') throw Object.assign(new Error(`${r} is required`), { code: 'INVALID' });
-    return insert(T.table, [...Object.keys(vals), 'created_at', 'updated_at'], [...Object.values(vals), now(), now()]);
+    const nid = await insert(T.table, [...Object.keys(vals), 'created_at', 'updated_at'], [...Object.values(vals), now(), now()]);
+    if (kind === 'project') for (const f of FINANCE_FIELDS) if (vals[f] != null) await ppmEvent({ entity: 'project', entity_id: nid, action: 'finance_edit', field: f, old_value: null, new_value: vals[f], currency: vals.currency || 'USD' }, opts.user);
+    return nid;
+  }
+  /** G11 — stage gate passage (rules in services/projectSchedule.stageGate), recorded in the ledger. */
+  async function moveProjectStage(id, to, { user, note } = {}) {
+    const p = await P(`SELECT * FROM portfolio_projects WHERE id=?`).get(Number(id));
+    if (!p) throw Object.assign(new Error('project not found'), { code: 'NOT_FOUND', status: 404 });
+    const openTasks = Number((await P(`SELECT COUNT(*) AS n FROM portfolio_tasks WHERE project_id=? AND status NOT IN ('done','cancelled')`).get(Number(id))).n);
+    const openRisksHigh = (await P(`SELECT probability, impact FROM portfolio_risks WHERE project_id=? AND status='open'`).all(Number(id))).filter(r => Number(r.probability) * Number(r.impact) >= 6).length;
+    const err = require('./projectSchedule').stageGate(p, to, user, { openTasks, openRisksHigh, note });
+    if (err) throw Object.assign(new Error(err.error), { code: 'CONFLICT', status: 409, reason: err.code });
+    const statusFor = { proposal: 'planned', approval: 'planned', in_progress: 'active', on_hold: 'on_hold', closure: 'active', closed: 'done' };
+    await updateRow('portfolio_projects', id, { stage: to, status: statusFor[to] }, ['stage', 'status']);
+    await ppmEvent({ entity: 'project', entity_id: id, action: 'stage', field: 'stage', old_value: p.stage, new_value: to, note }, user);
+    return P(`SELECT * FROM portfolio_projects WHERE id=?`).get(Number(id));
+  }
+  /** G14 — an accepted request becomes at most ONE project, which keeps the link (unique index, migration 039). */
+  async function rfiToProject(rfiId, body, { user } = {}) {
+    const r = await getRfi(rfiId);
+    if (!r) throw Object.assign(new Error('request not found'), { code: 'NOT_FOUND', status: 404 });
+    if (!['accepted', 'scheduled'].includes(r.status)) throw Object.assign(new Error('only an accepted or scheduled request becomes a project'), { code: 'CONFLICT', status: 409 });
+    const ex = await P(`SELECT id, key FROM portfolio_projects WHERE rfi_id=?`).get(Number(rfiId));
+    if (ex) throw Object.assign(new Error(`request already became project ${ex.key}`), { code: 'CONFLICT', status: 409, project_id: Number(ex.id) });
+    const pid = await upsertPortfolio('project', { objective_id: body.objective_id, key: body.key, name: body.name || r.title, owner: body.owner, site_id: r.site_id, charter: body.charter || r.problem, status: 'planned' }, { user });
+    await P(`UPDATE portfolio_projects SET rfi_id=? WHERE id=?`).run(Number(rfiId), pid);
+    if (r.status === 'accepted') await updateRow('rfi_requests', rfiId, { status: 'scheduled' }, ['status']);
+    await ppmEvent({ entity: 'rfi', entity_id: rfiId, action: 'to_project', field: 'project_id', old_value: null, new_value: pid, note: body.key }, user);
+    return pid;
   }
   async function removePortfolio(kind, id) { const T = TABLES[kind]; if (!T) throw new Error('unknown portfolio entity'); await P(`DELETE FROM ${T.table} WHERE id=?`).run(Number(id)); }
 
@@ -263,7 +336,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     await insert('minutes_history', ['session_id', 'action', 'actor_id', 'at', 'reason'], [Number(sessionId), String(action), actorId == null ? null : Number(actorId), now(), str(reason, 1000)]);
   }
   async function minutesHistory(sessionId) { return (await P('SELECT action, actor_id, at, reason FROM minutes_history WHERE session_id=? ORDER BY id').all(Number(sessionId))).map(r => ({ ...r, actor_id: r.actor_id == null ? null : Number(r.actor_id) })); }
-  return { getRfi, verifyRfi, getDecision, openSessionActions, addMinutesHistory, minutesHistory, init, listCadences, getCadence, saveCadence, removeCadence, listSessions, getSession, createSession, updateSession, stampItem, sessionActions, addSessionAction, setSessionActionStatus, moveSession,
+  return { ppmEvent, ppmEvents, moveProjectStage, rfiToProject, getRfi, verifyRfi, getDecision, openSessionActions, addMinutesHistory, minutesHistory, init, listCadences, getCadence, saveCadence, removeCadence, listSessions, getSession, createSession, updateSession, stampItem, sessionActions, addSessionAction, setSessionActionStatus, moveSession,
     listDecisions, addDecision, updateDecision, listRfi, submitRfi, triageRfi, rfiScore, portfolio, upsertPortfolio, removePortfolio,
     CADENCE_KINDS, SESSION_STATUSES, DECISION_STATUSES, RFI_KINDS, RFI_STATUSES, PROJECT_STATUSES, CONFIDENCE };
 }

@@ -157,3 +157,16 @@ test('receiver picker is site-scoped; the create form gives one answer for unkno
   assert.ok(Array.isArray(list.sites) && list.sites.every((s) => s.id && s.name));
   assert.ok(list.handoffs.every((h) => !('idem_key' in h)));
 });
+
+test('G10: a transition repeated with the same idempotency key returns the first outcome, once', async () => {
+  const a = await json(await send('POST', '/api/handoffs', P.itlead, mkBody({ idem_key: 'g10-intake', title: 'G10 replay check' })));
+  const id = a.body.handoff.id; const v = a.body.handoff.version;
+  const call = () => fetch(base + `/api/handoffs/${id}/transition`, { method: 'POST', headers: { 'x-report-token': P.plant, 'content-type': 'application/json', 'idempotency-key': 'tap_once-0001' }, body: JSON.stringify({ to: 'accepted', version: v }) });
+  const r1 = await json(await call()); const r2 = await json(await call());
+  assert.equal(r1.status, 200); assert.equal(r2.status, 200, 'the retry is not a stale-version 409'); assert.equal(r2.body.replayed, true);
+  assert.equal(r2.body.handoff.status, 'accepted');
+  const n = Number((await rdb.db.prepare("SELECT COUNT(*) AS n FROM handoff_events WHERE handoff_id=? AND action='transition'").get(id)).n);
+  assert.equal(n, 1, 'one transition recorded');
+  const other = await json(await send('POST', `/api/handoffs/${id}/transition`, P.plant, { to: 'accepted', version: v }));
+  assert.equal(other.status, 409, 'without the key a stale version is still refused');
+});

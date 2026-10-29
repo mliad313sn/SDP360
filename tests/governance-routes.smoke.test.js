@@ -186,3 +186,16 @@ test('people picker for chair / secretary: committee only, names and ids, filter
   const site = await (await get(`/api/governance/people?site=${hounde}`, member)).json();
   assert.ok(site.people.some((p) => p.id === editorId)); assert.ok(site.people.length <= all.people.length);
 });
+
+test('G08: a rescheduled session keeps its old date in the history; single-signature minutes reach the oversight register', async () => {
+  const c = await (await send('PUT', '/api/governance/cadences', member, { key: 'hgo-g08', name: 'HGO G08', kind: 'site_weekly', site_id: hounde, chair_id: editorId, effective_from: '2026-10-01', effective_to: '2099-12-31' })).json();
+  const s = (await (await send('POST', `/api/governance/cadences/${c.cadence.id}/sessions`, editor, { scheduled_at: '2099-11-03T09:00:00Z' })).json()).session;
+  assert.equal((await send('PUT', `/api/governance/sessions/${s.id}`, editor, { scheduled_at: '2099-11-05T09:00:00Z', reason: 'site visit moved' })).status, 200);
+  const h = (await (await get(`/api/governance/sessions/${s.id}`, editor)).json()).minutes_history;
+  const r = h.find((x) => x.action === 'rescheduled');
+  assert.ok(r && r.reason.includes('2099-11-03T09:00:00Z') && r.reason.includes('2099-11-05T09:00:00Z') && r.reason.includes('site visit moved'), JSON.stringify(h));
+  const gs = require('../services/governanceStore').makeGovernanceStore(rdb.db, { isPg: true });
+  await gs.addMinutesHistory(s.id, 'accepted_without_second_person', editorId, 'four-eyes switched off by policy for this context');
+  const o = await (await get('/api/governance/oversight', admin)).json();
+  assert.ok((o.single_signature || o.oversight && o.oversight.single_signature || []).some((x) => x.session_id === s.id), JSON.stringify(Object.keys(o)));
+});

@@ -241,7 +241,7 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
   /** siteIds = null → unscoped (admin tier); [] → nothing (site-less non-admin). */
   //  named = identities (username / e-mail …) of a non-admin: commitments where they are the designated
   //  reviewer or the accountable owner are visible too, even on another site (a business reviewer).
-  async function list({ siteIds = null, named = [], status = null, kind = null, site = null, limit = 500 } = {}) {
+  async function list({ siteIds = null, named = [], status = null, kind = null, site = null, exceptions = false, limit = 500 } = {}) {
     const ids = (named || []).map((x) => String(x).trim().toLowerCase()).filter(Boolean);
     if (Array.isArray(siteIds) && !siteIds.length && !ids.length) return [];
     const where = [], args = [];
@@ -254,6 +254,7 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
     if (site != null && site !== '') { where.push('site_id=?'); args.push(Number(site)); }
     if (status) { const st = String(status).split(',').filter((s) => L.STATUSES.includes(s)); if (st.length) { where.push(`status IN (${st.map(() => '?').join(',')})`); args.push(...st); } }
     if (kind && L.KINDS.includes(kind)) { where.push('kind=?'); args.push(kind); }
+    if (exceptions) where.push('exception_approved_at IS NOT NULL');   // G09 — the due-date exceptions register
     return (await P(`SELECT * FROM commitments${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY id DESC LIMIT ${Math.max(1, Math.min(2000, Math.floor(Number(limit)) || 500))}`).all(...args)).map(row);
   }
 

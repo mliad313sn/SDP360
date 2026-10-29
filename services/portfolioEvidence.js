@@ -44,7 +44,7 @@ function ganttRows(projects, milestones = [], { now = new Date() } = {}) {
     const msLate = ms.filter(m => m.due_date && !m.done_at && new Date(m.due_date) < now).length;
     if (msLate) alerts.push(`${msLate} milestone(s) overdue`);
     return { id: p.id, key: p.key, name: p.name, owner: p.owner, status: p.status, confidence: p.confidence, start: p.start_date, end: p.end_date, baseline_end: p.baseline_end, progress_pct: p.progress_pct,
-      slip_days: slip, late: !!late, budget: p.budget, spent: p.spent, depends_on: deps.map(d => d.key), alerts, milestones: ms.map(m => ({ id: m.id, name: m.name, due: m.due_date, baseline: m.baseline_date, done_at: m.done_at, late: !!(m.due_date && !m.done_at && new Date(m.due_date) < now) })) };
+      slip_days: slip, late: !!late, budget: p.budget, spent: p.spent, currency: p.currency || null, stage: p.stage || null, rfi_id: p.rfi_id == null ? null : p.rfi_id, depends_on: deps.map(d => d.key), alerts, milestones: ms.map(m => ({ id: m.id, name: m.name, status: m.status, due: m.due_date, baseline: m.baseline_date, done_at: m.done_at, late: !!(m.due_date && !m.done_at && new Date(m.due_date) < now) })) };
   });
 }
 
@@ -62,8 +62,27 @@ function portfolioSummary({ programmes, objectiveViews, gantt, risks }) {
     const open = risks.filter(r => r.status === 'open' && projs.some(p => p.id === r.project_id)).map(riskView);
     return { programme: pr.key, name: pr.name, objectives: objs.length, auto_evidence: objs.filter(o => o.evidence_source === 'metric').length, auto_evidence_pct: objs.length ? Math.round(objs.filter(o => o.evidence_source === 'metric').length / objs.length * 100) : null,
       weighted_evidence_pct: weighted, weight_total: w, projects: projs.length, late_projects: projs.filter(p => p.late || p.slip_days > 0).length, high_risks: open.filter(r => r.severity === 'high').length,
-      budget: projs.reduce((a, p) => a + (Number(p.budget) || 0), 0), spent: projs.reduce((a, p) => a + (Number(p.spent) || 0), 0) };
+      ...moneyRollup(projs) };
   });
 }
 
-module.exports = { evidencePct, objectiveView, ganttRows, riskView, portfolioSummary };
+/**
+ * G12 — money roll-up per currency. Amounts in different currencies are never added together: `budget` and
+ * `spent` are set only when every costed project uses one currency; otherwise they are null and the
+ * per-currency totals say why. A project with no budget is not counted as 0 (budget_unknown).
+ */
+function moneyRollup(projs) {
+  const by = {};
+  let unknown = 0;
+  for (const p of projs) {
+    if (p.budget == null && p.spent == null) { unknown++; continue; }
+    const c = p.currency || 'USD';
+    const b = by[c] || (by[c] = { budget: 0, spent: 0, projects: 0 });
+    b.budget += Number(p.budget) || 0; b.spent += Number(p.spent) || 0; b.projects++;
+  }
+  const cur = Object.keys(by);
+  const one = cur.length === 1 ? by[cur[0]] : null;
+  return { budget: one ? one.budget : null, spent: one ? one.spent : null, currency: one ? cur[0] : null, currency_mixed: cur.length > 1, budget_by_currency: by, budget_unknown: unknown };
+}
+
+module.exports = { moneyRollup, evidencePct, objectiveView, ganttRows, riskView, portfolioSummary };

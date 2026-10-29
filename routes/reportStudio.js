@@ -79,7 +79,14 @@ module.exports = function reportStudioRoutes(deps) {
       const d = dashStore ? await dashStore.published(t.dashboard_key) : null; if (!d) return res.status(409).json({ ok: false, error: `dashboard ${t.dashboard_key} has no published version` });
       const lang = req.body && (req.body.lang === 'fr' || req.body.lang === 'en') ? req.body.lang : undefined;
       const run = await generateRun({ template: t, lang, site, sites, window: req.body && req.body.window ? String(req.body.window).slice(0, 24) : null, dashboardDef: d.definition, registry: registry(), deps: readerDeps(), rdb: rdb(), aiProvider: provider(), aiCall: deps.aiCall || null, baseUrl: await baseUrl(), user: u, store });
-      log(req, 'report_generated', run.id, { template: t.key, site: site && site.id, lang: run.analysis && run.analysis.lang, provider: run.provider, verified: run.commentary && run.commentary.verified });
+      // G07 — a correction names the withdrawn run it replaces (same template, same site); the old one stays as the record
+      const sup = req.body && req.body.supersedes_id != null ? Number(req.body.supersedes_id) : null;
+      if (sup != null) {
+        const old = await store.getRun(sup);
+        if (!old || old.status !== 'withdrawn' || old.template_key !== t.key || (old.site_id || null) !== (run.site_id || null)) { log(req, 'report_reissue_refused', run.id, { supersedes_id: sup }); return res.status(409).json({ ok: false, error: 'supersedes_id must name a withdrawn run of the same template and site', run: { ...run, html: undefined } }); }
+        Object.assign(run, await store.setSupersedes(run.id, sup));
+      }
+      log(req, 'report_generated', run.id, { template: t.key, site: site && site.id, lang: run.analysis && run.analysis.lang, provider: run.provider, verified: run.commentary && run.commentary.verified, supersedes_id: sup });
       res.json({ ok: true, run: { ...run, html: undefined } });
     } catch (e) { fail(res, e); }
   });
@@ -91,6 +98,9 @@ module.exports = function reportStudioRoutes(deps) {
   });
   router.get('/api/report-studio/runs/:id.:fmt(html|pdf|csv|pptx|xlsx)', requireReportSession, async (req, res) => {
     try { const r = await visibleRun(req, res); if (!r) return; const t = await store.getTemplate(r.template_key); const name = `${r.template_key}-${r.id}`;
+      // G07 — a published run is served from its frozen publication, never from a later re-render
+      const pub = r.status === 'published' && store.publication ? await store.publication(r.id) : null;
+      if (pub) { r.html = pub.html; res.setHeader('X-SDP-Publication-SHA256', pub.html_sha256); }
       if (req.params.fmt === 'html') return res.type('html').send(r.html || '');
       if (req.params.fmt === 'csv') { res.setHeader('Content-Type', 'text/csv; charset=utf-8'); res.setHeader('Content-Disposition', `attachment; filename="${name}.csv"`); return res.send(renderCsv(r)); }
       if (req.params.fmt === 'xlsx') { const { buildWorkbook } = require('../services/tableExcel'); const rows = []; for (const f of r.figures || []) { if (f.series) for (const p of f.series) rows.push({ kind: 'series', metric: f.metric, title: f.title, label: p.label, value: p.value, unit: f.unit }); else if (f.rows) for (const x of f.rows) rows.push({ kind: 'per-site', metric: f.metric, title: f.title, label: x.site, value: x.value, unit: f.unit, rag: x.rag }); else rows.push({ kind: f.open !== undefined ? 'actions' : 'single', metric: f.metric || '', title: f.title, label: f.window || '', value: f.value !== undefined ? f.value : f.open, unit: f.unit || 'count', rag: f.rag || '' }); }
@@ -121,7 +131,10 @@ module.exports = function reportStudioRoutes(deps) {
         override = { by: req.reportUser.id, at: new Date().toISOString(), reason: fd.override.reason, sources: fr.sources.filter(x => x.state !== 'FRESH') };
         try { rdb().logEvent({ category: 'reports', action: 'report_publish_override', target: String(r.id), details: override, risk: 1, ...rdb()._logCtx(req) }); } catch (_) {}
       }
-      const out = await store.setStatus(r.id, 'published', { user: req.reportUser, override }); await rerenderRun(out); log(req, 'report_published', r.id, { override: !!override });
+      const out = await store.setStatus(r.id, 'published', { user: req.reportUser, override }); await rerenderRun(out);
+      // G07 — freeze what was released (exact HTML + figures, SHA-256) in the append-only publications table
+      const sha = store.recordPublication ? await store.recordPublication(await store.getRun(r.id), { override }) : null;
+      log(req, 'report_published', r.id, { override: !!override, html_sha256: sha });
       if (deps.engStore) { for (const s of await deps.engStore.subscribersOf('report_template', r.template_key)) await deps.engStore.notify({ userId: s.user_id, kind: 'report', title: `Report published: ${r.template_key}`, body: out.analysis && out.analysis.headline, link: `${await baseUrl()}/report-studio.html?run=${r.id}`, sourceKind: 'report_run', sourceRef: r.id }); }
       res.json({ ok: true, run: { ...out, html: undefined } }); } catch (e) { fail(res, e); }
   });

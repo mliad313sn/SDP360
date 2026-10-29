@@ -63,11 +63,21 @@ function makeReportStore(db, { isPg = false, now = () => new Date().toISOString(
     return getRun(id);
   }
   async function updateCommentary(id, commentary) { await P(`UPDATE report_runs SET commentary=? WHERE id=?`).run(J(commentary), Number(id)); return getRun(id); }
+  // G07 — the released content, frozen (append-only table, migration 040)
+  async function recordPublication(run, { override } = {}) {
+    const html = String(run.html || '');
+    const sha = require('crypto').createHash('sha256').update(html, 'utf8').digest('hex');
+    await insert('report_publications', ['run_id', 'html', 'html_sha256', 'figures', 'analysis', 'published_at', 'published_by', 'override'],
+      [Number(run.id), html, sha, J(run.figures), J(run.analysis), run.published_at || now(), run.published_by == null ? null : Number(run.published_by), override ? J(override) : null]);
+    return sha;
+  }
+  async function publication(runId) { return (await P(`SELECT id, run_id, html, html_sha256, published_at, published_by FROM report_publications WHERE run_id=? ORDER BY id DESC LIMIT 1`).get(Number(runId))) || null; }
+  async function setSupersedes(id, oldId) { await P(`UPDATE report_runs SET supersedes_id=? WHERE id=?`).run(Number(oldId), Number(id)); return getRun(id); }
   async function updateHtml(id, html) { await P(`UPDATE report_runs SET html=? WHERE id=?`).run(html, Number(id)); }
   /** Reviewer satisfaction: share of reviewed runs rated ≥ 4 (the "≥ 80 % useful" acceptance). */
   async function ratingStats() { const rows = await P(`SELECT rating FROM report_runs WHERE rating IS NOT NULL`).all(); const n = rows.length; const good = rows.filter(r => Number(r.rating) >= 4).length; return { rated: n, useful: good, useful_pct: n ? Math.round(good / n * 100) : null }; }
 
-  return { init, listTemplates, getTemplate, saveTemplate, removeTemplate, seed, createRun, getRun, listRuns, setStatus, updateCommentary, updateHtml, ratingStats, AUDIENCES, CADENCES, STATUSES };
+  return { init, listTemplates, getTemplate, saveTemplate, removeTemplate, seed, createRun, getRun, listRuns, setStatus, updateCommentary, updateHtml, recordPublication, publication, setSupersedes, ratingStats, AUDIENCES, CADENCES, STATUSES };
 }
 
 module.exports = { makeReportStore, AUDIENCES, CADENCES, STATUSES };

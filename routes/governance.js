@@ -227,7 +227,7 @@ module.exports = function governanceRoutes(deps) {
     try { const x = await loadSession(req, res); if (!x) return; res.json({ ok: true, session: (await withStage(x.s, req.reportUser, x.cad)), minutes_history: await store.minutesHistory(x.s.id), cadence: x.cad, decisions: await store.listDecisions({ sessionId: x.s.id }), actions: await store.sessionActions(x.s.id), can_run: canRun(req.reportUser, x.cad), can_decide: canDecide(req.reportUser, x.cad) }); } catch (e) { fail(res, e); }
   });
   router.put('/api/governance/sessions/:id', requireReportSession, json, async (req, res) => {
-    try { const x = await loadSession(req, res, { run: true }); if (!x) return; if (await lifecycle(req, res, x, 'edit')) return; if (req.body.scheduled_at && await lifecycle(req, res, x, 'reschedule')) return; const p = {}; if (Array.isArray(req.body.attendees)) p.attendees = req.body.attendees.map(a => String(a).slice(0, 120)).slice(0, 50); if (req.body.notes !== undefined) p.notes = String(req.body.notes).slice(0, 20000); if (req.body.scheduled_at) p.scheduled_at = String(req.body.scheduled_at).slice(0, 25); const out = await store.updateSession(x.s.id, p); if (p.scheduled_at) log(req, 'session_rescheduled', x.s.id, { from: x.s.scheduled_at, to: p.scheduled_at }); res.json({ ok: true, session: out }); } catch (e) { fail(res, e); }
+    try { const x = await loadSession(req, res, { run: true }); if (!x) return; if (await lifecycle(req, res, x, 'edit')) return; if (req.body.scheduled_at && await lifecycle(req, res, x, 'reschedule')) return; const p = {}; if (Array.isArray(req.body.attendees)) p.attendees = req.body.attendees.map(a => String(a).slice(0, 120)).slice(0, 50); if (req.body.notes !== undefined) p.notes = String(req.body.notes).slice(0, 20000); if (req.body.scheduled_at) p.scheduled_at = String(req.body.scheduled_at).slice(0, 25); const out = await store.updateSession(x.s.id, p); if (p.scheduled_at && p.scheduled_at !== x.s.scheduled_at) { log(req, 'session_rescheduled', x.s.id, { from: x.s.scheduled_at, to: p.scheduled_at }); await store.addMinutesHistory(x.s.id, 'rescheduled', req.reportUser.id, `from ${x.s.scheduled_at} to ${p.scheduled_at}${req.body.reason ? ' — ' + String(req.body.reason).slice(0, 300) : ''}`); } res.json({ ok: true, session: out }); } catch (e) { fail(res, e); }
   });
   router.post('/api/governance/sessions/:id/start', requireReportSession, async (req, res) => {
     try { const x = await loadSession(req, res, { run: true }); if (!x) return; if (await lifecycle(req, res, x, 'start')) return; const s = await store.moveSession(x.s.id, 'planned', { status: 'live', started_at: x.s.started_at || new Date().toISOString() }); if (!s) return res.status(409).json({ ok: false, error: 'the session changed meanwhile — reload', code: 'CONFLICT' }); log(req, 'session_started', s.id); res.json({ ok: true, session: s }); } catch (e) { fail(res, e); }
@@ -278,7 +278,11 @@ module.exports = function governanceRoutes(deps) {
       // UAT (PMO F4): the frozen minutes say who accepted them and when
       const stamped = acceptanceStamp(x.s.minutes_html || await minutesFor(x), { name: req.reportUser.full_name || req.reportUser.username, at });
       const s = await store.updateSession(x.s.id, { minutes_accepted_at: at, minutes_accepted_by: req.reportUser.id, minutes_html: stamped });
-      await store.addMinutesHistory(s.id, 'accepted', req.reportUser.id, null);
+      // G08 — minutes accepted by the person who recorded them (four-eyes switched off, e.g. small-site profile)
+      // are listed as an exception, so the group can review them afterwards instead of trusting a promise.
+      const sameHand = x.s.closed_by != null && Number(x.s.closed_by) === Number(req.reportUser.id);
+      await store.addMinutesHistory(s.id, sameHand ? 'accepted_without_second_person' : 'accepted', req.reportUser.id, sameHand ? 'four-eyes switched off by policy for this context' : null);
+      if (sameHand) try { rdb().logEvent({ category: 'governance', action: 'minutes_single_signature', target: String(s.id), risk: 1, ...rdb()._logCtx(req) }); } catch (_) {}
       log(req, 'minutes_accepted', s.id); res.json({ ok: true, session: { ...(await withStage(s, req.reportUser, x.cad)), minutes_html: undefined } }); } catch (e) { fail(res, e); }
   });
   router.post('/api/governance/sessions/:id/reopen', requireReportSession, json, async (req, res) => {
@@ -350,22 +354,45 @@ module.exports = function governanceRoutes(deps) {
   router.get('/api/governance/rfi', requireReportSession, async (req, res) => { try { res.json({ ok: true, committee: isCommittee(req.reportUser), me: Number(req.reportUser.id), rfi: await store.listRfi({ status: req.query.status ? String(req.query.status).split(',') : null, scope: rfiScope(req.reportUser) }), kinds: store.RFI_KINDS, statuses: store.RFI_STATUSES }); } catch (e) { fail(res, e); } });
   router.post('/api/governance/rfi', requireReportSession, json, async (req, res) => { try { const r = await store.submitRfi({ ...req.body, site_id: req.body && req.body.site_id != null ? req.body.site_id : (userSites.siteIds(req.reportUser)[0] || null) }, { user: req.reportUser }); log(req, 'rfi_submitted', r.ref, { kind: r.kind }); res.json({ ok: true, rfi: r }); } catch (e) { fail(res, e); } });
   router.post('/api/governance/rfi/:id/verify', requireReportSession, async (req, res) => { try { const r = await store.verifyRfi(req.params.id, { user: req.reportUser }); log(req, 'rfi_verified', r.ref); res.json({ ok: true, rfi: r }); } catch (e) { const known = { 403: 'only the requester confirms the delivery', 404: 'request not found', 409: 'only a delivered request can be confirmed' }; if (known[e.status]) return res.status(e.status).json({ ok: false, code: e.code, error: known[e.status] }); fail(res, e); } });
-  router.put('/api/governance/rfi/:id', requireReportSession, requireCommittee, json, async (req, res) => { try { const r = await store.triageRfi(req.params.id, req.body || {}); log(req, 'rfi_triaged', r && r.ref, { status: r && r.status }); res.json({ ok: true, rfi: r }); } catch (e) { fail(res, e); } });
+  router.put('/api/governance/rfi/:id', requireReportSession, requireCommittee, json, async (req, res) => { try { const r = await store.triageRfi(req.params.id, req.body || {}, { user: req.reportUser }); log(req, 'rfi_triaged', r && r.ref, { status: r && r.status }); res.json({ ok: true, rfi: r }); } catch (e) { fail(res, e); } });
 
   // ---- portfolio --------------------------------------------------------------------------
   async function portfolioView() {
     const now = new Date(); const { pf, views } = await objectiveViews(now);
     const gantt = PE.ganttRows(pf.projects, pf.milestones, { now }).map(g => ({ ...g, objective_id: (pf.projects.find(p => p.id === g.id) || {}).objective_id }));
     const risks = pf.risks.map(PE.riskView);
-    return { ...pf, objective_views: views, gantt, risks, summary: PE.portfolioSummary({ programmes: pf.programmes, objectiveViews: views, gantt, risks: pf.risks }), as_of: now.toISOString() };
+    // G11 — plan per project: WBS tasks, critical path, baseline / forecast / actual; one resource view across projects
+    const SCH = require('../services/projectSchedule');
+    const tasks = pf.tasks || [];
+    const plans = pf.projects.map(p => { const t = tasks.filter(x => x.project_id === p.id); const cp = SCH.criticalPath(t); return { project_id: p.id, key: p.key, stage: p.stage || null, tasks: t.length, open_tasks: t.filter(x => !['done', 'cancelled'].includes(x.status)).length, critical_path: cp ? cp.path : null, critical_length_days: cp ? cp.length_days : null, variance: SCH.varianceOf(p) }; });
+    return { ...pf, objective_views: views, gantt, risks, plans, resource_conflicts: SCH.resourceConflicts(tasks), stages: SCH.STAGES, summary: PE.portfolioSummary({ programmes: pf.programmes, objectiveViews: views, gantt, risks: pf.risks }), as_of: now.toISOString() };
   }
-  router.get('/api/governance/portfolio', requireReportSession, async (req, res) => { try { res.json({ ok: true, committee: isCommittee(req.reportUser), ...(await portfolioView()) }); } catch (e) { fail(res, e); } });
-  router.put('/api/governance/portfolio/:kind', requireReportSession, requireCommittee, json, async (req, res) => { try { const id = await store.upsertPortfolio(req.params.kind, req.body); log(req, 'portfolio_saved', `${req.params.kind}:${id}`); res.json({ ok: true, id }); } catch (e) { fail(res, e); } });
+  // G12 — amounts are read by the committee, the admin tier and the finance role; everyone else sees the plan without money.
+  const canSeeMoney = (u) => isCommittee(u) || rdb().userHasRole(u, 'finance-viewer');
+  function stripMoney(v) {
+    const z = (o) => ({ ...o, budget: undefined, spent: undefined, budget_by_currency: undefined });
+    return { ...v, projects: v.projects.map(z), gantt: v.gantt.map(z), summary: v.summary.map(z), money_hidden: true };
+  }
+  router.get('/api/governance/portfolio', requireReportSession, async (req, res) => { try { const v = await portfolioView(); res.json({ ok: true, committee: isCommittee(req.reportUser), ...(canSeeMoney(req.reportUser) ? v : stripMoney(v)) }); } catch (e) { fail(res, e); } });
+  router.put('/api/governance/portfolio/:kind', requireReportSession, requireCommittee, json, async (req, res) => { try { const id = await store.upsertPortfolio(req.params.kind, req.body, { user: req.reportUser, reason: req.body && req.body.reason }); log(req, 'portfolio_saved', `${req.params.kind}:${id}`); res.json({ ok: true, id }); } catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.reason ? { code: e.reason } : {}) }); } });
+  router.post('/api/governance/portfolio/project/:id/stage', requireReportSession, requireCommittee, json, async (req, res) => {
+    try { const p = await store.moveProjectStage(req.params.id, String((req.body && req.body.to) || ''), { user: req.reportUser, note: req.body && req.body.note }); log(req, 'project_stage', `project:${req.params.id}`, { to: p.stage }); res.json({ ok: true, project: { ...p, id: Number(p.id) } }); }
+    catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.reason ? { code: e.reason } : {}) }); }
+  });
+  const historyOf = (entity) => async (req, res) => {
+    try { if (!canSeeMoney(req.reportUser)) return res.status(403).json({ ok: false, error: 'committee, admin or finance-viewer role required' }); res.json({ ok: true, events: await store.ppmEvents(entity, req.params.id) }); } catch (e) { fail(res, e); }
+  };
+  router.get('/api/governance/portfolio/project/:id/history', requireReportSession, historyOf('project'));
+  router.get('/api/governance/portfolio/rfi/:id/history', requireReportSession, historyOf('rfi'));
+  router.post('/api/governance/rfi/:id/to-project', requireReportSession, requireCommittee, json, async (req, res) => {
+    try { const pid = await store.rfiToProject(req.params.id, req.body || {}, { user: req.reportUser }); log(req, 'rfi_to_project', `rfi:${req.params.id}`, { project_id: pid }); res.json({ ok: true, project_id: pid }); }
+    catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.project_id ? { project_id: e.project_id } : {}) }); }
+  });
   router.delete('/api/governance/portfolio/:kind/:id', requireReportSession, requireCommittee, async (req, res) => { try { await store.removePortfolio(req.params.kind, req.params.id); log(req, 'portfolio_removed', `${req.params.kind}:${req.params.id}`); res.json({ ok: true }); } catch (e) { fail(res, e); } });
   router.get('/api/governance/portfolio/report.html', requireReportSession, async (req, res) => {
-    try { const v = await portfolioView(); const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    try { const v0 = await portfolioView(); const v = canSeeMoney(req.reportUser) ? v0 : stripMoney(v0); const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
       const month = new Date().toISOString().slice(0, 7);
-      const rows = v.summary.map(s => `<tr><td>${esc(s.name)}</td><td>${s.objectives}</td><td>${s.auto_evidence_pct == null ? '—' : s.auto_evidence_pct + ' %'}</td><td>${s.weighted_evidence_pct == null ? '—' : s.weighted_evidence_pct + ' %'}</td><td>${s.projects}</td><td>${s.late_projects}</td><td>${s.high_risks}</td><td>${s.budget ? Math.round(s.spent) + ' / ' + Math.round(s.budget) : '—'}</td></tr>`).join('');
+      const rows = v.summary.map(s => `<tr><td>${esc(s.name)}</td><td>${s.objectives}</td><td>${s.auto_evidence_pct == null ? '—' : s.auto_evidence_pct + ' %'}</td><td>${s.weighted_evidence_pct == null ? '—' : s.weighted_evidence_pct + ' %'}</td><td>${s.projects}</td><td>${s.late_projects}</td><td>${s.high_risks}</td><td>${v.money_hidden ? '<small>restricted</small>' : s.currency_mixed ? Object.entries(s.budget_by_currency).map(([c, b]) => Math.round(b.spent) + ' / ' + Math.round(b.budget) + ' ' + esc(c)).join('<br>') : s.budget != null ? Math.round(s.spent) + ' / ' + Math.round(s.budget) + ' ' + esc(s.currency || '') : '—'}</td></tr>`).join('');
       const objs = v.objective_views.map(o => `<tr><td>${esc(o.name)}</td><td>${esc(o.status)}</td><td>${esc(o.confidence)}</td><td>${o.evidence_pct == null ? '—' : o.evidence_pct + ' %'} <small>(${esc(o.evidence_source)}${o.metric ? ' · ' + esc(o.metric.key) + ' @ ' + esc(o.metric.window || '') : ''})</small></td><td>${o.slip_days == null ? '—' : o.slip_days + ' d'}</td></tr>`).join('');
       const late = v.gantt.filter(g => g.alerts.length).map(g => `<li><b>${esc(g.key)}</b> ${esc(g.name)} — ${esc(g.alerts.join('; '))}</li>`).join('');
       const risks = v.risks.filter(r => r.status === 'open' && r.severity !== 'low').map(r => `<li>${esc(r.title)} — exposure ${r.exposure}${r.incident_ref ? ' · incident ' + esc(r.incident_ref) : ''}</li>`).join('');
