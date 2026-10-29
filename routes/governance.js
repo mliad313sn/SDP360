@@ -68,8 +68,14 @@ module.exports = function governanceRoutes(deps) {
   const refuse = (res, c) => { res.status(c.status).json({ ok: false, error: c.error, code: c.code }); return true; };
   const GP = require('../services/governancePolicy');
   const polFor = (cad) => GP.forContext({ siteId: cad && cad.site_id != null ? cad.site_id : null });
+  // meetings.compliance_as_of: a session is judged with the rules in force at its scheduled date (audit P1-3)
+  const polForSession = async (cad, s) => {
+    const now = await polFor(cad);
+    if (now['meetings.compliance_as_of'] !== true || !s || !s.scheduled_at) return now;
+    return GP.forContextAt({ siteId: cad && cad.site_id != null ? cad.site_id : null, at: String(s.scheduled_at) });
+  };
   const lifecycle = async (req, res, x, action, o) => { const c = SL.check(x.s, action, actorFor(req.reportUser, x.cad), { ...(o || {}), policy: await polFor(x.cad) }); return c ? refuse(res, c) : false; };
-  const withStage = async (s, u, cad) => { if (!s) return s; const policy = await polFor(cad); return { ...s, stage: SL.stage(s, new Date(), policy), allowed: ['start', 'close', 'cancel', 'accept', 'approve_exception', 'reopen'].filter((a) => !SL.check(s, a, actorFor(u, cad), { reason: 'x'.repeat(500), policy })) }; };
+  const withStage = async (s, u, cad) => { if (!s) return s; const policy = await polForSession(cad, s); return { ...s, stage: SL.stage(s, new Date(), policy), allowed: ['start', 'close', 'cancel', 'accept', 'approve_exception', 'reopen'].filter((a) => !SL.check(s, a, actorFor(u, cad), { reason: 'x'.repeat(500), policy })) }; };
   async function loadSession(req, res, { run = false, decide = false } = {}) {
     const s = await store.getSession(req.params.id); if (!s) { res.status(404).json({ ok: false, error: 'session not found' }); return null; }
     const cad = await store.getCadence(s.cadence_id);
@@ -148,7 +154,10 @@ module.exports = function governanceRoutes(deps) {
       const recent = sess.filter(s => allowedCad.has(s.cadence_id) && String(s.scheduled_at || '').slice(0, 10) >= since);
       const cadById = new Map(cad.map(c => [c.id, c]));
       const groups = [];
-      for (const id of new Set(recent.map(s => s.cadence_id))) groups.push({ sessions: recent.filter(s => s.cadence_id === id), policy: await polFor(cadById.get(id)) });
+      // one group per distinct policy: per cadence today, per session date when meetings.compliance_as_of is on
+      const byPol = new Map();
+      for (const s of recent) { const pol = await polForSession(cadById.get(s.cadence_id), s); const k = JSON.stringify(pol); if (!byPol.has(k)) byPol.set(k, { sessions: [], policy: pol }); byPol.get(k).sessions.push(s); }
+      for (const g of byPol.values()) groups.push(g);
       const compliance30d = SL.complianceByContext(groups, new Date());
       res.json({ ok: true, committee: isCommittee(req.reportUser), cadences: cad.length, compliance_30d: compliance30d, sessions_held_30d: sess.filter(s => s.status === 'closed' && String(s.closed_at || '').slice(0, 10) >= new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10)).length, sessions_planned: sess.filter(s => s.status === 'planned').length,
         decisions_open: dec.length, decisions_overdue: dec.filter(d => d.due_date && d.due_date < today).length, rfi_to_triage: rfi.filter(r => r.status === 'submitted').length, rfi_in_flight: rfi.filter(r => r.status !== 'submitted').length });

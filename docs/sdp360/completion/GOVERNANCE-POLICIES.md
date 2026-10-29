@@ -6,6 +6,8 @@ Code: `services/governancePolicy.js` (registry, bounds, defaults), `routes/polic
 
 **site value → platform value → default.** A relaxation whose `expires_at` has passed no longer applies (the stricter value is back). A change applies at the next request on **every** server process: each read compares the history version (`MAX(id)`) and reloads when it moved; no restart. If the store cannot be read, the **last good snapshot** keeps applying (never a silent fall back to defaults that would drop a stricter site value); a stored value outside the current bounds is ignored and logged (`invalid_policy_value`).
 
+Every change is replayable: `rowsAsOf(history, date)` rebuilds the values in force at any date from the append-only history (a relaxation's end date is recorded with it, migration 033). With `meetings.compliance_as_of` on, each session is judged with the rules in force at its scheduled date.
+
 Freshness defaults are taken from the sync job declarations (`services/sync/jobs.js` `FRESHNESS_HOURS`), so publication, `/api/sync/health` and the alerts start from the same number.
 
 ## Guardrails
@@ -49,6 +51,7 @@ Freshness defaults are taken from the sync job declarations (`services/sync/jobs
 | `meetings.cancel_requires_approval` | meetings | bool | true | — | yes | **protected** | A cancelled session stays an unexcused miss until a committee member (not the canceller) approves the exception. |
 | `meetings.cancel_reason_min` | meetings | int | 5 | 3 – 500 | yes | **protected** | Minimum length of a cancellation reason. |
 | `meetings.reopen_reason_min` | meetings | int | 10 | 5 – 500 | yes | **protected** | Minimum length of the reason to reopen accepted minutes. |
+| `meetings.compliance_as_of` | meetings | bool | false | — | yes | — | Judge each past session with the rules in force at its scheduled date (a later change does not rewrite past compliance). Off = the rules of today apply to every session shown, the behaviour until now. |
 | `meetings.reopen_two_people` | meetings | bool | false | — | yes | **protected** | Reopening accepted minutes takes two admins: one requests it with a reason, ANOTHER confirms it (off = one admin with a reason, the behaviour until now). |
 | `meetings.group_decisions_public` | meetings | bool | true | — | platform only | **protected** | Decisions of group-level (committee) sessions are listed for every account; off = only the committee, the chair / secretary and the participants see them, like the sessions themselves. |
 | `handoffs.reason_min` | handoffs | int | 5 | 3 – 500 | yes | **protected** | Minimum length of a reason (reject, block, escalate, cancel, rework, reassign). |
@@ -67,9 +70,6 @@ two-person proposal, values already in force are skipped, every change is reason
 
 | Profile | For | Values |
 |---|---|---|
-| `large_mine` | 3+ IT staff | every default control, 48 h grace, escalation on the due date |
-| `small_site` | one IT person | minutes accepted without a second local person (group reviews afterwards), 72 h grace, handoff escalation after 2 days; publication and report four-eyes stay on |
-| `office` | Abidjan, Dakar, London, Ouagadougou | default controls, 48 h grace, handoff escalation after 1 day |
 
 The values are a starting point for the committee; `validateProfiles` (tested) refuses an unknown or platform-only rule.
 

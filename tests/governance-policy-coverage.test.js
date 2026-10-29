@@ -56,6 +56,7 @@ const STORE_PROVEN = {
   'commitments.escalation_enabled': 'tests/commitment-escalation.test.js',
   'meetings.group_decisions_public': 'tests/governance-policy-routes.smoke.test.js',
   'governance.dual_approval_tightening': 'tests/governance-policy-routes.smoke.test.js',
+  'meetings.compliance_as_of': 'tests/governance-policy-routes.smoke.test.js',
 };
 
 test('every policy parameter is covered by a behaviour probe or a named store test', () => {
@@ -102,6 +103,18 @@ test('two-person reopening: request, the requester cannot confirm, another admin
   assert.equal(SL.reopenStep(h, { id: 1 }, P).code, 'SOD');
   assert.equal(SL.reopenStep(h, { id: 2 }, P), 'reopen');
   assert.equal(SL.reopenStep([...h, { action: 'reopened', actor_id: 2 }, { action: 'accepted', actor_id: 5 }], { id: 2 }, P), 'request', 'an old request does not carry over');
+});
+
+test('rowsAsOf replays the history: last change before the date, cleared values and expired relaxations drop out', () => {
+  const H = [
+    { id: 1, scope: 'global', key: 'meetings.missed_grace_hours', new_value: '24', at: '2026-01-01T00:00:00Z' },
+    { id: 2, scope: 'site:3', key: 'publication.four_eyes', new_value: 'false', at: '2026-02-01T00:00:00Z', expires_at: '2026-03-01T00:00:00Z' },
+    { id: 3, scope: 'global', key: 'meetings.missed_grace_hours', new_value: null, at: '2026-04-01T00:00:00Z' },
+  ];
+  assert.deepEqual(GP.rowsAsOf(H, '2025-12-31T00:00:00Z'), {});
+  assert.deepEqual(GP.rowsAsOf(H, '2026-02-15T00:00:00Z'), { global: { 'meetings.missed_grace_hours': 24 }, 'site:3': { 'publication.four_eyes': false } });
+  assert.deepEqual(GP.rowsAsOf(H, '2026-03-15T00:00:00Z'), { global: { 'meetings.missed_grace_hours': 24 } }, 'relaxation expired');
+  assert.deepEqual(GP.rowsAsOf(H, '2026-05-01T00:00:00Z'), {}, 'cleared → default');
 });
 
 test('an approved exception lapses: the A02 overdue alert comes back after commitments.exception_max_days', () => {

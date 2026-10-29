@@ -141,6 +141,17 @@ test('meetings.reopen_two_people and meetings.group_decisions_public change beha
   assert.equal(r2.status, 200); assert.equal((await r2.json()).session.stage, 'held');
 });
 
+test('meetings.compliance_as_of: a later rule change no longer rewrites a past session (history replay)', async () => {
+  const c = await (await send('PUT', '/api/governance/cadences', T.admin, { key: 'gp-asof', name: 'Mana weekly', kind: 'site_weekly', site_id: mana })).json();
+  const s = (await (await send('POST', `/api/governance/cadences/${c.cadence.id}/sessions`, T.admin, { scheduled_at: new Date(Date.now() - 10 * 3600e3).toISOString() })).json()).session;
+  const stage = async () => (await (await send('GET', `/api/governance/sessions/${s.id}`, T.admin)).json()).session.stage;
+  assert.equal(await stage(), 'planned', '48 h default grace');
+  assert.equal((await put(T.admin, `site:${mana}`, 'meetings.missed_grace_hours', 6, 'Mana weekly meetings start on time')).status, 200);
+  assert.equal(await stage(), 'missed', 'today: the new rule applies at once, also to the past');
+  assert.equal((await put(T.admin, 'global', 'meetings.compliance_as_of', true, 'audit: judge each session with its rules')).status, 200);
+  assert.equal(await stage(), 'planned', 'as of its date the grace was still 48 h');
+});
+
 test('site profiles: every value is a valid site rule; applying one goes through the guardrails', async () => {
   const GP = require('../services/governancePolicy'); const Pr = require('../services/governanceProfiles');
   assert.deepEqual(Pr.validateProfiles(GP), []);

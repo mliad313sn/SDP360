@@ -77,6 +77,9 @@ const PARAMS = [
     en: 'Minimum length of a cancellation reason.', fr: 'Longueur minimale du motif d\'annulation.' }),
   P('meetings.reopen_reason_min', 'int', 10, { area: 'meetings', protected: true, min: 5, max: 500, stricter: 'higher',
     en: 'Minimum length of the reason to reopen accepted minutes.', fr: 'Longueur minimale du motif de réouverture d\'un compte rendu accepté.' }),
+  P('meetings.compliance_as_of', 'bool', false, { area: 'meetings', stricter: null,
+    en: 'Judge each past session with the rules in force at its scheduled date (a later change does not rewrite past compliance). Off = the rules of today apply to every session shown, the behaviour until now.',
+    fr: 'Juger chaque séance passée avec les règles en vigueur à sa date (un changement ultérieur ne réécrit pas la conformité passée). Désactivé = les règles du jour s\'appliquent à toutes les séances affichées, le fonctionnement actuel.' }),
   P('meetings.reopen_two_people', 'bool', false, { area: 'meetings', protected: true, stricter: 'true',
     en: 'Reopening accepted minutes takes two admins: one requests it with a reason, ANOTHER confirms it (off = one admin with a reason, the behaviour until now).',
     fr: 'Rouvrir un compte rendu accepté demande deux admins : l\'un le demande avec un motif, un AUTRE le confirme (désactivé = un seul admin avec motif, le fonctionnement actuel).' }),
@@ -152,6 +155,25 @@ function resolveFrom(rows, key, siteId) {
   if (Object.prototype.hasOwnProperty.call(g, key)) return { value: g[key], source: 'global' };
   return { value: p.default, source: 'default' };
 }
+/**
+ * Replay the append-only history to the values in force at `at` (ISO): for each scope × rule, the last
+ * change made at or before `at`; a cleared value (new_value null) or a relaxation already expired at `at`
+ * no longer applies. Pure — committee audit P1-3 / architect P2-4.
+ */
+function rowsAsOf(history, at) {
+  const t = String(at || ''); const last = new Map();
+  for (const h of history || []) { if (String(h.at) > t) continue; const k = `${h.scope}|${h.key}`; const cur = last.get(k); if (!cur || String(h.at) > String(cur.at) || (String(h.at) === String(cur.at) && Number(h.id) > Number(cur.id))) last.set(k, h); }
+  const out = {};
+  for (const h of last.values()) {
+    if (h.new_value == null || h.new_value === undefined) continue;
+    if (h.expires_at && String(h.expires_at) <= t) continue;
+    const p = BY_KEY.get(h.key); if (!p) continue;
+    let v = h.new_value; if (typeof v === 'string') { try { v = JSON.parse(v); } catch (_) { continue; } }
+    try { v = coerce(p, v); } catch (_) { continue; }
+    (out[h.scope] = out[h.scope] || {})[h.key] = v;
+  }
+  return out;
+}
 function snapshotFrom(rows, siteId) {
   const out = {}; for (const p of PARAMS) out[p.key] = resolveFrom(rows, p.key, siteId).value; return out;
 }
@@ -191,6 +213,15 @@ function makePolicyStore(db, { now = () => new Date().toISOString(), ttlMs = 300
   async function snapshot({ siteId = null } = {}) {
     try { return snapshotFrom(await rows(), siteId); } catch (_) { return { ...DEFAULTS }; }
   }
+  /** The policy in force at `at` (history replay), cached per history version. */
+  let histCache = null, histVersion = null;
+  async function snapshotAt({ siteId = null, at } = {}) {
+    try {
+      const v = await version();
+      if (!histCache || histVersion !== v) { histCache = await Q('SELECT id, scope, key, new_value, at, expires_at FROM governance_policy_history ORDER BY id').all(); histVersion = v; }
+      return snapshotFrom(rowsAsOf(histCache, at), siteId);
+    } catch (_) { return snapshot({ siteId }); }
+  }
   async function view({ siteIds = [] } = {}) {
     const r = await rows(true);
     const expiresOf = {}; for (const x of await Q('SELECT scope, key, expires_at FROM governance_policies WHERE expires_at IS NOT NULL').all()) expiresOf[`${x.scope}|${x.key}`] = x.expires_at;
@@ -218,9 +249,9 @@ function makePolicyStore(db, { now = () => new Date().toISOString(), ttlMs = 300
     else await Q(`INSERT INTO governance_policies (scope, key, value, updated_by, updated_at, reason, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)
       ON CONFLICT (scope, key) DO UPDATE SET value=EXCLUDED.value, updated_by=EXCLUDED.updated_by, updated_at=EXCLUDED.updated_at, reason=EXCLUDED.reason, expires_at=EXCLUDED.expires_at`)
       .run(scope, key, JSON.stringify(next), actorId == null ? null : Number(actorId), now(), why.slice(0, 1000), expiresAt);
-    await Q('INSERT INTO governance_policy_history (scope, key, old_value, new_value, actor_id, at, reason, relaxes, proposed_by, approved_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    await Q('INSERT INTO governance_policy_history (scope, key, old_value, new_value, actor_id, at, reason, relaxes, proposed_by, approved_by, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
       .run(scope, key, old === undefined ? null : JSON.stringify(old), next === null ? null : JSON.stringify(next), actorId == null ? null : Number(actorId), now(), why.slice(0, 1000), rel ? 1 : 0,
-        proposedBy == null ? null : Number(proposedBy), approvedBy == null ? null : Number(approvedBy));
+        proposedBy == null ? null : Number(proposedBy), approvedBy == null ? null : Number(approvedBy), expiresAt);
   }
   /**
    * Set (value defined) or clear (value === null → inherit) one parameter in one scope.
@@ -313,7 +344,7 @@ function makePolicyStore(db, { now = () => new Date().toISOString(), ttlMs = 300
     const proposals = (await listProposals({ status: null })).filter((x) => x.proposed_at >= f && x.proposed_at <= t + '\uffff');
     return { from: from || null, to: to || null, relaxations: rel, overrides, deviations, proposals };
   }
-  return { snapshot, view, set, history, listProposals, decide, oversight, invalidate };
+  return { snapshot, snapshotAt, view, set, history, listProposals, decide, oversight, invalidate };
 }
 
 // Process-wide store used by the routes (lazy; reports-db PG handle).
@@ -325,5 +356,7 @@ function shared() {
 }
 /** Convenience for routes: resolved policy for a site (or global), defaults on any failure. */
 async function forContext({ siteId = null } = {}) { return shared().snapshot({ siteId }); }
+/** The policy in force at `at` for a site (history replay). */
+async function forContextAt({ siteId = null, at } = {}) { return shared().snapshotAt({ siteId, at }); }
 
-module.exports = { FRESHNESS_SOURCES, PARAMS, BY_KEY, AREAS, DEFAULTS, coerce, relaxes, resolveFrom, snapshotFrom, scopeOf, parseScope, makePolicyStore, shared, forContext };
+module.exports = { rowsAsOf, FRESHNESS_SOURCES, PARAMS, BY_KEY, AREAS, DEFAULTS, coerce, relaxes, resolveFrom, snapshotFrom, scopeOf, parseScope, makePolicyStore, shared, forContext, forContextAt };
