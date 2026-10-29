@@ -64,3 +64,22 @@ test('flags on: commitments and handoffs join, an action under a commitment is s
   assert.ok(!(await get(T.edM, mana)).body.items.some((x) => x.register === 'handoff'), 'Mana sees nothing of Hounde');
   void actionId2;
 });
+
+test('handoffs.commitment_ledger: a new handoff is recorded as a commitment and shown once, under it', async () => {
+  const depts = (await rdb.listDepartments()).map((d) => d.name);
+  const body = { title: 'Move the plant printer', site_id: hounde, from_department: depts[0], to_department: depts[1], receiver: 'ob_recv', due_date: '2099-02-01' };
+  let h = await (await send('POST', '/api/handoffs', T.edH, body)).json();
+  assert.equal(h.handoff.commitment_id, null, 'switch off = separate registers, as before');
+  const pol = await send('PUT', '/api/governance/policies', T.admin, { scope: `site:${hounde}`, key: 'handoffs.commitment_ledger', value: true, reason: 'one ledger for Hounde' });
+  assert.equal(pol.status, 200);
+  h = await (await send('POST', '/api/handoffs', T.edH, { ...body, title: 'Move the plant scanner' })).json();
+  const cid = h.handoff.commitment_id; assert.ok(cid, 'linked to a commitment');
+  const c = await (await send('GET', `/api/commitments/${cid}`, T.edH)).json();
+  assert.equal(c.commitment.accountable_owner, 'ob_recv'); assert.match(c.commitment.title, /Move the plant scanner/);
+  assert.ok(h.handoff.events.some((e) => e.action === 'ledger_linked'));
+  const r = await get(T.edH, hounde);
+  const cm = r.body.items.find((x) => x.register === 'commitment' && x.id === cid);
+  assert.ok(cm.sources.some((s) => s.register === 'handoff' && s.title === 'Move the plant scanner'));
+  assert.ok(!r.body.items.some((x) => x.register === 'handoff' && x.title === 'Move the plant scanner'), 'not twice');
+  assert.ok(r.body.items.some((x) => x.register === 'handoff' && x.title === 'Move the plant printer'), 'the earlier one stays a handoff');
+});

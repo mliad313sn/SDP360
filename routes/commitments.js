@@ -89,6 +89,10 @@ module.exports = function commitmentsRoutes(deps) {
       const p = /^\d+$/.test(sid) ? await idb().getActionParent(Number(sid)) : null;
       return { checked: true, site_id: p ? await codeToSite('inspection', p.site_code) : null };
     }
+    if (system === 'handoff') {   // committee #39 — a handoff recorded in the commitments ledger
+      const h = /^\d+$/.test(sid) && deps.getHandoffStore ? await deps.getHandoffStore().getRaw(Number(sid)) : null;
+      return { checked: true, site_id: h ? Number(h.site_id) : null };
+    }
     if (system === 'report') {
       const o = await rdb().getActionItemOwner(sid);
       return { checked: true, site_id: o && o.site_id != null ? Number(o.site_id) : null };

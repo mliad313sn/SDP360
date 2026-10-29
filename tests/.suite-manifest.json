@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 2912,
+ "total": 2914,
  "files": {
   "a11y-static.test.js": 13,
   "access-revocation.smoke.test.js": 5,
@@ -197,7 +197,7 @@
   "multi-site-editor.smoke.test.js": 7,
   "no-message-leak.test.js": 4,
   "no-native-dialogs.test.js": 7,
-  "obligations.smoke.test.js": 2,
+  "obligations.smoke.test.js": 3,
   "odata.test.js": 4,
   "opm-analytics.test.js": 3,
   "opm-availability.test.js": 11,
@@ -338,6 +338,7 @@
   "site-actions-routes.smoke.test.js": 4,
   "site-awareness-roles.test.js": 2,
   "site-awareness-routes.smoke.test.js": 14,
+  "site-code-registry.smoke.test.js": 1,
   "site-helpdesk.test.js": 5,
   "site-open-actions-route.smoke.test.js": 3,
   "site-open-report-actions.test.js": 3,

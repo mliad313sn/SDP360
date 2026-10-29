@@ -22,12 +22,12 @@
       roles: 'Role holders', deputies: 'Deputies (absences)', matrix: 'Escalation matrix', gaps: 'Gaps — nobody would be reached', role: 'Role', scope: 'Scope', person: 'Person', from: 'From', to: 'To', platform: 'Platform', end: 'End', revoke: 'Revoke', retire: 'Retire', add: 'Add',
       absent: 'Absent person', deputy: 'Deputy', register: 'Register', severity: 'Severity', after: 'After (days overdue)', reason: 'Reason (kept in the history)', none: '—', noGap: 'No gap.', open: 'open-ended', saved: 'Saved.',
       kind: { role: 'required role without a holder', matrix: 'escalation rule reaches nobody' },
-      kpi: 'KPI targets per site', kpiIntro: 'The number a site is held to for a KPI (site value, else platform value). The KPI definitions stay decisions D-01..D-03.', metric: 'KPI', target: 'Target', cal: 'Working calendar (holidays, shutdowns)', calIntro: 'Days listed here do not count in the overdue rules (handoff escalation, escalation levels, missed sessions). Weekends: policy calendar.skip_weekends.', day: 'Day', label: 'Name', remove: 'Remove', holiday: 'holiday', shutdown: 'shutdown' },
+      sc: 'Site codes: registry vs hard-coded maps (DEC-4)', scIntro: 'Each module still has its own name → code table. Fill the registry, review the differences, then switch the registry on (super_admin).', scOn: 'Registry in use', scOff: 'Hard-coded maps in use', scSwitch: 'Switch', module: 'Module', hard: 'Hard-coded', registry: 'Registry', kpi: 'KPI targets per site', kpiIntro: 'The number a site is held to for a KPI (site value, else platform value). The KPI definitions stay decisions D-01..D-03.', metric: 'KPI', target: 'Target', cal: 'Working calendar (holidays, shutdowns)', calIntro: 'Days listed here do not count in the overdue rules (handoff escalation, escalation levels, missed sessions). Weekends: policy calendar.skip_weekends.', day: 'Day', label: 'Name', remove: 'Remove', holiday: 'holiday', shutdown: 'shutdown' },
     fr: { title: 'Rôles, suppléants et escalade', intro: 'Qui reçoit les remontées et qui remplace un collègue absent — réglé ici, sans code. Vide = personne de désigné (les remontées sont enregistrées sans destinataire). Chaque changement est conservé dans un historique en ajout seul et chaîné.',
       roles: 'Titulaires des rôles', deputies: 'Suppléants (absences)', matrix: 'Matrice d\'escalade', gaps: 'Lacunes — personne ne serait joint', role: 'Rôle', scope: 'Portée', person: 'Personne', from: 'Du', to: 'Au', platform: 'Plateforme', end: 'Terminer', revoke: 'Révoquer', retire: 'Retirer', add: 'Ajouter',
       absent: 'Personne absente', deputy: 'Suppléant', register: 'Registre', severity: 'Gravité', after: 'Après (jours de retard)', reason: 'Motif (conservé dans l\'historique)', none: '—', noGap: 'Aucune lacune.', open: 'sans fin', saved: 'Enregistré.',
       kind: { role: 'rôle requis sans titulaire', matrix: 'règle d\'escalade qui ne joint personne' },
-      kpi: 'Cibles d\'indicateurs par site', kpiIntro: 'La valeur visée pour un indicateur (valeur du site, sinon de la plateforme). Les définitions restent les décisions D-01 à D-03.', metric: 'Indicateur', target: 'Cible', cal: 'Calendrier ouvré (fériés, arrêts)', calIntro: 'Les jours listés ne comptent pas dans les règles de retard (escalade des demandes, niveaux d\'escalade, séances manquées). Week-ends : règle calendar.skip_weekends.', day: 'Jour', label: 'Nom', remove: 'Retirer', holiday: 'férié', shutdown: 'arrêt' },
+      sc: 'Codes de site : registre ou tables en dur (DEC-4)', scIntro: 'Chaque module garde sa propre table nom → code. Remplissez le registre, revoyez les écarts, puis basculez sur le registre (super_admin).', scOn: 'Registre utilisé', scOff: 'Tables en dur utilisées', scSwitch: 'Basculer', module: 'Module', hard: 'En dur', registry: 'Registre', kpi: 'Cibles d\'indicateurs par site', kpiIntro: 'La valeur visée pour un indicateur (valeur du site, sinon de la plateforme). Les définitions restent les décisions D-01 à D-03.', metric: 'Indicateur', target: 'Cible', cal: 'Calendrier ouvré (fériés, arrêts)', calIntro: 'Les jours listés ne comptent pas dans les règles de retard (escalade des demandes, niveaux d\'escalade, séances manquées). Week-ends : règle calendar.skip_weekends.', day: 'Jour', label: 'Nom', remove: 'Retirer', holiday: 'férié', shutdown: 'arrêt' },
   };
   const T = () => L[lang()];
   let d = null;
@@ -57,6 +57,11 @@
       ${d.matrix.filter((m) => !m.retired_at).map((m) => `<tr><td>${esc(m.register)}</td><td>${esc(m.severity)}</td><td>${esc(siteOf(m.site_id))}</td><td>${Number(m.after_days)}</td><td>${roleLabel(m.role)}</td><td>${W ? `<button type="button" data-act="retire" data-id="${m.id}">${t.retire}</button>` : ''}</td></tr>`).join('') || `<tr><td colspan="6" class="gp-muted">${t.none}</td></tr>`}
       ${W ? `<tr><td><select id="mxReg" aria-label="${t.register}">${opts(Object.keys(d.registers).map((r) => [r, r]))}</select></td><td><select id="mxSev" aria-label="${t.severity}">${opts(d.registers.commitments.map((s) => [s, s]))}</select></td><td><select id="mxSite" aria-label="${t.scope}">${opts(siteOpts())}</select></td><td><input id="mxAfter" type="number" min="0" max="365" value="0" aria-label="${t.after}"></td><td><select id="mxRole" aria-label="${t.role}">${opts(Object.keys(d.roles).filter((k) => /escalation/.test(k)).map((k) => [k, d.roles[k][lang()]]))}</select></td><td><button type="button" data-act="matrix">${t.add}</button></td></tr>` : ''}
       </tbody></table>
+      <h3>${t.sc}</h3><p class="gp-muted">${t.scIntro}</p>
+      <p><strong>${sc && sc.enabled ? t.scOn : t.scOff}</strong> ${W ? `<button type="button" data-act="scswitch">${t.scSwitch}</button>` : ''}</p>
+      <table><thead><tr><th>Site</th><th>${t.module}</th><th>${t.hard}</th><th>${t.registry}</th></tr></thead><tbody>
+      ${((sc && sc.diff) || []).map((x) => `<tr><td>${esc(x.site)}</td><td>${esc(x.module)}</td><td>${esc(x.hard_coded || '—')}</td><td>${esc(x.registry || '—')}</td></tr>`).join('') || `<tr><td colspan="4" class="gp-muted">${t.none}</td></tr>`}
+      </tbody></table>
       <h3>${t.kpi}</h3><p class="gp-muted">${t.kpiIntro}</p><table><thead><tr><th>${t.metric}</th><th>${t.scope}</th><th>${t.target}</th><th>${t.from}</th><th></th></tr></thead><tbody>
       ${kt.map((x) => `<tr><td class="gp-key">${esc(x.metric_key)}</td><td>${esc(siteOf(x.site_id))}</td><td>${esc(x.target)}</td><td>${esc(x.effective_from)}</td><td>${W ? `<button type="button" data-act="kpiend" data-id="${x.id}">${t.end}</button>` : ''}</td></tr>`).join('') || `<tr><td colspan="5" class="gp-muted">${t.none}</td></tr>`}
       ${W && keys.length ? `<tr><td><select id="ktKey" aria-label="${t.metric}">${opts(keys.map((k) => [k.key, `${k.key} — ${lang() === 'fr' && k.name_fr ? k.name_fr : k.name}`]))}</select></td><td><select id="ktSite" aria-label="${t.scope}">${opts(siteOpts())}</select></td><td><input id="ktVal" type="number" step="any" aria-label="${t.target}"></td><td><input id="ktFrom" type="date" value="${today()}" aria-label="${t.from}"></td><td><button type="button" data-act="kpiset">${t.add}</button></td></tr>` : ''}
@@ -66,11 +71,12 @@
       ${WD ? `<tr><td><input id="clDay" type="date" aria-label="${t.day}"></td><td><select id="clSite" aria-label="${t.scope}">${opts(siteOpts())}</select></td><td><input id="clLabel" aria-label="${t.label}" placeholder="${t.label}"> <select id="clKind" aria-label="kind">${opts([['holiday', t.holiday], ['shutdown', t.shutdown]])}</select></td><td><button type="button" data-act="caladd">${t.add}</button></td></tr>` : ''}
       </tbody></table>`;
   }
-  let kt = [], keys = [];
+  let kt = [], keys = [], sc = null;
   async function load() {
     try {
       d = await api('GET', '/api/governance/roles');
       try { kt = (await api('GET', '/api/metrics/targets')).targets || []; keys = (await api('GET', '/api/metrics/registry')).metrics || []; } catch (_) { kt = []; keys = []; }
+      try { sc = await api('GET', '/api/governance/site-codes'); } catch (_) { sc = null; }
       render();
     }
     catch (e) { root.innerHTML = `<p class="gp-err">${esc(e.message)}</p>`; }
@@ -79,11 +85,12 @@
   root.addEventListener('click', async (ev) => {
     const b = ev.target.closest('button[data-act]'); if (!b) return;
     const act = b.dataset.act, t = T();
-    const reason = act === 'caladd' ? '' : await window.ReasonDialog.ask({ title: b.textContent, label: t.reason, min: 5, lang: lang() }); if (reason == null) return;
+    const reason = act === 'caladd' ? '' : await window.ReasonDialog.ask({ title: b.textContent, label: t.reason, min: act === 'scswitch' ? 10 : 5, lang: lang() }); if (reason == null) return;
     try {
       if (act === 'assign') await api('POST', '/api/governance/roles/assignments', { role: val('raRole'), site_id: val('raSite') || null, user_id: Number(val('raUser')), effective_from: val('raFrom'), effective_to: val('raTo') || null, reason });
       else if (act === 'deputy') await api('POST', '/api/governance/roles/deputies', { user_id: Number(val('dpUser')), deputy_id: Number(val('dpDep')), start_date: val('dpFrom'), end_date: val('dpTo'), reason });
       else if (act === 'matrix') await api('POST', '/api/governance/roles/matrix', { register: val('mxReg'), severity: val('mxReg') === 'handoffs' ? '*' : val('mxSev'), site_id: val('mxSite') || null, after_days: Number(val('mxAfter') || 0), role: val('mxRole'), reason });
+      else if (act === 'scswitch') await api('PUT', '/api/governance/site-codes', { enabled: !(sc && sc.enabled), reason });
       else if (act === 'kpiset') await api('POST', '/api/metrics/targets', { metric_key: val('ktKey'), site_id: val('ktSite') || null, target: val('ktVal'), effective_from: val('ktFrom'), reason });
       else if (act === 'kpiend') await api('POST', `/api/metrics/targets/${encodeURIComponent(b.dataset.id)}/end`, { reason });
       else if (act === 'caladd') await api('POST', '/api/governance/roles/calendar', { day: val('clDay'), site_id: val('clSite') || null, label: val('clLabel'), kind: val('clKind') });

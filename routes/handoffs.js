@@ -119,6 +119,13 @@ module.exports = function handoffRoutes(deps) {
       }
       const r = await store.create({ ...b, receiver_id: receiverId }, { user: u });
       if (r.created) { log(req, 'handoff_created', r.handoff.ref, { to_department: r.handoff.to_department }); await notify(receiverId, r.handoff, 'handed to you'); }
+      // committee #39 — under handoffs.commitment_ledger the handoff is also recorded as a commitment
+      if (r.created && r.handoff.commitment_id == null && deps.commitmentStore && (await polFor(r.handoff.site_id))['handoffs.commitment_ledger'] === true && String((await cfg()).commitments_enabled) === '1') {
+        const recv = ((await rdb().listUsers()) || []).find((x) => Number(x.id) === Number(receiverId));
+        const c = await deps.commitmentStore.create({ kind: 'corrective_action', title: `${r.handoff.ref} — ${r.handoff.title}`.slice(0, 300), site_id: r.handoff.site_id, due_date: r.handoff.due_date || undefined,
+          department: r.handoff.to_department, accountable_owner: (recv && (recv.username || recv.email)) || undefined, source: { system: 'handoff', id: String(r.handoff.id) } }, { user: u });
+        if (c && c.commitment) { await store.setCommitment(r.handoff.id, c.commitment.id, u.id); r.handoff = await store.get(r.handoff.id); }
+      }
       res.status(r.created ? 201 : 200).json({ created: r.created, handoff: view(r.handoff, u) });
     } catch (e) { fail(res, e); }
   });

@@ -59,6 +59,7 @@ const STORE_PROVEN = {
   'meetings.group_decisions_public': 'tests/governance-policy-routes.smoke.test.js',
   'governance.dual_approval_tightening': 'tests/governance-policy-routes.smoke.test.js',
   'meetings.compliance_as_of': 'tests/governance-policy-routes.smoke.test.js',
+  'handoffs.commitment_ledger': 'tests/obligations.smoke.test.js',
 };
 
 test('every policy parameter is covered by a behaviour probe or a named store test', () => {

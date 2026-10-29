@@ -162,7 +162,15 @@ function makeHandoffStore(db, { now = () => new Date().toISOString() } = {}) {
     return (await P(`SELECT * FROM handoffs${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY id DESC LIMIT ${Math.min(2000, Number(limit) || 500)}`).all(...args)).map(row);
   }
 
-  return { init, create, get, getRaw, transition, reassign, escalateOverdue, list };
+  /** Committee #39 — link the handoff to the commitment that records it in the ledger (once). */
+  async function setCommitment(id, commitmentId, actorId) {
+    return tx(async () => {
+      const r = await P('UPDATE handoffs SET commitment_id=?, updated_at=? WHERE id=? AND commitment_id IS NULL').run(Number(commitmentId), now(), Number(id));
+      if (Number(r && r.changes) === 1) await event(id, actorId, 'ledger_linked', null, null, { commitment_id: Number(commitmentId) });
+      return Number(r && r.changes) === 1;
+    });
+  }
+  return { init, create, get, getRaw, transition, reassign, escalateOverdue, list, setCommitment };
 }
 
 module.exports = { makeHandoffStore };

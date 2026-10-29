@@ -133,7 +133,8 @@ const DEFAULTS = {
   // separate switch, also OFF: who is told about a handoff is decision D-04's, not the code's.
   handoffs_enabled: '0',
   handoff_notify_enabled: '0',
-  commitment_notify_enabled: '0',   // ADR-006 — in-app notice to the escalation-matrix target of a new A01 / A02 (off = ledger only, as before)
+  commitment_notify_enabled: '0',
+  site_codes_from_registry: '0',   // DEC-4 — '1' = site_module_codes wins over the modules' hard-coded maps (diff first: GET /api/governance/site-codes)   // ADR-006 — in-app notice to the escalation-matrix target of a new A01 / A02 (off = ledger only, as before)
 };
 // ── Sync alerting (Step 1). Recipients = comma list of e-mail addresses; teams_url = a
 //    Workflows webhook (SECRET, blank-keep). Nothing is sent while both are empty.

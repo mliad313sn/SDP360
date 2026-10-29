@@ -19,7 +19,7 @@ const PRIORITIES = ['low', 'medium', 'high', 'critical'];
 const STATUSES = ['captured', 'triaged', 'committed', 'in_progress', 'awaiting_verification', 'verified_closed',
   'blocked', 'deferred', 'cancelled_with_reason', 'rejected_for_rework', 'reopened', 'accepted_risk_exception'];
 const TERMINAL = ['verified_closed', 'cancelled_with_reason', 'accepted_risk_exception'];
-const SOURCE_SYSTEMS = ['meetings', 'inspection', 'report', 'governance', 'sdp_ticket', 'sdp_change', 'portfolio'];
+const SOURCE_SYSTEMS = ['meetings', 'inspection', 'report', 'governance', 'sdp_ticket', 'sdp_change', 'portfolio', 'handoff'];
 
 // who may fire a transition: 'editor' = editor of the commitment's site (or admin tier),
 // 'review' = the designated reviewer (or admin tier) and never owner/executor/creator,

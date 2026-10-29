@@ -77,6 +77,12 @@ const _NORM_SITE_MAP = (() => {
 /** Convert a site label (sites.name, a Zoho group…) to a tracker site code, or null. */
 function siteNameToCode(siteName) {
   if (!siteName) return null;
+  const reg = require('./services/siteCodeRegistry').lookup('tracker', siteName); if (reg) return reg;   // DEC-4 switch (off by default)
+  return hardSiteNameToCode(siteName);
+}
+/** The hard-coded map only (DEC-4 diff). */
+function hardSiteNameToCode(siteName) {
+  if (!siteName) return null;
   if (SITE_MAP[siteName]) return SITE_MAP[siteName];
   return _NORM_SITE_MAP[_normSite(siteName)] || null;
 }
@@ -655,4 +661,4 @@ function setActivityMonthsByName(year, siteCode, activityName, months, opts = {}
   return (_setActivityMonthsPg(year, siteCode, activityName, months, opts));
 }
 
-module.exports = { loadTracker, saveTracker, resetTracker, deleteTrackerYear, previewDeleteTrackerYear, backupDatabase, siteNameToCode, siteToCode, getActivityCode, setActivityMonthsByName, getDB, TRACKER_BACKEND, initPgTracker, pgHandle };
+module.exports = { loadTracker, saveTracker, resetTracker, deleteTrackerYear, previewDeleteTrackerYear, backupDatabase, siteNameToCode, hardSiteNameToCode, siteToCode, getActivityCode, setActivityMonthsByName, getDB, TRACKER_BACKEND, initPgTracker, pgHandle };

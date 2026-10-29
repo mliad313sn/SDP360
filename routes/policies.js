@@ -54,6 +54,47 @@ module.exports = function policyRoutes(deps) {
     } catch (e) { fail(res, e); }
   });
 
+  // DEC-4 — site-code registry vs the modules' hard-coded maps (services/siteCodeRegistry)
+  //   GET /api/governance/site-codes                         status + every disagreement   committee | admin
+  //   PUT /api/governance/site-codes/:site  { module, code, reason }   fill the registry       super_admin
+  //   PUT /api/governance/site-codes        { enabled, reason }        registry wins / not     super_admin
+  const SCR = require('../services/siteCodeRegistry');
+  const hardMaps = () => ({ tracker: (n) => require('../tracker-db').hardSiteNameToCode(n), inspection: (n) => require('../inspection-db').hardSiteNameToCode(n), meetings: (n) => require('../inspection-db').hardSiteNameToCode(n) });
+  router.get('/api/governance/site-codes', requireReportSession, requireCommittee, async (req, res) => {
+    try { res.json({ ok: true, ...SCR.status(), diff: await SCR.diff(rdb(), hardMaps()) }); } catch (e) { fail(res, e); }
+  });
+  router.put('/api/governance/site-codes/:site', requireReportSession, requireSuperTier, json, async (req, res) => {
+    try {
+      const b = req.body || {}; const site = Number(req.params.site); const mod = String(b.module || '');
+      if (!SCR.MODULES.includes(mod)) return res.status(400).json({ ok: false, error: `module must be one of ${SCR.MODULES.join(', ')}` });
+      const code = String(b.code || '').trim().toUpperCase();
+      if (!/^[A-Z0-9_-]{2,16}$/.test(code)) return res.status(400).json({ ok: false, error: 'a site code is 2 to 16 letters, digits, - or _' });
+      if (String(b.reason || '').trim().length < 5) return res.status(400).json({ ok: false, error: 'a reason (5+ characters) is required' });
+      const H = rdb().pgHandle();
+      if (!(await H.prepare('SELECT 1 FROM sites WHERE id=?').get(site))) return res.status(404).json({ ok: false, error: 'site not found' });
+      const clash = await H.prepare('SELECT site_id FROM site_module_codes WHERE module=? AND code=? AND site_id<>?').get(mod, code, site);
+      if (clash) return res.status(409).json({ ok: false, error: 'this code is already used by another site in this module' });
+      const before = await H.prepare('SELECT code FROM site_module_codes WHERE site_id=? AND module=?').get(site, mod);
+      await H.prepare('INSERT INTO site_module_codes (site_id, module, code) VALUES (?, ?, ?) ON CONFLICT (site_id, module) DO UPDATE SET code=EXCLUDED.code').run(site, mod, code);
+      await SCR.refresh(rdb());
+      try { await rdb().logEvent({ category: 'governance', action: 'site_code_set', target: `site:${site}`, details: { module: mod, before: before ? before.code : null, after: code, reason: String(b.reason).slice(0, 300) }, risk: 0, ...rdb()._logCtx(req) }); } catch (_) {}
+      res.json({ ok: true, site_id: site, module: mod, code });
+    } catch (e) { fail(res, e); }
+  });
+  router.put('/api/governance/site-codes', requireReportSession, requireSuperTier, json, async (req, res) => {
+    try {
+      const b = req.body || {};
+      if (String(b.reason || '').trim().length < 10) return res.status(400).json({ ok: false, error: 'a reason (10+ characters) is required' });
+      const on = b.enabled === true || b.enabled === '1';
+      const gaps = await SCR.diff(rdb(), hardMaps());
+      await require('../services/reportConfig').setConfig(rdb().db, { site_codes_from_registry: on ? '1' : '0' }, req.reportUser.username);
+      await SCR.refresh(rdb());
+      // switching it on with disagreements left is allowed (the committee decides), but recorded as a risk
+      try { await rdb().logEvent({ category: 'governance', action: on ? 'site_registry_enabled' : 'site_registry_disabled', target: 'site_codes', details: { open_differences: gaps.length, reason: String(b.reason).slice(0, 300) }, risk: on && gaps.length ? 1 : 0, ...rdb()._logCtx(req) }); } catch (_) {}
+      res.json({ ok: true, ...SCR.status(), open_differences: gaps.length });
+    } catch (e) { fail(res, e); }
+  });
+
   router.get('/policies.html', (req, res) => deps.sendHtmlPage(res, 'policies.html', false, 'Policies page unavailable'));
 
   router.get('/api/governance/policies', requireReportSession, requireCommittee, async (req, res) => {

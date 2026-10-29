@@ -24,6 +24,9 @@ function compose({ commitments = null, handoffs = null, siteActions = null, asOf
   const byId = new Map(items.map((x) => [x.id, x]));
   for (const h of handoffs || []) {
     if (!OPEN_HANDOFF.has(String(h.status))) continue;
+    // recorded in the ledger (handoffs.commitment_ledger): shown once, under its commitment
+    const owner = h.commitment_id != null && byId.get(Number(h.commitment_id));
+    if (owner) { owner.sources.push({ register: 'handoff', title: h.title, handoff_id: Number(h.id), status: h.status }); continue; }
     items.push({ register: 'handoff', id: Number(h.id), ref: h.ref, title: h.title, owner: h.receiver_name || null, due_date: day(h.due_date), status: h.status,
       overdue: overdue(h.due_date, asOf) && h.status !== 'delivered', link: `handoffs.html?id=${h.id}`, commitment_id: h.commitment_id == null ? null : Number(h.commitment_id),
       from_department: h.from_department, to_department: h.to_department });

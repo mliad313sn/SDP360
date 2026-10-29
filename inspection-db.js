@@ -110,6 +110,12 @@ function _normSite(s) {
 
 function siteNameToCode(siteName) {
   if (!siteName) return null;
+  const reg = require('./services/siteCodeRegistry').lookup('inspection', siteName); if (reg) return reg;   // DEC-4 switch (off by default)
+  return hardSiteNameToCode(siteName);
+}
+/** The hard-coded map only (DEC-4 diff). */
+function hardSiteNameToCode(siteName) {
+  if (!siteName) return null;
   // Fast path — exact key match (preserves any case-specific quirks)
   if (SITE_MAP[siteName]) return SITE_MAP[siteName];
   // Slow path — normalised match
@@ -953,6 +959,7 @@ module.exports = {
   exportRows,
   resetLookups,
   siteNameToCode,
+  hardSiteNameToCode,
   parseSiteCode,
   INSPECTION_BACKEND, initPgInspection, pgHandle
 };
