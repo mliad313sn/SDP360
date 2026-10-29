@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- SDP Dashboard Manager — the operator's maintenance window (WPF, .NET Framework 4.8: part of
        Windows Server 2016+ / Windows 10+, nothing to install). It adds NO logic: every action runs
-       `node tools\sdp-manager.js … --json` from the install folder (one implementation, tested on CI).
+       `node tools\sdp-manager.js … (json)` from the install folder (one implementation, tested on CI).
        Built by tools/installer-v2/build.ps1. -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>

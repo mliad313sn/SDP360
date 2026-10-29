@@ -1,0 +1,65 @@
+'use strict';
+// Installer v2.1 — the rules a Windows build cannot check by itself (UAT 2026-10-29, EA-02/04/05/09/10).
+// The real proof is the Windows end-to-end job (.github/workflows/installer.yml); these checks keep the
+// script honest between two Windows runs.
+const test = require('node:test');
+const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
+
+const ROOT = path.join(__dirname, '..');
+const iss = fs.readFileSync(path.join(ROOT, 'tools/installer-v2/SDP-Dashboard.iss'), 'utf8').replace(/^﻿/, '').replace(/\r\n/g, '\n');
+const section = (name) => { const m = new RegExp(`^\\[${name}\\]\\n([\\s\\S]*?)(?=^\\[[A-Za-z]+\\]$)`, 'm').exec(iss + '\n[End]'); return m ? m[1] : ''; };
+const code = iss.slice(iss.indexOf('[Code]'));
+
+test('post-install.js is the LAST [Files] entry and runs through AfterInstall (its failure rolls Setup back)', () => {
+  const lines = section('Files').split('\n').filter((l) => /^Source:/.test(l.trim()));
+  assert.match(lines[lines.length - 1], /post-install\.js".*AfterInstall: RunPostInstall/);
+});
+
+test('the payload is offline: runtime, dependencies, service, Manager and the package are all embedded', () => {
+  const files = section('Files');
+  for (const p of ['runtime\\node', 'node_modules', 'service', 'manager', '{#PackageZip}']) assert.ok(files.includes(p), p);
+});
+
+test('post-install exit code is checked and a failure raises (no fire-and-forget [Run] for system actions)', () => {
+  assert.match(code, /Exec\(ExpandConstant\('\{app\}\\runtime\\node\\node\.exe'\), Args[\s\S]*?Rc\)/);
+  assert.match(code, /if Rc <> 0 then begin[\s\S]*?RaiseException/);
+  assert.ok(!/post-install/.test(section('Run')), '[Run] only opens the dashboard / the Manager');
+});
+
+test('no secret on a command line or in the script: passwords travel in the environment or a deleted option file', () => {
+  assert.ok(!/--superpassword/i.test(code), 'no --superpassword argument');
+  assert.match(code, /SaveStringToFile\(Opt, 'superpassword='/);
+  assert.match(code, /finally\s+DeleteFile\(Opt\)/);
+  assert.match(code, /SetEnvironmentVariable\('SDP_SETUP_PGSUPERPASS', ''\)/);
+  assert.ok(!/--pg-super|--password/i.test(code), 'post-install receives no password argument');
+});
+
+test('silent installs enforce the wizard checks (unsigned package, superuser password)', () => {
+  const run = code.slice(code.indexOf('procedure RunPostInstall'));
+  assert.match(run, /PackageSigned\}' <> '1'\) and not UnsignedPage\.Values\[0\] then RaiseException/);
+  assert.match(run, /IsNew and \(GetPgSuperPassword = ''\) then RaiseException/);
+});
+
+test('uninstall keeps data, .env, logs and backups unless asked, and removes the service first', () => {
+  assert.match(section('UninstallRun'), /post-install\.js.*--mode uninstall/);
+  assert.match(code, /\(Name = 'data'\) or \(Name = '\.env'\) or \(Name = 'logs'\) or \(Name = 'backups'\)/);
+  assert.match(code, /\{param:REMOVEDATA\|0\}/);
+});
+
+test('modern bilingual wizard running as administrator on 64-bit Windows 10 / Server 2016+', () => {
+  const setup = section('Setup');
+  assert.match(setup, /WizardStyle=modern/);
+  assert.match(setup, /PrivilegesRequired=admin/);
+  assert.match(setup, /ArchitecturesAllowed=x64compatible/);
+  assert.match(section('Languages'), /french/i);
+});
+
+test('XML project files and XAML hold no "--" inside a comment (MSBuild refuses to load them)', () => {
+  const dirs = ['tools/manager/SdpDashboardManager', 'tools/service/SdpDashboardService'];
+  for (const d of dirs) for (const f of fs.readdirSync(path.join(ROOT, d)).filter((n) => /\.(csproj|xaml|manifest)$/.test(n))) {
+    const s = fs.readFileSync(path.join(ROOT, d, f), 'utf8');
+    for (const m of s.matchAll(/<!--([\s\S]*?)-->/g)) assert.ok(!m[1].includes('--') && !m[1].endsWith('-'), `${d}/${f}: ${m[1].slice(0, 60)}`);
+  }
+});
