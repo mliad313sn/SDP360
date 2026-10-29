@@ -44,10 +44,12 @@
       <label class="ctl" id="winWrap">Period <input id="window" type="text" list="windowList" aria-label="Period (YYYY-MM or YYYY-Www)" placeholder="latest" size="10"><datalist id="windowList"></datalist></label>
       <button class="btn" id="apply" type="button">Apply</button>
       <button class="btn" id="edit" type="button" hidden>Edit in composer</button>
+      <a class="btn" id="csv" href="#" download>Download figures (CSV)</a>
       <a class="btn" id="back" href="dashboards.html">All dashboards</a>
     </div>
   </div>
   <div class="status" id="status" role="status" aria-live="polite"></div>
+  <div class="edv-dash-empty" id="staleBanner" role="alert" hidden></div>
   <section id="listSection"></section>
   <section id="dash" class="edv-dash" data-density="comfortable" aria-label="Dashboard widgets"></section>
 </main>
@@ -106,6 +108,7 @@
     if ($('site').value) q.push('site=' + encodeURIComponent($('site').value));
     if ($('window').value.trim()) q.push('window=' + encodeURIComponent($('window').value.trim()));
     if (meta && meta.status !== 'published') q.push('draft=1');
+    $('csv').href = '/api/dashboards/' + encodeURIComponent(key) + '/data.csv' + (q.length ? '?' + q.join('&') : '');   // same filters as the screen
     api('/api/dashboards/' + encodeURIComponent(key) + '/data' + (q.length ? '?' + q.join('&') : '')).then(function (d) {
       var sel = $('site');
       // design review B3: the single figures are ONE site's (the server never mixes sites into a tile);
@@ -116,7 +119,9 @@
       d.scope_note = nm ? 'Single figures: ' + nm.name + ' · per-site charts: your ' + d.sites.length + ' sites' : '';
       renderWidgets(def, d);
       var st = (d.stale_sources || []).map(function (x) { return x.module + (x.state === 'UNKNOWN' ? ' (never synced)' : ' (last sync ' + x.age_h + ' h ago, limit ' + x.limit_h + ' h)'); });
-      status((d.scope_note ? d.scope_note + ' — ' : '') + 'Data as of ' + new Date(d.as_of).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) + (d.note ? ' — ' + d.note : '') + (st.length ? ' — ⚠ not current: ' + st.join(', ') : ''));
+      status((d.scope_note ? d.scope_note + ' — ' : '') + 'Data as of ' + new Date(d.as_of).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) + (d.note ? ' — ' + d.note : ''));
+      // design review #4: a stale source is a banner above the figures, not the tail of a grey sentence
+      var bn = $('staleBanner'); bn.hidden = !st.length; bn.textContent = st.length ? 'Some figures are not current — their colour is withheld: ' + st.join(', ') + '.' : '';
     }).catch(function (e) { status('Data unavailable: ' + e.message); });
   }
 
@@ -128,16 +133,15 @@
     (def.widgets || []).forEach(function (w) {
       var d = data.widgets[w.id] || {};
       var el = document.createElement('section');
-      el.className = 'edv-widget ' + (d.mode === 'single' ? R.ragClass(d.rag) + (d.value == null ? ' edv-quiet' : '') : '');
+      el.className = 'edv-widget ' + (d.mode === 'single' ? R.ragClass(d.rag) + (d.value == null ? ' edv-quiet' : '') : '') + (d.freshness && d.freshness !== 'FRESH' ? ' edv-stale' : '');
       el.setAttribute('style', R.gridStyle(w.layout, cols));
       el.setAttribute('aria-label', w.title || w.type);
-      el.tabIndex = 0;
       var title = w.title ? '<h3>' + R.escapeHtml(w.title) + '</h3>' : '';
       if (d.error) { el.className += ' edv-quiet'; el.innerHTML = title + '<div class="edv-kpi-value">—</div><div class="edv-kpi-sub">Not measured: ' + R.escapeHtml(d.error) + '</div>'; root.appendChild(el); return; }
       if (w.type === 'text') { el.innerHTML = '<div class="edv-widget-text">' + R.miniMarkdown(w.markdown || '') + '</div>'; }
       else if (d.mode === 'single') {
-        el.innerHTML = title + '<div class="edv-kpi-value">' + R.ragDot(d.rag) + R.formatValue(d.value, d.unit) + '</div>' +
-          R.kpiContext(d) +
+        el.innerHTML = title + '<div class="edv-kpi-value">' + R.ragDot(d.rag, d.freshness) + R.formatValue(d.value, d.unit) + '</div>' +
+          R.staleBadge(d) + R.kpiContext(d) +
           '<div class="edv-kpi-sub">' + (d.fleet ? (d.fleet.kind === 'unweighted_site_mean' ? 'average of site rates ' : 'fleet mean ') + R.formatValue(d.fleet.mean, d.unit) + ' (' + d.fleet.n + ' sites' + (d.fleet.kind === 'unweighted_site_mean' ? ', unweighted — not the group rate' : '') + ')' : (d.value == null ? 'not measured' : '')) + '</div>' +
           '<div class="edv-asof">' + (d.window ? R.escapeHtml(d.window.label) : '') + '</div>';
       } else if (d.mode === 'series') {
@@ -148,10 +152,15 @@
           el.innerHTML = title + '<div class="edv-kpi-sub">Not measured over this period (' + pts.length + ' ' + (/W\d/.test(pts[0] && pts[0].label || '') ? 'weeks' : 'months') + ').</div>';
         } else {
           var years = {}; pts.forEach(function (p) { years[String(p.label).slice(0, 4)] = 1; });
-          el.innerHTML = title + '<canvas role="img" aria-label="' + R.escapeHtml((w.title || w.metric) + ' trend') + '"></canvas><div class="edv-asof">' + Object.keys(years).join('–') + '</div>';
+          var vals = pts.filter(function (p) { return p.value != null; }); var last = vals[vals.length - 1];
+          var lo = Math.min.apply(null, vals.map(function (p) { return Number(p.value); })), hi = Math.max.apply(null, vals.map(function (p) { return Number(p.value); }));
+          var spoken = (w.title || w.metric) + ': latest ' + R.formatValue(last.value, d.unit) + ' (' + R.shortLabel(last.label) + '), low ' + R.formatValue(lo, d.unit) + ', high ' + R.formatValue(hi, d.unit) + (d.target != null ? ', target ' + R.formatValue(d.target, d.unit) : '') + (d.freshness && d.freshness !== 'FRESH' ? ', source not current' : '');
+          el.innerHTML = title + '<canvas role="img" aria-label="' + R.escapeHtml(spoken) + '"></canvas>' + R.staleBadge(d) + '<div class="edv-asof">' + Object.keys(years).join('–') + (d.target != null ? ' · dashed line = target ' + R.escapeHtml(R.formatValue(d.target, d.unit)) : '') + '</div>';
           if (window.Chart) {
             var pct = String(d.unit) === '%';
-            var c = new Chart(el.querySelector('canvas'), { type: 'line', data: { labels: pts.map(function (p) { return R.shortLabel(p.label); }), datasets: [{ label: w.title || w.metric, data: pts.map(function (p) { return p.value; }), borderColor: '#3A4A60', backgroundColor: 'rgba(58,74,96,.12)', spanGaps: false, tension: .2, fill: true, pointRadius: 3 }] },
+            var ds = [{ label: w.title || w.metric, data: pts.map(function (p) { return p.value; }), borderColor: d.freshness && d.freshness !== 'FRESH' ? '#9AA4B2' : '#3A4A60', backgroundColor: 'rgba(58,74,96,.12)', spanGaps: false, tension: .2, fill: true, pointRadius: 3 }];
+            if (d.target != null) ds.push({ label: 'target', data: pts.map(function () { return d.target; }), borderColor: '#B45309', borderDash: [4, 4], pointRadius: 0, fill: false });
+            var c = new Chart(el.querySelector('canvas'), { type: 'line', data: { labels: pts.map(function (p) { return R.shortLabel(p.label); }), datasets: ds },
               options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (ctx) { return R.formatValue(ctx.parsed.y, d.unit); } } } },
                 scales: { x: { ticks: { maxRotation: 0, autoSkip: true } }, y: pct ? { min: 0, max: 100 } : { beginAtZero: true } } } });
             charts.push(c);
@@ -162,8 +171,8 @@
         var max = String(d.unit) === '%' ? 100 : Math.max.apply(null, d.rows.map(function (r) { return r.value == null ? 0 : Number(r.value); }).concat([1]));
         var sorted = R.sortRows(d.rows, d.higher_is_better !== false);
         var measured = sorted.filter(function (r) { return r.value != null; }), unmeasured = sorted.filter(function (r) { return r.value == null; });
-        var line = function (r) { return '<div class="edv-ragline">' + R.ragDot(r.rag) + '<span>' + R.escapeHtml(r.site) + '</span>' + (r.value == null ? '<span class="bar bar-none"></span>' : '<span class="bar"><i style="width:' + Math.max(0, Math.min(100, Math.round(100 * Number(r.value) / max))) + '%"></i></span>') + '<span class="n">' + R.formatValue(r.value, d.unit) + '</span></div>'; };
-        el.innerHTML = title + '<div class="edv-kpi-sub">' + d.summary.GREEN + ' green · ' + d.summary.AMBER + ' amber · ' + d.summary.RED + ' red' + (d.summary.NA ? ' · ' + d.summary.NA + ' not measured' : '') + '</div>' +
+        var line = function (r) { return '<div class="edv-ragline">' + R.ragDot(r.rag, r.rag_if_fresh ? d.freshness : null) + '<span>' + R.escapeHtml(r.site) + '</span>' + (r.value == null ? '<span class="bar bar-none"></span>' : '<span class="bar"><i style="width:' + Math.max(0, Math.min(100, Math.round(100 * Number(r.value) / max))) + '%"></i></span>') + '<span class="n">' + R.formatValue(r.value, d.unit) + '</span></div>'; };
+        el.innerHTML = title + '<div class="edv-kpi-sub">' + (d.summary.STALE ? d.summary.STALE + ' stale — colour withheld' : d.summary.GREEN + ' green · ' + d.summary.AMBER + ' amber · ' + d.summary.RED + ' red') + (d.summary.NA ? ' · ' + d.summary.NA + ' not measured' : '') + '</div>' +
           measured.map(line).join('') + (unmeasured.length ? '<details class="edv-unmeasured"><summary>' + unmeasured.length + ' not measured</summary>' + unmeasured.map(line).join('') + '</details>' : '');
       } else if (d.mode === 'actions') {
         el.innerHTML = title + (d.items.length ? '<table class="edv-actions-table"><thead><tr><th>Source</th><th>Action</th><th>Owner</th><th>Due</th></tr></thead><tbody>' +

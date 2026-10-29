@@ -171,7 +171,12 @@ function degradeStale(widgets, def, reg, staleSources) {
     const state = bad.get(m.module);
     out.freshness = state;
     if (out.rag !== undefined) { out.rag_if_fresh = out.rag; out.rag = 'NA'; }
-    if (Array.isArray(out.rows)) for (const r of out.rows) { r.rag_if_fresh = r.rag; r.rag = 'NA'; }
+    if (out.vs_target && out.vs_target.rag) { out.vs_target = { ...out.vs_target, rag_if_fresh: out.vs_target.rag, rag: 'NA' }; }   // no green "target met" chip on a stale tile
+    if (Array.isArray(out.rows)) {
+      for (const r of out.rows) { r.rag_if_fresh = r.rag; r.rag = 'NA'; }
+      // the header counts must agree with the rows (they were computed before the colour was withdrawn)
+      out.summary = { GREEN: 0, AMBER: 0, RED: 0, NA: out.rows.filter((r) => r.value == null).length, STALE: out.rows.filter((r) => r.value != null).length };
+    }
   }
   return widgets;
 }

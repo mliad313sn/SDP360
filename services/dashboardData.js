@@ -84,7 +84,8 @@ async function resolveWidgets({ def, sites, site, window = null, reg, dd, rdb, n
         const labels = R.windowSeries(plan.kind, plan.n, now);
         const points = [];
         for (const lab of labels) { const r = await reg.resolve(w.metric, { site: m.reader === 'tracker.fleet' ? null : site, window: lab, deps: dd, now }); points.push({ label: lab, value: r ? r.value : null }); }
-        out[w.id] = { mode: 'series', metric: w.metric, title: w.title, unit: m.unit, points, as_of: now.toISOString() };
+        const tgs = require('./kpiTargets').targetFor(targets, w.metric, m.reader === 'tracker.fleet' ? null : site, now.toISOString());
+        out[w.id] = { mode: 'series', metric: w.metric, title: w.title, unit: m.unit, points, target: tgs.target, as_of: now.toISOString() };
       } else if (plan.mode === 'per-site' && m) {
         const rows = [];
         for (const s of sites) { const r = await reg.resolve(w.metric, { site: Number(s.id), window, deps: dd, now }); rows.push({ site_id: Number(s.id), site: s.name, value: r ? r.value : null, rag: w.rag ? ragOverride(w.rag, r && r.value, m.unit) : (r ? r.rag : 'NA') }); }

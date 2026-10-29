@@ -89,7 +89,7 @@ module.exports = function engagementRoutes(deps) {
       const l = await store.openShareLink(String(req.params.token || ''), { agent: req.headers['user-agent'], ip: req.ip });
       if (!l) return res.status(404).type('html').send('<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Link expired</title></head><body style="font-family:Calibri,Arial"><h1>This link has expired or was revoked.</h1><p>Ask the person who shared it for a new one.</p></body></html>');
       const c = await cfg(); let html = '';
-      if (l.target_kind === 'report_run') { const r = reportStore ? await reportStore.getRun(l.target_key) : null; if (!r || r.status !== 'published') return res.status(404).send('Report no longer available'); html = r.html || ''; }
+      if (l.target_kind === 'report_run') { const r = reportStore ? await reportStore.getRun(l.target_key) : null; if (!r || r.status !== 'published') return res.status(404).send('Report no longer available'); const pub = reportStore.publication ? await reportStore.publication(r.id) : null; html = pub ? pub.html : (r.html || ''); }   // G07: the frozen copy
       else {
         const d = dashStore ? await dashStore.published(l.target_key) : null; if (!d) return res.status(404).send('Dashboard no longer available');
         const sites = ((await rdb().listSites({ includeInactive: false })) || []).map(s => ({ id: Number(s.id), name: s.name })); const site = l.site_id != null ? sites.find(s => s.id === l.site_id) : null;

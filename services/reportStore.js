@@ -50,7 +50,7 @@ function makeReportStore(db, { isPg = false, now = () => new Date().toISOString(
     const where = [], args = [];
     if (templateKey) { where.push('template_key=?'); args.push(String(templateKey)); }
     if (status) { const st = Array.isArray(status) ? status : [status]; where.push(`status IN (${st.map(() => '?').join(',')})`); args.push(...st); }
-    const rows = (await P(`SELECT id, template_key, site_id, window_label, status, provider, deviation, created_by, created_at, reviewed_by, reviewed_at, rating, published_at, html FROM report_runs${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY created_at DESC, id DESC LIMIT ${Math.max(1, Math.min(500, Math.floor(Number(limit)) || 50))}`).all(...args)).map(r => runRow(r));
+    const rows = (await P(`SELECT id, template_key, site_id, window_label, status, provider, deviation, created_by, created_at, reviewed_by, reviewed_at, rating, published_at, supersedes_id, html FROM report_runs${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY created_at DESC, id DESC LIMIT ${Math.max(1, Math.min(500, Math.floor(Number(limit)) || 50))}`).all(...args)).map(r => runRow(r));
     return Array.isArray(siteIds) ? rows.filter(r => r.site_id == null || siteIds.includes(r.site_id)) : rows;
   }
   async function setStatus(id, status, { user, note, rating, override } = {}) {
@@ -71,7 +71,7 @@ function makeReportStore(db, { isPg = false, now = () => new Date().toISOString(
       [Number(run.id), html, sha, J(run.figures), J(run.analysis), run.published_at || now(), run.published_by == null ? null : Number(run.published_by), override ? J(override) : null]);
     return sha;
   }
-  async function publication(runId) { return (await P(`SELECT id, run_id, html, html_sha256, published_at, published_by FROM report_publications WHERE run_id=? ORDER BY id DESC LIMIT 1`).get(Number(runId))) || null; }
+  async function publication(runId) { const p = await P(`SELECT id, run_id, html, html_sha256, figures, analysis, published_at, published_by FROM report_publications WHERE run_id=? ORDER BY id DESC LIMIT 1`).get(Number(runId)); return p ? { ...p, figures: P_(p.figures, null), analysis: P_(p.analysis, null) } : null; }
   async function setSupersedes(id, oldId) { await P(`UPDATE report_runs SET supersedes_id=? WHERE id=?`).run(Number(oldId), Number(id)); return getRun(id); }
   async function updateHtml(id, html) { await P(`UPDATE report_runs SET html=? WHERE id=?`).run(html, Number(id)); }
   /** Reviewer satisfaction: share of reviewed runs rated ≥ 4 (the "≥ 80 % useful" acceptance). */

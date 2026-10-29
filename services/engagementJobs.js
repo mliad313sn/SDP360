@@ -132,16 +132,19 @@ function safePostFor(cfg) {
   return (url, body, headers) => post(url, body, headers ? { headers } : undefined);
 }
 
+/** G16 — the STOP switch halts every outbound channel the engagement jobs own: alerts, digests, publication. */
+const stopped = (cfg) => String((cfg && cfg.notifications_stop) || '0') === '1';
+
 /** Bind the four job functions to the live stores (server.js). `stores()` is read at call time (lazy). */
 function bindJobs({ stores, aiProvider = 'off', execAiCall = null }) {
   const L = () => { const reportConfig = require('./reportConfig'), { buildMailer } = require('./mailer'), rdbM = require('../reports-db'); const dd = { rdb: rdbM, mdb: require('../meetings-db'), idb: require('../inspection-db'), adb: require('../assets-db'), tracker: require('../tracker-db'), trackerScore: require('../tracker-pptx') }; const reg = require('./metricRegistry').current(); return { reportConfig, buildMailer, rdbM, dd, reg, post: safePostFor }; };
   const mail = (cfg, l) => (cfg.smtp_host ? l.buildMailer(cfg) : null);
   return {
     evaluate: async () => { const l = L(), st = stores(); const cfg = await l.reportConfig.getConfig(l.rdbM.db); return evaluateAlerts({ store: st.eng, registry: l.reg, deps: l.dd, rdb: l.rdbM, mailer: mail(cfg, l), post: l.post(cfg), cfg, baseUrl: cfg.public_base_url || '' }); },
-    digest: async (kind) => { const l = L(), st = stores(); const cfg = await l.reportConfig.getConfig(l.rdbM.db); return sendDigest({ store: st.eng, rdb: l.rdbM, mailer: mail(cfg, l), digest: kind, baseUrl: cfg.public_base_url || '' }); },
+    digest: async (kind) => { const l = L(), st = stores(); const cfg = await l.reportConfig.getConfig(l.rdbM.db); if (stopped(cfg)) return { skipped: 'notifications_stop' }; return sendDigest({ store: st.eng, rdb: l.rdbM, mailer: mail(cfg, l), digest: kind, baseUrl: cfg.public_base_url || '' }); },
     reports: async (cadence) => { const l = L(), st = stores(); const cfg = await l.reportConfig.getConfig(l.rdbM.db); return generateScheduledReports({ cadence, reportStore: st.rep, dashStore: st.dash, engStore: st.eng, registry: l.reg, deps: l.dd, rdb: l.rdbM, aiProvider, aiCall: execAiCall ? aiCallFrom(execAiCall) : null, baseUrl: cfg.public_base_url || '' }); },
-    publish: async () => { const l = L(), st = stores(); const cfg = await l.reportConfig.getConfig(l.rdbM.db); if (cfg.publish_cron_enabled !== '1') return { skipped: true }; return publishScheduled({ engStore: st.eng, reportStore: st.rep, registry: l.reg, deps: l.dd, rdb: l.rdbM, cfg, mailer: mail(cfg, l), post: l.post(cfg) }); },
+    publish: async () => { const l = L(), st = stores(); const cfg = await l.reportConfig.getConfig(l.rdbM.db); if (cfg.publish_cron_enabled !== '1') return { skipped: true }; if (stopped(cfg)) return { skipped: 'notifications_stop' }; return publishScheduled({ engStore: st.eng, reportStore: st.rep, registry: l.reg, deps: l.dd, rdb: l.rdbM, cfg, mailer: mail(cfg, l), post: l.post(cfg) }); },
   };
 }
 
-module.exports = { bindJobs, aiCallFrom, safePostFor, evaluateAlerts, sendDigest, generateScheduledReports, publishScheduled, readingsFor, resolveRecipients, teamsCard };
+module.exports = { stopped, bindJobs, aiCallFrom, safePostFor, evaluateAlerts, sendDigest, generateScheduledReports, publishScheduled, readingsFor, resolveRecipients, teamsCard };

@@ -139,8 +139,10 @@ function stageGate(project, to, actor, ctx = {}) {
   const from = project.stage || 'proposal';
   if (!STAGES.includes(to)) return { code: 'STAGE_UNKNOWN', error: `unknown stage ${to}` };
   if (!(GATES[from] || []).includes(to)) return { code: 'STAGE_ORDER', error: `cannot go from ${from} to ${to}` };
-  const me = String((actor && (actor.username || actor.full_name)) || '').trim().toLowerCase();
+  // the owner is free text: it may hold the username, the full name or the e-mail — any of them counts
+  const ids = [actor && actor.username, actor && actor.full_name, actor && actor.email].map((x) => String(x || '').trim().toLowerCase()).filter(Boolean);
   const owner = String(project.owner || '').trim().toLowerCase();
+  const me = owner && ids.includes(owner) ? owner : (ids[0] || '');
   if (to === 'approval' && !(project.charter && String(project.charter).trim().length >= 20)) return { code: 'GATE_CHARTER', error: 'a charter (objective, scope, benefits — 20+ characters) is required before approval' };
   if (to === 'in_progress' && from === 'approval') {
     if (!project.sponsor) return { code: 'GATE_SPONSOR', error: 'a sponsor is required' };

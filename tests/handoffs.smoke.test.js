@@ -170,3 +170,11 @@ test('G10: a transition repeated with the same idempotency key returns the first
   const other = await json(await send('POST', `/api/handoffs/${id}/transition`, P.plant, { to: 'accepted', version: v }));
   assert.equal(other.status, 409, 'without the key a stale version is still refused');
 });
+
+test('G10: the same idempotency key cannot be reused for a different step', async () => {
+  const a = await json(await send('POST', '/api/handoffs', P.itlead, mkBody({ idem_key: 'g10-intake-2', title: 'G10 key reuse' })));
+  const id = a.body.handoff.id; const v = a.body.handoff.version;
+  const call = (to, ver) => fetch(base + `/api/handoffs/${id}/transition`, { method: 'POST', headers: { 'x-report-token': P.plant, 'content-type': 'application/json', 'idempotency-key': 'reuse-key-0001' }, body: JSON.stringify({ to, version: ver }) });
+  assert.equal((await call('accepted', v)).status, 200);
+  assert.equal((await call('blocked', v + 1)).status, 409, 'a key names one step');
+});

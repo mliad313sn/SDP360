@@ -52,3 +52,24 @@ files (xlsx/csv/AD/Defender exports) → database.
 | RL-04 | Application DB owner can alter audit triggers | low / high | DBA | protected role split on the production cluster |
 | RL-05 | Production signing key absent (packages unsigned) | medium / high | release owner | D-11/D-12 key ceremony |
 | RL-06 | No load / soak baseline | medium / medium | QA + infra | authorised staging (G21) |
+| RL-07 | No human CISO / security sign-off on the release | medium / high | security owner | review of this threat model and the release candidate |
+
+## 4. Independent security review of the 2026-10-29 changes (CISSP lens, read-only) — outcome
+
+No critical or high finding. Medium/low findings and their fix (all with a regression test):
+
+| # | Finding | Fix | Test |
+|---|---|---|---|
+| 1 | anonymous probing of many paths could flood the refusal log and grow memory | anonymous refusals keyed on ip + status; at most 20 rows per ip per 10 min; bounded maps | `tests/access-denied-log.smoke.test.js` |
+| 2 | stage-gate SoD compared the owner to the username only; owner could be swapped around an approval | owner matched on username, full name or e-mail; owner frozen from approval, sponsor from execution; role changes in the ledger | `tests/project-schedule.test.js`, `tests/ppm-project-lifecycle.smoke.test.js` |
+| 3 | a session token in a refused path could be logged in full | long opaque path segments cut to 8 characters | `tests/access-denied-log.smoke.test.js` |
+| 4 | CSV/XLSX/PPTX exports and share links did not use the frozen publication; publish + freeze not atomic | every format and share links served from `report_publications`; a failed freeze reverts the run to reviewed | `tests/report-release.smoke.test.js` |
+| 5 | STOP switch ignored digests and scheduled publication | `notifications_stop` checked by every engagement job | `tests/alert-outbound-arm.test.js` |
+| 6 | RFI → project not atomic; project deletion not in the ledger | one INSERT carrying `rfi_id` (unique index); deletion recorded with its budget | `tests/ppm-project-lifecycle.smoke.test.js` |
+| 7 | status editable around the stage gates | status follows the stage once out of proposal (409 STATUS_BY_STAGE) | same |
+| 8 | finance-viewer could read every RFI decision trail | RFI history is committee-only | same |
+| 9 | a replayed idempotency key could name another step | key bound to its step (409 otherwise) | `tests/handoffs.smoke.test.js` |
+| 10 | refused correction left an orphan run; one withdrawn run could be corrected twice | checks before generating; one correction per withdrawn run | `tests/report-release.smoke.test.js` |
+| 11 | append-only triggers can be dropped by the table owner; TRUNCATE not blocked | **DBA step** on the production cluster: application role not owner, no TRUNCATE (rehearsed SQL in `tests/audit-grants-rehearsal.test.js`); the hash chain + nightly anchor detect a rewrite meanwhile | — |
+
+This is an AI specialist review, not a human CISO sign-off: the sign-off stays a release gate (RL-07).

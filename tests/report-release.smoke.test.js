@@ -107,5 +107,17 @@ test('G07: the released content is frozen in the database; a withdrawn run is co
   await send('POST', `/api/report-studio/runs/${id}/withdraw`, T.admin, { reason: 'site filter was wrong for this week' });
   const fix = await (await send('POST', '/api/report-studio/templates/site-weekly-pack/generate', T.authorA, { site_id: hounde, supersedes_id: id })).json();
   assert.equal(fix.ok, true, JSON.stringify(fix)); assert.equal(Number(fix.run.supersedes_id), id);
+  const twice = await send('POST', '/api/report-studio/templates/site-weekly-pack/generate', T.authorA, { site_id: hounde, supersedes_id: id });
+  assert.equal(twice.status, 409, 'one correction per withdrawn run');
+  // the CSV of a published run comes from the frozen figures too, and so does a share link
+  const fixId = fix.run.id;
+  assert.equal((await send('POST', `/api/report-studio/runs/${fixId}/review`, T.authorB, { status: 'reviewed' })).status, 200);
+  await markSynced('zoho.requests', 0.5);
+  assert.equal((await send('POST', `/api/report-studio/runs/${fixId}/publish`, T.authorB, {})).status, 200);
+  await rdb.db.prepare("UPDATE report_runs SET html='<p>tampered</p>', figures='[]' WHERE id=?").run(fixId);
+  const csv = await (await get(`/api/report-studio/runs/${fixId}.csv`, T.viewer)).text();
+  assert.ok(csv.split('\n').length > 2, 'CSV rows come from the frozen figures');
+  const share = await (await send('POST', '/api/engagement/share', T.editor, { target_kind: 'report_run', target_key: String(fixId) })).json();
+  assert.ok(!(await (await get(`/share/${share.token}`)).text()).includes('tampered'), 'share link shows the frozen copy');
   assert.ok(await rdb.db.prepare('SELECT 1 FROM report_publications WHERE run_id=?').get(id), 'the withdrawn publication stays as the record');
 });

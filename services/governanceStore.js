@@ -227,6 +227,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   const TASK_STATUSES = ['todo', 'in_progress', 'blocked', 'done', 'cancelled'];
   const SPEND_TYPES = ['capex', 'opex', 'mixed'];
   const FINANCE_FIELDS = ['budget', 'spent', 'currency', 'spend_type'];
+  const ROLE_FIELDS = ['owner', 'sponsor'];
   /** G11/G12/G14 — one append-only, hash-chained ledger for gate passages, financial edits and RFI decisions. */
   async function ppmEvent(e, user) {
     await insert('ppm_events', ['entity', 'entity_id', 'action', 'field', 'old_value', 'new_value', 'currency', 'note', 'actor_id', 'actor', 'at'],
@@ -290,10 +291,17 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
         const before = await P(`SELECT * FROM portfolio_projects WHERE id=?`).get(id);
         if (!before) throw Object.assign(new Error('project not found'), { code: 'NOT_FOUND', status: 404 });
         // the baseline is frozen once the project passed its approval gate (a re-baseline is a decision, not an edit)
-        if (['in_progress', 'on_hold', 'closure', 'closed'].includes(before.stage) && ['baseline_end', 'baseline_start'].some(k => vals[k] !== undefined && String(vals[k] || '') !== String(before[k] || ''))) throw Object.assign(new Error('the baseline is frozen after approval'), { code: 'CONFLICT', status: 409, reason: 'BASELINE_FROZEN' });
+        const gated = ['in_progress', 'on_hold', 'closure', 'closed'].includes(before.stage);
+        const changed = (k) => vals[k] !== undefined && String(vals[k] || '') !== String(before[k] || '');
+        if (gated && ['baseline_end', 'baseline_start'].some(changed)) throw Object.assign(new Error('the baseline is frozen after approval'), { code: 'CONFLICT', status: 409, reason: 'BASELINE_FROZEN' });
+        // separation of duties: once the approval gate is reached, who owns and who sponsors cannot be swapped
+        // around an approval, and the status follows the stage (only a gate passage moves it)
+        if ((before.stage && before.stage !== 'proposal' && changed('owner')) || (gated && changed('sponsor'))) throw Object.assign(new Error('the owner is fixed once the project is submitted for approval, the sponsor once it is approved'), { code: 'CONFLICT', status: 409, reason: 'ROLES_FROZEN' });
+        if (before.stage && before.stage !== 'proposal' && changed('status')) throw Object.assign(new Error('the status follows the stage gates — use the stage action'), { code: 'CONFLICT', status: 409, reason: 'STATUS_BY_STAGE' });
         await updateRow(T.table, id, vals, T.cols);
         // G12 — every financial edit is kept with its old and new value
         const same = (f) => (['budget', 'spent'].includes(f) ? (vals[f] == null ? before[f] == null : before[f] != null && Number(before[f]) === Number(vals[f])) : String(vals[f] ?? '') === String(before[f] ?? ''));
+        for (const f of ROLE_FIELDS) if (changed(f)) await ppmEvent({ entity: 'project', entity_id: id, action: 'role_edit', field: f, old_value: before[f], new_value: vals[f], note: opts.reason || null }, opts.user);
         for (const f of FINANCE_FIELDS) if (vals[f] !== undefined && !same(f)) await ppmEvent({ entity: 'project', entity_id: id, action: 'finance_edit', field: f, old_value: before[f], new_value: vals[f], currency: vals.currency || before.currency, note: opts.reason || null }, opts.user);
         return id;
       }
@@ -324,13 +332,22 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     if (!['accepted', 'scheduled'].includes(r.status)) throw Object.assign(new Error('only an accepted or scheduled request becomes a project'), { code: 'CONFLICT', status: 409 });
     const ex = await P(`SELECT id, key FROM portfolio_projects WHERE rfi_id=?`).get(Number(rfiId));
     if (ex) throw Object.assign(new Error(`request already became project ${ex.key}`), { code: 'CONFLICT', status: 409, project_id: Number(ex.id) });
-    const pid = await upsertPortfolio('project', { objective_id: body.objective_id, key: body.key, name: body.name || r.title, owner: body.owner, site_id: r.site_id, charter: body.charter || r.problem, status: 'planned' }, { user });
-    await P(`UPDATE portfolio_projects SET rfi_id=? WHERE id=?`).run(Number(rfiId), pid);
+    // one INSERT carries the link: a concurrent second conversion hits the unique index and leaves nothing behind
+    const vals = normalise('project', { objective_id: body.objective_id, key: body.key, name: body.name || r.title, owner: body.owner, site_id: r.site_id, charter: body.charter || r.problem, status: 'planned' });
+    for (const k of ['objective_id', 'key', 'name']) if (vals[k] == null || vals[k] === '') throw Object.assign(new Error(`${k} is required`), { code: 'INVALID' });
+    let pid;
+    try { pid = await insert('portfolio_projects', [...Object.keys(vals), 'rfi_id', 'created_at', 'updated_at'], [...Object.values(vals), Number(rfiId), now(), now()]); }
+    catch (e) { if (/uq_portfolio_projects_rfi|unique/i.test(String(e.message))) throw Object.assign(new Error('request already became a project'), { code: 'CONFLICT', status: 409 }); throw e; }
     if (r.status === 'accepted') await updateRow('rfi_requests', rfiId, { status: 'scheduled' }, ['status']);
     await ppmEvent({ entity: 'rfi', entity_id: rfiId, action: 'to_project', field: 'project_id', old_value: null, new_value: pid, note: body.key }, user);
     return pid;
   }
-  async function removePortfolio(kind, id) { const T = TABLES[kind]; if (!T) throw new Error('unknown portfolio entity'); await P(`DELETE FROM ${T.table} WHERE id=?`).run(Number(id)); }
+  async function removePortfolio(kind, id, opts = {}) {
+    const T = TABLES[kind]; if (!T) throw new Error('unknown portfolio entity');
+    // a deleted project takes its budget with it: the ledger keeps what was removed and by whom
+    if (kind === 'project') { const b = await P(`SELECT key, budget, spent, currency, stage FROM portfolio_projects WHERE id=?`).get(Number(id)); if (b) await ppmEvent({ entity: 'project', entity_id: id, action: 'deleted', field: 'budget', old_value: b.budget, new_value: null, currency: b.currency, note: `${b.key} (stage ${b.stage}, spent ${b.spent == null ? 'unknown' : b.spent})` }, opts.user); }
+    await P(`DELETE FROM ${T.table} WHERE id=?`).run(Number(id));
+  }
 
   async function addMinutesHistory(sessionId, action, actorId, reason) {
     await insert('minutes_history', ['session_id', 'action', 'actor_id', 'at', 'reason'], [Number(sessionId), String(action), actorId == null ? null : Number(actorId), now(), str(reason, 1000)]);

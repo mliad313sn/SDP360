@@ -232,7 +232,7 @@
 .edv-widget.rag-red { border-top:4px solid var(--rag-red,#B91C1C); } .edv-widget.rag-na { border-top:4px solid #cfd6e0; }
 /* "not measured" is quiet, never mistaken for a value (design review R5) */
 .edv-widget.edv-quiet { border-top:1px solid var(--color-border,#e4e8ee); background:#fafbfc; }
-.edv-widget.edv-quiet .edv-kpi-value { color:#9AA4B2; font-weight:600; }
+.edv-widget.edv-quiet .edv-kpi-value { color:#6b7785; font-weight:600; }
 .edv-ragline .bar-none { background:transparent; border:1px dashed #d7dde5; }
 .edv-unmeasured summary { cursor:pointer; font-size:12px; color:var(--color-text-muted,#6b7785); padding:6px 0; }
 .edv-widget canvas { max-height:220px; }
@@ -257,3 +257,8 @@
   .edv-kpi-value { font-size:26px; }
 }
 @media (prefers-reduced-motion: reduce) { .edv-widget { transition:none; } }
+
+/* G-design review: a stale source keeps its number, loses its colour, and says so */
+.edv-widget.edv-stale { border-top:3px dashed #9AA4B2; }
+.edv-stale-badge { display:inline-block; margin:4px 0 2px; padding:2px 8px; border-radius:10px; background:#F1F3F5; color:#4A5563; font-size:12px; }
+.edv-rag-dot.rag-stale { background:#E5E7EB; color:#4A5563; }

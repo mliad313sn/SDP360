@@ -90,7 +90,7 @@
   .status-band .sb-note{font-size:.86rem;font-weight:600;opacity:.9;margin-left:auto}
   .status-unknown{background:#F1F3F5;border-color:#D7DCE1;color:#4A5563}
   .status-operational{background:var(--color-success-bg,#E7F5EA);border-color:#bfe3c6;color:var(--edv-green-dark,#158D3E)}
-  .status-degraded{background:var(--color-warning-bg,#FEF3C7);border-color:#f4dd9a;color:var(--color-warning,#D97706)}
+  .status-degraded{background:var(--color-warning-bg,#FEF3C7);border-color:#f4dd9a;color:#B45309}
   .status-major{background:var(--color-danger-bg,#FEEAEE);border-color:#f4c2ce;color:var(--edv-red,#D90038)}
 
   /* ── Major-incident detail cards ───────────────────────────────── */
@@ -136,8 +136,9 @@
   .site-name{font-weight:700;color:var(--color-text-strong,#2A2A2A)}
   .site-code{font-size:.74rem;color:var(--color-text-muted,#7B7B7B);font-weight:600}
   .chip{display:inline-block;padding:2px 10px;border-radius:20px;font-size:.74rem;font-weight:700}
-  .chip-degraded{background:var(--color-warning-bg,#FEF3C7);color:var(--color-warning,#D97706)}
+  .chip-degraded{background:var(--color-warning-bg,#FEF3C7);color:#B45309}
   .chip-major{background:var(--color-danger-bg,#FEEAEE);color:var(--edv-red,#D90038)}
+  .chip-unknown{background:#F1F3F5;color:#4A5563}
   .chip-operational{background:var(--color-success-bg,#E7F5EA);color:var(--edv-green-dark,#158D3E)}
   .all-ok{display:flex;align-items:center;gap:10px;padding:8px 4px;color:var(--edv-green-dark,#158D3E);font-weight:700;font-size:.95rem}
 
@@ -508,7 +509,7 @@
   }
 
   function statusChip(level) {
-    const l = level || 'operational';
+    const l = level || 'unknown';   // no status is unknown, never "operational"
     const label = l.charAt(0).toUpperCase() + l.slice(1);
     return '<span class="chip chip-' + esc(l) + '">' + esc(label) + '</span>';
   }

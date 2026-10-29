@@ -33,9 +33,11 @@ after(() => { try { server && server.close(); } catch {} });
 test('an anonymous call is recorded once per window, with the count', async () => {
   for (let i = 0; i < 3; i++) assert.strictEqual((await fetch(base + '/api/governance/portfolio')).status, 401);
   await wait();
-  const r = (await rows('access_unauthenticated')).filter((x) => x.target === 'GET /api/governance/portfolio');
-  assert.strictEqual(r.length, 1, 'one row per window, not one per call');
-  assert.strictEqual(r[0].actor, 'anonymous');
+  for (let i = 0; i < 5; i++) await fetch(base + '/api/probe-' + i);   // a prober walking paths is still ONE source
+  await wait();
+  const r = (await rows('access_unauthenticated')).filter((x) => x.actor === 'anonymous');
+  assert.strictEqual(r.length, 1, 'one row per source and window, not one per call or per path');
+  assert.ok(String(r[0].details).includes('/api/governance/portfolio'), 'the first path is kept in the details');
 });
 
 test('a signed-in user refused by a role gate is recorded with their name and a risk flag', async () => {
@@ -46,4 +48,12 @@ test('a signed-in user refused by a role gate is recorded with their name and a 
   assert.strictEqual(r.length, 1);
   assert.strictEqual(Number(r[0].risk), 1);
   assert.ok(!JSON.stringify(r[0]).includes(viewerTok), 'the session token is never logged');
+});
+
+test('a token in the path is cut to 8 characters before it is logged', async () => {
+  const tok = 'a'.repeat(8) + 'b'.repeat(56);
+  assert.strictEqual((await fetch(base + '/api/reports/sessions/' + tok, { method: 'DELETE', headers: { 'x-report-token': viewerTok } })).status, 403);
+  await wait();
+  const all = JSON.stringify(await rows('access_denied'));
+  assert.ok(!all.includes(tok), 'full token never stored'); assert.ok(all.includes('aaaaaaaa…'));
 });

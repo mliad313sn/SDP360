@@ -41,3 +41,11 @@ test('STOP switch wins over the arm flag', async () => {
   await h.run();
   assert.deepStrictEqual([h.calls.notify, h.calls.mail, h.calls.post], [1, 0, 0]);
 });
+
+test('the STOP switch also halts digests and scheduled publication', () => {
+  const { stopped } = require('../services/engagementJobs');
+  assert.strictEqual(stopped({ notifications_stop: '1' }), true);
+  assert.strictEqual(stopped({}), false);
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'services', 'engagementJobs.js'), 'utf8');
+  assert.match(src, /digest: async[^\n]*if \(stopped\(cfg\)\)/); assert.match(src, /publish: async[^\n]*if \(stopped\(cfg\)\)/);
+});

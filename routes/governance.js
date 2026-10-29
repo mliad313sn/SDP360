@@ -383,12 +383,13 @@ module.exports = function governanceRoutes(deps) {
     try { if (!canSeeMoney(req.reportUser)) return res.status(403).json({ ok: false, error: 'committee, admin or finance-viewer role required' }); res.json({ ok: true, events: await store.ppmEvents(entity, req.params.id) }); } catch (e) { fail(res, e); }
   };
   router.get('/api/governance/portfolio/project/:id/history', requireReportSession, historyOf('project'));
-  router.get('/api/governance/portfolio/rfi/:id/history', requireReportSession, historyOf('rfi'));
+  // an RFI's decision trail is a governance record: committee only (finance-viewer reads project money, not requests)
+  router.get('/api/governance/portfolio/rfi/:id/history', requireReportSession, requireCommittee, historyOf('rfi'));
   router.post('/api/governance/rfi/:id/to-project', requireReportSession, requireCommittee, json, async (req, res) => {
     try { const pid = await store.rfiToProject(req.params.id, req.body || {}, { user: req.reportUser }); log(req, 'rfi_to_project', `rfi:${req.params.id}`, { project_id: pid }); res.json({ ok: true, project_id: pid }); }
     catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.project_id ? { project_id: e.project_id } : {}) }); }
   });
-  router.delete('/api/governance/portfolio/:kind/:id', requireReportSession, requireCommittee, async (req, res) => { try { await store.removePortfolio(req.params.kind, req.params.id); log(req, 'portfolio_removed', `${req.params.kind}:${req.params.id}`); res.json({ ok: true }); } catch (e) { fail(res, e); } });
+  router.delete('/api/governance/portfolio/:kind/:id', requireReportSession, requireCommittee, async (req, res) => { try { await store.removePortfolio(req.params.kind, req.params.id, { user: req.reportUser }); log(req, 'portfolio_removed', `${req.params.kind}:${req.params.id}`); res.json({ ok: true }); } catch (e) { fail(res, e); } });
   router.get('/api/governance/portfolio/report.html', requireReportSession, async (req, res) => {
     try { const v0 = await portfolioView(); const v = canSeeMoney(req.reportUser) ? v0 : stripMoney(v0); const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
       const month = new Date().toISOString().slice(0, 7);

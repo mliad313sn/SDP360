@@ -72,7 +72,8 @@ function makeHandoffStore(db, { now = () => new Date().toISOString() } = {}) {
     // G10 — a repeated call with the same idempotency key (double tap, retry after a dropped connection) returns
     // the outcome of the first one instead of a 409 or a second transition.
     const key = idemKey && /^[A-Za-z0-9_-]{8,64}$/.test(String(idemKey)) ? String(idemKey) : null;
-    if (key && actor && (await P(`SELECT 1 AS x FROM handoff_events WHERE handoff_id=? AND actor_id=? AND details LIKE ?`).get(Number(h.id), Number(actor.id), `%"idem":"${key.replace(/_/g, '\\_')}"%`))) return { ...(await get(h.id)), replayed: true };
+    const prior = key && actor ? await P(`SELECT to_status FROM handoff_events WHERE handoff_id=? AND actor_id=? AND details LIKE ?`).get(Number(h.id), Number(actor.id), `%"idem":"${key.replace(/_/g, '\\_')}"%`) : null;
+    if (prior) { if (prior.to_status !== to) throw typed('CONFLICT', 'this idempotency key was already used for another step', 409); return { ...(await get(h.id)), replayed: true }; }
     const c = L.check(h, to, actor, { reason, policy });
     if (c) throw typed(c.code, c.error, c.status);
     const t = now(), sets = { status: to, last_reason: str(reason, 1000) };

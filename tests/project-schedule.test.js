@@ -60,3 +60,10 @@ test('stage gates: order, charter, baseline, sponsor, separation of duties, clos
   assert.strictEqual(S.stageGate({ stage: 'closure' }, 'closed', {}, { openRisksHigh: 1 }).code, 'GATE_OPEN_RISKS');
   assert.strictEqual(S.stageGate({ stage: 'closed' }, 'in_progress', {}).code, 'STAGE_ORDER');
 });
+
+test('owner identity for the approval gate: username, full name or e-mail all count', () => {
+  const b = { stage: 'approval', owner: 'Jean Dupont', charter: 'Replace the WAN at two mine sites', sponsor: 'cio', start_date: '2027-01-01', end_date: '2027-06-30', baseline_end: '2027-06-30' };
+  assert.strictEqual(S.stageGate(b, 'in_progress', { username: 'jdupont', full_name: 'Jean Dupont' }).code, 'GATE_SOD');
+  assert.strictEqual(S.stageGate({ ...b, owner: 'jean.dupont@example.org' }, 'in_progress', { username: 'jdupont', email: 'Jean.Dupont@example.org' }).code, 'GATE_SOD');
+  assert.strictEqual(S.stageGate(b, 'in_progress', { username: 'boss', full_name: 'Awa Traore' }), null);
+});

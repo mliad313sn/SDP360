@@ -1056,19 +1056,27 @@ const _dashKeyGate = require('./services/viewLog').makeOncePerDay();   // EX-02:
 // G02 — every refused API call (401/403) lands in the security log, at most once per actor + route per
 // 10 minutes (a scripted probe must not flood the log; the count of refusals is in the details).
 const _denyGate = require('./services/viewLog').makeOncePerDay();
-const _denyCount = new Map();
+const _denyCount = new Map();      // refusals seen per key in the current 10-minute bucket
+const _denyWrites = new Map();     // log rows written per source ip in the current bucket
+let _denyBucket = '';
+// Long opaque path segments (session tokens in /sessions/:token, share tokens…) are cut to 8 characters
+const _redactPath = (p) => String(p).replace(/[A-Za-z0-9_-]{24,}/g, (m) => m.slice(0, 8) + '…').slice(0, 200);
 app.use('/api/', (req, res, next) => {
   res.on('finish', () => {
     if (res.statusCode !== 401 && res.statusCode !== 403) return;
     try {
-      const actor = (req.reportUser && req.reportUser.username) || 'anonymous';
-      const target = req.method + ' /api' + req.path;
-      const key = actor + ' ' + target + ' ' + (req.ip || '');
-      _denyCount.set(key, (_denyCount.get(key) || 0) + 1);
-      if (_denyCount.size > 5000) _denyCount.clear();
       const bucket = new Date().toISOString().slice(0, 15);   // 10-minute bucket
-      if (!_denyGate(key, bucket) || !rdb || !rdb.logEvent) return;
-      rdb.logEvent({ category: 'api', action: res.statusCode === 401 ? 'access_unauthenticated' : 'access_denied', actor, target, ip: req.ip, risk: res.statusCode === 403 ? 1 : 0, details: { status: res.statusCode, refusals_seen: _denyCount.get(key) } });
+      if (bucket !== _denyBucket) { _denyBucket = bucket; _denyCount.clear(); _denyWrites.clear(); }
+      const ip = req.ip || '';
+      const actor = (req.reportUser && req.reportUser.username) || 'anonymous';
+      const target = req.method + ' /api' + _redactPath(req.path);
+      // an anonymous prober is one source, whatever paths it tries: key on ip + status, the path goes in details
+      const key = actor === 'anonymous' ? 'anon ' + ip + ' ' + res.statusCode : actor + ' ' + target + ' ' + ip;
+      if (_denyCount.size < 10000 || _denyCount.has(key)) _denyCount.set(key, (_denyCount.get(key) || 0) + 1);
+      const written = _denyWrites.get(ip) || 0;
+      if (written >= 20 || _denyGate.size() >= 10000 || !_denyGate(key, bucket) || !rdb || !rdb.logEvent) return;
+      _denyWrites.set(ip, written + 1);
+      rdb.logEvent({ category: 'api', action: res.statusCode === 401 ? 'access_unauthenticated' : 'access_denied', actor, target: actor === 'anonymous' ? 'any path' : target, ip, risk: res.statusCode === 403 ? 1 : 0, details: { status: res.statusCode, path: target, refusals_seen: _denyCount.get(key) || 1 } });
     } catch (_) { /* a log never breaks a request */ }
   });
   next();

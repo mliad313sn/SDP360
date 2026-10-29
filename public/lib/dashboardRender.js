@@ -40,9 +40,11 @@
   }
 
   /** Coloured dot that does not rely on colour alone: a symbol and an accessible name (design review R1). */
-  function ragDot(rag) {
+  function ragDot(rag, state) {
     var c = ragClass(rag); var sym = { 'rag-green': '✓', 'rag-amber': '!', 'rag-red': '✕', 'rag-na': '' }[c];
     var name = { 'rag-green': 'green', 'rag-amber': 'amber', 'rag-red': 'red', 'rag-na': 'not measured' }[c];
+    // a value from a stale source keeps its number but not its colour: say "stale", never "not measured"
+    if (state === 'STALE' || state === 'UNKNOWN') { sym = '–'; name = state === 'UNKNOWN' ? 'source never synced, colour withheld' : 'stale source, colour withheld'; c = 'rag-na rag-stale'; }
     return '<span class="edv-rag-dot ' + c + '" role="img" aria-label="' + name + '">' + sym + '</span>';
   }
   /** Worst first (red, amber, green), then by value in the bad direction; not measured last. */
@@ -67,15 +69,22 @@
   function kpiContext(d) {
     if (!d || d.value == null) return '';
     var parts = [];
-    if (d.target != null) parts.push('<span class="edv-target ' + ragClass(d.vs_target && d.vs_target.rag) + '">target ' + formatValue(d.target, d.unit) + (d.target_source === 'site' ? ' (site)' : '') + '</span>');
+    var stale = !!d.freshness && d.freshness !== 'FRESH';
+    if (d.target != null) parts.push('<span class="edv-target ' + (stale ? 'rag-na' : ragClass(d.vs_target && d.vs_target.rag)) + '">target ' + formatValue(d.target, d.unit) + (d.target_source === 'site' ? ' (site)' : '') + '</span>');
     if (d.previous && d.previous.delta != null) {
       var dl = Number(d.previous.delta), good = dl === 0 ? null : (d.higher_is_better !== false ? dl > 0 : dl < 0);
       var unit = String(d.unit || '').toLowerCase() === '%' ? ' pts' : '';
-      parts.push('<span class="edv-delta ' + (good == null ? 'flat' : good ? 'good' : 'bad') + '">' + (dl > 0 ? '▲ +' : dl < 0 ? '▼ ' : '= ') + (dl === 0 ? '' : (Math.round(Math.abs(dl) * 10) / 10).toLocaleString('en-GB', { maximumFractionDigits: 1 })) + unit + ' vs ' + escapeHtml(shortLabel(d.previous.label)) + '</span>');
+      parts.push('<span class="edv-delta ' + (stale || good == null ? 'flat' : good ? 'good' : 'bad') + '">' + (dl > 0 ? '▲ +' : dl < 0 ? '▼ ' : '= ') + (dl === 0 ? '' : (Math.round(Math.abs(dl) * 10) / 10).toLocaleString('en-GB', { maximumFractionDigits: 1 })) + unit + ' vs ' + escapeHtml(shortLabel(d.previous.label)) + '</span>');
     }
     return parts.length ? '<div class="edv-kpi-context">' + parts.join(' · ') + '</div>' : '';
   }
 
+  /** Badge under a value whose source is not current (design review #1). */
+  function staleBadge(d) {
+    if (!d || !d.freshness || d.freshness === 'FRESH') return '';
+    var was = d.rag_if_fresh && String(d.rag_if_fresh).toUpperCase() !== 'NA' ? ' · was ' + escapeHtml(String(d.rag_if_fresh).toLowerCase()) + ' when last current' : '';
+    return '<div class="edv-stale-badge">' + (d.freshness === 'UNKNOWN' ? 'Source never synced — colour withheld' : 'Source not current — colour withheld') + was + '</div>';
+  }
   function pad2(n) { return (n < 10 ? '0' : '') + n; }
   function isoWeek(d) {
     var t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
@@ -132,5 +141,5 @@
     return s.split(/\n{2,}/).map(function (p) { return '<p>' + p.replace(/\n/g, '<br>') + '</p>'; }).join('');
   }
 
-  return { gridStyle, formatValue, ragClass, ragDot, kpiContext, sortRows, shortLabel, windowSeries, trendLength, widgetDataPlan, summarizeGrid, escapeHtml, miniMarkdown, isoWeek };
+  return { gridStyle, formatValue, ragClass, ragDot, kpiContext, staleBadge, sortRows, shortLabel, windowSeries, trendLength, widgetDataPlan, summarizeGrid, escapeHtml, miniMarkdown, isoWeek };
 });

@@ -59,6 +59,11 @@ test('witness project end to end (fictitious figures only)', async () => {
   assert.equal(cyc.status, 400); assert.equal(cyc.j.code, 'DEP_CYCLE');
   assert.equal((await put('task', T.pmo, { project_id: pid, name: 'x', depends_on: [999999] })).j.code, 'DEP_MISSING');
 
+  // owner identity: the full name counts as well as the username
+  const own = await put('project', T.pmo, { objective_id: obj, key: 'WIT-SOD', name: 'sod', owner: 'pp_cio', charter: 'Owner identity check for the approval gate', sponsor: 'CIO', start_date: '2027-01-01', end_date: '2027-02-01', baseline_end: '2027-02-01' });
+  await send('POST', `/api/governance/portfolio/project/${own.j.id}/stage`, T.pmo, { to: 'approval' });
+  assert.equal((await send('POST', `/api/governance/portfolio/project/${own.j.id}/stage`, T.cio, { to: 'in_progress' })).j.code, 'GATE_SOD');
+
   // stage gates
   let st = await send('POST', `/api/governance/portfolio/project/${pid}/stage`, T.pmo, { to: 'approval' });
   assert.equal(st.status, 200, 'the charter was carried over from the request problem');
@@ -67,6 +72,10 @@ test('witness project end to end (fictitious figures only)', async () => {
   assert.equal(st.status, 409); assert.equal(st.j.code, 'GATE_SOD', 'the owner cannot approve their own project');
   st = await send('POST', `/api/governance/portfolio/project/${pid}/stage`, T.cio, { to: 'in_progress' });
   assert.equal(st.status, 200); assert.equal(st.j.project.stage, 'in_progress');
+  const sw = await put('project', T.cio, { id: pid, owner: 'pp_cio' });
+  assert.equal(sw.status, 409); assert.equal(sw.j.code, 'ROLES_FROZEN', 'the owner cannot be swapped around an approval');
+  const stt = await put('project', T.pmo, { id: pid, status: 'done' });
+  assert.equal(stt.j.code, 'STATUS_BY_STAGE', 'status only moves through a gate');
   const fr = await put('project', T.pmo, { id: pid, baseline_end: '2027-05-31' });
   assert.equal(fr.status, 409); assert.equal(fr.j.code, 'BASELINE_FROZEN');
   await put('project', T.pmo, { id: pid, spent: 30000, reason: 'PO-123 first invoice' });
@@ -76,6 +85,7 @@ test('witness project end to end (fictitious figures only)', async () => {
   const spent = ph.find(e => e.field === 'spent'); assert.deepEqual([spent.old_value, Number(spent.new_value), spent.note], [null, 30000, 'PO-123 first invoice']);
   assert.ok(ph.some(e => e.action === 'stage' && e.new_value === 'in_progress' && e.actor === 'pp_cio'));
   assert.equal((await send('GET', `/api/governance/portfolio/project/${pid}/history`, T.viewer)).status, 403);
+  assert.equal((await send('GET', `/api/governance/portfolio/rfi/${rfi.id}/history`, T.fin)).status, 403, 'finance reads money, not request decisions');
   const vv = (await send('GET', '/api/governance/portfolio', T.viewer)).j; const vp = vv.projects.find(p => p.id === pid);
   assert.equal(vv.money_hidden, true); assert.equal(vp.budget, undefined);
   const vf = (await send('GET', '/api/governance/portfolio', T.fin)).j; assert.equal(vf.projects.find(p => p.id === pid).budget, 120000);
