@@ -85,10 +85,13 @@ const INCIDENT_UDF_VARIANTS = {
 const INCIDENT_UDF_FIELDS = ['rca', 'ca', 'pir', 'll'];
 
 // True iff the trimmed value of ANY variant key on mi is non-empty.
+// UAT ITSM-08: "PIR Required" is a yes/no flag — "No", "N/A" or "Non" is NOT a completed PIR. Same rule
+// as reports-db (major-incident register), so the two screens agree.
+const _NO_VALUE = /^(no|non|n\/?a|none|-|—)$/i;
 function _fieldFilled(mi, variants) {
   if (!mi || !variants) return false;
   for (const k of variants) {
-    if (mi[k] != null && String(mi[k]).trim().length) return true;
+    if (mi[k] != null && String(mi[k]).trim().length && !_NO_VALUE.test(String(mi[k]).trim())) return true;
   }
   return false;
 }

@@ -41,7 +41,9 @@ module.exports = function obligationRoutes(deps) {
         siteActions = buildSiteActions({ meetings, inspection, report, asOf });
         if (cmt) { const B = require('../services/commitmentBackfill'); B.attachCommitments(siteActions, await cmt.linksFor(B.hubPairs(siteActions))); }
       } catch (_) { siteActions = null; }   // not read — said so, never "nothing owed"
-      res.json({ ok: true, site_id: site, ...require('../services/obligations').compose({ commitments, handoffs, siteActions, asOf }) });
+      let sessionActions = null;
+      try { sessionActions = await require('../services/governanceStore').makeGovernanceStore(rdb().pgHandle()).openSessionActions({ siteId: site }); } catch (_) { sessionActions = null; }
+      res.json({ ok: true, site_id: site, ...require('../services/obligations').compose({ commitments, handoffs, siteActions, sessionActions, asOf }) });
     } catch (e) { fail(res, e, undefined, { ok: false }); }
   });
   return router;

@@ -21,13 +21,18 @@ function _cookie(req, name) {
 function middleware({ getRdb }) {
   return async (req, res, next) => {
     if (isAllowed(req.path)) return next();
-    const token = req.headers['x-report-token'] || _cookie(req, 'report_token');
+    // UAT 2026-10-29 (F-01): check EVERY token the request carries. The session that the routes use is the
+    // cookie first (services/sessionAuth.sessionToken); checking the header first let a business-only
+    // session through with a bogus `x-report-token` next to its real cookie.
+    const tokens = [...new Set([_cookie(req, 'report_token'), req.headers['x-report-token']].filter(Boolean))];
     const rdb = getRdb();
-    if (!token || !rdb) return next();
-    let user = null;
-    try { user = await rdb.validateSession(token); } catch (e) { user = null; }
-    if (user && isBusinessOnly(user.roles || [])) {
-      return res.status(403).json({ error: 'Your account gives access to the site view only.' });
+    if (!tokens.length || !rdb) return next();
+    for (const token of tokens) {
+      let user = null;
+      try { user = await rdb.validateSession(token); } catch (e) { user = null; }
+      if (user && isBusinessOnly(user.roles || [])) {
+        return res.status(403).json({ error: 'Your account gives access to the site view only.' });
+      }
     }
     next();
   };

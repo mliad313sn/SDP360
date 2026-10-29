@@ -12,7 +12,7 @@ const OPEN_HANDOFF = new Set(['requested', 'accepted', 'blocked', 'escalated', '
 const day = (v) => (v ? String(v).slice(0, 10) : null);
 const overdue = (due, asOf) => !!(due && day(due) < day(asOf));
 
-function compose({ commitments = null, handoffs = null, siteActions = null, asOf }) {
+function compose({ commitments = null, handoffs = null, siteActions = null, sessionActions = null, asOf }) {
   const items = [];
   const cmtIds = new Set();
   for (const c of commitments || []) {
@@ -41,10 +41,15 @@ function compose({ commitments = null, handoffs = null, siteActions = null, asOf
         link: k === 'report' ? (it.report_id ? `reports.html?report=${it.report_id}` : null) : k === 'inspection' ? 'inspection-actions.html' : 'meetings-actions.html' });
     }
   }
+  // UAT (PMO F2): actions agreed in a governance session (cockpit)
+  for (const a of sessionActions || []) {
+    items.push({ register: 'session_action', id: Number(a.id), ref: a.decision_ref || null, title: a.title, owner: a.owner || null, due_date: day(a.due_date), status: a.status,
+      overdue: overdue(a.due_date, asOf), link: `cockpit.html?session=${a.session_id}`, cadence: a.cadence_name || null });
+  }
   items.sort((a, b) => (Number(b.overdue) - Number(a.overdue)) || String(a.due_date || '9999').localeCompare(String(b.due_date || '9999')));
   const by = {}; for (const x of items) { by[x.register] = by[x.register] || { open: 0, overdue: 0 }; by[x.register].open++; if (x.overdue) by[x.register].overdue++; }
   return { as_of: day(asOf), items, totals: { open: items.length, overdue: items.filter((x) => x.overdue).length, by_register: by },
     // null = that register was not read (switched off / unavailable) — never "nothing owed"
-    registers: { commitments: commitments == null ? null : 'read', handoffs: handoffs == null ? null : 'read', actions: siteActions == null ? null : 'read' } };
+    registers: { commitments: commitments == null ? null : 'read', handoffs: handoffs == null ? null : 'read', actions: siteActions == null ? null : 'read', session_actions: sessionActions == null ? null : 'read' } };
 }
 module.exports = { compose };

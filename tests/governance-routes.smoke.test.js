@@ -79,7 +79,9 @@ test('live: start, stamp items, notes, decisions (chair ok, plain editor of the 
   const m = await get(`/api/governance/sessions/${sessId}/minutes.html`, viewer); assert.equal(m.status, 200); const html = await m.text(); assert.ok(html.includes(d.decision.ref)); assert.ok(html.includes('Order UPS')); assert.ok(html.includes('SLA discussed'));
   assert.equal((await send('POST', `/api/governance/sessions/${sessId}/start`, editor)).status, 409, 'a closed session cannot restart');
   const dec = await (await get('/api/governance/decisions?status=open', viewer)).json(); assert.ok(dec.decisions.some(x => x.ref === d.decision.ref));
-  assert.equal((await send('PUT', `/api/governance/decisions/${d.decision.id}`, editor, { status: 'done' })).status, 403);
+  // UAT 2026-10-29 (PMO F8): the chair follows the decision's status between meetings; its content stays a committee edit
+  assert.equal((await send('PUT', `/api/governance/decisions/${d.decision.id}`, editor, { title: 'rewritten' })).status, 403);
+  assert.equal((await send('PUT', `/api/governance/decisions/${d.decision.id}`, editor, { status: 'done' })).status, 200);
   assert.equal((await (await send('PUT', `/api/governance/decisions/${d.decision.id}`, member, { status: 'done' })).json()).decision.status, 'done');
   assert.equal((await get('/api/governance/overview', admin)).status, 200);
 });

@@ -63,3 +63,12 @@ test('2.0: dashboards and metrics are outside the business-only view; Site Aware
 test('an account holding another role besides site-business is not restricted by this guard', async () => {
   assert.equal((await call('GET', '/api/meetings/list', tok['bo-mixed'])).status, 200);
 });
+
+test('UAT F-01: a bogus x-report-token next to a business-only cookie does not open the API', async () => {
+  for (const p of ['/api/handoffs', '/api/meetings/list', '/api/dashboards', '/api/reports', '/api/inspection/list', '/api/assets/inventory']) {
+    const r = await fetch(base + p, { headers: { cookie: 'report_token=' + tok['bo-site'], 'x-report-token': 'not-a-real-token' } });
+    assert.equal(r.status, 403, p);
+  }
+  const w = await fetch(base + '/api/reports/ensure', { method: 'POST', headers: { 'Content-Type': 'application/json', cookie: 'report_token=' + tok['bo-site'], 'x-report-token': 'bogus' }, body: '{}' });
+  assert.equal(w.status, 403);
+});

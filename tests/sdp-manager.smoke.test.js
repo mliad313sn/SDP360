@@ -104,3 +104,20 @@ test('support bundle carries env KEYS only, never a value', async () => {
     assert.ok(!(await f.async('string')).includes('TopSecret42'), name);
   }
 });
+
+test('UAT EA-03: the first update of a v1 installation (no manifest) keeps the whole tree — a failed update never deletes the application', async () => {
+  const work = tmp(), inst = path.join(work, 'app');
+  fs.mkdirSync(path.join(inst, 'public'), { recursive: true }); fs.mkdirSync(path.join(inst, 'data'), { recursive: true }); fs.mkdirSync(path.join(inst, 'node_modules', 'x'), { recursive: true });
+  fs.writeFileSync(path.join(inst, 'server.js'), 'v1-server'); fs.writeFileSync(path.join(inst, 'public', 'index.html'), 'v1-page');
+  fs.writeFileSync(path.join(inst, 'only-in-v1.js'), 'old'); fs.writeFileSync(path.join(inst, '.env'), 'PORT=3456');
+  fs.writeFileSync(path.join(inst, 'data', 'keep.db'), 'data'); fs.writeFileSync(path.join(inst, 'node_modules', 'x', 'i.js'), 'dep');
+  assert.deepEqual(mgr.listTree(inst).sort(), ['only-in-v1.js', 'public/index.html', 'server.js'], 'install state is never part of the rollback point');
+  const v2 = await makePackage(work, '2.0.1', { 'server.js': 'v2', 'public/index.html': 'v2-page', 'new.js': 'n', 'package-lock.json': 'l' });
+  await assert.rejects(mgr.applyPackage(v2, { dir: inst, ...OFF, afterCopy: () => { throw new Error('probe failed'); } }), (e) => e.rolledBack === true);
+  assert.equal(read(inst, 'server.js'), 'v1-server');
+  assert.equal(read(inst, 'public/index.html'), 'v1-page');
+  assert.equal(read(inst, 'only-in-v1.js'), 'old');
+  assert.equal(fs.existsSync(path.join(inst, 'new.js')), false);
+  assert.equal(fs.existsSync(path.join(inst, 'manifest.json')), false, 'still a v1 installation');
+  assert.equal(read(inst, '.env'), 'PORT=3456'); assert.equal(read(inst, 'data/keep.db'), 'data');
+});

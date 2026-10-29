@@ -270,7 +270,7 @@ async function _getMeetingPg(id) {
   return { header, projects, issues, actions, updates, attachments };
 }
 async function _getMeetingStatusPg(id) {
-  const row = await pgHandle().prepare('SELECT status, site_code FROM md_meetings WHERE id = ?').get(id);
+  const row = await pgHandle().prepare('SELECT status, site_code, department_head FROM md_meetings WHERE id = ?').get(id);
   return row || null;
 }
 async function _getMeetingIdByReferencePg(reference) {
@@ -583,28 +583,34 @@ const _SIGN_COLS = { dept_head: 'dept_head_signed_at', site_it: 'site_it_signed_
  *
  * @param {number} id      meeting id
  * @param {string} which   'dept_head' | 'site_it'
- * @param {object} [opts]  { user } — reserved for future audit; NOT stored (no
- *                         provenance / audit table by design).
+ * @param {object} [opts]  { user, onBehalfReason } — the signer is stored (UAT F-02), and the reason
+ *                         when an editor stamps the department head's signature for them.
  * @returns {{dept_head_signed_at, site_it_signed_at}} the post-update state.
  */
 function signMeeting(id, which, opts = {}) {
   const col = _SIGN_COLS[which];
   if (!col) throw new Error(`Invalid which "${which}" — expected dept_head|site_it`);
-  return _signMeetingPg(id, col);
+  return _signMeetingPg(id, col, which, opts);
 }
-async function _signMeetingPg(id, col) {
+async function _signMeetingPg(id, col, which, opts = {}) {
   const H   = pgHandle();
   const mid = parseInt(id, 10);
   const exist = await H.prepare('SELECT id FROM md_meetings WHERE id = ?').get(mid);
   if (!exist) throw new Error('Meeting not found');
   const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
+  // UAT F-02: who stamped it, and on whose behalf (first stamp wins, like the timestamp)
+  const u = opts.user || null;
+  const by = u ? `${u.full_name || u.username} (${u.username})`.slice(0, 200) : null;
+  const behalf = opts.onBehalfReason ? String(opts.onBehalfReason).slice(0, 500) : null;
   await H.prepare(`
     UPDATE md_meetings
-       SET ${col} = COALESCE(${col}, @now),
+       SET ${which}_signed_by = CASE WHEN ${col} IS NULL THEN @by ELSE ${which}_signed_by END,
+           ${which}_signed_on_behalf = CASE WHEN ${col} IS NULL THEN @behalf ELSE ${which}_signed_on_behalf END,
+           ${col} = COALESCE(${col}, @now),
            updated_at = now()
      WHERE id = @id
-  `).run({ now, id: mid });
-  return H.prepare('SELECT dept_head_signed_at, site_it_signed_at FROM md_meetings WHERE id = ?').get(mid);
+  `).run({ now, id: mid, by, behalf });
+  return H.prepare(`SELECT dept_head_signed_at, site_it_signed_at, dept_head_signed_by, site_it_signed_by, dept_head_signed_on_behalf, site_it_signed_on_behalf FROM md_meetings WHERE id = ?`).get(mid);
 }
 
 // ── Async postgres forks: issue/action updates + parents (Chunk 2) ──────────

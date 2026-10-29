@@ -1,0 +1,215 @@
+<Window x:Class="Sdp.Manager.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="SDP Dashboard Manager" Width="1060" Height="720" MinWidth="860" MinHeight="560"
+        WindowStartupLocation="CenterScreen" Background="{StaticResource Page}">
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="230"/>
+      <ColumnDefinition Width="*"/>
+    </Grid.ColumnDefinitions>
+    <Grid.RowDefinitions>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
+
+    <!-- ── Sidebar ─────────────────────────────────────────────── -->
+    <Border Grid.RowSpan="2" Background="{StaticResource Navy}">
+      <DockPanel LastChildFill="False">
+        <StackPanel DockPanel.Dock="Top" Margin="20,22,20,18">
+          <TextBlock Text="SDP Dashboard" Foreground="White" FontSize="18" FontWeight="SemiBold"/>
+          <TextBlock Text="Manager" Foreground="{StaticResource Orange}" FontSize="13" FontWeight="SemiBold"/>
+        </StackPanel>
+        <StackPanel DockPanel.Dock="Top" x:Name="Nav">
+          <RadioButton x:Name="NavOverview" Style="{StaticResource Nav}" Content="Overview" IsChecked="True" Checked="OnNav" Tag="Overview"/>
+          <RadioButton Style="{StaticResource Nav}" Content="Service" Checked="OnNav" Tag="Service"/>
+          <RadioButton Style="{StaticResource Nav}" Content="Backups &amp; restore" Checked="OnNav" Tag="Backups"/>
+          <RadioButton Style="{StaticResource Nav}" Content="Updates" Checked="OnNav" Tag="Updates"/>
+          <RadioButton Style="{StaticResource Nav}" Content="Diagnostics" Checked="OnNav" Tag="Diagnostics"/>
+        </StackPanel>
+        <StackPanel DockPanel.Dock="Bottom" Margin="20,0,20,18">
+          <TextBlock x:Name="SideVersion" Foreground="#9FB0C4" FontSize="12" TextWrapping="Wrap"/>
+          <TextBlock x:Name="SideDir" Foreground="#7F92A8" FontSize="11" TextWrapping="Wrap" Margin="0,4,0,0"/>
+        </StackPanel>
+      </DockPanel>
+    </Border>
+
+    <!-- ── Content ─────────────────────────────────────────────── -->
+    <ScrollViewer Grid.Column="1" VerticalScrollBarVisibility="Auto" Padding="28,24,28,10">
+      <Grid>
+        <!-- Overview -->
+        <StackPanel x:Name="PageOverview">
+          <TextBlock Style="{StaticResource H1}" Text="Overview"/>
+          <TextBlock Style="{StaticResource MutedText}" Text="What is running on this server, read every 30 seconds." Margin="0,0,0,16"/>
+          <UniformGrid Columns="3" Margin="0,0,-14,0">
+            <Border Style="{StaticResource CardBox}" Margin="0,0,14,14">
+              <StackPanel>
+                <TextBlock Style="{StaticResource MutedText}" Text="Service"/>
+                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                  <Ellipse x:Name="SvcDot" Width="12" Height="12" Fill="#9AA4B2" Margin="0,0,8,0"/>
+                  <TextBlock x:Name="SvcText" FontSize="17" FontWeight="SemiBold" Text="…"/>
+                </StackPanel>
+                <TextBlock x:Name="SvcKind" Style="{StaticResource MutedText}" Margin="0,4,0,0"/>
+              </StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardBox}" Margin="0,0,14,14">
+              <StackPanel>
+                <TextBlock Style="{StaticResource MutedText}" Text="Web application"/>
+                <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
+                  <Ellipse x:Name="WebDot" Width="12" Height="12" Fill="#9AA4B2" Margin="0,0,8,0"/>
+                  <TextBlock x:Name="WebText" FontSize="17" FontWeight="SemiBold" Text="…"/>
+                </StackPanel>
+                <TextBlock x:Name="WebUrl" Style="{StaticResource MutedText}" Margin="0,4,0,0"/>
+              </StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardBox}" Margin="0,0,14,14">
+              <StackPanel>
+                <TextBlock Style="{StaticResource MutedText}" Text="Version"/>
+                <TextBlock x:Name="VerText" FontSize="17" FontWeight="SemiBold" Margin="0,6,0,0" Text="…"/>
+                <TextBlock x:Name="VerSub" Style="{StaticResource MutedText}" Margin="0,4,0,0"/>
+              </StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardBox}" Margin="0,0,14,14">
+              <StackPanel>
+                <TextBlock Style="{StaticResource MutedText}" Text="Last database backup"/>
+                <TextBlock x:Name="BkText" FontSize="17" FontWeight="SemiBold" Margin="0,6,0,0" Text="…"/>
+                <TextBlock x:Name="BkSub" Style="{StaticResource MutedText}" Margin="0,4,0,0"/>
+              </StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardBox}" Margin="0,0,14,14">
+              <StackPanel>
+                <TextBlock Style="{StaticResource MutedText}" Text="Disk"/>
+                <TextBlock x:Name="DiskText" FontSize="17" FontWeight="SemiBold" Margin="0,6,0,0" Text="…"/>
+                <TextBlock x:Name="DiskSub" Style="{StaticResource MutedText}" Margin="0,4,0,0"/>
+              </StackPanel>
+            </Border>
+            <Border Style="{StaticResource CardBox}" Margin="0,0,14,14">
+              <StackPanel>
+                <TextBlock Style="{StaticResource MutedText}" Text="Previous version kept"/>
+                <TextBlock x:Name="RbText" FontSize="17" FontWeight="SemiBold" Margin="0,6,0,0" Text="…"/>
+                <TextBlock Style="{StaticResource MutedText}" Margin="0,4,0,0" Text="Used by Updates ▸ Roll back"/>
+              </StackPanel>
+            </Border>
+          </UniformGrid>
+          <WrapPanel>
+            <Button Style="{StaticResource Primary}" Content="Open the dashboard" Click="OnOpenDashboard"/>
+            <Button Style="{StaticResource Btn}" Content="Refresh" Click="OnRefresh"/>
+          </WrapPanel>
+          <Border Style="{StaticResource CardBox}" Margin="0,8,0,14">
+            <StackPanel>
+              <TextBlock Style="{StaticResource H2}" Text="Data synchronisations"/>
+              <TextBlock x:Name="SyncEmpty" Style="{StaticResource MutedText}" Text="Shown once the service answers and the bootstrap account in .env can sign in."/>
+              <ItemsControl x:Name="SyncList">
+                <ItemsControl.ItemTemplate>
+                  <DataTemplate>
+                    <Grid Margin="0,3">
+                      <Grid.ColumnDefinitions><ColumnDefinition Width="18"/><ColumnDefinition Width="260"/><ColumnDefinition Width="110"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+                      <Ellipse Width="9" Height="9" Fill="{Binding Dot}" VerticalAlignment="Center"/>
+                      <TextBlock Grid.Column="1" Text="{Binding Id}"/>
+                      <TextBlock Grid.Column="2" Text="{Binding State}" Foreground="{StaticResource Muted}"/>
+                      <TextBlock Grid.Column="3" Text="{Binding LastOk}" Foreground="{StaticResource Muted}"/>
+                    </Grid>
+                  </DataTemplate>
+                </ItemsControl.ItemTemplate>
+              </ItemsControl>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- Service -->
+        <StackPanel x:Name="PageService" Visibility="Collapsed">
+          <TextBlock Style="{StaticResource H1}" Text="Service"/>
+          <TextBlock Style="{StaticResource MutedText}" Text="A restart is always stop → wait 5 s → start (never a reload). Users keep their session; pages reload in a few seconds." Margin="0,0,0,16"/>
+          <Border Style="{StaticResource CardBox}">
+            <StackPanel>
+              <TextBlock x:Name="SvcLine" FontSize="15" Margin="0,0,0,12" Text="…"/>
+              <WrapPanel>
+                <Button Style="{StaticResource Primary}" Content="Restart" Click="OnRestart"/>
+                <Button Style="{StaticResource Btn}" Content="Start" Click="OnStart"/>
+                <Button Style="{StaticResource Danger}" Content="Stop" Click="OnStop"/>
+                <Button Style="{StaticResource Btn}" Content="Open logs folder" Click="OnOpenLogs"/>
+              </WrapPanel>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- Backups -->
+        <StackPanel x:Name="PageBackups" Visibility="Collapsed">
+          <TextBlock Style="{StaticResource H1}" Text="Backups &amp; restore"/>
+          <TextBlock x:Name="BkIntro" Style="{StaticResource MutedText}" Margin="0,0,0,16"/>
+          <WrapPanel>
+            <Button Style="{StaticResource Primary}" Content="Back up now" Click="OnBackup"/>
+            <Button Style="{StaticResource Btn}" Content="Refresh list" Click="OnListBackups"/>
+          </WrapPanel>
+          <Border Style="{StaticResource CardBox}" Padding="0">
+            <ListView x:Name="BackupList" BorderThickness="0" MinHeight="180" SelectionMode="Single">
+              <ListView.View>
+                <GridView>
+                  <GridViewColumn Header="Taken (UTC)" Width="190" DisplayMemberBinding="{Binding At}"/>
+                  <GridViewColumn Header="Size" Width="110" DisplayMemberBinding="{Binding Size}"/>
+                  <GridViewColumn Header="Encrypted" Width="100" DisplayMemberBinding="{Binding Enc}"/>
+                  <GridViewColumn Header="File" Width="360" DisplayMemberBinding="{Binding Name}"/>
+                </GridView>
+              </ListView.View>
+            </ListView>
+          </Border>
+          <Border Style="{StaticResource CardBox}" BorderBrush="#F3C1C1">
+            <StackPanel>
+              <TextBlock Style="{StaticResource H2}" Text="Restore the selected backup"/>
+              <TextBlock Style="{StaticResource MutedText}" Margin="0,0,0,10" Text="Replaces the whole database. A backup of the current database is taken first, so this can be undone the same way. The service is stopped during the restore (a few minutes). The restore is one transaction: it either completes or leaves the database exactly as it was."/>
+              <Button Style="{StaticResource Danger}" Content="Restore…" HorizontalAlignment="Left" Click="OnRestore"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- Updates -->
+        <StackPanel x:Name="PageUpdates" Visibility="Collapsed">
+          <TextBlock Style="{StaticResource H1}" Text="Updates"/>
+          <TextBlock Style="{StaticResource MutedText}" Margin="0,0,0,16" Text="Apply an update package (sdp-dashboard-&lt;version&gt;.zip). It is checked file by file against its signed manifest before anything is written; the database is backed up and the current version kept, and a failed update rolls itself back. The full installer (Setup.exe) does the same with a wizard."/>
+          <Border Style="{StaticResource CardBox}">
+            <StackPanel>
+              <TextBlock x:Name="UpdCurrent" FontSize="15" Margin="0,0,0,10"/>
+              <WrapPanel>
+                <Button Style="{StaticResource Btn}" Content="Choose a package…" Click="OnChoosePackage"/>
+                <Button x:Name="BtnVerify" Style="{StaticResource Btn}" Content="Check the package" IsEnabled="False" Click="OnVerify"/>
+                <Button x:Name="BtnApply" Style="{StaticResource Primary}" Content="Apply update" IsEnabled="False" Click="OnApply"/>
+              </WrapPanel>
+              <TextBlock x:Name="PkgPath" Style="{StaticResource MutedText}" Margin="0,4,0,0"/>
+              <CheckBox x:Name="AllowUnsigned" Margin="0,10,0,0" Content="Accept a package without a signature (only for a package you built yourself — this is recorded)"/>
+            </StackPanel>
+          </Border>
+          <Border Style="{StaticResource CardBox}" BorderBrush="#F3C1C1">
+            <StackPanel>
+              <TextBlock Style="{StaticResource H2}" Text="Roll back to the previous version"/>
+              <TextBlock Style="{StaticResource MutedText}" Margin="0,0,0,10" Text="Puts back the application files kept before the last update and restarts the service. The database is not touched (use Backups &amp; restore for that)."/>
+              <Button Style="{StaticResource Danger}" Content="Roll back…" HorizontalAlignment="Left" Click="OnRollback"/>
+            </StackPanel>
+          </Border>
+        </StackPanel>
+
+        <!-- Diagnostics -->
+        <StackPanel x:Name="PageDiagnostics" Visibility="Collapsed">
+          <TextBlock Style="{StaticResource H1}" Text="Diagnostics"/>
+          <TextBlock Style="{StaticResource MutedText}" Margin="0,0,0,16" Text="A support bundle holds the version, the names of the settings in .env (never their values), the recent logs and the synchronisation health — safe to send to the support team."/>
+          <WrapPanel>
+            <Button Style="{StaticResource Primary}" Content="Create a support bundle…" Click="OnSupportBundle"/>
+            <Button Style="{StaticResource Btn}" Content="Open logs folder" Click="OnOpenLogs"/>
+            <Button Style="{StaticResource Btn}" Content="Open install folder" Click="OnOpenInstall"/>
+          </WrapPanel>
+        </StackPanel>
+      </Grid>
+    </ScrollViewer>
+
+    <!-- ── Output / status bar ─────────────────────────────────── -->
+    <Border Grid.Column="1" Grid.Row="1" Background="White" BorderBrush="{StaticResource Border}" BorderThickness="0,1,0,0">
+      <DockPanel Margin="28,8,28,10">
+        <StackPanel DockPanel.Dock="Top" Orientation="Horizontal">
+          <ProgressBar x:Name="Busy" Width="120" Height="6" IsIndeterminate="True" Visibility="Collapsed" Margin="0,0,10,0" VerticalAlignment="Center"/>
+          <TextBlock x:Name="StatusText" Foreground="{StaticResource Muted}" Text="Ready" AutomationProperties.LiveSetting="Polite"/>
+        </StackPanel>
+        <TextBox x:Name="OutputBox" Height="110" Margin="0,6,0,0" IsReadOnly="True" FontFamily="Consolas" FontSize="12"
+                 VerticalScrollBarVisibility="Auto" TextWrapping="Wrap" BorderBrush="{StaticResource Border}" AutomationProperties.Name="Last command output"/>
+      </DockPanel>
+    </Border>
+  </Grid>
+</Window>

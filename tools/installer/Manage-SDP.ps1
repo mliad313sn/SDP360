@@ -155,7 +155,8 @@ function Resolve-SuperPassword {
     if ($cfg.EnvAnswers -and $cfg.EnvAnswers.ContainsKey('PG_SUPER_PASSWORD') -and $cfg.EnvAnswers.PG_SUPER_PASSWORD) {
         return [string]$cfg.EnvAnswers.PG_SUPER_PASSWORD
     }
-    return $cfg.StandardPgSuperPassword
+    if ($cfg.StandardPgSuperPassword) { return $cfg.StandardPgSuperPassword }
+    throw 'The PostgreSQL superuser password is required: set PG_SUPER_PASSWORD in the environment (no password is stored in config.psd1).'
 }
 # psql for the restore's DROP / CREATE / import. The lookup itself is
 # SdpSituation.ps1's Find-SdpPsql (one implementation, never throws).

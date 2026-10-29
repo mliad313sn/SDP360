@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- SDP Dashboard Manager — the operator's maintenance window (WPF, .NET Framework 4.8: part of
+       Windows Server 2016+ / Windows 10+, nothing to install). It adds NO logic: every action runs
+       `node tools\sdp-manager.js … --json` from the install folder (one implementation, tested on CI).
+       Built by tools/installer-v2/build.ps1. -->
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net48</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <LangVersion>latest</LangVersion>
+    <AssemblyName>SdpDashboardManager</AssemblyName>
+    <RootNamespace>Sdp.Manager</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <Company>Endeavour Mining - Group IT</Company>
+    <Product>SDP Dashboard</Product>
+    <Description>SDP Dashboard Manager</Description>
+    <Version>2.0.0</Version>
+    <GenerateAssemblyInfo>true</GenerateAssemblyInfo>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="System.Web.Extensions" />
+  </ItemGroup>
+  <ItemGroup>
+    <!-- .NET Framework 4.8 reference assemblies from NuGet: the build does not depend on a targeting pack
+         being installed on the build machine. -->
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+</Project>

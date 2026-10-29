@@ -5,10 +5,20 @@
 // (acceptance: "zero figure deviation" between the screen and the pack). No formula here.
 const R = require('../public/lib/dashboardRender');
 
-function ragOverride(rag, value) {
+// A widget may name its own RAG policy. A named policy is read on the SAME scale as the registry
+// (metricRegistry.ragFor): a 'ratio' policy expects 0-1, so a % metric is divided by 100 — without
+// this a 22 % roadmap score read as 22 ≥ 0.70 and showed GREEN (UAT ITSM-01).
+function ragOverride(rag, value, unit = '%') {
   const KpiRag = require('./kpiRag');
   if (value == null) return 'NA';
-  try { return typeof rag === 'string' ? KpiRag.rag(Number(value), rag) : (Number(value) >= rag.green ? 'GREEN' : Number(value) >= rag.amber ? 'AMBER' : 'RED'); } catch (_) { return 'NA'; }
+  try {
+    if (typeof rag === 'string') {
+      const p = KpiRag.POLICIES[rag]; if (!p || p.scale === 'target-ratio') return 'NA';
+      const x = p.scale === 'ratio' && unit === '%' ? Number(value) / 100 : Number(value);
+      return KpiRag.rag(x, rag);
+    }
+    return Number(value) >= rag.green ? 'GREEN' : Number(value) >= rag.amber ? 'AMBER' : 'RED';
+  } catch (_) { return 'NA'; }
 }
 
 async function actionsFor(rdb, siteId, plan) {
@@ -67,7 +77,7 @@ async function resolveWidgets({ def, sites, site, window = null, reg, dd, rdb, n
         let previous = null;
         const pl = one.value != null && one.window ? previousWindow(one.window.label) : null;
         if (pl) { try { const p = await reg.resolve(w.metric, { site: tsite, window: pl, deps: dd, now }); if (p && p.value != null) previous = { label: pl, value: p.value, delta: Math.round((Number(one.value) - Number(p.value)) * 10) / 10 }; } catch (_) { previous = null; } }
-        out[w.id] = { mode: 'single', metric: w.metric, title: w.title, unit: m.unit, value: one.value, rag: w.rag ? ragOverride(w.rag, one.value) : one.rag, window: one.window, as_of: one.as_of, fleet, error: one.error || null,
+        out[w.id] = { mode: 'single', metric: w.metric, title: w.title, unit: m.unit, value: one.value, rag: w.rag ? ragOverride(w.rag, one.value, m.unit) : one.rag, window: one.window, as_of: one.as_of, fleet, error: one.error || null,
           higher_is_better: m.higher_is_better !== false, target: tg.target, target_source: tg.source, vs_target: KT.vsTarget(one.value, tg.target, m.higher_is_better !== false), previous };
       } else if (plan.mode === 'series' && m) {
         const labels = R.windowSeries(plan.kind, plan.n, now);
@@ -76,7 +86,7 @@ async function resolveWidgets({ def, sites, site, window = null, reg, dd, rdb, n
         out[w.id] = { mode: 'series', metric: w.metric, title: w.title, unit: m.unit, points, as_of: now.toISOString() };
       } else if (plan.mode === 'per-site' && m) {
         const rows = [];
-        for (const s of sites) { const r = await reg.resolve(w.metric, { site: Number(s.id), window, deps: dd, now }); rows.push({ site_id: Number(s.id), site: s.name, value: r ? r.value : null, rag: w.rag ? ragOverride(w.rag, r && r.value) : (r ? r.rag : 'NA') }); }
+        for (const s of sites) { const r = await reg.resolve(w.metric, { site: Number(s.id), window, deps: dd, now }); rows.push({ site_id: Number(s.id), site: s.name, value: r ? r.value : null, rag: w.rag ? ragOverride(w.rag, r && r.value, m.unit) : (r ? r.rag : 'NA') }); }
         rows.sort((a, b) => (a.value == null) - (b.value == null) || (a.value - b.value));
         out[w.id] = { mode: 'per-site', metric: w.metric, title: w.title, unit: m.unit, higher_is_better: m.higher_is_better !== false, rows, summary: R.summarizeGrid(rows), as_of: now.toISOString() };
       } else if (plan.mode === 'actions') {

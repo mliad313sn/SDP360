@@ -71,7 +71,7 @@
     return api("/api/governance/portfolio").then(function (v) {
       V = v; committee = v.committee; $("edit").hidden = !committee; $("mig-dry").hidden = !isSuper; $("mig-apply").hidden = !isSuper;
       var s = v.summary || [];
-      $("tiles").innerHTML = [["Programmes", v.programmes.length], ["Objectives", v.objectives.length], ["Projects", v.projects.length], ["Late projects", s.reduce(function (a, x) { return a + (x.late_projects || 0); }, 0)], ["High risks", s.reduce(function (a, x) { return a + (x.high_risks || 0); }, 0)]].map(function (t) { return "<div class=\"tile\"><div class=\"tn\">" + t[1] + "</div><div class=\"tl\">" + t[0] + "</div></div>"; }).join("");
+      $("tiles").innerHTML = [["Programmes", v.programmes.length], ["Objectives", v.objectives.length], ["Projects", v.projects.length], ["Slipped / late projects", s.reduce(function (a, x) { return a + (x.late_projects || 0); }, 0)], ["High risks", s.reduce(function (a, x) { return a + (x.high_risks || 0); }, 0)]].map(function (t) { return "<div class=\"tile\"><div class=\"tn\">" + t[1] + "</div><div class=\"tl\">" + t[0] + "</div></div>"; }).join("");
       $("tree").innerHTML = v.programmes.length ? v.programmes.map(function (pr) {
         var objs = v.objective_views.filter(function (o) { return o.programme_id === pr.id; });
         return "<details open><summary><b>" + esc(pr.name) + "</b> <small class=\"muted\">" + esc(pr.key) + " · " + esc(pr.sponsor || "") + " · #" + pr.id + "</small></summary>" +

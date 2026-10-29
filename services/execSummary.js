@@ -22,9 +22,10 @@ function deriveSiteStatus(rows, opts = {}) {
 
 function buildExecSummary(d) {
   const sites = deriveSiteStatus(d.siteRows || []);
+  // UAT F-08: no "all operational" verdict on no data — a helpdesk that never synced is 'unknown'
   const level = d.activeMajorIncidents > 0 || sites.some(s => s.status === 'major')
     ? 'major'
-    : (sites.some(s => s.status === 'degraded') ? 'degraded' : 'operational');
+    : (sites.some(s => s.status === 'degraded') ? 'degraded' : (d.dataAsOf ? 'operational' : 'unknown'));
   const hl = (d.editorial && d.editorial.highlights) || [];
   const fc = (d.editorial && d.editorial.focus) || [];
   const pick = (o, keys) => { const r = {}; for (const k of keys) if (o && o[k] != null) r[k] = o[k]; return r; };
@@ -112,8 +113,9 @@ async function mapHelpdeskKpis(rdb, now) {
     // SLA compliance % = 100 - violation%
     const curSla = _num(cur['% of SLA Violated']);
     const pvSla  = _num(pv['% of SLA Violated']);
-    if (curSla != null) out.sla_compliance.value_pct = _round(100 - curSla);
-    if (curSla != null && pvSla != null) {
+    // UAT F-08: no closed ticket → no SLA figure (100 − 0 is not "100 % on time")
+    if (curSla != null && curClosed > 0) out.sla_compliance.value_pct = _round(100 - curSla);
+    if (curSla != null && pvSla != null && curClosed > 0 && pvClosed > 0) {
       out.sla_compliance.delta_pp = _round((100 - curSla) - (100 - pvSla));
     }
   } catch (e) { console.warn('[execSummary] helpdesk history failed:', e.message); }

@@ -39,4 +39,10 @@ ${session.notes ? `<h3 style="font-size:15px;color:#3A4A60">Notes</h3><p style="
 </body></html>`;
 }
 
-module.exports = { renderMinutes };
+// UAT (PMO F4): accepted minutes carry who accepted them and when — the frozen HTML gets a stamp.
+function acceptanceStamp(html, { name, at }) {
+  const block = `<div class="minutes-acceptance" style="margin-top:18px;padding:8px 10px;border:1px solid #1E7B45;border-radius:6px;color:#1E7B45"><b>Minutes accepted</b> by ${esc(name || '—')} on ${esc(String(at || '').replace('T', ' ').slice(0, 16))} UTC</div>`;
+  const h = String(html || '').replace(/<div class="minutes-acceptance"[\s\S]*?<\/div>/, '');
+  return /<\/body>/i.test(h) ? h.replace(/<\/body>/i, block + '</body>') : h + block;
+}
+module.exports = { acceptanceStamp, renderMinutes };

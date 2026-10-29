@@ -88,6 +88,7 @@
   .status-band .sb-icon{font-size:1.7rem;line-height:1}
   .status-band .sb-text{font-size:1.15rem;font-weight:800}
   .status-band .sb-note{font-size:.86rem;font-weight:600;opacity:.9;margin-left:auto}
+  .status-unknown{background:#F1F3F5;border-color:#D7DCE1;color:#4A5563}
   .status-operational{background:var(--color-success-bg,#E7F5EA);border-color:#bfe3c6;color:var(--edv-green-dark,#158D3E)}
   .status-degraded{background:var(--color-warning-bg,#FEF3C7);border-color:#f4dd9a;color:var(--color-warning,#D97706)}
   .status-major{background:var(--color-danger-bg,#FEEAEE);border-color:#f4c2ce;color:var(--edv-red,#D90038)}
@@ -242,7 +243,7 @@
   </section>
 
   <!-- 3. Global status band -->
-  <div id="statusBand" class="status-band status-operational" role="status">
+  <div id="statusBand" class="status-band status-unknown" role="status">
     <span class="sb-icon">•</span>
     <span class="sb-text">—</span>
   </div>
@@ -411,13 +412,15 @@
 
   function renderStatus(status) {
     const band = el('statusBand');
-    const level = (status && status.level) || 'operational';
+    const level = (status && status.level) || 'unknown';
     const majors = (status && isNum(status.active_major_incidents)) ? status.active_major_incidents : 0;
     let cls, icon, text;
     if (level === 'major') {
       cls = 'status-major'; icon = '⛔'; text = 'Major Incident In Progress';
     } else if (level === 'degraded') {
       cls = 'status-degraded'; icon = '⚠'; text = 'Some IT Services Are Degraded';
+    } else if (level === 'unknown') {
+      cls = 'status-unknown'; icon = '…'; text = 'Service status not available yet — no data synchronised';
     } else {
       cls = 'status-operational'; icon = '✓'; text = 'All Core IT Services Operational';
     }
@@ -510,8 +513,12 @@
     return '<span class="chip chip-' + esc(l) + '">' + esc(label) + '</span>';
   }
 
-  function renderSites(sites, allOk) {
+  function renderSites(sites, allOk, level) {
     const area = el('sitesArea');
+    if (level === 'unknown' && (!Array.isArray(sites) || sites.length === 0)) {
+      area.innerHTML = '<div class="all-ok" style="color:#4A5563">Site status not available yet — no data synchronised</div>';
+      return;
+    }
     if (allOk || !Array.isArray(sites) || sites.length === 0) {
       area.innerHTML = '<div class="all-ok"><span class="hl-check">✓</span>' +
         'All monitored sites are operating normally</div>';
@@ -622,7 +629,7 @@
     renderStatus(data.status);
     renderMajorIncidents(data.major_incidents);
     renderKpis(data.kpis, data.report_month || data.period);
-    renderSites(data.sites_attention, data.all_sites_ok);
+    renderSites(data.sites_attention, data.all_sites_ok, data.status && data.status.level);
     renderMaintenance(data.planned_maintenance);
     renderStrategic(data.strategic_progress);
     renderHighlights(data.highlights);

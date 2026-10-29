@@ -320,7 +320,7 @@ function Write-EnvHeader {
         ('Free space       : ' + $free + ' GB on the install drive'),
         ('Mode / Config    : ' + $Mode + ' / ' + $(if ($Config) { $Config } else { 'config.psd1' })),
         ('Config (resolved): InstallDir=' + $InstallDir + '; AppPort=' + $AppPort + '; Service=' + $SvcName + '; PgHost=' + $cfg.PgHost + '; PgPort=' + $cfg.PgPort + '; DbName=' + $cfg.DbName),
-        ('PG super password: ' + $(if ($cfg.StandardPgSuperPassword -or ($cfg.EnvAnswers -and $cfg.EnvAnswers.PG_SUPER_PASSWORD)) { '(set)' } else { '(not set)' })),
+        ('PG super password: ' + $(if ($env:PG_SUPER_PASSWORD -or $cfg.StandardPgSuperPassword -or ($cfg.EnvAnswers -and $cfg.EnvAnswers.PG_SUPER_PASSWORD)) { '(set)' } else { '(asked when needed)' })),
         ('node             : ' + $nodeV),
         ('psql             : ' + $psqlV),
         ('Ports            : ' + ($ports -join '  ')),
@@ -841,9 +841,15 @@ function Find-ProvisionScript {
 $script:SuperPw = $null
 function Get-SuperPassword {
     if ($script:SuperPw) { return $script:SuperPw }
-    $script:SuperPw = if ($cfg.EnvAnswers -and $cfg.EnvAnswers.ContainsKey('PG_SUPER_PASSWORD') -and $cfg.EnvAnswers.PG_SUPER_PASSWORD) {
+    $script:SuperPw = if ($env:PG_SUPER_PASSWORD) { [string]$env:PG_SUPER_PASSWORD }
+    elseif ($cfg.EnvAnswers -and $cfg.EnvAnswers.ContainsKey('PG_SUPER_PASSWORD') -and $cfg.EnvAnswers.PG_SUPER_PASSWORD) {
         [string]$cfg.EnvAnswers.PG_SUPER_PASSWORD
-    } else { [string]$cfg.StandardPgSuperPassword }
+    } elseif ($cfg.StandardPgSuperPassword) { [string]$cfg.StandardPgSuperPassword }
+    elseif ([Environment]::UserInteractive -and -not [Console]::IsInputRedirected) {
+        # masked prompt (never on stdin-redirected runs: Read-Host -AsSecureString would hang)
+        $sec = Read-Host 'PostgreSQL superuser (postgres) password' -AsSecureString
+        [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($sec))
+    } else { Die 'The PostgreSQL superuser password is required: set PG_SUPER_PASSWORD in the environment (no password is stored in config.psd1).' }
     return $script:SuperPw
 }
 function Invoke-PsqlSuper([string]$sql) {
@@ -924,7 +930,7 @@ function Step4-Postgres {
         $exe = Get-ChildItem $PayloadInst -Filter 'postgresql-*.exe' -ErrorAction SilentlyContinue | Select-Object -First 1
         if (-not $exe) { Die "No PostgreSQL cluster and no postgresql-*.exe in $PayloadInst" }
         Log ("Installing PostgreSQL unattended: " + $exe.Name + " (port $($cfg.PgPort))") 'STEP'
-        $a = @('--mode', 'unattended', '--unattendedmodeui', 'none', '--superpassword', $cfg.StandardPgSuperPassword, '--serverport', "$($cfg.PgPort)")
+        $a = @('--mode', 'unattended', '--unattendedmodeui', 'none', '--superpassword', (Get-SuperPassword), '--serverport', "$($cfg.PgPort)")
         $p = Start-Process $exe.FullName -ArgumentList $a -Wait -PassThru
         if ($p.ExitCode -ne 0) { Die "PostgreSQL installer failed (exit $($p.ExitCode))" }
         $svc = Get-Service postgresql* -ErrorAction SilentlyContinue | Select-Object -First 1

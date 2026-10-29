@@ -184,3 +184,8 @@
   --motion-slow:   280ms;
   --ease-standard: cubic-bezier(.2,.0,.2,1);
 }
+
+/* UAT 2026-10-29 (PMO F1): the `hidden` attribute must always win. Pages style buttons with
+   `display:inline-block`, which silently beat the browser's own [hidden] rule — a viewer then saw
+   Start / Close / Accept buttons the server refuses. */
+[hidden] { display: none !important; }

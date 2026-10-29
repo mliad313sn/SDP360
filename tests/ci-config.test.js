@@ -31,8 +31,8 @@ function parse(text) {
 // Line-based helpers (always run — the parser, when present, is a second opinion).
 const codeLines = text => text.split('\n').filter(l => !/^\s*#/.test(l));
 
-test('workflow directory holds the three expected workflows', () => {
-  assert.deepEqual(files, ['ci.yml', 'codeql.yml', 'release.yml']);
+test('workflow directory holds the four expected workflows', () => {
+  assert.deepEqual(files, ['ci.yml', 'codeql.yml', 'installer.yml', 'release.yml']);
 });
 
 test('every `uses:` is pinned to a 40-hex commit SHA with a version comment', () => {
@@ -120,4 +120,17 @@ test('release.yml: the release job verifies the built package with the Manager a
   assert.match(text, /node tools\/sdp-manager\.js verify/, 'the package job must run the Manager verify on the built zip');
   assert.match(text, /SIGNING\.txt/);
   assert.match(text, /manifest signed/);
+});
+
+test('installer.yml: builds Setup.exe with build.ps1 and runs the Windows end-to-end test', () => {
+  const text = read('installer.yml');
+  assert.match(text, /runs-on:\s*windows-latest/);
+  assert.match(text, /tools\/installer-v2\/build\.ps1/);
+  assert.match(text, /tools\/installer-v2\/tests\/e2e\.ps1/);
+  assert.ok(!/secrets\./.test(text), 'installer.yml handles no secret');
+});
+
+test('release.yml: the installer job builds through build.ps1 around the already-built package', () => {
+  const text = read('release.yml');
+  assert.match(text, /build\.ps1 -Version \$v -PackageZip/);
 });

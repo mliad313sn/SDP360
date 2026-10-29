@@ -3768,12 +3768,21 @@ app.post('/api/admin/refresh-major-incident-udfs', requireReportSession, require
 app.get('/api/cache/status', requireReportSession, async (req, res) => {
   let changeCount = 0;
   try { changeCount = Number((await rdb.pgHandle().prepare('SELECT COUNT(*) AS n FROM change_records').get()).n) || 0; } catch(e) {}
+  // UAT ITSM-07: the bar shows how fresh the DATA is — the last successful requests sync — not when the
+  // in-memory cache was rebuilt from the database (a rebuild after a failed Zoho call is not fresh data).
+  let ts = _rawCache.ts || 0;
+  try {
+    const last = await rdb.getLastSyncAt('requests');
+    const t = last instanceof Date ? last.getTime() : last ? Date.parse(/^\d{4}-\d\d-\d\d \d/.test(String(last)) ? String(last).replace(' ', 'T') + (/[zZ]|[+-]\d\d:?\d\d$/.test(String(last)) ? '' : 'Z') : String(last)) : NaN;
+    if (Number.isFinite(t) && (!ts || t < ts)) ts = t;
+  } catch (_) { /* keep the cache time */ }
   res.json({
-    ts:        _rawCache.ts || 0,                           // epoch ms of last successful raw sync
+    ts,                                                     // epoch ms of the last successful requests sync (cache time if unknown)
+    cache_ts:  _rawCache.ts || 0,
     rows:      _rawCache.data ? _rawCache.data.rows.length : 0,
     changes:   changeCount,                                 // change_records count
     refreshing: _rawCacheRefreshing || false,
-    ageMs:     _rawCache.ts ? Date.now() - _rawCache.ts : null,
+    ageMs:     ts ? Date.now() - ts : null,
   });
 });
 
@@ -5805,7 +5814,10 @@ app.post('/api/reports/ensure', requireReportSession, jsonBody, async (req, res)
       return res.status(403).json({ error: 'You can only manage reports for your own site' });
     // (await f()).method() — NOT `await f().method()`: the latter chains onto the
     // Promise (listReports is async on both backends). See the await-precedence pitfall.
-    const isNew = !(await rdb.listReports(parseInt(site_id))).find(r => r.year === parseInt(year) && r.week_number === parseInt(week));
+    const existing = (await rdb.listReports(parseInt(site_id))).find(r => r.year === parseInt(year) && r.week_number === parseInt(week));
+    // UAT F-10: a reader opens an existing report but never creates one (creation = the editor's act)
+    if (!existing && !rdb.userHasRole(req.reportUser, 'editor')) return res.status(404).json({ error: 'No report for this week yet — your site coordinator creates it' });
+    const isNew = !existing;
     const report = await rdb.ensureReport(parseInt(site_id), parseInt(year), parseInt(week));
     if (isNew) {
       await rdb.logAudit({ report_id: report.id, site_id: parseInt(site_id), user_id: req.reportUser.id, username: req.reportUser.username, action: 'created', details: { year, week } });
@@ -6188,7 +6200,7 @@ app.get('/api/reports/helpdesk-charts', requireReportSession, async (req, res) =
     const isResOverdue = r => {
       const s = (r['Request Status']||'').toLowerCase().trim();
       if (s === 'cancelled') return false;
-      const due = parseZohoDT(r['Due By Time']);
+      const due = parseZohoDT(r['Due By Time'] || r['DueBy Time']);   // Zoho names the column 'DueBy Time'
       const res = parseZohoDT(r['Resolved Time']||r['Completed Time']);
       const isRes = s==='closed'||s==='resolved'||s==='confirmed resolution'||s==='confirm resolution';
       if (due && res && isRes) return res > due;

@@ -76,7 +76,11 @@ test('POST /api/meetings/:id/sign on a missing PV → 404', async () => {
 });
 
 test('happy path: signing both signatures removes the PV from the unsigned list', async () => {
-  const s1 = await req('POST', `/api/meetings/${meetingId}/sign`, { token: adminToken, body: { which: 'dept_head' } });
+  // UAT F-02: an editor signing FOR the department head must give a reason, kept with the signature
+  const s0 = await req('POST', `/api/meetings/${meetingId}/sign`, { token: adminToken, body: { which: 'dept_head' } });
+  assert.strictEqual(s0.status, 400); assert.strictEqual(s0.json.code, 'ON_BEHALF_REASON');
+  const s1 = await req('POST', `/api/meetings/${meetingId}/sign`, { token: adminToken, body: { which: 'dept_head', reason: 'head away on site, signed on paper' } });
+  assert.ok(s1.json.dept_head_signed_by, 'the signer is recorded'); assert.match(String(s1.json.dept_head_signed_on_behalf), /signed on paper/);
   assert.strictEqual(s1.status, 200, `dept sign 200, got ${s1.status}: ${JSON.stringify(s1.json)}`);
   assert.ok(s1.json.dept_head_signed_at, 'dept signature returned');
   const s2 = await req('POST', `/api/meetings/${meetingId}/sign`, { token: adminToken, body: { which: 'site_it' } });

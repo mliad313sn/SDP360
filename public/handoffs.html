@@ -178,6 +178,8 @@
   // one idempotency key per opened form: a double click or a retry after a network error re-sends the SAME key
   let formKey = null;
   const newKey = () => 'ui-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  // UAT F-11: raising a handoff is an editor act — a reader never sees a button the server refuses
+  if (typeof window.__userHasRole === 'function' && !window.__userHasRole('editor')) $('hoNewBtn').hidden = true;
   $('hoNewBtn').addEventListener('click', () => { $('hoNew').hidden = !$('hoNew').hidden; if (!$('hoNew').hidden) formKey = newKey(); });
   $('nfSave').addEventListener('click', async () => {
     $('nfMsg').textContent = ''; if ($('nfSave').disabled) return; $('nfSave').disabled = true;

@@ -1158,14 +1158,20 @@ async function _setWanSubsiteNetworksPg(rows) {
 // already scoped to the site's groups + the calendar month.
 function _computeSiteHelpdesk(rows) {
   const out = { created: 0, resolved: 0, backlog: 0, sla_overdue: 0, major_incidents: 0, top_categories: [], recurring: [] };
+  out.avg_resolution_h = null;   // null = nothing resolved with both timestamps (never a fake 0 h)
   if (!rows || !rows.length) return out;
   const cat = new Map(), sub = new Map();
+  let resH = 0, resN = 0;
   for (const r of rows) {
     out.created++;
     if (r.pending_status === 0) out.resolved++; else out.backlog++;
     // overdue_status is TRI-state: 1 / 0 / NULL (NULL = no SLA rule applies).
     // Keep the strict === 1 — do not "simplify" to !== 0, which counts NULLs.
     if (r.overdue_status === 1) out.sla_overdue++;
+    if (r.pending_status === 0) {
+      const end = Date.parse(r.resolved_time || r.completed_time || ''), start = Date.parse(r.created_time || '');
+      if (Number.isFinite(end) && Number.isFinite(start) && end >= start) { resH += (end - start) / 3600000; resN++; }
+    }
     const isMI = /major/i.test(String(r.request_type || '')) || /major incident/i.test(String(r.template || ''));
     if (isMI) out.major_incidents++;
     const c = (r.category || '').trim();
@@ -1173,6 +1179,7 @@ function _computeSiteHelpdesk(rows) {
     const s = (r.sub_category || '').trim();
     if (c && s) { const k = `${c} / ${s}`; sub.set(k, (sub.get(k) || 0) + 1); }
   }
+  out.avg_resolution_h = resN ? Math.round((resH / resN) * 10) / 10 : null;
   out.top_categories = [...cat.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .slice(0, 5).map(([category, count]) => ({ category, count }));
   out.recurring = [...sub.entries()].filter(([, n]) => n >= 3)
@@ -1227,13 +1234,13 @@ async function _getSiteHelpdeskWindowPg(site_id, from, to) {
   const H = pgHandle();
   const site = await H.prepare('SELECT zoho_group FROM sites WHERE id=?').get(site_id);
   const groups = String(site?.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
-  if (!groups.length) return _computeSiteHelpdesk([]);
+  if (!groups.length) return { ..._computeSiteHelpdesk([]), scoped: false };   // no Zoho group: not measured (the metric registry reads `scoped`)
   const ph = groups.map(() => '?').join(',');
   const rows = await H.prepare(`
-    SELECT pending_status, overdue_status, request_type, template, category, sub_category
+    SELECT pending_status, overdue_status, request_type, template, category, sub_category, created_time, resolved_time, completed_time
     FROM request_records
     WHERE tech_group IN (${ph}) AND substr(created_time,1,10) BETWEEN ? AND ?`).all(...groups, from, to);
-  return _computeSiteHelpdesk(rows);
+  return { ..._computeSiteHelpdesk(rows), scoped: true };
 }
 
 // ── SITE IMPACT (slide 7) — per-site helpdesk counts for the report window ──
@@ -2745,10 +2752,17 @@ async function _getCalendarMonthlyHelpdeskPg(site_id, year, month) {
   const gft = [...groups, from, to];
   const DR = `tech_group IN (${inClause}) AND created_time::date>=?::date AND created_time::date<=?::date`;
   const total = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR}`).get(...gft)).n;
-  if (!total) return { inbound:0, closed:0, close_pct:0, sla_res_pct:null, sla_reply_pct:null, source:'calendar' };
+  // UAT ITSM-03: no ticket → no closure rate (null), never a red 0 %.
+  if (!total) return { inbound:0, closed:0, close_pct:null, sla_res_pct:null, sla_reply_pct:null, source:'calendar' };
   const closed         = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND pending_status=0`).get(...gft)).n;
-  const slaResOkClosed = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND pending_status=0 AND overdue_status=0`).get(...gft)).n;
-  const rplyOk    = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND responded_time IS NOT NULL AND responded_time!='' AND LOWER(first_response_overdue)='false'`).get(...gft)).n;
+  // UAT ITSM-05 (same rule as the Helpdesk page, dashboard-shared.isResOverdue): a cancelled ticket and a
+  // ticket with no SLA rule (overdue_status NULL) are neither met nor missed — out of the SLA denominator.
+  const NOT_CANCELLED = `LOWER(COALESCE(request_status,'')) NOT IN ('cancelled','canceled')`;
+  const slaClosed      = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND pending_status=0 AND overdue_status IS NOT NULL AND ${NOT_CANCELLED}`).get(...gft)).n;
+  const slaResOkClosed = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND pending_status=0 AND overdue_status=0 AND ${NOT_CANCELLED}`).get(...gft)).n;
+  // UAT ITSM-04: a responded ticket is late only when its flag SAYS so (true / 1 / yes) — as on the
+  // Helpdesk page; an empty flag is not a breach.
+  const rplyOk    = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND responded_time IS NOT NULL AND responded_time!='' AND LOWER(COALESCE(first_response_overdue,'')) NOT IN ('true','1','yes')`).get(...gft)).n;
   const rplyTotal = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND responded_time IS NOT NULL AND responded_time!=''`).get(...gft)).n;
   const avgTtaRow = await H.prepare(`SELECT AVG(EXTRACT(EPOCH FROM (assigned_time::timestamptz - created_time::timestamptz))/3600) as v FROM request_records WHERE ${DR} AND assigned_time IS NOT NULL AND assigned_time!=''`).get(...gft);
   const avgFrRow  = await H.prepare(`SELECT AVG(EXTRACT(EPOCH FROM (responded_time::timestamptz - created_time::timestamptz))/3600) as v FROM request_records WHERE ${DR} AND responded_time IS NOT NULL AND responded_time!=''`).get(...gft);
@@ -2756,7 +2770,7 @@ async function _getCalendarMonthlyHelpdeskPg(site_id, year, month) {
   return {
     inbound: total, closed,
     close_pct: Math.round(closed / total * 100),
-    sla_res_pct:   closed > 0 ? Math.round(slaResOkClosed / closed * 100) : null,
+    sla_res_pct:   slaClosed > 0 ? Math.round(slaResOkClosed / slaClosed * 100) : null,
     sla_reply_pct: rplyTotal > 0 ? Math.round(rplyOk / rplyTotal * 100) : null,
     avg_tta_h:         avgTtaRow.v  != null ? Math.round(avgTtaRow.v)  : null,
     avg_first_reply_h: avgFrRow.v   != null ? Math.round(avgFrRow.v)   : null,

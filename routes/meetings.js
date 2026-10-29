@@ -402,9 +402,6 @@ router.get('/api/meetings/unsigned', requireReportSession, async (req, res) => {
 router.post('/api/meetings/:id/sign', requireReportSession, meetingsJsonBody, async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
-    if (!rdb.userHasRole(req.reportUser, 'editor')) {
-      return res.status(403).json({ error: 'editor role or higher required' });
-    }
     const meetingId = parseInt(req.params.id, 10);
     if (!Number.isFinite(meetingId)) return res.status(400).json({ error: 'Invalid meeting id' });
     const which = (req.body && req.body.which) || '';
@@ -413,12 +410,23 @@ router.post('/api/meetings/:id/sign', requireReportSession, meetingsJsonBody, as
     }
     const status = await meetingsDb.getMeetingStatus(meetingId);
     if (!status) return res.status(404).json({ error: 'Meeting not found' });
+    // UAT F-02: the department head named on the PV signs it themselves (any role, own site);
+    // an editor who stamps it FOR them must say why — recorded with the signature.
+    const fold = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+    const isNamedHead = which === 'dept_head' && status.department_head && [req.reportUser.full_name, req.reportUser.username].some((n) => n && fold(n) === fold(status.department_head));
+    if (!isNamedHead && !rdb.userHasRole(req.reportUser, 'editor')) {
+      return res.status(403).json({ error: 'only the department head named on this PV, or an editor of the site, can sign' });
+    }
+    const onBehalfReason = which === 'dept_head' && !isNamedHead ? String((req.body && req.body.reason) || '').trim() : '';
+    if (which === 'dept_head' && !isNamedHead && onBehalfReason.length < 5) {
+      return res.status(400).json({ code: 'ON_BEHALF_REASON', error: `you are signing for ${status.department_head || 'the department head'} — give the reason (5+ characters), it is kept with the signature` });
+    }
     const userSite = await _userMeetingsSite(req.reportUser, status.site_code);
     if (_sitelessWriteDenied(req.reportUser, userSite)) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
     if (userSite && status.site_code !== userSite) {
       return res.status(403).json({ error: `Meeting belongs to ${status.site_code}; you are scoped to ${userSite}` });
     }
-    const out = await meetingsDb.signMeeting(meetingId, which, { user: req.reportUser });
+    const out = await meetingsDb.signMeeting(meetingId, which, { user: req.reportUser, onBehalfReason: onBehalfReason || null });
     res.json({ ok: true, ...out });
   } catch (e) {
     console.error('[Meetings] sign error:', e.message);

@@ -11,8 +11,8 @@
 const CADENCE_KINDS = ['site_weekly', 'site_monthly', 'group_monthly', 'committee', 'cab', 'custom'];
 const SESSION_STATUSES = ['planned', 'live', 'closed', 'cancelled'];
 const DECISION_STATUSES = ['open', 'in_progress', 'done', 'cancelled'];
-const RFI_KINDS = ['tracker', 'widget', 'metric', 'integration', 'ux', 'data-quality'];
-const RFI_STATUSES = ['submitted', 'triaged', 'accepted', 'scheduled', 'delivered', 'rejected', 'deferred'];
+const RFI_KINDS = ['tracker', 'widget', 'metric', 'integration', 'ux', 'data-quality', 'governance'];   // charter 02 §3: governance requests too
+const RFI_STATUSES = ['submitted', 'triaged', 'accepted', 'scheduled', 'delivered', 'verified', 'rejected', 'deferred'];   // verified = the requester confirms delivery (charter 02:63)
 const PROJECT_STATUSES = ['planned', 'active', 'on_hold', 'done', 'cancelled'];
 const CONFIDENCE = ['low', 'medium', 'high'];
 
@@ -100,6 +100,15 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     it[field] = now();
     return updateSession(id, { items });
   }
+  // UAT (PMO F2): actions agreed in a session follow the site between meetings — open ones of a cadence
+  // (for the next agenda) and of a site (for the site obligations).
+  async function openSessionActions({ cadenceId = null, siteId = null } = {}) {
+    const where = [`a.status NOT IN ('done','cancelled')`]; const args = [];
+    if (cadenceId != null) { where.push('s.cadence_id = ?'); args.push(Number(cadenceId)); }
+    if (siteId != null) { where.push('c.site_id = ?'); args.push(Number(siteId)); }
+    return (await P(`SELECT a.*, s.cadence_id, s.scheduled_at AS session_at, c.name AS cadence_name, c.site_id FROM session_actions a JOIN meeting_sessions s ON s.id = a.session_id JOIN meeting_cadences c ON c.id = s.cadence_id WHERE ${where.join(' AND ')} ORDER BY a.due_date NULLS LAST, a.id LIMIT 500`).all(...args))
+      .map(r => ({ ...r, id: Number(r.id), session_id: Number(r.session_id), cadence_id: Number(r.cadence_id) }));
+  }
   async function sessionActions(sessionId) { return (await P(`SELECT * FROM session_actions WHERE session_id=? ORDER BY id`).all(Number(sessionId))).map(r => ({ ...r, id: Number(r.id), session_id: Number(r.session_id) })); }
   // A repeated idem_key in the same session returns the first row (a double tap on a slow link — field P1-4).
   const idemOf = (x) => (x && x.idem_key ? str(String(x.idem_key).trim(), 80) || null : null);
@@ -152,6 +161,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     } catch (e) { if (idem && isDup(e)) return again(); throw e; }
     return decRow(await P(`SELECT * FROM decisions WHERE id=?`).get(id));
   }
+  async function getDecision(id) { return decRow(await P(`SELECT * FROM decisions WHERE id=?`).get(Number(id))); }
   async function updateDecision(id, patch) {
     const p = {}; for (const k of ['title', 'text', 'owner', 'due_date']) if (patch[k] !== undefined) p[k] = str(patch[k]);
     if (patch.status) { if (!DECISION_STATUSES.includes(patch.status)) throw Object.assign(new Error('bad decision status'), { code: 'INVALID' }); p.status = patch.status; p.closed_at = ['done', 'cancelled'].includes(patch.status) ? now() : null; }
@@ -186,7 +196,18 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       [ref, r.kind, str(r.title, 200), str(r.problem), str(r.proposal), num(r.site_id), user ? user.id : null, clamp(r.impact, 2), clamp(r.effort, 2), clamp(r.data_risk, 1), 'submitted', now(), now()]);
     return rfiRow(await P(`SELECT * FROM rfi_requests WHERE id=?`).get(id));
   }
+  async function getRfi(id) { return rfiRow(await P(`SELECT * FROM rfi_requests WHERE id=?`).get(Number(id))); }
+  /** UAT (PMO F5): only the requester confirms a delivered request — `delivered → verified`. */
+  async function verifyRfi(id, { user }) {
+    const r = await getRfi(id);
+    if (!r) throw Object.assign(new Error('request not found'), { code: 'NOT_FOUND', status: 404 });
+    if (!user || Number(r.requester_id) !== Number(user.id)) throw Object.assign(new Error('only the requester confirms the delivery'), { code: 'FORBIDDEN', status: 403 });
+    if (r.status !== 'delivered') throw Object.assign(new Error('only a delivered request can be confirmed'), { code: 'STATE', status: 409 });
+    await updateRow('rfi_requests', id, { status: 'verified' }, ['status']);
+    return getRfi(id);
+  }
   async function triageRfi(id, patch) {
+    if (patch && patch.status === 'verified') throw Object.assign(new Error('verified is set by the requester (POST /rfi/:id/verify)'), { code: 'INVALID' });
     const p = {}; const clamp = (v) => Math.min(3, Math.max(1, Number(v)));
     for (const k of ['impact', 'effort', 'data_risk']) if (patch[k] != null) p[k] = clamp(patch[k]);
     if (patch.status) { if (!RFI_STATUSES.includes(patch.status)) throw Object.assign(new Error('bad RFI status'), { code: 'INVALID' }); p.status = patch.status; }
@@ -242,7 +263,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     await insert('minutes_history', ['session_id', 'action', 'actor_id', 'at', 'reason'], [Number(sessionId), String(action), actorId == null ? null : Number(actorId), now(), str(reason, 1000)]);
   }
   async function minutesHistory(sessionId) { return (await P('SELECT action, actor_id, at, reason FROM minutes_history WHERE session_id=? ORDER BY id').all(Number(sessionId))).map(r => ({ ...r, actor_id: r.actor_id == null ? null : Number(r.actor_id) })); }
-  return { addMinutesHistory, minutesHistory, init, listCadences, getCadence, saveCadence, removeCadence, listSessions, getSession, createSession, updateSession, stampItem, sessionActions, addSessionAction, setSessionActionStatus, moveSession,
+  return { getRfi, verifyRfi, getDecision, openSessionActions, addMinutesHistory, minutesHistory, init, listCadences, getCadence, saveCadence, removeCadence, listSessions, getSession, createSession, updateSession, stampItem, sessionActions, addSessionAction, setSessionActionStatus, moveSession,
     listDecisions, addDecision, updateDecision, listRfi, submitRfi, triageRfi, rfiScore, portfolio, upsertPortfolio, removePortfolio,
     CADENCE_KINDS, SESSION_STATUSES, DECISION_STATUSES, RFI_KINDS, RFI_STATUSES, PROJECT_STATUSES, CONFIDENCE };
 }

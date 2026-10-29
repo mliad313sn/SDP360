@@ -40,5 +40,5 @@ test('recurring = (category / sub_category) with count >= 3', () => {
 
 test('empty rows → all-zero block, never throws', () => {
   const r = _computeSiteHelpdesk([]);
-  assert.deepStrictEqual(r, { created: 0, resolved: 0, backlog: 0, sla_overdue: 0, major_incidents: 0, top_categories: [], recurring: [] });
+  assert.deepStrictEqual(r, { created: 0, resolved: 0, backlog: 0, sla_overdue: 0, major_incidents: 0, top_categories: [], recurring: [], avg_resolution_h: null });
 });

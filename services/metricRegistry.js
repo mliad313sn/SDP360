@@ -144,7 +144,8 @@ const READERS = {
   },
   async 'helpdesk.window'(d, { site, win }) {
     const r = await d.rdb.getSiteHelpdeskWindow(site, win.from, win.to);
-    return r || null;
+    if (!r || r.scoped === false) return null;   // site without a Zoho group: not measured, never 0
+    return { ...r, overdue: r.sla_overdue };      // UAT ITSM-02: the registry field is `overdue`
   },
   async 'meetings.insights_site'(d, { site, win }) {
     const code = (await codeFor(d, site)).meetings_code; if (!code) return null;

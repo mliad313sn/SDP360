@@ -12,7 +12,7 @@ name: Release
 #   - the signing condition is a JOB-level env (`SIGN`) computed from the secret, read by the
 #     steps with `env.SIGN == 'true'` — a step-level `env:` is NOT visible to that step's own `if:`
 #     (the previous `if: env.PFX != ''` was always false → every release said "signed: NO");
-#   - the certificate password reaches signtool through `env:` of the ISCC step ONLY, expanded
+#   - the certificate password reaches signtool through `env:` of the Build Setup step ONLY, expanded
 #     at run time inside a wrapper script — never written to GITHUB_ENV, never on a logged
 #     command line (CLAUDE.md: a secret is never on a command line);
 #   - the manifest signing key reaches the packager through `env:` of its step only;
@@ -108,8 +108,10 @@ jobs:
         with:
           name: package
           path: dist
-      - name: Install Inno Setup
-        run: choco install innosetup --no-progress -y
+      - name: Install Inno Setup (when the runner lacks it)
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup --no-progress -y }
       - name: Import signing certificate (when configured)
         if: env.SIGN == 'true'
         env:
@@ -132,10 +134,11 @@ jobs:
           SIGNING_CERT_PASSWORD: ${{ secrets.SIGNING_CERT_PASSWORD }}
         run: |
           $v = "${{ needs.package.outputs.version }}"
-          $sign = @()
-          # SDP-Dashboard.iss appends ` $f` itself (SignTool={#SignTool} $f): pass the wrapper path only.
-          if ($env:SIGN -eq 'true') { $sign = @("/Ssigntool=`"$env:RUNNER_TEMP\sdp-sign.cmd`"", "/DSignTool=signtool") }
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=$v" "/DPackageZip=$PWD\dist\sdp-dashboard-$v.zip" @sign tools\installer-v2\SDP-Dashboard.iss
+          # build.ps1 bundles Node.js (checksum-verified), the Windows dependencies, the service host and the
+          # Manager around the package the previous job built and signed — it never rebuilds the package.
+          $sign = ''
+          if ($env:SIGN -eq 'true') { $sign = "$env:RUNNER_TEMP\sdp-sign.cmd" }
+          ./tools/installer-v2/build.ps1 -Version $v -PackageZip "dist\sdp-dashboard-$v.zip" -SignTool $sign -Commit "$env:GITHUB_SHA".Substring(0, 7)
       - name: Note signing state
         shell: pwsh
         run: |
