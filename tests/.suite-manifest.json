@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 2914,
+ "total": 2918,
  "files": {
   "a11y-static.test.js": 13,
   "access-revocation.smoke.test.js": 5,
@@ -63,6 +63,7 @@
   "assets-sync.test.js": 8,
   "assets-usage-log.smoke.test.js": 4,
   "audit-chain.test.js": 2,
+  "audit-grants-rehearsal.test.js": 1,
   "audit-meetings-integrity.test.js": 10,
   "audit-report-write-auth.smoke.test.js": 12,
   "auth-cookie.smoke.test.js": 5,
@@ -142,6 +143,7 @@
   "governance-roles.test.js": 7,
   "governance-routes.smoke.test.js": 7,
   "governance-store.test.js": 5,
+  "governance-values.test.js": 3,
   "handoff-lifecycle.test.js": 4,
   "handoffs.smoke.test.js": 9,
   "health-version.smoke.test.js": 2,

@@ -12,7 +12,7 @@ BEGIN;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sdp_audit_owner') THEN CREATE ROLE sdp_audit_owner NOLOGIN; END IF; END $$;
 DO $$ DECLARE t TEXT; app TEXT := current_setting('sdp.app_role', true);
 BEGIN
-  FOREACH t IN ARRAY ARRAY['governance_policy_history', 'handoff_events', 'commitment_events', 'closure_verifications', 'minutes_history'] LOOP
+  FOREACH t IN ARRAY ARRAY['governance_policy_history', 'handoff_events', 'commitment_events', 'closure_verifications', 'minutes_history', 'governance_role_events'] LOOP
     IF to_regclass(t) IS NULL THEN CONTINUE; END IF;
     EXECUTE format('ALTER TABLE %I OWNER TO sdp_audit_owner', t);
   END LOOP;
@@ -20,7 +20,7 @@ END $$;
 SELECT set_config('sdp.app_role', :'app_role', true);
 DO $$ DECLARE t TEXT; app TEXT := current_setting('sdp.app_role');
 BEGIN
-  FOREACH t IN ARRAY ARRAY['governance_policy_history', 'handoff_events', 'commitment_events', 'closure_verifications', 'minutes_history'] LOOP
+  FOREACH t IN ARRAY ARRAY['governance_policy_history', 'handoff_events', 'commitment_events', 'closure_verifications', 'minutes_history', 'governance_role_events'] LOOP
     IF to_regclass(t) IS NULL THEN CONTINUE; END IF;
     EXECUTE format('REVOKE ALL ON %I FROM %I', t, app);
     EXECUTE format('GRANT SELECT, INSERT ON %I TO %I', t, app);
@@ -31,5 +31,5 @@ END $$;
 COMMIT;
 -- Check (expect only SELECT and INSERT for the application role):
 SELECT table_name, privilege_type FROM information_schema.role_table_grants
- WHERE grantee = :'app_role' AND table_name IN ('governance_policy_history', 'handoff_events', 'commitment_events', 'closure_verifications', 'minutes_history')
+ WHERE grantee = :'app_role' AND table_name IN ('governance_policy_history', 'handoff_events', 'commitment_events', 'closure_verifications', 'minutes_history', 'governance_role_events')
  ORDER BY 1, 2;
