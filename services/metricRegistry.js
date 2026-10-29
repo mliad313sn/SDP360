@@ -25,7 +25,10 @@ const WINDOW_KINDS = ['month', 'week', 'rolling3m', 'rolling13w', 'ytd', 'curren
 // ── Seed ──────────────────────────────────────────────────────────────────────────────
 // owner_role = the committee role accountable for the definition (docs/sdp360/02).
 const M = (key, name, name_fr, module, unit, formula, window_kind, rag_policy, reader, field, o = {}) =>
-  ({ key, name, name_fr, module, unit, formula, window_kind, rag_policy, reader, field, higher_is_better: o.hib !== false, owner_role: o.owner || 'service-support-manager', source: o.source || null, status: 'published', decision: o.decision || null, certification: o.decision ? 'not certified — ' + o.decision + ' pending' : 'certified' });
+  ({ key, name, name_fr, module, unit, formula, window_kind, rag_policy, reader, field, higher_is_better: o.hib !== false, owner_role: o.owner || 'service-support-manager', source: o.source || null, status: 'published', decision: o.decision || null,
+    // G06 — nothing is "certified" until the KPI Committee records an approval (none exists yet). A disputed
+    // metric names its pending decision; every other one says the approval is not recorded.
+    certification: o.decision ? 'not certified — ' + o.decision + ' pending' : 'not certified — KPI Committee approval not recorded', approved_by: null, approved_at: null });
 
 const SEED = [
   // Helpdesk — calendar month, scoped by the site's Zoho groups (never request_records.site).

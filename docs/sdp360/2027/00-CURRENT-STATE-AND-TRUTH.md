@@ -1,3 +1,5 @@
+> **Superseded as the source of truth (G00, 2026-10-29).** Kept as history. Current state: `docs/agent-execution/README.md` (goal tracker, generated inventory) and `docs/sdp360/completion/TRUTH-MATRIX.md`. Where this file and those disagree, those win.
+
 # 00 — Current state and truth register (Goal 01)
 
 **Inspected:** 2026-10-21 · **HEAD:** `49ff9e022051a8b79e32e5d826d22d2e1bb8f1bc` · **Branch:** `worktree-agent-a293ba42bd60bae16` (isolated worktree of the SDP360 repository) · **Machine-readable register:** [`feature-matrix.json`](feature-matrix.json), guarded by `tests/feature-matrix.test.js`.

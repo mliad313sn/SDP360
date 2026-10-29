@@ -38,6 +38,9 @@ function legacyJob(name, fn, o = {}) {
         throw e;
       }
       const n = typeof o.rowsOf === 'function' ? o.rowsOf(summary) : rowsOf(summary);
+      // G05 — a configured source that answers with nothing is a failed sync, not a fresh one: freshness then
+      // turns STALE and the KPIs fed by it lose their colour instead of showing yesterday's numbers as new.
+      if (o.failOnZero && n === 0 && summary && !summary.skipped) { const e = new Error('source returned no rows'); e.transient = true; throw e; }
       return { rows: n > 0 ? new Array(n).fill(0).map((_, i) => ({ i })) : [], nextWatermark: new Date().toISOString(), summary };
     },
     async apply({ rows, fetched }) {
@@ -86,9 +89,9 @@ function buildJobs(d) {
     { name: 'meridian.resources', cron: '0 5 * * *', freshnessHours: 30, optional: true,
       job: legacyJob('meridian.resources', () => req('meridian/sync-resources').main()) },
     { name: 'opmanager.availability', cron: '10 5 * * *', freshnessHours: 30, optional: true,
-      job: legacyJob('opmanager.availability', () => req('opmanager/sync-availability').main({ fetchView: d.fetchView })) },
+      job: legacyJob('opmanager.availability', () => req('opmanager/sync-availability').main({ fetchView: d.fetchView }), { failOnZero: true, rowsOf: (x) => Number((x && (x.rows ?? x.devices)) || 0) }) },
     { name: 'meraki.wan',      cron: '20 5 * * *', freshnessHours: 30, optional: true,
-      job: legacyJob('meraki.wan', () => req('meraki/sync-wan').main({})) },
+      job: legacyJob('meraki.wan', () => req('meraki/sync-wan').main({}), { failOnZero: true }) },
     { name: 'meraki.wan_events', cron: '25 5 * * *', freshnessHours: 30, optional: true,
       job: legacyJob('meraki.wan_events', () => req('meraki/sync-wan-events').main({})) },
     { name: 'meraki.wan_events_5m', cron: '*/5 * * * *', freshnessHours: 1, optional: true,

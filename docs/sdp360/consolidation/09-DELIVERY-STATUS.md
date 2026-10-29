@@ -1,3 +1,5 @@
+> **Superseded as the source of truth (G00, 2026-10-29).** Kept as history. Current state: `docs/agent-execution/README.md` (goal tracker, generated inventory) and `docs/sdp360/completion/TRUTH-MATRIX.md`. Where this file and those disagree, those win.
+
 # 09 — Delivery status
 
 Branch `claude/sdp360-consolidation` (from `fb78494`). Release: **NO-GO** (no deployment / merge authorised).

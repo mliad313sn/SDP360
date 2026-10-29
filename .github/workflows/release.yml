@@ -83,6 +83,8 @@ jobs:
           else
             echo "manifest_signed=no" >> "$GITHUB_OUTPUT"
           fi
+      - name: SBOM (CycloneDX) of the shipped components
+        run: node tools/release/sbom.js --out dist/sbom.cdx.json --timestamp
       - name: Manager accepts the freshly built package (signature + hashes)
         # Exactly what the server will run. Fails the release if the embedded public key does not
         # match the signing secret (or, unsigned, proves the refusal path still works).

@@ -10,7 +10,7 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
-const { parseEvents, check, census, checkManifest, skipReport, buildManifest } = require('./guard');
+const { parseEvents, check, census, checkManifest, skipReport, buildManifest, checkSkips } = require('./guard');
 
 const root = path.resolve(__dirname, '..', '..');
 const testsDir = path.join(root, 'tests');
@@ -59,6 +59,9 @@ if (process.argv.includes('--update-manifest')) {
   if (!manifest) problems.push('tests/.suite-manifest.json is missing or unreadable');
   else problems.push(...checkManifest({ manifest, census: cs, expectedFiles: files }));
 }
+let skipAllow = null;
+try { skipAllow = JSON.parse(fs.readFileSync(path.join(testsDir, '.skip-allowlist.json'), 'utf8')); } catch {}
+if (!process.argv.includes('--update-manifest')) problems.push(...checkSkips(cs, skipAllow));
 const skipped = Object.values(cs).reduce((a, c) => a + c.skipped, 0);
 console.log('\n[test-guard] files ' + res.reportedFiles + '/' + files.length + ' · tests ' + res.tests + ' · failed ' + res.failed + ' · skipped ' + skipped + ' · floor ' + minTests);
 for (const [reason, b] of skipReport(cs)) console.log(`[test-guard] skip ${b.tests} × "${reason}" (${b.files.length} file(s))`);

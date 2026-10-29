@@ -41,10 +41,14 @@ async function evaluateAlerts({ store, registry, deps, rdb, now = new Date(), ma
   await store.saveState(next, values);
   const users = firings.length ? (await rdb.listUsers()) || [] : [];
   let notified = 0, mailed = 0, posted = 0, skipped = 0;
+  // G16 — outbound channels (e-mail, Teams, webhook) stay OFF until a super_admin arms them, and one STOP
+  // switch halts every outbound alert at once. In-app notifications are internal and keep working.
+  const external = String(cfg.alert_external_enabled || '0') === '1' && String(cfg.notifications_stop || '0') !== '1';
   for (const f of firings) {
     await store.recordFiring(f);
     const rc = resolveRecipients(f.rule.recipients || {}, users);
     if ((f.rule.channels || ['inapp']).includes('inapp')) for (const uid of rc.userIds) { await store.notify({ userId: uid, kind: 'alert', title: f.rule.name || f.rule.key, body: f.message, link: `${baseUrl}/notifications.html?rule=${encodeURIComponent(f.rule.key)}`, sourceKind: 'alert_rule', sourceRef: f.key }); notified++; }
+    if (!external) { if ((f.rule.channels || []).some((c) => c !== 'inapp')) skipped++; continue; }
     if ((f.rule.channels || []).includes('email')) { const to = [...rc.emails, ...users.filter(u => rc.userIds.has(Number(u.id)) && u.email).map(u => u.email)]; if (mailer && to.length) { const r = await mailer.send({ to, subject: `[Alert] ${f.rule.name || f.rule.key}`, html: `<p>${esc(f.message)}</p><p><a href="${esc(baseUrl)}/notifications.html">Open the notification centre</a></p>` }); if (r.ok) mailed++; } else skipped++; }
     if ((f.rule.channels || []).includes('teams')) { const url = String(cfg.engagement_teams_url || '').trim(); if (post && url) { try { await post(url, teamsCard(f)); posted++; } catch (_) { skipped++; } } else skipped++; }
     if ((f.rule.channels || []).includes('webhook')) { const url = String(cfg.engagement_webhook_url || '').trim(); if (post && url) { try { await post(url, { kind: 'alert', rule: f.rule.key, name: f.rule.name, metric: f.rule.metric, site_id: f.reading.site_id, site: f.reading.site, value: f.reading.value, unit: f.reading.unit, rag: f.reading.rag, message: f.message, fired_at: now.toISOString() }); posted++; } catch (_) { skipped++; } } else skipped++; }

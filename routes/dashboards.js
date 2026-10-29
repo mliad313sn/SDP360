@@ -127,6 +127,7 @@ module.exports = function dashboardsRoutes(deps) {
       const jobs = gate.jobsFor(mods);
       const lastOk = deps.lastSyncOk ? await deps.lastSyncOk(jobs) : await gate.lastOkFromSyncStore(jobs);
       const stale = gate.freshness(mods, lastOk, now.getTime(), await require('../services/governancePolicy').forContext({})).sources.filter(x => x.state !== 'FRESH');
+      gate.degradeStale(out, def, reg, stale);   // G05: stale source → value kept, colour withdrawn
       res.json({ ok: true, key: d.key, version: d.version, site, sites: sites.map(s => ({ id: Number(s.id), name: s.name })), window, as_of: now.toISOString(), widgets: out, stale_sources: stale });
     } catch (e) { fail(res, e, 500, { ok: false }); }
   });

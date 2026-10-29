@@ -1053,6 +1053,26 @@ app.use((req, res, next) => {
 // (tools/, scheduled jobs). A browser context — a report_token cookie OR an Origin header — must
 // carry a valid session; the key is never read from the query string.
 const _dashKeyGate = require('./services/viewLog').makeOncePerDay();   // EX-02: dash-key call evidence
+// G02 — every refused API call (401/403) lands in the security log, at most once per actor + route per
+// 10 minutes (a scripted probe must not flood the log; the count of refusals is in the details).
+const _denyGate = require('./services/viewLog').makeOncePerDay();
+const _denyCount = new Map();
+app.use('/api/', (req, res, next) => {
+  res.on('finish', () => {
+    if (res.statusCode !== 401 && res.statusCode !== 403) return;
+    try {
+      const actor = (req.reportUser && req.reportUser.username) || 'anonymous';
+      const target = req.method + ' /api' + req.path;
+      const key = actor + ' ' + target + ' ' + (req.ip || '');
+      _denyCount.set(key, (_denyCount.get(key) || 0) + 1);
+      if (_denyCount.size > 5000) _denyCount.clear();
+      const bucket = new Date().toISOString().slice(0, 15);   // 10-minute bucket
+      if (!_denyGate(key, bucket) || !rdb || !rdb.logEvent) return;
+      rdb.logEvent({ category: 'api', action: res.statusCode === 401 ? 'access_unauthenticated' : 'access_denied', actor, target, ip: req.ip, risk: res.statusCode === 403 ? 1 : 0, details: { status: res.statusCode, refusals_seen: _denyCount.get(key) } });
+    } catch (_) { /* a log never breaks a request */ }
+  });
+  next();
+});
 app.use('/api/', async (req, res, next) => {
   if (req.path.startsWith('/reports/')) return next(); // protected by requireReportSession
   // Public Executive View summary — aggregates-only, no auth (SharePoint-facing).

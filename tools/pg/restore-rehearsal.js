@@ -59,6 +59,11 @@ async function main() {
       const r = spawnSync(process.execPath, [path.join(ROOT, 'db', 'migrate.js')], { env: { ...process.env, PG_URL: srcUrl }, encoding: 'utf8' });
       check('migrations apply on an empty database', r.status === 0, (r.stdout.match(/applied=\d+[^\n]*/) || [String(r.stderr).slice(-200)])[0]);
     });
+    await timed(steps, 'migrate again (must be a no-op)', async () => {
+      const r = spawnSync(process.execPath, [path.join(ROOT, 'db', 'migrate.js')], { env: { ...process.env, PG_URL: srcUrl }, encoding: 'utf8' });
+      const m = /applied=(\d+) already=(\d+) changed=(\d+)/.exec(r.stdout || '');
+      check('a second migration run applies nothing (idempotent)', r.status === 0 && m && m[1] === '0' && m[3] === '0', m ? m[0] : String(r.stderr).slice(-200));
+    });
 
     await timed(steps, `load ${ROWS} synthetic tickets`, async () => {
       await q(srcUrl, `INSERT INTO request_records (request_id, display_id, subject, request_status, site, tech_group, created_time, resolved_time, udf_json)
@@ -79,6 +84,16 @@ async function main() {
     const p3 = (await q(srcUrl, "SELECT to_char(now() AT TIME ZONE 'UTC','YYYY') AS y")).rows[0].y;
     check('server clock reachable in UTC', /^\d{4}$/.test(p3), p3);
 
+    // audit evidence: hash-chained rows written through the real trigger (migration 034)
+    for (let i = 0; i < 50; i++) await q(srcUrl, "INSERT INTO governance_policy_history (scope, key, old_value, new_value, actor_id, at, reason) VALUES ('global', $1, $2, $3, 1, $4, 'rehearsal')", ['k' + (i % 5), String(i), String(i + 1), new Date(Date.UTC(2026, 9, 1) + i * 60000).toISOString()]);
+    const chainDb = (url) => ({ prepare: (sql) => ({ all: async () => (await q(url, sql)).rows }) });
+    const chainSrc = await require('../../services/auditChain').verify(chainDb(srcUrl));
+    check('audit hash chain verifies on the source', chainSrc.ok && chainSrc.tables.some((t) => t.rows === 50), chainSrc.tables.map((t) => `${t.table}:${t.rows}`).join(' '));
+    let tamperRefused = false;
+    try { await q(srcUrl, "UPDATE governance_policy_history SET new_value = 'tampered' WHERE id = (SELECT min(id) FROM governance_policy_history)"); } catch (_) { tamperRefused = true; }
+    let deleteRefused = false;
+    try { await q(srcUrl, 'DELETE FROM governance_policy_history'); } catch (_) { deleteRefused = true; }
+    check('audit rows cannot be edited or deleted through SQL (append-only trigger)', tamperRefused && deleteRefused, `update refused: ${tamperRefused}, delete refused: ${deleteRefused}`);
     const before = await counts(srcUrl); const hSrc = await ticketChecksum(srcUrl);
     report.tables = Object.keys(before).length; report.rows_total = Object.values(before).reduce((a, b) => a + b, 0);
 
@@ -95,6 +110,9 @@ async function main() {
     const diff = Object.keys({ ...before, ...after }).filter((t) => before[t] !== after[t]);
     check('every table has the same row count after the restore', diff.length === 0, diff.length ? diff.join(', ') : `${report.tables} tables, ${report.rows_total} rows`);
     check('ticket table identical (ordered checksum)', hSrc === hDst, hSrc === hDst ? 'md5 match' : 'md5 differs');
+    const chainDst = await require('../../services/auditChain').verify(chainDb(dstUrl));
+    const heads = (c) => c.tables.map((t) => t.table + '=' + t.head).join(',');
+    check('audit hash chain verifies after the restore, with the same chain heads', chainDst.ok && heads(chainDst) === heads(chainSrc), chainDst.ok ? 'heads match' : 'chain broken: ' + JSON.stringify(chainDst.tables.filter((t) => t.ok === false)));
 
     // failure: an error in the middle of the dump → refused, target unchanged (single transaction)
     await q(dstUrl, "INSERT INTO request_records (request_id) VALUES ('REHEARSAL-MARKER')");

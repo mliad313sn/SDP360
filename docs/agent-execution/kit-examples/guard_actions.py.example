@@ -1,0 +1,21 @@
+#!/usr/bin/env python3
+"""Conservative defense-in-depth hook; NOT a sandbox or replacement for permissions.
+Reads Claude Code JSON from stdin; blocks common actions that exceed this kit's scope.
+Exit 2 with stderr to refuse. Runs before Bash/Write/Edit in the example settings.
+"""
+import json,re,sys
+try: event=json.load(sys.stdin)
+except Exception: sys.exit(0)
+name=event.get('tool_name','')
+data=event.get('tool_input') or {}
+cmd=str(data.get('command') or '')
+paths=' '.join(str(data.get(k) or '') for k in ('file_path','path'))
+# Reject writing protected artifacts: this kit writes recommendation elsewhere.
+normalized=paths.replace(chr(92),'/').strip()
+protected=['/.env','/LICENSE','/RELEASE-GATES.md','/.mcp.json']
+if name in ('Write','Edit','MultiEdit') and (any(normalized.endswith(x) for x in protected) or '/.env.' in normalized):
+    sys.stderr.write('SDP360 guard: protected approval/secret/license path; propose a separate patch and require operator approval.\n');sys.exit(2)
+patterns=[r'\bgit\s+push\b',r'\bgh\s+pr\s+merge\b',r'\bgh\s+release\s+create\b',r'\bnpm\s+publish\b',r'\bgit\s+filter-(repo|branch)\b',r'\bgit\s+reset\s+--hard\b',r'\brm\s+-[a-zA-Z]*r[a-zA-Z]*f\b',r'\b(kubectl|helm)\s+(apply|upgrade|install)\b',r'\b(pm2|systemctl)\s+(restart|reload|stop)\b',r'\b(ssh|scp|rsync)\b',r'\b(psql|pg_restore|dropdb)\b.*\b(prod|production)\b']
+if name=='Bash' and any(re.search(p,cmd,re.I) for p in patterns):
+    sys.stderr.write('SDP360 guard: potentially destructive/external command denied; restrict to disposable nonproduction environment and obtain operator approval.\n');sys.exit(2)
+sys.exit(0)

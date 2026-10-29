@@ -81,4 +81,17 @@ function buildManifest(cs) {
   return { note: 'Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest', total: Object.values(files).reduce((a, b) => a + b, 0), files };
 }
 
-module.exports = { parseEvents, summarize, check, census, checkManifest, skipReport, buildManifest };
+// tests/.skip-allowlist.json — every reason a test may be skipped for, with the most tests it may cover and
+// an owner. A skip under an unlisted reason, or more skips than allowed, fails the run: no hidden skip.
+function checkSkips(cs, allow) {
+  const problems = [];
+  const reasons = (allow && allow.reasons) || {};
+  for (const [reason, b] of skipReport(cs)) {
+    const a = reasons[reason];
+    if (!a) problems.push(`${b.tests} test(s) skipped for an unlisted reason "${reason}" (${b.files.join(', ')}) — add it to tests/.skip-allowlist.json with an owner, or fix the test`);
+    else if (b.tests > a.max) problems.push(`${b.tests} test(s) skipped for "${reason}", allow-list permits ${a.max}`);
+  }
+  return problems;
+}
+
+module.exports = { parseEvents, summarize, check, census, checkManifest, skipReport, buildManifest, checkSkips };

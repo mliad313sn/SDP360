@@ -152,7 +152,7 @@ DEFAULTS.backup_offsite_path = '';
 // ── Step 9 — engagement + external publishing. Teams / webhook URLs let anyone post → SECRETS
 //    (blank-keep, encrypted). SharePoint: Graph client-credentials app (client_secret = SECRET).
 //    publish_metric_keys = comma list of KPI keys the connectors + the OData Values default to.
-Object.assign(DEFAULTS, { engagement_teams_url: '', engagement_webhook_url: '', engagement_digest_hour: '7', embed_frame_ancestors: '',
+Object.assign(DEFAULTS, { alert_external_enabled: '0', notifications_stop: '0', engagement_teams_url: '', engagement_webhook_url: '', engagement_digest_hour: '7', embed_frame_ancestors: '',
   publish_metric_keys: 'helpdesk.resolution_sla_pct,helpdesk.first_reply_sla_pct,inspection.conformity_pct,meetings.engagement_score,assets.completeness_pct,tracker.site_score_pct',
   publish_excel_recipients: '', publish_webhook_url: '', publish_cron_enabled: '0',
   sharepoint_tenant_id: '', sharepoint_client_id: '', sharepoint_client_secret: '', sharepoint_site_id: '', sharepoint_list_id: '' });

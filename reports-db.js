@@ -320,6 +320,15 @@ async function _setExecMiSummaryPg(request_id, s) {
 function hashPassword(password, salt) {
   return crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
 }
+// G03 — constant-time password check. An unknown user still costs one PBKDF2 run, so the response time does
+// not tell an attacker which usernames exist.
+const _DUMMY_SALT = crypto.randomBytes(16).toString('hex');
+function passwordMatches(password, user) {
+  const got = Buffer.from(hashPassword(String(password == null ? '' : password), user ? user.salt : _DUMMY_SALT), 'hex');
+  if (!user || !user.password_hash) return false;
+  const want = Buffer.from(String(user.password_hash), 'hex');
+  return want.length === got.length && crypto.timingSafeEqual(want, got);
+}
 function makeSession() {
   return crypto.randomBytes(32).toString('hex');
 }
@@ -704,8 +713,7 @@ function logout(token) {
 async function _loginPg(username, password) {
   const h = pgHandle();
   const user = await h.prepare(`SELECT * FROM users WHERE username=? AND active=1`).get(username);
-  if (!user) return null;
-  if (hashPassword(password, user.salt) !== user.password_hash) return null;
+  if (!passwordMatches(password, user)) return null;
   const token = makeSession();
   const expiresAt = new Date(Date.now() + sessionHours() * 3600 * 1000).toISOString();
   await h.prepare(`INSERT INTO sessions (token, user_id, expires_at) VALUES (?,?,?)`).run(token, user.id, expiresAt);
@@ -1000,7 +1008,7 @@ async function _changePasswordPg(userId, currentPassword, newPassword) {
   const h = pgHandle();
   const user = await h.prepare('SELECT * FROM users WHERE id=? AND active=1').get(userId);
   if (!user) return { ok: false, error: 'User not found' };
-  if (hashPassword(currentPassword, user.salt) !== user.password_hash) return { ok: false, error: 'Current password is incorrect' };
+  if (!passwordMatches(currentPassword, user)) return { ok: false, error: 'Current password is incorrect' };
   if (newPassword.length < 8) return { ok: false, error: 'New password must be at least 8 characters' };
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = hashPassword(newPassword, salt);
@@ -5433,7 +5441,7 @@ module.exports = {
   // System Logs v1
   _isRiskAction, _redactKeys, _logCtx, logEvent,
   listSystemLog, countSystemLog, getSystemLogAnalytics, _backfillSystemLogFromAudit,
-  hashPassword, makeSession,
+  hashPassword, passwordMatches, makeSession,
   login, validateSession, logout, safeUser,
   findUserByEntra, linkUserEntra, createSessionForUser,
   updateUserProfileFromEntra, setUserEmail,

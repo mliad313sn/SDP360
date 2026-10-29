@@ -138,7 +138,7 @@
       else if (d.mode === 'single') {
         el.innerHTML = title + '<div class="edv-kpi-value">' + R.ragDot(d.rag) + R.formatValue(d.value, d.unit) + '</div>' +
           R.kpiContext(d) +
-          '<div class="edv-kpi-sub">' + (d.fleet ? 'fleet mean ' + R.formatValue(d.fleet.mean, d.unit) + ' (' + d.fleet.n + ' sites)' : (d.value == null ? 'not measured' : '')) + '</div>' +
+          '<div class="edv-kpi-sub">' + (d.fleet ? (d.fleet.kind === 'unweighted_site_mean' ? 'average of site rates ' : 'fleet mean ') + R.formatValue(d.fleet.mean, d.unit) + ' (' + d.fleet.n + ' sites' + (d.fleet.kind === 'unweighted_site_mean' ? ', unweighted — not the group rate' : '') + ')' : (d.value == null ? 'not measured' : '')) + '</div>' +
           '<div class="edv-asof">' + (d.window ? R.escapeHtml(d.window.label) : '') + '</div>';
       } else if (d.mode === 'series') {
         // design review B4 / R6: no empty axis; % axes run 0–100; short week labels, the year said once

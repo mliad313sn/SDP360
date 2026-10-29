@@ -156,4 +156,24 @@ function withdrawReasonError(reason, policy = null) {
   return String(reason || '').trim().length >= min ? null : `reason required (${min}+ characters)`;
 }
 
-module.exports = { SOURCES, reportFreshnessDecision, withdrawReasonError, dutyConflict, definitionConflict, publishDecision, modulesOf, freshness, moduleFreshness, jobsFor, lastOkFromSyncStore };
+/**
+ * G05 — a value computed from a STALE or never-synced source keeps its number and date, but loses its colour:
+ * the RAG becomes 'NA' (grey) with `freshness` saying why, so an outage can never show as a fresh green.
+ * Pure: widgets = resolveWidgets output; staleSources = freshness().sources that are not FRESH.
+ */
+function degradeStale(widgets, def, reg, staleSources) {
+  const bad = new Map();
+  for (const s of staleSources || []) if (s.state !== 'FRESH') bad.set(s.module, bad.get(s.module) === 'UNKNOWN' ? 'UNKNOWN' : s.state);
+  if (!bad.size) return widgets;
+  for (const w of (def && def.widgets) || []) {
+    const out = widgets && widgets[w.id]; const m = w && w.metric && reg.get(w.metric);
+    if (!out || !m || !bad.has(m.module)) continue;
+    const state = bad.get(m.module);
+    out.freshness = state;
+    if (out.rag !== undefined) { out.rag_if_fresh = out.rag; out.rag = 'NA'; }
+    if (Array.isArray(out.rows)) for (const r of out.rows) { r.rag_if_fresh = r.rag; r.rag = 'NA'; }
+  }
+  return widgets;
+}
+
+module.exports = { degradeStale, SOURCES, reportFreshnessDecision, withdrawReasonError, dutyConflict, definitionConflict, publishDecision, modulesOf, freshness, moduleFreshness, jobsFor, lastOkFromSyncStore };

@@ -89,3 +89,14 @@ test('D-06: the Meraki connector stays registered as ACTIVE', () => {
   assert.match(m.status, /^ACTIVE/);
   assert.match(m.decision, /D-06/);
 });
+
+// G05 — every scheduled job that talks to the outside is owned by a register row, and every job a row
+// names really exists in services/sync/jobs.js (no orphan connector, no phantom job).
+test('scheduled jobs map to connectors and connectors name real jobs', () => {
+  const INTERNAL_JOBS = new Set(['audit.chain_verify', 'audit.retention', 'commitments.escalate', 'db.backup', 'db.restore_drill', 'field.purge', 'handoffs.escalate']);
+  const src = fs.readFileSync(path.join(ROOT, 'services', 'sync', 'jobs.js'), 'utf8');
+  const declared = new Set([...src.matchAll(/legacyJob\('([a-z0-9_.]+)'/g), ...src.matchAll(/\bname:\s*'([a-z0-9_.]+)'/g)].map((m) => m[1]));
+  const named = new Set(register.flatMap((r) => String(r.jobs || '').split(';').map((x) => x.trim()).filter((x) => x && x !== '-')));
+  for (const j of named) assert.ok(declared.has(j), `register names job ${j}, which jobs.js does not declare`);
+  for (const j of declared) assert.ok(named.has(j) || INTERNAL_JOBS.has(j), `job ${j} has no connector row and is not listed as internal`);
+});

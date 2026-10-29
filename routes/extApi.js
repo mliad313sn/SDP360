@@ -71,7 +71,7 @@ module.exports = function extApiRoutes(deps) {
   async function values(keys, { site = null, window = null } = {}) {
     const reg = registry(); const dd = readerDeps(); const now = new Date(); const all = await sites(); const out = [];
     const fr = await freshnessByModule([...new Set(keys.slice(0, MAX_METRICS).map((k) => reg.get(k)).filter(Boolean).map((m) => m.module))]);
-    const tag = (row) => { const st = fr[row.module] || 'UNKNOWN'; row.freshness = st; row.authoritative = st === 'FRESH'; return row; };
+    const tag = (row) => { const st = fr[row.module] || 'UNKNOWN'; row.freshness = st; row.authoritative = st === 'FRESH'; if (st !== 'FRESH' && row.rag !== 'NA') { row.rag_if_fresh = row.rag; row.rag = 'NA'; } return row; };   // G05: no colour on a stale source
     for (const k of keys.slice(0, MAX_METRICS)) { const m = reg.get(k); if (!m || !isPublished(m)) continue; /* a draft KPI never leaves the platform (committee security) */ const fleet = /\.fleet$/.test(m.reader || ''); const targets = fleet ? [null] : (site != null ? all.filter(s => s.id === Number(site)) : all);
       for (const s of targets) { try { const r = await reg.resolve(k, { site: s ? s.id : null, window, deps: dd, now }); out.push(tag({ metric: k, name: m.name, module: m.module, site_id: s ? s.id : null, site: s ? s.name : 'fleet', window: r && r.window && r.window.label || null, value: r ? r.value : null, unit: m.unit, rag: r ? r.rag : 'NA', as_of: r && r.as_of || null })); } catch (e) { out.push(tag({ metric: k, module: m.module, site_id: s ? s.id : null, site: s ? s.name : 'fleet', value: null, unit: m.unit, rag: 'NA', error: 'reader_error' })); } } }
     return out;

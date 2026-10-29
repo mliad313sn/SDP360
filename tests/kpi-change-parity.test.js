@@ -39,3 +39,13 @@ test('the disputed programme scores say they are not certified until D-01..D-03'
     assert.equal(m.decision, 'D-01/D-02/D-03'); assert.match(m.certification, /not certified/);
   }
 });
+
+test('G06: no metric claims a certification the KPI Committee has not recorded', () => {
+  const reg = require('../services/metricRegistry');
+  const all = (reg.SEED || (reg.list ? reg.list() : []));
+  assert.ok(all.length > 20);
+  for (const m of all) {
+    assert.match(m.certification, /^not certified/, m.key);
+    assert.strictEqual(m.approved_by, null, m.key);
+  }
+});

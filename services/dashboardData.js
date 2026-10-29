@@ -69,7 +69,8 @@ async function resolveWidgets({ def, sites, site, window = null, reg, dd, rdb, n
         if (plan.compare && m.reader !== 'tracker.fleet') {
           const vals = [];
           for (const s of sites) { const r = await reg.resolve(w.metric, { site: Number(s.id), window, deps: dd, now }); if (r && r.value != null) vals.push(Number(r.value)); }
-          fleet = vals.length ? { mean: Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10, n: vals.length } : null;
+          // G06 — a mean of site percentages is NOT the group rate (that needs Σnumerators ÷ Σdenominators): labelled as such.
+          fleet = vals.length ? { mean: Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10, n: vals.length, kind: m.unit === '%' ? 'unweighted_site_mean' : 'site_mean' } : null;
         }
         const KT = require('./kpiTargets');
         const tsite = m.reader === 'tracker.fleet' ? null : site;
