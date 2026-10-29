@@ -80,7 +80,7 @@ function makeGovernanceRolesStore(db, { now = () => new Date().toISOString() } =
     });
   }
   async function events(limit = 200) {
-    return (await P(`SELECT id, entity, entity_id, action, actor_id, at, details FROM governance_role_events ORDER BY id DESC LIMIT ${Math.min(1000, Number(limit) || 200)}`).all())
+    return (await P(`SELECT id, entity, entity_id, action, actor_id, at, details FROM governance_role_events ORDER BY id DESC LIMIT ${Math.max(1, Math.min(1000, Math.floor(Number(limit)) || 200))}`).all())
       .map((e) => ({ ...e, id: Number(e.id), entity_id: e.entity_id == null ? null : Number(e.entity_id), details: e.details ? JSON.parse(e.details) : null }));
   }
 
@@ -90,16 +90,26 @@ function makeGovernanceRolesStore(db, { now = () => new Date().toISOString() } =
       : await P('SELECT * FROM site_calendar WHERE removed_at IS NULL ORDER BY day, site_id NULLS FIRST').all();
     return ids(rows);
   }
-  async function addCalendarDay(b, { actorId }) {
+  async function addCalendarDay(b, { actorId, maxPerYear = null }) {
     const day = String(b.day || '').slice(0, 10);
     if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || !Number.isFinite(Date.parse(day + 'T00:00:00Z'))) fail({ status: 400, code: 'VALIDATION', error: 'day must be YYYY-MM-DD' });
     const kind = String(b.kind || 'holiday'); if (!['holiday', 'shutdown'].includes(kind)) fail({ status: 400, code: 'VALIDATION', error: 'kind must be holiday or shutdown' });
     if (String(b.label || '').trim().length < 3) fail({ status: 400, code: 'VALIDATION', error: 'name the day (3+ characters)' });
+    if (String(b.reason || '').trim().length < 5) fail({ status: 400, code: 'VALIDATION', error: 'a reason (5+ characters) is required — a listed day pauses the overdue rules' });
+    const sid = b.site_id == null || b.site_id === '' ? null : Number(b.site_id);
+    if (sid != null && (!Number.isInteger(sid) || sid <= 0)) fail({ status: 400, code: 'VALIDATION', error: 'site_id must be a site id or empty (whole platform)' });
     return tx(async () => {
+      // security review: a calendar day silently relaxes escalation — cap the days a site (or the platform)
+      // gets per calendar year unless the caller is allowed more (super_admin)
+      if (maxPerYear != null) {
+        const y = day.slice(0, 4);
+        const c = await P("SELECT COUNT(*) AS n FROM site_calendar WHERE removed_at IS NULL AND COALESCE(site_id, 0) = ? AND day >= ? AND day <= ?").get(sid == null ? 0 : sid, y + '-01-01', y + '-12-31');
+        if (Number(c && c.n) >= maxPerYear) fail({ status: 409, code: 'CALENDAR_LIMIT', error: `at most ${maxPerYear} days per site and per year — a longer shutdown is a super_admin decision` });
+      }
       const dup = await P('SELECT id FROM site_calendar WHERE removed_at IS NULL AND COALESCE(site_id, 0) = ? AND day = ?').get(b.site_id == null || b.site_id === '' ? 0 : Number(b.site_id), day);
       if (dup) fail({ status: 409, code: 'CONFLICT', error: 'this day is already in the calendar' });
       const r = await P('INSERT INTO site_calendar (site_id, day, kind, label, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id').get(n(b.site_id), day, kind, str(b.label, 120), n(actorId), now());
-      await event('calendar', r.id, 'added', actorId, { site_id: n(b.site_id), day, kind, label: str(b.label, 120) });
+      await event('calendar', r.id, 'added', actorId, { site_id: n(b.site_id), day, kind, label: str(b.label, 120), reason: str(b.reason) });
       return Number(r.id);
     });
   }

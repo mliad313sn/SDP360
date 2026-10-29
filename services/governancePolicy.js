@@ -365,7 +365,7 @@ function makePolicyStore(db, { now = () => new Date().toISOString(), ttlMs = 300
     return out;
   }
   async function history({ key = null, limit = 200 } = {}) {
-    const lim = Math.min(1000, Math.max(1, Number(limit) || 200));
+    const lim = Math.min(1000, Math.max(1, Math.floor(Number(limit)) || 200));
     const rowsH = key ? await Q(`SELECT * FROM governance_policy_history WHERE key=? ORDER BY id DESC LIMIT ${lim}`).all(key)
       : await Q(`SELECT * FROM governance_policy_history ORDER BY id DESC LIMIT ${lim}`).all();
     return rowsH.map((h) => ({ ...h, id: Number(h.id), relaxes: Number(h.relaxes) === 1, old_value: h.old_value == null ? null : JSON.parse(h.old_value), new_value: h.new_value == null ? null : JSON.parse(h.new_value) }));

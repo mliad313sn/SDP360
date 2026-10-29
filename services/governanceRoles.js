@@ -22,6 +22,8 @@ const REGISTERS = Object.freeze({ handoffs: ['*'], commitments: ['*', 'low', 'me
 // roles every operating site should have a holder for (site row or platform row) — the coverage gaps list
 const REQUIRED = Object.freeze(['handoffs.escalation_target', 'commitments.escalation_target']);
 const DEPUTY_MAX_DAYS = 120;
+// security review: listed days pause the overdue rules — the admin tier lists at most this many per site per year
+const CALENDAR_MAX_DAYS_PER_YEAR = 20;
 
 const day = (d) => String(d || '').slice(0, 10);
 const isDay = (d) => /^\d{4}-\d{2}-\d{2}$/.test(String(d || '')) && Number.isFinite(Date.parse(d + 'T00:00:00Z'));
@@ -105,4 +107,4 @@ function validateMatrix(b) {
   return null;
 }
 
-module.exports = { ROLES, REGISTERS, REQUIRED, DEPUTY_MAX_DAYS, holders, principalsOf, deputiesOf, escalationTarget, coverageGaps, validateAssignment, validateDeputy, validateMatrix };
+module.exports = { ROLES, REGISTERS, REQUIRED, DEPUTY_MAX_DAYS, CALENDAR_MAX_DAYS_PER_YEAR, holders, principalsOf, deputiesOf, escalationTarget, coverageGaps, validateAssignment, validateDeputy, validateMatrix };

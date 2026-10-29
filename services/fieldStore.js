@@ -33,7 +33,7 @@ function makeFieldStore(db, { isPg = false, now = () => new Date().toISOString()
     return getOutbox(uuid);
   }
   async function listOutbox(userId, { limit = 100, since = null } = {}) {
-    return (await P(`SELECT * FROM field_outbox WHERE user_id=?${since ? ' AND received_at>=?' : ''} ORDER BY received_at DESC LIMIT ${Math.min(500, Number(limit) || 100)}`).all(...[Number(userId)].concat(since ? [since] : []))).map(obRow);
+    return (await P(`SELECT * FROM field_outbox WHERE user_id=?${since ? ' AND received_at>=?' : ''} ORDER BY received_at DESC LIMIT ${Math.max(1, Math.min(500, Math.floor(Number(limit)) || 100))}`).all(...[Number(userId)].concat(since ? [since] : []))).map(obRow);
   }
   /** Sync health for the admin: counts per status over a window + stuck `received` rows (crash between ledger and write). */
   async function outboxStats({ since = null } = {}) {
@@ -71,7 +71,7 @@ function makeFieldStore(db, { isPg = false, now = () => new Date().toISOString()
     await P(`DELETE FROM field_chunks WHERE upload_id=?`).run(Number(id));
     return getUpload(id);
   }
-  async function listUploads(userId, { limit = 100 } = {}) { return (await P(`SELECT * FROM field_uploads WHERE user_id=? ORDER BY created_at DESC LIMIT ${Math.min(500, Number(limit) || 100)}`).all(Number(userId))).map(upRow); }
+  async function listUploads(userId, { limit = 100 } = {}) { return (await P(`SELECT * FROM field_uploads WHERE user_id=? ORDER BY created_at DESC LIMIT ${Math.max(1, Math.min(500, Math.floor(Number(limit)) || 100))}`).all(Number(userId))).map(upRow); }
   /** Abandoned open uploads older than `hours` are removed with their chunks (cascade). */
   async function purgeUploads({ hours = 48 } = {}) { const cut = new Date(Date.parse(now()) - hours * 3600e3).toISOString(); const rows = await P(`SELECT id FROM field_uploads WHERE status='open' AND created_at<?`).all(cut); for (const r of rows) { await P(`DELETE FROM field_chunks WHERE upload_id=?`).run(Number(r.id)); await P(`DELETE FROM field_uploads WHERE id=?`).run(Number(r.id)); } return rows.length; }
 

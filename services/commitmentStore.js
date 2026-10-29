@@ -254,7 +254,7 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
     if (site != null && site !== '') { where.push('site_id=?'); args.push(Number(site)); }
     if (status) { const st = String(status).split(',').filter((s) => L.STATUSES.includes(s)); if (st.length) { where.push(`status IN (${st.map(() => '?').join(',')})`); args.push(...st); } }
     if (kind && L.KINDS.includes(kind)) { where.push('kind=?'); args.push(kind); }
-    return (await P(`SELECT * FROM commitments${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY id DESC LIMIT ${Math.min(2000, Number(limit) || 500)}`).all(...args)).map(row);
+    return (await P(`SELECT * FROM commitments${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY id DESC LIMIT ${Math.max(1, Math.min(2000, Math.floor(Number(limit)) || 500))}`).all(...args)).map(row);
   }
 
   /** Commitments linked to (system, id) pairs — for the Site Actions hub badge. Map "system:id" → {id,status}. */

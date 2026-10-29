@@ -30,14 +30,26 @@ async function main(argv, { rdb, log = console.log } = {}) {
   if (!ok) return { ok: false, code: 1, errors };
   if (!apply) { log('[governance-values] simulation only — nothing written (add --apply --as=<super_admin>)'); return { ok: true, applied: false, plan }; }
   const actor = users.find((u) => String(u.username).toLowerCase() === as.toLowerCase());
-  if (!actor || !rdb.userHasRole(actor, 'super_admin')) { log('[governance-values] --as must name an active super_admin'); return { ok: false, code: 2 }; }
+  if (!actor || actor.active === 0 || actor.active === false || !rdb.userHasRole(actor, 'super_admin')) { log('[governance-values] --as must name an ACTIVE super_admin account'); return { ok: false, code: 2 }; }
   const H = rdb.pgHandle(); const reason = plan.reason;
   const GP = require('../../services/governancePolicy');
   const roles = require('../../services/governanceRolesStore').makeGovernanceRolesStore({ prepare: (s) => H.prepare(s), runTransaction: (fn) => H.runTransaction(fn) });
   const kt = require('../../services/kpiTargets').makeKpiTargetStore(H);
   const res = { policies: [], groups: 0, roles: 0, deputies: 0, matrix: 0, calendar: 0, kpi: 0, codes: 0, skipped: [] };
   const skip = (what, e) => res.skipped.push(`${what}: ${e.message || e}`);
-  for (const g of plan.site_groups) { await H.prepare('UPDATE sites SET country=?, business_unit=? WHERE id=?').run(g.country, g.business_unit, g.site_id); res.groups++; }
+  // a regrouping that would relax a protected rule is refused here as in the admin screen (two-person rule)
+  for (const g of plan.site_groups) {
+    const prev = await H.prepare('SELECT country, business_unit FROM sites WHERE id=?').get(g.site_id);
+    GP.shared().invalidate(); const was = await GP.shared().snapshot({ siteId: g.site_id });
+    await H.prepare('UPDATE sites SET country=?, business_unit=? WHERE id=?').run(g.country, g.business_unit, g.site_id);
+    GP.shared().invalidate(); const now = await GP.shared().snapshot({ siteId: g.site_id });
+    const relaxed = GP.PARAMS.filter((p) => p.protected && GP.relaxes(p, was[p.key], now[p.key])).map((p) => p.key);
+    if (relaxed.length && was['governance.dual_approval_relaxations'] !== false) {
+      await H.prepare('UPDATE sites SET country=?, business_unit=? WHERE id=?').run(prev ? prev.country : null, prev ? prev.business_unit : null, g.site_id);
+      skip(`site group ${g.site_id}`, `would relax ${relaxed.join(', ')} — set the site values first`); continue;
+    }
+    res.groups++;
+  }
   GP.shared().invalidate();
   for (const p of plan.policies) {
     try { const r = await GP.shared().set({ scope: p.scope, key: p.key, value: p.value, reason, actor: { id: actor.id, isSuper: true, isAdmin: true } }); res.policies.push({ key: p.key, scope: p.scope, result: r.pending ? `proposal #${r.pending.id}` : 'applied' }); }

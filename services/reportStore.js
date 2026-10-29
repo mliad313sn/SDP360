@@ -50,7 +50,7 @@ function makeReportStore(db, { isPg = false, now = () => new Date().toISOString(
     const where = [], args = [];
     if (templateKey) { where.push('template_key=?'); args.push(String(templateKey)); }
     if (status) { const st = Array.isArray(status) ? status : [status]; where.push(`status IN (${st.map(() => '?').join(',')})`); args.push(...st); }
-    const rows = (await P(`SELECT id, template_key, site_id, window_label, status, provider, deviation, created_by, created_at, reviewed_by, reviewed_at, rating, published_at, html FROM report_runs${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY created_at DESC, id DESC LIMIT ${Math.min(500, Number(limit) || 50)}`).all(...args)).map(r => runRow(r));
+    const rows = (await P(`SELECT id, template_key, site_id, window_label, status, provider, deviation, created_by, created_at, reviewed_by, reviewed_at, rating, published_at, html FROM report_runs${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY created_at DESC, id DESC LIMIT ${Math.max(1, Math.min(500, Math.floor(Number(limit)) || 50))}`).all(...args)).map(r => runRow(r));
     return Array.isArray(siteIds) ? rows.filter(r => r.site_id == null || siteIds.includes(r.site_id)) : rows;
   }
   async function setStatus(id, status, { user, note, rating, override } = {}) {

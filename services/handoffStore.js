@@ -159,7 +159,7 @@ function makeHandoffStore(db, { now = () => new Date().toISOString() } = {}) {
       where.push(`(${parts.join(' OR ')})`);
     }
     if (status) { const st = String(status).split(',').filter((s) => L.STATUSES.includes(s)); if (st.length) { where.push(`status IN (${st.map(() => '?').join(',')})`); args.push(...st); } }
-    return (await P(`SELECT * FROM handoffs${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY id DESC LIMIT ${Math.min(2000, Number(limit) || 500)}`).all(...args)).map(row);
+    return (await P(`SELECT * FROM handoffs${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY id DESC LIMIT ${Math.max(1, Math.min(2000, Math.floor(Number(limit)) || 500))}`).all(...args)).map(row);
   }
 
   /** Committee #39 — link the handoff to the commitment that records it in the ledger (once). */

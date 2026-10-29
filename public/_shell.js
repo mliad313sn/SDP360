@@ -275,7 +275,8 @@
     const hasKids  = visKids.length > 0;
     const href     = item.href || (hasKids ? landingFor(item.id) : '#');
     const target   = item.target ? ` target="${item.target}"` : '';
-    const titleA   = item.title ? ` title="${escapeHtml(item.title)}"` : '';
+    // the label doubles as tooltip / accessible name: on narrow screens only the icon is shown
+    const titleA   = ` title="${escapeHtml(item.title || item.label)}" aria-label="${escapeHtml(item.label)}"`;
     const activeC  = isActive ? ' is-active' : '';
 
     // If a dropdown parent has only ONE visible child for this user
@@ -324,6 +325,7 @@
     const name = user.full_name || user.username || '—';
     const role = user.role || '—';
     return `<div class="shell-user-pill" title="Click to log out" onclick="window.__logout && window.__logout()">
+      <span class="shell-user-initial" aria-hidden="true">${escapeHtml(String(name || '?').trim().charAt(0).toUpperCase())}</span>
       <span class="shell-user-name">${escapeHtml(name)}</span>
       <span class="shell-user-role">${escapeHtml(role)}</span>
     </div>`;

@@ -6,7 +6,11 @@
 --
 --   psql "$SUPERUSER_URL" -v app_role=sdp_app -f tools/pg/harden-audit-grants.sql
 --
--- Roll-back: ALTER TABLE <t> OWNER TO :app_role; for each table below.
+-- Roll-back: ALTER TABLE <t> OWNER TO :app_role; for each table below, and
+--            ALTER FUNCTION sdp_append_only() / sdp_hash_chain() / sdp_chain_payload(jsonb) OWNER TO :app_role;
+-- After this script, a migration that redefines those three functions must be run by the DBA (the
+-- application role can no longer replace them — which is the point: replacing the trigger function
+-- would switch the append-only rule and the hash chain off without touching a trigger).
 \set ON_ERROR_STOP on
 BEGIN;
 DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'sdp_audit_owner') THEN CREATE ROLE sdp_audit_owner NOLOGIN; END IF; END $$;
@@ -16,6 +20,11 @@ BEGIN
     IF to_regclass(t) IS NULL THEN CONTINUE; END IF;
     EXECUTE format('ALTER TABLE %I OWNER TO sdp_audit_owner', t);
   END LOOP;
+  -- security review: the trigger FUNCTIONS too — an owner of sdp_append_only() could CREATE OR REPLACE it
+  -- to let UPDATE/DELETE through, or empty the hash chain, without ever touching a trigger
+  IF to_regprocedure('sdp_append_only()') IS NOT NULL THEN ALTER FUNCTION sdp_append_only() OWNER TO sdp_audit_owner; END IF;
+  IF to_regprocedure('sdp_hash_chain()') IS NOT NULL THEN ALTER FUNCTION sdp_hash_chain() OWNER TO sdp_audit_owner; END IF;
+  IF to_regprocedure('sdp_chain_payload(jsonb)') IS NOT NULL THEN ALTER FUNCTION sdp_chain_payload(jsonb) OWNER TO sdp_audit_owner; END IF;
 END $$;
 SELECT set_config('sdp.app_role', :'app_role', true);
 DO $$ DECLARE t TEXT; app TEXT := current_setting('sdp.app_role');

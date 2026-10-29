@@ -1490,7 +1490,7 @@ async function _logImportPg(args) {
 }
 
 function listImportLog(limit = 50) {
-  const n = Number.isFinite(+limit) && +limit > 0 ? Math.min(+limit, 500) : 50;
+  const n = Number.isFinite(+limit) && +limit > 0 ? Math.min(Math.floor(+limit), 500) || 50 : 50;
   const sql = `SELECT * FROM asset_import_log ORDER BY imported_at DESC LIMIT ${n}`;
   return pgHandle().prepare(sql).all();
 }

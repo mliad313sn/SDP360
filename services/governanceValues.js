@@ -64,7 +64,7 @@ function plan(file, { users = [], sites = [], metricKeys = [] } = {}) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(String(d.day || ''))) return err('calendar', i, 'day must be YYYY-MM-DD');
     if (!['holiday', 'shutdown'].includes(d.kind || 'holiday')) return err('calendar', i, 'kind must be holiday or shutdown');
     if (String(d.label || '').trim().length < 3) return err('calendar', i, 'name the day (3+ characters)');
-    out.calendar.push({ site_id: sid, day: d.day, kind: d.kind || 'holiday', label: d.label });
+    out.calendar.push({ site_id: sid, day: d.day, kind: d.kind || 'holiday', label: d.label, reason: out.reason });
   });
   (f.kpi_targets || []).forEach((k, i) => {
     if (!metricKeys.includes(k.metric)) return err('kpi_targets', i, `unknown metric ${k.metric}`);

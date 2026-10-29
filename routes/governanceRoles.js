@@ -9,10 +9,11 @@
 //   POST /api/governance/roles/deputies/:id/revoke   { reason }                                                              admin tier
 //   POST /api/governance/roles/matrix                { register, severity, site_id|null, after_days, role, reason }         super_admin
 //   POST /api/governance/roles/matrix/:id/retire     { reason }                                                              super_admin
-//   POST /api/governance/roles/calendar              { site_id|null, day, kind: holiday|shutdown, label }                    admin tier
+//   POST /api/governance/roles/calendar              { site_id|null, day, kind: holiday|shutdown, label, reason }            admin tier (site, capped/year) · super_admin (platform)
 //   POST /api/governance/roles/calendar/:id/remove   { reason }                                                              admin tier
 // Who holds authority is a super_admin decision; standing in for an absent colleague is operational (admin
 // tier). A deputy must be active and share a site with the person they replace (or be in the admin tier).
+// Standing in for an administrator or a role holder is a super_admin decision; nobody names themselves.
 // Empty tables = the behaviour until now.
 
 const { fail: httpFail, typed } = require('../services/httpError');
@@ -53,7 +54,9 @@ module.exports = function governanceRoleRoutes(deps) {
         .sort((a, b) => String(a.name).localeCompare(String(b.name), 'fr'));
       res.json({ ok: true, today: today(), can_write_roles: isSuper(req.reportUser), can_write_deputies: isAdmin(req.reportUser),
         roles: R.ROLES, registers: R.REGISTERS, required: R.REQUIRED, deputy_max_days: R.DEPUTY_MAX_DAYS,
-        ...snap, gaps: R.coverageGaps(snap, sites, today()), sites, people,
+        ...snap, gaps: R.coverageGaps(snap, sites, today()), sites,
+        // security review: a committee member reads who holds what, not everybody's site list
+        people: isAdmin(req.reportUser) ? people : people.map((x) => ({ id: x.id, name: x.name })),
         calendar: await store.calendar({ from: new Date(Date.now() - 31 * 864e5).toISOString().slice(0, 10) }) });
     } catch (e) { fail(res, e); }
   });
@@ -78,6 +81,17 @@ module.exports = function governanceRoleRoutes(deps) {
       const b = req.body || {};
       const c = R.validateDeputy(b); if (c) return res.status(c.status).json({ ok: false, code: c.code, error: c.error });
       const [who, dep] = [await activeUser(b.user_id), await activeUser(b.deputy_id)];
+      // security review: an administrator never hands authority to themselves, and standing in for an
+      // administrator or for a holder of a governance role (chair, escalation target, reviewer…) is an
+      // authority decision — super_admin, like naming the role holder in the first place
+      const actor = req.reportUser;
+      if (!isSuper(actor) && Number(b.deputy_id) === Number(actor.id)) return res.status(403).json({ ok: false, code: 'SELF_DEPUTY', error: 'you cannot name yourself as a deputy — ask another administrator' });
+      if (!isSuper(actor)) {
+        const holds = ((await store.snapshot()).assignments || []).some((a) => !a.ended_at && Number(a.user_id) === Number(b.user_id) && (!a.effective_to || String(a.effective_to).slice(0, 10) >= today()));
+        let seat = false;
+        try { seat = !!(await rdb().pgHandle().prepare('SELECT 1 AS x FROM meeting_cadences WHERE active = 1 AND (chair_id = ? OR secretary_id = ?) LIMIT 1').get(Number(b.user_id), Number(b.user_id))); } catch (_) { seat = true; /* fail closed: unknown = super_admin decision */ }
+        if (isAdmin(who) || holds || seat) return res.status(403).json({ ok: false, code: 'SUPER_ADMIN_REQUIRED', error: 'only a super_admin names a deputy for an administrator, a governance role holder or a meeting chair / secretary' });
+      }
       // a deputy works where the absent person works: shared site, or the admin tier (unscoped anyway)
       if (!isAdmin(dep) && !siteIdsOf(dep).some((s) => siteIdsOf(who).includes(s))) return res.status(400).json({ ok: false, code: 'VALIDATION', error: 'the deputy must work on one of the sites of the person they replace' });
       const id = await store.addDeputy(b, { actorId: req.reportUser.id });
@@ -92,7 +106,12 @@ module.exports = function governanceRoleRoutes(deps) {
   // committee #40 — holiday / shutdown calendar (admin tier); a change applies at once (policy cache reset)
   router.post('/api/governance/roles/calendar', requireReportSession, requireAdminTier, json, async (req, res) => {
     try {
-      const b = req.body || {}; const id = await store.addCalendarDay(b, { actorId: req.reportUser.id });
+      const b = req.body || {};
+      const sup = isSuper(req.reportUser);
+      // a platform-wide day pauses escalation everywhere: super_admin; a site day must name a real site
+      if ((b.site_id == null || b.site_id === '') && !sup) return res.status(403).json({ ok: false, code: 'SUPER_ADMIN_REQUIRED', error: 'a day for the whole platform is a super_admin decision — pick a site' });
+      if (b.site_id != null && b.site_id !== '' && !((await rdb().listSites({ includeInactive: true })) || []).some((s) => Number(s.id) === Number(b.site_id))) return res.status(400).json({ ok: false, code: 'VALIDATION', error: 'unknown site' });
+      const id = await store.addCalendarDay(b, { actorId: req.reportUser.id, maxPerYear: sup ? null : R.CALENDAR_MAX_DAYS_PER_YEAR });
       require('../services/governancePolicy').shared().invalidate();
       log(req, 'calendar_day_added', b.day, { id, site_id: b.site_id == null || b.site_id === '' ? null : Number(b.site_id), kind: b.kind || 'holiday' });
       res.status(201).json({ ok: true, id });

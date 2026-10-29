@@ -39,6 +39,43 @@
     return r === 'GREEN' ? 'rag-green' : r === 'AMBER' ? 'rag-amber' : r === 'RED' ? 'rag-red' : 'rag-na';
   }
 
+  /** Coloured dot that does not rely on colour alone: a symbol and an accessible name (design review R1). */
+  function ragDot(rag) {
+    var c = ragClass(rag); var sym = { 'rag-green': '✓', 'rag-amber': '!', 'rag-red': '✕', 'rag-na': '' }[c];
+    var name = { 'rag-green': 'green', 'rag-amber': 'amber', 'rag-red': 'red', 'rag-na': 'not measured' }[c];
+    return '<span class="edv-rag-dot ' + c + '" role="img" aria-label="' + name + '">' + sym + '</span>';
+  }
+  /** Worst first (red, amber, green), then by value in the bad direction; not measured last. */
+  function sortRows(rows, higherIsBetter) {
+    var rank = { RED: 0, AMBER: 1, GREEN: 2 };
+    return (rows || []).slice().sort(function (a, b) {
+      var na = a.value == null, nb = b.value == null; if (na !== nb) return na ? 1 : -1;
+      var ra = rank[String(a.rag || '').toUpperCase()], rb = rank[String(b.rag || '').toUpperCase()];
+      ra = ra == null ? 3 : ra; rb = rb == null ? 3 : rb; if (ra !== rb) return ra - rb;
+      if (na) return String(a.site || '').localeCompare(String(b.site || ''));
+      return higherIsBetter === false ? Number(b.value) - Number(a.value) : Number(a.value) - Number(b.value);
+    });
+  }
+  /** "2026-W31" → "W31", "2026-07" → "Jul" (the year is shown once, under the chart). */
+  function shortLabel(label) {
+    var s = String(label || ''); var w = /^\d{4}-(W\d{2})$/.exec(s); if (w) return w[1];
+    var m = /^\d{4}-(\d{2})$/.exec(s); if (m) return ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][Number(m[1]) - 1] || s;
+    return s;
+  }
+
+  /** Target and change since the previous window, coloured by whether the move is good (design review R2). */
+  function kpiContext(d) {
+    if (!d || d.value == null) return '';
+    var parts = [];
+    if (d.target != null) parts.push('<span class="edv-target ' + ragClass(d.vs_target && d.vs_target.rag) + '">target ' + formatValue(d.target, d.unit) + (d.target_source === 'site' ? ' (site)' : '') + '</span>');
+    if (d.previous && d.previous.delta != null) {
+      var dl = Number(d.previous.delta), good = dl === 0 ? null : (d.higher_is_better !== false ? dl > 0 : dl < 0);
+      var unit = String(d.unit || '').toLowerCase() === '%' ? ' pts' : '';
+      parts.push('<span class="edv-delta ' + (good == null ? 'flat' : good ? 'good' : 'bad') + '">' + (dl > 0 ? '▲ +' : dl < 0 ? '▼ ' : '= ') + (dl === 0 ? '' : (Math.round(Math.abs(dl) * 10) / 10).toLocaleString('en-GB', { maximumFractionDigits: 1 })) + unit + ' vs ' + escapeHtml(shortLabel(d.previous.label)) + '</span>');
+    }
+    return parts.length ? '<div class="edv-kpi-context">' + parts.join(' · ') + '</div>' : '';
+  }
+
   function pad2(n) { return (n < 10 ? '0' : '') + n; }
   function isoWeek(d) {
     var t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
@@ -95,5 +132,5 @@
     return s.split(/\n{2,}/).map(function (p) { return '<p>' + p.replace(/\n/g, '<br>') + '</p>'; }).join('');
   }
 
-  return { gridStyle, formatValue, ragClass, windowSeries, trendLength, widgetDataPlan, summarizeGrid, escapeHtml, miniMarkdown, isoWeek };
+  return { gridStyle, formatValue, ragClass, ragDot, kpiContext, sortRows, shortLabel, windowSeries, trendLength, widgetDataPlan, summarizeGrid, escapeHtml, miniMarkdown, isoWeek };
 });

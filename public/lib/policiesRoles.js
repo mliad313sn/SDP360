@@ -85,7 +85,7 @@
   root.addEventListener('click', async (ev) => {
     const b = ev.target.closest('button[data-act]'); if (!b) return;
     const act = b.dataset.act, t = T();
-    const reason = act === 'caladd' ? '' : await window.ReasonDialog.ask({ title: b.textContent, label: t.reason, min: act === 'scswitch' ? 10 : 5, lang: lang() }); if (reason == null) return;
+    const reason = await window.ReasonDialog.ask({ title: b.textContent, label: t.reason, min: act === 'scswitch' ? 10 : 5, lang: lang() }); if (reason == null) return;
     try {
       if (act === 'assign') await api('POST', '/api/governance/roles/assignments', { role: val('raRole'), site_id: val('raSite') || null, user_id: Number(val('raUser')), effective_from: val('raFrom'), effective_to: val('raTo') || null, reason });
       else if (act === 'deputy') await api('POST', '/api/governance/roles/deputies', { user_id: Number(val('dpUser')), deputy_id: Number(val('dpDep')), start_date: val('dpFrom'), end_date: val('dpTo'), reason });
@@ -93,7 +93,7 @@
       else if (act === 'scswitch') await api('PUT', '/api/governance/site-codes', { enabled: !(sc && sc.enabled), reason });
       else if (act === 'kpiset') await api('POST', '/api/metrics/targets', { metric_key: val('ktKey'), site_id: val('ktSite') || null, target: val('ktVal'), effective_from: val('ktFrom'), reason });
       else if (act === 'kpiend') await api('POST', `/api/metrics/targets/${encodeURIComponent(b.dataset.id)}/end`, { reason });
-      else if (act === 'caladd') await api('POST', '/api/governance/roles/calendar', { day: val('clDay'), site_id: val('clSite') || null, label: val('clLabel'), kind: val('clKind') });
+      else if (act === 'caladd') await api('POST', '/api/governance/roles/calendar', { day: val('clDay'), site_id: val('clSite') || null, label: val('clLabel'), kind: val('clKind'), reason });
       else if (act === 'calremove') await api('POST', `/api/governance/roles/calendar/${encodeURIComponent(b.dataset.id)}/remove`, { reason });
       else if (act === 'end') await api('POST', `/api/governance/roles/assignments/${encodeURIComponent(b.dataset.id)}/end`, { reason });
       else if (act === 'revoke') await api('POST', `/api/governance/roles/deputies/${encodeURIComponent(b.dataset.id)}/revoke`, { reason });

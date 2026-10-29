@@ -50,12 +50,17 @@ test('a country value applies to its sites, a site value wins, the platform valu
   assert.equal(await eff(hounde, 'handoffs.reason_min'), 15, 'site wins'); assert.equal(await eff(mana, 'handoffs.reason_min'), 12);
   // relaxing a protected rule at country level is still a two-person proposal
   assert.equal((await put(T.super, 'country:BF', 'handoffs.reason_min', 4, 'shorter reasons for the whole country')).status, 202);
-  // moving Mana out of the country relaxes its rule: done (super_admin) but named and logged as a risk
-  const out = await (await hier(T.super, mana, { country: '', reason: 'site moved to another country' })).json();
-  assert.deepEqual(out.relaxed, [{ key: 'handoffs.reason_min', before: 12, after: 5 }]);
-  assert.equal(await eff(mana, 'handoffs.reason_min'), 5);
-  const risk = await rdb.db.prepare("SELECT risk FROM system_log WHERE action='site_hierarchy_changed' AND target=? ORDER BY id DESC LIMIT 1").get(`site:${mana}`);
+  // moving Mana out of the country would relax its rule: refused (two-person rule), nothing moved, logged as a risk
+  const no = await hier(T.super, mana, { country: '', reason: 'site moved to another country' });
+  assert.equal(no.status, 409); assert.deepEqual((await no.json()).relaxed, [{ key: 'handoffs.reason_min', before: 12, after: 5 }]);
+  assert.equal(await eff(mana, 'handoffs.reason_min'), 12, 'still in the country');
+  const risk = await rdb.db.prepare("SELECT risk FROM system_log WHERE action='site_hierarchy_refused' AND target=? ORDER BY id DESC LIMIT 1").get(`site:${mana}`);
   assert.equal(Number(risk.risk), 1);
+  // the way through: keep the stricter value on the site itself, then move
+  assert.equal((await put(T.admin, `site:${mana}`, 'handoffs.reason_min', 12, 'keep the country standard')).status, 200);
+  const out = await (await hier(T.super, mana, { country: '', reason: 'site moved to another country' })).json();
+  assert.deepEqual(out.relaxed, []);
+  assert.equal(await eff(mana, 'handoffs.reason_min'), 12);
   assert.equal(await eff(hounde, 'handoffs.reason_min'), 15, 'its own site value stays');
   assert.equal((await send('PUT', '/api/governance/policies', T.admin, { scope: 'region:X1', key: 'handoffs.reason_min', value: 9, reason: 'nope' })).status, 400);
 });

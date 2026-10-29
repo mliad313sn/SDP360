@@ -34,8 +34,21 @@ async function actionsFor(rdb, siteId, plan) {
  * @param {object} o { def, sites:[{id,name}] (caller's scope), site (id), window, reg, dd (reader deps), rdb, now }
  * @returns {object} widgets keyed by widget id — same shape the viewer renders.
  */
+/** The window before `label` ('2026-W31' → '2026-W30', '2026-07' → '2026-06'); null when unknown. */
+function previousWindow(label) {
+  const s = String(label || '');
+  let m = /^(\d{4})-W(\d{2})$/.exec(s);
+  if (m) { const d = new Date(Date.UTC(+m[1], 0, 4 + 7 * (+m[2] - 1))); d.setUTCDate(d.getUTCDate() - 7); const w = R.isoWeek(d); return `${w.year}-W${String(w.week).padStart(2, '0')}`; }
+  m = /^(\d{4})-(\d{2})$/.exec(s);
+  if (m) { const d = new Date(Date.UTC(+m[1], +m[2] - 2, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`; }
+  return null;
+}
+
 async function resolveWidgets({ def, sites, site, window = null, reg, dd, rdb, now = new Date() }) {
   const out = {};
+  // design review R2 — tile context: the committee's target (committee #40) and the previous window
+  let targets = [];
+  try { if (rdb && rdb.pgHandle) targets = await require('./kpiTargets').makeKpiTargetStore(rdb.pgHandle()).list(); } catch (_) { targets = []; }
   for (const w of (def && def.widgets) || []) {
     const m = w.metric ? reg.get(w.metric) : null;
     const plan = R.widgetDataPlan(w, m && m.window_kind);
@@ -48,7 +61,14 @@ async function resolveWidgets({ def, sites, site, window = null, reg, dd, rdb, n
           for (const s of sites) { const r = await reg.resolve(w.metric, { site: Number(s.id), window, deps: dd, now }); if (r && r.value != null) vals.push(Number(r.value)); }
           fleet = vals.length ? { mean: Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10, n: vals.length } : null;
         }
-        out[w.id] = { mode: 'single', metric: w.metric, title: w.title, unit: m.unit, value: one.value, rag: w.rag ? ragOverride(w.rag, one.value) : one.rag, window: one.window, as_of: one.as_of, fleet, error: one.error || null };
+        const KT = require('./kpiTargets');
+        const tsite = m.reader === 'tracker.fleet' ? null : site;
+        const tg = KT.targetFor(targets, w.metric, tsite, now.toISOString());
+        let previous = null;
+        const pl = one.value != null && one.window ? previousWindow(one.window.label) : null;
+        if (pl) { try { const p = await reg.resolve(w.metric, { site: tsite, window: pl, deps: dd, now }); if (p && p.value != null) previous = { label: pl, value: p.value, delta: Math.round((Number(one.value) - Number(p.value)) * 10) / 10 }; } catch (_) { previous = null; } }
+        out[w.id] = { mode: 'single', metric: w.metric, title: w.title, unit: m.unit, value: one.value, rag: w.rag ? ragOverride(w.rag, one.value) : one.rag, window: one.window, as_of: one.as_of, fleet, error: one.error || null,
+          higher_is_better: m.higher_is_better !== false, target: tg.target, target_source: tg.source, vs_target: KT.vsTarget(one.value, tg.target, m.higher_is_better !== false), previous };
       } else if (plan.mode === 'series' && m) {
         const labels = R.windowSeries(plan.kind, plan.n, now);
         const points = [];
@@ -58,7 +78,7 @@ async function resolveWidgets({ def, sites, site, window = null, reg, dd, rdb, n
         const rows = [];
         for (const s of sites) { const r = await reg.resolve(w.metric, { site: Number(s.id), window, deps: dd, now }); rows.push({ site_id: Number(s.id), site: s.name, value: r ? r.value : null, rag: w.rag ? ragOverride(w.rag, r && r.value) : (r ? r.rag : 'NA') }); }
         rows.sort((a, b) => (a.value == null) - (b.value == null) || (a.value - b.value));
-        out[w.id] = { mode: 'per-site', metric: w.metric, title: w.title, unit: m.unit, rows, summary: R.summarizeGrid(rows), as_of: now.toISOString() };
+        out[w.id] = { mode: 'per-site', metric: w.metric, title: w.title, unit: m.unit, higher_is_better: m.higher_is_better !== false, rows, summary: R.summarizeGrid(rows), as_of: now.toISOString() };
       } else if (plan.mode === 'actions') {
         out[w.id] = { mode: 'actions', title: w.title, ...(await actionsFor(rdb, site, plan)) };
       } else out[w.id] = { mode: 'none', title: w.title, markdown: w.markdown };
@@ -67,4 +87,4 @@ async function resolveWidgets({ def, sites, site, window = null, reg, dd, rdb, n
   return out;
 }
 
-module.exports = { resolveWidgets, ragOverride, actionsFor };
+module.exports = { resolveWidgets, ragOverride, actionsFor, previousWindow };

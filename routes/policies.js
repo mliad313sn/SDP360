@@ -49,6 +49,14 @@ module.exports = function policyRoutes(deps) {
       // moving a site between groups can make its rules less strict: named and logged as a risk
       const now = await store().snapshot({ siteId: id });
       const relaxed = GP.PARAMS.filter((p) => p.protected && GP.relaxes(p, was[p.key], now[p.key])).map((p) => ({ key: p.key, before: was[p.key], after: now[p.key] }));
+      // security review: regrouping must not bypass the two-person rule — when the move would relax a
+      // protected rule and two-person approval is on, undo and say which site values to set first
+      if (relaxed.length && was['governance.dual_approval_relaxations'] !== false) {
+        await rdb().pgHandle().prepare('UPDATE sites SET country=?, business_unit=? WHERE id=?').run(before.country, before.business_unit, id);
+        store().invalidate();
+        try { await rdb().logEvent({ category: 'governance', action: 'site_hierarchy_refused', target: `site:${id}`, details: { wanted: { country, business_unit: bu }, relaxed }, risk: 1, ...rdb()._logCtx(req) }); } catch (_) {}
+        return res.status(409).json({ ok: false, code: 'RELAXES_PROTECTED', relaxed, error: 'this move would relax protected rules for the site — first set those values on the site itself (a relaxation there goes through the two-person proposal), then move it' });
+      }
       try { await rdb().logEvent({ category: 'governance', action: 'site_hierarchy_changed', target: `site:${id}`, details: { before, after: { country, business_unit: bu }, relaxed, reason: String(b.reason).slice(0, 300) }, risk: relaxed.length ? 1 : 0, ...rdb()._logCtx(req) }); } catch (_) {}
       res.json({ ok: true, site_id: id, country, business_unit: bu, relaxed });
     } catch (e) { fail(res, e); }

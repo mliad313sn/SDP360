@@ -1,4 +1,5 @@
 'use strict';
+const R = require('../services/governanceRoles');
 // ADR-006 (committee #34 #36 #38) end to end: roles, deputies and the escalation matrix are DATA.
 //   • who may change them (super_admin for authority, admin tier for deputies), every change in a
 //     hash-chained append-only history;
@@ -39,6 +40,7 @@ before(async () => {
   await mk('group', ['admin']);                // group service manager (second level)
   await mk('mana', ['editor'], mana);
   await mk('viewer', ['viewer'], hounde);
+  await mk('committee', ['viewer', 'committee-member'], hounde);
   await mk('admin', ['admin']);
   await mk('super', ['super_admin']); await mk('super2', ['super_admin']);
   depts = (await rdb.listDepartments()).map((d) => d.name);
@@ -55,6 +57,11 @@ const mkBody = (o) => ({ title: 'Replace the badge reader at the plant gate', si
 const go = async (t, id, to, version, reason) => json(await send('POST', `/api/handoffs/${id}/transition`, t, { to, version, reason }));
 
 test('who may change roles, deputies and the matrix', async () => {
+  // security review: a committee member reads the roles but not everybody's site list
+  const cm = await json(await send('GET', '/api/governance/roles', P.committee));
+  assert.equal(cm.status, 200); assert.ok(cm.body.people.length > 0);
+  assert.ok(cm.body.people.every((x) => x.sites === undefined), 'names only for the committee');
+  assert.ok((await json(await send('GET', '/api/governance/roles', P.admin))).body.people.some((x) => Array.isArray(x.sites)));
   assert.equal((await send('GET', '/api/governance/roles', P.viewer)).status, 403);
   const v = (await json(await send('GET', '/api/governance/roles', P.admin))).body;
   assert.equal(v.ok, true); assert.equal(v.can_write_roles, false); assert.equal(v.can_write_deputies, true);
@@ -69,6 +76,8 @@ test('who may change roles, deputies and the matrix', async () => {
   assert.equal((await send('POST', '/api/governance/roles/deputies', P.admin, { user_id: ID.plant, deputy_id: ID.plant, start_date: today(), end_date: plus(10), reason: 'annual leave' })).status, 400, 'not your own deputy');
   assert.equal((await send('POST', '/api/governance/roles/deputies', P.admin, { user_id: ID.plant, deputy_id: ID.mana, start_date: today(), end_date: plus(10), reason: 'annual leave' })).status, 400, 'a deputy works on the same site');
   assert.equal((await send('POST', '/api/governance/roles/deputies', P.admin, { user_id: ID.plant, deputy_id: ID.deputy, start_date: today(), end_date: plus(400), reason: 'annual leave' })).status, 400, 'bounded duration');
+  assert.equal((await send('POST', '/api/governance/roles/deputies', P.admin, { user_id: ID.plant, deputy_id: ID.admin, start_date: today(), end_date: plus(10), reason: 'annual leave' })).status, 403, 'an administrator never names themselves');
+  assert.equal((await send('POST', '/api/governance/roles/deputies', P.admin, { user_id: ID.group, deputy_id: ID.super, start_date: today(), end_date: plus(10), reason: 'annual leave' })).status, 403, 'an administrator\'s deputy is a super_admin decision');
   const d = await json(await send('POST', '/api/governance/roles/deputies', P.admin, { user_id: ID.plant, deputy_id: ID.deputy, start_date: today(), end_date: plus(10), reason: 'annual leave' }));
   assert.equal(d.status, 201); ID.dep = d.body.id;
   const ev = (await json(await send('GET', '/api/governance/roles/events', P.admin))).body.events;
@@ -135,7 +144,8 @@ test('an overdue handoff reaches the matrix target and their deputy, the next le
   await rdb.db.prepare('UPDATE handoffs SET due_date=? WHERE id=?').run(plus(-5), hid);
   // level 1: site target after 0 days; the target is away → their deputy is told too
   assert.equal((await send('POST', '/api/governance/roles/matrix', P.super, { register: 'handoffs', severity: '*', site_id: hounde, after_days: 0, role: 'handoffs.escalation_target', reason: 'site level first' })).status, 201);
-  assert.equal((await send('POST', '/api/governance/roles/deputies', P.admin, { user_id: ID.target, deputy_id: ID.targetdep, start_date: today(), end_date: plus(3), reason: 'site visit to Mana' })).status, 201);
+  assert.equal((await send('POST', '/api/governance/roles/deputies', P.admin, { user_id: ID.target, deputy_id: ID.targetdep, start_date: today(), end_date: plus(3), reason: 'site visit to Mana' })).status, 403, 'a role holder\'s deputy is a super_admin decision');
+  assert.equal((await send('POST', '/api/governance/roles/deputies', P.super, { user_id: ID.target, deputy_id: ID.targetdep, start_date: today(), end_date: plus(3), reason: 'site visit to Mana' })).status, 201);
   let out = await run();
   const mine = () => sent.filter((n) => n.sourceRef === String(hid)).map((n) => n.userId).sort((a, b) => a - b);
   assert.ok(out.escalated >= 1);
@@ -176,9 +186,18 @@ test('calendar: a shutdown day keeps an overdue handoff inside its grace; admin 
   const c = await json(await send('POST', '/api/handoffs', P.mana, { ...mkBody({ site_id: mana, receiver: 'gr_group', title: 'Calendar job' }) }));
   await rdb.db.prepare('UPDATE handoffs SET due_date=? WHERE id=?').run(plus(-1), c.body.handoff.id);
   // grace of 0 working days: yesterday's due date is overdue today — unless today is a Mana shutdown day
-  const r = await json(await send('POST', '/api/governance/roles/calendar', P.admin, { day: today(), site_id: mana, label: 'Plant shutdown', kind: 'shutdown' }));
+  const r = await json(await send('POST', '/api/governance/roles/calendar', P.admin, { day: today(), site_id: mana, label: 'Plant shutdown', kind: 'shutdown', reason: 'mill relining week' }));
   assert.equal(r.status, 201);
-  assert.equal((await send('POST', '/api/governance/roles/calendar', P.admin, { day: today(), site_id: mana, label: 'Plant shutdown' })).status, 409, 'once per day and site');
+  assert.equal((await send('POST', '/api/governance/roles/calendar', P.admin, { day: today(), site_id: mana, label: 'Plant shutdown', reason: 'mill relining week' })).status, 409, 'once per day and site');
+  // security review: a reason, a real site, platform-wide days for super_admin only, a yearly cap for the admin tier
+  assert.equal((await send('POST', '/api/governance/roles/calendar', P.admin, { day: plus(1), site_id: mana, label: 'Plant shutdown' })).status, 400, 'reason required');
+  assert.equal((await send('POST', '/api/governance/roles/calendar', P.admin, { day: plus(1), site_id: 'abc', label: 'Plant shutdown', reason: 'mill relining week' })).status, 400, 'not a site id');
+  assert.equal((await send('POST', '/api/governance/roles/calendar', P.admin, { day: plus(1), site_id: 999999, label: 'Plant shutdown', reason: 'mill relining week' })).status, 400, 'unknown site');
+  assert.equal((await send('POST', '/api/governance/roles/calendar', P.admin, { day: plus(1), site_id: null, label: 'National day', reason: 'public holiday' })).status, 403, 'platform-wide = super_admin');
+  const y = '2031'; let last;
+  for (let i = 1; i <= R.CALENDAR_MAX_DAYS_PER_YEAR + 1; i++) last = (await send('POST', '/api/governance/roles/calendar', P.admin, { day: `${y}-03-${String(i).padStart(2, '0')}`, site_id: hounde, label: 'Long shutdown', reason: 'planned shutdown' })).status;
+  assert.equal(last, 409, 'yearly cap for the admin tier');
+  assert.equal((await send('POST', '/api/governance/roles/calendar', P.super, { day: `${y}-04-01`, site_id: hounde, label: 'Long shutdown', reason: 'planned shutdown, approved' })).status, 201, 'super_admin may go beyond');
   let out = await store.escalateOverdue({ policyFor: (siteId) => GP.forContext({ siteId }) });
   assert.ok(!out.some((h) => h.id === c.body.handoff.id), 'a shutdown day does not count');
   assert.equal((await send('POST', `/api/governance/roles/calendar/${r.body.id}/remove`, P.admin, { reason: 'shutdown cancelled' })).status, 200);
@@ -216,7 +235,7 @@ test('meetings: the minutes acceptor role and the chair\'s deputy, never accepti
   assert.equal((await send('POST', '/api/governance/roles/assignments', P.super, { role: 'meetings.minutes_acceptor', site_id: hounde, user_id: ID.target, effective_from: today(), reason: 'second pair of eyes for the site minutes' })).status, 201);
   const v = await can(P.target); assert.equal(v.can_decide, true); assert.ok(v.session.allowed.includes('accept'));
   // the chair's deputy may run the session but not accept minutes the chair recorded
-  assert.equal((await send('POST', '/api/governance/roles/deputies', P.admin, { user_id: ID.itlead, deputy_id: ID.coord, start_date: today(), end_date: plus(3), reason: 'chair on leave' })).status, 201);
+  assert.equal((await send('POST', '/api/governance/roles/deputies', P.super, { user_id: ID.itlead, deputy_id: ID.coord, start_date: today(), end_date: plus(3), reason: 'chair on leave' })).status, 201);
   const d = await can(P.coord); assert.equal(d.can_run, true); assert.ok(!d.session.allowed.includes('accept'), 'stands in for the recorder');
   assert.equal((await send('POST', `/api/governance/sessions/${sid}/accept`, P.coord)).status, 403);
   assert.equal((await send('POST', `/api/governance/sessions/${sid}/accept`, P.target)).status, 200);

@@ -101,3 +101,13 @@ test('safePost / safeGet refuse an unsafe URL with code UNSAFE_URL and never cal
     catch (e) { assert.equal(e.code, 'UNSAFE_URL'); }
   }
 });
+
+test('DNS rebinding: the connect-time lookup refuses a name that now resolves to a private address', async () => {
+  const flip = (addr) => (host, opts, cb) => cb(null, addr, 4);
+  const run = (lk, host = 'evil.example.com') => new Promise((res) => lk(host, {}, (err, a) => res(err || a)));
+  const bad = await run(S.guardedLookup([], flip('127.0.0.1')));
+  assert.equal(bad.code, 'UNSAFE_URL'); assert.match(bad.message, /connect time/);
+  assert.equal((await run(S.guardedLookup([], (h, o, cb) => cb(null, [{ address: '203.0.113.9', family: 4 }, { address: '169.254.169.254', family: 4 }])))).code, 'UNSAFE_URL', 'all:true answers checked too');
+  assert.equal(await run(S.guardedLookup([], flip('203.0.113.9'))), '203.0.113.9');
+  assert.equal(await run(S.guardedLookup(['opm.corp'], flip('10.0.0.5')), 'opm.corp'), '10.0.0.5', 'allow-listed internal service');
+});

@@ -75,7 +75,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     const where = [], args = [];
     if (cadenceId) { where.push('cadence_id=?'); args.push(Number(cadenceId)); }
     if (status) { const st = Array.isArray(status) ? status : [status]; where.push(`status IN (${st.map(() => '?').join(',')})`); args.push(...st); }
-    const rows = await P(`SELECT id, cadence_id, scheduled_at, status, started_at, closed_at, closed_by, minutes_sent_at, minutes_accepted_at, minutes_accepted_by, cancelled_at, cancel_reason, exception_status, created_by, created_at FROM meeting_sessions${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY scheduled_at DESC LIMIT ${Math.min(500, Number(limit) || 50)}`).all(...args);
+    const rows = await P(`SELECT id, cadence_id, scheduled_at, status, started_at, closed_at, closed_by, minutes_sent_at, minutes_accepted_at, minutes_accepted_by, cancelled_at, cancel_reason, exception_status, created_by, created_at FROM meeting_sessions${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY scheduled_at DESC LIMIT ${Math.max(1, Math.min(500, Math.floor(Number(limit)) || 50))}`).all(...args);
     return rows.map(r => ({ ...r, id: Number(r.id), cadence_id: Number(r.cadence_id) }));
   }
   async function getSession(id) { return sesRow(await P(`SELECT * FROM meeting_sessions WHERE id=?`).get(Number(id))); }
@@ -136,7 +136,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     const where = [], args = [];
     if (status) { const st = Array.isArray(status) ? status : [status]; where.push(`status IN (${st.map(() => '?').join(',')})`); args.push(...st); }
     if (sessionId) { where.push('session_id=?'); args.push(Number(sessionId)); }
-    const rows = (await P(`SELECT * FROM decisions${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY created_at DESC LIMIT ${Math.min(2000, Number(limit) || 500)}`).all(...args)).map(decRow);
+    const rows = (await P(`SELECT * FROM decisions${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY created_at DESC LIMIT ${Math.max(1, Math.min(2000, Math.floor(Number(limit)) || 500))}`).all(...args)).map(decRow);
     return Array.isArray(siteIds) ? rows.filter(d => d.site_id == null || siteIds.includes(d.site_id)) : rows;
   }
   async function addDecision(d, { user } = {}) {
@@ -174,7 +174,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       where.push(`(${own.join(' OR ')})`);
     }
     if (status) { const st = Array.isArray(status) ? status : [status]; where.push(`status IN (${st.map(() => '?').join(',')})`); args.push(...st); }
-    const rows = (await P(`SELECT * FROM rfi_requests${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY created_at DESC LIMIT ${Math.min(2000, Number(limit) || 500)}`).all(...args)).map(rfiRow);
+    const rows = (await P(`SELECT * FROM rfi_requests${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY created_at DESC LIMIT ${Math.max(1, Math.min(2000, Math.floor(Number(limit)) || 500))}`).all(...args)).map(rfiRow);
     return rows.sort((a, b) => b.score - a.score || String(b.created_at).localeCompare(String(a.created_at)));
   }
   async function submitRfi(r, { user } = {}) {

@@ -41,7 +41,7 @@
     <div><h1 id="title">Dashboards</h1><div class="sub" id="subtitle">Published dashboards — every figure comes from the KPI dictionary and is dated.</div></div>
     <div class="controls" id="controls" hidden>
       <label class="ctl">Site <select id="site" aria-label="Site"></select></label>
-      <label class="ctl" id="winWrap">Period <input id="window" type="text" aria-label="Period (YYYY-MM or YYYY-Www)" placeholder="latest" size="10"></label>
+      <label class="ctl" id="winWrap">Period <input id="window" type="text" list="windowList" aria-label="Period (YYYY-MM or YYYY-Www)" placeholder="latest" size="10"><datalist id="windowList"></datalist></label>
       <button class="btn" id="apply" type="button">Apply</button>
       <button class="btn" id="edit" type="button" hidden>Edit in composer</button>
       <a class="btn" id="back" href="dashboards.html">All dashboards</a>
@@ -108,11 +108,15 @@
     if (meta && meta.status !== 'published') q.push('draft=1');
     api('/api/dashboards/' + encodeURIComponent(key) + '/data' + (q.length ? '?' + q.join('&') : '')).then(function (d) {
       var sel = $('site');
-      if (!sel.options.length) { d.sites.forEach(function (s) { var o = document.createElement('option'); o.value = s.id; o.textContent = s.name; sel.appendChild(o); }); }
+      // design review B3: the single figures are ONE site's (the server never mixes sites into a tile);
+      // the per-site charts list every site in scope — say so instead of implying a fleet total
+      if (!sel.options.length) d.sites.forEach(function (s) { var o = document.createElement('option'); o.value = s.id; o.textContent = s.name; sel.appendChild(o); });
       if (d.site != null) sel.value = String(d.site);
+      var nm = (d.sites || []).filter(function (s) { return Number(s.id) === Number(d.site); })[0];
+      d.scope_note = nm ? 'Single figures: ' + nm.name + ' · per-site charts: your ' + d.sites.length + ' sites' : '';
       renderWidgets(def, d);
       var st = (d.stale_sources || []).map(function (x) { return x.module + (x.state === 'UNKNOWN' ? ' (never synced)' : ' (last sync ' + x.age_h + ' h ago, limit ' + x.limit_h + ' h)'); });
-      status('Data as of ' + new Date(d.as_of).toLocaleString() + (d.note ? ' — ' + d.note : '') + (st.length ? ' — ⚠ not current: ' + st.join(', ') : ''));
+      status((d.scope_note ? d.scope_note + ' — ' : '') + 'Data as of ' + new Date(d.as_of).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) + (d.note ? ' — ' + d.note : '') + (st.length ? ' — ⚠ not current: ' + st.join(', ') : ''));
     }).catch(function (e) { status('Data unavailable: ' + e.message); });
   }
 
@@ -124,28 +128,43 @@
     (def.widgets || []).forEach(function (w) {
       var d = data.widgets[w.id] || {};
       var el = document.createElement('section');
-      el.className = 'edv-widget ' + (d.mode === 'single' ? R.ragClass(d.rag) : '');
+      el.className = 'edv-widget ' + (d.mode === 'single' ? R.ragClass(d.rag) + (d.value == null ? ' edv-quiet' : '') : '');
       el.setAttribute('style', R.gridStyle(w.layout, cols));
       el.setAttribute('aria-label', w.title || w.type);
       el.tabIndex = 0;
       var title = w.title ? '<h3>' + R.escapeHtml(w.title) + '</h3>' : '';
-      if (d.error) { el.innerHTML = title + '<div class="edv-kpi-sub">Not measured: ' + R.escapeHtml(d.error) + '</div>'; root.appendChild(el); return; }
+      if (d.error) { el.className += ' edv-quiet'; el.innerHTML = title + '<div class="edv-kpi-value">—</div><div class="edv-kpi-sub">Not measured: ' + R.escapeHtml(d.error) + '</div>'; root.appendChild(el); return; }
       if (w.type === 'text') { el.innerHTML = '<div class="edv-widget-text">' + R.miniMarkdown(w.markdown || '') + '</div>'; }
       else if (d.mode === 'single') {
-        el.innerHTML = title + '<div class="edv-kpi-value"><span class="edv-rag-dot ' + R.ragClass(d.rag) + '"></span>' + R.formatValue(d.value, d.unit) + '</div>' +
+        el.innerHTML = title + '<div class="edv-kpi-value">' + R.ragDot(d.rag) + R.formatValue(d.value, d.unit) + '</div>' +
+          R.kpiContext(d) +
           '<div class="edv-kpi-sub">' + (d.fleet ? 'fleet mean ' + R.formatValue(d.fleet.mean, d.unit) + ' (' + d.fleet.n + ' sites)' : (d.value == null ? 'not measured' : '')) + '</div>' +
           '<div class="edv-asof">' + (d.window ? R.escapeHtml(d.window.label) : '') + '</div>';
       } else if (d.mode === 'series') {
-        el.innerHTML = title + '<canvas role="img" aria-label="' + R.escapeHtml((w.title || w.metric) + ' trend') + '"></canvas>';
-        if (window.Chart) {
-          var c = new Chart(el.querySelector('canvas'), { type: 'line', data: { labels: d.points.map(function (p) { return p.label; }), datasets: [{ label: w.title || w.metric, data: d.points.map(function (p) { return p.value; }), borderColor: '#3A4A60', backgroundColor: 'rgba(58,74,96,.12)', spanGaps: false, tension: .2, fill: true }] },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: d.unit !== '%', suggestedMax: d.unit === '%' ? 100 : undefined } } } });
-          charts.push(c);
+        // design review B4 / R6: no empty axis; % axes run 0–100; short week labels, the year said once
+        var pts = d.points || [];
+        if (!pts.some(function (p) { return p.value != null; })) {
+          el.className += ' edv-quiet';
+          el.innerHTML = title + '<div class="edv-kpi-sub">Not measured over this period (' + pts.length + ' ' + (/W\d/.test(pts[0] && pts[0].label || '') ? 'weeks' : 'months') + ').</div>';
+        } else {
+          var years = {}; pts.forEach(function (p) { years[String(p.label).slice(0, 4)] = 1; });
+          el.innerHTML = title + '<canvas role="img" aria-label="' + R.escapeHtml((w.title || w.metric) + ' trend') + '"></canvas><div class="edv-asof">' + Object.keys(years).join('–') + '</div>';
+          if (window.Chart) {
+            var pct = String(d.unit) === '%';
+            var c = new Chart(el.querySelector('canvas'), { type: 'line', data: { labels: pts.map(function (p) { return R.shortLabel(p.label); }), datasets: [{ label: w.title || w.metric, data: pts.map(function (p) { return p.value; }), borderColor: '#3A4A60', backgroundColor: 'rgba(58,74,96,.12)', spanGaps: false, tension: .2, fill: true, pointRadius: 3 }] },
+              options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (ctx) { return R.formatValue(ctx.parsed.y, d.unit); } } } },
+                scales: { x: { ticks: { maxRotation: 0, autoSkip: true } }, y: pct ? { min: 0, max: 100 } : { beginAtZero: true } } } });
+            charts.push(c);
+          }
         }
       } else if (d.mode === 'per-site') {
-        var max = Math.max.apply(null, d.rows.map(function (r) { return r.value == null ? 0 : Number(r.value); }).concat([1]));
+        // design review R3 / R4: worst first, not-measured rows folded at the end; % bars run to 100
+        var max = String(d.unit) === '%' ? 100 : Math.max.apply(null, d.rows.map(function (r) { return r.value == null ? 0 : Number(r.value); }).concat([1]));
+        var sorted = R.sortRows(d.rows, d.higher_is_better !== false);
+        var measured = sorted.filter(function (r) { return r.value != null; }), unmeasured = sorted.filter(function (r) { return r.value == null; });
+        var line = function (r) { return '<div class="edv-ragline">' + R.ragDot(r.rag) + '<span>' + R.escapeHtml(r.site) + '</span>' + (r.value == null ? '<span class="bar bar-none"></span>' : '<span class="bar"><i style="width:' + Math.max(0, Math.min(100, Math.round(100 * Number(r.value) / max))) + '%"></i></span>') + '<span class="n">' + R.formatValue(r.value, d.unit) + '</span></div>'; };
         el.innerHTML = title + '<div class="edv-kpi-sub">' + d.summary.GREEN + ' green · ' + d.summary.AMBER + ' amber · ' + d.summary.RED + ' red' + (d.summary.NA ? ' · ' + d.summary.NA + ' not measured' : '') + '</div>' +
-          d.rows.map(function (r) { return '<div class="edv-ragline"><span class="edv-rag-dot ' + R.ragClass(r.rag) + '"></span><span>' + R.escapeHtml(r.site) + '</span><span class="bar"><i style="width:' + (r.value == null ? 0 : Math.round(100 * Number(r.value) / max)) + '%"></i></span><span class="n">' + R.formatValue(r.value, d.unit) + '</span></div>'; }).join('');
+          measured.map(line).join('') + (unmeasured.length ? '<details class="edv-unmeasured"><summary>' + unmeasured.length + ' not measured</summary>' + unmeasured.map(line).join('') + '</details>' : '');
       } else if (d.mode === 'actions') {
         el.innerHTML = title + (d.items.length ? '<table class="edv-actions-table"><thead><tr><th>Source</th><th>Action</th><th>Owner</th><th>Due</th></tr></thead><tbody>' +
           d.items.map(function (it) { return '<tr><td>' + R.escapeHtml(it.source) + '</td><td>' + R.escapeHtml(it.title || it.task || '') + '</td><td>' + R.escapeHtml(it.owner || '—') + '</td><td class="' + (it.overdue ? 'edv-overdue' : '') + '">' + R.escapeHtml(it.due_date || '—') + '</td></tr>'; }).join('') + '</tbody></table>'
@@ -155,6 +174,8 @@
     });
   }
 
+  // design review R9: the period box suggests the last 13 weeks and 12 months
+  try { R.windowSeries('week', 13).concat(R.windowSeries('month', 12)).reverse().forEach(function (v) { var o = document.createElement('option'); o.value = v; $('windowList').appendChild(o); }); } catch (_) {}
   $('apply').addEventListener('click', loadData);
   $('site').addEventListener('change', loadData);
   if (key) renderView(); else { $('dash').hidden = true; renderList(); }

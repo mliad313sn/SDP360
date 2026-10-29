@@ -920,6 +920,8 @@ function getCookie(req, name) {
 // (comma-separated); literal-IP origins are dropped (services/netBinding.js).
 const corsAllowed = netBinding.corsAllowedOrigins(PORT, process.env);
 app.use(cors({ origin: corsAllowed }));
+// security review: a state-changing browser request must come from this application's own origin
+app.use(require('./services/originGuard').middleware({ allowed: corsAllowed, log: (req, why) => console.warn(`[security] ${why}: ${req.method} ${req.path} origin=${String(req.headers.origin || '-').slice(0, 80)}`) }));
 
 // ── Path-scoped large JSON parsers ────────────────────────────────────
 // These MUST run BEFORE the global express.json() below. Express
@@ -7057,9 +7059,13 @@ app.post('/api/save-pptx', requireReportSession, requireRole('report-author'), e
     // and guaranteed to stay inside data/ (was a path-traversal hole:
     // ?name=../../x escaped the directory). See services/safeFilename.js.
     const { safeJoin } = require('./services/safeFilename');
+    // security review: only a real PPTX (a ZIP container, 'PK\x03\x04') is stored, and the answer names the
+    // file only — never the server's absolute path
+    const body = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+    if (body.length < 4 || body[0] !== 0x50 || body[1] !== 0x4b || body[2] !== 0x03 || body[3] !== 0x04) return res.status(400).json({ ok: false, error: 'not a PPTX file' });
     const outPath = safeJoin(path.join(__dirname, 'data'), req.query.name, { ext: '.pptx', fallback: 'export.pptx' });
-    fs.writeFileSync(outPath, req.body);
-    res.json({ ok: true, path: outPath });
+    fs.writeFileSync(outPath, body);
+    res.json({ ok: true, file: path.basename(outPath) });
   } catch(e) { fail(res, e); }
 });
 
