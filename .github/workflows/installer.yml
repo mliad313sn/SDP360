@@ -6,20 +6,10 @@ name: Installer
 # keeps the data. Nothing here is published: the Setup.exe and the logs are kept as a run artifact.
 # The runner's PostgreSQL is a throwaway cluster whose superuser password is the image default.
 
+# Every push: the installer embeds the whole application, so any change can break a clean install.
 on:
   push:
     branches: ['**']
-    paths:
-      - 'tools/installer-v2/**'
-      - 'tools/service/**'
-      - 'tools/manager/**'
-      - 'tools/sdp-manager.js'
-      - 'tools/deploy/make-update-package.js'
-      - 'services/updatePackage.js'
-      - 'services/serviceControl.js'
-      - 'services/dbRestore.js'
-      - 'services/backup.js'
-      - '.github/workflows/installer.yml'
   workflow_dispatch:
 
 permissions:
