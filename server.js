@@ -17,7 +17,9 @@ const { fail, logError } = require('./services/httpError'); // M9 — generic 5x
 
 // ── STARTUP VALIDATION — fail closed if secrets are missing ───────
 // SECURITY: We refuse to start rather than silently running open.
-const REQUIRED_ENV = ['ZOHO_CLIENT_ID', 'ZOHO_CLIENT_SECRET', 'ZOHO_REFRESH_TOKEN', 'DASH_USER', 'DASH_PASS'];
+// Zoho credentials are NOT required to start: a fresh installation sets them later in Admin ▸ Intégration API
+// (services/analyticsSettings.js resolves DB → .env); the boot logs when they are missing (see start()).
+const REQUIRED_ENV = ['DASH_USER', 'DASH_PASS'];
 let _startupOk = true;
 REQUIRED_ENV.forEach(k => {
   if (!process.env[k]) {

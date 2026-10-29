@@ -63,3 +63,12 @@ test('XML project files and XAML hold no "--" inside a comment (MSBuild refuses 
     for (const m of s.matchAll(/<!--([\s\S]*?)-->/g)) assert.ok(!m[1].includes('--') && !m[1].endsWith('-'), `${d}/${f}: ${m[1].slice(0, 60)}`);
   }
 });
+
+test('a fresh installation starts without Zoho credentials (they are set later in Admin ▸ Intégration API)', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8');
+  const m = /const REQUIRED_ENV = \[([^\]]*)\]/.exec(src);
+  assert.ok(m, 'REQUIRED_ENV found');
+  assert.ok(!/ZOHO/.test(m[1]), 'Zoho keys are not required at startup');
+  const env = fs.readFileSync(path.join(ROOT, 'tools/installer-v2/post-install.js'), 'utf8');
+  for (const k of m[1].match(/[A-Z_]+/g)) assert.ok(new RegExp(`\\b${k}:`).test(env), `post-install writes ${k}`);
+});

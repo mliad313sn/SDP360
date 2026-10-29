@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 2953,
+ "total": 2954,
  "files": {
   "a11y-static.test.js": 13,
   "access-revocation.smoke.test.js": 5,
@@ -169,7 +169,7 @@
   "inspection-score-inputs.test.js": 5,
   "inspection-site-scope.smoke.test.js": 7,
   "installer-no-stored-password.test.js": 2,
-  "installer-v2-static.test.js": 8,
+  "installer-v2-static.test.js": 9,
   "integrations-plan-gate.smoke.test.js": 3,
   "kpi-change-success.test.js": 2,
   "kpi-rag.test.js": 5,
