@@ -28,6 +28,7 @@ Freshness defaults are taken from the sync job declarations (`services/sync/jobs
 | Key | Area | Type | Default | Bounds | Per site | Guardrail | Meaning |
 |---|---|---|---|---|---|---|---|
 | `governance.dual_approval_relaxations` | governance | bool | true | — | platform only | **protected** | Relaxing a protected rule is a two-person act: one super_admin proposes, another approves (proposals expire after 7 days). |
+| `governance.dual_approval_tightening` | governance | bool | false | — | platform only | **protected** | Tightening a protected rule also takes two people (a very short freshness limit or a very long reason minimum can stop work across the platform). Off = the admin tier tightens alone, the behaviour until now. |
 | `governance.relaxation_max_days` | governance | int | 90 | 1 – 365 | platform only | **protected** | A relaxed protected rule reverts to the stricter value automatically after this many days (a new relaxation is needed to keep it). |
 | `reports.four_eyes` | reports | bool | true | — | yes | **protected** | The person who generated a report run cannot review or publish it; the last commentary editor cannot review it. |
 | `reports.freshness_gate` | reports | bool | true | — | yes | **protected** | Refuse publication when a source behind a figure is stale or has never synced. |
@@ -48,12 +49,29 @@ Freshness defaults are taken from the sync job declarations (`services/sync/jobs
 | `meetings.cancel_requires_approval` | meetings | bool | true | — | yes | **protected** | A cancelled session stays an unexcused miss until a committee member (not the canceller) approves the exception. |
 | `meetings.cancel_reason_min` | meetings | int | 5 | 3 – 500 | yes | **protected** | Minimum length of a cancellation reason. |
 | `meetings.reopen_reason_min` | meetings | int | 10 | 5 – 500 | yes | **protected** | Minimum length of the reason to reopen accepted minutes. |
+| `meetings.reopen_two_people` | meetings | bool | false | — | yes | **protected** | Reopening accepted minutes takes two admins: one requests it with a reason, ANOTHER confirms it (off = one admin with a reason, the behaviour until now). |
+| `meetings.group_decisions_public` | meetings | bool | true | — | platform only | **protected** | Decisions of group-level (committee) sessions are listed for every account; off = only the committee, the chair / secretary and the participants see them, like the sessions themselves. |
 | `handoffs.reason_min` | handoffs | int | 5 | 3 – 500 | yes | **protected** | Minimum length of a reason (reject, block, escalate, cancel, rework, reassign). |
 | `handoffs.overdue_escalation` | handoffs | bool | true | — | yes | **protected** | An open handoff past its due date is escalated automatically. |
 | `handoffs.escalation_grace_days` | handoffs | int | 0 | 0 – 60 | yes | **protected** | Days after the due date before the automatic escalation. |
 | `commitments.escalation_enabled` | commitments | bool | true | — | yes | **protected** | Record A01 / A02 escalations (serious commitment without owner / overdue without exception). |
 | `commitments.serious_due_move_needs_admin` | commitments | bool | true | — | yes | **protected** | Moving the due date of a high / critical commitment past its original (baseline) date needs the admin tier — a site editor cannot clear an A02 overdue alert alone. |
 | `commitments.exception_max_days` | commitments | int | 90 | 1 – 365 | yes | **protected** | An approved exception (overdue serious commitment) lapses after this many days; the A02 alert comes back unless it is renewed. |
+
+## Site profiles
+
+`services/governanceProfiles.js` — a named bundle of site-scoped values applied to one site in one action
+(Governance policies ▸ choose a site ▸ *Site profile* ▸ *Apply to this site*; `POST /api/governance/policies/profile`).
+Each value goes through the store like a manual change: a relaxation needs a super_admin and becomes a
+two-person proposal, values already in force are skipped, every change is reasoned and in the history.
+
+| Profile | For | Values |
+|---|---|---|
+| `large_mine` | 3+ IT staff | every default control, 48 h grace, escalation on the due date |
+| `small_site` | one IT person | minutes accepted without a second local person (group reviews afterwards), 72 h grace, handoff escalation after 2 days; publication and report four-eyes stay on |
+| `office` | Abidjan, Dakar, London, Ouagadougou | default controls, 48 h grace, handoff escalation after 1 day |
+
+The values are a starting point for the committee; `validateProfiles` (tested) refuses an unknown or platform-only rule.
 
 ## Invariants — deliberately NOT parameters
 

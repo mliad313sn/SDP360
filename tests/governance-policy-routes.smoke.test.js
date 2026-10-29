@@ -118,3 +118,50 @@ test('sync health and publication read the same freshness limit (committee archi
   const job = (h.jobs || []).find((j) => j.job === 'assets.sync');
   assert.ok(job, 'assets.sync listed'); assert.equal(job.freshness_hours, 4);
 });
+
+test('meetings.reopen_two_people and meetings.group_decisions_public change behaviour at once', async () => {
+  // a group (site-less) cadence with a decision, and accepted minutes
+  const c = await (await send('PUT', '/api/governance/cadences', T.admin, { key: 'gp-grp', name: 'Group committee', kind: 'committee', participants: [] })).json();
+  const s = (await (await send('POST', `/api/governance/cadences/${c.cadence.id}/sessions`, T.admin, { scheduled_at: new Date(Date.now() + 864e5).toISOString() })).json()).session;
+  await send('POST', `/api/governance/sessions/${s.id}/start`, T.admin);
+  const d = (await (await send('POST', `/api/governance/sessions/${s.id}/decisions`, T.admin, { title: 'Group-only decision' })).json()).decision;
+  await send('POST', `/api/governance/sessions/${s.id}/close`, T.admin);
+  assert.equal((await send('POST', `/api/governance/sessions/${s.id}/accept`, T.super)).status, 200);
+  // decisions of group sessions: public by default, restricted once the policy says so
+  const seen = async () => ((await (await send('GET', '/api/governance/decisions', T.viewer)).json()).decisions || []).some((x) => x.id === d.id);
+  assert.equal(await seen(), true);
+  assert.equal((await put(T.admin, 'global', 'meetings.group_decisions_public', false, 'committee decisions stay with the committee')).status, 200);
+  assert.equal(await seen(), false);
+  // two-person reopening
+  assert.equal((await put(T.admin, 'global', 'meetings.reopen_two_people', true, 'audit asked for two people')).status, 200);
+  const r1 = await send('POST', `/api/governance/sessions/${s.id}/reopen`, T.admin, { reason: 'decision text was wrong' });
+  assert.equal(r1.status, 202);
+  assert.equal((await send('POST', `/api/governance/sessions/${s.id}/reopen`, T.admin, { reason: 'decision text was wrong' })).status, 409, 'the requester cannot confirm');
+  const r2 = await send('POST', `/api/governance/sessions/${s.id}/reopen`, T.super, { reason: 'confirmed, text was wrong' });
+  assert.equal(r2.status, 200); assert.equal((await r2.json()).session.stage, 'held');
+});
+
+test('site profiles: every value is a valid site rule; applying one goes through the guardrails', async () => {
+  const GP = require('../services/governancePolicy'); const Pr = require('../services/governanceProfiles');
+  assert.deepEqual(Pr.validateProfiles(GP), []);
+  const list = await (await send('GET', '/api/governance/profiles', T.member)).json();
+  assert.deepEqual(list.profiles.map((p) => p.name).sort(), ['large_mine', 'office', 'small_site']);
+  assert.equal((await send('POST', '/api/governance/policies/profile', T.member, { site_id: mana, profile: 'small_site', reason: 'one IT person' })).status, 403);
+  const r = await (await send('POST', '/api/governance/policies/profile', T.admin, { site_id: mana, profile: 'small_site', reason: 'one IT person at Mana' })).json();
+  const by = Object.fromEntries(r.results.map((x) => [x.key, x]));
+  assert.equal(by['meetings.missed_grace_hours'].result, 'error', 'lengthening a protected grace is a relaxation: an admin cannot');
+  assert.equal(by['handoffs.escalation_grace_days'].result, 'error');
+  assert.equal(by['publication.four_eyes'].result, 'unchanged');
+  const s = await (await send('POST', '/api/governance/policies/profile', T.super, { site_id: mana, profile: 'small_site', reason: 'one IT person at Mana' })).json();
+  const bs = Object.fromEntries(s.results.map((x) => [x.key, x]));
+  assert.equal(bs['meetings.minutes_four_eyes'].result, 'pending', 'a relaxation becomes a two-person proposal');
+  assert.equal(bs['meetings.missed_grace_hours'].result, 'pending');
+});
+
+test('governance.dual_approval_tightening: once on, tightening a protected rule is a proposal too', async () => {
+  assert.equal((await put(T.admin, 'global', 'governance.dual_approval_tightening', true, 'large changes need two people')).status, 200);
+  const r = await put(T.admin, 'global', 'freshness.survey_hours', 1, 'survey every hour');
+  assert.equal(r.status, 202); assert.equal((await r.json()).change.relaxes, false);
+  const v = await (await send('GET', '/api/governance/policies/effective', T.admin)).json();
+  assert.equal(v.values['freshness.survey_hours'], 3, 'unchanged until a second person approves');
+});

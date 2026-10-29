@@ -1,0 +1,63 @@
+/* French catalogue of the server messages the governance pages show (committee field review P1-6).
+ *   ErrorText.fr(message) → French text, or the original message when no rule matches.
+ * One place for every page (handoffs, cockpit, policies, commitments, composer, tracker builder):
+ * a new server message gets ONE line here. Rules are tried in order; capture groups carry numbers / keys.
+ */
+(function (root) {
+  'use strict';
+  const RULES = [
+    [/a reason \((\d+)\+ characters\) is required to cancel a session/i, (m) => `Un motif de ${m[1]} caractères minimum est requis pour annuler une séance.`],
+    [/a reason \((\d+)\+ characters\) is required to reopen accepted minutes/i, (m) => `Un motif de ${m[1]} caractères minimum est requis pour rouvrir un compte rendu accepté.`],
+    [/a reason \((\d+)\+ characters\) is required/i, (m) => `Un motif de ${m[1]} caractères minimum est requis.`],
+    [/relaxing ([\w.]+) needs a super_admin/i, (m) => `Assouplir ${m[1]} exige un super_admin.`],
+    [/relaxing ([\w.]+) needs a reason \((\d+)\+ characters\)/i, (m) => `Assouplir ${m[1]} exige un motif de ${m[2]} caractères minimum.`],
+    [/a proposal for ([\w.]+) is already pending \(#(\d+)\)/i, (m) => `Une proposition pour ${m[1]} est déjà en attente (n° ${m[2]}).`],
+    [/the proposer cannot approve or reject/i, () => 'L\'auteur d\'une proposition ne peut pas la décider lui-même.'],
+    [/a super_admin decides a proposal/i, () => 'Seul un super_admin décide d\'une proposition.'],
+    [/proposal (is )?expired/i, () => 'La proposition a expiré.'],
+    [/(applies to the whole platform|platform, not to one site)/i, () => 'Cette règle s\'applique à toute la plateforme, pas à un site.'],
+    [/a short reason is required for every policy change/i, () => 'Un motif court est requis pour tout changement de règle.'],
+    [/only the named receiver/i, () => 'Seule la personne destinataire peut faire cela — personne n\'accepte à sa place.'],
+    [/only the requester \(or the admin tier\)/i, () => 'Réservé au demandeur (ou aux administrateurs).'],
+    [/only the admin tier can do this/i, () => 'Réservé aux administrateurs.'],
+    [/inactive account/i, () => 'Compte désactivé.'],
+    [/a .* session cannot be (started|cancelled)/i, (m) => (m[1] === 'started' ? 'Cette séance ne peut plus être démarrée.' : 'Cette séance ne peut plus être annulée.')],
+    [/only a planned session can be rescheduled/i, () => 'Seule une séance planifiée peut être reprogrammée.'],
+    [/only accepted minutes can be reopened/i, () => 'Seul un compte rendu accepté peut être rouvert.'],
+    [/only an admin may reopen accepted minutes/i, () => 'Seul un admin peut rouvrir un compte rendu accepté.'],
+    [/already approved/i, () => 'Déjà approuvée.'],
+    [/the session is cancelled/i, () => 'La séance est annulée.'],
+    [/the minutes are already accepted|close the session first/i, () => 'Clôturez d\'abord la séance, ou le compte rendu est déjà accepté.'],
+    [/only the requester verifies/i, () => 'Seul le demandeur valide la livraison.'],
+    [/delivered the work cannot verify/i, () => 'La personne qui a livré ne peut pas valider sa propre livraison.'],
+    [/no active person/i, () => 'Aucune personne active avec cet identifiant ne travaille sur ce site — choisissez dans la liste.'],
+    [/site you no longer have/i, () => 'Cette demande concerne un site qui n\'est plus le vôtre.'],
+    [/unknown department/i, () => 'Service inconnu.'],
+    [/cannot become|cannot be reassigned/i, () => 'Cette action n\'est plus possible à cette étape.'],
+    [/the minutes are accepted/i, () => 'Le compte rendu est accepté — la séance est en lecture seule (un admin peut la rouvrir avec un motif).'],
+    [/missed session cannot be moved/i, () => 'Une séance manquée ne peut pas être déplacée pour effacer le manquement — annulez-la avec un motif (exception approuvée par le comité).'],
+    [/never started is not held|start the session first/i, () => 'Démarrez d\'abord la séance — une séance jamais démarrée n\'est pas tenue.'],
+    [/cannot be closed again/i, () => 'La séance est déjà close.'],
+    [/recorded the minutes cannot accept them/i, () => 'La personne qui a établi le compte rendu ne peut pas l\'accepter.'],
+    [/cancelled cannot approve their own exception/i, () => 'La personne qui a annulé ne peut pas approuver sa propre exception.'],
+    [/only the committee approves/i, () => 'Seul le comité approuve une annulation comme exception.'],
+    [/waiting for a SECOND admin/i, () => 'La réouverture attend un SECOND admin — le demandeur ne peut pas la confirmer.'],
+    [/only the chair, the secretary, the site editors or the committee/i, () => 'Réservé au président, au secrétaire, aux éditeurs du site ou au comité.'],
+    [/only the chair, the secretary or an admin may record a decision/i, () => 'Seuls le président, le secrétaire ou un admin enregistrent une décision.'],
+    [/group sessions are read by the committee/i, () => 'Les séances de groupe sont réservées au comité et à leurs participants.'],
+    [/session belongs to another site/i, () => 'Cette séance appartient à un autre site.'],
+    [/(decision|action) title is required/i, () => 'Le titre est obligatoire.'],
+    [/draft changed since you opened it/i, () => 'Le brouillon a changé depuis votre ouverture — rechargez et relisez-le.'],
+    [/ever published is retired, never deleted/i, () => 'Un élément déjà publié est retiré, jamais supprimé — ses versions sont des preuves.'],
+    [/moving the due date of a serious commitment past its baseline/i, () => 'Reporter l\'échéance d\'un engagement grave au-delà de sa date initiale exige un admin.'],
+    [/only the admin tier creates a commitment from/i, () => 'Seul un admin crée un engagement à partir d\'un ticket — créez-le depuis un élément du site et liez le ticket.'],
+    [/only the designated reviewer/i, () => 'Seul le vérificateur désigné (ou un admin) peut valider.'],
+    [/stale version|changed meanwhile|reload/i, () => 'L\'élément a changé entre-temps — rechargez la page.'],
+    [/admin tier required|admin role required/i, () => 'Réservé aux administrateurs.'],
+    [/committee only/i, () => 'Réservé au comité.'],
+    [/Access denied|not one of your sites|another site/i, () => 'Accès refusé : cet élément appartient à un autre site.'],
+    [/title/i, () => 'Le titre est obligatoire.'],
+  ];
+  function fr(message) { const m0 = String(message == null ? '' : message); for (const [re, f] of RULES) { const m = m0.match(re); if (m) return f(m); } return m0; }
+  root.ErrorText = { fr, RULES };
+})(typeof window !== 'undefined' ? window : globalThis);

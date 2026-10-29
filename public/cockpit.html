@@ -15,6 +15,7 @@
 <script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18nText.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/cockpit-fr.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/errorText.js"></script>
 <style nonce="%%CSP_NONCE%%">
   body { margin:0; background:var(--color-background,#f4f6f7); color:#1F2A33; font-family:var(--font-sans,"Libre Franklin",system-ui,sans-serif); font-size:14px; }
   .wrap { max-width:1360px; margin:0 auto; padding:24px; }
@@ -78,7 +79,8 @@
   var H = function (x) { return Object.assign({}, x || {}); };
   function api(p, o) { return fetch(p, Object.assign({ headers: H(o && o.body ? { "content-type": "application/json" } : {}) }, o || {})).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || ("HTTP " + r.status)); return j; }); }); }
   var msg = function (h, cls, el) { $(el || "msg").innerHTML = h ? "<div class=\"" + (cls || "ok") + "\">" + esc(h) + "</div>" : ""; };
-  var fail = function (e) { msg(e.message, "errors"); }, fail2 = function (e) { msg(e.message, "errors", "msg2"); };
+  var errT = function (e) { return window.I18nText && window.I18nText.lang() === "fr" && window.ErrorText ? window.ErrorText.fr(e.message) : e.message; };
+  var fail = function (e) { msg(errT(e), "errors"); }, fail2 = function (e) { msg(errT(e), "errors", "msg2"); };
   var cads = [], committee = false, cur = null, timer = null, sites = [];
   var pct = function (v, u) { return v == null ? "—" : (u === "%" ? (Math.round(v * 10) / 10) + " %" : String(Math.round(v * 100) / 100)); };
 

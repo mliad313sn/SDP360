@@ -49,13 +49,29 @@ module.exports = function policyRoutes(deps) {
       const b = req.body || {}; const u = req.reportUser;
       const out = await store().set({ scope: String(b.scope || 'global'), key: String(b.key || ''), value: b.value === undefined ? null : b.value, reason: b.reason,
         expiresDays: b.expires_days, actor: { id: u.id, isAdmin: isAdmin(u), isSuper: isSuper(u) } });
-      const action = out.pending ? 'policy_relaxation_proposed' : out.relaxes ? 'policy_relaxed' : 'policy_changed';
+      const action = out.pending ? (out.relaxes ? 'policy_relaxation_proposed' : 'policy_change_proposed') : out.relaxes ? 'policy_relaxed' : 'policy_changed';
       try { await rdb().logEvent({ category: 'governance', action, target: `${out.scope}:${out.key}`, details: { before: out.before, after: out.after, reason: String(b.reason || '').slice(0, 300), proposal: out.pending ? out.pending.id : undefined, expires_at: out.expires_at }, risk: out.relaxes ? 1 : 0, ...rdb()._logCtx(req) }); } catch (_) {}
       res.status(out.pending ? 202 : 200).json({ ok: true, change: out, pending: out.pending || null });
     } catch (e) { fail(res, e); }
   });
   const names = async () => { const m = {}; for (const x of (await rdb().listUsers()) || []) m[Number(x.id)] = x.full_name || x.username; return m; };
   const named = (m, id) => (id == null ? null : (m[Number(id)] || `#${id}`));
+  // Site profiles: one action applies a named bundle of rules to a site, rule by rule through the store
+  // (relaxations become two-person proposals, every change is reasoned and in the history).
+  const Profiles = require('../services/governanceProfiles');
+  router.get('/api/governance/profiles', requireReportSession, requireCommittee, (req, res) => {
+    res.json({ ok: true, profiles: Object.entries(Profiles.PROFILES).map(([name, p]) => ({ name, en: p.en, fr: p.fr, values: p.values })) });
+  });
+  router.post('/api/governance/policies/profile', requireReportSession, requireAdminTier, json, async (req, res) => {
+    try {
+      const b = req.body || {}; const u = req.reportUser; const site = Number(b.site_id);
+      if (!Number.isInteger(site) || site <= 0) return res.status(400).json({ ok: false, error: 'site_id is required' });
+      if (String(b.reason || '').trim().length < 3) return res.status(400).json({ ok: false, error: 'a short reason is required for every policy change' });
+      const results = await Profiles.applyProfile(store(), { siteId: site, profile: String(b.profile || ''), reason: b.reason, actor: { id: u.id, isAdmin: isAdmin(u), isSuper: isSuper(u) } });
+      try { await rdb().logEvent({ category: 'governance', action: 'policy_profile_applied', target: `site:${site}`, details: { profile: b.profile, results }, risk: results.some((r) => r.relaxes) ? 1 : 0, ...rdb()._logCtx(req) }); } catch (_) {}
+      res.json({ ok: true, profile: b.profile, results });
+    } catch (e) { fail(res, e); }
+  });
   router.get('/api/governance/policies/history', requireReportSession, requireCommittee, async (req, res) => {
     try { const m = await names(); res.json({ ok: true, history: (await store().history({ key: req.query.key || null, limit: req.query.limit })).map((h) => ({ ...h, actor: named(m, h.actor_id), proposer: named(m, h.proposed_by), approver: named(m, h.approved_by) })) }); } catch (e) { fail(res, e); }
   });

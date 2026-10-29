@@ -246,6 +246,10 @@ module.exports = function governanceRoutes(deps) {
   });
   router.post('/api/governance/sessions/:id/reopen', requireReportSession, json, async (req, res) => {
     try { const x = await loadSession(req, res); if (!x) return; const reason = String((req.body && req.body.reason) || '').trim(); if (await lifecycle(req, res, x, 'reopen', { reason })) return;
+      // two-person reopening when the policy asks for it: the first admin records a request, another confirms
+      const step = SL.reopenStep(await store.minutesHistory(x.s.id), req.reportUser, await polFor(x.cad));
+      if (step === 'request') { await store.addMinutesHistory(x.s.id, 'reopen_requested', req.reportUser.id, reason); log(req, 'minutes_reopen_requested', x.s.id, { reason: reason.slice(0, 200) }); return res.status(202).json({ ok: true, pending: true, message: 'reopening requested — another admin must confirm it' }); }
+      if (step !== 'reopen') return res.status(step.status).json({ ok: false, error: step.error, code: step.code });
       // back to live: the minutes are re-recorded at the next close and need a new acceptance
       const s = await store.moveSession(x.s.id, 'closed', { status: 'live', minutes_accepted_at: null, minutes_accepted_by: null, reopen_reason: reason.slice(0, 1000) });
       if (!s) return res.status(409).json({ ok: false, error: 'the session changed meanwhile — reload', code: 'CONFLICT' });
@@ -268,7 +272,24 @@ module.exports = function governanceRoutes(deps) {
   });
 
   // ---- decisions / RFI --------------------------------------------------------------------
-  router.get('/api/governance/decisions', requireReportSession, async (req, res) => { try { res.json({ ok: true, decisions: await store.listDecisions({ status: req.query.status ? String(req.query.status).split(',') : null, siteIds: await scopeIds(req.reportUser) }) }); } catch (e) { fail(res, e); } });
+  router.get('/api/governance/decisions', requireReportSession, async (req, res) => {
+    try {
+      let rows = await store.listDecisions({ status: req.query.status ? String(req.query.status).split(',') : null, siteIds: await scopeIds(req.reportUser) });
+      // meetings.group_decisions_public = false: decisions of group sessions follow the session's own visibility
+      if (!isCommittee(req.reportUser) && (await GP.forContext({}))['meetings.group_decisions_public'] === false) {
+        const cads = new Map((await store.listCadences({ includeInactive: true })).map((c) => [c.id, c])); const sessCad = new Map();
+        const keep = [];
+        for (const d of rows) {
+          if (d.site_id != null) { keep.push(d); continue; }
+          if (d.session_id == null) continue;
+          if (!sessCad.has(d.session_id)) { const s = await store.getSession(d.session_id); sessCad.set(d.session_id, s ? cads.get(s.cadence_id) : null); }
+          const c = sessCad.get(d.session_id); if (c && seesCadence(req.reportUser, c)) keep.push(d);
+        }
+        rows = keep;
+      }
+      res.json({ ok: true, decisions: rows });
+    } catch (e) { fail(res, e); }
+  });
   router.put('/api/governance/decisions/:id', requireReportSession, requireCommittee, json, async (req, res) => { try { const d = await store.updateDecision(req.params.id, req.body || {}); log(req, 'decision_updated', d && d.ref); res.json({ ok: true, decision: d }); } catch (e) { fail(res, e); } });
   router.get('/api/governance/rfi', requireReportSession, async (req, res) => { try { res.json({ ok: true, committee: isCommittee(req.reportUser), rfi: await store.listRfi({ status: req.query.status ? String(req.query.status).split(',') : null, scope: rfiScope(req.reportUser) }), kinds: store.RFI_KINDS, statuses: store.RFI_STATUSES }); } catch (e) { fail(res, e); } });
   router.post('/api/governance/rfi', requireReportSession, json, async (req, res) => { try { const r = await store.submitRfi({ ...req.body, site_id: req.body && req.body.site_id != null ? req.body.site_id : (userSites.siteIds(req.reportUser)[0] || null) }, { user: req.reportUser }); log(req, 'rfi_submitted', r.ref, { kind: r.kind }); res.json({ ok: true, rfi: r }); } catch (e) { fail(res, e); } });

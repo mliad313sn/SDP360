@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 2881,
+ "total": 2887,
  "files": {
   "a11y-static.test.js": 13,
   "access-revocation.smoke.test.js": 5,
@@ -111,6 +111,7 @@
   "dept-meetings-tracker.test.js": 5,
   "engagement-routes.smoke.test.js": 4,
   "engagement-store.test.js": 5,
+  "error-text-fr.test.js": 1,
   "exec-active-mi-filter.test.js": 2,
   "exec-editorial.test.js": 3,
   "exec-mi-summary.test.js": 8,
@@ -131,8 +132,8 @@
   "fmp-client.test.js": 5,
   "fn-source.test.js": 4,
   "frontend-bundle-fresh.test.js": 1,
-  "governance-policy-coverage.test.js": 27,
-  "governance-policy-routes.smoke.test.js": 7,
+  "governance-policy-coverage.test.js": 29,
+  "governance-policy-routes.smoke.test.js": 10,
   "governance-policy.test.js": 6,
   "governance-pure.test.js": 4,
   "governance-routes.smoke.test.js": 7,

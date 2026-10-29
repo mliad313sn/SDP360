@@ -120,6 +120,19 @@ function compliance(sessions, now = new Date(), pol = null) {
 }
 
 /**
+ * Reopening accepted minutes under meetings.reopen_two_people (committee audit P2-11).
+ * history = minutes_history rows, oldest first. → 'reopen' | 'request' | { status, code, error }
+ */
+function reopenStep(history, actor, policy = null) {
+  if (_pol(policy)['meetings.reopen_two_people'] !== true) return 'reopen';
+  const rows = history || []; let lastAcc = -1; rows.forEach((h, i) => { if (h.action === 'accepted') lastAcc = i; });
+  const req = rows.slice(lastAcc + 1).reverse().find((h) => h.action === 'reopen_requested');
+  if (!req) return 'request';
+  if (Number(req.actor_id) === Number(actor && actor.id)) return { status: 409, code: 'SOD', error: 'the reopening is waiting for a SECOND admin — the requester cannot confirm it' };
+  return 'reopen';
+}
+
+/**
  * Compliance over several contexts (committee architect P1-4 / QA P1-7): each group of sessions is
  * judged with ITS OWN policy (a site's grace and cancellation rules), then the counts are summed —
  * the overview and the per-site view can no longer disagree on "missed".
@@ -132,4 +145,4 @@ function complianceByContext(groups, now = new Date()) {
   return tot;
 }
 
-module.exports = { GRACE_HOURS, STAGES, stage, check, inEffectiveWindow, compliance, complianceByContext };
+module.exports = { GRACE_HOURS, STAGES, stage, check, inEffectiveWindow, compliance, complianceByContext, reopenStep };

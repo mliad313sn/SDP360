@@ -44,6 +44,7 @@ const PROBES = {
   'handoffs.reason_min': [20, (v) => outcome(HL.check({ status: 'requested', requested_by: 1, receiver_id: 2 }, 'rejected', { id: 2, hasSite: true }, { reason: 'not ours', policy: pol('handoffs.reason_min', v) }))],
   'handoffs.overdue_escalation': [false, (v) => HL.overdue([{ id: 1, status: 'requested', due_date: '2026-10-20' }], '2026-10-28', pol('handoffs.overdue_escalation', v)).length],
   'handoffs.escalation_grace_days': [14, (v) => HL.overdue([{ id: 1, status: 'requested', due_date: '2026-10-20' }], '2026-10-28', pol('handoffs.escalation_grace_days', v)).length],
+  'meetings.reopen_two_people': [true, (v) => JSON.stringify(SL.reopenStep([{ action: 'accepted', actor_id: 2 }], { id: 1 }, pol('meetings.reopen_two_people', v)))],
   'commitments.serious_due_move_needs_admin': [false, (v) => outcome(CL.dueMoveCheck({ severity: 'high', baseline_due_date: '2026-10-01' }, '2026-12-01', { isAdmin: false, policy: pol('commitments.serious_due_move_needs_admin', v) }))],
   'commitments.exception_max_days': [10, (v) => CL.exceptionExpiry('2026-10-28T00:00:00Z', pol('commitments.exception_max_days', v))],
 };
@@ -53,6 +54,8 @@ const STORE_PROVEN = {
   'governance.dual_approval_relaxations': 'tests/governance-policy.test.js',
   'governance.relaxation_max_days': 'tests/governance-policy.test.js',
   'commitments.escalation_enabled': 'tests/commitment-escalation.test.js',
+  'meetings.group_decisions_public': 'tests/governance-policy-routes.smoke.test.js',
+  'governance.dual_approval_tightening': 'tests/governance-policy-routes.smoke.test.js',
 };
 
 test('every policy parameter is covered by a behaviour probe or a named store test', () => {
@@ -90,6 +93,15 @@ test('boundaries: a reason of exactly the minimum passes, one character less fai
   assert.equal(CL.dueMoveCheck(c, '2026-11-16').status, 403);
   assert.equal(CL.dueMoveCheck(c, '2026-11-16', { isAdmin: true }), null);
   assert.equal(CL.dueMoveCheck({ ...c, severity: 'medium' }, '2027-01-01'), null);
+});
+
+test('two-person reopening: request, the requester cannot confirm, another admin can; a new acceptance resets', () => {
+  const P = { 'meetings.reopen_two_people': true };
+  assert.equal(SL.reopenStep([{ action: 'accepted', actor_id: 5 }], { id: 1 }, P), 'request');
+  const h = [{ action: 'accepted', actor_id: 5 }, { action: 'reopen_requested', actor_id: 1 }];
+  assert.equal(SL.reopenStep(h, { id: 1 }, P).code, 'SOD');
+  assert.equal(SL.reopenStep(h, { id: 2 }, P), 'reopen');
+  assert.equal(SL.reopenStep([...h, { action: 'reopened', actor_id: 2 }, { action: 'accepted', actor_id: 5 }], { id: 2 }, P), 'request', 'an old request does not carry over');
 });
 
 test('an approved exception lapses: the A02 overdue alert comes back after commitments.exception_max_days', () => {

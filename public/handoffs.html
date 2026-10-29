@@ -69,6 +69,7 @@
   </div>
 </main>
 <script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/errorText.js"></script>
 <script nonce="%%CSP_NONCE%%">
 (function () {
   'use strict';
@@ -88,14 +89,10 @@
     fr: { accepted: 'Accepter', rejected: 'Refuser', blocked: 'Signaler un blocage', escalated: 'Remonter à la hiérarchie', delivered: 'Marquer comme livré', verified: 'Valider la livraison', cancelled: 'Annuler la demande', requested: 'Renvoyer au destinataire', rework: 'Demander une reprise', resume: 'Reprendre' } };
   const EVENT = { fr: { handoff_created: 'demande créée', handoff_transition: 'changement de statut', handoff_reassigned: 'destinataire changé', escalated_overdue: 'remontée automatique (retard)' },
     en: { handoff_created: 'request created', handoff_transition: 'status changed', handoff_reassigned: 'receiver changed', escalated_overdue: 'escalated automatically (overdue)' } };
-  const FR_ERR = [[/a reason \((\d+)\+ characters\) is required/i, (m) => `Un motif de ${m[1]} caractères minimum est requis.`], [/only the named receiver/i, () => 'Seule la personne destinataire peut faire cela — personne n\'accepte à sa place.'],
-    [/only the requester verifies/i, () => 'Seul le demandeur valide la livraison.'], [/delivered the work cannot verify/i, () => 'La personne qui a livré ne peut pas valider sa propre livraison.'],
-    [/no active person/i, () => 'Aucune personne active avec cet identifiant ne travaille sur ce site — choisissez dans la liste.'], [/version|changed since|stale/i, () => 'La demande a changé entre-temps — rechargez la page.'],
-    [/cannot become|cannot be reassigned/i, () => 'Cette action n\'est plus possible à cette étape.'], [/site you no longer have/i, () => 'Cette demande concerne un site qui n\'est plus le vôtre.'], [/unknown department/i, () => 'Département inconnu.'], [/title/i, () => 'Le titre est obligatoire.']];
   let lang = 'en'; try { lang = localStorage.getItem('handoffs_lang') || 'en'; } catch (_) {}
   const L = () => (lang === 'fr' ? 'fr' : 'en');
   const lbl = (s) => STATUS[L()][s] || s;
-  const errText = (e) => { if (L() !== 'fr') return e.message; for (const [re, f] of FR_ERR) { const m = String(e.message).match(re); if (m) return f(m); } return e.message; };
+  const errText = (e) => (L() === 'fr' && window.ErrorText ? window.ErrorText.fr(e.message) : e.message);
   function setLang(l) {
     lang = l; document.body.classList.toggle('lang-fr', l === 'fr'); document.documentElement.lang = l; $('hoEn').setAttribute('aria-pressed', String(l === 'en')); $('hoFr').setAttribute('aria-pressed', String(l === 'fr'));
     try { localStorage.setItem('handoffs_lang', l); } catch (_) {}

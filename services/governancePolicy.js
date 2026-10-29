@@ -30,6 +30,9 @@ const PARAMS = [
   P('governance.dual_approval_relaxations', 'bool', true, { area: 'governance', siteScoped: false, protected: true, stricter: 'true',
     en: 'Relaxing a protected rule is a two-person act: one super_admin proposes, another approves (proposals expire after 7 days).',
     fr: 'Assouplir une règle protégée se fait à deux : un super_admin propose, un autre approuve (les propositions expirent après 7 jours).' }),
+  P('governance.dual_approval_tightening', 'bool', false, { area: 'governance', siteScoped: false, protected: true, stricter: 'true',
+    en: 'Tightening a protected rule also takes two people (a very short freshness limit or a very long reason minimum can stop work across the platform). Off = the admin tier tightens alone, the behaviour until now.',
+    fr: 'Durcir une règle protégée demande aussi deux personnes (une limite de fraîcheur très courte ou un motif très long peut bloquer le travail partout). Désactivé = un admin durcit seul, le fonctionnement actuel.' }),
   P('governance.relaxation_max_days', 'int', 90, { area: 'governance', siteScoped: false, protected: true, stricter: 'lower', min: 1, max: 365,
     en: 'A relaxed protected rule reverts to the stricter value automatically after this many days (a new relaxation is needed to keep it).',
     fr: 'Une règle protégée assouplie revient d\'elle-même à la valeur plus stricte après ce nombre de jours (il faut un nouvel assouplissement pour la garder).' }),
@@ -74,6 +77,12 @@ const PARAMS = [
     en: 'Minimum length of a cancellation reason.', fr: 'Longueur minimale du motif d\'annulation.' }),
   P('meetings.reopen_reason_min', 'int', 10, { area: 'meetings', protected: true, min: 5, max: 500, stricter: 'higher',
     en: 'Minimum length of the reason to reopen accepted minutes.', fr: 'Longueur minimale du motif de réouverture d\'un compte rendu accepté.' }),
+  P('meetings.reopen_two_people', 'bool', false, { area: 'meetings', protected: true, stricter: 'true',
+    en: 'Reopening accepted minutes takes two admins: one requests it with a reason, ANOTHER confirms it (off = one admin with a reason, the behaviour until now).',
+    fr: 'Rouvrir un compte rendu accepté demande deux admins : l\'un le demande avec un motif, un AUTRE le confirme (désactivé = un seul admin avec motif, le fonctionnement actuel).' }),
+  P('meetings.group_decisions_public', 'bool', true, { area: 'meetings', siteScoped: false, protected: true, stricter: 'false',
+    en: 'Decisions of group-level (committee) sessions are listed for every account; off = only the committee, the chair / secretary and the participants see them, like the sessions themselves.',
+    fr: 'Les décisions des séances de groupe (comité) sont visibles de tous ; désactivé = seuls le comité, le président / secrétaire et les participants les voient, comme les séances.' }),
   // ── handoffs (G-22) ──────────────────────────────────────────────────────────────────────────────
   P('handoffs.reason_min', 'int', 5, { area: 'handoffs', protected: true, min: 3, max: 500, stricter: 'higher',
     en: 'Minimum length of a reason (reject, block, escalate, cancel, rework, reassign).',
@@ -202,7 +211,7 @@ function makePolicyStore(db, { now = () => new Date().toISOString(), ttlMs = 300
     const next = value === null ? null : coerce(p, value);
     const after = next !== null ? next : (() => { const copy = JSON.parse(JSON.stringify(r)); if (copy[scope]) delete copy[scope][key]; return resolveFrom(copy, key, siteId).value; })();
     return { p, r, before, next, after, rel: p.protected && relaxes(p, before, after), old: (r[scope] || {})[key], dual: resolveFrom(r, 'governance.dual_approval_relaxations', null).value !== false,
-      maxDays: Number(resolveFrom(r, 'governance.relaxation_max_days', null).value) || 90 };
+      maxDays: Number(resolveFrom(r, 'governance.relaxation_max_days', null).value) || 90, dualTight: resolveFrom(r, 'governance.dual_approval_tightening', null).value === true };
   }
   async function write({ scope, key, next, old, why, actorId, rel, proposedBy = null, approvedBy = null, expiresAt = null }) {
     if (next === null) await Q('DELETE FROM governance_policies WHERE scope=? AND key=?').run(scope, key);
@@ -228,14 +237,15 @@ function makePolicyStore(db, { now = () => new Date().toISOString(), ttlMs = 300
       if (pl.rel && !actor.isSuper) throw typed('FORBIDDEN', `relaxing ${key} needs a super_admin`, 403);
       if (pl.rel && why.length < 10) throw typed('VALIDATION', `relaxing ${key} needs a reason (10+ characters)`, 400);
       if (!pl.rel && why.length < 3) throw typed('VALIDATION', 'a short reason is required for every policy change', 400);
-      if (pl.rel && pl.dual) {
+      const tightenTwo = !pl.rel && pl.p.protected && pl.dualTight && JSON.stringify(pl.before) !== JSON.stringify(pl.after);
+      if ((pl.rel && pl.dual) || tightenTwo) {
         const dup = await Q("SELECT id FROM governance_policy_proposals WHERE scope=? AND key=? AND status='pending' AND expires_at > ?").get(scope, key, now());
         if (dup) throw typed('CONFLICT', `a proposal for ${key} is already pending (#${dup.id})`, 409);
         const exp = new Date(Date.parse(now()) + proposalDays * 864e5).toISOString();
         const days = Math.min(pl.maxDays, Math.max(1, Number(expiresDays) || pl.maxDays));
         const r = await Q('INSERT INTO governance_policy_proposals (scope, key, value, reason, proposed_by, proposed_at, expires_at, expires_days) VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id')
           .run(scope, key, pl.next === null ? null : JSON.stringify(pl.next), why.slice(0, 1000), Number(actor.id), now(), exp, days);
-        return { key, scope, before: pl.before, after: pl.after, relaxes: true, pending: { id: Number(r.lastID), expires_at: exp } };
+        return { key, scope, before: pl.before, after: pl.after, relaxes: pl.rel, pending: { id: Number(r.lastID), expires_at: exp } };
       }
       const until = pl.rel && pl.next !== null ? expiry(Math.min(pl.maxDays, Math.max(1, Number(expiresDays) || pl.maxDays))) : null;
       await write({ scope, key, next: pl.next, old: pl.old, why, actorId: actor.id, rel: pl.rel, expiresAt: until });
