@@ -2,7 +2,7 @@
 setlocal EnableExtensions EnableDelayedExpansion
 set "ERRORLEVEL="
 rem ===========================================================================
-rem  reinstall-sdp.bat — replace SDP Dashboard on this Windows machine with the
+rem  reinstall-sdp.bat - replace SDP Dashboard on this Windows machine with the
 rem  claude/sdp360-consolidation build (2.0.0-alpha.14).
 rem
 rem    1  checks (admin, Setup.exe, PostgreSQL)
