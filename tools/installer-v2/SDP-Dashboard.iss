@@ -483,6 +483,13 @@ begin
   end;
 end;
 
+{ Setup's exit code: a failed post-install is NEVER reported as success, even when the error dialog was
+  suppressed (/SUPPRESSMSGBOXES) and Inno would otherwise carry on. }
+function GetCustomSetupExitCode: Integer;
+begin
+  if PostInstallFailed then Result := 7 else Result := 0;
+end;
+
 procedure DeinitializeSetup;
 var Rc: Integer;
 begin

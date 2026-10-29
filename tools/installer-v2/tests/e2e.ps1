@@ -43,6 +43,16 @@ function Mgr([string[]]$a) {
   $global:LASTMGR = $LASTEXITCODE
   return ($out | Out-String)
 }
+function Show-Logs([string]$why) {
+  Write-Host "`n--- logs ($why) ---" -ForegroundColor Yellow
+  foreach ($pat in 'setup-2*.log', 'service-*.log', 'sdp-manager.log') {
+    Get-ChildItem (Join-Path $Dir 'logs') -Filter $pat -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 1 | ForEach-Object {
+      Write-Host "--- $($_.Name) (last 80 lines)" -ForegroundColor Yellow
+      Get-Content $_.FullName -Tail 80 | Out-Host
+    }
+  }
+  Copy-Item (Join-Path $Dir 'logs\*') $LogDir -ErrorAction SilentlyContinue
+}
 function Json($text) { $line = ($text -split "`n" | Where-Object { $_.Trim().StartsWith('{') } | Select-Object -Last 1); if ($line) { return $line | ConvertFrom-Json } else { return $null } }
 
 Section 'PostgreSQL on this machine'
@@ -57,6 +67,7 @@ $env:SDP_SETUP_PGSUPERPASS = $PgPassword
 $rc = Run-Setup @('/MODE=new', '/ALLOWUNSIGNED=1', "/PORT=$Port", "/BACKUPDIR=`"$BackupDir`"", '/PGHOST=localhost', '/PGPORT=5432', '/DBNAME=sdp_e2e', '/DBUSER=sdp_e2e_app') 'setup-new'
 $env:SDP_SETUP_PGSUPERPASS = ''
 Check ($rc -eq 0) "Setup exit code 0 (got $rc)"
+if ($rc -ne 0) { Show-Logs 'setup failed' }
 Check (Test-Path (Join-Path $Dir 'server.js')) 'application files installed'
 Check (Test-Path (Join-Path $Dir 'runtime\node\node.exe')) 'bundled Node.js runtime'
 Check (Test-Path (Join-Path $Dir 'node_modules\express')) 'offline dependencies in place'
@@ -68,7 +79,9 @@ Check ($envText -match 'SDP_SERVICE=windows') '.env records the Windows service'
 $svc = Get-Service SDPDashboard -ErrorAction SilentlyContinue
 Check ($svc -and $svc.Status -eq 'Running') 'Windows service SDPDashboard running'
 Check ((Get-CimInstance Win32_Service -Filter "Name='SDPDashboard'").StartMode -eq 'Auto') 'service starts automatically'
-Check (Wait-Ready) "/ready answers on 127.0.0.1:$Port"
+$ready = Wait-Ready
+Check $ready "/ready answers on 127.0.0.1:$Port"
+if (-not $ready) { Show-Logs 'service not answering'; Write-Host "`n$($script:fails) check(s) failed" -ForegroundColor Red; exit 1 }
 $listen = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
 Check ($listen -and -not ($listen | Where-Object { $_.LocalAddress -ne '127.0.0.1' })) 'the application listens on 127.0.0.1 only'
 Check ([bool](Get-NetFirewallRule -DisplayName "SDP Dashboard $Port - block remote" -ErrorAction SilentlyContinue)) 'firewall rule blocks the port from the network'
@@ -84,6 +97,7 @@ $o = Mgr @('backup', '--json'); $j = Json $o
 Check ($j -and $j.ok) "backup taken ($($j.file))"
 $list = Json (Mgr @('backups', '--json'))
 Check ($list -and $list.backups.Count -ge 1) 'backups listed'
+if (-not ($list -and $list.backups.Count -ge 1)) { Show-Logs 'no backup'; exit 1 }
 $b = $list.backups[0]
 $o = Mgr @('restore', (Join-Path $list.dir $b.name), '--confirm', 'RESTORE 19990101')
 Check ($LASTMGR -ne 0 -and $o -match 'type exactly') 'restore refused without the exact phrase'
@@ -120,5 +134,6 @@ Check (Test-Path (Join-Path $Dir '.env')) 'settings kept'
 Check (-not (Get-NetFirewallRule -DisplayName "SDP Dashboard $Port - block remote" -ErrorAction SilentlyContinue)) 'firewall rules removed'
 
 Copy-Item (Join-Path $Dir 'logs\*') $LogDir -ErrorAction SilentlyContinue
+if ($script:fails) { Show-Logs 'end' }
 if ($script:fails) { Write-Host "`n$($script:fails) check(s) failed" -ForegroundColor Red; exit 1 }
 Write-Host "`nAll end-to-end checks passed" -ForegroundColor Green
