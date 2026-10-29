@@ -16,7 +16,9 @@ param(
   [string]$Dir = 'C:\SDP-E2E',
   [string]$BackupDir = 'C:\SDP-E2E-Backups',
   [int]$Port = 3466,
-  [string]$LogDir = 'e2e-logs'
+  [string]$LogDir = 'e2e-logs',
+  # Blank machine: the runner's own PostgreSQL is uninstalled first, then Setup installs the one it carries.
+  [switch]$Virgin
 )
 $ErrorActionPreference = 'Stop'
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
@@ -55,18 +57,38 @@ function Show-Logs([string]$why) {
 }
 function Json($text) { $line = ($text -split "`n" | Where-Object { $_.Trim().StartsWith('{') } | Select-Object -Last 1); if ($line) { return $line | ConvertFrom-Json } else { return $null } }
 
-Section 'PostgreSQL on this machine'
-$pgsvc = Get-Service postgresql* | Sort-Object Name -Descending | Select-Object -First 1
-if (-not $pgsvc) { throw 'no PostgreSQL service on this runner' }
-Set-Service $pgsvc.Name -StartupType Manual
-Start-Service $pgsvc.Name
-Check ((Get-Service $pgsvc.Name).Status -eq 'Running') "PostgreSQL service $($pgsvc.Name) running"
+if ($Virgin) {
+  Section 'Blank machine: remove the PostgreSQL the runner ships with'
+  foreach ($svc in Get-Service postgresql* -ErrorAction SilentlyContinue) { Stop-Service $svc.Name -Force -ErrorAction SilentlyContinue }
+  Get-ChildItem 'C:\Program Files\PostgreSQL\*\uninstall-postgresql.exe' -ErrorAction SilentlyContinue | ForEach-Object {
+    Start-Process $_.FullName -ArgumentList '--mode', 'unattended' -Wait | Out-Null
+  }
+  foreach ($svc in Get-Service postgresql* -ErrorAction SilentlyContinue) { & sc.exe delete $svc.Name | Out-Null }
+  Remove-Item 'C:\Program Files\PostgreSQL' -Recurse -Force -ErrorAction SilentlyContinue
+  Remove-Item 'HKLM:\SOFTWARE\PostgreSQL' -Recurse -Force -ErrorAction SilentlyContinue
+  Remove-Item 'HKLM:\SYSTEM\CurrentControlSet\Services\postgresql-x64-17' -Recurse -Force -ErrorAction SilentlyContinue
+  Check (-not (Get-Service postgresql* -ErrorAction SilentlyContinue)) 'no PostgreSQL left on this machine'
+  $pgArgs = @('/PGPORT=5432', '/DBNAME=sdp_e2e', '/DBUSER=sdp_e2e_app')
+} else {
+  Section 'PostgreSQL on this machine'
+  $pgsvc = Get-Service postgresql* | Sort-Object Name -Descending | Select-Object -First 1
+  if (-not $pgsvc) { throw 'no PostgreSQL service on this runner' }
+  Set-Service $pgsvc.Name -StartupType Manual
+  Start-Service $pgsvc.Name
+  Check ((Get-Service $pgsvc.Name).Status -eq 'Running') "PostgreSQL service $($pgsvc.Name) running"
+  $pgArgs = @('/PGHOST=localhost', '/PGPORT=5432', '/DBNAME=sdp_e2e', '/DBUSER=sdp_e2e_app')
+}
 
 Section 'NEW install (silent)'
 $env:SDP_SETUP_PGSUPERPASS = $PgPassword
-$rc = Run-Setup @('/MODE=new', '/ALLOWUNSIGNED=1', "/PORT=$Port", "/BACKUPDIR=`"$BackupDir`"", '/PGHOST=localhost', '/PGPORT=5432', '/DBNAME=sdp_e2e', '/DBUSER=sdp_e2e_app') 'setup-new'
+$rc = Run-Setup (@('/MODE=new', '/ALLOWUNSIGNED=1', "/PORT=$Port", "/BACKUPDIR=`"$BackupDir`"") + $pgArgs) 'setup-new'
 $env:SDP_SETUP_PGSUPERPASS = ''
 Check ($rc -eq 0) "Setup exit code 0 (got $rc)"
+if ($Virgin) {
+  $pg = Get-Service postgresql-x64-17 -ErrorAction SilentlyContinue
+  Check ($pg -and $pg.Status -eq 'Running') 'PostgreSQL 17 installed by Setup and running'
+  Check (Test-Path 'C:\Program Files\PostgreSQL\17\bin\pg_dump.exe') 'PostgreSQL client tools in place (backups)'
+}
 if ($rc -ne 0) { Show-Logs 'setup failed' }
 Check (Test-Path (Join-Path $Dir 'server.js')) 'application files installed'
 Check (Test-Path (Join-Path $Dir 'runtime\node\node.exe')) 'bundled Node.js runtime'
@@ -110,6 +132,16 @@ $rc = Run-Setup @('/MODE=repair', '/ALLOWUNSIGNED=1', "/PORT=$Port") 'setup-repa
 Check ($rc -eq 0) "repair exit code 0 (got $rc)"
 Check (Wait-Ready) 'service answers after repair'
 Check ((Get-Content (Join-Path $Dir '.env') -Raw) -eq $envText) '.env untouched by repair'
+
+Section 'UPDATE (silent): backup first, then the same version re-applied'
+$before = (Json (Mgr @('backups', '--json'))).backups.Count
+$rc = Run-Setup @('/MODE=update', '/ALLOWUNSIGNED=1', "/PORT=$Port") 'setup-update'
+Check ($rc -eq 0) "update exit code 0 (got $rc)"
+Check (Wait-Ready) 'service answers after the update'
+$after = (Json (Mgr @('backups', '--json'))).backups.Count
+Check ($after -gt $before) "a backup was taken before the update ($before -> $after)"
+Check ((Get-Content (Join-Path $Dir '.env') -Raw) -eq $envText) '.env kept by the update'
+Check (Test-Path (Join-Path $Dir 'runtime\node\node.exe')) 'Node.js runtime refreshed in place'
 
 Section 'Failed health check is rolled back'
 # make the application unable to start, then repair: Setup must fail, put the files back and keep the service

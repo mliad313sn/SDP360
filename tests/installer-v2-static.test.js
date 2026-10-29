@@ -72,3 +72,19 @@ test('a fresh installation starts without Zoho credentials (they are set later i
   const env = fs.readFileSync(path.join(ROOT, 'tools/installer-v2/post-install.js'), 'utf8');
   for (const k of m[1].match(/[A-Z_]+/g)) assert.ok(new RegExp(`\\b${k}:`).test(env), `post-install writes ${k}`);
 });
+
+test('blank server: Setup carries PostgreSQL 17 and the IIS prerequisites, all signature-checked at build', () => {
+  const build = fs.readFileSync(path.join(ROOT, 'tools/installer-v2/build.ps1'), 'utf8');
+  assert.match(build, /postgresql-\$PgVersion-windows-x64\.exe/);
+  assert.match(build, /rewrite_amd64/); assert.match(build, /requestRouter_amd64/);
+  assert.match(build, /Get-AuthenticodeSignature/);
+  assert.match(section('Files'), /\{#PgExe\}/); assert.match(section('Files'), /prereq/);
+  const iis = fs.readFileSync(path.join(ROOT, 'tools/installer-v2/iis-setup.ps1'), 'utf8');
+  assert.match(iis, /Install-WindowsFeature Web-Server/); assert.match(iis, /Get-AuthenticodeSignature/);
+});
+
+test('update: PostgreSQL is upgraded to the minor version Setup carries only after a backup, never on a new install', () => {
+  const fn = code.slice(code.indexOf('procedure InstallEmbeddedPg;'), code.indexOf('procedure RunPostInstall;'));
+  assert.match(fn, /if IsNew or/);
+  assert.ok(fn.indexOf("backup --dir") > 0 && fn.indexOf("backup --dir") < fn.indexOf("'--mode unattended --unattendedmodeui none'"), 'backup comes before the upgrade');
+});

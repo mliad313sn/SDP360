@@ -168,7 +168,7 @@ function iisFrontEnd(port) {
   if (process.platform !== 'win32') return;
   const ps = path.join(ROOT, 'tools', 'installer-v2', 'iis-setup.ps1');
   if (!fs.existsSync(ps)) { log('IIS: iis-setup.ps1 missing — skipped'); return; }
-  const r = spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ps, '-HostName', host, '-Port', String(port), '-AppDir', DIR, '-Thumbprint', arg('--cert-thumbprint', '')], { encoding: 'utf8' });
+  const r = spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ps, '-HostName', host, '-Port', String(port), '-AppDir', DIR, '-Thumbprint', arg('--cert-thumbprint', ''), '-MsiDir', arg('--prereq-dir', '')], { encoding: 'utf8' });
   fs.appendFileSync(LOG, (r.stdout || '') + (r.stderr || ''));
   log(r.status === 0 ? `IIS: https://${host}/ → http://127.0.0.1:${port}/` : `IIS front end NOT configured (exit ${r.status}) — the dashboard works on the server; see docs/INTERNAL_TLS_SETUP.md. ${String(r.stdout || r.stderr || '').trim().split(/\r?\n/).slice(-2).join(' ')}`);
 }
@@ -217,7 +217,8 @@ async function main() {
     if (pkgZip) {
       const update = MODE === 'update' && fs.existsSync(envFile);
       sh(process.execPath, [mgr, 'update', pkgZip, '--dir', DIR, ...(update ? [] : ['--no-backup']), '--no-npm', '--no-migrate', '--no-restart',
-        ...(MODE === 'repair' ? ['--reinstall'] : []), ...(has('--allow-unsigned') ? ['--allow-unsigned'] : [])], { env: { NODE_PATH: nodePath }, shell: false });
+        // an update to the version already installed re-applies it (backup first) — a downgrade stays refused
+        ...(MODE === 'repair' || MODE === 'update' ? ['--reinstall'] : []), ...(has('--allow-unsigned') ? ['--allow-unsigned'] : [])], { env: { NODE_PATH: nodePath }, shell: false });
       applied = true;
     }
     if (!fs.existsSync(path.join(DIR, 'node_modules', 'express'))) sh('npm', ['ci', '--omit=dev', '--no-audit', '--no-fund']);

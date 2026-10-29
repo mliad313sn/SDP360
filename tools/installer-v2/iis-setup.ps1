@@ -1,7 +1,8 @@
 <#
   SDP Dashboard — IIS front end (called by post-install.js when the wizard gets a public host name).
   Best effort and idempotent: it never stops the installation. Exit codes:
-    0  configured     2  prerequisites missing (IIS / URL Rewrite / ARR) — nothing changed     1  error
+    0  configured     2  prerequisites missing and no installer given — nothing changed     1  error
+  With -MsiDir (Setup always passes it) a missing IIS role, URL Rewrite or ARR is installed first.
 
   What it does (same design as iis/web.config and docs/INTERNAL_TLS_SETUP.md):
     - ARR proxy on, 5-minute proxy timeout (long PPTX renders), X-Forwarded-* server variables allowed
@@ -14,16 +15,41 @@ param(
   [Parameter(Mandatory = $true)][string]$HostName,
   [Parameter(Mandatory = $true)][int]$Port,
   [Parameter(Mandatory = $true)][string]$AppDir,
-  [string]$Thumbprint = ''
+  [string]$Thumbprint = '',
+  # Folder holding rewrite_amd64.msi and requestRouter_amd64.msi (embedded in Setup by build.ps1). When
+  # given, missing prerequisites are INSTALLED: the IIS role (Windows feature), URL Rewrite, then ARR.
+  [string]$MsiDir = ''
 )
 $ErrorActionPreference = 'Stop'
 function Say($m) { Write-Output ("[iis] " + $m) }
+function Install-Msi($name, $what) {
+  $msi = if ($MsiDir) { Join-Path $MsiDir $name } else { '' }
+  if (-not $msi -or -not (Test-Path $msi)) { Say "$what is not installed and Setup carries no installer for it"; exit 2 }
+  $sig = Get-AuthenticodeSignature $msi
+  if ($sig.Status -ne 'Valid' -or $sig.SignerCertificate.Subject -notmatch 'Microsoft') { Say "$what installer signature is not a valid Microsoft signature — refused"; exit 1 }
+  Say "installing $what"
+  $p = Start-Process msiexec.exe -ArgumentList @('/i', "`"$msi`"", '/qn', '/norestart') -Wait -PassThru
+  if ($p.ExitCode -ne 0 -and $p.ExitCode -ne 3010) { Say "$what installation failed (msiexec exit $($p.ExitCode))"; exit 1 }
+}
 
-if (-not (Get-Service W3SVC -ErrorAction SilentlyContinue)) { Say 'IIS (W3SVC) is not installed'; exit 2 }
+if (-not (Get-Service W3SVC -ErrorAction SilentlyContinue)) {
+  if (-not $MsiDir) { Say 'IIS (W3SVC) is not installed'; exit 2 }
+  Say 'installing the IIS role (Web-Server)'
+  if (Get-Command Install-WindowsFeature -ErrorAction SilentlyContinue) {
+    $r = Install-WindowsFeature Web-Server, Web-Mgmt-Console, Web-Http-Redirect
+    if (-not $r.Success) { Say 'IIS role installation failed'; exit 1 }
+  } else {
+    Enable-WindowsOptionalFeature -Online -NoRestart -All -FeatureName IIS-WebServerRole, IIS-WebServer, IIS-ManagementConsole, IIS-HttpRedirect | Out-Null
+  }
+}
 try { Import-Module WebAdministration -ErrorAction Stop } catch { Say 'WebAdministration module unavailable'; exit 2 }
-if (-not (Test-Path 'HKLM:\SOFTWARE\Microsoft\IIS Extensions\URL Rewrite')) { Say 'URL Rewrite module is not installed'; exit 2 }
+if (-not (Test-Path 'HKLM:\SOFTWARE\Microsoft\IIS Extensions\URL Rewrite')) { Install-Msi 'rewrite_amd64.msi' 'URL Rewrite' }
 $proxy = Get-WebConfiguration -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter 'system.webServer/proxy' -ErrorAction SilentlyContinue
-if (-not $proxy) { Say 'Application Request Routing (ARR) is not installed'; exit 2 }
+if (-not $proxy) {
+  Install-Msi 'requestRouter_amd64.msi' 'Application Request Routing (ARR)'
+  $proxy = Get-WebConfiguration -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter 'system.webServer/proxy' -ErrorAction SilentlyContinue
+  if (-not $proxy) { Say 'ARR installed but its configuration section is not visible yet — run Setup (Repair) once more'; exit 2 }
+}
 
 try {
   Set-WebConfigurationProperty -PSPath 'MACHINE/WEBROOT/APPHOST' -Filter 'system.webServer/proxy' -Name 'enabled' -Value 'True'

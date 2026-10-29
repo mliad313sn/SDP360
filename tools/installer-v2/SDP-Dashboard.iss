@@ -35,6 +35,9 @@
 #ifndef PackageSigned
   #define PackageSigned "0"
 #endif
+#ifndef PgVersion
+  #define PgVersion ""
+#endif
 #ifndef FileVersion
   #define FileVersion "0.0.0.0"
 #endif
@@ -121,6 +124,7 @@ en.IisHost=Host name (e.g. itops-dashboard.edv-ops.com):
 en.IisThumb=Certificate thumbprint (LocalMachine\My):
 en.Configuring=Configuring SDP Dashboard (database, service, health check)...
 en.InstallingPg=Installing PostgreSQL 17...
+en.UpgradingPg=Backing up, then updating PostgreSQL 17...
 en.PostFailed=SDP Dashboard could not be configured: %1%n%nNothing was left half-done: the previous files are put back. Details:%n%2
 en.OpenDashboard=Open SDP Dashboard
 en.OpenManager=Open SDP Dashboard Manager
@@ -169,6 +173,7 @@ fr.IisHost=Nom d'hôte (ex. itops-dashboard.edv-ops.com) :
 fr.IisThumb=Empreinte du certificat (LocalMachine\My) :
 fr.Configuring=Configuration de SDP Dashboard (base, service, contrôle de santé)...
 fr.InstallingPg=Installation de PostgreSQL 17...
+fr.UpgradingPg=Sauvegarde, puis mise à jour de PostgreSQL 17...
 fr.PostFailed=SDP Dashboard n'a pas pu être configuré : %1%n%nRien n'est laissé à moitié fait : les fichiers précédents sont remis en place. Détails :%n%2
 fr.OpenDashboard=Ouvrir SDP Dashboard
 fr.OpenManager=Ouvrir le gestionnaire SDP Dashboard
@@ -191,8 +196,10 @@ Source: "{#PayloadDir}\bootstrap\*"; DestDir: "{tmp}\bootstrap"; Flags: ignoreve
 ; The signed update package is the ONLY source of application files — install and update never diverge.
 Source: "{#PackageZip}"; DestDir: "{tmp}"; DestName: "package.zip"; Flags: deleteafterinstall
 #ifdef PgExe
-Source: "{#PgExe}"; DestDir: "{tmp}"; DestName: "postgresql.exe"; Flags: deleteafterinstall
+Source: "{#PgExe}"; DestDir: "{tmp}"; DestName: "postgresql.exe"; Flags: deleteafterinstall nocompression
 #endif
+; IIS URL Rewrite + ARR (Microsoft, signature checked again by iis-setup.ps1) — installed only when a public address is given
+Source: "{#PayloadDir}\prereq\*"; DestDir: "{tmp}\prereq"; Flags: ignoreversion skipifsourcedoesntexist deleteafterinstall
 Source: "iis-setup.ps1"; DestDir: "{app}\tools\installer-v2"; Flags: ignoreversion
 ; LAST entry: once everything above is on disk, configure the machine. A failure raises → Setup rolls back.
 Source: "post-install.js"; DestDir: "{app}\tools\installer-v2"; Flags: ignoreversion; AfterInstall: RunPostInstall
@@ -431,17 +438,48 @@ begin
   end;
 end;
 
-procedure InstallEmbeddedPg;
-var Rc: Integer; Opt: String;
+{ PostgreSQL 17 on this server: installed on a blank machine (new installation), upgraded in place to the
+  minor version Setup carries on an update / repair (same major only — data kept; a backup is taken first). }
+function VerNum(V: String): Integer;
+var P, A, B, C: Integer;
 begin
+  A := 0; B := 0; C := 0;
+  P := Pos('.', V); if P > 0 then begin A := StrToIntDef(Copy(V, 1, P - 1), 0); V := Copy(V, P + 1, 50); end;
+  P := Pos('-', V); if P > 0 then begin B := StrToIntDef(Copy(V, 1, P - 1), 0); C := StrToIntDef(Copy(V, P + 1, 50), 0); end
+  else B := StrToIntDef(V, 0);
+  Result := A * 10000 + B * 100 + C;
+end;
+
+function PgInstalledVersion: String;
+begin
+  Result := '';
+  if not RegQueryStringValue(HKLM, 'SOFTWARE\PostgreSQL\Installations\postgresql-x64-17', 'Version', Result) then Result := '';
+end;
+
+procedure InstallEmbeddedPg;
+var Rc: Integer; Opt, Have: String;
+begin
+  if not IsEmbeddedPgAvailable then exit;
+  if RegKeyExists(HKLM, 'SYSTEM\CurrentControlSet\Services\postgresql-x64-17') then begin
+    { already on this server: upgrade the minor version on an update / repair, never on a new install }
+    Have := PgInstalledVersion;
+    if IsNew or ('{#PgVersion}' = '') or (Have = '') or (VerNum(Have) >= VerNum('{#PgVersion}')) then exit;
+    WizardForm.StatusLabel.Caption := CustomMessage('UpgradingPg');
+    Log('PostgreSQL ' + Have + ' -> {#PgVersion}: backup first');
+    if not Exec(ExpandConstant('{app}\runtime\node\node.exe'), '"' + ExpandConstant('{tmp}\bootstrap\tools\sdp-manager.js') + '" backup --dir "' + ExpandConstant('{app}') + '"', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, Rc) or (Rc <> 0) then
+      RaiseException('backup before the PostgreSQL upgrade failed (exit ' + IntToStr(Rc) + ') — nothing was changed');
+    if not Exec(ExpandConstant('{tmp}\postgresql.exe'), '--mode unattended --unattendedmodeui none', '', SW_HIDE, ewWaitUntilTerminated, Rc) or (Rc <> 0) then
+      RaiseException('PostgreSQL upgrade to {#PgVersion} failed (exit ' + IntToStr(Rc) + ') — the previous version is still installed; the backup is in the backup folder');
+    Log('PostgreSQL upgraded to {#PgVersion}');
+    exit;
+  end;
   if not UseEmbeddedPg then exit;
-  if RegKeyExists(HKLM, 'SYSTEM\CurrentControlSet\Services\postgresql-x64-17') then exit;
   WizardForm.StatusLabel.Caption := CustomMessage('InstallingPg');
   { the superuser password goes through an option file deleted right after — never a command line }
   Opt := ExpandConstant('{tmp}\pgopt.ini');
   SaveStringToFile(Opt, 'superpassword=' + GetPgSuperPassword + #13#10 + 'serverport=' + GetPgPort('') + #13#10, False);
   try
-    if not Exec(ExpandConstant('{tmp}\postgresql.exe'), '--mode unattended --unattendedmodeui none --servicename postgresql-x64-17 --optionfile "' + Opt + '"', '', SW_HIDE, ewWaitUntilTerminated, Rc) or (Rc <> 0) then
+    if not Exec(ExpandConstant('{tmp}\postgresql.exe'), '--mode unattended --unattendedmodeui none --servicename postgresql-x64-17 --disable-components stackbuilder --optionfile "' + Opt + '"', '', SW_HIDE, ewWaitUntilTerminated, Rc) or (Rc <> 0) then
       RaiseException('PostgreSQL 17 installation failed (exit ' + IntToStr(Rc) + ')');
   finally
     DeleteFile(Opt);
@@ -467,6 +505,7 @@ begin
     ' --dir "' + ExpandConstant('{app}') + '" --package "' + ExpandConstant('{tmp}\package.zip') + '"' +
     ' --mode ' + GetMode('') + ' --port ' + GetPort('') +
     ' --node-modules "' + ExpandConstant('{app}\.setup\node_modules') + '"' +
+    ' --prereq-dir "' + ExpandConstant('{tmp}\prereq') + '"' +
     ' --pg-host ' + GetPgHost('') + ' --pg-port ' + GetPgPort('') + ' --db-name ' + GetDbName('') + ' --db-user ' + GetDbUser('');
   if SvcPage.Values[0] <> '' then Args := Args + ' --service-account "' + SvcPage.Values[0] + '"';
   if IisPage.Values[0] <> '' then Args := Args + ' --public-host ' + IisPage.Values[0] + ' --cert-thumbprint "' + IisPage.Values[1] + '"';

@@ -13,15 +13,32 @@ uninstaller left the application behind. Version 2.1 is a rebuild:
 
 | Concern | v2.1 |
 |---|---|
-| Offline install | Node.js 22 (win-x64, checked against nodejs.org `SHASUMS256`), `node_modules` built on Windows, the service host and the Manager are all in the payload. No internet on the server. |
+| Offline install, blank server | Everything a blank Windows Server needs is in Setup.exe: Node.js 22 (checked against nodejs.org `SHASUMS256`), `node_modules` built on Windows, the service host, the Manager, **PostgreSQL 17** (EnterpriseDB installer), **IIS URL Rewrite + ARR** (Microsoft) — the three installers are Authenticode-checked when the build downloads them, the IIS ones again on the server. The IIS role itself is a Windows feature, enabled by Setup when a public address is given. No internet on the server. |
 | One source of application files | the signed update package (`sdp-dashboard-<v>.zip` + `manifest.json`) is embedded and applied by `sdp-manager update`; install, repair and update cannot diverge. |
 | Every system action checked | the wizard copies files only; `post-install.js` does the rest and is run with `Exec` + exit code. A non-zero code raises, Setup rolls the files back and names the log. |
-| Service | Windows service `SDPDashboard` (`tools/service`, .NET Framework 4.8 — present on every supported Windows): automatic delayed start, restart on failure (5/10/30/60 s), logs in `logs\service-*.log`, stop kills the whole process tree. pm2 stays supported for existing servers (`SDP_SERVICE=pm2`). |
+| Service | Windows service `SDPDashboard` (`tools/service`, .NET Framework 4.6.2 — present out of the box on Windows Server 2016+ and Windows 10/11, so nothing to install): automatic delayed start, restart on failure (5/10/30/60 s), logs in `logs\service-*.log`, stop kills the whole process tree. pm2 stays supported for existing servers (`SDP_SERVICE=pm2`). |
 | Maintenance | **SDP Dashboard Manager** (`tools/manager`, WPF): Overview, Service, Backups & restore, Updates, Diagnostics. Every action runs `node tools\sdp-manager.js … --json`; the GUI holds no logic of its own. |
 | Restore | `sdp-manager restore <dump> --confirm "RESTORE yyyymmdd"`: typed phrase, a backup taken first, service stopped, single-transaction restore, service started and probed, audit line. |
 | Secrets | none in any file of the installer (`StandardPgSuperPassword` removed — EA-01). Passwords come from the masked wizard field or the environment variables `SDP_SETUP_PGSUPERPASS` / `SDP_SETUP_SVCPASS`; embedded PostgreSQL gets its password through a temporary option file deleted at once. |
 | Network | the application listens on `127.0.0.1`; two firewall rules allow the port from loopback only and block it from everywhere else. Optional IIS front end (`iis-setup.ps1`: ARR, URL Rewrite, 5-minute proxy timeout, 150 MB requests, HTTPS binding by certificate thumbprint). |
 | Uninstall | removes the service, the firewall rules and the application; keeps `data\`, `.env`, `logs\`, backups unless the operator says otherwise (`/REMOVEDATA=1` when silent). |
+
+## 1b. Components: what Setup installs and what it updates
+
+| Component | Blank server (new install) | Update / repair |
+|---|---|---|
+| Node.js 22 runtime | installed in `runtime\node` (private to the app, never on PATH) | replaced by the version Setup carries (service stopped first) |
+| Dependencies (`node_modules`) | built for Windows by CI, copied | swapped, the previous set kept until the health check passes |
+| Application | the signed package | the signed package, backup first, rollback point, automatic rollback |
+| Database schema | `db/migrate.js` | `db/migrate.js` (additive, journalled) |
+| PostgreSQL 17 | installed (service `postgresql-x64-17`) when the server has none; or an existing server is used | **minor version upgraded in place** to the one Setup carries, after a backup — never a major upgrade (that is a DBA operation: dump / restore) |
+| Windows service | registered (automatic, delayed start, restart on failure) | restarted stop → wait → start |
+| IIS + URL Rewrite + ARR | installed and configured when a public address is given | regenerated (`web.config`), prerequisites installed if missing |
+| Firewall | port open to loopback only | rules rewritten |
+| Service host / Manager | installed | replaced |
+
+Proof: the `Installer` workflow runs the end-to-end test twice on every push — on a server that already
+has PostgreSQL, and on a **blank** one (the runner's PostgreSQL is uninstalled first; Setup installs its own).
 
 ## 2. Wizard (English / French)
 
@@ -54,15 +71,15 @@ SDP-Dashboard-Setup-<v>.exe /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /LOG=setup.
 
 ## 4. Build and proof
 
-`tools/installer-v2/build.ps1 -Version <semver> [-PackageZip <zip>] [-SignTool <wrapper>] [-PgExe <installer>]`
-on Windows: package (or reuse the one the release job built and signed) → Node.js verified → dependencies →
+`tools/installer-v2/build.ps1 -Version <semver> [-PackageZip <zip>] [-SignTool <wrapper>] [-PgVersion 17.6-1] [-PgExe <installer>] [-NoPrereqs]`
+on Windows: package (or reuse the one the release job built and signed) → Node.js verified → PostgreSQL, URL Rewrite and ARR downloaded and signature-checked → dependencies →
 `dotnet build` of the service and the Manager → bootstrap → `ISCC`.
 
-- **`.github/workflows/installer.yml`** (every push touching the installer, and on demand): builds Setup.exe on
-  `windows-latest`, then `tools/installer-v2/tests/e2e.ps1` installs it silently on the runner's own throwaway
-  PostgreSQL and checks: files, `.env` keys, service running and automatic, `/ready`, loopback-only listening,
+- **`.github/workflows/installer.yml`** (every push, and on demand): builds Setup.exe on `windows-latest`, then
+  `tools/installer-v2/tests/e2e.ps1` runs on two fresh machines — `existing-postgresql` and `blank` (Setup
+  installs PostgreSQL 17 itself) — and checks: files, `.env` keys, service running and automatic, `/ready`, loopback-only listening,
   firewall rule, Manager status / restart / backup / list, restore refused without the phrase and done with it,
-  repair leaving `.env` untouched, a broken configuration making Setup fail while the files stay, uninstall
+  repair leaving `.env` untouched, update taking a backup first and keeping `.env`, a broken configuration making Setup fail while the files stay, uninstall
   removing service, application and firewall rules but keeping `.env`. The Setup.exe and the logs are kept as
   the run artifact.
 - **`.github/workflows/release.yml`**: the installer job calls the same `build.ps1` around the signed package,
@@ -77,3 +94,10 @@ on Windows: package (or reuse the one the release job built and signed) → Node
 2. The end-to-end run on the TEST instance of the real network (IIS, domain service account, real PostgreSQL)
    before the first production server is installed this way. Existing production stays on the ZIP + pm2 path
    (`docs/sop/SOP-deploy.md`) until that run is signed off.
+
+## 6. Bumping a component
+
+- **Node.js**: `-NodeVersion` in `build.ps1` (the checksum is read from nodejs.org at build time).
+- **PostgreSQL**: `-PgVersion` (same major, 17.x). Servers installed by Setup are upgraded at their next update.
+- **URL Rewrite / ARR**: the URLs in `build.ps1` step 2b (Microsoft download centre).
+Then let the `Installer` workflow prove both machines before publishing.

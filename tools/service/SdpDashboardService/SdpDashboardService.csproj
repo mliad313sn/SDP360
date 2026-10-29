@@ -1,10 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- SDP Dashboard Windows service host. .NET Framework 4.8 is part of Windows Server 2016+ and
-       Windows 10/11, so the service needs no runtime to be installed. Built by
+  <!-- SDP Dashboard Windows service host. .NET Framework 4.6.2 is part of every supported Windows (Server 2016+, Windows 10/11), so the service needs no runtime to be installed. Built by
        tools/installer-v2/build.ps1 (CI, windows-latest). -->
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net48</TargetFramework>
+    <TargetFramework>net462</TargetFramework>
     <LangVersion>latest</LangVersion>
     <Nullable>disable</Nullable>
     <AssemblyName>SdpDashboardService</AssemblyName>
@@ -22,7 +21,7 @@
     <Reference Include="System.Configuration.Install" />
   </ItemGroup>
   <ItemGroup>
-    <!-- .NET Framework 4.8 reference assemblies from NuGet: the build does not depend on a targeting pack
+    <!-- .NET Framework 4.6.2 reference assemblies from NuGet: the build does not depend on a targeting pack
          being installed on the build machine. -->
     <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
   </ItemGroup>

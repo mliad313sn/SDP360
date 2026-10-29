@@ -11,7 +11,7 @@ Version 2.1 · 2026-10-29 · Public : administrateur système · Durée cible : 
 | **SDP Dashboard Manager** (menu Démarrer) | Console graphique de maintenance : vue d'ensemble, service (démarrer / arrêter / redémarrer), sauvegardes et **restauration avec phrase de confirmation**, mises à jour et retour arrière, diagnostic. Elle appelle `tools/sdp-manager.js`, utilisable aussi en ligne de commande. |
 | Service Windows `SDPDashboard` | Démarrage automatique différé, relance automatique en cas d'arrêt (5/10/30/60 s), journal `logs\service-*.log`. Remplace pm2 sur une nouvelle installation (pm2 reste géré sur les serveurs existants). |
 
-Prérequis machine : Windows Server 2019+ (ou Windows 10/11), 4 Go de RAM libres, 10 Go de disque, Node.js 22 (embarqué, rien à installer), PostgreSQL 17 embarqué **ou** un serveur PostgreSQL 13+ existant. IIS avec ARR est recommandé devant le port applicatif (voir `docs/INTERNAL_TLS_SETUP.md`).
+Prérequis machine : **un Windows Server 2016+ (ou Windows 10/11) vierge suffit**, 4 Go de RAM libres, 10 Go de disque, aucun accès Internet. Setup embarque et installe tout : Node.js 22, PostgreSQL 17 (ou utilise un serveur PostgreSQL 13+ existant), le service Windows, le Manager, et — si une adresse publique est donnée — le rôle IIS, URL Rewrite et ARR. Les installateurs PostgreSQL et IIS sont vérifiés par leur signature numérique. En mise à jour, Setup remplace Node.js, les dépendances et l'application, et passe PostgreSQL 17 à la version mineure embarquée **après une sauvegarde** (jamais de changement de version majeure : c'est un geste DBA).
 
 ## 2. Les écrans de l'assistant
 

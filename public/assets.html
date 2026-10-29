@@ -1585,7 +1585,7 @@ window.addEventListener('beforeprint', function () {
 
   async function init(f) {
     // RBAC audit 2026-10-02 (A15): the inventory export route is admin-only (it carries the amounts).
-    if (window.__userHasRole && window.__userHasRole('admin')) document.getElementById('inv-exportBtn').style.display = '';
+    if (window.__userHasRole && (window.__userHasRole('admin') || window.__userHasRole('finance-viewer'))) document.getElementById('inv-exportBtn').style.display = '';
     document.getElementById('inv-exportBtn').addEventListener('click', (e) => {
       e.preventDefault();
       exportExcel(window.__assetFilters ? window.__assetFilters() : {});
@@ -3616,7 +3616,7 @@ window.addEventListener('beforeprint', function () {
   const MONEY_TABS = ['finance', 'investment'];
   function _moneyTabsAllowed(hasRole) {
     if (typeof hasRole !== 'function') return false;   // no helper → assume not allowed
-    try { return !!(hasRole('admin') || hasRole('executive') || hasRole('super_admin')); }
+    try { return !!(hasRole('admin') || hasRole('executive') || hasRole('super_admin') || hasRole('finance-viewer')); }
     catch (e) { return false; }
   }
   function _applyMoneyTabGate() {

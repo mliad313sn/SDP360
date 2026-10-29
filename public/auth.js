@@ -70,7 +70,9 @@
   if (requireRole !== 'any') {
     const anyOf = requireRole.split('|').map(s => s.trim()).filter(Boolean);
     if (!anyOf.some(userHasRoleClient)) {
-      location.replace('index.html');
+      // UAT F-13: say why instead of sending the user home in silence.
+      const _pg = encodeURIComponent((location.pathname.split('/').pop() || 'index.html').slice(0, 80));
+      location.replace('no-access.html?page=' + _pg + '&need=' + encodeURIComponent(anyOf.join('|')));
       return;
     }
   }

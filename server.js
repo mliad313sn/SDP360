@@ -1277,7 +1277,7 @@ function loadHtml(name) {
   'meetings-import.html', 'meetings-progress.html', 'meetings-insights.html', 'meetings-setup.html', 'meetings-actions.html',
   'meetings-unsigned.html',
   'activity-tracker.html', 'help.html', 'exec-view.html', 'site-report.html', 'it-review.html', 'site-actions.html', 'system-logs.html',
-  'site-awareness.html',
+  'site-awareness.html', 'no-access.html',
   'assets.html', 'assets-hygiene.html', 'assets-finance.html', 'wan.html', 'wan-health.html', 'wan-sla.html', 'itsm-roadmap.html',
   'infra-health.html', 'itsm-integrations-plan.html',
   'dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html', 'cockpit.html', 'portfolio.html', 'rfi.html', 'report-studio.html', 'notifications.html', 'integrations.html', 'commitments.html', 'handoffs.html', 'obligations.html', 'policies.html',
@@ -1333,6 +1333,9 @@ app.get('/site-report.html', (req, res) => {
 });
 
 // ── Serve site-awareness.html — read-only per-site business view (session cookie, no api-key) ──
+app.get('/no-access.html', (req, res) => {
+  sendHtmlPage(res, 'no-access.html', false, 'Page unavailable');
+});
 app.get('/site-awareness.html', (req, res) => {
   sendHtmlPage(res, 'site-awareness.html', false, 'Site Awareness unavailable');
 });
@@ -2219,6 +2222,16 @@ app.post('/api/sync/trigger/:job', requireReportSession, requireAdmin, async (re
 // admin: the raw XOF strings are as much an amount as the converted ones, so both go.
 const _ASSET_MONEY_KEYS = ['purchase_cost', 'current_book_value', 'total_cost_of_ownership',
   'operational_cost', 'purchase_cost_usd', 'book_value_usd', 'tco_usd'];
+// UAT F-06 — the finance head reads the amounts (finance, licences, investment, depreciation, exports)
+// through the feature role finance-viewer, without the admin tier's write powers.
+function _canReadMoney(user) {
+  const r = require('./reports-db');
+  return r.userHasRole(user, 'admin') || r.userHasRole(user, 'finance-viewer');
+}
+function requireMoneyRead(req, res, next) {
+  if (_canReadMoney(req.reportUser)) return next();
+  return res.status(403).json({ error: 'Forbidden — required role(s): admin or finance-viewer' });
+}
 function _stripAssetMoney(row) {
   const out = { ...row };
   for (const k of _ASSET_MONEY_KEYS) delete out[k];
@@ -2242,7 +2255,7 @@ app.get('/api/assets/inventory', requireReportSession, async (req, res) => {
     // because the engagement loop depends on a site asset manager reaching it, but the
     // MONEY only travels to admin+. A worklist without amounts is still a worklist;
     // that is already the rule on Hygiene.
-    if (!require('./reports-db').userHasRole(req.reportUser, 'admin')) {
+    if (!_canReadMoney(req.reportUser)) {
       return res.json(rows.map(r => _stripAssetMoney(r)));
     }
     const rate = await _assetUsdRate();
@@ -2306,7 +2319,7 @@ app.get('/api/assets/summary', requireReportSession, async (req, res) => {
 // as /inventory) as a two-sheet workbook (Assets + Installed Software). The
 // software sheet is empty for now — the Foundation has no software table (it
 // moved to sub-project C); the sheet is emitted so the contract is stable.
-app.get('/api/assets/export.xlsx', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/assets/export.xlsx', requireReportSession, requireMoneyRead, async (req, res) => {
   try {
     const adb = require('./assets-db');
     const money = require('./services/money');
@@ -2607,7 +2620,7 @@ const _assetUsdRate = async () => {
   return rate;
 };
 
-app.get('/api/assets/finance/summary', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/assets/finance/summary', requireReportSession, requireMoneyRead, async (req, res) => {
   try {
     const adb = require('./assets-db');
     const rate = await _assetUsdRate();
@@ -2620,7 +2633,7 @@ app.get('/api/assets/finance/summary', requireReportSession, requireAdmin, async
 });
 
 // One-sheet USD-only workbook (no raw XOF ever leaves this route).
-app.get('/api/assets/finance/export.xlsx', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/assets/finance/export.xlsx', requireReportSession, requireMoneyRead, async (req, res) => {
   try {
     const adb = require('./assets-db');
     const { buildWorkbook } = require('./services/tableExcel');
@@ -2636,7 +2649,7 @@ app.get('/api/assets/finance/export.xlsx', requireReportSession, requireAdmin, a
   }
 });
 
-app.get('/api/assets/licences/summary', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/assets/licences/summary', requireReportSession, requireMoneyRead, async (req, res) => {
   try {
     res.json(await require('./assets-db').getLicenceSummary(_assetLicenceFilters(req)));
   } catch (e) {
@@ -2645,7 +2658,7 @@ app.get('/api/assets/licences/summary', requireReportSession, requireAdmin, asyn
   }
 });
 
-app.get('/api/assets/licences/exceptions', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/assets/licences/exceptions', requireReportSession, requireMoneyRead, async (req, res) => {
   const adb = require('./assets-db');
   // Pre-validate BEFORE the try/catch: an unknown kind must be 400, not the catch's 500.
   const kind = String(req.query.kind || '');
@@ -2661,7 +2674,7 @@ app.get('/api/assets/licences/exceptions', requireReportSession, requireAdmin, a
 // GET /api/assets/licences/export.xlsx?kind=all|<kind> — one sheet per licence kind
 // (kind=all, the default), or a single sheet for a specific valid kind. Unknown specific
 // kind → 400 (pre-validated).
-app.get('/api/assets/licences/export.xlsx', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/assets/licences/export.xlsx', requireReportSession, requireMoneyRead, async (req, res) => {
   const adb = require('./assets-db');
   const kind = String(req.query.kind || 'all');
   if (kind !== 'all' && !adb.LICENCE_KINDS[kind]) return res.status(400).json({ error: 'unknown kind' });
@@ -3133,7 +3146,7 @@ const _deprecConfig = async () => {
     .parseDepreciationConfig((await reportConfig.getConfig(rdb.db)).asset_depreciation_config);
 };
 
-app.get('/api/assets/depreciation/summary', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/assets/depreciation/summary', requireReportSession, requireMoneyRead, async (req, res) => {
   try {
     const adb = require('./assets-db');
     const rate = await _assetUsdRate();
@@ -3151,7 +3164,7 @@ app.get('/api/assets/depreciation/summary', requireReportSession, requireAdmin, 
   }
 });
 
-app.get('/api/assets/depreciation/schedule', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/assets/depreciation/schedule', requireReportSession, requireMoneyRead, async (req, res) => {
   try {
     const adb = require('./assets-db');
     const rate = await _assetUsdRate();
@@ -3214,7 +3227,7 @@ const _assetUpliftPct = async () => {
   return Number.isFinite(p) && p >= 0 ? p : 0;
 };
 
-app.get('/api/assets/investment/history', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/assets/investment/history', requireReportSession, requireMoneyRead, async (req, res) => {
   try {
     const rate = await _assetUsdRate();
     res.json(await require('./assets-db').getInvestmentSummary(_assetInvestmentFilters(req), { rate }));
@@ -3224,7 +3237,7 @@ app.get('/api/assets/investment/history', requireReportSession, requireAdmin, as
   }
 });
 
-app.get('/api/assets/investment/forecast', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/assets/investment/forecast', requireReportSession, requireMoneyRead, async (req, res) => {
   try {
     const adb = require('./assets-db');
     const config = await _deprecConfig();          // already parsed → pass straight through
@@ -3248,7 +3261,7 @@ app.get('/api/assets/investment/forecast', requireReportSession, requireAdmin, a
 // forecast sheet is the year rows plus a "Due now" and a "Beyond horizon" row
 // (the Year column labels those two). Same horizon-clamp + config/rate/uplift reads
 // as the forecast route.
-app.get('/api/assets/investment/export.xlsx', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/assets/investment/export.xlsx', requireReportSession, requireMoneyRead, async (req, res) => {
   try {
     const adb = require('./assets-db');
     const { buildWorkbook } = require('./services/tableExcel');

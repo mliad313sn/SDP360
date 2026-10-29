@@ -223,6 +223,21 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 .hd-chart-wrap.tall{height:240px}
 
 /* ── Responsiveness ──────────────────────────────────────────── */
+@media(max-width:640px){
+  /* UAT F-05 — phone layout: an editing row becomes a card, each cell carries its column name */
+  table[data-cards] thead{display:none}
+  table[data-cards],table[data-cards] tbody,table[data-cards] tr,table[data-cards] td{display:block;width:100%!important}
+  table[data-cards] tr{border:1px solid var(--border,#e2e5ea);border-radius:10px;padding:8px 10px;margin:0 0 10px;background:#fff}
+  table[data-cards] td{border:0!important;padding:4px 0!important}
+  table[data-cards] td[data-label]:not([data-label=""])::before{content:attr(data-label);display:block;font-size:.72rem;font-weight:600;color:#4b5563;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+  table[data-cards] td input,table[data-cards] td select,table[data-cards] td textarea{width:100%!important;min-height:40px;font-size:16px}
+  .submit-bar{flex-wrap:wrap;gap:8px}
+  .submit-bar .btn{flex:1 1 140px;margin-left:0!important;min-height:44px}
+  .submit-bar .report-info{flex:1 1 100%}
+  #audit-panel .card{overflow-x:auto}
+  #audit-panel table{min-width:520px}
+  .section-tabs,#section-tabs{display:flex;flex-wrap:wrap;gap:6px}
+}
 @media(max-width:700px){
   .page{padding:16px}
   .lights-grid{grid-template-columns:1fr}
@@ -295,6 +310,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
      login screen this page used to ship is no longer needed. All other pages
      already used auth.js; this commit brings reports.html in line. -->
 <script src="auth.js" data-require="any"></script>
+<script src="lib/tableCards.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -505,7 +521,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
     <div id="section-0">
       <div class="card">
         <h3><span class="section-num">1</span> Infrastructure KPIs</h3>
-        <table class="infra-table">
+        <table class="infra-table" data-cards>
           <thead>
             <tr>
               <th style="width:18%">Service / System</th>
@@ -704,7 +720,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
           <span id="reconduct-banner-text" style="flex:1"></span>
           <button class="btn btn-secondary btn-sm" onclick="undoReconduct()" style="white-space:nowrap">Annuler la reconduction</button>
         </div>
-        <table class="action-table">
+        <table class="action-table" data-cards>
           <thead>
             <tr>
               <th style="width:24%">Task / Action</th>
@@ -2348,6 +2364,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
               <div class="role-f-group">
                 <div class="role-f-group-title">Executive views</div>
                 <label class="role-f role-card"><input type="checkbox" value="scorecard-viewer"><span class="role-f-txt"><b>scorecard-viewer</b><small>Exec Scorecard + Analytics + IT Review, lecture seule</small></span></label>
+                <label class="role-f role-card"><input type="checkbox" value="finance-viewer"><span class="role-f-txt"><b>finance-viewer</b><small>Montants des actifs (Finance, Licences, Investissement, amortissement, exports) et refacturation WAN, lecture seule</small></span></label>
                 <label class="role-f role-card"><input type="checkbox" value="dashboard-publisher"><span class="role-f-txt"><b>dashboard-publisher</b><small>Composeur : créer et publier des tableaux de bord (comité)</small></span></label>
                 <label class="role-f role-card"><input type="checkbox" value="committee-member"><span class="role-f-txt"><b>committee-member</b><small>Gouvernance : cadences, registre RFI (triage), portefeuille (comité)</small></span></label>
                 <label class="role-f role-card"><input type="checkbox" value="field-tech"><span class="role-f-txt"><b>field-tech</b><small>Application terrain (mobile hors-ligne) : inspections rapides, saisie tracker, actions, sur ses sites</small></span></label>

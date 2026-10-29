@@ -47,10 +47,10 @@ test('4c meetings: import page, Excel exports and the closed-PV banner are opene
   assert.doesNotMatch(read('meeting.html'), /admins can re-open/);
 });
 
-test('A15 assets inventory Excel: hidden by default, revealed for admin+ (route = admin)', () => {
+test('A15 assets inventory Excel: hidden by default, revealed for admin+ or finance-viewer (route = requireMoneyRead, UAT F-06)', () => {
   const src = read('assets.html');
   assert.match(tagOf(src, 'inv-exportBtn'), /display:\s*none/);
-  assert.match(src, /__userHasRole\('admin'\)\)\s*document\.getElementById\('inv-exportBtn'\)\.style\.display = ''/);
+  assert.match(src, /__userHasRole\('admin'\) \|\| window\.__userHasRole\('finance-viewer'\)\)\)\s*document\.getElementById\('inv-exportBtn'\)\.style\.display = ''/);
 });
 
 test('Revert to Draft is offered to editors, like the server (own site — decision 2026-10-02)', () => {

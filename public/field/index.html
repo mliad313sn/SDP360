@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="fr">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
@@ -14,7 +14,7 @@
 <a class="edv-skip" href="#main">Skip to content</a>
 <header class="top">
   <h1>IT Field</h1>
-  <div class="row"><span id="net" class="net" role="status" aria-live="polite">…</span><span id="queue" class="pill slate" aria-label="items waiting to sync">0</span></div>
+  <div class="row"><span class="lang"><button type="button" id="lang-fr" class="lang-b">FR</button><button type="button" id="lang-en" class="lang-b">EN</button></span><span id="net" class="net" role="status" aria-live="polite">…</span><span id="queue" class="pill slate" aria-label="items waiting to sync">0</span></div>
 </header>
 <main id="main">
   <div id="msg" class="status hidden" role="status" aria-live="polite"></div>
@@ -64,6 +64,8 @@
   <button type="button" data-view="dash">Dashboard</button>
 </nav>
 <dialog id="dlg"><form method="dialog"><h2 id="dlg-title" style="margin-top:0">Justification</h2><label>Comment <textarea id="dlg-note" rows="3" required></textarea></label><label id="dlg-ticket-l" class="hidden">SDP ticket number <input id="dlg-ticket" inputmode="numeric"></label><div class="row"><button type="submit" value="ok" class="primary">Confirm</button><button type="submit" value="cancel">Cancel</button></div></form></dialog>
+<script src="../lib/i18nText.js"></script>
+<script src="i18n.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

@@ -27,7 +27,7 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const http = require('http');
 
-let server, base, adminTok, viewerTok;
+let server, base, adminTok, viewerTok, financeTok;
 
 before(async () => {
   const { app } = require('../server');
@@ -51,6 +51,12 @@ before(async () => {
   const v = ((await rdb.listUsers()) || []).find(u => u.username === 'money-scope-viewer');
   (await rdb.setUserRoles(v.id, ['viewer']));
   viewerTok = (await rdb.login('money-scope-viewer', 'viewer-pass-0000')).token;
+
+  // UAT F-06 — the finance head: a viewer plus the read-only feature role finance-viewer.
+  (await rdb.createUser({ username: 'money-scope-finance', password: 'finance-pass-0000', full_name: 'F', role: 'viewer' }));
+  const f = ((await rdb.listUsers()) || []).find(u => u.username === 'money-scope-finance');
+  (await rdb.setUserRoles(f.id, ['viewer', 'finance-viewer']));
+  financeTok = (await rdb.login('money-scope-finance', 'finance-pass-0000')).token;
 
   await new Promise(r => { server = http.createServer(app).listen(0, '127.0.0.1', r); });
   base = `http://127.0.0.1:${server.address().port}`;
@@ -107,4 +113,17 @@ test('the inventory export follows the same rule', async () => {
   assert.strictEqual((await get('/api/assets/export.xlsx', viewerTok)).status, 403,
     'a spreadsheet is the easiest way to walk out with the numbers');
   assert.strictEqual((await get('/api/assets/export.xlsx', adminTok)).status, 200);
+});
+
+test('UAT F-06: the finance reader reads every money route, the inventory amounts and the export', async () => {
+  for (const r of MONEY_ROUTES) assert.strictEqual((await get(r, financeTok)).status, 200, `${r} for finance-viewer`);
+  const rows = await (await get('/api/assets/inventory', financeTok)).json();
+  assert.ok('purchase_cost_usd' in rows[0], 'amounts reach the finance reader');
+  assert.strictEqual((await get('/api/assets/export.xlsx', financeTok)).status, 200);
+});
+
+test('UAT F-06: finance-viewer reads only — it cannot change the depreciation policy', async () => {
+  const res = await fetch(base + '/api/assets/depreciation-config', { method: 'PUT',
+    headers: { 'x-report-token': financeTok, 'content-type': 'application/json' }, body: JSON.stringify({ config: {} }) });
+  assert.strictEqual(res.status, 403);
 });

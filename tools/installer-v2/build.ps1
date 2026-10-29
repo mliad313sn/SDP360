@@ -7,6 +7,7 @@
   Steps (each one fails the build loudly):
     1  the update package (tools/deploy/make-update-package.js) — signed when SIGNING_MANIFEST_KEY is set
     2  payload\runtime\node   Node.js for Windows x64, checked against nodejs.org SHASUMS256 before use
+    2b payload\prereq        PostgreSQL 17 (EnterpriseDB), IIS URL Rewrite + ARR (Microsoft) — Authenticode verified
     3  payload\node_modules   production dependencies installed on Windows (offline install on the server)
     4  payload\service        tools/service  (SdpDashboardService.exe, .NET Framework 4.8 — nothing to install)
     5  payload\manager        tools/manager  (SdpDashboardManager.exe, WPF, .NET Framework 4.8)
@@ -18,6 +19,8 @@ param(
   [string]$OutDir = 'dist',
   [string]$NodeVersion = '22.11.0',
   [string]$PgExe = '',
+  [string]$PgVersion = '17.6-1',
+  [switch]$NoPrereqs,
   [string]$SignTool = '',
   [string]$Commit = '',
   [string]$PackageZip = ''
@@ -68,6 +71,25 @@ Expand-Archive $nodeZip -DestinationPath $tmpNode
 New-Item -ItemType Directory -Force -Path (Join-Path $payload 'runtime') | Out-Null
 Move-Item (Join-Path $tmpNode "node-v$NodeVersion-win-x64") (Join-Path $payload 'runtime\node')
 
+Step "2b prerequisites: PostgreSQL $PgVersion, IIS URL Rewrite, ARR (signatures verified)"
+# Everything a blank server needs is carried by Setup: nothing is downloaded on the server.
+# Integrity = the vendors' Authenticode signatures (EnterpriseDB, Microsoft), checked here AND again on the server.
+function Get-Signed($url, $file, $signer) {
+  $dst = Join-Path $cache $file
+  if (-not (Test-Path $dst)) { Write-Host "downloading $url"; Invoke-WebRequest $url -OutFile $dst -UseBasicParsing }
+  $sig = Get-AuthenticodeSignature $dst
+  if ($sig.Status -ne 'Valid' -or $sig.SignerCertificate.Subject -notmatch $signer) { Remove-Item $dst -Force; throw "$file : signature $($sig.Status) / $($sig.SignerCertificate.Subject) — refused" }
+  Write-Host ("{0} signed by {1}, sha256 {2}" -f $file, ($sig.SignerCertificate.Subject -replace ',.*$', ''), (Get-FileHash $dst -Algorithm SHA256).Hash.ToLower())
+  return $dst
+}
+$prereq = Join-Path $payload 'prereq'
+New-Item -ItemType Directory -Force -Path $prereq | Out-Null
+if (-not $NoPrereqs) {
+  if (-not $PgExe) { $PgExe = Get-Signed "https://get.enterprisedb.com/postgresql/postgresql-$PgVersion-windows-x64.exe" "postgresql-$PgVersion-windows-x64.exe" 'EnterpriseDB' }
+  Copy-Item (Get-Signed 'https://download.microsoft.com/download/1/2/8/128E2E22-C1B9-44A4-BE2A-5859ED1D4592/rewrite_amd64_en-US.msi' 'rewrite_amd64.msi' 'Microsoft') (Join-Path $prereq 'rewrite_amd64.msi')
+  Copy-Item (Get-Signed 'https://download.microsoft.com/download/E/9/8/E9849D6A-020E-47E4-9FD0-A023E99B54EB/requestRouter_amd64.msi' 'requestRouter_amd64.msi' 'Microsoft') (Join-Path $prereq 'requestRouter_amd64.msi')
+}
+
 Step '3 production dependencies (Windows)'
 $deps = Join-Path $cache 'deps'
 Remove-Item -Recurse -Force $deps -ErrorAction SilentlyContinue
@@ -99,7 +121,7 @@ Step '7 Setup.exe'
 $iscc = @("${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe", "$env:ProgramFiles\Inno Setup 6\ISCC.exe", "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
 if (-not $iscc) { throw 'Inno Setup 6 (ISCC.exe) not found' }
 $isccArgs = @("/DAppVersion=$Version", "/DFileVersion=$fileVersion", "/DPackageZip=$zip", "/DPayloadDir=$payload", "/DPackageSigned=$signed")
-if ($PgExe) { $isccArgs += "/DPgExe=$PgExe" }
+if ($PgExe) { $isccArgs += @("/DPgExe=$((Resolve-Path $PgExe).Path)", "/DPgVersion=$PgVersion") }
 # SDP-Dashboard.iss appends ` $f` itself (SignTool={#SignTool} $f): pass the wrapper path only.
 if ($SignTool) { $isccArgs += @("/Ssigntool=`"$SignTool`"", '/DSignTool=signtool') }
 & $iscc @isccArgs (Join-Path $root 'tools\installer-v2\SDP-Dashboard.iss'); Must 'ISCC'

@@ -5,6 +5,7 @@
    No framework, no inline handlers. */
 (function () {
   'use strict';
+  var FT = window.FT || function (s) { return s; };
   var $ = function (id) { return document.getElementById(id); };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   // E5: the session is the httpOnly report_token cookie (sent by the browser); only the cached
@@ -39,7 +40,7 @@
   // ── state / UI helpers ─────────────────────────────────────────────────────────────
   var B = null, site = null, lowbw = false, draftPhotos = [];
   function msg(text, cls) { var m = $('msg'); if (!text) { m.className = 'status hidden'; m.textContent = ''; return; } m.className = 'status ' + (cls || ''); m.textContent = text; }
-  function setNet() { var n = $('net'); var on = navigator.onLine; n.textContent = on ? 'Online' : 'Offline'; n.className = 'net ' + (on ? 'on' : 'off'); }
+  function setNet() { var n = $('net'); var on = navigator.onLine; n.textContent = on ? FT('Online') : FT('Offline'); n.className = 'net ' + (on ? 'on' : 'off'); }
   function show(view) { document.querySelectorAll('.view').forEach(function (v) { v.classList.add('hidden'); }); $('v-' + view).classList.remove('hidden'); document.querySelectorAll('nav.tabs button').forEach(function (b) { if (b.dataset.view === view) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }); if (view === 'dash') loadDash(); }
   function opt(sel, items, val, lab) { var s = $(sel); s.innerHTML = ''; (items || []).forEach(function (it) { var o = document.createElement('option'); o.value = val(it); o.textContent = lab(it); s.appendChild(o); }); }
   function curSite() { return (B && B.sites || []).find(function (s) { return String(s.id) === String($('site').value); }) || null; }
@@ -50,30 +51,30 @@
       if (j.ok) { B = j; kvSet('bootstrap', j); kvSet('bootstrap_at', new Date().toISOString()); return B; }
       if (j.__status === 401) { location.href = '../login.html?next=' + encodeURIComponent('/field/index.html'); throw new Error('login'); }
       throw new Error(j.error || 'bootstrap failed');
-    }).catch(function (e) { return kvGet('bootstrap').then(function (c) { if (!c) throw e; B = c; msg('Working from cached data (offline).', ''); return B; }); });
+    }).catch(function (e) { return kvGet('bootstrap').then(function (c) { if (!c) throw e; B = c; msg(FT('Working from cached data (offline).'), ''); return B; }); });
   }
   function renderHome() {
     opt('site', B.sites, function (s) { return s.id; }, function (s) { return s.name; });
     if (site) $('site').value = site;
     site = $('site').value;
-    kvGet('bootstrap_at').then(function (at) { $('asof').textContent = 'Data as of ' + (at ? new Date(at).toLocaleString() : '—') + (B.__stale ? ' (cached)' : ''); });
+    kvGet('bootstrap_at').then(function (at) { $('asof').textContent = FT('Data as of') + ' ' + (at ? new Date(at).toLocaleString() : '—') + (B.__stale ? ' ' + FT('(cached)') : ''); });
     var s = curSite(), acts = (B.actions || []).filter(function (a) { return !s || a.site === s.inspection_code; });
     var overdue = acts.filter(function (a) { return a.due_date && a.due_date < new Date().toISOString().slice(0, 10); }).length;
-    $('tiles').innerHTML = '<div class="tile"><div class="n">' + acts.length + '</div><div class="l">open actions</div></div><div class="tile"><div class="n">' + overdue + '</div><div class="l">overdue</div></div><div class="tile"><div class="n">' + (B.trackers || []).length + '</div><div class="l">trackers to fill</div></div>';
+    $('tiles').innerHTML = '<div class="tile"><div class="n">' + acts.length + '</div><div class="l">' + FT('open actions') + '</div></div><div class="tile"><div class="n">' + overdue + '</div><div class="l">' + FT('overdue') + '</div></div><div class="tile"><div class="n">' + (B.trackers || []).length + '</div><div class="l">' + FT('trackers to fill') + '</div></div>';
     renderOutbox(); renderInspect(); renderTracker(); renderActions();
     $('ticket-off').classList.toggle('hidden', !!(B.features && B.features.ticket)); $('k-send').disabled = !(B.features && B.features.ticket);
   }
   function renderOutbox() {
     obAll().then(function (items) {
       $('queue').textContent = String(items.length);
-      $('outbox-list').innerHTML = items.length ? items.map(function (e) { return '<div class="item"><span class="pill slate">' + esc(e.kind) + '</span> ' + esc(e.label || '') + ' <span class="muted">' + esc(e.client_ts) + (e.last_error ? ' · ' + esc(e.last_error) : '') + '</span></div>'; }).join('') : 'Nothing queued.';
+      $('outbox-list').innerHTML = items.length ? items.map(function (e) { return '<div class="item"><span class="pill slate">' + esc(e.kind) + '</span> ' + esc(e.label || '') + ' <span class="muted">' + esc(e.client_ts) + (e.last_error ? ' · ' + esc(e.last_error) : '') + '</span></div>'; }).join('') : FT('Nothing queued.');
     });
   }
 
   // ── outbox: queue + flush ─────────────────────────────────────────────────────────
   function queue(kind, payload, label, uploads) {
     var env = { uuid: uuid(), kind: kind, payload: payload, client_ts: new Date().toISOString(), device: navigator.userAgent.slice(0, 100), label: label, uploads: uploads || [] };
-    return obPut(env).then(function () { renderOutbox(); msg('Queued — it will sync when online.', 'ok'); if (navigator.onLine) flush(); });
+    return obPut(env).then(function () { renderOutbox(); msg(FT('Queued — it will sync when online.'), 'ok'); if (navigator.onLine) flush(); });
   }
   var flushing = false;
   function flush() {
@@ -82,7 +83,7 @@
     return obAll().then(function (items) {
       items.sort(function (a, b) { return a.client_ts < b.client_ts ? -1 : 1; });
       return items.reduce(function (p, e) { return p.then(function () { return sendOne(e); }); }, Promise.resolve());
-    }).catch(function (e) { msg('Sync problem: ' + e.message, 'err'); }).then(function () { flushing = false; renderOutbox(); });
+    }).catch(function (e) { msg(FT('Sync problem: ') + e.message, 'err'); }).then(function () { flushing = false; renderOutbox(); });
   }
   function sendOne(e) {
     return uploadPhotos(e).then(function () {
@@ -92,7 +93,7 @@
       if (j.__status >= 500) { e.last_error = j.error || 'server error'; return obPut(e); }   // retry later
       // terminal: applied, duplicate, rejected (400/403), conflict (409) → drop from the phone
       var fine = j.ok || j.duplicate;
-      msg((fine ? 'Synced: ' : 'Refused: ') + (e.label || e.kind) + (fine ? '' : ' — ' + ((j.result && j.result.error) || j.error || j.status)), fine ? 'ok' : 'err');
+      msg((fine ? FT('Synced: ') : FT('Refused: ')) + (e.label || e.kind) + (fine ? '' : ' — ' + ((j.result && j.result.error) || j.error || j.status)), fine ? 'ok' : 'err');
       return obDel(e.uuid);
     });
   }
@@ -125,7 +126,7 @@
   function renderItems() {
     var cat = ((B.lookups || {}).categories || []).find(function (c) { return c.id === $('i-cat').value; });
     var STATUS = ['ok', 'minor', 'major', 'critical', 'na'];
-    $('i-items').innerHTML = cat ? cat.items.map(function (it, i) { return '<div class="ci"><span>' + esc(it.l) + '</span><div class="seg" role="group" aria-label="' + esc(it.l) + '">' + STATUS.map(function (s) { return '<button type="button" data-ix="' + i + '" data-st="' + s + '" aria-pressed="false">' + s + '</button>'; }).join('') + '</div></div>'; }).join('') : '';
+    $('i-items').innerHTML = cat ? cat.items.map(function (it, i) { return '<div class="ci"><span>' + esc(it.l) + '</span><div class="seg" role="group" aria-label="' + esc(it.l) + '">' + STATUS.map(function (s) { return '<button type="button" data-ix="' + i + '" data-st="' + s + '" aria-pressed="false">' + esc(FT(s)) + '</button>'; }).join('') + '</div></div>'; }).join('') : '';
   }
   function compress(file, cap) {
     return new Promise(function (res, rej) {
@@ -144,10 +145,10 @@
     });
   }
   function queueInspection() {
-    var s = curSite(); if (!s || !s.inspection_code) return msg('Pick a site with an inspection code first.', 'err');
+    var s = curSite(); if (!s || !s.inspection_code) return msg(FT('Pick a site with an inspection code first.'), 'err');
     var cat = $('i-cat').value, items = {}, n = 0;
     document.querySelectorAll('#i-items button[aria-pressed="true"]').forEach(function (b) { items[cat + '__' + b.dataset.ix] = { status: b.dataset.st, notes: '' }; n++; });
-    if (!n && !draftPhotos.length) return msg('Mark at least one item or add a photo.', 'err');
+    if (!n && !draftPhotos.length) return msg(FT('Mark at least one item or add a photo.'), 'err');
     var d = new Date(), id = 'EM-IT-' + d.toISOString().slice(0, 10).replace(/-/g, '') + '-' + Math.floor(Math.random() * 9000 + 1000);
     var firstKey = Object.keys(items)[0] || (cat + '__0'); items[firstKey] = items[firstKey] || { status: 'ok', notes: '' };
     items[firstKey].photos = draftPhotos.map(function (p) { return { upload_ref: p.ref, caption: '' }; });
@@ -168,14 +169,14 @@
     var units = t.definition.units.filter(function (u) { return !Array.isArray(t.writable) || t.writable.indexOf(u.code) >= 0; });
     opt('t-unit', units, function (u) { return u.code; }, function (u) { return u.name || u.code; });
     var slots = []; for (var i = 1; i <= ((t.definition.period && t.definition.period.count) || 12); i++) slots.push(i);
-    opt('t-slot', slots.filter(function (s) { return (t.closed || []).indexOf(s) < 0; }), function (s) { return s; }, function (s) { return 'Period ' + s; });
+    opt('t-slot', slots.filter(function (s) { return (t.closed || []).indexOf(s) < 0; }), function (s) { return s; }, function (s) { return FT('Period') + ' ' + s; });
     var items = []; (t.definition.groups || []).forEach(function (g) { (g.items || []).forEach(function (it) { items.push(it); }); });
     $('t-items').innerHTML = items.map(function (it) { return '<label>' + esc(it.name || it.code) + ' <input data-item="' + esc(it.code) + '" inputmode="decimal"></label>'; }).join('');
   }
   function queueTracker() {
     var t = curTracker(); if (!t) return;
     var cells = []; document.querySelectorAll('#t-items input').forEach(function (i) { if (i.value !== '') cells.push({ unit: $('t-unit').value, item: i.dataset.item, slot: Number($('t-slot').value), value: Number(i.value) }); });
-    if (!cells.length) return msg('Enter at least one value.', 'err');
+    if (!cells.length) return msg(FT('Enter at least one value.'), 'err');
     queue('tracker', { key: t.key, cells: cells }, t.title + ' · ' + $('t-unit').value + ' · P' + $('t-slot').value).then(function () { document.querySelectorAll('#t-items input').forEach(function (i) { i.value = ''; }); });
   }
 
@@ -185,8 +186,8 @@
     var s = curSite(), acts = (B.actions || []).filter(function (a) { return !s || a.site === s.inspection_code; });
     $('a-list').innerHTML = acts.length ? acts.map(function (a, i) {
       var closeVal = a.source === 'inspection' ? 'Closed' : 'closed';
-      return '<div class="item"><div><span class="pill ' + (a.due_date && a.due_date < new Date().toISOString().slice(0, 10) ? 'red' : 'slate') + '">' + esc(a.source) + '</span> ' + esc(a.description) + ' <span class="muted">' + esc(a.owner || '') + ' · due ' + esc(a.due_date || '—') + ' · ' + esc(a.status) + '</span></div><div class="row"><button type="button" data-a="' + i + '" data-st="' + closeVal + '">Close</button><button type="button" data-a="' + i + '" data-st="helpdesk_ticket">→ Ticket</button><button type="button" data-a="' + i + '" data-st="demand">→ Demand</button><button type="button" data-a="' + i + '" data-st="cancelled" class="danger">Cancel</button></div></div>';
-    }).join('') : 'No open action for this site.';
+      return '<div class="item"><div><span class="pill ' + (a.due_date && a.due_date < new Date().toISOString().slice(0, 10) ? 'red' : 'slate') + '">' + esc(a.source) + '</span> ' + esc(a.description) + ' <span class="muted">' + esc(a.owner || '') + ' · ' + FT('due') + ' ' + esc(a.due_date || '—') + ' · ' + esc(a.status) + '</span></div><div class="row"><button type="button" data-a="' + i + '" data-st="' + closeVal + '">' + FT('Close') + '</button><button type="button" data-a="' + i + '" data-st="helpdesk_ticket">' + FT('→ Ticket') + '</button><button type="button" data-a="' + i + '" data-st="demand">' + FT('→ Demand') + '</button><button type="button" data-a="' + i + '" data-st="cancelled" class="danger">' + FT('Cancel') + '</button></div></div>';
+    }).join('') : FT('No open action for this site.');
     $('a-list').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { actionChange(acts[Number(b.dataset.a)], b.dataset.st); }); });
   }
   function ask(needTicket) {
@@ -195,8 +196,8 @@
   function actionChange(a, st) {
     var p = TRANSFER.indexOf(st) >= 0 ? ask(st === 'helpdesk_ticket') : Promise.resolve({ note: '', ticket: '' });
     p.then(function (j) {
-      if (!j) return; if (TRANSFER.indexOf(st) >= 0 && !j.note) return msg('A justification is required for this status.', 'err');
-      if (st === 'helpdesk_ticket' && !j.ticket) return msg('The SDP ticket number is required.', 'err');
+      if (!j) return; if (TRANSFER.indexOf(st) >= 0 && !j.note) return msg(FT('A justification is required for this status.'), 'err');
+      if (st === 'helpdesk_ticket' && !j.ticket) return msg(FT('The SDP ticket number is required.'), 'err');
       var payload = { source: a.source, id: a.id, status_change: st, body: j.note || 'Closed from the field app' };
       if (j.ticket) payload.helpdesk_ticket = j.ticket;
       queue('action', payload, (a.source === 'inspection' ? 'Inspection' : 'Meeting') + ' action #' + a.id + ' → ' + st);
@@ -204,7 +205,7 @@
     });
   }
   function queueTicket() {
-    var s = curSite(), subj = $('k-subject').value.trim(); if (!subj) return msg('Subject required.', 'err');
+    var s = curSite(), subj = $('k-subject').value.trim(); if (!subj) return msg(FT('Subject required.'), 'err');
     queue('ticket', { subject: subj, description: $('k-desc').value, site: s ? s.name : null }, 'Ticket: ' + subj).then(function () { $('k-subject').value = ''; $('k-desc').value = ''; });
   }
 
@@ -212,11 +213,11 @@
   function loadDash() {
     var s = curSite(); if (!s) return;
     api('/api/dashboards/field-site/data?site=' + encodeURIComponent(s.id)).then(function (j) {
-      if (!j.ok) { $('d-widgets').textContent = j.error || 'unavailable'; return; }
+      if (!j.ok) { $('d-widgets').textContent = j.error || FT('unavailable'); return; }
       var html = '', asOf = null;
       Object.keys(j.widgets || {}).forEach(function (k) { var w = j.widgets[k]; if (w.as_of && (!asOf || w.as_of > asOf)) asOf = w.as_of; var v = w.value == null ? '—' : (w.display || w.value); html += '<div class="tile"><div class="n">' + esc(v) + (w.unit ? '<small> ' + esc(w.unit) + '</small>' : '') + '</div><div class="l">' + esc(w.title || k) + (w.rag ? ' <span class="pill ' + esc(String(w.rag).toLowerCase()) + '">' + esc(w.rag) + '</span>' : '') + '</div></div>'; });
-      $('d-widgets').innerHTML = (html || 'No widget') + '<div class="asof">Data as of ' + (asOf ? new Date(asOf).toLocaleString() : '— (not measured)') + (j.__stale ? ' · cached' : '') + '</div>';
-    }).catch(function (e) { $('d-widgets').textContent = 'Offline — ' + e.message; });
+      $('d-widgets').innerHTML = (html || FT('No widget')) + '<div class="asof">' + FT('Data as of') + ' ' + (asOf ? new Date(asOf).toLocaleString() : FT('— (not measured)')) + (j.__stale ? ' · ' + FT('cached') : '') + '</div>';
+    }).catch(function (e) { $('d-widgets').textContent = FT('Offline') + ' — ' + e.message; });
   }
 
   // ── wiring ───────────────────────────────────────────────────────────────────────
@@ -226,7 +227,7 @@
   $('lowbw').addEventListener('change', function () { lowbw = $('lowbw').checked; document.body.classList.toggle('lowbw', lowbw); kvSet('lowbw', lowbw); });
   $('i-cat').addEventListener('change', renderItems);
   $('i-items').addEventListener('click', function (ev) { var b = ev.target.closest('button[data-ix]'); if (!b) return; b.parentNode.querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', 'false'); }); b.setAttribute('aria-pressed', 'true'); });
-  $('i-photo').addEventListener('change', function () { var f = $('i-photo').files[0]; if (!f) return; compress(f, (B.limits && B.limits.photo_max_bytes) || 300 * 1024).then(function (p) { p.ref = uuid(); draftPhotos.push(p); var img = document.createElement('img'); img.alt = 'photo ' + draftPhotos.length; img.src = 'data:image/jpeg;base64,' + p.b64; $('i-photos').appendChild(img); msg('Photo added (' + Math.round(p.size / 1024) + ' KB).', 'ok'); }).catch(function (e) { msg(e.message, 'err'); }); });
+  $('i-photo').addEventListener('change', function () { var f = $('i-photo').files[0]; if (!f) return; compress(f, (B.limits && B.limits.photo_max_bytes) || 300 * 1024).then(function (p) { p.ref = uuid(); draftPhotos.push(p); var img = document.createElement('img'); img.alt = 'photo ' + draftPhotos.length; img.src = 'data:image/jpeg;base64,' + p.b64; $('i-photos').appendChild(img); msg(FT('Photo added') + ' (' + Math.round(p.size / 1024) + ' KB).', 'ok'); }).catch(function (e) { msg(e.message, 'err'); }); });
   $('i-save').addEventListener('click', queueInspection); $('i-reset').addEventListener('click', resetInspect);
   $('t-key').addEventListener('change', renderTrackerUnits); $('t-save').addEventListener('click', queueTracker);
   $('k-send').addEventListener('click', queueTicket);
