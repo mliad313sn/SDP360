@@ -55,4 +55,6 @@ jobs:
         run: npm run build:check
       - name: SAST (ESLint security rules, blocking)
         run: npm run lint
+      - name: Secret scan of the tracked files (EX-01, blocking)
+        run: node tools/security/secret-scan.js
       - run: npm test

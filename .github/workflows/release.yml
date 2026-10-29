@@ -67,6 +67,8 @@ jobs:
           test "$TAG" = "$PKG" || { echo "tag $TAG != package.json $PKG"; exit 1; }
           echo "version=$TAG" >> "$GITHUB_OUTPUT"
       - run: npm audit --omit=dev --audit-level=high
+      - name: Secret scan — a credential in the tracked files blocks the release (EX-01)
+        run: node tools/security/secret-scan.js
       - run: node db/migrate.js
       - run: npm run build:check
       - run: npm test
