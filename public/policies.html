@@ -58,6 +58,7 @@
     <p class="gp-muted" data-lng="fr">Assouplir une règle protégée demande deux personnes : l'une propose, une autre approuve ou refuse. Une proposition expire après 7 jours.</p>
     <table><thead><tr><th><span data-lng="en">When</span><span data-lng="fr">Date</span></th><th><span data-lng="en">Scope</span><span data-lng="fr">Portée</span></th><th><span data-lng="en">Rule</span><span data-lng="fr">Règle</span></th><th><span data-lng="en">New value</span><span data-lng="fr">Nouvelle valeur</span></th><th><span data-lng="en">Proposal</span><span data-lng="fr">Proposition</span></th><th></th></tr></thead><tbody id="gpProp"></tbody></table>
   </div>
+  <div class="gp-card gp-plain" id="gpRoles"></div>
   <div class="gp-card">
     <h2><span data-lng="en">History</span><span data-lng="fr">Historique</span></h2>
     <p class="gp-muted"><a href="/api/governance/oversight?format=csv" id="gpOversight"><span data-lng="en">Download the oversight register (relaxations, overrides, values that differ from the defaults) — CSV</span><span data-lng="fr">Télécharger le registre de supervision (assouplissements, dérogations, valeurs différentes du défaut) — CSV</span></a></p>
@@ -66,6 +67,7 @@
 </main>
 <script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/errorText.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/policiesRoles.js" defer></script>
 <script nonce="%%CSP_NONCE%%">
 (function () {
   'use strict';

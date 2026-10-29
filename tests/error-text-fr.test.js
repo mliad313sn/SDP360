@@ -25,6 +25,13 @@ test('session and handoff lifecycle messages are all translated', () => {
   add(HL.check(h, 'rejected', { id: 2, hasSite: true }, { reason: 'no' }));
   add(HL.check({ ...h, status: 'delivered', delivered_by: 2 }, 'verified', { id: 2, hasSite: true }));
   add(HL.check(h, 'accepted', { id: 2, hasSite: false }));
+  // ADR-006 / committee #34
+  add(HL.check({ ...h, status: 'delivered', delivered_by: 2 }, 'verified', { id: 5, hasSite: true, deputyFor: [1, 2] }));
+  add(HL.check({ ...h, receiver_contact: 'Chef maintenance' }, 'accepted', { id: 2, hasSite: true }));
+  add(HL.contactCheck('Chef', { 'handoffs.proxy_accept': false }));
+  const R = require('../services/governanceRoles');
+  add(R.validateDeputy({ user_id: 1, deputy_id: 1, start_date: '2026-10-01', end_date: '2026-10-02', reason: 'leave' }));
+  add(R.validateDeputy({ user_id: 1, deputy_id: 2, start_date: '2026-01-01', end_date: '2026-12-31', reason: 'leave' }));
   assert.ok(msgs.length >= 10);
   for (const m of msgs) assert.notEqual(ET.fr(m), m, `no French text for: ${m}`);
   assert.match(ET.fr('a reason (12+ characters) is required to cancel a session'), /12 caractères/);
