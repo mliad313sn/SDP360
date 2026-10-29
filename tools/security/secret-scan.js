@@ -29,7 +29,7 @@ function suspicious(rule, m) {
   if (rule.all) return true;
   const v = m[1] || '';
   if (!v || PLACEHOLDER_PREFIX.test(v) || PLACEHOLDER_WORD.test(v) || ALLOWED_VALUES.has(v)) return false;
-  if (/^[A-Z_]+$/.test(v) || /^[a-z][a-z0-9]*(_[a-z0-9]+)+$/.test(v)) return false;   // a variable / config-key name, not a value
+  if (/^[A-Z_]+$/.test(v) || /^[a-z][a-z0-9_]*_[a-z0-9]+$/.test(v)) return false;   // a variable / config-key name, not a value
   return true;
 }
 function scanText(file, text) {
