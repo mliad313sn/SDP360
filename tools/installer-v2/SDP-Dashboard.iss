@@ -104,7 +104,7 @@ en.BackupDir=Backup folder (ideally on another disk):
 en.Port=Local port (reached through IIS, never from the network):
 en.PgTitle=Database (PostgreSQL)
 en.PgSub=Server, database and application account
-en.PgText=The superuser password is used once, to create the application account and the database. It is never written to disk.
+en.PgText=Optional. Leave the superuser password blank: Setup reuses the previous SDP database account, or the 4MyPeople standard password. It is used once and never written to disk.
 en.PgEmbedded=Install PostgreSQL 17 on this server (recommended on a dedicated server)
 en.PgExisting=Use an existing PostgreSQL 13+ server
 en.PgHost=Server:
@@ -153,7 +153,7 @@ fr.BackupDir=Dossier des sauvegardes (idéalement sur un autre disque) :
 fr.Port=Port local (atteint par IIS, jamais depuis le réseau) :
 fr.PgTitle=Base de données (PostgreSQL)
 fr.PgSub=Serveur, base et compte applicatif
-fr.PgText=Le mot de passe du superutilisateur sert une seule fois, à créer le compte applicatif et la base. Il n'est jamais écrit sur le disque.
+fr.PgText=Facultatif. Laissez le mot de passe du superutilisateur vide : Setup réutilise le compte de base de l'ancien SDP, ou le mot de passe standard 4MyPeople. Il sert une seule fois et n'est jamais écrit sur le disque.
 fr.PgEmbedded=Installer PostgreSQL 17 sur ce serveur (recommandé sur un serveur dédié)
 fr.PgExisting=Utiliser un serveur PostgreSQL 13+ existant
 fr.PgHost=Serveur :
@@ -283,10 +283,19 @@ function GetPgHost(P: String): String; begin if UseEmbeddedPg then Result := 'lo
 function GetPgPort(P: String): String; begin Result := Trim(PgPage.Values[1]); end;
 function GetDbName(P: String): String; begin Result := Trim(PgPage.Values[2]); end;
 function GetDbUser(P: String): String; begin Result := Trim(PgPage.Values[3]); end;
+var GeneratedPgSuper: String;
+{ blank = optional: post-install finds the credentials itself (previous SDP .env, 4MyPeople config.psd1).
+  Only a PostgreSQL that THIS Setup installs needs one, and then a random one is generated. }
 function GetPgSuperPassword: String;
+var I: Integer;
 begin
   Result := PgPage.Values[4];
   if Result = '' then Result := GetEnv('SDP_SETUP_PGSUPERPASS');
+  if (Result = '') and UseEmbeddedPg then begin
+    if GeneratedPgSuper = '' then
+      for I := 1 to 32 do GeneratedPgSuper := GeneratedPgSuper + Copy('abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789', Random(56) + 1, 1);
+    Result := GeneratedPgSuper;
+  end;
 end;
 function GetSvcPassword: String;
 begin
@@ -405,9 +414,6 @@ begin
     P := StrToIntDef(GetPort(''), 0);
     if (P < 1024) or (P > 65535) then begin MsgBox(CustomMessage('PortBad'), mbError, MB_OK); Result := False; end;
   end;
-  if (CurPageID = PgPage.ID) and IsNew and (GetPgSuperPassword = '') then begin
-    MsgBox(CustomMessage('SuperNeeded'), mbError, MB_OK); Result := False;
-  end;
 end;
 
 function UpdateReadyMemo(Space, NewLine, MemoUserInfoInfo, MemoDirInfo, MemoTypeInfo, MemoComponentsInfo, MemoGroupInfo, MemoTasksInfo: String): String;
@@ -491,7 +497,6 @@ var Rc: Integer; Args, LogPath, Last: String;
 begin
   { the wizard's checks do not run in silent mode: enforce them here }
   if ('{#PackageSigned}' <> '1') and not UnsignedPage.Values[0] then RaiseException(CustomMessage('Unsigned') + ' (/ALLOWUNSIGNED=1)');
-  if IsNew and (GetPgSuperPassword = '') then RaiseException(CustomMessage('SuperNeeded') + ' (SDP_SETUP_PGSUPERPASS)');
   { a silent install never shows the folders page, which is where the data folder default is filled }
   if Trim(DirsPage.Values[0]) = '' then DirsPage.Values[0] := ExpandConstant('{app}\data');
   InstallEmbeddedPg;

@@ -36,10 +36,13 @@ test('no secret on a command line or in the script: passwords travel in the envi
   assert.ok(!/--pg-super|--password/i.test(code), 'post-install receives no password argument');
 });
 
-test('silent installs enforce the wizard checks (unsigned package, superuser password)', () => {
+test('silent installs enforce the unsigned check; the superuser password is optional (post-install finds credentials)', () => {
   const run = code.slice(code.indexOf('procedure RunPostInstall'));
   assert.match(run, /PackageSigned\}' <> '1'\) and not UnsignedPage\.Values\[0\] then RaiseException/);
-  assert.match(run, /IsNew and \(GetPgSuperPassword = ''\) then RaiseException/);
+  assert.doesNotMatch(code, /GetPgSuperPassword = ''\) then (RaiseException|begin\s+MsgBox)/, 'a blank superuser password must not block Setup');
+  const pi = require('fs').readFileSync(require('path').join(__dirname, '..', 'tools', 'installer-v2', 'post-install.js'), 'utf8');
+  assert.match(pi, /previousEnvFiles\(\)/, 'reuses the previous SDP database account');
+  assert.match(pi, /fourMyPeoplePassword\(\)/, 'falls back to the 4MyPeople standard password');
 });
 
 test('uninstall keeps data, .env, logs and backups unless asked, and removes the service first', () => {

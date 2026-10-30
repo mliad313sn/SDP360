@@ -111,14 +111,54 @@ function envDefaults() {
 }
 
 const ident = (s) => { if (!/^[a-z_][a-z0-9_]{0,62}$/i.test(String(s))) throw new Error(`not a valid PostgreSQL name: ${s}`); return String(s); };
-/** Role + database through the pg driver (from the freshly installed node_modules): no psql needed. */
+/** Candidate .env files of a previous SDP on this machine (the folder itself, then renamed copies `<dir>.old-*`). */
+function previousEnvFiles() {
+  const out = [];
+  if (process.env.SDP_SETUP_PREV_ENV) out.push(process.env.SDP_SETUP_PREV_ENV);
+  out.push(path.join(DIR, '.env'));
+  const parent = path.dirname(DIR), base = path.basename(DIR).toLowerCase();
+  try {
+    for (const n of fs.readdirSync(parent).sort().reverse()) {
+      const l = n.toLowerCase();
+      if (l !== base && l.startsWith(base) && /\.(old|bak|backup)/.test(l)) out.push(path.join(parent, n, '.env'));
+    }
+  } catch (_) {}
+  return out.filter((f, k) => out.indexOf(f) === k && fs.existsSync(f));
+}
+/** The 4MyPeople installer's standard superuser password (same lookup as tools/pg/provision-prod.js). Never logged. */
+function fourMyPeoplePassword() {
+  const c = [];
+  if (process.env.FMP_CONFIG_PSD1) c.push(process.env.FMP_CONFIG_PSD1);
+  if (process.env.TEMP) c.push(path.join(process.env.TEMP, '4MyPeople-Installer', 'config.psd1'));
+  try { for (const u of fs.readdirSync('C:\\Users')) c.push(path.join('C:\\Users', u, 'AppData', 'Local', 'Temp', '4MyPeople-Installer', 'config.psd1')); } catch (_) {}
+  for (const f of c) { try { const m = fs.readFileSync(f, 'utf8').match(/StandardPgSuperPassword\s*=\s*'([^']+)'/); if (m) return m[1]; } catch (_) {} }
+  return '';
+}
+/**
+ * Role + database through the pg driver (from the freshly installed node_modules): no psql needed.
+ * The superuser password is OPTIONAL. In order: (1) the application account of a previous SDP on this machine,
+ * reused as is when it can already open the database — no superuser at all; (2) the password typed in Setup /
+ * SDP_SETUP_PGSUPERPASS; (3) the 4MyPeople standard password; (4) no password (trust/peer). Returns the
+ * application password to write in .env.
+ */
 async function createDatabase(d) {
   const { Client } = require(path.join(DIR, 'node_modules', 'pg'));
   const host = arg('--pg-host', 'localhost'), port = Number(arg('--pg-port', '5432')), db = ident(arg('--db-name', 'sdp_dashboard')), user = ident(arg('--db-user', 'sdp_app'));
-  const superPass = process.env.SDP_SETUP_PGSUPERPASS || '';
-  if (!superPass) throw new Error('the PostgreSQL superuser password is required for a new installation');
-  const c = new Client({ host, port, user: 'postgres', password: superPass, database: 'postgres' });
-  await c.connect();
+  for (const f of previousEnvFiles()) {
+    let u; try { u = new URL(readEnv(f).PG_URL || ''); } catch (_) { continue; }
+    if (decodeURIComponent(u.username) !== user || u.pathname.slice(1) !== db) continue;
+    const pass = decodeURIComponent(u.password);
+    const c = new Client({ host, port, user, password: pass, database: db });
+    try { await c.connect(); await c.end(); log(`PostgreSQL: reusing the existing ${user} account and database ${db} of the previous installation (${f}) — no superuser needed`); return pass; }
+    catch (_) { try { await c.end(); } catch (__) {} }
+  }
+  const tries = [process.env.SDP_SETUP_PGSUPERPASS, fourMyPeoplePassword(), ''].filter((p, k, a) => p != null && a.indexOf(p) === k);
+  let c = null, last = null;
+  for (const pw of tries) {
+    const t = new Client({ host, port, user: 'postgres', password: pw, database: 'postgres' });
+    try { await t.connect(); c = t; break; } catch (e) { last = e; try { await t.end(); } catch (_) {} }
+  }
+  if (!c) throw new Error(`cannot create the database: no previous SDP account works and the PostgreSQL superuser login failed (${last && last.message}). Type the postgres password in Setup or set SDP_SETUP_PGSUPERPASS`);
   try {
     const lit = (s) => "'" + String(s).replace(/'/g, "''") + "'";
     const role = await c.query('SELECT 1 FROM pg_roles WHERE rolname = $1', [user]);
@@ -128,6 +168,7 @@ async function createDatabase(d) {
     if (!exists.rowCount) await c.query(`CREATE DATABASE "${db}" OWNER "${user}" ENCODING 'UTF8' TEMPLATE template0`);
     log(`PostgreSQL: role ${user} ${role.rowCount ? 'updated' : 'created'}, database ${db} ${exists.rowCount ? 'already there (kept)' : 'created'}`);
   } finally { await c.end(); }
+  return d._appPass;
 }
 
 function firewallRuleNames(port) { return { allow: `SDP Dashboard ${port} - loopback only`, block: `SDP Dashboard ${port} - block remote` }; }
@@ -261,7 +302,8 @@ async function main() {
     // 3 + 4 .env and database
     const d = envDefaults(); const { _appPass, ...wanted } = d;
     if (MODE === 'new' && !fs.existsSync(envFile)) {
-      await createDatabase(d);
+      const appPass = await createDatabase(d);
+      if (appPass !== d._appPass) wanted.PG_URL = wanted.PG_URL.replace(encodeURIComponent(d._appPass), encodeURIComponent(appPass));
       writeEnv(envFile, { ...wanted, SDP_SERVICE: serviceKind({}) });
       log('.env created — bootstrap admin "admin", its password is DASH_PASS in .env: change it at first sign-in');
     } else {
@@ -306,4 +348,4 @@ async function main() {
 }
 
 if (require.main === module) main();
-module.exports = { writeEnv, readEnv, setEnvValue, repairEnv, previousServiceKind, envDefaults, firewallCommands, firewallRuleNames, ident };
+module.exports = { previousEnvFiles, fourMyPeoplePassword, writeEnv, readEnv, setEnvValue, repairEnv, previousServiceKind, envDefaults, firewallCommands, firewallRuleNames, ident };
