@@ -64,6 +64,32 @@ function writeEnv(file, wanted) {
   return added;
 }
 
+/** Replace one key's value in place (the line is rewritten, everything else is kept). */
+function setEnvValue(file, key, value) {
+  const lines = fs.readFileSync(file, 'utf8').replace(/\r?\n$/, '').split(/\r?\n/);
+  const re = new RegExp('^\\s*' + key + '\\s*=');
+  let done = false;
+  const out = lines.map((l) => { if (!done && re.test(l)) { done = true; return `${key}=${value}`; } return l; });
+  if (!done) out.push(`${key}=${value}`);
+  fs.writeFileSync(file, out.join('\r\n') + '\r\n');
+}
+/**
+ * Values an older .env can carry that this version refuses to start with. Repaired BEFORE the service
+ * starts, never silently: a copy of the .env is kept and the log names the key (never its value).
+ * Today: DASHBOARD_API_KEY shorter than 32 characters (services/apiKey.js refuses it in production).
+ */
+function repairEnv(file, log) {
+  const have = readEnv(file); const fixed = [];
+  const { MIN_LENGTH } = require(path.join(ROOT, 'services', 'apiKey'));
+  if (have.DASHBOARD_API_KEY != null && have.DASHBOARD_API_KEY.length < MIN_LENGTH) {
+    const copy = `${file}.before-setup-${stamp}`;
+    if (!fs.existsSync(copy)) fs.copyFileSync(file, copy);
+    setEnvValue(file, 'DASHBOARD_API_KEY', crypto.randomBytes(32).toString('hex'));
+    fixed.push('DASHBOARD_API_KEY');
+    log(`.env: DASHBOARD_API_KEY was ${have.DASHBOARD_API_KEY.length} characters (minimum ${MIN_LENGTH}) — replaced with a new random key; previous .env kept as ${path.basename(copy)}. Any external tool that used the old key must be given the new one.`);
+  }
+  return fixed;
+}
 function envDefaults() {
   const dataDir = process.env.SDP_SETUP_DATADIR || path.join(DIR, 'data');
   const backupDir = process.env.SDP_SETUP_BACKUPDIR || path.join(path.dirname(DIR), 'SDP-Backups');
@@ -133,6 +159,11 @@ function serviceKind(env) {
   const j = spawnSync('pm2', ['jlist'], { encoding: 'utf8', shell: process.platform === 'win32' });
   try { if (j.status === 0 && JSON.parse(j.stdout || '[]').some((p) => p.name === (env.PM2_NAME || 'endeavour-dashboard'))) return 'pm2'; } catch (_) { /* no pm2 */ }
   return 'windows';
+}
+/** How the version already on disk was run: its own SDP_SERVICE, else pm2 (versions before the Windows service). */
+function previousServiceKind(env) {
+  if (env.SDP_SERVICE === 'windows' || env.SDP_SERVICE === 'pm2') return env.SDP_SERVICE;
+  return 'pm2';
 }
 function registerService(kind, env) {
   const S = require(path.join(ROOT, 'services', 'serviceControl'));
@@ -208,6 +239,9 @@ async function main() {
   const nodePath = [path.join(DIR, 'node_modules'), process.env.NODE_PATH].filter(Boolean).join(path.delimiter);
   const pkgZip = arg('--package', null);
   let undoDeps = null, applied = false;
+  // what was running BEFORE this Setup — a rollback must give back exactly that, not the new host
+  const envBefore = fs.existsSync(envFile) ? fs.readFileSync(envFile) : null;
+  const kindBefore = envBefore ? previousServiceKind(readEnv(envFile)) : null;
   try {
     // 1 dependencies
     const staged = arg('--node-modules', null);
@@ -232,6 +266,7 @@ async function main() {
       const have = readEnv(envFile);
       const added = writeEnv(envFile, { NODE_ENV: 'production', PORT, BIND_HOST: '127.0.0.1', SDP_BACKUP_DIR: wanted.SDP_BACKUP_DIR, DASHBOARD_API_KEY: wanted.DASHBOARD_API_KEY, SDP_SERVICE: serviceKind(have) });
       log(`.env kept${added.length ? ' — added ' + added.join(', ') : ''}`);
+      repairEnv(envFile, log);
       if (!have.SDP_CONFIG_KEY) log('note: SDP_CONFIG_KEY is not set — stored secrets stay unencrypted until it is (docs/ops/INSTALLATION.md)');
     }
     const env = readEnv(envFile);
@@ -252,11 +287,21 @@ async function main() {
       try { sh(process.execPath, [mgr, 'rollback', '--dir', DIR, '--no-restart'], { env: { NODE_PATH: nodePath }, shell: false }); } catch (e2) { log('rollback failed: ' + e2.message); }
     }
     if (undoDeps) undoDeps();
-    if (MODE !== 'new') { try { registerService(serviceKind(readEnv(envFile)), readEnv(envFile)); log('previous version restarted'); } catch (e3) { log('restart after rollback failed: ' + e3.message); } }
+    if (MODE !== 'new') {
+      try {
+        if (envBefore) { fs.writeFileSync(envFile, envBefore); log('.env restored to its state before this Setup'); }
+        const prevEnv = readEnv(envFile);
+        // an older installation ran under pm2 with the system Node.js: starting it with the Windows service
+        // (and the Node.js shipped with this Setup) fails on native modules built for another Node version
+        if (kindBefore === 'pm2' && fs.existsSync(SVC_EXE())) { try { sh(SVC_EXE(), ['uninstall'], { shell: false }); log('Windows service removed — the previous version runs under pm2'); } catch (e4) { log('service removal: ' + e4.message); } }
+        registerService(kindBefore || serviceKind(prevEnv), prevEnv);
+        log(`previous version restarted (${kindBefore || 'auto'})`);
+      } catch (e3) { log('restart after rollback failed: ' + e3.message); }
+    }
     try { fs.writeFileSync(path.join(DIR, 'logs', 'setup-last.json'), JSON.stringify({ ok: false, mode: MODE, at: new Date().toISOString(), error: e.message.slice(0, 500), log: LOG }, null, 2)); } catch (_) {}
     process.exit(1);
   }
 }
 
 if (require.main === module) main();
-module.exports = { writeEnv, readEnv, envDefaults, firewallCommands, firewallRuleNames, ident };
+module.exports = { writeEnv, readEnv, setEnvValue, repairEnv, previousServiceKind, envDefaults, firewallCommands, firewallRuleNames, ident };
