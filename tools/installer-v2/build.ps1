@@ -75,12 +75,20 @@ Step "2b prerequisites: PostgreSQL $PgVersion, IIS URL Rewrite, ARR (signatures 
 # Everything a blank server needs is carried by Setup: nothing is downloaded on the server.
 # Integrity = the vendors' Authenticode signatures (EnterpriseDB, Microsoft), checked here AND again on the server.
 function Get-Signed($url, $file, $signer) {
+  # a truncated / intercepted download fails the signature check: retry a fresh download (3 tries), never accept it unsigned
   $dst = Join-Path $cache $file
-  if (-not (Test-Path $dst)) { Write-Host "downloading $url"; Invoke-WebRequest $url -OutFile $dst -UseBasicParsing }
-  $sig = Get-AuthenticodeSignature $dst
-  if ($sig.Status -ne 'Valid' -or $sig.SignerCertificate.Subject -notmatch $signer) { Remove-Item $dst -Force; throw "$file : signature $($sig.Status) / $($sig.SignerCertificate.Subject) — refused" }
-  Write-Host ("{0} signed by {1}, sha256 {2}" -f $file, ($sig.SignerCertificate.Subject -replace ',.*$', ''), (Get-FileHash $dst -Algorithm SHA256).Hash.ToLower())
-  return $dst
+  for ($try = 1; $try -le 3; $try++) {
+    if (-not (Test-Path $dst)) { Write-Host "downloading $url (try $try)"; try { Invoke-WebRequest $url -OutFile $dst -UseBasicParsing } catch { Write-Host "download failed: $($_.Exception.Message)" } }
+    $sig = if (Test-Path $dst) { Get-AuthenticodeSignature $dst } else { $null }
+    if ($sig -and $sig.Status -eq 'Valid' -and $sig.SignerCertificate.Subject -match $signer) {
+      Write-Host ("{0} signed by {1}, sha256 {2}" -f $file, ($sig.SignerCertificate.Subject -replace ',.*$', ''), (Get-FileHash $dst -Algorithm SHA256).Hash.ToLower())
+      return $dst
+    }
+    $why = if ($sig) { "$($sig.Status) / $($sig.SignerCertificate.Subject)" } else { 'not downloaded' }
+    Remove-Item $dst -Force -ErrorAction SilentlyContinue
+    if ($try -lt 3) { Write-Host "$file : signature $why - retrying in $(10 * $try) s"; Start-Sleep -Seconds (10 * $try) }
+    else { throw "$file : signature $why - refused after 3 downloads" }
+  }
 }
 $prereq = Join-Path $payload 'prereq'
 New-Item -ItemType Directory -Force -Path $prereq | Out-Null
