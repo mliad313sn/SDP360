@@ -147,7 +147,7 @@
         for (const s of data.sites) $('gpScope').add(new Option('Site — ' + s.name, 'site:' + s.id));
       }
       renderHier();
-      render(); loadProposals(); if (typeof profileBar === 'function') profileBar();
+      render(); loadProposals(); profileBar();
       const h = await api('GET', '/api/governance/policies/history');
       $('gpHist').innerHTML = h.history.map((x) => `<tr><td>${esc(String(x.at).slice(0, 16).replace('T', ' '))}</td><td>${esc(x.scope)}</td><td class="gp-key">${esc(x.key)}${x.relaxes ? `<span class="gp-tag">${t().relaxed}</span>` : ''}</td><td>${esc(fmt(x.old_value === null ? undefined : x.old_value))} → ${esc(fmt(x.new_value === null ? undefined : x.new_value))}</td><td>${esc(x.actor)}${x.proposer && x.approver ? `<div class="gp-src">${esc(x.proposer)} → ${esc(x.approver)}</div>` : ''}</td><td>${esc(x.reason)}</td></tr>`).join('') || '<tr><td colspan="6" class="gp-muted">—</td></tr>';
     } catch (e) { msg(e.message); }
