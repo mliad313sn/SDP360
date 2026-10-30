@@ -80,7 +80,9 @@ function setEnvValue(file, key, value) {
  */
 function repairEnv(file, log) {
   const have = readEnv(file); const fixed = [];
-  const { MIN_LENGTH } = require(path.join(ROOT, 'services', 'apiKey'));
+  // the bootstrap copy Setup runs from carries no services/ — read the rule from the installed app, else 32
+  let MIN_LENGTH = 32;
+  for (const base of [DIR, ROOT]) { try { MIN_LENGTH = require(path.join(base, 'services', 'apiKey')).MIN_LENGTH || 32; break; } catch (_) {} }
   if (have.DASHBOARD_API_KEY != null && have.DASHBOARD_API_KEY.length < MIN_LENGTH) {
     const copy = `${file}.before-setup-${stamp}`;
     if (!fs.existsSync(copy)) fs.copyFileSync(file, copy);
