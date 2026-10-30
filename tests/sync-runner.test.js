@@ -150,6 +150,6 @@ test('scrub removes tokens and keys from error text', () => {
 
 test('run() rejects a job without name or fetch', async () => {
   const { r } = runner();
-  await assert.rejects(() => r.run({ name: 'x' }), TypeError);
-  await assert.rejects(() => r.run({ fetch: async () => ({}) }), TypeError);
+  await assert.rejects(async () => r.run({ name: 'x' }), TypeError);
+  await assert.rejects(async () => r.run({ fetch: async () => ({}) }), TypeError);
 });

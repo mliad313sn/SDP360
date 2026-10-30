@@ -11,10 +11,8 @@ const _os = require('os'), _fs = require('fs'), _path = require('path');
 // doesn't drag the harness onto the (uninitialised) PG adapter. Set BEFORE any
 // require of server/reports-db, and before dotenv (which never overrides an
 // already-set process.env var).
-process.env.REPORTS_BACKEND = 'sqlite';
 // Same rationale for meetings: the /recipients/suggest test seeds a PV straight
 // into the sqlite meetings.db, so meetings-db must be on its sqlite fork.
-process.env.MEETINGS_BACKEND = 'sqlite';
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'reporting-smoke-'));
 process.env.DASH_USER = process.env.DASH_USER || 'reporting-smoke-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'reporting-smoke-pass-0000';
@@ -37,9 +35,9 @@ before(async () => {
   // The default-admin seed only sets the legacy users.role column; grant the
   // 'admin' role in the user_roles table so requireAdmin (which reads via
   // userHasRole → user_roles) recognises the account.
-  const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
+  const me = ((await rdb.listUsers()) || []).find(u => u.username === process.env.DASH_USER);
   assert.ok(me, 'seeded admin user exists');
-  rdb.setUserRoles(me.id, ['super_admin']);   // the routes under test are super_admin-gated (admin settings → super_admin since 5e2f40e / 2026-08-16; IT Review → executive since 7162ac7)
+  (await rdb.setUserRoles(me.id, ['super_admin']));   // the routes under test are super_admin-gated (admin settings → super_admin since 5e2f40e / 2026-08-16; IT Review → executive since 7162ac7)
   const sess = await rdb.login(process.env.DASH_USER, process.env.DASH_PASS);
   assert.ok(sess && sess.token, 'login seeded admin + returned a token');
   assert.ok(((sess.user && sess.user.roles) || []).includes('super_admin'), 'session carries super_admin role');
@@ -52,11 +50,11 @@ before(async () => {
   // 6-month window always covers them.
   const mdb = require('../meetings-db').getDB();
   const today = new Date().toISOString().slice(0, 10);
-  const ins = mdb.prepare(`INSERT OR IGNORE INTO md_meetings
+  const ins = mdb.prepare(`INSERT INTO md_meetings
     (reference, site_code, department, meeting_date, department_head, site_it_lead, status)
-    VALUES (?, ?, ?, ?, ?, ?, 'signed')`);
-  ins.run(`HGO_maintenance_PV_${today}`, 'HGO', 'maintenance', today, 'Ops Head', 'Jean Traore');
-  ins.run(`HGO_finance_PV_${today}`, 'HGO', 'finance', today, 'Marie Kone', 'Jean Traore');
+    VALUES (?, ?, ?, ?, ?, ?, 'signed') ON CONFLICT DO NOTHING`);
+  (await ins.run(`HGO_maintenance_PV_${today}`, 'HGO', 'maintenance', today, 'Ops Head', 'Jean Traore'));
+  (await ins.run(`HGO_finance_PV_${today}`, 'HGO', 'finance', today, 'Marie Kone', 'Jean Traore'));
 
   await new Promise(r => { server = http.createServer(app).listen(0, '127.0.0.1', r); });
   base = `http://127.0.0.1:${server.address().port}`;

@@ -22,10 +22,11 @@ const U = (n) => `2f1e4c3a-9b7d-4e21-a3f5-0c8d1e2f3a${String(n).padStart(2, '0')
 
 before(async () => {
   const { app } = require('../server');
+  await require('../server').seedStores();
   rdb = require('../reports-db'); idb = require('../inspection-db');
   const tdb = require('../tracker-db');
-  for (let i = 0; i < 60; i++) { if (rdb.db.prepare("SELECT 1 FROM sqlite_master WHERE name='field_outbox'").get() && tdb.getDB().prepare("SELECT 1 FROM sqlite_master WHERE name='tracker_definitions'").get() && rdb.db.prepare("SELECT 1 FROM sqlite_master WHERE name='dashboard_definitions'").get()) break; await new Promise(r => setTimeout(r, 100)); }
-  const sites = rdb.listSites({ includeInactive: true });
+  for (let i = 0; i < 60; i++) { if ((await rdb.db.prepare("SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'field_outbox'").get()) && (await tdb.getDB().prepare("SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'tracker_definitions'").get()) && (await rdb.db.prepare("SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'dashboard_definitions'").get())) break; await new Promise(r => setTimeout(r, 100)); }
+  const sites = (await rdb.listSites({ includeInactive: true }));
   hounde = sites.find((s) => /hounde/i.test(s.name)); const mana = sites.find((s) => /mana/i.test(s.name));
   const mk = async (u, role, roles, site) => { try { await rdb.createUser({ username: u, full_name: u, password: u + 'pass1234', role, roles, site_id: site }); } catch {} return (await rdb.login(u, u + 'pass1234')).token; };
   admin = await mk('fd_admin', 'admin', ['admin']); tech = await mk('fd_tech', 'viewer', ['viewer', 'field-tech'], hounde.id); other = await mk('fd_other', 'editor', ['editor'], mana.id); viewer = await mk('fd_viewer', 'viewer', ['viewer'], hounde.id);
@@ -72,9 +73,13 @@ test('photo upload: over cap 400, chunks → complete → blob ref; inspection e
   assert.equal((await send('POST', `/api/field/uploads/${up.id}/complete`, tech)).status, 400, 'cannot complete with chunks missing');
   assert.equal((await get(`/api/field/uploads/${up.id}`, other)).status, 404, 'another user cannot see it');
   for (const i of [1, 0]) { const c = await (await send('PUT', `/api/field/uploads/${up.id}/chunks/${i}`, tech, { data: bytes.subarray(i * up.chunk_bytes, (i + 1) * up.chunk_bytes).toString('base64') })).json(); assert.equal(c.ok, true); }
-  const done = await (await send('POST', `/api/field/uploads/${up.id}/complete`, tech)).json(); assert.equal(done.upload.status, 'done'); assert.match(done.upload.ref, /^inspection\//);
+  const done = await (await send('POST', `/api/field/uploads/${up.id}/complete`, tech)).json(); assert.equal(done.upload.status, 'done'); assert.match(done.upload.ref, /^field\/u\d+\/\d+-[0-9a-f-]{36}\./, 'stored under a server-chosen name, never the client owner_id / name');
   assert.equal((await (await send('POST', `/api/field/uploads/${up.id}/complete`, tech)).json()).duplicate, true);
   const meta = { f_id: 'EM-IT-20261019-0001', f_site: `${hounde.name} (HGO)`, f_date: '2026-10-19', f_area: 'dc', f_inspector: 'Tech', f_type: 'routine' };
+  const notMine = await put(14, tech, { kind: 'inspection', author: 'somebody-else', payload: { meta: { ...meta, f_id: 'EM-IT-20261019-0004' }, items: {} } });
+  assert.equal(notMine.status, 403, 'an entry recorded by another person is not applied under this session');
+  const forged = await put(13, tech, { kind: 'inspection', payload: { meta: { ...meta, f_id: 'EM-IT-20261019-0003' }, items: { 'net-04': { status: 'ok', photos: [{ __blob: 'inspection/EM-IT-OTHER/sig-inspector.png' }] } } } });
+  assert.equal(forged.status, 400, 'a phone cannot name a stored file');
   const inline = await put(10, tech, { kind: 'inspection', payload: { meta, items: { net__0: { status: 'ok', photos: [{ dataUrl: 'data:image/jpeg;base64,QUJD' }] } } } });
   assert.equal(inline.status, 400, 'inline data URLs are refused on the field path');
   const ok = await (await put(11, tech, { kind: 'inspection', payload: { meta, items: { net__0: { status: 'major', notes: 'hot', photos: [{ upload_id: up.id, caption: 'rack' }] } }, actions: [], status: 'submitted' } })).json();

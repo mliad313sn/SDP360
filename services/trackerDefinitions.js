@@ -37,6 +37,7 @@ function validate(def) {
   if (!PERIOD_KINDS[p.kind]) E('period.kind', `kind must be one of ${Object.keys(PERIOD_KINDS).join(', ')}`);
   if (!(Number.isInteger(p.count) && p.count >= 1 && p.count <= (PERIOD_KINDS[p.kind] || 53)))
     E('period.count', 'count must be an integer between 1 and the number of periods in a year');
+  // eslint-disable-next-line security/detect-unsafe-regex -- reviewed (consolidation 2026-10-28): anchored, fixed-width optional groups
   if (p.start != null && !/^\d{4}(-\d{2})?(-W\d{2})?$/.test(String(p.start))) E('period.start', 'start must look like 2027, 2027-01 or 2027-W01');
 
   if (!Array.isArray(def.units) || !def.units.length) E('units', 'at least one unit (site/team) is required');

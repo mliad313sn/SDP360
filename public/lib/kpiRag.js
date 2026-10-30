@@ -41,6 +41,7 @@
     'site-composite':    { scale: 'points', green: 75,   amber: 55,   source: 'services/siteComposite.js + siteScoreboard.js' },
     'sla-percent':       { scale: 'points', green: 90,   amber: 70,   source: 'docs/EXEC_PPTX_CHART_AUDIT.md CSAT bands' },
     'tracker-boolean':   { scale: 'ratio',  green: 1.0,  amber: 0.5,  source: 'engine.js BOOLEAN done / in progress' },
+    'kpi-target':        { scale: 'target-ratio', green: 1.0, amber: 0.9, source: 'services/kpiTargets.js — value vs the per-site KPI target (committee #40)' },
   };
 
   function aggregate(values, type) {

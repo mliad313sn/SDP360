@@ -1115,7 +1115,7 @@ W.defaults=O.defaults;window.Chart=W;});
     document.querySelectorAll('#saLangToggle button').forEach(b => {
       b.classList.toggle('active', b.dataset.lang === lang);
     });
-    try { localStorage.setItem(LANG_KEY, lang); } catch (_) {}
+    try { localStorage.setItem(LANG_KEY, lang); localStorage.setItem('sdp_lang', lang); } catch (_) {}
     // Re-render JS-built surfaces in the new language, WITHOUT re-fetching.
     renderTabs();
     if (current === 'fleet' && window._saLastFleet) renderFleet(window._saLastFleet);
@@ -1128,7 +1128,7 @@ W.defaults=O.defaults;window.Chart=W;});
   // Boot from localStorage if set, else default FR.
   (function _initLang() {
     let stored = 'fr';
-    try { stored = localStorage.getItem(LANG_KEY) || 'fr'; } catch (_) {}
+    try { stored = localStorage.getItem('sdp_lang') || localStorage.getItem(LANG_KEY) || 'fr'; } catch (_) {}
     setLang(stored === 'en' ? 'en' : 'fr');
   })();
 

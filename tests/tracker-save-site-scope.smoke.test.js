@@ -31,12 +31,12 @@ before(async () => {
   const { app } = require('../server');
   rdb = require('../reports-db');
   // The boot seed may already carry a site of that name (it does for "Hounde").
-  const site = (n, g) => {
-    if (!rdb.listSites().some(s => s.name === n)) rdb.createSite({ name: n, zoho_group: g });
-    return rdb.listSites().find(s => s.name === n);
+  const site = async (n, g) => {
+    if (!(await rdb.listSites()).some(s => s.name === n)) (await rdb.createSite({ name: n, zoho_group: g }));
+    return (await rdb.listSites()).find(s => s.name === n);
   };
-  const hounde  = site('Hounde', 'Hounde IT Agents');
-  const nowhere = site('Nowhere Mine', 'Nobody IT Agents');
+  const hounde  = (await site('Hounde', 'Hounde IT Agents'));
+  const nowhere = (await site('Nowhere Mine', 'Nobody IT Agents'));
   const mk = async (username, roles, site_id) => {
     await rdb.createUser({ username, full_name: username, password: username + '-0000', roles, site_id });
     return (await rdb.login(username, username + '-0000')).token;

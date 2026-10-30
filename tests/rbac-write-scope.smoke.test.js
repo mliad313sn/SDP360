@@ -30,7 +30,7 @@ const post = (path, t, body) => fetch(base + path, { method: 'POST', headers: H(
 before(async () => {
   const { app } = require('../server');
   rdb = require('../reports-db');
-  const sites = rdb.listSites() || [];
+  const sites = (await rdb.listSites()) || [];
   assert.ok(sites.length >= 2, 'two seeded sites');
   siteA = sites[0]; siteB = sites[1];
   const mk = async (username, roles, site_id) => {

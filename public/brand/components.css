@@ -215,7 +215,7 @@
 /* ── Step 6 — dashboard composer / viewer widgets (design-system extension) ─────────────
    Densities: .edv-dash[data-density=compact|comfortable]; phones collapse the 12-column grid
    to one column (field audience). Colours come from _tokens.css; RAG uses the dashboard
-   palette already used by the tracker (#27AE60 / #E8A100 / #DC2626), never brand red. */
+   palette (--rag-* tokens in _tokens.css, AA non-text contrast), never brand red. */
 .edv-dash { display:grid; grid-template-columns:repeat(12, minmax(0,1fr)); grid-auto-rows:minmax(64px, auto); gap:var(--space-3,12px); }
 .edv-dash[data-density="compact"] { gap:8px; grid-auto-rows:minmax(52px, auto); }
 .edv-widget { background:var(--color-surface,#fff); border:1px solid var(--color-border,#e4e8ee); border-radius:12px; padding:12px 14px; min-width:0; display:flex; flex-direction:column; }
@@ -224,11 +224,21 @@
 .edv-widget .edv-asof { margin-top:auto; font-size:11px; color:var(--color-text-muted,#6b7785); }
 .edv-kpi-value { font-size:30px; font-weight:700; line-height:1.1; font-variant-numeric:tabular-nums; color:var(--edv-slate,#3A4A60); }
 .edv-kpi-sub { font-size:12px; color:var(--color-text-muted,#6b7785); margin-top:4px; }
-.edv-rag-dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; vertical-align:middle; background:#b6bdc7; }
-.rag-green .edv-rag-dot, .edv-rag-dot.rag-green { background:#27AE60; } .rag-amber .edv-rag-dot, .edv-rag-dot.rag-amber { background:#E8A100; }
-.rag-red .edv-rag-dot, .edv-rag-dot.rag-red { background:#DC2626; } .rag-na .edv-rag-dot, .edv-rag-dot.rag-na { background:#b6bdc7; }
-.edv-widget.rag-green { border-top:4px solid #27AE60; } .edv-widget.rag-amber { border-top:4px solid #E8A100; }
-.edv-widget.rag-red { border-top:4px solid #DC2626; } .edv-widget.rag-na { border-top:4px solid #cfd6e0; }
+.edv-rag-dot { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; border-radius:50%; margin-right:6px; vertical-align:middle;
+  background:var(--rag-na,#9AA4B2); color:#fff; font-size:10px; font-weight:800; line-height:1; flex:0 0 16px; }
+.rag-green .edv-rag-dot, .edv-rag-dot.rag-green { background:var(--rag-green,#1E7B45); } .rag-amber .edv-rag-dot, .edv-rag-dot.rag-amber { background:var(--rag-amber,#B45309); }
+.rag-red .edv-rag-dot, .edv-rag-dot.rag-red { background:var(--rag-red,#B91C1C); } .rag-na .edv-rag-dot, .edv-rag-dot.rag-na { background:var(--rag-na,#9AA4B2); }
+.edv-widget.rag-green { border-top:4px solid var(--rag-green,#1E7B45); } .edv-widget.rag-amber { border-top:4px solid var(--rag-amber,#B45309); }
+.edv-widget.rag-red { border-top:4px solid var(--rag-red,#B91C1C); } .edv-widget.rag-na { border-top:4px solid #cfd6e0; }
+/* "not measured" is quiet, never mistaken for a value (design review R5) */
+.edv-widget.edv-quiet { border-top:1px solid var(--color-border,#e4e8ee); background:#fafbfc; }
+.edv-widget.edv-quiet .edv-kpi-value { color:#6b7785; font-weight:600; }
+.edv-ragline .bar-none { background:transparent; border:1px dashed #d7dde5; }
+.edv-unmeasured summary { cursor:pointer; font-size:12px; color:var(--color-text-muted,#6b7785); padding:6px 0; }
+.edv-widget canvas { max-height:220px; }
+.edv-kpi-context { font-size:12px; margin-top:4px; font-variant-numeric:tabular-nums; }
+.edv-target { font-weight:600; } .edv-target.rag-green { color:var(--rag-green,#1E7B45); } .edv-target.rag-amber { color:var(--rag-amber,#B45309); } .edv-target.rag-red { color:var(--rag-red,#B91C1C); } .edv-target.rag-na { color:#6b7785; }
+.edv-delta.good { color:var(--rag-green,#1E7B45); } .edv-delta.bad { color:var(--rag-red,#B91C1C); } .edv-delta.flat { color:#6b7785; }
 .edv-ragline { display:flex; align-items:center; gap:10px; padding:6px 0; border-top:1px solid #f0f2f5; font-size:13px; }
 .edv-ragline:first-child { border-top:0; } .edv-ragline .n { margin-left:auto; font-variant-numeric:tabular-nums; font-weight:600; }
 .edv-ragline .bar { flex:0 0 120px; height:6px; background:#eef1f5; border-radius:3px; overflow:hidden; } .edv-ragline .bar i { display:block; height:100%; background:#3A4A60; }
@@ -247,3 +257,8 @@
   .edv-kpi-value { font-size:26px; }
 }
 @media (prefers-reduced-motion: reduce) { .edv-widget { transition:none; } }
+
+/* G-design review: a stale source keeps its number, loses its colour, and says so */
+.edv-widget.edv-stale { border-top:3px dashed #9AA4B2; }
+.edv-stale-badge { display:inline-block; margin:4px 0 2px; padding:2px 8px; border-radius:10px; background:#F1F3F5; color:#4A5563; font-size:12px; }
+.edv-rag-dot.rag-stale { background:#E5E7EB; color:#4A5563; }

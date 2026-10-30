@@ -77,7 +77,7 @@ test('apply is all-or-nothing: a failure leaves every account unchanged', async 
     const ids = await seed(c);
     const plan = planDemotion(await readUsers(c));
     plan.push({ id: 999999, username: 'ghost', before: ['admin'], after: ['not-a-real-role-' + 'x'.repeat(300)] });
-    await assert.rejects(() => applyPlan(c, plan));
+    await assert.rejects(async () => applyPlan(c, plan));
     assert.deepEqual(await rolesOf(c, ids.hounde), ['admin', 'report-author', 'tracker-editor'], 'rolled back');
     assert.equal((await identityLog(c)).length, 0, 'nothing journaled when nothing changed');
   } finally { await c.end(); await dropTestDb(ctx); }

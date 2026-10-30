@@ -17,7 +17,7 @@ function _createdMs(r) {
   const n = Number(v);
   return Number.isFinite(n) && n > 0 ? n : null;
 }
-let _axios = null;
+
 function _defaultTransport(allowHosts) {
   // M4 — the real transport validates every URL (https, no private address unless allow-listed), maxRedirects:0.
   const S = require('./safeUrl');

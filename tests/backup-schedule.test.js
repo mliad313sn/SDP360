@@ -72,8 +72,8 @@ test('setSchedule enabled=false sends -Schedule -Disable', async () => {
 });
 
 test('setSchedule validates time formats', async () => {
-  await assert.rejects(() => bs.setSchedule({ daily: '2 pm', weeklyDay: 'SUN', weeklyTime: '03:00', enabled: true }), /invalid/i);
-  await assert.rejects(() => bs.setSchedule({ daily: '02:00', weeklyDay: 'FUNDAY', weeklyTime: '03:00', enabled: true }), /invalid/i);
+  await assert.rejects(async () => bs.setSchedule({ daily: '2 pm', weeklyDay: 'SUN', weeklyTime: '03:00', enabled: true }), /invalid/i);
+  await assert.rejects(async () => bs.setSchedule({ daily: '02:00', weeklyDay: 'FUNDAY', weeklyTime: '03:00', enabled: true }), /invalid/i);
 });
 
 test('backupNow runs -Backup [-DbOnly] and returns output', async () => {

@@ -332,35 +332,11 @@ const DEFAULT_SITE_ALIASES = Object.freeze({
 // lazily in _seedConfigPg, so no load-time cycle); otherwise use the injected sqlite `db`.
 function _h(db) {
   const rdb = require('./reports-db');
-  if (rdb.REPORTS_BACKEND === 'postgres') return { H: rdb.pgHandle(), isPg: true };
-  return { H: db, isPg: false };
+  return { H: rdb.pgHandle(), isPg: true };
 }
 
 async function _initConfigSchema(db) {
-  if (_h(db).isPg) return;   // pg: schema via 002_config.sql, seed via reports-db _seedConfigPg
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS rr_site_aliases (
-      sdp_label  TEXT PRIMARY KEY,
-      code       TEXT NOT NULL,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_by TEXT
-    );
-  `);
-  // Seed if empty. Idempotent — re-running on a populated table is a
-  // no-op (sqlite ignores inserts that violate the PK).
-  const { c } = db.prepare('SELECT COUNT(*) c FROM rr_site_aliases').get();
-  if (c === 0) {
-    const ins = db.prepare(
-      'INSERT INTO rr_site_aliases (sdp_label, code, updated_by) VALUES (?, ?, ?)'
-    );
-    const seed = db.transaction(() => {
-      for (const [label, code] of Object.entries(DEFAULT_SITE_ALIASES)) {
-        ins.run(label, code, '_system');
-      }
-    });
-    seed();
-    console.log(`[risk-register] seeded rr_site_aliases with ${Object.keys(DEFAULT_SITE_ALIASES).length} default mappings`);
-  }
+  return;
 }
 
 // Read the live alias map from the DB. Falls back to the baked-in

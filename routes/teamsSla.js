@@ -20,7 +20,7 @@ module.exports = function teamsSlaRoutes(deps) {
     const since = new Date(Date.now() - 90 * 86400000).toISOString().slice(0, 10);
     const SQL = `SELECT DISTINCT tech_group AS g FROM request_records
                   WHERE tech_group IS NOT NULL AND tech_group <> '' AND substr(created_time, 1, 10) >= ?`;
-    const H = rdb.REPORTS_BACKEND === 'postgres' ? rdb.pgHandle() : rdb.db;
+    const H = (rdb.pgHandle());
     const rows = await H.prepare(SQL).all(since);
     return [...new Set(rows.flatMap(r => String(r.g).split(',').map(s => s.trim())).filter(Boolean))].sort();
   }

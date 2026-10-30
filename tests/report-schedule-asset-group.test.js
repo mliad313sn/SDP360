@@ -5,10 +5,9 @@
 // tests/report-schedule-hygiene.test.js.
 const test = require('node:test');
 const assert = require('node:assert');
-const Database = require('better-sqlite3');
 const rs = require('../services/reportSchedule');
 
-function freshDb() { const db = new Database(':memory:'); rs._initSchema(db); return db; }
+async function freshDb() { return require('./_pg-fresh').fresh(['report_schedules']); }
 
 test('cliFor maps asset_group → send-asset-group.js, coordinator → send-reports.js', () => {
   assert.ok(rs.cliFor('asset_group').endsWith('send-asset-group.js'));
@@ -17,7 +16,7 @@ test('cliFor maps asset_group → send-asset-group.js, coordinator → send-repo
 });
 
 test('setSchedule accepts report_type=asset_group (TYPES includes it)', async () => {
-  const db = freshDb();
+  const db = (await freshDb());
   let captured = null;
   const r = await rs.setSchedule(
     db,
@@ -28,7 +27,7 @@ test('setSchedule accepts report_type=asset_group (TYPES includes it)', async ()
   assert.strictEqual(r.ok, true);
   assert.ok(captured, 'runTask was invoked');
   assert.strictEqual(captured.report_type, 'asset_group');
-  const row = rs.getSchedules(db).find(x => x.report_type === 'asset_group' && x.cadence === 'monthly');
+  const row = (await rs.getSchedules(db)).find(x => x.report_type === 'asset_group' && x.cadence === 'monthly');
   assert.ok(row, 'asset_group row persisted');
   assert.strictEqual(row.enabled, 1);
 });

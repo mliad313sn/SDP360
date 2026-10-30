@@ -12,6 +12,10 @@
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/dashboardRender.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/i18nText.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/cockpit-fr.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/errorText.js"></script>
 <style nonce="%%CSP_NONCE%%">
   body { margin:0; background:var(--color-background,#f4f6f7); color:#1F2A33; font-family:var(--font-sans,"Libre Franklin",system-ui,sans-serif); font-size:14px; }
   .wrap { max-width:1360px; margin:0 auto; padding:24px; }
@@ -26,14 +30,16 @@
   .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; color:#fff; background:#6b7785; } .pill.GREEN,.pill.done,.pill.delivered,.pill.accepted,.pill.on_track{background:#27AE60} .pill.AMBER,.pill.in_progress,.pill.triaged,.pill.scheduled,.pill.live,.pill.at_risk{background:#E8A100} .pill.RED,.pill.rejected,.pill.late,.pill.blocked{background:#DC2626} .pill.NA,.pill.open,.pill.submitted,.pill.planned,.pill.todo{background:#3A4A60}
   #msg .errors { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; border-radius:10px; padding:8px 12px; font-size:12.5px; } #msg .ok { background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; border-radius:10px; padding:8px 12px; font-size:12.5px; }
   .muted { color:#6b7785; font-size:12px; } .scroll { overflow:auto; } .sr-only { position:absolute; left:-9999px; }
-  .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; } .tile { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:10px 12px; } .tile .tn { font-size:22px; font-weight:700; color:#3A4A60; } .tile .tl { font-size:12px; color:#6b7785; }
-  .live { position:fixed; inset:0; background:#fff; z-index:50; overflow:auto; padding:24px; } .live .item { border:1px solid #e4e8ee; border-radius:12px; padding:12px 14px; margin-bottom:10px; } .live .item.active { border-color:#3A4A60; box-shadow:0 0 0 2px #3A4A6033; } .clock { font-variant-numeric:tabular-nums; font-size:18px; font-weight:700; color:#3A4A60; } .kpi { display:inline-block; min-width:140px; margin:4px 8px 4px 0; padding:6px 10px; border:1px solid #e4e8ee; border-radius:10px; }
+  .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:14px; } .tile { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:10px 12px; } .tile .tn { font-size:22px; font-weight:700; color:#3A4A60; } .tile .tl { font-size:12px; color:#6b7785; }
+  .lang { float:right; } .lang button[aria-pressed="true"] { background:#1F2A33; color:#fff; } .draft { color:#8a5a00; font-size:12px; }
+  .live { position:fixed; inset:0; background:#fff; z-index:2000; overflow:auto; padding:24px; } .live .item { border:1px solid #e4e8ee; border-radius:12px; padding:12px 14px; margin-bottom:10px; } .live .item.active { border-color:#3A4A60; box-shadow:0 0 0 2px #3A4A6033; } .clock { font-variant-numeric:tabular-nums; font-size:18px; font-weight:700; color:#3A4A60; } .kpi { display:inline-block; min-width:140px; margin:4px 8px 4px 0; padding:6px 10px; border:1px solid #e4e8ee; border-radius:10px; }
 </style>
 </head>
 <body>
 <a class="edv-skip" href="#main">Skip to content</a>
 <div id="__shell" data-section="operations" data-current="cockpit"></div>
 <main id="main" class="wrap">
+  <div class="lang" role="group" aria-label="Language / Langue"><button class="btn" type="button" id="lgEn" aria-pressed="true">EN</button><button class="btn" type="button" id="lgFr" aria-pressed="false">FR</button></div>
   <h1>Meeting Cockpit</h1>
   <div class="sub">Cadences → generated agenda → full-screen session with timestamps, decisions (DEC-) and actions → automatic minutes (help §25).</div>
   <div id="msg" role="status" aria-live="polite"></div>
@@ -43,10 +49,10 @@
       <details id="cadForm" hidden><summary class="btn">New / edit cadence</summary>
         <div class="row" style="margin-top:8px">
           <label>Key <input id="c-key" placeholder="hgo-weekly"></label><label>Name <input id="c-name"></label>
-          <label>Kind <select id="c-kind"><option>site_weekly</option><option>site_monthly</option><option>group_monthly</option><option>committee</option><option>cab</option><option>custom</option></select></label>
+          <label>Kind <select id="c-kind"><option value="site_weekly">site_weekly</option><option value="site_monthly">site_monthly</option><option value="group_monthly">group_monthly</option><option value="committee">committee</option><option value="cab">cab</option><option value="custom">custom</option></select></label>
           <label>Site <select id="c-site"><option value="">fleet / group</option></select></label>
-          <label>Weekday (1 = Mon) <input id="c-weekday" type="number" min="1" max="7"></label><label>Time <input id="c-time" placeholder="09:00"></label><label>Duration (min) <input id="c-dur" type="number" value="60"></label>
-          <label>Chair (user id) <input id="c-chair" type="number"></label><label>Secretary (user id) <input id="c-sec" type="number"></label>
+          <label>Weekday <select id="c-weekday"><option value="">—</option><option value="1">Monday</option><option value="2">Tuesday</option><option value="3">Wednesday</option><option value="4">Thursday</option><option value="5">Friday</option><option value="6">Saturday</option><option value="7">Sunday</option></select></label><label>Time <input id="c-time" placeholder="09:00"></label><label>Duration (min) <input id="c-dur" type="number" value="60"></label>
+          <label>Chair <select id="c-chair"><option value="">—</option></select></label><label>Secretary <select id="c-sec"><option value="">—</option></select></label>
           <label style="grid-column:1/-1">Participants (one per line, e-mail for minutes) <textarea id="c-part" rows="3"></textarea></label>
         </div><div class="bar"><button class="btn primary" id="c-save" type="button">Save cadence</button></div></details></div>
     <div class="panel"><h2>Sessions</h2><div class="scroll" id="sessions"></div></div>
@@ -54,7 +60,7 @@
   <div class="panel"><h2>Open decisions</h2><div class="scroll" id="decisions"></div></div>
   <section id="live" class="live" hidden aria-label="Live session">
     <div class="bar"><span class="clock" id="clock">00:00</span><b id="l-title"></b><span class="muted" id="l-meta"></span><span style="flex:1"></span>
-      <button class="btn" id="l-start" type="button">Start session</button><button class="btn primary" id="l-close" type="button">Close &amp; generate minutes</button><a class="btn" id="l-minutes" href="#" target="_blank" rel="noopener">Minutes (HTML)</a><a class="btn" id="l-pdf" href="#">PDF</a><button class="btn" id="l-send" type="button">E-mail minutes</button><button class="btn" id="l-exit" type="button">Exit</button></div>
+      <button class="btn" id="l-start" type="button">Start session</button><button class="btn primary" id="l-close" type="button">Close &amp; generate minutes</button><a class="btn" id="l-minutes" href="#" target="_blank" rel="noopener">Minutes (HTML)</a><a class="btn" id="l-pdf" href="#">PDF</a><button class="btn" id="l-send" type="button">E-mail minutes</button><button class="btn" id="l-accept" type="button" title="Someone other than the person who closed the session">Accept minutes</button><button class="btn" id="l-cancel" type="button">Cancel session</button><button class="btn" id="l-approve" type="button">Approve as exception</button><button class="btn" id="l-exit" type="button">Exit</button></div>
     <div id="msg2" role="status" aria-live="polite"></div>
     <div class="row"><label>Attendees (comma separated) <input id="l-att"></label></div>
     <div id="l-items"></div>
@@ -62,17 +68,19 @@
       <div class="panel"><h2>Decisions of this session</h2><div id="l-dec"></div><div class="row" id="l-decform"><label>Title <input id="d-title"></label><label>Owner <input id="d-owner"></label><label>Due <input id="d-due" type="date"></label><label style="grid-column:1/-1">Text <textarea id="d-text" rows="2"></textarea></label></div><button class="btn primary" id="d-add" type="button">Record decision (DEC-)</button></div>
       <div class="panel"><h2>Actions of this session</h2><div id="l-act"></div><div class="row"><label>Action <input id="a-title"></label><label>Owner <input id="a-owner"></label><label>Due <input id="a-due" type="date"></label><label>Source <input id="a-src" placeholder="e.g. ticket 311587 / DEC-2026-003"></label></div><button class="btn" id="a-add" type="button">Add action</button></div>
     </div>
-    <div class="panel"><h2>Session notes</h2><textarea id="l-notes" rows="4" style="width:100%" aria-label="Session notes"></textarea><div class="bar"><button class="btn" id="l-savenotes" type="button">Save notes &amp; attendees</button></div></div>
+    <div class="panel"><h2>Session notes</h2><textarea id="l-notes" rows="4" style="width:100%" aria-label="Session notes"></textarea><div class="bar"><span class="draft" id="l-draft" aria-live="polite"></span><button class="btn" id="l-savenotes" type="button">Save notes &amp; attendees</button></div></div>
   </section>
 </main>
 <script nonce="%%CSP_NONCE%%">
 (function () {
   "use strict";
   var R = window.DashboardRender, $ = function (id) { return document.getElementById(id); }, esc = R.escapeHtml;
+  var I = window.I18nText, T = function (x) { return I.t(x); };
   var H = function (x) { return Object.assign({}, x || {}); };
   function api(p, o) { return fetch(p, Object.assign({ headers: H(o && o.body ? { "content-type": "application/json" } : {}) }, o || {})).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || ("HTTP " + r.status)); return j; }); }); }
   var msg = function (h, cls, el) { $(el || "msg").innerHTML = h ? "<div class=\"" + (cls || "ok") + "\">" + esc(h) + "</div>" : ""; };
-  var fail = function (e) { msg(e.message, "errors"); }, fail2 = function (e) { msg(e.message, "errors", "msg2"); };
+  var errT = function (e) { return window.I18nText && window.I18nText.lang() === "fr" && window.ErrorText ? window.ErrorText.fr(e.message) : e.message; };
+  var fail = function (e) { msg(errT(e), "errors"); }, fail2 = function (e) { msg(errT(e), "errors", "msg2"); };
   var cads = [], committee = false, cur = null, timer = null, sites = [];
   var pct = function (v, u) { return v == null ? "—" : (u === "%" ? (Math.round(v * 10) / 10) + " %" : String(Math.round(v * 100) / 100)); };
 
@@ -80,25 +88,33 @@
     return Promise.all([api("/api/governance/overview"), api("/api/governance/cadences"), api("/api/governance/sessions?limit=40"), api("/api/governance/decisions?status=open,in_progress")]).then(function (r) {
       var o = r[0]; committee = o.committee; cads = r[1].cadences; sites = r[1].sites || [];
       $("tiles").innerHTML = [["Cadences", o.cadences], ["Sessions held (30 d)", o.sessions_held_30d], ["Planned", o.sessions_planned], ["Open decisions", o.decisions_open], ["Overdue decisions", o.decisions_overdue], ["RFIs to triage", o.rfi_to_triage]].map(function (t) { return "<div class=\"tile\"><div class=\"tn\">" + t[1] + "</div><div class=\"tl\">" + t[0] + "</div></div>"; }).join("");
-      $("cadForm").hidden = !committee;
+      $("cadForm").hidden = !committee; if (committee) fillPeople($("c-site").value);
       var ss = $("c-site"); if (ss.options.length <= 1) (Array.isArray(sites) ? sites : []).forEach(function (s) { var op = document.createElement("option"); op.value = s.id; op.textContent = s.name; ss.appendChild(op); });
       $("cadences").innerHTML = cads.length ? "<table><thead><tr><th>Cadence</th><th>Kind</th><th>Site</th><th>When</th><th></th></tr></thead><tbody>" + cads.map(function (c) { return "<tr><td><b>" + esc(c.name) + "</b><br><small class=\"muted\">" + esc(c.key) + (c.active ? "" : " · inactive") + "</small></td><td>" + esc(c.kind) + "</td><td>" + esc(siteName(c.site_id)) + "</td><td>" + (c.weekday ? ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][c.weekday] : "") + " " + esc(c.time_local || "") + " · " + c.duration_min + " min</td><td><button class=\"btn\" data-prep=\"" + c.id + "\" type=\"button\">Prepare session</button>" + (committee ? " <button class=\"btn\" data-edit=\"" + c.id + "\" type=\"button\">Edit</button>" : "") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No cadence yet" + (committee ? " — create one below." : ".") + "</p>";
       $("sessions").innerHTML = r[2].sessions.length ? "<table><thead><tr><th>Date</th><th>Cadence</th><th>Status</th><th></th></tr></thead><tbody>" + r[2].sessions.map(function (s) { return "<tr><td>" + esc(String(s.scheduled_at).replace("T", " ").slice(0, 16)) + "</td><td>" + esc(s.cadence || "") + "</td><td><span class=\"pill " + s.status + "\">" + s.status + "</span>" + (s.minutes_sent_at ? " ✉" : "") + "</td><td><button class=\"btn\" data-open=\"" + s.id + "\" type=\"button\">" + (s.status === "closed" ? "Review" : "Open") + "</button></td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No session yet — prepare one from a cadence.</p>";
-      $("decisions").innerHTML = r[3].decisions.length ? "<table><thead><tr><th>Ref</th><th>Decision</th><th>Owner</th><th>Due</th><th>Status</th></tr></thead><tbody>" + r[3].decisions.map(function (d) { return "<tr><td><b>" + esc(d.ref) + "</b></td><td>" + esc(d.title) + "</td><td>" + esc(d.owner || "—") + "</td><td>" + esc(d.due_date || "—") + "</td><td>" + (committee ? "<select data-dec=\"" + d.id + "\" aria-label=\"Decision status\">" + ["open", "in_progress", "done", "cancelled"].map(function (s) { return "<option" + (s === d.status ? " selected" : "") + ">" + s + "</option>"; }).join("") + "</select>" : "<span class=\"pill " + d.status + "\">" + d.status + "</span>") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No open decision.</p>";
+      $("decisions").innerHTML = r[3].decisions.length ? "<table><thead><tr><th>Ref</th><th>Decision</th><th>Owner</th><th>Due</th><th>Status</th></tr></thead><tbody>" + r[3].decisions.map(function (d) { return "<tr><td><b>" + esc(d.ref) + "</b></td><td>" + esc(d.title) + "</td><td>" + esc(d.owner || "—") + "</td><td>" + esc(d.due_date || "—") + "</td><td>" + (committee ? "<select data-dec=\"" + d.id + "\" aria-label=\"Decision status\">" + ["open", "in_progress", "done", "cancelled"].map(function (s) { return "<option value=\"" + s + "\"" + (s === d.status ? " selected" : "") + ">" + s + "</option>"; }).join("") + "</select>" : "<span class=\"pill " + d.status + "\">" + d.status + "</span>") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No open decision.</p>";
     }).catch(fail);
+  }
+  // chair / secretary chosen by name among the people of the cadence's site (everyone for a group cadence)
+  function fillPeople(site, keep) {
+    return api("/api/governance/people" + (site ? "?site=" + encodeURIComponent(site) : "")).then(function (j) {
+      ["c-chair", "c-sec"].forEach(function (id) { var sel = $(id), cur = keep && keep[id] != null ? String(keep[id]) : sel.value; sel.innerHTML = ""; var o0 = document.createElement("option"); o0.value = ""; o0.textContent = "—"; sel.appendChild(o0);
+        j.people.forEach(function (p) { var o = document.createElement("option"); o.value = p.id; o.textContent = p.name; sel.appendChild(o); }); sel.value = cur || ""; });
+    }).catch(function () {});
   }
   function siteName(id) { if (id == null) return "fleet"; var s = (Array.isArray(sites) ? sites : []).find(function (x) { return Number(x.id) === Number(id); }); return s ? s.name : "site " + id; }
   document.addEventListener("click", function (ev) {
     var b = ev.target.closest("button"); if (!b) return;
     if (b.dataset.prep) api("/api/governance/cadences/" + b.dataset.prep + "/sessions", { method: "POST", body: "{}" }).then(function (j) { msg("Session prepared — agenda with " + j.session.agenda.items.length + " items, " + j.session.agenda.summary.reds + " red indicator(s)."); return openSession(j.session.id); }).then(loadAll).catch(fail);
     if (b.dataset.open) openSession(b.dataset.open).catch(fail);
-    if (b.dataset.edit) { var c = cads.find(function (x) { return x.id === Number(b.dataset.edit); }); if (!c) return; $("cadForm").open = true; $("c-key").value = c.key; $("c-name").value = c.name; $("c-kind").value = c.kind; $("c-site").value = c.site_id == null ? "" : c.site_id; $("c-weekday").value = c.weekday || ""; $("c-time").value = c.time_local || ""; $("c-dur").value = c.duration_min; $("c-chair").value = c.chair_id || ""; $("c-sec").value = c.secretary_id || ""; $("c-part").value = (c.participants || []).join("\n"); }
+    if (b.dataset.edit) { var c = cads.find(function (x) { return x.id === Number(b.dataset.edit); }); if (!c) return; $("cadForm").open = true; $("c-key").value = c.key; $("c-name").value = c.name; $("c-kind").value = c.kind; $("c-site").value = c.site_id == null ? "" : c.site_id; $("c-weekday").value = c.weekday || ""; $("c-time").value = c.time_local || ""; $("c-dur").value = c.duration_min; fillPeople(c.site_id == null ? "" : c.site_id, { "c-chair": c.chair_id || "", "c-sec": c.secretary_id || "" }); $("c-part").value = (c.participants || []).join("\n"); }
     if (b.dataset.istart) stamp(b.dataset.istart, "start"); if (b.dataset.iend) stamp(b.dataset.iend, "end"); if (b.dataset.inotes) saveItemNotes(b.dataset.inotes);
     if (b.dataset.act) api("/api/governance/sessions/" + cur.id + "/actions/" + b.dataset.act, { method: "PUT", body: JSON.stringify({ status: b.dataset.st }) }).then(function (j) { renderActs(j.actions); }).catch(fail2);
   });
   document.addEventListener("change", function (ev) { var t = ev.target; if (t.dataset && t.dataset.dec) api("/api/governance/decisions/" + t.dataset.dec, { method: "PUT", body: JSON.stringify({ status: t.value }) }).then(loadAll).catch(fail); });
+  $("c-site").addEventListener("change", function () { fillPeople($("c-site").value); });
   $("c-save").addEventListener("click", function () {
-    api("/api/governance/cadences", { method: "PUT", body: JSON.stringify({ key: $("c-key").value.trim(), name: $("c-name").value.trim(), kind: $("c-kind").value, site_id: $("c-site").value || null, weekday: $("c-weekday").value || null, time_local: $("c-time").value || null, duration_min: $("c-dur").value, chair_id: $("c-chair").value || null, secretary_id: $("c-sec").value || null, participants: $("c-part").value.split(/\n/).map(function (x) { return x.trim(); }).filter(Boolean) }) }).then(function () { msg("Cadence saved."); return loadAll(); }).catch(fail);
+    api("/api/governance/cadences", { method: "PUT", body: JSON.stringify({ key: $("c-key").value.trim(), name: $("c-name").value.trim(), kind: $("c-kind").value, site_id: $("c-site").value || null, weekday: $("c-weekday").value || null, time_local: $("c-time").value || null, duration_min: $("c-dur").value, chair_id: $("c-chair").value || null, secretary_id: $("c-sec").value || null, participants: $("c-part").value.split(/\n/).map(function (x) { return x.trim(); }).filter(Boolean) }) }).then(function () { msg(T("Cadence saved.")); return loadAll(); }).catch(fail);
   });
 
   // ── live session ─────────────────────────────────────────────────────────────────
@@ -107,11 +123,14 @@
       cur = j.session; cur._cad = j.cadence; cur._can = j.can_run; cur._dec = j.can_decide;
       $("live").hidden = false; document.body.style.overflow = "hidden";
       $("l-title").textContent = (j.cadence ? j.cadence.name : "Session") + " — " + String(cur.scheduled_at).replace("T", " ").slice(0, 16);
-      $("l-meta").textContent = cur.status + (cur.started_at ? " · started " + String(cur.started_at).slice(11, 16) : "") + (j.can_run ? "" : " · read-only for your account");
-      $("l-start").hidden = cur.status !== "planned" || !j.can_run; $("l-close").hidden = cur.status === "closed" || !j.can_run; $("l-send").hidden = cur.status !== "closed" || !j.can_run;
+      var allowed = cur.allowed || [];
+      $("l-accept").hidden = allowed.indexOf("accept") < 0; $("l-cancel").hidden = allowed.indexOf("cancel") < 0; $("l-approve").hidden = allowed.indexOf("approve_exception") < 0;
+      $("l-meta").textContent = (cur.stage || cur.status) + (cur.exception_status ? " · exception " + cur.exception_status : "") + (cur.started_at ? " · started " + String(cur.started_at).slice(11, 16) : "") + (j.can_run ? "" : " · read-only for your account");
+      $("l-start").hidden = cur.status !== "planned" || !j.can_run; $("l-close").hidden = cur.status !== "live" || !j.can_run; $("l-send").hidden = cur.status !== "closed" || !j.can_run;
       $("l-minutes").href = "/api/governance/sessions/" + cur.id + "/minutes.html"; $("l-pdf").href = "/api/governance/sessions/" + cur.id + "/minutes.pdf";
       $("l-decform").hidden = !j.can_decide; $("d-add").hidden = !j.can_decide; $("a-add").hidden = !j.can_run; $("l-savenotes").hidden = !j.can_run;
-      $("l-att").value = (cur.attendees || []).join(", "); $("l-notes").value = cur.notes || "";
+      $("l-att").value = (cur.attendees || []).join(", "); $("l-notes").value = cur.notes || ""; $("l-draft").textContent = "";
+      try { var dr = JSON.parse(localStorage.getItem("cockpit_draft_" + cur.id) || "null"); if (dr && j.can_run && (dr.notes !== $("l-notes").value || dr.att !== $("l-att").value)) { $("l-notes").value = dr.notes; $("l-att").value = dr.att; $("l-draft").textContent = T("Unsent draft restored from this device — it will be sent automatically"); setTimeout(function () { flushNotes().catch(function () {}); }, 500); } } catch (_) {}
       renderItems(); renderDecs(j.decisions); renderActs(j.actions);
       if (timer) clearInterval(timer); timer = setInterval(tick, 1000); tick();
     });
@@ -136,13 +155,32 @@
   function renderActs(list) { $("l-act").innerHTML = (list || []).length ? "<table><tbody>" + list.map(function (a) { return "<tr><td>" + esc(a.title) + "<br><small class=\"muted\">" + esc([a.owner, a.due_date, a.source_kind, a.source_ref].filter(Boolean).join(" · ")) + "</small></td><td><span class=\"pill " + a.status + "\">" + a.status + "</span></td><td>" + (cur._can ? "<button class=\"btn\" data-act=\"" + a.id + "\" data-st=\"done\" type=\"button\">Done</button>" : "") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">None yet.</p>"; }
   function stamp(item, op) { api("/api/governance/sessions/" + cur.id + "/items/" + encodeURIComponent(item) + "/" + op, { method: "POST", body: "{}" }).then(function (j) { cur.items = j.session.items; renderItems(); }).catch(fail2); }
   function saveItemNotes(item) { api("/api/governance/sessions/" + cur.id + "/items/" + encodeURIComponent(item) + "/notes", { method: "POST", body: JSON.stringify({ notes: $("n-" + item).value }) }).then(function (j) { cur.items = j.session.items; msg("Notes saved.", "ok", "msg2"); }).catch(fail2); }
+  // G-21 — lifecycle: accept (four-eyes), cancel = exception for the committee to approve
+  $("l-accept").addEventListener("click", function () { api("/api/governance/sessions/" + cur.id + "/accept", { method: "POST" }).then(function () { msg(T("Minutes accepted — the session is now read-only."), "ok", "msg2"); return openSession(cur.id); }).then(loadAll).catch(fail2); });
+  $("l-cancel").addEventListener("click", function () { window.ReasonDialog.ask({ title: T("Cancel session"), label: T("Why is this session cancelled? (the committee approves it as an exception)"), min: 5, lang: I.lang() }).then(function (r) { if (!r) return; return api("/api/governance/sessions/" + cur.id + "/cancel", { method: "POST", body: JSON.stringify({ reason: r }) }).then(function () { return openSession(cur.id); }).then(loadAll); }).catch(fail2); });
+  $("l-approve").addEventListener("click", function () { api("/api/governance/sessions/" + cur.id + "/exception/approve", { method: "POST" }).then(function () { return openSession(cur.id); }).then(loadAll).catch(fail2); });
   $("l-start").addEventListener("click", function () { api("/api/governance/sessions/" + cur.id + "/start", { method: "POST" }).then(function () { return openSession(cur.id); }).catch(fail2); });
-  $("l-close").addEventListener("click", function () { if (!confirm("Close the session and generate the minutes?")) return; api("/api/governance/sessions/" + cur.id + "/close", { method: "POST" }).then(function () { msg("Session closed — minutes generated.", "ok", "msg2"); return openSession(cur.id); }).then(loadAll).catch(fail2); });
+  $("l-close").addEventListener("click", function () { flushNotes().then(function () { return window.ReasonDialog.confirm({ title: T("Close & generate minutes"), message: T("Close the session and generate the minutes?"), lang: I.lang() }); }).then(function (ok) { if (!ok) return; return api("/api/governance/sessions/" + cur.id + "/close", { method: "POST" }).then(function () { msg(T("Session closed — minutes generated."), "ok", "msg2"); return openSession(cur.id); }).then(loadAll); }).catch(fail2); });
   $("l-send").addEventListener("click", function () { api("/api/governance/sessions/" + cur.id + "/minutes/send", { method: "POST", body: "{}" }).then(function (j) { msg(j.ok ? "Minutes sent to " + j.to + " participant(s)" + (j.pdf ? " with PDF." : " (HTML only — no PDF renderer).") : "Send failed: " + (j.error || ""), j.ok ? "ok" : "errors", "msg2"); }).catch(fail2); });
-  $("l-savenotes").addEventListener("click", function () { api("/api/governance/sessions/" + cur.id, { method: "PUT", body: JSON.stringify({ notes: $("l-notes").value, attendees: $("l-att").value.split(",").map(function (x) { return x.trim(); }).filter(Boolean) }) }).then(function () { msg("Saved.", "ok", "msg2"); }).catch(fail2); });
-  $("d-add").addEventListener("click", function () { api("/api/governance/sessions/" + cur.id + "/decisions", { method: "POST", body: JSON.stringify({ title: $("d-title").value, owner: $("d-owner").value, due_date: $("d-due").value, text: $("d-text").value }) }).then(function (j) { $("d-title").value = ""; $("d-text").value = ""; msg("Recorded " + j.decision.ref, "ok", "msg2"); return api("/api/governance/sessions/" + cur.id); }).then(function (j) { renderDecs(j.decisions); }).catch(fail2); });
-  $("a-add").addEventListener("click", function () { var src = $("a-src").value.trim(); api("/api/governance/sessions/" + cur.id + "/actions", { method: "POST", body: JSON.stringify({ title: $("a-title").value, owner: $("a-owner").value, due_date: $("a-due").value, source_kind: src ? (/^DEC-/.test(src) ? "decision" : "reference") : null, source_ref: src || null, decision_ref: /^DEC-/.test(src) ? src : null }) }).then(function () { $("a-title").value = ""; return api("/api/governance/sessions/" + cur.id); }).then(function (j) { renderActs(j.actions); }).catch(fail2); });
+  $("l-savenotes").addEventListener("click", function () { flushNotes().then(function () { msg(T("Saved."), "ok", "msg2"); }).catch(fail2); });
+  // one idempotency key per form fill: a double tap or a retry on a slow link re-sends the SAME key (field P1-4)
+  var keys = {}; function k(f) { return keys[f] || (keys[f] = "ui-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8)); }
+  function once(btn, f, run) { if (btn.disabled) return; btn.disabled = true; run(k(f)).then(function () { keys[f] = null; }).catch(fail2).then(function () { btn.disabled = false; }); }
+  $("d-add").addEventListener("click", function () { once($("d-add"), "dec", function (key) { return api("/api/governance/sessions/" + cur.id + "/decisions", { method: "POST", body: JSON.stringify({ title: $("d-title").value, owner: $("d-owner").value, due_date: $("d-due").value, text: $("d-text").value, idem_key: key }) }).then(function (j) { $("d-title").value = ""; $("d-text").value = ""; msg(T("Recorded") + " " + j.decision.ref, "ok", "msg2"); return api("/api/governance/sessions/" + cur.id); }).then(function (j) { renderDecs(j.decisions); }); }); });
+  $("a-add").addEventListener("click", function () { var src = $("a-src").value.trim(); once($("a-add"), "act", function (key) { return api("/api/governance/sessions/" + cur.id + "/actions", { method: "POST", body: JSON.stringify({ title: $("a-title").value, owner: $("a-owner").value, due_date: $("a-due").value, source_kind: src ? (/^DEC-/.test(src) ? "decision" : "reference") : null, source_ref: src || null, decision_ref: /^DEC-/.test(src) ? src : null, idem_key: key }) }).then(function () { $("a-title").value = ""; return api("/api/governance/sessions/" + cur.id); }).then(function (j) { renderActs(j.actions); }); }); });
+  // notes: every keystroke kept in a local draft; sent automatically 3 s after the last one (field P1-3)
+  var draftTimer = null;
+  var draftKey = function () { return cur ? "cockpit_draft_" + cur.id : null; };
+  function saveDraft() { try { localStorage.setItem(draftKey(), JSON.stringify({ notes: $("l-notes").value, att: $("l-att").value, at: Date.now() })); } catch (_) {} $("l-draft").textContent = T("Not sent yet — kept on this device"); }
+  function flushNotes() {
+    if (!cur || !cur._can || cur.status === "closed" || cur.status === "cancelled") return Promise.resolve();
+    clearTimeout(draftTimer);
+    return api("/api/governance/sessions/" + cur.id, { method: "PUT", body: JSON.stringify({ notes: $("l-notes").value, attendees: $("l-att").value.split(",").map(function (x) { return x.trim(); }).filter(Boolean) }) })
+      .then(function () { try { localStorage.removeItem(draftKey()); } catch (_) {} $("l-draft").textContent = T("Saved"); });
+  }
+  ["l-notes", "l-att"].forEach(function (id) { $(id).addEventListener("input", function () { if (!cur || !cur._can) return; saveDraft(); clearTimeout(draftTimer); draftTimer = setTimeout(function () { flushNotes().catch(function () { $("l-draft").textContent = T("Not sent yet — kept on this device"); }); }, 3000); }); });
   $("l-exit").addEventListener("click", function () { $("live").hidden = true; document.body.style.overflow = ""; if (timer) clearInterval(timer); cur = null; loadAll(); });
+  I.install({ storageKey: "cockpit_lang", toggle: { en: $("lgEn"), fr: $("lgFr") }, dict: window.COCKPIT_FR || {} });
   var q = new URLSearchParams(location.search).get("session");
   loadAll().then(function () { if (q) return openSession(q); }).catch(fail);
 })();

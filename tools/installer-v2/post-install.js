@@ -1,62 +1,97 @@
 #!/usr/bin/env node
 'use strict';
-// Step 5 — everything the Setup wizard does to the machine after copying its payload.
-// Called by SDP-Dashboard.iss ([Run]) and runnable by hand for a scripted install:
+// Everything Setup.exe does to the machine after copying its payload (installer v2.1, 2026-10-29).
+// Called by SDP-Dashboard.iss through Exec (exit code checked: a failure stops the wizard and shows the
+// log) and runnable by hand for a scripted install:
 //
-//   node tools/installer-v2/post-install.js --dir C:\Apps\SDP-Dashboard --package sdp-dashboard-2.0.0.zip
-//        --mode new|update|repair|uninstall --port 3456 --pg-host localhost --pg-port 5432
-//        --db-name sdp_dashboard --db-user sdp_app [--service-account DOMAIN\u] [--cert-thumbprint ...]
+//   node post-install.js --dir C:\Apps\SDP-Dashboard --package sdp-dashboard-2.0.0.zip --mode new|update|repair|uninstall
+//        [--port 3456] [--pg-host localhost --pg-port 5432 --db-name sdp_dashboard --db-user sdp_app]
+//        [--service auto|windows|pm2] [--service-account DOMAIN\user] [--node-modules <staged dir>]
+//        [--public-host itops.example.com --cert-thumbprint <sha1>] [--allow-unsigned] [--remove-data]
 //
-// Secrets arrive in the ENVIRONMENT only (SDP_SETUP_PGSUPERPASS, SDP_SETUP_SVCPASS) and are
-// never logged. Steps, each logged to <dir>\logs\setup-<stamp>.log:
-//   1 apply the package through tools/sdp-manager.js (manifest check, rollback point, copy)
-//   2 .env: create on `new` (generated SDP_CONFIG_KEY, DASH_* bootstrap admin, PG_URL,
-//     NODE_ENV=production), keep untouched on update/repair (missing keys appended only)
-//   3 PostgreSQL role + database on `new` (psql via PGPASSWORD, SQL on stdin — never argv)
-//   4 npm ci --omit=dev
-//   5 node db/migrate.js
-//   6 Windows Firewall: TCP <port> allowed from 127.0.0.1 only, blocked from the network
-//     (IIS on the box is the sole entry point; Node itself binds to 127.0.0.1 by default)
-//   7 pm2: register / restart the service (stop -> start, never reload), pm2 save
-//   8 health probe; on failure after step 1 -> sdp-manager rollback, exit 1
-
+// Secrets arrive in the ENVIRONMENT only (SDP_SETUP_PGSUPERPASS, SDP_SETUP_SVCPASS) and are never logged
+// or put on a command line. Steps, each logged to <dir>\logs\setup-<stamp>.log:
+//   1 dependencies: the node_modules folder built by CI for Windows (offline install), swapped in with the
+//     previous one kept for the rollback; `npm ci` only when Setup carries none
+//   2 the package through tools/sdp-manager.js — signature + hashes, database backup first on an update,
+//     rollback point (the whole tree when the installation has no manifest), copy
+//   3 .env: created on `new` (generated keys, bootstrap admin, PG_URL); kept otherwise, missing keys appended
+//     (DASHBOARD_API_KEY above all — production refuses to start without it)
+//   4 PostgreSQL role + database on `new`, through the `pg` driver (no psql on PATH needed)
+//   5 db/migrate.js
+//   6 Windows Firewall: the application port from 127.0.0.1 only
+//   7 the service: the native Windows service SDPDashboard (new installs) or pm2 (servers already on pm2),
+//     restarted stop → wait → start
+//   8 IIS front end when a public host name is given and IIS has URL Rewrite + ARR (best effort)
+//   9 health probe on /ready; any failure after step 2 rolls everything back and exits 1
 const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const { spawnSync } = require('child_process');
 
-function arg(flag, def) { const i = process.argv.indexOf(flag); return i > 0 && process.argv[i + 1] != null ? process.argv[i + 1] : def; }
+const ROOT = path.resolve(__dirname, '..', '..');        // the bootstrap copy (Setup) or the install folder
+function arg(flag, def) { const i = process.argv.indexOf(flag); return i > 0 && process.argv[i + 1] != null && !process.argv[i + 1].startsWith('--') ? process.argv[i + 1] : def; }
+const has = (flag) => process.argv.includes(flag);
 const DIR = path.resolve(arg('--dir', process.cwd()));
 const MODE = arg('--mode', 'new');
 const PORT = arg('--port', '3456');
 const stamp = new Date().toISOString().replace(/[:.]/g, '-');
 fs.mkdirSync(path.join(DIR, 'logs'), { recursive: true });
 const LOG = path.join(DIR, 'logs', `setup-${stamp}.log`);
-const SECRET_RE = /(PGPASSWORD|PASS|SECRET|KEY)=\S+/g;
-function log(m) { const line = `[${new Date().toISOString()}] ${String(m).replace(SECRET_RE, '$1=***')}`; fs.appendFileSync(LOG, line + '\n'); process.stdout.write(line + '\n'); }
+const SECRET_RE = /((?:PG)?PASS(?:WORD)?|SECRET|KEY|TOKEN)=\S+/gi;
+function log(m) { const line = `[${new Date().toISOString()}] ${String(m).replace(SECRET_RE, '$1=***')}`; try { fs.appendFileSync(LOG, line + '\n'); } catch (_) {} process.stdout.write(line + '\n'); }
 function sh(cmd, args, opts = {}) {
-  log(`$ ${cmd} ${args.filter(a => !/pass|secret/i.test(a)).join(' ')}`);
-  const r = spawnSync(cmd, args, { encoding: 'utf8', cwd: DIR, shell: process.platform === 'win32', ...opts, env: { ...process.env, ...(opts.env || {}) } });
+  log(`$ ${path.basename(cmd)} ${args.filter((a) => !/pass|secret/i.test(a)).join(' ')}`);
+  const r = spawnSync(cmd, args, { encoding: 'utf8', cwd: DIR, shell: opts.shell != null ? opts.shell : process.platform === 'win32' && !/\.exe$/i.test(cmd), maxBuffer: 64 * 1024 * 1024, ...opts, env: { ...process.env, ...(opts.env || {}) } });
   if (r.stdout) fs.appendFileSync(LOG, r.stdout);
   if (r.stderr) fs.appendFileSync(LOG, r.stderr);
-  if (r.status !== 0) throw new Error(`${cmd} exited ${r.status}: ${String(r.stderr || r.stdout).trim().slice(-400)}`);
+  if (r.status !== 0) throw new Error(`${path.basename(cmd)} exited ${r.status}: ${String(r.stderr || r.stdout || (r.error && r.error.message) || '').trim().slice(-500)}`);
   return r;
 }
 
 function readEnv(file) {
   const out = {};
-  try { for (const l of fs.readFileSync(file, 'utf8').split(/\r?\n/)) { const m = /^\s*([A-Z0-9_]+)\s*=\s*(.*)$/.exec(l); if (m) out[m[1]] = m[2]; } } catch (_) { /* none */ }
+  try { for (const l of fs.readFileSync(file, 'utf8').split(/\r?\n/)) { const m = /^\s*([A-Z0-9_]+)\s*=\s*(.*)$/.exec(l); if (m) out[m[1]] = m[2].replace(/^"(.*)"$/, '$1'); } } catch (_) { /* none */ }
   return out;
 }
+/** Append the keys that are missing — an existing value is never changed. */
 function writeEnv(file, wanted) {
   const have = readEnv(file);
-  const lines = fs.existsSync(file) ? fs.readFileSync(file, 'utf8').replace(/\r?\n$/, '').split(/\r?\n/) : ['# SDP Dashboard — generated by Setup ' + stamp];
-  let added = 0;
-  for (const [k, v] of Object.entries(wanted)) if (!(k in have)) { lines.push(`${k}=${v}`); added++; }
+  const lines = fs.existsSync(file) ? fs.readFileSync(file, 'utf8').replace(/\r?\n$/, '').split(/\r?\n/) : ['# SDP Dashboard — generated by Setup ' + stamp, '# Keep a copy of SDP_CONFIG_KEY and SDP_BACKUP_KEY somewhere safe off this server: a backup restored elsewhere needs them.'];
+  const added = [];
+  for (const [k, v] of Object.entries(wanted)) if (!(k in have) && v != null) { lines.push(`${k}=${v}`); added.push(k); }
   fs.writeFileSync(file, lines.join('\r\n') + '\r\n');
   return added;
 }
 
+/** Replace one key's value in place (the line is rewritten, everything else is kept). */
+function setEnvValue(file, key, value) {
+  const lines = fs.readFileSync(file, 'utf8').replace(/\r?\n$/, '').split(/\r?\n/);
+  const re = new RegExp('^\\s*' + key + '\\s*=');
+  let done = false;
+  const out = lines.map((l) => { if (!done && re.test(l)) { done = true; return `${key}=${value}`; } return l; });
+  if (!done) out.push(`${key}=${value}`);
+  fs.writeFileSync(file, out.join('\r\n') + '\r\n');
+}
+/**
+ * Values an older .env can carry that this version refuses to start with. Repaired BEFORE the service
+ * starts, never silently: a copy of the .env is kept and the log names the key (never its value).
+ * Today: DASHBOARD_API_KEY shorter than 32 characters (services/apiKey.js refuses it in production).
+ */
+function repairEnv(file, log) {
+  const have = readEnv(file); const fixed = [];
+  // the bootstrap copy Setup runs from carries no services/ — read the rule from the installed app, else 32
+  let MIN_LENGTH = 32;
+  for (const base of [DIR, ROOT]) { try { MIN_LENGTH = require(path.join(base, 'services', 'apiKey')).MIN_LENGTH || 32; break; } catch (_) {} }
+  if (have.DASHBOARD_API_KEY != null && have.DASHBOARD_API_KEY.length < MIN_LENGTH) {
+    const copy = `${file}.before-setup-${stamp}`;
+    if (!fs.existsSync(copy)) fs.copyFileSync(file, copy);
+    setEnvValue(file, 'DASHBOARD_API_KEY', crypto.randomBytes(32).toString('hex'));
+    fixed.push('DASHBOARD_API_KEY');
+    log(`.env: DASHBOARD_API_KEY was ${have.DASHBOARD_API_KEY.length} characters (minimum ${MIN_LENGTH}) — replaced with a new random key; previous .env kept as ${path.basename(copy)}. Any external tool that used the old key must be given the new one.`);
+  }
+  return fixed;
+}
 function envDefaults() {
   const dataDir = process.env.SDP_SETUP_DATADIR || path.join(DIR, 'data');
   const backupDir = process.env.SDP_SETUP_BACKUPDIR || path.join(path.dirname(DIR), 'SDP-Backups');
@@ -65,32 +100,78 @@ function envDefaults() {
   return {
     NODE_ENV: 'production', PORT, BIND_HOST: '127.0.0.1', SDP_DATA_DIR: dataDir, SDP_BACKUP_DIR: backupDir,
     SDP_CONFIG_KEY: crypto.randomBytes(32).toString('base64url'),
+    SDP_BACKUP_KEY: crypto.randomBytes(32).toString('base64url'),      // distinct from SDP_CONFIG_KEY (services/backup.js)
     DASH_USER: 'admin', DASH_PASS: crypto.randomBytes(12).toString('base64url') + '!A1',
-    DASHBOARD_API_KEY: crypto.randomBytes(32).toString('hex'),   // ≥ 32 chars — production refuses to start without it (fiche C2)
+    DASHBOARD_API_KEY: crypto.randomBytes(32).toString('hex'),          // ≥ 32 chars — production refuses to start without it
     PG_URL: `postgres://${user}:${encodeURIComponent(appPass)}@${host}:${port}/${db}`,
+    REQUIRE_POSTGRES: '1',
     TRACKER_BACKEND: 'postgres', MEETINGS_BACKEND: 'postgres', INSPECTION_BACKEND: 'postgres', REPORTS_BACKEND: 'postgres', ASSETS_BACKEND: 'postgres',
     SESSION_HOURS: '8', _appPass: appPass,
   };
 }
 
-function createDatabase(d) {
-  const superPass = process.env.SDP_SETUP_PGSUPERPASS || '';
-  const host = arg('--pg-host', 'localhost'), port = arg('--pg-port', '5432'), db = arg('--db-name', 'sdp_dashboard'), user = arg('--db-user', 'sdp_app');
-  const sql = [
-    `DO $$ BEGIN IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='${user}') THEN CREATE ROLE "${user}" LOGIN PASSWORD '${d._appPass.replace(/'/g, "''")}'; END IF; END $$;`,
-    `SELECT 'CREATE DATABASE "${db}" OWNER "${user}"' WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname='${db}')\\gexec`,
-  ].join('\n');
-  // SQL on stdin, password in PGPASSWORD: nothing secret on the command line.
-  sh('psql', ['-h', host, '-p', port, '-U', 'postgres', '-d', 'postgres', '-v', 'ON_ERROR_STOP=1', '-f', '-'], { input: sql, env: { PGPASSWORD: superPass } });
+const ident = (s) => { if (!/^[a-z_][a-z0-9_]{0,62}$/i.test(String(s))) throw new Error(`not a valid PostgreSQL name: ${s}`); return String(s); };
+/** Candidate .env files of a previous SDP on this machine (the folder itself, then renamed copies `<dir>.old-*`). */
+function previousEnvFiles() {
+  const out = [];
+  if (process.env.SDP_SETUP_PREV_ENV) out.push(process.env.SDP_SETUP_PREV_ENV);
+  out.push(path.join(DIR, '.env'));
+  const parent = path.dirname(DIR), base = path.basename(DIR).toLowerCase();
+  try {
+    for (const n of fs.readdirSync(parent).sort().reverse()) {
+      const l = n.toLowerCase();
+      if (l !== base && l.startsWith(base) && /\.(old|bak|backup)/.test(l)) out.push(path.join(parent, n, '.env'));
+    }
+  } catch (_) {}
+  return out.filter((f, k) => out.indexOf(f) === k && fs.existsSync(f));
+}
+/** The 4MyPeople installer's standard superuser password (same lookup as tools/pg/provision-prod.js). Never logged. */
+function fourMyPeoplePassword() {
+  const c = [];
+  if (process.env.FMP_CONFIG_PSD1) c.push(process.env.FMP_CONFIG_PSD1);
+  if (process.env.TEMP) c.push(path.join(process.env.TEMP, '4MyPeople-Installer', 'config.psd1'));
+  try { for (const u of fs.readdirSync('C:\\Users')) c.push(path.join('C:\\Users', u, 'AppData', 'Local', 'Temp', '4MyPeople-Installer', 'config.psd1')); } catch (_) {}
+  for (const f of c) { try { const m = fs.readFileSync(f, 'utf8').match(/StandardPgSuperPassword\s*=\s*'([^']+)'/); if (m) return m[1]; } catch (_) {} }
+  return '';
+}
+/**
+ * Role + database through the pg driver (from the freshly installed node_modules): no psql needed.
+ * The superuser password is OPTIONAL. In order: (1) the application account of a previous SDP on this machine,
+ * reused as is when it can already open the database — no superuser at all; (2) the password typed in Setup /
+ * SDP_SETUP_PGSUPERPASS; (3) the 4MyPeople standard password; (4) no password (trust/peer). Returns the
+ * application password to write in .env.
+ */
+async function createDatabase(d) {
+  const { Client } = require(path.join(DIR, 'node_modules', 'pg'));
+  const host = arg('--pg-host', 'localhost'), port = Number(arg('--pg-port', '5432')), db = ident(arg('--db-name', 'sdp_dashboard')), user = ident(arg('--db-user', 'sdp_app'));
+  for (const f of previousEnvFiles()) {
+    let u; try { u = new URL(readEnv(f).PG_URL || ''); } catch (_) { continue; }
+    if (decodeURIComponent(u.username) !== user || u.pathname.slice(1) !== db) continue;
+    const pass = decodeURIComponent(u.password);
+    const c = new Client({ host, port, user, password: pass, database: db });
+    try { await c.connect(); await c.end(); log(`PostgreSQL: reusing the existing ${user} account and database ${db} of the previous installation (${f}) — no superuser needed`); return pass; }
+    catch (_) { try { await c.end(); } catch (__) {} }
+  }
+  const tries = [process.env.SDP_SETUP_PGSUPERPASS, fourMyPeoplePassword(), ''].filter((p, k, a) => p != null && a.indexOf(p) === k);
+  let c = null, last = null;
+  for (const pw of tries) {
+    const t = new Client({ host, port, user: 'postgres', password: pw, database: 'postgres' });
+    try { await t.connect(); c = t; break; } catch (e) { last = e; try { await t.end(); } catch (_) {} }
+  }
+  if (!c) throw new Error(`cannot create the database: no previous SDP account works and the PostgreSQL superuser login failed (${last && last.message}). Type the postgres password in Setup or set SDP_SETUP_PGSUPERPASS`);
+  try {
+    const lit = (s) => "'" + String(s).replace(/'/g, "''") + "'";
+    const role = await c.query('SELECT 1 FROM pg_roles WHERE rolname = $1', [user]);
+    // a new installation owns its credentials: an existing role gets the new password written to .env
+    await c.query(`${role.rowCount ? 'ALTER' : 'CREATE'} ROLE "${user}" LOGIN PASSWORD ${lit(d._appPass)}`);
+    const exists = await c.query('SELECT 1 FROM pg_database WHERE datname = $1', [db]);
+    if (!exists.rowCount) await c.query(`CREATE DATABASE "${db}" OWNER "${user}" ENCODING 'UTF8' TEMPLATE template0`);
+    log(`PostgreSQL: role ${user} ${role.rowCount ? 'updated' : 'created'}, database ${db} ${exists.rowCount ? 'already there (kept)' : 'created'}`);
+  } finally { await c.end(); }
+  return d._appPass;
 }
 
-// E3 (2026-10-20): Windows Firewall rules for the application port — allow inbound TCP from
-// 127.0.0.1 only, block it from every other address (a block rule beats an allow rule; loopback
-// traffic is never filtered). Node already binds to 127.0.0.1; the rules keep the boundary even if
-// BIND_HOST is later widened by mistake. Non-fatal: a warning, never a failed install.
-function firewallRuleNames(port) {
-  return { allow: `SDP Dashboard ${port} - loopback only`, block: `SDP Dashboard ${port} - block remote` };
-}
+function firewallRuleNames(port) { return { allow: `SDP Dashboard ${port} - loopback only`, block: `SDP Dashboard ${port} - block remote` }; }
 function firewallCommands(port) {
   const n = firewallRuleNames(port);
   return [
@@ -100,88 +181,171 @@ function firewallCommands(port) {
     ['advfirewall', 'firewall', 'add', 'rule', `name=${n.block}`, 'dir=in', 'action=block', 'protocol=TCP', `localport=${port}`, 'remoteip=any', 'profile=any'],
   ];
 }
-function firewall(port) {
+function firewall(port, { remove = false } = {}) {
   if (process.platform !== 'win32') return;
   const cmds = firewallCommands(port);
-  const [, , ...adds] = cmds;
-  for (const c of cmds.slice(0, 2)) spawnSync('netsh', c, { encoding: 'utf8' }); // old rules, if any — ignore result
-  for (const c of adds) {
+  for (const c of cmds.slice(0, 2)) spawnSync('netsh', c, { encoding: 'utf8' });
+  if (remove) { log(`firewall rules for port ${port} removed`); return; }
+  for (const c of cmds.slice(2)) {
     const r = spawnSync('netsh', c, { encoding: 'utf8' });
     if (r.status !== 0) { log(`firewall rule not applied (${(r.stderr || r.stdout || '').trim()}) — run as Administrator: netsh ${c.join(' ')}`); return; }
   }
   log(`firewall: TCP ${port} allowed from 127.0.0.1 only, blocked from the network (IIS is the sole entry point)`);
 }
 
-function pm2(dirEnv) {
-  const name = dirEnv.PM2_NAME || 'endeavour-dashboard';
-  const list = spawnSync('pm2', ['jlist'], { encoding: 'utf8', shell: process.platform === 'win32' });
-  let known = false;
-  try { known = JSON.parse(list.stdout || '[]').some(p => p.name === name); } catch (_) { /* pm2 missing */ }
-  if (known) { sh('pm2', ['stop', name]); spawnSync(process.platform === 'win32' ? 'timeout' : 'sleep', [process.platform === 'win32' ? '/t' : '5', '5'].filter(Boolean), { shell: true }); sh('pm2', ['start', name]); }
-  else sh('pm2', ['start', 'server.js', '--name', name, '--node-args=--max-old-space-size=4096']);
-  sh('pm2', ['save']);
-  if (process.platform === 'win32') {
-    const svc = spawnSync('sc', ['query', 'pm2.exe'], { encoding: 'utf8' });
-    if (svc.status !== 0) log('pm2 Windows service not registered — run `npm i -g pm2-windows-service && pm2-service-install -n pm2.exe` once (documented in docs/ops/INSTALLATION.md)');
+const SVC_EXE = () => path.join(DIR, 'service', 'SdpDashboardService.exe');
+function serviceKind(env) {
+  const want = arg('--service', 'auto');
+  if (want === 'windows' || want === 'pm2') return want;
+  if (env.SDP_SERVICE === 'windows' || env.SDP_SERVICE === 'pm2') return env.SDP_SERVICE;
+  // a server already running the dashboard under pm2 stays on pm2 until an administrator moves it
+  const j = spawnSync('pm2', ['jlist'], { encoding: 'utf8', shell: process.platform === 'win32' });
+  try { if (j.status === 0 && JSON.parse(j.stdout || '[]').some((p) => p.name === (env.PM2_NAME || 'endeavour-dashboard'))) return 'pm2'; } catch (_) { /* no pm2 */ }
+  return 'windows';
+}
+/** How the version already on disk was run: its own SDP_SERVICE, else pm2 (versions before the Windows service). */
+function previousServiceKind(env) {
+  if (env.SDP_SERVICE === 'windows' || env.SDP_SERVICE === 'pm2') return env.SDP_SERVICE;
+  return 'pm2';
+}
+function registerService(kind, env) {
+  const S = require(path.join(ROOT, 'services', 'serviceControl'));
+  const e = { ...env, SDP_SERVICE: kind };
+  if (kind === 'windows') {
+    if (process.platform !== 'win32') { log('Windows service: skipped (not Windows)'); return; }
+    if (!fs.existsSync(SVC_EXE())) throw new Error('service\\SdpDashboardService.exe is missing from the installation');
+    const acct = arg('--service-account', '');
+    sh(SVC_EXE(), ['install', ...(acct ? ['--account', acct] : [])], { env: { SDP_SETUP_SVCPASS: process.env.SDP_SETUP_SVCPASS || '' }, shell: false });
+    const st = S.status(e);
+    if (st.state === 'running') { log('restarting the Windows service (stop → wait → start)'); S.restart(e); }
+    else { log('starting the Windows service'); S.start(e); }
+    return;
   }
+  // pm2 (historical servers): register or stop → start, never reload
+  const name = env.PM2_NAME || 'endeavour-dashboard';
+  const list = spawnSync('pm2', ['jlist'], { encoding: 'utf8', shell: process.platform === 'win32' });
+  let known = false; try { known = JSON.parse(list.stdout || '[]').some((p) => p.name === name); } catch (_) { /* pm2 missing */ }
+  if (known) S.restart(e);
+  else { sh('pm2', ['start', 'server.js', '--name', name, '--node-args=--max-old-space-size=4096']); }
+  sh('pm2', ['save']);
+}
+function unregisterService(env) {
+  if (fs.existsSync(SVC_EXE())) { try { sh(SVC_EXE(), ['uninstall'], { shell: false }); } catch (e) { log('service removal: ' + e.message); } }
+  const name = env.PM2_NAME || 'endeavour-dashboard';
+  const j = spawnSync('pm2', ['jlist'], { encoding: 'utf8', shell: process.platform === 'win32' });
+  try { if (j.status === 0 && JSON.parse(j.stdout || '[]').some((p) => p.name === name)) { spawnSync('pm2', ['delete', name], { shell: process.platform === 'win32' }); spawnSync('pm2', ['save'], { shell: process.platform === 'win32' }); log('pm2 process removed'); } } catch (_) { /* no pm2 */ }
 }
 
-async function probe() {
-  const url = `http://localhost:${PORT}/api/auth/config`;
-  const until = Date.now() + 90000; let last = '';
+function iisFrontEnd(port) {
+  const host = arg('--public-host', '');
+  if (!host) return;
+  if (process.platform !== 'win32') return;
+  const ps = path.join(ROOT, 'tools', 'installer-v2', 'iis-setup.ps1');
+  if (!fs.existsSync(ps)) { log('IIS: iis-setup.ps1 missing — skipped'); return; }
+  const r = spawnSync('powershell.exe', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', ps, '-HostName', host, '-Port', String(port), '-AppDir', DIR, '-Thumbprint', arg('--cert-thumbprint', ''), '-MsiDir', arg('--prereq-dir', '')], { encoding: 'utf8' });
+  fs.appendFileSync(LOG, (r.stdout || '') + (r.stderr || ''));
+  log(r.status === 0 ? `IIS: https://${host}/ → http://127.0.0.1:${port}/` : `IIS front end NOT configured (exit ${r.status}) — the dashboard works on the server; see docs/INTERNAL_TLS_SETUP.md. ${String(r.stdout || r.stderr || '').trim().split(/\r?\n/).slice(-2).join(' ')}`);
+}
+
+async function probe(port) {
+  const until = Date.now() + 120000; let last = '';
   while (Date.now() < until) {
-    try { const r = await fetch(url); if (r.ok) return true; last = 'HTTP ' + r.status; } catch (e) { last = e.message; }
-    await new Promise(r => setTimeout(r, 2000));
+    for (const p of ['/ready', '/api/auth/config']) {
+      try { const r = await fetch(`http://127.0.0.1:${port}${p}`); if (r.ok) return p; last = `${p} HTTP ${r.status}`; if (r.status !== 404) break; } catch (e) { last = e.message; break; }
+    }
+    await new Promise((r) => setTimeout(r, 2000));
   }
-  throw new Error(`service did not answer at ${url} (${last})`);
+  throw new Error(`the service did not answer on port ${port} within 2 minutes (${last}) — see logs\\service-*.log`);
+}
+
+function swapNodeModules(staged) {
+  const live = path.join(DIR, 'node_modules'), prev = path.join(DIR, '.rollback', 'node_modules.prev');
+  fs.mkdirSync(path.dirname(prev), { recursive: true });
+  fs.rmSync(prev, { recursive: true, force: true });
+  if (fs.existsSync(live)) fs.renameSync(live, prev);
+  fs.renameSync(staged, live);
+  log('dependencies: the Windows build shipped with Setup is in place (offline install)');
+  return () => { try { fs.rmSync(live, { recursive: true, force: true }); if (fs.existsSync(prev)) fs.renameSync(prev, live); log('dependencies restored'); } catch (e) { log('dependencies restore failed: ' + e.message); } };
 }
 
 async function main() {
-  log(`post-install mode=${MODE} dir=${DIR} port=${PORT}`);
-  const mgr = path.join(DIR, 'tools', 'sdp-manager.js');
+  log(`post-install ${MODE} dir=${DIR} port=${PORT} node=${process.version}`);
+  const envFile = path.join(DIR, '.env');
   if (MODE === 'uninstall') {
-    const name = readEnv(path.join(DIR, '.env')).PM2_NAME || 'endeavour-dashboard';
-    spawnSync('pm2', ['delete', name], { shell: process.platform === 'win32' }); spawnSync('pm2', ['save'], { shell: process.platform === 'win32' });
-    log('service removed; application files are removed by the uninstaller, DATA AND BACKUPS ARE KEPT (delete them by hand if wanted)');
+    const env = readEnv(envFile);
+    unregisterService(env);
+    firewall(env.PORT || PORT, { remove: true });
+    log('service removed. Data, backups and .env are removed only when "also remove data" was chosen.');
     return;
   }
+  const mgr = path.join(ROOT, 'tools', 'sdp-manager.js');
+  const nodePath = [path.join(DIR, 'node_modules'), process.env.NODE_PATH].filter(Boolean).join(path.delimiter);
   const pkgZip = arg('--package', null);
-  let applied = false;
+  let undoDeps = null, applied = false;
+  // what was running BEFORE this Setup — a rollback must give back exactly that, not the new host
+  const envBefore = fs.existsSync(envFile) ? fs.readFileSync(envFile) : null;
+  const kindBefore = envBefore ? previousServiceKind(readEnv(envFile)) : null;
   try {
+    // 1 dependencies
+    const staged = arg('--node-modules', null);
+    if (staged && fs.existsSync(staged)) undoDeps = swapNodeModules(staged);
+    else if (!fs.existsSync(path.join(DIR, 'node_modules', 'express'))) log('no dependencies shipped with this Setup — `npm ci` after the copy (needs the internet)');
+    // 2 the package
     if (pkgZip) {
-      // The manager does verify + rollback point + copy; npm/migrate/restart are run below (we log them).
-      sh(process.execPath, [fs.existsSync(mgr) ? mgr : path.join(path.dirname(pkgZip), 'sdp-manager.js'), 'update', pkgZip, '--dir', DIR, '--no-backup', '--no-npm', '--no-migrate', '--no-restart', ...(MODE === 'repair' ? ['--reinstall'] : []),
-        // E1: an unsigned package is refused by the manager unless the operator opted in (logged by the manager).
-        ...(process.argv.includes('--allow-unsigned') ? ['--allow-unsigned'] : [])]);
+      const update = MODE === 'update' && fs.existsSync(envFile);
+      sh(process.execPath, [mgr, 'update', pkgZip, '--dir', DIR, ...(update ? [] : ['--no-backup']), '--no-npm', '--no-migrate', '--no-restart',
+        // an update to the version already installed re-applies it (backup first) — a downgrade stays refused
+        ...(MODE === 'repair' || MODE === 'update' ? ['--reinstall'] : []), ...(has('--allow-unsigned') ? ['--allow-unsigned'] : [])], { env: { NODE_PATH: nodePath }, shell: false });
       applied = true;
     }
-    const envFile = path.join(DIR, '.env');
-    const d = envDefaults();
-    const { _appPass, ...wanted } = d;
+    if (!fs.existsSync(path.join(DIR, 'node_modules', 'express'))) sh('npm', ['ci', '--omit=dev', '--no-audit', '--no-fund']);
+    // 3 + 4 .env and database
+    const d = envDefaults(); const { _appPass, ...wanted } = d;
     if (MODE === 'new' && !fs.existsSync(envFile)) {
-      createDatabase(d);
-      writeEnv(envFile, wanted);
-      log('.env created (bootstrap admin "admin" — the password is in .env; change it at first sign-in)');
+      const appPass = await createDatabase(d);
+      if (appPass !== d._appPass) wanted.PG_URL = wanted.PG_URL.replace(encodeURIComponent(d._appPass), encodeURIComponent(appPass));
+      writeEnv(envFile, { ...wanted, SDP_SERVICE: serviceKind({}) });
+      log('.env created — bootstrap admin "admin", its password is DASH_PASS in .env: change it at first sign-in');
     } else {
-      const added = writeEnv(envFile, { NODE_ENV: 'production', PORT, BIND_HOST: '127.0.0.1', SDP_BACKUP_DIR: wanted.SDP_BACKUP_DIR });
-      log(`.env kept (${added} missing keys appended)`);
+      const have = readEnv(envFile);
+      const added = writeEnv(envFile, { NODE_ENV: 'production', PORT, BIND_HOST: '127.0.0.1', SDP_BACKUP_DIR: wanted.SDP_BACKUP_DIR, DASHBOARD_API_KEY: wanted.DASHBOARD_API_KEY, SDP_SERVICE: serviceKind(have) });
+      log(`.env kept${added.length ? ' — added ' + added.join(', ') : ''}`);
+      repairEnv(envFile, log);
+      if (!have.SDP_CONFIG_KEY) log('note: SDP_CONFIG_KEY is not set — stored secrets stay unencrypted until it is (docs/ops/INSTALLATION.md)');
     }
     const env = readEnv(envFile);
-    sh('npm', ['ci', '--omit=dev', '--no-audit', '--no-fund']);
-    sh(process.execPath, [path.join(DIR, 'db', 'migrate.js')], { env });
+    // 5 schema
+    sh(process.execPath, [path.join(DIR, 'db', 'migrate.js')], { env, shell: false });
+    // 6 firewall, 7 service, 8 IIS, 9 probe
     firewall(env.PORT || PORT);
-    pm2(env);
-    await probe();
-    log('OK — SDP Dashboard is up');
+    registerService(serviceKind(env), env);
+    iisFrontEnd(env.PORT || PORT);
+    const via = await probe(env.PORT || PORT);
+    log(`OK — SDP Dashboard answers on http://localhost:${env.PORT || PORT} (${via})`);
+    try { fs.rmSync(path.join(DIR, '.rollback', 'node_modules.prev'), { recursive: true, force: true }); } catch (_) {}
+    fs.writeFileSync(path.join(DIR, 'logs', 'setup-last.json'), JSON.stringify({ ok: true, mode: MODE, at: new Date().toISOString(), url: `http://localhost:${env.PORT || PORT}/`, log: LOG }, null, 2));
   } catch (e) {
     log('FAILED: ' + e.message);
     if (applied && MODE !== 'new') {
-      log('rolling back…');
-      try { sh(process.execPath, [mgr, 'rollback', '--dir', DIR]); } catch (e2) { log('rollback failed: ' + e2.message); }
+      log('rolling back the application files…');
+      try { sh(process.execPath, [mgr, 'rollback', '--dir', DIR, '--no-restart'], { env: { NODE_PATH: nodePath }, shell: false }); } catch (e2) { log('rollback failed: ' + e2.message); }
     }
+    if (undoDeps) undoDeps();
+    if (MODE !== 'new') {
+      try {
+        if (envBefore) { fs.writeFileSync(envFile, envBefore); log('.env restored to its state before this Setup'); }
+        const prevEnv = readEnv(envFile);
+        // an older installation ran under pm2 with the system Node.js: starting it with the Windows service
+        // (and the Node.js shipped with this Setup) fails on native modules built for another Node version
+        if (kindBefore === 'pm2' && fs.existsSync(SVC_EXE())) { try { sh(SVC_EXE(), ['uninstall'], { shell: false }); log('Windows service removed — the previous version runs under pm2'); } catch (e4) { log('service removal: ' + e4.message); } }
+        registerService(kindBefore || serviceKind(prevEnv), prevEnv);
+        log(`previous version restarted (${kindBefore || 'auto'})`);
+      } catch (e3) { log('restart after rollback failed: ' + e3.message); }
+    }
+    try { fs.writeFileSync(path.join(DIR, 'logs', 'setup-last.json'), JSON.stringify({ ok: false, mode: MODE, at: new Date().toISOString(), error: e.message.slice(0, 500), log: LOG }, null, 2)); } catch (_) {}
     process.exit(1);
   }
 }
 
 if (require.main === module) main();
-module.exports = { writeEnv, readEnv, envDefaults, firewallCommands, firewallRuleNames };
+module.exports = { previousEnvFiles, fourMyPeoplePassword, writeEnv, readEnv, setEnvValue, repairEnv, previousServiceKind, envDefaults, firewallCommands, firewallRuleNames, ident };

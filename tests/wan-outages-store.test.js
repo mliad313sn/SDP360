@@ -4,7 +4,6 @@
 // no surrogate id (sqlite/pg parity). Mirrors the wan_link_snapshots pattern.
 const _os = require('os'), _fs = require('fs'), _p = require('path');
 process.env.SDP_DATA_DIR = _fs.mkdtempSync(_p.join(_os.tmpdir(), 'wanout-'));
-process.env.REPORTS_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'wanout-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'wanout-pass-0000';
 const { test } = require('node:test');

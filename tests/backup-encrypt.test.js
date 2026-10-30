@@ -87,7 +87,7 @@ test('runBackup: no key → plaintext gzip + ONE warning line; key → .enc, no 
   assert.match(warned3[0], /too short/);
 
   const before = fs.readdirSync(dir).length;
-  await assert.rejects(() => B.runBackup({ dir, env: { PG_URL: 'x' }, spawn: (c, a) => { fs.writeFileSync(a[1], 'x'.repeat(5000)); return { status: 0 }; }, log: () => {} }), /trailer missing/);
+  await assert.rejects(async () => B.runBackup({ dir, env: { PG_URL: 'x' }, spawn: (c, a) => { fs.writeFileSync(a[1], 'x'.repeat(5000)); return { status: 0 }; }, log: () => {} }), /trailer missing/);
   assert.equal(fs.readdirSync(dir).length, before, 'the truncated dump is not kept');
 });
 
@@ -100,5 +100,5 @@ test('runBackup: off-site copy when backup_offsite_path is set; a failing copy f
   const none = await B.runBackup({ dir, env: { PG_URL: 'x' }, spawn: spawnOk, offsitePath: '   ', log: () => {} });
   assert.equal(none.offsite, null);
   const bad = { ...fs, mkdirSync: (p, o) => { if (String(p).includes('unreachable')) throw new Error('ENOENT share'); return fs.mkdirSync(p, o); } };
-  await assert.rejects(() => B.runBackup({ dir, env: { PG_URL: 'x' }, spawn: spawnOk, offsitePath: '/unreachable/share', fsx: bad, log: () => {} }), (e) => /off-site copy failed/.test(e.message) && e.transient === true && fs.existsSync(e.file));
+  await assert.rejects(async () => B.runBackup({ dir, env: { PG_URL: 'x' }, spawn: spawnOk, offsitePath: '/unreachable/share', fsx: bad, log: () => {} }), (e) => /off-site copy failed/.test(e.message) && e.transient === true && fs.existsSync(e.file));
 });

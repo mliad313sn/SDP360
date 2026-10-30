@@ -23,7 +23,7 @@
   .grid2 { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:14px; }
   .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; } label { font-size:12px; color:#6b7785; display:flex; flex-direction:column; gap:3px; }
   table { border-collapse:collapse; width:100%; font-size:12.5px; } th, td { border:1px solid #e4e8ee; padding:5px 7px; text-align:left; vertical-align:top; } th { background:#f4f6f7; font-weight:600; }
-  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; color:#fff; background:#6b7785; } .pill.GREEN,.pill.done,.pill.delivered,.pill.accepted,.pill.on_track{background:#27AE60} .pill.AMBER,.pill.in_progress,.pill.triaged,.pill.scheduled,.pill.live,.pill.at_risk{background:#E8A100} .pill.RED,.pill.rejected,.pill.late,.pill.blocked{background:#DC2626} .pill.NA,.pill.open,.pill.submitted,.pill.planned,.pill.todo{background:#3A4A60}
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; color:#fff; background:#6b7785; } .pill.GREEN,.pill.done,.pill.delivered,.pill.accepted,.pill.on_track{background:#1E7B45} .pill.AMBER,.pill.in_progress,.pill.triaged,.pill.scheduled,.pill.live,.pill.at_risk{background:#B45309} .pill.RED,.pill.rejected,.pill.late,.pill.blocked{background:#B91C1C} .pill.NA,.pill.open,.pill.submitted,.pill.planned,.pill.todo{background:#3A4A60}
   #msg .errors { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; border-radius:10px; padding:8px 12px; font-size:12.5px; } #msg .ok { background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; border-radius:10px; padding:8px 12px; font-size:12.5px; }
   .muted { color:#6b7785; font-size:12px; } .scroll { overflow:auto; } .sr-only { position:absolute; left:-9999px; }
   .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; } .tile { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:10px 12px; } .tile .tn { font-size:22px; font-weight:700; color:#3A4A60; } .tile .tl { font-size:12px; color:#6b7785; }
@@ -47,10 +47,10 @@
     <div class="panel"><h2>Generate</h2><div class="row"><label>Template <select id="g-tpl"></select></label><label>Site (site templates) <select id="g-site"><option value="">— first site in my scope —</option></select></label><label>Window (optional, e.g. 2026-09 or 2026-W40) <input id="g-win"></label><label>Language <select id="g-lang"><option value="">Template default</option><option value="en">English</option><option value="fr">Français</option></select></label></div>
       <div class="bar"><button class="btn primary" id="g-run" type="button">Generate draft</button><span class="muted" id="g-prov"></span></div></div>
   </div>
-  <div class="panel"><h2>Runs</h2><div class="bar"><label>Status <select id="f-status"><option value="">all I can see</option><option>draft</option><option>reviewed</option><option>published</option><option>rejected</option></select></label></div><div class="scroll" id="runs"></div></div>
+  <div class="panel"><h2>Runs</h2><div class="bar"><label>Status <select id="f-status"><option value="">all I can see</option><option>draft</option><option>reviewed</option><option>published</option><option>rejected</option><option>withdrawn</option></select></label></div><div class="scroll" id="runs"></div></div>
   <section id="view" class="panel" hidden><h2 id="v-title"></h2><div class="bar" id="v-links"></div>
     <div id="v-review" hidden><div class="row"><label>Review note <input id="r-note"></label><label>Usefulness of the commentary (1-5) <input id="r-rate" type="number" min="1" max="5"></label></div>
-      <div class="bar"><button class="btn primary" id="r-ok" type="button">Mark reviewed</button><button class="btn danger" id="r-ko" type="button">Reject</button><button class="btn" id="r-pub" type="button">Publish</button><button class="btn" id="r-regen" type="button">Regenerate AI commentary</button></div>
+      <div class="bar"><button class="btn primary" id="r-ok" type="button">Mark reviewed</button><button class="btn danger" id="r-ko" type="button">Reject</button><button class="btn" id="r-pub" type="button">Publish</button><button class="btn danger" id="r-wd" type="button" hidden>Withdraw</button><button class="btn" id="r-regen" type="button">Regenerate AI commentary</button></div>
       <label>Commentary (editable until publication) <textarea id="r-text" rows="4" style="width:100%"></textarea></label><div class="bar"><button class="btn" id="r-save" type="button">Save commentary</button><span class="muted" id="r-meta"></span></div></div>
     <iframe id="v-frame" title="Report preview" style="width:100%;height:70vh;border:1px solid #e4e8ee;border-radius:10px;background:#fff"></iframe></section>
 </main>
@@ -59,7 +59,7 @@
   "use strict";
   var R = window.DashboardRender, $ = function (id) { return document.getElementById(id); }, esc = R.escapeHtml;
   var H = function (x) { return Object.assign({}, x || {}); };
-  function api(p, o) { return fetch(p, Object.assign({ headers: H(o && o.body ? { "content-type": "application/json" } : {}) }, o || {})).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || ("HTTP " + r.status)); return j; }); }); }
+  function api(p, o) { return fetch(p, Object.assign({ headers: H(o && o.body ? { "content-type": "application/json" } : {}) }, o || {})).then(function (r) { return r.json().then(function (j) { if (!r.ok) { var e = new Error(j.message || j.error || ("HTTP " + r.status)); e.body = j; e.status = r.status; throw e; } return j; }); }); }
   var msg = function (h, cls) { $("msg").innerHTML = h ? "<div class=\"" + (cls || "ok") + "\">" + esc(h) + "</div>" : ""; };
   var fail = function (e) { msg(e.message, "errors"); };
   var T = null, cur = null, author = false, sites = [];
@@ -84,7 +84,7 @@
   function siteName(id) { if (id == null) return "fleet"; var s = sites.find(function (x) { return Number(x.id) === Number(id); }); return s ? s.name : "site " + id; }
   function openRun(id) {
     return api("/api/report-studio/runs/" + id).then(function (j) {
-      cur = j.run; $("view").hidden = false; $("v-title").textContent = "#" + cur.id + " · " + (j.template ? j.template.name : cur.template_key) + " · " + siteName(cur.site_id) + " · " + cur.status;
+      cur = j.run; $("view").hidden = false; $("r-wd").hidden = !(cur.status === "published" && window.__userHasRole && window.__userHasRole("admin")); $("v-title").textContent = "#" + cur.id + " · " + (j.template ? j.template.name : cur.template_key) + " · " + siteName(cur.site_id) + " · " + cur.status;
       var base = "/api/report-studio/runs/" + cur.id;
       $("v-links").innerHTML = ["html", "pdf", "csv", "xlsx", "pptx"].map(function (f) { return "<a class=\"btn\" href=\"" + base + "." + f + "\" target=\"_blank\" rel=\"noopener\">" + f.toUpperCase() + "</a>"; }).join("") + (cur.status === "published" ? " <button class=\"btn\" id=\"v-share\" type=\"button\">Create share link (72 h)</button>" : "");
       fetch(base + ".html", { headers: H() }).then(function (r) { return r.text(); }).then(function (h) { $("v-frame").srcdoc = h; });
@@ -103,7 +103,22 @@
   $("f-status").addEventListener("change", function () { loadRuns().catch(fail); });
   var review = function (status) { return function () { api("/api/report-studio/runs/" + cur.id + "/review", { method: "POST", body: JSON.stringify({ status: status, note: $("r-note").value, rating: $("r-rate").value || null }) }).then(function () { msg("Run " + status + "."); return loadRuns().then(function () { return openRun(cur.id); }); }).catch(fail); }; };
   $("r-ok").addEventListener("click", review("reviewed")); $("r-ko").addEventListener("click", review("rejected"));
-  $("r-pub").addEventListener("click", function () { api("/api/report-studio/runs/" + cur.id + "/publish", { method: "POST" }).then(function () { msg("Published."); return loadRuns().then(function () { return openRun(cur.id); }); }).catch(fail); });
+  // G-13 / G-14 — the server refuses self-publication and stale sources; an admin may override a stale source with a reason.
+  var publish = function (reason) { return api("/api/report-studio/runs/" + cur.id + "/publish", { method: "POST", body: JSON.stringify(reason ? { override_reason: reason } : {}) }); };
+  $("r-pub").addEventListener("click", function () {
+    publish(null).catch(function (e) {
+      if (!(e.body && e.body.error === "stale_sources")) throw e;
+      var list = (e.body.sources || []).map(function (x) { return x.job + " (" + x.module + "): " + (x.state === "UNKNOWN" ? "never synced" : "last sync " + x.age_h + " h ago, limit " + x.limit_h + " h"); }).join("\n");
+      if (!window.__userHasRole || !window.__userHasRole("admin")) throw new Error("Cannot publish: data is not current.\n" + list);
+      var reason = window.prompt("These sources are not current:\n" + list + "\n\nPublish anyway? Give the reason (10+ characters; it is recorded on the report):", "");
+      if (!reason) throw new Error("Publication cancelled.");
+      return publish(reason);
+    }).then(function (j) { if (!j) return; msg("Published."); return loadRuns().then(function () { return openRun(cur.id); }); }).catch(fail);
+  });
+  $("r-wd").addEventListener("click", function () {
+    var reason = window.prompt("Withdraw this published report? Readers and share links stop seeing it. Reason:", ""); if (!reason) return;
+    api("/api/report-studio/runs/" + cur.id + "/withdraw", { method: "POST", body: JSON.stringify({ reason: reason }) }).then(function () { msg("Withdrawn."); return loadRuns().then(function () { return openRun(cur.id); }); }).catch(fail);
+  });
   $("r-save").addEventListener("click", function () { api("/api/report-studio/runs/" + cur.id + "/commentary", { method: "PUT", body: JSON.stringify({ text: $("r-text").value }) }).then(function () { msg("Commentary saved."); return openRun(cur.id); }).catch(fail); });
   $("r-regen").addEventListener("click", function () { api("/api/report-studio/runs/" + cur.id + "/commentary/regenerate", { method: "POST" }).then(function (j) { msg("Commentary " + (j.commentary.source === "ai" ? "regenerated by the model" : "kept deterministic (" + (j.commentary.error || "no provider") + ")") + "."); return openRun(cur.id); }).catch(fail); });
   load().then(function () { var q = new URLSearchParams(location.search).get("run"); if (q) openRun(q); });

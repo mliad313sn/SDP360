@@ -208,8 +208,9 @@ body {
   right: 0;
   height: 10px;
 }
-.shell-nav-item:hover .shell-dropdown,
-.shell-nav-item:focus-within .shell-dropdown,
+/* G17 — mouse users open on hover; keyboard users open with the caret (.is-open), so what is shown always matches
+   aria-expanded. Escape adds .is-suppressed until the pointer leaves, so a hover-open menu can be dismissed too. */
+.shell-nav-item:not(.is-suppressed):hover .shell-dropdown,
 .shell-dropdown.is-open {
   display: block;
 }
@@ -349,6 +350,18 @@ body {
 }
 
 /* ── RESPONSIVE ─────────────────────────────────────────────────── */
+/* Design review 2026-10-29: the top menu never overlaps the user pill nor overflows the page.
+   Below 1400 px the top-level labels give way to icons (the active section keeps its label);
+   below 640 px only icons remain and the pill shows the user's initial. */
+.shell-header { overflow-x: clip; }
+.shell-user-initial { display: none; width: 22px; height: 22px; border-radius: 50%; background: rgba(255,255,255,.22);
+  align-items: center; justify-content: center; font-weight: 700; font-size: 11px; }
+.shell-user-name { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 1400px) {
+  .shell-nav > .shell-nav-item:not(.is-active) .shell-nav-label,
+  .shell-nav > .shell-nav-item-link:not(.is-active) .shell-nav-label { display: none; }
+  .shell-brand-text small { display: none; }
+}
 @media (max-width: 900px) {
   .shell-header { padding: 0 12px; }
   .shell-brand { margin-right: 8px; }
@@ -359,5 +372,48 @@ body {
 }
 @media (max-width: 640px) {
   .shell-nav-label { display: none; }
-  .shell-user-name { display: none; }
+  .shell-user-name, .shell-user-role, .shell-brand-text { display: none; }
+  .shell-user-initial { display: inline-flex; }
+  .shell-user-pill { padding: 3px; }
+  .shell-nav-item, .shell-nav-item-link { padding: 6px 7px; }
+  /* phone: brand + user on the first row, the module icons on a full-width second row,
+     so the menu never slides under the user pill (design review, 390 px check) */
+  .shell-header { flex-wrap: wrap; height: auto; min-height: var(--shell-h); padding: 4px 12px; row-gap: 2px; }
+  .shell-nav { order: 3; flex-basis: 100%; justify-content: space-between; gap: 0; }
+  .shell-nav-item { padding: 2px; gap: 0; }
+  .shell-nav-item > .shell-nav-item-link { padding: 6px 4px; }
+  .shell-nav-caret { padding: 2px 1px; margin-left: 0; }
+  .shell-actions { margin-left: auto; }
 }
+
+/* ── G17 — grouped menus, breadcrumb, quick find ───────────────────── */
+.shell-dd-group + .shell-dd-group { border-top: 1px solid rgba(255,255,255,.12); margin-top: 4px; padding-top: 4px; }
+.shell-dd-heading { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--shell-text-mute); padding: 6px 10px 2px; }
+.shell-dropdown a:focus-visible, .shell-nav-caret:focus-visible, .shell-search-btn:focus-visible { outline: 2px solid var(--shell-orange-light); outline-offset: 2px; }
+nav.shell-breadcrumb { background: #F4F6F9; border-bottom: 1px solid #E2E7EE; font-size: 12.5px; }
+nav.shell-breadcrumb ol { list-style: none; margin: 0; padding: 6px 20px; display: flex; flex-wrap: wrap; gap: 4px; }
+nav.shell-breadcrumb li + li::before { content: '›'; color: #6B7785; margin-right: 4px; }
+nav.shell-breadcrumb a { color: #2A5490; text-decoration: none; }
+nav.shell-breadcrumb a:hover { text-decoration: underline; }
+nav.shell-breadcrumb [aria-current="page"] { color: #3A4A60; font-weight: 600; }
+.shell-search-btn { display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,.08); color: var(--shell-text-strong); border: 1px solid rgba(255,255,255,.18); border-radius: 6px; padding: 5px 9px; font: inherit; font-size: 12.5px; cursor: pointer; }
+.shell-search-btn svg { width: 15px; height: 15px; }
+.shell-search-btn kbd { font: 11px/1 inherit; border: 1px solid rgba(255,255,255,.3); border-radius: 3px; padding: 1px 4px; color: var(--shell-text-mute); }
+.shell-search { position: fixed; top: calc(var(--shell-h) + 8px); right: 16px; z-index: 1100; width: min(440px, calc(100vw - 32px)); background: #fff; border: 1px solid #D5DCE5; border-radius: 10px; box-shadow: 0 14px 34px rgba(0,0,0,.22); padding: 10px; }
+.shell-search[hidden] { display: none; }
+.shell-search input { width: 100%; box-sizing: border-box; font: inherit; font-size: 15px; padding: 8px 10px; border: 1px solid #B8C2CF; border-radius: 6px; }
+.shell-search-list { list-style: none; margin: 8px 0 0; padding: 0; max-height: 60vh; overflow: auto; }
+.shell-search-list a { display: block; padding: 7px 8px; border-radius: 6px; color: #1F2A37; text-decoration: none; }
+.shell-search-list a:hover { background: #EEF2F7; }
+.shell-search-list a:focus-visible { background: #EEF2F7; outline: 2px solid #2A5490; outline-offset: -2px; }
+.shell-search-list small { color: #5B6675; margin-left: 4px; }
+.shell-search-head { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #5B6675; padding: 4px 8px; }
+.shell-search-empty { color: #5B6675; padding: 8px; }
+.shell-sr, .shell-search-status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+@media (max-width: 900px) { .shell-search-label, .shell-search-btn kbd { display: none; } nav.shell-breadcrumb ol { padding: 6px 12px; } }
+@media (max-width: 640px) { .shell-search { top: 100px; } }
+
+/* G18 — language switch in the header (one preference for the whole application) */
+.shell-lang-btn { background: rgba(255,255,255,.08); color: #fff; border: 1px solid rgba(255,255,255,.25); border-radius: 6px; font: 600 12px/1 inherit; padding: 6px 8px; cursor: pointer; min-width: 32px; min-height: 28px; }
+.shell-lang-btn:hover { background: rgba(255,255,255,.18); }
+.shell-lang-btn:focus-visible { outline: 2px solid #FFB366; outline-offset: 2px; }

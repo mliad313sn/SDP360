@@ -22,9 +22,10 @@
     PgMinMajor     = 13
     PgHost         = 'localhost'
     PgPort         = 5432
-    # Same appliance convention as the 4MyPeople installer: a BLANK password
-    # prompt resolves to this standard value.
-    StandardPgSuperPassword = 'OneEDV4all!2026Production#IT'
+    # Security review (2026-10-29): NO password is ever stored here — this file is in git and in
+    # every package. The PostgreSQL superuser password comes from PG_SUPER_PASSWORD (environment),
+    # EnvAnswers.PG_SUPER_PASSWORD (silent mode, a local copy never committed) or a masked prompt.
+    StandardPgSuperPassword = ''
     DbName         = 'sdp_dashboard'
     DbUser         = 'sdp_app'
     BackendsDefault = 'postgres'               # TRACKER/MEETINGS/INSPECTION/REPORTS on fresh installs

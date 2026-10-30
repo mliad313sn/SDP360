@@ -11,11 +11,13 @@
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
 <style nonce="%%CSP_NONCE%%">
   body { margin: 0; background: var(--color-bg, #F4F5F7); color: var(--color-text-strong, #1F2A33); font-family: var(--font-sans, sans-serif); font-size: 14px; }
   .cm-wrap { max-width: 1300px; margin: 0 auto; padding: 24px 28px 48px; }
   .cm-card { background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA); border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; }
   .cm-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px; }
+  @media (max-width: 760px) { .cm-grid { grid-template-columns: 1fr; } }
   h1 { margin: 0 0 6px; font-size: 22px; color: var(--edv-slate, #3A4A60); }
   .cm-muted { color: #6B7785; font-size: 12.5px; }
   table { width: 100%; border-collapse: collapse; } td, th { padding: 7px 8px; border-bottom: 1px solid #EEF0F3; text-align: left; font-size: 13px; }
@@ -88,7 +90,7 @@
       const j = await api('GET', '/api/commitments' + q); meta = j;
       if ($('cmStatus').options.length === 1) for (const s of j.statuses) $('cmStatus').add(new Option(s.replace(/_/g, ' '), s));
       if (!$('nfKind').options.length) { for (const k of j.kinds) $('nfKind').add(new Option(k.replace(/_/g, ' '), k)); for (const s of j.severities) $('nfSeverity').add(new Option(s, s)); $('nfSeverity').value = 'medium'; }
-      $('cmList').innerHTML = j.commitments.map((c) => `<tr class="cm-row${selected === c.id ? ' cm-sel' : ''}" data-id="${c.id}"><td>${c.id}</td><td>${esc(c.title)}</td><td>${esc(c.severity)}</td><td>${esc(c.due_date || '—')}</td><td>${pill(c.status)}</td></tr>`).join('') || '<tr><td colspan="5" class="cm-muted">No commitment in your scope.</td></tr>';
+      $('cmList').innerHTML = j.commitments.map((c) => `<tr class="cm-row${selected === c.id ? ' cm-sel' : ''}" data-id="${c.id}" tabindex="0" aria-selected="${selected === c.id}"><td>${c.id}</td><td>${esc(c.title)}</td><td>${esc(c.severity)}</td><td>${esc(c.due_date || '—')}</td><td>${pill(c.status)}</td></tr>`).join('') || '<tr><td colspan="5" class="cm-muted">No commitment in your scope.</td></tr>';
     } catch (e) { if (e.status === 404) { $('cmDisabled').hidden = false; $('cmNewBtn').disabled = true; } else $('cmList').innerHTML = `<tr><td colspan="5">${esc(e.message)}</td></tr>`; }
   }
   async function show(id) {
@@ -108,12 +110,13 @@
     } catch (e) { $('cmDetail').innerHTML = `<div class="cm-msg">${esc(e.message)}</div>`; }
   }
   $('cmList').addEventListener('click', (ev) => { const tr = ev.target.closest('tr[data-id]'); if (tr) show(tr.dataset.id); });
+  $('cmList').addEventListener('keydown', (ev) => { if (ev.key !== 'Enter' && ev.key !== ' ') return; const tr = ev.target.closest('tr[data-id]'); if (tr) { ev.preventDefault(); show(tr.dataset.id); } });   // keyboard users open a row too
   $('cmStatus').addEventListener('change', loadList);
   $('cmDetail').addEventListener('click', async (ev) => {
     const b = ev.target.closest('button[data-to]');
     if (b) {
       let reason = null;
-      if (b.dataset.reason === '1') { reason = window.prompt('Reason (required):'); if (!reason) return; }
+      if (b.dataset.reason === '1') { reason = await window.ReasonDialog.ask({ title: b.textContent, label: 'Reason (required, kept in the history)', min: 3 }); if (!reason) return; }
       try { await api('POST', `/api/commitments/${selected}/transition`, { to: b.dataset.to, version: Number($('cmDetail').dataset.version), reason }); show(selected); }
       catch (e) { $('cmMsg').textContent = e.status === 409 ? 'Someone changed it meanwhile — reloaded.' : e.message; if (e.status === 409) show(selected); }
       return;

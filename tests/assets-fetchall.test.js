@@ -15,11 +15,11 @@ test('returns every row the API sends (maxRows is not a ceiling the API honours)
 });
 
 test('throws only if a view blows past the hard sanity cap (data-gone-wrong)', async () => {
-  await assert.rejects(() => fetchAll('v', makeFetch(60000), { hardCap: 50000 }),
+  await assert.rejects(async () => fetchAll('v', makeFetch(60000), { hardCap: 50000 }),
     /hard cap|unexpectedly large/i);
 });
 
 test('propagates a fetch error (never swallows it — a timeout must NOT store a partial)', async () => {
-  await assert.rejects(() => fetchAll('v', async () => { throw new Error('zoho timeout'); }),
+  await assert.rejects(async () => fetchAll('v', async () => { throw new Error('zoho timeout'); }),
     /zoho timeout/);
 });

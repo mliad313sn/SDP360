@@ -1,5 +1,7 @@
 'use strict';
-process.env.ASSETS_BACKEND = 'sqlite';
+// Top-level async setup, run IN ORDER before the first test (PostgreSQL-only conversion, PO-08).
+const __bootChain = (() => { let p = Promise.resolve(), hooked = false;
+  return (fn) => { p = p.then(fn); if (!hooked) { hooked = true; require('node:test').beforeEach(() => p); } }; })();
 const test = require('node:test');
 const assert = require('node:assert');
 const os = require('node:os'), path = require('node:path'), fs = require('node:fs');
@@ -7,7 +9,8 @@ process.env.SDP_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'assets-sync-')
 const adb = require('../assets-db');
 const { syncAssetView, syncAllAssets, ASSET_VIEWS } = require('../assets-sync');
 
-const db = adb.getDB();
+let db;
+__bootChain(async () => { db = adb.getDB(); });
 const assetsDef = ASSET_VIEWS.find(v => v.name === 'assets');
 const deps = (fetchView, markError = async () => {}) =>
   ({ fetchView, replaceTable: adb.replaceTable, countRows: adb.countRows, markSuccess: async () => {}, markError });
@@ -17,7 +20,7 @@ const rowsV1 = [{ 'Asset ID':'A1', 'State':'In Store', 'Purchase Cost($)':'0.00'
 
 test('full-replace inserts the mapped rows', async () => {
   await syncAssetView(assetsDef, deps(async () => ({ rows: rowsV1 })));
-  const got = db.prepare('SELECT asset_id, state, purchase_cost, site FROM assets ORDER BY asset_id').all();
+  const got = (await db.prepare('SELECT asset_id, state, purchase_cost, site FROM assets ORDER BY asset_id').all());
   assert.deepStrictEqual(got, [
     { asset_id:'A1', state:'In Store',   purchase_cost:'0.00',        site:'MANA' },
     { asset_id:'A2', state:'Discovered', purchase_cost:'1,250,000.00', site:'ITY' },
@@ -26,39 +29,39 @@ test('full-replace inserts the mapped rows', async () => {
 
 test('full-replace REPLACES (a smaller second sync drops the vanished row)', async () => {
   await syncAssetView(assetsDef, deps(async () => ({ rows: [rowsV1[0]] })));
-  assert.strictEqual(db.prepare('SELECT COUNT(*) c FROM assets').get().c, 1);
+  assert.strictEqual((await db.prepare('SELECT COUNT(*) c FROM assets').get()).c, 1);
 });
 
 test('a failed fetch leaves the existing table UNTOUCHED and calls markError', async () => {
   let errored = false;
-  await assert.rejects(() => syncAssetView(assetsDef,
+  await assert.rejects(async () => syncAssetView(assetsDef,
     deps(async () => { throw new Error('zoho down'); }, async () => { errored = true; })));
-  assert.strictEqual(db.prepare('SELECT COUNT(*) c FROM assets').get().c, 1, 'table survives a failed fetch');
+  assert.strictEqual((await db.prepare('SELECT COUNT(*) c FROM assets').get()).c, 1, 'table survives a failed fetch');
   assert.ok(errored, 'markError must be called');
 });
 
 test('C1: refuses to wipe a POPULATED table when the fetch returns 0 rows without throwing', async () => {
   // seed the table with real rows (an empty header-only CSV / transient AP glitch returns [] no-throw)
   await syncAssetView(assetsDef, deps(async () => ({ rows: rowsV1 })));
-  assert.strictEqual(db.prepare('SELECT COUNT(*) c FROM assets').get().c, 2, 'seeded');
+  assert.strictEqual((await db.prepare('SELECT COUNT(*) c FROM assets').get()).c, 2, 'seeded');
   let errored = false;
   await assert.rejects(
     () => syncAssetView(assetsDef, deps(async () => ({ rows: [] }), async () => { errored = true; })),
     /refusing to wipe/,
     'an empty fetch into a populated table must THROW, not silently empty it',
   );
-  assert.strictEqual(db.prepare('SELECT COUNT(*) c FROM assets').get().c, 2,
+  assert.strictEqual((await db.prepare('SELECT COUNT(*) c FROM assets').get()).c, 2,
     'the populated table SURVIVES the empty fetch — no silent data loss');
   assert.ok(errored, 'markError must be called (routed through the per-view isolation)');
 });
 
 test('C1: an empty fetch into an EMPTY table is ALLOWED (first-ever sync, writes nothing, no throw)', async () => {
   const memDef = ASSET_VIEWS.find(v => v.name === 'asset_memory');
-  adb.replaceTable(memDef.table, Object.values(memDef.columns), []);   // ensure empty
-  assert.strictEqual(db.prepare('SELECT COUNT(*) c FROM asset_memory').get().c, 0, 'starts empty');
+  (await adb.replaceTable(memDef.table, Object.values(memDef.columns), []));   // ensure empty
+  assert.strictEqual((await db.prepare('SELECT COUNT(*) c FROM asset_memory').get()).c, 0, 'starts empty');
   const n = await syncAssetView(memDef, deps(async () => ({ rows: [] })));
   assert.strictEqual(n, 0, 'wrote nothing');
-  assert.strictEqual(db.prepare('SELECT COUNT(*) c FROM asset_memory').get().c, 0, 'still empty, no throw');
+  assert.strictEqual((await db.prepare('SELECT COUNT(*) c FROM asset_memory').get()).c, 0, 'still empty, no throw');
 });
 
 test('the licence transform keeps the cost as a RAW string', async () => {

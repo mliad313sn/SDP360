@@ -21,16 +21,11 @@ function setEventHook(fn) { _hook = fn; }
 function getStore() {
   if (_store) return _store;
   const rdb = require('../../reports-db');
-  if (rdb.REPORTS_BACKEND === 'postgres') {
-    const pg = rdb.pgHandle();
-    _store = makeSyncStore(pg, { init: false });
-    // apply the pg DDL once; callers await ensureReady() before the first run
-    _pgReady = pg.exec(require('fs').readFileSync(require('path').join(__dirname, '..', '..', 'db', 'postgres', 'sync', '001_init.sql'), 'utf8'))
-      .catch((e) => console.warn('[sync] pg schema init failed (runs will not be recorded):', e.message));
-  } else {
-    _store = makeSyncStore(rdb.db);
-    _pgReady = Promise.resolve();
-  }
+  const pg = rdb.pgHandle();
+  _store = makeSyncStore(pg, { init: false });
+  // apply the pg DDL once; callers await ensureReady() before the first run
+  _pgReady = pg.exec(require('fs').readFileSync(require('path').join(__dirname, '..', '..', 'db', 'postgres', 'sync', '001_init.sql'), 'utf8'))
+    .catch((e) => console.warn('[sync] pg schema init failed (runs will not be recorded):', e.message));
   return _store;
 }
 

@@ -12,6 +12,7 @@ const { fail: httpFail } = require('../services/httpError');
 //   GET  /api/trackers/:key                     definition (+ published snapshot)
 //   PUT  /api/trackers/:key                     save a draft (validated 400)                                 [builder]
 //   POST /api/trackers/:key/dry-run             validate + score a candidate definition against stored entries [builder]
+//   POST /api/trackers/:key/submit              [builder]   then /publish by ANOTHER builder (G-23 four-eyes)
 //   POST /api/trackers/:key/publish | /retire   [builder]      GET /versions · POST /rollback/:n              [builder]
 //   DELETE /api/trackers/:key                   draft/retired only                                            [builder]
 //   GET  /api/trackers/:key/entries?unit=       cells (+ closed slots + the caller's writable units)
@@ -34,10 +35,10 @@ const Lock = require('../public/lib/trackerMonthLock');
 /** Store against tracker.db (sqlite: DDL + template seed now) or the shared PG (migration tracker/002, seed at boot). */
 function createStore(trackerDb, { log = console.log } = {}) {
   const pg = trackerDb.TRACKER_BACKEND === 'postgres';
-  const st = require('../services/trackerStore').makeTrackerStore(pg ? { prepare: (sql) => trackerDb.pgHandle().prepare(sql) } : trackerDb.getDB(), { isPg: pg });
+  const st = require('../services/trackerStore').makeTrackerStore(({ prepare: (sql) => trackerDb.pgHandle().prepare(sql) }), { isPg: pg });
   const seedTemplates = async () => { const { TEMPLATES } = require('../services/trackerTemplates'); const added = []; for (const t of TEMPLATES) { if (await st.get(t.key)) continue; await st.saveDraft(t, { user: null }); added.push(t.key); } if (added.length) log(`[trackers] seeded templates ${added.join(', ')}`); return added; };
-  if (!pg) { st.init(); seedTemplates().catch((e) => console.warn('[trackers] seed failed:', e.message)); }
-  st.seedAtBoot = async () => { if (!pg) return []; await st.init(); return seedTemplates(); };
+  
+  st.seedAtBoot = async () => {  await st.init(); return seedTemplates(); };
   return st;
 }
 
@@ -156,15 +157,28 @@ module.exports = function trackersRoutes(deps) {
       res.json({ ok: true, result: r || { units: {}, fleet: {} } });
     } catch (e) { fail(res, e); }
   });
-  router.post('/api/trackers/:key/publish', requireReportSession, requireBuilder, async (req, res) => {
-    try { const d = await store.publish(key(req), { user: req.reportUser, note: req.body && req.body.note }); if (!d) return res.status(404).json({ ok: false }); rdb().logEvent({ category: 'trackers', action: 'tracker_published', target: d.key, details: { version: d.version }, ...rdb()._logCtx(req) }); res.json({ ok: true, tracker: d }); } catch (e) { fail(res, e); }
+  // G-23 — four-eyes: one builder submits the draft, ANOTHER publishes it (the last editor cannot
+  // either). An admin may publish without review with override_reason (10+ chars), logged as a risk.
+  router.post('/api/trackers/:key/submit', requireReportSession, requireBuilder, async (req, res) => {
+    try { const d = await store.submit(key(req), { user: req.reportUser }); if (!d) return res.status(404).json({ ok: false, error: 'tracker not found' }); rdb().logEvent({ category: 'trackers', action: 'tracker_submitted', target: d.key, ...rdb()._logCtx(req) }); res.json({ ok: true, tracker: d }); } catch (e) { fail(res, e); }
   });
-  router.post('/api/trackers/:key/retire', requireReportSession, requireBuilder, async (req, res) => { try { res.json({ ok: true, tracker: await store.setStatus(key(req), 'retired') }); } catch (e) { fail(res, e); } });
+  router.post('/api/trackers/:key/publish', requireReportSession, requireBuilder, async (req, res) => {
+    try {
+      const cur = await store.get(key(req)); if (!cur) return res.status(404).json({ ok: false, error: 'tracker not found' });
+      const dec = require('../services/publishGate').publishDecision(cur, req.reportUser, { isAdmin: isAdmin(req.reportUser), overrideReason: req.body && req.body.override_reason, policy: await require('../services/governancePolicy').forContext({}) });
+      if (!dec.allow) return res.status(dec.status).json({ ok: false, error: dec.error, code: dec.code, message: dec.message });
+      if (dec.override) rdb().logEvent({ category: 'trackers', action: 'tracker_publish_override', target: cur.key, details: dec.override, risk: 1, ...rdb()._logCtx(req) });
+      const d = await store.publish(cur.key, { user: req.reportUser, note: req.body && req.body.note, override: dec.override, expect: { updated_at: cur.updated_at, submitted_at: cur.submitted_at } });
+      rdb().logEvent({ category: 'trackers', action: 'tracker_published', target: d.key, details: { version: d.version, submitted_by: cur.submitted_by, override: !!dec.override }, ...rdb()._logCtx(req) });
+      res.json({ ok: true, tracker: d });
+    } catch (e) { fail(res, e); }
+  });
+  router.post('/api/trackers/:key/retire', requireReportSession, requireBuilder, async (req, res) => { try { const t = await store.setStatus(key(req), 'retired'); rdb().logEvent({ category: 'trackers', action: 'tracker_retired', target: key(req), ...rdb()._logCtx(req) }); res.json({ ok: true, tracker: t }); } catch (e) { fail(res, e); } });
   router.get('/api/trackers/:key/versions', requireReportSession, requireBuilder, async (req, res) => { try { res.json({ ok: true, versions: await store.versions(key(req)) }); } catch (e) { fail(res, e); } });
   router.post('/api/trackers/:key/rollback/:n', requireReportSession, requireBuilder, async (req, res) => {
     try { const d = await store.rollback(key(req), Number(req.params.n), { user: req.reportUser }); if (!d) return res.status(404).json({ ok: false, error: 'version not found' }); rdb().logEvent({ category: 'trackers', action: 'tracker_rolled_back', target: d.key, details: { to: Number(req.params.n) }, ...rdb()._logCtx(req) }); res.json({ ok: true, tracker: d }); } catch (e) { fail(res, e); }
   });
-  router.delete('/api/trackers/:key', requireReportSession, requireBuilder, async (req, res) => { try { await store.remove(key(req)); res.json({ ok: true }); } catch (e) { fail(res, e); } });
+  router.delete('/api/trackers/:key', requireReportSession, requireBuilder, async (req, res) => { try { await store.remove(key(req)); rdb().logEvent({ category: 'trackers', action: 'tracker_deleted', target: key(req), ...rdb()._logCtx(req) }); res.json({ ok: true }); } catch (e) { fail(res, e); } });
 
   // ---- entries / targets / score ---------------------------------------------------------
   router.get('/api/trackers/:key/entries', requireReportSession, async (req, res) => {

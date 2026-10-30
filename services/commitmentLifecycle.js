@@ -19,7 +19,7 @@ const PRIORITIES = ['low', 'medium', 'high', 'critical'];
 const STATUSES = ['captured', 'triaged', 'committed', 'in_progress', 'awaiting_verification', 'verified_closed',
   'blocked', 'deferred', 'cancelled_with_reason', 'rejected_for_rework', 'reopened', 'accepted_risk_exception'];
 const TERMINAL = ['verified_closed', 'cancelled_with_reason', 'accepted_risk_exception'];
-const SOURCE_SYSTEMS = ['meetings', 'inspection', 'report', 'governance', 'sdp_ticket', 'sdp_change', 'portfolio'];
+const SOURCE_SYSTEMS = ['meetings', 'inspection', 'report', 'governance', 'sdp_ticket', 'sdp_change', 'portfolio', 'handoff'];
 
 // who may fire a transition: 'editor' = editor of the commitment's site (or admin tier),
 // 'review' = the designated reviewer (or admin tier) and never owner/executor/creator,
@@ -50,9 +50,23 @@ const _is = (actor, who) => { const w = _s(who); return !!w && _ids(actor).inclu
 /** Is the actor one of the people doing / owning / having created the work? */
 function isSelf(c, actor) {
   if (!c || !actor) return false;
-  return _is(actor, c.accountable_owner) || _execs(c).some((e) => _is(actor, e)) || _is(actor, c.created_by);
+  if (_is(actor, c.accountable_owner) || _execs(c).some((e) => _is(actor, e)) || _is(actor, c.created_by)) return true;
+  // ADR-006: a deputy never satisfies four-eyes against the person they replace — standing in for the
+  // owner, an executor or the creator counts as being them
+  return (actor.principals || []).some((p) => isSelf(c, p));
 }
-const isReviewer = (c, actor) => _is(actor, c && c.reviewer);
+// A grant (who may VERIFY) matches only a unique identity — username or e-mail — never a full name
+// (namesakes are common) nor a bare numeric id typed into the field (committee security P1-3).
+// Refusals (isSelf) keep the broad match: more matches there only means more caution.
+function _grantIds(actor) { return [actor && actor.username, actor && actor.email].map(_s).filter(Boolean); }
+// ADR-006: the named reviewer, their deputy (actor.principals), or — when no person is named on the
+// commitment — a holder of the role commitments.reviewer for its site (actor.roleReviewer, resolved by the route)
+const isReviewer = (c, actor) => {
+  if (!actor) return false;
+  const w = _s(c && c.reviewer);
+  if (w) return _grantIds(actor).includes(w) || (actor.principals || []).some((p) => _grantIds(p).includes(w));
+  return actor.roleReviewer === true;
+};
 
 /** Severity rule (high / critical): owner + (due date OR approved exception) + treatment plan. Returns missing fields. */
 function severityGaps(c) {
@@ -109,5 +123,23 @@ function sourceStatusSuggestion(sourceStatus) {
 
 const isVerified = (status) => status === 'verified_closed';
 
-module.exports = { KINDS, SEVERITIES, PRIORITIES, STATUSES, TERMINAL, SOURCE_SYSTEMS, TRANSITIONS, VERIFY_DECISION,
+const _pol = (pol) => ({ ...require('./governancePolicy').DEFAULTS, ...(pol || {}) });
+/**
+ * Due-date move of a serious commitment past its baseline (committee audit P1-6). null = allowed.
+ * A move earlier, a medium / low commitment, or no baseline yet is always allowed (the reason is still required by the store).
+ */
+function dueMoveCheck(c, newDue, { isAdmin = false, policy = null } = {}) {
+  if (!c || !newDue || !c.baseline_due_date) return null;
+  if (!['high', 'critical'].includes(String(c.severity || '').toLowerCase())) return null;
+  if (String(newDue).slice(0, 10) <= String(c.baseline_due_date).slice(0, 10)) return null;
+  if (_pol(policy)['commitments.serious_due_move_needs_admin'] === false || isAdmin) return null;
+  return { status: 403, code: 'FORBIDDEN', error: 'moving the due date of a serious commitment past its baseline needs the admin tier' };
+}
+/** When an exception approved at `at` lapses (commitments.exception_max_days). */
+function exceptionExpiry(at, policy = null) {
+  const days = Math.max(1, Number(_pol(policy)['commitments.exception_max_days']) || 90);
+  const t = Date.parse(at || new Date().toISOString()); return new Date(t + days * 864e5).toISOString();
+}
+
+module.exports = { dueMoveCheck, exceptionExpiry, KINDS, SEVERITIES, PRIORITIES, STATUSES, TERMINAL, SOURCE_SYSTEMS, TRANSITIONS, VERIFY_DECISION,
   checkTransition, allowedTransitions, severityGaps, isSelf, isReviewer, sourceStatusSuggestion, isVerified };

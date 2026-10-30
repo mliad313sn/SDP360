@@ -33,28 +33,14 @@ function cliFor(report_type) {
 
 function _h(db) {
   const rdb = require('../reports-db');
-  if (rdb.REPORTS_BACKEND === 'postgres') return { H: rdb.pgHandle(), isPg: true };
-  return { H: db, isPg: false };
+  return { H: rdb.pgHandle(), isPg: true };
 }
 
-const _inited = new WeakSet();
-function _initSchema(db) {
-  if (_h(db).isPg) return;
-  if (_inited.has(db)) return;
-  db.exec(`CREATE TABLE IF NOT EXISTS report_schedules (
-    report_type TEXT, cadence TEXT, enabled INTEGER DEFAULT 0,
-    day TEXT, time TEXT, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_by TEXT,
-    PRIMARY KEY (report_type, cadence)
-  );`);
-  _inited.add(db);
-}
 
 function getSchedules(db) {
   const { H, isPg } = _h(db);
   const SQL = 'SELECT report_type, cadence, enabled, day, time, updated_at, updated_by FROM report_schedules ORDER BY report_type, cadence';
-  if (isPg) return H.prepare(SQL).all();
-  _initSchema(db);
-  try { return H.prepare(SQL).all(); } catch (e) { console.warn('[report-sched] list failed:', e.message); return []; }
+  return H.prepare(SQL).all();
 }
 
 function _assertTime(v) { if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(String(v || ''))) throw new Error(`invalid time "${v}" (expected HH:mm)`); }
@@ -66,9 +52,7 @@ const _UPSERT = `INSERT INTO report_schedules (report_type, cadence, enabled, da
     updated_at=excluded.updated_at, updated_by=excluded.updated_by`;
 function _writeRow(db, { report_type, cadence, enabled, day, time }, user) {
   const { H, isPg } = _h(db);
-  if (isPg) return H.prepare(_UPSERT.replace('{NOW}', 'now()')).run(report_type, cadence, enabled ? 1 : 0, day || null, time || null, user || 'unknown');
-  _initSchema(db);
-  H.prepare(_UPSERT.replace('{NOW}', "datetime('now')")).run(report_type, cadence, enabled ? 1 : 0, day || null, time || null, user || 'unknown');
+  return H.prepare(_UPSERT.replace('{NOW}', 'now()')).run(report_type, cadence, enabled ? 1 : 0, day || null, time || null, user || 'unknown');
 }
 
 // Default real task runner via schtasks. Injected stub in tests.
@@ -110,7 +94,7 @@ async function setSchedule(db, { report_type, cadence, enabled, day, time } = {}
   const taskName = `SDP-Report-${report_type}-${cadence}`;
   if (!enabled) {
     await runTask({ action: 'delete', taskName, report_type, cadence });
-    _writeRow(db, { report_type, cadence, enabled: 0, day, time }, user);
+    await _writeRow(db, { report_type, cadence, enabled: 0, day, time }, user);
     return { ok: true, disabled: true };
   }
   _assertTime(time);
@@ -128,8 +112,8 @@ async function setSchedule(db, { report_type, cadence, enabled, day, time } = {}
     }
   }
   await runTask({ action: 'create', taskName, report_type, cadence, day: d, time });   // throws → no row write
-  _writeRow(db, { report_type, cadence, enabled: 1, day: d, time }, user);
+  await _writeRow(db, { report_type, cadence, enabled: 1, day: d, time }, user);
   return { ok: true };
 }
 
-module.exports = { _initSchema, getSchedules, setSchedule, cliFor, _taskArgs };
+module.exports = { getSchedules, setSchedule, cliFor, _taskArgs };

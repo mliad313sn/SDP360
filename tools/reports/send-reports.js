@@ -80,7 +80,7 @@ async function main() {
   const kind = 'coordinator';   // guaranteed by the guard above
 
   const reportsDb = require('../../reports-db');
-  if ((process.env.REPORTS_BACKEND || 'sqlite').toLowerCase() === 'postgres') await reportsDb.initPgReports();
+  await reportsDb.initPgReports();
   const reportConfig = require('../../services/reportConfig');
   const { sendCoordinatorReport } = require('../../services/sendCoordinator');
 

@@ -36,17 +36,17 @@ const DB_MODULES = ['reports-db.js', 'tracker-db.js', 'meetings-db.js', 'inspect
 const CALLER_FILES = ['server.js', 'zoho-sync.js', 'risk-register-export.js', 'assets-sync.js'];
 const CALLER_DIRS  = ['routes', 'services', path.join('tools', 'reports')];
 
-/** Names of functions that dispatch to a `_<name>Pg` fork — i.e. return a Promise on postgres. */
+/** Names of functions that return a Promise: `async function`, or a thin wrapper `return _<name>Pg(…)`
+ *  (PostgreSQL is the only database since PO-08 — every one of them is async in production). */
 function findDispatchers() {
   const names = new Set();
   for (const f of DB_MODULES) {
     const p = path.join(ROOT, f);
     if (!fs.existsSync(p)) continue;
     const src = fs.readFileSync(p, 'utf8');
-    // function foo(...) {  [comments]  if (X_BACKEND === 'postgres') return _
-    const re = /(?:async\s+)?function\s+([a-zA-Z_$][\w$]*)\s*\([^)]*\)\s*\{\s*(?:\/\/[^\n]*\n\s*)*if\s*\([A-Z_]+_BACKEND\s*===\s*'postgres'\)\s*return\s+_/g;
+    const re = /async\s+function\s+([a-zA-Z_$][\w$]*)|function\s+([a-zA-Z_$][\w$]*)\s*\([^)]*\)\s*\{\s*(?:\/\/[^\n]*\n\s*)*return\s+_[\w$]*Pg\(/g;
     let m;
-    while ((m = re.exec(src))) names.add(m[1]);
+    while ((m = re.exec(src))) names.add(m[1] || m[2]);
   }
   return names;
 }
@@ -95,8 +95,7 @@ function scan(src, dispatchers) {
 
 test('the dispatcher scan actually finds the dual-backend functions', () => {
   const d = findDispatchers();
-  // Guard the guard: if a refactor changes the `if (X_BACKEND === 'postgres') return _fooPg(`
-  // shape, this scan silently matches nothing and the whole test file passes vacuously.
+  // Guard the guard: if a refactor changes the `return _fooPg(` / `async function` shape, this scan silently matches nothing and the whole test file passes vacuously.
   assert.ok(d.size > 50, `expected many dual-backend dispatchers, found ${d.size} — has the dispatch shape changed?`);
   assert.ok(d.has('listReports'), 'listReports is the canonical case — the scan must see it');
   assert.ok(d.has('loadTracker') && d.has('getMeeting') && d.has('listInspections'),

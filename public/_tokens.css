@@ -120,6 +120,12 @@
   --color-warning-bg:     #FEF3C7;
   --color-danger:         var(--edv-red);
   --color-danger-bg:      #FEEAEE;
+  /* RAG marks (design review 2026-10-29): one palette for every dot, bar and border, each shade
+     ≥ 3:1 against white (WCAG non-text contrast); a symbol is drawn on top so colour is never alone. */
+  --rag-green:            #1E7B45;
+  --rag-amber:            #B45309;
+  --rag-red:              #B91C1C;
+  --rag-na:               #9AA4B2;
   --color-info:           var(--edv-blue);
   --color-info-bg:        #E8F0FA;
 
@@ -178,3 +184,8 @@
   --motion-slow:   280ms;
   --ease-standard: cubic-bezier(.2,.0,.2,1);
 }
+
+/* UAT 2026-10-29 (PMO F1): the `hidden` attribute must always win. Pages style buttons with
+   `display:inline-block`, which silently beat the browser's own [hidden] rule — a viewer then saw
+   Start / Close / Accept buttons the server refuses. */
+[hidden] { display: none !important; }

@@ -115,3 +115,20 @@ test('alerter.checkStale: alerts when last_ok is older than the window, repeats 
   out = await alerter.checkStale(rows, FRESHNESS_HOURS, OPTIONAL);
   assert.equal(out.length, 2, 'repeats after 24 h');
 });
+
+test('G05 failOnZero: a configured source answering nothing is a failed run; an unconfigured one stays a skip', async () => {
+  const r1 = runnerWith(storeWithRecent());
+  const empty = await r1.run(legacyJob('meraki.wan', async () => ({ ok: true, rows: 0 }), { failOnZero: true, maxAttempts: 1 }));
+  assert.notEqual(empty.status, 'ok');
+  const r2 = runnerWith(storeWithRecent());
+  const skipped = await r2.run(legacyJob('meraki.wan', async () => ({ skipped: true }), { failOnZero: true, maxAttempts: 1 }));
+  assert.equal(skipped.status, 'ok');
+  const r3 = runnerWith(storeWithRecent());
+  const full = await r3.run(legacyJob('opmanager.availability', async () => ({ ok: true, mode: 'rest', devices: 12 }), { failOnZero: true, maxAttempts: 1, rowsOf: (x) => Number(x.rows ?? x.devices) }));
+  assert.equal(full.status, 'ok'); assert.equal(full.rows, 12);
+});
+
+test('G05: the snapshot syncs that replace a day of figures are armed with failOnZero', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'services', 'sync', 'jobs.js'), 'utf8');
+  for (const j of ['meraki.wan', 'opmanager.availability']) assert.match(src, new RegExp(`legacyJob\\('${j.replace('.', '\\.')}'[^\\n]*failOnZero: true`), j);
+});

@@ -1,15 +1,5 @@
 'use strict';
-// V1b-A — read-only Meraki Dashboard API client. Header-authenticated
-// (X-Cisco-Meraki-API-Key), org-scoped. The transport `get(url, opts)` is injectable
-// (defaults to axios) so tests never hit the network. Inert when unconfigured
-// (no apiKey/orgId → returns [], makes no call) so the collector self-skips cleanly.
-//
-// Endpoints used (all GET, all documented Meraki API v1):
-//   /organizations/{org}/appliance/uplink/statuses         — current per-uplink state (MX)
-//   /organizations/{org}/devices/uplinksLossAndLatency     — discover monitored dest ip
-//   /devices/{serial}/lossAndLatencyHistory                — per-uplink loss/latency ≤31d
-//   /networks/{network}/events                             — event log (PAGINATED object, not array)
-let _axios = null;
+
 function _defaultGet(allowHosts) {
   // M4 — the real transport validates the URL (https, no private address unless allow-listed), maxRedirects:0.
   return require('./safeUrl').safeGet(allowHosts);

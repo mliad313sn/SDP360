@@ -20,7 +20,7 @@ let server, base, admin, editor, siteId, otherSite;
 before(async () => {
   const { app } = require('../server');
   const rdb = require('../reports-db');
-  const sites = rdb.listSites({ includeInactive: true });
+  const sites = (await rdb.listSites({ includeInactive: true }));
   siteId = sites.find((s) => /hounde/i.test(s.name)).id; otherSite = sites.find((s) => s.id !== siteId).id;
   try { await rdb.createUser({ username: 'mx_admin', full_name: 'A', password: 'adminpass1234', role: 'admin', roles: ['admin'] }); } catch {}
   try { await rdb.createUser({ username: 'mx_editor', full_name: 'E', password: 'editorpass1234', role: 'editor', roles: ['editor'], site_id: siteId }); } catch {}

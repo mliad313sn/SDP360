@@ -7,10 +7,6 @@
 // Run with --test-force-exit (top-level cron keeps the loop alive).
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'opmroute-smoke-'));
-process.env.ASSETS_BACKEND = 'sqlite';
-process.env.REPORTS_BACKEND = 'sqlite';
-process.env.MEETINGS_BACKEND = 'sqlite';
-process.env.INSPECTION_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'opmroute-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'opmroute-pass-0000';
 process.env.DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || 'opmroute-key';
@@ -62,9 +58,9 @@ before(async () => {
     collected_at: today + 'T05:10:00Z', raw_json: null,
   }]);
 
-  const me = (rdb.listUsers() || []).find((u) => u.username === process.env.DASH_USER);
+  const me = ((await rdb.listUsers()) || []).find((u) => u.username === process.env.DASH_USER);
   assert.ok(me, 'seeded admin user exists');
-  rdb.setUserRoles(me.id, ['admin']);
+  (await rdb.setUserRoles(me.id, ['admin']));
   adminToken = (await rdb.login(process.env.DASH_USER, process.env.DASH_PASS)).token;
 
   // a super_admin for the mapping routes (they require super_admin, not admin)

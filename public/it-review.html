@@ -326,6 +326,8 @@ textarea.input { min-height: 90px; resize: vertical; }
       box-shadow: 0 2px 8px rgba(0,0,0,.12);
     }
     .rv-back:hover { color: #111827; background: #F9FAFB; }
+/* G17 — the review keeps the author's desktop layout; on a phone it scrolls inside its own box instead of widening the page */
+@media (max-width: 640px) { #review-root { overflow-x: auto; max-width: 100vw; } }
 </style>
 </head>
 <body>

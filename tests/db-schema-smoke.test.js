@@ -1,78 +1,46 @@
 'use strict';
-// Force the sqlite backends: these suites boot the app against throwaway sqlite DBs and must stay
-// green regardless of the dev .env (which points prod-like *_BACKEND=postgres).
-for (const k of ['REPORTS_BACKEND','ASSETS_BACKEND','TRACKER_BACKEND','MEETINGS_BACKEND','INSPECTION_BACKEND']) process.env[k] = 'sqlite';
+// DB schema boot smoke tests (audit 3.5) — PostgreSQL only (PO-08).
+// tests/_pg-boot.mjs gives this file its own throwaway database, runs every module's initPg*
+// and the migrator. We assert the key tables exist in that database and that no SQLite file
+// is created anywhere in the data directory.
 
-// DB schema boot smoke tests (audit 3.5).
-// Each *-db.js module builds its DB path from DATA_DIR, which now honours
-// the SDP_DATA_DIR env override. We point it at a throwaway temp dir BEFORE
-// requiring the modules, so requiring them creates + initialises fresh DBs
-// there — never touching data/ (dev or prod). We then assert the key tables
-// exist. This proves "module boots, schema initialises, no throw".
-
-const { test, before, after } = require('node:test');
-const assert   = require('node:assert');
-const fs       = require('fs');
-const os       = require('os');
-const path     = require('path');
-const Database = require('better-sqlite3');
-
-// Must be set BEFORE the modules are required (they read DATA_DIR at load).
+const { test } = require('node:test');
+const assert = require('node:assert');
+const fs = require('fs'), os = require('os'), path = require('path');
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), 'sdp-db-smoke-'));
 process.env.SDP_DATA_DIR = TMP;
-// Exercise the current prod tracker mode (per-year) — skips the legacy mirror.
-process.env.TRACKER_PER_YEAR_EDITS = '1';
-// reports-db refuses first boot without these (it seeds a default admin).
-// Throwaway values for the temp DB.
-process.env.DASH_USER = process.env.DASH_USER || 'smoke-admin';
-process.env.DASH_PASS = process.env.DASH_PASS || 'smoke-pass-0000';
 
-function tablesOf(dbFile) {
-  const full = path.join(TMP, dbFile);
-  assert.ok(fs.existsSync(full), dbFile + ' was not created in the temp dir');
-  const db = new Database(full, { readonly: true });
-  const rows = db.prepare("SELECT name FROM sqlite_master WHERE type='table'").all();
-  db.close();
-  return new Set(rows.map(r => r.name));
+async function tables() {
+  const rows = await require('../reports-db').pgHandle().prepare(
+    "SELECT table_name FROM information_schema.tables WHERE table_schema = current_schema()").all();
+  return new Set(rows.map((r) => r.table_name));
+}
+async function assertHas(expected, label) {
+  const t = await tables();
+  for (const n of expected) assert.ok(t.has(n), `${label}: missing table ${n}`);
 }
 
-function assertHas(tables, expected, label) {
-  for (const t of expected) assert.ok(tables.has(t), `${label}: missing table ${t}`);
-}
+test('reports schema: core auth/report tables', async () => (await assertHas(['users', 'sites', 'sessions', 'user_roles', 'audit_log'], 'reports')));
+test('tracker schema: v2 per-year tables', async () => (await assertHas(['tracker_years', 'tracker_pillars', 'tracker_activities', 'tracker_targets_v2', 'tracker_inputs_v2'], 'tracker')));
+test('inspection schema: inspection + action-audit tables', async () => (await assertHas(['insp_inspections', 'insp_findings', 'insp_actions', 'insp_action_updates'], 'inspection')));
+test('meetings schema: meeting + action-audit tables', async () => (await assertHas(['md_meetings', 'md_issues', 'md_actions', 'md_action_updates', 'md_departments'], 'meetings')));
 
-before(() => {
-  // reports-db opens its DB eagerly at require() time. The other three use a
-  // lazy connection, so we call one cheap read each to force the connection +
-  // schema init against the temp DB.
-  require('../reports-db');
-  require('../tracker-db').loadTracker();
-  require('../inspection-db').loadLookups();
-  require('../meetings-db').loadLookups();
+test('action_items.uid exists and no row is left without one (boot backfill)', async () => {
+  const H = require('../reports-db').pgHandle();
+  const col = await H.prepare("SELECT 1 AS ok FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'action_items' AND column_name = 'uid'").get();
+  assert.ok(col, 'uid column');
+  assert.equal(Number((await H.prepare('SELECT COUNT(*) AS n FROM action_items WHERE uid IS NULL').get()).n), 0);
 });
 
-after(() => {
-  // Best-effort cleanup; better-sqlite3 may still hold file handles on
-  // Windows, so ignore failures (it's an OS temp dir).
-  try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (_) {}
+test('default sites are seeded in PostgreSQL', async () => {
+  const sites = await require('../reports-db').listSites();
+  for (const n of ['Sabodala', 'MANA', 'Hounde', 'Exploration']) assert.ok(sites.some((s) => s.name === n), n);
 });
 
-test('reports-db boots and creates core auth/report tables', () => {
-  assertHas(tablesOf('reports.db'),
-    ['users', 'sites', 'sessions', 'user_roles', 'audit_log'], 'reports.db');
-});
-
-test('tracker-db boots with the v2 per-year schema', () => {
-  assertHas(tablesOf('tracker.db'),
-    ['tracker_years', 'tracker_pillars', 'tracker_activities', 'tracker_targets_v2', 'tracker_inputs_v2'],
-    'tracker.db');
-});
-
-test('inspection-db boots with inspection + action-audit tables', () => {
-  assertHas(tablesOf('inspection.db'),
-    ['insp_inspections', 'insp_findings', 'insp_actions', 'insp_action_updates'], 'inspection.db');
-});
-
-test('meetings-db boots with meeting + action-audit tables', () => {
-  assertHas(tablesOf('meetings.db'),
-    ['md_meetings', 'md_issues', 'md_actions', 'md_action_updates', 'md_departments'], 'meetings.db');
+test('no SQLite file is created in the data directory', async () => {
+  await require('../tracker-db').loadTracker();
+  await require('../meetings-db').loadLookups();
+  await require('../inspection-db').loadLookups();
+  const dbFiles = fs.readdirSync(TMP).filter((f) => /\.db$/.test(f));
+  assert.deepStrictEqual(dbFiles, []);
 });

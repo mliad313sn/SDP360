@@ -184,7 +184,7 @@ function isP2(r) {
 function isResOverdue(r) {
   const s = (r['Request Status'] || '').toLowerCase().trim();
   if (s === 'cancelled') return false;
-  const due = parseZohoDT(r['Due By Time']);
+  const due = parseZohoDT(r['Due By Time'] || r['DueBy Time']);   // Zoho's column is 'DueBy Time' (UAT ITSM-07)
   const res = parseZohoDT(r['Resolved Time'] || r['Completed Time']);
   const isRes = s === 'closed' || s === 'resolved' ||
                 s === 'confirmed resolution' || s === 'confirm resolution';

@@ -11,11 +11,6 @@ const fetch = require('./_http-fetch');   // core-http shim — undici keep-aliv
 // synchronisé" — and NEVER today's date. A fabricated freshness is worse than none.
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'assets-fresh-'));
-process.env.ASSETS_BACKEND = 'sqlite';
-process.env.REPORTS_BACKEND = 'sqlite';
-process.env.MEETINGS_BACKEND = 'sqlite';
-process.env.INSPECTION_BACKEND = 'sqlite';
-process.env.TRACKER_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'fresh-smoke-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'fresh-smoke-pass-0000';
 process.env.DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || 'fresh-smoke-key';

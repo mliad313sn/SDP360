@@ -17,7 +17,9 @@ const { fail, logError } = require('./services/httpError'); // M9 — generic 5x
 
 // ── STARTUP VALIDATION — fail closed if secrets are missing ───────
 // SECURITY: We refuse to start rather than silently running open.
-const REQUIRED_ENV = ['ZOHO_CLIENT_ID', 'ZOHO_CLIENT_SECRET', 'ZOHO_REFRESH_TOKEN', 'DASH_USER', 'DASH_PASS'];
+// Zoho credentials are NOT required to start: a fresh installation sets them later in Admin ▸ Intégration API
+// (services/analyticsSettings.js resolves DB → .env); the boot logs when they are missing (see start()).
+const REQUIRED_ENV = ['DASH_USER', 'DASH_PASS'];
 let _startupOk = true;
 REQUIRED_ENV.forEach(k => {
   if (!process.env[k]) {
@@ -279,8 +281,11 @@ const loginLimiter = require('./services/rateLimit').persistentLimiter({
 });
 
 // Apply global limiter to all routes (except /health which is polled by Docker)
+// SDP_TEST_NO_RATE_LIMIT=1 lets the authorization sweeps hit every route (transplanted from the
+// 1.11 line); IGNORED when REQUIRE_POSTGRES=1 (production mode) so it can never weaken a live server.
+const _noRateLimit = process.env.SDP_TEST_NO_RATE_LIMIT === '1' && process.env.REQUIRE_POSTGRES !== '1';
 app.use((req, res, next) => {
-  if (req.path === '/health') return next();
+  if (req.path === '/health' || _noRateLimit) return next();
   globalLimiter(req, res, next);
 });
 
@@ -528,6 +533,16 @@ require('./assets-sync').init(fetchView, VIEWS);
 require('./services/sync/schedule').start({
   cron, sync, fetchView, engagement: _engagementJobs(), field: { purgeOutbox: (o) => _fieldStore.purgeOutbox(o), purgeUploads: (o) => _fieldStore.purgeUploads(o) },   // Step 10 — lazy: _fieldStore is created later at boot
   assets: require('./assets-sync'),
+  commitments: { escalate: async () => {   // G-18 — lazy: _cmtStore is created later at boot; inert while the flag is off
+    const cfg = await require('./services/reportConfig').getConfig(rdb.db);
+    if (String(cfg.commitments_enabled) !== '1') return { skipped: true };
+    return require('./services/escalationRouting').routeCommitmentEscalations({ cmtStore: _cmtStore, rolesStore: _rolesStore, policyFor: (siteId) => require('./services/governancePolicy').forContext({ siteId }), notify: (n) => _engStore.notify(n), notifyEnabled: String(cfg.commitment_notify_enabled) === '1' });   // ADR-006 — matrix target
+  } },
+  handoffs: { escalate: async () => {   // G-22 — lazy: _hoStore is created later at boot; inert while the flag is off
+    const cfg = await require('./services/reportConfig').getConfig(rdb.db);
+    if (String(cfg.handoffs_enabled) !== '1') return { skipped: true };
+    return require('./services/escalationRouting').routeHandoffEscalations({ hoStore: _hoStore, rolesStore: _rolesStore, policyFor: (siteId) => require('./services/governancePolicy').forContext({ siteId }), notify: (n) => _engStore.notify(n), notifyEnabled: String(cfg.handoff_notify_enabled) === '1' });   // ADR-006 — matrix target
+  } },
   afterRequests: () => { console.log('[Cron:requests] ✅ Sync done — rebuilding raw cache…'); return _backgroundRefreshRawCache(); },
   getAlertConfig: async () => {
     const reportConfig = require('./services/reportConfig');
@@ -621,7 +636,7 @@ async function checkZohoViewSchema() {
 }
 
 // Zoho view schema health check — routes/health.js (M12-a).
-app.use(require('./routes/health')({ express, checkZohoViewSchema, requireReportSession, getRdb: () => rdb }));
+app.use(require('./routes/health')({ express, checkZohoViewSchema, requireReportSession, getRdb: () => rdb, getBuild: () => APP_VERSION }));
 
 // ── Startup behaviour (2026-05-28) ──────────────────────────────────────
 // Previously: on every pm2 restart, this fired all 3 syncs against Zoho
@@ -630,7 +645,7 @@ app.use(require('./routes/health')({ express, checkZohoViewSchema, requireReport
 //   - on a deploy windowing badly with the cron, the workspace could be
 //     pushed into a multi-hour throttle (see incident 2026-05-27)
 //
-// New behaviour: rebuild the in-memory cache from local SQLite ONLY.
+// New behaviour: rebuild the in-memory cache from PostgreSQL ONLY.
 // Pages serve instantly from this cache (≤26k rows, instant). Cron jobs
 // are the SOLE Zoho-touching code path. The user-facing dashboard never
 // triggers a Zoho fetch during a startup or first-load — by design.
@@ -639,8 +654,8 @@ app.use(require('./routes/health')({ express, checkZohoViewSchema, requireReport
 // /api/sync/trigger/requests from the browser. The cron will also fire
 // at the next clock tick (:00 survey, :30 change_cab, :45 requests).
 setTimeout(async () => {
-  console.log('[Startup] Rebuilding raw cache from SQLite (DB-only, no Zoho)…');
-  await _rebuildCacheFromSQLite().catch(e => console.error('[Startup:rebuild]', e.message));
+  console.log('[Startup] Rebuilding raw cache from PostgreSQL (DB-only, no Zoho)…');
+  await _rebuildCacheFromDb().catch(e => console.error('[Startup:rebuild]', e.message));
   // Zoho view schema health check still useful for diagnostics — keep it,
   // but defer to 5min so it doesn't race the first cron token refresh.
   setTimeout(() => {
@@ -907,6 +922,8 @@ function getCookie(req, name) {
 // (comma-separated); literal-IP origins are dropped (services/netBinding.js).
 const corsAllowed = netBinding.corsAllowedOrigins(PORT, process.env);
 app.use(cors({ origin: corsAllowed }));
+// security review: a state-changing browser request must come from this application's own origin
+app.use(require('./services/originGuard').middleware({ allowed: corsAllowed, log: (req, why) => console.warn(`[security] ${why}: ${req.method} ${req.path} origin=${String(req.headers.origin || '-').slice(0, 80)}`) }));
 
 // ── Path-scoped large JSON parsers ────────────────────────────────────
 // These MUST run BEFORE the global express.json() below. Express
@@ -1035,6 +1052,35 @@ app.use((req, res, next) => {
 // Fiche C1 (2026-10-20): the x-dash-key ALONE is accepted only for server-to-server callers
 // (tools/, scheduled jobs). A browser context — a report_token cookie OR an Origin header — must
 // carry a valid session; the key is never read from the query string.
+const _dashKeyGate = require('./services/viewLog').makeOncePerDay();   // EX-02: dash-key call evidence
+// G02 — every refused API call (401/403) lands in the security log, at most once per actor + route per
+// 10 minutes (a scripted probe must not flood the log; the count of refusals is in the details).
+const _denyGate = require('./services/viewLog').makeOncePerDay();
+const _denyCount = new Map();      // refusals seen per key in the current 10-minute bucket
+const _denyWrites = new Map();     // log rows written per source ip in the current bucket
+let _denyBucket = '';
+// Long opaque path segments (session tokens in /sessions/:token, share tokens…) are cut to 8 characters
+const _redactPath = (p) => String(p).replace(/[A-Za-z0-9_-]{24,}/g, (m) => m.slice(0, 8) + '…').slice(0, 200);
+app.use('/api/', (req, res, next) => {
+  res.on('finish', () => {
+    if (res.statusCode !== 401 && res.statusCode !== 403) return;
+    try {
+      const bucket = new Date().toISOString().slice(0, 15);   // 10-minute bucket
+      if (bucket !== _denyBucket) { _denyBucket = bucket; _denyCount.clear(); _denyWrites.clear(); }
+      const ip = req.ip || '';
+      const actor = (req.reportUser && req.reportUser.username) || 'anonymous';
+      const target = req.method + ' /api' + _redactPath(req.path);
+      // an anonymous prober is one source, whatever paths it tries: key on ip + status, the path goes in details
+      const key = actor === 'anonymous' ? 'anon ' + ip + ' ' + res.statusCode : actor + ' ' + target + ' ' + ip;
+      if (_denyCount.size < 10000 || _denyCount.has(key)) _denyCount.set(key, (_denyCount.get(key) || 0) + 1);
+      const written = _denyWrites.get(ip) || 0;
+      if (written >= 20 || _denyGate.size() >= 10000 || !_denyGate(key, bucket) || !rdb || !rdb.logEvent) return;
+      _denyWrites.set(ip, written + 1);
+      rdb.logEvent({ category: 'api', action: res.statusCode === 401 ? 'access_unauthenticated' : 'access_denied', actor, target: actor === 'anonymous' ? 'any path' : target, ip, risk: res.statusCode === 403 ? 1 : 0, details: { status: res.statusCode, path: target, refusals_seen: _denyCount.get(key) || 1 } });
+    } catch (_) { /* a log never breaks a request */ }
+  });
+  next();
+});
 app.use('/api/', async (req, res, next) => {
   if (req.path.startsWith('/reports/')) return next(); // protected by requireReportSession
   // Public Executive View summary — aggregates-only, no auth (SharePoint-facing).
@@ -1050,7 +1096,15 @@ app.use('/api/', async (req, res, next) => {
   const key   = req.headers['x-dash-key'];
   const cookieToken = getCookie(req, 'report_token');
   const browserContext = !!(cookieToken || req.headers.origin);
-  if (!browserContext && _safeEqual(key, DASH_API_KEY)) return next(); // server-to-server key (constant-time)
+  if (!browserContext && _safeEqual(key, DASH_API_KEY)) {   // server-to-server key (constant-time)
+    // EX-02 / D-15 evidence: who still calls with the key alone — once a day per route and source
+    const _src = (req.ip || '') + ' ' + String(req.headers['user-agent'] || '').slice(0, 80);
+    const _full = '/api' + req.path;   // req.path is relative to the /api/ mount; the query string is never logged
+    if (_dashKeyGate(req.method + ' ' + _full + ' ' + _src, new Date().toISOString().slice(0, 10)) && rdb && rdb.logEvent) {
+      rdb.logEvent({ category: 'api', action: 'dashkey_call', actor: 'dash-key', target: req.method + ' ' + _full, ip: req.ip, details: { user_agent: String(req.headers['user-agent'] || '').slice(0, 160) } });
+    }
+    return next();
+  }
   const token = sessionAuth.sessionToken(req);
   if (rdb && token) {
     let user; try { user = await rdb.validateSession(token); } catch (e) { user = null; }
@@ -1058,6 +1112,7 @@ app.use('/api/', async (req, res, next) => {
   }
   return res.status(401).json({ error: 'Unauthorized' });
 });
+app.use('/api/', require('./services/businessGuard').middleware({ getRdb: () => rdb }));   // business-only accounts: site view only (consolidation P0)
 
 // ── Executive View — public read + admin editorial write ─────────────────────
 // GET /api/exec/summary is PUBLIC (exempted in the /api/ gate above): a
@@ -1213,6 +1268,7 @@ function injectAssetVersion(html) {
   const v = `?v=${APP_VERSION}`;
   const isLocal = (u) =>
     u
+    // eslint-disable-next-line security/detect-unsafe-regex -- reviewed (consolidation 2026-10-28): anchored prefix test, no repetition
     && !/^(https?:)?\/\//i.test(u)
     && !u.startsWith('data:')
     && !u.startsWith('#')
@@ -1258,10 +1314,10 @@ function loadHtml(name) {
   'meetings-import.html', 'meetings-progress.html', 'meetings-insights.html', 'meetings-setup.html', 'meetings-actions.html',
   'meetings-unsigned.html',
   'activity-tracker.html', 'help.html', 'exec-view.html', 'site-report.html', 'it-review.html', 'site-actions.html', 'system-logs.html',
-  'site-awareness.html',
+  'site-awareness.html', 'no-access.html',
   'assets.html', 'assets-hygiene.html', 'assets-finance.html', 'wan.html', 'wan-health.html', 'wan-sla.html', 'itsm-roadmap.html',
   'infra-health.html', 'itsm-integrations-plan.html',
-  'dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html', 'cockpit.html', 'portfolio.html', 'rfi.html', 'report-studio.html', 'notifications.html', 'integrations.html', 'commitments.html',
+  'dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html', 'cockpit.html', 'portfolio.html', 'rfi.html', 'report-studio.html', 'notifications.html', 'integrations.html', 'commitments.html', 'handoffs.html', 'obligations.html', 'policies.html',
 ].forEach(loadHtml);
 
 // Helper: build the per-request HTML, inject api-key + nonce, send. Pages
@@ -1314,6 +1370,9 @@ app.get('/site-report.html', (req, res) => {
 });
 
 // ── Serve site-awareness.html — read-only per-site business view (session cookie, no api-key) ──
+app.get('/no-access.html', (req, res) => {
+  sendHtmlPage(res, 'no-access.html', false, 'Page unavailable');
+});
 app.get('/site-awareness.html', (req, res) => {
   sendHtmlPage(res, 'site-awareness.html', false, 'Site Awareness unavailable');
 });
@@ -1414,7 +1473,11 @@ app.get('/help.html', (req, res) => {
 });
 // The integrations project plan (linked from itsm-roadmap.html) — served through the
 // cache/version-injection path like every other HTML, not express.static (audit 2026-09-05).
-app.get('/itsm-integrations-plan.html', (req, res) => {
+app.get('/itsm-integrations-plan.html', async (req, res) => {
+  // DEC-03 (transplanted 2026-10-28): internal planning document — signed-in staff only.
+  const token = req.headers['x-report-token'] || getCookie(req, 'report_token');
+  let user = null; try { user = (rdb && token) ? await rdb.validateSession(token) : null; } catch (_) { user = null; }
+  if (!user) return res.redirect(302, '/login.html?next=itsm-integrations-plan.html');
   sendHtmlPage(res, 'itsm-integrations-plan.html', false, 'Integrations plan unavailable');
 });
 
@@ -1623,16 +1686,7 @@ function parseScore(raw) {
 /**
  * Parse Analytics Plus date string: "18 Jun, 2025 11:35:06"
  */
-function parseAPDate(str) {
-  if (!str) return null;
-  try {
-    // "18 Jun, 2025 11:35:06" → strip comma
-    const clean = str.replace(',', '');
-    const d = new Date(clean);
-    if (!isNaN(d)) return d;
-  } catch(e) {}
-  return null;
-}
+
 
 const MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -1693,7 +1747,7 @@ app.get('/api/survey/summary', requireReportSession, async (req, res) => {
         const result = {
           surveyId:     SURVEY_VIEW_ID,
           surveyName:   'IT Helpdesk CSAT',
-          source:       'SQLite (survey_results)',
+          source:       'PostgreSQL (survey_results)',
           totalResponses:  dbVoice.totalResponses,
           // New (2026-05-27): server now computes responseRate from
           // survey_results itself (sent vs responded counts), so the
@@ -1763,7 +1817,7 @@ app.get('/api/survey/kpis', requireReportSession, async (req, res) => {
     const groupList = groups ? groups.split(',').map(g => g.trim()).filter(Boolean) : [];
     const rdb = require('./reports-db');
 
-    // Forked reader (sqlite/pg dispatch) — q1 period+group-filtered scores, q2 12-mo trend rows.
+    // Forked reader  — q1 period+group-filtered scores, q2 12-mo trend rows.
     const { rows1: kpiRows, rows2: trendRows } = await rdb.getSurveyKpisDB({ yr, mo, groups: groupList });
 
     let scoreSum = 0, n = 0, satisfied = 0, promoters = 0, passives = 0, detractors = 0;
@@ -1876,7 +1930,7 @@ app.get('/api/survey/by-dimension', requireReportSession, async (req, res) => {
   // DB-first (Phase 3 of executive.html rewrite, 2026-05-26).
   // Was 500'ing because both Zoho calls (survey view + 30k REQUEST_TABLE
   // rows) were getting rate-limited. JOIN survey_results to
-  // request_records inside SQLite — single round-trip, no Zoho calls.
+  // request_records inside PostgreSQL — single round-trip, no Zoho calls.
   try {
     const rdb2 = require('./reports-db');
     if (typeof rdb2.getCustomerVoiceByDimensionDB === 'function') {
@@ -1908,162 +1962,6 @@ app.get('/api/survey/by-dimension', requireReportSession, async (req, res) => {
   };
   _dimCache.data = safeEmpty; _dimCache.ts = Date.now();
   return res.json(safeEmpty);
-
-  // ── Unreachable below — kept commented for emergency restore.
-  // To re-enable Zoho fallback: delete the early-return above and
-  // uncomment the try/catch block below. NOT recommended while Zoho
-  // is rate-limiting (will cause 502 spikes through IIS).
-  /* eslint-disable no-unreachable, no-unused-labels */
-  // eslint-disable-next-line no-constant-condition
-  if (false) try {
-    // Fetch both tables in parallel
-    // Survey: fetchAllViewRows (5k cap — fine for survey rows)
-    // Requests: last 13 months only (surveys are always recent, no need for full history)
-    // Fetch ALL request rows (not filtered to 13 months) — surveys can reference any historical ticket.
-    // 30 000 row cap is safe: SDP tables are ~15-25k rows for Endeavour Mining's volume.
-    console.log('[survey/by-dim] Fetching survey rows + full request table (no time filter)...');
-    const [surveyResult, requestRaw] = await Promise.all([
-      fetchAllViewRows(SURVEY_VIEW_ID),
-      fetchView(VIEWS.REQUEST_TABLE, 30000),
-    ]);
-    const requestResult = requestRaw.rows || []; // keep ALL rows — no month filter for join
-
-    // Count closed/resolved tickets — used for survey response rate calculation
-    // Survey is sent "When a request is closed" per SDP Survey Settings config
-    const closedStatuses = ['closed','resolved','completed'];
-    const closedCount = requestResult.filter(r =>
-      closedStatuses.includes((r['Status'] || r['status'] || '').toLowerCase().trim())
-    ).length;
-    console.log(`[survey/by-dim] Survey rows: ${surveyResult.length}, Request rows: ${requestResult.length}, Closed tickets: ${closedCount}`);
-
-    // Build request lookup map: Request ID → { Technician, Site, Group }
-    // Index by ALL available ID variants so survey row can match on any of them.
-    // Analytics Plus entity IDs (18-digit) and SDP display IDs (shorter) may both appear.
-    const reqMap = {};
-    requestResult.forEach(r => {
-      const data = {
-        tech:  (r['Technician'] || r['Assigned To'] || '').trim() || null,
-        site:  (r['Site'] || '').trim() || null,
-        group: (r['Group'] || '').trim() || null,
-      };
-      // Index by every ID field variant found on this row
-      ['Request ID', 'RequestID', 'Request Display ID', 'ID'].forEach(field => {
-        const v = (r[field] || '').toString().trim();
-        if (v && v !== '-No Value-') reqMap[v] = data;
-      });
-    });
-    console.log(`[survey/by-dim] Built reqMap with ${Object.keys(reqMap).length} unique IDs from ${requestResult.length} request rows`);
-
-    // Aggregate CSAT + NPS + monthly breakdown by dimension
-    const techMap  = {};
-    const siteMap  = {};
-    const groupMap = {};
-    let joined = 0;
-
-    // Month parser for survey dates: "17 Aug, 2025 11:35:06" → "Aug 2025"
-    const MN3_SRV = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-    const parseSurveyMonth = (s) => {
-      if (!s) return null;
-      const p = s.trim().replace(/,/g, '').split(/\s+/);
-      // "17 Aug 2025 ..." → p[0]=day, p[1]=mon, p[2]=year
-      if (p.length >= 3 && isNaN(parseInt(p[1])) && MN3_SRV.includes(p[1])) return p[1] + ' ' + p[2];
-      // "Aug 2025" → p[0]=mon, p[1]=year
-      if (p.length >= 2 && isNaN(parseInt(p[0])) && MN3_SRV.includes(p[0])) return p[0] + ' ' + p[1];
-      return null;
-    };
-
-    // Accumulate into a bucket {sum,n,satisfied,promoters,passives,detractors,byMonth}
-    const _acc = (map, key, score, monthKey) => {
-      if (!map[key]) map[key] = { sum:0, n:0, satisfied:0, promoters:0, passives:0, detractors:0, byMonth:{} };
-      const b = map[key];
-      b.sum += score; b.n++;
-      if (score >= 80) b.satisfied++;
-      // NPS classification (mirrors /api/survey/summary logic)
-      if      (score >= 90) b.promoters++;
-      else if (score >= 70) b.passives++;
-      else                  b.detractors++;
-      // Monthly CSAT breakdown
-      if (monthKey) {
-        if (!b.byMonth[monthKey]) b.byMonth[monthKey] = { n:0, satisfied:0 };
-        b.byMonth[monthKey].n++;
-        if (score >= 80) b.byMonth[monthKey].satisfied++;
-      }
-    };
-
-    let noMatchCount = 0;
-    surveyResult.forEach(row => {
-      const rid   = (row['Request ID'] || row['RequestID'] || row['request_id'] || '').toString().trim();
-      const score = parseScore(row['Overall Score']);
-      if (score === null || !rid) return;
-
-      const req = reqMap[rid];
-      if (!req) { noMatchCount++; return; }
-      joined++;
-
-      // Month from survey response date (when the customer filled out the survey)
-      const monthKey = parseSurveyMonth(row['Survey Responded on'] || row['Survey Sent on'] || '');
-
-      if (req.tech)  _acc(techMap,  req.tech,  score, monthKey);
-      if (req.site)  _acc(siteMap,  req.site,  score, monthKey);
-      if (req.group) _acc(groupMap, req.group, score, monthKey);
-    });
-
-    // Convert bucket map → sorted array with full metric set
-    const toArr = (map, keyField) =>
-      Object.entries(map)
-        .filter(([k]) => k && k !== '-No Value-' && k !== 'Unassigned')
-        .map(([k, v]) => {
-          const npsBase = v.promoters + v.passives + v.detractors;
-          // Monthly CSAT as sorted array [{month, responses, csatPct}]
-          const MO_ORD = {Jan:1,Feb:2,Mar:3,Apr:4,May:5,Jun:6,Jul:7,Aug:8,Sep:9,Oct:10,Nov:11,Dec:12};
-          const byMonth = Object.entries(v.byMonth)
-            .map(([mo, d]) => ({ month: mo, responses: d.n, csatPct: Math.round(d.satisfied/d.n*100) }))
-            .sort((a, b) => {
-              const [am, ay] = a.month.split(' '), [bm, by] = b.month.split(' ');
-              return parseInt(ay) !== parseInt(by) ? parseInt(ay)-parseInt(by) : MO_ORD[am]-MO_ORD[bm];
-            });
-          return {
-            [keyField]: k,
-            csatPct:    Math.round(v.satisfied / v.n * 100),
-            avgScore:   Math.round(v.sum / v.n),
-            responses:  v.n,
-            promoters:  v.promoters,
-            passives:   v.passives,
-            detractors: v.detractors,
-            nps:        npsBase > 0 ? Math.round((v.promoters - v.detractors) / npsBase * 100) : null,
-            byMonth,    // monthly CSAT trend for this dimension
-          };
-        })
-        .sort((a, b) => b.responses - a.responses);
-
-    const result = {
-      byTech:       toArr(techMap,  'name'),
-      bySite:       toArr(siteMap,  'site'),
-      byGroup:      toArr(groupMap, 'group'),
-      totalSurvey:  surveyResult.length,
-      totalJoined:  joined,
-      joinRate:     surveyResult.length > 0 ? Math.round(joined / surveyResult.length * 100) : 0,
-      closedCount,  // closed tickets — denominator for per-group response rate
-      _meta: {
-        requestRowsFetched: requestResult.length,
-        surveyRowsFetched:  surveyResult.length,
-        joinedRows:         joined,
-        techCount:          Object.keys(techMap).length,
-        siteCount:          Object.keys(siteMap).length,
-        groupCount:         Object.keys(groupMap).length,
-      },
-    };
-
-    _dimCache.data = result;
-    _dimCache.ts   = Date.now();
-
-    console.log(`[survey/by-dim] ✅ Joined ${joined}/${surveyResult.length} (${result.joinRate}%), no-match: ${noMatchCount}, techs: ${result._meta.techCount}, sites: ${result._meta.siteCount}`);
-    res.json(result);
-
-  } catch(err) {
-    console.error('[survey/by-dim]', err.message);
-    fail(res, err, 500, { byTech: [], bySite: [], byGroup: [] });
-  }
 });
 
 // POST /api/survey/dimension-cache/clear
@@ -2206,6 +2104,7 @@ app.get('/api/survey/voice', requireReportSession, async (req, res) => {
         const ratingWords = /^(excellent|good|satisf|poor|bad|very good|very bad|bien|bon|mauvais|parfait|moyen|neutre|neutral|nul|great|ok|okay|fair|average|horrible|terrible|outstanding)$/i;
         const optCandidate = optRaw.length > 25 && !ratingWords.test(optRaw.trim()) ? optRaw : '';
         const text = (textRaw || optCandidate).trim();
+        // eslint-disable-next-line security/detect-unsafe-regex -- reviewed (consolidation 2026-10-28): anchored; \s* / \d+ / [.,]\d+ are disjoint classes, linear
         if (!text || /^\s*\d+([.,]\d+)?\s*$/.test(text)) return;
         if (text.length < 5) return;
         const _ck = rid + '|' + text.toLowerCase();
@@ -2360,6 +2259,16 @@ app.post('/api/sync/trigger/:job', requireReportSession, requireAdmin, async (re
 // admin: the raw XOF strings are as much an amount as the converted ones, so both go.
 const _ASSET_MONEY_KEYS = ['purchase_cost', 'current_book_value', 'total_cost_of_ownership',
   'operational_cost', 'purchase_cost_usd', 'book_value_usd', 'tco_usd'];
+// UAT F-06 — the finance head reads the amounts (finance, licences, investment, depreciation, exports)
+// through the feature role finance-viewer, without the admin tier's write powers.
+function _canReadMoney(user) {
+  const r = require('./reports-db');
+  return r.userHasRole(user, 'admin') || r.userHasRole(user, 'finance-viewer');
+}
+function requireMoneyRead(req, res, next) {
+  if (_canReadMoney(req.reportUser)) return next();
+  return res.status(403).json({ error: 'Forbidden — required role(s): admin or finance-viewer' });
+}
 function _stripAssetMoney(row) {
   const out = { ...row };
   for (const k of _ASSET_MONEY_KEYS) delete out[k];
@@ -2383,7 +2292,7 @@ app.get('/api/assets/inventory', requireReportSession, async (req, res) => {
     // because the engagement loop depends on a site asset manager reaching it, but the
     // MONEY only travels to admin+. A worklist without amounts is still a worklist;
     // that is already the rule on Hygiene.
-    if (!require('./reports-db').userHasRole(req.reportUser, 'admin')) {
+    if (!_canReadMoney(req.reportUser)) {
       return res.json(rows.map(r => _stripAssetMoney(r)));
     }
     const rate = await _assetUsdRate();
@@ -2447,7 +2356,7 @@ app.get('/api/assets/summary', requireReportSession, async (req, res) => {
 // as /inventory) as a two-sheet workbook (Assets + Installed Software). The
 // software sheet is empty for now — the Foundation has no software table (it
 // moved to sub-project C); the sheet is emitted so the contract is stable.
-app.get('/api/assets/export.xlsx', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/assets/export.xlsx', requireReportSession, requireMoneyRead, async (req, res) => {
   try {
     const adb = require('./assets-db');
     const money = require('./services/money');
@@ -2748,7 +2657,7 @@ const _assetUsdRate = async () => {
   return rate;
 };
 
-app.get('/api/assets/finance/summary', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/assets/finance/summary', requireReportSession, requireMoneyRead, async (req, res) => {
   try {
     const adb = require('./assets-db');
     const rate = await _assetUsdRate();
@@ -2761,7 +2670,7 @@ app.get('/api/assets/finance/summary', requireReportSession, requireAdmin, async
 });
 
 // One-sheet USD-only workbook (no raw XOF ever leaves this route).
-app.get('/api/assets/finance/export.xlsx', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/assets/finance/export.xlsx', requireReportSession, requireMoneyRead, async (req, res) => {
   try {
     const adb = require('./assets-db');
     const { buildWorkbook } = require('./services/tableExcel');
@@ -2777,7 +2686,7 @@ app.get('/api/assets/finance/export.xlsx', requireReportSession, requireAdmin, a
   }
 });
 
-app.get('/api/assets/licences/summary', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/assets/licences/summary', requireReportSession, requireMoneyRead, async (req, res) => {
   try {
     res.json(await require('./assets-db').getLicenceSummary(_assetLicenceFilters(req)));
   } catch (e) {
@@ -2786,7 +2695,7 @@ app.get('/api/assets/licences/summary', requireReportSession, requireAdmin, asyn
   }
 });
 
-app.get('/api/assets/licences/exceptions', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/assets/licences/exceptions', requireReportSession, requireMoneyRead, async (req, res) => {
   const adb = require('./assets-db');
   // Pre-validate BEFORE the try/catch: an unknown kind must be 400, not the catch's 500.
   const kind = String(req.query.kind || '');
@@ -2802,7 +2711,7 @@ app.get('/api/assets/licences/exceptions', requireReportSession, requireAdmin, a
 // GET /api/assets/licences/export.xlsx?kind=all|<kind> — one sheet per licence kind
 // (kind=all, the default), or a single sheet for a specific valid kind. Unknown specific
 // kind → 400 (pre-validated).
-app.get('/api/assets/licences/export.xlsx', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/assets/licences/export.xlsx', requireReportSession, requireMoneyRead, async (req, res) => {
   const adb = require('./assets-db');
   const kind = String(req.query.kind || 'all');
   if (kind !== 'all' && !adb.LICENCE_KINDS[kind]) return res.status(400).json({ error: 'unknown kind' });
@@ -3274,7 +3183,7 @@ const _deprecConfig = async () => {
     .parseDepreciationConfig((await reportConfig.getConfig(rdb.db)).asset_depreciation_config);
 };
 
-app.get('/api/assets/depreciation/summary', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/assets/depreciation/summary', requireReportSession, requireMoneyRead, async (req, res) => {
   try {
     const adb = require('./assets-db');
     const rate = await _assetUsdRate();
@@ -3292,7 +3201,7 @@ app.get('/api/assets/depreciation/summary', requireReportSession, requireAdmin, 
   }
 });
 
-app.get('/api/assets/depreciation/schedule', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/assets/depreciation/schedule', requireReportSession, requireMoneyRead, async (req, res) => {
   try {
     const adb = require('./assets-db');
     const rate = await _assetUsdRate();
@@ -3355,7 +3264,7 @@ const _assetUpliftPct = async () => {
   return Number.isFinite(p) && p >= 0 ? p : 0;
 };
 
-app.get('/api/assets/investment/history', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/assets/investment/history', requireReportSession, requireMoneyRead, async (req, res) => {
   try {
     const rate = await _assetUsdRate();
     res.json(await require('./assets-db').getInvestmentSummary(_assetInvestmentFilters(req), { rate }));
@@ -3365,7 +3274,7 @@ app.get('/api/assets/investment/history', requireReportSession, requireAdmin, as
   }
 });
 
-app.get('/api/assets/investment/forecast', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/assets/investment/forecast', requireReportSession, requireMoneyRead, async (req, res) => {
   try {
     const adb = require('./assets-db');
     const config = await _deprecConfig();          // already parsed → pass straight through
@@ -3389,7 +3298,7 @@ app.get('/api/assets/investment/forecast', requireReportSession, requireAdmin, a
 // forecast sheet is the year rows plus a "Due now" and a "Beyond horizon" row
 // (the Year column labels those two). Same horizon-clamp + config/rate/uplift reads
 // as the forecast route.
-app.get('/api/assets/investment/export.xlsx', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/assets/investment/export.xlsx', requireReportSession, requireMoneyRead, async (req, res) => {
   try {
     const adb = require('./assets-db');
     const { buildWorkbook } = require('./services/tableExcel');
@@ -3575,7 +3484,7 @@ app.get('/api/survey/:response_id/answers', requireReportSession, async (req, re
 });
 
 // ═══════════════════════════════════════════════════════════════════
-// COMPUTED METRICS — local SQLite, replicate Zoho Analytics aggregates
+// COMPUTED METRICS — PostgreSQL, replicate Zoho Analytics aggregates
 // ═══════════════════════════════════════════════════════════════════
 
 /**
@@ -3626,7 +3535,7 @@ app.get('/api/metrics/cab', requireReportSession, async (req, res) => {
  * GET /api/metrics/survey
  * Survey / CSAT KPIs computed from survey_results (no Zoho API call).
  * Includes: avg score, response rate %, CSAT buckets (<60/60-80/≥80),
- *           monthly trend (last 12 months) — all from local SQLite.
+ *           monthly trend (last 12 months) — all from PostgreSQL.
  *
  * Query params:
  *   since    — ISO date string — only surveys sent on/after this date (optional)
@@ -3692,7 +3601,7 @@ app.get('/api/metrics/request-filter-options', requireReportSession, async (req,
 
 /**
  * GET /api/requests
- * Returns paginated raw request records from local SQLite.
+ * Returns paginated raw request records from PostgreSQL.
  *
  * Query params:
  *   limit         — max rows (default 200)
@@ -3908,15 +3817,24 @@ app.post('/api/admin/refresh-major-incident-udfs', requireReportSession, require
 });
 
 // GET /api/cache/status — returns raw cache freshness for the "Data as of" indicator
-app.get('/api/cache/status', requireReportSession, (req, res) => {
+app.get('/api/cache/status', requireReportSession, async (req, res) => {
   let changeCount = 0;
-  try { changeCount = db.prepare('SELECT COUNT(*) as n FROM change_records').get().n; } catch(e) {}
+  try { changeCount = Number((await rdb.pgHandle().prepare('SELECT COUNT(*) AS n FROM change_records').get()).n) || 0; } catch(e) {}
+  // UAT ITSM-07: the bar shows how fresh the DATA is — the last successful requests sync — not when the
+  // in-memory cache was rebuilt from the database (a rebuild after a failed Zoho call is not fresh data).
+  let ts = _rawCache.ts || 0;
+  try {
+    const last = await rdb.getLastSyncAt('requests');
+    const t = last instanceof Date ? last.getTime() : last ? Date.parse(/^\d{4}-\d\d-\d\d \d/.test(String(last)) ? String(last).replace(' ', 'T') + (/[zZ]|[+-]\d\d:?\d\d$/.test(String(last)) ? '' : 'Z') : String(last)) : NaN;
+    if (Number.isFinite(t) && (!ts || t < ts)) ts = t;
+  } catch (_) { /* keep the cache time */ }
   res.json({
-    ts:        _rawCache.ts || 0,                           // epoch ms of last successful raw sync
+    ts,                                                     // epoch ms of the last successful requests sync (cache time if unknown)
+    cache_ts:  _rawCache.ts || 0,
     rows:      _rawCache.data ? _rawCache.data.rows.length : 0,
-    changes:   changeCount,                                 // SQLite change_records count
+    changes:   changeCount,                                 // change_records count
     refreshing: _rawCacheRefreshing || false,
-    ageMs:     _rawCache.ts ? Date.now() - _rawCache.ts : null,
+    ageMs:     ts ? Date.now() - ts : null,
   });
 });
 
@@ -4339,7 +4257,7 @@ function _saveRawCacheToDisk() {
 }
 
 /// Convert ISO datetime (stored in SQLite) back to Zoho SDP format "DD Mon YYYY, HH:MM:SS AM/PM"
-// Used by the SQLite cache fallback so browser-side date parsers still work.
+// Used by the database cache fallback so browser-side date parsers still work.
 const _ISO_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function isoToZohoStr(iso) {
   if (!iso) return null;
@@ -4374,15 +4292,15 @@ function parseZohoStr(str) {
   return new Date(y, m, d, h, mi, sc);
 }
 
-// Rebuild raw cache directly from SQLite — instant, no Zoho API call.
+// Rebuild raw cache directly from PostgreSQL — instant, no Zoho API call.
 // Used at startup and as fallback when Zoho API is unavailable.
-async function _rebuildCacheFromSQLite() {
+async function _rebuildCacheFromDb() {
   if (_rawCacheRefreshing) return;
   _rawCacheRefreshing = true;
   try {
     const cutoff = new Date();
     cutoff.setMonth(cutoff.getMonth() - 13); cutoff.setDate(1); cutoff.setHours(0,0,0,0);
-    // Forked reader (sqlite/pg dispatch) — in pg mode reads from Postgres, not the empty sqlite handle.
+    // Forked reader  — in pg mode reads from Postgres, not the empty sqlite handle.
     const dbRows = await require('./reports-db').getRequestRecordsSince(cutoff.toISOString());
     if (dbRows.length > 0) {
       const rows = dbRows.map(r => ({
@@ -4427,10 +4345,10 @@ async function _rebuildCacheFromSQLite() {
       _rawCache.data = { rows, columns: rows.length > 0 ? Object.keys(rows[0]) : [] };
       _rawCache.ts   = Date.now();
       _saveRawCacheToDisk();
-      console.log(`[getRawRequestRows] ✅ SQLite cache built — ${rows.length} rows`);
+      console.log(`[getRawRequestRows] ✅ database cache built — ${rows.length} rows`);
     }
   } catch(e) {
-    console.warn('[getRawRequestRows] ⚠️ SQLite cache build failed:', e.message);
+    console.warn('[getRawRequestRows] ⚠️ database cache build failed:', e.message);
   } finally {
     _rawCacheRefreshing = false;
   }
@@ -4486,9 +4404,9 @@ async function _backgroundRefreshRawCache() {
     console.log(`[getRawRequestRows] ✅ Background refresh done — ${freshRows.length} fresh + ${existingRows.length} existing → ${rows.length} merged rows cached`);
   } catch(err) {
     console.warn('[getRawRequestRows] ⚠️ Background refresh (Zoho) failed:', err.message);
-    // Rebuild from SQLite so new sync data is never lost when Zoho API is unavailable
-    _rawCacheRefreshing = false; // release lock before calling _rebuildCacheFromSQLite
-    await _rebuildCacheFromSQLite();
+    // Rebuild from PostgreSQL so new sync data is never lost when Zoho API is unavailable
+    _rawCacheRefreshing = false; // release lock before calling _rebuildCacheFromDb
+    await _rebuildCacheFromDb();
     return;
   } finally {
     _rawCacheRefreshing = false;
@@ -4514,7 +4432,7 @@ async function getRawRequestRows() {
 
   // ── DB-only fallback (2026-05-28) ──────────────────────────────────────
   // No in-memory cache (post-restart with no disk cache, or manually cleared).
-  // Build from local SQLite — instant, no Zoho call. The cron jobs keep
+  // Build from PostgreSQL — instant, no Zoho call. The cron jobs keep
   // request_records fresh; page loads NEVER hit Zoho directly.
   //
   // Previous behaviour fetched 20k rows from Zoho here, which:
@@ -4523,13 +4441,13 @@ async function getRawRequestRows() {
   //   - caused 502s through IIS ARR on cold-cache cases
   //
   // The user explicitly asked (2026-05-28): "load direct from DB only,
-  // rely on cron". So this path now ONLY rebuilds from SQLite, even if
+  // rely on cron". So this path now ONLY rebuilds from PostgreSQL, even if
   // the resulting cache is empty.
-  console.log('[getRawRequestRows] Cache cold — rebuilding from SQLite (no Zoho call)…');
-  await _rebuildCacheFromSQLite();
+  console.log('[getRawRequestRows] Cache cold — rebuilding from PostgreSQL (no Zoho call)…');
+  await _rebuildCacheFromDb();
 
   if (_rawCache.data && _rawCache.data.rows && _rawCache.data.rows.length > 0) {
-    console.log(`[getRawRequestRows] ✅ Served ${_rawCache.data.rows.length} rows from SQLite rebuild`);
+    console.log(`[getRawRequestRows] ✅ Served ${_rawCache.data.rows.length} rows from PostgreSQL rebuild`);
     return _rawCache.data.rows;
   }
 
@@ -4540,7 +4458,7 @@ async function getRawRequestRows() {
   return [];
 }
 
-// GET /api/data/submission-channels — counts tickets by Mode (submission channel) from SQLite.
+// GET /api/data/submission-channels — counts tickets by Mode (submission channel) from PostgreSQL.
 // Uses request_records.mode column (populated during every sync run) instead of the raw Zoho
 // view cache, where the Mode field is sparsely present.
 // Query params: yr (YYYY), mo (1-12), site (optional), groups (comma-separated, optional)
@@ -4548,7 +4466,7 @@ app.get('/api/data/submission-channels', requireReportSession, async (req, res) 
   try {
     const { yr, mo, site, groups } = req.query;
     const groupList = groups ? groups.split(',').map(g => g.trim()).filter(Boolean) : [];
-    // Forked reader (sqlite/pg dispatch) — to_char period filter + GROUP BY channel collapse.
+    // Forked reader  — to_char period filter + GROUP BY channel collapse.
     const rows = await require('./reports-db').getSubmissionChannelsDB({ yr, mo, site, groups: groupList });
 
     const total       = rows.reduce((s, r) => s + r.cnt, 0);
@@ -4835,33 +4753,20 @@ const AI_SYSTEM_PROMPT_LOCAL = AI_SYSTEM_PROMPT +
   ' Always respond with a single valid JSON object only. No markdown, ' +
   'no code fences, no commentary outside the JSON.';
 
-// Sanitise free-text fields before they reach the prompt to reduce injection surface
-function sanitiseForPrompt(text) {
-  if (typeof text !== 'string') return text;
-  return text
-    .replace(/ignore\s+(previous|all|prior)\s+instructions?/gi, '[TEXT REDACTED]')
-    .replace(/you\s+are\s+now\s+/gi,                            '[TEXT REDACTED]')
-    .replace(/disregard\s+(all|previous|prior)/gi,              '[TEXT REDACTED]')
-    .substring(0, 12000); // hard length cap per field (raised from 4000 — analysis prompts can exceed 6000 chars)
+// G20 — free text reaching a model: planted instructions defused (EN + FR), personal identifiers (e-mail, phone, IP,
+// account, URL tokens, directory names) replaced, non-text blocks dropped, length capped — services/aiSanitize.js.
+const _aiSan = require('./services/aiSanitize');
+let _aiNames = { at: 0, list: [] };
+async function _aiDirectoryNames() {
+  if (Date.now() - _aiNames.at < 10 * 60000) return _aiNames.list;
+  try { const us = (await rdb.listUsers()) || []; _aiNames = { at: Date.now(), list: us.flatMap((u) => [u.full_name, u.username]).filter(Boolean) }; }
+  catch (_) {
+    // fail closed: without the directory, names would leave unredacted — refuse rather than send
+    if (!_aiNames.at) { const e = new Error('AI analysis unavailable: the user directory could not be loaded for redaction.'); e.status = 503; throw e; }
+  }
+  return _aiNames.list;
 }
-
-function sanitiseMessages(messages) {
-  if (!Array.isArray(messages)) return messages;
-  return messages.map(msg => {
-    if (typeof msg.content === 'string') {
-      return { ...msg, content: sanitiseForPrompt(msg.content) };
-    }
-    if (Array.isArray(msg.content)) {
-      return {
-        ...msg,
-        content: msg.content.map(block =>
-          block.type === 'text' ? { ...block, text: sanitiseForPrompt(block.text) } : block
-        ),
-      };
-    }
-    return msg;
-  });
-}
+const sanitiseMessages = (messages, o) => _aiSan.sanitiseMessages(messages, o);
 
 // ── Provider: Anthropic Claude API ──────────────────────────────────
 // Cloud path. Forwards an Anthropic-format request as-is and returns the
@@ -4883,7 +4788,7 @@ async function _aiCallAnthropic(body) {
     model:      body.model,
     max_tokens: Math.min(body.max_tokens || AI_MAX_TOKENS, AI_MAX_TOKENS),
     system:     AI_SYSTEM_PROMPT,
-    messages:   sanitiseMessages(body.messages),
+    messages:   sanitiseMessages(body.messages, { names: body.__names }),
   };
   const response = await axios.post('https://api.anthropic.com/v1/messages', safeBody, {
     headers: {
@@ -4919,7 +4824,7 @@ async function _aiCallAnthropic(body) {
 async function _aiCallLocal(body) {
   // Strip the assistant pre-fill (last message if role==='assistant') and
   // remember whether it was present so we can align the response.
-  const inputMsgs = sanitiseMessages(body.messages || []);
+  const inputMsgs = sanitiseMessages(body.messages || [], { names: body.__names });
   let trailingAssistantPrefix = '';
   let chatMsgs = inputMsgs;
   const last = inputMsgs[inputMsgs.length - 1];
@@ -5023,6 +4928,7 @@ app.post('/api/ai/analyze', requireReportSession, requireRole('report-author'), 
   }
 
   try {
+    body.__names = await _aiDirectoryNames();
     const data = AI_PROVIDER === 'local'
       ? await _aiCallLocal(body)
       : await _aiCallAnthropic(body);
@@ -5054,7 +4960,7 @@ app.get('/api/sample/:viewId', requireReportSession, async (req, res) => {
   } catch(err) { safeError(err, res); }
 });
 
-// ── SITE REPORTS (SQLite) ─────────────────────────────────────────
+// ── SITE REPORTS (PostgreSQL) ─────────────────────────────────────────
 let rdb;
 try {
   rdb = require('./reports-db.js');
@@ -5147,6 +5053,7 @@ async function _siteCodeReadDenied(user, code) {
   const hit = await rdb.getSiteIdByModuleCode('meetings', code);
   return !hit || _siteReadDenied(user, hit.site_id);
 }
+// eslint-disable-next-line security/detect-unsafe-regex -- reviewed (consolidation 2026-10-28): anchored; \d+ then [^?]* are disjoint, linear
 const _REPORT_ID_READ = /^\/api\/reports\/(\d+)(\/[^?]*)?$/;
 const _SITE_ID_READ   = /^\/api\/(?:reports\/(?:monthly|yearly|objectives)|sites)\/(\d+)(?:\/|$)/;
 app.get([_REPORT_ID_READ, _SITE_ID_READ], requireReportSession, async (req, res, next) => {
@@ -5230,12 +5137,7 @@ const reportSchedule  = require('./services/reportSchedule');
 const { siteReportData } = require('./services/siteReport');
 const { buildSiteReportDeps } = require('./services/siteReportDeps');
 
-if ((process.env.REPORTS_BACKEND || 'sqlite').toLowerCase() !== 'postgres' && rdb && rdb.db) {
-  reportConfig._initSchema(rdb.db);
-  reportDirectory._initSchema(rdb.db);
-  reportSentLog._initSchema(rdb.db);
-  reportSchedule._initSchema(rdb.db);
-}
+
 
 // Report config · Zoho Analytics connection · test-smtp — routes/adminConfig.js (M12-a).
 // tokenState is passed by reference (the handlers mutate its fields, never reassign it).
@@ -5952,7 +5854,10 @@ app.post('/api/reports/ensure', requireReportSession, jsonBody, async (req, res)
       return res.status(403).json({ error: 'You can only manage reports for your own site' });
     // (await f()).method() — NOT `await f().method()`: the latter chains onto the
     // Promise (listReports is async on both backends). See the await-precedence pitfall.
-    const isNew = !(await rdb.listReports(parseInt(site_id))).find(r => r.year === parseInt(year) && r.week_number === parseInt(week));
+    const existing = (await rdb.listReports(parseInt(site_id))).find(r => r.year === parseInt(year) && r.week_number === parseInt(week));
+    // UAT F-10: a reader opens an existing report but never creates one (creation = the editor's act)
+    if (!existing && !rdb.userHasRole(req.reportUser, 'editor')) return res.status(404).json({ error: 'No report for this week yet — your site coordinator creates it' });
+    const isNew = !existing;
     const report = await rdb.ensureReport(parseInt(site_id), parseInt(year), parseInt(week));
     if (isNew) {
       await rdb.logAudit({ report_id: report.id, site_id: parseInt(site_id), user_id: req.reportUser.id, username: req.reportUser.username, action: 'created', details: { year, week } });
@@ -6207,7 +6112,7 @@ app.get('/api/reports/:id/audit', requireReportSession, requireRole(['audit-view
 });
 
 // GET /api/reports/helpdesk-live?start=YYYY-MM-DD&end=YYYY-MM-DD
-// Returns per-group metrics for the week — reads from local SQLite DB (no live Zoho call).
+// Returns per-group metrics for the week — reads from PostgreSQL DB (no live Zoho call).
 // Mirrors public/lib/dashboard-shared.js OPS_GROUPS_DEFAULT — the
 // browser file is the canonical source of truth, but server.js can't
 // import from it. When updating either, mirror the change here.
@@ -6335,7 +6240,7 @@ app.get('/api/reports/helpdesk-charts', requireReportSession, async (req, res) =
     const isResOverdue = r => {
       const s = (r['Request Status']||'').toLowerCase().trim();
       if (s === 'cancelled') return false;
-      const due = parseZohoDT(r['Due By Time']);
+      const due = parseZohoDT(r['Due By Time'] || r['DueBy Time']);   // Zoho names the column 'DueBy Time'
       const res = parseZohoDT(r['Resolved Time']||r['Completed Time']);
       const isRes = s==='closed'||s==='resolved'||s==='confirmed resolution'||s==='confirm resolution';
       if (due && res && isRes) return res > due;
@@ -6514,7 +6419,7 @@ app.get('/api/reports/system-log/export.csv', requireReportSession, _syslogGate,
   try {
     const { rows } = await rdb.listSystemLog(_syslogFilters(req), { limit: 100000, offset: 0 });
     const COLS = ['ts','category','action','actor','actor_id','target','ip','risk','details'];
-    const esc = v => { const s = v == null ? '' : String(v); return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const esc = v => { const s = require('./public/lib/csvSafe').neutralize(v); return /[",\r\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
     const csv = '﻿' + [COLS.join(','), ...rows.map(r => COLS.map(c => esc(r[c])).join(','))].join('\r\n');
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="system-log.csv"');
@@ -7206,9 +7111,13 @@ app.post('/api/save-pptx', requireReportSession, requireRole('report-author'), e
     // and guaranteed to stay inside data/ (was a path-traversal hole:
     // ?name=../../x escaped the directory). See services/safeFilename.js.
     const { safeJoin } = require('./services/safeFilename');
+    // security review: only a real PPTX (a ZIP container, 'PK\x03\x04') is stored, and the answer names the
+    // file only — never the server's absolute path
+    const body = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+    if (body.length < 4 || body[0] !== 0x50 || body[1] !== 0x4b || body[2] !== 0x03 || body[3] !== 0x04) return res.status(400).json({ ok: false, error: 'not a PPTX file' });
     const outPath = safeJoin(path.join(__dirname, 'data'), req.query.name, { ext: '.pptx', fallback: 'export.pptx' });
-    fs.writeFileSync(outPath, req.body);
-    res.json({ ok: true, path: outPath });
+    fs.writeFileSync(outPath, body);
+    res.json({ ok: true, file: path.basename(outPath) });
   } catch(e) { fail(res, e); }
 });
 
@@ -7231,15 +7140,7 @@ try {
   console.error('[Tracker] ❌ tracker-pptx failed to load:', e.message);
 }
 
-// GET /api/tracker/load — return full D object from SQLite
-// RBAC audit 2026-10-02 (A1/B1): the load was admin-only while the save accepts
-// tracker-editor, and the client could not lock the site picker (the session user has
-// no site name). Readers = admin tier OR a tracker feature role; the response carries
-// the caller's save scope — null = every site, else the one tracker code it may edit.
-async function _trackerScopeFor(user) {
-  const codes = await _trackerScopesFor(user);
-  return codes === null ? null : (codes[0] || '');
-}
+
 // Multi-site editors: every tracker code the user may edit, primary first (null = all sites).
 async function _trackerScopesFor(user) {
   if (rdb.userHasRole(user, 'super_admin') || rdb.userHasRole(user, 'tracker-admin')) return null;
@@ -7621,12 +7522,7 @@ app.post('/api/reports/exec-pptx', requireReportSession, requireAdmin, async (re
 app.post('/api/tracker/reset', requireReportSession, requireRole(['super_admin', 'tracker-admin']), async (req, res) => {
   try {
     if (!trackerDb) return res.status(503).json({ error: 'Tracker module not available' });
-    if (trackerDb.TRACKER_BACKEND === 'postgres') {
-      return res.status(501).json({ error: 'Reset is not supported on the PostgreSQL backend (Chunk 1 scope).' });
-    }
-    await trackerDb.resetTracker();
-    const D = await trackerDb.loadTracker();
-    res.json({ ok: true, D });
+    return res.status(501).json({ error: 'Reset is not supported on the PostgreSQL backend (Chunk 1 scope).' });
   } catch(e) {
     console.error('[Tracker] reset error:', e.message);
     fail(res, e);
@@ -7779,8 +7675,12 @@ app.use(require('./routes/dashboards')({ express, requireReportSession, store: _
 const _trkStore = require('./routes/trackers').createStore(require('./tracker-db'));
 app.use(require('./routes/trackers')({ express, requireReportSession, store: _trkStore }));
 const _govStore = require('./routes/governance').createStore(require('./reports-db')), _repStore = require('./routes/reportStudio').createStore(require('./reports-db')), _engStore = require('./routes/engagement').createStore(require('./reports-db')), _fieldStore = require('./routes/field').createStore(require('./reports-db'));   // Steps 8-10 — governance (018), report studio + engagement (019), field outbox (020)
-app.use(require('./routes/governance')({ express, requireReportSession, store: _govStore, trackerStore: _trkStore })); app.use(require('./routes/reportStudio')({ express, requireReportSession, store: _repStore, dashStore: _dashStore, engStore: _engStore, aiProvider: AI_PROVIDER, aiCall: require('./services/engagementJobs').aiCallFrom(_execAiCall) })); app.use(require('./routes/engagement')({ express, requireReportSession, store: _engStore, dashStore: _dashStore, reportStore: _repStore })); app.use(require('./routes/extApi')({ express, store: _engStore })); app.use(require('./routes/field')({ express, requireReportSession, store: _fieldStore, dashStore: _dashStore, trackerStore: _trkStore }));
-const _cmtStore = require('./routes/commitments').createStore(require('./reports-db')); app.use(require('./routes/commitments')({ express, requireReportSession, store: _cmtStore, sendHtmlPage }));   // 2027 Goal 02 — canonical commitments (021), flag commitments_enabled
+app.use(require('./routes/governance')({ express, requireReportSession, store: _govStore, trackerStore: _trkStore, getRolesStore: () => _rolesStore })); app.use(require('./routes/reportStudio')({ express, requireReportSession, store: _repStore, dashStore: _dashStore, engStore: _engStore, aiProvider: AI_PROVIDER, aiCall: require('./services/engagementJobs').aiCallFrom(_execAiCall) })); app.use(require('./routes/engagement')({ express, requireReportSession, store: _engStore, dashStore: _dashStore, reportStore: _repStore })); app.use(require('./routes/extApi')({ express, store: _engStore })); app.use(require('./routes/field')({ express, requireReportSession, store: _fieldStore, dashStore: _dashStore, trackerStore: _trkStore }));
+const _cmtStore = require('./routes/commitments').createStore(require('./reports-db')); app.use(require('./routes/commitments')({ express, requireReportSession, store: _cmtStore, sendHtmlPage, getRolesStore: () => _rolesStore, getHandoffStore: () => _hoStore }));   // 2027 Goal 02 — canonical commitments (021), flag commitments_enabled
+app.use(require('./routes/policies')({ express, requireReportSession, sendHtmlPage }));   // governance policies (027) — every regulation behaviour as a parameter
+const _rolesStore = require('./routes/governanceRoles').createStore(require('./reports-db')); app.use(require('./routes/governanceRoles')({ express, requireReportSession, store: _rolesStore }));   // ADR-006 — roles, deputies, escalation matrix (035)
+const _hoStore = require('./routes/handoffs').createStore(require('./reports-db')); app.use(require('./routes/handoffs')({ express, requireReportSession, store: _hoStore, rolesStore: _rolesStore, commitmentStore: _cmtStore, sendHtmlPage, notify: (n) => _engStore.notify(n) }));   // G-22 — interdepartmental handoffs (026), flags handoffs_enabled + handoff_notify_enabled
+app.use(require('./routes/obligations')({ express, requireReportSession, sendHtmlPage, getCommitmentStore: () => _cmtStore, getHandoffStore: () => _hoStore }));   // committee #39 — one read-only view of what a site owes
 
 // ══════════════════════════════════════════════════════════════════
 // MEETINGS — routes live in routes/meetings.js (Step 5 modularisation). The meetings-db
@@ -7793,33 +7693,23 @@ app.use(require('./services/httpError').errorHandler); // M9 — final error han
 
 // ── START ─────────────────────────────────────────────────────────
 async function start() {
+  // PostgreSQL is the only database (PO-08): refuse to start without PG_URL. services/backendGuard.js.
+  require('./services/backendGuard').assertBootAllowed();
 
-  // PostgreSQL backends (Chunks 1-4) — connect each pool + apply its schema
-  // before serving. Every module defaults to sqlite (the *_BACKEND env vars are
-  // unset in prod), so each block is a no-op until the operator flips a flag.
-  if (require('./tracker-db').TRACKER_BACKEND === 'postgres') {
-    await require('./tracker-db').initPgTracker();
-    console.log('[Tracker] PostgreSQL backend ready');
-  }
-  if (require('./reports-db').REPORTS_BACKEND === 'postgres') {
-    await require('./reports-db').initPgReports();
-    console.log('[Reports] PostgreSQL auth backend ready');
-  }
+  // Connect each module pool + apply its schema before serving.
+  await require('./tracker-db').initPgTracker();
+  console.log('[Tracker] PostgreSQL backend ready');
+  await require('./reports-db').initPgReports();
+  console.log('[Reports] PostgreSQL auth backend ready');
   // System Logs v1 — one-time idempotent backfill of the report audit trail into
-  // system_log (non-blocking; runs after the pg schema exists / sqlite is ready).
+  // system_log (non-blocking; runs after the pg schema exists).
   require('./reports-db')._backfillSystemLogFromAudit().catch(() => {});
-  if (require('./meetings-db').MEETINGS_BACKEND === 'postgres') {
-    await require('./meetings-db').initPgMeetings();
-    console.log('[Meetings] PostgreSQL backend ready');
-  }
-  if (require('./inspection-db').INSPECTION_BACKEND === 'postgres') {
-    await require('./inspection-db').initPgInspection();
-    console.log('[Inspection] PostgreSQL backend ready');
-  }
-  if (require('./assets-db').ASSETS_BACKEND === 'postgres') {
-    await require('./assets-db').initPgAssets();
-    console.log('[Assets] PostgreSQL backend ready');
-  }
+  await require('./meetings-db').initPgMeetings();
+  console.log('[Meetings] PostgreSQL backend ready');
+  await require('./inspection-db').initPgInspection();
+  console.log('[Inspection] PostgreSQL backend ready');
+  await require('./assets-db').initPgAssets();
+  console.log('[Assets] PostgreSQL backend ready');
   // Step 2 — one schema migrator for every db/postgres/**/*.sql (records schema_migrations).
   // Best-effort at boot: the module inits above already applied the DDL they own.
   try {
@@ -7833,8 +7723,8 @@ async function start() {
     const _rdbMod = require('./reports-db');
     const _pgh = _rdbMod.REPORTS_BACKEND === 'postgres' && typeof _rdbMod.pgHandle === 'function' ? _rdbMod.pgHandle() : null;
     _mr.setCurrent(await _mr.load({ pg: _pgh, log: console.log }));
-    await _dashStore.seedAtBoot();   // Step 6 — pg: tables from migration 016, shipped definitions once
-    await _trkStore.seedAtBoot(); await _govStore.initAtBoot(); await _repStore.seedAtBoot(); await _engStore.seedAtBoot(); await _fieldStore.initAtBoot();    // Steps 7-10 — pg: tables from migrations tracker/002 + reports/018-019, templates/rules once
+    require('./services/siteCodeRegistry').start(_rdbMod);   // DEC-4 switch, off by default
+    await seedStores();
   } catch (e) { console.warn('[metrics] registry load failed (seed in use):', e.message); }
 
   // Zoho Analytics token — AFTER the databases are open, because the credentials may now
@@ -7877,12 +7767,12 @@ async function start() {
     }
     console.log('╚══════════════════════════════════════════════════════════════╝');
 
-    // ── Startup pre-warm: load SQLite cache immediately so first user load never
+    // ── Startup pre-warm: load database cache immediately so first user load never
     // blocks. Skip the Zoho API attempt here — startup requests sync (below) will
     // fetch any new tickets and trigger a full cache rebuild once it completes.
     setTimeout(async () => {
-      console.log('[startup] 🔄 Pre-warming raw request cache from SQLite…');
-      await _rebuildCacheFromSQLite();
+      console.log('[startup] 🔄 Pre-warming raw request cache from the database…');
+      await _rebuildCacheFromDb();
     }, 3000);
   });
 }
@@ -7890,4 +7780,11 @@ async function start() {
 // Boot only when run directly (pm2/prod); skip when required by a test harness so the
 // express app can be mounted in-process (http.createServer(app)) without binding a port.
 if (require.main === module) start();
-module.exports = { app };
+// Steps 6-10 — shipped dashboards / tracker templates / report templates / alert rules, once.
+// Tables come from the migrations; called at boot (start) and by the route smoke tests.
+async function seedStores() {
+  await _dashStore.seedAtBoot();
+  await _trkStore.seedAtBoot(); await _govStore.initAtBoot(); await _repStore.seedAtBoot(); await _engStore.seedAtBoot(); await _fieldStore.initAtBoot();
+}
+
+module.exports = { app, seedStores };

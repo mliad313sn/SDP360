@@ -5,7 +5,9 @@
 // ×rate to USD. SDP's own Current Book Value is carried alongside as a
 // cross-check. Money is XOF raw TEXT parsed by the ONE money.parseAmount.
 'use strict';
-process.env.ASSETS_BACKEND = 'sqlite';
+// Top-level async setup, run IN ORDER before the first test (PostgreSQL-only conversion, PO-08).
+const __bootChain = (() => { let p = Promise.resolve(), hooked = false;
+  return (fn) => { p = p.then(fn); if (!hooked) { hooked = true; require('node:test').beforeEach(() => p); } }; })();
 const test = require('node:test');
 const assert = require('node:assert');
 const os = require('node:os'), path = require('node:path'), fs = require('node:fs');
@@ -30,7 +32,7 @@ const rows = [
   { asset_id: 'A4', asset_name: 'A4', site: 'HGO', product_type: 'Monitor',
     purchase_cost: '', acquisition_date: '', current_book_value: '' },
 ];
-adb.replaceTable('assets', cols, rows);
+__bootChain(async () => { (await adb.replaceTable('assets', cols, rows)); });
 
 const RATE = 0.00165;
 const OPTS = { config: DEFAULT_DEPRECIATION_CONFIG, rate: RATE, asOf: '2025-01-01' };
@@ -43,8 +45,8 @@ const near = (a, b, eps, msg) => assert.ok(Math.abs(a - b) <= eps, `${msg}: ${a}
 const MANA_COMPUTED = 0 + (2000000 * (1 - 12 / 36));   // 1,333,333.33
 const HGO_COMPUTED = 0;
 
-test('per-site computed book value (USD) + SDP cross-check + pct (M-5)', () => {
-  const s = adb.getAssetDepreciation({}, OPTS);
+test('per-site computed book value (USD) + SDP cross-check + pct (M-5)', async () => {
+  const s = (await adb.getAssetDepreciation({}, OPTS));
   const bySite = Object.fromEntries(s.by_site.map(r => [r.site, r]));
 
   const mana = bySite.MANA;
@@ -65,8 +67,8 @@ test('per-site computed book value (USD) + SDP cross-check + pct (M-5)', () => {
   assert.ok(Number.isFinite(hgo.sdp_book_value_usd), 'HGO sdp is finite');
 });
 
-test('fleet totals = sum across all sites', () => {
-  const s = adb.getAssetDepreciation({}, OPTS);
+test('fleet totals = sum across all sites', async () => {
+  const s = (await adb.getAssetDepreciation({}, OPTS));
   near(s.fleet.computed_book_value_usd, (MANA_COMPUTED + HGO_COMPUTED) * RATE, 1, 'fleet computed'); // ≈2200
   near(s.fleet.sdp_book_value_usd, (250000 + 1500000 + 0) * RATE, 0.01, 'fleet sdp');
   near(s.fleet.purchase_cost_usd, (3000000 + 5000000) * RATE, 0.01, 'fleet purchase');
@@ -74,23 +76,23 @@ test('fleet totals = sum across all sites', () => {
   near(s.fleet.pct_depreciated, 1 - MANA_COMPUTED / 8000000, 0.001, 'fleet pct'); // ≈0.8333
 });
 
-test('a site filter narrows to only that site', () => {
-  const s = adb.getAssetDepreciation({ site: 'MANA' }, OPTS);
+test('a site filter narrows to only that site', async () => {
+  const s = (await adb.getAssetDepreciation({ site: 'MANA' }, OPTS));
   assert.strictEqual(s.by_site.length, 1);
   assert.strictEqual(s.by_site[0].site, 'MANA');
   assert.strictEqual(s.fleet.asset_count, 2);
   near(s.fleet.computed_book_value_usd, MANA_COMPUTED * RATE, 1, 'MANA-only fleet computed');
 });
 
-test('rate defaults to 1 → RAW XOF computed/sdp sums', () => {
-  const s = adb.getAssetDepreciation({}, { config: DEFAULT_DEPRECIATION_CONFIG, asOf: '2025-01-01' });
+test('rate defaults to 1 → RAW XOF computed/sdp sums', async () => {
+  const s = (await adb.getAssetDepreciation({}, { config: DEFAULT_DEPRECIATION_CONFIG, asOf: '2025-01-01' }));
   const mana = s.by_site.find(r => r.site === 'MANA');
   near(mana.computed_book_value_usd, MANA_COMPUTED, 0.01, 'MANA raw computed');
   assert.strictEqual(mana.sdp_book_value_usd, 250000 + 1500000, 'MANA raw sdp');
 });
 
-test('getDepreciationSchedule returns {years, book_value_usd} aligned + sorted', () => {
-  const sch = adb.getDepreciationSchedule({}, OPTS);
+test('getDepreciationSchedule returns {years, book_value_usd} aligned + sorted', async () => {
+  const sch = (await adb.getDepreciationSchedule({}, OPTS));
   assert.ok(Array.isArray(sch.years), 'years is an array');
   assert.ok(Array.isArray(sch.book_value_usd), 'book_value_usd is an array');
   assert.strictEqual(sch.years.length, sch.book_value_usd.length, 'aligned lengths');

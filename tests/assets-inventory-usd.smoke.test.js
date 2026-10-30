@@ -8,8 +8,6 @@ const fetch = require('./_http-fetch');   // core-http shim — undici keep-aliv
 // Backends pinned to sqlite. Run with --test-force-exit (top-level cron keeps the loop alive).
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'assets-inv-usd-'));
-process.env.ASSETS_BACKEND = 'sqlite';
-process.env.REPORTS_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'assets-inv-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'assets-inv-pass-0000';
 process.env.DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || 'assets-inv-key';
@@ -31,10 +29,10 @@ before(async () => {
   const adb = require('../assets-db');
   const reportConfig = require('../services/reportConfig');
 
-  reportConfig.setConfig(rdb.db, { xof_usd_rate: String(RATE) }, 'smoke');
+  (await reportConfig.setConfig(rdb.db, { xof_usd_rate: String(RATE) }, 'smoke'));
 
   // Raw XOF strings (comma-grouped like the real AP export) + owner fields.
-  adb.replaceTable('assets',
+  (await adb.replaceTable('assets',
     ['asset_id', 'asset_name', 'site', 'state', 'product_type',
      'purchase_cost', 'current_book_value', 'total_cost_of_ownership',
      'acquisition_date', 'user_name', 'department'],
@@ -43,11 +41,11 @@ before(async () => {
         product_type: 'Workstation', purchase_cost: '2,250,000.00',
         current_book_value: '750,000.00', total_cost_of_ownership: '2,250,000.00',
         acquisition_date: '14 May 2025', user_name: 'jdoe', department: 'IT' },
-    ]);
+    ]));
 
-  const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
+  const me = ((await rdb.listUsers()) || []).find(u => u.username === process.env.DASH_USER);
   assert.ok(me, 'seeded admin user exists');
-  rdb.setUserRoles(me.id, ['admin']);
+  (await rdb.setUserRoles(me.id, ['admin']));
   const sess = await rdb.login(process.env.DASH_USER, process.env.DASH_PASS);
   assert.ok(sess && sess.token, 'login seeded admin + returned a token');
   adminToken = sess.token;

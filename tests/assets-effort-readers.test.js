@@ -3,7 +3,9 @@
 // getEffortLeaderboard + getEffortTrend that the Progress dashboard consumes
 // (Task 2, sub-project "asset-manager effort trend").
 'use strict';
-process.env.ASSETS_BACKEND = 'sqlite';
+// Top-level async setup, run IN ORDER before the first test (PostgreSQL-only conversion, PO-08).
+const __bootChain = (() => { let p = Promise.resolve(), hooked = false;
+  return (fn) => { p = p.then(fn); if (!hooked) { hooked = true; require('node:test').beforeEach(() => p); } }; })();
 const test = require('node:test');
 const assert = require('node:assert');
 const os = require('node:os'), path = require('node:path'), fs = require('node:fs');
@@ -48,10 +50,10 @@ const rows = [
   mk(D3, 'SGO', 30),                                                             // single snapshot
   mk(D1, 'NEEDS', 45), mk(D2, 'NEEDS', 44), mk(D3, 'NEEDS', 40),                 // low + falling
 ];
-adb.replaceTable('asset_effort_history', cols, rows);
+__bootChain(async () => { (await adb.replaceTable('asset_effort_history', cols, rows)); });
 
-test('getEffortLeaderboard — scores, lookback baseline, delta, rank', () => {
-  const lb = adb.getEffortLeaderboard({ asOf: ASOF });
+test('getEffortLeaderboard — scores, lookback baseline, delta, rank', async () => {
+  const lb = (await adb.getEffortLeaderboard({ asOf: ASOF }));
   const by = Object.fromEntries(lb.rows.map(r => [r.site, r]));
 
   assert.strictEqual(by.MANA.effort_score, 70);
@@ -76,23 +78,23 @@ test('getEffortLeaderboard — scores, lookback baseline, delta, rank', () => {
   assert.strictEqual(by.SGO.rank, 4);
 });
 
-test('getEffortLeaderboard — most_improved + needs_attention', () => {
-  const lb = adb.getEffortLeaderboard({ asOf: ASOF });
+test('getEffortLeaderboard — most_improved + needs_attention', async () => {
+  const lb = (await adb.getEffortLeaderboard({ asOf: ASOF }));
   assert.ok(lb.most_improved, 'most_improved present');
   assert.strictEqual(lb.most_improved.site, 'MANA', 'max positive delta');
   assert.ok(lb.needs_attention, 'needs_attention present');
   assert.strictEqual(lb.needs_attention.site, 'NEEDS', 'score<50 AND delta<=0');
 });
 
-test('getEffortLeaderboard — zero history → empty-but-valid', () => {
+test('getEffortLeaderboard — zero history → empty-but-valid', async () => {
   // asOf before any snapshot → no rows in scope.
-  const lb = adb.getEffortLeaderboard({ asOf: '2020-01-01' });
+  const lb = (await adb.getEffortLeaderboard({ asOf: '2020-01-01' }));
   assert.deepStrictEqual(lb, { rows: [], most_improved: null, needs_attention: null,
     ranked_count: 0, min_assets: 20 });
 });
 
-test('getEffortTrend — dates ascending + scores aligned with null gaps', () => {
-  const tr = adb.getEffortTrend({}, { months: 6 });
+test('getEffortTrend — dates ascending + scores aligned with null gaps', async () => {
+  const tr = (await adb.getEffortTrend({}, { months: 6 }));
   assert.deepStrictEqual(tr.dates, [D1, D2, D3], 'distinct dates ascending');
   const by = Object.fromEntries(tr.sites.map(s => [s.site, s]));
   assert.deepStrictEqual(by.MANA.scores, [40, 60, 70]);
@@ -100,15 +102,15 @@ test('getEffortTrend — dates ascending + scores aligned with null gaps', () =>
   assert.deepStrictEqual(by.SGO.scores, [null, null, 30]);
 });
 
-test('getEffortTrend — single-site filter narrows + returns components', () => {
-  const tr = adb.getEffortTrend({ site: 'MANA' }, { months: 6 });
+test('getEffortTrend — single-site filter narrows + returns components', async () => {
+  const tr = (await adb.getEffortTrend({ site: 'MANA' }, { months: 6 }));
   assert.strictEqual(tr.sites.length, 1);
   assert.strictEqual(tr.sites[0].site, 'MANA');
   assert.ok(tr.sites[0].components, 'components present for single-site');
   assert.strictEqual(tr.sites[0].components.cost_pct, 0.9, 'latest-in-window (D3) pct');
 });
 
-test('getEffortTrend — no rows in window → empty-but-valid', () => {
-  const tr = adb.getEffortTrend({ site: 'NOPE' }, { months: 6 });
+test('getEffortTrend — no rows in window → empty-but-valid', async () => {
+  const tr = (await adb.getEffortTrend({ site: 'NOPE' }, { months: 6 }));
   assert.deepStrictEqual(tr, { dates: [], sites: [] });
 });

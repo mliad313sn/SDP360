@@ -9,8 +9,6 @@ const fetch = require('./_http-fetch');   // core-http shim — undici keep-aliv
 // loop alive).
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'assets-inv-smoke-'));
-process.env.ASSETS_BACKEND = 'sqlite';
-process.env.REPORTS_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'assets-inv-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'assets-inv-pass-0000';
 process.env.DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || 'assets-inv-key';
@@ -31,7 +29,7 @@ before(async () => {
 
   // Seed a couple of assets with acquisition_date + purchase_cost (raw XOF) so the
   // history + hardware-forecast readers have non-empty, coverage-eligible rows.
-  adb.replaceTable('assets',
+  (await adb.replaceTable('assets',
     ['asset_id', 'asset_name', 'site', 'state', 'product_type', 'manufacturer',
      'serial_number', 'acquisition_date', 'purchase_cost', 'current_book_value'],
     [
@@ -41,21 +39,21 @@ before(async () => {
       { asset_id: 'A2', asset_name: 'PC-02', site: 'HGO', state: 'In Use',
         product_type: 'Workstation', manufacturer: 'HP', serial_number: 'SN-0002',
         acquisition_date: '2023-06-01', purchase_cost: '820,000.00', current_book_value: '410,000.00' },
-    ]);
+    ]));
 
   // Seed licences with acquisition_date + expiry_date + cost (native USD) + option.
-  adb.replaceTable('software_licenses',
+  (await adb.replaceTable('software_licenses',
     ['license_id', 'license_name', 'cost', 'acquisition_date', 'expiry_date', 'license_option'],
     [
       { license_id: 'L1', license_name: 'Office', cost: '55,920.00',
         acquisition_date: '2022-03-01', expiry_date: '30 Jun 2026', license_option: 'Subscription' },
       { license_id: 'L2', license_name: 'CAD', cost: '12,000.00',
         acquisition_date: '2023-02-01', expiry_date: '15 Dec 2027', license_option: 'Volume' },
-    ]);
+    ]));
 
-  const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
+  const me = ((await rdb.listUsers()) || []).find(u => u.username === process.env.DASH_USER);
   assert.ok(me, 'seeded admin user exists');
-  rdb.setUserRoles(me.id, ['admin']);
+  (await rdb.setUserRoles(me.id, ['admin']));
   const sess = await rdb.login(process.env.DASH_USER, process.env.DASH_PASS);
   assert.ok(sess && sess.token, 'login seeded admin + returned a token');
   adminToken = sess.token;

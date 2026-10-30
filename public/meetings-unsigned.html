@@ -14,6 +14,7 @@
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
 <link rel="stylesheet" href="module-tabs.css">
 <script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
 
 <style nonce="%%CSP_NONCE%%">
   body {
@@ -303,13 +304,20 @@
     const which = btn.getAttribute('data-which');
     btn.disabled = true;
     try {
-      const r = await fetch(API + '/' + encodeURIComponent(id) + '/sign', {
+      const send = (body) => fetch(API + '/' + encodeURIComponent(id) + '/sign', {
         method: 'POST',
         credentials: 'same-origin',
         headers: authHeaders({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ which }),
+        body: JSON.stringify(body),
       });
-      const j = await r.json().catch(() => ({}));
+      let r = await send({ which });
+      let j = await r.json().catch(() => ({}));
+      // UAT F-02: signing FOR the department head needs a reason, kept with the signature
+      if (r.status === 400 && j.code === 'ON_BEHALF_REASON' && window.ReasonDialog) {
+        const reason = await window.ReasonDialog.ask({ title: 'Sign on behalf of the department head', label: j.error, min: 5, lang: (document.documentElement.lang || 'en').slice(0, 2) });
+        if (reason == null) { btn.disabled = false; return; }
+        r = await send({ which, reason }); j = await r.json().catch(() => ({}));
+      }
       if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
       // Update the in-memory row from the server's authoritative response.
       const row = state.rows.find(x => String(x.id) === String(id));

@@ -2,7 +2,9 @@
 // nightly effort-snapshot job snapshotEffort() into the append-only history table
 // (Task 0, sub-project "asset-manager effort trend").
 'use strict';
-process.env.ASSETS_BACKEND = 'sqlite';
+// Top-level async setup, run IN ORDER before the first test (PostgreSQL-only conversion, PO-08).
+const __bootChain = (() => { let p = Promise.resolve(), hooked = false;
+  return (fn) => { p = p.then(fn); if (!hooked) { hooked = true; require('node:test').beforeEach(() => p); } }; })();
 const test = require('node:test');
 const assert = require('node:assert');
 const os = require('node:os'), path = require('node:path'), fs = require('node:fs');
@@ -41,18 +43,18 @@ const rows = [
   // C1 NULL-site regression — one clean asset with site = null → COALESCE bucket ''.
   { ...base, asset_id: 'Z1', asset_name: 'Asset Z1', site: null },
 ];
-adb.replaceTable('assets', cols, rows);
+__bootChain(async () => { (await adb.replaceTable('assets', cols, rows)); });
 
-const readHist = (date) => adb.getDB()
+const readHist = async (date) => (await adb.getDB()
   .prepare(`SELECT * FROM asset_effort_history${date ? ' WHERE snapshot_date = ?' : ''} ORDER BY site`)
-  .all(...(date ? [date] : []));
+  .all(...(date ? [date] : [])));
 
-test('snapshotEffort writes one row per site with all columns + hand-computed MANA score', () => {
-  const res = adb.snapshotEffort({ asOf: '2026-07-19' });
+test('snapshotEffort writes one row per site with all columns + hand-computed MANA score', async () => {
+  const res = (await adb.snapshotEffort({ asOf: '2026-07-19' }));
   assert.strictEqual(res.date, '2026-07-19');
   assert.strictEqual(res.sites, 3, 'MANA + HGO + null-site bucket');
 
-  const hist = readHist('2026-07-19');
+  const hist = (await readHist('2026-07-19'));
   assert.strictEqual(hist.length, 3, 'exactly one row per site for the date');
 
   const mana = hist.find(r => r.site === 'MANA');
@@ -82,27 +84,27 @@ test('snapshotEffort writes one row per site with all columns + hand-computed MA
   assert.strictEqual(hgo.effort_score, 92);
 });
 
-test('C1 — NULL-site asset produces a row with site === "", never a crash / NULL-PK', () => {
-  const hist = readHist('2026-07-19');
+test('C1 — NULL-site asset produces a row with site === "", never a crash / NULL-PK', async () => {
+  const hist = (await readHist('2026-07-19'));
   const empty = hist.find(r => r.site === '');
   assert.ok(empty, 'null-site bucket present as empty string');
   assert.strictEqual(empty.total, 1);
   assert.strictEqual(empty.effort_score, 100, 'the one null-site asset is clean');
 });
 
-test('idempotent per day — a second call for the same date does not double rows', () => {
-  adb.snapshotEffort({ asOf: '2026-07-19' });
-  const hist = readHist('2026-07-19');
+test('idempotent per day — a second call for the same date does not double rows', async () => {
+  (await adb.snapshotEffort({ asOf: '2026-07-19' }));
+  const hist = (await readHist('2026-07-19'));
   assert.strictEqual(hist.length, 3, 'still exactly one row per site (upsert, not append)');
 });
 
-test('append across days — a second date adds a second row per site', () => {
-  adb.snapshotEffort({ asOf: '2026-07-20' });
-  assert.strictEqual(readHist('2026-07-20').length, 3);
-  assert.strictEqual(readHist().length, 6, '2 dates × 3 sites');
+test('append across days — a second date adds a second row per site', async () => {
+  (await adb.snapshotEffort({ asOf: '2026-07-20' }));
+  assert.strictEqual((await readHist('2026-07-20')).length, 3);
+  assert.strictEqual((await readHist()).length, 6, '2 dates × 3 sites');
 });
 
-test('total=0 — a non-seeded site is simply absent (no row)', () => {
-  const hist = readHist('2026-07-19');
+test('total=0 — a non-seeded site is simply absent (no row)', async () => {
+  const hist = (await readHist('2026-07-19'));
   assert.ok(!hist.some(r => r.site === 'ZZZ'), 'no phantom row for a site with zero assets');
 });

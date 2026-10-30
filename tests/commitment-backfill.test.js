@@ -6,7 +6,6 @@ const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'cmt-bf-'));
 const { test } = require('node:test');
 const assert = require('node:assert');
-const Database = require('better-sqlite3');
 const { makeCommitmentStore } = require('../services/commitmentStore');
 const { run } = require('../tools/pg/commitments-backfill');
 const B = require('../services/commitmentBackfill');
@@ -29,7 +28,7 @@ const deps = (store) => ({
 
 test('dry-run proposes, writes nothing; apply creates; replay creates nothing; sources untouched', async () => {
   const snap = JSON.stringify([md, insp, rep]);
-  const store = makeCommitmentStore(new Database(':memory:')); await store.init();
+  const store = makeCommitmentStore((await require('./_pg-fresh').freshStore(['commitments', 'commitment_source_links', 'commitment_events', 'evidence_items', 'closure_verifications']))); await store.init();
   const dry = await run(deps(store));
   assert.equal(dry.mode, 'dry-run'); assert.equal(dry.created, 0); assert.equal((await store.list()).length, 0);
   assert.deepEqual(dry.proposals.map((p) => `${p.source.system}:${p.source.id}`), ['inspection:22', 'meetings:11', 'report:u-1', 'inspection:21']);

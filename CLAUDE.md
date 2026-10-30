@@ -6,6 +6,32 @@ made so far so that future sessions can pick up exactly where the last one ended
 
 ---
 
+## ⚡ PostgreSQL is the ONLY database (PO-08, 2026-10-28) — every "sqlite" below is history
+
+> SQLite was **removed from the code base** on the SDP360 consolidation branch: no `better-sqlite3`
+> dependency, no `.db` file, no sqlite fork in any `*-db.js` or service. Every mention of a sqlite path,
+> `*_BACKEND=sqlite`, `reports.db`/`tracker.db`, `PRAGMA`, `INSERT OR REPLACE` or a "dual-backend" fork in the
+> sections below is **history** — the newer rule wins:
+> - The server refuses to start without `PG_URL` (`services/backendGuard.js`); the `*_BACKEND` variables are
+>   ignored (each module's constant is `'postgres'`). A fresh database is seeded in PostgreSQL: default admin,
+>   default sites (`_seedSitesPg`), the shipped tracker programme (`_seedFromInitPg`), dashboards/templates
+>   (`seedStores()` exported by `server.js`).
+> - **Tests run on PostgreSQL only**: `npm test` preloads `tests/_pg-boot.mjs`, which gives every test FILE its
+>   own throwaway database (needs `PG_ADMIN_URL` with CREATEDB, or `PG_URL` for the schema fallback), runs every
+>   `initPg*` + the migrator, and `tools/test/drop-test-dbs.js` sweeps them afterwards. `tests/_pg-fresh.js`
+>   truncates tables for one test; top-level async setup goes through `__bootChain` (beforeEach-gated).
+>   A test that needs an existing database (restored prod snapshot) sets `SDP_TEST_PG_URL` (+ `SDP_SNAPSHOT=1`).
+> - Every db-module export is **async** — always `(await f()).x`. `userHasRole` resolves roles only from a
+>   pre-loaded `user.roles` (a bare id now fails closed).
+> - Backups/recovery = PostgreSQL dumps and restore points only: `docs/DB_RECOVERY.md`.
+> - Offline field capture stays in the browser (service worker + local queue); it never used a server SQLite.
+>
+> **D-06 decided 2026-10-28 (requester): Meraki connectors are KEPT** — WAN health, calibrated % Time Up, WAN SLA
+> chargeback, poller and ingester stay supported scope. Never propose retiring or removing them; they are allowed by the
+> excluded-connector audit. (Meridian D-07 is unchanged: dormant.) Completion programme: `docs/sdp360/completion/`.
+
+---
+
 ## ⚡ Deployment reality — READ THIS BEFORE any "Current state" section below (audit of 2026-09-05)
 
 > The "Current state" sections below are a **chronological log**; each one was written the day its

@@ -17,16 +17,17 @@ let server, base, admin, editor, viewer, superT, member, rdb, hounde, editorId, 
 
 before(async () => {
   const { app } = require('../server');
+  await require('../server').seedStores();
   rdb = require('../reports-db');
-  for (let i = 0; i < 50; i++) { if (rdb.db.prepare("SELECT 1 FROM sqlite_master WHERE name='meeting_cadences'").get()) break; await new Promise(r => setTimeout(r, 100)); }
-  const sites = rdb.listSites({ includeInactive: true });
+  for (let i = 0; i < 50; i++) { if ((await rdb.db.prepare("SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'meeting_cadences'").get())) break; await new Promise(r => setTimeout(r, 100)); }
+  const sites = (await rdb.listSites({ includeInactive: true }));
   hounde = sites.find((s) => /hounde/i.test(s.name)).id; const mana = sites.find((s) => /mana/i.test(s.name)).id;
   const mk = async (u, role, roles, site) => { try { await rdb.createUser({ username: u, full_name: u, password: u + 'pass1234', role, roles, site_id: site }); } catch {} return (await rdb.login(u, u + 'pass1234')).token; };
   admin = await mk('gv_admin', 'admin', ['admin']); superT = await mk('gv_super', 'super_admin', ['super_admin']);
   member = await mk('gv_member', 'viewer', ['viewer', 'committee-member']);
   editor = await mk('gv_editor', 'editor', ['editor'], hounde); otherEditor = await mk('gv_other', 'editor', ['editor'], mana);
   viewer = await mk('gv_viewer', 'viewer', ['viewer'], hounde);
-  editorId = rdb.db.prepare("SELECT id FROM users WHERE username='gv_editor'").get().id;
+  editorId = (await rdb.db.prepare("SELECT id FROM users WHERE username='gv_editor'").get()).id;
   await new Promise((r) => { server = http.createServer(app).listen(0, '127.0.0.1', r); });
   base = 'http://127.0.0.1:' + server.address().port;
 });
@@ -76,9 +77,11 @@ test('live: start, stamp items, notes, decisions (chair ok, plain editor of the 
   const upd = await (await send('PUT', `/api/governance/sessions/${sessId}/actions/${ac.action.id}`, editor, { status: 'done' })).json(); assert.ok(upd.actions[0].closed_at);
   const closed = await (await send('POST', `/api/governance/sessions/${sessId}/close`, editor)).json(); assert.equal(closed.session.status, 'closed'); assert.ok(closed.minutes_bytes > 500);
   const m = await get(`/api/governance/sessions/${sessId}/minutes.html`, viewer); assert.equal(m.status, 200); const html = await m.text(); assert.ok(html.includes(d.decision.ref)); assert.ok(html.includes('Order UPS')); assert.ok(html.includes('SLA discussed'));
-  assert.equal((await send('POST', `/api/governance/sessions/${sessId}/start`, editor)).status, 400, 'a closed session cannot restart');
+  assert.equal((await send('POST', `/api/governance/sessions/${sessId}/start`, editor)).status, 409, 'a closed session cannot restart');
   const dec = await (await get('/api/governance/decisions?status=open', viewer)).json(); assert.ok(dec.decisions.some(x => x.ref === d.decision.ref));
-  assert.equal((await send('PUT', `/api/governance/decisions/${d.decision.id}`, editor, { status: 'done' })).status, 403);
+  // UAT 2026-10-29 (PMO F8): the chair follows the decision's status between meetings; its content stays a committee edit
+  assert.equal((await send('PUT', `/api/governance/decisions/${d.decision.id}`, editor, { title: 'rewritten' })).status, 403);
+  assert.equal((await send('PUT', `/api/governance/decisions/${d.decision.id}`, editor, { status: 'done' })).status, 200);
   assert.equal((await (await send('PUT', `/api/governance/decisions/${d.decision.id}`, member, { status: 'done' })).json()).decision.status, 'done');
   assert.equal((await get('/api/governance/overview', admin)).status, 200);
 });
@@ -105,4 +108,94 @@ test('RFI: anyone submits, committee triages, list sorted by score; portfolio up
   assert.equal((await send('POST', '/api/governance/roadmap-migration', admin, {})).status, 403);
   const dry = await (await send('POST', '/api/governance/roadmap-migration', superT, {})).json(); assert.equal(dry.dry_run, true); assert.equal(dry.plan.programme.key, 'itsm-roadmap'); assert.equal(dry.plan.exists, false);
   assert.equal((await get('/api/governance/portfolio/report.html')).status, 401);
+});
+
+test('G-21 lifecycle end to end: planned → held → logged → accepted (four-eyes), frozen, reopen; cancel = exception; effective window', async () => {
+  const memberId = (await rdb.db.prepare("SELECT id FROM users WHERE username='gv_member'").get()).id;
+  const c = await (await send('PUT', '/api/governance/cadences', member, { key: 'hgo-lc', name: 'HGO lifecycle', kind: 'site_weekly', site_id: hounde, chair_id: editorId, secretary_id: memberId, effective_from: '2026-10-01', effective_to: '2099-12-31' })).json();
+  assert.equal(c.cadence.effective_from, '2026-10-01');
+  assert.equal((await send('PUT', '/api/governance/cadences', member, { key: 'hgo-lc2', name: 'x', effective_from: '01/10/2026' })).status, 400);
+  assert.equal((await send('POST', `/api/governance/cadences/${c.cadence.id}/sessions`, editor, { scheduled_at: '2100-01-05T09:00:00Z' })).status, 400, 'outside the effective window');
+  let s = (await (await send('POST', `/api/governance/cadences/${c.cadence.id}/sessions`, editor, { scheduled_at: '2026-10-27T09:00:00Z' })).json()).session;
+  const id = s.id;
+  assert.equal((await send('POST', `/api/governance/sessions/${id}/close`, editor)).status, 409, 'a session that never started is not held');
+  assert.equal((await send('POST', `/api/governance/sessions/${id}/start`, editor)).status, 200);
+  const closed = await (await send('POST', `/api/governance/sessions/${id}/close`, editor)).json();
+  assert.equal(closed.session.stage, 'logged');
+  assert.equal((await send('POST', `/api/governance/sessions/${id}/close`, editor)).status, 409, 'closing twice would rewrite the minutes');
+  const own = await send('POST', `/api/governance/sessions/${id}/accept`, editor); assert.equal(own.status, 403); assert.equal((await own.json()).code, 'SOD');
+  assert.equal((await send('POST', `/api/governance/sessions/${id}/accept`, viewer)).status, 403);
+  s = (await (await send('POST', `/api/governance/sessions/${id}/accept`, member)).json()).session;
+  assert.equal(s.stage, 'accepted');
+  for (const [m, p, b] of [['PUT', `/api/governance/sessions/${id}`, { notes: 'late edit' }], ['POST', `/api/governance/sessions/${id}/actions`, { title: 'late action' }],
+    ['POST', `/api/governance/sessions/${id}/decisions`, { title: 'late decision' }], ['POST', `/api/governance/sessions/${id}/items/kpis/notes`, { notes: 'x' }]]) {
+    const r = await send(m, p, admin, b); assert.equal(r.status, 409, `${m} ${p}`); assert.equal((await r.json()).code, 'FROZEN');
+  }
+  assert.equal((await send('POST', `/api/governance/sessions/${id}/reopen`, member, { reason: 'decision text was wrong' })).status, 403);
+  s = (await (await send('POST', `/api/governance/sessions/${id}/reopen`, admin, { reason: 'decision text was wrong' })).json()).session;
+  assert.equal(s.stage, 'held'); assert.equal(s.minutes_accepted_at, null);
+  // the previous acceptance is not lost: accept + reopen are appended (audit P2-11)
+  const mh = (await (await get(`/api/governance/sessions/${id}`, admin)).json()).minutes_history;
+  assert.deepEqual(mh.map((x) => x.action), ['accepted', 'reopened']); assert.equal(mh[1].reason, 'decision text was wrong');
+  await assert.rejects(async () => rdb.db.prepare('DELETE FROM minutes_history').run(), /append-only/);
+
+  // cancellation by a runner = pending exception; approved by the committee (not the canceller)
+  const s2 = (await (await send('POST', `/api/governance/cadences/${c.cadence.id}/sessions`, editor, { scheduled_at: new Date(Date.now() + 7 * 864e5).toISOString() })).json()).session;
+  assert.equal((await send('POST', `/api/governance/sessions/${s2.id}/cancel`, editor, { reason: '' })).status, 400);
+  const can = (await (await send('POST', `/api/governance/sessions/${s2.id}/cancel`, editor, { reason: 'site shutdown for maintenance' })).json()).session;
+  assert.equal(can.stage, 'cancelled'); assert.equal(can.exception_status, 'pending');
+  assert.equal((await send('POST', `/api/governance/sessions/${s2.id}/exception/approve`, editor)).status, 403);
+  assert.equal((await (await send('POST', `/api/governance/sessions/${s2.id}/exception/approve`, member)).json()).session.exception_status, 'approved');
+  assert.equal((await send('POST', `/api/governance/sessions/${s2.id}/start`, editor)).status, 409, 'a cancelled session cannot start');
+
+  // a planned session whose date passed is missed — the overview never counts it as held
+  const past = await send('POST', `/api/governance/cadences/${c.cadence.id}/sessions`, editor, { scheduled_at: new Date(Date.now() - 5 * 864e5).toISOString() });
+  assert.equal(past.status, 200, await past.text());
+  const o = await (await get('/api/governance/overview', admin)).json();
+  assert.ok(o.compliance_30d.missed >= 1, JSON.stringify(o.compliance_30d)); assert.ok(o.compliance_30d.excused >= 1);
+  // a missed session is not quietly moved to a new date (it stays a no-show; a new session is planned)
+  const missedId = (await past.json()).session.id;
+  const rs = await send('PUT', `/api/governance/sessions/${missedId}`, editor, { scheduled_at: new Date(Date.now() + 864e5).toISOString() });
+  assert.equal(rs.status, 409); assert.equal((await rs.json()).code, 'MISSED');
+});
+
+test('session actions: an action id from another session is never reachable through this one (IDOR)', async () => {
+  const a1 = (await (await send('POST', `/api/governance/cadences/${cadId}/sessions`, editor, { scheduled_at: new Date(Date.now() + 864e5).toISOString() })).json()).session;
+  const a2 = (await (await send('POST', `/api/governance/cadences/${cadId}/sessions`, editor, { scheduled_at: new Date(Date.now() + 2 * 864e5).toISOString() })).json()).session;
+  await send('POST', `/api/governance/sessions/${a1.id}/start`, editor);
+  const act = (await (await send('POST', `/api/governance/sessions/${a1.id}/actions`, editor, { title: 'Only in a1', owner: 'Bob' })).json()).action;
+  const r = await send('PUT', `/api/governance/sessions/${a2.id}/actions/${act.id}`, editor, { status: 'done' });
+  assert.equal(r.status, 404);
+  const still = (await (await get(`/api/governance/sessions/${a1.id}`, editor)).json()).actions.find((x) => x.id === act.id);
+  assert.equal(still.status, 'open', 'untouched');
+  // a double tap re-sends the same idempotency key: one decision, one action (field P1-4)
+  const body = { title: 'Replace the UPS battery', owner: 'Bob', idem_key: 'ui-dbl-1' };
+  const [d1, d2] = await Promise.all([1, 2].map(async () => (await (await send('POST', `/api/governance/sessions/${a1.id}/decisions`, editor, body)).json()).decision));
+  assert.equal(d1.ref, d2.ref);
+  const x1 = (await (await send('POST', `/api/governance/sessions/${a1.id}/actions`, editor, { ...body, idem_key: 'ui-dbl-2' })).json()).action;
+  const x2 = (await (await send('POST', `/api/governance/sessions/${a1.id}/actions`, editor, { ...body, idem_key: 'ui-dbl-2' })).json()).action;
+  assert.equal(x1.id, x2.id);
+  const s1 = await (await get(`/api/governance/sessions/${a1.id}`, editor)).json();
+  assert.equal(s1.decisions.filter((d) => d.title === body.title).length, 1); assert.equal(s1.actions.filter((a) => a.title === body.title).length, 1);
+});
+
+test('people picker for chair / secretary: committee only, names and ids, filtered by site', async () => {
+  assert.equal((await get('/api/governance/people', editor)).status, 403);
+  const all = await (await get('/api/governance/people', member)).json();
+  assert.ok(all.people.length >= 2 && all.people.every((p) => Number.isFinite(p.id) && p.name && !('email' in p)));
+  const site = await (await get(`/api/governance/people?site=${hounde}`, member)).json();
+  assert.ok(site.people.some((p) => p.id === editorId)); assert.ok(site.people.length <= all.people.length);
+});
+
+test('G08: a rescheduled session keeps its old date in the history; single-signature minutes reach the oversight register', async () => {
+  const c = await (await send('PUT', '/api/governance/cadences', member, { key: 'hgo-g08', name: 'HGO G08', kind: 'site_weekly', site_id: hounde, chair_id: editorId, effective_from: '2026-10-01', effective_to: '2099-12-31' })).json();
+  const s = (await (await send('POST', `/api/governance/cadences/${c.cadence.id}/sessions`, editor, { scheduled_at: '2099-11-03T09:00:00Z' })).json()).session;
+  assert.equal((await send('PUT', `/api/governance/sessions/${s.id}`, editor, { scheduled_at: '2099-11-05T09:00:00Z', reason: 'site visit moved' })).status, 200);
+  const h = (await (await get(`/api/governance/sessions/${s.id}`, editor)).json()).minutes_history;
+  const r = h.find((x) => x.action === 'rescheduled');
+  assert.ok(r && r.reason.includes('2099-11-03T09:00:00Z') && r.reason.includes('2099-11-05T09:00:00Z') && r.reason.includes('site visit moved'), JSON.stringify(h));
+  const gs = require('../services/governanceStore').makeGovernanceStore(rdb.db, { isPg: true });
+  await gs.addMinutesHistory(s.id, 'accepted_without_second_person', editorId, 'four-eyes switched off by policy for this context');
+  const o = await (await get('/api/governance/oversight', admin)).json();
+  assert.ok((o.single_signature || o.oversight && o.oversight.single_signature || []).some((x) => x.session_id === s.id), JSON.stringify(Object.keys(o)));
 });

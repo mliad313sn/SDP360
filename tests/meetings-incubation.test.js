@@ -16,15 +16,15 @@ process.env.DASH_PASS = process.env.DASH_PASS || 'smoke-pass-0000';
 
 const mdb = require('../meetings-db');
 
-before(() => { mdb.loadLookups(); });
+before(async () => { (await mdb.loadLookups()); });
 
-test('fresh DB seeds the business_incubation intake_source', () => {
-  const lk = mdb.loadLookups();
+test('fresh DB seeds the business_incubation intake_source', async () => {
+  const lk = (await mdb.loadLookups());
   const codes = (lk.intake_sources || []).map(r => r.code);
   assert.ok(codes.includes('business_incubation'), 'intake_sources should include business_incubation');
 });
 
-test('setMeetingIncubation → getMeeting round-trips the extras blob (parsed)', () => {
+test('setMeetingIncubation → getMeeting round-trips the extras blob (parsed)', async () => {
   const state = {
     header: {
       reference: 'SMI_MINERAL_RESOURCES_INC_2026-08', site_code: 'SMI', department: 'mineral_resources',
@@ -35,7 +35,7 @@ test('setMeetingIncubation → getMeeting round-trips the extras blob (parsed)',
     ],
     actions: [],
   };
-  const saved = mdb.saveMeeting(state, null, null);
+  const saved = (await mdb.saveMeeting(state, null, null));
   assert.ok(saved && saved.id, 'saveMeeting returns an id');
 
   const incubation = {
@@ -44,9 +44,9 @@ test('setMeetingIncubation → getMeeting round-trips the extras blob (parsed)',
     flow: [{ incoming: 'Données de forage', activity: 'Analyse & planification', outgoing: 'Modèles géologiques' }],
     services: [{ service: 'Data Mobile', beneficiary: 'Tous les départements', status: 'Actif' }],
   };
-  mdb.setMeetingIncubation(saved.id, incubation);
+  (await mdb.setMeetingIncubation(saved.id, incubation));
 
-  const rec = mdb.getMeeting(saved.id);
+  const rec = (await mdb.getMeeting(saved.id));
   assert.equal(rec.header.intake_source, 'business_incubation');
   assert.ok(rec.header.incubation, 'header.incubation is present (parsed)');
   assert.equal(rec.header.incubation.roles.incubator, 'VEH FREDERIC MAIKA');
@@ -58,12 +58,12 @@ test('setMeetingIncubation → getMeeting round-trips the extras blob (parsed)',
   assert.equal(rec.issues[0].severity, 'HIGH');
 });
 
-test('a normal PV keeps incubation null (no distortion of the regular path)', () => {
-  const saved = mdb.saveMeeting({
+test('a normal PV keeps incubation null (no distortion of the regular path)', async () => {
+  const saved = (await mdb.saveMeeting({
     header: { reference: 'HGO_Mining_PV_2026-08', site_code: 'HGO', department: 'mining', meeting_date: '2026-08-05', status: 'draft' },
     issues: [], actions: [],
-  }, null, null);
-  const rec = mdb.getMeeting(saved.id);
+  }, null, null));
+  const rec = (await mdb.getMeeting(saved.id));
   assert.equal(rec.header.incubation_json, null);
   assert.equal(rec.header.incubation, undefined);
 });
@@ -84,8 +84,8 @@ test('priority + category mapping (FR/EN labels → codes)', () => {
   assert.equal(inc._buildRef('SMI', 'mineral_resources', '2026-08-20'), 'SMI_mineral_resources_INC_2026-08');
 });
 
-test('buildTemplate → parseBuffer round-trips all 4 sheets', () => {
-  const lk = mdb.loadLookups();
+test('buildTemplate → parseBuffer round-trips all 4 sheets', async () => {
+  const lk = (await mdb.loadLookups());
   const buf = inc.buildTemplate(lk);
   const parsed = inc.parseBuffer(buf, lk);
   assert.equal(parsed.errors.length, 0, 'template parses clean: ' + JSON.stringify(parsed.errors));
@@ -102,7 +102,7 @@ test('buildTemplate → parseBuffer round-trips all 4 sheets', () => {
 });
 
 test('parseBuffer rejects unknown site + commit refuses while errors present', async () => {
-  const lk = mdb.loadLookups();
+  const lk = (await mdb.loadLookups());
   // hand-build a minimal workbook with a bad site
   const XLSX = require('xlsx');
   const wb = XLSX.utils.book_new();
@@ -119,7 +119,7 @@ test('parseBuffer rejects unknown site + commit refuses while errors present', a
 });
 
 test('commit persists a session as meeting + issues + incubation; re-commit is idempotent', async () => {
-  const lk = mdb.loadLookups();
+  const lk = (await mdb.loadLookups());
   const buf = inc.buildTemplate(lk);
   const parsed = inc.parseBuffer(buf, lk);
   const ref = parsed.sessions[0].header.reference;
@@ -129,10 +129,10 @@ test('commit persists a session as meeting + issues + incubation; re-commit is i
   assert.equal(r1.challenges, 1);
 
   // fetch it back
-  const list = mdb.listMeetings ? mdb.listMeetings({ q: ref }) : null;
+  const list = mdb.listMeetings ? (await mdb.listMeetings({ q: ref })) : null;
   const found = (list && (list.rows || list) || []).find(m => m.reference === ref);
   assert.ok(found, 'the committed session is listable');
-  const rec = mdb.getMeeting(found.id);
+  const rec = (await mdb.getMeeting(found.id));
   assert.equal(rec.header.intake_source, 'business_incubation');
   assert.ok(rec.header.incubation && rec.header.incubation.services.length === 1);
   assert.equal(rec.issues.length, 1);
@@ -146,31 +146,31 @@ test('commit persists a session as meeting + issues + incubation; re-commit is i
 // 2026-10-03 — an incubation entered by hand (no reference) must NEVER land on the
 // month's PV: the auto-reference used to be SITE_Dept_PV_YYYY-MM for both, and the
 // reference match then UPDATED the PV with the incubation (audit F1 class).
-test('a hand-entered incubation gets its own _INC_ reference and never overwrites the PV', () => {
-  const pv  = mdb.saveMeeting({ header: { site_code: 'HGO', department: 'finance', meeting_date: '2026-10-05', status: 'draft', priority_1: 'keep me' } }, null, null);
-  const inc = mdb.saveMeeting({ header: { site_code: 'HGO', department: 'finance', meeting_date: '2026-10-20', intake_source: 'business_incubation', status: 'draft' } }, null, null);
+test('a hand-entered incubation gets its own _INC_ reference and never overwrites the PV', async () => {
+  const pv  = (await mdb.saveMeeting({ header: { site_code: 'HGO', department: 'finance', meeting_date: '2026-10-05', status: 'draft', priority_1: 'keep me' } }, null, null));
+  const inc = (await mdb.saveMeeting({ header: { site_code: 'HGO', department: 'finance', meeting_date: '2026-10-20', intake_source: 'business_incubation', status: 'draft' } }, null, null));
   assert.notEqual(inc.id, pv.id, 'a distinct record');
-  const pvRec = mdb.getMeeting(pv.id).header, incRec = mdb.getMeeting(inc.id).header;
+  const pvRec = (await mdb.getMeeting(pv.id)).header, incRec = (await mdb.getMeeting(inc.id)).header;
   assert.match(incRec.reference, /^HGO_Finance_INC_2026-10$/);
   assert.match(pvRec.reference, /_PV_2026-10$/);
   assert.equal(pvRec.intake_source || 'dept_meeting', 'dept_meeting', 'the PV is untouched');
   assert.equal(pvRec.priority_1, 'keep me');
   // re-saving the incubation updates itself, not the PV
-  const again = mdb.saveMeeting({ id: inc.id, header: { id: inc.id, site_code: 'HGO', department: 'finance', meeting_date: '2026-10-20', intake_source: 'business_incubation', status: 'submitted' } }, null, null);
+  const again = (await mdb.saveMeeting({ id: inc.id, header: { id: inc.id, site_code: 'HGO', department: 'finance', meeting_date: '2026-10-20', intake_source: 'business_incubation', status: 'submitted' } }, null, null));
   assert.equal(again.id, inc.id);
 });
 
 // 2026-10-05 — « + Action » from the Site Actions hub: an action created FROM an issue is
 // linked to it, lands in the issue's own session, and leaves a trace on the issue.
-test('addActionForIssue creates a linked action in the issue meeting + an issue audit row', () => {
-  const saved = mdb.saveMeeting({ header: { site_code: 'HGO', department: 'hr', meeting_date: '2026-11-05', status: 'draft' },
+test('addActionForIssue creates a linked action in the issue meeting + an issue audit row', async () => {
+  const saved = (await mdb.saveMeeting({ header: { site_code: 'HGO', department: 'hr', meeting_date: '2026-11-05', status: 'draft' },
     issues: [{ ord: 0, title: 'Badges KO', category: 'HW', severity: 'HIGH', status: 'open' }],
-    actions: [{ description: 'existing', status: 'open' }] }, null, null);
-  const rec = mdb.getMeeting(saved.id);
+    actions: [{ description: 'existing', status: 'open' }] }, null, null));
+  const rec = (await mdb.getMeeting(saved.id));
   const issueId = rec.issues[0].id;
-  const out = mdb.addActionForIssue(issueId, { description: 'Remplacer le lecteur', owner_it: 'Awa', target_date: '2026-11-20' }, { author_name: 'Tester' });
+  const out = (await mdb.addActionForIssue(issueId, { description: 'Remplacer le lecteur', owner_it: 'Awa', target_date: '2026-11-20' }, { author_name: 'Tester' }));
   assert.ok(out.id);
-  const after = mdb.getMeeting(saved.id);
+  const after = (await mdb.getMeeting(saved.id));
   const a = after.actions.find(x => x.id === out.id);
   assert.equal(a.linked_issue_id, issueId);
   assert.equal(a.status, 'open');
@@ -180,6 +180,6 @@ test('addActionForIssue creates a linked action in the issue meeting + an issue 
   assert.equal(after.actions.length, 2, 'existing actions untouched');
   const upd = (after.updates || []).find(u => u.issue_id === issueId);
   assert.ok(upd && /Remplacer le lecteur/.test(upd.body), 'trace on the issue');
-  assert.throws(() => mdb.addActionForIssue(issueId, { description: '' }), /description/i);
-  assert.throws(() => mdb.addActionForIssue(999999, { description: 'x' }), /not found/i);
+  await assert.rejects(async () => (await mdb.addActionForIssue(issueId, { description: '' })), /description/i);
+  await assert.rejects(async () => (await mdb.addActionForIssue(999999, { description: 'x' })), /not found/i);
 });

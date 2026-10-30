@@ -2,7 +2,6 @@
 // V1b-E Task 2 — wan_subsite_networks store: dual-backend reader/writer (sqlite here).
 const _os = require('os'), _fs = require('fs'), _p = require('path');
 process.env.SDP_DATA_DIR = _fs.mkdtempSync(_p.join(_os.tmpdir(), 'wansub-'));
-process.env.REPORTS_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'wansub-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'wansub-pass-0000';
 const { test } = require('node:test');

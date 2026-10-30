@@ -49,9 +49,7 @@ function _overdue(dueDate, asOfMs, terminal) {
   return t != null && asOfMs != null && t < asOfMs;
 }
 
-function _emptyGroup() {
-  return { items: [], count: 0, oldest_days: null };
-}
+
 
 function _finishGroup(items) {
   const ages = items.map((i) => i.age_days).filter((a) => a != null);

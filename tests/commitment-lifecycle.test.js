@@ -84,3 +84,14 @@ test('allowedTransitions lists only what the actor may fire', () => {
   assert.deepEqual(L.allowedTransitions(aw, editor), []);
   assert.deepEqual(L.allowedTransitions(aw, reviewer).map((t) => t.to).sort(), ['accepted_risk_exception', 'rejected_for_rework', 'verified_closed']);
 });
+
+test('reviewer rights follow the unique identity only: a namesake or a typed id never verifies (committee security P1-3)', () => {
+  const L = require('../services/commitmentLifecycle');
+  const c = { status: 'awaiting_verification', severity: 'medium', accountable_owner: 'it.owner', execution_owners: ['it.tech'], created_by: 'it.editor', due_date: '2026-11-30', treatment_plan: 'p' };
+  assert.equal(L.isReviewer({ ...c, reviewer: 'A. Ouedraogo' }, { username: 'ouedraogo.b', full_name: 'A. Ouedraogo', id: 12 }), false, 'full name is not an identity');
+  assert.equal(L.isReviewer({ ...c, reviewer: '12' }, { username: 'ouedraogo.b', id: 12 }), false, 'a typed id is not an identity');
+  assert.equal(L.isReviewer({ ...c, reviewer: 'Ouedraogo.B' }, { username: 'ouedraogo.b', id: 12 }), true, 'username, case-insensitive');
+  assert.equal(L.isReviewer({ ...c, reviewer: 'b.o@edv.example' }, { username: 'x', email: 'B.O@edv.example' }), true, 'e-mail');
+  // refusals stay broad: the doer named by full name still cannot verify
+  assert.equal(L.isSelf({ ...c, execution_owners: ['A. Ouedraogo'] }, { username: 'ouedraogo.b', full_name: 'A. Ouedraogo' }), true);
+});

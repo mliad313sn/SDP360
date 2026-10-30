@@ -1,0 +1,7 @@
+{
+ "note": "Every reason a test may be skipped for, the most tests it may cover, and who can lift it. A new reason or a larger count fails the run (tools/test/guard.js checkSkips).",
+ "reasons": {
+  "no prod-snapshot": { "max": 10, "owner": "data owner — a copy of production data is deliberately not in the repository; run on the dev box with prod-snapshot/ present" },
+  "python with matplotlib + python-pptx not available": { "max": 1, "owner": "CI owner — pip install matplotlib python-pptx in the runner to lift it" }
+ }
+}

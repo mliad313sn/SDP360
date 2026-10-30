@@ -10,6 +10,12 @@
 //   technical = commitments with technical_completed_at set (reached awaiting_verification at least once)
 //   verified  = commitments currently verified_closed
 //   pending   = technical − verified (work said done, not yet accepted by the reviewer)
+// commitments.serious_unowned  (alert A01 — consolidation 2026-10-28)
+//   COUNT of high / critical commitments, not terminal, with no accountable owner.
+// commitments.serious_overdue  (alert A02)
+//   COUNT of high / critical commitments, not terminal and not awaiting verification, whose due
+//   date is before asOf and that carry no approved exception. These are exposure COUNTS (0 is a
+//   measured zero when the store answers); they never improve a score — they are red flags.
 
 const d10 = (v) => (v ? String(v).slice(0, 10) : null);
 
@@ -26,9 +32,26 @@ function technicalVsVerified(rows) {
   return { technical, verified, pending_verification: Math.max(0, technical - verified), value: technical ? Math.round(1000 * verified / technical) / 10 : null, state: technical ? 'measured' : 'UNKNOWN' };
 }
 
-function summary(rows) {
-  const on = verifiedOnTime(rows), tv = technicalVsVerified(rows);
-  return { verified_on_time_pct: on.value, verified_on_time: on, verified_of_technical_pct: tv.value, technical_vs_verified: tv };
+const TERMINAL = ['verified_closed', 'cancelled_with_reason', 'accepted_risk_exception'];
+const SERIOUS = ['high', 'critical'];
+const _str = (v) => String(v == null ? '' : v).trim();
+
+function seriousExposure(rows, asOf) {
+  const day = d10(asOf instanceof Date ? asOf.toISOString() : (asOf || new Date().toISOString()));
+  const open = (rows || []).filter((r) => SERIOUS.includes(_str(r.severity).toLowerCase()) && !TERMINAL.includes(r.status));
+  const unowned = open.filter((r) => !_str(r.accountable_owner));
+  // an approved exception counts only until it lapses (exception_expires_at) — then the A02 alert is back
+  const excused = (r) => _str(r.exception_approved_by) && (!r.exception_expires_at || d10(r.exception_expires_at) >= day);
+  const overdue = open.filter((r) => r.status !== 'awaiting_verification' && d10(r.due_date) && d10(r.due_date) < day && !excused(r));
+  return { serious_open: open.length, serious_unowned: unowned.length, serious_overdue: overdue.length,
+    unowned_ids: unowned.map((r) => r.id), overdue_ids: overdue.map((r) => r.id), as_of: day };
 }
 
-module.exports = { verifiedOnTime, technicalVsVerified, summary };
+function summary(rows, asOf) {
+  const on = verifiedOnTime(rows), tv = technicalVsVerified(rows);
+  const ex = seriousExposure(rows, asOf);
+  return { verified_on_time_pct: on.value, verified_on_time: on, verified_of_technical_pct: tv.value, technical_vs_verified: tv,
+    serious_unowned: ex.serious_unowned, serious_overdue: ex.serious_overdue, serious_exposure: ex };
+}
+
+module.exports = { verifiedOnTime, technicalVsVerified, seriousExposure, summary };

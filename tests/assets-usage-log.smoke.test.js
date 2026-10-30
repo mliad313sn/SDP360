@@ -12,11 +12,6 @@ const fetch = require('./_http-fetch');   // core-http shim — undici keep-aliv
 // a glance).
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'assets-usage-'));
-process.env.ASSETS_BACKEND = 'sqlite';
-process.env.REPORTS_BACKEND = 'sqlite';
-process.env.MEETINGS_BACKEND = 'sqlite';
-process.env.INSPECTION_BACKEND = 'sqlite';
-process.env.TRACKER_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'usage-smoke-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'usage-smoke-pass-0000';
 process.env.DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || 'usage-smoke-key';
@@ -34,14 +29,14 @@ before(async () => {
   const { app } = require('../server');
   rdb = require('../reports-db');
   const adb = require('../assets-db');
-  adb.replaceTable('assets',
+  (await adb.replaceTable('assets',
     ['asset_id', 'asset_name', 'site', 'state', 'product_type', 'manufacturer', 'serial_number'],
     [{ asset_id: 'A1', asset_name: 'PC-MANA-01', site: 'MANA', state: 'In Use',
-       product_type: 'Workstation', manufacturer: 'Dell', serial_number: 'SN-0001' }]);
+       product_type: 'Workstation', manufacturer: 'Dell', serial_number: 'SN-0001' }]));
   // The inventory export is admin+ since G-11, and this suite asserts an export IS
   // logged — so the actor needs the role the route now requires.
-  const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
-  rdb.setUserRoles(me.id, ['admin']);
+  const me = ((await rdb.listUsers()) || []).find(u => u.username === process.env.DASH_USER);
+  (await rdb.setUserRoles(me.id, ['admin']));
   const sess = await rdb.login(process.env.DASH_USER, process.env.DASH_PASS);
   token = sess.token;
   await new Promise(r => { server = http.createServer(app).listen(0, '127.0.0.1', r); });
@@ -50,7 +45,7 @@ before(async () => {
 after(() => { try { server && server.close(); } catch {} });
 
 const auth = () => ({ 'x-report-token': token });
-const count = (action) => rdb.countSystemLog({ action });
+const count = async (action) => (await rdb.countSystemLog({ action }));
 // logEvent is deliberately fire-and-forget (a dead log must never break a request),
 // so the row lands just after the response — give the microtask queue a turn.
 const settle = () => new Promise(r => setTimeout(r, 60));

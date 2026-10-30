@@ -1,0 +1,27 @@
+{
+  "reason": "Committee meeting YYYY-MM-DD — minutes reference to fill in",
+  "policies": [
+    { "scope": "global", "key": "handoffs.escalation_grace_days", "value": 2 },
+    { "scope": "site:Hounde", "key": "calendar.skip_weekends", "value": true }
+  ],
+  "site_groups": [
+    { "site": "Hounde", "country": "BF", "business_unit": "WA" }
+  ],
+  "roles": [
+    { "role": "handoffs.escalation_target", "site": "Hounde", "person": "username.of.site.it.lead", "from": "2026-11-01", "to": null },
+    { "role": "handoffs.group_escalation", "site": null, "person": "username.of.group.service.manager", "from": "2026-11-01", "to": null }
+  ],
+  "deputies": [],
+  "matrix": [
+    { "register": "handoffs", "severity": "*", "site": null, "after_days": 0, "role": "handoffs.escalation_target" },
+    { "register": "handoffs", "severity": "*", "site": null, "after_days": 3, "role": "handoffs.group_escalation" }
+  ],
+  "calendar": [
+    { "site": null, "day": "2026-12-25", "kind": "holiday", "label": "Christmas" }
+  ],
+  "kpi_targets": [
+    { "metric": "meetings.overdue_issues", "site": null, "target": 2, "from": "2026-11-01" }
+  ],
+  "site_codes": [],
+  "switches": { "handoff_notify_enabled": "0", "commitment_notify_enabled": "0", "site_codes_from_registry": "0" }
+}

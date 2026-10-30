@@ -29,7 +29,7 @@ test('pg: report + engagement stores parity (templates/runs/cascade, rules/state
     await rep.saveTemplate({ key: 'tmp', name: 'T', dashboard_key: 'exec-home' }); await rep.createRun({ templateKey: 'tmp', figures: [], analysis: {}, commentary: null });
     await rep.removeTemplate('tmp'); assert.equal((await rep.listRuns({ templateKey: 'tmp' })).length, 0, 'runs cascade on pg');
 
-    assert.equal((await eng.seedRules(SEED_RULES)).length, 12); const r = await eng.getRule('sla.resolution.red'); assert.equal(r.threshold, 80); assert.equal(r.enabled, true);
+    assert.equal((await eng.seedRules(SEED_RULES)).length, SEED_RULES.length); assert.equal((await eng.getRule('wan.wan2.availability')).severity, 'warning'); const r = await eng.getRule('sla.resolution.red'); assert.equal(r.threshold, 80); assert.equal(r.enabled, true);
     await eng.saveState({ 'sla.resolution.red|1': { breaches: 2, last_fired_at: null } }, { 'sla.resolution.red|1': 70 }); await eng.saveState({ 'sla.resolution.red|1': { breaches: 3, last_fired_at: '2026-10-19T10:00:00.000Z' } });
     assert.deepEqual(await eng.loadState(), { 'sla.resolution.red|1': { breaches: 3, last_fired_at: '2026-10-19T10:00:00.000Z' } });
     const fid = await eng.recordFiring({ rule: r, reading: { site_id: 1, value: 70 }, message: 'm', key: 'k' }); assert.ok(fid > 0); await eng.markFalsePositive(fid); assert.equal((await eng.firingStats()).false_positive_pct, 100);

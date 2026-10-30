@@ -4,30 +4,20 @@
 // reviewed → published; one row per generation = the version log). sqlite + PostgreSQL
 // (db/postgres/reports/019_reports_engagement.sql). No formula here.
 
-const SQLITE_DDL = `
-CREATE TABLE IF NOT EXISTS report_templates (
-  key TEXT PRIMARY KEY, name TEXT NOT NULL, audience TEXT NOT NULL DEFAULT 'site', dashboard_key TEXT NOT NULL, lang TEXT NOT NULL DEFAULT 'en',
-  cadence TEXT NOT NULL DEFAULT 'monthly', sections TEXT, recipients TEXT, ai_enabled INTEGER NOT NULL DEFAULT 1, enabled INTEGER NOT NULL DEFAULT 1,
-  owner_id INTEGER, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
-CREATE TABLE IF NOT EXISTS report_runs (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, template_key TEXT NOT NULL REFERENCES report_templates(key) ON DELETE CASCADE, site_id INTEGER, window_label TEXT,
-  status TEXT NOT NULL DEFAULT 'draft', figures TEXT, analysis TEXT, commentary TEXT, html TEXT, provider TEXT, deviation INTEGER DEFAULT 0,
-  created_by INTEGER, created_at TEXT DEFAULT CURRENT_TIMESTAMP, reviewed_by INTEGER, reviewed_at TEXT, review_note TEXT, rating INTEGER, published_at TEXT);
-CREATE INDEX IF NOT EXISTS idx_report_runs_tpl ON report_runs(template_key, created_at);`;
 
 const AUDIENCES = ['site', 'executive', 'council'];
 const CADENCES = ['weekly', 'monthly', 'quarterly', 'manual'];
-const STATUSES = ['draft', 'reviewed', 'published', 'rejected'];
+const STATUSES = ['draft', 'reviewed', 'published', 'rejected', 'withdrawn'];
 const J = (v) => (v == null ? null : JSON.stringify(v));
 const P_ = (s, d) => { if (s == null) return d; if (typeof s !== 'string') return s; try { return JSON.parse(s); } catch (_) { return d; } };
 
 function makeReportStore(db, { isPg = false, now = () => new Date().toISOString() } = {}) {
   if (!db) throw new Error('reportStore needs a db handle');
   const P = (sql) => db.prepare(sql);
-  async function init() { if (!isPg) { db.exec('PRAGMA foreign_keys=ON'); db.exec(SQLITE_DDL); } }
+  async function init() {  }
   async function insert(table, cols, vals) {
-    const r = await P(`INSERT INTO ${table} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})${isPg ? ' RETURNING id' : ''}`).run(...vals);
-    return isPg ? Number(r && (r.id != null ? r.id : r.lastID != null ? r.lastID : (r.rows && r.rows[0] && r.rows[0].id))) : Number(r.lastInsertRowid);
+    const r = await P(`INSERT INTO ${table} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})${(' RETURNING id')}`).run(...vals);
+    return (Number(r && (r.id != null ? r.id : r.lastID != null ? r.lastID : (r.rows && r.rows[0] && r.rows[0].id))));
   }
   const tplRow = (r) => r && ({ ...r, sections: P_(r.sections, []), recipients: P_(r.recipients, []), ai_enabled: Number(r.ai_enabled) !== 0, enabled: Number(r.enabled) !== 0 });
   const runRow = (r, { full = false } = {}) => r && ({ ...r, id: Number(r.id), site_id: r.site_id == null ? null : Number(r.site_id), deviation: Number(r.deviation) || 0, figures: full ? P_(r.figures, null) : undefined, analysis: full ? P_(r.analysis, null) : undefined, commentary: full ? P_(r.commentary, null) : undefined, html: full ? r.html : undefined, html_bytes: r.html ? String(r.html).length : 0 });
@@ -60,22 +50,34 @@ function makeReportStore(db, { isPg = false, now = () => new Date().toISOString(
     const where = [], args = [];
     if (templateKey) { where.push('template_key=?'); args.push(String(templateKey)); }
     if (status) { const st = Array.isArray(status) ? status : [status]; where.push(`status IN (${st.map(() => '?').join(',')})`); args.push(...st); }
-    const rows = (await P(`SELECT id, template_key, site_id, window_label, status, provider, deviation, created_by, created_at, reviewed_by, reviewed_at, rating, published_at, html FROM report_runs${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY created_at DESC, id DESC LIMIT ${Math.min(500, Number(limit) || 50)}`).all(...args)).map(r => runRow(r));
+    const rows = (await P(`SELECT id, template_key, site_id, window_label, status, provider, deviation, created_by, created_at, reviewed_by, reviewed_at, rating, published_at, supersedes_id, html FROM report_runs${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY created_at DESC, id DESC LIMIT ${Math.max(1, Math.min(500, Math.floor(Number(limit)) || 50))}`).all(...args)).map(r => runRow(r));
     return Array.isArray(siteIds) ? rows.filter(r => r.site_id == null || siteIds.includes(r.site_id)) : rows;
   }
-  async function setStatus(id, status, { user, note, rating } = {}) {
+  async function setStatus(id, status, { user, note, rating, override } = {}) {
     if (!STATUSES.includes(status)) throw Object.assign(new Error('bad run status'), { code: 'INVALID' });
     const p = { status }; if (status === 'reviewed' || status === 'rejected') { p.reviewed_by = user ? user.id : null; p.reviewed_at = now(); p.review_note = note == null ? null : String(note).slice(0, 2000); if (rating != null) p.rating = Math.min(5, Math.max(1, Number(rating) || 0)) || null; }
-    if (status === 'published') p.published_at = now();
+    if (status === 'published') { p.published_at = now(); p.published_by = user ? user.id : null; if (override) p.publish_override = J(override); }
+    if (status === 'withdrawn') { p.withdrawn_at = now(); p.withdrawn_by = user ? user.id : null; p.withdraw_reason = note == null ? null : String(note).slice(0, 2000); }
+    if (status === 'draft') { p.reviewed_by = null; p.reviewed_at = null; }
     await P(`UPDATE report_runs SET ${Object.keys(p).map(k => `${k}=?`).join(', ')} WHERE id=?`).run(...Object.values(p), Number(id));
     return getRun(id);
   }
   async function updateCommentary(id, commentary) { await P(`UPDATE report_runs SET commentary=? WHERE id=?`).run(J(commentary), Number(id)); return getRun(id); }
+  // G07 — the released content, frozen (append-only table, migration 040)
+  async function recordPublication(run, { override } = {}) {
+    const html = String(run.html || '');
+    const sha = require('crypto').createHash('sha256').update(html, 'utf8').digest('hex');
+    await insert('report_publications', ['run_id', 'html', 'html_sha256', 'figures', 'analysis', 'published_at', 'published_by', 'override'],
+      [Number(run.id), html, sha, J(run.figures), J(run.analysis), run.published_at || now(), run.published_by == null ? null : Number(run.published_by), override ? J(override) : null]);
+    return sha;
+  }
+  async function publication(runId) { const p = await P(`SELECT id, run_id, html, html_sha256, figures, analysis, published_at, published_by FROM report_publications WHERE run_id=? ORDER BY id DESC LIMIT 1`).get(Number(runId)); return p ? { ...p, figures: P_(p.figures, null), analysis: P_(p.analysis, null) } : null; }
+  async function setSupersedes(id, oldId) { await P(`UPDATE report_runs SET supersedes_id=? WHERE id=?`).run(Number(oldId), Number(id)); return getRun(id); }
   async function updateHtml(id, html) { await P(`UPDATE report_runs SET html=? WHERE id=?`).run(html, Number(id)); }
   /** Reviewer satisfaction: share of reviewed runs rated ≥ 4 (the "≥ 80 % useful" acceptance). */
   async function ratingStats() { const rows = await P(`SELECT rating FROM report_runs WHERE rating IS NOT NULL`).all(); const n = rows.length; const good = rows.filter(r => Number(r.rating) >= 4).length; return { rated: n, useful: good, useful_pct: n ? Math.round(good / n * 100) : null }; }
 
-  return { init, listTemplates, getTemplate, saveTemplate, removeTemplate, seed, createRun, getRun, listRuns, setStatus, updateCommentary, updateHtml, ratingStats, AUDIENCES, CADENCES, STATUSES };
+  return { init, listTemplates, getTemplate, saveTemplate, removeTemplate, seed, createRun, getRun, listRuns, setStatus, updateCommentary, updateHtml, recordPublication, publication, setSupersedes, ratingStats, AUDIENCES, CADENCES, STATUSES };
 }
 
-module.exports = { makeReportStore, SQLITE_DDL, AUDIENCES, CADENCES, STATUSES };
+module.exports = { makeReportStore, AUDIENCES, CADENCES, STATUSES };

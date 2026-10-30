@@ -2,7 +2,6 @@
 // V1b-B Task 4 — additive `basis` column on infra_metric_snapshots (labels recent-vs-window).
 const _os = require('os'), _fs = require('fs'), _p = require('path');
 process.env.SDP_DATA_DIR = _fs.mkdtempSync(_p.join(_os.tmpdir(), 'infrabasis-'));
-process.env.REPORTS_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'basis-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'basis-pass-0000';
 const { test } = require('node:test');

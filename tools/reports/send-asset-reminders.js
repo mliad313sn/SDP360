@@ -169,9 +169,9 @@ function hasFailures(r) {
 // core so it never touches init itself.
 async function bootForCli() {
   const reportsDb = require('../../reports-db');
-  if ((process.env.REPORTS_BACKEND || 'sqlite').toLowerCase() === 'postgres') await reportsDb.initPgReports();
+  await reportsDb.initPgReports();
   const assetsDb = require('../../assets-db');
-  if (assetsDb.ASSETS_BACKEND === 'postgres') await assetsDb.initPgAssets();
+  await assetsDb.initPgAssets();
   return { reportsDb, assetsDb };
 }
 

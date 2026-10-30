@@ -8,8 +8,6 @@ const fetch = require('./_http-fetch');   // core-http shim — undici keep-aliv
 // Backends pinned to sqlite. Run with --test-force-exit (top-level cron keeps the loop alive).
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'assets-fin-smoke-'));
-process.env.ASSETS_BACKEND = 'sqlite';
-process.env.REPORTS_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'assets-fin-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'assets-fin-pass-0000';
 process.env.DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || 'assets-fin-key';
@@ -37,11 +35,11 @@ before(async () => {
 
   // Pin the conversion rate in config so the assertion is deterministic (also proves
   // the route reads config, not a hardcoded constant).
-  reportConfig.setConfig(rdb.db, { xof_usd_rate: String(RATE) }, 'smoke');
+  (await reportConfig.setConfig(rdb.db, { xof_usd_rate: String(RATE) }, 'smoke'));
 
   // Seed a couple of finance-bearing assets (purchase_cost is RAW XOF, comma-grouped
   // like the real AP export). USD is derived server-side by ×rate.
-  adb.replaceTable('assets',
+  (await adb.replaceTable('assets',
     ['asset_id', 'asset_name', 'site', 'state', 'product_type',
      'purchase_cost', 'current_book_value', 'total_cost_of_ownership',
      'operational_cost', 'months_since_acquisition'],
@@ -54,12 +52,12 @@ before(async () => {
         product_type: 'Workstation', purchase_cost: '500,000.00',
         current_book_value: '250,000.00', total_cost_of_ownership: '600,000.00',
         operational_cost: '100,000.00', months_since_acquisition: '12' },
-    ]);
+    ]));
 
   // Seed varied licences: expired / ok / no-expiry, spanning three families.
   // Expiry is the real AP 'DD Mon YYYY' form; 2020 = reliably expired, 2099 = reliably
   // ok, '' = no_expiry — deterministic regardless of the real clock.
-  adb.replaceTable('software_licenses',
+  (await adb.replaceTable('software_licenses',
     ['license_id', 'license_name', 'license_type', 'license_state', 'expiry_date', 'cost', 'site', 'vendor'],
     [
       { license_id: 'L1', license_name: 'Office Volume', license_type: 'Volume License',
@@ -68,11 +66,11 @@ before(async () => {
         license_state: 'In Use', expiry_date: '30 Jun 2099', cost: '1,200.00', site: 'HGO', vendor: 'Autodesk' },
       { license_id: 'L3', license_name: 'Beta Tool', license_type: 'Trial',
         license_state: 'Expired', expiry_date: '', cost: '0.00', site: 'MANA', vendor: 'Acme' },
-    ]);
+    ]));
 
-  const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
+  const me = ((await rdb.listUsers()) || []).find(u => u.username === process.env.DASH_USER);
   assert.ok(me, 'seeded admin user exists');
-  rdb.setUserRoles(me.id, ['admin']);
+  (await rdb.setUserRoles(me.id, ['admin']));
   const sess = await rdb.login(process.env.DASH_USER, process.env.DASH_PASS);
   assert.ok(sess && sess.token, 'login seeded admin + returned a token');
   adminToken = sess.token;

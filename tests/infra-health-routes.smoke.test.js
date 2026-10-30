@@ -5,10 +5,6 @@
 // never a 500. Core http (not fetch) — undici's keep-alive pool trips --test-force-exit.
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'infrahealth-smoke-'));
-process.env.ASSETS_BACKEND = 'sqlite';
-process.env.REPORTS_BACKEND = 'sqlite';
-process.env.MEETINGS_BACKEND = 'sqlite';
-process.env.INSPECTION_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'infra-smoke-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'infra-smoke-pass-0000';
 process.env.DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || 'infra-smoke-key';

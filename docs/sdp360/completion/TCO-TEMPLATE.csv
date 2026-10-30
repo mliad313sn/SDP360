@@ -1,0 +1,15 @@
+category,item,unit,quantity,unit_cost,currency,annual_cost,source,owner,note
+infrastructure,Windows Server host (VM) for the application,server-year,,,,,,Infra,existing or new — fill from the infra catalogue
+infrastructure,PostgreSQL 17 (bundled; no licence fee),server-year,,0,,,PostgreSQL Licence,Infra,storage and backup space still cost
+infrastructure,Backup storage for dumps and restore points,GB-year,,,,,,Infra,
+licences,ServiceDesk Plus / Zoho Analytics (already owned),subscription,,,,,,Group IT,the dashboard adds no seat; record only a change caused by it
+licences,OpManager (already owned),subscription,,,,,,Infra,
+licences,Meraki (already owned),subscription,,,,,,Infra,kept (D-06)
+licences,Code-signing certificate,certificate-year,,,,,,Release owner,D-11/D-12
+licences,AI provider (if ever approved),month,,,,,,Data owner,off today
+people,Run (support, sync monitoring, upgrades),FTE,,,,,,Group IT,
+people,Change (new reports, trackers),FTE,,,,,,Group IT,
+people,Site coordinators' time filling reports,hours-month,,,,,,Sites,measure before and after (G24)
+risk,Incident / downtime cost avoided,event,,,,,,Finance,only with evidence — never estimated here
+benefit,Hours saved per weekly report,hours-month,,,,,,Sites,measured in pilot; blank until then
+benefit,Reports no longer built by hand,reports-month,,,,,,Group IT,measured in pilot

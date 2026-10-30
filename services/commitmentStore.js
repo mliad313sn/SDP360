@@ -1,7 +1,7 @@
 'use strict';
 // 2027 Goal 02 — canonical commitment persistence on both backends (sqlite + PostgreSQL).
 //
-// PG tables come from db/postgres/reports/021_commitments.sql (migrator); sqlite runs SQLITE_DDL.
+// PG tables come from db/postgres/reports/021_commitments.sql (migrator).
 // `db` = better-sqlite3 handle or a services/pgDb-shaped { prepare } (prepare().get/all/run async).
 // Every status change goes through services/commitmentLifecycle.checkTransition and is guarded by
 // an optimistic `version` (a stale writer gets CONFLICT / 409). commitment_events is append-only.
@@ -13,31 +13,6 @@ const crypto = require('crypto');
 const L = require('./commitmentLifecycle');
 const { typed } = require('./httpError');
 
-const SQLITE_DDL = `
-CREATE TABLE IF NOT EXISTS commitments (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, uid TEXT UNIQUE NOT NULL, kind TEXT NOT NULL, title TEXT NOT NULL,
-  site_id INTEGER, department TEXT, process TEXT, impact_dimension TEXT, priority TEXT, severity TEXT NOT NULL DEFAULT 'medium',
-  accountable_owner TEXT, execution_owners TEXT, reviewer TEXT, due_date TEXT, baseline_due_date TEXT,
-  exception_approved_by TEXT, exception_approved_at TEXT, exception_reason TEXT, treatment_plan TEXT,
-  status TEXT NOT NULL DEFAULT 'captured', technical_completed_at TEXT, verified_at TEXT, verified_by TEXT,
-  version INTEGER NOT NULL DEFAULT 1, created_by TEXT, created_at TEXT, updated_at TEXT);
-CREATE INDEX IF NOT EXISTS idx_commitments_site_status ON commitments(site_id, status);
-CREATE TABLE IF NOT EXISTS commitment_source_links (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, commitment_id INTEGER NOT NULL REFERENCES commitments(id) ON DELETE CASCADE,
-  source_system TEXT NOT NULL, source_id TEXT NOT NULL, relation TEXT NOT NULL DEFAULT 'origin', created_by TEXT, created_at TEXT,
-  UNIQUE (commitment_id, source_system, source_id));
-CREATE INDEX IF NOT EXISTS idx_commitment_links_source ON commitment_source_links(source_system, source_id);
-CREATE TABLE IF NOT EXISTS commitment_events (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, commitment_id INTEGER NOT NULL REFERENCES commitments(id) ON DELETE CASCADE,
-  at TEXT NOT NULL, actor TEXT, action TEXT NOT NULL, from_status TEXT, to_status TEXT, details TEXT);
-CREATE INDEX IF NOT EXISTS idx_commitment_events_c ON commitment_events(commitment_id, id);
-CREATE TABLE IF NOT EXISTS evidence_items (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, commitment_id INTEGER NOT NULL REFERENCES commitments(id) ON DELETE CASCADE,
-  type TEXT NOT NULL DEFAULT 'document', file_ref TEXT, url TEXT, filename TEXT, sha256 TEXT, size_bytes INTEGER, mime TEXT,
-  uploaded_by TEXT, uploaded_at TEXT, site_id INTEGER, retention_class TEXT NOT NULL DEFAULT 'standard', version INTEGER NOT NULL DEFAULT 1, superseded_by INTEGER);
-CREATE TABLE IF NOT EXISTS closure_verifications (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, commitment_id INTEGER NOT NULL REFERENCES commitments(id) ON DELETE CASCADE,
-  attempt INTEGER NOT NULL, reviewer TEXT NOT NULL, decision TEXT NOT NULL, reason TEXT, at TEXT NOT NULL);`;
 
 const EVIDENCE_MIME = ['application/pdf', 'image/png', 'image/jpeg', 'image/webp', 'text/plain', 'text/csv'];
 const EVIDENCE_TYPES = ['document', 'photo', 'screenshot', 'report', 'link', 'sign_off', 'other'];
@@ -68,13 +43,14 @@ function sniffOk(buf, mime) {
 function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOString(), blobs = null } = {}) {
   if (!db) throw new Error('commitmentStore needs a db handle');
   const P = (sql) => db.prepare(sql);
+  const tx = async (fn) => (db.runTransaction ? db.runTransaction(fn) : fn());
   const blob = () => blobs || require('./blobStore');
-  async function init() { if (!isPg) { db.exec('PRAGMA foreign_keys=ON'); db.exec(SQLITE_DDL); } }
+  async function init() {  }
   async function insert(table, obj) {
     const cols = Object.keys(obj);
     const sql = `INSERT INTO ${table} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})`;
-    const r = await P(sql + (isPg ? ' RETURNING id' : '')).run(...cols.map((c) => obj[c]));
-    return isPg ? Number(r.lastID != null ? r.lastID : r.id) : Number(r.lastInsertRowid);
+    const r = await P(sql + ((' RETURNING id'))).run(...cols.map((c) => obj[c]));
+    return (Number(r.lastID != null ? r.lastID : r.id));
   }
   const actorName = (u) => (u ? String(u.username || u.full_name || u.id || 'system') : 'system');
   async function event(cid, actor, action, from, to, details) {
@@ -124,9 +100,20 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
     const site = d.site_id == null || d.site_id === '' ? null : Number(d.site_id);
     if (site != null && !Number.isInteger(site)) throw bad('site_id must be an integer');
     const t = now();
-    const id = await insert('commitments', { uid: crypto.randomUUID(), site_id: site, severity: 'medium', ...f, baseline_due_date: f.due_date || null, status: 'captured', version: 1, created_by: actorName(user), created_at: t, updated_at: t });
-    await event(id, user, 'created', null, 'captured', src ? { source: src } : null);
-    if (src) await link(id, { source_system: src.system, source_id: src.id, relation: 'origin' }, { user, silent: true });
+    // one unit: commitment + its creation event + its origin link. Two concurrent creates for the same
+    // source → the unique origin index (migration 029) rejects the second, which returns the first (QA P1-4).
+    let id;
+    try {
+      id = await tx(async () => {
+        const nid = await insert('commitments', { uid: crypto.randomUUID(), site_id: site, severity: 'medium', ...f, baseline_due_date: f.due_date || null, status: 'captured', version: 1, created_by: actorName(user), created_at: t, updated_at: t });
+        await event(nid, user, 'created', null, 'captured', src ? { source: src } : null);
+        if (src) await link(nid, { source_system: src.system, source_id: src.id, relation: 'origin' }, { user, silent: true });
+        return nid;
+      });
+    } catch (e) {
+      if (src && e && e.code === '23505') { const ex = await findBySource(src.system, src.id); if (ex) return { commitment: await get(ex), created: false }; }
+      throw e;
+    }
     return { commitment: await get(id), created: true };
   }
 
@@ -139,17 +126,28 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
   }
 
   /** Edit fields. A due-date change keeps baseline_due_date and needs a reason (logged). */
-  async function update(id, patch, { user, expectedVersion, reason } = {}) {
+  async function update(id, patch, { user, expectedVersion, reason, isAdmin = false, policy = null } = {}) {
     const c = await getRaw(id); if (!c) throw typed('NOT_FOUND', 'commitment not found', 404);
     if (L.TERMINAL.includes(c.status)) throw bad(`a ${c.status} commitment is read-only — reopen it first`);
     const f = validateFields(Object.fromEntries(Object.entries(patch || {}).filter(([k]) => EDITABLE.includes(k))), true);
     if (!Object.keys(f).length) throw bad('nothing to update');
+    // G-18 — once out of `captured`, a high / critical commitment must keep its owner, its due date (or an
+    // approved exception) and its treatment plan: an edit may not raise the severity or blank a field into
+    // the state the A01 / A02 alerts exist to catch.
+    if (c.status !== 'captured') {
+      const gaps = L.severityGaps({ ...c, ...f });
+      const touched = ['severity', 'accountable_owner', 'due_date', 'treatment_plan'].some((k) => f[k] !== undefined);
+      if (gaps.length && touched) throw bad(`a ${String(({ ...c, ...f }).severity)} commitment needs ${gaps.join(', ')}`);
+    }
     const dueChanged = f.due_date !== undefined && f.due_date !== c.due_date;
     if (dueChanged && c.due_date && !str(reason)) throw bad('a reason is required to change the due date');
+    const mv = dueChanged ? L.dueMoveCheck(c, f.due_date, { isAdmin, policy }) : null; if (mv) throw typed(mv.code, mv.error, mv.status);
     if (dueChanged && !c.baseline_due_date) f.baseline_due_date = f.due_date;
-    await bump(c, expectedVersion, f);
-    await event(c.id, user, dueChanged ? 'due_date_changed' : 'updated', c.status, c.status,
-      { fields: Object.keys(f), ...(dueChanged ? { from: c.due_date, to: f.due_date, reason: str(reason, 500) } : {}) });
+    await tx(async () => {
+      await bump(c, expectedVersion, f);
+      await event(c.id, user, dueChanged ? 'due_date_changed' : 'updated', c.status, c.status,
+        { fields: Object.keys(f), ...(dueChanged ? { from: c.due_date, to: f.due_date, reason: str(reason, 500) } : {}) });
+    });
     return get(c.id);
   }
 
@@ -161,21 +159,26 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
     if (to === 'awaiting_verification') sets.technical_completed_at = t;
     if (to === 'verified_closed') { sets.verified_at = t; sets.verified_by = actorName(actor); }
     if (to === 'reopened') { sets.verified_at = null; sets.verified_by = null; }
-    await bump(c, expectedVersion, sets);
-    const decision = L.VERIFY_DECISION[to];
-    if (decision) {
-      const n = await P('SELECT COUNT(*) AS n FROM closure_verifications WHERE commitment_id=?').get(c.id);
-      await insert('closure_verifications', { commitment_id: c.id, attempt: Number(n.n) + 1, reviewer: actorName(actor), decision, reason: str(reason, 2000), at: t });
-    }
-    await event(c.id, actor, 'transition', c.status, to, reason ? { reason: str(reason, 2000) } : null);
+    await tx(async () => {
+      await bump(c, expectedVersion, sets);
+      const decision = L.VERIFY_DECISION[to];
+      if (decision) {
+        const n = await P('SELECT COUNT(*) AS n FROM closure_verifications WHERE commitment_id=?').get(c.id);
+        await insert('closure_verifications', { commitment_id: c.id, attempt: Number(n.n) + 1, reviewer: actorName(actor), decision, reason: str(reason, 2000), at: t });
+      }
+      await event(c.id, actor, 'transition', c.status, to, reason ? { reason: str(reason, 2000) } : null);
+    });
     return get(c.id);
   }
 
-  async function approveException(id, { user, expectedVersion, reason } = {}) {
+  async function approveException(id, { user, expectedVersion, reason, policy = null } = {}) {
     const c = await getRaw(id); if (!c) throw typed('NOT_FOUND', 'commitment not found', 404);
     if (!str(reason)) throw bad('a reason is required to approve an exception');
-    await bump(c, expectedVersion, { exception_approved_by: actorName(user), exception_approved_at: now(), exception_reason: str(reason, 1000) });
-    await event(c.id, user, 'exception_approved', c.status, c.status, { reason: str(reason, 1000) });
+    const t = now(); const until = L.exceptionExpiry(t, policy);   // an exception is temporary (committee audit P1-6)
+    await tx(async () => {
+      await bump(c, expectedVersion, { exception_approved_by: actorName(user), exception_approved_at: t, exception_reason: str(reason, 1000), exception_expires_at: until });
+      await event(c.id, user, 'exception_approved', c.status, c.status, { reason: str(reason, 1000), expires_at: until });
+    });
     return get(c.id);
   }
 
@@ -238,7 +241,7 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
   /** siteIds = null → unscoped (admin tier); [] → nothing (site-less non-admin). */
   //  named = identities (username / e-mail …) of a non-admin: commitments where they are the designated
   //  reviewer or the accountable owner are visible too, even on another site (a business reviewer).
-  async function list({ siteIds = null, named = [], status = null, kind = null, site = null, limit = 500 } = {}) {
+  async function list({ siteIds = null, named = [], status = null, kind = null, site = null, exceptions = false, limit = 500 } = {}) {
     const ids = (named || []).map((x) => String(x).trim().toLowerCase()).filter(Boolean);
     if (Array.isArray(siteIds) && !siteIds.length && !ids.length) return [];
     const where = [], args = [];
@@ -251,7 +254,8 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
     if (site != null && site !== '') { where.push('site_id=?'); args.push(Number(site)); }
     if (status) { const st = String(status).split(',').filter((s) => L.STATUSES.includes(s)); if (st.length) { where.push(`status IN (${st.map(() => '?').join(',')})`); args.push(...st); } }
     if (kind && L.KINDS.includes(kind)) { where.push('kind=?'); args.push(kind); }
-    return (await P(`SELECT * FROM commitments${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY id DESC LIMIT ${Math.min(2000, Number(limit) || 500)}`).all(...args)).map(row);
+    if (exceptions) where.push('exception_approved_at IS NOT NULL');   // G09 — the due-date exceptions register
+    return (await P(`SELECT * FROM commitments${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY id DESC LIMIT ${Math.max(1, Math.min(2000, Math.floor(Number(limit)) || 500))}`).all(...args)).map(row);
   }
 
   /** Commitments linked to (system, id) pairs — for the Site Actions hub badge. Map "system:id" → {id,status}. */
@@ -270,10 +274,46 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
   async function metricRows({ siteIds = null } = {}) {
     if (Array.isArray(siteIds) && !siteIds.length) return [];
     const where = Array.isArray(siteIds) ? ` WHERE site_id IN (${siteIds.map(() => '?').join(',')})` : '';
-    return P(`SELECT id, site_id, status, due_date, baseline_due_date, technical_completed_at, verified_at FROM commitments${where}`).all(...(siteIds || []).map(Number));
+    return P(`SELECT id, site_id, status, severity, accountable_owner, exception_approved_by, exception_expires_at, due_date, baseline_due_date, technical_completed_at, verified_at FROM commitments${where}`).all(...(siteIds || []).map(Number));
   }
 
-  return { init, create, get, getRaw, findBySource, update, transition, approveException, link, unlink, addEvidence, getEvidenceFile, list, linksFor, metricRows };
+  // ── G-18 escalation ledger (023_commitment_escalations) ─────────────────────────────
+  /** Evaluate A01 / A02 now against the ledger; write the diff. Returns what was raised (nothing for a kept condition). */
+  /** policyFor(siteId) → resolved governance policy; a site with commitments.escalation_enabled = false records nothing. */
+  async function escalate({ asOf, policyFor = null } = {}) {
+    const E = require('./commitmentEscalation');
+    const t = now();
+    let cur = E.conditions(await metricRows({}), asOf || t);
+    let ledger = (await P('SELECT key, cleared_at, site_id FROM commitment_escalations').all()).map((r) => ({ ...r, site_id: r.site_id == null ? null : Number(r.site_id) }));
+    let muted = 0;
+    if (policyFor) {
+      // A muted site is left OUT of the diff on both sides: its open ledger rows stay open (never stamped
+      // "cleared" — the condition was muted, not resolved) and no new row is raised (committee P1-1).
+      const on = new Map();
+      for (const sid of new Set([...cur.map((c) => c.site_id), ...ledger.map((l) => l.site_id)])) on.set(sid, (await policyFor(sid))['commitments.escalation_enabled'] !== false);
+      const before = cur.length; cur = cur.filter((c) => on.get(c.site_id)); muted = before - cur.length;
+      ledger = ledger.filter((l) => on.get(l.site_id));
+    }
+    const d = E.diff(cur, ledger);
+    for (const c of d.open) await P('INSERT INTO commitment_escalations (key, kind, commitment_id, site_id, opened_at, last_seen_at, episodes) VALUES (?, ?, ?, ?, ?, ?, 1) ON CONFLICT (key) DO NOTHING').run(c.key, c.kind, c.commitment_id, c.site_id, t, t);
+    // reopening keeps the first opened_at (the episode count says it came back — audit P1-6)
+    for (const c of d.reopen) await P('UPDATE commitment_escalations SET last_seen_at=?, cleared_at=NULL, site_id=?, episodes=episodes+1 WHERE key=?').run(t, c.site_id, c.key);
+    for (const k of d.keep) await P('UPDATE commitment_escalations SET last_seen_at=? WHERE key=?').run(t, k);
+    for (const k of d.clear) await P('UPDATE commitment_escalations SET cleared_at=? WHERE key=? AND cleared_at IS NULL').run(t, k);
+    return { raised: [...d.open, ...d.reopen], kept: d.keep.length, cleared: d.clear.length, muted, open: d.open.length + d.reopen.length + d.keep.length };
+  }
+  /** Ledger rows; siteIds null = all, [] = nothing; openOnly = cleared_at IS NULL. */
+  async function listEscalations({ siteIds = null, openOnly = true } = {}) {
+    if (Array.isArray(siteIds) && !siteIds.length) return [];
+    const where = [], args = [];
+    if (openOnly) where.push('e.cleared_at IS NULL');
+    if (Array.isArray(siteIds)) { where.push(`e.site_id IN (${siteIds.map(() => '?').join(',')})`); args.push(...siteIds.map(Number)); }
+    return (await P(`SELECT e.key, e.kind, e.commitment_id, e.site_id, e.opened_at, e.last_seen_at, e.cleared_at, e.episodes, c.title, c.severity, c.due_date, c.status
+      FROM commitment_escalations e JOIN commitments c ON c.id = e.commitment_id${where.length ? ' WHERE ' + where.join(' AND ') : ''} ORDER BY e.opened_at DESC LIMIT 1000`).all(...args))
+      .map((r) => ({ ...r, commitment_id: Number(r.commitment_id), site_id: r.site_id == null ? null : Number(r.site_id), episodes: Number(r.episodes) }));
+  }
+
+  return { init, create, get, getRaw, findBySource, update, transition, approveException, link, unlink, addEvidence, getEvidenceFile, list, linksFor, metricRows, escalate, listEscalations };
 }
 
-module.exports = { makeCommitmentStore, SQLITE_DDL, EVIDENCE_MIME, EVIDENCE_TYPES, EVIDENCE_MAX_BYTES, sniffOk };
+module.exports = { makeCommitmentStore, EVIDENCE_MIME, EVIDENCE_TYPES, EVIDENCE_MAX_BYTES, sniffOk };

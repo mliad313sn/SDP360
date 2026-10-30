@@ -8,7 +8,10 @@ const { fail } = require('../services/httpError');
 //   GET  /api/dashboards/:key/data?site=&window=   every widget resolved through the metric registry
 //   POST /api/dashboards/:key/view            view log (one event per actor per day — "is it used?")
 //   PUT  /api/dashboards/:key                 save a draft (publisher)      — validated, never SQL
-//   POST /api/dashboards/:key/publish         version++ and publish (publisher)
+//   POST /api/dashboards/:key/submit          submit the draft for review (publisher, owner)
+//   POST /api/dashboards/:key/publish         version++ and publish — by ANOTHER publisher than the submitter / last
+//                                             editor (G-24 four-eyes); admin override_reason (10+ chars) logged as risk
+//   POST /api/dashboards/:key/rollback/:n     restore version n as the draft (publisher)
 //   POST /api/dashboards/:key/retire          (publisher)
 //   GET  /api/dashboards/:key/versions        (publisher)
 //   DELETE /api/dashboards/:key               a draft/retired definition (publisher)
@@ -26,12 +29,9 @@ const { resolveWidgets } = require('../services/dashboardData');
 /** Build the store against the reports DB (sqlite: DDL + seed now; pg: migration 016, seed at boot). */
 function createStore(rdbMod, { log = console.log } = {}) {
   const pg = rdbMod.REPORTS_BACKEND === 'postgres';
-  const st = require('../services/dashboardStore').makeDashboardStore(pg ? { prepare: (sql) => rdbMod.pgHandle().prepare(sql) } : rdbMod.db, { isPg: pg });
-  if (!pg) {
-    st.init();
-    st.seed(require('../services/dashboardSeeds').SEED_DASHBOARDS).then((a) => { if (a.length) log(`[dashboards] seeded ${a.join(', ')}`); }).catch((e) => console.warn('[dashboards] seed failed:', e.message));
-  }
-  st.seedAtBoot = async () => { if (!pg) return []; await st.init(); const a = await st.seed(require('../services/dashboardSeeds').SEED_DASHBOARDS); if (a.length) log(`[dashboards] seeded ${a.join(', ')}`); return a; };
+  const st = require('../services/dashboardStore').makeDashboardStore(({ prepare: (sql) => rdbMod.pgHandle().prepare(sql) }), { isPg: pg });
+  
+  st.seedAtBoot = async () => {  await st.init(); const a = await st.seed(require('../services/dashboardSeeds').SEED_DASHBOARDS); if (a.length) log(`[dashboards] seeded ${a.join(', ')}`); return a; };
   return st;
 }
 
@@ -108,20 +108,46 @@ module.exports = function dashboardsRoutes(deps) {
   });
 
   // ---- data: every widget in one call ------------------------------------------------
-  router.get('/api/dashboards/:key/data', requireReportSession, async (req, res) => {
-    try {
+  // shared by the JSON view and the CSV export (G15): same scope checks, same figures, same freshness rule
+  async function dashboardData(req, res) {
       const u = req.reportUser;
-      const d = await loadVisible(req, res); if (!d) return;
+      const d = await loadVisible(req, res); if (!d) return null;
       const def = (req.query.draft === '1' && isPublisher(u)) ? d.definition : ((await store.published(d.key)) || d).definition;
       const sites = await scopeSites(u);
-      if (!sites.length) return res.json({ ok: true, key: d.key, site: null, sites: [], widgets: {}, note: 'no site in your scope' });
+      if (!sites.length) { res.json({ ok: true, key: d.key, site: null, sites: [], widgets: {}, note: 'no site in your scope' }); return null; }
       let site = req.query.site == null || req.query.site === '' ? null : Number(req.query.site);
-      if (site != null && !sites.some(s => Number(s.id) === site)) return res.status(403).json({ ok: false, error: 'site not in your scope' });
+      if (site != null && !sites.some(s => Number(s.id) === site)) { res.status(403).json({ ok: false, error: 'site not in your scope' }); return null; }
       if (site == null) site = Number(sites[0].id);
       const window = req.query.window ? String(req.query.window).slice(0, 24) : null;
       const now = new Date();
       const out = await resolveWidgets({ def, sites, site, window, reg: registry(), dd: readerDeps(), rdb: rdb(), now });
-      res.json({ ok: true, key: d.key, version: d.version, site, sites: sites.map(s => ({ id: Number(s.id), name: s.name })), window, as_of: now.toISOString(), widgets: out });
+      // G-14 — say which source behind these widgets is stale or has never synced (the viewer shows a banner).
+      const gate = require('../services/publishGate'); const reg = registry();
+      const mods = [...new Set(((def && def.widgets) || []).map(w => w && w.metric && reg.get(w.metric)).filter(Boolean).map(m => m.module))];
+      const jobs = gate.jobsFor(mods);
+      const lastOk = deps.lastSyncOk ? await deps.lastSyncOk(jobs) : await gate.lastOkFromSyncStore(jobs);
+      const stale = gate.freshness(mods, lastOk, now.getTime(), await require('../services/governancePolicy').forContext({})).sources.filter(x => x.state !== 'FRESH');
+      gate.degradeStale(out, def, reg, stale);   // G05: stale source → value kept, colour withdrawn
+      return { ok: true, key: d.key, version: d.version, site, sites: sites.map(s => ({ id: Number(s.id), name: s.name })), window, as_of: now.toISOString(), widgets: out, stale_sources: stale };
+  }
+  router.get('/api/dashboards/:key/data', requireReportSession, async (req, res) => {
+    try { const v = await dashboardData(req, res); if (v) res.json(v); } catch (e) { fail(res, e, 500, { ok: false }); }
+  });
+  // G15 — the figures behind a dashboard as CSV (one row per value, with unit, window, as-of and freshness)
+  router.get('/api/dashboards/:key/data.csv', requireReportSession, async (req, res) => {
+    try {
+      const v = await dashboardData(req, res); if (!v) return;
+      const { neutralize } = require('../public/lib/csvSafe'); const csvCell = (x) => { const t = neutralize(x); return /[",\r\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
+      const rows = [['widget', 'metric', 'site', 'window', 'value', 'unit', 'rag', 'freshness', 'as_of']];
+      const siteName = (v.sites.find(s => s.id === v.site) || {}).name || '';
+      for (const [id, w] of Object.entries(v.widgets || {})) {
+        if (w.mode === 'single') rows.push([w.title || id, w.metric, siteName, w.window && w.window.label || '', w.value, w.unit, w.rag, w.freshness || 'FRESH', w.as_of || v.as_of]);
+        else if (w.mode === 'per-site') for (const r of w.rows || []) rows.push([w.title || id, w.metric, r.site, '', r.value, w.unit, r.rag, w.freshness || 'FRESH', w.as_of || v.as_of]);
+        else if (w.mode === 'series') for (const p of w.points || []) rows.push([w.title || id, w.metric, siteName, p.label, p.value, w.unit, '', w.freshness || 'FRESH', w.as_of || v.as_of]);
+      }
+      const text = '\ufeff' + rows.map(r => r.map(x => csvCell(x == null ? '' : x)).join(',')).join('\r\n') + '\r\n';
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8'); res.setHeader('Content-Disposition', `attachment; filename="dashboard-${String(v.key).replace(/[^a-z0-9_-]/gi, '')}.csv"`);
+      res.send(text);
     } catch (e) { fail(res, e, 500, { ok: false }); }
   });
 
@@ -151,13 +177,42 @@ module.exports = function dashboardsRoutes(deps) {
       const d = await store.get(key(req)); if (!d) return res.status(404).json({ ok: false, error: 'dashboard not found' });
       if (!isAdmin(req.reportUser) && d.owner_id != null && d.owner_id !== req.reportUser.id) return res.status(403).json({ ok: false, error: 'owned by another publisher' });
       if (d.definition && d.definition.audience === 'field') { const f = fieldReadiness(d.definition); if (!f.ok) return res.status(400).json({ ok: false, error: 'field dashboard not phone-ready', issues: f.issues }); }
-      const out = await store.publish(d.key, { user: req.reportUser, note: req.body && req.body.note ? String(req.body.note).slice(0, 500) : null });
-      rdb().logEvent({ category: 'dashboards', action: 'dashboard_published', target: d.key, details: { version: out.version }, ...rdb()._logCtx(req) });
+      // G-24 — four-eyes: submitted by one publisher, published by another (admin override with a reason, logged as a risk).
+      const dec = require('../services/publishGate').publishDecision(d, req.reportUser, { isAdmin: isAdmin(req.reportUser), overrideReason: req.body && req.body.override_reason, policy: await require('../services/governancePolicy').forContext({ siteId: d.site_id }) });
+      if (!dec.allow) return res.status(dec.status).json({ ok: false, error: dec.error, code: dec.code, message: dec.message });
+      if (dec.override) rdb().logEvent({ category: 'dashboards', action: 'dashboard_publish_override', target: d.key, details: dec.override, risk: 1, ...rdb()._logCtx(req) });
+      const out = await store.publish(d.key, { user: req.reportUser, note: req.body && req.body.note ? String(req.body.note).slice(0, 500) : null, override: dec.override, expect: { updated_at: d.updated_at, submitted_at: d.submitted_at } });
+      rdb().logEvent({ category: 'dashboards', action: 'dashboard_published', target: d.key, details: { version: out.version, submitted_by: d.submitted_by, override: !!dec.override }, ...rdb()._logCtx(req) });
+      res.json({ ok: true, dashboard: out });
+    } catch (e) {
+      if (e.code === 'INVALID') return fail(res, e, 400, { ok: false });
+      if (e.code === 'STALE') return fail(res, e, 409, { ok: false, code: 'STALE' });
+      fail(res, e, 500, { ok: false });
+    }
+  });
+
+  router.post('/api/dashboards/:key/submit', requireReportSession, requirePublisher, async (req, res) => {
+    try {
+      const d = await store.get(key(req)); if (!d) return res.status(404).json({ ok: false, error: 'dashboard not found' });
+      if (!isAdmin(req.reportUser) && d.owner_id != null && d.owner_id !== req.reportUser.id) return res.status(403).json({ ok: false, error: 'owned by another publisher' });
+      const out = await store.submit(d.key, { user: req.reportUser });
+      rdb().logEvent({ category: 'dashboards', action: 'dashboard_submitted', target: d.key, ...rdb()._logCtx(req) });
       res.json({ ok: true, dashboard: out });
     } catch (e) {
       if (e.code === 'INVALID') return fail(res, e, 400, { ok: false });
       fail(res, e, 500, { ok: false });
     }
+  });
+  // Restore version n as the draft; the live snapshot keeps serving until the restored draft is reviewed and published.
+  router.post('/api/dashboards/:key/rollback/:n', requireReportSession, requirePublisher, async (req, res) => {
+    try {
+      const d = await store.get(key(req)); if (!d) return res.status(404).json({ ok: false, error: 'dashboard not found' });
+      if (!isAdmin(req.reportUser) && d.owner_id != null && d.owner_id !== req.reportUser.id) return res.status(403).json({ ok: false, error: 'owned by another publisher' });
+      const out = await store.rollback(d.key, Number(req.params.n), { user: req.reportUser });
+      if (!out) return res.status(404).json({ ok: false, error: 'version not found' });
+      rdb().logEvent({ category: 'dashboards', action: 'dashboard_rolled_back', target: d.key, details: { to: Number(req.params.n) }, ...rdb()._logCtx(req) });
+      res.json({ ok: true, dashboard: out });
+    } catch (e) { fail(res, e, 500, { ok: false }); }
   });
 
   router.post('/api/dashboards/:key/retire', requireReportSession, requirePublisher, async (req, res) => {
@@ -176,8 +231,9 @@ module.exports = function dashboardsRoutes(deps) {
       if (d.status === 'published') return res.status(409).json({ ok: false, error: 'retire it first' });
       if (!isAdmin(req.reportUser) && d.owner_id != null && d.owner_id !== req.reportUser.id) return res.status(403).json({ ok: false, error: 'owned by another publisher' });
       await store.remove(d.key);
+      rdb().logEvent({ category: 'dashboards', action: 'dashboard_deleted', target: d.key, ...rdb()._logCtx(req) });
       res.json({ ok: true });
-    } catch (e) { fail(res, e, 500, { ok: false }); }
+    } catch (e) { if (e.code === 'CONFLICT') return fail(res, e, 409, { ok: false }); fail(res, e, 500, { ok: false }); }
   });
 
   return router;

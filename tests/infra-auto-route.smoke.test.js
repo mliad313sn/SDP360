@@ -3,8 +3,6 @@
 // for a site, seeds a wan + infra snapshot at the report's Zoho week, and asserts the fills.
 const _os = require('os'), _fs = require('fs'), _p = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_p.join(_os.tmpdir(), 'infraauto-'));
-process.env.ASSETS_BACKEND = 'sqlite'; process.env.REPORTS_BACKEND = 'sqlite';
-process.env.MEETINGS_BACKEND = 'sqlite'; process.env.INSPECTION_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'infraauto-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'infraauto-pass-0000';
 process.env.DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || 'infraauto-key';
@@ -30,14 +28,14 @@ before(async () => {
   const { app } = require('../server');
   const rdb = require('../reports-db');
 
-  const site = (rdb.listSites() || [])[0];
+  const site = ((await rdb.listSites()) || [])[0];
   assert.ok(site, 'a seeded site exists');
 
   // V1b-E T6a — a sub-site network for this site so infra-auto emits its tokens list.
   await rdb.setWanSubsiteNetworks([{ site_id: site.id, sub_site: 'FETEKRO', network: 'Explo Fetekro' }]);
 
   // a report WITH snapshots
-  const rep = rdb.ensureReport(site.id, 2026, 32);
+  const rep = (await rdb.ensureReport(site.id, 2026, 32));
   reportId = rep.id;
   const full = await rdb.getReport(reportId);
   const start = full.start_date;
@@ -59,10 +57,10 @@ before(async () => {
   }]);
 
   // a report WITHOUT snapshots (different week)
-  noSnapReportId = rdb.ensureReport(site.id, 2026, 20).id;
+  noSnapReportId = (await rdb.ensureReport(site.id, 2026, 20)).id;
 
-  const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
-  rdb.setUserRoles(me.id, ['admin']);
+  const me = ((await rdb.listUsers()) || []).find(u => u.username === process.env.DASH_USER);
+  (await rdb.setUserRoles(me.id, ['admin']));
   adminToken = (await rdb.login(process.env.DASH_USER, process.env.DASH_PASS)).token;
 
   await new Promise(r => { server = http.createServer(app).listen(0, '127.0.0.1', r); });

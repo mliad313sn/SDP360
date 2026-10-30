@@ -70,6 +70,8 @@
     // clipboard-check before, which made them indistinguishable at a glance.
     users:            ICONS.html('users'),
     check:            ICONS.html('check'),
+    zap:              ICONS.html('zap'),
+    search:           ICONS.html('search'),
   };
 
   // Canonical nav. Each item declares the role(s) that grant access.
@@ -123,19 +125,22 @@
       roles:    ['any'],
       title:    'Site governance — inspections, meetings, actions, roadmap',
       children: [
-        { id: 'inspections',  label: 'Inspections',        icon: ICON_LIB['clipboard-check'], href: 'inspections.html',      roles: ['any'] },
-        { id: 'meetings',     label: 'Meetings Decisions', icon: ICON_LIB.users,              href: 'meetings.html',         roles: ['any'] },
-        { id: 'site-actions', label: 'Site Actions',       icon: ICON_LIB.check,              href: 'site-actions.html',     roles: ['any'] },
-        { id: 'tracker',      label: 'Activity Tracker',   icon: ICON_LIB.target,             href: 'activity-tracker.html', roles: ['any'] },
-        { id: 'trackers',     label: 'Trackers',           icon: ICON_LIB.activity,            href: 'trackers.html',         roles: ['any'] },
-        { id: 'dashboards',   label: 'Dashboards',         icon: ICON_LIB.gauge,              href: 'dashboards.html',       roles: ['any'] },
-        { id: 'cockpit',      label: 'Meeting Cockpit',    icon: ICON_LIB.calendar,           href: 'cockpit.html',          roles: ['any'] },
-        { id: 'portfolio',    label: 'Portfolio',          icon: ICON_LIB['trending-up'],     href: 'portfolio.html',        roles: ['any'] },
-        { id: 'rfi',          label: 'RFI register',       icon: ICON_LIB.lightbulb,          href: 'rfi.html',              roles: ['any'] },
-        { id: 'report-studio', label: 'Report studio',     icon: ICON_LIB['file-text'],       href: 'report-studio.html',    roles: ['any'] },
-        { id: 'notifications', label: 'Notifications',     icon: ICON_LIB['alert-circle'],    href: 'notifications.html',    roles: ['any'] },
-        { id: 'integrations', label: 'Integrations',       icon: ICON_LIB.zap,                href: 'integrations.html',     roles: ['admin'] },
-        { id: 'field',        label: 'Field app',          icon: ICON_LIB['clipboard-check'], href: 'field/index.html',      roles: ['editor', 'field-tech'] }
+        { id: 'inspections', group: 'Governance',  label: 'Inspections',        icon: ICON_LIB['clipboard-check'], href: 'inspections.html',      roles: ['any'] },
+        { id: 'meetings', group: 'Governance',     label: 'Meetings Decisions', icon: ICON_LIB.users,              href: 'meetings.html',         roles: ['any'] },
+        { id: 'site-actions', group: 'Governance', label: 'Site Actions',       icon: ICON_LIB.check,              href: 'site-actions.html',     roles: ['any'] },
+        { id: 'tracker', group: 'Plan & track',      label: 'Activity Tracker',   icon: ICON_LIB.target,             href: 'activity-tracker.html', roles: ['any'] },
+        { id: 'trackers', group: 'Plan & track',     label: 'Trackers',           icon: ICON_LIB.activity,            href: 'trackers.html',         roles: ['any'] },
+        { id: 'dashboards', group: 'Report & share',   label: 'Dashboards',         icon: ICON_LIB.gauge,              href: 'dashboards.html',       roles: ['any'] },
+        { id: 'cockpit', group: 'Report & share',      label: 'Meeting Cockpit',    icon: ICON_LIB.calendar,           href: 'cockpit.html',          roles: ['any'] },
+        { id: 'portfolio', group: 'Plan & track',    label: 'Portfolio',          icon: ICON_LIB['trending-up'],     href: 'portfolio.html',        roles: ['any'] },
+        { id: 'rfi', group: 'Plan & track',          label: 'RFI register',       icon: ICON_LIB.lightbulb,          href: 'rfi.html',              roles: ['any'] },
+        { id: 'report-studio', group: 'Report & share', label: 'Report studio',     icon: ICON_LIB['file-text'],       href: 'report-studio.html',    roles: ['any'] },
+        { id: 'notifications', group: 'Report & share', label: 'Notifications',     icon: ICON_LIB['alert-circle'],    href: 'notifications.html',    roles: ['any'] },
+        { id: 'handoffs', group: 'Governance',     label: 'Handoffs',           icon: ICON_LIB.users,              href: 'handoffs.html',         roles: ['any'] },
+        { id: 'obligations', group: 'Governance',  label: 'Site obligations',   icon: ICON_LIB['clipboard-check'], href: 'obligations.html',      roles: ['any'] },
+        { id: 'policies', group: 'Configure',     label: 'Governance policies', icon: ICON_LIB['clipboard-check'], href: 'policies.html',        roles: ['admin', 'committee-member'] },
+        { id: 'integrations', group: 'Configure', label: 'Integrations',       icon: ICON_LIB.zap,                href: 'integrations.html',     roles: ['admin'] },
+        { id: 'field', group: 'Configure',        label: 'Field app',          icon: ICON_LIB['clipboard-check'], href: 'field/index.html',      roles: ['editor', 'field-tech'] }
       ]
     },
     {
@@ -260,6 +265,99 @@
   }
 
   // ── RENDER HELPERS ──────────────────────────────────────────────
+  function groupChildren(items) {
+    const out = [];
+    for (const c of items) {
+      const name = c.group || '';
+      let g = out.find(x => x.name === name);
+      if (!g) { g = { name, items: [] }; out.push(g); }
+      g.items.push(c);
+    }
+    return out;
+  }
+
+  // ── Navigation language (G18): the shared preference 'sdp_lang', else the browser language. Only the shell's own
+  // words are translated here (menus, groups, finder); each page translates its own body.
+  const SHELL_FR = {
+    'Admin': 'Administration', 'Executive': 'Direction', 'Helpdesk': 'Helpdesk', 'Infrastructure': 'Infrastructure',
+    'Operations': 'Opérations', 'Reports': 'Rapports', 'Help': 'Aide', 'Activity Tracker': "Suivi d'activité",
+    'Analytics': 'Analyses', 'Assets': 'Parc informatique', 'Dashboard': 'Tableau de bord', 'Dashboards': 'Tableaux de bord',
+    'Deck Builder': 'Générateur de présentations', 'Executive Home': 'Accueil direction', 'Executive Scorecard': 'Tableau de bord direction',
+    'Field app': 'Application terrain', 'Governance policies': 'Règles de gouvernance', 'Group IT': 'IT Groupe',
+    'Handoffs': 'Demandes inter-services', 'IT Review': 'Revue IT', 'Infrastructure Health': 'Santé des infrastructures',
+    'Inspections': 'Inspections', 'Integrations': 'Intégrations', 'Meeting Cockpit': 'Cockpit de réunion',
+    'Meetings Decisions': 'Réunions et décisions', 'Notifications': 'Notifications', 'Portfolio & projects': 'Portefeuille et projets',
+    'Portfolio': 'Portefeuille', 'RFI register': 'Registre des demandes', 'Report studio': 'Studio de rapports', 'Settings': 'Paramètres',
+    'Site Actions': 'Actions du site', 'Site IT': 'IT du site', 'Site Overview': 'Vue du site', 'Site Reports': 'Rapports de site',
+    'Site business view': 'Vue métier du site', 'Site obligations': 'Obligations du site', 'Start here': 'Pour commencer',
+    'System Logs': 'Journaux système', 'Technician': 'Technicien', 'Trackers': 'Trackers', 'WAN': 'WAN',
+    'Configure': 'Configurer', 'Governance': 'Gouvernance', 'Plan & track': 'Planifier et suivre', 'Report & share': 'Rapporter et partager',
+    'Assets and network estate': 'Parc et réseau', 'Executive dashboards — IT Review and Scorecard': 'Tableaux de bord de direction — Revue IT et tableau de bord',
+    'Service desk — dashboard and analytics': 'Centre de services — tableau de bord et analyses',
+    'Site governance — inspections, meetings, actions, roadmap': 'Gouvernance du site — inspections, réunions, actions, feuille de route',
+    'Site reports and executive deck builder': 'Rapports de site et générateur de présentations',
+    'User management & system settings': 'Utilisateurs et paramètres système', 'User manual': "Manuel d'utilisation",
+    'Read-only business overview of your site': 'Vue métier de votre site, en lecture seule',
+    'Find': 'Rechercher', 'Find a page (Ctrl+K)': 'Rechercher une page (Ctrl+K)', 'Find a page': 'Rechercher une page',
+    'Find a page — e.g. inspections, portfolio': 'Rechercher une page — ex. inspections, portefeuille',
+    'Breadcrumb': "Fil d'Ariane", 'Click to log out': 'Cliquer pour se déconnecter', 'Primary': 'Navigation principale',
+    'No page found': 'Aucune page trouvée', 'Language': 'Langue',
+  };
+  function shellLang() {
+    try { const s = localStorage.getItem('sdp_lang'); if (s === 'fr' || s === 'en') return s; } catch (_) { /* storage blocked */ }
+    try { return /^fr/i.test((typeof navigator !== 'undefined' && navigator.language) || '') ? 'fr' : 'en'; } catch (_) { return 'en'; }
+  }
+  const T = (s) => (shellLang() === 'fr' && SHELL_FR[s]) || s;
+  function translateNav(list) {
+    for (const o of list || []) {
+      for (const k of ['label', 'title', 'group']) if (typeof o[k] === 'string') { const en = o[k + '_en'] || (o[k + '_en'] = o[k]); o[k] = T(en); }
+      if (Array.isArray(o.children)) translateNav(o.children);
+    }
+  }
+
+  // ── G17 — role workspaces: the first things each persona needs, in task order. Only entries the user can
+  // open are listed (same role check as the menu). A starting point, never a permission.
+  const WORKSPACES = [
+    { id: 'business',   label: 'Site business view',   when: () => !!window.__isBusinessOnly, items: ['site-awareness'] },
+    // the hierarchical role decides first (a super_admin runs the platform → Group IT, an admin who also sits on
+    // the committee is still Group IT); feature roles (committee, finance) only decide for users without one
+    { id: 'super',      label: 'Group IT',             roles: ['super_admin'], items: ['dashboard', 'site-actions', 'cockpit', 'dashboards', 'report-studio', 'integrations', 'system-logs'] },
+    { id: 'executive',  label: 'Executive',            roles: ['executive', 'scorecard-viewer'], items: ['exec-home', 'it-review', 'scorecard', 'portfolio', 'cockpit'] },
+    { id: 'admin',      label: 'Group IT',             roles: ['admin'], items: ['dashboard', 'site-actions', 'cockpit', 'dashboards', 'report-studio', 'integrations'] },
+    { id: 'pmo',        label: 'Portfolio & projects', roles: ['committee-member', 'finance-viewer'], items: ['portfolio', 'rfi', 'cockpit', 'report-studio'] },
+    { id: 'site-it',    label: 'Site IT',              roles: ['editor'], items: ['site-actions', 'inspections', 'meetings', 'site-reports', 'tracker', 'obligations'] },
+    { id: 'technician', label: 'Technician',           roles: ['field-tech'], items: ['field', 'inspections', 'site-actions'] },
+    { id: 'reader',     label: 'Start here',           roles: ['any'], items: ['dashboard', 'site-actions', 'dashboards', 'notifications'] },
+  ];
+  function allEntries() {
+    const out = [];
+    for (const sec of NAV) {
+      if (sec.href && !sec.children && hasAnyRole(sec.roles)) out.push({ id: sec.id, label: sec.label, en: sec.label_en || '', href: sec.href, section: sec.label, group: '', target: sec.target });
+      for (const c of visibleItems(sec.children || [])) out.push({ id: c.id, label: c.label, en: c.label_en || '', href: c.href, section: sec.label, group: c.group || '', target: c.target });
+    }
+    return out;
+  }
+  function workspaceFor() {
+    const ws = WORKSPACES.find(w => (w.when ? w.when() : hasAnyRole(w.roles)));
+    if (!ws) return null;
+    const byId = new Map(allEntries().map(e => [e.id, e]));
+    const items = ws.items.map(id => byId.get(id)).filter(Boolean);
+    return items.length ? { id: ws.id, label: ws.label, items } : null;
+  }
+  const fold = (x) => String(x || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+  function searchEntries(q) {
+    const t = fold(q).trim();
+    if (!t) return [];
+    return allEntries().filter(e => fold(e.label + ' ' + e.section + ' ' + e.group + ' ' + (e.en || '')).includes(t)).slice(0, 12);
+  }
+  function breadcrumbFor(ctx) {
+    const sec = NAV.find(n => n.id === ctx.section);
+    if (!sec) return null;
+    const child = (sec.children || []).find(c => c.id === ctx.current);
+    if (!child) return null;
+    return [{ label: sec.label }].concat(child.group ? [{ label: child.group }] : [], [{ label: child.label }]);
+  }
+
   function escapeHtml(s) {
     return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
       '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
@@ -272,7 +370,8 @@
     const hasKids  = visKids.length > 0;
     const href     = item.href || (hasKids ? landingFor(item.id) : '#');
     const target   = item.target ? ` target="${item.target}"` : '';
-    const titleA   = item.title ? ` title="${escapeHtml(item.title)}"` : '';
+    // the label doubles as tooltip / accessible name: on narrow screens only the icon is shown
+    const titleA   = ` title="${escapeHtml(item.title || item.label)}" aria-label="${escapeHtml(item.label)}"`;
     const activeC  = isActive ? ' is-active' : '';
 
     // If a dropdown parent has only ONE visible child for this user
@@ -292,20 +391,27 @@
     if (hasKids) {
       // Dropdown wrapper. The parent label is itself a clickable link
       // (smart landing) — the dropdown reveals on hover for power users.
-      const kids = visKids.map(c => {
+      const link = c => {
         const ca = ctx.current === c.id ? ' is-active' : '';
         const ct = c.target ? ` target="${c.target}"` : '';
-        return `<a href="${escapeHtml(c.href)}"${ct} class="${ca.trim()}" title="${escapeHtml(c.label)}">
+        const cur = ctx.current === c.id ? ' aria-current="page"' : '';
+        return `<a href="${escapeHtml(c.href)}"${ct}${cur} class="${ca.trim()}" title="${escapeHtml(c.label)}">
           <span class="shell-nav-icon">${c.icon || ''}</span>
           <span>${escapeHtml(c.label)}</span>
         </a>`;
-      }).join('');
+      };
+      // G17 — a long menu is grouped by task (Governance / Plan & track / Report & share / Configure) instead of
+      // one flat list of 16 entries. Order of groups = order of first appearance; links and URLs are unchanged.
+      const groups = groupChildren(visKids);
+      const kids = groups.length > 1
+        ? groups.map(g => `<div class="shell-dd-group" role="group" aria-label="${escapeHtml(g.name)}"><div class="shell-dd-heading" aria-hidden="true">${escapeHtml(g.name)}</div>${g.items.map(link).join('')}</div>`).join('')
+        : visKids.map(link).join('');
 
-      return `<div class="shell-nav-item${activeC}"${titleA} tabindex="0">
+      return `<div class="shell-nav-item${activeC}"${titleA}>
         <a href="${escapeHtml(href)}"${target} style="display:contents;color:inherit;text-decoration:none">
           <span class="shell-nav-icon">${item.icon || ''}</span>
           <span class="shell-nav-label">${escapeHtml(item.label)}</span>
-        </a><span class="shell-nav-caret" role="button" tabindex="0" aria-label="Toggle ${escapeHtml(item.label)} menu" title="Click to pin menu open">▾</span>
+        </a><span class="shell-nav-caret" role="button" tabindex="0" aria-expanded="false" aria-label="Toggle ${escapeHtml(item.label)} menu" title="Click to pin menu open">▾</span>
         <div class="shell-dropdown">${kids}</div>
       </div>`;
     }
@@ -320,7 +426,8 @@
     if (!user) return '';
     const name = user.full_name || user.username || '—';
     const role = user.role || '—';
-    return `<div class="shell-user-pill" title="Click to log out" onclick="window.__logout && window.__logout()">
+    return `<div class="shell-user-pill" title="${T('Click to log out')}" onclick="window.__logout && window.__logout()">
+      <span class="shell-user-initial" aria-hidden="true">${escapeHtml(String(name || '?').trim().charAt(0).toUpperCase())}</span>
       <span class="shell-user-name">${escapeHtml(name)}</span>
       <span class="shell-user-role">${escapeHtml(role)}</span>
     </div>`;
@@ -335,17 +442,21 @@
     };
     const version = mount.dataset.version || '';
     const user    = window.__authUser || null;
+    translateNav(NAV); translateNav(WORKSPACES);
+    const lang = shellLang();
 
     const navHtml = NAV.filter(sectionVisible).map(it => renderNavItem(it, ctx)).join('');
 
     const html = `
-      <div class="shell-header" role="navigation" aria-label="Primary">
+      <div class="shell-header" role="navigation" aria-label="${T('Primary')}">
         <a href="${defaultLanding()}" class="shell-brand" title="Endeavour IT — go home">
           <div class="shell-logo" role="img" aria-label="Endeavour Mining"></div>
           <div class="shell-brand-text">Endeavour Mining<small>IT Dashboard</small></div>
         </a>
         <nav class="shell-nav">${navHtml}</nav>
         <div class="shell-actions">
+          <button type="button" class="shell-search-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="shell-search" title="${T('Find a page (Ctrl+K)')}">${ICON_LIB.search || ''}<span class="shell-search-label">${T('Find')}</span><kbd>Ctrl K</kbd></button>
+          <button type="button" class="shell-lang-btn" title="${T('Language')}" aria-label="${lang === 'fr' ? 'Switch to English' : 'Passer en français'}" lang="${lang === 'fr' ? 'en' : 'fr'}">${lang === 'fr' ? 'EN' : 'FR'}</button>
           ${renderUserPill(user)}
           ${version ? `<span class="shell-version">${escapeHtml(version)}</span>` : ''}
         </div>
@@ -356,7 +467,64 @@
     // own auth flow (e.g. reports.html) can call window.__shell.render()
     // again after login to refresh the user pill. The mount keeps its
     // data-section / data-current attributes for context.
-    mount.innerHTML = html.trim();
+    const crumbs = mount.dataset.breadcrumb === 'off' ? null : breadcrumbFor(ctx);
+    const crumbHtml = crumbs ? `<nav class="shell-breadcrumb" aria-label="${T('Breadcrumb')}"><ol>${crumbs.map((c, i) => `<li>${c.href && i < crumbs.length - 1 ? `<a href="${escapeHtml(c.href)}">${escapeHtml(c.label)}</a>` : `<span${i === crumbs.length - 1 ? ' aria-current="page"' : ''}>${escapeHtml(c.label)}</span>`}</li>`).join('')}</ol></nav>` : '';
+    const searchHtml = `<div class="shell-search" id="shell-search" role="dialog" aria-label="${T('Find a page')}" hidden>
+        <label class="shell-search-field"><span class="shell-sr">${T('Find a page')}</span><input type="search" id="shell-search-q" placeholder="${T('Find a page — e.g. inspections, portfolio')}" autocomplete="off" aria-controls="shell-search-list"></label>
+        <p class="shell-search-status" id="shell-search-status" aria-live="polite"></p>
+        <ul id="shell-search-list" class="shell-search-list" aria-label="Pages"></ul>
+      </div>`;
+
+    mount.innerHTML = html.trim() + crumbHtml + searchHtml;
+  }
+
+  // ── G17 — quick find: "/" or Ctrl+K opens it, typing filters the pages this user can open, Enter goes to the
+  // first match, Escape closes. With an empty query it lists the user's workspace.
+  function searchList(q) {
+    const list = document.getElementById('shell-search-list');
+    if (!list) return [];
+    let items = searchEntries(q), heading = '';
+    if (!String(q || '').trim()) { const ws = workspaceFor(); items = ws ? ws.items : []; heading = ws ? ws.label : ''; }
+    const st = document.getElementById('shell-search-status');
+    const fr = shellLang() === 'fr', pl = items.length > 1 ? 's' : '';
+    if (st) st.textContent = String(q || '').trim() ? (items.length ? (fr ? `${items.length} page${pl} trouvée${pl}` : `${items.length} page${pl} found`) : (fr ? 'Aucune page trouvée' : 'No page matches')) : (heading ? (fr ? `Suggestions pour vous : ${items.length} page${pl}` : `Suggested for you: ${items.length} page${pl}`) : '');
+    list.innerHTML = (heading ? `<li class="shell-search-head">${escapeHtml(heading)}</li>` : '') +
+      (items.length ? items.map(e => `<li><a href="${escapeHtml(e.href)}"${e.target ? ` target="${e.target}"` : ''}>${escapeHtml(e.label)} <small>${escapeHtml(e.section)}${e.group ? ' · ' + escapeHtml(e.group) : ''}</small></a></li>`).join('')
+        : `<li class="shell-search-empty">${fr ? 'Aucune page pour' : 'No page matches'} “${escapeHtml(q)}”.</li>`);
+    return items;
+  }
+  let searchOpener = null;
+  function openSearch() {
+    const box = document.getElementById('shell-search'); const q = document.getElementById('shell-search-q');
+    if (!box || !q) return;
+    searchOpener = document.activeElement && document.activeElement !== document.body ? document.activeElement : document.querySelector('.shell-search-btn');
+    box.hidden = false; q.value = ''; searchList(''); q.focus();
+    const b = document.querySelector('.shell-search-btn'); if (b) b.setAttribute('aria-expanded', 'true');
+  }
+  function closeSearch(refocus) {
+    const box = document.getElementById('shell-search'); if (!box || box.hidden) return;
+    box.hidden = true; const b = document.querySelector('.shell-search-btn');
+    if (b) b.setAttribute('aria-expanded', 'false');
+    if (refocus && searchOpener && document.contains(searchOpener)) searchOpener.focus();
+    searchOpener = null;
+  }
+  function closeMenus(except) {
+    document.querySelectorAll('.shell-dropdown.is-open').forEach(d => {
+      if (d === except) return;
+      d.classList.remove('is-open');
+      const c = d.parentNode && d.parentNode.querySelector('.shell-nav-caret'); if (c) c.setAttribute('aria-expanded', 'false');
+    });
+  }
+  function toggleMenu(caret, open) {
+    const item = caret.closest('.shell-nav-item');
+    const dropdown = item && item.querySelector('.shell-dropdown');
+    if (!dropdown) return null;
+    closeMenus(dropdown);
+    item.classList.remove('is-suppressed');
+    const next = open == null ? !dropdown.classList.contains('is-open') : open;
+    dropdown.classList.toggle('is-open', next);
+    caret.setAttribute('aria-expanded', String(next));
+    return { dropdown, open: next };
   }
 
   // ── PUBLIC API ──────────────────────────────────────────────────
@@ -366,6 +534,12 @@
       if (mount) render(mount);
     },
     NAV,
+    WORKSPACES,
+    shellLang,
+    workspaceFor,
+    searchEntries,
+    breadcrumbFor,
+    groupChildren,
     landingFor,
     defaultLanding,
     hasAnyRole
@@ -389,35 +563,82 @@
   // Single delegated listener on document so it survives re-renders
   // (e.g. reports.html re-rendering the shell after login).
   document.addEventListener('click', (e) => {
+    // Caret click — toggle the dropdown without following the parent link (the caret sits inside it).
     const caret = e.target.closest('.shell-nav-caret');
-    if (caret) {
-      // Caret click — toggle dropdown, suppress the parent <a>'s
-      // navigation. The caret span lives inside the parent link, so
-      // we both prevent default navigation AND stop propagation.
+    if (caret) { e.preventDefault(); e.stopPropagation(); toggleMenu(caret); return; }
+    if (e.target.closest('.shell-lang-btn')) {
       e.preventDefault();
-      e.stopPropagation();
-      const item = caret.closest('.shell-nav-item');
-      const dropdown = item && item.querySelector('.shell-dropdown');
-      if (!dropdown) return;
-      const wasOpen = dropdown.classList.contains('is-open');
-      // Close every other open dropdown first (only one pinned at a time).
-      document.querySelectorAll('.shell-dropdown.is-open').forEach(d => d.classList.remove('is-open'));
-      if (!wasOpen) dropdown.classList.add('is-open');
+      // one preference for the whole application; reload so the page body follows too
+      try { localStorage.setItem('sdp_lang', shellLang() === 'fr' ? 'en' : 'fr'); } catch (_) { /* storage blocked: nothing to remember */ }
+      location.reload();
       return;
     }
-    // Click anywhere else — if it's outside any open dropdown, close them.
-    // Click INSIDE a dropdown (i.e. on a submenu link) is left alone so
-    // the link navigates normally; the new page will render without any
-    // pinned dropdown.
-    if (!e.target.closest('.shell-dropdown') && !e.target.closest('.shell-nav-item')) {
-      document.querySelectorAll('.shell-dropdown.is-open').forEach(d => d.classList.remove('is-open'));
+    if (e.target.closest('.shell-search-btn')) {
+      e.preventDefault();
+      const box = document.getElementById('shell-search');
+      if (box && !box.hidden) closeSearch(true); else openSearch();
+      return;
     }
+    if (!e.target.closest('.shell-search')) closeSearch(false);
+    // Click outside every dropdown closes them; a click on a submenu link navigates normally.
+    if (!e.target.closest('.shell-dropdown') && !e.target.closest('.shell-nav-item')) closeMenus(null);
   });
 
-  // Escape closes any pinned dropdown — keyboard accessibility.
+  // Keyboard (APG disclosure pattern): Enter/Space/ArrowDown on a caret opens its menu on the first link, ArrowUp on
+  // the last; arrows move inside a menu; Escape closes the menu (or the finder) and returns focus to where it came
+  // from; leaving a menu with Tab closes it. Ctrl/Cmd+K opens the finder — no single-character shortcut (WCAG 2.1.4).
   document.addEventListener('keydown', (e) => {
+    const t = e.target;
     if (e.key === 'Escape') {
-      document.querySelectorAll('.shell-dropdown.is-open').forEach(d => d.classList.remove('is-open'));
+      const box = document.getElementById('shell-search');
+      if (box && !box.hidden) { closeSearch(true); return; }
+      const item = t.closest && t.closest('.shell-nav-item');
+      if (item) {
+        const caret = item.querySelector('.shell-nav-caret');
+        closeMenus(null); item.classList.add('is-suppressed');
+        if (caret && t !== caret) caret.focus();
+        return;
+      }
+      closeMenus(null);
+      return;
+    }
+    const caret = t.closest && t.closest('.shell-nav-caret');
+    if (caret && (e.key === 'Enter' || e.key === ' ' || e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      e.preventDefault();
+      const r = toggleMenu(caret, e.key === 'ArrowDown' || e.key === 'ArrowUp' ? true : null);
+      if (r && r.open) { const links = r.dropdown.querySelectorAll('a'); const to = e.key === 'ArrowUp' ? links[links.length - 1] : links[0]; if (to) to.focus(); }
+      return;
+    }
+    const inDrop = t.closest && t.closest('.shell-dropdown');
+    if (inDrop && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      e.preventDefault();
+      const links = Array.from(inDrop.querySelectorAll('a')); const i = links.indexOf(document.activeElement);
+      const n = links[(i + (e.key === 'ArrowDown' ? 1 : -1) + links.length) % links.length]; if (n) n.focus();
+      return;
+    }
+    const inFind = t.closest && t.closest('#shell-search');
+    if (inFind && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      const els = [document.getElementById('shell-search-q'), ...document.querySelectorAll('#shell-search-list a')].filter(Boolean);
+      const i = els.indexOf(document.activeElement); if (i < 0) return;
+      e.preventDefault(); const n = els[Math.max(0, Math.min(els.length - 1, i + (e.key === 'ArrowDown' ? 1 : -1)))]; if (n) n.focus();
+      return;
+    }
+    if (t.id === 'shell-search-q' && e.key === 'Enter') {
+      const first = document.querySelector('#shell-search-list a'); if (first) { e.preventDefault(); first.click(); }
+      return;
+    }
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 'k' || e.key === 'K')) {
+      if (document.getElementById('shell-search')) { e.preventDefault(); openSearch(); }
     }
   });
+  // leaving a menu or the finder with Tab closes it (and keeps aria-expanded true to what is shown)
+  document.addEventListener('focusout', (e) => {
+    const next = e.relatedTarget;
+    const item = e.target.closest && e.target.closest('.shell-nav-item');
+    if (item && !(next && item.contains(next))) { const d = item.querySelector('.shell-dropdown.is-open'); if (d) closeMenus(null); }
+    const box = e.target.closest && e.target.closest('#shell-search');
+    if (box && next && !box.contains(next) && !(next.closest && next.closest('.shell-search-btn'))) closeSearch(false);
+  });
+  document.addEventListener('mouseleave', (e) => { const it = e.target; if (it && it.classList && it.classList.contains('shell-nav-item')) it.classList.remove('is-suppressed'); }, true);
+  document.addEventListener('input', (e) => { if (e.target && e.target.id === 'shell-search-q') searchList(e.target.value); });
 })();

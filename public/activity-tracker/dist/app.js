@@ -554,7 +554,8 @@
       const yr = S.year, mo = S.month;
       const R = TR.score(D, site, yr, mo);
       const esc = (v) => {
-        const s = String(v == null ? "" : v);
+        let s = String(v == null ? "" : v);
+        s = /^[=+\-@\t\r]/.test(s) && !/^[+-]?\d+(\.\d+)?$/.test(s) ? "'" + s : s;
         return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
       };
       const head = [
@@ -873,7 +874,7 @@
           fontSize: 12.5,
           color: "#065F46",
           lineHeight: 1.5
-        } }, "\u{1F6DF} A full database backup will be created automatically ", /* @__PURE__ */ React.createElement("em", null, "before"), " the delete runs. If anything goes wrong, the backup file path is shown on success so you can restore. Backups are saved to\xA0", /* @__PURE__ */ React.createElement("code", null, "data/backups/tracker-YYYYMMDD-HHMMSS-pre-delete-year-", y, ".db"), "on the server.", /* @__PURE__ */ React.createElement("br", null), /* @__PURE__ */ React.createElement("small", { style: { color: "#047857" } }, "Recovery instructions: ", /* @__PURE__ */ React.createElement("code", null, "docs/DB_RECOVERY.md"), " \xB7 interactive helper: ", /* @__PURE__ */ React.createElement("code", null, "_restore_db.cmd"))), isCurrentlySelected && /* @__PURE__ */ React.createElement("div", { style: {
+        } }, "\u{1F6DF} Deleting a year is permanent. The way back is a PostgreSQL restore: the nightly encrypted backup (job ", /* @__PURE__ */ React.createElement("code", null, "db.backup"), ") or a restore point \u2014 take one first (", /* @__PURE__ */ React.createElement("code", null, "Manage-SDP.ps1 -Backup -DbOnly"), ") if this year holds data you may need.", /* @__PURE__ */ React.createElement("br", null), /* @__PURE__ */ React.createElement("small", { style: { color: "#047857" } }, "Recovery instructions: ", /* @__PURE__ */ React.createElement("code", null, "docs/DB_RECOVERY.md"))), isCurrentlySelected && /* @__PURE__ */ React.createElement("div", { style: {
           marginTop: 12,
           padding: "10px 12px",
           background: "#FFF7ED",

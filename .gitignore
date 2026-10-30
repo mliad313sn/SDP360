@@ -13,7 +13,7 @@ data/
 *.db-shm
 
 # ── NODE ─────────────────────────────────────────────────────────
-node_modules/
+node_modules
 npm-debug.log*
 yarn-error.log
 
@@ -88,7 +88,10 @@ zithhXhE
 
 # ── SKILL FILES (managed by Cowork, not the app) ─────────────────
 *.skill
-.claude/
+.claude/*
+!.claude/skills/
+!.claude/agents/
+!.claude/rules/
 
 # ── MISC DOCS / NOTES (optional — remove lines to commit these) ───
 CLAUDE_MEMORY.md

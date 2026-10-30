@@ -26,15 +26,15 @@ const post = (path, t, body) => fetch(base + path, { method: 'POST', headers: H(
 before(async () => {
   const { app } = require('../server');
   rdb = require('../reports-db');
-  const byName = (n) => (rdb.listSites() || []).find(s => s.name === n);
-  A = byName('Hounde'); B = byName('MANA'); C = byName('Sabodala');
+  const byName = async (n) => ((await rdb.listSites()) || []).find(s => s.name === n);
+  A = (await byName('Hounde')); B = (await byName('MANA')); C = (await byName('Sabodala'));
   assert.ok(A && B && C, 'seeded sites Hounde / Mana / Sabodala');
-  repA = rdb.ensureReport(A.id, 2026, 30); repB = rdb.ensureReport(B.id, 2026, 30); repC = rdb.ensureReport(C.id, 2026, 30);
-  const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
-  rdb.setUserRoles(me.id, ['super_admin']);
+  repA = (await rdb.ensureReport(A.id, 2026, 30)); repB = (await rdb.ensureReport(B.id, 2026, 30)); repC = (await rdb.ensureReport(C.id, 2026, 30));
+  const me = ((await rdb.listUsers()) || []).find(u => u.username === process.env.DASH_USER);
+  (await rdb.setUserRoles(me.id, ['super_admin']));
   superTok = (await rdb.login(process.env.DASH_USER, process.env.DASH_PASS)).token;
-  rdb.createUser({ username: 'ms-editor', full_name: 'Multi Site', password: 'ms-editor-0000',
-    roles: ['editor', 'tracker-editor'], site_id: A.id, extra_site_ids: [B.id] });
+  (await rdb.createUser({ username: 'ms-editor', full_name: 'Multi Site', password: 'ms-editor-0000',
+    roles: ['editor', 'tracker-editor'], site_id: A.id, extra_site_ids: [B.id] }));
   tok = (await rdb.login('ms-editor', 'ms-editor-0000')).token;
   await new Promise(r => { server = http.createServer(app).listen(0, '127.0.0.1', r); });
   base = `http://127.0.0.1:${server.address().port}`;
@@ -81,7 +81,7 @@ test('inspection + tracker expose the list of the user\'s codes', async () => {
 });
 
 test('admin users API stores and returns the extra sites', async () => {
-  const u = (rdb.listUsers() || []).find(x => x.username === 'ms-editor');
+  const u = ((await rdb.listUsers()) || []).find(x => x.username === 'ms-editor');
   const r = await put(`/api/reports/users/${u.id}`, superTok, { full_name: 'Multi Site', site_id: A.id, roles: ['editor', 'tracker-editor'], extra_site_ids: [B.id, C.id] });
   assert.equal(r.status, 200);
   const list = await (await get('/api/reports/users', superTok)).json();

@@ -129,6 +129,12 @@ const DEFAULTS = {
   analytics_workspace_id: '', analytics_org_id: '', analytics_accounts_url: '',
   // 2027 Goal 02 — canonical commitments (routes/commitments.js, hub badge). OFF = no behaviour change.
   commitments_enabled: '0',
+  // G-22 — interdepartmental handoffs (routes/handoffs.js). OFF = every route 404. Notifications are a
+  // separate switch, also OFF: who is told about a handoff is decision D-04's, not the code's.
+  handoffs_enabled: '0',
+  handoff_notify_enabled: '0',
+  commitment_notify_enabled: '0',
+  site_codes_from_registry: '0',   // DEC-4 — '1' = site_module_codes wins over the modules' hard-coded maps (diff first: GET /api/governance/site-codes)   // ADR-006 — in-app notice to the escalation-matrix target of a new A01 / A02 (off = ledger only, as before)
 };
 // ── Sync alerting (Step 1). Recipients = comma list of e-mail addresses; teams_url = a
 //    Workflows webhook (SECRET, blank-keep). Nothing is sent while both are empty.
@@ -146,7 +152,7 @@ DEFAULTS.backup_offsite_path = '';
 // ── Step 9 — engagement + external publishing. Teams / webhook URLs let anyone post → SECRETS
 //    (blank-keep, encrypted). SharePoint: Graph client-credentials app (client_secret = SECRET).
 //    publish_metric_keys = comma list of KPI keys the connectors + the OData Values default to.
-Object.assign(DEFAULTS, { engagement_teams_url: '', engagement_webhook_url: '', engagement_digest_hour: '7', embed_frame_ancestors: '',
+Object.assign(DEFAULTS, { alert_external_enabled: '0', notifications_stop: '0', engagement_teams_url: '', engagement_webhook_url: '', engagement_digest_hour: '7', embed_frame_ancestors: '',
   publish_metric_keys: 'helpdesk.resolution_sla_pct,helpdesk.first_reply_sla_pct,inspection.conformity_pct,meetings.engagement_score,assets.completeness_pct,tracker.site_score_pct',
   publish_excel_recipients: '', publish_webhook_url: '', publish_cron_enabled: '0',
   sharepoint_tenant_id: '', sharepoint_client_id: '', sharepoint_client_secret: '', sharepoint_site_id: '', sharepoint_list_id: '' });
@@ -165,20 +171,9 @@ const _SECRET_BLANK_KEEP = new Set([
 
 function _h(db) {
   const rdb = require('../reports-db');
-  if (rdb.REPORTS_BACKEND === 'postgres') return { H: rdb.pgHandle(), isPg: true };
-  return { H: db, isPg: false };
+  return { H: rdb.pgHandle(), isPg: true };
 }
 
-const _inited = new WeakSet();
-function _initSchema(db) {
-  if (_h(db).isPg) return;
-  if (_inited.has(db)) return;
-  db.exec(`CREATE TABLE IF NOT EXISTS report_config (
-    key TEXT PRIMARY KEY, value TEXT,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_by TEXT
-  );`);
-  _inited.add(db);
-}
 
 // A-13 (audit 2026-09-24) — the six secret-shaped values are encrypted at rest when
 // SDP_CONFIG_KEY is set, so a database dump (or a restore point) no longer hands whoever
@@ -211,10 +206,7 @@ function _fold(rows, key) {
 function getConfig(db, opts) {
   const key = _keyOf(opts);
   const { H, isPg } = _h(db);
-  if (isPg) return (async () => _fold(await H.prepare('SELECT key, value FROM report_config').all(), key))();
-  _initSchema(db);
-  try { return _fold(H.prepare('SELECT key, value FROM report_config').all(), key); }
-  catch (e) { console.warn('[report-config] get failed:', e.message); return { ...DEFAULTS }; }
+  return (async () => _fold(await H.prepare('SELECT key, value FROM report_config').all(), key))();
 }
 
 const _UPSERT = `INSERT INTO report_config (key, value, updated_at, updated_by)
@@ -231,16 +223,12 @@ function setConfig(db, patch, user, opts) {
     // legible so an operator can still read the table when something is wrong.
     .map(([k, v]) => [k, _SECRET_BLANK_KEEP.has(k) ? _secrets.encryptValue(String(v), _key) : v]);
   const { H, isPg } = _h(db);
-  if (isPg) return (async () => {
+  return (async () => {
     await H.runTransaction(async () => {
       for (const [k, v] of clean) await H.prepare(_UPSERT.replace('{NOW}', 'now()')).run(k, String(v), user || 'unknown');
     });
     return getConfig(db, opts);
   })();
-  _initSchema(db);
-  const stmt = H.prepare(_UPSERT.replace('{NOW}', "datetime('now')"));
-  H.transaction(() => { for (const [k, v] of clean) stmt.run(k, String(v), user || 'unknown'); })();
-  return getConfig(db, opts);
 }
 
-module.exports = { DEFAULTS, KEYS, _SECRET_BLANK_KEEP, _initSchema, getConfig, setConfig };
+module.exports = { DEFAULTS, KEYS, _SECRET_BLANK_KEEP, getConfig, setConfig };

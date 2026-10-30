@@ -508,7 +508,7 @@
   // UTF-8 BOM + CRLF + quote-escaped, same recipe as the Assets drill export, so
   // Excel opens accented names correctly on a French Windows.
   function downloadCsv(filename, columns, rows) {
-    var esc2 = function (v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; };
+    var esc2 = function (v) { var s = String(v == null ? '' : v); s = /^[=+\-@\t\r]/.test(s) && !/^[+-]?\d+(\.\d+)?$/.test(s) ? "'" + s : s; return '"' + s.replace(/"/g, '""') + '"'; };   // formula-injection guard
     var lines = [columns.map(function (col) { return esc2(col[0]); }).join(',')];
     rows.forEach(function (r) { lines.push(columns.map(function (col) { return esc2(r[col[1]]); }).join(',')); });
     var blob = new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8;' });

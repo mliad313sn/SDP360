@@ -31,7 +31,7 @@ module.exports = function opmanagerRoutes(deps) {
     return { monthStart, monthEnd, label,
       fromISO: new Date(monthStart).toISOString(), toISO: new Date(monthEnd).toISOString() };
   }
-  function _csvCell(v) { return '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"'; }
+  function _csvCell(v) { return '"' + require('../public/lib/csvSafe').neutralize(v).replace(/"/g, '""') + '"'; }
 
   function _safeParse(s, d) { try { return JSON.parse(s); } catch { return d; } }
   function _numOrNull(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
@@ -373,7 +373,8 @@ module.exports = function opmanagerRoutes(deps) {
   // RBAC lot 4d (2026-10-02): the SLA views are open to coordinators, locked to their site.
   // null = admin tier (every site); otherwise the caller's site_id (-1 = no site → nothing).
   // Multi-site editors (2026-10-05): the list of the caller's site ids ([] = nothing).
-  const _slaSite = (user) => (rdb.userHasRole(user, 'admin') ? null : require('../services/userSites').siteIds(user));
+  // finance-viewer (UAT F-06): the finance head reads the chargeback for every site, read only.
+  const _slaSite = (user) => (rdb.userHasRole(user, 'admin') || rdb.userHasRole(user, 'finance-viewer') ? null : require('../services/userSites').siteIds(user));
   const _slaKeep = (user) => { const s = _slaSite(user); return (o) => s === null || s.includes(Number(o.site_id)); };
 
   router.get('/api/analytics/wan/sla/summary', requireReportSession, async (req, res) => {

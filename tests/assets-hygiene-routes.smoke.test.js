@@ -8,8 +8,6 @@ const fetch = require('./_http-fetch');   // core-http shim — undici keep-aliv
 // SDP_DATA_DIR. Run with --test-force-exit (top-level cron keeps the loop alive).
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'assets-hyg-smoke-'));
-process.env.ASSETS_BACKEND = 'sqlite';
-process.env.REPORTS_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'assets-hyg-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'assets-hyg-pass-0000';
 process.env.DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || 'assets-hyg-key';
@@ -35,7 +33,7 @@ before(async () => {
   // A2 is a GENUINE ghost: a prior SUCCESSFUL scan (non-empty last_successful_audit_time)
   // that is now stale >90d. It must carry a success-time, else NOT(never_scanned) is false
   // and it would (correctly) fall into never_scanned instead — the disjointness fix.
-  adb.replaceTable('assets',
+  (await adb.replaceTable('assets',
     ['asset_id', 'asset_name', 'site', 'state', 'product_type', 'manufacturer',
      'serial_number', 'last_audit_status', 'last_successful_audit_time', 'days_since_scan', 'user_name', 'department'],
     [
@@ -48,11 +46,11 @@ before(async () => {
       { asset_id: 'A3', asset_name: 'PC-HEALTHY-03', site: 'MANA', state: 'In Use',
         product_type: 'Workstation', manufacturer: 'Dell', serial_number: 'SN-0003',
         last_audit_status: 'Success', last_successful_audit_time: '2026-07-14', days_since_scan: '3', user_name: 'asmith', department: 'Ops' },
-    ]);
+    ]));
 
-  const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
+  const me = ((await rdb.listUsers()) || []).find(u => u.username === process.env.DASH_USER);
   assert.ok(me, 'seeded admin user exists');
-  rdb.setUserRoles(me.id, ['super_admin']);   // the routes under test are super_admin-gated (admin settings → super_admin since 5e2f40e / 2026-08-16; IT Review → executive since 7162ac7)
+  (await rdb.setUserRoles(me.id, ['super_admin']));   // the routes under test are super_admin-gated (admin settings → super_admin since 5e2f40e / 2026-08-16; IT Review → executive since 7162ac7)
   const sess = await rdb.login(process.env.DASH_USER, process.env.DASH_PASS);
   assert.ok(sess && sess.token, 'login seeded admin + returned a token');
   adminToken = sess.token;

@@ -3,7 +3,6 @@
 // Pure-function + in-memory-sqlite integration tests (no PG needed).
 const test = require('node:test');
 const assert = require('node:assert');
-const Database = require('better-sqlite3');
 const rr = require('../risk-register-export');
 
 const D1 = '1.Unavailability of Internet';
@@ -55,23 +54,20 @@ test('domainsForIncident: no field + no category match → []', () => {
 
 // ── loadOccurrencesFromDB (in-memory integration) ─────────────────────
 test('loadOccurrencesFromDB: precedence + multi-domain + site filter + fallback', async () => {
-  const db = new Database(':memory:');
-  db.exec(`CREATE TABLE request_records(
-    request_id TEXT, display_id TEXT, site TEXT, subject TEXT, category TEXT, sub_category TEXT,
-    request_type TEXT, impact TEXT, created_time TEXT, udf_json TEXT)`);
+  const db = await require('./_pg-fresh').fresh(['request_records']);
   const ins = db.prepare(`INSERT INTO request_records
     (request_id,site,category,sub_category,request_type,impact,created_time,udf_json)
     VALUES (?,?,?,?,?,?,?,?)`);
   // A: HOUNDE, field=Internet+Radio → HGO D1+D5 (Backup category ignored)
-  ins.run('A', 'HOUNDE', 'IT Infrastructure', 'Backup', 'Incident', 'Enterprise', '2026-06-15T10:00:00', SA('Internet,Radio'));
+  await ins.run('A', 'HOUNDE', 'IT Infrastructure', 'Backup', 'Incident', 'Enterprise', '2026-06-15T10:00:00', SA('Internet,Radio'));
   // B: MANA, no field, category Backup → MGO D4 (fallback)
-  ins.run('B', 'MANA', 'IT Infrastructure', 'Backup', 'Incident', 'Enterprise', '2026-06-16T10:00:00', null);
+  await ins.run('B', 'MANA', 'IT Infrastructure', 'Backup', 'Incident', 'Enterprise', '2026-06-16T10:00:00', null);
   // C: HOUNDE, field set but Individual → excluded
-  ins.run('C', 'HOUNDE', 'IT Infrastructure', 'Backup', 'Incident', 'Individual', '2026-06-17T10:00:00', SA('Internet'));
+  await ins.run('C', 'HOUNDE', 'IT Infrastructure', 'Backup', 'Incident', 'Individual', '2026-06-17T10:00:00', SA('Internet'));
   // D: LONDON (off-register) → skipped_unknown_site
-  ins.run('D', 'LONDON', null, null, 'Incident', 'Enterprise', '2026-06-18T10:00:00', SA('Internet'));
+  await ins.run('D', 'LONDON', null, null, 'Incident', 'Enterprise', '2026-06-18T10:00:00', SA('Internet'));
   // E: MANA, no field, category Network issues → MGO D1 (fallback)
-  ins.run('E', 'MANA', 'Network & Internet Access', 'Network issues', 'Incident', 'Enterprise', '2026-06-19T10:00:00', null);
+  await ins.run('E', 'MANA', 'Network & Internet Access', 'Network issues', 'Incident', 'Enterprise', '2026-06-19T10:00:00', null);
 
   const { occurrences, diagnostics } = await rr.loadOccurrencesFromDB(db, '2026-06');
   assert.equal(occurrences['HGO'][D1], 1, 'HGO Internet');
@@ -83,20 +79,16 @@ test('loadOccurrencesFromDB: precedence + multi-domain + site filter + fallback'
   assert.equal(diagnostics.skipped_non_operational, 1, 'Individual skipped');
   assert.equal(diagnostics.classified_via_services_affected, 1, 'A via field');
   assert.equal(diagnostics.classified_via_category, 2, 'B + E via category');
-  db.close();
 });
 
 test('loadOccurrencesFromDB: per-cell source breakdown (field vs category, incl. mixed)', async () => {
-  const db = new Database(':memory:');
-  db.exec(`CREATE TABLE request_records(
-    request_id TEXT, display_id TEXT, site TEXT, subject TEXT, category TEXT, sub_category TEXT,
-    request_type TEXT, impact TEXT, created_time TEXT, udf_json TEXT)`);
+  const db = await require('./_pg-fresh').fresh(['request_records']);
   const ins = db.prepare(`INSERT INTO request_records
     (request_id,site,category,sub_category,request_type,impact,created_time,udf_json)
     VALUES (?,?,?,?,?,?,?,?)`);
   // MANA: one via field (Internet+Radio), one via category (Network issues = D1)
-  ins.run('A', 'MANA', 'IT Infrastructure', 'Backup', 'Incident', 'Enterprise', '2026-06-15T10:00:00', SA('Internet,Radio'));
-  ins.run('B', 'MANA', 'Network & Internet Access', 'Network issues', 'Incident', 'Enterprise', '2026-06-16T10:00:00', null);
+  await ins.run('A', 'MANA', 'IT Infrastructure', 'Backup', 'Incident', 'Enterprise', '2026-06-15T10:00:00', SA('Internet,Radio'));
+  await ins.run('B', 'MANA', 'Network & Internet Access', 'Network issues', 'Incident', 'Enterprise', '2026-06-16T10:00:00', null);
 
   const { occurrences, sources } = await rr.loadOccurrencesFromDB(db, '2026-06');
   // MGO / D1 = 2 → 1 via field (A) + 1 via category (B) → mixed
@@ -104,7 +96,6 @@ test('loadOccurrencesFromDB: per-cell source breakdown (field vs category, incl.
   assert.deepEqual(sources['MGO'][D1], { field: 1, category: 1 });
   // MGO / D5 = 1 → all field
   assert.deepEqual(sources['MGO'][D5], { field: 1, category: 0 });
-  db.close();
 });
 
 // ── Risk comment (txt_risk_comment) → column H "Commentaires" ─────────
@@ -119,21 +110,18 @@ test('riskCommentFrom: tolerant key variants, trim, absent/blank/bad → empty',
 });
 
 test('loadOccurrencesFromDB collects risk comments per cell; export writes them into column H', async () => {
-  const db = new Database(':memory:');
-  db.exec(`CREATE TABLE request_records(
-    request_id TEXT, display_id TEXT, site TEXT, subject TEXT, category TEXT, sub_category TEXT,
-    request_type TEXT, impact TEXT, created_time TEXT, udf_json TEXT)`);
+  const db = await require('./_pg-fresh').fresh(['request_records']);
   const ins = db.prepare(`INSERT INTO request_records
     (request_id,display_id,site,subject,category,sub_category,request_type,impact,created_time,udf_json)
     VALUES (?,?,?,?,?,?,?,?,?,?)`);
   // Two commented incidents on MGO/D1, one uncommented (still counts, no comment).
   // 101/102 carry an SDP display id (preferred everywhere); 103 has none →
   // falls back to the internal request_id.
-  ins.run('212627000000000101', '316101', 'MANA', 'Internet down at Mana gate', 'Network & Internet Access', 'Network issues', 'Incident', 'Enterprise', '2026-06-15T10:00:00',
+  await ins.run('212627000000000101', '316101', 'MANA', 'Internet down at Mana gate', 'Network & Internet Access', 'Network issues', 'Incident', 'Enterprise', '2026-06-15T10:00:00',
     JSON.stringify({ 'UDF:Risk comment': 'ISP outage 3h, backup link engaged' }));
-  ins.run('212627000000000102', '316102', 'MANA', 'Router failure — core switch room', 'Network & Internet Access', 'Network issues', 'Incident', 'Enterprise', '2026-06-16T10:00:00',
+  await ins.run('212627000000000102', '316102', 'MANA', 'Router failure — core switch room', 'Network & Internet Access', 'Network issues', 'Incident', 'Enterprise', '2026-06-16T10:00:00',
     JSON.stringify({ 'UDF:Services affected': 'Internet', 'UDF:Risk comment': 'Router failure replaced same day' }));
-  ins.run('103', null, 'MANA', 'Slow internet — camp area', 'Network & Internet Access', 'Network issues', 'Incident', 'Enterprise', '2026-06-17T10:00:00', null);
+  await ins.run('103', null, 'MANA', 'Slow internet — camp area', 'Network & Internet Access', 'Network issues', 'Incident', 'Enterprise', '2026-06-17T10:00:00', null);
 
   const { occurrences, sources, comments, details } = await rr.loadOccurrencesFromDB(db, '2026-06');
   assert.equal(occurrences['MGO'][D1], 3);
@@ -174,19 +162,15 @@ test('loadOccurrencesFromDB collects risk comments per cell; export writes them 
   // #103 (no comment) still listed — that is the whole point of the sheet.
   const t103 = trows.find(r => String(r[2]) === '103')  // no display_id -> internal id fallback;
   assert.ok(t103 && !t103[6], 'uncommented ticket listed with empty comment cell');
-  db.close();
 });
 
 test('column-H summary caps long lists with "… (+N autres)"', async () => {
-  const db = new Database(':memory:');
-  db.exec(`CREATE TABLE request_records(
-    request_id TEXT, display_id TEXT, site TEXT, subject TEXT, category TEXT, sub_category TEXT,
-    request_type TEXT, impact TEXT, created_time TEXT, udf_json TEXT)`);
+  const db = await require('./_pg-fresh').fresh(['request_records']);
   const ins = db.prepare(`INSERT INTO request_records
     (request_id,site,category,sub_category,request_type,impact,created_time,udf_json)
     VALUES (?,?,?,?,?,?,?,?)`);
   for (let i = 0; i < 12; i++) {
-    ins.run(String(200 + i), 'MANA', 'Network & Internet Access', 'Network issues', 'Incident', 'Enterprise',
+    await ins.run(String(200 + i), 'MANA', 'Network & Internet Access', 'Network issues', 'Incident', 'Enterprise',
       '2026-06-15T10:00:00', JSON.stringify({ 'UDF:Risk comment': 'Long commentary '.repeat(8) + i }));
   }
   const { occurrences, sources, comments } = await rr.loadOccurrencesFromDB(db, '2026-06');
@@ -197,5 +181,4 @@ test('column-H summary caps long lists with "… (+N autres)"', async () => {
   const cell = String(rows.find(r => r[1] === 'MGO' && String(r[2]).startsWith('1.'))[7]);
   assert.ok(cell.length <= 800, 'cell stays readable (capped)');
   assert.ok(/\(\+\d+ autres\)/.test(cell), 'overflow marker present');
-  db.close();
 });

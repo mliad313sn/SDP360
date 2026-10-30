@@ -4,18 +4,17 @@
 // Finance surfaces fall back to the default rate with no error).
 const test = require('node:test');
 const assert = require('node:assert');
-const Database = require('better-sqlite3');
 const cfg = require('../services/reportConfig');
 
-function freshDb() { const db = new Database(':memory:'); cfg._initSchema(db); return db; }
+async function freshDb() { return require('./_pg-fresh').fresh(['report_config']); }
 
 test('xof_usd_rate is in DEFAULTS', () => {
   assert.strictEqual(cfg.DEFAULTS.xof_usd_rate, '0.00165');
 });
 
-test('setConfig round-trips xof_usd_rate', () => {
-  const db = freshDb();
-  cfg.setConfig(db, { xof_usd_rate: '0.0017' }, 'u');
-  const all = cfg.getConfig(db);
+test('setConfig round-trips xof_usd_rate', async () => {
+  const db = (await freshDb());
+  (await cfg.setConfig(db, { xof_usd_rate: '0.0017' }, 'u'));
+  const all = (await cfg.getConfig(db));
   assert.strictEqual(all.xof_usd_rate, '0.0017');
 });

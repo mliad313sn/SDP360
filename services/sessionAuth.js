@@ -25,7 +25,9 @@ function isStrictCspPath(p) { return STRICT_PAGES.includes(p) || String(p || '')
 
 function scriptSrc(nonce, strict) {
   return strict
-    ? `script-src 'self' 'nonce-${nonce}' cdn.jsdelivr.net cdnjs.cloudflare.com`
+    // security review: the strict pages (login, Exec View, share links) load nothing from a CDN —
+    // no third-party origin is allowed to run script on the pages an anonymous visitor reaches
+    ? `script-src 'self' 'nonce-${nonce}'`
     : "script-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com";
 }
 

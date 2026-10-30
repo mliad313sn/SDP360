@@ -56,20 +56,35 @@ module.exports = function extApiRoutes(deps) {
   }
   const needScope = (s) => (req, res, next) => (req.consumer.scopes || []).includes(s) ? next() : res.status(403).json({ error: `scope ${s} required` });
   async function sites() { return ((await rdb().listSites({ includeInactive: false })) || []).map(s => ({ id: Number(s.id), name: s.name, country: s.country || null, active: s.active !== 0 })); }
+  // G-14 extended to /ext (committee review 2026-10-28): every value says whether its source synced recently.
+  // A value whose source is STALE or has never synced (UNKNOWN) is still served — a consumer may chart it —
+  // but carries authoritative:false, and the response header X-SDP-Freshness says "stale".
+  const gate = require('../services/publishGate');
+  async function freshnessByModule(mods) {
+    const jobs = gate.jobsFor(mods);
+    const lastOk = deps.lastSyncOk ? await deps.lastSyncOk(jobs) : await gate.lastOkFromSyncStore(jobs);
+    const nowMs = Date.now(); const out = {}; const pol = await require('../services/governancePolicy').forContext({});
+    for (const m of mods) out[m] = gate.moduleFreshness(m, lastOk, nowMs, pol).state;
+    return out;
+  }
+  const isPublished = (m) => !m.status || m.status === 'published';
   async function values(keys, { site = null, window = null } = {}) {
     const reg = registry(); const dd = readerDeps(); const now = new Date(); const all = await sites(); const out = [];
-    for (const k of keys.slice(0, MAX_METRICS)) { const m = reg.get(k); if (!m) continue; const fleet = /\.fleet$/.test(m.reader || ''); const targets = fleet ? [null] : (site != null ? all.filter(s => s.id === Number(site)) : all);
-      for (const s of targets) { try { const r = await reg.resolve(k, { site: s ? s.id : null, window, deps: dd, now }); out.push({ metric: k, name: m.name, module: m.module, site_id: s ? s.id : null, site: s ? s.name : 'fleet', window: r && r.window && r.window.label || null, value: r ? r.value : null, unit: m.unit, rag: r ? r.rag : 'NA', as_of: r && r.as_of || null }); } catch (e) { out.push({ metric: k, site_id: s ? s.id : null, site: s ? s.name : 'fleet', value: null, unit: m.unit, rag: 'NA', error: 'reader_error' }); } } }
+    const fr = await freshnessByModule([...new Set(keys.slice(0, MAX_METRICS).map((k) => reg.get(k)).filter(Boolean).map((m) => m.module))]);
+    const tag = (row) => { const st = fr[row.module] || 'UNKNOWN'; row.freshness = st; row.authoritative = st === 'FRESH'; if (st !== 'FRESH' && row.rag !== 'NA') { row.rag_if_fresh = row.rag; row.rag = 'NA'; } return row; };   // G05: no colour on a stale source
+    for (const k of keys.slice(0, MAX_METRICS)) { const m = reg.get(k); if (!m || !isPublished(m)) continue; /* a draft KPI never leaves the platform (committee security) */ const fleet = /\.fleet$/.test(m.reader || ''); const targets = fleet ? [null] : (site != null ? all.filter(s => s.id === Number(site)) : all);
+      for (const s of targets) { try { const r = await reg.resolve(k, { site: s ? s.id : null, window, deps: dd, now }); out.push(tag({ metric: k, name: m.name, module: m.module, site_id: s ? s.id : null, site: s ? s.name : 'fleet', window: r && r.window && r.window.label || null, value: r ? r.value : null, unit: m.unit, rag: r ? r.rag : 'NA', as_of: r && r.as_of || null })); } catch (e) { out.push(tag({ metric: k, module: m.module, site_id: s ? s.id : null, site: s ? s.name : 'fleet', value: null, unit: m.unit, rag: 'NA', error: 'reader_error' })); } } }
     return out;
   }
   const dict = () => registry().list({ status: 'published' }).map(m => ({ key: m.key, name: m.name, name_fr: m.name_fr, module: m.module, unit: m.unit, window_kind: m.window_kind, higher_is_better: m.higher_is_better !== false, formula: m.formula, rag_policy: m.rag_policy }));
   async function publishKeys() { try { const c = await reportConfig.getConfig(rdb().db); const ks = String(c.publish_metric_keys || '').split(/[,\s]+/).filter(Boolean); return ks.length ? ks : ['helpdesk.resolution_sla_pct', 'helpdesk.first_reply_sla_pct', 'inspection.conformity_pct', 'meetings.engagement_score', 'assets.completeness_pct', 'tracker.site_score_pct']; } catch (_) { return ['helpdesk.resolution_sla_pct']; } }
 
+  const freshHeader = (res, vs) => res.setHeader('X-SDP-Freshness', vs.every((v) => v.authoritative) ? 'fresh' : 'stale');
   router.use(['/ext/v1', '/ext/odata'], auth);
   router.get('/ext/v1/metrics', needScope('metrics:read'), (req, res) => res.json({ metrics: dict(), as_of: new Date().toISOString() }));
   router.get('/ext/v1/sites', needScope('sites:read'), async (req, res) => { try { res.json({ sites: await sites() }); } catch (e) { res.status(500).json({ error: 'internal_error' }); } });
-  router.get('/ext/v1/metrics/:key/values', needScope('values:read'), async (req, res) => { try { if (!registry().has(req.params.key)) return res.status(404).json({ error: 'unknown metric' }); res.json({ metric: req.params.key, values: await values([req.params.key], { site: req.query.site, window: req.query.window ? String(req.query.window).slice(0, 24) : null }) }); } catch (e) { res.status(500).json({ error: 'internal_error' }); } });
-  router.get('/ext/v1/values', needScope('values:read'), async (req, res) => { try { const keys = String(req.query.metrics || '').split(',').map(k => k.trim()).filter(Boolean); if (!keys.length) return res.status(400).json({ error: 'metrics=a,b required' }); if (keys.length > MAX_METRICS) return res.status(400).json({ error: `at most ${MAX_METRICS} metrics per call` }); res.json({ values: await values(keys, { site: req.query.site, window: req.query.window ? String(req.query.window).slice(0, 24) : null }) }); } catch (e) { res.status(500).json({ error: 'internal_error' }); } });
+  router.get('/ext/v1/metrics/:key/values', needScope('values:read'), async (req, res) => { try { if (!registry().has(req.params.key) || !isPublished(registry().get(req.params.key))) return res.status(404).json({ error: 'unknown metric' }); const vs = await values([req.params.key], { site: req.query.site, window: req.query.window ? String(req.query.window).slice(0, 24) : null }); freshHeader(res, vs); res.json({ metric: req.params.key, values: vs }); } catch (e) { res.status(500).json({ error: 'internal_error' }); } });
+  router.get('/ext/v1/values', needScope('values:read'), async (req, res) => { try { const keys = String(req.query.metrics || '').split(',').map(k => k.trim()).filter(Boolean); if (!keys.length) return res.status(400).json({ error: 'metrics=a,b required' }); if (keys.length > MAX_METRICS) return res.status(400).json({ error: `at most ${MAX_METRICS} metrics per call` }); const vs = await values(keys, { site: req.query.site, window: req.query.window ? String(req.query.window).slice(0, 24) : null }); freshHeader(res, vs); res.json({ values: vs }); } catch (e) { res.status(500).json({ error: 'internal_error' }); } });
 
   // Fiche M7 — the OData base is the configured `public_base_url` (the address Power BI really
   // reaches), never the Host header a client controls; unset → a relative base, which OData
@@ -89,7 +104,7 @@ module.exports = function extApiRoutes(deps) {
   router.get('/ext/odata/Values', needScope('values:read'), async (req, res) => {
     try { const b = await base(); OData.collection(b, 'Values', [], req.query); // validate every query option BEFORE resolving any metric
       const f = String(req.query.$filter || ''); const mk = [...f.matchAll(/Metric\s+eq\s+'([^']+)'/gi)].map(m => m[1]); const sm = f.match(/SiteId\s+eq\s+(\d+)/i); const wm = f.match(/Window\s+eq\s+'([^']+)'/i);
-      const rows = (await values(mk.length ? mk : await publishKeys(), { site: sm ? Number(sm[1]) : null, window: wm ? wm[1] : null })).map(v => ({ Id: `${v.metric}|${v.site_id == null ? 'fleet' : v.site_id}|${v.window || ''}`, Metric: v.metric, SiteId: v.site_id, Site: v.site, Window: v.window, Value: v.value, Unit: v.unit, Rag: v.rag, AsOf: v.as_of }));
+      const rows = (await values(mk.length ? mk : await publishKeys(), { site: sm ? Number(sm[1]) : null, window: wm ? wm[1] : null })).map(v => ({ Id: `${v.metric}|${v.site_id == null ? 'fleet' : v.site_id}|${v.window || ''}`, Metric: v.metric, SiteId: v.site_id, Site: v.site, Window: v.window, Value: v.value, Unit: v.unit, Rag: v.rag, AsOf: v.as_of, Freshness: v.freshness, Authoritative: v.authoritative }));
       res.json(OData.collection(b, 'Values', rows, req.query)); } catch (e) { odataErr(res, e); }
   });
   return router;

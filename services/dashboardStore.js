@@ -2,7 +2,8 @@
 // Step 6 — persistence of dashboard DEFINITIONS (the composer's output) on both backends.
 //
 // A definition is a JSON document validated by services/dashboardWidgets.validateDashboard —
-// it references metrics by key only, never SQL. Lifecycle: draft → published (versioned
+// it references metrics by key only, never SQL. Review (G-24): a draft is submitted (review_state)
+// by one person and published by another — the routes enforce it, seed() bypasses it. Lifecycle: draft → published (versioned
 // snapshot in dashboard_definition_versions) → retired. Publishing is the only path to a
 // version number; saving a draft never touches the published snapshot a viewer sees.
 //
@@ -11,14 +12,6 @@
 
 const { validateDashboard } = require('./dashboardWidgets');
 
-const SQLITE_DDL = `
-CREATE TABLE IF NOT EXISTS dashboard_definitions (
-  key TEXT PRIMARY KEY, title TEXT NOT NULL, audience TEXT NOT NULL DEFAULT 'site',
-  status TEXT NOT NULL DEFAULT 'draft', definition TEXT NOT NULL, owner_id INTEGER, site_id INTEGER, rfi_ref TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, published_at TEXT);
-CREATE TABLE IF NOT EXISTS dashboard_definition_versions (
-  key TEXT NOT NULL REFERENCES dashboard_definitions(key) ON DELETE CASCADE, version INTEGER NOT NULL,
-  definition TEXT NOT NULL, note TEXT, created_by INTEGER, created_at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (key, version));`;
 
 const STATUSES = ['draft', 'review', 'published', 'retired'];
 
@@ -26,7 +19,7 @@ function makeDashboardStore(db, { isPg = false, now = () => new Date().toISOStri
   if (!db) throw new Error('dashboardStore needs a db handle');
   const P = (sql) => db.prepare(sql);
 
-  async function init() { if (!isPg) db.exec(SQLITE_DDL); }   // pg DDL = db/postgres/reports/016 (migrator)
+  async function init() {  }   // pg DDL = db/postgres/reports/016 (migrator)
 
   function row2def(r) {
     if (!r) return null;
@@ -34,7 +27,9 @@ function makeDashboardStore(db, { isPg = false, now = () => new Date().toISOStri
     try { definition = JSON.parse(r.definition); } catch (_) { definition = null; }
     return { key: r.key, title: r.title, audience: r.audience, status: r.status, owner_id: r.owner_id, site_id: r.site_id,
       rfi_ref: r.rfi_ref, created_at: r.created_at, updated_at: r.updated_at, published_at: r.published_at,
-      version: r.version == null ? null : Number(r.version), definition };
+      version: r.version == null ? null : Number(r.version), definition,
+      review_state: r.review_state || null, submitted_by: r.submitted_by == null ? null : Number(r.submitted_by), submitted_at: r.submitted_at || null,
+      updated_by: r.updated_by == null ? null : Number(r.updated_by), publish_override: r.publish_override ? JSON.parse(r.publish_override) : null };
   }
 
   const SELECT = `SELECT d.*, (SELECT MAX(version) FROM dashboard_definition_versions v WHERE v.key = d.key) AS version FROM dashboard_definitions d`;
@@ -63,27 +58,53 @@ function makeDashboardStore(db, { isPg = false, now = () => new Date().toISOStri
     const json = JSON.stringify(doc);
     const ts = now();
     if (existing) {
-      await P(`UPDATE dashboard_definitions SET title=?, audience=?, definition=?, site_id=?, updated_at=?, status = CASE WHEN status='retired' THEN 'draft' ELSE status END WHERE key=?`)
-        .run(doc.title, doc.audience || 'site', json, siteId == null ? existing.site_id : siteId, ts, doc.key);
+      // an edit withdraws a pending submission (G-24): what was reviewed is no longer what would go live
+      await P(`UPDATE dashboard_definitions SET title=?, audience=?, definition=?, site_id=?, updated_at=?, updated_by=?, review_state=NULL, submitted_by=NULL, submitted_at=NULL, status = CASE WHEN status='retired' THEN 'draft' ELSE status END WHERE key=?`)
+        .run(doc.title, doc.audience || 'site', json, siteId == null ? existing.site_id : siteId, ts, user ? user.id : null, doc.key);
     } else {
-      await P(`INSERT INTO dashboard_definitions (key, title, audience, status, definition, owner_id, site_id, created_at, updated_at) VALUES (?,?,?,'draft',?,?,?,?,?)`)
-        .run(doc.key, doc.title, doc.audience || 'site', json, user ? user.id : null, siteId, ts, ts);
+      await P(`INSERT INTO dashboard_definitions (key, title, audience, status, definition, owner_id, site_id, created_at, updated_at, updated_by) VALUES (?,?,?,'draft',?,?,?,?,?,?)`)
+        .run(doc.key, doc.title, doc.audience || 'site', json, user ? user.id : null, siteId, ts, ts, user ? user.id : null);
     }
     return get(doc.key);
   }
 
-  async function publish(key, { user, note = null } = {}) {
+  /** G-24 — mark the current draft as submitted for review by `user`. */
+  async function submit(key, { user } = {}) {
+    const d = await get(key); if (!d) return null;
+    const v = validateDashboard(d.definition);
+    if (!v.ok) { const e = new Error('cannot submit an invalid draft'); e.code = 'INVALID'; e.errors = v.errors; throw e; }
+    await P(`UPDATE dashboard_definitions SET review_state='submitted', submitted_by=?, submitted_at=? WHERE key=?`).run(user ? user.id : null, now(), key);
+    return get(key);
+  }
+  /** Restore version n as the DRAFT (the live snapshot is untouched; it must be submitted and published again). */
+  async function rollback(key, n, { user } = {}) {
+    const v = await version(key, n); if (!v) return null;
+    await P(`UPDATE dashboard_definitions SET definition=?, updated_at=?, updated_by=?, review_state=NULL, submitted_by=NULL, submitted_at=NULL WHERE key=?`).run(JSON.stringify(v.definition), now(), user ? user.id : null, key);
+    return get(key);
+  }
+
+  /**
+   * expect = { updated_at, submitted_at } as read when the publish decision was taken: the row is
+   * claimed only if it is still that exact draft (committee QA P1-1) — an edit or a re-submission in
+   * between makes the publish fail with STALE instead of publishing what nobody reviewed.
+   */
+  async function publish(key, { user, note = null, override = null, expect = null } = {}) {
     const d = await get(key);
     if (!d) return null;
+    if (expect && (!sameTs(d.updated_at, expect.updated_at) || !sameTs(d.submitted_at, expect.submitted_at))) throw stale();
     const v = validateDashboard(d.definition);
     if (!v.ok) { const e = new Error('cannot publish an invalid draft'); e.code = 'INVALID'; e.errors = v.errors; throw e; }
     const next = (d.version || 0) + 1;
     const ts = now();
+    const claim = await P(`UPDATE dashboard_definitions SET status='published', published_at=?, updated_at=?, review_state=NULL, submitted_by=NULL, submitted_at=NULL, publish_override=? WHERE key=? AND updated_at IS NOT DISTINCT FROM ? AND submitted_at IS NOT DISTINCT FROM ?`)
+      .run(ts, ts, override ? JSON.stringify(override) : null, key, d.updated_at == null ? null : d.updated_at, d.submitted_at == null ? null : d.submitted_at);
+    if (!claim || Number(claim.changes) !== 1) throw stale();
     await P(`INSERT INTO dashboard_definition_versions (key, version, definition, note, created_by, created_at) VALUES (?,?,?,?,?,?)`)
       .run(key, next, JSON.stringify(d.definition), note, user ? user.id : null, ts);
-    await P(`UPDATE dashboard_definitions SET status='published', published_at=?, updated_at=? WHERE key=?`).run(ts, ts, key);
     return get(key);
   }
+  function sameTs(a, b) { if (a == null || b == null) return a == null && b == null; const x = +new Date(a), y = +new Date(b); return Number.isFinite(x) && x === y; }
+  function stale() { const e = new Error('the draft changed since you opened it — reload and review it again'); e.code = 'STALE'; e.status = 409; e.expose = true; return e; }
 
   async function setStatus(key, status) {
     if (!STATUSES.includes(status)) throw new Error('bad status ' + status);
@@ -108,7 +129,11 @@ function makeDashboardStore(db, { isPg = false, now = () => new Date().toISOStri
     return v ? { ...d, definition: v.definition } : null;
   }
 
-  async function remove(key) { await P(`DELETE FROM dashboard_definitions WHERE key=? AND status IN ('draft','retired')`).run(key); if (!isPg) await P(`DELETE FROM dashboard_definition_versions WHERE key=? AND NOT EXISTS (SELECT 1 FROM dashboard_definitions WHERE key=?)`).run(key, key); }
+  async function remove(key) {
+    const ever = await P(`SELECT 1 AS x FROM dashboard_definitions WHERE key=? AND (published_at IS NOT NULL OR EXISTS (SELECT 1 FROM dashboard_definition_versions v WHERE v.key=dashboard_definitions.key))`).get(key);
+    if (ever) { const e = new Error('a definition that was ever published is retired, never deleted — its versions are evidence (committee audit P1-7)'); e.code = 'CONFLICT'; e.status = 409; e.expose = true; throw e; }
+    await P(`DELETE FROM dashboard_definitions WHERE key=? AND status IN ('draft','retired')`).run(key);
+  }
 
   /** Insert + publish the shipped definitions that do not exist yet (never overwrites a user's). */
   async function seed(defs, { note = 'seed' } = {}) {
@@ -122,7 +147,7 @@ function makeDashboardStore(db, { isPg = false, now = () => new Date().toISOStri
     return added;
   }
 
-  return { init, get, list, saveDraft, publish, setStatus, versions, version, published, remove, seed, STATUSES };
+  return { init, get, list, saveDraft, submit, rollback, publish, setStatus, versions, version, published, remove, seed, STATUSES };
 }
 
-module.exports = { makeDashboardStore, SQLITE_DDL, STATUSES };
+module.exports = { makeDashboardStore, STATUSES };

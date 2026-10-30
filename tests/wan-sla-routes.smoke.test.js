@@ -8,10 +8,6 @@
 // (best-effort, never 500); hostile/missing params never 500. sqlite-pinned. --test-force-exit.
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'wansla-smoke-'));
-process.env.ASSETS_BACKEND = 'sqlite';
-process.env.REPORTS_BACKEND = 'sqlite';
-process.env.MEETINGS_BACKEND = 'sqlite';
-process.env.INSPECTION_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'wansla-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'wansla-pass-0000';
 process.env.DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || 'wansla-key';
@@ -71,9 +67,9 @@ before(async () => {
     attribution_reason: 'test', network_id: 'N1', device_serial: 'Q2-XX', source: 'meraki_event', raw_json: null,
   });
 
-  const me = (rdb.listUsers() || []).find((u) => u.username === process.env.DASH_USER);
+  const me = ((await rdb.listUsers()) || []).find((u) => u.username === process.env.DASH_USER);
   assert.ok(me, 'seeded admin user exists');
-  rdb.setUserRoles(me.id, ['admin']);
+  (await rdb.setUserRoles(me.id, ['admin']));
   adminToken = (await rdb.login(process.env.DASH_USER, process.env.DASH_PASS)).token;
 
   await rdb.createUser({ username: 'wansla-super', full_name: 'WAN SLA Super', password: 'wansla-super-1111', role: 'super_admin' });

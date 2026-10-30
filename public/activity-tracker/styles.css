@@ -1185,3 +1185,14 @@ body {
   .dash-kpis { grid-template-columns: repeat(2, 1fr); }
   .dash-cards { grid-template-columns: repeat(2, 1fr); }
 }
+
+/* G17 — 390 px: the tab strip scrolls inside itself, cards never widen the page */
+@media (max-width: 640px) {
+  .tt-tabs { max-width: 100%; min-width: 0; }
+  .dash-card-block, .dash-card-block__head { min-width: 0; max-width: 100%; }
+  .dash-card-block__head { flex-wrap: wrap; }
+  .dash-charts { grid-template-columns: minmax(0, 1fr) !important; }
+  .dash-chart-card { min-width: 0; }
+  .dash-chart-card canvas { max-width: 100% !important; }
+  .dash-lb { min-width: 0; overflow-x: auto; }
+}

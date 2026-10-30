@@ -23,20 +23,20 @@ const get = (path) => fetch(base + path, { headers: { 'x-report-token': tok } })
 before(async () => {
   const { app } = require('../server');
   rdb = require('../reports-db');
-  const siteId = rdb.listSites()[0].id;
-  r30 = rdb.ensureReport(siteId, 2026, 30); r31 = rdb.ensureReport(siteId, 2026, 31); cur = rdb.ensureReport(siteId, 2026, 32);
-  rdb.saveActionItems(r30.id, [{ task: 'Câblage atelier', department: 'IT', status: 'open' }]);
-  const a = rdb.getReport(r30.id).action_items[0].uid;
-  rdb.saveActionItems(r31.id, [
+  const siteId = (await rdb.listSites())[0].id;
+  r30 = (await rdb.ensureReport(siteId, 2026, 30)); r31 = (await rdb.ensureReport(siteId, 2026, 31)); cur = (await rdb.ensureReport(siteId, 2026, 32));
+  (await rdb.saveActionItems(r30.id, [{ task: 'Câblage atelier', department: 'IT', status: 'open' }]));
+  const a = (await rdb.getReport(r30.id)).action_items[0].uid;
+  (await rdb.saveActionItems(r31.id, [
     { task: 'Câblage atelier', department: 'IT', status: 'closed', lineage: a },
     { task: 'Radio upgrade', department: 'IT', status: 'open' },
     { task: 'Vieux projet', department: 'IT', status: 'cancelled' },
     { task: 'VSAT', department: 'IT', status: 'in_progress' },
-  ]);
-  const d = rdb.getReport(r31.id).action_items.find(x => x.task === 'VSAT').uid;
-  rdb.saveActionItems(cur.id, [{ task: 'VSAT', department: 'IT', status: 'in_progress', lineage: d }]);
-  const me = rdb.listUsers().find(u => u.username === process.env.DASH_USER);
-  rdb.setUserRoles(me.id, ['super_admin']);
+  ]));
+  const d = (await rdb.getReport(r31.id)).action_items.find(x => x.task === 'VSAT').uid;
+  (await rdb.saveActionItems(cur.id, [{ task: 'VSAT', department: 'IT', status: 'in_progress', lineage: d }]));
+  const me = (await rdb.listUsers()).find(u => u.username === process.env.DASH_USER);
+  (await rdb.setUserRoles(me.id, ['super_admin']));
   tok = (await rdb.login(process.env.DASH_USER, process.env.DASH_PASS)).token;
   await new Promise(r => { server = http.createServer(app).listen(0, '127.0.0.1', r); });
   base = `http://127.0.0.1:${server.address().port}`;
@@ -60,7 +60,7 @@ test('actions-from marks each action importable or not, with the reason and its 
   assert.match(by['Radio upgrade'].group.code, /^#[0-9A-Z]{4}$/);
   const d30 = await get(`/api/reports/${cur.id}/actions-from/${r30.id}`);
   assert.equal(d30.actions[0].reason, 'closed_since');
-  assert.equal(d30.actions[0].closed_week, rdb.getReport(r31.id).week_label);
+  assert.equal(d30.actions[0].closed_week, (await rdb.getReport(r31.id)).week_label);
   assert.equal(d30.actions[0].group.weeks, 2);
 });
 
@@ -69,5 +69,5 @@ test('site-open-actions carries the group identity for the merge window', async 
   const vsat = actions.find(x => x.task === 'VSAT');
   assert.ok(vsat && vsat.group, 'group attached');
   assert.equal(vsat.group.weeks, 2);
-  assert.equal(vsat.group.first_week, rdb.getReport(r31.id).week_label);
+  assert.equal(vsat.group.first_week, (await rdb.getReport(r31.id)).week_label);
 });

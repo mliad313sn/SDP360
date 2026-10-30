@@ -2,7 +2,6 @@
 // V1a Task 5 — infra_metric_snapshots dual-backend upsert + read + idempotency.
 const os = require('os'), fs = require('fs'), path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || fs.mkdtempSync(path.join(os.tmpdir(), 'opm-snap-'));
-process.env.REPORTS_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'opm-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'opm-pass-0000';
 const { test } = require('node:test');

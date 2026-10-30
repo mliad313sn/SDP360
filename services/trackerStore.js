@@ -13,22 +13,6 @@
 const Defs = require('./trackerDefinitions');
 const Lock = require('../public/lib/trackerMonthLock');
 
-const SQLITE_DDL = `
-CREATE TABLE IF NOT EXISTS tracker_definitions (
-  key TEXT PRIMARY KEY, name TEXT NOT NULL, version INTEGER NOT NULL DEFAULT 1, status TEXT NOT NULL DEFAULT 'draft',
-  definition TEXT NOT NULL, owner_id INTEGER, rfi_ref TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, published_at TEXT);
-CREATE TABLE IF NOT EXISTS tracker_definition_versions (
-  key TEXT NOT NULL REFERENCES tracker_definitions(key) ON DELETE CASCADE, version INTEGER NOT NULL,
-  definition TEXT NOT NULL, note TEXT, created_by INTEGER, created_at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (key, version));
-CREATE TABLE IF NOT EXISTS tracker_entries (
-  key TEXT NOT NULL REFERENCES tracker_definitions(key) ON DELETE CASCADE, unit_code TEXT NOT NULL, item_code TEXT NOT NULL,
-  slot INTEGER NOT NULL, value REAL, note TEXT, source TEXT NOT NULL DEFAULT 'manual', updated_by INTEGER,
-  updated_at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (key, unit_code, item_code, slot));
-CREATE INDEX IF NOT EXISTS idx_tracker_entries_unit ON tracker_entries(key, unit_code);
-CREATE TABLE IF NOT EXISTS tracker_unit_targets (
-  key TEXT NOT NULL REFERENCES tracker_definitions(key) ON DELETE CASCADE, unit_code TEXT NOT NULL, item_code TEXT NOT NULL,
-  target REAL, active INTEGER NOT NULL DEFAULT 1, updated_at TEXT DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (key, unit_code, item_code));`;
 
 const STATUSES = ['draft', 'review', 'published', 'retired'];
 
@@ -49,13 +33,15 @@ function slotClosed(def, slot, now) { const c = slotCalendar(def, slot); return 
 function makeTrackerStore(db, { isPg = false, now = () => new Date().toISOString() } = {}) {
   if (!db) throw new Error('trackerStore needs a db handle');
   const P = (sql) => db.prepare(sql);
-  async function init() { if (!isPg) db.exec(SQLITE_DDL); }
+  async function init() {  }
 
   function row2def(r) {
     if (!r) return null;
     let definition = null; try { definition = JSON.parse(r.definition); } catch (_) { /* unreadable → null */ }
     return { key: r.key, name: r.name, status: r.status, owner_id: r.owner_id, rfi_ref: r.rfi_ref, created_at: r.created_at,
-      updated_at: r.updated_at, published_at: r.published_at, version: r.version == null ? null : Number(r.version), definition };
+      updated_at: r.updated_at, published_at: r.published_at, version: r.version == null ? null : Number(r.version), definition,
+      review_state: r.review_state || null, submitted_by: r.submitted_by == null ? null : Number(r.submitted_by), submitted_at: r.submitted_at || null,
+      updated_by: r.updated_by == null ? null : Number(r.updated_by), publish_override: r.publish_override ? JSON.parse(r.publish_override) : null };
   }
   const SELECT = `SELECT d.*, (SELECT MAX(version) FROM tracker_definition_versions v WHERE v.key = d.key) AS version FROM tracker_definitions d`;
 
@@ -73,25 +59,41 @@ function makeTrackerStore(db, { isPg = false, now = () => new Date().toISOString
     const existing = await get(doc.key);
     const json = JSON.stringify(doc), ts = now();
     if (existing) {
-      await P(`UPDATE tracker_definitions SET name=?, definition=?, rfi_ref=COALESCE(?, rfi_ref), updated_at=?, status = CASE WHEN status='retired' THEN 'draft' ELSE status END WHERE key=?`)
-        .run(doc.name, json, rfiRef, ts, doc.key);
+      // an edit withdraws a pending submission (G-23)
+      await P(`UPDATE tracker_definitions SET name=?, definition=?, rfi_ref=COALESCE(?, rfi_ref), updated_at=?, updated_by=?, review_state=NULL, submitted_by=NULL, submitted_at=NULL, status = CASE WHEN status='retired' THEN 'draft' ELSE status END WHERE key=?`)
+        .run(doc.name, json, rfiRef, ts, user ? user.id : null, doc.key);
     } else {
-      await P(`INSERT INTO tracker_definitions (key, name, status, definition, owner_id, rfi_ref, created_at, updated_at) VALUES (?,?,'draft',?,?,?,?,?)`)
-        .run(doc.key, doc.name, json, user ? user.id : null, rfiRef, ts, ts);
+      await P(`INSERT INTO tracker_definitions (key, name, status, definition, owner_id, rfi_ref, created_at, updated_at, updated_by) VALUES (?,?,'draft',?,?,?,?,?,?)`)
+        .run(doc.key, doc.name, json, user ? user.id : null, rfiRef, ts, ts, user ? user.id : null);
     }
     return get(doc.key);
   }
 
-  async function publish(key, { user, note = null } = {}) {
+  /** G-23 — mark the current draft as submitted for review by `user`. */
+  async function submit(key, { user } = {}) {
     const d = await get(key); if (!d) return null;
+    const v = Defs.validate(d.definition);
+    if (!v.ok) { const e = new Error('cannot submit an invalid draft'); e.code = 'INVALID'; e.errors = v.errors; throw e; }
+    await P(`UPDATE tracker_definitions SET review_state='submitted', submitted_by=?, submitted_at=? WHERE key=?`).run(user ? user.id : null, now(), key);
+    return get(key);
+  }
+
+  /** expect = { updated_at, submitted_at } read when the decision was taken — see dashboardStore.publish (QA P1-1). */
+  async function publish(key, { user, note = null, override = null, expect = null } = {}) {
+    const d = await get(key); if (!d) return null;
+    if (expect && (!sameTs(d.updated_at, expect.updated_at) || !sameTs(d.submitted_at, expect.submitted_at))) throw stale();
     const v = Defs.validate(d.definition);
     if (!v.ok) { const e = new Error('cannot publish an invalid draft'); e.code = 'INVALID'; e.errors = v.errors; throw e; }
     const next = (d.version || 0) + 1, ts = now();
     const snap = { ...d.definition, version: next };
+    const claim = await P(`UPDATE tracker_definitions SET status='published', version=?, definition=?, published_at=?, updated_at=?, review_state=NULL, submitted_by=NULL, submitted_at=NULL, publish_override=? WHERE key=? AND updated_at IS NOT DISTINCT FROM ? AND submitted_at IS NOT DISTINCT FROM ?`)
+      .run(next, JSON.stringify(snap), ts, ts, override ? JSON.stringify(override) : null, key, d.updated_at == null ? null : d.updated_at, d.submitted_at == null ? null : d.submitted_at);
+    if (!claim || Number(claim.changes) !== 1) throw stale();
     await P(`INSERT INTO tracker_definition_versions (key, version, definition, note, created_by, created_at) VALUES (?,?,?,?,?,?)`).run(key, next, JSON.stringify(snap), note, user ? user.id : null, ts);
-    await P(`UPDATE tracker_definitions SET status='published', version=?, definition=?, published_at=?, updated_at=? WHERE key=?`).run(next, JSON.stringify(snap), ts, ts, key);
     return get(key);
   }
+  function sameTs(a, b) { if (a == null || b == null) return a == null && b == null; const x = +new Date(a), y = +new Date(b); return Number.isFinite(x) && x === y; }
+  function stale() { const e = new Error('the draft changed since you opened it — reload and review it again'); e.code = 'STALE'; e.status = 409; e.expose = true; return e; }
   async function setStatus(key, status) {
     if (!STATUSES.includes(status)) throw new Error('bad status ' + status);
     await P(`UPDATE tracker_definitions SET status=?, updated_at=? WHERE key=?`).run(status, now(), key); return get(key);
@@ -104,7 +106,7 @@ function makeTrackerStore(db, { isPg = false, now = () => new Date().toISOString
   /** Roll the draft back to a published version (the snapshot becomes the new draft; publish again to make it live). */
   async function rollback(key, n, { user } = {}) {
     const v = await version(key, n); if (!v) return null;
-    await P(`UPDATE tracker_definitions SET definition=?, updated_at=? WHERE key=?`).run(JSON.stringify(v.definition), now(), key);
+    await P(`UPDATE tracker_definitions SET definition=?, updated_at=?, updated_by=?, review_state=NULL, submitted_by=NULL, submitted_at=NULL WHERE key=?`).run(JSON.stringify(v.definition), now(), user ? user.id : null, key);
     return get(key);
   }
   async function published(key) {
@@ -112,6 +114,8 @@ function makeTrackerStore(db, { isPg = false, now = () => new Date().toISOString
     const v = await version(key, d.version); return v ? { ...d, definition: v.definition } : null;
   }
   async function remove(key) {
+    const ever = await P(`SELECT 1 AS x FROM tracker_definitions WHERE key=? AND (published_at IS NOT NULL OR EXISTS (SELECT 1 FROM tracker_definition_versions v WHERE v.key=tracker_definitions.key))`).get(key);
+    if (ever) { const e = new Error('a definition that was ever published is retired, never deleted — its versions are evidence (committee audit P1-7)'); e.code = 'CONFLICT'; e.status = 409; e.expose = true; throw e; }
     for (const t of ['tracker_entries', 'tracker_unit_targets', 'tracker_definition_versions']) await P(`DELETE FROM ${t} WHERE key=? AND EXISTS (SELECT 1 FROM tracker_definitions WHERE key=? AND status IN ('draft','retired'))`).run(key, key);
     await P(`DELETE FROM tracker_definitions WHERE key=? AND status IN ('draft','retired')`).run(key);
   }
@@ -146,14 +150,9 @@ function makeTrackerStore(db, { isPg = false, now = () => new Date().toISOString
       if (lockClosed && slotClosed(d, slot, at)) { blocked++; continue; }
       const val = c.value == null || c.value === '' ? null : Number(c.value);
       if (val != null && !Number.isFinite(val)) { rejected++; continue; }
-      if (isPg) {
-        await P(`INSERT INTO tracker_entries (key, unit_code, item_code, slot, value, note, source, updated_by, updated_at) VALUES (?,?,?,?,?,?,?,?,?)
-                 ON CONFLICT (key, unit_code, item_code, slot) DO UPDATE SET value=EXCLUDED.value, note=EXCLUDED.note, source=EXCLUDED.source, updated_by=EXCLUDED.updated_by, updated_at=EXCLUDED.updated_at`)
-          .run(key, c.unit, c.item, slot, val, c.note == null ? null : String(c.note).slice(0, 500), source, user ? user.id : null, ts);
-      } else {
-        await P(`INSERT OR REPLACE INTO tracker_entries (key, unit_code, item_code, slot, value, note, source, updated_by, updated_at) VALUES (?,?,?,?,?,?,?,?,?)`)
-          .run(key, c.unit, c.item, slot, val, c.note == null ? null : String(c.note).slice(0, 500), source, user ? user.id : null, ts);
-      }
+      await P(`INSERT INTO tracker_entries (key, unit_code, item_code, slot, value, note, source, updated_by, updated_at) VALUES (?,?,?,?,?,?,?,?,?)
+               ON CONFLICT (key, unit_code, item_code, slot) DO UPDATE SET value=EXCLUDED.value, note=EXCLUDED.note, source=EXCLUDED.source, updated_by=EXCLUDED.updated_by, updated_at=EXCLUDED.updated_at`)
+        .run(key, c.unit, c.item, slot, val, c.note == null ? null : String(c.note).slice(0, 500), source, user ? user.id : null, ts);
       saved++;
     }
     return { saved, blocked, rejected };
@@ -172,8 +171,7 @@ function makeTrackerStore(db, { isPg = false, now = () => new Date().toISOString
       if (Array.isArray(allowedUnits) && !allowedUnits.includes(t.unit)) continue;
       const tgt = t.target == null || t.target === '' ? null : Number(t.target);
       const act = t.active === false || t.active === 0 ? 0 : 1;
-      if (isPg) await P(`INSERT INTO tracker_unit_targets (key, unit_code, item_code, target, active, updated_at) VALUES (?,?,?,?,?,?) ON CONFLICT (key, unit_code, item_code) DO UPDATE SET target=EXCLUDED.target, active=EXCLUDED.active, updated_at=EXCLUDED.updated_at`).run(key, t.unit, t.item, tgt, act, ts);
-      else await P(`INSERT OR REPLACE INTO tracker_unit_targets (key, unit_code, item_code, target, active, updated_at) VALUES (?,?,?,?,?,?)`).run(key, t.unit, t.item, tgt, act, ts);
+      await P(`INSERT INTO tracker_unit_targets (key, unit_code, item_code, target, active, updated_at) VALUES (?,?,?,?,?,?) ON CONFLICT (key, unit_code, item_code) DO UPDATE SET target=EXCLUDED.target, active=EXCLUDED.active, updated_at=EXCLUDED.updated_at`).run(key, t.unit, t.item, tgt, act, ts);
       saved++;
     }
     return { saved };
@@ -209,7 +207,7 @@ function makeTrackerStore(db, { isPg = false, now = () => new Date().toISOString
     return added;
   }
 
-  return { init, get, list, saveDraft, publish, setStatus, versions, version, rollback, published, remove, entries, saveEntries, targets, saveTargets, mergeTargets, scoreTracker, seed, slotCalendar, slotClosed, STATUSES };
+  return { init, get, list, saveDraft, submit, publish, setStatus, versions, version, rollback, published, remove, entries, saveEntries, targets, saveTargets, mergeTargets, scoreTracker, seed, slotCalendar, slotClosed, STATUSES };
 }
 
-module.exports = { makeTrackerStore, SQLITE_DDL, STATUSES, slotCalendar, slotClosed };
+module.exports = { makeTrackerStore, STATUSES, slotCalendar, slotClosed };

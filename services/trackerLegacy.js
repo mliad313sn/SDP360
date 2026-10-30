@@ -24,6 +24,7 @@ function importLegacy(D, year, opts = {}) {
     D.activities.forEach((a, i) => {
       const code = codeOf.get(i); if (!code) return;
       const t = tg[i] || {};
+      // eslint-disable-next-line security/detect-unsafe-regex -- reviewed (consolidation 2026-10-28): anchored, \d+ and \.\d+ disjoint, linear
       const num = t.target != null && /^-?\d+(\.\d+)?$/.test(String(t.target).trim()) ? Number(t.target) : null;
       targets.push({ unit: u, item: code, target: num, active: t.active !== false && t.active !== 0 });
       const months = (inputs[u] || [])[i] || [];
@@ -61,7 +62,7 @@ function compare(D, year, legacyScore, { upToMonth = 12, tolerance = 0.1 } = {})
   const deltas = rows.map(r => r.delta_pt).filter(d => d != null);
   const maxDelta = deltas.length ? Math.max(...deltas) : 0;
   const csv = ['site,month,legacy_pct,engine_pct,legacy_green,engine_green,delta_pt,ok']
-    .concat(rows.map(r => [r.site, r.month, r.legacy_pct ?? '', r.engine_pct ?? '', r.legacy_g, r.engine_g, r.delta_pt ?? '', r.ok ? 'yes' : 'no'].join(','))).join('\n');
+    .concat(rows.map(r => [r.site, r.month, r.legacy_pct ?? '', r.engine_pct ?? '', r.legacy_g, r.engine_g, r.delta_pt ?? '', r.ok ? 'yes' : 'no'].map(require('../public/lib/csvSafe').neutralize).join(','))).join('\n');
   return { rows, maxDelta, ok: rows.every(r => r.ok), tolerance, csv, definition: imp.definition };
 }
 

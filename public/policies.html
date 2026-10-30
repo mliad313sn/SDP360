@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Governance policies — Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="admin|committee-member" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<style nonce="%%CSP_NONCE%%">
+  body { margin: 0; background: var(--color-bg, #F4F5F7); color: var(--color-text-strong, #1F2A33); font-family: var(--font-sans, sans-serif); font-size: 14px; }
+  .gp-wrap { max-width: 1300px; margin: 0 auto; padding: 24px 28px 48px; }
+  .gp-card { background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA); border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; overflow-x: auto; }
+  @media (max-width: 640px) { .gp-card { padding: 14px 12px; } .gp-card table { min-width: 520px; } }
+  h1 { margin: 0 0 6px; font-size: 22px; color: var(--edv-slate, #3A4A60); } h2 { font-size: 16px; margin: 0 0 8px; text-transform: capitalize; }
+  .gp-muted { color: #5B6573; font-size: 12.5px; }
+  table { width: 100%; border-collapse: collapse; } td, th { padding: 7px 8px; border-bottom: 1px solid #EEF0F3; text-align: left; font-size: 13px; vertical-align: top; }
+  .gp-key { font-family: var(--font-mono, monospace); font-size: 12px; color: #3A4A60; }
+  .gp-tag { display: inline-block; border-radius: 999px; padding: 1px 8px; font-size: 11px; font-weight: 700; background: rgba(217,0,56,.10); color: #A0002C; margin-left: 4px; }
+  .gp-src { font-size: 11px; color: #5B6573; }
+  input, select, button { font: inherit; } input, select { padding: 4px 6px; border: 1px solid #D0D5DD; border-radius: 6px; }
+  button { border: 1px solid #D0D5DD; background: #fff; border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+  .gp-bar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .gp-plain h2 { text-transform: none; }
+  .gp-msg { min-height: 18px; font-size: 13px; } .gp-err { color: #A0002C; } .gp-ok { color: #1A6B3C; }
+  body.lang-fr [data-lng="en"], body:not(.lang-fr) [data-lng="fr"] { display: none; }
+</style>
+</head>
+<body>
+<a class="edv-skip" href="#main">Skip to content</a>
+<div id="__shell" data-section="operations" data-current="policies"></div>
+<main id="main" class="gp-wrap">
+  <div class="gp-card">
+    <h1><span data-lng="en">Governance policies</span><span data-lng="fr">Politiques de gouvernance</span></h1>
+    <p class="gp-muted" data-lng="en">Every regulation rule the platform applies, with its default. Set a value for the whole platform or for one site; a site value wins over the platform value. Relaxing a <span class="gp-tag">protected</span> rule needs two super_admins (one proposes, another approves) and a written reason; it is temporary and logged as a risk. Every change is kept in the history.</p>
+    <p class="gp-muted" data-lng="fr">Chaque règle appliquée par la plateforme, avec sa valeur par défaut. Fixez une valeur pour toute la plateforme ou pour un site ; la valeur du site l'emporte. Assouplir une règle <span class="gp-tag">protégée</span> exige deux super_admins (l'un propose, l'autre approuve) et un motif écrit ; c'est temporaire et journalisé comme risque. Chaque changement est conservé dans l'historique.</p>
+    <div class="gp-bar">
+      <label for="gpScope"><span data-lng="en">Scope</span><span data-lng="fr">Portée</span></label>
+      <select id="gpScope"><option value="global">Platform / Plateforme</option></select>
+      <label for="gpLang">Language / Langue</label>
+      <select id="gpLang"><option value="en">English</option><option value="fr">Français</option></select>
+    </div>
+    <div class="gp-bar" id="gpProfileBar" hidden>
+      <label for="gpProfile"><span data-lng="en">Site profile</span><span data-lng="fr">Profil de site</span></label>
+      <select id="gpProfile"></select>
+      <button type="button" id="gpProfileApply"><span data-lng="en">Apply to this site</span><span data-lng="fr">Appliquer à ce site</span></button>
+      <span class="gp-muted" id="gpProfileDesc"></span>
+    </div>
+    <div class="gp-msg" id="gpMsg" role="status" aria-live="polite"></div>
+  </div>
+  <div id="gpAreas"></div>
+  <div class="gp-card gp-plain" id="gpPropBody">
+    <h2><span data-lng="en">Proposals awaiting a second super_admin</span><span data-lng="fr">Propositions en attente d'un second super_admin</span></h2>
+    <p class="gp-muted" data-lng="en">Relaxing a protected rule takes two people: one proposes, another approves or rejects. A proposal lapses after 7 days.</p>
+    <p class="gp-muted" data-lng="fr">Assouplir une règle protégée demande deux personnes : l'une propose, une autre approuve ou refuse. Une proposition expire après 7 jours.</p>
+    <table><thead><tr><th><span data-lng="en">When</span><span data-lng="fr">Date</span></th><th><span data-lng="en">Scope</span><span data-lng="fr">Portée</span></th><th><span data-lng="en">Rule</span><span data-lng="fr">Règle</span></th><th><span data-lng="en">New value</span><span data-lng="fr">Nouvelle valeur</span></th><th><span data-lng="en">Proposal</span><span data-lng="fr">Proposition</span></th><th></th></tr></thead><tbody id="gpProp"></tbody></table>
+  </div>
+  <div class="gp-card gp-plain">
+    <h2><span data-lng="en">Sites: country and business unit</span><span data-lng="fr">Sites : pays et unité d'affaires</span></h2>
+    <p class="gp-muted" data-lng="en">A rule set for a country or a business unit applies to its sites unless a site sets its own value (site → country → business unit → platform). Empty = not grouped.</p>
+    <p class="gp-muted" data-lng="fr">Une règle fixée pour un pays ou une unité s'applique à ses sites, sauf valeur propre au site (site → pays → unité → plateforme). Vide = non rattaché.</p>
+    <table><thead><tr><th>Site</th><th><span data-lng="en">Country</span><span data-lng="fr">Pays</span></th><th><span data-lng="en">Business unit</span><span data-lng="fr">Unité d'affaires</span></th><th></th></tr></thead><tbody id="gpHier"></tbody></table>
+  </div>
+  <div class="gp-card gp-plain" id="gpRoles"></div>
+  <div class="gp-card">
+    <h2><span data-lng="en">History</span><span data-lng="fr">Historique</span></h2>
+    <p class="gp-muted"><a href="/api/governance/oversight?format=csv" id="gpOversight"><span data-lng="en">Download the oversight register (relaxations, overrides, values that differ from the defaults) — CSV</span><span data-lng="fr">Télécharger le registre de supervision (assouplissements, dérogations, valeurs différentes du défaut) — CSV</span></a></p>
+    <table><thead><tr><th><span data-lng="en">When</span><span data-lng="fr">Date</span></th><th><span data-lng="en">Scope</span><span data-lng="fr">Portée</span></th><th><span data-lng="en">Rule</span><span data-lng="fr">Règle</span></th><th><span data-lng="en">Before → after</span><span data-lng="fr">Avant → après</span></th><th><span data-lng="en">By</span><span data-lng="fr">Par</span></th><th><span data-lng="en">Reason</span><span data-lng="fr">Motif</span></th></tr></thead><tbody id="gpHist"></tbody></table>
+  </div>
+</main>
+<script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/errorText.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/policiesRoles.js" defer></script>
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+  function hdr(extra) {
+    const h = extra || {}; const at = window.__authToken; let tok = null;
+    if (typeof at === 'function') { try { tok = at(); } catch (_) {} } else if (typeof at === 'string' && at) tok = at;
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const $ = (id) => document.getElementById(id);
+  async function api(method, url, body) {
+    const r = await fetch(url, { method, headers: hdr(body ? { 'content-type': 'application/json' } : {}), body: body ? JSON.stringify(body) : undefined });
+    const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status)); return Object.assign(j, { _status: r.status });
+  }
+  let data = null, lang = 'en';
+  try { lang = localStorage.getItem('sdp_lang') || localStorage.getItem('policies_lang') || 'en'; } catch (_) {}
+  const L = {
+    en: { inherit: 'inherit', on: 'on', off: 'off', protected: 'protected', relaxed: 'relaxed', def: 'default', platform: 'platform', effective: 'effective', rule: 'Rule', thisSite: 'This site', platformValue: 'Platform value', save: 'Save', platformOnly: 'Platform-wide rule only',
+      reasonTitle: 'Reason for the change', reasonLabel: 'Why is this value changing? (kept in the history)', relaxNote: 'This makes a protected rule less strict: another super_admin must approve it, and it reverts after the number of days below.',
+      days: 'Days before it reverts (max 90 by default)', pending: (id) => `Proposal #${id} recorded — another super_admin must approve it before it applies.`, relaxedRisk: ' (relaxed — logged as a risk)',
+      approve: 'Approve', reject: 'Reject', decideTitle: (d) => (d === 'approve' ? 'Approve this relaxation' : 'Reject this proposal'), decideLabel: 'Reason for your decision', none: 'No pending proposal.', proposedBy: 'proposed by', until: 'until',
+      areas: { governance: 'governance', reports: 'reports', freshness: 'freshness', publication: 'publication', meetings: 'meetings', handoffs: 'handoffs', commitments: 'commitments', calendar: 'working calendar' } },
+    fr: { inherit: 'hériter', on: 'activé', off: 'désactivé', protected: 'protégée', relaxed: 'assouplie', def: 'défaut', platform: 'plateforme', effective: 'appliquée', rule: 'Règle', thisSite: 'Ce site', platformValue: 'Valeur plateforme', save: 'Enregistrer', platformOnly: 'Règle de plateforme uniquement',
+      reasonTitle: 'Motif du changement', reasonLabel: 'Pourquoi cette valeur change-t-elle ? (conservé dans l\'historique)', relaxNote: 'Cette modification assouplit une règle protégée : un autre super_admin doit l\'approuver, et elle prend fin après le nombre de jours ci-dessous.',
+      days: 'Jours avant le retour à la règle stricte (90 au plus par défaut)', pending: (id) => `Proposition n° ${id} enregistrée — un autre super_admin doit l'approuver avant qu'elle s'applique.`, relaxedRisk: ' (assouplie — journalisée comme risque)',
+      approve: 'Approuver', reject: 'Refuser', decideTitle: (d) => (d === 'approve' ? 'Approuver cet assouplissement' : 'Refuser cette proposition'), decideLabel: 'Motif de votre décision', none: 'Aucune proposition en attente.', proposedBy: 'proposée par', until: 'jusqu\'au',
+      areas: { governance: 'gouvernance', reports: 'rapports', freshness: 'fraîcheur des données', publication: 'publication', meetings: 'réunions', handoffs: 'demandes inter-services', commitments: 'engagements', calendar: 'calendrier ouvré' } },
+  };
+  const t = () => L[lang === 'fr' ? 'fr' : 'en'];
+  const msg = (x, ok) => { $('gpMsg').className = 'gp-msg ' + (ok ? 'gp-ok' : 'gp-err'); $('gpMsg').textContent = !ok && lang === 'fr' && window.ErrorText ? window.ErrorText.fr(x) : x; };
+  const fmt = (v) => (v === undefined ? '—' : typeof v === 'boolean' ? (v ? t().on : t().off) : String(v));
+  function current(p, scope) { if (scope === 'global') return p.global; if (/^(country|bu):/.test(scope)) return p.groups ? p.groups[scope] : undefined; const sid = scope.split(':')[1]; return p.sites ? p.sites[sid] : undefined; }
+  function control(p, scope, val) {
+    const id = 'v-' + p.key.replace(/\W/g, '_');
+    const dis = data.can_write ? '' : ' disabled';
+    if (p.type === 'bool') return `<select id="${id}" aria-label="${esc(p.key)}"${dis}><option value="">${t().inherit}</option><option value="true"${val === true ? ' selected' : ''}>${t().on}</option><option value="false"${val === false ? ' selected' : ''}>${t().off}</option></select>`;
+    return `<input id="${id}" type="number" step="${p.type === 'int' ? 1 : 0.25}"${p.min != null ? ` min="${p.min}"` : ''}${p.max != null ? ` max="${p.max}"` : ''} value="${val === undefined ? '' : esc(val)}" placeholder="${t().inherit}" aria-label="${esc(p.key)}"${dis}>`;
+  }
+  function render() {
+    const scope = $('gpScope').value; const site = scope !== 'global'; const T = t();
+    $('gpAreas').innerHTML = data.areas.map((a) => {
+      const rows = data.policies.filter((p) => p.area === a).map((p) => {
+        const label = `<div><strong>${esc(lang === 'fr' ? p.fr : p.en)}</strong></div><div class="gp-key">${esc(p.key)}${p.protected ? `<span class="gp-tag">${T.protected}</span>` : ''}</div>`;
+        if (site && !p.site_scoped) return `<tr><td>${label}</td><td colspan="3" class="gp-muted">${T.platformOnly} — ${esc(fmt(p.effective))}</td></tr>`;
+        const val = current(p, scope);
+        return `<tr><td>${label}${p.min != null ? `<div class="gp-src">${p.min} – ${p.max}</div>` : ''}</td>
+          <td>${esc(fmt(p.default))}<div class="gp-src">${T.def}</div></td>
+          <td>${esc(fmt(site ? (p.global !== undefined ? p.global : p.default) : p.effective))}<div class="gp-src">${site ? T.platform : T.effective}</div></td>
+          <td>${control(p, scope, val)} ${data.can_write ? `<button type="button" data-save="${esc(p.key)}">${T.save}</button>` : ''}</td></tr>`;
+      }).join('');
+      return `<div class="gp-card"><h2>${esc(T.areas[a] || a)}</h2><table><thead><tr><th>${T.rule}</th><th>${T.def}</th><th>${site ? T.platform : T.effective}</th><th>${site ? T.thisSite : T.platformValue}</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    }).join('');
+  }
+  async function loadProposals() {
+    const T = t();
+    try {
+      const p = await api('GET', '/api/governance/policies/proposals');
+      $('gpProp').innerHTML = p.proposals.length ? p.proposals.map((x) => `<tr><td>${esc(String(x.proposed_at).slice(0, 16).replace('T', ' '))}</td><td>${esc(x.scope)}</td><td class="gp-key">${esc(x.key)}</td><td>${esc(fmt(x.value === null ? undefined : x.value))}</td><td>${T.proposedBy} ${esc(x.proposer)}<div class="gp-src">${esc(x.reason)}</div></td>
+        <td>${data.is_super ? `<button type="button" data-decide="approve" data-id="${Number(x.id)}">${T.approve}</button> <button type="button" data-decide="reject" data-id="${Number(x.id)}">${T.reject}</button>` : ''}</td></tr>`).join('') : `<tr><td colspan="6" class="gp-muted">${T.none}</td></tr>`;
+    } catch (e) { $('gpProp').innerHTML = `<tr><td colspan="6" class="gp-err">${esc(e.message)}</td></tr>`; }
+  }
+  async function load() {
+    try {
+      data = await api('GET', '/api/governance/policies');
+      if ($('gpScope').options.length === 1) {
+        // committee #49: country / business-unit scopes sit between the site and the platform
+        for (const g of data.groups || []) $('gpScope').add(new Option((g.startsWith('country:') ? (lang === 'fr' ? 'Pays — ' : 'Country — ') : (lang === 'fr' ? 'Unité — ' : 'Business unit — ')) + g.split(':')[1], g));
+        for (const s of data.sites) $('gpScope').add(new Option('Site — ' + s.name, 'site:' + s.id));
+      }
+      renderHier();
+      render(); loadProposals(); profileBar();
+      const h = await api('GET', '/api/governance/policies/history');
+      $('gpHist').innerHTML = h.history.map((x) => `<tr><td>${esc(String(x.at).slice(0, 16).replace('T', ' '))}</td><td>${esc(x.scope)}</td><td class="gp-key">${esc(x.key)}${x.relaxes ? `<span class="gp-tag">${t().relaxed}</span>` : ''}</td><td>${esc(fmt(x.old_value === null ? undefined : x.old_value))} → ${esc(fmt(x.new_value === null ? undefined : x.new_value))}</td><td>${esc(x.actor)}${x.proposer && x.approver ? `<div class="gp-src">${esc(x.proposer)} → ${esc(x.approver)}</div>` : ''}</td><td>${esc(x.reason)}</td></tr>`).join('') || '<tr><td colspan="6" class="gp-muted">—</td></tr>';
+    } catch (e) { msg(e.message); }
+  }
+  // a client-side guess, only to word the dialog — the server decides what is a relaxation
+  function looksRelaxing(p, before, after) {
+    if (!p.protected || after === undefined || before === after) return false;
+    if (p.type === 'bool') return before === true && after === false;
+    return /_min$/.test(p.key) ? Number(after) < Number(before) : /freshness|grace/.test(p.key) ? Number(after) > Number(before) : false;
+  }
+  $('gpAreas').addEventListener('click', async (ev) => {
+    const b = ev.target.closest('button[data-save]'); if (!b) return;
+    const T = t(); const key = b.dataset.save; const p = data.policies.find((x) => x.key === key);
+    const el = $('v-' + key.replace(/\W/g, '_')); const raw = el.value;
+    const value = raw === '' ? null : p.type === 'bool' ? raw === 'true' : Number(raw);
+    const scope = $('gpScope').value; const before = scope === 'global' ? p.effective : (current(p, scope) !== undefined ? current(p, scope) : (p.global !== undefined ? p.global : p.default));
+    const relax = looksRelaxing(p, before, value === null ? undefined : value);
+    const fields = [{ name: 'reason', label: (relax ? T.relaxNote + ' ' : '') + T.reasonLabel, min: relax ? 10 : 3, multiline: true }];
+    if (relax) fields.push({ name: 'days', label: T.days, type: 'number', value: 90, optional: true });
+    const f = await window.ReasonDialog.form({ title: T.reasonTitle + ' — ' + key, fields, lang }); if (!f) return;
+    try {
+      const r = await api('PUT', '/api/governance/policies', { scope, key, value, reason: f.reason, expires_days: f.days ? Number(f.days) : undefined });
+      if (r.pending) msg(T.pending(r.pending.id), true);
+      else msg(`${key}: ${fmt(r.change.before)} → ${fmt(r.change.after)}${r.change.relaxes ? T.relaxedRisk : ''}${r.change.expires_at ? ` · ${T.until} ${String(r.change.expires_at).slice(0, 10)}` : ''}`, true);
+      load();
+    } catch (e) { msg(e.message); }
+  });
+  $('gpPropBody').addEventListener('click', async (ev) => {
+    const b = ev.target.closest('button[data-decide]'); if (!b) return;
+    const T = t(); const d = b.dataset.decide;
+    const reason = await window.ReasonDialog.ask({ title: T.decideTitle(d), label: T.decideLabel, min: 3, lang }); if (reason == null) return;
+    try { await api('POST', `/api/governance/policies/proposals/${encodeURIComponent(b.dataset.id)}/${d}`, { reason }); load(); } catch (e) { msg(e.message); }
+  });
+  // site profiles: one action, rule by rule through the guardrails (relaxations become proposals)
+  let profiles = [];
+  function profileBar() {
+    const site = /^site:/.test($('gpScope').value); $('gpProfileBar').hidden = !site || !data || !data.can_write || !profiles.length;
+    const pr = profiles.find((x) => x.name === $('gpProfile').value); $('gpProfileDesc').textContent = pr ? (lang === 'fr' ? pr.fr : pr.en) : '';
+  }
+  api('GET', '/api/governance/profiles').then((j) => { profiles = j.profiles || []; for (const p of profiles) $('gpProfile').add(new Option(p.name.replace('_', ' '), p.name)); profileBar(); }).catch(() => {});
+  $('gpProfile').addEventListener('change', profileBar);
+  $('gpProfileApply').addEventListener('click', async () => {
+    const T = t(); const site = Number($('gpScope').value.split(':')[1]);
+    const reason = await window.ReasonDialog.ask({ title: (lang === 'fr' ? 'Appliquer le profil ' : 'Apply profile ') + $('gpProfile').value, label: T.reasonLabel, min: 3, lang }); if (!reason) return;
+    try {
+      const r = await api('POST', '/api/governance/policies/profile', { site_id: site, profile: $('gpProfile').value, reason });
+      const n = (k) => r.results.filter((x) => x.result === k).length;
+      msg(lang === 'fr' ? `Profil appliqué : ${n('applied')} règle(s) changée(s), ${n('pending')} en attente d'un second super_admin, ${n('unchanged')} inchangée(s), ${n('error')} refusée(s).` : `Profile applied: ${n('applied')} changed, ${n('pending')} awaiting a second super_admin, ${n('unchanged')} unchanged, ${n('error')} refused.`, n('error') === 0);
+      load();
+    } catch (e) { msg(e.message); }
+  });
+  // site → country / business unit (super_admin): what a group scope covers
+  function renderHier() {
+    const fr = lang === 'fr'; const canW = !!data.is_super;
+    $('gpHier').innerHTML = data.sites.map((s) => `<tr><td>${esc(s.name)}</td>
+      <td><input data-hc="${Number(s.id)}" value="${esc(s.country || '')}" placeholder="BF" size="6" aria-label="${fr ? 'Pays' : 'Country'} ${esc(s.name)}"${canW ? '' : ' disabled'}></td>
+      <td><input data-hb="${Number(s.id)}" value="${esc(s.business_unit || '')}" placeholder="WA" size="10" aria-label="${fr ? 'Unité' : 'Business unit'} ${esc(s.name)}"${canW ? '' : ' disabled'}></td>
+      <td>${canW ? `<button type="button" data-hier="${Number(s.id)}">${t().save}</button>` : ''}</td></tr>`).join('');
+  }
+  $('gpHier').addEventListener('click', async (ev) => {
+    const b = ev.target.closest('button[data-hier]'); if (!b) return; const id = b.dataset.hier;
+    const reason = await window.ReasonDialog.ask({ title: (lang === 'fr' ? 'Rattachement du site' : 'Site grouping'), label: t().reasonLabel, min: 5, lang }); if (reason == null) return;
+    try {
+      await api('PUT', `/api/governance/sites/${encodeURIComponent(id)}/hierarchy`, { country: document.querySelector(`[data-hc="${id}"]`).value, business_unit: document.querySelector(`[data-hb="${id}"]`).value, reason });
+      msg(lang === 'fr' ? 'Rattachement enregistré.' : 'Grouping saved.', true);
+      while ($('gpScope').options.length > 1) $('gpScope').remove(1); load();
+    } catch (e) { msg(e.message); }
+  });
+  $('gpScope').addEventListener('change', () => { render(); profileBar(); });
+  $('gpLang').addEventListener('change', () => { lang = $('gpLang').value; document.body.classList.toggle('lang-fr', lang === 'fr'); document.documentElement.lang = lang; try { localStorage.setItem('policies_lang', lang); localStorage.setItem('sdp_lang', lang); } catch (_) {} if (data) { render(); load(); } });
+  $('gpLang').value = lang === 'fr' ? 'fr' : 'en'; document.body.classList.toggle('lang-fr', lang === 'fr'); document.documentElement.lang = lang;
+  load();
+})();
+</script>
+</body>
+</html>

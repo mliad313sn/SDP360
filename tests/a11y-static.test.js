@@ -8,7 +8,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const PUB = path.join(__dirname, '..', 'public');
-const NEW_PAGES = ['dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html', 'cockpit.html', 'portfolio.html', 'rfi.html', 'report-studio.html', 'notifications.html', 'integrations.html', 'field/index.html'];
+const NEW_PAGES = ['dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html', 'cockpit.html', 'portfolio.html', 'rfi.html', 'report-studio.html', 'notifications.html', 'integrations.html', 'field/index.html', 'handoffs.html', 'policies.html'];
 
 for (const f of NEW_PAGES) {
   test(`${f}: accessibility floor`, () => {

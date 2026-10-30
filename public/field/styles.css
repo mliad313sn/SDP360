@@ -20,3 +20,5 @@ nav.tabs button { border:0; border-radius:0; min-height:60px; font-size:12px; di
 .photos img { width:72px; height:72px; object-fit:cover; border-radius:8px; margin:0 6px 6px 0; } body.lowbw .photos img { display:none; }
 .checklist .ci { display:grid; grid-template-columns:1fr auto; gap:8px; align-items:center; padding:8px 0; border-bottom:1px solid var(--line); } .seg { display:flex; gap:4px; } .seg button { min-height:40px; padding:6px 10px; font-size:13px; } .seg button[aria-pressed="true"] { background:var(--slate); color:#fff; }
 .hidden { display:none !important; }
+.lang{display:inline-flex;gap:2px;margin-right:6px}.lang-b{min-height:32px;padding:2px 8px;font-size:.8rem}.lang-b[aria-pressed="true"]{font-weight:700;text-decoration:underline}
+.asof.warn, #asof.warn { color: var(--amber); font-weight: 700; }

@@ -140,7 +140,13 @@ function copyOffsite(file, offsitePath, { fsx = fs } = {}) {
 async function runBackup({ dir, keep = 14, spawn, env = process.env, fsx = fs, offsitePath = '', log = console.warn } = {}) {
   if (!env.PG_URL && !env.DATABASE_URL) return { skipped: true, reason: 'no PG_URL' };
   fsx.mkdirSync(dir, { recursive: true });
-  const { file } = planBackup({ dir });
+  // two backups in the same second (a pre-restore point right after a manual backup) must never
+  // share a name — the second would silently overwrite the first
+  let { file } = planBackup({ dir });
+  for (let i = 0; i < 3 && EXTENSIONS.some((e) => fsx.existsSync(file.replace(/\.sql$/, e))); i++) {
+    const until = Date.now() + 1100; while (Date.now() < until) { /* next second */ }
+    ({ file } = planBackup({ dir }));
+  }
   const run = spawn || ((cmd, args) => require('child_process').spawnSync(cmd, args, { env, encoding: 'utf8', timeout: 30 * 60 * 1000 }));
   const r = run(process.execPath, [path.join(__dirname, '..', 'tools', 'pg', 'dump-db.js'), file]);
   if (!r || r.status !== 0) {

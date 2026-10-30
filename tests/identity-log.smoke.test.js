@@ -38,7 +38,9 @@ const call = (method, pathq, body) => fetch(base + pathq, {
   method, headers: { 'x-report-token': superToken, 'content-type': 'application/json' },
   body: body ? JSON.stringify(body) : undefined,
 });
+// logEvent is fire-and-forget (async on PostgreSQL): give in-flight writes a moment to land.
 const identityRows = async (action) => {
+  await new Promise((r) => setTimeout(r, 150));
   const { rows } = await rdb.listSystemLog({ category: 'identity' }, { limit: 100, offset: 0 });
   // listSystemLog is newest-first; tests reason in chronological order.
   rows.sort((a, b) => a.id - b.id);

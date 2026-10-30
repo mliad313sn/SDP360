@@ -17,13 +17,14 @@ let server, base, admin, editor, otherEditor, viewer, rdb, hounde, mana, editorI
 
 before(async () => {
   const { app } = require('../server');
+  await require('../server').seedStores();
   rdb = require('../reports-db');
-  for (let i = 0; i < 60; i++) { if (rdb.db.prepare("SELECT 1 FROM sqlite_master WHERE name='alert_rules'").get() && rdb.db.prepare("SELECT COUNT(*) AS n FROM alert_rules").get().n >= 12 && rdb.db.prepare("SELECT 1 FROM sqlite_master WHERE name='dashboard_definitions'").get() && rdb.db.prepare("SELECT 1 FROM dashboard_definitions WHERE key='site-weekly' AND status='published'").get()) break; await new Promise(r => setTimeout(r, 100)); }
-  const sites = rdb.listSites({ includeInactive: true });
+  for (let i = 0; i < 60; i++) { if ((await rdb.db.prepare("SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'alert_rules'").get()) && (await rdb.db.prepare("SELECT COUNT(*) AS n FROM alert_rules").get()).n >= 12 && (await rdb.db.prepare("SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'dashboard_definitions'").get()) && (await rdb.db.prepare("SELECT 1 FROM dashboard_definitions WHERE key='site-weekly' AND status='published'").get())) break; await new Promise(r => setTimeout(r, 100)); }
+  const sites = (await rdb.listSites({ includeInactive: true }));
   hounde = sites.find((s) => /hounde/i.test(s.name)).id; mana = sites.find((s) => /mana/i.test(s.name)).id;
   const mk = async (u, role, roles, site) => { try { await rdb.createUser({ username: u, full_name: u, password: u + 'pass1234', role, roles, site_id: site }); } catch {} return (await rdb.login(u, u + 'pass1234')).token; };
   admin = await mk('en_admin', 'admin', ['admin']); editor = await mk('en_editor', 'editor', ['editor'], hounde); otherEditor = await mk('en_other', 'editor', ['editor'], mana); viewer = await mk('en_viewer', 'viewer', ['viewer'], hounde);
-  editorId = rdb.db.prepare("SELECT id FROM users WHERE username='en_editor'").get().id;
+  editorId = (await rdb.db.prepare("SELECT id FROM users WHERE username='en_editor'").get()).id;
   await new Promise((r) => { server = http.createServer(app).listen(0, '127.0.0.1', r); });
   base = 'http://127.0.0.1:' + server.address().port;
 });
@@ -34,7 +35,7 @@ const send = (m, p, t, body) => fetch(base + p, { method: m, ...H(t, body ? { 'c
 
 test('notifications + comments + subscriptions: 401 anonymous, own inbox only, mark read, subscribe idempotent, bad kind 400', async () => {
   assert.equal((await get('/api/engagement/notifications')).status, 401);
-  rdb.db.prepare("INSERT INTO notifications (user_id, kind, title, body) VALUES (?, 'alert', 'A', 'b')").run(editorId);
+  (await rdb.db.prepare("INSERT INTO notifications (user_id, kind, title, body) VALUES (?, 'alert', 'A', 'b')").run(editorId));
   const n = await (await get('/api/engagement/notifications', editor)).json(); assert.equal(n.unread, 1); assert.equal(n.notifications[0].title, 'A');
   assert.equal((await (await get('/api/engagement/notifications/count', viewer)).json()).unread, 0, 'another user does not see it');
   const rd = await (await send('POST', '/api/engagement/notifications/read', editor, { ids: [n.notifications[0].id] })).json(); assert.equal(rd.marked, 1); assert.equal(rd.unread, 0);
@@ -54,6 +55,10 @@ test('rules: 12 seeded visible to anyone (admin flag false), PUT/DELETE/evaluate
   assert.equal((await send('PUT', '/api/engagement/rules', admin, { key: 'x', metric: 'nope.metric' })).status, 400);
   const nr = await (await send('PUT', '/api/engagement/rules', admin, { key: 'test.always', name: 'Always', metric: 'helpdesk.resolution_sla_pct', op: 'gte', threshold: -1, streak: 1, cooldown_min: 0, channels: ['inapp', 'teams'], recipients: { roles: ['admin'] } })).json(); assert.equal(nr.rule.threshold, -1);
   assert.equal((await send('POST', '/api/engagement/rules/evaluate', editor)).status, 403);
+  assert.equal((await send('POST', '/api/engagement/rules/evaluate?dry=1', editor)).status, 403);
+  const before = (await (await send('GET', '/api/engagement/firings', admin)).json()).firings.length;
+  const dry = await (await send('POST', '/api/engagement/rules/evaluate?dry=1', admin)).json(); assert.equal(dry.dry_run, true); assert.ok(Array.isArray(dry.preview)); assert.equal(dry.preview.length, dry.firings);
+  assert.equal((await (await send('GET', '/api/engagement/firings', admin)).json()).firings.length, before, 'a dry run records no firing');
   const ev = await (await send('POST', '/api/engagement/rules/evaluate', admin)).json(); assert.equal(ev.ok, true); assert.ok(ev.rules >= 13); assert.ok(ev.readings > 0); assert.equal(typeof ev.firings, 'number'); assert.ok(ev.skipped >= 0, 'teams without a webhook is a counted skip, never a failure');
   const f = await (await get('/api/engagement/firings', admin)).json(); assert.ok(Array.isArray(f.firings));
   if (f.firings.length) { assert.equal((await send('PUT', `/api/engagement/firings/${f.firings[0].id}`, admin, { false_positive: true, note: 'test' })).status, 200); }

@@ -59,7 +59,7 @@ async function main(deps = {}) {
   async function bootRdb() {
     if (!rdb) {
       rdb = require('../../reports-db');
-      if ((process.env.REPORTS_BACKEND || 'sqlite').toLowerCase() === 'postgres') await rdb.initPgReports();
+      await rdb.initPgReports();
     }
     if (!db) db = rdb.db;
     return rdb;

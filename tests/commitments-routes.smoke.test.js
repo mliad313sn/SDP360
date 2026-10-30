@@ -15,24 +15,31 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const crypto = require('crypto');
 const http = require('http');
-let server, base, rdb, hounde, mana, editor, otherEditor, reviewer, superT, siteless, mdActionId;
+let server, base, rdb, hounde, mana, editor, otherEditor, reviewer, superT, siteless, mdActionId, inspA1, inspA2;
 const trace = (...a) => console.log('[demo]', ...a);
 
 before(async () => {
   const { app } = require('../server');
+  await require('../server').seedStores();
   rdb = require('../reports-db');
-  for (let i = 0; i < 50; i++) { if (rdb.db.prepare("SELECT 1 FROM sqlite_master WHERE name='commitments'").get()) break; await new Promise((r) => setTimeout(r, 100)); }
-  const sites = rdb.listSites({ includeInactive: true });
+  for (let i = 0; i < 50; i++) { if ((await rdb.db.prepare("SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'commitments'").get())) break; await new Promise((r) => setTimeout(r, 100)); }
+  const sites = (await rdb.listSites({ includeInactive: true }));
   hounde = sites.find((s) => /hounde/i.test(s.name)).id; mana = sites.find((s) => /mana/i.test(s.name)).id;
   const mk = async (u, role, roles, site) => { try { await rdb.createUser({ username: u, full_name: u, password: u + 'pass1234', role, roles, site_id: site }); } catch {} return (await rdb.login(u, u + 'pass1234')).token; };
   editor = await mk('cm_editor', 'editor', ['editor'], hounde); otherEditor = await mk('cm_other', 'editor', ['editor'], mana);
   reviewer = await mk('cm_reviewer', 'viewer', ['viewer']); superT = await mk('cm_super', 'super_admin', ['super_admin']);
   siteless = await mk('cm_siteless', 'editor', ['editor']);
-  const m = require('../meetings-db').saveMeeting({ header: { reference: 'CMT_PV_HGO_2026-10', site_code: 'HGO', department: 'mining', meeting_date: '2026-10-05', intake_source: 'dept_meeting', status: 'draft' },
-    actions: [{ description: 'Provide rugged laptops to the geology team', status: 'open', target_date: '2026-11-30', owner_it: 'cm_editor' }] }, null, null);
-  mdActionId = require('../meetings-db').getMeeting(m.id).actions[0].id;
+  const m = (await require('../meetings-db').saveMeeting({ header: { reference: 'CMT_PV_HGO_2026-10', site_code: 'HGO', department: 'mining', meeting_date: '2026-10-05', intake_source: 'dept_meeting', status: 'draft' },
+    actions: [{ description: 'Provide rugged laptops to the geology team', status: 'open', target_date: '2026-11-30', owner_it: 'cm_editor' }] }, null, null));
+  mdActionId = (await require('../meetings-db').getMeeting(m.id)).actions[0].id;
   await new Promise((r) => { server = http.createServer(app).listen(0, '127.0.0.1', r); });
   base = 'http://127.0.0.1:' + server.address().port;
+  // two real Hounde inspection actions (G-18: a source must exist and belong to the editor's site)
+  const ir = await fetch(base + '/api/inspection/save', { method: 'POST', headers: { 'content-type': 'application/json', 'x-report-token': superT },
+    body: JSON.stringify({ state: { meta: { f_site: 'Hounde (HGO)', f_date: '2026-10-05', f_area: 'Server room' }, items: {},
+      actions: [{ desc: 'Lock the server room door', owner: 'x', due: '2026-11-01', priority: 'High' }, { desc: 'Restore UPS inline', owner: 'x', due: '2026-11-01', priority: 'Critical' }] } }) });
+  const insp = await (await fetch(base + '/api/inspection/' + encodeURIComponent((await ir.json()).id), { headers: { 'x-report-token': superT } })).json();
+  [inspA1, inspA2] = insp.actions.map((a) => String(a.id));
 });
 after(() => server && server.close());
 const H = (t, extra) => ({ headers: Object.assign(t ? { 'x-report-token': t } : {}, extra || {}) });
@@ -47,7 +54,7 @@ test('flag off: every commitments route is 404 and the hub carries no commitment
   assert.equal((await send('POST', '/api/commitments', editor, { kind: 'issue', title: 'x', site_id: hounde })).status, 404);
   const hub = await (await get('/api/reports/site-actions?site=HGO', editor)).json();
   assert.ok(!JSON.stringify(hub).includes('"commitment"'));
-  require('../services/reportConfig').setConfig(rdb.db, { commitments_enabled: '1' }, 'test');
+  (await require('../services/reportConfig').setConfig(rdb.db, { commitments_enabled: '1' }, 'test'));
 });
 
 let id, ver;
@@ -94,13 +101,59 @@ test('demo F-1: need → commitment → SDP ticket link → technical complete �
 });
 
 test('demo F-2: a high inspection finding without owner / due date is refused server-side', async () => {
-  const r = await send('POST', '/api/commitments', editor, { kind: 'inspection_finding', severity: 'high', title: 'Server room door not locked', site_id: hounde, source: { system: 'inspection', id: '9001' } });
+  const r = await send('POST', '/api/commitments', editor, { kind: 'inspection_finding', severity: 'high', title: 'Server room door not locked', site_id: hounde, source: { system: 'inspection', id: inspA1 } });
   const c = (await r.json()).commitment; assert.equal(c.status, 'captured');
   for (const to of ['triaged', 'committed']) {
     const t = await send('POST', `/api/commitments/${c.id}/transition`, editor, { to, version: c.version });
     assert.equal(t.status, 400); const b = await t.json(); assert.match(b.error, /accountable_owner, due_date, treatment_plan/);
     trace(`F-2 ${to} refused: 400 "${b.error}"`);
   }
+});
+
+// Consolidation scenario 2 (goal P1 acceptance): critical inspection finding → A01 (unowned) → owner/date →
+// overdue → A02 → evidence → rejection → rework → independent verification → reopen with reason; audited.
+test('demo F-3: critical finding → A01 → owner/date → A02 overdue → evidence → reject → rework → verified → reopen', async () => {
+  const alerts = require('../services/alertEngine');
+  const metrics = async () => (await (await get(`/api/commitments/metrics?site=${hounde}`, editor)).json());
+  const fire = (metric, value) => alerts.evaluate([{ key: metric, metric: 'commitments.' + metric, op: 'gt', threshold: 0 }],
+    [{ rule_key: metric, site_id: hounde, site: 'Hounde', value, unit: 'count' }]).firings.length;
+  const base = await metrics();
+  let c = (await (await send('POST', '/api/commitments', editor, { kind: 'inspection_finding', severity: 'critical', title: 'UPS bypassed in the server room',
+    site_id: hounde, reviewer: 'cm_reviewer', source: { system: 'inspection', id: inspA2 } })).json()).commitment;
+  let m = await metrics();
+  assert.equal(m.serious_unowned, base.serious_unowned + 1, 'the unowned critical finding is counted');
+  assert.equal(fire('serious_unowned', m.serious_unowned), 1, 'A01 fires on the reading');
+  trace(`F-3 1 critical finding #${c.id} captured without owner → serious_unowned=${m.serious_unowned} → A01 fires`);
+  assert.equal((await send('POST', `/api/commitments/${c.id}/transition`, editor, { to: 'committed', version: c.version })).status, 400);
+  const put = await send('PUT', `/api/commitments/${c.id}`, editor, { version: c.version, accountable_owner: 'cm_editor', execution_owners: ['it.tech'],
+    due_date: '2026-01-15', treatment_plan: 'Restore UPS inline, test transfer, lock panel', reason: 'initial due date' });
+  const putBody = await put.text(); assert.equal(put.status, 200, putBody); c = JSON.parse(putBody).commitment;
+  for (const to of ['committed', 'in_progress']) c = (await (await send('POST', `/api/commitments/${c.id}/transition`, editor, { to, version: c.version })).json()).commitment;
+  m = await metrics();
+  assert.equal(m.serious_unowned, base.serious_unowned, 'owned now');
+  assert.ok(m.serious_exposure.overdue_ids.includes(c.id), 'past its due date without an exception');
+  assert.ok(fire('serious_overdue', m.serious_overdue) === 1, 'A02 fires');
+  trace(`F-3 2 owner + due 2026-01-15 + plan set → committed → in_progress; overdue_ids include #${c.id} → A02 fires`);
+  const ev = await (await upload(`/api/commitments/${c.id}/evidence?type=report`, editor, PDF, 'application/pdf', 'ups-test.pdf')).json();
+  c = (await (await send('POST', `/api/commitments/${c.id}/transition`, editor, { to: 'awaiting_verification', version: ev.commitment.version })).json()).commitment;
+  assert.ok(!(await metrics()).serious_exposure.overdue_ids.includes(c.id), 'awaiting verification is not counted as overdue');
+  c = (await (await send('POST', `/api/commitments/${c.id}/transition`, reviewer, { to: 'rejected_for_rework', version: c.version, reason: 'transfer test not witnessed' })).json()).commitment;
+  assert.equal(c.status, 'rejected_for_rework');
+  for (const to of ['in_progress', 'awaiting_verification']) c = (await (await send('POST', `/api/commitments/${c.id}/transition`, editor, { to, version: c.version })).json()).commitment;
+  assert.equal((await send('POST', `/api/commitments/${c.id}/transition`, editor, { to: 'verified_closed', version: c.version })).status, 403, 'owner cannot verify');
+  c = (await (await send('POST', `/api/commitments/${c.id}/transition`, reviewer, { to: 'verified_closed', version: c.version })).json()).commitment;
+  assert.equal(c.status, 'verified_closed');
+  trace(`F-3 3 evidence ${ev.sha256.slice(0, 12)}… → rejected ("transfer test not witnessed") → rework → verified by ${c.verified_by}`);
+  assert.equal((await send('POST', `/api/commitments/${c.id}/transition`, reviewer, { to: 'reopened', version: c.version })).status, 400, 'reopen needs a reason');
+  c = (await (await send('POST', `/api/commitments/${c.id}/transition`, reviewer, { to: 'reopened', version: c.version, reason: 'UPS bypassed again on 2026-10-27' })).json()).commitment;
+  assert.equal(c.status, 'reopened');
+  const fj = await (await get(`/api/commitments/${c.id}`, editor)).json(); const full = fj.commitment || fj;
+  const path = full.events.filter((e) => e.action === 'transition').map((e) => e.to_status);
+  assert.ok(full.events.some((e) => e.action === 'evidence_added') && full.events.some((e) => e.action === 'due_date_changed' || e.action === 'updated'), 'edits and evidence are audited');
+  assert.deepEqual(path, ['committed', 'in_progress', 'awaiting_verification', 'rejected_for_rework', 'in_progress', 'awaiting_verification', 'verified_closed', 'reopened'], 'audited path');
+  assert.ok(full.events.every((e) => e.at && e.actor), 'every event has a time and an actor');
+  assert.deepEqual(full.verifications.map((v) => v.decision), ['rejected_for_rework', 'accepted']);
+  trace(`F-3 4 reopened with reason; audit trail: ${path.join(' → ')}`);
 });
 
 test('IDOR / cross-site: another site editor, a site-less editor, an unrelated viewer get 404 / 403 / empty lists', async () => {
@@ -132,4 +185,15 @@ test('self-verification refused for a super_admin; stale version → 409; eviden
   assert.equal((await upload(`/api/commitments/${c2.id}/evidence`, editor, Buffer.from('<html>'), 'application/pdf', 'fake.pdf')).status, 415);
   assert.equal((await send('POST', `/api/commitments/${c2.id}/evidence`, editor, { url: 'https://sharepoint.example/doc' })).status, 201);
   const page = await get('/commitments.html', editor); assert.equal(page.status, 200);
+});
+
+test('G09: approved due-date exceptions have their own register, with active / lapsed state', async () => {
+  let c = (await (await send('POST', '/api/commitments', editor, { kind: 'inspection_finding', severity: 'high', title: 'G09 exception register check', site_id: hounde, reviewer: 'cm_reviewer' })).json()).commitment;
+  const before = (await (await get('/api/commitments?exceptions=1', superT)).json()).commitments.length;
+  const ex = await send('POST', `/api/commitments/${c.id}/exception`, superT, { version: c.version, reason: 'vendor part on back-order until next quarter' });
+  assert.equal(ex.status, 200, await ex.text());
+  const list = (await (await get('/api/commitments?exceptions=1', superT)).json()).commitments;
+  assert.equal(list.length, before + 1);
+  const row = list.find((x) => x.id === c.id); assert.ok(row && row.exception_state === 'active' && row.exception_reason, JSON.stringify(row));
+  assert.ok(!(await (await get('/api/commitments?exceptions=1', otherEditor)).json()).commitments.some((x) => x.id === c.id), 'another site does not see it');
 });

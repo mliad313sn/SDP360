@@ -10,35 +10,14 @@ const COLS = ['site_name', 'coordinator_name', 'coordinator_email', 'coordinator
 
 function _h(db) {
   const rdb = require('../reports-db');
-  if (rdb.REPORTS_BACKEND === 'postgres') return { H: rdb.pgHandle(), isPg: true };
-  return { H: db, isPg: false };
+  return { H: rdb.pgHandle(), isPg: true };
 }
 
-const _inited = new WeakSet();
-function _initSchema(db) {
-  if (_h(db).isPg) return;
-  if (_inited.has(db)) return;
-  db.exec(`CREATE TABLE IF NOT EXISTS report_recipients (
-    site_code TEXT PRIMARY KEY, site_name TEXT,
-    coordinator_name TEXT, coordinator_email TEXT, coordinator_email_confirmed INTEGER DEFAULT 0,
-    fm_name TEXT, fm_email TEXT, fm_email_confirmed INTEGER DEFAULT 0,
-    cc_emails TEXT, active INTEGER DEFAULT 1,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_by TEXT
-  );`);
-  // Asset engagement (2026-09-18) — per-site asset manager. sqlite has no ADD COLUMN
-  // IF NOT EXISTS → plain ALTER in try/catch (duplicate column = already migrated).
-  for (const c of ['asset_manager_name TEXT', 'asset_manager_email TEXT', 'asset_manager_email_confirmed INTEGER DEFAULT 0']) {
-    try { db.exec(`ALTER TABLE report_recipients ADD COLUMN ${c}`); } catch (_) { /* already present */ }
-  }
-  _inited.add(db);
-}
 
 function listRecipients(db) {
   const { H, isPg } = _h(db);
   const SQL = 'SELECT * FROM report_recipients ORDER BY site_code';
-  if (isPg) return H.prepare(SQL).all();
-  _initSchema(db);
-  try { return H.prepare(SQL).all(); } catch (e) { console.warn('[report-dir] list failed:', e.message); return []; }
+  return H.prepare(SQL).all();
 }
 
 function upsertRecipient(db, siteCode, patch, user) {
@@ -50,10 +29,7 @@ function upsertRecipient(db, siteCode, patch, user) {
   const upd = set.map(c => `${c}=excluded.${c}`).concat('updated_by=excluded.updated_by').join(', ');
   const SQL = `INSERT INTO report_recipients (${insCols.join(', ')}) VALUES (${ph})
                ON CONFLICT(site_code) DO UPDATE SET ${upd}`;
-  if (isPg) return (async () => { await H.prepare(SQL).run(...insVals); return { ok: true }; })();
-  _initSchema(db);
-  H.prepare(SQL).run(...insVals);
-  return { ok: true };
+  return (async () => { await H.prepare(SQL).run(...insVals); return { ok: true }; })();
 }
 
 // Case-INSENSITIVE on site_code, matching reports-db.getSiteIdByModuleCode.
@@ -76,10 +52,8 @@ function resolveFromRows(rows, siteCode, kind, { neverSendUnconfirmed = true } =
   const cc = String(row.cc_emails || '').split(',').map(s => s.trim()).filter(Boolean);
   return { to: email, cc };
 }
-function resolveRecipient(db, siteCode, kind, opts = {}) {
-  const rows = listRecipients(db);
-  if (typeof rows.then === 'function') throw new Error('resolveRecipient: pass an already-resolved row set');
-  return resolveFromRows(rows, siteCode, kind, opts);
+async function resolveRecipient(db, siteCode, kind, opts = {}) {
+  return resolveFromRows(await listRecipients(db), siteCode, kind, opts);
 }
 
 // Fully async — every edge (listRecipients, getSiteContacts, upsertRecipient)
@@ -106,4 +80,4 @@ async function suggestFromMeetings(db, siteCodes, meetingsReader, user) {
   return { ok: true, filled };
 }
 
-module.exports = { COLS, _initSchema, listRecipients, upsertRecipient, resolveRecipient, resolveFromRows, suggestFromMeetings };
+module.exports = { COLS, listRecipients, upsertRecipient, resolveRecipient, resolveFromRows, suggestFromMeetings };

@@ -143,12 +143,19 @@ function redactUrl(url) {
  * @param {any} s
  * @param {Array<string>} [secrets]
  */
-const _SECRET_PAIR = /\b(api[_-]?key|client[_-]?secret|refresh[_-]?token|access[_-]?token|id[_-]?token|token|password|passwd|secret|authorization)\s*[=:]\s*[^\s&,;"'<>]+/gi;
+// G21 — any key ENDING in one of these words counts (api_token, sessiontoken, x_client_secret…): the fuzz test
+// found `api_token=` and `sessiontoken=` passing through with a leading word boundary
+const _SECRET_PAIR = /(?<![A-Za-z0-9_-])([A-Za-z0-9_-]{0,40}(?:api[_-]?key|dash[_-]?key|secret|token|password|passwd|pwd|authorization|signature|sig|session[_-]?id|sessionid|cookie))\s{0,3}[=:]\s{0,3}[^\s&,;"'<>]+/gi;
+// the same keys written as JSON ("token": "…")
+const _SECRET_JSON = /"([A-Za-z0-9_-]{0,40}(?:api[_-]?key|dash[_-]?key|secret|token|password|passwd|pwd|authorization|signature|session[_-]?id|cookie))"\s{0,3}:\s{0,3}"[^"]{0,500}"/gi;
+const _REDACT_MAX = 200000;   // bounded work: a longer message is cut before any pattern runs
 function redactMessage(s, secrets) {
-  let out = String(s == null ? '' : s);
+  let out = String(s == null ? '' : s).slice(0, _REDACT_MAX);
   out = out.replace(/https?:\/\/[^\s"'<>)\]]+/gi, (m) => redactUrl(m));
+  out = out.replace(_SECRET_JSON, (m, k) => `"${k}": "<redacted>"`);
+  // token schemes first: "Authorization: Bearer X" must lose X, not just the word Bearer to the key=value pass
+  out = out.replace(/(Zoho-oauthtoken|Bearer)\s+[^\s"']+/gi, '$1 <redacted>').replace(/\bBasic\s+[A-Za-z0-9+/]{8,}={0,2}/g, 'Basic <redacted>');
   out = out.replace(_SECRET_PAIR, (m, k) => `${k}=<redacted>`);
-  out = out.replace(/\b(Zoho-oauthtoken|Bearer)\s+[^\s"']+/gi, '$1 <redacted>');
   for (const k of Array.isArray(secrets) ? secrets : []) {
     const v = k == null ? '' : String(k);
     if (v.length < 4) continue;
@@ -198,18 +205,46 @@ let _axios = null;
 function _ax() { if (!_axios) _axios = require('axios'); return _axios; }
 function _logRefusal(url, e) { console.error(`[safe-url] outbound call to ${redactUrl(url)} refused: ${e.message}`); }
 
+/**
+ * Security review (CISO, 2026-10-29) — DNS rebinding: the name is checked at validation time, then
+ * resolved AGAIN when the socket connects. This lookup re-checks the address the socket will actually
+ * use, so a name that flips to 127.0.0.1 / 169.254.169.254 between the two is refused at connect time.
+ * Hosts on the allow-list (trusted internal services) are not re-checked.
+ */
+function guardedLookup(allowHosts, baseLookup) {
+  const dnsLookup = baseLookup || require('dns').lookup;
+  return (hostname, options, callback) => {
+    if (typeof options === 'function') { callback = options; options = {}; }
+    dnsLookup(hostname, options, (err, address, family) => {
+      if (err) return callback(err);
+      if (hostAllowed(String(hostname).toLowerCase(), allowHosts || DEFAULT_ALLOW_HOSTS)) return callback(null, address, family);
+      const list = Array.isArray(address) ? address.map((a) => a.address) : [address];
+      const bad = list.find((a) => isPrivateAddress(a));
+      if (bad) { const e = _err(`Host "${hostname}" now resolves to ${bad} (private / metadata) — refused at connect time.`); return callback(e); }
+      return callback(null, address, family);
+    });
+  };
+}
+function _agents(allowHosts, opts) {
+  const lookup = guardedLookup(allowHosts);
+  // keep the caller's TLS settings (OpManager: private CA / self-signed), add the connect-time check
+  const keep = (a) => (a && a.options ? { ...a.options } : {});
+  return { httpsAgent: new (require('https').Agent)({ ...keep(opts && opts.httpsAgent), lookup }), httpAgent: new (require('http').Agent)({ ...keep(opts && opts.httpAgent), lookup }) };
+}
+
 /** axios.get wrapper: validate → get with maxRedirects:0. Unsafe → logged + thrown (code UNSAFE_URL). */
 function safeGet(allowHosts) {
   return async (url, opts) => {
     let safe; try { safe = await validateOutboundUrl(url, { allowHosts }); } catch (e) { _logRefusal(url, e); throw e; }
-    return _ax().get(safe, { ...axiosSafeOptions(), ...(opts || {}) });
+    // the guard options come LAST: a caller cannot re-enable redirects or swap the connect-time check out
+    return _ax().get(safe, { ...(opts || {}), ..._agents(allowHosts, opts), ...axiosSafeOptions() });
   };
 }
 /** axios.post wrapper with the same guard; `base` = default axios options (timeout, headers). */
 function safePost(allowHosts, base) {
   return async (url, body, opts) => {
     let safe; try { safe = await validateOutboundUrl(url, { allowHosts }); } catch (e) { _logRefusal(url, e); throw e; }
-    const o = { ...axiosSafeOptions(), ...(base || {}), ...(opts || {}) };
+    const o = { ...(base || {}), ...(opts || {}), ..._agents(allowHosts, { ...(base || {}), ...(opts || {}) }), ...axiosSafeOptions() };
     if (base && base.headers && opts && opts.headers) o.headers = { ...base.headers, ...opts.headers };
     return _ax().post(safe, body, o);
   };
@@ -217,5 +252,5 @@ function safePost(allowHosts, base) {
 
 module.exports = {
   UNSAFE, DEFAULT_ALLOW_HOSTS, parseAllowHosts, allowHostsFromConfig, hostAllowed, isPrivateAddress,
-  validateOutboundUrl, axiosSafeOptions, redactUrl, redactMessage, safeGet, safePost, _resetCache: () => _cache.clear(),
+  validateOutboundUrl, axiosSafeOptions, guardedLookup, redactUrl, redactMessage, safeGet, safePost, _resetCache: () => _cache.clear(),
 };

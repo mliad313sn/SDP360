@@ -31,6 +31,7 @@ for (const page of ['/login.html', '/exec-view.html']) {
     const src = scriptSrc(r.headers.get('content-security-policy'));
     assert.ok(src, 'has a script-src directive');
     assert.ok(!src.includes("'unsafe-inline'"), `no 'unsafe-inline' in ${src}`);
+    assert.ok(!/jsdelivr|cdnjs|unpkg/.test(src), `no CDN origin on a page an anonymous visitor reaches: ${src}`);
     const nm = /'nonce-([^']+)'/.exec(src);
     assert.ok(nm, 'script-src carries a nonce');
     const html = await r.text();

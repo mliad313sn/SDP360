@@ -7,7 +7,9 @@
 // comparison is done in a shared JS pass via toInt() — never a SQL CAST (which
 // throws on postgres and silently returns 0 on sqlite → mass false positives).
 'use strict';
-process.env.ASSETS_BACKEND = 'sqlite';
+// Top-level async setup, run IN ORDER before the first test (PostgreSQL-only conversion, PO-08).
+const __bootChain = (() => { let p = Promise.resolve(), hooked = false;
+  return (fn) => { p = p.then(fn); if (!hooked) { hooked = true; require('node:test').beforeEach(() => p); } }; })();
 const test = require('node:test');
 const assert = require('node:assert');
 const os = require('node:os'), path = require('node:path'), fs = require('node:fs');
@@ -38,7 +40,7 @@ const rows = [
   { ...base, software_id: 'S4', software_name: 'Microsoft Edge', manufacturer: 'Microsoft',
     installations: '500', installations_allowed: 'N/A', compliance_type: 'N/A', software_type: 'UnIdentified' },
 ];
-adb.replaceTable('software', cols, rows);
+__bootChain(async () => { (await adb.replaceTable('software', cols, rows)); });
 
 test('classifySoftwareCompliance maps compliance_type → bucket (case-insensitive)', () => {
   const c = adb.classifySoftwareCompliance;
@@ -52,16 +54,16 @@ test('classifySoftwareCompliance maps compliance_type → bucket (case-insensiti
   assert.strictEqual(c({ compliance_type: 'UNDER LICENSED' }), 'under_licensed');
 });
 
-test('getSoftwareComplianceSummary.by_compliance tallies each bucket', () => {
-  const s = adb.getSoftwareComplianceSummary({});
+test('getSoftwareComplianceSummary.by_compliance tallies each bucket', async () => {
+  const s = (await adb.getSoftwareComplianceSummary({}));
   assert.strictEqual(s.total, 4);
   assert.strictEqual(s.managed, 3);          // S1, S2, S3
   assert.deepStrictEqual(s.by_compliance,
     { under_licensed: 1, over_licensed: 1, compliant: 1, not_metered: 1 });
 });
 
-test('getSoftwareComplianceSummary.by_manufacturer carries managed/under/over per mfr', () => {
-  const s = adb.getSoftwareComplianceSummary({});
+test('getSoftwareComplianceSummary.by_manufacturer carries managed/under/over per mfr', async () => {
+  const s = (await adb.getSoftwareComplianceSummary({}));
   const byMfr = Object.fromEntries(s.by_manufacturer.map(m => [m.manufacturer, m]));
   assert.strictEqual(byMfr.Adobe.managed, 2);
   assert.strictEqual(byMfr.Adobe.over, 1);
@@ -69,8 +71,8 @@ test('getSoftwareComplianceSummary.by_manufacturer carries managed/under/over pe
   assert.strictEqual(byMfr.TeamViewer.under, 1);
 });
 
-test('getSoftwareComplianceSummary.installs_vs_allowed — the N/A sentinel is in NONE', () => {
-  const iva = adb.getSoftwareComplianceSummary({}).installs_vs_allowed;
+test('getSoftwareComplianceSummary.installs_vs_allowed — the N/A sentinel is in NONE', async () => {
+  const iva = (await adb.getSoftwareComplianceSummary({})).installs_vs_allowed;
   assert.strictEqual(iva.under, 1);   // S1: 540 > 1
   assert.strictEqual(iva.over, 1);    // S2: 2 < 50
   assert.strictEqual(iva.ok, 1);      // S3: 10 == 10
@@ -78,23 +80,23 @@ test('getSoftwareComplianceSummary.installs_vs_allowed — the N/A sentinel is i
   assert.strictEqual(iva.under + iva.over + iva.ok, 3);
 });
 
-test('getSoftwareComplianceExceptions — under_licensed is by compliance_type only', () => {
-  const under = adb.getSoftwareComplianceExceptions('under_licensed', {});
+test('getSoftwareComplianceExceptions — under_licensed is by compliance_type only', async () => {
+  const under = (await adb.getSoftwareComplianceExceptions('under_licensed', {}));
   assert.deepStrictEqual(under.map(r => r.software_name), ['TeamViewer']);   // S1 only
   // S4 (installs 500 » allowed N/A) must NOT leak in via a raw comparison
   assert.ok(!under.some(r => r.software_name === 'Microsoft Edge'));
 });
 
-test('getSoftwareComplianceExceptions — over_licensed + managed kinds', () => {
-  const over = adb.getSoftwareComplianceExceptions('over_licensed', {});
+test('getSoftwareComplianceExceptions — over_licensed + managed kinds', async () => {
+  const over = (await adb.getSoftwareComplianceExceptions('over_licensed', {}));
   assert.deepStrictEqual(over.map(r => r.software_name), ['Adobe Photoshop']);   // S2
-  const managed = adb.getSoftwareComplianceExceptions('managed', {});
+  const managed = (await adb.getSoftwareComplianceExceptions('managed', {}));
   assert.deepStrictEqual(managed.map(r => r.software_name).sort(),
     ['Adobe Acrobat', 'Adobe Photoshop', 'TeamViewer']);   // S1, S2, S3
 });
 
-test('getSoftwareComplianceExceptions rows carry identity, NO cost key', () => {
-  const r = adb.getSoftwareComplianceExceptions('under_licensed', {})[0];
+test('getSoftwareComplianceExceptions rows carry identity, NO cost key', async () => {
+  const r = (await adb.getSoftwareComplianceExceptions('under_licensed', {}))[0];
   assert.strictEqual(r.software_name, 'TeamViewer');
   assert.strictEqual(r.manufacturer, 'TeamViewer');
   assert.strictEqual(r.installations, '540');
@@ -103,15 +105,15 @@ test('getSoftwareComplianceExceptions rows carry identity, NO cost key', () => {
   assert.ok(!('cost' in r), 'exception rows must NOT carry a cost key');
 });
 
-test('getSoftwareComplianceExceptions narrows by manufacturer filter', () => {
-  const under = adb.getSoftwareComplianceExceptions('under_licensed', { manufacturer: 'TeamViewer' });
+test('getSoftwareComplianceExceptions narrows by manufacturer filter', async () => {
+  const under = (await adb.getSoftwareComplianceExceptions('under_licensed', { manufacturer: 'TeamViewer' }));
   assert.deepStrictEqual(under.map(r => r.software_name), ['TeamViewer']);
-  const none = adb.getSoftwareComplianceExceptions('under_licensed', { manufacturer: 'Adobe' });
+  const none = (await adb.getSoftwareComplianceExceptions('under_licensed', { manufacturer: 'Adobe' }));
   assert.deepStrictEqual(none, []);
 });
 
-test('an unknown software kind throws — never a silent empty', () => {
-  assert.throws(() => adb.getSoftwareComplianceExceptions('bad', {}), /unknown/i);
+test('an unknown software kind throws — never a silent empty', async () => {
+  await assert.rejects(async () => (await adb.getSoftwareComplianceExceptions('bad', {})), /unknown/i);
 });
 
 test('SOFTWARE_KINDS is the single source of truth (map of the three kinds)', () => {

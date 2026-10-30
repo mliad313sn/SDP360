@@ -810,12 +810,12 @@ HGO_Mining_PV_2026-05-24        │ 2026-05-24</div>
     document.querySelectorAll('#mimLangToggle button').forEach(b => {
       b.classList.toggle('active', b.dataset.lang === lang);
     });
-    try { localStorage.setItem(LANG_KEY, lang); } catch (_) {}
+    try { localStorage.setItem(LANG_KEY, lang); localStorage.setItem('sdp_lang', lang); } catch (_) {}
   }
   // Boot from localStorage if set, else default EN.
   (function _initLang() {
     let stored = 'en';
-    try { stored = localStorage.getItem(LANG_KEY) || 'en'; } catch (_) {}
+    try { stored = localStorage.getItem('sdp_lang') || localStorage.getItem(LANG_KEY) || 'en'; } catch (_) {}
     setLang(stored === 'fr' ? 'fr' : 'en');
   })();
   document.querySelectorAll('#mimLangToggle button').forEach(b => {

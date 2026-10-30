@@ -16,11 +16,6 @@ const fetch = require('./_http-fetch');   // core-http shim — undici keep-aliv
 // accounts holding `admin` (F-03), this bites properly only once G-12 lands.
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'money-scope-'));
-process.env.ASSETS_BACKEND = 'sqlite';
-process.env.REPORTS_BACKEND = 'sqlite';
-process.env.MEETINGS_BACKEND = 'sqlite';
-process.env.INSPECTION_BACKEND = 'sqlite';
-process.env.TRACKER_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'money-scope-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'money-scope-pass-0000';
 process.env.DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || 'money-scope-key';
@@ -32,30 +27,36 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const http = require('http');
 
-let server, base, adminTok, viewerTok;
+let server, base, adminTok, viewerTok, financeTok;
 
 before(async () => {
   const { app } = require('../server');
   const rdb = require('../reports-db');
   const adb = require('../assets-db');
 
-  adb.replaceTable('assets',
+  (await adb.replaceTable('assets',
     ['asset_id', 'asset_name', 'site', 'state', 'product_type', 'manufacturer', 'serial_number',
      'purchase_cost', 'current_book_value', 'total_cost_of_ownership', 'acquisition_date'],
     [{ asset_id: 'A1', asset_name: 'PC-1', site: 'MANA', state: 'In Use', product_type: 'Laptop',
        manufacturer: 'Dell', serial_number: 'SN1', purchase_cost: '2,250,000.00',
        current_book_value: '1,500,000.00', total_cost_of_ownership: '2,400,000.00',
-       acquisition_date: '2024-01-01' }]);
+       acquisition_date: '2024-01-01' }]));
 
-  const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
-  rdb.setUserRoles(me.id, ['admin']);
+  const me = ((await rdb.listUsers()) || []).find(u => u.username === process.env.DASH_USER);
+  (await rdb.setUserRoles(me.id, ['admin']));
   adminTok = (await rdb.login(process.env.DASH_USER, process.env.DASH_PASS)).token;
 
   // A plain viewer — the account this goal is actually about.
-  rdb.createUser({ username: 'money-scope-viewer', password: 'viewer-pass-0000', full_name: 'V', role: 'viewer' });
-  const v = (rdb.listUsers() || []).find(u => u.username === 'money-scope-viewer');
-  rdb.setUserRoles(v.id, ['viewer']);
+  (await rdb.createUser({ username: 'money-scope-viewer', password: 'viewer-pass-0000', full_name: 'V', role: 'viewer' }));
+  const v = ((await rdb.listUsers()) || []).find(u => u.username === 'money-scope-viewer');
+  (await rdb.setUserRoles(v.id, ['viewer']));
   viewerTok = (await rdb.login('money-scope-viewer', 'viewer-pass-0000')).token;
+
+  // UAT F-06 — the finance head: a viewer plus the read-only feature role finance-viewer.
+  (await rdb.createUser({ username: 'money-scope-finance', password: 'finance-pass-0000', full_name: 'F', role: 'viewer' }));
+  const f = ((await rdb.listUsers()) || []).find(u => u.username === 'money-scope-finance');
+  (await rdb.setUserRoles(f.id, ['viewer', 'finance-viewer']));
+  financeTok = (await rdb.login('money-scope-finance', 'finance-pass-0000')).token;
 
   await new Promise(r => { server = http.createServer(app).listen(0, '127.0.0.1', r); });
   base = `http://127.0.0.1:${server.address().port}`;
@@ -112,4 +113,17 @@ test('the inventory export follows the same rule', async () => {
   assert.strictEqual((await get('/api/assets/export.xlsx', viewerTok)).status, 403,
     'a spreadsheet is the easiest way to walk out with the numbers');
   assert.strictEqual((await get('/api/assets/export.xlsx', adminTok)).status, 200);
+});
+
+test('UAT F-06: the finance reader reads every money route, the inventory amounts and the export', async () => {
+  for (const r of MONEY_ROUTES) assert.strictEqual((await get(r, financeTok)).status, 200, `${r} for finance-viewer`);
+  const rows = await (await get('/api/assets/inventory', financeTok)).json();
+  assert.ok('purchase_cost_usd' in rows[0], 'amounts reach the finance reader');
+  assert.strictEqual((await get('/api/assets/export.xlsx', financeTok)).status, 200);
+});
+
+test('UAT F-06: finance-viewer reads only — it cannot change the depreciation policy', async () => {
+  const res = await fetch(base + '/api/assets/depreciation-config', { method: 'PUT',
+    headers: { 'x-report-token': financeTok, 'content-type': 'application/json' }, body: JSON.stringify({ config: {} }) });
+  assert.strictEqual(res.status, 403);
 });

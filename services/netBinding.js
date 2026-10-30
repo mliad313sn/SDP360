@@ -19,6 +19,7 @@ function resolveBindHost(env = process.env) {
 
 // Build the CORS allow-list. Extra origins come from CORS_EXTRA_ORIGINS (comma-separated).
 // A literal-IP origin is dropped even when supplied through the env var — pass a hostname.
+// eslint-disable-next-line security/detect-unsafe-regex -- reviewed (consolidation 2026-10-28): anchored, every quantifier bounded
 const IP_ORIGIN_RE = /^https?:\/\/\d{1,3}(?:\.\d{1,3}){3}(?::\d+)?$/i;
 function corsAllowedOrigins(port, env = process.env) {
   const base = [

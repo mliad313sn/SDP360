@@ -38,6 +38,9 @@ function legacyJob(name, fn, o = {}) {
         throw e;
       }
       const n = typeof o.rowsOf === 'function' ? o.rowsOf(summary) : rowsOf(summary);
+      // G05 — a configured source that answers with nothing is a failed sync, not a fresh one: freshness then
+      // turns STALE and the KPIs fed by it lose their colour instead of showing yesterday's numbers as new.
+      if (o.failOnZero && n === 0 && summary && !summary.skipped) { const e = new Error('source returned no rows'); e.transient = true; throw e; }
       return { rows: n > 0 ? new Array(n).fill(0).map((_, i) => ({ i })) : [], nextWatermark: new Date().toISOString(), summary };
     },
     async apply({ rows, fetched }) {
@@ -86,9 +89,9 @@ function buildJobs(d) {
     { name: 'meridian.resources', cron: '0 5 * * *', freshnessHours: 30, optional: true,
       job: legacyJob('meridian.resources', () => req('meridian/sync-resources').main()) },
     { name: 'opmanager.availability', cron: '10 5 * * *', freshnessHours: 30, optional: true,
-      job: legacyJob('opmanager.availability', () => req('opmanager/sync-availability').main({ fetchView: d.fetchView })) },
+      job: legacyJob('opmanager.availability', () => req('opmanager/sync-availability').main({ fetchView: d.fetchView }), { failOnZero: true, rowsOf: (x) => Number((x && (x.rows ?? x.devices)) || 0) }) },
     { name: 'meraki.wan',      cron: '20 5 * * *', freshnessHours: 30, optional: true,
-      job: legacyJob('meraki.wan', () => req('meraki/sync-wan').main({})) },
+      job: legacyJob('meraki.wan', () => req('meraki/sync-wan').main({}), { failOnZero: true }) },
     { name: 'meraki.wan_events', cron: '25 5 * * *', freshnessHours: 30, optional: true,
       job: legacyJob('meraki.wan_events', () => req('meraki/sync-wan-events').main({})) },
     { name: 'meraki.wan_events_5m', cron: '*/5 * * * *', freshnessHours: 1, optional: true,
@@ -124,6 +127,15 @@ function buildJobs(d) {
   // Step 4 — audit retention: system_log kept 12 months (risk events 24). Mandatory job.
   list.push({ name: 'audit.retention', cron: '30 3 * * *', freshnessHours: 30,
     job: legacyJob('audit.retention', async () => { const rdb = d.rdb || require('../../reports-db'); const r = await rdb.purgeSystemLog({ months: Number(process.env.AUDIT_RETENTION_MONTHS) || 12 }); return { deleted: r.deleted, rows: r.deleted }; }) });
+  // Committee review 2026-10-28 — verify the hash-chained audit tables and log the chain heads (daily anchor).
+  // A broken chain is a failed run (alerted like any job) and a risk event.
+  list.push({ name: 'audit.chain_verify', cron: '45 3 * * *', freshnessHours: 30,
+    job: legacyJob('audit.chain_verify', async () => {
+      const rdb = d.rdb || require('../../reports-db'); const r = await require('../auditChain').verify(rdb.pgHandle ? rdb.pgHandle() : rdb.db);
+      await rdb.logEvent({ category: 'governance', action: r.ok ? 'audit_chain_anchor' : 'audit_chain_broken', target: 'audit', details: { tables: r.tables.map((x) => ({ table: x.table, rows: x.rows, ok: x.ok, head: x.head, first_broken_id: x.first_broken_id })) }, risk: r.ok ? 0 : 1 });
+      if (!r.ok) throw new Error('audit chain broken: ' + r.tables.filter((x) => x.ok === false).map((x) => `${x.table}#${x.first_broken_id}`).join(', '));
+      return { rows: r.tables.reduce((n, x) => n + (x.rows || 0), 0) };
+    }, { maxAttempts: 1 }) });
   // Step 9 — engagement + publishing through the same runner (d.engagement = { evaluate, digest, reports, publish } injected by server.js).
   const eng = d.engagement || null;
   list.push({ name: 'engagement.alerts', cron: '*/15 * * * *', freshnessHours: 1, optional: true, job: legacyJob('engagement.alerts', () => eng ? eng.evaluate() : { skipped: true }, { maxAttempts: 2 }) });
@@ -135,6 +147,11 @@ function buildJobs(d) {
   // Step 10 — field outbox hygiene: ledger rows > 90 days and abandoned chunk uploads > 48 h (d.field = store, lazy).
   const fld = d.field || null;
   list.push({ name: 'field.purge', cron: '0 3 * * *', freshnessHours: 30, optional: true, job: legacyJob('field.purge', async () => fld ? { outbox: await fld.purgeOutbox({ days: 90 }), uploads: await fld.purgeUploads({ hours: 48 }) } : { skipped: true }) });
+  // G-18 — A01 / A02 escalation ledger. d.commitments.escalate self-skips while commitments_enabled != '1'.
+  const cmt = d.commitments || null;
+  const ho = d.handoffs || null;
+  list.push({ name: 'handoffs.escalate', cron: '35 * * * *', freshnessHours: 3, optional: true, job: legacyJob('handoffs.escalate', () => ho ? ho.escalate() : { skipped: true }, { maxAttempts: 2 }) });
+  list.push({ name: 'commitments.escalate', cron: '20 * * * *', freshnessHours: 3, optional: true, job: legacyJob('commitments.escalate', () => cmt ? cmt.escalate() : { skipped: true }, { maxAttempts: 2 }) });
   return list;
 }
 
@@ -142,12 +159,13 @@ function buildJobs(d) {
 const FRESHNESS_HOURS = {
   'zoho.requests': 3, 'zoho.change_cab': 3, 'zoho.survey': 3, 'assets.sync': 30,
   'meridian.resources': 30, 'opmanager.availability': 30, 'meraki.wan': 30, 'meraki.wan_events': 30,
-  'meraki.wan_events_5m': 1, 'meraki.wan_poller': 1, 'teams.sla_poll': 1, 'db.backup': 30, 'db.restore_drill': 24 * 33, 'audit.retention': 30,
+  'meraki.wan_events_5m': 1, 'meraki.wan_poller': 1, 'teams.sla_poll': 1, 'db.backup': 30, 'db.restore_drill': 24 * 33, 'audit.retention': 30, 'audit.chain_verify': 30,
   'engagement.alerts': 1, 'engagement.digest': 30, 'engagement.digest_weekly': 24 * 8, 'reports.weekly': 24 * 8, 'reports.monthly': 24 * 32, 'publish.connectors': 30, 'field.purge': 30,
+  'commitments.escalate': 3, 'handoffs.escalate': 3,
 };
 // Jobs that self-skip until configured (no API key / webhook) — never reported "stale", only "idle".
 const OPTIONAL = new Set(['meridian.resources', 'opmanager.availability', 'meraki.wan', 'meraki.wan_events', 'meraki.wan_events_5m', 'meraki.wan_poller', 'teams.sla_poll', 'db.backup', 'db.restore_drill',
-  'engagement.alerts', 'engagement.digest', 'engagement.digest_weekly', 'reports.weekly', 'reports.monthly', 'publish.connectors', 'field.purge']);
+  'engagement.alerts', 'engagement.digest', 'engagement.digest_weekly', 'reports.weekly', 'reports.monthly', 'publish.connectors', 'field.purge', 'commitments.escalate', 'handoffs.escalate']);
 
 // Map the legacy sync_metadata job names onto the registry names (one health view, D7).
 const LEGACY_NAMES = { requests: 'zoho.requests', change_cab: 'zoho.change_cab', survey: 'zoho.survey',

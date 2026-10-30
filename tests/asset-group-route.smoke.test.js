@@ -20,7 +20,6 @@ const _os = require('os'), _fs = require('fs'), _path = require('path');
 // SQLite-path smoke — force it so a dev box whose .env pins REPORTS_BACKEND=postgres
 // doesn't drag the harness onto the (uninitialised) PG adapter. Set BEFORE any
 // require of server/reports-db, and before dotenv.
-process.env.REPORTS_BACKEND = 'sqlite';
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'asset-group-route-'));
 process.env.DASH_USER = process.env.DASH_USER || 'asset-group-route-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'asset-group-route-pass-0000';
@@ -36,15 +35,15 @@ const http = require('http');
 
 let server, base, adminToken, viewerToken, rdb;
 
-const sentLogCount = () =>
-  rdb.db.prepare('SELECT COUNT(*) AS n FROM report_sent_log').get().n;
+const sentLogCount = async () =>
+  (await rdb.db.prepare('SELECT COUNT(*) AS n FROM report_sent_log').get()).n;
 
 before(async () => {
   const { app } = require('../server');        // start() guarded → no port bind
   rdb = require('../reports-db');
-  const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
+  const me = ((await rdb.listUsers()) || []).find(u => u.username === process.env.DASH_USER);
   assert.ok(me, 'seeded admin user exists');
-  rdb.setUserRoles(me.id, ['super_admin']);   // the routes under test are super_admin-gated (admin settings → super_admin since 5e2f40e / 2026-08-16; IT Review → executive since 7162ac7)
+  (await rdb.setUserRoles(me.id, ['super_admin']));   // the routes under test are super_admin-gated (admin settings → super_admin since 5e2f40e / 2026-08-16; IT Review → executive since 7162ac7)
   const sess = await rdb.login(process.env.DASH_USER, process.env.DASH_PASS);
   assert.ok(sess && sess.token, 'login seeded admin + returned a token');
   adminToken = sess.token;
@@ -52,8 +51,8 @@ before(async () => {
   // A NON-admin session — proves requireAdmin is on the route, not just
   // requireReportSession. A viewer holds a perfectly valid session token.
   const VU = 'asset-group-route-viewer', VP = 'asset-group-route-viewer-0000';
-  if (!(rdb.listUsers() || []).some(u => u.username === VU)) {
-    rdb.createUser({ username: VU, full_name: 'Route Viewer', password: VP, role: 'viewer', roles: ['viewer'] });
+  if (!((await rdb.listUsers()) || []).some(u => u.username === VU)) {
+    (await rdb.createUser({ username: VU, full_name: 'Route Viewer', password: VP, role: 'viewer', roles: ['viewer'] }));
   }
   const vsess = await rdb.login(VU, VP);
   assert.ok(vsess && vsess.token, 'viewer logged in');
@@ -103,11 +102,11 @@ test('a NON-admin session → 403', async () => {
 // The safety property: disarmed is a clean, explicit refusal — not a crash,
 // and not a silent success. It must also write NOTHING to the sent log.
 test('disarmed config → 200 {sent:0, reason:"disabled"} and NO sent-log row', async () => {
-  const before_ = sentLogCount();
+  const before_ = (await sentLogCount());
   const res = await post('/api/reports/asset-group/send?preview=0', adminToken);
   assert.equal(res.status, 200, `expected 200 (not a 500), got ${res.status}`);
   const body = await res.json();
   assert.equal(body.sent, 0, 'a disarmed run sends nothing');
   assert.equal(body.reason, 'disabled', 'the reason names the arm gate');
-  assert.equal(sentLogCount(), before_, 'a disarmed run writes no report_sent_log row');
+  assert.equal((await sentLogCount()), before_, 'a disarmed run writes no report_sent_log row');
 });

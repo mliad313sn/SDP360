@@ -2,7 +2,6 @@
 // V1b-A Task 4 — wan_link_snapshots dual upsert/read (sqlite here; pg smoke in T7).
 const _os = require('os'), _fs = require('fs'), _p = require('path');
 process.env.SDP_DATA_DIR = _fs.mkdtempSync(_p.join(_os.tmpdir(), 'wansnap-'));
-process.env.REPORTS_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'wansnap-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'wansnap-pass-0000';
 const { test } = require('node:test');
@@ -48,20 +47,20 @@ test('getWanSnapshots filters by uplink + period_start', async () => {
 });
 
 // ── V1b-E T1 — sub_site joins the PK (Exploration per-sub-site WAN). ──────────
-test('sub_site is part of the key: FETEKRO and "" coexist for the same site/uplink/period', () => {
-  rdb.upsertWanSnapshots([
+test('sub_site is part of the key: FETEKRO and "" coexist for the same site/uplink/period', async () => {
+  (await rdb.upsertWanSnapshots([
     { site_id: 42, sub_site: '',        uplink: 'wan1', period_type: 'week', period_start: '2026-08-09', availability_pct: 99.9 },
     { site_id: 42, sub_site: 'FETEKRO', uplink: 'wan1', period_type: 'week', period_start: '2026-08-09', availability_pct: 88.8 },
-  ]);
-  const rows = rdb.getWanSnapshots({ site_id: 42, period_type: 'week' });
+  ]));
+  const rows = (await rdb.getWanSnapshots({ site_id: 42, period_type: 'week' }));
   const main = rows.find(r => r.sub_site === '' && r.uplink === 'wan1');
   const sub  = rows.find(r => r.sub_site === 'FETEKRO' && r.uplink === 'wan1');
   assert.equal(main.availability_pct, 99.9, 'main row survives');
   assert.equal(sub.availability_pct, 88.8, 'FETEKRO row coexists (not overwritten)');
 });
-test('a row that omits sub_site stores "" not NULL', () => {
-  rdb.upsertWanSnapshots([{ site_id: 43, uplink: 'wan2', period_type: 'week', period_start: '2026-08-09', availability_pct: 50 }]);
-  const r = rdb.getWanSnapshots({ site_id: 43 })[0];
+test('a row that omits sub_site stores "" not NULL', async () => {
+  (await rdb.upsertWanSnapshots([{ site_id: 43, uplink: 'wan2', period_type: 'week', period_start: '2026-08-09', availability_pct: 50 }]));
+  const r = (await rdb.getWanSnapshots({ site_id: 43 }))[0];
   assert.equal(r.sub_site, '', 'undefined sub_site coerced to ""');
 });
 

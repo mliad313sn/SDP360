@@ -3,7 +3,6 @@ const fetch = require('./_http-fetch');
 // SDP360 sync observability routes smoke — boots the app on sqlite, runs one job through the
 // shared runner and reads it back through /api/sync/runs and /api/sync/health.
 const _os = require('os'), _fs = require('fs'), _path = require('path');
-process.env.REPORTS_BACKEND = 'sqlite';
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'sync-smoke-'));
 process.env.DASH_USER = process.env.DASH_USER || 'sync-smoke-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'sync-smoke-pass-0000';

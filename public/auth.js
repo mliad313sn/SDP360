@@ -70,7 +70,9 @@
   if (requireRole !== 'any') {
     const anyOf = requireRole.split('|').map(s => s.trim()).filter(Boolean);
     if (!anyOf.some(userHasRoleClient)) {
-      location.replace('index.html');
+      // UAT F-13: say why instead of sending the user home in silence.
+      const _pg = encodeURIComponent((location.pathname.split('/').pop() || 'index.html').slice(0, 80));
+      location.replace('no-access.html?page=' + _pg + '&need=' + encodeURIComponent(anyOf.join('|')));
       return;
     }
   }
@@ -122,7 +124,18 @@
       method: 'POST', credentials: 'same-origin'
     }).finally(() => {
       clearSession();
-      location.replace('login.html');
+      // G19 — a shared phone: the next person must not be served this person's cached API answers offline, nor see
+      // this person's field cache. The clean-up is AWAITED (bounded to 3 s) before leaving the page. The field
+      // outbox of unsent entries is KEPT (each entry names its author and is only ever sent by that person).
+      const wipeApiCache = () => (window.caches ? caches.keys().then((ks) => Promise.all(ks.map((k) => caches.open(k).then((c) => c.keys().then((rs) => Promise.all(rs.filter((r) => new URL(r.url).pathname.startsWith('/api/')).map((r) => c.delete(r)))))))) : Promise.resolve());
+      const wipeFieldKv = () => new Promise((res) => {
+        try {
+          if (!window.indexedDB) return res();
+          const go = () => { const r = indexedDB.open('field'); r.onupgradeneeded = () => { try { r.transaction.abort(); } catch (_) { /* nothing to clear */ } }; r.onerror = () => res(); r.onsuccess = () => { try { const d = r.result; if (d.objectStoreNames.contains('kv')) { const t = d.transaction('kv', 'readwrite'); t.objectStore('kv').clear(); t.oncomplete = () => { d.close(); res(); }; t.onerror = () => { d.close(); res(); }; } else { d.close(); res(); } } catch (_) { res(); } }; };
+          if (indexedDB.databases) indexedDB.databases().then((dbs) => (dbs.some((x) => x.name === 'field') ? go() : res()), go); else go();
+        } catch (_) { res(); }
+      });
+      Promise.race([Promise.all([wipeApiCache().catch(() => {}), wipeFieldKv()]), new Promise((r) => setTimeout(r, 3000))]).then(() => location.replace('login.html'));
     });
   };
 

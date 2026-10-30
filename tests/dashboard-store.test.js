@@ -2,13 +2,12 @@
 // Step 6 — dashboard definition store on sqlite: draft → publish (versioned) → retire, seeds never overwrite.
 const test = require('node:test');
 const assert = require('node:assert');
-const Database = require('better-sqlite3');
 const { makeDashboardStore } = require('../services/dashboardStore');
 const { SEED_DASHBOARDS, EXEC_HOME } = require('../services/dashboardSeeds');
 const { SEED } = require('../services/metricRegistry');
 
 const METRICS = SEED.map(m => m.key);
-async function fresh() { const s = makeDashboardStore(new Database(':memory:')); await s.init(); return s; }
+async function fresh() { const s = makeDashboardStore((await require('./_pg-fresh').freshStore(['metric_registry', 'dashboard_definitions', 'dashboard_definition_versions', 'rfi_requests']))); await s.init(); return s; }
 const doc = (over) => ({ key: 'k1', title: 'K1', audience: 'site', grid: { columns: 12 }, widgets: [{ id: 'a', type: 'kpi', metric: 'assets.total', layout: { x: 0, y: 0, w: 3, h: 2 } }], ...over });
 
 test('draft saved, not visible as published until publish; publish numbers versions', async () => {
@@ -54,4 +53,23 @@ test('list scopes site-pinned dashboards to the caller sites (fleet ones always 
   await s.saveDraft(doc({ key: 'hgo' }), { siteId: 9, metrics: METRICS }); await s.publish('hgo');
   assert.deepEqual((await s.list({ status: 'published', siteIds: [5] })).map(d => d.key).sort(), ['fleet', 'sgo']);
   assert.deepEqual((await s.list({ status: 'published', siteIds: null })).map(d => d.key).sort(), ['fleet', 'hgo', 'sgo']);
+});
+
+test('publish race (committee QA P1-1): a draft edited after the decision is never published; two publishers cannot both publish', async () => {
+  const s = await fresh();
+  await s.saveDraft(doc(), { user: { id: 7 }, metrics: METRICS });
+  await s.submit('k1', { user: { id: 7 } });
+  const seen = await s.get('k1');
+  // someone edits the draft after the publisher read it
+  await new Promise((r) => setTimeout(r, 5));
+  await s.saveDraft(doc({ title: 'edited behind your back' }), { user: { id: 7 }, metrics: METRICS });
+  await assert.rejects(async () => s.publish('k1', { user: { id: 8 }, expect: { updated_at: seen.updated_at, submitted_at: seen.submitted_at } }), (e) => e.status === 409 && e.code === 'STALE');
+  assert.equal(await s.published('k1'), null, 'nothing published');
+  // two concurrent publishes of the same reviewed draft: exactly one wins
+  await s.submit('k1', { user: { id: 7 } });
+  const now = await s.get('k1');
+  const exp = { updated_at: now.updated_at, submitted_at: now.submitted_at };
+  const r = await Promise.allSettled([s.publish('k1', { user: { id: 8 }, expect: exp }), s.publish('k1', { user: { id: 9 }, expect: exp })]);
+  assert.equal(r.filter((x) => x.status === 'fulfilled').length, 1);
+  assert.equal((await s.versions('k1')).length, 1, 'one version row');
 });

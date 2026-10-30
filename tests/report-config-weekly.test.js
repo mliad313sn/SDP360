@@ -10,30 +10,29 @@
 // the coordinator directory (report_recipients), same as the scoreboard.
 const test = require('node:test');
 const assert = require('node:assert');
-const Database = require('better-sqlite3');
 const cfg = require('../services/reportConfig');
 
-function freshDb() { const db = new Database(':memory:'); cfg._initSchema(db); return db; }
+async function freshDb() { return require('./_pg-fresh').fresh(['report_config']); }
 
 test('weekly_report_send_enabled is in DEFAULTS and armed OFF', () => {
   assert.strictEqual(cfg.DEFAULTS.weekly_report_send_enabled, '0');
   assert.ok(cfg.KEYS.includes('weekly_report_send_enabled'), 'KEYS derives from DEFAULTS');
 });
 
-test('getConfig on an empty DB reports the key as disarmed', () => {
-  const db = freshDb();
-  assert.strictEqual(cfg.getConfig(db).weekly_report_send_enabled, '0');
+test('getConfig on an empty DB reports the key as disarmed', async () => {
+  const db = (await freshDb());
+  assert.strictEqual((await cfg.getConfig(db)).weekly_report_send_enabled, '0');
 });
 
-test('setConfig PERSISTS weekly_report_send_enabled (proves it passed the KEYS filter)', () => {
-  const db = freshDb();
-  cfg.setConfig(db, { weekly_report_send_enabled: '1' }, 'u');
-  assert.strictEqual(cfg.getConfig(db).weekly_report_send_enabled, '1',
+test('setConfig PERSISTS weekly_report_send_enabled (proves it passed the KEYS filter)', async () => {
+  const db = (await freshDb());
+  (await cfg.setConfig(db, { weekly_report_send_enabled: '1' }, 'u'));
+  assert.strictEqual((await cfg.getConfig(db)).weekly_report_send_enabled, '1',
     'a key missing from DEFAULTS would be silently dropped and still read "0" here');
 
   // ...and back off again, so the admin can disarm.
-  cfg.setConfig(db, { weekly_report_send_enabled: '0' }, 'u');
-  assert.strictEqual(cfg.getConfig(db).weekly_report_send_enabled, '0');
+  (await cfg.setConfig(db, { weekly_report_send_enabled: '0' }, 'u'));
+  assert.strictEqual((await cfg.getConfig(db)).weekly_report_send_enabled, '0');
 });
 
 test('adding the key did not disturb the neighbouring arm flags', () => {

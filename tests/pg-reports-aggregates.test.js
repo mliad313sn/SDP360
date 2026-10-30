@@ -44,7 +44,7 @@ async function boot() {
   process.env.PG_URL = ctx.url;
   const rdb = require('../reports-db');
   await rdb.initPgReports();
-  const site = await rdb.createSite({ name: 'Hounde', zoho_group: 'Hounde IT Agents' });
+  const site = await require('./_pg-fresh').ensureSite(rdb, { name: 'Hounde', zoho_group: 'Hounde IT Agents' });
   return { ctx, rdb, siteId: site.id };
 }
 

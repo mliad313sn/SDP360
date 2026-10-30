@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Handoffs — Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<style nonce="%%CSP_NONCE%%">
+  body { margin: 0; background: var(--color-bg, #F4F5F7); color: var(--color-text-strong, #1F2A33); font-family: var(--font-sans, sans-serif); font-size: 14px; }
+  .ho-wrap { max-width: 1300px; margin: 0 auto; padding: 24px 28px 48px; }
+  .ho-card { background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA); border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; }
+  .ho-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px; }
+  @media (max-width: 900px) { .ho-grid { grid-template-columns: 1fr; } }
+  h1 { margin: 0 0 6px; font-size: 22px; color: var(--edv-slate, #3A4A60); }
+  .ho-muted { color: #5B6573; font-size: 12.5px; }
+  table { width: 100%; border-collapse: collapse; } td, th { padding: 7px 8px; border-bottom: 1px solid #EEF0F3; text-align: left; font-size: 13px; }
+  tr.ho-row { cursor: pointer; } tr.ho-row:hover, tr.ho-row:focus { background: #F8F9FB; outline: none; } tr.ho-sel { background: #FFF4EC; }
+  .ho-pill { display: inline-block; border-radius: 999px; padding: 2px 9px; font-size: 11px; font-weight: 700; background: rgba(107,119,133,.12); }
+  .ho-pill--escalated, .ho-pill--rejected { background: rgba(217,0,56,.12); color: #A0002C; }
+  .ho-pill--blocked { background: rgba(217,119,6,.15); color: #7A3A00; }
+  .ho-pill--verified { background: rgba(39,174,96,.15); color: #1A6B3C; }
+  button, select, input, textarea { font: inherit; } button { border: 1px solid #D0D5DD; background: #fff; border-radius: 6px; padding: 6px 12px; cursor: pointer; margin: 0 6px 6px 0; }
+  button.ho-primary { background: var(--edv-orange, #EF631A); color: #1F2A33; border-color: transparent; font-weight: 700; }
+  .ho-form label { display: block; font-size: 12.5px; margin-bottom: 8px; }
+  .ho-form input, .ho-form select, .ho-form textarea { width: 100%; box-sizing: border-box; padding: 6px 8px; border: 1px solid #D0D5DD; border-radius: 6px; margin-top: 2px; }
+  .ho-msg { min-height: 18px; font-size: 13px; color: #A0002C; }
+  ul.ho-events { padding-left: 18px; font-size: 12.5px; color: #3F3C3B; }
+  .ho-lang { float: right; } .ho-lang button[aria-pressed="true"] { background: #1F2A33; color: #fff; }
+  body.lang-fr [data-lng="en"], body:not(.lang-fr) [data-lng="fr"] { display: none; }
+</style>
+</head>
+<body>
+<a class="edv-skip" href="#main">Skip to content</a>
+<div id="__shell" data-section="operations" data-current="handoffs"></div>
+<main id="main" class="ho-wrap">
+  <div class="ho-card">
+    <div class="ho-lang" role="group" aria-label="Language"><button type="button" id="hoEn" aria-pressed="true">EN</button><button type="button" id="hoFr" aria-pressed="false">FR</button></div>
+    <h1><span data-lng="en">Handoffs between departments</span><span data-lng="fr">Demandes inter-services</span></h1>
+    <div class="ho-muted" data-lng="en">One department hands work to a named person of another department. Nothing is accepted on their behalf; the requesting side verifies the result. Overdue handoffs are escalated. <a href="site-actions.html">← Site Actions</a></div>
+    <div class="ho-muted" data-lng="fr">Un service demande un travail à une personne nommée d'un autre service. Personne n'accepte à sa place ; le demandeur valide le résultat. Une demande en retard est remontée à la hiérarchie. <a href="site-actions.html">← Actions du site</a></div>
+    <div class="ho-muted" id="hoDisabled" hidden><span data-lng="en">Handoffs are not enabled on this instance (Admin flag <code>handoffs_enabled</code>).</span><span data-lng="fr">Les demandes inter-services ne sont pas activées sur cette instance (réglage <code>handoffs_enabled</code>).</span></div>
+  </div>
+  <div class="ho-grid">
+    <div class="ho-card">
+      <label for="hoStatus" class="ho-muted"><span data-lng="en">Status</span><span data-lng="fr">Statut</span></label>
+      <select id="hoStatus"><option value="">—</option></select>
+      <button id="hoNewBtn" class="ho-primary" type="button"><span data-lng="en">+ New handoff</span><span data-lng="fr">+ Nouvelle demande</span></button>
+      <table><thead><tr><th>Ref</th><th><span data-lng="en">Title</span><span data-lng="fr">Titre</span></th><th><span data-lng="en">To</span><span data-lng="fr">Vers</span></th><th><span data-lng="en">Due</span><span data-lng="fr">Échéance</span></th><th><span data-lng="en">Status</span><span data-lng="fr">Statut</span></th></tr></thead><tbody id="hoList"></tbody></table>
+    </div>
+    <div class="ho-card" id="hoDetail"><div class="ho-muted"><span data-lng="en">Select a handoff.</span><span data-lng="fr">Choisissez une demande.</span></div></div>
+  </div>
+  <div class="ho-card ho-form" id="hoNew" hidden>
+    <strong><span data-lng="en">New handoff</span><span data-lng="fr">Nouvelle demande</span></strong>
+    <label for="nfTitle"><span data-lng="en">Title</span><span data-lng="fr">Titre</span><input id="nfTitle"></label>
+    <label for="nfDesc"><span data-lng="en">What is needed</span><span data-lng="fr">Besoin</span><textarea id="nfDesc" rows="2"></textarea></label>
+    <label for="nfSite"><span data-lng="en">Site</span><span data-lng="fr">Site</span><select id="nfSite"></select></label>
+    <label for="nfFrom"><span data-lng="en">From department</span><span data-lng="fr">Service demandeur</span><select id="nfFrom"></select></label>
+    <label for="nfTo"><span data-lng="en">To department</span><span data-lng="fr">Service destinataire</span><select id="nfTo"></select></label>
+    <label for="nfReceiver"><span data-lng="en">Receiver (a person of this site)</span><span data-lng="fr">Destinataire (une personne de ce site)</span><select id="nfReceiver"></select></label>
+    <label for="nfDue"><span data-lng="en">Due date</span><span data-lng="fr">Échéance</span><input id="nfDue" type="date"></label>
+    <button id="nfSave" class="ho-primary" type="button"><span data-lng="en">Send</span><span data-lng="fr">Envoyer</span></button>
+    <div class="ho-msg" id="nfMsg" role="status" aria-live="polite"></div>
+  </div>
+</main>
+<script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/errorText.js"></script>
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  'use strict';
+  function hdr(extra) {
+    const h = extra || {}; const at = window.__authToken; let tok = null;
+    if (typeof at === 'function') { try { tok = at(); } catch (_) {} } else if (typeof at === 'string' && at) tok = at;
+    if (!tok) tok = localStorage.getItem('report_token');
+    if (tok) h['x-report-token'] = tok;
+    return h;
+  }
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const $ = (id) => document.getElementById(id);
+  // statuses (nouns) and actions (verbs) — field review 2026-10-28: buttons say what you DO
+  const STATUS = { en: { requested: 'requested', accepted: 'accepted', rejected: 'refused', blocked: 'blocked', escalated: 'escalated', delivered: 'delivered', verified: 'verified', cancelled: 'cancelled' },
+    fr: { requested: 'demandée', accepted: 'acceptée', rejected: 'refusée', blocked: 'bloquée', escalated: 'remontée à la hiérarchie', delivered: 'livrée', verified: 'validée', cancelled: 'annulée' } };
+  const VERB = { en: { accepted: 'Accept', rejected: 'Refuse', blocked: 'Report a blocker', escalated: 'Escalate', delivered: 'Mark as delivered', verified: 'Confirm the delivery', cancelled: 'Cancel the request', requested: 'Send back to the receiver', rework: 'Ask for rework', resume: 'Resume' },
+    fr: { accepted: 'Accepter', rejected: 'Refuser', blocked: 'Signaler un blocage', escalated: 'Remonter à la hiérarchie', delivered: 'Marquer comme livré', verified: 'Valider la livraison', cancelled: 'Annuler la demande', requested: 'Renvoyer au destinataire', rework: 'Demander une reprise', resume: 'Reprendre' } };
+  const EVENT = { fr: { handoff_created: 'demande créée', handoff_transition: 'changement de statut', handoff_reassigned: 'destinataire changé', escalated_overdue: 'remontée automatique (retard)' },
+    en: { handoff_created: 'request created', handoff_transition: 'status changed', handoff_reassigned: 'receiver changed', escalated_overdue: 'escalated automatically (overdue)' } };
+  let lang = 'en'; try { lang = localStorage.getItem('sdp_lang') || localStorage.getItem('handoffs_lang') || 'en'; } catch (_) {}
+  const L = () => (lang === 'fr' ? 'fr' : 'en');
+  const lbl = (s) => STATUS[L()][s] || s;
+  const errText = (e) => (L() === 'fr' && window.ErrorText ? window.ErrorText.fr(e.message) : e.message);
+  function setLang(l) {
+    lang = l; document.body.classList.toggle('lang-fr', l === 'fr'); document.documentElement.lang = l; $('hoEn').setAttribute('aria-pressed', String(l === 'en')); $('hoFr').setAttribute('aria-pressed', String(l === 'fr'));
+    try { localStorage.setItem('handoffs_lang', l); localStorage.setItem('sdp_lang', l); } catch (_) {}
+    for (const o of $('hoStatus').options) if (o.value) o.textContent = lbl(o.value);   // the list follows the language
+    loadList(); if (selected) show(selected);
+  }
+  async function api(method, url, body) {
+    const r = await fetch(url, { method, headers: hdr(body ? { 'content-type': 'application/json' } : {}), body: body ? JSON.stringify(body) : undefined });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) { const e = new Error(j.error || ('HTTP ' + r.status)); e.status = r.status; throw e; }
+    return j;
+  }
+  let selected = null, sitesLoaded = false; const reasonMin = {};
+  const pill = (s) => `<span class="ho-pill ho-pill--${esc(s)}">${esc(lbl(s))}</span>`;
+  async function minFor(site) {
+    if (reasonMin[site] != null) return reasonMin[site];
+    try { reasonMin[site] = Number((await api('GET', '/api/governance/policies/effective?site=' + encodeURIComponent(site))).values['handoffs.reason_min']) || 5; } catch (_) { reasonMin[site] = 5; }
+    return reasonMin[site];
+  }
+  async function people(site) { try { return (await api('GET', '/api/handoffs/people?site=' + encodeURIComponent(site))).people; } catch (_) { return []; } }
+  async function fillReceivers() {
+    const site = $('nfSite').value; const sel = $('nfReceiver'); sel.innerHTML = '';
+    sel.add(new Option(L() === 'fr' ? '— choisir —' : '— choose —', ''));
+    if (site) for (const p of await people(site)) sel.add(new Option(p.name + ' (' + p.username + ')', p.username));
+  }
+  async function loadList() {
+    try {
+      const q = $('hoStatus').value ? '?status=' + encodeURIComponent($('hoStatus').value) : '';
+      const j = await api('GET', '/api/handoffs' + q);
+      if ($('hoStatus').options.length === 1) for (const s of j.statuses) $('hoStatus').add(new Option(lbl(s), s));
+      if (!$('nfFrom').options.length) for (const d of j.departments) { $('nfFrom').add(new Option(d, d)); $('nfTo').add(new Option(d, d)); }
+      if (!sitesLoaded && Array.isArray(j.sites)) { sitesLoaded = true; for (const s of j.sites) $('nfSite').add(new Option(s.name, s.id)); if (j.sites.length === 1) $('nfSite').value = String(j.sites[0].id); fillReceivers(); }
+      $('hoList').innerHTML = j.handoffs.map((h) => `<tr class="ho-row${selected === h.id ? ' ho-sel' : ''}" tabindex="0" data-id="${Number(h.id)}"><td>${esc(h.ref)}</td><td>${esc(h.title)}</td><td>${esc(h.to_department)}</td><td>${esc(h.due_date || '—')}</td><td>${pill(h.status)}</td></tr>`).join('')
+        || `<tr><td colspan="5" class="ho-muted">${L() === 'fr' ? 'Aucune demande dans votre périmètre.' : 'No handoff in your scope.'}</td></tr>`;
+    } catch (e) { if (e.status === 404) { $('hoDisabled').hidden = false; $('hoNewBtn').disabled = true; } else $('hoList').innerHTML = `<tr><td colspan="5">${esc(errText(e))}</td></tr>`; }
+  }
+  const verbFor = (h, to) => (h.status === 'delivered' && to === 'accepted' ? VERB[L()].rework : h.status !== 'requested' && to === 'accepted' ? VERB[L()].resume : (VERB[L()][to] || to));
+  async function show(id) {
+    selected = Number(id); if (!Number.isFinite(selected)) return;
+    try {
+      const h = (await api('GET', '/api/handoffs/' + encodeURIComponent(selected))).handoff;
+      const btns = h.allowed.map((t) => `<button type="button" data-to="${esc(t.to)}" data-reason="${t.reason ? 1 : 0}"${t.to === 'verified' || t.to === 'accepted' || t.to === 'delivered' ? ' class="ho-primary"' : ''}>${esc(verbFor(h, t.to))}</button>`).join(' ')
+        || `<span class="ho-muted">${L() === 'fr' ? 'Aucune action possible pour vous.' : 'No action available to you.'}</span>`;
+      const re = h.can_reassign ? ` <button type="button" id="hoReassign">${L() === 'fr' ? 'Changer de destinataire' : 'Change the receiver'}</button>` : '';
+      const ev = EVENT[L()];
+      $('hoDetail').innerHTML = `<h3 style="margin-top:0">${esc(h.ref)} ${esc(h.title)} ${pill(h.status)}</h3>
+        <div class="ho-muted">${esc(h.from_department)} → ${esc(h.to_department)} · ${L() === 'fr' ? 'échéance' : 'due'} ${esc(h.due_date || '—')}${h.escalated_from ? ' · ' + (L() === 'fr' ? 'remontée depuis ' : 'escalated from ') + esc(lbl(h.escalated_from)) : ''}</div>
+        <p>${esc(h.description || '')}</p>${h.last_reason ? `<p class="ho-muted">${L() === 'fr' ? 'Dernier motif' : 'Last reason'} : ${esc(h.last_reason)}</p>` : ''}
+        <div>${btns}${re}</div><div class="ho-msg" id="hoMsg" role="status" aria-live="polite"></div>
+        <ul class="ho-events">${(h.events || []).map((e) => `<li>${esc(String(e.at).slice(0, 16).replace('T', ' '))} — ${esc(ev[e.action] || e.action)}${e.to_status ? ' → ' + esc(lbl(e.to_status)) : ''}${e.details && e.details.reason ? ' (' + esc(e.details.reason) + ')' : ''}</li>`).join('')}</ul>`;
+      $('hoDetail').dataset.version = h.version; $('hoDetail').dataset.site = h.site_id;
+      loadList();
+    } catch (e) { $('hoDetail').innerHTML = `<div class="ho-msg" role="status">${esc(errText(e))}</div>`; }
+  }
+  $('hoList').addEventListener('click', (ev) => { const tr = ev.target.closest('tr[data-id]'); if (tr) show(tr.dataset.id); });
+  $('hoList').addEventListener('keydown', (ev) => { if (ev.key !== 'Enter') return; const tr = ev.target.closest('tr[data-id]'); if (tr) show(tr.dataset.id); });
+  let busy = false;
+  $('hoDetail').addEventListener('click', async (ev) => {
+    const b = ev.target.closest('button'); if (!b || busy) return;
+    const version = Number($('hoDetail').dataset.version); const site = $('hoDetail').dataset.site;
+    const fr = L() === 'fr';
+    try {
+      if (b.id === 'hoReassign') {
+        const opts = (await people(site)).map((p) => ({ value: p.username, label: p.name }));
+        const f = await window.ReasonDialog.form({ title: fr ? 'Changer de destinataire' : 'Change the receiver', lang: L(), fields: [
+          { name: 'receiver', label: fr ? 'Nouveau destinataire' : 'New receiver', type: 'select', options: opts },
+          { name: 'reason', label: fr ? 'Motif' : 'Reason', min: await minFor(site), multiline: true }] });
+        if (!f) return;
+        busy = true; b.disabled = true;
+        await api('POST', `/api/handoffs/${encodeURIComponent(selected)}/reassign`, { receiver: f.receiver, version, reason: f.reason });
+      } else if (b.dataset.to) {
+        let reason = null;
+        if (b.dataset.reason === '1') { reason = await window.ReasonDialog.ask({ title: b.textContent, label: fr ? 'Motif (conservé dans l\'historique)' : 'Reason (kept in the history)', min: await minFor(site), lang: L() }); if (reason == null) return; }
+        busy = true; b.disabled = true;
+        await api('POST', `/api/handoffs/${encodeURIComponent(selected)}/transition`, { to: b.dataset.to, version, reason });
+      } else return;
+      show(selected);
+    } catch (e) { const m = $('hoMsg'); if (m) m.textContent = errText(e); }
+    finally { busy = false; if (b) b.disabled = false; }
+  });
+  $('hoStatus').addEventListener('change', loadList);
+  $('nfSite').addEventListener('change', fillReceivers);
+  // one idempotency key per opened form: a double click or a retry after a network error re-sends the SAME key
+  let formKey = null;
+  const newKey = () => 'ui-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  // UAT F-11: raising a handoff is an editor act — a reader never sees a button the server refuses
+  if (typeof window.__userHasRole === 'function' && !window.__userHasRole('editor')) $('hoNewBtn').hidden = true;
+  $('hoNewBtn').addEventListener('click', () => { $('hoNew').hidden = !$('hoNew').hidden; if (!$('hoNew').hidden) formKey = newKey(); });
+  $('nfSave').addEventListener('click', async () => {
+    $('nfMsg').textContent = ''; if ($('nfSave').disabled) return; $('nfSave').disabled = true;
+    try {
+      const j = await api('POST', '/api/handoffs', { title: $('nfTitle').value, description: $('nfDesc').value, site_id: Number($('nfSite').value) || null,
+        from_department: $('nfFrom').value, to_department: $('nfTo').value, receiver: $('nfReceiver').value, due_date: $('nfDue').value || null,
+        idem_key: formKey || (formKey = newKey()) });
+      $('hoNew').hidden = true; formKey = null; show(j.handoff.id);
+    } catch (e) { $('nfMsg').textContent = errText(e); }
+    finally { $('nfSave').disabled = false; }
+  });
+  $('hoEn').addEventListener('click', () => setLang('en'));
+  $('hoFr').addEventListener('click', () => setLang('fr'));
+  setLang(lang === 'fr' ? 'fr' : 'en');
+  const q = new URLSearchParams(location.search).get('id'); if (q && /^\d+$/.test(q)) show(q);
+})();
+</script>
+</body>
+</html>

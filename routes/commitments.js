@@ -4,6 +4,7 @@
 //
 //   GET  /api/commitments?status=&kind=&site=        scoped list (own sites + where named reviewer/owner)
 //   GET  /api/commitments/metrics?site=              draft metrics (services/commitmentMetrics)
+//   GET  /api/commitments/escalations                open A01 / A02 escalations (?all=1 includes cleared)
 //   GET  /api/commitments/:id                        detail + links + evidence + verifications + events + allowed transitions
 //   POST /api/commitments                            create (idempotent on body.source {system,id})      editor of the site | admin tier
 //   PUT  /api/commitments/:id                        edit fields (body.version required; due-date change needs body.reason)
@@ -19,8 +20,8 @@ const { fail: httpFail, typed } = require('../services/httpError');
 
 function createStore(rdbMod) {
   const pg = rdbMod.REPORTS_BACKEND === 'postgres';
-  const st = require('../services/commitmentStore').makeCommitmentStore(pg ? { prepare: (sql) => rdbMod.pgHandle().prepare(sql) } : rdbMod.db, { isPg: pg });
-  if (!pg) st.init();
+  const st = require('../services/commitmentStore').makeCommitmentStore(({ prepare: (sql) => rdbMod.pgHandle().prepare(sql), runTransaction: (fn) => rdbMod.pgHandle().runTransaction(fn) }), { isPg: pg });
+  
   return st;
 }
 
@@ -35,9 +36,20 @@ module.exports = function commitmentsRoutes(deps) {
   const fail = (res, e) => httpFail(res, e);
 
   const isAdmin = (u) => rdb().userHasRole(u, 'admin');
-  const identities = (u) => [u && u.username, u && u.email, u && u.full_name].filter(Boolean);
-  const actorOf = (u, c) => ({ id: u.id, username: u.username, full_name: u.full_name, email: u.email, isAdmin: isAdmin(u),
-    canEdit: rdb().userHasRole(u, 'editor') && c && c.site_id != null && userSites.hasSite(u, c.site_id) });
+  const identities = (u) => [u && u.username, u && u.email].filter(Boolean);   // never the full name (namesakes) — security P1-3
+  const actorOf = (u, c, ex = {}) => ({ id: u.id, username: u.username, full_name: u.full_name, email: u.email, isAdmin: isAdmin(u),
+    canEdit: rdb().userHasRole(u, 'editor') && c && c.site_id != null && userSites.hasSite(u, c.site_id), principals: ex.principals || [], roleReviewer: !!ex.roleReviewer });
+  // ADR-006 — who this user stands in for today, and whether they hold commitments.reviewer for the site.
+  // No rolesStore / empty tables = no extras = the behaviour until now.
+  async function extrasFor(u, c) {
+    const rs = deps.getRolesStore && deps.getRolesStore(); if (!rs || !c) return {};
+    try {
+      const snap = await rs.snapshot(); const R = require('../services/governanceRoles'); const day = new Date().toISOString().slice(0, 10);
+      const ids = R.principalsOf(snap.deputies, u.id, day);
+      const users = ids.length ? ((await rdb().listUsers()) || []).filter((x) => ids.includes(Number(x.id))).map((x) => ({ id: x.id, username: x.username, email: x.email, full_name: x.full_name })) : [];
+      return { principals: users, roleReviewer: R.holders(snap.assignments, 'commitments.reviewer', c.site_id, day).includes(Number(u.id)) };
+    } catch (_) { return {}; }
+  }
   const log = (req, action, target, details) => { try { rdb().logEvent({ category: 'commitments', action, target: String(target), details, ...rdb()._logCtx(req) }); } catch (_) {} };
 
   async function enabled(req, res, next) {
@@ -51,12 +63,52 @@ module.exports = function commitmentsRoutes(deps) {
   async function load(req, res) {
     const c = await store.get(req.params.id);
     const u = req.reportUser;
-    const visible = c && (isAdmin(u) || (c.site_id != null && userSites.hasSite(u, c.site_id)) || L.isReviewer(c, u) || L.isSelf(c, u));
-    if (!visible) { res.status(404).json({ error: 'commitment not found' }); return null; }
+    if (!visibleTo(u, c)) { res.status(404).json({ error: 'commitment not found' }); return null; }
     return c;
   }
   const canEdit = (u, c) => isAdmin(u) || (rdb().userHasRole(u, 'editor') && c.site_id != null && userSites.hasSite(u, c.site_id));
-  const view = (c, u) => ({ ...c, allowed: L.allowedTransitions(c, actorOf(u, c)), can_edit: canEdit(u, c) });
+  const visibleTo = (u, c) => !!c && (isAdmin(u) || (c.site_id != null && userSites.hasSite(u, c.site_id)) || L.isReviewer(c, u) || L.isSelf(c, u));
+
+  // G-18 — the site a source record belongs to. { checked:false } for systems we cannot resolve here
+  // (SDP tickets, changes, governance, portfolio); { checked:true, site_id:null } when the record is missing.
+  const mdb = () => deps.mdb || require('../meetings-db');
+  const idb = () => deps.idb || require('../inspection-db');
+  async function codeToSite(module, code) {
+    if (!code) return null;
+    const r = await rdb().getSiteIdByModuleCode(module, code);
+    return r && r.site_id != null ? Number(r.site_id) : null;
+  }
+  async function sourceSite(system, id) {
+    const sid = String(id == null ? '' : id);
+    if (system === 'meetings') {
+      const m = /^issue:(\d+)$/.exec(sid);
+      const p = m ? await mdb().getIssueParent(Number(m[1])) : (/^\d+$/.test(sid) ? await mdb().getActionParent(Number(sid)) : null);
+      return { checked: true, site_id: p ? await codeToSite('meetings', p.site_code) : null };
+    }
+    if (system === 'inspection') {
+      const p = /^\d+$/.test(sid) ? await idb().getActionParent(Number(sid)) : null;
+      return { checked: true, site_id: p ? await codeToSite('inspection', p.site_code) : null };
+    }
+    if (system === 'handoff') {   // committee #39 — a handoff recorded in the commitments ledger
+      const h = /^\d+$/.test(sid) && deps.getHandoffStore ? await deps.getHandoffStore().getRaw(Number(sid)) : null;
+      return { checked: true, site_id: h ? Number(h.site_id) : null };
+    }
+    if (system === 'report') {
+      const o = await rdb().getActionItemOwner(sid);
+      return { checked: true, site_id: o && o.site_id != null ? Number(o.site_id) : null };
+    }
+    return { checked: false };
+  }
+  /** A non-admin may only attach a source record of one of their own sites. Returns an error message or null. */
+  async function sourceDenied(u, system, id) {
+    if (isAdmin(u)) return null;
+    const s = await sourceSite(system, id);
+    if (!s.checked) return null;
+    if (s.site_id == null) return { status: 400, error: `source ${system}:${id} not found` };
+    if (!userSites.hasSite(u, s.site_id)) return { status: 403, error: 'Access denied: the source belongs to another site' };
+    return null;
+  }
+  const view = async (c, u) => ({ ...c, allowed: L.allowedTransitions(c, actorOf(u, c, await extrasFor(u, c))), can_edit: canEdit(u, c) });
 
   router.get('/commitments.html', (req, res) => deps.sendHtmlPage(res, 'commitments.html', false, 'Commitments page unavailable'));
 
@@ -65,7 +117,8 @@ module.exports = function commitmentsRoutes(deps) {
     try {
       const u = req.reportUser;
       const rows = await store.list({ siteIds: isAdmin(u) ? null : userSites.siteIds(u), named: isAdmin(u) ? [] : identities(u),
-        status: req.query.status || null, kind: req.query.kind || null, site: req.query.site || null });
+        status: req.query.status || null, kind: req.query.kind || null, site: req.query.site || null, exceptions: req.query.exceptions === '1' });
+      if (req.query.exceptions === '1') { const today = new Date().toISOString(); for (const r of rows) r.exception_state = r.exception_expires_at && String(r.exception_expires_at) < today ? 'lapsed' : 'active'; }
       res.json({ commitments: rows, kinds: L.KINDS, statuses: L.STATUSES, severities: L.SEVERITIES, sites: isAdmin(u) ? null : userSites.siteIds(u) });
     } catch (e) { fail(res, e); }
   });
@@ -78,8 +131,15 @@ module.exports = function commitmentsRoutes(deps) {
       res.json({ status: 'draft — pending committee', ...out });
     } catch (e) { fail(res, e); }
   });
+  // G-18 — open A01 / A02 escalations (deduplicated ledger), scoped like the list.
+  router.get(base + '/escalations', requireReportSession, enabled, async (req, res) => {
+    try {
+      const u = req.reportUser;
+      res.json({ status: 'draft — pending committee', escalations: await store.listEscalations({ siteIds: isAdmin(u) ? null : userSites.siteIds(u), openOnly: req.query.all !== '1' }) });
+    } catch (e) { fail(res, e); }
+  });
   router.get(base + '/:id', requireReportSession, enabled, async (req, res) => {
-    try { const c = await load(req, res); if (c) res.json({ commitment: view(c, req.reportUser) }); } catch (e) { fail(res, e); }
+    try { const c = await load(req, res); if (c) res.json({ commitment: await view(c, req.reportUser) }); } catch (e) { fail(res, e); }
   });
   router.post(base, requireReportSession, enabled, async (req, res) => {
     try {
@@ -88,9 +148,19 @@ module.exports = function commitmentsRoutes(deps) {
         if (!rdb().userHasRole(u, 'editor')) return res.status(403).json({ error: 'editor role required' });
         if (b.site_id == null || !userSites.hasSite(u, b.site_id)) return res.status(403).json({ error: 'Access denied: another site' });
       }
+      if (b.source && b.source.system) {
+        const d = await sourceDenied(u, String(b.source.system), b.source.id);
+        if (d) return res.status(d.status).json({ error: d.error });
+        // a source whose site cannot be verified (SDP ticket / change, governance, portfolio) is unique across
+        // the platform: a replay would reveal that another site already holds it (committee security). The
+        // admin tier creates from it; a site editor creates from a site record and LINKS the ticket.
+        if (!isAdmin(u) && !(await sourceSite(String(b.source.system), b.source.id)).checked) return res.status(403).json({ error: `only the admin tier creates a commitment from a ${String(b.source.system).slice(0, 40)} record — create it from a site record and link the ticket` });
+      }
       const r = await store.create(b, { user: u });
+      // idempotent replay: never hand back a commitment the caller cannot see
+      if (!r.created && !visibleTo(u, r.commitment)) return res.status(409).json({ error: 'this source is already linked to another commitment' });
       if (r.created) log(req, 'commitment_created', r.commitment.id, { kind: r.commitment.kind, site_id: r.commitment.site_id });
-      res.status(r.created ? 201 : 200).json({ created: r.created, commitment: view(r.commitment, u) });
+      res.status(r.created ? 201 : 200).json({ created: r.created, commitment: await view(r.commitment, u) });
     } catch (e) { fail(res, e); }
   });
   router.put(base + '/:id', requireReportSession, enabled, async (req, res) => {
@@ -98,16 +168,16 @@ module.exports = function commitmentsRoutes(deps) {
       const c = await load(req, res); if (!c) return;
       if (!canEdit(req.reportUser, c)) return res.status(403).json({ error: 'editor of this site required' });
       const b = req.body || {};
-      res.json({ commitment: view(await store.update(c.id, b, { user: req.reportUser, expectedVersion: b.version, reason: b.reason }), req.reportUser) });
+      res.json({ commitment: await view(await store.update(c.id, b, { user: req.reportUser, expectedVersion: b.version, reason: b.reason, isAdmin: isAdmin(req.reportUser), policy: await require('../services/governancePolicy').forContext({ siteId: c.site_id }) }), req.reportUser) });
     } catch (e) { fail(res, e); }
   });
   router.post(base + '/:id/transition', requireReportSession, enabled, async (req, res) => {
     try {
       const c = await load(req, res); if (!c) return;
       const b = req.body || {};
-      const out = await store.transition(c.id, String(b.to || ''), { actor: actorOf(req.reportUser, c), expectedVersion: b.version, reason: b.reason });
+      const out = await store.transition(c.id, String(b.to || ''), { actor: actorOf(req.reportUser, c, await extrasFor(req.reportUser, c)), expectedVersion: b.version, reason: b.reason });
       log(req, 'commitment_transition', c.id, { from: c.status, to: out.status });
-      res.json({ commitment: view(out, req.reportUser) });
+      res.json({ commitment: await view(out, req.reportUser) });
     } catch (e) { fail(res, e); }
   });
   router.post(base + '/:id/exception', requireReportSession, enabled, async (req, res) => {
@@ -116,21 +186,24 @@ module.exports = function commitmentsRoutes(deps) {
       if (!isAdmin(req.reportUser)) return res.status(403).json({ error: 'only the admin tier may approve an exception' });
       if (L.isSelf(c, req.reportUser)) return res.status(403).json({ error: 'the owner or creator cannot approve their own exception' });
       const b = req.body || {};
-      res.json({ commitment: view(await store.approveException(c.id, { user: req.reportUser, expectedVersion: b.version, reason: b.reason }), req.reportUser) });
+      res.json({ commitment: await view(await store.approveException(c.id, { user: req.reportUser, expectedVersion: b.version, reason: b.reason, policy: await require('../services/governancePolicy').forContext({ siteId: c.site_id }) }), req.reportUser) });
     } catch (e) { fail(res, e); }
   });
   router.post(base + '/:id/links', requireReportSession, enabled, async (req, res) => {
     try {
       const c = await load(req, res); if (!c) return;
       if (!canEdit(req.reportUser, c)) return res.status(403).json({ error: 'editor of this site required' });
-      res.json({ commitment: view(await store.link(c.id, req.body || {}, { user: req.reportUser }), req.reportUser) });
+      const lb = req.body || {};
+      const d = await sourceDenied(req.reportUser, String(lb.source_system || ''), lb.source_id);
+      if (d) return res.status(d.status).json({ error: d.error });
+      res.json({ commitment: await view(await store.link(c.id, req.body || {}, { user: req.reportUser }), req.reportUser) });
     } catch (e) { fail(res, e); }
   });
   router.delete(base + '/:id/links', requireReportSession, enabled, async (req, res) => {
     try {
       const c = await load(req, res); if (!c) return;
       if (!canEdit(req.reportUser, c)) return res.status(403).json({ error: 'editor of this site required' });
-      res.json({ commitment: view(await store.unlink(c.id, req.body || {}, { user: req.reportUser }), req.reportUser) });
+      res.json({ commitment: await view(await store.unlink(c.id, req.body || {}, { user: req.reportUser }), req.reportUser) });
     } catch (e) { fail(res, e); }
   });
   router.post(base + '/:id/evidence', requireReportSession, enabled, raw, async (req, res) => {
@@ -146,7 +219,7 @@ module.exports = function commitmentsRoutes(deps) {
       else if (req.body && req.body.url) r = await store.addEvidence(c.id, { ...opts, type: req.body.type || 'link', url: req.body.url }, { user: u });
       else throw typed('VALIDATION', 'send the file as the request body, or JSON { url }', 400);
       log(req, 'commitment_evidence', c.id, { evidence_id: r.id, sha256: r.sha256 });
-      res.status(201).json({ evidence_id: r.id, sha256: r.sha256, commitment: view(r.commitment, u) });
+      res.status(201).json({ evidence_id: r.id, sha256: r.sha256, commitment: await view(r.commitment, u) });
     } catch (e) { fail(res, e); }
   });
   router.get(base + '/:id/evidence/:eid', requireReportSession, enabled, async (req, res) => {

@@ -12,7 +12,7 @@ name: Release
 #   - the signing condition is a JOB-level env (`SIGN`) computed from the secret, read by the
 #     steps with `env.SIGN == 'true'` — a step-level `env:` is NOT visible to that step's own `if:`
 #     (the previous `if: env.PFX != ''` was always false → every release said "signed: NO");
-#   - the certificate password reaches signtool through `env:` of the ISCC step ONLY, expanded
+#   - the certificate password reaches signtool through `env:` of the Build Setup step ONLY, expanded
 #     at run time inside a wrapper script — never written to GITHUB_ENV, never on a logged
 #     command line (CLAUDE.md: a secret is never on a command line);
 #   - the manifest signing key reaches the packager through `env:` of its step only;
@@ -51,7 +51,7 @@ jobs:
           POSTGRES_PASSWORD: postgres
         ports: ['5432:5432']
         options: >-
-          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
+          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10 --shm-size=1g
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
@@ -67,6 +67,8 @@ jobs:
           test "$TAG" = "$PKG" || { echo "tag $TAG != package.json $PKG"; exit 1; }
           echo "version=$TAG" >> "$GITHUB_OUTPUT"
       - run: npm audit --omit=dev --audit-level=high
+      - name: Secret scan — a credential in the tracked files blocks the release (EX-01)
+        run: node tools/security/secret-scan.js
       - run: node db/migrate.js
       - run: npm run build:check
       - run: npm test
@@ -81,6 +83,8 @@ jobs:
           else
             echo "manifest_signed=no" >> "$GITHUB_OUTPUT"
           fi
+      - name: SBOM (CycloneDX) of the shipped components
+        run: node tools/release/sbom.js --out dist/sbom.cdx.json --timestamp
       - name: Manager accepts the freshly built package (signature + hashes)
         # Exactly what the server will run. Fails the release if the embedded public key does not
         # match the signing secret (or, unsigned, proves the refusal path still works).
@@ -108,8 +112,10 @@ jobs:
         with:
           name: package
           path: dist
-      - name: Install Inno Setup
-        run: choco install innosetup --no-progress -y
+      - name: Install Inno Setup (when the runner lacks it)
+        shell: pwsh
+        run: |
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) { choco install innosetup --no-progress -y }
       - name: Import signing certificate (when configured)
         if: env.SIGN == 'true'
         env:
@@ -132,10 +138,11 @@ jobs:
           SIGNING_CERT_PASSWORD: ${{ secrets.SIGNING_CERT_PASSWORD }}
         run: |
           $v = "${{ needs.package.outputs.version }}"
-          $sign = @()
-          # SDP-Dashboard.iss appends ` $f` itself (SignTool={#SignTool} $f): pass the wrapper path only.
-          if ($env:SIGN -eq 'true') { $sign = @("/Ssigntool=`"$env:RUNNER_TEMP\sdp-sign.cmd`"", "/DSignTool=signtool") }
-          & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" "/DAppVersion=$v" "/DPackageZip=$PWD\dist\sdp-dashboard-$v.zip" @sign tools\installer-v2\SDP-Dashboard.iss
+          # build.ps1 bundles Node.js (checksum-verified), the Windows dependencies, the service host and the
+          # Manager around the package the previous job built and signed — it never rebuilds the package.
+          $sign = ''
+          if ($env:SIGN -eq 'true') { $sign = "$env:RUNNER_TEMP\sdp-sign.cmd" }
+          ./tools/installer-v2/build.ps1 -Version $v -PackageZip "dist\sdp-dashboard-$v.zip" -SignTool $sign -Commit "$env:GITHUB_SHA".Substring(0, 7)
       - name: Note signing state
         shell: pwsh
         run: |

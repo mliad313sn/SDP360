@@ -20,10 +20,11 @@ const DEF = { key: 'smoke-1', name: 'Smoke', version: 1, period: { kind: 'monthl
 
 before(async () => {
   const { app } = require('../server');
+  await require('../server').seedStores();
   rdb = require('../reports-db');
   const tdb = require('../tracker-db');
-  for (let i = 0; i < 50; i++) { if (tdb.getDB().prepare("SELECT 1 FROM sqlite_master WHERE name='tracker_definitions'").get() && tdb.getDB().prepare("SELECT 1 FROM tracker_definitions WHERE key='tpl-field-dispatch'").get()) break; await new Promise(r => setTimeout(r, 100)); }
-  const sites = rdb.listSites({ includeInactive: true });
+  for (let i = 0; i < 50; i++) { if ((await tdb.getDB().prepare("SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'tracker_definitions'").get()) && (await tdb.getDB().prepare("SELECT 1 FROM tracker_definitions WHERE key='tpl-field-dispatch'").get())) break; await new Promise(r => setTimeout(r, 100)); }
+  const sites = (await rdb.listSites({ includeInactive: true }));
   const hounde = sites.find((s) => /hounde/i.test(s.name)).id;
   try { await rdb.createUser({ username: 'tk_admin', full_name: 'A', password: 'adminpass1234', role: 'admin', roles: ['admin'] }); } catch {}
   try { await rdb.createUser({ username: 'tk_super', full_name: 'S', password: 'superpass1234', role: 'super_admin', roles: ['super_admin'] }); } catch {}
@@ -55,10 +56,20 @@ test('builder gate + validation + publish/version/rollback', async () => {
   const ok = await (await send('PUT', '/api/trackers/smoke-1', admin, { definition: DEF, rfi_ref: 'RFI-2026-010' })).json(); assert.equal(ok.tracker.status, 'draft'); assert.equal(ok.tracker.rfi_ref, 'RFI-2026-010');
   assert.equal((await get('/api/trackers/smoke-1', viewer)).status, 404, 'a draft is invisible to non-builders');
   const dry = await (await send('POST', '/api/trackers/smoke-1/dry-run', admin, { definition: DEF })).json(); assert.ok(dry.result.units.HGO);
-  const pub = await (await send('POST', '/api/trackers/smoke-1/publish', admin, { note: 'v1' })).json(); assert.equal(pub.tracker.version, 1);
+  // G-23 four-eyes: not submitted → 409; the submitter (and the last editor) cannot publish; another builder can
+  assert.equal((await send('POST', '/api/trackers/smoke-1/publish', superT, { note: 'v1' })).status, 409);
+  assert.equal((await (await send('POST', '/api/trackers/smoke-1/submit', admin)).json()).tracker.review_state, 'submitted');
+  const own = await send('POST', '/api/trackers/smoke-1/publish', admin, { note: 'v1' }); assert.equal(own.status, 409); assert.equal((await own.json()).code, 'SOD_PUBLISH_SUBMITTER');
+  const pub = await (await send('POST', '/api/trackers/smoke-1/publish', superT, { note: 'v1' })).json(); assert.equal(pub.tracker.version, 1); assert.equal(pub.tracker.review_state, null);
   const seen = await (await get('/api/trackers/smoke-1', viewer)).json(); assert.equal(seen.published.key, 'smoke-1'); assert.deepEqual(seen.writable, []);
+  await send('POST', '/api/trackers/smoke-1/submit', superT);
   await send('PUT', '/api/trackers/smoke-1', admin, { definition: { ...DEF, name: 'Smoke v2' } });
-  await send('POST', '/api/trackers/smoke-1/publish', admin, {});
+  assert.equal((await (await get('/api/trackers/smoke-1', admin)).json()).tracker.review_state, null, 'an edit withdraws the submission');
+  assert.equal((await send('POST', '/api/trackers/smoke-1/publish', superT, {})).status, 409);
+  await send('POST', '/api/trackers/smoke-1/submit', superT);
+  assert.equal((await (await send('POST', '/api/trackers/smoke-1/publish', admin, {})).json()).code, 'SOD_PUBLISH_EDITOR', 'the last editor cannot publish');
+  const ovr = await (await send('POST', '/api/trackers/smoke-1/publish', admin, { override_reason: 'month-end freeze, reviewer away' })).json();
+  assert.equal(ovr.tracker.version, 2); assert.equal(ovr.tracker.publish_override.bypassed, 'SOD_PUBLISH_EDITOR');
   const vs = await (await get('/api/trackers/smoke-1/versions', admin)).json(); assert.equal(vs.versions.length, 2);
   const rb = await (await send('POST', '/api/trackers/smoke-1/rollback/1', admin)).json(); assert.equal(rb.tracker.definition.name, 'Smoke');
   assert.equal((await get('/api/trackers/smoke-1/versions', editor)).status, 403);
@@ -92,5 +103,5 @@ test('legacy: compare passes ±0.1 pt, import creates a draft with entries, cut-
   const onr = await send('PUT', '/api/trackers/legacy/cutover', superT, { cutover: true }); const on = await onr.json(); assert.equal(on.cutover, true, 'HTTP ' + onr.status + ' ' + JSON.stringify(on));
   assert.equal((await (await get('/api/trackers/legacy/cutover', admin)).json()).cutover, true);
   await send('PUT', '/api/trackers/legacy/cutover', superT, { cutover: false });
-  await send('POST', '/api/trackers/it-activity-2026/retire', admin); assert.equal((await send('DELETE', '/api/trackers/it-activity-2026', admin)).status, 200);
+  await send('POST', '/api/trackers/it-activity-2026/retire', admin); assert.equal((await send('DELETE', '/api/trackers/it-activity-2026', admin)).status, 200, 'an imported draft that was never published can still be deleted');
 });

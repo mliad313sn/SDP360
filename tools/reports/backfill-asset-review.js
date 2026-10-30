@@ -54,16 +54,11 @@ async function main({ reportsDb, assetsDb, apply = false, log = console.log } = 
 if (require.main === module) {
   (async () => {
     const reportsDb = require('../../reports-db');
-    if ((process.env.REPORTS_BACKEND || 'sqlite').toLowerCase() === 'postgres') await reportsDb.initPgReports();
+    await reportsDb.initPgReports();
     const assetsDb = require('../../assets-db');
-    if (assetsDb.ASSETS_BACKEND === 'postgres') await assetsDb.initPgAssets();
-    const rb = (process.env.REPORTS_BACKEND || 'sqlite').toLowerCase();
+    await assetsDb.initPgAssets();
+    const rb = 'postgres';
     console.log(`[backfill-asset-review] reports backend: ${rb} · assets backend: ${assetsDb.ASSETS_BACKEND}`);
-    if (rb !== 'postgres' && !process.argv.includes('--allow-sqlite')) {
-      // Prod runs on PostgreSQL; a sqlite run here reads the frozen archive.
-      console.error('[backfill-asset-review] refusing: not on PostgreSQL (.env not found?). Run from the app folder, or pass --allow-sqlite on purpose.');
-      return 2;
-    }
     await main({ reportsDb, assetsDb, apply: process.argv.includes('--apply') });
     return 0;
   })().then(c => process.exit(c)).catch(e => { console.error('[backfill-asset-review] fatal:', e.message); process.exit(1); });

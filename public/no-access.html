@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>No access — SDP Dashboard</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="no-access.css">
+<script src="auth.js" data-require="any"></script>
+</head>
+<body>
+<main class="na-card" aria-labelledby="naTitle">
+  <div class="na-bar" aria-hidden="true"></div>
+  <h1 id="naTitle">You do not have access to this page</h1>
+  <p class="na-lead" id="naLead">Your account is signed in, but this page needs a role it does not hold.</p>
+  <dl class="na-facts">
+    <dt>Page</dt><dd id="naPage">—</dd>
+    <dt>Needed</dt><dd id="naNeed">—</dd>
+    <dt>Your roles</dt><dd id="naHave">—</dd>
+  </dl>
+  <h2>Who can give you access</h2>
+  <p id="naWho">A dashboard administrator (Admin ▸ Users). For a site page, your site IT coordinator can ask for it on your behalf. Copy the line below into your request.</p>
+  <p class="na-copy"><code id="naLine">—</code> <button type="button" id="naCopyBtn" class="na-btn">Copy</button></p>
+  <p class="na-actions"><a class="na-btn na-primary" href="index.html" id="naHome">Back to my home page</a></p>
+  <p class="na-lang"><button type="button" id="naEn" class="na-link">English</button> · <button type="button" id="naFr" class="na-link">Français</button></p>
+</main>
+<script src="lib/i18nText.js"></script>
+<script src="no-access.js"></script>
+</body>
+</html>

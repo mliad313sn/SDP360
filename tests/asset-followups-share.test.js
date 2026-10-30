@@ -16,7 +16,9 @@
 //     chase, "In Store" with nobody on it is the normal condition of a stockroom
 //     (at Mana most of the fleet is In Store — the audit's own note).
 'use strict';
-process.env.ASSETS_BACKEND = 'sqlite';
+// Top-level async setup, run IN ORDER before the first test (PostgreSQL-only conversion, PO-08).
+const __bootChain = (() => { let p = Promise.resolve(), hooked = false;
+  return (fn) => { p = p.then(fn); if (!hooked) { hooked = true; require('node:test').beforeEach(() => p); } }; })();
 const test = require('node:test');
 const assert = require('node:assert');
 const os = require('node:os'), path = require('node:path'), fs = require('node:fs');
@@ -32,16 +34,17 @@ const a = (id, state, over = {}) => ({
   ...over,
 });
 
-adb.replaceTable('assets', COLS, [
+__bootChain(async () => { (await adb.replaceTable('assets', COLS, [
   a('1', 'In Use'),                                   // no user: an anomaly
   a('2', 'In Use', { user_name: 'someone' }),         // fine
   a('3', 'In Store'),                                 // no user: normal for a stockroom
   a('4', 'In Store'),
   a('5', 'In Repair'),
   a('6', 'Expired', { user_name: 'x' }),              // not an active state at all
-]);
+])); });
 
-const f = adb.getSiteAssetFollowups(['MANA']);
+let f;
+__bootChain(async () => { f = (await adb.getSiteAssetFollowups(['MANA'])); });
 
 test('the denominator travels with the counters', () => {
   assert.strictEqual(f.counts.active_total, 5, 'In Use + In Store + In Repair, not Expired');
@@ -61,8 +64,8 @@ test('unassigned splits into the anomaly and the normal backlog', () => {
     'the split adds back up to the number that gets frozen');
 });
 
-test('a site with no labels reads zeros, not nulls, and still carries the shape', () => {
-  const empty = adb.getSiteAssetFollowups([]);
+test('a site with no labels reads zeros, not nulls, and still carries the shape', async () => {
+  const empty = (await adb.getSiteAssetFollowups([]));
   assert.strictEqual(empty.counts.active_total, 0);
   assert.strictEqual(empty.counts.unassigned_in_use, 0);
   assert.strictEqual(empty.counts.unassigned_other, 0);

@@ -43,7 +43,7 @@ function renderCsv(run) {
     else if (f.open !== undefined) rows.push(['actions', '', f.title, '', f.open, 'count', '', '', ''], ['actions_overdue', '', f.title, '', f.overdue, 'count', '', '', '']);
     else rows.push(['single', f.metric, f.title, '', f.value, f.unit, f.rag, f.window, f.as_of]);
   }
-  const q = (v) => { const s = v == null ? '' : String(v); return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const q = (v) => { const s = require('../public/lib/csvSafe').neutralize(v); return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
   return '﻿' + rows.map(r => r.map(q).join(',')).join('\r\n') + '\r\n';
 }
 

@@ -4,7 +4,6 @@ const fetch = require('./_http-fetch');   // core-http shim — undici keep-aliv
 // analytics, CSV/JSON export. Boots the app with sqlite (dev .env is postgres →
 // would fail 'pgDb not initialised' without this).
 const _os = require('os'), _fs = require('fs'), _path = require('path');
-process.env.REPORTS_BACKEND = 'sqlite';
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'syslog-smoke-'));
 process.env.DASH_USER = process.env.DASH_USER || 'syslog-smoke-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'syslog-smoke-pass-0000';

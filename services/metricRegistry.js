@@ -25,7 +25,10 @@ const WINDOW_KINDS = ['month', 'week', 'rolling3m', 'rolling13w', 'ytd', 'curren
 // ── Seed ──────────────────────────────────────────────────────────────────────────────
 // owner_role = the committee role accountable for the definition (docs/sdp360/02).
 const M = (key, name, name_fr, module, unit, formula, window_kind, rag_policy, reader, field, o = {}) =>
-  ({ key, name, name_fr, module, unit, formula, window_kind, rag_policy, reader, field, higher_is_better: o.hib !== false, owner_role: o.owner || 'service-support-manager', source: o.source || null, status: 'published' });
+  ({ key, name, name_fr, module, unit, formula, window_kind, rag_policy, reader, field, higher_is_better: o.hib !== false, owner_role: o.owner || 'service-support-manager', source: o.source || null, status: 'published', decision: o.decision || null,
+    // G06 — nothing is "certified" until the KPI Committee records an approval (none exists yet). A disputed
+    // metric names its pending decision; every other one says the approval is not recorded.
+    certification: o.decision ? 'not certified — ' + o.decision + ' pending' : 'not certified — KPI Committee approval not recorded', approved_by: null, approved_at: null });
 
 const SEED = [
   // Helpdesk — calendar month, scoped by the site's Zoho groups (never request_records.site).
@@ -79,11 +82,17 @@ const SEED = [
   M('wan.wan1_loss_pct', 'WAN1 packet loss', 'Perte de paquets WAN1', 'wan', '%', 'mean lossPercent over the week', 'week', null, 'wan.latest_site', 'wan1_loss_pct', { hib: false, source: 'wan_link_snapshots' }),
   M('wan.wan1_latency_ms', 'WAN1 latency', 'Latence WAN1', 'wan', 'ms', 'mean latencyMs over the week', 'week', null, 'wan.latest_site', 'wan1_latency_ms', { hib: false, source: 'wan_link_snapshots' }),
   // Programme scores — the two authoritative models, registered as metrics (policies as data).
-  M('programme.site_score', 'Programme score (sbDims)', 'Score programme (sbDims)', 'programme', 'points', '6 dims × 0/1/2 ÷ 12 × 100 over a rolling 3-month window — the author’s model, ported verbatim', 'rolling3m', 'site-score', 'programme.site_score', 'score', { source: 'services/siteScore.js' }),
-  M('programme.composite', 'Operational composite (4 dims)', 'Composite opérationnel (4 dimensions)', 'programme', 'points', 'weighted 40/20/20/20 mean renormalised over present dims (helpdesk SLA, inspections, meetings, assets)', 'month', 'site-composite', 'programme.composite', 'score', { source: 'services/siteScoreboard.js' }),
+  M('programme.site_score', 'Programme score (sbDims)', 'Score programme (sbDims)', 'programme', 'points', '6 dims × 0/1/2 ÷ 12 × 100 over a rolling 3-month window — the author’s model, ported verbatim', 'rolling3m', 'site-score', 'programme.site_score', 'score', { source: 'services/siteScore.js' , decision: 'D-01/D-02/D-03' }),
+  M('programme.composite', 'Operational composite (4 dims)', 'Composite opérationnel (4 dimensions)', 'programme', 'points', 'weighted 40/20/20/20 mean renormalised over present dims (helpdesk SLA, inspections, meetings, assets)', 'month', 'site-composite', 'programme.composite', 'score', { source: 'services/siteScoreboard.js' , decision: 'D-01/D-02/D-03' }),
+  // EX-04 — change success rate: TWO definitions are in use (deck / executive report 91.4 % vs ITSM doctrine
+  // 97.7 % on the same 295 changes). Both registered as DRAFT, side by side, until decision D-01.
+  { ...M('changes.success_pct_deck', 'Change success rate — deck definition', 'Taux de succès des changements — définition du deck', 'changes', '%', 'successful ÷ (successful + partial + failed + backed out + CANCELLED) — the classifier of the executive report', 'rolling3m', 'sla-percent', 'changes.window', 'success_pct', { source: 'reports-db._computeSiteChanges', decision: 'D-01' }), status: 'draft — D-01 pending' },
+  { ...M('changes.success_pct_itsm', 'Change success rate — ITSM definition', 'Taux de succès des changements — définition ITSM', 'changes', '%', 'successful ÷ (successful + partial + failed + backed out) — cancelled EXCLUDED (ITSM denominator doctrine)', 'rolling3m', 'sla-percent', 'changes.window', 'success_pct_itsm', { source: 'reports-db._computeSiteChanges', decision: 'D-01' }), status: 'draft — D-01 pending' },
   // 2027 Goal 02 — canonical commitments. DRAFT: definitions pending Committee (decision D-04); not
   // listed by list() (published only) until the committee approves them. Empty denominator → null.
   { ...M('commitments.verified_on_time_pct', 'Commitments verified on time', 'Engagements vérifiés à temps', 'commitments', '%', 'verified_closed with verified_at ≤ due_date ÷ verified_closed carrying a due_date (technical completion alone never counts)', 'current', null, 'commitments.summary', 'verified_on_time_pct', { source: 'services/commitmentMetrics.js' }), status: 'draft — pending committee' },
+  { ...M('commitments.serious_unowned', 'Serious commitments without an owner (A01)', 'Engagements graves sans propriétaire (A01)', 'commitments', 'count', 'COUNT high/critical commitments not terminal with no accountable_owner — a red flag, never a score improvement', 'current', null, 'commitments.summary', 'serious_unowned', { hib: false, source: 'services/commitmentMetrics.js' }), status: 'draft — pending committee' },
+  { ...M('commitments.serious_overdue', 'Overdue serious commitments without exception (A02)', 'Engagements graves en retard sans exception (A02)', 'commitments', 'count', 'COUNT high/critical commitments not terminal, not awaiting verification, due_date < today, no approved exception', 'current', null, 'commitments.summary', 'serious_overdue', { hib: false, source: 'services/commitmentMetrics.js' }), status: 'draft — pending committee' },
   { ...M('commitments.technical_vs_verified', 'Verified share of technically completed commitments', 'Part vérifiée des engagements techniquement terminés', 'commitments', '%', 'verified_closed ÷ commitments with technical_completed_at set (pending = the difference)', 'current', null, 'commitments.summary', 'verified_of_technical_pct', { source: 'services/commitmentMetrics.js' }), status: 'draft — pending committee' },
 ];
 
@@ -140,9 +149,15 @@ const READERS = {
     if (!r) return null; // site has no Zoho group → not measured
     return { inbound: r.inbound, closed: r.closed, close_pct: r.close_pct, sla_res_pct: r.sla_res_pct, sla_reply_pct: r.sla_reply_pct };
   },
+  async 'changes.window'(d, { site, win }) {
+    if (!d.rdb.getSiteChangesWindow) return null;
+    const r = await d.rdb.getSiteChangesWindow(site, win.from, win.to);
+    return r && r.total ? r : null;                 // no change in the window: nothing to judge, never 0 %
+  },
   async 'helpdesk.window'(d, { site, win }) {
     const r = await d.rdb.getSiteHelpdeskWindow(site, win.from, win.to);
-    return r || null;
+    if (!r || r.scoped === false) return null;   // site without a Zoho group: not measured, never 0
+    return { ...r, overdue: r.sla_overdue };      // UAT ITSM-02: the registry field is `overdue`
   },
   async 'meetings.insights_site'(d, { site, win }) {
     const code = (await codeFor(d, site)).meetings_code; if (!code) return null;
@@ -260,7 +275,7 @@ function ragFor(m, v) {
  */
 async function load({ pg = null, log = () => {} } = {}) {
   const reg = createRegistry(SEED.map((m) => ({ ...m })));
-  if (!pg) return reg;
+  
   try {
     const pols = await pg.prepare('SELECT name, scale, green, amber, source FROM kpi_rag_policies').all();
     for (const p of pols) { try { KpiRag.definePolicy(p.name, { scale: p.scale || 'ratio', green: Number(p.green), amber: Number(p.amber), source: p.source || 'kpi_rag_policies' }); } catch (e) { log(`[metrics] policy ${p.name} rejected: ${e.message}`); } }

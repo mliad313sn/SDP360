@@ -975,7 +975,7 @@ function InputPanel({ D, S, setS, roles, onMutate }) {
   function exportInputCsv() {
     const yr = S.year, mo = S.month;
     const R = TR.score(D, site, yr, mo);
-    const esc = v => { const s = String(v == null ? '' : v); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+    const esc = v => { let s = String(v == null ? '' : v); s = /^[=+\-@\t\r]/.test(s) && !/^[+-]?\d+(\.\d+)?$/.test(s) ? "'" + s : s; /* formula-injection guard */ return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
     const head = ['#', 'Pillar', 'Activity', 'KPI', 'Shared', 'Active', 'Window', 'Annual target',
       ...MO, 'Sum Jan-' + MO[mo - 1], 'Engine YTD (ya)', 'Engine target (yt)', 'Score', 'RAG'];
     const lines = [head.map(esc).join(',')];
@@ -1498,12 +1498,10 @@ function SetupPanel({ D, S, roles, onMutate, onAddYear }) {
             background: '#ECFDF5', border: '1px solid #A7F3D0', borderRadius: 6,
             fontSize: 12.5, color: '#065F46', lineHeight: 1.5,
           }}>
-            🛟 A full database backup will be created automatically <em>before</em> the
-            delete runs. If anything goes wrong, the backup file path is shown on
-            success so you can restore. Backups are saved to&nbsp;
-            <code>data/backups/tracker-YYYYMMDD-HHMMSS-pre-delete-year-{y}.db</code>
-            on the server.<br />
-            <small style={{ color: '#047857' }}>Recovery instructions: <code>docs/DB_RECOVERY.md</code> · interactive helper: <code>_restore_db.cmd</code></small>
+            🛟 Deleting a year is permanent. The way back is a PostgreSQL restore: the nightly
+            encrypted backup (job <code>db.backup</code>) or a restore point — take one first
+            (<code>Manage-SDP.ps1 -Backup -DbOnly</code>) if this year holds data you may need.<br />
+            <small style={{ color: '#047857' }}>Recovery instructions: <code>docs/DB_RECOVERY.md</code></small>
           </div>
 
           {isCurrentlySelected && (

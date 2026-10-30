@@ -2,7 +2,9 @@
 // per-site finance summary (Task 2, Licence/Finance): value / book / TCO / opex
 // in USD (assets are XOF, multiplied by rate), % depreciated, refresh-due count.
 'use strict';
-process.env.ASSETS_BACKEND = 'sqlite';
+// Top-level async setup, run IN ORDER before the first test (PostgreSQL-only conversion, PO-08).
+const __bootChain = (() => { let p = Promise.resolve(), hooked = false;
+  return (fn) => { p = p.then(fn); if (!hooked) { hooked = true; require('node:test').beforeEach(() => p); } }; })();
 const test = require('node:test');
 const assert = require('node:assert');
 const os = require('node:os'), path = require('node:path'), fs = require('node:fs');
@@ -34,13 +36,13 @@ const rows = [
     purchase_cost: '', current_book_value: '', total_cost_of_ownership: '',
     operational_cost: '', months_since_acquisition: '' },
 ];
-adb.replaceTable('assets', cols, rows);
+__bootChain(async () => { (await adb.replaceTable('assets', cols, rows)); });
 
 const RATE = 0.00165;
 const near = (a, b, eps, msg) => assert.ok(Math.abs(a - b) <= eps, `${msg}: ${a} vs ${b}`);
 
-test('per-site USD sums, pct_depreciated, and refresh-due at a XOF→USD rate', () => {
-  const s = adb.getFinanceSummary({}, RATE);
+test('per-site USD sums, pct_depreciated, and refresh-due at a XOF→USD rate', async () => {
+  const s = (await adb.getFinanceSummary({}, RATE));
   const bySite = Object.fromEntries(s.by_site.map(r => [r.site, r]));
 
   const mana = bySite.MANA;
@@ -63,8 +65,8 @@ test('per-site USD sums, pct_depreciated, and refresh-due at a XOF→USD rate', 
   assert.ok(Number.isFinite(hgo.book_value_usd), 'HGO book_value_usd is finite');
 });
 
-test('fleet totals = sum across all sites', () => {
-  const s = adb.getFinanceSummary({}, RATE);
+test('fleet totals = sum across all sites', async () => {
+  const s = (await adb.getFinanceSummary({}, RATE));
   near(s.fleet.purchase_cost_usd, (3000000 + 500000) * RATE, 0.01, 'fleet purchase_cost_usd'); // 5775
   near(s.fleet.book_value_usd, (2250000 + 0) * RATE, 0.01, 'fleet book_value_usd');
   assert.strictEqual(s.fleet.asset_count, 4);
@@ -72,29 +74,29 @@ test('fleet totals = sum across all sites', () => {
   near(s.fleet.pct_depreciated, 1 - 2250000 / 3500000, 0.001, 'fleet pct_depreciated');
 });
 
-test('a site filter narrows to only that site', () => {
-  const s = adb.getFinanceSummary({ site: 'MANA' }, RATE);
+test('a site filter narrows to only that site', async () => {
+  const s = (await adb.getFinanceSummary({ site: 'MANA' }, RATE));
   assert.strictEqual(s.by_site.length, 1);
   assert.strictEqual(s.by_site[0].site, 'MANA');
   assert.strictEqual(s.fleet.asset_count, 2);
   assert.strictEqual(s.fleet.refresh_due, 1);
 });
 
-test('default rate=1 path returns RAW XOF sums', () => {
-  const s = adb.getFinanceSummary({});
+test('default rate=1 path returns RAW XOF sums', async () => {
+  const s = (await adb.getFinanceSummary({}));
   const mana = s.by_site.find(r => r.site === 'MANA');
   assert.strictEqual(mana.purchase_cost_usd, 3000000, 'MANA raw XOF purchase sum');
   assert.strictEqual(mana.book_value_usd, 2250000, 'MANA raw XOF book sum');
   assert.strictEqual(s.fleet.purchase_cost_usd, 3500000, 'fleet raw XOF purchase sum');
 });
 
-test('a site with all-empty costs → USD fields 0, pct_depreciated null', () => {
+test('a site with all-empty costs → USD fields 0, pct_depreciated null', async () => {
   // Prove via a synthetic all-empty site: swap the table for one HGO-empty asset.
   const only = [{ asset_id: 'Z1', asset_name: 'Z1', site: 'ZZZ', product_type: 'Monitor',
     purchase_cost: '', current_book_value: '', total_cost_of_ownership: '',
     operational_cost: '', months_since_acquisition: '' }];
-  adb.replaceTable('assets', cols, only);
-  const z = adb.getFinanceSummary({}, RATE).by_site.find(r => r.site === 'ZZZ');
+  (await adb.replaceTable('assets', cols, only));
+  const z = (await adb.getFinanceSummary({}, RATE)).by_site.find(r => r.site === 'ZZZ');
   assert.strictEqual(z.purchase_cost_usd, 0, 'no cost → 0');
   assert.strictEqual(z.book_value_usd, 0);
   assert.strictEqual(z.tco_usd, 0);
@@ -102,5 +104,5 @@ test('a site with all-empty costs → USD fields 0, pct_depreciated null', () =>
   assert.strictEqual(z.pct_depreciated, null, 'Σpurchase=0 → pct null');
   assert.strictEqual(z.refresh_due, 0);
   // restore the main seed for any later-added tests
-  adb.replaceTable('assets', cols, rows);
+  (await adb.replaceTable('assets', cols, rows));
 });

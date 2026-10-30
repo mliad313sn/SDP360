@@ -10,6 +10,9 @@ const OPS = {
   rag_in: (v, t, r) => String(t).split(',').map(x => x.trim().toUpperCase()).includes(String(r || '').toUpperCase()),
 };
 const OPERATORS = Object.keys(OPS);
+// G16 — severity of a rule: what a reader should do with it. Unknown or missing → 'warning' (never silently 'info').
+const SEVERITIES = ['info', 'warning', 'critical'];
+const severityOf = (rule) => (SEVERITIES.includes(rule && rule.severity) ? rule.severity : 'warning');
 
 function breaches(rule, reading) {
   if (!reading || reading.value == null && rule.op !== 'rag_in') return false;
@@ -34,7 +37,7 @@ function evaluate(rules, readings, state = {}, { now = new Date() } = {}) {
       const need = Math.max(1, Number(rule.streak) || 1);
       const cool = Math.max(0, Number(rule.cooldown_min) || 0) * 60000;
       const quiet = st.last_fired_at && (now - new Date(st.last_fired_at)) < cool;
-      if (st.breaches >= need && !quiet) { st.last_fired_at = now.toISOString(); firings.push({ rule, reading: r, key: k, message: describe(rule, r) }); }
+      if (st.breaches >= need && !quiet) { st.last_fired_at = now.toISOString(); firings.push({ rule, reading: r, key: k, severity: severityOf(rule), message: describe(rule, r) }); }
       next[k] = st;
     }
   }
@@ -60,4 +63,4 @@ function fanOut(firings) {
   return out;
 }
 
-module.exports = { evaluate, breaches, describe, fanOut, OPERATORS };
+module.exports = { evaluate, breaches, describe, fanOut, OPERATORS, SEVERITIES, severityOf };

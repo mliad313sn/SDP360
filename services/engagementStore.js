@@ -6,28 +6,6 @@
 
 const crypto = require('crypto');
 
-const SQLITE_DDL = `
-CREATE TABLE IF NOT EXISTS alert_rules (
-  key TEXT PRIMARY KEY, name TEXT NOT NULL, metric TEXT NOT NULL, scope TEXT NOT NULL DEFAULT 'site', site_id INTEGER, window_label TEXT, op TEXT NOT NULL, threshold TEXT NOT NULL,
-  streak INTEGER NOT NULL DEFAULT 1, cooldown_min INTEGER NOT NULL DEFAULT 1440, channels TEXT, recipients TEXT, enabled INTEGER NOT NULL DEFAULT 1, description TEXT,
-  created_by INTEGER, created_at TEXT DEFAULT CURRENT_TIMESTAMP, updated_at TEXT DEFAULT CURRENT_TIMESTAMP);
-CREATE TABLE IF NOT EXISTS alert_state (state_key TEXT PRIMARY KEY, rule_key TEXT NOT NULL, breaches INTEGER NOT NULL DEFAULT 0, last_fired_at TEXT, last_value TEXT, updated_at TEXT);
-CREATE TABLE IF NOT EXISTS alert_firings (id INTEGER PRIMARY KEY AUTOINCREMENT, rule_key TEXT NOT NULL, site_id INTEGER, value TEXT, message TEXT, channels TEXT, fired_at TEXT DEFAULT CURRENT_TIMESTAMP, false_positive INTEGER DEFAULT 0, note TEXT);
-CREATE TABLE IF NOT EXISTS notifications (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, kind TEXT NOT NULL, title TEXT NOT NULL, body TEXT, link TEXT, source_kind TEXT, source_ref TEXT,
-  created_at TEXT DEFAULT CURRENT_TIMESTAMP, read_at TEXT, digested_at TEXT);
-CREATE INDEX IF NOT EXISTS idx_notif_user ON notifications(user_id, read_at);
-CREATE TABLE IF NOT EXISTS notification_comments (id INTEGER PRIMARY KEY AUTOINCREMENT, source_kind TEXT NOT NULL, source_ref TEXT NOT NULL, user_id INTEGER, user_name TEXT, body TEXT NOT NULL, created_at TEXT DEFAULT CURRENT_TIMESTAMP);
-CREATE TABLE IF NOT EXISTS subscriptions (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, kind TEXT NOT NULL, target_key TEXT NOT NULL, channel TEXT NOT NULL DEFAULT 'inapp', digest TEXT NOT NULL DEFAULT 'none', created_at TEXT DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, kind, target_key, channel));
-CREATE TABLE IF NOT EXISTS share_links (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, token_hash TEXT UNIQUE NOT NULL, target_kind TEXT NOT NULL, target_key TEXT NOT NULL, site_id INTEGER, label TEXT, embed INTEGER NOT NULL DEFAULT 0,
-  expires_at TEXT NOT NULL, max_views INTEGER, views INTEGER NOT NULL DEFAULT 0, created_by INTEGER, created_at TEXT DEFAULT CURRENT_TIMESTAMP, revoked_at TEXT);
-CREATE TABLE IF NOT EXISTS share_views (id INTEGER PRIMARY KEY AUTOINCREMENT, link_id INTEGER NOT NULL REFERENCES share_links(id) ON DELETE CASCADE, viewed_at TEXT DEFAULT CURRENT_TIMESTAMP, agent TEXT, ip_hash TEXT);
-CREATE TABLE IF NOT EXISTS api_consumers (
-  id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, key_hash TEXT UNIQUE NOT NULL, key_hint TEXT, scopes TEXT, quota_per_day INTEGER NOT NULL DEFAULT 5000, enabled INTEGER NOT NULL DEFAULT 1,
-  created_by INTEGER, created_at TEXT DEFAULT CURRENT_TIMESTAMP, last_used_at TEXT, revoked_at TEXT);
-CREATE TABLE IF NOT EXISTS api_calls (id INTEGER PRIMARY KEY AUTOINCREMENT, consumer_id INTEGER NOT NULL, path TEXT, status INTEGER, ms INTEGER, called_at TEXT DEFAULT CURRENT_TIMESTAMP);
-CREATE INDEX IF NOT EXISTS idx_api_calls_day ON api_calls(consumer_id, called_at);`;
 
 const CHANNELS = ['inapp', 'email', 'teams', 'webhook'];
 const SUB_KINDS = ['report_template', 'dashboard', 'alert_rule'];
@@ -42,10 +20,10 @@ const token = (bytes = 24) => crypto.randomBytes(bytes).toString('base64url');
 function makeEngagementStore(db, { isPg = false, now = () => new Date().toISOString() } = {}) {
   if (!db) throw new Error('engagementStore needs a db handle');
   const P = (sql) => db.prepare(sql);
-  async function init() { if (!isPg) { db.exec('PRAGMA foreign_keys=ON'); db.exec(SQLITE_DDL); } }
+  async function init() {  }
   async function insert(table, cols, vals) {
-    const r = await P(`INSERT INTO ${table} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})${isPg ? ' RETURNING id' : ''}`).run(...vals);
-    return isPg ? Number(r && (r.id != null ? r.id : r.lastID != null ? r.lastID : (r.rows && r.rows[0] && r.rows[0].id))) : Number(r.lastInsertRowid);
+    const r = await P(`INSERT INTO ${table} (${cols.join(',')}) VALUES (${cols.map(() => '?').join(',')})${(' RETURNING id')}`).run(...vals);
+    return (Number(r && (r.id != null ? r.id : r.lastID != null ? r.lastID : (r.rows && r.rows[0] && r.rows[0].id))));
   }
 
   // ── alert rules ───────────────────────────────────────────────────────────────────
@@ -59,8 +37,10 @@ function makeEngagementStore(db, { isPg = false, now = () => new Date().toISOStr
     if (!ex && !r.metric) throw Object.assign(new Error('metric is required'), { code: 'INVALID' });
     if (r.op && !OPERATORS.includes(r.op)) throw Object.assign(new Error(`op must be one of ${OPERATORS.join(', ')}`), { code: 'INVALID' });
     if (r.channels && r.channels.some(c => !CHANNELS.includes(c))) throw Object.assign(new Error('bad channel'), { code: 'INVALID' });
+    const { SEVERITIES } = require('./alertEngine');
+    if (r.severity != null && !SEVERITIES.includes(r.severity)) throw Object.assign(new Error(`severity must be one of ${SEVERITIES.join(', ')}`), { code: 'INVALID' });
     const vals = { name: String(r.name || r.key).slice(0, 200), metric: r.metric == null ? null : String(r.metric).slice(0, 80), scope: r.scope === 'fleet' ? 'fleet' : 'site', site_id: r.site_id == null || r.site_id === '' ? null : Number(r.site_id), window_label: r.window_label ? String(r.window_label).slice(0, 24) : null,
-      op: r.op || 'lt', threshold: r.threshold == null ? '0' : String(r.threshold).slice(0, 60), streak: Math.max(1, Number(r.streak) || 1), cooldown_min: Math.max(0, Number(r.cooldown_min) || 0), channels: J(r.channels || ['inapp']), recipients: J(r.recipients || { roles: ['admin'] }), enabled: r.enabled === false ? 0 : 1, description: r.description == null ? null : String(r.description).slice(0, 1000) };
+      op: r.op || 'lt', threshold: r.threshold == null ? '0' : String(r.threshold).slice(0, 60), streak: Math.max(1, Number(r.streak) || 1), cooldown_min: Math.max(0, Number(r.cooldown_min) || 0), channels: J(r.channels || ['inapp']), recipients: J(r.recipients || { roles: ['admin'] }), enabled: r.enabled === false ? 0 : 1, description: r.description == null ? null : String(r.description).slice(0, 1000), severity: r.severity || 'warning' };
     if (ex) { const keys = Object.keys(vals).filter(k => r[k] !== undefined); if (keys.length) await P(`UPDATE alert_rules SET ${keys.map(k => `${k}=?`).join(', ')}, updated_at=? WHERE key=?`).run(...keys.map(k => vals[k]), now(), r.key); return getRule(r.key); }
     await P(`INSERT INTO alert_rules (key, ${Object.keys(vals).join(',')}, created_by, created_at, updated_at) VALUES (?, ${Object.keys(vals).map(() => '?').join(',')}, ?, ?, ?)`).run(r.key, ...Object.values(vals), user ? user.id : null, now(), now());
     return getRule(r.key);
@@ -75,8 +55,8 @@ function makeEngagementStore(db, { isPg = false, now = () => new Date().toISOStr
       else await P(`INSERT INTO alert_state (state_key, rule_key, breaches, last_fired_at, last_value, updated_at) VALUES (?,?,?,?,?,?)`).run(k, k.split('|')[0], st.breaches || 0, st.last_fired_at || null, values[k] == null ? null : String(values[k]), now());
     }
   }
-  async function recordFiring(f) { return insert('alert_firings', ['rule_key', 'site_id', 'value', 'message', 'channels', 'fired_at'], [f.rule.key, f.reading.site_id == null ? null : Number(f.reading.site_id), f.reading.value == null ? null : String(f.reading.value), f.message, J(f.rule.channels), now()]); }
-  async function listFirings({ limit = 200, since = null } = {}) { return (await P(`SELECT * FROM alert_firings${since ? ' WHERE fired_at>=?' : ''} ORDER BY fired_at DESC, id DESC LIMIT ${Math.min(2000, Number(limit) || 200)}`).all(...(since ? [since] : []))).map(r => ({ ...r, id: Number(r.id), false_positive: Number(r.false_positive) === 1 })); }
+  async function recordFiring(f) { return insert('alert_firings', ['rule_key', 'severity', 'site_id', 'value', 'message', 'channels', 'fired_at'], [f.rule.key, f.severity || f.rule.severity || 'warning', f.reading.site_id == null ? null : Number(f.reading.site_id), f.reading.value == null ? null : String(f.reading.value), f.message, J(f.rule.channels), now()]); }
+  async function listFirings({ limit = 200, since = null } = {}) { return (await P(`SELECT * FROM alert_firings${since ? ' WHERE fired_at>=?' : ''} ORDER BY fired_at DESC, id DESC LIMIT ${Math.max(1, Math.min(2000, Math.floor(Number(limit)) || 200))}`).all(...(since ? [since] : []))).map(r => ({ ...r, id: Number(r.id), false_positive: Number(r.false_positive) === 1 })); }
   async function markFalsePositive(id, { fp = true, note = null } = {}) { await P(`UPDATE alert_firings SET false_positive=?, note=? WHERE id=?`).run(fp ? 1 : 0, note, Number(id)); }
   /** False-positive rate over the window (the "< 5 %" acceptance). */
   async function firingStats({ since = null } = {}) { const rows = await listFirings({ limit: 2000, since }); const fp = rows.filter(r => r.false_positive).length; return { firings: rows.length, false_positives: fp, false_positive_pct: rows.length ? Math.round(fp / rows.length * 1000) / 10 : null }; }
@@ -84,7 +64,7 @@ function makeEngagementStore(db, { isPg = false, now = () => new Date().toISOStr
   // ── notifications ─────────────────────────────────────────────────────────────────
   const notifRow = (r) => r && ({ ...r, id: Number(r.id), user_id: Number(r.user_id) });
   async function notify({ userId, kind, title, body, link, sourceKind, sourceRef }) { return insert('notifications', ['user_id', 'kind', 'title', 'body', 'link', 'source_kind', 'source_ref', 'created_at'], [Number(userId), String(kind).slice(0, 40), String(title).slice(0, 300), body == null ? null : String(body).slice(0, 4000), link == null ? null : String(link).slice(0, 500), sourceKind || null, sourceRef == null ? null : String(sourceRef).slice(0, 120), now()]); }
-  async function listNotifications(userId, { unreadOnly = false, limit = 100 } = {}) { return (await P(`SELECT * FROM notifications WHERE user_id=?${unreadOnly ? ' AND read_at IS NULL' : ''} ORDER BY created_at DESC, id DESC LIMIT ${Math.min(500, Number(limit) || 100)}`).all(Number(userId))).map(notifRow); }
+  async function listNotifications(userId, { unreadOnly = false, limit = 100 } = {}) { return (await P(`SELECT * FROM notifications WHERE user_id=?${unreadOnly ? ' AND read_at IS NULL' : ''} ORDER BY created_at DESC, id DESC LIMIT ${Math.max(1, Math.min(500, Math.floor(Number(limit)) || 100))}`).all(Number(userId))).map(notifRow); }
   async function unreadCount(userId) { const r = await P(`SELECT COUNT(*) AS n FROM notifications WHERE user_id=? AND read_at IS NULL`).get(Number(userId)); return Number(r && r.n) || 0; }
   async function markRead(userId, ids) { const list = (Array.isArray(ids) ? ids : [ids]).map(Number).filter(Number.isFinite); if (!list.length) return 0; const r = await P(`UPDATE notifications SET read_at=? WHERE user_id=? AND read_at IS NULL AND id IN (${list.map(() => '?').join(',')})`).run(now(), Number(userId), ...list); return Number(r && r.changes) || 0; }
   async function markAllRead(userId) { const r = await P(`UPDATE notifications SET read_at=? WHERE user_id=? AND read_at IS NULL`).run(now(), Number(userId)); return Number(r && r.changes) || 0; }
@@ -158,4 +138,4 @@ function makeEngagementStore(db, { isPg = false, now = () => new Date().toISOStr
     CHANNELS, SUB_KINDS, DIGESTS, SHARE_KINDS, SCOPES };
 }
 
-module.exports = { makeEngagementStore, SQLITE_DDL, CHANNELS, SUB_KINDS, DIGESTS, SHARE_KINDS, SCOPES, hash };
+module.exports = { makeEngagementStore, CHANNELS, SUB_KINDS, DIGESTS, SHARE_KINDS, SCOPES, hash };

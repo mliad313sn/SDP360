@@ -8,8 +8,6 @@ const fetch = require('./_http-fetch');   // core-http shim — undici keep-aliv
 // SDP_DATA_DIR. Run with --test-force-exit (top-level cron keeps the loop alive).
 const _os = require('os'), _fs = require('fs'), _path = require('path');
 process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'assets-hw-smoke-'));
-process.env.ASSETS_BACKEND = 'sqlite';
-process.env.REPORTS_BACKEND = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'assets-hw-admin';
 process.env.DASH_PASS = process.env.DASH_PASS || 'assets-hw-pass-0000';
 process.env.DASHBOARD_API_KEY = process.env.DASHBOARD_API_KEY || 'assets-hw-key';
@@ -33,7 +31,7 @@ before(async () => {
   //   A1 → low-RAM machine (4 GB)
   //   A2 → full-disk machine (C: 5% free)
   //   A3 → workstation whose only "monitor" is a webcam → no real monitor
-  adb.replaceTable('assets',
+  (await adb.replaceTable('assets',
     ['asset_id', 'asset_name', 'site', 'state', 'product_type', 'manufacturer',
      'serial_number', 'months_since_acquisition', 'purchase_cost', 'current_book_value'],
     [
@@ -46,37 +44,37 @@ before(async () => {
       { asset_id: 'A3', asset_name: 'PC-WEBCAM-03', site: 'MANA', state: 'In Use',
         product_type: 'Workstation', manufacturer: 'Dell', serial_number: 'SN-0003',
         months_since_acquisition: '6', purchase_cost: '0.00', current_book_value: '0.00' },
-    ]);
+    ]));
 
   // Memory — A1 low (4 GB), A2/A3 healthy (16 GB) so they don't trip low_ram.
-  adb.replaceTable('asset_memory',
+  (await adb.replaceTable('asset_memory',
     ['memory_module_id', 'workstation_id', 'capacity_gb'],
     [
       { memory_module_id: 'M1', workstation_id: 'A1', capacity_gb: '4' },
       { memory_module_id: 'M2', workstation_id: 'A2', capacity_gb: '16' },
       { memory_module_id: 'M3', workstation_id: 'A3', capacity_gb: '16' },
-    ]);
+    ]));
 
   // Logical drives — A2's C: is 5% free (full disk); A1/A3 healthy at 80%.
-  adb.replaceTable('asset_logical_drives',
+  (await adb.replaceTable('asset_logical_drives',
     ['drive_id', 'workstation_id', 'drive_letter', 'capacity_gb', 'free_gb', 'free_pct'],
     [
       { drive_id: 'D1', workstation_id: 'A1', drive_letter: 'C:', capacity_gb: '256', free_gb: '205', free_pct: '80%' },
       { drive_id: 'D2', workstation_id: 'A2', drive_letter: 'C:', capacity_gb: '256', free_gb: '13', free_pct: '5%' },
       { drive_id: 'D3', workstation_id: 'A3', drive_letter: 'C:', capacity_gb: '512', free_gb: '410', free_pct: '80%' },
-    ]);
+    ]));
 
   // Monitors — A2 a real Dell panel; A3 only a webcam (denylisted → real=0); A1 none.
-  adb.replaceTable('asset_monitors',
+  (await adb.replaceTable('asset_monitors',
     ['workstation_id', 'monitor_id', 'monitor_type'],
     [
       { workstation_id: 'A2', monitor_id: 'MON1', monitor_type: 'Dell U2419H' },
       { workstation_id: 'A3', monitor_id: 'MON2', monitor_type: 'Integrated Webcam' },
-    ]);
+    ]));
 
-  const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
+  const me = ((await rdb.listUsers()) || []).find(u => u.username === process.env.DASH_USER);
   assert.ok(me, 'seeded admin user exists');
-  rdb.setUserRoles(me.id, ['admin']);
+  (await rdb.setUserRoles(me.id, ['admin']));
   const sess = await rdb.login(process.env.DASH_USER, process.env.DASH_PASS);
   assert.ok(sess && sess.token, 'login seeded admin + returned a token');
   adminToken = sess.token;

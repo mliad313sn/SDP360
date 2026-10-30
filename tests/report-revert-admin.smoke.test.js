@@ -24,7 +24,7 @@ const H = (t) => ({ 'Content-Type': 'application/json', 'x-report-token': t });
 const setStatus = (id, t, status) => fetch(`${base}/api/reports/${id}/status`, { method: 'PUT', headers: H(t), body: JSON.stringify({ status }) });
 
 async function submittedReport() {
-  const r = rdb.ensureReport(site.id, 2026, week++);
+  const r = (await rdb.ensureReport(site.id, 2026, week++));
   await rdb.updateReportStatus(r.id, 'submitted', null);
   return r.id;
 }
@@ -32,7 +32,7 @@ async function submittedReport() {
 before(async () => {
   const { app } = require('../server');
   rdb = require('../reports-db');
-  site = rdb.listSites()[0];
+  site = (await rdb.listSites())[0];
   const mk = async (username, roles, site_id) => {
     await rdb.createUser({ username, full_name: username, password: username + '-0000', roles, site_id });
     return (await rdb.login(username, username + '-0000')).token;
@@ -41,8 +41,8 @@ before(async () => {
   tok.executive = await mk('rv-exec',   ['executive'], null);
   tok.editor    = await mk('rv-editor', ['editor'], site.id);
   tok.viewer    = await mk('rv-viewer', ['viewer'], site.id);
-  const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
-  rdb.setUserRoles(me.id, ['super_admin']);
+  const me = ((await rdb.listUsers()) || []).find(u => u.username === process.env.DASH_USER);
+  (await rdb.setUserRoles(me.id, ['super_admin']));
   tok.super = (await rdb.login(process.env.DASH_USER, process.env.DASH_PASS)).token;
   await new Promise(r => { server = http.createServer(app).listen(0, '127.0.0.1', r); });
   base = `http://127.0.0.1:${server.address().port}`;
@@ -73,8 +73,8 @@ test('an editor CAN revert a submitted report of their own site (decision 2026-1
 });
 
 test('an editor cannot revert a submitted report of another site (403)', async () => {
-  const other = rdb.listSites()[1];
-  const r = rdb.ensureReport(other.id, 2026, week++);
+  const other = (await rdb.listSites())[1];
+  const r = (await rdb.ensureReport(other.id, 2026, week++));
   await rdb.updateReportStatus(r.id, 'submitted', null);
   assert.equal((await setStatus(r.id, tok.editor, 'draft')).status, 403);
   assert.equal((await rdb.getReport(r.id)).status, 'submitted');

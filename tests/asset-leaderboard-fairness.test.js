@@ -13,7 +13,9 @@
 // with the score; and the known label drift is folded by SUMMING the underlying counts
 // and recomputing the score — never by averaging two scores.
 'use strict';
-process.env.ASSETS_BACKEND = 'sqlite';
+// Top-level async setup, run IN ORDER before the first test (PostgreSQL-only conversion, PO-08).
+const __bootChain = (() => { let p = Promise.resolve(), hooked = false;
+  return (fn) => { p = p.then(fn); if (!hooked) { hooked = true; require('node:test').beforeEach(() => p); } }; })();
 const test = require('node:test');
 const assert = require('node:assert');
 const os = require('node:os'), path = require('node:path'), fs = require('node:fs');
@@ -48,7 +50,7 @@ const iso = (daysAgo) => {
 };
 const OLD = iso(30), NOW = iso(0);
 
-adb.replaceTable('asset_effort_history', cols, [
+__bootChain(async () => { (await adb.replaceTable('asset_effort_history', cols, [
   // Big sites — ranked.
   row(OLD, 'MANA', 474, { no_cost: 300 }), row(NOW, 'MANA', 474, { no_cost: 245 }),
   row(OLD, 'HOUNDE', 388, { no_cost: 340 }), row(NOW, 'HOUNDE', 388, { no_cost: 297 }),
@@ -61,9 +63,10 @@ adb.replaceTable('asset_effort_history', cols, [
   row(NOW, 'Dakar', 10), row(NOW, 'Dakar Office', 90, { no_cost: 90 }),
   // Tiny AND falling: must not be picked as "needs attention" either.
   row(OLD, 'Ouaga', 1), row(NOW, 'Ouaga', 1, { no_cost: 1, no_age: 1, no_owner: 1 }),
-]);
+])); });
 
-const lb = adb.getEffortLeaderboard({ asOf: NOW });
+let lb;
+__bootChain(async () => { lb = (await adb.getEffortLeaderboard({ asOf: NOW })); });
 const bySite = (s) => lb.rows.find(r => r.site === s);
 
 test('a site too small to compare is kept and shown, but not ranked', () => {

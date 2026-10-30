@@ -63,24 +63,6 @@ async function fromPg() {
   } finally { await c.end(); }
 }
 
-function fromSqliteArchive() {
-  const dataDir = process.env.SDP_DATA_DIR ? path.resolve(process.env.SDP_DATA_DIR) : path.join(__dirname, '..', '..', 'data');
-  const file = path.join(dataDir, 'reports.db');
-  console.log(`\n[2] Envois LANCÉS SEULS depuis ${SINCE} (archive SQLite ${file}) — composés avec les données de juillet`);
-  if (!fs.existsSync(file)) { console.log('  archive absente — section ignorée'); return []; }
-  const Database = require('better-sqlite3');
-  const db = new Database(file, { readonly: true, fileMustExist: true });
-  try {
-    const has = db.prepare(`SELECT name FROM sqlite_master WHERE type='table' AND name='report_sent_log'`).get();
-    if (!has) { console.log('  pas de table report_sent_log dans l\'archive'); return []; }
-    const rows = db.prepare(`SELECT sent_at, report_type, site_code, period, result, recipients
-      FROM report_sent_log WHERE substr(sent_at,1,10) >= ? ORDER BY sent_at`).all(SINCE);
-    table(rows, ['sent_at', 'report_type', 'site_code', 'period', 'result', 'recipients']);
-    const ok = rows.filter(r => r.result === 'ok' || r.result === 'resent');
-    if (ok.length) console.log(`  → ${ok.length} e-mail(s) réellement envoyé(s) avec des données périmées.`);
-    return rows;
-  } finally { db.close(); }
-}
 
 function fromTaskScheduler() {
   console.log('\n[3] Tâches Windows SDP-Report-* (lancent les outils seuls)');
@@ -100,7 +82,6 @@ function fromTaskScheduler() {
 (async () => {
   console.log(`Audit des envois de rapports depuis ${SINCE} (lecture seule)`);
   await fromPg();
-  fromSqliteArchive();
   fromTaskScheduler();
   console.log('\nLecture : [2] liste les e-mails partis avec des chiffres de juillet ; [3] ce qui tournera encore'
     + ' seul (désormais sur PostgreSQL depuis le ZIP 1e1bfdf).');

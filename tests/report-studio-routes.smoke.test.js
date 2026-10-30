@@ -18,9 +18,10 @@ let server, base, admin, author, editor, otherEditor, viewer, rdb, hounde, mana;
 
 before(async () => {
   const { app } = require('../server');
+  await require('../server').seedStores();
   rdb = require('../reports-db');
-  for (let i = 0; i < 60; i++) { if (rdb.db.prepare("SELECT 1 FROM sqlite_master WHERE name='report_templates'").get() && rdb.db.prepare("SELECT 1 FROM report_templates WHERE key='site-weekly-pack'").get() && rdb.db.prepare("SELECT 1 FROM sqlite_master WHERE name='dashboard_definitions'").get() && rdb.db.prepare("SELECT 1 FROM dashboard_definitions WHERE key='site-weekly' AND status='published'").get()) break; await new Promise(r => setTimeout(r, 100)); }
-  const sites = rdb.listSites({ includeInactive: true });
+  for (let i = 0; i < 60; i++) { if ((await rdb.db.prepare("SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'report_templates'").get()) && (await rdb.db.prepare("SELECT 1 FROM report_templates WHERE key='site-weekly-pack'").get()) && (await rdb.db.prepare("SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'dashboard_definitions'").get()) && (await rdb.db.prepare("SELECT 1 FROM dashboard_definitions WHERE key='site-weekly' AND status='published'").get())) break; await new Promise(r => setTimeout(r, 100)); }
+  const sites = (await rdb.listSites({ includeInactive: true }));
   hounde = sites.find((s) => /hounde/i.test(s.name)).id; mana = sites.find((s) => /mana/i.test(s.name)).id;
   const mk = async (u, role, roles, site) => { try { await rdb.createUser({ username: u, full_name: u, password: u + 'pass1234', role, roles, site_id: site }); } catch {} return (await rdb.login(u, u + 'pass1234')).token; };
   admin = await mk('rs_admin', 'admin', ['admin']); author = await mk('rs_author', 'viewer', ['viewer', 'report-author']);
@@ -78,7 +79,13 @@ test('review flow: publish refused before human review (409); review needs autho
   const c = await (await send('PUT', `/api/report-studio/runs/${runId}/commentary`, author, { text: 'Human wording 71.4' })).json(); assert.equal(c.run.commentary.source, 'human'); assert.equal(c.run.commentary.text, 'Human wording 71.4');
   const rg = await (await send('POST', `/api/report-studio/runs/${runId}/commentary/regenerate`, author)).json(); assert.equal(rg.commentary.source, 'deterministic');
   const rv = await (await send('POST', `/api/report-studio/runs/${runId}/review`, author, { status: 'reviewed', note: 'ok', rating: 7 })).json(); assert.equal(rv.run.status, 'reviewed'); assert.equal(rv.run.rating, 5);
-  const pb = await (await send('POST', `/api/report-studio/runs/${runId}/publish`, admin)).json(); assert.equal(pb.run.status, 'published'); assert.ok(pb.run.published_at);
+  // G-14 — no sync has run in this database, so the helpdesk source is UNKNOWN: publication is refused, then
+  // allowed for an admin with a written reason (recorded on the run).
+  const stale = await send('POST', `/api/report-studio/runs/${runId}/publish`, admin); assert.equal(stale.status, 409);
+  const sj = await stale.json(); assert.equal(sj.error, 'stale_sources'); assert.ok(sj.sources.some(x => x.job === 'zoho.requests' && x.state === 'UNKNOWN'));
+  assert.equal((await send('POST', `/api/report-studio/runs/${runId}/publish`, admin, { override_reason: 'short' })).status, 409, 'a reason under 10 characters is not an override');
+  const pb = await (await send('POST', `/api/report-studio/runs/${runId}/publish`, admin, { override_reason: 'Zoho sync paused for maintenance; figures checked by hand' })).json(); assert.equal(pb.run.status, 'published'); assert.ok(pb.run.published_at);
+  assert.match(String(pb.run.publish_override), /maintenance/);
   assert.equal((await get(`/api/report-studio/runs/${runId}`, viewer)).status, 200);
   const mv = await mkToken('rs_mana_viewer', ['viewer'], mana); assert.equal((await get(`/api/report-studio/runs/${runId}`, mv)).status, 403, 'another site cannot read a Hounde pack');
   assert.equal((await send('PUT', `/api/report-studio/runs/${runId}/commentary`, author, { text: 'late edit' })).status, 409);

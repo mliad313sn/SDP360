@@ -2,7 +2,7 @@
 const path = require('path'), fs = require('fs');
 const money = require('./services/money');   // ONE money parser for all finance sums
 const DATA_DIR = process.env.SDP_DATA_DIR || path.join(__dirname, 'data');
-const ASSETS_BACKEND = (process.env.ASSETS_BACKEND || 'sqlite').toLowerCase();
+const ASSETS_BACKEND = 'postgres';
 const SCHEMA = fs.readFileSync(path.join(__dirname, 'db', 'postgres', 'assets', '001_init.sql'), 'utf8');
 
 // Additive columns landed by Task 1 (Licence/Finance). The shared 001_init.sql CREATE
@@ -18,24 +18,9 @@ const _ADDED_COLS = {
 };
 
 let _db = null, _pg = null;
-function getDB() {
-  if (_db) return _db;
-  if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
-  const Database = require('better-sqlite3');
-  _db = new Database(path.join(DATA_DIR, 'assets.db'));
-  _db.pragma('journal_mode = WAL');
-  _db.exec(SCHEMA);
-  // Idempotent additive migration for pre-existing tables (sqlite has no IF NOT EXISTS on
-  // ADD COLUMN, so PRAGMA-check the present columns and plain-ALTER only the missing ones).
-  for (const [table, cols] of Object.entries(_ADDED_COLS)) {
-    const present = new Set(_db.prepare(`PRAGMA table_info(${table})`).all().map(r => r.name));
-    for (const c of cols) {
-      if (present.has(c)) continue;
-      try { _db.exec(`ALTER TABLE ${table} ADD COLUMN ${c} TEXT`); } catch (_) { /* defensive: already added */ }
-    }
-  }
-  return _db;
-}
+// PostgreSQL is the only database (PO-08): getDB() is the pg handle.
+// PostgreSQL is the only database (PO-08): getDB() is the pg handle.
+function getDB() { return pgHandle(); }
 async function initPgAssets() {
   const { makePgDb } = require('./services/pgDb');
   const url = process.env.PG_URL || process.env.DATABASE_URL;
@@ -57,16 +42,7 @@ function pgHandle() {
 // table is never emptied on a fetch error. INSERT OR REPLACE (sqlite) / ON CONFLICT DO NOTHING (pg)
 // guard against a duplicate PK WITHIN one fetch. Returns rows.length. Dispatched by ASSETS_BACKEND.
 function replaceTable(table, cols, rows) {
-  if (ASSETS_BACKEND === 'postgres') return _replaceTablePg(table, cols, rows);
-  const db = getDB();
-  const ph = cols.map(() => '?').join(', ');
-  const insert = db.prepare(`INSERT OR REPLACE INTO ${table} (${cols.join(', ')}) VALUES (${ph})`);
-  const tx = db.transaction((rs) => {
-    db.prepare(`DELETE FROM ${table}`).run();
-    for (const m of rs) insert.run(...cols.map(c => m[c] ?? null));
-  });
-  tx(rows);
-  return rows.length;
+  return _replaceTablePg(table, cols, rows);
 }
 async function _replaceTablePg(table, cols, rows) {
   const h = pgHandle();
@@ -90,9 +66,7 @@ function _assertTable(table) {
   return table;
 }
 function countRows(table) {
-  if (ASSETS_BACKEND === 'postgres') return _countRowsPg(table);
-  const db = getDB();
-  return db.prepare(`SELECT COUNT(*) AS n FROM ${_assertTable(table)}`).get().n;
+  return _countRowsPg(table);
 }
 async function _countRowsPg(table) {
   const h = pgHandle();
@@ -145,11 +119,7 @@ function _coerceEnriched(r) {
 }
 
 function getEnrichedAssets(filters) {
-  if (ASSETS_BACKEND === 'postgres') return _getEnrichedAssetsPg(filters);
-  const db = getDB();
-  const { where, params } = _assetWhere(filters);
-  const sql = `${_ENRICHED_SELECT}${where} ORDER BY a.site, a.asset_name`;
-  return db.prepare(sql).all(...params).map(_coerceEnriched);
+  return _getEnrichedAssetsPg(filters);
 }
 async function _getEnrichedAssetsPg(filters) {
   const h = pgHandle();
@@ -160,17 +130,7 @@ async function _getEnrichedAssetsPg(filters) {
 }
 
 function getAssetLookups() {
-  if (ASSETS_BACKEND === 'postgres') return _getAssetLookupsPg();
-  const db = getDB();
-  const distinct = (col) => db.prepare(
-    `SELECT DISTINCT ${col} AS v FROM assets WHERE ${col} IS NOT NULL AND ${col} <> '' ORDER BY ${col}`
-  ).all().map(r => r.v);
-  return {
-    sites: distinct('site'),
-    states: distinct('state'),
-    product_types: distinct('product_type'),
-    manufacturers: distinct('manufacturer'),
-  };
+  return _getAssetLookupsPg();
 }
 async function _getAssetLookupsPg() {
   const h = pgHandle();
@@ -186,13 +146,7 @@ async function _getAssetLookupsPg() {
 }
 
 function getAssetSummary() {
-  if (ASSETS_BACKEND === 'postgres') return _getAssetSummaryPg();
-  const db = getDB();
-  const total = db.prepare('SELECT COUNT(*) AS n FROM assets').get().n;
-  const rows = db.prepare("SELECT COALESCE(state,'') AS state, COUNT(*) AS n FROM assets GROUP BY state").all();
-  const by_state = {};
-  for (const r of rows) by_state[r.state] = r.n;
-  return { total, by_state };
+  return _getAssetSummaryPg();
 }
 async function _getAssetSummaryPg() {
   const h = pgHandle();
@@ -211,9 +165,7 @@ const _COUNTS_BY_TYPE_SQL =
   "SELECT COALESCE(NULLIF(product_type,''),'Unknown') AS product_type, COUNT(*) AS count " +
   "FROM assets GROUP BY COALESCE(NULLIF(product_type,''),'Unknown') ORDER BY count DESC";
 function getAssetCountsByType() {
-  if (ASSETS_BACKEND === 'postgres') return _getAssetCountsByTypePg();
-  const db = getDB();
-  return db.prepare(_COUNTS_BY_TYPE_SQL).all().map(r => ({ product_type: r.product_type, count: Number(r.count) }));
+  return _getAssetCountsByTypePg();
 }
 async function _getAssetCountsByTypePg() {
   const h = pgHandle();
@@ -326,28 +278,7 @@ function _buildBySite(siteRows) {
 }
 
 function getHygieneSummary(filters) {
-  if (ASSETS_BACKEND === 'postgres') return _getHygieneSummaryPg(filters);
-  const db = getDB();
-  const { where, params } = _assetWhere(filters);         // ' AND a.…' (or '')
-  const filt = `WHERE 1=1${where}`;
-  const total = Number(db.prepare(`SELECT COUNT(*) AS n FROM assets a ${filt}`).get(...params).n);
-  const by_kind = {};
-  for (const kind of Object.keys(HYGIENE_KINDS)) {
-    const w = _hygieneWhere(kind, filters);
-    by_kind[kind] = Number(db.prepare(`SELECT COUNT(*) AS n FROM assets a WHERE ${w.sql}`).get(...w.params).n);
-  }
-  const siteRows = db.prepare(
-    `SELECT COALESCE(a.site,'') AS site, COUNT(*) AS total, ${_PRESENT_SELECT} FROM assets a ${filt} GROUP BY a.site ORDER BY a.site`
-  ).all(...params);
-  const fr = db.prepare(`SELECT ${_FRESHNESS_SELECT} FROM assets a ${filt}`).get(...params);
-  const scan_freshness = { never: Number(fr.never) || 0, over90: Number(fr.over90) || 0,
-    d30_90: Number(fr.d30_90) || 0, d7_30: Number(fr.d7_30) || 0, under7: Number(fr.under7) || 0 };
-  const stateRows = db.prepare(
-    `SELECT COALESCE(a.state,'') AS state, COUNT(*) AS n FROM assets a ${filt} GROUP BY a.state`
-  ).all(...params);
-  const by_state = {};
-  for (const r of stateRows) by_state[r.state] = Number(r.n);
-  return { total, by_kind, by_site: _buildBySite(siteRows), scan_freshness, by_state };
+  return _getHygieneSummaryPg(filters);
 }
 async function _getHygieneSummaryPg(filters) {
   const h = pgHandle();
@@ -374,12 +305,7 @@ async function _getHygieneSummaryPg(filters) {
 }
 
 function getHygieneExceptions(kind, filters) {
-  if (ASSETS_BACKEND === 'postgres') return _getHygieneExceptionsPg(kind, filters);
-  const db = getDB();
-  const { sql, params } = _hygieneWhere(kind, filters);   // throws on unknown kind
-  return db.prepare(
-    `SELECT ${_HYGIENE_EXC_COLS} FROM assets a WHERE ${sql} ORDER BY a.site, a.asset_name`
-  ).all(...params);
+  return _getHygieneExceptionsPg(kind, filters);
 }
 async function _getHygieneExceptionsPg(kind, filters) {
   const h = pgHandle();
@@ -497,13 +423,7 @@ function _aggregateHardware(rows) {
 
 // Every row through the shared _HARDWARE_EXC_COLS SELECT + whitelisted filters.
 function getHardwareHealthSummary(filters) {
-  if (ASSETS_BACKEND === 'postgres') return _getHardwareHealthSummaryPg(filters);
-  const db = getDB();
-  const { where, params } = _assetWhere(filters);
-  const rows = db.prepare(
-    `SELECT ${_HARDWARE_EXC_COLS} FROM assets a WHERE 1=1${where} ORDER BY a.site, a.asset_name`
-  ).all(...params).map(_coerceHardwareRow);
-  return _aggregateHardware(rows);
+  return _getHardwareHealthSummaryPg(filters);
 }
 async function _getHardwareHealthSummaryPg(filters) {
   const h = pgHandle();
@@ -515,14 +435,7 @@ async function _getHardwareHealthSummaryPg(filters) {
 }
 
 function getHardwareHealthExceptions(kind, filters) {
-  if (ASSETS_BACKEND === 'postgres') return _getHardwareHealthExceptionsPg(kind, filters);
-  if (!HARDWARE_KINDS[kind]) throw new Error(`getHardwareHealthExceptions: unknown hardware kind "${kind}"`);
-  const db = getDB();
-  const { where, params } = _assetWhere(filters);
-  const rows = db.prepare(
-    `SELECT ${_HARDWARE_EXC_COLS} FROM assets a WHERE 1=1${where} ORDER BY a.site, a.asset_name`
-  ).all(...params).map(_coerceHardwareRow);
-  return rows.filter(r => _hardwareFlags(r)[kind]);
+  return _getHardwareHealthExceptionsPg(kind, filters);
 }
 async function _getHardwareHealthExceptionsPg(kind, filters) {
   if (!HARDWARE_KINDS[kind]) throw new Error(`getHardwareHealthExceptions: unknown hardware kind "${kind}"`);
@@ -591,11 +504,7 @@ function _aggregateFinance(rows, rate) {
 }
 
 function getFinanceSummary(filters, rate = 1) {
-  if (ASSETS_BACKEND === 'postgres') return _getFinanceSummaryPg(filters, rate);
-  const db = getDB();
-  const { where, params } = _assetWhere(filters);
-  const rows = db.prepare(`${_FINANCE_SELECT}${where} ORDER BY a.site, a.asset_name`).all(...params);
-  return _aggregateFinance(rows, rate);
+  return _getFinanceSummaryPg(filters, rate);
 }
 async function _getFinanceSummaryPg(filters, rate = 1) {
   const h = pgHandle();
@@ -663,11 +572,7 @@ function _aggregateDepreciation(rows, { config, rate, asOf } = {}) {
 }
 
 function getAssetDepreciation(filters, opts = {}) {
-  if (ASSETS_BACKEND === 'postgres') return _getAssetDepreciationPg(filters, opts);
-  const db = getDB();
-  const { where, params } = _assetWhere(filters);
-  const rows = db.prepare(`${_DEPREC_SELECT}${where} ORDER BY a.site, a.asset_name`).all(...params);
-  return _aggregateDepreciation(rows, opts);
+  return _getAssetDepreciationPg(filters, opts);
 }
 async function _getAssetDepreciationPg(filters, opts = {}) {
   const h = pgHandle();
@@ -698,11 +603,7 @@ function _aggregateSchedule(rows, { config, rate, asOf } = {}) {
 }
 
 function getDepreciationSchedule(filters, opts = {}) {
-  if (ASSETS_BACKEND === 'postgres') return _getDepreciationSchedulePg(filters, opts);
-  const db = getDB();
-  const { where, params } = _assetWhere(filters);
-  const rows = db.prepare(`${_DEPREC_SELECT}${where} ORDER BY a.site, a.asset_name`).all(...params);
-  return _aggregateSchedule(rows, opts);
+  return _getDepreciationSchedulePg(filters, opts);
 }
 async function _getDepreciationSchedulePg(filters, opts = {}) {
   const h = pgHandle();
@@ -725,13 +626,7 @@ const _INVEST_HIST_LIC_SELECT =
   'SELECT acquisition_date, cost FROM software_licenses';
 
 function getInvestmentSummary(filters, { rate } = {}) {
-  if (ASSETS_BACKEND === 'postgres') return _getInvestmentSummaryPg(filters, { rate });
-  const db = getDB();
-  const aw = _assetWhere(filters);
-  const lw = _licenceWhere(filters);
-  const aRows = db.prepare(`${_INVEST_HIST_ASSET_SELECT}${aw.where}`).all(...aw.params);
-  const lRows = db.prepare(`${_INVEST_HIST_LIC_SELECT}${lw.where}`).all(...lw.params);
-  return AF.buildInvestmentHistory(aRows, lRows, rate);
+  return _getInvestmentSummaryPg(filters, { rate });
 }
 async function _getInvestmentSummaryPg(filters, { rate } = {}) {
   const h = pgHandle();
@@ -748,16 +643,7 @@ const _INVEST_FCST_LIC_SELECT =
   'SELECT expiry_date, cost, license_option FROM software_licenses';
 
 function getInvestmentForecast(filters, { config, rate, upliftPct, horizonYears, asOf } = {}) {
-  if (ASSETS_BACKEND === 'postgres') return _getInvestmentForecastPg(filters, { config, rate, upliftPct, horizonYears, asOf });
-  const db = getDB();
-  const aw = _assetWhere(filters);
-  const lw = _licenceWhere(filters);
-  const aRows = db.prepare(`${_INVEST_FCST_ASSET_SELECT}${aw.where}`).all(...aw.params);
-  const lRows = db.prepare(`${_INVEST_FCST_LIC_SELECT}${lw.where}`).all(...lw.params);
-  return {
-    hardware: AF.buildHardwareForecast(aRows, { config, rate, upliftPct, horizonYears, asOf }),
-    software: AF.buildSoftwareForecast(lRows, { horizonYears, asOf }),
-  };
+  return _getInvestmentForecastPg(filters, { config, rate, upliftPct, horizonYears, asOf });
 }
 async function _getInvestmentForecastPg(filters, { config, rate, upliftPct, horizonYears, asOf } = {}) {
   const h = pgHandle();
@@ -875,11 +761,7 @@ function _aggregateLicence(rows, filters) {
 }
 
 function getLicenceSummary(filters = {}) {
-  if (ASSETS_BACKEND === 'postgres') return _getLicenceSummaryPg(filters);
-  const db = getDB();
-  const { where, params } = _licenceWhere(filters);
-  const rows = db.prepare(`SELECT ${_LICENCE_SUMMARY_COLS} FROM software_licenses${where}`).all(...params);
-  return _aggregateLicence(rows, filters);
+  return _getLicenceSummaryPg(filters);
 }
 async function _getLicenceSummaryPg(filters = {}) {
   const h = pgHandle();
@@ -897,12 +779,7 @@ function _licenceExceptions(rows, kind, filters) {
 }
 
 function getLicenceExceptions(kind, filters = {}) {
-  if (ASSETS_BACKEND === 'postgres') return _getLicenceExceptionsPg(kind, filters);
-  const db = getDB();
-  if (!LICENCE_KINDS[kind]) throw new Error(`getLicenceExceptions: unknown licence kind "${kind}"`);
-  const { where, params } = _licenceWhere(filters);
-  const rows = db.prepare(`SELECT ${_LICENCE_EXC_COLS} FROM software_licenses${where} ORDER BY site, license_name`).all(...params);
-  return _licenceExceptions(rows, kind, filters);
+  return _getLicenceExceptionsPg(kind, filters);
 }
 async function _getLicenceExceptionsPg(kind, filters = {}) {
   const h = pgHandle();
@@ -995,11 +872,7 @@ function _aggregateSoftware(rows) {
 }
 
 function getSoftwareComplianceSummary(filters = {}) {
-  if (ASSETS_BACKEND === 'postgres') return _getSoftwareComplianceSummaryPg(filters);
-  const db = getDB();
-  const { where, params } = _softwareWhere(filters);
-  const rows = db.prepare(`SELECT ${_SOFTWARE_SUMMARY_COLS} FROM software${where}`).all(...params);
-  return _aggregateSoftware(rows);
+  return _getSoftwareComplianceSummaryPg(filters);
 }
 async function _getSoftwareComplianceSummaryPg(filters = {}) {
   const h = pgHandle();
@@ -1016,12 +889,7 @@ function _softwareExceptions(rows, kind) {
 }
 
 function getSoftwareComplianceExceptions(kind, filters = {}) {
-  if (ASSETS_BACKEND === 'postgres') return _getSoftwareComplianceExceptionsPg(kind, filters);
-  const db = getDB();
-  if (!SOFTWARE_KINDS[kind]) throw new Error(`getSoftwareComplianceExceptions: unknown software kind "${kind}"`);
-  const { where, params } = _softwareWhere(filters);
-  const rows = db.prepare(`SELECT ${_SOFTWARE_EXC_COLS} FROM software${where} ORDER BY software_name`).all(...params);
-  return _softwareExceptions(rows, kind);
+  return _getSoftwareComplianceExceptionsPg(kind, filters);
 }
 async function _getSoftwareComplianceExceptionsPg(kind, filters = {}) {
   const h = pgHandle();
@@ -1086,18 +954,10 @@ function _effortRecord(date, r) {
 // Snapshot every site's effort state for `asOf` (default today). Upsert per site
 // so re-running the same day is idempotent. Returns {date, sites}.
 function snapshotEffort(opts = {}) {
-  if (ASSETS_BACKEND === 'postgres') return _snapshotEffortPg(opts);
-  const date = (opts && opts.asOf) || new Date().toISOString().slice(0, 10);
-  const db = getDB();
-  const records = db.prepare(_EFFORT_AGG_SELECT).all().map(r => _effortRecord(date, r)).filter(Boolean);
-  const ph = _EFFORT_COLS.map(() => '?').join(', ');
-  const insert = db.prepare(`INSERT OR REPLACE INTO asset_effort_history (${_EFFORT_COLS.join(', ')}) VALUES (${ph})`);
-  const tx = db.transaction((recs) => { for (const m of recs) insert.run(..._EFFORT_COLS.map(c => m[c])); });
-  tx(records);
-  return { date, sites: records.length };
+  return _snapshotEffortPg(opts);
 }
 async function _snapshotEffortPg(opts = {}) {
-  const date = (opts && opts.asOf) || new Date().toISOString().slice(0, 10);
+  const date = _isoDayOrToday(opts && opts.asOf);
   const h = pgHandle();
   const records = (await h.prepare(_EFFORT_AGG_SELECT).all()).map(r => _effortRecord(date, r)).filter(Boolean);
   const ph = _EFFORT_COLS.map(() => '?').join(', ');   // pgDb translates ? -> $N
@@ -1124,21 +984,10 @@ async function _snapshotEffortPg(opts = {}) {
 const _SIGHT_SELECT = `SELECT asset_id, COALESCE(site, ''), CAST(? AS TEXT), CAST(? AS INTEGER) FROM assets WHERE asset_id IS NOT NULL AND asset_id <> ''`;
 
 function recordAssetSightings(opts = {}) {
-  if (ASSETS_BACKEND === 'postgres') return _recordAssetSightingsPg(opts);
-  const date = (opts && opts.asOf) || new Date().toISOString().slice(0, 10);
-  const db = getDB();
-  const tx = db.transaction(() => {
-    const assets = countRows('assets');
-    if (!assets) return { date, baseline: false, inserted: 0, skipped: 'no assets' };
-    const baseline = countRows('asset_first_seen') === 0;
-    const r = db.prepare(`INSERT OR IGNORE INTO asset_first_seen (asset_id, site, first_seen_date, baseline) ${_SIGHT_SELECT}`)
-      .run(date, baseline ? 1 : 0);
-    return { date, baseline, inserted: r.changes };
-  });
-  return tx();
+  return _recordAssetSightingsPg(opts);
 }
 async function _recordAssetSightingsPg(opts = {}) {
-  const date = (opts && opts.asOf) || new Date().toISOString().slice(0, 10);
+  const date = _isoDayOrToday(opts && opts.asOf);
   const h = pgHandle();
   return h.runTransaction(async () => {
     const assets = await countRows('assets');
@@ -1208,13 +1057,7 @@ function _shapeFollowups(lists) {
 // worklists for ONE site (its real asset labels). The "new" list uses the CURRENT
 // assets.site. Empty labels → zeros. Dual-backend: the pg fork is async.
 function getSiteAssetFollowups(labels, opts = {}) {
-  if (ASSETS_BACKEND === 'postgres') return _getSiteAssetFollowupsPg(labels, opts);
-  const { L, q } = _followupQueries(labels, opts);
-  if (!L.length) return _shapeFollowups({});
-  const db = getDB();
-  const lists = {};
-  for (const [k, { sql, params }] of Object.entries(q)) lists[k] = db.prepare(sql).all(...params);
-  return _shapeFollowups(lists);
+  return _getSiteAssetFollowupsPg(labels, opts);
 }
 async function _getSiteAssetFollowupsPg(labels, opts = {}) {
   const { L, q } = _followupQueries(labels, opts);
@@ -1293,6 +1136,17 @@ function _scoreFromCounts(total, gaps) {
   return Math.round(100 * sum / 6);
 }
 
+// A caller-supplied asOf must be a real 'YYYY-MM-DD' day, else today. Compared as TEXT, a
+// non-date string is not harmless: under a locale collation (en_US.utf8, the postgres image
+// default) punctuation is ignored, so "' OR 1=1" sorts AFTER every date and the date maths
+// downstream throw (CI failure 2026-10-28). Parameter binding already prevents injection;
+// this keeps a malformed value from becoming a 500.
+function _isoDayOrToday(v) {
+  const s = v == null ? '' : String(v);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s + 'T00:00:00Z'))) return s;
+  return new Date().toISOString().slice(0, 10);
+}
+
 function _buildLeaderboard(histRows, asOf, opts = {}) {
   const minAssets = Number.isFinite(opts.minAssets) ? opts.minAssets : MIN_RANKED_ASSETS;
   const empty = { rows: [], most_improved: null, needs_attention: null, ranked_count: 0, min_assets: minAssets };
@@ -1366,16 +1220,10 @@ function _buildLeaderboard(histRows, asOf, opts = {}) {
   return { rows, most_improved, needs_attention, ranked_count: n, min_assets: minAssets };
 }
 function getEffortLeaderboard(opts = {}) {
-  if (ASSETS_BACKEND === 'postgres') return _getEffortLeaderboardPg(opts);
-  const asOf = (opts && opts.asOf) || new Date().toISOString().slice(0, 10);
-  const rows = getDB().prepare(
-    `SELECT snapshot_date, site, total, no_cost, no_age, no_owner, never_scanned,
-            no_asset_tag, discovered, effort_score FROM asset_effort_history
-     WHERE snapshot_date <= ? ORDER BY site, snapshot_date`).all(asOf);
-  return _buildLeaderboard(rows, asOf);
+  return _getEffortLeaderboardPg(opts);
 }
 async function _getEffortLeaderboardPg(opts = {}) {
-  const asOf = (opts && opts.asOf) || new Date().toISOString().slice(0, 10);
+  const asOf = _isoDayOrToday(opts && opts.asOf);
   const h = pgHandle();
   const rows = await h.prepare(
     `SELECT snapshot_date, site, total, no_cost, no_age, no_owner, never_scanned,
@@ -1421,14 +1269,7 @@ const _EFFORT_TREND_SELECT = `SELECT snapshot_date, site, effort_score,
   cost_pct, age_pct, owner_pct, scan_pct, tag_pct, enrolled_pct
   FROM asset_effort_history WHERE snapshot_date >= ?`;
 function getEffortTrend(filters, opts = {}) {
-  if (ASSETS_BACKEND === 'postgres') return _getEffortTrendPg(filters, opts);
-  const months = (opts && opts.months) || 6;
-  const site = (filters && filters.site != null && filters.site !== '') ? filters.site : null;
-  const cutoff = _monthsAgoStr(months);
-  const clause = site ? ' AND site = ?' : '';
-  const params = site ? [cutoff, site] : [cutoff];
-  const rows = getDB().prepare(`${_EFFORT_TREND_SELECT}${clause} ORDER BY site, snapshot_date`).all(...params);
-  return _buildTrend(rows, !!site);
+  return _getEffortTrendPg(filters, opts);
 }
 async function _getEffortTrendPg(filters, opts = {}) {
   const months = (opts && opts.months) || 6;
@@ -1441,7 +1282,7 @@ async function _getEffortTrendPg(filters, opts = {}) {
   return _buildTrend(rows, !!site);
 }
 
-if (ASSETS_BACKEND !== 'postgres') getDB();   // eager sqlite init at require, like tracker-db
+   // eager sqlite init at require, like tracker-db
 // ── Réconciliation SDP × AD × Entra ─────────────────────────────────────────
 
 /** Les seules décisions acceptées. Une valeur libre rendrait le compteur ininterprétable. */
@@ -1458,18 +1299,7 @@ const _AED_COLS = ['source', 'device_key', 'device_name', 'dns_name', 'os', 'os_
  * source vidée, donc zéro écart, donc un rapport rassurant et faux.
  */
 function replaceExternalDevices(source, rows, importId) {
-  if (ASSETS_BACKEND === 'postgres') return _replaceExternalDevicesPg(source, rows, importId);
-  const db = getDB();
-  const at = new Date().toISOString();
-  const ins = db.prepare(
-    `INSERT OR REPLACE INTO asset_external_devices (${_AED_COLS.join(',')})
-     VALUES (${_AED_COLS.map(() => '?').join(',')})`);
-  const tx = db.transaction(() => {
-    db.prepare('DELETE FROM asset_external_devices WHERE source = ?').run(source);
-    for (const r of rows || []) ins.run(..._aedValues(source, r, importId, at));
-  });
-  tx();
-  return (rows || []).length;
+  return _replaceExternalDevicesPg(source, rows, importId);
 }
 async function _replaceExternalDevicesPg(source, rows, importId) {
   const h = pgHandle();
@@ -1498,11 +1328,7 @@ function _aedValues(source, r, importId, at) {
 }
 
 function listExternalDevices(source) {
-  if (ASSETS_BACKEND === 'postgres') return _listExternalDevicesPg(source);
-  const db = getDB();
-  return source
-    ? db.prepare('SELECT * FROM asset_external_devices WHERE source = ?').all(source)
-    : db.prepare('SELECT * FROM asset_external_devices').all();
+  return _listExternalDevicesPg(source);
 }
 async function _listExternalDevicesPg(source) {
   const h = pgHandle();
@@ -1513,10 +1339,7 @@ async function _listExternalDevicesPg(source) {
 
 /** La fraîcheur par source — sans elle personne ne sait sur quoi il regarde. */
 function listImportRuns() {
-  if (ASSETS_BACKEND === 'postgres') return _listImportRunsPg();
-  return getDB().prepare(
-    `SELECT source, MAX(imported_at) AS imported_at, MAX(import_id) AS import_id, COUNT(*) AS n
-     FROM asset_external_devices GROUP BY source`).all();
+  return _listImportRunsPg();
 }
 async function _listImportRunsPg() {
   return pgHandle().prepare(
@@ -1537,11 +1360,7 @@ function setDecision(deviceKey, decision, reason, who) {
   }
   const key = String(deviceKey || '').toUpperCase();
   if (!key) throw new Error('device_key manquant');
-  if (ASSETS_BACKEND === 'postgres') return _setDecisionPg(key, decision, reason, who);
-  getDB().prepare(
-    `INSERT OR REPLACE INTO asset_reconcile_decisions (device_key, decision, reason, decided_by, decided_at)
-     VALUES (?,?,?,?,?)`).run(key, decision, reason || null, who || null, new Date().toISOString());
-  return true;
+  return _setDecisionPg(key, decision, reason, who);
 }
 async function _setDecisionPg(key, decision, reason, who) {
   await pgHandle().prepare(
@@ -1556,9 +1375,7 @@ async function _setDecisionPg(key, decision, reason, who) {
 
 function clearDecision(deviceKey) {
   const key = String(deviceKey || '').toUpperCase();
-  if (ASSETS_BACKEND === 'postgres') return _clearDecisionPg(key);
-  getDB().prepare('DELETE FROM asset_reconcile_decisions WHERE device_key = ?').run(key);
-  return true;
+  return _clearDecisionPg(key);
 }
 async function _clearDecisionPg(key) {
   await pgHandle().prepare('DELETE FROM asset_reconcile_decisions WHERE device_key = ?').run(key);
@@ -1566,8 +1383,7 @@ async function _clearDecisionPg(key) {
 }
 
 function listDecisions() {
-  if (ASSETS_BACKEND === 'postgres') return _listDecisionsPg();
-  return getDB().prepare('SELECT * FROM asset_reconcile_decisions').all();
+  return _listDecisionsPg();
 }
 async function _listDecisionsPg() {
   return pgHandle().prepare('SELECT * FROM asset_reconcile_decisions').all();
@@ -1605,14 +1421,9 @@ function _recHistRecord(view, who, date) {
 
 /** Capture UN point pour la journée (idempotent : le dernier du jour gagne). */
 function snapshotReconcile(view, who, opts = {}) {
-  const date = (opts && opts.asOf) || new Date().toISOString().slice(0, 10);
+  const date = _isoDayOrToday(opts && opts.asOf);
   const rec = _recHistRecord(view, who, date);
-  if (ASSETS_BACKEND === 'postgres') return _snapshotReconcilePg(rec);
-  const db = getDB();
-  const ph = _RECHIST_COLS.map(() => '?').join(', ');
-  db.prepare(`INSERT OR REPLACE INTO asset_reconcile_history (${_RECHIST_COLS.join(', ')}) VALUES (${ph})`)
-    .run(..._RECHIST_COLS.map((k) => rec[k]));
-  return { date };
+  return _snapshotReconcilePg(rec);
 }
 async function _snapshotReconcilePg(rec) {
   const h = pgHandle();
@@ -1659,8 +1470,7 @@ function _buildReconcileHistory(rows) {
 function getReconcileHistory(opts = {}) {
   const months = Number.isFinite(+opts.months) && +opts.months > 0 ? Math.min(+opts.months, 60) : 12;
   const from = _monthsAgoStr(months);
-  if (ASSETS_BACKEND === 'postgres') return _getReconcileHistoryPg(from);
-  return _buildReconcileHistory(getDB().prepare(_RECHIST_SELECT(from)).all());
+  return _getReconcileHistoryPg(from);
 }
 async function _getReconcileHistoryPg(from) {
   return _buildReconcileHistory(await pgHandle().prepare(_RECHIST_SELECT(from)).all());
@@ -1671,10 +1481,7 @@ function logImport(o) {
   const at = (o && o.at) || new Date().toISOString();
   const args = [o.source, at, o.row_count == null ? null : o.row_count,
     o.dated_count == null ? null : o.dated_count, o.imported_by || null];
-  if (ASSETS_BACKEND === 'postgres') return _logImportPg(args);
-  getDB().prepare(`INSERT INTO asset_import_log (source, imported_at, row_count, dated_count, imported_by)
-    VALUES (?,?,?,?,?)`).run(...args);
-  return true;
+  return _logImportPg(args);
 }
 async function _logImportPg(args) {
   await pgHandle().prepare(`INSERT INTO asset_import_log (source, imported_at, row_count, dated_count, imported_by)
@@ -1683,10 +1490,9 @@ async function _logImportPg(args) {
 }
 
 function listImportLog(limit = 50) {
-  const n = Number.isFinite(+limit) && +limit > 0 ? Math.min(+limit, 500) : 50;
+  const n = Number.isFinite(+limit) && +limit > 0 ? Math.min(Math.floor(+limit), 500) || 50 : 50;
   const sql = `SELECT * FROM asset_import_log ORDER BY imported_at DESC LIMIT ${n}`;
-  if (ASSETS_BACKEND === 'postgres') return pgHandle().prepare(sql).all();
-  return getDB().prepare(sql).all();
+  return pgHandle().prepare(sql).all();
 }
 
 module.exports = {

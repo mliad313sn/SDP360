@@ -20,14 +20,11 @@ ZOHO_REFRESH_TOKEN=
 WORKSPACE_ID=
 ORG_ID=
 
-# ── Storage backends: sqlite (default) | postgres ───────────────────
-# PG_URL=postgres://sdp_app:<PG_PASSWORD>@localhost:5432/sdp_dashboard
-# REPORTS_BACKEND=postgres
-# MEETINGS_BACKEND=postgres
-# INSPECTION_BACKEND=postgres
-# TRACKER_BACKEND=postgres
-# ASSETS_BACKEND=sqlite
-# TRACKER_PER_YEAR_EDITS=1
+# ── Storage: PostgreSQL is the ONLY database (PO-08, 2026-10-28 — SQLite removed) ──
+# The server refuses to start without PG_URL (services/backendGuard.js). The old
+# *_BACKEND variables are ignored. Offline field capture runs in the browser (service
+# worker + local queue); there is no server-side SQLite at all.
+PG_URL=postgres://sdp_app:<PG_PASSWORD>@localhost:5432/sdp_dashboard
 # SDP_DATA_DIR=./data
 
 # ── Secrets-at-rest key for report_config (AES-256-GCM). Required in prod. ──

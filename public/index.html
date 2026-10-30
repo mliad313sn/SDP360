@@ -70,6 +70,8 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
 .chart-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .chart-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);padding:14px 16px}
 .chart-card.full{grid-column:1/-1}
+/* G17 — 390 px: charts stack and shrink instead of widening the page */
+@media (max-width:700px){.chart-row,.kpi-row{grid-template-columns:minmax(0,1fr)}.chart-card{min-width:0}.chart-card canvas{max-width:100%!important}.sec-hdr{flex-wrap:wrap}}
 .chart-wrap{position:relative}
 .presence-wrap{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);padding:14px 16px}
 .presence-grid{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
@@ -433,7 +435,9 @@ const _h = window.location.hostname;
 //     is preserved. Crucially, when the page is loaded via the IIS reverse
 //     proxy (https://itops-dashboard.edv-ops.com), this becomes the HTTPS
 //     URL — no port hardcode, no mixed-content blocking, no protocol mismatch.
-const PROXY = (!_h||_h==='localhost'||_h==='127.0.0.1') ? 'http://localhost:3456' : location.origin;
+// Same origin as the page on every served URL (any port Setup chose, IIS, localhost); only a page opened from
+// a file:// path falls back to the historical dev address.
+const PROXY = /^https?:$/.test(location.protocol) ? location.origin : 'http://localhost:3456';
 
 // ── Nav visibility — apply once DOM is ready ───────────────────────────────
 // Script runs in <head> so DOM elements don't exist yet at parse time.
@@ -805,7 +809,8 @@ function exportCSV(){
       const cols=[...existingKey,...remainingKeys];
       // CSV value escaper
       const esc=v=>{
-        const s=(v===null||v===undefined)?'':String(v);
+        let s=(v===null||v===undefined)?'':String(v);
+        s=/^[=+\-@\t\r]/.test(s) && !/^[+-]?\d+(\.\d+)?$/.test(s) ? "'" + s : s;   // formula-injection guard
         if(s.includes(',')||s.includes('"')||s.includes('\n')||s.includes('\r'))
           return '"'+s.replace(/"/g,'""')+'"';
         return s;
@@ -1039,7 +1044,8 @@ function exportUnassignedCSV(){
   const COLS=['Request Display ID','Request ID','Subject','Group','Site','Category','Priority',
               'Days Since Created','Request Status','Created Time','Requester',
               'Technician','Assigned To'];
-  const esc=v=>{const s=(v===null||v===undefined)?'':String(v);
+  const esc=v=>{let s=(v===null||v===undefined)?'':String(v);
+    s=/^[=+\-@\t\r]/.test(s) && !/^[+-]?\d+(\.\d+)?$/.test(s) ? "'" + s : s;   // formula-injection guard
     return(s.includes(',')||s.includes('"')||s.includes('\n'))?'"'+s.replace(/"/g,'""')+'"':s;};
   const lines=[COLS.map(esc).join(',')];
   rows.forEach(r=>lines.push(COLS.map(c=>esc(r[c])).join(',')));

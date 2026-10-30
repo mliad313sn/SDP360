@@ -1,6 +1,5 @@
 // tests/site-technicians.test.js
 'use strict';
-process.env.REPORTS_BACKEND = 'sqlite';
 const test = require('node:test');
 const assert = require('node:assert');
 const { _computeTechStats } = require('../reports-db');

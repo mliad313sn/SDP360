@@ -31,8 +31,8 @@ function parse(text) {
 // Line-based helpers (always run — the parser, when present, is a second opinion).
 const codeLines = text => text.split('\n').filter(l => !/^\s*#/.test(l));
 
-test('workflow directory holds the three expected workflows', () => {
-  assert.deepEqual(files, ['ci.yml', 'codeql.yml', 'release.yml']);
+test('workflow directory holds the four expected workflows', () => {
+  assert.deepEqual(files, ['ci.yml', 'codeql.yml', 'installer.yml', 'release.yml']);
 });
 
 test('every `uses:` is pinned to a 40-hex commit SHA with a version comment', () => {
@@ -62,7 +62,7 @@ test('workflow-level permissions are contents: read; contents: write only on the
     if (doc) {
       assert.deepEqual(doc.permissions, { contents: 'read' }, `${f}: parsed workflow permissions`);
       for (const [name, job] of Object.entries(doc.jobs)) {
-        const w = job.permissions && job.permissions.contents === 'write';
+        const w = !!(job.permissions && job.permissions.contents === 'write');   // a job without permissions inherits read
         assert.equal(w, f === 'release.yml' && name === 'publish', `${f}: job ${name} contents:write`);
       }
     }
@@ -120,4 +120,22 @@ test('release.yml: the release job verifies the built package with the Manager a
   assert.match(text, /node tools\/sdp-manager\.js verify/, 'the package job must run the Manager verify on the built zip');
   assert.match(text, /SIGNING\.txt/);
   assert.match(text, /manifest signed/);
+});
+
+test('installer.yml: builds Setup.exe with build.ps1 and runs the Windows end-to-end test', () => {
+  const text = read('installer.yml');
+  assert.match(text, /runs-on:\s*windows-latest/);
+  assert.match(text, /tools\/installer-v2\/build\.ps1/);
+  assert.match(text, /tools\/installer-v2\/tests\/e2e\.ps1/);
+  assert.ok(!/secrets\./.test(text), 'installer.yml handles no secret');
+});
+
+test('release.yml: the installer job builds through build.ps1 around the already-built package', () => {
+  const text = read('release.yml');
+  assert.match(text, /build\.ps1 -Version \$v -PackageZip/);
+});
+
+test('G01: the PostgreSQL service gets enough shared memory (one database per test file exhausted Docker\'s 64 MB default)', () => {
+  const ci = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'ci.yml'), 'utf8');
+  assert.match(ci, /--shm-size=\d+[gm]/);
 });

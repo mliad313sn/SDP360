@@ -29,17 +29,17 @@ const post = (path, t, body) => fetch(base + path, { method: 'POST', headers: H(
 before(async () => {
   const { app } = require('../server');
   rdb = require('../reports-db');
-  const sites = rdb.listSites() || [];
+  const sites = (await rdb.listSites()) || [];
   assert.ok(sites.length >= 2, 'two seeded sites');
   siteA = sites[0]; siteB = sites[1];
-  reportA = rdb.ensureReport(siteA.id, 2026, 30);
-  reportB = rdb.ensureReport(siteB.id, 2026, 30);
-  rdb.saveActionItems(reportB.id, [{ task: 'Site B follow-up', department: 'IT', priority: 'Medium', status: 'open' }]);
+  reportA = (await rdb.ensureReport(siteA.id, 2026, 30));
+  reportB = (await rdb.ensureReport(siteB.id, 2026, 30));
+  (await rdb.saveActionItems(reportB.id, [{ task: 'Site B follow-up', department: 'IT', priority: 'Medium', status: 'open' }]));
   actionUidB = (await rdb.getReport(reportB.id)).action_items[0].uid;
   assert.ok(actionUidB, 'the seeded follow-up carries a uid');
 
-  const me = (rdb.listUsers() || []).find(u => u.username === process.env.DASH_USER);
-  rdb.setUserRoles(me.id, ['super_admin']);
+  const me = ((await rdb.listUsers()) || []).find(u => u.username === process.env.DASH_USER);
+  (await rdb.setUserRoles(me.id, ['super_admin']));
   tok.super = (await rdb.login(process.env.DASH_USER, process.env.DASH_PASS)).token;
   const mk = async (username, roles, site_id) => {
     await rdb.createUser({ username, full_name: username, password: username + '-0000', roles, site_id });
@@ -88,12 +88,12 @@ test('unknown report → 404, not 500', async () => {
 });
 
 test('a SUBMITTED report refuses section writes from its own editor (403); super_admin may still edit', async () => {
-  rdb.updateReportStatus(reportA.id, 'submitted', null);
+  (await rdb.updateReportStatus(reportA.id, 'submitted', null));
   const r1 = await put(`/api/reports/${reportA.id}/lights`, tok.editorA, []);
   assert.equal(r1.status, 403, `editor on submitted: expected 403, got ${r1.status}`);
   const r2 = await put(`/api/reports/${reportA.id}/lights`, tok.super, []);
   assert.equal(r2.status, 200, `super_admin on submitted: expected 200, got ${r2.status}`);
-  rdb.updateReportStatus(reportA.id, 'draft', null);
+  (await rdb.updateReportStatus(reportA.id, 'draft', null));
 });
 
 test('follow-up status by uid: editor of site A cannot touch a site-B follow-up (403); site-B editor can (200)', async () => {

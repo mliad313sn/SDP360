@@ -12,9 +12,6 @@
 //
 // The dev .env pins every backend to postgres; siteComposite → meetings-db reads
 // that at require time. Force sqlite BEFORE any require.
-process.env.MEETINGS_BACKEND = 'sqlite';
-process.env.INSPECTION_BACKEND = 'sqlite';
-process.env.REPORTS_BACKEND = 'sqlite';
 
 const test = require('node:test');
 const assert = require('node:assert');

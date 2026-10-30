@@ -34,7 +34,7 @@ before(async () => {
   const { app } = require('../server');
   rdb = require('../reports-db');
   inspDb = require('../inspection-db');
-  const sites = rdb.listSites();
+  const sites = (await rdb.listSites());
   const coded = sites.map(s => ({ s, code: inspDb.siteNameToCode(s.name) })).filter(x => x.code);
   assert.ok(coded.length >= 2, 'two seeded sites with an inspection code');
   const [A, B] = coded; codeA = A.code; codeB = B.code;
