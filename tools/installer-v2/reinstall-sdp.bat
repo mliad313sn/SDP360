@@ -12,8 +12,9 @@ rem    4  drops sdp_dashboard + sdp_app ONLY after you type DROP (never fmp_v2)
 rem    5  silent install of the new Setup.exe (new mode, existing PostgreSQL)
 rem    6  health check on http://localhost:%PORT%/
 rem
-rem  Run as Administrator. Put SDP-Dashboard-Setup-*.exe next to this file, or
-rem  have GitHub CLI (gh) signed in so the script downloads it.
+rem  Double-click it: it asks for admin rights itself, finds the installer next to
+rem  it or in Downloads (.exe or the 'setup' zip, unzipped automatically), else
+rem  opens the GitHub download page and waits. No PostgreSQL -> Setup installs one.
 rem  PostgreSQL itself is never uninstalled (4MyPeople uses the same server).
 rem ===========================================================================
 
@@ -34,24 +35,46 @@ call :say "SDP Dashboard reinstall - log: %LOG%"
 
 rem ---- 1. checks ------------------------------------------------------------
 net session >nul 2>&1
-if not "!errorlevel!"=="0" ( call :say "ERROR: run this script as Administrator." & goto :fail )
+if not "!errorlevel!"=="0" (
+  echo Asking Windows for administrator rights...
+  powershell -NoProfile -Command "Start-Process -FilePath '%~f0' -Verb RunAs"
+  endlocal & exit /b 0
+)
 
-set "SETUP="
-for %%f in ("%HERE%SDP-Dashboard-Setup-*.exe") do set "SETUP=%%~ff"
+set "DL=%USERPROFILE%\Downloads"
+call :findsetup
 if not defined SETUP (
   where gh >nul 2>&1
-  if not "!errorlevel!"=="0" ( call :say "ERROR: no SDP-Dashboard-Setup-*.exe here and gh is not installed. Download the 'setup' artifact from https://github.com/%REPO%/actions/runs/%RUN_ID% and put the .exe next to this script." & goto :fail )
-  call :say "Downloading the installer (artifact 'setup' of run %RUN_ID%)..."
-  gh run download %RUN_ID% -R %REPO% -n setup -D "%HERE%setup" >>"%LOG%" 2>&1
-  if not "!errorlevel!"=="0" ( call :say "ERROR: download failed (run 'gh auth login' first; the artifact expires 2026-11-12)." & goto :fail )
-  for /r "%HERE%setup" %%f in (SDP-Dashboard-Setup-*.exe) do set "SETUP=%%~ff"
+  if "!errorlevel!"=="0" (
+    call :say "Downloading the installer with GitHub CLI..."
+    gh run download %RUN_ID% -R %REPO% -n setup -D "%HERE%setup" >>"%LOG%" 2>&1
+    call :findsetup
+  )
 )
-if not defined SETUP ( call :say "ERROR: installer not found." & goto :fail )
+if not defined SETUP (
+  call :say "The installer is not on this machine yet. Opening the download page:"
+  call :say "  sign in to GitHub, scroll to Artifacts and click 'setup'. This window waits for the download."
+  start "" "https://github.com/%REPO%/actions/runs/%RUN_ID%"
+  for /l %%i in (1,1,360) do if not defined SETUP (
+    timeout /t 10 /nobreak >nul
+    call :findsetup
+  )
+)
+if not defined SETUP ( call :say "ERROR: no installer after 60 minutes (the artifact expires 2026-11-12)." & goto :fail )
 call :say "Installer: !SETUP!"
 
 set "PGBIN="
 for /d %%d in ("C:\Program Files\PostgreSQL\*") do if exist "%%d\bin\psql.exe" set "PGBIN=%%d\bin"
-if not defined PGBIN ( call :say "ERROR: PostgreSQL not found under C:\Program Files\PostgreSQL. Install it first, or edit this script." & goto :fail )
+if not defined PGBIN (
+  call :say "No PostgreSQL on this machine: Setup will install its own PostgreSQL 17."
+  for /f "usebackq delims=" %%p in (`powershell -NoProfile -Command "$s=Read-Host 'Choose a password for the new PostgreSQL superuser (postgres)' -AsSecureString; [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($s))"`) do set "PGPASSWORD=%%p"
+  if not defined PGPASSWORD ( call :say "ERROR: no password entered." & goto :fail )
+  call :say "Write this password down: it is needed for backups and future updates."
+  set "PGARGS=/PGPORT=%PGPORT% /DBNAME=%DBNAME% /DBUSER=%DBUSER%"
+  set "DBEXISTS="
+  goto :removeold
+)
+set "PGARGS=/PGHOST=%PGHOST% /PGPORT=%PGPORT% /DBNAME=%DBNAME% /DBUSER=%DBUSER%"
 call :say "PostgreSQL tools: !PGBIN!"
 
 for /f "usebackq delims=" %%p in (`powershell -NoProfile -Command "$s=Read-Host 'PostgreSQL superuser (postgres) password' -AsSecureString; [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($s))"`) do set "PGPASSWORD=%%p"
@@ -81,7 +104,8 @@ if exist "%APPDIR%\.env" (
   call :say "Old .env saved to %BACKUPDIR%\final (contains secrets - keep it private)."
 )
 
-rem ---- 3. remove the old application -----------------------------------------
+rem ---- 3. remove the old application
+:removeold
 where pm2 >nul 2>&1
 if "!errorlevel!"=="0" (
   call :say "Removing the old pm2 app (endeavour-dashboard)..."
@@ -118,7 +142,7 @@ if "!DBEXISTS!"=="1" (
 rem ---- 5. install the new version --------------------------------------------
 call :say "Installing the new version (silent, a few minutes)..."
 set "SDP_SETUP_PGSUPERPASS=!PGPASSWORD!"
-start "" /wait "!SETUP!" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /LOG="%HERE%setup-%STAMP%.log" /DIR="%APPDIR%" /MODE=new /ALLOWUNSIGNED=1 /PORT=%PORT% /BACKUPDIR="%BACKUPDIR%" /PGHOST=%PGHOST% /PGPORT=%PGPORT% /DBNAME=%DBNAME% /DBUSER=%DBUSER%
+start "" /wait "!SETUP!" /VERYSILENT /SUPPRESSMSGBOXES /NORESTART /LOG="%HERE%setup-%STAMP%.log" /DIR="%APPDIR%" /MODE=new /ALLOWUNSIGNED=1 /PORT=%PORT% /BACKUPDIR="%BACKUPDIR%" !PGARGS!
 set "RC=!errorlevel!"
 set "SDP_SETUP_PGSUPERPASS="
 set "PGPASSWORD="
@@ -137,13 +161,28 @@ for /f "tokens=1,* delims==" %%a in ('findstr /B "DASH_USER=" "%APPDIR%\.env" 2^
 call :say "DONE. Open http://localhost:%PORT%/ on this machine."
 if defined ADMINUSER call :say "First admin user: !ADMINUSER! (password: DASH_PASS in %APPDIR%\.env - change it after the first login)."
 call :say "Final backup of the old data: %BACKUPDIR%\final"
+echo.
+pause
 endlocal & exit /b 0
 
 :fail
 set "PGPASSWORD="
 set "SDP_SETUP_PGSUPERPASS="
 call :say "FAILED - nothing further was done. Log: %LOG%"
+echo.
+pause
 endlocal & exit /b 1
+
+:findsetup
+set "SETUP="
+for %%f in ("%HERE%SDP-Dashboard-Setup-*.exe") do set "SETUP=%%~ff"
+if not defined SETUP if exist "%HERE%setup" for /r "%HERE%setup" %%f in (SDP-Dashboard-Setup-*.exe) do set "SETUP=%%~ff"
+if not defined SETUP for %%f in ("%DL%\SDP-Dashboard-Setup-*.exe") do set "SETUP=%%~ff"
+if not defined SETUP for %%z in ("%DL%\setup*.zip") do (
+  powershell -NoProfile -Command "try { Expand-Archive -Force -LiteralPath '%%~fz' -DestinationPath '%HERE%setup'; exit 0 } catch { exit 1 }" >nul 2>&1
+  if exist "%HERE%setup" for /r "%HERE%setup" %%f in (SDP-Dashboard-Setup-*.exe) do set "SETUP=%%~ff"
+)
+exit /b 0
 
 :say
 echo %~1
