@@ -18,6 +18,8 @@
 ;       /DIR="C:\Apps\SDP-Dashboard" /MODE=new|update|repair /PORT=3456 /DATADIR=... /BACKUPDIR=...
 ;       /PGHOST=localhost /PGPORT=5432 /DBNAME=sdp_dashboard /DBUSER=sdp_app /SERVICEACCOUNT=DOMAIN\user
 ;       /PUBLICHOST=itops.example.com /THUMBPRINT=<sha1> [/ALLOWUNSIGNED=1]
+;       [/UPGRADEPG=1]  (update / repair: upgrade a PostgreSQL 17 minor that Setup did NOT install -
+;                        without it only a cluster with the HKLM\SOFTWARE\SDP-Dashboard marker is upgraded)
 ;   Uninstall: unins000.exe /VERYSILENT [/REMOVEDATA=1]   (data, backups and .env are KEPT by default)
 ;
 ; Build: tools/installer-v2/build.ps1 (CI: .github/workflows/installer.yml and release.yml).
@@ -416,6 +418,57 @@ begin
   end;
 end;
 
+{ PostgreSQL 17 on this server: installed on a blank machine (new installation), upgraded in place to the
+  minor version Setup carries on an update / repair (same major only — data kept; a backup is taken first).
+  The upgrade only touches a cluster THIS Setup installed (registry marker HKLM\SOFTWARE\SDP-Dashboard
+  PgInstalledBySetup=1) or when the operator passes /UPGRADEPG=1: postgresql-x64-17 is also the service the
+  4MyPeople installer creates (it hosts fmp_v2), and an upgrade restarts the whole cluster. }
+function VerNum(V: String): Integer;
+var P, A, B, C: Integer;
+begin
+  A := 0; B := 0; C := 0;
+  P := Pos('.', V); if P > 0 then begin A := StrToIntDef(Copy(V, 1, P - 1), 0); V := Copy(V, P + 1, 50); end;
+  P := Pos('-', V); if P > 0 then begin B := StrToIntDef(Copy(V, 1, P - 1), 0); C := StrToIntDef(Copy(V, P + 1, 50), 0); end
+  else B := StrToIntDef(V, 0);
+  Result := A * 10000 + B * 100 + C;
+end;
+
+function PgInstalledVersion: String;
+begin
+  Result := '';
+  if not RegQueryStringValue(HKLM, 'SOFTWARE\PostgreSQL\Installations\postgresql-x64-17', 'Version', Result) then Result := '';
+end;
+
+function PgInstalledBySetup: Boolean;
+var V: String;
+begin
+  { HKLM64: the 64-bit view, never WOW6432Node (the installer runs in 64-bit mode) }
+  Result := RegQueryStringValue(HKLM64, 'SOFTWARE\SDP-Dashboard', 'PgInstalledBySetup', V) and (V = '1');
+end;
+
+function UpgradePgRequested: Boolean;
+begin
+  Result := Param('UPGRADEPG', '0') = '1';
+end;
+
+procedure MarkPgInstalledBySetup;
+begin
+  RegWriteStringValue(HKLM64, 'SOFTWARE\SDP-Dashboard', 'PgInstalledBySetup', '1');
+  RegWriteStringValue(HKLM64, 'SOFTWARE\SDP-Dashboard', 'PgInstalledVersion', '{#PgVersion}');
+end;
+
+{ an update / repair that would upgrade PostgreSQL, but the cluster carries no SDP-Dashboard marker }
+function PgUpgradeWouldBeSkipped: Boolean;
+var Have: String;
+begin
+  Result := False;
+  if not IsEmbeddedPgAvailable or IsNew or ('{#PgVersion}' = '') then exit;
+  if not RegKeyExists(HKLM, 'SYSTEM\CurrentControlSet\Services\postgresql-x64-17') then exit;
+  Have := PgInstalledVersion;
+  if (Have = '') or (VerNum(Have) >= VerNum('{#PgVersion}')) then exit;
+  Result := not (PgInstalledBySetup or UpgradePgRequested);
+end;
+
 function UpdateReadyMemo(Space, NewLine, MemoUserInfoInfo, MemoDirInfo, MemoTypeInfo, MemoComponentsInfo, MemoGroupInfo, MemoTasksInfo: String): String;
 begin
   Result := 'Mode: ' + GetMode('') + NewLine + MemoDirInfo + NewLine +
@@ -423,8 +476,10 @@ begin
   if IsNew then begin
     if UseEmbeddedPg then Result := Result + 'PostgreSQL: 17 installed on this server, port ' + GetPgPort('') + NewLine
     else Result := Result + 'PostgreSQL: ' + GetPgHost('') + ':' + GetPgPort('') + ' / ' + GetDbName('') + ' as ' + GetDbUser('') + NewLine;
-  end else
+  end else begin
     Result := Result + 'The database is backed up first; a failed update is rolled back automatically.' + NewLine;
+    if PgUpgradeWouldBeSkipped then Result := Result + 'PostgreSQL: not upgraded (not installed by Setup)' + NewLine;
+  end;
   if SvcPage.Values[0] <> '' then Result := Result + 'Service account: ' + SvcPage.Values[0] + NewLine
   else Result := Result + 'Service: SDP Dashboard (Local System)' + NewLine;
   if IisPage.Values[0] <> '' then Result := Result + 'Public address: ' + IisPage.Values[0] + NewLine;
@@ -444,24 +499,6 @@ begin
   end;
 end;
 
-{ PostgreSQL 17 on this server: installed on a blank machine (new installation), upgraded in place to the
-  minor version Setup carries on an update / repair (same major only — data kept; a backup is taken first). }
-function VerNum(V: String): Integer;
-var P, A, B, C: Integer;
-begin
-  A := 0; B := 0; C := 0;
-  P := Pos('.', V); if P > 0 then begin A := StrToIntDef(Copy(V, 1, P - 1), 0); V := Copy(V, P + 1, 50); end;
-  P := Pos('-', V); if P > 0 then begin B := StrToIntDef(Copy(V, 1, P - 1), 0); C := StrToIntDef(Copy(V, P + 1, 50), 0); end
-  else B := StrToIntDef(V, 0);
-  Result := A * 10000 + B * 100 + C;
-end;
-
-function PgInstalledVersion: String;
-begin
-  Result := '';
-  if not RegQueryStringValue(HKLM, 'SOFTWARE\PostgreSQL\Installations\postgresql-x64-17', 'Version', Result) then Result := '';
-end;
-
 procedure InstallEmbeddedPg;
 var Rc: Integer; Opt, Have: String;
 begin
@@ -470,12 +507,17 @@ begin
     { already on this server: upgrade the minor version on an update / repair, never on a new install }
     Have := PgInstalledVersion;
     if IsNew or ('{#PgVersion}' = '') or (Have = '') or (VerNum(Have) >= VerNum('{#PgVersion}')) then exit;
+    if not (PgInstalledBySetup or UpgradePgRequested) then begin
+      Log('PostgreSQL ' + Have + ' is managed by another product (no SDP-Dashboard marker) — not upgraded. Re-run Setup with /UPGRADEPG=1 to upgrade it deliberately.');
+      exit;
+    end;
     WizardForm.StatusLabel.Caption := CustomMessage('UpgradingPg');
     Log('PostgreSQL ' + Have + ' -> {#PgVersion}: backup first');
     if not Exec(ExpandConstant('{app}\runtime\node\node.exe'), '"' + ExpandConstant('{tmp}\bootstrap\tools\sdp-manager.js') + '" backup --dir "' + ExpandConstant('{app}') + '"', ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, Rc) or (Rc <> 0) then
       RaiseException('backup before the PostgreSQL upgrade failed (exit ' + IntToStr(Rc) + ') — nothing was changed');
     if not Exec(ExpandConstant('{tmp}\postgresql.exe'), '--mode unattended --unattendedmodeui none', '', SW_HIDE, ewWaitUntilTerminated, Rc) or (Rc <> 0) then
       RaiseException('PostgreSQL upgrade to {#PgVersion} failed (exit ' + IntToStr(Rc) + ') — the previous version is still installed; the backup is in the backup folder');
+    MarkPgInstalledBySetup;
     Log('PostgreSQL upgraded to {#PgVersion}');
     exit;
   end;
@@ -487,6 +529,7 @@ begin
   try
     if not Exec(ExpandConstant('{tmp}\postgresql.exe'), '--mode unattended --unattendedmodeui none --servicename postgresql-x64-17 --disable-components stackbuilder --optionfile "' + Opt + '"', '', SW_HIDE, ewWaitUntilTerminated, Rc) or (Rc <> 0) then
       RaiseException('PostgreSQL 17 installation failed (exit ' + IntToStr(Rc) + ')');
+    MarkPgInstalledBySetup;
   finally
     DeleteFile(Opt);
   end;

@@ -88,6 +88,8 @@ if ($Virgin) {
   $pg = Get-Service postgresql-x64-17 -ErrorAction SilentlyContinue
   Check ($pg -and $pg.Status -eq 'Running') 'PostgreSQL 17 installed by Setup and running'
   Check (Test-Path 'C:\Program Files\PostgreSQL\17\bin\pg_dump.exe') 'PostgreSQL client tools in place (backups)'
+  $mark = (& reg.exe query 'HKLM\SOFTWARE\SDP-Dashboard' /v PgInstalledBySetup 2>$null | Out-String)
+  Check ($mark -match 'PgInstalledBySetup\s+REG_SZ\s+1') 'registry marker PgInstalledBySetup=1 written by Setup (A-02)'
 }
 if ($rc -ne 0) { Show-Logs 'setup failed' }
 Check (Test-Path (Join-Path $Dir 'server.js')) 'application files installed'
@@ -142,6 +144,14 @@ $after = (Json (Mgr @('backups', '--json'))).backups.Count
 Check ($after -gt $before) "a backup was taken before the update ($before -> $after)"
 Check ((Get-Content (Join-Path $Dir '.env') -Raw) -eq $envText) '.env kept by the update'
 Check (Test-Path (Join-Path $Dir 'runtime\node\node.exe')) 'Node.js runtime refreshed in place'
+# A-02: Setup never upgrades a PostgreSQL it did not install (the runner's own cluster carries no marker)
+$updLog = Join-Path $LogDir 'setup-update.log'
+$updText = if (Test-Path $updLog) { Get-Content $updLog -Raw } else { '' }
+if ($Virgin) {
+  Check ($updText -notmatch 'is managed by another product') 'update: the PostgreSQL Setup installed is not reported as foreign'
+} else {
+  Check (($updText -match 'not upgraded') -or ($updText -notmatch 'PostgreSQL upgraded to')) 'update: the runner PostgreSQL (no SDP-Dashboard marker) was not upgraded'
+}
 
 Section 'Failed health check is rolled back'
 # make the application unable to start, then repair: Setup must fail, put the files back and keep the service

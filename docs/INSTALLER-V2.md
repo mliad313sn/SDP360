@@ -31,7 +31,7 @@ uninstaller left the application behind. Version 2.1 is a rebuild:
 | Dependencies (`node_modules`) | built for Windows by CI, copied | swapped, the previous set kept until the health check passes |
 | Application | the signed package | the signed package, backup first, rollback point, automatic rollback |
 | Database schema | `db/migrate.js` | `db/migrate.js` (additive, journalled) |
-| PostgreSQL 17 | installed (service `postgresql-x64-17`) when the server has none; or an existing server is used | **minor version upgraded in place** to the one Setup carries, after a backup — never a major upgrade (that is a DBA operation: dump / restore) |
+| PostgreSQL 17 | installed (service `postgresql-x64-17`) when the server has none; or an existing server is used | **minor version upgraded in place** to the one Setup carries, after a backup — **only for a cluster Setup itself installed** (registry marker `HKLM\SOFTWARE\SDP-Dashboard` `PgInstalledBySetup=1`) or when the operator passes `/UPGRADEPG=1` as an explicit decision; any other `postgresql-x64-17` (e.g. the 4MyPeople cluster hosting `fmp_v2`) is left untouched and the log says `not upgraded` — never pass `/UPGRADEPG=1` on a cluster shared with 4MyPeople without its owner's agreement. Never a major upgrade (that is a DBA operation: dump / restore) |
 | Windows service | registered (automatic, delayed start, restart on failure) | restarted stop → wait → start |
 | IIS + URL Rewrite + ARR | installed and configured when a public address is given | regenerated (`web.config`), prerequisites installed if missing |
 | Firewall | port open to loopback only | rules rewritten |
@@ -98,6 +98,6 @@ on Windows: package (or reuse the one the release job built and signed) → Node
 ## 6. Bumping a component
 
 - **Node.js**: `-NodeVersion` in `build.ps1` (the checksum is read from nodejs.org at build time).
-- **PostgreSQL**: `-PgVersion` (same major, 17.x). Servers installed by Setup are upgraded at their next update.
+- **PostgreSQL**: `-PgVersion` (same major, 17.x). Only a cluster Setup installed (marker `HKLM\SOFTWARE\SDP-Dashboard` `PgInstalledBySetup=1`, written after Setup's own install or an allowed upgrade) is upgraded at its next update. Servers Setup installed **before** the marker existed (and any cluster another product installed, such as 4MyPeople's) are no longer upgraded automatically — fail-safe by design: re-run Setup with `/UPGRADEPG=1` to upgrade one deliberately, and never on a cluster shared with 4MyPeople without its owner's agreement. The summary page shows `PostgreSQL: not upgraded (not installed by Setup)` when an upgrade is skipped.
 - **URL Rewrite / ARR**: the URLs in `build.ps1` step 2b (Microsoft download centre).
 Then let the `Installer` workflow prove both machines before publishing.
