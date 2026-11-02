@@ -100,3 +100,47 @@ test('every services/* module post-install.js loads from the Setup bootstrap is 
   assert.ok(names.length >= 3, 'expected at least apiKey, configSecrets, serviceControl');
   for (const n of names) assert.ok(step6.includes(`'services/${n}.js'`), `build.ps1 step 6 does not copy services/${n}.js`);
 });
+
+// A-02 — a PostgreSQL cluster Setup did not install (4MyPeople's postgresql-x64-17 hosts fmp_v2) is never
+// upgraded: only a cluster carrying the SDP-Dashboard registry marker, or an explicit /UPGRADEPG=1.
+const pgFn = () => code.slice(code.indexOf('procedure InstallEmbeddedPg;'), code.indexOf('procedure RunPostInstall;'));
+
+test('A-02: the upgrade branch checks the Setup marker or /UPGRADEPG=1 before running postgresql.exe', () => {
+  const fn = pgFn();
+  const gate = fn.indexOf('if not (PgInstalledBySetup or UpgradePgRequested) then');
+  assert.ok(gate > 0, 'gate present in InstallEmbeddedPg');
+  assert.ok(gate < fn.indexOf("'--mode unattended --unattendedmodeui none'"), 'gate comes before the unattended upgrade');
+  assert.match(code, /function UpgradePgRequested: Boolean;[\s\S]*?Param\('UPGRADEPG', '0'\) = '1'/);
+  assert.match(code, /function PgInstalledBySetup: Boolean;[\s\S]*?RegQueryStringValue\(HKLM64, 'SOFTWARE\\SDP-Dashboard', 'PgInstalledBySetup', V\) and \(V = '1'\)/);
+});
+
+test('A-02: the skip path logs "managed by another product" and exits before any backup', () => {
+  const fn = pgFn();
+  const gate = fn.indexOf('if not (PgInstalledBySetup or UpgradePgRequested) then');
+  const skip = fn.slice(gate, fn.indexOf('end;', gate) + 4);
+  assert.match(skip, /Log\('PostgreSQL ' \+ Have \+ ' is managed by another product \(no SDP-Dashboard marker\) — not upgraded\. Re-run Setup with \/UPGRADEPG=1 to upgrade it deliberately\.'\)/);
+  assert.match(skip, /\bexit;/);
+  assert.ok(!/sdp-manager|MarkPgInstalledBySetup/.test(skip), 'no backup and no marker on the skip path');
+  assert.ok(gate < fn.indexOf('backup --dir'), 'the gate comes before the backup');
+});
+
+test('A-02: the marker is written after a successful fresh install and after an allowed upgrade', () => {
+  const fn = pgFn();
+  const fresh = fn.indexOf("'--mode unattended --unattendedmodeui none --servicename");
+  const freshRaise = fn.indexOf("RaiseException('PostgreSQL 17 installation failed", fresh);
+  assert.ok(fresh > 0 && freshRaise > fresh);
+  assert.ok(fn.indexOf('MarkPgInstalledBySetup', freshRaise) > freshRaise, 'marker after the fresh install succeeded');
+  const upRaise = fn.indexOf("RaiseException('PostgreSQL upgrade to {#PgVersion} failed");
+  const mark1 = fn.indexOf('MarkPgInstalledBySetup');
+  assert.ok(upRaise > 0 && mark1 > upRaise && mark1 < fresh, 'marker after the allowed upgrade succeeded');
+  assert.match(code, /procedure MarkPgInstalledBySetup;[\s\S]*?RegWriteStringValue\(HKLM64, 'SOFTWARE\\SDP-Dashboard', 'PgInstalledBySetup', '1'\)[\s\S]*?RegWriteStringValue\(HKLM64, 'SOFTWARE\\SDP-Dashboard', 'PgInstalledVersion', '\{#PgVersion\}'\)/);
+});
+
+test('A-02: the marker is never deleted on uninstall, and the GUI memo announces a skipped upgrade', () => {
+  const uninstall = code.slice(code.indexOf('procedure DeleteAppTree'));
+  assert.ok(!/RegDelete/.test(uninstall), 'no RegDelete* in the uninstall procedures');
+  assert.ok(!/RegDelete[A-Za-z]*\([^)]*SDP-Dashboard/.test(code), 'the marker key is never deleted');
+  assert.ok(!/^\[Registry\]$/m.test(iss) || !/uninsdeletekey|uninsdeletevalue/.test(section('Registry')));
+  const memo = code.slice(code.indexOf('function UpdateReadyMemo'), code.indexOf('{ ---------- install ---------- }'));
+  assert.match(memo, /PgUpgradeWouldBeSkipped then Result := Result \+ 'PostgreSQL: not upgraded \(not installed by Setup\)'/);
+});
