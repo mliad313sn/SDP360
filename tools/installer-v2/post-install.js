@@ -119,6 +119,31 @@ function envProblems(env) {
   if (env.NODE_ENV === 'production' && (env.SDP_CONFIG_KEY || '').length < 16 && env.SDP_ALLOW_PLAINTEXT_SECRETS !== '1') p.push('SDP_CONFIG_KEY is missing or shorter than 16 characters');
   return p;
 }
+/**
+ * Secrets-key continuity (pure): `rows` = report_config {key,value}. A database that already holds `enc:` secrets
+ * must keep the key it was encrypted with — a NEW key reads them as empty (services/configSecrets.js), silently
+ * breaking SMTP / Meraki / SSO. Returns the keys of encrypted values and those this key cannot open.
+ */
+function checkSecretRows(rows, passphrase) {
+  const cs = require(path.join(ROOT, 'services', 'configSecrets'));
+  const key = passphrase ? cs.keyFrom(passphrase) : null;
+  const encrypted = rows.filter((r) => cs.isEncrypted(r.value)).map((r) => r.key);
+  const unreadable = encrypted.filter((k) => { const v = rows.find((r) => r.key === k).value; const d = key ? cs.decryptValue(v, key) : null; return d == null || d === ''; });
+  return { encrypted, unreadable };
+}
+async function secretsKeyGuard(env, { connect } = {}) {
+  let rows;
+  try {
+    const open = connect || (async (url) => { const { Client } = require(path.join(DIR, 'node_modules', 'pg')); const c = new Client({ connectionString: url }); await c.connect(); return c; });
+    const c = await open(env.PG_URL || env.DATABASE_URL);
+    try { rows = (await c.query('SELECT key, value FROM report_config')).rows; } finally { await c.end(); }
+  } catch (e) { log(`secrets check skipped (database not readable: ${e.message})`); return; }
+  const { encrypted, unreadable } = checkSecretRows(rows, env.SDP_CONFIG_KEY);
+  if (!encrypted.length) return;
+  if (!env.SDP_CONFIG_KEY) throw new Error(`the database holds ${encrypted.length} encrypted secret(s) (${encrypted.join(', ')}) but .env has no SDP_CONFIG_KEY — a new key would read them as EMPTY. Put the original SDP_CONFIG_KEY back into .env (look in older .env copies, or \`pm2 env <id>\` on the old process) and run Setup again. Nothing was changed.`);
+  if (unreadable.length === encrypted.length) throw new Error(`SDP_CONFIG_KEY in .env cannot decrypt the stored secrets (${unreadable.join(', ')}) — it is not the key they were encrypted with. Restore the original key and run Setup again. Nothing was changed.`);
+  if (unreadable.length) log(`warning: ${unreadable.length} stored secret(s) cannot be read with this key (${unreadable.join(', ')}) — re-enter them in Admin after the update`);
+}
 function envDefaults() {
   const dataDir = process.env.SDP_SETUP_DATADIR || path.join(DIR, 'data');
   const backupDir = process.env.SDP_SETUP_BACKUPDIR || path.join(path.dirname(DIR), 'SDP-Backups');
@@ -359,6 +384,8 @@ async function main() {
       const have = readEnv(envFile);
       const added = writeEnv(envFile, { NODE_ENV: 'production', PORT, BIND_HOST: '127.0.0.1', SDP_BACKUP_DIR: wanted.SDP_BACKUP_DIR, DASHBOARD_API_KEY: wanted.DASHBOARD_API_KEY, SDP_SERVICE: serviceKind(have) });
       log(`.env kept${added.length ? ' — added ' + added.join(', ') : ''}`);
+      // a new SDP_CONFIG_KEY must never orphan secrets encrypted with the old one (B1)
+      await secretsKeyGuard(readEnv(envFile));
       repairEnv(envFile, log);
     }
     const env = readEnv(envFile);
@@ -400,4 +427,4 @@ async function main() {
 }
 
 if (require.main === module) main();
-module.exports = { envProblems, serviceLogTail, previousEnvFiles, fourMyPeoplePassword, writeEnv, readEnv, setEnvValue, repairEnv, previousServiceKind, envDefaults, firewallCommands, firewallRuleNames, ident };
+module.exports = { checkSecretRows, secretsKeyGuard, envProblems, serviceLogTail, previousEnvFiles, fourMyPeoplePassword, writeEnv, readEnv, setEnvValue, repairEnv, previousServiceKind, envDefaults, firewallCommands, firewallRuleNames, ident };
