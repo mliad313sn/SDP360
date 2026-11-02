@@ -1275,6 +1275,35 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       <div class="modal-actions" style="justify-content:flex-start">
         <button class="btn btn-primary" onclick="saveExecEditorial()">Save</button>
       </div>
+
+      <!-- A-08 — public-page switches (report_config exec_view_mi_detail /
+           exec_view_change_formula). Defaults reproduce today's page. -->
+      <h4 style="margin:22px 0 6px">Public page settings</h4>
+      <p style="font-size:0.82rem;color:#6b7a99;margin:0 0 10px">
+        The public page caches for 60 seconds: a change shows within a minute.
+      </p>
+      <div class="form-row cols-2" style="max-width:640px">
+        <div class="form-group">
+          <label for="ev-mi-detail">Major incident detail</label>
+          <select id="ev-mi-detail">
+            <option value="full">Full text — subject, root cause, corrective action (current, 2026-07-02 decision)</option>
+            <option value="summarized_only">Generic title + AI-condensed root cause / action only</option>
+            <option value="none">Generic title only, no root cause / action</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="ev-change-formula">Change success formula</label>
+          <select id="ev-change-formula">
+            <option value="status">SDP status: completed / (completed + failed) (current)</option>
+            <option value="deck">Deck: outcome-classified, cancelled counted</option>
+            <option value="itsm">ITSM: outcome-classified, cancelled excluded</option>
+          </select>
+          <small style="color:#6b7a99">The official formula is KPI committee decision D-01 (open).</small>
+        </div>
+      </div>
+      <div class="modal-actions" style="justify-content:flex-start">
+        <button class="btn btn-primary" onclick="saveExecViewSwitches()">Save page settings</button>
+      </div>
     </div>
 
     <!-- ─── Scheduled Backups (super_admin only) ──────────────────
@@ -6183,6 +6212,7 @@ function showAdminPanel(name) {
     const mi = document.getElementById('ev-month');
     if (mi && !mi.value) { const d = new Date(); mi.value = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); }
     loadExecEditorial();
+    if (typeof loadExecViewSwitches === 'function') loadExecViewSwitches();
   }
   // Fresh data when opening Scheduled Backups.
   if (name === 'backups' && typeof loadBackupSchedule === 'function') loadBackupSchedule();
@@ -7089,6 +7119,25 @@ function saveExecEditorial() {
   api('PUT', '/api/exec/editorial?period=' + encodeURIComponent(period), { highlights, focus })
     .then(() => { toast('Saved ✓'); loadExecEditorial(); })
     .catch(err => toast(err || 'Save failed', 'error'));
+}
+
+// A-08 — Exec View public-page switches, generic /api/reports/config store.
+function loadExecViewSwitches() {
+  api('GET', '/api/reports/config').then(c => {
+    const set = (id, v, dflt) => { const el = document.getElementById(id); if (el) el.value = v || dflt; };
+    set('ev-mi-detail', c.exec_view_mi_detail, 'full');
+    set('ev-change-formula', c.exec_view_change_formula, 'status');
+  }).catch(e => toast('Could not load page settings: ' + (e.message || e), 'error'));
+}
+function saveExecViewSwitches() {
+  const val = (id, dflt) => { const el = document.getElementById(id); return el ? el.value : dflt; };
+  const patch = {
+    exec_view_mi_detail: val('ev-mi-detail', 'full'),
+    exec_view_change_formula: val('ev-change-formula', 'status'),
+  };
+  api('PUT', '/api/reports/config', patch)
+    .then(() => { toast('Page settings saved ✓ (visible within a minute)', 'success'); loadExecViewSwitches(); })
+    .catch(e => toast('Save failed: ' + (e.message || e), 'error'));
 }
 
 // ══════════════════════════════════════════════════════════════════

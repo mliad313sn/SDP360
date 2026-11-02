@@ -37,16 +37,24 @@ function makeRdb() {
         { 'Created Date': 'Jun 2026', '% of SLA Violated': 9,  n: 1300 },
       ];
     },
-    // fleet avg-resolution: report month since=2026-05-01, prior since=2026-04-01.
+    // fleet avg-resolution: report month [2026-05-01, 2026-06-01), prior [2026-04-01, 2026-05-01).
+    // A-08: the upper bound is EXCLUSIVE and REQUIRED — an unbounded read leaks the
+    // current partial month into the "report month" figure.
     getRequestMetrics(opts = {}) {
-      if (opts.since === '2026-05-01') return { avg_resolution_hrs: 14 };
-      if (opts.since === '2026-04-01') return { avg_resolution_hrs: 17 };
+      if (opts.since === '2026-05-01' && opts.until === '2026-06-01') return { avg_resolution_hrs: 14 };
+      if (opts.since === '2026-04-01' && opts.until === '2026-05-01') return { avg_resolution_hrs: 17 };
       return { avg_resolution_hrs: null };
     },
     getChangeMetrics(opts = {}) {
-      if (opts.since === '2026-05-01') return { change_success_rate: 96 };
-      if (opts.since === '2026-04-01') return { change_success_rate: 95 };
+      if (opts.since === '2026-05-01' && opts.until === '2026-06-01') return { change_success_rate: 96 };
+      if (opts.since === '2026-04-01' && opts.until === '2026-05-01') return { change_success_rate: 95 };
       return { change_success_rate: null };
+    },
+    // fleet deck-classified window (INCLUSIVE dates).
+    getChangesWindow(from, to) {
+      if (from === '2026-05-01' && to === '2026-05-31') return { executed: 10, success_pct: 80, success_pct_itsm: 90 };
+      if (from === '2026-04-01' && to === '2026-04-30') return { executed: 8, success_pct: 75, success_pct_itsm: 88 };
+      return { executed: 0, success_pct: null, success_pct_itsm: null };
     },
     getSurveyKpisDB() {
       // rows1 = report-month (May) scores → 2/3 satisfied = 67%.
@@ -103,7 +111,8 @@ function makeTrackerScore() {
     score() { return []; },
   };
 }
-const deps = () => ({ rdb: makeRdb(), trackerDb: makeTrackerDb(), trackerScore: makeTrackerScore(), now: NOW });
+const deps = (cfg) => ({ rdb: makeRdb(), trackerDb: makeTrackerDb(), trackerScore: makeTrackerScore(), now: NOW,
+  getConfig: async () => (cfg || {}) });
 
 test('loadExecSummary: report_month = last complete month (May for a mid-June now)', async () => {
   const s = await loadExecSummary(deps());
@@ -203,4 +212,79 @@ test('loadExecSummary: ANTI-PII — no PERSONAL/internal identifiers in the fina
   for (const bad of ['requester', 'technician', 'verbatim', '"email"', 'request_id', 'display_id', 'overall_score', 'udf', '"rca"', '"subject"']) {
     assert.ok(!blob.includes(bad), `must not contain "${bad}"`);
   }
+});
+
+// ── A-08: switches (both default to today's output) ─────────────────────────
+
+test('A-08: avg_resolution_h stub only answers with an exclusive upper bound', async () => {
+  const seen = [];
+  const d = deps();
+  const orig = d.rdb.getRequestMetrics;
+  d.rdb.getRequestMetrics = (o) => { seen.push(o); return orig(o); };
+  await loadExecSummary(d);
+  assert.ok(seen.some(o => o.since === '2026-05-01' && o.until === '2026-06-01'));
+  assert.ok(seen.some(o => o.since === '2026-04-01' && o.until === '2026-05-01'));
+});
+
+test('A-08: exec_view_change_formula="deck" uses getChangesWindow success_pct', async () => {
+  const s = await loadExecSummary(deps({ exec_view_change_formula: 'deck' }));
+  assert.equal(s.kpis.change_success.value_pct, 80);
+  assert.equal(s.kpis.change_success.delta_pp, 5);
+});
+
+test('A-08: exec_view_change_formula="itsm" uses success_pct_itsm', async () => {
+  const s = await loadExecSummary(deps({ exec_view_change_formula: 'itsm' }));
+  assert.equal(s.kpis.change_success.value_pct, 90);
+  assert.equal(s.kpis.change_success.delta_pp, 2);
+});
+
+test('A-08: deck formula with nothing executed → value_pct absent (null), never 0', async () => {
+  const d = deps({ exec_view_change_formula: 'deck' });
+  d.rdb.getChangesWindow = () => ({ executed: 0, success_pct: null, success_pct_itsm: null });
+  const s = await loadExecSummary(d);
+  assert.ok(!('value_pct' in s.kpis.change_success));
+  assert.ok(!('delta_pp' in s.kpis.change_success));
+});
+
+test('A-08: default mode (full) is byte-identical to no config at all', async () => {
+  const a = await loadExecSummary(deps({ exec_view_mi_detail: 'full', exec_view_change_formula: 'status' }));
+  const b = await loadExecSummary(deps());
+  assert.strictEqual(JSON.stringify(a), JSON.stringify(b));
+  assert.equal(a.major_incidents[0].title, 'Fibre cut - Sabodala internet down');
+});
+
+test('A-08: exec_view_mi_detail="summarized_only" → generic title, RCA/CA only when summarized', async () => {
+  const s = await loadExecSummary(deps({ exec_view_mi_detail: 'summarized_only' }));
+  const mi = s.major_incidents[0];
+  assert.equal(mi.title, 'Major incident — Sabodala');
+  assert.ok(!('root_cause' in mi));
+  assert.ok(!('corrective_action' in mi));
+
+  const d = deps({ exec_view_mi_detail: 'summarized_only' });
+  d.rdb.getExecMiSummaries = () => ({});
+  const miSummary = require('../services/execMiSummary');
+  const orig = miSummary.applyCachedSummaries;
+  miSummary.applyCachedSummaries = (mis) => { for (const m of mis) { m.rca = 'Trunk cut'; m.ca = 'Rerouted'; m._summarized = true; } return { stale: [] }; };
+  try {
+    const s2 = await loadExecSummary(d);
+    assert.equal(s2.major_incidents[0].root_cause, 'Trunk cut');
+    assert.equal(s2.major_incidents[0].corrective_action, 'Rerouted');
+    assert.equal(s2.major_incidents[0].summarized, true);
+  } finally { miSummary.applyCachedSummaries = orig; }
+});
+
+test('A-08: exec_view_mi_detail="none" → no subject, RCA or CA text anywhere', async () => {
+  const s = await loadExecSummary(deps({ exec_view_mi_detail: 'none' }));
+  const blob = JSON.stringify(s);
+  for (const bad of ['Fibre cut', 'Backhoe', 'satellite']) assert.ok(!blob.includes(bad), bad);
+  assert.equal(s.major_incidents[0].title, 'Major incident — Sabodala');
+  assert.ok(!('summarized' in s.major_incidents[0]));
+});
+
+test('A-08: getConfig throwing → degrades to full/status (today)', async () => {
+  const d = deps();
+  d.getConfig = async () => { throw new Error('pg down'); };
+  const s = await loadExecSummary(d);
+  assert.equal(s.kpis.change_success.value_pct, 96);
+  assert.equal(s.major_incidents[0].title, 'Fibre cut - Sabodala internet down');
 });

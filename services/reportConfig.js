@@ -4,6 +4,13 @@
 
 const DEFAULTS = {
   exec_view_lang: 'en',                 // language of the AI incident summaries on the public page (en|fr)
+  // A-08 — Exec View (public page) switches; both defaults reproduce today's output.
+  // full = subject/RCA/CA public, per the 2026-07-02 decision ("option a");
+  // summarized_only = generic title + AI-condensed RCA/CA only; none = generic title, no RCA/CA.
+  exec_view_mi_detail: 'full',
+  // status = completed/(completed+failed) by SDP status (today); deck = _computeSiteChanges
+  // success_pct (cancelled in denominator); itsm = success_pct_itsm. Official formula = KPI D-01 (open).
+  exec_view_change_formula: 'status',
   transport: 'smtp',
   smtp_host: '', smtp_port: '587', smtp_secure: '0', smtp_user: '', smtp_pass: '',
   from: '', reply_to: '',
