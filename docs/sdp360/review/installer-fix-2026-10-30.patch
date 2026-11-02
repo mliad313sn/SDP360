@@ -1,0 +1,185 @@
+From feea45479bd214d1407fc59dcad7c4136a6daf03 Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Fri, 30 Oct 2026 09:39:50 +0000
+Subject: [PATCH] Installer: repair a too-short DASHBOARD_API_KEY on update;
+ rollback restores the .env and the previous host (pm2); release CI gets
+ --shm-size=1g
+
+Field incident 2026-10-30: an update from 1.11.0 kept a 12-character DASHBOARD_API_KEY that 2.0 refuses in
+production, so the health check failed; the rollback then started 1.11.0 under the new Windows service with the
+bundled Node.js 22, which crashed on a better-sqlite3 binary built for Node 24 - leaving no version running.
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01WyKJzoJkxxdA63EkAxcCMC
+---
+ .github/workflows/release.yml      |  2 +-
+ tests/installer-env-repair.test.js | 52 ++++++++++++++++++++++++++++++
+ tools/installer-v2/post-install.js | 49 ++++++++++++++++++++++++++--
+ 3 files changed, 100 insertions(+), 3 deletions(-)
+ create mode 100644 tests/installer-env-repair.test.js
+
+diff --git a/.github/workflows/release.yml b/.github/workflows/release.yml
+index 67f7b27..d085f8c 100644
+--- a/.github/workflows/release.yml
++++ b/.github/workflows/release.yml
+@@ -51,7 +51,7 @@ jobs:
+           POSTGRES_PASSWORD: postgres
+         ports: ['5432:5432']
+         options: >-
+-          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10
++          --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 10 --shm-size=1g
+     steps:
+       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+       - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+diff --git a/tests/installer-env-repair.test.js b/tests/installer-env-repair.test.js
+new file mode 100644
+index 0000000..986258e
+--- /dev/null
++++ b/tests/installer-env-repair.test.js
+@@ -0,0 +1,52 @@
++'use strict';
++// Installer v2: an older .env must not stop the new version from starting, and a failed update must
++// give back the previous version as it was run before (2026-10-30 field incident: 12-char
++// DASHBOARD_API_KEY refused in production, then the rollback started 1.11.0 under the Windows service
++// with the bundled Node.js and crashed on better-sqlite3).
++const test = require('node:test');
++const assert = require('node:assert');
++const fs = require('fs');
++const os = require('os');
++const path = require('path');
++
++const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'sdp-env-repair-'));
++process.argv.push('--dir', dir);
++const pi = require('../tools/installer-v2/post-install.js');
++
++test('a DASHBOARD_API_KEY under 32 characters is replaced, the old .env is kept, other lines untouched', () => {
++  const f = path.join(dir, '.env');
++  fs.writeFileSync(f, 'PG_URL=postgres://x\r\nDASHBOARD_API_KEY=short-key-12\r\nPORT=3456\r\n');
++  const logs = [];
++  const fixed = pi.repairEnv(f, (m) => logs.push(m));
++  assert.deepStrictEqual(fixed, ['DASHBOARD_API_KEY']);
++  const env = pi.readEnv(f);
++  assert.ok(env.DASHBOARD_API_KEY.length >= 32);
++  assert.strictEqual(env.PG_URL, 'postgres://x');
++  assert.strictEqual(env.PORT, '3456');
++  assert.ok(fs.readdirSync(dir).some((n) => n.startsWith('.env.before-setup-')), 'previous .env kept');
++  assert.ok(!logs.join(' ').includes('short-key-12'), 'the old key is never logged');
++});
++
++test('a long enough key, or no key at all, is left alone', () => {
++  const f = path.join(dir, 'ok.env');
++  const key = 'a'.repeat(40);
++  fs.writeFileSync(f, `DASHBOARD_API_KEY=${key}\r\n`);
++  assert.deepStrictEqual(pi.repairEnv(f, () => {}), []);
++  assert.strictEqual(pi.readEnv(f).DASHBOARD_API_KEY, key);
++  const g = path.join(dir, 'none.env');
++  fs.writeFileSync(g, 'PORT=3456\r\n');
++  assert.deepStrictEqual(pi.repairEnv(g, () => {}), []);
++});
++
++test('rollback restarts the previous host: an installation without SDP_SERVICE predates the Windows service', () => {
++  assert.strictEqual(pi.previousServiceKind({}), 'pm2');
++  assert.strictEqual(pi.previousServiceKind({ SDP_SERVICE: 'windows' }), 'windows');
++  assert.strictEqual(pi.previousServiceKind({ SDP_SERVICE: 'pm2' }), 'pm2');
++});
++
++test('the rollback path restores the .env snapshot and passes the previous host (static)', () => {
++  const src = fs.readFileSync(path.join(__dirname, '..', 'tools', 'installer-v2', 'post-install.js'), 'utf8');
++  assert.match(src, /envBefore[\s\S]*fs\.writeFileSync\(envFile, envBefore\)/);
++  assert.match(src, /registerService\(kindBefore \|\| serviceKind\(prevEnv\), prevEnv\)/);
++  assert.match(src, /repairEnv\(envFile, log\)/);
++});
+diff --git a/tools/installer-v2/post-install.js b/tools/installer-v2/post-install.js
+index 2647710..2fd5082 100644
+--- a/tools/installer-v2/post-install.js
++++ b/tools/installer-v2/post-install.js
+@@ -64,6 +64,32 @@ function writeEnv(file, wanted) {
+   return added;
+ }
+ 
++/** Replace one key's value in place (the line is rewritten, everything else is kept). */
++function setEnvValue(file, key, value) {
++  const lines = fs.readFileSync(file, 'utf8').replace(/\r?\n$/, '').split(/\r?\n/);
++  const re = new RegExp('^\\s*' + key + '\\s*=');
++  let done = false;
++  const out = lines.map((l) => { if (!done && re.test(l)) { done = true; return `${key}=${value}`; } return l; });
++  if (!done) out.push(`${key}=${value}`);
++  fs.writeFileSync(file, out.join('\r\n') + '\r\n');
++}
++/**
++ * Values an older .env can carry that this version refuses to start with. Repaired BEFORE the service
++ * starts, never silently: a copy of the .env is kept and the log names the key (never its value).
++ * Today: DASHBOARD_API_KEY shorter than 32 characters (services/apiKey.js refuses it in production).
++ */
++function repairEnv(file, log) {
++  const have = readEnv(file); const fixed = [];
++  const { MIN_LENGTH } = require(path.join(ROOT, 'services', 'apiKey'));
++  if (have.DASHBOARD_API_KEY != null && have.DASHBOARD_API_KEY.length < MIN_LENGTH) {
++    const copy = `${file}.before-setup-${stamp}`;
++    if (!fs.existsSync(copy)) fs.copyFileSync(file, copy);
++    setEnvValue(file, 'DASHBOARD_API_KEY', crypto.randomBytes(32).toString('hex'));
++    fixed.push('DASHBOARD_API_KEY');
++    log(`.env: DASHBOARD_API_KEY was ${have.DASHBOARD_API_KEY.length} characters (minimum ${MIN_LENGTH}) — replaced with a new random key; previous .env kept as ${path.basename(copy)}. Any external tool that used the old key must be given the new one.`);
++  }
++  return fixed;
++}
+ function envDefaults() {
+   const dataDir = process.env.SDP_SETUP_DATADIR || path.join(DIR, 'data');
+   const backupDir = process.env.SDP_SETUP_BACKUPDIR || path.join(path.dirname(DIR), 'SDP-Backups');
+@@ -134,6 +160,11 @@ function serviceKind(env) {
+   try { if (j.status === 0 && JSON.parse(j.stdout || '[]').some((p) => p.name === (env.PM2_NAME || 'endeavour-dashboard'))) return 'pm2'; } catch (_) { /* no pm2 */ }
+   return 'windows';
+ }
++/** How the version already on disk was run: its own SDP_SERVICE, else pm2 (versions before the Windows service). */
++function previousServiceKind(env) {
++  if (env.SDP_SERVICE === 'windows' || env.SDP_SERVICE === 'pm2') return env.SDP_SERVICE;
++  return 'pm2';
++}
+ function registerService(kind, env) {
+   const S = require(path.join(ROOT, 'services', 'serviceControl'));
+   const e = { ...env, SDP_SERVICE: kind };
+@@ -208,6 +239,9 @@ async function main() {
+   const nodePath = [path.join(DIR, 'node_modules'), process.env.NODE_PATH].filter(Boolean).join(path.delimiter);
+   const pkgZip = arg('--package', null);
+   let undoDeps = null, applied = false;
++  // what was running BEFORE this Setup — a rollback must give back exactly that, not the new host
++  const envBefore = fs.existsSync(envFile) ? fs.readFileSync(envFile) : null;
++  const kindBefore = envBefore ? previousServiceKind(readEnv(envFile)) : null;
+   try {
+     // 1 dependencies
+     const staged = arg('--node-modules', null);
+@@ -232,6 +266,7 @@ async function main() {
+       const have = readEnv(envFile);
+       const added = writeEnv(envFile, { NODE_ENV: 'production', PORT, BIND_HOST: '127.0.0.1', SDP_BACKUP_DIR: wanted.SDP_BACKUP_DIR, DASHBOARD_API_KEY: wanted.DASHBOARD_API_KEY, SDP_SERVICE: serviceKind(have) });
+       log(`.env kept${added.length ? ' — added ' + added.join(', ') : ''}`);
++      repairEnv(envFile, log);
+       if (!have.SDP_CONFIG_KEY) log('note: SDP_CONFIG_KEY is not set — stored secrets stay unencrypted until it is (docs/ops/INSTALLATION.md)');
+     }
+     const env = readEnv(envFile);
+@@ -252,11 +287,21 @@ async function main() {
+       try { sh(process.execPath, [mgr, 'rollback', '--dir', DIR, '--no-restart'], { env: { NODE_PATH: nodePath }, shell: false }); } catch (e2) { log('rollback failed: ' + e2.message); }
+     }
+     if (undoDeps) undoDeps();
+-    if (MODE !== 'new') { try { registerService(serviceKind(readEnv(envFile)), readEnv(envFile)); log('previous version restarted'); } catch (e3) { log('restart after rollback failed: ' + e3.message); } }
++    if (MODE !== 'new') {
++      try {
++        if (envBefore) { fs.writeFileSync(envFile, envBefore); log('.env restored to its state before this Setup'); }
++        const prevEnv = readEnv(envFile);
++        // an older installation ran under pm2 with the system Node.js: starting it with the Windows service
++        // (and the Node.js shipped with this Setup) fails on native modules built for another Node version
++        if (kindBefore === 'pm2' && fs.existsSync(SVC_EXE())) { try { sh(SVC_EXE(), ['uninstall'], { shell: false }); log('Windows service removed — the previous version runs under pm2'); } catch (e4) { log('service removal: ' + e4.message); } }
++        registerService(kindBefore || serviceKind(prevEnv), prevEnv);
++        log(`previous version restarted (${kindBefore || 'auto'})`);
++      } catch (e3) { log('restart after rollback failed: ' + e3.message); }
++    }
+     try { fs.writeFileSync(path.join(DIR, 'logs', 'setup-last.json'), JSON.stringify({ ok: false, mode: MODE, at: new Date().toISOString(), error: e.message.slice(0, 500), log: LOG }, null, 2)); } catch (_) {}
+     process.exit(1);
+   }
+ }
+ 
+ if (require.main === module) main();
+-module.exports = { writeEnv, readEnv, envDefaults, firewallCommands, firewallRuleNames, ident };
++module.exports = { writeEnv, readEnv, setEnvValue, repairEnv, previousServiceKind, envDefaults, firewallCommands, firewallRuleNames, ident };
+-- 
+2.43.0
+
