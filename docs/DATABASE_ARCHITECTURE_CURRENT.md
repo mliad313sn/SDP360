@@ -98,40 +98,19 @@ writes stay in PG). `assets.db` is the ONLY one still live (Assets = sqlite).
 
 ## Open item — Assets → PostgreSQL cutover (runbook)
 
-The code is PG-ready (`initPgAssets()` applies the schema on boot) and
-`tools/pg/copy-assets.js` was hardened (2026-08-06): it now (a) **skips NULL/empty
-primary-key rows** instead of aborting the whole transaction, and (b) copies the
-**irreplaceable append-only tables** — `asset_effort_history`,
-`asset_reconcile_history`, `asset_reconcile_decisions`, `asset_external_devices`,
-`asset_import_log` — which a re-sync **cannot** rebuild (a dry-run proved
-`asset_effort_history` was previously being dropped). The 6 AP-synced tables
-(`assets`, `asset_memory`, `asset_logical_drives`, `asset_monitors`,
-`software_licenses`, `software`) are re-syncable, so they're a warm start.
+> **Updated 2026-11-02 (A-01).** The 1.x `tools/pg/copy-*.js` scripts were deleted with SQLite (PO-08,
+> `better-sqlite3` is gone for good). The copy is now **`tools\pg\copy-legacy-sqlite.cmd --module assets`**
+> (node:sqlite, source opened read-only, dry run by default, `--apply` in one transaction, refuses an
+> un-migrated schema). Setup 2.0 **refuses** to update a 1.x installation whose `ASSETS_BACKEND` (or any other
+> `*_BACKEND`) is unset or `sqlite` — before any change. The full operator procedure, including the
+> alternative of running the 1.x tree's own `tools\pg\copy-assets.js` before upgrading, is in
+> **[docs/UPGRADE-1x-to-2.0.md](UPGRADE-1x-to-2.0.md)**.
 
-**Prod runbook** (in `C:\Apps\SDP-Dashboard`):
-0. **DEPLOY THE HARDENED SCRIPT FIRST.** The cutover MUST run the 2026-08-06
-   version of `copy-assets.js` (5 history tables + NULL-PK skip). The pre-history
-   version would silently **drop** `asset_effort_history` etc. Apply the pending
-   deploy ZIP + restart before step 2, else the effort trend is lost.
-1. Backup PG first — `_sdp_admin.cmd` option 5 (`pg_dump`).
-2. Copy the SQLite data into PG (preserves the history). The script auto-loads
-   `PG_URL` from `.env` when run from the app root, so simply:
-   `node tools\pg\copy-assets.js`  → check the printed counts; a large
-   `skipped … NULL-PK` count on REAL data means a malformed export, investigate.
-   *(If run from another dir, first: `for /f "tokens=1,* delims==" %A in ('findstr /b "PG_URL=" .env') do set "PG_URL=%B"`.)*
-3. Parity check (sqlite `data\assets.db` vs pg): `assets` ≈ 2473,
-   `asset_effort_history` = every captured snapshot.
-4. `.env` → `ASSETS_BACKEND=postgres`.
-5. Restart: `pm2 stop` → `timeout /t 5` → `pm2 start` (NOT reload).
-6. Verify: Assets page loads, counts match, **Progress tab shows the effort
-   trend** (proves the history survived). Optionally
-   `POST /api/sync/trigger/assets` to confirm the sync writes to PG.
-7. Rollback = unset `ASSETS_BACKEND` + restart (data written post-flip stays in
-   PG). After success, **all** ops apps share `sdp_dashboard`.
-
-> Caveat: the local `data/assets.db` is a test fixture (0 assets, NULL-PK child
-> rows). A meaningful **parity dry-run must run against prod's real `assets.db`**;
-> the copy-script *mechanics* are validated by `tests/copy-assets-nullpk.test.js`.
+The tables copied: the 6 Analytics-synced tables (`assets`, `asset_memory`, `asset_logical_drives`,
+`asset_monitors`, `software_licenses`, `software` — re-syncable, a warm start) and the tables a re-sync
+**cannot** rebuild (`asset_effort_history`, `asset_reconcile_history`, `asset_reconcile_decisions`,
+`asset_external_devices`, `asset_first_seen`, append-only `asset_import_log`). Mechanics are pinned by
+`tests/copy-legacy-sqlite.test.js`; a meaningful parity dry run must run against production's real `assets.db`.
 
 ## Where the code lives
 
@@ -140,6 +119,6 @@ primary-key rows** instead of aborting the whole transaction, and (b) copies the
 | PG adapter (better-sqlite3-shaped async surface, `?`→`$N`) | `services/pgDb.js` |
 | Per-module dual-backend readers/writers | `tracker-db.js`, `meetings-db.js`, `inspection-db.js`, `reports-db.js`, `assets-db.js` |
 | PG schema DDL | `db/postgres/<module>/*.sql` |
-| One-shot SQLite→PG copy | `tools/pg/copy-*.js` |
+| One-shot SQLite→PG copy (1.x → 2.0) | `tools/pg/copy-legacy-sqlite.js` + `.cmd` — see `docs/UPGRADE-1x-to-2.0.md` |
 | KPI reconciliation (sqlite vs pg) | `tools/pg/verify-*.js` |
 | Backups / dump | `tools/pg/dump-db.js`, `_sdp_admin.cmd` |

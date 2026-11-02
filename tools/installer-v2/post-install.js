@@ -8,6 +8,7 @@
 //        [--port 3456] [--pg-host localhost --pg-port 5432 --db-name sdp_dashboard --db-user sdp_app]
 //        [--service auto|windows|pm2] [--service-account DOMAIN\user] [--node-modules <staged dir>]
 //        [--public-host itops.example.com --cert-thumbprint <sha1>] [--allow-unsigned] [--remove-data]
+//        [--preflight-only] [--ignore-legacy-store]   (A-01: refuse a 1.x install whose data is still in SQLite)
 //
 // Secrets arrive in the ENVIRONMENT only (SDP_SETUP_PGSUPERPASS, SDP_SETUP_SVCPASS) and are never logged
 // or put on a command line. Steps, each logged to <dir>\logs\setup-<stamp>.log:
@@ -271,6 +272,44 @@ function previousServiceKind(env, dir) {
   if (env.SDP_SERVICE === 'windows' || env.SDP_SERVICE === 'pm2') return env.SDP_SERVICE;
   return 'pm2';
 }
+/** A 1.x (or older) application tree: same rule as previousServiceKind. Unset *_BACKEND meant sqlite there. */
+function isLegacyTree(dir) {
+  try { return /^[01]\./.test(JSON.parse(fs.readFileSync(path.join(dir, 'package.json'), 'utf8')).version || ''); } catch (_) { return false; }
+}
+const LEGACY_MODULES = [
+  ['assets', 'ASSETS_BACKEND', false], ['reports', 'REPORTS_BACKEND', false],
+  ['tracker', 'TRACKER_BACKEND', true], ['meetings', 'MEETINGS_BACKEND', true], ['inspection', 'INSPECTION_BACKEND', true],
+];
+/**
+ * Pure (A-01): does the installation still keep data in SQLite? 2.0 reads PostgreSQL only and ignores *_BACKEND,
+ * so a module still on sqlite would silently start on an empty schema. Driven by the flag (unset on a 1.x tree =
+ * sqlite, the 1.x default); a .db file is only evidence — a module on postgres with a .db = a frozen archive (warn).
+ * Never reads a file's contents.
+ */
+function legacyStoreProblems({ env = {}, dir, legacy, exists = fs.existsSync }) {
+  const refuse = [], warn = [];
+  const dataDir = env.SDP_DATA_DIR ? path.resolve(dir, env.SDP_DATA_DIR) : path.join(dir, 'data');
+  for (const [name, key, rootLegacy] of LEGACY_MODULES) {
+    const raw = env[key] == null || String(env[key]).trim() === '' ? null : String(env[key]).trim();
+    const backend = raw ? raw.toLowerCase() : (legacy ? 'sqlite' : 'postgres');
+    const files = [path.join(dataDir, name + '.db'), ...(rootLegacy ? [path.join(dir, name + '.db')] : [])].filter((f) => exists(f));
+    if (backend !== 'postgres') {
+      refuse.push(`${name.toUpperCase()} still reads SQLite (${key}=${raw || 'unset, 1.x default sqlite'})${files.length ? ' — data in ' + files.join(', ') : ''}`);
+    } else {
+      for (const f of files) warn.push(`${f} is a frozen archive, kept, never read by 2.0`);
+    }
+  }
+  return { refuse, warn };
+}
+/** Before ANY change (A-01): refuse an installation whose data still lives in SQLite, unless the operator overrides it. */
+function preflight(envFile) {
+  if (!fs.existsSync(envFile)) return;            // a fresh machine: nothing to protect
+  const { refuse, warn } = legacyStoreProblems({ env: readEnv(envFile), dir: DIR, legacy: isLegacyTree(DIR) });
+  for (const w of warn) log('legacy store: ' + w);
+  if (!refuse.length) return;
+  if (has('--ignore-legacy-store')) { for (const r of refuse) log('legacy store: ' + r); log('legacy store check overridden by the operator (--ignore-legacy-store)'); return; }
+  throw new Error(`legacy data store: ${refuse.join('; ')}. Nothing was changed. See docs/UPGRADE-1x-to-2.0.md`);
+}
 /** The last lines of today's service log, and its first fatal line — so the setup log says WHY the service did not answer. */
 function serviceLogTail(n = 40) {
   try {
@@ -361,7 +400,11 @@ async function main() {
   let undoDeps = null, applied = false;
   // what was running BEFORE this Setup — a rollback must give back exactly that, not the new host
   const envBefore = fs.existsSync(envFile) ? fs.readFileSync(envFile) : null;
+  let touched = false;   // false until the first change on disk: a refusal before it must change nothing
   try {
+    preflight(envFile);
+    if (has('--preflight-only')) { log('preflight OK'); return; }
+    touched = true;
     // 1 dependencies
     const staged = arg('--node-modules', null);
     if (staged && fs.existsSync(staged)) undoDeps = swapNodeModules(staged);
@@ -405,6 +448,11 @@ async function main() {
     fs.writeFileSync(path.join(DIR, 'logs', 'setup-last.json'), JSON.stringify({ ok: true, mode: MODE, at: new Date().toISOString(), url: `http://localhost:${env.PORT || PORT}/`, log: LOG }, null, 2));
   } catch (e) {
     log('FAILED: ' + e.message);
+    if (!touched) {
+      log('nothing was changed');
+      try { fs.writeFileSync(path.join(DIR, 'logs', 'setup-last.json'), JSON.stringify({ ok: false, mode: MODE, at: new Date().toISOString(), error: e.message.slice(0, 500), log: LOG }, null, 2)); } catch (_) {}
+      process.exit(1);
+    }
     if (applied && MODE !== 'new') {
       log('rolling back the application files…');
       try { sh(process.execPath, [mgr, 'rollback', '--dir', DIR, '--no-restart'], { env: { NODE_PATH: nodePath }, shell: false }); } catch (e2) { log('rollback failed: ' + e2.message); }
@@ -429,4 +477,4 @@ async function main() {
 }
 
 if (require.main === module) main();
-module.exports = { checkSecretRows, secretsKeyGuard, envProblems, serviceLogTail, previousEnvFiles, fourMyPeoplePassword, writeEnv, readEnv, setEnvValue, repairEnv, previousServiceKind, envDefaults, firewallCommands, firewallRuleNames, ident };
+module.exports = { isLegacyTree, legacyStoreProblems, checkSecretRows, secretsKeyGuard, envProblems, serviceLogTail, previousEnvFiles, fourMyPeoplePassword, writeEnv, readEnv, setEnvValue, repairEnv, previousServiceKind, envDefaults, firewallCommands, firewallRuleNames, ident };
