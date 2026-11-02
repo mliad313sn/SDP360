@@ -1405,6 +1405,24 @@ async function _getSiteChangesWindowPg(site_id, from, to) {
 }
 
 /**
+ * getChangesWindow(from, to) — FLEET-WIDE changes created in [from, to]
+ * (INCLUSIVE 'YYYY-MM-DD'), classified by the same _computeSiteChanges as the
+ * deck/site reports (success_pct = deck definition, success_pct_itsm = ITSM).
+ * Used by Exec View when exec_view_change_formula is 'deck' or 'itsm'.
+ */
+function getChangesWindow(from, to) {
+  return _getChangesWindowPg(from, to);
+}
+async function _getChangesWindowPg(from, to) {
+  const H = pgHandle();
+  const rows = await H.prepare(`
+    SELECT status, closure_code, emergency, udf_json, completed_time, created_time
+    FROM change_records
+    WHERE substr(created_time,1,10) BETWEEN ? AND ?`).all(from, to);
+  return _computeSiteChanges(rows);
+}
+
+/**
  * getSiteOpenChanges(site_id) → the changes that are STILL OPEN for a site.
  *
  * Deliberately has NO date window, unlike getSiteChangesWindow above. The month
@@ -4593,19 +4611,21 @@ function _surveyKpiQueries({ yr, mo, groups }, dialect) {
  *             Change Success Rate, In Progress, emergency count, avg days, breakdown by status/risk/type.
  * Optional filters: site_id, since (ISO date string for created_time).
  */
-function getChangeMetrics({ site_id, since } = {}) {
-  return _getChangeMetricsPg({ site_id, since });
+function getChangeMetrics({ site_id, since, until } = {}) {
+  return _getChangeMetricsPg({ site_id, since, until });
 }
 // PG fork — dynamic ${where} with `?` placeholders (adapter translates ?→$N per-statement).
 // Rewrites: emergency INTEGER→`emergency::text IN ('1','true')`; `scheduled_start <= datetime('now')`
 // →`NULLIF(scheduled_start,'')::timestamptz <= now()`; JULIANDAY day-diff→`EXTRACT(EPOCH …)/86400`
 // fed to `ROUND(AVG(...)::numeric, 1)`. `since` bound (created_time>=?) UNCHANGED. `||` concat OK.
-async function _getChangeMetricsPg({ site_id, since } = {}) {
+async function _getChangeMetricsPg({ site_id, since, until } = {}) {
   const H = pgHandle();
   let where = 'WHERE 1=1';
   const p = [];
   if (site_id) { where += ' AND site_id=?';      p.push(site_id); }
   if (since)   { where += ' AND created_time>=?'; p.push(since);   }
+  // `until` = EXCLUSIVE 'YYYY-MM-DD' upper bound (created_time is TEXT ISO → substr, never a cast).
+  if (until)   { where += ' AND substr(created_time,1,10) < ?'; p.push(until); }
 
   const total    = (await H.prepare(`SELECT COUNT(*) as n FROM change_records ${where}`).get(...p)).n;
   const byStatus = await H.prepare(`SELECT status, COUNT(*) as count FROM change_records ${where} GROUP BY status ORDER BY count DESC`).all(...p);
@@ -4806,12 +4826,14 @@ function _assembleSurveyMetrics({ total, responded, avgScore, buckets, monthly }
 function getRequestMetrics(opts = {}) {
   return _getRequestMetricsPg(opts);
 }
-async function _getRequestMetricsPg({ site, since, statuses, rtypes, impacts, modes } = {}) {
+async function _getRequestMetricsPg({ site, since, until, statuses, rtypes, impacts, modes } = {}) {
   const H = pgHandle();
   let where = 'WHERE 1=1';
   const p = [];
   if (site)  { where += ' AND site=?';          p.push(site); }
   if (since) { where += ' AND created_time>=?'; p.push(since); }
+  // `until` = EXCLUSIVE 'YYYY-MM-DD' upper bound (created_time is TEXT ISO → substr, never a cast).
+  if (until) { where += ' AND substr(created_time,1,10) < ?'; p.push(until); }
   const addIn = (col, vals) => { if (Array.isArray(vals) && vals.length > 0) { where += ` AND ${col} IN (${vals.map(()=>'?').join(',')})`; p.push(...vals); } };
   addIn('request_status', statuses); addIn('request_type', rtypes); addIn('impact', impacts); addIn('mode', modes);
   const cnt = async (extra) => (await H.prepare(`SELECT COUNT(*) as n FROM request_records ${where}${extra}`).get(...p)).n;
@@ -5461,7 +5483,7 @@ module.exports = {
   // Window-scoped siblings ([from,to] inclusive) — the IT Review panel needs a
   // window, not a month. Changes carry the VERBATIM port of the shipped
   // executive-report.html classifier (see _changeOutcome).
-  getSiteHelpdeskWindow, getSiteChangesWindow, _computeSiteChanges, _changeOutcome,
+  getSiteHelpdeskWindow, getSiteChangesWindow, getChangesWindow, _computeSiteChanges, _changeOutcome,
   getSiteImpactCounts, _bucketSiteImpact,
   getSiteOpenChanges, _computeOpenChanges,
   getSiteTechnicianStats, _computeTechStats,

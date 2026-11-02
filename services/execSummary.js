@@ -74,6 +74,12 @@ function buildExecSummary(d) {
 function _ym(y, m) { return `${y}-${String(m).padStart(2, '0')}`; }
 function _monthStart(y, m) { return `${_ym(y, m)}-01`; }
 function _prevMonth(y, m) { return m === 1 ? { y: y - 1, m: 12 } : { y, m: m - 1 }; }
+// First day of the month AFTER (y, m) — the EXCLUSIVE upper bound of month (y, m).
+function _nextMonthStart(y, m) { return m === 12 ? _monthStart(y + 1, 1) : _monthStart(y, m + 1); }
+// Last day of month (y, m) — the INCLUSIVE upper bound used by getChangesWindow.
+function _monthEnd(y, m) { return `${_ym(y, m)}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, '0')}`; }
+const CHANGE_FORMULAS = ['status', 'deck', 'itsm'];
+const MI_DETAIL_MODES = ['full', 'summarized_only', 'none'];
 function _num(v) { return (v == null || isNaN(v)) ? null : Number(v); }
 function _round(v) { return v == null ? null : Math.round(v); }
 
@@ -81,7 +87,7 @@ function _round(v) { return v == null ? null : Math.round(v); }
 // avg-resolution readers → the assembler's helpdesk{...} sub-objects.
 // async: under REPORTS_BACKEND=postgres the rdb readers return Promises;
 // awaiting the sqlite (sync) returns is a no-op, so behaviour is identical.
-async function mapHelpdeskKpis(rdb, now) {
+async function mapHelpdeskKpis(rdb, now, cfg = {}) {
   // Anchor to the LAST COMPLETE calendar month, not the current one: on the
   // 1st of a month the current month has ~1 day of data and reads as -98% /
   // near-empty. "ref" = previous month (last complete); "prev" = the one before.
@@ -121,12 +127,13 @@ async function mapHelpdeskKpis(rdb, now) {
   } catch (e) { console.warn('[execSummary] helpdesk history failed:', e.message); }
 
   // ── Avg resolution hours (fleet-wide) — two point-in-month reads ──────────
-  // getRequestMetrics({since}) returns avg_resolution_hrs for closed tickets
-  // created since the given date. We approximate a month value with a
-  // since=<month-1st> read; delta_h = current - previous.
+  // getRequestMetrics({since, until}) returns avg_resolution_hrs for closed
+  // tickets created in [since, until) — until is EXCLUSIVE (A-08: an unbounded
+  // read leaked the current partial month into the report month, and the
+  // previous-month figure covered two months). delta_h = current - previous.
   try {
-    const curM = (await rdb.getRequestMetrics({ since: _monthStart(ref.y, ref.m) })) || {};
-    const pvM  = (await rdb.getRequestMetrics({ since: _monthStart(prev.y, prev.m) })) || {};
+    const curM = (await rdb.getRequestMetrics({ since: _monthStart(ref.y, ref.m), until: _nextMonthStart(ref.y, ref.m) })) || {};
+    const pvM  = (await rdb.getRequestMetrics({ since: _monthStart(prev.y, prev.m), until: _monthStart(ref.y, ref.m) })) || {};
     const cur = _num(curM.avg_resolution_hrs);
     const pv  = _num(pvM.avg_resolution_hrs);
     if (cur != null) out.avg_resolution_h.value = _round(cur);
@@ -146,11 +153,24 @@ async function mapHelpdeskKpis(rdb, now) {
   } catch (e) { console.warn('[execSummary] csat failed:', e.message); }
 
   // ── Change success rate (fleet) — current vs previous month ───────────────
+  // Formula = report_config exec_view_change_formula (KPI committee D-01, open):
+  //   status (default, today) → getChangeMetrics.change_success_rate (bounded month)
+  //   deck → getChangesWindow.success_pct · itsm → getChangesWindow.success_pct_itsm
   try {
-    const curC = (await rdb.getChangeMetrics({ since: _monthStart(ref.y, ref.m) })) || {};
-    const pvC  = (await rdb.getChangeMetrics({ since: _monthStart(prev.y, prev.m) })) || {};
-    const cur = _num(curC.change_success_rate);
-    const pv  = _num(pvC.change_success_rate);
+    const formula = CHANGE_FORMULAS.includes(cfg.exec_view_change_formula) ? cfg.exec_view_change_formula : 'status';
+    let cur, pv;
+    if (formula === 'status') {
+      const curC = (await rdb.getChangeMetrics({ since: _monthStart(ref.y, ref.m), until: _nextMonthStart(ref.y, ref.m) })) || {};
+      const pvC  = (await rdb.getChangeMetrics({ since: _monthStart(prev.y, prev.m), until: _monthStart(ref.y, ref.m) })) || {};
+      cur = _num(curC.change_success_rate);
+      pv  = _num(pvC.change_success_rate);
+    } else {
+      const field = formula === 'deck' ? 'success_pct' : 'success_pct_itsm';
+      const curW = (await rdb.getChangesWindow(_monthStart(ref.y, ref.m), _monthEnd(ref.y, ref.m))) || {};
+      const pvW  = (await rdb.getChangesWindow(_monthStart(prev.y, prev.m), _monthEnd(prev.y, prev.m))) || {};
+      cur = _num(curW[field]);
+      pv  = _num(pvW[field]);
+    }
     if (cur != null) out.change_success.value_pct = _round(cur);
     if (cur != null && pv != null) out.change_success.delta_pp = _round(cur - pv);
   } catch (e) { console.warn('[execSummary] change success failed:', e.message); }
@@ -231,7 +251,28 @@ async function _activeMIs(rdb) {
 // mapMajorIncidents — whitelist active-MI rows to PUBLIC-SAFE detail for the
 // exec page (title/impact/status/root-cause/corrective-action/downtime).
 // Personal fields (technician, requester, ids) are DROPPED here.
-function mapMajorIncidents(mis) {
+// mode = report_config exec_view_mi_detail:
+//   full (default) — today, public per the 2026-07-02 decision (option a);
+//   summarized_only — generic title, RCA/CA only when AI-condensed (m._summarized);
+//   none — generic title, no RCA/CA, no summarized flag.
+function mapMajorIncidents(mis, mode = 'full') {
+  if (!MI_DETAIL_MODES.includes(mode)) mode = 'full';
+  if (mode !== 'full') {
+    const txt = v => (v && String(v).trim()) || null;
+    return (mis || []).map(m => {
+      const summarized = mode === 'summarized_only' && m._summarized === true;
+      return {
+        title:             'Major incident — ' + (m.site || 'site unknown'),
+        site:              m.site || '—',
+        status:            m.status || 'In progress',
+        impact:            m.impact || null,
+        root_cause:        summarized ? txt(m.rca) : null,
+        corrective_action: summarized ? txt(m.ca) : null,
+        downtime_h:        txt(m.downtime),
+        ...(summarized ? { summarized: true } : {}),
+      };
+    });
+  }
   return (mis || []).map(m => ({
     title:             m.subject || '—',
     site:              m.site || '—',
@@ -322,7 +363,14 @@ async function loadExecSummary(deps) {
   const reportMonth = _ym(ref.y, ref.m);
   let dataAsOf = null;
   try { dataAsOf = await deps.rdb.getLastSyncAt('requests'); } catch (_) { dataAsOf = null; }
-  const helpdesk = await mapHelpdeskKpis(deps.rdb, now);
+  // A-08 switches (exec_view_mi_detail / exec_view_change_formula). Any read
+  // failure degrades to {} = today's behaviour (full detail, status formula).
+  let cfg = {};
+  try {
+    const getCfg = deps.getConfig || (() => require('./reportConfig').getConfig(deps.rdb.db));
+    cfg = (await getCfg()) || {};
+  } catch (e) { console.warn('[execSummary] config read failed, using defaults:', e.message); cfg = {}; }
+  const helpdesk = await mapHelpdeskKpis(deps.rdb, now, cfg);
   const spark = await mapSpark(deps.rdb, now);
   const mis = await _activeMIs(deps.rdb);        // one fetch → detail + rollup + count
   // Read-path: swap in cached AI summaries where the source text is unchanged;
@@ -337,7 +385,7 @@ async function loadExecSummary(deps) {
       }
     }
   } catch (e) { console.warn('[execSummary] mi-summary cache failed:', e.message); }
-  const majorIncidents = mapMajorIncidents(mis);
+  const majorIncidents = mapMajorIncidents(mis, cfg.exec_view_mi_detail);
   const siteRows = mapSiteRows(mis);
   const activeMajorIncidents = mis.length;
   let upcomingMaintenance = [];

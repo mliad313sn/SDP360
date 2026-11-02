@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 3126,
+ "total": 3141,
  "files": {
   "a11y-static.test.js": 13,
   "access-denied-log.smoke.test.js": 3,
@@ -131,7 +131,8 @@
   "exec-report-editorial-routes.smoke.test.js": 7,
   "exec-report-editorial.test.js": 7,
   "exec-routes.smoke.test.js": 3,
-  "exec-summary-load.test.js": 13,
+  "exec-summary-load.test.js": 21,
+  "exec-summary-windows.test.js": 5,
   "exec-summary.test.js": 9,
   "exec-yearly-mi.test.js": 6,
   "export-share-boundary.smoke.test.js": 5,
@@ -298,6 +299,7 @@
   "report-config-asset-reminders.test.js": 2,
   "report-config-deprec.test.js": 2,
   "report-config-encryption.test.js": 8,
+  "report-config-exec-view.test.js": 2,
   "report-config-hygiene.test.js": 2,
   "report-config-meraki.test.js": 2,
   "report-config-meridian.test.js": 2,
