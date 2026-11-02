@@ -42,8 +42,27 @@ function keyFrom(passphrase) {
   if (s.length < MIN_KEY_CHARS) return null;
   if (_keyCache.has(s)) return _keyCache.get(s);
   const k = { v2: crypto.scryptSync(s, SCRYPT_SALT, 32, SCRYPT_OPTS), v1: crypto.createHash('sha256').update(s, 'utf8').digest() };
+  // A-03a — the 1.11 enc:v2 layout derives a key PER BOX (random salt), so reading it needs the
+  // passphrase itself. Non-enumerable: it never appears in JSON.stringify, Object.keys or a log.
+  Object.defineProperty(k, '_pass', { value: s, enumerable: false });
   _keyCache.set(s, k);
   return k;
+}
+
+// A-03a — 1.11 wrote `enc:v2:<salt>:<iv>:<tag>:<ct>` (scrypt, random 16-byte salt per value).
+// 2.0 still WRITES its 3-part layout; the 4-part one is read-only compatibility. Derived keys are
+// cached per (passphrase, salt) like 1.11 did — scrypt is ~100 ms.
+const _saltKeys = new Map();
+function _scryptSaltKey(pass, salt) {
+  let m = _saltKeys.get(pass);
+  if (!m) { m = new Map(); _saltKeys.set(pass, m); }
+  const id = salt.toString('base64');
+  if (!m.has(id)) m.set(id, crypto.scryptSync(pass, salt, 32, SCRYPT_OPTS));
+  return m.get(id);
+}
+/** True for a 1.11-layout box (`enc:v2:` with 4 parts). */
+function isV2Legacy(value) {
+  return typeof value === 'string' && value.startsWith(PREFIX) && value.slice(PREFIX.length).split(':').length === 4;
 }
 
 function isEncrypted(value) {
@@ -71,10 +90,14 @@ function decryptValue(stored, key) {
   if (!key) return null;
   const v = boxVersion(s);
   const parts = s.slice((v === 2 ? PREFIX : PREFIX_V1).length).split(':');
-  if (parts.length !== 3) return null;
+  const legacy111 = v === 2 && parts.length === 4;
+  if (parts.length !== 3 && !legacy111) return null;
+  if (legacy111 && !key._pass) return null;
   try {
-    const [iv, tag, body] = parts.map(p => Buffer.from(p, 'base64'));
-    const raw = v === 2 ? (key.v2 || key) : (key.v1 || key);
+    const bufs = parts.map(p => Buffer.from(p, 'base64'));
+    const raw = legacy111 ? _scryptSaltKey(key._pass, bufs.shift())
+      : v === 2 ? (key.v2 || key) : (key.v1 || key);
+    const [iv, tag, body] = bufs;
     const d = crypto.createDecipheriv('aes-256-gcm', raw, iv);
     d.setAuthTag(tag);
     return Buffer.concat([d.update(body), d.final()]).toString('utf8');
@@ -146,10 +169,11 @@ function planReencryption(rows, { newKey, oldKey = null }) {
   for (const r of rows || []) {
     if (!r || typeof r.value !== 'string' || r.value === '') continue;
     if (!isEncrypted(r.value)) { updates.push({ key: r.key, value: encryptValue(r.value, newKey), from: 'plaintext' }); continue; }
-    if (boxVersion(r.value) === 2 && !oldKey) { skipped.push(r.key); continue; }
+    const legacy111 = isV2Legacy(r.value);     // A-03a — a 1.11 box is re-sealed like a v1 box
+    if (boxVersion(r.value) === 2 && !legacy111 && !oldKey) { skipped.push(r.key); continue; }
     const plain = decryptValue(r.value, oldKey || newKey) ?? (oldKey ? decryptValue(r.value, newKey) : null);
     if (plain == null) { unreadable.push(r.key); continue; }
-    updates.push({ key: r.key, value: encryptValue(plain, newKey), from: `v${boxVersion(r.value)}` });
+    updates.push({ key: r.key, value: encryptValue(plain, newKey), from: legacy111 ? 'v2-1.11' : `v${boxVersion(r.value)}` });
   }
   return { updates, unreadable, skipped };
 }
@@ -164,5 +188,5 @@ function assertProductionKey(env = process.env) {
   return { required: true, ok: false, reason: `SDP_CONFIG_KEY (≥ ${MIN_KEY_CHARS} chars) is mandatory with NODE_ENV=production; set it in .env, or SDP_ALLOW_PLAINTEXT_SECRETS=1 for a migration window (logged).` };
 }
 
-module.exports = { encryptValue, decryptValue, isEncrypted, boxVersion, keyFrom, envKey, describeSecretState,
+module.exports = { encryptValue, decryptValue, isEncrypted, isV2Legacy, boxVersion, keyFrom, envKey, describeSecretState,
   planSecretEncryption, planReencryption, assertProductionKey, PREFIX, PREFIX_V1 };
