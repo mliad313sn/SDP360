@@ -204,9 +204,30 @@ function serviceKind(env) {
   return 'windows';
 }
 /** How the version already on disk was run: its own SDP_SERVICE, else pm2 (versions before the Windows service). */
-function previousServiceKind(env) {
+/**
+ * How to run the version that is back after a rollback. A 1.x application ships native modules (better-sqlite3)
+ * built for the server's own Node.js: it cannot run on the Node.js bundled with this Setup, whatever SDP_SERVICE
+ * says (a failed earlier Setup wrote SDP_SERVICE=windows into the .env it kept — field incident 2026-11-02).
+ */
+function previousServiceKind(env, dir) {
+  try {
+    const v = JSON.parse(fs.readFileSync(path.join(dir || DIR, 'package.json'), 'utf8')).version || '';
+    if (/^[01]\./.test(v)) return 'pm2';
+  } catch (_) { /* no package.json — fall back on the .env */ }
   if (env.SDP_SERVICE === 'windows' || env.SDP_SERVICE === 'pm2') return env.SDP_SERVICE;
   return 'pm2';
+}
+/** The last lines of today's service log, and its first fatal line — so the setup log says WHY the service did not answer. */
+function serviceLogTail(n = 40) {
+  try {
+    const dir = path.join(DIR, 'logs');
+    const f = fs.readdirSync(dir).filter((x) => /^service-\d{8}\.log$/.test(x)).sort().pop();
+    if (!f) return { file: null, tail: '', cause: '' };
+    const lines = fs.readFileSync(path.join(dir, f), 'utf8').split(/\r?\n/);
+    const tail = lines.slice(-n).join('\n');
+    const cause = (lines.slice(-200).reverse().find((l) => /FATAL|^Error|Error:|ECONNREFUSED|EADDRINUSE|password authentication failed|Cannot find module/.test(l)) || '').trim();
+    return { file: f, tail, cause };
+  } catch (_) { return { file: null, tail: '', cause: '' }; }
 }
 function registerService(kind, env) {
   const S = require(path.join(ROOT, 'services', 'serviceControl'));
@@ -255,7 +276,9 @@ async function probe(port) {
     }
     await new Promise((r) => setTimeout(r, 2000));
   }
-  throw new Error(`the service did not answer on port ${port} within 2 minutes (${last}) — see logs\\service-*.log`);
+  const t = serviceLogTail();
+  if (t.file) log(`--- last lines of logs\\${t.file} ---\n${t.tail}\n--- end ---`);
+  throw new Error(`the service did not answer on port ${port} within 2 minutes (${last})${t.cause ? ' — service error: ' + t.cause.slice(0, 300) : ''} — see logs\\${t.file || 'service-*.log'}`);
 }
 
 function swapNodeModules(staged) {
@@ -284,7 +307,6 @@ async function main() {
   let undoDeps = null, applied = false;
   // what was running BEFORE this Setup — a rollback must give back exactly that, not the new host
   const envBefore = fs.existsSync(envFile) ? fs.readFileSync(envFile) : null;
-  const kindBefore = envBefore ? previousServiceKind(readEnv(envFile)) : null;
   try {
     // 1 dependencies
     const staged = arg('--node-modules', null);
@@ -335,11 +357,13 @@ async function main() {
       try {
         if (envBefore) { fs.writeFileSync(envFile, envBefore); log('.env restored to its state before this Setup'); }
         const prevEnv = readEnv(envFile);
+        const kindNow = previousServiceKind(prevEnv, DIR);   // decided on the files that are back, not on what Setup wrote
+        if (kindNow === 'pm2' && prevEnv.SDP_SERVICE === 'windows') { setEnvValue(envFile, 'SDP_SERVICE', 'pm2'); log('.env: SDP_SERVICE set back to pm2 — the previous version cannot run on the bundled Node.js'); }
         // an older installation ran under pm2 with the system Node.js: starting it with the Windows service
         // (and the Node.js shipped with this Setup) fails on native modules built for another Node version
-        if (kindBefore === 'pm2' && fs.existsSync(SVC_EXE())) { try { sh(SVC_EXE(), ['uninstall'], { shell: false }); log('Windows service removed — the previous version runs under pm2'); } catch (e4) { log('service removal: ' + e4.message); } }
-        registerService(kindBefore || serviceKind(prevEnv), prevEnv);
-        log(`previous version restarted (${kindBefore || 'auto'})`);
+        if (kindNow === 'pm2' && fs.existsSync(SVC_EXE())) { try { sh(SVC_EXE(), ['uninstall'], { shell: false }); log('Windows service removed — the previous version runs under pm2'); } catch (e4) { log('service removal: ' + e4.message); } }
+        registerService(kindNow, { ...prevEnv, SDP_SERVICE: kindNow });
+        log(`previous version restarted (${kindNow})`);
       } catch (e3) { log('restart after rollback failed: ' + e3.message); }
     }
     try { fs.writeFileSync(path.join(DIR, 'logs', 'setup-last.json'), JSON.stringify({ ok: false, mode: MODE, at: new Date().toISOString(), error: e.message.slice(0, 500), log: LOG }, null, 2)); } catch (_) {}
@@ -348,4 +372,4 @@ async function main() {
 }
 
 if (require.main === module) main();
-module.exports = { previousEnvFiles, fourMyPeoplePassword, writeEnv, readEnv, setEnvValue, repairEnv, previousServiceKind, envDefaults, firewallCommands, firewallRuleNames, ident };
+module.exports = { serviceLogTail, previousEnvFiles, fourMyPeoplePassword, writeEnv, readEnv, setEnvValue, repairEnv, previousServiceKind, envDefaults, firewallCommands, firewallRuleNames, ident };

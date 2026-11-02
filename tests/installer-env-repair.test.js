@@ -44,9 +44,19 @@ test('rollback restarts the previous host: an installation without SDP_SERVICE p
   assert.strictEqual(pi.previousServiceKind({ SDP_SERVICE: 'pm2' }), 'pm2');
 });
 
+test('a rolled-back 1.x application always goes back to pm2, even when an earlier failed Setup wrote SDP_SERVICE=windows', () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'sdpv1-'));
+  fs.writeFileSync(path.join(d, 'package.json'), JSON.stringify({ version: '1.11.0' }));
+  assert.strictEqual(pi.previousServiceKind({ SDP_SERVICE: 'windows' }, d), 'pm2');
+  fs.writeFileSync(path.join(d, 'package.json'), JSON.stringify({ version: '2.0.0' }));
+  assert.strictEqual(pi.previousServiceKind({ SDP_SERVICE: 'windows' }, d), 'windows');
+});
+
 test('the rollback path restores the .env snapshot and passes the previous host (static)', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'tools', 'installer-v2', 'post-install.js'), 'utf8');
   assert.match(src, /envBefore[\s\S]*fs\.writeFileSync\(envFile, envBefore\)/);
-  assert.match(src, /registerService\(kindBefore \|\| serviceKind\(prevEnv\), prevEnv\)/);
+  assert.match(src, /const kindNow = previousServiceKind\(prevEnv, DIR\)/);
+  assert.match(src, /registerService\(kindNow, /);
+  assert.match(src, /serviceLogTail\(\)/, 'a failed health check copies the service log tail into the setup log');
   assert.match(src, /repairEnv\(envFile, log\)/);
 });
