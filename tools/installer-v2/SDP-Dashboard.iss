@@ -536,12 +536,26 @@ begin
 end;
 
 procedure RunPostInstall;
-var Rc: Integer; Args, LogPath, Last: String;
+var Rc: Integer; Args, LogPath, Last, Pre: String;
 begin
   { the wizard's checks do not run in silent mode: enforce them here }
   if ('{#PackageSigned}' <> '1') and not UnsignedPage.Values[0] then RaiseException(CustomMessage('Unsigned') + ' (/ALLOWUNSIGNED=1)');
   { a silent install never shows the folders page, which is where the data folder default is filled }
   if Trim(DirsPage.Values[0]) = '' then DirsPage.Values[0] := ExpandConstant('{app}\data');
+  { A-01: refuse an update of an installation whose data still lives in SQLite BEFORE anything changes
+    (PostgreSQL upgrade included). Override: /IGNORELEGACYSTORE=1 once the copy is proven done. }
+  if not IsNew then begin
+    Pre := '"' + ExpandConstant('{tmp}\bootstrap\tools\installer-v2\post-install.js') + '" --preflight-only --dir "' + ExpandConstant('{app}') + '" --mode ' + GetMode('');
+    if Param('IGNORELEGACYSTORE', '0') = '1' then Pre := Pre + ' --ignore-legacy-store';
+    Log('post-install preflight: ' + Pre);
+    if not Exec(ExpandConstant('{app}\runtime\node\node.exe'), Pre, ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, Rc) then Rc := -1;
+    if Rc <> 0 then begin
+      PostInstallFailed := True;
+      Last := FileText(ExpandConstant('{app}\logs\setup-last.json'));
+      LogPath := JsonValue(Last, 'log');
+      RaiseException(FmtMessage(CustomMessage('PostFailed'), [JsonValue(Last, 'error'), LogPath]));
+    end;
+  end;
   InstallEmbeddedPg;
   WizardForm.StatusLabel.Caption := CustomMessage('Configuring');
   { secrets travel in the environment of the child process only }
@@ -558,6 +572,7 @@ begin
   if SvcPage.Values[0] <> '' then Args := Args + ' --service-account "' + SvcPage.Values[0] + '"';
   if IisPage.Values[0] <> '' then Args := Args + ' --public-host ' + IisPage.Values[0] + ' --cert-thumbprint "' + IisPage.Values[1] + '"';
   if '{#PackageSigned}' <> '1' then Args := Args + ' --allow-unsigned';
+  if Param('IGNORELEGACYSTORE', '0') = '1' then Args := Args + ' --ignore-legacy-store';
   Log('post-install: ' + Args);
   if not Exec(ExpandConstant('{app}\runtime\node\node.exe'), Args, ExpandConstant('{app}'), SW_HIDE, ewWaitUntilTerminated, Rc) then Rc := -1;
   SetEnvironmentVariable('SDP_SETUP_PGSUPERPASS', '');

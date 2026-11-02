@@ -15,7 +15,7 @@
 | ✔ Fait | Détail |
 |---|---|
 | Code complet 4 modules | Toutes les fns DB + tous les consommateurs server.js forkés, tests verts |
-| Outils de bascule | `tools/pg/copy-*.js` (copies idempotentes), `copy-reports-all.js`, `reconcile-reports.js` (diff KPI sqlite↔pg), `provision-prod.js` |
+| Outils de bascule | Historique : les `tools/pg/copy-*.js` de la 1.x ont été supprimés avec SQLite (PO-08). Pour la 2.0 : `tools\pg\copy-legacy-sqlite.cmd --module assets` (simulation par défaut, `--apply`) — procédure complète dans [`docs/UPGRADE-1x-to-2.0.md`](UPGRADE-1x-to-2.0.md). `provision-prod.js` reste. |
 | Menu prod | `_sdp_admin.cmd` (options C = pré-flight, P = provisioning) |
 | Dérives de schéma corrigées | colonne `template`, colonnes SSO users, index unique survey_answers (2026-07-09) |
 | Dry-run données réelles | Copie du snapshot prod → PG local OK ; réconciliation : **12/21 lecteurs identiques** |
