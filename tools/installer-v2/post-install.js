@@ -90,7 +90,34 @@ function repairEnv(file, log) {
     fixed.push('DASHBOARD_API_KEY');
     log(`.env: DASHBOARD_API_KEY was ${have.DASHBOARD_API_KEY.length} characters (minimum ${MIN_LENGTH}) — replaced with a new random key; previous .env kept as ${path.basename(copy)}. Any external tool that used the old key must be given the new one.`);
   }
+  // 2.0 refuses to start in production without SDP_CONFIG_KEY (services/configSecrets.js). A 1.x .env has none, so its
+  // stored secrets are plaintext: a new key keeps them readable (they encrypt on their next save). Never replaced when
+  // present — a key that is already there may be the one existing secrets are encrypted with.
+  if (!have.SDP_CONFIG_KEY) {
+    const copy = `${file}.before-setup-${stamp}`;
+    if (!fs.existsSync(copy)) fs.copyFileSync(file, copy);
+    setEnvValue(file, 'SDP_CONFIG_KEY', crypto.randomBytes(32).toString('base64url'));
+    fixed.push('SDP_CONFIG_KEY');
+    log(`.env: SDP_CONFIG_KEY was missing (required by this version in production) — generated. Keep a copy of .env off this server: a database restored elsewhere needs the same key.`);
+  } else if (have.SDP_CONFIG_KEY.length < 16) {
+    log(`.env: SDP_CONFIG_KEY is shorter than 16 characters — this version will refuse to start. Not changed automatically (existing secrets may be encrypted with it).`);
+  }
+  if (!have.SDP_BACKUP_KEY) {
+    setEnvValue(file, 'SDP_BACKUP_KEY', crypto.randomBytes(32).toString('base64url'));
+    fixed.push('SDP_BACKUP_KEY');
+    log('.env: SDP_BACKUP_KEY was missing — generated (backups are now encrypted; keep a copy of .env off this server).');
+  }
   return fixed;
+}
+/** What this version refuses at startup in production (server.js, services/apiKey.js, backendGuard, configSecrets) — checked BEFORE starting it, so a failure names the cause instead of a 2-minute timeout. */
+function envProblems(env) {
+  const p = [];
+  if (!env.DASH_USER) p.push('DASH_USER is missing');
+  if (!env.DASH_PASS) p.push('DASH_PASS is missing'); else if (env.DASH_PASS.length < 12) p.push('DASH_PASS is shorter than 12 characters');
+  if (!(env.PG_URL || env.DATABASE_URL)) p.push('PG_URL is missing (PostgreSQL is the only database)');
+  if (!env.DASHBOARD_API_KEY || env.DASHBOARD_API_KEY.length < 32) p.push('DASHBOARD_API_KEY is missing or shorter than 32 characters');
+  if (env.NODE_ENV === 'production' && (env.SDP_CONFIG_KEY || '').length < 16 && env.SDP_ALLOW_PLAINTEXT_SECRETS !== '1') p.push('SDP_CONFIG_KEY is missing or shorter than 16 characters');
+  return p;
 }
 function envDefaults() {
   const dataDir = process.env.SDP_SETUP_DATADIR || path.join(DIR, 'data');
@@ -333,9 +360,10 @@ async function main() {
       const added = writeEnv(envFile, { NODE_ENV: 'production', PORT, BIND_HOST: '127.0.0.1', SDP_BACKUP_DIR: wanted.SDP_BACKUP_DIR, DASHBOARD_API_KEY: wanted.DASHBOARD_API_KEY, SDP_SERVICE: serviceKind(have) });
       log(`.env kept${added.length ? ' — added ' + added.join(', ') : ''}`);
       repairEnv(envFile, log);
-      if (!have.SDP_CONFIG_KEY) log('note: SDP_CONFIG_KEY is not set — stored secrets stay unencrypted until it is (docs/ops/INSTALLATION.md)');
     }
     const env = readEnv(envFile);
+    const bad = envProblems(env);
+    if (bad.length) throw new Error(`.env would be refused by this version: ${bad.join('; ')} — fix ${envFile} and run Setup again`);
     // 5 schema
     sh(process.execPath, [path.join(DIR, 'db', 'migrate.js')], { env, shell: false });
     // 6 firewall, 7 service, 8 IIS, 9 probe
@@ -372,4 +400,4 @@ async function main() {
 }
 
 if (require.main === module) main();
-module.exports = { serviceLogTail, previousEnvFiles, fourMyPeoplePassword, writeEnv, readEnv, setEnvValue, repairEnv, previousServiceKind, envDefaults, firewallCommands, firewallRuleNames, ident };
+module.exports = { envProblems, serviceLogTail, previousEnvFiles, fourMyPeoplePassword, writeEnv, readEnv, setEnvValue, repairEnv, previousServiceKind, envDefaults, firewallCommands, firewallRuleNames, ident };
