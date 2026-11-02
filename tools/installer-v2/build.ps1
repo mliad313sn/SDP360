@@ -119,6 +119,7 @@ Step '6 bootstrap'
 $boot = Join-Path $payload 'bootstrap'
 foreach ($f in 'tools/sdp-manager.js', 'tools/manifest-public.pem', 'tools/installer-v2/post-install.js', 'tools/installer-v2/iis-setup.ps1',
                'services/updatePackage.js', 'services/backup.js', 'services/serviceControl.js', 'services/dbRestore.js',
+               'services/configSecrets.js', 'services/apiKey.js',
                'tools/pg/dump-db.js', 'tools/pg/pg-bin.js') {
   $dst = Join-Path $boot $f
   New-Item -ItemType Directory -Force -Path (Split-Path $dst) | Out-Null

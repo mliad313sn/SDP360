@@ -125,7 +125,9 @@ function envProblems(env) {
  * breaking SMTP / Meraki / SSO. Returns the keys of encrypted values and those this key cannot open.
  */
 function checkSecretRows(rows, passphrase) {
-  const cs = require(path.join(ROOT, 'services', 'configSecrets'));
+  let cs = null;   // the bootstrap copy carries it (build.ps1 step 6); the install folder as fallback
+  for (const base of [ROOT, DIR]) { try { cs = require(path.join(base, 'services', 'configSecrets')); break; } catch (_) {} }
+  if (!cs) throw new Error('services/configSecrets.js not found in the Setup bootstrap or the install folder');
   const key = passphrase ? cs.keyFrom(passphrase) : null;
   const encrypted = rows.filter((r) => cs.isEncrypted(r.value)).map((r) => r.key);
   const unreadable = encrypted.filter((k) => { const v = rows.find((r) => r.key === k).value; const d = key ? cs.decryptValue(v, key) : null; return d == null || d === ''; });

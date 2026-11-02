@@ -91,3 +91,12 @@ test('update: PostgreSQL is upgraded to the minor version Setup carries only aft
   assert.match(fn, /if IsNew or/);
   assert.ok(fn.indexOf("backup --dir") > 0 && fn.indexOf("backup --dir") < fn.indexOf("'--mode unattended --unattendedmodeui none'"), 'backup comes before the upgrade');
 });
+
+test('every services/* module post-install.js loads from the Setup bootstrap is copied there by build.ps1 (exit 7, CI run 41413871253)', () => {
+  const post = fs.readFileSync(path.join(ROOT, 'tools/installer-v2/post-install.js'), 'utf8');
+  const build = fs.readFileSync(path.join(ROOT, 'tools/installer-v2/build.ps1'), 'utf8');
+  const step6 = build.slice(build.indexOf("Step '6 bootstrap'"), build.indexOf("Step '7"));
+  const names = [...new Set([...post.matchAll(/'services',\s*'([A-Za-z0-9_]+)'/g)].map((m) => m[1]))];
+  assert.ok(names.length >= 3, 'expected at least apiKey, configSecrets, serviceControl');
+  for (const n of names) assert.ok(step6.includes(`'services/${n}.js'`), `build.ps1 step 6 does not copy services/${n}.js`);
+});
