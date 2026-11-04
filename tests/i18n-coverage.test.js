@@ -18,10 +18,38 @@ const TRANSLATED_PAGES = {
   'meeting.html': { dict: 'I18N_FR_MEETING', file: 'meeting.fr.js' },
   'inspection.html': { dict: 'I18N_FR_INSPECTION', file: 'inspection.fr.js' },
   'activity-tracker.html': { dict: 'I18N_FR_ACTIVITY_TRACKER', file: 'activity-tracker.fr.js', jsx: 'activity-tracker/App.jsx' },
+  // A-09b — runtimeInSource: every runtime key must appear verbatim in the page source (no drift).
+  'reports.html': { dict: 'I18N_FR_REPORTS', file: 'reports.fr.js', runtimeInSource: true },
+  'assets.html': { dict: 'I18N_FR_ASSETS', file: 'assets.fr.js', runtimeInSource: true },
+  'wan.html': { dict: 'I18N_FR_WAN', file: 'wan.fr.js', runtimeInSource: true },
+  'trackers.html': { dict: 'I18N_FR_TRACKERS', file: 'trackers.fr.js', runtimeInSource: true },
+  'portfolio.html': { dict: 'I18N_FR_PORTFOLIO', file: 'portfolio.fr.js', runtimeInSource: true },
+  'rfi.html': { dict: 'I18N_FR_RFI', file: 'rfi.fr.js', runtimeInSource: true },
 };
+
+// A-09b — whole regions of a translated page left out of the coverage check, with the reason. Each marker
+// must occur exactly once; the text between start (inclusive) and end (exclusive) is not checked.
+const SKIP_REGIONS = {
+  'reports.html': [{ start: '<div class="page" id="page-admin">', end: '<div class="modal-overlay" id="change-week-modal"',
+    reason: 'admin console (super_admin / admin panels and their modals) — English for now, later pass' }],
+  'assets.html': [{ start: '<section id="pane-reconcile"', end: 'SHARED: chart-click drill modal',
+    reason: 'Réconciliation tab and its printable guide are authored in French already' }],
+};
+function cutRegions(page, html) {
+  for (const r of SKIP_REGIONS[page] || []) {
+    const a = html.indexOf(r.start), b = html.indexOf(r.end);
+    assert.ok(a > 0 && b > a, `${page}: skip-region markers found in order (${r.reason})`);
+    assert.strictEqual(html.indexOf(r.start, a + 1), -1, `${page}: start marker unique`);
+    assert.strictEqual(html.indexOf(r.end, b + 1), -1, `${page}: end marker unique`);
+    html = html.slice(0, a) + html.slice(b);
+  }
+  return html;
+}
 
 // Static strings deliberately left untranslated, with the reason.
 const ALREADY_FR = 'already French';
+const CODE = 'option without a value attribute: its text IS the code posted to the API';
+const fr = (list) => Object.fromEntries(list.map((k) => [k, ALREADY_FR]));
 const ALLOW = {
   'site-actions.html': {},
   'meeting.html': {},
@@ -37,6 +65,26 @@ const ALLOW = {
     "L'auto-sauvegarde envoie déjà chaque modification. Le bouton ci-dessous marque l'inspection comme terminée et prête à être revue.": ALREADY_FR,
   },
   'activity-tracker.html': {},
+  'reports.html': fr(['Annuler la reconduction', 'Importer la sélection', '⚠ Action similaire déjà ouverte',
+    'Cette action ressemble à un suivi déjà ouvert pour ce site. Lie-la pour éviter un doublon dans le hub Site Actions.', 'Ta saisie :',
+    'Action existante :', 'Non, garder séparé', "C'est la même — lier",
+    'Coche les actions ouvertes du site (toutes semaines) qui sont en réalité la même chose. Elles seront regroupées — la plus récente est conservée et les autres prennent son libellé.',
+    'Annuler', 'Fusionner la sélection', 'Parc informatique', '5. Parc informatique', 'Chargement…', 'Traité cette semaine', 'Plan / blocages', 'Enregistrer',
+    '⚯ Fusionner des doublons', 'Regrouper des actions en double du site (toutes semaines)', 'Ex. 3 PC étiquetés, 2 utilisateurs affectés…',
+    'Ex. coûts en attente de la comptabilité…']),
+  'assets.html': fr(['Chargement de la fraîcheur des données…', 'Réconciliation', 'Dernier instantané : —', 'Actifs']),
+  'wan.html': Object.assign(fr(['Santé & Qualité', 'SLA & Refacturation', 'Disponibilité & qualité des liens WAN par site (source Meraki — semaine / mois archivé).',
+    'Dispo', '= le lien répondait ;', 'Qualité', '= il était de bonne qualité (perte / latence / gigue faibles).', 'Chiffres statistiques',
+    "calculés depuis l'historique perte/latence Meraki — rafraîchis par", '(ou la sync nocturne 05:20).', "Indépendant de l'onglet SLA.",
+    'Provisoire', 'Coupures détectées', "depuis le journal d'événements Meraki + le poller 5 min (rafraîchi automatiquement). Le bouton",
+    '🔄 Réconcilier', "nettoie l'historique (durées + attribution).", "Indépendant de l'onglet Santé & Qualité.", 'Période', 'Mois', 'Semaine', 'Jour',
+    'Durée min (min)', 'Tous', 'Attribution', 'Toutes', '⬇ Export (filtré)',
+    "Relance l'ingester sur le journal d'événements Meraki (30 j) — corrige les durées + l'attribution des coupures historiques"]),
+  { 'meraki_api_key': 'setting key name', 'Admin → SLA WAN': 'menu path (admin card name)' }),
+  'trackers.html': {},
+  'portfolio.html': { 'programme': CODE, 'objective': CODE, 'project': CODE, 'milestone': CODE, 'deliverable': CODE, 'risk': CODE,
+    'on_track · at_risk · planned · active · done · open': 'status codes typed into the field', 'helpdesk.resolution_sla_pct': 'metric key example' },
+  'rfi.html': {},
 };
 
 // Shell pages that already translate their own body (data-lng blocks or their own I18nText install).
@@ -44,7 +92,6 @@ const SELF_TRANSLATED = ['cockpit.html', 'commitments.html', 'handoffs.html', 'h
   'meetings-import.html', 'meetings-insights.html', 'obligations.html', 'policies.html', 'site-awareness.html', 'home.html'];
 // Shell pages not translated yet, with the reason (A-09b covers the coordinator pages listed there).
 const UNTRANSLATED = {
-  'reports.html': 'A-09b', 'assets.html': 'A-09b', 'wan.html': 'A-09b', 'trackers.html': 'A-09b', 'portfolio.html': 'A-09b', 'rfi.html': 'A-09b',
   'analytics.html': 'executive / group audience, English', 'executive.html': 'executive audience, English',
   'executive-report.html': 'deck builder, decks stay English (D-2)', 'it-review.html': 'faithful port of the executive dashboard, English',
   'index.html': 'helpdesk dashboard, group audience, English', 'integrations.html': 'admin console, English', 'system-logs.html': 'admin console, English',
@@ -56,8 +103,9 @@ const UNTRANSLATED = {
 };
 
 const norm = (t) => t.replace(/\s+/g, ' ').trim();
-const ENT = { '&amp;': '&', '&nbsp;': ' ', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&mdash;': '—', '&middot;': '·', '&hellip;': '…', '&rarr;': '→' };
-const dec = (s) => s.replace(/&[a-z#0-9]+;/g, (e) => (e in ENT ? ENT[e] : e));
+const ENT = { '&amp;': '&', '&nbsp;': ' ', '&lt;': '<', '&gt;': '>', '&quot;': '"', '&#39;': "'", '&mdash;': '—', '&middot;': '·', '&hellip;': '…', '&rarr;': '→', '&times;': '×' };
+// A-09b: numeric entities (&#8629; …) are decoded as the browser does, so the keys match the rendered text.
+const dec = (s) => s.replace(/&[a-z#0-9]+;/g, (e) => (e in ENT ? ENT[e] : /^&#\d+;$/.test(e) ? String.fromCodePoint(Number(e.slice(2, -1))) : e));
 function staticStrings(html) {
   let body = html.slice(html.indexOf('<body'));
   body = body.replace(/<script\b[\s\S]*?<\/script>/gi, '').replace(/<style\b[\s\S]*?<\/style>/gi, '')
@@ -89,12 +137,21 @@ for (const [page, spec] of Object.entries(TRANSLATED_PAGES)) {
     const dict = Object.assign({}, w.I18N_FR_COMMON, w[spec.dict]);
     assert.ok(Object.keys(w[spec.dict]).length > 0, 'page dictionary not empty');
     const allow = ALLOW[page] || {};
-    const missing = staticStrings(read(page)).filter((t) => !(t in dict) && !(t in allow));
+    const missing = staticStrings(cutRegions(page, read(page))).filter((t) => !(t in dict) && !(t in allow));
     assert.deepStrictEqual(missing, [], 'missing French entries');
     for (const [k, v] of Object.entries(allow)) assert.ok(v && v.length > 3, `allow-list entry "${k}" has a reason`);
     for (const [k, v] of Object.entries(w[spec.dict])) assert.strictEqual(typeof v, 'string', `${k} → string`);
     assert.ok(Array.isArray(w[spec.dict + '_RUNTIME']), 'runtime keys listed');
   });
+
+  if (spec.runtimeInSource) {
+    test(`${page}: every runtime key appears in the page source (the dictionary cannot drift from the page)`, () => {
+      const w = loadDicts(spec.file);
+      const src = norm(dec(read(page)));
+      const gone = Array.from(w[spec.dict + '_RUNTIME']).filter((k) => !src.includes(k));
+      assert.deepStrictEqual(gone, []);
+    });
+  }
 }
 
 test('activity tracker: every runtime key exists in App.jsx (the dictionary cannot drift from the React source)', () => {
