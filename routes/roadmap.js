@@ -5,7 +5,7 @@ const { fail } = require('../services/httpError');
 // and user_id is ALWAYS req.reportUser.id — never trusted from body/query, so one super_admin
 // can never read or mutate another's roadmap. DI factory like routes/opmanager.js /
 // routes/meridian.js: server.js passes { express, requireReportSession, requireSuperAdmin }.
-// NOT mounted in server.js yet (that's a later task) — the page is a later task too.
+// Mounted in server.js (app.use(require('./routes/roadmap')(…))); page: public/itsm-roadmap.html.
 module.exports = function roadmapRoutes(deps) {
   const { express, requireReportSession, requireSuperAdmin } = deps;
   const router = express.Router();
