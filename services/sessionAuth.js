@@ -28,7 +28,8 @@ function scriptSrc(nonce, strict) {
     // security review: the strict pages (login, Exec View, share links) load nothing from a CDN —
     // no third-party origin is allowed to run script on the pages an anonymous visitor reaches
     ? `script-src 'self' 'nonce-${nonce}'`
-    : "script-src 'self' 'unsafe-inline' cdn.jsdelivr.net cdnjs.cloudflare.com";
+    // B-01: front-end libraries are same-origin (public/vendor/) — no CDN origin on any production page
+    : "script-src 'self' 'unsafe-inline'";
 }
 
 // Give every <script> tag that has no nonce the per-request nonce.

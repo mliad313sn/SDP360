@@ -154,12 +154,13 @@ app.use((req, res, next) => {
   // Don't send Referer to third-party origins
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   // Content-Security-Policy — 'unsafe-inline' required for inline event handlers
-  // (onclick/onchange attributes). CDN domains allowlisted for external libraries.
+  // (onclick/onchange attributes). B-01: no CDN origin — Chart.js, its datalabels plugin and
+  // React are served same-origin from public/vendor/ (fonts.googleapis.com stays, fonts are out of scope).
   // style-src keeps 'unsafe-inline' (many inline styles throughout).
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'",
     sessionAuth.scriptSrc(nonce, sessionAuth.isStrictCspPath(req.path)),   // E5: nonce-only on public/share pages
-    "style-src 'self' 'unsafe-inline' fonts.googleapis.com cdn.jsdelivr.net cdnjs.cloudflare.com",
+    "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
     "font-src 'self' fonts.gstatic.com data:",
     "img-src 'self' data:",
     // inspection.html ships its PWA manifest as an inline `data:` URL so the
@@ -198,16 +199,19 @@ app.use((req, res, next) => {
     path === '/activity-tracker.html' ||
     path.startsWith('/activity-tracker/');
   if (isPreviewLike) {
+    const isDevPreview = path.startsWith('/dashboard-preview') || path.startsWith('/design-system');
     res.setHeader('Content-Security-Policy', [
       "default-src 'self'",
       // Step 5: the tracker ships pre-built JS (esbuild) — 'unsafe-eval' only for the dev previews.
-      (path.startsWith('/dashboard-preview') || path.startsWith('/design-system')
+      // B-01: the tracker loads React + Chart.js from public/vendor/ — no CDN origin. Only the dev
+      // previews (dashboard-preview/, design-system/) still pull React + Babel from a CDN.
+      (isDevPreview
         ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' unpkg.com cdn.jsdelivr.net cdnjs.cloudflare.com"
-        : "script-src 'self' 'unsafe-inline' unpkg.com cdn.jsdelivr.net cdnjs.cloudflare.com"),
+        : "script-src 'self' 'unsafe-inline'"),
       "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
       "font-src 'self' fonts.gstatic.com data:",
       "img-src 'self' data:",
-      "connect-src 'self' unpkg.com",
+      (isDevPreview ? "connect-src 'self' unpkg.com" : "connect-src 'self'"),
       "object-src 'none'",
       "base-uri 'self'",
       "frame-ancestors 'none'",

@@ -19,3 +19,7 @@ tests/__golden__/*.html -text
 # ZIP packager skips the same folder (tools/deploy/make-deploy-zip.ps1 $skip).
 tools/installer/tests export-ignore
 tools/installer/tests/** export-ignore
+
+# Vendored front-end libraries (B-01): byte-for-byte npm builds whose SHA-256 is pinned in
+# public/vendor/VENDOR.json — no end-of-line conversion, or a Windows checkout breaks the hashes.
+public/vendor/** -text

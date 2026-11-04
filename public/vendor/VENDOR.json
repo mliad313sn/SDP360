@@ -1,0 +1,13 @@
+{
+  "_comment": "B-01 — front-end libraries served same-origin. Each file is copied byte-for-byte from the npm tarball (npm pack <pkg>@<version>); sha256 is checked by tests/vendor-libs.test.js. To upgrade: npm pack the new version, copy the UMD build + licence into a new versioned folder, update this file, repoint the pages.",
+  "libraries": [
+    { "name": "chart.js", "version": "4.4.1", "licence": "MIT", "npm_integrity": "sha512-C74QN1bxwV1v2PEujhmKjOZ7iUM4w6BWs23Md/6aOZZSlwMzeCIDGuZay++rBgChYru7/+QFeoQW0fQoP534Dg==",
+      "files": { "chart.js/4.4.1/chart.umd.js": { "from": "package/dist/chart.umd.js", "sha256": "74401d738dd3e03ee5dfb3b6841210fe2c4ead8a960c4011ca4ba0b78a9fd8f3" } } },
+    { "name": "chartjs-plugin-datalabels", "version": "2.2.0", "licence": "MIT", "npm_integrity": "sha512-14ZU30lH7n89oq+A4bWaJPnAG8a7ZTk7dKf48YAzMvJjQtjrgg5Dpk9f+LbjCF6bpx3RAGTeL13IXpKQYyRvlw==",
+      "files": { "chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js": { "from": "package/dist/chartjs-plugin-datalabels.min.js", "sha256": "20c08f3d9c6d2ef76df6d6a6f1127c0013339fe32add24222276c398c6308c38" } } },
+    { "name": "react", "version": "18.3.1", "licence": "MIT", "npm_integrity": "sha512-wS+hAgJShR0KhEvPJArfuPVN1+Hz1t0Y6n5jLrGQbkb4urgPE/0Rve+1kMB1v/oWgHgm4WIcV+i7F2pTVj+2iQ==",
+      "files": { "react/18.3.1/react.production.min.js": { "from": "package/umd/react.production.min.js", "sha256": "d949f1c3687aedadcedac85261865f29b17cd273997e7f6b2bfc53b2f9d4c4dd" } } },
+    { "name": "react-dom", "version": "18.3.1", "licence": "MIT", "npm_integrity": "sha512-5m4nQKp+rZRb09LNH59GM4BxTh9251/ylbKIbpe7TpGxfJ+9kv6BLkLBXIjjspbgbnIBNqlI23tRnTWT0snUIw==",
+      "files": { "react-dom/18.3.1/react-dom.production.min.js": { "from": "package/umd/react-dom.production.min.js", "sha256": "35f4f974f4b2bcd44da73963347f8952e341f83909e4498227d4e26b98f66f0d" } } }
+  ]
+}
