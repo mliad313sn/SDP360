@@ -12,7 +12,7 @@
   "jobs": 26,
   "jobs_without_test_reference": 10,
   "migrations": 62,
-  "test_files": 527
+  "test_files": 528
  },
  "pages": [
   {
@@ -278,7 +278,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 110296,
+   "bytes": 118847,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -292,6 +292,7 @@
     "tests/field-pwa-static.test.js",
     "tests/field-storage-browser.test.js",
     "tests/field-storage-guard.test.js",
+    "tests/helpdesk-pareto-ranking.test.js",
     "tests/i18n-coverage.test.js",
     "tests/landing.test.js",
     "tests/sdp-manager.smoke.test.js",

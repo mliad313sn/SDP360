@@ -17,7 +17,7 @@
 | jobs | 26 |
 | jobs without test reference | 10 |
 | migrations | 62 |
-| test files | 527 |
+| test files | 528 |
 
 ## Pages
 
@@ -38,7 +38,7 @@
 | PG-handoffs | public/handoffs.html | any | yes | 1 | 5 |
 | PG-help | public/help.html | any | yes | 1 | 7 |
 | PG-home | public/home.html | any | yes | 0 | 5 |
-| PG-index | public/index.html | any | yes | 1 | 16 |
+| PG-index | public/index.html | any | yes | 1 | 17 |
 | PG-infra-health | public/infra-health.html | any | yes | 2 | 3 |
 | PG-inspection-actions | public/inspection-actions.html | any | no | 1 | 4 |
 | PG-inspection | public/inspection.html | any | no | 2 | 6 |
