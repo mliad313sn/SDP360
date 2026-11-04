@@ -8,6 +8,7 @@
   const STATIC = {
     'Insights · Actions': 'Analyses · Actions',
     'Site Actions Register': 'Registre des actions du site',
+    'Also:': 'Aussi :', 'Handoffs': 'Demandes inter-services', 'Notifications': 'Notifications', 'Site obligations': 'Obligations du site',
     'Every still-open action — and every still-open': 'Toutes les actions encore ouvertes — et tous les',
     'problem': 'problèmes',
     'raised in a meeting — for one site, gathered from where they live —': 'encore ouverts soulevés en réunion — pour un site, rassemblés depuis leur source —',

@@ -21,8 +21,8 @@ planned switch cannot be set before its goal lands.
 | `ui_i18n_pages` | built | `0` | `1` | Owner (D-2) | A-09 |
 | `ui_lang_default` | built | `` (empty) | `fr` | Owner (D-2) | A-09 |
 | `ui_role_landing` | built | `0` | `1` | Owner (UI policy) | A-10 |
-| `ui_nav_profile` | key only — no effect until A-21 | `full` | `lean` | Owner (D-6) | A-21 |
-| `ui_deck_builder_roles` | key only — no effect until A-21 | `super_admin` | `super_admin` (widening also needs the page gate) | Owner (D-6) | A-21 |
+| `ui_nav_profile` | built | `full` | `lean` (proposal — re-decide from the T1–T8 sessions) | Owner (D-6) | A-21 |
+| `ui_deck_builder_roles` | built (menu entry only) | `super_admin` | `super_admin` (widening also needs the page gate) | Owner (D-6) | A-21 |
 | `site_score_published_model` | built | `legacy` | `programme` | Owner (D-1) | A-11 |
 | `capacity_enabled` | planned | `0` | `1` | Owner (D-7) | A-13 |
 | `capacity_amber_pct` | planned | `85` | `85` | Owner (D-7) | A-13 |

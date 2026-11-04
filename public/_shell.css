@@ -357,11 +357,25 @@ body {
 .shell-user-initial { display: none; width: 22px; height: 22px; border-radius: 50%; background: rgba(255,255,255,.22);
   align-items: center; justify-content: center; font-weight: 700; font-size: 11px; }
 .shell-user-name { max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A-21 — the 1400 px rule applies to the full menu (report_config ui_nav_profile='full', today); with the lean
+   profile (body.shell-nav-lean, set by _shell.js) the shorter menu keeps its labels down to 1180 px, so a
+   1366 px laptop reads words instead of icons. */
 @media (max-width: 1400px) {
-  .shell-nav > .shell-nav-item:not(.is-active) .shell-nav-label,
-  .shell-nav > .shell-nav-item-link:not(.is-active) .shell-nav-label { display: none; }
+  body:not(.shell-nav-lean) .shell-nav > .shell-nav-item:not(.is-active) .shell-nav-label,
+  body:not(.shell-nav-lean) .shell-nav > .shell-nav-item-link:not(.is-active) .shell-nav-label { display: none; }
   .shell-brand-text small { display: none; }
 }
+/* fit guard: when the labels of a long lean menu (super_admin: 9 sections) do not fit the width, _shell.js adds
+   shell-nav-tight and the menu falls back to icons exactly like the full profile below 1400 px */
+body.shell-nav-lean.shell-nav-tight .shell-nav > .shell-nav-item:not(.is-active) .shell-nav-label,
+body.shell-nav-lean.shell-nav-tight .shell-nav > .shell-nav-item-link:not(.is-active) .shell-nav-label { display: none; }
+@media (max-width: 1180px) {
+  body.shell-nav-lean .shell-nav > .shell-nav-item:not(.is-active) .shell-nav-label,
+  body.shell-nav-lean .shell-nav > .shell-nav-item-link:not(.is-active) .shell-nav-label { display: none; }
+}
+/* A-21 — contextual links to pages the lean menu leaves out (handoffs, notifications, obligations, RFI) */
+.shell-lean-only { display: none; }
+body.shell-nav-lean .shell-lean-only { display: block; }
 @media (max-width: 900px) {
   .shell-header { padding: 0 12px; }
   .shell-brand { margin-right: 8px; }

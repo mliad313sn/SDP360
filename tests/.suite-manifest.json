@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 3521,
+ "total": 3534,
  "files": {
   "a11y-static.test.js": 16,
   "access-denied-log.smoke.test.js": 3,
@@ -406,8 +406,10 @@
   "server-size-budget.test.js": 2,
   "service-control.test.js": 3,
   "session-lifecycle.test.js": 5,
-  "shell-navigation.test.js": 16,
+  "shell-css-breakpoint.test.js": 3,
+  "shell-navigation.test.js": 17,
   "shell-skip-link.test.js": 9,
+  "simplicity-budget.test.js": 9,
   "site-actions-merge.smoke.test.js": 2,
   "site-actions-register.test.js": 15,
   "site-actions-routes.smoke.test.js": 4,

@@ -46,6 +46,12 @@
   <div class="hm-card">
     <h2><span data-lng="en">Shortcuts</span><span data-lng="fr">Raccourcis</span></h2>
     <ul id="hmShortcuts" class="hm-shortcuts"></ul>
+    <!-- A-21 — pages the lean menu (report_config ui_nav_profile='lean') leaves out; shown only in that profile -->
+    <ul class="hm-shortcuts shell-lean-only" aria-label="More pages">
+      <li><a href="obligations.html"><span data-lng="en">Site obligations</span><span data-lng="fr">Obligations du site</span></a></li>
+      <li><a href="handoffs.html"><span data-lng="en">Handoffs</span><span data-lng="fr">Demandes inter-services</span></a></li>
+      <li><a href="notifications.html"><span data-lng="en">Notifications</span><span data-lng="fr">Notifications</span></a></li>
+    </ul>
   </div>
 </main>
 <script nonce="%%CSP_NONCE%%" src="lib/errorText.js"></script>
