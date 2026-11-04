@@ -181,6 +181,14 @@ const DEFAULTS = {
   // (tasks, milestones, risks, deliverables) of their site projects. '0' = today (all read, committee writes).
   portfolio_site_scope_reads: '0',
   portfolio_editor_plan_writes: '0',
+  // A-27 — PROPOSED PPM governance policy (not approved): '0' = today. ppm_baseline_versions '1' = the approval gate
+  // writes a baseline version; ppm_rebaseline_enabled '1' = the committee re-baseline action exists (404 while '0');
+  // ppm_alerts_enabled '1' = the nightly A11 exception job notifies in-app (while '0' it is a dry run).
+  ppm_baseline_versions: '0',
+  ppm_rebaseline_enabled: '0',
+  ppm_alerts_enabled: '0',
+  ppm_alert_blocked_days: '5',
+  ppm_alert_slip_days: '10',
   site_codes_from_registry: '0',   // DEC-4 — '1' = site_module_codes wins over the modules' hard-coded maps (diff first: GET /api/governance/site-codes)   // ADR-006 — in-app notice to the escalation-matrix target of a new A01 / A02 (off = ledger only, as before)
 };
 // ── Sync alerting (Step 1). Recipients = comma list of e-mail addresses; teams_url = a

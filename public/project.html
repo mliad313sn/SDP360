@@ -75,6 +75,7 @@
   <section id="pane-plan" role="tabpanel" aria-labelledby="tab-plan" hidden>
     <div class="panel"><h2>Schedule</h2><div id="plan-note" class="muted"></div><div class="gantt scroll" id="gantt"></div>
       <details><summary class="muted">Table view (the same data)</summary><div class="scroll" id="plan-table"></div></details></div>
+    <div class="panel"><h2>Baseline versions</h2><div class="row"><label>Show as the dashed baseline <select id="bl-version" aria-label="Baseline version"><option value="">Current task baselines</option></select></label></div><div id="bl-note" class="muted"></div><div class="scroll" id="bl-diff"></div></div>
     <div class="panel"><h2>Resource conflicts on this project</h2><div class="scroll" id="plan-conflicts"></div></div>
     <div class="panel" id="task-edit" hidden><h2>Add / edit a task</h2>
       <div class="row">
@@ -212,6 +213,22 @@
     return out;
   }
   var taskLabel = function (t) { return [t.wbs_code, t.name].filter(function (x) { return x != null && x !== ""; }).join(" "); };   // plain text; callers escape
+  // A-27 — baseline versions (portfolio_baselines): the chosen version is drawn as the dashed baseline ("ghost")
+  var BLV = null, BLSEL = "";
+  function blVersion() { if (!BLV || !BLSEL) return null; for (var i = 0; i < BLV.versions.length; i++) if (String(BLV.versions[i].version) === BLSEL) return BLV.versions[i]; return null; }
+  function ghostOf(t) {
+    var v = blVersion(); if (!v) return { s: t.baseline_start, e: t.baseline_end };
+    var x = (v.payload.tasks || []).filter(function (y) { return y.id === t.id; })[0];
+    return x ? { s: x.baseline_start || x.start_date, e: x.baseline_end || x.end_date } : { s: null, e: null };
+  }
+  function renderBaselines() {
+    if (!BLV) { api("/api/governance/portfolio/project/" + encodeURIComponent(PID) + "/baselines").then(function (j) { BLV = j; renderBaselines(); if (BLSEL) renderPlan(); }).catch(function () { $("bl-note").textContent = "Baseline versions unavailable."; }); return; }
+    $("bl-version").innerHTML = opt(BLV.versions.map(function (v) { return [v.version, "v" + v.version + " · " + String(v.captured_at || "").slice(0, 10) + (v.approved_by_name ? " · re-baseline by " + v.approved_by_name : " · captured at approval")]; }), BLSEL, "Current task baselines");
+    $("bl-note").textContent = BLV.versions.length ? "Shifts are in days from the chosen version to the current plan (positive = later); “—” = a date is missing on one side." : (BLV.capture_enabled ? "No baseline version yet: one is written when the project passes the approval gate." : "No baseline version: version capture at approval is off (setting ppm_baseline_versions).");
+    var v = blVersion(), d = v && v.diff_vs_current;
+    $("bl-diff").innerHTML = d ? "<p>Project finish: " + n(d.project.end_shift_days, " d") + (v.reason ? " · <span class=\"muted\">" + esc(v.reason) + "</span>" : "") + "</p><table><thead><tr><th>Task</th><th>Start shift</th><th>End shift</th><th></th></tr></thead><tbody>" + d.tasks.map(function (t) { return "<tr><td>" + esc(t.name || "#" + t.id) + "</td><td>" + n(t.start_shift_days, " d") + "</td><td>" + n(t.end_shift_days, " d") + "</td><td class=\"muted\">" + (!t.in_a ? "added since" : !t.in_b ? "removed since" : "") + "</td></tr>"; }).join("") + "</tbody></table>" : "";
+  }
+  document.addEventListener("change", function (ev) { if (ev.target && ev.target.id === "bl-version") { BLSEL = ev.target.value; renderPlan(); } });
   var planOf = function (id) { var p = V.plan && V.plan.tasks || []; for (var i = 0; i < p.length; i++) if (p[i].id === id) return p[i]; return null; };
   function opt(list, sel, blank) { return (blank ? "<option value=\"\">" + esc(blank) + "</option>" : "") + list.map(function (o) { return "<option value=\"" + esc(o[0]) + "\"" + (String(o[0]) === String(sel) ? " selected" : "") + ">" + esc(o[1]) + "</option>"; }).join(""); }
 
@@ -219,7 +236,7 @@
   function load() {
     if (!PID || !/^\d+$/.test(PID)) { $("p-title").textContent = "Project"; msg("No project id in the address — open a project from the portfolio.", "errors"); return Promise.resolve(); }
     return api("/api/governance/portfolio/project/" + encodeURIComponent(PID)).then(function (v) {
-      V = v; renderHeader();
+      V = v; BLV = null; renderHeader();
       var t = (window.location.hash || "").slice(1);
       showTab(TABS.indexOf(t) >= 0 ? t : (TABS.filter(function (x) { return $("tab-" + x).getAttribute("aria-selected") === "true"; })[0] || "overview"));
     }).catch(function (e) { if (e.status === 404) { $("p-title").textContent = "Project not found"; msg("This project does not exist, or it is outside the sites you may read.", "errors"); } else fail(e); });
@@ -279,6 +296,7 @@
   }
   function renderPlan() {
     var rows = taskOrder(V.tasks), anchor = V.plan && V.plan.anchor;
+    renderBaselines();
     var assumed = rows.filter(function (r) { var pl = planOf(r.t.id); return pl && pl.assumed_duration; }).length;
     $("plan-note").innerHTML = (V.plan ? "" : "<p class=\"refusal\">The dependencies form a loop: the plan cannot be computed.</p>") +
       (anchor ? "Computed dates start from " + esc(anchor) + " (project start, else the earliest task start). " : "No project start and no dated task: the plan is shown in relative days only, not as dates. ") +
@@ -297,7 +315,7 @@
     var dated = !!anchor || rows.some(function (r) { return barOf(r.t); });
     var lo = Infinity, hi = -Infinity, push = function (d) { var x = toMs(d); if (isFinite(x)) { lo = Math.min(lo, x); hi = Math.max(hi, x + DAY); } };
     var rel = function (r) { var pl = planOf(r.t.id); return pl ? { s: pl.es, e: pl.ef } : null; };
-    if (dated) { rows.forEach(function (r) { var b = barOf(r.t); if (b) { push(b.s); push(b.e); } push(r.t.baseline_start); push(r.t.baseline_end); }); ms.forEach(function (m) { push(m.due_date); }); push(today()); }
+    if (dated) { rows.forEach(function (r) { var b = barOf(r.t); if (b) { push(b.s); push(b.e); } var g = ghostOf(r.t); push(g.s); push(g.e); }); ms.forEach(function (m) { push(m.due_date); }); push(today()); }
     else { lo = 0; hi = Math.max(1, (V.plan && V.plan.length_days) || 1); }
     if (!isFinite(lo)) { lo = toMs(today()); hi = lo + 30 * DAY; }
     var span = Math.max(1, hi - lo), x = function (v) { return LW + (W - LW - 10) * (v - lo) / span; };
@@ -310,7 +328,8 @@
       var x0 = b ? xd(b.s) : rr ? xr(rr.s) : null, x1 = b ? xd(b.e) + (W - LW - 10) * DAY / span : rr ? xr(rr.e) : null;
       var crit = !!pl.critical, comp = b ? b.computed : !!rr;
       out.push("<text class=\"lbl\" x=\"" + n(4 + 12 * r.depth) + "\" y=\"" + n(y + 16) + "\">" + esc(taskLabel(t).slice(0, 38)) + (crit ? " CP" : "") + "</text>");
-      if (t.baseline_start && t.baseline_end && dated) out.push("<rect x=\"" + n(xd(t.baseline_start)) + "\" y=\"" + n(y + 3) + "\" width=\"" + n(Math.max(2, xd(t.baseline_end) + (W - LW - 10) * DAY / span - xd(t.baseline_start))) + "\" height=\"18\" rx=\"4\" fill=\"none\" stroke=\"#9AA4B2\" stroke-dasharray=\"4 3\"/>");
+      var gh = ghostOf(t);
+      if (gh.s && gh.e && dated) out.push("<rect x=\"" + n(xd(gh.s)) + "\" y=\"" + n(y + 3) + "\" width=\"" + n(Math.max(2, xd(gh.e) + (W - LW - 10) * DAY / span - xd(gh.s))) + "\" height=\"18\" rx=\"4\" fill=\"none\" stroke=\"#9AA4B2\" stroke-dasharray=\"4 3\"/>");
       if (x0 == null) { out.push("<text class=\"axis\" x=\"" + n(LW + 4) + "\" y=\"" + n(y + 16) + "\">not scheduled</text>"); return; }
       pos[t.id] = { s: x0, e: x1, y: y + 12 };
       var when = b ? [b.s, " to ", b.e].join("") : ["day ", rr.s, " to day ", rr.e].join("");  // plain text, escaped once in esc(label)
