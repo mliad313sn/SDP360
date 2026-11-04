@@ -384,6 +384,8 @@ textarea{resize:vertical;min-height:60px;font-family:inherit}
    save succeeded but the server didn't accept it yet. */
 .toolbar .save-status.server-ok{color:var(--ok);font-weight:600}
 .toolbar .save-status.server-fail{color:var(--warn, #B45309);font-weight:600}
+/* A-07: the draft could NOT be written on this device — red, never "Saved". */
+.toolbar .save-status.local-fail{color:var(--edv-red, #D90038);font-weight:700}
 .save-now-link{
   font-family:inherit;font-size:11px;font-weight:600;
   background:transparent;border:none;
@@ -1476,6 +1478,7 @@ body.submission-locked .submit-row::before{
   <img id="lightboxImg" alt="" />
 </div>
 
+<script nonce="%%CSP_NONCE%%" src="lib/draftStore.js"></script>
 <script nonce="%%CSP_NONCE%%">
 /* ============================================================
    INSPECTION CATEGORIES & ITEMS
@@ -1711,6 +1714,47 @@ let state = { meta:{}, items:{}, actions:[], signatures:{} };
 let currentId = null;
 let currentFilter = 'all';
 
+// A-07 — drafts live in IndexedDB ('em-inspection-drafts', public/lib/draftStore.js).
+// A documented inspection carries its photos inline (25-80 MB) and localStorage holds
+// ~5 MB; its QuotaExceededError used to be swallowed, so the page said "Saved locally"
+// for a draft saved nowhere. localStorage stays the fallback ONLY when IndexedDB cannot
+// open at all, and every save resolves {ok} / {ok:false, error} — never a silent loss.
+// Index, current id and the sync queue stay in localStorage (small).
+const DRAFTS = (function(){
+  if (!window.DraftStore) return null;
+  let idb = null, ls = null;
+  try { idb = window.indexedDB || null; } catch(_) { idb = null; }
+  try { ls = window.localStorage || null; } catch(_) { ls = null; }
+  return DraftStore.makeDraftStore({
+    adapter: DraftStore.autoAdapter({ indexedDB: idb, localStorage: ls, prefix: `${STORAGE_PREFIX}__data__` }),
+  });
+})();
+let _persistAsked = false;
+function _requestPersist(){
+  // Best effort: ask the browser not to evict our drafts under storage pressure.
+  if (_persistAsked) return;
+  _persistAsked = true;
+  try {
+    if (navigator.storage && typeof navigator.storage.persist === 'function') {
+      navigator.storage.persist().catch(() => {});
+    }
+  } catch(_) {}
+}
+// One-time, per device: copy every legacy localStorage draft into IndexedDB, verify it,
+// then free the localStorage key. Idempotent; never runs onto the localStorage fallback.
+async function _migrateDrafts(){
+  if (!DRAFTS || !window.DraftStore) return null;
+  try {
+    await DRAFTS.ready();
+    const res = await DraftStore.migrateFromLocalStorage(localStorage, DRAFTS, STORAGE_PREFIX);
+    if (res.moved || res.kept) console.log('[inspection] drafts migrated to IndexedDB:', res.moved, 'moved,', res.kept, 'kept in localStorage', res.errors);
+    return res;
+  } catch(e) {
+    console.warn('[inspection] draft migration skipped:', e);
+    return null;
+  }
+}
+
 function genId(){
   const d = new Date();
   const pad = n => String(n).padStart(2,'0');
@@ -1739,8 +1783,13 @@ function refreshSavedSelect(){
     : idx.map(e => `<option value="${e.id}" ${e.id===currentId?'selected':''}>${escapeHtml(e.label)}</option>`).join('');
 }
 
-function newInspection(){
-  saveCurrent();
+async function newInspection(){
+  // The draft is serialised at call time, so it is written under the right id even if
+  // currentId changes below; awaiting lets us stop when it could NOT be written.
+  if (currentId) {
+    const r = await saveCurrent();
+    if (r && r.ok === false && !_confirmLeaveUnsaved(r.error)) return;
+  }
   const id = genId();
   state = { meta:{ f_id:id, f_date:new Date().toISOString().split('T')[0], f_time:new Date().toTimeString().slice(0,5) }, items:{}, actions:[], signatures:{} };
   currentId = id;
@@ -1752,12 +1801,38 @@ function newInspection(){
   refreshSavedSelect();
 }
 
-function switchInspection(id){
+async function switchInspection(id){
   if (!id || id === currentId) return;
-  saveCurrent();
+  const prevId = currentId;
+  const r = await saveCurrent();
+  if (r && r.ok === false && !_confirmLeaveUnsaved(r.error)) { refreshSavedSelect(); return; }
   currentId = id;
-  localStorage.setItem(KEY_CURRENT, id);
-  loadCurrent();
+  if (await loadCurrent()) {
+    localStorage.setItem(KEY_CURRENT, id);
+    return;
+  }
+  // Draft missing on this device: try the server copy before giving up, and never keep
+  // the old inspection's state under the new id (the next save would write it there).
+  const serverState = (typeof window.fetchInspectionFromServer === 'function')
+    ? await window.fetchInspectionFromServer(id) : null;
+  if (serverState && currentId === id) {
+    state = Object.assign({ meta:{}, items:{}, actions:[], signatures:{} }, serverState);
+    localStorage.setItem(KEY_CURRENT, id);
+    applyStateToUI();
+    saveCurrent();
+    return;
+  }
+  currentId = prevId;
+  refreshSavedSelect();
+  if (typeof showToast === 'function') showToast('That inspection is not on this device and the server did not return it.', 'warn', 5000);
+}
+
+// The current draft could not be written on this device: say so before discarding it.
+function _confirmLeaveUnsaved(err){
+  const why = (window.DraftStore && DraftStore.describeError(err)) || 'storage error';
+  return confirm('This inspection is NOT saved on this device (' + why + ').\n'
+    + 'Leave it anyway? Unsent changes will be lost — Cancel, then click Save now or Export (JSON).\n\n'
+    + 'Cette inspection n\'est PAS enregistrée sur cet appareil. Quitter quand même ?');
 }
 
 // Triggered by the toolbar 🗑 button. Pops a styled confirmation
@@ -1845,15 +1920,18 @@ async function confirmDelete(){
     }
   }
 
-  localStorage.removeItem(KEY_DATA(doomedId));
+  try { if (DRAFTS) await DRAFTS.del(doomedId); }
+  catch (e) { console.warn('[inspection] local draft delete failed:', e); }
+  try { localStorage.removeItem(KEY_DATA(doomedId)); } catch(_) {}  // legacy copy, if any
   const idx = getIndex().filter(e => e.id !== doomedId);
   setIndex(idx);
   if (idx.length){
     currentId = idx[0].id;
     localStorage.setItem(KEY_CURRENT, currentId);
-    loadCurrent();
+    await loadCurrent();
   } else {
-    newInspection();
+    currentId = null;   // nothing left to save before creating the next one
+    await newInspection();
   }
   refreshSavedSelect();
   if (typeof showToast === 'function') showToast('Inspection deleted.', 'info', 2500);
@@ -1878,21 +1956,37 @@ function updateIndexEntry(){
   }
 }
 
+// Resolves {ok:true} or {ok:false, error} — it NEVER hides a failed write (A-07).
+// DRAFTS.put serialises `state` under `currentId` synchronously, before any await.
 function saveCurrent(){
-  if (!currentId) return;
-  try { localStorage.setItem(KEY_DATA(currentId), JSON.stringify(state)); }
-  catch(e){ console.warn('Save failed', e); }
+  if (!currentId) return Promise.resolve({ ok: true, skipped: true });
+  _requestPersist();
+  if (!DRAFTS) {
+    const error = new Error('draft storage did not load');
+    error.name = 'StorageUnavailableError';
+    return Promise.resolve({ ok: false, error });
+  }
+  return DRAFTS.put(currentId, state).then(r => {
+    if (!r.ok) console.warn('[inspection] draft NOT saved on this device:', r.error);
+    return r;
+  });
 }
 
-function loadCurrent(){
+async function loadCurrent(){
   if (!currentId) return false;
-  try {
-    const raw = localStorage.getItem(KEY_DATA(currentId));
-    if (!raw) return false;
-    state = Object.assign({meta:{},items:{},actions:[],signatures:{}}, JSON.parse(raw));
-    applyStateToUI();
-    return true;
-  } catch(e){ console.error(e); return false; }
+  const id = currentId;
+  let data = null;
+  try { if (DRAFTS) data = await DRAFTS.get(id); }
+  catch(e){ console.error('[inspection] draft read failed:', e); }
+  if (!data) {
+    // A legacy localStorage copy the migration could not move (verification failed).
+    try { const raw = localStorage.getItem(KEY_DATA(id)); if (raw) data = JSON.parse(raw); }
+    catch(e){ console.error(e); }
+  }
+  if (!data || id !== currentId) return false;
+  state = Object.assign({meta:{},items:{},actions:[],signatures:{}}, data);
+  applyStateToUI();
+  return true;
 }
 
 /* ============================================================
@@ -2977,18 +3071,31 @@ function autosave(){
   status.textContent = 'Saving...';
   status.classList.remove('saved');
   clearTimeout(saveTimer);
-  saveTimer = setTimeout(() => {
-    try {
-      saveCurrent();
-      updateIndexEntry();
-      const t = new Date().toLocaleTimeString();
-      status.textContent = `✓ Saved ${t}`;
-      status.classList.add('saved');
-    } catch(e){
-      status.textContent = '⚠ Save failed (storage limit?)';
-    }
-  }, 400);
+  saveTimer = setTimeout(_runAutosave, 400);
 }
+async function _runAutosave(){
+  saveTimer = null;
+  const status = document.getElementById('saveStatus');
+  updateIndexEntry();
+  const r = await saveCurrent();
+  // The server-sync overlay's wrapper writes the detailed message; this is the
+  // fallback for when it is not installed. Never "Saved" unless the write resolved ok.
+  if (!status || status.textContent !== 'Saving...') return;
+  if (r && r.ok) {
+    status.textContent = `✓ Saved locally ${new Date().toLocaleTimeString()}`;
+    status.classList.add('saved');
+  } else {
+    status.textContent = '⚠ NOT saved on this device — click Save now or Export (JSON)';
+  }
+}
+// Leaving the tab: write a pending debounced save now instead of losing it.
+function _flushPendingAutosave(){
+  if (saveTimer) { clearTimeout(saveTimer); _runAutosave(); }
+}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') _flushPendingAutosave();
+});
+window.addEventListener('pagehide', _flushPendingAutosave);
 
 function applyStateToUI(){
   // restore meta
@@ -3211,7 +3318,7 @@ function submitInspection(){
 async function confirmSubmit(){
   state.status = 'submitted';
   state.meta.submitted_at = new Date().toISOString();
-  if (typeof saveCurrent === 'function') saveCurrent();
+  if (typeof saveCurrent === 'function') await saveCurrent();
   closeSubmitModal();
 
   let ok = true;
@@ -3233,7 +3340,7 @@ async function reopenInspection(){
   if (!confirm('Re-open this submitted inspection for edits?\nRouvrir cette inspection soumise pour modification ?')) return;
   state.status = 'draft';
   state.meta.reopened_at = new Date().toISOString();
-  if (typeof saveCurrent === 'function') saveCurrent();
+  if (typeof saveCurrent === 'function') await saveCurrent();
   refreshSubmitStatus();
   if (typeof window.forceSyncNow === 'function') await window.forceSyncNow();
   showToast('Re-opened — inspection is editable again.', 'info', 3000);
@@ -3611,12 +3718,13 @@ async function init(){
   // works offline). If the local cache miss, we fall back to fetching
   // the inspection's state from the server — that brings up previously-
   // submitted inspections on a freshly-cleared browser or new device.
+  await _migrateDrafts();
   const urlParams = new URLSearchParams(window.location.search);
   const urlId     = urlParams.get('id');
   currentId       = urlId || localStorage.getItem(KEY_CURRENT);
   const idx       = getIndex();
 
-  if (currentId && idx.find(e => e.id === currentId) && loadCurrent()) {
+  if (currentId && idx.find(e => e.id === currentId) && await loadCurrent()) {
     // Loaded from localStorage — fast path.
   } else if (currentId && typeof window.fetchInspectionFromServer === 'function') {
     // Have an ID (from URL or last-opened) but no local cache —
@@ -3647,11 +3755,13 @@ async function init(){
       // or the user doesn't have permission to see it. Start fresh rather
       // than leaving them on a blank-but-wrong page.
       if (urlId) showToast('Inspection not found on server — starting a new one.\nInspection introuvable sur le serveur — création d\'une nouvelle.', 'warn', 5000);
-      newInspection();
+      currentId = null;
+      await newInspection();
     }
   } else {
     // No id anywhere — start fresh.
-    newInspection();
+    currentId = null;
+    await newInspection();
   }
   refreshSavedSelect();
 
@@ -3701,6 +3811,7 @@ document.addEventListener('DOMContentLoaded', init);
   }
 
   // ── Queue helpers ────────────────────────────────────────────────
+  const _missingIds = new Set();   // queued ids whose draft is not on this device
   function readQueue() {
     try { return JSON.parse(localStorage.getItem(QUEUE_KEY) || '[]'); }
     catch { return []; }
@@ -3733,7 +3844,9 @@ document.addEventListener('DOMContentLoaded', init);
   function refreshSyncPill() {
     const pill = document.getElementById('inspSyncPill');
     if (!pill) return;
-    const n = readQueue().length;
+    const q = readQueue();
+    const n = q.length;
+    const nMissing = q.filter(id => _missingIds.has(id)).length;
     const cloudIcon  = (window.EDV_ICONS && window.EDV_ICONS.html('cloud-off')) || '';
     const checkIcon  = (window.EDV_ICONS && window.EDV_ICONS.html('check'))     || '';
     if (n === 0) {
@@ -3741,8 +3854,9 @@ document.addEventListener('DOMContentLoaded', init);
       pill.style.color = 'var(--edv-green, #1B9A3A)';
       pill.disabled = true;
     } else {
-      pill.innerHTML = cloudIcon + ' Sync (' + n + ')';
-      pill.style.color = 'var(--edv-orange, #EF631A)';
+      pill.innerHTML = cloudIcon + ' Sync (' + n + ')'
+        + (nMissing ? ' · ' + nMissing + ' unsent (draft missing on this device)' : '');
+      pill.style.color = nMissing ? 'var(--edv-red, #D90038)' : 'var(--edv-orange, #EF631A)';
       pill.disabled = false;
     }
   }
@@ -3787,24 +3901,35 @@ document.addEventListener('DOMContentLoaded', init);
   }
   window.fetchInspectionFromServer = fetchInspectionFromServer;
 
+  // A-07: drafts are read from the draft store (IndexedDB). An id whose draft is not
+  // on this device STAYS queued — dequeuing it silently also threw away the server retry.
+  // The open inspection is sent from its live in-memory state (the freshest copy, and
+  // the only one when its local write failed).
   async function flushQueue() {
     const q = readQueue().slice();
     if (q.length === 0) return;
-    let ok = 0, fail = 0;
+    let ok = 0, fail = 0, missing = 0;
     for (const id of q) {
-      const raw = localStorage.getItem('em_it_inspection_v2__data__' + id);
-      if (!raw) { dequeue(id); continue; }
+      let draft = null;
+      if (id === currentId && state) draft = state;
+      else {
+        try { draft = DRAFTS ? await DRAFTS.get(id) : null; } catch(e) { draft = null; }
+      }
+      if (!draft) { _missingIds.add(id); missing++; continue; }
+      _missingIds.delete(id);
       try {
-        await postSave(JSON.parse(raw));
+        await postSave(draft);
         dequeue(id);
         ok++;
       } catch(e) {
         fail++;
       }
     }
+    refreshSyncPill();
     if (typeof showToast === 'function') {
-      const msg = fail === 0 ? `Synced ${ok} inspection${ok === 1 ? '' : 's'}` : `Synced ${ok}, ${fail} failed (will retry)`;
-      showToast(msg, fail === 0 ? 'info' : 'warn', 3000);
+      let msg = fail === 0 ? `Synced ${ok} inspection${ok === 1 ? '' : 's'}` : `Synced ${ok}, ${fail} failed (will retry)`;
+      if (missing) msg += ` · ${missing} unsent: draft missing on this device`;
+      showToast(msg, (fail === 0 && missing === 0) ? 'info' : 'warn', missing ? 6000 : 3000);
     }
   }
 
@@ -4223,13 +4348,22 @@ document.addEventListener('DOMContentLoaded', init);
   // action they can see and confirm.
   let _lastServerError = null;     // exposed via __inspectionSync for console debug
   let _localDirty       = false;    // true when local edits made since last server push
+  let _lastLocalError   = null;     // A-07: last FAILED local draft write (null = last one ok)
+  const describeLocalSaveError = (e) => (window.DraftStore ? window.DraftStore.describeError(e) : ((e && (e.message || e.name)) || 'storage error'));
   function _markStatus(html, kind) {
     const el = document.getElementById('saveStatus');
     if (!el) return;
     el.innerHTML = html;
-    el.classList.remove('saved', 'server-ok', 'server-fail');
+    el.classList.remove('saved', 'server-ok', 'server-fail', 'local-fail');
     if (kind === 'ok')   el.classList.add('saved', 'server-ok');
     if (kind === 'fail') el.classList.add('server-fail');
+    if (kind === 'local-fail') el.classList.add('local-fail');
+  }
+  function _localFailHtml() {
+    return `⚠ NOT saved on this device — ${escapeLocal(describeLocalSaveError(_lastLocalError))}. Click <b>Save now</b> to send to the server, or export (JSON)`;
+  }
+  function escapeLocal(t) {
+    return String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' })[c]);
   }
   function _hhmm() {
     const d = new Date();
@@ -4282,34 +4416,45 @@ document.addEventListener('DOMContentLoaded', init);
     const orig = window.saveCurrent;
     if (typeof orig !== 'function') return;
     window.saveCurrent = function patched() {
-      // Local autosave (localStorage) — always runs. The base script's
-      // own "✓ Saved" indicator briefly flashes here; we overwrite it
-      // immediately below with the local-only / dirty-since-server
-      // version so the user knows exactly where the data lives.
-      orig.apply(this, arguments);
       // Bare `currentId` / `state` resolve through the global lexical
       // environment to the body script's top-level `let` declarations.
       // window.currentId / window.state would be UNDEFINED — top-level
       // `let` in a classic script does NOT add a property to the
       // global object (only `var` and function-declarations do).
+      // Captured NOW: the message must describe the inspection that was saved.
       const id = currentId;
-      if (!id) return;
-      // Mark this inspection as having unpushed local changes. The
-      // toolbar status indicator shows "Save now to sync" while
-      // _localDirty is true, then flips to the "local + server" green
-      // state after a successful forceSyncNow().
-      _localDirty = true;
+      const snap = state;
+      // A-07: the local write is asynchronous and can fail (quota, IndexedDB abort,
+      // no storage). "Saved locally" appears only once it RESOLVED ok.
+      return Promise.resolve(orig.apply(this, arguments)).then(r => {
+        if (!id) return r;
+        // Mark this inspection as having unpushed local changes. The
+        // toolbar status indicator shows "Save now to sync" while
+        // _localDirty is true, then flips to the "local + server" green
+        // state after a successful forceSyncNow().
+        _localDirty = true;
+        if (!r || r.ok === false) {
+          _lastLocalError = (r && r.error) || new Error('unknown storage error');
+          _markStatus(_localFailHtml(), 'local-fail');
+          return r || { ok: false, error: _lastLocalError };
+        }
+        _lastLocalError = null;
+        _markSavedLocally(id, snap);
+        return r;
+      });
+    };
+  }
+  function _markSavedLocally(id, s) {
       if (_promotedIds.has(id)) {
         // Already on the server — user knows the row exists, just
         // remind them their latest edits aren't there yet.
         _markStatus(`✓ Saved locally ${_hhmm()} · click <b>Save now</b> to sync`, '');
-      } else if (_stateIsMeaningful(state, id)) {
+      } else if (_stateIsMeaningful(s, id)) {
         _markStatus(`✓ Saved locally ${_hhmm()} · click <b>Save now</b> or Submit to sync`, '');
       } else {
         // Truly empty — don't nag the user with a sync hint yet.
         _markStatus(`✓ Saved locally ${_hhmm()}`, '');
       }
-    };
   }
 
   // forceSyncNow — explicit user action: push to the server now. Bound
@@ -4326,7 +4471,7 @@ document.addEventListener('DOMContentLoaded', init);
     const link = document.getElementById('saveNowLink');
     const ind  = document.getElementById('saveStatus');
     if (link) { link.disabled = true; link.textContent = 'Saving…'; }
-    if (ind)  { ind.textContent = 'Syncing…'; ind.classList.remove('saved', 'server-ok', 'server-fail'); }
+    if (ind)  { ind.textContent = 'Syncing…'; ind.classList.remove('saved', 'server-ok', 'server-fail', 'local-fail'); }
 
     let ok = true;
     if (id && state) {
@@ -4341,7 +4486,12 @@ document.addEventListener('DOMContentLoaded', init);
         _lastServerError  = e && e.message || String(e);
         ok = false;
         if (typeof showToast === 'function') {
-          showToast('Server save failed: ' + (_lastServerError || '').slice(0, 140) + ' — data is safe locally, will retry.', 'warn', 6000);
+          // A-07: only promise "safe locally" when the last local write actually succeeded.
+          showToast('Server save failed: ' + (_lastServerError || '').slice(0, 140)
+            + (_lastLocalError
+              ? ' — and NOT saved on this device (' + describeLocalSaveError(_lastLocalError) + '). Export (JSON) now to keep a copy.'
+              : ' — data is safe locally, will retry.'),
+            'warn', _lastLocalError ? 10000 : 6000);
         }
       }
     }
@@ -4357,7 +4507,11 @@ document.addEventListener('DOMContentLoaded', init);
       }, 2200);
     }
     if (ok) {
-      _markStatus(`✓ Saved (local + server ${_hhmm()})`, 'ok');
+      _markStatus(_lastLocalError
+        ? `✓ Saved on the server ${_hhmm()} · ⚠ NOT saved on this device`
+        : `✓ Saved (local + server ${_hhmm()})`, 'ok');
+    } else if (_lastLocalError) {
+      _markStatus(_localFailHtml() + ' · ⚠ Server save failed too', 'local-fail');
     } else {
       _markStatus(`✓ Saved locally · ⚠ Server queued`, 'fail');
     }
@@ -4402,6 +4556,9 @@ document.addEventListener('DOMContentLoaded', init);
     //                                        toolbar). Keystroke autosave
     //                                        is local-only by design.
     get lastServerError() { return _lastServerError; },
+    get lastLocalError()  { return _lastLocalError; },
+    get draftStorage()    { return DRAFTS ? DRAFTS.kind : null; },
+    get missingDrafts()   { return [..._missingIds]; },
     get queueDepth()      { return readQueue().length; },
     get localDirty()      { return _localDirty; },
     forceSave: () => {

@@ -14,6 +14,7 @@ const SRC = fs.readFileSync(path.join(__dirname, '..', 'public', 'inspection.htm
 
 async function runDelete(status) {
   const removed = [], toasts = [];
+  const dropped = [];   // A-07: drafts now live in the IndexedDB draft store
   let index = [{ id: 'EM-1' }, { id: 'EM-2' }];
   const env = {
     closeDeleteModal: () => {},
@@ -25,6 +26,7 @@ async function runDelete(status) {
     loadCurrent: () => {}, newInspection: () => {}, refreshSavedSelect: () => {},
     showToast: (m, kind) => toasts.push({ m, kind }),
     localStorage: { removeItem: (k) => removed.push(k), getItem: () => '', setItem: () => {} },
+    DRAFTS: { del: async (id) => { dropped.push(id); } },
     document: { cookie: '' },
     fetch: async () => ({ ok: status >= 200 && status < 300, status, json: async () => ({ error: 'Forbidden — admin role required' }) }),
     console: { warn() {}, log() {} },
@@ -32,12 +34,13 @@ async function runDelete(status) {
   const names = Object.keys(env);
   const fn = new Function(...names, fnSource(SRC, 'confirmDelete') + '\nreturn confirmDelete;')(...names.map(n => env[n]));
   await fn();
-  return { removed, toasts, index };
+  return { removed, toasts, index, dropped };
 }
 
 test('A3 a refused delete (403) keeps the local copy and never says "deleted"', async () => {
-  const { removed, toasts, index } = await runDelete(403);
+  const { removed, toasts, index, dropped } = await runDelete(403);
   assert.deepEqual(removed, [], 'nothing removed locally');
+  assert.deepEqual(dropped, [], 'the IndexedDB draft is kept');
   assert.equal(index.length, 2, 'the inspection stays in the local index');
   assert.ok(!toasts.some(t => /Inspection deleted/i.test(t.m)), 'no success toast');
   assert.ok(toasts.some(t => /refus|denied|not allowed|administrat/i.test(t.m)), 'the refusal is explained');
@@ -49,8 +52,9 @@ test('A3 an expired session (401) is a refusal too', async () => {
 });
 
 test('A3 a draft that never reached the server (404) is still cleaned up locally', async () => {
-  const { removed, index } = await runDelete(404);
+  const { removed, index, dropped } = await runDelete(404);
   assert.deepEqual(removed, ['data:EM-1']);
+  assert.deepEqual(dropped, ['EM-1'], 'the IndexedDB draft is deleted too');
   assert.equal(index.length, 1);
 });
 
