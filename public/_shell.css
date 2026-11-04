@@ -384,6 +384,9 @@ body.shell-nav-compact .shell-user-initial { display: inline-flex; }
 /* A-21 — contextual links to pages the lean menu leaves out (handoffs, notifications, obligations, RFI) */
 .shell-lean-only { display: none; }
 body.shell-nav-lean .shell-lean-only { display: block; }
+/* C-28 — contextual link to the Executive Scorecard, shown only when ui_exec_nav='consolidated' takes it off the menu */
+.shell-exec-consolidated-only { display: none; }
+body.shell-exec-consolidated .shell-exec-consolidated-only { display: inline-block; }
 @media (max-width: 900px) {
   .shell-header { padding: 0 12px; }
   .shell-brand { margin-right: 8px; }

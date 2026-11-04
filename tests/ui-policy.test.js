@@ -6,7 +6,7 @@ const assert = require('node:assert');
 const { uiPolicyFrom, UI_DEFAULTS, isAllowed, UI_KEYS } = require('../services/uiPolicy');
 const { DEFAULTS } = require('../services/reportConfig');
 
-const TODAY = { lang_default: '', i18n_pages: '0', role_landing: '0', nav_profile: 'full', deck_builder_roles: ['super_admin'] };
+const TODAY = { lang_default: '', i18n_pages: '0', role_landing: '0', nav_profile: 'full', deck_builder_roles: ['super_admin'], exec_nav: 'full' };
 
 test('an empty config gives today\'s defaults', () => {
   assert.deepStrictEqual(uiPolicyFrom({}), TODAY);
@@ -15,13 +15,13 @@ test('an empty config gives today\'s defaults', () => {
 });
 
 test('unknown values fall back to the defaults', () => {
-  const p = uiPolicyFrom({ ui_lang_default: 'de', ui_nav_profile: 'tiny', ui_i18n_pages: 'yes', ui_role_landing: '2', ui_deck_builder_roles: 'nobody, ,root' });
+  const p = uiPolicyFrom({ ui_lang_default: 'de', ui_nav_profile: 'tiny', ui_i18n_pages: 'yes', ui_role_landing: '2', ui_deck_builder_roles: 'nobody, ,root', ui_exec_nav: 'tiny' });
   assert.deepStrictEqual(p, TODAY);
 });
 
 test('allowed values are passed through', () => {
-  const p = uiPolicyFrom({ ui_lang_default: 'fr', ui_nav_profile: 'lean', ui_i18n_pages: '1', ui_role_landing: '1', ui_deck_builder_roles: 'super_admin, executive,report-author' });
-  assert.deepStrictEqual(p, { lang_default: 'fr', i18n_pages: '1', role_landing: '1', nav_profile: 'lean', deck_builder_roles: ['super_admin', 'executive', 'report-author'] });
+  const p = uiPolicyFrom({ ui_lang_default: 'fr', ui_nav_profile: 'lean', ui_i18n_pages: '1', ui_role_landing: '1', ui_deck_builder_roles: 'super_admin, executive,report-author', ui_exec_nav: 'consolidated' });
+  assert.deepStrictEqual(p, { lang_default: 'fr', i18n_pages: '1', role_landing: '1', nav_profile: 'lean', deck_builder_roles: ['super_admin', 'executive', 'report-author'], exec_nav: 'consolidated' });
 });
 
 test('every ui_* key is in reportConfig.DEFAULTS with today\'s value', () => {
@@ -29,13 +29,15 @@ test('every ui_* key is in reportConfig.DEFAULTS with today\'s value', () => {
     assert.ok(k in DEFAULTS, `${k} missing from reportConfig.DEFAULTS (setConfig would drop it)`);
     assert.strictEqual(DEFAULTS[k], UI_DEFAULTS[k], `${k} default`);
   }
-  assert.deepStrictEqual(UI_KEYS.slice().sort(), ['ui_deck_builder_roles', 'ui_i18n_pages', 'ui_lang_default', 'ui_nav_profile', 'ui_role_landing']);
+  assert.deepStrictEqual(UI_KEYS.slice().sort(), ['ui_deck_builder_roles', 'ui_exec_nav', 'ui_i18n_pages', 'ui_lang_default', 'ui_nav_profile', 'ui_role_landing']);
 });
 
 test('isAllowed validates a value against the allowed set', () => {
   assert.ok(isAllowed('ui_i18n_pages', '1'));
   assert.ok(isAllowed('ui_lang_default', ''));
   assert.ok(isAllowed('ui_deck_builder_roles', 'super_admin,executive'));
+  assert.ok(isAllowed('ui_exec_nav', 'consolidated'));
+  assert.ok(!isAllowed('ui_exec_nav', 'lean'));
   assert.ok(!isAllowed('ui_i18n_pages', 'on'));
   assert.ok(!isAllowed('ui_lang_default', 'de'));
   assert.ok(!isAllowed('ui_deck_builder_roles', 'root'));

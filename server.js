@@ -5213,6 +5213,8 @@ function requireRole(roleOrRoles) {
 // C-17 — role set each shared guard enforces (services/capabilityRegistry maps it onto a capability).
 Object.assign(requireAdmin, { legacyRoles: ['admin'] }); Object.assign(requireSuperAdmin, { legacyRoles: ['super_admin'] }); Object.assign(requireExecutiveOrSuperAdmin, { legacyRoles: ['executive'] }); Object.assign(requireMoneyRead, { legacyRoles: ['admin', 'finance-viewer'] });
 
+// C-28 (PO P12) — Deck Builder routes: admin floor (today) + the roles named in ui_deck_builder_roles.
+const requireDeckBuilder = require('./services/deckBuilderGate').makeRequireDeckBuilder({ hasRole: (u, r) => !!rdb && rdb.userHasRole(u, r), getConfig: () => require('./services/reportConfig').getConfig(rdb.db) });
 const jsonBody = express.json({ limit: '2mb' });
 
 // ── Reporting suite (Foundation) ──────────────────────────────────────
@@ -5294,7 +5296,7 @@ function _execEditorialKey(req, res) {
   return { period, scope };
 }
 
-app.get('/api/reports/exec-editorial', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/reports/exec-editorial', requireReportSession, requireDeckBuilder, async (req, res) => {
   const key = _execEditorialKey(req, res);
   if (!key) return;
   try {
@@ -5306,7 +5308,7 @@ app.get('/api/reports/exec-editorial', requireReportSession, requireAdmin, async
   }
 });
 
-app.put('/api/reports/exec-editorial', requireReportSession, requireAdmin, async (req, res) => {
+app.put('/api/reports/exec-editorial', requireReportSession, requireDeckBuilder, async (req, res) => {
   const key = _execEditorialKey(req, res);
   if (!key) return;
   try {
@@ -7469,7 +7471,7 @@ app.put('/api/dashboard/presets', requireReportSession, requireAdmin, async (req
 // Discovered — groups present in the actual data but NOT yet classified
 // in any preset for this scope. Drives the "Pending" badge in the
 // modal. Admin+ only.
-app.get('/api/dashboard/groups/discovered', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/dashboard/groups/discovered', requireReportSession, requireDeckBuilder, async (req, res) => {
   const scope = String(req.query.scope || 'tickets').toLowerCase();
   if (scope !== 'tickets' && scope !== 'changes') {
     return res.status(400).json({ error: "scope must be 'tickets' or 'changes'" });
@@ -7483,7 +7485,7 @@ app.get('/api/dashboard/groups/discovered', requireReportSession, requireAdmin, 
   }
 });
 
-app.post('/api/reports/exec-pptx', requireReportSession, requireAdmin, async (req, res) => {
+app.post('/api/reports/exec-pptx', requireReportSession, requireDeckBuilder, async (req, res) => {
   const browserPayload = req.body || {};
   if (!browserPayload.filters || !browserPayload.filters.period_label) {
     return res.status(400).json({ error: 'Missing filters.period_label' });

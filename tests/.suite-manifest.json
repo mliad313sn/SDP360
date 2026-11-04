@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 3840,
+ "total": 3852,
  "files": {
   "a11y-static.test.js": 18,
   "access-denied-log.smoke.test.js": 3,
@@ -134,6 +134,8 @@
   "dashkey-only-routes.smoke.test.js": 2,
   "db-restore.test.js": 2,
   "db-schema-smoke.test.js": 7,
+  "deck-builder-gate.smoke.test.js": 2,
+  "deck-builder-gate.test.js": 6,
   "deck-governance-composers.test.js": 3,
   "deck-governance-measures.test.js": 3,
   "deck-governance-v2-fidelity.test.js": 8,
@@ -148,6 +150,7 @@
   "exec-active-mi-filter.test.js": 2,
   "exec-editorial.test.js": 3,
   "exec-mi-summary.test.js": 8,
+  "exec-nav-consolidated.test.js": 4,
   "exec-pptx-python.test.js": 2,
   "exec-report-editorial-routes.smoke.test.js": 7,
   "exec-report-editorial.test.js": 7,

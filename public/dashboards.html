@@ -47,6 +47,8 @@
       <button class="btn" id="edit" type="button" hidden>Edit in composer</button>
       <a class="btn" id="csv" href="#" download>Download figures (CSV)</a>
       <a class="btn" id="back" href="dashboards.html">All dashboards</a>
+      <!-- C-28 — the Executive Scorecard leaves the menu when ui_exec_nav='consolidated'; Executive Home links to it -->
+      <a class="btn shell-exec-consolidated-only" id="scorecardLink" href="executive.html">Executive Scorecard</a>
     </div>
   </div>
   <div class="status" id="status" role="status" aria-live="polite"></div>
@@ -91,6 +93,8 @@
   var def = null, meta = null;
   function renderView() {
     $('controls').hidden = false;
+    var has = window.__userHasRole || function () { return false; };
+    if (key !== 'exec-home' || !(has('executive') || has('scorecard-viewer'))) { var sl = $('scorecardLink'); if (sl) sl.remove(); }
     api('/api/dashboards/' + encodeURIComponent(key)).then(function (j) {
       meta = j.dashboard; def = j.published || j.dashboard.definition;
       $('title').textContent = meta.title;
