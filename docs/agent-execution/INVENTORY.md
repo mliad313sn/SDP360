@@ -11,13 +11,13 @@
 | pages without declared role | 6 |
 | pages not in navigation | 26 |
 | pages with inline scripts | 46 |
-| routes | 541 |
+| routes | 546 |
 | routes without test reference | 88 |
 | routes in server js | 231 |
-| jobs | 25 |
+| jobs | 26 |
 | jobs without test reference | 10 |
-| migrations | 59 |
-| test files | 517 |
+| migrations | 62 |
+| test files | 522 |
 
 ## Pages
 
@@ -107,14 +107,14 @@
 | RT-GET-api-debug-raw-test | GET | `/api/debug/raw-test` | server.js:3723 |
 | RT-POST-api-executive-new-pptx | POST | `/api/executive-new-pptx` | server.js:7124 |
 | RT-GET-api-integration-fmp-readiness | GET | `/api/integration/fmp/readiness` | routes/fourmypeople.js:31 |
-| RT-GET-api-meetings-import-incubation-template | GET | `/api/meetings/import/incubation-template` | routes/meetings.js:793 |
-| RT-POST-api-meetings-import-incubation-commit | POST | `/api/meetings/import/incubation/commit` | routes/meetings.js:833 |
-| RT-POST-api-meetings-import-incubation-preview | POST | `/api/meetings/import/incubation/preview` | routes/meetings.js:806 |
-| RT-POST-api-meetings-import-preview | POST | `/api/meetings/import/preview` | routes/meetings.js:718 |
-| RT-GET-api-meetings-import-template | GET | `/api/meetings/import/template` | routes/meetings.js:698 |
-| RT-GET-api-meetings-people | GET | `/api/meetings/people` | routes/meetings.js:146 |
-| RT-GET-api-meetings-progress-export-pptx | GET | `/api/meetings/progress/export-pptx` | routes/meetings.js:909 |
-| RT-POST-api-meetings-reset | POST | `/api/meetings/reset` | routes/meetings.js:685 |
+| RT-GET-api-meetings-import-incubation-template | GET | `/api/meetings/import/incubation-template` | routes/meetings.js:799 |
+| RT-POST-api-meetings-import-incubation-commit | POST | `/api/meetings/import/incubation/commit` | routes/meetings.js:839 |
+| RT-POST-api-meetings-import-incubation-preview | POST | `/api/meetings/import/incubation/preview` | routes/meetings.js:812 |
+| RT-POST-api-meetings-import-preview | POST | `/api/meetings/import/preview` | routes/meetings.js:724 |
+| RT-GET-api-meetings-import-template | GET | `/api/meetings/import/template` | routes/meetings.js:704 |
+| RT-GET-api-meetings-people | GET | `/api/meetings/people` | routes/meetings.js:147 |
+| RT-GET-api-meetings-progress-export-pptx | GET | `/api/meetings/progress/export-pptx` | routes/meetings.js:915 |
+| RT-POST-api-meetings-reset | POST | `/api/meetings/reset` | routes/meetings.js:691 |
 | RT-GET-api-metrics-cab | GET | `/api/metrics/cab` | server.js:3600 |
 | RT-GET-api-metrics-change | GET | `/api/metrics/change` | server.js:3579 |
 | RT-GET-api-metrics-request-filter-options | GET | `/api/metrics/request-filter-options` | server.js:3673 |
@@ -196,6 +196,7 @@
 | JB-publish-connectors | publish.connectors | 0 |
 | JB-reports-monthly | reports.monthly | 0 |
 | JB-reports-weekly | reports.weekly | 0 |
+| JB-softdelete-purge | softdelete.purge | 1 |
 | JB-teams-sla-poll | teams.sla_poll | 1 |
 | JB-zoho-change-cab | zoho.change_cab | 1 |
 | JB-zoho-requests | zoho.requests | 11 |
