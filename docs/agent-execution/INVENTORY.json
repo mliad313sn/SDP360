@@ -12,7 +12,7 @@
   "jobs": 26,
   "jobs_without_test_reference": 10,
   "migrations": 62,
-  "test_files": 524
+  "test_files": 525
  },
  "pages": [
   {
@@ -142,7 +142,7 @@
    ],
    "in_navigation": false,
    "inline_scripts": 1,
-   "bytes": 17458,
+   "bytes": 17887,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/i18n-coverage.test.js",
@@ -157,9 +157,10 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 16600,
+   "bytes": 16834,
    "tests": [
     "tests/a11y-static.test.js",
+    "tests/dashboard-widget-truth.test.js",
     "tests/i18n-coverage.test.js",
     "tests/landing.test.js"
    ]
@@ -1786,7 +1787,7 @@
    "method": "POST",
    "path": "/api/dashboards/:key/publish",
    "file": "routes/dashboards.js",
-   "line": 175,
+   "line": 179,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/dashboards-routes.smoke.test.js",
@@ -1799,7 +1800,7 @@
    "method": "POST",
    "path": "/api/dashboards/:key/retire",
    "file": "routes/dashboards.js",
-   "line": 218,
+   "line": 222,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/dashboards-routes.smoke.test.js",
@@ -1812,7 +1813,7 @@
    "method": "POST",
    "path": "/api/dashboards/:key/rollback/:n",
    "file": "routes/dashboards.js",
-   "line": 207,
+   "line": 211,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/dashboards-routes.smoke.test.js",
@@ -1825,7 +1826,7 @@
    "method": "POST",
    "path": "/api/dashboards/:key/submit",
    "file": "routes/dashboards.js",
-   "line": 194,
+   "line": 198,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/dashboards-routes.smoke.test.js",
@@ -1864,7 +1865,7 @@
    "method": "DELETE",
    "path": "/api/dashboards/:key",
    "file": "routes/dashboards.js",
-   "line": 228,
+   "line": 232,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/dashboards-routes.smoke.test.js",
@@ -1890,7 +1891,7 @@
    "method": "PUT",
    "path": "/api/dashboards/:key",
    "file": "routes/dashboards.js",
-   "line": 155,
+   "line": 158,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/dashboards-routes.smoke.test.js",
