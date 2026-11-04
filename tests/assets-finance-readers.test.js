@@ -106,3 +106,21 @@ test('a site with all-empty costs → USD fields 0, pct_depreciated null', async
   // restore the main seed for any later-added tests
   (await adb.replaceTable('assets', cols, rows));
 });
+
+// ── A-16: per-site coverage + certification (additive) ──
+test('A-16 getFinanceSummary returns coverage_by_site for every site; money fields unchanged', async () => {
+  const s = (await adb.getFinanceSummary({}, RATE));
+  assert.deepStrictEqual(s.coverage_by_site, [
+    { site: 'HGO', eligible: 1, total: 2, pct: 50 },
+    { site: 'MANA', eligible: 2, total: 2, pct: 100 },
+  ]);
+  near(s.fleet.purchase_cost_usd, (3000000 + 500000) * RATE, 0.01, 'fleet money unchanged');
+  assert.strictEqual(s.certification.certified, false, 'two sites < 3');
+  assert.strictEqual(s.certification.reason, 'too_few_sites');
+  assert.strictEqual(s.certification.min_sites, 3);
+  assert.strictEqual(s.certification.min_pct, 50);
+  // optional third arg changes only the policy, never the figures
+  const t = (await adb.getFinanceSummary({}, RATE, { minSites: 2, minPct: 50 }));
+  assert.strictEqual(t.certification.certified, true);
+  assert.deepStrictEqual(t.by_site, s.by_site);
+});

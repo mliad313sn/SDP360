@@ -469,7 +469,21 @@ function _refreshCycleMonths(pt) {
 // construction. Groups by site, sums money via money.parseAmount (nulls skipped),
 // applies `rate` ONCE to each asset-money total, derives rate-independent
 // pct_depreciated (Σpurchase=0 → null) and a refresh-due count.
-function _aggregateFinance(rows, rate) {
+// A-16: per-site money coverage + PROPOSED certification, additive. Eligible =
+// rate-INDEPENDENT money.parseAmount(purchase_cost) > 0 ("0.00" is no cost).
+const moneyCoverage = require('./services/moneyCoverage');
+function _moneyCoverage(rows, opts = {}) {
+  const coverage_by_site = moneyCoverage.coverageBySite(rows, {
+    isEligible: (r) => money.parseAmount(r.purchase_cost) > 0,
+    siteOf: (r) => r.site,
+  });
+  return {
+    coverage_by_site,
+    certification: moneyCoverage.certify(coverage_by_site, { minSites: opts.minSites, minPct: opts.minPct }),
+  };
+}
+
+function _aggregateFinance(rows, rate, opts = {}) {
   const r = Number(rate);
   const R = Number.isFinite(r) ? r : 1;
   const acc = new Map();   // site -> {purchase,book,tco,opex,count,refresh_due}
@@ -500,17 +514,18 @@ function _aggregateFinance(rows, rate) {
     refresh_due: a.refresh_due,
   });
   const by_site = [...acc.keys()].sort().map(site => shape(acc.get(site), site));
-  return { by_site, fleet: shape(fleet, null) };
+  return { by_site, fleet: shape(fleet, null), ..._moneyCoverage(rows, opts) };
 }
 
-function getFinanceSummary(filters, rate = 1) {
-  return _getFinanceSummaryPg(filters, rate);
+// opts (optional, A-16): { minSites, minPct } — certification policy only.
+function getFinanceSummary(filters, rate = 1, opts = {}) {
+  return _getFinanceSummaryPg(filters, rate, opts);
 }
-async function _getFinanceSummaryPg(filters, rate = 1) {
+async function _getFinanceSummaryPg(filters, rate = 1, opts = {}) {
   const h = pgHandle();
   const { where, params } = _assetWhere(filters);
   const rows = await h.prepare(`${_FINANCE_SELECT}${where} ORDER BY a.site, a.asset_name`).all(...params);
-  return _aggregateFinance(rows, rate);
+  return _aggregateFinance(rows, rate, opts);
 }
 
 // ─── Depreciation reader (Task 1, Asset Depreciation) ──────────────────────
@@ -541,7 +556,7 @@ function _computeAssetBook(row, config, asOf) {
 // SHARED pure aggregator — both backends hand it the same rows → parity by
 // construction. Groups by site: Σ computed currentBookValue (null → 0), Σ SDP
 // current_book_value (cross-check), Σ purchase (for pct), asset_count.
-function _aggregateDepreciation(rows, { config, rate, asOf } = {}) {
+function _aggregateDepreciation(rows, { config, rate, asOf, minSites, minPct } = {}) {
   const r = Number(rate);
   const R = Number.isFinite(r) ? r : 1;
   const acc = new Map();   // site -> {computed,sdp,purchase,count}
@@ -568,7 +583,7 @@ function _aggregateDepreciation(rows, { config, rate, asOf } = {}) {
     pct_depreciated: a.purchase > 0 ? 1 - a.computed / a.purchase : null,
   });
   const by_site = [...acc.keys()].sort().map(site => shape(acc.get(site), site));
-  return { by_site, fleet: shape(fleet, null) };
+  return { by_site, fleet: shape(fleet, null), ..._moneyCoverage(rows, { minSites, minPct }) };
 }
 
 function getAssetDepreciation(filters, opts = {}) {
@@ -621,39 +636,39 @@ async function _getDepreciationSchedulePg(filters, opts = {}) {
 const AF = require('./services/assetForecast');
 
 const _INVEST_HIST_ASSET_SELECT =
-  'SELECT acquisition_date, purchase_cost FROM assets a WHERE 1=1';
+  'SELECT a.site, a.acquisition_date, a.purchase_cost FROM assets a WHERE 1=1';
 const _INVEST_HIST_LIC_SELECT =
-  'SELECT acquisition_date, cost FROM software_licenses';
+  'SELECT site, acquisition_date, cost FROM software_licenses';
 
-function getInvestmentSummary(filters, { rate } = {}) {
-  return _getInvestmentSummaryPg(filters, { rate });
+function getInvestmentSummary(filters, { rate, minSites, minPct } = {}) {
+  return _getInvestmentSummaryPg(filters, { rate, minSites, minPct });
 }
-async function _getInvestmentSummaryPg(filters, { rate } = {}) {
+async function _getInvestmentSummaryPg(filters, { rate, minSites, minPct } = {}) {
   const h = pgHandle();
   const aw = _assetWhere(filters);
   const lw = _licenceWhere(filters);
   const aRows = await h.prepare(`${_INVEST_HIST_ASSET_SELECT}${aw.where}`).all(...aw.params);
   const lRows = await h.prepare(`${_INVEST_HIST_LIC_SELECT}${lw.where}`).all(...lw.params);
-  return AF.buildInvestmentHistory(aRows, lRows, rate);
+  return AF.buildInvestmentHistory(aRows, lRows, rate, { minSites, minPct });
 }
 
 const _INVEST_FCST_ASSET_SELECT =
-  'SELECT acquisition_date, purchase_cost, product_type FROM assets a WHERE 1=1';
+  'SELECT a.site, a.acquisition_date, a.purchase_cost, a.product_type FROM assets a WHERE 1=1';
 const _INVEST_FCST_LIC_SELECT =
-  'SELECT expiry_date, cost, license_option FROM software_licenses';
+  'SELECT site, expiry_date, cost, license_option FROM software_licenses';
 
-function getInvestmentForecast(filters, { config, rate, upliftPct, horizonYears, asOf } = {}) {
-  return _getInvestmentForecastPg(filters, { config, rate, upliftPct, horizonYears, asOf });
+function getInvestmentForecast(filters, { config, rate, upliftPct, horizonYears, asOf, minSites, minPct } = {}) {
+  return _getInvestmentForecastPg(filters, { config, rate, upliftPct, horizonYears, asOf, minSites, minPct });
 }
-async function _getInvestmentForecastPg(filters, { config, rate, upliftPct, horizonYears, asOf } = {}) {
+async function _getInvestmentForecastPg(filters, { config, rate, upliftPct, horizonYears, asOf, minSites, minPct } = {}) {
   const h = pgHandle();
   const aw = _assetWhere(filters);
   const lw = _licenceWhere(filters);
   const aRows = await h.prepare(`${_INVEST_FCST_ASSET_SELECT}${aw.where}`).all(...aw.params);
   const lRows = await h.prepare(`${_INVEST_FCST_LIC_SELECT}${lw.where}`).all(...lw.params);
   return {
-    hardware: AF.buildHardwareForecast(aRows, { config, rate, upliftPct, horizonYears, asOf }),
-    software: AF.buildSoftwareForecast(lRows, { horizonYears, asOf }),
+    hardware: AF.buildHardwareForecast(aRows, { config, rate, upliftPct, horizonYears, asOf, minSites, minPct }),
+    software: AF.buildSoftwareForecast(lRows, { horizonYears, asOf, minSites, minPct }),
   };
 }
 

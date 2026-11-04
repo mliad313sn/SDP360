@@ -251,3 +251,51 @@ test('buildSoftwareForecast S8 — exclusions (no_expiry, no_cost)', () => {
   assert.strictEqual(out.coverage.total, 2);
   assert.strictEqual(out.coverage.pct, 0);
 });
+
+// ── A-16: per-site coverage + certification (only when rows carry a site) ──
+test('A-16 buildHardwareForecast with site on rows → coverage.by_site + certification; rate-independent', () => {
+  const rows = [
+    { site: 'MANA', acquisition_date: '2022-01-01', purchase_cost: '1,000.00', product_type: 'Desktop' },
+    { site: 'MANA', acquisition_date: '2022-01-01', purchase_cost: '0.00', product_type: 'Desktop' },
+    { site: 'ITY', acquisition_date: '2022-01-01', purchase_cost: '0.00', product_type: 'Desktop' },
+  ];
+  const base = { config, upliftPct: 0, horizonYears: 5, asOf: '2026-07-01', minSites: 3, minPct: 50 };
+  const a = AF.buildHardwareForecast(rows, { ...base, rate: 1 });
+  const b = AF.buildHardwareForecast(rows, { ...base, rate: 0.00165 });
+  assert.deepStrictEqual(a.coverage.by_site, [
+    { site: 'ITY', eligible: 0, total: 1, pct: 0 },
+    { site: 'MANA', eligible: 1, total: 2, pct: 50 },
+  ]);
+  assert.deepStrictEqual(b.coverage.by_site, a.coverage.by_site, 'eligibility must not move with the rate');
+  assert.strictEqual(a.coverage.certification.certified, false);
+  assert.strictEqual(a.coverage.certification.reason, 'too_few_sites');
+  assert.strictEqual(a.coverage.eligible, 1, 'fleet coverage unchanged');
+});
+
+test('A-16 forecast rows without site → no by_site / certification key (old shape kept)', () => {
+  const out = AF.buildHardwareForecast(
+    [{ acquisition_date: '2022-01-01', purchase_cost: '1200', product_type: 'Desktop' }],
+    { config, rate: 1, upliftPct: 0, horizonYears: 5, asOf: '2026-07-01' });
+  assert.ok(!('by_site' in out.coverage));
+  assert.ok(!('certification' in out.coverage));
+  const sw = AF.buildSoftwareForecast([{ expiry_date: '30 Jun 2027', cost: '100', license_option: '' }],
+    { horizonYears: 5, asOf: '2026-07-01' });
+  assert.ok(!('by_site' in sw.coverage));
+  const h = AF.buildInvestmentHistory([{ acquisition_date: '2022-01-01', purchase_cost: '1' }], [], 1);
+  assert.ok(!('by_site' in h.coverage.hardware));
+});
+
+test('A-16 software forecast + history carry by_site when rows carry a site', () => {
+  const sw = AF.buildSoftwareForecast([
+    { site: 'MANA', expiry_date: '30 Jun 2027', cost: '100', license_option: '' },
+    { site: 'ITY', expiry_date: '', cost: '100', license_option: '' },
+  ], { horizonYears: 5, asOf: '2026-07-01' });
+  assert.deepStrictEqual(sw.coverage.by_site.map(r => [r.site, r.eligible, r.total]),
+    [['ITY', 0, 1], ['MANA', 1, 1]]);
+  assert.strictEqual(sw.coverage.certification.certified, false);
+  const h = AF.buildInvestmentHistory(
+    [{ site: 'MANA', acquisition_date: '2022-01-01', purchase_cost: '5' }],
+    [{ site: 'ITY', acquisition_date: '2022-01-01', cost: '0' }], 1);
+  assert.strictEqual(h.coverage.hardware.by_site[0].site, 'MANA');
+  assert.strictEqual(h.coverage.software.by_site[0].eligible, 0);
+});

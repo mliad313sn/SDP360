@@ -15,6 +15,7 @@
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/moneyCertBand.js"></script>
 
 <style nonce="%%CSP_NONCE%%">
   body {
@@ -598,6 +599,8 @@ window.addEventListener('beforeprint', function () {
       </a>
     </div>
 
+    <!-- A-16: "Non certifié" band — empty unless asset_money_certify_display = 1 -->
+    <div id="fin-certBand"></div>
     <div class="as-band" id="fin-finBand">
       <div class="stat"><span class="n usd" id="fin-finBook">—</span><span class="l">Fleet book value (USD)</span></div>
       <div class="stat"><span class="n" id="fin-finPurchase">—</span><span class="l">Purchase cost (USD)</span></div>
@@ -1051,6 +1054,8 @@ window.addEventListener('beforeprint', function () {
     <!-- Live content (hidden while empty) -->
     <div id="invf-content">
 
+      <!-- A-16: "Non certifié" band — empty unless asset_money_certify_display = 1 -->
+      <div id="invf-certBand"></div>
       <!-- COVERAGE BANNERS (the headline — how much of the fleet the forecast covers) -->
       <div class="as-band" id="invf-coverage" style="flex-direction:column;align-items:stretch;gap:12px">
         <div class="count-note" id="invf-covHw"
@@ -2062,6 +2067,9 @@ window.addEventListener('beforeprint', function () {
         'As of <strong>' + escapeHtml(asOf) + '</strong> · USD approx @ <strong>' + escapeHtml(rateStr) + '</strong> XOF→USD.';
     }
 
+    const certEl = document.getElementById('fin-certBand');
+    if (certEl) certEl.innerHTML = window.MoneyCertBand ? window.MoneyCertBand.html(s, s.certification, s.coverage_by_site) : '';
+
     const fleet = s.fleet || {};
     document.getElementById('fin-finBook').textContent     = usd(depFleet.computed_book_value_usd != null ? depFleet.computed_book_value_usd : fleet.book_value_usd);
     document.getElementById('fin-finPurchase').textContent = usd(fleet.purchase_cost_usd);
@@ -2974,6 +2982,8 @@ window.addEventListener('beforeprint', function () {
     const hw = (fc.hardware && fc.hardware.coverage) || {};
     const sw = (fc.software && fc.software.coverage) || {};
     const hwEx = hw.excluded || {}, swEx = sw.excluded || {};
+    const certEl = document.getElementById('invf-certBand');
+    if (certEl) certEl.innerHTML = window.MoneyCertBand ? window.MoneyCertBand.html(fc, hw.certification, hw.by_site) : '';
 
     document.getElementById('invf-covHw-line').textContent =
       'Hardware forecast based on ' + num(hw.eligible) + ' of ' + num(hw.total) +

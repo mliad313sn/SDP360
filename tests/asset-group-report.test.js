@@ -193,3 +193,18 @@ test('G-04: a site under the bar gets no rank, and the bar is stated', () => {
   assert.match(html, /hors classement/i, 'the unranked site is labelled, not silently ranked');
   assert.match(html, /20/, 'the threshold is stated so it can be argued with');
 });
+
+// ── A-16: "Non certifié" sentence, only behind certifyDisplay '1' ──
+test('A-16 certification sentence appears only with certifyDisplay "1" and an uncertified forecast', () => {
+  const fc = makeForecast();
+  fc.hardware.coverage = { ...fc.hardware.coverage,
+    certification: { certified: false, reason: 'too_few_sites', sites_covered: 1, pct: 9, min_sites: 3, min_pct: 50 } };
+  const off = buildAssetGroupDigest({ leaderboard: makeLeaderboard(), forecast: fc, period: '2026-07', fmtUsd });
+  const base = buildAssetGroupDigest({ leaderboard: makeLeaderboard(), forecast: makeForecast(), period: '2026-07', fmtUsd });
+  assert.ok(!off.html.includes('Non certifié'), 'default off → no sentence');
+  const on = buildAssetGroupDigest({ leaderboard: makeLeaderboard(), forecast: fc, period: '2026-07', fmtUsd, certifyDisplay: '1' });
+  assert.ok(on.html.includes('Non certifié — couvre 1 site(s) / 9 % du parc (seuil : ≥ 3 sites et ≥ 50 %)'));
+  assert.ok(!on.html.includes('$'));
+  const onNoCert = buildAssetGroupDigest({ leaderboard: makeLeaderboard(), forecast: makeForecast(), period: '2026-07', fmtUsd, certifyDisplay: '1' });
+  assert.strictEqual(onNoCert.html, base.html, 'no certification on the forecast → unchanged');
+});
