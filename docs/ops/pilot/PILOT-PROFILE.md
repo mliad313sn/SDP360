@@ -44,9 +44,9 @@ planned switch cannot be set before its goal lands.
 | `soft_delete_retention_days` | planned | `30` | `30` | Owner (retention policy) | A-19 |
 | `soft_delete_purge_enabled` | planned | `0` | `0` (keep everything during the pilot) | Owner (retention policy) | A-19 |
 | `meridian_enabled` | planned | `1` | `0` (retire) | Owner (D-5) | A-20 |
-| `report_revert_policy` | planned | `site_editor` | `second_person` | Owner (D-3, reverses 2026-10-02) | A-24 |
-| `report_reassign_submitted` | planned | `1` | `0` | Owner (D-3) | A-24 |
-| `report_drift_banner` | planned | `0` | `1` | Owner (D-3) | A-24 |
+| `report_revert_policy` | built | `site_editor` | `second_person` | Owner (D-3, reverses 2026-10-02) | A-24 |
+| `report_reassign_submitted` | built | `1` | `0` | Owner (D-3) | A-24 |
+| `report_drift_banner` | built | `0` | `1` | Owner (D-3) | A-24 |
 | `wan_stale_close_at` | built | `now` | `last_seen` | Network owner | A-25 |
 | `wan_sla_require_contract_evidence` | built | `0` | `1` once contracts are uploaded | Finance | A-25 |
 | `asset_amount_parser` | built | `legacy` | `locale` | Finance | A-26 |

@@ -837,6 +837,9 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       </div>
     </div>
 
+    <!-- A-24 — drift banner (report_config report_drift_banner, OFF by default): the figures no longer
+         match the SHA-256 recorded at submission. Integrity evidence, not an approval. -->
+    <div id="report-drift-banner" role="alert" style="display:none;background:#fee2e2;border:1px solid #dc2626;color:#991b1b;padding:10px 14px;border-radius:8px;margin:0 0 10px;font-weight:600"><span>⚠ Figures changed since submission</span> <span id="report-drift-detail" style="font-weight:400"></span></div>
     <!-- Submit bar -->
     <div class="submit-bar">
       <div class="report-info">
@@ -3178,8 +3181,31 @@ async function confirmChangeWeek() {
   }
 }
 
+// A-24 — submission hash vs current figures (GET /api/reports/:id/integrity). Best-effort: a failure
+// leaves no banner and the revert falls back to today's confirm (the server still enforces its rule).
+let _reportIntegrity = null;
+async function loadReportIntegrity() {
+  const banner = document.getElementById('report-drift-banner');
+  if (banner) banner.style.display = 'none';
+  _reportIntegrity = null;
+  if (!currentReport) return;
+  const id = currentReport.id;
+  try {
+    const res = await fetch(`/api/reports/${id}/integrity`, { headers: { 'X-Dash-Key': window.__ak||'' } });
+    if (!res.ok) return;
+    const j = await res.json();
+    if (!currentReport || currentReport.id !== id) return;   // another report was opened meanwhile
+    _reportIntegrity = j;
+    if (banner && j.drift_banner && j.drift && currentReport.status === 'submitted') {
+      document.getElementById('report-drift-detail').textContent = `(${String(j.submitted_at || '').slice(0, 10)} · ${j.submitted_by || '—'})`;
+      banner.style.display = 'block';
+    }
+  } catch (_) { /* never blocks the editor */ }
+}
+
 function updateStatusBar() {
   const r = currentReport;
+  loadReportIntegrity();
   const lbl       = document.getElementById('report-status-label');
   const btnSubmit = document.getElementById('btn-submit');
   const btnRevert = document.getElementById('btn-revert');
@@ -5256,12 +5282,18 @@ async function submitReport() {
 
 async function revertReport() {
   if (!currentReport) return;
-  if (!confirm(`Revert "${currentReport.site_name} — ${currentReport.week_label}" to Draft?\n\nThis will allow editors to make changes again.`)) return;
+  // A-24 — report_revert_policy = second_person (PROPOSED D-3, OFF by default): explain the rule, ask a reason.
+  let reason = null;
+  if (_reportIntegrity && _reportIntegrity.revert_policy === 'second_person') {
+    reason = prompt(`Revert "${currentReport.site_name} — ${currentReport.week_label}" to Draft?\n\nSecond-person rule: the person who submitted this report cannot revert it; an admin, executive or super_admin must, with a reason (max 500 characters).\n\nReason:`);
+    if (reason == null) return;
+    if (!reason.trim()) { toast('A reason is required to revert a submitted report', 'error'); return; }
+  } else if (!confirm(`Revert "${currentReport.site_name} — ${currentReport.week_label}" to Draft?\n\nThis will allow editors to make changes again.`)) return;
   try {
     const res = await fetch(`/api/reports/${currentReport.id}/status`, {
       method: 'PUT',
       headers: { 'Content-Type':'application/json', 'X-Dash-Key': window.__ak||'' },
-      body: JSON.stringify({ status: 'draft' })
+      body: JSON.stringify(reason ? { status: 'draft', reason: reason.trim() } : { status: 'draft' })
     });
     const data = await res.json();
     if (!res.ok) { toast(data.error || 'Revert failed', 'error'); return; }
