@@ -28,6 +28,7 @@ module.exports = function policyRoutes(deps) {
   const requireCommittee = (req, res, next) => (isCommittee(req.reportUser) ? next() : res.status(403).json({ ok: false, error: 'committee or admin role required' }));
   const requireSuperTier = (req, res, next) => (isSuper(req.reportUser) ? next() : res.status(403).json({ ok: false, error: 'super_admin role required' }));
   const requireAdminTier = (req, res, next) => (isAdmin(req.reportUser) ? next() : res.status(403).json({ ok: false, error: 'admin role required' }));
+  requireCommittee.legacyRoles = ['admin', 'committee-member']; requireSuperTier.legacyRoles = ['super_admin']; requireAdminTier.legacyRoles = ['admin'];   // C-17 tags
 
   // committee #49 — country / business unit of each site (migration 036); empty map if not migrated
   async function siteAttrs() {

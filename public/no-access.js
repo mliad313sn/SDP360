@@ -18,12 +18,15 @@
     'Who can give you access': 'Qui peut vous donner l’accès',
     'A dashboard administrator (Admin ▸ Users). For a site page, your site IT coordinator can ask for it on your behalf. Copy the line below into your request.':
       'Un administrateur du tableau de bord (Admin ▸ Utilisateurs). Pour une page de site, votre coordinateur IT de site peut la demander pour vous. Copiez la ligne ci-dessous dans votre demande.',
+    'Missing capability': 'Capacité manquante',
     'Copy': 'Copier', 'Copied': 'Copié', 'Back to my home page': 'Retour à ma page d’accueil', 'none': 'aucun', 'or': 'ou',
   };
   const clean = (s, max) => String(s || '').replace(/[^\w.\-|]/g, '').slice(0, max);
   const q = new URLSearchParams(location.search);
   const page = clean(q.get('page'), 80) || '—';
   const need = clean(q.get('need'), 120).split('|').filter(Boolean);
+  const capId = clean(q.get('cap'), 80);
+  let capInfo = null;   // C-17: {id, en, fr, risk} from GET /api/access/me/why — shown only when known
   const user = window.__authUser || {};
   const have = (Array.isArray(user.roles) && user.roles.length ? user.roles : (user.role ? [user.role] : [])).map((r) => clean(r, 40));
   const fr = () => window.I18nText && window.I18nText.lang() === 'fr';
@@ -33,6 +36,10 @@
     const t = (s) => (window.I18nText ? window.I18nText.t(s) : s);
     $('naPage').textContent = page;
     $('naNeed').textContent = need.length ? need.map(label).join(' ' + t('or') + ' ') : '—';
+    if (capInfo && capInfo.id) {
+      $('naCap').textContent = (fr() ? capInfo.fr : capInfo.en) + ' (' + capInfo.id + ')';
+      $('naCap').hidden = false; $('naCapT').hidden = false;
+    }
     $('naHave').textContent = have.length ? have.map(label).join(', ') : t('none');
     $('naLine').textContent = (fr() ? 'Demande d’accès — ' : 'Access request — ') + (user.username || '?') + ' · ' + page + ' · ' + (need.join(' | ') || '?');
   }
@@ -41,6 +48,13 @@
     window.I18nText.onChange(render);
   }
   render();
+  if ((capId || need.length) && window.fetch) {
+    const qs = capId ? 'cap=' + encodeURIComponent(capId) : 'need=' + encodeURIComponent(need.join('|'));
+    fetch('/api/access/me/why?' + qs, { credentials: 'same-origin' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (d && d.capability && d.capability.id) { capInfo = d.capability; render(); } })
+      .catch(() => {});
+  }
   $('naCopyBtn').addEventListener('click', () => {
     const txt = $('naLine').textContent;
     const done = () => { $('naCopyBtn').textContent = window.I18nText ? window.I18nText.t('Copied') : 'Copied'; };

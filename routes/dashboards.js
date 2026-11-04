@@ -53,6 +53,7 @@ module.exports = function dashboardsRoutes(deps) {
     if (!isPublisher(req.reportUser)) return res.status(403).json({ ok: false, error: 'dashboard-publisher or admin role required' });
     next();
   }
+  requirePublisher.legacyRoles = ['admin', 'dashboard-publisher'];   // C-17 capability catalogue tag
   async function scopeSites(user) {
     const all = await rdb().listSites({ includeInactive: false });
     if (isAdmin(user)) return all;

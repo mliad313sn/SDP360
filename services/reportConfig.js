@@ -246,6 +246,11 @@ Object.assign(DEFAULTS, { soft_delete_enabled: '0', soft_delete_retention_days: 
 //    one parity cycle (tools/governance/roadmap-parity.js) — PMO + PO.
 DEFAULTS.roadmap_redirect_to_portfolio = '0';
 
+// ── C-17 — capability catalogue switch. off = today (legacy role guards only). shadow = the evaluator
+//    (services/authorizationService.can) runs beside every role guard and logs divergences to system_log
+//    category 'authz'. enforce is NOT wired yet (read as shadow) — route-by-route plan in docs/agent-execution/C-17.md.
+DEFAULTS.authz_capability_mode = 'off';
+
 const KEYS = Object.keys(DEFAULTS);
 
 // Secrets that the GET handler redacts to '' — a Save that doesn't retype them must
