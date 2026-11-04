@@ -12,7 +12,7 @@
   "jobs": 27,
   "jobs_without_test_reference": 10,
   "migrations": 64,
-  "test_files": 551
+  "test_files": 553
  },
  "pages": [
   {
@@ -214,11 +214,12 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 473591,
+   "bytes": 472592,
    "tests": [
     "tests/csp-headers.smoke.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/csv-safe.test.js",
+    "tests/exec-deck-payload.test.js",
     "tests/i18n-coverage.test.js",
     "tests/page-usage.test.js",
     "tests/rbac-ui-gates.test.js",
@@ -324,6 +325,7 @@
     "tests/helpdesk-pareto-ranking.test.js",
     "tests/i18n-coverage.test.js",
     "tests/landing.test.js",
+    "tests/report-figures-parity.test.js",
     "tests/sdp-manager.smoke.test.js",
     "tests/site-fold-sla-definition.test.js",
     "tests/trust-label.test.js"
@@ -7944,7 +7946,8 @@
    "line": 1412,
    "tests": [
     "tests/csp-headers.smoke.test.js",
-    "tests/csv-safe.test.js"
+    "tests/csv-safe.test.js",
+    "tests/exec-deck-payload.test.js"
    ]
   },
   {

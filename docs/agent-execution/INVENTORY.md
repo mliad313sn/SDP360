@@ -17,7 +17,7 @@
 | jobs | 27 |
 | jobs without test reference | 10 |
 | migrations | 64 |
-| test files | 551 |
+| test files | 553 |
 
 ## Pages
 
@@ -34,12 +34,12 @@
 | PG-dashboard-composer | public/dashboard-composer.html | admin / dashboard-publisher | no | 1 | 4 |
 | PG-dashboards | public/dashboards.html | any | yes | 1 | 7 |
 | PG-exec-view | public/exec-view.html | public | no | 1 | 5 |
-| PG-executive-report | public/executive-report.html | super_admin | yes | 1 | 7 |
+| PG-executive-report | public/executive-report.html | super_admin | yes | 1 | 8 |
 | PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 6 |
 | PG-handoffs | public/handoffs.html | any | yes | 1 | 5 |
 | PG-help | public/help.html | any | yes | 1 | 8 |
 | PG-home | public/home.html | any | yes | 0 | 5 |
-| PG-index | public/index.html | any | yes | 1 | 19 |
+| PG-index | public/index.html | any | yes | 1 | 20 |
 | PG-infra-health | public/infra-health.html | any | yes | 2 | 4 |
 | PG-inspection-actions | public/inspection-actions.html | any | no | 1 | 4 |
 | PG-inspection | public/inspection.html | any | no | 2 | 6 |
