@@ -1,6 +1,8 @@
 'use strict';
 // A-17a — trend-chart SLA rates follow the denominator doctrine:
-// resolution violations ÷ closed (non-cancelled), first-reply violations ÷ responded,
+// resolution violations ÷ closed — the SAME denominator as the Resolution SLA % tile since
+// C-30 (PO P8): a cancelled closed ticket stays in it and is never "missed" — first-reply
+// violations ÷ responded,
 // and a period with nothing to judge is null (never a fake 0 %).
 const test = require('node:test');
 const assert = require('node:assert/strict');
@@ -22,21 +24,21 @@ test('periodSlaRates is exported on window', () => {
   assert.equal(typeof ctx.window.periodSlaRates, 'function');
 });
 
-test('resolution violations are divided by closed non-cancelled tickets, first-reply by responded', () => {
+test('resolution violations are divided by closed tickets (cancelled counted, never missed — the tile rule), first-reply by responded', () => {
   const f = load().__f;
   const rows = [
     closed({ 'Overdue Status': '1', 'Responded Time': '01 Aug 2026 09:00 AM', 'First Response Overdue Status': 'true' }),
     closed({ 'Responded Time': '01 Aug 2026 09:00 AM' }),
-    closed({ 'Request Status': 'Cancelled', 'Overdue Status': '1' }),        // out of the resolution denominator
+    closed({ 'Request Status': 'Cancelled', 'Overdue Status': '1' }),        // in the denominator, never missed (C-30)
     open({ 'Overdue Status': '1' }),                                          // open: not judged on resolution
     open({ 'Responded Time': '02 Aug 2026 09:00 AM', 'First Response Overdue Status': '1' }),
     open(),                                                                   // never responded: not judged on reply
   ];
   const r = f(rows);
   assert.equal(r.inbound, 6);
-  assert.equal(r.closed, 2, 'closed non-cancelled = the resolution denominator');
+  assert.equal(r.closed, 3, 'closed tickets (incl. cancelled) = the resolution denominator, as on the tile');
   assert.equal(r.responded, 3);
-  assert.equal(r.res_violated_pct, 50, '1 late of 2 closed non-cancelled');
+  assert.equal(r.res_violated_pct, 33.3, '1 late of 3 closed (the cancelled one is never late)');
   assert.equal(r.fr_violated_pct, 66.7, '2 late of 3 responded');
 });
 
