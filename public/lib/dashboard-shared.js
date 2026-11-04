@@ -194,6 +194,40 @@ function isResOverdue(r) {
 }
 
 /**
+ * periodSlaRates — SLA violation rates for one period, on the ITSM
+ * denominator doctrine (CLAUDE.md "KPI denominator doctrine"):
+ *   res_violated_pct = closed non-cancelled tickets that missed the
+ *                      resolution SLA (isResOverdue) ÷ closed non-cancelled
+ *   fr_violated_pct  = responded tickets flagged late on first response
+ *                      ÷ responded tickets (non-empty 'Responded Time')
+ * A rate with no denominator is null (nothing to judge), never 0 — so a
+ * chart line breaks instead of plotting a fake 0 % (A-17a).
+ */
+function periodSlaRates(rows) {
+  const list = Array.isArray(rows) ? rows : [];
+  let closed = 0, resViol = 0, responded = 0, frViol = 0;
+  for (const r of list) {
+    const st = String(r['Request Status'] || '').toLowerCase().trim();
+    if (isClosed(r) && st !== 'cancelled' && st !== 'canceled') {
+      closed++;
+      if (isResOverdue(r)) resViol++;
+    }
+    const rt = r['Responded Time'];
+    if (rt != null && String(rt).trim() !== '') {
+      responded++;
+      const f = String(r['First Response Overdue Status'] || '').toLowerCase().trim();
+      if (f === 'true' || f === '1' || f === 'yes') frViol++;
+    }
+  }
+  const pct = (n, d) => d > 0 ? Math.round(n / d * 1000) / 10 : null;
+  return {
+    inbound: list.length, closed, responded,
+    res_violated_pct: pct(resViol, closed),
+    fr_violated_pct:  pct(frViol, responded),
+  };
+}
+
+/**
  * xRows — extract rows array from any Analytics Plus / dashboard API
  * response shape. Replaces:
  *   - index.html         xRows()        (canonical)
@@ -438,6 +472,7 @@ if (typeof window !== 'undefined') {
   window.isITHelpdesk        = isITHelpdesk;
   window.isClosed            = isClosed;
   window.isResOverdue        = isResOverdue;   // shared SLA violation check
+  window.periodSlaRates      = periodSlaRates; // per-period SLA rates (doctrine denominators, null when empty)
   window.isP1                = isP1;
   window.isP2                = isP2;
   window.xRows               = xRows;          // shared API response unwrapper

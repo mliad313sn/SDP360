@@ -5246,6 +5246,9 @@ app.get('/api/reports/site-data', requireReportSession, async (req, res) => {
     const month = +(req.query.month || (now.getMonth() + 1));
     const kind = req.query.kind === 'monthly' ? 'monthly' : 'weekly';
     const data = await siteReportData(site, { year, month, kind }, buildSiteReportDeps());
+    // B-03 — the DATA date of each section for the page's trust labels (null when never synced).
+    const _last = async (job) => { try { return (await rdb.getLastSyncAt(job)) || null; } catch (_) { return null; } };
+    data.data_as_of = { requests: await _last('requests'), changes: await _last('change_cab'), assets: await _last('assets_assets'), read_at: new Date().toISOString() };
     res.json(data);
   } catch (e) { fail(res, e); }
 });
