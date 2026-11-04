@@ -1,0 +1,9 @@
+session_id,participant_code,role,site,date,device,network_type,signal_bars,task,task_description,success_criterion,completion,time_seconds,errors,clicks_or_keystrokes,help_given,comment
+S01,P01,Site IT coordinator,,,,,,T1,Find the overdue actions of your site and close one with a justification,action closed and justification saved,,,,,,
+S01,P01,Site IT coordinator,,,,,,T2,"Open last week's report, check the helpdesk figures, submit it",status submitted,,,,,,
+S01,P01,Technician (phone),,,,,,T3,"On the phone, record a quick inspection with one photo while offline, then sync",entry applied and photo visible on the dashboard,,,,,,
+S01,P01,Group IT / admin,,,,,,T4,Find the Meeting Cockpit and prepare Friday's agenda,agenda generated,,,,,,
+S01,P01,Executive,,,,,,T5,"Tell which site is worst this month and why, from the executive home",answer matches the data in under 2 min,,,,,,
+S01,P01,Portfolio / committee member,,,,,,T6,Find the projects whose plan slipped versus baseline,correct list,,,,,,
+S01,P01,any,,,,,,T7,Change the interface to French and open the manual,manual opens in French,,,,,,
+S01,P01,any,,,,,,T8,"Using only the keyboard, reach ""Portfolio"" from any page",reached without the mouse,,,,,,
