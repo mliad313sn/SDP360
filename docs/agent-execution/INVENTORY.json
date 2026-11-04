@@ -84,7 +84,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 10,
-   "bytes": 194917,
+   "bytes": 195324,
    "tests": [
     "tests/agent-inventory.test.js",
     "tests/asset-reminder-report.test.js",
@@ -660,7 +660,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 22138,
+   "bytes": 22551,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/i18n-coverage.test.js",
@@ -689,7 +689,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 2,
-   "bytes": 533131,
+   "bytes": 533540,
    "tests": [
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/assets-freshness.test.js",
@@ -720,7 +720,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 9303,
+   "bytes": 9704,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/i18n-coverage.test.js"
@@ -817,7 +817,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 15086,
+   "bytes": 15497,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/i18n-coverage.test.js"
@@ -859,7 +859,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 3,
-   "bytes": 39460,
+   "bytes": 39861,
    "tests": [
     "tests/agent-inventory.test.js",
     "tests/csp-headers.smoke.test.js",
