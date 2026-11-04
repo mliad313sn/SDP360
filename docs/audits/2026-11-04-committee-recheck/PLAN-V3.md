@@ -50,7 +50,7 @@ the same list (F01); unchecked `series[]` accepted (F24); current part-month sho
    response) ship ON — they restore the meaning the screen already claims.
 3. Order: V0 integrity & security → V1 contracts/time truth → V2 accessible charts & composer → V3 screens →
    V4 reporting parity → V4b IAM & continuity → V5 qualification (tests, inventory, dossier).
-4. Ids: C-01 … C-27 (the old A-/B- ids are closed). Migrations from 057 upward, assigned per goal.
+4. Ids: C-01 … C-30 (C-28..C-30 added 5 Nov 2026 from the PO delegated decisions, docs/decisions/2026-11-05-PO-DELEGATED-DECISIONS.md) (the old A-/B- ids are closed). Migrations from 057 upward, assigned per goal.
 5. No goal claims production readiness; the release dossier (C-27) states GO pilot / NO-GO prod until human gates close.
 6. Not built (human decision first): exec surface consolidation itself (F16/G14), Deck Builder vs Studio merge (G24),
    it-review palette identity (F15 — only the variable clash is fixed), Normal-change slice (F23 — "Other" bucket is
@@ -86,6 +86,9 @@ the same list (F01); unchecked `series[]` accepted (F24); current part-month sho
 | V5 | C-24 | Viewport/visual regression + filter-race + export E2E | G32 | M | — | — |
 | V5 | C-25 | Evidence baseline: metric→widget map, checksums, evidence levels, persona→journey map | G01 G02 | S | — | — |
 | V5 | C-26 | Bilingual coverage for the remaining shell pages (index, analytics, dashboards, executive) + glossary | G27 | M | `ui_i18n_pages` (already) | — |
+| V3 | C-28 | Executive nav consolidation (Home + IT Review in menu, Scorecard via Home/Ctrl+K) + Deck Builder page gate on `ui_deck_builder_roles` — PO decision P1/P12 | F16 G14 D-6 | S | `ui_exec_nav` (full) | — |
+| V3 | C-29 | Self-host fonts (vendored open-licence files or system stack), no third-party font request — PO decision P5 | Google Fonts gate | S | — | — |
+| V3 | C-30 | Site label variant folding in helpdesk/asset rankings + SLA trend aligned with the tile under `helpdesk_sla_definition` — PO decisions P7/P8 | C-11 follow-up | S | — | — |
 | V5 | C-27 | Release dossier regenerated (GO pilot / NO-GO prod, human gates listed) | G35 G34-prep | S | — | — |
 
 Concurrency rules: C-01 and C-06 share analytics.html → serial. C-04 and C-05 share the dashboard engine → serial.
