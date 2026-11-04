@@ -101,6 +101,22 @@ test('every services/* module post-install.js loads from the Setup bootstrap is 
   for (const n of names) assert.ok(step6.includes(`'services/${n}.js'`), `build.ps1 step 6 does not copy services/${n}.js`);
 });
 
+test('A-04: every path.join(ROOT, services|tools, …) file post-install.js uses is copied into the bootstrap by build.ps1', () => {
+  const post = fs.readFileSync(path.join(ROOT, 'tools/installer-v2/post-install.js'), 'utf8');
+  const build = fs.readFileSync(path.join(ROOT, 'tools/installer-v2/build.ps1'), 'utf8');
+  const step6 = build.slice(build.indexOf("Step '6 bootstrap'"), build.indexOf("Step '7"));
+  const refs = [...post.matchAll(/path\.join\(ROOT,\s*((?:'[^']+'\s*,?\s*)+)\)/g)].map((m) => [...m[1].matchAll(/'([^']+)'/g)].map((x) => x[1]));
+  const files = refs.filter((r) => r[0] === 'services' || r[0] === 'tools').map((r) => { const f = r.join('/'); return /\.[a-z0-9]+$/i.test(f) ? f : f + '.js'; });
+  assert.ok(files.length >= 3, 'found ' + files.join(', '));
+  for (const f of files) assert.ok(step6.includes(`'${f}'`), `build.ps1 step 6 does not copy ${f}`);
+});
+
+test('A-04: the e2e UPDATE section asserts the pre-update backup is encrypted (.sql.gz.enc)', () => {
+  const e2e = fs.readFileSync(path.join(ROOT, 'tools/installer-v2/tests/e2e.ps1'), 'utf8').replace(/\r\n/g, '\n');
+  const upd = e2e.slice(e2e.indexOf("Section 'UPDATE"), e2e.indexOf('# A-02'));
+  assert.match(upd, /\.sql\.gz\.enc/);
+});
+
 // A-02 — a PostgreSQL cluster Setup did not install (4MyPeople's postgresql-x64-17 hosts fmp_v2) is never
 // upgraded: only a cluster carrying the SDP-Dashboard registry marker, or an explicit /UPGRADEPG=1.
 const pgFn = () => code.slice(code.indexOf('procedure InstallEmbeddedPg;'), code.indexOf('procedure RunPostInstall;'));
