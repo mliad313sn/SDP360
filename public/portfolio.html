@@ -44,6 +44,8 @@
 <main id="main" class="wrap">
   <h1>Portfolio</h1>
   <div class="sub">Programmes → objectives (evidence from the KPI dictionary) → projects → milestones → deliverables, with risks. “—” means not measured, never 0 (help §25).</div>
+  <!-- A-21 — the lean menu leaves the RFI register out; shown only when report_config ui_nav_profile='lean' -->
+  <p class="shell-lean-only">Requests that may become projects: <a href="rfi.html">RFI register</a></p>
   <div id="msg" role="status" aria-live="polite"></div>
   <div class="tiles" id="tiles"></div>
   <div class="bar"><a class="btn" id="report" href="/api/governance/portfolio/report.html" target="_blank" rel="noopener">Monthly report (HTML)</a><button class="btn" id="mig-dry" type="button" hidden>Roadmap Manager migration — dry run</button><button class="btn danger" id="mig-apply" type="button" hidden>Apply migration</button></div>

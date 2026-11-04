@@ -7,6 +7,7 @@
 (function (root) {
   'use strict';
   const STATIC = {
+    'Requests that may become projects:': 'Demandes susceptibles de devenir des projets :', 'RFI register': 'Registre des demandes',
     'WBS code (task)': 'Code WBS (tâche)',
     'Parent task id (task)': 'Id de la tâche parente (tâche)',
     'Duration days (task)': 'Durée en jours (tâche)',
