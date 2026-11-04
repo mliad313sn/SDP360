@@ -17,7 +17,7 @@
 | jobs | 24 |
 | jobs without test reference | 10 |
 | migrations | 52 |
-| test files | 484 |
+| test files | 486 |
 
 ## Pages
 
@@ -65,7 +65,7 @@
 | PG-policies | public/policies.html | admin / committee-member | yes | 1 | 3 |
 | PG-portfolio | public/portfolio.html | any | yes | 1 | 3 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 2 |
-| PG-reports | public/reports.html | any | yes | 2 | 18 |
+| PG-reports | public/reports.html | any | yes | 2 | 19 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 2 |
 | PG-site-actions | public/site-actions.html | any | yes | 1 | 7 |
 | PG-site-awareness | public/site-awareness.html | site-business / group-business / executive | yes | 2 | 4 |
@@ -75,7 +75,7 @@
 | PG-trackers | public/trackers.html | any | yes | 1 | 2 |
 | PG-wan-health | public/wan-health.html | UNKNOWN | no | 0 | 2 |
 | PG-wan-sla | public/wan-sla.html | UNKNOWN | no | 0 | 2 |
-| PG-wan | public/wan.html | any | yes | 3 | 7 |
+| PG-wan | public/wan.html | any | yes | 3 | 8 |
 
 ## Routes without a test reference
 
