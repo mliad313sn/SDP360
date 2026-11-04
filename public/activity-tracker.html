@@ -19,8 +19,8 @@
 <script src="brand/icons.js" defer></script>
 <script src="_shell.js" defer></script>
 
-<!-- Charting (used by the Dashboard panel). -->
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<!-- Charting (used by the Dashboard panel) — same-origin, see public/vendor/. -->
+<script src="vendor/chart.js/4.4.1/chart.umd.js"></script>
 
 <!-- Scoring engine + API wrappers — pure JS, defined on window.TR /
      window.TRApi. Calculation formulas ported verbatim from the
@@ -30,11 +30,11 @@
 <script src="activity-tracker/api.js"></script>
 <script src="lib/trackerMonthLock.js"></script>
 
-<!-- React + Babel via CDN (same pattern as /dashboard-preview/). The
-     path-scoped CSP override in server.js grants 'unsafe-eval' +
-     unpkg.com only for this page and the asset bundle below. -->
-<script src="https://unpkg.com/react@18.3.1/umd/react.production.min.js" crossorigin="anonymous"></script>
-<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.production.min.js" crossorigin="anonymous"></script>
+<!-- React + ReactDOM UMD production builds, served same-origin from
+     public/vendor/ (B-01) — the tracker renders with no Internet access.
+     App.jsx is pre-built by esbuild (no in-browser Babel). -->
+<script src="vendor/react/18.3.1/react.production.min.js"></script>
+<script src="vendor/react-dom/18.3.1/react-dom.production.min.js"></script>
 </head>
 <body>
 

@@ -56,3 +56,30 @@ test("other pages keep their policy (tracker override untouched)", async () => {
   const r = await fetch(base + '/activity-tracker.html');
   assert.ok(/script-src/.test(String(r.headers.get('content-security-policy'))));
 });
+
+// B-01 — the libraries are same-origin (public/vendor/): no production page allows a CDN to run script,
+// and 'unsafe-eval' stays only on the dev previews.
+for (const page of ['/index.html', '/reports.html', '/executive-report.html', '/activity-tracker.html', '/activity-tracker/dist/app.js', '/wan.html']) {
+  test(`${page}: no CDN origin and no 'unsafe-eval' in script-src`, async () => {
+    const r = await fetch(base + page);
+    const csp = String(r.headers.get('content-security-policy'));
+    const src = scriptSrc(csp);
+    assert.ok(src, `script-src present on ${page}`);
+    assert.ok(!/jsdelivr|cdnjs|unpkg/.test(src), `no CDN origin: ${src}`);
+    assert.ok(!src.includes("'unsafe-eval'"), `no 'unsafe-eval': ${src}`);
+    assert.ok(!/jsdelivr|cdnjs|unpkg/.test(csp), `no CDN origin anywhere in the policy: ${csp}`);
+  });
+}
+
+test('the dev previews keep their CDN + unsafe-eval exception', async () => {
+  const r = await fetch(base + '/dashboard-preview/');
+  const src = scriptSrc(r.headers.get('content-security-policy'));
+  assert.ok(src.includes("'unsafe-eval'") && /unpkg/.test(src), src);
+});
+
+test('a vendored library is served same-origin as JavaScript', async () => {
+  const r = await fetch(base + '/vendor/chart.js/4.4.1/chart.umd.js');
+  assert.equal(r.status, 200);
+  assert.match(String(r.headers.get('content-type')), /javascript/);
+  assert.match(await r.text(), /Chart\.js v4\.4\.1/);
+});
