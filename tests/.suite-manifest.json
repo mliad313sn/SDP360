@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 3825,
+ "total": 3840,
  "files": {
   "a11y-static.test.js": 18,
   "access-denied-log.smoke.test.js": 3,
@@ -35,6 +35,7 @@
   "asset-group-report.test.js": 15,
   "asset-group-route.smoke.test.js": 4,
   "asset-hygiene-report.test.js": 13,
+  "asset-hygiene-visuals.test.js": 8,
   "asset-leaderboard-fairness.test.js": 8,
   "asset-name-parser.test.js": 9,
   "asset-reminder-report.test.js": 13,
@@ -73,6 +74,7 @@
   "assets-software-routes.smoke.test.js": 7,
   "assets-sync-status.smoke.test.js": 3,
   "assets-sync.test.js": 8,
+  "assets-tile-drill-parity.test.js": 7,
   "assets-usage-log.smoke.test.js": 4,
   "audit-chain.test.js": 2,
   "audit-grants-rehearsal.test.js": 1,
