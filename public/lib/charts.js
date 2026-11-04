@@ -10,7 +10,7 @@
  * never a zero. A target line is drawn only when the caller gives a target. */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory(require('./chartTheme.js'));
-  else root.TrendPanel = factory(root.ChartTheme);
+  else { var api = factory(root.ChartTheme); root.TrendPanel = api; root.ChartTable = api.ChartTable; }
 })(typeof self !== 'undefined' ? self : this, function (ChartTheme) {
   'use strict';
 
@@ -94,10 +94,134 @@
     var vLabel = (s.volume || []).map(function (v) { return v.label; }).join(', ');
     var rLabel = (s.rate || []).map(function (r) { return r.label; }).join(', ');
     /* global Chart */
-    var volume = new Chart(pane('volume', h.volume, 'Counts per period: ' + vLabel).getContext('2d'), cfg.volume);
-    var rate = new Chart(pane('rate', h.rate, 'Rates per period (' + (s.unit == null ? '%' : s.unit) + '): ' + rLabel).getContext('2d'), cfg.rate);
+    var aria = s.aria || {};
+    var volume = new Chart(pane('volume', h.volume, aria.volume || ('Counts per period: ' + vLabel)).getContext('2d'), cfg.volume);
+    var rate = new Chart(pane('rate', h.rate, aria.rate || ('Rates per period (' + (s.unit == null ? '%' : s.unit) + '): ' + rLabel)).getContext('2d'), cfg.rate);
     return { volume: volume, rate: rate, destroy: function () { try { volume.destroy(); } catch (e) { /* already gone */ } try { rate.destroy(); } catch (e) { /* already gone */ } } };
   }
 
-  return { buildConfigs: buildConfigs, render: render };
+  /* ── C-06 — ChartTable: the accessible alternative to a chart ─────────────────────────────
+   * Built from the SAME labels/datasets handed to Chart.js, so the table can never disagree
+   * with the picture. Reusable by any page (C-07 wires it into the theme plugin).
+   *   ChartTable.rows(spec)    -> { head:[...], rows:[[label, cell…]] }   (null → '—')
+   *   ChartTable.summary(spec) -> one-line text for a canvas aria-label
+   *   ChartTable.html(spec)    -> inner HTML of a <details> (summary + table), every value escaped
+   *   ChartTable.attach(target, spec, doc?) -> role="img" + aria-label on a canvas target, and a
+   *                               collapsible <details id="<target.id>-table"> right after its wrap
+   *   ChartTable.detach(target, doc?)        -> removes that table (error state)
+   * spec = { title, labels:[], datasets:[{label, data:[], unit?}], unit?, state? }
+   * state ∈ LOADING | VALID | ZERO | NO_DATA | STALE | ERROR (see analyticsLogic.STATES). */
+  var ChartTable = (function () {
+    function esc(x) {
+      return String(x == null ? '' : x).replace(/[&<>"']/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+      });
+    }
+    function num(v) {
+      if (v === null || v === undefined || v === '' || typeof v === 'boolean') return null;
+      var n = Number(v); return isFinite(n) ? n : null;
+    }
+    function fmt(v) {
+      var n = num(v);
+      if (n === null) return '—';
+      return n.toLocaleString('en', { maximumFractionDigits: 1 });
+    }
+    function unitOf(ds, spec) { return ds.unit != null ? ds.unit : (spec.unit || ''); }
+    function withUnit(v, u) { var t = fmt(v); return t === '—' || !u ? t : (u === '%' ? t + '%' : t + ' ' + u); }
+
+    function rows(spec) {
+      var s = spec || {};
+      var labels = s.labels || [], sets = s.datasets || [];
+      var head = [s.labelHead || 'Label'].concat(sets.map(function (d) {
+        var u = unitOf(d, s); return (d.label || 'Value') + (u ? ' (' + u + ')' : '');
+      }));
+      var body = labels.map(function (l, i) {
+        return [l == null || l === '' ? '—' : String(l)].concat(sets.map(function (d) { return fmt((d.data || [])[i]); }));
+      });
+      return { head: head, rows: body };
+    }
+
+    function summary(spec) {
+      var s = spec || {};
+      var title = s.title || 'Chart';
+      if (s.state === 'ERROR') return title + ' — data unavailable (load error).';
+      if (s.state === 'LOADING') return title + ' — loading.';
+      var labels = s.labels || [], sets = s.datasets || [];
+      var parts = [];
+      sets.forEach(function (d) {
+        var hi = null, lo = null, missing = 0;
+        (d.data || []).forEach(function (v, i) {
+          var n = num(v);
+          if (n === null) { missing++; return; }
+          if (hi === null || n > hi.v) hi = { v: n, l: labels[i] };
+          if (lo === null || n < lo.v) lo = { v: n, l: labels[i] };
+        });
+        if (!hi) return;
+        var u = unitOf(d, s);
+        var p = (d.label ? d.label + ': ' : '') + 'highest ' + hi.l + ' (' + withUnit(hi.v, u) + ')';
+        if (lo && lo.l !== hi.l) p += ', lowest ' + lo.l + ' (' + withUnit(lo.v, u) + ')';
+        if (missing) p += ', ' + missing + ' not measured';
+        parts.push(p);
+      });
+      if (!parts.length || s.state === 'NO_DATA') return title + ' — no data for this period.';
+      var lead = s.state === 'STALE' ? 'Source not current. ' : '';
+      return lead + title + ' — ' + labels.length + ' rows. ' + parts.join('; ') + '.';
+    }
+
+    function html(spec) {
+      var s = spec || {};
+      var cap = esc(s.title || 'Chart') + ' — data table';
+      var out = '<summary>Data table</summary>';
+      if (s.state === 'NO_DATA' || !(s.labels || []).length) return out + '<p class="edv-chart-empty">No data for this period.</p>';
+      if (s.state === 'STALE') out += '<p class="edv-chart-stale">Source not current — figures shown as last synced, colour withheld.</p>';
+      var t = rows(s);
+      out += '<table class="edv-chart-table__t"><caption>' + cap + '</caption><thead><tr>' +
+        t.head.map(function (h, i) { return '<th scope="col"' + (i ? ' class="num"' : '') + '>' + esc(h) + '</th>'; }).join('') +
+        '</tr></thead><tbody>' + t.rows.map(function (r) {
+          return '<tr>' + r.map(function (c, i) { return i ? '<td class="num">' + esc(c) + '</td>' : '<th scope="row">' + esc(c) + '</th>'; }).join('') + '</tr>';
+        }).join('') + '</tbody></table>';
+      return out;
+    }
+
+    function docOf(d) { return d || (typeof document !== 'undefined' ? document : null); }
+    function anchorOf(target) {
+      var a = target && target.closest ? target.closest('.chart-wrap') : null;
+      return a || target;
+    }
+    function attach(target, spec, doc) {
+      var d = docOf(doc);
+      if (!target) return null;
+      var isCanvas = String(target.tagName || '').toUpperCase() === 'CANVAS';
+      if (isCanvas && target.setAttribute) {
+        target.setAttribute('role', 'img');
+        target.setAttribute('aria-label', summary(spec));
+      }
+      var anchor = anchorOf(target);
+      if (!d || !anchor || !anchor.parentNode || !target.id) return null;
+      var id = target.id + '-table';
+      var det = d.getElementById(id);
+      if (!det) {
+        det = d.createElement('details');
+        det.id = id;
+        det.className = 'edv-chart-table';
+        anchor.parentNode.insertBefore(det, anchor.nextSibling || null);
+      }
+      det.innerHTML = html(spec);
+      if (isCanvas && target.setAttribute) target.setAttribute('aria-describedby', id);
+      return det;
+    }
+    function detach(target, doc) {
+      var d = docOf(doc);
+      if (!d || !target || !target.id) return;
+      var det = d.getElementById(target.id + '-table');
+      if (det && det.parentNode) det.parentNode.removeChild(det);
+      if (String(target.tagName || '').toUpperCase() === 'CANVAS' && target.setAttribute) {
+        target.setAttribute('aria-label', 'Chart data unavailable.');
+        if (target.removeAttribute) target.removeAttribute('aria-describedby');
+      }
+    }
+    return { rows: rows, summary: summary, html: html, attach: attach, detach: detach, esc: esc };
+  })();
+
+  return { buildConfigs: buildConfigs, render: render, ChartTable: ChartTable };
 });

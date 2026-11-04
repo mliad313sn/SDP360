@@ -11,7 +11,6 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
-const vm = require('node:vm');
 
 const AL = require('../public/lib/analyticsLogic.js');
 const PAGE = path.join(__dirname, '..', 'public', 'analytics.html');
@@ -122,82 +121,8 @@ test('F11 createLoadCoordinator: a trigger during a load is queued, the stale ru
 
 // ── 2. The real page script against a fake DOM ─────────────────────────────
 
-function makeEl(id) {
-  const cls = new Set();
-  const el = {
-    id, textContent: '', innerHTML: '', value: '', hidden: false, children: [], listeners: {},
-    classList: { add: c => cls.add(c), remove: c => cls.delete(c), toggle: c => (cls.has(c) ? cls.delete(c) : cls.add(c)), contains: c => cls.has(c) },
-    get className() { return [...cls].join(' '); },
-    set className(v) { cls.clear(); String(v).split(/\s+/).filter(Boolean).forEach(c => cls.add(c)); },
-    appendChild(c) { el.children.push(c); return c; },
-    addEventListener(t, f) { el.listeners[t] = f; },
-    querySelectorAll() { return []; },
-    querySelector() { return null; },
-    contains() { return false; },
-    getContext() { return {}; },
-  };
-  return el;
-}
-
-function bootPage(fetchImpl) {
-  const src = fs.readFileSync(PAGE, 'utf8').replace(/\r\n/g, '\n');
-  const blocks = [...src.matchAll(/<script>\n([\s\S]*?)<\/script>/g)].map(m => m[1]);
-  const inline = blocks.find(b => b.includes('createLoadCoordinator'));
-  assert.ok(inline, 'page inline script found');
-  const els = new Map();
-  const cards = new Map();
-  const get = id => {
-    if (!els.has(id)) {
-      const el = makeEl(id);
-      if (id.startsWith('kv-')) {
-        const card = makeEl('card:' + id);
-        cards.set(id, card);
-        el.closest = sel => (sel === '.kpi' ? card : null);
-      }
-      els.set(id, el);
-    }
-    return els.get(id);
-  };
-  const document = {
-    getElementById: get,
-    createElement: () => makeEl(''),
-    querySelectorAll: () => [],
-    addEventListener() {},
-    documentElement: {},
-  };
-  const charts = [];
-  class Chart {
-    constructor(ctx, cfg) { this.ctx = ctx; this.config = cfg; this.options = cfg.options; charts.push(this); }
-    destroy() { this.destroyed = true; }
-    update() {}
-  }
-  const window = {
-    fetch: fetchImpl, __ak: 'k', Chart, document,
-    localStorage: { getItem: () => null, setItem() {} },
-  };
-  const ctx = {
-    window, document, Chart, console: { log() {}, warn() {}, error() {} },
-    getComputedStyle: () => ({ getPropertyValue: () => '' }),
-    localStorage: window.localStorage, setInterval: () => 0, setTimeout, clearTimeout, Promise, Date, Math, JSON, Number, String, Object, Array, Set, Map, Error,
-  };
-  ctx.self = window;
-  vm.createContext(ctx);
-  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'public', 'lib', 'analyticsLogic.js'), 'utf8'), ctx);
-  // fetch is wrapped by the page (adds x-dash-key) — route calls through the context's window.fetch.
-  ctx.fetch = (...a) => window.fetch(...a);
-  vm.runInContext(inline, ctx);
-  return { ctx, get, cards, charts, window };
-}
-
-const ok = body => ({ ok: true, status: 200, json: async () => body });
-const settle = () => new Promise(r => setTimeout(r, 5));
-
-function stubFetch(map) {
-  return async (url) => {
-    for (const [prefix, fn] of map) if (String(url).startsWith(prefix)) return fn(url);
-    return ok({ data: {} });
-  };
-}
+const { bootPage, ok, settle, stubFetch } = require('./_analytics-page-harness.js');
+const ChartTheme = require('../public/lib/chartTheme.js');
 
 test('page: open_count 0 → backlog "— of open", null SLA neutral, no NaN/Infinity anywhere', async () => {
   const { get, cards } = bootPage(stubFetch([
@@ -232,12 +157,14 @@ test('page: Unknown risk is neutral, CAB colours follow status names when rows a
   await settle();
   const risk = charts.find(c => c.ctx.id === 'chartChgRisk');
   const [unknown, low, high] = risk.config.data.datasets[0].backgroundColor;
-  assert.equal(unknown, '#979BABCC');          // slate (neutral), not green
-  assert.equal(low, '#1B9A3ACC');
-  assert.equal(high, '#D90038CC');
+  // C-06: status colours come from the RAG tokens (status map), not page-local hexes.
+  const F = ChartTheme.FALLBACK;
+  assert.equal(unknown, ChartTheme.alpha(F['--rag-na'], 0.8));    // neutral, not green
+  assert.equal(low, ChartTheme.alpha(F['--rag-green'], 0.8));
+  assert.equal(high, ChartTheme.alpha(F['--rag-red'], 0.8));
   const cab = charts.find(c => c.ctx.id === 'chartCabStatus');
   assert.deepEqual(cab.config.data.labels, ['Pending Approval', 'Approved', 'Rejected']);
-  assert.deepEqual(cab.config.data.datasets[0].backgroundColor, ['#D97706', '#1B9A3A', '#D90038']);
+  assert.deepEqual(cab.config.data.datasets[0].backgroundColor, [F['--rag-amber'], F['--rag-green'], F['--rag-red']]);
   assert.ok(!get('reqTechTable').innerHTML.includes('<script>'));
   assert.ok(get('reqTechTable').innerHTML.includes('&lt;script&gt;'));
   assert.ok(!get('cabRuleTable').innerHTML.includes('<img'));
@@ -304,6 +231,6 @@ test('page source: no positional colour arrays, no raw API label interpolation, 
   assert.ok(!/\$\{r\.rule_type/.test(src), 'F09 rule_type raw');
   assert.ok(!/if \(_loading\) return;/.test(src), 'F11 dropped reload');
   assert.ok(!/d\.backlog_count \/ d\.open_count/.test(src), 'F03 unguarded ratio');
-  assert.ok(!/:\s*PALETTE\.green \+ 'CC'/.test(src), 'F07 default-green risk');
+  assert.ok(!/PALETTE\.green/.test(src), 'F07 default-green risk');
   assert.ok(src.includes('<script src="lib/analyticsLogic.js"></script>'), 'lib loaded before the inline script');
 });
