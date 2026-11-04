@@ -158,6 +158,7 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
 </style>
 <script src="auth.js" data-require="any"></script>
 <script src="lib/dashboard-shared.js"></script>
+<script src="lib/trustLabel.js"></script>
 <!-- EDV brand tokens MUST load before _shell.css so the shell CSS variables resolve -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -332,17 +333,17 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
 <div class="page">
 
   <div class="kpi-row">
-    <div class="kpi-card" title="Total tickets created during this period (all statuses). Counts every new request logged via portal or email."><div class="kpi-card-accent" style="background:var(--blue)"></div><div class="kpi-lbl">Inbound Tickets</div><div class="kpi-val" id="k-inbound" style="color:var(--blue)">—</div><div class="kpi-sub" id="k-inbound-sub"></div></div>
-    <div class="kpi-card" title="Closed Tickets — AP formula: countif(Request Pending Status = 0). Includes Closed, Resolved, Confirmed Resolution, Cancelled and any other non-pending status. Closure rate = Closed ÷ Inbound."><div class="kpi-card-accent" style="background:var(--green)"></div><div class="kpi-lbl">Closed Tickets</div><div class="kpi-val" id="k-closed" style="color:var(--green)">—</div><div class="kpi-sub" id="k-closed-sub"></div></div>
-    <div class="kpi-card" title="1st Reply SLA % — percentage of tickets that received their first technician response within the SLA target time. Does NOT measure resolution. Higher is better. Target ≥80%."><div class="kpi-card-accent" style="background:var(--orange)"></div><div class="kpi-lbl">1st Reply SLA % <span style="font-size:9px;opacity:.7">(on-time responses)</span></div><div class="kpi-val" id="k-frsla" style="color:var(--orange)">—</div><div class="kpi-sub" id="k-frsla-sub"></div></div>
-    <div class="kpi-card" title="Resolution SLA % — percentage of tickets fully resolved within the SLA target time. Separate from first reply. Higher is better. Target ≥90%."><div class="kpi-card-accent" style="background:var(--slate2)"></div><div class="kpi-lbl">Resolution SLA % <span style="font-size:9px;opacity:.7">(on-time closures)</span></div><div class="kpi-val" id="k-ressla" style="color:var(--slate2)">—</div><div class="kpi-sub" id="k-ressla-sub"></div></div>
+    <div class="kpi-card" data-metric-key="helpdesk.inbound" title="Total tickets created during this period (all statuses). Counts every new request logged via portal or email."><div class="kpi-card-accent" style="background:var(--blue)"></div><div class="kpi-lbl">Inbound Tickets</div><div class="kpi-val" id="k-inbound" style="color:var(--blue)">—</div><div class="kpi-sub" id="k-inbound-sub"></div></div>
+    <div class="kpi-card" data-metric-key="helpdesk.closed" title="Closed Tickets — AP formula: countif(Request Pending Status = 0). Includes Closed, Resolved, Confirmed Resolution, Cancelled and any other non-pending status. Closure rate = Closed ÷ Inbound."><div class="kpi-card-accent" style="background:var(--green)"></div><div class="kpi-lbl">Closed Tickets</div><div class="kpi-val" id="k-closed" style="color:var(--green)">—</div><div class="kpi-sub" id="k-closed-sub"></div></div>
+    <div class="kpi-card" data-metric-key="helpdesk.first_reply_sla_pct" title="1st Reply SLA % — percentage of tickets that received their first technician response within the SLA target time. Does NOT measure resolution. Higher is better. Target ≥80%."><div class="kpi-card-accent" style="background:var(--orange)"></div><div class="kpi-lbl">1st Reply SLA % <span style="font-size:9px;opacity:.7">(on-time responses)</span></div><div class="kpi-val" id="k-frsla" style="color:var(--orange)">—</div><div class="kpi-sub" id="k-frsla-sub"></div></div>
+    <div class="kpi-card" data-metric-key="helpdesk.resolution_sla_pct" title="Resolution SLA % — percentage of tickets fully resolved within the SLA target time. Separate from first reply. Higher is better. Target ≥90%."><div class="kpi-card-accent" style="background:var(--slate2)"></div><div class="kpi-lbl">Resolution SLA % <span style="font-size:9px;opacity:.7">(on-time closures)</span></div><div class="kpi-val" id="k-ressla" style="color:var(--slate2)">—</div><div class="kpi-sub" id="k-ressla-sub"></div></div>
   </div>
 
   <div class="kpi-row">
-    <div class="kpi-card" title="Time to Assign (hrs) — average hours from ticket creation to technician assignment. AP formula: dateandtimediff(HOUR,Created Time,Assigned Time). Lower is better."><div class="kpi-card-accent" style="background:var(--blue)"></div><div class="kpi-lbl">Time to Assign <span style="font-size:9px;opacity:.7">(hrs to assignment)</span></div><div class="kpi-val" id="k-assign" style="color:var(--blue)">—</div><div class="kpi-sub" id="k-assign-sub"></div></div>
-    <div class="kpi-card" title="First Reply (hrs) — average hours from ticket creation to first technician reply. AP formula: (Responded Time − Created Time) ÷ 3600. Lower is better."><div class="kpi-card-accent" style="background:var(--orange)"></div><div class="kpi-lbl">First Reply <span style="font-size:9px;opacity:.7">(hrs to first response)</span></div><div class="kpi-val" id="k-reply" style="color:var(--orange)">—</div><div class="kpi-sub" id="k-reply-sub"></div></div>
-    <div class="kpi-card" title="Resolution Time (days) — average calendar days from ticket creation to resolution. AP formula: datediff(Resolved Time, Created Time). Lower is better."><div class="kpi-card-accent" style="background:var(--amb-d)"></div><div class="kpi-lbl">Resolution Time <span style="font-size:9px;opacity:.7">(days to resolve)</span></div><div class="kpi-val" id="k-res" style="color:var(--amb-d)">—</div><div class="kpi-sub" id="k-res-sub"></div></div>
-    <div class="kpi-card" title="Closing Time (days) — average calendar days from ticket creation to full closure. AP formula: datediff(Completed Time, Created Time). Lower is better."><div class="kpi-card-accent" style="background:var(--slate3)"></div><div class="kpi-lbl">Closing Time <span style="font-size:9px;opacity:.7">(days to close)</span></div><div class="kpi-val" id="k-close" style="color:var(--slate3)">—</div><div class="kpi-sub" id="k-close-sub"></div></div>
+    <div class="kpi-card" data-metric-key="helpdesk.time_to_assign_h" title="Time to Assign (hrs) — average hours from ticket creation to technician assignment. AP formula: dateandtimediff(HOUR,Created Time,Assigned Time). Lower is better."><div class="kpi-card-accent" style="background:var(--blue)"></div><div class="kpi-lbl">Time to Assign <span style="font-size:9px;opacity:.7">(hrs to assignment)</span></div><div class="kpi-val" id="k-assign" style="color:var(--blue)">—</div><div class="kpi-sub" id="k-assign-sub"></div></div>
+    <div class="kpi-card" data-metric-key="helpdesk.first_reply_h" title="First Reply (hrs) — average hours from ticket creation to first technician reply. AP formula: (Responded Time − Created Time) ÷ 3600. Lower is better."><div class="kpi-card-accent" style="background:var(--orange)"></div><div class="kpi-lbl">First Reply <span style="font-size:9px;opacity:.7">(hrs to first response)</span></div><div class="kpi-val" id="k-reply" style="color:var(--orange)">—</div><div class="kpi-sub" id="k-reply-sub"></div></div>
+    <div class="kpi-card" data-metric-key="helpdesk.resolution_days" title="Resolution Time (days) — average calendar days from ticket creation to resolution. AP formula: datediff(Resolved Time, Created Time). Lower is better."><div class="kpi-card-accent" style="background:var(--amb-d)"></div><div class="kpi-lbl">Resolution Time <span style="font-size:9px;opacity:.7">(days to resolve)</span></div><div class="kpi-val" id="k-res" style="color:var(--amb-d)">—</div><div class="kpi-sub" id="k-res-sub"></div></div>
+    <div class="kpi-card" data-metric-key="helpdesk.closing_days" title="Closing Time (days) — average calendar days from ticket creation to full closure. AP formula: datediff(Completed Time, Created Time). Lower is better."><div class="kpi-card-accent" style="background:var(--slate3)"></div><div class="kpi-lbl">Closing Time <span style="font-size:9px;opacity:.7">(days to close)</span></div><div class="kpi-val" id="k-close" style="color:var(--slate3)">—</div><div class="kpi-sub" id="k-close-sub"></div></div>
   </div>
 
   <div class="chart-row">
@@ -1806,7 +1807,9 @@ async function loadData(){
     populatePeriodSel();
     _initMFilters(); // populate Status/Type/Impact/Mode dropdowns from RAW
     renderAll();
-    document.getElementById('footerTime').textContent='Data as of '+new Date().toLocaleTimeString('en-GB');
+    // B-03: the DATA date (last successful requests sync, /api/cache/status), never the browser clock.
+    _setDataDate(window.__dataTs);
+    if(window.TrustLabel)TrustLabel.init({dataDate:window.__dataTs});
   }catch(e){
     dot.className='status-dot err';
     stxt.textContent='Server unreachable';
@@ -1831,6 +1834,7 @@ async function initFreshnessBar() {
     });
     if (!r.ok) return;
     const d = await r.json();
+    _setDataDate(d.ts || null);   // B-03: one data date for the footer and every KPI trust label
 
     // ── Refreshing badge (shown on top of any state) ──────────────────
     const refreshingBadge = d.refreshing
@@ -1892,7 +1896,14 @@ async function initFreshnessBar() {
 // Kick off the first poll; subsequent interval is managed inside initFreshnessBar
 _freshnessTimer = setInterval(initFreshnessBar, 300_000);
 
-document.getElementById('footerTime').textContent=new Date().toLocaleDateString('en-GB',{weekday:'short',year:'numeric',month:'short',day:'numeric'});
+// B-03 — the footer states the data date the API returns (or that it is unknown), never today's date.
+function _setDataDate(ts){
+  window.__dataTs=ts||null;
+  const f=document.getElementById('footerTime');
+  if(f)f.textContent=window.TrustLabel?TrustLabel.dataAsOf(window.__dataTs):(ts?'Data as of '+new Date(ts).toISOString().slice(0,16).replace('T',' ')+' UTC':'Data date unknown');
+  if(window.TrustLabel)TrustLabel.setDataDate(window.__dataTs);
+}
+_setDataDate(null);
 loadData();
 initFreshnessBar();
 </script>

@@ -195,8 +195,26 @@
       : '<li><span>No score gaps — this site is at full marks.</span></li>';
   }
 
+  // B-03 — every tile carries a metric key (+ its section's DATA date) so TrustLabel can state
+  // « Non certifié · source · formule · données au <date> ». A tile that maps onto a registry
+  // metric uses its key; any other tile gets a 'site.<label>' key, which the label reports as
+  // « absent du dictionnaire des indicateurs ». No metric definition changes here.
+  var METRIC_KEYS = {
+    'PVs held': 'meetings.pvs_held', 'Open issues': 'meetings.open_issues',
+    'Inspections done': 'inspection.count',
+    'Created': 'helpdesk.window_created', 'Resolved': 'helpdesk.window_resolved',
+    'SLA overdue': 'helpdesk.window_overdue', 'Major incidents': 'helpdesk.window_major_incidents',
+    'Tenue du parc': 'assets.effort_score', 'Rang': 'assets.effort_rank', 'Δ 30 jours': 'assets.effort_delta_30d'
+  };
+  var CUR_ASOF = null;   // the data date of the section being rendered (set in render())
+  function metricKey(label) {
+    if (METRIC_KEYS[label]) return METRIC_KEYS[label];
+    return 'site.' + String(label).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  }
   function kpi(label, val, cls) {
-    return '<div class="kpi"><div class="kpi-label">' + esc(label) + '</div>' +
+    return '<div class="kpi" data-metric-key="' + esc(metricKey(label)) + '"' +
+      (CUR_ASOF ? ' data-metric-asof="' + esc(CUR_ASOF) + '"' : '') + '><div class="kpi-label">' + esc(label) + '</div>' +
       '<div class="kpi-val' + (cls ? ' ' + cls : '') + '">' + esc(val) + '</div></div>';
   }
 
@@ -841,16 +859,25 @@
     // One window context, built once and handed to every section — same shape
     // and same copy as composeCoordinator's `ctx`.
     var ctx = windowCtx(data);
+    // B-03 — the data date of each section, as the API returns it (null → « date inconnue »).
+    var asOf = data.data_as_of || {};
     renderHeader(data);
     renderScore(data.score);
+    CUR_ASOF = asOf.read_at || null;           // meetings + inspections: read live at request time
     renderMeetings(data.meetings, ctx);
     renderInspection(data.inspection, ctx);
+    CUR_ASOF = asOf.requests || null;          // helpdesk: last successful requests sync
     renderHelpdesk(data.helpdesk, ctx);
     renderHelpdeskWeekly(data.helpdesk_weekly);
+    CUR_ASOF = asOf.changes || null;           // changes: last successful change sync
     renderChanges(data.changes, data.openChanges, ctx);
+    CUR_ASOF = asOf.requests || null;
     renderTechnicians(data.technicians, ctx);
+    CUR_ASOF = asOf.assets || null;            // assets: last successful assets sync
     renderAssets(data.assetHygiene, data.assetEffort);
+    CUR_ASOF = null;
     renderRecommended(data.recommended, data.score);
+    if (window.TrustLabel) window.TrustLabel.init({ dataDate: null });
   }
 
   function showEmpty() { body().className = 'state-empty'; }

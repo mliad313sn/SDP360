@@ -298,6 +298,7 @@
 
 </main>
 
+<script src="lib/trustLabel.js"></script>
 <script>
 (function () {
   'use strict';
@@ -470,17 +471,20 @@
     }).join('');
   }
 
+  // B-03 — every tile carries a metric key so TrustLabel can state its certification and data date.
+  // These fleet figures are not in the metric dictionary yet (exec.* keys): the label says so.
   function kpiCard(label, obj, opts) {
     opts = opts || {};
+    const mk = ' data-metric-key="' + esc(opts.key || '') + '"';
     if (!hasVal(obj)) {
-      return '<div class="kpi-card"><div class="kpi-label">' + esc(label) + '</div>' +
+      return '<div class="kpi-card"' + mk + '><div class="kpi-label">' + esc(label) + '</div>' +
         '<div class="kpi-unavailable">Data unavailable</div></div>';
     }
     const raw = isNum(obj.value) ? obj.value : obj.value_pct;
     const valStr = esc(raw) + (opts.unit ? '<span class="unit">' + esc(opts.unit) + '</span>' : '');
     const delta = deltaHtml(opts.deltaVal, opts.deltaUnit || '', !!opts.invert);
     const spark = opts.spark ? sparkline(opts.spark, opts.sparkColor || '#145FAE') : '';
-    return '<div class="kpi-card">' +
+    return '<div class="kpi-card"' + mk + '>' +
       '<div class="kpi-label">' + esc(label) + '</div>' +
       '<div class="kpi-value">' + valStr + '</div>' +
       '<div class="kpi-foot">' + delta + spark + '</div>' +
@@ -497,13 +501,13 @@
     const csat = k.csat || {};
     const chg = k.change_success || {};
     const html = [
-      kpiCard('Requests Resolved', rr, { deltaVal: rr.delta_pct, deltaUnit: '%' }),
-      kpiCard('Answered within SLA', sla, { unit: '%', deltaVal: sla.delta_pp, deltaUnit: 'pp',
+      kpiCard('Requests Resolved', rr, { key: 'exec.requests_resolved', deltaVal: rr.delta_pct, deltaUnit: '%' }),
+      kpiCard('Answered within SLA', sla, { key: 'exec.sla_compliance', unit: '%', deltaVal: sla.delta_pp, deltaUnit: 'pp',
         spark: spark.sla, sparkColor: '#145FAE' }),
-      kpiCard('Average Resolution Time', art, { unit: 'h', deltaVal: art.delta_h, deltaUnit: 'h', invert: true }),
-      kpiCard('User Satisfaction', csat, { unit: '%', deltaVal: csat.delta_pp, deltaUnit: 'pp',
+      kpiCard('Average Resolution Time', art, { key: 'exec.avg_resolution_h', unit: 'h', deltaVal: art.delta_h, deltaUnit: 'h', invert: true }),
+      kpiCard('User Satisfaction', csat, { key: 'exec.csat', unit: '%', deltaVal: csat.delta_pp, deltaUnit: 'pp',
         spark: spark.csat, sparkColor: '#1B9A3A' }),
-      kpiCard('Change Success Rate', chg, { unit: '%', deltaVal: chg.delta_pp, deltaUnit: 'pp' })
+      kpiCard('Change Success Rate', chg, { key: 'exec.change_success', unit: '%', deltaVal: chg.delta_pp, deltaUnit: 'pp' })
     ];
     el('kpiGrid').innerHTML = html.join('');
   }
@@ -630,6 +634,8 @@
     renderStatus(data.status);
     renderMajorIncidents(data.major_incidents);
     renderKpis(data.kpis, data.report_month || data.period);
+    // B-03 — public page, no session: the registry is not read; the date is the summary's data_as_of.
+    if (window.TrustLabel) { TrustLabel.init({ registry: false, dataDate: data.data_as_of || null }); }
     renderSites(data.sites_attention, data.all_sites_ok, data.status && data.status.level);
     renderMaintenance(data.planned_maintenance);
     renderStrategic(data.strategic_progress);
