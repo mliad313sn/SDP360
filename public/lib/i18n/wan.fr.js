@@ -30,6 +30,12 @@
     '⚙ These outages could not be matched to a configured SLA circuit. Configure each in': '⚙ Ces coupures n’ont pu être rattachées à aucun circuit SLA configuré. Configurez chacun dans',
     'Outages': 'Coupures', 'Availability': 'Disponibilité', 'Evidence — outages this month': 'Preuves — coupures du mois',
     'Detected': 'Détectée', 'Restored': 'Rétablie', 'Notified': 'Notifiée', 'Reason': 'Motif', 'Duration': 'Durée',
+    // C-13 (G21) — freshness strip, mapping coverage, outage timeline.
+    'Mapping coverage': 'Couverture du rattachement',
+    'Sites mapped = sites with a Meraki network (Admin → Infra WAN). Uplinks mapped = uplinks seen in the WAN archive or the outage log that resolve to an SLA circuit (Admin → SLA WAN).':
+      'Sites rattachés = sites ayant un réseau Meraki (Admin → Infra WAN). Liens rattachés = liens vus dans l’archive WAN ou le journal des coupures qui correspondent à un circuit SLA (Admin → SLA WAN).',
+    'Outage timeline —': 'Chronologie des coupures —', 'Site (both links / power)': 'Site (deux liens / électricité)',
+    'Maintenance': 'Maintenance', 'Not attributed': 'Non attribuée', 'Still open': 'Toujours ouverte', 'Data freshness': 'Fraîcheur des données',
   };
   const RUNTIME_KEYS = {
     'no data for this site': 'pas de données pour ce site', '⏳ Syncing…': '⏳ Synchronisation…',
