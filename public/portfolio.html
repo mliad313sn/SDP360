@@ -53,11 +53,11 @@
   <div class="panel"><h2>Schedule (projects &amp; milestones)</h2><div id="timeline"></div><details><summary class="muted">Table view (dates, plan, alerts)</summary><div class="scroll" id="gantt"></div></details></div>
   <div class="panel"><h2>Resource conflicts</h2><div class="scroll" id="conflicts"></div></div>
   <div class="panel"><h2>Risks</h2><div class="scroll" id="risks"></div></div>
-  <details class="panel" id="edit" hidden><summary class="btn">Add / edit an element (committee)</summary>
+  <details class="panel" id="edit" hidden><summary class="btn" id="e-sum">Add / edit an element (committee)</summary>
     <div class="row" style="margin-top:8px">
       <label>Kind <select id="e-kind"><option>programme</option><option>objective</option><option>project</option><option>milestone</option><option>deliverable</option><option>risk</option></select></label>
       <label>Id (blank = new) <input id="e-id" type="number"></label>
-      <label>Parent id (programme / objective / project) <input id="e-parent" type="number"></label>
+      <label>Parent id (programme / objective / project) <input id="e-parent" type="number"><datalist id="e-parents"></datalist></label>
       <label>Key <input id="e-key"></label><label>Name / title <input id="e-name"></label><label>Owner <input id="e-owner"></label>
       <label>Status <input id="e-status" placeholder="on_track · at_risk · planned · active · done · open"></label>
       <label>Start <input id="e-start" type="date"></label><label>Due / end <input id="e-end" type="date"></label><label>Baseline end <input id="e-base" type="date"></label>
@@ -79,7 +79,7 @@
   var p = function (v) { return v == null ? "—" : v + " %"; };
   function load() {
     return api("/api/governance/portfolio").then(function (v) {
-      V = v; committee = v.committee; $("edit").hidden = !committee; $("mig-dry").hidden = !isSuper; $("mig-apply").hidden = !isSuper;
+      V = v; committee = v.committee; planEdit(v); $("mig-dry").hidden = !isSuper; $("mig-apply").hidden = !isSuper;
       var s = v.summary || [];
       // design review #12: what needs attention first, coloured AND worded (colour is never the only signal)
       var late = s.reduce(function (a, x) { return a + (x.late_projects || 0); }, 0), hr = s.reduce(function (a, x) { return a + (x.high_risks || 0); }, 0), rc = (v.resource_conflicts || []).length;
@@ -116,6 +116,18 @@
       $("gantt").innerHTML = v.gantt.length ? "<table><thead><tr><th>Project</th><th>Stage</th><th>Plan</th><th>Start</th><th>End</th><th>Baseline</th><th>Progress</th><th>Milestones</th><th>Alerts</th></tr></thead><tbody>" + v.gantt.map(function (g) { return "<tr><td><b>" + esc(g.key) + "</b> " + esc(g.name) + " <small class=\"muted\">#" + g.id + "</small></td><td>" + stageDots(g.stage) + "</td><td>" + (function (pl) { if (!pl || !pl.tasks) return "—"; var vr = pl.variance && pl.variance.finish_variance_days; return pl.open_tasks + " / " + pl.tasks + " tasks open" + (pl.critical_length_days != null ? "<br>critical path " + pl.critical_length_days + " d" : "") + (vr ? "<br>" + (vr > 0 ? "+" : "") + vr + " d vs baseline" : ""); })(plans[g.id]) + "</td><td>" + esc(g.start || "—") + "</td><td>" + esc(g.end || "—") + "</td><td>" + esc(g.baseline_end || "—") + (g.slip_days ? " <span class=\"pill RED\">+" + g.slip_days + " d</span>" : "") + "</td><td>" + p(g.progress_pct) + "</td><td>" + (g.milestones || []).map(function (m) { return esc(m.name) + " (" + esc(m.due || "—") + ") <span class=\"pill " + esc(m.status) + "\">" + esc(m.status) + "</span> <small class=\"muted\">#" + m.id + "</small>"; }).join("<br>") + "</td><td>" + (g.alerts.length ? g.alerts.map(esc).join("<br>") : "—") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No project.</p>";
       $("risks").innerHTML = v.risks.length ? "<table><thead><tr><th>Risk</th><th>Project</th><th>P × I</th><th>Severity</th><th>Status</th><th>Mitigation</th></tr></thead><tbody>" + v.risks.map(function (r) { return "<tr><td>" + esc(r.title) + " <small class=\"muted\">#" + r.id + "</small></td><td>#" + r.project_id + "</td><td>" + r.exposure + "</td><td><span class=\"pill " + (r.severity === "high" ? "RED" : r.severity === "medium" ? "AMBER" : "GREEN") + "\">" + esc(r.severity) + "</span></td><td>" + esc(r.status) + "</td><td>" + esc(r.mitigation || "") + (r.incident_ref ? " · incident " + esc(r.incident_ref) : "") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No risk.</p>";
     }).catch(fail);
+  }
+  // A-15 — a site editor (switch portfolio_editor_plan_writes) maintains the plan of the projects the server lists.
+  var ALL_KINDS = ["programme", "objective", "project", "milestone", "deliverable", "risk"], PLAN_KINDS = ["milestone", "deliverable", "risk"];
+  function planEdit(v) {
+    var ids = v.can_edit_plan_projects || [], mine = !committee && ids.length > 0;
+    $("edit").hidden = !(committee || mine);
+    var kinds = committee ? ALL_KINDS : PLAN_KINDS, sel = $("e-kind"), cur = sel.value;
+    sel.innerHTML = kinds.map(function (k) { return "<option>" + k + "</option>"; }).join("");
+    if (kinds.indexOf(cur) >= 0) sel.value = cur;
+    $("e-sum").textContent = committee ? "Add / edit an element (committee)" : "Add / edit a milestone, deliverable or risk of your projects";
+    var dl = $("e-parents"); dl.innerHTML = committee ? "" : (v.projects || []).filter(function (p) { return ids.indexOf(p.id) >= 0; }).map(function (p) { return "<option value=\"" + p.id + "\">" + esc(p.key + " — " + p.name) + "</option>"; }).join("");
+    $("e-parent").setAttribute("list", committee ? "" : "e-parents");
   }
   var num = function (id) { var v = $(id).value; return v === "" ? null : Number(v); };
   $("e-save").addEventListener("click", function () {

@@ -141,6 +141,11 @@ const DEFAULTS = {
   handoffs_enabled: '0',
   handoff_notify_enabled: '0',
   commitment_notify_enabled: '0',
+  // A-15 — PROPOSED portfolio access policy (an owner decision, not approved): '1' = a non-committee reader sees
+  // only the projects of their sites + group-level ones; '1' = site editors / the owner maintain the plan
+  // (tasks, milestones, risks, deliverables) of their site projects. '0' = today (all read, committee writes).
+  portfolio_site_scope_reads: '0',
+  portfolio_editor_plan_writes: '0',
   site_codes_from_registry: '0',   // DEC-4 — '1' = site_module_codes wins over the modules' hard-coded maps (diff first: GET /api/governance/site-codes)   // ADR-006 — in-app notice to the escalation-matrix target of a new A01 / A02 (off = ledger only, as before)
 };
 // ── Sync alerting (Step 1). Recipients = comma list of e-mail addresses; teams_url = a

@@ -18,6 +18,8 @@ const { fail: httpFail, logError } = require('../services/httpError');
 //   GET  /api/governance/decisions  · PUT /decisions/:id
 //   GET  /api/governance/rfi · POST /rfi (any session) · PUT /rfi/:id (triage/score/decide — committee) · POST /rfi/:id/verify (requester)
 //   GET  /api/governance/portfolio (tree + evidence + gantt + risks + summary) · PUT /portfolio/:kind · DELETE /portfolio/:kind/:id   committee
+//        (A-15: site-scoped reads + editor plan writes behind portfolio_site_scope_reads / portfolio_editor_plan_writes, off = today)
+//   PUT  /api/governance/portfolio/project/:id/sites {site_ids}   extra sites of a project   committee
 //   GET  /api/governance/portfolio/report.html        monthly portfolio report
 //   POST /api/governance/roadmap-migration?apply=1    Roadmap Manager → portfolio (dry run by default)   super_admin
 //
@@ -30,7 +32,7 @@ const PE = require('../services/portfolioEvidence');
 
 function createStore(rdbMod, { log = console.log } = {}) {
   const pg = rdbMod.REPORTS_BACKEND === 'postgres';
-  const st = require('../services/governanceStore').makeGovernanceStore(({ prepare: (sql) => rdbMod.pgHandle().prepare(sql) }), { isPg: pg });
+  const st = require('../services/governanceStore').makeGovernanceStore(({ prepare: (sql) => rdbMod.pgHandle().prepare(sql), runTransaction: (fn) => rdbMod.pgHandle().runTransaction(fn) }), { isPg: pg });
   
   st.initAtBoot = async () => { await st.init(); return []; };
   return st;
@@ -373,14 +375,77 @@ module.exports = function governanceRoutes(deps) {
     const z = (o) => ({ ...o, budget: undefined, spent: undefined, budget_by_currency: undefined });
     return { ...v, projects: v.projects.map(z), gantt: v.gantt.map(z), summary: v.summary.map(z), money_hidden: true };
   }
-  router.get('/api/governance/portfolio', requireReportSession, async (req, res) => { try { const v = await portfolioView(); res.json({ ok: true, committee: isCommittee(req.reportUser), ...(canSeeMoney(req.reportUser) ? v : stripMoney(v)) }); } catch (e) { fail(res, e); } });
-  router.put('/api/governance/portfolio/:kind', requireReportSession, requireCommittee, json, async (req, res) => { try { const id = await store.upsertPortfolio(req.params.kind, req.body, { user: req.reportUser, reason: req.body && req.body.reason }); log(req, 'portfolio_saved', `${req.params.kind}:${id}`); res.json({ ok: true, id }); } catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.reason ? { code: e.reason } : {}) }); } });
+  // A-15 — site scope + editor plan writes, both behind PROPOSED switches (off = today). Rules: services/portfolioAccess.
+  const PA = require('../services/portfolioAccess');
+  const PLAN_KINDS = ['task', 'milestone', 'risk', 'deliverable'];
+  async function accessCtx(u) {
+    const c = await reportConfig.getConfig(rdb().db);
+    return { scopeOn: c.portfolio_site_scope_reads === '1', writesOn: c.portfolio_editor_plan_writes === '1', isCommittee: !!isCommittee(u), isAdmin: !!isAdmin(u), isEditor: !!rdb().userHasRole(u, 'editor') };
+  }
+  /** The portfolio view this user may read (filtered when the read switch is on) and the projects whose plan they may edit. */
+  async function viewFor(u) {
+    const ctx = await accessCtx(u); const v0 = await portfolioView();
+    const v = PA.filterPortfolio(v0, u, ctx);
+    const editable = v.projects.filter(p => PA.canEditPlan(u, p, { ...ctx, extraSites: v0.project_sites })).map(p => p.id);
+    return { v, ctx, editable };
+  }
+  router.get('/api/governance/portfolio', requireReportSession, async (req, res) => { try { const { v, editable } = await viewFor(req.reportUser); res.json({ ok: true, committee: isCommittee(req.reportUser), can_edit_plan_projects: editable, ...(canSeeMoney(req.reportUser) ? v : stripMoney(v)) }); } catch (e) { fail(res, e); } });
+  const planScope = (res) => res.status(403).json({ ok: false, code: 'PLAN_SCOPE', error: 'you may only maintain the plan of a project of your site(s), or one you own' });
+  /**
+   * Gate for a plan write (task / milestone / risk / deliverable). Committee → as today. Otherwise the switch must be on
+   * and canEditPlan must hold on the row's STORED project (never trust body.project_id on an update) and, for a move,
+   * on the target project too. Returns true when it has answered.
+   */
+  async function refusePlanWrite(req, res, kind, { id = null, body = null } = {}) {
+    const u = req.reportUser;
+    if (isCommittee(u)) return false;
+    const ctx = await accessCtx(u);
+    if (!ctx.writesOn) { res.status(403).json({ ok: false, error: 'committee-member or admin role required' }); return true; }
+    const may = async (pid) => { if (pid == null || !Number.isFinite(Number(pid))) return false; const p = await store.getProject(pid); return !!p && PA.canEditPlan(u, p, { ...ctx, extraSites: await store.projectSites(p.id) }); };
+    let target = body && body.project_id != null ? Number(body.project_id) : null;
+    if (id) {
+      const row = await store.planRow(kind, id);
+      if (!row) { res.status(404).json({ ok: false, error: kind + ' not found' }); return true; }
+      if (!(await may(row.project_id))) { planScope(res); return true; }
+      if (target != null && target !== row.project_id && !(await may(target))) { planScope(res); return true; }
+      if (target == null) target = row.project_id;
+    } else if (!(await may(target))) { planScope(res); return true; }
+    // a link to another element must stay inside the editable project (no reach into another site's plan)
+    for (const [k, linkKind] of [['milestone_id', 'milestone'], ['parent_id', 'task']]) {
+      if (body && body[k] != null && body[k] !== '') { const l = await store.planRow(linkKind, body[k]); if (!l || l.project_id !== target) { planScope(res); return true; } }
+    }
+    return false;
+  }
+  router.put('/api/governance/portfolio/project/:id/sites', requireReportSession, requireCommittee, json, async (req, res) => {
+    try { const ids = await store.setProjectSites(req.params.id, (req.body && req.body.site_ids) || [], { user: req.reportUser }); log(req, 'project_sites', `project:${req.params.id}`, { site_ids: ids }); res.json({ ok: true, site_ids: ids }); }
+    catch (e) { if (e.status === 404 || e.status === 400) return res.status(e.status).json({ ok: false, error: e.message }); fail(res, e); }
+  });
+  router.put('/api/governance/portfolio/:kind', requireReportSession, json, async (req, res, next) => {
+    if (PLAN_KINDS.includes(req.params.kind)) return next();
+    requireCommittee(req, res, next);
+  }, async (req, res) => {
+    try {
+      const kind = req.params.kind;
+      if (PLAN_KINDS.includes(kind) && await refusePlanWrite(req, res, kind, { id: req.body && req.body.id ? Number(req.body.id) : null, body: req.body || {} })) return;
+      const id = await store.upsertPortfolio(kind, req.body, { user: req.reportUser, reason: req.body && req.body.reason }); log(req, 'portfolio_saved', `${kind}:${id}`); res.json({ ok: true, id });
+    } catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.reason ? { code: e.reason } : {}) }); }
+  });
   router.post('/api/governance/portfolio/project/:id/stage', requireReportSession, requireCommittee, json, async (req, res) => {
     try { const p = await store.moveProjectStage(req.params.id, String((req.body && req.body.to) || ''), { user: req.reportUser, note: req.body && req.body.note }); log(req, 'project_stage', `project:${req.params.id}`, { to: p.stage }); res.json({ ok: true, project: { ...p, id: Number(p.id) } }); }
     catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.reason ? { code: e.reason } : {}) }); }
   });
   const historyOf = (entity) => async (req, res) => {
-    try { if (!canSeeMoney(req.reportUser)) return res.status(403).json({ ok: false, error: 'committee, admin or finance-viewer role required' }); res.json({ ok: true, events: await store.ppmEvents(entity, req.params.id) }); } catch (e) { fail(res, e); }
+    try {
+      if (!canSeeMoney(req.reportUser)) return res.status(403).json({ ok: false, error: 'committee, admin or finance-viewer role required' });
+      if (entity === 'project') {   // A-15 — with the read switch on, a project of another site does not exist for this reader
+        const ctx = await accessCtx(req.reportUser);
+        if (ctx.scopeOn && !ctx.isCommittee && !ctx.isAdmin) {
+          const p = await store.getProject(req.params.id);
+          if (!p || !PA.canReadProject(req.reportUser, p, { ...ctx, extraSites: await store.projectSites(p.id) })) return res.status(404).json({ ok: false, error: 'project not found' });
+        }
+      }
+      res.json({ ok: true, events: await store.ppmEvents(entity, req.params.id) });
+    } catch (e) { fail(res, e); }
   };
   router.get('/api/governance/portfolio/project/:id/history', requireReportSession, historyOf('project'));
   // an RFI's decision trail is a governance record: committee only (finance-viewer reads project money, not requests)
@@ -389,9 +454,9 @@ module.exports = function governanceRoutes(deps) {
     try { const pid = await store.rfiToProject(req.params.id, req.body || {}, { user: req.reportUser }); log(req, 'rfi_to_project', `rfi:${req.params.id}`, { project_id: pid }); res.json({ ok: true, project_id: pid }); }
     catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.project_id ? { project_id: e.project_id } : {}) }); }
   });
-  router.delete('/api/governance/portfolio/:kind/:id', requireReportSession, requireCommittee, async (req, res) => { try { await store.removePortfolio(req.params.kind, req.params.id, { user: req.reportUser }); log(req, 'portfolio_removed', `${req.params.kind}:${req.params.id}`); res.json({ ok: true }); } catch (e) { fail(res, e); } });
+  router.delete('/api/governance/portfolio/:kind/:id', requireReportSession, (req, res, next) => (PLAN_KINDS.includes(req.params.kind) ? next() : requireCommittee(req, res, next)), async (req, res) => { try { if (PLAN_KINDS.includes(req.params.kind) && await refusePlanWrite(req, res, req.params.kind, { id: Number(req.params.id) })) return; await store.removePortfolio(req.params.kind, req.params.id, { user: req.reportUser }); log(req, 'portfolio_removed', `${req.params.kind}:${req.params.id}`); res.json({ ok: true }); } catch (e) { fail(res, e); } });
   router.get('/api/governance/portfolio/report.html', requireReportSession, async (req, res) => {
-    try { const v0 = await portfolioView(); const v = canSeeMoney(req.reportUser) ? v0 : stripMoney(v0); const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    try { const v0 = (await viewFor(req.reportUser)).v; const v = canSeeMoney(req.reportUser) ? v0 : stripMoney(v0); const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
       const month = new Date().toISOString().slice(0, 7);
       const rows = v.summary.map(s => `<tr><td>${esc(s.name)}</td><td>${s.objectives}</td><td>${s.auto_evidence_pct == null ? '—' : s.auto_evidence_pct + ' %'}</td><td>${s.weighted_evidence_pct == null ? '—' : s.weighted_evidence_pct + ' %'}</td><td>${s.projects}</td><td>${s.late_projects}</td><td>${s.high_risks}</td><td>${v.money_hidden ? '<small>restricted</small>' : s.currency_mixed ? Object.entries(s.budget_by_currency).map(([c, b]) => Math.round(b.spent) + ' / ' + Math.round(b.budget) + ' ' + esc(c)).join('<br>') : s.budget != null ? Math.round(s.spent) + ' / ' + Math.round(s.budget) + ' ' + esc(s.currency || '') : '—'}</td></tr>`).join('');
       const objs = v.objective_views.map(o => `<tr><td>${esc(o.name)}</td><td>${esc(o.status)}</td><td>${esc(o.confidence)}</td><td>${o.evidence_pct == null ? '—' : o.evidence_pct + ' %'} <small>(${esc(o.evidence_source)}${o.metric ? ' · ' + esc(o.metric.key) + ' @ ' + esc(o.metric.window || '') : ''})</small></td><td>${o.slip_days == null ? '—' : o.slip_days + ' d'}</td></tr>`).join('');

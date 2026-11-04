@@ -30,6 +30,7 @@ Transformer SDP360 en plateforme maintenable, sécurisée et pilotable : ITSM en
 
 - Autorisations site/département : sécuriser toutes les lectures, écritures, photos, exports, shares et 16 routes `dash-key` ; révoquer les permissions à la requête suivante.
 - Certifier les formules KPI et rapprocher les scores divergents de roadmap (22 % / 54 % signalés dans la revue) avant publication officielle ; distinguer `null`/UNKNOWN de zéro.
+- A-15 (2026-11, construit, politique PROPOSÉE non approuvée) : lecture du portefeuille limitée aux sites du lecteur + éditeurs de site maintenant le plan de leurs projets — interrupteurs `portfolio_site_scope_reads` / `portfolio_editor_plan_writes` à `'0'` (= comportement actuel) ; garde unique `services/portfolioAccess.js`, sites supplémentaires `portfolio_project_sites` (043), ADR `docs/ai-decisions/ADR-G15-portfolio-site-scope.md`. Reste au propriétaire : classer les projets site/groupe, décider d'activer.
 - Finir finance/PPM : WBS, tâches, dépendances, ressources, baselines, budgets avec preuve, bénéfices validés et consolidation de Roadmap Manager.
 - Ne pas inventer les 24 spécifications F01–F24 et les 41 chart contracts si leurs fichiers originaux sont absents ; proposer des remplacements explicites, non certifiés.
 - Finaliser engagements, PV, RFI, handoffs, rapports et alertes avec contrôles SoD, historique, escalade et notifications non activées par défaut.

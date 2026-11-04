@@ -34,3 +34,26 @@ test('pg: governance store parity (cadence → session → stamps → decision r
     await s.removeCadence(c.id); assert.equal((await s.listSessions({ cadenceId: c.id })).length, 0, 'sessions cascade with the cadence');
   } finally { await dropTestDb(ctx); }
 });
+
+test('pg: setProjectSites replaces rows, portfolio().project_sites returns them, ledger + cascade on project delete (A-15)', async (t) => {
+  const ctx = await provisionTestDb(); if (!ctx) return t.skip('no pg');
+  process.env.PG_URL = ctx.url;
+  const rdb = require('../reports-db'); await rdb.initPgReports();
+  await require('../db/migrate').migrateAtBoot({ log: () => {} });
+  const { makeGovernanceStore } = require('../services/governanceStore');
+  const s = makeGovernanceStore({ prepare: (sql) => rdb.pgHandle().prepare(sql), runTransaction: (fn) => rdb.pgHandle().runTransaction(fn) }, { isPg: true });
+  try {
+    const pr = await s.upsertPortfolio('programme', { key: 'ps-p', name: 'P' }); const ob = await s.upsertPortfolio('objective', { programme_id: pr, key: 'ps-o', name: 'O' });
+    const pj = await s.upsertPortfolio('project', { objective_id: ob, key: 'ps-j', name: 'J', site_id: 1 });
+    assert.deepEqual(await s.setProjectSites(pj, [3, 2, 3], { user: { id: 7, username: 'pmo' } }), [2, 3]);
+    assert.deepEqual(await s.setProjectSites(pj, [4], { user: { id: 7, username: 'pmo' } }), [4], 'replaced, not appended');
+    assert.deepEqual(await s.projectSites(pj), [4]);
+    assert.deepEqual((await s.portfolio()).project_sites, [{ project_id: pj, site_id: 4 }]);
+    const ev = (await s.ppmEvents('project', pj)).filter(e => e.action === 'sites_edit');
+    assert.deepEqual(ev.map(e => [e.old_value, e.new_value]), [['', '2,3'], ['2,3', '4']]);
+    await assert.rejects(s.setProjectSites(999999, [1]), (e) => e.status === 404);
+    await assert.rejects(s.setProjectSites(pj, [0]), (e) => e.status === 400);
+    await s.removePortfolio('project', pj);
+    assert.deepEqual((await s.portfolio()).project_sites, [], 'cascade on project delete');
+  } finally { await dropTestDb(ctx); }
+});
