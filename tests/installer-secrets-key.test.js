@@ -28,3 +28,10 @@ test('A-04: the guard opens pg from the pgDir option (the staged 2.0 node_module
   await pi.secretsKeyGuard({ PG_URL: 'x' }, { pgDir: '/staged/node_modules', connect: async (url, o) => { seen = o && o.pgDir; return { query: async () => ({ rows: [] }), end: async () => {} }; } });
   assert.strictEqual(seen, '/staged/node_modules');
 });
+test('A-28b: checkSecretRows opens enc:v3 boxes (it passes the key name)', () => {
+  const v3 = cs.encryptValue('smtp-secret', cs.keyFrom(PASS), { keyName: 'smtp_pass', version: 3 });
+  const ok = pi.checkSecretRows([{ key: 'smtp_pass', value: v3 }], PASS);
+  assert.deepStrictEqual(ok, { encrypted: ['smtp_pass'], unreadable: [] });
+  const swapped = pi.checkSecretRows([{ key: 'meraki_api_key', value: v3 }], PASS);
+  assert.deepStrictEqual(swapped.unreadable, ['meraki_api_key'], 'a box moved under another key name is unreadable');
+});

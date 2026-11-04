@@ -153,7 +153,8 @@ function checkSecretRows(rows, passphrase) {
   if (!cs) throw new Error('services/configSecrets.js not found in the Setup bootstrap or the install folder');
   const key = passphrase ? cs.keyFrom(passphrase) : null;
   const encrypted = rows.filter((r) => cs.isEncrypted(r.value)).map((r) => r.key);
-  const unreadable = encrypted.filter((k) => { const v = rows.find((r) => r.key === k).value; const d = key ? cs.decryptValue(v, key) : null; return d == null || d === ''; });
+  // A-28b — enc:v3 boxes are bound to their key name (AAD): the name is passed to decryptValue.
+  const unreadable = encrypted.filter((k) => { const v = rows.find((r) => r.key === k).value; const d = key ? cs.decryptValue(v, key, { keyName: k }) : null; return d == null || d === ''; });
   return { encrypted, unreadable };
 }
 /** The pg driver of the version that will run: the staged --node-modules folder when Setup carries one, else the install folder's. */

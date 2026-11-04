@@ -249,7 +249,7 @@ function _fold(rows, key) {
   const out = { ...DEFAULTS };
   rows.forEach(r => {
     if (!_SECRET_BLANK_KEEP.has(r.key)) { out[r.key] = r.value; return; }
-    const plain = _secrets.decryptValue(r.value, key);
+    const plain = _secrets.decryptValue(r.value, key, { keyName: r.key });   // A-28b: v3 boxes are bound to their key name
     if (plain === null) {
       // An encrypted value we cannot open. Returning the box would make nodemailer or the
       // SSO handshake fail with an error nobody can read, so it reads as "not configured"
@@ -280,7 +280,7 @@ function setConfig(db, patch, user, opts) {
     .filter(([k, v]) => !(_SECRET_BLANK_KEEP.has(k) && String(v) === ''))
     // Encrypt on the way in, and only the secret-shaped keys: a host or a port stays
     // legible so an operator can still read the table when something is wrong.
-    .map(([k, v]) => [k, _SECRET_BLANK_KEEP.has(k) ? _secrets.encryptValue(String(v), _key) : v]);
+    .map(([k, v]) => [k, _SECRET_BLANK_KEEP.has(k) ? _secrets.encryptValue(String(v), _key, { keyName: k }) : v]);
   const { H, isPg } = _h(db);
   return (async () => {
     await H.runTransaction(async () => {

@@ -26,7 +26,7 @@ function summarizeVerify(rows, key) {
     const v = r && r.value != null ? String(r.value) : '';
     if (v === '') continue;
     if (!isEncrypted(v)) { out.plaintext++; continue; }
-    const d = key ? decryptValue(v, key) : null;
+    const d = key ? decryptValue(v, key, { keyName: r.key }) : null;   // A-28b: enc:v3 needs the key name
     if (d == null || d === '') { out.unreadable++; out.unreadableKeys.push(r.key); } else out.readable++;
   }
   return out;
