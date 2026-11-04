@@ -17,7 +17,7 @@
 | jobs | 26 |
 | jobs without test reference | 10 |
 | migrations | 62 |
-| test files | 528 |
+| test files | 529 |
 
 ## Pages
 
@@ -36,7 +36,7 @@
 | PG-executive-report | public/executive-report.html | super_admin | yes | 1 | 6 |
 | PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 5 |
 | PG-handoffs | public/handoffs.html | any | yes | 1 | 5 |
-| PG-help | public/help.html | any | yes | 1 | 7 |
+| PG-help | public/help.html | any | yes | 1 | 8 |
 | PG-home | public/home.html | any | yes | 0 | 5 |
 | PG-index | public/index.html | any | yes | 1 | 17 |
 | PG-infra-health | public/infra-health.html | any | yes | 2 | 3 |
@@ -63,8 +63,8 @@
 | PG-notifications | public/notifications.html | any | yes | 1 | 2 |
 | PG-obligations | public/obligations.html | any | yes | 0 | 1 |
 | PG-policies | public/policies.html | admin / committee-member | yes | 1 | 3 |
-| PG-portfolio | public/portfolio.html | any | yes | 1 | 5 |
-| PG-project | public/project.html | any | no | 1 | 5 |
+| PG-portfolio | public/portfolio.html | any | yes | 1 | 6 |
+| PG-project | public/project.html | any | no | 1 | 6 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 2 |
 | PG-reports | public/reports.html | any | yes | 2 | 21 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 3 |
