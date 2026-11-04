@@ -24,6 +24,15 @@
   function clearSession(){ try { localStorage.removeItem(LEGACY_TOKEN_KEY); } catch (_) {} localStorage.removeItem(USER_KEY); }
   try { localStorage.removeItem(LEGACY_TOKEN_KEY); } catch (_) {}
 
+  // A-09a — UI policy (report_config ui_* keys, served by /api/reports/auth/me as body.ui). Exposed at head-load
+  // from the last cached copy, else today's defaults; refreshed below by the background /auth/me call.
+  const UI_POLICY_KEY = 'sdp_ui_policy';
+  const UI_POLICY_DEFAULTS = { lang_default: '', i18n_pages: '0', role_landing: '0', nav_profile: 'full', deck_builder_roles: ['super_admin'] };
+  window.__uiPolicy = (function () {
+    try { const c = JSON.parse(localStorage.getItem(UI_POLICY_KEY)); if (c && typeof c === 'object') return Object.assign({}, UI_POLICY_DEFAULTS, c); } catch (_) {}
+    return Object.assign({}, UI_POLICY_DEFAULTS);
+  })();
+
   function redirectLogin() {
     const next = encodeURIComponent(location.pathname.split('/').pop() + location.search);
     location.replace('login.html?next=' + next);
@@ -157,6 +166,7 @@
       }
       if (!r.ok) return;
       const body = await r.json().catch(() => null);
+      if (body && body.ui && typeof body.ui === 'object') { try { localStorage.setItem(UI_POLICY_KEY, JSON.stringify(body.ui)); } catch (_) {} }
       const fresh = body && body.user;
       if (!fresh || fresh.id !== user.id) return;
       const changed = _roleSig(fresh) !== _roleSig(user);

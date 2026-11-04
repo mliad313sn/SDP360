@@ -126,3 +126,29 @@ test('the light breadcrumb style applies to the <nav> trail only, never to a pag
   assert.doesNotMatch(css, /^\.shell-breadcrumb\s*\{[^}]*background:\s*#F4F6F9/m, 'unscoped rule would paint the Helpdesk title bar white');
   assert.match(css, /nav\.shell-breadcrumb \{ background: #F4F6F9/);
 });
+
+// A-09a — <html lang> mirrors the language only on a page whose body is translated.
+function loadWithRoot({ lang, i18n, policy } = {}) {
+  const mount = { dataset: { section: 'operations', current: 'portfolio' }, innerHTML: '' };
+  const documentElement = { lang: 'en', dataset: i18n ? { i18n } : {} };
+  const document = { readyState: 'complete', documentElement, getElementById: (id) => (id === '__shell' ? mount : null), addEventListener() {}, querySelector: () => null, querySelectorAll: () => [] };
+  const window = { __userHasRole: () => true, __authUser: { full_name: 'Ana', role: 'admin' }, EDV_ICONS: { html: () => '', get: () => '' } };
+  if (policy) window.__uiPolicy = policy;
+  const localStorage = { getItem: (k) => (k === 'sdp_lang' ? lang || null : null), setItem() {} };
+  vm.runInNewContext(SRC, { window, document, console, localStorage, navigator: { language: 'en-US' } });
+  return { documentElement, shell: window.__shell };
+}
+
+test('render() sets <html lang="fr"> when sdp_lang=fr and the page opted in (data-i18n="on")', () => {
+  assert.strictEqual(loadWithRoot({ lang: 'fr', i18n: 'on' }).documentElement.lang, 'fr');
+});
+
+test('render() leaves <html lang> untouched on a page that did not opt in', () => {
+  assert.strictEqual(loadWithRoot({ lang: 'fr' }).documentElement.lang, 'en');
+});
+
+test('the UI-policy first-visit default (fr) applies only when nothing is saved', () => {
+  assert.strictEqual(loadWithRoot({ policy: { lang_default: 'fr' } }).shell.shellLang(), 'fr');
+  assert.strictEqual(loadWithRoot({ lang: 'en', policy: { lang_default: 'fr' } }).shell.shellLang(), 'en');
+  assert.strictEqual(loadWithRoot({ policy: { lang_default: '' } }).shell.shellLang(), 'en');
+});

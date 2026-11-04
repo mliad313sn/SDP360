@@ -305,6 +305,8 @@
   };
   function shellLang() {
     try { const s = localStorage.getItem('sdp_lang'); if (s === 'fr' || s === 'en') return s; } catch (_) { /* storage blocked */ }
+    // A-09a — first-visit default from the UI policy (report_config ui_lang_default; '' today = browser rule)
+    try { const d = window.__uiPolicy && window.__uiPolicy.lang_default; if (d === 'fr' || d === 'en') return d; } catch (_) { /* no policy */ }
     try { return /^fr/i.test((typeof navigator !== 'undefined' && navigator.language) || '') ? 'fr' : 'en'; } catch (_) { return 'en'; }
   }
   const T = (s) => (shellLang() === 'fr' && SHELL_FR[s]) || s;
@@ -444,6 +446,10 @@
     const user    = window.__authUser || null;
     translateNav(NAV); translateNav(WORKSPACES);
     const lang = shellLang();
+    // A-09a — <html lang> follows the language ONLY on a page whose body is translated (it opted in with
+    // data-i18n="on" once its dictionary installed). An English body must keep lang="en", or a screen reader
+    // reads English with a French voice. cockpit.html and field/ set it themselves through i18nText.
+    try { const de = document.documentElement; if (de && de.dataset && de.dataset.i18n === 'on') de.lang = lang; } catch (_) { /* no DOM */ }
 
     const navHtml = NAV.filter(sectionVisible).map(it => renderNavItem(it, ctx)).join('');
 

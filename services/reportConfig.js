@@ -4,6 +4,11 @@
 
 const DEFAULTS = {
   exec_view_lang: 'en',                 // language of the AI incident summaries on the public page (en|fr)
+  // A-09a — shared UI-policy channel (services/uiPolicy.js → /api/reports/auth/me → window.__uiPolicy).
+  // Every value reproduces today's behaviour; switched by tools/reports/set-ui-policy.js.
+  ui_lang_default: '',                  // ''=saved choice else browser language · 'fr'|'en' first-visit default
+  ui_i18n_pages: '0',                   // '1' activates the French dictionaries of the coordinator pages
+  ui_role_landing: '0', ui_nav_profile: 'full', ui_deck_builder_roles: 'super_admin',
   // A-08 — Exec View (public page) switches; both defaults reproduce today's output.
   // full = subject/RCA/CA public, per the 2026-07-02 decision ("option a");
   // summarized_only = generic title + AI-condensed RCA/CA only; none = generic title, no RCA/CA.
