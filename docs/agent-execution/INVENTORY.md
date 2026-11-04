@@ -11,13 +11,13 @@
 | pages without declared role | 6 |
 | pages not in navigation | 26 |
 | pages with inline scripts | 46 |
-| routes | 549 |
+| routes | 550 |
 | routes without test reference | 82 |
 | routes in server js | 231 |
 | jobs | 26 |
 | jobs without test reference | 10 |
 | migrations | 62 |
-| test files | 539 |
+| test files | 541 |
 
 ## Pages
 
@@ -28,7 +28,7 @@
 | PG-assets-finance | public/assets-finance.html | UNKNOWN | no | 1 | 2 |
 | PG-assets-hygiene | public/assets-hygiene.html | UNKNOWN | no | 1 | 3 |
 | PG-assets | public/assets.html | any | yes | 10 | 11 |
-| PG-cockpit | public/cockpit.html | any | yes | 1 | 4 |
+| PG-cockpit | public/cockpit.html | any | yes | 1 | 6 |
 | PG-commitments | public/commitments.html | any | no | 1 | 3 |
 | PG-dashboard-composer | public/dashboard-composer.html | admin / dashboard-publisher | no | 1 | 4 |
 | PG-dashboards | public/dashboards.html | any | yes | 1 | 6 |
@@ -48,9 +48,9 @@
 | PG-itsm-integrations-plan | public/itsm-integrations-plan.html | UNKNOWN | no | 0 | 3 |
 | PG-itsm-roadmap | public/itsm-roadmap.html | super_admin | no | 1 | 3 |
 | PG-login | public/login.html | public | no | 1 | 7 |
-| PG-meeting | public/meeting.html | any | no | 1 | 8 |
+| PG-meeting | public/meeting.html | any | no | 1 | 10 |
 | PG-meetings-actions | public/meetings-actions.html | any | no | 2 | 6 |
-| PG-meetings-compliance | public/meetings-compliance.html | any | no | 2 | 2 |
+| PG-meetings-compliance | public/meetings-compliance.html | any | no | 2 | 3 |
 | PG-meetings-council | public/meetings-council.html | any | no | 2 | 2 |
 | PG-meetings-import | public/meetings-import.html | editor | no | 2 | 3 |
 | PG-meetings-insights | public/meetings-insights.html | any | no | 2 | 2 |
