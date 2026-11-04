@@ -1198,10 +1198,10 @@ function renderTrend(){
     const rows=getPRows(p);
     inb.push(rows.length);
     cl.push(rows.filter(isClosed).length);
-    const svc=rows.filter(r=>isResOverdue(r)).length; // accurate: Due By Time vs Resolved Time
-    const fvc=rows.filter(r=>{const f=(r['First Response Overdue Status']||'').toLowerCase();return f==='true'||f==='1'||f==='yes';}).length;
-    sv.push(rows.length?Math.round(svc/rows.length*1000)/10:0);
-    fv.push(rows.length?Math.round(fvc/rows.length*1000)/10:0);
+    // Doctrine denominators (closed / responded); null = nothing to judge, the line breaks (A-17a).
+    const rt=periodSlaRates(rows);
+    sv.push(rt.res_violated_pct);
+    fv.push(rt.fr_violated_pct);
   });
   const modeLabel={weekly:'Weekly',monthly:'Monthly',quarterly:'Quarterly',yearly:'Yearly'}[VIEW_MODE];
   setH('trendTitle',modeLabel+' Request Volume Trend');
@@ -1211,8 +1211,8 @@ function renderTrend(){
     data:{labels,datasets:[
       {type:'bar',label:'Inbound',data:inb,yAxisID:'y',backgroundColor:'rgba(25,118,188,0.45)',borderColor:'#1976BC',borderWidth:1,borderRadius:3,order:3},
       {type:'bar',label:'Closed',data:cl,yAxisID:'y',backgroundColor:'rgba(22,163,74,0.4)',borderColor:'#16A34A',borderWidth:1,borderRadius:3,order:4},
-      {type:'line',label:'Res. SLA Violated %',data:sv,yAxisID:'y2',borderColor:'#DC2626',backgroundColor:'rgba(220,38,38,0.06)',tension:0.35,pointRadius:3,pointBackgroundColor:'#DC2626',fill:false,order:1},
-      {type:'line',label:'1st Reply Violated %',data:fv,yAxisID:'y2',borderColor:'#D97706',backgroundColor:'transparent',tension:0.35,pointRadius:3,pointBackgroundColor:'#D97706',fill:false,borderDash:[4,3],order:2}
+      {type:'line',label:'Res. SLA Violated %',data:sv,yAxisID:'y2',borderColor:'#DC2626',backgroundColor:'rgba(220,38,38,0.06)',tension:0.35,pointRadius:3,pointBackgroundColor:'#DC2626',fill:false,spanGaps:false,order:1},
+      {type:'line',label:'1st Reply Violated %',data:fv,yAxisID:'y2',borderColor:'#D97706',backgroundColor:'transparent',tension:0.35,pointRadius:3,pointBackgroundColor:'#D97706',fill:false,borderDash:[4,3],spanGaps:false,order:2}
     ]},
     options:{responsive:true,maintainAspectRatio:false,
       interaction:{mode:'index',intersect:false},
