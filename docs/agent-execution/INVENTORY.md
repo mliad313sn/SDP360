@@ -12,12 +12,12 @@
 | pages not in navigation | 27 |
 | pages with inline scripts | 46 |
 | routes | 561 |
-| routes without test reference | 82 |
+| routes without test reference | 80 |
 | routes in server js | 231 |
 | jobs | 27 |
 | jobs without test reference | 10 |
 | migrations | 64 |
-| test files | 553 |
+| test files | 556 |
 
 ## Pages
 
@@ -32,10 +32,10 @@
 | PG-cockpit | public/cockpit.html | any | yes | 1 | 6 |
 | PG-commitments | public/commitments.html | any | no | 1 | 3 |
 | PG-dashboard-composer | public/dashboard-composer.html | admin / dashboard-publisher | no | 1 | 4 |
-| PG-dashboards | public/dashboards.html | any | yes | 1 | 7 |
+| PG-dashboards | public/dashboards.html | any | yes | 1 | 8 |
 | PG-exec-view | public/exec-view.html | public | no | 1 | 5 |
-| PG-executive-report | public/executive-report.html | super_admin | yes | 1 | 8 |
-| PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 6 |
+| PG-executive-report | public/executive-report.html | super_admin | yes | 1 | 9 |
+| PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 7 |
 | PG-handoffs | public/handoffs.html | any | yes | 1 | 5 |
 | PG-help | public/help.html | any | yes | 1 | 8 |
 | PG-home | public/home.html | any | yes | 0 | 5 |
@@ -45,7 +45,7 @@
 | PG-inspection | public/inspection.html | any | no | 2 | 6 |
 | PG-inspections | public/inspections.html | any | yes | 1 | 4 |
 | PG-integrations | public/integrations.html | any | yes | 1 | 3 |
-| PG-it-review | public/it-review.html | executive / scorecard-viewer | yes | 2 | 5 |
+| PG-it-review | public/it-review.html | executive / scorecard-viewer | yes | 2 | 6 |
 | PG-itsm-integrations-plan | public/itsm-integrations-plan.html | UNKNOWN | no | 0 | 3 |
 | PG-itsm-roadmap | public/itsm-roadmap.html | super_admin | no | 1 | 3 |
 | PG-login | public/login.html | public | no | 1 | 7 |
@@ -90,7 +90,6 @@
 | RT-GET-api-cab | GET | `/api/cab` | server.js:3497 |
 | RT-POST-api-cache-clear | POST | `/api/cache/clear` | server.js:3768 |
 | RT-GET-api-cache-status | GET | `/api/cache/status` | server.js:3901 |
-| RT-GET-api-dashboard-groups-discovered | GET | `/api/dashboard/groups/discovered` | server.js:7472 |
 | RT-GET-api-data-ageing-by-group | GET | `/api/data/ageing-by-group` | server.js:4706 |
 | RT-GET-api-data-ageing-by-site | GET | `/api/data/ageing-by-site` | server.js:4656 |
 | RT-GET-api-data-ageing | GET | `/api/data/ageing` | server.js:4184 |
@@ -105,7 +104,7 @@
 | RT-GET-api-data-monthly-summary | GET | `/api/data/monthly-summary` | server.js:4611 |
 | RT-GET-api-data-sla-by-category | GET | `/api/data/sla-by-category` | server.js:4097 |
 | RT-GET-api-debug-raw-test | GET | `/api/debug/raw-test` | server.js:3726 |
-| RT-POST-api-executive-new-pptx | POST | `/api/executive-new-pptx` | server.js:7133 |
+| RT-POST-api-executive-new-pptx | POST | `/api/executive-new-pptx` | server.js:7135 |
 | RT-GET-api-integration-fmp-readiness | GET | `/api/integration/fmp/readiness` | routes/fourmypeople.js:31 |
 | RT-GET-api-meetings-import-incubation-template | GET | `/api/meetings/import/incubation-template` | routes/meetings.js:799 |
 | RT-POST-api-meetings-import-incubation-commit | POST | `/api/meetings/import/incubation/commit` | routes/meetings.js:839 |
@@ -115,14 +114,13 @@
 | RT-GET-api-meetings-people | GET | `/api/meetings/people` | routes/meetings.js:147 |
 | RT-GET-api-meetings-progress-export-pptx | GET | `/api/meetings/progress/export-pptx` | routes/meetings.js:915 |
 | RT-POST-api-meetings-reset | POST | `/api/meetings/reset` | routes/meetings.js:691 |
-| RT-GET-api-notes | GET | `/api/notes` | server.js:7179 |
-| RT-POST-api-notes | POST | `/api/notes` | server.js:7190 |
-| RT-POST-api-reports-auth-change-password | POST | `/api/reports/auth/change-password` | server.js:5761 |
-| RT-GET-api-reports-current-week | GET | `/api/reports/current-week` | server.js:5913 |
-| RT-POST-api-reports-exec-pptx | POST | `/api/reports/exec-pptx` | server.js:7486 |
-| RT-GET-api-reports-helpdesk-live | GET | `/api/reports/helpdesk-live` | server.js:6222 |
+| RT-GET-api-notes | GET | `/api/notes` | server.js:7181 |
+| RT-POST-api-notes | POST | `/api/notes` | server.js:7192 |
+| RT-POST-api-reports-auth-change-password | POST | `/api/reports/auth/change-password` | server.js:5763 |
+| RT-GET-api-reports-current-week | GET | `/api/reports/current-week` | server.js:5915 |
+| RT-GET-api-reports-helpdesk-live | GET | `/api/reports/helpdesk-live` | server.js:6224 |
 | RT-GET-api-reports-sessions-active | GET | `/api/reports/sessions/active` | routes/adminUsers.js:149 |
-| RT-GET-api-reports-technicians | GET | `/api/reports/technicians` | server.js:6473 |
+| RT-GET-api-reports-technicians | GET | `/api/reports/technicians` | server.js:6475 |
 | RT-POST-api-reports-test-smtp | POST | `/api/reports/test-smtp` | routes/adminConfig.js:157 |
 | RT-PUT-api-reports-users-emails | PUT | `/api/reports/users/emails` | routes/adminUsers.js:95 |
 | RT-GET-api-risk-register-config-sites | GET | `/api/risk-register-config/sites` | routes/riskRegister.js:78 |
@@ -132,8 +130,8 @@
 | RT-GET-api-roadmap-evidence-platform | GET | `/api/roadmap/evidence/platform` | routes/roadmap.js:64 |
 | RT-GET-api-roadmap-project | GET | `/api/roadmap/project` | routes/roadmap.js:123 |
 | RT-GET-api-sample-viewid | GET | `/api/sample/:viewId` | server.js:5025 |
-| RT-POST-api-save-charts | POST | `/api/save-charts` | server.js:7204 |
-| RT-POST-api-save-pptx | POST | `/api/save-pptx` | server.js:7213 |
+| RT-POST-api-save-charts | POST | `/api/save-charts` | server.js:7206 |
+| RT-POST-api-save-pptx | POST | `/api/save-pptx` | server.js:7215 |
 | RT-GET-api-survey-by-dimension | GET | `/api/survey/by-dimension` | server.js:1928 |
 | RT-POST-api-survey-cache-clear | POST | `/api/survey/cache/clear` | server.js:1878 |
 | RT-GET-api-survey-debug | GET | `/api/survey/debug` | server.js:1887 |
@@ -143,10 +141,10 @@
 | RT-GET-api-survey-summary | GET | `/api/survey/summary` | server.js:1731 |
 | RT-POST-api-survey-voice-cache-clear | POST | `/api/survey/voice-cache/clear` | server.js:2159 |
 | RT-GET-api-survey-voice | GET | `/api/survey/voice` | server.js:2038 |
-| RT-GET-api-tracker-delete-year | GET | `/api/tracker/delete-year` | server.js:7660 |
-| RT-POST-api-tracker-delete-year | POST | `/api/tracker/delete-year` | server.js:7677 |
-| RT-POST-api-tracker-import-dept-meetings | POST | `/api/tracker/import-dept-meetings` | server.js:7325 |
-| RT-POST-api-tracker-reset | POST | `/api/tracker/reset` | server.js:7627 |
+| RT-GET-api-tracker-delete-year | GET | `/api/tracker/delete-year` | server.js:7662 |
+| RT-POST-api-tracker-delete-year | POST | `/api/tracker/delete-year` | server.js:7679 |
+| RT-POST-api-tracker-import-dept-meetings | POST | `/api/tracker/import-dept-meetings` | server.js:7327 |
+| RT-POST-api-tracker-reset | POST | `/api/tracker/reset` | server.js:7629 |
 | RT-GET-api-views | GET | `/api/views` | server.js:3760 |
 | RT-GET-ext-odata-sites | GET | `/ext/odata/Sites` | routes/extApi.js:103 |
 | RT-GET- | GET | `/` | server.js:1397 |
