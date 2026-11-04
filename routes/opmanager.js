@@ -47,6 +47,7 @@ function fillFamilies(snaps, targets, staleDays, nowMs) {
 }
 
 const { dataAsOf: _dataAsOf } = require('../services/opmanagerAvailability');
+const { timeupCalibration: _timeupCalibration } = require('../services/merakiWanQuality');
 
 module.exports = function opmanagerRoutes(deps) {
   const { express, requireReportSession, requireAdmin } = deps;
@@ -243,8 +244,10 @@ module.exports = function opmanagerRoutes(deps) {
       // loss/latency/jitter stay from the snapshot (they are quality, and accurate).
       let pollActive = false;
       let win = null;
+      let timeup = _timeupCalibration(null);
       try {
         const cfg = await require('../services/reportConfig').getConfig(rdb.db);
+        timeup = _timeupCalibration(cfg && cfg.wan_timeup_loss_pct);
         pollActive = !!(cfg && cfg.wan_poll_last_run);
         let target = 98; try { const t = JSON.parse(cfg && cfg.opm_targets || '{}'); if (t && t.wan != null) target = Number(t.wan); } catch (_) {}
         if (pollActive && sites.length) {
@@ -319,7 +322,8 @@ module.exports = function opmanagerRoutes(deps) {
         }
       } catch (_) {}
 
-      res.json({ period, as_of: new Date().toISOString().slice(0, 10), data_as_of: _dataAsOf(rows), poll_active: pollActive, window: win, sites });
+      res.json({ period, as_of: new Date().toISOString().slice(0, 10), data_as_of: _dataAsOf(rows), poll_active: pollActive, window: win,
+        timeup_loss_pct: timeup.timeup_loss_pct, timeup_calibrated: timeup.timeup_calibrated, sites });
     } catch (e) { res.json({ sites: [], reason: 'internal_error', correlation_id: logError(e, req) }); }
   });
 

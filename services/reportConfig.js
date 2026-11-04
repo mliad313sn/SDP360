@@ -99,6 +99,9 @@ const DEFAULTS = {
   //    internal CA goes in ca_bundle (PEM, SECRET: redact/blank-keep/super_admin) and is
   //    passed as `ca:` to the https agent, so verification works with a private CA.
   opmanager_base_url: '', opmanager_api_key: '', opmanager_tls_insecure: '0', opmanager_ca_bundle: '',
+  // A-18b — parallel reads of getDeviceCompleteDetails in the OpManager REST collector.
+  //    '1' = today's sequential loop; >1 = a bounded pool (capped at 8). Speed only: same rows.
+  opm_rest_concurrency: '1',
   // ── WAN SLA / ISP chargeback (V1c). The tier/circuit policy (JSON) that the SLA
   //    engine + credit reader resolve per (site_id, sub_site, uplink). Seeded as a
   //    JSON string (like asset_depreciation_config). Must live here or setConfig's

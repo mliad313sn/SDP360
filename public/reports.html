@@ -1656,7 +1656,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       <div class="form-group">
         <label>« % Time Up » — seuil de perte (down si perte ≥ %)</label>
         <input type="number" id="cfg-wan-timeup-loss" min="1" max="100" placeholder="100" autocomplete="off" style="max-width:120px">
-        <small style="color:#6b7a99"><b>100</b> = règle « loss&lt;100 » (défaut, trop tolérant). Baisse (~15-25) pour approcher le « % Time Up » de Meraki, qui compte les fortes pertes comme down. Puis <b>Sync WAN now</b> et recharge WAN Health.</small>
+        <small style="color:#6b7a99"><b>100</b> = règle « loss&lt;100 » (défaut, trop tolérant). Valeur calibrée le 04/09/2026 sur le « % Time Up » de Meraki : <b>5</b> (vide = 100). Tant que la valeur n’est pas &lt; 100, WAN Health affiche un bandeau « non calibré ». Puis <b>Sync WAN now</b> et recharge WAN Health.</small>
       </div>
       <div class="form-group">
         <label>« % Time Up » — timeout latence (down si latence &gt; ms ; vide = aucun)</label>
@@ -7654,7 +7654,7 @@ function loadInfraConfig() {
         : '✓ TLS state: verified' + (c.opmanager_ca_bundle_set ? ' with the stored internal CA bundle' : ' against the system trust store (no internal CA bundle stored)') + '.';
     }
     const stale = document.getElementById('cfg-opm-stale'); if (stale) stale.value = (c.opm_stale_days == null || c.opm_stale_days === '' ? '9' : c.opm_stale_days);
-    set('cfg-wan-timeup-loss', c.wan_timeup_loss_pct, '100');
+    set('cfg-wan-timeup-loss', c.wan_timeup_loss_pct);   // blank stays blank (placeholder shows 100) — A-18b
     set('cfg-wan-timeup-lat', c.wan_timeup_latency_ms);
     // MOS (E-model) config — preserve the full object, edit only codec + advantage from the UI.
     try { _mosCfgLoaded = JSON.parse(c.wan_mos_config || '{}') || {}; } catch (_) { _mosCfgLoaded = {}; }
@@ -7732,7 +7732,7 @@ function saveInfraConfig() {
     meraki_missing_policy: val('cfg-meraki-policy') || 'down',
     opm_availability_view_id: val('cfg-opm-view'),
     opm_stale_days: val('cfg-opm-stale') || '9',
-    wan_timeup_loss_pct: val('cfg-wan-timeup-loss') || '100',
+    wan_timeup_loss_pct: val('cfg-wan-timeup-loss'),
     wan_timeup_latency_ms: val('cfg-wan-timeup-lat'),
   };
   // MOS (E-model): merge edited codec + advantage onto the loaded object (keeps r0/jitter_buffer/base_delay).
