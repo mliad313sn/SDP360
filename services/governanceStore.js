@@ -347,7 +347,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     const openRisksHigh = (await P(`SELECT probability, impact FROM portfolio_risks WHERE project_id=? AND deleted_at IS NULL AND status='open' AND COALESCE(kind,'risk')='risk'`).all(Number(id))).filter(r => Number(r.probability) * Number(r.impact) >= 6).length;
     return { openTasks, openRisksHigh };
   }
-  async function planRow(kind, id) { const T = TABLES[kind]; if (!T || !T.cols.includes('project_id')) return null; const r = await P(`SELECT id, project_id FROM ${T.table} WHERE id=? AND deleted_at IS NULL`).get(Number(id)); return r && !(await _projectGone(r.project_id)) ? { id: Number(r.id), project_id: Number(r.project_id) } : null; }
+  async function planRow(kind, id) { const T = TABLES[kind]; if (!T || !T.cols.includes('project_id')) return null; const r = await P(`SELECT id, project_id FROM ${T.table} WHERE id=?${softDelete.TABLES[T.table] ? ' AND deleted_at IS NULL' : ''}`).get(Number(id)); /* benefits have no deleted_at: they follow their project */ return r && !(await _projectGone(r.project_id)) ? { id: Number(r.id), project_id: Number(r.project_id) } : null; }
   const TABLES = {
     programme: { table: 'portfolio_programmes', cols: ['key', 'name', 'sponsor', 'description', 'status'], req: ['key', 'name'] },
     objective: { table: 'portfolio_objectives', cols: ['programme_id', 'key', 'name', 'weight', 'owner', 'target_date', 'status', 'confidence', 'progress_pct', 'evidence_metric', 'evidence_target', 'evidence_hib', 'manual_evidence', 'sort_order'], req: ['programme_id', 'key', 'name'] },
@@ -612,13 +612,13 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     return true;
   }
   async function restorePortfolio(kind, id, opts = {}) {
-    const T = TABLES[kind]; if (!T) throw Object.assign(new Error('unknown portfolio entity'), { code: 'INVALID' });
+    const T = TABLES[kind]; if (!T || !softDelete.TABLES[T.table]) throw Object.assign(new Error('unknown portfolio entity'), { code: 'INVALID' });
     const ok = await softDelete.unstamp(db, T.table, Number(id));
     if (ok && kind === 'project') { const b = await P(`SELECT key, budget, currency, stage FROM portfolio_projects WHERE id=?`).get(Number(id)); await ppmEvent({ entity: 'project', entity_id: id, action: 'restored', field: 'budget', old_value: null, new_value: b && b.budget, currency: b && b.currency, note: b ? `${b.key} (stage ${b.stage})` : null }, opts.user); }
     return ok;
   }
   async function getPortfolioTrashRow(kind, id) {
-    const T = TABLES[kind]; if (!T) return null;
+    const T = TABLES[kind]; if (!T || !softDelete.TABLES[T.table]) return null;   // a benefit is not soft-deletable on its own
     const r = await P(`SELECT * FROM ${T.table} WHERE id=?`).get(Number(id));
     return r ? { kind, id: Number(r.id), label: r.name || r.title || r.key || `${kind} #${r.id}`, project_id: r.project_id == null ? null : Number(r.project_id), deleted_at: r.deleted_at, deleted_by: r.deleted_by == null ? null : Number(r.deleted_by), delete_reason: r.delete_reason || null } : null;
   }
