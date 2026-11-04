@@ -92,6 +92,10 @@
     'Health issues by kind': 'Problèmes de santé par type', 'Health issues by site': 'Problèmes de santé par site', 'No monitor': 'Sans écran',
     'Select a health tile above': 'Choisissez une tuile de santé ci-dessus', 'Download this list (current filters) as Excel': 'Télécharger cette liste (filtres courants) en Excel',
     'Real monitors': 'Vrais écrans', 'Months since acq.': 'Mois depuis l’acq.', 'Click a health tile to see the affected machines.': 'Cliquez sur une tuile de santé pour voir les machines concernées.',
+    // C-12 — hygiene completeness bullets + anomaly Pareto
+    'Completeness by field and site': 'Complétude par champ et par site', 'Data-quality anomalies — Pareto': 'Anomalies de qualité des données — Pareto',
+    'Bars: assets flagged per worklist (click a bar to open the same list as its tile). Line: cumulative share of flagged occurrences — one asset can sit in several worklists.':
+      'Barres : actifs signalés par liste (cliquez une barre pour ouvrir la même liste que sa tuile). Courbe : part cumulée des signalements — un actif peut figurer dans plusieurs listes.',
     // progress
     'Per-site effort trend — data-quality progress over time': 'Tendance de l’effort par site — progrès de la qualité des données dans le temps',
     'Capture snapshot now': 'Capturer un instantané maintenant', 'Capture an effort snapshot for today (admin)': 'Capturer un instantané d’effort pour aujourd’hui (admin)',
