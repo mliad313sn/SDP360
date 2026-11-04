@@ -17,7 +17,7 @@
 | jobs | 27 |
 | jobs without test reference | 10 |
 | migrations | 64 |
-| test files | 549 |
+| test files | 550 |
 
 ## Pages
 
@@ -25,14 +25,14 @@
 |---|---|---|---|---:|---:|
 | PG-access | public/access.html | any | no | 0 | 3 |
 | PG-activity-tracker | public/activity-tracker.html | any | yes | 0 | 6 |
-| PG-analytics | public/analytics.html | admin / scorecard-viewer | yes | 1 | 4 |
+| PG-analytics | public/analytics.html | admin / scorecard-viewer | yes | 1 | 5 |
 | PG-assets-finance | public/assets-finance.html | UNKNOWN | no | 1 | 2 |
 | PG-assets-hygiene | public/assets-hygiene.html | UNKNOWN | no | 1 | 3 |
 | PG-assets | public/assets.html | any | yes | 10 | 13 |
 | PG-cockpit | public/cockpit.html | any | yes | 1 | 6 |
 | PG-commitments | public/commitments.html | any | no | 1 | 3 |
 | PG-dashboard-composer | public/dashboard-composer.html | admin / dashboard-publisher | no | 1 | 4 |
-| PG-dashboards | public/dashboards.html | any | yes | 1 | 6 |
+| PG-dashboards | public/dashboards.html | any | yes | 1 | 7 |
 | PG-exec-view | public/exec-view.html | public | no | 1 | 5 |
 | PG-executive-report | public/executive-report.html | super_admin | yes | 1 | 7 |
 | PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 6 |
@@ -40,7 +40,7 @@
 | PG-help | public/help.html | any | yes | 1 | 8 |
 | PG-home | public/home.html | any | yes | 0 | 5 |
 | PG-index | public/index.html | any | yes | 1 | 18 |
-| PG-infra-health | public/infra-health.html | any | yes | 2 | 3 |
+| PG-infra-health | public/infra-health.html | any | yes | 2 | 4 |
 | PG-inspection-actions | public/inspection-actions.html | any | no | 1 | 4 |
 | PG-inspection | public/inspection.html | any | no | 2 | 6 |
 | PG-inspections | public/inspections.html | any | yes | 1 | 4 |
@@ -75,9 +75,9 @@
 | PG-system-logs | public/system-logs.html | super_admin | yes | 1 | 2 |
 | PG-tracker-builder | public/tracker-builder.html | admin / tracker-admin | no | 1 | 3 |
 | PG-trackers | public/trackers.html | any | yes | 1 | 2 |
-| PG-wan-health | public/wan-health.html | UNKNOWN | no | 0 | 2 |
+| PG-wan-health | public/wan-health.html | UNKNOWN | no | 0 | 3 |
 | PG-wan-sla | public/wan-sla.html | UNKNOWN | no | 0 | 2 |
-| PG-wan | public/wan.html | any | yes | 3 | 9 |
+| PG-wan | public/wan.html | any | yes | 3 | 10 |
 
 ## Routes without a test reference
 

@@ -12,7 +12,7 @@
   "jobs": 27,
   "jobs_without_test_reference": 10,
   "migrations": 64,
-  "test_files": 549
+  "test_files": 550
  },
  "pages": [
   {
@@ -57,12 +57,13 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 55533,
+   "bytes": 56866,
    "tests": [
     "tests/analytics-logic.test.js",
     "tests/analytics-metrics-authz.smoke.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
-    "tests/i18n-coverage.test.js"
+    "tests/i18n-coverage.test.js",
+    "tests/page-head.test.js"
    ]
   },
   {
@@ -177,13 +178,14 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 18242,
+   "bytes": 18658,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/dashboard-time-truth.test.js",
     "tests/dashboard-widget-truth.test.js",
     "tests/i18n-coverage.test.js",
     "tests/landing.test.js",
+    "tests/page-head.test.js",
     "tests/page-usage.test.js"
    ]
   },
@@ -334,11 +336,12 @@
    ],
    "in_navigation": true,
    "inline_scripts": 2,
-   "bytes": 32331,
+   "bytes": 33832,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
-    "tests/infra-health-page-errors.test.js"
+    "tests/infra-health-page-errors.test.js",
+    "tests/page-head.test.js"
    ]
   },
   {
@@ -909,7 +912,8 @@
    "bytes": 403,
    "tests": [
     "tests/agent-inventory.test.js",
-    "tests/csp-no-inline-handlers-new-pages.test.js"
+    "tests/csp-no-inline-handlers-new-pages.test.js",
+    "tests/page-head.test.js"
    ]
   },
   {
@@ -934,7 +938,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 3,
-   "bytes": 47238,
+   "bytes": 48594,
    "tests": [
     "tests/agent-inventory.test.js",
     "tests/csp-headers.smoke.test.js",
@@ -943,6 +947,7 @@
     "tests/csv-safe.test.js",
     "tests/i18n-coverage.test.js",
     "tests/opm-routes.smoke.test.js",
+    "tests/page-head.test.js",
     "tests/rbac-ui-gates.test.js",
     "tests/wan-timeup-default.test.js"
    ]
