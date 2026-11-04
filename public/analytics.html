@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="vendor/chart.js/4.4.1/chart.umd.js" defer></script>
 <script src="lib/chartTheme.js" defer></script>
+<script src="lib/analyticsLogic.js"></script>
 <style>
 /* ── EDV Design System adoption ────────────────────────────────────────
    Page-local aliases mapped onto the canonical _tokens.css palette.
@@ -95,6 +96,10 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text-1);min-h
 .freshness-badge{margin-left:auto;font-size:10px;font-weight:600;padding:3px 9px;border-radius:20px;background:var(--green-pale);color:var(--green);letter-spacing:.3px}
 .freshness-badge.stale{background:var(--amber-pale);color:var(--amber)}
 .freshness-badge.unknown{background:var(--border);color:var(--text-3)}
+.freshness-badge.error{background:var(--red-pale,#FDE8EC);color:var(--red)}
+.section-error{display:flex;align-items:center;gap:10px;margin:-4px 0 12px;padding:8px 12px;border:1px solid var(--red);border-radius:var(--radius);color:var(--red);font-size:12px;background:var(--bg-card)}
+.section-error[hidden]{display:none}
+.btn-retry{font:inherit;font-size:12px;padding:3px 10px;border:1px solid var(--red);border-radius:6px;background:transparent;color:var(--red);cursor:pointer}
 
 /* ── KPI TILES ── */
 .kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px;margin-bottom:16px}
@@ -105,6 +110,7 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text-1);min-h
 .kpi.amber::before{background:var(--amber)}
 .kpi.blue::before{background:var(--blue)}
 .kpi.orange::before{background:var(--orange)}
+.kpi.na::before{background:var(--border)}
 .kpi-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.6px;color:var(--text-3);margin-bottom:6px}
 .kpi-val{font-size:28px;font-weight:700;color:var(--text-1);line-height:1;font-variant-numeric:tabular-nums}
 .kpi-val.loading{font-size:14px;color:var(--text-3);font-weight:400}
@@ -266,6 +272,7 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text-1);min-h
       </div>
       <div class="freshness-badge unknown" id="fresh-requests">—</div>
     </div>
+    <div class="section-error" id="err-requests" role="alert" hidden></div>
 
     <div class="kpi-row" id="req-kpis">
       <div class="kpi"><div class="kpi-label">Open</div><div class="kpi-val loading" id="kv-req-open">…</div><div class="kpi-sub" id="ks-req-open"></div></div>
@@ -308,6 +315,7 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text-1);min-h
       </div>
       <div class="freshness-badge unknown" id="fresh-change">—</div>
     </div>
+    <div class="section-error" id="err-change" role="alert" hidden></div>
 
     <div class="kpi-row">
       <div class="kpi"><div class="kpi-label">Total Changes</div><div class="kpi-val loading" id="kv-chg-total">…</div><div class="kpi-sub" id="ks-chg-total"></div></div>
@@ -348,6 +356,7 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text-1);min-h
       </div>
       <div class="freshness-badge unknown" id="fresh-cab">—</div>
     </div>
+    <div class="section-error" id="err-cab" role="alert" hidden></div>
 
     <div class="kpi-row">
       <div class="kpi"><div class="kpi-label">Total Approvals</div><div class="kpi-val loading" id="kv-cab-total">…</div><div class="kpi-sub" id="ks-cab-changes"></div></div>
@@ -382,6 +391,7 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text-1);min-h
       </div>
       <div class="freshness-badge unknown" id="fresh-survey">—</div>
     </div>
+    <div class="section-error" id="err-survey" role="alert" hidden></div>
 
     <div class="kpi-row">
       <div class="kpi"><div class="kpi-label">Surveys Sent</div><div class="kpi-val loading" id="kv-sur-sent">…</div><div class="kpi-sub" id="ks-sur-sent"></div></div>
@@ -418,12 +428,41 @@ window.fetch = (url, opts = {}) => {
 };
 
 // ── HELPERS ──────────────────────────────────────────────────────
+// Pure logic (ratios, RAG classes, colour maps, escaping, load coordination,
+// error states) lives in lib/analyticsLogic.js so it is unit-tested (C-01).
+const AL = window.AnalyticsLogic;
+const esc = AL.esc;
+const fetchJson = url => AL.fetchJson(window.fetch, url);
 
-function fmt(n, decimals = 0) {
-  if (n == null || n === '') return '—';
-  return Number(n).toLocaleString('en', { maximumFractionDigits: decimals, minimumFractionDigits: decimals });
+// Section error state (F12): figures withheld, never the previous values.
+const SECTION_IDS = {
+  requests: { values: ['kv-req-open','kv-req-backlog','kv-req-sla','kv-req-avgres','kv-req-frsla','kv-req-reopen','kv-req-sr','kv-req-esc'],
+              subs: ['ks-req-open','ks-req-backlog','ks-req-frsla','ks-req-reopen','ks-req-inc'],
+              charts: ['chartReqTrend','chartReqSite','chartReqCat'], tables: ['reqTechTable'] },
+  change:   { values: ['kv-chg-total','kv-chg-success','kv-chg-inprog','kv-chg-emerg','kv-chg-comp','kv-chg-avg'],
+              subs: ['ks-chg-total','ks-chg-comp'],
+              charts: ['chartChgStatus','chartChgRisk','chartChgType','chartChgSite'], tables: [] },
+  cab:      { values: ['kv-cab-total','kv-cab-comp','kv-cab-appr','kv-cab-turn'],
+              subs: ['ks-cab-changes','ks-cab-appr'],
+              charts: ['chartCabStatus','chartCabStage'], tables: ['cabRuleTable'] },
+  survey:   { values: ['kv-sur-sent','kv-sur-rate','kv-sur-avg','kv-sur-sat'],
+              subs: ['ks-sur-sent','ks-sur-sat'],
+              charts: ['chartSurTrend','chartSurDist'], tables: [] },
+};
+function showSectionError(section, err, retry) {
+  const ids = SECTION_IDS[section];
+  ids.charts.forEach(destroyChart);
+  ids.tables.forEach(id => { const el = document.getElementById(id); if (el) el.textContent = ''; });
+  AL.renderSectionError(document, {
+    valueIds: ids.values, subIds: ids.subs, freshId: 'fresh-' + section, hostId: 'err-' + section,
+    status: err && err.status, onRetry: () => { AL.clearSectionError(document, 'err-' + section); retry(); },
+  });
 }
-function pct(n) { return n == null ? '—' : fmt(n, 1) + '%'; }
+function clearSectionError(section) { AL.clearSectionError(document, 'err-' + section); }
+
+// G03: a missing or non-finite figure renders "—", never "NaN" / "Infinity".
+const fmt = (n, decimals = 0) => window.AnalyticsLogic.fmtNum(n, decimals);
+const pct = n => window.AnalyticsLogic.fmtPct(n);
 function age(isoStr) {
   if (!isoStr) return 'Never';
   const diff = Date.now() - new Date(isoStr).getTime();
@@ -682,39 +721,43 @@ async function loadSyncStatus() {
 
 // ── REQUESTS ─────────────────────────────────────────────────────
 
-async function loadRequests() {
+async function loadRequests(isCurrent = () => true) {
   const qs = sinceParam() + siteParam() + mfParams();
   try {
-    const r  = await fetch('/api/metrics/requests?' + qs);
-    const j  = await r.json();
+    const j  = await fetchJson('/api/metrics/requests?' + qs);
+    if (!isCurrent()) return;           // F11: a newer load superseded this one
     const d  = j.data || {};
+    clearSectionError('requests');
     updateFreshness('requests', j);
 
     // KPIs
     document.getElementById('kv-req-open').textContent    = fmt(d.open_count);
     document.getElementById('kv-req-open').classList.remove('loading');
-    document.getElementById('ks-req-open').innerHTML      = `of ${fmt(d.total)} total · <span class="${d.closed_count>0?'good':''}">${fmt(d.closed_count)} closed</span>`;
+    document.getElementById('ks-req-open').innerHTML      = `of ${esc(fmt(d.total))} total · <span class="${d.closed_count>0?'good':''}">${esc(fmt(d.closed_count))} closed</span>`;
 
-    const bklPct = d.total > 0 ? (d.backlog_count / d.open_count * 100).toFixed(0) : 0;
+    // F03: ratio of backlog to OPEN tickets — denominator guarded on open_count.
+    const bklPct = AL.ratioPct(d.backlog_count, d.open_count);
     document.getElementById('kv-req-backlog').textContent = fmt(d.backlog_count);
     document.getElementById('kv-req-backlog').classList.remove('loading');
-    document.getElementById('ks-req-backlog').innerHTML   = `<span class="${bklPct>10?'bad':'warn'}">${bklPct}% of open</span>`;
+    document.getElementById('ks-req-backlog').innerHTML   = bklPct == null
+      ? '<span>— of open</span>'
+      : `<span class="${bklPct>10?'bad':'warn'}">${bklPct}% of open</span>`;
 
     document.getElementById('kv-req-sla').textContent     = pct(d.sla_ok_pct);
     document.getElementById('kv-req-sla').classList.remove('loading');
     const slaEl = document.getElementById('kv-req-sla').closest('.kpi');
-    slaEl.className = 'kpi ' + (d.sla_ok_pct >= 90 ? 'green' : d.sla_ok_pct >= 75 ? 'amber' : 'red');
+    slaEl.className = AL.kpiCardClass(d.sla_ok_pct, 90, 75);
 
     document.getElementById('kv-req-avgres').textContent  = d.avg_resolution_hrs != null ? fmt(d.avg_resolution_hrs, 1) + 'h' : '—';
     document.getElementById('kv-req-avgres').classList.remove('loading');
 
     document.getElementById('kv-req-frsla').textContent   = pct(d.first_resp_violated_pct);
     document.getElementById('kv-req-frsla').classList.remove('loading');
-    document.getElementById('ks-req-frsla').innerHTML     = `<span class="${(d.first_resp_violated_pct||0)>10?'bad':'good'}">${fmt(d.first_resp_violated_count)} tickets</span>`;
+    document.getElementById('ks-req-frsla').innerHTML     = `<span class="${AL.overLimitClass(d.first_resp_violated_pct, 10)}">${esc(fmt(d.first_resp_violated_count))} tickets</span>`;
 
     document.getElementById('kv-req-reopen').textContent  = pct(d.reopen_pct);
     document.getElementById('kv-req-reopen').classList.remove('loading');
-    document.getElementById('ks-req-reopen').innerHTML    = `<span>${fmt(d.reopen_count)} reopened</span>`;
+    document.getElementById('ks-req-reopen').innerHTML    = `<span>${esc(fmt(d.reopen_count))} reopened</span>`;
 
     document.getElementById('kv-req-sr').textContent      = fmt(d.service_request_count);
     document.getElementById('kv-req-sr').classList.remove('loading');
@@ -745,36 +788,36 @@ async function loadRequests() {
     if (bt.length === 0) {
       tEl.innerHTML = '<div class="empty"><div class="icon">📭</div>No data yet</div>';
     } else {
-      tEl.innerHTML = `<table class="mini-table"><thead><tr><th>Technician</th><th class="num">Tickets</th></tr></thead><tbody>${
-        bt.map(t => `<tr><td>${t.technician || '—'}</td><td class="num">${fmt(t.count)}</td></tr>`).join('')
-      }</tbody></table>`;
+      tEl.innerHTML = AL.miniTableHtml(bt, 'technician', 'Technician', 'Tickets', fmt); // F09: escaped
     }
   } catch (e) {
     console.error('[requests]', e);
+    if (isCurrent()) showSectionError('requests', e, () => loadRequests());
   }
 }
 
 // ── CHANGE ───────────────────────────────────────────────────────
 
-async function loadChange() {
+async function loadChange(isCurrent = () => true) {
   const site_id = document.getElementById('fSite').value;
   const qs = sinceParam() + (site_id ? '&site_id=' + encodeURIComponent(site_id) : '');
   try {
-    const r = await fetch('/api/metrics/change?' + qs);
-    const j = await r.json();
+    const j = await fetchJson('/api/metrics/change?' + qs);
+    if (!isCurrent()) return;
     const d = j.data || {};
+    clearSectionError('change');
     updateFreshness('change', j);
     updateFreshness('cab', j); // same job
 
     document.getElementById('kv-chg-total').textContent  = fmt(d.total);
     document.getElementById('kv-chg-total').classList.remove('loading');
-    document.getElementById('ks-chg-total').innerHTML    = `${fmt(d.finalized_count)} finalized`;
+    document.getElementById('ks-chg-total').innerHTML    = `${esc(fmt(d.finalized_count))} finalized`;
 
     const scEl = document.getElementById('kv-chg-success');
     scEl.textContent = pct(d.change_success_rate);
     scEl.classList.remove('loading');
     const scCard = scEl.closest('.kpi');
-    scCard.className = 'kpi ' + (d.change_success_rate >= 90 ? 'green' : d.change_success_rate >= 70 ? 'amber' : 'red');
+    scCard.className = AL.kpiCardClass(d.change_success_rate, 90, 70);
 
     document.getElementById('kv-chg-inprog').textContent = fmt(d.in_progress_count);
     document.getElementById('kv-chg-inprog').classList.remove('loading');
@@ -796,10 +839,8 @@ async function loadChange() {
     // By risk bar
     const br = d.by_risk || [];
     barChart('chartChgRisk', br.map(r => r.risk || 'Unknown'), [{
-      data: br.map(r => r.count), backgroundColor: br.map(r => {
-        const v = (r.risk || '').toLowerCase();
-        return v.includes('very') || v.includes('high') ? PALETTE.red + 'CC' : v.includes('medium') ? PALETTE.amber + 'CC' : PALETTE.green + 'CC';
-      }), borderRadius: 4,
+      // F07: explicit risk map; 'Unknown' / unrecognised labels are neutral, never green.
+      data: br.map(r => r.count), backgroundColor: br.map(r => AL.colourFor(AL.riskColourKey(r.risk), PALETTE) + 'CC'), borderRadius: 4,
     }]);
 
     // By type bar
@@ -815,17 +856,19 @@ async function loadChange() {
     }]);
   } catch (e) {
     console.error('[change]', e);
+    if (isCurrent()) showSectionError('change', e, () => loadChange());
   }
 }
 
 // ── CAB ──────────────────────────────────────────────────────────
 
-async function loadCAB() {
+async function loadCAB(isCurrent = () => true) {
   const qs = sinceParam();
   try {
-    const r = await fetch('/api/metrics/cab?' + qs);
-    const j = await r.json();
+    const j = await fetchJson('/api/metrics/cab?' + qs);
+    if (!isCurrent()) return;
     const d = j.data || {};
+    clearSectionError('cab');
 
     document.getElementById('kv-cab-total').textContent   = fmt(d.total_approvals);
     document.getElementById('kv-cab-total').classList.remove('loading');
@@ -834,7 +877,7 @@ async function loadCAB() {
     const compEl = document.getElementById('kv-cab-comp');
     compEl.textContent = pct(d.cab_compliance_pct);
     compEl.classList.remove('loading');
-    compEl.closest('.kpi').className = 'kpi ' + (d.cab_compliance_pct >= 80 ? 'green' : 'amber');
+    compEl.closest('.kpi').className = AL.kpiCardClass(d.cab_compliance_pct, 80, null);
 
     document.getElementById('kv-cab-appr').textContent    = fmt(d.approved_count);
     document.getElementById('kv-cab-appr').classList.remove('loading');
@@ -845,7 +888,8 @@ async function loadCAB() {
 
     // Status doughnut
     const bs = d.by_status || [];
-    doughnutChart('chartCabStatus', bs.map(s => s.approval_status || '—'), bs.map(s => s.count), [PALETTE.green, PALETTE.red, PALETTE.amber, PALETTE.slate]);
+    doughnutChart('chartCabStatus', bs.map(s => s.approval_status || '—'), bs.map(s => s.count),
+      bs.map(s => AL.colourFor(AL.approvalColourKey(s.approval_status), PALETTE))); // F08: by name, not position
 
     // Stage bar
     const bst = d.by_stage || [];
@@ -859,23 +903,23 @@ async function loadCAB() {
     if (brt.length === 0) {
       rEl.innerHTML = '<div class="empty"><div class="icon">📭</div>No data yet</div>';
     } else {
-      rEl.innerHTML = `<table class="mini-table"><thead><tr><th>Rule Type</th><th class="num">Count</th></tr></thead><tbody>${
-        brt.map(r => `<tr><td>${r.rule_type || '—'}</td><td class="num">${fmt(r.count)}</td></tr>`).join('')
-      }</tbody></table>`;
+      rEl.innerHTML = AL.miniTableHtml(brt, 'rule_type', 'Rule Type', 'Count', fmt); // F09: escaped
     }
   } catch (e) {
     console.error('[cab]', e);
+    if (isCurrent()) showSectionError('cab', e, () => loadCAB());
   }
 }
 
 // ── SURVEY ───────────────────────────────────────────────────────
 
-async function loadSurvey() {
+async function loadSurvey(isCurrent = () => true) {
   const qs = sinceParam();
   try {
-    const r = await fetch('/api/metrics/survey?' + qs);
-    const j = await r.json();
+    const j = await fetchJson('/api/metrics/survey?' + qs);
+    if (!isCurrent()) return;
     const d = j.data || {};
+    clearSectionError('survey');
     updateFreshness('survey', j);
 
     document.getElementById('kv-sur-sent').textContent   = fmt(d.total_sent);
@@ -885,15 +929,15 @@ async function loadSurvey() {
     const rateEl = document.getElementById('kv-sur-rate');
     rateEl.textContent = pct(d.response_rate_pct);
     rateEl.classList.remove('loading');
-    rateEl.closest('.kpi').className = 'kpi ' + (d.response_rate_pct >= 20 ? 'green' : 'amber');
+    rateEl.closest('.kpi').className = AL.kpiCardClass(d.response_rate_pct, 20, null);
 
     const avgEl = document.getElementById('kv-sur-avg');
     avgEl.textContent = d.avg_score != null ? fmt(d.avg_score, 1) : '—';
     avgEl.classList.remove('loading');
-    avgEl.closest('.kpi').className = 'kpi ' + (d.avg_score >= 80 ? 'green' : d.avg_score >= 60 ? 'amber' : 'red');
+    avgEl.closest('.kpi').className = AL.kpiCardClass(d.avg_score, 80, 60);
 
     const total = (d.satisfied_count || 0) + (d.neutral_count || 0) + (d.dissatisfied_count || 0);
-    const satPct = total > 0 ? (d.satisfied_count / total * 100).toFixed(0) : null;
+    const satPct = AL.ratioPct(d.satisfied_count, total);
     document.getElementById('kv-sur-sat').textContent    = satPct != null ? satPct + '%' : '—';
     document.getElementById('kv-sur-sat').classList.remove('loading');
     document.getElementById('ks-sur-sat').textContent    = fmt(d.satisfied_count) + ' responses';
@@ -922,32 +966,34 @@ async function loadSurvey() {
     );
   } catch (e) {
     console.error('[survey]', e);
+    if (isCurrent()) showSectionError('survey', e, () => loadSurvey());
   }
 }
 
 // ── MAIN LOAD ────────────────────────────────────────────────────
 
-let _loading = false;
-async function loadAll() {
-  if (_loading) return;
-  _loading = true;
+// F11: a filter change made while a load is in flight is no longer dropped —
+// the running load is invalidated (its late responses are ignored) and one
+// re-run starts as soon as it settles, so the last filter state always wins.
+const _loader = AL.createLoadCoordinator(async (gen, isCurrent) => {
   const btn = document.getElementById('refreshBtn');
   btn.classList.add('spinning');
   btn.textContent = '↻ Loading…';
-
-  await Promise.allSettled([
-    loadSyncStatus(),
-    loadRequests(),
-    loadChange(),
-    loadCAB(),
-    loadSurvey(),
-  ]);
-
-  btn.classList.remove('spinning');
-  btn.textContent = '↻ Refresh';
-  document.getElementById('lastRefreshed').textContent = 'Updated ' + new Date().toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' });
-  _loading = false;
-}
+  try {
+    await Promise.allSettled([
+      loadSyncStatus(),
+      loadRequests(isCurrent),
+      loadChange(isCurrent),
+      loadCAB(isCurrent),
+      loadSurvey(isCurrent),
+    ]);
+  } finally {
+    btn.classList.remove('spinning');
+    btn.textContent = '↻ Refresh';
+  }
+  if (isCurrent()) document.getElementById('lastRefreshed').textContent = 'Updated ' + new Date().toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' });
+});
+function loadAll() { return _loader.trigger(); }
 
 // Initial load + auto-refresh every 5 minutes.
 // Filter options load first so restored localStorage selections apply
