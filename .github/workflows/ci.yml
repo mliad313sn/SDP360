@@ -62,14 +62,17 @@ jobs:
       # the skip guard fails the run. Chromium only, from the playwright devDependency (never shipped).
       - name: Chromium for the browser tests (playwright devDependency)
         run: npx playwright install --with-deps chromium
-      - run: npm test
-      # EX-03 — release rehearsal on PostgreSQL 17 (the service container): migrations, 100 000 synthetic
-      # tickets, encrypted backup, restore, row-by-row reconciliation, a broken dump rolled back. Timed.
+      # The backup/restore tests in npm test dump the PostgreSQL 17 service: they need pg_dump 17 on the PATH
+      # (ubuntu-24.04 ships pg_dump 16, which refuses a newer server). Installed BEFORE npm test.
       - name: PostgreSQL 17 client tools (same major as the server)
         run: |
           sudo apt-get install -y -q postgresql-common
           sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
           sudo apt-get install -y -q postgresql-client-17
+          echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
+      - run: npm test
+      # EX-03 — release rehearsal on PostgreSQL 17 (the service container): migrations, 100 000 synthetic
+      # tickets, encrypted backup, restore, row-by-row reconciliation, a broken dump rolled back. Timed.
       - name: PostgreSQL 17 backup / restore / rollback rehearsal
         env:
           PG_DUMP: /usr/lib/postgresql/17/bin/pg_dump
