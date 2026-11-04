@@ -51,6 +51,10 @@ test('quota error on queue → "NOT saved" shown, prior entry + badge kept, pers
     const port = srv.address().port;
     await page.goto('http://127.0.0.1:' + port + '/field/index.html');
     await page.waitForFunction(() => document.getElementById('site').options.length > 0);
+    // B-05 — fresh phone (nothing stored yet): the only site is SELECTED and low-bandwidth mode is OFF
+    // (a missing IndexedDB key used to come back as the IDBRequest object, truthy).
+    assert.strictEqual(await page.inputValue('#site'), '1', 'the single site is selected on first use');
+    assert.strictEqual(await page.isChecked('#lowbw'), false, 'low-bandwidth mode is off on first use');
     await ctx.setOffline(true);
     await page.click('nav.tabs button[data-view="actions"]');
 

@@ -71,6 +71,8 @@ jobs:
         run: node tools/security/secret-scan.js
       - run: node db/migrate.js
       - run: npm run build:check
+      # B-05 — Chromium for tests/*-browser.test.js (playwright devDependency; never in the package)
+      - run: npx playwright install --with-deps chromium
       - run: npm test
       - id: pkg
         name: Build update package (manifest signed when SIGNING_MANIFEST_KEY is set)

@@ -58,6 +58,10 @@ jobs:
         run: npm run lint
       - name: Secret scan of the tracked files (EX-01, blocking)
         run: node tools/security/secret-scan.js
+      # B-05 — the browser unit tests (tests/*-browser.test.js) need Chromium; without it they would skip and
+      # the skip guard fails the run. Chromium only, from the playwright devDependency (never shipped).
+      - name: Chromium for the browser tests (playwright devDependency)
+        run: npx playwright install --with-deps chromium
       - run: npm test
       # EX-03 — release rehearsal on PostgreSQL 17 (the service container): migrations, 100 000 synthetic
       # tickets, encrypted backup, restore, row-by-row reconciliation, a broken dump rolled back. Timed.
@@ -76,4 +80,55 @@ jobs:
         with:
           name: pg17-rehearsal
           path: rehearsal/
+          if-no-files-found: warn
+
+  # B-05 — browser journeys (T1 T2 T3 T4 T7 T8 + cross-site deny) on PostgreSQL 17, Chromium only, every
+  # request to a non-localhost host blocked and counted (must be 0). Journeys run twice in a row (flake
+  # check), then a negative control proves a broken selector turns the job red. Transfer size + load time
+  # per page land in the e2e-journeys artefact (measurement only, no budget yet).
+  e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      TZ: UTC
+      # throwaway cluster of this job only: trust auth, so no password exists anywhere. The app's own
+      # credentials (bootstrap admin, users, API key) are generated per run by tests/e2e/fixtures.
+      PG_ADMIN_URL: postgres://postgres@localhost:5432/postgres
+      PG_TESTS_REQUIRED: '1'
+      E2E_ARTIFACT_DIR: e2e-artifacts
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - name: Install dependencies (npm ci, bounded retry)
+        run: |
+          for i in 1 2 3; do
+            npm ci --no-audit --no-fund && exit 0
+            echo "npm ci attempt $i failed; retrying in $((i * 20)) s"; sleep $((i * 20))
+          done
+          exit 1
+      - name: Chromium (playwright devDependency, CI only)
+        run: npx playwright install --with-deps chromium
+      - name: Browser journeys, twice in a row
+        run: npm run test:e2e -- --runs=2
+      - name: Negative control — a deliberately broken selector must turn the journey red
+        run: node tools/test/run-e2e.js --negative-control
+      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+        if: always()
+        with:
+          name: e2e-journeys
+          path: e2e-artifacts/
           if-no-files-found: warn
