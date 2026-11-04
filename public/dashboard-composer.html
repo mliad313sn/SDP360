@@ -117,7 +117,8 @@
 
   function fillCatalogue() {
     $('d-aud').innerHTML = cat.audiences.map(function (a) { return '<option value="' + a + '">' + a + '</option>'; }).join('');
-    $('w-type').innerHTML = Object.keys(cat.widgetTypes).map(function (t) { return '<option value="' + t + '">' + t + (cat.widgetTypes[t].needsMetric ? '' : ' (no metric)') + '</option>'; }).join('');
+    // C-04 — only the types that render something distinct are offered (a retired type keeps rendering, never offered)
+    $('w-type').innerHTML = Object.keys(cat.widgetTypes).filter(function (t) { return cat.widgetTypes[t].creatable !== false; }).map(function (t) { return '<option value="' + t + '">' + t + (cat.widgetTypes[t].needsMetric ? '' : ' (no metric)') + '</option>'; }).join('');
     $('w-metric').innerHTML = '<option value="">— none —</option>' + cat.metrics.map(function (m) { return '<option value="' + m.key + '">' + R.escapeHtml(m.key + ' — ' + m.name + ' (' + (m.unit || '') + ', ' + m.window_kind + ')') + '</option>'; }).join('');
     $('w-rag').innerHTML = '<option value="">metric default</option>' + Object.keys(cat.policies).map(function (p) { return '<option value="' + p + '">' + p + '</option>'; }).join('');
   }
@@ -134,6 +135,7 @@
   }
   function loadWidget(w) {
     selected = w.id; $('w-head').textContent = 'Widget ' + w.id;
+    if (!$('w-type').querySelector('option[value="' + w.type + '"]')) { var lo = document.createElement('option'); lo.value = w.type; lo.textContent = w.type + ' (retired — kept for this widget only)'; $('w-type').appendChild(lo); }
     $('w-id').value = w.id; $('w-type').value = w.type; $('w-title').value = w.title || ''; $('w-metric').value = w.metric || ''; $('w-rag').value = typeof w.rag === 'string' ? w.rag : ''; $('w-window').value = w.window || '';
     $('w-x').value = w.layout.x; $('w-y').value = w.layout.y; $('w-w').value = w.layout.w; $('w-h').value = w.layout.h;
     var extra = {}; Object.keys(w).forEach(function (k) { if (['id', 'type', 'title', 'metric', 'rag', 'window', 'layout'].indexOf(k) < 0) extra[k] = w[k]; });

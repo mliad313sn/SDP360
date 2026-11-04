@@ -54,6 +54,49 @@ function previousWindow(label) {
   return null;
 }
 
+/**
+ * F02 — trackerRag: per-site G/A/R counts + score of the Activity Tracker, through the SAME scorers
+ * as the tracker PPTX (tracker-pptx.ss / fleetStats) and the registry's tracker.site reader window
+ * (ytd of the window month). Only the caller's sites are listed (A-15 read scope). A period without
+ * any input is NO_DATA — never a row of zeros.
+ */
+async function trackerFor({ w, sites, window, dd, reg, now }) {
+  const { TRACKER_KEY_RE } = require('./dashboardWidgets');
+  const MR = require('./metricRegistry');
+  const key = String(w.tracker || '');
+  const km = TRACKER_KEY_RE.exec(key);
+  if (!km) throw new Error(`unknown tracker ${key}`);
+  if (!dd || !dd.tracker || !dd.trackerScore) throw new Error('tracker reader not wired');
+  const win = MR.resolveWindow('ytd', window, now);
+  let year = win.year, month = win.month;
+  if (km[1] && Number(km[1].slice(1)) !== year) { const y = Number(km[1].slice(1)); month = y < year ? 12 : 1; year = y; }
+  const period = `${year}-${String(month).padStart(2, '0')}`;
+  const base = { tracker: key, period, as_of: now.toISOString() };
+  const D = await dd.tracker.loadTracker();
+  if (!D || !Array.isArray(D.activities)) return { ...base, state: 'NO_DATA', rows: [], untracked: [] };
+  const by = D.byYear && D.byYear[year];
+  const Dy = by && Number(D.year) !== year ? { ...D, activities: by.activities || [], pillarWeights: by.pillarWeights || {}, targets: by.targets || {} } : D;
+  const active = new Set(D.activeSites || []);
+  const mapped = [], untracked = [];
+  for (const s of sites || []) {
+    const code = (await MR.codeFor(dd, Number(s.id))).tracker_code;
+    if (code && active.has(code)) mapped.push({ site_id: Number(s.id), site: s.name, code }); else untracked.push(s.name);
+  }
+  const yIn = (D.inputs || {})[year] || {};
+  const hasInput = mapped.some((r) => (yIn[r.code] || []).some((arr) => Array.isArray(arr) && arr.slice(0, month).some((v) => v != null && Number(v) !== 0)));
+  if (!mapped.length || !hasInput) return { ...base, state: 'NO_DATA', rows: [], untracked };
+  const mScore = reg && reg.get && reg.get('tracker.site_score_pct');
+  const rows = mapped.map((r) => {
+    const st = dd.trackerScore.ss(Dy, r.code, year, month);
+    const score = st.active ? Math.round(st.avg * 100) : null;
+    return { ...r, g: st.g, a: st.a, r: st.r, active: st.active, score_pct: score, rag: mScore ? MR.ragFor(mScore, score) : 'NA' };
+  });
+  const f = dd.trackerScore.fleetStats(Dy, mapped.map((r) => r.code), year, month);
+  const totals = rows.reduce((t, r) => ({ g: t.g + r.g, a: t.a + r.a, r: t.r + r.r }), { g: 0, a: 0, r: 0 });
+  return { ...base, state: 'OK', rows, untracked, totals,
+    fleet: { avg_pct: f && Number.isFinite(f.avg) ? Math.round(f.avg * 100) : null, attainment_pct: f && Number.isFinite(f.attainment) ? Math.round(f.attainment * 100) : null, sites: rows.length } };
+}
+
 async function resolveWidgets({ def, sites, site, window = null, reg, dd, rdb, now = new Date() }) {
   const out = {};
   // design review R2 — tile context: the committee's target (committee #40) and the previous window
@@ -82,15 +125,32 @@ async function resolveWidgets({ def, sites, site, window = null, reg, dd, rdb, n
           higher_is_better: m.higher_is_better !== false, target: tg.target, target_source: tg.source, vs_target: KT.vsTarget(one.value, tg.target, m.higher_is_better !== false), previous };
       } else if (plan.mode === 'series' && m) {
         const labels = R.windowSeries(plan.kind, plan.n, now);
-        const points = [];
-        for (const lab of labels) { const r = await reg.resolve(w.metric, { site: m.reader === 'tracker.fleet' ? null : site, window: lab, deps: dd, now }); points.push({ label: lab, value: r ? r.value : null }); }
+        const pointsFor = async (mm) => { const pts = []; for (const lab of labels) { const r = await reg.resolve(mm.key, { site: mm.reader === 'tracker.fleet' ? null : site, window: lab, deps: dd, now }); pts.push({ label: lab, value: r ? r.value : null }); } return pts; };
+        const points = await pointsFor({ ...m, key: w.metric });
+        // F24 — extra lines (series[]): registered metrics on the same unit; a mismatch is an error, never a silent second axis
+        let lines;
+        if (Array.isArray(w.series) && w.series.length) {
+          const extra = w.series.map((k) => ({ key: k, m: reg.get(k) }));
+          const unknown = extra.filter((x) => !x.m).map((x) => x.key);
+          if (unknown.length) throw new Error(`unknown metric in series: ${unknown.join(', ')}`);
+          const mixed = extra.filter((x) => String(x.m.unit || '') !== String(m.unit || '')).map((x) => `${x.key} (${x.m.unit || 'no unit'})`);
+          if (mixed.length) throw new Error(`series mixes units with ${m.unit || 'no unit'}: ${mixed.join(', ')}`);
+          lines = [{ metric: w.metric, label: w.title || m.name || w.metric, unit: m.unit, points }];
+          for (const x of extra) lines.push({ metric: x.key, label: x.m.name || x.key, unit: x.m.unit, points: await pointsFor({ ...x.m, key: x.key }) });
+        }
         const tgs = require('./kpiTargets').targetFor(targets, w.metric, m.reader === 'tracker.fleet' ? null : site, now.toISOString());
         out[w.id] = { mode: 'series', metric: w.metric, title: w.title, unit: m.unit, points, target: tgs.target, as_of: now.toISOString() };
+        if (lines) out[w.id].lines = lines;
       } else if (plan.mode === 'per-site' && m) {
         const rows = [];
         for (const s of sites) { const r = await reg.resolve(w.metric, { site: Number(s.id), window, deps: dd, now }); rows.push({ site_id: Number(s.id), site: s.name, value: r ? r.value : null, rag: w.rag ? ragOverride(w.rag, r && r.value, m.unit) : (r ? r.rag : 'NA') }); }
         rows.sort((a, b) => (a.value == null) - (b.value == null) || (a.value - b.value));
+        // table widgets show the committee target per site (same lookup as the KPI tile)
+        if (w.type === 'table' || w.type === 'heatmap') { const KT = require('./kpiTargets'); for (const r of rows) r.target = KT.targetFor(targets, w.metric, r.site_id, now.toISOString()).target; }
         out[w.id] = { mode: 'per-site', metric: w.metric, title: w.title, unit: m.unit, higher_is_better: m.higher_is_better !== false, rows, summary: R.summarizeGrid(rows), as_of: now.toISOString() };
+        if (w.type === 'heatmap') out[w.id].notice = 'Heatmap widgets are no longer offered — shown as a table.';
+      } else if (plan.mode === 'tracker') {
+        out[w.id] = { mode: 'tracker', title: w.title, ...(await trackerFor({ w, sites, window, dd, reg, now })) };
       } else if (plan.mode === 'actions') {
         out[w.id] = { mode: 'actions', title: w.title, ...(await actionsFor(rdb, site, plan)) };
       } else out[w.id] = { mode: 'none', title: w.title, markdown: w.markdown };
@@ -99,4 +159,4 @@ async function resolveWidgets({ def, sites, site, window = null, reg, dd, rdb, n
   return out;
 }
 
-module.exports = { resolveWidgets, ragOverride, actionsFor, previousWindow };
+module.exports = { resolveWidgets, ragOverride, actionsFor, previousWindow, trackerFor };

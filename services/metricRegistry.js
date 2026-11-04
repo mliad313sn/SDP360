@@ -297,4 +297,4 @@ let _current = null;
 function current() { if (!_current) _current = createRegistry(SEED.map((m) => ({ ...m }))); return _current; }
 function setCurrent(r) { _current = r; return r; }
 
-module.exports = { SEED, READERS, WINDOW_KINDS, EXTRA_POLICIES, createRegistry, resolveWindow, load, current, setCurrent, ragFor };
+module.exports = { SEED, READERS, WINDOW_KINDS, EXTRA_POLICIES, createRegistry, resolveWindow, load, current, setCurrent, ragFor, codeFor };
