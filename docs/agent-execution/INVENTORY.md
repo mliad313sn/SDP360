@@ -17,7 +17,7 @@
 | jobs | 25 |
 | jobs without test reference | 10 |
 | migrations | 59 |
-| test files | 512 |
+| test files | 517 |
 
 ## Pages
 
@@ -38,7 +38,7 @@
 | PG-handoffs | public/handoffs.html | any | yes | 1 | 5 |
 | PG-help | public/help.html | any | yes | 1 | 7 |
 | PG-home | public/home.html | any | yes | 0 | 5 |
-| PG-index | public/index.html | any | yes | 1 | 15 |
+| PG-index | public/index.html | any | yes | 1 | 16 |
 | PG-infra-health | public/infra-health.html | any | yes | 2 | 3 |
 | PG-inspection-actions | public/inspection-actions.html | any | no | 1 | 4 |
 | PG-inspection | public/inspection.html | any | no | 2 | 6 |
@@ -47,7 +47,7 @@
 | PG-it-review | public/it-review.html | executive / scorecard-viewer | yes | 2 | 3 |
 | PG-itsm-integrations-plan | public/itsm-integrations-plan.html | UNKNOWN | no | 0 | 3 |
 | PG-itsm-roadmap | public/itsm-roadmap.html | super_admin | no | 1 | 3 |
-| PG-login | public/login.html | public | no | 1 | 6 |
+| PG-login | public/login.html | public | no | 1 | 7 |
 | PG-meeting | public/meeting.html | any | no | 1 | 8 |
 | PG-meetings-actions | public/meetings-actions.html | any | no | 2 | 6 |
 | PG-meetings-compliance | public/meetings-compliance.html | any | no | 2 | 2 |
@@ -66,7 +66,7 @@
 | PG-portfolio | public/portfolio.html | any | yes | 1 | 5 |
 | PG-project | public/project.html | any | no | 1 | 5 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 2 |
-| PG-reports | public/reports.html | any | yes | 2 | 20 |
+| PG-reports | public/reports.html | any | yes | 2 | 21 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 3 |
 | PG-site-actions | public/site-actions.html | any | yes | 1 | 7 |
 | PG-site-awareness | public/site-awareness.html | site-business / group-business / executive | yes | 2 | 4 |
