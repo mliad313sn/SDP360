@@ -58,6 +58,7 @@ module.exports = function trackersRoutes(deps) {
   const isSuper = (u) => rdb().userHasRole(u, 'super_admin');
   function requireBuilder(req, res, next) { if (!isBuilder(req.reportUser)) return res.status(403).json({ ok: false, error: 'tracker-admin or admin role required' }); next(); }
   function requireSuper(req, res, next) { if (!isSuper(req.reportUser)) return res.status(403).json({ ok: false, error: 'super_admin required' }); next(); }
+  requireBuilder.legacyRoles = ['admin', 'tracker-admin']; requireSuper.legacyRoles = ['super_admin'];   // C-17 tags
   const key = (req) => String(req.params.key || '').slice(0, 32);
   const fail = (res, e) => httpFail(res, e, undefined, { ok: false });
 

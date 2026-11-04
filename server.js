@@ -5206,10 +5206,12 @@ function requireRole(roleOrRoles) {
     }
     next();
   };
-  // Named so docs/ops/AUTHZ-MATRIX.md shows which roles gate the route (C-02).
+  // Named so docs/ops/AUTHZ-MATRIX.md shows which roles gate the route (C-02); C-17 reads the role set.
   Object.defineProperty(mw, 'name', { value: 'requireRole(' + roles.join(' or ') + ')' });
-  return mw;
+  return Object.assign(mw, { legacyRoles: roles });
 }
+// C-17 — role set each shared guard enforces (services/capabilityRegistry maps it onto a capability).
+Object.assign(requireAdmin, { legacyRoles: ['admin'] }); Object.assign(requireSuperAdmin, { legacyRoles: ['super_admin'] }); Object.assign(requireExecutiveOrSuperAdmin, { legacyRoles: ['executive'] }); Object.assign(requireMoneyRead, { legacyRoles: ['admin', 'finance-viewer'] });
 
 const jsonBody = express.json({ limit: '2mb' });
 
@@ -6487,6 +6489,7 @@ function _syslogGate(req, res, next) {
   if (!rdb.userHasRole(req.reportUser, 'super_admin')) return res.status(403).json({ error: 'super_admin only' });
   next();
 }
+_syslogGate.legacyRoles = ['super_admin'];
 function _syslogFilters(req) {
   return { actor:req.query.actor, category:req.query.category, action:req.query.action,
            risk: req.query.risk === '1' ? 1 : undefined, from:req.query.from, to:req.query.to, q:req.query.q };
@@ -7770,6 +7773,7 @@ app.use(require('./routes/teamsSla')({ express, requireReportSession, requireSup
 app.use(require('./routes/sync')({ express, requireReportSession }));
 // Step 3 — KPI dictionary: GET /api/metrics/registry, GET /api/metrics/:key?site=&window=.
 app.use(require('./routes/metrics')({ express, requireReportSession }));
+app.use(require('./routes/access')({ express, requireReportSession }));   // C-17 why-denied
 // Step 6 — dashboard definitions (composer) + one-call data resolver (store seeded in routes/dashboards.createStore).
 const _dashStore = require('./routes/dashboards').createStore(require('./reports-db'));
 app.use(require('./routes/dashboards')({ express, requireReportSession, store: _dashStore }));
@@ -7890,4 +7894,5 @@ async function seedStores() {
   await _trkStore.seedAtBoot(); await _govStore.initAtBoot(); await _repStore.seedAtBoot(); await _engStore.seedAtBoot(); await _fieldStore.initAtBoot();
 }
 
+require('./services/authzShadow').instrument(app);   // C-17 shadow capability check (authz_capability_mode, off by default)
 module.exports = { app, seedStores };

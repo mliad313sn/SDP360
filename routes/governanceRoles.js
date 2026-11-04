@@ -35,6 +35,7 @@ module.exports = function governanceRoleRoutes(deps) {
   const requireCommittee = (req, res, next) => (isCommittee(req.reportUser) ? next() : res.status(403).json({ ok: false, error: 'committee or admin role required' }));
   const requireAdminTier = (req, res, next) => (isAdmin(req.reportUser) ? next() : res.status(403).json({ ok: false, error: 'admin role required' }));
   const requireSuper = (req, res, next) => (isSuper(req.reportUser) ? next() : res.status(403).json({ ok: false, error: 'super_admin role required' }));
+  requireCommittee.legacyRoles = ['admin', 'committee-member']; requireAdminTier.legacyRoles = ['admin']; requireSuper.legacyRoles = ['super_admin'];   // C-17 tags
   const log = (req, action, target, details) => { try { Promise.resolve(rdb().logEvent({ category: 'governance', action, target: String(target), details, risk: 0, ...rdb()._logCtx(req) })).catch(() => {}); } catch (_) {} };
   const today = () => new Date().toISOString().slice(0, 10);
   const siteIdsOf = (u) => [u.site_id, ...((u.extra_site_ids) || [])].filter((x) => x != null).map(Number);

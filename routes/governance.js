@@ -56,6 +56,7 @@ module.exports = function governanceRoutes(deps) {
   const isCommittee = (u) => isAdmin(u) || rdb().userHasRole(u, 'committee-member');
   const isSuper = (u) => rdb().userHasRole(u, 'super_admin');
   const requireCommittee = (req, res, next) => isCommittee(req.reportUser) ? next() : res.status(403).json({ ok: false, error: 'committee-member or admin role required' });
+  requireCommittee.legacyRoles = ['admin', 'committee-member'];   // C-17 capability catalogue tag
   const fail = (res, e) => httpFail(res, e, undefined, { ok: false });
   const log = (req, action, target, details) => { try { rdb().logEvent({ category: 'governance', action, target: String(target), details, ...rdb()._logCtx(req) }); } catch (_) {} };
   // ADR-006 — role holders and deputies, from a snapshot refreshed before every governance request

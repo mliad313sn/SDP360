@@ -43,6 +43,7 @@ module.exports = function fieldRoutes(deps) {
   const isAdmin = (u) => rdb().userHasRole(u, 'admin');
   const isField = (u) => isAdmin(u) || rdb().userHasRole(u, 'editor') || rdb().userHasRole(u, 'field-tech');
   function requireField(req, res, next) { if (!isField(req.reportUser)) return res.status(403).json({ ok: false, error: 'editor or field-tech role required' }); next(); }
+  requireField.legacyRoles = ['admin', 'editor', 'field-tech'];   // C-17 capability catalogue tag
   const fail = (res, e) => httpFail(res, e, undefined, { ok: false, missing: e && e.missing || undefined });
 
   async function scopeSites(user) {

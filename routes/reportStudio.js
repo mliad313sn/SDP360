@@ -41,6 +41,7 @@ module.exports = function reportStudioRoutes(deps) {
   const isAdmin = (u) => rdb().userHasRole(u, 'admin');
   const isAuthor = (u) => isAdmin(u) || rdb().userHasRole(u, 'report-author');
   const requireAuthor = (req, res, next) => isAuthor(req.reportUser) ? next() : res.status(403).json({ ok: false, error: 'report-author or admin role required' });
+  requireAuthor.legacyRoles = ['admin', 'report-author'];   // C-17 capability catalogue tag
   const fail = (res, e) => httpFail(res, e, undefined, { ok: false });
   const log = (req, action, target, details) => { try { rdb().logEvent({ category: 'reports', action, target: String(target), details, ...rdb()._logCtx(req) }); } catch (_) {} };
   const provider = () => deps.aiProvider || 'off';

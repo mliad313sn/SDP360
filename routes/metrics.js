@@ -26,6 +26,7 @@ module.exports = function metricsRoutes(deps) {
   const targetStore = () => deps.targetStore || KT.makeKpiTargetStore(rdb().pgHandle());
   const isSuper = (u) => rdb().userHasRole(u, 'super_admin');
   const requireSuper = (req, res, next) => (isSuper(req.reportUser) ? next() : res.status(403).json({ ok: false, error: 'super_admin role required' }));
+  requireSuper.legacyRoles = ['super_admin'];   // C-17 capability catalogue tag
   const json = express.json({ limit: '8kb' });
   // GET  /api/metrics/targets                        live targets (any session — targets are not secret)
   // POST /api/metrics/targets   { metric_key, site_id|null, target, effective_from?, reason }   super_admin (committee decision)

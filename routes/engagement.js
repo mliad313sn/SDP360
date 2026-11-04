@@ -39,6 +39,7 @@ module.exports = function engagementRoutes(deps) {
   const readerDeps = () => deps.readerDeps || { rdb: rdb(), mdb: require('../meetings-db'), idb: require('../inspection-db'), adb: require('../assets-db'), tracker: require('../tracker-db'), trackerScore: require('../tracker-pptx') };
   const isAdmin = (u) => rdb().userHasRole(u, 'admin');
   const requireAdmin = (req, res, next) => isAdmin(req.reportUser) ? next() : res.status(403).json({ ok: false, error: 'admin role required' });
+  requireAdmin.legacyRoles = ['admin'];   // C-17 capability catalogue tag
   const fail = (res, e) => httpFail(res, e, undefined, { ok: false });
   const log = (req, action, target, details) => { try { rdb().logEvent({ category: 'engagement', action, target: String(target), details, ...rdb()._logCtx(req) }); } catch (_) {} };
   const cfg = async () => { try { return await reportConfig.getConfig(rdb().db); } catch (_) { return {}; } };
