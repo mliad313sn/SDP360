@@ -37,7 +37,7 @@ function makeEl(id) {
   };
 }
 
-async function runPage(fetchImpl, lang = 'fr') {
+async function runPage(fetchImpl, lang = 'fr', winExtra = {}) {
   const els = {};
   const classes = new Set();
   let ready = null;
@@ -50,7 +50,7 @@ async function runPage(fetchImpl, lang = 'fr') {
       add: c => classes.add(c), remove: c => classes.delete(c), contains: c => classes.has(c),
     } },
   };
-  const window = { __authToken: 'tok' };
+  const window = Object.assign({ __authToken: 'tok' }, winExtra);
   const ctx = {
     window, document, fetch: fetchImpl, console,
     localStorage: { getItem: () => lang, setItem() {} },
@@ -100,4 +100,23 @@ test('genuine empty result (no reason) → still "Aucune donnée"', async () => 
   const els = await runPage(respond(200, { sites: [], fleet: {}, coverage: { available: false } }));
   assert.match(els['ih-matrix-body'].innerHTML, /Aucune donnée/);
   assert.strictEqual(els['ih-freshness'].textContent, 'Aucune date de fraîcheur disponible');
+});
+
+// C-10 — the shared page head is fed by the same response: dates from the snapshots, never invented.
+const PageHead = require('../public/lib/pageHead.js');
+test('C-10: page head shows question, scope, window and the snapshot dates (FR default)', async () => {
+  const els = await runPage(respond(200, { sites: [{ site_id: 1, site_name: 'Ity', families: {} }],
+    fleet: { freshness: { data_through_max: '2026-11-01', stale_count: 0 } }, data_as_of: '2026-11-02T05:10:00Z',
+    coverage: { available: false } }), 'fr', { PageHead });
+  const h = els.pageHead.innerHTML;
+  assert.match(h, /L&#39;infrastructure de chaque site/);
+  assert.match(h, /Dernière semaine archivée/);
+  assert.match(h, /Instantanés jusqu&#39;au<\/span> 01 nov\. 2026/);
+  assert.match(h, /collecte<\/span> 02 nov\. 2026 05:10 UTC/);
+});
+test('C-10: page head on a failed load says "unknown", never a date', async () => {
+  const els = await runPage(respond(403, { error: 'forbidden' }), 'en', { PageHead });
+  const h = els.pageHead.innerHTML;
+  assert.match(h, /<dt>Data through<\/dt><dd><span class="edv-page-head__src is-unknown">unknown/);
+  assert.doesNotMatch(h, /20\d\d/);
 });
