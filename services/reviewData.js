@@ -67,17 +67,20 @@ const SQL_PROJECTS = `
 
 const SQL_INSPECTIONS = `
   SELECT i.id, i.site_code, i.inspection_date, i.status
-    FROM insp_inspections i`;
+    FROM insp_inspections i
+   WHERE i.deleted_at IS NULL`;
 
 const SQL_FINDINGS = `
   SELECT f.status, f.category, i.site_code, i.inspection_date
-    FROM insp_findings f JOIN insp_inspections i ON i.id = f.inspection_id`;
+    FROM insp_findings f JOIN insp_inspections i ON i.id = f.inspection_id
+   WHERE i.deleted_at IS NULL`;
 
 // insp_actions has NO site_code column of its own (confirmed against the
 // schema) — it hangs off the inspection, hence the join.
 const SQL_INSP_ACTIONS = `
   SELECT a.id, a.status, a.priority, i.site_code
-    FROM insp_actions a JOIN insp_inspections i ON i.id = a.inspection_id`;
+    FROM insp_actions a JOIN insp_inspections i ON i.id = a.inspection_id
+   WHERE i.deleted_at IS NULL`;
 
 // ── Handle resolution ───────────────────────────────────────────────────────
 // `deps` may supply raw better-sqlite3 handles (that is how the fixture-equality

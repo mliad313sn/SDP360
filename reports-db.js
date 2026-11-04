@@ -5392,6 +5392,7 @@ async function _getRequestFilterOptionsPg() {
 const _RISK_ACTIONS = new Set([
   'login_failed','session_killed','user_deleted','user_role_changed','password_reset','report_deleted',
   'sso_link_conflict','sso_groups_overage',
+  'inspection_purged','meetings_purged','portfolio_purged',   // A-19 — soft-deleted rows hard-deleted by the purge
 ]);
 function _isRiskAction(action) { return _RISK_ACTIONS.has(String(action || '')); }
 

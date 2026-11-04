@@ -132,3 +132,23 @@ test('G05: the snapshot syncs that replace a day of figures are armed with failO
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'services', 'sync', 'jobs.js'), 'utf8');
   for (const j of ['meraki.wan', 'opmanager.availability']) assert.match(src, new RegExp(`legacyJob\\('${j.replace('.', '\\.')}'[^\\n]*failOnZero: true`), j);
 });
+
+test('A-19 softdelete.purge: registered, optional, freshness declared, self-skips while soft_delete_purge_enabled = 0', async () => {
+  const { softDeletePurgeRun } = require('../services/sync/jobs');
+  const jobs = buildJobs({ sync: {}, assets: {}, fetchView: () => {}, tools: {} });
+  const j = jobs.find((x) => x.name === 'softdelete.purge');
+  assert.ok(j, 'registered');
+  assert.equal(j.optional, true);
+  assert.ok(OPTIONAL.has('softdelete.purge'));
+  assert.equal(FRESHNESS_HOURS['softdelete.purge'], 30);
+  let called = false;
+  const ops = { purge: async () => { called = true; return { modules: {} }; } };
+  const off = await softDeletePurgeRun({ cfg: { soft_delete_purge_enabled: '0' }, softDeleteOps: ops, rdb: { logEvent() {} } });
+  assert.equal(off.skipped, true);
+  assert.equal(called, false, 'purge never runs while disarmed');
+  const logged = [];
+  const on = await softDeletePurgeRun({ cfg: { soft_delete_purge_enabled: '1' }, rdb: { logEvent: (e) => logged.push(e) },
+    softDeleteOps: { purge: async ({ apply }) => { assert.equal(apply, true); return { cutoff: 'c', retention_days: 30, modules: { inspection: { ids: ['a'], purged: 1 } } }; } } });
+  assert.equal(on.rows, 1);
+  assert.equal(logged[0].action, 'inspection_purged');
+});
