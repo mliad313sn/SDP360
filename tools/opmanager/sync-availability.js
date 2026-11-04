@@ -40,6 +40,7 @@ function _trendOf(cur, prev) {
 
 const DEVICE_PAGE_ROWS = 1000;
 const DEVICE_PAGE_CAP = 50;
+const REST_CONCURRENCY_MAX = 8;
 
 // V1b-B — REST device-grain path (LAN/WLAN/Servers). Config-gated on opmanager_api_key+base_url.
 async function _restPath(deps, cfg, rdb, now, log) {
@@ -74,13 +75,26 @@ async function _restPath(deps, cfg, rdb, now, log) {
       break;
     }
   }
-  const devices = [];
-  for (const d of raw) {
-    if (_isFirewall(d)) continue;                                   // WAN = Meraki
+  const kept = raw.filter(d => !_isFirewall(d));                   // WAN = Meraki
+  const readOne = async (d) => {
     const name = d.name || d.deviceName || d.displayName;
     const details = await client.getDeviceCompleteDetails({ name });
     const availUp = details && details.availdata ? details.availdata.Up : null;
-    devices.push({ name, type: d.type, category: d.category, probeName: d.probeName, availUp });
+    return { name, type: d.type, category: d.category, probeName: d.probeName, availUp };
+  };
+  // opm_rest_concurrency (A-18b, default '1' = today's sequential loop): >1 reads the device
+  // details through a small pool (capped at REST_CONCURRENCY_MAX). Results land by index, so
+  // the device order — and therefore the aggregated rows — never depend on the pool size.
+  const conc = Math.min(REST_CONCURRENCY_MAX, Math.floor(Number(cfg.opm_rest_concurrency)) || 1);
+  let devices;
+  if (conc > 1) {
+    devices = new Array(kept.length);
+    let next = 0;
+    const worker = async () => { while (next < kept.length) { const i = next++; devices[i] = await readOne(kept[i]); } };
+    await Promise.all(Array.from({ length: Math.min(conc, kept.length) }, worker));
+  } else {
+    devices = [];
+    for (const d of kept) devices.push(await readOne(d));
   }
 
   // data_through = the COLLECTION date for both rows (availdata is a recent window, basis

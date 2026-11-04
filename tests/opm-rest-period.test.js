@@ -92,3 +92,34 @@ test('_dataAsOf = max collected_at of the rows used; null when there are none', 
   assert.equal(_dataAsOf([{ collected_at: '2026-08-14T05:10:00Z' }], [{ collected_at: '2026-08-15T05:20:00Z' }]),
     '2026-08-15T05:20:00Z', 'several row sets combine');
 });
+
+// A-18b — optional bounded concurrency for getDeviceCompleteDetails (opm_rest_concurrency,
+// default '1' = today's sequential loop). Same rows, same device order, whatever the pool size.
+test('opm_rest_concurrency=4 yields the same rows (and device order) as the sequential loop', async () => {
+  const devs = range(1, 23);
+  const delayed = (name) => new Promise(r => setTimeout(() => r({ availdata: { Up: 90 + (Number(name.split('-').pop()) % 10) } }), (37 * Number(name.split('-').pop())) % 11));
+  async function run(conc) {
+    const { deps, captured } = harness({ pages: (rows, page) => (page === 1 ? devs : []) });
+    let inFlight = 0, peak = 0;
+    const order = [];
+    deps.opmanagerClient.getDeviceCompleteDetails = async ({ name }) => {
+      inFlight++; peak = Math.max(peak, inFlight);
+      try { const d = await delayed(name); order.push(name); return d; } finally { inFlight--; }
+    };
+    const cfg = await deps.getConfig();
+    deps.getConfig = async () => ({ ...cfg, ...(conc == null ? {} : { opm_rest_concurrency: String(conc) }) });
+    const r = await main(deps);
+    return { r, rows: captured.upserts, peak };
+  }
+  const seq = await run(null);
+  const par = await run(4);
+  assert.equal(seq.peak, 1, 'default (no key) = sequential');
+  assert.ok(par.peak > 1 && par.peak <= 4, `pool bounded by 4 (peak ${par.peak})`);
+  assert.equal(par.r.devices, seq.r.devices);
+  assert.deepEqual(par.rows, seq.rows);
+  const big = await run(50);
+  assert.ok(big.peak <= 8, 'pool capped at 8 whatever the setting');
+  assert.deepEqual(big.rows, seq.rows);
+  const one = await run(1);
+  assert.equal(one.peak, 1);
+});

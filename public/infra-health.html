@@ -199,6 +199,7 @@ W.defaults=O.defaults;window.Chart=W;});
     fr_through:     { fr: 'Données jusqu’au',                         en: 'Data through' },
     fr_stale:       { fr: 'sites obsolètes',                          en: 'sites stale' },
     fr_fresh:       { fr: 'toutes les données sont à jour',           en: 'all data is fresh' },
+    fr_collected:   { fr: 'dernière collecte',                        en: 'last collected' },
     fr_nodate:      { fr: 'Aucune date de fraîcheur disponible',      en: 'No freshness date available' },
     // read-out
     ro_weak:        { fr: 'Point faible',                             en: 'Weak spot' },
@@ -286,7 +287,7 @@ W.defaults=O.defaults;window.Chart=W;});
   }
 
   // 1 — Freshness banner
-  function renderFreshness(fleet, failure) {
+  function renderFreshness(fleet, failure, dataAsOf) {
     const el = $('ih-freshness');
     if (failure) { el.textContent = failureText(failure); el.className = 'ih-banner warn'; return; }
     const f = (fleet && fleet.freshness) || {};
@@ -296,6 +297,8 @@ W.defaults=O.defaults;window.Chart=W;});
     if (!through) { txt = T('fr_nodate'); warn = true; }
     else if (stale > 0) { txt = T('fr_through') + ' ' + through + ' · ' + stale + ' ' + T('fr_stale'); warn = true; }
     else { txt = T('fr_through') + ' ' + through + ' · ' + T('fr_fresh'); warn = false; }
+    // A-18b — the date the data was COLLECTED (max collected_at), not today's date.
+    if (dataAsOf) txt += ' · ' + T('fr_collected') + ' ' + String(dataAsOf).slice(0, 16).replace('T', ' ') + ' UTC';
     el.textContent = txt;
     el.className = 'ih-banner' + (warn ? ' warn' : '');
   }
@@ -448,7 +451,7 @@ W.defaults=O.defaults;window.Chart=W;});
     // data.error = the call itself failed (set by loadSummary); data.reason = the route caught
     // a server error and answered 200 with an empty matrix.
     var failure = data.error || data.reason || null;
-    renderFreshness(data.fleet || {}, failure);
+    renderFreshness(data.fleet || {}, failure, data.data_as_of || null);
     renderFamTiles(data.fleet || {});
     renderReadout(rows);
     renderMatrix(rows, failure);

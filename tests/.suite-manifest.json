@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 3364,
+ "total": 3371,
  "files": {
   "a11y-static.test.js": 15,
   "access-denied-log.smoke.test.js": 3,
@@ -249,7 +249,7 @@
   "opm-classify.test.js": 5,
   "opm-probe-map.test.js": 2,
   "opm-report-fill.test.js": 7,
-  "opm-rest-period.test.js": 5,
+  "opm-rest-period.test.js": 6,
   "opm-routes.smoke.test.js": 9,
   "opm-snapshots.test.js": 3,
   "opm-sync.test.js": 6,
@@ -481,6 +481,7 @@
   "wan-snapshots.test.js": 7,
   "wan-subsite-map.test.js": 2,
   "wan-timeup-calibration.test.js": 5,
+  "wan-timeup-default.test.js": 6,
   "wan-window-route.smoke.test.js": 4,
   "wan-window.test.js": 6,
   "weekly-report-data.test.js": 16,

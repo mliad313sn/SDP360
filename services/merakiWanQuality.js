@@ -208,4 +208,14 @@ function availabilityFloorPct(samples) {
   return Math.floor((100 - 100 / n) * 10) / 10;
 }
 
-module.exports = { deriveAvailability, qualityAvailability, rFactor, rToMos, DEFAULT_MOS_CONFIG, statusColor, round2, mergeDestinationSeries, availabilityFloorPct };
+// A-18b — is the "% Time Up" rule calibrated? The stored wan_timeup_loss_pct is read the way
+// tools/meraki/sync-wan.js reads it (blank → 100 = the plain loss<100 rule). Calibrated = an
+// explicit value strictly below 100 (the 2026-09-04 calibration says 5). Pure; null when blank.
+function timeupCalibration(raw) {
+  const blank = raw == null || String(raw).trim() === '';
+  const n = blank ? null : Number(raw);
+  const pct = Number.isFinite(n) ? n : null;
+  return { timeup_loss_pct: pct, timeup_effective_pct: pct == null ? 100 : pct, timeup_calibrated: pct != null && pct < 100 };
+}
+
+module.exports = { timeupCalibration, deriveAvailability, qualityAvailability, rFactor, rToMos, DEFAULT_MOS_CONFIG, statusColor, round2, mergeDestinationSeries, availabilityFloorPct };
