@@ -12,7 +12,7 @@
   "jobs": 26,
   "jobs_without_test_reference": 10,
   "migrations": 62,
-  "test_files": 536
+  "test_files": 538
  },
  "pages": [
   {
@@ -142,9 +142,10 @@
    ],
    "in_navigation": false,
    "inline_scripts": 1,
-   "bytes": 17887,
+   "bytes": 26732,
    "tests": [
     "tests/a11y-static.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/i18n-coverage.test.js",
     "tests/no-native-dialogs.test.js"
    ]
@@ -1788,6 +1789,7 @@
    "line": 142,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
@@ -1801,6 +1803,7 @@
    "line": 138,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
@@ -1814,6 +1817,7 @@
    "line": 184,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
@@ -1827,6 +1831,7 @@
    "line": 227,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
@@ -1840,6 +1845,7 @@
    "line": 216,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
@@ -1853,6 +1859,7 @@
    "line": 203,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
@@ -1866,6 +1873,7 @@
    "line": 96,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
@@ -1879,6 +1887,7 @@
    "line": 100,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
@@ -1892,6 +1901,7 @@
    "line": 237,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
@@ -1905,6 +1915,7 @@
    "line": 88,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
@@ -1918,6 +1929,7 @@
    "line": 163,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
@@ -1930,6 +1942,7 @@
    "file": "routes/dashboards.js",
    "line": 75,
    "tests": [
+    "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js"
    ]
   },
@@ -1941,6 +1954,7 @@
    "line": 65,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
@@ -4502,6 +4516,7 @@
     "tests/commitments-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -4562,6 +4577,7 @@
     "tests/commitments-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -4622,6 +4638,7 @@
     "tests/commitments-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -4682,6 +4699,7 @@
     "tests/commitments-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -4742,6 +4760,7 @@
     "tests/commitments-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -4802,6 +4821,7 @@
     "tests/commitments-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -4862,6 +4882,7 @@
     "tests/commitments-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -4922,6 +4943,7 @@
     "tests/commitments-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -4982,6 +5004,7 @@
     "tests/commitments-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5042,6 +5065,7 @@
     "tests/commitments-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5102,6 +5126,7 @@
     "tests/commitments-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5162,6 +5187,7 @@
     "tests/commitments-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5222,6 +5248,7 @@
     "tests/commitments-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5282,6 +5309,7 @@
     "tests/commitments-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5342,6 +5370,7 @@
     "tests/commitments-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5402,6 +5431,7 @@
     "tests/commitments-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5462,6 +5492,7 @@
     "tests/commitments-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5522,6 +5553,7 @@
     "tests/commitments-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5582,6 +5614,7 @@
     "tests/commitments-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5642,6 +5675,7 @@
     "tests/commitments-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5702,6 +5736,7 @@
     "tests/commitments-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5762,6 +5797,7 @@
     "tests/commitments-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5822,6 +5858,7 @@
     "tests/commitments-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5882,6 +5919,7 @@
     "tests/commitments-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -6406,6 +6444,7 @@
    "file": "server.js",
    "line": 5836,
    "tests": [
+    "tests/dashboard-composer-page.test.js",
     "tests/server-routes-smoke.test.js"
    ]
   },
@@ -6416,6 +6455,7 @@
    "file": "server.js",
    "line": 5787,
    "tests": [
+    "tests/dashboard-composer-page.test.js",
     "tests/server-routes-smoke.test.js"
    ]
   },
@@ -6426,6 +6466,7 @@
    "file": "server.js",
    "line": 5773,
    "tests": [
+    "tests/dashboard-composer-page.test.js",
     "tests/server-routes-smoke.test.js"
    ]
   },
@@ -6436,6 +6477,7 @@
    "file": "server.js",
    "line": 5821,
    "tests": [
+    "tests/dashboard-composer-page.test.js",
     "tests/server-routes-smoke.test.js"
    ]
   },
@@ -6629,6 +6671,7 @@
     "tests/commitments-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/dashboard-composer-page.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",

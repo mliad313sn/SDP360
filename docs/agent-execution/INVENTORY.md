@@ -17,7 +17,7 @@
 | jobs | 26 |
 | jobs without test reference | 10 |
 | migrations | 62 |
-| test files | 536 |
+| test files | 538 |
 
 ## Pages
 
@@ -30,7 +30,7 @@
 | PG-assets | public/assets.html | any | yes | 10 | 11 |
 | PG-cockpit | public/cockpit.html | any | yes | 1 | 4 |
 | PG-commitments | public/commitments.html | any | no | 1 | 3 |
-| PG-dashboard-composer | public/dashboard-composer.html | admin / dashboard-publisher | no | 1 | 3 |
+| PG-dashboard-composer | public/dashboard-composer.html | admin / dashboard-publisher | no | 1 | 4 |
 | PG-dashboards | public/dashboards.html | any | yes | 1 | 6 |
 | PG-exec-view | public/exec-view.html | public | no | 1 | 5 |
 | PG-executive-report | public/executive-report.html | super_admin | yes | 1 | 7 |
