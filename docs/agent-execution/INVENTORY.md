@@ -6,18 +6,18 @@
 
 | Item | Count |
 |---|---:|
-| pages | 53 |
+| pages | 54 |
 | pages without test reference | 1 |
 | pages without declared role | 6 |
-| pages not in navigation | 25 |
-| pages with inline scripts | 45 |
-| routes | 529 |
-| routes without test reference | 100 |
+| pages not in navigation | 26 |
+| pages with inline scripts | 46 |
+| routes | 530 |
+| routes without test reference | 99 |
 | routes in server js | 231 |
 | jobs | 24 |
 | jobs without test reference | 10 |
-| migrations | 55 |
-| test files | 497 |
+| migrations | 56 |
+| test files | 498 |
 
 ## Pages
 
@@ -28,7 +28,7 @@
 | PG-assets-finance | public/assets-finance.html | UNKNOWN | no | 1 | 2 |
 | PG-assets-hygiene | public/assets-hygiene.html | UNKNOWN | no | 1 | 3 |
 | PG-assets | public/assets.html | any | yes | 10 | 11 |
-| PG-cockpit | public/cockpit.html | any | yes | 1 | 3 |
+| PG-cockpit | public/cockpit.html | any | yes | 1 | 4 |
 | PG-commitments | public/commitments.html | any | no | 1 | 3 |
 | PG-dashboard-composer | public/dashboard-composer.html | admin / dashboard-publisher | no | 1 | 3 |
 | PG-dashboards | public/dashboards.html | any | yes | 1 | 3 |
@@ -36,7 +36,7 @@
 | PG-executive-report | public/executive-report.html | super_admin | yes | 1 | 6 |
 | PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 5 |
 | PG-handoffs | public/handoffs.html | any | yes | 1 | 4 |
-| PG-help | public/help.html | any | yes | 1 | 6 |
+| PG-help | public/help.html | any | yes | 1 | 7 |
 | PG-home | public/home.html | any | yes | 0 | 5 |
 | PG-index | public/index.html | any | yes | 1 | 14 |
 | PG-infra-health | public/infra-health.html | any | yes | 2 | 3 |
@@ -63,10 +63,11 @@
 | PG-notifications | public/notifications.html | any | yes | 1 | 2 |
 | PG-obligations | public/obligations.html | any | yes | 0 | 1 |
 | PG-policies | public/policies.html | admin / committee-member | yes | 1 | 3 |
-| PG-portfolio | public/portfolio.html | any | yes | 1 | 3 |
+| PG-portfolio | public/portfolio.html | any | yes | 1 | 4 |
+| PG-project | public/project.html | any | no | 1 | 3 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 2 |
 | PG-reports | public/reports.html | any | yes | 2 | 19 |
-| PG-rfi | public/rfi.html | any | yes | 1 | 2 |
+| PG-rfi | public/rfi.html | any | yes | 1 | 3 |
 | PG-site-actions | public/site-actions.html | any | yes | 1 | 7 |
 | PG-site-awareness | public/site-awareness.html | site-business / group-business / executive | yes | 2 | 4 |
 | PG-site-report | public/site-report.html | UNKNOWN | no | 0 | 4 |
@@ -165,7 +166,6 @@
 | RT-GET-ext-odata-sites | GET | `/ext/odata/Sites` | routes/extApi.js:103 |
 | RT-GET- | GET | `/` | server.js:1401 |
 | RT-GET-handoffs-html | GET | `/handoffs.html` | routes/handoffs.js:77 |
-| RT-GET-help-html | GET | `/help.html` | server.js:1477 |
 | RT-GET-inspection-html | GET | `/inspection.html` | server.js:1423 |
 | RT-GET-inspections-html | GET | `/inspections.html` | server.js:1462 |
 | RT-GET-meetings-compliance-html | GET | `/meetings-compliance.html` | server.js:1507 |
