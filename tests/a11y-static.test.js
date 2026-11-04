@@ -27,3 +27,12 @@ for (const f of NEW_PAGES) {
     assert.match(s, /role="status"/, 'a live status region');
   });
 }
+
+// A-12a — every page that mounts the shared header loads _shell.css, so it receives the global
+// :focus-visible ring and the styles of the injected skip link.
+test('every page loading _shell.js also loads _shell.css (focus ring + skip link styles)', () => {
+  const pages = fs.readdirSync(PUB).filter((f) => f.endsWith('.html'));
+  const shellPages = pages.filter((f) => /<script\b[^>]*\bsrc="[^"]*_shell\.js/.test(fs.readFileSync(path.join(PUB, f), 'utf8')));
+  assert.ok(shellPages.length >= 30, 'found the shell pages: ' + shellPages.length);
+  for (const f of shellPages) assert.match(fs.readFileSync(path.join(PUB, f), 'utf8'), /<link\b[^>]*href="[^"]*_shell\.css/, f + ' loads _shell.css');
+});

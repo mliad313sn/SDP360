@@ -389,7 +389,7 @@ body {
 /* ── G17 — grouped menus, breadcrumb, quick find ───────────────────── */
 .shell-dd-group + .shell-dd-group { border-top: 1px solid rgba(255,255,255,.12); margin-top: 4px; padding-top: 4px; }
 .shell-dd-heading { font-size: 10.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--shell-text-mute); padding: 6px 10px 2px; }
-.shell-dropdown a:focus-visible, .shell-nav-caret:focus-visible, .shell-search-btn:focus-visible { outline: 2px solid var(--shell-orange-light); outline-offset: 2px; }
+.shell-dropdown a:focus-visible, .shell-nav-caret:focus-visible, .shell-search-btn:focus-visible { outline: 2px solid var(--shell-orange-light) !important; outline-offset: 2px !important; }
 nav.shell-breadcrumb { background: #F4F6F9; border-bottom: 1px solid #E2E7EE; font-size: 12.5px; }
 nav.shell-breadcrumb ol { list-style: none; margin: 0; padding: 6px 20px; display: flex; flex-wrap: wrap; gap: 4px; }
 nav.shell-breadcrumb li + li::before { content: '›'; color: #6B7785; margin-right: 4px; }
@@ -405,7 +405,7 @@ nav.shell-breadcrumb [aria-current="page"] { color: #3A4A60; font-weight: 600; }
 .shell-search-list { list-style: none; margin: 8px 0 0; padding: 0; max-height: 60vh; overflow: auto; }
 .shell-search-list a { display: block; padding: 7px 8px; border-radius: 6px; color: #1F2A37; text-decoration: none; }
 .shell-search-list a:hover { background: #EEF2F7; }
-.shell-search-list a:focus-visible { background: #EEF2F7; outline: 2px solid #2A5490; outline-offset: -2px; }
+.shell-search-list a:focus-visible { background: #EEF2F7; outline: 2px solid #2A5490 !important; outline-offset: -2px !important; }
 .shell-search-list small { color: #5B6675; margin-left: 4px; }
 .shell-search-head { font-size: 11px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: #5B6675; padding: 4px 8px; }
 .shell-search-empty { color: #5B6675; padding: 8px; }
@@ -416,4 +416,21 @@ nav.shell-breadcrumb [aria-current="page"] { color: #3A4A60; font-weight: 600; }
 /* G18 — language switch in the header (one preference for the whole application) */
 .shell-lang-btn { background: rgba(255,255,255,.08); color: #fff; border: 1px solid rgba(255,255,255,.25); border-radius: 6px; font: 600 12px/1 inherit; padding: 6px 8px; cursor: pointer; min-width: 32px; min-height: 28px; }
 .shell-lang-btn:hover { background: rgba(255,255,255,.18); }
-.shell-lang-btn:focus-visible { outline: 2px solid #FFB366; outline-offset: 2px; }
+.shell-lang-btn:focus-visible { outline: 2px solid #FFB366 !important; outline-offset: 2px !important; }
+
+/* A-12a — one global keyboard focus ring for every shell page (WCAG 2.4.7 / 2.4.11).
+   !important on purpose: ~55 page rules and INLINE style="outline:none" attributes would otherwise
+   hide the focus; an inline declaration can only be beaten by an !important stylesheet rule.
+   #145FAE = 6.4:1 on white, 5.9:1 on #F4F5F7. The dark header keeps its light ring (rules above + below). */
+:focus-visible { outline: 2px solid var(--focus-ring, #145FAE) !important; outline-offset: 2px !important; }
+.shell-header :focus-visible { outline-color: var(--shell-orange-light) !important; }
+@media (forced-colors: active) {
+  :focus-visible { outline-color: Highlight !important; }
+}
+/* The skip-link landing element is a container focused by script, not a control: no ring around the page. */
+[data-shell-skip-target]:focus { outline: none !important; }
+
+/* A-12a — "Skip to content" link injected by _shell.js (WCAG 2.4.1). Pages that do not load
+   brand/components.css get no .edv-skip style, so the shell link carries its own. */
+.shell-skip { position: absolute; left: -9999px; top: 0; z-index: 1200; background: #fff; color: #1a2233; padding: 8px 12px; border: 2px solid var(--focus-ring, #145FAE); border-radius: 4px; font-weight: 600; text-decoration: none; }
+.shell-skip:focus { left: 8px; top: 8px; }
