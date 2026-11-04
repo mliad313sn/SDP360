@@ -109,4 +109,263 @@ function toMarkdown() {
   return L.join('\n') + '\n';
 }
 
-module.exports = { REPORTS, RULES, STATUSES, summary, toMarkdown };
+// ── B-07 — D-13 decision pack: read helpers for the catalogue dry run (tools/reports/catalogue-dry-run.js) ──
+// PURE: no database, no SMTP, no network. The CLI reads config + directory + history inside a READ ONLY
+// transaction and hands them here. Each helper copies the rule the REAL sender applies, so the pack says who
+// WOULD receive today — not who should. Secret-shaped values (webhook URLs, the Teams channel map) are only
+// ever reported as "configured"/"not configured"; their content is never read or printed.
+const { resolveFromRows } = require('./reportDirectory');
+
+// How each catalogue id leaves the server today. Ids absent from this map have NO outbound sender in code.
+const DELIVERY = {
+  R01: { kind: 'digest', note: 'only the engagement digest e-mail exists (unread in-app notifications, daily 07:00); there is no daily pack' },
+  R04: { kind: 'publish' },
+  R11: { kind: 'sync_alert' },
+  R12: { kind: 'group_list', arm: 'hygiene_send_enabled', list: 'hygiene_recipients', reportType: 'hygiene' },
+  A01: { kind: 'commitment_notify', alert: 'A01' },
+  A02: { kind: 'commitment_notify', alert: 'A02' },
+  A06: { kind: 'directory', arm: 'weekly_report_send_enabled', role: 'coordinator', reportType: 'weekly_report' },
+  A07: { kind: 'teams_sla' },
+  A08: { kind: 'sync_alert' },
+  A14: { kind: 'publish' },
+};
+// Scheduled senders that exist in code but carry no R/A id. Shown so the meeting sees every outbound path.
+const OTHER_SENDERS = [
+  { id: 'coordinator', name: 'Monthly site report to the coordinator (tools/reports/send-reports.js)', kind: 'directory', arm: null, role: 'coordinator', reportType: 'coordinator',
+    note: 'NO arm flag: the scheduled task SDP-Report-coordinator-monthly is the only switch' },
+  { id: 'scoreboard', name: 'Operational site scoreboard (tools/reports/send-scoreboard.js)', kind: 'directory', arm: 'scoreboard_send_enabled', role: 'coordinator', reportType: 'scoreboard' },
+  { id: 'asset_group', name: 'Assets — group digest (tools/reports/send-asset-group.js)', kind: 'group_list', arm: 'asset_group_send_enabled', list: 'asset_group_recipients', reportType: 'asset_group' },
+  { id: 'asset_reminder', name: 'Monday asset recap (tools/reports/send-asset-reminders.js)', kind: 'directory', arm: 'asset_reminder_send_enabled', role: 'asset_manager', reportType: 'asset_reminder' },
+  { id: 'asset_new_alert', name: 'New-hardware alert after the nightly asset sync', kind: 'directory', arm: 'asset_new_alert_enabled', role: 'asset_manager', reportType: 'asset_new_alert' },
+];
+
+const _on = (v) => String(v == null ? '' : v) === '1';
+const _set = (v) => String(v == null ? '' : v).trim() !== '';
+// The two list syntaxes the senders use: the group digests split on ',' (decideHygieneSend /
+// decideAssetGroupSend); the sync alerter and the publish connector split on /[,;\s]+/ (server.js
+// getAlertConfig, engagementJobs.publishScheduled).
+function splitComma(v) { return String(v || '').split(',').map((s) => s.trim()).filter(Boolean); }
+function splitAny(v) { return String(v || '').split(/[,;\s]+/).map((s) => s.trim()).filter(Boolean); }
+
+/** Effective config = shipped DEFAULTS overlaid with the stored report_config rows (the getConfig rule). */
+function effectiveConfig(defaults, storedRows) {
+  const cfg = { ...(defaults || {}) };
+  for (const r of storedRows || []) if (r && r.key) cfg[r.key] = r.value == null ? '' : String(r.value);
+  return cfg;
+}
+
+/**
+ * Directory recipients exactly as the per-site senders resolve them: inactive sites skipped (send-reports
+ * decideSends), confirmed address only unless never_send_unconfirmed='0' (resolveFromRows), and for the asset
+ * reminders the asset manager first with the coordinator in cc (send-asset-reminders recipientsFor).
+ * Also lists the unconfirmed addresses that the confirmed-only rule keeps out.
+ */
+function directoryRecipients(rows, role, cfg) {
+  const neverUnconfirmed = String((cfg || {}).never_send_unconfirmed) !== '0';
+  const sendable = [], skipped = [];
+  for (const r of rows || []) {
+    const site = r.site_code;
+    if (!site) continue;
+    if (Number(r.active) === 0) { skipped.push({ site, reason: 'inactive site' }); continue; }
+    let rc = null;
+    if (role === 'asset_manager') {
+      const am = resolveFromRows(rows, site, 'asset_manager', { neverSendUnconfirmed: neverUnconfirmed });
+      const co = resolveFromRows(rows, site, 'coordinator', { neverSendUnconfirmed: neverUnconfirmed });
+      rc = am ? { to: am.to, cc: co && co.to !== am.to ? [co.to] : [] } : (co ? { to: co.to, cc: [] } : null);
+    } else {
+      rc = resolveFromRows(rows, site, role, { neverSendUnconfirmed: neverUnconfirmed });
+    }
+    if (rc) { sendable.push({ site, to: rc.to, cc: rc.cc || [] }); continue; }
+    const email = role === 'asset_manager' ? (r.asset_manager_email || r.coordinator_email) : r[`${role === 'fm' ? 'fm' : 'coordinator'}_email`];
+    skipped.push({ site, reason: email ? 'address on file but NOT confirmed' : 'no address on file' });
+  }
+  return { sendable, skipped, neverUnconfirmed };
+}
+
+/** One sender, evaluated against today's config + directory. → { switches, armed, recipients, blockers, channels } */
+function evaluateDelivery(desc, ctx) {
+  const cfg = ctx.cfg || {}, def = ctx.defaults || {};
+  const sw = (k) => ({ key: k, value: cfg[k] == null ? '' : String(cfg[k]), default: def[k] == null ? '' : String(def[k]) });
+  const smtp = _set(cfg.smtp_host);
+  const stop = _on(cfg.notifications_stop);
+  const out = { kind: desc.kind, switches: [], armed: false, recipients: [], skipped: [], channels: [], blockers: [], note: desc.note || null };
+  const needMail = (list) => { if (list.length && !smtp) out.blockers.push('SMTP not configured (`smtp_host` empty): no e-mail can leave'); };
+  switch (desc.kind) {
+    case 'group_list': {
+      out.switches = [sw(desc.arm), sw(desc.list)];
+      out.armed = _on(cfg[desc.arm]);
+      const list = splitComma(cfg[desc.list]);
+      out.recipients = list.map((to) => ({ to }));
+      out.channels = ['email'];
+      if (!out.armed) out.blockers.push(`\`${desc.arm}\` is off`);
+      if (!list.length) out.blockers.push(`\`${desc.list}\` is empty`);
+      needMail(list);
+      break;
+    }
+    case 'directory': {
+      out.switches = desc.arm ? [sw(desc.arm), sw('never_send_unconfirmed')] : [sw('never_send_unconfirmed')];
+      out.armed = desc.arm ? _on(cfg[desc.arm]) : true;
+      const d = directoryRecipients(ctx.directory, desc.role, cfg);
+      out.recipients = d.sendable; out.skipped = d.skipped; out.channels = ['email'];
+      if (desc.arm && !out.armed) out.blockers.push(`\`${desc.arm}\` is off`);
+      if (!d.sendable.length) out.blockers.push(`no site has a confirmed ${desc.role === 'asset_manager' ? 'asset-manager or coordinator' : desc.role} address`);
+      if (!d.neverUnconfirmed) out.blockers.push('`never_send_unconfirmed`=0: UNCONFIRMED addresses would also be used');
+      needMail(d.sendable);
+      break;
+    }
+    case 'sync_alert': {
+      // server.js getAlertConfig: enabled unless '0'; recipients split /[,;\s]+/; Teams webhook optional.
+      out.switches = [sw('sync_alert_enabled'), sw('sync_alert_recipients'), { ...sw('sync_alert_teams_url'), value: _set(cfg.sync_alert_teams_url) ? '(configured)' : '' }];
+      out.armed = String(cfg.sync_alert_enabled) !== '0';
+      const list = splitAny(cfg.sync_alert_recipients);
+      const teams = _set(cfg.sync_alert_teams_url);
+      out.recipients = list.map((to) => ({ to }));
+      if (teams) out.recipients.push({ to: 'Teams channel (webhook configured — URL not shown)' });
+      out.channels = ['email', 'teams'];
+      if (!out.armed) out.blockers.push('`sync_alert_enabled` is 0');
+      if (out.armed && !list.length && !teams) out.blockers.push('`sync_alert_enabled`=1 while `sync_alert_recipients` and `sync_alert_teams_url` are empty: alerts are raised and their dedup mark is stored, then dropped');
+      needMail(list);
+      break;
+    }
+    case 'publish': {
+      out.switches = [sw('publish_cron_enabled'), sw('notifications_stop'), sw('publish_excel_recipients'),
+        { ...sw('publish_webhook_url'), value: _set(cfg.publish_webhook_url) ? '(configured)' : '' }];
+      out.armed = _on(cfg.publish_cron_enabled) && !stop;
+      const list = splitAny(cfg.publish_excel_recipients);
+      out.recipients = list.map((to) => ({ to }));
+      if (_set(cfg.publish_webhook_url)) out.recipients.push({ to: 'webhook (configured — URL not shown)' });
+      const sp = ['sharepoint_tenant_id', 'sharepoint_client_id', 'sharepoint_client_secret', 'sharepoint_site_id', 'sharepoint_list_id'].every((k) => _set(cfg[k]));
+      if (sp) out.recipients.push({ to: 'SharePoint list (Graph app configured)' });
+      out.channels = ['email-excel', 'webhook', 'sharepoint'];
+      if (!_on(cfg.publish_cron_enabled)) out.blockers.push('`publish_cron_enabled` is off');
+      if (stop) out.blockers.push('`notifications_stop`=1 halts it');
+      if (!out.recipients.length) out.blockers.push('no Excel recipient, webhook or SharePoint list configured');
+      needMail(list);
+      break;
+    }
+    case 'digest': {
+      out.switches = [sw('notifications_stop'), sw('alert_external_enabled'), { ...sw('engagement_teams_url'), value: _set(cfg.engagement_teams_url) ? '(configured)' : '' },
+        { ...sw('engagement_webhook_url'), value: _set(cfg.engagement_webhook_url) ? '(configured)' : '' }];
+      out.armed = !stop;
+      out.recipients = (ctx.digestUsers || []).filter((u) => u.digest === 'daily').map((u) => ({ to: u.email || `${u.name} (no e-mail on the account → skipped)`, name: u.name, skip: !u.email }));
+      out.channels = ['email-digest', 'inapp'];
+      if (stop) out.blockers.push('`notifications_stop`=1 halts the digest');
+      if (!out.recipients.some((r) => !r.skip)) out.blockers.push('no user is subscribed to the daily digest with an e-mail on the account');
+      needMail(out.recipients.filter((r) => !r.skip));
+      const ext = (ctx.alertRules || []).filter((r) => (r.channels || []).some((c) => c !== 'inapp'));
+      out.extra = `engagement alert rules: ${(ctx.alertRules || []).length} enabled, ${ext.length} with an outbound channel; outbound ${_on(cfg.alert_external_enabled) && !stop ? 'ARMED' : 'off'} (\`alert_external_enabled\`). In-app recipients are per rule — Admin ▸ Alert rules ▸ dry run lists them.`;
+      break;
+    }
+    case 'commitment_notify': {
+      out.switches = [sw('commitments_enabled'), sw('commitment_notify_enabled')];
+      out.armed = _on(cfg.commitments_enabled) && _on(cfg.commitment_notify_enabled);
+      out.channels = ['inapp'];
+      out.recipients = [{ to: 'in-app only: the escalation-matrix target of the commitment\'s site and severity (resolved at run time, not simulated here)' }];
+      if (!_on(cfg.commitments_enabled)) out.blockers.push('`commitments_enabled` is off (the escalation job does not run)');
+      else if (!_on(cfg.commitment_notify_enabled)) out.blockers.push('`commitment_notify_enabled` is off (escalations are recorded, nobody is told)');
+      break;
+    }
+    case 'teams_sla': {
+      const ch = _set(cfg.teams_sla_channels);
+      out.switches = [sw('teams_sla_enabled'), { ...sw('teams_sla_channels'), value: ch ? '(configured)' : '' }];
+      out.armed = _on(cfg.teams_sla_enabled);
+      out.channels = ['teams'];
+      if (ch) out.recipients = [{ to: 'Teams channels per SDP group (map is a secret — Admin ▸ Intégration API ▸ Alertes SLA lists the groups)' }];
+      if (!out.armed) out.blockers.push('`teams_sla_enabled` is off');
+      if (!ch) out.blockers.push('no Teams channel mapped (`teams_sla_channels` empty)');
+      if (!_set(cfg.sdp_api_refresh_token)) out.blockers.push('SDP API not connected (`sdp_api_refresh_token` empty)');
+      break;
+    }
+    default: break;
+  }
+  return out;
+}
+
+/** What the history says for one sender over the window. `h` = the history object the CLI gathered. */
+function firedSummary(desc, h) {
+  if (!h) return 'history not read';
+  const sent = (t) => (h.sent_log || []).filter((r) => r.report_type === t).map((r) => `${r.n} × ${r.result || '?'}`).join(', ') || 'nothing logged';
+  const err = (k) => (h.errors && h.errors[k] ? `unavailable (${h.errors[k]})` : null);
+  switch (desc.kind) {
+    case 'group_list': case 'directory': return err('sent_log') || `report_sent_log: ${sent(desc.reportType)}`;
+    case 'sync_alert': {
+      if (err('sync')) return err('sync');
+      const fails = (h.sync_errors || []).map((r) => `${r.job} ${r.n}`).join(', ') || 'none';
+      const raised = (h.sync_alerts || []).map((r) => r.key.replace(/^alert:/, '')).join(', ') || 'none';
+      return `failed sync runs: ${fails}. Alerts raised (dedup watermark set): ${raised}`;
+    }
+    case 'publish': return err('runs') || `report runs: ${(h.report_runs || []).map((r) => `${r.n} × ${r.status}`).join(', ') || 'none'}; publish connector runs: ${(h.publish_runs || []).map((r) => `${r.n} × ${r.status}`).join(', ') || 'none'}`;
+    case 'digest': return err('notifications') || `in-app notifications created: ${h.notifications == null ? '?' : h.notifications}; engagement alert firings: ${h.alert_firings == null ? '?' : h.alert_firings}`;
+    case 'commitment_notify': {
+      if (err('escalations')) return err('escalations');
+      const r = (h.escalations || []).find((x) => x.kind === desc.alert);
+      return r ? `${r.n} escalation(s) seen, ${r.open} still open` : 'no escalation seen';
+    }
+    case 'teams_sla': return err('sla') || `sla_alert_log: ${(h.sla_alerts || []).map((r) => `${r.n} × ${r.kind}`).join(', ') || 'nothing logged'}`;
+    default: return '—';
+  }
+}
+
+/** The whole pack as data. ctx = { cfg, defaults, directory, digestUsers, alertRules, history, days, now } */
+function buildDryRun(ctx) {
+  const one = (item, desc) => {
+    if (!desc) return { id: item.id, name: item.name, status: item.status, sender: false, decision: item.decision || null, open: item.missing };
+    const ev = evaluateDelivery(desc, ctx);
+    return { id: item.id, name: item.name, status: item.status, sender: true, decision: item.decision || null, open: item.missing, ...ev, fired: firedSummary(desc, ctx.history) };
+  };
+  return {
+    generated_at: (ctx.now || new Date()).toISOString(), days: ctx.days,
+    smtp: _set((ctx.cfg || {}).smtp_host), stop: _on((ctx.cfg || {}).notifications_stop),
+    never_send_unconfirmed: String((ctx.cfg || {}).never_send_unconfirmed) !== '0',
+    reports: REPORTS.map((r) => one(r, DELIVERY[r.id])),
+    rules: RULES.map((a) => one(a, DELIVERY[a.id])),
+    others: OTHER_SENDERS.map((o) => ({ ...one({ id: o.id, name: o.name, status: 'implemented', missing: '' }, o) })),
+  };
+}
+
+const _reach = (x) => x.recipients.filter((r) => !r.skip).length;
+const _cell = (s) => String(s == null ? '' : s).replace(/\|/g, '\\|').replace(/\r?\n/g, ' ');
+function _who(x) {
+  if (!x.sender) return 'no sender in code';
+  if (!x.recipients.length) return 'nobody';
+  return x.recipients.map((r) => (r.site ? `${r.site}: ${r.to}${r.cc && r.cc.length ? ' (cc ' + r.cc.join(', ') + ')' : ''}` : r.to)).join('<br>');
+}
+function _decision(x) {
+  if (!x.sender) return x.decision ? `${x.decision} (build the sender first)` : 'build a sender, then D-13';
+  return `D-13: arm or keep off? who receives?${x.decision && x.decision !== 'D-13' ? ' · also ' + x.decision : ''}`;
+}
+
+function dryRunMarkdown(d) {
+  const L = ['# D-13 decision pack — dry run of every report and alert', '',
+    `Generated ${d.generated_at} by \`tools/reports/catalogue-dry-run.js\` · history window: last ${d.days} day(s).`,
+    '**Read-only**: nothing was sent, nothing was written (the database was read inside a READ ONLY transaction).',
+    'Recipients are the ones the real senders would use **today** (confirmed directory addresses, configured lists).',
+    'Webhook / Teams URLs are secrets: only "configured" is shown. This pack decides nothing — the meeting does.', '',
+    '## Read this first', '',
+    `- SMTP (\`smtp_host\`): ${d.smtp ? 'configured' : '**NOT configured — no e-mail can leave the server**'}`,
+    `- STOP switch \`notifications_stop\`: ${d.stop ? '**1 — engagement alerts, digests and publication are halted**' : '0'}`,
+    `- \`never_send_unconfirmed\`: ${d.never_send_unconfirmed ? '1 — unconfirmed directory addresses are never used' : '**0 — unconfirmed directory addresses WOULD be used**'}`];
+  const all = [...d.reports, ...d.rules, ...d.others];
+  for (const x of all) if (x.sender && x.armed && !_reach(x)) L.push(`- **${x.id} is armed but reaches nobody**: ${x.blockers.join('; ')}`);
+  for (const x of all) if (x.sender && x.armed && _reach(x) && x.id === 'coordinator') L.push(`- **coordinator monthly report has no arm flag**: ${_reach(x)} site(s) would be mailed the moment its scheduled task runs`);
+  L.push('', '## Summary', '', '| Id | Report / rule | Sender in code | Armed today | Would reach today | Fired, last ' + d.days + ' d | Decision to take |', '|---|---|---|---|---|---|---|');
+  for (const x of all) L.push(`| ${x.id} | ${_cell(x.name)} | ${x.sender ? x.kind : 'none'} | ${x.sender ? (x.armed ? '**yes**' : 'no') : '—'} | ${x.sender ? (x.armed ? _reach(x) + ' recipient(s)' : '0 (off)') : '—'} | ${x.sender ? _cell(x.fired) : '—'} | ${_cell(_decision(x))} |`);
+  L.push('', '## Detail — items with an outbound sender', '');
+  for (const x of all.filter((y) => y.sender)) {
+    L.push(`### ${x.id} — ${x.name}`, '',
+      `- Switches: ${x.switches.map((s) => `\`${s.key}\`=${s.value === '' ? '(empty)' : s.value}${s.value !== s.default && !/^\(configured\)$/.test(s.value) ? ` (default ${s.default === '' ? '(empty)' : s.default})` : ''}`).join(' · ')}`,
+      `- Armed today: ${x.armed ? '**yes**' : 'no'} · channels: ${x.channels.join(', ')}`,
+      `- Would receive today: ${_who(x).replace(/<br>/g, '; ')}`);
+    if (x.skipped && x.skipped.length) L.push(`- Kept out: ${x.skipped.map((s) => `${s.site} (${s.reason})`).join('; ')}`);
+    if (x.blockers.length) L.push(`- Why nothing leaves / what is missing: ${x.blockers.join('; ')}`);
+    if (x.extra) L.push(`- ${x.extra}`);
+    if (x.note) L.push(`- Note: ${x.note}`);
+    L.push(`- Last ${d.days} day(s): ${x.fired}`, `- Open in the code: ${x.open || '—'}`, `- Decision: ${_decision(x)}`, '');
+  }
+  L.push('## Items with no outbound sender in code', '', '| Id | Report / rule | Status | Open | Decision |', '|---|---|---|---|---|');
+  for (const x of all.filter((y) => !y.sender)) L.push(`| ${x.id} | ${_cell(x.name)} | ${x.status} | ${_cell(x.open)} | ${_cell(_decision(x))} |`);
+  return L.join('\n') + '\n';
+}
+
+module.exports = { REPORTS, RULES, STATUSES, summary, toMarkdown,
+  DELIVERY, OTHER_SENDERS, splitComma, splitAny, effectiveConfig, directoryRecipients, evaluateDelivery, firedSummary, buildDryRun, dryRunMarkdown };

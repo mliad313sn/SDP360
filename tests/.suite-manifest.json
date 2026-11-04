@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 3363,
+ "total": 3373,
  "files": {
   "a11y-static.test.js": 15,
   "access-denied-log.smoke.test.js": 3,
@@ -84,6 +84,7 @@
   "boot-config.test.js": 4,
   "business-only-boundary.smoke.test.js": 6,
   "business-roles.test.js": 4,
+  "catalogue-dry-run.test.js": 8,
   "check-secrets-verify.test.js": 2,
   "ci-config.test.js": 9,
   "commitment-backfill-pg.test.js": 3,
@@ -359,7 +360,7 @@
   "reporting-send.smoke.test.js": 7,
   "reports-action-import-ui.test.js": 7,
   "reports-admin-asset-reminders.test.js": 5,
-  "reports-cli-dotenv.test.js": 7,
+  "reports-cli-dotenv.test.js": 9,
   "reports-editor-asset-tab.test.js": 11,
   "restore-drill-admin-card.test.js": 4,
   "restore-drill.test.js": 5,
