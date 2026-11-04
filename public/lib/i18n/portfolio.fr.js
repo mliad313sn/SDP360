@@ -24,6 +24,9 @@
     'Kind': 'Nature', 'Id (blank = new)': 'Id (vide = nouveau)', 'Parent id (programme / objective / project)': 'Id parent (programme / objectif / projet)',
     'Key': 'Clé', 'Name / title': 'Nom / titre', 'Start': 'Début', 'Due / end': 'Échéance / fin', 'Baseline end': 'Fin de référence',
     'Progress %': 'Avancement %', 'Weight': 'Poids', 'Evidence metric key': 'Clé de l’indicateur de preuve', 'Evidence target': 'Cible de la preuve',
+    'Resource pressure per person and week': 'Charge des ressources par personne et par semaine', 'Risk matrix (probability × impact)': 'Matrice des risques (probabilité × impact)',
+    'Keyboard: Tab to a project key, then the arrow keys move between projects and Enter opens the project page. The table view holds the same data.':
+      'Clavier : Tab jusqu’à la clé d’un projet, puis les flèches passent d’un projet à l’autre et Entrée ouvre la page projet. La vue tableau contient les mêmes données.',
     'Probability (1-3)': 'Probabilité (1-3)', 'Impact (1-3)': 'Impact (1-3)', 'Description / mitigation / manual evidence': 'Description / atténuation / preuve manuelle',
   };
   const RUNTIME_KEYS = {

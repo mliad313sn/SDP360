@@ -12,6 +12,7 @@
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/dashboardRender.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/ppmVisuals.js"></script>
 <style nonce="%%CSP_NONCE%%">
   body { margin:0; background:var(--color-background,#f4f6f7); color:#1F2A33; font-family:var(--font-sans,"Libre Franklin",system-ui,sans-serif); font-size:14px; }
   .wrap { max-width:1360px; margin:0 auto; padding:24px; }
@@ -35,6 +36,11 @@
   .tl-base { position:absolute; top:2px; height:18px; border:1.5px dashed #9AA4B2; border-radius:6px; background:transparent; }
   .tl-ms { position:absolute; top:1px; transform:translateX(-50%); font-size:13px; line-height:20px; z-index:2; color:#fff; text-shadow:0 0 2px #1F2A33,0 0 2px #1F2A33; font-weight:700; } .tl-today { position:absolute; top:-2px; bottom:-2px; width:2px; background:#B45309; }
   .tl-legend { font-size:11.5px; color:#6b7785; margin:4px 0 8px; } .stage { font-size:11px; color:#4A5563; letter-spacing:1px; }
+  .tl-legend-sw { display:inline-block; width:18px; height:10px; vertical-align:middle; margin:0 4px 0 8px; border-radius:5px; } .tl-legend-sw.bar { background:#3A4A60; } .tl-legend-sw.crit { background:#1F2A33; height:14px; } .tl-legend-sw.base { border:1.5px dashed #9AA4B2; } .tl-legend-sw.today { width:2px; height:14px; border-radius:0; background:#B45309; }
+  .tl-row a:focus { outline:2px solid #B45309; outline-offset:2px; }
+  table.pim { width:auto; } table.pim td { text-align:center; padding:3px; } .pim-cell { min-width:64px; min-height:40px; font-size:15px; font-weight:700; border:1px solid #cfd6e0; border-radius:6px; background:#fff; cursor:pointer; font-family:inherit; color:#1F2A33; }
+  .pim-cell[disabled] { cursor:default; color:#9AA4B2; } td.pim-high .pim-cell:not([disabled]) { background:#fde2e2; border-color:#B91C1C; } td.pim-medium .pim-cell:not([disabled]) { background:#fdecc8; border-color:#B45309; } td.pim-low .pim-cell:not([disabled]) { background:#e3f1e8; border-color:#1E7B45; }
+  td.pr-over { background:#fde2e2; color:#7f1d1d; }
   @media (max-width:760px) { .tl-row { grid-template-columns:1fr; } }
 </style>
 </head>
@@ -52,9 +58,11 @@
   <pre id="mig" class="panel" hidden style="font-size:12px;white-space:pre-wrap"></pre>
   <div class="panel"><h2>Programmes &amp; objectives</h2><div class="scroll" id="tree"></div></div>
   <div class="panel"><h2>Money by programme</h2><div class="scroll" id="money"></div></div>
-  <div class="panel"><h2>Schedule (projects &amp; milestones)</h2><div id="timeline"></div><details><summary class="muted">Table view (dates, plan, alerts)</summary><div class="scroll" id="gantt"></div></details></div>
+  <div class="panel"><h2>Schedule (projects &amp; milestones)</h2><div id="timeline"></div><p class="muted">Keyboard: Tab to a project key, then the arrow keys move between projects and Enter opens the project page. The table view holds the same data.</p><details><summary class="muted">Table view (dates, plan, alerts)</summary><div class="scroll" id="gantt"></div></details></div>
   <div class="panel"><h2>Resource conflicts</h2><div class="scroll" id="conflicts"></div></div>
+  <div class="panel"><h2>Resource pressure per person and week</h2><div class="scroll" id="pressure"></div></div>
   <div class="panel"><h2>Risks</h2><div class="scroll" id="risks"></div></div>
+  <div class="panel"><h2>Risk matrix (probability × impact)</h2><div class="scroll" id="risk-matrix"></div></div>
   <details class="panel" id="edit" hidden><summary class="btn" id="e-sum">Add / edit an element (committee)</summary>
     <div class="row" style="margin-top:8px">
       <label>Kind <select id="e-kind"><option>programme</option><option>objective</option><option>project</option><option>milestone</option><option>deliverable</option><option>risk</option><option>task</option></select></label>
@@ -84,6 +92,17 @@
   var p = function (v) { return v == null ? "—" : v + " %"; };
   // A-14 — a project key opens its record page
   var pLink = function (id, key) { return "<a href=\"project.html?id=" + encodeURIComponent(id) + "\">" + esc(key) + "</a>"; };
+  var RM = null, RISKS = [];
+  $("risk-matrix").addEventListener("click", function (ev) {
+    var b = ev.target.closest && ev.target.closest("[data-cell]"); if (!b || !RM) return;
+    var box = $("risk-matrix").querySelector(".pim-list"); if (box) box.innerHTML = window.PpmVisuals.cellListHtml(RM, RISKS, b.getAttribute("data-cell"), esc);
+  });
+  // C-14 (F28) — the timeline rows are keyboard-operable: each project key is a link; arrows move between rows.
+  $("timeline").addEventListener("keydown", function (ev) {
+    var links = Array.prototype.slice.call($("timeline").querySelectorAll(".tl-row a")), cur = links.indexOf(ev.target); if (cur < 0) return;
+    var to = ev.key === "ArrowDown" ? cur + 1 : ev.key === "ArrowUp" ? cur - 1 : ev.key === "Home" ? 0 : ev.key === "End" ? links.length - 1 : -2;
+    if (to === -2) return; ev.preventDefault(); if (links[to]) links[to].focus();
+  });
   function load() {
     return api("/api/governance/portfolio").then(function (v) {
       V = v; committee = v.committee; planEdit(v); $("mig-dry").hidden = !isSuper; $("mig-apply").hidden = !isSuper;
@@ -97,6 +116,12 @@
         return "<tr><td>" + esc(x.name) + "</td><td>" + m + "</td><td>" + (x.budget_unknown || 0) + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No programme.</p>");
       var conf = v.resource_conflicts || [];
       $("conflicts").innerHTML = conf.length ? "<table><thead><tr><th>Person</th><th>From</th><th>To</th><th>Peak load</th><th>Tasks</th></tr></thead><tbody>" + conf.map(function (c) { return "<tr><td>" + esc(c.owner) + "</td><td>" + esc(c.from) + "</td><td>" + esc(c.to) + "</td><td><b>" + c.peak_pct + " %</b></td><td>" + c.task_ids.map(function (i) { return "#" + i; }).join(", ") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">Nobody is booked above 100 % on overlapping days.</p>";
+      // C-14 (G22) — risk P × I matrix and resource pressure per person/week, from the same (scoped) view
+      if (window.PpmVisuals) {
+        RM = window.PpmVisuals.riskMatrix(v.risks || []); RISKS = v.risks || [];
+        $("risk-matrix").innerHTML = window.PpmVisuals.riskMatrixHtml(RM, esc);
+        $("pressure").innerHTML = window.PpmVisuals.pressureHtml(window.PpmVisuals.resourcePressure(v.tasks || [], { today: new Date().toISOString().slice(0, 10) }), esc);
+      }
       var plans = {}; (v.plans || []).forEach(function (x) { plans[x.project_id] = x; });
       var stages = v.stages || [];
       var stageDots = function (st) { var i = stages.indexOf(st); return st ? "<span class=\"stage\" title=\"" + esc(st) + "\">" + stages.map(function (_, k) { return k === i ? "●" : "○"; }).join("") + "</span> " + esc(String(st).replace(/_/g, " ")) : "—"; };
@@ -106,7 +131,7 @@
         var t0 = Math.min.apply(null, dates), t1 = Math.max.apply(null, dates.concat([Date.now()])), span = Math.max(1, t1 - t0);
         var pos = function (d) { return Math.max(0, Math.min(100, 100 * (Date.parse(d) - t0) / span)); };
         var crit = {}; (v.plans || []).forEach(function (x) { if (x.critical_path && x.critical_path.length) crit[x.project_id] = 1; });
-        $("timeline").innerHTML = "<div class=\"tl-legend\">" + esc(new Date(t0).toISOString().slice(0, 10)) + " → " + esc(new Date(t1).toISOString().slice(0, 10)) + " · bar = planned · dashed = baseline · ◆ milestone (✓ done, ! late) · orange line = today</div>" + v.gantt.map(function (g) {
+        $("timeline").innerHTML = "<div class=\"tl-legend\">" + esc(new Date(t0).toISOString().slice(0, 10)) + " → " + esc(new Date(t1).toISOString().slice(0, 10)) + " · <span class=\"tl-legend-sw bar\"></span>bar = planned <span class=\"tl-legend-sw crit\"></span>slipped <span class=\"tl-legend-sw base\"></span>dashed = baseline · ◆ milestone (✓ done, ! late) <span class=\"tl-legend-sw today\"></span>orange line = today</div>" + v.gantt.map(function (g) {
           var bar = g.start && g.end ? "<span class=\"tl-bar" + (g.slip_days ? " crit" : "") + "\" style=\"left:" + pos(g.start) + "%;width:" + Math.max(1, pos(g.end) - pos(g.start)) + "%\"></span>" : "";
           var base = g.start && g.baseline_end ? "<span class=\"tl-base\" style=\"left:" + pos(g.start) + "%;width:" + Math.max(1, pos(g.baseline_end) - pos(g.start)) + "%\"></span>" : "";
           var ms = (g.milestones || []).filter(function (m) { return m.due; }).map(function (m) { return "<span class=\"tl-ms\" style=\"left:" + pos(m.due) + "%\" title=\"" + esc(m.name + " " + m.due) + "\">◆" + (m.done_at ? "✓" : m.late ? "!" : "") + "</span>"; }).join("");

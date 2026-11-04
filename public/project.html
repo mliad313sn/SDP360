@@ -12,6 +12,7 @@
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/dashboardRender.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/ppmVisuals.js"></script>
 <style nonce="%%CSP_NONCE%%">
   body { margin:0; background:var(--color-background,#f4f6f7); color:#1F2A33; font-family:var(--font-sans,"Libre Franklin",system-ui,sans-serif); font-size:14px; }
   .wrap { max-width:1360px; margin:0 auto; padding:24px; }
@@ -34,6 +35,12 @@
   .gantt svg { display:block; font-family:inherit; } .gantt .lbl { font-size:11.5px; fill:#1F2A33; } .gantt .axis { font-size:10.5px; fill:#6b7785; }
   .refusal { color:#991b1b; font-size:12.5px; } .gate { display:flex; gap:10px; align-items:flex-start; padding:8px 0; border-bottom:1px solid #f0f2f5; }
   .charter dt { font-weight:600; color:#3A4A60; margin-top:8px; } .charter dd { margin:2px 0 0; white-space:pre-wrap; }
+  .gantt g.gbar:focus { outline:none; } .gantt g.gbar:focus rect:first-of-type, .gantt g.gbar.kfocus rect:first-of-type { stroke:#B45309; stroke-width:3; }
+  .gantt-legend { display:flex; flex-wrap:wrap; gap:4px 14px; font-size:12px; color:#4A5563; margin:6px 0 8px; } .gantt-legend span { display:inline-flex; align-items:center; gap:5px; }
+  tr.task-focus td { background:#fff7ed; }
+  table.pim { width:auto; } table.pim td { text-align:center; padding:3px; } .pim-cell { min-width:64px; min-height:40px; font-size:15px; font-weight:700; border:1px solid #cfd6e0; border-radius:6px; background:#fff; cursor:pointer; font-family:inherit; color:#1F2A33; }
+  .pim-cell[disabled] { cursor:default; color:#9AA4B2; } td.pim-high .pim-cell:not([disabled]) { background:#fde2e2; border-color:#B91C1C; } td.pim-medium .pim-cell:not([disabled]) { background:#fdecc8; border-color:#B45309; } td.pim-low .pim-cell:not([disabled]) { background:#e3f1e8; border-color:#1E7B45; }
+  td.pr-over { background:#fde2e2; color:#7f1d1d; }
 </style>
 </head>
 <body>
@@ -74,10 +81,11 @@
   </section>
 
   <section id="pane-plan" role="tabpanel" aria-labelledby="tab-plan" hidden>
-    <div class="panel"><h2>Schedule</h2><div id="plan-note" class="muted"></div><div class="gantt scroll" id="gantt"></div>
+    <div class="panel"><h2>Schedule</h2><div id="plan-note" class="muted"></div><div id="gantt-legend" class="gantt-legend" aria-label="Legend of the schedule"></div><div class="gantt scroll" id="gantt"></div><p class="muted">Keyboard: Tab to the chart, then the arrow keys move from task to task (Home / End: first / last) and Enter opens the task in the table below (and in the editor when you may edit). The table view holds the same data.</p>
       <details><summary class="muted">Table view (the same data)</summary><div class="scroll" id="plan-table"></div></details></div>
     <div class="panel"><h2>Baseline versions</h2><div class="row"><label>Show as the dashed baseline <select id="bl-version" aria-label="Baseline version"><option value="">Current task baselines</option></select></label></div><div id="bl-note" class="muted"></div><div class="scroll" id="bl-diff"></div></div>
     <div class="panel"><h2>Resource conflicts on this project</h2><div class="scroll" id="plan-conflicts"></div></div>
+    <div class="panel"><h2>Resource pressure per person and week</h2><div class="scroll" id="plan-pressure"></div></div>
     <div class="panel" id="task-edit" hidden><h2>Add / edit a task</h2>
       <div class="row">
         <label>Task <select id="t-id"></select></label>
@@ -119,6 +127,7 @@
       <div class="bar"><label>Show <select id="r-filter"><option value="">all kinds</option><option value="risk">risks</option><option value="issue">issues</option><option value="assumption">assumptions</option></select></label>
         <span class="muted">Dependencies are the task links of the Plan tab; decisions live in the decision register (DEC-…). Only an open <b>risk</b> with P × I ≥ 6 blocks the closed gate.</span></div>
       <div class="scroll" id="raid"></div></div>
+    <div class="panel"><h2>Risk matrix (probability × impact)</h2><div class="scroll" id="risk-matrix"></div></div>
     <div class="panel" id="raid-edit" hidden><h2>Add / edit an entry</h2>
       <div class="row">
         <label>Entry <select id="r-id"></select></label>
@@ -337,13 +346,46 @@
       (assumed ? "<b>" + n(assumed) + " task(s) have no duration</b> — counted as 1 day by the critical path (“duration unknown”). " : "") +
       "Legend: bar = plan · hatched = computed from dependencies (no dates entered) · dashed outline = baseline · <b>CP</b> + red = critical path · arrows = finish-to-start · ◆ milestone (✓ done, ! late) · orange line = today.";
     $("gantt").innerHTML = rows.length ? ganttSvg(rows, anchor) : "<p class=\"muted\">No task yet.</p>";
+    $("gantt-legend").innerHTML = rows.length ? ganttLegend() : "";
     $("plan-table").innerHTML = rows.length ? "<table><thead><tr><th>WBS</th><th>Task</th><th>Owner</th><th>Start</th><th>End</th><th>Duration</th><th>Slack</th><th>Critical</th><th>Progress</th><th>Effort</th><th>Allocation</th><th>Baseline end</th><th>Finish vs baseline</th><th>Status</th><th>Depends on</th></tr></thead><tbody>" + rows.map(function (r) {
       var t = r.t, pl = planOf(t.id) || {}, b = barOf(t), vr = pl.variance || {};
-      return "<tr><td>" + n(t.wbs_code) + "</td><td style=\"padding-left:" + (7 + 14 * r.depth) + "px\">" + esc(t.name) + " <small class=\"muted\">#" + n(t.id) + "</small></td><td>" + n(t.owner) + "</td><td>" + (b ? n(b.s) + (b.computed ? " <small class=\"muted\">computed</small>" : "") : "—") + "</td><td>" + (b ? n(b.e) : "—") + "</td><td>" + (pl.assumed_duration ? "<i>duration unknown — counted as 1 day</i>" : n(pl.duration_days, " d")) + "</td><td>" + n(pl.slack, " d") + "</td><td>" + (pl.critical ? "<b>CP</b> yes" : "no") + "</td><td>" + n(t.progress_pct, " %") + "</td><td>" + n(t.effort_hours, " h") + "</td><td>" + n(t.allocation_pct, " %") + "</td><td>" + n(t.baseline_end) + "</td><td>" + n(vr.finish_variance_days, " d") + "</td><td><span class=\"pill " + esc(t.status) + "\">" + esc(t.status) + "</span></td><td>" + (t.depends_on || []).map(function (d) { return "#" + n(d); }).join(", ") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No task.</p>";
+      return "<tr id=\"task-row-" + n(t.id) + "\" tabindex=\"-1\"><td>" + n(t.wbs_code) + "</td><td style=\"padding-left:" + (7 + 14 * r.depth) + "px\">" + esc(t.name) + " <small class=\"muted\">#" + n(t.id) + "</small></td><td>" + n(t.owner) + "</td><td>" + (b ? n(b.s) + (b.computed ? " <small class=\"muted\">computed</small>" : "") : "—") + "</td><td>" + (b ? n(b.e) : "—") + "</td><td>" + (pl.assumed_duration ? "<i>duration unknown — counted as 1 day</i>" : n(pl.duration_days, " d")) + "</td><td>" + n(pl.slack, " d") + "</td><td>" + (pl.critical ? "<b>CP</b> yes" : "no") + "</td><td>" + n(t.progress_pct, " %") + "</td><td>" + n(t.effort_hours, " h") + "</td><td>" + n(t.allocation_pct, " %") + "</td><td>" + n(t.baseline_end) + "</td><td>" + n(vr.finish_variance_days, " d") + "</td><td><span class=\"pill " + esc(t.status) + "\">" + esc(t.status) + "</span></td><td>" + (t.depends_on || []).map(function (d) { return "#" + n(d); }).join(", ") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No task.</p>";
     var rc = V.resource_conflicts || [];
     $("plan-conflicts").innerHTML = rc.length ? "<table><thead><tr><th>Person</th><th>From</th><th>To</th><th>Peak load</th><th>Tasks</th></tr></thead><tbody>" + rc.map(function (c) { return "<tr><td>" + esc(c.owner) + "</td><td>" + n(c.from) + "</td><td>" + n(c.to) + "</td><td><b>" + n(c.peak_pct, " %") + "</b></td><td>" + c.task_ids.map(function (i) { return "#" + n(i); }).join(", ") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">Nobody is booked above 100 % on overlapping days in this project.</p>";
+    // C-14 — resource pressure per person and week (tasks without an allocation are counted "unknown", never guessed)
+    $("plan-pressure").innerHTML = window.PpmVisuals ? window.PpmVisuals.pressureHtml(window.PpmVisuals.resourcePressure(V.tasks || [], { today: today() }), esc) : "";
     taskEditor();
   }
+  // C-14 (G22 / F28) — visible legend (swatches, not only words) naming the baseline actually drawn.
+  function ganttLegend() {
+    var v = blVersion(), sw = function (inner) { return "<svg width=\"26\" height=\"14\" aria-hidden=\"true\" focusable=\"false\">" + inner + "</svg>"; };
+    var base = v ? ["version v", v.version, " captured ", String(v.captured_at || "").slice(0, 10)].join("") : "current task baselines";
+    return [
+      [sw("<rect x=\"1\" y=\"3\" width=\"24\" height=\"8\" rx=\"4\" fill=\"#3A4A60\"/>"), "plan"],
+      [sw("<rect x=\"1\" y=\"3\" width=\"24\" height=\"8\" rx=\"4\" fill=\"#cfd6e0\" stroke=\"#3A4A60\"/>"), "computed from dependencies (hatched)"],
+      [sw("<rect x=\"1\" y=\"3\" width=\"24\" height=\"8\" rx=\"4\" fill=\"#B91C1C\"/>"), "critical path (CP)"],
+      [sw("<rect x=\"1\" y=\"1\" width=\"24\" height=\"12\" rx=\"4\" fill=\"none\" stroke=\"#9AA4B2\" stroke-dasharray=\"4 3\"/>"), "baseline (dashed): " + base],
+      [sw("<line x1=\"13\" x2=\"13\" y1=\"0\" y2=\"14\" stroke=\"#B45309\" stroke-width=\"2\"/>"), "today"],
+      ["◆", "milestone (✓ done, ! late)"]
+    ].map(function (x) { return "<span>" + x[0] + esc(x[1]) + "</span>"; }).join("");
+  }
+  // Keyboard on the Gantt: one bar in the tab order (roving tabindex), arrows move, Enter / Space opens the task.
+  function ganttBars() { return Array.prototype.slice.call($("gantt").querySelectorAll("g.gbar")); }
+  function ganttKey(ev) {
+    var bars = ganttBars(), cur = bars.indexOf(ev.target && ev.target.closest ? ev.target.closest("g.gbar") : null); if (cur < 0) return;
+    var to = ev.key === "ArrowDown" || ev.key === "ArrowRight" ? Math.min(bars.length - 1, cur + 1) : ev.key === "ArrowUp" || ev.key === "ArrowLeft" ? Math.max(0, cur - 1) : ev.key === "Home" ? 0 : ev.key === "End" ? bars.length - 1 : -1;
+    if (to >= 0) { ev.preventDefault(); bars.forEach(function (b, k) { b.setAttribute("tabindex", k === to ? "0" : "-1"); }); bars[to].focus(); return; }
+    if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); openTask(Number(bars[cur].getAttribute("data-task"))); }
+  }
+  function openTask(id) {
+    var d = $("plan-table") && $("plan-table").closest("details"); if (d) d.open = true;
+    Array.prototype.forEach.call(document.querySelectorAll("tr.task-focus"), function (r) { r.classList.remove("task-focus"); });
+    var row = document.getElementById("task-row-" + id);
+    if (V.can_edit_plan && $("t-id")) { $("t-id").value = String(id); fillTask(); }
+    if (row) { row.classList.add("task-focus"); row.scrollIntoView({ block: "center" }); row.focus(); }
+  }
+  $("gantt").addEventListener("keydown", ganttKey);
+  $("gantt").addEventListener("click", function (ev) { var g = ev.target.closest && ev.target.closest("g.gbar"); if (g) openTask(Number(g.getAttribute("data-task"))); });
   function ganttSvg(rows, anchor) {
     var LW = 260, W = 980, RH = 24, TOP = 26, ms = V.milestones || [];
     var dated = !!anchor || rows.some(function (r) { return barOf(r.t); });
@@ -354,7 +396,7 @@
     if (!isFinite(lo)) { lo = toMs(today()); hi = lo + 30 * DAY; }
     var span = Math.max(1, hi - lo), x = function (v) { return LW + (W - LW - 10) * (v - lo) / span; };
     var xd = function (d) { return x(toMs(d)); }, xr = function (dd) { return x(dd); };
-    var H = TOP + (rows.length + ms.length) * RH + 10, pos = {}, out = [];
+    var H = TOP + (rows.length + ms.length) * RH + 10, pos = {}, out = [], focusable = 0;
     out.push("<svg width=\"" + n(W) + "\" height=\"" + n(H) + "\" viewBox=\"0 0 " + n(W) + " " + n(H) + "\" role=\"group\" aria-label=\"Gantt chart of the project tasks\"><defs><pattern id=\"hatch\" width=\"6\" height=\"6\" patternUnits=\"userSpaceOnUse\" patternTransform=\"rotate(45)\"><rect width=\"6\" height=\"6\" fill=\"#cfd6e0\"/><line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"6\" stroke=\"#3A4A60\" stroke-width=\"2\"/></pattern><marker id=\"arr\" viewBox=\"0 0 6 6\" refX=\"6\" refY=\"3\" markerWidth=\"6\" markerHeight=\"6\" orient=\"auto\"><path d=\"M0,0 L6,3 L0,6 z\" fill=\"#6b7785\"/></marker></defs>");
     out.push("<text class=\"axis\" x=\"" + n(LW) + "\" y=\"14\">" + (dated ? esc(new Date(lo).toISOString().slice(0, 10)) : "day 0") + "</text><text class=\"axis\" x=\"" + n(W - 10) + "\" y=\"14\" text-anchor=\"end\">" + (dated ? esc(new Date(hi - DAY).toISOString().slice(0, 10)) : "day " + n(hi)) + "</text>");
     rows.forEach(function (r, i) {
@@ -369,7 +411,7 @@
       var when = b ? [b.s, " to ", b.e].join("") : ["day ", rr.s, " to day ", rr.e].join("");  // plain text, escaped once in esc(label)
       var label = taskLabel(t) + ": " + when + (comp ? " (computed)" : "") + ", " + (crit ? "critical" : "slack " + (pl.slack == null ? "unknown" : pl.slack) + " days") + ", progress " + (t.progress_pct == null ? "not reported" : [t.progress_pct, " %"].join("")) + (pl.assumed_duration ? ", duration unknown — counted as 1 day" : "");
       var fill = comp ? "url(#hatch)" : crit ? "#B91C1C" : "#3A4A60";
-      out.push("<g role=\"img\" aria-label=\"" + esc(label) + "\"><title>" + esc(label) + "</title><rect x=\"" + n(x0) + "\" y=\"" + n(y + 6) + "\" width=\"" + n(Math.max(3, x1 - x0)) + "\" height=\"12\" rx=\"5\" fill=\"" + fill + "\"" + (crit && comp ? " stroke=\"#B91C1C\" stroke-width=\"2\"" : "") + "/>" +
+      out.push("<g role=\"img\" aria-label=\"" + esc(label) + "\" class=\"gbar\" data-task=\"" + n(t.id) + "\" tabindex=\"" + (focusable++ ? "-1" : "0") + "\" style=\"cursor:pointer\"><title>" + esc(label) + "</title><rect x=\"" + n(x0) + "\" y=\"" + n(y + 6) + "\" width=\"" + n(Math.max(3, x1 - x0)) + "\" height=\"12\" rx=\"5\" fill=\"" + fill + "\"" + (crit && comp ? " stroke=\"#B91C1C\" stroke-width=\"2\"" : "") + "/>" +
         (t.progress_pct != null ? "<rect x=\"" + n(x0) + "\" y=\"" + n(y + 16) + "\" width=\"" + n(Math.max(0, (x1 - x0) * Math.min(100, t.progress_pct) / 100)) + "\" height=\"2\" fill=\"#1E7B45\"/>" : "") +
         (crit ? "<text x=\"" + n(Math.min(W - 26, x1 + 3)) + "\" y=\"" + n(y + 16) + "\" font-size=\"10\" font-weight=\"700\" fill=\"#B91C1C\">CP</text>" : "") + "</g>");
     });
@@ -436,9 +478,21 @@
     $("raid").innerHTML = rs.length ? "<table><thead><tr><th>Kind</th><th>Title</th><th>P × I</th><th>Severity</th><th>Owner</th><th>Mitigation / response</th><th>Status</th></tr></thead><tbody>" + rs.map(function (r) {
       var sev = r.severity === "high" ? "RED" : r.severity === "medium" ? "AMBER" : "GREEN";
       return "<tr><td>" + esc(r.kind) + "</td><td>" + esc(r.title) + " <small class=\"muted\">#" + n(r.id) + "</small></td><td>" + n(r.probability) + " × " + n(r.impact) + " = <b>" + n(r.exposure) + "</b></td><td><span class=\"pill " + sev + "\">" + esc(r.severity) + "</span>" + (r.kind === "risk" && r.status === "open" && r.exposure >= 6 ? " <small>blocks closed</small>" : "") + "</td><td>" + n(r.owner) + "</td><td>" + esc(r.mitigation || "") + (r.incident_ref ? " · incident " + esc(r.incident_ref) : "") + "</td><td>" + esc(r.status) + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">Nothing recorded" + (f ? " of this kind" : "") + ".</p>";
+    renderRiskMatrix();
     $("raid-edit").hidden = !V.can_edit_plan;
     if (V.can_edit_plan) { var cur = $("r-id").value; $("r-id").innerHTML = opt((V.risks || []).map(function (r) { return [r.id, [r.kind, ": ", r.title].join("")]; }), cur, "— new entry —"); fillRisk(); }
   }
+  // C-14 (G22) — open risks on the 3 × 3 probability × impact grid; unscored risks listed apart, never in a cell.
+  var RM = null;
+  function renderRiskMatrix() {
+    if (!window.PpmVisuals) return;
+    RM = window.PpmVisuals.riskMatrix(V.risks || []);
+    $("risk-matrix").innerHTML = window.PpmVisuals.riskMatrixHtml(RM, esc);
+  }
+  $("risk-matrix").addEventListener("click", function (ev) {
+    var b = ev.target.closest && ev.target.closest("[data-cell]"); if (!b || !RM) return;
+    var box = $("risk-matrix").querySelector(".pim-list"); if (box) box.innerHTML = window.PpmVisuals.cellListHtml(RM, V.risks || [], b.getAttribute("data-cell"), esc);
+  });
   function fillRisk() { var id = Number($("r-id").value) || null, r = (V.risks || []).filter(function (x) { return x.id === id; })[0] || {}; $("r-kind").value = r.kind || "risk"; $("r-title").value = r.title || ""; $("r-prob").value = r.probability || ""; $("r-imp").value = r.impact || ""; $("r-owner").value = r.owner || ""; $("r-status").value = r.status === "closed" ? "closed" : "open"; $("r-mit").value = r.mitigation || ""; }
   $("r-filter").addEventListener("change", function () { if (V) renderRaid(); });
   $("r-id").addEventListener("change", fillRisk);
