@@ -69,3 +69,17 @@ test('fieldReadiness enforces the phone profile', () => {
   assert.match(r.issues.join('\n'), /use ragGrid/);
   assert.match(r.issues.join('\n'), /≥ 6 columns/);
 });
+
+// C-08 (G17) — the server stays the authority: a trend on a snapshot metric is refused when kinds are known
+test('a trend whose metric or series is a current snapshot is rejected when metricKinds is given', () => {
+  const kinds = { 'helpdesk.inbound': 'month', 'helpdesk.closed': 'month', 'assets.total': 'current', 'assets.ghost': 'current' };
+  const d = doc();
+  assert.deepEqual(D.validateDashboard(d, { metricKinds: kinds }), { ok: true, errors: [] });
+  d.widgets[2].metric = 'assets.total';
+  const r = D.validateDashboard(d, { metricKinds: kinds });
+  assert.equal(r.ok, false);
+  assert.ok(r.errors.some((e) => e.path === 'widgets[2].metric' && /time series/.test(e.msg)), JSON.stringify(r.errors));
+  d.widgets[2].metric = 'helpdesk.inbound'; d.widgets[2].series = ['assets.ghost'];
+  assert.ok(D.validateDashboard(d, { metricKinds: kinds }).errors.some((e) => e.path === 'widgets[2].series'));
+  assert.equal(D.validateDashboard(d).errors.filter((e) => /time series/.test(e.msg)).length, 0, 'without kinds: unchanged behaviour');
+});

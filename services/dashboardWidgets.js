@@ -46,6 +46,7 @@ const ID_RE = /^[a-z0-9][a-z0-9_-]{0,47}$/i;
  * @param {Set<string>|string[]} [opts.metrics]   registered metric keys; when given, unknown metrics are errors
  * @param {Set<string>|string[]} [opts.trackers]  known tracker keys for trackerRag widgets (default: TRACKER_KEY_RE)
  * @param {object} [opts.metricUnits]   { metricKey: unit } — a trend's series[] must share one unit
+ * @param {object} [opts.metricKinds]   { metricKey: window_kind } — a trend needs a metric with a history (not 'current')
  * @param {Set<string>|string[]} [opts.legacyIds]  widget ids that ALREADY carried a retired type (kept rendering)
  * @param {boolean} [opts.allowRetired]  stored definitions (submit/publish) keep their retired widgets
  */
@@ -56,6 +57,7 @@ function validateDashboard(doc, opts = {}) {
   const metrics = opts.metrics ? new Set(opts.metrics) : null;
   const trackers = opts.trackers ? new Set(opts.trackers) : null;
   const units = opts.metricUnits || null;
+  const kinds = opts.metricKinds || null;
   const legacy = new Set(opts.legacyIds || []);
 
   if (!doc.key || !ID_RE.test(doc.key)) E('key', 'key is required (letters, digits, - or _, max 48)');
@@ -88,6 +90,12 @@ function validateDashboard(doc, opts = {}) {
     if (T.needsMetric) {
       if (!w.metric || typeof w.metric !== 'string') E(`${p}.metric`, 'metric key is required for this widget type');
       else if (metrics && !metrics.has(w.metric)) E(`${p}.metric`, `unknown metric ${w.metric} — only registered metrics may be charted`);
+    }
+    // C-08 (G17) — a trend draws a time series; a 'current' metric is a snapshot with no history
+    if (w.type === 'trend' && kinds) {
+      for (const k of [w.metric].concat(Array.isArray(w.series) ? w.series : [])) {
+        if (typeof k === 'string' && kinds[k] === 'current') E(`${p}.${k === w.metric ? 'metric' : 'series'}`, `a trend needs a time series — ${k} is a current snapshot with no history (use a kpi or ragGrid)`);
+      }
     }
     if (w.type === 'trackerRag') {
       if (!w.tracker) E(`${p}.tracker`, 'tracker key is required');

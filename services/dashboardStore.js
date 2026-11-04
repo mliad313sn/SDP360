@@ -51,11 +51,11 @@ function makeDashboardStore(db, { isPg = false, now = () => new Date().toISOStri
    * Create or update a DRAFT. A published dashboard keeps serving its last version until
    * `publish` is called again; the draft lives in `definition`.
    */
-  async function saveDraft(doc, { user, siteId = null, metrics = null, trackers = null, metricUnits = null } = {}) {
+  async function saveDraft(doc, { user, siteId = null, metrics = null, trackers = null, metricUnits = null, metricKinds = null } = {}) {
     const existing = await get(doc.key);
     // C-04 — a widget that ALREADY carried a retired type (heatmap) keeps it; a new one is refused
     const legacyIds = existing ? retiredIds(existing.definition) : [];
-    const v = validateDashboard(doc, { metrics, trackers, metricUnits, legacyIds });
+    const v = validateDashboard(doc, { metrics, trackers, metricUnits, metricKinds, legacyIds });
     if (!v.ok) { const e = new Error('invalid dashboard: ' + v.errors.map(x => `${x.path}: ${x.msg}`).join('; ')); e.code = 'INVALID'; e.errors = v.errors; throw e; }
     const json = JSON.stringify(doc);
     const ts = now();
