@@ -27,6 +27,55 @@ const DDL = `CREATE TABLE IF NOT EXISTS schema_migrations (
   duration_ms INTEGER
 )`;
 
+// Upgrade from 1.11: that line kept ITS OWN journal under the same name, keyed by
+// (module, filename) with a TEXT applied_at and no id. CREATE TABLE IF NOT EXISTS above then kept
+// the 1.11 table and the first SELECT failed with `column "id" does not exist`, so every update
+// from 1.11 rolled back. The 1.11 journal is converted IN PLACE into a table both migrators can
+// use, inside one transaction: every 1.11 row stays (id NULL — the two namespaces never mix),
+// `id` / `duration_ms` are added, the (module, filename) primary key becomes a unique index so
+// 2.0 rows (module NULL) fit, and applied_at gets a default. A server rolled back to 1.11 reads
+// `WHERE module = ?` and still finds exactly its own rows — it boots with nothing to re-apply.
+const LEGACY_JOURNAL_SQL = [
+  'ALTER TABLE schema_migrations ADD COLUMN IF NOT EXISTS id TEXT',
+  'ALTER TABLE schema_migrations ADD COLUMN IF NOT EXISTS duration_ms INTEGER',
+  `DO $$ DECLARE pk TEXT; BEGIN
+     SELECT conname INTO pk FROM pg_constraint
+      WHERE conrelid = to_regclass(quote_ident(current_schema()) || '.schema_migrations') AND contype = 'p';
+     IF pk IS NOT NULL THEN EXECUTE format('ALTER TABLE schema_migrations DROP CONSTRAINT %I', pk); END IF;
+   END $$`,
+  'ALTER TABLE schema_migrations ALTER COLUMN module DROP NOT NULL',
+  'ALTER TABLE schema_migrations ALTER COLUMN filename DROP NOT NULL',
+  'CREATE UNIQUE INDEX IF NOT EXISTS schema_migrations_module_filename_key ON schema_migrations (module, filename)',
+  'CREATE UNIQUE INDEX IF NOT EXISTS schema_migrations_id_key ON schema_migrations (id)',
+  `ALTER TABLE schema_migrations ALTER COLUMN applied_at SET DEFAULT (to_char(now() AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"'))`,
+];
+
+async function _journalColumns(pg) {
+  const rows = await pg.prepare(
+    `SELECT column_name FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = 'schema_migrations'`
+  ).all();
+  return rows.map((r) => r.column_name);
+}
+
+/** Create the journal, or convert a 1.11 journal in place. Returns true when a 1.11 journal was converted. */
+async function ensureJournal(pg, { log = () => {}, dryRun = false } = {}) {
+  const cols = await _journalColumns(pg);
+  if (!cols.length) { if (!dryRun) await pg.exec(DDL); return false; }
+  if (cols.includes('id')) return false;
+  if (!cols.includes('module') || !cols.includes('filename')) {
+    throw new Error(`schema_migrations has an unknown shape (${cols.join(', ')}) — not a 2.0 nor a 1.11 journal; nothing applied`);
+  }
+  if (dryRun) { log('[migrate] would convert the 1.11 schema_migrations journal (dry run)'); return true; }
+  await pg.runTransaction(async () => { for (const sql of LEGACY_JOURNAL_SQL) await pg.exec(sql); });
+  log('[migrate] converted the 1.11 schema_migrations journal (1.11 rows kept)');
+  return true;
+}
+
+async function _journalRows(pg, cols) {
+  if (!(await _journalColumns(pg)).includes('id')) return [];   // dry run on a 1.11 journal: nothing 2.0 applied yet
+  return pg.prepare(`SELECT ${cols} FROM schema_migrations WHERE id IS NOT NULL`).all();
+}
+
 function listMigrations(root = ROOT) {
   const out = [];
   if (!fs.existsSync(root)) return out;
@@ -48,8 +97,8 @@ function listMigrations(root = ROOT) {
  * @param {object} pg  services/pgDb instance (connected) — needs prepare().get/all/run + exec
  */
 async function migrate(pg, { root = ROOT, log = () => {}, dryRun = false } = {}) {
-  await pg.exec(DDL);
-  const done = new Map((await pg.prepare('SELECT id, checksum FROM schema_migrations').all()).map((r) => [r.id, r.checksum]));
+  const legacy = await ensureJournal(pg, { log, dryRun });
+  const done = new Map((await _journalRows(pg, 'id, checksum')).map((r) => [r.id, r.checksum]));
   const applied = [], skipped = [], changed = [];
   for (const m of listMigrations(root)) {
     if (done.has(m.id)) {
@@ -58,20 +107,29 @@ async function migrate(pg, { root = ROOT, log = () => {}, dryRun = false } = {})
     }
     if (dryRun) { applied.push(m.id); continue; }
     const t0 = Date.now();
-    await pg.exec(m.sql);
-    await pg.prepare(
-      `INSERT INTO schema_migrations (id, checksum, duration_ms) VALUES (?, ?, ?)
-       ON CONFLICT (id) DO UPDATE SET checksum = EXCLUDED.checksum, applied_at = now(), duration_ms = EXCLUDED.duration_ms`
-    ).run(m.id, m.checksum, Date.now() - t0);
+    // One transaction per file: a failing script leaves neither half its DDL nor a journal row.
+    try {
+      await pg.runTransaction(async () => {
+        await pg.exec(m.sql);
+        await pg.prepare(
+          `INSERT INTO schema_migrations (id, checksum, duration_ms) VALUES (?, ?, ?)
+           ON CONFLICT (id) DO UPDATE SET checksum = EXCLUDED.checksum, applied_at = now(), duration_ms = EXCLUDED.duration_ms`
+        ).run(m.id, m.checksum, Date.now() - t0);
+      });
+    } catch (e) {
+      e.message = `${m.id}: ${e.message}`;   // name the script: "column x does not exist" alone is not actionable
+      e.migration = m.id;
+      throw e;
+    }
     applied.push(m.id);
     log(`[migrate] applied ${m.id} (${Date.now() - t0} ms)`);
   }
-  return { applied, skipped, changed };
+  return { applied, skipped, changed, legacyJournal: legacy };
 }
 
 async function status(pg, { root = ROOT } = {}) {
-  await pg.exec(DDL);
-  const done = new Map((await pg.prepare('SELECT id, checksum, applied_at FROM schema_migrations').all()).map((r) => [r.id, r]));
+  await ensureJournal(pg, { dryRun: true });
+  const done = new Map((await _journalRows(pg, 'id, checksum, applied_at')).map((r) => [r.id, r]));
   return listMigrations(root).map((m) => ({ id: m.id, state: !done.has(m.id) ? 'pending' : done.get(m.id).checksum === m.checksum ? 'applied' : 'changed', applied_at: done.has(m.id) ? done.get(m.id).applied_at : null }));
 }
 
@@ -87,7 +145,7 @@ async function migrateAtBoot({ env = process.env, log = console.log } = {}) {
   try { return await migrate(pg, { log }); } finally { await pg.close(); }
 }
 
-module.exports = { migrate, status, listMigrations, migrateAtBoot, ROOT, AREA_ORDER };
+module.exports = { migrate, status, listMigrations, migrateAtBoot, ensureJournal, ROOT, AREA_ORDER };
 
 if (require.main === module) {
   (async () => {
