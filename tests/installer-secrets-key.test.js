@@ -23,3 +23,8 @@ test('the original key passes', async () => {
 test('database unreachable: skipped with a log, not a crash', async () => {
   await pi.secretsKeyGuard({ PG_URL: 'x' }, { connect: async () => { throw new Error('down'); } });
 });
+test('A-04: the guard opens pg from the pgDir option (the staged 2.0 node_modules)', async () => {
+  let seen = null;
+  await pi.secretsKeyGuard({ PG_URL: 'x' }, { pgDir: '/staged/node_modules', connect: async (url, o) => { seen = o && o.pgDir; return { query: async () => ({ rows: [] }), end: async () => {} }; } });
+  assert.strictEqual(seen, '/staged/node_modules');
+});

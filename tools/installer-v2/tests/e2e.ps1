@@ -142,6 +142,9 @@ Check ($rc -eq 0) "update exit code 0 (got $rc)"
 Check (Wait-Ready) 'service answers after the update'
 $after = (Json (Mgr @('backups', '--json'))).backups.Count
 Check ($after -gt $before) "a backup was taken before the update ($before -> $after)"
+# A-04: the repaired .env (SDP_BACKUP_KEY) is written before the copy, so the pre-update backup is encrypted
+$newest = (Json (Mgr @('backups', '--json'))).backups | Select-Object -First 1
+Check ($newest -and $newest.name -like '*.sql.gz.enc') "the pre-update backup is encrypted ($($newest.name))"
 Check ((Get-Content (Join-Path $Dir '.env') -Raw) -eq $envText) '.env kept by the update'
 Check (Test-Path (Join-Path $Dir 'runtime\node\node.exe')) 'Node.js runtime refreshed in place'
 # A-02: Setup never upgrades a PostgreSQL it did not install (the runner's own cluster carries no marker)
