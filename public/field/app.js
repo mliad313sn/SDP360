@@ -247,7 +247,7 @@
   function renderActions() {
     var s = curSite(), acts = (B.actions || []).filter(function (a) { return !s || a.site === s.inspection_code; });
     $('a-list').innerHTML = acts.length ? acts.map(function (a, i) {
-      var closeVal = a.source === 'inspection' ? 'Closed' : 'closed';
+      var closeVal = a.source === 'inspection' ? 'Closed' : 'resolved';
       return '<div class="item"><div><span class="pill ' + (a.due_date && a.due_date < new Date().toISOString().slice(0, 10) ? 'red' : 'slate') + '">' + esc(a.source) + '</span> ' + esc(a.description) + ' <span class="muted">' + esc(a.owner || '') + ' · ' + FT('due') + ' ' + esc(a.due_date || '—') + ' · ' + esc(a.status) + '</span></div><div class="row"><button type="button" data-a="' + i + '" data-st="' + closeVal + '">' + FT('Close') + '</button><button type="button" data-a="' + i + '" data-st="helpdesk_ticket">' + FT('→ Ticket') + '</button><button type="button" data-a="' + i + '" data-st="demand">' + FT('→ Demand') + '</button><button type="button" data-a="' + i + '" data-st="cancelled" class="danger">' + FT('Cancel') + '</button></div></div>';
     }).join('') : FT('No open action for this site.');
     $('a-list').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { actionChange(acts[Number(b.dataset.a)], b.dataset.st); }); });

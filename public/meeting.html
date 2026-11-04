@@ -927,7 +927,9 @@
     const escalated = isEsc ? 'pv-issue--escalated' : '';
     const optCat = (L.categories || []).map(c => `<option value="${esc(c.code)}"${iss.category === c.code ? ' selected' : ''}>${esc(c.code)} · ${esc(c.name_en)}</option>`).join('');
     const optSev = (L.severities || []).map(s => `<option value="${esc(s.code)}"${sev === s.code ? ' selected' : ''}>${esc(s.name_en)}</option>`).join('');
-    const optSt  = (L.statuses   || []).map(s => `<option value="${esc(s.code)}"${(iss.status || 'open') === s.code ? ' selected' : ''}>${esc(s.name_en)}</option>`).join('');
+    // A-05: the stored code stays selected (an unknown one is shown as "(legacy)"), so an
+    // unrelated edit never re-collects a different status from the DOM.
+    const optSt  = StatusTransfer.optionsHtml(L.statuses || [], iss.status, esc);
     const optReason = (L.escalation_reasons || []).map(r => `<option value="${esc(r.code)}"${iss.escalation_reason === r.code ? ' selected' : ''}>${esc(r.name_en)}</option>`).join('');
     const optTheme  = (L.council_themes     || []).map(t => `<option value="${esc(t.code)}"${iss.council_theme === t.code ? ' selected' : ''}>${esc(t.name_en)}</option>`).join('');
 
@@ -1008,7 +1010,7 @@
   // ── Repeatable: action rows ─────────────────────────────────────
   function actionRow(a, ix) {
     const L = state.lookups;
-    const optSt = (L.statuses || []).map(s => `<option value="${esc(s.code)}"${(a.status || 'open') === s.code ? ' selected' : ''}>${esc(s.name_en)}</option>`).join('');
+    const optSt = StatusTransfer.optionsHtml(L.statuses || [], a.status, esc);   // A-05: stored code stays selected
     // Link to issue by 1-based ord index (so we don't have to re-resolve ids)
     const issueOpts = state.issues.map((iss, j) => {
       const ord = j + 1;

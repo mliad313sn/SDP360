@@ -213,10 +213,12 @@
     if (!canEdit || !id || !g.statuses.length) {
       return `<span class="sa-pill" style="background:rgba(107,119,133,.12);color:#556;border-color:rgba(107,119,133,.3)">${esc(it.status)}</span>`;
     }
+    const head = `<select class="sa-status-sel" data-src="${it.source}" data-id="${esc(id)}" data-prev="${esc(it.status)}">`;
+    // A-05: meetings / incubation rows use the shared builder (unknown stored code → "(legacy)", still selected)
+    if (ST && (g.key === 'meetings' || g.key === 'incubation')) return head + ST.optionsHtml(g.statuses, it.status, esc) + '</select>';
     const opts = g.statuses.slice();
     if (!opts.some(s => s.toLowerCase() === String(it.status).toLowerCase())) opts.unshift(it.status);
-    return `<select class="sa-status-sel" data-src="${it.source}" data-id="${esc(id)}" data-prev="${esc(it.status)}">`
-      + opts.map(s => `<option value="${esc(s)}"${s === it.status ? ' selected' : ''}>${esc(stLabel(s))}</option>`).join('') + '</select>';
+    return head + opts.map(s => `<option value="${esc(s)}"${s === it.status ? ' selected' : ''}>${esc(stLabel(s))}</option>`).join('') + '</select>';
   }
 
   function rowHtml(it, g) {
@@ -262,10 +264,11 @@
     if (!canEdit || !it.issue_id) {
       return `<span class="sa-pill" style="background:rgba(107,119,133,.12);color:#556;border-color:rgba(107,119,133,.3)">${esc(it.status)}</span>`;
     }
+    const head = `<select class="sa-status-sel" data-src="issue" data-id="${esc(it.issue_id)}" data-prev="${esc(it.status)}">`;
+    if (ST) return head + ST.optionsHtml(ISSUE_STATUSES, it.status, esc) + '</select>';   // A-05
     const opts = ISSUE_STATUSES.slice();
     if (!opts.includes(it.status)) opts.unshift(it.status);
-    return `<select class="sa-status-sel" data-src="issue" data-id="${esc(it.issue_id)}" data-prev="${esc(it.status)}">`
-      + opts.map(s => `<option value="${esc(s)}"${s === it.status ? ' selected' : ''}>${esc(stLabel(s))}</option>`).join('') + '</select>';
+    return head + opts.map(s => `<option value="${esc(s)}"${s === it.status ? ' selected' : ''}>${esc(stLabel(s))}</option>`).join('') + '</select>';
   }
   function issueRowHtml(it) {
     const n = it.open_actions || 0;

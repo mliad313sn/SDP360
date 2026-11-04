@@ -456,8 +456,9 @@
       return `<span class="mi-pill" style="background:${tint(st.color,0.12)};color:${esc(st.color)};border-color:${tint(st.color,0.3)}">${esc(st.name_en)}</span>`;
     }
     const gate = rowEditable(r);
-    const opts = (state.lookups.statuses || []).map(s =>
-      `<option value="${esc(s.code)}"${s.code === r.status ? ' selected' : ''}>${esc(s.name_en)}</option>`).join('');
+    const opts = window.StatusTransfer   // A-05: an unknown stored code stays selected ("(legacy)")
+      ? window.StatusTransfer.optionsHtml(state.lookups.statuses || [], r.status, esc)
+      : (state.lookups.statuses || []).map(s => `<option value="${esc(s.code)}"${s.code === r.status ? ' selected' : ''}>${esc(s.name_en)}</option>`).join('');
     return `<select class="mi-status-sel" data-issue="${esc(r.id)}" data-prev="${esc(r.status)}"`
       + `${gate.ok ? '' : ' disabled'} title="${esc(gate.ok ? 'Change status (audited)' : gate.why)}"`
       + ` style="color:${esc(st.color)}">${opts}</select>`;

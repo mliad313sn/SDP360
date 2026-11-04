@@ -137,6 +137,8 @@ module.exports = function fieldRoutes(deps) {
     },
     async action(u, p) {
       const err = F.validateActionPayload(p); if (err) throw Object.assign(new Error(err), { code: 'INVALID' });
+      // A-05: old phones / queued envelopes send 'closed' (not a md_statuses code) → 'resolved'
+      if (p.source === 'meetings' && p.status_change) p = { ...p, status_change: statusTransfer.normalizeMeetingStatus(p.status_change) };
       const mod = p.source === 'meetings' ? mdb() : idb();
       const parent = await mod.getActionParent(Number(p.id)); if (!parent) throw Object.assign(new Error('action not found'), { code: 'INVALID' });
       const codes = await moduleCodes(u);

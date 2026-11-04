@@ -329,6 +329,8 @@ const _isIncubation = (h) => String((h && h.intake_source) || '') === 'business_
 // (public/lib/statusTransfer.js — DONE = every status that closes an issue or an action).
 const _statusTransfer = require('./public/lib/statusTransfer');
 const _isDone = (s) => _statusTransfer.isDone(s);
+// A-05: 'closed' (never a seeded code) → 'resolved' at the door; other codes trimmed/lowercased.
+const _normSt = (s) => (s ? _statusTransfer.normalizeMeetingStatus(s) : s);
 const _ACTION_TERMINAL = new Set(_statusTransfer.DONE);
 // status_note / helpdesk_ticket columns: kept only while the row sits in a transfer status.
 function _transferCols(status, note, ticket) {
@@ -431,7 +433,8 @@ async function _saveMeetingPg(state, userSiteCode, userId) {
       const insI = H.prepare(`INSERT INTO md_issues (meeting_id, ord, title, description, category, severity, affects, champion, champion_email, target_date, status, escalate, escalation_reason, council_theme, notes, closed_at, status_note, helpdesk_ticket) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`);
       const insA = H.prepare(`INSERT INTO md_issue_updates (issue_id, author_id, author_name, body, status_change, escalate_change) VALUES (?,?,?,?,?,?)`);
       let ix = 0;
-      for (const iss of (state.issues || [])) {
+      for (const iss0 of (state.issues || [])) {
+        const iss = { ...iss0, status: _normSt(iss0.status) };
         if (!iss.title || !iss.category) { ix++; continue; }
         const terminal = _isDone(iss.status);
         const closed_at = terminal ? new Date().toISOString().replace('T', ' ').slice(0, 19) : null;
@@ -464,7 +467,8 @@ async function _saveMeetingPg(state, userSiteCode, userId) {
       const nowStr = new Date().toISOString().replace('T', ' ').slice(0, 19);
       const keep = new Set();
       let ix = 0;
-      for (const a of (state.actions || [])) {
+      for (const a0 of (state.actions || [])) {
+        const a = { ...a0, status: _normSt(a0.status) };
         if (!a.description) { ix++; continue; }
         let linked = null;
         if (a.linked_issue_id) linked = a.linked_issue_id;
@@ -615,6 +619,7 @@ async function _signMeetingPg(id, col, which, opts = {}) {
 
 // ── Async postgres forks: issue/action updates + parents (Chunk 2) ──────────
 async function _addIssueUpdatePg(issueId, opts = {}) {
+  opts = { ...opts, status_change: _normSt(opts.status_change) };
   const H = pgHandle();
   const issue = await H.prepare('SELECT id, status, escalate FROM md_issues WHERE id = ?').get(issueId);
   if (!issue) throw new Error('Issue not found');
@@ -659,6 +664,7 @@ async function _listIssuesPg(opts = {}) {
     LIMIT @limit OFFSET @offset`).all(params);
 }
 async function _addActionUpdatePg(actionId, opts = {}) {
+  opts = { ...opts, status_change: _normSt(opts.status_change) };
   const H = pgHandle();
   const action = await H.prepare('SELECT id, status FROM md_actions WHERE id = ?').get(actionId);
   if (!action) throw new Error('Action not found');

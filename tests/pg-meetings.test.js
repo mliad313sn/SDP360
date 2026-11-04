@@ -319,3 +319,34 @@ test('pg: transfer statuses — note + ticket stored, closed like cancelled, reo
     assert.equal(i2.helpdesk_ticket, null); assert.equal(i2.status_note, null); assert.equal(i2.closed_at, null);
   } finally { try { await h.close(); } catch {} await dropTestDb(ctx); }
 });
+
+test('pg A-05: closed is normalised to resolved (addActionUpdate, addIssueUpdate, saveMeeting rows)', async (t) => {
+  const b = await boot(); if (!b) return t.skip('no pg');
+  const { ctx, mdb } = b;
+  try {
+    const saved = await mdb.saveMeeting({ header: { site_code: 'HGO', department: 'ops', meeting_date: '2026-11-05', status: 'draft' },
+      issues: [{ ord: 0, title: 'Old issue', category: 'CN', status: 'Closed' }],
+      actions: [{ ord: 0, description: 'Via update', status: 'open' }, { ord: 1, description: 'Via save', status: 'closed' }] }, null, 1);
+    let rec = await mdb.getMeeting(saved.id);
+    assert.equal(rec.issues[0].status, 'resolved', 'saveMeeting issue row closed → resolved');
+    const viaSave = rec.actions.find(a => a.description === 'Via save');
+    assert.equal(viaSave.status, 'resolved', 'saveMeeting action row closed → resolved');
+    assert.ok(viaSave.closed_at, 'closed_at stamped');
+    const firstClosedAt = viaSave.closed_at;
+    const viaUpd = rec.actions.find(a => a.description === 'Via update');
+    await mdb.addActionUpdate(viaUpd.id, { author_name: 'me', body: 'Closed from the field app', status_change: 'closed' });
+    rec = await mdb.getMeeting(saved.id);
+    const u = rec.actions.find(a => a.description === 'Via update');
+    assert.equal(u.status, 'resolved', 'addActionUpdate closed → resolved'); assert.ok(u.closed_at);
+    const aud = await mdb.listActionUpdates(viaUpd.id);
+    assert.equal(aud[0].body, 'Closed from the field app', 'audit body unchanged');
+    // a stale page re-saving 'closed' keeps the original closure stamp
+    await mdb.saveMeeting({ id: saved.id, header: rec.header, issues: rec.issues, actions: rec.actions.map(a => a.description === 'Via save' ? { ...a, status: 'closed' } : a) }, null, 1);
+    rec = await mdb.getMeeting(saved.id);
+    const again = rec.actions.find(a => a.description === 'Via save');
+    assert.equal(again.status, 'resolved'); assert.equal(again.closed_at, firstClosedAt, 'closed_at kept');
+    await mdb.addIssueUpdate(rec.issues[0].id, { status_change: 'open' });
+    await mdb.addIssueUpdate(rec.issues[0].id, { status_change: ' CLOSED ' });
+    assert.equal((await mdb.getMeeting(saved.id)).issues[0].status, 'resolved', 'addIssueUpdate closed → resolved');
+  } finally { try { await mdb.pgHandle().close(); } catch {} await dropTestDb(ctx); }
+});
