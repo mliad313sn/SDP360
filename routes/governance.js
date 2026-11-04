@@ -434,6 +434,28 @@ module.exports = function governanceRoutes(deps) {
     try { const p = await store.moveProjectStage(req.params.id, String((req.body && req.body.to) || ''), { user: req.reportUser, note: req.body && req.body.note }); log(req, 'project_stage', `project:${req.params.id}`, { to: p.stage }); res.json({ ok: true, project: { ...p, id: Number(p.id) } }); }
     catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.reason ? { code: e.reason } : {}) }); }
   });
+  // A-14 — one project for the project page (public/project.html): plan (scheduleView), RAID, and the next stages
+  // with the result of a DRY RUN of each gate for this user (never moves the stage). 404 when the A-15 read scope
+  // hides it; amounts stripped unless canSeeMoney. Distinct path from /project/:id/{stage,history,sites}.
+  router.get('/api/governance/portfolio/project/:id', requireReportSession, async (req, res) => {
+    try {
+      const u = req.reportUser; const SCH = require('../services/projectSchedule');
+      const d = Number.isInteger(Number(req.params.id)) ? await store.projectDetail(req.params.id) : null;
+      const ctx = await accessCtx(u); const pctx = { ...ctx, extraSites: d ? d.extra_sites : [] };
+      if (!d || !PA.canReadProject(u, d.project, pctx)) return res.status(404).json({ ok: false, error: 'project not found' });
+      const p = d.project; const from = p.stage || 'proposal'; const money = canSeeMoney(u);
+      const allowed_stages = (SCH.GATES[from] || []).map((to) => {
+        const needs_reason = to === 'on_hold' || (from === 'closure' && to === 'in_progress');
+        // the reason is typed at the moment of the move: the dry run assumes one so the OTHER checks show
+        return { to, needs_reason, refusal: SCH.stageGate(p, to, u, { ...d.gate_ctx, note: needs_reason ? 'reason given at the move' : undefined }) };
+      });
+      const project = money ? p : { ...p, budget: undefined, spent: undefined };
+      res.json({ ok: true, committee: !!isCommittee(u), can_gate: !!isCommittee(u), can_edit_plan: PA.canEditPlan(u, p, pctx), can_see_history: !!money, money_hidden: !money,
+        project, objective: d.objective, extra_sites: d.extra_sites, tasks: d.tasks, milestones: d.milestones, deliverables: d.deliverables, risks: d.risks.map(PE.riskView),
+        plan: SCH.scheduleView(d.tasks, { anchor: p.start_date || null }), variance: SCH.varianceOf(p), resource_conflicts: SCH.resourceConflicts(d.tasks),
+        stages: SCH.STAGES, allowed_stages, gate_counts: d.gate_ctx, risk_kinds: store.RISK_KINDS, as_of: new Date().toISOString() });
+    } catch (e) { fail(res, e); }
+  });
   const historyOf = (entity) => async (req, res) => {
     try {
       if (!canSeeMoney(req.reportUser)) return res.status(403).json({ ok: false, error: 'committee, admin or finance-viewer role required' });

@@ -7,6 +7,10 @@
 (function (root) {
   'use strict';
   const STATIC = {
+    'Pending review': 'À revoir',
+    'Not certified': 'Non certifié',
+    '= no ISP contract reviewed by a second super_admin (or its MRC differs from the circuit) — the amount is an estimate, not a claim.': '= aucun contrat FAI revu par un second super_admin (ou sa redevance diffère du circuit) — le montant est une estimation, pas une réclamation.',
+    '= outages never seen to recover (stale-closed) or with no attribution: they are excluded from the credit until someone reviews them.': '= coupures dont le rétablissement n’a jamais été vu (fermées par péremption) ou sans attribution : elles sont exclues du crédit tant que personne ne les a revues.',
     'WAN Health': 'Santé WAN', '⚡ Sync now': '⚡ Synchroniser', 'Sync now': 'Synchroniser',
     'Past Day': 'Dernier jour', 'Past Week': 'Dernière semaine', 'Past Month': 'Dernier mois',
     'No WAN snapshots yet. Set': 'Aucun instantané WAN pour l’instant. Renseignez',

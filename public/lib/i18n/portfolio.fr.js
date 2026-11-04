@@ -7,6 +7,12 @@
 (function (root) {
   'use strict';
   const STATIC = {
+    'WBS code (task)': 'Code WBS (tâche)',
+    'Parent task id (task)': 'Id de la tâche parente (tâche)',
+    'Duration days (task)': 'Durée en jours (tâche)',
+    'Allocation % (task)': 'Allocation % (tâche)',
+    'Effort hours (task)': 'Effort en heures (tâche)',
+    'Depends on task ids (task, comma)': 'Dépend des tâches (ids, séparés par des virgules)',
     'Portfolio': 'Portefeuille',
     'Programmes → objectives (evidence from the KPI dictionary) → projects → milestones → deliverables, with risks. “—” means not measured, never 0 (help §25).':
       'Programmes → objectifs (preuve issue du dictionnaire de KPI) → projets → jalons → livrables, avec les risques. « — » signifie non mesuré, jamais 0 (aide §25).',
@@ -20,7 +26,7 @@
     'Probability (1-3)': 'Probabilité (1-3)', 'Impact (1-3)': 'Impact (1-3)', 'Description / mitigation / manual evidence': 'Description / atténuation / preuve manuelle',
   };
   const RUNTIME_KEYS = {
-    'Add / edit a milestone, deliverable or risk of your projects': 'Ajouter / modifier un jalon, un livrable ou un risque de vos projets',
+    'Add / edit a milestone, deliverable, risk or task of your projects': 'Ajouter / modifier un jalon, un livrable, un risque ou une tâche de vos projets',
     'Amounts are restricted to the committee, the admin tier and the finance role.': 'Les montants sont réservés au comité, au palier admin et au rôle finance.',
     'Programme': 'Programme', 'Spent / budget': 'Dépensé / budget', 'Projects without a budget': 'Projets sans budget', 'No programme.': 'Aucun programme.',
     'Person': 'Personne', 'From': 'Du', 'To': 'Au', 'Peak load': 'Charge maximale', 'Tasks': 'Tâches',

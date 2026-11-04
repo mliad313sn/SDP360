@@ -82,9 +82,9 @@ const ALLOW = {
     "Relance l'ingester sur le journal d'événements Meraki (30 j) — corrige les durées + l'attribution des coupures historiques"]),
   { 'meraki_api_key': 'setting key name', 'Admin → SLA WAN': 'menu path (admin card name)' }),
   'trackers.html': {},
-  'portfolio.html': { 'programme': CODE, 'objective': CODE, 'project': CODE, 'milestone': CODE, 'deliverable': CODE, 'risk': CODE,
+  'portfolio.html': { 'programme': CODE, 'objective': CODE, 'project': CODE, 'milestone': CODE, 'deliverable': CODE, 'risk': CODE, 'task': CODE,
     'on_track · at_risk · planned · active · done · open': 'status codes typed into the field', 'helpdesk.resolution_sla_pct': 'metric key example' },
-  'rfi.html': {},
+  'rfi.html': { 'NET-12': 'project key example (placeholder)' },
 };
 
 // Shell pages that already translate their own body (data-lng blocks or their own I18nText install).
@@ -92,6 +92,7 @@ const SELF_TRANSLATED = ['cockpit.html', 'commitments.html', 'handoffs.html', 'h
   'meetings-import.html', 'meetings-insights.html', 'obligations.html', 'policies.html', 'site-awareness.html', 'home.html'];
 // Shell pages not translated yet, with the reason (A-09b covers the coordinator pages listed there).
 const UNTRANSLATED = {
+  'project.html': 'A-14 project page, added after A-09b — French pending',
   'analytics.html': 'executive / group audience, English', 'executive.html': 'executive audience, English',
   'executive-report.html': 'deck builder, decks stay English (D-2)', 'it-review.html': 'faithful port of the executive dashboard, English',
   'index.html': 'helpdesk dashboard, group audience, English', 'integrations.html': 'admin console, English', 'system-logs.html': 'admin console, English',

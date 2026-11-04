@@ -45,6 +45,10 @@
       <div class="bar"><button class="btn primary" id="r-send" type="button">Submit</button></div></div>
     <div class="panel"><h2>Filter</h2><label>Status <select id="f-status"><option value="">all</option></select></label></div>
   </div>
+  <div class="panel" id="cv" hidden><h2>Convert <span id="cv-ref"></span> to a project (committee)</h2>
+    <div class="row"><label>Objective <select id="cv-obj"></select></label><label>Project key <input id="cv-key" placeholder="NET-12"></label>
+      <label>Name (blank = request title) <input id="cv-name"></label><label>Owner <input id="cv-owner"></label></div>
+    <div class="bar"><button class="btn primary" id="cv-go" type="button">Create the project</button><button class="btn" id="cv-cancel" type="button">Cancel</button><span class="muted">The request problem becomes the first charter text; an accepted request moves to scheduled.</span></div></div>
   <div class="panel"><h2>Register (sorted by score)</h2><div class="scroll" id="list"></div></div>
 </main>
 <script nonce="%%CSP_NONCE%%">
@@ -64,11 +68,31 @@
       var rows = j.rfi.slice().sort(function (a, b) { return b.score - a.score; });
       $("list").innerHTML = rows.length ? "<table><thead><tr><th>Ref</th><th>Kind</th><th>Title</th><th>Impact</th><th>Effort</th><th>Data risk</th><th>Score</th><th>Status</th><th>Decision</th></tr></thead><tbody>" + rows.map(function (r) {
         var sel = function (f, max) { return committee ? "<input type=\"number\" min=\"1\" max=\"" + max + "\" value=\"" + r[f] + "\" data-id=\"" + r.id + "\" data-f=\"" + f + "\" aria-label=\"" + f + "\" style=\"width:52px\">" : r[f]; };
-        return "<tr><td><b>" + esc(r.ref) + "</b></td><td>" + esc(r.kind) + "</td><td>" + esc(r.title) + "<br><small class=\"muted\">" + esc(r.problem) + (r.proposal ? " → " + esc(r.proposal) : "") + "</small></td><td>" + sel("impact", 3) + "</td><td>" + sel("effort", 3) + "</td><td>" + sel("data_risk", 3) + "</td><td><b>" + r.score + "</b></td><td>" + (committee ? "<select data-id=\"" + r.id + "\" data-f=\"status\" aria-label=\"Status\">" + statuses.map(function (s) { return "<option" + (s === r.status ? " selected" : "") + ">" + s + "</option>"; }).join("") + "</select>" : "<span class=\"pill " + esc(r.status) + "\">" + esc(r.status) + "</span>" + (r.status === "delivered" && Number(r.requester_id) === Number(me) ? " <button class=\"btn\" type=\"button\" data-verify=\"" + r.id + "\">Confirm delivery</button>" : "")) + "</td><td>" + (committee ? "<input data-id=\"" + r.id + "\" data-f=\"decision\" value=\"" + esc(r.decision || "") + "\" aria-label=\"Decision\">" : esc(r.decision || "—")) + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No request.</p>";
+        return "<tr><td><b>" + esc(r.ref) + "</b></td><td>" + esc(r.kind) + "</td><td>" + esc(r.title) + "<br><small class=\"muted\">" + esc(r.problem) + (r.proposal ? " → " + esc(r.proposal) : "") + "</small></td><td>" + sel("impact", 3) + "</td><td>" + sel("effort", 3) + "</td><td>" + sel("data_risk", 3) + "</td><td><b>" + r.score + "</b></td><td>" + (committee ? "<select data-id=\"" + r.id + "\" data-f=\"status\" aria-label=\"Status\">" + statuses.map(function (s) { return "<option" + (s === r.status ? " selected" : "") + ">" + s + "</option>"; }).join("") + "</select>" : "<span class=\"pill " + esc(r.status) + "\">" + esc(r.status) + "</span>" + (r.status === "delivered" && Number(r.requester_id) === Number(me) ? " <button class=\"btn\" type=\"button\" data-verify=\"" + r.id + "\">Confirm delivery</button>" : "")) + (committee && ["accepted", "scheduled"].indexOf(r.status) >= 0 ? " <button class=\"btn\" type=\"button\" data-convert=\"" + r.id + "\" data-ref=\"" + esc(r.ref) + "\">Convert to project</button>" : "") + "</td><td>" + (committee ? "<input data-id=\"" + r.id + "\" data-f=\"decision\" value=\"" + esc(r.decision || "") + "\" aria-label=\"Decision\">" : esc(r.decision || "—")) + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No request.</p>";
     }).catch(fail);
   }
   $("r-send").addEventListener("click", function () { api("/api/governance/rfi", { method: "POST", body: JSON.stringify({ kind: $("r-kind").value, title: $("r-title").value, problem: $("r-problem").value, proposal: $("r-proposal").value }) }).then(function (j) { msg(j.rfi.ref + " submitted — thank you."); $("r-title").value = ""; $("r-problem").value = ""; $("r-proposal").value = ""; return load(); }).catch(fail); });
   $("f-status").addEventListener("change", load);
+  // A-14 — committee: an accepted / scheduled request becomes ONE project (a second conversion links to the first)
+  var convertId = null;
+  var projectLink = function (pid, text) { return "<a href=\"project.html?id=" + encodeURIComponent(pid) + "\">" + esc(text) + "</a>"; };
+  document.addEventListener("click", function (ev) {
+    var b = ev.target.closest && ev.target.closest("button[data-convert]"); if (!b || !committee) return;
+    convertId = b.dataset.convert; $("cv-ref").textContent = b.dataset.ref || ""; $("cv").hidden = false;
+    api("/api/governance/portfolio").then(function (pf) { $("cv-obj").innerHTML = (pf.objectives || []).map(function (o) { return "<option value=\"" + esc(o.id) + "\">" + esc(o.key + " — " + o.name) + "</option>"; }).join(""); $("cv-key").focus(); }).catch(fail);
+  });
+  $("cv-cancel").addEventListener("click", function () { $("cv").hidden = true; convertId = null; });
+  $("cv-go").addEventListener("click", function () {
+    if (!convertId) return;
+    var body = { objective_id: Number($("cv-obj").value) || null, key: $("cv-key").value.trim(), owner: $("cv-owner").value.trim() || undefined, name: $("cv-name").value.trim() || undefined };
+    fetch("/api/governance/rfi/" + convertId + "/to-project", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) }).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) {
+        if (r.ok) { $("cv").hidden = true; $("msg").innerHTML = "<div class=\"ok\">Project created — " + projectLink(j.project_id, "open the project page") + ".</div>"; return load(); }
+        if (r.status === 409 && j.project_id) { $("msg").innerHTML = "<div class=\"errors\">This request already became a project — " + projectLink(j.project_id, "open it") + ".</div>"; return; }
+        msg(j.error || ("HTTP " + r.status), "errors");
+      });
+    }).catch(fail);
+  });
   // UAT (PMO F5): the requester confirms a delivered request (delivered → verified)
   document.addEventListener("click", function (ev) { var b = ev.target.closest && ev.target.closest("button[data-verify]"); if (!b) return; api("/api/governance/rfi/" + b.dataset.verify + "/verify", { method: "POST" }).then(function (j) { msg(j.rfi.ref + " confirmed — thank you."); return load(); }).catch(fail); });
   document.addEventListener("change", function (ev) { var t = ev.target; if (!t.dataset || !t.dataset.id || !t.dataset.f) return; var b = {}; b[t.dataset.f] = t.type === "number" ? Number(t.value) : t.value; api("/api/governance/rfi/" + t.dataset.id, { method: "PUT", body: JSON.stringify(b) }).then(load).catch(fail); });
