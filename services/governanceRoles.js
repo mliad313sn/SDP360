@@ -30,12 +30,42 @@ const isDay = (d) => /^\d{4}-\d{2}-\d{2}$/.test(String(d || '')) && Number.isFin
 const num = (x) => (x == null || x === '' ? null : Number(x));
 const live = (r, d) => !r.ended_at && !r.revoked_at && !r.retired_at && day(r.effective_from || r.start_date) <= d && (!(r.effective_to || r.end_date) || day(r.effective_to || r.end_date) >= d);
 
-/** Holders of a role at a site on a day: the site's own holders, else the platform holders. */
-function holders(assignments, role, siteId, today) {
+// A10 / C-03 — account state. `opts` is OPTIONAL: { active:Set<userId>, sitesOf:(userId)=>number[]|null }.
+// Absent (governance.skip_inactive_holders = false) = the behaviour until now: role / deputy rows only.
+// sitesOf → the user's sites today; null = unscoped (admin tier, works on every site).
+const _sitesOf = (opts, u) => (opts && typeof opts.sitesOf === 'function' ? opts.sitesOf(Number(u)) : null);
+const _isActive = (opts, u) => !(opts && opts.active) || opts.active.has(Number(u));
+/** Why a holder is not eligible for a role row (null = eligible): inactive account, or a site row whose site the person no longer holds. */
+function holderIneligible(opts, userId, rowSiteId) {
+  if (!opts) return null;
+  if (!_isActive(opts, userId)) return 'inactive';
+  if (rowSiteId != null) { const s = _sitesOf(opts, userId); if (s != null && !s.map(Number).includes(Number(rowSiteId))) return 'site_removed'; }
+  return null;
+}
+/** Why a deputy cannot stand in for `principalId` (null = eligible) — the naming rule re-checked today:
+ *  active, and a shared site with the principal (or unscoped). An unscoped principal: the deputy must hold `siteId`. */
+function deputyIneligible(opts, deputyId, principalId, siteId) {
+  if (!opts) return null;
+  if (!_isActive(opts, deputyId)) return 'inactive';
+  const ds = _sitesOf(opts, deputyId); if (ds == null) return null;
+  const ps = _sitesOf(opts, principalId);
+  const need = ps != null ? ps.map(Number) : (siteId != null ? [Number(siteId)] : null);
+  if (need && !ds.map(Number).some((x) => need.includes(x))) return 'site_removed';
+  return null;
+}
+
+/** Holders of a role at a site on a day: the site's own holders, else the platform holders.
+ *  With `opts`: ineligible holders are skipped; no eligible site holder → the eligible platform holders. */
+function holders(assignments, role, siteId, today, opts) {
   const d = day(today); const rows = (assignments || []).filter((a) => a.role === role && live(a, d));
   const site = siteId == null ? [] : rows.filter((a) => num(a.site_id) === Number(siteId));
-  const pick = site.length ? site : rows.filter((a) => a.site_id == null);
-  return [...new Set(pick.map((a) => Number(a.user_id)))];
+  if (!opts) {
+    const pick = site.length ? site : rows.filter((a) => a.site_id == null);
+    return [...new Set(pick.map((a) => Number(a.user_id)))];
+  }
+  const ok = (list) => list.filter((a) => !holderIneligible(opts, a.user_id, a.site_id)).map((a) => Number(a.user_id));
+  const fromSite = ok(site);
+  return [...new Set(fromSite.length ? fromSite : ok(rows.filter((a) => a.site_id == null)))];
 }
 
 /** People `deputyId` stands in for today. */
@@ -53,29 +83,75 @@ function deputiesOf(deputies, userId, today) {
  * Escalation target for an overdue item. Matching matrix rows: same register, severity '*' or equal,
  * site row or platform row, after_days ≤ overdue days. Preference: site over platform, then the highest
  * after_days (the latest level reached), then an exact severity over '*'.
+ * With `opts` (governance.skip_inactive_holders): inactive / site-less holders and deputies are skipped; a
+ * holder skipped is still replaced by their eligible deputy; a rule that reaches nobody eligible falls to the
+ * next matching rule (`fallback_from` names the rule skipped). `skipped` lists the accounts passed over.
  * @returns {{ matched, role, targets:number[], gap:boolean, why:string }}
  *   gap = a row matched but nobody holds the role — never an escalation into the void (ADR-006 risk).
  */
-function escalationTarget({ matrix, assignments, deputies }, { register, severity, siteId, overdueDays, today }) {
+function escalationTarget({ matrix, assignments, deputies }, { register, severity, siteId, overdueDays, today }, opts) {
   const sev = String(severity || '*').toLowerCase(); const od = Math.max(0, Number(overdueDays) || 0);
   const rows = (matrix || []).filter((m) => !m.retired_at && m.register === register && (m.severity === '*' || String(m.severity).toLowerCase() === sev)
     && Number(m.after_days || 0) <= od && (m.site_id == null || (siteId != null && num(m.site_id) === Number(siteId))));
   if (!rows.length) return { matched: null, role: null, targets: [], gap: false, why: 'no escalation rule' };
   rows.sort((a, b) => (Number(b.site_id != null) - Number(a.site_id != null)) || (Number(b.after_days || 0) - Number(a.after_days || 0)) || (Number(b.severity !== '*') - Number(a.severity !== '*')));
+  const shape = (m) => ({ id: Number(m.id), role: m.role, after_days: Number(m.after_days || 0), site_id: num(m.site_id) });
+  if (!opts) {
+    const m = rows[0];
+    const who = holders(assignments, m.role, siteId, today);
+    // a holder who is away is replaced by their deputy — the escalation still reaches a person
+    const targets = [...new Set(who.flatMap((u) => { const deps = deputiesOf(deputies, u, today); return deps.length ? [u, ...deps] : [u]; }))];
+    return { matched: shape(m), role: m.role, targets, gap: !targets.length, why: targets.length ? 'ok' : `nobody holds ${m.role}` };
+  }
+  const d = day(today); const skipped = new Set();
+  for (const m of rows) {
+    // every live holder (site rows, then platform rows) — an ineligible one is still covered by an eligible deputy
+    const live_ = (assignments || []).filter((a) => a.role === m.role && live(a, d));
+    const siteRows = siteId == null ? [] : live_.filter((a) => num(a.site_id) === Number(siteId));
+    const tiers = [siteRows, live_.filter((a) => a.site_id == null)];
+    let targets = [];
+    for (const tier of tiers) {
+      for (const a of tier) {
+        const u = Number(a.user_id);
+        const deps = deputiesOf(deputies, u, today).filter((x) => { const why = deputyIneligible(opts, x, u, siteId); if (why) skipped.add(x); return !why; });
+        if (!holderIneligible(opts, u, a.site_id)) targets.push(u); else skipped.add(u);
+        targets.push(...deps);
+      }
+      targets = [...new Set(targets)];
+      if (targets.length) break;
+    }
+    if (targets.length) {
+      const out = { matched: shape(m), role: m.role, targets, gap: false, why: 'ok', skipped: [...skipped] };
+      if (m !== rows[0]) out.fallback_from = shape(rows[0]);
+      return out;
+    }
+  }
   const m = rows[0];
-  const who = holders(assignments, m.role, siteId, today);
-  // a holder who is away is replaced by their deputy — the escalation still reaches a person
-  const targets = [...new Set(who.flatMap((u) => { const deps = deputiesOf(deputies, u, today); return deps.length ? [u, ...deps] : [u]; }))];
-  return { matched: { id: Number(m.id), role: m.role, after_days: Number(m.after_days || 0), site_id: num(m.site_id) }, role: m.role, targets, gap: !targets.length, why: targets.length ? 'ok' : `nobody holds ${m.role}` };
+  return { matched: shape(m), role: m.role, targets: [], gap: true, why: `nobody eligible holds ${m.role}`, skipped: [...skipped] };
 }
 
-/** (site × required role) pairs with no holder today, and matrix rows whose role nobody holds. */
-function coverageGaps({ assignments, matrix }, sites, today) {
+/** (site × required role) pairs with no holder today, and matrix rows whose role nobody holds.
+ *  With `opts`: holders are counted only when eligible, and every live holder / deputy whose account is inactive
+ *  or no longer holds the site is listed (kind `inactive_holder` / `inactive_deputy`). */
+function coverageGaps({ assignments, matrix, deputies }, sites, today, opts) {
   const out = [];
-  for (const s of sites || []) for (const role of REQUIRED) if (!holders(assignments, role, s.id, today).length) out.push({ kind: 'role', site_id: Number(s.id), site: s.name, role });
+  for (const s of sites || []) for (const role of REQUIRED) if (!holders(assignments, role, s.id, today, opts).length) out.push({ kind: 'role', site_id: Number(s.id), site: s.name, role });
   for (const m of (matrix || []).filter((x) => !x.retired_at)) {
     const siteList = m.site_id == null ? (sites || []) : (sites || []).filter((s) => Number(s.id) === Number(m.site_id));
-    for (const s of siteList) if (!holders(assignments, m.role, s.id, today).length) out.push({ kind: 'matrix', matrix_id: Number(m.id), site_id: Number(s.id), site: s.name, role: m.role, register: m.register });
+    for (const s of siteList) if (!holders(assignments, m.role, s.id, today, opts).length) out.push({ kind: 'matrix', matrix_id: Number(m.id), site_id: Number(s.id), site: s.name, role: m.role, register: m.register });
+  }
+  if (opts) {
+    const d = day(today); const name = (id) => { const s = (sites || []).find((x) => Number(x.id) === Number(id)); return s ? s.name : null; };
+    const liveA = (assignments || []).filter((a) => live(a, d));
+    for (const a of liveA) {
+      const why = holderIneligible(opts, a.user_id, a.site_id);
+      if (why) out.push({ kind: 'inactive_holder', assignment_id: Number(a.id), site_id: num(a.site_id), site: name(a.site_id), role: a.role, user_id: Number(a.user_id), reason: why });
+    }
+    for (const x of (deputies || []).filter((y) => live(y, d))) {
+      if (!liveA.some((a) => Number(a.user_id) === Number(x.user_id))) continue;   // only deputies of role holders carry coverage
+      const why = deputyIneligible(opts, x.deputy_id, x.user_id, null);
+      if (why) out.push({ kind: 'inactive_deputy', deputy_row_id: Number(x.id), site_id: null, site: null, role: null, user_id: Number(x.user_id), deputy_id: Number(x.deputy_id), reason: why });
+    }
   }
   return out;
 }
@@ -107,4 +183,4 @@ function validateMatrix(b) {
   return null;
 }
 
-module.exports = { ROLES, REGISTERS, REQUIRED, DEPUTY_MAX_DAYS, CALENDAR_MAX_DAYS_PER_YEAR, holders, principalsOf, deputiesOf, escalationTarget, coverageGaps, validateAssignment, validateDeputy, validateMatrix };
+module.exports = { ROLES, REGISTERS, REQUIRED, DEPUTY_MAX_DAYS, CALENDAR_MAX_DAYS_PER_YEAR, holders, holderIneligible, deputyIneligible, principalsOf, deputiesOf, escalationTarget, coverageGaps, validateAssignment, validateDeputy, validateMatrix };

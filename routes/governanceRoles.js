@@ -54,7 +54,7 @@ module.exports = function governanceRoleRoutes(deps) {
         .sort((a, b) => String(a.name).localeCompare(String(b.name), 'fr'));
       res.json({ ok: true, today: today(), can_write_roles: isSuper(req.reportUser), can_write_deputies: isAdmin(req.reportUser),
         roles: R.ROLES, registers: R.REGISTERS, required: R.REQUIRED, deputy_max_days: R.DEPUTY_MAX_DAYS,
-        ...snap, gaps: R.coverageGaps(snap, sites, today()), sites,
+        ...snap, gaps: R.coverageGaps(snap, sites, today(), store.resolverOpts ? await store.resolverOpts() : null), sites,
         // security review: a committee member reads who holds what, not everybody's site list
         people: isAdmin(req.reportUser) ? people : people.map((x) => ({ id: x.id, name: x.name })),
         calendar: await store.calendar({ from: new Date(Date.now() - 31 * 864e5).toISOString().slice(0, 10) }) });

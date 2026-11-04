@@ -36,6 +36,9 @@ const PARAMS = [
   P('governance.relaxation_max_days', 'int', 90, { area: 'governance', siteScoped: false, protected: true, stricter: 'lower', min: 1, max: 365,
     en: 'A relaxed protected rule reverts to the stricter value automatically after this many days (a new relaxation is needed to keep it).',
     fr: 'Une règle protégée assouplie revient d\'elle-même à la valeur plus stricte après ce nombre de jours (il faut un nouvel assouplissement pour la garder).' }),
+  P('governance.skip_inactive_holders', 'bool', false, { area: 'governance', siteScoped: false, protected: true, stricter: 'true',
+    en: 'A role holder or deputy whose account is deactivated, or who no longer holds the site, no longer counts as coverage: escalations skip them (their deputy, the platform holder or the next escalation rule is used) and the coverage gaps list them. Off = role and deputy rows only, the behaviour until now.',
+    fr: 'Un titulaire de rôle ou un suppléant dont le compte est désactivé, ou qui n\'a plus le site, ne compte plus comme couverture : les escalades le sautent (son suppléant, le titulaire plateforme ou la règle d\'escalade suivante est utilisé) et les lacunes de couverture le signalent. Désactivé = seules les lignes de rôle et de suppléance comptent, le fonctionnement actuel.' }),
   // ── report studio (G-13 / G-14) ───────────────────────────────────────────────────────────────
   P('reports.four_eyes', 'bool', true, { area: 'reports', protected: true, stricter: 'true',
     en: 'The person who generated a report run cannot review or publish it; the last commentary editor cannot review it.',
