@@ -6,6 +6,7 @@
  *   windowSeries(kind, n, now)      -> the last n window labels for a trend (oldest first)
  *   widgetDataPlan(widget, def)     -> what the data route must resolve for this widget
  *   summarizeGrid(rows)             -> counts per RAG for a ragGrid header
+ *   periodBounds/isPartial/seriesAnchor/evalDate -> C-05 time truth (window-anchored series, partial periods)
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -70,8 +71,9 @@
     if (!d || d.value == null) return '';
     var parts = [];
     var stale = !!d.freshness && d.freshness !== 'FRESH';
-    if (d.target != null) parts.push('<span class="edv-target ' + (stale ? 'rag-na' : ragClass(d.vs_target && d.vs_target.rag)) + '">target ' + formatValue(d.target, d.unit) + (d.target_source === 'site' ? ' (site)' : '') + '</span>');
-    if (d.previous && d.previous.delta != null) {
+    if (d.target != null) parts.push('<span class="edv-target ' + (stale ? 'rag-na' : ragClass(d.vs_target && d.vs_target.rag)) + '"' + (d.target_from ? ' title="target version from ' + escapeHtml(d.target_from) + '"' : '') + '>target ' + formatValue(d.target, d.unit) + (d.target_source === 'site' ? ' (site)' : '') + '</span>');
+    if (d.previous && d.previous.comparable === false) parts.push('<span class="edv-delta flat">vs ' + escapeHtml(shortLabel(d.previous.label)) + ': not comparable — this period is still running</span>');
+    else if (d.previous && d.previous.delta != null) {
       var dl = Number(d.previous.delta), good = dl === 0 ? null : (d.higher_is_better !== false ? dl > 0 : dl < 0);
       var unit = String(d.unit || '').toLowerCase() === '%' ? ' pts' : '';
       parts.push('<span class="edv-delta ' + (stale || good == null ? 'flat' : good ? 'good' : 'bad') + '">' + (dl > 0 ? '▲ +' : dl < 0 ? '▼ ' : '= ') + (dl === 0 ? '' : (Math.round(Math.abs(dl) * 10) / 10).toLocaleString('en-GB', { maximumFractionDigits: 1 })) + unit + ' vs ' + escapeHtml(shortLabel(d.previous.label)) + '</span>');
@@ -106,6 +108,50 @@
     var y = d.getUTCFullYear(), m = d.getUTCMonth();
     for (var j = n - 1; j >= 0; j--) { var mm = new Date(Date.UTC(y, m - j, 1)); out.push(mm.getUTCFullYear() + '-' + pad2(mm.getUTCMonth() + 1)); }
     return out;
+  }
+
+  // ── C-05 — time truth: period bounds, anchors, partial periods (pure; `now` is injected) ──
+  function _ymd(d) { return d.toISOString().slice(0, 10); }
+  function _today(now) { return _ymd(now ? new Date(now) : new Date()); }
+  /** Calendar bounds of a window label: 'YYYY-Www' (ISO week), 'YYYY-MM', 'YYYY-MM-DD', 'from..to'; null otherwise. */
+  function periodBounds(label) {
+    var s = String(label || ''), m;
+    if ((m = /^(\d{4})-W(\d{2})$/.exec(s))) {
+      var jan4 = new Date(Date.UTC(+m[1], 0, 4)); var dow = jan4.getUTCDay() || 7;
+      var mon = new Date(jan4); mon.setUTCDate(jan4.getUTCDate() - dow + 1 + (+m[2] - 1) * 7);
+      var sun = new Date(mon); sun.setUTCDate(mon.getUTCDate() + 6);
+      return { from: _ymd(mon), to: _ymd(sun) };
+    }
+    if ((m = /^(\d{4})-(\d{2})$/.exec(s))) return { from: m[1] + '-' + m[2] + '-01', to: _ymd(new Date(Date.UTC(+m[1], +m[2], 0))) };
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return { from: s, to: s };
+    if ((m = /^(\d{4}-\d{2}-\d{2})\.\.(\d{4}-\d{2}-\d{2})$/.exec(s))) return { from: m[1], to: m[2] };
+    return null;
+  }
+  /** A period is partial while it has not ended: its last day is after today. */
+  function isPartial(label, now) { var b = periodBounds(label); return !!b && b.to > _today(now); }
+  /** Same rule on a resolved window object ({to}); a window ending today (current / rolling) is complete as of today. */
+  function windowPartial(win, now) { return !!(win && win.to) && String(win.to).slice(0, 10) > _today(now); }
+  /** The day a period is judged on: its last day, or today while it is still running. */
+  function evalDate(label, now) { var b = periodBounds(label); var t = _today(now); return b ? (b.to > t ? t : b.to) : t; }
+  /**
+   * F05 — the date to hand windowSeries so the series ENDS on the selected window (no window → `now`, today's
+   * behaviour). windowSeries(week) subtracts a week from its anchor (the previous full week), so a week series
+   * gets the anchor + 7 days. A month window under a weekly series ends on the last week that finishes inside it.
+   */
+  function seriesAnchor(win, kind, now) {
+    var b = periodBounds(win); if (!b) return now ? new Date(now) : new Date();
+    var end = new Date(b.to + 'T00:00:00Z');
+    if (kind === 'week' || kind === 'rolling13w') {
+      if (/^\d{4}-\d{2}$/.test(String(win))) end.setUTCDate(end.getUTCDate() - (end.getUTCDay() % 7));
+      end.setUTCDate(end.getUTCDate() + 7);
+    }
+    return end;
+  }
+  /** "partial · data to 4 Nov" under a tile / chart whose period is still running. */
+  function partialNote(d, now) {
+    if (!d || !d.partial) return '';
+    var t = new Date((now ? _ymd(new Date(now)) : _today()) + 'T00:00:00Z');
+    return '<div class="edv-partial" role="note">' + escapeHtml((d.window && d.window.label) || '') + ' is partial · data to ' + t.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }) + '</div>';
   }
 
   /** Default trend length from the widget's window hint: '13w' → 13 weeks, '6m' → 6 months. */
@@ -244,11 +290,17 @@
   function seriesTableHtml(d) {
     var lines = d && d.lines && d.lines.length ? d.lines : [{ label: (d && (d.title || d.metric)) || 'value', unit: d && d.unit, points: (d && d.points) || [] }];
     var labels = (lines[0].points || []).map(function (p) { return p.label; });
-    return '<div class="edv-table-wrap"><table class="edv-data-table edv-series-table"><thead><tr><th scope="col">Period</th>' + lines.map(function (l) { return '<th scope="col">' + escapeHtml(l.label) + '</th>'; }).join('') + (d && d.target != null ? '<th scope="col">Target</th>' : '') + '</tr></thead><tbody>' +
-      labels.map(function (lab, i) { return '<tr><th scope="row">' + escapeHtml(lab) + '</th>' + lines.map(function (l) { var p = (l.points || [])[i]; return '<td class="num">' + formatValue(p ? p.value : null, l.unit) + '</td>'; }).join('') + (d.target != null ? '<td class="num">' + formatValue(d.target, d.unit) + '</td>' : '') + '</tr>'; }).join('') +
+    var hasT = (d && d.target != null) || (lines[0].points || []).some(function (p) { return p.target != null; });
+    return '<div class="edv-table-wrap"><table class="edv-data-table edv-series-table"><thead><tr><th scope="col">Period</th>' + lines.map(function (l) { return '<th scope="col">' + escapeHtml(l.label) + '</th>'; }).join('') + (hasT ? '<th scope="col">Target</th>' : '') + '</tr></thead><tbody>' +
+      labels.map(function (lab, i) {
+        var p0 = (lines[0].points || [])[i] || {}; var tgt = p0.target !== undefined ? p0.target : d.target;
+        return '<tr><th scope="row">' + escapeHtml(lab) + (p0.partial ? ' (partial)' : '') + '</th>' + lines.map(function (l) { var p = (l.points || [])[i]; return '<td class="num">' + formatValue(p ? p.value : null, l.unit) + '</td>'; }).join('') +
+          (hasT ? '<td class="num"' + (p0.target_from ? ' title="target version from ' + escapeHtml(p0.target_from) + '"' : '') + '>' + (tgt == null ? '—' : formatValue(tgt, d.unit)) + '</td>' : '') + '</tr>';
+      }).join('') +
       '</tbody></table></div>';
   }
 
   return { gridStyle, formatValue, ragClass, ragDot, kpiContext, staleBadge, sortRows, shortLabel, windowSeries, trendLength, widgetDataPlan, summarizeGrid, escapeHtml, miniMarkdown, isoWeek,
-    rowState, barListHtml, tableHtml, sortTableRows, ragGridHtml, perSiteHtml, trackerHtml, seriesTableHtml };
+    rowState, barListHtml, tableHtml, sortTableRows, ragGridHtml, perSiteHtml, trackerHtml, seriesTableHtml,
+    periodBounds, isPartial, windowPartial, evalDate, seriesAnchor, partialNote };
 });

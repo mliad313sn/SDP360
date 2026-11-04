@@ -6,14 +6,16 @@
 const KpiRag = require('../public/lib/kpiRag');
 const { typed } = require('./httpError');
 
-const live = (r, d) => !r.ended_at && String(r.effective_from) <= d;
+// F06/G08 — a target version is live on day d when it had started and had not yet ended: an ended version
+// still answers for the dates it covered (a May window is judged on the May target, even if replaced in June).
+const live = (r, d) => String(r.effective_from) <= d && (!r.ended_at || String(r.ended_at).slice(0, 10) > d);
 function targetFor(rows, key, siteId, today) {
   const d = String(today || new Date().toISOString()).slice(0, 10);
   const pick = (f) => (rows || []).filter((r) => r.metric_key === key && live(r, d) && f(r)).sort((a, b) => String(b.effective_from).localeCompare(String(a.effective_from)) || Number(b.id) - Number(a.id))[0];
   const s = siteId == null ? null : pick((r) => r.site_id != null && Number(r.site_id) === Number(siteId));
   const p = s ? null : pick((r) => r.site_id == null);
   const r = s || p;
-  return r ? { target: Number(r.target), source: s ? 'site' : 'platform', id: Number(r.id), effective_from: r.effective_from } : { target: null, source: null };
+  return r ? { target: Number(r.target), source: s ? 'site' : 'platform', id: Number(r.id), effective_from: r.effective_from, ended_at: r.ended_at || null } : { target: null, source: null };
 }
 /** null when it cannot be judged (no value, no target, zero) — never a verdict on nothing. */
 function vsTarget(value, target, higherIsBetter = true) {
@@ -28,7 +30,10 @@ function makeKpiTargetStore(db, { now = () => new Date().toISOString() } = {}) {
   const P = (sql) => db.prepare(sql);
   const tx = (fn) => (db.runTransaction ? db.runTransaction(fn) : fn());
   const ev = (id, action, actorId, details) => P('INSERT INTO governance_role_events (entity, entity_id, action, actor_id, at, details) VALUES (?, ?, ?, ?, ?, ?)').run('kpi_target', Number(id), action, actorId == null ? null : Number(actorId), now(), JSON.stringify(details || {}));
-  const list = async () => (await P('SELECT * FROM kpi_site_targets WHERE ended_at IS NULL ORDER BY metric_key, site_id NULLS FIRST, effective_from').all()).map((r) => ({ ...r, id: Number(r.id), target: Number(r.target), site_id: r.site_id == null ? null : Number(r.site_id) }));
+  const norm = (rows) => rows.map((r) => ({ ...r, id: Number(r.id), target: Number(r.target), site_id: r.site_id == null ? null : Number(r.site_id) }));
+  const list = async () => norm(await P('SELECT * FROM kpi_site_targets WHERE ended_at IS NULL ORDER BY metric_key, site_id NULLS FIRST, effective_from').all());
+  /** Every version, ended ones included — for reading a target as it was on a past date (F06). */
+  const listAll = async () => norm(await P('SELECT * FROM kpi_site_targets ORDER BY metric_key, site_id NULLS FIRST, effective_from, id').all());
   async function set(b, { actorId, knownKey }) {
     if (!knownKey(b.metric_key)) throw typed('VALIDATION', 'unknown metric', 400);
     const t = Number(b.target); if (b.target === '' || b.target == null || !Number.isFinite(t)) throw typed('VALIDATION', 'target must be a number', 400);
@@ -52,6 +57,6 @@ function makeKpiTargetStore(db, { now = () => new Date().toISOString() } = {}) {
       await ev(id, 'ended', actorId, { reason: String(reason).slice(0, 300) });
     });
   }
-  return { list, set, end };
+  return { list, listAll, set, end };
 }
 module.exports = { targetFor, vsTarget, makeKpiTargetStore };

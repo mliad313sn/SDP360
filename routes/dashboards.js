@@ -126,9 +126,13 @@ module.exports = function dashboardsRoutes(deps) {
       const mods = [...new Set(((def && def.widgets) || []).flatMap(w => (w ? [w.metric].concat(Array.isArray(w.series) ? w.series : []) : [])).map(k => k && reg.get(k)).filter(Boolean).map(m => m.module))];
       const jobs = gate.jobsFor(mods);
       const lastOk = deps.lastSyncOk ? await deps.lastSyncOk(jobs) : await gate.lastOkFromSyncStore(jobs);
-      const stale = gate.freshness(mods, lastOk, now.getTime(), await require('../services/governancePolicy').forContext({})).sources.filter(x => x.state !== 'FRESH');
+      const fr = gate.freshness(mods, lastOk, now.getTime(), await require('../services/governancePolicy').forContext({}));
+      const stale = fr.sources.filter(x => x.state !== 'FRESH');
       gate.degradeStale(out, def, reg, stale);   // G05: stale source → value kept, colour withdrawn
-      return { ok: true, key: d.key, version: d.version, site, sites: sites.map(s => ({ id: Number(s.id), name: s.name })), window, as_of: now.toISOString(), widgets: out, stale_sources: stale };
+      // F21 — `as_of`/`computed_at` is when THIS response was computed; `sources` says how recent the data
+      // behind it is (last successful sync per source job, null = never synced) — the screen shows both.
+      const sources = fr.sources.map(x => ({ module: x.module, job: x.job, last_success: x.last_ok, state: x.state }));
+      return { ok: true, key: d.key, version: d.version, site, sites: sites.map(s => ({ id: Number(s.id), name: s.name })), window, as_of: now.toISOString(), computed_at: now.toISOString(), sources, widgets: out, stale_sources: stale };
   }
   router.get('/api/dashboards/:key/data', requireReportSession, async (req, res) => {
     try { const v = await dashboardData(req, res); if (v) res.json(v); } catch (e) { fail(res, e, 500, { ok: false }); }

@@ -103,7 +103,11 @@
     }).catch(function (e) { status('Dashboard unavailable: ' + e.message); });
   }
 
+  // Annex B #6 — a late response from an earlier filter must never overwrite a newer one
+  var loadSeq = 0;
+  function fmtWhen(iso) { return new Date(iso).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }); }
   function loadData() {
+    var seq = ++loadSeq;
     status('Loading…');
     var q = [];
     if ($('site').value) q.push('site=' + encodeURIComponent($('site').value));
@@ -111,6 +115,7 @@
     if (meta && meta.status !== 'published') q.push('draft=1');
     $('csv').href = '/api/dashboards/' + encodeURIComponent(key) + '/data.csv' + (q.length ? '?' + q.join('&') : '');   // same filters as the screen
     api('/api/dashboards/' + encodeURIComponent(key) + '/data' + (q.length ? '?' + q.join('&') : '')).then(function (d) {
+      if (seq !== loadSeq) return;
       var sel = $('site');
       // design review B3: the single figures are ONE site's (the server never mixes sites into a tile);
       // the per-site charts list every site in scope — say so instead of implying a fleet total
@@ -120,10 +125,12 @@
       d.scope_note = nm ? 'Single figures: ' + nm.name + ' · per-site charts: your ' + d.sites.length + ' sites' : '';
       renderWidgets(def, d);
       var st = (d.stale_sources || []).map(function (x) { return x.module + (x.state === 'UNKNOWN' ? ' (never synced)' : ' (last sync ' + x.age_h + ' h ago, limit ' + x.limit_h + ' h)'); });
-      status((d.scope_note ? d.scope_note + ' — ' : '') + 'Data as of ' + new Date(d.as_of).toLocaleString('en-GB', { dateStyle: 'medium', timeStyle: 'short' }) + (d.note ? ' — ' + d.note : ''));
+      // F21 — the response time is "Computed at"; how recent the DATA is comes per source ("Data through")
+      var thru = (d.sources || []).map(function (x) { return x.module + ' ' + (x.last_success ? fmtWhen(x.last_success) : 'never synced'); });
+      status((d.scope_note ? d.scope_note + ' — ' : '') + 'Computed at ' + fmtWhen(d.computed_at || d.as_of) + (thru.length ? ' — Data through: ' + thru.join(', ') : '') + (d.note ? ' — ' + d.note : ''));
       // design review #4: a stale source is a banner above the figures, not the tail of a grey sentence
       var bn = $('staleBanner'); bn.hidden = !st.length; bn.textContent = st.length ? 'Some figures are not current — their colour is withheld: ' + st.join(', ') + '.' : '';
-    }).catch(function (e) { status('Data unavailable: ' + e.message); });
+    }).catch(function (e) { if (seq !== loadSeq) return; status('Data unavailable: ' + e.message); });
   }
 
   function renderWidgets(def, data) {
@@ -146,7 +153,7 @@
         el.innerHTML = title + '<div class="edv-kpi-value">' + R.ragDot(d.rag, d.freshness) + R.formatValue(d.value, d.unit) + '</div>' +
           R.staleBadge(d) + R.kpiContext(d) +
           '<div class="edv-kpi-sub">' + (d.fleet ? (d.fleet.kind === 'unweighted_site_mean' ? 'average of site rates ' : 'fleet mean ') + R.formatValue(d.fleet.mean, d.unit) + ' (' + d.fleet.n + ' sites' + (d.fleet.kind === 'unweighted_site_mean' ? ', unweighted — not the group rate' : '') + ')' : (d.value == null ? 'not measured' : '')) + '</div>' +
-          '<div class="edv-asof">' + (d.window ? R.escapeHtml(d.window.label) : '') + '</div>';
+          '<div class="edv-asof">' + (d.window ? R.escapeHtml(d.window.label) : '') + (d.partial ? ' · partial' : '') + '</div>' + R.partialNote(d);
       } else if (d.mode === 'series') {
         // design review B4 / R6: no empty axis; % axes run 0–100; short week labels, the year said once
         var pts = d.points || [];
@@ -158,7 +165,8 @@
           var vals = pts.filter(function (p) { return p.value != null; }); var last = vals[vals.length - 1];
           var lo = Math.min.apply(null, vals.map(function (p) { return Number(p.value); })), hi = Math.max.apply(null, vals.map(function (p) { return Number(p.value); }));
           var spoken = (w.title || w.metric) + ': latest ' + R.formatValue(last.value, d.unit) + ' (' + R.shortLabel(last.label) + '), low ' + R.formatValue(lo, d.unit) + ', high ' + R.formatValue(hi, d.unit) + (d.target != null ? ', target ' + R.formatValue(d.target, d.unit) : '') + (d.freshness && d.freshness !== 'FRESH' ? ', source not current' : '');
-          var foot = R.staleBadge(d) + '<div class="edv-asof">' + Object.keys(years).join('–') + (d.target != null ? ' · dashed line = target ' + R.escapeHtml(R.formatValue(d.target, d.unit)) : '') + '</div>';
+          var anyPartial = pts.some(function (p) { return p.partial; });
+          var foot = R.staleBadge(d) + '<div class="edv-asof">' + Object.keys(years).join('–') + (d.window_end ? ' · window ends ' + R.escapeHtml(d.window_end) : '') + (anyPartial ? ' · last point partial (* = period still running)' : '') + (d.target != null ? ' · dashed line = target' + (d.target_from ? ' (version from ' + R.escapeHtml(d.target_from) + ')' : '') : '') + '</div>';
           // F13 — no chart library: the figures as a table, never an empty canvas
           if (!window.Chart) { el.innerHTML = title + '<div class="edv-kpi-sub">Chart unavailable — figures shown as a table.</div>' + R.seriesTableHtml(d) + foot; }
           else {
@@ -168,9 +176,11 @@
             var PAL = ['#3A4A60', '#2563EB', '#0F766E', '#7C3AED', '#B45309'];
             var lines = d.lines && d.lines.length ? d.lines : [{ label: w.title || w.metric, points: pts }];
             var ds = lines.map(function (l, i) { return { label: l.label, data: (l.points || []).map(function (p) { return p.value; }), borderColor: stale ? '#9AA4B2' : PAL[i % PAL.length], backgroundColor: 'rgba(58,74,96,.12)', spanGaps: false, tension: .2, fill: lines.length === 1, pointRadius: 3 }; });
-            if (d.target != null) ds.push({ label: 'target', data: pts.map(function () { return d.target; }), borderColor: '#B45309', borderDash: [4, 4], pointRadius: 0, fill: false });
-            var c = new Chart(el.querySelector('canvas'), { type: 'line', data: { labels: pts.map(function (p) { return R.shortLabel(p.label); }), datasets: ds },
-              options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: lines.length > 1 }, tooltip: { callbacks: { label: function (ctx) { return R.formatValue(ctx.parsed.y, d.unit); } } } },
+            // F06 — the target line follows each period's own target version
+            var tline = pts.map(function (p) { return p.target !== undefined ? p.target : d.target; });
+            var tIdx = -1; if (tline.some(function (v) { return v != null; })) { tIdx = ds.length; ds.push({ label: 'target', data: tline, borderColor: '#B45309', borderDash: [4, 4], pointRadius: 0, fill: false, stepped: true }); }
+            var c = new Chart(el.querySelector('canvas'), { type: 'line', data: { labels: pts.map(function (p) { return R.shortLabel(p.label) + (p.partial ? '*' : ''); }), datasets: ds },
+              options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: lines.length > 1 }, tooltip: { callbacks: { label: function (ctx) { var p = pts[ctx.dataIndex] || {}; if (ctx.datasetIndex === tIdx) return 'target ' + R.formatValue(ctx.parsed.y, d.unit) + (p.target_from ? ' (version from ' + p.target_from + ')' : ''); return R.formatValue(ctx.parsed.y, d.unit) + (p.partial ? ' (partial period)' : ''); } } } },
                 scales: { x: { ticks: { maxRotation: 0, autoSkip: true } }, y: pct ? { min: 0, max: 100 } : { beginAtZero: true } } } });
             charts.push(c);
           }
@@ -179,7 +189,7 @@
         // C-04 (F01): bar = labelled bar list, table = sortable table, ragGrid = RAG grid (unknown is grey);
         // a retired heatmap renders as a table with a notice
         bodies[w.id] = { type: w.type, d: d, title: title, el: el };
-        el.innerHTML = title + R.perSiteHtml(w.type, d);
+        el.innerHTML = title + R.perSiteHtml(w.type, d) + R.partialNote(d);
       } else if (d.mode === 'tracker') {
         el.innerHTML = title + R.trackerHtml(d);
       } else if (d.mode === 'actions') {
@@ -195,7 +205,7 @@
   $('dash').addEventListener('click', function (ev) {
     var b = ev.target && ev.target.closest ? ev.target.closest('button.edv-sort') : null; if (!b) return;
     var sec = b.closest('section'); var id = sec && sec.getAttribute('data-wid'); var x = id && bodies[id]; if (!x) return;
-    x.el.innerHTML = x.title + R.perSiteHtml(x.type, x.d, { col: b.getAttribute('data-sort'), dir: b.getAttribute('data-dir') });
+    x.el.innerHTML = x.title + R.perSiteHtml(x.type, x.d, { col: b.getAttribute('data-sort'), dir: b.getAttribute('data-dir') }) + R.partialNote(x.d);
     var nb = x.el.querySelector('button.edv-sort[data-sort="' + b.getAttribute('data-sort') + '"]'); if (nb) nb.focus();
   });
 
