@@ -38,8 +38,8 @@ planned switch cannot be set before its goal lands.
 | `asset_money_certify_display` | planned | `0` | `1` | Finance / IT management | A-16 |
 | `asset_money_certify_min_sites` | planned | `3` | `3` | Finance | A-16 |
 | `asset_money_certify_min_pct` | planned | `50` | `50` | Finance | A-16 |
-| `helpdesk_sla_definition` | planned | `flag` | `flag` until the committee chooses (`due_vs_resolved` is the alternative) | KPI committee | A-17 |
-| `exec_payload_zero_policy` | planned | `keep_server` | `keep_server` until the committee chooses (`browser_wins` is the alternative) | KPI committee | A-17 |
+| `helpdesk_sla_definition` | built | `flag` | `flag` until the committee chooses (`due_vs_resolved` is the alternative) | KPI committee | A-17 |
+| `exec_payload_zero_policy` | built | `keep_server` | `keep_server` until the committee chooses (`browser_wins` is the alternative) | KPI committee | A-17 |
 | `soft_delete_enabled` | planned | `0` | `1` | Owner (retention policy) | A-19 |
 | `soft_delete_retention_days` | planned | `30` | `30` | Owner (retention policy) | A-19 |
 | `soft_delete_purge_enabled` | planned | `0` | `0` (keep everything during the pilot) | Owner (retention policy) | A-19 |

@@ -47,3 +47,43 @@ test('render.py turns the May fixture into a non-empty, valid PPTX', { skip }, a
   assert.ok(pres, 'missing ppt/presentation.xml');
   assert.match(await pres.async('string'), /sldId/, 'presentation.xml has no slides');
 });
+
+// A-17b — unknown verdict KPIs print an em dash only when the payload asks for it
+// (_unknown_as_dash, exec_payload_zero_policy=browser_wins); the default path formats
+// exactly as before (f"{v:.1f}%"). The helper is pure Python (no matplotlib / pptx), so
+// this runs wherever a python3 exists.
+function findPlainPython() {
+  for (const bin of ['python3', 'python', 'py']) {
+    try { const r = spawnSync(bin, ['-c', 'print(1)'], { encoding: 'utf8' }); if (r && r.status === 0) return bin; } catch (_) { /* next */ }
+  }
+  return null;
+}
+const PLAIN = findPlainPython();
+test('kpi_fmt: em dash for unknown KPIs only under _unknown_as_dash; default prints 0.0% as today',
+  { skip: PLAIN ? false : 'no python interpreter' }, () => {
+    const code = [
+      'import json, sys',
+      `sys.path.insert(0, ${JSON.stringify(path.join(ROOT, 'tools', 'exec-pptx'))})`,
+      'from kpi_fmt import unknown_kpis, pct_text',
+      "K = {'fcr_rate': None, 'sla_compliance': 91.24, 'frt_sla': None}",
+      'U = unknown_kpis(K)',
+      "K.update({'fcr_rate': 0.0, 'frt_sla': 0.0})",
+      "out = {'unknown': sorted(U),",
+      "  'default_fcr': pct_text(K, 'fcr_rate', U), 'default_sla0': pct_text(K, 'sla_compliance', U, '.0f'),",
+      "  'default_sla': pct_text(K, 'sla_compliance', U)}",
+      "K['_unknown_as_dash'] = True",
+      "out.update({'dash_fcr': pct_text(K, 'fcr_rate', U), 'dash_frt': pct_text(K, 'frt_sla', U),",
+      "  'dash_sla': pct_text(K, 'sla_compliance', U)})",
+      'print(json.dumps(out))',
+    ].join('\n');
+    const r = spawnSync(PLAIN, ['-c', code], { encoding: 'utf8' });
+    assert.strictEqual(r.status, 0, r.stderr);
+    const o = JSON.parse(r.stdout);
+    assert.deepStrictEqual(o.unknown, ['fcr_rate', 'frt_sla']);
+    assert.strictEqual(o.default_fcr, '0.0%');
+    assert.strictEqual(o.default_sla, '91.2%');
+    assert.strictEqual(o.default_sla0, '91%');
+    assert.strictEqual(o.dash_fcr, '—');
+    assert.strictEqual(o.dash_frt, '—');
+    assert.strictEqual(o.dash_sla, '91.2%', 'a known value still prints');
+  });

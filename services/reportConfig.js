@@ -174,6 +174,13 @@ Object.assign(DEFAULTS, { alert_external_enabled: '0', notifications_stop: '0', 
   publish_excel_recipients: '', publish_webhook_url: '', publish_cron_enabled: '0',
   sharepoint_tenant_id: '', sharepoint_client_id: '', sharepoint_client_secret: '', sharepoint_site_id: '', sharepoint_list_id: '' });
 
+// ── A-17b — PROPOSED KPI switches (KPI committee, not approved). Defaults = today.
+//    helpdesk_sla_definition: 'flag' (stored Overdue Status) | 'due_vs_resolved' (browser rule) — only
+//    getMonthlyHelpdeskHistory (Exec View) consumes it (services/slaDefinition.js).
+//    exec_payload_zero_policy: 'keep_server' (2026-06-04 behaviour) | 'browser_wins' (Group IT deck merge).
+DEFAULTS.helpdesk_sla_definition = 'flag';
+DEFAULTS.exec_payload_zero_policy = 'keep_server';
+
 const KEYS = Object.keys(DEFAULTS);
 
 // Secrets that the GET handler redacts to '' — a Save that doesn't retype them must

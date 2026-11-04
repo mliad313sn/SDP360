@@ -742,6 +742,81 @@ async function _siteImpact(browserPayload, monthName, year, monthIdx) {
   }
 }
 
+// ── Browser KPI merge (extracted for A-17b; keep_server path byte-identical to before) ──
+// policy = report_config exec_payload_zero_policy:
+//   keep_server  (default, the 2026-06-04 behaviour) — see KEEP_SERVER_WHEN_BROWSER_IS_ZERO below.
+//   browser_wins (alternative, KPI-committee choice) — every non-null browser value wins, a 0
+//                included; a verdict KPI neither side knows (fcr_rate: the server never computes
+//                it) becomes null and the payload asks render.py for an em dash (_unknown_as_dash).
+// Mutates and returns `enriched`.
+const ZERO_POLICIES = ['keep_server', 'browser_wins'];
+function mergeBrowserKpis(enriched, bkIn, policyIn) {
+  const bk = bkIn || {};
+  const policy = ZERO_POLICIES.includes(policyIn) ? policyIn : 'keep_server';
+  const KPI_MAP = {
+    total:                   'total_tickets',
+    closed:                  'closed_tickets',
+    closure_rate:            'closure_rate',
+    sla_compliance:          'sla_res_pct',
+    frt_sla:                 'frt_sla_pct',
+    open_backlog:            'open_backlog',
+    fcr_rate:                'fcr_rate',
+    csat_pct:                'csat_pct',
+    nps:                     'nps',
+    prev_csat_pct:           'prev_csat_pct',
+    prev_nps:                'prev_nps',
+    total_apr:               'prev_total_tickets',
+    avg_res_days:            'avg_mttr_days',     // browser sends if computed; payload uses for slide 3
+    total_delta_pct:         'mom_total_pct',
+    closed_delta_pct:        'mom_closed_pct',
+    closure_rate_delta_pp:   'mom_closure_pp',
+    sla_compliance_delta_pp: 'mom_sla_pp',
+    frt_sla_delta_pp:        'mom_frt_pp',
+    csat_delta_pp:           'mom_csat_pp',
+    nps_delta:               'mom_nps',
+    // MoM deltas added 2026-06-04 for slide 3 tile labels (FCR, AVG
+    // RESOLUTION, CHANGES NEW, EMERGENCY rate, MAJOR INCIDENTS,
+    // SUPPORT GROUPS). When the browser doesn't supply a value, the
+    // slide falls back to a neutral "— MoM" label.
+    fcr_delta_pp:            'mom_fcr_pp',
+    avg_res_days_delta:      'mom_avg_mttr_d',
+    open_backlog_delta_pct:  'mom_backlog_pct',
+    changes_total_delta:     'mom_changes',
+    emergency_delta_pp:      'mom_emergency_pp',
+    mi_total_delta:          'mom_mi',
+    support_groups_delta:    'mom_groups',
+    support_groups:          'support_groups',  // count of distinct tech_groups active this period
+  };
+  // For KPI fields where the browser can legitimately compute 0 (e.g. an
+  // empty filter excluded all data) the SERVER's count is authoritative
+  // — keep it. For fields where 0 is a meaningful value (e.g. closure
+  // rate or SLA at 0% would be a five-alarm fire), always trust the
+  // browser. This avoids the "user has 0 changes because their CHANGES
+  // GRP filter excludes everything → PPTX shows 0 even though the DB
+  // has 16" regression.
+  const KEEP_SERVER_WHEN_BROWSER_IS_ZERO = new Set([
+    'total', 'closed', 'changes_total', 'open_backlog',
+    'mi_total', 'fcr_rate', 'support_groups',
+  ]);
+  const browserWins = policy === 'browser_wins';
+  Object.entries(KPI_MAP).forEach(([renderKey, browserKey]) => {
+    const v = bk[browserKey];
+    if (v == null) return;
+    // Skip overriding when browser sent 0 but server has a positive value
+    // (keep_server only — browser_wins trusts the browser's 0)
+    if (!browserWins && v === 0 && KEEP_SERVER_WHEN_BROWSER_IS_ZERO.has(renderKey)
+                && (enriched[renderKey] || 0) > 0) {
+      return;
+    }
+    enriched[renderKey] = v;
+  });
+  if (browserWins) {
+    if (bk.fcr_rate == null) enriched.fcr_rate = null;
+    enriched._unknown_as_dash = true;
+  }
+  return enriched;
+}
+
 // ── Public — build() merges DB enrichment over the browser payload ────────
 async function build(browserPayload) {
   const filters = browserPayload.filters || {};
@@ -858,62 +933,14 @@ async function build(browserPayload) {
   // user's filter (site/group/period) and we don't want render to second-
   // guess that selection. DB enrichment fills in only what the browser
   // doesn't (charts, MI records, tracker).
-  const bk = browserPayload.kpis || {};
-  const KPI_MAP = {
-    total:                   'total_tickets',
-    closed:                  'closed_tickets',
-    closure_rate:            'closure_rate',
-    sla_compliance:          'sla_res_pct',
-    frt_sla:                 'frt_sla_pct',
-    open_backlog:            'open_backlog',
-    fcr_rate:                'fcr_rate',
-    csat_pct:                'csat_pct',
-    nps:                     'nps',
-    prev_csat_pct:           'prev_csat_pct',
-    prev_nps:                'prev_nps',
-    total_apr:               'prev_total_tickets',
-    avg_res_days:            'avg_mttr_days',     // browser sends if computed; payload uses for slide 3
-    total_delta_pct:         'mom_total_pct',
-    closed_delta_pct:        'mom_closed_pct',
-    closure_rate_delta_pp:   'mom_closure_pp',
-    sla_compliance_delta_pp: 'mom_sla_pp',
-    frt_sla_delta_pp:        'mom_frt_pp',
-    csat_delta_pp:           'mom_csat_pp',
-    nps_delta:               'mom_nps',
-    // MoM deltas added 2026-06-04 for slide 3 tile labels (FCR, AVG
-    // RESOLUTION, CHANGES NEW, EMERGENCY rate, MAJOR INCIDENTS,
-    // SUPPORT GROUPS). When the browser doesn't supply a value, the
-    // slide falls back to a neutral "— MoM" label.
-    fcr_delta_pp:            'mom_fcr_pp',
-    avg_res_days_delta:      'mom_avg_mttr_d',
-    open_backlog_delta_pct:  'mom_backlog_pct',
-    changes_total_delta:     'mom_changes',
-    emergency_delta_pp:      'mom_emergency_pp',
-    mi_total_delta:          'mom_mi',
-    support_groups_delta:    'mom_groups',
-    support_groups:          'support_groups',  // count of distinct tech_groups active this period
-  };
-  // For KPI fields where the browser can legitimately compute 0 (e.g. an
-  // empty filter excluded all data) the SERVER's count is authoritative
-  // — keep it. For fields where 0 is a meaningful value (e.g. closure
-  // rate or SLA at 0% would be a five-alarm fire), always trust the
-  // browser. This avoids the "user has 0 changes because their CHANGES
-  // GRP filter excludes everything → PPTX shows 0 even though the DB
-  // has 16" regression.
-  const KEEP_SERVER_WHEN_BROWSER_IS_ZERO = new Set([
-    'total', 'closed', 'changes_total', 'open_backlog',
-    'mi_total', 'fcr_rate', 'support_groups',
-  ]);
-  Object.entries(KPI_MAP).forEach(([renderKey, browserKey]) => {
-    const v = bk[browserKey];
-    if (v == null) return;
-    // Skip overriding when browser sent 0 but server has a positive value
-    if (v === 0 && KEEP_SERVER_WHEN_BROWSER_IS_ZERO.has(renderKey)
-                && (enriched[renderKey] || 0) > 0) {
-      return;
-    }
-    enriched[renderKey] = v;
-  });
+  // exec_payload_zero_policy (A-17b) — awaited (getConfig is a Promise on pg); any read
+  // failure keeps today's behaviour.
+  let zeroPolicy = 'keep_server';
+  try {
+    const c = await require('./reportConfig').getConfig(reportsDb.db);
+    if (c && c.exec_payload_zero_policy) zeroPolicy = c.exec_payload_zero_policy;
+  } catch (e) { console.warn('[reportPayload] config read failed, zero policy keep_server:', e && e.message); }
+  mergeBrowserKpis(enriched, browserPayload.kpis, zeroPolicy);
 
   // Major Incidents MoM — server-owned (the browser can't reliably re-derive the
   // MI definition). _majorIncidents already computes mi_total + mi_prev_total.
@@ -1043,4 +1070,4 @@ async function build(browserPayload) {
   return enriched;
 }
 
-module.exports = { build };
+module.exports = { build, mergeBrowserKpis };

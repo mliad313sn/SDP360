@@ -107,7 +107,8 @@ async function mapHelpdeskKpis(rdb, now, cfg = {}) {
   // the current (partial) month, so the last COMPLETE month is [len-2] and the
   // month before it is [len-3].
   try {
-    const hist = (await rdb.getMonthlyHelpdeskHistory(13)) || [];
+    // A-17b: report_config helpdesk_sla_definition ('flag' default = today; KPI-committee switch).
+    const hist = (await rdb.getMonthlyHelpdeskHistory(13, { slaDefinition: cfg.helpdesk_sla_definition || 'flag' })) || [];
     const cur = hist[hist.length - 2] || {};
     const pv  = hist[hist.length - 3] || {};
     const curClosed = _num(cur['Closed Requests Count']);
