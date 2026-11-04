@@ -12,7 +12,7 @@
   "jobs": 24,
   "jobs_without_test_reference": 10,
   "migrations": 56,
-  "test_files": 499
+  "test_files": 501
  },
  "pages": [
   {
@@ -225,7 +225,8 @@
     "tests/a11y-static.test.js",
     "tests/i18n-coverage.test.js",
     "tests/no-native-dialogs.test.js",
-    "tests/obligations.smoke.test.js"
+    "tests/obligations.smoke.test.js",
+    "tests/simplicity-budget.test.js"
    ]
   },
   {
@@ -255,7 +256,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 0,
-   "bytes": 3703,
+   "bytes": 4296,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/i18n-coverage.test.js",
@@ -663,7 +664,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 23787,
+   "bytes": 24006,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/i18n-coverage.test.js",
@@ -755,7 +756,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 39456,
+   "bytes": 39741,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
