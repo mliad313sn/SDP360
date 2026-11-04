@@ -86,14 +86,15 @@ test('every role guard on the live router is tagged and maps to a catalogued cap
   assert.ok(seen.size >= 20, `capabilities used by guards: ${seen.size}`);
 });
 
-function runGuard(h, user) {
+async function runGuard(h, user) {
   let status = null, nextCalled = false;
   const res = { status(s) { status = s; return this; }, json() { return this; } };
-  h({ reportUser: user, method: 'GET', path: '/', baseUrl: '' }, res, () => { nextCalled = true; });
+  // C-28: a guard may be async (requireDeckBuilder reads report_config ui_deck_builder_roles); await it.
+  await h({ reportUser: user, method: 'GET', path: '/', baseUrl: '' }, res, () => { nextCalled = true; });
   return nextCalled ? true : (status === 403 ? false : `status ${status}`);
 }
 
-test('ZERO ESCALATION: for every role set and every guarded route, can() ≡ the legacy guard', () => {
+test('ZERO ESCALATION: for every role set and every guarded route, can() ≡ the legacy guard', async () => {
   const mism = [];
   let checks = 0;
   for (const r of rows()) {
@@ -103,7 +104,7 @@ test('ZERO ESCALATION: for every role set and every guarded route, can() ≡ the
       const cap = registry.forRoute(r.method, r.path, h.legacyRoles);
       for (const roles of ROLE_SETS) {
         const u = userOf(roles);
-        const legacy = runGuard(h, u);
+        const legacy = await runGuard(h, u);
         const mine = authz.can(u, cap && cap.id).allow;
         checks++;
         if (legacy !== mine) mism.push(`${r.key} ${l.name} roles=[${roles}] legacy=${legacy} can=${mine}`);

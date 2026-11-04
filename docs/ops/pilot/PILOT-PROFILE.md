@@ -22,7 +22,8 @@ planned switch cannot be set before its goal lands.
 | `ui_lang_default` | built | `` (empty) | `fr` | Owner (D-2) | A-09 |
 | `ui_role_landing` | built | `0` | `1` | Owner (UI policy) | A-10 |
 | `ui_nav_profile` | built | `full` | `lean` (proposal — re-decide from the T1–T8 sessions) | Owner (D-6) | A-21 |
-| `ui_deck_builder_roles` | built (menu entry only) | `super_admin` | `super_admin` (widening also needs the page gate) | Owner (D-6) | A-21 |
+| `ui_deck_builder_roles` | built (menu entry, page gate and the page's routes since C-28) | `super_admin` | `super_admin,report-author` (PO delegated decision P12, reversible) | Owner (D-6) | A-21, C-28 |
+| `ui_exec_nav` | built | `full` | `consolidated` (PO delegated decision P1, reversible — re-examine after 30 days of `page_viewed`) | Owner (D-6) | C-28 |
 | `site_score_published_model` | built | `legacy` | `programme` | Owner (D-1) | A-11 |
 | `capacity_enabled` | planned | `0` | `1` | Owner (D-7) | A-13 |
 | `capacity_amber_pct` | planned | `85` | `85` | Owner (D-7) | A-13 |

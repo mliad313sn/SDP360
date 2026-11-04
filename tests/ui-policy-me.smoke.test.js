@@ -35,7 +35,7 @@ test('auth/me returns the user and the default UI policy', async () => {
   assert.equal(r.status, 200);
   const body = await r.json();
   assert.ok(body.user && body.user.username, 'user block kept');
-  assert.deepStrictEqual(body.ui, { lang_default: '', i18n_pages: '0', role_landing: '0', nav_profile: 'full', deck_builder_roles: ['super_admin'] });
+  assert.deepStrictEqual(body.ui, { lang_default: '', i18n_pages: '0', role_landing: '0', nav_profile: 'full', deck_builder_roles: ['super_admin'], exec_nav: 'full' });
 });
 
 test('a saved switch is reflected in the ui block', async () => {

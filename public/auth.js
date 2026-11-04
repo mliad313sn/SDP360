@@ -27,7 +27,7 @@
   // A-09a — UI policy (report_config ui_* keys, served by /api/reports/auth/me as body.ui). Exposed at head-load
   // from the last cached copy, else today's defaults; refreshed below by the background /auth/me call.
   const UI_POLICY_KEY = 'sdp_ui_policy';
-  const UI_POLICY_DEFAULTS = { lang_default: '', i18n_pages: '0', role_landing: '0', nav_profile: 'full', deck_builder_roles: ['super_admin'] };
+  const UI_POLICY_DEFAULTS = { lang_default: '', i18n_pages: '0', role_landing: '0', nav_profile: 'full', deck_builder_roles: ['super_admin'], exec_nav: 'full' };
   window.__uiPolicy = (function () {
     try { const c = JSON.parse(localStorage.getItem(UI_POLICY_KEY)); if (c && typeof c === 'object') return Object.assign({}, UI_POLICY_DEFAULTS, c); } catch (_) {}
     return Object.assign({}, UI_POLICY_DEFAULTS);
@@ -40,7 +40,14 @@
 
   // Get required role from script tag attribute
   const scriptTag   = document.currentScript;
-  const requireRole = scriptTag ? (scriptTag.getAttribute('data-require') || 'any') : 'any';
+  let requireRole = scriptTag ? (scriptTag.getAttribute('data-require') || 'any') : 'any';
+  // C-28 (PO P12) — data-require-policy="deck_builder_roles": the gate becomes super_admin + the roles of
+  // report_config ui_deck_builder_roles (cached UI policy; default ['super_admin'] = today's gate). The routes
+  // the page writes to follow the same key server-side (services/deckBuilderGate.js).
+  if (scriptTag && scriptTag.getAttribute('data-require-policy') === 'deck_builder_roles') {
+    const _dbr = window.__uiPolicy && window.__uiPolicy.deck_builder_roles;
+    if (Array.isArray(_dbr) && _dbr.length) requireRole = ['super_admin'].concat(_dbr.filter((r) => typeof r === 'string' && /^[a-z_-]+$/.test(r))).join('|');
+  }
 
   const user  = getUser();
 

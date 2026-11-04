@@ -141,7 +141,8 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `teams_sla_rules` | `` | setting | to be named | — | — |
 | `tracker_engine_cutover` | `0` | setting | to be named | — | — |
 | `transport` | `smtp` | setting | to be named | — | — |
-| `ui_deck_builder_roles` | `super_admin` | ui policy | Owner (D-6) | `super_admin` (widening also needs the page gate) | A-21 |
+| `ui_deck_builder_roles` | `super_admin` | ui policy | Owner (D-6) | `super_admin,report-author` (PO delegated decision P12, reversible) | A-21, C-28 |
+| `ui_exec_nav` | `full` | ui policy | Owner (D-6) | `consolidated` (PO delegated decision P1, reversible — re-examine after 30 days of `page_viewed`) | C-28 |
 | `ui_i18n_pages` | `0` | ui policy | Owner (D-2) | `1` | A-09 |
 | `ui_lang_default` | `` | ui policy | Owner (D-2) | `fr` | A-09 |
 | `ui_nav_profile` | `full` | ui policy | Owner (D-6) | `lean` (proposal — re-decide from the T1–T8 sessions) | A-21 |

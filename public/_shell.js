@@ -86,6 +86,12 @@
   function navProfile() {
     try { const p = window.__uiPolicy; return p && p.nav_profile === 'lean' ? 'lean' : 'full'; } catch (_) { return 'full'; }
   }
+  // C-28 (PO P1) — report_config ui_exec_nav: 'full' (today) · 'consolidated' = Executive menu shows only
+  // Executive Home + IT Review; an entry marked exec_nav_hidden leaves the MENU but stays in the finder (Ctrl+K)
+  // and in contextual links (Executive Home shows a Scorecard link through body.shell-exec-consolidated).
+  function execNav() {
+    try { const p = window.__uiPolicy; return p && p.exec_nav === 'consolidated' ? 'consolidated' : 'full'; } catch (_) { return 'full'; }
+  }
   function deckBuilderRoles() {
     try { const r = window.__uiPolicy && window.__uiPolicy.deck_builder_roles; if (Array.isArray(r) && r.length) return r; } catch (_) { /* no policy */ }
     return ['super_admin'];
@@ -228,7 +234,7 @@
       children: [
         { id: 'exec-home', label: 'Executive Home',      icon: ICON_LIB.gauge,          href: 'dashboards.html?key=exec-home', roles: ['executive', 'scorecard-viewer'] },
         { id: 'it-review', label: 'IT Review',           icon: ICON_LIB['bar-chart-3'], href: 'it-review.html', roles: ['executive', 'scorecard-viewer'] },
-        { id: 'scorecard', label: 'Executive Scorecard', icon: ICON_LIB['clipboard-list'], href: 'executive.html', roles: ['executive', 'scorecard-viewer'] }
+        { id: 'scorecard', label: 'Executive Scorecard', icon: ICON_LIB['clipboard-list'], href: 'executive.html', roles: ['executive', 'scorecard-viewer'], exec_nav_hidden: true }
       ]
     },
     {
@@ -273,6 +279,7 @@
   // Is it listed in the MENU? Same as mayOpen in the full profile.
   function inMenu(it) {
     if (!mayOpen(it)) return false;
+    if (it.exec_nav_hidden && execNav() === 'consolidated') return false;
     if (navProfile() !== 'lean') return true;
     if (it.lean_hidden) return false;
     return it.lean_roles ? hasAnyRole(it.lean_roles) : true;
@@ -519,6 +526,7 @@
 
     // A-21 — the lean profile moves the "icons only" breakpoint (public/_shell.css) through this body class
     try { if (document.body && document.body.classList) document.body.classList.toggle('shell-nav-lean', navProfile() === 'lean'); } catch (_) { /* no DOM */ }
+    try { if (document.body && document.body.classList) document.body.classList.toggle('shell-exec-consolidated', execNav() === 'consolidated'); } catch (_) { /* no DOM */ }
     const navHtml = NAV.filter(sectionVisible).map(it => renderNavItem(it, ctx)).join('');
 
     const html = `

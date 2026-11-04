@@ -98,7 +98,7 @@ inside the handler (`userHasRole` / `isAdmin`-style helpers) · **Site scope** =
 | `GET /api/commitments/:id/evidence/:eid` | requireReportSession | — | — | — |
 | `GET /api/commitments/escalations` | requireReportSession | — | admin | userSites |
 | `GET /api/commitments/metrics` | requireReportSession | — | admin | userSites |
-| `GET /api/dashboard/groups/discovered` | requireReportSession + requireAdmin(admin) | ops.operate | — | — |
+| `GET /api/dashboard/groups/discovered` | requireReportSession + requireDeckBuilder(admin) | ops.operate | — | — |
 | `GET /api/dashboard/presets` | requireReportSession | — | — | — |
 | `GET /api/dashboards` | requireReportSession | — | admin, dashboard-publisher | scopeSites |
 | `GET /api/dashboards/:key` | requireReportSession | — | admin, dashboard-publisher | — |
@@ -255,7 +255,7 @@ inside the handler (`userHasRole` / `isAdmin`-style helpers) · **Site scope** =
 | `GET /api/reports/config` | requireReportSession + requireSuperAdmin(super_admin) | platform.settings.manage | — | — |
 | `GET /api/reports/current-week` | requireReportSession | — | — | — |
 | `GET /api/reports/departments` | requireReportSession | — | — | — |
-| `GET /api/reports/exec-editorial` | requireReportSession + requireAdmin(admin) | ops.operate | — | — |
+| `GET /api/reports/exec-editorial` | requireReportSession + requireDeckBuilder(admin) | ops.operate | — | — |
 | `GET /api/reports/helpdesk-charts` | requireReportSession | — | — | _userSiteGroups |
 | `GET /api/reports/helpdesk-live` | requireReportSession | — | — | _userSiteGroups |
 | `GET /api/reports/monthly/:site_id/:year/:month` | requireReportSession | — | — | — |
@@ -454,7 +454,7 @@ inside the handler (`userHasRole` / `isAdmin`-style helpers) · **Site scope** =
 | `POST /api/reports/auth/logout` | requireReportSession | — | — | — |
 | `POST /api/reports/departments` | requireReportSession + requireExecutiveOrSuperAdmin(executive) | platform.sites.structure | — | — |
 | `POST /api/reports/ensure` | requireReportSession | — | admin, editor | userSites |
-| `POST /api/reports/exec-pptx` | requireReportSession + requireAdmin(admin) | ops.operate | — | — |
+| `POST /api/reports/exec-pptx` | requireReportSession + requireDeckBuilder(admin) | ops.operate | — | — |
 | `POST /api/reports/monthly/:site_id/:year/:month/edits` | requireReportSession | — | — | _authorizeSiteWrite |
 | `POST /api/reports/objectives/:site_id/:year` | requireReportSession | — | — | _authorizeSiteWrite |
 | `POST /api/reports/recipients/suggest` | requireReportSession + requireSuperAdmin(super_admin) | platform.settings.manage | — | — |
@@ -530,7 +530,7 @@ inside the handler (`userHasRole` / `isAdmin`-style helpers) · **Site scope** =
 | `PUT /api/reports/:id/status` | requireReportSession | — | — | _authorizeReportWrite |
 | `PUT /api/reports/config` | requireReportSession + requireSuperAdmin(super_admin) | platform.settings.manage | — | — |
 | `PUT /api/reports/departments/:id` | requireReportSession + requireExecutiveOrSuperAdmin(executive) | platform.sites.structure | — | — |
-| `PUT /api/reports/exec-editorial` | requireReportSession + requireAdmin(admin) | ops.operate | — | — |
+| `PUT /api/reports/exec-editorial` | requireReportSession + requireDeckBuilder(admin) | ops.operate | — | — |
 | `PUT /api/reports/recipients/:site` | requireReportSession + requireSuperAdmin(super_admin) | platform.settings.manage | — | — |
 | `PUT /api/reports/schedule` | requireReportSession + requireSuperAdmin(super_admin) | platform.settings.manage | — | — |
 | `PUT /api/reports/sites/:id` | requireReportSession + requireSuperAdmin(super_admin) | platform.settings.manage | — | — |
