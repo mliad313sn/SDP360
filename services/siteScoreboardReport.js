@@ -48,7 +48,18 @@ function deltaStr(d) {
   return '±0';
 }
 
-function buildScoreboardDigest(scoreboard, { period, highlightSite } = {}) {
+// A-11 — opts.published = { model:'programme', bySite:{ CODE: publishedVerdict(...) } } (PROPOSED
+// switch site_score_published_model, repo D-03 open). Absent → the legacy digest, byte-identical.
+function publishedCell(code, v) {
+  const ok = v && v.applicable && v.score != null && v.rag;
+  const attrs = `data-published-site="${esc(code)}" data-published-rag="${ok ? esc(v.rag) : 'na'}"`;
+  return ok
+    ? `<td ${attrs} style="text-align:center;font-weight:700;background:${RAG_BG[v.rag]};color:${RAG_FG[v.rag]}">${v.score}</td>`
+    : `<td ${attrs} style="text-align:center;color:#94a3b8;font-style:italic">non applicable</td>`;
+}
+
+function buildScoreboardDigest(scoreboard, { period, highlightSite, published } = {}) {
+  const pub = published && published.model === 'programme' && published.bySite ? published : null;
   const sb = scoreboard || {};
   const rows = sb.rows || [];
   const monthTxt = monthLabel(period);
@@ -69,7 +80,7 @@ function buildScoreboardDigest(scoreboard, { period, highlightSite } = {}) {
     const rowStyle = you ? ' style="background:#eef2ff"' : '';
     return `<tr${rowStyle}>
       <td style="text-align:center;color:#64748b">${rank}</td>
-      ${nameCell}
+      ${nameCell}${pub ? `\n      ${publishedCell(r.code, pub.bySite[r.code])}` : ''}
       ${scoreCell}
       ${dimCell(dimVal('helpdesk'))}
       ${dimCell(dimVal('inspections'))}
@@ -83,7 +94,12 @@ function buildScoreboardDigest(scoreboard, { period, highlightSite } = {}) {
   const improved = sb.most_improved ? esc(sb.most_improved.name) : '—';
   const attention = sb.needs_attention ? esc(sb.needs_attention.name) : '—';
   const yourRow = rows.find((r) => r.code === highlightSite);
-  const yourLine = yourRow
+  const yourPub = pub && yourRow ? pub.bySite[yourRow.code] : null;
+  const yourLine = pub && yourRow
+    ? (yourPub && yourPub.applicable && yourPub.score != null
+      ? `Où se situe votre site : <strong>${esc(yourRow.name)}</strong> — score programme publié <strong>${yourPub.score}</strong> (3 mois glissants). Indicateur opérationnel (non publié, mois courant) : ${yourRow.applicable && yourRow.score != null ? yourRow.score : 'non applicable'}.`
+      : `Où se situe votre site : <strong>${esc(yourRow.name)}</strong> — score programme publié <em>non applicable</em> (aucune donnée sur 3 mois glissants).`)
+    : yourRow
     ? (yourRow.applicable && yourRow.score != null
       ? `Où se situe votre site : <strong>${esc(yourRow.name)}</strong> — score global <strong>${yourRow.score}</strong>${yourRow.rank ? ` (rang ${yourRow.rank})` : ''}.`
       : `Où se situe votre site : <strong>${esc(yourRow.name)}</strong> — <em>non applicable</em> ce mois (données insuffisantes).`)
@@ -100,8 +116,10 @@ function buildScoreboardDigest(scoreboard, { period, highlightSite } = {}) {
     <thead>
       <tr style="background:#1E293B;color:#fff">
         <th style="text-align:center">Rang</th>
-        <th style="text-align:left">Site</th>
-        <th style="text-align:center">Global</th>
+        <th style="text-align:left">Site</th>${pub ? `
+        <th style="text-align:center">Score programme (publié)</th>
+        <th style="text-align:center">Global — Indicateur opérationnel (non publié)</th>` : `
+        <th style="text-align:center">Global</th>`}
         <th style="text-align:center">Helpdesk</th>
         <th style="text-align:center">Inspections</th>
         <th style="text-align:center">Réunions</th>
@@ -126,7 +144,13 @@ ${bodyRows}
     renormalisée sur les seules dimensions mesurées (couverture). Une dimension sans donnée
     affiche «&nbsp;—&nbsp;» et n'est pas comptée ; un site sans aucune donnée est
     <em>non applicable</em>. Vert ≥ 75, ambre ≥ 55, rouge &lt; 55. Fenêtre : mois courant.
-  </p>
+  </p>${pub ? `
+  <p style="color:#64748b;font-size:12px;line-height:1.5">
+    <strong>Score programme (publié).</strong> 6 dimensions (revues, résolution, retards, inspections,
+    constats, signatures) notées 0/1/2 — vert ≥ 70, ambre ≥ 45. Fenêtre : programme : 3 mois glissants.
+    Le score global ci-dessus est l'indicateur opérationnel (non publié), fenêtre : mois courant ;
+    les deux mesures peuvent donner une couleur différente.
+  </p>` : ''}
 </body></html>`;
 
   return { subject, html };

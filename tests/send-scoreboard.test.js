@@ -116,3 +116,43 @@ test('disarmed + preview → composes a dry-run, mails/logs NOTHING', async () =
   assert.strictEqual(captured.sends.length, 0, 'preview never mails');
   assert.strictEqual(captured.records.length, 0, 'preview never logs');
 });
+
+// ── A-11 — the PROPOSED published-verdict switch (repo D-03, still open) ─────
+test('legacy (default) never calls deps.programmeScore and passes no published', async () => {
+  let calls = 0; const seen = [];
+  const { deps } = stubDeps({
+    programmeScore: async () => { calls++; return null; },
+    buildScoreboardDigest: (sb, opts) => { seen.push(opts); return { subject: 's', html: 'h' }; },
+  });
+  await main(deps);
+  assert.strictEqual(calls, 0);
+  assert.ok(seen.length > 0 && seen.every((o) => !('published' in o)));
+});
+
+test('site_score_published_model=programme → programmeScore once per site, digest receives published', async () => {
+  const { computeSiteScore } = require('../services/siteScore');
+  const calls = []; const seen = [];
+  const { deps } = stubDeps({
+    cfg: { scoreboard_send_enabled: '1', site_score_published_model: 'programme' },
+    programmeScore: async (code) => { calls.push(code); return computeSiteScore({ reviews: 9, raised: 2, resolution: 80, overdue: 0, inspections: 3, findings: 0, signoff: 90 }, null); },
+    buildScoreboardDigest: (sb, opts) => { seen.push(opts); return { subject: 's', html: 'h' }; },
+  });
+  await main(deps);
+  assert.deepStrictEqual(calls.sort(), ['MGO', 'SML']);
+  assert.strictEqual(seen.length, 1, 'only the confirmed MGO coordinator is mailed');
+  assert.strictEqual(seen[0].published.model, 'programme');
+  assert.deepStrictEqual(Object.keys(seen[0].published.bySite).sort(), ['MGO', 'SML']);
+  assert.strictEqual(seen[0].published.bySite.MGO.rag, 'green');
+});
+
+test('a failed programme read for one site degrades to non applicable, never 0', async () => {
+  const seen = [];
+  const { deps } = stubDeps({
+    cfg: { scoreboard_send_enabled: '1', site_score_published_model: 'programme' },
+    programmeScore: async () => { throw new Error('boom'); },
+    buildScoreboardDigest: (sb, opts) => { seen.push(opts); return { subject: 's', html: 'h' }; },
+  });
+  await main(deps);
+  assert.strictEqual(seen[0].published.bySite.MGO.score, null);
+  assert.strictEqual(seen[0].published.bySite.MGO.applicable, false);
+});

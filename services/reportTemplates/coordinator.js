@@ -574,6 +574,21 @@ function actionsSection(actions, baseUrl, siteCode) {
   return card('Actions ouvertes — par source', `${kpis}${oldestLine}${cta}${note}`, TEAL);
 }
 
+// A-11 — PROPOSED switch site_score_published_model (repo decision D-03, OPEN). Rendered
+// ONLY when the published verdict is the OPERATIONAL composite; in legacy / programme mode
+// nothing is inserted (the hero above already is the programme score) → goldens untouched.
+function publishedNote(p) {
+  const v = obj(p);
+  const ok = v.applicable && v.score !== null && v.score !== undefined && v.rag;
+  const color = ok ? scoreRagColor(String(v.rag)) : MUTED;
+  const verdict = ok
+    ? `<strong style="color:${color};">${escapeHtml(v.score)}/100 &middot; ${escapeHtml(scoreRagLabel(v.rag))}</strong>`
+    : `<em>non applicable</em>`;
+  const body = `<div style="font-family:${FONT};font-size:13px;color:${INK};line-height:1.5;">Published site verdict: operational scoreboard (4 dimensions, current month) &mdash; ${verdict}.</div>`
+    + `<div style="font-family:${FONT};font-size:11px;color:${MUTED};line-height:1.5;padding-top:6px;">The programme score above (3-month rolling window) is shown for reference and is not the published verdict. The two models can legitimately give a different colour.</div>`;
+  return card('Published site verdict', body, color);
+}
+
 function composeCoordinator(data) {
   const d = obj(data);
   const siteName = d.site_name || d.site_code || 'Site';
@@ -589,6 +604,8 @@ function composeCoordinator(data) {
     header(d),
     intro(d.score),
     scoreHero(d.score),
+    // SPREAD, never '' — see the assetEffort note below (byte-for-byte goldens).
+    ...(d.published && obj(d.published).model === 'operational' ? [publishedNote(d.published)] : []),
     meetingsSection(d.meetings, ctx),
     inspectionSection(d.inspection, ctx),
     helpdeskSection(d.helpdesk, ctx),

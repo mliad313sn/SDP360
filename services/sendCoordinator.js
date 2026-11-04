@@ -77,6 +77,23 @@ function _firstDisallowed(recipients, allowed) {
   return null;
 }
 
+// The site's row of the operational scoreboard for the report month (same loader as send-scoreboard).
+async function _operationalRowFor(site, { year, month }) {
+  const rdb = require('../reports-db');
+  const last = new Date(year, month, 0).getDate();
+  const asOf = `${year}-${String(month).padStart(2, '0')}-${String(last).padStart(2, '0')}`;
+  const sbDeps = {
+    listSiteModuleCodes: rdb.listSiteModuleCodes,
+    getCalendarMonthlyHelpdesk: rdb.getCalendarMonthlyHelpdesk,
+    getMeetingsInsights: (a) => require('../meetings-db').insights(a),
+    getInspectionAggregate: (a) => require('../inspection-db').aggregate(a),
+    getEffortLeaderboard: require('../assets-db').getEffortLeaderboard,
+  };
+  const sd = await require('./scoreboardData').loadScoreboardData({ month: { year, m: month }, asOf, deps: sbDeps });
+  const board = require('./siteScoreboard').buildSiteScoreboard(sd.perSite, { prev: sd.prev });
+  return board.rows.find((r) => r.code === site) || null;
+}
+
 async function sendCoordinatorReport({ db, cfg, site, period, force = false, preview = false, recipients: pick, deps } = {}) {
   const D = { ..._defaults(), ...(deps || {}) };
   const t0 = Date.now();
@@ -106,6 +123,23 @@ async function sendCoordinatorReport({ db, cfg, site, period, force = false, pre
   // actions block. Empty (unconfigured) → the composer omits the link rather than
   // ship a guessed, dead URL (the weekly report's convention).
   data.base_url = String((cfg && cfg.public_base_url) || '').replace(/\/+$/, '');
+  // A-11 — PROPOSED switch site_score_published_model (repo D-03, OPEN). Only 'operational'
+  // adds anything: the site's composite row as the published verdict. Legacy / programme never
+  // look it up. Best-effort: a failed lookup keeps the legacy e-mail.
+  {
+    const PS = require('./publishedSiteScore');
+    let model = 'legacy';
+    try { model = PS.normalizeModel((cfg || await D.reportConfig.getConfig(db)).site_score_published_model); }
+    catch (_) { model = 'legacy'; }
+    if (model === 'operational') {
+      try {
+        const row = await (D.operationalRowFor || _operationalRowFor)(site, { year, month });
+        data.published = PS.publishedVerdict({ model, programme: data.score, operational: row });
+      } catch (e) {
+        console.warn(`[report-send] published verdict unavailable site=${site}: ${e.message}`);
+      }
+    }
+  }
   const { subject, htmlBody, fullHtml } = D.composeCoordinator(data);
 
   // 4 · preview short-circuits BEFORE recipient resolution, PDF and mail.

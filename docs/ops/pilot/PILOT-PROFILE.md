@@ -23,7 +23,7 @@ planned switch cannot be set before its goal lands.
 | `ui_role_landing` | built | `0` | `1` | Owner (UI policy) | A-10 |
 | `ui_nav_profile` | key only — no effect until A-21 | `full` | `lean` | Owner (D-6) | A-21 |
 | `ui_deck_builder_roles` | key only — no effect until A-21 | `super_admin` | `super_admin` (widening also needs the page gate) | Owner (D-6) | A-21 |
-| `site_score_published_model` | planned | `legacy` | `programme` | Owner (D-1) | A-11 |
+| `site_score_published_model` | built | `legacy` | `programme` | Owner (D-1) | A-11 |
 | `capacity_enabled` | planned | `0` | `1` | Owner (D-7) | A-13 |
 | `capacity_amber_pct` | planned | `85` | `85` | Owner (D-7) | A-13 |
 | `capacity_red_pct` | planned | `100` | `100` | Owner (D-7) | A-13 |

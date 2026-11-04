@@ -51,3 +51,52 @@ test('no money / no $ glyph anywhere', () => {
   const { html } = buildScoreboardDigest(SCOREBOARD(), { period: '2026-07', highlightSite: 'MGO' });
   assert.ok(!html.includes('$'), 'digest must not contain a $ glyph');
 });
+
+// A-11 — the PROPOSED published-verdict switch. Without `published` the digest must be
+// byte-identical to the pre-A-11 composer (SHA-256 of subject + '\n' + html captured
+// from the unmodified code before the change).
+const crypto = require('node:crypto');
+const sha = (o) => crypto.createHash('sha256').update(o.subject + '\n' + o.html).digest('hex');
+const { computeSiteScore } = require('../services/siteScore');
+const { publishedVerdict } = require('../services/publishedSiteScore');
+
+test('legacy (no published option) → output identical to the pre-change composer', () => {
+  assert.strictEqual(sha(buildScoreboardDigest(SCOREBOARD(), { period: '2026-07', highlightSite: 'MGO' })),
+    '07b4f99d5aea6b044add19a66b6fe734890e702976f283706f7215749ad0df67');
+  assert.strictEqual(sha(buildScoreboardDigest(SCOREBOARD(), { period: '2026-07', highlightSite: 'ZZZ' })),
+    '8209d776c5fc4e9e0398dda2ff8bf16e93ef72a1546c5cbf073051bc01789de6');
+});
+
+function publishedFor(sb, progBySite) {
+  const bySite = {};
+  for (const r of sb.rows) bySite[r.code] = publishedVerdict({ model: 'programme', programme: progBySite[r.code], operational: r });
+  return { model: 'programme', bySite };
+}
+
+test('published programme → "Score programme (publié)" column + composite labelled non publié, both windows stated', () => {
+  const sb = SCOREBOARD();
+  const W = { from: '2026-04-30', to: '2026-07-31' };
+  const prog = {
+    MGO: computeSiteScore({ reviews: 9, raised: 4, resolution: 75, overdue: 1, inspections: 3, findings: 1, signoff: 80 }, W),
+    SML: computeSiteScore({ reviews: 2, raised: 4, resolution: 10, overdue: 6, inspections: 0, findings: 9, signoff: 10 }, W),
+    ZZZ: computeSiteScore({}, W),
+  };
+  const { html } = buildScoreboardDigest(sb, { period: '2026-07', highlightSite: 'MGO', published: publishedFor(sb, prog) });
+  assert.ok(html.includes('Score programme (publié)'));
+  assert.ok(html.includes('Indicateur opérationnel (non publié)'));
+  assert.ok(/3 mois glissants/.test(html) && /mois courant/.test(html), 'both windows stated');
+  for (const code of ['MGO', 'SML']) {
+    assert.ok(html.includes(`data-published-site="${code}" data-published-rag="${prog[code].rag.toLowerCase()}"`), `${code} published rag`);
+  }
+  assert.ok(new RegExp(`score programme publié <strong>${prog.MGO.score}</strong>`).test(html));
+});
+
+test('published programme with a non-applicable programme score → "non applicable", never 0', () => {
+  const sb = SCOREBOARD();
+  const W = { from: '2026-04-30', to: '2026-07-31' };
+  const prog = { MGO: computeSiteScore({}, W), SML: computeSiteScore({}, W), ZZZ: computeSiteScore({}, W) };
+  const { html } = buildScoreboardDigest(sb, { period: '2026-07', highlightSite: 'MGO', published: publishedFor(sb, prog) });
+  assert.ok(/data-published-site="MGO" data-published-rag="na"[^>]*>non applicable</.test(html));
+  assert.ok(!/data-published-site="MGO"[^>]*>0</.test(html));
+  assert.ok(/score programme publié <em>non applicable<\/em>/.test(html));
+});

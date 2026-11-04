@@ -44,18 +44,28 @@
     'kpi-target':        { scale: 'target-ratio', green: 1.0, amber: 0.9, source: 'services/kpiTargets.js — value vs the per-site KPI target (committee #40)' },
   };
 
-  function aggregate(values, type) {
+  // A-11 — opts.emptyAs is OPT-IN: with no measurement at all, return it instead of 0
+  // (null = "not measured"). Absent, the result stays 0 exactly as before — the generic
+  // tracker scoring (trackerDefinitions.score) relies on that legacy 0.
+  function aggregate(values, type, opts) {
+    const o = opts || {};
+    const hasEmpty = Object.prototype.hasOwnProperty.call(o, 'emptyAs');
     const t = KPI_TYPES[type] || KPI_TYPES.COUNT;
     const nums = (values || []).map(Number).filter((v) => Number.isFinite(v));
-    if (!nums.length) return 0;
+    if (!nums.length) return hasEmpty ? o.emptyAs : 0;
     switch (t.aggregate) {
       case 'max': return Math.max(...nums);
       case 'avg': return nums.reduce((a, b) => a + b, 0) / nums.length;
-      case 'avgNonZero': { const nz = nums.filter((v) => v !== 0); return nz.length ? nz.reduce((a, b) => a + b, 0) / nz.length : 0; }
+      case 'avgNonZero': { const nz = nums.filter((v) => v !== 0); return nz.length ? nz.reduce((a, b) => a + b, 0) / nz.length : (hasEmpty ? o.emptyAs : 0); }
       case 'last': return nums[nums.length - 1];
       case 'sum':
       default: return nums.reduce((a, b) => a + b, 0);
     }
+  }
+
+  // A-11 — true when at least one finite number was entered (a measured 0 counts).
+  function isMeasured(values) {
+    return (values || []).some((v) => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v)));
   }
 
   /**
@@ -102,5 +112,5 @@
     return POLICIES[name];
   }
 
-  return { KPI_TYPES, POLICIES, aggregate, attainment, rag, definePolicy };
+  return { KPI_TYPES, POLICIES, aggregate, isMeasured, attainment, rag, definePolicy };
 }));
