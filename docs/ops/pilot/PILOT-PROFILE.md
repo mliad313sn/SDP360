@@ -49,11 +49,11 @@ planned switch cannot be set before its goal lands.
 | `report_drift_banner` | planned | `0` | `1` | Owner (D-3) | A-24 |
 | `wan_stale_close_at` | planned | `now` | `last_seen` | Network owner | A-25 |
 | `wan_sla_require_contract_evidence` | planned | `0` | `1` once contracts are uploaded | Finance | A-25 |
-| `asset_amount_parser` | planned | `legacy` | `locale` | Finance | A-26 |
-| `asset_site_currency` | planned | `` (empty = every site XOF) | per-site JSON supplied by Finance | Finance | A-26 |
-| `asset_currency_rates` | planned | `` (empty = XOF via `xof_usd_rate`, USD 1) | rates supplied by Finance | Finance | A-26 |
-| `asset_cost_outlier_factor` | planned | `10` | `10` | Finance | A-26 |
-| `asset_cost_outlier_exclude` | planned | `0` | `0` | Finance | A-26 |
+| `asset_amount_parser` | built | `legacy` | `locale` | Finance | A-26 |
+| `asset_site_currency` | built | `` (empty = every site XOF) | per-site JSON supplied by Finance | Finance | A-26 |
+| `asset_currency_rates` | built | `` (empty = XOF via `xof_usd_rate`, USD 1) | rates supplied by Finance | Finance | A-26 |
+| `asset_cost_outlier_factor` | built | `10` | `10` | Finance | A-26 |
+| `asset_cost_outlier_exclude` | built | `0` | `0` | Finance | A-26 |
 | `ppm_alerts_enabled` | planned | `0` | `0` (dry run first) | Committee | A-27 |
 | `ppm_alert_blocked_days` | planned | `5` | `5` | Committee | A-27 |
 | `ppm_alert_slip_days` | planned | `10` | `10` | Committee | A-27 |

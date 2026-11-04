@@ -483,17 +483,50 @@ function _moneyCoverage(rows, opts = {}) {
   };
 }
 
+// A-26 — per-row money context. With the switches at their defaults (empty
+// currency map, legacy parser, outliers kept) every row's factor is 1 and the
+// single rate is applied to the totals exactly as before; nothing is added.
+// With a currency map, each row is converted at ITS site's rate; an unknown
+// currency → the amount is skipped (still counted in asset_count) and
+// excluded.no_currency++; flagged outliers are skipped only when
+// asset_cost_outlier_exclude = '1' (excluded.outlier++).
+const currency = require('./services/currency');
+function _rowFactors(rows, ctx) {
+  const flagged = ctx.excludeOutliers ? ctx.outliers(rows) : null;
+  const excluded = { no_currency: 0, outlier: 0 };
+  const factor = new Map();
+  for (const row of rows) {
+    let f = 1;
+    if (flagged && flagged.has(row)) { f = null; excluded.outlier++; }
+    else if (ctx.active) { f = ctx.rateOf(row.site); if (f == null) excluded.no_currency++; }
+    factor.set(row, f);
+  }
+  return { factor, excluded, report: ctx.active || ctx.excludeOutliers };
+}
+function _withMoneyExtras(out, ctx, rf) {
+  if (!rf.report) return out;
+  if (ctx.active) for (const r of out.by_site) r.currency = ctx.currencyOf(r.site);
+  out.excluded = rf.excluded;
+  return out;
+}
+
 function _aggregateFinance(rows, rate, opts = {}) {
   const r = Number(rate);
   const R = Number.isFinite(r) ? r : 1;
+  const ctx = currency.moneyContext({ ...opts, rate: R });
+  const rf = _rowFactors(rows, ctx);
+  const M = ctx.active ? 1 : R;   // per-row rates already applied when a map is set
   const acc = new Map();   // site -> {purchase,book,tco,opex,count,refresh_due}
   const fleet = { purchase: 0, book: 0, tco: 0, opex: 0, count: 0, refresh_due: 0 };
   const add = (a, row) => {
     a.count++;
-    const p = money.parseAmount(row.purchase_cost); if (p != null) a.purchase += p;
-    const b = money.parseAmount(row.current_book_value); if (b != null) a.book += b;
-    const t = money.parseAmount(row.total_cost_of_ownership); if (t != null) a.tco += t;
-    const o = money.parseAmount(row.operational_cost); if (o != null) a.opex += o;
+    const f = rf.factor.get(row);
+    if (f != null) {
+      const p = ctx.parse(row.purchase_cost); if (p != null) a.purchase += p * f;
+      const b = ctx.parse(row.current_book_value); if (b != null) a.book += b * f;
+      const t = ctx.parse(row.total_cost_of_ownership); if (t != null) a.tco += t * f;
+      const o = ctx.parse(row.operational_cost); if (o != null) a.opex += o * f;
+    }
     const mo = parseInt(row.months_since_acquisition, 10);
     if (Number.isFinite(mo) && mo >= _refreshCycleMonths(row.product_type)) a.refresh_due++;
   };
@@ -506,15 +539,15 @@ function _aggregateFinance(rows, rate, opts = {}) {
   const shape = (a, site) => ({
     site,
     asset_count: a.count,
-    purchase_cost_usd: a.purchase * R,
-    book_value_usd: a.book * R,
-    tco_usd: a.tco * R,
-    operational_cost_usd: a.opex * R,
+    purchase_cost_usd: a.purchase * M,
+    book_value_usd: a.book * M,
+    tco_usd: a.tco * M,
+    operational_cost_usd: a.opex * M,
     pct_depreciated: a.purchase > 0 ? 1 - a.book / a.purchase : null,
     refresh_due: a.refresh_due,
   });
   const by_site = [...acc.keys()].sort().map(site => shape(acc.get(site), site));
-  return { by_site, fleet: shape(fleet, null), ..._moneyCoverage(rows, opts) };
+  return _withMoneyExtras({ by_site, fleet: shape(fleet, null), ..._moneyCoverage(rows, opts) }, ctx, rf);
 }
 
 // opts (optional, A-16): { minSites, minPct } — certification policy only.
@@ -543,9 +576,9 @@ const _DEPREC_SELECT =
 const depreciation = require('./services/depreciation');
 
 // Compute one asset's depreciation result from a resolved-per-type config.
-function _computeAssetBook(row, config, asOf) {
+function _computeAssetBook(row, config, asOf, parse = money.parseAmount) {
   const eff = depreciation.resolveForType(config, row.product_type);
-  const cost = money.parseAmount(row.purchase_cost);
+  const cost = parse(row.purchase_cost);
   const salvage = cost != null ? cost * (eff.salvage_pct || 0) : 0;
   return depreciation.computeDepreciation({
     cost, salvage, method: eff.method, usefulLifeMonths: eff.useful_life_months,
@@ -556,17 +589,23 @@ function _computeAssetBook(row, config, asOf) {
 // SHARED pure aggregator — both backends hand it the same rows → parity by
 // construction. Groups by site: Σ computed currentBookValue (null → 0), Σ SDP
 // current_book_value (cross-check), Σ purchase (for pct), asset_count.
-function _aggregateDepreciation(rows, { config, rate, asOf, minSites, minPct } = {}) {
+function _aggregateDepreciation(rows, opts = {}) {
+  const { config, rate, asOf, minSites, minPct } = opts;
   const r = Number(rate);
   const R = Number.isFinite(r) ? r : 1;
+  const ctx = currency.moneyContext({ ...opts, rate: R });
+  const rf = _rowFactors(rows, ctx);
+  const M = ctx.active ? 1 : R;
   const acc = new Map();   // site -> {computed,sdp,purchase,count}
   const fleet = { computed: 0, sdp: 0, purchase: 0, count: 0 };
   const add = (a, row) => {
     a.count++;
-    const d = _computeAssetBook(row, config, asOf);
-    if (d.currentBookValue != null && Number.isFinite(d.currentBookValue)) a.computed += d.currentBookValue;
-    const b = money.parseAmount(row.current_book_value); if (b != null) a.sdp += b;
-    const p = money.parseAmount(row.purchase_cost); if (p != null) a.purchase += p;
+    const f = rf.factor.get(row);
+    if (f == null) return;
+    const d = _computeAssetBook(row, config, asOf, ctx.parse);
+    if (d.currentBookValue != null && Number.isFinite(d.currentBookValue)) a.computed += d.currentBookValue * f;
+    const b = ctx.parse(row.current_book_value); if (b != null) a.sdp += b * f;
+    const p = ctx.parse(row.purchase_cost); if (p != null) a.purchase += p * f;
   };
   for (const row of rows) {
     const site = row.site == null ? '' : String(row.site);
@@ -577,13 +616,13 @@ function _aggregateDepreciation(rows, { config, rate, asOf, minSites, minPct } =
   const shape = (a, site) => ({
     site,
     asset_count: a.count,
-    computed_book_value_usd: a.computed * R,
-    sdp_book_value_usd: a.sdp * R,
-    purchase_cost_usd: a.purchase * R,
+    computed_book_value_usd: a.computed * M,
+    sdp_book_value_usd: a.sdp * M,
+    purchase_cost_usd: a.purchase * M,
     pct_depreciated: a.purchase > 0 ? 1 - a.computed / a.purchase : null,
   });
   const by_site = [...acc.keys()].sort().map(site => shape(acc.get(site), site));
-  return { by_site, fleet: shape(fleet, null), ..._moneyCoverage(rows, { minSites, minPct }) };
+  return _withMoneyExtras({ by_site, fleet: shape(fleet, null), ..._moneyCoverage(rows, { minSites, minPct }) }, ctx, rf);
 }
 
 function getAssetDepreciation(filters, opts = {}) {
@@ -598,23 +637,31 @@ async function _getAssetDepreciationPg(filters, opts = {}) {
 
 // SHARED — bucket each asset's schedule[].bookValue by calendar year across the
 // whole fleet, sum, ×rate. Returns aligned {years, book_value_usd} (years sorted).
-function _aggregateSchedule(rows, { config, rate, asOf } = {}) {
+function _aggregateSchedule(rows, opts = {}) {
+  const { config, rate, asOf } = opts;
   const r = Number(rate);
   const R = Number.isFinite(r) ? r : 1;
+  const ctx = currency.moneyContext({ ...opts, rate: R });
+  const rf = _rowFactors(rows, ctx);
+  const M = ctx.active ? 1 : R;
   const byYear = new Map();   // year -> Σ bookValue (raw)
   for (const row of rows) {
-    const d = _computeAssetBook(row, config, asOf);
+    const f = rf.factor.get(row);
+    if (f == null) continue;
+    const d = _computeAssetBook(row, config, asOf, ctx.parse);
     for (const s of (d.schedule || [])) {
       if (!Number.isFinite(s.bookValue)) continue;
       // Skip assets whose acquisition_date didn't parse into a real calendar year —
       // undated rows (all zero-cost in the AP data) otherwise emit spurious leading
       // year buckets 1..4 at $0 before the first real year on the fleet chart (review M2).
       if (!Number.isFinite(s.year) || s.year < 1990) continue;
-      byYear.set(s.year, (byYear.get(s.year) || 0) + s.bookValue);
+      byYear.set(s.year, (byYear.get(s.year) || 0) + s.bookValue * f);
     }
   }
   const years = [...byYear.keys()].sort((a, b) => a - b);
-  return { years, book_value_usd: years.map(y => byYear.get(y) * R) };
+  const out = { years, book_value_usd: years.map(y => byYear.get(y) * M) };
+  if (rf.report) out.excluded = rf.excluded;
+  return out;
 }
 
 function getDepreciationSchedule(filters, opts = {}) {
@@ -640,16 +687,17 @@ const _INVEST_HIST_ASSET_SELECT =
 const _INVEST_HIST_LIC_SELECT =
   'SELECT site, acquisition_date, cost FROM software_licenses';
 
-function getInvestmentSummary(filters, { rate, minSites, minPct } = {}) {
-  return _getInvestmentSummaryPg(filters, { rate, minSites, minPct });
+function getInvestmentSummary(filters, opts = {}) {
+  return _getInvestmentSummaryPg(filters, opts);
 }
-async function _getInvestmentSummaryPg(filters, { rate, minSites, minPct } = {}) {
+async function _getInvestmentSummaryPg(filters, opts = {}) {
+  const { rate, ...rest } = opts;
   const h = pgHandle();
   const aw = _assetWhere(filters);
   const lw = _licenceWhere(filters);
   const aRows = await h.prepare(`${_INVEST_HIST_ASSET_SELECT}${aw.where}`).all(...aw.params);
   const lRows = await h.prepare(`${_INVEST_HIST_LIC_SELECT}${lw.where}`).all(...lw.params);
-  return AF.buildInvestmentHistory(aRows, lRows, rate, { minSites, minPct });
+  return AF.buildInvestmentHistory(aRows, lRows, rate, rest);
 }
 
 const _INVEST_FCST_ASSET_SELECT =
@@ -657,19 +705,54 @@ const _INVEST_FCST_ASSET_SELECT =
 const _INVEST_FCST_LIC_SELECT =
   'SELECT site, expiry_date, cost, license_option FROM software_licenses';
 
-function getInvestmentForecast(filters, { config, rate, upliftPct, horizonYears, asOf, minSites, minPct } = {}) {
-  return _getInvestmentForecastPg(filters, { config, rate, upliftPct, horizonYears, asOf, minSites, minPct });
+function getInvestmentForecast(filters, opts = {}) {
+  return _getInvestmentForecastPg(filters, opts);
 }
-async function _getInvestmentForecastPg(filters, { config, rate, upliftPct, horizonYears, asOf, minSites, minPct } = {}) {
+async function _getInvestmentForecastPg(filters, opts = {}) {
+  const { horizonYears, asOf, minSites, minPct } = opts;
   const h = pgHandle();
   const aw = _assetWhere(filters);
   const lw = _licenceWhere(filters);
   const aRows = await h.prepare(`${_INVEST_FCST_ASSET_SELECT}${aw.where}`).all(...aw.params);
   const lRows = await h.prepare(`${_INVEST_FCST_LIC_SELECT}${lw.where}`).all(...lw.params);
   return {
-    hardware: AF.buildHardwareForecast(aRows, { config, rate, upliftPct, horizonYears, asOf, minSites, minPct }),
+    hardware: AF.buildHardwareForecast(aRows, opts),
     software: AF.buildSoftwareForecast(lRows, { horizonYears, asOf, minSites, minPct }),
   };
+}
+
+// ─── Cost-outlier worklist (A-26) ──────────────────────────────────────────
+// JS-only (no SQL CAST): an asset whose parsed purchase_cost is > factor × the
+// median (cost > 0) of its product_type + currency. Identity rows, USD only — the
+// raw XOF column never leaves this reader. Money-gated at the route.
+const _OUTLIER_SELECT =
+  'SELECT a.asset_id, a.asset_name, a.site, a.product_type, a.purchase_cost FROM assets a WHERE 1=1';
+function _costOutliers(rows, opts = {}) {
+  const ctx = currency.moneyContext(opts);
+  const flagged = ctx.outliers(rows);
+  const out = [];
+  for (const [row, f] of flagged) {
+    const r = ctx.rateOf(row.site);
+    const v = ctx.parse(row.purchase_cost);
+    out.push({
+      asset_id: row.asset_id, asset_name: row.asset_name, site: row.site, product_type: row.product_type,
+      currency: f.currency,
+      cost_usd: r == null ? null : v * r,
+      median_cost_usd: r == null ? null : f.median * r,
+      ratio: Math.round(f.ratio * 10) / 10,
+    });
+  }
+  out.sort((a, b) => b.ratio - a.ratio || String(a.asset_id).localeCompare(String(b.asset_id)));
+  return { factor: ctx.factor, count: out.length, rows: out };
+}
+function getCostOutliers(filters, opts = {}) {
+  return _getCostOutliersPg(filters, opts);
+}
+async function _getCostOutliersPg(filters, opts = {}) {
+  const h = pgHandle();
+  const { where, params } = _assetWhere(filters);
+  const rows = await h.prepare(`${_OUTLIER_SELECT}${where} ORDER BY a.site, a.asset_name`).all(...params);
+  return _costOutliers(rows, opts);
 }
 
 // ─── Licence-compliance readers (Task 3) ───────────────────────────────────
@@ -1518,6 +1601,7 @@ module.exports = {
   getFinanceSummary,
   getAssetDepreciation, getDepreciationSchedule,
   getInvestmentSummary, getInvestmentForecast,
+  getCostOutliers,
   classifyLicenceType, getLicenceSummary, getLicenceExceptions, LICENCE_KINDS,
   classifySoftwareCompliance, getSoftwareComplianceSummary, getSoftwareComplianceExceptions, SOFTWARE_KINDS,
   snapshotEffort,

@@ -118,3 +118,17 @@ test('A-16 getAssetDepreciation returns coverage_by_site and certification', asy
   const t = (await adb.getAssetDepreciation({}, { ...OPTS, minSites: 1, minPct: 90 }));
   assert.strictEqual(t.certification.reason, 'low_coverage');
 });
+
+// ── A-26 — per-site currency (default off) ──────────────────────────────────
+test('A-26 empty currency map → identical results; map set → unknown site skipped + counted', async () => {
+  const a = (await adb.getAssetDepreciation({}, OPTS));
+  assert.deepStrictEqual((await adb.getAssetDepreciation({}, { ...OPTS, currencyMap: '' })), a);
+  const s = (await adb.getAssetDepreciation({}, { ...OPTS, currencyMap: '{"MANA":"XOF"}', rates: { XOF: RATE, USD: 1 } }));
+  const bySite = Object.fromEntries(s.by_site.map(r => [r.site, r]));
+  assert.strictEqual(bySite.HGO.currency, null);
+  assert.strictEqual(bySite.HGO.purchase_cost_usd, 0);
+  assert.strictEqual(s.excluded.no_currency, 2);
+  near(bySite.MANA.computed_book_value_usd, MANA_COMPUTED * RATE, 1, 'MANA unchanged');
+  const sch0 = (await adb.getDepreciationSchedule({}, OPTS));
+  assert.deepStrictEqual((await adb.getDepreciationSchedule({}, { ...OPTS, currencyMap: '' })), sch0);
+});

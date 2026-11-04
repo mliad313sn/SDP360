@@ -124,3 +124,25 @@ test('A-16 getFinanceSummary returns coverage_by_site for every site; money fiel
   assert.strictEqual(t.certification.certified, true);
   assert.deepStrictEqual(t.by_site, s.by_site);
 });
+
+// ── A-26 — per-site currency (default off) ──────────────────────────────────
+test('A-26 empty currency map → totals identical to today, no extra keys', async () => {
+  const a = (await adb.getFinanceSummary({}, RATE));
+  const b = (await adb.getFinanceSummary({}, RATE, { currencyMap: '', mode: 'legacy' }));
+  assert.deepStrictEqual(b, a);
+  assert.ok(!('excluded' in a));
+  assert.ok(!('currency' in a.by_site[0]));
+});
+
+test('A-26 map set → by_site currency, unknown-currency amounts skipped but assets counted', async () => {
+  const s = (await adb.getFinanceSummary({}, RATE, { currencyMap: '{"MANA":"XOF"}', rates: { XOF: RATE, USD: 1 } }));
+  const bySite = Object.fromEntries(s.by_site.map(r => [r.site, r]));
+  assert.strictEqual(bySite.MANA.currency, 'XOF');
+  assert.strictEqual(bySite.HGO.currency, null);
+  assert.strictEqual(bySite.HGO.asset_count, 2);
+  assert.strictEqual(bySite.HGO.purchase_cost_usd, 0);
+  assert.strictEqual(bySite.HGO.pct_depreciated, null);
+  near(bySite.MANA.purchase_cost_usd, 3000000 * RATE, 0.01, 'MANA converted');
+  assert.strictEqual(s.excluded.no_currency, 2);
+  near(s.fleet.purchase_cost_usd, 3000000 * RATE, 0.01, 'fleet excludes HGO');
+});
