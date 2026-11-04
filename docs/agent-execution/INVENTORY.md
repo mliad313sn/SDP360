@@ -6,23 +6,24 @@
 
 | Item | Count |
 |---|---:|
-| pages | 54 |
+| pages | 55 |
 | pages without test reference | 0 |
 | pages without declared role | 6 |
-| pages not in navigation | 26 |
+| pages not in navigation | 27 |
 | pages with inline scripts | 46 |
-| routes | 550 |
+| routes | 561 |
 | routes without test reference | 82 |
 | routes in server js | 231 |
-| jobs | 26 |
+| jobs | 27 |
 | jobs without test reference | 10 |
-| migrations | 62 |
-| test files | 543 |
+| migrations | 64 |
+| test files | 548 |
 
 ## Pages
 
 | Id | Page | Role required | In nav | Inline scripts | Tests |
 |---|---|---|---|---:|---:|
+| PG-access | public/access.html | any | no | 0 | 3 |
 | PG-activity-tracker | public/activity-tracker.html | any | yes | 0 | 6 |
 | PG-analytics | public/analytics.html | admin / scorecard-viewer | yes | 1 | 4 |
 | PG-assets-finance | public/assets-finance.html | UNKNOWN | no | 1 | 2 |
@@ -59,7 +60,7 @@
 | PG-meetings-setup | public/meetings-setup.html | any | no | 1 | 2 |
 | PG-meetings-unsigned | public/meetings-unsigned.html | any | no | 2 | 2 |
 | PG-meetings | public/meetings.html | any | yes | 2 | 3 |
-| PG-no-access | public/no-access.html | any | no | 0 | 1 |
+| PG-no-access | public/no-access.html | any | no | 0 | 2 |
 | PG-notifications | public/notifications.html | any | yes | 1 | 2 |
 | PG-obligations | public/obligations.html | any | yes | 0 | 1 |
 | PG-policies | public/policies.html | admin / committee-member | yes | 1 | 3 |
@@ -120,10 +121,10 @@
 | RT-GET-api-reports-current-week | GET | `/api/reports/current-week` | server.js:5913 |
 | RT-POST-api-reports-exec-pptx | POST | `/api/reports/exec-pptx` | server.js:7486 |
 | RT-GET-api-reports-helpdesk-live | GET | `/api/reports/helpdesk-live` | server.js:6222 |
-| RT-GET-api-reports-sessions-active | GET | `/api/reports/sessions/active` | routes/adminUsers.js:124 |
+| RT-GET-api-reports-sessions-active | GET | `/api/reports/sessions/active` | routes/adminUsers.js:149 |
 | RT-GET-api-reports-technicians | GET | `/api/reports/technicians` | server.js:6473 |
 | RT-POST-api-reports-test-smtp | POST | `/api/reports/test-smtp` | routes/adminConfig.js:157 |
-| RT-PUT-api-reports-users-emails | PUT | `/api/reports/users/emails` | routes/adminUsers.js:71 |
+| RT-PUT-api-reports-users-emails | PUT | `/api/reports/users/emails` | routes/adminUsers.js:95 |
 | RT-GET-api-risk-register-config-sites | GET | `/api/risk-register-config/sites` | routes/riskRegister.js:78 |
 | RT-GET-api-risk-register-config-unmapped | GET | `/api/risk-register-config/unmapped` | routes/riskRegister.js:129 |
 | RT-GET-api-roadmap-evidence-catalogue | GET | `/api/roadmap/evidence/catalogue` | routes/roadmap.js:56 |
@@ -169,6 +170,7 @@
 
 | Id | Job | Tests |
 |---|---|---:|
+| JB-access-grant-expiry | access.grant_expiry | 2 |
 | JB-assets-sync | assets.sync | 4 |
 | JB-audit-chain-verify | audit.chain_verify | 2 |
 | JB-audit-retention | audit.retention | 1 |
