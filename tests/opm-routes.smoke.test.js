@@ -85,6 +85,9 @@ test('availability?site=MGO fills the 4 families — present has value, absent i
   assert.equal(fams.lan.target, 99);          // renamed from target_value
   assert.equal(fams.lan.trend, 'up');
   assert.equal(fams.lan.stale, false);         // collected today
+  // A-18a — data_as_of = the date the data is from (max collected_at); as_of stays today.
+  assert.equal(r.body.as_of, new Date().toISOString().slice(0, 10));
+  assert.equal(r.body.data_as_of, new Date().toISOString().slice(0, 10) + 'T05:10:00Z');
 
   for (const k of ['wifi', 'wan', 'servers']) {
     assert.strictEqual(fams[k].metric_value, null, `${k} absent → null (never 0)`);
@@ -98,6 +101,7 @@ test('unknown site → 200 empty, not 500', async () => {
   const r = await get('/api/analytics/opmanager/availability?site=ZZZNOPE&period=week', adminToken);
   assert.equal(r.status, 200);
   assert.equal(r.body.site_id, null);
+  assert.strictEqual(r.body.data_as_of, null, 'no rows → data_as_of null');
   assert.deepEqual(r.body.families, []);
 });
 
@@ -172,6 +176,9 @@ test('wan summary + trend read wan_link_snapshots (V1b-D)', async () => {
   assert.equal(w1Pend.availability_pct, 99.86, 'primary availability = snapshot % Time Up');
   assert.equal(w1Pend.basis, 'timeup');
   assert.equal(w1Pend.loss_pct_avg, 0.08, 'loss/latency quality also served from the snapshot');
+  // A-18a — data_as_of = max collected_at of the wan rows; as_of unchanged (today).
+  assert.equal(pending.body.as_of, today);
+  assert.equal(pending.body.data_as_of, today + 'T05:20:00Z');
 
   // (B) Poller active (heartbeat) + a 24h outage 2–3 days ago (inside the LIVE 7-day window,
   // always in the past regardless of run time) → event-based availability ~85.71%; wan2 100%.

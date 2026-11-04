@@ -47,6 +47,8 @@ test('GET /api/analytics/infra/summary → 200 with sites/fleet/coverage shape (
   assert.ok(body.coverage && typeof body.coverage === 'object' && 'available' in body.coverage, 'coverage carries available');
   assert.equal(body.period, 'week');
   assert.equal(typeof body.as_of, 'string');
+  assert.ok('data_as_of' in body, 'A-18a: data_as_of present next to as_of');
+  assert.ok(body.data_as_of === null || typeof body.data_as_of === 'string');
 });
 
 test('each returned site (if any) carries the 4 families + overall_rag', async () => {

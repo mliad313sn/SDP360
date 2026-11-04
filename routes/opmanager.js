@@ -7,6 +7,47 @@ const { fail, logError } = require('../services/httpError');
 // AWAITED — all return Promises on postgres (prod). Absence is rendered as
 // {metric_value:null, status_color:'none'}, NEVER 0. Staleness is derived from
 // data_through vs opm_stale_days; opm_targets drives status_color, not staleness.
+const FAMILIES = ['lan', 'wifi', 'wan', 'servers'];
+
+function _safeParse(s, d) { try { return JSON.parse(s); } catch { return d; } }
+function _numOrNull(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
+function _isStale(ref, staleDays, nowMs) {
+  if (!ref) return false;
+  const t = Date.parse(String(ref).slice(0, 10));
+  if (Number.isNaN(t)) return false;
+  return Math.floor((nowMs - t) / 86400000) > staleDays;
+}
+
+// Fill the 4 families from the snapshot rows: present → mapped row; absent → null/none.
+function fillFamilies(snaps, targets, staleDays, nowMs) {
+  const byFam = {};
+  for (const r of (snaps || [])) if (r.metric_name === 'availability') byFam[r.kpi_family] = r;
+  return FAMILIES.map(fam => {
+    const r = byFam[fam];
+    if (!r) return {
+      kpi_family: fam, metric_value: null, target: _numOrNull(targets[fam]),
+      status_color: 'none', trend: null, stale: false, source: 'analytics_opmanager',
+    };
+    const ref = r.data_through || r.collected_at;
+    return {
+      kpi_family: fam,
+      metric_value: r.metric_value,
+      target: r.target_value != null ? r.target_value : _numOrNull(targets[fam]),
+      status_color: r.status_color || 'none',
+      trend: r.trend || null,
+      stale: _isStale(ref, staleDays, nowMs),
+      source: r.source || 'analytics_opmanager',
+      period_start: r.period_start, period_end: r.period_end,
+      data_through: r.data_through || null,
+      collected_at: r.collected_at || null,
+      device_count: r.device_count, included_device_count: r.included_device_count,
+      basis: r.basis || null,   // 'monitoring_gap' when the site's probe was down that period
+    };
+  });
+}
+
+const { dataAsOf: _dataAsOf } = require('../services/opmanagerAvailability');
+
 module.exports = function opmanagerRoutes(deps) {
   const { express, requireReportSession, requireAdmin } = deps;
   const requireSuperAdmin = deps.requireSuperAdmin || requireAdmin;   // fallback if not injected
@@ -16,8 +57,6 @@ module.exports = function opmanagerRoutes(deps) {
   const { classifyKpiFamily } = require('../services/opmClassify');
   const { computeCircuitSla, resolutionBreaches } = require('../services/wanSla');
   const { parseSlaWanConfig, resolveCircuit } = require('../services/slaWanConfig');
-
-  const FAMILIES = ['lan', 'wifi', 'wan', 'servers'];
 
   // month=YYYY-MM → UTC [monthStart, monthEnd) ms. Garbage/absent → current UTC month.
   function _monthBounds(raw) {
@@ -33,15 +72,6 @@ module.exports = function opmanagerRoutes(deps) {
   }
   function _csvCell(v) { return '"' + require('../public/lib/csvSafe').neutralize(v).replace(/"/g, '""') + '"'; }
 
-  function _safeParse(s, d) { try { return JSON.parse(s); } catch { return d; } }
-  function _numOrNull(v) { const n = Number(v); return Number.isFinite(n) ? n : null; }
-  function _isStale(ref, staleDays, nowMs) {
-    if (!ref) return false;
-    const t = Date.parse(String(ref).slice(0, 10));
-    if (Number.isNaN(t)) return false;
-    return Math.floor((nowMs - t) / 86400000) > staleDays;
-  }
-
   // Tolerant: probe name (opmanager, the complete namespace) → meetings code
   // (HGO/MGO/… convenience) → site name. Works for sites with no meetings code
   // (Tanda/Abidjan are addressed by their probe name). Returns {site_id, name} or null.
@@ -55,34 +85,6 @@ module.exports = function opmanagerRoutes(deps) {
     const lc = code.trim().toLowerCase();
     const s = sites.find(x => String(x.name || '').trim().toLowerCase() === lc);
     return s ? { site_id: s.id, name: s.name } : null;
-  }
-
-  // Fill the 4 families from the snapshot rows: present → mapped row; absent → null/none.
-  function fillFamilies(snaps, targets, staleDays, nowMs) {
-    const byFam = {};
-    for (const r of (snaps || [])) if (r.metric_name === 'availability') byFam[r.kpi_family] = r;
-    return FAMILIES.map(fam => {
-      const r = byFam[fam];
-      if (!r) return {
-        kpi_family: fam, metric_value: null, target: _numOrNull(targets[fam]),
-        status_color: 'none', trend: null, stale: false, source: 'analytics_opmanager',
-      };
-      const ref = r.data_through || r.collected_at;
-      return {
-        kpi_family: fam,
-        metric_value: r.metric_value,
-        target: r.target_value != null ? r.target_value : _numOrNull(targets[fam]),
-        status_color: r.status_color || 'none',
-        trend: r.trend || null,
-        stale: _isStale(ref, staleDays, nowMs),
-        source: r.source || 'analytics_opmanager',
-        period_start: r.period_start, period_end: r.period_end,
-        data_through: r.data_through || null,
-        collected_at: r.collected_at || null,
-        device_count: r.device_count, included_device_count: r.included_device_count,
-        basis: r.basis || null,   // 'monitoring_gap' when the site's probe was down that period
-      };
-    });
   }
 
   router.get('/api/analytics/opmanager/availability', requireReportSession, async (req, res) => {
@@ -105,14 +107,14 @@ module.exports = function opmanagerRoutes(deps) {
           site_id: Number(sid), site_name: nameById[sid] || null,
           families: fillFamilies(bySite[sid], targets, staleDays, nowMs),
         }));
-        return res.json({ period, as_of: asOf, sites });
+        return res.json({ period, as_of: asOf, data_as_of: _dataAsOf(snaps), sites });
       }
 
       const site = await resolveSiteParam(code);
-      if (!site) return res.json({ site: code, site_id: null, period, as_of: asOf, families: [] });
+      if (!site) return res.json({ site: code, site_id: null, period, as_of: asOf, data_as_of: null, families: [] });
       const snaps = await rdb.getInfraSnapshots({ site_id: site.site_id, period_type: period });
       return res.json({
-        site: code, site_id: site.site_id, site_name: site.name, period, as_of: asOf,
+        site: code, site_id: site.site_id, site_name: site.name, period, as_of: asOf, data_as_of: _dataAsOf(snaps),
         families: fillFamilies(snaps, targets, staleDays, nowMs),
       });
     } catch (e) { fail(res, e); }
@@ -187,7 +189,7 @@ module.exports = function opmanagerRoutes(deps) {
       const wanTarget = Number(_safeParse(cfg.opm_targets, {}).wan) || 98;
       const coverage = await _coverage(cfg);
       const matrix = buildInfraMatrix({ opmSites, wanSites, wanTarget, asOf });
-      res.json({ period, as_of: asOf, sites: matrix.sites, fleet: matrix.fleet, coverage });
+      res.json({ period, as_of: asOf, data_as_of: _dataAsOf(snaps, wanRows), sites: matrix.sites, fleet: matrix.fleet, coverage });
     } catch (e) { res.json({ sites: [], reason: 'internal_error', correlation_id: logError(e, req) }); }
   });
 
@@ -317,7 +319,7 @@ module.exports = function opmanagerRoutes(deps) {
         }
       } catch (_) {}
 
-      res.json({ period, as_of: new Date().toISOString().slice(0, 10), poll_active: pollActive, window: win, sites });
+      res.json({ period, as_of: new Date().toISOString().slice(0, 10), data_as_of: _dataAsOf(rows), poll_active: pollActive, window: win, sites });
     } catch (e) { res.json({ sites: [], reason: 'internal_error', correlation_id: logError(e, req) }); }
   });
 
@@ -567,3 +569,5 @@ module.exports = function opmanagerRoutes(deps) {
 
   return router;
 };
+module.exports._fillFamilies = fillFamilies;   // pure — exported for tests
+module.exports._dataAsOf = _dataAsOf;

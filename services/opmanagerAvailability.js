@@ -13,7 +13,12 @@ function _round2(x) { return x == null || Number.isNaN(x) ? null : Math.round(x 
 // families we emit here (WAN is Meraki; 'excluded' is dropped)
 const _EMIT = new Set(['lan', 'wifi', 'servers']);
 
-function aggregateDeviceAvail(devices, { classify, deviceToSite, targets = {}, period, collected_at }) {
+// data_through (optional, A-18a): the date the readings are TRUE through. The REST collector
+// passes the collection date — availdata is "now"-ish, and the current month's period_end is a
+// future date that would keep a month row from ever going stale. Absent → period.period_end
+// (unchanged behaviour for any other caller).
+function aggregateDeviceAvail(devices, { classify, deviceToSite, targets = {}, period, collected_at, data_through }) {
+  const through = data_through || period.period_end;
   // group availUp values per (site_id | family)
   const groups = new Map();   // key → { site_id, family, vals:[], total:0 }
   for (const d of (devices || [])) {
@@ -37,7 +42,7 @@ function aggregateDeviceAvail(devices, { classify, deviceToSite, targets = {}, p
       kpi_family: g.family, metric_name: 'availability',
       metric_value, target_value: (targets[g.family] != null ? targets[g.family] : null),
       status_color: statusColor(metric_value, targets[g.family]),
-      trend: null, source: 'opmanager_rest', data_through: period.period_end,
+      trend: null, source: 'opmanager_rest', data_through: through,
       device_count: g.total, included_device_count: g.vals.length,
       collected_at, basis: 'recent', raw_json: null,
     });
@@ -45,4 +50,16 @@ function aggregateDeviceAvail(devices, { classify, deviceToSite, targets = {}, p
   return rows;
 }
 
-module.exports = { aggregateDeviceAvail, _EMIT };
+// data_as_of (A-18a): the latest collected_at among the snapshot rows a response is built from —
+// the date the DATA is from, next to as_of (today, kept unchanged for existing clients). null
+// when no row was used (never today's date for data that does not exist).
+function dataAsOf(...rowSets) {
+  let max = null;
+  for (const rows of rowSets) for (const r of (rows || [])) {
+    const c = r && r.collected_at ? String(r.collected_at) : null;
+    if (c && (max == null || c > max)) max = c;
+  }
+  return max;
+}
+
+module.exports = { aggregateDeviceAvail, dataAsOf, _EMIT };
