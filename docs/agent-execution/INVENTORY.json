@@ -12,7 +12,7 @@
   "jobs": 24,
   "jobs_without_test_reference": 10,
   "migrations": 52,
-  "test_files": 486
+  "test_files": 489
  },
  "pages": [
   {
@@ -206,7 +206,8 @@
     "tests/api-key-injection.smoke.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
-    "tests/landing.test.js"
+    "tests/landing.test.js",
+    "tests/monthly-helpdesk-history.test.js"
    ]
   },
   {
