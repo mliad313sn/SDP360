@@ -1219,8 +1219,32 @@ const EFFORT_SITE_ALIASES = {
 const _foldLabel = (s) => String(s == null ? '' : s)
   .normalize('NFD').replace(/[̀-ͯ]/g, '')
   .trim().replace(/\s+/g, ' ').toLowerCase();
-function _canonicalSite(label) {
-  return EFFORT_SITE_ALIASES[_foldLabel(label)] || String(label == null ? '' : label);
+function _canonicalSite(label, byFold) {
+  const f = _foldLabel(label);
+  if (EFFORT_SITE_ALIASES[f]) return EFFORT_SITE_ALIASES[f];
+  // C-30 (P7): a label the alias table does not know still folds by case/accent/space, so
+  // 'HOUNDE' and 'Hounde' are ONE row (counts summed below). byFold gives the displayed
+  // spelling of that fold group (most frequent, ties alphabetical) — see _spellingByFold.
+  if (byFold && byFold.has(f)) return byFold.get(f);
+  return String(label == null ? '' : label);
+}
+// fold key -> the spelling to display: the most frequent raw label among rows that the alias
+// table does not rename (ties → alphabetical, so the result never depends on row order).
+function _spellingByFold(rows) {
+  const counts = new Map();
+  for (const r of rows || []) {
+    const raw = String(r.site == null ? '' : r.site);
+    const f = _foldLabel(raw);
+    if (EFFORT_SITE_ALIASES[f]) continue;
+    if (!counts.has(f)) counts.set(f, new Map());
+    const m = counts.get(f); m.set(raw, (m.get(raw) || 0) + 1);
+  }
+  const out = new Map();
+  for (const [f, m] of counts) {
+    const best = [...m.entries()].sort((x, y) => (y[1] - x[1]) || (x[0] < y[0] ? -1 : x[0] > y[0] ? 1 : 0))[0];
+    out.set(f, best[0]);
+  }
+  return out;
 }
 
 // The six good-state rates, straight from the counts — the SAME arithmetic as
@@ -1255,8 +1279,9 @@ function _buildLeaderboard(histRows, asOf, opts = {}) {
   // merged by counts; a row without counts (older history, injected fixtures) keeps its
   // stored score so nothing regresses to null.
   const bySite = new Map();
+  const byFold = _spellingByFold(histRows);
   for (const r of histRows) {
-    const site = _canonicalSite(r.site);
+    const site = _canonicalSite(r.site, byFold);
     if (!bySite.has(site)) bySite.set(site, new Map());
     const byDate = bySite.get(site);
     const total = Number(r.total);

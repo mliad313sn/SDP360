@@ -159,6 +159,7 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
 .grp-btn-save:hover{background:#D5541A}
 </style>
 <script src="auth.js" data-require="any"></script>
+<script src="lib/siteAliases.js"></script>
 <script src="lib/dashboard-shared.js"></script>
 <script src="lib/trustLabel.js"></script>
 <!-- EDV brand tokens MUST load before _shell.css so the shell CSS variables resolve -->
@@ -707,7 +708,6 @@ function pStats(pKey){
   // The raw slaV / frV counters are kept for backwards compatibility
   // (consumers that show "X violations" by count, not %).
   let ttaS=0,ttaN=0,ahS=0,ahN=0,rdS=0,rdN=0,cdS=0,cdN=0;
-  let slaVClosed=0;                // overdue AND closed (numerator for SLA %, ITSM)
   let respondedN=0, frVResponded=0; // responded counter + FR-overdue AND responded
   rows.forEach(r=>{
     const _isClosed = isClosed(r);
@@ -715,7 +715,6 @@ function pStats(pKey){
     if(parseInt(r['OnHold Count']||0)>0)onhold++;
     const _resOver = isResOverdue(r);
     if(_resOver)slaV++;
-    if(_resOver && _isClosed) slaVClosed++;
     const frFlag=(r['First Response Overdue Status']||'').toLowerCase();
     const _frV = (frFlag==='true'||frFlag==='1'||frFlag==='yes');
     if(_frV)frV++;
@@ -745,7 +744,8 @@ function pStats(pKey){
     // ITSM-aligned percentages (verdict-only denominators).
     // Tiles now match executive.html / executive-report.html after the
     // 2026-06-02 alignment sprint.
-    slaPct: closed     > 0 ? Math.round((1 - slaVClosed   / closed)     * 1000) / 10 : null,
+    // C-30 (P8): the tile, the ranking and the trend read ONE helper with ONE definition.
+    slaPct: resolutionSla(rows,{definition:HD_SLA_DEFINITION}).ok_pct,
     frPct:  respondedN > 0 ? Math.round((1 - frVResponded / respondedN) * 1000) / 10 : null,
     avgTta:ttaN>0?Math.round(ttaS/ttaN):null,      // integer display, Math.round avg
     avgAh: ahN>0?Math.floor(ahS/ahN):null,          // integer display, Math.floor avg (AP: 19 not 20)
@@ -1265,9 +1265,10 @@ let _slaRankState=null;
 function renderSlaRanking(){
   const dimSel=document.getElementById('slaRankDim');
   const dim=dimSel&&dimSel.value==='group'?'group':'site';
-  const keyFn=dim==='group'?helpdeskGroupKey:helpdeskSiteKey;
+  // C-30 (P7): sites fold spelling variants (HOUNDE / Hounde Mine → one row), counts summed.
+  const keyFn=dim==='group'?helpdeskGroupKey:helpdeskSiteFoldKey;
   const rows=getPRows(REF_P);
-  const R=slaRanking(rows,keyFn,{minN:MIN_SLA_RANK_N});
+  const R=slaRanking(rows,keyFn,{minN:MIN_SLA_RANK_N,labelFn:dim==='group'?helpdeskGroupKey:helpdeskSiteKey,definition:HD_SLA_DEFINITION});
   _slaRankState={rows,R,keyFn,dim};
   const dimLbl=dim==='group'?'Group':'Site';
   setH('slaRankKeyHdr',dimLbl);
@@ -1276,14 +1277,14 @@ function renderSlaRanking(){
   const zoho=_zohoSlaPct(REF_P);
   setH('slaRankNote','All '+(dim==='group'?'groups':'sites')+': <strong>'+(tot.pct!==null?tot.pct+'%':'—')+'</strong> over '+tot.closed+' closed tickets ('+tot.violated+' missed SLA) — same rows as the Resolution SLA % tile'+
     (zoho!==null?' (the monthly tile shows the Zoho summary figure, '+zoho+'%)':'')+
-    '. Ranked only with ≥ '+R.min_n+' closed tickets; smaller samples are listed as “low sample”. Click a row for its tickets.');
+    '.'+(dim==='site'?' Spellings of one site (e.g. HOUNDE / Hounde Mine) are counted as one row.':'')+' Ranked only with ≥ '+R.min_n+' closed tickets; smaller samples are listed as “low sample”. Click a row for its tickets.');
   const body=document.getElementById('slaRankBody');
   if(!body)return;
   if(!tot.closed){body.innerHTML='<tr><td colspan="5" class="empty-state">No closed tickets for the selected period and filters</td></tr>';return;}
   const pctColor=p=>p===null?'':p<80?'color:#DC2626;font-weight:700':p<90?'color:#D97706;font-weight:600':'color:#16A34A;font-weight:600';
-  const line=(e,i,low)=>'<tr class="sla-rank-row" tabindex="0" role="button" data-k="'+i+'" data-low="'+(low?1:0)+'" style="cursor:pointer'+(low?';opacity:.75':'')+'" title="Open the closed tickets of '+escapeHTML(e.key)+'">'+
+  const line=(e,i,low)=>'<tr class="sla-rank-row" tabindex="0" role="button" data-k="'+i+'" data-low="'+(low?1:0)+'" style="cursor:pointer'+(low?';opacity:.75':'')+'" title="Open the closed tickets of '+escapeHTML(e.label||e.key)+((e.variants||[]).length>1?' (spellings: '+escapeHTML(e.variants.join(', '))+')':'')+'">'+
     '<td>'+(low?'<span style="font-size:10px;color:var(--slate3)">low sample</span>':e.rank)+'</td>'+
-    '<td>'+escapeHTML(e.key)+'</td>'+
+    '<td>'+escapeHTML(e.label||e.key)+((e.variants||[]).length>1?' <span style="font-size:10px;color:var(--slate3)">+'+(e.variants.length-1)+' spelling'+(e.variants.length>2?'s':'')+'</span>':'')+'</td>'+
     '<td style="text-align:right">'+e.closed+'</td>'+
     '<td style="text-align:right">'+e.violated+'</td>'+
     '<td style="text-align:right;'+(low?'':pctColor(e.pct))+'">'+(e.pct!==null?e.pct+'%':'—')+'</td></tr>';
@@ -1298,15 +1299,16 @@ function openSlaRankDrill(low,idx){
   if(!_slaRankState)return;
   const e=(low?_slaRankState.R.low_sample:_slaRankState.R.ranked)[idx];if(!e)return;
   // The ranking's denominator: closed tickets of that site/group, missed-SLA first.
+  const _ov=r=>resOverdueByDefinition(r,HD_SLA_DEFINITION);
   const drillRows=rowsForKeys(_slaRankState.rows,_slaRankState.keyFn,[e.key]).filter(isClosed)
-    .sort((a,b)=>(isResOverdue(b)?1:0)-(isResOverdue(a)?1:0)||(parseInt(b['Days Since Created'])||0)-(parseInt(a['Days Since Created'])||0));
+    .sort((a,b)=>(_ov(b)?1:0)-(_ov(a)?1:0)||(parseInt(b['Days Since Created'])||0)-(parseInt(a['Days Since Created'])||0));
   const modeLbl={weekly:'Week',monthly:'Month',quarterly:'Quarter',yearly:'Year'}[VIEW_MODE];
   const dimLbl=_slaRankState.dim==='group'?'Group':'Site';
   _openTicketDrillModal({
-    title:'⏱ Closed tickets — '+dimLbl+' '+e.key,
+    title:'⏱ Closed tickets — '+dimLbl+' '+(e.label||e.key),
     subtitle:modeLbl+' · resolution SLA '+(e.pct!==null?e.pct+'%':'—')+(low?' · low sample':''),
     rows:drillRows,
-    contextTag:'SLA_'+dimLbl+'_'+e.key.replace(/[^a-zA-Z0-9]/g,'_'),
+    contextTag:'SLA_'+dimLbl+'_'+String(e.label||e.key).replace(/[^a-zA-Z0-9]/g,'_'),
     emptyMsg:'No closed tickets for this '+dimLbl.toLowerCase(),
     contextLine:'<strong style="color:#1C3A5E">'+drillRows.length+'</strong> closed ticket'+(drillRows.length!==1?'s':'')+' · <strong>'+e.violated+'</strong> missed the resolution SLA (listed first)'
   });
@@ -1322,7 +1324,7 @@ function renderTrend(){
     inb.push(rows.length);
     cl.push(rows.filter(isClosed).length);
     // Doctrine denominators (closed / responded); null = nothing to judge, the line breaks (A-17a).
-    const rt=periodSlaRates(rows);
+    const rt=periodSlaRates(rows,{definition:HD_SLA_DEFINITION});   // C-30: same definition as the tile
     sv.push(rt.res_violated_pct);
     fv.push(rt.fr_violated_pct);
   });

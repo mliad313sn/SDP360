@@ -194,24 +194,61 @@ function isResOverdue(r) {
 }
 
 /**
+ * C-30 (PO decision P8) — ONE resolution-SLA definition for the Helpdesk page's three
+ * figures: the "Resolution SLA %" tile (index.html pStats), the per-site/group ranking
+ * (slaRanking) and the trend chart (periodSlaRates). They all call resolutionSla().
+ *
+ *   denominator = closed tickets (isClosed) — a CANCELLED closed ticket stays in it and
+ *                 is never "missed" (the tile's rule since 2026-06-02; the trend used to
+ *                 drop cancelled tickets, so its latest point disagreed with the tile);
+ *   violated    = closed AND missed, the "missed" rule being the definition:
+ *     'due_vs_resolved' — isResOverdue (Resolved/Completed vs Due By, flag fallback)
+ *                         = what the page has always used, so it stays the page default;
+ *     'flag'            — the stored Overdue Status flag only (cancelled never missed),
+ *                         i.e. the server's default rule (services/slaDefinition.js).
+ * The vocabulary is report_config helpdesk_sla_definition's; which value the page should
+ * follow is the KPI committee's call (P8) — HD_SLA_DEFINITION keeps today's behaviour.
+ */
+var HD_SLA_DEFINITIONS = ['flag', 'due_vs_resolved'];
+var HD_SLA_DEFINITION = 'due_vs_resolved';
+function _slaDef(d) { return HD_SLA_DEFINITIONS.indexOf(d) >= 0 ? d : HD_SLA_DEFINITION; }
+function resOverdueByDefinition(r, definition) {
+  if (_slaDef(definition) === 'due_vs_resolved') return isResOverdue(r);
+  var st = String((r && r['Request Status']) || '').toLowerCase().trim();
+  if (st === 'cancelled' || st === 'canceled') return false;
+  var ov = String((r && r['Overdue Status']) || '').toLowerCase().trim();
+  return ov === '1' || ov === 'yes' || ov === 'true';
+}
+function resolutionSla(rows, opts) {
+  var def = _slaDef(opts && opts.definition);
+  var closed = 0, violated = 0;
+  (Array.isArray(rows) ? rows : []).forEach(function (r) {
+    if (!isClosed(r)) return;
+    closed++;
+    if (resOverdueByDefinition(r, def)) violated++;
+  });
+  return {
+    definition: def, closed: closed, violated: violated,
+    ok_pct: closed > 0 ? Math.round((1 - violated / closed) * 1000) / 10 : null,
+    violated_pct: closed > 0 ? Math.round(violated / closed * 1000) / 10 : null,
+  };
+}
+
+/**
  * periodSlaRates — SLA violation rates for one period, on the ITSM
  * denominator doctrine (CLAUDE.md "KPI denominator doctrine"):
- *   res_violated_pct = closed non-cancelled tickets that missed the
- *                      resolution SLA (isResOverdue) ÷ closed non-cancelled
+ *   res_violated_pct = resolutionSla(rows).violated_pct — the SAME denominator and
+ *                      definition as the Resolution SLA % tile (C-30)
  *   fr_violated_pct  = responded tickets flagged late on first response
  *                      ÷ responded tickets (non-empty 'Responded Time')
  * A rate with no denominator is null (nothing to judge), never 0 — so a
  * chart line breaks instead of plotting a fake 0 % (A-17a).
  */
-function periodSlaRates(rows) {
+function periodSlaRates(rows, opts) {
   const list = Array.isArray(rows) ? rows : [];
-  let closed = 0, resViol = 0, responded = 0, frViol = 0;
+  const res = resolutionSla(list, opts);
+  let responded = 0, frViol = 0;
   for (const r of list) {
-    const st = String(r['Request Status'] || '').toLowerCase().trim();
-    if (isClosed(r) && st !== 'cancelled' && st !== 'canceled') {
-      closed++;
-      if (isResOverdue(r)) resViol++;
-    }
     const rt = r['Responded Time'];
     if (rt != null && String(rt).trim() !== '') {
       responded++;
@@ -221,8 +258,9 @@ function periodSlaRates(rows) {
   }
   const pct = (n, d) => d > 0 ? Math.round(n / d * 1000) / 10 : null;
   return {
-    inbound: list.length, closed, responded,
-    res_violated_pct: pct(resViol, closed),
+    inbound: list.length, closed: res.closed, responded,
+    res_violated: res.violated,
+    res_violated_pct: res.violated_pct,
     fr_violated_pct:  pct(frViol, responded),
   };
 }
@@ -289,27 +327,38 @@ var MIN_SLA_RANK_N = 10;
 
 /**
  * slaRanking — resolution SLA % per key on the SAME rule as the Helpdesk
- * "Resolution SLA %" tile (index.html pStats): denominator = closed tickets
- * (isClosed), numerator = closed AND not isResOverdue. pct = null when nothing closed.
- * ranked = keys with closed ≥ minN, worst (lowest %) first, ties by larger n then key;
- * low_sample = the rest (with their n, no rank). Σ closed over both lists === total.closed.
+ * "Resolution SLA %" tile: resolutionSla() per key (opts.definition, C-30).
+ * pct = null when nothing closed. ranked = keys with closed ≥ minN, worst (lowest %)
+ * first, ties by larger n then key; low_sample = the rest (with their n, no rank).
+ * Σ closed over both lists === total.closed.
+ * C-30 (P7): when keyFn folds spelling variants (helpdeskSiteFoldKey), the counts of the
+ * variants are SUMMED and the % recomputed (never an average of percentages); each row
+ * carries `label` (the most frequent raw spelling, ties → alphabetical) and `variants`
+ * (every raw spelling folded into it) — opts.labelFn gives the raw spelling.
  */
 function slaRanking(rows, keyFn, opts) {
   var list = Array.isArray(rows) ? rows : [];
   var minN = (opts && Number.isFinite(opts.minN) && opts.minN >= 1) ? Math.floor(opts.minN) : MIN_SLA_RANK_N;
   var kf = typeof keyFn === 'function' ? keyFn : _dimKey('Site');
-  var m = new Map();
-  var tc = 0, tv = 0;
+  var lf = (opts && typeof opts.labelFn === 'function') ? opts.labelFn : kf;
+  var def = opts && opts.definition;
+  var groups = new Map();
   list.forEach(function (r) {
-    if (!isClosed(r)) return;
     var k = kf(r);
-    var e = m.get(k) || { key: k, closed: 0, violated: 0 };
-    e.closed++; tc++;
-    if (isResOverdue(r)) { e.violated++; tv++; }
-    m.set(k, e);
+    var g = groups.get(k) || { rows: [], spell: new Map() };
+    g.rows.push(r);
+    var raw = lf(r); g.spell.set(raw, (g.spell.get(raw) || 0) + 1);
+    groups.set(k, g);
   });
-  var pct = function (v, c) { return c > 0 ? Math.round((1 - v / c) * 1000) / 10 : null; };
-  var all = Array.from(m.values()).map(function (e) { e.pct = pct(e.violated, e.closed); return e; });
+  var all = [];
+  groups.forEach(function (g, k) {
+    var s = resolutionSla(g.rows, { definition: def });
+    if (!s.closed) return;
+    var spells = Array.from(g.spell.entries()).sort(function (a, b) { return b[1] - a[1] || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0); });
+    all.push({ key: k, label: spells[0][0], variants: spells.map(function (e) { return e[0]; }).sort(),
+      closed: s.closed, violated: s.violated, pct: s.ok_pct });
+  });
+  var tot = resolutionSla(list, { definition: def });
   var byKey = function (a, b) { return a.key < b.key ? -1 : a.key > b.key ? 1 : 0; };
   var ranked = all.filter(function (e) { return e.closed >= minN; })
     .sort(function (a, b) { return a.pct - b.pct || b.closed - a.closed || byKey(a, b); });
@@ -317,7 +366,7 @@ function slaRanking(rows, keyFn, opts) {
   var low = all.filter(function (e) { return e.closed < minN; })
     .sort(function (a, b) { return b.closed - a.closed || byKey(a, b); });
   low.forEach(function (e) { e.rank = null; e.low_sample = true; });
-  return { min_n: minN, total: { closed: tc, violated: tv, pct: pct(tv, tc) }, ranked: ranked, low_sample: low };
+  return { min_n: minN, definition: tot.definition, total: { closed: tot.closed, violated: tot.violated, pct: tot.ok_pct }, ranked: ranked, low_sample: low };
 }
 
 /** Drill helper: the rows whose key (keyFn) is one of `keys`. */
@@ -327,6 +376,21 @@ function rowsForKeys(rows, keyFn, keys) {
 }
 var helpdeskSiteKey = _dimKey('Site');
 var helpdeskGroupKey = _dimKey('Group');
+/**
+ * C-30 (P7) — site key with spelling variants folded through the shared site-alias
+ * table (public/lib/siteAliases.js, the same table as services/scoreboardAliases.js):
+ * 'HOUNDE', 'Hounde Mine', 'Houndé' → 'HGO'; 'Dakar'/'Dakar Office' → 'DKR';
+ * 'LONDON'/'London' → 'london'. Empty / '-No Value-' stays '(Not set)'. Without the
+ * alias module loaded it still folds case/accents/spaces.
+ */
+function helpdeskSiteFoldKey(r) {
+  var raw = helpdeskSiteKey(r);
+  if (raw === HD_NO_KEY) return raw;
+  var SA = (typeof SiteAliases !== 'undefined' && SiteAliases) ? SiteAliases
+    : (typeof window !== 'undefined' && window.SiteAliases) ? window.SiteAliases : null;
+  if (SA && typeof SA.siteFoldKey === 'function') return SA.siteFoldKey(raw);
+  return raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+}
 
 /**
  * xRows — extract rows array from any Analytics Plus / dashboard API
@@ -577,6 +641,10 @@ if (typeof window !== 'undefined') {
   window.helpdeskCategoryKey = helpdeskCategoryKey; // C-11 Pareto key (empty -> '(No category)')
   window.helpdeskSiteKey     = helpdeskSiteKey;
   window.helpdeskGroupKey    = helpdeskGroupKey;
+  window.helpdeskSiteFoldKey = helpdeskSiteFoldKey; // C-30 site key with spelling variants folded (siteAliases.js)
+  window.resolutionSla       = resolutionSla;       // C-30 one definition for tile / ranking / trend
+  window.resOverdueByDefinition = resOverdueByDefinition;
+  window.HD_SLA_DEFINITION   = HD_SLA_DEFINITION;   // today's page rule ('due_vs_resolved' vocabulary)
   window.paretoRows          = paretoRows;     // C-11 counts desc + cumulative %, explicit 'Other (k)'
   window.slaRanking          = slaRanking;     // C-11 resolution SLA % per site/group, tile rule, low-sample unranked
   window.rowsForKeys         = rowsForKeys;

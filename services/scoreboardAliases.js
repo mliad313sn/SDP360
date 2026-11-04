@@ -3,27 +3,12 @@
 // Map free-form AP asset-site labels (asset_effort_history.site) to the
 // canonical meetings-namespace site codes the scoreboard iterates by.
 // Massawa + Sabodala both belong to SGO — folded by a simple mean.
-const ALIAS = {
-  hounde: 'HGO',
-  mana: 'MGO',
-  sabodala: 'SGO',
-  massawa: 'SGO',
-  lafigue: 'SML',
-  ity: 'SMI',
-  kalana: 'KGO',
-  ouagadougou: 'OUA',
-  ouaga: 'OUA',
-  abidjan: 'ABJ',
-  dakar: 'DKR',
-};
+// C-30: the table + fold live in public/lib/siteAliases.js (UMD) so the Helpdesk page folds the
+// SAME variants; this module re-exports them — still exactly one alias table.
+const { ALIAS, fold: _foldShared } = require('../public/lib/siteAliases');
 
 // Accent-fold + lowercase + trim so 'Houndé', 'HOUNDE', ' hounde ' all match.
-const fold = s =>
-  String(s == null ? '' : s)
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .trim();
+const fold = s => _foldShared(s);
 
 // Step 3 — the site registry (site_module_codes module='assets', joined to the meetings code)
 // is consulted FIRST; the in-code ALIAS map is the fallback until every site has its row and
