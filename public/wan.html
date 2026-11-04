@@ -11,6 +11,8 @@
 <link rel="stylesheet" href="_shell.css">
 <script src="vendor/chart.js/4.4.1/chart.umd.js" defer></script>
 <script src="lib/chartTheme.js" defer></script>
+<script src="lib/charts.js" defer></script>
+<script src="lib/wanTimeline.js" defer></script>
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
@@ -72,6 +74,26 @@
   .sl-prov { background:#fff7ed; border:1px solid #f0c9a0; color:#7a3d12; }
   .sl-panel { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:16px; margin-bottom:22px; }
   .sl-panel h2 { margin:0 0 12px; font-size:16px; color:var(--edv-slate,#3A4A60); }
+  /* C-13 — freshness strip, coverage, outage timeline */
+  .wt-fresh { display:flex; flex-wrap:wrap; gap:6px 14px; font-size:12px; color:#5b6878; margin:6px 0 12px; }
+  .wt-fresh b { color:#3A4A60; }
+  .wt-fresh .wt-never { color:#9a5b00; font-weight:700; }
+  .wt-cov { display:flex; flex-wrap:wrap; gap:18px; font-size:13px; }
+  .wt-cov .wt-n { font-size:20px; font-weight:800; color:#3A4A60; }
+  .wt-grid { display:grid; grid-template-columns:minmax(140px,220px) 1fr; gap:4px 10px; align-items:center; font-size:12px; }
+  .wt-lbl { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; color:#3A4A60; }
+  .wt-track { position:relative; height:16px; background:#f2f4f7; border-radius:3px; }
+  .wt-bar { position:absolute; top:2px; bottom:2px; min-width:2px; border-radius:2px; }
+  .wt-isp { background:#D90038; } .wt-site { background:#7C3AED; } .wt-maintenance { background:#8a97a8; } .wt-unknown { background:#d97706; }
+  .wt-pending { background-image:repeating-linear-gradient(45deg, rgba(255,255,255,.55) 0 3px, transparent 3px 6px); }
+  .wt-open { outline:2px solid #1F2A33; outline-offset:0; }
+  .wt-axis { display:flex; justify-content:space-between; font-size:11px; color:#8a97a8; }
+  .wt-legend { display:flex; flex-wrap:wrap; gap:12px; font-size:12px; margin-top:8px; color:#5b6878; }
+  .wt-legend span.k { display:inline-block; width:12px; height:10px; border-radius:2px; vertical-align:middle; margin-right:4px; }
+  details.edv-chart-table { margin-top:10px; font-size:12px; }
+  details.edv-chart-table table { border-collapse:collapse; margin-top:6px; }
+  details.edv-chart-table th, details.edv-chart-table td { padding:3px 8px; border-bottom:1px solid #eef1f5; text-align:left; }
+  details.edv-chart-table td.num { text-align:right; font-variant-numeric:tabular-nums; }
   table.sl-tbl { width:100%; border-collapse:collapse; font-size:13px; }
   table.sl-tbl th { text-align:left; font-size:11px; text-transform:uppercase; letter-spacing:.03em; color:#6b7785; border-bottom:2px solid #eef1f5; padding:8px 10px; white-space:nowrap; }
   table.sl-tbl td { padding:8px 10px; border-bottom:1px solid #f2f4f7; vertical-align:middle; }
@@ -122,6 +144,7 @@
 
     <div id="wh-calib-banner" role="status" style="display:none;margin-bottom:12px;padding:10px 14px;border-radius:8px;border:1px solid #F0D5AE;background:#FFF6EA;color:#7A4A12;font-size:13px"></div>
     <div id="wh-basis" class="wh-note" style="margin-bottom:12px"></div>
+    <div id="wh-fresh" class="wt-fresh" role="status" aria-label="Data freshness"></div>
 
     <div id="wh-grid" class="wh-grid"></div>
 
@@ -150,6 +173,25 @@
         <input type="month" id="sl-month">
         <button class="sl-btn" id="sl-export">⬇ Export CSV</button>
       </div>
+    </div>
+
+    <div id="sl-fresh" class="wt-fresh" role="status" aria-label="Data freshness"></div>
+
+    <div id="sl-coverage-panel" class="sl-panel" style="display:none">
+      <h2>Mapping coverage</h2>
+      <div class="wt-cov" id="sl-coverage"></div>
+      <p class="sl-note">Sites mapped = sites with a Meraki network (Admin → Infra WAN). Uplinks mapped = uplinks seen in the WAN archive or the outage log that resolve to an SLA circuit (Admin → SLA WAN).</p>
+    </div>
+
+    <div id="sl-timeline-panel" class="sl-panel" style="display:none">
+      <h2>Outage timeline — <span id="sl-tl-month"></span></h2>
+      <div id="sl-timeline" role="img" aria-describedby="sl-timeline-table"></div>
+      <div class="wt-legend" aria-hidden="true">
+        <span><span class="k wt-isp"></span>ISP</span><span><span class="k wt-site"></span>Site (both links / power)</span>
+        <span><span class="k wt-maintenance"></span>Maintenance</span><span><span class="k wt-unknown"></span>Not attributed</span>
+        <span><span class="k wt-unknown wt-pending"></span>Pending review</span><span><span class="k wt-isp wt-open"></span>Still open</span>
+      </div>
+      <details class="edv-chart-table" id="sl-timeline-table"></details>
     </div>
 
     <div id="sl-empty" class="sl-empty" style="display:none">
@@ -252,6 +294,13 @@
     $('wh-empty').style.display = sites.length ? 'none' : 'block';
     $('wh-basis').innerHTML = '<b>Dispo</b> (le gros chiffre) = % du temps où le lien <b>répondait</b> (une connexion passait). <b>Qualité</b> = indice <b>R (0-100)</b> du <b>modèle E de l’ITU-T (G.107)</b> sur perte / latence / gigue, converti en <b>MOS</b> (score voix standard 1 à 5 : Excellent ≥4.3 · Bon ≥4.0 · Correct ≥3.6 · Médiocre ≥3.1 · Mauvais). Un lien peut être <b>Dispo</b> mais de <b>Qualité/MOS</b> basse (il répond mais la voix passe mal). La <b>Dispo</b> est <b>calibrée sur le « % Time Up » de Meraki</b> (non exposé par l’API) : un échantillon dont la perte dépasse ' + thrTxt + ' compte comme <i>down</i>. Chaque lien porte son <b>ISP</b> une fois le circuit mappé (Admin → SLA WAN).';
     $('wh-basis').innerHTML += ` <span style="display:inline-block;margin-top:4px;color:#6b7a99">🗓 Période : <b>${period === 'month' ? 'mois' : (period === 'day' ? 'jour' : 'semaine')} archivé(e)</b> — dernière collecte Meraki${asOfTxt ? ' : <b>' + asOfTxt + ' UTC</b>' : ' : <b>aucune</b>'}.</span>`;
+    // C-13 — per-source freshness (null = never ran, never invented).
+    if (window.WanTimeline) {
+      $('wh-fresh').innerHTML = window.WanTimeline.freshness([
+        { key: 'snap', label: 'Meraki loss/latency snapshot collected', at: data.data_as_of },
+        { key: 'poll', label: 'Outage poller last run', at: data.poll_last_run },
+      ]).map(f => '<span>' + f.label + ' : ' + (f.at ? '<b>' + f.text + '</b>' : '<span class="wt-never">' + f.text + '</span>') + '</span>').join('');
+    }
     // Le gros chiffre = "Disponible" (le lien répondait, loss<100). "· Qualité" = disponibilité
     // pondérée qualité (perte/latence/gigue). L'ancien "· up" (event) est retiré (source de confusion).
     const dispoTitle = 'Disponible = pourcentage du temps où le lien RÉPONDAIT : un échantillon perte/latence Meraki compte comme down dès que sa perte dépasse le seuil réglé en Admin (' + thr + ' %). ' + (data.timeup_calibrated === false ? 'Règle NON calibrée : la calibration du 04/09/2026 sur le « % Time Up » de Meraki donne 5 %.' : 'Règle calibrée le 04/09/2026 sur le « % Time Up » de Meraki (non exposé par l’API) — écart ≈ 1 pt sur semaine/mois.') + ' Mesure OPS sur la semaine/mois archivé.';
@@ -406,6 +455,9 @@
     catch { data = { month: month, circuits: [], unmapped: [] }; }
     const circuits = data.circuits || [], unmapped = data.unmapped || [];
     $('sl-month-lbl').textContent = data.month || month;
+    renderFreshness(data.freshness);
+    renderCoverage(data.coverage);
+    loadTimeline();
 
     // Provisoire badge when the selected month is the in-progress current month
     $('sl-prov').style.display = (month === currentMonth()) ? 'inline-block' : 'none';
@@ -455,6 +507,52 @@
     $('sl-outages-body').style.display = 'none';
     $('sl-outages-caret').textContent = '▶';
     $('sl-outages').innerHTML = '';
+  }
+
+  // ── C-13 (G21) — freshness strip, mapping coverage, outage timeline (read-only) ──
+  function renderFreshness(fr) {
+    const el = $('sl-fresh'); if (!el) return;
+    if (!fr || !window.WanTimeline) { el.textContent = ''; return; }
+    el.innerHTML = window.WanTimeline.freshness([
+      { key: 'poll', label: 'Outage poller last run', at: fr.poll_last_run },
+      { key: 'first', label: 'Monitoring started', at: fr.poll_first_run },
+      { key: 'outage', label: 'Latest outage evidence this month', at: fr.latest_outage_at },
+      { key: 'snap', label: 'Meraki snapshot collected', at: fr.snapshot_collected_at },
+    ]).map(f => '<span>' + esc(f.label) + ' : ' + (f.at ? '<b>' + esc(f.text) + '</b>' : '<span class="wt-never">' + esc(f.text) + '</span>') + '</span>').join('');
+  }
+  function renderCoverage(c) {
+    const p = $('sl-coverage-panel'); if (!p) return;
+    if (!c) { p.style.display = 'none'; return; }
+    p.style.display = '';
+    const um = (c.uplinks_unmapped || []).slice(0, 12).map(u => esc((u.site_name || ('#' + u.site_id)) + (u.sub_site ? ' / ' + u.sub_site : '') + ' · ' + u.uplink)).join(', ');
+    $('sl-coverage').innerHTML =
+      '<div><span class="wt-n">' + c.sites_mapped + ' / ' + c.sites_total + '</span><br>sites mapped to a Meraki network' +
+        (c.sites_unmapped && c.sites_unmapped.length ? '<br><span class="sl-muted">Not mapped: ' + c.sites_unmapped.map(esc).join(', ') + '</span>' : '') + '</div>' +
+      '<div><span class="wt-n">' + c.uplinks_mapped + ' / ' + c.uplinks_total + '</span><br>uplinks mapped to an SLA circuit' +
+        (um ? '<br><span class="sl-muted">Not mapped: ' + um + ((c.uplinks_unmapped || []).length > 12 ? ' …' : '') + '</span>' : '') + '</div>';
+  }
+  async function loadTimeline() {
+    const panel = $('sl-timeline-panel'); if (!panel || !window.WanTimeline) return;
+    const r = monthRange(month);
+    let data; try { data = await api('/api/analytics/wan/sla/outages?from=' + r.from + '&to=' + r.to); } catch { data = { outages: [] }; }
+    const fromMs = Date.parse(r.from + 'T00:00:00Z'), toMs = Date.parse(r.to + 'T00:00:00Z') + 86400000;
+    const tl = window.WanTimeline.build(data.outages || [], { fromMs, toMs, nowMs: Date.now() });
+    $('sl-tl-month').textContent = month;
+    panel.style.display = '';
+    const track = $('sl-timeline');
+    if (!tl.rows.length) { track.innerHTML = '<p class="sl-muted">No outage recorded this month.</p>'; }
+    else {
+      const days = Math.round((toMs - fromMs) / 86400000);
+      track.innerHTML = '<div class="wt-grid">' + tl.rows.map(row =>
+        '<div class="wt-lbl" title="' + esc(row.label) + '">' + esc(row.label) + '</div><div class="wt-track">' +
+        row.bars.map(b => '<span class="wt-bar wt-' + b.attribution + (b.pending ? ' wt-pending' : '') + (b.open ? ' wt-open' : '') +
+          '" style="left:' + b.left + '%;width:' + b.width + '%" title="' + esc(fmtTs(b.start) + ' → ' + (b.open ? 'still open' : fmtTs(b.end)) +
+          ' · ' + fmtDur(b.duration_s) + ' · ' + b.attribution + (b.pending ? ' · pending review' : '')) + '"></span>').join('') +
+        '</div>').join('') + '<div></div><div class="wt-axis"><span>1</span><span>' + Math.ceil(days / 2) + '</span><span>' + days + '</span></div></div>';
+    }
+    const spec = window.WanTimeline.tableSpec(tl);
+    const tbl = $('sl-timeline-table');
+    if (window.ChartTable) { track.setAttribute('aria-label', window.ChartTable.summary(spec)); tbl.innerHTML = window.ChartTable.html(spec); }
   }
 
   function monthRange(m) {

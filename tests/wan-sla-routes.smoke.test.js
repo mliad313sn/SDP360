@@ -204,3 +204,27 @@ test('A-25: GET /sla/summary includes pending_review {count, detected_minutes} p
   assert.equal(c.counted_downtime_s, 0, 'the unknown outage is still excluded from the credit');
   for (const x of r.body.circuits) assert.ok(x.pending_review && typeof x.pending_review.count === 'number');
 });
+
+// ── C-13 (G21) — per-source freshness + mapping coverage on /sla/summary; poll heartbeat on /wan/summary ──
+test('C-13: /sla/summary carries freshness (null = never, not invented) and coverage (sites/uplinks mapped vs unmapped)', async () => {
+  const r = await get('/api/analytics/wan/sla/summary?month=2026-08', adminToken);
+  assert.equal(r.status, 200);
+  const f = r.body.freshness;
+  assert.ok(f && typeof f === 'object', 'freshness block');
+  assert.ok('poll_last_run' in f && 'snapshot_collected_at' in f && 'latest_outage_at' in f && 'poll_first_run' in f);
+  assert.strictEqual(f.poll_last_run, null, 'poller never ran in this test DB → null, never a fabricated date');
+  assert.strictEqual(f.snapshot_collected_at, null, 'no snapshot → null');
+  assert.ok(f.latest_outage_at && f.latest_outage_at >= '2026-08-15', 'latest outage evidence in the month');
+  const c = r.body.coverage;
+  assert.ok(c && Number.isInteger(c.sites_total) && Number.isInteger(c.sites_mapped), 'site coverage counts');
+  assert.ok(c.sites_mapped <= c.sites_total);
+  assert.ok(Number.isInteger(c.uplinks_total) && c.uplinks_mapped <= c.uplinks_total);
+  assert.ok(c.uplinks_unmapped.some(u => u.site_id === mgoSiteId && u.uplink === 'wan1'), 'MGO wan1 is seen but has no SLA circuit');
+});
+
+test('C-13: /wan/summary exposes the poller heartbeat (null when it never ran)', async () => {
+  const r = await get('/api/analytics/wan/summary?period=week', adminToken);
+  assert.equal(r.status, 200);
+  assert.ok('poll_last_run' in r.body, 'poll_last_run present');
+  assert.strictEqual(r.body.poll_last_run, null);
+});

@@ -243,12 +243,14 @@ module.exports = function opmanagerRoutes(deps) {
       // run (heartbeat wan_poll_last_run); otherwise availability is '—' (never a fabricated %).
       // loss/latency/jitter stay from the snapshot (they are quality, and accurate).
       let pollActive = false;
+      let pollLastRun = null;   // C-13 — the poller heartbeat, null when it never ran (never invented)
       let win = null;
       let timeup = _timeupCalibration(null);
       try {
         const cfg = await require('../services/reportConfig').getConfig(rdb.db);
         timeup = _timeupCalibration(cfg && cfg.wan_timeup_loss_pct);
         pollActive = !!(cfg && cfg.wan_poll_last_run);
+        pollLastRun = (cfg && cfg.wan_poll_last_run) || null;
         let target = 98; try { const t = JSON.parse(cfg && cfg.opm_targets || '{}'); if (t && t.wan != null) target = Number(t.wan); } catch (_) {}
         if (pollActive && sites.length) {
           // Availability window MIRRORS Meraki's Summary Report presets (Day/Week/Month = rolling
@@ -322,7 +324,7 @@ module.exports = function opmanagerRoutes(deps) {
         }
       } catch (_) {}
 
-      res.json({ period, as_of: new Date().toISOString().slice(0, 10), data_as_of: _dataAsOf(rows), poll_active: pollActive, window: win,
+      res.json({ period, as_of: new Date().toISOString().slice(0, 10), data_as_of: _dataAsOf(rows), poll_active: pollActive, poll_last_run: pollLastRun, window: win,
         timeup_loss_pct: timeup.timeup_loss_pct, timeup_calibrated: timeup.timeup_calibrated, sites });
     } catch (e) { res.json({ sites: [], reason: 'internal_error', correlation_id: logError(e, req) }); }
   });
@@ -435,7 +437,29 @@ module.exports = function opmanagerRoutes(deps) {
         seen.set(k, e);
       }
       const keep = _slaKeep(req.reportUser);
-      res.json({ month: label, circuits: circuits.filter(keep), unmapped: [...seen.values()].filter(keep) });
+      // C-13 (G21) — read-only context for the page: per-source freshness (null = the source never
+      // ran / holds nothing — never a fabricated date) and mapping coverage (sites → Meraki network,
+      // uplinks → SLA circuit). Best-effort: a failure here leaves both null, never breaks the summary.
+      let freshness = null, coverage = null;
+      try {
+        const monthOutages = ((await rdb.getWanOutages({ from: fromISO, to: toISO })) || []).filter(keep);
+        let latest = null;
+        for (const o of monthOutages) for (const t of [o.last_seen_at, o.restored_end, o.detected_start]) {
+          if (t && (latest == null || String(t) > latest)) latest = String(t);
+        }
+        const snaps = ((await rdb.getWanSnapshots({ period_type: 'week' })) || []).filter(keep);
+        freshness = { poll_last_run: _rc.wan_poll_last_run || null, poll_first_run: _rc.wan_poll_first_run || null,
+          snapshot_collected_at: _dataAsOf(snaps), latest_outage_at: latest };
+        const uplinks = [];
+        for (const r of snaps) uplinks.push({ site_id: r.site_id, sub_site: r.sub_site || '', uplink: r.uplink, site_name: _siteName(r.site_id) });
+        for (const o of monthOutages) uplinks.push({ site_id: o.site_id, sub_site: o.sub_site || '', uplink: o.uplink, site_name: _siteName(o.site_id) });
+        for (const c of (Array.isArray(cfg.circuits) ? cfg.circuits : [])) if (c && keep(c)) uplinks.push({ site_id: c.site_id, sub_site: c.sub_site || '', uplink: c.uplink, site_name: _siteName(c.site_id) });
+        const WT = require('../public/lib/wanTimeline');
+        const mappedKeys = uplinks.filter(u => resolveCircuit(cfg, u)).map(u => WT._key(u.site_id, u.sub_site, u.uplink));
+        const sites = ((await rdb.listSiteMerakiMap()) || []).filter(keep);
+        coverage = WT.coverage({ sites, uplinks, mappedKeys });
+      } catch (e) { logError(e, req); }
+      res.json({ month: label, circuits: circuits.filter(keep), unmapped: [...seen.values()].filter(keep), freshness, coverage });
     } catch (e) { res.json({ month: label, circuits: [], unmapped: [], reason: 'internal_error', correlation_id: logError(e, req) }); }
   });
 
