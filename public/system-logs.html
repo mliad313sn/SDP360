@@ -64,6 +64,7 @@
     <button class="sl-tab active" data-tab="entries">☰ Log entries</button>
     <button class="sl-tab" data-tab="analytics">📈 Analytics &amp; trends</button>
     <button class="sl-tab" data-tab="sync">🔄 Sync health</button>
+    <button class="sl-tab" data-tab="usage">👁 Page usage</button>
     <button class="sl-tab" data-tab="events" disabled title="v2 — per-request events">⚠ Events &amp; reconciliation</button>
   </div>
 
@@ -74,6 +75,14 @@
     <table class="sl-tbl"><thead><tr><th>Job</th><th>Status</th><th>Last success</th><th>Age</th><th>Window</th><th>Last error</th><th>Errors</th></tr></thead><tbody id="syncRows"></tbody></table>
     <h3 style="margin-top:18px">Last runs</h3>
     <table class="sl-tbl"><thead><tr><th>#</th><th>Job</th><th>Started</th><th>Status</th><th>Attempts</th><th>Rows</th><th>Deleted</th><th>Error</th></tr></thead><tbody id="syncRuns"></tbody></table>
+  </section>
+
+  <!-- PAGE USAGE (C-09) -->
+  <section class="sl-pane" id="pane-usage">
+    <p class="sl-hint" style="margin:0 0 10px">Distinct people who opened each page (one <code>page_viewed</code> per person × page × day; user id and role tier only — no names). Facts for the executive-pages keep/merge decision (<code>docs/ux/EXEC-PAGES-MATRIX.md</code>) — no decision is taken here.</p>
+    <div class="sl-filters"><label>Window<select id="uDays"><option value="7">Last 7 days</option><option value="30" selected>Last 30 days</option><option value="90">Last 90 days</option></select></label></div>
+    <div id="uSummary" class="sl-hint" style="margin-bottom:8px"></div>
+    <table class="sl-tbl"><thead id="uHead"></thead><tbody id="uRows"><tr><td class="muted">Loading…</td></tr></tbody></table>
   </section>
 
   <!-- LOG ENTRIES -->
@@ -137,6 +146,7 @@
       b.classList.add('active'); el('pane-'+b.dataset.tab).classList.add('active');
       if (b.dataset.tab==='analytics') loadAnalytics();
       if (b.dataset.tab==='sync') loadSync();
+      if (b.dataset.tab==='usage') loadUsage();
     });
   });
 
@@ -156,6 +166,20 @@
       }).join('') || '<tr><td colspan="8">No run recorded yet.</td></tr>';
     });
   }
+
+  // ── Page usage (C-09) ──
+  function loadUsage(){
+    api('/api/ux/page-usage?days='+el('uDays').value).then(function(u){
+      if(!u||!u.ok){ el('uHead').innerHTML=''; el('uRows').innerHTML='<tr><td>'+esc(u&&u.error||'unavailable')+'</td></tr>'; return; }
+      var tiers=u.tiers||[];
+      el('uSummary').textContent=(u.pages||[]).length+' pages opened since '+u.since+' ('+u.days+' days).';
+      el('uHead').innerHTML='<tr><th>Page</th><th>Distinct users</th><th>User-days</th>'+tiers.map(function(t){return '<th>'+esc(t)+'</th>';}).join('')+'</tr>';
+      el('uRows').innerHTML=(u.pages||[]).map(function(p){
+        return '<tr><td><code>'+esc(p.page)+'</code></td><td>'+p.users+'</td><td>'+p.view_days+'</td>'+tiers.map(function(t){return '<td>'+(p.by_tier[t]||0)+'</td>';}).join('')+'</tr>';
+      }).join('') || '<tr><td colspan="3" class="muted">No page view recorded in this window yet.</td></tr>';
+    });
+  }
+  el('uDays').addEventListener('change', loadUsage);
 
   // ── Log entries ──
   var page = 0, LIMIT = 50;

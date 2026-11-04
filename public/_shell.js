@@ -49,6 +49,8 @@
     'file-text':      ICONS.html('file-text'),
     'trending-up':    ICONS.html('trending-up'),
     gauge:            ICONS.html('gauge'),
+    // C-09 (F16): Executive Scorecard gets its own icon — Executive Home keeps gauge; they were identical.
+    'clipboard-list': ICONS.html('clipboard-list'),
     'line-chart':     ICONS.html('line-chart'),
     target:           ICONS.html('target'),
     presentation:     ICONS.html('presentation'),
@@ -226,7 +228,7 @@
       children: [
         { id: 'exec-home', label: 'Executive Home',      icon: ICON_LIB.gauge,          href: 'dashboards.html?key=exec-home', roles: ['executive', 'scorecard-viewer'] },
         { id: 'it-review', label: 'IT Review',           icon: ICON_LIB['bar-chart-3'], href: 'it-review.html', roles: ['executive', 'scorecard-viewer'] },
-        { id: 'scorecard', label: 'Executive Scorecard', icon: ICON_LIB.gauge,          href: 'executive.html', roles: ['executive', 'scorecard-viewer'] }
+        { id: 'scorecard', label: 'Executive Scorecard', icon: ICON_LIB['clipboard-list'], href: 'executive.html', roles: ['executive', 'scorecard-viewer'] }
       ]
     },
     {
@@ -550,6 +552,30 @@
     mount.innerHTML = html.trim() + crumbHtml + searchHtml;
     fitLeanLabels();
     ensureSkipLink(mount);
+    sendPageView();
+  }
+
+  // C-09 (F16/F29/G14) — usage facts before any keep/merge decision: one `page_viewed` per page load of a shell
+  // page, fire-and-forget. The server keeps ONE row per user × page × day (services/viewLog.js) with user id +
+  // role tier only. A re-render (reports.html after login) does not send twice; a failure is silent.
+  let pageViewSent = false;
+  function pageIdFor(loc) {
+    const file = String((loc && loc.pathname) || '').split('/').pop() || 'index.html';
+    let id = file.replace(/\.html?$/i, '').toLowerCase();
+    if (id === 'dashboards') {
+      const m = /[?&]key=([a-z0-9._-]{1,48})/i.exec(String((loc && loc.search) || ''));
+      if (m) id += ':' + m[1].toLowerCase();
+    }
+    return id;
+  }
+  function sendPageView() {
+    if (pageViewSent) return;
+    try {
+      if (!window.__authUser || typeof fetch !== 'function' || typeof location === 'undefined') return;
+      pageViewSent = true;
+      fetch('/api/ux/page-view', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ page: pageIdFor(location) }) }).catch(function () { /* telemetry never breaks a page */ });
+    } catch (_) { /* no fetch / no location (tests) */ }
   }
 
   // A-21 / A-22 — measured fit guard, both profiles. The menu keeps its labels only when they fit (French labels
@@ -665,7 +691,8 @@
     navProfile,
     landingFor,
     defaultLanding,
-    hasAnyRole
+    hasAnyRole,
+    pageIdFor
   };
 
   // Auto-render on DOM ready

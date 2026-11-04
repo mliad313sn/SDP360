@@ -167,6 +167,16 @@
     return _render(String(html), [vals || {}]);
   }
 
+  /**
+   * C-09 (F15) — the page's Modernist palette lives under --ir-* so it no longer shadows the canonical
+   * _tokens.css names. The model (services/reviewDashboard.js, fidelity-pinned to the author's oracle) still
+   * emits colours as var(--color-…); they are mapped onto the page namespace AFTER rendering, so the figures
+   * and the oracle stay untouched and the colours stay identical.
+   */
+  function namespaceVars(html) {
+    return String(html).replace(/var\(--(?!ir-)/g, 'var(--ir-');
+  }
+
   // ── page boot (browser only — nothing below runs under require()) ─────────
 
   var VIEWS = ['dashboard', 'scoreboard', 'brief'];
@@ -197,7 +207,7 @@
         if (!r.ok) throw new Error('HTTP ' + r.status);
         return r.json();
       })
-      .then(function (vals) { mount.innerHTML = renderTemplate(tpl, vals); })
+      .then(function (vals) { mount.innerHTML = namespaceVars(renderTemplate(tpl, vals)); })
       .catch(function (e) {
         // Never a blank page.
         mount.innerHTML = '<div style="padding:24px;font:14px system-ui;color:#b42318">'
@@ -207,6 +217,7 @@
 
   var api = {
     renderTemplate: renderTemplate,
+    namespaceVars: namespaceVars,
     _resolve: _resolve,
     _escape: _escape,
     _interpolate: _interpolate,
