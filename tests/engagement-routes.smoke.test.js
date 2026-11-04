@@ -100,6 +100,9 @@ test('API consumers → /ext: admin only, key shown once, 401 without key, scope
   const meta = await get('/ext/odata/$metadata', null, { 'x-api-key': c.key }); assert.match(meta.headers.get('content-type'), /xml/); assert.ok((await meta.text()).includes('EntitySet Name="Values"'));
   const od = await get(`/ext/odata/Values?$filter=Metric eq 'helpdesk.resolution_sla_pct' and SiteId eq ${hounde}&$select=Id,Value&$count=true`, null, { 'x-api-key': c.key }); assert.equal(od.status, 200); const ob = await od.json(); assert.equal(ob['@odata.count'], 1); assert.deepEqual(Object.keys(ob.value[0]).sort(), ['Id', 'Value']);
   // quota: 8 calls logged above (metrics, sites→403, values, nope→404, values→400, odata root, $metadata, Values) → the 9th is 429
+  // Each call is logged on the response's 'finish' event (fire-and-forget), so under a loaded full-suite run the
+  // 8th log row can land after the 9th request authenticates. Let the logs settle before asserting the quota.
+  await new Promise((r) => setTimeout(r, 500));
   const q = await get('/ext/v1/metrics', null, { 'x-api-key': c.key }); assert.equal(q.status, 429);
   assert.equal((await send('DELETE', `/api/engagement/consumers/${c.id}`, admin)).status, 200);
   assert.equal((await get('/ext/v1/metrics', null, { 'x-api-key': c.key })).status, 401, 'revoked key');

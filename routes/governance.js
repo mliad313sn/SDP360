@@ -418,7 +418,7 @@ module.exports = function governanceRoutes(deps) {
   }
   router.put('/api/governance/portfolio/project/:id/sites', requireReportSession, requireCommittee, json, async (req, res) => {
     try { const ids = await store.setProjectSites(req.params.id, (req.body && req.body.site_ids) || [], { user: req.reportUser }); log(req, 'project_sites', `project:${req.params.id}`, { site_ids: ids }); res.json({ ok: true, site_ids: ids }); }
-    catch (e) { if (e.status === 404 || e.status === 400) return res.status(e.status).json({ ok: false, error: e.message }); fail(res, e); }
+    catch (e) { if (e.status === 404 || e.status === 400) return fail(res, e, e.status, { ok: false }); fail(res, e); }
   });
   router.put('/api/governance/portfolio/:kind', requireReportSession, json, async (req, res, next) => {
     if (PLAN_KINDS.includes(req.params.kind)) return next();

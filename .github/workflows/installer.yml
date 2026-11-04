@@ -73,7 +73,7 @@ jobs:
           retention-days: 14
 
   # A-03: a real 1.11 server (second checkout of the 1.11 line, its own node_modules built with the runner's
-  # Node.js, running under pm2, one secret encrypted by its own tools/pg/encrypt-secrets.js) upgraded by
+  # Node.js, running under pm2, one secret encrypted by the encrypt-secrets tool in tools/pg) upgraded by
   # Setup /MODE=update, then a fresh 1.11 tree with a forced health-check failure (SDP_SETUP_TEST_FAIL_PROBE=1)
   # that must come back as 1.11 under pm2. The .env of that throwaway server is generated at run time.
   upgrade-from-111:

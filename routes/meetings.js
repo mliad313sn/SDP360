@@ -492,7 +492,7 @@ router.post('/api/meetings/save', requireReportSession, meetingsJsonBody, async 
     console.error('[Meetings] save error:', e.message);
     // A-06: a stale tab (the PV changed elsewhere since it was opened) — 409, BEFORE the
     // 403 regex below, which would otherwise catch any message mentioning "closed".
-    if (e && e.code === 'CONFLICT') return res.status(409).json({ error: e.message, code: 'CONFLICT', current_token: e.current_token || null });
+    if (e && e.code === 'CONFLICT') return fail(res, e, 409, { current_token: e.current_token || null });
     const isScope = /Cross-site|closed/i.test(e.message);
     fail(res, e, isScope ? 403 : undefined);
   }
