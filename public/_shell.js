@@ -301,7 +301,7 @@
     'Find': 'Rechercher', 'Find a page (Ctrl+K)': 'Rechercher une page (Ctrl+K)', 'Find a page': 'Rechercher une page',
     'Find a page — e.g. inspections, portfolio': 'Rechercher une page — ex. inspections, portefeuille',
     'Breadcrumb': "Fil d'Ariane", 'Click to log out': 'Cliquer pour se déconnecter', 'Primary': 'Navigation principale',
-    'No page found': 'Aucune page trouvée', 'Language': 'Langue',
+    'No page found': 'Aucune page trouvée', 'Language': 'Langue', 'Skip to content': 'Aller au contenu',
   };
   function shellLang() {
     try { const s = localStorage.getItem('sdp_lang'); if (s === 'fr' || s === 'en') return s; } catch (_) { /* storage blocked */ }
@@ -476,6 +476,30 @@
       </div>`;
 
     mount.innerHTML = html.trim() + crumbHtml + searchHtml;
+    ensureSkipLink(mount);
+  }
+
+  // A-12a — "Skip to content" (WCAG 2.4.1) on every shell page. Inserted once as the first child of
+  // <body>; a page that already has its own .edv-skip keeps it. Target: #main, else the first <main>,
+  // else the first element after the mount (scripts skipped). A re-render only refreshes the label.
+  function ensureSkipLink(mount) {
+    if (typeof document === 'undefined' || !document.body || typeof document.createElement !== 'function') return;
+    const mine = document.querySelector('.shell-skip');
+    if (mine) { mine.textContent = T('Skip to content'); return; }
+    if (document.querySelector('.edv-skip')) return;
+    let target = document.getElementById('main') || document.querySelector('main');
+    if (!target) {
+      target = mount.nextElementSibling;
+      while (target && /^(SCRIPT|STYLE|TEMPLATE|LINK|NOSCRIPT)$/.test(target.tagName)) target = target.nextElementSibling;
+    }
+    if (!target) return;
+    if (!target.id) target.id = 'main';
+    if (!target.hasAttribute('tabindex')) { target.setAttribute('tabindex', '-1'); target.setAttribute('data-shell-skip-target', ''); }
+    const a = document.createElement('a');
+    a.className = 'shell-skip';
+    a.href = '#' + target.id;
+    a.textContent = T('Skip to content');
+    document.body.insertBefore(a, document.body.firstChild);
   }
 
   // ── G17 — quick find: "/" or Ctrl+K opens it, typing filters the pages this user can open, Enter goes to the
