@@ -36,7 +36,7 @@
       r.onsuccess = function () { DB = r.result; res(DB); }; r.onerror = function () { rej(r.error); };
     });
   }
-  function tx(store, mode, fn) { return idb().then(function (d) { return new Promise(function (res, rej) { var t = d.transaction(store, mode), s = t.objectStore(store), out = fn(s); t.oncomplete = function () { res(out && out.result !== undefined ? out.result : out); }; t.onerror = function () { rej(t.error); }; }); }); }
+  function tx(store, mode, fn) { return idb().then(function (d) { return new Promise(function (res, rej) { var t = d.transaction(store, mode), s = t.objectStore(store), out = fn(s); t.oncomplete = function () { res(out && out.result !== undefined ? out.result : out); }; t.onerror = function () { rej(t.error); }; t.onabort = function () { rej(t.error || new Error('transaction aborted')); }; }); }); }
   var kvGet = function (k) { return tx('kv', 'readonly', function (s) { return s.get(k); }); };
   var kvSet = function (k, v) { return tx('kv', 'readwrite', function (s) { s.put(v, k); }); };
   var obAll = function () { return tx('outbox', 'readonly', function (s) { return s.getAll(); }); };
@@ -48,7 +48,7 @@
   // ── state / UI helpers ─────────────────────────────────────────────────────────────
   var B = null, site = null, lowbw = false, draftPhotos = [];
   function msg(text, cls) { var m = $('msg'); if (!text) { m.className = 'status hidden'; m.textContent = ''; return; } m.className = 'status ' + (cls || ''); m.textContent = text; }
-  function setNet() { var n = $('net'); var on = navigator.onLine; n.textContent = on ? FT('Online') : FT('Offline'); n.className = 'net ' + (on ? 'on' : 'off'); }
+  function setNet() { var n = $('net'); var on = navigator.onLine; n.textContent = on ? FT('Online') : FT('Offline'); n.className = 'net ' + (on ? 'on' : 'off'); renderOutbox(); }
   function show(view) { document.querySelectorAll('.view').forEach(function (v) { v.classList.add('hidden'); }); $('v-' + view).classList.remove('hidden'); document.querySelectorAll('nav.tabs button').forEach(function (b) { if (b.dataset.view === view) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }); if (view === 'dash') loadDash(); }
   function opt(sel, items, val, lab) { var s = $(sel); s.innerHTML = ''; (items || []).forEach(function (it) { var o = document.createElement('option'); o.value = val(it); o.textContent = lab(it); s.appendChild(o); }); }
   function curSite() { return (B && B.sites || []).find(function (s) { return String(s.id) === String($('site').value); }) || null; }
@@ -106,13 +106,35 @@
         return '<div class="item"><span class="pill ' + STATE_PILL[st] + '">' + esc(FT(STATE_LABEL[st])) + '</span> <span class="pill slate">' + esc(e.kind) + '</span> ' + esc(label) +
           ' <span class="muted">' + esc(e.client_ts) + (d != null && d >= OLD_DAYS ? ' · ' + FT('waiting for') + ' ' + d + ' ' + FT('days') : '') + (st === 'other_user' ? ' · ' + FT('sign in as') + ' ' + esc(e.user) + ' ' + FT('to send it') : '') + (e.last_error ? ' · ' + esc(e.last_error) : '') + '</span>' + acts + '</div>';
       }).join('') : FT('Nothing queued.');
-    });
+    }).catch(function () { /* outbox unreadable: the badge keeps its last value */ });
   }
 
   // ── outbox: queue + flush ─────────────────────────────────────────────────────────
+  // B-06 — the outbox must survive storage pressure: persistent storage is requested on the first queued entry
+  // (once), the usage is shown above 70 %, and a write refused for lack of space is REPORTED (the entry was not
+  // saved, the form keeps its values) — never a silent drop. Earlier entries are untouched.
+  var SG = window.FieldStorage ? window.FieldStorage.makeGuard(navigator.storage) : null;
+  var isQuotaError = window.FieldStorage ? window.FieldStorage.isQuotaError : function (e) { return !!e && e.name === 'QuotaExceededError'; };
+  function checkStorage() {
+    if (!SG) return Promise.resolve();
+    return SG.usage().then(function (u) {
+      var w = $('storage-warn'); if (!w) return;
+      if (!u || !u.warn) { w.classList.add('hidden'); w.textContent = ''; return; }
+      w.textContent = FT('Phone storage used for this app:') + ' ' + Math.round(u.ratio * 100) + ' % (' + Math.round(u.usage / 1048576) + ' / ' + Math.round(u.quota / 1048576) + ' MB). ' + FT('Sync soon so queued entries are not at risk.');
+      w.classList.remove('hidden');
+    }).catch(function () {});
+  }
   function queue(kind, payload, label, uploads) {
     var env = { uuid: uuid(), kind: kind, payload: payload, client_ts: new Date().toISOString(), device: navigator.userAgent.slice(0, 100), label: label, uploads: uploads || [], user: me, state: 'pending' };
-    return obPut(env).then(function () { renderOutbox(); msg(FT('Queued — it will sync when online.'), 'ok'); if (navigator.onLine) flush(); });
+    if (SG) SG.ensurePersist().catch(function () {});
+    return obPut(env).then(function () { renderOutbox(); checkStorage(); msg(FT('Queued — it will sync when online.'), 'ok'); if (navigator.onLine) flush(); }, function (err) {
+      renderOutbox(); checkStorage();
+      var text = isQuotaError(err)
+        ? FT('NOT saved — this phone is out of storage space. Your entry is still in the form: sync or free space, then queue it again.') + ' (' + (label || kind) + ')'
+        : FT('NOT saved on this phone: ') + (err && err.message ? err.message : String(err));
+      msg(text, 'err');
+      var e2 = new Error(text); e2.notSaved = true; throw e2;
+    });
   }
   var flushing = false;
   function flush() {
@@ -315,6 +337,8 @@
 
   // drop the pre-G19 cache that was not keyed by user (it could show one person's sites to the next)
   tx('kv', 'readwrite', function (st) { st.delete('bootstrap'); st.delete('bootstrap_at'); }).catch(function () {});
+  // the pending-count badge comes from this phone's outbox, not from the server: show it even when offline with no cache
+  checkStorage();
   Promise.all([kvGet('site'), kvGet('lowbw')]).then(function (r) { site = r[0] || null; lowbw = !!r[1]; $('lowbw').checked = lowbw; document.body.classList.toggle('lowbw', lowbw); return bootstrap(); })
     .then(renderHome).then(flush).catch(function (e) { msg(e.message, 'err'); });
 })();

@@ -18,6 +18,7 @@
 </header>
 <main id="main">
   <div id="msg" class="status hidden" role="status" aria-live="polite"></div>
+  <div id="storage-warn" class="status hidden" role="status" aria-live="polite"></div>
   <section id="v-home" class="view">
     <div class="card"><h2>My site</h2><div class="row"><label class="grow">Site <select id="site" aria-label="Site"></select></label><button id="sync" type="button" class="primary">Sync now</button></div>
       <div class="asof" id="asof">Data as of —</div>
@@ -66,6 +67,7 @@
 <dialog id="dlg"><form method="dialog"><h2 id="dlg-title" style="margin-top:0">Justification</h2><label>Comment <textarea id="dlg-note" rows="3" required></textarea></label><label id="dlg-ticket-l" class="hidden">SDP ticket number <input id="dlg-ticket" inputmode="numeric"></label><div class="row"><button type="submit" value="ok" class="primary">Confirm</button><button type="submit" value="cancel">Cancel</button></div></form></dialog>
 <script src="../lib/i18nText.js"></script>
 <script src="i18n.js"></script>
+<script src="storage.js"></script>
 <script src="app.js"></script>
 </body>
 </html>
