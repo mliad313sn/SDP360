@@ -11,13 +11,13 @@
 | pages without declared role | 6 |
 | pages not in navigation | 26 |
 | pages with inline scripts | 46 |
-| routes | 547 |
+| routes | 549 |
 | routes without test reference | 82 |
 | routes in server js | 231 |
 | jobs | 26 |
 | jobs without test reference | 10 |
 | migrations | 62 |
-| test files | 530 |
+| test files | 535 |
 
 ## Pages
 
@@ -31,20 +31,20 @@
 | PG-cockpit | public/cockpit.html | any | yes | 1 | 4 |
 | PG-commitments | public/commitments.html | any | no | 1 | 3 |
 | PG-dashboard-composer | public/dashboard-composer.html | admin / dashboard-publisher | no | 1 | 3 |
-| PG-dashboards | public/dashboards.html | any | yes | 1 | 4 |
-| PG-exec-view | public/exec-view.html | public | no | 1 | 4 |
-| PG-executive-report | public/executive-report.html | super_admin | yes | 1 | 6 |
-| PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 5 |
+| PG-dashboards | public/dashboards.html | any | yes | 1 | 5 |
+| PG-exec-view | public/exec-view.html | public | no | 1 | 5 |
+| PG-executive-report | public/executive-report.html | super_admin | yes | 1 | 7 |
+| PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 6 |
 | PG-handoffs | public/handoffs.html | any | yes | 1 | 5 |
 | PG-help | public/help.html | any | yes | 1 | 8 |
 | PG-home | public/home.html | any | yes | 0 | 5 |
-| PG-index | public/index.html | any | yes | 1 | 17 |
+| PG-index | public/index.html | any | yes | 1 | 18 |
 | PG-infra-health | public/infra-health.html | any | yes | 2 | 3 |
 | PG-inspection-actions | public/inspection-actions.html | any | no | 1 | 4 |
 | PG-inspection | public/inspection.html | any | no | 2 | 6 |
 | PG-inspections | public/inspections.html | any | yes | 1 | 4 |
 | PG-integrations | public/integrations.html | any | yes | 1 | 3 |
-| PG-it-review | public/it-review.html | executive / scorecard-viewer | yes | 2 | 3 |
+| PG-it-review | public/it-review.html | executive / scorecard-viewer | yes | 2 | 5 |
 | PG-itsm-integrations-plan | public/itsm-integrations-plan.html | UNKNOWN | no | 0 | 3 |
 | PG-itsm-roadmap | public/itsm-roadmap.html | super_admin | no | 1 | 3 |
 | PG-login | public/login.html | public | no | 1 | 7 |

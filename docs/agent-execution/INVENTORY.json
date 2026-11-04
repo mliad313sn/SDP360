@@ -6,13 +6,13 @@
   "pages_without_declared_role": 6,
   "pages_not_in_navigation": 26,
   "pages_with_inline_scripts": 46,
-  "routes": 547,
+  "routes": 549,
   "routes_without_test_reference": 82,
   "routes_in_server_js": 231,
   "jobs": 26,
   "jobs_without_test_reference": 10,
   "migrations": 62,
-  "test_files": 530
+  "test_files": 535
  },
  "pages": [
   {
@@ -162,7 +162,8 @@
     "tests/a11y-static.test.js",
     "tests/dashboard-widget-truth.test.js",
     "tests/i18n-coverage.test.js",
-    "tests/landing.test.js"
+    "tests/landing.test.js",
+    "tests/page-usage.test.js"
    ]
   },
   {
@@ -178,6 +179,7 @@
     "tests/csp-headers.smoke.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/csp-report.smoke.test.js",
+    "tests/page-usage.test.js",
     "tests/trust-label.test.js"
    ]
   },
@@ -195,6 +197,7 @@
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/csv-safe.test.js",
     "tests/i18n-coverage.test.js",
+    "tests/page-usage.test.js",
     "tests/rbac-ui-gates.test.js",
     "tests/site-window-readers.test.js"
    ]
@@ -214,7 +217,8 @@
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
     "tests/landing.test.js",
-    "tests/monthly-helpdesk-history.test.js"
+    "tests/monthly-helpdesk-history.test.js",
+    "tests/page-usage.test.js"
    ]
   },
   {
@@ -288,6 +292,7 @@
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/csp-report.smoke.test.js",
     "tests/csv-safe.test.js",
+    "tests/dashboard-preview-demo.test.js",
     "tests/dashboard-shared-sla-rates.test.js",
     "tests/field-french.test.js",
     "tests/field-pwa-static.test.js",
@@ -389,10 +394,12 @@
    ],
    "in_navigation": true,
    "inline_scripts": 2,
-   "bytes": 108567,
+   "bytes": 109788,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
+    "tests/it-review-tokens.test.js",
+    "tests/page-usage.test.js",
     "tests/review-page.smoke.test.js"
    ]
   },
@@ -828,7 +835,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 15625,
+   "bytes": 17540,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js"
@@ -7585,6 +7592,27 @@
    ]
   },
   {
+   "id": "RT-GET-api-ux-page-usage",
+   "method": "GET",
+   "path": "/api/ux/page-usage",
+   "file": "routes/pageUsage.js",
+   "line": 50,
+   "tests": [
+    "tests/page-usage-routes.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-POST-api-ux-page-view",
+   "method": "POST",
+   "path": "/api/ux/page-view",
+   "file": "routes/pageUsage.js",
+   "line": 37,
+   "tests": [
+    "tests/page-usage-routes.smoke.test.js",
+    "tests/page-usage.test.js"
+   ]
+  },
+  {
    "id": "RT-GET-api-views",
    "method": "GET",
    "path": "/api/views",
@@ -7677,7 +7705,8 @@
    "file": "server.js",
    "line": 1356,
    "tests": [
-    "tests/api-key-injection.smoke.test.js"
+    "tests/api-key-injection.smoke.test.js",
+    "tests/page-usage.test.js"
    ]
   },
   {
@@ -7890,6 +7919,7 @@
    "file": "server.js",
    "line": 1385,
    "tests": [
+    "tests/it-review-tokens.test.js",
     "tests/review-page.smoke.test.js"
    ]
   },
