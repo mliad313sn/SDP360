@@ -17,14 +17,14 @@
 | jobs | 26 |
 | jobs without test reference | 10 |
 | migrations | 62 |
-| test files | 523 |
+| test files | 524 |
 
 ## Pages
 
 | Id | Page | Role required | In nav | Inline scripts | Tests |
 |---|---|---|---|---:|---:|
 | PG-activity-tracker | public/activity-tracker.html | any | yes | 0 | 6 |
-| PG-analytics | public/analytics.html | admin / scorecard-viewer | yes | 1 | 3 |
+| PG-analytics | public/analytics.html | admin / scorecard-viewer | yes | 1 | 4 |
 | PG-assets-finance | public/assets-finance.html | UNKNOWN | no | 1 | 2 |
 | PG-assets-hygiene | public/assets-hygiene.html | UNKNOWN | no | 1 | 3 |
 | PG-assets | public/assets.html | any | yes | 10 | 11 |

@@ -12,7 +12,7 @@
   "jobs": 26,
   "jobs_without_test_reference": 10,
   "migrations": 62,
-  "test_files": 523
+  "test_files": 524
  },
  "pages": [
   {
@@ -42,8 +42,9 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 51164,
+   "bytes": 54482,
    "tests": [
+    "tests/analytics-logic.test.js",
     "tests/analytics-metrics-authz.smoke.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js"
@@ -925,6 +926,7 @@
    "file": "server.js",
    "line": 1402,
    "tests": [
+    "tests/analytics-logic.test.js",
     "tests/analytics-metrics-authz.smoke.test.js"
    ]
   },
@@ -4142,6 +4144,7 @@
    "file": "routes/metrics.js",
    "line": 47,
    "tests": [
+    "tests/analytics-logic.test.js",
     "tests/analytics-metrics-authz.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -4157,6 +4160,7 @@
    "file": "server.js",
    "line": 3603,
    "tests": [
+    "tests/analytics-logic.test.js",
     "tests/analytics-metrics-authz.smoke.test.js"
    ]
   },
@@ -4167,6 +4171,7 @@
    "file": "server.js",
    "line": 3582,
    "tests": [
+    "tests/analytics-logic.test.js",
     "tests/analytics-metrics-authz.smoke.test.js"
    ]
   },
@@ -4197,6 +4202,7 @@
    "file": "server.js",
    "line": 3651,
    "tests": [
+    "tests/analytics-logic.test.js",
     "tests/analytics-metrics-authz.smoke.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/server-routes-smoke.test.js"
@@ -4209,6 +4215,7 @@
    "file": "server.js",
    "line": 3624,
    "tests": [
+    "tests/analytics-logic.test.js",
     "tests/analytics-metrics-authz.smoke.test.js"
    ]
   },
