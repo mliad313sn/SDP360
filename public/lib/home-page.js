@@ -1,0 +1,79 @@
+// A-10 — Home ("My work") page. Data: GET /api/me/work (the user's own sites only).
+// A block that is null was not measured (source unreadable / absent) and says so — never a zero.
+(function () {
+  'use strict';
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  let lang = 'en';
+  try { lang = (window.__shell && window.__shell.shellLang && window.__shell.shellLang()) || 'en'; } catch (_) { lang = 'en'; }
+  if (lang === 'fr') document.body.classList.add('lang-fr');
+  const MONTHS = { en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], fr: ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'] };
+  const L = {
+    en: { nm: '— not measured', actions: 'Open actions', open: 'open', overdue: 'overdue', oldest: 'oldest', days: 'days', none: 'nothing open',
+      report: 'Weekly report', unsigned: 'PVs to sign', allSigned: 'all signed', insp: 'Last inspection', never: 'none recorded', ago: 'days ago', today: 'today',
+      tracker: 'Activity tracker', empty: 'of {t} activities have nothing entered for {m}', full: 'all {t} activities filled for {m}', noAct: 'no activity due in {m}',
+      loading: 'Loading…', more: '+ {n} more site(s) not shown', open_pv: 'Open',
+      labels: { 'Not started': 'Not started', 'In progress': 'In progress', 'Complete but not submitted': 'Complete but not submitted', 'Submitted': 'Submitted' } },
+    fr: { nm: '— non mesuré', actions: 'Actions ouvertes', open: 'ouvertes', overdue: 'en retard', oldest: 'la plus ancienne', days: 'jours', none: 'rien d\'ouvert',
+      report: 'Rapport hebdomadaire', unsigned: 'PV à signer', allSigned: 'tous signés', insp: 'Dernière inspection', never: 'aucune enregistrée', ago: 'jours', today: 'aujourd\'hui',
+      tracker: 'Suivi d\'activité', empty: 'activités sur {t} sans saisie pour {m}', full: 'les {t} activités sont saisies pour {m}', noAct: 'aucune activité prévue en {m}',
+      loading: 'Chargement…', more: '+ {n} autre(s) site(s) non affiché(s)', open_pv: 'Ouvrir',
+      labels: { 'Not started': 'Pas commencé', 'In progress': 'En cours', 'Complete but not submitted': 'Complet mais non soumis', 'Submitted': 'Soumis' } },
+  };
+  const T = L[lang === 'fr' ? 'fr' : 'en'];
+  const fill = (s, o) => s.replace(/\{(\w+)\}/g, (_, k) => o[k]);
+  const nm = `<span class="hm-nm">${esc(T.nm)}</span>`;
+  const row = (k, href, v) => `<li><span class="hm-k">${href ? `<a href="${esc(href)}">${esc(k)}</a>` : esc(k)}</span><span class="hm-v">${v}</span></li>`;
+
+  function siteCard(s) {
+    const code = encodeURIComponent(s.code || '');
+    const a = s.actions;
+    const actions = !a ? nm : (a.open === 0 ? esc(T.none)
+      : `${a.open} ${esc(T.open)}${a.overdue ? ` · <span class="hm-late">${a.overdue} ${esc(T.overdue)}</span>` : ''}${a.oldest_days != null ? ` · ${esc(T.oldest)} ${a.oldest_days} ${esc(T.days)}` : ''}`);
+    const w = s.weekly_report;
+    const report = !w ? nm : `${esc(w.week_label || '')} — ${w.status === 'ready' ? `<span class="hm-late">${esc(T.labels[w.label] || w.label)}</span>` : esc(T.labels[w.label] || w.label)}`;
+    const u = s.unsigned_pvs;
+    const pvs = !u ? nm : (u.count === 0 ? esc(T.allSigned) : `<b>${u.count}</b><ul class="hm-pv">${u.items.map((m) => `<li><a href="meeting.html?id=${encodeURIComponent(m.id)}">${esc(m.reference || m.id)}</a> <span class="hm-muted">${esc(m.meeting_date || '')}</span></li>`).join('')}</ul>`);
+    const i = s.last_inspection;
+    const insp = !i ? nm : (!i.date ? esc(T.never) : `${esc(i.date)} · ${i.days_since === 0 ? esc(T.today) : `${i.days_since} ${esc(T.ago)}`}`);
+    const t = s.tracker_empty;
+    const mon = t ? MONTHS[lang === 'fr' ? 'fr' : 'en'][t.month - 1] : '';
+    const trk = !t ? nm : (t.total_cells === 0 ? esc(fill(T.noAct, { m: mon }))
+      : t.empty_cells === 0 ? esc(fill(T.full, { t: t.total_cells, m: mon }))
+        : `<span class="hm-late">${t.empty_cells}</span> ${esc(fill(T.empty, { t: t.total_cells, m: mon }))}`);
+    return `<section class="hm-card" aria-labelledby="hm-s-${esc(s.site_id)}"><h2 id="hm-s-${esc(s.site_id)}">${esc(s.name || s.code)}${s.code ? ` <span class="hm-muted">${esc(s.code)}</span>` : ''}</h2>
+      <ul class="hm-blocks">
+        ${row(T.actions, s.code ? `site-actions.html?site=${code}` : 'site-actions.html', actions)}
+        ${row(T.report, w && w.report_id ? `reports.html?report=${encodeURIComponent(w.report_id)}` : 'reports.html', report)}
+        ${row(T.unsigned, s.code ? `meetings-unsigned.html?site=${code}` : 'meetings-unsigned.html', pvs)}
+        ${row(T.insp, 'inspections.html', insp)}
+        ${row(T.tracker, 'activity-tracker.html', trk)}
+      </ul></section>`;
+  }
+
+  function shortcuts() {
+    let ws = null;
+    try { ws = window.__shell && window.__shell.workspaceFor ? window.__shell.workspaceFor() : null; } catch (_) { ws = null; }
+    const items = ((ws && ws.items) || []).filter((e) => e.href !== 'home.html');
+    $('hmShortcuts').innerHTML = items.map((e) => `<li><a href="${esc(e.href)}"${e.target ? ` target="${esc(e.target)}" rel="noopener"` : ''}>${esc(e.label)}</a></li>`).join('');
+  }
+
+  async function load() {
+    $('hmMsg').textContent = T.loading;
+    try {
+      const r = await fetch('/api/me/work', { credentials: 'same-origin' });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+      $('hmSites').innerHTML = (j.sites || []).map(siteCard).join('');
+      const msg = [];
+      if (j.message) msg.push(lang === 'fr' ? "Vous n'êtes rattaché à aucun site — utilisez le registre des actions du site." : j.message);
+      if (j.truncated) msg.push(fill(T.more, { n: j.truncated }));
+      $('hmMsg').textContent = msg.join(' ');
+    } catch (e) {
+      $('hmSites').innerHTML = '';
+      $('hmMsg').textContent = lang === 'fr' && window.ErrorText ? window.ErrorText.fr(e.message) : e.message;
+    }
+  }
+  shortcuts();
+  load();
+})();

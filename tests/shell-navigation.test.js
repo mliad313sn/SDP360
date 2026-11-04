@@ -152,3 +152,18 @@ test('the UI-policy first-visit default (fr) applies only when nothing is saved'
   assert.strictEqual(loadWithRoot({ lang: 'en', policy: { lang_default: 'fr' } }).shell.shellLang(), 'en');
   assert.strictEqual(loadWithRoot({ policy: { lang_default: '' } }).shell.shellLang(), 'en');
 });
+
+// A-10 — Home ("My work") is the first entry for every IT role and invisible to a business-only account.
+test('Home is first for an editor and absent for a business-only user', () => {
+  const ed = load(['editor']);
+  assert.match(ed.mount.innerHTML, /href="home.html"/);
+  const navHtml = ed.mount.innerHTML;
+  assert.ok(navHtml.indexOf('shell-nav-label">Home<') > 0 && navHtml.indexOf('shell-nav-label">Home<') < navHtml.indexOf('shell-nav-label">Helpdesk<'), 'Home before Helpdesk');
+  assert.strictEqual(ed.shell.NAV[0].id, 'home');
+  assert.ok(!ed.shell.NAV[0].roles.includes('any'), 'explicit roles, never any');
+  assert.strictEqual(ed.shell.workspaceFor().items[0].href, 'home.html');
+  const biz = load(['site-business'], { businessOnly: true });
+  assert.ok(!/href="home.html"/.test(biz.mount.innerHTML), 'business-only: no Home');
+  assert.ok(!biz.shell.searchEntries('home').some((e) => e.href === 'home.html'));
+  assert.match(load(['editor'], { lang: 'fr' }).mount.innerHTML, /shell-nav-label">Accueil</);
+});

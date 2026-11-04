@@ -81,6 +81,16 @@
   // routes to the first accessible child).
   const NAV = [
     {
+      // ── Home (A-10) — "My work": what each of the user's sites owes today. Explicit roles (never 'any'):
+      // a business-only account must not see it. Reachable regardless of ui_role_landing.
+      id:    'home',
+      label: 'Home',
+      icon:  ICON_LIB.check,
+      href:  'home.html',
+      roles: ['viewer', 'editor', 'admin', 'executive', 'field-tech', 'tracker-editor'],
+      title: 'My work — what my sites need today'
+    },
+    {
       // ── Site Overview — the read-only business site view (GM/FM). Promoted to
       // a TOP-LEVEL, directly-visible entry (flat link, no dropdown) because its
       // audience is business users, who should reach it in one click rather than
@@ -255,7 +265,14 @@
 
   // Best home page for the current user. Used by login.html for the
   // post-login redirect (and by the brand mark for "go home").
+  // A-10: with report_config ui_role_landing='1' (window.__uiPolicy, off by default) AND public/lib/landing.js
+  // loaded on the page, the shared module decides; otherwise this inline copy of today's mapping does (so the
+  // shell pages need no new script tag). tests/landing.test.js proves the two '0' mappings agree.
   function defaultLanding() {
+    const pol = window.__uiPolicy;
+    if (pol && pol.role_landing === '1' && window.Landing && typeof window.Landing.landingFor === 'function') {
+      return window.Landing.landingFor({ has: window.__userHasRole || (() => false), isBusinessOnly: !!window.__isBusinessOnly, roleLanding: '1' });
+    }
     if (window.__isBusinessOnly) return 'site-awareness.html';   // GM/FM land on their site view
     const has = window.__userHasRole || (() => false);
     if (has('executive') || has('super_admin')) return 'executive.html';
@@ -279,6 +296,7 @@
   // ── Navigation language (G18): the shared preference 'sdp_lang', else the browser language. Only the shell's own
   // words are translated here (menus, groups, finder); each page translates its own body.
   const SHELL_FR = {
+    'Home': 'Accueil', 'My work — what my sites need today': 'Mon travail — ce que mes sites demandent aujourd\'hui',
     'Admin': 'Administration', 'Executive': 'Direction', 'Helpdesk': 'Helpdesk', 'Infrastructure': 'Infrastructure',
     'Operations': 'Opérations', 'Reports': 'Rapports', 'Help': 'Aide', 'Activity Tracker': "Suivi d'activité",
     'Analytics': 'Analyses', 'Assets': 'Parc informatique', 'Dashboard': 'Tableau de bord', 'Dashboards': 'Tableaux de bord',
@@ -327,9 +345,9 @@
     { id: 'executive',  label: 'Executive',            roles: ['executive', 'scorecard-viewer'], items: ['exec-home', 'it-review', 'scorecard', 'portfolio', 'cockpit'] },
     { id: 'admin',      label: 'Group IT',             roles: ['admin'], items: ['dashboard', 'site-actions', 'cockpit', 'dashboards', 'report-studio', 'integrations'] },
     { id: 'pmo',        label: 'Portfolio & projects', roles: ['committee-member', 'finance-viewer'], items: ['portfolio', 'rfi', 'cockpit', 'report-studio'] },
-    { id: 'site-it',    label: 'Site IT',              roles: ['editor'], items: ['site-actions', 'inspections', 'meetings', 'site-reports', 'tracker', 'obligations'] },
-    { id: 'technician', label: 'Technician',           roles: ['field-tech'], items: ['field', 'inspections', 'site-actions'] },
-    { id: 'reader',     label: 'Start here',           roles: ['any'], items: ['dashboard', 'site-actions', 'dashboards', 'notifications'] },
+    { id: 'site-it',    label: 'Site IT',              roles: ['editor'], items: ['home', 'site-actions', 'inspections', 'meetings', 'site-reports', 'tracker', 'obligations'] },
+    { id: 'technician', label: 'Technician',           roles: ['field-tech'], items: ['home', 'field', 'inspections', 'site-actions'] },
+    { id: 'reader',     label: 'Start here',           roles: ['any'], items: ['home', 'dashboard', 'site-actions', 'dashboards', 'notifications'] },
   ];
   function allEntries() {
     const out = [];

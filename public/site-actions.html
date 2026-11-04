@@ -165,7 +165,7 @@
     { key: 'report',     title: 'Report follow-ups', color: '#16A34A', api: null,                       statuses: ['open', 'in_progress', 'on_hold', 'closed', 'cancelled'] },
   ];
 
-  const state = { site: '', q: '', overdue: false, noAction: false, showClosed: false, data: null };
+  const state = { site: '', q: '', overdue: false, noAction: false, showClosed: false, data: null, sites: [] };
   // md_issues vocabulary (meetings-init.json statuses)
   const ISSUE_STATUSES = ['open', 'in_progress', 'blocked', 'on_hold', 'resolved', 'demand', 'helpdesk_ticket', 'cancelled'];
   const TERMINAL_ACTION = /^(resolved|cancelled|closed|demand|helpdesk_ticket)$/i;
@@ -180,6 +180,9 @@
       const r = await fetch('/api/inspection/lookups', { credentials: 'same-origin', headers: authHeaders() });
       const j = await r.json();
       const sites = (j && j.sites) || [];
+      state.sites = sites;   // already filtered to the user's sites by the server
+      // A-10: one site and no ?site= deep link → open it directly (nothing to choose)
+      if (sites.length === 1 && !state.site) state.site = sites[0].code;
       const sel = document.getElementById('saSite');
       sel.innerHTML = '<option value="">— Select a site —</option>'
         + sites.map(s => `<option value="${esc(s.code)}">${esc(s.name || s.code)}</option>`).join('');
@@ -192,11 +195,17 @@
     groupsEl.innerHTML = '<div class="sa-group"><div class="sa-empty">Loading…</div></div>';
     try {
       const r = await fetch('/api/reports/site-actions?site=' + encodeURIComponent(state.site) + (state.showClosed ? '&closed=1' : ''), { credentials: 'same-origin', headers: authHeaders() });
+      if (r.status === 403) {
+        // A-10: say whose sites they are instead of a bare "Access denied"
+        const mine = (state.sites || []).map(s => s.name || s.code).filter(Boolean);
+        throw new Error('This site is not one of yours. Your sites: ' + (mine.length ? mine.join(', ') : 'none'));
+      }
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || ('HTTP ' + r.status)); }
       state.data = await r.json();
       render();
     } catch (e) {
-      groupsEl.innerHTML = '<div class="sa-group"><div class="sa-empty">Failed to load: ' + esc(e.message || '') + '</div></div>';
+      const m = String(e.message || '');
+      groupsEl.innerHTML = '<div class="sa-group"><div class="sa-empty">' + (/^This site is not one of yours/.test(m) ? '' : 'Failed to load: ') + esc(m) + '</div></div>';
     }
   }
 
