@@ -12,7 +12,7 @@
   "jobs": 26,
   "jobs_without_test_reference": 10,
   "migrations": 62,
-  "test_files": 538
+  "test_files": 539
  },
  "pages": [
   {
@@ -909,7 +909,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 3,
-   "bytes": 39909,
+   "bytes": 47238,
    "tests": [
     "tests/agent-inventory.test.js",
     "tests/csp-headers.smoke.test.js",
@@ -1075,7 +1075,7 @@
    "method": "GET",
    "path": "/api/analytics/wan/mappings",
    "file": "routes/opmanager.js",
-   "line": 351,
+   "line": 353,
    "tests": [
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/opm-routes.smoke.test.js"
@@ -1086,7 +1086,7 @@
    "method": "PUT",
    "path": "/api/analytics/wan/mappings",
    "file": "routes/opmanager.js",
-   "line": 359,
+   "line": 361,
    "tests": [
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/opm-routes.smoke.test.js"
@@ -1097,7 +1097,7 @@
    "method": "GET",
    "path": "/api/analytics/wan/sla/config",
    "file": "routes/opmanager.js",
-   "line": 466,
+   "line": 490,
    "tests": [
     "tests/wan-contracts.smoke.test.js",
     "tests/wan-sla-routes.smoke.test.js"
@@ -1108,7 +1108,7 @@
    "method": "PUT",
    "path": "/api/analytics/wan/sla/config",
    "file": "routes/opmanager.js",
-   "line": 471,
+   "line": 495,
    "tests": [
     "tests/wan-contracts.smoke.test.js",
     "tests/wan-sla-routes.smoke.test.js"
@@ -1119,7 +1119,7 @@
    "method": "GET",
    "path": "/api/analytics/wan/sla/contracts/:key/evidence",
    "file": "routes/opmanager.js",
-   "line": 490,
+   "line": 514,
    "tests": [
     "tests/wan-contracts.smoke.test.js"
    ]
@@ -1129,7 +1129,7 @@
    "method": "POST",
    "path": "/api/analytics/wan/sla/contracts/:key/review",
    "file": "routes/opmanager.js",
-   "line": 524,
+   "line": 548,
    "tests": [
     "tests/wan-contracts.smoke.test.js"
    ]
@@ -1139,7 +1139,7 @@
    "method": "PUT",
    "path": "/api/analytics/wan/sla/contracts/:key",
    "file": "routes/opmanager.js",
-   "line": 502,
+   "line": 526,
    "tests": [
     "tests/wan-contracts.smoke.test.js"
    ]
@@ -1149,7 +1149,7 @@
    "method": "GET",
    "path": "/api/analytics/wan/sla/contracts",
    "file": "routes/opmanager.js",
-   "line": 486,
+   "line": 510,
    "tests": [
     "tests/wan-contracts.smoke.test.js"
    ]
@@ -1159,7 +1159,7 @@
    "method": "POST",
    "path": "/api/analytics/wan/sla/export-filtered.xlsx",
    "file": "routes/opmanager.js",
-   "line": 631,
+   "line": 655,
    "tests": [
     "tests/wan-sla-routes.smoke.test.js"
    ]
@@ -1169,7 +1169,7 @@
    "method": "GET",
    "path": "/api/analytics/wan/sla/export.csv",
    "file": "routes/opmanager.js",
-   "line": 546,
+   "line": 570,
    "tests": [
     "tests/wan-sla-routes.smoke.test.js",
     "tests/wan-sla-site-scope.smoke.test.js"
@@ -1180,7 +1180,7 @@
    "method": "GET",
    "path": "/api/analytics/wan/sla/export.xlsx",
    "file": "routes/opmanager.js",
-   "line": 621,
+   "line": 645,
    "tests": [
     "tests/wan-sla-routes.smoke.test.js"
    ]
@@ -1190,7 +1190,7 @@
    "method": "GET",
    "path": "/api/analytics/wan/sla/outages",
    "file": "routes/opmanager.js",
-   "line": 443,
+   "line": 467,
    "tests": [
     "tests/wan-sla-routes.smoke.test.js",
     "tests/wan-sla-site-scope.smoke.test.js"
@@ -1201,7 +1201,7 @@
    "method": "GET",
    "path": "/api/analytics/wan/sla/summary",
    "file": "routes/opmanager.js",
-   "line": 386,
+   "line": 388,
    "tests": [
     "tests/wan-contracts.smoke.test.js",
     "tests/wan-sla-routes.smoke.test.js",
@@ -1213,7 +1213,7 @@
    "method": "POST",
    "path": "/api/analytics/wan/sla/sync",
    "file": "routes/opmanager.js",
-   "line": 535,
+   "line": 559,
    "tests": [
     "tests/wan-sla-routes.smoke.test.js"
    ]
@@ -1226,6 +1226,7 @@
    "line": 225,
    "tests": [
     "tests/opm-routes.smoke.test.js",
+    "tests/wan-sla-routes.smoke.test.js",
     "tests/wan-timeup-default.test.js",
     "tests/wan-window-route.smoke.test.js"
    ]
@@ -1235,7 +1236,7 @@
    "method": "POST",
    "path": "/api/analytics/wan/sync",
    "file": "routes/opmanager.js",
-   "line": 342,
+   "line": 344,
    "tests": [
     "tests/opm-routes.smoke.test.js"
    ]
@@ -1245,7 +1246,7 @@
    "method": "GET",
    "path": "/api/analytics/wan/trend",
    "file": "routes/opmanager.js",
-   "line": 330,
+   "line": 332,
    "tests": [
     "tests/opm-routes.smoke.test.js"
    ]
