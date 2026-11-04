@@ -12,7 +12,7 @@
   "jobs": 27,
   "jobs_without_test_reference": 10,
   "migrations": 64,
-  "test_files": 550
+  "test_files": 551
  },
  "pages": [
   {
@@ -306,7 +306,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 118847,
+   "bytes": 119513,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -325,6 +325,7 @@
     "tests/i18n-coverage.test.js",
     "tests/landing.test.js",
     "tests/sdp-manager.smoke.test.js",
+    "tests/site-fold-sla-definition.test.js",
     "tests/trust-label.test.js"
    ]
   },
