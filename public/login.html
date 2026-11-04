@@ -216,6 +216,8 @@
 </div>
 </div>
 
+<script nonce="%%CSP_NONCE%%" src="lib/businessRoles.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/landing.js"></script>
 <script nonce="%%CSP_NONCE%%">
   // If already logged in and NO ?next= param, skip straight to index.
   // If ?next= IS present, just show the form — do not auto-redirect from the init script.
@@ -281,11 +283,24 @@
         }
         return false;
       }
+      // A-10 — ONE landing rule shared with the shell's brand link (public/lib/landing.js). The switch
+      // report_config ui_role_landing ('0' = today's mapping, the default) is read from /auth/me now that
+      // the session cookie exists; any failure keeps today's mapping.
+      let roleLanding = '0';
+      try {
+        const me = await fetch('/api/reports/auth/me', { credentials: 'same-origin' });
+        const body = me.ok ? await me.json() : null;
+        if (body && body.ui && typeof body.ui === 'object') {
+          try { localStorage.setItem('sdp_ui_policy', JSON.stringify(body.ui)); } catch (_) {}
+          roleLanding = body.ui.role_landing === '1' ? '1' : '0';
+        }
+      } catch (_) { /* network hiccup → today's landing */ }
+      const _roles = (Array.isArray((data.user || {}).roles) && data.user.roles.length) ? data.user.roles : ((data.user || {}).role ? [data.user.role] : []);
+      const isBusinessOnly = window.BusinessRoles ? window.BusinessRoles.isBusinessOnly(_roles)
+        : (_roles.length > 0 && _roles.every(r => r === 'site-business' || r === 'group-business'));
       function defaultLanding() {
-        if (userHas('executive') || userHas('super_admin')) return 'executive.html';
-        if (userHas('admin'))                                return 'index.html';
-        if (userHas('tracker-editor'))                       return 'activity-tracker.html';
-        return 'index.html';
+        if (window.Landing) return window.Landing.landingFor({ has: userHas, isBusinessOnly, roleLanding });
+        return 'index.html';   // the module failed to load: a safe page, the target's own gate decides
       }
 
       const next     = new URLSearchParams(location.search).get('next');

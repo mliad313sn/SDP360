@@ -41,7 +41,7 @@ const ALLOW = {
 
 // Shell pages that already translate their own body (data-lng blocks or their own I18nText install).
 const SELF_TRANSLATED = ['cockpit.html', 'commitments.html', 'handoffs.html', 'help.html', 'infra-health.html', 'meetings-compliance.html',
-  'meetings-import.html', 'meetings-insights.html', 'obligations.html', 'policies.html', 'site-awareness.html'];
+  'meetings-import.html', 'meetings-insights.html', 'obligations.html', 'policies.html', 'site-awareness.html', 'home.html'];
 // Shell pages not translated yet, with the reason (A-09b covers the coordinator pages listed there).
 const UNTRANSLATED = {
   'reports.html': 'A-09b', 'assets.html': 'A-09b', 'wan.html': 'A-09b', 'trackers.html': 'A-09b', 'portfolio.html': 'A-09b', 'rfi.html': 'A-09b',

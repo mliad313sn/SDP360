@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Home — My work — Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/landing.js"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<style nonce="%%CSP_NONCE%%">
+  body { margin: 0; background: var(--color-bg, #F4F5F7); color: var(--color-text-strong, #1F2A33); font-family: var(--font-sans, sans-serif); font-size: 14px; }
+  .hm-wrap { max-width: 1300px; margin: 0 auto; padding: 24px 28px 48px; }
+  .hm-card { background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA); border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; }
+  h1 { margin: 0 0 6px; font-size: 22px; color: var(--edv-slate, #3A4A60); }
+  h2 { margin: 0 0 10px; font-size: 17px; color: var(--edv-slate, #3A4A60); }
+  .hm-muted { color: #5B6573; font-size: 12.5px; }
+  .hm-sites { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+  .hm-blocks { list-style: none; margin: 0; padding: 0; }
+  .hm-blocks li { padding: 8px 0; border-top: 1px solid #EEF0F3; display: flex; justify-content: space-between; gap: 12px; }
+  .hm-blocks li:first-child { border-top: 0; }
+  .hm-k { font-weight: 600; } .hm-v { text-align: right; }
+  .hm-late { color: #A0002C; font-weight: 700; } .hm-nm { color: #5B6573; font-style: italic; }
+  .hm-pv { font-size: 12.5px; margin: 4px 0 0; padding-left: 16px; text-align: left; }
+  .hm-shortcuts { display: flex; flex-wrap: wrap; gap: 8px; list-style: none; margin: 0; padding: 0; }
+  .hm-shortcuts a { display: inline-block; padding: 6px 12px; border: 1px solid #D0D5DD; border-radius: 999px; text-decoration: none; }
+  a { color: var(--edv-blue, #1F6FB2); }
+  body.lang-fr [data-lng="en"], body:not(.lang-fr) [data-lng="fr"] { display: none; }
+</style>
+</head>
+<body>
+<a class="edv-skip" href="#main">Skip to content</a>
+<div id="__shell" data-section="home" data-current="home"></div>
+<main id="main" class="hm-wrap">
+  <div class="hm-card">
+    <h1><span data-lng="en">My work</span><span data-lng="fr">Mon travail</span></h1>
+    <p class="hm-muted" data-lng="en">What each of your sites needs today: open and overdue actions, this week's report, PVs waiting for a signature, the last inspection and the tracker cells still empty this month. Each line opens the page that fixes it. "— not measured" means the source could not be read; it is never a zero.</p>
+    <p class="hm-muted" data-lng="fr">Ce que chacun de vos sites demande aujourd'hui : actions ouvertes et en retard, rapport de la semaine, PV en attente de signature, dernière inspection et cases du suivi d'activité encore vides ce mois-ci. Chaque ligne ouvre la page qui permet de régler le point. « — non mesuré » signifie que la source n'a pas pu être lue ; ce n'est jamais un zéro.</p>
+    <div id="hmMsg" class="hm-muted" role="status" aria-live="polite"></div>
+  </div>
+  <div id="hmSites" class="hm-sites"></div>
+  <div class="hm-card">
+    <h2><span data-lng="en">Shortcuts</span><span data-lng="fr">Raccourcis</span></h2>
+    <ul id="hmShortcuts" class="hm-shortcuts"></ul>
+  </div>
+</main>
+<script nonce="%%CSP_NONCE%%" src="lib/errorText.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/home-page.js"></script>
+</body>
+</html>
