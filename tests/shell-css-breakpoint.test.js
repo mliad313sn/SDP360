@@ -35,3 +35,14 @@ test('lean-only contextual links are hidden unless the lean profile is active', 
   assert.match(CSS, /\.shell-lean-only\s*\{\s*display:\s*none/);
   assert.match(CSS, /body\.shell-nav-lean \.shell-lean-only\s*\{/);
 });
+
+test('A-22: the measured fit guard applies to both profiles and has a compact tier', () => {
+  assert.match(CSS, /\nbody\.shell-nav-tight \.shell-nav > \.shell-nav-item:not\(\.is-active\) \.shell-nav-label,\nbody\.shell-nav-tight \.shell-nav > \.shell-nav-item-link:not\(\.is-active\) \.shell-nav-label \{ display: none; \}/);
+  assert.match(CSS, /body\.shell-nav-compact \.shell-nav-item, body\.shell-nav-compact \.shell-nav-item-link \{ padding: 7px 8px; \}/);
+  assert.match(CSS, /body\.shell-nav-compact \.shell-user-initial \{ display: inline-flex; \}/);
+  const js = fs.readFileSync(path.join(__dirname, '..', 'public', '_shell.js'), 'utf8').replace(/\r\n/g, '\n');
+  const fn = js.slice(js.indexOf('function fitLeanLabels('), js.indexOf('let fitQueued'));
+  assert.ok(fn.length > 50, 'fit guard found');
+  assert.ok(!/navProfile\(\)/.test(fn), 'not limited to the lean profile any more');
+  assert.match(fn, /classList\.add\('shell-nav-tight'\)[\s\S]*classList\.add\('shell-nav-compact'\)/);
+});

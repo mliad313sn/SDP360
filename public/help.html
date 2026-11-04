@@ -20,7 +20,7 @@
   body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--slate);line-height:1.6}
 
   /* ── HEADER ── */
-  .hdr{display:flex;align-items:center;gap:12px;background:var(--orange);padding:0 20px;height:52px;color:#fff;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.25)}
+  .hdr{display:flex;align-items:center;gap:12px;background:var(--color-primary-fill, #C2410C);padding:0 20px;height:52px;color:#fff;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.25)}
   .hdr-logo{font-size:16px;font-weight:700;letter-spacing:.4px;white-space:nowrap}
   .hdr-sep{flex:1}
   /* Manual sub-bar (title + language toggle) — sits under the shared nav banner */
@@ -52,7 +52,7 @@
 
   /* ── SECTION ── */
   .section{background:var(--white);border-radius:8px;border:1px solid var(--border);padding:24px 28px;margin-bottom:20px}
-  .section-num{display:inline-block;background:var(--orange);color:#fff;font-size:11px;font-weight:700;border-radius:3px;padding:1px 7px;margin-right:8px;vertical-align:middle}
+  .section-num{display:inline-block;background:var(--color-primary-fill, #C2410C);color:#fff;font-size:11px;font-weight:700;border-radius:3px;padding:1px 7px;margin-right:8px;vertical-align:middle}
   h2{font-size:17px;font-weight:700;color:var(--navy);margin-bottom:14px;display:flex;align-items:center;gap:6px}
   h3{font-size:14px;font-weight:700;color:var(--orange);margin:16px 0 8px}
   h4{font-size:13px;font-weight:600;color:var(--slate);margin:12px 0 6px}
@@ -76,7 +76,7 @@
   /* ── STEP BADGE ── */
   .steps{list-style:none;padding:0;counter-reset:step}
   .steps li{counter-increment:step;display:flex;gap:12px;align-items:flex-start;margin-bottom:10px;font-size:13.5px}
-  .steps li::before{content:counter(step);background:var(--orange);color:#fff;border-radius:50%;width:22px;height:22px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;margin-top:1px}
+  .steps li::before{content:counter(step);background:var(--color-primary-fill, #C2410C);color:#fff;border-radius:50%;width:22px;height:22px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;margin-top:1px}
 
   /* ── DIVIDER / LANGUAGE SEPARATOR ── */
   .lang-divider{border:none;border-top:3px solid var(--navy);margin:40px 0;position:relative}
@@ -601,7 +601,7 @@
           <thead><tr><th>Zoho Priority</th><th>Dashboard Code</th><th>Zoho SLA Name</th></tr></thead>
           <tbody>
             <tr><td><strong>Critical</strong></td><td><span style="background:#E74C3C;color:#fff;padding:1px 8px;border-radius:3px;font-weight:700;font-size:12px">P1</span></td><td>Critical SLA for Incident</td></tr>
-            <tr><td><strong>High</strong></td><td><span style="background:#E87722;color:#fff;padding:1px 8px;border-radius:3px;font-weight:700;font-size:12px">P2</span></td><td>High SLA for Incidents</td></tr>
+            <tr><td><strong>High</strong></td><td><span style="background:var(--color-primary-fill, #C2410C);color:#fff;padding:1px 8px;border-radius:3px;font-weight:700;font-size:12px">P2</span></td><td>High SLA for Incidents</td></tr>
             <tr><td><strong>Medium / Normal</strong></td><td><span style="background:#2A5490;color:#fff;padding:1px 8px;border-radius:3px;font-weight:700;font-size:12px">P3</span></td><td>Medium SLA for Incidents</td></tr>
             <tr><td><strong>Low</strong></td><td><span style="background:#6B7280;color:#fff;padding:1px 8px;border-radius:3px;font-weight:700;font-size:12px">P4</span></td><td>Low SLA for Incidents</td></tr>
           </tbody>
@@ -1782,7 +1782,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$B\Confirm-Destructive.ps1"
           <thead><tr><th>Priorité Zoho</th><th>Code tableau de bord</th><th>Nom SLA dans Zoho</th></tr></thead>
           <tbody>
             <tr><td><strong>Critical</strong></td><td><span style="background:#E74C3C;color:#fff;padding:1px 8px;border-radius:3px;font-weight:700;font-size:12px">P1</span></td><td>Critical SLA for Incident</td></tr>
-            <tr><td><strong>High</strong></td><td><span style="background:#E87722;color:#fff;padding:1px 8px;border-radius:3px;font-weight:700;font-size:12px">P2</span></td><td>High SLA for Incidents</td></tr>
+            <tr><td><strong>High</strong></td><td><span style="background:var(--color-primary-fill, #C2410C);color:#fff;padding:1px 8px;border-radius:3px;font-weight:700;font-size:12px">P2</span></td><td>High SLA for Incidents</td></tr>
             <tr><td><strong>Medium / Normal</strong></td><td><span style="background:#2A5490;color:#fff;padding:1px 8px;border-radius:3px;font-weight:700;font-size:12px">P3</span></td><td>Medium SLA for Incidents</td></tr>
             <tr><td><strong>Low</strong></td><td><span style="background:#6B7280;color:#fff;padding:1px 8px;border-radius:3px;font-weight:700;font-size:12px">P4</span></td><td>Low SLA for Incidents</td></tr>
           </tbody>

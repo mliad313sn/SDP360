@@ -552,16 +552,20 @@
     ensureSkipLink(mount);
   }
 
-  // A-21 — lean profile: keep the labels only when they fit (measured, so French labels and long role menus are
-  // covered); otherwise shell-nav-tight drops back to icons. No-op in the full profile.
+  // A-21 / A-22 — measured fit guard, both profiles. The menu keeps its labels only when they fit (French labels
+  // and long role menus are covered); otherwise shell-nav-tight drops back to icons. When even the icons do not fit
+  // (full profile, super_admin, ~900-1400 px: 9 sections + search + user pill), shell-nav-compact tightens the
+  // padding and folds the search label, version and user name. Nothing is removed from the menu.
+  function navOverflows(nav) { return !!nav && nav.scrollWidth > nav.clientWidth + 1; }
   function fitLeanLabels() {
     try {
       const body = document.body;
       if (!body || !body.classList) return;
-      body.classList.remove('shell-nav-tight');
-      if (navProfile() !== 'lean') return;
+      body.classList.remove('shell-nav-tight', 'shell-nav-compact');
       const nav = document.querySelector('.shell-nav');
-      if (nav && nav.scrollWidth > nav.clientWidth + 1) body.classList.add('shell-nav-tight');
+      if (!navOverflows(nav)) return;
+      body.classList.add('shell-nav-tight');
+      if (navOverflows(nav)) body.classList.add('shell-nav-compact');
     } catch (_) { /* no layout */ }
   }
   let fitQueued = false;

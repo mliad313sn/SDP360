@@ -6,6 +6,7 @@
   <title>Executive Report Builder – IT Operations</title>
   <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;600;700;900&display=swap" rel="stylesheet">
   <script src="vendor/chart.js/4.4.1/chart.umd.js" defer></script>
+  <script src="lib/chartTheme.js" defer></script>
   <script src="vendor/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js" defer></script>
   <script src="jszip.min.js"></script>
   <script src="pptxgen.min.js"></script>
@@ -38,7 +39,7 @@
     .header { background: var(--edv-steel); border-bottom: 1px solid rgba(0,0,0,0.2); }
     .header-top { display: flex; align-items: center; justify-content: space-between; padding: 10px 18px; gap: 12px; flex-wrap: wrap; }
     .header-brand { display: flex; align-items: center; gap: 10px; }
-    .header-logo  { width: 36px; height: 36px; background: var(--edv-orange); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 18px; color: white; flex-shrink: 0; }
+    .header-logo  { width: 36px; height: 36px; background: var(--color-primary-fill, #C2410C); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 18px; color: white; flex-shrink: 0; }
     .header-name  { font-size: 15px; font-weight: 700; color: white; }
     .header-name span { font-weight: 400; color: var(--muted); font-size: 13px; margin-left: 6px; }
     .header-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
@@ -51,7 +52,7 @@
     .btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .btn-primary { background: #1a5ea8; color: white; border-color: #1a5ea8; }
     .btn-primary:hover { background: #1652a0; }
-    .btn-gold    { background: var(--edv-orange); color: white; border-color: var(--edv-orange); font-weight: 700; }
+    .btn-gold    { background: var(--color-primary-fill, #C2410C); color: white; border-color: var(--edv-orange); font-weight: 700; }
     .btn-gold:hover { background: #d4551a; }
     .btn-green   { background: var(--green); color: white; border-color: var(--green); }
     .btn-green:hover { background: #0ea472; }
@@ -89,7 +90,7 @@
     .section-hdr { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; margin-top: 28px; }
     .section-num   { width: 28px; height: 28px; border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 900; color: white; flex-shrink: 0; }
     .section-num.blue   { background: var(--edv-steel); }
-    .section-num.gold   { background: var(--edv-orange); color: white; }
+    .section-num.gold   { background: var(--color-primary-fill, #C2410C); color: white; }
     .section-num.purple { background: #7C3AED; }
     .section-num.red    { background: var(--red); }
     .section-title  { font-size: 15px; font-weight: 700; color: var(--text); }
@@ -124,7 +125,7 @@
     .commentary-name { font-size: 12px; font-weight: 700; color: var(--navy); }
     .commentary-body { padding: 12px 14px; }
     .commentary-field {
-      font-size: 13px; color: var(--text); line-height: 1.6; outline: none;
+      font-size: 13px; color: var(--text); line-height: 1.6;
       min-height: 70px; white-space: pre-wrap; width: 100%;
       background: transparent; border: none; resize: vertical;
     }
@@ -171,7 +172,7 @@
     /* ── Preset Manager ── */
     .pm-preset-block { background: #FFFFFF; border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; margin-bottom: 12px; }
     .pm-preset-hdr { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-    .pm-preset-name { font-size: 13px; font-weight: 700; color: var(--edv-steel); border-bottom: 1px dashed #94A3B8; padding: 1px 4px; cursor: text; min-width: 80px; outline: none; }
+    .pm-preset-name { font-size: 13px; font-weight: 700; color: var(--edv-steel); border-bottom: 1px dashed #94A3B8; padding: 1px 4px; cursor: text; min-width: 80px;}
     .pm-preset-name:focus { border-bottom-color: var(--edv-orange); background: rgba(239,99,26,0.06); border-radius: 3px; }
     .pm-preset-count { font-size: 11px; color: var(--muted); flex: 1; }
     .pm-del-preset { background: #FEE2E2; border: 1px solid #FCA5A5; color: #991B1B; border-radius: 4px; padding: 2px 8px; font-size: 11px; cursor: pointer; }
@@ -208,7 +209,7 @@
   .dp-icon-btn{background:none;border:none;color:#94A3B8;cursor:pointer;padding:5px 8px;border-radius:5px;font-size:13px;line-height:1;}
   .dp-icon-btn:hover{background:#E2E8F0;color:#1E293B;}
   #dpTools{display:flex;gap:8px;padding:10px 16px;border-bottom:1px solid #1E3A50;flex-shrink:0;align-items:center;}
-  #dpSearch{flex:1;background:#FFFFFF;border:1px solid #CBD5E1;color:#1E293B;border-radius:6px;padding:7px 11px;font-size:12px;outline:none;}
+  #dpSearch{flex:1;background:#FFFFFF;border:1px solid #CBD5E1;color:#1E293B;border-radius:6px;padding:7px 11px;font-size:12px;}
   #dpSearch:focus{border-color:#2F5597;box-shadow:0 0 0 2px rgba(47,85,151,.15);}
   #dpSearch::placeholder{color:#4B6280;}
   #dpSearch:focus{border-color:#3B82F6;}
@@ -367,7 +368,6 @@
     transition: border-color .15s;
   }
   .config-select:focus {
-    outline: none;
     border-color: var(--edv-orange, #EF631A) !important;
     box-shadow: 0 0 0 3px rgba(239,99,26,.12);
   }
@@ -378,7 +378,7 @@
      from _shell.css; this overlay only touches buttons OUTSIDE that bar. */
   button.btn-gold,
   .btn-gold {
-    background: var(--edv-orange, #EF631A) !important;
+    background: var(--color-primary-fill, #C2410C) !important;
     color: #fff !important;
     border-color: var(--edv-orange, #EF631A) !important;
     border-radius: var(--radius-md, 6px) !important;
