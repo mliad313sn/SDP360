@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 3356,
+ "total": 3358,
  "files": {
   "a11y-static.test.js": 15,
   "access-denied-log.smoke.test.js": 3,
@@ -168,6 +168,7 @@
   "help-assets-section.test.js": 9,
   "help-recent-updates.test.js": 6,
   "help-teams-sla-section.test.js": 7,
+  "html-pages-before-static.test.js": 2,
   "http-error.test.js": 6,
   "i18n-coverage.test.js": 11,
   "i18n-text.test.js": 6,
