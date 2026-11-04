@@ -36,3 +36,17 @@ test('every page loading _shell.js also loads _shell.css (focus ring + skip link
   assert.ok(shellPages.length >= 30, 'found the shell pages: ' + shellPages.length);
   for (const f of shellPages) assert.match(fs.readFileSync(path.join(PUB, f), 'utf8'), /<link\b[^>]*href="[^"]*_shell\.css/, f + ' loads _shell.css');
 });
+
+test('A-12b: _tokens.css carries the global :focus-visible ring with !important and a forced-colors fallback', () => {
+  const s = fs.readFileSync(path.join(PUB, '_tokens.css'), 'utf8');
+  assert.match(s, /\n:focus-visible\s*\{\s*outline:\s*2px solid var\(--focus-ring[^)]*\)\s*!important;\s*outline-offset:\s*2px\s*!important;/);
+  assert.match(s, /@media \(forced-colors: active\)\s*\{\s*:focus-visible\s*\{\s*outline-color:\s*Highlight\s*!important;/);
+});
+
+test('A-12b: every page loading _shell.js also loads _tokens.css (or carries the ring via _shell.css)', () => {
+  const pages = fs.readdirSync(PUB).filter((f) => f.endsWith('.html'));
+  const shellPages = pages.filter((f) => /<script\b[^>]*\bsrc="[^"]*_shell\.js/.test(fs.readFileSync(path.join(PUB, f), 'utf8')));
+  const missing = shellPages.filter((f) => !/<link\b[^>]*href="[^"]*_tokens\.css/.test(fs.readFileSync(path.join(PUB, f), 'utf8')));
+  // _shell.css repeats the ring, so a page without the tokens is still covered; the list is pinned so a new one is a decision.
+  assert.deepStrictEqual(missing, [], 'shell pages without _tokens.css: ' + missing.join(', '));
+});

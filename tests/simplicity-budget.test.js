@@ -132,8 +132,10 @@ test('lean: body class toggles and the rendered menu matches the model', () => {
   assert.ok(!/href="handoffs.html"/.test(mount.innerHTML), 'handoffs is not in the lean menu');
 });
 
-test('lean fit guard: labels give way to icons only when the measured menu overflows', () => {
-  for (const [sw, cw, profile, tight] of [[1072, 711, 'lean', true], [746, 746, 'lean', false], [1072, 711, 'full', false]]) {
+// A-22: the guard now covers the full profile too (super_admin's full menu overflowed by 53-287 px); a stub nav
+// that keeps overflowing after the icons switch also gets the compact tier.
+test('fit guard: labels give way to icons only when the measured menu overflows (both profiles)', () => {
+  for (const [sw, cw, profile, tight] of [[1072, 711, 'lean', true], [746, 746, 'lean', false], [1072, 711, 'full', true], [746, 746, 'full', false]]) {
     const mount = { dataset: { section: 'operations', current: 'inspections' }, innerHTML: '' };
     const classes = new Set();
     const body = { classList: { toggle: (c, on) => (on ? classes.add(c) : classes.delete(c)), add: (c) => classes.add(c), remove: (c) => classes.delete(c) } };
@@ -142,5 +144,6 @@ test('lean fit guard: labels give way to icons only when the measured menu overf
     const window = { __userHasRole: () => true, __isBusinessOnly: false, __authUser: {}, __uiPolicy: { nav_profile: profile }, EDV_ICONS: { html: () => '', get: () => '' } };
     vm.runInNewContext(SRC, { window, document, console, localStorage: { getItem: () => null, setItem() {} }, navigator: { language: 'en' } });
     assert.strictEqual(classes.has('shell-nav-tight'), tight, `${sw}/${cw} ${profile}`);
+    assert.strictEqual(classes.has('shell-nav-compact'), tight, `${sw}/${cw} ${profile} compact`);
   }
 });

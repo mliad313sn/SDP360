@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="module-tabs.css">
 <script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
 <script nonce="%%CSP_NONCE%%" src="vendor/chart.js/4.4.1/chart.umd.js" defer></script>
+<script nonce="%%CSP_NONCE%%" src="lib/chartTheme.js" defer></script>
 
 <style nonce="%%CSP_NONCE%%">
   body {
@@ -34,12 +35,12 @@
     padding: 8px 14px;
     border: 1px solid transparent;
     border-radius: var(--radius-md, 6px);
-    background: var(--edv-orange, #EF631A); color: #fff;
+    background: var(--color-primary-fill, #C2410C); color: #fff;
     font-family: inherit; font-size: 13px; font-weight: 600;
     cursor: pointer; text-decoration: none;
     transition: background var(--motion-fast, 120ms);
   }
-  .btn:hover        { background: var(--edv-orange-700, #C04E10); }
+  .btn:hover        { background: var(--color-primary-fill-hover, #9A3412); }
   .btn-ghost        { background: #fff; color: var(--color-text-secondary, #3a4452); border-color: var(--color-border, #dfe3e8); }
   .btn-ghost:hover  { background: var(--color-surface-muted, #f4f6f7); color: var(--color-text-primary, #1F2A33); }
   .btn .icon        { width: 16px; height: 16px; }
@@ -75,7 +76,6 @@
   }
   .filter-bar select:focus,
   .filter-bar input:focus {
-    outline: none;
     border-color: var(--edv-orange, #EF631A);
     box-shadow: 0 0 0 3px rgba(239, 99, 26, 0.15);
   }

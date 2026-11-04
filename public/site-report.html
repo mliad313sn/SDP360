@@ -12,6 +12,7 @@
 <script src="brand/icons.js"></script>
 <!-- Chart.js — same CDN + version other pages use (already CSP-allowed) -->
 <script src="vendor/chart.js/4.4.1/chart.umd.js" defer></script>
+<script src="lib/chartTheme.js" defer></script>
 <script src="lib/trustLabel.js" defer></script>
 <script src="site-report.js" defer></script>
 <style>
@@ -91,10 +92,10 @@
   .score-chip{margin-top:10px;display:inline-flex;align-items:center;gap:7px;padding:5px 14px;border-radius:999px;font-size:.82rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em}
   .score-trend{margin-top:8px;font-size:.86rem;font-weight:700}
   .rag-green .score-num{color:var(--edv-green-dark,#158D3E)}
-  .rag-amber .score-num{color:var(--color-warning,#D97706)}
+  .rag-amber .score-num{color: var(--color-warning-text, #92400E)}
   .rag-red   .score-num{color:var(--edv-red,#D90038)}
   .chip-green{background:var(--color-success-bg,#E7F5EA);color:var(--edv-green-dark,#158D3E)}
-  .chip-amber{background:var(--color-warning-bg,#FEF3C7);color:var(--color-warning,#D97706)}
+  .chip-amber{background:var(--color-warning-bg,#FEF3C7);color: var(--color-warning-text, #92400E)}
   .chip-red{background:var(--color-danger-bg,#FEEAEE);color:var(--edv-red,#D90038)}
   .trend-good{color:var(--edv-green-dark,#158D3E)}
   .trend-bad{color:var(--edv-red,#D90038)}
@@ -116,7 +117,7 @@
   .kpi{background:#fff;border:1px solid var(--color-border,#E2E5EA);border-radius:11px;padding:13px 15px}
   .kpi-label{font-size:.7rem;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--color-text-muted,#7B7B7B)}
   .kpi-val{font-size:1.7rem;font-weight:800;color:var(--edv-slate,#3A4A60);margin-top:5px;line-height:1}
-  .kpi-val.warn{color:var(--color-warning,#D97706)}
+  .kpi-val.warn{color: var(--color-warning-text, #92400E)}
   .kpi-val.bad{color:var(--edv-red,#D90038)}
 
   /* ── Two-column region ──────────────────────────────────────── */
@@ -133,7 +134,7 @@
   .st-on_track,.st-signed{background:var(--color-success-bg,#E7F5EA);color:var(--edv-green-dark,#158D3E)}
   .st-blocked,.st-no_pv{background:var(--color-danger-bg,#FEEAEE);color:var(--edv-red,#D90038)}
   .st-default{background:#EEF1F6;color:var(--edv-slate,#3A4A60)}
-  .alert-chip{display:inline-block;padding:1px 8px;border-radius:16px;font-size:.68rem;font-weight:700;background:var(--color-warning-bg,#FEF3C7);color:var(--color-warning,#D97706);margin:1px 2px}
+  .alert-chip{display:inline-block;padding:1px 8px;border-radius:16px;font-size:.68rem;font-weight:700;background:var(--color-warning-bg,#FEF3C7);color: var(--color-warning-text, #92400E);margin:1px 2px}
   .oa-row{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--color-border,#E2E5EA);font-size:.88rem}
   .oa-row:last-child{border-bottom:none}
   .oa-meta{flex-shrink:0;font-size:.74rem;font-weight:600;color:var(--color-text-muted,#7B7B7B);text-align:right;min-width:118px}

@@ -63,5 +63,11 @@ test('index.html renderTrend uses periodSlaRates, pushes null and breaks the lin
   const body = html.slice(start, end);
   assert.ok(body.includes('periodSlaRates('), 'uses the shared helper');
   assert.ok(!/\/rows\.length/.test(body), 'no division by all tickets');
-  assert.equal((body.match(/spanGaps:false/g) || []).length, 2, 'both line datasets break on null');
+  // A-22: the lines are drawn by TrendPanel (public/lib/charts.js), which sets spanGaps:false on every
+  // rate line (pinned by tests/charts-static.test.js); here we pin that the null-bearing arrays reach it as is.
+  assert.ok(body.includes('TrendPanel.render('), 'drawn by the shared trend panel');
+  assert.ok(/data:sv\}/.test(body) && /data:fv\}/.test(body), 'the rate arrays are passed untouched');
+  const TrendPanel = require('../public/lib/charts.js');
+  const cfg = TrendPanel.buildConfigs({ labels: ['a', 'b'], rate: [{ label: 'r', data: [1, null] }, { label: 'f', data: [null, 2] }] });
+  assert.equal(cfg.rate.data.datasets.filter((d) => d.spanGaps === false).length, 2, 'both line datasets break on null');
 });

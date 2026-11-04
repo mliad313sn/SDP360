@@ -42,7 +42,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 .top-bar nav button{background:none;border:none;color:rgba(255,255,255,0.75) !important;-webkit-text-fill-color:rgba(255,255,255,0.75) !important;padding:8px 14px;border-radius:6px;cursor:pointer;font-size:0.88rem;transition:all 0.15s}
 .top-bar nav button:hover,.top-bar nav button.active{background:rgba(255,255,255,0.12);color:#fff !important;-webkit-text-fill-color:#fff !important}
 .top-bar .user-pill{background:rgba(255,255,255,0.12);border-radius:20px;padding:5px 12px;font-size:0.82rem;display:flex;align-items:center;gap:6px}
-.top-bar .user-pill .role-badge{background:var(--orange);color:#fff;border-radius:10px;padding:1px 7px;font-size:0.72rem;font-weight:700}
+.top-bar .user-pill .role-badge{background:var(--color-primary-fill, #C2410C);color:#fff;border-radius:10px;padding:1px 7px;font-size:0.72rem;font-weight:700}
 .btn-logout{background:none;border:1.5px solid rgba(255,255,255,0.3);color:rgba(255,255,255,0.8) !important;-webkit-text-fill-color:rgba(255,255,255,0.8) !important;padding:5px 12px;border-radius:6px;cursor:pointer;font-size:0.82rem;transition:all 0.15s}
 .btn-logout:hover{background:rgba(255,255,255,0.1);color:#fff !important;-webkit-text-fill-color:#fff !important}
 
@@ -55,20 +55,20 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 /* ── Cards ───────────────────────────────────────────────────── */
 .card{background:#fff;border-radius:10px;box-shadow:var(--card-shadow);padding:24px;margin-bottom:20px}
 .card h3{font-size:1rem;font-weight:700;color:var(--dark-blue);margin-bottom:16px;display:flex;align-items:center;gap:8px}
-.card h3 .section-num{background:var(--orange);color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;flex-shrink:0}
+.card h3 .section-num{background:var(--color-primary-fill, #C2410C);color:#fff;border-radius:50%;width:22px;height:22px;display:inline-flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;flex-shrink:0}
 
 /* ── Week selector bar ───────────────────────────────────────── */
 .week-bar{display:flex;align-items:center;gap:12px;background:#fff;border-radius:10px;padding:14px 20px;box-shadow:var(--card-shadow);margin-bottom:20px;flex-wrap:wrap}
 .week-bar label{font-size:0.82rem;font-weight:600;color:#6b7a99}
-.week-bar select,.week-bar input[type=number]{padding:7px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:0.9rem;outline:none}
+.week-bar select,.week-bar input[type=number]{padding:7px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:0.9rem}
 .week-bar select:focus,.week-bar input:focus{border-color:var(--orange)}
 .week-badge{background:var(--dark-blue);color:#fff;padding:5px 14px;border-radius:16px;font-size:0.82rem;font-weight:700}
 .week-bar .spacer{flex:1}
 
 /* ── Buttons ─────────────────────────────────────────────────── */
 .btn{padding:9px 18px;border-radius:7px;border:none;font-size:0.88rem;font-weight:600;cursor:pointer;transition:all 0.15s;display:inline-flex;align-items:center;gap:6px}
-.btn-primary{background:var(--orange);color:#fff !important;-webkit-text-fill-color:#fff !important}
-.btn-primary:hover{opacity:0.88}
+.btn-primary{background:var(--color-primary-fill, #C2410C);color:#fff !important;-webkit-text-fill-color:#fff !important}
+.btn-primary:hover{background:var(--color-primary-fill-hover, #9A3412)}
 .btn-secondary{background:var(--light-bg);color:var(--dark-blue) !important;-webkit-text-fill-color:var(--dark-blue) !important;border:1.5px solid var(--border)}
 .btn-secondary:hover{background:#e8ecf5}
 .btn-danger{background:#fff;color:var(--red) !important;-webkit-text-fill-color:var(--red) !important;border:1.5px solid #f5b7b1}
@@ -81,7 +81,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 /* ── Form elements ───────────────────────────────────────────── */
 .form-group{margin-bottom:14px}
 .form-group label{display:block;font-size:0.8rem;font-weight:600;color:var(--dark-blue);margin-bottom:5px}
-.form-group input,.form-group select,.form-group textarea{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:0.9rem;outline:none;font-family:inherit;transition:border-color 0.2s}
+.form-group input,.form-group select,.form-group textarea{width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:6px;font-size:0.9rem;font-family:inherit;transition:border-color 0.2s}
 .form-group input:focus,.form-group select:focus,.form-group textarea:focus{border-color:var(--orange)}
 .form-group textarea{resize:vertical;min-height:70px}
 .form-row{display:grid;gap:14px}
@@ -94,7 +94,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 .infra-table th{background:var(--dark-blue);color:#fff;padding:9px 10px;font-size:0.8rem;text-align:left;font-weight:600}
 .infra-table td{padding:7px 8px;border-bottom:1px solid #edf0f7;font-size:0.87rem;vertical-align:middle}
 .infra-table tr:hover td{background:#f9fafb}
-.infra-table input,.infra-table select{width:100%;padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:0.83rem;outline:none}
+.infra-table input,.infra-table select{width:100%;padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:0.83rem}
 .infra-table input:focus,.infra-table select:focus{border-color:var(--orange)}
 .status-dot{width:12px;height:12px;border-radius:50%;display:inline-block}
 .dot-green{background:var(--green)}
@@ -113,20 +113,20 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 .lights-col.cip h4{color:var(--amber)}
 .lights-col.cpend h4{color:var(--mid-blue)}
 .light-item{display:flex;gap:6px;margin-bottom:6px;align-items:flex-start}
-.light-item textarea{flex:1;padding:7px 9px;border:1.5px solid var(--border);border-radius:6px;font-size:0.84rem;resize:vertical;min-height:52px;font-family:inherit;outline:none}
+.light-item textarea{flex:1;padding:7px 9px;border:1.5px solid var(--border);border-radius:6px;font-size:0.84rem;resize:vertical;min-height:52px;font-family:inherit}
 .light-item textarea:focus{border-color:var(--orange)}
 
 /* ── Action items ────────────────────────────────────────────── */
 .action-table{width:100%;border-collapse:collapse;table-layout:fixed}
 .action-table th{background:#f4f6fa;color:var(--dark-blue);padding:8px 10px;font-size:0.79rem;font-weight:700;text-align:left;border-bottom:2px solid var(--border)}
 .action-table td{padding:7px 8px;border-bottom:1px solid #edf0f7;vertical-align:top;overflow:hidden}
-.action-table input,.action-table select{width:100%;padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:0.83rem;outline:none;font-family:inherit}
+.action-table input,.action-table select{width:100%;padding:5px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:0.83rem;font-family:inherit}
 .action-table input:focus,.action-table select:focus{border-color:var(--orange)}
 .action-table .comment-preview{display:block;width:100%;padding:5px 8px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#475569;font-size:0.82rem;border:1.5px solid var(--border);border-radius:5px;background:#fafbfc;box-sizing:border-box}
 .action-table .comment-preview.empty{color:#94a3b8;font-style:italic}
 .action-table .comment-preview:hover{border-color:var(--orange)}
 .action-table tr.action-comment-row td{padding:8px 10px 12px;background:#f8fafc;border-bottom:1px solid #edf0f7}
-.action-table tr.action-comment-row textarea{width:100%;min-height:60px;padding:6px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:0.85rem;font-family:inherit;outline:none;resize:vertical;box-sizing:border-box}
+.action-table tr.action-comment-row textarea{width:100%;min-height:60px;padding:6px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:0.85rem;font-family:inherit;resize:vertical;box-sizing:border-box}
 .action-table tr.action-comment-row textarea:focus{border-color:var(--orange)}
 .action-table tr.action-comment-row .done-btn{margin-top:6px;float:right}
 .action-table select.dept-select.placeholder{color:#94a3b8;font-style:italic}
@@ -198,7 +198,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 /* ── Section progress ────────────────────────────────────────── */
 .section-tabs{display:flex;gap:4px;margin-bottom:20px;flex-wrap:wrap}
 .section-tab{padding:7px 16px;border-radius:6px;border:1.5px solid var(--border);background:#fff;font-size:0.83rem;font-weight:600;cursor:pointer;color:#6b7a99;transition:all 0.15s}
-.section-tab.active{background:var(--orange);color:#fff;border-color:var(--orange)}
+.section-tab.active{background:var(--color-primary-fill, #C2410C);color:#fff;border-color:var(--orange)}
 .section-tab.done{border-color:var(--green);color:var(--green)}
 
 /* ── Submit bar ──────────────────────────────────────────────── */
@@ -302,6 +302,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 }
 </style>
 <script src="vendor/chart.js/4.4.1/chart.umd.js" defer></script>
+<script src="lib/chartTheme.js" defer></script>
+<script src="lib/charts.js" defer></script>
 <script src="vendor/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js" defer></script>
 <script src="lib/parse-actions-csv.js"></script>
 <script src="lib/actionSimilarity.js"></script>
@@ -365,15 +367,15 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       <div id="chpwd-success" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:8px 12px;font-size:12px;color:#16a34a;margin-bottom:14px"></div>
       <div style="margin-bottom:14px">
         <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px">Current Password</label>
-        <input type="password" id="chpwd-current" placeholder="Your current password" style="width:100%;padding:9px 12px;border:1.5px solid #e5e7eb;border-radius:6px;font-size:13px;outline:none">
+        <input type="password" id="chpwd-current" placeholder="Your current password" style="width:100%;padding:9px 12px;border:1.5px solid #e5e7eb;border-radius:6px;font-size:13px">
       </div>
       <div style="margin-bottom:14px">
         <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px">New Password</label>
-        <input type="password" id="chpwd-new" placeholder="At least 8 characters" style="width:100%;padding:9px 12px;border:1.5px solid #e5e7eb;border-radius:6px;font-size:13px;outline:none">
+        <input type="password" id="chpwd-new" placeholder="At least 8 characters" style="width:100%;padding:9px 12px;border:1.5px solid #e5e7eb;border-radius:6px;font-size:13px">
       </div>
       <div style="margin-bottom:22px">
         <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px">Confirm New Password</label>
-        <input type="password" id="chpwd-confirm" placeholder="Repeat new password" style="width:100%;padding:9px 12px;border:1.5px solid #e5e7eb;border-radius:6px;font-size:13px;outline:none">
+        <input type="password" id="chpwd-confirm" placeholder="Repeat new password" style="width:100%;padding:9px 12px;border:1.5px solid #e5e7eb;border-radius:6px;font-size:13px">
       </div>
       <div style="display:flex;gap:10px;justify-content:flex-end">
         <button onclick="closeChangePassword()" style="padding:8px 18px;background:#f3f4f6;border:1px solid #e5e7eb;border-radius:6px;font-size:13px;cursor:pointer">Cancel</button>
@@ -417,7 +419,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
     <!-- ② Export PPTX ────────────────────────────────────────────── -->
     <div style="margin-bottom:18px">
       <div style="display:flex;align-items:baseline;gap:10px;margin-bottom:10px">
-        <span style="background:var(--orange);color:#fff;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">2</span>
+        <span style="background:var(--color-primary-fill, #C2410C);color:#fff;border-radius:50%;width:24px;height:24px;display:inline-flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0">2</span>
         <h3 style="margin:0;color:var(--dark-blue);font-size:1.05rem">Export PPTX</h3>
         <span style="font-size:0.82rem;color:#6b7a99;margin-left:4px">Generate slide decks from saved report data</span>
       </div>
@@ -580,7 +582,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
             <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
               <label style="font-size:0.82rem;font-weight:600;color:#6b7a99">Group:</label>
               <select id="hd-group-select" onchange="hdWeekOffset=0;fetchHelpdeskCharts()"
-                style="padding:5px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:0.82rem;color:#1a2233;background:#fff;outline:none;min-width:200px;cursor:pointer">
+                style="padding:5px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:0.82rem;color:#1a2233;background:#fff;min-width:200px;cursor:pointer">
                 <option value="">— select a group —</option>
               </select>
             </div>
@@ -932,7 +934,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <button id="btn-all-sites-monthly-v2"
           onclick="downloadAllSitesMonthlyPptx(true)"
           title="Generate one PPTX covering ALL sites for the selected year &amp; month"
-          style="background:#E87722;color:#fff;border:2px solid #c4601a;border-radius:6px;padding:8px 20px;font-size:0.92rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(232,119,34,0.35)">
+          style="background:var(--color-primary-fill, #C2410C);color:#fff;border:2px solid #c4601a;border-radius:6px;padding:8px 20px;font-size:0.92rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:0 2px 6px rgba(232,119,34,0.35)">
           <i class="icon icon-download"></i>Export ALL Sites PPTX
         </button>
         <span style="font-size:0.78rem;color:#6b7a99;font-style:italic">All active sites · selected year &amp; month · one file for the monthly meeting</span>
@@ -3670,7 +3672,7 @@ function renderHdCharts(data) {
     <div class="hd-chart-grid">
       <div class="hd-chart-card full">
         <div class="hd-chart-title">📈 Weekly Request Volume &amp; SLA Trend — ${esc(grp)}</div>
-        <div class="hd-chart-wrap tall"><canvas id="hdc-trend"></canvas></div>
+        <div id="hdc-trend"></div>
       </div>
       <div class="hd-chart-card">
         <div class="hd-chart-title">⏳ Ageing — Open Tickets (${data.ageing_total} open)</div>
@@ -3690,43 +3692,24 @@ function renderHdCharts(data) {
   const resMissed  = data.weeks.map(w => w.res_missed_pct);
   const frMissed   = data.weeks.map(w => w.fr_missed_pct);
 
-  hdCharts.trend = new Chart(document.getElementById('hdc-trend').getContext('2d'), {
-    data: { labels, datasets: [
-      { type:'bar',  label:'Inbound',
-        data:inb, yAxisID:'y', backgroundColor:'rgba(25,118,188,0.45)', borderColor:'#1976BC',
-        borderWidth:1, borderRadius:4, order:3,
-        datalabels:{ anchor:'end', align:'end', color:'#1976BC', font:{size:10,weight:'700'} } },
-      { type:'bar',  label:'Closed',
-        data:cl,  yAxisID:'y', backgroundColor:'rgba(22,163,74,0.4)',  borderColor:'#16A34A',
-        borderWidth:1, borderRadius:4, order:4,
-        datalabels:{ anchor:'end', align:'end', color:'#16A34A', font:{size:10,weight:'700'} } },
-      { type:'line', label:'Res. SLA Missed %',
-        data:resMissed, yAxisID:'y2', borderColor:'#DC2626', borderWidth:2,
-        tension:0.35, pointRadius:5, pointBackgroundColor:'#DC2626', fill:false, order:1,
-        datalabels:{ anchor:'center', align:'top', color:'#991B1B', font:{size:10,weight:'700'},
-          formatter:v => v != null ? v+'%' : '' } },
-      { type:'line', label:'1st Reply SLA Missed %',
-        data:frMissed, yAxisID:'y2', borderColor:'#D97706', borderWidth:2, borderDash:[5,3],
-        tension:0.35, pointRadius:5, pointBackgroundColor:'#D97706', fill:false, order:2,
-        datalabels:{ anchor:'center', align:'bottom', color:'#92400E', font:{size:10,weight:'700'},
-          formatter:v => v != null ? v+'%' : '' } }
-    ]},
-    options: { responsive:true, maintainAspectRatio:false,
-      interaction:{ mode:'index', intersect:false },
-      plugins:{
-        legend:{ position:'top', labels:{ font:{size:11}, boxWidth:18 } },
-        tooltip:{ callbacks:{ label: ctx => ' '+ctx.dataset.label+': '+ctx.raw+(ctx.dataset.yAxisID==='y2'?'%':'') } },
-        datalabels:{ display: ctx => ctx.dataset.type==='bar' ? ctx.raw > 0 : ctx.raw != null }
-      },
-      scales:{
-        x:{ ticks:{font:{size:10},maxRotation:0}, grid:{display:false} },
-        y:{ position:'left', beginAtZero:true, ticks:{font:{size:10}},
-            title:{display:true,text:'Tickets',font:{size:10}} },
-        y2:{ position:'right', min:0, max:100, ticks:{font:{size:10},callback:v=>v+'%'},
-             grid:{drawOnChartArea:false}, title:{display:true,text:'SLA Missed % (lower=better)',font:{size:10}} }
-      }
-    }
-  });
+  // A-22 — counts and SLA-missed % in two stacked panels (one y-axis each) instead of a dual-axis
+  // combo. Same arrays; null % stays a gap, never a zero; the rate panel keeps the % suffix.
+  hdCharts.trend = window.TrendPanel ? TrendPanel.render('hdc-trend', {
+    labels, unit:'%', heights:{ volume:150, rate:150 }, volumeTitle:'Tickets', rateTitle:'SLA missed % (lower = better)',
+    volume:[
+      { label:'Inbound', data:inb, extra:{ datalabels:{ anchor:'end', align:'end', color:'#1a2233', font:{size:12,weight:'700'} } } },
+      { label:'Closed',  data:cl,  extra:{ datalabels:{ anchor:'end', align:'end', color:'#1a2233', font:{size:12,weight:'700'} } } }
+    ],
+    rate:[
+      { label:'Res. SLA Missed %', data:resMissed,
+        extra:{ datalabels:{ anchor:'center', align:'top', color:'#1a2233', font:{size:12,weight:'700'}, formatter:v => v != null ? v+'%' : '' } } },
+      { label:'1st Reply SLA Missed %', data:frMissed,
+        extra:{ datalabels:{ anchor:'center', align:'bottom', color:'#1a2233', font:{size:12,weight:'700'}, formatter:v => v != null ? v+'%' : '' } } }
+    ],
+    volumeOptions:{ plugins:{ datalabels:{ display: ctx => ctx.raw > 0 } } },
+    rateOptions:{ plugins:{ datalabels:{ display: ctx => ctx.raw != null } } }
+  }) : null;
+  if (!hdCharts.trend) delete hdCharts.trend;
 
   // ── Ageing chart ─────────────────────────────────────────────
   const agLabels = ['0–7 d','8–14 d','15–30 d','31–60 d','60+ d'];
@@ -3743,7 +3726,7 @@ function renderHdCharts(data) {
         tooltip:{callbacks:{label:c=>' '+c.raw+' tickets'}},
         datalabels:{ display:false }
       },
-      scales:{ x:{grid:{display:false},ticks:{font:{size:10}}}, y:{beginAtZero:true,ticks:{font:{size:10}}} }
+      scales:{ x:{grid:{display:false},ticks:{font:{size:12}}}, y:{beginAtZero:true,ticks:{font:{size:12}}} }
     }
   });
 
@@ -3756,7 +3739,7 @@ function renderHdCharts(data) {
       type:'bar',
       data:{ labels:t10labels, datasets:[{
         label:'SLA Violations', data:t10data,
-        backgroundColor:'rgba(220,38,38,0.7)', borderColor:'#DC2626', borderWidth:1, borderRadius:3
+        backgroundColor:ChartTheme.alpha(ChartTheme.colors.rag.red,0.8), borderColor:ChartTheme.colors.rag.red, borderWidth:1, borderRadius:3
       }] },
       options:{ indexAxis:'y', responsive:true, maintainAspectRatio:false,
         plugins:{
@@ -3764,7 +3747,7 @@ function renderHdCharts(data) {
           tooltip:{callbacks:{label:c=>' '+c.raw+' violations ('+t10pcts[c.dataIndex]+'% of cat.)'}},
           datalabels:{ display:false }
         },
-        scales:{ x:{beginAtZero:true,ticks:{font:{size:10}}}, y:{ticks:{font:{size:9}},grid:{display:false}} }
+        scales:{ x:{beginAtZero:true,ticks:{font:{size:12}}}, y:{ticks:{font:{size:12}},grid:{display:false}} }
       }
     });
   } else {
@@ -6014,7 +5997,7 @@ function renderMonthlyActions() {
     commentTr.style.display = 'none';
     commentTr.innerHTML = `
       <td colspan="9" style="padding:8px 10px 12px;background:#f8fafc">
-        <textarea maxlength="2000" oninput="mrActions[${i}].comment=this.value" placeholder="Why is this on hold? Blockers? Decisions? (Dashboard-only)" style="width:100%;min-height:60px;padding:6px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:0.85rem;font-family:inherit;outline:none;resize:vertical;box-sizing:border-box">${esc(a.comment||'')}</textarea>
+        <textarea maxlength="2000" oninput="mrActions[${i}].comment=this.value" placeholder="Why is this on hold? Blockers? Decisions? (Dashboard-only)" style="width:100%;min-height:60px;padding:6px 8px;border:1.5px solid var(--border);border-radius:5px;font-size:0.85rem;font-family:inherit;resize:vertical;box-sizing:border-box">${esc(a.comment||'')}</textarea>
         <button class="btn btn-secondary btn-sm" style="margin-top:6px;float:right" onclick="closeMrCommentRow('${rowId}', ${i})">Done</button>
       </td>
     `;

@@ -261,7 +261,7 @@ body {
   color: var(--shell-text-strong);
 }
 .shell-user-role {
-  background: var(--shell-orange);
+  background: var(--color-primary-fill, #C2410C);  /* A-12b: white 9.5px text — 5.18:1, was 3.25:1 on --shell-orange */
   color: #fff;
   border-radius: 10px;
   padding: 1.5px 8px;
@@ -365,10 +365,18 @@ body {
   body:not(.shell-nav-lean) .shell-nav > .shell-nav-item-link:not(.is-active) .shell-nav-label { display: none; }
   .shell-brand-text small { display: none; }
 }
-/* fit guard: when the labels of a long lean menu (super_admin: 9 sections) do not fit the width, _shell.js adds
-   shell-nav-tight and the menu falls back to icons exactly like the full profile below 1400 px */
-body.shell-nav-lean.shell-nav-tight .shell-nav > .shell-nav-item:not(.is-active) .shell-nav-label,
-body.shell-nav-lean.shell-nav-tight .shell-nav > .shell-nav-item-link:not(.is-active) .shell-nav-label { display: none; }
+/* fit guard (A-21, both profiles since A-22): when the labels do not fit the width (super_admin: 9 sections),
+   _shell.js adds shell-nav-tight and the menu falls back to icons exactly like the full profile below 1400 px;
+   if the icons still overflow it adds shell-nav-compact (measured: full super_admin overflowed by 53 px at
+   1200 px and 287 px at 1440 px before this). Nothing leaves the menu; the finder (Ctrl+K) is unchanged. */
+body.shell-nav-tight .shell-nav > .shell-nav-item:not(.is-active) .shell-nav-label,
+body.shell-nav-tight .shell-nav > .shell-nav-item-link:not(.is-active) .shell-nav-label { display: none; }
+body.shell-nav-compact .shell-nav-item, body.shell-nav-compact .shell-nav-item-link { padding: 7px 8px; }
+body.shell-nav-compact .shell-brand { margin-right: 8px; }
+body.shell-nav-compact .shell-brand-text, body.shell-nav-compact .shell-version,
+body.shell-nav-compact .shell-search-label, body.shell-nav-compact .shell-search-btn kbd,
+body.shell-nav-compact .shell-user-name, body.shell-nav-compact .shell-user-role { display: none; }
+body.shell-nav-compact .shell-user-initial { display: inline-flex; }
 @media (max-width: 1180px) {
   body.shell-nav-lean .shell-nav > .shell-nav-item:not(.is-active) .shell-nav-label,
   body.shell-nav-lean .shell-nav > .shell-nav-item-link:not(.is-active) .shell-nav-label { display: none; }
