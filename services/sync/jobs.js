@@ -157,7 +157,19 @@ function buildJobs(d) {
   list.push({ name: 'commitments.escalate', cron: '20 * * * *', freshnessHours: 3, optional: true, job: legacyJob('commitments.escalate', () => cmt ? cmt.escalate() : { skipped: true }, { maxAttempts: 2 }) });
   // A-27 — catalogue A11 PPM exceptions, nightly. A dry run (records nothing) while ppm_alerts_enabled != '1'.
   list.push({ name: 'governance.ppm_alerts', cron: '40 5 * * *', freshnessHours: 30, optional: true, job: legacyJob('governance.ppm_alerts', () => req('governance/ppm-alerts').run({}), { maxAttempts: 1 }) });
+  // C-18 — access grants: end expired grants / activate approved requests whose day has come. Self-skips unless
+  // report_config access_grant_expiry_job = '1' (default '0' — no grant expires by itself today).
+  list.push({ name: 'access.grant_expiry', cron: '50 3 * * *', freshnessHours: 30, optional: true, job: legacyJob('access.grant_expiry', () => accessGrantExpiryRun(d), { maxAttempts: 1 }) });
   return list;
+}
+
+/** C-18 — the access.grant_expiry body (exported for tests): skipped unless armed, else run the store's expiry pass. */
+async function accessGrantExpiryRun(d = {}) {
+  const rdb = d.rdb || require('../../reports-db');
+  const cfg = d.cfg || await require('../reportConfig').getConfig(rdb.db);
+  if (String((cfg && cfg.access_grant_expiry_job) || '0') !== '1') return { skipped: true, reason: 'access_grant_expiry_job is 0' };
+  const store = d.accessStore || require('../accessStore').forRdb(rdb);
+  return store.runExpiry({ actorId: null });
 }
 
 /** A-19 — the softdelete.purge body (exported for the registry test): skipped unless armed, else purge + log counts. */
@@ -181,14 +193,14 @@ const FRESHNESS_HOURS = {
   'meridian.resources': 30, 'opmanager.availability': 30, 'meraki.wan': 30, 'meraki.wan_events': 30,
   'meraki.wan_events_5m': 1, 'meraki.wan_poller': 1, 'teams.sla_poll': 1, 'db.backup': 30, 'db.restore_drill': 24 * 33, 'audit.retention': 30, 'audit.chain_verify': 30,
   'engagement.alerts': 1, 'engagement.digest': 30, 'engagement.digest_weekly': 24 * 8, 'reports.weekly': 24 * 8, 'reports.monthly': 24 * 32, 'publish.connectors': 30, 'field.purge': 30, 'softdelete.purge': 30,
-  'commitments.escalate': 3, 'handoffs.escalate': 3, 'governance.ppm_alerts': 30,
+  'commitments.escalate': 3, 'handoffs.escalate': 3, 'governance.ppm_alerts': 30, 'access.grant_expiry': 30,
 };
 // Jobs that self-skip until configured (no API key / webhook) — never reported "stale", only "idle".
 const OPTIONAL = new Set(['meridian.resources', 'opmanager.availability', 'meraki.wan', 'meraki.wan_events', 'meraki.wan_events_5m', 'meraki.wan_poller', 'teams.sla_poll', 'db.backup', 'db.restore_drill',
-  'engagement.alerts', 'engagement.digest', 'engagement.digest_weekly', 'reports.weekly', 'reports.monthly', 'publish.connectors', 'field.purge', 'softdelete.purge', 'commitments.escalate', 'handoffs.escalate', 'governance.ppm_alerts']);
+  'engagement.alerts', 'engagement.digest', 'engagement.digest_weekly', 'reports.weekly', 'reports.monthly', 'publish.connectors', 'field.purge', 'softdelete.purge', 'commitments.escalate', 'handoffs.escalate', 'governance.ppm_alerts', 'access.grant_expiry']);
 
 // Map the legacy sync_metadata job names onto the registry names (one health view, D7).
 const LEGACY_NAMES = { requests: 'zoho.requests', change_cab: 'zoho.change_cab', survey: 'zoho.survey',
   assets_assets: 'assets.sync', assets_memory: 'assets.sync', assets_logical_drives: 'assets.sync', assets_monitors: 'assets.sync', assets_software_licenses: 'assets.sync', assets_software: 'assets.sync' };
 
-module.exports = { legacyJob, buildJobs, rowsOf, FRESHNESS_HOURS, OPTIONAL, LEGACY_NAMES, softDeletePurgeRun };
+module.exports = { legacyJob, buildJobs, rowsOf, FRESHNESS_HOURS, OPTIONAL, LEGACY_NAMES, softDeletePurgeRun, accessGrantExpiryRun };

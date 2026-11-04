@@ -1,0 +1,268 @@
+'use strict';
+// C-18 (G38 G39 G40 G50 · A02 A03 A09) — persistence of access templates, requests and grants (057 / 058).
+//
+// user_roles + user_sites stay the only thing read at request time. An ACTIVE request writes them through
+// rdb.updateUser (the path Admin ▸ Users uses) inside the same transaction as its access_grants rows, and the
+// change is logged to system_log category 'identity' with request id, grant ids and valid_to (A03).
+// Every request step is written to access_request_events (append-only, hash-chained) in the same transaction.
+const L = require('./accessRequestLifecycle');
+const { typed } = require('./httpError');
+
+const str = (v, max = 2000) => (v == null || v === '' ? null : String(v).slice(0, max));
+const toId = (v) => Number(v);
+const fail = (c) => { throw typed(c.code, c.error, c.status); };
+const todayOf = (iso) => String(iso).slice(0, 10);
+
+function makeAccessStore(db, rdb, { now = () => new Date().toISOString() } = {}) {
+  if (!db || !rdb) throw new Error('accessStore needs a db handle and reports-db');
+  const P = (sql) => db.prepare(sql);
+  const tx = (fn) => (db.runTransaction ? db.runTransaction(fn) : fn());
+  const knownRoles = () => [...(rdb.ROLE_HIERARCHY || []), ...(rdb.FEATURE_ROLES_KNOWN || [])];
+  const today = () => todayOf(now());
+
+  async function event(requestId, action, actorId, details) {
+    await P('INSERT INTO access_request_events (request_id, action, actor_id, at, details) VALUES (?, ?, ?, ?, ?)')
+      .run(toId(requestId), action, actorId == null ? null : toId(actorId), now(), details ? JSON.stringify(details) : null);
+  }
+  const rowReq = (r) => (r ? { ...r, id: toId(r.id), subject_user_id: toId(r.subject_user_id), requested_by: toId(r.requested_by),
+    template_version_id: r.template_version_id == null ? null : toId(r.template_version_id),
+    roles: r.roles || [], site_ids: (r.site_ids || []).map(Number) } : null);
+  const rowVer = (v) => (v ? { ...v, id: toId(v.id), template_id: toId(v.template_id), version: Number(v.version), payload: JSON.parse(v.payload) } : null);
+
+  // ── templates ─────────────────────────────────────────────────────
+  async function listTemplates({ includeDrafts = false } = {}) {
+    const tpls = await P('SELECT * FROM access_templates ORDER BY key').all();
+    const vers = (await P('SELECT * FROM access_template_versions ORDER BY template_id, version').all()).map(rowVer);
+    return tpls.map((t) => {
+      const vs = vers.filter((v) => v.template_id === toId(t.id) && (includeDrafts || v.status === 'published'));
+      const published = vs.filter((v) => v.status === 'published');
+      return { ...t, id: toId(t.id), versions: vs, current: published.length ? published[published.length - 1] : null };
+    }).filter((t) => includeDrafts || (!t.retired_at && t.current));
+  }
+  async function createTemplate(b, { actorId }) {
+    b = b || {};
+    const key = String(b.key || '').trim().toLowerCase();
+    if (!/^[a-z0-9][a-z0-9._-]{1,47}$/.test(key)) fail({ status: 400, code: 'VALIDATION', error: 'key: 2-48 lower-case letters, digits, . _ -' });
+    if (!str(b.title_en) || !str(b.title_fr)) fail({ status: 400, code: 'VALIDATION', error: 'title_en and title_fr are required' });
+    const dup = await P('SELECT id FROM access_templates WHERE key = ?').get(key);
+    if (dup) fail({ status: 409, code: 'CONFLICT', error: 'a template with this key exists' });
+    const r = await P('INSERT INTO access_templates (key, title_en, title_fr, intended_position, owner_user_id, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id')
+      .get(key, str(b.title_en, 200), str(b.title_fr, 200), str(b.intended_position, 500), b.owner_user_id == null ? null : toId(b.owner_user_id), actorId, now());
+    return toId(r.id);
+  }
+  async function addVersion(templateId, payload, { actorId }) {
+    const v = L.validateTemplatePayload(payload, { knownRoles: knownRoles() }); if (v.error) fail(v.error);
+    return tx(async () => {
+      const t = await P('SELECT id, retired_at FROM access_templates WHERE id = ? FOR UPDATE').get(toId(templateId));
+      if (!t) fail({ status: 404, code: 'NOT_FOUND', error: 'template not found' });
+      if (t.retired_at) fail({ status: 409, code: 'CONFLICT', error: 'template is retired' });
+      const m = await P('SELECT COALESCE(MAX(version), 0) AS m FROM access_template_versions WHERE template_id = ?').get(toId(templateId));
+      const r = await P('INSERT INTO access_template_versions (template_id, version, status, payload, created_by, created_at) VALUES (?, ?, ?, ?, ?, ?) RETURNING id')
+        .get(toId(templateId), Number(m.m) + 1, 'draft', JSON.stringify(v.value), actorId, now());
+      return toId(r.id);
+    });
+  }
+  async function getVersion(id) { return rowVer(await P('SELECT * FROM access_template_versions WHERE id = ?').get(toId(id))); }
+  async function updateDraft(versionId, payload) {
+    const v = L.validateTemplatePayload(payload, { knownRoles: knownRoles() }); if (v.error) fail(v.error);
+    const cur = await getVersion(versionId);
+    if (!cur) fail({ status: 404, code: 'NOT_FOUND', error: 'version not found' });
+    if (cur.status !== 'draft') fail({ status: 409, code: 'CONFLICT', error: 'a published version is immutable — add a new version' });
+    await P('UPDATE access_template_versions SET payload = ? WHERE id = ?').run(JSON.stringify(v.value), toId(versionId));
+  }
+  async function publish(versionId, { actorId }) {
+    const r = await P("UPDATE access_template_versions SET status = 'published', published_by = ?, published_at = ? WHERE id = ? AND status = 'draft'")
+      .run(actorId, now(), toId(versionId));
+    if (Number(r.changes) !== 1) fail({ status: 409, code: 'CONFLICT', error: 'version not found or already published' });
+  }
+  async function retire(templateId, { actorId }) {
+    const r = await P('UPDATE access_templates SET retired_by = ?, retired_at = ? WHERE id = ? AND retired_at IS NULL').run(actorId, now(), toId(templateId));
+    if (Number(r.changes) !== 1) fail({ status: 404, code: 'NOT_FOUND', error: 'template not found or already retired' });
+  }
+
+  // ── requests ──────────────────────────────────────────────────────
+  async function getRequest(id) { return rowReq(await P('SELECT * FROM access_requests WHERE id = ?').get(toId(id))); }
+  async function events(requestId) {
+    return (await P('SELECT id, request_id, action, actor_id, at, details FROM access_request_events WHERE request_id = ? ORDER BY id').all(toId(requestId)))
+      .map((e) => ({ ...e, id: toId(e.id), request_id: toId(e.request_id), details: e.details ? JSON.parse(e.details) : null }));
+  }
+  async function createRequest(b, { actorId }) {
+    let template = null, tvId = null;
+    if (b && b.template_version_id != null) {
+      const v = await getVersion(b.template_version_id);
+      const t = v ? await P('SELECT retired_at FROM access_templates WHERE id = ?').get(v.template_id) : null;
+      if (!v || v.status !== 'published' || !t || t.retired_at) fail({ status: 400, code: 'VALIDATION', error: 'template version is not published' });
+      template = v.payload; tvId = v.id;
+    }
+    const v = L.validateRequest(b, { knownRoles: knownRoles(), today: today(), template }); if (v.error) fail(v.error);
+    const q = v.value;
+    const users = await rdb.listUsers();
+    const subject = (users || []).find((u) => toId(u.id) === q.subject_user_id);
+    if (!subject || subject.active === 0 || subject.active === false) fail({ status: 400, code: 'VALIDATION', error: 'no active account with this id' });
+    return tx(async () => {
+      const open = await P("SELECT id, roles FROM access_requests WHERE subject_user_id = ? AND status IN ('REQUESTED','REVIEWING','APPROVED') FOR UPDATE").all(q.subject_user_id);
+      const clash = open.find((o) => (o.roles || []).some((r) => q.roles.includes(r)));
+      if (clash) fail({ status: 409, code: 'CONFLICT', error: `a pending request (#${clash.id}) already covers one of these roles` });
+      const r = await P(`INSERT INTO access_requests (kind, subject_user_id, requested_by, template_version_id, roles, site_ids, valid_from, valid_to, justification, status, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'REQUESTED', ?) RETURNING id`)
+        .get(q.kind, q.subject_user_id, toId(actorId), tvId, q.roles, q.site_ids, q.valid_from, q.valid_to, q.justification, now());
+      await event(r.id, 'requested', actorId, { subject: q.subject_user_id, roles: q.roles, site_ids: q.site_ids, from: q.valid_from, to: q.valid_to, template_version_id: tvId });
+      return toId(r.id);
+    });
+  }
+
+  /** Active deputies of the subject and of the requester (deputy_id set), today. */
+  async function deputyIdsFor(r) {
+    const t = today();
+    const rows = await P('SELECT deputy_id FROM deputies WHERE user_id IN (?, ?) AND revoked_at IS NULL AND start_date <= ? AND end_date >= ?')
+      .all(toId(r.subject_user_id), toId(r.requested_by), t, t);
+    return new Set(rows.map((x) => toId(x.deputy_id)));
+  }
+
+  async function _activate(r, actorId) {
+    const t = today();
+    const c = L.check(r, 'activate', null, { today: t }); if (c) fail(c);
+    const user = ((await rdb.listUsers()) || []).find((u) => toId(u.id) === r.subject_user_id);
+    if (!user) fail({ status: 409, code: 'CONFLICT', error: 'the subject account no longer exists' });
+    const roles = new Set(user.roles || []);
+    const sites = new Set([user.site_id, ...(user.extra_site_ids || [])].filter((x) => x != null).map(Number));
+    const grantIds = [];
+    const ins = (role, site, held) => P(`INSERT INTO access_grants (user_id, role, site_id, request_id, template_version_id, valid_from, valid_to, held_before, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`).get(r.subject_user_id, role, site, r.id, r.template_version_id, r.valid_from, r.valid_to, held, now());
+    for (const role of r.roles) grantIds.push(toId((await ins(role, null, roles.has(role))).id));
+    for (const s of r.site_ids) grantIds.push(toId((await ins(null, s, sites.has(s))).id));
+    const before = [...roles].sort();
+    for (const role of r.roles) roles.add(role);
+    let primary = user.site_id == null ? null : Number(user.site_id);
+    for (const s of r.site_ids) sites.add(s);
+    if (primary == null && r.site_ids.length) primary = r.site_ids[0];
+    await rdb.updateUser(r.subject_user_id, { full_name: user.full_name, site_id: primary, active: user.active, roles: [...roles],
+      extra_site_ids: [...sites].filter((s) => s !== primary) });
+    await P("UPDATE access_requests SET status = 'ACTIVE', activated_at = ? WHERE id = ?").run(now(), r.id);
+    await event(r.id, 'activated', actorId, { grant_ids: grantIds });
+    try {
+      rdb.logEvent({ category: 'identity', action: 'user_role_changed', actor: actorId == null ? 'system' : 'user:' + actorId, actor_id: actorId,
+        target: user.username, details: { via: 'access_request', request_id: r.id, grant_ids: grantIds, user_id: r.subject_user_id, before, after: [...roles].sort(), site_ids: r.site_ids, valid_to: r.valid_to } });
+    } catch (_) { /* a dead log never blocks */ }
+    return grantIds;
+  }
+
+  async function decide(id, action, actor, { reason, isApprover } = {}) {
+    if (!['review', 'approve', 'reject', 'revoke'].includes(action)) fail({ status: 400, code: 'VALIDATION', error: 'unknown action' });
+    if ((action === 'reject' || action === 'revoke') && String(reason || '').trim().length < 5) fail({ status: 400, code: 'VALIDATION', error: 'a reason (5+ characters) is required' });
+    return tx(async () => {
+      const r = rowReq(await P('SELECT * FROM access_requests WHERE id = ? FOR UPDATE').get(toId(id)));
+      if (!r) fail({ status: 404, code: 'NOT_FOUND', error: 'request not found' });
+      const c = L.check(r, action, actor, { isApprover, deputyIds: await deputyIdsFor(r), today: today() }); if (c) fail(c);
+      const me = actor && actor.id != null ? toId(actor.id) : null;
+      if (action === 'review') {
+        await P("UPDATE access_requests SET status = 'REVIEWING', reviewed_by = ?, reviewed_at = ? WHERE id = ?").run(me, now(), r.id);
+        await event(r.id, 'review', me, null);
+        return { status: 'REVIEWING' };
+      }
+      if (action === 'reject') {
+        await P("UPDATE access_requests SET status = 'REJECTED', decided_by = ?, decided_at = ?, decision_reason = ? WHERE id = ?").run(me, now(), str(reason), r.id);
+        await event(r.id, 'reject', me, { reason: str(reason) });
+        return { status: 'REJECTED' };
+      }
+      if (action === 'approve') {
+        const scope = L.scopeKey(r);
+        await P("UPDATE access_requests SET status = 'APPROVED', decided_by = ?, decided_at = ?, decision_reason = ?, approved_scope = ? WHERE id = ?")
+          .run(me, now(), str(reason), scope, r.id);
+        await event(r.id, 'approve', me, { reason: str(reason), scope: JSON.parse(scope) });
+        if (r.valid_from <= today()) { await _activate({ ...r, status: 'APPROVED', approved_scope: scope }, me); return { status: 'ACTIVE' }; }
+        return { status: 'APPROVED' };
+      }
+      // revoke
+      if (r.status === 'ACTIVE') await _endGrants(r, me, 'revoked');
+      await P("UPDATE access_requests SET status = 'REVOKED', ended_by = ?, ended_at = ?, end_reason = ? WHERE id = ?").run(me, now(), str(reason), r.id);
+      await event(r.id, 'revoke', me, { reason: str(reason) });
+      return { status: 'REVOKED' };
+    });
+  }
+
+  /** End the live grants of request r and take away what no other source still holds. */
+  async function _endGrants(r, actorId, why) {
+    const t = today();
+    const all = await P('SELECT * FROM access_grants WHERE user_id = ?').all(r.subject_user_id);
+    const ending = all.filter((g) => toId(g.request_id) === r.id && !g.ended_at);
+    if (!ending.length) return { roles: [], sites: [] };
+    const others = all.filter((g) => !ending.includes(g));
+    const rm = L.planRemoval(ending, others, t);
+    for (const g of ending) await P('UPDATE access_grants SET ended_at = ?, ended_by = ?, end_reason = ? WHERE id = ?').run(now(), actorId, why, toId(g.id));
+    if (rm.roles.length || rm.sites.length) {
+      const user = ((await rdb.listUsers()) || []).find((u) => toId(u.id) === r.subject_user_id);
+      if (user) {
+        let roles = (user.roles || []).filter((x) => !rm.roles.includes(x));
+        if (!roles.length) roles = ['viewer'];                  // never strand an account with no role at all
+        const extras = (user.extra_site_ids || []).map(Number).filter((s) => !rm.sites.includes(s));
+        let primary = user.site_id == null ? null : Number(user.site_id);
+        if (primary != null && rm.sites.includes(primary)) primary = extras.length ? extras.shift() : null;
+        await rdb.updateUser(r.subject_user_id, { full_name: user.full_name, site_id: primary, active: user.active, roles, extra_site_ids: extras.filter((s) => s !== primary) });
+        try {
+          rdb.logEvent({ category: 'identity', action: 'user_role_changed', actor: actorId == null ? 'system' : 'user:' + actorId, actor_id: actorId,
+            target: user.username, details: { via: 'access_grant_' + why, request_id: r.id, user_id: r.subject_user_id, removed_roles: rm.roles, removed_sites: rm.sites } });
+        } catch (_) { /* never blocks */ }
+      }
+    }
+    return rm;
+  }
+
+  /** Nightly job body: activate approved requests whose day has come, end the ones past valid_to. */
+  async function runExpiry({ actorId = null } = {}) {
+    const t = today();
+    let activated = 0, expired = 0;
+    const due = await P("SELECT id FROM access_requests WHERE status IN ('APPROVED','ACTIVE') ORDER BY id").all();
+    for (const { id } of due) {
+      await tx(async () => {
+        const r = rowReq(await P('SELECT * FROM access_requests WHERE id = ? FOR UPDATE').get(toId(id)));
+        if (!r) return;
+        if (r.valid_to < t) {
+          if (r.status === 'ACTIVE') await _endGrants(r, actorId, 'expired');
+          await P("UPDATE access_requests SET status = 'EXPIRED', ended_at = ?, end_reason = 'expired' WHERE id = ?").run(now(), r.id);
+          await event(r.id, 'expire', actorId, null); expired++;
+        } else if (r.status === 'APPROVED' && r.valid_from <= t) { await _activate(r, actorId); activated++; }
+      });
+    }
+    return { activated, expired, rows: activated + expired };
+  }
+
+  // ── reads ─────────────────────────────────────────────────────────
+  async function liveGrants(userId) {
+    const t = today();
+    return (await P('SELECT * FROM access_grants WHERE user_id = ? AND ended_at IS NULL AND valid_from <= ? AND valid_to >= ? ORDER BY id').all(toId(userId), t, t))
+      .map((g) => ({ ...g, id: toId(g.id), request_id: toId(g.request_id), site_id: g.site_id == null ? null : Number(g.site_id) }));
+  }
+  async function liveGrantRoles(userId) { return [...new Set((await liveGrants(userId)).filter((g) => g.role).map((g) => g.role))]; }
+  async function requestsFor(userId) {
+    return (await P('SELECT * FROM access_requests WHERE subject_user_id = ? OR requested_by = ? ORDER BY id DESC LIMIT 100').all(toId(userId), toId(userId))).map(rowReq);
+  }
+  /** Requests the actor may decide now (pending, not their own, not where they deputise). */
+  async function approvalsFor(actor) {
+    const rows = (await P("SELECT * FROM access_requests WHERE status IN ('REQUESTED','REVIEWING') ORDER BY id").all()).map(rowReq);
+    const out = [];
+    for (const r of rows) if (!L.check(r, 'approve', actor, { isApprover: true, deputyIds: await deputyIdsFor(r) })) out.push(r);
+    return out;
+  }
+  /** Is `role` for `userId` covered today by an APPROVED or ACTIVE request? (access_require_approval) */
+  async function hasApproved(userId, role) {
+    const t = today();
+    const rows = await P("SELECT roles FROM access_requests WHERE subject_user_id = ? AND status IN ('APPROVED','ACTIVE') AND valid_to >= ?").all(toId(userId), t);
+    return rows.some((r) => (r.roles || []).includes(role));
+  }
+  async function deputiesOf(userId) {
+    const t = today();
+    return P('SELECT id, user_id, deputy_id, start_date, end_date FROM deputies WHERE (user_id = ? OR deputy_id = ?) AND revoked_at IS NULL AND end_date >= ? ORDER BY start_date')
+      .all(toId(userId), toId(userId), t);
+  }
+
+  return { listTemplates, createTemplate, addVersion, getVersion, updateDraft, publish, retire,
+    createRequest, getRequest, events, decide, runExpiry, liveGrants, liveGrantRoles, requestsFor, approvalsFor, hasApproved, deputiesOf };
+}
+
+/** Store bound to the live reports-db PostgreSQL handle. */
+function forRdb(rdb) {
+  return makeAccessStore({ prepare: (sql) => rdb.pgHandle().prepare(sql), runTransaction: (fn) => rdb.pgHandle().runTransaction(fn) }, rdb);
+}
+
+module.exports = { makeAccessStore, forRdb };

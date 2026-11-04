@@ -1,5 +1,5 @@
 'use strict';
-const { fail } = require('../services/httpError');
+const { fail, typed } = require('../services/httpError');
 // ─────────────────────────────────────────────────────────────────────────
 // Users & sessions admin routes (/api/reports/users*, /api/reports/sessions*) — extracted from server.js (fiche M12-a, 2026-10-20), same
 // dependency-injection pattern as routes/inspection.js. Handlers are byte-for-byte
@@ -42,6 +42,28 @@ module.exports = function adminUsersRoutes(deps) {
     try { rdb.logEvent({ category: 'identity', action, target, details, ...(risk != null ? { risk } : {}), ...rdb._logCtx(req) }); } catch {}
   };
 
+  // ── C-18 — access_require_approval ('0' = today). When '1', adding a role that opens a capability marked
+  // requires_request (C-17 catalogue) needs an APPROVED/ACTIVE access request for that user and role. A
+  // super_admin may still do it as an explicit break-glass ({ break_glass:true, break_glass_reason }), logged risk=1.
+  const _approvalGate = async (req, userId, beforeRoles, afterRoles) => {
+    const cfg = await require('../services/reportConfig').getConfig(rdb.db);
+    if (String((cfg && cfg.access_require_approval) || '0') !== '1') return null;
+    const added = [...new Set(afterRoles || [])].filter((r) => !(beforeRoles || []).includes(r));
+    const sensitive = require('../services/accessRequestLifecycle').rolesRequiringRequest(added, rdb.userHasRole);
+    if (!sensitive.length) return null;
+    const store = require('../services/accessStore').forRdb(rdb);
+    const missing = [];
+    for (const r of sensitive) if (userId == null || !(await store.hasApproved(userId, r))) missing.push(r);
+    if (!missing.length) return null;
+    const b = req.body || {};
+    if (b.break_glass === true && String(b.break_glass_reason || '').trim().length >= 10 && rdb.userHasRole(req.reportUser, 'super_admin')) {
+      _log(req, 'access_break_glass', String(userId == null ? b.username : userId), { user_id: userId, roles: missing, reason: String(b.break_glass_reason).slice(0, 500) }, 1);
+      return null;
+    }
+    return typed('CONFLICT', `role(s) ${missing.join(', ')} need an approved access request (or an explicit break-glass with a reason)`);
+  };
+  const _rolesOf = (b) => (Array.isArray(b.roles) && b.roles.length ? b.roles : (typeof b.role === 'string' ? [b.role] : []));
+
 // ── Users (admin only) ────────────────────────────────────────────
 router.get('/api/reports/users', requireReportSession, requireSuperAdmin, async (req, res) => {
   try { res.json(await rdb.listUsers()); }
@@ -53,6 +75,8 @@ router.post('/api/reports/users', requireReportSession, requireSuperAdmin, jsonB
     // Accept both legacy `role: 'admin'` (string) and new `roles: ['admin', 'tracker-editor']` (array).
     const { username, full_name, password, site_id, role, roles, email, extra_site_ids } = req.body || {};
     if (!username || !full_name || !password) return res.status(400).json({ error: 'username, full_name, password required' });
+    const denied = await _approvalGate(req, null, [], _rolesOf(req.body || {}).length ? _rolesOf(req.body || {}) : ['editor']);
+    if (denied) return fail(res, denied);
     const r = await rdb.createUser({ username, full_name, password, site_id, role, roles, email, extra_site_ids });
     const newId = r && (r.lastInsertRowid != null ? Number(r.lastInsertRowid) : (r.lastID != null ? Number(r.lastID) : null));
     const after = newId != null ? await _snapshot(newId) : null;
@@ -91,6 +115,7 @@ router.put('/api/reports/users/:id', requireReportSession, requireSuperAdmin, js
     if (!full_name) return res.status(400).json({ error: 'full_name required' });
     const id = parseInt(req.params.id);
     const before = await _snapshot(id);
+    if (roles !== undefined || role !== undefined) { const denied = await _approvalGate(req, id, before ? before.roles : [], _rolesOf(req.body || {})); if (denied) return fail(res, denied); }
     await rdb.updateUser(id, { full_name, password, site_id, role, roles, active, email, extra_site_ids });
     const after = await _snapshot(id);
     const target = (after && after.username) || (before && before.username) || String(id);

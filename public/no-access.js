@@ -19,7 +19,7 @@
     'A dashboard administrator (Admin ▸ Users). For a site page, your site IT coordinator can ask for it on your behalf. Copy the line below into your request.':
       'Un administrateur du tableau de bord (Admin ▸ Utilisateurs). Pour une page de site, votre coordinateur IT de site peut la demander pour vous. Copiez la ligne ci-dessous dans votre demande.',
     'Missing capability': 'Capacité manquante',
-    'Copy': 'Copier', 'Copied': 'Copié', 'Back to my home page': 'Retour à ma page d’accueil', 'none': 'aucun', 'or': 'ou',
+    'Request this access': 'Demander cet accès', 'Copy': 'Copier', 'Copied': 'Copié', 'Back to my home page': 'Retour à ma page d’accueil', 'none': 'aucun', 'or': 'ou',
   };
   const clean = (s, max) => String(s || '').replace(/[^\w.\-|]/g, '').slice(0, max);
   const q = new URLSearchParams(location.search);
@@ -41,6 +41,10 @@
       $('naCap').hidden = false; $('naCapT').hidden = false;
     }
     $('naHave').textContent = have.length ? have.map(label).join(', ') : t('none');
+    // C-18: pre-fill the request form of the My access page (role codes + page name only)
+    const ask = need.filter((r) => r !== 'super_admin');
+    $('naRequest').href = 'access.html?' + new URLSearchParams({ role: ask.join('|'), page }).toString();
+    $('naRequest').hidden = !ask.length;
     $('naLine').textContent = (fr() ? 'Demande d’accès — ' : 'Access request — ') + (user.username || '?') + ' · ' + page + ' · ' + (need.join(' | ') || '?');
   }
   if (window.I18nText) {

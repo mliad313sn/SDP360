@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>My access — Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<style nonce="%%CSP_NONCE%%">
+  body { margin: 0; background: var(--color-bg, #F4F5F7); color: var(--color-text-strong, #1F2A33); font-family: var(--font-sans, sans-serif); font-size: 14px; }
+  .ax-wrap { max-width: 1200px; margin: 0 auto; padding: 24px 28px 48px; }
+  .ax-card { background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA); border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; overflow-x: auto; }
+  @media (max-width: 640px) { .ax-wrap { padding: 16px 12px 32px; } .ax-card { padding: 14px 12px; } .ax-card table { min-width: 520px; } }
+  h1 { margin: 0 0 6px; font-size: 22px; color: var(--edv-slate, #3A4A60); } h2 { font-size: 16px; margin: 0 0 8px; }
+  .ax-muted { color: #5B6573; font-size: 12.5px; }
+  .ax-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 12px 0; } .ax-tabs button[aria-selected="true"] { background: var(--edv-slate, #3A4A60); color: #fff; }
+  table { width: 100%; border-collapse: collapse; } td, th { padding: 7px 8px; border-bottom: 1px solid #EEF0F3; text-align: left; font-size: 13px; vertical-align: top; }
+  input, select, button, textarea { font: inherit; } input, select, textarea { padding: 4px 6px; border: 1px solid #D0D5DD; border-radius: 6px; }
+  button { border: 1px solid #D0D5DD; background: #fff; border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+  .ax-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; align-items: end; }
+  .ax-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: #3A4A60; }
+  .ax-msg { min-height: 18px; font-size: 13px; } .ax-err { color: #A0002C; } .ax-ok { color: #1A6B3C; }
+  .ax-sub { margin-top: 16px; }
+  .ax-tag { display: inline-block; border-radius: 999px; padding: 1px 8px; font-size: 11px; font-weight: 700; background: #EEF0F3; }
+  body.lang-fr [data-lng="en"], body:not(.lang-fr) [data-lng="fr"] { display: none; }
+</style>
+</head>
+<body>
+<a class="edv-skip" href="#main">Skip to content</a>
+<div id="__shell" data-section="operations" data-current="access"></div>
+<main id="main" class="ax-wrap">
+  <div class="ax-card">
+    <h1><span data-lng="en">My access</span><span data-lng="fr">Mes accès</span></h1>
+    <p class="ax-muted" data-lng="en">What you hold, why and until when; ask for an access; decide the requests of others. An approval covers one person, the roles, the sites and the dates it names — nothing more. Nobody decides their own request.</p>
+    <p class="ax-muted" data-lng="fr">Ce que vous détenez, pourquoi et jusqu'à quand ; demander un accès ; décider les demandes des autres. Une approbation couvre une personne, les rôles, les sites et les dates qu'elle nomme — rien de plus. Personne ne décide sa propre demande.</p>
+    <label for="axLang">Language / Langue</label>
+    <select id="axLang"><option value="en">English</option><option value="fr">Français</option></select>
+    <div class="ax-tabs" role="tablist">
+      <button type="button" role="tab" data-tab="me" aria-selected="true"><span data-lng="en">My access</span><span data-lng="fr">Mes accès</span></button>
+      <button type="button" role="tab" data-tab="req"><span data-lng="en">Requests</span><span data-lng="fr">Demandes</span></button>
+      <button type="button" role="tab" data-tab="appr"><span data-lng="en">Approvals</span><span data-lng="fr">Approbations</span></button>
+      <button type="button" role="tab" data-tab="tpl"><span data-lng="en">Templates</span><span data-lng="fr">Modèles</span></button>
+    </div>
+    <div class="ax-msg" id="axMsg" role="status" aria-live="polite"></div>
+  </div>
+  <section class="ax-card" data-pane="me">
+    <h2><span data-lng="en">Roles and grants</span><span data-lng="fr">Rôles et attributions</span></h2>
+    <div id="axMe"></div>
+  </section>
+  <section class="ax-card" data-pane="req" hidden>
+    <h2><span data-lng="en">Ask for an access</span><span data-lng="fr">Demander un accès</span></h2>
+    <form id="axReqForm" class="ax-form">
+      <label><span><span data-lng="en">Template (optional)</span><span data-lng="fr">Modèle (facultatif)</span></span><select id="axTpl"><option value="">—</option></select></label>
+      <label><span><span data-lng="en">Roles (comma separated)</span><span data-lng="fr">Rôles (séparés par des virgules)</span></span><input id="axRoles" autocomplete="off"></label>
+      <label><span><span data-lng="en">Site ids (comma separated)</span><span data-lng="fr">Identifiants de site (séparés par des virgules)</span></span><input id="axSites" autocomplete="off"></label>
+      <label><span><span data-lng="en">From</span><span data-lng="fr">Du</span></span><input id="axFrom" type="date"></label>
+      <label><span><span data-lng="en">Until</span><span data-lng="fr">Au</span></span><input id="axTo" type="date"></label>
+      <label><span><span data-lng="en">Why do you need it?</span><span data-lng="fr">Pourquoi en avez-vous besoin ?</span></span><textarea id="axWhy" rows="2"></textarea></label>
+      <button type="submit"><span data-lng="en">Send the request</span><span data-lng="fr">Envoyer la demande</span></button>
+    </form>
+    <h2 class="ax-sub"><span data-lng="en">My requests</span><span data-lng="fr">Mes demandes</span></h2>
+    <div id="axReqs"></div>
+  </section>
+  <section class="ax-card" data-pane="appr" hidden>
+    <h2><span data-lng="en">Requests waiting for your decision</span><span data-lng="fr">Demandes en attente de votre décision</span></h2>
+    <div id="axAppr"></div>
+  </section>
+  <section class="ax-card" data-pane="tpl" hidden>
+    <h2><span data-lng="en">Access templates</span><span data-lng="fr">Modèles d'accès</span></h2>
+    <p class="ax-muted" data-lng="en">A published version never changes; editing means a new version. Grants keep the version they were approved from.</p>
+    <p class="ax-muted" data-lng="fr">Une version publiée ne change jamais ; modifier crée une nouvelle version. Les attributions gardent la version approuvée.</p>
+    <div id="axTpls"></div>
+    <form id="axTplForm" class="ax-form" hidden>
+      <label>key<input id="axTKey" autocomplete="off"></label>
+      <label>Title (EN)<input id="axTEn" autocomplete="off"></label>
+      <label>Titre (FR)<input id="axTFr" autocomplete="off"></label>
+      <label><span><span data-lng="en">Roles (comma separated)</span><span data-lng="fr">Rôles (séparés par des virgules)</span></span><input id="axTRoles" autocomplete="off"></label>
+      <button type="submit"><span data-lng="en">Create (draft v1)</span><span data-lng="fr">Créer (brouillon v1)</span></button>
+    </form>
+  </section>
+</main>
+<script nonce="%%CSP_NONCE%%" src="lib/errorText.js"></script>
+<script nonce="%%CSP_NONCE%%" src="access.js"></script>
+</body>
+</html>

@@ -11,7 +11,9 @@
 // super_admin is never granted through a group (break-glass stays a human decision).
 
 const ROLE_ORDER = ['viewer', 'editor', 'admin', 'executive'];
-const FEATURE_ROLES = new Set(['tracker-admin', 'tracker-editor', 'report-author', 'audit-viewer', 'scorecard-viewer', 'group-business']);
+// C-18: kept in step with reports-db FEATURE_ROLES_KNOWN (tests/sso-grant-merge.test.js) — a mapped role missing here was dropped.
+const FEATURE_ROLES = new Set(['tracker-admin', 'tracker-editor', 'report-author', 'audit-viewer', 'scorecard-viewer', 'group-business',
+  'site-business', 'dashboard-publisher', 'committee-member', 'field-tech', 'finance-viewer']);
 
 function parseGroupMap(raw) {
   if (!raw) return [];
@@ -31,14 +33,19 @@ function primaryRole(roles) {
 /**
  * @returns {{ changed:boolean, patch:object, matched:string[] }}
  */
-function planProvisioning(user, groups, map) {
+// C-18: `opts.keepRoles` = roles held by an ACTIVE access grant (approved request). The group map REPLACES the
+// role set on each login; those roles are merged back in so an approved access survives the next SSO login.
+function planProvisioning(user, groups, map, opts = {}) {
   const out = { changed: false, patch: {}, matched: [] };
   if (!user || !Array.isArray(map) || !map.length) return out;
   const have = new Set((groups || []).map((g) => String(g).toLowerCase()));
   const hits = map.filter((e) => have.has(e.group));
   if (!hits.length) return out;
   out.matched = hits.map((h) => h.group);
-  const roles = [...new Set(hits.flatMap((h) => h.roles))].filter((r) => ROLE_ORDER.includes(r) || FEATURE_ROLES.has(r));
+  const keep = (Array.isArray(opts.keepRoles) ? opts.keepRoles : []).filter((r) => ROLE_ORDER.includes(r) || FEATURE_ROLES.has(r));
+  const mapped = [...new Set(hits.flatMap((h) => h.roles))].filter((r) => ROLE_ORDER.includes(r) || FEATURE_ROLES.has(r));
+  const roles = mapped.length ? [...new Set([...mapped, ...keep])] : mapped;
+  out.kept = keep.filter((r) => !mapped.includes(r));
   const current = new Set(Array.isArray(user.roles) ? user.roles : (user.role ? [user.role] : []));
   if (current.has('super_admin')) return out;                       // never touched by a map
   if (roles.length) {

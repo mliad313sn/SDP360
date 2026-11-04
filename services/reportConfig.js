@@ -250,6 +250,12 @@ DEFAULTS.roadmap_redirect_to_portfolio = '0';
 //    (services/authorizationService.can) runs beside every role guard and logs divergences to system_log
 //    category 'authz'. enforce is NOT wired yet (read as shadow) — route-by-route plan in docs/agent-execution/C-17.md.
 DEFAULTS.authz_capability_mode = 'off';
+// C-18 (G39/G40/G50) — access requests. '0' = today: Admin ▸ Users adds any role directly; no grant ever expires
+// by itself. access_require_approval '1' → adding a role marked requires_request needs an APPROVED request
+// (super_admin break-glass with a reason, logged risk=1). access_grant_expiry_job '1' → the nightly job
+// access.grant_expiry ends expired grants and activates approved requests whose start day has come.
+DEFAULTS.access_require_approval = '0';
+DEFAULTS.access_grant_expiry_job = '0';
 
 const KEYS = Object.keys(DEFAULTS);
 
