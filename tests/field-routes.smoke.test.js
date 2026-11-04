@@ -99,3 +99,17 @@ test('actions + tickets: transfer without justification 400, close applied throu
   assert.equal(tk.ok, false); assert.equal(tk.status, 'rejected'); assert.match(tk.result.error, /disabled/);
   const again = await (await put(23, tech, { kind: 'ticket', payload: { subject: 'Printer offline' } })).json(); assert.equal(again.duplicate, true); assert.equal(again.status, 'rejected');
 });
+
+test('meetings action closed from the field: "closed" (old phones, queued envelopes) is stored as resolved; "resolved" too (A-05)', async () => {
+  const mdb = require('../meetings-db');
+  const saved = await mdb.saveMeeting({ header: { site_code: 'HGO', department: 'IT', meeting_date: '2026-10-07', status: 'draft' },
+    actions: [{ description: 'Field close legacy', status: 'open' }, { description: 'Field close new', status: 'open' }] }, null, 1);
+  const rec = await mdb.getMeeting(saved.id);
+  const [legacy, fresh] = rec.actions;
+  const r1 = await (await put(30, tech, { kind: 'action', payload: { source: 'meetings', id: legacy.id, status_change: 'closed', body: 'Closed from the field app' } })).json();
+  assert.equal(r1.ok, true); assert.equal(r1.result.status, 'resolved', 'the normalised status is returned');
+  const r2 = await (await put(31, tech, { kind: 'action', payload: { source: 'meetings', id: fresh.id, status_change: 'resolved', body: 'Closed from the field app' } })).json();
+  assert.equal(r2.ok, true);
+  const after = (await mdb.getMeeting(saved.id)).actions;
+  for (const a of after) { assert.equal(a.status, 'resolved', a.description); assert.ok(a.closed_at, a.description + ' closed_at set'); }
+});

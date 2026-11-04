@@ -57,6 +57,37 @@
     return STATUS_EN[norm(s).replace(/\s+/g, '_')] || String(s || '');   // 'In Progress' (inspections) → 'In progress'
   }
 
+
+  // A-05 (2026-11): ONE vocabulary for md_issues / md_actions. 'closed' was never a seeded
+  // md_statuses code (the field app sent it until field-v3, and queued envelopes / stale pages
+  // may still do so) — it means "resolved". Every other code passes through, trimmed and
+  // lowercased. null/undefined stay as they are (no value is not a status).
+  function normalizeMeetingStatus(s) {
+    if (s == null) return s;
+    const n = norm(s);
+    return n === 'closed' ? 'resolved' : n;
+  }
+
+  // <option> list for a status <select> that ALWAYS keeps the stored code selected. A code
+  // outside the list (e.g. a legacy 'closed') is prepended as "<label> (legacy)" instead of the
+  // browser silently showing the first option — which the next unrelated edit would save.
+  // list: [{code, name_en}] or plain codes. Empty current → opts.defaultCode (default 'open').
+  function optionsHtml(list, current, escFn, opts) {
+    opts = opts || {};
+    const e = escFn || ((t) => String(t == null ? '' : t).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])));
+    const items = (list || []).map((x) => (x && typeof x === 'object')
+      ? { code: String(x.code), name: x.name_en || label(x.code) }
+      : { code: String(x), name: label(x) });
+    const raw = current == null ? '' : String(current);
+    const cur = raw.trim() === '' ? (opts.defaultCode != null ? String(opts.defaultCode) : 'open') : raw;
+    let sel = items.findIndex((it) => it.code === cur);
+    if (sel < 0) sel = items.findIndex((it) => norm(it.code) === norm(cur));
+    let html = '';
+    if (sel < 0 && cur !== '') html += '<option value="' + e(cur) + '" selected>' + e(label(cur) + ' (legacy)') + '</option>';
+    html += items.map((it, i) => '<option value="' + e(it.code) + '"' + (i === sel ? ' selected' : '') + '>' + e(it.name) + '</option>').join('');
+    return html;
+  }
+
   // Browser only: modal asking the justification (+ ticket number). Resolves to
   // { note, ticket } or null when the user cancels — the caller then reverts its select.
   function ask(status, opts) {
@@ -100,5 +131,5 @@
     });
   }
 
-  return { TRANSFER, DONE, LABELS, STATUS_EN, NOTE_MAX, isTransfer, isDone, needsTicket, normalizeTicket, validate, label, ask };
+  return { TRANSFER, DONE, LABELS, STATUS_EN, NOTE_MAX, isTransfer, isDone, needsTicket, normalizeTicket, validate, label, ask, normalizeMeetingStatus, optionsHtml };
 });
