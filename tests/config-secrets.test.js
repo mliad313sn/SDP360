@@ -188,3 +188,78 @@ test('assertProductionKey: mandatory only with NODE_ENV=production; bypass flag 
   assert.strictEqual(assertProductionKey({ NODE_ENV: 'production', SDP_CONFIG_KEY: 'a-passphrase-of-sixteen-chars' }).ok, true);
   assert.strictEqual(assertProductionKey({ NODE_ENV: 'production', SDP_ALLOW_PLAINTEXT_SECRETS: '1' }).bypass, true);
 });
+
+// ── A-28b — enc:v3: random salt per box + AAD = report_config key name; written only when
+//    SDP_CONFIG_BOX_VERSION=3 (default 2 = today) ──
+function _withBoxVersion(v, fn) {
+  const prev = process.env.SDP_CONFIG_BOX_VERSION;
+  if (v == null) delete process.env.SDP_CONFIG_BOX_VERSION; else process.env.SDP_CONFIG_BOX_VERSION = String(v);
+  try { return fn(); } finally { if (prev === undefined) delete process.env.SDP_CONFIG_BOX_VERSION; else process.env.SDP_CONFIG_BOX_VERSION = prev; }
+}
+
+test('A-28b: v3 round-trips with its key name; two boxes of the same value differ in salt and iv', () => {
+  const { encryptValue, decryptValue, boxVersion, isEncrypted } = require('../services/configSecrets');
+  const a = encryptValue('hunter2', KEY, { keyName: 'smtp_pass', version: 3 });
+  const b = encryptValue('hunter2', KEY, { keyName: 'smtp_pass', version: 3 });
+  assert.ok(a.startsWith('enc:v3:') && isEncrypted(a));
+  assert.strictEqual(boxVersion(a), 3);
+  const pa = a.slice(7).split(':'), pb = b.slice(7).split(':');
+  assert.strictEqual(pa.length, 4, 'enc:v3:<salt>:<iv>:<tag>:<ct>');
+  assert.strictEqual(Buffer.from(pa[0], 'base64').length, 16, '16-byte salt');
+  assert.notStrictEqual(pa[0], pb[0]); assert.notStrictEqual(pa[1], pb[1]);
+  assert.ok(!a.includes('hunter2'));
+  assert.strictEqual(decryptValue(a, KEY, { keyName: 'smtp_pass' }), 'hunter2');
+});
+
+test('A-28b: a v3 box moved under another key name (or read without one, or with another passphrase) does not open', () => {
+  const { encryptValue, decryptValue, keyFrom } = require('../services/configSecrets');
+  const box = encryptValue('smtp-secret', KEY, { keyName: 'smtp_pass', version: 3 });
+  assert.strictEqual(decryptValue(box, KEY, { keyName: 'meraki_api_key' }), null, 'AAD binds the box to its key name');
+  assert.strictEqual(decryptValue(box, KEY), null, 'no key name → null, never the ciphertext');
+  assert.strictEqual(decryptValue(box, keyFrom('another-passphrase-of-16'), { keyName: 'smtp_pass' }), null);
+  assert.strictEqual(decryptValue(box, null, { keyName: 'smtp_pass' }), null);
+});
+
+test('A-28b: v1/v2 still open; with SDP_CONFIG_BOX_VERSION unset new boxes are v2 (today), =3 → v3', () => {
+  const { encryptValue, decryptValue, boxVersion } = require('../services/configSecrets');
+  const v2 = _withBoxVersion(null, () => encryptValue('x', KEY, { keyName: 'smtp_pass' }));
+  assert.strictEqual(boxVersion(v2), 2);
+  assert.strictEqual(decryptValue(v2, KEY, { keyName: 'smtp_pass' }), 'x', 'a v2 box ignores the key name');
+  assert.strictEqual(boxVersion(_withBoxVersion('2', () => encryptValue('x', KEY, { keyName: 'k' }))), 2);
+  const v3 = _withBoxVersion('3', () => encryptValue('x', KEY, { keyName: 'smtp_pass' }));
+  assert.strictEqual(boxVersion(v3), 3);
+  assert.throws(() => encryptValue('x', KEY, { version: 3 }), /key name/, 'v3 without a key name is a programming error');
+});
+
+test('A-28b: planReencryption to v3 reports v2→v3 and never overwrites an unreadable box', () => {
+  const { encryptValue, decryptValue, planReencryption, boxVersion } = require('../services/configSecrets');
+  const rows = [
+    { key: 'smtp_pass', value: encryptValue('a', KEY) },                                     // v2
+    { key: 'meraki_api_key', value: encryptValue('b', KEY, { keyName: 'meraki_api_key', version: 3 }) },   // already v3
+    { key: 'opmanager_api_key', value: 'plain' },
+    { key: 'entra_client_secret', value: 'enc:v2:AAAA:BBBB:CCCC' },                         // unreadable
+    { key: 'meridian_in_key', value: 'enc:v3:AAAA:BBBB:CCCC:DDDD' },                        // unreadable v3
+  ];
+  const plan = planReencryption(rows, { newKey: KEY, to: 'v3' });
+  assert.deepStrictEqual(plan.updates.map((u) => [u.key, u.from, u.to]), [['smtp_pass', 'v2', 'v3'], ['opmanager_api_key', 'plaintext', 'v3']]);
+  assert.deepStrictEqual(plan.skipped, ['meraki_api_key']);
+  assert.deepStrictEqual(plan.unreadable, ['entra_client_secret', 'meridian_in_key']);
+  for (const u of plan.updates) { assert.strictEqual(boxVersion(u.value), 3); assert.ok(decryptValue(u.value, KEY, { keyName: u.key }) != null); }
+  // default target (v2, today): v2 boxes are kept, v3 box is kept too
+  const today = _withBoxVersion(null, () => planReencryption(rows, { newKey: KEY }));
+  assert.deepStrictEqual(today.updates.map((u) => u.key), ['opmanager_api_key']);
+  assert.strictEqual(boxVersion(today.updates[0].value), 2);
+  // explicit --to=v2 is the rollback path: v3 boxes are re-sealed as v2 on purpose
+  const down = planReencryption(rows.filter((r) => r.key === 'meraki_api_key'), { newKey: KEY, to: 'v2' });
+  assert.deepStrictEqual(down.updates.map((u) => [u.key, u.from, u.to]), [['meraki_api_key', 'v3', 'v2']]);
+  assert.strictEqual(decryptValue(down.updates[0].value, KEY), 'b');
+});
+
+test('A-28b: reencrypt-secrets --to=v3 is refused unless SDP_CONFIG_BOX_VERSION=3', () => {
+  const { parseTarget } = require('../tools/pg/reencrypt-secrets');
+  assert.deepStrictEqual(parseTarget([], {}), { to: null });
+  assert.match(parseTarget(['--to=v3'], {}).error, /SDP_CONFIG_BOX_VERSION=3/);
+  assert.deepStrictEqual(parseTarget(['--to=v3'], { SDP_CONFIG_BOX_VERSION: '3' }), { to: 'v3' });
+  assert.deepStrictEqual(parseTarget(['--to=v2'], {}), { to: 'v2' });
+  assert.match(parseTarget(['--to=v9'], {}).error, /v2 or v3/);
+});

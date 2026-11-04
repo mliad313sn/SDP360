@@ -88,3 +88,20 @@ test('the key is read from the environment when none is passed', async () => {
     if (prev === undefined) delete process.env.SDP_CONFIG_KEY; else process.env.SDP_CONFIG_KEY = prev;
   }
 });
+
+// A-28b — with SDP_CONFIG_BOX_VERSION=3 setConfig writes enc:v3 bound to the key name; getConfig reads it,
+// and a box swapped into another key's row reads as empty (never the other key's secret).
+test('A-28b: SDP_CONFIG_BOX_VERSION=3 → enc:v3 at rest, read back; a swapped box reads as empty', async () => {
+  const db = await freshDb();
+  const prev = process.env.SDP_CONFIG_BOX_VERSION;
+  process.env.SDP_CONFIG_BOX_VERSION = '3';
+  try {
+    (await cfg.setConfig(db, { smtp_pass: 'hunter2', meraki_api_key: 'mk-1' }, 'test', { key: KEY }));
+  } finally { if (prev === undefined) delete process.env.SDP_CONFIG_BOX_VERSION; else process.env.SDP_CONFIG_BOX_VERSION = prev; }
+  const raw = await stored(db, 'smtp_pass');
+  assert.ok(raw.startsWith('enc:v3:'), raw.slice(0, 7));
+  const c = await cfg.getConfig(db, { key: KEY });
+  assert.strictEqual(c.smtp_pass, 'hunter2'); assert.strictEqual(c.meraki_api_key, 'mk-1');
+  await db.prepare('UPDATE report_config SET value=? WHERE key=?').run(raw, 'meraki_api_key');
+  assert.strictEqual((await cfg.getConfig(db, { key: KEY })).meraki_api_key, '', 'AAD: a box moved to another key does not open');
+});

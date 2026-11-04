@@ -7,6 +7,7 @@ process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.joi
 for (const k of ['REPORTS_BACKEND', 'TRACKER_BACKEND', 'MEETINGS_BACKEND', 'INSPECTION_BACKEND', 'ASSETS_BACKEND']) process.env[k] = 'sqlite';
 process.env.DASH_USER = process.env.DASH_USER || 'csp-super';
 process.env.DASH_PASS = process.env.DASH_PASS || 'csp-pass-0000';
+delete process.env.SDP_CSP_REPORT_ONLY;   // A-28a: this file pins the DEFAULT (switch off); tests/csp-report.smoke.test.js covers it on
 for (const k of ['ZOHO_CLIENT_ID', 'ZOHO_CLIENT_SECRET', 'ZOHO_REFRESH_TOKEN']) process.env[k] = process.env[k] || 'dummy';
 
 const { test, before, after } = require('node:test');
@@ -82,4 +83,16 @@ test('a vendored library is served same-origin as JavaScript', async () => {
   assert.equal(r.status, 200);
   assert.match(String(r.headers.get('content-type')), /javascript/);
   assert.match(await r.text(), /Chart\.js v4\.4\.1/);
+});
+
+// A-28a — the report-only CSP is opt-in (SDP_CSP_REPORT_ONLY=1, read at boot). Default = today: no
+// second header and no report endpoint.
+test('A-28a default: no Content-Security-Policy-Report-Only header and no report endpoint', async () => {
+  for (const page of ['/index.html', '/login.html', '/activity-tracker.html']) {
+    const r = await fetch(base + page);
+    assert.strictEqual(r.headers.get('content-security-policy-report-only'), null, page);
+    assert.strictEqual(r.headers.get('reporting-endpoints'), null, page);
+  }
+  const p = await fetch(base + '/api/security/csp-report', { method: 'POST', headers: { 'content-type': 'application/csp-report' }, body: '{"csp-report":{}}' });
+  assert.notStrictEqual(p.status, 204, 'the endpoint only exists when the switch is on');
 });
