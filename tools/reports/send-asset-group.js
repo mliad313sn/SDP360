@@ -119,7 +119,7 @@ async function main(deps = {}) {
   // Compose (pure — subject + html).
   const fmtUsd = deps.fmtUsd || require('../../services/money').fmtUsd;
   const buildAssetGroupDigest = deps.buildAssetGroupDigest || require('../../services/assetGroupReport').buildAssetGroupDigest;
-  const { subject, html } = buildAssetGroupDigest({ leaderboard, forecast, period, fmtUsd });
+  const { subject, html } = buildAssetGroupDigest({ leaderboard, forecast, period, fmtUsd, certifyDisplay: cfg.asset_money_certify_display });
 
   if (preview) {
     console.log(`[send-asset-group] PREVIEW period=${period} to=${recipients.join(',')} subject="${subject}" — not sending`);
