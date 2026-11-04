@@ -65,6 +65,10 @@ Not in this table because they are not top-level `report_config` keys:
 
 - A-23 (built) — `paused_statuses` (default `[]`) and `dedup_mode` (default `once`) live **inside** the existing
   `teams_sla_rules` JSON; decided by the helpdesk lead.
+- C-03 (built) — governance **policy** `governance.skip_inactive_holders` (Admin ▸ Governance policies, platform
+  only, protected), not a `report_config` key: default `false` (today: a deactivated or site-less role holder or
+  deputy still counts as coverage and still receives escalations); recommended pilot value `true`; decided by the
+  owner (access policy).
 - A-28 (built) — `.env` switches, not `report_config`; decided by the security owner, all default to today:
   `SDP_CSP_REPORT_ONLY` (unset = no report-only header, no `/api/security/csp-report`),
   `SDP_CONFIG_BOX_VERSION` (default `2`; `3` = new secrets sealed as `enc:v3`), `SDP_PDF_SANDBOX`

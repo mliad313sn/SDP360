@@ -240,3 +240,35 @@ test('meetings: the minutes acceptor role and the chair\'s deputy, never accepti
   assert.equal((await send('POST', `/api/governance/sessions/${sid}/accept`, P.coord)).status, 403);
   assert.equal((await send('POST', `/api/governance/sessions/${sid}/accept`, P.target)).status, 200);
 });
+
+// A10 / C-03 — governance.skip_inactive_holders (default false = the behaviour until now). Kept LAST in the
+// file: it switches a platform-wide policy on.
+test('governance.skip_inactive_holders: a deactivated holder stops receiving escalations once the policy is on', async () => {
+  const mkU = async (k, site) => { const u = 'gr_c3_' + k; try { await rdb.createUser({ username: u, full_name: u, password: u + 'pass1234', roles: ['editor'], site_id: site }); } catch {} return Number((await rdb.db.prepare('SELECT id FROM users WHERE username=?').get(u)).id); };
+  const holder = await mkU('holder', mana), dep = await mkU('dep', mana);
+  assert.equal((await send('POST', '/api/governance/roles/matrix', P.super, { register: 'commitments', severity: 'critical', site_id: mana, after_days: 0, role: 'commitments.escalation_target', reason: 'Mana critical commitments' })).status, 201);
+  assert.equal((await send('POST', '/api/governance/roles/assignments', P.super, { role: 'commitments.escalation_target', site_id: mana, user_id: holder, effective_from: today(), reason: 'Mana escalation target' })).status, 201);
+  assert.equal((await send('POST', '/api/governance/roles/deputies', P.super, { user_id: holder, deputy_id: dep, start_date: today(), end_date: plus(10), reason: 'covers the Mana target' })).status, 201);
+  const roles = require('../routes/governanceRoles').createStore(rdb);
+  const target = () => roles.escalationTarget({ register: 'commitments', severity: 'critical', siteId: mana, overdueDays: 2 });
+  const sorted = (a) => a.slice().sort((x, y) => x - y);
+  assert.deepEqual(sorted((await target()).targets), sorted([holder, dep]));
+  // the holder leaves: the account is deactivated
+  await rdb.db.prepare('UPDATE users SET active = 0 WHERE id = ?').run(holder);
+  assert.deepEqual(sorted((await target()).targets), sorted([holder, dep]), 'policy off: the dead account is still a target (today)');
+  let gaps = (await json(await send('GET', '/api/governance/roles', P.admin))).body.gaps;
+  assert.ok(!gaps.some((g) => g.kind === 'inactive_holder'), 'policy off: no inactive-holder gap');
+  const r = await send('PUT', '/api/governance/policies', P.super, { scope: 'global', key: 'governance.skip_inactive_holders', value: true, reason: 'skip deactivated role holders (C-03)' });
+  assert.equal(r.status, 200, await r.text());
+  const on = await target();
+  assert.deepEqual(on.targets, [dep], 'policy on: the escalation moves to the deputy');
+  assert.ok(on.skipped.includes(holder));
+  gaps = (await json(await send('GET', '/api/governance/roles', P.admin))).body.gaps;
+  assert.ok(gaps.some((g) => g.kind === 'inactive_holder' && g.user_id === holder && g.reason === 'inactive'));
+  // the deputy leaves the site too → nobody eligible: a gap, never an escalation to a dead account
+  await rdb.db.prepare('UPDATE users SET site_id = ? WHERE id = ?').run(hounde, dep);
+  const none = await target();
+  assert.equal(none.gap, true); assert.deepEqual(none.targets, []);
+  const ov = (await json(await send('GET', '/api/governance/oversight', P.admin))).body;
+  assert.ok(ov.role_gaps.some((g) => g.kind === 'inactive_deputy' && g.deputy_id === dep));
+});

@@ -8,7 +8,7 @@ const { typed } = require('./httpError');
 const str = (v, max = 1000) => (v == null || v === '' ? null : String(v).slice(0, max));
 const n = (v) => (v == null || v === '' ? null : Number(v));
 
-function makeGovernanceRolesStore(db, { now = () => new Date().toISOString() } = {}) {
+function makeGovernanceRolesStore(db, { now = () => new Date().toISOString(), skipInactive = null } = {}) {
   if (!db) throw new Error('governanceRolesStore needs a db handle');
   const P = (sql) => db.prepare(sql);
   const tx = (fn) => (db.runTransaction ? db.runTransaction(fn) : fn());
@@ -125,10 +125,35 @@ function makeGovernanceRolesStore(db, { now = () => new Date().toISOString() } =
   async function version() { const r = await P('SELECT COALESCE(MAX(id), 0) AS v FROM governance_role_events').get(); return Number(r && r.v) || 0; }
   /** People a deputy stands in for today (used by the lifecycles). */
   async function principalsOf(userId, today) { return R.principalsOf((await snapshot()).deputies, userId, today || now()); }
+  // A10 / C-03 — governance policy governance.skip_inactive_holders (default false = today). On: the resolver
+  // gets the account state — active ids and each person's sites (null = admin tier, every site).
+  async function policyOn() {
+    if (typeof skipInactive === 'function') return !!(await skipInactive());
+    if (skipInactive != null) return !!skipInactive;
+    try { return (await require('./governancePolicy').forContext({}))['governance.skip_inactive_holders'] === true; } catch (_) { return false; }
+  }
+  /** Resolver inputs `{ active, sitesOf }` when the policy is on, else null (= the behaviour until now). */
+  async function resolverOpts() {
+    if (!(await policyOn())) return null;
+    const [users, extra, tier] = await Promise.all([
+      P('SELECT id, active, site_id, role FROM users').all(),
+      P('SELECT user_id, site_id FROM user_sites').all(),
+      P("SELECT user_id FROM user_roles WHERE role IN ('super_admin','executive','admin')").all(),
+    ]);
+    const admin = new Set(tier.map((r) => Number(r.user_id)));
+    for (const u of users) if (['super_admin', 'executive', 'admin'].includes(u.role)) admin.add(Number(u.id));
+    const sites = new Map();
+    for (const u of users) sites.set(Number(u.id), u.site_id == null ? [] : [Number(u.site_id)]);
+    for (const x of extra) { const l = sites.get(Number(x.user_id)); if (l) l.push(Number(x.site_id)); }
+    const active = new Set(users.filter((u) => Number(u.active) === 1 || u.active === true).map((u) => Number(u.id)));
+    return { active, sitesOf: (id) => (admin.has(Number(id)) ? null : (sites.get(Number(id)) || [])) };
+  }
   /** Escalation target + targets' ids for one overdue item. */
-  async function escalationTarget(q) { return R.escalationTarget(await snapshot(), { today: now(), ...q }); }
+  async function escalationTarget(q) { return R.escalationTarget(await snapshot(), { today: now(), ...q }, await resolverOpts()); }
+  /** Coverage gaps for the given sites (inactive / site-less holders listed when the policy is on). */
+  async function coverageGaps(sites, today) { const [snap, opts] = await Promise.all([snapshot(), resolverOpts()]); return R.coverageGaps(snap, sites, today || now(), opts); }
 
-  return { version, calendar, addCalendarDay, removeCalendarDay, snapshot, assign, endAssignment, addDeputy, revokeDeputy, addMatrixRow, retireMatrixRow, events, principalsOf, escalationTarget };
+  return { version, calendar, addCalendarDay, removeCalendarDay, snapshot, assign, endAssignment, addDeputy, revokeDeputy, addMatrixRow, retireMatrixRow, events, principalsOf, escalationTarget, resolverOpts, coverageGaps };
 }
 
 module.exports = { makeGovernanceRolesStore };

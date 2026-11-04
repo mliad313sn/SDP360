@@ -180,9 +180,10 @@ module.exports = function policyRoutes(deps) {
       // ADR-006 — roles nobody holds (an escalation would reach nobody) belong in the exceptions register
       try {
         const R = require('../services/governanceRoles');
-        const snap = await (deps.rolesStore || require('./governanceRoles').createStore(rdb())).snapshot();
+        const rs = deps.rolesStore || require('./governanceRoles').createStore(rdb());
+        const snap = await rs.snapshot();
         const sites = ((await rdb().listSites({ includeInactive: false })) || []).map((s) => ({ id: Number(s.id), name: s.name }));
-        o.role_gaps = R.coverageGaps(snap, sites, new Date().toISOString().slice(0, 10));
+        o.role_gaps = R.coverageGaps(snap, sites, new Date().toISOString().slice(0, 10), rs.resolverOpts ? await rs.resolverOpts() : null);
       } catch (_) { o.role_gaps = null; }   // null = not measured (migration 035 absent), never "no gap"
       if (req.query.format === 'csv') {
         const { neutralize } = require('../public/lib/csvSafe');
@@ -191,7 +192,7 @@ module.exports = function policyRoutes(deps) {
         for (const h of o.relaxations) lines.push(['relaxation', h.at, h.scope, h.key, `${JSON.stringify(h.old_value)} -> ${JSON.stringify(h.new_value)} | ${h.reason}`, h.actor, h.proposer && h.approver ? `${h.proposer} / ${h.approver}` : ''].map(q).join(','));
         for (const x of o.overrides || []) lines.push(['override', x.ts, x.target, x.action, x.details, x.actor, ''].map(q).join(','));
         for (const x of o.proposals) lines.push(['proposal', x.proposed_at, x.scope, x.key, `${x.status} | ${x.reason}`, x.proposer, x.decider || ''].map(q).join(','));
-        for (const g of o.role_gaps || []) lines.push(['role_gap', '', g.site || `site:${g.site_id}`, g.role, g.kind === 'matrix' ? `escalation rule #${g.matrix_id} (${g.register}) reaches nobody` : 'required role has no holder', '', ''].map(q).join(','));
+        for (const g of o.role_gaps || []) lines.push(['role_gap', '', g.site || (g.site_id == null ? 'platform' : `site:${g.site_id}`), g.role || '', g.kind === 'matrix' ? `escalation rule #${g.matrix_id} (${g.register}) reaches nobody` : g.kind === 'inactive_holder' ? `holder #${g.user_id} skipped (${g.reason})` : g.kind === 'inactive_deputy' ? `deputy #${g.deputy_id} of #${g.user_id} skipped (${g.reason})` : 'required role has no holder', '', ''].map(q).join(','));
         for (const d of o.deviations) lines.push(['deviation', '', d.scope, d.key, `value ${JSON.stringify(d.value)} default ${JSON.stringify(d.default)}${d.less_strict ? ' LESS STRICT' : ''}`, '', ''].map(q).join(','));
         res.setHeader('Content-Type', 'text/csv; charset=utf-8'); res.setHeader('Content-Disposition', 'attachment; filename="governance-oversight.csv"');
         return res.send('\ufeff' + lines.join('\r\n'));
