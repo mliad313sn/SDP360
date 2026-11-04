@@ -2285,7 +2285,6 @@ function _stripAssetMoney(row) {
 app.get('/api/assets/inventory', requireReportSession, async (req, res) => {
   try {
     const adb = require('./assets-db');
-    const money = require('./services/money');
     // Whitelist the filter keys the reader understands; values ride as bound params.
     const q = {};
     for (const k of ['site', 'state', 'product_type', 'manufacturer', 'q']) {
@@ -2302,12 +2301,12 @@ app.get('/api/assets/inventory', requireReportSession, async (req, res) => {
     if (!_canReadMoney(req.reportUser)) {
       return res.json(rows.map(r => _stripAssetMoney(r)));
     }
-    const rate = await _assetUsdRate();
+    const ctx = require('./services/currency').moneyContext(await _assetMoneyOpts());
     res.json(rows.map(r => ({
       ...r,
-      purchase_cost_usd: money.toUsd(r.purchase_cost, rate),
-      book_value_usd:    money.toUsd(r.current_book_value, rate),
-      tco_usd:           money.toUsd(r.total_cost_of_ownership, rate),
+      purchase_cost_usd: ctx.toUsd(r.purchase_cost, r.site),
+      book_value_usd:    ctx.toUsd(r.current_book_value, r.site),
+      tco_usd:           ctx.toUsd(r.total_cost_of_ownership, r.site),
     })));
   } catch (e) {
     console.error('[api/assets/inventory]', e.message);
@@ -2366,19 +2365,18 @@ app.get('/api/assets/summary', requireReportSession, async (req, res) => {
 app.get('/api/assets/export.xlsx', requireReportSession, requireMoneyRead, async (req, res) => {
   try {
     const adb = require('./assets-db');
-    const money = require('./services/money');
     const { buildAssetWorkbook } = require('./services/assetExcel');
     const q = {};
     for (const k of ['site', 'state', 'product_type', 'manufacturer', 'q']) {
       if (req.query[k] != null && req.query[k] !== '') q[k] = String(req.query[k]);
     }
     // Same USD conversion as /inventory so the workbook carries USD money, not raw XOF.
-    const rate = await _assetUsdRate();
+    const ctx = require('./services/currency').moneyContext(await _assetMoneyOpts());
     const rows = (await adb.getEnrichedAssets(q)).map(r => ({
       ...r,
-      purchase_cost_usd: money.toUsd(r.purchase_cost, rate),
-      book_value_usd:    money.toUsd(r.current_book_value, rate),
-      tco_usd:           money.toUsd(r.total_cost_of_ownership, rate),
+      purchase_cost_usd: ctx.toUsd(r.purchase_cost, r.site),
+      book_value_usd:    ctx.toUsd(r.current_book_value, r.site),
+      tco_usd:           ctx.toUsd(r.total_cost_of_ownership, r.site),
     }));
     const buf = buildAssetWorkbook(rows, []);
     _logAssetEvent(req, 'asset_export', 'inventory', { rows: rows.length, filters: q });
@@ -2663,6 +2661,16 @@ const _assetUsdRate = async () => {
   if (!(rate > 0)) rate = parseFloat(reportConfig.DEFAULTS.xof_usd_rate);
   return rate;
 };
+// A-26 — the five asset-money switches (parser mode, per-site currency, rates,
+// outlier factor/exclusion), resolved once per request. Defaults = today: legacy
+// parser, empty currency map (one rate for every site), outliers summed.
+// `rate` is kept for the legacy callers.
+const _assetMoneyOpts = async () => {
+  const reportConfig = require('./services/reportConfig');
+  const rdb = require('./reports-db');
+  const rate = await _assetUsdRate();
+  return require('./services/currency').optsFromConfig(await reportConfig.getConfig(rdb.db), rate);
+};
 
 // A-16 — the three certification switches (PROPOSED policy, default display '0'),
 // read once per request. Readers get min values; routes echo `certify_display`.
@@ -2684,9 +2692,10 @@ const _certificationSheet = (title, cert, bySite) => ({
 app.get('/api/assets/finance/summary', requireReportSession, requireMoneyRead, async (req, res) => {
   try {
     const adb = require('./assets-db');
-    const rate = await _assetUsdRate();
+    const mo = await _assetMoneyOpts();
+    const rate = mo.rate;
     const cert = await _assetCertifyOpts();
-    const s = await adb.getFinanceSummary(_assetFinanceFilters(req), rate, cert);
+    const s = await adb.getFinanceSummary(_assetFinanceFilters(req), rate, { ...mo, ...cert });
     res.json({ ...s, rate, certify_display: cert.display });   // echo the applied rate so the page can label it
   } catch (e) {
     console.error('[api/assets/finance/summary]', e.message);
@@ -2699,9 +2708,10 @@ app.get('/api/assets/finance/export.xlsx', requireReportSession, requireMoneyRea
   try {
     const adb = require('./assets-db');
     const { buildWorkbook } = require('./services/tableExcel');
-    const rate = await _assetUsdRate();
+    const mo = await _assetMoneyOpts();
+    const rate = mo.rate;
     const cert = await _assetCertifyOpts();
-    const s = await adb.getFinanceSummary(_assetFinanceFilters(req), rate, cert);
+    const s = await adb.getFinanceSummary(_assetFinanceFilters(req), rate, { ...mo, ...cert });
     const sheets = [{ name: 'Finance by site', rows: s.by_site }];
     if (cert.display === '1') sheets.push(_certificationSheet('Finance', s.certification, s.coverage_by_site));
     const buf = buildWorkbook(sheets);
@@ -2710,6 +2720,36 @@ app.get('/api/assets/finance/export.xlsx', requireReportSession, requireMoneyRea
     res.send(buf);
   } catch (e) {
     console.error('[api/assets/finance/export.xlsx]', e.message);
+    fail(res, e);
+  }
+});
+
+// A-26 — cost-outlier worklist (> asset_cost_outlier_factor × the median cost of the
+// same product type and currency). USD only; money-gated like every finance route.
+// Outliers stay summed in the totals unless asset_cost_outlier_exclude = '1'.
+app.get('/api/assets/finance/outliers', requireReportSession, requireMoneyRead, async (req, res) => {
+  try {
+    const mo = await _assetMoneyOpts();
+    const out = await require('./assets-db').getCostOutliers(_assetFinanceFilters(req), mo);
+    res.json({ ...out, excluded_from_totals: mo.outlierExclude });
+  } catch (e) {
+    console.error('[api/assets/finance/outliers]', e.message);
+    fail(res, e);
+  }
+});
+app.get('/api/assets/finance/outliers/export.xlsx', requireReportSession, requireMoneyRead, async (req, res) => {
+  try {
+    const { buildWorkbook } = require('./services/tableExcel');
+    const out = await require('./assets-db').getCostOutliers(_assetFinanceFilters(req), await _assetMoneyOpts());
+    const buf = buildWorkbook([{ name: 'Cost outliers', rows: out.rows.map(r => ({
+      'Asset ID': r.asset_id, Asset: r.asset_name, Site: r.site, 'Product type': r.product_type,
+      Currency: r.currency, 'Cost (USD)': r.cost_usd, 'Median (USD)': r.median_cost_usd, '× median': r.ratio,
+    })) }]);
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', 'attachment; filename="assets-cost-outliers.xlsx"');
+    res.send(buf);
+  } catch (e) {
+    console.error('[api/assets/finance/outliers/export.xlsx]', e.message);
     fail(res, e);
   }
 });
@@ -3214,7 +3254,8 @@ const _deprecConfig = async () => {
 app.get('/api/assets/depreciation/summary', requireReportSession, requireMoneyRead, async (req, res) => {
   try {
     const adb = require('./assets-db');
-    const rate = await _assetUsdRate();
+    const mo = await _assetMoneyOpts();
+    const rate = mo.rate;
     const config = await _deprecConfig();
     // Default asOf to TODAY before it reaches the reader — the pure
     // computeDepreciation treats an undefined asOf as 0 months elapsed (full
@@ -3223,7 +3264,7 @@ app.get('/api/assets/depreciation/summary', requireReportSession, requireMoneyRe
     const asOf = req.query.asOf ? String(req.query.asOf) : new Date().toISOString().slice(0, 10);
     const cert = await _assetCertifyOpts();
     const s = await adb.getAssetDepreciation(_assetDeprecFilters(req),
-      { config, rate, asOf, minSites: cert.minSites, minPct: cert.minPct });
+      { ...mo, config, rate, asOf, minSites: cert.minSites, minPct: cert.minPct });
     res.json({ ...s, rate, asOf, certify_display: cert.display });
   } catch (e) {
     console.error('[api/assets/depreciation/summary]', e.message);
@@ -3234,11 +3275,12 @@ app.get('/api/assets/depreciation/summary', requireReportSession, requireMoneyRe
 app.get('/api/assets/depreciation/schedule', requireReportSession, requireMoneyRead, async (req, res) => {
   try {
     const adb = require('./assets-db');
-    const rate = await _assetUsdRate();
+    const mo = await _assetMoneyOpts();
+    const rate = mo.rate;
     const config = await _deprecConfig();
     // Default asOf to TODAY before the reader (see summary route note).
     const asOf = req.query.asOf ? String(req.query.asOf) : new Date().toISOString().slice(0, 10);
-    const sch = await adb.getDepreciationSchedule(_assetDeprecFilters(req), { config, rate, asOf });
+    const sch = await adb.getDepreciationSchedule(_assetDeprecFilters(req), { ...mo, config, rate, asOf });
     res.json({ ...sch, rate, asOf });
   } catch (e) {
     console.error('[api/assets/depreciation/schedule]', e.message);
@@ -3296,10 +3338,10 @@ const _assetUpliftPct = async () => {
 
 app.get('/api/assets/investment/history', requireReportSession, requireMoneyRead, async (req, res) => {
   try {
-    const rate = await _assetUsdRate();
+    const mo = await _assetMoneyOpts();
     const cert = await _assetCertifyOpts();
     const out = await require('./assets-db').getInvestmentSummary(_assetInvestmentFilters(req),
-      { rate, minSites: cert.minSites, minPct: cert.minPct });
+      { ...mo, minSites: cert.minSites, minPct: cert.minPct });
     res.json({ ...out, certify_display: cert.display });
   } catch (e) {
     console.error('[api/assets/investment/history]', e.message);
@@ -3316,10 +3358,10 @@ app.get('/api/assets/investment/forecast', requireReportSession, requireMoneyRea
     if (!Number.isFinite(horizon) || horizon < 1) horizon = 5;   // default
     if (horizon > 15) horizon = 15;                              // clamp
     const asOf = new Date().toISOString().slice(0, 10);          // resolve BEFORE the reader
-    const rate = await _assetUsdRate();
+    const mo = await _assetMoneyOpts();
     const cert = await _assetCertifyOpts();
     const out = await adb.getInvestmentForecast(_assetInvestmentFilters(req),
-      { config, rate, upliftPct, horizonYears: horizon, asOf, minSites: cert.minSites, minPct: cert.minPct });
+      { ...mo, config, upliftPct, horizonYears: horizon, asOf, minSites: cert.minSites, minPct: cert.minPct });
     // Echo the uplift as a percent (e.g. 3 for 0.03) so the UI can label the growth.
     res.json({ ...out, uplift_pct: Math.round(upliftPct * 10000) / 100, certify_display: cert.display });
   } catch (e) {
@@ -3337,7 +3379,7 @@ app.get('/api/assets/investment/export.xlsx', requireReportSession, requireMoney
     const adb = require('./assets-db');
     const { buildWorkbook } = require('./services/tableExcel');
     const filters = _assetInvestmentFilters(req);
-    const rate = await _assetUsdRate();
+    const mo = await _assetMoneyOpts();
     const config = await _deprecConfig();
     const upliftPct = await _assetUpliftPct();
     let horizon = parseInt(req.query.horizon, 10);
@@ -3346,9 +3388,9 @@ app.get('/api/assets/investment/export.xlsx', requireReportSession, requireMoney
     const asOf = new Date().toISOString().slice(0, 10);
     const cert = await _assetCertifyOpts();
 
-    const history = await adb.getInvestmentSummary(filters, { rate, minSites: cert.minSites, minPct: cert.minPct });
+    const history = await adb.getInvestmentSummary(filters, { ...mo, minSites: cert.minSites, minPct: cert.minPct });
     const fcst = await adb.getInvestmentForecast(filters,
-      { config, rate, upliftPct, horizonYears: horizon, asOf, minSites: cert.minSites, minPct: cert.minPct });
+      { ...mo, config, upliftPct, horizonYears: horizon, asOf, minSites: cert.minSites, minPct: cert.minPct });
 
     const historyRows = (history.years || []).map(y => ({
       Year: y.year, 'Hardware (USD)': y.hardware_usd, 'Software (USD)': y.software_usd,

@@ -70,6 +70,15 @@ const DEFAULTS = {
   asset_money_certify_display: '0',
   asset_money_certify_min_sites: '3',
   asset_money_certify_min_pct: '50',
+  // A-26 — asset money parsing + per-site currency. PROPOSED (owner: Finance), NOT
+  // approved; every default is today's behaviour: legacy parser, empty map = every
+  // asset site XOF at xof_usd_rate, empty rates = {XOF: xof_usd_rate, USD: 1},
+  // outliers listed (factor 10 × median of product type + currency) but still summed.
+  asset_amount_parser: 'legacy',
+  asset_site_currency: '',
+  asset_currency_rates: '',
+  asset_cost_outlier_factor: '10',
+  asset_cost_outlier_exclude: '0',
   // Asset depreciation policy (JSON) — the computed-book-value reader resolves a
   // method/useful-life/salvage per product_type from this. Must live in DEFAULTS
   // so setConfig's KEYS filter accepts the admin's write (else silently dropped).

@@ -299,3 +299,30 @@ test('A-16 software forecast + history carry by_site when rows carry a site', ()
   assert.strictEqual(h.coverage.hardware.by_site[0].site, 'MANA');
   assert.strictEqual(h.coverage.software.by_site[0].eligible, 0);
 });
+
+// ── A-26 — per-site currency (asset_site_currency), default off ─────────────
+test('A-26 currency map with LONDON unmapped → excluded.no_currency, 0 USD; eligibility rate-independent', () => {
+  const rows = [
+    { site: 'MANA', acquisition_date: '2024-01-01', purchase_cost: '1,000,000.00', product_type: 'Desktop' },
+    { site: 'LONDON', acquisition_date: '2024-01-01', purchase_cost: '5,000.00', product_type: 'Desktop' },
+  ];
+  const money = { currencyMap: '{"MANA":"XOF"}' };
+  const run = (rate) => AF.buildInvestmentHistory(rows, [], rate, { ...money, rates: { XOF: rate, USD: 1 } });
+  const a = run(0.00165), b = run(0.002);
+  assert.strictEqual(a.coverage.hardware.excluded.no_currency, 1);
+  assert.strictEqual(a.coverage.hardware.eligible, 1);
+  assert.strictEqual(b.coverage.hardware.eligible, a.coverage.hardware.eligible);
+  assert.strictEqual(a.years[0].hardware_usd, Math.round(1000000 * 0.00165));
+  const hw = AF.buildHardwareForecast(rows, { config, rate: 0.00165, horizonYears: 5, asOf: '2026-07-19',
+    ...money, rates: { XOF: 0.00165, USD: 1 } });
+  assert.strictEqual(hw.coverage.excluded.no_currency, 1);
+  assert.strictEqual(hw.coverage.eligible, 1);
+  assert.strictEqual(hw.total_forecast_usd, Math.round(1000000 * 0.00165));
+});
+
+test('A-26 empty currency map → exact legacy shape (no no_currency key)', () => {
+  const rows = [{ site: 'LONDON', acquisition_date: '2024-01-01', purchase_cost: '5,000.00' }];
+  const h = AF.buildInvestmentHistory(rows, [], 0.00165, { currencyMap: '' });
+  assert.deepStrictEqual(Object.keys(h.coverage.hardware.excluded), ['no_date', 'no_cost']);
+  assert.strictEqual(h.years[0].hardware_usd, Math.round(5000 * 0.00165));
+});

@@ -601,6 +601,8 @@ window.addEventListener('beforeprint', function () {
 
     <!-- A-16: "Non certifié" band — empty unless asset_money_certify_display = 1 -->
     <div id="fin-certBand"></div>
+    <!-- A-26: no_currency / outlier counts + outliers worklist link — empty when all zero -->
+    <div id="fin-moneyExcl"></div>
     <div class="as-band" id="fin-finBand">
       <div class="stat"><span class="n usd" id="fin-finBook">—</span><span class="l">Fleet book value (USD)</span></div>
       <div class="stat"><span class="n" id="fin-finPurchase">—</span><span class="l">Purchase cost (USD)</span></div>
@@ -2031,6 +2033,35 @@ window.addEventListener('beforeprint', function () {
     window.openAssetDrill({ title, subtitle: 'Installed vs allowed — no cost shown', columns: SOFT_COLS, rows: Array.isArray(rows) ? rows : [], filename });
   }
 
+  // A-26 — asset money switches: amounts with an unknown site currency (asset_site_currency)
+  // and cost outliers. Nothing is shown when every count is zero (today's page unchanged).
+  async function renderMoneyExclusions(s, f) {
+    const el = document.getElementById('fin-moneyExcl');
+    if (!el) return;
+    el.innerHTML = '';
+    const ex = (s && s.excluded) || {};
+    let outl = null;
+    try {
+      const r = await fetch('/api/assets/finance/outliers' + qs(f), { credentials: 'same-origin', headers: authHeaders() });
+      if (r.ok) outl = await r.json();
+    } catch (e) { outl = null; }
+    const parts = [];
+    if (Number(ex.no_currency) > 0) {
+      parts.push('<strong>' + Number(ex.no_currency).toLocaleString() + '</strong> asset(s) whose site has no currency set — amounts left out of the totals (unknown, not converted).');
+    }
+    const n = outl && Number(outl.count) > 0 ? Number(outl.count) : 0;
+    if (n > 0) {
+      const how = Number(ex.outlier) > 0 ? 'left out of the totals' : 'still included in the totals';
+      parts.push('<strong>' + n.toLocaleString() + '</strong> cost outlier(s) (&gt; ' + escapeHtml(String(outl.factor)) +
+        '× the median of the same product type and currency), ' + how + ' — ' +
+        '<a href="/api/assets/finance/outliers/export.xlsx' + escapeHtml(qs(f)) + '">download the worklist</a>.');
+    }
+    if (parts.length) {
+      el.innerHTML = '<div class="count-note" style="border:1px solid var(--color-border,#dfe3e8);border-radius:var(--radius-md,6px);margin-bottom:var(--space-4,16px)">' +
+        parts.join('<br>') + '</div>';
+    }
+  }
+
   async function loadFinance() {
     let s = null, dep = null;
     try {
@@ -2069,6 +2100,7 @@ window.addEventListener('beforeprint', function () {
 
     const certEl = document.getElementById('fin-certBand');
     if (certEl) certEl.innerHTML = window.MoneyCertBand ? window.MoneyCertBand.html(s, s.certification, s.coverage_by_site) : '';
+    renderMoneyExclusions(s, window.__assetFilters ? window.__assetFilters() : { site: siteVal() });
 
     const fleet = s.fleet || {};
     document.getElementById('fin-finBook').textContent     = usd(depFleet.computed_book_value_usd != null ? depFleet.computed_book_value_usd : fleet.book_value_usd);

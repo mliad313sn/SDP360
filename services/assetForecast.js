@@ -16,6 +16,7 @@
 const money = require('./money');
 const { resolveForType } = require('./depreciation');
 const moneyCoverage = require('./moneyCoverage');
+const currency = require('./currency');
 
 // ── Tolerant helpers ────────────────────────────────────────────────────────
 
@@ -63,27 +64,44 @@ function _attachBySite(cov, marks, rows, { minSites, minPct } = {}) {
   cov.certification = moneyCoverage.certify(by_site, { minSites, minPct });
 }
 
+// A-26 — per-row money gates (switches asset_site_currency / asset_cost_outlier_exclude).
+// With both off this adds no key and changes nothing. Returns the exclusion reason
+// for one already-eligible row, or null.
+function _moneyGate(ctx, flagged, cov) {
+  if (ctx.active) cov.excluded.no_currency = 0;
+  if (ctx.excludeOutliers) cov.excluded.outlier = 0;
+  return (r) => {
+    if (flagged && flagged.has(r)) return 'outlier';
+    if (ctx.active && ctx.rateOf(r.site) == null) return 'no_currency';
+    return null;
+  };
+}
+
 // ── Builder 1: historical investment curve + coverage ───────────────────────
 function buildInvestmentHistory(assetRows, licenceRows, rate, certifyOpts = {}) {
+  const ctx = currency.moneyContext({ ...certifyOpts, rate });
   const hwMarks = [];
   const swMarks = [];
   const hwByYear = new Map();
   const swByYear = new Map();
   const hwCov = { eligible: 0, total: 0, pct: 0, excluded: { no_date: 0, no_cost: 0 } };
   const swCov = { eligible: 0, total: 0, pct: 0, excluded: { no_date: 0, no_cost: 0 } };
+  const hwGate = _moneyGate(ctx, ctx.excludeOutliers ? ctx.outliers(assetRows) : null, hwCov);
 
   for (const r of (assetRows || [])) {
     hwCov.total++;
     const y = _yearOf(r.acquisition_date);
     // rate-INDEPENDENT eligibility gate — coverage% must not depend on rate
-    const amt = money.parseAmount(r.purchase_cost);
+    const amt = ctx.parse(r.purchase_cost);
     const hwMark = { site: r.site, ok: false };
     hwMarks.push(hwMark);
     if (y == null) { hwCov.excluded.no_date++; continue; }
     if (!(amt > 0)) { hwCov.excluded.no_cost++; continue; }
+    const why = hwGate(r);
+    if (why) { hwCov.excluded[why]++; continue; }
     hwCov.eligible++;
     hwMark.ok = true;
-    const usd = money.toUsd(r.purchase_cost, rate) || 0;
+    const usd = ctx.toUsd(r.purchase_cost, r.site) || 0;
     hwByYear.set(y, (hwByYear.get(y) || 0) + usd);
   }
 
@@ -124,7 +142,9 @@ function buildInvestmentHistory(assetRows, licenceRows, rate, certifyOpts = {}) 
 }
 
 // ── Builder 2: forward hardware replacement (CAPEX) forecast + coverage ──────
-function buildHardwareForecast(assetRows, { config, rate, upliftPct, horizonYears, asOf, minSites, minPct } = {}) {
+function buildHardwareForecast(assetRows, opts = {}) {
+  const { config, upliftPct, horizonYears, asOf, minSites, minPct } = opts;
+  const ctx = currency.moneyContext(opts);
   const marks = [];
   const cur = _curYear(asOf);
   const up = Number(upliftPct) || 0;
@@ -133,11 +153,12 @@ function buildHardwareForecast(assetRows, { config, rate, upliftPct, horizonYear
   const due_now = { replacement_usd: 0, count: 0 };
   const beyond_horizon = { count: 0, usd: 0 };
   const coverage = { eligible: 0, total: 0, pct: 0, excluded: { no_date: 0, no_cost: 0, no_life: 0 } };
+  const gate = _moneyGate(ctx, ctx.excludeOutliers ? ctx.outliers(assetRows) : null, coverage);
 
   for (const r of (assetRows || [])) {
     coverage.total++;
     const acqYear = _yearOf(r.acquisition_date);
-    const amt = money.parseAmount(r.purchase_cost); // rate-independent gate
+    const amt = ctx.parse(r.purchase_cost); // rate-independent gate
     const life = Number(resolveForType(config, r.product_type).useful_life_months);
     const mark = { site: r.site, ok: false };
     marks.push(mark);
@@ -145,10 +166,12 @@ function buildHardwareForecast(assetRows, { config, rate, upliftPct, horizonYear
     if (acqYear == null) { coverage.excluded.no_date++; continue; }
     if (!(amt > 0)) { coverage.excluded.no_cost++; continue; }
     if (!(life > 0)) { coverage.excluded.no_life++; continue; }
+    const why = gate(r);
+    if (why) { coverage.excluded[why]++; continue; }
     coverage.eligible++;
     mark.ok = true;
 
-    const costUsd = money.toUsd(r.purchase_cost, rate) || 0;
+    const costUsd = ctx.toUsd(r.purchase_cost, r.site) || 0;
     const lifeYears = Math.ceil(life / 12);
     const ry = acqYear + lifeYears;              // replacement year
     const yu = ry - cur;                          // years until replacement
