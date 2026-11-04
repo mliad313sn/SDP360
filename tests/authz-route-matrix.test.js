@@ -54,7 +54,8 @@ test('every /api route is guarded, public by declaration, or behind the global g
   const rows = [], unguarded = [];
   for (const r of routes) {
     if (!r.path.startsWith('/api') && r.path !== '/health' && r.path !== '/ready') continue;
-    const guard = r.mw.find((n) => GUARDS.some((g) => n === g || n.startsWith(g)));
+    // Every guard on the route, in order (C-02: a role gate behind the session check is visible).
+    const guard = r.mw.filter((n) => GUARDS.some((g) => n === g || n.startsWith(g))).join(' + ');
     let how;
     if (PUBLIC[r.key]) how = `public — ${PUBLIC[r.key]}`;
     else if (guard) how = guard;
