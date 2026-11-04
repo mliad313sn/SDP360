@@ -11,7 +11,7 @@
   "routes_in_server_js": 229,
   "jobs": 24,
   "jobs_without_test_reference": 10,
-  "migrations": 52,
+  "migrations": 53,
   "test_files": 491
  },
  "pages": [
@@ -689,7 +689,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 2,
-   "bytes": 524928,
+   "bytes": 526530,
    "tests": [
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/assets-freshness.test.js",
@@ -7947,6 +7947,10 @@
   {
    "id": "MG-reports-043-portfolio-scope",
    "file": "db/postgres/reports/043_portfolio_scope.sql"
+  },
+  {
+   "id": "MG-reports-048-sla-alert-log-due",
+   "file": "db/postgres/reports/048_sla_alert_log_due.sql"
   },
   {
    "id": "MG-sync-000-upgrade-from-1-11",
