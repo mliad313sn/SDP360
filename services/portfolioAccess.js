@@ -89,6 +89,7 @@ function filterPortfolio(view, user, ctx = {}) {
     projects,
     milestones: byProject(view.milestones),
     deliverables: byProject(view.deliverables),
+    benefits: byProject(view.benefits),   // B-08
     tasks,
     risks,
     plans: byProject(view.plans),

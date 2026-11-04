@@ -101,7 +101,7 @@ async function buildDeck(view, { money: showMoney = false, exceptions = [], asOf
   return pptx.write('nodebuffer');
 }
 
-/** Workbook sheets: Projects, Tasks, Milestones, RAID, Baselines, Exceptions (SheetJS CE — no styling). */
+/** Workbook sheets: Projects, Tasks, Milestones, RAID, Baselines, Exceptions, Benefits (SheetJS CE — no styling). */
 function buildWorkbookBuffer(view, { money: showMoney = false, baselines = [], exceptions = [] } = {}) {
   const v = view || {};
   const keyOf = new Map((v.projects || []).map((p) => [Number(p.id), p.key]));
@@ -116,7 +116,15 @@ function buildWorkbookBuffer(view, { money: showMoney = false, baselines = [], e
   const raid = (v.risks || []).map((r) => ({ project: keyOf.get(Number(r.project_id)) || null, id: r.id, kind: r.kind || 'risk', title: r.title, probability: r.probability, impact: r.impact, exposure: r.exposure, severity: r.severity, owner: r.owner, status: r.status, mitigation: r.mitigation }));
   const bl = (baselines || []).map((b) => ({ project: keyOf.get(Number(b.project_id)) || null, version: b.version, captured_at: b.captured_at, approved_by: b.approved_by_name, reason: b.reason, baseline_start: b.payload && b.payload.project ? b.payload.project.baseline_start : null, baseline_end: b.payload && b.payload.project ? b.payload.project.baseline_end : null, tasks: b.payload && b.payload.tasks ? b.payload.tasks.length : null }));
   const ex = (exceptions || []).map((e) => ({ kind: e.kind, project: e.project_key, owner: e.owner, since: e.since, message: e.message, key: e.key }));
-  return require('./tableExcel').buildWorkbook([{ name: 'Projects', rows: projects }, { name: 'Tasks', rows: tasks }, { name: 'Milestones', rows: milestones }, { name: 'RAID', rows: raid }, { name: 'Baselines', rows: bl }, { name: 'Exceptions', rows: ex }]);
+  // B-08 — benefits: a money benefit's values only for a money reader (the row stays, its values are empty)
+  const BEN = require('./portfolioBenefits');
+  const ben = (v.benefits || []).map((b) => {
+    const x = BEN.visibleBenefit(b, { money: showMoney, asOf: v.as_of || null });
+    return { project: keyOf.get(Number(b.project_id)) || null, id: b.id, description: b.description, measure: b.measure || null, unit: b.unit || null, value_kind: b.value_kind || 'quantity',
+      baseline_value: x.baseline_value ?? null, target_value: x.target_value ?? null, realised_value: x.realised_value ?? null, owner: b.owner || null, review_date: b.review_date || null,
+      state: x.state, evidence_link: b.evidence_link || null, realised_by: b.realised_by_name || null, verified_by: b.verified_by_name || null, verified_at: b.verified_at || null };
+  });
+  return require('./tableExcel').buildWorkbook([{ name: 'Projects', rows: projects }, { name: 'Tasks', rows: tasks }, { name: 'Milestones', rows: milestones }, { name: 'RAID', rows: raid }, { name: 'Baselines', rows: bl }, { name: 'Exceptions', rows: ex }, { name: 'Benefits', rows: ben }]);
 }
 
 module.exports = { buildDeck, buildWorkbookBuffer, X, W, BOTTOM };

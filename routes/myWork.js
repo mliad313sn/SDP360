@@ -68,6 +68,7 @@ module.exports = function myWorkRoutes(deps) {
           if (Array.isArray(D.activeSites) && D.activeSites.length && !D.activeSites.includes(code)) return null;
           return trackerEmptyCells(D, code, Number(asOf.slice(0, 4)), Number(asOf.slice(5, 7)));
         },
+        benefitReviews: async (s) => require('../services/governanceStore').makeGovernanceStore(R.pgHandle()).dueBenefitReviews({ siteId: s.site_id, asOf }),
       };
       const work = await buildMyWork({ user, sites, asOf, readers });
       res.json({ ok: true, ...work });

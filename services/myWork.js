@@ -1,6 +1,6 @@
 'use strict';
 // A-10 — "My work": per person, what each of HIS sites owes today (open/overdue actions, this week's
-// report, unsigned PVs, last inspection, empty tracker cells). PURE: the route (routes/myWork.js)
+// report, unsigned PVs, last inspection, empty tracker cells, B-08 benefit reviews due). PURE: the route (routes/myWork.js)
 // resolves the user's sites and injects the readers; this module only shapes.
 //   • every block is computed on its own: a missing reader or a reader that throws → null
 //     ("— not measured" on the page), never 0;
@@ -94,6 +94,12 @@ async function buildMyWork({ user, sites, asOf, readers } = {}) {
       return { date, days_since: date ? daysBetween(date, as) : null };
     });
     card.tracker_empty = await _block(r.trackerEmpty, s, (t) => (t ? { month: t.month, empty_cells: t.empty_cells, total_cells: t.total_cells } : null));
+    // B-08 (catalogue A09): portfolio benefits of this site whose review date is reached and not verified yet
+    card.benefit_reviews = await _block(r.benefitReviews, s, (rows) => {
+      if (!Array.isArray(rows)) return null;
+      const items = require('./portfolioBenefits').reviewItems(rows, as);
+      return { count: items.length, items: items.slice(0, MAX_UNSIGNED).map((x) => ({ project_id: x.project_id, project_key: x.ref, title: x.title, due_date: x.due_date, status: x.status, overdue: x.overdue })) };
+    });
     out.push(card);
   }
   return { generated_at: new Date().toISOString(), as_of: as, sites: out, truncated: list.length - shown.length, message: null };

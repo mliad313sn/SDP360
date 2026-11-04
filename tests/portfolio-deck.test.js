@@ -87,10 +87,10 @@ test('null renders as an em dash, never 0; without money no amount slide and no 
   assert.ok(fp.slides[0].texts.includes('Amounts are restricted for this reader (committee, admin or finance-viewer only).'));
 });
 
-test('workbook: six sheets; money columns only when allowed; null stays empty, never 0', () => {
+test('workbook: seven sheets; money columns only when allowed; null stays empty, never 0', () => {
   const read = (buf) => XLSX.read(buf, { type: 'buffer' });
   const wb = read(D.buildWorkbookBuffer(view, { money: true, exceptions, baselines: [{ project_id: 1, version: 1, captured_at: '2027-01-04T00:00:00Z', approved_by_name: null, reason: null, payload: { project: { baseline_end: '2027-03-31' }, tasks: [{}] } }] }));
-  assert.deepStrictEqual(wb.SheetNames, ['Projects', 'Tasks', 'Milestones', 'RAID', 'Baselines', 'Exceptions']);
+  assert.deepStrictEqual(wb.SheetNames, ['Projects', 'Tasks', 'Milestones', 'RAID', 'Baselines', 'Exceptions', 'Benefits']);
   const rows = XLSX.utils.sheet_to_json(wb.Sheets.Projects);
   assert.strictEqual(rows[0].budget, 120000);
   assert.strictEqual(rows[2].slip_days, undefined, 'unknown slip is an empty cell');
