@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 3141,
+ "total": 3156,
  "files": {
   "a11y-static.test.js": 13,
   "access-denied-log.smoke.test.js": 3,
@@ -84,6 +84,7 @@
   "boot-config.test.js": 4,
   "business-only-boundary.smoke.test.js": 6,
   "business-roles.test.js": 4,
+  "check-secrets-verify.test.js": 2,
   "ci-config.test.js": 9,
   "commitment-backfill-pg.test.js": 3,
   "commitment-backfill.test.js": 3,
@@ -186,7 +187,8 @@
   "installer-no-stored-password.test.js": 2,
   "installer-pg-credentials.test.js": 2,
   "installer-secrets-key.test.js": 5,
-  "installer-v2-static.test.js": 11,
+  "installer-upgrade-order.test.js": 11,
+  "installer-v2-static.test.js": 13,
   "integrations-plan-gate.smoke.test.js": 3,
   "kpi-change-parity.test.js": 5,
   "kpi-change-success.test.js": 2,

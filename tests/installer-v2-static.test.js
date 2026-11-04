@@ -160,3 +160,39 @@ test('A-02: the marker is never deleted on uninstall, and the GUI memo announces
   const memo = code.slice(code.indexOf('function UpdateReadyMemo'), code.indexOf('{ ---------- install ---------- }'));
   assert.match(memo, /PgUpgradeWouldBeSkipped then Result := Result \+ 'PostgreSQL: not upgraded \(not installed by Setup\)'/);
 });
+
+// A-03 — the real 1.11-under-pm2 upgrade and its rollback are proven by the Windows job upgrade-from-111;
+// these checks keep the script and the workflow honest between two Windows runs.
+test('A-03: e2e.ps1 has -UpgradeFrom and asserts pm2 hosting, encrypted backup and check-secrets --verify', () => {
+  const e2e = fs.readFileSync(path.join(ROOT, 'tools/installer-v2/tests/e2e.ps1'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(e2e, /\[string\]\$UpgradeFrom\s*=\s*''/);
+  assert.match(e2e, /function Prepare-111/);
+  const up = e2e.slice(e2e.indexOf('# A-03 — upgrade a real 1.11'), e2e.indexOf("Section 'NEW install"));
+  assert.ok(e2e.indexOf('# A-03 — upgrade a real 1.11') > 0 && up.length > 0, 'the upgrade block comes before the NEW install section');
+  assert.match(up, /if \(\$UpgradeFrom\) \{[\s\S]*Section 'UPGRADE from 1\.11[\s\S]*exit 0\s*\}/, 'and exits instead of running it');
+  assert.match(up, /\/MODE=update/);
+  assert.match(up, /pm2 jlist/);
+  assert.match(up, /endeavour-dashboard/);
+  assert.match(up, /SDP_SERVICE=pm2/);
+  assert.match(up, /\.sql\.gz\.enc/);
+  assert.match(up, /check-secrets\.js'?\)?\s+--verify|check-secrets\.js[\s\S]{0,80}--verify/);
+  assert.match(up, /SDP_SETUP_TEST_FAIL_PROBE\s*=\s*'1'/, 'rollback pass uses the probe test seam');
+  assert.match(up, /-eq 7/, 'the rollback pass expects Setup exit 7');
+  assert.match(up, /encrypt-secrets\.js'?\)?\s+--apply|encrypt-secrets\.js[\s\S]{0,80}--apply/, 'the secret is encrypted with the 1.11 tree own tool');
+  assert.ok(!/Write-Host[^\n]*\$envText|Get-Content[^\n]*\.env[^\n]*\|\s*Out-Host/.test(up), 'never echoes the .env');
+});
+
+test('A-03: installer.yml has an upgrade-from-111 job that checks out the 1.11 branch into its own path and installs pm2', () => {
+  const yml = fs.readFileSync(path.join(ROOT, '.github/workflows/installer.yml'), 'utf8').replace(/\r\n/g, '\n');
+  const i = yml.indexOf('\n  upgrade-from-111:');
+  assert.ok(i > 0, 'job present');
+  const job = yml.slice(i);
+  assert.match(job, /needs: build/);
+  assert.match(job, /runs-on: windows-latest/);
+  assert.match(job, /ref: claude\/confident-pascal-03veex/);
+  assert.match(job, /path: v111/);
+  assert.match(job, /npm i -g pm2/);
+  assert.match(job, /-UpgradeFrom/);
+  assert.match(job, /if: always\(\)/);
+  for (const m of job.matchAll(/uses: ([^\s]+)/g)) assert.match(m[1], /@[0-9a-f]{40}$/, `pinned by SHA: ${m[1]}`);
+});
