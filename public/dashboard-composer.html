@@ -13,6 +13,7 @@
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/dashboardRender.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/composerGuide.js"></script>
 <style nonce="%%CSP_NONCE%%">
   body { margin:0; background:var(--color-background,#f4f6f7); color:#1F2A33; font-family:var(--font-sans,'Libre Franklin',system-ui,sans-serif); font-size:14px; }
   .wrap { max-width:1360px; margin:0 auto; padding:var(--space-6,24px); }
@@ -34,6 +35,13 @@
   .ok { background:#e7f6ec; border:1px solid #c3e7d0; color:#1c7a3f; border-radius:10px; padding:10px 12px; font-size:12.5px; margin:10px 0; }
   .meta { font-size:12px; color:#6b7785; }
   ul.widgets { list-style:none; padding:0; margin:0; } ul.widgets li { display:flex; gap:8px; align-items:center; padding:6px 0; border-top:1px solid #f0f2f5; font-size:13px; } ul.widgets li:first-child { border-top:0; }
+  ol.steps { list-style:none; padding:0; margin:0; } ol.steps > li { margin:0 0 6px; }
+  .mdesc { font-size:12px; color:#3A4A60; background:#f7f8fa; border-radius:8px; padding:6px 8px; margin-top:6px; } .mdesc:empty { display:none; }
+  .hint { font-size:11.5px; color:#6b7785; margin-top:3px; }
+  .ferr { font-size:12px; color:#8a1f16; margin-top:3px; } .ferr:empty { display:none; }
+  label.check { display:flex; gap:6px; align-items:center; color:#1F2A33; } label.check input { width:auto; }
+  details.advanced { margin-top:10px; border-top:1px solid #f0f2f5; padding-top:8px; } details.advanced summary { cursor:pointer; font-size:12.5px; color:#3A4A60; }
+  .mv { padding:2px 7px; font-size:12px; }
   ul.widgets li .grow { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 </style>
 </head>
@@ -48,8 +56,8 @@
     <div>
       <div class="panel">
         <h2>Dashboard</h2>
-        <label for="d-key">Key (letters, digits, - _)</label><input id="d-key" placeholder="sgo-weekly">
-        <label for="d-title">Title</label><input id="d-title" placeholder="Sabodala weekly">
+        <label for="d-key">Key (letters, digits, - _)</label><input id="d-key" placeholder="sgo-weekly"><div class="ferr" id="ferr-d-key"></div>
+        <label for="d-title">Title</label><input id="d-title" placeholder="Sabodala weekly"><div class="ferr" id="ferr-d-title"></div>
         <div class="row">
           <div><label for="d-aud">Audience</label><select id="d-aud"></select></div>
           <div><label for="d-site">Site (blank = fleet)</label><select id="d-site"><option value="">— fleet —</option></select></div>
@@ -65,23 +73,25 @@
       </div>
       <div class="panel" style="margin-top:14px">
         <h2 id="w-head">Widget</h2>
-        <div class="row">
-          <div><label for="w-id">Id</label><input id="w-id" placeholder="w1"></div>
-          <div><label for="w-type">Type</label><select id="w-type"></select></div>
-        </div>
-        <label for="w-title">Title</label><input id="w-title">
-        <label for="w-metric">Metric</label><select id="w-metric"><option value="">— none —</option></select>
-        <div class="row">
-          <div><label for="w-rag">RAG policy</label><select id="w-rag"><option value="">metric default</option></select></div>
-          <div><label for="w-window">Trend window (13w / 6m)</label><input id="w-window" placeholder="13w"></div>
-        </div>
-        <div class="row4">
-          <div><label for="w-x">x</label><input id="w-x" type="number" min="0" value="0"></div>
-          <div><label for="w-y">y</label><input id="w-y" type="number" min="0" value="0"></div>
-          <div><label for="w-w">w</label><input id="w-w" type="number" min="1" value="3"></div>
-          <div><label for="w-h">h</label><input id="w-h" type="number" min="1" value="2"></div>
-        </div>
-        <label for="w-extra">Options (JSON: compare, markdown, sources, onlyOverdue, pageSize…)</label><textarea id="w-extra">{}</textarea>
+        <ol class="steps">
+          <li><label for="w-preset">1 · Start from a question</label><select id="w-preset"><option value="">— my own question —</option></select></li>
+          <li><label for="w-metric">2 · Metric (registered KPIs only)</label><select id="w-metric"><option value="">— no metric (tracker, actions, text) —</option></select>
+            <div class="mdesc" id="w-mdesc" aria-live="polite"></div><div class="ferr" id="ferr-metric"></div></li>
+          <li><label for="w-intent">3 · What should the widget answer?</label><select id="w-intent"></select></li>
+          <li><label for="w-type">4 · Widget type (suggested first; unsuitable ones say why)</label><select id="w-type"></select><div class="ferr" id="ferr-type"></div></li>
+          <li><div class="row">
+              <div><label for="w-title">Title</label><input id="w-title"><div class="ferr" id="ferr-title"></div></div>
+              <div><label for="w-id">Id</label><input id="w-id" placeholder="w1"><div class="ferr" id="ferr-id"></div></div>
+            </div>
+            <div id="w-fields"></div></li>
+          <li><label for="w-size">5 · Size on the page</label><select id="w-size"><option value="S">Small (quarter width)</option><option value="M" selected>Medium (half width)</option><option value="L">Large (full width)</option></select>
+            <div class="hint">New widgets go at the end; use Move up / Move down in the layout list to reorder.</div><div class="ferr" id="ferr-size"></div></li>
+        </ol>
+        <details class="advanced" id="w-adv" hidden>
+          <summary>Advanced (admin): extra options as JSON</summary>
+          <label for="w-extra">Options not covered by the form (JSON)</label><textarea id="w-extra">{}</textarea>
+          <div class="ferr" id="ferr-advanced"></div>
+        </details>
         <div class="bar">
           <button class="btn primary" id="w-add" type="button">Add / update widget</button>
           <button class="btn danger" id="w-del" type="button">Remove</button>
@@ -111,54 +121,148 @@
   var params = new URLSearchParams(location.search);
   var cat = null, doc = { key: '', title: '', audience: 'site', grid: { columns: 12 }, filters: [{ key: 'site', type: 'site' }, { key: 'window', type: 'window' }], widgets: [] }, meta = null, selected = null;
 
+  var CG = window.ComposerGuide;
+  var intent = '', sizes = {}, lastErrors = [], ADMIN = !!(window.__userHasRole && window.__userHasRole('admin'));
+  // Keys the guided form owns; anything else on a stored widget is an "extra" kept as-is (Advanced shows it to the admin tier).
+  function managed() { return ['id', 'type', 'title', 'metric', 'layout'].concat(CG.allProps(cat ? cat.widgetTypes : {})); }
+
   function api(path, opts) { return fetch(path, Object.assign({ headers: H(opts && opts.body ? { 'content-type': 'application/json' } : {}) }, opts || {})).then(function (r) { return r.json().then(function (j) { if (!r.ok) { var e = new Error(j.error || ('HTTP ' + r.status)); e.errors = j.errors || j.issues; e.code = j.code; e.status = r.status; throw e; } return j; }); }); }
   function msg(html, cls) { $('msg').className = cls || ''; $('msg').innerHTML = html; }
-  function fail(e) { msg('<div class="errors">' + R.escapeHtml(e.message) + (e.errors ? '<ul>' + e.errors.map(function (x) { return '<li>' + R.escapeHtml((x.path ? x.path + ': ' : '') + (x.msg || x)) + '</li>'; }).join('') + '</ul>' : '') + '</div>'); }
-
-  function fillCatalogue() {
-    $('d-aud').innerHTML = cat.audiences.map(function (a) { return '<option value="' + a + '">' + a + '</option>'; }).join('');
-    // C-04 — only the types that render something distinct are offered (a retired type keeps rendering, never offered)
-    $('w-type').innerHTML = Object.keys(cat.widgetTypes).filter(function (t) { return cat.widgetTypes[t].creatable !== false; }).map(function (t) { return '<option value="' + t + '">' + t + (cat.widgetTypes[t].needsMetric ? '' : ' (no metric)') + '</option>'; }).join('');
-    $('w-metric').innerHTML = '<option value="">— none —</option>' + cat.metrics.map(function (m) { return '<option value="' + m.key + '">' + R.escapeHtml(m.key + ' — ' + m.name + ' (' + (m.unit || '') + ', ' + m.window_kind + ')') + '</option>'; }).join('');
-    $('w-rag').innerHTML = '<option value="">metric default</option>' + Object.keys(cat.policies).map(function (p) { return '<option value="' + p + '">' + p + '</option>'; }).join('');
+  // C-08 — the server's validation stays the authority; its messages are shown in plain words, next to the field they concern.
+  function fail(e) {
+    lastErrors = Array.isArray(e.errors) ? CG.plainErrors(e.errors, doc.widgets) : [];
+    msg('<div class="errors">' + R.escapeHtml(lastErrors.length ? 'The dashboard was not saved — fix the points below.' : e.message) + (lastErrors.length ? '<ul>' + lastErrors.map(function (x) { return '<li>' + R.escapeHtml(x.line) + '</li>'; }).join('') + '</ul>' : '') + '</div>');
+    showFieldErrors(); renderGrid();
+  }
+  function setErr(field, text) { var el = $('ferr-' + field); if (el) el.textContent = text || ''; }
+  function clearFieldErrors() { ['metric', 'type', 'title', 'id', 'size', 'advanced', 'd-key', 'd-title'].concat(CG.allProps(cat ? cat.widgetTypes : {})).forEach(function (f) { setErr(f, ''); }); }
+  function showFieldErrors() {
+    clearFieldErrors();
+    lastErrors.forEach(function (x) {
+      if (x.widgetId == null && x.field) setErr(x.field, x.text);
+      else if (x.widgetId != null && x.widgetId === selected) setErr($('ferr-' + x.field) ? x.field : 'advanced', x.text);
+    });
   }
 
+  function metricOf(key) { return (cat && key) ? cat.metrics.filter(function (m) { return m.key === key; })[0] || null : null; }
+  function fillCatalogue() {
+    $('d-aud').innerHTML = cat.audiences.map(function (a) { return '<option value="' + a + '">' + a + '</option>'; }).join('');
+    $('w-metric').innerHTML = '<option value="">— no metric (tracker, actions, text) —</option>' + cat.metrics.map(function (m) { return '<option value="' + R.escapeHtml(m.key) + '">' + R.escapeHtml(m.name + ' — ' + (m.unit || 'no unit') + ' · ' + m.key) + '</option>'; }).join('');
+    $('w-intent').innerHTML = CG.INTENT_ORDER.map(function (k) { return '<option value="' + k + '">' + R.escapeHtml(CG.INTENTS[k].label) + '</option>'; }).join('');
+    // presets: only questions whose metric is published here (or that need no metric)
+    $('w-preset').innerHTML = '<option value="">— my own question —</option>' + CG.PRESETS.filter(function (p) { return !p.metric || metricOf(p.metric); }).map(function (p) { return '<option value="' + p.key + '">' + R.escapeHtml(p.question) + '</option>'; }).join('');
+    $('w-adv').hidden = !ADMIN;   // raw JSON stays an admin-tier tool
+    intent = $('w-intent').value = 'status'; refreshTypes(); describeMetric();
+  }
+  function describeMetric() {
+    var m = metricOf($('w-metric').value);
+    $('w-mdesc').textContent = m ? (m.name + ' — unit: ' + (m.unit || 'none') + ' · window: ' + m.window_kind + (m.formula ? ' · ' + m.formula : '') + (m.certification ? ' · ' + m.certification : '')) : '';
+  }
+  /** Step 4 — every creatable type; suggested ones first; unfit ones disabled with the reason. */
+  function refreshTypes(keepType) {
+    var m = metricOf($('w-metric').value), want = keepType || $('w-type').value;
+    var list = CG.suggestTypes(intent, m, cat.widgetTypes);
+    $('w-type').innerHTML = list.map(function (x) { return '<option value="' + x.type + '"' + (x.ok ? '' : ' disabled') + '>' + R.escapeHtml(x.type + (x.suggested ? ' (suggested)' : '') + (x.ok ? '' : ' — ' + x.reason)) + '</option>'; }).join('');
+    var pick = list.filter(function (x) { return x.ok && x.type === want; })[0] || list.filter(function (x) { return x.ok; })[0];
+    if (keepType && !pick) { var lo = document.createElement('option'); lo.value = keepType; lo.textContent = keepType + ' (kept for this widget only)'; $('w-type').appendChild(lo); $('w-type').value = keepType; }
+    else $('w-type').value = pick ? pick.type : '';
+    setErr('type', $('w-type').value ? (CG.fitError($('w-type').value, m, intent, cat.widgetTypes) || '') : 'No widget type answers this question with this metric — change the metric or the question.');
+  }
+  function fieldCtx() { return { metric: metricOf($('w-metric').value), metrics: cat.metrics, policies: cat.policies, trackers: cat.trackers }; }
+  function currentFields() { return CG.fieldsFor($('w-type').value, cat.widgetTypes, fieldCtx()); }
+  function refreshFields(values) { $('w-fields').innerHTML = CG.renderFieldsHtml(currentFields(), values || {}, R.escapeHtml); }
+
+  function relayout() {
+    var cols = (doc.grid && doc.grid.columns) || 12;
+    var L = CG.flowLayout(doc.widgets.map(function (w) { return { type: w.type, size: sizes[w.id] || CG.sizeOf(w.layout, cols) }; }), cols, cat.widgetTypes);
+    doc.widgets.forEach(function (w, i) { w.layout = L[i]; });
+  }
   function renderGrid() {
     var g = $('grid'); g.innerHTML = '';
+    var cols = (doc.grid && doc.grid.columns) || 12;
     doc.widgets.forEach(function (w) {
-      var el = document.createElement('div'); el.className = 'pw' + (selected === w.id ? ' sel' : ''); el.setAttribute('style', R.gridStyle(w.layout, 12)); el.tabIndex = 0; el.setAttribute('role', 'button');
+      var el = document.createElement('div'); el.className = 'pw' + (selected === w.id ? ' sel' : ''); el.setAttribute('style', R.gridStyle(w.layout, cols)); el.tabIndex = 0; el.setAttribute('role', 'button');
       el.innerHTML = '<b>' + R.escapeHtml(w.title || w.id) + '</b><small>' + R.escapeHtml(w.type + (w.metric ? ' · ' + w.metric : '')) + '</small>';
       var pick = function () { loadWidget(w); }; el.addEventListener('click', pick); el.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); pick(); } });
       g.appendChild(el);
     });
-    $('wlist').innerHTML = doc.widgets.map(function (w) { return '<li><span class="edv-chip">' + R.escapeHtml(w.type) + '</span><span class="grow">' + R.escapeHtml(w.id + ' — ' + (w.title || '') + (w.metric ? ' · ' + w.metric : '')) + '</span><span class="meta">' + [w.layout.x, w.layout.y, w.layout.w, w.layout.h].join(',') + '</span></li>'; }).join('') || '<li class="meta">No widget yet — add one on the left.</li>';
+    var errCount = function (id) { return lastErrors.filter(function (x) { return x.widgetId === id; }).length; };
+    $('wlist').innerHTML = doc.widgets.map(function (w, i) {
+      var n = errCount(w.id), id = R.escapeHtml(w.id);
+      return '<li><span class="edv-chip">' + R.escapeHtml(w.type) + '</span><span class="grow">' + R.escapeHtml(w.id + ' — ' + (w.title || '') + (w.metric ? ' · ' + w.metric : '')) + (n ? ' <span class="ferr">(' + n + ' to fix)</span>' : '') + '</span>' +
+        '<span class="meta">' + (sizes[w.id] || CG.sizeOf(w.layout, cols)) + '</span>' +
+        '<button class="btn mv" type="button" data-move="up" data-id="' + id + '" aria-label="Move ' + id + ' up"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
+        '<button class="btn mv" type="button" data-move="down" data-id="' + id + '" aria-label="Move ' + id + ' down"' + (i === doc.widgets.length - 1 ? ' disabled' : '') + '>↓</button></li>';
+    }).join('') || '<li class="meta">No widget yet — start from a question on the left.</li>';
   }
   function loadWidget(w) {
     selected = w.id; $('w-head').textContent = 'Widget ' + w.id;
-    if (!$('w-type').querySelector('option[value="' + w.type + '"]')) { var lo = document.createElement('option'); lo.value = w.type; lo.textContent = w.type + ' (retired — kept for this widget only)'; $('w-type').appendChild(lo); }
-    $('w-id').value = w.id; $('w-type').value = w.type; $('w-title').value = w.title || ''; $('w-metric').value = w.metric || ''; $('w-rag').value = typeof w.rag === 'string' ? w.rag : ''; $('w-window').value = w.window || '';
-    $('w-x').value = w.layout.x; $('w-y').value = w.layout.y; $('w-w').value = w.layout.w; $('w-h').value = w.layout.h;
-    var extra = {}; Object.keys(w).forEach(function (k) { if (['id', 'type', 'title', 'metric', 'rag', 'window', 'layout'].indexOf(k) < 0) extra[k] = w[k]; });
-    $('w-extra').value = JSON.stringify(extra, null, 2); renderGrid();
+    $('w-preset').value = ''; $('w-metric').value = w.metric || ''; describeMetric();
+    intent = CG.intentFor(w.type) || 'status'; $('w-intent').value = intent;
+    refreshTypes(w.type);
+    $('w-id').value = w.id; $('w-title').value = w.title || '';
+    $('w-size').value = sizes[w.id] || CG.sizeOf(w.layout, (doc.grid && doc.grid.columns) || 12);
+    refreshFields(w);
+    var own = managed(), extra = {}; Object.keys(w).forEach(function (k) { if (own.indexOf(k) < 0) extra[k] = w[k]; });
+    $('w-extra').value = JSON.stringify(extra, null, 2); showFieldErrors(); renderGrid();
   }
+  /** Form → widget. Refuses a type whose contract does not fit the metric/question (the server checks again). */
   function readWidget() {
-    var extra = {}; try { extra = JSON.parse($('w-extra').value || '{}'); } catch (e) { throw new Error('Options must be valid JSON: ' + e.message); }
-    var w = Object.assign({}, extra, { id: $('w-id').value.trim(), type: $('w-type').value, layout: { x: +$('w-x').value, y: +$('w-y').value, w: +$('w-w').value, h: +$('w-h').value } });
-    if ($('w-title').value.trim()) w.title = $('w-title').value.trim(); else delete w.title;
-    if ($('w-metric').value) w.metric = $('w-metric').value; else delete w.metric;
-    if ($('w-rag').value) w.rag = $('w-rag').value; else delete w.rag;
-    if ($('w-window').value.trim()) w.window = $('w-window').value.trim(); else delete w.window;
+    var type = $('w-type').value, m = metricOf($('w-metric').value);
+    var prev = doc.widgets.filter(function (x) { return x.id === selected; })[0] || {};
+    var keptRetired = prev.type === type && cat.widgetTypes[type] && cat.widgetTypes[type].creatable === false;   // a stored retired widget stays editable
+    var fit = type ? (keptRetired ? null : CG.fitError(type, m, intent, cat.widgetTypes)) : 'Choose a widget type.';
+    if (fit) { setErr('type', fit); throw new Error(fit); }
+    var own = managed(), extra = {};
+    Object.keys(prev).forEach(function (k) { if (own.indexOf(k) < 0) extra[k] = prev[k]; });   // kept untouched for non-admins
+    if (ADMIN) { try { extra = JSON.parse($('w-extra').value || '{}'); } catch (e) { setErr('advanced', 'Not valid JSON: ' + e.message); throw new Error('Advanced options must be valid JSON'); } }
+    own.forEach(function (k) { delete extra[k]; });
+    var w = Object.assign(extra, { id: $('w-id').value.trim(), type: type }, CG.readFieldValues(currentFields(), $));
+    if ($('w-title').value.trim()) w.title = $('w-title').value.trim();
+    if (m) w.metric = m.key;
+    if (intent === 'target' && !w.rag && !(m && m.rag_policy) && (cat.widgetTypes[type].props || []).indexOf('rag') >= 0) { setErr('rag', 'A target question needs colour thresholds — pick a RAG policy.'); throw new Error('A target question needs a RAG policy'); }
+    if (Array.isArray(w.series) && w.series.length > CG.MAX_EXTRA_SERIES) { setErr('series', 'At most ' + CG.MAX_EXTRA_SERIES + ' extra lines.'); throw new Error('Too many extra lines'); }
+    if (!w.id) { setErr('id', 'An id is required.'); throw new Error('widget id is required'); }
+    w.layout = prev.layout || { x: 0, y: 0, w: 1, h: 1 };
     return w;
   }
   function readDoc() { doc.key = $('d-key').value.trim(); doc.title = $('d-title').value.trim(); doc.audience = $('d-aud').value; return doc; }
   function showMeta() { $('d-meta').textContent = meta ? ('status ' + meta.status + (meta.version ? ' · version ' + meta.version : ' · never published') + (meta.updated_at ? ' · saved ' + meta.updated_at : '') + (meta.review_state === 'submitted' ? ' · submitted for review ' + (meta.submitted_at || '') : '')) : 'new dashboard — not saved yet'; }
   function loadVersions() { if (!meta) return; api('/api/dashboards/' + encodeURIComponent(meta.key) + '/versions').then(function (j) { $('versions').innerHTML = j.versions.length ? j.versions.map(function (v) { return 'v' + v.version + ' — ' + R.escapeHtml(v.created_at) + (v.note ? ' — ' + R.escapeHtml(v.note) : ''); }).join('<br>') : 'never published'; }).catch(function () {}); }
 
-  $('w-add').addEventListener('click', function () {
-    try { var w = readWidget(); if (!w.id) throw new Error('widget id is required'); var i = doc.widgets.findIndex(function (x) { return x.id === (selected || w.id); }); if (i >= 0) doc.widgets[i] = w; else doc.widgets.push(w); selected = w.id; renderGrid(); msg(''); } catch (e) { fail(e); }
+  $('w-preset').addEventListener('change', function () {
+    var p = CG.PRESETS.filter(function (x) { return x.key === $('w-preset').value; })[0]; if (!p) return;
+    $('w-metric').value = p.metric || ''; describeMetric();
+    intent = $('w-intent').value = p.intent; refreshTypes(p.type);
+    $('w-title').value = p.title; $('w-size').value = p.size || 'M';
+    if (!selected) $('w-id').value = CG.nextId(doc.widgets);
+    refreshFields(p.props);
   });
-  $('w-del').addEventListener('click', function () { doc.widgets = doc.widgets.filter(function (x) { return x.id !== selected; }); selected = null; $('w-new').click(); renderGrid(); });
-  $('w-new').addEventListener('click', function () { selected = null; $('w-head').textContent = 'Widget'; ['w-id', 'w-title', 'w-window'].forEach(function (id) { $(id).value = ''; }); $('w-metric').value = ''; $('w-rag').value = ''; $('w-extra').value = '{}'; renderGrid(); });
+  $('w-metric').addEventListener('change', function () { describeMetric(); refreshTypes(); refreshFields(); });
+  $('w-intent').addEventListener('change', function () { intent = $('w-intent').value; refreshTypes(); refreshFields(); });
+  $('w-type').addEventListener('change', function () { setErr('type', CG.fitError($('w-type').value, metricOf($('w-metric').value), intent, cat.widgetTypes) || ''); refreshFields(); });
+  $('w-add').addEventListener('click', function () {
+    try {
+      clearFieldErrors();
+      var w = readWidget(); var i = doc.widgets.findIndex(function (x) { return x.id === (selected || w.id); });
+      if (i < 0 && doc.widgets.some(function (x) { return x.id === w.id; })) { setErr('id', 'Another widget already uses this id.'); throw new Error('duplicate widget id ' + w.id); }
+      if (selected && selected !== w.id) delete sizes[selected];
+      sizes[w.id] = $('w-size').value || 'M';
+      if (i >= 0) doc.widgets[i] = w; else doc.widgets.push(w);
+      selected = w.id; lastErrors = lastErrors.filter(function (x) { return x.widgetId !== w.id; });
+      relayout(); renderGrid(); msg('');
+    } catch (e) { msg('<div class="errors">' + R.escapeHtml(e.message) + '</div>'); }
+  });
+  $('wlist').addEventListener('click', function (ev) {
+    var b = ev.target && ev.target.closest ? ev.target.closest('button[data-move]') : ev.target;
+    if (!b || !b.dataset || !b.dataset.move) return;
+    var i = doc.widgets.findIndex(function (x) { return x.id === b.dataset.id; }), j = b.dataset.move === 'up' ? i - 1 : i + 1;
+    if (i < 0 || j < 0 || j >= doc.widgets.length) return;
+    var t = doc.widgets[i]; doc.widgets[i] = doc.widgets[j]; doc.widgets[j] = t;
+    relayout(); renderGrid();
+  });
+  $('w-del').addEventListener('click', function () { doc.widgets = doc.widgets.filter(function (x) { return x.id !== selected; }); delete sizes[selected]; selected = null; relayout(); $('w-new').click(); renderGrid(); });
+  $('w-new').addEventListener('click', function () { selected = null; $('w-head').textContent = 'Widget'; $('w-title').value = ''; $('w-id').value = CG.nextId(doc.widgets); $('w-preset').value = ''; $('w-extra').value = '{}'; refreshFields(); clearFieldErrors(); renderGrid(); });
   $('save').addEventListener('click', function () {
     var d = readDoc(); if (!d.key) return fail(new Error('key is required'));
     api('/api/dashboards/' + encodeURIComponent(d.key), { method: 'PUT', body: JSON.stringify({ definition: d, site_id: $('d-site').value || null }) })
@@ -197,9 +301,11 @@
     cat = c; fillCatalogue();
     return api('/api/reports/sites').then(function (sites) { (Array.isArray(sites) ? sites : []).forEach(function (s) { var o = document.createElement('option'); o.value = s.id; o.textContent = s.name; $('d-site').appendChild(o); }); });
   }).then(function () {
-    var key = params.get('key'); if (!key) { renderGrid(); showMeta(); return; }
+    var key = params.get('key'); if (!key) { $('w-id').value = CG.nextId(doc.widgets); refreshFields(); renderGrid(); showMeta(); return; }
     return api('/api/dashboards/' + encodeURIComponent(key)).then(function (j) {
-      meta = j.dashboard; doc = meta.definition || doc; $('d-key').value = doc.key; $('d-title').value = doc.title; $('d-aud').value = doc.audience || 'site'; if (meta.site_id != null) $('d-site').value = String(meta.site_id);
+      meta = j.dashboard; doc = meta.definition || doc;
+      // stored coordinates are kept untouched until the publisher moves, resizes or adds a widget
+      doc.widgets = CG.byPosition(doc.widgets || []); $('w-id').value = CG.nextId(doc.widgets); refreshFields(); $('d-key').value = doc.key; $('d-title').value = doc.title; $('d-aud').value = doc.audience || 'site'; if (meta.site_id != null) $('d-site').value = String(meta.site_id);
       showMeta(); renderGrid(); loadVersions();
     });
   }).catch(fail);
