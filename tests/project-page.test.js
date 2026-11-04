@@ -26,7 +26,7 @@ test('project.html reads the id from URLSearchParams before anything else', () =
   assert.match(firstStatement, /^var PID = new URLSearchParams\(window\.location\.search\)\.get\("id"\);$/);
 });
 
-const RENDERERS = ['renderOverview', 'renderCharter', 'renderPlan', 'ganttSvg', 'renderMilestones', 'renderRaid', 'renderGates', 'renderHistory'];
+const RENDERERS = ['renderOverview', 'renderCharter', 'renderPlan', 'ganttSvg', 'renderMilestones', 'renderRaid', 'renderBenefits', 'renderGates', 'renderHistory'];
 test('every dynamic value of project.html goes through escapeHtml (no raw concatenation of an API field)', () => {
   assert.match(script, /esc = R\.escapeHtml/);
   for (const name of RENDERERS) {
@@ -62,7 +62,7 @@ test('History tab handles HTTP 403 with a restricted message distinct from an em
 test('project.html wires its handlers in JS (no inline on…= attributes) and uses role=tablist with keyboard arrows', () => {
   assert.ok(!/\son[a-z]+="/i.test(page));
   assert.match(page, /role="tablist"/);
-  assert.equal((page.match(/role="tab"/g) || []).length, 7);
+  assert.equal((page.match(/role="tab"/g) || []).length, 8);
   assert.match(script, /ArrowRight/); assert.match(script, /ArrowLeft/);
   assert.match(script, /\/api\/governance\/portfolio\/project\//);
 });

@@ -113,7 +113,7 @@ test('deck.pptx and workbook.xlsx: committee gets amounts, a viewer gets no budg
   const deck = await bin('/api/governance/portfolio/deck.pptx', T.pmo);
   assert.equal(deck.status, 200); assert.equal(deck.buf.slice(0, 2).toString('latin1'), 'PK');
   const wbC = XLSX.read((await bin('/api/governance/portfolio/workbook.xlsx', T.pmo)).buf, { type: 'buffer' });
-  assert.deepEqual(wbC.SheetNames, ['Projects', 'Tasks', 'Milestones', 'RAID', 'Baselines', 'Exceptions']);
+  assert.deepEqual(wbC.SheetNames, ['Projects', 'Tasks', 'Milestones', 'RAID', 'Baselines', 'Exceptions', 'Benefits']);
   assert.ok(XLSX.utils.sheet_to_json(wbC.Sheets.Projects).some((r) => r.budget === 120000));
   const w = await bin('/api/governance/portfolio/workbook.xlsx', T.viewer);
   assert.equal(w.status, 200);

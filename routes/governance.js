@@ -376,11 +376,19 @@ module.exports = function governanceRoutes(deps) {
   const canSeeMoney = (u) => isCommittee(u) || rdb().userHasRole(u, 'finance-viewer');
   function stripMoney(v) {
     const z = (o) => ({ ...o, budget: undefined, spent: undefined, budget_by_currency: undefined });
-    return { ...v, projects: v.projects.map(z), gantt: v.gantt.map(z), summary: v.summary.map(z), money_hidden: true };
+    return { ...v, projects: v.projects.map(z), gantt: v.gantt.map(z), summary: v.summary.map(z), benefits: (v.benefits || []).map((b) => BEN.visibleBenefit(b, { money: false })), money_hidden: true };
   }
   // A-15 — site scope + editor plan writes, both behind PROPOSED switches (off = today). Rules: services/portfolioAccess.
   const PA = require('../services/portfolioAccess');
-  const PLAN_KINDS = ['task', 'milestone', 'risk', 'deliverable'];
+  const PLAN_KINDS = ['task', 'milestone', 'risk', 'deliverable', 'benefit'];   // B-08: a benefit follows the plan-write rule
+  const BEN = require('../services/portfolioBenefits');
+  /** B-08 — a money benefit (value_kind 'money') is written only by someone who may read money. True when it answered. */
+  async function refuseMoneyBenefit(req, res, { id = null, body = null } = {}) {
+    if (canSeeMoney(req.reportUser)) return false;
+    const existing = id ? await store.getBenefit(id) : null;
+    if ((body && body.value_kind === 'money') || (existing && existing.value_kind === 'money')) { res.status(403).json({ ok: false, code: 'MONEY_SCOPE', error: 'a benefit expressed in money is maintained by the committee, the admin tier or the finance role' }); return true; }
+    return false;
+  }
   async function accessCtx(u) {
     const c = await reportConfig.getConfig(rdb().db);
     return { scopeOn: c.portfolio_site_scope_reads === '1', writesOn: c.portfolio_editor_plan_writes === '1', isCommittee: !!isCommittee(u), isAdmin: !!isAdmin(u), isEditor: !!rdb().userHasRole(u, 'editor') };
@@ -430,6 +438,7 @@ module.exports = function governanceRoutes(deps) {
     try {
       const kind = req.params.kind;
       if (PLAN_KINDS.includes(kind) && await refusePlanWrite(req, res, kind, { id: req.body && req.body.id ? Number(req.body.id) : null, body: req.body || {} })) return;
+      if (kind === 'benefit' && await refuseMoneyBenefit(req, res, { id: req.body && req.body.id ? Number(req.body.id) : null, body: req.body || {} })) return;
       const id = await store.upsertPortfolio(kind, req.body, { user: req.reportUser, reason: req.body && req.body.reason }); log(req, 'portfolio_saved', `${kind}:${id}`); res.json({ ok: true, id });
     } catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.reason ? { code: e.reason } : {}) }); }
   });
@@ -455,10 +464,27 @@ module.exports = function governanceRoutes(deps) {
       const project = money ? p : { ...p, budget: undefined, spent: undefined };
       res.json({ ok: true, committee: !!isCommittee(u), can_gate: !!isCommittee(u), can_edit_plan: PA.canEditPlan(u, p, pctx), can_see_history: !!money, money_hidden: !money,
         project, objective: d.objective, extra_sites: d.extra_sites, tasks: d.tasks, milestones: d.milestones, deliverables: d.deliverables, risks: d.risks.map(PE.riskView),
+        benefits: (d.benefits || []).map((b) => BEN.visibleBenefit(b, { money, asOf: new Date().toISOString() })), me: Number(u.id),
         plan: SCH.scheduleView(d.tasks, { anchor: p.start_date || null }), variance: SCH.varianceOf(p), resource_conflicts: SCH.resourceConflicts(d.tasks),
         stages: SCH.STAGES, allowed_stages, gate_counts: d.gate_ctx, risk_kinds: store.RISK_KINDS, as_of: new Date().toISOString() });
     } catch (e) { fail(res, e); }
   });
+  // ---- B-08 benefits: realised value (evidence link) + independent verification (catalogue A09) ------------------
+  // Same gate as a plan write (committee; or an editor of the project's site with portfolio_editor_plan_writes on);
+  // a money benefit also needs the money-read rule. The verifier must not be the person who entered the value.
+  const benefitAction = (op) => async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ ok: false, error: 'benefit id must be a number' });
+      if (await refusePlanWrite(req, res, 'benefit', { id })) return;
+      if (await refuseMoneyBenefit(req, res, { id })) return;
+      const b = op === 'realised' ? await store.recordBenefitRealised(id, req.body || {}, { user: req.reportUser }) : await store.verifyBenefit(id, { user: req.reportUser });
+      log(req, op === 'realised' ? 'benefit_realised' : 'benefit_verified', `benefit:${id}`, { project_id: b.project_id });
+      res.json({ ok: true, benefit: BEN.visibleBenefit(b, { money: canSeeMoney(req.reportUser), asOf: new Date().toISOString() }) });
+    } catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.reason ? { code: e.reason } : {}) }); }
+  };
+  router.post('/api/governance/portfolio/benefit/:id/realised', requireReportSession, json, benefitAction('realised'));
+  router.post('/api/governance/portfolio/benefit/:id/verify', requireReportSession, json, benefitAction('verify'));
   // ---- A-27 baselines, re-baseline gate, deck / workbook, exceptions (PROPOSED switches, all '0' = today) ----------
   const BL = require('../services/ppmBaseline');
   const PX = require('../services/ppmAlerts');
@@ -505,7 +531,7 @@ module.exports = function governanceRoutes(deps) {
     const v = money ? v0 : stripMoney(v0);
     const ids = new Set(v.projects.map((p) => p.id));
     const baselines = (await store.listBaselines()).filter((b) => ids.has(b.project_id));
-    return { v, money, baselines, exceptions: await exceptionsFor(v0) };
+    return { v: { ...v, benefits: (v.benefits || []).filter((b) => ids.has(b.project_id)) }, money, baselines, exceptions: await exceptionsFor(v0) };
   }
   router.get('/api/governance/portfolio/deck.pptx', requireReportSession, async (req, res) => {
     try { const x = await exportData(req.reportUser); const buf = await require('../services/portfolioDeck').buildDeck(x.v, { money: x.money, exceptions: x.exceptions, asOf: x.v.as_of });

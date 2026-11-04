@@ -13,11 +13,13 @@
       report: 'Weekly report', unsigned: 'PVs to sign', allSigned: 'all signed', insp: 'Last inspection', never: 'none recorded', ago: 'days ago', today: 'today',
       tracker: 'Activity tracker', empty: 'of {t} activities have nothing entered for {m}', full: 'all {t} activities filled for {m}', noAct: 'no activity due in {m}',
       loading: 'Loading…', more: '+ {n} more site(s) not shown', open_pv: 'Open',
+      benefits: 'Benefit reviews due', noBenefit: 'none due', missing: 'value missing', awaiting: 'awaiting verification',
       labels: { 'Not started': 'Not started', 'In progress': 'In progress', 'Complete but not submitted': 'Complete but not submitted', 'Submitted': 'Submitted' } },
     fr: { nm: '— non mesuré', actions: 'Actions ouvertes', open: 'ouvertes', overdue: 'en retard', oldest: 'la plus ancienne', days: 'jours', none: 'rien d\'ouvert',
       report: 'Rapport hebdomadaire', unsigned: 'PV à signer', allSigned: 'tous signés', insp: 'Dernière inspection', never: 'aucune enregistrée', ago: 'jours', today: 'aujourd\'hui',
       tracker: 'Suivi d\'activité', empty: 'activités sur {t} sans saisie pour {m}', full: 'les {t} activités sont saisies pour {m}', noAct: 'aucune activité prévue en {m}',
       loading: 'Chargement…', more: '+ {n} autre(s) site(s) non affiché(s)', open_pv: 'Ouvrir',
+      benefits: 'Revues de bénéfices dues', noBenefit: 'aucune', missing: 'valeur manquante', awaiting: 'en attente de vérification',
       labels: { 'Not started': 'Pas commencé', 'In progress': 'En cours', 'Complete but not submitted': 'Complet mais non soumis', 'Submitted': 'Soumis' } },
   };
   const T = L[lang === 'fr' ? 'fr' : 'en'];
@@ -41,6 +43,8 @@
     const trk = !t ? nm : (t.total_cells === 0 ? esc(fill(T.noAct, { m: mon }))
       : t.empty_cells === 0 ? esc(fill(T.full, { t: t.total_cells, m: mon }))
         : `<span class="hm-late">${t.empty_cells}</span> ${esc(fill(T.empty, { t: t.total_cells, m: mon }))}`);
+    const bf = s.benefit_reviews;
+    const ben = !bf ? nm : (bf.count === 0 ? esc(T.noBenefit) : `<b${bf.items.some((x) => x.overdue) ? ' class="hm-late"' : ''}>${bf.count}</b><ul class="hm-pv">${bf.items.map((x) => `<li><a href="project.html?id=${encodeURIComponent(x.project_id)}#benefits">${esc(x.project_key || x.project_id)}</a> <span class="hm-muted">${esc(x.due_date || '')} · ${esc(x.status === 'missing' ? T.missing : T.awaiting)}</span></li>`).join('')}</ul>`);
     return `<section class="hm-card" aria-labelledby="hm-s-${esc(s.site_id)}"><h2 id="hm-s-${esc(s.site_id)}">${esc(s.name || s.code)}${s.code ? ` <span class="hm-muted">${esc(s.code)}</span>` : ''}</h2>
       <ul class="hm-blocks">
         ${row(T.actions, s.code ? `site-actions.html?site=${code}` : 'site-actions.html', actions)}
@@ -48,6 +52,7 @@
         ${row(T.unsigned, s.code ? `meetings-unsigned.html?site=${code}` : 'meetings-unsigned.html', pvs)}
         ${row(T.insp, 'inspections.html', insp)}
         ${row(T.tracker, 'activity-tracker.html', trk)}
+        ${row(T.benefits, 'portfolio.html', ben)}
       </ul></section>`;
   }
 
