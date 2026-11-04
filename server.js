@@ -961,6 +961,8 @@ app.use('/api/meetings/lookups/:table',     express.json({ limit: '10mb'  }));
 app.use('/api/tracker/save',                express.json({ limit: '5mb'   }));
 app.use(/^\/api\/trackers\/[^/]+\/import$/,  express.raw({ type: '*/*', limit: '10mb' }));   // Step 7 — xlsx entries import
 app.use('/api/dashboard/presets',           express.json({ limit: '1mb'   }));
+// A-25 — WAN contract terms + evidence file (PDF/image data URL, ~1.4× the file size).
+app.use(/^\/api\/analytics\/wan\/sla\/contracts\/[^/]+$/, express.json({ limit: '15mb' }));
 // Réconciliation : le corps est un CSV BRUT, pas du JSON. Un export AD de
 // 5 000 machines pèse ~1 Mo, un export Entra bien plus. Monté AVANT le parseur
 // JSON global, sinon celui-ci consomme le corps et le rejette à 100 Ko — le

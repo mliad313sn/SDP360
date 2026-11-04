@@ -126,8 +126,18 @@ async function main(deps = {}) {
     // MX loses power it drops out of the status response entirely, and closing then would fake a
     // recovery and end the outage early. An unseen uplink (offline) is kept open; the stale-open
     // guard still bounds it so it can't stay open forever.
+    const closeAtLastSeen = String(config.wan_stale_close_at || 'now') === 'last_seen';
     for (const r of open) {
       const k = _key(r.site_id, r.sub_site, r.uplink);
+      // A-25 — remember the last poll that SAW this uplink down (not merely unseen).
+      if (downNow.has(k)) {
+        try {
+          if (typeof rdb.touchWanOutageSeen === 'function') {
+            await rdb.touchWanOutageSeen({ site_id: r.site_id, sub_site: r.sub_site, uplink: r.uplink, detected_start: r.detected_start, seen_at: now });
+          }
+          r.last_seen_at = now;
+        } catch (_) { /* best-effort stamp */ }
+      }
       if (upKeys.has(k)) {
         // Recovery email — ONLY if a DOWN alert was actually sent for this outage (notified_at).
         if (cfg.notify && cfg.notify.enabled && cfg.notify.recovery_enabled !== false && r.notified_at != null) {
@@ -139,7 +149,20 @@ async function main(deps = {}) {
         // still down, OR not seen this poll (MX offline) → keep the outage open
         const ageH = _minutesSince(now, r.detected_start) / 60;
         if (Number.isFinite(ageH) && ageH >= staleHours) {
-          await rdb.upsertWanOutage({ ...r, restored_end: now, source: 'stale_open' });
+          // A-25 — the outage was never seen to recover: label it 'unknown' (pending review,
+          // already excluded from credits by the engine) instead of leaving a silent null.
+          // wan_stale_close_at='last_seen' ends it at the last poll that saw it down, with a
+          // JS-computed duration; the default 'now' keeps today's end (poll time, no duration).
+          const atLast = closeAtLastSeen && r.last_seen_at;
+          const end = atLast ? r.last_seen_at : now;
+          let duration_s = r.duration_s == null ? null : r.duration_s;
+          if (atLast) {
+            const t0 = Date.parse(r.detected_start), t1 = Date.parse(end);
+            duration_s = (Number.isFinite(t0) && Number.isFinite(t1)) ? Math.max(0, Math.round((t1 - t0) / 1000)) : null;
+          }
+          await rdb.upsertWanOutage({ ...r, restored_end: end, duration_s, source: 'stale_open',
+            attribution: r.attribution || 'unknown',
+            attribution_reason: r.attribution_reason || 'stale_open — not reviewed' });
           openByKey.delete(k); staleClosed++;
         }
       }
@@ -152,7 +175,7 @@ async function main(deps = {}) {
       const circuit = resolveCircuit(cfg, { site_id: d.site_id, sub_site: d.sub_site, uplink: d.uplink }) || {};
       await rdb.upsertWanOutage({
         site_id: d.site_id, sub_site: d.sub_site, uplink: d.uplink, detected_start: now,
-        restored_end: null, notified_at: null, source: 'meraki_status',
+        restored_end: null, notified_at: null, source: 'meraki_status', last_seen_at: now,
         isp: circuit.isp || null, circuit_id: circuit.circuit_id || null,
         network_id: d.network_id, device_serial: d.device_serial,
       });

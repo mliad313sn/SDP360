@@ -314,12 +314,15 @@ function _intersectsMaintenance(o, a, maintenance) {
 // opposed to the disqualified loss-derived snapshot. Counts EVERY outage (any attribution:
 // this is raw uplink availability, not the ISP-chargeback figure). Each outage is clamped to
 // [fromMs,toMs]; an open outage (restored_end null) runs to toMs. null if the window is empty.
-function availability24x7(outages, fromMs, toMs) {
+// A-25: `excludeUnknown` (callers pass it only when wan_stale_close_at='last_seen') drops rows
+// labelled attribution 'unknown' (stale-closed, never seen to recover); default = today's figure.
+function availability24x7(outages, fromMs, toMs, { excludeUnknown = false } = {}) {
   const win = toMs - fromMs;
   if (!(win > 0)) return null;
   let down = 0;
   for (const o of (outages || [])) {
     if (!o) continue;
+    if (excludeUnknown && o.attribution === 'unknown') continue;
     const s = _toMs(o.detected_start);
     if (s == null) continue;
     const e = o.restored_end == null ? toMs : _toMs(o.restored_end);
@@ -329,7 +332,25 @@ function availability24x7(outages, fromMs, toMs) {
   return round2(100 * (1 - down / win));
 }
 
+// A-25 — outages awaiting a human attribution review: CLOSED rows whose attribution is
+// 'unknown' (poller stale close) or still null, intersected with [monthStart, monthEnd).
+// The engine never credits them (only attribution 'isp' counts) — this makes the exclusion
+// visible. detected_minutes = the detected span inside the month, rounded. Pure.
+function pendingReview(outages, monthStart, monthEnd) {
+  let count = 0, ms = 0;
+  for (const o of (outages || [])) {
+    if (!o || !o.restored_end) continue;
+    if (!(o.attribution == null || o.attribution === 'unknown')) continue;
+    const s = Math.max(_toMs(o.detected_start), monthStart);
+    const e = Math.min(_toMs(o.restored_end), monthEnd);
+    if (!Number.isFinite(s) || !Number.isFinite(e) || e <= s) continue;
+    count += 1; ms += e - s;
+  }
+  return { count, detected_minutes: Math.round(ms / 60000) };
+}
+
 module.exports = {
+  pendingReview,
   serviceSecondsBetween,
   clipToService,
   computeCircuitSla,

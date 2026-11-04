@@ -47,8 +47,8 @@ planned switch cannot be set before its goal lands.
 | `report_revert_policy` | planned | `site_editor` | `second_person` | Owner (D-3, reverses 2026-10-02) | A-24 |
 | `report_reassign_submitted` | planned | `1` | `0` | Owner (D-3) | A-24 |
 | `report_drift_banner` | planned | `0` | `1` | Owner (D-3) | A-24 |
-| `wan_stale_close_at` | planned | `now` | `last_seen` | Network owner | A-25 |
-| `wan_sla_require_contract_evidence` | planned | `0` | `1` once contracts are uploaded | Finance | A-25 |
+| `wan_stale_close_at` | built | `now` | `last_seen` | Network owner | A-25 |
+| `wan_sla_require_contract_evidence` | built | `0` | `1` once contracts are uploaded | Finance | A-25 |
 | `asset_amount_parser` | planned | `legacy` | `locale` | Finance | A-26 |
 | `asset_site_currency` | planned | `` (empty = every site XOF) | per-site JSON supplied by Finance | Finance | A-26 |
 | `asset_currency_rates` | planned | `` (empty = XOF via `xof_usd_rate`, USD 1) | rates supplied by Finance | Finance | A-26 |

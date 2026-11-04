@@ -170,3 +170,36 @@ test('availability24x7: 24/7 % up, clamped to the window (event-based, all attri
   assert.equal(availability24x7([span], from, to), 85.71, 'outage spanning the start clamps to from');
   assert.equal(availability24x7([o], to, from), null, 'empty/inverted window → null');
 });
+
+// ── A-25 Part A — stale-closed outages are "unknown" (pending review), never credited ──
+const { pendingReview } = require('../services/wanSla');
+test('A-25: an "unknown" stale outage does not count toward credit (unchanged, now explicit)', () => {
+  const o = { attribution: 'unknown', source: 'stale_open', detected_start: '2026-08-11T09:00:00Z',
+              restored_end: '2026-08-12T09:00:00Z', notified_at: null };
+  const r = computeCircuitSla({ ...base, outages: [o] });
+  assert.equal(r.counted_downtime_s, 0);
+  assert.equal(r.credit_pct, 0);
+  assert.equal(r.met, true);
+});
+test('A-25: pendingReview counts closed unknown/null outages in the month with their detected minutes', () => {
+  const outs = [
+    { attribution: 'unknown', detected_start: '2026-08-11T09:00:00Z', restored_end: '2026-08-11T10:30:00Z' },   // 90 min
+    { attribution: null, detected_start: '2026-08-12T09:00:00Z', restored_end: '2026-08-12T09:30:00Z' },        // 30 min
+    { attribution: 'isp', detected_start: '2026-08-13T09:00:00Z', restored_end: '2026-08-13T12:00:00Z' },       // reviewed
+    { attribution: 'unknown', detected_start: '2026-08-14T09:00:00Z', restored_end: null },                     // still open
+    { attribution: 'unknown', detected_start: '2026-07-31T23:00:00Z', restored_end: '2026-08-01T01:00:00Z' },  // 60 min in Aug
+    { attribution: 'unknown', detected_start: '2026-07-10T09:00:00Z', restored_end: '2026-07-10T10:00:00Z' },  // other month
+  ];
+  assert.deepEqual(pendingReview(outs, AUG1, SEP1), { count: 3, detected_minutes: 180 });
+  assert.deepEqual(pendingReview([], AUG1, SEP1), { count: 0, detected_minutes: 0 });
+  assert.deepEqual(pendingReview(null, AUG1, SEP1), { count: 0, detected_minutes: 0 });
+});
+test('A-25: availability24x7 excludeUnknown drops unknown rows; default keeps today\'s figure', () => {
+  const from = Date.parse('2026-08-09T00:00:00Z'), to = Date.parse('2026-08-16T00:00:00Z');
+  const unk = { attribution: 'unknown', detected_start: '2026-08-10T00:00:00Z', restored_end: '2026-08-11T00:00:00Z' };
+  assert.equal(availability24x7([unk], from, to), 85.71, 'default counts every attribution (today)');
+  assert.equal(availability24x7([unk], from, to, { excludeUnknown: false }), 85.71);
+  assert.equal(availability24x7([unk], from, to, { excludeUnknown: true }), 100, 'unknown dropped on request');
+  const isp = { attribution: 'isp', detected_start: '2026-08-10T00:00:00Z', restored_end: '2026-08-11T00:00:00Z' };
+  assert.equal(availability24x7([unk, isp], from, to, { excludeUnknown: true }), 85.71, 'only "unknown" is dropped');
+});

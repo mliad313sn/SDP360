@@ -56,7 +56,7 @@ function makeClientBothDown(site) {
 
 // getConfig returning a meraki-configured + sla_wan_config blob binding this site's
 // wan1 circuit to an ISP with a notify contact.
-function getConfig(siteId, { notifyEnabled = false, staleHours = 24 } = {}) {
+function getConfig(siteId, { notifyEnabled = false, staleHours = 24, staleCloseAt } = {}) {
   const sla = {
     notify: { enabled: notifyEnabled, trigger_minutes: 15 },
     ingest: { stale_open_hours: staleHours },
@@ -66,7 +66,8 @@ function getConfig(siteId, { notifyEnabled = false, staleHours = 24 } = {}) {
       isp: 'Orange', circuit_id: 'CID-1', isp_notify_email: 'noc@orange.example',
     }],
   };
-  return async () => ({ meraki_api_key: 'k', sla_wan_config: JSON.stringify(sla) });
+  const extra = staleCloseAt ? { wan_stale_close_at: staleCloseAt } : {};
+  return async () => ({ meraki_api_key: 'k', sla_wan_config: JSON.stringify(sla), ...extra });
 }
 
 const poll = (site, now, opts, mailer) => main({
@@ -242,6 +243,64 @@ test('stale-open guard: a 25h-open still-down row is closed with source "stale_o
   const openForSite = (await rdb.listOpenWanOutages()).filter(r => r.site_id === s.siteId);
   assert.equal(openForSite.length, 1, 'exactly one open row — the fresh one');
   assert.equal(openForSite[0].detected_start, T1);
+});
+
+// ── A-25 Part A — stale-closed outages are labelled "unknown" (pending review), last_seen_at ──
+test('A-25: a still-down open row gets last_seen_at stamped on each poll', async () => {
+  const s = (await seedSite());
+  const T0 = '2026-08-10T08:00:00Z', T1 = '2026-08-10T08:05:00Z', T2 = '2026-08-10T08:10:00Z';
+  await poll(s, T0, { status: 'failed' }, makeMailer());
+  assert.equal((await rdb.getWanOutages({ site_id: s.siteId }))[0].last_seen_at, T0, 'opening poll stamps last_seen_at');
+  await poll(s, T1, { status: 'failed' }, makeMailer());
+  assert.equal((await rdb.getWanOutages({ site_id: s.siteId }))[0].last_seen_at, T1);
+  await poll(s, T2, { status: 'failed' }, makeMailer());
+  assert.equal((await rdb.getWanOutages({ site_id: s.siteId }))[0].last_seen_at, T2);
+  // the device drops out of the poll: last_seen_at is NOT moved (it was not seen down)
+  const goneClient = { orgNetworks: async () => [{ id: s.networkId, name: s.network }], orgUplinkStatuses: async () => [] };
+  await main({ rdb, getConfig: getConfig(s.siteId, {}), client: goneClient, mailer: makeMailer(), now: '2026-08-10T08:30:00Z' });
+  assert.equal((await rdb.getWanOutages({ site_id: s.siteId }))[0].last_seen_at, T2, 'unseen poll leaves last_seen_at alone');
+});
+
+test('A-25: stale guard (default now) closes with attribution "unknown" + reason, source "stale_open", duration untouched', async () => {
+  const s = (await seedSite());
+  const T0 = '2026-08-10T08:00:00Z', T1 = '2026-08-11T09:00:00Z';
+  await poll(s, T0, { status: 'failed' }, makeMailer());
+  await poll(s, T1, { status: 'failed' }, makeMailer());
+  const stale = (await rdb.getWanOutages({ site_id: s.siteId })).find(r => r.detected_start === T0);
+  assert.equal(stale.source, 'stale_open');
+  assert.equal(stale.restored_end, T1, 'default wan_stale_close_at=now closes at the poll time (today)');
+  assert.equal(stale.attribution, 'unknown', 'explicitly unknown — never silently null');
+  assert.equal(stale.attribution_reason, 'stale_open — not reviewed');
+  assert.equal(stale.duration_s, null, 'default path keeps today\'s null duration (a 24 h chain, not a measured outage)');
+});
+
+test('A-25: wan_stale_close_at="last_seen" closes at last_seen_at and duration_s matches', async () => {
+  const s = (await seedSite());
+  const T0 = '2026-08-10T08:00:00Z', T1 = '2026-08-10T09:00:00Z';
+  await poll(s, T0, { status: 'failed', staleCloseAt: 'last_seen' }, makeMailer());
+  await poll(s, T1, { status: 'failed', staleCloseAt: 'last_seen' }, makeMailer());   // last seen down at T1
+  const goneClient = { orgNetworks: async () => [{ id: s.networkId, name: s.network }], orgUplinkStatuses: async () => [] };
+  const T2 = '2026-08-11T09:00:00Z';   // 25 h after T0, MX offline (unseen) → stale
+  await main({ rdb, getConfig: getConfig(s.siteId, { staleCloseAt: 'last_seen' }), client: goneClient, mailer: makeMailer(), now: T2 });
+  const stale = (await rdb.getWanOutages({ site_id: s.siteId })).find(r => r.detected_start === T0);
+  assert.equal(stale.source, 'stale_open');
+  assert.equal(stale.restored_end, T1, 'closed at the last time the uplink was SEEN down');
+  assert.equal(stale.duration_s, 3600, '08:00 → 09:00 = 3600 s, computed in JS');
+  assert.equal(stale.attribution, 'unknown');
+  assert.equal((await rdb.listOpenWanOutages()).filter(r => r.site_id === s.siteId).length, 0);
+});
+
+test('A-25: an outage with an existing attribution keeps it when stale-closed', async () => {
+  const s = (await seedSite());
+  const T0 = '2026-08-10T08:00:00Z';
+  await poll(s, T0, { status: 'failed' }, makeMailer());
+  const row = (await rdb.getWanOutages({ site_id: s.siteId }))[0];
+  await rdb.upsertWanOutage({ ...row, attribution: 'isp', attribution_reason: 'single uplink down' });
+  await poll(s, '2026-08-11T09:00:00Z', { status: 'failed' }, makeMailer());
+  const stale = (await rdb.getWanOutages({ site_id: s.siteId })).find(r => r.detected_start === T0);
+  assert.equal(stale.source, 'stale_open');
+  assert.equal(stale.attribution, 'isp');
+  assert.equal(stale.attribution_reason, 'single uplink down');
 });
 
 test('heartbeat: the FIRST poll stamps both wan_poll_last_run AND wan_poll_first_run (now)', async () => {

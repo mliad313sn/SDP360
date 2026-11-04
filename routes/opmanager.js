@@ -56,7 +56,7 @@ module.exports = function opmanagerRoutes(deps) {
   const rdb = require('../reports-db');
   const reportConfig = require('../services/reportConfig');
   const { classifyKpiFamily } = require('../services/opmClassify');
-  const { computeCircuitSla, resolutionBreaches } = require('../services/wanSla');
+  const { computeCircuitSla, resolutionBreaches, pendingReview } = require('../services/wanSla');
   const { parseSlaWanConfig, resolveCircuit } = require('../services/slaWanConfig');
 
   // month=YYYY-MM → UTC [monthStart, monthEnd) ms. Garbage/absent → current UTC month.
@@ -386,7 +386,14 @@ module.exports = function opmanagerRoutes(deps) {
   router.get('/api/analytics/wan/sla/summary', requireReportSession, async (req, res) => {
     const { monthStart, monthEnd, label, fromISO, toISO } = _monthBounds(req.query.month);
     try {
-      const cfg = parseSlaWanConfig((await reportConfig.getConfig(rdb.db)).sla_wan_config);
+      const _rc = await reportConfig.getConfig(rdb.db);
+      const cfg = parseSlaWanConfig(_rc.sla_wan_config);
+      // A-25 — '1' = an amount is only shown for a circuit whose contract was reviewed by a
+      // second super_admin and whose MRC matches the config; '0' (default) = today.
+      const requireEvidence = String(_rc.wan_sla_require_contract_evidence || '0') === '1';
+      let contractByKey = new Map();
+      try { contractByKey = new Map(((await rdb.listWanContracts()) || []).map(c => [c.circuit_key, c])); }
+      catch (_) { /* contracts are best-effort: no table → nothing certified */ }
       const nowMs = Date.now();
       const clockStart = cfg.clock_start;
       const triggerMinutes = (cfg.notify && cfg.notify.trigger_minutes) || 15;
@@ -406,10 +413,15 @@ module.exports = function opmanagerRoutes(deps) {
         const sla = computeCircuitSla({
           outages, circuit: resolved, tier: resolved.tier, maintenance: cfg.maintenance,
           monthStart, monthEnd, clockStart, triggerMinutes, nowMs });
+        const contract = contractByKey.get(rdb.wanCircuitKey({ site_id, sub_site, uplink }));
+        const certified = !!(contract && contract.reviewed_by && contract.mrc_amount != null &&
+          resolved.mrc_amount != null && Number(contract.mrc_amount) === Number(resolved.mrc_amount));
+        const gate = (requireEvidence && !certified) ? { amount: null, amount_reason: 'not certified' } : {};
         circuits.push({
           site_id, site_name: _siteName(site_id), sub_site, uplink, tier: c.tier, isp: resolved.isp || null,
           circuit_id: resolved.circuit_id || null, outage_count: outages.length,
-          resolution_breaches: resolutionBreaches(outages, resolved.tier, resolved), ...sla });
+          resolution_breaches: resolutionBreaches(outages, resolved.tier, resolved), ...sla,
+          pending_review: pendingReview(outages, monthStart, monthEnd), certified, ...gate });
       }
 
       // UNMAPPED — distinct (site_id, sub_site, uplink) with month outages that match no circuit.
@@ -463,6 +475,60 @@ module.exports = function opmanagerRoutes(deps) {
       await reportConfig.setConfig(rdb.db, { sla_wan_config: JSON.stringify(body) }, req.reportUser && req.reportUser.username);
       res.json({ ok: true });
     } catch (e) { fail(res, e, undefined, { ok: false }); }
+  });
+
+  // ── A-25 Part B — ISP contract terms + evidence per circuit, four-eyes review. super_admin
+  //    only. A review is ONLY ever written by a human session that is not the one that entered
+  //    the terms (403 SELF_REVIEW); any change of terms clears the review. Evidence files go to
+  //    the blob store (module 'wan-contracts'); the listing never carries file bytes. ──
+  const _EVIDENCE_MIME = new Set(['application/pdf', 'image/png', 'image/jpeg', 'image/webp']);
+  const _contractKey = (req) => String(req.params.key || '');
+  router.get('/api/analytics/wan/sla/contracts', requireReportSession, requireSuperAdmin, async (req, res) => {
+    try { res.json({ contracts: (await rdb.listWanContracts()) || [] }); }
+    catch (e) { fail(res, e, undefined, { contracts: [] }); }
+  });
+  router.get('/api/analytics/wan/sla/contracts/:key/evidence', requireReportSession, requireSuperAdmin, async (req, res) => {
+    try {
+      const c = await rdb.getWanContract(_contractKey(req));
+      const dataUrl = c && c.evidence_blob_ref ? require('../services/blobStore').getDataUrl(c.evidence_blob_ref) : null;
+      if (!dataUrl) return res.status(404).json({ error: 'no evidence on file' });
+      const { _splitDataUrl } = require('../services/blobStore');
+      const { mime, b64 } = _splitDataUrl(dataUrl);
+      res.setHeader('Content-Type', mime);
+      res.setHeader('Content-Disposition', `attachment; filename="${String(c.evidence_name || 'contract').replace(/[^A-Za-z0-9._-]/g, '_')}"`);
+      res.send(Buffer.from(b64, 'base64'));
+    } catch (e) { fail(res, e); }
+  });
+  router.put('/api/analytics/wan/sla/contracts/:key', requireReportSession, requireSuperAdmin, express.json({ limit: '15mb' }), async (req, res) => {
+    try {
+      const key = _contractKey(req);
+      if (!rdb.WAN_CONTRACT_KEY_RE.test(key)) return res.status(400).json({ error: 'circuit key must be site_id|sub_site|uplink' });
+      const b = req.body || {};
+      const mrc = Number(b.mrc_amount);
+      if (b.mrc_amount == null || b.mrc_amount === '' || !Number.isFinite(mrc) || mrc < 0) return res.status(400).json({ error: 'mrc_amount must be a number ≥ 0' });
+      const str = (v, n) => (v == null ? null : String(v).trim().slice(0, n) || null);
+      let evidence_blob_ref = null, evidence_name = null;
+      if (b.evidence && b.evidence.data_url) {
+        const bs = require('../services/blobStore');
+        const { mime, b64 } = bs._splitDataUrl(String(b.evidence.data_url));
+        if (!_EVIDENCE_MIME.has(String(mime).toLowerCase()) || !b64) return res.status(400).json({ error: 'evidence must be a PDF or an image' });
+        evidence_blob_ref = bs.putB64('wan-contracts', key, `contract-${Date.now()}`, mime, b64).ref;
+        evidence_name = str(b.evidence.name, 120) || 'contract';
+      }
+      const user = req.reportUser && req.reportUser.username;
+      const row = await rdb.upsertWanContract({ circuit_key: key, isp: str(b.isp, 120), mrc_amount: mrc,
+        currency: str(b.currency, 8), contract_ref: str(b.contract_ref, 120), evidence_blob_ref, evidence_name }, user);
+      res.json({ ok: true, contract: row });
+    } catch (e) { fail(res, e, undefined, { ok: false }); }
+  });
+  router.post('/api/analytics/wan/sla/contracts/:key/review', requireReportSession, requireSuperAdmin, express.json(), async (req, res) => {
+    try {
+      const row = await rdb.reviewWanContract(_contractKey(req), req.reportUser && req.reportUser.username);
+      res.json({ ok: true, contract: row });
+    } catch (e) {
+      if (e && (e.code === 'SELF_REVIEW' || e.code === 'NOT_FOUND')) return res.status(e.status).json({ ok: false, code: e.code, error: e.message });
+      fail(res, e, undefined, { ok: false });
+    }
   });
 
   // Run the nightly event-log ingester on demand. Config-gated (self-skips) + best-effort.
