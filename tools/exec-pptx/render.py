@@ -308,7 +308,9 @@ def _add_pic_fit(slide, png, x_in, y_in, box_w_in, box_h_in):
 # Reasonably defensive — empty data renders a "no data" label instead of
 # raising.
 def _draw_categories(ax):
-    cats = list((K.get('categories') or {}).items())[:8]
+    # exec_deck_other_bucket (C-16): the payload already holds top 8 + "Other (k)" → keep every entry.
+    cats = list((K.get('categories') or {}).items())
+    cats = cats if K.get('other_bucket') else cats[:8]
     if not cats:
         ax.text(0.5, 0.5, 'No category data', ha='center', va='center',
                 fontsize=11, color='#6B7280'); return
@@ -495,7 +497,12 @@ def _draw_ageing(ax):
                 fontsize=11, color='#6B7280'); return
     # Sort by total descending, take top 10
     def _tot(v): return v.get('total', 0)
-    rows = sorted(rows, key=lambda kv: -_tot(kv[1]))[:10][::-1]
+    if K.get('other_bucket'):
+        # C-16: payload = top 10 + "Other (k)" (built in reportPayload) — keep the Other row last.
+        _oth = [kv for kv in rows if str(kv[0]).startswith('Other (')]
+        rows = (sorted([kv for kv in rows if kv not in _oth], key=lambda kv: -_tot(kv[1])) + _oth)[::-1]
+    else:
+        rows = sorted(rows, key=lambda kv: -_tot(kv[1]))[:10][::-1]
     names = [g.replace(' IT Agents', '').replace(' IT Agent', '').replace(' Support', '')
              for g, _ in rows]
     under30 = [v.get('0-30', v.get('under_30', 0))   for _, v in rows]
@@ -632,8 +639,11 @@ def _draw_changes_donut(ax):
     # Template palette: Standard = dark navy (dominant), Major = mid-blue, Emergency = red.
     _donut_on(ax, [
         ('Standard',  by_type.get('Standard', 0),  '#1A3A5F'),
+        # C-16 (P4): Normal + Other only exist under exec_deck_other_bucket; a 0 slice is not drawn.
+        ('Normal',    by_type.get('Normal', 0),    '#F59E0B'),
         ('Major',     by_type.get('Major', 0),     '#2E5C8A'),
         ('Emergency', by_type.get('Emergency', 0),  '#DC2626'),
+        ('Other',     by_type.get('Other', 0),     '#9CA3AF'),
     ], legend_ncol=1, legend_fs=8, pct_min=4, empty='No change data')
 
 def _draw_division_donut(ax):

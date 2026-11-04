@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (138) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (140) — services/reportConfig.js DEFAULTS
 
 | Key | Default (today) | Kind | Owner | Recommended pilot value | Reference |
 |---|---|---|---|---|---|
@@ -37,6 +37,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `asset_reminder_send_enabled` | `0` | arm switch | to be named | — | — |
 | `asset_replacement_uplift_pct` | `0` | setting | to be named | — | — |
 | `asset_site_currency` | `` | setting | Finance | per-site JSON supplied by Finance | A-26 |
+| `authz_capability_mode` | `off` | setting | Security owner | `shadow` (log divergences only; `enforce` is not wired — route-by-route plan in `docs/agent-execution/C-17.md`) | C-17 |
 | `backup_offsite_path` | `` | setting | to be named | — | — |
 | `commitment_notify_enabled` | `0` | arm switch | to be named | — | — |
 | `commitments_enabled` | `0` | arm switch | to be named | — | — |
@@ -49,6 +50,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `entra_client_secret` | (secret — not shown) | secret | to be named | — | — |
 | `entra_redirect_uri` | `` | setting | to be named | — | — |
 | `entra_tenant_id` | `` | setting | to be named | — | — |
+| `exec_deck_other_bucket` | `0` | setting | Reporting owner (PO P4) | `1` (PO decision P4: "Other (n)" on every top-N deck chart, Normal changes as their own slice) | C-16 |
 | `exec_payload_zero_policy` | `keep_server` | setting | KPI committee | `keep_server` until the committee chooses (`browser_wins` is the alternative) | A-17 |
 | `exec_view_change_formula` | `status` | setting | KPI committee (D-01) | `deck` | A-08 |
 | `exec_view_lang` | `en` | setting | to be named | — | — |
@@ -209,7 +211,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `reports.override_reason_min` | `10` | int | yes | yes | to be named |
 | `reports.withdraw_reason_min` | `5` | int | yes | yes | to be named |
 
-## 4. Environment variables (60) — read in *.js, services/, routes/
+## 4. Environment variables (61) — read in *.js, services/, routes/
 
 | Variable | Kind | Default when unset | Owner | Read in |
 |---|---|---|---|---|
@@ -222,6 +224,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `DASH_PASS` | secret | (secret — not shown) | to be named | reports-db.js, server.js |
 | `DASH_USER` | setting | see the reading file | to be named | reports-db.js, server.js |
 | `DATABASE_URL` | setting | see the reading file | to be named | assets-db.js, inspection-db.js, meetings-db.js, reports-db.js (+3) |
+| `DEBUG` | setting | see the reading file | to be named | services/dashboardData.js |
 | `ENTRA_CLIENT_ID` | setting | see the reading file | to be named | services/ssoSettings.js |
 | `ENTRA_CLIENT_SECRET` | secret | (secret — not shown) | to be named | services/ssoSettings.js |
 | `ENTRA_REDIRECT_URI` | setting | see the reading file | to be named | services/ssoSettings.js |

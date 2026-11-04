@@ -47,6 +47,17 @@ function renderCsv(run) {
   return '﻿' + rows.map(r => r.map(q).join(',')).join('\r\n') + '\r\n';
 }
 
+/** XLSX rows of the canonical figures (one builder for the route and the parity test — C-16). */
+function figureRows(run) {
+  const rows = [];
+  for (const f of run.figures || []) {
+    if (f.series) for (const p of f.series) rows.push({ kind: 'series', metric: f.metric, title: f.title, label: p.label, value: p.value, unit: f.unit });
+    else if (f.rows) for (const x of f.rows) rows.push({ kind: 'per-site', metric: f.metric, title: f.title, label: x.site, value: x.value, unit: f.unit, rag: x.rag });
+    else rows.push({ kind: f.open !== undefined ? 'actions' : 'single', metric: f.metric || '', title: f.title, label: f.window || '', value: f.value !== undefined ? f.value : f.open, unit: f.unit || 'count', rag: f.rag || '' });
+  }
+  return rows;
+}
+
 /** PPTX: cover + figures tiles + analysis/commentary slide (+ one slide per grid). LAYOUT_WIDE 13.33 × 7.5. */
 async function renderPptx({ template, run, siteName = null }) {
   const PptxGenJS = require('pptxgenjs'); const { fixComboChartAxes } = require('../pptx-fix-axes');
@@ -55,9 +66,13 @@ async function renderPptx({ template, run, siteName = null }) {
   const s1 = pptx.addSlide(); title(s1, `${template.name}${siteName ? ' — ' + siteName : ''}`);
   s1.addText(`${t.window}: ${run.window_label || '—'} · ${t.generated} ${String(run.created_at || '').slice(0, 10)} · ${(t[run.status] || run.status)}`, { x: 0.3, y: 1.1, w: 12.73, h: 0.4, fontSize: 12, color: '666666' });
   s1.addText(A.headline || '', { x: 0.3, y: 1.7, w: 12.73, h: 0.8, fontSize: 16, bold: true, color: '1F2A33' });
-  const singles = F.filter(f => f.value !== undefined && !f.series && !f.rows && f.open === undefined).slice(0, 8);
-  singles.forEach((f, i) => { const col = i % 4, row = Math.floor(i / 4); const x = 0.3 + col * 3.19, y = 2.7 + row * 1.5; s1.addShape('rect', { x, y, w: 3.05, h: 1.3, fill: { color: 'FFFFFF' }, line: { color: 'DDDDDD', pt: 0.5 } }); s1.addShape('rect', { x, y, w: 3.05, h: 0.08, fill: { color: (RAG[f.rag] || RAG.NA).slice(1) }, line: { color: (RAG[f.rag] || RAG.NA).slice(1), pt: 0 } });
-    s1.addText(fmt(f.value, f.unit), { x: x + 0.1, y: y + 0.15, w: 2.85, h: 0.6, fontSize: 24, bold: true, color: '3A4A60' }); s1.addText(`${f.title || f.metric}${f.window ? ' · ' + f.window : ''}`, { x: x + 0.1, y: y + 0.78, w: 2.85, h: 0.45, fontSize: 10, color: '666666' }); });
+  // C-16 (G25 defect fix): tiles beyond the first 8 used to be dropped silently (.slice(0, 8)) while HTML/CSV/XLSX
+  // carried them — they now continue on extra figure slides (8 per slide), so the PPTX holds the same figure set.
+  const allSingles = F.filter(f => f.value !== undefined && !f.series && !f.rows && f.open === undefined);
+  const tile = (sl, f, i, y0) => { const col = i % 4, row = Math.floor(i / 4); const x = 0.3 + col * 3.19, y = y0 + row * 1.5; sl.addShape('rect', { x, y, w: 3.05, h: 1.3, fill: { color: 'FFFFFF' }, line: { color: 'DDDDDD', pt: 0.5 } }); sl.addShape('rect', { x, y, w: 3.05, h: 0.08, fill: { color: (RAG[f.rag] || RAG.NA).slice(1) }, line: { color: (RAG[f.rag] || RAG.NA).slice(1), pt: 0 } });
+    sl.addText(fmt(f.value, f.unit), { x: x + 0.1, y: y + 0.15, w: 2.85, h: 0.6, fontSize: 24, bold: true, color: '3A4A60' }); sl.addText(`${f.title || f.metric}${f.window ? ' · ' + f.window : ''}`, { x: x + 0.1, y: y + 0.78, w: 2.85, h: 0.45, fontSize: 10, color: '666666' }); };
+  allSingles.slice(0, 8).forEach((f, i) => tile(s1, f, i, 2.7));
+  for (let p = 8; p < allSingles.length; p += 8) { const sx = pptx.addSlide(); title(sx, t.figures); allSingles.slice(p, p + 8).forEach((f, i) => tile(sx, f, i, 1.3)); }
   const s2 = pptx.addSlide(); title(s2, `${t.analysis} · ${t.commentary}`);
   s2.addText((A.bullets || []).slice(0, 8).map(b => ({ text: b, options: { bullet: true, breakLine: true } })), { x: 0.3, y: 1.1, w: 12.73, h: 3.0, fontSize: 13, color: '1F2A33', valign: 'top' });
   if (run.commentary && run.commentary.text) s2.addText(run.commentary.text, { x: 0.3, y: 4.3, w: 12.73, h: 2.8, fontSize: 12, italic: true, color: '333333', valign: 'top', fill: { color: 'F4F6F7' } });
@@ -66,4 +81,4 @@ async function renderPptx({ template, run, siteName = null }) {
   return fixComboChartAxes(buf);
 }
 
-module.exports = { renderHtml, renderCsv, renderPptx, T };
+module.exports = { renderHtml, renderCsv, renderPptx, figureRows, T };

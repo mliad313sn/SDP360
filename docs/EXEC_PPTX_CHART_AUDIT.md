@@ -54,6 +54,10 @@ month — typically small but worth getting right.
 
 ### 🟡 Note 1 — "Standard" donut bucket includes "Normal" changes
 
+> **C-16 (2026-11-04) — decided (PO P4) and built behind `exec_deck_other_bucket` (default `0` = this note still
+> true; pilot `1`)**: one bucket per change (Emergency > Major > Normal > Standard > Other), Normal is its own
+> slice and Σ slices = total changes. Test: `tests/exec-deck-payload.test.js`, `tests/report-figures-parity.test.js`.
+
 The donut has 3 slices: **Standard / Major / Emergency**.
 
 ITIL taxonomies typically have FOUR types: **Standard (pre-approved) /
@@ -107,6 +111,9 @@ inconsistency.
 ---
 
 ### 🟡 Note 4 — Categories chart shows top 8 only
+
+> **C-16 (2026-11-04) — built behind `exec_deck_other_bucket` (PO P4)**: with `1`, top 8 + "Other (k)" (and top 10
+> + "Other (k)" on the ageing chart), so the bars add up to the ticket total; `0` keeps today's cut.
 
 Line 5813: `.slice(0, 8)`. Categories beyond the top 8 by current-month
 volume are dropped from the chart. The bars renderer (`chart_categories`
