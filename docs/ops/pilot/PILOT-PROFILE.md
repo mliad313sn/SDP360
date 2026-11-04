@@ -54,11 +54,11 @@ planned switch cannot be set before its goal lands.
 | `asset_currency_rates` | built | `` (empty = XOF via `xof_usd_rate`, USD 1) | rates supplied by Finance | Finance | A-26 |
 | `asset_cost_outlier_factor` | built | `10` | `10` | Finance | A-26 |
 | `asset_cost_outlier_exclude` | built | `0` | `0` | Finance | A-26 |
-| `ppm_alerts_enabled` | planned | `0` | `0` (dry run first) | Committee | A-27 |
-| `ppm_alert_blocked_days` | planned | `5` | `5` | Committee | A-27 |
-| `ppm_alert_slip_days` | planned | `10` | `10` | Committee | A-27 |
-| `ppm_rebaseline_enabled` | planned | `0` | `1` | Committee | A-27 |
-| `ppm_baseline_versions` | planned | `0` | `1` | Committee | A-27 |
+| `ppm_alerts_enabled` | built | `0` | `0` (dry run first) | Committee | A-27 |
+| `ppm_alert_blocked_days` | built | `5` | `5` | Committee | A-27 |
+| `ppm_alert_slip_days` | built | `10` | `10` | Committee | A-27 |
+| `ppm_rebaseline_enabled` | built | `0` | `1` | Committee | A-27 |
+| `ppm_baseline_versions` | built | `0` | `1` | Committee | A-27 |
 | `roadmap_redirect_to_portfolio` | built | `0` | `0` during the pilot; `1` only after one clean parity cycle (`tools/governance/roadmap-parity.js`) | PMO + PO (deletion of roadmap data: CAB) | B-09 |
 
 Not in this table because they are not top-level `report_config` keys:

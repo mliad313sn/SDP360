@@ -364,16 +364,85 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     return nid;
   }
   /** G11 — stage gate passage (rules in services/projectSchedule.stageGate), recorded in the ledger. */
-  async function moveProjectStage(id, to, { user, note } = {}) {
+  // A-27 — captureBaseline: the caller (route) passes report_config ppm_baseline_versions === '1'; the store reads no config.
+  async function moveProjectStage(id, to, { user, note, captureBaseline = false } = {}) {
     const p = await P(`SELECT * FROM portfolio_projects WHERE id=?`).get(Number(id));
     if (!p) throw Object.assign(new Error('project not found'), { code: 'NOT_FOUND', status: 404 });
     const { openTasks, openRisksHigh } = await gateCounts(id);
     const err = require('./projectSchedule').stageGate(p, to, user, { openTasks, openRisksHigh, note });
     if (err) throw Object.assign(new Error(err.error), { code: 'CONFLICT', status: 409, reason: err.code });
     const statusFor = { proposal: 'planned', approval: 'planned', in_progress: 'active', on_hold: 'on_hold', closure: 'active', closed: 'done' };
-    await updateRow('portfolio_projects', id, { stage: to, status: statusFor[to] }, ['stage', 'status']);
-    await ppmEvent({ entity: 'project', entity_id: id, action: 'stage', field: 'stage', old_value: p.stage, new_value: to, note }, user);
+    const capture = !!captureBaseline && (p.stage || 'proposal') === 'approval' && to === 'in_progress';
+    const move = async () => {
+      await updateRow('portfolio_projects', id, { stage: to, status: statusFor[to] }, ['stage', 'status']);
+      await ppmEvent({ entity: 'project', entity_id: id, action: 'stage', field: 'stage', old_value: p.stage, new_value: to, note }, user);
+      if (capture) {
+        // the plan approved at the gate becomes the task baselines where none was entered (never overwrites one)
+        await P(`UPDATE portfolio_tasks SET baseline_start=COALESCE(baseline_start, start_date), baseline_end=COALESCE(baseline_end, end_date) WHERE project_id=? AND (baseline_start IS NULL OR baseline_end IS NULL)`).run(Number(id));
+        const v = await writeBaseline(id, { user, approved: false, reason: note || null });
+        await ppmEvent({ entity: 'project', entity_id: id, action: 'baseline_captured', field: 'baseline_version', old_value: null, new_value: v, note: 'approval gate' }, user);
+      }
+    };
+    await (capture ? tx(move) : move());
     return P(`SELECT * FROM portfolio_projects WHERE id=?`).get(Number(id));
+  }
+  // ---- A-27 versioned baselines (portfolio_baselines, append-only, migration 045) -----------------------------------
+  const BL = () => require('./ppmBaseline');
+  const baselineRow = (r) => ({ id: Number(r.id), project_id: Number(r.project_id), version: Number(r.version), captured_at: r.captured_at, captured_by: r.captured_by == null ? null : Number(r.captured_by), approved_by: r.approved_by == null ? null : Number(r.approved_by), approved_by_name: r.approved_by_name || null, reason: r.reason || null, payload: P_(r.payload_json, null) });
+  /** Snapshot the CURRENT stored plan as version max + 1. Must run inside the caller's transaction. */
+  async function writeBaseline(projectId, { user, approved, reason }) {
+    const pid = Number(projectId);
+    const p = await P(`SELECT * FROM portfolio_projects WHERE id=?`).get(pid);
+    const tasks = (await P(`SELECT * FROM portfolio_tasks WHERE project_id=? ORDER BY sort_order, id`).all(pid)).map(taskRow);
+    const ms = (await P(`SELECT * FROM portfolio_milestones WHERE project_id=? ORDER BY sort_order, due_date`).all(pid)).map(m => ({ ...idRow(m), project_id: Number(m.project_id) }));
+    const max = await P(`SELECT MAX(version) AS v FROM portfolio_baselines WHERE project_id=?`).get(pid);
+    const version = Number((max && max.v) || 0) + 1;
+    await insert('portfolio_baselines', ['project_id', 'version', 'captured_at', 'captured_by', 'approved_by', 'approved_by_name', 'reason', 'payload_json'],
+      [pid, version, now(), user && user.id != null ? Number(user.id) : null, approved && user && user.id != null ? Number(user.id) : null, approved && user ? String(user.full_name || user.username || '') : null, str(reason, 2000), J(BL().snapshotPayload(p, tasks, ms))]);
+    return version;
+  }
+  /** Versions of one project (oldest first), or of every project when projectId is null. */
+  async function listBaselines(projectId = null) {
+    const rows = projectId == null ? await P(`SELECT * FROM portfolio_baselines ORDER BY project_id, version`).all() : await P(`SELECT * FROM portfolio_baselines WHERE project_id=? ORDER BY version`).all(Number(projectId));
+    return rows.map(baselineRow);
+  }
+  /**
+   * The ONLY way to move an approved baseline (the ordinary edit keeps refusing it with BASELINE_FROZEN).
+   * body: { reason, project: { baseline_start|start_date, baseline_end|end_date }, tasks: [{ id, start_date, end_date }] }.
+   * The route checks the committee role and the switch; this checks the rule (services/ppmBaseline.rebaselineCheck).
+   */
+  async function rebaseline(projectId, body = {}, { user } = {}) {
+    const pid = Number(projectId);
+    const p = await P(`SELECT * FROM portfolio_projects WHERE id=?`).get(pid);
+    if (!p) throw Object.assign(new Error('project not found'), { code: 'NOT_FOUND', status: 404 });
+    const err = BL().rebaselineCheck(p, user, body.reason);
+    if (err) throw Object.assign(new Error(err.error), { code: 'CONFLICT', status: 409, reason: err.code });
+    const pj = body.project || {};
+    const bs = pj.baseline_start !== undefined ? _day(pj.baseline_start) : pj.start_date !== undefined ? _day(pj.start_date) : undefined;
+    const be = pj.baseline_end !== undefined ? _day(pj.baseline_end) : pj.end_date !== undefined ? _day(pj.end_date) : undefined;
+    const tasks = (Array.isArray(body.tasks) ? body.tasks : []).map((t) => ({ id: Number(t && t.id), start: t && t.start_date !== undefined ? _day(t.start_date) : undefined, end: t && t.end_date !== undefined ? _day(t.end_date) : undefined }));
+    if (tasks.some((t) => !Number.isInteger(t.id) || t.id <= 0)) throw Object.assign(new Error('every task needs its id'), { code: 'INVALID', status: 400 });
+    const mine = new Set((await P(`SELECT id FROM portfolio_tasks WHERE project_id=?`).all(pid)).map((r) => Number(r.id)));
+    if (tasks.some((t) => !mine.has(t.id))) throw Object.assign(new Error('a task does not belong to this project'), { code: 'INVALID', status: 400 });
+    const newStart = bs === undefined ? p.baseline_start : bs, newEnd = be === undefined ? p.baseline_end : be;
+    if (newStart && newEnd && newStart > newEnd) throw Object.assign(new Error('the baseline start is after its end'), { code: 'INVALID', status: 400 });
+    return tx(async () => {
+      await P(`UPDATE portfolio_projects SET baseline_start=?, baseline_end=?, updated_at=? WHERE id=?`).run(newStart || null, newEnd || null, now(), pid);
+      for (const t of tasks) {
+        if (t.start !== undefined) await P(`UPDATE portfolio_tasks SET baseline_start=?, updated_at=? WHERE id=? AND project_id=?`).run(t.start, now(), t.id, pid);
+        if (t.end !== undefined) await P(`UPDATE portfolio_tasks SET baseline_end=?, updated_at=? WHERE id=? AND project_id=?`).run(t.end, now(), t.id, pid);
+      }
+      const version = await writeBaseline(pid, { user, approved: true, reason: String(body.reason).trim() });
+      await ppmEvent({ entity: 'project', entity_id: pid, action: 'rebaseline', field: 'baseline_end', old_value: p.baseline_end, new_value: newEnd, note: `v${version}: ${String(body.reason).trim()}` }, user);
+      return { version, baseline_start: newStart || null, baseline_end: newEnd || null };
+    });
+  }
+  // ---- A-27 PPM exception alert dedup (ppm_alert_state) --------------------------------------------------------------
+  async function alertStates() { return (await P(`SELECT * FROM ppm_alert_state`).all()).map((r) => ({ ...r, project_id: r.project_id == null ? null : Number(r.project_id) })); }
+  async function saveAlertState(s) {
+    const ex = await P(`SELECT item_key FROM ppm_alert_state WHERE item_key=?`).get(String(s.item_key));
+    if (ex) await P(`UPDATE ppm_alert_state SET kind=?, project_id=?, first_seen=COALESCE(first_seen, ?), last_notified=?, cleared_at=? WHERE item_key=?`).run(String(s.kind), s.project_id == null ? null : Number(s.project_id), s.first_seen || null, s.last_notified || null, s.cleared_at || null, String(s.item_key));
+    else await P(`INSERT INTO ppm_alert_state (item_key, kind, project_id, first_seen, last_notified, cleared_at) VALUES (?,?,?,?,?,?)`).run(String(s.item_key), String(s.kind), s.project_id == null ? null : Number(s.project_id), s.first_seen || null, s.last_notified || null, s.cleared_at || null);
   }
   /** G14 — an accepted request becomes at most ONE project, which keeps the link (unique index, migration 039). */
   async function rfiToProject(rfiId, body, { user } = {}) {
@@ -404,7 +473,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   }
   async function minutesHistory(sessionId) { return (await P('SELECT action, actor_id, at, reason FROM minutes_history WHERE session_id=? ORDER BY id').all(Number(sessionId))).map(r => ({ ...r, actor_id: r.actor_id == null ? null : Number(r.actor_id) })); }
   return { ppmEvent, ppmEvents, moveProjectStage, rfiToProject, getRfi, verifyRfi, getDecision, openSessionActions, addMinutesHistory, minutesHistory, init, listCadences, getCadence, saveCadence, removeCadence, listSessions, getSession, createSession, updateSession, stampItem, sessionActions, addSessionAction, setSessionActionStatus, moveSession,
-    listDecisions, addDecision, updateDecision, listRfi, submitRfi, triageRfi, rfiScore, portfolio, upsertPortfolio, removePortfolio, projectSites, setProjectSites, getProject, planRow, projectDetail, gateCounts, RISK_KINDS,
+    listDecisions, addDecision, updateDecision, listRfi, submitRfi, triageRfi, rfiScore, portfolio, upsertPortfolio, removePortfolio, projectSites, setProjectSites, getProject, planRow, projectDetail, gateCounts, RISK_KINDS, listBaselines, rebaseline, alertStates, saveAlertState,
     CADENCE_KINDS, SESSION_STATUSES, DECISION_STATUSES, RFI_KINDS, RFI_STATUSES, PROJECT_STATUSES, CONFIDENCE };
 }
 
