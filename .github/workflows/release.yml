@@ -73,6 +73,13 @@ jobs:
       - run: npm run build:check
       # B-05 — Chromium for tests/*-browser.test.js (playwright devDependency; never in the package)
       - run: npx playwright install --with-deps chromium
+      # pg_dump must match the PostgreSQL 17 service (ubuntu-24.04 ships 16) for the backup/restore tests.
+      - name: PostgreSQL 17 client tools (same major as the server)
+        run: |
+          sudo apt-get install -y -q postgresql-common
+          sudo /usr/share/postgresql-common/pgdg/apt.postgresql.org.sh -y
+          sudo apt-get install -y -q postgresql-client-17
+          echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
       - run: npm test
       - id: pkg
         name: Build update package (manifest signed when SIGNING_MANIFEST_KEY is set)
