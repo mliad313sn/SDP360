@@ -152,7 +152,7 @@
       el.textContent = '—';
       if (el.classList) el.classList.remove('loading');
       const card = el.closest ? el.closest('.kpi') : null;
-      if (card) card.className = 'kpi na error';
+      if (card) { card.className = 'kpi na error'; if (card.setAttribute) card.setAttribute('data-state', 'ERROR'); }
     });
     (c.subIds || []).forEach(id => { const el = doc.getElementById(id); if (el) el.textContent = ''; });
     if (c.freshId) {
@@ -182,7 +182,88 @@
     if (host) { host.textContent = ''; host.hidden = true; }
   }
 
+  // ── C-06 (F18) — ONE state vocabulary for analytics KPI cards and chart cards ──────────────
+  // LOADING  request in flight                      → no colour
+  // VALID    a measured, current, non-zero figure   → RAG colour allowed
+  // ZERO     a measured, current zero (≠ NO_DATA)   → RAG colour allowed (a measured 0 is real)
+  // NO_DATA  no figure (null / non-finite)          → kpiRag 'NA', no colour, "—"
+  // STALE    a figure from a source not current     → value shown, colour withheld
+  // ERROR    the request failed                     → figures withheld, no colour
+  // Mapped onto the existing notions: kpiRag.rag() returns 'NA' exactly where colour is not
+  // allowed; dashboardRender's freshness 'STALE' withholds colour the same way.
+  const STATES = Object.freeze(['LOADING', 'VALID', 'ZERO', 'NO_DATA', 'STALE', 'ERROR']);
+  const STATE_MAP = Object.freeze({
+    LOADING: { colour: false, kpiRag: 'NA', freshness: null },
+    VALID:   { colour: true,  kpiRag: null, freshness: 'FRESH' },
+    ZERO:    { colour: true,  kpiRag: null, freshness: 'FRESH' },
+    NO_DATA: { colour: false, kpiRag: 'NA', freshness: null },
+    STALE:   { colour: false, kpiRag: 'NA', freshness: 'STALE' },
+    ERROR:   { colour: false, kpiRag: 'NA', freshness: null },
+  });
+  function colourAllowed(state) { return !!(STATE_MAP[state] && STATE_MAP[state].colour); }
+
+  // One KPI figure → state. Order matters: loading, then error, then absence, then staleness.
+  function classifyState(o) {
+    const x = o || {};
+    if (x.loading) return 'LOADING';
+    if (x.error) return 'ERROR';
+    const v = _num(x.value);
+    if (v === null) return 'NO_DATA';
+    if (x.stale) return 'STALE';
+    return v === 0 ? 'ZERO' : 'VALID';
+  }
+
+  // A chart's datasets → state. NO_DATA when not one finite point exists; ZERO when every
+  // finite point is 0 (a measured flat zero, still drawn and tabled).
+  function classifySeries(o) {
+    const x = o || {};
+    if (x.loading) return 'LOADING';
+    if (x.error) return 'ERROR';
+    const pts = [];
+    (x.datasets || []).forEach(d => ((d && d.data) || []).forEach(v => { const n = _num(v); if (n !== null) pts.push(n); }));
+    if (!pts.length) return 'NO_DATA';
+    if (x.stale) return 'STALE';
+    return pts.every(n => n === 0) ? 'ZERO' : 'VALID';
+  }
+
+  // KPI card class from its state. RAG thresholds (green/amber) apply only when colour is
+  // allowed; a card without RAG keeps its neutral `accent` (blue/orange only — a status hue on a
+  // card nobody judged would read as a verdict) and loses it on NO_DATA / STALE / ERROR.
+  const NEUTRAL_ACCENTS = { blue: 1, orange: 1 };
+  function kpiCardState(o) {
+    const x = o || {};
+    const state = classifyState(x);
+    let cls = 'kpi na';
+    if (colourAllowed(state)) {
+      if (x.green !== undefined && x.green !== null) cls = 'kpi ' + ragClass(x.value, x.green, x.amber);
+      else cls = NEUTRAL_ACCENTS[x.accent] ? 'kpi ' + x.accent : 'kpi';
+    }
+    return { state, className: cls };
+  }
+
+  // ── C-06 (F26) — colours from the token theme (public/lib/chartTheme.js) ─────────────────────
+  // Status colours come ONLY from the RAG tokens, through this map; categorical colours come
+  // ONLY from --chart-series-*; the two are never swapped. `theme` = ChartTheme.read() (or null:
+  // colours undefined → Chart.js defaults, never an invented hex).
+  function statusPalette(theme, stale) {
+    const r = (theme && theme.rag) || {};
+    if (stale) return { green: r.na, amber: r.na, red: r.na, slate: r.na };
+    return { green: r.green, amber: r.amber, red: r.red, slate: r.na };
+  }
+  // n categorical colours: the 6 series tokens in order; beyond 6, the same hues at lower
+  // alpha so neighbouring categories never share an identical fill.
+  function seriesColours(n, theme, alphaFn) {
+    const series = (theme && theme.series) || [];
+    const out = [];
+    for (let i = 0; i < n; i++) {
+      const c = series.length ? series[i % series.length] : undefined;
+      out.push(c && i >= series.length && typeof alphaFn === 'function' ? alphaFn(c, 0.55) : c);
+    }
+    return out;
+  }
+
   return {
+    STATES, STATE_MAP, colourAllowed, classifyState, classifySeries, kpiCardState, statusPalette, seriesColours,
     fmtNum, fmtPct, ratioPct, ragClass, kpiCardClass, overLimitClass,
     riskColourKey, approvalColourKey, colourFor, RISK_COLOUR, APPROVAL_COLOUR,
     esc, miniTableHtml, fetchJson, createLoadCoordinator, renderSectionError, clearSectionError,

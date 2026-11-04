@@ -9,6 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="vendor/chart.js/4.4.1/chart.umd.js" defer></script>
 <script src="lib/chartTheme.js" defer></script>
+<script src="lib/charts.js" defer></script>
 <script src="lib/analyticsLogic.js"></script>
 <style>
 /* ── EDV Design System adoption ────────────────────────────────────────
@@ -128,6 +129,15 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text-1);min-h
 .card-body{padding:14px 16px}
 .chart-wrap{position:relative;height:200px}
 .chart-wrap.tall{height:260px}
+.trend-wrap{display:flex;flex-direction:column;gap:6px}
+.edv-chart-table{margin-top:8px;font-size:12px;color:var(--text-2)}
+.edv-chart-table summary{cursor:pointer;color:var(--text-3);font-weight:600}
+.edv-chart-table table{width:100%;border-collapse:collapse;margin-top:6px}
+.edv-chart-table caption{text-align:left;color:var(--text-3);padding-bottom:4px}
+.edv-chart-table th,.edv-chart-table td{padding:4px 6px;border-bottom:1px solid var(--border);text-align:left}
+.edv-chart-table .num{text-align:right;font-variant-numeric:tabular-nums}
+.edv-chart-empty,.edv-chart-stale{margin:6px 0;color:var(--text-3)}
+.card[data-state="NO_DATA"] .chart-wrap{display:none}
 
 /* ── TABLE ── */
 .mini-table{width:100%;border-collapse:collapse;font-size:12px}
@@ -275,20 +285,20 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text-1);min-h
     <div class="section-error" id="err-requests" role="alert" hidden></div>
 
     <div class="kpi-row" id="req-kpis">
-      <div class="kpi"><div class="kpi-label">Open</div><div class="kpi-val loading" id="kv-req-open">…</div><div class="kpi-sub" id="ks-req-open"></div></div>
-      <div class="kpi amber"><div class="kpi-label">Backlog (Overdue)</div><div class="kpi-val loading" id="kv-req-backlog">…</div><div class="kpi-sub" id="ks-req-backlog"></div></div>
-      <div class="kpi green"><div class="kpi-label">SLA Compliance</div><div class="kpi-val loading" id="kv-req-sla">…</div><div class="kpi-sub">within SLA</div></div>
-      <div class="kpi blue"><div class="kpi-label">Avg Resolution</div><div class="kpi-val loading" id="kv-req-avgres">…</div><div class="kpi-sub">hours (closed tickets)</div></div>
-      <div class="kpi"><div class="kpi-label">1st Reply SLA Fail</div><div class="kpi-val loading" id="kv-req-frsla">…</div><div class="kpi-sub" id="ks-req-frsla"></div></div>
-      <div class="kpi"><div class="kpi-label">Reopen Rate</div><div class="kpi-val loading" id="kv-req-reopen">…</div><div class="kpi-sub" id="ks-req-reopen"></div></div>
-      <div class="kpi blue"><div class="kpi-label">Service Requests</div><div class="kpi-val loading" id="kv-req-sr">…</div><div class="kpi-sub" id="ks-req-inc">— Incidents</div></div>
-      <div class="kpi red"><div class="kpi-label">Escalated</div><div class="kpi-val loading" id="kv-req-esc">…</div><div class="kpi-sub">tickets escalated</div></div>
+      <div class="kpi na" data-state="LOADING"><div class="kpi-label">Open</div><div class="kpi-val loading" id="kv-req-open">…</div><div class="kpi-sub" id="ks-req-open"></div></div>
+      <div class="kpi na" data-state="LOADING"><div class="kpi-label">Backlog (Overdue)</div><div class="kpi-val loading" id="kv-req-backlog">…</div><div class="kpi-sub" id="ks-req-backlog"></div></div>
+      <div class="kpi na" data-state="LOADING"><div class="kpi-label">SLA Compliance</div><div class="kpi-val loading" id="kv-req-sla">…</div><div class="kpi-sub">within SLA</div></div>
+      <div class="kpi na" data-state="LOADING"><div class="kpi-label">Avg Resolution</div><div class="kpi-val loading" id="kv-req-avgres">…</div><div class="kpi-sub">hours (closed tickets)</div></div>
+      <div class="kpi na" data-state="LOADING"><div class="kpi-label">1st Reply SLA Fail</div><div class="kpi-val loading" id="kv-req-frsla">…</div><div class="kpi-sub" id="ks-req-frsla"></div></div>
+      <div class="kpi na" data-state="LOADING"><div class="kpi-label">Reopen Rate</div><div class="kpi-val loading" id="kv-req-reopen">…</div><div class="kpi-sub" id="ks-req-reopen"></div></div>
+      <div class="kpi na" data-state="LOADING"><div class="kpi-label">Service Requests</div><div class="kpi-val loading" id="kv-req-sr">…</div><div class="kpi-sub" id="ks-req-inc">— Incidents</div></div>
+      <div class="kpi na" data-state="LOADING"><div class="kpi-label">Escalated</div><div class="kpi-val loading" id="kv-req-esc">…</div><div class="kpi-sub">tickets escalated</div></div>
     </div>
 
     <div class="cards-grid">
       <div class="card">
-        <div class="card-head"><div class="card-title">Monthly Ticket Volume</div><div class="card-sub">Open vs Closed trend — last 12 months</div></div>
-        <div class="card-body"><div class="chart-wrap"><canvas id="chartReqTrend"></canvas></div></div>
+        <div class="card-head"><div class="card-title">Monthly Ticket Volume</div><div class="card-sub">Tickets (top) and SLA OK % (bottom) — last 12 months</div></div>
+        <div class="card-body"><div class="trend-wrap" id="chartReqTrend"></div></div>
       </div>
       <div class="card">
         <div class="card-head"><div class="card-title">Volume by Site</div><div class="card-sub">Total requests per site</div></div>
@@ -318,12 +328,12 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text-1);min-h
     <div class="section-error" id="err-change" role="alert" hidden></div>
 
     <div class="kpi-row">
-      <div class="kpi"><div class="kpi-label">Total Changes</div><div class="kpi-val loading" id="kv-chg-total">…</div><div class="kpi-sub" id="ks-chg-total"></div></div>
-      <div class="kpi green"><div class="kpi-label">Success Rate</div><div class="kpi-val loading" id="kv-chg-success">…</div><div class="kpi-sub">Target ≥90%</div></div>
-      <div class="kpi blue"><div class="kpi-label">In Progress</div><div class="kpi-val loading" id="kv-chg-inprog">…</div><div class="kpi-sub">scheduled, not closed</div></div>
-      <div class="kpi red"><div class="kpi-label">Emergency</div><div class="kpi-val loading" id="kv-chg-emerg">…</div><div class="kpi-sub">bypassed CAB</div></div>
-      <div class="kpi"><div class="kpi-label">Completed</div><div class="kpi-val loading" id="kv-chg-comp">…</div><div class="kpi-sub" id="ks-chg-comp"></div></div>
-      <div class="kpi amber"><div class="kpi-label">Avg Completion</div><div class="kpi-val loading" id="kv-chg-avg">…</div><div class="kpi-sub">days start → done</div></div>
+      <div class="kpi na" data-state="LOADING"><div class="kpi-label">Total Changes</div><div class="kpi-val loading" id="kv-chg-total">…</div><div class="kpi-sub" id="ks-chg-total"></div></div>
+      <div class="kpi na" data-state="LOADING"><div class="kpi-label">Success Rate</div><div class="kpi-val loading" id="kv-chg-success">…</div><div class="kpi-sub">Target ≥90%</div></div>
+      <div class="kpi na" data-state="LOADING"><div class="kpi-label">In Progress</div><div class="kpi-val loading" id="kv-chg-inprog">…</div><div class="kpi-sub">scheduled, not closed</div></div>
+      <div class="kpi na" data-state="LOADING"><div class="kpi-label">Emergency</div><div class="kpi-val loading" id="kv-chg-emerg">…</div><div class="kpi-sub">bypassed CAB</div></div>
+      <div class="kpi na" data-state="LOADING"><div class="kpi-label">Completed</div><div class="kpi-val loading" id="kv-chg-comp">…</div><div class="kpi-sub" id="ks-chg-comp"></div></div>
+      <div class="kpi na" data-state="LOADING"><div class="kpi-label">Avg Completion</div><div class="kpi-val loading" id="kv-chg-avg">…</div><div class="kpi-sub">days start → done</div></div>
     </div>
 
     <div class="cards-grid">
@@ -359,10 +369,10 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text-1);min-h
     <div class="section-error" id="err-cab" role="alert" hidden></div>
 
     <div class="kpi-row">
-      <div class="kpi"><div class="kpi-label">Total Approvals</div><div class="kpi-val loading" id="kv-cab-total">…</div><div class="kpi-sub" id="ks-cab-changes"></div></div>
-      <div class="kpi green"><div class="kpi-label">CAB Compliance</div><div class="kpi-val loading" id="kv-cab-comp">…</div><div class="kpi-sub">changes with approval</div></div>
-      <div class="kpi blue"><div class="kpi-label">Approved</div><div class="kpi-val loading" id="kv-cab-appr">…</div><div class="kpi-sub" id="ks-cab-appr"></div></div>
-      <div class="kpi amber"><div class="kpi-label">Avg Turnaround</div><div class="kpi-val loading" id="kv-cab-turn">…</div><div class="kpi-sub">minutes</div></div>
+      <div class="kpi na" data-state="LOADING"><div class="kpi-label">Total Approvals</div><div class="kpi-val loading" id="kv-cab-total">…</div><div class="kpi-sub" id="ks-cab-changes"></div></div>
+      <div class="kpi na" data-state="LOADING"><div class="kpi-label">CAB Compliance</div><div class="kpi-val loading" id="kv-cab-comp">…</div><div class="kpi-sub">changes with approval</div></div>
+      <div class="kpi na" data-state="LOADING"><div class="kpi-label">Approved</div><div class="kpi-val loading" id="kv-cab-appr">…</div><div class="kpi-sub" id="ks-cab-appr"></div></div>
+      <div class="kpi na" data-state="LOADING"><div class="kpi-label">Avg Turnaround</div><div class="kpi-val loading" id="kv-cab-turn">…</div><div class="kpi-sub">minutes</div></div>
     </div>
 
     <div class="cards-grid">
@@ -394,16 +404,16 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text-1);min-h
     <div class="section-error" id="err-survey" role="alert" hidden></div>
 
     <div class="kpi-row">
-      <div class="kpi"><div class="kpi-label">Surveys Sent</div><div class="kpi-val loading" id="kv-sur-sent">…</div><div class="kpi-sub" id="ks-sur-sent"></div></div>
-      <div class="kpi blue"><div class="kpi-label">Response Rate</div><div class="kpi-val loading" id="kv-sur-rate">…</div><div class="kpi-sub">Target ≥20%</div></div>
-      <div class="kpi green"><div class="kpi-label">Avg CSAT Score</div><div class="kpi-val loading" id="kv-sur-avg">…</div><div class="kpi-sub">out of 100</div></div>
-      <div class="kpi green"><div class="kpi-label">Satisfied (≥80)</div><div class="kpi-val loading" id="kv-sur-sat">…</div><div class="kpi-sub" id="ks-sur-sat"></div></div>
+      <div class="kpi na" data-state="LOADING"><div class="kpi-label">Surveys Sent</div><div class="kpi-val loading" id="kv-sur-sent">…</div><div class="kpi-sub" id="ks-sur-sent"></div></div>
+      <div class="kpi na" data-state="LOADING"><div class="kpi-label">Response Rate</div><div class="kpi-val loading" id="kv-sur-rate">…</div><div class="kpi-sub">Target ≥20%</div></div>
+      <div class="kpi na" data-state="LOADING"><div class="kpi-label">Avg CSAT Score</div><div class="kpi-val loading" id="kv-sur-avg">…</div><div class="kpi-sub">out of 100</div></div>
+      <div class="kpi na" data-state="LOADING"><div class="kpi-label">Satisfied (≥80)</div><div class="kpi-val loading" id="kv-sur-sat">…</div><div class="kpi-sub" id="ks-sur-sat"></div></div>
     </div>
 
     <div class="cards-grid">
       <div class="card">
-        <div class="card-head"><div class="card-title">Monthly CSAT Trend</div><div class="card-sub">Average score + response rate — last 12 months</div></div>
-        <div class="card-body"><div class="chart-wrap tall"><canvas id="chartSurTrend"></canvas></div></div>
+        <div class="card-head"><div class="card-title">Monthly CSAT Trend</div><div class="card-sub">Average score (top) and response rate (bottom) — last 12 months</div></div>
+        <div class="card-body"><div class="trend-wrap" id="chartSurTrend"></div></div>
       </div>
       <div class="card">
         <div class="card-head"><div class="card-title">CSAT Distribution</div><div class="card-sub">Satisfied (≥80) · Neutral (60-79) · Dissatisfied (&lt;60)</div></div>
@@ -451,7 +461,7 @@ const SECTION_IDS = {
 };
 function showSectionError(section, err, retry) {
   const ids = SECTION_IDS[section];
-  ids.charts.forEach(destroyChart);
+  ids.charts.forEach(id => { destroyChart(id); chartErrorState(id); });
   ids.tables.forEach(id => { const el = document.getElementById(id); if (el) el.textContent = ''; });
   AL.renderSectionError(document, {
     valueIds: ids.values, subIds: ids.subs, freshId: 'fresh-' + section, hostId: 'err-' + section,
@@ -575,115 +585,112 @@ document.addEventListener('click', e => {
   });
 });
 
-// RAG helper for SLA %
-function slaColor(pct) {
-  if (pct == null) return '';
-  if (pct >= 90) return 'good';
-  if (pct >= 75) return 'warn';
-  return 'bad';
-}
-
-// ── CHART HELPERS ────────────────────────────────────────────────
+// ── CHART HELPERS (C-06) ─────────────────────────────────────────
+// Colours: categorical series from the --chart-series-* tokens, status colours ONLY from the
+// RAG tokens through AL.statusPalette (never swapped). Theme read lazily — lib/chartTheme.js is
+// deferred. No dual axis: trends are TrendPanel stacked panels (lib/charts.js), one axis each.
+// Every chart: role="img", a one-line aria-label summary and a collapsible data table
+// (ChartTable, built from the same labels/datasets), plus a data-state on its card.
 
 const CHARTS = {};
-// Chart palette aligned with the EDV design system. Pulled from
-// _tokens.css (read at runtime via getComputedStyle so the page
-// stays in sync if the brand team retunes the palette later).
-const _cs = getComputedStyle(document.documentElement);
-const _t  = (name, fallback) => (_cs.getPropertyValue(name).trim() || fallback);
-const PALETTE = {
-  orange: _t('--edv-orange',   '#EF631A'),
-  navy:   _t('--edv-slate',    '#3A4A60'),
-  green:  _t('--edv-green',    '#1B9A3A'),
-  red:    _t('--edv-red',      '#D90038'),
-  amber:  _t('--color-warning','#D97706'),
-  blue:   _t('--edv-blue',     '#145FAE'),
-  teal:   _t('--edv-teal',     '#73C9DB'),
-  purple: '#7C3AED',  // tracker P3 — no direct EDV token
-  slate:  _t('--edv-slate-50', '#979BAB'),
-  pink:   '#EC4899',  // ad-hoc accent, no direct EDV token
-};
-const MULTI = [PALETTE.blue, PALETTE.orange, PALETTE.green, PALETTE.amber, PALETTE.red, PALETTE.teal, PALETTE.purple, PALETTE.pink, PALETTE.slate, PALETTE.navy];
+const theme = () => (window.ChartTheme ? window.ChartTheme.read() : null);
+const tAlpha = (c, a) => (c && window.ChartTheme ? window.ChartTheme.alpha(c, a) : c);
+const chartTable = () => window.ChartTable || (window.TrendPanel && window.TrendPanel.ChartTable) || null;
+const SCALE_X = { grid: { display: false }, ticks: { maxRotation: 30 } };
 
 function destroyChart(id) { if (CHARTS[id]) { CHARTS[id].destroy(); delete CHARTS[id]; } }
 
-function barChart(id, labels, datasets, opts = {}) {
+function describeChart(id, spec) {
+  const state = AL.classifySeries({ datasets: spec.datasets, stale: spec.stale, error: spec.error });
+  const el = document.getElementById(id);
+  const card = el && el.closest ? el.closest('.card') : null;
+  if (card && card.setAttribute) card.setAttribute('data-state', state);
+  const T = chartTable();
+  if (T && el) T.attach(el, Object.assign({}, spec, { state }));
+  return state;
+}
+
+function drawChart(id, cfg, spec) {
   destroyChart(id);
-  const ctx = document.getElementById(id);
-  if (!ctx) return;
-  // Merge extra scales (e.g. secondary axis) without clobbering x/y
-  const extraScales = (opts.extra && opts.extra.scales) || {};
-  CHARTS[id] = new Chart(ctx, {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const state = describeChart(id, spec);
+  if (state === 'NO_DATA') return;            // no empty axes pretending to be a chart
+  CHARTS[id] = new Chart(el, cfg);
+}
+
+// Single-series vertical bars. `colors` = one colour or one per bar.
+function barChart(id, labels, data, o = {}) {
+  const series = o.series || 'Count';
+  drawChart(id, {
     type: 'bar',
-    data: { labels, datasets },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: opts.legend ?? false }, tooltip: { mode: 'index' } },
-      scales: {
-        x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#8A95A3', maxRotation: 30 } },
-        y: { grid: { color: '#F1F3F5' }, ticks: { font: { size: 11 }, color: '#8A95A3' }, beginAtZero: true },
-        ...extraScales,
-      },
-    },
-  });
+    data: { labels, datasets: [{ label: series, data, backgroundColor: o.colors, borderRadius: 4 }] },
+    options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: { x: SCALE_X, y: { beginAtZero: true } } },
+  }, { title: o.title, labels, datasets: [{ label: series, data, unit: o.unit }], stale: o.stale });
 }
 
-function lineChart(id, labels, datasets) {
-  destroyChart(id);
-  const ctx = document.getElementById(id);
-  if (!ctx) return;
-  CHARTS[id] = new Chart(ctx, {
-    type: 'line',
-    data: { labels, datasets },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: true, position: 'top', labels: { font: { size: 11 }, boxWidth: 12 } } },
-      scales: {
-        x: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#8A95A3', maxRotation: 30 } },
-        y: { grid: { color: '#F1F3F5' }, ticks: { font: { size: 11 }, color: '#8A95A3' }, beginAtZero: true },
-      },
-    },
-  });
-}
-
-function doughnutChart(id, labels, data, colors) {
-  destroyChart(id);
-  const ctx = document.getElementById(id);
-  if (!ctx) return;
-  CHARTS[id] = new Chart(ctx, {
+function doughnutChart(id, labels, data, o = {}) {
+  const series = o.series || 'Count';
+  drawChart(id, {
     type: 'doughnut',
-    data: {
-      labels,
-      datasets: [{ data, backgroundColor: colors || MULTI.slice(0, data.length), borderWidth: 2, borderColor: '#fff' }],
-    },
-    options: {
-      responsive: true, maintainAspectRatio: false, cutout: '60%',
-      plugins: { legend: { position: 'right', labels: { font: { size: 11 }, boxWidth: 12, padding: 10 } } },
-    },
-  });
+    data: { labels, datasets: [{ label: series, data, backgroundColor: o.colors, borderWidth: 2 }] },
+    options: { responsive: true, maintainAspectRatio: false, cutout: '60%',
+      plugins: { legend: { position: 'right', labels: { boxWidth: 12, padding: 10 } } } },
+  }, { title: o.title, labels, datasets: [{ label: series, data, unit: o.unit }], stale: o.stale });
 }
 
-function horizontalBar(id, labels, data, color) {
-  destroyChart(id);
-  const ctx = document.getElementById(id);
-  if (!ctx) return;
-  CHARTS[id] = new Chart(ctx, {
+function horizontalBar(id, labels, data, o = {}) {
+  const series = o.series || 'Count';
+  drawChart(id, {
     type: 'bar',
-    data: {
-      labels,
-      datasets: [{ data, backgroundColor: color || PALETTE.blue, borderRadius: 4, barThickness: 14 }],
-    },
-    options: {
-      indexAxis: 'y',
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { grid: { color: '#F1F3F5' }, ticks: { font: { size: 11 }, color: '#8A95A3' }, beginAtZero: true },
-        y: { grid: { display: false }, ticks: { font: { size: 11 }, color: '#8A95A3' } },
-      },
-    },
-  });
+    data: { labels, datasets: [{ label: series, data, backgroundColor: o.colors, borderRadius: 4, barThickness: 14 }] },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } },
+      scales: { x: { beginAtZero: true }, y: { grid: { display: false } } } },
+  }, { title: o.title, labels, datasets: [{ label: series, data, unit: o.unit }], stale: o.stale });
 }
+
+// F10: stacked panels sharing the x labels, one y-axis each (replaces the dual-axis combos).
+function trendPanel(id, o) {
+  destroyChart(id);
+  const el = document.getElementById(id);
+  if (!el) return;
+  const volume = o.volume || [], rate = o.rate || [];
+  const all = volume.map(v => ({ label: v.label, data: v.data, unit: o.volumeUnit }))
+    .concat(rate.map(r => ({ label: r.label, data: r.data, unit: o.unit })));
+  const state = describeChart(id, { title: o.title, labels: o.labels, datasets: all, stale: o.stale });
+  if (state === 'NO_DATA' || !window.TrendPanel) { el.innerHTML = ''; return; }
+  const T = chartTable();
+  const sum = (part, sets, unit) => (T ? T.summary({ title: o.title + ' — ' + part, labels: o.labels, state,
+    datasets: sets.map(s => ({ label: s.label, data: s.data, unit })) }) : o.title);
+  CHARTS[id] = window.TrendPanel.render(el, Object.assign({}, o, {
+    aria: { volume: sum(o.volumePart || 'counts', volume, o.volumeUnit), rate: sum(o.ratePart || 'rates', rate, o.unit) },
+  }));
+}
+
+function chartErrorState(id) {
+  const el = document.getElementById(id);
+  const card = el && el.closest ? el.closest('.card') : null;
+  if (card && card.setAttribute) card.setAttribute('data-state', 'ERROR');
+  const T = chartTable();
+  if (T && el) T.detach(el);
+}
+
+// KPI card: text + state + colour (colour only when AL.colourAllowed(state)).
+// Neutral accents only — a status hue on a card nobody judged would read as a verdict.
+const KPI_ACCENT = { 'kv-req-avgres': 'blue', 'kv-req-sr': 'blue', 'kv-chg-inprog': 'blue', 'kv-cab-appr': 'blue' };
+function setKpi(id, text, value, o = {}) {
+  const el = document.getElementById(id);
+  el.textContent = text;
+  el.classList.remove('loading');
+  const card = el.closest ? el.closest('.kpi') : null;
+  if (!card) return;
+  const r = AL.kpiCardState({ value, stale: o.stale, green: o.green, amber: o.amber, accent: KPI_ACCENT[id] });
+  card.className = r.className;
+  if (card.setAttribute) card.setAttribute('data-state', r.state);
+}
+// Sub-line colour withheld when the section is stale (F18).
+const subCls = (cls, stale) => (stale ? '' : cls);
 
 // ── FRESHNESS ────────────────────────────────────────────────────
 
@@ -727,60 +734,53 @@ async function loadRequests(isCurrent = () => true) {
     const j  = await fetchJson('/api/metrics/requests?' + qs);
     if (!isCurrent()) return;           // F11: a newer load superseded this one
     const d  = j.data || {};
+    const stale = !!j.stale_warning;    // F18: STALE withholds colour, never the value
     clearSectionError('requests');
     updateFreshness('requests', j);
 
     // KPIs
-    document.getElementById('kv-req-open').textContent    = fmt(d.open_count);
-    document.getElementById('kv-req-open').classList.remove('loading');
-    document.getElementById('ks-req-open').innerHTML      = `of ${esc(fmt(d.total))} total · <span class="${d.closed_count>0?'good':''}">${esc(fmt(d.closed_count))} closed</span>`;
+    setKpi('kv-req-open', fmt(d.open_count), d.open_count, { stale });
+    document.getElementById('ks-req-open').innerHTML      = `of ${esc(fmt(d.total))} total · <span class="${subCls(d.closed_count>0?'good':'', stale)}">${esc(fmt(d.closed_count))} closed</span>`;
 
     // F03: ratio of backlog to OPEN tickets — denominator guarded on open_count.
     const bklPct = AL.ratioPct(d.backlog_count, d.open_count);
-    document.getElementById('kv-req-backlog').textContent = fmt(d.backlog_count);
-    document.getElementById('kv-req-backlog').classList.remove('loading');
+    setKpi('kv-req-backlog', fmt(d.backlog_count), d.backlog_count, { stale });
     document.getElementById('ks-req-backlog').innerHTML   = bklPct == null
       ? '<span>— of open</span>'
-      : `<span class="${bklPct>10?'bad':'warn'}">${bklPct}% of open</span>`;
+      : `<span class="${subCls(bklPct>10?'bad':'warn', stale)}">${bklPct}% of open</span>`;
 
-    document.getElementById('kv-req-sla').textContent     = pct(d.sla_ok_pct);
-    document.getElementById('kv-req-sla').classList.remove('loading');
-    const slaEl = document.getElementById('kv-req-sla').closest('.kpi');
-    slaEl.className = AL.kpiCardClass(d.sla_ok_pct, 90, 75);
+    setKpi('kv-req-sla', pct(d.sla_ok_pct), d.sla_ok_pct, { stale, green: 90, amber: 75 });
+    setKpi('kv-req-avgres', d.avg_resolution_hrs != null ? fmt(d.avg_resolution_hrs, 1) + 'h' : '—', d.avg_resolution_hrs, { stale });
+    setKpi('kv-req-frsla', pct(d.first_resp_violated_pct), d.first_resp_violated_pct, { stale });
+    document.getElementById('ks-req-frsla').innerHTML     = `<span class="${subCls(AL.overLimitClass(d.first_resp_violated_pct, 10), stale)}">${esc(fmt(d.first_resp_violated_count))} tickets</span>`;
 
-    document.getElementById('kv-req-avgres').textContent  = d.avg_resolution_hrs != null ? fmt(d.avg_resolution_hrs, 1) + 'h' : '—';
-    document.getElementById('kv-req-avgres').classList.remove('loading');
-
-    document.getElementById('kv-req-frsla').textContent   = pct(d.first_resp_violated_pct);
-    document.getElementById('kv-req-frsla').classList.remove('loading');
-    document.getElementById('ks-req-frsla').innerHTML     = `<span class="${AL.overLimitClass(d.first_resp_violated_pct, 10)}">${esc(fmt(d.first_resp_violated_count))} tickets</span>`;
-
-    document.getElementById('kv-req-reopen').textContent  = pct(d.reopen_pct);
-    document.getElementById('kv-req-reopen').classList.remove('loading');
+    setKpi('kv-req-reopen', pct(d.reopen_pct), d.reopen_pct, { stale });
     document.getElementById('ks-req-reopen').innerHTML    = `<span>${esc(fmt(d.reopen_count))} reopened</span>`;
 
-    document.getElementById('kv-req-sr').textContent      = fmt(d.service_request_count);
-    document.getElementById('kv-req-sr').classList.remove('loading');
+    setKpi('kv-req-sr', fmt(d.service_request_count), d.service_request_count, { stale });
     document.getElementById('ks-req-inc').textContent     = fmt(d.incident_count) + ' Incidents';
 
-    document.getElementById('kv-req-esc').textContent     = fmt(d.escalated_count);
-    document.getElementById('kv-req-esc').classList.remove('loading');
+    setKpi('kv-req-esc', fmt(d.escalated_count), d.escalated_count, { stale });
 
-    // Monthly trend
+    // Monthly trend — F10: volume panel (tickets) over SLA % panel, no second y-axis.
     const mt = d.monthly_trend || [];
-    barChart('chartReqTrend', mt.map(m => m.month), [
-      { label: 'Total', data: mt.map(m => m.total_count), backgroundColor: PALETTE.blue + '99', borderColor: PALETTE.blue, borderWidth: 1.5, type: 'bar' },
-      { label: 'Closed', data: mt.map(m => m.closed_count), backgroundColor: PALETTE.green + '99', borderColor: PALETTE.green, borderWidth: 1.5, type: 'bar' },
-      { label: 'SLA OK %', data: mt.map(m => m.sla_ok_pct), backgroundColor: PALETTE.orange, borderColor: PALETTE.orange, borderWidth: 2, type: 'line', yAxisID: 'pct', tension: 0.3, pointRadius: 3 },
-    ], { legend: true, extra: { scales: { pct: { type: 'linear', position: 'right', min: 0, max: 100, grid: { display: false }, ticks: { font: { size: 10 }, color: '#8A95A3', callback: v => v + '%' } } } } });
+    trendPanel('chartReqTrend', {
+      title: 'Monthly ticket volume and SLA', labels: mt.map(m => m.month), stale,
+      volumeUnit: 'tickets', unit: '%', rateMax: 100, heights: { volume: 150, rate: 120 },
+      volume: [{ label: 'Total', data: mt.map(m => m.total_count) }, { label: 'Closed', data: mt.map(m => m.closed_count) }],
+      rate: [{ label: 'SLA OK %', data: mt.map(m => m.sla_ok_pct) }],
+    });
 
+    const series = (theme() || {}).series || [];
     // By site
     const bs = d.by_site || [];
-    horizontalBar('chartReqSite', bs.map(s => s.site || 'Unknown'), bs.map(s => s.count), PALETTE.blue);
+    horizontalBar('chartReqSite', bs.map(s => s.site || 'Unknown'), bs.map(s => s.count),
+      { title: 'Volume by site', series: 'Requests', unit: 'tickets', colors: series[0], stale });
 
     // By category
     const bc = d.by_category || [];
-    horizontalBar('chartReqCat', bc.map(c => c.category || 'Uncategorized'), bc.map(c => c.count), PALETTE.orange);
+    horizontalBar('chartReqCat', bc.map(c => c.category || 'Uncategorized'), bc.map(c => c.count),
+      { title: 'Top categories', series: 'Requests', unit: 'tickets', colors: series[0], stale });
 
     // Technician table
     const bt = d.by_technician || [];
@@ -805,55 +805,41 @@ async function loadChange(isCurrent = () => true) {
     const j = await fetchJson('/api/metrics/change?' + qs);
     if (!isCurrent()) return;
     const d = j.data || {};
+    const stale = !!j.stale_warning;
     clearSectionError('change');
     updateFreshness('change', j);
     updateFreshness('cab', j); // same job
 
-    document.getElementById('kv-chg-total').textContent  = fmt(d.total);
-    document.getElementById('kv-chg-total').classList.remove('loading');
+    setKpi('kv-chg-total', fmt(d.total), d.total, { stale });
     document.getElementById('ks-chg-total').innerHTML    = `${esc(fmt(d.finalized_count))} finalized`;
-
-    const scEl = document.getElementById('kv-chg-success');
-    scEl.textContent = pct(d.change_success_rate);
-    scEl.classList.remove('loading');
-    const scCard = scEl.closest('.kpi');
-    scCard.className = AL.kpiCardClass(d.change_success_rate, 90, 70);
-
-    document.getElementById('kv-chg-inprog').textContent = fmt(d.in_progress_count);
-    document.getElementById('kv-chg-inprog').classList.remove('loading');
-
-    document.getElementById('kv-chg-emerg').textContent  = fmt(d.emergency_count);
-    document.getElementById('kv-chg-emerg').classList.remove('loading');
-
-    document.getElementById('kv-chg-comp').textContent   = fmt(d.completed_count);
-    document.getElementById('kv-chg-comp').classList.remove('loading');
+    setKpi('kv-chg-success', pct(d.change_success_rate), d.change_success_rate, { stale, green: 90, amber: 70 });
+    setKpi('kv-chg-inprog', fmt(d.in_progress_count), d.in_progress_count, { stale });
+    setKpi('kv-chg-emerg', fmt(d.emergency_count), d.emergency_count, { stale });
+    setKpi('kv-chg-comp', fmt(d.completed_count), d.completed_count, { stale });
     document.getElementById('ks-chg-comp').textContent   = fmt(d.cancelled_count) + ' cancelled';
+    setKpi('kv-chg-avg', d.avg_completion_days != null ? fmt(d.avg_completion_days, 1) + 'd' : '—', d.avg_completion_days, { stale });
 
-    document.getElementById('kv-chg-avg').textContent    = d.avg_completion_days != null ? fmt(d.avg_completion_days, 1) + 'd' : '—';
-    document.getElementById('kv-chg-avg').classList.remove('loading');
-
-    // By status doughnut
+    const th = theme();
+    // By status doughnut — categorical (series tokens), not status colours
     const bs = d.by_status || [];
-    doughnutChart('chartChgStatus', bs.map(s => s.status || '—'), bs.map(s => s.count));
+    doughnutChart('chartChgStatus', bs.map(s => s.status || '—'), bs.map(s => s.count),
+      { title: 'Changes by status', series: 'Changes', colors: AL.seriesColours(bs.length, th, tAlpha), stale });
 
-    // By risk bar
+    // By risk bar — F07: explicit risk map; 'Unknown' / unrecognised labels are neutral, never green.
     const br = d.by_risk || [];
-    barChart('chartChgRisk', br.map(r => r.risk || 'Unknown'), [{
-      // F07: explicit risk map; 'Unknown' / unrecognised labels are neutral, never green.
-      data: br.map(r => r.count), backgroundColor: br.map(r => AL.colourFor(AL.riskColourKey(r.risk), PALETTE) + 'CC'), borderRadius: 4,
-    }]);
+    const sp = AL.statusPalette(th, stale);
+    barChart('chartChgRisk', br.map(r => r.risk || 'Unknown'), br.map(r => r.count),
+      { title: 'Changes by risk level', series: 'Changes', colors: br.map(r => tAlpha(AL.colourFor(AL.riskColourKey(r.risk), sp), 0.8)), stale });
 
-    // By type bar
+    // By type bar — categorical
     const bt2 = d.by_type || [];
-    barChart('chartChgType', bt2.map(t => t.change_type || 'Unknown'), [{
-      data: bt2.map(t => t.count), backgroundColor: MULTI.slice(0, bt2.length).map(c => c + 'CC'), borderRadius: 4,
-    }]);
+    barChart('chartChgType', bt2.map(t => t.change_type || 'Unknown'), bt2.map(t => t.count),
+      { title: 'Changes by type', series: 'Changes', colors: AL.seriesColours(bt2.length, th, tAlpha), stale });
 
-    // By site bar
+    // By site bar — single categorical series
     const bst = d.by_site || [];
-    barChart('chartChgSite', bst.map(s => s.site_id || '—'), [{
-      data: bst.map(s => s.count), backgroundColor: PALETTE.navy + 'CC', borderRadius: 4,
-    }]);
+    barChart('chartChgSite', bst.map(s => s.site_id || '—'), bst.map(s => s.count),
+      { title: 'Changes by site', series: 'Changes', colors: ((th || {}).series || [])[0], stale });
   } catch (e) {
     console.error('[change]', e);
     if (isCurrent()) showSectionError('change', e, () => loadChange());
@@ -868,34 +854,27 @@ async function loadCAB(isCurrent = () => true) {
     const j = await fetchJson('/api/metrics/cab?' + qs);
     if (!isCurrent()) return;
     const d = j.data || {};
+    const stale = !!j.stale_warning;
     clearSectionError('cab');
 
-    document.getElementById('kv-cab-total').textContent   = fmt(d.total_approvals);
-    document.getElementById('kv-cab-total').classList.remove('loading');
+    setKpi('kv-cab-total', fmt(d.total_approvals), d.total_approvals, { stale });
     document.getElementById('ks-cab-changes').textContent = fmt(d.distinct_changes) + ' unique changes';
-
-    const compEl = document.getElementById('kv-cab-comp');
-    compEl.textContent = pct(d.cab_compliance_pct);
-    compEl.classList.remove('loading');
-    compEl.closest('.kpi').className = AL.kpiCardClass(d.cab_compliance_pct, 80, null);
-
-    document.getElementById('kv-cab-appr').textContent    = fmt(d.approved_count);
-    document.getElementById('kv-cab-appr').classList.remove('loading');
+    setKpi('kv-cab-comp', pct(d.cab_compliance_pct), d.cab_compliance_pct, { stale, green: 80, amber: null });
+    setKpi('kv-cab-appr', fmt(d.approved_count), d.approved_count, { stale });
     document.getElementById('ks-cab-appr').textContent    = fmt(d.changes_with_approval) + ' changes approved';
+    setKpi('kv-cab-turn', d.avg_turnaround_minutes != null ? fmt(d.avg_turnaround_minutes, 0) : '—', d.avg_turnaround_minutes, { stale });
 
-    document.getElementById('kv-cab-turn').textContent    = d.avg_turnaround_minutes != null ? fmt(d.avg_turnaround_minutes, 0) : '—';
-    document.getElementById('kv-cab-turn').classList.remove('loading');
-
-    // Status doughnut
+    const th = theme();
+    // Status doughnut — F08: colour by status NAME through the status map, never by position
     const bs = d.by_status || [];
+    const sp = AL.statusPalette(th, stale);
     doughnutChart('chartCabStatus', bs.map(s => s.approval_status || '—'), bs.map(s => s.count),
-      bs.map(s => AL.colourFor(AL.approvalColourKey(s.approval_status), PALETTE))); // F08: by name, not position
+      { title: 'CAB approval status', series: 'Approvals', colors: bs.map(s => AL.colourFor(AL.approvalColourKey(s.approval_status), sp)), stale });
 
-    // Stage bar
+    // Stage bar — single categorical series
     const bst = d.by_stage || [];
-    barChart('chartCabStage', bst.map(s => s.approval_stage || 'Unknown'), [{
-      data: bst.map(s => s.count), backgroundColor: PALETTE.purple + 'CC', borderRadius: 4,
-    }]);
+    barChart('chartCabStage', bst.map(s => s.approval_stage || 'Unknown'), bst.map(s => s.count),
+      { title: 'Approvals by stage', series: 'Approvals', colors: ((th || {}).series || [])[0], stale });
 
     // Rule type table
     const brt = d.by_rule_type || [];
@@ -919,50 +898,37 @@ async function loadSurvey(isCurrent = () => true) {
     const j = await fetchJson('/api/metrics/survey?' + qs);
     if (!isCurrent()) return;
     const d = j.data || {};
+    const stale = !!j.stale_warning;
     clearSectionError('survey');
     updateFreshness('survey', j);
 
-    document.getElementById('kv-sur-sent').textContent   = fmt(d.total_sent);
-    document.getElementById('kv-sur-sent').classList.remove('loading');
+    setKpi('kv-sur-sent', fmt(d.total_sent), d.total_sent, { stale });
     document.getElementById('ks-sur-sent').textContent   = fmt(d.responded_count) + ' responded';
-
-    const rateEl = document.getElementById('kv-sur-rate');
-    rateEl.textContent = pct(d.response_rate_pct);
-    rateEl.classList.remove('loading');
-    rateEl.closest('.kpi').className = AL.kpiCardClass(d.response_rate_pct, 20, null);
-
-    const avgEl = document.getElementById('kv-sur-avg');
-    avgEl.textContent = d.avg_score != null ? fmt(d.avg_score, 1) : '—';
-    avgEl.classList.remove('loading');
-    avgEl.closest('.kpi').className = AL.kpiCardClass(d.avg_score, 80, 60);
+    setKpi('kv-sur-rate', pct(d.response_rate_pct), d.response_rate_pct, { stale, green: 20, amber: null });
+    setKpi('kv-sur-avg', d.avg_score != null ? fmt(d.avg_score, 1) : '—', d.avg_score, { stale, green: 80, amber: 60 });
 
     const total = (d.satisfied_count || 0) + (d.neutral_count || 0) + (d.dissatisfied_count || 0);
     const satPct = AL.ratioPct(d.satisfied_count, total);
-    document.getElementById('kv-sur-sat').textContent    = satPct != null ? satPct + '%' : '—';
-    document.getElementById('kv-sur-sat').classList.remove('loading');
+    setKpi('kv-sur-sat', satPct != null ? satPct + '%' : '—', satPct, { stale });
     document.getElementById('ks-sur-sat').textContent    = fmt(d.satisfied_count) + ' responses';
 
-    // Monthly trend
+    // Monthly trend — F10: score panel over response-rate panel, one axis each (was dual axis).
     const mt = d.monthly_trend || [];
-    lineChart('chartSurTrend', mt.map(m => m.month), [
-      { label: 'Avg Score', data: mt.map(m => m.avg_score), borderColor: PALETTE.green, backgroundColor: PALETTE.green + '22', tension: 0.3, fill: true, pointRadius: 4, yAxisID: 'score' },
-      { label: 'Response Rate %', data: mt.map(m => m.sent_count > 0 ? +(m.responded_count / m.sent_count * 100).toFixed(1) : null), borderColor: PALETTE.blue, backgroundColor: 'transparent', tension: 0.3, borderDash: [5,4], pointRadius: 3, yAxisID: 'pct' },
-    ]);
-    // Patch chart options for dual axis
-    if (CHARTS['chartSurTrend']) {
-      CHARTS['chartSurTrend'].options.scales = {
-        x:     { grid: { display: false }, ticks: { font: { size: 11 }, color: '#8A95A3', maxRotation: 30 } },
-        score: { type: 'linear', position: 'left',  min: 0, max: 100, grid: { color: '#F1F3F5' }, ticks: { font: { size: 11 }, color: '#8A95A3' } },
-        pct:   { type: 'linear', position: 'right', min: 0, max: 100, grid: { display: false }, ticks: { font: { size: 11 }, color: '#8A95A3', callback: v => v + '%' } },
-      };
-      CHARTS['chartSurTrend'].update();
-    }
+    trendPanel('chartSurTrend', {
+      title: 'Monthly CSAT trend', labels: mt.map(m => m.month), stale,
+      volumeUnit: 'points', unit: '%', rateMax: 100, heights: { volume: 140, rate: 120 },
+      volumePart: 'average score (0–100)', ratePart: 'response rate',
+      volumeTitle: 'Avg score (0–100)', volumeOptions: { scales: { y: { max: 100 } } },
+      volume: [{ label: 'Avg Score', data: mt.map(m => m.avg_score) }],
+      rate: [{ label: 'Response Rate %', data: mt.map(m => m.sent_count > 0 ? +(m.responded_count / m.sent_count * 100).toFixed(1) : null) }],
+    });
 
-    // Distribution doughnut
+    // Distribution doughnut — status colours by bucket name through the status map
+    const sp = AL.statusPalette(theme(), stale);
     doughnutChart('chartSurDist',
       ['Satisfied (≥80)', 'Neutral (60–79)', 'Dissatisfied (<60)'],
       [d.satisfied_count || 0, d.neutral_count || 0, d.dissatisfied_count || 0],
-      [PALETTE.green, PALETTE.amber, PALETTE.red]
+      { title: 'CSAT distribution', series: 'Responses', colors: [AL.colourFor('green', sp), AL.colourFor('amber', sp), AL.colourFor('red', sp)], stale }
     );
   } catch (e) {
     console.error('[survey]', e);
