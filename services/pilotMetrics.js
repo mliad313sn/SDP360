@@ -93,7 +93,7 @@ function toMs(v) {
   if (v instanceof Date) return Number.isFinite(v.getTime()) ? v.getTime() : null;
   let s = String(v).trim();
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) s += 'T00:00:00Z';
-  else if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(s)) s = s.replace(' ', 'T') + 'Z';
+  else if (/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(?::\d\d)?$/.test(s.replace(/\.\d{1,9}$/, ''))) s = s.replace(' ', 'T') + 'Z';
   const t = Date.parse(s);
   return Number.isFinite(t) ? t : null;
 }

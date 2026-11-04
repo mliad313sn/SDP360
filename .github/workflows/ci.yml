@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # pinned: Playwright 1.56 has no Chromium build for ubuntu-latest (26.04)
     timeout-minutes: 20
     env:
       # reports-db refuses first boot without a bootstrap admin; throwaway values for the CI test databases.
@@ -87,7 +87,7 @@ jobs:
   # check), then a negative control proves a broken selector turns the job red. Transfer size + load time
   # per page land in the e2e-journeys artefact (measurement only, no budget yet).
   e2e:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04   # pinned: Playwright 1.56 has no Chromium build for ubuntu-latest (26.04)
     timeout-minutes: 25
     env:
       TZ: UTC
