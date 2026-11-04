@@ -26,4 +26,10 @@ window.COCKPIT_FR = {
   'PPM exceptions': 'Exceptions PPM', 'Friday queue: late, blocked or unowned project work and baseline slips (catalogue A11). Read-only; open the project to act.': 'File du vendredi : travaux de projet en retard, bloqués ou sans responsable et glissements par rapport à la référence (catalogue A11). Lecture seule ; ouvrez le projet pour agir.',
   'Project': 'Projet', 'Since': 'Depuis', 'Detail': 'Détail', 'No PPM exception.': 'Aucune exception PPM.', 'Nightly in-app alerts are armed.': 'Les alertes nocturnes dans l’application sont armées.',
   'Nightly alerts are off (dry run only).': 'Les alertes nocturnes sont désactivées (simulation seulement).', 'Portfolio deck (PPTX)': 'Présentation du portefeuille (PPTX)', 'Workbook (XLSX)': 'Classeur (XLSX)',
+  // C-15 (G23) — decision source links + engagement delays
+  'unknown': 'inconnu', 'Session': 'Séance', 'Engagement delays': 'Retards des engagements',
+  'Open decisions and session actions past their due date, in days. No due date = unknown (never counted as on time).': 'Décisions ouvertes et actions de séance dépassant leur échéance, en jours. Sans échéance = inconnu (jamais compté comme à l’heure).',
+  '5 Engagements monitor': 'Suivi des 5 Engagements', 'Overdue': 'En retard', '1–7 days': '1–7 jours', '8–30 days': '8–30 jours', '31–90 days': '31–90 jours', '> 90 days': '> 90 jours',
+  'On time': 'À l’heure', 'No due date (unknown)': 'Sans échéance (inconnu)', 'Oldest delay (days)': 'Plus ancien retard (jours)', 'Item': 'Élément',
+  'Days overdue': 'Jours de retard', 'decision': 'décision', 'action': 'action', 'Nothing overdue.': 'Aucun retard.',
 };

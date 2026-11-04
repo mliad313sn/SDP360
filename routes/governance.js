@@ -15,7 +15,8 @@ const { fail: httpFail, logError } = require('../services/httpError');
 //   POST /api/governance/sessions/:id/decisions       DEC-YYYY-NNN                                  chair | secretary | admin
 //   POST /api/governance/sessions/:id/actions         action linked to its source                   runner
 //   GET  /api/governance/sessions/:id/minutes.html|.pdf · POST /sessions/:id/minutes/send
-//   GET  /api/governance/decisions  · PUT /decisions/:id
+//   GET  /api/governance/decisions  · PUT /decisions/:id   (C-15: each decision carries source_links)
+//   GET  /api/governance/engagement-delays             open decisions + session actions: days overdue + ageing (C-15)
 //   GET  /api/governance/rfi · POST /rfi (any session) · PUT /rfi/:id (triage/score/decide — committee) · POST /rfi/:id/verify (requester)
 //   GET  /api/governance/portfolio (tree + evidence + gantt + risks + summary) · PUT /portfolio/:kind · DELETE /portfolio/:kind/:id   committee
 //        (A-15: site-scoped reads + editor plan writes behind portfolio_site_scope_reads / portfolio_editor_plan_writes, off = today)
@@ -32,6 +33,7 @@ const { fail: httpFail, logError } = require('../services/httpError');
 const { buildAgenda, metricKeysFor } = require('../services/agendaBuilder');
 const { renderMinutes, acceptanceStamp } = require('../services/minutesRenderer');
 const PE = require('../services/portfolioEvidence');
+const GL = require('../services/governanceLinks');
 
 function createStore(rdbMod, { log = console.log } = {}) {
   const pg = rdbMod.REPORTS_BACKEND === 'postgres';
@@ -323,22 +325,55 @@ module.exports = function governanceRoutes(deps) {
   });
 
   // ---- decisions / RFI --------------------------------------------------------------------
+  // decisions the reader may see: the site scope, then group decisions follow the session's own visibility
+  // when meetings.group_decisions_public = false (shared by /decisions and /engagement-delays — C-15)
+  async function visibleDecisions(u, status) {
+    let rows = await store.listDecisions({ status, siteIds: await scopeIds(u) });
+    // meetings.group_decisions_public = false: decisions of group sessions follow the session's own visibility
+    if (!isCommittee(u) && (await GP.forContext({}))['meetings.group_decisions_public'] === false) {
+      const cads = new Map((await store.listCadences({ includeInactive: true })).map((c) => [c.id, c])); const sessCad = new Map();
+      const keep = [];
+      for (const d of rows) {
+        if (d.site_id != null) { keep.push(d); continue; }
+        if (d.session_id == null) continue;
+        if (!sessCad.has(d.session_id)) { const s = await store.getSession(d.session_id); sessCad.set(d.session_id, s ? cads.get(s.cadence_id) : null); }
+        const c = sessCad.get(d.session_id); if (c && seesCadence(u, c)) keep.push(d);
+      }
+      rows = keep;
+    }
+    return rows;
+  }
+  // C-15 (G23) — every decision carries its source links (session in the cockpit, PV / reference it names)
+  async function withSourceLinks(rows) {
+    const cadName = new Map((await store.listCadences({ includeInactive: true })).map((c) => [c.id, c.name]));
+    const sessions = new Map();
+    for (const d of rows) {
+      if (d.session_id == null || sessions.has(d.session_id)) continue;
+      const s = await store.getSession(d.session_id);
+      sessions.set(d.session_id, s ? { id: s.id, scheduled_at: s.scheduled_at, cadence_name: cadName.get(s.cadence_id) || null } : null);
+    }
+    return rows.map((d) => ({ ...d, source_links: GL.decisionSourceLinks(d, { sessions }) }));
+  }
   router.get('/api/governance/decisions', requireReportSession, async (req, res) => {
     try {
-      let rows = await store.listDecisions({ status: req.query.status ? String(req.query.status).split(',') : null, siteIds: await scopeIds(req.reportUser) });
-      // meetings.group_decisions_public = false: decisions of group sessions follow the session's own visibility
-      if (!isCommittee(req.reportUser) && (await GP.forContext({}))['meetings.group_decisions_public'] === false) {
-        const cads = new Map((await store.listCadences({ includeInactive: true })).map((c) => [c.id, c])); const sessCad = new Map();
-        const keep = [];
-        for (const d of rows) {
-          if (d.site_id != null) { keep.push(d); continue; }
-          if (d.session_id == null) continue;
-          if (!sessCad.has(d.session_id)) { const s = await store.getSession(d.session_id); sessCad.set(d.session_id, s ? cads.get(s.cadence_id) : null); }
-          const c = sessCad.get(d.session_id); if (c && seesCadence(req.reportUser, c)) keep.push(d);
-        }
-        rows = keep;
-      }
-      res.json({ ok: true, decisions: rows });
+      const rows = await visibleDecisions(req.reportUser, req.query.status ? String(req.query.status).split(',') : null);
+      res.json({ ok: true, decisions: await withSourceLinks(rows) });
+    } catch (e) { fail(res, e); }
+  });
+  // C-15 (G23) — engagement delays: open decisions + open session actions the reader may see, with days overdue
+  // and an ageing summary. A missing / unreadable due date is UNKNOWN (null), never 0 days.
+  router.get('/api/governance/engagement-delays', requireReportSession, async (req, res) => {
+    try {
+      const u = req.reportUser; const asOf = new Date().toISOString().slice(0, 10);
+      const decs = await withSourceLinks(await visibleDecisions(u, ['open', 'in_progress']));
+      const cads = new Map((await store.listCadences({ siteIds: await scopeIds(u), includeInactive: true })).filter((c) => seesCadence(u, c)).map((c) => [c.id, c]));
+      const acts = (await store.openSessionActions()).filter((a) => cads.has(a.cadence_id));
+      const items = [
+        ...decs.map((d) => ({ kind: 'decision', ref: d.ref, title: d.title, owner: d.owner || null, due_date: d.due_date || null, status: d.status, session_id: d.session_id, site_id: d.site_id, href: (d.source_links.find((l) => l.href) || {}).href || null, source_links: d.source_links })),
+        ...acts.map((a) => ({ kind: 'action', ref: a.decision_ref || null, title: a.title, owner: a.owner || null, due_date: a.due_date || null, status: a.status, session_id: a.session_id, site_id: a.site_id == null ? null : Number(a.site_id), cadence_name: a.cadence_name, href: 'cockpit.html?session=' + a.session_id })),
+      ];
+      const r = GL.engagementDelays(items, asOf);
+      res.json({ ok: true, as_of: asOf, items: r.items, summary: r.summary, compliance_href: 'meetings-compliance.html' });
     } catch (e) { fail(res, e); }
   });
   // UAT (PMO F8): the site follows its decisions between meetings — the chair / secretary of the session's
