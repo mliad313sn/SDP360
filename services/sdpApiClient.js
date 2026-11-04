@@ -58,6 +58,8 @@ function makeSdpClient({ baseUrl, accountsUrl = 'https://accounts.zoho.com', cli
   // rest is older still → drop them and stop paging (fewer API calls every 5 min).
   async function _list(tok, { rowCount, maxPages, createdAfterMs, useCriteria }) {
     const out = [];
+    // A-23 — truncated = the loop used all maxPages pages and SDP still had more rows.
+    let truncated = false, pages = 0;
     for (let page = 0; page < maxPages; page++) {
       const li = { row_count: rowCount, start_index: page * rowCount + 1, sort_field: 'created_time',
         sort_order: 'desc', filter_by: { name: openFilter }, fields_required: FIELDS };
@@ -79,14 +81,16 @@ function makeSdpClient({ baseUrl, accountsUrl = 'https://accounts.zoho.com', cli
       }
       const d = (res && res.data) || {};
       const rows = Array.isArray(d.requests) ? d.requests : [];
+      pages = page + 1;
       if (createdAfterMs != null) {
         const keep = rows.filter(r => { const c = _createdMs(r); return c == null || c >= createdAfterMs; });
         out.push(...keep);
         if (keep.length < rows.length) break;
       } else out.push(...rows);
       if (!(d.list_info && d.list_info.has_more_rows)) break;
+      if (page === maxPages - 1) truncated = true;
     }
-    return out;
+    return { rows: out, truncated, pages };
   }
 
   async function listOpenRequests({ rowCount = 100, maxPages = MAX_PAGES, createdAfterMs = null } = {}) {
@@ -95,17 +99,17 @@ function makeSdpClient({ baseUrl, accountsUrl = 'https://accounts.zoho.com', cli
     const opts = { rowCount, maxPages, createdAfterMs };
     if (criteriaState === 'pending' || criteriaState === 'accepted') {
       try {
-        const rows = await _list(tok, { ...opts, useCriteria: true });
-        criteriaState = 'accepted'; meta = { criteria: criteriaState };
-        return rows;
+        const r = await _list(tok, { ...opts, useCriteria: true });
+        criteriaState = 'accepted'; meta = { criteria: criteriaState, truncated: r.truncated, pages: r.pages, max_pages: maxPages, row_count: rowCount };
+        return r.rows;
       } catch (e) {
         if (e.status !== 400) throw e;
         criteriaState = 'rejected';   // this instance does not take the criteria: plain listing from now on
       }
     }
-    const rows = await _list(tok, { ...opts, useCriteria: false });
-    meta = { criteria: criteriaState };
-    return rows;
+    const r = await _list(tok, { ...opts, useCriteria: false });
+    meta = { criteria: criteriaState, truncated: r.truncated, pages: r.pages, max_pages: maxPages, row_count: rowCount };
+    return r.rows;
   }
 
   /**

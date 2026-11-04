@@ -20,6 +20,13 @@ const DEFAULT_RULES = Object.freeze({
   // a status matching this (case-insensitive) pauses the SLA clock → no alert
   // statuses whose SLA clock is stopped in SDP (seen in prod 2026-10-04) — no alert
   paused_status: 'hold|awaiting|approval|po raised|pending verification',
+  // A-23 — exact status names (case-insensitive) that pause the SLA clock. When non-empty it
+  // REPLACES the paused_status regex (which also catches e.g. "Approval received"). Empty =
+  // today's behaviour (the regex). SDP's status.stop_timer flag still wins over both.
+  paused_statuses: [],
+  // A-23 — anti-duplicate: 'once' = one alert per (ticket, kind) ever (today);
+  // 'per_due' = a re-planned deadline (new due date) alerts again.
+  dedup_mode: 'once',
   // a status matching this is finished → never alerts, whatever the API filter returned
   finished_status: 'resolved|closed|cancel|completed|confirm|reject',
   // asked to SDP so it does not return finished tickets at all (fewer API calls); the
@@ -51,6 +58,8 @@ function parseRules(raw) {
   }
   if (typeof r.paused_status === 'string') out.paused_status = r.paused_status;
   if (typeof r.finished_status === 'string') out.finished_status = r.finished_status;
+  if (Array.isArray(r.paused_statuses)) out.paused_statuses = r.paused_statuses.map(x => String(x == null ? '' : x).trim()).filter(Boolean);
+  if (r.dedup_mode === 'once' || r.dedup_mode === 'per_due') out.dedup_mode = r.dedup_mode;
   if (Array.isArray(r.api_exclude_statuses)) out.api_exclude_statuses = r.api_exclude_statuses.map(String).filter(Boolean);
   return out;
 }
@@ -113,17 +122,21 @@ function evaluate(tickets, rules, nowMs) {
   try { paused = R.paused_status ? new RegExp(R.paused_status, 'i') : null; } catch (e) { paused = null; }
   let finished = null;
   try { finished = R.finished_status ? new RegExp(R.finished_status, 'i') : null; } catch (e) { finished = null; }
+  const exact = Array.isArray(R.paused_statuses) && R.paused_statuses.length
+    ? new Set(R.paused_statuses.map(x => String(x).trim().toLowerCase())) : null;
+  const isPaused = (st) => exact ? exact.has(String(st || '').trim().toLowerCase()) : !!(paused && paused.test(st || ''));
   const win = R.breach_window_minutes * 60000;
   const push = (t, kind, dueMs) => out.push({
     kind, request_id: t.id, display_id: t.display_id, subject: t.subject, p: t.p, group: t.group,
     technician: t.technician, site: t.site,
     minutes: dueMs == null ? null : Math.round((dueMs - nowMs) / 60000),
+    due_ms: dueMs == null ? null : dueMs,
   });
   for (const t of tickets || []) {
     if (!t || !t.id) continue;
-    // the API flag wins when known; the paused_status regex only covers its absence
+    // the API flag wins when known; paused_statuses (exact) or the paused_status regex only covers its absence
     if (t.sla_paused === true) continue;
-    if (t.sla_paused == null && paused && paused.test(t.status || '')) continue;
+    if (t.sla_paused == null && isPaused(t.status)) continue;
     if (finished && finished.test(t.status || '')) continue;
     if (cutoff != null && t.created_ms != null && t.created_ms < cutoff) continue;
     const K = R.kinds;
@@ -144,7 +157,7 @@ function evaluate(tickets, rules, nowMs) {
       const age = nowMs - t.created_ms;
       if (age >= R.unassigned_minutes * 60000 && age <= R.unassigned_max_age_hours * 3600000) {
         out.push({ kind: 'unassigned', request_id: t.id, display_id: t.display_id, subject: t.subject, p: t.p,
-          group: t.group, technician: '', site: t.site, minutes: -Math.round(age / 60000) });
+          group: t.group, technician: '', site: t.site, minutes: -Math.round(age / 60000), due_ms: null });
       }
     }
   }

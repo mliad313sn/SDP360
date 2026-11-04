@@ -122,3 +122,54 @@ test('the job asks the client for tickets younger than max_ticket_age_days', asy
   await run({ deps: d });
   assert.equal(asked.createdAfterMs, NOW - 7 * 86400000);
 });
+
+// A-23 — truncation reported on real runs; dedup_mode per_due re-alerts a re-planned deadline
+test('a real pass with a truncated client logs ONE teams_sla_truncated event (no URL) and sets out.truncated', async () => {
+  const events = [];
+  const d = deps({
+    client: { configured: true, pageCap: 5000, lastMeta: () => ({ criteria: 'accepted', truncated: true, pages: 50 }),
+      listOpenRequests: async () => [REQ('1', 'Hounde IT Agents')] },
+    logEvent: (e) => { events.push(e); },
+  });
+  const r = await run({ deps: d });
+  assert.equal(r.truncated, true);
+  assert.equal(events.length, 1);
+  assert.equal(events[0].action, 'teams_sla_truncated');
+  assert.equal(events[0].category, 'integration');
+  assert.ok(!/https?:\/\//.test(JSON.stringify(events[0])), 'no URL in the event');
+  // not truncated → no event, out.truncated false on a real run too
+  const e2 = [];
+  const r2 = await run({ deps: deps({ logEvent: (e) => e2.push(e) }) });
+  assert.equal(r2.truncated, false);
+  assert.equal(e2.length, 0);
+  // a dry run reports it but never logs
+  const e3 = [];
+  const p = await run({ deps: { ...d, logEvent: (e) => e3.push(e) }, dryRun: true });
+  assert.equal(p.truncated, true); assert.equal(e3.length, 0);
+});
+
+test('dedup_mode per_due re-alerts a re-planned resolution deadline on the next pass', async () => {
+  const store = new Map();
+  const perDueLog = {
+    filterUnsent: async (db, a, o) => a.filter(x => {
+      const k = x.request_id + '|' + x.kind;
+      if (!store.has(k)) return true;
+      if (!o || o.mode !== 'per_due') return false;
+      const v = store.get(k); return !(v == null || x.due_ms == null || v === x.due_ms);
+    }),
+    record: async (db, a) => a.forEach(x => store.set(x.request_id + '|' + x.kind, x.due_ms)),
+    purge: async () => 0,
+  };
+  let due = min(30);
+  const req = () => [REQ('9', 'Hounde IT Agents', { first_response_due_by_time: undefined, responded_time: { value: min(-50) },
+    created_time: { value: min(-300) }, due_by_time: { value: due } })];
+  const d = deps({ log: perDueLog, client: { configured: true, listOpenRequests: async () => req() } });
+  d.config.teams_sla_rules = JSON.stringify({ dedup_mode: 'per_due' });
+  assert.equal((await run({ deps: d })).sent, 1);
+  assert.equal((await run({ deps: d })).sent, 0, 'same deadline → not re-sent');
+  due = min(40);   // re-planned
+  assert.equal((await run({ deps: d })).sent, 1, 'new deadline → alerted again');
+  d.config.teams_sla_rules = '';   // once (default): never again
+  due = min(45);
+  assert.equal((await run({ deps: d })).sent, 0);
+});
