@@ -36,7 +36,12 @@
       r.onsuccess = function () { DB = r.result; res(DB); }; r.onerror = function () { rej(r.error); };
     });
   }
-  function tx(store, mode, fn) { return idb().then(function (d) { return new Promise(function (res, rej) { var t = d.transaction(store, mode), s = t.objectStore(store), out = fn(s); t.oncomplete = function () { res(out && out.result !== undefined ? out.result : out); }; t.onerror = function () { rej(t.error); }; t.onabort = function () { rej(t.error || new Error('transaction aborted')); }; }); }); }
+  // B-05: a get() that finds nothing has result === undefined; the old test `out.result !== undefined`
+  // then returned the IDBRequest itself — truthy — so on a fresh phone the stored site was
+  // "[object IDBRequest]" (site select left unselected → "Pick a site…", no inspection could be queued),
+  // low-bandwidth mode came up ON and a missing offline cache was taken for a bootstrap.
+  function isReq(o) { return !!o && typeof o === 'object' && 'readyState' in o && 'result' in o && 'onsuccess' in o; }
+  function tx(store, mode, fn) { return idb().then(function (d) { return new Promise(function (res, rej) { var t = d.transaction(store, mode), s = t.objectStore(store), out = fn(s); t.oncomplete = function () { res(isReq(out) ? out.result : out); }; t.onerror = function () { rej(t.error); }; t.onabort = function () { rej(t.error || new Error('transaction aborted')); }; }); }); }
   var kvGet = function (k) { return tx('kv', 'readonly', function (s) { return s.get(k); }); };
   var kvSet = function (k, v) { return tx('kv', 'readwrite', function (s) { s.put(v, k); }); };
   var obAll = function () { return tx('outbox', 'readonly', function (s) { return s.getAll(); }); };
@@ -211,9 +216,10 @@
   }
   function compress(file, cap) {
     return new Promise(function (res, rej) {
-      var img = new Image(), url = URL.createObjectURL(file);
+      // B-05: read the photo as a data: URL — the CSP allows img-src 'self' data: only, so a blob: URL
+      // never decodes on the served app ("cannot read image"); the journey test T3 caught it.
+      var img = new Image(), rd = new FileReader();
       img.onload = function () {
-        URL.revokeObjectURL(url);
         var side = 1280, w = img.width, h = img.height, k = Math.min(1, side / Math.max(w, h)), c = document.createElement('canvas');
         c.width = Math.round(w * k); c.height = Math.round(h * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
         var q = 0.8, out;
@@ -222,7 +228,10 @@
         if (size > cap) return rej(new Error('photo still over ' + Math.round(cap / 1024) + ' KB after compression'));
         res({ b64: b64, mime: 'image/jpeg', size: size, name: (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg' });
       };
-      img.onerror = function () { rej(new Error('cannot read image')); }; img.src = url;
+      img.onerror = function () { rej(new Error('cannot read image')); };
+      rd.onerror = function () { rej(new Error('cannot read image')); };
+      rd.onload = function () { img.src = rd.result; };
+      rd.readAsDataURL(file);
     });
   }
   // G19 — a second tap while an entry is being queued does nothing (no duplicate entry from a double tap)
