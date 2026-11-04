@@ -74,6 +74,21 @@
     search:           ICONS.html('search'),
   };
 
+  // A-21 — navigation profile (report_config ui_nav_profile via window.__uiPolicy; 'full' = today's menu).
+  // In the 'lean' profile an entry may carry:
+  //   lean_roles  — the roles that see it in the MENU (the finder still follows `roles`: who may open the page)
+  //   lean_hidden — off the menu, still in the finder (Ctrl+K) and in contextual links
+  //   lean_group  — the task group it is listed under
+  // PROPOSAL, switched off: the lean membership is to be re-decided from the pilot usability sessions (T1-T8).
+  const INFRA_LEAN = ['admin', 'executive', 'scorecard-viewer'];
+  function navProfile() {
+    try { const p = window.__uiPolicy; return p && p.nav_profile === 'lean' ? 'lean' : 'full'; } catch (_) { return 'full'; }
+  }
+  function deckBuilderRoles() {
+    try { const r = window.__uiPolicy && window.__uiPolicy.deck_builder_roles; if (Array.isArray(r) && r.length) return r; } catch (_) { /* no policy */ }
+    return ['super_admin'];
+  }
+
   // Canonical nav. Each item declares the role(s) that grant access.
   // 'any' = any logged-in user. Non-'any' values pass through to
   // window.__userHasRole. Children are shown in a dropdown for items
@@ -139,18 +154,23 @@
         { id: 'meetings', group: 'Governance',     label: 'Meetings Decisions', icon: ICON_LIB.users,              href: 'meetings.html',         roles: ['any'] },
         { id: 'site-actions', group: 'Governance', label: 'Site Actions',       icon: ICON_LIB.check,              href: 'site-actions.html',     roles: ['any'] },
         { id: 'tracker', group: 'Plan & track',      label: 'Activity Tracker',   icon: ICON_LIB.target,             href: 'activity-tracker.html', roles: ['any'] },
-        { id: 'trackers', group: 'Plan & track',     label: 'Trackers',           icon: ICON_LIB.activity,            href: 'trackers.html',         roles: ['any'] },
+        { id: 'trackers', group: 'Plan & track',     label: 'Trackers',           icon: ICON_LIB.activity,            href: 'trackers.html',         roles: ['any'],
+          lean_roles: ['admin', 'tracker-admin', 'dashboard-publisher'], lean_group: 'Configure' },
         { id: 'dashboards', group: 'Report & share',   label: 'Dashboards',         icon: ICON_LIB.gauge,              href: 'dashboards.html',       roles: ['any'] },
-        { id: 'cockpit', group: 'Report & share',      label: 'Meeting Cockpit',    icon: ICON_LIB.calendar,           href: 'cockpit.html',          roles: ['any'] },
-        { id: 'portfolio', group: 'Plan & track',    label: 'Portfolio',          icon: ICON_LIB['trending-up'],     href: 'portfolio.html',        roles: ['any'] },
-        { id: 'rfi', group: 'Plan & track',          label: 'RFI register',       icon: ICON_LIB.lightbulb,          href: 'rfi.html',              roles: ['any'] },
-        { id: 'report-studio', group: 'Report & share', label: 'Report studio',     icon: ICON_LIB['file-text'],       href: 'report-studio.html',    roles: ['any'] },
-        { id: 'notifications', group: 'Report & share', label: 'Notifications',     icon: ICON_LIB['alert-circle'],    href: 'notifications.html',    roles: ['any'] },
-        { id: 'handoffs', group: 'Governance',     label: 'Handoffs',           icon: ICON_LIB.users,              href: 'handoffs.html',         roles: ['any'] },
-        { id: 'obligations', group: 'Governance',  label: 'Site obligations',   icon: ICON_LIB['clipboard-check'], href: 'obligations.html',      roles: ['any'] },
+        { id: 'cockpit', group: 'Report & share',      label: 'Meeting Cockpit',    icon: ICON_LIB.calendar,           href: 'cockpit.html',          roles: ['any'],
+          lean_roles: ['editor', 'committee-member', 'finance-viewer', 'scorecard-viewer'] },
+        { id: 'portfolio', group: 'Plan & track',    label: 'Portfolio',          icon: ICON_LIB['trending-up'],     href: 'portfolio.html',        roles: ['any'],
+          lean_roles: ['admin', 'executive', 'committee-member', 'finance-viewer'] },
+        { id: 'rfi', group: 'Plan & track',          label: 'RFI register',       icon: ICON_LIB.lightbulb,          href: 'rfi.html',              roles: ['any'], lean_hidden: true },
+        { id: 'report-studio', group: 'Report & share', label: 'Report studio',     icon: ICON_LIB['file-text'],       href: 'report-studio.html',    roles: ['any'],
+          lean_roles: ['editor', 'report-author', 'committee-member', 'finance-viewer', 'scorecard-viewer'] },
+        { id: 'notifications', group: 'Report & share', label: 'Notifications',     icon: ICON_LIB['alert-circle'],    href: 'notifications.html',    roles: ['any'], lean_hidden: true },
+        { id: 'handoffs', group: 'Governance',     label: 'Handoffs',           icon: ICON_LIB.users,              href: 'handoffs.html',         roles: ['any'], lean_hidden: true },
+        { id: 'obligations', group: 'Governance',  label: 'Site obligations',   icon: ICON_LIB['clipboard-check'], href: 'obligations.html',      roles: ['any'], lean_hidden: true },
         { id: 'policies', group: 'Configure',     label: 'Governance policies', icon: ICON_LIB['clipboard-check'], href: 'policies.html',        roles: ['admin', 'committee-member'] },
         { id: 'integrations', group: 'Configure', label: 'Integrations',       icon: ICON_LIB.zap,                href: 'integrations.html',     roles: ['admin'] },
-        { id: 'field', group: 'Configure',        label: 'Field app',          icon: ICON_LIB['clipboard-check'], href: 'field/index.html',      roles: ['editor', 'field-tech'] }
+        { id: 'field', group: 'Configure',        label: 'Field app',          icon: ICON_LIB['clipboard-check'], href: 'field/index.html',      roles: ['editor', 'field-tech'],
+          lean_roles: ['field-tech'], lean_group: 'Governance' }
       ]
     },
     {
@@ -163,12 +183,12 @@
       roles:    ['any'],
       title:    'Assets and network estate',
       children: [
-        { id: 'assets',       label: 'Assets',                icon: ICON_LIB['hard-drive'],  href: 'assets.html',       roles: ['any'] },
-        { id: 'wan',          label: 'WAN',                   icon: ICON_LIB['bar-chart-3'], href: 'wan.html',          roles: ['any'] },
+        { id: 'assets',       label: 'Assets',                icon: ICON_LIB['hard-drive'],  href: 'assets.html',       roles: ['any'], lean_roles: INFRA_LEAN },
+        { id: 'wan',          label: 'WAN',                   icon: ICON_LIB['bar-chart-3'], href: 'wan.html',          roles: ['any'], lean_roles: INFRA_LEAN },
         // Infrastructure Health — cumulated per-site × family availability (WAN/LAN/WLAN/Servers)
         // + trend + governance, from the archived snapshots. Complements OpManager (no live device
         // status). WAN detail stays on wan.html.
-        { id: 'infra-health', label: 'Infrastructure Health', icon: ICON_LIB.activity,       href: 'infra-health.html', roles: ['any'] }
+        { id: 'infra-health', label: 'Infrastructure Health', icon: ICON_LIB.activity,       href: 'infra-health.html', roles: ['any'], lean_roles: INFRA_LEAN }
       ]
     },
     {
@@ -184,7 +204,9 @@
       title:    'Site reports and executive deck builder',
       children: [
         { id: 'site-reports',    label: 'Site Reports', icon: ICON_LIB['file-text'], href: 'reports.html',          roles: ['any'] },
-        { id: 'reports-builder', label: 'Deck Builder', icon: ICON_LIB.presentation, href: 'executive-report.html', roles: ['super_admin'] }  // = the page's data-require (RBAC audit 2026-10-02, A19)
+        // roles = the page's data-require (RBAC audit 2026-10-02, A19). A-21: the ENTRY follows report_config
+        // ui_deck_builder_roles ('super_admin' today); the page gate is NOT widened here (navigation is never a permission).
+        { id: 'reports-builder', label: 'Deck Builder', icon: ICON_LIB.presentation, href: 'executive-report.html', roles: ['super_admin'], roles_from: 'deck_builder_roles' }
       ]
     },
     {
@@ -242,14 +264,33 @@
     const check = window.__userHasRole || (() => false);
     return roles.some(r => check(r));
   }
+  // May the user open this page? (drives the finder and workspaces)
+  function mayOpen(it) {
+    return hasAnyRole(it.roles_from === 'deck_builder_roles' ? deckBuilderRoles() : it.roles);
+  }
+  // Is it listed in the MENU? Same as mayOpen in the full profile.
+  function inMenu(it) {
+    if (!mayOpen(it)) return false;
+    if (navProfile() !== 'lean') return true;
+    if (it.lean_hidden) return false;
+    return it.lean_roles ? hasAnyRole(it.lean_roles) : true;
+  }
+  function groupOf(c) { return (navProfile() === 'lean' && c.lean_group) || c.group || ''; }
   function visibleItems(items) {
-    return (items || []).filter(it => hasAnyRole(it.roles));
+    return (items || []).filter(inMenu);
   }
   // A top-level section stays visible if its own roles grant OR it has ≥1 visible child — so a
   // business-only user still reaches "Ma Vue Site" under Insights even though the parent is roles:'any'.
+  // Lean profile: a section with children is shown only when ≥1 child is on the menu.
   function sectionVisible(item) {
+    if (!item.children) return inMenu(item);
+    if (navProfile() === 'lean') return visibleItems(item.children).length > 0;
     if (hasAnyRole(item.roles)) return true;
-    return !!(item.children && visibleItems(item.children).length);
+    return !!visibleItems(item.children).length;
+  }
+  // { id, children:[{id, group}] } for every section on the menu — what render() draws (tests use it).
+  function menuModel() {
+    return NAV.filter(sectionVisible).map(s => ({ id: s.id, children: visibleItems(s.children).map(c => ({ id: c.id, group: groupOf(c) })) }));
   }
 
   // ── SMART LANDING ───────────────────────────────────────────────
@@ -282,15 +323,18 @@
   }
 
   // ── RENDER HELPERS ──────────────────────────────────────────────
+  const GROUP_ORDER = ['Governance', 'Plan & track', 'Report & share', 'Configure'];
   function groupChildren(items) {
     const out = [];
     for (const c of items) {
-      const name = c.group || '';
+      const name = groupOf(c);
       let g = out.find(x => x.name === name);
       if (!g) { g = { name, items: [] }; out.push(g); }
       g.items.push(c);
     }
-    return out;
+    // canonical task order (first appearance otherwise) — a lean_group never lands a group out of order
+    const rank = (n) => { const i = GROUP_ORDER.map(T).indexOf(n); return i < 0 ? GROUP_ORDER.length : i; };
+    return out.map((g, i) => [g, i]).sort((a, b) => (rank(a[0].name) - rank(b[0].name)) || (a[1] - b[1])).map(x => x[0]);
   }
 
   // ── Navigation language (G18): the shared preference 'sdp_lang', else the browser language. Only the shell's own
@@ -330,7 +374,7 @@
   const T = (s) => (shellLang() === 'fr' && SHELL_FR[s]) || s;
   function translateNav(list) {
     for (const o of list || []) {
-      for (const k of ['label', 'title', 'group']) if (typeof o[k] === 'string') { const en = o[k + '_en'] || (o[k + '_en'] = o[k]); o[k] = T(en); }
+      for (const k of ['label', 'title', 'group', 'lean_group']) if (typeof o[k] === 'string') { const en = o[k + '_en'] || (o[k + '_en'] = o[k]); o[k] = T(en); }
       if (Array.isArray(o.children)) translateNav(o.children);
     }
   }
@@ -352,8 +396,9 @@
   function allEntries() {
     const out = [];
     for (const sec of NAV) {
-      if (sec.href && !sec.children && hasAnyRole(sec.roles)) out.push({ id: sec.id, label: sec.label, en: sec.label_en || '', href: sec.href, section: sec.label, group: '', target: sec.target });
-      for (const c of visibleItems(sec.children || [])) out.push({ id: c.id, label: c.label, en: c.label_en || '', href: c.href, section: sec.label, group: c.group || '', target: c.target });
+      // the finder lists every page the user may open, including entries the lean menu leaves out (A-21)
+      if (sec.href && !sec.children && mayOpen(sec)) out.push({ id: sec.id, label: sec.label, en: sec.label_en || '', href: sec.href, section: sec.label, group: '', target: sec.target });
+      for (const c of (sec.children || []).filter(mayOpen)) out.push({ id: c.id, label: c.label, en: c.label_en || '', href: c.href, section: sec.label, group: groupOf(c), target: c.target });
     }
     return out;
   }
@@ -375,7 +420,8 @@
     if (!sec) return null;
     const child = (sec.children || []).find(c => c.id === ctx.current);
     if (!child) return null;
-    return [{ label: sec.label }].concat(child.group ? [{ label: child.group }] : [], [{ label: child.label }]);
+    const grp = groupOf(child);
+    return [{ label: sec.label }].concat(grp ? [{ label: grp }] : [], [{ label: child.label }]);
   }
 
   function escapeHtml(s) {
@@ -469,6 +515,8 @@
     // reads English with a French voice. cockpit.html and field/ set it themselves through i18nText.
     try { const de = document.documentElement; if (de && de.dataset && de.dataset.i18n === 'on') de.lang = lang; } catch (_) { /* no DOM */ }
 
+    // A-21 — the lean profile moves the "icons only" breakpoint (public/_shell.css) through this body class
+    try { if (document.body && document.body.classList) document.body.classList.toggle('shell-nav-lean', navProfile() === 'lean'); } catch (_) { /* no DOM */ }
     const navHtml = NAV.filter(sectionVisible).map(it => renderNavItem(it, ctx)).join('');
 
     const html = `
@@ -500,8 +548,29 @@
       </div>`;
 
     mount.innerHTML = html.trim() + crumbHtml + searchHtml;
+    fitLeanLabels();
     ensureSkipLink(mount);
   }
+
+  // A-21 — lean profile: keep the labels only when they fit (measured, so French labels and long role menus are
+  // covered); otherwise shell-nav-tight drops back to icons. No-op in the full profile.
+  function fitLeanLabels() {
+    try {
+      const body = document.body;
+      if (!body || !body.classList) return;
+      body.classList.remove('shell-nav-tight');
+      if (navProfile() !== 'lean') return;
+      const nav = document.querySelector('.shell-nav');
+      if (nav && nav.scrollWidth > nav.clientWidth + 1) body.classList.add('shell-nav-tight');
+    } catch (_) { /* no layout */ }
+  }
+  let fitQueued = false;
+  try {
+    window.addEventListener('resize', () => {
+      if (fitQueued) return; fitQueued = true;
+      (window.requestAnimationFrame || setTimeout)(() => { fitQueued = false; fitLeanLabels(); });
+    });
+  } catch (_) { /* no window events (tests) */ }
 
   // A-12a — "Skip to content" (WCAG 2.4.1) on every shell page. Inserted once as the first child of
   // <body>; a page that already has its own .edv-skip keeps it. Target: #main, else the first <main>,
@@ -588,6 +657,8 @@
     searchEntries,
     breadcrumbFor,
     groupChildren,
+    menuModel,
+    navProfile,
     landingFor,
     defaultLanding,
     hasAnyRole

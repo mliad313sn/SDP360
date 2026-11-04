@@ -5,7 +5,7 @@ Generated from `services/reportCatalogue.js` — do not edit by hand. Source of 
 report or rule is approved, configured in production or accepted by its audience. Every switch that lets something
 leave the server ships off; the STOP switch `notifications_stop` halts every engagement outbound channel at once.
 
-Reports: {"implemented":1,"partial":13,"missing":2} · Rules: {"implemented":1,"partial":12,"missing":3}
+Reports: {"implemented":1,"partial":13,"missing":2} · Rules: {"implemented":1,"partial":13,"missing":2}
 
 ## Reports
 
@@ -40,9 +40,9 @@ Reports: {"implemented":1,"partial":13,"missing":2} · Rules: {"implemented":1,"
 | A06 | Recorded activity not submitted by deadline | partial | `services/weeklyReportData.js` | `weekly_report_send_enabled`=0 | — | — | "complete but not submitted" is shown in the weekly e-mail; no exception record |
 | A07 | Critical monitored service/link outage or recurring incident pattern | partial | `tools/teams/poll-sla.js`<br>`tools/meraki/poll-wan-outages.js` | `teams_sla_enabled`=0 | sla_alert_log (request_id, kind) | once per ticket and kind | SDP SLA alerts and Meraki WAN outages (kept, D-06) exist; OpManager alarms are not read |
 | A08 | Source stale / row-count anomaly / failed delivery | partial | `services/sync/alerts.js`<br>`services/publishGate.js`<br>`services/sync/syncRunner.js` | `sync_alert_enabled`=1<br>`sync_alert_recipients`=(empty) | after 2 failures, per job | per job state | stale sources lose their colour and block publication; report-delivery failure is logged, not alerted; export mismatch is not detected |
-| A09 | Benefit review date reached | missing | — | — | — | — | no benefit-review date in the portfolio model |
+| A09 | Benefit review date reached | partial | `services/portfolioBenefits.js`<br>`services/obligations.js`<br>`services/myWork.js`<br>`public/project.html` | — | one line per benefit until verified | — | in-app reminder only (Site obligations + My work), no outbound notice; the benefit owner is free text, so the line goes to the project site, not to the person |
 | A10 | Funding review / stage gate / renewal date approaching | partial | `services/projectSchedule.js` | — | — | — | stage gates enforced; no reminder |
-| A11 | Milestone / dependency / capacity blocked, late or unowned | partial | `services/projectSchedule.js`<br>`routes/governance.js` | — | — | — | conflicts and dependency problems are shown; no escalation or Friday queue entry |
+| A11 | Milestone / dependency / capacity blocked, late or unowned | partial | `services/ppmAlerts.js`<br>`tools/governance/ppm-alerts.js`<br>`routes/governance.js`<br>`public/cockpit.html` | `ppm_alerts_enabled`=0 | item key, 7 days | 7 days per item; cleared when the item disappears | armed off until the committee decides the thresholds; capacity overload waits for A-13 |
 | A12 | KPI policy / source mapping change → controlled recalculation | partial | `services/governancePolicy.js` | — | — | — | policy history is hash-chained; no RFI and dual-run comparison |
 | A13 | Friday review preparation (exception-only agenda) | partial | `public/cockpit.html`<br>`routes/governance.js` | — | — | — | agenda built on demand; not compiled on a schedule |
 | A14 | Report cutoff → draft, review, freeze, distribute, log receipt | partial | `routes/reportStudio.js`<br>`services/reportStore.js`<br>`services/engagementJobs.js` | `publish_cron_enabled`=0<br>`notifications_stop`=0 | report_runs per template and period | — | drafts, review, frozen publication exist; recipient receipt is not recorded |

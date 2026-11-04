@@ -50,6 +50,7 @@
     <button type="button" role="tab" id="tab-plan" aria-controls="pane-plan" aria-selected="false" tabindex="-1">Plan</button>
     <button type="button" role="tab" id="tab-milestones" aria-controls="pane-milestones" aria-selected="false" tabindex="-1">Milestones</button>
     <button type="button" role="tab" id="tab-raid" aria-controls="pane-raid" aria-selected="false" tabindex="-1">RAID</button>
+    <button type="button" role="tab" id="tab-benefits" aria-controls="pane-benefits" aria-selected="false" tabindex="-1">Benefits</button>
     <button type="button" role="tab" id="tab-gates" aria-controls="pane-gates" aria-selected="false" tabindex="-1">Gates</button>
     <button type="button" role="tab" id="tab-history" aria-controls="pane-history" aria-selected="false" tabindex="-1">History</button>
   </div>
@@ -75,6 +76,7 @@
   <section id="pane-plan" role="tabpanel" aria-labelledby="tab-plan" hidden>
     <div class="panel"><h2>Schedule</h2><div id="plan-note" class="muted"></div><div class="gantt scroll" id="gantt"></div>
       <details><summary class="muted">Table view (the same data)</summary><div class="scroll" id="plan-table"></div></details></div>
+    <div class="panel"><h2>Baseline versions</h2><div class="row"><label>Show as the dashed baseline <select id="bl-version" aria-label="Baseline version"><option value="">Current task baselines</option></select></label></div><div id="bl-note" class="muted"></div><div class="scroll" id="bl-diff"></div></div>
     <div class="panel"><h2>Resource conflicts on this project</h2><div class="scroll" id="plan-conflicts"></div></div>
     <div class="panel" id="task-edit" hidden><h2>Add / edit a task</h2>
       <div class="row">
@@ -132,6 +134,36 @@
     </div>
   </section>
 
+  <section id="pane-benefits" role="tabpanel" aria-labelledby="tab-benefits" hidden>
+    <div class="panel"><h2>Expected and realised benefits</h2>
+      <p class="muted">From its review date a benefit appears on the Site obligations view and on “My work” until a realised value with evidence is entered and verified by someone other than the person who entered it. Nothing is e-mailed.</p>
+      <div class="scroll" id="benefits"></div></div>
+    <div class="panel" id="ben-edit" hidden><h2>Add / edit an expected benefit</h2>
+      <div class="row">
+        <label>Benefit <select id="b-id"></select></label>
+        <label style="grid-column:1/-1">Description <textarea id="b-desc" rows="2"></textarea></label>
+        <label>Measure <input id="b-measure" placeholder="e.g. unplanned downtime"></label>
+        <label>Unit <input id="b-unit" placeholder="e.g. hours / month"></label>
+        <label>Kind of value <select id="b-kind"><option value="quantity">quantity</option><option value="money">money (amounts)</option></select></label>
+        <label>Currency (money only) <input id="b-cur" placeholder="USD"></label>
+        <label>Baseline value <input id="b-base" type="number" step="any"></label>
+        <label>Target value <input id="b-target" type="number" step="any"></label>
+        <label>Benefit owner <input id="b-owner"></label>
+        <label>Benefit review date <input id="b-review" type="date"></label>
+      </div>
+      <div class="bar"><button class="btn primary" id="b-save" type="button">Save benefit</button><button class="btn danger" id="b-del" type="button">Delete benefit</button><span class="muted">Changing the measure, unit, kind, baseline or target clears a verification.</span></div>
+    </div>
+    <div class="panel" id="ben-real" hidden><h2>Record a realised value</h2>
+      <div class="row">
+        <label>Benefit <select id="br-id"></select></label>
+        <label>Realised value <input id="br-value" type="number" step="any"></label>
+        <label style="grid-column:1/-1">Evidence link (http or https) <input id="br-link" type="url" placeholder="https://…"></label>
+        <label style="grid-column:1/-1">Note <textarea id="br-note" rows="2"></textarea></label>
+      </div>
+      <div class="bar"><button class="btn primary" id="br-save" type="button">Record realised value</button><span class="muted">A new value clears an earlier verification; someone else then verifies it.</span></div>
+    </div>
+  </section>
+
   <section id="pane-gates" role="tabpanel" aria-labelledby="tab-gates" hidden>
     <div class="panel"><h2>Stage gates</h2><div id="gates"></div>
       <div id="gate-reason-box" hidden><label>Reason (10 characters or more) <textarea id="gate-reason" rows="2"></textarea></label></div></div>
@@ -158,6 +190,9 @@
   var msg = function (h, cls) { $("msg").innerHTML = h ? "<div class=\"" + (cls || "ok") + "\">" + esc(h) + "</div>" : ""; };
   // the server's refusal codes in plain words
   var PLAIN = {
+    SELF_REVIEW: "You entered this realised value: another person verifies it (four-eyes rule).",
+    NOT_REALISED: "There is no realised value to verify yet.",
+    MONEY_SCOPE: "A benefit expressed in money is maintained by the committee, the admin tier or the finance role.",
     DEP_CYCLE: "These dependencies would make a loop (a task would wait for itself).",
     DEP_MISSING: "A dependency points to a task that does not exist in this project.",
     DEP_SELF: "A task cannot depend on itself.",
@@ -170,8 +205,8 @@
 
   // ---- tabs (role=tablist, arrows / Home / End, deep link #tab) ---------------------------------------------
   // Extension point: later goals (baselines, benefits) add a tab button + a pane + an entry in RENDER.
-  var TABS = ["overview", "charter", "plan", "milestones", "raid", "gates", "history"];
-  var RENDER = { overview: renderOverview, charter: renderCharter, plan: renderPlan, milestones: renderMilestones, raid: renderRaid, gates: renderGates, history: loadHistory };
+  var TABS = ["overview", "charter", "plan", "milestones", "raid", "benefits", "gates", "history"];
+  var RENDER = { overview: renderOverview, charter: renderCharter, plan: renderPlan, milestones: renderMilestones, raid: renderRaid, benefits: renderBenefits, gates: renderGates, history: loadHistory };
   function showTab(name, focus) {
     if (TABS.indexOf(name) < 0) name = "overview";
     TABS.forEach(function (t) { var b = $("tab-" + t), on = t === name; b.setAttribute("aria-selected", on ? "true" : "false"); b.tabIndex = on ? 0 : -1; $("pane-" + t).hidden = !on; });
@@ -212,6 +247,22 @@
     return out;
   }
   var taskLabel = function (t) { return [t.wbs_code, t.name].filter(function (x) { return x != null && x !== ""; }).join(" "); };   // plain text; callers escape
+  // A-27 — baseline versions (portfolio_baselines): the chosen version is drawn as the dashed baseline ("ghost")
+  var BLV = null, BLSEL = "";
+  function blVersion() { if (!BLV || !BLSEL) return null; for (var i = 0; i < BLV.versions.length; i++) if (String(BLV.versions[i].version) === BLSEL) return BLV.versions[i]; return null; }
+  function ghostOf(t) {
+    var v = blVersion(); if (!v) return { s: t.baseline_start, e: t.baseline_end };
+    var x = (v.payload.tasks || []).filter(function (y) { return y.id === t.id; })[0];
+    return x ? { s: x.baseline_start || x.start_date, e: x.baseline_end || x.end_date } : { s: null, e: null };
+  }
+  function renderBaselines() {
+    if (!BLV) { api("/api/governance/portfolio/project/" + encodeURIComponent(PID) + "/baselines").then(function (j) { BLV = j; renderBaselines(); if (BLSEL) renderPlan(); }).catch(function () { $("bl-note").textContent = "Baseline versions unavailable."; }); return; }
+    $("bl-version").innerHTML = opt(BLV.versions.map(function (v) { return [v.version, "v" + v.version + " · " + String(v.captured_at || "").slice(0, 10) + (v.approved_by_name ? " · re-baseline by " + v.approved_by_name : " · captured at approval")]; }), BLSEL, "Current task baselines");
+    $("bl-note").textContent = BLV.versions.length ? "Shifts are in days from the chosen version to the current plan (positive = later); “—” = a date is missing on one side." : (BLV.capture_enabled ? "No baseline version yet: one is written when the project passes the approval gate." : "No baseline version: version capture at approval is off (setting ppm_baseline_versions).");
+    var v = blVersion(), d = v && v.diff_vs_current;
+    $("bl-diff").innerHTML = d ? "<p>Project finish: " + n(d.project.end_shift_days, " d") + (v.reason ? " · <span class=\"muted\">" + esc(v.reason) + "</span>" : "") + "</p><table><thead><tr><th>Task</th><th>Start shift</th><th>End shift</th><th></th></tr></thead><tbody>" + d.tasks.map(function (t) { return "<tr><td>" + esc(t.name || "#" + t.id) + "</td><td>" + n(t.start_shift_days, " d") + "</td><td>" + n(t.end_shift_days, " d") + "</td><td class=\"muted\">" + (!t.in_a ? "added since" : !t.in_b ? "removed since" : "") + "</td></tr>"; }).join("") + "</tbody></table>" : "";
+  }
+  document.addEventListener("change", function (ev) { if (ev.target && ev.target.id === "bl-version") { BLSEL = ev.target.value; renderPlan(); } });
   var planOf = function (id) { var p = V.plan && V.plan.tasks || []; for (var i = 0; i < p.length; i++) if (p[i].id === id) return p[i]; return null; };
   function opt(list, sel, blank) { return (blank ? "<option value=\"\">" + esc(blank) + "</option>" : "") + list.map(function (o) { return "<option value=\"" + esc(o[0]) + "\"" + (String(o[0]) === String(sel) ? " selected" : "") + ">" + esc(o[1]) + "</option>"; }).join(""); }
 
@@ -219,7 +270,7 @@
   function load() {
     if (!PID || !/^\d+$/.test(PID)) { $("p-title").textContent = "Project"; msg("No project id in the address — open a project from the portfolio.", "errors"); return Promise.resolve(); }
     return api("/api/governance/portfolio/project/" + encodeURIComponent(PID)).then(function (v) {
-      V = v; renderHeader();
+      V = v; BLV = null; renderHeader();
       var t = (window.location.hash || "").slice(1);
       showTab(TABS.indexOf(t) >= 0 ? t : (TABS.filter(function (x) { return $("tab-" + x).getAttribute("aria-selected") === "true"; })[0] || "overview"));
     }).catch(function (e) { if (e.status === 404) { $("p-title").textContent = "Project not found"; msg("This project does not exist, or it is outside the sites you may read.", "errors"); } else fail(e); });
@@ -279,6 +330,7 @@
   }
   function renderPlan() {
     var rows = taskOrder(V.tasks), anchor = V.plan && V.plan.anchor;
+    renderBaselines();
     var assumed = rows.filter(function (r) { var pl = planOf(r.t.id); return pl && pl.assumed_duration; }).length;
     $("plan-note").innerHTML = (V.plan ? "" : "<p class=\"refusal\">The dependencies form a loop: the plan cannot be computed.</p>") +
       (anchor ? "Computed dates start from " + esc(anchor) + " (project start, else the earliest task start). " : "No project start and no dated task: the plan is shown in relative days only, not as dates. ") +
@@ -297,7 +349,7 @@
     var dated = !!anchor || rows.some(function (r) { return barOf(r.t); });
     var lo = Infinity, hi = -Infinity, push = function (d) { var x = toMs(d); if (isFinite(x)) { lo = Math.min(lo, x); hi = Math.max(hi, x + DAY); } };
     var rel = function (r) { var pl = planOf(r.t.id); return pl ? { s: pl.es, e: pl.ef } : null; };
-    if (dated) { rows.forEach(function (r) { var b = barOf(r.t); if (b) { push(b.s); push(b.e); } push(r.t.baseline_start); push(r.t.baseline_end); }); ms.forEach(function (m) { push(m.due_date); }); push(today()); }
+    if (dated) { rows.forEach(function (r) { var b = barOf(r.t); if (b) { push(b.s); push(b.e); } var g = ghostOf(r.t); push(g.s); push(g.e); }); ms.forEach(function (m) { push(m.due_date); }); push(today()); }
     else { lo = 0; hi = Math.max(1, (V.plan && V.plan.length_days) || 1); }
     if (!isFinite(lo)) { lo = toMs(today()); hi = lo + 30 * DAY; }
     var span = Math.max(1, hi - lo), x = function (v) { return LW + (W - LW - 10) * (v - lo) / span; };
@@ -310,7 +362,8 @@
       var x0 = b ? xd(b.s) : rr ? xr(rr.s) : null, x1 = b ? xd(b.e) + (W - LW - 10) * DAY / span : rr ? xr(rr.e) : null;
       var crit = !!pl.critical, comp = b ? b.computed : !!rr;
       out.push("<text class=\"lbl\" x=\"" + n(4 + 12 * r.depth) + "\" y=\"" + n(y + 16) + "\">" + esc(taskLabel(t).slice(0, 38)) + (crit ? " CP" : "") + "</text>");
-      if (t.baseline_start && t.baseline_end && dated) out.push("<rect x=\"" + n(xd(t.baseline_start)) + "\" y=\"" + n(y + 3) + "\" width=\"" + n(Math.max(2, xd(t.baseline_end) + (W - LW - 10) * DAY / span - xd(t.baseline_start))) + "\" height=\"18\" rx=\"4\" fill=\"none\" stroke=\"#9AA4B2\" stroke-dasharray=\"4 3\"/>");
+      var gh = ghostOf(t);
+      if (gh.s && gh.e && dated) out.push("<rect x=\"" + n(xd(gh.s)) + "\" y=\"" + n(y + 3) + "\" width=\"" + n(Math.max(2, xd(gh.e) + (W - LW - 10) * DAY / span - xd(gh.s))) + "\" height=\"18\" rx=\"4\" fill=\"none\" stroke=\"#9AA4B2\" stroke-dasharray=\"4 3\"/>");
       if (x0 == null) { out.push("<text class=\"axis\" x=\"" + n(LW + 4) + "\" y=\"" + n(y + 16) + "\">not scheduled</text>"); return; }
       pos[t.id] = { s: x0, e: x1, y: y + 12 };
       var when = b ? [b.s, " to ", b.e].join("") : ["day ", rr.s, " to day ", rr.e].join("");  // plain text, escaped once in esc(label)
@@ -394,6 +447,50 @@
     var b = { project_id: V.project.id, kind: $("r-kind").value, title: $("r-title").value.trim(), probability: numOrNull("r-prob"), impact: numOrNull("r-imp"), owner: $("r-owner").value.trim() || null, status: $("r-status").value, mitigation: $("r-mit").value.trim() || null };
     if (id) { b.id = id; delete b.project_id; }
     api("/api/governance/portfolio/risk", { method: "PUT", body: JSON.stringify(b) }).then(function () { msg("Entry saved."); return load(); }).catch(fail);
+  });
+
+  // ---- benefits (B-08, catalogue A09) -----------------------------------------------------------------------
+  var BEN_STATE = { planned: ["planned", "planned"], review_due: ["RED", "review due — value missing"], awaiting_verification: ["AMBER", "awaiting verification"], verified: ["done", "✓ verified"] };
+  var safeLink = function (u) { return /^https?:\/\//i.test(String(u || "")) ? "<a href=\"" + esc(u) + "\" target=\"_blank\" rel=\"noopener noreferrer\">evidence</a>" : "—"; };
+  function renderBenefits() {
+    var bs = V.benefits || [];
+    var val = function (b, k) { return b.values_hidden ? "<span class=\"muted\">hidden</span>" : n(b[k]); };
+    $("benefits").innerHTML = bs.length ? "<table><thead><tr><th>Benefit</th><th>Measure</th><th>Unit</th><th>Baseline</th><th>Target</th><th>Realised</th><th>Owner</th><th>Review date</th><th>State</th><th>Evidence</th><th>Entered by</th><th>Verified by</th><th></th></tr></thead><tbody>" + bs.map(function (b) {
+      var st = BEN_STATE[b.state] || ["planned", String(b.state)];
+      var canVerify = V.can_edit_plan && b.state === "awaiting_verification" && b.realised_by !== V.me;
+      return "<tr><td>" + esc(b.description) + " <small class=\"muted\">#" + n(b.id) + "</small></td><td>" + n(b.measure) + "</td><td>" + n(b.unit) + (b.value_kind === "money" ? " <small class=\"muted\">" + n(b.currency) + "</small>" : "") + "</td><td>" + val(b, "baseline_value") + "</td><td>" + val(b, "target_value") + "</td><td>" + val(b, "realised_value") + "</td><td>" + n(b.owner) + "</td><td>" + n(b.review_date) + "</td><td><span class=\"pill " + esc(st[0]) + "\">" + esc(st[1]) + "</span></td><td>" + safeLink(b.evidence_link) + "</td><td>" + n(b.realised_by_name) + "</td><td>" + n(b.verified_by_name) + "</td><td>" +
+        (canVerify ? "<button class=\"btn\" type=\"button\" data-verify=\"" + esc(b.id) + "\">Verify</button>" : b.state === "awaiting_verification" && V.can_edit_plan ? "<small class=\"muted\">you entered it — someone else verifies</small>" : "") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No expected benefit recorded for this project.</p>";
+    $("ben-edit").hidden = !V.can_edit_plan; $("ben-real").hidden = !V.can_edit_plan || !bs.length;
+    if (V.can_edit_plan) {
+      var cur = $("b-id").value; $("b-id").innerHTML = opt(bs.map(function (b) { return [b.id, b.description]; }), cur, "— new benefit —"); fillBenefit();
+      var cr = $("br-id").value; $("br-id").innerHTML = opt(bs.map(function (b) { return [b.id, b.description]; }), cr, "");
+    }
+  }
+  function fillBenefit() {
+    var id = Number($("b-id").value) || null, b = (V.benefits || []).filter(function (x) { return x.id === id; })[0] || {};
+    $("b-desc").value = b.description || ""; $("b-measure").value = b.measure || ""; $("b-unit").value = b.unit || ""; $("b-kind").value = b.value_kind || "quantity"; $("b-cur").value = b.currency || "";
+    $("b-base").value = b.baseline_value == null ? "" : b.baseline_value; $("b-target").value = b.target_value == null ? "" : b.target_value; $("b-owner").value = b.owner || ""; $("b-review").value = b.review_date || ""; $("b-del").hidden = !id;
+  }
+  $("b-id").addEventListener("change", fillBenefit);
+  $("b-save").addEventListener("click", function () {
+    var id = Number($("b-id").value) || null, kind = $("b-kind").value;
+    var b = { project_id: V.project.id, description: $("b-desc").value.trim(), measure: $("b-measure").value.trim() || null, unit: $("b-unit").value.trim() || null, value_kind: kind, currency: kind === "money" ? ($("b-cur").value.trim().toUpperCase() || null) : null,
+      baseline_value: numOrNull("b-base"), target_value: numOrNull("b-target"), owner: $("b-owner").value.trim() || null, review_date: $("b-review").value || null };
+    if (id) { b.id = id; delete b.project_id; }
+    api("/api/governance/portfolio/benefit", { method: "PUT", body: JSON.stringify(b) }).then(function (j) { msg("Benefit #" + j.id + " saved."); $("b-id").value = String(j.id); return load(); }).catch(fail);
+  });
+  $("b-del").addEventListener("click", function () { var id = Number($("b-id").value); if (!id || !window.confirm("Delete benefit #" + id + "?")) return; api("/api/governance/portfolio/benefit/" + id, { method: "DELETE" }).then(function () { msg("Benefit deleted."); $("b-id").value = ""; return load(); }).catch(fail); });
+  $("br-save").addEventListener("click", function () {
+    var id = Number($("br-id").value); if (!id) { msg("Choose a benefit first.", "errors"); return; }
+    var body = { realised_value: numOrNull("br-value"), evidence_link: $("br-link").value.trim(), note: $("br-note").value.trim() || null };
+    if (body.realised_value == null) { msg("Enter the realised value.", "errors"); $("br-value").focus(); return; }
+    if (!/^https?:\/\//i.test(body.evidence_link)) { msg("The evidence link must start with http:// or https://.", "errors"); $("br-link").focus(); return; }
+    api("/api/governance/portfolio/benefit/" + id + "/realised", { method: "POST", body: JSON.stringify(body) }).then(function () { msg("Realised value recorded — someone else now verifies it."); $("br-value").value = ""; $("br-link").value = ""; $("br-note").value = ""; return load(); }).catch(fail);
+  });
+  $("benefits").addEventListener("click", function (ev) {
+    var b = ev.target.closest && ev.target.closest("button[data-verify]"); if (!b) return;
+    var id = b.getAttribute("data-verify"); if (!window.confirm("Verify the realised value of benefit #" + id + "?")) return;
+    api("/api/governance/portfolio/benefit/" + encodeURIComponent(id) + "/verify", { method: "POST", body: "{}" }).then(function () { msg("Benefit verified."); return load(); }).catch(fail);
   });
 
   // ---- gates ----------------------------------------------------------------------------------------------

@@ -11,12 +11,12 @@ const SRC = fs.readFileSync(path.join(ROOT, 'public', '_shell.js'), 'utf8').repl
 const ICONS = fs.readFileSync(path.join(ROOT, 'public', 'brand', 'icons.js'), 'utf8');
 
 const j = (x) => JSON.parse(JSON.stringify(x)); // sandbox arrays come from another realm
-function load(roles, { businessOnly = false, lang = null, navLang = 'en-US' } = {}) {
+function load(roles, { businessOnly = false, lang = null, navLang = 'en-US', policy = undefined } = {}) {
   const mount = { dataset: { section: 'operations', current: 'portfolio' }, innerHTML: '' };
   const document = { readyState: 'complete', getElementById: (id) => (id === '__shell' ? mount : null), addEventListener() {}, querySelector: () => null, querySelectorAll: () => [] };
   const HIER = ['viewer', 'editor', 'admin', 'executive', 'super_admin'];
   const has = (r) => roles.includes(r) || (HIER.includes(r) && roles.some((x) => HIER.indexOf(x) >= HIER.indexOf(r)));
-  const window = { __userHasRole: has, __isBusinessOnly: businessOnly, __authUser: { full_name: 'Ana', role: roles[0] }, EDV_ICONS: { html: (k) => `<svg data-i="${k}"></svg>`, get: () => '' } };
+  const window = { __userHasRole: has, __isBusinessOnly: businessOnly, __authUser: { full_name: 'Ana', role: roles[0] }, __uiPolicy: policy, EDV_ICONS: { html: (k) => `<svg data-i="${k}"></svg>`, get: () => '' } };
   const localStorage = { getItem: (k) => (k === 'sdp_lang' ? lang : null), setItem() {} };
   vm.runInNewContext(SRC, { window, document, console, localStorage, navigator: { language: navLang } });
   return { shell: window.__shell, mount };
@@ -41,6 +41,18 @@ test('Operations is grouped by task; every child names a group; first group keep
   assert.ok(ops.children.every((c) => c.group), 'every Operations entry is in a group');
   assert.deepStrictEqual(j(shell.groupChildren(ops.children).map((g) => g.name)), ['Governance', 'Plan & track', 'Report & share', 'Configure']);
   assert.strictEqual(shell.landingFor('operations'), 'inspections.html');
+});
+
+test('A-21 lean profile: Operations still grouped by task in canonical order, first group keeps the landing page, hrefs exist', () => {
+  const { shell } = load(['admin'], { policy: { nav_profile: 'lean' } });
+  const ops = shell.NAV.find((s) => s.id === 'operations');
+  const vis = j(shell.menuModel()).find((s) => s.id === 'operations').children;
+  assert.deepStrictEqual(j(shell.groupChildren(ops.children.filter((c) => vis.some((v) => v.id === c.id))).map((g) => g.name)), ['Governance', 'Plan & track', 'Report & share', 'Configure']);
+  assert.strictEqual(shell.landingFor('operations'), 'inspections.html');
+  for (const sec of j(shell.menuModel())) for (const c of sec.children) {
+    const it = shell.NAV.find((s) => s.id === sec.id).children.find((x) => x.id === c.id);
+    assert.ok(fs.existsSync(path.join(ROOT, 'public', it.href.split(/[?#]/)[0])), it.href);
+  }
 });
 
 test('rendered menu: group headings, carets expose aria-expanded, current page marked', () => {

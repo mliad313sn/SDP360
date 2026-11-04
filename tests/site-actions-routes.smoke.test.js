@@ -107,3 +107,27 @@ test('POST /api/meetings/issues/:id/actions adds a linked action; the issue then
   const act = r.body.groups.meetings.items.find((i) => i.title === 'Remplacer la borne');
   assert.equal(act.linked_issue_id, issueId);
 });
+
+test('A-20: meridian_enabled=0 → project stays null and getLinksForSite is not called', async () => {
+  const rdb = require('../reports-db');
+  const reportConfig = require('../services/reportConfig');
+  const links = require('../services/meridianLinks');
+  const orig = links.getLinksForSite;
+  let calls = 0;
+  links.getLinksForSite = async () => { calls += 1; return {}; };
+  await reportConfig.setConfig(rdb.db, { meridian_enabled: '0', meridian_base_url: 'https://m.example' }, 'test');
+  try {
+    const r = await get('/api/reports/site-actions?site=MGO', adminToken);
+    assert.equal(r.status, 200);
+    const item = r.body.groups.meetings.items.find((i) => i.title === 'Fix VSAT');
+    assert.ok(item);
+    assert.strictEqual(item.project, null);
+    assert.equal(calls, 0, 'Meridian link read-back skipped when retired');
+    await reportConfig.setConfig(rdb.db, { meridian_enabled: '1' }, 'test');
+    await get('/api/reports/site-actions?site=MGO', adminToken);
+    assert.equal(calls, 1, 'default/enabled path still consults Meridian (control)');
+  } finally {
+    links.getLinksForSite = orig;
+    await reportConfig.setConfig(rdb.db, { meridian_enabled: '1', meridian_base_url: '' }, 'test');
+  }
+});

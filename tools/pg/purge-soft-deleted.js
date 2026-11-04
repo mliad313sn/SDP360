@@ -45,6 +45,7 @@ function format(out) {
   for (const [mod, r] of Object.entries(out.modules)) {
     const ids = Array.isArray(r.ids) ? r.ids : [];
     lines.push(`  ${mod}: ${ids.length} row(s) past retention${out.apply ? `, ${r.purged} purged` : ''}${ids.length ? ' — ' + ids.slice(0, 50).join(', ') + (ids.length > 50 ? ' …' : '') : ''}`);
+    for (const sk of (r.skipped || [])) lines.push(`    skipped ${sk.id}: ${sk.reason}`);
   }
   if (!out.apply) lines.push('Nothing was deleted. Re-run with --apply to purge.');
   return lines.join('\n');

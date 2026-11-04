@@ -43,7 +43,10 @@ module.exports = function obligationRoutes(deps) {
       } catch (_) { siteActions = null; }   // not read — said so, never "nothing owed"
       let sessionActions = null;
       try { sessionActions = await require('../services/governanceStore').makeGovernanceStore(rdb().pgHandle()).openSessionActions({ siteId: site }); } catch (_) { sessionActions = null; }
-      res.json({ ok: true, site_id: site, ...require('../services/obligations').compose({ commitments, handoffs, siteActions, sessionActions, asOf }) });
+      // B-08 — benefits whose review date is reached on this site's projects (null = not read, never "nothing due")
+      let benefitReviews = null;
+      try { benefitReviews = await require('../services/governanceStore').makeGovernanceStore(rdb().pgHandle()).dueBenefitReviews({ siteId: site, asOf }); } catch (_) { benefitReviews = null; }
+      res.json({ ok: true, site_id: site, ...require('../services/obligations').compose({ commitments, handoffs, siteActions, sessionActions, benefitReviews, asOf }) });
     } catch (e) { fail(res, e, undefined, { ok: false }); }
   });
   return router;

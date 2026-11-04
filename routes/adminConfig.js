@@ -77,7 +77,7 @@ router.put('/api/reports/config', requireReportSession, requireSuperAdmin, async
       return res.status(403).json({ error: 'SSO settings require super_admin' });
     }
     // Meridian federation keys carry a service secret (out/in API keys) → super_admin only.
-    const MERIDIAN_KEYS = ['meridian_base_url','meridian_out_key','meridian_in_key'];
+    const MERIDIAN_KEYS = ['meridian_base_url','meridian_out_key','meridian_in_key','meridian_enabled'];
     if (MERIDIAN_KEYS.some(k => k in body) && req.reportUser?.role !== 'super_admin') {
       return res.status(403).json({ error: 'Meridian settings require super_admin' });
     }

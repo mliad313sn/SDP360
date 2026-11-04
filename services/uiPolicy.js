@@ -7,8 +7,9 @@
 //   ui_lang_default       ''  = saved choice, else browser language (today) · 'fr'|'en' = first-visit default
 //   ui_i18n_pages         '0' = coordinator pages stay English (today) · '1' = page dictionaries active
 //   ui_role_landing       '0' = today's landing page · '1' = role-based landing (A-10)
-//   ui_nav_profile        'full' (today) · 'lean' (A-10)
-//   ui_deck_builder_roles comma list of roles that see the deck builder; 'super_admin' today
+//   ui_nav_profile        'full' (today) · 'lean' (A-21 — shorter menu per role, labels kept down to 1180 px)
+//   ui_deck_builder_roles comma list of roles that see the Deck Builder MENU ENTRY (A-21); 'super_admin' today —
+//                         the page gate (executive-report.html + routes) is unchanged
 
 const UI_DEFAULTS = {
   ui_lang_default: '',

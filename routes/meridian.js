@@ -1,5 +1,15 @@
 'use strict';
+const crypto = require('crypto');
 const { fail } = require('../services/httpError');
+
+// Constant-time key comparison: compare SHA-256 digests (always 32 bytes), so neither the
+// content nor the length of the stored key leaks through response timing.
+function keyMatches(given, expected) {
+  if (!expected || typeof given !== 'string' || !given) return false;
+  const a = crypto.createHash('sha256').update(given).digest();
+  const b = crypto.createHash('sha256').update(String(expected)).digest();
+  return a.length === b.length && crypto.timingSafeEqual(a, b);
+}
 // F1 — inbound read API: expose SDP's unified open actions to Meridian (contract C2).
 // Key-guarded on the report_config `meridian_in_key` (header X-API-Key), so setting the
 // key from the admin card makes the endpoint live with no restart, and an unset key
@@ -21,8 +31,10 @@ module.exports = function meridianRoutes(deps) {
       // MUST await: getConfig returns a Promise on postgres (prod). Reading it sync
       // would compare X-API-Key against undefined → 401 in prod while sqlite passes.
       const cfg = await reportConfig.getConfig(rdb.db);
-      const key = cfg.meridian_in_key;
-      if (!key || req.get('X-API-Key') !== key) return res.status(401).json({ error: 'unauthorized' });
+      // A-20 kill switch: retired → the route behaves as if it did not exist (404), BEFORE
+      // the key check (the route is exempt from the global /api gate).
+      if (String(cfg.meridian_enabled) === '0') return res.status(404).json({ error: 'not found' });
+      if (!keyMatches(req.get('X-API-Key'), cfg.meridian_in_key)) return res.status(401).json({ error: 'unauthorized' });
 
       const code = String(req.query.site || '').trim();
       const asOf = new Date().toISOString().slice(0, 10);
@@ -43,3 +55,4 @@ module.exports = function meridianRoutes(deps) {
 
   return router;
 };
+module.exports.keyMatches = keyMatches;

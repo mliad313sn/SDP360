@@ -21,8 +21,8 @@ planned switch cannot be set before its goal lands.
 | `ui_i18n_pages` | built | `0` | `1` | Owner (D-2) | A-09 |
 | `ui_lang_default` | built | `` (empty) | `fr` | Owner (D-2) | A-09 |
 | `ui_role_landing` | built | `0` | `1` | Owner (UI policy) | A-10 |
-| `ui_nav_profile` | key only — no effect until A-21 | `full` | `lean` | Owner (D-6) | A-21 |
-| `ui_deck_builder_roles` | key only — no effect until A-21 | `super_admin` | `super_admin` (widening also needs the page gate) | Owner (D-6) | A-21 |
+| `ui_nav_profile` | built | `full` | `lean` (proposal — re-decide from the T1–T8 sessions) | Owner (D-6) | A-21 |
+| `ui_deck_builder_roles` | built (menu entry only) | `super_admin` | `super_admin` (widening also needs the page gate) | Owner (D-6) | A-21 |
 | `site_score_published_model` | built | `legacy` | `programme` | Owner (D-1) | A-11 |
 | `capacity_enabled` | planned | `0` | `1` | Owner (D-7) | A-13 |
 | `capacity_amber_pct` | planned | `85` | `85` | Owner (D-7) | A-13 |
@@ -43,10 +43,10 @@ planned switch cannot be set before its goal lands.
 | `soft_delete_enabled` | built | `0` | `1` | Owner (retention policy) | A-19 |
 | `soft_delete_retention_days` | built | `30` | `30` | Owner (retention policy) | A-19 |
 | `soft_delete_purge_enabled` | built | `0` | `0` (keep everything during the pilot) | Owner (retention policy) | A-19 |
-| `meridian_enabled` | planned | `1` | `0` (retire) | Owner (D-5) | A-20 |
-| `report_revert_policy` | planned | `site_editor` | `second_person` | Owner (D-3, reverses 2026-10-02) | A-24 |
-| `report_reassign_submitted` | planned | `1` | `0` | Owner (D-3) | A-24 |
-| `report_drift_banner` | planned | `0` | `1` | Owner (D-3) | A-24 |
+| `meridian_enabled` | built | `1` | `0` (retire) | Owner (D-5) | A-20 |
+| `report_revert_policy` | built | `site_editor` | `second_person` | Owner (D-3, reverses 2026-10-02) | A-24 |
+| `report_reassign_submitted` | built | `1` | `0` | Owner (D-3) | A-24 |
+| `report_drift_banner` | built | `0` | `1` | Owner (D-3) | A-24 |
 | `wan_stale_close_at` | built | `now` | `last_seen` | Network owner | A-25 |
 | `wan_sla_require_contract_evidence` | built | `0` | `1` once contracts are uploaded | Finance | A-25 |
 | `asset_amount_parser` | built | `legacy` | `locale` | Finance | A-26 |
@@ -54,17 +54,20 @@ planned switch cannot be set before its goal lands.
 | `asset_currency_rates` | built | `` (empty = XOF via `xof_usd_rate`, USD 1) | rates supplied by Finance | Finance | A-26 |
 | `asset_cost_outlier_factor` | built | `10` | `10` | Finance | A-26 |
 | `asset_cost_outlier_exclude` | built | `0` | `0` | Finance | A-26 |
-| `ppm_alerts_enabled` | planned | `0` | `0` (dry run first) | Committee | A-27 |
-| `ppm_alert_blocked_days` | planned | `5` | `5` | Committee | A-27 |
-| `ppm_alert_slip_days` | planned | `10` | `10` | Committee | A-27 |
-| `ppm_rebaseline_enabled` | planned | `0` | `1` | Committee | A-27 |
-| `ppm_baseline_versions` | planned | `0` | `1` | Committee | A-27 |
+| `ppm_alerts_enabled` | built | `0` | `0` (dry run first) | Committee | A-27 |
+| `ppm_alert_blocked_days` | built | `5` | `5` | Committee | A-27 |
+| `ppm_alert_slip_days` | built | `10` | `10` | Committee | A-27 |
+| `ppm_rebaseline_enabled` | built | `0` | `1` | Committee | A-27 |
+| `ppm_baseline_versions` | built | `0` | `1` | Committee | A-27 |
+| `roadmap_redirect_to_portfolio` | built | `0` | `0` during the pilot; `1` only after one clean parity cycle (`tools/governance/roadmap-parity.js`) | PMO + PO (deletion of roadmap data: CAB) | B-09 |
 
 Not in this table because they are not top-level `report_config` keys:
 
 - A-23 (built) — `paused_statuses` (default `[]`) and `dedup_mode` (default `once`) live **inside** the existing
   `teams_sla_rules` JSON; decided by the helpdesk lead.
-- A-28 — `SDP_CONFIG_BOX_VERSION` (default `2`) and the CSP report-only header are `.env` / code
-  switches, not `report_config`; decided by the security owner.
+- A-28 (built) — `.env` switches, not `report_config`; decided by the security owner, all default to today:
+  `SDP_CSP_REPORT_ONLY` (unset = no report-only header, no `/api/security/csp-report`),
+  `SDP_CONFIG_BOX_VERSION` (default `2`; `3` = new secrets sealed as `enc:v3`), `SDP_PDF_SANDBOX`
+  (unset = PDF render keeps `--no-sandbox`).
 
 When a goal lands, change its rows from `planned` to `built`; the test then holds the default to the code.

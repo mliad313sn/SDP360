@@ -837,6 +837,9 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       </div>
     </div>
 
+    <!-- A-24 — drift banner (report_config report_drift_banner, OFF by default): the figures no longer
+         match the SHA-256 recorded at submission. Integrity evidence, not an approval. -->
+    <div id="report-drift-banner" role="alert" style="display:none;background:#fee2e2;border:1px solid #dc2626;color:#991b1b;padding:10px 14px;border-radius:8px;margin:0 0 10px;font-weight:600"><span>⚠ Figures changed since submission</span> <span id="report-drift-detail" style="font-weight:400"></span></div>
     <!-- Submit bar -->
     <div class="submit-bar">
       <div class="report-info">
@@ -1609,6 +1612,12 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <code>docs/MERIDIAN_INTEGRATION_CONTRACT.md</code>.
       </p>
       <div class="form-group">
+        <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="cfg-meridian-enabled" checked onchange="applyMeridianEnabled()"> Connecteur Meridian actif</label>
+        <small style="color:#6b7a99">Kill switch <code>meridian_enabled</code> (PROPOSED D-5 / D-07, not approved). Unchecked + Save = retired: <code>/api/actions/open</code> and the sync answer 404, the nightly job skips, the Site Actions badge disappears. Re-check + Save to restore — no restart.</small>
+      </div>
+      <p id="cfg-meridian-retired" style="display:none;color:#b45309;font-weight:600">Connecteur retiré (meridian_enabled = 0)</p>
+      <div id="cfg-meridian-fields">
+      <div class="form-group">
         <label>Meridian base URL</label>
         <input type="text" id="cfg-meridian-base" placeholder="https://meridian.edv-ops.com" autocomplete="off">
         <small style="color:#6b7a99">Origin only, no trailing slash. SDP appends <code>/v1/resources/sync</code> and <code>/v1/links</code>.</small>
@@ -1622,9 +1631,10 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <input type="password" id="cfg-meridian-in" placeholder="leave blank to keep the stored key" autocomplete="new-password">
         <small style="color:#6b7a99">Meridian must send this as <code>X-API-Key</code> to <code>GET /api/actions/open</code>. Unset ⇒ that endpoint is inert (401).</small>
       </div>
+      </div>
       <div class="modal-actions" style="justify-content:flex-start;gap:10px;align-items:center">
         <button class="btn btn-primary" onclick="saveMeridianConfig()">Save</button>
-        <button class="btn btn-secondary" onclick="syncMeridianNow(this)">Sync resources now</button>
+        <button class="btn btn-secondary" id="cfg-meridian-sync" onclick="syncMeridianNow(this)">Sync resources now</button>
         <span id="cfg-meridian-msg" style="font-size:0.85rem;color:#6b7a99"></span>
       </div>
     </div>
@@ -3193,8 +3203,31 @@ async function confirmChangeWeek() {
   }
 }
 
+// A-24 — submission hash vs current figures (GET /api/reports/:id/integrity). Best-effort: a failure
+// leaves no banner and the revert falls back to today's confirm (the server still enforces its rule).
+let _reportIntegrity = null;
+async function loadReportIntegrity() {
+  const banner = document.getElementById('report-drift-banner');
+  if (banner) banner.style.display = 'none';
+  _reportIntegrity = null;
+  if (!currentReport) return;
+  const id = currentReport.id;
+  try {
+    const res = await fetch(`/api/reports/${id}/integrity`, { headers: { 'X-Dash-Key': window.__ak||'' } });
+    if (!res.ok) return;
+    const j = await res.json();
+    if (!currentReport || currentReport.id !== id) return;   // another report was opened meanwhile
+    _reportIntegrity = j;
+    if (banner && j.drift_banner && j.drift && currentReport.status === 'submitted') {
+      document.getElementById('report-drift-detail').textContent = `(${String(j.submitted_at || '').slice(0, 10)} · ${j.submitted_by || '—'})`;
+      banner.style.display = 'block';
+    }
+  } catch (_) { /* never blocks the editor */ }
+}
+
 function updateStatusBar() {
   const r = currentReport;
+  loadReportIntegrity();
   const lbl       = document.getElementById('report-status-label');
   const btnSubmit = document.getElementById('btn-submit');
   const btnRevert = document.getElementById('btn-revert');
@@ -5271,12 +5304,18 @@ async function submitReport() {
 
 async function revertReport() {
   if (!currentReport) return;
-  if (!confirm(`Revert "${currentReport.site_name} — ${currentReport.week_label}" to Draft?\n\nThis will allow editors to make changes again.`)) return;
+  // A-24 — report_revert_policy = second_person (PROPOSED D-3, OFF by default): explain the rule, ask a reason.
+  let reason = null;
+  if (_reportIntegrity && _reportIntegrity.revert_policy === 'second_person') {
+    reason = prompt(`Revert "${currentReport.site_name} — ${currentReport.week_label}" to Draft?\n\nSecond-person rule: the person who submitted this report cannot revert it; an admin, executive or super_admin must, with a reason (max 500 characters).\n\nReason:`);
+    if (reason == null) return;
+    if (!reason.trim()) { toast('A reason is required to revert a submitted report', 'error'); return; }
+  } else if (!confirm(`Revert "${currentReport.site_name} — ${currentReport.week_label}" to Draft?\n\nThis will allow editors to make changes again.`)) return;
   try {
     const res = await fetch(`/api/reports/${currentReport.id}/status`, {
       method: 'PUT',
       headers: { 'Content-Type':'application/json', 'X-Dash-Key': window.__ak||'' },
-      body: JSON.stringify({ status: 'draft' })
+      body: JSON.stringify(reason ? { status: 'draft', reason: reason.trim() } : { status: 'draft' })
     });
     const data = await res.json();
     if (!res.ok) { toast(data.error || 'Revert failed', 'error'); return; }
@@ -7660,14 +7699,24 @@ function loadMeridianConfig() {
   api('GET', '/api/reports/config').then(c => {
     const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = (v == null ? '' : v); };
     set('cfg-meridian-base', c.meridian_base_url);
+    const enEl = document.getElementById('cfg-meridian-enabled'); if (enEl) enEl.checked = String(c.meridian_enabled) !== '0';
+    applyMeridianEnabled();
     const outEl = document.getElementById('cfg-meridian-out'); if (outEl) outEl.value = '';  // never echo the stored keys
     const inEl = document.getElementById('cfg-meridian-in'); if (inEl) inEl.value = '';
     const msg = document.getElementById('cfg-meridian-msg'); if (msg) msg.textContent = '';
   }).catch(e => toast('Could not load Meridian settings: ' + (e.message || e), 'error'));
 }
+// A-20 kill switch: when unchecked, hide the URL/key inputs + Sync and show the "retired" note.
+function applyMeridianEnabled() {
+  const enEl = document.getElementById('cfg-meridian-enabled');
+  const on = !enEl || enEl.checked;
+  const show = (id, v) => { const el = document.getElementById(id); if (el) el.style.display = v ? '' : 'none'; };
+  show('cfg-meridian-fields', on); show('cfg-meridian-sync', on); show('cfg-meridian-retired', !on);
+}
 function saveMeridianConfig() {
   const val = id => { const el = document.getElementById(id); return el ? el.value.trim() : ''; };
-  const patch = { meridian_base_url: val('cfg-meridian-base') };
+  const enEl = document.getElementById('cfg-meridian-enabled');
+  const patch = { meridian_base_url: val('cfg-meridian-base'), meridian_enabled: (!enEl || enEl.checked) ? '1' : '0' };
   const out = val('cfg-meridian-out'); if (out) patch.meridian_out_key = out;  // blank = keep stored
   const inn = val('cfg-meridian-in');  if (inn) patch.meridian_in_key = inn;
   api('PUT', '/api/reports/config', patch)

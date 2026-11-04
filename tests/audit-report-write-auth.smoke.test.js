@@ -131,3 +131,90 @@ test('unknown uid → 404 for an authorised editor, not 500', async () => {
   const r = await post(`/api/reports/action/does-not-exist/status`, tok.super, { status: 'closed' });
   assert.equal(r.status, 404, `expected 404, got ${r.status}`);
 });
+
+// ── A-24 (PROPOSED D-3, OFF by default) — second-person revert + frozen week ─────────
+// report_revert_policy = site_editor (today) | second_person; report_reassign_submitted = 1 (today) | 0.
+const reportConfig = require('../services/reportConfig');
+let a24Week = 60;
+async function a24Submitted(t) {
+  const r = await rdb.ensureReport(siteA.id, 2026, a24Week++ % 53 + 1);
+  await rdb.updateReportStatus(r.id, 'draft', null);
+  const s = await put(`/api/reports/${r.id}/status`, t, { status: 'submitted' });
+  assert.equal(s.status, 200, `submit: expected 200, got ${s.status}`);
+  return r.id;
+}
+async function a24Policy(policy, reassign) {
+  await reportConfig.setConfig(rdb.db, { report_revert_policy: policy, report_reassign_submitted: reassign }, 'a24-test');
+}
+
+test('A-24 default policy: the editor who submitted can revert (unchanged)', async () => {
+  await a24Policy('site_editor', '1');
+  const id = await a24Submitted(tok.editorA);
+  const r = await put(`/api/reports/${id}/status`, tok.editorA, { status: 'draft' });
+  assert.equal(r.status, 200);
+});
+
+test('A-24 second_person: the submitting editor gets 403 on revert', async () => {
+  await a24Policy('second_person', '1');
+  try {
+    const id = await a24Submitted(tok.editorA);
+    const r = await put(`/api/reports/${id}/status`, tok.editorA, { status: 'draft', reason: 'oops' });
+    assert.equal(r.status, 403);
+    assert.match((await r.json()).error, /second person/i);
+    assert.equal((await rdb.getReport(id)).status, 'submitted');
+  } finally { await a24Policy('site_editor', '1'); }
+});
+
+test('A-24 second_person: the submitting admin-tier user cannot revert their own submission either', async () => {
+  await a24Policy('second_person', '1');
+  try {
+    const id = await a24Submitted(tok.super);
+    assert.equal((await put(`/api/reports/${id}/status`, tok.super, { status: 'draft', reason: 'mine' })).status, 403);
+  } finally { await a24Policy('site_editor', '1'); }
+});
+
+test('A-24 second_person: another admin-tier user reverts only with a reason (400 without, 200 with) → audit_log', async () => {
+  await a24Policy('second_person', '1');
+  try {
+    const id = await a24Submitted(tok.editorA);
+    const r0 = await put(`/api/reports/${id}/status`, tok.super, { status: 'draft' });
+    assert.equal(r0.status, 400);
+    const rLong = await put(`/api/reports/${id}/status`, tok.super, { status: 'draft', reason: 'x'.repeat(501) });
+    assert.equal(rLong.status, 400);
+    const r1 = await put(`/api/reports/${id}/status`, tok.super, { status: 'draft', reason: 'Wrong WAN figure' });
+    assert.equal(r1.status, 200);
+    assert.equal((await rdb.getReport(id)).status, 'draft');
+    const log = await rdb.getReportAuditLog(id, 10);
+    const rev = log.find(l => l.action === 'reverted');
+    assert.ok(rev, 'a reverted audit row');
+    assert.match(String(rev.details), /Wrong WAN figure/);
+  } finally { await a24Policy('site_editor', '1'); }
+});
+
+test('A-24 second_person: a non-admin editor who did NOT submit still cannot revert (403)', async () => {
+  await a24Policy('second_person', '1');
+  try {
+    const id = await a24Submitted(tok.super);
+    assert.equal((await put(`/api/reports/${id}/status`, tok.editorA, { status: 'draft', reason: 'fix' })).status, 403);
+  } finally { await a24Policy('site_editor', '1'); }
+});
+
+test('A-24 report_reassign_submitted=0: a submitted report cannot change week (409); a draft still moves', async () => {
+  await a24Policy('site_editor', '0');
+  try {
+    const id = await a24Submitted(tok.editorA);
+    const r = await put(`/api/reports/${id}/reassign-week`, tok.editorA, { year: 2027, week: 5 });
+    assert.equal(r.status, 409);
+    assert.match((await r.json()).error, /revert first/i);
+    const d = await rdb.ensureReport(siteA.id, 2027, 6);
+    const r2 = await put(`/api/reports/${d.id}/reassign-week`, tok.editorA, { year: 2027, week: 7 });
+    assert.equal(r2.status, 200);
+  } finally { await a24Policy('site_editor', '1'); }
+});
+
+test('A-24 report_reassign_submitted=1 (default): a submitted report still moves (unchanged)', async () => {
+  await a24Policy('site_editor', '1');
+  const id = await a24Submitted(tok.editorA);
+  const r = await put(`/api/reports/${id}/reassign-week`, tok.editorA, { year: 2027, week: 9 });
+  assert.equal(r.status, 200);
+});

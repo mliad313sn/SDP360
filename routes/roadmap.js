@@ -12,6 +12,36 @@ module.exports = function roadmapRoutes(deps) {
   const rdb = require('../reports-db');
   const roadmapEvidence = require('../services/roadmapEvidence');
   const jsonBody = express.json();
+  const reportConfig = require('../services/reportConfig');
+  const roadmapParity = require('../services/roadmapParity');
+
+  // B-09 — switch `roadmap_redirect_to_portfolio` ('0' = today, editable). Read per request (no restart);
+  // a failed config read fails OPEN to today's behaviour ('0'), never locks the manager out of his tool.
+  async function redirectOn() {
+    try { return String((await reportConfig.getConfig(rdb.db)).roadmap_redirect_to_portfolio || '0') === '1'; }
+    catch (_) { return false; }
+  }
+  // Every write roadmap route (after the auth gates) goes through this: with the switch on the roadmap is READ-ONLY (409),
+  // the portfolio is the single source. Nothing is deleted — deletion stays a CAB step.
+  async function readOnlyGuard(req, res, next) {
+    if (!(await redirectOn())) return next();
+    res.status(409).json({ ok: false, read_only: true, error: 'Roadmap Manager is read-only: the portfolio is the single source (switch roadmap_redirect_to_portfolio).', portfolio_url: '/portfolio.html' });
+  }
+
+  // Mode of the page: read-only + link target. super_admin like every roadmap route.
+  router.get('/api/roadmap/mode', requireReportSession, requireSuperAdmin, async (req, res) => {
+    const on = await redirectOn();
+    res.json({ redirect_to_portfolio: on, read_only: on, portfolio_url: '/portfolio.html' });
+  });
+
+  // Parity of the caller's roadmap with the migrated portfolio programme (read-only, never lazy-seeds).
+  router.get('/api/roadmap/parity', requireReportSession, requireSuperAdmin, async (req, res) => {
+    try {
+      const H = rdb.pgHandle();
+      const query = (sql, params) => H.prepare(sql).all(...(params || []));
+      res.json(await roadmapParity.buildReport(query, { userId: req.reportUser.id }));
+    } catch (e) { fail(res, e); }
+  });
 
   // GET the whole roadmap (lazy-seeds the 4 default objectives on first hit).
   // Best-effort → empty roadmap on throw, never 500 (mirrors the WAN readers' contract).
@@ -45,22 +75,22 @@ module.exports = function roadmapRoutes(deps) {
     catch (e) { res.json({ total_mi: 0, conformity_pct: null, rca_pct: null, ca_pct: null, pir_pct: null, ll_pct: null, change_success_rate: null, changes_count: null }); }
   });
 
-  router.put('/api/roadmap/objective/:key', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
+  router.put('/api/roadmap/objective/:key', requireReportSession, requireSuperAdmin, readOnlyGuard, jsonBody, async (req, res) => {
     try { await rdb.upsertRoadmapObjective(req.reportUser.id, req.params.key, req.body || {}); res.json({ ok: true }); }
     catch (e) { fail(res, e); }
   });
 
-  router.post('/api/roadmap/deliverable', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
+  router.post('/api/roadmap/deliverable', requireReportSession, requireSuperAdmin, readOnlyGuard, jsonBody, async (req, res) => {
     try { const uid = await rdb.addRoadmapDeliverable(req.reportUser.id, req.body || {}); res.json({ ok: true, uid }); }
     catch (e) { fail(res, e); }
   });
 
-  router.put('/api/roadmap/deliverable/:uid', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
+  router.put('/api/roadmap/deliverable/:uid', requireReportSession, requireSuperAdmin, readOnlyGuard, jsonBody, async (req, res) => {
     try { await rdb.updateRoadmapDeliverable(req.reportUser.id, req.params.uid, req.body || {}); res.json({ ok: true }); }
     catch (e) { fail(res, e); }
   });
 
-  router.delete('/api/roadmap/deliverable/:uid', requireReportSession, requireSuperAdmin, async (req, res) => {
+  router.delete('/api/roadmap/deliverable/:uid', requireReportSession, requireSuperAdmin, readOnlyGuard, async (req, res) => {
     try { await rdb.deleteRoadmapDeliverable(req.reportUser.id, req.params.uid); res.json({ ok: true }); }
     catch (e) { fail(res, e); }
   });
@@ -73,17 +103,17 @@ module.exports = function roadmapRoutes(deps) {
     catch (e) { res.json({ entries: [], stats: { sessions_count: 0, sites_count: 0, technicians_total: 0, entries_count: 0 } }); }
   });
 
-  router.post('/api/roadmap/training', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
+  router.post('/api/roadmap/training', requireReportSession, requireSuperAdmin, readOnlyGuard, jsonBody, async (req, res) => {
     try { const uid = await rdb.addRoadmapTraining(req.reportUser.id, req.body || {}); res.json({ ok: true, uid }); }
     catch (e) { fail(res, e); }
   });
 
-  router.put('/api/roadmap/training/:uid', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
+  router.put('/api/roadmap/training/:uid', requireReportSession, requireSuperAdmin, readOnlyGuard, jsonBody, async (req, res) => {
     try { await rdb.updateRoadmapTraining(req.reportUser.id, req.params.uid, req.body || {}); res.json({ ok: true }); }
     catch (e) { fail(res, e); }
   });
 
-  router.delete('/api/roadmap/training/:uid', requireReportSession, requireSuperAdmin, async (req, res) => {
+  router.delete('/api/roadmap/training/:uid', requireReportSession, requireSuperAdmin, readOnlyGuard, async (req, res) => {
     try { await rdb.deleteRoadmapTraining(req.reportUser.id, req.params.uid); res.json({ ok: true }); }
     catch (e) { fail(res, e); }
   });
@@ -95,28 +125,28 @@ module.exports = function roadmapRoutes(deps) {
     catch (e) { res.json({ actions: [], resources: [] }); }
   });
 
-  router.post('/api/roadmap/action', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
+  router.post('/api/roadmap/action', requireReportSession, requireSuperAdmin, readOnlyGuard, jsonBody, async (req, res) => {
     try { const uid = await rdb.addRoadmapAction(req.reportUser.id, req.body || {}); res.json({ ok: true, uid }); }
     catch (e) { fail(res, e); }
   });
-  router.put('/api/roadmap/action/:uid', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
+  router.put('/api/roadmap/action/:uid', requireReportSession, requireSuperAdmin, readOnlyGuard, jsonBody, async (req, res) => {
     try { await rdb.updateRoadmapAction(req.reportUser.id, req.params.uid, req.body || {}); res.json({ ok: true }); }
     catch (e) { fail(res, e); }
   });
-  router.delete('/api/roadmap/action/:uid', requireReportSession, requireSuperAdmin, async (req, res) => {
+  router.delete('/api/roadmap/action/:uid', requireReportSession, requireSuperAdmin, readOnlyGuard, async (req, res) => {
     try { await rdb.deleteRoadmapAction(req.reportUser.id, req.params.uid); res.json({ ok: true }); }
     catch (e) { fail(res, e); }
   });
 
-  router.post('/api/roadmap/resource', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
+  router.post('/api/roadmap/resource', requireReportSession, requireSuperAdmin, readOnlyGuard, jsonBody, async (req, res) => {
     try { const uid = await rdb.addRoadmapResource(req.reportUser.id, req.body || {}); res.json({ ok: true, uid }); }
     catch (e) { fail(res, e); }
   });
-  router.put('/api/roadmap/resource/:uid', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
+  router.put('/api/roadmap/resource/:uid', requireReportSession, requireSuperAdmin, readOnlyGuard, jsonBody, async (req, res) => {
     try { await rdb.updateRoadmapResource(req.reportUser.id, req.params.uid, req.body || {}); res.json({ ok: true }); }
     catch (e) { fail(res, e); }
   });
-  router.delete('/api/roadmap/resource/:uid', requireReportSession, requireSuperAdmin, async (req, res) => {
+  router.delete('/api/roadmap/resource/:uid', requireReportSession, requireSuperAdmin, readOnlyGuard, async (req, res) => {
     try { await rdb.deleteRoadmapResource(req.reportUser.id, req.params.uid); res.json({ ok: true }); }
     catch (e) { fail(res, e); }
   });

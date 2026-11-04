@@ -248,6 +248,10 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   const RISK_KINDS = ['risk', 'issue', 'assumption'];   // A-14 RAID (dependencies live in depends_on, decisions in DEC-…)
   const riskRow = (r) => ({ ...idRow(r), project_id: Number(r.project_id), probability: Number(r.probability), impact: Number(r.impact), kind: r.kind || 'risk' });
   const projectRow = (r) => ({ ...idRow(r), objective_id: Number(r.objective_id), site_id: r.site_id == null ? null : Number(r.site_id), progress_pct: num(r.progress_pct), budget: num(r.budget), spent: num(r.spent), depends_on: P_(r.depends_on, []), rfi_id: r.rfi_id == null ? null : Number(r.rfi_id) });
+  // B-08 — expected / realised benefits (migration 056). Values are numbers or null; money values are stripped by the route.
+  const benefitRow = (r) => r && ({ ...idRow(r), project_id: Number(r.project_id), baseline_value: num(r.baseline_value), target_value: num(r.target_value), realised_value: num(r.realised_value),
+    realised_by: r.realised_by == null ? null : Number(r.realised_by), verified_by: r.verified_by == null ? null : Number(r.verified_by), sort_order: num(r.sort_order), value_kind: r.value_kind || 'quantity' });
+  const BENEFIT_TERMS = ['measure', 'unit', 'value_kind', 'currency', 'baseline_value', 'target_value'];   // a change clears a verification
   const TASK_STATUSES = ['todo', 'in_progress', 'blocked', 'done', 'cancelled'];
   const SPEND_TYPES = ['capex', 'opex', 'mixed'];
   const FINANCE_FIELDS = ['budget', 'spent', 'currency', 'spend_type'];
@@ -275,7 +279,9 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     const risks = (await P(`SELECT * FROM portfolio_risks WHERE deleted_at IS NULL ORDER BY project_id, id`).all()).map(riskRow).filter(live);
     const tasks = _liveTaskTree((await P(`SELECT * FROM portfolio_tasks WHERE deleted_at IS NULL ORDER BY project_id, sort_order, id`).all()).map(taskRow).filter(live));
     const project_sites = (await allProjectSites()).filter(live);
-    return { programmes, objectives, projects, milestones, deliverables, risks, tasks, project_sites };
+    // B-08 benefits carry no deleted_at of their own: they follow their project (hidden when it or an ancestor is deleted).
+    const benefits = (await P(`SELECT * FROM portfolio_benefits ORDER BY project_id, sort_order, id`).all()).map(benefitRow).filter(live);
+    return { programmes, objectives, projects, milestones, deliverables, risks, tasks, project_sites, benefits };
   }
   /** Drops tasks whose parent task is not in the list (deleted, or itself dropped). */
   function _liveTaskTree(tasks) {
@@ -288,6 +294,12 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     const r = await P(`SELECT p.deleted_at AS p, o.deleted_at AS o, g.deleted_at AS g FROM portfolio_projects p
       JOIN portfolio_objectives o ON o.id = p.objective_id JOIN portfolio_programmes g ON g.id = o.programme_id WHERE p.id=?`).get(Number(pid));
     return !r || !!(r.p || r.o || r.g);
+  }
+  /** The deleted_at of the first deleted node in a project's chain (for the 409 message). */
+  async function _goneSince(pid) {
+    const r = await P(`SELECT p.deleted_at AS p, o.deleted_at AS o, g.deleted_at AS g FROM portfolio_projects p
+      JOIN portfolio_objectives o ON o.id = p.objective_id JOIN portfolio_programmes g ON g.id = o.programme_id WHERE p.id=?`).get(Number(pid));
+    return r ? (r.p || r.o || r.g) : null;
   }
   // A-15 — extra sites of a project (migration 043); the primary site stays portfolio_projects.site_id.
   const siteRow = (r) => ({ project_id: Number(r.project_id), site_id: Number(r.site_id) });
@@ -324,7 +336,8 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     const risks = (await P(`SELECT * FROM portfolio_risks WHERE project_id=? AND deleted_at IS NULL ORDER BY id`).all(pid)).map(riskRow);
     const tasks = _liveTaskTree((await P(`SELECT * FROM portfolio_tasks WHERE project_id=? AND deleted_at IS NULL ORDER BY sort_order, id`).all(pid)).map(taskRow));
     const objective = await P(`SELECT id, key, name, programme_id FROM portfolio_objectives WHERE id=?`).get(project.objective_id);
-    return { project, objective: objective ? { ...idRow(objective), programme_id: Number(objective.programme_id) } : null, milestones, deliverables, risks, tasks, extra_sites: await projectSites(pid), gate_ctx: await gateCounts(pid) };
+    const benefits = await listBenefits(pid);
+    return { project, objective: objective ? { ...idRow(objective), programme_id: Number(objective.programme_id) } : null, milestones, deliverables, risks, tasks, benefits, extra_sites: await projectSites(pid), gate_ctx: await gateCounts(pid) };
   }
   /** The counts the stage gates read: open tasks, open high (P×I >= 6) risks — only kind = 'risk' (today's rule). */
   async function gateCounts(id) {
@@ -342,6 +355,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     task: { table: 'portfolio_tasks', cols: ['project_id', 'parent_id', 'wbs_code', 'name', 'owner', 'start_date', 'end_date', 'baseline_start', 'baseline_end', 'forecast_end', 'actual_start', 'actual_end', 'duration_days', 'allocation_pct', 'status', 'depends_on', 'sort_order', 'progress_pct', 'effort_hours'], req: ['project_id', 'name'] },
     milestone: { table: 'portfolio_milestones', cols: ['project_id', 'name', 'due_date', 'baseline_date', 'done_at', 'status', 'sort_order', 'owner'], req: ['project_id', 'name'] },
     deliverable: { table: 'portfolio_deliverables', cols: ['project_id', 'milestone_id', 'name', 'owner', 'due_date', 'status', 'action_kind', 'action_ref', 'sort_order', 'closed_at'], req: ['project_id', 'name'] },
+    benefit: { table: 'portfolio_benefits', cols: ['project_id', 'description', 'measure', 'unit', 'value_kind', 'currency', 'baseline_value', 'target_value', 'owner', 'review_date', 'sort_order'], req: ['project_id', 'description'] },
     risk: { table: 'portfolio_risks', cols: ['project_id', 'title', 'probability', 'impact', 'mitigation', 'owner', 'status', 'incident_ref', 'closed_at', 'kind'], req: ['project_id', 'title'] },
   };
   function normalise(kind, body) {
@@ -351,7 +365,8 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       if (c === 'depends_on') v = J(Array.isArray(v) ? v.map(Number) : []);
       else if (c === 'evidence_hib') v = v === false || v === 0 ? 0 : 1;
       else if (/_id$|^sort_order$|^probability$|^impact$|^duration_days$|^allocation_pct$|^effort_hours$/.test(c)) v = num(v);
-      else if (/pct$|^weight$|^budget$|^spent$|evidence_target/.test(c)) v = num(v);
+      else if (/pct$|^weight$|^budget$|^spent$|evidence_target|_value$/.test(c)) v = num(v);
+      else if (c === 'review_date') v = _day(v);
       else v = str(v, c === 'description' || c === 'mitigation' || c === 'manual_evidence' ? 4000 : 300);
       out[c] = v;
     }
@@ -364,6 +379,13 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     if (kind === 'project' && out.spend_type && !SPEND_TYPES.includes(out.spend_type)) throw Object.assign(new Error('spend_type must be capex | opex | mixed'), { code: 'INVALID' });
     if (kind === 'project' && out.currency != null && !/^[A-Z]{3}$/.test(out.currency)) throw Object.assign(new Error('currency must be an ISO code such as USD or XOF'), { code: 'INVALID' });
     if (kind === 'project' && ['budget', 'spent'].some(k => out[k] != null && !(Number.isFinite(out[k]) && out[k] >= 0))) throw Object.assign(new Error('budget and spent must be positive numbers (leave empty when unknown)'), { code: 'INVALID' });
+    if (kind === 'benefit') {
+      const BV = require('./portfolioBenefits');
+      if (out.value_kind != null && !BV.VALUE_KINDS.includes(out.value_kind)) throw Object.assign(new Error('value_kind must be ' + BV.VALUE_KINDS.join(' | ')), { code: 'INVALID' });
+      if (out.currency != null && !/^[A-Z]{3}$/.test(out.currency)) throw Object.assign(new Error('currency must be an ISO code such as USD or XOF'), { code: 'INVALID' });
+      if (['baseline_value', 'target_value'].some(k => out[k] != null && !Number.isFinite(out[k]))) throw Object.assign(new Error('baseline and target must be numbers (leave empty when unknown)'), { code: 'INVALID' });
+      if (out.description !== undefined && !String(out.description || '').trim()) throw Object.assign(new Error('description is required'), { code: 'INVALID' });
+    }
     if (out.confidence && !CONFIDENCE.includes(out.confidence)) throw Object.assign(new Error('confidence must be low | medium | high'), { code: 'INVALID' });
     return out;
   }
@@ -380,8 +402,27 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       const prob = S.dependencyProblem(siblings, id, P_(vals.depends_on, []));
       if (prob) throw Object.assign(new Error(prob.error), { code: 'INVALID', reason: prob.code });
     }
-    // A-19c — a soft-deleted node (or one under a deleted parent) is not editable until restored.
-    if (id) { const ex = await P(`SELECT id, deleted_at FROM ${T.table} WHERE id=?`).get(id); if (ex && ex.deleted_at) throw softDelete.deletedConflict(kind, ex); }
+    // A-19c — a soft-deleted node (or one under a deleted project) is not editable until restored; benefits (no
+    // deleted_at column, B-08) follow their project.
+    if (id && softDelete.TABLES[T.table]) { const ex = await P(`SELECT id, deleted_at FROM ${T.table} WHERE id=?`).get(id); if (ex && ex.deleted_at) throw softDelete.deletedConflict(kind, ex); }
+    if (T.cols.includes('project_id')) {
+      let pid = vals.project_id;
+      if (pid == null && id) { const cur = await P(`SELECT project_id FROM ${T.table} WHERE id=?`).get(id); pid = cur ? cur.project_id : null; }
+      if (pid != null && (await P(`SELECT id FROM portfolio_projects WHERE id=?`).get(Number(pid))) && await _projectGone(pid)) throw softDelete.deletedConflict('project', { deleted_at: await _goneSince(pid) });
+    }
+    if (id && kind === 'benefit') {
+      const before = await getBenefit(id);
+      if (!before) throw Object.assign(new Error('benefit not found'), { code: 'NOT_FOUND', status: 404 });
+      delete vals.project_id;   // a benefit never moves to another project
+      await updateRow(T.table, id, vals, T.cols);
+      // the terms a verification vouched for changed → the verification no longer holds
+      const termsChanged = BENEFIT_TERMS.some(k => vals[k] !== undefined && String(vals[k] ?? '') !== String(before[k] ?? ''));
+      if (termsChanged && before.verified_at) {
+        await P(`UPDATE portfolio_benefits SET verified_by=NULL, verified_by_name=NULL, verified_at=NULL WHERE id=?`).run(Number(id));
+        await ppmEvent({ entity: 'project', entity_id: before.project_id, action: 'benefit_unverified', field: `benefit:${id}`, note: 'terms changed after verification' }, opts.user);
+      }
+      return id;
+    }
     if (id) {
       if (kind === 'project') {
         const before = await P(`SELECT * FROM portfolio_projects WHERE id=?`).get(id);
@@ -408,17 +449,140 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     if (kind === 'project') for (const f of FINANCE_FIELDS) if (vals[f] != null) await ppmEvent({ entity: 'project', entity_id: nid, action: 'finance_edit', field: f, old_value: null, new_value: vals[f], currency: vals.currency || 'USD' }, opts.user);
     return nid;
   }
+  // ── B-08 benefits: realised value + independent verification (catalogue A09) ──────────
+  // A-19 — benefits have no deleted_at: they follow their project (a deleted project or ancestor hides them).
+  async function listBenefits(projectId) { if (await _projectGone(projectId)) return []; return (await P(`SELECT * FROM portfolio_benefits WHERE project_id=? ORDER BY sort_order, id`).all(Number(projectId))).map(benefitRow); }
+  // A-19: a benefit follows its project — writing to one whose project chain is soft-deleted is a 409, not a 404
+  async function _benefitOfGoneProject(id) {
+    const r = await P(`SELECT project_id FROM portfolio_benefits WHERE id=?`).get(Number(id));
+    if (r && await _projectGone(r.project_id)) throw softDelete.deletedConflict('project', { deleted_at: await _goneSince(r.project_id) });
+  }
+  async function getBenefit(id) { const r = await P(`SELECT * FROM portfolio_benefits WHERE id=?`).get(Number(id)); return r && !(await _projectGone(r.project_id)) ? benefitRow(r) : null; }
+  const actorName = (u) => (u ? String(u.full_name || u.username || '') || null : null);
+  /** Record the realised value with its evidence link; clears any earlier verification. */
+  async function recordBenefitRealised(id, body, { user } = {}) {
+    await _benefitOfGoneProject(id);
+    const BV = require('./portfolioBenefits');
+    const b = await getBenefit(id);
+    if (!b) throw Object.assign(new Error('benefit not found'), { code: 'NOT_FOUND', status: 404 });
+    const v = num(body && body.realised_value);
+    if (v == null || !Number.isFinite(v)) throw Object.assign(new Error('realised_value must be a number'), { code: 'INVALID' });
+    if (!BV.evidenceLinkOk(body && body.evidence_link)) throw Object.assign(new Error('evidence_link must be an http(s) link to the evidence'), { code: 'INVALID' });
+    const link = String(body.evidence_link).trim(); const note = str(body && body.note, 2000);
+    return tx(async () => {
+      await P(`UPDATE portfolio_benefits SET realised_value=?, evidence_link=?, realised_note=?, realised_by=?, realised_by_name=?, realised_at=?, verified_by=NULL, verified_by_name=NULL, verified_at=NULL, updated_at=? WHERE id=?`)
+        .run(v, link, note, user && user.id != null ? Number(user.id) : null, actorName(user), now(), now(), Number(id));
+      await ppmEvent({ entity: 'project', entity_id: b.project_id, action: 'benefit_realised', field: `benefit:${id}`, old_value: b.realised_value, new_value: v, currency: b.value_kind === 'money' ? b.currency : null, note: link }, user);
+      return getBenefit(id);
+    });
+  }
+  /** Verify the realised value — never by the person who entered it (SELF_REVIEW, 403). */
+  async function verifyBenefit(id, { user } = {}) {
+    await _benefitOfGoneProject(id);
+    const b = await getBenefit(id);
+    if (!b) throw Object.assign(new Error('benefit not found'), { code: 'NOT_FOUND', status: 404 });
+    if (b.realised_value == null) throw Object.assign(new Error('no realised value to verify yet'), { code: 'CONFLICT', status: 409, reason: 'NOT_REALISED' });
+    const uid = user && user.id != null ? Number(user.id) : null;
+    if (uid == null || b.realised_by == null || uid === b.realised_by) throw Object.assign(new Error('the person who entered the realised value cannot verify it'), { code: 'SELF_REVIEW', status: 403, expose: true, reason: 'SELF_REVIEW' });
+    return tx(async () => {
+      await P(`UPDATE portfolio_benefits SET verified_by=?, verified_by_name=?, verified_at=?, updated_at=? WHERE id=?`).run(uid, actorName(user), now(), now(), Number(id));
+      await ppmEvent({ entity: 'project', entity_id: b.project_id, action: 'benefit_verified', field: `benefit:${id}`, new_value: b.realised_value, currency: b.value_kind === 'money' ? b.currency : null }, user);
+      return getBenefit(id);
+    });
+  }
+  /** Benefits of the projects of one site (primary or extra site) whose review date is reached and that are not verified. */
+  async function dueBenefitReviews({ siteId, asOf }) {
+    const rows = await P(`SELECT b.*, p.key AS project_key, p.name AS project_name FROM portfolio_benefits b JOIN portfolio_projects p ON p.id = b.project_id
+      JOIN portfolio_objectives o ON o.id = p.objective_id JOIN portfolio_programmes g ON g.id = o.programme_id
+      WHERE p.deleted_at IS NULL AND o.deleted_at IS NULL AND g.deleted_at IS NULL AND b.verified_at IS NULL AND b.review_date IS NOT NULL AND b.review_date <= ? AND (p.site_id = ? OR EXISTS (SELECT 1 FROM portfolio_project_sites s WHERE s.project_id = p.id AND s.site_id = ?))
+      ORDER BY b.review_date, b.id`).all(String(asOf).slice(0, 10), Number(siteId), Number(siteId));
+    return rows.map(r => ({ ...benefitRow(r), project_key: r.project_key, project_name: r.project_name }));
+  }
   /** G11 — stage gate passage (rules in services/projectSchedule.stageGate), recorded in the ledger. */
-  async function moveProjectStage(id, to, { user, note } = {}) {
+  // A-27 — captureBaseline: the caller (route) passes report_config ppm_baseline_versions === '1'; the store reads no config.
+  async function moveProjectStage(id, to, { user, note, captureBaseline = false } = {}) {
     const p = await P(`SELECT * FROM portfolio_projects WHERE id=? AND deleted_at IS NULL`).get(Number(id));   // A-19c
     if (!p) throw Object.assign(new Error('project not found'), { code: 'NOT_FOUND', status: 404 });
     const { openTasks, openRisksHigh } = await gateCounts(id);
     const err = require('./projectSchedule').stageGate(p, to, user, { openTasks, openRisksHigh, note });
     if (err) throw Object.assign(new Error(err.error), { code: 'CONFLICT', status: 409, reason: err.code });
     const statusFor = { proposal: 'planned', approval: 'planned', in_progress: 'active', on_hold: 'on_hold', closure: 'active', closed: 'done' };
-    await updateRow('portfolio_projects', id, { stage: to, status: statusFor[to] }, ['stage', 'status']);
-    await ppmEvent({ entity: 'project', entity_id: id, action: 'stage', field: 'stage', old_value: p.stage, new_value: to, note }, user);
+    const capture = !!captureBaseline && (p.stage || 'proposal') === 'approval' && to === 'in_progress';
+    const move = async () => {
+      await updateRow('portfolio_projects', id, { stage: to, status: statusFor[to] }, ['stage', 'status']);
+      await ppmEvent({ entity: 'project', entity_id: id, action: 'stage', field: 'stage', old_value: p.stage, new_value: to, note }, user);
+      if (capture) {
+        // the plan approved at the gate becomes the task baselines where none was entered (never overwrites one)
+        await P(`UPDATE portfolio_tasks SET baseline_start=COALESCE(baseline_start, start_date), baseline_end=COALESCE(baseline_end, end_date) WHERE project_id=? AND (baseline_start IS NULL OR baseline_end IS NULL)`).run(Number(id));
+        const v = await writeBaseline(id, { user, approved: false, reason: note || null });
+        await ppmEvent({ entity: 'project', entity_id: id, action: 'baseline_captured', field: 'baseline_version', old_value: null, new_value: v, note: 'approval gate' }, user);
+      }
+    };
+    await (capture ? tx(move) : move());
     return P(`SELECT * FROM portfolio_projects WHERE id=?`).get(Number(id));
+  }
+  // ---- A-27 versioned baselines (portfolio_baselines, append-only, migration 045) -----------------------------------
+  const BL = () => require('./ppmBaseline');
+  const baselineRow = (r) => ({ id: Number(r.id), project_id: Number(r.project_id), version: Number(r.version), captured_at: r.captured_at, captured_by: r.captured_by == null ? null : Number(r.captured_by), approved_by: r.approved_by == null ? null : Number(r.approved_by), approved_by_name: r.approved_by_name || null, reason: r.reason || null, payload: P_(r.payload_json, null) });
+  /** Snapshot the CURRENT stored plan as version max + 1. Must run inside the caller's transaction. */
+  async function writeBaseline(projectId, { user, approved, reason }) {
+    const pid = Number(projectId);
+    const p = await P(`SELECT * FROM portfolio_projects WHERE id=?`).get(pid);
+    // A-19: the snapshot holds the live plan only (soft-deleted tasks / milestones and orphaned sub-tasks are out)
+    const tasks = _liveTaskTree((await P(`SELECT * FROM portfolio_tasks WHERE project_id=? AND deleted_at IS NULL ORDER BY sort_order, id`).all(pid)).map(taskRow));
+    const ms = (await P(`SELECT * FROM portfolio_milestones WHERE project_id=? AND deleted_at IS NULL ORDER BY sort_order, due_date`).all(pid)).map(m => ({ ...idRow(m), project_id: Number(m.project_id) }));
+    const max = await P(`SELECT MAX(version) AS v FROM portfolio_baselines WHERE project_id=?`).get(pid);
+    const version = Number((max && max.v) || 0) + 1;
+    await insert('portfolio_baselines', ['project_id', 'version', 'captured_at', 'captured_by', 'approved_by', 'approved_by_name', 'reason', 'payload_json'],
+      [pid, version, now(), user && user.id != null ? Number(user.id) : null, approved && user && user.id != null ? Number(user.id) : null, approved && user ? String(user.full_name || user.username || '') : null, str(reason, 2000), J(BL().snapshotPayload(p, tasks, ms))]);
+    return version;
+  }
+  /** Versions of one project (oldest first), or of every project when projectId is null. */
+  async function listBaselines(projectId = null) {
+    // A-19: baselines of a soft-deleted project (or ancestor) are kept (append-only) but not served
+    if (projectId != null && await _projectGone(projectId)) return [];
+    const rows = projectId == null ? await P(`SELECT b.* FROM portfolio_baselines b JOIN portfolio_projects p ON p.id = b.project_id
+        JOIN portfolio_objectives o ON o.id = p.objective_id JOIN portfolio_programmes g ON g.id = o.programme_id
+        WHERE p.deleted_at IS NULL AND o.deleted_at IS NULL AND g.deleted_at IS NULL ORDER BY b.project_id, b.version`).all() : await P(`SELECT * FROM portfolio_baselines WHERE project_id=? ORDER BY version`).all(Number(projectId));
+    return rows.map(baselineRow);
+  }
+  /**
+   * The ONLY way to move an approved baseline (the ordinary edit keeps refusing it with BASELINE_FROZEN).
+   * body: { reason, project: { baseline_start|start_date, baseline_end|end_date }, tasks: [{ id, start_date, end_date }] }.
+   * The route checks the committee role and the switch; this checks the rule (services/ppmBaseline.rebaselineCheck).
+   */
+  async function rebaseline(projectId, body = {}, { user } = {}) {
+    const pid = Number(projectId);
+    const p = (await _projectGone(pid)) ? null : await P(`SELECT * FROM portfolio_projects WHERE id=? AND deleted_at IS NULL`).get(pid);   // A-19
+    if (!p) throw Object.assign(new Error('project not found'), { code: 'NOT_FOUND', status: 404 });
+    const err = BL().rebaselineCheck(p, user, body.reason);
+    if (err) throw Object.assign(new Error(err.error), { code: 'CONFLICT', status: 409, reason: err.code });
+    const pj = body.project || {};
+    const bs = pj.baseline_start !== undefined ? _day(pj.baseline_start) : pj.start_date !== undefined ? _day(pj.start_date) : undefined;
+    const be = pj.baseline_end !== undefined ? _day(pj.baseline_end) : pj.end_date !== undefined ? _day(pj.end_date) : undefined;
+    const tasks = (Array.isArray(body.tasks) ? body.tasks : []).map((t) => ({ id: Number(t && t.id), start: t && t.start_date !== undefined ? _day(t.start_date) : undefined, end: t && t.end_date !== undefined ? _day(t.end_date) : undefined }));
+    if (tasks.some((t) => !Number.isInteger(t.id) || t.id <= 0)) throw Object.assign(new Error('every task needs its id'), { code: 'INVALID', status: 400 });
+    const mine = new Set((await P(`SELECT id FROM portfolio_tasks WHERE project_id=? AND deleted_at IS NULL`).all(pid)).map((r) => Number(r.id)));
+    if (tasks.some((t) => !mine.has(t.id))) throw Object.assign(new Error('a task does not belong to this project'), { code: 'INVALID', status: 400 });
+    const newStart = bs === undefined ? p.baseline_start : bs, newEnd = be === undefined ? p.baseline_end : be;
+    if (newStart && newEnd && newStart > newEnd) throw Object.assign(new Error('the baseline start is after its end'), { code: 'INVALID', status: 400 });
+    return tx(async () => {
+      await P(`UPDATE portfolio_projects SET baseline_start=?, baseline_end=?, updated_at=? WHERE id=?`).run(newStart || null, newEnd || null, now(), pid);
+      for (const t of tasks) {
+        if (t.start !== undefined) await P(`UPDATE portfolio_tasks SET baseline_start=?, updated_at=? WHERE id=? AND project_id=?`).run(t.start, now(), t.id, pid);
+        if (t.end !== undefined) await P(`UPDATE portfolio_tasks SET baseline_end=?, updated_at=? WHERE id=? AND project_id=?`).run(t.end, now(), t.id, pid);
+      }
+      const version = await writeBaseline(pid, { user, approved: true, reason: String(body.reason).trim() });
+      await ppmEvent({ entity: 'project', entity_id: pid, action: 'rebaseline', field: 'baseline_end', old_value: p.baseline_end, new_value: newEnd, note: `v${version}: ${String(body.reason).trim()}` }, user);
+      return { version, baseline_start: newStart || null, baseline_end: newEnd || null };
+    });
+  }
+  // ---- A-27 PPM exception alert dedup (ppm_alert_state) --------------------------------------------------------------
+  async function alertStates() { return (await P(`SELECT * FROM ppm_alert_state`).all()).map((r) => ({ ...r, project_id: r.project_id == null ? null : Number(r.project_id) })); }
+  async function saveAlertState(s) {
+    const ex = await P(`SELECT item_key FROM ppm_alert_state WHERE item_key=?`).get(String(s.item_key));
+    if (ex) await P(`UPDATE ppm_alert_state SET kind=?, project_id=?, first_seen=COALESCE(first_seen, ?), last_notified=?, cleared_at=? WHERE item_key=?`).run(String(s.kind), s.project_id == null ? null : Number(s.project_id), s.first_seen || null, s.last_notified || null, s.cleared_at || null, String(s.item_key));
+    else await P(`INSERT INTO ppm_alert_state (item_key, kind, project_id, first_seen, last_notified, cleared_at) VALUES (?,?,?,?,?,?)`).run(String(s.item_key), String(s.kind), s.project_id == null ? null : Number(s.project_id), s.first_seen || null, s.last_notified || null, s.cleared_at || null);
   }
   /** G14 — an accepted request becomes at most ONE project, which keeps the link (unique index, migration 039). */
   async function rfiToProject(rfiId, body, { user } = {}) {
@@ -441,8 +605,9 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     const T = TABLES[kind]; if (!T) throw new Error('unknown portfolio entity');
     // a deleted project takes its budget with it: the ledger keeps what was removed and by whom
     if (kind === 'project') { const b = await P(`SELECT key, budget, spent, currency, stage FROM portfolio_projects WHERE id=?${opts.soft ? ' AND deleted_at IS NULL' : ''}`).get(Number(id)); if (b) await ppmEvent({ entity: 'project', entity_id: id, action: 'deleted', field: 'budget', old_value: b.budget, new_value: null, currency: b.currency, note: `${b.key} (stage ${b.stage}, spent ${b.spent == null ? 'unknown' : b.spent})${opts.soft ? ' — soft delete, restorable' : ''}` }, opts.user); }
-    // A-19c — opts.soft (route: soft_delete_enabled) stamps the node; its subtree is hidden, not stamped.
-    if (opts.soft) return softDelete.stamp(db, T.table, Number(id), { by: opts.user && opts.user.id, reason: opts.reason, now: new Date(now()) });
+    // A-19c — opts.soft (route: soft_delete_enabled) stamps the node; its subtree is hidden, not stamped. A kind whose
+    // table has no deleted_at (B-08 benefit) keeps the hard delete — it follows its project instead.
+    if (opts.soft && softDelete.TABLES[T.table]) return softDelete.stamp(db, T.table, Number(id), { by: opts.user && opts.user.id, reason: opts.reason, now: new Date(now()) });
     await P(`DELETE FROM ${T.table} WHERE id=?`).run(Number(id));
     return true;
   }
@@ -459,20 +624,25 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   }
   async function listDeletedPortfolio() {
     const out = [];
-    for (const kind of Object.keys(TABLES)) for (const r of await P(`SELECT id FROM ${TABLES[kind].table} WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC`).all()) out.push(await getPortfolioTrashRow(kind, r.id));
+    for (const kind of SOFT_KINDS()) for (const r of await P(`SELECT id FROM ${TABLES[kind].table} WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC`).all()) out.push(await getPortfolioTrashRow(kind, r.id));
     return out;
   }
+  // A-27 baselines are append-only (a trigger refuses DELETE), so a project with baselines — or a programme / objective
+  // above one — cannot be hard-deleted: such a row is skipped and reported, never crashes the purge, stays soft-deleted.
   async function purgeDeletedPortfolio(cutoff, { apply = false } = {}) {
-    const ids = []; let purged = 0;
-    for (const kind of Object.keys(TABLES)) {
+    const ids = [], skipped = []; let purged = 0;
+    for (const kind of SOFT_KINDS()) {
       const t = TABLES[kind].table;
       for (const r of await P(`SELECT id FROM ${t} WHERE deleted_at IS NOT NULL AND deleted_at < ? ORDER BY deleted_at`).all(cutoff)) {
         ids.push(`${kind}:${r.id}`);
-        if (apply && Number((await P(`DELETE FROM ${t} WHERE id=? AND deleted_at IS NOT NULL AND deleted_at < ?`).run(Number(r.id), cutoff) || {}).changes) > 0) purged++;
+        if (!apply) continue;
+        try { if (Number((await P(`DELETE FROM ${t} WHERE id=? AND deleted_at IS NOT NULL AND deleted_at < ?`).run(Number(r.id), cutoff) || {}).changes) > 0) purged++; }
+        catch (e) { skipped.push({ id: `${kind}:${r.id}`, reason: /append.only|baseline/i.test(String(e.message)) ? 'has approved baselines (append-only) — kept soft-deleted' : String(e.message).slice(0, 200) }); }
       }
     }
-    return { ids, purged };
+    return { ids, purged, skipped };
   }
+  function SOFT_KINDS() { return Object.keys(TABLES).filter((k) => softDelete.TABLES[TABLES[k].table]); }
 
   async function addMinutesHistory(sessionId, action, actorId, reason) {
     await insert('minutes_history', ['session_id', 'action', 'actor_id', 'at', 'reason'], [Number(sessionId), String(action), actorId == null ? null : Number(actorId), now(), str(reason, 1000)]);
@@ -480,7 +650,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   async function minutesHistory(sessionId) { return (await P('SELECT action, actor_id, at, reason FROM minutes_history WHERE session_id=? ORDER BY id').all(Number(sessionId))).map(r => ({ ...r, actor_id: r.actor_id == null ? null : Number(r.actor_id) })); }
   return { ppmEvent, ppmEvents, moveProjectStage, rfiToProject, getRfi, verifyRfi, getDecision, openSessionActions, addMinutesHistory, minutesHistory, init, listCadences, getCadence, saveCadence, removeCadence, listSessions, getSession, createSession, updateSession, stampItem, sessionActions, addSessionAction, setSessionActionStatus, moveSession,
     listDecisions, addDecision, updateDecision, listRfi, submitRfi, triageRfi, rfiScore, portfolio, upsertPortfolio, removePortfolio,
-    restorePortfolio, getPortfolioTrashRow, listDeletedPortfolio, purgeDeletedPortfolio, restoreCadence, getCadenceTrashRow, listDeletedCadences, purgeDeletedCadences, projectSites, setProjectSites, getProject, planRow, projectDetail, gateCounts, RISK_KINDS,
+    restorePortfolio, getPortfolioTrashRow, listDeletedPortfolio, purgeDeletedPortfolio, restoreCadence, getCadenceTrashRow, listDeletedCadences, purgeDeletedCadences, projectSites, setProjectSites, getProject, planRow, projectDetail, gateCounts, RISK_KINDS, listBaselines, rebaseline, alertStates, saveAlertState, listBenefits, getBenefit, recordBenefitRealised, verifyBenefit, dueBenefitReviews,
     CADENCE_KINDS, SESSION_STATUSES, DECISION_STATUSES, RFI_KINDS, RFI_STATUSES, PROJECT_STATUSES, CONFIDENCE };
 }
 

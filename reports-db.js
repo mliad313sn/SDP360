@@ -5170,6 +5170,26 @@ async function _logAuditPg({ report_id, site_id, user_id, username, action, deta
   } catch (e) { console.error('[audit_log] write error:', e.message); }
 }
 
+// A-24 — weekly report submissions (migration 054, append-only + hash-chained). One row per
+// submit (not only the first); the server computes figures + sha (services/reportFigures.js).
+async function recordReportSubmission({ report_id, site_id, user_id, figures, sha } = {}) {
+  const r = await pgHandle().prepare(
+    `INSERT INTO weekly_report_submissions (report_id, site_id, submitted_by, submitted_at, figures_json, figures_sha256)
+     VALUES (?,?,?,?,?,?) RETURNING id, row_hash`
+  ).get(report_id, site_id || null, user_id || null, new Date().toISOString(), JSON.stringify(figures ?? null), sha);
+  return r || null;
+}
+// Latest submission of one report (with the submitter's username), or null when none was recorded
+// (a report submitted before migration 054 has no submission hash).
+async function lastReportSubmission(report_id) {
+  return (await pgHandle().prepare(
+    `SELECT s.id, s.report_id, s.site_id, s.submitted_by, s.submitted_at, s.figures_sha256, s.row_hash,
+            u.username AS submitted_by_username
+       FROM weekly_report_submissions s LEFT JOIN users u ON u.id = s.submitted_by
+      WHERE s.report_id = ? ORDER BY s.id DESC LIMIT 1`
+  ).get(report_id)) || null;
+}
+
 /**
  * Return the last N audit entries for a specific report (most recent first).
  */
@@ -5579,7 +5599,7 @@ module.exports = {
   // Action departments (editable dropdown for action items)
   listDepartments, createDepartment, updateDepartment, setDepartmentActive,
   getPreviousWeekInfraKpis,
-  updateReportStatus, touchReport, deleteReport,
+  updateReportStatus, touchReport, deleteReport, recordReportSubmission, lastReportSubmission,
   getReportAssetReview, saveReportAssetReview,
   reassignReportWeek, requestRecordExists,   // 4D-wiring-2 helpers
   getMonthlyData, getWeekSummaryData, getYearlySummary, getCalendarMonthlyHelpdesk, getCalendarMonthlyTop10, getHelpdesk6MonthHistory,

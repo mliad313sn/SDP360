@@ -56,6 +56,8 @@ const ALLOW = {
     openSessionActions: 'WHERE comes from `where`, always seeded with c.deleted_at IS NULL',
     _projectGone: 'reads the deleted_at of the project chain on purpose (returns true when any is set)',
     projectDetail: 'objective read for a project already checked live by _projectGone',
+    _goneSince: 'reads the deleted_at of the project chain on purpose (the date for the 409 message)',
+    writeBaseline: 'callers (moveProjectStage / rebaseline) have already refused a deleted project; the snapshot reads live tasks/milestones only',
     upsertPortfolio: 'dependency siblings + before-row of a node already refused when deleted (CONFLICT guard above)',
     moveProjectStage: 'returns the row just updated; the project was resolved live first',
     rfiToProject: 'an RFI that became a project stays linked to it even when the project is soft-deleted (no duplicate project)',

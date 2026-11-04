@@ -46,7 +46,7 @@ const MODULES = {
     purge: async (cutoff, opts, gov) => {
       const st = gov || _gov();
       const a = await st.purgeDeletedPortfolio(cutoff, opts), b = await st.purgeDeletedCadences(cutoff, opts);
-      return { ids: [...a.ids, ...b.ids.map((id) => `cadence:${id}`)], purged: a.purged + b.purged };
+      return { ids: [...a.ids, ...b.ids.map((id) => `cadence:${id}`)], purged: a.purged + b.purged, skipped: a.skipped || [] };
     },
   },
 };

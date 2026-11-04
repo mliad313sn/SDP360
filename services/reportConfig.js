@@ -16,6 +16,12 @@ const DEFAULTS = {
   // status = completed/(completed+failed) by SDP status (today); deck = _computeSiteChanges
   // success_pct (cancelled in denominator); itsm = success_pct_itsm. Official formula = KPI D-01 (open).
   exec_view_change_formula: 'status',
+  // A-24 — PROPOSED D-3 (reverses the 2026-10-02 decision; NOT approved): every default reproduces today.
+  // site_editor = any editor of the report's site / admin tier may revert a submitted report (today);
+  // second_person = the submitter never reverts their own submission, another admin-tier user must,
+  // with a reason. report_reassign_submitted '0' refuses moving a SUBMITTED report to another week.
+  // report_drift_banner '1' shows a red band when the figures no longer match the submission hash.
+  report_revert_policy: 'site_editor', report_reassign_submitted: '1', report_drift_banner: '0',
   transport: 'smtp',
   smtp_host: '', smtp_port: '587', smtp_secure: '0', smtp_user: '', smtp_pass: '',
   from: '', reply_to: '',
@@ -93,6 +99,10 @@ const DEFAULTS = {
   //    /api/actions/open. Both keys are secrets: redacted on GET, blank-kept on save
   //    like smtp_pass / entra_client_secret. Must live here or setConfig drops them.
   meridian_base_url: '', meridian_out_key: '', meridian_in_key: '',
+  // PROPOSED D-5 kill switch (A-20 phase 1, repo decision D-07, NOT approved) — 0 = retired:
+  //    /api/actions/open + /api/meridian/sync answer 404, the nightly job skips "disabled",
+  //    the Site Actions badge and the admin form disappear. '1' = today's behaviour.
+  meridian_enabled: '1',
   // ── OPManager infra availability (V1a). The Analytics Plus view id OPS reads via
   //    fetchView; per-family availability targets (JSON); staleness threshold (days).
   //    Non-secret. Must live here or setConfig's KEYS filter silently drops them.
@@ -181,6 +191,14 @@ const DEFAULTS = {
   // (tasks, milestones, risks, deliverables) of their site projects. '0' = today (all read, committee writes).
   portfolio_site_scope_reads: '0',
   portfolio_editor_plan_writes: '0',
+  // A-27 — PROPOSED PPM governance policy (not approved): '0' = today. ppm_baseline_versions '1' = the approval gate
+  // writes a baseline version; ppm_rebaseline_enabled '1' = the committee re-baseline action exists (404 while '0');
+  // ppm_alerts_enabled '1' = the nightly A11 exception job notifies in-app (while '0' it is a dry run).
+  ppm_baseline_versions: '0',
+  ppm_rebaseline_enabled: '0',
+  ppm_alerts_enabled: '0',
+  ppm_alert_blocked_days: '5',
+  ppm_alert_slip_days: '10',
   site_codes_from_registry: '0',   // DEC-4 — '1' = site_module_codes wins over the modules' hard-coded maps (diff first: GET /api/governance/site-codes)   // ADR-006 — in-app notice to the escalation-matrix target of a new A01 / A02 (off = ledger only, as before)
 };
 // ── Sync alerting (Step 1). Recipients = comma list of e-mail addresses; teams_url = a
@@ -222,6 +240,12 @@ DEFAULTS.site_score_published_model = 'legacy';
 //    the nightly softdelete.purge job (hard-deletes stamped rows older than the retention). services/softDelete.js.
 Object.assign(DEFAULTS, { soft_delete_enabled: '0', soft_delete_retention_days: '30', soft_delete_purge_enabled: '0' });
 
+// ── B-09 — Roadmap Manager → portfolio single source. '0' = today (the Roadmap Manager stays editable);
+//    '1' = itsm-roadmap.html turns READ-ONLY with a link to the portfolio, and the roadmap write routes answer
+//    409. Nothing is ever deleted (deletion of roadmap_* rows is a CAB decision). Decision: redirect only after
+//    one parity cycle (tools/governance/roadmap-parity.js) — PMO + PO.
+DEFAULTS.roadmap_redirect_to_portfolio = '0';
+
 const KEYS = Object.keys(DEFAULTS);
 
 // Secrets that the GET handler redacts to '' — a Save that doesn't retype them must
@@ -255,7 +279,7 @@ function _fold(rows, key) {
   const out = { ...DEFAULTS };
   rows.forEach(r => {
     if (!_SECRET_BLANK_KEEP.has(r.key)) { out[r.key] = r.value; return; }
-    const plain = _secrets.decryptValue(r.value, key);
+    const plain = _secrets.decryptValue(r.value, key, { keyName: r.key });   // A-28b: v3 boxes are bound to their key name
     if (plain === null) {
       // An encrypted value we cannot open. Returning the box would make nodemailer or the
       // SSO handshake fail with an error nobody can read, so it reads as "not configured"
@@ -286,7 +310,7 @@ function setConfig(db, patch, user, opts) {
     .filter(([k, v]) => !(_SECRET_BLANK_KEEP.has(k) && String(v) === ''))
     // Encrypt on the way in, and only the secret-shaped keys: a host or a port stays
     // legible so an operator can still read the table when something is wrong.
-    .map(([k, v]) => [k, _SECRET_BLANK_KEEP.has(k) ? _secrets.encryptValue(String(v), _key) : v]);
+    .map(([k, v]) => [k, _SECRET_BLANK_KEEP.has(k) ? _secrets.encryptValue(String(v), _key, { keyName: k }) : v]);
   const { H, isPg } = _h(db);
   return (async () => {
     await H.runTransaction(async () => {

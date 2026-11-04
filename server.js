@@ -140,6 +140,7 @@ function safeError(err, res, fallbackStatus = 500) {
 // but CSP enforcement relies on 'unsafe-inline' + domain allowlist.
 // This is appropriate for an internal private-network dashboard.
 const sessionAuth = require('./services/sessionAuth');   // E5: cookie-only browser session + strict CSP pages
+const _cspReportOnly = require('./services/cspReport').enabled();   // A-28a switch, read once at boot (default off)
 app.use((req, res, next) => {
   // Generate a nonce — still used to inject window.__ak into HTML pages
   const nonce = crypto.randomBytes(16).toString('base64');
@@ -157,21 +158,13 @@ app.use((req, res, next) => {
   // (onclick/onchange attributes). B-01: no CDN origin — Chart.js, its datalabels plugin and
   // React are served same-origin from public/vendor/ (fonts.googleapis.com stays, fonts are out of scope).
   // style-src keeps 'unsafe-inline' (many inline styles throughout).
-  res.setHeader('Content-Security-Policy', [
-    "default-src 'self'",
-    sessionAuth.scriptSrc(nonce, sessionAuth.isStrictCspPath(req.path)),   // E5: nonce-only on public/share pages
-    "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
-    "font-src 'self' fonts.gstatic.com data:",
-    "img-src 'self' data:",
-    // inspection.html ships its PWA manifest as an inline `data:` URL so the
-    // form can be Add-to-Home-Screen-installed on phones without a separate
-    // asset. Allowing `data:` here silences the manifest CSP block.
-    "manifest-src 'self' data:",
-    "connect-src 'self'",
-    "object-src 'none'",
-    "base-uri 'self'",
-    "frame-ancestors 'none'",
-  ].join('; '));
+  // inspection.html's PWA manifest is an inline data: URL → manifest-src 'self' data: (services/sessionAuth.cspDirectives).
+  res.setHeader('Content-Security-Policy', sessionAuth.cspDirectives(sessionAuth.scriptSrc(nonce, sessionAuth.isStrictCspPath(req.path))).join('; '));
+  // A-28a — opt-in (SDP_CSP_REPORT_ONLY=1, read at boot): the nonce-only policy, reported not enforced.
+  if (_cspReportOnly && !sessionAuth.isStrictCspPath(req.path)) {
+    res.setHeader('Content-Security-Policy-Report-Only', sessionAuth.reportOnlyPolicy(nonce));
+    res.setHeader('Reporting-Endpoints', `csp-endpoint="${sessionAuth.CSP_REPORT_PATH}"`);
+  }
   // Remove X-Powered-By to hide the tech stack
   res.removeHeader('X-Powered-By');
   next();
@@ -199,6 +192,7 @@ app.use((req, res, next) => {
     path === '/activity-tracker.html' ||
     path.startsWith('/activity-tracker/');
   if (isPreviewLike) {
+    res.removeHeader('Content-Security-Policy-Report-Only'); res.removeHeader('Reporting-Endpoints');   // A-28a: own policy here
     const isDevPreview = path.startsWith('/dashboard-preview') || path.startsWith('/design-system');
     res.setHeader('Content-Security-Policy', [
       "default-src 'self'",
@@ -946,6 +940,8 @@ app.use(require('./services/originGuard').middleware({ allowed: corsAllowed, log
 // app.use(path, mw) matches the path prefix — for /api/inspection/save
 // it triggers on the exact route. Same pattern for the meetings save +
 // audit-trail routes which carry inline content of their own.
+// A-28a — CSP report endpoint (switch on only): own 16 KB parser + per-IP limiter, answered BEFORE the /api gate.
+if (_cspReportOnly) app.use(require('./routes/securityCsp')({ express, getRdb: () => rdb }));
 app.use('/api/inspection/save',             express.json({ limit: '100mb' }));
 app.use('/api/inspection/aggregate/export', express.json({ limit: '50mb'  }));
 app.use('/api/meetings/save',               express.json({ limit: '10mb'  }));
@@ -1347,7 +1343,7 @@ async function sendHtmlPage(res, name, injectApiKey, fallbackMsg) {
     html = html.replace('</head>', `<script nonce="${res.locals.nonce}">window.__ak='${DASH_API_KEY}';</script>\n</head>`);
   }
   html = html.replace(/%%CSP_NONCE%%/g, res.locals.nonce);
-  if (sessionAuth.STRICT_PAGES.includes('/' + name)) html = sessionAuth.nonceScripts(html, res.locals.nonce);
+  if (sessionAuth.STRICT_PAGES.includes('/' + name) || res.getHeader('Content-Security-Policy-Report-Only')) html = sessionAuth.nonceScripts(html, res.locals.nonce);   // A-28a: nonce inline scripts under report-only
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   // Page HTML must NOT be cached by the browser — every visit gets a fresh
   // CSP nonce. Static assets (.js, .css, fonts) are cached aggressively below.
@@ -5231,7 +5227,10 @@ app.use(require('./routes/adminConfig')({
 // Meridian resource sync — on-demand (admin+). Runs the same job as the nightly cron;
 // self-skips when unconfigured. Behind the /api/ dash-key gate + session/admin.
 app.post('/api/meridian/sync', requireReportSession, requireSuperAdmin, async (req, res) => {
-  try { res.json(await require('./tools/meridian/sync-resources').main()); }
+  try {
+    if (String((await reportConfig.getConfig(rdb.db)).meridian_enabled) === '0') return res.status(404).json({ error: 'not found' }); // A-20 kill switch
+    res.json(await require('./tools/meridian/sync-resources').main());
+  }
   catch (e) { fail(res, e); }
 });
 app.get('/api/reports/recipients', requireReportSession, requireSuperAdmin, async (req, res) => {
@@ -5337,12 +5336,14 @@ app.get('/api/reports/site-data', requireReportSession, async (req, res) => {
 // /api/reports/:id (the :id shadowing trap). Unknown/absent site → empty groups.
 // Site Actions hub — routes/siteActions.js (Step 6 modularisation).
 app.use(require('./routes/siteActions')({ express, requireReportSession, siteCodeReadDenied: _siteCodeReadDenied, reportConfig, getCommitmentStore: () => _cmtStore }));
+app.use(require('./routes/reportIntegrity')({ express, requireReportSession }));   // A-24 — submission hash vs current figures
 // ── Report-write authorisation (audit 2026-09-05, F5) ────────────────────────
 // A valid session is NOT enough to write a report or one of its follow-ups: the
 // caller must (1) hold the editor role, (2) be scoped to the OBJECT's site — a
 // site-less profile is NOT global, only admin+ is unscoped — and (3) a submitted
 // report is frozen for everyone but super_admin (mirrors the status-revert rule).
 // Returns null when allowed, else {status, error} for the route to send.
+const _submissionPolicy = require('./services/reportSubmissionPolicy');   // A-24
 function _reportWriteDenial(user, report, opts = {}) {
   if (!report) return { status: 404, error: 'Report not found' };
   if (!rdb.userHasRole(user, 'editor')) return { status: 403, error: 'editor role required' };
@@ -6775,6 +6776,8 @@ app.put('/api/reports/:id/status', requireReportSession, jsonBody, async (req, r
     // gate: submit and revert are both allowed to whoever passes it (decision 2026-10-02).
     const report = await _authorizeReportWrite(req, res, id, { allowSubmitted: true });
     if (!report) return;
+    const rv = await _submissionPolicy.checkRevert(rdb, req.reportUser, report, status, req.body);   // A-24, OFF by default
+    if (rv.denial) return res.status(rv.denial.status).json({ error: rv.denial.error });
     // Reverting a submitted report to draft (user decisions 2026-10-02): was super_admin-
     // only; now any editor of the REPORT'S site, the admin tier anywhere. That is exactly
     // what _authorizeReportWrite above already enforces (editor role + the report's site,
@@ -6794,9 +6797,10 @@ app.put('/api/reports/:id/status', requireReportSession, jsonBody, async (req, r
     }
 
     await rdb.updateReportStatus(id, status, req.reportUser.id);
+    if (status === 'submitted') await _submissionPolicy.recordSubmission(rdb, id, req.reportUser.id);   // A-24 — every submit, best-effort
     // Audit
     const action = status === 'submitted' ? 'submitted' : (report.status === 'submitted' ? 'reverted' : 'status_changed');
-    await rdb.logAudit({ report_id: id, site_id: report.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action, details: { from: report.status, to: status } });
+    await rdb.logAudit({ report_id: id, site_id: report.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action, details: { from: report.status, to: status, ...(rv.reason ? { reason: rv.reason } : {}) } });
     res.json({ ok: true });
   } catch(e) { fail(res, e); }
 });
@@ -6817,6 +6821,8 @@ app.put('/api/reports/:id/reassign-week', requireReportSession, jsonBody, async 
     // F5: editor role + site scope (site-less ≠ global); any status by design (allowSubmitted).
     const existing = await _authorizeReportWrite(req, res, id, { allowSubmitted: true });
     if (!existing) return;
+    const frozen = await _submissionPolicy.checkReassign(rdb, existing);   // A-24 report_reassign_submitted, '1' = today
+    if (frozen) return res.status(frozen.status).json({ error: frozen.error });
 
     // Ensure the target week row exists in the weeks table (creates it if new)
     const newWeekId = await rdb.ensureWeek(year, week);

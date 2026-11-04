@@ -155,6 +155,8 @@ function buildJobs(d) {
   const ho = d.handoffs || null;
   list.push({ name: 'handoffs.escalate', cron: '35 * * * *', freshnessHours: 3, optional: true, job: legacyJob('handoffs.escalate', () => ho ? ho.escalate() : { skipped: true }, { maxAttempts: 2 }) });
   list.push({ name: 'commitments.escalate', cron: '20 * * * *', freshnessHours: 3, optional: true, job: legacyJob('commitments.escalate', () => cmt ? cmt.escalate() : { skipped: true }, { maxAttempts: 2 }) });
+  // A-27 — catalogue A11 PPM exceptions, nightly. A dry run (records nothing) while ppm_alerts_enabled != '1'.
+  list.push({ name: 'governance.ppm_alerts', cron: '40 5 * * *', freshnessHours: 30, optional: true, job: legacyJob('governance.ppm_alerts', () => req('governance/ppm-alerts').run({}), { maxAttempts: 1 }) });
   return list;
 }
 
@@ -168,7 +170,9 @@ async function softDeletePurgeRun(d = {}) {
   const counts = Object.fromEntries(Object.entries(out.modules).map(([k, v]) => [k, v.purged]));
   const rows = Object.values(counts).reduce((n, x) => n + x, 0);
   for (const [mod, n] of Object.entries(counts)) if (n > 0) rdb.logEvent({ category: mod, action: `${mod}_purged`, target: 'softdelete.purge', details: { purged: n, cutoff: out.cutoff, retention_days: out.retention_days } });
-  return { rows, purged: counts, cutoff: out.cutoff };
+  const skipped = Object.values(out.modules).flatMap((v) => v.skipped || []);   // e.g. A-27 baselined projects (append-only)
+  if (skipped.length) rdb.logEvent({ category: 'portfolio', action: 'portfolio_purge_skipped', target: 'softdelete.purge', details: { skipped } });
+  return { rows, purged: counts, skipped, cutoff: out.cutoff };
 }
 
 // Declared freshness per job — read by routes/sync.js without needing the live deps.
@@ -177,11 +181,11 @@ const FRESHNESS_HOURS = {
   'meridian.resources': 30, 'opmanager.availability': 30, 'meraki.wan': 30, 'meraki.wan_events': 30,
   'meraki.wan_events_5m': 1, 'meraki.wan_poller': 1, 'teams.sla_poll': 1, 'db.backup': 30, 'db.restore_drill': 24 * 33, 'audit.retention': 30, 'audit.chain_verify': 30,
   'engagement.alerts': 1, 'engagement.digest': 30, 'engagement.digest_weekly': 24 * 8, 'reports.weekly': 24 * 8, 'reports.monthly': 24 * 32, 'publish.connectors': 30, 'field.purge': 30, 'softdelete.purge': 30,
-  'commitments.escalate': 3, 'handoffs.escalate': 3,
+  'commitments.escalate': 3, 'handoffs.escalate': 3, 'governance.ppm_alerts': 30,
 };
 // Jobs that self-skip until configured (no API key / webhook) — never reported "stale", only "idle".
 const OPTIONAL = new Set(['meridian.resources', 'opmanager.availability', 'meraki.wan', 'meraki.wan_events', 'meraki.wan_events_5m', 'meraki.wan_poller', 'teams.sla_poll', 'db.backup', 'db.restore_drill',
-  'engagement.alerts', 'engagement.digest', 'engagement.digest_weekly', 'reports.weekly', 'reports.monthly', 'publish.connectors', 'field.purge', 'softdelete.purge', 'commitments.escalate', 'handoffs.escalate']);
+  'engagement.alerts', 'engagement.digest', 'engagement.digest_weekly', 'reports.weekly', 'reports.monthly', 'publish.connectors', 'field.purge', 'softdelete.purge', 'commitments.escalate', 'handoffs.escalate', 'governance.ppm_alerts']);
 
 // Map the legacy sync_metadata job names onto the registry names (one health view, D7).
 const LEGACY_NAMES = { requests: 'zoho.requests', change_cab: 'zoho.change_cab', survey: 'zoho.survey',

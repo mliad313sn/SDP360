@@ -23,4 +23,7 @@ window.COCKPIT_FR = {
   'Unsent draft restored from this device — it will be sent automatically': 'Brouillon non envoyé restauré depuis cet appareil — il sera envoyé automatiquement',
   'Minutes accepted — the session is now read-only.': 'Compte rendu accepté — la séance est désormais en lecture seule.', 'Skip to content': 'Aller au contenu',
   'e.g. ticket 311587 / DEC-2026-003': 'ex. ticket 311587 / DEC-2026-003', 'Live session': 'Séance en cours', 'Decision status': 'Statut de la décision', 'Item notes': 'Notes du point',
+  'PPM exceptions': 'Exceptions PPM', 'Friday queue: late, blocked or unowned project work and baseline slips (catalogue A11). Read-only; open the project to act.': 'File du vendredi : travaux de projet en retard, bloqués ou sans responsable et glissements par rapport à la référence (catalogue A11). Lecture seule ; ouvrez le projet pour agir.',
+  'Project': 'Projet', 'Since': 'Depuis', 'Detail': 'Détail', 'No PPM exception.': 'Aucune exception PPM.', 'Nightly in-app alerts are armed.': 'Les alertes nocturnes dans l’application sont armées.',
+  'Nightly alerts are off (dry run only).': 'Les alertes nocturnes sont désactivées (simulation seulement).', 'Portfolio deck (PPTX)': 'Présentation du portefeuille (PPTX)', 'Workbook (XLSX)': 'Classeur (XLSX)',
 };

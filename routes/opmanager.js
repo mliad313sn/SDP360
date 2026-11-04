@@ -526,7 +526,7 @@ module.exports = function opmanagerRoutes(deps) {
       const row = await rdb.reviewWanContract(_contractKey(req), req.reportUser && req.reportUser.username);
       res.json({ ok: true, contract: row });
     } catch (e) {
-      if (e && (e.code === 'SELF_REVIEW' || e.code === 'NOT_FOUND')) return res.status(e.status).json({ ok: false, code: e.code, error: e.message });
+      if (e && (e.code === 'SELF_REVIEW' || e.code === 'NOT_FOUND')) return fail(res, e, e.status, { ok: false, code: e.code });
       fail(res, e, undefined, { ok: false });
     }
   });

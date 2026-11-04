@@ -32,9 +32,36 @@ function scriptSrc(nonce, strict) {
     : "script-src 'self' 'unsafe-inline'";
 }
 
+// The directives every page shares; only script-src varies (strict / normal / report-only).
+function cspDirectives(scriptSrcDirective) {
+  return [
+    "default-src 'self'",
+    scriptSrcDirective,
+    "style-src 'self' 'unsafe-inline' fonts.googleapis.com",   // many inline styles throughout
+    "font-src 'self' fonts.gstatic.com data:",
+    "img-src 'self' data:",
+    // inspection.html ships its PWA manifest as an inline `data:` URL (Add-to-Home-Screen on phones).
+    "manifest-src 'self' data:",
+    "connect-src 'self'",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "frame-ancestors 'none'",
+  ];
+}
+
+// A-28a — the policy the enforcing one should become: nonce-only script-src (no 'unsafe-inline'),
+// sent as Content-Security-Policy-Report-Only when SDP_CSP_REPORT_ONLY=1. B-01 made every library
+// same-origin, so no CDN origin is listed. Violations go to POST /api/security/csp-report.
+const CSP_REPORT_PATH = '/api/security/csp-report';
+function reportOnlyScriptSrc(nonce) { return `script-src 'self' 'nonce-${nonce}'`; }
+function reportOnlyPolicy(nonce) {
+  return [...cspDirectives(reportOnlyScriptSrc(nonce)), `report-uri ${CSP_REPORT_PATH}`, 'report-to csp-endpoint'].join('; ');
+}
+
 // Give every <script> tag that has no nonce the per-request nonce.
 function nonceScripts(html, nonce) {
   return String(html).replace(/<script\b(?![^>]*\bnonce=)/gi, `<script nonce="${nonce}"`);
 }
 
-module.exports = { cookieValue, sessionToken, isStrictCspPath, scriptSrc, nonceScripts, STRICT_PAGES };
+module.exports = { cookieValue, sessionToken, isStrictCspPath, scriptSrc, nonceScripts, STRICT_PAGES,
+  cspDirectives, reportOnlyScriptSrc, reportOnlyPolicy, CSP_REPORT_PATH };

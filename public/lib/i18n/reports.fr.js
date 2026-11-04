@@ -9,7 +9,7 @@
 (function (root) {
   'use strict';
   const STATIC = {
-    'Site Reports': 'Rapports de site', 'Weekly': 'Hebdomadaire', '📅 Monthly': '📅 Mensuel',
+    'Site Reports': 'Rapports de site', '⚠ Figures changed since submission': '⚠ Les chiffres ont changé depuis la soumission', 'Weekly': 'Hebdomadaire', '📅 Monthly': '📅 Mensuel',
     // change-password modal
     '🔑 Change Password': '🔑 Changer le mot de passe', 'Enter your current password and choose a new one.': 'Saisissez votre mot de passe actuel puis choisissez-en un nouveau.',
     'Current Password': 'Mot de passe actuel', 'New Password': 'Nouveau mot de passe', 'Confirm New Password': 'Confirmer le nouveau mot de passe',

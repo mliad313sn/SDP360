@@ -129,3 +129,52 @@ test('purge: portfolio module lists then hard-deletes nodes and cadences past re
   const trash = await ops.trash({ module: 'portfolio', govStore: s });
   assert.equal(trash.length, 0);
 });
+
+// ---- merge with sdp-waves: B-08 benefits and A-27 baselines follow their project ------------------------------
+const MERGE_TABLES = [...TABLES, 'portfolio_benefits', 'portfolio_baselines', 'ppm_alert_state'];
+async function freshMerge() {
+  await require('./_pg-fresh').truncate(MERGE_TABLES);
+  return fresh();
+}
+const pgh = () => require('../reports-db').pgHandle();
+
+test('benefits follow their project: hidden, 409 on edit / realise, out of the due reviews; back on restore', async () => {
+  const s = await freshMerge();
+  const a = await tree(s, 1);
+  const site = await pgh().prepare('SELECT id FROM sites ORDER BY id LIMIT 1').get();
+  await pgh().prepare('UPDATE portfolio_projects SET site_id = ? WHERE id = ?').run(Number(site.id), a.pj);
+  const bid = await s.upsertPortfolio('benefit', { project_id: a.pj, description: 'Fewer outages', review_date: '2026-01-15', baseline_value: 12, target_value: 4 });
+  const due = async () => (await s.dueBenefitReviews({ siteId: Number(site.id), asOf: '2026-06-01' })).map((b) => b.id);
+  assert.deepEqual(await due(), [bid]);
+  await s.removePortfolio('project', a.pj, { soft: true });
+  assert.equal((await s.portfolio()).benefits.length, 0, 'portfolio() hides the benefit');
+  assert.deepEqual(await s.listBenefits(a.pj), []);
+  assert.equal(await s.getBenefit(bid), null);
+  assert.deepEqual(await due(), [], 'dueBenefitReviews excludes the deleted project');
+  await assert.rejects(() => s.upsertPortfolio('benefit', { id: bid, description: 'edit' }), (e) => e.code === 'CONFLICT');
+  await assert.rejects(() => s.upsertPortfolio('benefit', { project_id: a.pj, description: 'new' }), (e) => e.code === 'CONFLICT');
+  await assert.rejects(() => s.upsertPortfolio('task', { project_id: a.pj, name: 'new' }), (e) => e.code === 'CONFLICT');
+  await assert.rejects(() => s.recordBenefitRealised(bid, { realised_value: 5, evidence_link: 'https://intranet.example/k' }), (e) => e.code === 'CONFLICT');
+  await s.restorePortfolio('project', a.pj);
+  assert.equal((await s.portfolio()).benefits.length, 1);
+  assert.deepEqual(await due(), [bid]);
+});
+
+test('baselines: a deleted project\'s versions are kept but not served; purge skips a baselined project instead of crashing', async () => {
+  const s = await freshMerge();
+  const a = await tree(s, 1), b = await tree(s, 2);
+  await pgh().prepare('INSERT INTO portfolio_baselines (project_id, version, captured_at, payload_json) VALUES (?, 1, ?, ?)').run(a.pj, '2026-01-01T00:00:00Z', '{}');
+  assert.equal((await s.listBaselines()).length, 1);
+  await s.removePortfolio('project', a.pj, { soft: true });
+  await s.removePortfolio('project', b.pj, { soft: true });
+  assert.deepEqual(await s.listBaselines(), []);
+  assert.deepEqual(await s.listBaselines(a.pj), []);
+  await assert.rejects(() => s.rebaseline(a.pj, { reason: 'x'.repeat(30) }, { user: { id: 1 } }), (e) => e.code === 'NOT_FOUND');
+  const old = '2000-01-01T00:00:00Z';
+  await pgh().prepare('UPDATE portfolio_projects SET deleted_at = ? WHERE id IN (?, ?)').run(old, a.pj, b.pj);
+  const r = await s.purgeDeletedPortfolio('2001-01-01T00:00:00Z', { apply: true });
+  assert.ok(r.skipped.some((x) => x.id === `project:${a.pj}` && /baseline/.test(x.reason)), JSON.stringify(r.skipped));
+  assert.ok(await s.getPortfolioTrashRow('project', a.pj), 'baselined project kept soft-deleted');
+  assert.equal(await s.getPortfolioTrashRow('project', b.pj), null, 'the other one is purged');
+  assert.equal((await pgh().prepare('SELECT COUNT(*) AS n FROM portfolio_baselines').get()).n * 1, 1, 'append-only history untouched');
+});

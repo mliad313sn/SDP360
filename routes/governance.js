@@ -21,6 +21,9 @@ const { fail: httpFail, logError } = require('../services/httpError');
 //        (A-15: site-scoped reads + editor plan writes behind portfolio_site_scope_reads / portfolio_editor_plan_writes, off = today)
 //   PUT  /api/governance/portfolio/project/:id/sites {site_ids}   extra sites of a project   committee
 //   GET  /api/governance/portfolio/report.html        monthly portfolio report
+//   A-27 (switches ppm_baseline_versions / ppm_rebaseline_enabled / ppm_alerts_enabled, '0' = today):
+//   GET  /api/governance/portfolio/project/:id/baselines · POST /project/:id/rebaseline (committee, 404 while off)
+//   GET  /api/governance/portfolio/deck.pptx · /workbook.xlsx (money only for canSeeMoney) · /exceptions (A11)
 //   POST /api/governance/roadmap-migration?apply=1    Roadmap Manager → portfolio (dry run by default)   super_admin
 //
 // Committee = admin tier OR feature role `committee-member`. Runner of a session = committee, or the
@@ -375,11 +378,19 @@ module.exports = function governanceRoutes(deps) {
   const canSeeMoney = (u) => isCommittee(u) || rdb().userHasRole(u, 'finance-viewer');
   function stripMoney(v) {
     const z = (o) => ({ ...o, budget: undefined, spent: undefined, budget_by_currency: undefined });
-    return { ...v, projects: v.projects.map(z), gantt: v.gantt.map(z), summary: v.summary.map(z), money_hidden: true };
+    return { ...v, projects: v.projects.map(z), gantt: v.gantt.map(z), summary: v.summary.map(z), benefits: (v.benefits || []).map((b) => BEN.visibleBenefit(b, { money: false })), money_hidden: true };
   }
   // A-15 — site scope + editor plan writes, both behind PROPOSED switches (off = today). Rules: services/portfolioAccess.
   const PA = require('../services/portfolioAccess');
-  const PLAN_KINDS = ['task', 'milestone', 'risk', 'deliverable'];
+  const PLAN_KINDS = ['task', 'milestone', 'risk', 'deliverable', 'benefit'];   // B-08: a benefit follows the plan-write rule
+  const BEN = require('../services/portfolioBenefits');
+  /** B-08 — a money benefit (value_kind 'money') is written only by someone who may read money. True when it answered. */
+  async function refuseMoneyBenefit(req, res, { id = null, body = null } = {}) {
+    if (canSeeMoney(req.reportUser)) return false;
+    const existing = id ? await store.getBenefit(id) : null;
+    if ((body && body.value_kind === 'money') || (existing && existing.value_kind === 'money')) { res.status(403).json({ ok: false, code: 'MONEY_SCOPE', error: 'a benefit expressed in money is maintained by the committee, the admin tier or the finance role' }); return true; }
+    return false;
+  }
   async function accessCtx(u) {
     const c = await reportConfig.getConfig(rdb().db);
     return { scopeOn: c.portfolio_site_scope_reads === '1', writesOn: c.portfolio_editor_plan_writes === '1', isCommittee: !!isCommittee(u), isAdmin: !!isAdmin(u), isEditor: !!rdb().userHasRole(u, 'editor') };
@@ -429,11 +440,12 @@ module.exports = function governanceRoutes(deps) {
     try {
       const kind = req.params.kind;
       if (PLAN_KINDS.includes(kind) && await refusePlanWrite(req, res, kind, { id: req.body && req.body.id ? Number(req.body.id) : null, body: req.body || {} })) return;
+      if (kind === 'benefit' && await refuseMoneyBenefit(req, res, { id: req.body && req.body.id ? Number(req.body.id) : null, body: req.body || {} })) return;
       const id = await store.upsertPortfolio(kind, req.body, { user: req.reportUser, reason: req.body && req.body.reason }); log(req, 'portfolio_saved', `${kind}:${id}`); res.json({ ok: true, id });
     } catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.reason ? { code: e.reason } : {}) }); }
   });
   router.post('/api/governance/portfolio/project/:id/stage', requireReportSession, requireCommittee, json, async (req, res) => {
-    try { const p = await store.moveProjectStage(req.params.id, String((req.body && req.body.to) || ''), { user: req.reportUser, note: req.body && req.body.note }); log(req, 'project_stage', `project:${req.params.id}`, { to: p.stage }); res.json({ ok: true, project: { ...p, id: Number(p.id) } }); }
+    try { const cfg = await reportConfig.getConfig(rdb().db); const p = await store.moveProjectStage(req.params.id, String((req.body && req.body.to) || ''), { user: req.reportUser, note: req.body && req.body.note, captureBaseline: String(cfg.ppm_baseline_versions) === '1' }); log(req, 'project_stage', `project:${req.params.id}`, { to: p.stage }); res.json({ ok: true, project: { ...p, id: Number(p.id) } }); }
     catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.reason ? { code: e.reason } : {}) }); }
   });
   // A-14 — one project for the project page (public/project.html): plan (scheduleView), RAID, and the next stages
@@ -454,9 +466,84 @@ module.exports = function governanceRoutes(deps) {
       const project = money ? p : { ...p, budget: undefined, spent: undefined };
       res.json({ ok: true, committee: !!isCommittee(u), can_gate: !!isCommittee(u), can_edit_plan: PA.canEditPlan(u, p, pctx), can_see_history: !!money, money_hidden: !money,
         project, objective: d.objective, extra_sites: d.extra_sites, tasks: d.tasks, milestones: d.milestones, deliverables: d.deliverables, risks: d.risks.map(PE.riskView),
+        benefits: (d.benefits || []).map((b) => BEN.visibleBenefit(b, { money, asOf: new Date().toISOString() })), me: Number(u.id),
         plan: SCH.scheduleView(d.tasks, { anchor: p.start_date || null }), variance: SCH.varianceOf(p), resource_conflicts: SCH.resourceConflicts(d.tasks),
         stages: SCH.STAGES, allowed_stages, gate_counts: d.gate_ctx, risk_kinds: store.RISK_KINDS, as_of: new Date().toISOString() });
     } catch (e) { fail(res, e); }
+  });
+  // ---- B-08 benefits: realised value (evidence link) + independent verification (catalogue A09) ------------------
+  // Same gate as a plan write (committee; or an editor of the project's site with portfolio_editor_plan_writes on);
+  // a money benefit also needs the money-read rule. The verifier must not be the person who entered the value.
+  const benefitAction = (op) => async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ ok: false, error: 'benefit id must be a number' });
+      if (await refusePlanWrite(req, res, 'benefit', { id })) return;
+      if (await refuseMoneyBenefit(req, res, { id })) return;
+      const b = op === 'realised' ? await store.recordBenefitRealised(id, req.body || {}, { user: req.reportUser }) : await store.verifyBenefit(id, { user: req.reportUser });
+      log(req, op === 'realised' ? 'benefit_realised' : 'benefit_verified', `benefit:${id}`, { project_id: b.project_id });
+      res.json({ ok: true, benefit: BEN.visibleBenefit(b, { money: canSeeMoney(req.reportUser), asOf: new Date().toISOString() }) });
+    } catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.reason ? { code: e.reason } : {}) }); }
+  };
+  router.post('/api/governance/portfolio/benefit/:id/realised', requireReportSession, json, benefitAction('realised'));
+  router.post('/api/governance/portfolio/benefit/:id/verify', requireReportSession, json, benefitAction('verify'));
+  // ---- A-27 baselines, re-baseline gate, deck / workbook, exceptions (PROPOSED switches, all '0' = today) ----------
+  const BL = require('../services/ppmBaseline');
+  const PX = require('../services/ppmAlerts');
+  /** The project if this user may read it (A-15 read scope), else null. */
+  async function readableProject(u, id) {
+    if (!Number.isInteger(Number(id))) return null;
+    const p = await store.getProject(id); if (!p) return null;
+    const ctx = await accessCtx(u);
+    return PA.canReadProject(u, p, { ...ctx, extraSites: await store.projectSites(p.id) }) ? p : null;
+  }
+  router.get('/api/governance/portfolio/project/:id/baselines', requireReportSession, async (req, res) => {
+    try {
+      if (!(await readableProject(req.reportUser, req.params.id))) return res.status(404).json({ ok: false, error: 'project not found' });
+      const d = await store.projectDetail(req.params.id); const current = BL.snapshotPayload(d.project, d.tasks, d.milestones);
+      const cfg = await reportConfig.getConfig(rdb().db);
+      const versions = (await store.listBaselines(req.params.id)).map((b) => ({ ...b, diff_vs_current: BL.diffBaselines(b.payload, current) }));
+      res.json({ ok: true, versions, current, capture_enabled: String(cfg.ppm_baseline_versions) === '1', rebaseline_enabled: String(cfg.ppm_rebaseline_enabled) === '1', can_rebaseline: !!isCommittee(req.reportUser) && String(cfg.ppm_rebaseline_enabled) === '1' });
+    } catch (e) { fail(res, e); }
+  });
+  router.post('/api/governance/portfolio/project/:id/rebaseline', requireReportSession, json, async (req, res) => {
+    try {
+      const cfg = await reportConfig.getConfig(rdb().db);
+      if (String(cfg.ppm_rebaseline_enabled) !== '1') return res.status(404).json({ ok: false, error: 'not found' });   // the action does not exist while the switch is off
+      if (!isCommittee(req.reportUser)) return res.status(403).json({ ok: false, error: 'committee-member or admin role required' });
+      const r = await store.rebaseline(req.params.id, req.body || {}, { user: req.reportUser });
+      log(req, 'project_rebaseline', `project:${req.params.id}`, { version: r.version, baseline_end: r.baseline_end });
+      res.json({ ok: true, ...r });
+    } catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.reason ? { code: e.reason } : {}) }); }
+  });
+  /** Exceptions (A11) on the portfolio this user may read — the Friday queue. */
+  async function exceptionsFor(v) {
+    const cfg = await reportConfig.getConfig(rdb().db);
+    const num = (x, d) => (Number.isFinite(Number(x)) && String(x).trim() !== '' ? Number(x) : d);
+    return PX.findExceptions(v, { today: new Date().toISOString().slice(0, 10), blockedDays: num(cfg.ppm_alert_blocked_days, 5), slipDays: num(cfg.ppm_alert_slip_days, 10) });
+  }
+  router.get('/api/governance/portfolio/exceptions', requireReportSession, async (req, res) => {
+    try { const { v } = await viewFor(req.reportUser); const items = await exceptionsFor(v);
+      const cfg = await reportConfig.getConfig(rdb().db);
+      res.json({ ok: true, alerts_armed: String(cfg.ppm_alerts_enabled) === '1', thresholds: { blocked_days: Number(cfg.ppm_alert_blocked_days), slip_days: Number(cfg.ppm_alert_slip_days) }, items, as_of: new Date().toISOString() }); } catch (e) { fail(res, e); }
+  });
+  /** The deck / workbook data: the readable portfolio, money stripped unless canSeeMoney, + baselines and exceptions. */
+  async function exportData(u) {
+    const { v: v0 } = await viewFor(u); const money = canSeeMoney(u);
+    const v = money ? v0 : stripMoney(v0);
+    const ids = new Set(v.projects.map((p) => p.id));
+    const baselines = (await store.listBaselines()).filter((b) => ids.has(b.project_id));
+    return { v: { ...v, benefits: (v.benefits || []).filter((b) => ids.has(b.project_id)) }, money, baselines, exceptions: await exceptionsFor(v0) };
+  }
+  router.get('/api/governance/portfolio/deck.pptx', requireReportSession, async (req, res) => {
+    try { const x = await exportData(req.reportUser); const buf = await require('../services/portfolioDeck').buildDeck(x.v, { money: x.money, exceptions: x.exceptions, asOf: x.v.as_of });
+      log(req, 'portfolio_deck', 'portfolio', { money: x.money });
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'); res.setHeader('Content-Disposition', `attachment; filename="portfolio-${x.v.as_of.slice(0, 10)}.pptx"`); res.send(buf); } catch (e) { fail(res, e); }
+  });
+  router.get('/api/governance/portfolio/workbook.xlsx', requireReportSession, async (req, res) => {
+    try { const x = await exportData(req.reportUser); const buf = require('../services/portfolioDeck').buildWorkbookBuffer(x.v, { money: x.money, baselines: x.baselines, exceptions: x.exceptions });
+      log(req, 'portfolio_workbook', 'portfolio', { money: x.money });
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); res.setHeader('Content-Disposition', `attachment; filename="portfolio-${x.v.as_of.slice(0, 10)}.xlsx"`); res.send(buf); } catch (e) { fail(res, e); }
   });
   const historyOf = (entity) => async (req, res) => {
     try {
