@@ -5545,8 +5545,10 @@ app.post('/api/reports/auth/logout', requireReportSession, async (req, res) => {
   catch(e) { fail(res, e); }
 });
 
-app.get('/api/reports/auth/me', requireReportSession, (req, res) => {
-  res.json({ user: req.reportUser });
+app.get('/api/reports/auth/me', requireReportSession, async (req, res) => {   // + A-09a UI policy (never 500s)
+  const out = { user: req.reportUser };
+  try { out.ui = require('./services/uiPolicy').uiPolicyFrom(await require('./services/reportConfig').getConfig(rdb.db)); } catch (_) { /* omit ui */ }
+  res.json(out);
 });
 
 // ── Microsoft Entra ID (Azure AD) SSO ────────────────────────────────────────

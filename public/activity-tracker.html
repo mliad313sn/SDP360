@@ -52,5 +52,11 @@
 <!-- Step 5: App.jsx is transpiled ahead of time by tools/build/build-frontend.js (esbuild) — no in-browser Babel -->
 <script src="activity-tracker/dist/app.js"></script>
 
+<!-- A-09a — French dictionary, INERT unless report_config ui_i18n_pages='1' (boot.js checks window.__uiPolicy). -->
+<script src="lib/i18nText.js"></script>
+<script src="lib/i18n/common.fr.js"></script>
+<script src="lib/i18n/activity-tracker.fr.js"></script>
+<script src="lib/i18n/boot.js" data-dict="I18N_FR_ACTIVITY_TRACKER" data-root="tracker-root"></script>
+
 </body>
 </html>
