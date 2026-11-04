@@ -17,6 +17,7 @@
 <script nonce="%%CSP_NONCE%%" src="lib/statusTransfer.js"></script>
 <!-- Analytics dashboard + client-side PPTX export -->
 <script nonce="%%CSP_NONCE%%" src="vendor/chart.js/4.4.1/chart.umd.js" defer></script>
+<script nonce="%%CSP_NONCE%%" src="lib/chartTheme.js" defer></script>
 <script nonce="%%CSP_NONCE%%" src="jszip.min.js"></script>
 <script nonce="%%CSP_NONCE%%" src="pptxgen.min.js"></script>
 
@@ -75,7 +76,7 @@
   .mi-select { padding-right: 24px; min-width: 140px; }
   .mi-search { flex: 1; min-width: 220px; }
   .mi-select:focus, .mi-search:focus {
-    outline: none; border-color: var(--edv-orange, #EF631A);
+border-color: var(--edv-orange, #EF631A);
     box-shadow: 0 0 0 3px rgba(239,99,26,.12);
   }
   .mi-chk { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; color: var(--color-text, #524F4E); padding: 0 6px; }
@@ -134,7 +135,7 @@
     padding: 6px 8px; font: 700 11px var(--font-sans); cursor: pointer;
     background: var(--color-card,#fff); color: var(--color-text-strong,#1F2A33);
   }
-  .mi-status-sel:focus { outline: none; border-color: var(--edv-orange, #EF631A); box-shadow: 0 0 0 3px rgba(239,99,26,.12); }
+  .mi-status-sel:focus {border-color: var(--edv-orange, #EF631A); box-shadow: 0 0 0 3px rgba(239,99,26,.12); }
   .mi-status-sel:disabled { cursor: default; opacity: .9; }
   .mi-row__open {
     text-decoration: none; color: var(--edv-blue, #145FAE);

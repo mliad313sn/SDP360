@@ -15,6 +15,7 @@
      script would have executed. Switching to a non-deferred load fixed the
      "Uncaught ReferenceError: Chart is not defined" race seen post-2026-05-09. -->
 <script src="vendor/chart.js/4.4.1/chart.umd.js"></script>
+<script src="lib/chartTheme.js"></script>
 <style>
 /* ── EDV Design System adoption ────────────────────────────────────────
    Page-local aliases mapped onto the canonical _tokens.css palette.
@@ -88,7 +89,7 @@ body {
 
 .header-logo {
   width: 32px; height: 32px;
-  background: var(--orange);
+  background: var(--color-primary-fill, #C2410C);
   border-radius: 7px;
   display: flex; align-items: center; justify-content: center;
   font-family: 'Libre Baskerville', serif;
@@ -203,7 +204,7 @@ body {
 .btn-ghost:hover { background: rgba(255,255,255,0.14); color: white; }
 
 .btn-orange {
-  background: var(--orange);
+  background: var(--color-primary-fill, #C2410C);
   color: white;
   box-shadow: 0 2px 8px rgba(245,134,10,0.35);
 }
@@ -238,7 +239,6 @@ body {
   font-size: 12px;
   color: var(--text-secondary);
   cursor: pointer;
-  outline: none;
   transition: all 0.2s;
   -webkit-appearance: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238A95A3'/%3E%3C/svg%3E");
@@ -294,7 +294,6 @@ body {
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-primary);
-  outline: none;
   transition: border-color 0.2s;
 }
 .api-input:focus { border-color: var(--orange); }
@@ -309,7 +308,7 @@ body {
   transition: all 0.2s;
   white-space: nowrap;
 }
-.btn-api-primary { background: var(--orange); color: white; }
+.btn-api-primary { background: var(--color-primary-fill, #C2410C); color: white; }
 .btn-api-primary:hover { background: var(--orange-light); }
 
 
@@ -664,7 +663,6 @@ body {
   color: var(--text-secondary);
   line-height: 1.6;
   min-height: 72px;
-  outline: none;
   transition: all 0.2s;
   display: block;
   resize: vertical;
@@ -690,7 +688,6 @@ body {
   font-family: var(--font-sans);
   font-size: 13px;
   color: var(--text-secondary);
-  outline: none;
   transition: all 0.2s;
   min-height: unset;
 }
@@ -828,7 +825,6 @@ body {
 .atp-table td[contenteditable="true"] {
   color: var(--text-primary);
   background: #FFFDF8;
-  outline: none;
 }
 .atp-table td[contenteditable="true"]:focus {
   background: #FFF8EC;
@@ -908,7 +904,6 @@ body {
   font-size: 12px;
   color: var(--text-secondary);
   line-height: 1.65;
-  outline: none;
 }
 .lesson-body[contenteditable="true"] {
   background: var(--bg);
@@ -943,12 +938,12 @@ body {
 .go-table .go-del:hover { color: #b91c1c; }
 .go-add-row { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; }
 .go-add-row input, .go-add-row select { flex: 1; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 7px; font-size: 13px; font-family: var(--font-sans); color: #1e293b; background: #fff; }
-.go-add-row input:focus, .go-add-row select:focus { outline: none; border-color: var(--orange); }
-.go-add-row button { background: var(--orange); color: #fff; border: none; border-radius: 7px; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; font-family: var(--font-sans); }
+.go-add-row input:focus, .go-add-row select:focus {border-color: var(--orange); }
+.go-add-row button { background: var(--color-primary-fill, #C2410C); color: #fff; border: none; border-radius: 7px; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; font-family: var(--font-sans); }
 .go-add-row button:hover { background: #d9520f; }
 .go-empty { text-align: center; padding: 24px; color: #94a3b8; font-size: 13px; }
 .go-actions { display: flex; gap: 10px; }
-.go-actions .go-save { flex: 1; padding: 11px; background: var(--orange); color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: var(--font-sans); }
+.go-actions .go-save { flex: 1; padding: 11px; background: var(--color-primary-fill, #C2410C); color: #fff; border: none; border-radius: 8px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: var(--font-sans); }
 .go-actions .go-save:hover { background: #d9520f; }
 .go-actions .go-cancel { padding: 11px 18px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; font-size: 13px; cursor: pointer; color: #64748b; font-family: var(--font-sans); }
 .go-actions .go-cancel:hover { background: #f1f5f9; }
@@ -1055,7 +1050,7 @@ body {
 .exec-grp-widget{display:flex;align-items:center;gap:4px;position:relative}
 .exec-grp-preset{background:#F3F4F6;border:1px solid var(--border);border-radius:6px;padding:5px 10px;font-size:12px;font-weight:600;color:var(--text-muted);cursor:pointer;transition:all .15s;white-space:nowrap;font-family:var(--font-sans)}
 .exec-grp-preset:hover{background:#e9ebf0;color:var(--text-primary)}
-.exec-grp-preset.active{background:var(--orange);border-color:var(--orange);color:#fff}
+.exec-grp-preset.active{background:var(--color-primary-fill, #C2410C);border-color:var(--orange);color:#fff}
 .exec-grp-picker-wrap{position:relative}
 .exec-grp-picker-btn{border:1px solid var(--border);border-radius:6px;padding:5px 10px;font-size:12px;color:var(--text-secondary);background:#fff;cursor:pointer;min-width:105px;text-align:left;font-family:var(--font-sans);transition:all .15s}
 .exec-grp-picker-btn:hover{border-color:var(--orange);color:var(--text-primary)}
@@ -1167,7 +1162,6 @@ body { background: #E8EBF0 !important; }
 }
 .filter-bar .filter-select:focus,
 .filter-select:focus {
-  outline: none;
   border-color: var(--edv-orange) !important;
   box-shadow: 0 0 0 3px rgba(239,99,26,.12);
 }
@@ -1298,7 +1292,7 @@ div.card,
    color (analyzer, edit, etc.) — those signal intentional non-CTA roles. */
 button.btn-primary,
 button.btn-api {
-  background: var(--edv-orange) !important;
+  background: var(--color-primary-fill, #C2410C) !important;
   color: #fff !important;
   border: 1px solid var(--edv-orange-dark) !important;
   border-radius: var(--radius-md) !important;
@@ -1416,11 +1410,11 @@ table tbody tr:hover td { background: var(--color-bg); }
 }
 .analysis-zone-header .az-actions { margin-left: auto; }
 .analysis-zone-header .btn-edit {
-  background: var(--edv-orange) !important;
+  background: var(--color-primary-fill, #C2410C) !important;
   color: #fff !important;
   border-color: var(--edv-orange-dark) !important;
 }
-.analysis-zone-header .btn-edit:hover { background: var(--edv-orange-dark) !important; }
+.analysis-zone-header .btn-edit:hover { background: var(--color-primary-fill-hover, #9A3412) !important; }
 
 /* ── Loader overlay polish ──────────────────────────────────────────── */
 .loader-sub { color: var(--color-text-muted); }
@@ -1494,7 +1488,7 @@ table tbody tr:hover td { background: var(--color-bg); }
           <select id="gce-ops-add" style="flex:1;padding:7px 9px;border:1px solid #cbd5e1;border-radius:7px;font-size:12px;font-family:var(--font-sans);color:#1e293b;background:#fff">
             <option value="">＋ Add group to Operations…</option>
           </select>
-          <button onclick="gceAdd('ops')" style="background:#EF631A;color:#fff;border:none;border-radius:7px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-sans)">Add</button>
+          <button onclick="gceAdd('ops')" style="background:var(--color-primary-fill, #C2410C);color:#fff;border:none;border-radius:7px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font-sans)">Add</button>
         </div>
       </div>
       <!-- Applications column -->
@@ -2869,31 +2863,31 @@ table tbody tr:hover td { background: var(--color-bg); }
       <div>
         <div style="font-size:11px;font-weight:700;color:#1a5ea8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">🔄 Change Quality Assessment</div>
         <div class="az-field-content editable-insight" id="cai-quality" contenteditable="false"
-          style="min-height:60px;font-size:12.5px;color:#334155;line-height:1.7;padding:10px;background:#f8faff;border-radius:8px;border-left:3px solid #1a5ea8;outline:none"
+          style="min-height:60px;font-size:12.5px;color:#334155;line-height:1.7;padding:10px;background:#f8faff;border-radius:8px;border-left:3px solid #1a5ea8"
           data-placeholder="Change quality assessment — change type breakdown, success rate, emergency trend, CAB compliance."></div>
       </div>
       <div>
         <div style="font-size:11px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">🚨 Major Incident Patterns</div>
         <div class="az-field-content editable-insight" id="cai-incidents" contenteditable="false"
-          style="min-height:60px;font-size:12.5px;color:#334155;line-height:1.7;padding:10px;background:#fff5f5;border-radius:8px;border-left:3px solid #dc2626;outline:none"
+          style="min-height:60px;font-size:12.5px;color:#334155;line-height:1.7;padding:10px;background:#fff5f5;border-radius:8px;border-left:3px solid #dc2626"
           data-placeholder="Recurring incident categories, MTTR vs target, open incidents count and structural patterns."></div>
       </div>
       <div>
         <div style="font-size:11px;font-weight:700;color:#d97706;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">📋 PIR & Documentation Gaps</div>
         <div class="az-field-content editable-insight" id="cai-pir" contenteditable="false"
-          style="min-height:60px;font-size:12.5px;color:#334155;line-height:1.7;padding:10px;background:#fffbeb;border-radius:8px;border-left:3px solid #d97706;outline:none"
+          style="min-height:60px;font-size:12.5px;color:#334155;line-height:1.7;padding:10px;background:#fffbeb;border-radius:8px;border-left:3px solid #d97706"
           data-placeholder="PIR completion gaps, missing RCAs, corrective actions requiring follow-up by name."></div>
       </div>
       <div>
         <div style="font-size:11px;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">✅ Recommended Actions</div>
         <div class="az-field-content editable-insight" id="cai-actions" contenteditable="false"
-          style="min-height:60px;font-size:12.5px;color:#334155;line-height:1.7;padding:10px;background:#f0fdf4;border-radius:8px;border-left:3px solid #15803d;outline:none"
+          style="min-height:60px;font-size:12.5px;color:#334155;line-height:1.7;padding:10px;background:#f0fdf4;border-radius:8px;border-left:3px solid #15803d"
           data-placeholder="Top 3 improvement actions with owners and timelines for Change Management and Incident Response."></div>
       </div>
       <div style="grid-column:1/-1">
         <div style="font-size:11px;font-weight:700;color:#6b21a8;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">🧑‍💼 Specialist Performance Assessment — Change Managers &amp; Incident Responders</div>
         <div class="az-field-content editable-insight" id="cai-specialists" contenteditable="false"
-          style="min-height:60px;font-size:12.5px;color:#334155;line-height:1.7;padding:10px;background:#faf5ff;border-radius:8px;border-left:3px solid #6b21a8;outline:none"
+          style="min-height:60px;font-size:12.5px;color:#334155;line-height:1.7;padding:10px;background:#faf5ff;border-radius:8px;border-left:3px solid #6b21a8"
           data-placeholder="Individual specialist assessment by name — who is excelling, who needs coaching, capacity concerns, recognition recommendations."></div>
       </div>
     </div>
@@ -3192,25 +3186,25 @@ table tbody tr:hover td { background: var(--color-bg); }
       <div>
         <div style="font-size:11px;font-weight:700;color:#6d28d9;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">⭐ Satisfaction Assessment</div>
         <div class="az-field-content editable-insight" id="vai-csat" contenteditable="false"
-          style="min-height:60px;font-size:12.5px;color:#334155;line-height:1.7;padding:10px;background:#faf5ff;border-radius:8px;border-left:3px solid #6d28d9;outline:none"
+          style="min-height:60px;font-size:12.5px;color:#334155;line-height:1.7;padding:10px;background:#faf5ff;border-radius:8px;border-left:3px solid #6d28d9"
           data-placeholder="CSAT score interpretation — trend, benchmark comparison, best/worst performing sites."></div>
       </div>
       <div>
         <div style="font-size:11px;font-weight:700;color:#0e7490;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">📊 NPS & Loyalty Analysis</div>
         <div class="az-field-content editable-insight" id="vai-nps" contenteditable="false"
-          style="min-height:60px;font-size:12.5px;color:#334155;line-height:1.7;padding:10px;background:#ecfeff;border-radius:8px;border-left:3px solid #0e7490;outline:none"
+          style="min-height:60px;font-size:12.5px;color:#334155;line-height:1.7;padding:10px;background:#ecfeff;border-radius:8px;border-left:3px solid #0e7490"
           data-placeholder="Promoter vs Detractor breakdown, loyalty trend, NPS benchmark vs industry."></div>
       </div>
       <div>
         <div style="font-size:11px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">😟 Pain Points from Verbatim</div>
         <div class="az-field-content editable-insight" id="vai-pain" contenteditable="false"
-          style="min-height:60px;font-size:12.5px;color:#334155;line-height:1.7;padding:10px;background:#fff5f5;border-radius:8px;border-left:3px solid #dc2626;outline:none"
+          style="min-height:60px;font-size:12.5px;color:#334155;line-height:1.7;padding:10px;background:#fff5f5;border-radius:8px;border-left:3px solid #dc2626"
           data-placeholder="Top complaint themes from typed comments — what users say needs fixing most urgently."></div>
       </div>
       <div>
         <div style="font-size:11px;font-weight:700;color:#15803d;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:6px">🎯 Improvement Recommendations</div>
         <div class="az-field-content editable-insight" id="vai-improve" contenteditable="false"
-          style="min-height:60px;font-size:12.5px;color:#334155;line-height:1.7;padding:10px;background:#f0fdf4;border-radius:8px;border-left:3px solid #15803d;outline:none"
+          style="min-height:60px;font-size:12.5px;color:#334155;line-height:1.7;padding:10px;background:#f0fdf4;border-radius:8px;border-left:3px solid #15803d"
           data-placeholder="Top 3 concrete actions to improve CSAT and NPS in the coming period — with owners and timelines."></div>
       </div>
     </div>

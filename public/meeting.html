@@ -74,8 +74,8 @@
     letter-spacing: 0.2px; border: 1px solid transparent;
     display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
   }
-  .btn-primary { background: var(--edv-orange, #EF631A); color: #fff; border-color: var(--edv-orange-dark, #C04E10); }
-  .btn-primary:hover { background: var(--edv-orange-dark, #C04E10); }
+  .btn-primary { background: var(--color-primary-fill, #C2410C); color: #fff; border-color: var(--edv-orange-dark, #C04E10); }
+  .btn-primary:hover { background: var(--color-primary-fill-hover, #9A3412); }
   .btn-primary:disabled { background: #B7BEC9; border-color: #B7BEC9; cursor: not-allowed; }
   .btn-ghost {
     background: transparent; color: var(--color-text-strong, #1F2A33);
@@ -157,7 +157,6 @@
   }
   .pv-field textarea { min-height: 64px; resize: vertical; line-height: 1.45; }
   .pv-field input:focus, .pv-field select:focus, .pv-field textarea:focus {
-    outline: none;
     border-color: var(--edv-orange, #EF631A);
     box-shadow: 0 0 0 3px rgba(239,99,26,.12);
   }

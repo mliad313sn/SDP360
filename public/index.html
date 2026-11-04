@@ -5,12 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>IT Operations Center · Endeavour Mining</title>
 <script src="vendor/chart.js/4.4.1/chart.umd.js" defer></script>
+<script src="lib/chartTheme.js" defer></script>
+<script src="lib/charts.js" defer></script>
 <style>
 :root{--orange:#EF631A;--amber:#F99D07;--blue:#1976BC;--green:#16A34A;--green-l:#DCFCE7;--green-d:#166534;--red:#DC2626;--red-l:#FEE2E2;--red-d:#991B1B;--amb-l:#FEF3C7;--amb-d:#92400E;--slate:#3B3B3B;--slate2:#524F4E;--slate3:#8A8380;--bg:#F7F5F3;--card:#FFFFFF;--border:#E8E5E2;--radius:8px;--shadow:0 2px 8px rgba(0,0,0,.08)}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:'Segoe UI',Calibri,sans-serif;background:var(--bg);color:var(--slate);font-size:13px}
 a{color:var(--blue);text-decoration:none}
-.hdr{display:flex;align-items:center;gap:12px;background:var(--orange);padding:0 16px;height:52px;color:#fff;flex-shrink:0}
+.hdr{display:flex;align-items:center;gap:12px;background:var(--color-primary-fill, #C2410C);padding:0 16px;height:52px;color:#fff;flex-shrink:0}
 .hdr-logo{font-size:18px;font-weight:700;letter-spacing:.5px;white-space:nowrap}
 .hdr-sub{font-size:11px;opacity:.8;letter-spacing:1px;text-transform:uppercase}
 .hdr-sep{flex:1}
@@ -84,7 +86,7 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
 .pres-pip.inactive{background:#E5E7EB;color:#9CA3AF}
 .tbl-wrap{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);overflow:auto}
 .tbl-wrap table{width:100%;border-collapse:collapse;font-size:12px}
-.tbl-wrap th{background:var(--orange);color:#fff;padding:9px 10px;font-weight:700;font-size:10.5px;letter-spacing:.5px;text-align:left;cursor:pointer;white-space:nowrap;user-select:none;position:sticky;top:0}
+.tbl-wrap th{background:var(--color-primary-fill, #C2410C);color:#fff;padding:9px 10px;font-weight:700;font-size:10.5px;letter-spacing:.5px;text-align:left;cursor:pointer;white-space:nowrap;user-select:none;position:sticky;top:0}
 .tbl-wrap th:hover{background:#D5541A}
 .tbl-wrap th.sa::after{content:" ▲"}
 .tbl-wrap th.sd::after{content:" ▼"}
@@ -100,7 +102,7 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
 .spinner{width:40px;height:40px;border:4px solid var(--border);border-top-color:var(--orange);border-radius:50%;animation:spin .8s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
 #loadMsg{font-size:13px;color:var(--slate3);max-width:420px;text-align:center;line-height:1.6}
-#loadErrBtn{display:none;margin-top:8px;padding:8px 18px;background:var(--orange);color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:12px}
+#loadErrBtn{display:none;margin-top:8px;padding:8px 18px;background:var(--color-primary-fill, #C2410C);color:#fff;border:none;border-radius:5px;cursor:pointer;font-size:12px}
 
 /* ── MULTI-FILTER WIDGETS (Status/Type/Impact/Mode — 2026-06-09) ─── */
 /* Reuses the .grp-* classes below but is laid out as a single picker
@@ -112,7 +114,7 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
 .grp-widget{display:flex;align-items:center;gap:4px;position:relative}
 .grp-preset{background:#F3F4F6;border:1px solid var(--border);border-radius:5px;padding:4px 9px;font-size:11px;font-weight:600;color:var(--slate3);cursor:pointer;transition:all .15s;white-space:nowrap}
 .grp-preset:hover{background:#E9EBF0;color:var(--slate)}
-.grp-preset.active{background:var(--orange);border-color:var(--orange);color:#fff}
+.grp-preset.active{background:var(--color-primary-fill, #C2410C);border-color:var(--orange);color:#fff}
 .grp-picker-wrap{position:relative}
 .grp-picker-btn{border:1px solid var(--border);border-radius:5px;padding:5px 10px;font-size:12px;color:var(--slate);background:#fff;cursor:pointer;min-width:110px;text-align:left;white-space:nowrap}
 .grp-picker-btn.has-sel{border-color:var(--orange);color:var(--orange);font-weight:600}
@@ -148,12 +150,12 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
 .grp-chip-empty{font-size:11px;color:var(--slate3);padding:3px 4px}
 .grp-add-row{display:flex;gap:6px;margin-top:6px}
 .grp-add-row select{flex:1;border:1px solid var(--border);border-radius:4px;padding:4px 8px;font-size:12px;color:var(--slate)}
-.grp-add-row button{background:var(--orange);color:#fff;border:none;border-radius:4px;padding:4px 12px;font-size:12px;cursor:pointer;font-weight:600}
+.grp-add-row button{background:var(--color-primary-fill, #C2410C);color:#fff;border:none;border-radius:4px;padding:4px 12px;font-size:12px;cursor:pointer;font-weight:600}
 .grp-add-row button:hover{background:#D5541A}
 .grp-modal-ftr{padding:11px 18px;border-top:1px solid var(--border);display:flex;justify-content:flex-end;gap:8px;flex-shrink:0}
 .grp-modal-ftr button{border-radius:5px;padding:7px 16px;font-size:12px;cursor:pointer;font-weight:600}
 .grp-btn-cancel{background:#F3F4F6;border:1px solid var(--border);color:var(--slate)}
-.grp-btn-save{background:var(--orange);border:none;color:#fff}
+.grp-btn-save{background:var(--color-primary-fill, #C2410C);border:none;color:#fff}
 .grp-btn-save:hover{background:#D5541A}
 </style>
 <script src="auth.js" data-require="any"></script>
@@ -361,9 +363,9 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
     <div class="sec-hdr">
       <div class="sec-hdr-bar"></div>
       <span class="sec-hdr-title" id="trendTitle">Request Volume Trend</span>
-      <span style="font-size:10px;color:var(--slate3);margin-left:auto" title="Bars show ticket counts (left axis). Lines show % of tickets that MISSED SLA — lower lines are better.">■ Inbound &nbsp; ■ Closed &nbsp; — Resolution SLA Missed % <span style="opacity:.7">(lower=better)</span> &nbsp; ·· 1st Reply SLA Missed % <span style="opacity:.7">(lower=better)</span></span>
+      <span style="font-size:12px;color:var(--slate3);margin-left:auto">Top: tickets per period · Bottom: % that missed SLA <span style="opacity:.85">(lower = better)</span></span>
     </div>
-    <div class="chart-wrap" style="height:230px"><canvas id="cTrend"></canvas></div>
+    <div class="chart-wrap" id="cTrend"></div>
   </div>
 
   <div class="presence-wrap">
@@ -1121,7 +1123,7 @@ function renderAgeing(){
         });
       },
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+c.raw+' tickets — click to drill in'}}},
-      scales:{x:{grid:{display:false},ticks:{font:{size:11}}},y:{beginAtZero:true,ticks:{font:{size:11},stepSize:1}}}}
+      scales:{x:{grid:{display:false},ticks:{font:{size:12}}},y:{beginAtZero:true,ticks:{font:{size:12},stepSize:1}}}}
   });
 }
 
@@ -1186,7 +1188,7 @@ function renderTop10(){
         });
       },
       plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>' '+c.raw+' violations ('+pcts[c.dataIndex]+'% of cat.) — click to drill in'}}},
-      scales:{x:{beginAtZero:true,ticks:{font:{size:11},stepSize:1}},y:{ticks:{font:{size:10}},grid:{display:false}}}}
+      scales:{x:{beginAtZero:true,ticks:{font:{size:12},stepSize:1}},y:{ticks:{font:{size:12}},grid:{display:false}}}}
   });
 }
 
@@ -1207,23 +1209,13 @@ function renderTrend(){
   const modeLabel={weekly:'Weekly',monthly:'Monthly',quarterly:'Quarterly',yearly:'Yearly'}[VIEW_MODE];
   setH('trendTitle',modeLabel+' Request Volume Trend');
   if(CH.trend)CH.trend.destroy();
-  const ctx=document.getElementById('cTrend').getContext('2d');
-  CH.trend=new Chart(ctx,{
-    data:{labels,datasets:[
-      {type:'bar',label:'Inbound',data:inb,yAxisID:'y',backgroundColor:'rgba(25,118,188,0.45)',borderColor:'#1976BC',borderWidth:1,borderRadius:3,order:3},
-      {type:'bar',label:'Closed',data:cl,yAxisID:'y',backgroundColor:'rgba(22,163,74,0.4)',borderColor:'#16A34A',borderWidth:1,borderRadius:3,order:4},
-      {type:'line',label:'Res. SLA Violated %',data:sv,yAxisID:'y2',borderColor:'#DC2626',backgroundColor:'rgba(220,38,38,0.06)',tension:0.35,pointRadius:3,pointBackgroundColor:'#DC2626',fill:false,spanGaps:false,order:1},
-      {type:'line',label:'1st Reply Violated %',data:fv,yAxisID:'y2',borderColor:'#D97706',backgroundColor:'transparent',tension:0.35,pointRadius:3,pointBackgroundColor:'#D97706',fill:false,borderDash:[4,3],spanGaps:false,order:2}
-    ]},
-    options:{responsive:true,maintainAspectRatio:false,
-      interaction:{mode:'index',intersect:false},
-      plugins:{legend:{position:'top',labels:{font:{size:11},boxWidth:18}}},
-      scales:{
-        x:{ticks:{font:{size:9},maxRotation:0},grid:{display:false}},
-        y:{position:'left',beginAtZero:true,ticks:{font:{size:10}},title:{display:true,text:'Count',font:{size:10}}},
-        y2:{position:'right',beginAtZero:true,max:100,ticks:{font:{size:10},callback:v=>v+'%'},grid:{drawOnChartArea:false},title:{display:true,text:'Violated %',font:{size:10}}}
-      }}
-  });
+  // A-22 — two panels sharing the x labels instead of one plot with two y-scales: counts on top,
+  // % missed below (lower = better). Same arrays as before; null stays a gap (A-17a).
+  CH.trend=window.TrendPanel?TrendPanel.render('cTrend',{
+    labels,unit:'%',heights:{volume:130,rate:130},
+    volume:[{label:'Inbound',data:inb},{label:'Closed',data:cl}],
+    rate:[{label:'Res. SLA Violated %',data:sv},{label:'1st Reply Violated %',data:fv}]
+  }):null;
 }
 
 // ── Presence ──────────────────────────────────────────────────────────────

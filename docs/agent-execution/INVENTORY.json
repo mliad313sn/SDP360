@@ -12,7 +12,7 @@
   "jobs": 25,
   "jobs_without_test_reference": 10,
   "migrations": 59,
-  "test_files": 512
+  "test_files": 517
  },
  "pages": [
   {
@@ -23,7 +23,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 0,
-   "bytes": 2739,
+   "bytes": 2781,
    "tests": [
     "tests/csp-headers.smoke.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
@@ -42,7 +42,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 51116,
+   "bytes": 51164,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js"
@@ -85,7 +85,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 10,
-   "bytes": 197176,
+   "bytes": 197238,
    "tests": [
     "tests/agent-inventory.test.js",
     "tests/asset-reminder-report.test.js",
@@ -124,7 +124,7 @@
    ],
    "in_navigation": false,
    "inline_scripts": 1,
-   "bytes": 11543,
+   "bytes": 11551,
    "tests": [
     "tests/commitments-routes.smoke.test.js",
     "tests/i18n-coverage.test.js",
@@ -155,7 +155,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 16567,
+   "bytes": 16600,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/i18n-coverage.test.js",
@@ -170,7 +170,7 @@
    ],
    "in_navigation": false,
    "inline_scripts": 1,
-   "bytes": 35290,
+   "bytes": 35306,
    "tests": [
     "tests/csp-headers.smoke.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
@@ -186,7 +186,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 473545,
+   "bytes": 473591,
    "tests": [
     "tests/csp-headers.smoke.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
@@ -205,7 +205,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 598873,
+   "bytes": 598868,
    "tests": [
     "tests/api-key-injection.smoke.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
@@ -222,7 +222,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 18121,
+   "bytes": 18105,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/i18n-coverage.test.js",
@@ -239,7 +239,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 324867,
+   "bytes": 324984,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/help-assets-section.test.js",
@@ -275,10 +275,11 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 111328,
+   "bytes": 110296,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/api-key-injection.smoke.test.js",
+    "tests/charts-static.test.js",
     "tests/csp-headers.smoke.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/csp-report.smoke.test.js",
@@ -302,7 +303,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 2,
-   "bytes": 32283,
+   "bytes": 32331,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -317,7 +318,7 @@
    ],
    "in_navigation": false,
    "inline_scripts": 1,
-   "bytes": 43826,
+   "bytes": 43864,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -333,7 +334,7 @@
    ],
    "in_navigation": false,
    "inline_scripts": 2,
-   "bytes": 211389,
+   "bytes": 211453,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -351,7 +352,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 35905,
+   "bytes": 35974,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -383,7 +384,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 2,
-   "bytes": 108593,
+   "bytes": 108567,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -428,8 +429,9 @@
    ],
    "in_navigation": false,
    "inline_scripts": 1,
-   "bytes": 17589,
+   "bytes": 17588,
    "tests": [
+    "tests/brand-buttons.test.js",
     "tests/csp-headers.smoke.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/csp-report.smoke.test.js",
@@ -446,7 +448,7 @@
    ],
    "in_navigation": false,
    "inline_scripts": 1,
-   "bytes": 81409,
+   "bytes": 81407,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -466,7 +468,7 @@
    ],
    "in_navigation": false,
    "inline_scripts": 2,
-   "bytes": 45546,
+   "bytes": 45581,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -512,7 +514,7 @@
    ],
    "in_navigation": false,
    "inline_scripts": 2,
-   "bytes": 73386,
+   "bytes": 73400,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -527,7 +529,7 @@
    ],
    "in_navigation": false,
    "inline_scripts": 2,
-   "bytes": 43773,
+   "bytes": 43821,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js"
@@ -541,7 +543,7 @@
    ],
    "in_navigation": false,
    "inline_scripts": 2,
-   "bytes": 32100,
+   "bytes": 32065,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -557,7 +559,7 @@
    ],
    "in_navigation": false,
    "inline_scripts": 2,
-   "bytes": 33118,
+   "bytes": 33143,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js"
@@ -571,7 +573,7 @@
    ],
    "in_navigation": false,
    "inline_scripts": 1,
-   "bytes": 24795,
+   "bytes": 24836,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js"
@@ -585,7 +587,7 @@
    ],
    "in_navigation": false,
    "inline_scripts": 2,
-   "bytes": 18811,
+   "bytes": 18795,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js"
@@ -599,7 +601,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 2,
-   "bytes": 32031,
+   "bytes": 32029,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -716,11 +718,12 @@
    ],
    "in_navigation": true,
    "inline_scripts": 2,
-   "bytes": 537330,
+   "bytes": 536456,
    "tests": [
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/assets-freshness.test.js",
     "tests/auth-roles-refresh.test.js",
+    "tests/charts-static.test.js",
     "tests/csp-headers.smoke.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/csp-report.smoke.test.js",
@@ -784,7 +787,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 2,
-   "bytes": 71985,
+   "bytes": 72033,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -800,7 +803,7 @@
    ],
    "in_navigation": false,
    "inline_scripts": 0,
-   "bytes": 17784,
+   "bytes": 17860,
    "tests": [
     "tests/agent-inventory.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
@@ -816,7 +819,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 15552,
+   "bytes": 15625,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js"
@@ -888,7 +891,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 3,
-   "bytes": 39861,
+   "bytes": 39909,
    "tests": [
     "tests/agent-inventory.test.js",
     "tests/csp-headers.smoke.test.js",

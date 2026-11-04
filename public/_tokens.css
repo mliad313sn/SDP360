@@ -111,6 +111,11 @@
   --color-primary:        var(--edv-orange);
   --color-primary-hover:  var(--edv-orange-dark);
   --color-primary-bg:     #FEEEE3;            /* very light orange surface */
+  /* A-12b — FILLED controls carrying WHITE text: brand orange is 3.25:1 (orange-dark 3.93:1) under
+     white text, below WCAG 1.4.3 (4.5:1). Burnt orange keeps the hue at 5.18:1 / 7.31:1 (hover).
+     --edv-orange stays the colour of accents, borders, icons and the brand mark. */
+  --color-primary-fill:       #C2410C;
+  --color-primary-fill-hover: #9A3412;
   --color-secondary:      var(--edv-blue);
   --color-secondary-hover:var(--edv-blue-dark);
 
@@ -118,6 +123,11 @@
   --color-success-bg:     #E7F5EA;
   --color-warning:        #D97706;            /* darker amber for status — brand yellow fails contrast */
   --color-warning-bg:     #FEF3C7;
+  /* A-12b — status as TEXT on a light surface. --color-warning (#D97706) stays as is: it is mirrored
+     for the PPTX generators (public/brand/brand-tokens.js) and is 3.19:1 on white — fine for a fill
+     or an icon, not for words. These *-text tokens are ≥ 4.5:1 on white AND on their *-bg. */
+  --color-warning-text:   #92400E;
+  --color-success-text:   #166534;
   --color-danger:         var(--edv-red);
   --color-danger-bg:      #FEEAEE;
   /* RAG marks (design review 2026-10-29): one palette for every dot, bar and border, each shade
@@ -125,14 +135,29 @@
   --rag-green:            #1E7B45;
   --rag-amber:            #B45309;
   --rag-red:              #B91C1C;
-  --rag-na:               #9AA4B2;
+  --rag-na:               #7C8796;   /* A-12b: was #9AA4B2 (2.52:1) — now 3.64:1 on white */
   --color-info:           var(--edv-blue);
   --color-info-bg:        #E8F0FA;
+  /* A-12b — keyboard focus ring (WCAG 2.4.7 / 2.4.11): ≥ 3:1 on white and on --color-bg. */
+  --focus-ring:           #145FAE;
+
+  /* A-22 — chart theme (read by public/lib/chartTheme.js). Categorical series in FIXED order, never
+     cycled; validated with the dataviz palette checker (lightness band, chroma floor, CVD ΔE ≥ 8,
+     normal-vision ΔE ≥ 15, each ≥ 3:1 on white). Status hues (RAG) are NOT series colours. */
+  --chart-series-1:       #145FAE;   /* EDV blue    6.41:1 */
+  --chart-series-2:       #C2410C;   /* burnt orange 5.18:1 */
+  --chart-series-3:       #0891B2;   /* cyan        3.68:1 */
+  --chart-series-4:       #7C3AED;   /* violet      5.70:1 */
+  --chart-series-5:       #A16207;   /* ochre       4.92:1 */
+  --chart-series-6:       #BE185D;   /* magenta     6.04:1 */
+  --chart-target:         #3A4A60;   /* dashed target line (slate) */
+  --chart-grid:           #E2E5EA;
+  --chart-text:           #524F4E;
 
   /* Body / surface */
   --color-text:           var(--edv-grey);    /* #524F4E */
   --color-text-strong:    #2A2A2A;
-  --color-text-muted:     #7B7B7B;
+  --color-text-muted:     #6B6B6B;   /* A-12b: was #7B7B7B (3.88:1 on --color-bg) — now 4.89:1 */
   --color-text-on-dark:   #FFFFFF;
   --color-text-on-dark-muted: rgba(255,255,255,.62);
   --color-border:         #E2E5EA;            /* slightly cooler than --edv-light-grey for UI */
@@ -189,3 +214,12 @@
    `display:inline-block`, which silently beat the browser's own [hidden] rule — a viewer then saw
    Start / Close / Accept buttons the server refuses. */
 [hidden] { display: none !important; }
+
+/* A-12b — one keyboard focus ring for EVERY page that loads the tokens, not only shell pages
+   (login, exec-view…). !important on purpose: page rules and inline styles used to carry
+   `outline:none`; those 55 declarations were removed, the !important keeps any new one from
+   hiding the focus again. _shell.css repeats this rule and tints it inside the dark header. */
+:focus-visible { outline: 2px solid var(--focus-ring, #145FAE) !important; outline-offset: 2px !important; }
+@media (forced-colors: active) {
+  :focus-visible { outline-color: Highlight !important; }
+}

@@ -71,8 +71,8 @@
     letter-spacing: 0.2px; border: 1px solid transparent;
     display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
   }
-  .btn-primary { background: var(--edv-orange, #EF631A); color: #fff; border-color: var(--edv-orange-dark, #C04E10); }
-  .btn-primary:hover { background: var(--edv-orange-dark, #C04E10); }
+  .btn-primary { background: var(--color-primary-fill, #C2410C); color: #fff; border-color: var(--edv-orange-dark, #C04E10); }
+  .btn-primary:hover { background: var(--color-primary-fill-hover, #9A3412); }
   .btn-primary:disabled { background: #B7BEC9; border-color: #B7BEC9; cursor: not-allowed; }
   .btn-ghost {
     background: transparent; color: var(--color-text-strong, #1F2A33);
@@ -113,7 +113,7 @@
   .mim-kpi__value { font-size: 22px; font-weight: 800; line-height: 1; margin-top: 4px; font-variant-numeric: tabular-nums; }
   .mim-kpi--success .mim-kpi__value { color: var(--edv-green, #1B9A3A); }
   .mim-kpi--info    .mim-kpi__value { color: var(--edv-blue,  #145FAE); }
-  .mim-kpi--warning .mim-kpi__value { color: var(--color-warning, #D97706); }
+  .mim-kpi--warning .mim-kpi__value { color: var(--color-warning-text, #92400E); }
   .mim-kpi--danger  .mim-kpi__value { color: var(--edv-red,   #D90038); }
   /* Warning banner shown when some references already exist in DB */
   .mim-update-warning {
@@ -167,7 +167,7 @@
     border: 1px solid var(--edv-orange, #EF631A); font-weight: 700;
     font-family: var(--font-sans); white-space: nowrap;
   }
-  .mim-issue-line__fix:hover { background: var(--edv-orange, #EF631A); color: #fff; }
+  .mim-issue-line__fix:hover { background: var(--color-primary-fill, #C2410C); color: #fff; }
 
   /* Lookup-create modal — small overlay shown when admin clicks "+ Créer ce code" */
   .mim-modal-bg {
@@ -190,7 +190,7 @@
     border-radius: 5px; font-size: 13px; font-family: var(--font-sans);
     background: #fff;
   }
-  .mim-modal__field input:focus { outline: none; border-color: var(--edv-orange, #EF631A); }
+  .mim-modal__field input:focus {border-color: var(--edv-orange, #EF631A); }
   .mim-modal__field input[readonly] { background: var(--color-bg, #F4F5F7); color: var(--color-text-muted, #7B7B7B); }
   .mim-modal__hint { font-size: 11px; color: var(--color-text-muted, #7B7B7B); margin-top: 4px; }
   .mim-modal__actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 16px; }
