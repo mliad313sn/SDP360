@@ -26,6 +26,7 @@ const _day = (v) => { if (v == null || v === '') return null; const d = String(v
 function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOString() } = {}) {
   if (!db) throw new Error('governanceStore needs a db handle');
   const P = (sql) => db.prepare(sql);
+  const tx = (fn) => (typeof db.runTransaction === 'function' ? db.runTransaction(fn) : fn());
   async function init() {  }
   /** INSERT returning the new id on both backends. */
   async function insert(table, cols, vals) {
@@ -242,8 +243,30 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     const deliverables = (await P(`SELECT * FROM portfolio_deliverables ORDER BY project_id, sort_order`).all()).map(r => ({ ...idRow(r), project_id: Number(r.project_id), milestone_id: r.milestone_id == null ? null : Number(r.milestone_id) }));
     const risks = (await P(`SELECT * FROM portfolio_risks ORDER BY project_id, id`).all()).map(r => ({ ...idRow(r), project_id: Number(r.project_id), probability: Number(r.probability), impact: Number(r.impact) }));
     const tasks = (await P(`SELECT * FROM portfolio_tasks ORDER BY project_id, sort_order, id`).all()).map(taskRow);
-    return { programmes, objectives, projects: projects.map(p => ({ ...p, rfi_id: p.rfi_id == null ? null : Number(p.rfi_id) })), milestones, deliverables, risks, tasks };
+    const project_sites = await allProjectSites();
+    return { programmes, objectives, projects: projects.map(p => ({ ...p, rfi_id: p.rfi_id == null ? null : Number(p.rfi_id) })), milestones, deliverables, risks, tasks, project_sites };
   }
+  // A-15 — extra sites of a project (migration 043); the primary site stays portfolio_projects.site_id.
+  const siteRow = (r) => ({ project_id: Number(r.project_id), site_id: Number(r.site_id) });
+  async function allProjectSites() { return (await P(`SELECT project_id, site_id FROM portfolio_project_sites ORDER BY project_id, site_id`).all()).map(siteRow); }
+  async function projectSites(projectId) { return (await P(`SELECT site_id FROM portfolio_project_sites WHERE project_id=? ORDER BY site_id`).all(Number(projectId))).map(r => Number(r.site_id)); }
+  /** Replace the extra sites of a project in one transaction; the ledger keeps the before/after list. */
+  async function setProjectSites(projectId, siteIds, { user } = {}) {
+    const id = Number(projectId);
+    const ids = [...new Set((siteIds || []).map(Number))].sort((a, b) => a - b);
+    if (ids.some((n) => !Number.isInteger(n) || n <= 0)) throw Object.assign(new Error('site_ids must be positive integers'), { code: 'INVALID', status: 400 });
+    return tx(async () => {
+      if (!(await P(`SELECT id FROM portfolio_projects WHERE id=?`).get(id))) throw Object.assign(new Error('project not found'), { code: 'NOT_FOUND', status: 404 });
+      const before = await projectSites(id);
+      await P(`DELETE FROM portfolio_project_sites WHERE project_id=?`).run(id);
+      for (const s of ids) await P(`INSERT INTO portfolio_project_sites (project_id, site_id) VALUES (?, ?)`).run(id, s);
+      await ppmEvent({ entity: 'project', entity_id: id, action: 'sites_edit', field: 'site_ids', old_value: before.join(','), new_value: ids.join(',') }, user);
+      return ids;
+    });
+  }
+  /** The project row a plan element (task / milestone / risk / deliverable) belongs to — for the access guard. */
+  async function getProject(id) { const r = await P(`SELECT id, site_id, owner, objective_id FROM portfolio_projects WHERE id=?`).get(Number(id)); return r ? { ...r, id: Number(r.id), site_id: r.site_id == null ? null : Number(r.site_id) } : null; }
+  async function planRow(kind, id) { const T = TABLES[kind]; if (!T || !T.cols.includes('project_id')) return null; const r = await P(`SELECT id, project_id FROM ${T.table} WHERE id=?`).get(Number(id)); return r ? { id: Number(r.id), project_id: Number(r.project_id) } : null; }
   const TABLES = {
     programme: { table: 'portfolio_programmes', cols: ['key', 'name', 'sponsor', 'description', 'status'], req: ['key', 'name'] },
     objective: { table: 'portfolio_objectives', cols: ['programme_id', 'key', 'name', 'weight', 'owner', 'target_date', 'status', 'confidence', 'progress_pct', 'evidence_metric', 'evidence_target', 'evidence_hib', 'manual_evidence', 'sort_order'], req: ['programme_id', 'key', 'name'] },
@@ -354,7 +377,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   }
   async function minutesHistory(sessionId) { return (await P('SELECT action, actor_id, at, reason FROM minutes_history WHERE session_id=? ORDER BY id').all(Number(sessionId))).map(r => ({ ...r, actor_id: r.actor_id == null ? null : Number(r.actor_id) })); }
   return { ppmEvent, ppmEvents, moveProjectStage, rfiToProject, getRfi, verifyRfi, getDecision, openSessionActions, addMinutesHistory, minutesHistory, init, listCadences, getCadence, saveCadence, removeCadence, listSessions, getSession, createSession, updateSession, stampItem, sessionActions, addSessionAction, setSessionActionStatus, moveSession,
-    listDecisions, addDecision, updateDecision, listRfi, submitRfi, triageRfi, rfiScore, portfolio, upsertPortfolio, removePortfolio,
+    listDecisions, addDecision, updateDecision, listRfi, submitRfi, triageRfi, rfiScore, portfolio, upsertPortfolio, removePortfolio, projectSites, setProjectSites, getProject, planRow,
     CADENCE_KINDS, SESSION_STATUSES, DECISION_STATUSES, RFI_KINDS, RFI_STATUSES, PROJECT_STATUSES, CONFIDENCE };
 }
 

@@ -140,14 +140,13 @@ function stageGate(project, to, actor, ctx = {}) {
   if (!STAGES.includes(to)) return { code: 'STAGE_UNKNOWN', error: `unknown stage ${to}` };
   if (!(GATES[from] || []).includes(to)) return { code: 'STAGE_ORDER', error: `cannot go from ${from} to ${to}` };
   // the owner is free text: it may hold the username, the full name or the e-mail — any of them counts
-  const ids = [actor && actor.username, actor && actor.full_name, actor && actor.email].map((x) => String(x || '').trim().toLowerCase()).filter(Boolean);
-  const owner = String(project.owner || '').trim().toLowerCase();
-  const me = owner && ids.includes(owner) ? owner : (ids[0] || '');
+  // one identity rule for the whole portfolio (services/portfolioAccess.ownerMatches)
+  const isOwner = require('./portfolioAccess').ownerMatches(project, actor);
   if (to === 'approval' && !(project.charter && String(project.charter).trim().length >= 20)) return { code: 'GATE_CHARTER', error: 'a charter (objective, scope, benefits — 20+ characters) is required before approval' };
   if (to === 'in_progress' && from === 'approval') {
     if (!project.sponsor) return { code: 'GATE_SPONSOR', error: 'a sponsor is required' };
     if (!project.start_date || !project.end_date || !project.baseline_end) return { code: 'GATE_BASELINE', error: 'start, end and baseline end dates are required (the baseline is frozen at approval)' };
-    if (me && owner && me === owner) return { code: 'GATE_SOD', error: 'the project owner cannot approve their own project' };
+    if (isOwner) return { code: 'GATE_SOD', error: 'the project owner cannot approve their own project' };
   }
   if (to === 'closure' && Number(ctx.openTasks) > 0) return { code: 'GATE_OPEN_TASKS', error: `${ctx.openTasks} task(s) still open` };
   if (to === 'closed' && Number(ctx.openRisksHigh) > 0) return { code: 'GATE_OPEN_RISKS', error: `${ctx.openRisksHigh} high risk(s) still open` };
