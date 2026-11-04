@@ -359,6 +359,25 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
     </div>
   </div>
 
+  <!-- C-11 (G19): category Pareto + resolution-SLA ranking. Same period/filter rows as the tiles;
+       every bar / row opens the ticket drill modal. -->
+  <div class="chart-row" id="hdAnalytics">
+    <div class="chart-card">
+      <div class="sec-hdr"><div class="sec-hdr-bar"></div><span class="sec-hdr-title" id="paretoTitle">Tickets by Category — Pareto</span><span id="pareto-total" style="font-size:10px;color:var(--slate3);margin-left:auto"></span></div>
+      <div style="font-size:11px;color:var(--slate3);margin:-2px 0 6px">Top: tickets per category, largest first · Bottom: cumulative % of all tickets in the period. “Other (k)” groups the remaining k categories with their full count — click a bar to see its tickets.</div>
+      <div class="chart-wrap" id="cPareto"></div>
+    </div>
+    <div class="chart-card">
+      <div class="sec-hdr"><div class="sec-hdr-bar"></div><span class="sec-hdr-title" id="slaRankTitle">Resolution SLA % — worst first</span>
+        <label style="margin-left:auto;font-size:11px;color:var(--slate3)">By <select class="flt" id="slaRankDim" onchange="renderSlaRanking()" style="min-width:80px"><option value="site" selected>Site</option><option value="group">Group</option></select></label></div>
+      <div style="font-size:11px;color:var(--slate3);margin:-2px 0 6px" id="slaRankNote"></div>
+      <div class="tbl-wrap" style="max-height:300px"><table id="slaRankTable" aria-describedby="slaRankNote">
+        <thead><tr><th scope="col">#</th><th scope="col" id="slaRankKeyHdr">Site</th><th scope="col" style="text-align:right">Closed (n)</th><th scope="col" style="text-align:right">Missed SLA</th><th scope="col" style="text-align:right">Resolution SLA %</th></tr></thead>
+        <tbody id="slaRankBody"><tr><td colspan="5" class="empty-state">Loading…</td></tr></tbody>
+      </table></div>
+    </div>
+  </div>
+
   <div class="chart-card full">
     <div class="sec-hdr">
       <div class="sec-hdr-bar"></div>
@@ -1192,6 +1211,107 @@ function renderTop10(){
   });
 }
 
+// ── C-11 (G19): Category Pareto ───────────────────────────────────────────
+// Same rows as the Inbound tile (getPRows(REF_P)) → Σ bars === Inbound. Counts on the top
+// panel, cumulative % on its own panel below (TrendPanel, A-22). 'Other (k)' keeps the full
+// total of the remaining categories; a bar click opens the drill modal on exactly its tickets.
+let _paretoState=null;
+function renderPareto(){
+  const rows=getPRows(REF_P);
+  const P=paretoRows(rows,helpdeskCategoryKey,{top:10});
+  _paretoState={rows,P};
+  const modeLbl={weekly:'Week',monthly:'Month',quarterly:'Quarter',yearly:'Year'}[VIEW_MODE];
+  setH('paretoTitle','Tickets by Category — Pareto ('+modeLbl+')');
+  setH('pareto-total',P.total+' tickets · '+P.categories+' categories');
+  if(CH.pareto&&CH.pareto.destroy)CH.pareto.destroy();
+  CH.pareto=null;
+  const el=document.getElementById('cPareto');
+  if(!el)return;
+  if(!P.total){el.innerHTML='<div class="empty-state">No tickets for the selected period and filters</div>';return;}
+  const labels=P.rows.map(o=>o.label.length>22?o.label.slice(0,20)+'…':o.label);
+  CH.pareto=window.TrendPanel?TrendPanel.render('cPareto',{
+    labels,unit:'%',heights:{volume:150,rate:110},
+    volume:[{label:'Tickets',data:P.rows.map(o=>o.n)}],
+    rate:[{label:'Cumulative % of '+P.total+' tickets',data:P.rows.map(o=>o.cum_pct)}],
+    volumeOptions:{
+      onClick:(evt,els)=>{if(els&&els.length)openParetoDrill(els[0].index);},
+      plugins:{tooltip:{callbacks:{label:c=>' '+c.raw+' tickets ('+P.rows[c.dataIndex].pct+'% of '+P.total+') — click to drill in',
+        title:items=>items.length?P.rows[items[0].dataIndex].label:''}}}
+    }
+  }):null;
+}
+function openParetoDrill(idx){
+  if(!_paretoState)return;
+  const o=_paretoState.P.rows[idx];if(!o)return;
+  const drillRows=rowsForKeys(_paretoState.rows,helpdeskCategoryKey,o.keys)
+    .sort((a,b)=>(parseInt(b['Days Since Created'])||0)-(parseInt(a['Days Since Created'])||0));
+  const modeLbl={weekly:'Week',monthly:'Month',quarterly:'Quarter',yearly:'Year'}[VIEW_MODE];
+  const what=o.other?'Other categories ('+o.keys.length+')':o.label;
+  _openTicketDrillModal({
+    title:'📊 Tickets — '+what,
+    subtitle:modeLbl+' · '+drillRows.length+' ticket'+(drillRows.length!==1?'s':'')+' · '+o.pct+'% of '+_paretoState.P.total,
+    rows:drillRows,
+    contextTag:'Category_'+(o.other?'Other':o.label).replace(/[^a-zA-Z0-9]/g,'_'),
+    emptyMsg:'No tickets in this category for the selected period',
+    contextLine:'<strong style="color:#1C3A5E">'+drillRows.length+'</strong> ticket'+(drillRows.length!==1?'s':'')+' in <strong>'+escapeHTML(what)+'</strong>'+
+      (o.other?' &nbsp;·&nbsp; '+escapeHTML(o.keys.join(', ')):'')
+  });
+}
+
+// ── C-11 (G19): Resolution SLA % ranking by site / group ──────────────────
+// Same rule and rows as the Resolution SLA % tile (pStats: violated-and-closed ÷ closed).
+// Sites/groups with fewer than MIN_SLA_RANK_N closed tickets are listed as 'low sample', unranked.
+let _slaRankState=null;
+function renderSlaRanking(){
+  const dimSel=document.getElementById('slaRankDim');
+  const dim=dimSel&&dimSel.value==='group'?'group':'site';
+  const keyFn=dim==='group'?helpdeskGroupKey:helpdeskSiteKey;
+  const rows=getPRows(REF_P);
+  const R=slaRanking(rows,keyFn,{minN:MIN_SLA_RANK_N});
+  _slaRankState={rows,R,keyFn,dim};
+  const dimLbl=dim==='group'?'Group':'Site';
+  setH('slaRankKeyHdr',dimLbl);
+  setH('slaRankTitle','Resolution SLA % by '+dimLbl+' — worst first');
+  const tot=R.total;
+  const zoho=_zohoSlaPct(REF_P);
+  setH('slaRankNote','All '+(dim==='group'?'groups':'sites')+': <strong>'+(tot.pct!==null?tot.pct+'%':'—')+'</strong> over '+tot.closed+' closed tickets ('+tot.violated+' missed SLA) — same rows as the Resolution SLA % tile'+
+    (zoho!==null?' (the monthly tile shows the Zoho summary figure, '+zoho+'%)':'')+
+    '. Ranked only with ≥ '+R.min_n+' closed tickets; smaller samples are listed as “low sample”. Click a row for its tickets.');
+  const body=document.getElementById('slaRankBody');
+  if(!body)return;
+  if(!tot.closed){body.innerHTML='<tr><td colspan="5" class="empty-state">No closed tickets for the selected period and filters</td></tr>';return;}
+  const pctColor=p=>p===null?'':p<80?'color:#DC2626;font-weight:700':p<90?'color:#D97706;font-weight:600':'color:#16A34A;font-weight:600';
+  const line=(e,i,low)=>'<tr class="sla-rank-row" tabindex="0" role="button" data-k="'+i+'" data-low="'+(low?1:0)+'" style="cursor:pointer'+(low?';opacity:.75':'')+'" title="Open the closed tickets of '+escapeHTML(e.key)+'">'+
+    '<td>'+(low?'<span style="font-size:10px;color:var(--slate3)">low sample</span>':e.rank)+'</td>'+
+    '<td>'+escapeHTML(e.key)+'</td>'+
+    '<td style="text-align:right">'+e.closed+'</td>'+
+    '<td style="text-align:right">'+e.violated+'</td>'+
+    '<td style="text-align:right;'+(low?'':pctColor(e.pct))+'">'+(e.pct!==null?e.pct+'%':'—')+'</td></tr>';
+  body.innerHTML=R.ranked.map((e,i)=>line(e,i,false)).join('')+R.low_sample.map((e,i)=>line(e,i,true)).join('');
+  body.querySelectorAll('tr.sla-rank-row').forEach(tr=>{
+    const go=()=>openSlaRankDrill(tr.dataset.low==='1',parseInt(tr.dataset.k,10));
+    tr.addEventListener('click',go);
+    tr.addEventListener('keydown',ev=>{if(ev.key==='Enter'||ev.key===' '){ev.preventDefault();go();}});
+  });
+}
+function openSlaRankDrill(low,idx){
+  if(!_slaRankState)return;
+  const e=(low?_slaRankState.R.low_sample:_slaRankState.R.ranked)[idx];if(!e)return;
+  // The ranking's denominator: closed tickets of that site/group, missed-SLA first.
+  const drillRows=rowsForKeys(_slaRankState.rows,_slaRankState.keyFn,[e.key]).filter(isClosed)
+    .sort((a,b)=>(isResOverdue(b)?1:0)-(isResOverdue(a)?1:0)||(parseInt(b['Days Since Created'])||0)-(parseInt(a['Days Since Created'])||0));
+  const modeLbl={weekly:'Week',monthly:'Month',quarterly:'Quarter',yearly:'Year'}[VIEW_MODE];
+  const dimLbl=_slaRankState.dim==='group'?'Group':'Site';
+  _openTicketDrillModal({
+    title:'⏱ Closed tickets — '+dimLbl+' '+e.key,
+    subtitle:modeLbl+' · resolution SLA '+(e.pct!==null?e.pct+'%':'—')+(low?' · low sample':''),
+    rows:drillRows,
+    contextTag:'SLA_'+dimLbl+'_'+e.key.replace(/[^a-zA-Z0-9]/g,'_'),
+    emptyMsg:'No closed tickets for this '+dimLbl.toLowerCase(),
+    contextLine:'<strong style="color:#1C3A5E">'+drillRows.length+'</strong> closed ticket'+(drillRows.length!==1?'s':'')+' · <strong>'+e.violated+'</strong> missed the resolution SLA (listed first)'
+  });
+}
+
 // ── Volume Trend ──────────────────────────────────────────────────────────
 function renderTrend(){
   const periods=lastNP(REF_P,FTN);
@@ -1743,6 +1863,8 @@ function renderAll(){
   renderKPIs(r,c);
   renderAgeing();
   renderTop10();
+  renderPareto();
+  renderSlaRanking();
   renderTrend();
   renderPresence();
   renderTechTbl();

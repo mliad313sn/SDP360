@@ -228,6 +228,107 @@ function periodSlaRates(rows) {
 }
 
 /**
+ * C-11 (G19) — Helpdesk analytical views: category Pareto + per-site / per-group
+ * resolution-SLA ranking. Pure helpers, shared by index.html and its tests.
+ *
+ * helpdeskCategoryKey — the category a ticket is counted under. Same field order as
+ * the Top-10 chart (Category, else Sub Category), but an empty / '-No Value-' value is
+ * kept as '(No category)' instead of being dropped, so the Pareto total stays equal to
+ * the Inbound tile.
+ */
+var HD_NO_CATEGORY = '(No category)';
+var HD_NO_KEY = '(Not set)';
+function helpdeskCategoryKey(r) {
+  var c = String((r && (r['Category'] || r['Sub Category'])) || '').trim();
+  return (!c || c === '-No Value-') ? HD_NO_CATEGORY : c;
+}
+function _dimKey(field) {
+  return function (r) {
+    var v = String((r && r[field]) || '').trim();
+    return (!v || v === '-No Value-') ? HD_NO_KEY : v;
+  };
+}
+
+/**
+ * paretoRows — counts per key, sorted descending (ties by key), the first `top` keys
+ * kept as their own bar and every remaining key folded into ONE 'Other (k)' bar that
+ * carries their FULL total (never silently truncated). cum_pct = cumulative share of
+ * the grand total, so the last bar reads 100. Σ n === total === rows.length.
+ */
+function paretoRows(rows, keyFn, opts) {
+  var list = Array.isArray(rows) ? rows : [];
+  var top = (opts && Number.isFinite(opts.top) && opts.top > 0) ? Math.floor(opts.top) : 10;
+  var kf = typeof keyFn === 'function' ? keyFn : helpdeskCategoryKey;
+  var m = new Map();
+  list.forEach(function (r) { var k = kf(r); m.set(k, (m.get(k) || 0) + 1); });
+  var sorted = Array.from(m.entries()).sort(function (a, b) { return b[1] - a[1] || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0); });
+  var total = list.length;
+  var head = sorted.length > top + 1 ? sorted.slice(0, top) : sorted;   // never an 'Other' of a single key
+  var tail = sorted.length > top + 1 ? sorted.slice(top) : [];
+  var out = head.map(function (e) { return { key: e[0], label: e[0], n: e[1], keys: [e[0]], other: false }; });
+  if (tail.length) {
+    var n = tail.reduce(function (s, e) { return s + e[1]; }, 0);
+    out.push({ key: '__other__', label: 'Other (' + tail.length + ')', n: n, keys: tail.map(function (e) { return e[0]; }), other: true });
+  }
+  var cum = 0;
+  out.forEach(function (o) {
+    cum += o.n;
+    o.pct = total > 0 ? Math.round(o.n / total * 1000) / 10 : null;
+    o.cum_pct = total > 0 ? Math.round(cum / total * 1000) / 10 : null;
+  });
+  return { total: total, categories: sorted.length, rows: out };
+}
+
+/**
+ * Minimum closed tickets for a site/group to be RANKED on resolution SLA %. Below it the
+ * row is shown as 'low sample' with its n but gets no rank (one late ticket out of two
+ * would otherwise read 50 % and top the "worst" list). No helpdesk threshold existed in
+ * the codebase; 10 is a PROPOSAL recorded in docs/agent-execution/C-11.md for owner review.
+ */
+var MIN_SLA_RANK_N = 10;
+
+/**
+ * slaRanking — resolution SLA % per key on the SAME rule as the Helpdesk
+ * "Resolution SLA %" tile (index.html pStats): denominator = closed tickets
+ * (isClosed), numerator = closed AND not isResOverdue. pct = null when nothing closed.
+ * ranked = keys with closed ≥ minN, worst (lowest %) first, ties by larger n then key;
+ * low_sample = the rest (with their n, no rank). Σ closed over both lists === total.closed.
+ */
+function slaRanking(rows, keyFn, opts) {
+  var list = Array.isArray(rows) ? rows : [];
+  var minN = (opts && Number.isFinite(opts.minN) && opts.minN >= 1) ? Math.floor(opts.minN) : MIN_SLA_RANK_N;
+  var kf = typeof keyFn === 'function' ? keyFn : _dimKey('Site');
+  var m = new Map();
+  var tc = 0, tv = 0;
+  list.forEach(function (r) {
+    if (!isClosed(r)) return;
+    var k = kf(r);
+    var e = m.get(k) || { key: k, closed: 0, violated: 0 };
+    e.closed++; tc++;
+    if (isResOverdue(r)) { e.violated++; tv++; }
+    m.set(k, e);
+  });
+  var pct = function (v, c) { return c > 0 ? Math.round((1 - v / c) * 1000) / 10 : null; };
+  var all = Array.from(m.values()).map(function (e) { e.pct = pct(e.violated, e.closed); return e; });
+  var byKey = function (a, b) { return a.key < b.key ? -1 : a.key > b.key ? 1 : 0; };
+  var ranked = all.filter(function (e) { return e.closed >= minN; })
+    .sort(function (a, b) { return a.pct - b.pct || b.closed - a.closed || byKey(a, b); });
+  ranked.forEach(function (e, i) { e.rank = i + 1; });
+  var low = all.filter(function (e) { return e.closed < minN; })
+    .sort(function (a, b) { return b.closed - a.closed || byKey(a, b); });
+  low.forEach(function (e) { e.rank = null; e.low_sample = true; });
+  return { min_n: minN, total: { closed: tc, violated: tv, pct: pct(tv, tc) }, ranked: ranked, low_sample: low };
+}
+
+/** Drill helper: the rows whose key (keyFn) is one of `keys`. */
+function rowsForKeys(rows, keyFn, keys) {
+  var set = new Set(keys || []);
+  return (Array.isArray(rows) ? rows : []).filter(function (r) { return set.has(keyFn(r)); });
+}
+var helpdeskSiteKey = _dimKey('Site');
+var helpdeskGroupKey = _dimKey('Group');
+
+/**
  * xRows — extract rows array from any Analytics Plus / dashboard API
  * response shape. Replaces:
  *   - index.html         xRows()        (canonical)
@@ -473,6 +574,13 @@ if (typeof window !== 'undefined') {
   window.isClosed            = isClosed;
   window.isResOverdue        = isResOverdue;   // shared SLA violation check
   window.periodSlaRates      = periodSlaRates; // per-period SLA rates (doctrine denominators, null when empty)
+  window.helpdeskCategoryKey = helpdeskCategoryKey; // C-11 Pareto key (empty -> '(No category)')
+  window.helpdeskSiteKey     = helpdeskSiteKey;
+  window.helpdeskGroupKey    = helpdeskGroupKey;
+  window.paretoRows          = paretoRows;     // C-11 counts desc + cumulative %, explicit 'Other (k)'
+  window.slaRanking          = slaRanking;     // C-11 resolution SLA % per site/group, tile rule, low-sample unranked
+  window.rowsForKeys         = rowsForKeys;
+  window.MIN_SLA_RANK_N      = MIN_SLA_RANK_N;
   window.isP1                = isP1;
   window.isP2                = isP2;
   window.xRows               = xRows;          // shared API response unwrapper
