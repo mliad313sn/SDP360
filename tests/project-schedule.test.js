@@ -67,3 +67,65 @@ test('owner identity for the approval gate: username, full name or e-mail all co
   assert.strictEqual(S.stageGate({ ...b, owner: 'jean.dupont@example.org' }, 'in_progress', { username: 'jdupont', email: 'Jean.Dupont@example.org' }).code, 'GATE_SOD');
   assert.strictEqual(S.stageGate(b, 'in_progress', { username: 'boss', full_name: 'Awa Traore' }), null);
 });
+
+// A-14 — a structured (JSON) charter is gated on its CONTENT, not on the length of its JSON text.
+test('charterText: a JSON charter with empty fields is empty, so the approval gate refuses GATE_CHARTER', () => {
+  const empty = JSON.stringify({ objective: '', scope_in: '', scope_out: '', benefits: '', success: '', constraints: '' });
+  assert.ok(empty.length > 20, 'the JSON text alone would pass a length check');
+  assert.strictEqual(S.charterText(empty), '');
+  const p = { stage: 'proposal', owner: 'x', charter: empty };
+  assert.strictEqual(S.stageGate(p, 'approval', { username: 'y' }).code, 'GATE_CHARTER');
+});
+
+test('charterText: JSON with objective+scope+benefits passes; a plain-text charter is unchanged', () => {
+  const c = JSON.stringify({ objective: 'Two WAN links per mine', scope_in: 'Houndé', benefits: 'no mill stop on an ISP cut' });
+  assert.strictEqual(S.charterText(c), 'Two WAN links per mine Houndé no mill stop on an ISP cut');
+  assert.strictEqual(S.stageGate({ stage: 'proposal', owner: 'x', charter: c }, 'approval', { username: 'y' }), null);
+  const plain = 'Second ISP link at Houndé to stop the mill reporting outages';
+  assert.strictEqual(S.charterText(plain), plain);
+  assert.strictEqual(S.charterText(null), '');
+  assert.strictEqual(S.charterText('[1,2]'), '[1,2]', 'a JSON array is not a structured charter');
+  assert.strictEqual(S.stageGate({ stage: 'proposal', owner: 'x', charter: 'short' }, 'approval', { username: 'y' }).code, 'GATE_CHARTER');
+});
+
+test('scheduleView: anchors es/ef to the project start; critical flags equal the critical path; slack per task', () => {
+  const t = [
+    { id: 1, start_date: '2027-01-01', end_date: '2027-01-05' },
+    { id: 2, depends_on: [1], duration_days: 10 },
+    { id: 3, depends_on: [1], duration_days: 3 },
+    { id: 4, depends_on: [2, 3], duration_days: 2 },
+  ];
+  const v = S.scheduleView(t, { anchor: '2027-01-04' });
+  const cp = S.criticalPath(t);
+  assert.strictEqual(v.anchor, '2027-01-04');
+  assert.strictEqual(v.length_days, 17);
+  assert.deepStrictEqual(v.tasks.filter((x) => x.critical).map((x) => x.id), cp.path);
+  const by = Object.fromEntries(v.tasks.map((x) => [x.id, x]));
+  assert.deepStrictEqual([by[1].es, by[1].ef, by[1].es_date, by[1].ef_date], [0, 5, '2027-01-04', '2027-01-08']);
+  assert.deepStrictEqual([by[2].es, by[2].es_date, by[2].ef_date], [5, '2027-01-09', '2027-01-18'], 'ef_date is the last working day of the task');
+  assert.strictEqual(by[3].slack, 7);
+  assert.strictEqual(by[3].critical, false);
+  assert.strictEqual(by[1].duration_days, 5);
+  assert.ok('finish_variance_days' in by[1].variance);
+});
+
+test('scheduleView: a task without dates or duration is flagged assumed_duration, never reported as 0 days', () => {
+  const v = S.scheduleView([{ id: 1, name: 'a' }, { id: 2, depends_on: [1], start_date: '2027-02-01' }], { anchor: '2027-02-01' });
+  const by = Object.fromEntries(v.tasks.map((x) => [x.id, x]));
+  assert.strictEqual(by[1].assumed_duration, true);
+  assert.strictEqual(by[1].duration_days, null, 'unknown, not 0');
+  assert.strictEqual(by[1].ef - by[1].es, 1, 'the critical path counts it as 1 day');
+  assert.strictEqual(by[2].assumed_duration, true, 'a start without an end is still not a duration');
+  assert.strictEqual(S.scheduleView([{ id: 5, duration_days: 3 }], {}).tasks[0].assumed_duration, false);
+});
+
+test('scheduleView: no anchor available → dates null, relative days kept; earliest task start is the fallback', () => {
+  const v = S.scheduleView([{ id: 1, duration_days: 4 }, { id: 2, depends_on: [1], duration_days: 2 }], { anchor: null });
+  assert.strictEqual(v.anchor, null);
+  assert.ok(v.tasks.every((x) => x.es_date === null && x.ef_date === null));
+  assert.deepStrictEqual(v.tasks.map((x) => [x.es, x.ef]), [[0, 4], [4, 6]]);
+  const w = S.scheduleView([{ id: 1, start_date: '2027-03-10', end_date: '2027-03-11' }, { id: 2, start_date: '2027-03-02', end_date: '2027-03-03' }], {});
+  assert.strictEqual(w.anchor, '2027-03-02');
+  assert.strictEqual(S.scheduleView([], { anchor: '2027-01-01' }).tasks.length, 0);
+  assert.strictEqual(S.scheduleView([{ id: 1, depends_on: [2] }, { id: 2, depends_on: [1] }], {}), null, 'a cycle cannot be scheduled');
+});

@@ -127,3 +127,93 @@ test('G13: roadmap → portfolio migration apply path, then a repeat is refused'
   assert.equal(pf.objectives.filter(o => o.programme_id === pf.programmes.find(p => p.key === 'itsm-roadmap').id).length, dry.plan.objectives.length);
   assert.equal((await send('POST', '/api/governance/roadmap-migration?apply=1', T.super, {})).status, 409, 'migration is not applied twice');
 });
+
+// ---- A-14 — the project page API (fictitious figures only) ------------------------------------------------------
+const getP = (id, t) => send('GET', `/api/governance/portfolio/project/${id}`, t);
+async function a14Fixture(tag) {
+  const prog = (await put('programme', T.pmo, { key: 'a14-' + tag, name: 'Project page ' + tag })).j.id;
+  const obj = (await put('objective', T.pmo, { programme_id: prog, key: 'a14-o-' + tag, name: 'o' })).j.id;
+  return obj;
+}
+
+test('A-14: GET /portfolio/project/:id — tasks, RAID, plan with critical flags, allowed stages with refusals; money hidden for a viewer', async () => {
+  const obj = await a14Fixture('get');
+  const charter = JSON.stringify({ objective: '', scope_in: '', scope_out: '', benefits: '' });
+  const pid = (await put('project', T.pmo, { objective_id: obj, key: 'A14-1', name: 'Page check', owner: 'pp_pmo', start_date: '2027-01-04', end_date: '2027-02-26', budget: 5000, currency: 'USD', charter })).j.id;
+  const t1 = (await put('task', T.pmo, { project_id: pid, wbs_code: '1', name: 'Design', duration_days: 5, progress_pct: 40, effort_hours: 24 })).j.id;
+  const t2 = (await put('task', T.pmo, { project_id: pid, wbs_code: '2', name: 'Build', duration_days: 10, depends_on: [t1] })).j.id;
+  const t3 = (await put('task', T.pmo, { project_id: pid, wbs_code: '3', name: 'Docs', depends_on: [t1] })).j.id;
+  assert.equal((await put('risk', T.pmo, { project_id: pid, title: 'ISP delay', probability: 3, impact: 2 })).status, 200);
+  assert.equal((await put('risk', T.pmo, { project_id: pid, title: 'Survey done late', kind: 'issue', probability: 2, impact: 2 })).status, 200);
+  assert.equal((await put('milestone', T.pmo, { project_id: pid, name: 'Go-live', due_date: '2027-02-26', owner: 'B. Sow' })).status, 200);
+
+  const r = await getP(pid, T.pmo); assert.equal(r.status, 200, JSON.stringify(r.j));
+  const v = r.j;
+  assert.equal(v.project.id, pid); assert.equal(v.project.budget, 5000); assert.equal(v.can_gate, true); assert.equal(v.can_edit_plan, true);
+  assert.deepEqual(v.tasks.map((x) => x.id), [t1, t2, t3]);
+  assert.equal(v.tasks[0].progress_pct, 40); assert.equal(v.tasks[0].effort_hours, 24);
+  assert.equal(v.milestones[0].owner, 'B. Sow');
+  assert.deepEqual(v.risks.map((x) => x.kind).sort(), ['issue', 'risk']);
+  assert.equal(v.plan.anchor, '2027-01-04');
+  const pt = Object.fromEntries(v.plan.tasks.map((x) => [x.id, x]));
+  assert.equal(pt[t1].critical, true); assert.equal(pt[t2].critical, true); assert.equal(pt[t3].critical, false);
+  assert.equal(pt[t3].assumed_duration, true); assert.equal(pt[t3].duration_days, null);
+  assert.equal(pt[t2].es_date, '2027-01-09');
+  assert.deepEqual(v.allowed_stages.map((s) => s.to), ['approval']);
+  assert.equal(v.allowed_stages[0].refusal.code, 'GATE_CHARTER', 'a JSON charter of empty fields does not pass approval');
+  assert.equal((await send('POST', `/api/governance/portfolio/project/${pid}/stage`, T.pmo, { to: 'approval' })).j.code, 'GATE_CHARTER');
+
+  const vv = (await getP(pid, T.viewer)).j;
+  assert.equal(vv.money_hidden, true); assert.equal(vv.project.budget, undefined); assert.equal(vv.can_gate, false); assert.equal(vv.can_edit_plan, false); assert.equal(vv.can_see_history, false);
+  assert.equal((await getP(9999999, T.pmo)).status, 404);
+  assert.equal((await getP('abc', T.pmo)).status, 404);
+  // the specific sub-paths still answer (route order)
+  assert.equal((await send('GET', `/api/governance/portfolio/project/${pid}/history`, T.pmo)).status, 200);
+});
+
+test('A-14: the owner sees GATE_SOD for in_progress in allowed_stages and the POST is refused 409', async () => {
+  const obj = await a14Fixture('sod');
+  const charter = JSON.stringify({ objective: 'Replace the core switch at the mine', benefits: 'fewer outages' });
+  const pid = (await put('project', T.pmo, { objective_id: obj, key: 'A14-SOD', name: 'sod', owner: 'pp_pmo', sponsor: 'CIO', charter, start_date: '2027-01-01', end_date: '2027-03-01', baseline_end: '2027-03-01' })).j.id;
+  const g0 = (await getP(pid, T.pmo)).j.allowed_stages; assert.equal(g0[0].refusal, null, 'a filled JSON charter passes');
+  assert.equal((await send('POST', `/api/governance/portfolio/project/${pid}/stage`, T.pmo, { to: 'approval' })).status, 200);
+  const g = (await getP(pid, T.pmo)).j.allowed_stages;
+  assert.deepEqual(g.map((s) => s.to), ['in_progress', 'proposal']);
+  assert.equal(g[0].refusal.code, 'GATE_SOD');
+  assert.equal((await getP(pid, T.cio)).j.allowed_stages[0].refusal, null, 'another committee member may approve');
+  const st = await send('POST', `/api/governance/portfolio/project/${pid}/stage`, T.pmo, { to: 'in_progress' });
+  assert.equal(st.status, 409); assert.equal(st.j.code, 'GATE_SOD');
+  assert.equal((await send('POST', `/api/governance/portfolio/project/${pid}/stage`, T.cio, { to: 'in_progress' })).status, 200);
+  const h = (await getP(pid, T.cio)).j.allowed_stages.find((s) => s.to === 'on_hold');
+  assert.equal(h.needs_reason, true); assert.equal(h.refusal, null, 'the dry run assumes the reason typed at the move');
+});
+
+test('A-14: RAID kinds and task fields are validated; only an open high RISK blocks closed (today rule)', async () => {
+  const obj = await a14Fixture('raid');
+  const pid = (await put('project', T.pmo, { objective_id: obj, key: 'A14-R', name: 'raid', owner: 'pp_pmo', sponsor: 'CIO', charter: 'A plain-text charter long enough to pass', start_date: '2027-01-01', end_date: '2027-03-01', baseline_end: '2027-03-01' })).j.id;
+  assert.equal((await put('risk', T.pmo, { project_id: pid, title: 'a', kind: 'assumption', probability: 1, impact: 1 })).status, 200);
+  const bad = await put('risk', T.pmo, { project_id: pid, title: 'b', kind: 'dependency', probability: 1, impact: 1 });
+  assert.equal(bad.status, 400);
+  assert.equal((await put('task', T.pmo, { project_id: pid, name: 'x', progress_pct: 101 })).status, 400);
+  assert.equal((await put('task', T.pmo, { project_id: pid, name: 'x', effort_hours: -1 })).status, 400);
+  assert.equal((await put('task', T.pmo, { project_id: pid, name: 'x', progress_pct: 100, effort_hours: 0, status: 'done' })).status, 200);
+  const iss = (await put('risk', T.pmo, { project_id: pid, title: 'Vendor late', kind: 'issue', probability: 3, impact: 3 })).j.id;
+  for (const [to, t] of [['approval', T.pmo], ['in_progress', T.cio], ['closure', T.cio]]) assert.equal((await send('POST', `/api/governance/portfolio/project/${pid}/stage`, t, { to })).status, 200, to);
+  const rk = (await put('risk', T.pmo, { project_id: pid, title: 'Data loss', probability: 3, impact: 3 })).j.id;
+  assert.equal((await getP(pid, T.cio)).j.allowed_stages.find((s) => s.to === 'closed').refusal.code, 'GATE_OPEN_RISKS');
+  await put('risk', T.pmo, { id: rk, status: 'closed' });
+  assert.equal((await getP(pid, T.cio)).j.allowed_stages.find((s) => s.to === 'closed').refusal, null, 'the open high issue does not count');
+  assert.equal((await send('POST', `/api/governance/portfolio/project/${pid}/stage`, T.cio, { to: 'closed' })).status, 200);
+  assert.ok(iss);
+});
+
+test('A-14: RFI accepted → to-project → project page → a second conversion is 409 with project_id', async () => {
+  const obj = await a14Fixture('rfi');
+  const rfi = (await send('POST', '/api/governance/rfi', T.viewer, { kind: 'ux', title: 'Field form offline', problem: 'the form is lost when the network drops at the pit' })).j.rfi;
+  await send('PUT', `/api/governance/rfi/${rfi.id}`, T.pmo, { status: 'accepted' });
+  const c = await send('POST', `/api/governance/rfi/${rfi.id}/to-project`, T.pmo, { objective_id: obj, key: 'A14-RFI', owner: 'pp_pmo' });
+  assert.equal(c.status, 200); const pid = c.j.project_id;
+  const v = (await getP(pid, T.pmo)).j; assert.equal(v.project.rfi_id, rfi.id); assert.equal(v.project.key, 'A14-RFI');
+  const again = await send('POST', `/api/governance/rfi/${rfi.id}/to-project`, T.pmo, { objective_id: obj, key: 'A14-RFI2' });
+  assert.equal(again.status, 409); assert.equal(again.j.project_id, pid);
+});

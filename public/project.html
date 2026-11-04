@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Project — Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/dashboardRender.js"></script>
+<style nonce="%%CSP_NONCE%%">
+  body { margin:0; background:var(--color-background,#f4f6f7); color:#1F2A33; font-family:var(--font-sans,"Libre Franklin",system-ui,sans-serif); font-size:14px; }
+  .wrap { max-width:1360px; margin:0 auto; padding:24px; }
+  h1 { margin:0 0 4px; font-size:22px; color:var(--edv-slate,#3A4A60); } h2 { margin:0 0 10px; font-size:15px; color:#3A4A60; } .sub { font-size:13px; color:#6b7785; margin-bottom:14px; }
+  .bar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:10px 0; }
+  .btn, select, input, textarea { padding:7px 11px; border:1px solid #cfd6e0; border-radius:8px; background:#fff; font-size:13px; color:#1F2A33; font-family:inherit; }
+  .btn { cursor:pointer; text-decoration:none; display:inline-block; } .btn.primary { background:var(--edv-slate,#3A4A60); color:#fff; border-color:var(--edv-slate,#3A4A60); } .btn.danger { color:#b91c1c; }
+  .btn[disabled] { opacity:.5; cursor:not-allowed; }
+  .panel { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:14px 16px; margin-bottom:14px; }
+  .row { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:10px; } label { font-size:12px; color:#6b7785; display:flex; flex-direction:column; gap:3px; }
+  table { border-collapse:collapse; width:100%; font-size:12.5px; } th, td { border:1px solid #e4e8ee; padding:5px 7px; text-align:left; vertical-align:top; } th { background:#f4f6f7; font-weight:600; }
+  .pill { display:inline-block; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:700; color:#fff; background:#6b7785; } .pill.GREEN,.pill.done{background:#1E7B45} .pill.AMBER,.pill.in_progress{background:#B45309} .pill.RED,.pill.blocked{background:#B91C1C} .pill.NA,.pill.open,.pill.todo,.pill.planned{background:#3A4A60}
+  #msg .errors { background:#fef2f2; border:1px solid #fecaca; color:#991b1b; border-radius:10px; padding:8px 12px; font-size:12.5px; } #msg .ok { background:#f0fdf4; border:1px solid #bbf7d0; color:#166534; border-radius:10px; padding:8px 12px; font-size:12.5px; }
+  .muted { color:#6b7785; font-size:12px; } .scroll { overflow:auto; }
+  .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; } .tile { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:10px 12px; } .tile .tn { font-size:20px; font-weight:700; color:#3A4A60; } .tile .tl { font-size:12px; color:#6b7785; }
+  .stage { font-size:11px; color:#4A5563; letter-spacing:1px; }
+  .tabs { display:flex; gap:4px; flex-wrap:wrap; border-bottom:1px solid #e4e8ee; margin:12px 0 14px; }
+  .tabs [role=tab] { border:1px solid transparent; border-bottom:none; background:transparent; padding:8px 14px; font-size:13px; cursor:pointer; border-radius:8px 8px 0 0; color:#4A5563; font-family:inherit; }
+  .tabs [role=tab][aria-selected=true] { background:#fff; border-color:#e4e8ee; color:#1F2A33; font-weight:600; margin-bottom:-1px; }
+  .gantt svg { display:block; font-family:inherit; } .gantt .lbl { font-size:11.5px; fill:#1F2A33; } .gantt .axis { font-size:10.5px; fill:#6b7785; }
+  .refusal { color:#991b1b; font-size:12.5px; } .gate { display:flex; gap:10px; align-items:flex-start; padding:8px 0; border-bottom:1px solid #f0f2f5; }
+  .charter dt { font-weight:600; color:#3A4A60; margin-top:8px; } .charter dd { margin:2px 0 0; white-space:pre-wrap; }
+</style>
+</head>
+<body>
+<a class="edv-skip" href="#main">Skip to content</a>
+<div id="__shell" data-section="operations" data-current="portfolio"></div>
+<main id="main" class="wrap">
+  <div class="muted"><a href="portfolio.html">Portfolio</a> ▸ project</div>
+  <h1 id="p-title">Project</h1>
+  <div class="sub" id="p-sub">Charter, plan, milestones, risks and gates of one project. “—” means not measured, never 0 (help §25).</div>
+  <div id="msg" role="status" aria-live="polite"></div>
+  <div class="tabs" role="tablist" aria-label="Project sections" id="tabs">
+    <button type="button" role="tab" id="tab-overview" aria-controls="pane-overview" aria-selected="true">Overview</button>
+    <button type="button" role="tab" id="tab-charter" aria-controls="pane-charter" aria-selected="false" tabindex="-1">Charter</button>
+    <button type="button" role="tab" id="tab-plan" aria-controls="pane-plan" aria-selected="false" tabindex="-1">Plan</button>
+    <button type="button" role="tab" id="tab-milestones" aria-controls="pane-milestones" aria-selected="false" tabindex="-1">Milestones</button>
+    <button type="button" role="tab" id="tab-raid" aria-controls="pane-raid" aria-selected="false" tabindex="-1">RAID</button>
+    <button type="button" role="tab" id="tab-gates" aria-controls="pane-gates" aria-selected="false" tabindex="-1">Gates</button>
+    <button type="button" role="tab" id="tab-history" aria-controls="pane-history" aria-selected="false" tabindex="-1">History</button>
+  </div>
+
+  <section id="pane-overview" role="tabpanel" aria-labelledby="tab-overview"><div id="overview"></div></section>
+
+  <section id="pane-charter" role="tabpanel" aria-labelledby="tab-charter" hidden>
+    <div class="panel"><h2>Charter</h2><div id="charter-view"></div></div>
+    <div class="panel" id="charter-edit" hidden><h2>Edit the charter (committee, while the project is in proposal or approval)</h2>
+      <div class="row">
+        <label style="grid-column:1/-1">Objective <textarea id="c-objective" rows="2"></textarea></label>
+        <label>Scope — in <textarea id="c-scope_in" rows="2"></textarea></label>
+        <label>Scope — out <textarea id="c-scope_out" rows="2"></textarea></label>
+        <label>Benefits <textarea id="c-benefits" rows="2"></textarea></label>
+        <label>Success criteria <textarea id="c-success" rows="2"></textarea></label>
+        <label>Constraints <textarea id="c-constraints" rows="2"></textarea></label>
+        <label>Sponsor <input id="c-sponsor"></label>
+      </div>
+      <div class="bar"><button class="btn primary" id="c-save" type="button">Save the charter</button><span class="muted">The approval gate reads the text of these fields (20 characters or more), not their layout.</span></div>
+    </div>
+  </section>
+
+  <section id="pane-plan" role="tabpanel" aria-labelledby="tab-plan" hidden>
+    <div class="panel"><h2>Schedule</h2><div id="plan-note" class="muted"></div><div class="gantt scroll" id="gantt"></div>
+      <details><summary class="muted">Table view (the same data)</summary><div class="scroll" id="plan-table"></div></details></div>
+    <div class="panel"><h2>Resource conflicts on this project</h2><div class="scroll" id="plan-conflicts"></div></div>
+    <div class="panel" id="task-edit" hidden><h2>Add / edit a task</h2>
+      <div class="row">
+        <label>Task <select id="t-id"></select></label>
+        <label>Name <input id="t-name"></label>
+        <label>WBS code <input id="t-wbs" placeholder="1.2"></label>
+        <label>Parent task <select id="t-parent"></select></label>
+        <label>Owner <input id="t-owner"></label>
+        <label>Start <input id="t-start" type="date"></label>
+        <label>End <input id="t-end" type="date"></label>
+        <label>Duration (days) <input id="t-dur" type="number" min="1"></label>
+        <label>Allocation % <input id="t-alloc" type="number" min="0" max="100"></label>
+        <label>Effort (hours) <input id="t-effort" type="number" min="0" step="0.5"></label>
+        <label>Status <select id="t-status"><option>todo</option><option>in_progress</option><option>blocked</option><option>done</option><option>cancelled</option></select></label>
+        <label>Progress % <input id="t-prog" type="number" min="0" max="100"></label>
+        <label style="grid-column:1/-1">Depends on (finish-to-start; Ctrl/⌘-click for several) <select id="t-deps" multiple size="4"></select></label>
+      </div>
+      <div class="bar"><button class="btn primary" id="t-save" type="button">Save task</button><button class="btn danger" id="t-del" type="button">Delete task</button></div>
+    </div>
+  </section>
+
+  <section id="pane-milestones" role="tabpanel" aria-labelledby="tab-milestones" hidden>
+    <div class="panel"><h2>Milestones</h2><div class="scroll" id="milestones"></div></div>
+    <div class="panel"><h2>Deliverables</h2><div class="scroll" id="deliverables"></div></div>
+    <div class="panel" id="ms-edit" hidden><h2>Add / edit a milestone</h2>
+      <div class="row">
+        <label>Milestone <select id="m-id"></select></label>
+        <label>Name <input id="m-name"></label>
+        <label>Owner <input id="m-owner"></label>
+        <label>Due <input id="m-due" type="date"></label>
+        <label>Baseline <input id="m-base" type="date"></label>
+        <label>Status <select id="m-status"><option>planned</option><option>done</option></select></label>
+      </div>
+      <div class="bar"><button class="btn primary" id="m-save" type="button">Save milestone</button></div>
+    </div>
+  </section>
+
+  <section id="pane-raid" role="tabpanel" aria-labelledby="tab-raid" hidden>
+    <div class="panel"><h2>Risks, assumptions, issues</h2>
+      <div class="bar"><label>Show <select id="r-filter"><option value="">all kinds</option><option value="risk">risks</option><option value="issue">issues</option><option value="assumption">assumptions</option></select></label>
+        <span class="muted">Dependencies are the task links of the Plan tab; decisions live in the decision register (DEC-…). Only an open <b>risk</b> with P × I ≥ 6 blocks the closed gate.</span></div>
+      <div class="scroll" id="raid"></div></div>
+    <div class="panel" id="raid-edit" hidden><h2>Add / edit an entry</h2>
+      <div class="row">
+        <label>Entry <select id="r-id"></select></label>
+        <label>Kind <select id="r-kind"><option>risk</option><option>issue</option><option>assumption</option></select></label>
+        <label>Title <input id="r-title"></label>
+        <label>Probability (1-3) <input id="r-prob" type="number" min="1" max="3"></label>
+        <label>Impact (1-3) <input id="r-imp" type="number" min="1" max="3"></label>
+        <label>Owner <input id="r-owner"></label>
+        <label>Status <select id="r-status"><option>open</option><option>closed</option></select></label>
+        <label style="grid-column:1/-1">Mitigation / response <textarea id="r-mit" rows="2"></textarea></label>
+      </div>
+      <div class="bar"><button class="btn primary" id="r-save" type="button">Save entry</button></div>
+    </div>
+  </section>
+
+  <section id="pane-gates" role="tabpanel" aria-labelledby="tab-gates" hidden>
+    <div class="panel"><h2>Stage gates</h2><div id="gates"></div>
+      <div id="gate-reason-box" hidden><label>Reason (10 characters or more) <textarea id="gate-reason" rows="2"></textarea></label></div></div>
+  </section>
+
+  <section id="pane-history" role="tabpanel" aria-labelledby="tab-history" hidden>
+    <div class="panel"><h2>History (append-only ledger)</h2><div class="scroll" id="history"></div></div>
+  </section>
+</main>
+<script nonce="%%CSP_NONCE%%">
+(function () {
+  "use strict";
+  // deep link: the URL parameter is read first (CLAUDE.md, inspection lesson)
+  var PID = new URLSearchParams(window.location.search).get("id");
+  var R = window.DashboardRender, $ = function (id) { return document.getElementById(id); }, esc = R.escapeHtml;
+  // n(): a number (or text) from the API, escaped; null/undefined/NaN read "—" (not measured, never 0)
+  var n = function (v, unit) { return v == null || v === "" || (typeof v === "number" && !isFinite(v)) ? "—" : esc(String(v) + (unit || "")); };
+  function api(p, o) {
+    var headers = o && o.body ? { "content-type": "application/json" } : {};
+    return fetch(p, Object.assign({ headers: headers }, o || {})).then(function (r) {
+      return r.json().catch(function () { return {}; }).then(function (j) { if (!r.ok) { var e = new Error(j.error || ("HTTP " + r.status)); e.status = r.status; e.code = j.code; e.body = j; throw e; } return j; });
+    });
+  }
+  var msg = function (h, cls) { $("msg").innerHTML = h ? "<div class=\"" + (cls || "ok") + "\">" + esc(h) + "</div>" : ""; };
+  // the server's refusal codes in plain words
+  var PLAIN = {
+    DEP_CYCLE: "These dependencies would make a loop (a task would wait for itself).",
+    DEP_MISSING: "A dependency points to a task that does not exist in this project.",
+    DEP_SELF: "A task cannot depend on itself.",
+    DEP_DUPLICATE: "The same dependency is listed twice.",
+    PLAN_SCOPE: "You may only maintain the plan of a project of your site(s), or one you own.",
+    GATE_SOD: "The project owner cannot approve their own project — another committee member must.",
+  };
+  var fail = function (e) { msg((e && e.code && PLAIN[e.code]) || (e && e.message) || "Error", "errors"); };
+  var V = null;
+
+  // ---- tabs (role=tablist, arrows / Home / End, deep link #tab) ---------------------------------------------
+  // Extension point: later goals (baselines, benefits) add a tab button + a pane + an entry in RENDER.
+  var TABS = ["overview", "charter", "plan", "milestones", "raid", "gates", "history"];
+  var RENDER = { overview: renderOverview, charter: renderCharter, plan: renderPlan, milestones: renderMilestones, raid: renderRaid, gates: renderGates, history: loadHistory };
+  function showTab(name, focus) {
+    if (TABS.indexOf(name) < 0) name = "overview";
+    TABS.forEach(function (t) { var b = $("tab-" + t), on = t === name; b.setAttribute("aria-selected", on ? "true" : "false"); b.tabIndex = on ? 0 : -1; $("pane-" + t).hidden = !on; });
+    if (focus) $("tab-" + name).focus();
+    if (window.history && window.history.replaceState) window.history.replaceState(null, "", "#" + name);
+    if (V || name === "history") RENDER[name]();
+  }
+  $("tabs").addEventListener("click", function (ev) { var b = ev.target.closest && ev.target.closest("[role=tab]"); if (b) showTab(b.id.slice(4)); });
+  $("tabs").addEventListener("keydown", function (ev) {
+    var cur = TABS.indexOf((document.activeElement && document.activeElement.id || "").slice(4)); if (cur < 0) return;
+    var to = ev.key === "ArrowRight" ? (cur + 1) % TABS.length : ev.key === "ArrowLeft" ? (cur + TABS.length - 1) % TABS.length : ev.key === "Home" ? 0 : ev.key === "End" ? TABS.length - 1 : -1;
+    if (to >= 0) { ev.preventDefault(); showTab(TABS[to], true); }
+  });
+
+  // ---- helpers --------------------------------------------------------------------------------------------
+  var DAY = 86400000, toMs = function (d) { return d ? Date.parse(String(d).slice(0, 10) + "T00:00:00Z") : NaN; };
+  var today = function () { return V && V.as_of ? String(V.as_of).slice(0, 10) : new Date().toISOString().slice(0, 10); };
+  var CHARTER_FIELDS = [["objective", "Objective"], ["scope_in", "Scope — in"], ["scope_out", "Scope — out"], ["benefits", "Benefits"], ["success", "Success criteria"], ["constraints", "Constraints"]];
+  function charterOf(c) {
+    if (c == null || c === "") return { fields: {}, legacy: null };
+    var s = String(c), o = null;
+    if (/^\s*\{/.test(s)) { try { o = JSON.parse(s); } catch (_) { o = null; } }
+    return o && typeof o === "object" && !Array.isArray(o) ? { fields: o, legacy: null } : { fields: {}, legacy: s };
+  }
+  function slipRag(days) {
+    if (days == null) return { cls: "NA", text: "not measured (no baseline or no forecast)" };
+    if (days <= 0) return { cls: "GREEN", text: days === 0 ? "on baseline" : (-days) + " d ahead of baseline" };
+    return days <= 14 ? { cls: "AMBER", text: days + " d late vs baseline" } : { cls: "RED", text: days + " d late vs baseline" };
+  }
+  function taskOrder(tasks) {
+    var byParent = {}, ids = {};
+    tasks.forEach(function (t) { ids[t.id] = 1; });
+    tasks.forEach(function (t) { var k = t.parent_id != null && ids[t.parent_id] ? t.parent_id : "root"; (byParent[k] = byParent[k] || []).push(t); });
+    var cmp = function (a, b) { return String(a.wbs_code || "").localeCompare(String(b.wbs_code || ""), undefined, { numeric: true }) || (a.sort_order || 0) - (b.sort_order || 0) || a.id - b.id; };
+    var out = [], seen = {};
+    (function walk(k, depth) { (byParent[k] || []).sort(cmp).forEach(function (t) { if (seen[t.id]) return; seen[t.id] = 1; out.push({ t: t, depth: depth }); walk(t.id, depth + 1); }); })("root", 0);
+    tasks.forEach(function (t) { if (!seen[t.id]) out.push({ t: t, depth: 0 }); });
+    return out;
+  }
+  var taskLabel = function (t) { return [t.wbs_code, t.name].filter(function (x) { return x != null && x !== ""; }).join(" "); };   // plain text; callers escape
+  var planOf = function (id) { var p = V.plan && V.plan.tasks || []; for (var i = 0; i < p.length; i++) if (p[i].id === id) return p[i]; return null; };
+  function opt(list, sel, blank) { return (blank ? "<option value=\"\">" + esc(blank) + "</option>" : "") + list.map(function (o) { return "<option value=\"" + esc(o[0]) + "\"" + (String(o[0]) === String(sel) ? " selected" : "") + ">" + esc(o[1]) + "</option>"; }).join(""); }
+
+  // ---- load -----------------------------------------------------------------------------------------------
+  function load() {
+    if (!PID || !/^\d+$/.test(PID)) { $("p-title").textContent = "Project"; msg("No project id in the address — open a project from the portfolio.", "errors"); return Promise.resolve(); }
+    return api("/api/governance/portfolio/project/" + encodeURIComponent(PID)).then(function (v) {
+      V = v; renderHeader();
+      var t = (window.location.hash || "").slice(1);
+      showTab(TABS.indexOf(t) >= 0 ? t : (TABS.filter(function (x) { return $("tab-" + x).getAttribute("aria-selected") === "true"; })[0] || "overview"));
+    }).catch(function (e) { if (e.status === 404) { $("p-title").textContent = "Project not found"; msg("This project does not exist, or it is outside the sites you may read.", "errors"); } else fail(e); });
+  }
+  function renderHeader() {
+    var p = V.project;
+    $("p-title").textContent = (p.key || "") + " — " + (p.name || "");
+    document.title = (p.key || "Project") + " — Endeavour Mining IT";
+  }
+
+  function renderOverview() {
+    var p = V.project, st = V.stages || [], i = st.indexOf(p.stage || "proposal");
+    var dots = st.map(function (s, k) { return k === i ? "●" : "○"; }).join("");
+    var vr = V.variance || {}, rag = slipRag(vr.finish_variance_days);
+    var open = V.tasks.filter(function (t) { return ["done", "cancelled"].indexOf(t.status) < 0; }).length;
+    var tiles = [["Stage", "<span class=\"stage\">" + esc(dots) + "</span> " + esc(String(p.stage || "proposal").replace(/_/g, " "))],
+      ["Status", "<span class=\"pill " + esc(p.status || "NA") + "\">" + esc(p.status || "—") + "</span>"],
+      ["Finish vs baseline", "<span class=\"pill " + esc(rag.cls) + "\">" + esc(rag.cls === "NA" ? "—" : rag.cls) + "</span> " + esc(rag.text)],
+      ["Progress", n(p.progress_pct, " %")],
+      ["Open tasks", n(open) + " / " + n(V.tasks.length)],
+      ["Critical path", V.plan ? n(V.plan.length_days, " d") : "— (dependency loop)"],
+      ["Open high risks", n(V.gate_counts && V.gate_counts.openRisksHigh)]];
+    var money = V.money_hidden ? "<span class=\"muted\">restricted to the committee, the admin tier and the finance role</span>" : (p.budget != null ? n(p.spent) + " / " + n(p.budget) + " " + esc(p.currency || "") : "—");
+    $("overview").innerHTML = "<div class=\"tiles\">" + tiles.map(function (t) { return "<div class=\"tile\"><div class=\"tl\">" + esc(t[0]) + "</div><div class=\"tn\" style=\"font-size:15px\">" + t[1] + "</div></div>"; }).join("") + "</div>" +
+      "<div class=\"panel\" style=\"margin-top:14px\"><table><tbody>" +
+      "<tr><th>Objective</th><td>" + (V.objective ? esc(V.objective.key) + " — " + esc(V.objective.name) : "—") + "</td></tr>" +
+      "<tr><th>Owner</th><td>" + n(p.owner) + "</td></tr><tr><th>Sponsor</th><td>" + n(p.sponsor) + "</td></tr>" +
+      "<tr><th>Start → end</th><td>" + n(p.start_date) + " → " + n(p.end_date) + "</td></tr>" +
+      "<tr><th>Baseline</th><td>" + n(p.baseline_start) + " → " + n(p.baseline_end) + " <span class=\"muted\">(frozen at approval)</span></td></tr>" +
+      "<tr><th>Forecast / actual end</th><td>" + n(vr.forecast_end) + " / " + n(vr.actual_end) + "</td></tr>" +
+      "<tr><th>Spent / budget</th><td>" + money + "</td></tr>" +
+      "<tr><th>Origin</th><td>" + (p.rfi_id != null ? "request #" + n(p.rfi_id) + " (<a href=\"rfi.html\">RFI register</a>)" : "—") + "</td></tr>" +
+      "</tbody></table></div>";
+  }
+
+  function renderCharter() {
+    var p = V.project, c = charterOf(p.charter), f = c.fields;
+    var rows = CHARTER_FIELDS.map(function (k) { return "<dt>" + esc(k[1]) + "</dt><dd>" + (f[k[0]] ? esc(f[k[0]]) : "<span class=\"muted\">—</span>") + "</dd>"; }).join("");
+    $("charter-view").innerHTML = (c.legacy != null ? "<p class=\"muted\">Free-text charter (written before the structured form); saving the form below replaces it.</p><dl class=\"charter\"><dt>Charter</dt><dd>" + esc(c.legacy) + "</dd></dl>" : "<dl class=\"charter\">" + rows + "</dl>") +
+      "<dl class=\"charter\"><dt>Sponsor</dt><dd>" + n(p.sponsor) + "</dd></dl>";
+    var editable = V.committee && ["proposal", "approval"].indexOf(p.stage || "proposal") >= 0;
+    $("charter-edit").hidden = !editable;
+    if (editable) { CHARTER_FIELDS.forEach(function (k) { $("c-" + k[0]).value = f[k[0]] || (k[0] === "objective" && c.legacy ? c.legacy : ""); }); $("c-sponsor").value = p.sponsor || ""; }
+  }
+  $("c-save").addEventListener("click", function () {
+    var o = {}; CHARTER_FIELDS.forEach(function (k) { o[k[0]] = $("c-" + k[0]).value.trim(); });
+    var b = { id: V.project.id, charter: JSON.stringify(o) }; if ($("c-sponsor").value.trim()) b.sponsor = $("c-sponsor").value.trim();
+    api("/api/governance/portfolio/project", { method: "PUT", body: JSON.stringify(b) }).then(function () { msg("Charter saved."); return load(); }).catch(fail);
+  });
+
+  // ---- plan: SVG Gantt + table + editor -------------------------------------------------------------------
+  function barOf(t) {
+    var pl = planOf(t.id);
+    if (t.start_date && t.end_date) return { s: t.start_date, e: t.end_date, computed: false };
+    if (pl && pl.es_date) return { s: pl.es_date, e: pl.ef_date, computed: true };
+    return null;
+  }
+  function renderPlan() {
+    var rows = taskOrder(V.tasks), anchor = V.plan && V.plan.anchor;
+    var assumed = rows.filter(function (r) { var pl = planOf(r.t.id); return pl && pl.assumed_duration; }).length;
+    $("plan-note").innerHTML = (V.plan ? "" : "<p class=\"refusal\">The dependencies form a loop: the plan cannot be computed.</p>") +
+      (anchor ? "Computed dates start from " + esc(anchor) + " (project start, else the earliest task start). " : "No project start and no dated task: the plan is shown in relative days only, not as dates. ") +
+      (assumed ? "<b>" + n(assumed) + " task(s) have no duration</b> — counted as 1 day by the critical path (“duration unknown”). " : "") +
+      "Legend: bar = plan · hatched = computed from dependencies (no dates entered) · dashed outline = baseline · <b>CP</b> + red = critical path · arrows = finish-to-start · ◆ milestone (✓ done, ! late) · orange line = today.";
+    $("gantt").innerHTML = rows.length ? ganttSvg(rows, anchor) : "<p class=\"muted\">No task yet.</p>";
+    $("plan-table").innerHTML = rows.length ? "<table><thead><tr><th>WBS</th><th>Task</th><th>Owner</th><th>Start</th><th>End</th><th>Duration</th><th>Slack</th><th>Critical</th><th>Progress</th><th>Effort</th><th>Allocation</th><th>Baseline end</th><th>Finish vs baseline</th><th>Status</th><th>Depends on</th></tr></thead><tbody>" + rows.map(function (r) {
+      var t = r.t, pl = planOf(t.id) || {}, b = barOf(t), vr = pl.variance || {};
+      return "<tr><td>" + n(t.wbs_code) + "</td><td style=\"padding-left:" + (7 + 14 * r.depth) + "px\">" + esc(t.name) + " <small class=\"muted\">#" + n(t.id) + "</small></td><td>" + n(t.owner) + "</td><td>" + (b ? n(b.s) + (b.computed ? " <small class=\"muted\">computed</small>" : "") : "—") + "</td><td>" + (b ? n(b.e) : "—") + "</td><td>" + (pl.assumed_duration ? "<i>duration unknown — counted as 1 day</i>" : n(pl.duration_days, " d")) + "</td><td>" + n(pl.slack, " d") + "</td><td>" + (pl.critical ? "<b>CP</b> yes" : "no") + "</td><td>" + n(t.progress_pct, " %") + "</td><td>" + n(t.effort_hours, " h") + "</td><td>" + n(t.allocation_pct, " %") + "</td><td>" + n(t.baseline_end) + "</td><td>" + n(vr.finish_variance_days, " d") + "</td><td><span class=\"pill " + esc(t.status) + "\">" + esc(t.status) + "</span></td><td>" + (t.depends_on || []).map(function (d) { return "#" + n(d); }).join(", ") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No task.</p>";
+    var rc = V.resource_conflicts || [];
+    $("plan-conflicts").innerHTML = rc.length ? "<table><thead><tr><th>Person</th><th>From</th><th>To</th><th>Peak load</th><th>Tasks</th></tr></thead><tbody>" + rc.map(function (c) { return "<tr><td>" + esc(c.owner) + "</td><td>" + n(c.from) + "</td><td>" + n(c.to) + "</td><td><b>" + n(c.peak_pct, " %") + "</b></td><td>" + c.task_ids.map(function (i) { return "#" + n(i); }).join(", ") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">Nobody is booked above 100 % on overlapping days in this project.</p>";
+    taskEditor();
+  }
+  function ganttSvg(rows, anchor) {
+    var LW = 260, W = 980, RH = 24, TOP = 26, ms = V.milestones || [];
+    var dated = !!anchor || rows.some(function (r) { return barOf(r.t); });
+    var lo = Infinity, hi = -Infinity, push = function (d) { var x = toMs(d); if (isFinite(x)) { lo = Math.min(lo, x); hi = Math.max(hi, x + DAY); } };
+    var rel = function (r) { var pl = planOf(r.t.id); return pl ? { s: pl.es, e: pl.ef } : null; };
+    if (dated) { rows.forEach(function (r) { var b = barOf(r.t); if (b) { push(b.s); push(b.e); } push(r.t.baseline_start); push(r.t.baseline_end); }); ms.forEach(function (m) { push(m.due_date); }); push(today()); }
+    else { lo = 0; hi = Math.max(1, (V.plan && V.plan.length_days) || 1); }
+    if (!isFinite(lo)) { lo = toMs(today()); hi = lo + 30 * DAY; }
+    var span = Math.max(1, hi - lo), x = function (v) { return LW + (W - LW - 10) * (v - lo) / span; };
+    var xd = function (d) { return x(toMs(d)); }, xr = function (dd) { return x(dd); };
+    var H = TOP + (rows.length + ms.length) * RH + 10, pos = {}, out = [];
+    out.push("<svg width=\"" + n(W) + "\" height=\"" + n(H) + "\" viewBox=\"0 0 " + n(W) + " " + n(H) + "\" role=\"group\" aria-label=\"Gantt chart of the project tasks\"><defs><pattern id=\"hatch\" width=\"6\" height=\"6\" patternUnits=\"userSpaceOnUse\" patternTransform=\"rotate(45)\"><rect width=\"6\" height=\"6\" fill=\"#cfd6e0\"/><line x1=\"0\" y1=\"0\" x2=\"0\" y2=\"6\" stroke=\"#3A4A60\" stroke-width=\"2\"/></pattern><marker id=\"arr\" viewBox=\"0 0 6 6\" refX=\"6\" refY=\"3\" markerWidth=\"6\" markerHeight=\"6\" orient=\"auto\"><path d=\"M0,0 L6,3 L0,6 z\" fill=\"#6b7785\"/></marker></defs>");
+    out.push("<text class=\"axis\" x=\"" + n(LW) + "\" y=\"14\">" + (dated ? esc(new Date(lo).toISOString().slice(0, 10)) : "day 0") + "</text><text class=\"axis\" x=\"" + n(W - 10) + "\" y=\"14\" text-anchor=\"end\">" + (dated ? esc(new Date(hi - DAY).toISOString().slice(0, 10)) : "day " + n(hi)) + "</text>");
+    rows.forEach(function (r, i) {
+      var t = r.t, pl = planOf(t.id) || {}, y = TOP + i * RH, b = dated ? barOf(t) : null, rr = dated ? null : rel(r);
+      var x0 = b ? xd(b.s) : rr ? xr(rr.s) : null, x1 = b ? xd(b.e) + (W - LW - 10) * DAY / span : rr ? xr(rr.e) : null;
+      var crit = !!pl.critical, comp = b ? b.computed : !!rr;
+      out.push("<text class=\"lbl\" x=\"" + n(4 + 12 * r.depth) + "\" y=\"" + n(y + 16) + "\">" + esc(taskLabel(t).slice(0, 38)) + (crit ? " CP" : "") + "</text>");
+      if (t.baseline_start && t.baseline_end && dated) out.push("<rect x=\"" + n(xd(t.baseline_start)) + "\" y=\"" + n(y + 3) + "\" width=\"" + n(Math.max(2, xd(t.baseline_end) + (W - LW - 10) * DAY / span - xd(t.baseline_start))) + "\" height=\"18\" rx=\"4\" fill=\"none\" stroke=\"#9AA4B2\" stroke-dasharray=\"4 3\"/>");
+      if (x0 == null) { out.push("<text class=\"axis\" x=\"" + n(LW + 4) + "\" y=\"" + n(y + 16) + "\">not scheduled</text>"); return; }
+      pos[t.id] = { s: x0, e: x1, y: y + 12 };
+      var when = b ? [b.s, " to ", b.e].join("") : ["day ", rr.s, " to day ", rr.e].join("");  // plain text, escaped once in esc(label)
+      var label = taskLabel(t) + ": " + when + (comp ? " (computed)" : "") + ", " + (crit ? "critical" : "slack " + (pl.slack == null ? "unknown" : pl.slack) + " days") + ", progress " + (t.progress_pct == null ? "not reported" : [t.progress_pct, " %"].join("")) + (pl.assumed_duration ? ", duration unknown — counted as 1 day" : "");
+      var fill = comp ? "url(#hatch)" : crit ? "#B91C1C" : "#3A4A60";
+      out.push("<g role=\"img\" aria-label=\"" + esc(label) + "\"><title>" + esc(label) + "</title><rect x=\"" + n(x0) + "\" y=\"" + n(y + 6) + "\" width=\"" + n(Math.max(3, x1 - x0)) + "\" height=\"12\" rx=\"5\" fill=\"" + fill + "\"" + (crit && comp ? " stroke=\"#B91C1C\" stroke-width=\"2\"" : "") + "/>" +
+        (t.progress_pct != null ? "<rect x=\"" + n(x0) + "\" y=\"" + n(y + 16) + "\" width=\"" + n(Math.max(0, (x1 - x0) * Math.min(100, t.progress_pct) / 100)) + "\" height=\"2\" fill=\"#1E7B45\"/>" : "") +
+        (crit ? "<text x=\"" + n(Math.min(W - 26, x1 + 3)) + "\" y=\"" + n(y + 16) + "\" font-size=\"10\" font-weight=\"700\" fill=\"#B91C1C\">CP</text>" : "") + "</g>");
+    });
+    rows.forEach(function (r) { (r.t.depends_on || []).forEach(function (d) { var a = pos[d], z = pos[r.t.id]; if (!a || !z) return; out.push("<path d=\"M" + n(a.e) + "," + n(a.y) + " H" + n(Math.max(a.e + 4, z.s - 6)) + " V" + n(z.y) + " H" + n(z.s) + "\" fill=\"none\" stroke=\"#6b7785\" stroke-width=\"1\" marker-end=\"url(#arr)\"/>"); }); });
+    ms.forEach(function (m, k) {
+      var y = TOP + (rows.length + k) * RH, done = !!m.done_at || m.status === "done", late = !done && m.due_date && m.due_date < today();
+      out.push("<text class=\"lbl\" x=\"4\" y=\"" + n(y + 16) + "\">◆ " + esc(String(m.name).slice(0, 36)) + "</text>");
+      if (dated && m.due_date) { var label = ["Milestone ", m.name, ": due ", m.due_date, done ? ", done" : late ? ", late" : ""].join(""); out.push("<g role=\"img\" aria-label=\"" + esc(label) + "\"><title>" + esc(label) + "</title><text x=\"" + n(xd(m.due_date)) + "\" y=\"" + n(y + 17) + "\" text-anchor=\"middle\" font-size=\"14\" fill=\"#3A4A60\">◆" + (done ? "✓" : late ? "!" : "") + "</text></g>"); }
+    });
+    if (dated) { var tx = xd(today()); out.push("<line x1=\"" + n(tx) + "\" x2=\"" + n(tx) + "\" y1=\"18\" y2=\"" + n(H - 4) + "\" stroke=\"#B45309\" stroke-width=\"2\"><title>today " + esc(today()) + "</title></line><text class=\"axis\" x=\"" + n(tx + 3) + "\" y=\"24\" fill=\"#B45309\">today</text>"); }
+    out.push("</svg>");
+    return out.join("");
+  }
+  function taskEditor() {
+    $("task-edit").hidden = !V.can_edit_plan; if (!V.can_edit_plan) return;
+    var ts = V.tasks, cur = $("t-id").value;
+    $("t-id").innerHTML = opt(ts.map(function (t) { return [t.id, taskLabel(t)]; }), cur, "— new task —");
+    fillTask();
+  }
+  function fillTask() {
+    var id = Number($("t-id").value) || null, t = V.tasks.filter(function (x) { return x.id === id; })[0] || {};
+    var others = V.tasks.filter(function (x) { return x.id !== id; }).map(function (x) { return [x.id, taskLabel(x)]; });
+    $("t-parent").innerHTML = opt(others, t.parent_id, "— top level —");
+    $("t-deps").innerHTML = others.map(function (o) { return "<option value=\"" + esc(o[0]) + "\"" + ((t.depends_on || []).indexOf(Number(o[0])) >= 0 ? " selected" : "") + ">" + esc(o[1]) + "</option>"; }).join("");
+    $("t-name").value = t.name || ""; $("t-wbs").value = t.wbs_code || ""; $("t-owner").value = t.owner || ""; $("t-start").value = t.start_date || ""; $("t-end").value = t.end_date || "";
+    $("t-dur").value = t.duration_days == null ? "" : t.duration_days; $("t-alloc").value = t.allocation_pct == null ? "" : t.allocation_pct; $("t-effort").value = t.effort_hours == null ? "" : t.effort_hours;
+    $("t-status").value = t.status || "todo"; $("t-prog").value = t.progress_pct == null ? "" : t.progress_pct; $("t-del").hidden = !id;
+  }
+  $("t-id").addEventListener("change", fillTask);
+  var numOrNull = function (id) { var v = $(id).value; return v === "" ? null : Number(v); };
+  $("t-save").addEventListener("click", function () {
+    var id = Number($("t-id").value) || null;
+    var b = { project_id: V.project.id, name: $("t-name").value.trim(), wbs_code: $("t-wbs").value.trim() || null, parent_id: $("t-parent").value ? Number($("t-parent").value) : null, owner: $("t-owner").value.trim() || null,
+      start_date: $("t-start").value || null, end_date: $("t-end").value || null, duration_days: numOrNull("t-dur"), allocation_pct: numOrNull("t-alloc"), effort_hours: numOrNull("t-effort"), status: $("t-status").value, progress_pct: numOrNull("t-prog"),
+      depends_on: Array.prototype.filter.call($("t-deps").options, function (o) { return o.selected; }).map(function (o) { return Number(o.value); }) };
+    if (id) { b.id = id; delete b.project_id; }
+    api("/api/governance/portfolio/task", { method: "PUT", body: JSON.stringify(b) }).then(function (j) { msg("Task #" + j.id + " saved."); $("t-id").value = String(j.id); return load(); }).catch(fail);
+  });
+  $("t-del").addEventListener("click", function () { var id = Number($("t-id").value); if (!id || !window.confirm("Delete task #" + id + "?")) return; api("/api/governance/portfolio/task/" + id, { method: "DELETE" }).then(function () { msg("Task deleted."); $("t-id").value = ""; return load(); }).catch(fail); });
+
+  // ---- milestones -----------------------------------------------------------------------------------------
+  function renderMilestones() {
+    var ms = V.milestones || [], td = today();
+    $("milestones").innerHTML = ms.length ? "<table><thead><tr><th>Milestone</th><th>Owner</th><th>Due</th><th>Baseline</th><th>Done</th><th>State</th></tr></thead><tbody>" + ms.map(function (m) {
+      var done = !!m.done_at || m.status === "done", late = !done && m.due_date && m.due_date < td;
+      return "<tr><td>◆ " + esc(m.name) + " <small class=\"muted\">#" + n(m.id) + "</small></td><td>" + n(m.owner) + "</td><td>" + n(m.due_date) + "</td><td>" + n(m.baseline_date) + "</td><td>" + n(m.done_at && String(m.done_at).slice(0, 10)) + "</td><td>" + (done ? "<span class=\"pill done\">✓ done</span>" : late ? "<span class=\"pill RED\">! late</span>" : "<span class=\"pill planned\">planned</span>") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No milestone.</p>";
+    var dl = V.deliverables || [];
+    $("deliverables").innerHTML = dl.length ? "<table><thead><tr><th>Deliverable</th><th>Owner</th><th>Due</th><th>Status</th></tr></thead><tbody>" + dl.map(function (d) { return "<tr><td>" + esc(d.name) + "</td><td>" + n(d.owner) + "</td><td>" + n(d.due_date) + "</td><td><span class=\"pill " + esc(d.status) + "\">" + esc(d.status) + "</span></td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No deliverable.</p>";
+    $("ms-edit").hidden = !V.can_edit_plan;
+    if (V.can_edit_plan) { var cur = $("m-id").value; $("m-id").innerHTML = opt(ms.map(function (m) { return [m.id, m.name]; }), cur, "— new milestone —"); fillMilestone(); }
+  }
+  function fillMilestone() { var id = Number($("m-id").value) || null, m = (V.milestones || []).filter(function (x) { return x.id === id; })[0] || {}; $("m-name").value = m.name || ""; $("m-owner").value = m.owner || ""; $("m-due").value = m.due_date || ""; $("m-base").value = m.baseline_date || ""; $("m-status").value = m.status === "done" ? "done" : "planned"; }
+  $("m-id").addEventListener("change", fillMilestone);
+  $("m-save").addEventListener("click", function () {
+    var id = Number($("m-id").value) || null, done = $("m-status").value === "done";
+    var b = { project_id: V.project.id, name: $("m-name").value.trim(), owner: $("m-owner").value.trim() || null, due_date: $("m-due").value || null, baseline_date: $("m-base").value || null, status: $("m-status").value, done_at: done ? today() : null };
+    if (id) { b.id = id; delete b.project_id; }
+    api("/api/governance/portfolio/milestone", { method: "PUT", body: JSON.stringify(b) }).then(function () { msg("Milestone saved."); return load(); }).catch(fail);
+  });
+
+  // ---- RAID -----------------------------------------------------------------------------------------------
+  function renderRaid() {
+    var f = $("r-filter").value, rs = (V.risks || []).filter(function (r) { return !f || r.kind === f; });
+    $("raid").innerHTML = rs.length ? "<table><thead><tr><th>Kind</th><th>Title</th><th>P × I</th><th>Severity</th><th>Owner</th><th>Mitigation / response</th><th>Status</th></tr></thead><tbody>" + rs.map(function (r) {
+      var sev = r.severity === "high" ? "RED" : r.severity === "medium" ? "AMBER" : "GREEN";
+      return "<tr><td>" + esc(r.kind) + "</td><td>" + esc(r.title) + " <small class=\"muted\">#" + n(r.id) + "</small></td><td>" + n(r.probability) + " × " + n(r.impact) + " = <b>" + n(r.exposure) + "</b></td><td><span class=\"pill " + sev + "\">" + esc(r.severity) + "</span>" + (r.kind === "risk" && r.status === "open" && r.exposure >= 6 ? " <small>blocks closed</small>" : "") + "</td><td>" + n(r.owner) + "</td><td>" + esc(r.mitigation || "") + (r.incident_ref ? " · incident " + esc(r.incident_ref) : "") + "</td><td>" + esc(r.status) + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">Nothing recorded" + (f ? " of this kind" : "") + ".</p>";
+    $("raid-edit").hidden = !V.can_edit_plan;
+    if (V.can_edit_plan) { var cur = $("r-id").value; $("r-id").innerHTML = opt((V.risks || []).map(function (r) { return [r.id, [r.kind, ": ", r.title].join("")]; }), cur, "— new entry —"); fillRisk(); }
+  }
+  function fillRisk() { var id = Number($("r-id").value) || null, r = (V.risks || []).filter(function (x) { return x.id === id; })[0] || {}; $("r-kind").value = r.kind || "risk"; $("r-title").value = r.title || ""; $("r-prob").value = r.probability || ""; $("r-imp").value = r.impact || ""; $("r-owner").value = r.owner || ""; $("r-status").value = r.status === "closed" ? "closed" : "open"; $("r-mit").value = r.mitigation || ""; }
+  $("r-filter").addEventListener("change", function () { if (V) renderRaid(); });
+  $("r-id").addEventListener("change", fillRisk);
+  $("r-save").addEventListener("click", function () {
+    var id = Number($("r-id").value) || null;
+    var b = { project_id: V.project.id, kind: $("r-kind").value, title: $("r-title").value.trim(), probability: numOrNull("r-prob"), impact: numOrNull("r-imp"), owner: $("r-owner").value.trim() || null, status: $("r-status").value, mitigation: $("r-mit").value.trim() || null };
+    if (id) { b.id = id; delete b.project_id; }
+    api("/api/governance/portfolio/risk", { method: "PUT", body: JSON.stringify(b) }).then(function () { msg("Entry saved."); return load(); }).catch(fail);
+  });
+
+  // ---- gates ----------------------------------------------------------------------------------------------
+  function renderGates() {
+    var gs = V.allowed_stages || [], label = function (s) { return String(s).replace(/_/g, " "); };
+    var needReason = gs.some(function (g) { return g.needs_reason && !g.refusal && V.can_gate; });
+    $("gate-reason-box").hidden = !needReason;
+    $("gates").innerHTML = (V.can_gate ? "" : "<p class=\"muted\">Only the committee moves a project between stages; the checks below show what each move still needs.</p>") +
+      (gs.length ? gs.map(function (g) {
+        var blocked = !!g.refusal || !V.can_gate;
+        return "<div class=\"gate\"><button class=\"btn" + (blocked ? "" : " primary") + "\" type=\"button\" data-stage=\"" + esc(g.to) + "\"" + (blocked ? " disabled" : "") + ">Move to " + esc(label(g.to)) + "</button><div>" +
+          (g.refusal ? "<div class=\"refusal\">" + esc((PLAIN[g.refusal.code] || g.refusal.error)) + " <small class=\"muted\">(" + esc(g.refusal.code) + ")</small></div>" : "<div class=\"muted\">All checks pass.</div>") +
+          (g.needs_reason ? "<div class=\"muted\">Needs a written reason (10 characters or more).</div>" : "") + "</div></div>"; }).join("") : "<p class=\"muted\">The project is closed: no further stage.</p>");
+  }
+  $("gates").addEventListener("click", function (ev) {
+    var b = ev.target.closest && ev.target.closest("button[data-stage]"); if (!b || b.disabled) return;
+    var to = b.getAttribute("data-stage"), g = (V.allowed_stages || []).filter(function (x) { return x.to === to; })[0] || {}, note = $("gate-reason").value.trim();
+    if (g.needs_reason && note.length < 10) { msg("Write a reason of 10 characters or more first.", "errors"); $("gate-reason").focus(); return; }
+    if (!window.confirm("Move " + V.project.key + " to " + to.replace(/_/g, " ") + "?")) return;
+    api("/api/governance/portfolio/project/" + V.project.id + "/stage", { method: "POST", body: JSON.stringify({ to: to, note: note || undefined }) }).then(function () { msg("Stage moved to " + to.replace(/_/g, " ") + "."); $("gate-reason").value = ""; return load(); }).catch(fail);
+  });
+
+  // ---- history (403 = restricted, not "no history") -------------------------------------------------------
+  function loadHistory() {
+    if (!PID || !/^\d+$/.test(PID)) return;
+    $("history").innerHTML = "<p class=\"muted\">Loading…</p>";
+    api("/api/governance/portfolio/project/" + encodeURIComponent(PID) + "/history").then(function (j) { renderHistory(j.events || []); }).catch(function (e) {
+      if (e.status === 403) $("history").innerHTML = "<p class=\"muted\"><b>Restricted.</b> History is restricted to the committee, the admin tier and the finance role (it carries the financial edits).</p>";
+      else if (e.status === 404) $("history").innerHTML = "<p class=\"muted\">Project not found.</p>";
+      else $("history").innerHTML = "<p class=\"refusal\">" + esc(e.message) + "</p>";
+    });
+  }
+  function renderHistory(ev) {
+    $("history").innerHTML = ev.length ? "<table><thead><tr><th>When</th><th>Who</th><th>Action</th><th>Field</th><th>Before</th><th>After</th><th>Note</th></tr></thead><tbody>" + ev.map(function (e) { return "<tr><td>" + n(String(e.at || "").slice(0, 16).replace("T", " ")) + "</td><td>" + n(e.actor) + "</td><td>" + esc(e.action) + "</td><td>" + n(e.field) + "</td><td>" + n(e.old_value) + "</td><td>" + n(e.new_value) + (e.currency ? " " + esc(e.currency) : "") + "</td><td>" + esc(e.note || "") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No recorded event yet for this project.</p>";
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>

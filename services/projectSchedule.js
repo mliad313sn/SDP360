@@ -46,7 +46,7 @@ function dependencyProblem(items, id, deps) {
  * @param {Array<{id, depends_on?, start_date?, end_date?, duration_days?}>} tasks
  */
 function criticalPath(tasks) {
-  if (!tasks.length) return { length_days: 0, path: [], slack: {} };
+  if (!tasks.length) return { length_days: 0, path: [], slack: {}, es: {}, ef: {} };
   const dur = (t) => {
     if (Number.isFinite(Number(t.duration_days)) && Number(t.duration_days) > 0) return Number(t.duration_days);
     const d = t.start_date && t.end_date ? days(t.start_date, t.end_date) + 1 : NaN;
@@ -71,7 +71,7 @@ function criticalPath(tasks) {
   // walk the zero-slack chain from a start task
   const path = []; let cur = order.find((n) => slack[n] === 0 && es.get(n) === 0);
   while (cur != null) { path.push(cur); cur = succ.get(cur).filter((s) => slack[s] === 0 && es.get(s) === ef.get(cur)).sort((a, b) => a - b)[0]; }
-  return { length_days: total, path, slack };
+  return { length_days: total, path, slack, es: Object.fromEntries(es), ef: Object.fromEntries(ef) };
 }
 
 /**
@@ -118,6 +118,56 @@ function varianceOf(x) {
   };
 }
 
+/**
+ * A-14 — the text of a charter. A structured charter is a JSON object of fields (objective, scope_in, scope_out,
+ * benefits, success, constraints…): its text is the non-empty field values joined with a space, so that a JSON
+ * string of EMPTY fields (always longer than 20 characters) does not pass the approval gate. Any other value
+ * (plain text, existing rows) is returned unchanged.
+ */
+function charterText(c) {
+  if (c == null) return '';
+  const raw = String(c);
+  let o = null;
+  if (/^\s*\{/.test(raw)) { try { o = JSON.parse(raw); } catch (_) { o = null; } }
+  if (!o || typeof o !== 'object' || Array.isArray(o)) return raw;
+  return Object.values(o).filter((v) => v != null && typeof v !== 'object').map((v) => String(v).trim()).filter(Boolean).join(' ');
+}
+
+const _addDays = (iso, n) => new Date(toMs(iso) + n * DAY).toISOString().slice(0, 10);
+/** A duration the schedule can trust: duration_days > 0, or both dates. Otherwise criticalPath assumes 1 day. */
+const _knownDuration = (t) => {
+  if (Number.isFinite(Number(t.duration_days)) && Number(t.duration_days) > 0) return Number(t.duration_days);
+  const d = t.start_date && t.end_date ? days(t.start_date, t.end_date) + 1 : NaN;
+  return Number.isFinite(d) && d > 0 ? d : null;
+};
+/**
+ * A-14 — the plan as the project page draws it, built on criticalPath (no second scheduler):
+ * per task es/ef (relative days), their dates from `anchor` (the project start, else the earliest task start,
+ * else null → dates null and relative days only), slack, critical (slack 0), duration_days (null = unknown),
+ * assumed_duration (criticalPath counted it as 1 day) and baseline/forecast variance. Null when a cycle.
+ * @param {Array} tasks
+ * @param {{anchor?: string|null}} opts
+ */
+function scheduleView(tasks, { anchor } = {}) {
+  const list = tasks || [];
+  const cp = criticalPath(list);
+  if (!cp) return null;
+  const starts = list.map((t) => t.start_date).filter(Boolean).map((d) => String(d).slice(0, 10)).sort();
+  const a = anchor ? String(anchor).slice(0, 10) : (starts[0] || null);
+  const crit = new Set(cp.path);
+  return {
+    anchor: a,
+    length_days: cp.length_days,
+    critical_path: cp.path,
+    tasks: list.map((t) => {
+      const id = Number(t.id); const known = _knownDuration(t);
+      const es = cp.es[id], ef = cp.ef[id];
+      return { id, es, ef, es_date: a ? _addDays(a, es) : null, ef_date: a ? _addDays(a, ef - 1) : null,
+        slack: cp.slack[id], critical: cp.slack[id] === 0, on_path: crit.has(id), duration_days: known, assumed_duration: known == null, variance: varianceOf(t) };
+    }),
+  };
+}
+
 // Stage gates. A gate passage is recorded (who, when, note) and never edited; the rule says what the project
 // must carry before it may enter the stage. Approval is a named act: the approver cannot be the project owner.
 const STAGES = Object.freeze(['proposal', 'approval', 'in_progress', 'on_hold', 'closure', 'closed']);
@@ -142,7 +192,7 @@ function stageGate(project, to, actor, ctx = {}) {
   // the owner is free text: it may hold the username, the full name or the e-mail — any of them counts
   // one identity rule for the whole portfolio (services/portfolioAccess.ownerMatches)
   const isOwner = require('./portfolioAccess').ownerMatches(project, actor);
-  if (to === 'approval' && !(project.charter && String(project.charter).trim().length >= 20)) return { code: 'GATE_CHARTER', error: 'a charter (objective, scope, benefits — 20+ characters) is required before approval' };
+  if (to === 'approval' && !(charterText(project.charter).trim().length >= 20)) return { code: 'GATE_CHARTER', error: 'a charter (objective, scope, benefits — 20+ characters) is required before approval' };
   if (to === 'in_progress' && from === 'approval') {
     if (!project.sponsor) return { code: 'GATE_SPONSOR', error: 'a sponsor is required' };
     if (!project.start_date || !project.end_date || !project.baseline_end) return { code: 'GATE_BASELINE', error: 'start, end and baseline end dates are required (the baseline is frozen at approval)' };
@@ -154,4 +204,4 @@ function stageGate(project, to, actor, ctx = {}) {
   return null;
 }
 
-module.exports = { dependencyProblem, criticalPath, resourceConflicts, varianceOf, STAGES, GATES, stageGate, days };
+module.exports = { charterText, scheduleView, dependencyProblem, criticalPath, resourceConflicts, varianceOf, STAGES, GATES, stageGate, days };

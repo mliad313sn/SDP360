@@ -224,7 +224,10 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
 
   // ── portfolio ─────────────────────────────────────────────────────────────────────
   const idRow = (r) => r && ({ ...r, id: Number(r.id) });
-  const taskRow = (r) => r && ({ ...idRow(r), project_id: Number(r.project_id), parent_id: r.parent_id == null ? null : Number(r.parent_id), duration_days: num(r.duration_days), allocation_pct: num(r.allocation_pct), depends_on: P_(r.depends_on, []) });
+  const taskRow = (r) => r && ({ ...idRow(r), project_id: Number(r.project_id), parent_id: r.parent_id == null ? null : Number(r.parent_id), duration_days: num(r.duration_days), allocation_pct: num(r.allocation_pct), progress_pct: num(r.progress_pct), effort_hours: num(r.effort_hours), depends_on: P_(r.depends_on, []) });
+  const RISK_KINDS = ['risk', 'issue', 'assumption'];   // A-14 RAID (dependencies live in depends_on, decisions in DEC-…)
+  const riskRow = (r) => ({ ...idRow(r), project_id: Number(r.project_id), probability: Number(r.probability), impact: Number(r.impact), kind: r.kind || 'risk' });
+  const projectRow = (r) => ({ ...idRow(r), objective_id: Number(r.objective_id), site_id: r.site_id == null ? null : Number(r.site_id), progress_pct: num(r.progress_pct), budget: num(r.budget), spent: num(r.spent), depends_on: P_(r.depends_on, []), rfi_id: r.rfi_id == null ? null : Number(r.rfi_id) });
   const TASK_STATUSES = ['todo', 'in_progress', 'blocked', 'done', 'cancelled'];
   const SPEND_TYPES = ['capex', 'opex', 'mixed'];
   const FINANCE_FIELDS = ['budget', 'spent', 'currency', 'spend_type'];
@@ -238,13 +241,13 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   async function portfolio() {
     const programmes = (await P(`SELECT * FROM portfolio_programmes ORDER BY name`).all()).map(idRow);
     const objectives = (await P(`SELECT * FROM portfolio_objectives ORDER BY programme_id, sort_order, name`).all()).map(r => ({ ...idRow(r), programme_id: Number(r.programme_id), weight: num(r.weight), progress_pct: num(r.progress_pct), evidence_target: num(r.evidence_target), evidence_hib: Number(r.evidence_hib) !== 0 }));
-    const projects = (await P(`SELECT * FROM portfolio_projects ORDER BY objective_id, start_date, name`).all()).map(r => ({ ...idRow(r), objective_id: Number(r.objective_id), site_id: r.site_id == null ? null : Number(r.site_id), progress_pct: num(r.progress_pct), budget: num(r.budget), spent: num(r.spent), depends_on: P_(r.depends_on, []) }));
+    const projects = (await P(`SELECT * FROM portfolio_projects ORDER BY objective_id, start_date, name`).all()).map(projectRow);
     const milestones = (await P(`SELECT * FROM portfolio_milestones ORDER BY project_id, sort_order, due_date`).all()).map(r => ({ ...idRow(r), project_id: Number(r.project_id) }));
     const deliverables = (await P(`SELECT * FROM portfolio_deliverables ORDER BY project_id, sort_order`).all()).map(r => ({ ...idRow(r), project_id: Number(r.project_id), milestone_id: r.milestone_id == null ? null : Number(r.milestone_id) }));
-    const risks = (await P(`SELECT * FROM portfolio_risks ORDER BY project_id, id`).all()).map(r => ({ ...idRow(r), project_id: Number(r.project_id), probability: Number(r.probability), impact: Number(r.impact) }));
+    const risks = (await P(`SELECT * FROM portfolio_risks ORDER BY project_id, id`).all()).map(riskRow);
     const tasks = (await P(`SELECT * FROM portfolio_tasks ORDER BY project_id, sort_order, id`).all()).map(taskRow);
     const project_sites = await allProjectSites();
-    return { programmes, objectives, projects: projects.map(p => ({ ...p, rfi_id: p.rfi_id == null ? null : Number(p.rfi_id) })), milestones, deliverables, risks, tasks, project_sites };
+    return { programmes, objectives, projects, milestones, deliverables, risks, tasks, project_sites };
   }
   // A-15 — extra sites of a project (migration 043); the primary site stays portfolio_projects.site_id.
   const siteRow = (r) => ({ project_id: Number(r.project_id), site_id: Number(r.site_id) });
@@ -266,15 +269,37 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   }
   /** The project row a plan element (task / milestone / risk / deliverable) belongs to — for the access guard. */
   async function getProject(id) { const r = await P(`SELECT id, site_id, owner, objective_id FROM portfolio_projects WHERE id=?`).get(Number(id)); return r ? { ...r, id: Number(r.id), site_id: r.site_id == null ? null : Number(r.site_id) } : null; }
+  /**
+   * A-14 — one project with the same shapes portfolio() returns, read by project_id (never a filter over the whole
+   * portfolio), plus the counts the stage gates need. Null when the project does not exist.
+   */
+  async function projectDetail(id) {
+    const pid = Number(id);
+    const r = await P(`SELECT * FROM portfolio_projects WHERE id=?`).get(pid);
+    if (!r) return null;
+    const project = projectRow(r);
+    const milestones = (await P(`SELECT * FROM portfolio_milestones WHERE project_id=? ORDER BY sort_order, due_date`).all(pid)).map(m => ({ ...idRow(m), project_id: Number(m.project_id) }));
+    const deliverables = (await P(`SELECT * FROM portfolio_deliverables WHERE project_id=? ORDER BY sort_order`).all(pid)).map(d => ({ ...idRow(d), project_id: Number(d.project_id), milestone_id: d.milestone_id == null ? null : Number(d.milestone_id) }));
+    const risks = (await P(`SELECT * FROM portfolio_risks WHERE project_id=? ORDER BY id`).all(pid)).map(riskRow);
+    const tasks = (await P(`SELECT * FROM portfolio_tasks WHERE project_id=? ORDER BY sort_order, id`).all(pid)).map(taskRow);
+    const objective = await P(`SELECT id, key, name, programme_id FROM portfolio_objectives WHERE id=?`).get(project.objective_id);
+    return { project, objective: objective ? { ...idRow(objective), programme_id: Number(objective.programme_id) } : null, milestones, deliverables, risks, tasks, extra_sites: await projectSites(pid), gate_ctx: await gateCounts(pid) };
+  }
+  /** The counts the stage gates read: open tasks, open high (P×I >= 6) risks — only kind = 'risk' (today's rule). */
+  async function gateCounts(id) {
+    const openTasks = Number((await P(`SELECT COUNT(*) AS n FROM portfolio_tasks WHERE project_id=? AND status NOT IN ('done','cancelled')`).get(Number(id))).n);
+    const openRisksHigh = (await P(`SELECT probability, impact FROM portfolio_risks WHERE project_id=? AND status='open' AND COALESCE(kind,'risk')='risk'`).all(Number(id))).filter(r => Number(r.probability) * Number(r.impact) >= 6).length;
+    return { openTasks, openRisksHigh };
+  }
   async function planRow(kind, id) { const T = TABLES[kind]; if (!T || !T.cols.includes('project_id')) return null; const r = await P(`SELECT id, project_id FROM ${T.table} WHERE id=?`).get(Number(id)); return r ? { id: Number(r.id), project_id: Number(r.project_id) } : null; }
   const TABLES = {
     programme: { table: 'portfolio_programmes', cols: ['key', 'name', 'sponsor', 'description', 'status'], req: ['key', 'name'] },
     objective: { table: 'portfolio_objectives', cols: ['programme_id', 'key', 'name', 'weight', 'owner', 'target_date', 'status', 'confidence', 'progress_pct', 'evidence_metric', 'evidence_target', 'evidence_hib', 'manual_evidence', 'sort_order'], req: ['programme_id', 'key', 'name'] },
     project: { table: 'portfolio_projects', cols: ['objective_id', 'key', 'name', 'owner', 'site_id', 'start_date', 'end_date', 'baseline_end', 'status', 'confidence', 'progress_pct', 'budget', 'spent', 'currency', 'depends_on', 'charter', 'sponsor', 'baseline_start', 'forecast_end', 'actual_start', 'actual_end', 'spend_type'], req: ['objective_id', 'key', 'name'] },
-    task: { table: 'portfolio_tasks', cols: ['project_id', 'parent_id', 'wbs_code', 'name', 'owner', 'start_date', 'end_date', 'baseline_start', 'baseline_end', 'forecast_end', 'actual_start', 'actual_end', 'duration_days', 'allocation_pct', 'status', 'depends_on', 'sort_order'], req: ['project_id', 'name'] },
-    milestone: { table: 'portfolio_milestones', cols: ['project_id', 'name', 'due_date', 'baseline_date', 'done_at', 'status', 'sort_order'], req: ['project_id', 'name'] },
+    task: { table: 'portfolio_tasks', cols: ['project_id', 'parent_id', 'wbs_code', 'name', 'owner', 'start_date', 'end_date', 'baseline_start', 'baseline_end', 'forecast_end', 'actual_start', 'actual_end', 'duration_days', 'allocation_pct', 'status', 'depends_on', 'sort_order', 'progress_pct', 'effort_hours'], req: ['project_id', 'name'] },
+    milestone: { table: 'portfolio_milestones', cols: ['project_id', 'name', 'due_date', 'baseline_date', 'done_at', 'status', 'sort_order', 'owner'], req: ['project_id', 'name'] },
     deliverable: { table: 'portfolio_deliverables', cols: ['project_id', 'milestone_id', 'name', 'owner', 'due_date', 'status', 'action_kind', 'action_ref', 'sort_order', 'closed_at'], req: ['project_id', 'name'] },
-    risk: { table: 'portfolio_risks', cols: ['project_id', 'title', 'probability', 'impact', 'mitigation', 'owner', 'status', 'incident_ref', 'closed_at'], req: ['project_id', 'title'] },
+    risk: { table: 'portfolio_risks', cols: ['project_id', 'title', 'probability', 'impact', 'mitigation', 'owner', 'status', 'incident_ref', 'closed_at', 'kind'], req: ['project_id', 'title'] },
   };
   function normalise(kind, body) {
     const out = {};
@@ -282,7 +307,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       let v = body[c];
       if (c === 'depends_on') v = J(Array.isArray(v) ? v.map(Number) : []);
       else if (c === 'evidence_hib') v = v === false || v === 0 ? 0 : 1;
-      else if (/_id$|^sort_order$|^probability$|^impact$|^duration_days$|^allocation_pct$/.test(c)) v = num(v);
+      else if (/_id$|^sort_order$|^probability$|^impact$|^duration_days$|^allocation_pct$|^effort_hours$/.test(c)) v = num(v);
       else if (/pct$|^weight$|^budget$|^spent$|evidence_target/.test(c)) v = num(v);
       else v = str(v, c === 'description' || c === 'mitigation' || c === 'manual_evidence' ? 4000 : 300);
       out[c] = v;
@@ -290,6 +315,9 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     if (kind === 'project' && out.status && !PROJECT_STATUSES.includes(out.status)) throw Object.assign(new Error('bad project status'), { code: 'INVALID' });
     if (kind === 'task' && out.status && !TASK_STATUSES.includes(out.status)) throw Object.assign(new Error('task status must be ' + TASK_STATUSES.join(' | ')), { code: 'INVALID' });
     if (kind === 'task' && out.allocation_pct != null && !(out.allocation_pct >= 0 && out.allocation_pct <= 100)) throw Object.assign(new Error('allocation_pct must be 0..100'), { code: 'INVALID' });
+    if (kind === 'task' && out.progress_pct != null && !(out.progress_pct >= 0 && out.progress_pct <= 100)) throw Object.assign(new Error('progress_pct must be 0..100'), { code: 'INVALID' });
+    if (kind === 'task' && out.effort_hours != null && !(Number.isFinite(out.effort_hours) && out.effort_hours >= 0)) throw Object.assign(new Error('effort_hours must be a positive number (leave empty when unknown)'), { code: 'INVALID' });
+    if (kind === 'risk' && body.kind !== undefined && !RISK_KINDS.includes(out.kind)) throw Object.assign(new Error('kind must be ' + RISK_KINDS.join(' | ')), { code: 'INVALID' });
     if (kind === 'project' && out.spend_type && !SPEND_TYPES.includes(out.spend_type)) throw Object.assign(new Error('spend_type must be capex | opex | mixed'), { code: 'INVALID' });
     if (kind === 'project' && out.currency != null && !/^[A-Z]{3}$/.test(out.currency)) throw Object.assign(new Error('currency must be an ISO code such as USD or XOF'), { code: 'INVALID' });
     if (kind === 'project' && ['budget', 'spent'].some(k => out[k] != null && !(Number.isFinite(out[k]) && out[k] >= 0))) throw Object.assign(new Error('budget and spent must be positive numbers (leave empty when unknown)'), { code: 'INVALID' });
@@ -339,8 +367,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   async function moveProjectStage(id, to, { user, note } = {}) {
     const p = await P(`SELECT * FROM portfolio_projects WHERE id=?`).get(Number(id));
     if (!p) throw Object.assign(new Error('project not found'), { code: 'NOT_FOUND', status: 404 });
-    const openTasks = Number((await P(`SELECT COUNT(*) AS n FROM portfolio_tasks WHERE project_id=? AND status NOT IN ('done','cancelled')`).get(Number(id))).n);
-    const openRisksHigh = (await P(`SELECT probability, impact FROM portfolio_risks WHERE project_id=? AND status='open'`).all(Number(id))).filter(r => Number(r.probability) * Number(r.impact) >= 6).length;
+    const { openTasks, openRisksHigh } = await gateCounts(id);
     const err = require('./projectSchedule').stageGate(p, to, user, { openTasks, openRisksHigh, note });
     if (err) throw Object.assign(new Error(err.error), { code: 'CONFLICT', status: 409, reason: err.code });
     const statusFor = { proposal: 'planned', approval: 'planned', in_progress: 'active', on_hold: 'on_hold', closure: 'active', closed: 'done' };
@@ -377,7 +404,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   }
   async function minutesHistory(sessionId) { return (await P('SELECT action, actor_id, at, reason FROM minutes_history WHERE session_id=? ORDER BY id').all(Number(sessionId))).map(r => ({ ...r, actor_id: r.actor_id == null ? null : Number(r.actor_id) })); }
   return { ppmEvent, ppmEvents, moveProjectStage, rfiToProject, getRfi, verifyRfi, getDecision, openSessionActions, addMinutesHistory, minutesHistory, init, listCadences, getCadence, saveCadence, removeCadence, listSessions, getSession, createSession, updateSession, stampItem, sessionActions, addSessionAction, setSessionActionStatus, moveSession,
-    listDecisions, addDecision, updateDecision, listRfi, submitRfi, triageRfi, rfiScore, portfolio, upsertPortfolio, removePortfolio, projectSites, setProjectSites, getProject, planRow,
+    listDecisions, addDecision, updateDecision, listRfi, submitRfi, triageRfi, rfiScore, portfolio, upsertPortfolio, removePortfolio, projectSites, setProjectSites, getProject, planRow, projectDetail, gateCounts, RISK_KINDS,
     CADENCE_KINDS, SESSION_STATUSES, DECISION_STATUSES, RFI_KINDS, RFI_STATUSES, PROJECT_STATUSES, CONFIDENCE };
 }
 

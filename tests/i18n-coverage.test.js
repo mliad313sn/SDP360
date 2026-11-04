@@ -44,7 +44,7 @@ const SELF_TRANSLATED = ['cockpit.html', 'commitments.html', 'handoffs.html', 'h
   'meetings-import.html', 'meetings-insights.html', 'obligations.html', 'policies.html', 'site-awareness.html', 'home.html'];
 // Shell pages not translated yet, with the reason (A-09b covers the coordinator pages listed there).
 const UNTRANSLATED = {
-  'reports.html': 'A-09b', 'assets.html': 'A-09b', 'wan.html': 'A-09b', 'trackers.html': 'A-09b', 'portfolio.html': 'A-09b', 'rfi.html': 'A-09b',
+  'reports.html': 'A-09b', 'assets.html': 'A-09b', 'wan.html': 'A-09b', 'trackers.html': 'A-09b', 'portfolio.html': 'A-09b', 'project.html': 'A-09b', 'rfi.html': 'A-09b',
   'analytics.html': 'executive / group audience, English', 'executive.html': 'executive audience, English',
   'executive-report.html': 'deck builder, decks stay English (D-2)', 'it-review.html': 'faithful port of the executive dashboard, English',
   'index.html': 'helpdesk dashboard, group audience, English', 'integrations.html': 'admin console, English', 'system-logs.html': 'admin console, English',
