@@ -58,3 +58,12 @@ test('every inline <script> of reports.html still compiles (one bad quote kills 
   while ((m = re.exec(src))) { assert.doesNotThrow(() => new Function(m[1])); n++; }
   assert.ok(n >= 1);
 });
+
+test('A-23: paused statuses (one per line) and dedup mode are loaded and saved into the rules', () => {
+  assert.ok(src.includes('id="tsla-paused"'), 'paused statuses textarea');
+  assert.ok(src.includes('id="tsla-dedup"'), 'dedup mode select');
+  const load = src.slice(src.indexOf('function loadTeamsSlaCard'), src.indexOf('function saveTeamsSlaCard'));
+  assert.match(load, /tsla-paused/); assert.match(load, /tsla-dedup/);
+  const save = src.slice(src.indexOf('function saveTeamsSlaCard'), src.indexOf('function testTeamsSlaChannel'));
+  assert.match(save, /paused_statuses/); assert.match(save, /dedup_mode/);
+});

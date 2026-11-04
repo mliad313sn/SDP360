@@ -2010,7 +2010,16 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <div class="form-group"><label>Âge maximal des tickets pris en compte (jours)</label>
           <input type="number" id="tsla-max-age" min="0" step="1" placeholder="30">
           <div style="font-size:0.75rem;color:#6b7a99;margin-top:3px">Les tickets créés avant sont ignorés (0 = sans limite) — et la lecture de l'API s'arrête là.</div></div>
+        <div class="form-group"><label>Anti-doublon</label>
+          <select id="tsla-dedup">
+            <option value="once">Une seule alerte par ticket et par type (actuel)</option>
+            <option value="per_due">Nouvelle alerte si SDP replanifie l'échéance</option>
+          </select>
+          <div style="font-size:0.75rem;color:#6b7a99;margin-top:3px">« Une seule alerte » = comportement d'origine.</div></div>
       </div>
+      <div class="form-group"><label>Statuts qui suspendent le SLA (un par ligne, nom exact)</label>
+        <textarea id="tsla-paused" rows="4" style="width:100%;font-size:12px" placeholder="On Hold&#10;Awaiting Reply&#10;Approval pending&#10;PO Raised&#10;Pending Verification"></textarea>
+        <div style="font-size:0.75rem;color:#6b7a99;margin-top:3px">Vide = règle d'origine (expression <code>paused_status</code>, qui attrape aussi p. ex. « Approval received »). Rempli = seuls ces noms exacts (sans tenir compte de la casse) suspendent l'alerte. L'indicateur « chrono arrêté » de SDP reste prioritaire. Vérifier la liste avec l'Aperçu (répartition par statut) avant de l'enregistrer.</div></div>
       <div style="font-size:0.8rem;color:#6b7a99;margin-bottom:8px">
         JSON. <code>fr_soon_minutes</code> = minutes avant l'échéance de 1re réponse, par priorité ; <code>res_soon_pct</code> = % du délai de
         résolution consommé ; <code>breach_window_minutes</code> = un dépassement plus ancien n'est pas annoncé ; <code>kinds</code> = activer / couper chaque alerte.
@@ -8354,6 +8363,8 @@ function loadTeamsSlaCard() {
     document.getElementById('tsla-refresh-state').textContent = c.has_refresh_token ? '✓ enregistré' : '(non renseigné)';
     set('tsla-rules', JSON.stringify(c.rules, null, 2));
     set('tsla-max-age', c.rules && c.rules.max_ticket_age_days != null ? c.rules.max_ticket_age_days : '');
+    set('tsla-paused', (c.rules && Array.isArray(c.rules.paused_statuses) ? c.rules.paused_statuses : []).join('\n'));
+    document.getElementById('tsla-dedup').value = (c.rules && c.rules.dedup_mode === 'per_due') ? 'per_due' : 'once';
     document.getElementById('tsla-groups').innerHTML = (c.known_groups || []).map(g => `<option value="${esc(g)}"></option>`).join('');
     document.getElementById('tsla-last-run').textContent = c.last_run ? ('Dernier passage : ' + new Date(c.last_run).toLocaleString()) : 'Aucun passage encore (désarmé ou non configuré).';
     _tslaChannels = (c.channels || []).map(ch => ({ group: ch.group, url: '', configured: true }));
@@ -8366,6 +8377,8 @@ function saveTeamsSlaCard() {
   catch (e) { toast('Règles : JSON invalide', 'error'); return Promise.resolve(); }
   const _age = document.getElementById('tsla-max-age').value.trim();
   if (_age !== '') rules.max_ticket_age_days = Math.max(0, Number(_age) || 0);
+  rules.paused_statuses = document.getElementById('tsla-paused').value.split('\n').map(x => x.trim()).filter(Boolean);
+  rules.dedup_mode = document.getElementById('tsla-dedup').value === 'per_due' ? 'per_due' : 'once';
   const val = id => document.getElementById(id).value.trim();
   const body = {
     enabled: document.getElementById('tsla-enabled').checked,

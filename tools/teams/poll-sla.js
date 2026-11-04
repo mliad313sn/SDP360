@@ -34,6 +34,8 @@ function _defaultDeps() {
     post: (url, card, c) => S4.safePost(S4.allowHostsFromConfig(c || {}), { timeout: 15000, headers: { 'Content-Type': 'application/json' } })(url, card),
     log: require('../../services/slaAlertLog'),
     setConfig: (patch) => reportConfig.setConfig(rdb.db, patch, 'teams-sla'),
+    // A-23 — system_log (fire-and-forget, swallows its own errors). Never given a URL.
+    logEvent: (e) => rdb.logEvent(e),
     now: () => Date.now(),
   };
 }
@@ -60,7 +62,8 @@ async function run({ dryRun = false, deps } = {}) {
     catch (e) { return { error: _scrub(e.message) }; }
     const tickets = raw.map(S.normalizeRequest);
     const alerts = S.evaluate(tickets, rules, nowMs);
-    const fresh = await D.log.filterUnsent(null, alerts);
+    const dedup = { mode: rules.dedup_mode };
+    const fresh = await D.log.filterUnsent(null, alerts, dedup);
 
     // SDP group names drift in case ("Support team" / "Support Team"): one card per group,
     // keyed case-insensitively, shown under the first spelling met.
@@ -73,12 +76,22 @@ async function run({ dryRun = false, deps } = {}) {
     }
     const out = { tickets: tickets.length, alerts: alerts.length, new: fresh.length, posted: 0, sent: 0,
       unmapped: [], failures: [] };
+    // A-23 — the client says whether it stopped at its page cap with rows still waiting
+    // (real runs too, not just the preview); older clients → the row-count heuristic.
+    const meta = typeof client.lastMeta === 'function' ? (client.lastMeta() || {}) : {};
+    out.truncated = typeof meta.truncated === 'boolean' ? meta.truncated : !!(client.pageCap && raw.length >= client.pageCap);
+    if (out.truncated && !dryRun && typeof D.logEvent === 'function') {
+      try {
+        Promise.resolve(D.logEvent({ category: 'integration', action: 'teams_sla_truncated', actor: 'teams-sla',
+          details: { tickets: raw.length, pages: meta.pages ?? null, pages_cap: meta.max_pages ?? null, rows_per_page: meta.row_count ?? null } }))
+          .catch(() => { /* audit only */ });
+      } catch (e) { /* audit only — never fails the pass */ }
+    }
     if (dryRun) {
       out.preview = [];
       out.by_status = {};
       tickets.forEach(t => { const k = t.status || '(vide)'; out.by_status[k] = (out.by_status[k] || 0) + 1; });
-      out.truncated = !!(client.pageCap && raw.length >= client.pageCap);
-      if (typeof client.lastMeta === 'function') out.api_criteria = client.lastMeta().criteria;
+      if (typeof client.lastMeta === 'function') out.api_criteria = meta.criteria;
     }
     for (const { group, list } of [...byGroup.values()].sort((a, b) => a.group.localeCompare(b.group))) {
       const url = S.resolveChannel(group, channels);
@@ -87,7 +100,7 @@ async function run({ dryRun = false, deps } = {}) {
       const card = buildGroupCard(group, list, { apiBaseUrl: cfg.sdp_api_base_url, maxTickets: rules.max_tickets_per_card });
       try {
         await D.post(url, card, cfg);
-        await D.log.record(null, list);
+        await D.log.record(null, list, dedup);
         out.posted++; out.sent += list.length;
       } catch (e) {
         out.failures.push({ group, error: _scrub(e.message) });

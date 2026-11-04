@@ -62,7 +62,7 @@ planned switch cannot be set before its goal lands.
 
 Not in this table because they are not top-level `report_config` keys:
 
-- A-23 — `paused_statuses` (default `[]`) and `dedup_mode` (default `once`) live **inside** the existing
+- A-23 (built) — `paused_statuses` (default `[]`) and `dedup_mode` (default `once`) live **inside** the existing
   `teams_sla_rules` JSON; decided by the helpdesk lead.
 - A-28 — `SDP_CONFIG_BOX_VERSION` (default `2`) and the CSP report-only header are `.env` / code
   switches, not `report_config`; decided by the security owner.

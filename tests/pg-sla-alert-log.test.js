@@ -14,6 +14,8 @@ test('pg: filterUnsent / record / purge', async (t) => {
   process.env.PG_URL = ctx.url;
   const rdb = require('../reports-db');
   await rdb.initPgReports();
+  // initPgReports only replays the early files; later ones (048 due_ms) come from db/migrate.js.
+  await rdb.pgHandle().exec(require('fs').readFileSync(_path.join(__dirname, '..', 'db', 'postgres', 'reports', '048_sla_alert_log_due.sql'), 'utf8'));
   const log = require('../services/slaAlertLog');
   try {
     const A = (id, kind) => ({ request_id: id, kind, group: 'G' });

@@ -113,3 +113,19 @@ test('if SDP rejects the criteria (HTTP 400), it falls back to the plain listing
   await c.listOpenRequests();
   assert.deepEqual(calls, [true, false, false], 'not retried on every pass');
 });
+
+// A-23 — the listing tells the caller when it stopped at maxPages with more rows waiting
+test('lastMeta().truncated: true after maxPages full pages with has_more_rows; false when the cutoff stops early', async () => {
+  const pages = Array.from({ length: 10 }, (_, i) => [{ id: i, created_time: { value: String(100000 - i) } }]);
+  const c = makeSdpClient({ ...CFG, transport: fakeTransport(pages) });
+  await c.listOpenRequests({ rowCount: 1, maxPages: 5 });
+  assert.equal(c.lastMeta().truncated, true);
+  await c.listOpenRequests({ rowCount: 1, maxPages: 20 });
+  assert.equal(c.lastMeta().truncated, false, 'every page read');
+  await c.listOpenRequests({ rowCount: 1, maxPages: 5, createdAfterMs: 99998 });
+  assert.equal(c.lastMeta().truncated, false, 'cutoff reached before the cap');
+  const c2 = makeSdpClient({ ...CFG, transport: fakeTransport(pages), excludeStatuses: ['Closed'] });
+  await c2.listOpenRequests({ rowCount: 1, maxPages: 3 });
+  assert.equal(c2.lastMeta().truncated, true, 'also with the criteria path');
+  assert.equal(c2.lastMeta().criteria, 'accepted');
+});

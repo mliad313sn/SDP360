@@ -139,3 +139,41 @@ test('statuses seen in prod (2026-10-04): Rejected is finished; Awaiting Reply /
     assert.deepEqual(kinds(S.evaluate([T({ status, fr_due_ms: min(5) })], S.DEFAULT_RULES, NOW)), ['fr_soon'], status);
   }
 });
+
+// A-23 — exact paused-status list (switch: teams_sla_rules.paused_statuses, empty = today's regex)
+test('paused_statuses: an exact list replaces the regex — "On Hold" pauses, "Approval received" does not', () => {
+  const R = S.parseRules({ paused_statuses: ['On Hold', ' Awaiting Reply ', '', 42] });
+  assert.deepEqual(R.paused_statuses, ['On Hold', 'Awaiting Reply', '42']);
+  assert.deepEqual(S.evaluate([T({ status: 'on hold', fr_due_ms: min(5) })], R, NOW), [], 'case-insensitive exact match');
+  assert.deepEqual(kinds(S.evaluate([T({ status: 'Approval received', fr_due_ms: min(5) })], R, NOW)), ['fr_soon'], 'not in the list → alerts');
+  // the regex (today) would have paused it
+  assert.deepEqual(S.evaluate([T({ status: 'Approval received', fr_due_ms: min(5) })], S.DEFAULT_RULES, NOW), []);
+});
+
+test('paused_statuses empty by default → the regex behaviour is unchanged', () => {
+  assert.deepEqual(S.DEFAULT_RULES.paused_statuses, []);
+  assert.equal(S.DEFAULT_RULES.dedup_mode, 'once');
+  const R = S.parseRules({ paused_statuses: [] });
+  assert.deepEqual(S.evaluate([T({ status: 'Pending Verification', fr_due_ms: min(5) })], R, NOW), []);
+  assert.deepEqual(S.parseRules({ paused_statuses: 'On Hold' }).paused_statuses, [], 'a non-array is ignored');
+});
+
+test('stop_timer false wins over a status present in the exact list', () => {
+  const R = S.parseRules({ paused_statuses: ['On Hold'] });
+  assert.deepEqual(kinds(S.evaluate([T({ status: 'On Hold', sla_paused: false, fr_due_ms: min(5) })], R, NOW)), ['fr_soon']);
+  assert.deepEqual(S.evaluate([T({ status: 'Open', sla_paused: true, fr_due_ms: min(5) })], R, NOW), []);
+});
+
+test('alerts carry due_ms (the deadline) for fr/res kinds, null for unassigned', () => {
+  const a = S.evaluate([T({ technician: '', fr_due_ms: min(5), res_due_ms: min(10), created_ms: min(-40) })], S.DEFAULT_RULES, NOW);
+  const by = Object.fromEntries(a.map(x => [x.kind, x]));
+  assert.equal(by.fr_soon.due_ms, min(5));
+  assert.equal(by.res_soon.due_ms, min(10));
+  assert.equal(by.unassigned.due_ms, null);
+});
+
+test('parseRules: dedup_mode accepts only once|per_due', () => {
+  assert.equal(S.parseRules({ dedup_mode: 'per_due' }).dedup_mode, 'per_due');
+  assert.equal(S.parseRules({ dedup_mode: 'always' }).dedup_mode, 'once');
+  assert.equal(S.parseRules({}).dedup_mode, 'once');
+});
