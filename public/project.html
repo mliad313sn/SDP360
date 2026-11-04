@@ -373,7 +373,7 @@
   function ganttBars() { return Array.prototype.slice.call($("gantt").querySelectorAll("g.gbar")); }
   function ganttKey(ev) {
     var bars = ganttBars(), cur = bars.indexOf(ev.target && ev.target.closest ? ev.target.closest("g.gbar") : null); if (cur < 0) return;
-    var to = ev.key === "ArrowDown" || ev.key === "ArrowRight" ? Math.min(bars.length - 1, cur + 1) : ev.key === "ArrowUp" || ev.key === "ArrowLeft" ? Math.max(0, cur - 1) : ev.key === "Home" ? 0 : ev.key === "End" ? bars.length - 1 : -1;
+    var to = window.PpmVisuals ? window.PpmVisuals.navIndex(ev.key, cur, bars.length) : -1;
     if (to >= 0) { ev.preventDefault(); bars.forEach(function (b, k) { b.setAttribute("tabindex", k === to ? "0" : "-1"); }); bars[to].focus(); return; }
     if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); openTask(Number(bars[cur].getAttribute("data-task"))); }
   }
@@ -492,6 +492,13 @@
   $("risk-matrix").addEventListener("click", function (ev) {
     var b = ev.target.closest && ev.target.closest("[data-cell]"); if (!b || !RM) return;
     var box = $("risk-matrix").querySelector(".pim-list"); if (box) box.innerHTML = window.PpmVisuals.cellListHtml(RM, V.risks || [], b.getAttribute("data-cell"), esc);
+  });
+  // C-07 (F28): arrow keys move between the risk cells that hold risks (Enter / Space = the button's click).
+  $("risk-matrix").addEventListener("keydown", function (ev) {
+    if (!window.PpmVisuals) return;
+    var cells = Array.prototype.slice.call($("risk-matrix").querySelectorAll("button.pim-cell:not([disabled])")), cur = cells.indexOf(ev.target);
+    var to = window.PpmVisuals.navIndex(ev.key, cur, cells.length); if (to < 0) return;
+    ev.preventDefault(); cells[to].focus();
   });
   function fillRisk() { var id = Number($("r-id").value) || null, r = (V.risks || []).filter(function (x) { return x.id === id; })[0] || {}; $("r-kind").value = r.kind || "risk"; $("r-title").value = r.title || ""; $("r-prob").value = r.probability || ""; $("r-imp").value = r.impact || ""; $("r-owner").value = r.owner || ""; $("r-status").value = r.status === "closed" ? "closed" : "open"; $("r-mit").value = r.mitigation || ""; }
   $("r-filter").addEventListener("change", function () { if (V) renderRaid(); });

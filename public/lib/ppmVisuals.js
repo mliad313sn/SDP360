@@ -94,6 +94,24 @@
     return { weeks: weeks.map(iso), people: out, unassigned: unassigned, undated: undated, truncated: truncated };
   }
 
+  /** C-07 (F28) — ONE keyboard model for the PPM diagrams (Gantt bars, timeline rows, risk cells).
+   *  Returns the index to focus after `key` from `cur` among `n` items, or -1 (key not handled / focus outside).
+   *  Linear by default (arrows ±1, Home/End); with opts.cols, Up/Down jump one row of a grid. Clamped, never wraps. */
+  function navIndex(key, cur, n, opts) {
+    if (!(n > 0) || cur < 0 || cur >= n) return -1;
+    var cols = opts && opts.cols > 0 ? opts.cols : 0;
+    var clamp = function (i) { return Math.max(0, Math.min(n - 1, i)); };
+    switch (key) {
+      case 'ArrowRight': return clamp(cur + 1);
+      case 'ArrowLeft': return clamp(cur - 1);
+      case 'ArrowDown': return cols ? (cur + cols < n ? cur + cols : cur) : clamp(cur + 1);
+      case 'ArrowUp': return cols ? (cur - cols >= 0 ? cur - cols : cur) : clamp(cur - 1);
+      case 'Home': return 0;
+      case 'End': return n - 1;
+      default: return -1;
+    }
+  }
+
   // ---- HTML (shared by project.html and portfolio.html). esc = the page's HTML escaper; every value goes through it.
   var MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   var short = function (d) { return String(Number(String(d).slice(8, 10))) + ' ' + MON[Number(String(d).slice(5, 7)) - 1]; };
@@ -112,7 +130,7 @@
       }
       rows.push('<tr><th scope="row">Impact ' + esc(String(i)) + '</th>' + tds.join('') + '</tr>');
     }
-    var grid = '<table class="pim"><caption>Open risks by probability × impact (count per cell; click a cell to list its risks)</caption><thead><tr><th scope="col"></th>' +
+    var grid = '<table class="pim"><caption>Open risks by probability × impact (count per cell; click a cell to list its risks — Arrow keys move between cells, Enter lists them)</caption><thead><tr><th scope="col"></th>' +
       [1, 2, 3].map(function (x) { return '<th scope="col">Probability ' + esc(String(x)) + '</th>'; }).join('') + '</tr></thead><tbody>' + rows.join('') + '</tbody></table>';
     var tbl = '<details><summary class="muted">Table view (the same data)</summary><table><thead><tr><th>Probability</th><th>Impact</th><th>Exposure</th><th>Band</th><th>Risks</th></tr></thead><tbody>' +
       m.cells.filter(function (c) { return c.count; }).map(function (c) { return '<tr><td>' + esc(String(c.probability)) + '</td><td>' + esc(String(c.impact)) + '</td><td>' + esc(String(c.exposure)) + '</td><td>' + esc(BAND_TEXT[c.band]) + '</td><td>' + esc(String(c.count)) + '</td></tr>'; }).join('') +
@@ -153,5 +171,5 @@
       '<details><summary class="muted">List view (the same data)</summary><table><thead><tr><th>Person</th><th>Week of</th><th>Peak</th><th>Over 100 %</th><th>Unknown allocations</th><th>Effort</th></tr></thead><tbody>' + list.join('') + '</tbody></table></details>';
   }
 
-  return { riskMatrix: riskMatrix, resourcePressure: resourcePressure, riskMatrixHtml: riskMatrixHtml, cellListHtml: cellListHtml, pressureHtml: pressureHtml, SCALE: SCALE };
+  return { navIndex: navIndex, riskMatrix: riskMatrix, resourcePressure: resourcePressure, riskMatrixHtml: riskMatrixHtml, cellListHtml: cellListHtml, pressureHtml: pressureHtml, SCALE: SCALE };
 }));
