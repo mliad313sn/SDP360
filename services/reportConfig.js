@@ -184,6 +184,11 @@ Object.assign(DEFAULTS, { alert_external_enabled: '0', notifications_stop: '0', 
 DEFAULTS.helpdesk_sla_definition = 'flag';
 DEFAULTS.exec_payload_zero_policy = 'keep_server';
 
+// ── A-11 — PROPOSED D-1 switch (repo decision D-03 "reference site score", OPEN — not approved).
+//    legacy = each e-mail keeps its model (coordinator: programme score; scoreboard: composite);
+//    programme | operational = one published verdict per site (services/publishedSiteScore.js).
+DEFAULTS.site_score_published_model = 'legacy';
+
 const KEYS = Object.keys(DEFAULTS);
 
 // Secrets that the GET handler redacts to '' — a Save that doesn't retype them must

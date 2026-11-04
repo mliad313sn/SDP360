@@ -51,3 +51,25 @@ test('definePolicy adds a committee policy and rejects inverted thresholds', () 
   assert.equal(K.rag(0.86, 'committee-2027'), 'GREEN');
   assert.throws(() => K.definePolicy('bad', { green: 0.5, amber: 0.7 }));
 });
+
+// A-11 — opt-in "not measured": the default stays 0 (tracker colours unchanged),
+// a caller that asks gets null for "no measurement at all".
+test('aggregate emptyAs is opt-in; the default empty result stays 0', () => {
+  assert.equal(K.aggregate([], 'COUNT'), 0);
+  assert.equal(K.aggregate([], 'COUNT', { emptyAs: null }), null);
+  assert.equal(K.aggregate(null, 'PERCENT', { emptyAs: null }), null);
+  assert.equal(K.aggregate(['x'], 'COUNT', { emptyAs: null }), null);
+  assert.equal(K.aggregate([0, 0], 'RATING', { emptyAs: null }), null);
+  assert.equal(K.aggregate([0, 0], 'RATING'), 0);
+  assert.equal(K.aggregate([0, 0], 'COUNT', { emptyAs: null }), 0, 'a measured zero stays 0');
+  assert.equal(K.aggregate([2, 3], 'COUNT', { emptyAs: null }), 5);
+});
+
+test('isMeasured: true only when at least one finite number is present', () => {
+  assert.equal(K.isMeasured([]), false);
+  assert.equal(K.isMeasured(null), false);
+  assert.equal(K.isMeasured(['x']), false);
+  assert.equal(K.isMeasured([null, undefined]), false);
+  assert.equal(K.isMeasured([0]), true);
+  assert.equal(K.isMeasured(['3']), true);
+});

@@ -95,3 +95,27 @@ test('fromLegacyInit converts the inherited tracker-init.json into a valid defin
   assert.equal(items, (init.activities || []).length);
   assert.ok(def.units.length >= 1);
 });
+
+// A-11 — additive `measured` flag: value / attainment / rag are unchanged, the flag
+// only says whether anything was entered (an unentered COUNT still scores 0 → RED).
+test('scoring adds measured:false with no input and measured:true once a month is entered', () => {
+  const d = sample();
+  const before = T.score(d, { SGO: {}, HGO: {} }, { currentPeriod: 6 });
+  const it0 = before.units.SGO.items['G1-01'];
+  assert.equal(it0.measured, false);
+  assert.equal(it0.value, 0, 'value stays 0 as today');
+  assert.equal(it0.rag, 'RED', 'colour unchanged');
+  const after = T.score(d, { SGO: { 'G1-01': [0] }, HGO: {} }, { currentPeriod: 6 });
+  const it1 = after.units.SGO.items['G1-01'];
+  assert.equal(it1.measured, true, 'a measured zero is measured');
+  assert.equal(it1.value, it0.value);
+  assert.equal(it1.rag, it0.rag);
+  assert.equal(it1.attainment, it0.attainment);
+  // shared items: measured when ANY unit entered something
+  d.groups[0].items[1].shared = true;
+  const sh = T.score(d, { SGO: { 'G1-02': [1] }, HGO: {} }, { currentPeriod: 6 });
+  assert.equal(sh.units.HGO.items['G1-02'].measured, true);
+  // inactive items are not measured
+  const ina = T.score(sample(), {}, { currentPeriod: 6, targets: { HGO: { 'G2-01': { active: false } } } });
+  assert.equal(ina.units.HGO.items['G2-01'].measured, false);
+});

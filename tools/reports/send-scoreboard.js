@@ -85,6 +85,34 @@ async function main(deps = {}) {
   }
   const scoreboard = buildSiteScoreboard(sd.perSite, { prev: sd.prev });
 
+  // A-11 — PROPOSED switch site_score_published_model (repo decision D-03, OPEN). 'legacy'
+  // (default) = this e-mail keeps the composite exactly as today and the programme readers are
+  // never called. 'programme' = each row also carries the programme score (sbDims, 3-month
+  // rolling window), computed per site with the SAME readers as the coordinator e-mail.
+  const { normalizeModel, publishedVerdict } = require('../../services/publishedSiteScore');
+  const publishedModel = normalizeModel(cfg.site_score_published_model);
+  let published = null;
+  if (publishedModel === 'programme') {
+    const programmeScore = deps.programmeScore || (() => {
+      const { computeSiteScore } = require('../../services/siteScore');
+      const srd = require('../../services/siteReportDeps').buildSiteReportDeps();
+      const p = { year: month.year, month: month.m, as_of: asOf };
+      return async (code) => {
+        const si = await srd.scoreInputs(code, p);
+        const prev = await srd.prevScore(code, p);
+        return si ? computeSiteScore(si.inputs, si.window, prev) : computeSiteScore({}, null, null);
+      };
+    })();
+    const bySite = {};
+    for (const row of scoreboard.rows) {
+      let prog = null;
+      try { prog = await programmeScore(row.code); }
+      catch (e) { console.warn(`[send-scoreboard] programme score unavailable site=${row.code}: ${e.message}`); }
+      bySite[row.code] = publishedVerdict({ model: 'programme', programme: prog, operational: row });
+    }
+    published = { model: 'programme', bySite };
+  }
+
   // Per-coordinator boundaries — all injectable.
   const resolveRecipient = deps.resolveRecipient || require('../../services/reportDirectory').resolveRecipient;
   const alreadySentToday = deps.alreadySentToday || require('../../services/reportSentLog').alreadySentToday;
@@ -107,7 +135,9 @@ async function main(deps = {}) {
     // Skipped for a preview (a preview must never be blocked by a prior send).
     if (!preview && !force && await alreadySentToday(db, 'scoreboard', siteCode, period)) { skipped++; continue; }
 
-    const { subject, html } = buildScoreboardDigest(scoreboard, { period, highlightSite: siteCode });
+    const digestOpts = { period, highlightSite: siteCode };
+    if (published) digestOpts.published = published;
+    const { subject, html } = buildScoreboardDigest(scoreboard, digestOpts);
 
     if (preview) { previews.push({ site: siteCode, to: rcpt.to, subject }); continue; }
 

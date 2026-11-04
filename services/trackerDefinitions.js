@@ -121,13 +121,17 @@ function score(def, inputs = {}, ctx = {}) {
 
   // shared items: the best unit total counts for every unit (engine.js L119-130)
   const sharedValue = {};
+  const sharedMeasured = {};   // A-11 — shared item is measured when ANY unit entered something
   for (const g of def.groups) for (const it of g.items) if (it.shared) {
-    let best = 0;
+    let best = 0, measured = false;
     for (const u of def.units) {
-      const v = KpiRag.aggregate(((inputs[u.code] || {})[it.code] || []).slice(0, cur), it.kpiType);
+      const series = ((inputs[u.code] || {})[it.code] || []).slice(0, cur);
+      const v = KpiRag.aggregate(series, it.kpiType);
       if (v > best) best = v;
+      if (KpiRag.isMeasured(series)) measured = true;
     }
     sharedValue[it.code] = best;
+    sharedMeasured[it.code] = measured;
   }
 
   const units = {};
@@ -142,7 +146,7 @@ function score(def, inputs = {}, ctx = {}) {
       let gTotal = 0, gW = 0;
       for (const it of g.items) {
         const t = tgtOf(u.code, it);
-        if (t.active === false) { items[it.code] = { value: null, attainment: null, rag: 'NA', weight: 0 }; continue; }
+        if (t.active === false) { items[it.code] = { value: null, attainment: null, rag: 'NA', weight: 0, measured: false }; continue; }
         const series = ((inputs[u.code] || {})[it.code] || []).slice(0, cur);
         const start = it.start || 1, end = it.end || n;
         const value = it.shared ? sharedValue[it.code] : KpiRag.aggregate(series, it.kpiType);
@@ -153,7 +157,9 @@ function score(def, inputs = {}, ctx = {}) {
         const capped = att == null ? null : Math.min(1, att);
         let colour = KpiRag.rag(att, policy);
         if (att != null && att < (typeof policy === 'string' ? KpiRag.POLICIES[policy].amber : policy.amber) && cur <= end && it.kpiType !== 'COUNT') colour = 'AMBER'; // not yet overdue
-        items[it.code] = { value, target: t.target, attainment: att, rag: colour, weight: w[it.code] };
+        // A-11 — additive flag only: value / attainment / rag stay exactly as before.
+        const measured = it.shared ? sharedMeasured[it.code] : KpiRag.isMeasured(series);
+        items[it.code] = { value, target: t.target, attainment: att, rag: colour, weight: w[it.code], measured };
         if (capped != null) { gTotal += capped * Number(it.weight); gW += Number(it.weight); }
       }
       const gs = gW ? gTotal / gW : null;
