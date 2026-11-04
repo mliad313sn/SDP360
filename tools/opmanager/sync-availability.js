@@ -38,6 +38,9 @@ function _trendOf(cur, prev) {
   return d > 0 ? 'up' : 'down';
 }
 
+const DEVICE_PAGE_ROWS = 1000;
+const DEVICE_PAGE_CAP = 50;
+
 // V1b-B — REST device-grain path (LAN/WLAN/Servers). Config-gated on opmanager_api_key+base_url.
 async function _restPath(deps, cfg, rdb, now, log) {
   const client = deps.opmanagerClient || require('../../services/opmanagerClient').makeOpmanagerClient(
@@ -56,7 +59,21 @@ async function _restPath(deps, cfg, rdb, now, log) {
   if (!week) { const pw = rdb.getPreviousWeek(); const r = rdb.getWeekRange(pw.year, pw.week); week = { period_type: 'week', period_start: r.start, period_end: r.end }; }
   const month = deps.asOfMonth || _currentMonthBounds(now);
 
-  const raw = (await client.listDevices({ rows: 5000, page: 1 })) || [];
+  // Page through the device list (A-18a): one page used to be read, so a fleet over one page
+  // was silently truncated. Stop on a short page; a hard cap guards against a server that
+  // ignores `page` and returns the same full page forever — then say so (truncated:true).
+  const raw = [];
+  let truncated = false;
+  for (let page = 1; ; page++) {
+    const batch = (await client.listDevices({ rows: DEVICE_PAGE_ROWS, page })) || [];
+    raw.push(...batch);
+    if (batch.length < DEVICE_PAGE_ROWS) break;
+    if (page >= DEVICE_PAGE_CAP) {
+      truncated = true;
+      console.warn(`[opm-sync:rest] device list truncated at ${DEVICE_PAGE_CAP} pages x ${DEVICE_PAGE_ROWS} rows (${raw.length} devices read)`);
+      break;
+    }
+  }
   const devices = [];
   for (const d of raw) {
     if (_isFirewall(d)) continue;                                   // WAN = Meraki
@@ -66,12 +83,18 @@ async function _restPath(deps, cfg, rdb, now, log) {
     devices.push({ name, type: d.type, category: d.category, probeName: d.probeName, availUp });
   }
 
-  const wk = aggregateDeviceAvail(devices, { classify: classifyKpiFamily, deviceToSite, targets, period: week, collected_at: now });
-  const mo = aggregateDeviceAvail(devices, { classify: classifyKpiFamily, deviceToSite, targets, period: month, collected_at: now });
+  // data_through = the COLLECTION date for both rows (availdata is a recent window, basis
+  // 'recent'): the month's period_end is a future date, which kept month rows from ever
+  // reading stale (A-18a).
+  const through = String(now).slice(0, 10);
+  const wk = aggregateDeviceAvail(devices, { classify: classifyKpiFamily, deviceToSite, targets, period: week, collected_at: now, data_through: through });
+  const mo = aggregateDeviceAvail(devices, { classify: classifyKpiFamily, deviceToSite, targets, period: month, collected_at: now, data_through: through });
   const all = [...wk, ...mo];
   await rdb.upsertInfraSnapshots(all);
-  log(`[opm-sync:rest] devices=${devices.length} week=${wk.length} month=${mo.length} → upserted (recent)`);
-  return { ok: true, mode: 'rest', devices: devices.length, week: wk.length, month: mo.length };
+  log(`[opm-sync:rest] devices=${devices.length} week=${wk.length} month=${mo.length} → upserted (recent)${truncated ? ' [device list truncated]' : ''}`);
+  const out = { ok: true, mode: 'rest', devices: devices.length, week: wk.length, month: mo.length };
+  if (truncated) out.truncated = true;
+  return out;
 }
 
 async function main(deps = {}) {

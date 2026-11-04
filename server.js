@@ -6531,7 +6531,10 @@ app.get('/api/reports/:id/infra-auto', requireReportSession, async (req, res) =>
     // matching. Row-driven; NOT passed into buildFills (buildFills is snapshot-driven).
     const tokens = ((await rdb.listWanSubsiteNetworks()) || [])
       .filter(r => r.site_id === report.site_id).map(r => r.sub_site);
-    res.json({ week_label: report.week_label, period_start: start, window, fills, tokens });
+    // data_as_of (A-18a): when the snapshots behind these fills were COLLECTED (max collected_at),
+    // null when there is none — never today's date for data that does not exist.
+    const data_as_of = require('./services/opmanagerAvailability').dataAsOf(wan, infra);
+    res.json({ week_label: report.week_label, period_start: start, window, data_as_of, fills, tokens });
   } catch (e) { res.json({ fills: [], reason: 'internal_error', correlation_id: logError(e, req) }); }
 });
 

@@ -97,6 +97,13 @@ test('report without snapshots → empty fills, not 500', async () => {
   const r = await get(`/api/reports/${noSnapReportId}/infra-auto`, adminToken);
   assert.equal(r.status, 200);
   assert.deepEqual(r.body.fills, []);
+  assert.strictEqual(r.body.data_as_of, null, 'no snapshot → data_as_of null (never today)');
+});
+
+test('A-18a: infra-auto carries data_as_of = the latest collected_at of the snapshots used', async () => {
+  const r = await get(`/api/reports/${reportId}/infra-auto`, adminToken);
+  assert.equal(r.status, 200);
+  assert.equal(r.body.data_as_of, r.body.period_start + 'T05:20:00Z', 'max of the wan (05:20) and infra (05:10) collections');
 });
 
 test('unknown report → 404 with empty fills, not 500', async () => {

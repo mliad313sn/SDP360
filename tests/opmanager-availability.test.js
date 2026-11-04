@@ -65,3 +65,12 @@ test('devices with no resolvable site are skipped', () => {
     { classify: classifyKpiFamily, deviceToSite: () => null, targets: { lan: 99 }, period, collected_at: 'x' });
   assert.equal(rows.length, 0);
 });
+
+test('A-18a: without a data_through override the row keeps period_end (backward compatible)', () => {
+  const rows = aggregateDeviceAvail([D('S1', 'Meraki MS Series', 'Meraki Switch', 99)], { classify: classifyKpiFamily, deviceToSite: toSite,
+    targets: {}, period, collected_at: '2026-08-16T05:10:00Z' });
+  assert.equal(rows[0].data_through, '2026-08-15');
+  const over = aggregateDeviceAvail([D('S1', 'Meraki MS Series', 'Meraki Switch', 99)], { classify: classifyKpiFamily, deviceToSite: toSite,
+    targets: {}, period, collected_at: '2026-08-16T05:10:00Z', data_through: '2026-08-16' });
+  assert.equal(over[0].data_through, '2026-08-16');
+});
