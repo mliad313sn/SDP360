@@ -140,6 +140,7 @@ function safeError(err, res, fallbackStatus = 500) {
 // but CSP enforcement relies on 'unsafe-inline' + domain allowlist.
 // This is appropriate for an internal private-network dashboard.
 const sessionAuth = require('./services/sessionAuth');   // E5: cookie-only browser session + strict CSP pages
+const _cspReportOnly = require('./services/cspReport').enabled();   // A-28a switch, read once at boot (default off)
 app.use((req, res, next) => {
   // Generate a nonce — still used to inject window.__ak into HTML pages
   const nonce = crypto.randomBytes(16).toString('base64');
@@ -157,21 +158,13 @@ app.use((req, res, next) => {
   // (onclick/onchange attributes). B-01: no CDN origin — Chart.js, its datalabels plugin and
   // React are served same-origin from public/vendor/ (fonts.googleapis.com stays, fonts are out of scope).
   // style-src keeps 'unsafe-inline' (many inline styles throughout).
-  res.setHeader('Content-Security-Policy', [
-    "default-src 'self'",
-    sessionAuth.scriptSrc(nonce, sessionAuth.isStrictCspPath(req.path)),   // E5: nonce-only on public/share pages
-    "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
-    "font-src 'self' fonts.gstatic.com data:",
-    "img-src 'self' data:",
-    // inspection.html ships its PWA manifest as an inline `data:` URL so the
-    // form can be Add-to-Home-Screen-installed on phones without a separate
-    // asset. Allowing `data:` here silences the manifest CSP block.
-    "manifest-src 'self' data:",
-    "connect-src 'self'",
-    "object-src 'none'",
-    "base-uri 'self'",
-    "frame-ancestors 'none'",
-  ].join('; '));
+  // inspection.html's PWA manifest is an inline data: URL → manifest-src 'self' data: (services/sessionAuth.cspDirectives).
+  res.setHeader('Content-Security-Policy', sessionAuth.cspDirectives(sessionAuth.scriptSrc(nonce, sessionAuth.isStrictCspPath(req.path))).join('; '));
+  // A-28a — opt-in (SDP_CSP_REPORT_ONLY=1, read at boot): the nonce-only policy, reported not enforced.
+  if (_cspReportOnly && !sessionAuth.isStrictCspPath(req.path)) {
+    res.setHeader('Content-Security-Policy-Report-Only', sessionAuth.reportOnlyPolicy(nonce));
+    res.setHeader('Reporting-Endpoints', `csp-endpoint="${sessionAuth.CSP_REPORT_PATH}"`);
+  }
   // Remove X-Powered-By to hide the tech stack
   res.removeHeader('X-Powered-By');
   next();
@@ -199,6 +192,7 @@ app.use((req, res, next) => {
     path === '/activity-tracker.html' ||
     path.startsWith('/activity-tracker/');
   if (isPreviewLike) {
+    res.removeHeader('Content-Security-Policy-Report-Only'); res.removeHeader('Reporting-Endpoints');   // A-28a: own policy here
     const isDevPreview = path.startsWith('/dashboard-preview') || path.startsWith('/design-system');
     res.setHeader('Content-Security-Policy', [
       "default-src 'self'",
@@ -946,6 +940,8 @@ app.use(require('./services/originGuard').middleware({ allowed: corsAllowed, log
 // app.use(path, mw) matches the path prefix — for /api/inspection/save
 // it triggers on the exact route. Same pattern for the meetings save +
 // audit-trail routes which carry inline content of their own.
+// A-28a — CSP report endpoint (switch on only): own 16 KB parser + per-IP limiter, answered BEFORE the /api gate.
+if (_cspReportOnly) app.use(require('./routes/securityCsp')({ express, getRdb: () => rdb }));
 app.use('/api/inspection/save',             express.json({ limit: '100mb' }));
 app.use('/api/inspection/aggregate/export', express.json({ limit: '50mb'  }));
 app.use('/api/meetings/save',               express.json({ limit: '10mb'  }));
@@ -1347,7 +1343,7 @@ async function sendHtmlPage(res, name, injectApiKey, fallbackMsg) {
     html = html.replace('</head>', `<script nonce="${res.locals.nonce}">window.__ak='${DASH_API_KEY}';</script>\n</head>`);
   }
   html = html.replace(/%%CSP_NONCE%%/g, res.locals.nonce);
-  if (sessionAuth.STRICT_PAGES.includes('/' + name)) html = sessionAuth.nonceScripts(html, res.locals.nonce);
+  if (sessionAuth.STRICT_PAGES.includes('/' + name) || res.getHeader('Content-Security-Policy-Report-Only')) html = sessionAuth.nonceScripts(html, res.locals.nonce);   // A-28a: nonce inline scripts under report-only
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   // Page HTML must NOT be cached by the browser — every visit gets a fresh
   // CSP nonce. Static assets (.js, .css, fonts) are cached aggressively below.
