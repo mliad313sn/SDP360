@@ -17,7 +17,7 @@
 | jobs | 24 |
 | jobs without test reference | 10 |
 | migrations | 52 |
-| test files | 489 |
+| test files | 490 |
 
 ## Pages
 
@@ -208,5 +208,5 @@
 | JB-reports-weekly | reports.weekly | 0 |
 | JB-teams-sla-poll | teams.sla_poll | 1 |
 | JB-zoho-change-cab | zoho.change_cab | 1 |
-| JB-zoho-requests | zoho.requests | 10 |
+| JB-zoho-requests | zoho.requests | 11 |
 | JB-zoho-survey | zoho.survey | 1 |

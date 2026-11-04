@@ -12,7 +12,7 @@
   "jobs": 24,
   "jobs_without_test_reference": 10,
   "migrations": 52,
-  "test_files": 489
+  "test_files": 490
  },
  "pages": [
   {
@@ -7734,6 +7734,7 @@
    "id": "JB-zoho-requests",
    "job": "zoho.requests",
    "tests": [
+    "tests/catalogue-dry-run.test.js",
     "tests/governance-policy.test.js",
     "tests/pilot-metrics.test.js",
     "tests/publication-freshness.smoke.test.js",
