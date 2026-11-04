@@ -40,9 +40,9 @@ planned switch cannot be set before its goal lands.
 | `asset_money_certify_min_pct` | built | `50` | `50` | Finance | A-16 |
 | `helpdesk_sla_definition` | built | `flag` | `flag` until the committee chooses (`due_vs_resolved` is the alternative) | KPI committee | A-17 |
 | `exec_payload_zero_policy` | built | `keep_server` | `keep_server` until the committee chooses (`browser_wins` is the alternative) | KPI committee | A-17 |
-| `soft_delete_enabled` | planned | `0` | `1` | Owner (retention policy) | A-19 |
-| `soft_delete_retention_days` | planned | `30` | `30` | Owner (retention policy) | A-19 |
-| `soft_delete_purge_enabled` | planned | `0` | `0` (keep everything during the pilot) | Owner (retention policy) | A-19 |
+| `soft_delete_enabled` | built | `0` | `1` | Owner (retention policy) | A-19 |
+| `soft_delete_retention_days` | built | `30` | `30` | Owner (retention policy) | A-19 |
+| `soft_delete_purge_enabled` | built | `0` | `0` (keep everything during the pilot) | Owner (retention policy) | A-19 |
 | `meridian_enabled` | built | `1` | `0` (retire) | Owner (D-5) | A-20 |
 | `report_revert_policy` | built | `site_editor` | `second_person` | Owner (D-3, reverses 2026-10-02) | A-24 |
 | `report_reassign_submitted` | built | `1` | `0` | Owner (D-3) | A-24 |

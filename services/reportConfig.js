@@ -234,6 +234,12 @@ DEFAULTS.exec_payload_zero_policy = 'keep_server';
 //    programme | operational = one published verdict per site (services/publishedSiteScore.js).
 DEFAULTS.site_score_published_model = 'legacy';
 
+// ── A-19 — PROPOSED retention policy (not a D-item; not approved). Defaults = today (hard delete, no purge).
+//    soft_delete_enabled '1' → inspections / PVs / portfolio nodes / cadences are stamped deleted_at instead of
+//    removed, restorable by the admin tier within soft_delete_retention_days; soft_delete_purge_enabled '1' arms
+//    the nightly softdelete.purge job (hard-deletes stamped rows older than the retention). services/softDelete.js.
+Object.assign(DEFAULTS, { soft_delete_enabled: '0', soft_delete_retention_days: '30', soft_delete_purge_enabled: '0' });
+
 // ── B-09 — Roadmap Manager → portfolio single source. '0' = today (the Roadmap Manager stays editable);
 //    '1' = itsm-roadmap.html turns READ-ONLY with a link to the portfolio, and the roadmap write routes answer
 //    409. Nothing is ever deleted (deletion of roadmap_* rows is a CAB decision). Decision: redirect only after

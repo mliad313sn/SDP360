@@ -51,6 +51,7 @@ const fs       = require('fs');
 
 const INIT = require('./inspection-init.json');
 const blobStore = require('./services/blobStore');
+const softDelete = require('./services/softDelete');   // A-19a
 const BLOB_MODULE = 'inspection';
 
 // ── DB path resolution + auto-migration from legacy root location ──────────
@@ -161,6 +162,9 @@ async function initPgInspection() {
   await _pg.connect();
   await _pg.exec(require('fs').readFileSync(
     require('path').join(__dirname, 'db', 'postgres', 'inspection', '001_init.sql'), 'utf8'));
+  // A-19a — the soft-delete columns every reader filters on (idempotent; the migrator applies the same file).
+  await _pg.exec(require('fs').readFileSync(
+    require('path').join(__dirname, 'db', 'postgres', 'inspection', '049_soft_delete.sql'), 'utf8'));
   await _seedLookupsPg(_pg);
   return _pg;
 }
@@ -314,8 +318,9 @@ function _inflateState(state) {
   return state;
 }
 
-function getInspection(id) {
-  return _getInspectionPg(id);
+// A-19a: a soft-deleted inspection reads as null (→ 404) unless { includeDeleted: true } (admin trash view).
+function getInspection(id, opts = {}) {
+  return _getInspectionPg(id, opts);
 }
 
 // Move inline base64 photo/signature payloads out of `state` onto the
@@ -378,8 +383,35 @@ function saveInspection(state, userSiteCode, createdBy, opts) {
   return _saveInspectionPg(state, userSiteCode, createdBy, opts);
 }
 
-function deleteInspection(id) {
+// A-19a — opts.soft (the route passes softDelete.isEnabled(cfg)): stamp deleted_at/by/reason and KEEP the blobs.
+// Without it: today's hard delete (row + children via FK CASCADE + the filesystem blobs).
+function deleteInspection(id, opts = {}) {
+  if (opts && opts.soft) return softDelete.stamp(pgHandle(), 'insp_inspections', id, { by: opts.by, reason: opts.reason });
   return _deleteInspectionPg(id);
+}
+
+// ── A-19a soft delete: trash / restore / purge (the only readers that SEE deleted rows) ──
+/** Stored row INCLUDING a deleted one (null when unknown) — restore checks + admin trash. */
+async function getInspectionTrashRow(id) {
+  if (!id) return null;
+  return (await pgHandle().prepare(`SELECT id, label, site_code, inspection_date, status, deleted_at, deleted_by, delete_reason
+      FROM insp_inspections WHERE id = ?`).get(id)) || null;
+}
+function listDeletedInspections() {
+  return pgHandle().prepare(`SELECT id, label, site_code, inspection_date, status, deleted_at, deleted_by, delete_reason
+      FROM insp_inspections WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC`).all();
+}
+function restoreInspection(id) { return softDelete.unstamp(pgHandle(), 'insp_inspections', id); }
+/** Stamped rows older than cutoffIso; apply=true hard-deletes them (+ blobs). */
+async function purgeDeletedInspections(cutoffIso, { apply = false } = {}) {
+  const rows = await pgHandle().prepare(`SELECT id FROM insp_inspections WHERE deleted_at IS NOT NULL AND deleted_at < ? ORDER BY deleted_at`).all(cutoffIso);
+  const ids = rows.map((r) => r.id);
+  let purged = 0;
+  if (apply) for (const id of ids) {
+    const r = await pgHandle().prepare('DELETE FROM insp_inspections WHERE id = ? AND deleted_at IS NOT NULL AND deleted_at < ?').run(id, cutoffIso);
+    if (r.changes > 0) { purged++; try { blobStore.removeOwner(BLOB_MODULE, id); } catch (_) {} }
+  }
+  return { ids, purged };
 }
 
 
@@ -396,7 +428,7 @@ function getInspectionStatus(id) {
 // site before a delete / single export (RBAC audit 2026-10-02, lot 4b).
 function getInspectionHeader(id) {
   if (!id) return null;
-  return pgHandle().prepare('SELECT status, site_code FROM insp_inspections WHERE id = ?').get(id)
+  return pgHandle().prepare('SELECT status, site_code FROM insp_inspections WHERE id = ? AND deleted_at IS NULL').get(id)
     .then(r => (r ? { status: r.status || 'draft', site_code: r.site_code } : null));
 }
 
@@ -442,11 +474,11 @@ async function _getSiteScoreInputsPg(siteCode, from, to) {
   // to_char'd — if inspection_date ever becomes a timestamp type, it needs the
   // same treatment or every window compare silently fails.)
   const inspections = await H.prepare(
-    `SELECT inspection_date FROM insp_inspections WHERE lower(site_code) = lower(?)`).all(siteCode);
+    `SELECT inspection_date FROM insp_inspections WHERE lower(site_code) = lower(?) AND deleted_at IS NULL`).all(siteCode);
   const findings = await H.prepare(
     `SELECT f.status, i.inspection_date
        FROM insp_findings f JOIN insp_inspections i ON i.id = f.inspection_id
-      WHERE lower(i.site_code) = lower(?)`).all(siteCode);
+      WHERE lower(i.site_code) = lower(?) AND i.deleted_at IS NULL`).all(siteCode);
   return _computeInspectionScoreInputs({ inspections, findings }, { from, to });
 }
 
@@ -479,7 +511,7 @@ async function _getActionParentPg(actionId) {
   return (await pgHandle().prepare(`
     SELECT i.site_code AS site_code, i.status AS inspection_status
       FROM insp_actions a JOIN insp_inspections i ON i.id = a.inspection_id
-     WHERE a.id = ?
+     WHERE a.id = ? AND i.deleted_at IS NULL
   `).get(actionId)) || null;
 }
 
@@ -503,8 +535,8 @@ function listActions(opts = {}) {
 async function exportRows(opts = {}) {
   const H = (pgHandle());
   const site = opts.site || null;
-  const w  = site ? ' WHERE site_code = ?' : '';
-  const wi = site ? ' WHERE i.site_code = ?' : '';
+  const w  = ' WHERE deleted_at IS NULL' + (site ? ' AND site_code = ?' : '');
+  const wi = ' WHERE i.deleted_at IS NULL' + (site ? ' AND i.site_code = ?' : '');
   const p  = site ? [site] : [];
   const inspections = await H.prepare(`
     SELECT id, label, inspection_date, inspection_time, inspection_type,
@@ -647,7 +679,7 @@ async function _loadLookupsPg() {
 
 async function _listInspectionsPg(opts = {}) {
   const H = pgHandle();
-  const where = [], params = {};
+  const where = ['deleted_at IS NULL'], params = {};
   if (opts.site)   { where.push(_siteClause('site_code', opts.site, params, 'eq')); }
   if (opts.from)   { where.push('inspection_date >= @from');              params.from   = opts.from; }
   if (opts.to)     { where.push('inspection_date <= @to');                params.to     = opts.to; }
@@ -661,15 +693,15 @@ async function _listInspectionsPg(opts = {}) {
            inspector_name, overall_risk, operational_impact,
            status, created_at, updated_at, submitted_at
       FROM insp_inspections
-      ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+      WHERE ${where.join(' AND ')} /* always carries deleted_at IS NULL */
       ORDER BY inspection_date DESC, updated_at DESC
       LIMIT @limit OFFSET @offset
   `).all(params);
 }
 
-async function _getInspectionPg(id) {
+async function _getInspectionPg(id, { includeDeleted = false } = {}) {
   const H = pgHandle();
-  const header = await H.prepare('SELECT * FROM insp_inspections WHERE id = ?').get(id);
+  const header = await H.prepare(`SELECT * FROM insp_inspections WHERE id = ?${includeDeleted ? '' : ' AND deleted_at IS NULL'}`).get(id);
   if (!header) return null;
 
   let stateBlob = null;
@@ -728,7 +760,10 @@ async function _saveInspectionPg(state, userSiteCode, createdBy, { allowRefs = n
 
   const areaText = meta.f_area || '';
   const areaCode = await _resolveAreaCodePg(H, areaText);
-  const existing = await H.prepare('SELECT id, site_code, state_json FROM insp_inspections WHERE id = ?').get(id);
+  const existing = await H.prepare('SELECT id, site_code, state_json, deleted_at FROM insp_inspections WHERE id = ?').get(id);
+  // A-19a: inspection ids are client-generated and offline queues / field envelopes replay saves — a soft-deleted
+  // id must never be resurrected (or overwritten) by a save. Checked before any blob write.
+  if (existing && existing.deleted_at) throw softDelete.deletedConflict('inspection', existing);
   if (userSiteCode && existing && !_inScope(existing.site_code, userSiteCode)) {
     throw new Error(`Cross-site save blocked: inspection ${id} belongs to ${existing.site_code}`);
   }
@@ -853,17 +888,17 @@ async function _deleteInspectionPg(id) {
 }
 
 async function _getInspectionStatusPg(id) {
-  const row = await pgHandle().prepare('SELECT status FROM insp_inspections WHERE id = ?').get(id);
+  const row = await pgHandle().prepare('SELECT status FROM insp_inspections WHERE id = ? AND deleted_at IS NULL').get(id);
   return row ? (row.status || 'draft') : null;
 }
 
 async function _aggregatePg(opts = {}) {
   const H = pgHandle();
-  const where = [], params = {};
+  const where = ['i.deleted_at IS NULL'], params = {};
   if (opts.site) { where.push(_siteClause('i.site_code', opts.site, params, 'eq')); }
   if (opts.from) { where.push('i.inspection_date >= @from'); params.from = opts.from; }
   if (opts.to)   { where.push('i.inspection_date <= @to');   params.to   = opts.to; }
-  const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
+  const w = 'WHERE ' + where.join(' AND ');   // always carries i.deleted_at IS NULL (A-19a)
 
   const counts = await H.prepare(`
     SELECT COUNT(*) AS total,
@@ -924,7 +959,7 @@ async function _addActionUpdatePg(actionId, opts = {}) {
 
 async function _listActionsPg(opts = {}) {
   const H = pgHandle();
-  const where = [], params = {};
+  const where = ['i.deleted_at IS NULL'], params = {};
   if (opts.site)     { where.push(_siteClause('i.site_code', opts.site, params, 'lower')); }
   if (opts.status)   { where.push('a.status = @status');                params.status = opts.status; }
   if (opts.priority) { where.push('a.priority = @priority');            params.priority = opts.priority; }
@@ -938,7 +973,7 @@ async function _listActionsPg(opts = {}) {
     where.push('(a.description ILIKE @q OR a.owner ILIKE @q OR a.linked_item ILIKE @q)');
     params.q = '%' + opts.q + '%';
   }
-  const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
+  const w = 'WHERE ' + where.join(' AND ');   // always carries i.deleted_at IS NULL (A-19a)
   params.limit = opts.limit || 1000;
   params.offset = opts.offset || 0;
   return H.prepare(`
@@ -970,6 +1005,7 @@ module.exports = {
   getInspectionHeader,
   saveInspection,
   deleteInspection,
+  getInspectionTrashRow, listDeletedInspections, restoreInspection, purgeDeletedInspections,
   aggregate,
   getSiteScoreInputs, _computeInspectionScoreInputs,
   listActions, addActionUpdate, listActionUpdates, getActionParent,

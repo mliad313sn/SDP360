@@ -3,6 +3,7 @@ const { fail } = require('../services/httpError');
 const userSites = require('../services/userSites');   // multi-site editors (2026-10-05)
 
 const tableExcel = require('../services/tableExcel');
+const softDelete = require('../services/softDelete');   // A-19a
 
 // ─────────────────────────────────────────────────────────────────────────
 // Inspection routes — extracted from server.js (split-server.js PILOT, 2026-06-21).
@@ -343,10 +344,14 @@ module.exports = function inspectionRoutes(deps) {
       const own = await _ownInspectionOr403(req, res, id); if (!own) return;
       // (The audit line used to read getInspectionStatus as a row and always printed "?"/"—".)
       const status = own.head.status || '?', site = own.head.site_code || '—';
-      const ok = await inspectionDb.deleteInspection(id);
+      // A-19a — soft delete when report_config soft_delete_enabled = '1' (default '0' = today's hard delete).
+      const soft = softDelete.isEnabled(await softDelete.readConfig(rdb));
+      const reason = (req.body && req.body.reason) || req.query.reason || null;
+      const ok = await inspectionDb.deleteInspection(id, soft ? { soft: true, by: req.reportUser.id, reason } : {});
       if (!ok) return res.status(404).json({ error: 'Not found' });
-      console.log(`[Inspection] DELETE id=${id} user=${req.reportUser.username || '?'} site=${site} prior_status=${status}`);
-      res.json({ ok: true });
+      console.log(`[Inspection] DELETE id=${id} user=${req.reportUser.username || '?'} site=${site} prior_status=${status} mode=${soft ? 'soft' : 'hard'}`);
+      try { rdb.logEvent({ category: 'inspection', action: soft ? 'inspection_soft_deleted' : 'inspection_deleted', target: id, details: { site, prior_status: status, reason: reason ? String(reason).slice(0, 200) : null }, ...rdb._logCtx(req) }); } catch (_) { /* best-effort */ }
+      res.json({ ok: true, soft });
     } catch(e) {
       console.error('[Inspection] delete error:', e.message);
       fail(res, e);

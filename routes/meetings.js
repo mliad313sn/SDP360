@@ -5,6 +5,7 @@ const { fail } = require('../services/httpError');
 // relative requires gained one `../`. server.js mounts it with its own middleware + readers.
 const path = require('path');
 const userSites = require('../services/userSites');
+const softDelete = require('../services/softDelete');   // A-19b
 
 module.exports = function meetingsRoutes(deps) {
   const { express, rdb, inspectionDb, requireReportSession, requireRole } = deps;
@@ -607,9 +608,14 @@ router.delete('/api/meetings/:id', requireReportSession, async (req, res) => {
     const userSite = await _userMeetingsSite(req.reportUser, head.site_code);
     if (_sitelessWriteDenied(req.reportUser, userSite)) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
     if (userSite && head.site_code !== userSite) return res.status(403).json({ error: `Meeting belongs to ${head.site_code}; you are scoped to ${userSite}` });
-    const ok = await meetingsDb.deleteMeeting(parseInt(req.params.id, 10));
+    // A-19b — soft delete when report_config soft_delete_enabled = '1' (default '0' = today's hard delete).
+    const soft = softDelete.isEnabled(await softDelete.readConfig(rdb));
+    const reason = (req.body && req.body.reason) || req.query.reason || null;
+    const mid = parseInt(req.params.id, 10);
+    const ok = await meetingsDb.deleteMeeting(mid, soft ? { soft: true, by: req.reportUser.id, reason } : {});
     if (!ok) return res.status(404).json({ error: 'Not found' });
-    res.json({ ok: true });
+    try { rdb.logEvent({ category: 'meetings', action: soft ? 'meeting_soft_deleted' : 'meeting_deleted', target: String(mid), details: { site: head.site_code, prior_status: head.status || null, reason: reason ? String(reason).slice(0, 200) : null }, ...rdb._logCtx(req) }); } catch (_) { /* best-effort */ }
+    res.json({ ok: true, soft });
   } catch(e) {
     console.error('[Meetings] delete error:', e.message);
     fail(res, e);

@@ -1125,6 +1125,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
           <button type="button" class="admin-rail__item" data-panel="email"       onclick="showAdminPanel('email')"><span class="ar-ico">✉</span><span>Email / SMTP<small>Transport &amp; addressing</small></span><span class="ar-scope">Global</span></button>
           <button type="button" class="admin-rail__item" data-panel="backups" id="admin-rail-backups" style="display:none" onclick="showAdminPanel('backups')"><span class="ar-ico">💾</span><span>Backups<small>Scheduled &amp; manual</small></span><span class="ar-scope">Global</span></button>
           <button type="button" class="admin-rail__item" data-panel="restore-drill" id="admin-rail-restore-drill" style="display:none" onclick="showAdminPanel('restore-drill')"><span class="ar-ico">🧪</span><span>Restore drill<small>Dernier exercice de restauration</small></span><span class="ar-scope">Global</span></button>
+          <button type="button" class="admin-rail__item" data-panel="trash" id="admin-rail-trash" style="display:none" onclick="showAdminPanel('trash')"><span class="ar-ico">🗑</span><span>Deleted records<small>Restore within retention</small></span><span class="ar-scope">Global</span></button>
           <button type="button" class="admin-rail__item" data-group="integrations" id="admin-rail-grp-integrations" style="display:none" onclick="showAdminGroup('integrations')"><span class="ar-ico">🔗</span><span>Intégrations<small>SSO &amp; Meridian</small></span><span class="ar-scope">Global</span></button>
           <button type="button" class="admin-rail__item" data-group="wan" id="admin-rail-grp-wan" style="display:none" onclick="showAdminGroup('wan')"><span class="ar-ico">📡</span><span>WAN Link<small>Availability &amp; SLA</small></span><span class="ar-scope">Global</span></button>
           <button type="button" class="admin-rail__item" data-group="api" id="admin-rail-grp-api" style="display:none" onclick="showAdminGroup('api')"><span class="ar-ico">🔌</span><span>Intégration API<small>Alertes SLA &amp; Analytics</small></span><span class="ar-scope">Global</span></button>
@@ -1350,6 +1351,20 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
          GET /api/health/restore-drill (routes/health.js). The drill itself runs on the
          1st of each month at 04:00 (job db.restore_drill) or by hand:
          node tools/pg/restore-drill.js --backup-first -->
+    <!-- A-19 — soft-deleted records (report_config soft_delete_enabled, PROPOSED retention policy, default OFF).
+         GET /api/admin/trash + POST <restore_url> (routes/softDelete.js). Admin tier. -->
+    <div class="card admin-panel" id="ap-trash" data-panel="trash">
+      <h3>🗑 Deleted records <span style="font-weight:normal;font-size:0.85rem;color:#6b7a99">· Éléments supprimés</span></h3>
+      <p style="font-size:0.9rem;color:#6b7a99;margin:0 0 12px">With <code>soft_delete_enabled = 1</code>, deleting an inspection, a PV, a portfolio item or a cadence hides it instead of destroying it; it can be restored here within the retention window. The nightly purge runs only when <code>soft_delete_purge_enabled = 1</code> (dry run first: <code>node tools/pg/purge-soft-deleted.js</code>).</p>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px">
+        <select id="trash-module" onchange="loadTrash()"><option value="">All modules</option></select>
+        <button type="button" class="btn btn-secondary" onclick="loadTrash()">Refresh</button>
+        <span id="trash-status" style="font-size:0.85rem;color:#6b7a99"></span>
+      </div>
+      <table class="user-table"><thead><tr><th>Module</th><th>Record</th><th>Site</th><th>Deleted</th><th>By</th><th>Reason</th><th></th></tr></thead>
+        <tbody id="trash-rows"><tr><td colspan="7" style="color:#6b7a99">—</td></tr></tbody></table>
+    </div>
+
     <div class="card admin-panel" id="ap-restore-drill" data-panel="restore-drill">
       <h3>🧪 Last restore drill <span style="font-weight:normal;font-size:0.85rem;color:#6b7a99">· Dernier exercice de restauration</span></h3>
       <p style="font-size:0.9rem;color:#6b7a99;margin:0 0 12px">A backup is only proven once it has been restored: every 1st of the month at 04:00 the newest dump is restored into a disposable database, the row counts of the 10 main tables are compared with the live database, and a dated report is written to <code>docs/ops/restore-drills/</code>.<br><span lang="fr">Une sauvegarde n'est prouvée qu'une fois restaurée : le 1er du mois à 04:00, le dernier dump est restauré dans une base jetable et les comptages des 10 tables principales sont comparés à la base vivante.</span></p>
@@ -6208,7 +6223,7 @@ async function downloadAllSitesMonthlyPptx(fromMonthlyPage) {
 //  ADMIN PAGE
 // ══════════════════════════════════════════════════════════════════
 // Admin left-rail: show one settings panel at a time. name ∈ users|sessions|sites|departments|risk.
-const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap-sites', departments:'ap-depts', execview:'ap-execview', email:'ap-email', backups:'ap-backups', sso:'ap-sso', meridian:'ap-meridian', infra:'ap-infra', sla:'ap-sla', risk:'rr-aliases-card', autoreports:'ap-autoreports', 'assets-finance':'ap-assets-finance', 'assets-deprec':'ap-assets-deprec', hygiene:'ap-hygiene', scoreboard:'ap-scoreboard', weekly:'ap-weekly', 'asset-group':'ap-asset-group', 'asset-reminders':'ap-asset-reminders', 'teams-sla':'ap-teams-sla', 'analytics-api':'ap-analytics-api', 'restore-drill':'ap-restore-drill' };
+const _ADMIN_PANEL_IDS = { users:'ap-users', sessions:'sessions-card', sites:'ap-sites', departments:'ap-depts', execview:'ap-execview', email:'ap-email', backups:'ap-backups', sso:'ap-sso', meridian:'ap-meridian', infra:'ap-infra', sla:'ap-sla', risk:'rr-aliases-card', autoreports:'ap-autoreports', 'assets-finance':'ap-assets-finance', 'assets-deprec':'ap-assets-deprec', hygiene:'ap-hygiene', scoreboard:'ap-scoreboard', weekly:'ap-weekly', 'asset-group':'ap-asset-group', 'asset-reminders':'ap-asset-reminders', 'teams-sla':'ap-teams-sla', 'analytics-api':'ap-analytics-api', 'restore-drill':'ap-restore-drill', trash:'ap-trash' };
 // Related config panels merged behind ONE rail item + an in-panel tab strip. The panel cards
 // themselves are untouched (ids, load functions, deep-links all intact) — only the rail entry
 // and the tab strip on top change. member → group is derived once.
@@ -6238,6 +6253,7 @@ function _renderGroupTabs(name) {
 function showAdminPanel(name) {
   // Guard: 'risk' / 'backups' / 'autoreports' / 'sso' / 'meridian' / 'infra' are super_admin-only — fall back to Users for everyone else.
   if ((name === 'risk' || name === 'backups' || name === 'autoreports' || name === 'sso' || name === 'meridian' || name === 'infra' || name === 'sla' || name === 'restore-drill' || name === 'asset-reminders' || name === 'teams-sla' || name === 'analytics-api') && currentUser?.role !== 'super_admin') name = 'users';
+  if (name === 'trash' && !_adminTier()) name = 'users';   // A-19 — restore is the admin tier
   if (!_ADMIN_PANEL_IDS[name]) name = 'users';
   document.querySelectorAll('#page-admin .admin-panel').forEach(p => p.classList.remove('active'));
   const _grp = _MEMBER_GROUP[name];
@@ -6261,6 +6277,7 @@ function showAdminPanel(name) {
   if (name === 'backups' && typeof loadBackupSchedule === 'function') loadBackupSchedule();
   // Fresh data when opening the Last restore drill card (E11).
   if (name === 'restore-drill' && typeof loadRestoreDrillCard === 'function') loadRestoreDrillCard();
+  if (name === 'trash' && typeof loadTrash === 'function') loadTrash();
   // Fresh data when opening Automated Reports (defaults to the Recipients tab).
   if (name === 'autoreports' && typeof loadAutoReports === 'function') loadAutoReports();
   // Fresh SMTP / addressing when opening the Email panel.
@@ -6319,6 +6336,8 @@ async function loadAdminPage() {
     if (bkRail) bkRail.style.display = isSuperAdmin ? '' : 'none';
     const rdRail = document.getElementById('admin-rail-restore-drill');
     if (rdRail) rdRail.style.display = isSuperAdmin ? '' : 'none';
+    const trRail = document.getElementById('admin-rail-trash');
+    if (trRail) trRail.style.display = _adminTier() ? '' : 'none';
     // Grouped rail items (WAN Link = infra+sla, Intégrations = sso+meridian, Envois = the
     // scheduled-email digests). The whole admin page is super_admin-only, so show them all.
     ['admin-rail-grp-wan', 'admin-rail-grp-integrations', 'admin-rail-grp-sends', 'admin-rail-grp-api'].forEach(id => {
@@ -6338,7 +6357,7 @@ async function loadAdminPage() {
     // A group name (#admin/wan) opens the group's first tab; a member name still deep-links.
     const sub = (location.hash.split('/')[1] || '').toLowerCase();
     if (PANEL_GROUPS[sub]) showAdminGroup(sub);
-    else showAdminPanel(['users','sessions','sites','departments','execview','email','backups','restore-drill','sso','meridian','infra','sla','risk','autoreports','assets-finance','assets-deprec','hygiene','scoreboard','weekly','asset-group','asset-reminders','teams-sla','analytics-api'].includes(sub) ? sub : 'users');
+    else showAdminPanel(['users','sessions','sites','departments','execview','email','backups','restore-drill','trash','sso','meridian','infra','sla','risk','autoreports','assets-finance','assets-deprec','hygiene','scoreboard','weekly','asset-group','asset-reminders','teams-sla','analytics-api'].includes(sub) ? sub : 'users');
 
     const deptUrl  = isExecOrSuper ? '/api/reports/departments?include_inactive=1' : '/api/reports/departments';
     const sitesUrl = isExecOrSuper ? '/api/reports/sites?include_inactive=1'        : '/api/reports/sites';
@@ -7075,6 +7094,27 @@ async function loadBackupSchedule() {
       ? d.restorePoints.map(p => '<tr><td>' + esc(p.name) + '</td><td>' + (p.sizeBytes/1048576).toFixed(1) + ' MB</td><td>' + esc((p.mtime||'').slice(0,16).replace('T',' ')) + '</td></tr>').join('')
       : '<tr><td colspan="3" style="color:#6b7a99">none yet</td></tr>';
   } catch (e) { st.textContent = 'Error: ' + e.message; }
+}
+// A-19 — Deleted records card: GET /api/admin/trash, restore through each row's restore_url (admin tier).
+async function loadTrash() {
+  const tb = document.getElementById('trash-rows'), st = document.getElementById('trash-status'), sel = document.getElementById('trash-module');
+  if (!tb) return;
+  try {
+    const mod = sel && sel.value ? sel.value : '';
+    const d = await api('GET', '/api/admin/trash' + (mod ? '?module=' + encodeURIComponent(mod) : ''));
+    if (sel && sel.options.length <= 1) (d.modules || []).forEach(m => { const o = document.createElement('option'); o.value = m; o.textContent = m; sel.appendChild(o); });
+    st.textContent = (d.enabled ? 'Soft delete ON' : 'Soft delete OFF (deletes are permanent)') + ' · retention ' + d.retention_days + ' days · purge ' + (d.purge_enabled ? 'armed' : 'off');
+    const rows = d.rows || [];
+    tb.innerHTML = rows.length ? rows.map(r => '<tr><td>' + esc(r.module) + (r.kind && r.kind !== r.module ? ' / ' + esc(r.kind) : '') + '</td><td>' + esc(r.label) + '</td><td>' + esc(r.site || '—') + '</td><td>'
+        + esc(String(r.deleted_at || '').slice(0, 16).replace('T', ' ')) + '</td><td>' + esc(r.deleted_by_name || (r.deleted_by == null ? '—' : '#' + r.deleted_by)) + '</td><td>' + esc(r.delete_reason || '—') + '</td><td>'
+        + (r.restorable ? '<button type="button" class="btn btn-secondary btn-sm" data-url="' + esc(r.restore_url) + '" onclick="restoreTrashRow(this)">Restore</button>' : '<span style="color:#b91c1c">past retention</span>') + '</td></tr>').join('')
+      : '<tr><td colspan="7" style="color:#6b7a99">Nothing deleted.</td></tr>';
+  } catch (e) { if (st) st.textContent = 'Error: ' + e.message; }
+}
+async function restoreTrashRow(btn) {
+  if (!confirm('Restore this record?')) return;
+  try { await api('POST', btn.dataset.url, {}); toast('Restored', 'success'); loadTrash(); }
+  catch (e) { toast('Restore failed: ' + e.message, 'error'); }
 }
 // E11 — Last restore drill card: date + result of the newest `restore_drill` system_log row.
 async function loadRestoreDrillCard() {

@@ -33,7 +33,8 @@ const SQL_MEETINGS = `
   SELECT m.id, m.reference, m.site_code, m.department, m.meeting_date,
          m.submitted_at, m.dept_head_signed_at, m.site_it_signed_at,
          m.next_meeting_date, m.priority_1, m.status, m.intake_source
-    FROM md_meetings m`;
+    FROM md_meetings m
+   WHERE m.deleted_at IS NULL`;
 
 // ⚠ LOAD-BEARING CAST (pg fork only): md_issues.updated_at is TIMESTAMPTZ while
 // every other date column this reader touches is TEXT. services/pgDb.js
@@ -54,30 +55,36 @@ const sqlIssues = (pg) => `
          i.champion, i.champion_email, i.title,
          ${(_ISSUE_UPDATED_AT.pg)} AS updated_at,
          m.site_code, m.meeting_date, m.department
-    FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id`;
+    FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id
+   WHERE m.deleted_at IS NULL`;
 
 const SQL_ACTIONS = `
   SELECT a.id, a.status, a.closed_at, a.target_date,
          m.site_code, m.meeting_date
-    FROM md_actions a JOIN md_meetings m ON m.id = a.meeting_id`;
+    FROM md_actions a JOIN md_meetings m ON m.id = a.meeting_id
+   WHERE m.deleted_at IS NULL`;
 
 const SQL_PROJECTS = `
   SELECT p.id, p.phase, p.target_end, m.site_code
-    FROM md_meeting_projects p JOIN md_meetings m ON m.id = p.meeting_id`;
+    FROM md_meeting_projects p JOIN md_meetings m ON m.id = p.meeting_id
+   WHERE m.deleted_at IS NULL`;
 
 const SQL_INSPECTIONS = `
   SELECT i.id, i.site_code, i.inspection_date, i.status
-    FROM insp_inspections i`;
+    FROM insp_inspections i
+   WHERE i.deleted_at IS NULL`;
 
 const SQL_FINDINGS = `
   SELECT f.status, f.category, i.site_code, i.inspection_date
-    FROM insp_findings f JOIN insp_inspections i ON i.id = f.inspection_id`;
+    FROM insp_findings f JOIN insp_inspections i ON i.id = f.inspection_id
+   WHERE i.deleted_at IS NULL`;
 
 // insp_actions has NO site_code column of its own (confirmed against the
 // schema) — it hangs off the inspection, hence the join.
 const SQL_INSP_ACTIONS = `
   SELECT a.id, a.status, a.priority, i.site_code
-    FROM insp_actions a JOIN insp_inspections i ON i.id = a.inspection_id`;
+    FROM insp_actions a JOIN insp_inspections i ON i.id = a.inspection_id
+   WHERE i.deleted_at IS NULL`;
 
 // ── Handle resolution ───────────────────────────────────────────────────────
 // `deps` may supply raw better-sqlite3 handles (that is how the fixture-equality

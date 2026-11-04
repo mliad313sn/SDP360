@@ -89,7 +89,7 @@ module.exports = function governanceRoleRoutes(deps) {
       if (!isSuper(actor)) {
         const holds = ((await store.snapshot()).assignments || []).some((a) => !a.ended_at && Number(a.user_id) === Number(b.user_id) && (!a.effective_to || String(a.effective_to).slice(0, 10) >= today()));
         let seat = false;
-        try { seat = !!(await rdb().pgHandle().prepare('SELECT 1 AS x FROM meeting_cadences WHERE active = 1 AND (chair_id = ? OR secretary_id = ?) LIMIT 1').get(Number(b.user_id), Number(b.user_id))); } catch (_) { seat = true; /* fail closed: unknown = super_admin decision */ }
+        try { seat = !!(await rdb().pgHandle().prepare('SELECT 1 AS x FROM meeting_cadences WHERE active = 1 AND deleted_at IS NULL AND (chair_id = ? OR secretary_id = ?) LIMIT 1').get(Number(b.user_id), Number(b.user_id))); } catch (_) { seat = true; /* fail closed: unknown = super_admin decision */ }
         if (isAdmin(who) || holds || seat) return res.status(403).json({ ok: false, code: 'SUPER_ADMIN_REQUIRED', error: 'only a super_admin names a deputy for an administrator, a governance role holder or a meeting chair / secretary' });
       }
       // a deputy works where the absent person works: shared site, or the admin tier (unscoped anyway)

@@ -147,6 +147,9 @@ function buildJobs(d) {
   // Step 10 — field outbox hygiene: ledger rows > 90 days and abandoned chunk uploads > 48 h (d.field = store, lazy).
   const fld = d.field || null;
   list.push({ name: 'field.purge', cron: '0 3 * * *', freshnessHours: 30, optional: true, job: legacyJob('field.purge', async () => fld ? { outbox: await fld.purgeOutbox({ days: 90 }), uploads: await fld.purgeUploads({ hours: 48 }) } : { skipped: true }) });
+  // A-19 — soft-delete purge: hard-deletes rows stamped deleted longer than soft_delete_retention_days (+ inspection
+  // blobs). Self-skips unless report_config soft_delete_purge_enabled = '1' (default '0' — PROPOSED policy, armed off).
+  list.push({ name: 'softdelete.purge', cron: '40 3 * * *', freshnessHours: 30, optional: true, job: legacyJob('softdelete.purge', () => softDeletePurgeRun(d), { maxAttempts: 1 }) });
   // G-18 — A01 / A02 escalation ledger. d.commitments.escalate self-skips while commitments_enabled != '1'.
   const cmt = d.commitments || null;
   const ho = d.handoffs || null;
@@ -157,20 +160,35 @@ function buildJobs(d) {
   return list;
 }
 
+/** A-19 — the softdelete.purge body (exported for the registry test): skipped unless armed, else purge + log counts. */
+async function softDeletePurgeRun(d = {}) {
+  const rdb = d.rdb || require('../../reports-db');
+  const softDelete = require('../softDelete');
+  const cfg = d.cfg || await softDelete.readConfig(rdb);
+  if (!softDelete.purgeEnabled(cfg)) return { skipped: true, reason: 'soft_delete_purge_enabled is 0' };
+  const out = await (d.softDeleteOps || require('../softDeleteOps')).purge({ apply: true, cfg });
+  const counts = Object.fromEntries(Object.entries(out.modules).map(([k, v]) => [k, v.purged]));
+  const rows = Object.values(counts).reduce((n, x) => n + x, 0);
+  for (const [mod, n] of Object.entries(counts)) if (n > 0) rdb.logEvent({ category: mod, action: `${mod}_purged`, target: 'softdelete.purge', details: { purged: n, cutoff: out.cutoff, retention_days: out.retention_days } });
+  const skipped = Object.values(out.modules).flatMap((v) => v.skipped || []);   // e.g. A-27 baselined projects (append-only)
+  if (skipped.length) rdb.logEvent({ category: 'portfolio', action: 'portfolio_purge_skipped', target: 'softdelete.purge', details: { skipped } });
+  return { rows, purged: counts, skipped, cutoff: out.cutoff };
+}
+
 // Declared freshness per job — read by routes/sync.js without needing the live deps.
 const FRESHNESS_HOURS = {
   'zoho.requests': 3, 'zoho.change_cab': 3, 'zoho.survey': 3, 'assets.sync': 30,
   'meridian.resources': 30, 'opmanager.availability': 30, 'meraki.wan': 30, 'meraki.wan_events': 30,
   'meraki.wan_events_5m': 1, 'meraki.wan_poller': 1, 'teams.sla_poll': 1, 'db.backup': 30, 'db.restore_drill': 24 * 33, 'audit.retention': 30, 'audit.chain_verify': 30,
-  'engagement.alerts': 1, 'engagement.digest': 30, 'engagement.digest_weekly': 24 * 8, 'reports.weekly': 24 * 8, 'reports.monthly': 24 * 32, 'publish.connectors': 30, 'field.purge': 30,
+  'engagement.alerts': 1, 'engagement.digest': 30, 'engagement.digest_weekly': 24 * 8, 'reports.weekly': 24 * 8, 'reports.monthly': 24 * 32, 'publish.connectors': 30, 'field.purge': 30, 'softdelete.purge': 30,
   'commitments.escalate': 3, 'handoffs.escalate': 3, 'governance.ppm_alerts': 30,
 };
 // Jobs that self-skip until configured (no API key / webhook) — never reported "stale", only "idle".
 const OPTIONAL = new Set(['meridian.resources', 'opmanager.availability', 'meraki.wan', 'meraki.wan_events', 'meraki.wan_events_5m', 'meraki.wan_poller', 'teams.sla_poll', 'db.backup', 'db.restore_drill',
-  'engagement.alerts', 'engagement.digest', 'engagement.digest_weekly', 'reports.weekly', 'reports.monthly', 'publish.connectors', 'field.purge', 'commitments.escalate', 'handoffs.escalate', 'governance.ppm_alerts']);
+  'engagement.alerts', 'engagement.digest', 'engagement.digest_weekly', 'reports.weekly', 'reports.monthly', 'publish.connectors', 'field.purge', 'softdelete.purge', 'commitments.escalate', 'handoffs.escalate', 'governance.ppm_alerts']);
 
 // Map the legacy sync_metadata job names onto the registry names (one health view, D7).
 const LEGACY_NAMES = { requests: 'zoho.requests', change_cab: 'zoho.change_cab', survey: 'zoho.survey',
   assets_assets: 'assets.sync', assets_memory: 'assets.sync', assets_logical_drives: 'assets.sync', assets_monitors: 'assets.sync', assets_software_licenses: 'assets.sync', assets_software: 'assets.sync' };
 
-module.exports = { legacyJob, buildJobs, rowsOf, FRESHNESS_HOURS, OPTIONAL, LEGACY_NAMES };
+module.exports = { legacyJob, buildJobs, rowsOf, FRESHNESS_HOURS, OPTIONAL, LEGACY_NAMES, softDeletePurgeRun };

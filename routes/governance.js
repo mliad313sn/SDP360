@@ -194,6 +194,8 @@ module.exports = function governanceRoutes(deps) {
     } catch (e) { fail(res, e); }
   });
 
+  // A-19c — soft delete when report_config soft_delete_enabled = '1' (default '0' = today's hard delete). Restore: routes/softDelete.js.
+  const _softDelete = async (req) => { const SD = require('../services/softDelete'); return SD.isEnabled(await SD.readConfig(rdb())) ? { soft: true, user: req.reportUser, reason: (req.body && req.body.reason) || req.query.reason || null } : {}; };
   // ---- cadences ---------------------------------------------------------------------------
   // Chair / secretary picker for the cadence form (committee field review): names, never typed ids.
   router.get('/api/governance/people', requireReportSession, async (req, res) => {
@@ -207,7 +209,7 @@ module.exports = function governanceRoutes(deps) {
   });
   router.get('/api/governance/cadences', requireReportSession, async (req, res) => { try { const ids = await scopeIds(req.reportUser); const sites = ((await rdb().listSites({ includeInactive: false })) || []).filter(s => !ids || ids.includes(Number(s.id))).map(s => ({ id: s.id, name: s.name })); res.json({ ok: true, committee: isCommittee(req.reportUser), sites, cadences: (await store.listCadences({ siteIds: ids, includeInactive: isCommittee(req.reportUser) })).filter(c => seesCadence(req.reportUser, c)) }); } catch (e) { fail(res, e); } });
   router.put('/api/governance/cadences', requireReportSession, requireCommittee, json, async (req, res) => { try { const c = await store.saveCadence(req.body, { user: req.reportUser }); log(req, 'cadence_saved', c.key); res.json({ ok: true, cadence: c }); } catch (e) { fail(res, e); } });
-  router.delete('/api/governance/cadences/:id', requireReportSession, requireCommittee, async (req, res) => { try { await store.removeCadence(req.params.id); log(req, 'cadence_removed', req.params.id); res.json({ ok: true }); } catch (e) { fail(res, e); } });
+  router.delete('/api/governance/cadences/:id', requireReportSession, requireCommittee, async (req, res) => { try { const soft = await _softDelete(req); await store.removeCadence(req.params.id, soft); log(req, soft.soft ? 'cadence_soft_deleted' : 'cadence_removed', req.params.id); res.json({ ok: true, soft: !!soft.soft }); } catch (e) { fail(res, e); } });
   router.post('/api/governance/cadences/:id/sessions', requireReportSession, json, async (req, res) => {
     try {
       const cad = await store.getCadence(req.params.id); if (!cad) return res.status(404).json({ ok: false, error: 'cadence not found' });
@@ -563,7 +565,7 @@ module.exports = function governanceRoutes(deps) {
     try { const pid = await store.rfiToProject(req.params.id, req.body || {}, { user: req.reportUser }); log(req, 'rfi_to_project', `rfi:${req.params.id}`, { project_id: pid }); res.json({ ok: true, project_id: pid }); }
     catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.project_id ? { project_id: e.project_id } : {}) }); }
   });
-  router.delete('/api/governance/portfolio/:kind/:id', requireReportSession, (req, res, next) => (PLAN_KINDS.includes(req.params.kind) ? next() : requireCommittee(req, res, next)), async (req, res) => { try { if (PLAN_KINDS.includes(req.params.kind) && await refusePlanWrite(req, res, req.params.kind, { id: Number(req.params.id) })) return; await store.removePortfolio(req.params.kind, req.params.id, { user: req.reportUser }); log(req, 'portfolio_removed', `${req.params.kind}:${req.params.id}`); res.json({ ok: true }); } catch (e) { fail(res, e); } });
+  router.delete('/api/governance/portfolio/:kind/:id', requireReportSession, (req, res, next) => (PLAN_KINDS.includes(req.params.kind) ? next() : requireCommittee(req, res, next)), async (req, res) => { try { if (PLAN_KINDS.includes(req.params.kind) && await refusePlanWrite(req, res, req.params.kind, { id: Number(req.params.id) })) return; const soft = await _softDelete(req); await store.removePortfolio(req.params.kind, req.params.id, { user: req.reportUser, ...soft }); log(req, soft.soft ? 'portfolio_soft_deleted' : 'portfolio_removed', `${req.params.kind}:${req.params.id}`); res.json({ ok: true, soft: !!soft.soft }); } catch (e) { fail(res, e); } });
   router.get('/api/governance/portfolio/report.html', requireReportSession, async (req, res) => {
     try { const v0 = (await viewFor(req.reportUser)).v; const v = canSeeMoney(req.reportUser) ? v0 : stripMoney(v0); const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
       const month = new Date().toISOString().slice(0, 7);

@@ -97,6 +97,8 @@ async function initPgMeetings() {              // called once at server boot
   // 2026-09 Business Incubation (parity with the sqlite path): additive column on an
   // existing table + the intake_source code (the seed only fires on an empty DB).
   await _pg.exec(`ALTER TABLE md_meetings ADD COLUMN IF NOT EXISTS incubation_json TEXT`);
+  // A-19b — soft-delete columns every reader filters on (idempotent; the migrator applies the same file).
+  await _pg.exec(require('fs').readFileSync(require('path').join(__dirname, 'db', 'postgres', 'meetings', '051_soft_delete.sql'), 'utf8'));
   await _pg.prepare(`INSERT INTO md_intake_sources (code, name_en, name_fr, color, display_order, active)
                      VALUES ('business_incubation', 'Business Incubation', 'Incubation métier', '#0D9488', 4, 1)
                      ON CONFLICT (code) DO NOTHING`).run();
@@ -216,7 +218,7 @@ async function _loadLookupsPg() {
 
 // Shared WHERE-builder for listMeetings/countMeetings (named @params; ILIKE for q).
 function _meetingsWhere(opts) {
-  const where = [], params = {};
+  const where = ['m.deleted_at IS NULL'], params = {};   // A-19b — always first: soft-deleted PVs never list
   if (opts.site)       { where.push(_siteClause('m.site_code', opts.site, params, 'eq')); }
   if (opts.department) { where.push('m.department = @department'); params.department = opts.department; }
   if (opts.status)     { where.push('m.status = @status');         params.status = opts.status; }
@@ -228,7 +230,7 @@ function _meetingsWhere(opts) {
     where.push('(m.reference ILIKE @q OR m.department_head ILIKE @q OR m.site_it_lead ILIKE @q OR m.priority_1 ILIKE @q OR m.priority_2 ILIKE @q OR m.priority_3 ILIKE @q)');
     params.q = '%' + opts.q + '%';
   }
-  return { w: where.length ? 'WHERE ' + where.join(' AND ') : '', params };
+  return { w: 'WHERE ' + where.join(' AND '), params };
 }
 async function _listMeetingsPg(opts = {}) {
   const { w, params } = _meetingsWhere(opts);
@@ -252,7 +254,7 @@ async function _countMeetingsPg(opts = {}) {
 }
 async function _getMeetingPg(id) {
   const h = pgHandle();
-  const header = await h.prepare('SELECT * FROM md_meetings WHERE id = ?').get(id);
+  const header = await h.prepare('SELECT * FROM md_meetings WHERE deleted_at IS NULL AND id = ?').get(id);
   if (!header) return null;
   if (header.incubation_json) { try { header.incubation = JSON.parse(header.incubation_json); } catch (e) { header.incubation = null; } }
   const projects = await h.prepare('SELECT * FROM md_meeting_projects WHERE meeting_id = ? ORDER BY ord, id').all(id);
@@ -297,12 +299,12 @@ async function _lockMeetingShared(H, meetingId) {
   if (meetingId != null) await H.prepare('SELECT id FROM md_meetings WHERE id = ? FOR SHARE').get(meetingId);
 }
 async function _getMeetingStatusPg(id) {
-  const row = await pgHandle().prepare('SELECT status, site_code, department_head FROM md_meetings WHERE id = ?').get(id);
+  const row = await pgHandle().prepare('SELECT status, site_code, department_head FROM md_meetings WHERE deleted_at IS NULL AND id = ?').get(id);
   return row || null;
 }
 async function _getMeetingIdByReferencePg(reference) {
   if (!reference) return null;
-  const row = await pgHandle().prepare('SELECT id FROM md_meetings WHERE reference = ?').get(String(reference).trim());
+  const row = await pgHandle().prepare('SELECT id FROM md_meetings WHERE deleted_at IS NULL AND reference = ?').get(String(reference).trim());
   return row ? row.id : null;
 }
 
@@ -349,6 +351,7 @@ function setMeetingIncubation(id, incubation) {
  * @returns {{id, reference, created}}
  */
 const { typed: _typedErr } = require('./services/httpError');
+const softDelete = require('./services/softDelete');   // A-19b
 const _isIncubation = (h) => String((h && h.intake_source) || '') === 'business_incubation';
 // Actions upsert helper (F2, 2026-09-06): the closure stamp for one incoming action row.
 //   terminal status  → keep the existing closed_at if the row already had one, else stamp now
@@ -406,6 +409,9 @@ async function _saveMeetingPg(state, userSiteCode, userId) {
       if (exist) id = exist.id;
     }
   }
+  // A-19b — md_meetings.reference is UNIQUE and a PV resolves by id, reference or the month fallback: a save
+  // matching a soft-deleted PV must neither silently update (resurrect) it nor collide with it.
+  if (exist && exist.deleted_at) throw softDelete.deletedConflict('PV', exist);
   if (userSiteCode) {
     const existingSite = exist && exist.site_code;
     const incomingSite = h.site_code || null;
@@ -640,7 +646,7 @@ function signMeeting(id, which, opts = {}) {
 async function _signMeetingPg(id, col, which, opts = {}) {
   const H   = pgHandle();
   const mid = parseInt(id, 10);
-  const exist = await H.prepare('SELECT id FROM md_meetings WHERE id = ?').get(mid);
+  const exist = await H.prepare('SELECT id FROM md_meetings WHERE deleted_at IS NULL AND id = ?').get(mid);
   if (!exist) throw new Error('Meeting not found');
   const now = new Date().toISOString().replace('T', ' ').slice(0, 19);
   // UAT F-02: who stamped it, and on whose behalf (first stamp wins, like the timestamp)
@@ -655,7 +661,7 @@ async function _signMeetingPg(id, col, which, opts = {}) {
            updated_at = now()
      WHERE id = @id
   `).run({ now, id: mid, by, behalf });
-  return H.prepare(`SELECT dept_head_signed_at, site_it_signed_at, dept_head_signed_by, site_it_signed_by, dept_head_signed_on_behalf, site_it_signed_on_behalf FROM md_meetings WHERE id = ?`).get(mid);
+  return H.prepare(`SELECT dept_head_signed_at, site_it_signed_at, dept_head_signed_by, site_it_signed_by, dept_head_signed_on_behalf, site_it_signed_on_behalf FROM md_meetings WHERE deleted_at IS NULL AND id = ?`).get(mid);
 }
 
 // ── Async postgres forks: issue/action updates + parents (Chunk 2) ──────────
@@ -680,7 +686,7 @@ async function _addIssueUpdatePg(issueId, opts = {}) {
   });
 }
 async function _listIssuesPg(opts = {}) {
-  const where = [], params = {};
+  const where = ['m.deleted_at IS NULL'], params = {};   // A-19b
   if (opts.site)        { where.push(_siteClause('m.site_code', opts.site, params, 'eq')); }
   if (opts.department)  { where.push('m.department = @department'); params.department = opts.department; }
   if (opts.category)    { where.push('i.category = @category');     params.category = opts.category; }
@@ -694,7 +700,7 @@ async function _listIssuesPg(opts = {}) {
     where.push('(i.title ILIKE @q OR i.description ILIKE @q OR i.champion ILIKE @q OR i.affects ILIKE @q)');
     params.q = '%' + opts.q + '%';
   }
-  const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
+  const w = 'WHERE ' + where.join(' AND ');
   params.limit = opts.limit || 500; params.offset = opts.offset || 0;
   return pgHandle().prepare(`
     SELECT i.*, m.reference AS meeting_reference, m.site_code AS site_code, m.department AS department,
@@ -727,11 +733,11 @@ async function _listActionUpdatesPg(actionId) {
 }
 async function _getIssueParentPg(issueId) {
   return (await pgHandle().prepare(`SELECT m.id AS id, m.site_code AS site_code, m.status AS status
-      FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id WHERE i.id = ?`).get(issueId)) || null;
+      FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id WHERE m.deleted_at IS NULL AND i.id = ?`).get(issueId)) || null;
 }
 async function _getActionParentPg(actionId) {
   return (await pgHandle().prepare(`SELECT m.site_code AS site_code, m.status AS meeting_status
-      FROM md_actions a JOIN md_meetings m ON m.id = a.meeting_id WHERE a.id = ?`).get(actionId)) || null;
+      FROM md_actions a JOIN md_meetings m ON m.id = a.meeting_id WHERE m.deleted_at IS NULL AND a.id = ?`).get(actionId)) || null;
 }
 
 /**
@@ -758,9 +764,9 @@ async function exportRows(opts = {}) {
   // every code of the account; binding the array as one value broke the export).
   const codes = (Array.isArray(opts.site) ? opts.site : (opts.site ? [opts.site] : [])).filter(Boolean);
   const inList = codes.length ? ` IN (${codes.map(() => '?').join(',')})` : '';
-  const wm = codes.length ? ' WHERE m.site_code' + inList : '';
+  const wm = ' WHERE m.deleted_at IS NULL' + (codes.length ? ' AND m.site_code' + inList : '');   // A-19b
   const p  = codes;
-  const meetings = await H.prepare(`SELECT * FROM md_meetings${codes.length ? ' WHERE site_code' + inList : ''} ORDER BY meeting_date DESC, id`).all(...p);
+  const meetings = await H.prepare(`SELECT * FROM md_meetings WHERE deleted_at IS NULL${codes.length ? ' AND site_code' + inList : ''} ORDER BY meeting_date DESC, id`).all(...p);
   const issues = await H.prepare(`
     SELECT iss.*, m.reference AS meeting_reference, m.site_code AS site_code,
            m.department AS department, m.meeting_date AS meeting_date
@@ -780,7 +786,7 @@ async function exportRows(opts = {}) {
 }
 
 async function _listActionsPg(opts = {}) {
-  const where = [], params = {};
+  const where = ['m.deleted_at IS NULL'], params = {};   // A-19b
   if (opts.site)       { where.push(_siteClause('m.site_code', opts.site, params, 'lower')); }
   if (opts.department) { where.push('lower(m.department) = lower(@department)'); params.department = opts.department; }
   if (opts.status)     { where.push('a.status = @status');                       params.status = opts.status; }
@@ -789,7 +795,7 @@ async function _listActionsPg(opts = {}) {
   if (opts.from)       { where.push('m.meeting_date >= @from'); params.from = opts.from; }
   if (opts.to)         { where.push('m.meeting_date <= @to');   params.to = opts.to; }
   if (opts.q)          { where.push('(a.description ILIKE @q OR a.owner_it ILIKE @q OR a.owner_email ILIKE @q)'); params.q = '%' + opts.q + '%'; }
-  const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
+  const w = 'WHERE ' + where.join(' AND ');
   params.limit = opts.limit || 1000; params.offset = opts.offset || 0;
   return pgHandle().prepare(`
     SELECT a.*, m.reference AS meeting_reference, m.site_code AS site_code, m.department AS department,
@@ -866,7 +872,7 @@ async function _insightsPg(opts = {}) {
       SUM(CASE WHEN i.escalate = 1                     THEN 1 ELSE 0 END) AS escalated
     FROM md_meetings m
     LEFT JOIN md_issues i ON i.meeting_id = m.id
-    WHERE m.meeting_date BETWEEN @from AND @to ${extraW}
+    WHERE m.deleted_at IS NULL AND m.meeting_date BETWEEN @from AND @to ${extraW}
     GROUP BY substr(m.meeting_date,1,7)
     ORDER BY month ASC
   `).all(params);
@@ -879,7 +885,7 @@ async function _insightsPg(opts = {}) {
       m.site_code                       AS site,
       COUNT(*)                          AS n
     FROM md_meetings m
-    WHERE m.meeting_date BETWEEN @from AND @to ${extraW}
+    WHERE m.deleted_at IS NULL AND m.meeting_date BETWEEN @from AND @to ${extraW}
     GROUP BY substr(m.meeting_date,1,7), m.site_code
     ORDER BY month ASC, m.site_code ASC
   `).all(params);
@@ -893,7 +899,7 @@ async function _insightsPg(opts = {}) {
       SUM(CASE WHEN i.escalate = 1      THEN 1 ELSE 0 END)          AS esc_n
     FROM md_issues i
     JOIN md_meetings m ON m.id = i.meeting_id
-    WHERE m.meeting_date BETWEEN @from AND @to ${extraW}
+    WHERE m.deleted_at IS NULL AND m.meeting_date BETWEEN @from AND @to ${extraW}
     GROUP BY i.category
     ORDER BY n DESC
     LIMIT 12
@@ -904,7 +910,7 @@ async function _insightsPg(opts = {}) {
     SELECT i.severity AS severity, COUNT(*) AS n
     FROM md_issues i
     JOIN md_meetings m ON m.id = i.meeting_id
-    WHERE m.meeting_date BETWEEN @from AND @to ${extraW}
+    WHERE m.deleted_at IS NULL AND m.meeting_date BETWEEN @from AND @to ${extraW}
     GROUP BY i.severity
   `).all(params);
 
@@ -915,7 +921,7 @@ async function _insightsPg(opts = {}) {
       COUNT(*) AS n
     FROM md_issues i
     JOIN md_meetings m ON m.id = i.meeting_id
-    WHERE m.meeting_date BETWEEN @from AND @to ${extraW} AND i.escalate = 1
+    WHERE m.deleted_at IS NULL AND m.meeting_date BETWEEN @from AND @to ${extraW} AND i.escalate = 1
     GROUP BY theme
     ORDER BY n DESC
   `).all(params);
@@ -929,7 +935,7 @@ async function _insightsPg(opts = {}) {
                 AND (m.submitted_at::timestamptz - m.meeting_date::timestamptz) <= interval '2 days'
                THEN 1 ELSE 0 END) AS diffused_48h
     FROM md_meetings m
-    WHERE m.meeting_date BETWEEN @from AND @to ${extraW}
+    WHERE m.deleted_at IS NULL AND m.meeting_date BETWEEN @from AND @to ${extraW}
     GROUP BY m.site_code
   `).all(params);
 
@@ -941,7 +947,7 @@ async function _insightsPg(opts = {}) {
                THEN 1 ELSE 0 END) AS actions_with_champion
     FROM md_actions a
     JOIN md_meetings m ON m.id = a.meeting_id
-    WHERE m.meeting_date BETWEEN @from AND @to ${extraW}
+    WHERE m.deleted_at IS NULL AND m.meeting_date BETWEEN @from AND @to ${extraW}
     GROUP BY m.site_code
   `).all(params);
 
@@ -954,7 +960,7 @@ async function _insightsPg(opts = {}) {
                THEN 1 ELSE 0 END) AS escalated_complete
     FROM md_issues i
     JOIN md_meetings m ON m.id = i.meeting_id
-    WHERE m.meeting_date BETWEEN @from AND @to ${extraW} AND i.escalate = 1
+    WHERE m.deleted_at IS NULL AND m.meeting_date BETWEEN @from AND @to ${extraW} AND i.escalate = 1
     GROUP BY m.site_code
   `).all(params);
 
@@ -993,7 +999,7 @@ async function _insightsPg(opts = {}) {
                 AND i.status NOT IN ('resolved','cancelled','closed','demand','helpdesk_ticket') THEN 1 ELSE 0 END) AS overdue
     FROM md_meetings m
     LEFT JOIN md_issues i ON i.meeting_id = m.id
-    WHERE m.meeting_date BETWEEN @from AND @to ${extraW}
+    WHERE m.deleted_at IS NULL AND m.meeting_date BETWEEN @from AND @to ${extraW}
     GROUP BY m.site_code
     ORDER BY meetings DESC, site ASC
   `).all(params);
@@ -1075,12 +1081,12 @@ function compliance(opts = {}) {
 // ── Async postgres forks: aggregate + compliance (Chunk 2) ──────────────────
 async function _aggregatePg(opts = {}) {
   const H = pgHandle();
-  const where = [], params = {};
+  const where = ['m.deleted_at IS NULL'], params = {};   // A-19b
   if (opts.site)       { where.push(_siteClause('m.site_code', opts.site, params, 'eq')); }
   if (opts.department) { where.push('m.department = @department'); params.department = opts.department; }
   if (opts.from)       { where.push('m.meeting_date >= @from');    params.from = opts.from; }
   if (opts.to)         { where.push('m.meeting_date <= @to');      params.to = opts.to; }
-  const w = where.length ? 'WHERE ' + where.join(' AND ') : '';
+  const w = 'WHERE ' + where.join(' AND ');
   const meetings = await H.prepare(`SELECT COUNT(*) AS total_meetings,
       SUM(CASE WHEN m.status='draft' THEN 1 ELSE 0 END) AS draft_count,
       SUM(CASE WHEN m.status='submitted' THEN 1 ELSE 0 END) AS submitted_count,
@@ -1112,19 +1118,44 @@ async function _compliancePg(opts = {}) {
   const per_site = await H.prepare(`SELECT m.site_code, COUNT(*) AS meetings_this_month,
       SUM(CASE WHEN m.submitted_at IS NOT NULL AND (m.submitted_at::timestamptz - m.meeting_date::timestamptz) <= interval '2 days' THEN 1 ELSE 0 END) AS diffused_in_48h,
       SUM(CASE WHEN m.status IN ('signed','closed') THEN 1 ELSE 0 END) AS signed_count
-      FROM md_meetings m WHERE m.meeting_date BETWEEN ? AND ? GROUP BY m.site_code ORDER BY m.site_code`).all(monthFirst, monthLast);
+      FROM md_meetings m WHERE m.deleted_at IS NULL AND m.meeting_date BETWEEN ? AND ? GROUP BY m.site_code ORDER BY m.site_code`).all(monthFirst, monthLast);
   const actions = await H.prepare(`SELECT COUNT(*) AS total_actions,
       SUM(CASE WHEN a.owner_it IS NULL OR TRIM(a.owner_it)='' THEN 1 ELSE 0 END) AS actions_without_champion
-      FROM md_actions a JOIN md_meetings m ON m.id=a.meeting_id WHERE m.meeting_date BETWEEN ? AND ?`).get(monthFirst, monthLast);
+      FROM md_actions a JOIN md_meetings m ON m.id=a.meeting_id WHERE m.deleted_at IS NULL AND m.meeting_date BETWEEN ? AND ?`).get(monthFirst, monthLast);
   const escalations = await H.prepare(`SELECT COUNT(*) AS total_escalated,
       SUM(CASE WHEN i.escalation_reason IS NULL OR TRIM(i.escalation_reason)='' THEN 1 ELSE 0 END) AS missing_reason,
       SUM(CASE WHEN i.council_theme IS NULL OR TRIM(i.council_theme)='' THEN 1 ELSE 0 END) AS missing_theme
-      FROM md_issues i JOIN md_meetings m ON m.id=i.meeting_id WHERE m.meeting_date BETWEEN ? AND ? AND i.escalate=1`).get(monthFirst, monthLast);
+      FROM md_issues i JOIN md_meetings m ON m.id=i.meeting_id WHERE m.deleted_at IS NULL AND m.meeting_date BETWEEN ? AND ? AND i.escalate=1`).get(monthFirst, monthLast);
   return { month, per_site, actions, escalations };
 }
 
-function deleteMeeting(id) {
+// A-19b — opts.soft (route: softDelete.isEnabled(cfg)) stamps deleted_at/by/reason; the PV keeps its issues /
+// actions / projects (so action_items.origin_id references still resolve after a restore). Without it: today's
+// hard delete (children by FK CASCADE).
+function deleteMeeting(id, opts = {}) {
+  if (opts && opts.soft) return softDelete.stamp(pgHandle(), 'md_meetings', Number(id), { by: opts.by, reason: opts.reason });
   return _deleteMeetingPg(id);
+}
+/** Stored PV header INCLUDING a deleted one (null when unknown) — restore checks + trash. */
+async function getMeetingTrashRow(id) {
+  const n = parseInt(id, 10); if (!Number.isFinite(n)) return null;
+  return (await pgHandle().prepare(`SELECT id, reference, site_code, department, meeting_date, status, deleted_at, deleted_by, delete_reason
+      FROM md_meetings WHERE id = ?`).get(n)) || null;
+}
+function listDeletedMeetings() {
+  return pgHandle().prepare(`SELECT id, reference, site_code, department, meeting_date, status, deleted_at, deleted_by, delete_reason
+      FROM md_meetings WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC`).all();
+}
+function restoreMeeting(id) { return softDelete.unstamp(pgHandle(), 'md_meetings', Number(id)); }
+/** Stamped PVs older than cutoffIso; apply=true hard-deletes them (children by FK CASCADE). */
+async function purgeDeletedMeetings(cutoffIso, { apply = false } = {}) {
+  const ids = (await pgHandle().prepare(`SELECT id FROM md_meetings WHERE deleted_at IS NOT NULL AND deleted_at < ? ORDER BY deleted_at`).all(cutoffIso)).map((r) => Number(r.id));
+  let purged = 0;
+  if (apply) for (const id of ids) {
+    const r = await pgHandle().prepare('DELETE FROM md_meetings WHERE id = ? AND deleted_at IS NOT NULL AND deleted_at < ?').run(id, cutoffIso);
+    if (r.changes > 0) purged++;
+  }
+  return { ids, purged };
 }
 
 
@@ -1260,10 +1291,10 @@ async function _previousMeetingPg(site_code, department, beforeDate) {
   if (!site_code || !department) return null;
   const H = pgHandle();
   if (beforeDate) {
-    return (await H.prepare(`SELECT * FROM md_meetings WHERE lower(site_code)=lower(?) AND lower(department)=lower(?) AND meeting_date < ?
+    return (await H.prepare(`SELECT * FROM md_meetings WHERE deleted_at IS NULL AND lower(site_code)=lower(?) AND lower(department)=lower(?) AND meeting_date < ?
       ORDER BY meeting_date DESC, id DESC LIMIT 1`).get(site_code, department, beforeDate)) || null;
   }
-  return (await H.prepare(`SELECT * FROM md_meetings WHERE lower(site_code)=lower(?) AND lower(department)=lower(?)
+  return (await H.prepare(`SELECT * FROM md_meetings WHERE deleted_at IS NULL AND lower(site_code)=lower(?) AND lower(department)=lower(?)
     ORDER BY meeting_date DESC, id DESC LIMIT 1`).get(site_code, department)) || null;
 }
 
@@ -1312,7 +1343,7 @@ async function _compareDepartmentPg(opts = {}) {
 
   let current = null;
   if (opts.current_id) {
-    current = await H.prepare('SELECT * FROM md_meetings WHERE id = ?').get(parseInt(opts.current_id, 10));
+    current = await H.prepare('SELECT * FROM md_meetings WHERE deleted_at IS NULL AND id = ?').get(parseInt(opts.current_id, 10));
     if (current && (current.site_code !== site_code || current.department !== department)) {
       throw new Error(`Meeting #${opts.current_id} does not match site/department scope`);
     }
@@ -1324,7 +1355,7 @@ async function _compareDepartmentPg(opts = {}) {
   const standing = await H.prepare(`
     SELECT i.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
       FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id
-     WHERE m.site_code = ? AND m.department = ?
+     WHERE m.deleted_at IS NULL AND m.site_code = ? AND m.department = ?
        AND i.status NOT IN ('resolved','cancelled','closed','demand','helpdesk_ticket')
      ORDER BY
        CASE i.severity WHEN 'HIGH' THEN 0 WHEN 'MEDIUM' THEN 1 ELSE 2 END,
@@ -1335,7 +1366,7 @@ async function _compareDepartmentPg(opts = {}) {
   const resolved = await H.prepare(`
     SELECT i.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
       FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id
-     WHERE m.site_code = ? AND m.department = ?
+     WHERE m.deleted_at IS NULL AND m.site_code = ? AND m.department = ?
        AND i.status IN ('resolved','cancelled','closed','demand','helpdesk_ticket')
        AND (i.closed_at IS NULL OR substr(i.closed_at,1,10) > ?)
      ORDER BY i.closed_at DESC, i.id DESC
@@ -1344,7 +1375,7 @@ async function _compareDepartmentPg(opts = {}) {
   const newIssues = await H.prepare(`
     SELECT i.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
       FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id
-     WHERE m.site_code = ? AND m.department = ?
+     WHERE m.deleted_at IS NULL AND m.site_code = ? AND m.department = ?
        AND m.meeting_date > ?
      ORDER BY i.severity, i.id
   `).all(site_code, department, refDate);
@@ -1352,7 +1383,7 @@ async function _compareDepartmentPg(opts = {}) {
   const actions_standing = await H.prepare(`
     SELECT a.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
       FROM md_actions a JOIN md_meetings m ON m.id = a.meeting_id
-     WHERE m.site_code = ? AND m.department = ?
+     WHERE m.deleted_at IS NULL AND m.site_code = ? AND m.department = ?
        AND a.status NOT IN ('resolved','cancelled','closed','demand','helpdesk_ticket')
      ORDER BY
        CASE WHEN a.target_date IS NULL THEN 1 ELSE 0 END,
@@ -1361,7 +1392,7 @@ async function _compareDepartmentPg(opts = {}) {
   const actions_resolved = await H.prepare(`
     SELECT a.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
       FROM md_actions a JOIN md_meetings m ON m.id = a.meeting_id
-     WHERE m.site_code = ? AND m.department = ?
+     WHERE m.deleted_at IS NULL AND m.site_code = ? AND m.department = ?
        AND a.status IN ('resolved','cancelled','closed','demand','helpdesk_ticket')
        AND (a.closed_at IS NULL OR substr(a.closed_at,1,10) > ?)
      ORDER BY a.closed_at DESC, a.id DESC
@@ -1369,7 +1400,7 @@ async function _compareDepartmentPg(opts = {}) {
   const actions_new = await H.prepare(`
     SELECT a.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
       FROM md_actions a JOIN md_meetings m ON m.id = a.meeting_id
-     WHERE m.site_code = ? AND m.department = ?
+     WHERE m.deleted_at IS NULL AND m.site_code = ? AND m.department = ?
        AND m.meeting_date > ?
      ORDER BY a.id
   `).all(site_code, department, refDate);
@@ -1377,7 +1408,7 @@ async function _compareDepartmentPg(opts = {}) {
   const escalations = await H.prepare(`
     SELECT i.*, m.reference AS meeting_reference, m.meeting_date AS meeting_date, m.id AS meeting_id_ref
       FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id
-     WHERE m.site_code = ? AND m.department = ?
+     WHERE m.deleted_at IS NULL AND m.site_code = ? AND m.department = ?
        AND i.escalate = 1 AND i.status NOT IN ('resolved','cancelled','closed','demand','helpdesk_ticket')
      ORDER BY i.severity, i.id
   `).all(site_code, department);
@@ -1387,7 +1418,7 @@ async function _compareDepartmentPg(opts = {}) {
       FROM md_issue_updates u
       JOIN md_issues   i ON i.id = u.issue_id
       JOIN md_meetings m ON m.id = i.meeting_id
-     WHERE m.site_code = ? AND m.department = ?
+     WHERE m.deleted_at IS NULL AND m.site_code = ? AND m.department = ?
        AND u.created_at::date > ?::date
      ORDER BY u.created_at DESC, u.id DESC
      LIMIT 25
@@ -1396,7 +1427,7 @@ async function _compareDepartmentPg(opts = {}) {
   const meeting_history = await H.prepare(`
     SELECT id, reference, meeting_date, status, department_head, site_it_lead
       FROM md_meetings
-     WHERE site_code = ? AND department = ?
+     WHERE deleted_at IS NULL AND site_code = ? AND department = ?
      ORDER BY meeting_date DESC, id DESC LIMIT 6
   `).all(site_code, department);
 
@@ -1458,7 +1489,7 @@ async function _getSiteContactsPg(siteCode) {
   const rows = await pgHandle().prepare(`
     SELECT site_it_lead, department, department_head, meeting_date
       FROM md_meetings
-     WHERE lower(site_code) = lower(?) AND meeting_date::date >= (current_date - interval '6 months')
+     WHERE deleted_at IS NULL AND lower(site_code) = lower(?) AND meeting_date::date >= (current_date - interval '6 months')
      ORDER BY meeting_date DESC`).all(siteCode);
   return _pickContacts(rows);
 }
@@ -1514,7 +1545,7 @@ async function _getSiteScoreInputsPg(siteCode, from, to) {
   const H = pgHandle();
   const meetings = await H.prepare(
     `SELECT meeting_date, dept_head_signed_at, site_it_signed_at
-       FROM md_meetings WHERE lower(site_code) = lower(?)`).all(siteCode);
+       FROM md_meetings WHERE deleted_at IS NULL AND lower(site_code) = lower(?)`).all(siteCode);
   // ⚠ LOAD-BEARING CAST: md_issues.updated_at is TIMESTAMPTZ (every other date
   // column here is TEXT). pgDb registers type parsers only for NUMERIC/BIGINT,
   // so node-pg would hand back a JS Date and _d10 would yield 'Wed Jun 11' —
@@ -1527,11 +1558,11 @@ async function _getSiteScoreInputsPg(siteCode, from, to) {
             to_char(i.updated_at, 'YYYY-MM-DD HH24:MI:SS') AS updated_at,
             m.meeting_date
        FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id
-      WHERE lower(m.site_code) = lower(?)`).all(siteCode);
+      WHERE m.deleted_at IS NULL AND lower(m.site_code) = lower(?)`).all(siteCode);
   const actions = await H.prepare(
     `SELECT a.status, a.target_date, a.closed_at, m.meeting_date
        FROM md_actions a JOIN md_meetings m ON m.id = a.meeting_id
-      WHERE lower(m.site_code) = lower(?)`).all(siteCode);
+      WHERE m.deleted_at IS NULL AND lower(m.site_code) = lower(?)`).all(siteCode);
   return _computeMeetingsScoreInputs({ meetings, issues, actions }, { from, to });
 }
 
@@ -1566,7 +1597,7 @@ async function _getSiteMonthlyMeetingSummaryPg(siteCode, year, month) {
 
   const cad = await H.prepare(
     `SELECT COUNT(*) pvs, COUNT(DISTINCT department) depts
-       FROM md_meetings WHERE site_code=@site AND substr(meeting_date,1,7)=@ym`
+       FROM md_meetings WHERE deleted_at IS NULL AND site_code=@site AND substr(meeting_date,1,7)=@ym`
   ).get({ site: siteCode, ym });
 
   const iss = (await H.prepare(
@@ -1577,7 +1608,7 @@ async function _getSiteMonthlyMeetingSummaryPg(siteCode, year, month) {
         SUM(CASE WHEN substr(i.closed_at,1,7)=@ym THEN 1 ELSE 0 END)                   resolved_m,
         SUM(CASE WHEN to_char(i.created_at,'YYYY-MM')=@ym THEN 1 ELSE 0 END)           new_m
        FROM md_issues i JOIN md_meetings m ON m.id=i.meeting_id
-      WHERE m.site_code=@site`
+      WHERE m.deleted_at IS NULL AND m.site_code=@site`
   ).get({ site: siteCode, ym })) || {};
 
   // SEPARATE scalar queries (see the sqlite body) — never joined into the
@@ -1585,14 +1616,14 @@ async function _getSiteMonthlyMeetingSummaryPg(siteCode, year, month) {
   const sign = (await H.prepare(
     `SELECT COUNT(*) signed
        FROM md_meetings
-      WHERE site_code=@site AND substr(meeting_date,1,7)=@ym
+      WHERE deleted_at IS NULL AND site_code=@site AND substr(meeting_date,1,7)=@ym
         AND dept_head_signed_at IS NOT NULL AND site_it_signed_at IS NOT NULL`
   ).get({ site: siteCode, ym })) || {};
 
   const actOverdue = (await H.prepare(
     `SELECT COUNT(*) n
        FROM md_actions a JOIN md_meetings m ON m.id=a.meeting_id
-      WHERE m.site_code=@site
+      WHERE m.deleted_at IS NULL AND m.site_code=@site
         AND a.target_date IS NOT NULL AND a.target_date::date < current_date
         AND a.status NOT IN ('resolved','cancelled','closed','demand','helpdesk_ticket')`
   ).get({ site: siteCode })) || {};
@@ -1600,7 +1631,7 @@ async function _getSiteMonthlyMeetingSummaryPg(siteCode, year, month) {
   const deptMeet = await H.prepare(
     `SELECT department dept, MAX(meeting_date) last_pv,
             MAX(CASE WHEN substr(meeting_date,1,7)=@ym THEN 1 ELSE 0 END) pv_this_month
-       FROM md_meetings WHERE site_code=@site GROUP BY department`
+       FROM md_meetings WHERE deleted_at IS NULL AND site_code=@site GROUP BY department`
   ).all({ site: siteCode, ym });
   const deptIss = await H.prepare(
     `SELECT m.department dept,
@@ -1610,7 +1641,7 @@ async function _getSiteMonthlyMeetingSummaryPg(siteCode, year, month) {
             SUM(CASE WHEN substr(i.closed_at,1,7)=@ym THEN 1 ELSE 0 END)        resolved_m,
             SUM(CASE WHEN to_char(i.created_at,'YYYY-MM')=@ym THEN 1 ELSE 0 END) new_m
        FROM md_issues i JOIN md_meetings m ON m.id=i.meeting_id
-      WHERE m.site_code=@site GROUP BY m.department`
+      WHERE m.deleted_at IS NULL AND m.site_code=@site GROUP BY m.department`
   ).all({ site: siteCode, ym });
 
   const byDept = {};
@@ -1640,7 +1671,7 @@ async function _getSiteMonthlyMeetingSummaryPg(siteCode, year, month) {
       `SELECT
          SUM(CASE WHEN to_char(i.created_at,'YYYY-MM')=@tym THEN 1 ELSE 0 END) o,
          SUM(CASE WHEN substr(i.closed_at,1,7)=@tym  THEN 1 ELSE 0 END) c
-        FROM md_issues i JOIN md_meetings m ON m.id=i.meeting_id WHERE m.site_code=@site`
+        FROM md_issues i JOIN md_meetings m ON m.id=i.meeting_id WHERE m.deleted_at IS NULL AND m.site_code=@site`
     ).get({ site: siteCode, tym })) || {};
     opened.push(row.o || 0); closed.push(row.c || 0);
   }
@@ -1683,6 +1714,7 @@ module.exports = {
   listMeetings, countMeetings, getMeeting, editToken, saveMeeting, setMeetingIncubation, addActionForIssue, deleteMeeting, getMeetingStatus, signMeeting,
   listIssues, listEscalations, addIssueUpdate,
   listActions, addActionUpdate, listActionUpdates, getActionParent, getIssueParent,
+  getMeetingTrashRow, listDeletedMeetings, restoreMeeting, purgeDeletedMeetings,
   exportRows,
   aggregate, compliance, insights,
   previousMeeting, compareDepartment,

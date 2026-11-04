@@ -7785,6 +7785,7 @@ app.use(require('./routes/obligations')({ express, requireReportSession, sendHtm
 let meetingsDb;
 try { meetingsDb = require('./meetings-db.js'); } catch (e) { console.error('[Meetings] ❌ meetings-db failed to load:', e.message); }
 app.use(require('./routes/meetings')({ express, rdb, inspectionDb, requireReportSession, requireRole }));
+app.use(require('./routes/softDelete')({ express, rdb, inspectionDb, requireReportSession, getGovStore: () => _govStore }));   // A-19 — restore + admin trash (soft_delete_enabled)
 app.use(require('./services/httpError').errorHandler); // M9 — final error handler: generic 5xx body + correlation id (mounted LAST)
 
 // ── START ─────────────────────────────────────────────────────────
