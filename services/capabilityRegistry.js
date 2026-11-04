@@ -23,7 +23,7 @@ const C = (id, en, fr, risk, resource, legacy, scope, extra = {}) => Object.free
 const CAPABILITIES = Object.freeze([
   // ── super_admin — platform settings and identity
   C('platform.identity.manage', 'Manage user accounts, roles and sessions', 'Gérer les comptes, rôles et sessions', 'critical', 'user', ['super_admin'], 'platform',
-    { requires_request: true, routes: ['/api/reports/users', '/api/reports/sessions'] }),
+    { requires_request: true, routes: ['/api/reports/users', '/api/reports/sessions', '/api/access/templates'] }),
   C('platform.audit_log.read', 'Read the system security log', 'Lire le journal de sécurité', 'high', 'system_log', ['super_admin'], 'platform',
     { routes: ['/api/reports/system-log'] }),
   C('platform.reference_data.manage', 'Manage reference codes and reset module lookups', 'Gérer les codes de référence et réinitialiser les listes', 'high', 'lookup', ['super_admin'], 'platform',

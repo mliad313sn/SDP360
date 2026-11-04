@@ -45,10 +45,21 @@ async function provisionFromGroups(rdb, user, claims, settings = {}, ip = null) 
   }
   try {
     const prov = require('./ssoProvisioning');
-    const plan = prov.planProvisioning(user, claims.groups, settings.groupMap);
+    let keepRoles = [];   // C-18 — roles held by an ACTIVE access grant survive the group map
+    const readGrants = settings.liveGrantRoles || (typeof rdb.pgHandle === 'function' ? (id) => require('./accessStore').forRdb(rdb).liveGrantRoles(id) : null);
+    if (readGrants) {
+      try { keepRoles = await readGrants(user.id); }
+      catch (e) {   // an unreadable grant table must not strip an approved access: no group provisioning this login
+        console.warn('[SSO] access grants unreadable — group provisioning skipped for this login:', e.message);
+        return { applied:false, overage:false, grants_unreadable:true };
+      }
+    }
+    const plan = prov.planProvisioning(user, claims.groups, settings.groupMap, { keepRoles });
     if (plan.changed) {
-      await rdb.updateUser(user.id, plan.patch);
-      rdb.logEvent({ category:'identity', action:'user_role_changed', actor:'sso', actor_id:user.id, target:user.username, details:{ via:'entra_group_map', ...plan.patch } });
+      // updateUser rewrites full_name / site_id / active from its arguments: carry the current values so a
+      // role-only patch does not null the name (NOT NULL → the update failed) nor clear the site (C-18 finding).
+      await rdb.updateUser(user.id, { full_name: user.full_name, site_id: user.site_id == null ? null : user.site_id, active: user.active == null ? 1 : user.active, ...plan.patch });
+      rdb.logEvent({ category:'identity', action:'user_role_changed', actor:'sso', actor_id:user.id, target:user.username, details:{ via:'entra_group_map', ...plan.patch, kept_by_grant: plan.kept || [] } });
     }
     return { applied: !!plan.changed, overage:false };
   } catch (e) { console.warn('[SSO] group provisioning skipped:', e.message); return { applied:false, overage:false }; }

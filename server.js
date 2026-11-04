@@ -1319,7 +1319,7 @@ function loadHtml(name) {
   'site-awareness.html', 'no-access.html',
   'assets.html', 'assets-hygiene.html', 'assets-finance.html', 'wan.html', 'wan-health.html', 'wan-sla.html', 'itsm-roadmap.html',
   'infra-health.html', 'itsm-integrations-plan.html',
-  'dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html', 'cockpit.html', 'portfolio.html', 'project.html', 'rfi.html', 'report-studio.html', 'notifications.html', 'integrations.html', 'commitments.html', 'handoffs.html', 'obligations.html', 'home.html', 'policies.html',
+  'dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html', 'cockpit.html', 'portfolio.html', 'project.html', 'rfi.html', 'report-studio.html', 'notifications.html', 'integrations.html', 'commitments.html', 'handoffs.html', 'obligations.html', 'home.html', 'policies.html', 'access.html',
 ].forEach(loadHtml);
 
 // Helper: build the per-request HTML, inject api-key + nonce, send. Pages
@@ -1432,7 +1432,7 @@ app.get('/assets.html', (req, res) => {
 app.get('/wan.html', (req, res) => {
   sendHtmlPage(res, 'wan.html', false, 'WAN unavailable');
 });
-for (const _p of ['dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html', 'cockpit.html', 'portfolio.html', 'project.html', 'rfi.html', 'report-studio.html', 'notifications.html', 'integrations.html', 'commitments.html', 'handoffs.html', 'obligations.html', 'policies.html']) app.get('/' + _p, (req, res) => sendHtmlPage(res, _p, false, 'Page unavailable'));
+for (const _p of ['dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html', 'cockpit.html', 'portfolio.html', 'project.html', 'rfi.html', 'report-studio.html', 'notifications.html', 'integrations.html', 'commitments.html', 'handoffs.html', 'obligations.html', 'policies.html', 'access.html']) app.get('/' + _p, (req, res) => sendHtmlPage(res, _p, false, 'Page unavailable'));
 app.get('/wan-health.html', (req, res) => {
   sendHtmlPage(res, 'wan-health.html', false, 'WAN Health unavailable');
 });
@@ -7773,7 +7773,7 @@ app.use(require('./routes/teamsSla')({ express, requireReportSession, requireSup
 app.use(require('./routes/sync')({ express, requireReportSession }));
 // Step 3 — KPI dictionary: GET /api/metrics/registry, GET /api/metrics/:key?site=&window=.
 app.use(require('./routes/metrics')({ express, requireReportSession }));
-app.use(require('./routes/access')({ express, requireReportSession }));   // C-17 why-denied
+app.use(require('./routes/access')({ express, requireReportSession }));   // C-17 why-denied · C-18 requests, approvals, templates, grants
 // Step 6 — dashboard definitions (composer) + one-call data resolver (store seeded in routes/dashboards.createStore).
 const _dashStore = require('./routes/dashboards').createStore(require('./reports-db'));
 app.use(require('./routes/dashboards')({ express, requireReportSession, store: _dashStore }));

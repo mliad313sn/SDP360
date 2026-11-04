@@ -61,6 +61,8 @@ planned switch cannot be set before its goal lands.
 | `ppm_baseline_versions` | built | `0` | `1` | Committee | A-27 |
 | `roadmap_redirect_to_portfolio` | built | `0` | `0` during the pilot; `1` only after one clean parity cycle (`tools/governance/roadmap-parity.js`) | PMO + PO (deletion of roadmap data: CAB) | B-09 |
 | `authz_capability_mode` | built | `off` | `shadow` (log divergences only; `enforce` is not wired — route-by-route plan in `docs/agent-execution/C-17.md`) | Security owner | C-17 |
+| `access_require_approval` | built | `0` | `1` once the approver rule and the requires_request list are decided (break-glass stays possible, logged risk=1) | Security owner + Owner (approver matrix) | C-18 |
+| `access_grant_expiry_job` | built | `0` | `1` (ends expired grants nightly; a role held before the grant or by another live grant stays) | Security owner | C-18 |
 
 Not in this table because they are not top-level `report_config` keys:
 
