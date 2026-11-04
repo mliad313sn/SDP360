@@ -14,6 +14,7 @@
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
 <script src="vendor/chart.js/4.4.1/chart.umd.js" defer></script>
 <script src="lib/chartTheme.js" defer></script>
+<script src="lib/pageHead.js"></script>
 
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <style nonce="%%CSP_NONCE%%">
@@ -131,6 +132,9 @@ W.defaults=O.defaults;window.Chart=W;});
     <span data-lng="en">Per-site availability across WAN, LAN, WLAN and Servers, cumulated from the archived snapshots — with RAG, month-over-month trend, a trend chart and coverage/governance. WAN is shown as two columns (WAN1 · WAN2): the links are redundant — each carries the whole site — so a single red uplink does not make the site's WAN red; the overall verdict uses the healthier link. Complements OpManager: this is the historical read, not live device status. WAN uplink detail lives on <a href="wan.html">WAN Health</a>.</span>
     <span data-lng="fr">Disponibilité par site pour le WAN, le LAN, le WLAN et les Serveurs, cumulée depuis les instantanés archivés — avec RAG, tendance mois sur mois, une courbe et couverture/gouvernance. Le WAN est présenté en deux colonnes (WAN1 · WAN2) : les liens sont redondants — chacun porte tout le site — donc un seul lien en rouge ne rend pas le WAN du site rouge ; le verdict global retient le meilleur lien. Complète OpManager : c'est la lecture historique, pas l'état des équipements en direct. Le détail des liens WAN est sur <a href="wan.html">WAN Health</a>.</span>
   </div>
+
+  <!-- C-10 — shared page head: question · scope · window · freshness -->
+  <div id="pageHead"></div>
 
   <!-- 1 — Freshness banner -->
   <div id="ih-freshness" class="ih-banner"></div>
@@ -304,6 +308,25 @@ W.defaults=O.defaults;window.Chart=W;});
     el.className = 'ih-banner' + (warn ? ' warn' : '');
   }
 
+  // C-10 — shared page head. Freshness = the snapshots' own dates (data_through_max, collected_at);
+  // a failed load or a missing date reads "unknown" / "never synced", never today's date.
+  function renderPageHead(data, failure) {
+    if (!window.PageHead) return;
+    const f = (data.fleet && data.fleet.freshness) || {};
+    const n = Array.isArray(data.sites) ? data.sites.length : 0;
+    window.PageHead.mount($('pageHead'), {
+      lang: curLang(),
+      question: { en: 'Is each site\'s infrastructure (WAN, LAN, WLAN, servers) available, and is that getting better or worse?',
+                  fr: 'L\'infrastructure de chaque site (WAN, LAN, WLAN, serveurs) est-elle disponible, et cela s\'améliore-t-il ?' },
+      scope: { en: 'Every site with archived availability snapshots (' + n + ' shown)', fr: 'Chaque site ayant des instantanés de disponibilité archivés (' + n + ' affichés)' },
+      window: period === 'month' ? { en: 'Last archived month', fr: 'Dernier mois archivé' } : { en: 'Last archived week', fr: 'Dernière semaine archivée' },
+      sources: failure ? [] : [
+        { label: { en: 'Snapshots through', fr: 'Instantanés jusqu\'au' }, at: f.data_through_max || null },
+        { label: { en: 'collected', fr: 'collecte' }, at: data.data_as_of || null },
+      ],
+    });
+  }
+
   // 2 — Per-family KPI tiles (green/amber/red/na distribution from fleet.by_family_counts)
   function renderFamTiles(fleet) {
     const counts = (fleet && fleet.by_family_counts) || {};
@@ -453,6 +476,7 @@ W.defaults=O.defaults;window.Chart=W;});
     // a server error and answered 200 with an empty matrix.
     var failure = data.error || data.reason || null;
     renderFreshness(data.fleet || {}, failure, data.data_as_of || null);
+    renderPageHead(data, failure);
     renderFamTiles(data.fleet || {});
     renderReadout(rows);
     renderMatrix(rows, failure);

@@ -11,6 +11,7 @@
 <script src="lib/chartTheme.js" defer></script>
 <script src="lib/charts.js" defer></script>
 <script src="lib/analyticsLogic.js"></script>
+<script src="lib/pageHead.js"></script>
 <style>
 /* ── EDV Design System adoption ────────────────────────────────────────
    Page-local aliases mapped onto the canonical _tokens.css palette.
@@ -177,6 +178,7 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text-1);min-h
 <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="_tokens.css">
 <link rel="stylesheet" href="_shell.css">
+<link rel="stylesheet" href="brand/components.css">
 <link rel="stylesheet" href="brand/icons.css">
 <script src="auth.js" data-require="admin|scorecard-viewer"></script>
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
@@ -260,6 +262,9 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text-1);min-h
 
 <!-- ── MAIN ── -->
 <div class="main">
+
+  <!-- C-10 — shared page head: question · scope · window · freshness -->
+  <div id="pageHead"></div>
 
   <!-- Sync status bar -->
   <div class="sync-panel" id="syncPanel">
@@ -708,11 +713,26 @@ function updateFreshness(section, data) {
 
 // ── SYNC STATUS ──────────────────────────────────────────────────
 
+// C-10 — the shared page head. Freshness = the last successful sync per job as /api/sync/status says it;
+// a job with no row reads "never synced", a status that could not be read reads "unknown".
+function renderPageHead(jobs) {
+  if (!window.PageHead) return;
+  const txt = (id) => { const el = document.getElementById(id); const o = el && el.options && el.options[el.selectedIndex]; return o ? o.textContent : ''; };
+  const at = (name) => { const j = (jobs || []).find(x => x.job_name === name); return j ? (j.last_sync_at || null) : null; };
+  window.PageHead.mount(document.getElementById('pageHead'), {
+    question: 'How is the IT service performing — helpdesk requests, changes, CAB and user satisfaction?',
+    scope: 'Helpdesk requests: ' + (txt('fSite') || 'All Sites') + ' · changes, CAB and satisfaction: all sites (no site dimension in their data)',
+    window: txt('fPeriod') || 'All Time',
+    sources: jobs ? [{ label: 'Requests', at: at('requests') }, { label: 'Change + CAB', at: at('change_cab') }, { label: 'Survey', at: at('survey') }] : [],
+  });
+}
+
 async function loadSyncStatus() {
+  let jobs = null;
   try {
     const r = await fetch('/api/sync/status');
     const d = await r.json();
-    const jobs = Array.isArray(d) ? d : (d.jobs || []);
+    jobs = Array.isArray(d) ? d : (d.jobs || []);
     for (const j of jobs) {
       const el = document.getElementById('sync-' + j.job_name);
       if (el) {
@@ -723,7 +743,9 @@ async function loadSyncStatus() {
     }
   } catch (e) {
     console.warn('[sync status]', e.message);
+    jobs = null;
   }
+  renderPageHead(jobs);
 }
 
 // ── REQUESTS ─────────────────────────────────────────────────────

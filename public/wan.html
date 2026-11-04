@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="_shell.css">
 <script src="vendor/chart.js/4.4.1/chart.umd.js" defer></script>
 <script src="lib/chartTheme.js" defer></script>
+<script src="lib/pageHead.js"></script>
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
@@ -115,6 +116,8 @@
         <button class="wh-btn" id="wh-sync" style="display:none">⚡ Sync now</button>
       </div>
     </div>
+
+    <div id="wh-pagehead"></div>
 
     <div id="wh-empty" class="wh-empty" style="display:none">
       No WAN snapshots yet. Set <b>meraki_api_key</b> in Admin → config and run the sync (nightly, or the <b>Sync now</b> button). Numbers become trustworthy once the calibration step is done.
@@ -235,8 +238,23 @@
   }
 
   async function loadSummary() {
-    let data; try { data = await api('/api/analytics/wan/summary?period=' + period); } catch { data = { sites: [] }; }
+    let data; try { data = await api('/api/analytics/wan/summary?period=' + period); } catch { data = { sites: [], _failed: true }; }
     sites = data.sites || [];
+    // C-10 — shared page head. Freshness = the last Meraki collection (data_as_of) the route reports;
+    // a failed call reads "unknown", no collection reads "never synced" — never the browser clock.
+    if (window.PageHead) {
+      const hl = (document.documentElement.dataset.i18n === 'on' && window.I18nText) ? window.I18nText.lang() : 'en';
+      const win = { day: { en: 'Past day', fr: 'Dernier jour' }, week: { en: 'Past week (archived)', fr: 'Dernière semaine (archivée)' },
+                    month: { en: 'Past month (archived)', fr: 'Dernier mois (archivé)' } }[period];
+      window.PageHead.mount($('wh-pagehead'), {
+        lang: hl,
+        question: { en: 'Are the WAN links of each site up, and is their quality good enough for voice and business apps?',
+                    fr: 'Les liens WAN de chaque site répondent-ils, et leur qualité suffit-elle pour la voix et les applications ?' },
+        scope: { en: 'Every site with a mapped Meraki network (' + sites.length + ' shown)', fr: 'Chaque site ayant un réseau Meraki mappé (' + sites.length + ' affichés)' },
+        window: win,
+        sources: data._failed ? [] : [{ label: { en: 'Meraki collection', fr: 'Collecte Meraki' }, at: data.data_as_of || null }],
+      });
+    }
     // A-18b — the "% Time Up" rule is only calibrated when wan_timeup_loss_pct is set below 100
     // (2026-09-04 calibration: 5). Uncalibrated → say so, never let the page claim a calibration.
     const calib = $('wh-calib-banner');

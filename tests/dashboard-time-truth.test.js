@@ -160,9 +160,12 @@ test('mapLimit keeps input order and the cap', async () => {
 const page = fs.readFileSync(path.join(__dirname, '..', 'public', 'dashboards.html'), 'utf8').replace(/\r\n/g, '\n');
 test('F21: the viewer says "Computed at" for the response time and "Data through" per source', () => {
   assert.ok(!/'Data as of '/.test(page), 'the response time is not presented as the data date');
-  assert.match(page, /'Computed at '/);
-  assert.match(page, /Data through/);
-  assert.match(page, /d\.sources/);
+  // C-10 — the labels now live in the shared page head (lib/pageHead.js), fed with this response's fields
+  const head = fs.readFileSync(path.join(__dirname, '..', 'public', 'lib', 'pageHead.js'), 'utf8');
+  assert.match(head, /computed: 'Computed at'/);
+  assert.match(head, /freshness: 'Data through'/);
+  assert.match(page, /computedAt: d\.computed_at/);
+  assert.match(page, /sources: d\.sources/);
 });
 test('Annex B #6: loadData ignores a late response (request sequence)', () => {
   const body = page.slice(page.indexOf('function loadData'), page.indexOf('function renderWidgets'));
