@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 3521,
+ "total": 3532,
  "files": {
   "a11y-static.test.js": 16,
   "access-denied-log.smoke.test.js": 3,
@@ -380,6 +380,7 @@
   "review-render.test.js": 19,
   "risk-register-classify.test.js": 14,
   "roadmap-evidence.test.js": 16,
+  "roadmap-parity.test.js": 11,
   "roadmap-training.test.js": 7,
   "roadmap.smoke.test.js": 7,
   "role-audit.test.js": 9,

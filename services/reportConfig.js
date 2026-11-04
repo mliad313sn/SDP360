@@ -216,6 +216,12 @@ DEFAULTS.exec_payload_zero_policy = 'keep_server';
 //    programme | operational = one published verdict per site (services/publishedSiteScore.js).
 DEFAULTS.site_score_published_model = 'legacy';
 
+// ── B-09 — Roadmap Manager → portfolio single source. '0' = today (the Roadmap Manager stays editable);
+//    '1' = itsm-roadmap.html turns READ-ONLY with a link to the portfolio, and the roadmap write routes answer
+//    409. Nothing is ever deleted (deletion of roadmap_* rows is a CAB decision). Decision: redirect only after
+//    one parity cycle (tools/governance/roadmap-parity.js) — PMO + PO.
+DEFAULTS.roadmap_redirect_to_portfolio = '0';
+
 const KEYS = Object.keys(DEFAULTS);
 
 // Secrets that the GET handler redacts to '' — a Save that doesn't retype them must

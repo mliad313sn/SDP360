@@ -59,6 +59,7 @@ planned switch cannot be set before its goal lands.
 | `ppm_alert_slip_days` | planned | `10` | `10` | Committee | A-27 |
 | `ppm_rebaseline_enabled` | planned | `0` | `1` | Committee | A-27 |
 | `ppm_baseline_versions` | planned | `0` | `1` | Committee | A-27 |
+| `roadmap_redirect_to_portfolio` | built | `0` | `0` during the pilot; `1` only after one clean parity cycle (`tools/governance/roadmap-parity.js`) | PMO + PO (deletion of roadmap data: CAB) | B-09 |
 
 Not in this table because they are not top-level `report_config` keys:
 

@@ -123,6 +123,12 @@
   .rm-gate h2 { color:var(--navy); margin:0 0 8px; }
   .rm-gate p { color:var(--muted); margin:0; }
   .rm-badge-dot { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:5px; vertical-align:middle; }
+  /* B-09 — read-only mode (switch roadmap_redirect_to_portfolio = '1'): banner + every edit control inert. */
+  .rm-readonly { background:#fff7e6; border:1px solid #f0c36d; border-radius:10px; padding:12px 16px; margin-bottom:16px;
+    font-size:13px; color:#5c4400; line-height:1.5; }
+  .rm-readonly a { color:var(--blue); font-weight:700; }
+  body.rm-ro #rm-content input, body.rm-ro #rm-content select, body.rm-ro #rm-content textarea,
+  body.rm-ro #rm-content button:not(#rm-csv):not(.rm-tab) { pointer-events:none; opacity:.6; }
 </style>
 </head>
 <body>
@@ -136,6 +142,11 @@
 </div>
 
 <div class="rm-wrap">
+  <div id="rm-readonly" class="rm-readonly" role="status" style="display:none;">
+    <b>Lecture seule.</b> Le portefeuille est désormais la source unique de cette roadmap :
+    les objectifs et livrables se modifient dans <a id="rm-readonly-link" href="/portfolio.html">le portefeuille</a>.
+    Les données ci-dessous sont conservées (aucune suppression).
+  </div>
   <div id="rm-content" style="display:none;">
     <div class="rm-tabs" id="rm-tabs">
       <button class="rm-tab active" data-tab="objectives">Objectifs</button>
@@ -207,6 +218,7 @@
       .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
   }
+  var READ_ONLY = false;   // B-09 — set by /api/roadmap/mode
   function $(id) { return document.getElementById(id); }
 
   function authHeaders(json) {
@@ -853,6 +865,25 @@
       });
   }
 
+  function applyReadOnly(url) {
+    READ_ONLY = true;
+    document.body.classList.add('rm-ro');
+    var b = $('rm-readonly'); if (b) b.style.display = 'block';
+    var a = $('rm-readonly-link'); if (a && url) a.setAttribute('href', url);
+    // Keyboard edits too: swallow change/input events on edit controls before the page's handlers run.
+    ['change', 'input', 'click'].forEach(function (ev) {
+      document.addEventListener(ev, function (e) {
+        if (!READ_ONLY) return;
+        var t = e.target; var host = $('rm-content');
+        if (!host || !host.contains(t)) return;
+        if (t.closest && (t.closest('#rm-csv') || t.closest('.rm-tab'))) return;
+        if (/^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(t.tagName) || (t.closest && t.closest('button'))) {
+          e.stopPropagation(); e.preventDefault();
+        }
+      }, true);
+    });
+  }
+
   function boot() {
     var host = $('rm-objectives');
     host.addEventListener('change', onObjChange);
@@ -865,6 +896,11 @@
     });
     var phost = $('rm-project');
     if (phost) { phost.addEventListener('change', onProjChange); phost.addEventListener('click', onProjClick); }
+    // B-09 — read-only mode, decided by the server switch (default off = today). The server ALSO refuses
+    // every write with 409, so this is convenience; a failed mode read keeps today's editable page.
+    fetch('/api/roadmap/mode', { headers: authHeaders(false) })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (m) { if (m && m.read_only) applyReadOnly(m.portfolio_url); }, function () {});
     reload()
       .then(function () { fetchEvidence(); }) // load auto-evidence once objectives render
       .catch(function (e) {
