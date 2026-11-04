@@ -12,7 +12,7 @@
   "jobs": 26,
   "jobs_without_test_reference": 10,
   "migrations": 62,
-  "test_files": 541
+  "test_files": 543
  },
  "pages": [
   {
@@ -87,11 +87,13 @@
    ],
    "in_navigation": true,
    "inline_scripts": 10,
-   "bytes": 197238,
+   "bytes": 201278,
    "tests": [
     "tests/agent-inventory.test.js",
+    "tests/asset-hygiene-visuals.test.js",
     "tests/asset-reminder-report.test.js",
     "tests/assets-freshness.test.js",
+    "tests/assets-tile-drill-parity.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/csv-safe.test.js",
     "tests/help-assets-section.test.js",
