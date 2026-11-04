@@ -6,13 +6,13 @@
   "pages_without_declared_role": 6,
   "pages_not_in_navigation": 26,
   "pages_with_inline_scripts": 46,
-  "routes": 530,
-  "routes_without_test_reference": 99,
+  "routes": 532,
+  "routes_without_test_reference": 89,
   "routes_in_server_js": 231,
   "jobs": 24,
   "jobs_without_test_reference": 10,
   "migrations": 56,
-  "test_files": 498
+  "test_files": 499
  },
  "pages": [
   {
@@ -409,10 +409,11 @@
    ],
    "in_navigation": false,
    "inline_scripts": 1,
-   "bytes": 48841,
+   "bytes": 51104,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
-    "tests/csv-safe.test.js"
+    "tests/csv-safe.test.js",
+    "tests/roadmap-parity.test.js"
    ]
   },
   {
@@ -667,6 +668,7 @@
     "tests/a11y-static.test.js",
     "tests/i18n-coverage.test.js",
     "tests/project-page.test.js",
+    "tests/roadmap-parity.test.js",
     "tests/shell-navigation.test.js"
    ]
   },
@@ -2790,7 +2792,8 @@
    "line": 494,
    "tests": [
     "tests/governance-routes.smoke.test.js",
-    "tests/ppm-project-lifecycle.smoke.test.js"
+    "tests/ppm-project-lifecycle.smoke.test.js",
+    "tests/roadmap-parity.test.js"
    ]
   },
   {
@@ -6317,55 +6320,67 @@
    "method": "DELETE",
    "path": "/api/roadmap/action/:uid",
    "file": "routes/roadmap.js",
-   "line": 106,
-   "tests": []
+   "line": 136,
+   "tests": [
+    "tests/roadmap-parity.test.js"
+   ]
   },
   {
    "id": "RT-PUT-api-roadmap-action-uid",
    "method": "PUT",
    "path": "/api/roadmap/action/:uid",
    "file": "routes/roadmap.js",
-   "line": 102,
-   "tests": []
+   "line": 132,
+   "tests": [
+    "tests/roadmap-parity.test.js"
+   ]
   },
   {
    "id": "RT-POST-api-roadmap-action",
    "method": "POST",
    "path": "/api/roadmap/action",
    "file": "routes/roadmap.js",
-   "line": 98,
-   "tests": []
+   "line": 128,
+   "tests": [
+    "tests/roadmap-parity.test.js"
+   ]
   },
   {
    "id": "RT-DELETE-api-roadmap-deliverable-uid",
    "method": "DELETE",
    "path": "/api/roadmap/deliverable/:uid",
    "file": "routes/roadmap.js",
-   "line": 63,
-   "tests": []
+   "line": 93,
+   "tests": [
+    "tests/roadmap-parity.test.js"
+   ]
   },
   {
    "id": "RT-PUT-api-roadmap-deliverable-uid",
    "method": "PUT",
    "path": "/api/roadmap/deliverable/:uid",
    "file": "routes/roadmap.js",
-   "line": 58,
-   "tests": []
+   "line": 88,
+   "tests": [
+    "tests/roadmap-parity.test.js"
+   ]
   },
   {
    "id": "RT-POST-api-roadmap-deliverable",
    "method": "POST",
    "path": "/api/roadmap/deliverable",
    "file": "routes/roadmap.js",
-   "line": 53,
-   "tests": []
+   "line": 83,
+   "tests": [
+    "tests/roadmap-parity.test.js"
+   ]
   },
   {
    "id": "RT-GET-api-roadmap-evidence-catalogue",
    "method": "GET",
    "path": "/api/roadmap/evidence/catalogue",
    "file": "routes/roadmap.js",
-   "line": 26,
+   "line": 56,
    "tests": []
   },
   {
@@ -6373,7 +6388,7 @@
    "method": "GET",
    "path": "/api/roadmap/evidence/incidents",
    "file": "routes/roadmap.js",
-   "line": 43,
+   "line": 73,
    "tests": []
   },
   {
@@ -6381,23 +6396,45 @@
    "method": "GET",
    "path": "/api/roadmap/evidence/platform",
    "file": "routes/roadmap.js",
-   "line": 34,
+   "line": 64,
    "tests": []
+  },
+  {
+   "id": "RT-GET-api-roadmap-mode",
+   "method": "GET",
+   "path": "/api/roadmap/mode",
+   "file": "routes/roadmap.js",
+   "line": 32,
+   "tests": [
+    "tests/roadmap-parity.test.js"
+   ]
   },
   {
    "id": "RT-PUT-api-roadmap-objective-key",
    "method": "PUT",
    "path": "/api/roadmap/objective/:key",
    "file": "routes/roadmap.js",
-   "line": 48,
-   "tests": []
+   "line": 78,
+   "tests": [
+    "tests/roadmap-parity.test.js"
+   ]
+  },
+  {
+   "id": "RT-GET-api-roadmap-parity",
+   "method": "GET",
+   "path": "/api/roadmap/parity",
+   "file": "routes/roadmap.js",
+   "line": 38,
+   "tests": [
+    "tests/roadmap-parity.test.js"
+   ]
   },
   {
    "id": "RT-GET-api-roadmap-project",
    "method": "GET",
    "path": "/api/roadmap/project",
    "file": "routes/roadmap.js",
-   "line": 93,
+   "line": 123,
    "tests": []
   },
   {
@@ -6405,32 +6442,39 @@
    "method": "DELETE",
    "path": "/api/roadmap/resource/:uid",
    "file": "routes/roadmap.js",
-   "line": 119,
-   "tests": []
+   "line": 149,
+   "tests": [
+    "tests/roadmap-parity.test.js"
+   ]
   },
   {
    "id": "RT-PUT-api-roadmap-resource-uid",
    "method": "PUT",
    "path": "/api/roadmap/resource/:uid",
    "file": "routes/roadmap.js",
-   "line": 115,
-   "tests": []
+   "line": 145,
+   "tests": [
+    "tests/roadmap-parity.test.js"
+   ]
   },
   {
    "id": "RT-POST-api-roadmap-resource",
    "method": "POST",
    "path": "/api/roadmap/resource",
    "file": "routes/roadmap.js",
-   "line": 111,
-   "tests": []
+   "line": 141,
+   "tests": [
+    "tests/roadmap-parity.test.js"
+   ]
   },
   {
    "id": "RT-DELETE-api-roadmap-training-uid",
    "method": "DELETE",
    "path": "/api/roadmap/training/:uid",
    "file": "routes/roadmap.js",
-   "line": 86,
+   "line": 116,
    "tests": [
+    "tests/roadmap-parity.test.js",
     "tests/roadmap-training.test.js"
    ]
   },
@@ -6439,8 +6483,9 @@
    "method": "PUT",
    "path": "/api/roadmap/training/:uid",
    "file": "routes/roadmap.js",
-   "line": 81,
+   "line": 111,
    "tests": [
+    "tests/roadmap-parity.test.js",
     "tests/roadmap-training.test.js"
    ]
   },
@@ -6449,8 +6494,9 @@
    "method": "GET",
    "path": "/api/roadmap/training",
    "file": "routes/roadmap.js",
-   "line": 71,
+   "line": 101,
    "tests": [
+    "tests/roadmap-parity.test.js",
     "tests/roadmap-training.test.js"
    ]
   },
@@ -6459,8 +6505,9 @@
    "method": "POST",
    "path": "/api/roadmap/training",
    "file": "routes/roadmap.js",
-   "line": 76,
+   "line": 106,
    "tests": [
+    "tests/roadmap-parity.test.js",
     "tests/roadmap-training.test.js"
    ]
   },
@@ -6469,9 +6516,10 @@
    "method": "GET",
    "path": "/api/roadmap",
    "file": "routes/roadmap.js",
-   "line": 18,
+   "line": 48,
    "tests": [
     "tests/authz-route-matrix.test.js",
+    "tests/roadmap-parity.test.js",
     "tests/roadmap-training.test.js",
     "tests/roadmap.smoke.test.js"
    ]

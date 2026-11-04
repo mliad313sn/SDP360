@@ -11,13 +11,13 @@
 | pages without declared role | 6 |
 | pages not in navigation | 26 |
 | pages with inline scripts | 46 |
-| routes | 530 |
-| routes without test reference | 99 |
+| routes | 532 |
+| routes without test reference | 89 |
 | routes in server js | 231 |
 | jobs | 24 |
 | jobs without test reference | 10 |
 | migrations | 56 |
-| test files | 498 |
+| test files | 499 |
 
 ## Pages
 
@@ -46,7 +46,7 @@
 | PG-integrations | public/integrations.html | any | yes | 1 | 3 |
 | PG-it-review | public/it-review.html | executive / scorecard-viewer | yes | 2 | 3 |
 | PG-itsm-integrations-plan | public/itsm-integrations-plan.html | UNKNOWN | no | 0 | 3 |
-| PG-itsm-roadmap | public/itsm-roadmap.html | super_admin | no | 1 | 2 |
+| PG-itsm-roadmap | public/itsm-roadmap.html | super_admin | no | 1 | 3 |
 | PG-login | public/login.html | public | no | 1 | 5 |
 | PG-meeting | public/meeting.html | any | no | 1 | 8 |
 | PG-meetings-actions | public/meetings-actions.html | any | no | 2 | 6 |
@@ -63,7 +63,7 @@
 | PG-notifications | public/notifications.html | any | yes | 1 | 2 |
 | PG-obligations | public/obligations.html | any | yes | 0 | 1 |
 | PG-policies | public/policies.html | admin / committee-member | yes | 1 | 3 |
-| PG-portfolio | public/portfolio.html | any | yes | 1 | 4 |
+| PG-portfolio | public/portfolio.html | any | yes | 1 | 5 |
 | PG-project | public/project.html | any | no | 1 | 3 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 2 |
 | PG-reports | public/reports.html | any | yes | 2 | 19 |
@@ -132,20 +132,10 @@
 | RT-PUT-api-reports-users-emails | PUT | `/api/reports/users/emails` | routes/adminUsers.js:71 |
 | RT-GET-api-risk-register-config-sites | GET | `/api/risk-register-config/sites` | routes/riskRegister.js:78 |
 | RT-GET-api-risk-register-config-unmapped | GET | `/api/risk-register-config/unmapped` | routes/riskRegister.js:129 |
-| RT-DELETE-api-roadmap-action-uid | DELETE | `/api/roadmap/action/:uid` | routes/roadmap.js:106 |
-| RT-PUT-api-roadmap-action-uid | PUT | `/api/roadmap/action/:uid` | routes/roadmap.js:102 |
-| RT-POST-api-roadmap-action | POST | `/api/roadmap/action` | routes/roadmap.js:98 |
-| RT-DELETE-api-roadmap-deliverable-uid | DELETE | `/api/roadmap/deliverable/:uid` | routes/roadmap.js:63 |
-| RT-PUT-api-roadmap-deliverable-uid | PUT | `/api/roadmap/deliverable/:uid` | routes/roadmap.js:58 |
-| RT-POST-api-roadmap-deliverable | POST | `/api/roadmap/deliverable` | routes/roadmap.js:53 |
-| RT-GET-api-roadmap-evidence-catalogue | GET | `/api/roadmap/evidence/catalogue` | routes/roadmap.js:26 |
-| RT-GET-api-roadmap-evidence-incidents | GET | `/api/roadmap/evidence/incidents` | routes/roadmap.js:43 |
-| RT-GET-api-roadmap-evidence-platform | GET | `/api/roadmap/evidence/platform` | routes/roadmap.js:34 |
-| RT-PUT-api-roadmap-objective-key | PUT | `/api/roadmap/objective/:key` | routes/roadmap.js:48 |
-| RT-GET-api-roadmap-project | GET | `/api/roadmap/project` | routes/roadmap.js:93 |
-| RT-DELETE-api-roadmap-resource-uid | DELETE | `/api/roadmap/resource/:uid` | routes/roadmap.js:119 |
-| RT-PUT-api-roadmap-resource-uid | PUT | `/api/roadmap/resource/:uid` | routes/roadmap.js:115 |
-| RT-POST-api-roadmap-resource | POST | `/api/roadmap/resource` | routes/roadmap.js:111 |
+| RT-GET-api-roadmap-evidence-catalogue | GET | `/api/roadmap/evidence/catalogue` | routes/roadmap.js:56 |
+| RT-GET-api-roadmap-evidence-incidents | GET | `/api/roadmap/evidence/incidents` | routes/roadmap.js:73 |
+| RT-GET-api-roadmap-evidence-platform | GET | `/api/roadmap/evidence/platform` | routes/roadmap.js:64 |
+| RT-GET-api-roadmap-project | GET | `/api/roadmap/project` | routes/roadmap.js:123 |
 | RT-GET-api-sample-viewid | GET | `/api/sample/:viewId` | server.js:5026 |
 | RT-POST-api-save-charts | POST | `/api/save-charts` | server.js:7189 |
 | RT-POST-api-save-pptx | POST | `/api/save-pptx` | server.js:7198 |
