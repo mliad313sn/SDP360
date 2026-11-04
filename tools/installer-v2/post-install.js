@@ -12,6 +12,9 @@
 //
 // Secrets arrive in the ENVIRONMENT only (SDP_SETUP_PGSUPERPASS, SDP_SETUP_SVCPASS) and are never logged
 // or put on a command line. Steps, each logged to <dir>\logs\setup-<stamp>.log:
+//   0 update/repair (A-03): the application running NOW (pm2 process of a 1.x server, or a Windows service
+//     started by hand) is stopped and the port released BEFORE any file is replaced; a failure before any
+//     file change starts exactly that host again. Test seam: SDP_SETUP_TEST_FAIL_PROBE=1 fails step 9.
 //   1 dependencies: the node_modules folder built by CI for Windows (offline install), swapped in with the
 //     previous one kept for the rollback; `npm ci` only when Setup carries none
 //   2 the package through tools/sdp-manager.js — signature + hashes, database backup first on an update,
@@ -416,6 +419,8 @@ function iisFrontEnd(port) {
 }
 
 async function probe(port) {
+  // A-03 test seam (CI rollback pass only): the variable travels from Setup's environment like SDP_SETUP_PGSUPERPASS
+  if (process.env.SDP_SETUP_TEST_FAIL_PROBE === '1') { log('TEST SEAM: SDP_SETUP_TEST_FAIL_PROBE=1 — health check forced to fail'); throw new Error('forced probe failure (test seam SDP_SETUP_TEST_FAIL_PROBE=1)'); }
   const until = Date.now() + 120000; let last = '';
   while (Date.now() < until) {
     for (const p of ['/ready', '/api/auth/config']) {
@@ -432,10 +437,118 @@ function swapNodeModules(staged) {
   const live = path.join(DIR, 'node_modules'), prev = path.join(DIR, '.rollback', 'node_modules.prev');
   fs.mkdirSync(path.dirname(prev), { recursive: true });
   fs.rmSync(prev, { recursive: true, force: true });
-  if (fs.existsSync(live)) fs.renameSync(live, prev);
-  fs.renameSync(staged, live);
+  const hadLive = fs.existsSync(live);
+  if (hadLive) fs.renameSync(live, prev);
+  try { fs.renameSync(staged, live); }
+  catch (e) { if (hadLive) { try { fs.renameSync(prev, live); } catch (_) {} } throw e; }   // never leave the tree without node_modules
   log('dependencies: the Windows build shipped with Setup is in place (offline install)');
   return () => { try { fs.rmSync(live, { recursive: true, force: true }); if (fs.existsSync(prev)) fs.renameSync(prev, live); log('dependencies restored'); } catch (e) { log('dependencies restore failed: ' + e.message); } };
+}
+
+/** Does something answer on 127.0.0.1:port? (a TCP connect, 1 s) */
+function portOpen(port) {
+  return new Promise((resolve) => {
+    const net = require('net');
+    const s = net.createConnection({ host: '127.0.0.1', port: Number(port) });
+    const done = (v) => { try { s.destroy(); } catch (_) {} resolve(v); };
+    s.setTimeout(1000, () => done(false));
+    s.once('connect', () => done(true));
+    s.once('error', () => done(false));
+  });
+}
+/**
+ * A-03: stop the application that is running NOW (pm2 process and/or Windows service), before any file is
+ * replaced. Checks BOTH hosts (a Windows service started by hand, a pm2 process left by 1.x). Returns
+ * { kinds:[...] } or null when nothing ran. Waits until the port no longer answers; when it still does after
+ * `waitMs`, throws (with e.stopped) — replacing files under a live process is exactly what this prevents.
+ */
+async function stopRunningHost({ mode, envExists, env = {}, port, run, portOpen: isOpen = portOpen, waitMs = 30000, pollMs = 1000, log: say = log } = {}) {
+  if (!(mode === 'update' || mode === 'repair') || !envExists) return null;
+  const S = require(path.join(ROOT, 'services', 'serviceControl'));
+  const deps = run ? { run } : {};
+  const kinds = [];
+  const pm2 = S.status({ ...env, SDP_SERVICE: 'pm2' }, deps);
+  if (pm2.state === 'running') { S.stop({ ...env, SDP_SERVICE: 'pm2' }, deps); kinds.push('pm2'); say(`stopped the running pm2 process ${pm2.name} before replacing files`); }
+  const win = S.status({ SDP_SERVICE: 'windows' }, deps);
+  if (win.state === 'running' || win.state === 'starting') { S.stop({ SDP_SERVICE: 'windows' }, deps); kinds.push('windows'); say(`stopped the running Windows service ${win.name} before replacing files`); }
+  if (!kinds.length) { say('no running SDP Dashboard process found — nothing to stop'); return null; }
+  const stopped = { kinds };
+  const until = Date.now() + waitMs;
+  while (await isOpen(port)) {
+    if (Date.now() >= until) {
+      const e = new Error(`the application still answers on port ${port} ${Math.round(waitMs / 1000)} s after it was stopped — no file was replaced`);
+      e.stopped = stopped; throw e;
+    }
+    await new Promise((r) => setTimeout(r, pollMs));
+  }
+  return stopped;
+}
+/** Start again what stopRunningHost stopped (failure before any file change). Best effort, per host. */
+function startHosts(stopped, env = {}, { run, log: say = log } = {}) {
+  const S = require(path.join(ROOT, 'services', 'serviceControl'));
+  for (const kind of (stopped && stopped.kinds) || []) {
+    try { S.start({ ...env, SDP_SERVICE: kind }, run ? { run } : {}); say(`${kind}: the application stopped by this Setup is started again`); }
+    catch (e) { say(`${kind}: restart failed — ${e.message}`); }
+  }
+}
+
+/**
+ * The update / repair / new flow, every step injected (tests drive it with fakes). Returns { ok, error }.
+ * Order: preflight (A-01 + A-04, no change) → .env plan → STOP the running app (A-03) → dependencies →
+ * package → .env/database → migrate → firewall → service → IIS → probe. A failure gives back what ran before.
+ */
+async function runUpdate(deps, { mode = MODE } = {}) {
+  const say = deps.log || log;
+  const st = { touched: false, applied: false, undoDeps: null, stopped: null, started: null };
+  try {
+    const plan = await deps.preflight();
+    if (deps.preflightOnly) { say('preflight OK'); return { ok: true }; }
+    st.touched = true;
+    await deps.writeEnvPlan(plan);
+    st.stopped = await deps.stopCurrentHost();
+    st.undoDeps = (await deps.swapDeps()) || null;
+    st.applied = !!(await deps.applyPackage());
+    const env = await deps.envSteps(plan);
+    await deps.migrate(env);
+    await deps.firewall(env);
+    st.started = deps.serviceKind(env);
+    await deps.registerService(st.started, env);
+    await deps.iis(env);
+    const via = await deps.probe(env);
+    await deps.writeResult({ ok: true, via, env, stopped: st.stopped });
+    return { ok: true };
+  } catch (e) {
+    say('FAILED: ' + e.message);
+    if (!st.stopped && e && e.stopped) st.stopped = e.stopped;
+    if (!st.touched) {
+      say('nothing was changed');
+      await deps.writeResult({ ok: false, error: e.message, stopped: null });
+      return { ok: false, error: e.message };
+    }
+    // the new version may be running (or half-started): stop it before its files are taken away
+    if (st.started && mode !== 'new') { try { await deps.stopHost(st.started); } catch (e5) { say('stop before rollback: ' + e5.message); } }
+    if (st.applied && mode !== 'new') {
+      say('rolling back the application files…');
+      try { await deps.rollbackFiles(); } catch (e2) { say('rollback failed: ' + e2.message); }
+    }
+    if (st.undoDeps) st.undoDeps();
+    if (mode !== 'new') {
+      try {
+        const prevEnv = (await deps.restoreEnv()) || {};
+        if (st.applied || st.started || !st.stopped) {
+          const kindNow = deps.previousServiceKind(prevEnv);   // decided on the files that are back, not on what Setup wrote
+          await deps.fixHostForRollback(kindNow, prevEnv);
+          await deps.registerService(kindNow, { ...prevEnv, SDP_SERVICE: kindNow });
+          say(`previous version restarted (${kindNow})`);
+        } else {
+          // nothing was replaced: start exactly what this Setup stopped
+          await deps.startHosts(st.stopped, prevEnv);
+        }
+      } catch (e3) { say('restart after rollback failed: ' + e3.message); }
+    }
+    await deps.writeResult({ ok: false, error: e.message, stopped: st.stopped });
+    return { ok: false, error: e.message };
+  }
 }
 
 async function main() {
@@ -451,86 +564,91 @@ async function main() {
   const mgr = path.join(ROOT, 'tools', 'sdp-manager.js');
   const nodePath = [path.join(DIR, 'node_modules'), process.env.NODE_PATH].filter(Boolean).join(path.delimiter);
   const pkgZip = arg('--package', null);
-  let undoDeps = null, applied = false;
   // what was running BEFORE this Setup — a rollback must give back exactly that, not the new host
   const envBefore = fs.existsSync(envFile) ? fs.readFileSync(envFile) : null;
-  let touched = false;   // false until the first change on disk: a refusal before it must change nothing
   const staged = arg('--node-modules', null);
-  try {
-    preflight(envFile);
-    if (has('--preflight-only')) { log('preflight OK'); return; }
-    const d = envDefaults(); const { _appPass, ...wanted } = d;
-    const freshEnv = MODE === 'new' && !fs.existsSync(envFile);
-    // A-04: every .env and secrets check BEFORE the first change (a refusal costs nothing and changes nothing)
-    const plan = freshEnv ? null : await planEnv(envFile, {
-      wanted: { NODE_ENV: 'production', PORT, BIND_HOST: '127.0.0.1', SDP_BACKUP_DIR: wanted.SDP_BACKUP_DIR, DASHBOARD_API_KEY: wanted.DASHBOARD_API_KEY, SDP_SERVICE: serviceKind(readEnv(envFile)) },
-      pgDir: staged && fs.existsSync(path.join(staged, 'pg')) ? staged : undefined,
-    });
-    touched = true;
+  const d = envDefaults(); const { _appPass, ...wanted } = d;
+  const freshEnv = MODE === 'new' && !fs.existsSync(envFile);
+  const writeResult = (r) => {
+    const out = r.ok
+      ? { ok: true, mode: MODE, at: new Date().toISOString(), url: `http://localhost:${(r.env && r.env.PORT) || PORT}/`, log: LOG, stopped: r.stopped || null }
+      : { ok: false, mode: MODE, at: new Date().toISOString(), error: String(r.error || '').slice(0, 500), log: LOG, stopped: r.stopped || null };
+    if (r.ok) { log(`OK — SDP Dashboard answers on http://localhost:${(r.env && r.env.PORT) || PORT} (${r.via})`); try { fs.rmSync(path.join(DIR, '.rollback', 'node_modules.prev'), { recursive: true, force: true }); } catch (_) {} }
+    try { fs.writeFileSync(path.join(DIR, 'logs', 'setup-last.json'), JSON.stringify(out, null, 2)); } catch (_) {}
+  };
+  const S = () => require(path.join(ROOT, 'services', 'serviceControl'));
+  const r = await runUpdate({
+    log,
+    preflightOnly: has('--preflight-only'),
+    async preflight() {
+      preflight(envFile);
+      if (has('--preflight-only')) return null;
+      // A-04: every .env and secrets check BEFORE the first change (a refusal costs nothing and changes nothing)
+      return freshEnv ? null : planEnv(envFile, {
+        wanted: { NODE_ENV: 'production', PORT, BIND_HOST: '127.0.0.1', SDP_BACKUP_DIR: wanted.SDP_BACKUP_DIR, DASHBOARD_API_KEY: wanted.DASHBOARD_API_KEY, SDP_SERVICE: serviceKind(readEnv(envFile)) },
+        pgDir: staged && fs.existsSync(path.join(staged, 'pg')) ? staged : undefined,
+      });
+    },
     // the repaired .env BEFORE step 2: the sdp-manager backup reads SDP_BACKUP_KEY from it and encrypts
-    // (a later failure restores envBefore in the catch)
-    if (plan) writePlannedEnv(envFile, plan, log);
-    // 1 dependencies
-    if (staged && fs.existsSync(staged)) undoDeps = swapNodeModules(staged);
-    else if (!fs.existsSync(path.join(DIR, 'node_modules', 'express'))) log('no dependencies shipped with this Setup — `npm ci` after the copy (needs the internet)');
-    // 2 the package
-    if (pkgZip) {
+    // (a later failure restores envBefore)
+    writeEnvPlan(plan) { if (plan) writePlannedEnv(envFile, plan, log); },
+    // A-03: the 1.x pm2 process (or a hand-started service) must not run while files are replaced
+    stopCurrentHost: () => stopRunningHost({ mode: MODE, envExists: fs.existsSync(envFile), env: readEnv(envFile), port: readEnv(envFile).PORT || PORT }),
+    swapDeps() {
+      // 1 dependencies
+      if (staged && fs.existsSync(staged)) return swapNodeModules(staged);
+      if (!fs.existsSync(path.join(DIR, 'node_modules', 'express'))) log('no dependencies shipped with this Setup — `npm ci` after the copy (needs the internet)');
+      return null;
+    },
+    applyPackage() {
+      // 2 the package
+      if (!pkgZip) return false;
       const update = MODE === 'update' && fs.existsSync(envFile);
       sh(process.execPath, [mgr, 'update', pkgZip, '--dir', DIR, ...(update ? [] : ['--no-backup']), '--no-npm', '--no-migrate', '--no-restart',
         // an update to the version already installed re-applies it (backup first) — a downgrade stays refused
         ...(MODE === 'repair' || MODE === 'update' ? ['--reinstall'] : []), ...(has('--allow-unsigned') ? ['--allow-unsigned'] : [])], { env: { NODE_PATH: nodePath }, shell: false });
-      applied = true;
-    }
-    if (!fs.existsSync(path.join(DIR, 'node_modules', 'express'))) sh('npm', ['ci', '--omit=dev', '--no-audit', '--no-fund']);
-    // 3 + 4 .env and database (update/repair: already written above, before step 1)
-    if (freshEnv) {
-      const appPass = await createDatabase(d);
-      if (appPass !== d._appPass) wanted.PG_URL = wanted.PG_URL.replace(encodeURIComponent(d._appPass), encodeURIComponent(appPass));
-      writeEnv(envFile, { ...wanted, SDP_SERVICE: serviceKind({}) });
-      log('.env created — bootstrap admin "admin", its password is DASH_PASS in .env: change it at first sign-in');
-    }
-    const env = readEnv(envFile);
-    const bad = envProblems(env);
-    if (bad.length) throw new Error(`.env would be refused by this version: ${bad.join('; ')} — fix ${envFile} and run Setup again`);
+      return true;
+    },
+    async envSteps() {
+      if (!fs.existsSync(path.join(DIR, 'node_modules', 'express'))) sh('npm', ['ci', '--omit=dev', '--no-audit', '--no-fund']);
+      // 3 + 4 .env and database (update/repair: already written before step 1)
+      if (freshEnv) {
+        const appPass = await createDatabase(d);
+        if (appPass !== d._appPass) wanted.PG_URL = wanted.PG_URL.replace(encodeURIComponent(d._appPass), encodeURIComponent(appPass));
+        writeEnv(envFile, { ...wanted, SDP_SERVICE: serviceKind({}) });
+        log('.env created — bootstrap admin "admin", its password is DASH_PASS in .env: change it at first sign-in');
+      }
+      const env = readEnv(envFile);
+      const bad = envProblems(env);
+      if (bad.length) throw new Error(`.env would be refused by this version: ${bad.join('; ')} — fix ${envFile} and run Setup again`);
+      return env;
+    },
     // 5 schema
-    sh(process.execPath, [path.join(DIR, 'db', 'migrate.js')], { env, shell: false });
+    migrate(env) { sh(process.execPath, [path.join(DIR, 'db', 'migrate.js')], { env, shell: false }); },
     // 6 firewall, 7 service, 8 IIS, 9 probe
-    firewall(env.PORT || PORT);
-    registerService(serviceKind(env), env);
-    iisFrontEnd(env.PORT || PORT);
-    const via = await probe(env.PORT || PORT);
-    log(`OK — SDP Dashboard answers on http://localhost:${env.PORT || PORT} (${via})`);
-    try { fs.rmSync(path.join(DIR, '.rollback', 'node_modules.prev'), { recursive: true, force: true }); } catch (_) {}
-    fs.writeFileSync(path.join(DIR, 'logs', 'setup-last.json'), JSON.stringify({ ok: true, mode: MODE, at: new Date().toISOString(), url: `http://localhost:${env.PORT || PORT}/`, log: LOG }, null, 2));
-  } catch (e) {
-    log('FAILED: ' + e.message);
-    if (!touched) {
-      log('nothing was changed');
-      try { fs.writeFileSync(path.join(DIR, 'logs', 'setup-last.json'), JSON.stringify({ ok: false, mode: MODE, at: new Date().toISOString(), error: e.message.slice(0, 500), log: LOG }, null, 2)); } catch (_) {}
-      process.exit(1);
-    }
-    if (applied && MODE !== 'new') {
-      log('rolling back the application files…');
-      try { sh(process.execPath, [mgr, 'rollback', '--dir', DIR, '--no-restart'], { env: { NODE_PATH: nodePath }, shell: false }); } catch (e2) { log('rollback failed: ' + e2.message); }
-    }
-    if (undoDeps) undoDeps();
-    if (MODE !== 'new') {
-      try {
-        if (envBefore) { fs.writeFileSync(envFile, envBefore); log('.env restored to its state before this Setup'); }
-        const prevEnv = readEnv(envFile);
-        const kindNow = previousServiceKind(prevEnv, DIR);   // decided on the files that are back, not on what Setup wrote
-        if (kindNow === 'pm2' && prevEnv.SDP_SERVICE === 'windows') { setEnvValue(envFile, 'SDP_SERVICE', 'pm2'); log('.env: SDP_SERVICE set back to pm2 — the previous version cannot run on the bundled Node.js'); }
-        // an older installation ran under pm2 with the system Node.js: starting it with the Windows service
-        // (and the Node.js shipped with this Setup) fails on native modules built for another Node version
-        if (kindNow === 'pm2' && fs.existsSync(SVC_EXE())) { try { sh(SVC_EXE(), ['uninstall'], { shell: false }); log('Windows service removed — the previous version runs under pm2'); } catch (e4) { log('service removal: ' + e4.message); } }
-        registerService(kindNow, { ...prevEnv, SDP_SERVICE: kindNow });
-        log(`previous version restarted (${kindNow})`);
-      } catch (e3) { log('restart after rollback failed: ' + e3.message); }
-    }
-    try { fs.writeFileSync(path.join(DIR, 'logs', 'setup-last.json'), JSON.stringify({ ok: false, mode: MODE, at: new Date().toISOString(), error: e.message.slice(0, 500), log: LOG }, null, 2)); } catch (_) {}
-    process.exit(1);
-  }
+    firewall(env) { firewall(env.PORT || PORT); },
+    serviceKind,
+    registerService(kind, env) { registerService(kind, env); },
+    iis(env) { iisFrontEnd(env.PORT || PORT); },
+    probe(env) { return probe(env.PORT || PORT); },
+    stopHost(kind) { try { S().stop({ ...readEnv(envFile), SDP_SERVICE: kind }); log(`${kind}: the new version stopped before the rollback`); } catch (e) { log(`${kind}: stop before rollback — ${e.message}`); } },
+    startHosts: (stopped, env) => startHosts(stopped, env),
+    rollbackFiles() { sh(process.execPath, [mgr, 'rollback', '--dir', DIR, '--no-restart'], { env: { NODE_PATH: nodePath }, shell: false }); },
+    restoreEnv() {
+      if (envBefore) { fs.writeFileSync(envFile, envBefore); log('.env restored to its state before this Setup'); }
+      return readEnv(envFile);
+    },
+    previousServiceKind: (prevEnv) => previousServiceKind(prevEnv, DIR),
+    fixHostForRollback(kindNow, prevEnv) {
+      if (kindNow === 'pm2' && prevEnv.SDP_SERVICE === 'windows') { setEnvValue(envFile, 'SDP_SERVICE', 'pm2'); log('.env: SDP_SERVICE set back to pm2 — the previous version cannot run on the bundled Node.js'); }
+      // an older installation ran under pm2 with the system Node.js: starting it with the Windows service
+      // (and the Node.js shipped with this Setup) fails on native modules built for another Node version
+      if (kindNow === 'pm2' && fs.existsSync(SVC_EXE())) { try { sh(SVC_EXE(), ['uninstall'], { shell: false }); log('Windows service removed — the previous version runs under pm2'); } catch (e4) { log('service removal: ' + e4.message); } }
+    },
+    writeResult,
+  }, { mode: MODE });
+  if (!r.ok) process.exit(1);
 }
 
 if (require.main === module) main();
-module.exports = { readEnvText, writeEnvText, setEnvValueText, repairEnvText, envPreflight, planEnv, writePlannedEnv, apiKeyMin, isLegacyTree, legacyStoreProblems, checkSecretRows, secretsKeyGuard, envProblems, serviceLogTail, previousEnvFiles, fourMyPeoplePassword, writeEnv, readEnv, setEnvValue, repairEnv, previousServiceKind, envDefaults, firewallCommands, firewallRuleNames, ident };
+module.exports = { runUpdate, stopRunningHost, startHosts, probe, portOpen, readEnvText, writeEnvText, setEnvValueText, repairEnvText, envPreflight, planEnv, writePlannedEnv, apiKeyMin, isLegacyTree, legacyStoreProblems, checkSecretRows, secretsKeyGuard, envProblems, serviceLogTail, previousEnvFiles, fourMyPeoplePassword, writeEnv, readEnv, setEnvValue, repairEnv, previousServiceKind, envDefaults, firewallCommands, firewallRuleNames, ident };

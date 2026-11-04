@@ -55,7 +55,9 @@ test('a rolled-back 1.x application always goes back to pm2, even when an earlie
 test('the rollback path restores the .env snapshot and passes the previous host (static)', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'tools', 'installer-v2', 'post-install.js'), 'utf8');
   assert.match(src, /envBefore[\s\S]*fs\.writeFileSync\(envFile, envBefore\)/);
-  assert.match(src, /const kindNow = previousServiceKind\(prevEnv, DIR\)/);
+  // A-03: the flow lives in runUpdate(deps); main() wires previousServiceKind on the files that are back (DIR)
+  assert.match(src, /previousServiceKind: \(prevEnv\) => previousServiceKind\(prevEnv, DIR\)/);
+  assert.match(src, /const kindNow = deps\.previousServiceKind\(prevEnv\)/);
   assert.match(src, /registerService\(kindNow, /);
   assert.match(src, /serviceLogTail\(\)/, 'a failed health check copies the service log tail into the setup log');
   assert.match(src, /writePlannedEnv\(envFile, plan, log\)/);
@@ -114,12 +116,16 @@ test('A-04: envPreflight names a DASH_PASS shorter than 12 as a problem and leav
 
 test('A-04: in main(), the .env plan (secrets guard + envProblems) runs before the first change, swapNodeModules and the sdp-manager update (static)', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'tools', 'installer-v2', 'post-install.js'), 'utf8').replace(/\r\n/g, '\n');
+  // A-03: main() wires the steps, runUpdate(deps) orders them (behaviour: tests/installer-upgrade-order.test.js)
   const main = src.slice(src.indexOf('async function main()'));
-  const at = (s) => { const i = main.indexOf(s); assert.ok(i > 0, `main() contains ${s}`); return i; };
-  assert.ok(at('await planEnv(') < at('touched = true'), 'planned before anything is touched');
-  assert.ok(at('touched = true') < at('writePlannedEnv('), '.env written only once the run may change things');
-  assert.ok(at('writePlannedEnv(') < at('swapNodeModules('), '.env written before step 1');
-  assert.ok(at('writePlannedEnv(') < at("[mgr, 'update'"), '.env written before the sdp-manager update (its backup reads SDP_BACKUP_KEY)');
+  const flow = src.slice(src.indexOf('async function runUpdate('), src.indexOf('async function main()'));
+  const at = (txt, s) => { const i = txt.indexOf(s); assert.ok(i > 0, `contains ${s}`); return i; };
+  assert.ok(at(main, 'async preflight()') < at(main, 'planEnv(') && at(main, 'planEnv(') < at(main, 'writeEnvPlan('), 'the plan is computed in the preflight step');
+  assert.ok(at(main, 'writePlannedEnv(') < at(main, 'swapNodeModules(') && at(main, 'writePlannedEnv(') < at(main, "[mgr, 'update'"), 'wired in step order');
+  assert.ok(at(flow, 'deps.preflight(') < at(flow, 'st.touched = true'), 'planned before anything is touched');
+  assert.ok(at(flow, 'st.touched = true') < at(flow, 'deps.writeEnvPlan('), '.env written only once the run may change things');
+  assert.ok(at(flow, 'deps.writeEnvPlan(') < at(flow, 'deps.swapDeps('), '.env written before step 1');
+  assert.ok(at(flow, 'deps.writeEnvPlan(') < at(flow, 'deps.applyPackage('), '.env written before the sdp-manager update (its backup reads SDP_BACKUP_KEY)');
   const plan = src.slice(src.indexOf('async function planEnv('), src.indexOf('function writePlannedEnv('));
   assert.ok(plan.indexOf('secretsKeyGuard(') > 0 && plan.indexOf('secretsKeyGuard(') < plan.indexOf('envPreflight('), 'guard on the ORIGINAL .env, before a key is generated');
   assert.match(plan, /\.env would be refused by this version/);
