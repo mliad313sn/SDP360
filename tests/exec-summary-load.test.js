@@ -288,3 +288,17 @@ test('A-08: getConfig throwing → degrades to full/status (today)', async () =>
   assert.equal(s.kpis.change_success.value_pct, 96);
   assert.equal(s.major_incidents[0].title, 'Fibre cut - Sabodala internet down');
 });
+
+test('A-17b: helpdesk_sla_definition reaches getMonthlyHelpdeskHistory (default flag = today)', async () => {
+  const seen = [];
+  const run = async (cfg) => {
+    const d = deps(cfg);
+    const orig = d.rdb.getMonthlyHelpdeskHistory.bind(d.rdb);
+    d.rdb.getMonthlyHelpdeskHistory = (n, opts) => { seen.push(opts && opts.slaDefinition); return orig(n, opts); };
+    return loadExecSummary(d);
+  };
+  const s = await run(undefined);
+  assert.equal(s.kpis.sla_compliance.value_pct, 91, 'default result unchanged');
+  await run({ helpdesk_sla_definition: 'due_vs_resolved' });
+  assert.deepStrictEqual(seen, ['flag', 'due_vs_resolved']);
+});

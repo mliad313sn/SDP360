@@ -2858,13 +2858,18 @@ async function _getCalendarMonthlyTop10Pg(site_id, year, month) {
  *   { 'Created Time': 'Mar 2026',
  *     'Requests':                            <inbound count>,
  *     'Closed Requests Count':               <closed count>,
- *     '% of SLA Violated':                   <0..100 number>,
- *     '% of First Responses SLA Violated':   <0..100 number> }
+ *     '% of SLA Violated':                   <0..100 number, null when no closed ticket>,
+ *     '% of First Responses SLA Violated':   <0..100 number, null when no responded ticket> }
+ *
+ * opts.slaDefinition (A-17b, report_config helpdesk_sla_definition): 'flag' (default,
+ * today = stored overdue_status) | 'due_vs_resolved' (browser isResOverdue rule) —
+ * services/slaDefinition.js. Unknown values fall back to 'flag'.
  */
-function getMonthlyHelpdeskHistory(monthsBack = 12) {
-  return _getMonthlyHelpdeskHistoryPg(monthsBack);
+function getMonthlyHelpdeskHistory(monthsBack = 12, opts = {}) {
+  return _getMonthlyHelpdeskHistoryPg(monthsBack, opts);
 }
-async function _getMonthlyHelpdeskHistoryPg(monthsBack = 12) {
+async function _getMonthlyHelpdeskHistoryPg(monthsBack = 12, opts = {}) {
+  const resOverdue = require('./services/slaDefinition').resOverdueSql(opts && opts.slaDefinition);
   const H = pgHandle();
   const MN = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const today = new Date();
@@ -2879,15 +2884,16 @@ async function _getMonthlyHelpdeskHistoryPg(monthsBack = 12) {
     const params = [start, end];
     const total       = (await H.prepare(`SELECT COUNT(*) AS n FROM request_records WHERE ${DR}`).get(...params)).n;
     const closed      = (await H.prepare(`SELECT COUNT(*) AS n FROM request_records WHERE ${DR} AND pending_status = 0`).get(...params)).n;
-    const slaViolClosed = (await H.prepare(`SELECT COUNT(*) AS n FROM request_records WHERE ${DR} AND pending_status = 0 AND overdue_status = 1`).get(...params)).n;
-    const replyViol   = (await H.prepare(`SELECT COUNT(*) AS n FROM request_records WHERE ${DR} AND responded_time IS NOT NULL AND responded_time != '' AND LOWER(first_response_overdue) = 'true'`).get(...params)).n;
+    const slaViolClosed = (await H.prepare(`SELECT COUNT(*) AS n FROM request_records WHERE ${DR} AND pending_status = 0 AND ${resOverdue}`).get(...params)).n;
+    const replyViol   = (await H.prepare(`SELECT COUNT(*) AS n FROM request_records WHERE ${DR} AND responded_time IS NOT NULL AND responded_time != '' AND LOWER(TRIM(first_response_overdue)) IN ('true','1','yes')`).get(...params)).n;
     const replyTotal  = (await H.prepare(`SELECT COUNT(*) AS n FROM request_records WHERE ${DR} AND responded_time IS NOT NULL AND responded_time != ''`).get(...params)).n;
     rows.push({
       'Created Time': `${MN[mo]} ${yr}`,
       'Requests': total,
       'Closed Requests Count': closed,
-      '% of SLA Violated':                 closed     > 0 ? Math.round(slaViolClosed / closed     * 1000) / 10 : 0,
-      '% of First Responses SLA Violated': replyTotal > 0 ? Math.round(replyViol     / replyTotal * 1000) / 10 : 0,
+      // nothing to judge → null, never a fake 0 % (A-17b)
+      '% of SLA Violated':                 closed     > 0 ? Math.round(slaViolClosed / closed     * 1000) / 10 : null,
+      '% of First Responses SLA Violated': replyTotal > 0 ? Math.round(replyViol     / replyTotal * 1000) / 10 : null,
     });
   }
   return rows;
