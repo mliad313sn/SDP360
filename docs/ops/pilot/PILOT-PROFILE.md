@@ -64,7 +64,9 @@ Not in this table because they are not top-level `report_config` keys:
 
 - A-23 (built) — `paused_statuses` (default `[]`) and `dedup_mode` (default `once`) live **inside** the existing
   `teams_sla_rules` JSON; decided by the helpdesk lead.
-- A-28 — `SDP_CONFIG_BOX_VERSION` (default `2`) and the CSP report-only header are `.env` / code
-  switches, not `report_config`; decided by the security owner.
+- A-28 (built) — `.env` switches, not `report_config`; decided by the security owner, all default to today:
+  `SDP_CSP_REPORT_ONLY` (unset = no report-only header, no `/api/security/csp-report`),
+  `SDP_CONFIG_BOX_VERSION` (default `2`; `3` = new secrets sealed as `enc:v3`), `SDP_PDF_SANDBOX`
+  (unset = PDF render keeps `--no-sandbox`).
 
 When a goal lands, change its rows from `planned` to `built`; the test then holds the default to the code.
