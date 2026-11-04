@@ -40,6 +40,7 @@ planned switch cannot be set before its goal lands.
 | `asset_money_certify_min_pct` | built | `50` | `50` | Finance | A-16 |
 | `helpdesk_sla_definition` | built | `flag` | `flag` until the committee chooses (`due_vs_resolved` is the alternative) | KPI committee | A-17 |
 | `exec_payload_zero_policy` | built | `keep_server` | `keep_server` until the committee chooses (`browser_wins` is the alternative) | KPI committee | A-17 |
+| `exec_deck_other_bucket` | built | `0` | `1` (PO decision P4: "Other (n)" on every top-N deck chart, Normal changes as their own slice) | Reporting owner (PO P4) | C-16 |
 | `soft_delete_enabled` | built | `0` | `1` | Owner (retention policy) | A-19 |
 | `soft_delete_retention_days` | built | `30` | `30` | Owner (retention policy) | A-19 |
 | `soft_delete_purge_enabled` | built | `0` | `0` (keep everything during the pilot) | Owner (retention policy) | A-19 |

@@ -228,6 +228,10 @@ Object.assign(DEFAULTS, { alert_external_enabled: '0', notifications_stop: '0', 
 //    exec_payload_zero_policy: 'keep_server' (2026-06-04 behaviour) | 'browser_wins' (Group IT deck merge).
 DEFAULTS.helpdesk_sla_definition = 'flag';
 DEFAULTS.exec_payload_zero_policy = 'keep_server';
+// ── C-16 — PO decision P4 (2026-11-05): exec_deck_other_bucket '0' (today: top-N charts silently truncated,
+//    Normal changes folded into Standard on the Group IT deck) | '1' ("Other (k)" bucket on every truncated
+//    chart + Normal as its own change-type slice; totals always intact). services/reportPayload.js.
+DEFAULTS.exec_deck_other_bucket = '0';
 
 // ── A-11 — PROPOSED D-1 switch (repo decision D-03 "reference site score", OPEN — not approved).
 //    legacy = each e-mail keeps its model (coordinator: programme score; scoreboard: composite);

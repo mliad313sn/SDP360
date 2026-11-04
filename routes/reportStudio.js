@@ -16,7 +16,7 @@ const { fail: httpFail } = require('../services/httpError');
 // Author = admin tier OR feature role `report-author`. Readers see published runs of their sites only.
 
 const { generateRun, rerender, SEED_TEMPLATES } = require('../services/reportGenerator');
-const { renderCsv, renderPptx } = require('../services/reportPack');
+const { renderCsv, renderPptx, figureRows } = require('../services/reportPack');
 const { generateCommentary } = require('../services/aiCommentary');
 const { runLang } = require('../services/reportGenerator');
 
@@ -105,7 +105,7 @@ module.exports = function reportStudioRoutes(deps) {
       if (pub) { r.html = pub.html; if (pub.figures) r.figures = pub.figures; if (pub.analysis) r.analysis = pub.analysis; res.setHeader('X-SDP-Publication-SHA256', pub.html_sha256); }   // every format, not only HTML
       if (req.params.fmt === 'html') return res.type('html').send(r.html || '');
       if (req.params.fmt === 'csv') { res.setHeader('Content-Type', 'text/csv; charset=utf-8'); res.setHeader('Content-Disposition', `attachment; filename="${name}.csv"`); return res.send(renderCsv(r)); }
-      if (req.params.fmt === 'xlsx') { const { buildWorkbook } = require('../services/tableExcel'); const rows = []; for (const f of r.figures || []) { if (f.series) for (const p of f.series) rows.push({ kind: 'series', metric: f.metric, title: f.title, label: p.label, value: p.value, unit: f.unit }); else if (f.rows) for (const x of f.rows) rows.push({ kind: 'per-site', metric: f.metric, title: f.title, label: x.site, value: x.value, unit: f.unit, rag: x.rag }); else rows.push({ kind: f.open !== undefined ? 'actions' : 'single', metric: f.metric || '', title: f.title, label: f.window || '', value: f.value !== undefined ? f.value : f.open, unit: f.unit || 'count', rag: f.rag || '' }); }
+      if (req.params.fmt === 'xlsx') { const { buildWorkbook } = require('../services/tableExcel'); const rows = figureRows(r);
         res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); res.setHeader('Content-Disposition', `attachment; filename="${name}.xlsx"`); return res.send(buildWorkbook([{ name: 'Figures', rows }, { name: 'Analysis', rows: ((r.analysis && r.analysis.bullets) || []).map((b, i) => ({ n: i + 1, text: b })) }])); }
       if (req.params.fmt === 'pptx') { const sites = await rdb().listSites({ includeInactive: true }); const s = r.site_id != null ? (sites || []).find(x => Number(x.id) === r.site_id) : null; const buf = await renderPptx({ template: { ...t, lang: runLang(t, r) }, run: r, siteName: s ? s.name : null }); res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'); res.setHeader('Content-Disposition', `attachment; filename="${name}.pptx"`); log(req, 'report_export', r.id, { fmt: 'pptx' }); return res.send(buf); }
       const p = await (deps.renderPdf || require('../services/reportRender').renderPdf)(r.html || '', { stamp: name }); if (!p.ok) return res.status(503).json({ ok: false, error: 'PDF unavailable: ' + p.reason, html_available: true }); res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', `attachment; filename="${name}.pdf"`); res.send(p.pdf); } catch (e) { fail(res, e); }

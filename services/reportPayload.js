@@ -41,7 +41,8 @@
 'use strict';
 
 const reportsDb = require('../reports-db');
-const { aggregateYearlyMI } = require('./execYearly');   // slide 9b (Major Incidents — YTD)
+const { aggregateYearlyMI } = require('./execYearly');
+const XP = require('../public/lib/execDeckPayload');   // C-16 — deck figure core shared with the browser builder   // slide 9b (Major Incidents — YTD)
 let trackerDb = null;
 try { trackerDb = require('../tracker-db'); } catch (_) { /* tracker offline → slides 10/11 stub */ }
 
@@ -817,6 +818,109 @@ function mergeBrowserKpis(enriched, bkIn, policyIn) {
   return enriched;
 }
 
+// ── C-16 — browser → render.py reshapes for categories, ageing and changes (extracted from build()).
+// opts.otherBucket = report_config exec_deck_other_bucket (P4). false = today's payload, byte-identical:
+// top 8 categories, every ageing group (render.py keeps its top 10), the 3-slice change donut with
+// Normal folded into Standard. true = every truncated chart gets an "Other (k)" entry so its total
+// equals the KPI total, and the change donut becomes one bucket per change (Normal its own slice).
+const DECK_TOP_CATEGORIES = 8;
+const DECK_TOP_AGEING = 10;
+function mergeBrowserCategories(enriched, browserPayload, opts) {
+  const o = opts || {};
+  const full = Array.isArray(browserPayload.categories_full) && browserPayload.categories_full.length ? browserPayload.categories_full : null;
+  const list = o.otherBucket && full
+    ? XP.topNWithOther(full, o.top || DECK_TOP_CATEGORIES)
+    : (Array.isArray(browserPayload.categories) ? browserPayload.categories : []);
+  if (!list.length) return enriched;
+  const cats = {}, catsPrev = {};
+  list.forEach(c => {
+    if (c && c.name) { cats[c.name] = c.current || 0; catsPrev[c.name] = c.previous || 0; }
+  });
+  enriched.categories = cats;
+  // Prior-month counts → slide 5 grouped (current vs previous) bars.
+  if (Object.values(catsPrev).some(v => v > 0)) enriched.categories_prev = catsPrev;
+  return enriched;
+}
+function mergeBrowserAgeing(enriched, browserPayload, opts) {
+  const o = opts || {};
+  if (!(Array.isArray(browserPayload.ageing) && browserPayload.ageing.length)) return enriched;
+  const ag = {};
+  browserPayload.ageing.forEach(a => {
+    if (!a || !a.group) return;
+    const t0  = _safeNum(a.t0_30);
+    const t31 = _safeNum(a.t31_45) + _safeNum(a.t46_60);  // collapse 31-45 + 46-60 → 31-60
+    const t60 = _safeNum(a.t_over_60);
+    ag[a.group] = { '0-30': t0, '31-60': t31, '>60': t60, 'total': t0 + t31 + t60 };
+  });
+  if (!Object.keys(ag).length) return enriched;
+  if (o.otherBucket) {
+    const ranked = Object.entries(ag).sort((x, y) => y[1].total - x[1].total);
+    if (ranked.length > DECK_TOP_AGEING + 1) {
+      const tail = ranked.slice(DECK_TOP_AGEING);
+      const other = { '0-30': 0, '31-60': 0, '>60': 0, 'total': 0 };
+      tail.forEach(([, v]) => { for (const k of Object.keys(other)) other[k] += v[k]; });
+      const out = {};
+      ranked.slice(0, DECK_TOP_AGEING).forEach(([k, v]) => { out[k] = v; });
+      out['Other (' + tail.length + ')'] = other;
+      enriched.ageing = out;
+      return enriched;
+    }
+  }
+  enriched.ageing = ag;
+  return enriched;
+}
+function mergeBrowserChanges(enriched, bc, opts) {
+  const o = opts || {};
+  // When the browser has changes IN SCOPE (total > 0), its group-scoped counts
+  // are authoritative for EVERY change sub-field — INCLUDING a legitimate 0
+  // (e.g. an OPS scope with 0 emergencies). Previously changes_emergency and
+  // emergency_pct kept the server's UNSCOPED value on a 0, so slide 3's
+  // EMERGENCY tile (reads the scalar changes_emergency) showed 1 (an Apps
+  // emergency like IVALUA) while slide 8's donut (reads the dict
+  // changes_type.Emergency) showed 0 — the SAME metric contradicting itself
+  // across slides. One scoped source now, so every slide agrees.
+  //
+  // A browser total of 0 still means "the CHANGES GRP scope excluded
+  // everything" (the canonical Operations seed is empty per
+  // services/groupPresets.js) → keep the DB-authoritative server counts
+  // rather than zeroing the whole change section on the deck.
+  if (!(bc && bc.total != null && bc.total > 0)) return enriched;
+  enriched.changes_total     = bc.total;
+  enriched.changes_emergency = _safeNum(bc.emergency);
+  enriched.emergency_pct     = (bc.emergency_pct != null)
+    ? bc.emergency_pct
+    : (bc.total ? (_safeNum(bc.emergency) / bc.total * 100) : 0);
+  const p = bc.type_partition;
+  if (o.otherBucket && p && typeof p === 'object') {
+    // One bucket per change (emergency > major > normal > standard > other): Σ slices = total.
+    enriched.changes_type = {
+      Standard:  _safeNum(p.Standard),
+      Normal:    _safeNum(p.Normal),
+      Major:     _safeNum(p.Major),
+      Emergency: _safeNum(p.Emergency),
+    };
+    if (_safeNum(p.Other) > 0) enriched.changes_type.Other = _safeNum(p.Other);
+  } else {
+    enriched.changes_type = {
+      Standard:  _safeNum(bc.standard),
+      Major:     _safeNum(bc.major),
+      Emergency: _safeNum(bc.emergency),
+    };
+  }
+  if (bc.completed > 0 || bc.in_progress > 0) {
+    enriched.changes_status = {
+      Completed:     _safeNum(bc.completed),
+      'In Progress': _safeNum(bc.in_progress),
+    };
+  }
+  // Scoped emergency-change list → the slide-8 glance. The browser's
+  // group-scoped list is empty when the OPS scope has 0 emergencies; using
+  // it (over the server's month-only UNSCOPED list) is what keeps an
+  // Applications change (IVALUA) out of an OPS-scoped deck.
+  if (Array.isArray(bc.emergency_changes)) enriched.emergency_changes = bc.emergency_changes;
+  return enriched;
+}
+
 // ── Public — build() merges DB enrichment over the browser payload ────────
 async function build(browserPayload) {
   const filters = browserPayload.filters || {};
@@ -936,9 +1040,11 @@ async function build(browserPayload) {
   // exec_payload_zero_policy (A-17b) — awaited (getConfig is a Promise on pg); any read
   // failure keeps today's behaviour.
   let zeroPolicy = 'keep_server';
+  let otherBucket = false;   // C-16 exec_deck_other_bucket (P4) — '0' (default) = today's truncated charts
   try {
     const c = await require('./reportConfig').getConfig(reportsDb.db);
     if (c && c.exec_payload_zero_policy) zeroPolicy = c.exec_payload_zero_policy;
+    otherBucket = XP.otherBucketOn(c && c.exec_deck_other_bucket);
   } catch (e) { console.warn('[reportPayload] config read failed, zero policy keep_server:', e && e.message); }
   mergeBrowserKpis(enriched, browserPayload.kpis, zeroPolicy);
 
@@ -957,17 +1063,8 @@ async function build(browserPayload) {
     enriched.monthly_channels = browserPayload.monthly_channels;
   }
 
-  // Categories — browser sends [{name, current, previous}]; render.py
-  // wants {catName: count}.
-  if (Array.isArray(browserPayload.categories) && browserPayload.categories.length) {
-    const cats = {}, catsPrev = {};
-    browserPayload.categories.forEach(c => {
-      if (c && c.name) { cats[c.name] = c.current || 0; catsPrev[c.name] = c.previous || 0; }
-    });
-    enriched.categories = cats;
-    // Prior-month counts → slide 5 grouped (current vs previous) bars.
-    if (Object.values(catsPrev).some(v => v > 0)) enriched.categories_prev = catsPrev;
-  }
+  // Categories — browser sends [{name, current, previous}]; render.py wants {catName: count}.
+  mergeBrowserCategories(enriched, browserPayload, { otherBucket });
 
   // Recent change titles → slide 8 yellow-box "at a glance" line.
   if (Array.isArray(browserPayload.recent_changes) && browserPayload.recent_changes.length) {
@@ -981,19 +1078,9 @@ async function build(browserPayload) {
     enriched.channel = chs;
   }
 
-  // Ageing per group — browser sends [{group, t0_30, t31_45, t46_60, t_over_60}]
+  // Ageing per group — browser sends [{group, t0_30, t31_45, t46_60, t_over_60}];
   // render.py wants {grp: {0-30, 31-60, >60, total}}
-  if (Array.isArray(browserPayload.ageing) && browserPayload.ageing.length) {
-    const ag = {};
-    browserPayload.ageing.forEach(a => {
-      if (!a || !a.group) return;
-      const t0  = _safeNum(a.t0_30);
-      const t31 = _safeNum(a.t31_45) + _safeNum(a.t46_60);  // collapse 31-45 + 46-60 → 31-60
-      const t60 = _safeNum(a.t_over_60);
-      ag[a.group] = { '0-30': t0, '31-60': t31, '>60': t60, 'total': t0 + t31 + t60 };
-    });
-    if (Object.keys(ag).length) enriched.ageing = ag;
-  }
+  mergeBrowserAgeing(enriched, browserPayload, { otherBucket });
 
   // CSAT block — render.py reads csat_satisfied / csat_neutral /
   // csat_dissatisfied / csat_no_rating / csat_total_responses /
@@ -1025,49 +1112,12 @@ async function build(browserPayload) {
     if (c.total_responses != null) enriched.csat_total = c.total_responses;
   }
 
-  // Changes — browser nested {total, emergency, major, standard, ...} →
-  // render.py flat `changes_total` + `changes_type` + `changes_emergency`
-  if (browserPayload.changes && typeof browserPayload.changes === 'object') {
-    const bc = browserPayload.changes;
-    // When the browser has changes IN SCOPE (total > 0), its group-scoped counts
-    // are authoritative for EVERY change sub-field — INCLUDING a legitimate 0
-    // (e.g. an OPS scope with 0 emergencies). Previously changes_emergency and
-    // emergency_pct kept the server's UNSCOPED value on a 0, so slide 3's
-    // EMERGENCY tile (reads the scalar changes_emergency) showed 1 (an Apps
-    // emergency like IVALUA) while slide 8's donut (reads the dict
-    // changes_type.Emergency) showed 0 — the SAME metric contradicting itself
-    // across slides. One scoped source now, so every slide agrees.
-    //
-    // A browser total of 0 still means "the CHANGES GRP scope excluded
-    // everything" (the canonical Operations seed is empty per
-    // services/groupPresets.js) → keep the DB-authoritative server counts
-    // rather than zeroing the whole change section on the deck.
-    if (bc.total != null && bc.total > 0) {
-      enriched.changes_total     = bc.total;
-      enriched.changes_emergency = _safeNum(bc.emergency);
-      enriched.emergency_pct     = (bc.emergency_pct != null)
-        ? bc.emergency_pct
-        : (bc.total ? (_safeNum(bc.emergency) / bc.total * 100) : 0);
-      enriched.changes_type = {
-        Standard:  _safeNum(bc.standard),
-        Major:     _safeNum(bc.major),
-        Emergency: _safeNum(bc.emergency),
-      };
-      if (bc.completed > 0 || bc.in_progress > 0) {
-        enriched.changes_status = {
-          Completed:     _safeNum(bc.completed),
-          'In Progress': _safeNum(bc.in_progress),
-        };
-      }
-      // Scoped emergency-change list → the slide-8 glance. The browser's
-      // group-scoped list is empty when the OPS scope has 0 emergencies; using
-      // it (over the server's month-only UNSCOPED list) is what keeps an
-      // Applications change (IVALUA) out of an OPS-scoped deck.
-      if (Array.isArray(bc.emergency_changes)) enriched.emergency_changes = bc.emergency_changes;
-    }
-  }
+  // Changes — browser nested {total, emergency, major, standard, ...} → render.py flat
+  // changes_total + changes_type + changes_emergency (see mergeBrowserChanges).
+  if (browserPayload.changes && typeof browserPayload.changes === 'object') mergeBrowserChanges(enriched, browserPayload.changes, { otherBucket });
+  if (otherBucket) enriched.other_bucket = true;   // render.py keeps the "Other (k)" entries only under this marker
 
   return enriched;
 }
 
-module.exports = { build, mergeBrowserKpis };
+module.exports = { build, mergeBrowserKpis, mergeBrowserCategories, mergeBrowserAgeing, mergeBrowserChanges };

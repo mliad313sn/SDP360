@@ -459,6 +459,7 @@
   </style>
 <script src="auth.js" data-require="super_admin"></script>
 <script src="lib/dashboard-shared.js"></script>
+<script src="lib/execDeckPayload.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -7294,30 +7295,14 @@ function _buildExecPptxPayload() {
   //   closed            = isClosed()                              (canonical)
   //   Resolution SLA %  = (closed AND not overdue) / closed       (closed-only denom, isResOverdue)
   //   FCR %             = closed-not-escalated-not-reopened / closed
-  const _curClosed  = cur.filter(isClosed);
-  const _prevClosed = prev.filter(isClosed);
-  const closed      = _curClosed.length;
-  const closedPrev  = _prevClosed.length;
-  const resOverdue     = _curClosed.filter(r => isResOverdue(r)).length;
-  const resOverduePrev = _prevClosed.filter(r => isResOverdue(r)).length;
-  const slaResPct  = closed     ? Math.round((closed - resOverdue) / closed * 1000) / 10 : null;
-  const slaResPrev = closedPrev ? (closedPrev - resOverduePrev) / closedPrev * 100 : null;
-  // First Response SLA — /total basis (drives the slide-3 FRT tile; unchanged behaviour).
-  const _frtV = rows => rows.filter(t => { const f=(t['First Response Overdue Status']||'').toLowerCase(); return f==='true'||f==='yes'||f==='1'; }).length;
-  const frtSlaPct  = cur.length  ? Math.round((1 - _frtV(cur)/cur.length) * 1000) / 10 : null;
-  const frtSlaPrev = prev.length ? (1 - _frtV(prev)/prev.length) * 100 : null;
-  const closureRt     = cur.length  ? Math.round((closed/cur.length) * 1000) / 10 : null;
-  const closureRtPrev = prev.length ? (closedPrev/prev.length) * 100 : null;
-  // FCR Rate — mirrors the scorecard FCR tile exactly (numerator: status
-  // closed/resolved, not reopened, not escalated; denominator: closed).
-  const fcrClosed = cur.filter(r => {
-    const s = (r['Request Status'] || '').toLowerCase();
-    if (s !== 'closed' && s !== 'resolved') return false;
-    if (parseInt(r['Reopen Count'] || 0) > 0) return false;
-    const esc = (r['Is Escalated'] || r['IsEscalated'] || r['Escalated'] || 'no').toString().toLowerCase();
-    return !(esc === 'true' || esc === 'yes' || esc === '1');
-  }).length;
-  const fcrPct = closed ? Math.round(fcrClosed / closed * 1000) / 10 : null;
+  // C-16 — the figure core lives in public/lib/execDeckPayload.js (same formulas, unit-tested
+  // against the screen rule in tests/report-figures-parity.test.js).
+  const _hk = ExecDeckPayload.headlineKpis(cur, prev, { isClosed, isResOverdue });
+  const closed = _hk.closed_tickets, closedPrev = _hk.closedPrev;
+  const slaResPct = _hk.sla_res_pct, slaResPrev = _hk.slaResPrev;
+  const frtSlaPct = _hk.frt_sla_pct, frtSlaPrev = _hk.frtSlaPrev;
+  const closureRt = _hk.closure_rate, closureRtPrev = _hk.closureRtPrev;
+  const fcrPct = _hk.fcr_rate;
 
   // Channel split (Mode field)
   const tally = (rows, field) => {
@@ -7380,10 +7365,10 @@ function _buildExecPptxPayload() {
   const catCur  = tally(cur,  'Category');
   const catPrev = tally(prev, 'Category');
   const allCats = new Set([...Object.keys(catCur), ...Object.keys(catPrev)]);
-  const categories = [...allCats]
+  const categoriesFull = [...allCats]
     .map(name => ({ name, current: catCur[name]||0, previous: catPrev[name]||0 }))
-    .sort((a,b) => b.current - a.current)
-    .slice(0, 8);
+    .sort((a,b) => b.current - a.current);
+  const categories = categoriesFull.slice(0, 8);   // today's top 8; categories_full feeds the "Other (k)" bar (exec_deck_other_bucket)
 
   // Channels — top by current, fallback to all observed
   const allChans = new Set([...Object.keys(chanCur), ...Object.keys(chanPrev)]);
@@ -7406,7 +7391,7 @@ function _buildExecPptxPayload() {
   // Open backlog = period tickets still open — matches the scorecard "Still open
   // this period" tile. The all-time ageing sum (kept above for the chart) was
   // inflating this ~10x (260 vs the scorecard's 26).
-  const openBacklog = cur.filter(r => !isClosed(r)).length;
+  const openBacklog = _hk.open_backlog;
 
   // Support Groups count — distinct tech_groups that actually saw a ticket
   // this period. Falls through to the OPS preset size if nothing in cur
@@ -7471,13 +7456,9 @@ function _buildExecPptxPayload() {
   // negated labels). Anchor to whole-word match instead. Also broaden the
   // recognised field names — SDP exports use 'Change Type', some views
   // use 'Type', some normalise to 'changeType'.
-  const chgByType = (type) => {
-    const re = new RegExp('(^|[^a-z])' + type + '([^a-z]|$)', 'i');
-    return chgInMonth.filter(c => {
-      const t = c['Change Type'] || c['Type'] || c.changeType || c.type || '';
-      return re.test(t);
-    }).length;
-  };
+  // C-16 — counts from public/lib/execDeckPayload.js (same whole-word rule) + Normal + a
+  // one-bucket-per-change partition used when exec_deck_other_bucket is on.
+  const _chgCounts = ExecDeckPayload.changeTypeCounts(chgInMonth);
 
   // Changes by Division (slide 8, 2nd donut) — tally UDF:Division over the same
   // scoped chgInMonth set. Field-name tolerant; blanks bucketed as "Unassigned".
@@ -7670,6 +7651,7 @@ function _buildExecPptxPayload() {
     monthly_trend: monthlyTrend,
     monthly_channels: monthlyChannels,   // 12-month Email vs Web Form share series
     categories,
+    categories_full: categoriesFull,
     channels,
     ageing,
     csat: {
@@ -7699,10 +7681,12 @@ function _buildExecPptxPayload() {
     },
     changes: {
       total:        chgInMonth.length,
-      emergency:    chgByType('emergency'),
-      emergency_pct:chgInMonth.length ? Math.round(chgByType('emergency') / chgInMonth.length * 1000) / 10 : 0,
-      major:        chgByType('major'),
-      standard:     chgByType('standard') || (chgInMonth.length - chgByType('emergency') - chgByType('major')),
+      emergency:    _chgCounts.emergency,
+      emergency_pct:chgInMonth.length ? Math.round(_chgCounts.emergency / chgInMonth.length * 1000) / 10 : 0,
+      major:        _chgCounts.major,
+      standard:     _chgCounts.standard,
+      normal:       _chgCounts.normal,
+      type_partition: _chgCounts.partition,
       completed:    chgInMonth.filter(_chgDone).length,
       in_progress:  chgInMonth.filter(_chgWip).length,
       // Scoped emergency-change list for the slide-8 glance — replaces the
