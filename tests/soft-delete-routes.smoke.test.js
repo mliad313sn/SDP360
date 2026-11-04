@@ -87,3 +87,32 @@ test('inspection: switch on → soft delete (editor own site), 404 on read, tras
   assert.equal((await post('/api/inspection/SDR-SOFT/restore', superTok)).status, 409, 'not deleted any more');
   assert.equal((await post('/api/inspection/NOPE/restore', superTok)).status, 404);
 });
+
+test('meetings: switch on → soft delete logs meeting_soft_deleted, trash lists the PV, editor restore 403, admin restore 200', async () => {
+  await setSoft(true);
+  const s = await post('/api/meetings/save', superTok, { state: { header: { site_code: 'HGO', department: 'Mining', meeting_date: '2026-08-10', status: 'draft' },
+    issues: [], actions: [{ ord: 1, description: 'A', owner_it: 'x', status: 'open' }] } });
+  assert.equal(s.status, 200, await s.text());
+  const id = (await s.json()).id;
+  const d = await del(`/api/meetings/${id}?reason=dup`, edTok);
+  assert.equal(d.status, 200, await d.text());
+  assert.equal((await waitEvent('meeting_soft_deleted', id)).length, 1);
+  assert.equal((await get(`/api/meetings/${id}`, superTok)).status, 404);
+  const t = await (await get('/api/admin/trash?module=meetings', superTok)).json();
+  const row = t.rows.find((x) => Number(x.id) === Number(id));
+  assert.ok(row && row.restorable && row.deleted_by_name === 'sd-editor' && row.delete_reason === 'dup');
+  assert.equal((await post(`/api/meetings/${id}/restore`, edTok)).status, 403);
+  const r = await post(row.restore_url, superTok);
+  assert.equal(r.status, 200, await r.text());
+  assert.equal((await waitEvent('meeting_restored', id)).length, 1);
+  assert.equal((await get(`/api/meetings/${id}`, superTok)).status, 200);
+});
+
+test('meetings: switch off → DELETE stays a hard delete and logs meeting_deleted', async () => {
+  await setSoft(false);
+  const s = await post('/api/meetings/save', superTok, { state: { header: { site_code: 'HGO', department: 'HR', meeting_date: '2026-08-11', status: 'draft' }, issues: [], actions: [] } });
+  const id = (await s.json()).id;
+  assert.equal((await del(`/api/meetings/${id}`, superTok)).status, 200);
+  assert.equal(await require('../meetings-db').getMeetingTrashRow(id), null);
+  assert.equal((await waitEvent('meeting_deleted', id)).length, 1);
+});

@@ -5,6 +5,8 @@
 const softDelete = require('./softDelete');
 
 const _idb = () => require('../inspection-db');
+const _mdb = () => require('../meetings-db');
+const _num = (v) => (v == null ? null : Number(v));
 
 // module → { trash(): rows[{ kind, id, label, site, deleted_at, deleted_by, delete_reason }], purge(cutoff, {apply}) }
 const MODULES = {
@@ -14,6 +16,14 @@ const MODULES = {
       deleted_at: r.deleted_at, deleted_by: r.deleted_by == null ? null : Number(r.deleted_by), delete_reason: r.delete_reason || null,
     })),
     purge: (cutoff, opts) => _idb().purgeDeletedInspections(cutoff, opts),
+  },
+  meetings: {
+    trash: async () => (await _mdb().listDeletedMeetings()).map((r) => ({
+      module: 'meetings', kind: 'pv', id: Number(r.id), label: r.reference || `PV #${r.id}`, site: r.site_code || null,
+      restore_url: `/api/meetings/${Number(r.id)}/restore`,
+      deleted_at: r.deleted_at, deleted_by: _num(r.deleted_by), delete_reason: r.delete_reason || null,
+    })),
+    purge: (cutoff, opts) => _mdb().purgeDeletedMeetings(cutoff, opts),
   },
 };
 

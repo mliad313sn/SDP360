@@ -10,6 +10,7 @@ module.exports = function softDeleteRoutes(deps) {
   const { express, requireReportSession } = deps;
   const rdb = deps.rdb || require('../reports-db');
   const idb = () => deps.inspectionDb || require('../inspection-db');
+  const mdb = () => deps.meetingsDb || require('../meetings-db');
   const router = express.Router();
   const jsonBody = express.json({ limit: '64kb' });
 
@@ -31,6 +32,19 @@ module.exports = function softDeleteRoutes(deps) {
       if (!(await idb().restoreInspection(row.id))) return res.status(409).json({ error: 'This inspection is not deleted' });
       log(req, 'inspection', 'inspection_restored', row.id, { site: row.site_code, deleted_at: row.deleted_at });
       res.json({ ok: true, id: row.id });
+    } catch (e) { fail(res, e); }
+  });
+
+  // POST /api/meetings/:id/restore — a restored PV comes back with its issues / actions (never removed), so the
+  // action_items.origin_id references to its actions resolve again.
+  router.post('/api/meetings/:id/restore', requireReportSession, jsonBody, async (req, res) => {
+    try {
+      if (!adminOr403(req, res)) return;
+      const cfg = await softDelete.readConfig(rdb);
+      const row = softDelete.assertRestorable(await mdb().getMeetingTrashRow(req.params.id), cfg, { what: 'PV' });
+      if (!(await mdb().restoreMeeting(row.id))) return res.status(409).json({ error: 'This PV is not deleted' });
+      log(req, 'meetings', 'meeting_restored', row.id, { site: row.site_code, reference: row.reference, deleted_at: row.deleted_at });
+      res.json({ ok: true, id: Number(row.id) });
     } catch (e) { fail(res, e); }
   });
 

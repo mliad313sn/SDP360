@@ -17,7 +17,8 @@ const read = (f) => fs.readFileSync(path.join(root, f), 'utf8').replace(/\r\n/g,
 // file → tables guarded in it
 const GUARDED = {
   'inspection-db.js': ['insp_inspections'],
-  'services/reviewData.js': ['insp_inspections'],
+  'meetings-db.js': ['md_meetings'],
+  'services/reviewData.js': ['insp_inspections', 'md_meetings'],
 };
 
 // file → function name → reason it may read deleted rows / gets its filter elsewhere
@@ -32,6 +33,21 @@ const ALLOW = {
     _aggregatePg: 'WHERE comes from `w`, always seeded with i.deleted_at IS NULL (pinned by soft-delete-inspection)',
     _listActionsPg: 'WHERE comes from `w`, always seeded with i.deleted_at IS NULL (pinned by soft-delete-inspection)',
     exportRows: 'WHERE comes from `w` / `wi`, always carrying deleted_at IS NULL',
+  },
+  'meetings-db.js': {
+    _deleteMeetingPg: 'the hard delete itself (switch off)',
+    getMeetingTrashRow: 'restore / trash read: must see deleted rows',
+    listDeletedMeetings: 'admin trash listing: deleted rows only',
+    purgeDeletedMeetings: 'purge: deleted rows past retention only',
+    _saveMeetingPg: 'resolves by id / reference / month INCLUDING deleted PVs to REFUSE a resurrecting save (CONFLICT)',
+    _lockMeetingShared: 'row lock only (FOR SHARE) for a child write whose parent was already resolved through a filtered reader',
+    _editTokenPg: 'concurrency token of a PV already resolved through a filtered reader',
+    _listMeetingsPg: 'WHERE comes from _meetingsWhere(), always seeded with m.deleted_at IS NULL',
+    _countMeetingsPg: 'WHERE comes from _meetingsWhere(), always seeded with m.deleted_at IS NULL',
+    _listIssuesPg: 'WHERE comes from `w`, always seeded with m.deleted_at IS NULL',
+    _listActionsPg: 'WHERE comes from `w`, always seeded with m.deleted_at IS NULL',
+    _aggregatePg: 'WHERE comes from `w`, always seeded with m.deleted_at IS NULL',
+    exportRows: 'WHERE comes from `wm`, always carrying m.deleted_at IS NULL',
   },
 };
 
