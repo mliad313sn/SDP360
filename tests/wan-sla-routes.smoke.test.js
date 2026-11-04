@@ -183,3 +183,24 @@ test('POST /sla/export-filtered.xlsx → separates closed rows without duration 
   const hostile = await _bin('POST', '/api/analytics/wan/sla/export-filtered.xlsx', adminToken, { rows: 'nope', label: '../x' });
   assert.equal(hostile.status, 200, 'bad body → empty workbook, never 500');
 });
+
+// ── A-25 Part A — stale-closed outages surface as pending_review per circuit ─────────────
+test('A-25: GET /sla/summary includes pending_review {count, detected_minutes} per circuit', async () => {
+  const rdb = require('../reports-db');
+  // A mapped circuit on MGO wan2 (wan1 stays UNMAPPED for the tests above).
+  const p = await put('/api/analytics/wan/sla/config',
+    { circuits: [{ site_id: mgoSiteId, sub_site: '', uplink: 'wan2', tier: 'SILVER', isp: 'PendISP', mrc_amount: 100000, currency: 'XOF' }] }, superToken);
+  assert.equal(p.status, 200);
+  await rdb.upsertWanOutage({
+    site_id: mgoSiteId, sub_site: '', uplink: 'wan2', isp: 'PendISP', detected_start: '2026-08-20T08:00:00.000Z',
+    restored_end: '2026-08-21T08:00:00.000Z', duration_s: null, attribution: 'unknown',
+    attribution_reason: 'stale_open — not reviewed', source: 'stale_open',
+  });
+  const r = await get('/api/analytics/wan/sla/summary?month=2026-08', adminToken);
+  assert.equal(r.status, 200);
+  const c = r.body.circuits.find((x) => x.site_id === mgoSiteId && x.uplink === 'wan2');
+  assert.ok(c, 'mapped circuit present');
+  assert.deepEqual(c.pending_review, { count: 1, detected_minutes: 1440 });
+  assert.equal(c.counted_downtime_s, 0, 'the unknown outage is still excluded from the credit');
+  for (const x of r.body.circuits) assert.ok(x.pending_review && typeof x.pending_review.count === 'number');
+});

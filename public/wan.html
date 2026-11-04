@@ -164,13 +164,15 @@
               <th>ISP</th><th>Circuit</th><th>Site / Sub-site</th><th>Uplink</th>
               <th class="sl-num">Availability (contract)</th><th class="sl-num">Objective</th>
               <th class="sl-num">Credit tier</th><th>Credit due</th>
-              <th class="sl-num">Gap</th><th class="sl-num">Amount</th>
+              <th class="sl-num">Gap</th><th class="sl-num">Amount</th><th>Pending review</th>
             </tr>
           </thead>
           <tbody id="sl-circuits"></tbody>
         </table>
       </div>
-      <p class="sl-note">Availability is measured only within each circuit's service hours; the objective column is the detection-based upper bound.</p>
+      <p class="sl-note">Availability is measured only within each circuit's service hours; the objective column is the detection-based upper bound.
+        <b>Not certified</b> = no ISP contract reviewed by a second super_admin (or its MRC differs from the circuit) — the amount is an estimate, not a claim.
+        <b>Pending review</b> = outages never seen to recover (stale-closed) or with no attribution: they are excluded from the credit until someone reviews them.</p>
     </div>
 
     <div id="sl-unmapped-panel" class="sl-panel" style="display:none">
@@ -432,7 +434,8 @@
         <td class="sl-num">${c.credit_pct == null ? '—' : fmtNum(c.credit_pct, 1) + '%'}</td>
         <td>${creditBadge}</td>
         <td class="sl-num">${gap.length ? gap.join(' · ') : '—'}</td>
-        <td class="sl-num">${fmtAmount(c.amount, c.currency)}</td>
+        <td class="sl-num">${c.amount == null && c.amount_reason ? '<span class="sl-muted">' + esc(c.amount_reason) + '</span>' : fmtAmount(c.amount, c.currency)}${c.certified === false ? ' <span class="sl-pill sl-neu" title="No reviewed ISP contract — the amount is not certified">not certified</span>' : (c.certified ? ' <span class="sl-pill sl-ok">certified</span>' : '')}</td>
+        <td>${c.pending_review && c.pending_review.count ? '<span class="sl-pill sl-neu">' + c.pending_review.count + ' · ' + fmtNum(c.pending_review.detected_minutes / 60, 1) + ' h</span>' : '—'}</td>
       </tr>`;
     }).join('');
 

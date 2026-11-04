@@ -1733,14 +1733,16 @@ async function _getWanSnapshotsPg(f) {
 //    (site_id, sub_site, uplink, detected_start), no surrogate id. Same dual-backend shape
 //    as wan_link_snapshots: one shared upsert SQL for both backends, dual dispatcher.
 const _WAN_OUTAGE_COLS = ['site_id','sub_site','uplink','isp','circuit_id','detected_start','restored_end',
-  'notified_at','duration_s','attribution','attribution_reason','network_id','device_serial','source','raw_json'];
+  'notified_at','duration_s','attribution','attribution_reason','network_id','device_serial','source','raw_json',
+  'last_seen_at'];
 const _WAN_OUTAGE_UPSERT =
   `INSERT INTO wan_outages (${_WAN_OUTAGE_COLS.join(',')}) VALUES (${_WAN_OUTAGE_COLS.map(() => '?').join(',')})
    ON CONFLICT(site_id,sub_site,uplink,detected_start) DO UPDATE SET
      isp=excluded.isp, circuit_id=excluded.circuit_id, restored_end=excluded.restored_end,
      notified_at=excluded.notified_at, duration_s=excluded.duration_s, attribution=excluded.attribution,
      attribution_reason=excluded.attribution_reason, network_id=excluded.network_id,
-     device_serial=excluded.device_serial, source=excluded.source, raw_json=excluded.raw_json`;
+     device_serial=excluded.device_serial, source=excluded.source, raw_json=excluded.raw_json,
+     last_seen_at=COALESCE(excluded.last_seen_at, wan_outages.last_seen_at)`;
 const _wanOutageVals = (r) => _WAN_OUTAGE_COLS.map(c =>
   c === 'sub_site' ? (r.sub_site == null ? '' : r.sub_site) : (r[c] === undefined ? null : r[c]));
 function _wanOutageWhere(f) {
@@ -1800,6 +1802,75 @@ function closeWanOutage(o) {
 
 async function _closeWanOutagePg(o) {
   return pgHandle().prepare(_WAN_OUTAGE_CLOSE_SQL).run(..._wanOutageCloseArgs(o));
+}
+
+// A-25 — the poller stamps the last time it SAW an open row's uplink still down. A
+// targeted UPDATE by PK (never touches any other column); an upsert that omits
+// last_seen_at keeps the stamp (COALESCE in _WAN_OUTAGE_UPSERT).
+function touchWanOutageSeen(o) {
+  return pgHandle().prepare(
+    'UPDATE wan_outages SET last_seen_at=? WHERE site_id=? AND sub_site=? AND uplink=? AND detected_start=?'
+  ).run(o.seen_at, o.site_id, o.sub_site == null ? '' : o.sub_site, o.uplink, o.detected_start);
+}
+// A-25 — historic stale_open rows the poller closed before it labelled them 'unknown'.
+function listUnlabelledStaleOutages() {
+  return pgHandle().prepare(
+    "SELECT site_id, sub_site, uplink, detected_start FROM wan_outages WHERE source='stale_open' AND attribution IS NULL ORDER BY detected_start"
+  ).all();
+}
+// Set (or clear, attribution=null) the attribution of ONE outage by PK. Only rows whose current
+// attribution matches `expect` are touched, so a re-run or a later human label is never clobbered.
+async function setWanOutageAttribution(key, attribution, reason, expect) {
+  const sub = key.sub_site == null ? '' : key.sub_site;
+  const guard = expect == null ? 'attribution IS NULL' : 'attribution=?';
+  const args = [attribution, reason, key.site_id, sub, key.uplink, key.detected_start];
+  if (expect != null) args.push(expect);
+  const r = await pgHandle().prepare(
+    `UPDATE wan_outages SET attribution=?, attribution_reason=? WHERE site_id=? AND sub_site=? AND uplink=? AND detected_start=? AND ${guard}`
+  ).run(...args);
+  return r.changes;
+}
+
+// ── A-25 Part B — ISP contract terms per WAN circuit + four-eyes review ──────────────────
+// circuit_key = 'site_id|sub_site|uplink'. Writing terms (upsert) ALWAYS clears the review: a
+// review certifies the exact terms it saw. reviewWanContract refuses the user who entered them.
+const WAN_CONTRACT_KEY_RE = /^\d+\|[^|]{0,64}\|wan\d$/;
+function wanCircuitKey(c) { return `${c.site_id}|${c.sub_site || ''}|${c.uplink}`; }
+function _contractRow(r) {
+  if (!r) return r;
+  return { ...r, mrc_amount: r.mrc_amount == null ? null : Number(r.mrc_amount) };
+}
+async function listWanContracts() {
+  return ((await pgHandle().prepare('SELECT * FROM wan_circuit_contracts ORDER BY circuit_key').all()) || []).map(_contractRow);
+}
+async function getWanContract(key) {
+  return _contractRow(await pgHandle().prepare('SELECT * FROM wan_circuit_contracts WHERE circuit_key=?').get(key));
+}
+async function upsertWanContract(row, user) {
+  const now = new Date().toISOString();
+  const g = (v) => (v === undefined || v === '' ? null : v);
+  await pgHandle().prepare(
+    `INSERT INTO wan_circuit_contracts (circuit_key, isp, mrc_amount, currency, contract_ref, evidence_blob_ref, evidence_name,
+       entered_by, entered_at, reviewed_by, reviewed_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)
+     ON CONFLICT (circuit_key) DO UPDATE SET isp=excluded.isp, mrc_amount=excluded.mrc_amount, currency=excluded.currency,
+       contract_ref=excluded.contract_ref,
+       evidence_blob_ref=COALESCE(excluded.evidence_blob_ref, wan_circuit_contracts.evidence_blob_ref),
+       evidence_name=COALESCE(excluded.evidence_name, wan_circuit_contracts.evidence_name),
+       entered_by=excluded.entered_by, entered_at=excluded.entered_at, reviewed_by=NULL, reviewed_at=NULL`
+  ).run(row.circuit_key, g(row.isp), row.mrc_amount == null ? null : Number(row.mrc_amount), g(row.currency),
+    g(row.contract_ref), g(row.evidence_blob_ref), g(row.evidence_name), user, now);
+  return getWanContract(row.circuit_key);
+}
+async function reviewWanContract(key, user) {
+  const c = await getWanContract(key);
+  if (!c) { const e = new Error('contract not found'); e.code = 'NOT_FOUND'; e.status = 404; throw e; }
+  if (!user || c.entered_by === user) {
+    const e = new Error('the user who entered a contract cannot review it'); e.code = 'SELF_REVIEW'; e.status = 403; throw e;
+  }
+  await pgHandle().prepare('UPDATE wan_circuit_contracts SET reviewed_by=?, reviewed_at=? WHERE circuit_key=? AND entered_by=?')
+    .run(user, new Date().toISOString(), key, c.entered_by);
+  return getWanContract(key);
 }
 
 // Reconcile a poller-created PROVISIONAL open row (source='meraki_status', restored_end
@@ -5489,7 +5560,7 @@ module.exports = {
   getSiteTechnicianStats, _computeTechStats,
   getPreviousWeek, ensureWeek, getWeekRange,
   ensureReport, getReport, listReports,
-  saveInfraKpis, upsertInfraSnapshots, getInfraSnapshots, upsertWanSnapshots, getWanSnapshots, upsertWanOutage, getWanOutages, getWanOutagesOverlapping, listOpenWanOutages, closeWanOutage, reconcileProvisionalOutage, saveHelpdeskData, saveLights, saveActionItems,
+  saveInfraKpis, upsertInfraSnapshots, getInfraSnapshots, upsertWanSnapshots, getWanSnapshots, upsertWanOutage, getWanOutages, getWanOutagesOverlapping, listOpenWanOutages, closeWanOutage, reconcileProvisionalOutage, touchWanOutageSeen, listUnlabelledStaleOutages, setWanOutageAttribution, listWanContracts, getWanContract, upsertWanContract, reviewWanContract, wanCircuitKey, WAN_CONTRACT_KEY_RE, saveHelpdeskData, saveLights, saveActionItems,
   getRoadmap, upsertRoadmapObjective, addRoadmapDeliverable, updateRoadmapDeliverable, deleteRoadmapDeliverable,
   getRoadmapTraining, addRoadmapTraining, updateRoadmapTraining, deleteRoadmapTraining,
   getRoadmapProject, addRoadmapAction, updateRoadmapAction, deleteRoadmapAction,

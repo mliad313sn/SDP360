@@ -95,3 +95,52 @@ test('getWanOutagesOverlapping: returns outages overlapping [from,to] (open + sp
   assert.deepEqual(got.map(o => o.detected_start).sort(),
     ['2026-08-08T00:00:00Z', '2026-08-12T00:00:00Z', '2026-08-15T00:00:00Z']);
 });
+
+// ── A-25 Part A — last_seen_at column + the historic "stale_open → unknown" backfill tool ──
+test('A-25: touchWanOutageSeen stamps last_seen_at; an upsert without it never clears it', async () => {
+  const k = { site_id: 31, sub_site: '', uplink: 'wan1', detected_start: '2026-08-10T08:00:00Z' };
+  await rdb.upsertWanOutage({ ...k, source: 'meraki_status' });
+  await rdb.touchWanOutageSeen({ ...k, seen_at: '2026-08-10T09:00:00Z' });
+  let r = (await rdb.getWanOutages({ site_id: 31 }))[0];
+  assert.equal(r.last_seen_at, '2026-08-10T09:00:00Z');
+  await rdb.upsertWanOutage({ ...k, source: 'meraki_status', notified_at: '2026-08-10T08:15:00Z' });   // poller re-upsert (no last_seen_at)
+  r = (await rdb.getWanOutages({ site_id: 31 }))[0];
+  assert.equal(r.last_seen_at, '2026-08-10T09:00:00Z', 'COALESCE keeps the stamp');
+  assert.equal(r.notified_at, '2026-08-10T08:15:00Z');
+});
+
+test('A-25: mark-stale-unknown — dry run writes nothing; apply labels unknown + writes a backup; restore puts NULL back', async () => {
+  const tool = require('../tools/meraki/mark-stale-unknown');
+  const dir = _fs.mkdtempSync(_p.join(_os.tmpdir(), 'wanstale-'));
+  const stale = { site_id: 41, sub_site: '', uplink: 'wan1', detected_start: '2026-07-01T00:00:00Z',
+    restored_end: '2026-07-02T00:00:00Z', source: 'stale_open', attribution: null };
+  const labelled = { site_id: 41, sub_site: '', uplink: 'wan2', detected_start: '2026-07-01T00:00:00Z',
+    restored_end: '2026-07-02T00:00:00Z', source: 'stale_open', attribution: 'isp', attribution_reason: 'x' };
+  const event = { site_id: 41, sub_site: '', uplink: 'wan1', detected_start: '2026-07-05T00:00:00Z',
+    restored_end: '2026-07-05T01:00:00Z', source: 'meraki_event', attribution: null };
+  for (const r of [stale, labelled, event]) await rdb.upsertWanOutage(r);
+  const quiet = () => {};
+
+  const dry = await tool.main({ rdb, backupDir: dir, log: quiet });
+  assert.equal(dry.apply, false);
+  assert.equal(dry.candidates, 1, 'only the NULL-attribution stale_open row is a candidate');
+  assert.equal(_fs.readdirSync(dir).length, 0, 'dry run writes no backup');
+  const after0 = await rdb.getWanOutages({ site_id: 41 });
+  assert.equal(after0.find(r => r.uplink === 'wan1' && r.source === 'stale_open').attribution, null, 'dry run writes nothing');
+
+  const ap = await tool.main({ rdb, backupDir: dir, apply: true, log: quiet });
+  assert.equal(ap.updated, 1);
+  assert.ok(ap.backup && _fs.existsSync(ap.backup), 'backup file written');
+  const after1 = await rdb.getWanOutages({ site_id: 41 });
+  const s1 = after1.find(r => r.uplink === 'wan1' && r.source === 'stale_open');
+  assert.equal(s1.attribution, 'unknown');
+  assert.equal(s1.attribution_reason, 'stale_open — not reviewed');
+  assert.equal(after1.find(r => r.uplink === 'wan2').attribution, 'isp', 'already-attributed row untouched');
+  assert.equal(after1.find(r => r.source === 'meraki_event').attribution, null, 'non-stale row untouched');
+
+  const rs = await tool.main({ rdb, restore: ap.backup, log: quiet });
+  assert.equal(rs.restored, 1);
+  const s2 = (await rdb.getWanOutages({ site_id: 41 })).find(r => r.uplink === 'wan1' && r.source === 'stale_open');
+  assert.equal(s2.attribution, null);
+  assert.equal(s2.attribution_reason, null);
+});

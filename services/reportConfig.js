@@ -124,6 +124,15 @@ const DEFAULTS = {
   // down (blank = no latency cap). Tune loss_pct down (~15-25) to land on Meraki's % Time Up.
   wan_timeup_loss_pct: '100',
   wan_timeup_latency_ms: '',
+  // A-25 — WAN SLA review/credits. Both defaults reproduce today's output (except the explicit
+  //    "unknown" label the poller now puts on stale-closed rows, which the engine already excluded).
+  //    wan_stale_close_at: where the 24 h stale-open guard ends a row — 'now' (the poll time, today)
+  //    or 'last_seen' (the last poll that SAW the uplink down; also drops "unknown" rows from the
+  //    24/7 availability). wan_sla_require_contract_evidence: '0' = credit amounts shown whenever the
+  //    circuit has an MRC (today); '1' = amount null + amount_reason "not certified" unless the
+  //    circuit's contract was reviewed by a second super_admin and its MRC matches the config.
+  wan_stale_close_at: 'now',
+  wan_sla_require_contract_evidence: '0',
   // ── Teams SLA alerts (2026-10-03) — tools/teams/poll-sla.js, every 5 min. Disarmed by default.
   //    The SDP Cloud API is read with a Zoho OAuth self-client (scope SDPOnDemand.requests.READ):
   //    client_secret + refresh_token are SECRETS. teams_sla_channels = JSON [{group, url}] — a

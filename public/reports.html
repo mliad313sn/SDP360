@@ -1857,6 +1857,18 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <button class="btn btn-primary" onclick="saveSlaConfig()">Save</button>
         <span id="sla-msg" style="font-size:0.85rem;color:#6b7a99"></span>
       </div>
+
+      <!-- A-25 — ISP contract terms + evidence per circuit, four-eyes review. A credit amount is
+           only CERTIFIED when the contract is reviewed by a SECOND super_admin and its MRC equals
+           the circuit MRC above. Any change of terms clears the review. -->
+      <h4 style="margin:22px 0 6px;color:#3A4A60">Contracts &amp; evidence (four-eyes review)</h4>
+      <p style="color:#6b7a99;font-size:0.85rem;margin:-2px 0 8px">Upload each circuit's ISP contract and enter its terms; a <strong>different</strong> super_admin then clicks <em>Review</em>. Amounts are certified only for reviewed contracts whose MRC matches the circuit. When <code>wan_sla_require_contract_evidence</code> is <code>1</code>, an uncertified circuit shows no amount ("not certified").</p>
+      <div style="overflow-x:auto">
+        <table class="user-table" style="font-size:0.82rem"><thead><tr>
+          <th>Circuit</th><th>ISP</th><th>MRC</th><th>Currency</th><th>Contract ref</th><th>Evidence (PDF / image)</th><th>Entered</th><th>Review</th><th></th>
+        </tr></thead><tbody id="sla-contract-rows"><tr><td colspan="9" style="color:#6b7a99">Save the circuits above, then reload this card.</td></tr></tbody></table>
+      </div>
+      <span id="sla-contract-msg" style="font-size:0.85rem;color:#6b7a99"></span>
     </div>
 
     <!-- ─── Assets Finance (Global → Assets) ──────────────────────────────────
@@ -8001,7 +8013,74 @@ function loadSlaConfig() {
     const mtb = document.getElementById('sla-maint-rows');
     if (mtb) { const mnt = Array.isArray(c.maintenance) ? c.maintenance : []; mtb.innerHTML = mnt.map(_slaMaintRowHtml).join(''); }
     const msg = document.getElementById('sla-msg'); if (msg) msg.textContent = '';
+    loadSlaContracts(Array.isArray(c.circuits) ? c.circuits : []);
   }).catch(e => toast('Could not load SLA WAN settings: ' + (e.message || e), 'error'));
+}
+
+// A-25 — per-circuit contract rows (terms + evidence + four-eyes review). The review button is
+// disabled for the user who entered the terms; the server refuses it anyway (403 SELF_REVIEW).
+let _slaCircuitsForContracts = [];
+function _slaCircuitKey(c) { return `${c.site_id}|${c.sub_site || ''}|${c.uplink}`; }
+function loadSlaContracts(circuits) {
+  if (circuits) _slaCircuitsForContracts = circuits;
+  const tb = document.getElementById('sla-contract-rows');
+  if (!tb) return;
+  api('GET', '/api/analytics/wan/sla/contracts').then(r => {
+    const byKey = {}; ((r && r.contracts) || []).forEach(x => { byKey[x.circuit_key] = x; });
+    const me = (window.__authUser && window.__authUser.username) || '';
+    const rows = _slaCircuitsForContracts.filter(c => c && c.site_id != null && c.uplink);
+    if (!rows.length) { tb.innerHTML = '<tr><td colspan="9" style="color:#6b7a99">No circuit configured yet.</td></tr>'; return; }
+    tb.innerHTML = rows.map(c => {
+      const k = _slaCircuitKey(c), x = byKey[k] || {};
+      const mrcMismatch = x.mrc_amount != null && c.mrc_amount != null && Number(x.mrc_amount) !== Number(c.mrc_amount);
+      const review = x.reviewed_by
+        ? `<span style="color:#1d7a3e">✓ ${esc(x.reviewed_by)}</span>${mrcMismatch ? ' <span style="color:#b45309">(MRC differs from circuit — not certified)</span>' : ''}`
+        : (x.entered_by ? `<button class="btn btn-secondary" ${x.entered_by === me ? 'disabled title="You entered these terms — another super_admin must review"' : ''} onclick="reviewSlaContract(this.closest('tr').dataset.key)">Review</button>` : '<span style="color:#6b7a99">—</span>');
+      return `<tr data-key="${esc(k)}">
+        <td>${esc(k)}</td>
+        <td><input type="text" class="slc-isp" value="${esc(x.isp || c.isp || '')}" style="width:110px"></td>
+        <td><input type="number" class="slc-mrc" min="0" value="${esc(x.mrc_amount != null ? x.mrc_amount : (c.mrc_amount != null ? c.mrc_amount : ''))}" style="width:100px"></td>
+        <td><input type="text" class="slc-cur" value="${esc(x.currency || c.currency || '')}" style="width:60px"></td>
+        <td><input type="text" class="slc-ref" value="${esc(x.contract_ref || '')}" style="width:120px"></td>
+        <td>${x.evidence_blob_ref ? `<a href="#" onclick="downloadSlaEvidence(this.closest('tr').dataset.key);return false">${esc(x.evidence_name || 'file')}</a><br>` : ''}<input type="file" class="slc-file" accept="application/pdf,image/png,image/jpeg,image/webp"></td>
+        <td>${x.entered_by ? esc(x.entered_by) + '<br><small>' + esc(String(x.entered_at || '').slice(0, 16)) + '</small>' : '—'}</td>
+        <td>${review}</td>
+        <td><button class="btn btn-primary" onclick="saveSlaContract(this.closest('tr').dataset.key)">Save terms</button></td>
+      </tr>`;
+    }).join('');
+  }).catch(e => { tb.innerHTML = `<tr><td colspan="9" style="color:#b91c1c">Could not load contracts: ${esc(e.message || e)}</td></tr>`; });
+}
+function _readFileDataUrl(file) {
+  return new Promise((resolve, reject) => { const fr = new FileReader(); fr.onload = () => resolve(fr.result); fr.onerror = () => reject(fr.error); fr.readAsDataURL(file); });
+}
+async function saveSlaContract(key) {
+  const tr = [...document.querySelectorAll('#sla-contract-rows tr')].find(r => r.dataset.key === key);
+  const msg = document.getElementById('sla-contract-msg');
+  if (!tr) return;
+  const v = sel => { const el = tr.querySelector(sel); return el ? el.value.trim() : ''; };
+  const body = { isp: v('.slc-isp'), mrc_amount: v('.slc-mrc'), currency: v('.slc-cur'), contract_ref: v('.slc-ref') };
+  const f = tr.querySelector('.slc-file');
+  try {
+    if (f && f.files && f.files[0]) body.evidence = { name: f.files[0].name, data_url: await _readFileDataUrl(f.files[0]) };
+    await api('PUT', '/api/analytics/wan/sla/contracts/' + encodeURIComponent(key), body);
+    if (msg) msg.textContent = 'Terms saved — awaiting review by another super_admin.';
+    toast('Contract terms saved (review cleared) ✓', 'success');
+    loadSlaContracts();
+  } catch (e) { if (msg) msg.textContent = 'Save failed: ' + (e.message || e); toast('Save failed: ' + (e.message || e), 'error'); }
+}
+async function reviewSlaContract(key) {
+  if (!confirm('Confirm you have read the contract evidence and the terms match it. Your name is recorded as reviewer.')) return;
+  try { await api('POST', '/api/analytics/wan/sla/contracts/' + encodeURIComponent(key) + '/review', {}); toast('Contract reviewed ✓', 'success'); loadSlaContracts(); }
+  catch (e) { toast('Review refused: ' + (e.message || e), 'error'); }
+}
+async function downloadSlaEvidence(key) {
+  try {
+    const r = await fetch(API + '/api/analytics/wan/sla/contracts/' + encodeURIComponent(key) + '/evidence', { headers: { 'X-Dash-Key': window.__ak || '' }, credentials: 'same-origin' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const blob = await r.blob(); const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'contract-' + key.replace(/[^A-Za-z0-9_-]/g, '_'); a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  } catch (e) { toast('Download failed: ' + (e.message || e), 'error'); }
 }
 
 function saveSlaConfig() {
