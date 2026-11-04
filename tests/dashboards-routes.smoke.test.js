@@ -51,6 +51,14 @@ test('data: executive home resolves every widget in one call, dated, null ≠ 0,
   const j = await r.json();
   assert.equal(j.site, siteId); assert.deepEqual(j.sites.map(s => s.id), [siteId]);
   assert.match(j.as_of, /^\d{4}-\d{2}-\d{2}T/);
+  // F21 (C-05) — computed time and per-source data dates are two different things, both returned
+  assert.equal(j.computed_at, j.as_of);
+  assert.ok(Array.isArray(j.sources) && j.sources.length >= 1, 'per-source last success');
+  assert.ok(j.sources.every(x => x.module && 'last_success' in x && (x.last_success === null || /^\d{4}-\d{2}-\d{2}T/.test(x.last_success))));
+  // F05 (C-05) — the series ends on the selected window
+  const wk = await (await get('/api/dashboards/exec-home/data?window=2026-W10', viewer)).json();
+  assert.equal(wk.widgets['tr-sla'].points.slice(-1)[0].label, '2026-W10');
+  assert.equal(wk.widgets['tr-sla'].window_end, '2026-03-08');
   const w = j.widgets;
   assert.equal(w['k-tracker'].mode, 'single'); assert.equal(w['tr-sla'].mode, 'series'); assert.equal(w['tr-sla'].points.length, 13);
   assert.equal(w['sites'].mode, 'per-site'); assert.equal(w['sites'].rows.length, 1);
