@@ -1,0 +1,17 @@
+# A-28d — dependency hygiene: weekly update PRs for npm and the GitHub Actions used by CI.
+# Dependabot only OPENS pull requests; each one goes through CI (npm audit, the test suite) and a
+# human review like any other change — nothing is merged or deployed automatically.
+# Dependency upgrades that are already decided elsewhere (repo decision D-11: follow-redirects,
+# image-size) stay with that decision.
+version: 2
+updates:
+  - package-ecosystem: "npm"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    open-pull-requests-limit: 5
