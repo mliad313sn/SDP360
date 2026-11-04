@@ -62,7 +62,7 @@
   var H = function () { return {}; };
   var params = new URLSearchParams(location.search);
   var key = params.get('key');
-  var charts = [];
+  var charts = [], bodies = {};
 
   function api(path, opts) { return fetch(path, Object.assign({ headers: H() }, opts || {})).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status)); return j; }); }); }
   function status(msg) { $('status').textContent = msg || ''; }
@@ -128,6 +128,7 @@
 
   function renderWidgets(def, data) {
     charts.forEach(function (c) { try { c.destroy(); } catch (_) {} }); charts = [];
+    bodies = {};
     var root = $('dash'); root.innerHTML = '';
     var cols = (def.grid && def.grid.columns) || 12;
     root.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0,1fr))';
@@ -137,6 +138,7 @@
       el.className = 'edv-widget ' + (d.mode === 'single' ? R.ragClass(d.rag) + (d.value == null ? ' edv-quiet' : '') : '') + (d.freshness && d.freshness !== 'FRESH' ? ' edv-stale' : '');
       el.setAttribute('style', R.gridStyle(w.layout, cols));
       el.setAttribute('aria-label', w.title || w.type);
+      el.setAttribute('data-wid', w.id);
       var title = w.title ? '<h3>' + R.escapeHtml(w.title) + '</h3>' : '';
       if (d.error) { el.className += ' edv-quiet'; el.innerHTML = title + '<div class="edv-kpi-value">—</div><div class="edv-kpi-sub">Not measured: ' + R.escapeHtml(d.error) + '</div>'; root.appendChild(el); return; }
       if (w.type === 'text') { el.innerHTML = '<div class="edv-widget-text">' + R.miniMarkdown(w.markdown || '') + '</div>'; }
@@ -156,25 +158,30 @@
           var vals = pts.filter(function (p) { return p.value != null; }); var last = vals[vals.length - 1];
           var lo = Math.min.apply(null, vals.map(function (p) { return Number(p.value); })), hi = Math.max.apply(null, vals.map(function (p) { return Number(p.value); }));
           var spoken = (w.title || w.metric) + ': latest ' + R.formatValue(last.value, d.unit) + ' (' + R.shortLabel(last.label) + '), low ' + R.formatValue(lo, d.unit) + ', high ' + R.formatValue(hi, d.unit) + (d.target != null ? ', target ' + R.formatValue(d.target, d.unit) : '') + (d.freshness && d.freshness !== 'FRESH' ? ', source not current' : '');
-          el.innerHTML = title + '<canvas role="img" aria-label="' + R.escapeHtml(spoken) + '"></canvas>' + R.staleBadge(d) + '<div class="edv-asof">' + Object.keys(years).join('–') + (d.target != null ? ' · dashed line = target ' + R.escapeHtml(R.formatValue(d.target, d.unit)) : '') + '</div>';
-          if (window.Chart) {
+          var foot = R.staleBadge(d) + '<div class="edv-asof">' + Object.keys(years).join('–') + (d.target != null ? ' · dashed line = target ' + R.escapeHtml(R.formatValue(d.target, d.unit)) : '') + '</div>';
+          // F13 — no chart library: the figures as a table, never an empty canvas
+          if (!window.Chart) { el.innerHTML = title + '<div class="edv-kpi-sub">Chart unavailable — figures shown as a table.</div>' + R.seriesTableHtml(d) + foot; }
+          else {
+            el.innerHTML = title + '<canvas role="img" aria-label="' + R.escapeHtml(spoken) + '"></canvas>' + foot;
             var pct = String(d.unit) === '%';
-            var ds = [{ label: w.title || w.metric, data: pts.map(function (p) { return p.value; }), borderColor: d.freshness && d.freshness !== 'FRESH' ? '#9AA4B2' : '#3A4A60', backgroundColor: 'rgba(58,74,96,.12)', spanGaps: false, tension: .2, fill: true, pointRadius: 3 }];
+            var stale = d.freshness && d.freshness !== 'FRESH';
+            var PAL = ['#3A4A60', '#2563EB', '#0F766E', '#7C3AED', '#B45309'];
+            var lines = d.lines && d.lines.length ? d.lines : [{ label: w.title || w.metric, points: pts }];
+            var ds = lines.map(function (l, i) { return { label: l.label, data: (l.points || []).map(function (p) { return p.value; }), borderColor: stale ? '#9AA4B2' : PAL[i % PAL.length], backgroundColor: 'rgba(58,74,96,.12)', spanGaps: false, tension: .2, fill: lines.length === 1, pointRadius: 3 }; });
             if (d.target != null) ds.push({ label: 'target', data: pts.map(function () { return d.target; }), borderColor: '#B45309', borderDash: [4, 4], pointRadius: 0, fill: false });
             var c = new Chart(el.querySelector('canvas'), { type: 'line', data: { labels: pts.map(function (p) { return R.shortLabel(p.label); }), datasets: ds },
-              options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: function (ctx) { return R.formatValue(ctx.parsed.y, d.unit); } } } },
+              options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: lines.length > 1 }, tooltip: { callbacks: { label: function (ctx) { return R.formatValue(ctx.parsed.y, d.unit); } } } },
                 scales: { x: { ticks: { maxRotation: 0, autoSkip: true } }, y: pct ? { min: 0, max: 100 } : { beginAtZero: true } } } });
             charts.push(c);
           }
         }
       } else if (d.mode === 'per-site') {
-        // design review R3 / R4: worst first, not-measured rows folded at the end; % bars run to 100
-        var max = String(d.unit) === '%' ? 100 : Math.max.apply(null, d.rows.map(function (r) { return r.value == null ? 0 : Number(r.value); }).concat([1]));
-        var sorted = R.sortRows(d.rows, d.higher_is_better !== false);
-        var measured = sorted.filter(function (r) { return r.value != null; }), unmeasured = sorted.filter(function (r) { return r.value == null; });
-        var line = function (r) { return '<div class="edv-ragline">' + R.ragDot(r.rag, r.rag_if_fresh ? d.freshness : null) + '<span>' + R.escapeHtml(r.site) + '</span>' + (r.value == null ? '<span class="bar bar-none"></span>' : '<span class="bar"><i style="width:' + Math.max(0, Math.min(100, Math.round(100 * Number(r.value) / max))) + '%"></i></span>') + '<span class="n">' + R.formatValue(r.value, d.unit) + '</span></div>'; };
-        el.innerHTML = title + '<div class="edv-kpi-sub">' + (d.summary.STALE ? d.summary.STALE + ' stale — colour withheld' : d.summary.GREEN + ' green · ' + d.summary.AMBER + ' amber · ' + d.summary.RED + ' red') + (d.summary.NA ? ' · ' + d.summary.NA + ' not measured' : '') + '</div>' +
-          measured.map(line).join('') + (unmeasured.length ? '<details class="edv-unmeasured"><summary>' + unmeasured.length + ' not measured</summary>' + unmeasured.map(line).join('') + '</details>' : '');
+        // C-04 (F01): bar = labelled bar list, table = sortable table, ragGrid = RAG grid (unknown is grey);
+        // a retired heatmap renders as a table with a notice
+        bodies[w.id] = { type: w.type, d: d, title: title, el: el };
+        el.innerHTML = title + R.perSiteHtml(w.type, d);
+      } else if (d.mode === 'tracker') {
+        el.innerHTML = title + R.trackerHtml(d);
       } else if (d.mode === 'actions') {
         el.innerHTML = title + (d.items.length ? '<table class="edv-actions-table"><thead><tr><th>Source</th><th>Action</th><th>Owner</th><th>Due</th></tr></thead><tbody>' +
           d.items.map(function (it) { return '<tr><td>' + R.escapeHtml(it.source) + '</td><td>' + R.escapeHtml(it.title || it.task || '') + '</td><td>' + R.escapeHtml(it.owner || '—') + '</td><td class="' + (it.overdue ? 'edv-overdue' : '') + '">' + R.escapeHtml(it.due_date || '—') + '</td></tr>'; }).join('') + '</tbody></table>'
@@ -183,6 +190,14 @@
       root.appendChild(el);
     });
   }
+
+  // C-04 — sortable table widgets: a header button re-renders that widget's table only
+  $('dash').addEventListener('click', function (ev) {
+    var b = ev.target && ev.target.closest ? ev.target.closest('button.edv-sort') : null; if (!b) return;
+    var sec = b.closest('section'); var id = sec && sec.getAttribute('data-wid'); var x = id && bodies[id]; if (!x) return;
+    x.el.innerHTML = x.title + R.perSiteHtml(x.type, x.d, { col: b.getAttribute('data-sort'), dir: b.getAttribute('data-dir') });
+    var nb = x.el.querySelector('button.edv-sort[data-sort="' + b.getAttribute('data-sort') + '"]'); if (nb) nb.focus();
+  });
 
   // design review R9: the period box suggests the last 13 weeks and 12 months
   try { R.windowSeries('week', 13).concat(R.windowSeries('month', 12)).reverse().forEach(function (v) { var o = document.createElement('option'); o.value = v; $('windowList').appendChild(o); }); } catch (_) {}

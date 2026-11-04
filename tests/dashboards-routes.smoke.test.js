@@ -90,9 +90,24 @@ test('publisher gate: viewer cannot save; publisher saves a draft (own site), in
 });
 
 test('a field dashboard that is not phone-ready cannot be published', async () => {
-  const def = { key: 'field-bad', title: 'Field bad', audience: 'field', grid: { columns: 12 }, widgets: [{ id: 'h', type: 'heatmap', metric: 'assets.total', layout: { x: 0, y: 0, w: 6, h: 3 } }] };
+  const def = { key: 'field-bad', title: 'Field bad', audience: 'field', grid: { columns: 12 }, widgets: [{ id: 'h', type: 'table', metric: 'assets.total', layout: { x: 0, y: 0, w: 6, h: 3 } }] };
   assert.equal((await send('PUT', '/api/dashboards/field-bad', admin, { definition: def })).status, 200);
-  const r = await send('POST', '/api/dashboards/field-bad/publish', admin, { override_reason: 'field readiness check comes first' }); assert.equal(r.status, 400); assert.match((await r.json()).issues.join(' '), /heatmap/);
+  const r = await send('POST', '/api/dashboards/field-bad/publish', admin, { override_reason: 'field readiness check comes first' }); assert.equal(r.status, 400); assert.match((await r.json()).issues.join(' '), /pageSize/);
+});
+
+test('C-04: a NEW heatmap is refused (400); catalogue offers only rendered types; trackerRag + table resolve through /data', async () => {
+  const hm = { key: 'c04-hm', title: 'HM', audience: 'site', grid: { columns: 12 }, widgets: [{ id: 'h', type: 'heatmap', metric: 'assets.total', layout: { x: 0, y: 0, w: 6, h: 3 } }] };
+  const bad = await send('PUT', '/api/dashboards/c04-hm', admin, { definition: hm }); assert.equal(bad.status, 400);
+  const cat = await (await get('/api/dashboards/catalogue', admin)).json();
+  assert.ok(!cat.creatableTypes.includes('heatmap')); assert.ok(cat.creatableTypes.includes('trackerRag'));
+  const def = { key: 'c04-ok', title: 'C04', audience: 'site', grid: { columns: 12 }, widgets: [
+    { id: 't', type: 'trackerRag', tracker: 'it-activity', layout: { x: 0, y: 0, w: 6, h: 3 } },
+    { id: 'tb', type: 'table', metric: 'assets.total', layout: { x: 6, y: 0, w: 6, h: 3 } }] };
+  assert.equal((await send('PUT', '/api/dashboards/c04-ok', admin, { definition: def })).status, 200);
+  const j = await (await get('/api/dashboards/c04-ok/data?draft=1', admin)).json();
+  assert.equal(j.widgets.t.mode, 'tracker'); assert.ok(['OK', 'NO_DATA'].includes(j.widgets.t.state), JSON.stringify(j.widgets.t));
+  if (j.widgets.t.state === 'NO_DATA') assert.deepEqual(j.widgets.t.rows, []);
+  assert.equal(j.widgets.tb.mode, 'per-site'); assert.ok(j.widgets.tb.rows.every((r) => 'target' in r));
 });
 
 test('view log: one dashboard_viewed event per actor per day', async () => {

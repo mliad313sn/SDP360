@@ -10,7 +10,7 @@
 // All methods are async. `db` is a better-sqlite3 handle (dev/tests) or a services/pgDb
 // handle (prod): the two share `prepare(sql).get/all/run` and `?` placeholders.
 
-const { validateDashboard } = require('./dashboardWidgets');
+const { validateDashboard, WIDGET_TYPES } = require('./dashboardWidgets');
 
 
 const STATUSES = ['draft', 'review', 'published', 'retired'];
@@ -51,10 +51,12 @@ function makeDashboardStore(db, { isPg = false, now = () => new Date().toISOStri
    * Create or update a DRAFT. A published dashboard keeps serving its last version until
    * `publish` is called again; the draft lives in `definition`.
    */
-  async function saveDraft(doc, { user, siteId = null, metrics = null, trackers = null } = {}) {
-    const v = validateDashboard(doc, { metrics, trackers });
-    if (!v.ok) { const e = new Error('invalid dashboard: ' + v.errors.map(x => `${x.path}: ${x.msg}`).join('; ')); e.code = 'INVALID'; e.errors = v.errors; throw e; }
+  async function saveDraft(doc, { user, siteId = null, metrics = null, trackers = null, metricUnits = null } = {}) {
     const existing = await get(doc.key);
+    // C-04 — a widget that ALREADY carried a retired type (heatmap) keeps it; a new one is refused
+    const legacyIds = existing ? retiredIds(existing.definition) : [];
+    const v = validateDashboard(doc, { metrics, trackers, metricUnits, legacyIds });
+    if (!v.ok) { const e = new Error('invalid dashboard: ' + v.errors.map(x => `${x.path}: ${x.msg}`).join('; ')); e.code = 'INVALID'; e.errors = v.errors; throw e; }
     const json = JSON.stringify(doc);
     const ts = now();
     if (existing) {
@@ -68,10 +70,14 @@ function makeDashboardStore(db, { isPg = false, now = () => new Date().toISOStri
     return get(doc.key);
   }
 
+  function retiredIds(def) {
+    return ((def && def.widgets) || []).filter((w) => w && WIDGET_TYPES[w.type] && WIDGET_TYPES[w.type].creatable === false).map((w) => w.id);
+  }
+
   /** G-24 — mark the current draft as submitted for review by `user`. */
   async function submit(key, { user } = {}) {
     const d = await get(key); if (!d) return null;
-    const v = validateDashboard(d.definition);
+    const v = validateDashboard(d.definition, { allowRetired: true });
     if (!v.ok) { const e = new Error('cannot submit an invalid draft'); e.code = 'INVALID'; e.errors = v.errors; throw e; }
     await P(`UPDATE dashboard_definitions SET review_state='submitted', submitted_by=?, submitted_at=? WHERE key=?`).run(user ? user.id : null, now(), key);
     return get(key);
@@ -92,7 +98,7 @@ function makeDashboardStore(db, { isPg = false, now = () => new Date().toISOStri
     const d = await get(key);
     if (!d) return null;
     if (expect && (!sameTs(d.updated_at, expect.updated_at) || !sameTs(d.submitted_at, expect.submitted_at))) throw stale();
-    const v = validateDashboard(d.definition);
+    const v = validateDashboard(d.definition, { allowRetired: true });
     if (!v.ok) { const e = new Error('cannot publish an invalid draft'); e.code = 'INVALID'; e.errors = v.errors; throw e; }
     const next = (d.version || 0) + 1;
     const ts = now();

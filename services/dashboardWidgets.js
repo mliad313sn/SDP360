@@ -16,17 +16,25 @@
 
 const KpiRag = require('./kpiRag');
 
+// C-04 (F01/F02/G11-min) — every type declares HOW it renders (`render`), so a type that is
+// offered is a type that draws something distinct; `creatable:false` = kept only so stored
+// definitions still render (no NEW widget of that type is accepted).
+//   render: tile | line | bar-list | sortable-table | rag-grid | tracker-rag | markdown | action-table
 const WIDGET_TYPES = {
-  kpi:        { needsMetric: true,  minW: 2, minH: 2, props: ['rag', 'format', 'compare'] },
-  trend:      { needsMetric: true,  minW: 4, minH: 3, props: ['series', 'window'] },
-  bar:        { needsMetric: true,  minW: 4, minH: 3, props: ['groupBy', 'stacked'] },
-  table:      { needsMetric: true,  minW: 4, minH: 3, props: ['columns', 'pageSize'] },
-  heatmap:    { needsMetric: true,  minW: 6, minH: 3, props: ['rows', 'cols', 'rag'] },
-  ragGrid:    { needsMetric: true,  minW: 4, minH: 3, props: ['rag'] },
-  trackerRag: { needsMetric: false, minW: 4, minH: 3, props: ['tracker'] },
-  text:       { needsMetric: false, minW: 2, minH: 1, props: ['markdown'] },
-  actions:    { needsMetric: false, minW: 4, minH: 3, props: ['sources', 'onlyOverdue'] },
+  kpi:        { needsMetric: true,  minW: 2, minH: 2, props: ['rag', 'format', 'compare'], render: 'tile' },
+  trend:      { needsMetric: true,  minW: 4, minH: 3, props: ['series', 'window'], render: 'line' },
+  bar:        { needsMetric: true,  minW: 4, minH: 3, props: ['groupBy', 'stacked'], render: 'bar-list' },
+  table:      { needsMetric: true,  minW: 4, minH: 3, props: ['columns', 'pageSize'], render: 'sortable-table' },
+  heatmap:    { needsMetric: true,  minW: 6, minH: 3, props: ['rows', 'cols', 'rag'], render: 'sortable-table', creatable: false,
+                retiredNote: 'heatmap is no longer offered — existing widgets render as a table; use ragGrid or table' },
+  ragGrid:    { needsMetric: true,  minW: 4, minH: 3, props: ['rag'], render: 'rag-grid' },
+  trackerRag: { needsMetric: false, minW: 4, minH: 3, props: ['tracker'], render: 'tracker-rag' },
+  text:       { needsMetric: false, minW: 2, minH: 1, props: ['markdown'], render: 'markdown' },
+  actions:    { needsMetric: false, minW: 4, minH: 3, props: ['sources', 'onlyOverdue'], render: 'action-table' },
 };
+/** Tracker keys the trackerRag resolver understands: the Activity Tracker, optionally pinned to a year. */
+const TRACKER_KEY_RE = /^it-activity(-20[0-9][0-9])?$/;
+const MAX_EXTRA_SERIES = 4;
 
 const AUDIENCES = ['site', 'executive', 'field', 'committee'];
 const FILTER_TYPES = ['site', 'window', 'month', 'week', 'group', 'department', 'text'];
@@ -36,7 +44,10 @@ const ID_RE = /^[a-z0-9][a-z0-9_-]{0,47}$/i;
  * @param {object} doc              dashboard definition
  * @param {object} [opts]
  * @param {Set<string>|string[]} [opts.metrics]   registered metric keys; when given, unknown metrics are errors
- * @param {Set<string>|string[]} [opts.trackers]  known tracker keys for trackerRag widgets
+ * @param {Set<string>|string[]} [opts.trackers]  known tracker keys for trackerRag widgets (default: TRACKER_KEY_RE)
+ * @param {object} [opts.metricUnits]   { metricKey: unit } — a trend's series[] must share one unit
+ * @param {Set<string>|string[]} [opts.legacyIds]  widget ids that ALREADY carried a retired type (kept rendering)
+ * @param {boolean} [opts.allowRetired]  stored definitions (submit/publish) keep their retired widgets
  */
 function validateDashboard(doc, opts = {}) {
   const errors = [];
@@ -44,6 +55,8 @@ function validateDashboard(doc, opts = {}) {
   if (!doc || typeof doc !== 'object') return { ok: false, errors: [{ path: '', msg: 'dashboard must be an object' }] };
   const metrics = opts.metrics ? new Set(opts.metrics) : null;
   const trackers = opts.trackers ? new Set(opts.trackers) : null;
+  const units = opts.metricUnits || null;
+  const legacy = new Set(opts.legacyIds || []);
 
   if (!doc.key || !ID_RE.test(doc.key)) E('key', 'key is required (letters, digits, - or _, max 48)');
   if (!doc.title) E('title', 'title is required');
@@ -70,14 +83,30 @@ function validateDashboard(doc, opts = {}) {
     else if (ids.has(w.id)) E(`${p}.id`, `duplicate widget id ${w.id}`);
     ids.add(w && w.id);
     const T = WIDGET_TYPES[w && w.type];
-    if (!T) { E(`${p}.type`, `type must be one of ${Object.keys(WIDGET_TYPES).join(', ')}`); return; }
+    if (!T) { E(`${p}.type`, `type must be one of ${creatableTypes().join(', ')}`); return; }
+    if (T.creatable === false && !opts.allowRetired && !legacy.has(w.id)) E(`${p}.type`, T.retiredNote || `${w.type} is no longer offered`);
     if (T.needsMetric) {
       if (!w.metric || typeof w.metric !== 'string') E(`${p}.metric`, 'metric key is required for this widget type');
       else if (metrics && !metrics.has(w.metric)) E(`${p}.metric`, `unknown metric ${w.metric} — only registered metrics may be charted`);
     }
     if (w.type === 'trackerRag') {
       if (!w.tracker) E(`${p}.tracker`, 'tracker key is required');
-      else if (trackers && !trackers.has(w.tracker)) E(`${p}.tracker`, `unknown tracker ${w.tracker}`);
+      else if (trackers ? !trackers.has(w.tracker) : !TRACKER_KEY_RE.test(String(w.tracker))) E(`${p}.tracker`, `unknown tracker ${w.tracker}`);
+    }
+    // F24 — a trend's extra lines are registered metrics on the SAME unit as the main one, or nothing
+    if (w.series != null) {
+      if (w.type !== 'trend') E(`${p}.series`, 'series is only available on trend widgets');
+      else if (!Array.isArray(w.series) || !w.series.length || w.series.length > MAX_EXTRA_SERIES || !w.series.every((k) => typeof k === 'string' && k)) E(`${p}.series`, `series must be a list of 1-${MAX_EXTRA_SERIES} metric keys`);
+      else {
+        if (new Set(w.series).size !== w.series.length || w.series.includes(w.metric)) E(`${p}.series`, 'series must not repeat a metric (the main metric is already drawn)');
+        for (const k of w.series) {
+          if (metrics && !metrics.has(k)) E(`${p}.series`, `unknown metric ${k} in series — only registered metrics may be charted`);
+        }
+        if (units && w.metric) {
+          const set = new Set([w.metric, ...w.series].filter((k) => k in units).map((k) => String(units[k] || '')));
+          if (set.size > 1) E(`${p}.series`, `series mixes units (${[...set].join(', ')}) — one chart, one unit`);
+        }
+      }
     }
     if (w.rag != null) {
       if (typeof w.rag === 'string') { if (!KpiRag.POLICIES[w.rag]) E(`${p}.rag`, `unknown RAG policy ${w.rag}`); }
@@ -114,4 +143,7 @@ function fieldReadiness(doc) {
   return { ok: issues.length === 0, issues };
 }
 
-module.exports = { validateDashboard, fieldReadiness, WIDGET_TYPES, AUDIENCES, FILTER_TYPES };
+/** The types a composer may offer (retired types keep rendering but are not offered). */
+function creatableTypes() { return Object.keys(WIDGET_TYPES).filter((t) => WIDGET_TYPES[t].creatable !== false); }
+
+module.exports = { validateDashboard, fieldReadiness, creatableTypes, WIDGET_TYPES, AUDIENCES, FILTER_TYPES, TRACKER_KEY_RE, MAX_EXTRA_SERIES };

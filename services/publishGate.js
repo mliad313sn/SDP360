@@ -166,9 +166,11 @@ function degradeStale(widgets, def, reg, staleSources) {
   for (const s of staleSources || []) if (s.state !== 'FRESH') bad.set(s.module, bad.get(s.module) === 'UNKNOWN' ? 'UNKNOWN' : s.state);
   if (!bad.size) return widgets;
   for (const w of (def && def.widgets) || []) {
-    const out = widgets && widgets[w.id]; const m = w && w.metric && reg.get(w.metric);
-    if (!out || !m || !bad.has(m.module)) continue;
-    const state = bad.get(m.module);
+    const out = widgets && widgets[w.id];
+    // C-04 — a trend's extra series[] lines count too: one stale line greys the whole chart
+    const mods = [w && w.metric].concat(w && Array.isArray(w.series) ? w.series : []).map((k) => k && reg.get(k)).filter(Boolean).map((m) => m.module).filter((x) => bad.has(x));
+    if (!out || !mods.length) continue;
+    const state = mods.some((x) => bad.get(x) === 'UNKNOWN') ? 'UNKNOWN' : bad.get(mods[0]);
     out.freshness = state;
     if (out.rag !== undefined) { out.rag_if_fresh = out.rag; out.rag = 'NA'; }
     if (out.vs_target && out.vs_target.rag) { out.vs_target = { ...out.vs_target, rag_if_fresh: out.vs_target.rag, rag: 'NA' }; }   // no green "target met" chip on a stale tile

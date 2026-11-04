@@ -141,5 +141,114 @@
     return s.split(/\n{2,}/).map(function (p) { return '<p>' + p.replace(/\n/g, '<br>') + '</p>'; }).join('');
   }
 
-  return { gridStyle, formatValue, ragClass, ragDot, kpiContext, staleBadge, sortRows, shortLabel, windowSeries, trendLength, widgetDataPlan, summarizeGrid, escapeHtml, miniMarkdown, isoWeek };
+  // ── C-04 (F01) — one distinct body per per-site type ─────────────────────────────────
+  // A row's colour is shown only when it was measured AND the source is current: a null value,
+  // a stale/unknown source or an unrecognised rag is the grey "unknown" state — never green.
+  function rowState(r, d) {
+    if (!r || r.value == null) return 'unknown';
+    if (r.rag_if_fresh !== undefined || (d && d.freshness && d.freshness !== 'FRESH')) return 'unknown';
+    var c = ragClass(r.rag); return c === 'rag-green' ? 'green' : c === 'rag-amber' ? 'amber' : c === 'rag-red' ? 'red' : 'unknown';
+  }
+  var STATE_WORD = { green: 'Green', amber: 'Amber', red: 'Red', unknown: 'Unknown' };
+  var STATE_RAG = { green: 'GREEN', amber: 'AMBER', red: 'RED', unknown: 'NA' };
+  function stateDot(st, r, d) { return ragDot(STATE_RAG[st], r && r.value != null && st === 'unknown' && (r.rag_if_fresh !== undefined || (d && d.freshness && d.freshness !== 'FRESH')) ? (d && d.freshness) || 'STALE' : null); }
+
+  function summaryLine(d) {
+    var s = d.summary || summarizeGrid(d.rows);
+    return '<div class="edv-kpi-sub">' + (s.STALE ? s.STALE + ' stale — colour withheld' : s.GREEN + ' green · ' + s.AMBER + ' amber · ' + s.RED + ' red') + (s.NA ? ' · ' + s.NA + ' not measured' : '') + '</div>';
+  }
+
+  /** bar: one labelled bar per site, worst first; the scale is stated (0–100 % or 0–max). */
+  function barListHtml(d) {
+    var rows = (d && d.rows) || [];
+    var pct = String(d.unit) === '%';
+    var max = pct ? 100 : Math.max.apply(null, rows.map(function (r) { return r.value == null ? 0 : Number(r.value); }).concat([1]));
+    var sorted = sortRows(rows, d.higher_is_better !== false);
+    var measured = sorted.filter(function (r) { return r.value != null; }), unmeasured = sorted.filter(function (r) { return r.value == null; });
+    var line = function (r) {
+      var st = rowState(r, d); var label = r.site + ': ' + formatValue(r.value, d.unit) + (r.value == null ? ' (not measured)' : '');
+      return '<div class="edv-ragline" role="listitem" aria-label="' + escapeHtml(label) + '">' + stateDot(st, r, d) + '<span class="edv-bar-site">' + escapeHtml(r.site) + '</span>' +
+        (r.value == null ? '<span class="bar bar-none"></span>' : '<span class="bar" aria-hidden="true"><i style="width:' + Math.max(0, Math.min(100, Math.round(100 * Number(r.value) / max))) + '%"></i></span>') +
+        '<span class="n">' + formatValue(r.value, d.unit) + '</span></div>';
+    };
+    return summaryLine(d) +
+      '<div class="edv-bar-scale" aria-hidden="true"><span>Site</span><span>bar scale 0 – ' + escapeHtml(formatValue(max, d.unit)) + '</span><span>Value' + (d.unit ? ' (' + escapeHtml(d.unit) + ')' : '') + '</span></div>' +
+      '<div role="list" aria-label="' + escapeHtml((d.title || d.metric || 'value') + ' per site') + '">' + measured.map(line).join('') + '</div>' +
+      (unmeasured.length ? '<details class="edv-unmeasured"><summary>' + unmeasured.length + ' not measured</summary><div role="list">' + unmeasured.map(line).join('') + '</div></details>' : '');
+  }
+
+  var TABLE_COLS = [['site', 'Site'], ['value', 'Value'], ['unit', 'Unit'], ['target', 'Target'], ['state', 'State']];
+  var STATE_RANK = { red: 0, amber: 1, green: 2, unknown: 3 };
+  /** Sort table rows by a column; not-measured values always last. Pure (the viewer re-renders on click). */
+  function sortTableRows(rows, d, col, dir) {
+    var k = col || 'state', sgn = dir === 'desc' ? -1 : 1;
+    return (rows || []).slice().sort(function (a, b) {
+      if (k === 'site') return sgn * String(a.site || '').localeCompare(String(b.site || ''));
+      if (k === 'state') { var x = STATE_RANK[rowState(a, d)] - STATE_RANK[rowState(b, d)]; return x ? sgn * x : String(a.site || '').localeCompare(String(b.site || '')); }
+      var va = k === 'target' ? a.target : a.value, vb = k === 'target' ? b.target : b.value;
+      var na = va == null, nb = vb == null; if (na !== nb) return na ? 1 : -1; if (na) return String(a.site || '').localeCompare(String(b.site || ''));
+      return sgn * (Number(va) - Number(vb));
+    });
+  }
+  /** table: a real sortable table (site, value, unit, target, state). Header buttons carry data-sort. */
+  function tableHtml(d, sort) {
+    sort = sort || {}; var col = sort.col || 'state', dir = sort.dir || 'asc';
+    var rows = sortTableRows((d && d.rows) || [], d, col, dir);
+    var head = TABLE_COLS.map(function (c) {
+      var on = c[0] === col; var aria = on ? (dir === 'desc' ? 'descending' : 'ascending') : 'none';
+      return '<th scope="col" aria-sort="' + aria + '"><button type="button" class="edv-sort" data-sort="' + c[0] + '" data-dir="' + (on && dir === 'asc' ? 'desc' : 'asc') + '">' + c[1] + (on ? (dir === 'desc' ? ' ▼' : ' ▲') : '') + '</button></th>';
+    }).join('');
+    var body = rows.map(function (r) {
+      var st = rowState(r, d);
+      return '<tr><th scope="row">' + escapeHtml(r.site) + '</th><td class="num">' + formatValue(r.value, d.unit) + '</td><td>' + escapeHtml(d.unit || '') + '</td><td class="num">' + (r.target == null ? '—' : formatValue(r.target, d.unit)) + '</td><td>' + stateDot(st, r, d) + STATE_WORD[st] + '</td></tr>';
+    }).join('');
+    return (d.notice ? '<div class="edv-widget-notice" role="note">' + escapeHtml(d.notice) + '</div>' : '') + summaryLine(d) +
+      '<div class="edv-table-wrap"><table class="edv-data-table" data-sort-col="' + col + '" data-sort-dir="' + dir + '"><caption class="edv-sr">' + escapeHtml((d.title || d.metric || 'value') + ' per site — sorted by ' + col + ' ' + (dir === 'desc' ? 'descending' : 'ascending')) + '</caption><thead><tr>' + head + '</tr></thead><tbody>' +
+      (body || '<tr><td colspan="5">No site in scope.</td></tr>') + '</tbody></table></div>';
+  }
+
+  /** ragGrid: one cell per site — RAG + value; unknown (null / stale / unrecognised) is grey, never green. */
+  function ragGridHtml(d) {
+    var rows = sortRows((d && d.rows) || [], d.higher_is_better !== false);
+    var cells = rows.map(function (r) {
+      var st = rowState(r, d);
+      return '<div class="edv-ragcell edv-ragcell-' + st + '" role="listitem" aria-label="' + escapeHtml(r.site + ': ' + STATE_WORD[st] + ', ' + formatValue(r.value, d.unit)) + '">' + stateDot(st, r, d) +
+        '<span class="edv-ragcell-site">' + escapeHtml(r.site) + '</span><span class="edv-ragcell-val">' + formatValue(r.value, d.unit) + '</span></div>';
+    }).join('');
+    var legend = '<div class="edv-rag-legend" aria-label="Legend">' + ragDot('GREEN') + 'Green ' + ragDot('AMBER') + 'Amber ' + ragDot('RED') + 'Red ' +
+      '<span class="edv-rag-dot rag-na" aria-hidden="true"></span>Unknown — not measured, stale or never synced</div>';
+    return summaryLine(d) + '<div class="edv-raggrid" role="list">' + (cells || '<div class="edv-kpi-sub">No site in scope.</div>') + '</div>' + legend;
+  }
+
+  /** The body of a per-site widget by its declared type (heatmap = retired → table with a notice). */
+  function perSiteHtml(type, d, sort) {
+    if (type === 'table' || type === 'heatmap') return tableHtml(d, sort);
+    if (type === 'ragGrid') return ragGridHtml(d);
+    return barListHtml(d);
+  }
+
+  /** trackerRag: G/A/R counts + score per site of the caller; NO_DATA said plainly, never zeros. */
+  function trackerHtml(d) {
+    if (!d || d.state !== 'OK') return '<div class="edv-kpi-sub">No tracker input for ' + escapeHtml(d && d.period || 'this period') + ' — nothing to score yet.</div>' +
+      (d && d.untracked && d.untracked.length ? '<div class="edv-asof">Not in the tracker: ' + escapeHtml(d.untracked.join(', ')) + '</div>' : '');
+    var f = d.fleet || {}, t = d.totals || { g: 0, a: 0, r: 0 };
+    var head = '<div class="edv-kpi-sub">' + t.g + ' green · ' + t.a + ' amber · ' + t.r + ' red activities' + (f.avg_pct != null ? ' · score ' + formatValue(f.avg_pct, '%') + (f.sites > 1 ? ' (mean of ' + f.sites + ' sites)' : '') : '') + '</div>';
+    var body = (d.rows || []).map(function (r) {
+      return '<tr><th scope="row">' + ragDot(r.rag) + escapeHtml(r.site) + '</th><td class="num">' + r.g + '</td><td class="num">' + r.a + '</td><td class="num">' + r.r + '</td><td class="num">' + formatValue(r.score_pct, '%') + '</td></tr>';
+    }).join('');
+    return head + '<div class="edv-table-wrap"><table class="edv-data-table"><caption class="edv-sr">Activity tracker per site, year to ' + escapeHtml(d.period || '') + '</caption><thead><tr><th scope="col">Site</th><th scope="col">Green</th><th scope="col">Amber</th><th scope="col">Red</th><th scope="col">Score</th></tr></thead><tbody>' + body + '</tbody></table></div>' +
+      '<div class="edv-asof">Year to ' + escapeHtml(d.period || '') + (d.untracked && d.untracked.length ? ' · not in the tracker: ' + escapeHtml(d.untracked.join(', ')) : '') + '</div>';
+  }
+
+  /** F13 — the trend as a table (shown when the chart library did not load; also a text alternative). */
+  function seriesTableHtml(d) {
+    var lines = d && d.lines && d.lines.length ? d.lines : [{ label: (d && (d.title || d.metric)) || 'value', unit: d && d.unit, points: (d && d.points) || [] }];
+    var labels = (lines[0].points || []).map(function (p) { return p.label; });
+    return '<div class="edv-table-wrap"><table class="edv-data-table edv-series-table"><thead><tr><th scope="col">Period</th>' + lines.map(function (l) { return '<th scope="col">' + escapeHtml(l.label) + '</th>'; }).join('') + (d && d.target != null ? '<th scope="col">Target</th>' : '') + '</tr></thead><tbody>' +
+      labels.map(function (lab, i) { return '<tr><th scope="row">' + escapeHtml(lab) + '</th>' + lines.map(function (l) { var p = (l.points || [])[i]; return '<td class="num">' + formatValue(p ? p.value : null, l.unit) + '</td>'; }).join('') + (d.target != null ? '<td class="num">' + formatValue(d.target, d.unit) + '</td>' : '') + '</tr>'; }).join('') +
+      '</tbody></table></div>';
+  }
+
+  return { gridStyle, formatValue, ragClass, ragDot, kpiContext, staleBadge, sortRows, shortLabel, windowSeries, trendLength, widgetDataPlan, summarizeGrid, escapeHtml, miniMarkdown, isoWeek,
+    rowState, barListHtml, tableHtml, sortTableRows, ragGridHtml, perSiteHtml, trackerHtml, seriesTableHtml };
 });

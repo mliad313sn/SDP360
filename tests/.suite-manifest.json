@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 3732,
+ "total": 3749,
  "files": {
   "a11y-static.test.js": 18,
   "access-denied-log.smoke.test.js": 3,
@@ -121,8 +121,9 @@
   "dashboard-design.test.js": 3,
   "dashboard-shared-sla-rates.test.js": 5,
   "dashboard-store.test.js": 5,
+  "dashboard-widget-truth.test.js": 16,
   "dashboard-widgets.test.js": 4,
-  "dashboards-routes.smoke.test.js": 7,
+  "dashboards-routes.smoke.test.js": 8,
   "dashkey-only-routes.smoke.test.js": 2,
   "db-restore.test.js": 2,
   "db-schema-smoke.test.js": 7,
