@@ -18,11 +18,11 @@ planned switch cannot be set before its goal lands.
 | `exec_view_change_formula` | built | `status` | `deck` | KPI committee (D-01) | A-08 |
 | `wan_timeup_loss_pct` | built | `100` | `5` (calibration of 2026-09-04) | Network owner | A-18 (pre-existing key; A-18 adds the uncalibrated banner) |
 | `opm_rest_concurrency` | planned | `1` | `1` | Ops | A-18 |
-| `ui_i18n_pages` | planned | `0` | `1` | Owner (D-2) | A-09 |
-| `ui_lang_default` | planned | `` (empty) | `fr` | Owner (D-2) | A-09 |
-| `ui_role_landing` | planned | `0` | `1` | Owner (UI policy) | A-10 |
-| `ui_nav_profile` | planned | `full` | `lean` | Owner (D-6) | A-21 |
-| `ui_deck_builder_roles` | planned | `super_admin` | `super_admin` (widening also needs the page gate) | Owner (D-6) | A-21 |
+| `ui_i18n_pages` | built | `0` | `1` | Owner (D-2) | A-09 |
+| `ui_lang_default` | built | `` (empty) | `fr` | Owner (D-2) | A-09 |
+| `ui_role_landing` | built | `0` | `1` | Owner (UI policy) | A-10 |
+| `ui_nav_profile` | key only — no effect until A-21 | `full` | `lean` | Owner (D-6) | A-21 |
+| `ui_deck_builder_roles` | key only — no effect until A-21 | `super_admin` | `super_admin` (widening also needs the page gate) | Owner (D-6) | A-21 |
 | `site_score_published_model` | planned | `legacy` | `programme` | Owner (D-1) | A-11 |
 | `capacity_enabled` | planned | `0` | `1` | Owner (D-7) | A-13 |
 | `capacity_amber_pct` | planned | `85` | `85` | Owner (D-7) | A-13 |
@@ -33,8 +33,8 @@ planned switch cannot be set before its goal lands.
 | `capacity_weeks_back` | planned | `12` | `12` | Ops | A-13 |
 | `capacity_weeks_ahead` | planned | `8` | `8` | Ops | A-13 |
 | `capacity_workdays_per_week` | planned | `5` | `5` | Ops | A-13 |
-| `portfolio_site_scope_reads` | planned | `0` | `1` | Owner (access policy) | A-15 |
-| `portfolio_editor_plan_writes` | planned | `0` | `1` | Owner (access policy) | A-15 |
+| `portfolio_site_scope_reads` | built | `0` | `1` | Owner (access policy) | A-15 |
+| `portfolio_editor_plan_writes` | built | `0` | `1` | Owner (access policy) | A-15 |
 | `asset_money_certify_display` | planned | `0` | `1` | Finance / IT management | A-16 |
 | `asset_money_certify_min_sites` | planned | `3` | `3` | Finance | A-16 |
 | `asset_money_certify_min_pct` | planned | `50` | `50` | Finance | A-16 |
