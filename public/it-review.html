@@ -43,73 +43,73 @@
        to system faces. Everything else in his token set is self-contained. */
 /* Modernist — design-system tokens and component classes. This file is the source of truth for the system's look; retune it here and see readme.md. */
 :root {
-  --color-bg: #f3f2f2;
-  --color-surface: #eae9e9;
-  --color-text: #201e1d;
-  --color-accent: #ec3013;
-  --color-accent-2: #e15b47;
-  --color-divider: color-mix(in srgb, #201e1d 40%, transparent);
+  --ir-color-bg: #f3f2f2;
+  --ir-color-surface: #eae9e9;
+  --ir-color-text: #201e1d;
+  --ir-color-accent: #ec3013;
+  --ir-color-accent-2: #e15b47;
+  --ir-color-divider: color-mix(in srgb, #201e1d 40%, transparent);
 
   /* Tonal ramps — generated in OKLCH on one shared lightness scale, so the
      same step of any role matches the others in visual value. */
-  --color-neutral-100: #f8f4f4;
-  --color-neutral-200: #eae7e7;
-  --color-neutral-300: #d7d3d3;
-  --color-neutral-400: #bab6b6;
-  --color-neutral-500: #9b9797;
-  --color-neutral-600: #7d7979;
-  --color-neutral-700: #605d5d;
-  --color-neutral-800: #444141;
-  --color-neutral-900: #2d2b2b;
+  --ir-color-neutral-100: #f8f4f4;
+  --ir-color-neutral-200: #eae7e7;
+  --ir-color-neutral-300: #d7d3d3;
+  --ir-color-neutral-400: #bab6b6;
+  --ir-color-neutral-500: #9b9797;
+  --ir-color-neutral-600: #7d7979;
+  --ir-color-neutral-700: #605d5d;
+  --ir-color-neutral-800: #444141;
+  --ir-color-neutral-900: #2d2b2b;
 
-  --color-accent-100: #fff2ef;
-  --color-accent-200: #ffe0d9;
-  --color-accent-300: #ffc4b8;
-  --color-accent-400: #ff9783;
-  --color-accent-500: #ff563c;
-  --color-accent-600: #dd2b0f;
-  --color-accent-700: #ae1800;
-  --color-accent-800: #7c1405;
-  --color-accent-900: #4d170e;
+  --ir-color-accent-100: #fff2ef;
+  --ir-color-accent-200: #ffe0d9;
+  --ir-color-accent-300: #ffc4b8;
+  --ir-color-accent-400: #ff9783;
+  --ir-color-accent-500: #ff563c;
+  --ir-color-accent-600: #dd2b0f;
+  --ir-color-accent-700: #ae1800;
+  --ir-color-accent-800: #7c1405;
+  --ir-color-accent-900: #4d170e;
 
-  --color-accent-2-100: #fff2ef;
-  --color-accent-2-200: #ffe0da;
-  --color-accent-2-300: #ffc4b9;
-  --color-accent-2-400: #ff9784;
-  --color-accent-2-500: #ef6853;
-  --color-accent-2-600: #c94b39;
-  --color-accent-2-700: #9e3526;
-  --color-accent-2-800: #71261b;
-  --color-accent-2-900: #471d16;
+  --ir-color-accent-2-100: #fff2ef;
+  --ir-color-accent-2-200: #ffe0da;
+  --ir-color-accent-2-300: #ffc4b9;
+  --ir-color-accent-2-400: #ff9784;
+  --ir-color-accent-2-500: #ef6853;
+  --ir-color-accent-2-600: #c94b39;
+  --ir-color-accent-2-700: #9e3526;
+  --ir-color-accent-2-800: #71261b;
+  --ir-color-accent-2-900: #471d16;
 
-  --font-heading: "Archivo", system-ui, sans-serif;
-  --font-heading-weight: 800;
-  --font-body: "Archivo", system-ui, sans-serif;
+  --ir-font-heading: "Archivo", system-ui, sans-serif;
+  --ir-font-heading-weight: 800;
+  --ir-font-body: "Archivo", system-ui, sans-serif;
 
-  --space-1: 4.0px;
-  --space-2: 8.0px;
-  --space-3: 12.0px;
-  --space-4: 16.0px;
-  --space-6: 24.0px;
-  --space-8: 32.0px;
+  --ir-space-1: 4.0px;
+  --ir-space-2: 8.0px;
+  --ir-space-3: 12.0px;
+  --ir-space-4: 16.0px;
+  --ir-space-6: 24.0px;
+  --ir-space-8: 32.0px;
 
-  --radius-sm: 0px;
-  --radius-md: 0px;
-  --radius-lg: 0px;
+  --ir-radius-sm: 0px;
+  --ir-radius-md: 0px;
+  --ir-radius-lg: 0px;
 
   /* Elevation — derived from the ground: soft ink-tinted shadows on a
      light theme, a hairline edge + ambient darkness on a dark one. */
-  --shadow-sm: 0 1px 2px color-mix(in srgb, #2d2b2b 14%, transparent);
-  --shadow-md: 0 3px 10px color-mix(in srgb, #2d2b2b 16%, transparent);
-  --shadow-lg: 0 12px 32px color-mix(in srgb, #2d2b2b 22%, transparent);
+  --ir-shadow-sm: 0 1px 2px color-mix(in srgb, #2d2b2b 14%, transparent);
+  --ir-shadow-md: 0 3px 10px color-mix(in srgb, #2d2b2b 16%, transparent);
+  --ir-shadow-lg: 0 12px 32px color-mix(in srgb, #2d2b2b 22%, transparent);
 }
 
 body {
-  background: var(--color-bg);
-  color: var(--color-text);
-  font-family: var(--font-body);
+  background: var(--ir-color-bg);
+  color: var(--ir-color-text);
+  font-family: var(--ir-font-body);
 }
-h1, h2, h3, h4 { font-family: var(--font-heading); font-weight: var(--font-heading-weight); }
+h1, h2, h3, h4 { font-family: var(--ir-font-heading); font-weight: var(--ir-font-heading-weight); }
 
 .grayscale{filter:grayscale(1) contrast(1.08)}
 
@@ -122,8 +122,8 @@ h1, h2, h3, h4 { font-family: var(--font-heading); font-weight: var(--font-headi
 *, *::before, *::after { box-sizing: border-box; }
 body { margin: 0; font-size: 15px; line-height: 1.55; font-weight: 400; }
 h1, h2, h3, h4, h5, h6 {
-  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
-  line-height: 1.12; letter-spacing: -0.015em; margin: 0 0 var(--space-2);
+  font-family: var(--ir-font-heading); font-weight: var(--ir-font-heading-weight);
+  line-height: 1.12; letter-spacing: -0.015em; margin: 0 0 var(--ir-space-2);
 }
 h1 { font-size: 42px; }
 h2 { font-size: 32px; }
@@ -132,62 +132,62 @@ h4 { font-size: 20px; }
 h5 { font-size: 16px; }
 h6 { font-size: 13px; }
 h6 { letter-spacing: 0.08em; text-transform: uppercase; }
-p { margin: 0 0 var(--space-3); }
-a { color: var(--color-accent); text-underline-offset: 3px; }
+p { margin: 0 0 var(--ir-space-3); }
+a { color: var(--ir-color-accent); text-underline-offset: 3px; }
 img { display: block; max-width: 100%; }
 figure { margin: 0; }
 figcaption {
-  font-size: 11px; margin-top: var(--space-1);
-  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+  font-size: 11px; margin-top: var(--ir-space-1);
+  color: color-mix(in srgb, var(--ir-color-text) 55%, transparent);
 }
-.text-muted { color: color-mix(in srgb, var(--color-text) 55%, transparent); }
-:focus-visible { outline: 2px solid var(--color-accent); outline-offset: 2px; }
-::selection { background: color-mix(in srgb, var(--color-accent) 30%, transparent); }
+.text-muted { color: color-mix(in srgb, var(--ir-color-text) 55%, transparent); }
+:focus-visible { outline: 2px solid var(--ir-color-accent); outline-offset: 2px; }
+::selection { background: color-mix(in srgb, var(--ir-color-accent) 30%, transparent); }
 
 /* — rules — */
 .hr {
-  height: 2px; border: 0; margin: var(--space-4) 0;
-  background: var(--color-divider);
+  height: 2px; border: 0; margin: var(--ir-space-4) 0;
+  background: var(--ir-color-divider);
 }
 
 /* — buttons — */
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 6px;
   cursor: pointer; text-decoration: none;
-  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
-  font-size: 14px; line-height: 1.2; color: var(--color-text); /* matches the .input's 14px —
+  font-family: var(--ir-font-heading); font-weight: var(--ir-font-heading-weight);
+  font-size: 14px; line-height: 1.2; color: var(--ir-color-text); /* matches the .input's 14px —
      the pair sits side by side in sign-up rows */
   background: transparent; border: 1px solid transparent;
-  padding: var(--space-2) calc(var(--space-3) * 1.2);
-  border-radius: var(--radius-md);
+  padding: var(--ir-space-2) calc(var(--ir-space-3) * 1.2);
+  border-radius: var(--ir-radius-md);
 }
 .btn svg { display: block; }
 .btn:disabled { opacity: 0.45; cursor: not-allowed; }
-.btn-primary { background: var(--color-accent); color: var(--color-bg); }
-.btn-primary:hover { background: var(--color-accent-600); }
-.btn-primary:active { background: var(--color-accent-700); }
-.btn-secondary { border-color: var(--color-divider); }
-.btn-secondary:hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
-.btn-secondary:active { background: color-mix(in srgb, var(--color-text) 14%, transparent); }
-.btn-ghost { color: var(--color-accent); padding-inline: var(--space-1); }
-.btn-ghost:hover { background: color-mix(in srgb, var(--color-accent) 10%, transparent); }
-.btn-ghost:active { background: color-mix(in srgb, var(--color-accent) 18%, transparent); }
+.btn-primary { background: var(--ir-color-accent); color: var(--ir-color-bg); }
+.btn-primary:hover { background: var(--ir-color-accent-600); }
+.btn-primary:active { background: var(--ir-color-accent-700); }
+.btn-secondary { border-color: var(--ir-color-divider); }
+.btn-secondary:hover { background: color-mix(in srgb, var(--ir-color-text) 7%, transparent); }
+.btn-secondary:active { background: color-mix(in srgb, var(--ir-color-text) 14%, transparent); }
+.btn-ghost { color: var(--ir-color-accent); padding-inline: var(--ir-space-1); }
+.btn-ghost:hover { background: color-mix(in srgb, var(--ir-color-accent) 10%, transparent); }
+.btn-ghost:active { background: color-mix(in srgb, var(--ir-color-accent) 18%, transparent); }
 .btn-icon { width: 36px; height: 36px; padding: 0; }
-.btn-block { width: 100%; margin-top: var(--space-2); justify-content: flex-start; text-align: left; }
+.btn-block { width: 100%; margin-top: var(--ir-space-2); justify-content: flex-start; text-align: left; }
 
 /* — forms — */
 .field > label {
   display: block; font-size: 12px; margin-bottom: 5px;
-  color: color-mix(in srgb, var(--color-text) 70%, transparent);
+  color: color-mix(in srgb, var(--ir-color-text) 70%, transparent);
 }
 .input {
   width: 100%; min-height: 36px; padding: 6px 10px; font: inherit;
-  font-size: 14px; color: var(--color-text); caret-color: var(--color-accent);
-  background: var(--color-surface);
-  border: 1px solid var(--color-divider); border-radius: var(--radius-md);
+  font-size: 14px; color: var(--ir-color-text); caret-color: var(--ir-color-accent);
+  background: var(--ir-color-surface);
+  border: 1px solid var(--ir-color-divider); border-radius: var(--ir-radius-md);
 }
-.input:hover { border-color: color-mix(in srgb, var(--color-text) 45%, transparent); }
-.input:focus-visible { border-color: var(--color-accent); outline-offset: 0; }
+.input:hover { border-color: color-mix(in srgb, var(--ir-color-text) 45%, transparent); }
+.input:focus-visible { border-color: var(--ir-color-accent); outline-offset: 0; }
 textarea.input { min-height: 90px; resize: vertical; }
 .radio { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; font-size: 14px; }
 .radio input, .seg-opt input {
@@ -195,105 +195,105 @@ textarea.input { min-height: 90px; resize: vertical; }
 }
 .radio .dot {
   width: 16px; height: 16px; flex: none; border-radius: 50%;
-  border: 1.5px solid var(--color-divider);
+  border: 1.5px solid var(--ir-color-divider);
 }
-.radio:hover .dot { border-color: var(--color-accent); }
+.radio:hover .dot { border-color: var(--ir-color-accent); }
 .radio input:checked + .dot {
-  border-color: var(--color-accent); background: var(--color-accent);
-  box-shadow: inset 0 0 0 4px var(--color-bg);
+  border-color: var(--ir-color-accent); background: var(--ir-color-accent);
+  box-shadow: inset 0 0 0 4px var(--ir-color-bg);
 }
-.radio input:focus-visible + .dot { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+.radio input:focus-visible + .dot { outline: 2px solid var(--ir-color-accent); outline-offset: 2px; }
 .seg {
   display: inline-flex; overflow: hidden;
-  border: 1px solid var(--color-divider); border-radius: var(--radius-md);
+  border: 1px solid var(--ir-color-divider); border-radius: var(--ir-radius-md);
 }
 .seg-opt {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 7px 12px; font-size: 13px; cursor: pointer;
 }
-.seg-opt + .seg-opt { border-left: 1px solid var(--color-divider); }
-.seg-opt:has(input:checked) { background: var(--color-accent); color: var(--color-bg); }
-.seg-opt:not(:has(input:checked)):hover { background: color-mix(in srgb, var(--color-text) 7%, transparent); }
-.seg-opt:has(input:focus-visible) { outline: 2px solid var(--color-accent); outline-offset: -2px; }
+.seg-opt + .seg-opt { border-left: 1px solid var(--ir-color-divider); }
+.seg-opt:has(input:checked) { background: var(--ir-color-accent); color: var(--ir-color-bg); }
+.seg-opt:not(:has(input:checked)):hover { background: color-mix(in srgb, var(--ir-color-text) 7%, transparent); }
+.seg-opt:has(input:focus-visible) { outline: 2px solid var(--ir-color-accent); outline-offset: -2px; }
 
 /* — cards — */
 .card {
-  display: flex; flex-direction: column; gap: var(--space-2);
-  padding: var(--space-3); border-radius: var(--radius-md); background: var(--color-surface);
+  display: flex; flex-direction: column; gap: var(--ir-space-2);
+  padding: var(--ir-space-3); border-radius: var(--ir-radius-md); background: var(--ir-color-surface);
 }
-.card-kicker { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--color-accent); }
+.card-kicker { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ir-color-accent); }
 .card-title {
-  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-family: var(--ir-font-heading); font-weight: var(--ir-font-heading-weight);
   font-size: 17px; line-height: 1.2;
 }
 .card-body { margin: 0; font-size: 13px; opacity: 0.8; flex: 1; }
 .card-meta {
   display: flex; align-items: center; gap: 6px; font-size: 11px;
-  color: color-mix(in srgb, var(--color-text) 50%, transparent);
+  color: color-mix(in srgb, var(--ir-color-text) 50%, transparent);
 }
-.elev-sm { box-shadow: var(--shadow-sm); }
-.elev-md { box-shadow: var(--shadow-md); }
-.elev-lg { box-shadow: var(--shadow-lg); }
+.elev-sm { box-shadow: var(--ir-shadow-sm); }
+.elev-md { box-shadow: var(--ir-shadow-md); }
+.elev-lg { box-shadow: var(--ir-shadow-lg); }
 
 /* — tags — */
 .tag {
   display: inline-flex; align-items: center; font-size: 11px;
   letter-spacing: 0.02em; padding: 3px 10px;
-  border-radius: calc(var(--radius-md) * 0.75);
+  border-radius: calc(var(--ir-radius-md) * 0.75);
 }
-.tag-accent { background: var(--color-accent-100); color: var(--color-accent-800); }
-.tag-accent-2 { background: var(--color-accent-2-100); color: var(--color-accent-2-800); }
-.tag-neutral { background: var(--color-neutral-100); color: var(--color-neutral-800); }
-.tag-outline { border: 1px solid var(--color-accent); color: var(--color-accent); }
+.tag-accent { background: var(--ir-color-accent-100); color: var(--ir-color-accent-800); }
+.tag-accent-2 { background: var(--ir-color-accent-2-100); color: var(--ir-color-accent-2-800); }
+.tag-neutral { background: var(--ir-color-neutral-100); color: var(--ir-color-neutral-800); }
+.tag-outline { border: 1px solid var(--ir-color-accent); color: var(--ir-color-accent); }
 
 /* — navigation — */
 .nav {
-  display: flex; align-items: center; gap: var(--space-4);
-  padding: var(--space-3) var(--space-4);
-  border-bottom: 2px solid var(--color-divider);
+  display: flex; align-items: center; gap: var(--ir-space-4);
+  padding: var(--ir-space-3) var(--ir-space-4);
+  border-bottom: 2px solid var(--ir-color-divider);
 }
 .nav-brand {
-  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-family: var(--ir-font-heading); font-weight: var(--ir-font-heading-weight);
   font-size: 18px; margin-right: auto;
 }
 .nav a { color: inherit; text-decoration: none; font-size: 14px; }
-.nav a:hover, .nav a[aria-current='page'] { color: var(--color-accent); }
+.nav a:hover, .nav a[aria-current='page'] { color: var(--ir-color-accent); }
 
 /* — tables — */
 .table { width: 100%; border-collapse: collapse; font-size: 14px; }
 .table th {
   text-align: left; font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
-  color: color-mix(in srgb, var(--color-text) 60%, transparent);
-  padding: var(--space-2); border-bottom: 2px solid var(--color-divider);
+  color: color-mix(in srgb, var(--ir-color-text) 60%, transparent);
+  padding: var(--ir-space-2); border-bottom: 2px solid var(--ir-color-divider);
 }
 .table td {
-  padding: var(--space-2);
-  border-bottom: 1px solid var(--color-divider);
+  padding: var(--ir-space-2);
+  border-bottom: 1px solid var(--ir-color-divider);
 }
-.table tbody tr:hover { background: color-mix(in srgb, var(--color-text) 4%, transparent); }
+.table tbody tr:hover { background: color-mix(in srgb, var(--ir-color-text) 4%, transparent); }
 
 /* — dialog — */
 .dialog-backdrop {
   position: fixed; inset: 0; display: grid; place-items: center;
-  padding: var(--space-4);
-  background: color-mix(in srgb, var(--color-neutral-900) 50%, transparent);
+  padding: var(--ir-space-4);
+  background: color-mix(in srgb, var(--ir-color-neutral-900) 50%, transparent);
 }
 .dialog {
-  width: min(440px, 100%); display: flex; flex-direction: column; gap: var(--space-3);
-  padding: var(--space-4); border-radius: var(--radius-lg);
-  background: var(--color-surface); box-shadow: var(--shadow-lg);
+  width: min(440px, 100%); display: flex; flex-direction: column; gap: var(--ir-space-3);
+  padding: var(--ir-space-4); border-radius: var(--ir-radius-lg);
+  background: var(--ir-color-surface); box-shadow: var(--ir-shadow-lg);
 }
 .dialog-title {
-  font-family: var(--font-heading); font-weight: var(--font-heading-weight);
+  font-family: var(--ir-font-heading); font-weight: var(--ir-font-heading-weight);
   font-size: 20px;
 }
 .dialog-body { font-size: 14px; opacity: 0.85; }
-.dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-2); margin-top: var(--space-2); }
+.dialog-actions { display: flex; justify-content: flex-end; gap: var(--ir-space-2); margin-top: var(--ir-space-2); }
 
 
 
-    body { margin: 0; background: var(--color-bg); color: var(--color-text); font-family: var(--font-body); }
-    a { color: var(--color-accent-700); } a:hover { color: var(--color-accent); }
+    body { margin: 0; background: var(--ir-color-bg); color: var(--ir-color-text); font-family: var(--ir-font-body); }
+    a { color: var(--ir-color-accent-700); } a:hover { color: var(--ir-color-accent); }
     @media print {
       .no-print { display: none !important; }
       body { background: #fff; }
@@ -303,9 +303,9 @@ textarea.input { min-height: 90px; resize: vertical; }
     /* --- ours: three small additions on top of his system --- */
     /* style-hover is his runtime's hover shorthand; all 3 uses are opacity:0.85. */
     [style-hover]:hover { opacity: 0.85; }
-    .disclosure { font-size: 12px; line-height: 1.5; color: var(--color-neutral-600);
+    .disclosure { font-size: 12px; line-height: 1.5; color: var(--ir-color-neutral-600);
                   margin-top: 6px; max-width: 96ch; }
-    .disclosure code { font-size: 11px; background: var(--color-neutral-200); padding: 1px 4px; }
+    .disclosure code { font-size: 11px; background: var(--ir-color-neutral-200); padding: 1px 4px; }
     #review-fallback { padding: 32px; font-size: 14px; }
     /* Back link. This page deliberately mounts NO app shell (it is opened with
        target:'_blank' from the Insights menu — see _shell.js), but a user who
@@ -320,8 +320,8 @@ textarea.input { min-height: 90px; resize: vertical; }
       display: inline-flex; align-items: center; gap: 6px;
       padding: 8px 14px; border-radius: 999px;
       font-size: 12px; font-weight: 600; text-decoration: none;
-      color: var(--color-neutral-700, #374151);
-      background: #fff; border: 1px solid var(--color-divider, #E5E7EB);
+      color: var(--ir-color-neutral-700, #374151);
+      background: #fff; border: 1px solid var(--ir-color-divider, #E5E7EB);
       box-shadow: 0 2px 8px rgba(0,0,0,.12);
     }
     .rv-back:hover { color: #111827; background: #F9FAFB; }
@@ -342,27 +342,27 @@ textarea.input { min-height: 90px; resize: vertical; }
 <div style="min-height:100vh">
 
   <!-- ============ HEADER ============ -->
-  <div class="no-print" style="display:flex; align-items:center; gap:24px; padding:16px 32px; border-bottom:2px solid var(--color-divider); background:var(--color-bg); position:static; flex-wrap:wrap">
+  <div class="no-print" style="display:flex; align-items:center; gap:24px; padding:16px 32px; border-bottom:2px solid var(--ir-color-divider); background:var(--ir-color-bg); position:static; flex-wrap:wrap">
     <div style="display:flex; align-items:baseline; gap:12px">
-      <div style="width:14px; height:14px; background:var(--color-accent); align-self:center"></div>
-      <div style="font-family:var(--font-heading); font-weight:700; font-size:16px; letter-spacing:0.06em">ENDEAVOUR MINING — GROUP IT</div>
-      <div style="font-size:13px; color:var(--color-neutral-600)">IT Business Reviews · Infrastructure Inspection Assurance</div>
+      <div style="width:14px; height:14px; background:var(--ir-color-accent); align-self:center"></div>
+      <div style="font-family:var(--ir-font-heading); font-weight:700; font-size:16px; letter-spacing:0.06em">ENDEAVOUR MINING — GROUP IT</div>
+      <div style="font-size:13px; color:var(--ir-color-neutral-600)">IT Business Reviews · Infrastructure Inspection Assurance</div>
     </div>
     <div style="flex:1"></div>
     <div style="display:flex; align-items:center; gap:16px; flex-wrap:wrap">
-      <div style="display:flex; border:2px solid var(--color-text)">
+      <div style="display:flex; border:2px solid var(--ir-color-text)">
         <sc-for list="{{ viewOpts }}" as="v">
-          <a href="?view={{ v.key }}" data-q="view" data-v="{{ v.key }}" style="border:none; cursor:pointer; padding:8px 16px; font-family:var(--font-heading); font-weight:600; font-size:13px; letter-spacing:0.04em; background:{{ v.bg }}; color:{{ v.fg }}; text-decoration:none; display:inline-block" style-hover="opacity:0.85">{{ v.label }}</a>
+          <a href="?view={{ v.key }}" data-q="view" data-v="{{ v.key }}" style="border:none; cursor:pointer; padding:8px 16px; font-family:var(--ir-font-heading); font-weight:600; font-size:13px; letter-spacing:0.04em; background:{{ v.bg }}; color:{{ v.fg }}; text-decoration:none; display:inline-block" style-hover="opacity:0.85">{{ v.label }}</a>
         </sc-for>
       </div>
-      <div style="display:flex; border:2px solid var(--color-text)">
+      <div style="display:flex; border:2px solid var(--ir-color-text)">
         <sc-for list="{{ periodOpts }}" as="p">
-          <a href="?period={{ p.key }}" data-q="period" data-v="{{ p.key }}" style="border:none; cursor:pointer; padding:8px 14px; font-family:var(--font-heading); font-weight:600; font-size:13px; letter-spacing:0.04em; background:{{ p.bg }}; color:{{ p.fg }}; text-decoration:none; display:inline-block" style-hover="opacity:0.85">{{ p.label }}</a>
+          <a href="?period={{ p.key }}" data-q="period" data-v="{{ p.key }}" style="border:none; cursor:pointer; padding:8px 14px; font-family:var(--ir-font-heading); font-weight:600; font-size:13px; letter-spacing:0.04em; background:{{ p.bg }}; color:{{ p.fg }}; text-decoration:none; display:inline-block" style-hover="opacity:0.85">{{ p.label }}</a>
         </sc-for>
       </div>
-      <div style="display:flex; border:2px solid var(--color-text)">
+      <div style="display:flex; border:2px solid var(--ir-color-text)">
         <sc-for list="{{ siteOpts }}" as="s">
-          <a href="?site={{ s.key }}" data-q="site" data-v="{{ s.key }}" style="border:none; cursor:pointer; padding:8px 12px; font-family:var(--font-heading); font-weight:600; font-size:13px; background:{{ s.bg }}; color:{{ s.fg }}; text-decoration:none; display:inline-block" style-hover="opacity:0.85">{{ s.label }}</a>
+          <a href="?site={{ s.key }}" data-q="site" data-v="{{ s.key }}" style="border:none; cursor:pointer; padding:8px 12px; font-family:var(--ir-font-heading); font-weight:600; font-size:13px; background:{{ s.bg }}; color:{{ s.fg }}; text-decoration:none; display:inline-block" style-hover="opacity:0.85">{{ s.label }}</a>
         </sc-for>
       </div>
     </div>
@@ -373,39 +373,39 @@ textarea.input { min-height: 90px; resize: vertical; }
   <div>
 
     <!-- context strip -->
-    <div style="display:flex; gap:24px; padding:10px 32px; border-bottom:2px solid var(--color-divider); font-size:13px; color:var(--color-neutral-700); flex-wrap:wrap">
-      <div><span style="font-weight:700; color:var(--color-text)">{{ scopeLabel }}</span> · week ending {{ anchorLabel }}</div>
-      <div>Comparing <span style="font-weight:700; color:var(--color-text)">{{ curWinLabel }}</span> vs {{ prevWinLabel }}</div>
+    <div style="display:flex; gap:24px; padding:10px 32px; border-bottom:2px solid var(--ir-color-divider); font-size:13px; color:var(--ir-color-neutral-700); flex-wrap:wrap">
+      <div><span style="font-weight:700; color:var(--ir-color-text)">{{ scopeLabel }}</span> · week ending {{ anchorLabel }}</div>
+      <div>Comparing <span style="font-weight:700; color:var(--ir-color-text)">{{ curWinLabel }}</span> vs {{ prevWinLabel }}</div>
       <div style="flex:1"></div>
       <div>Data through {{ dataThrough }} · {{ nIssues }} issues · {{ nMeetings }} reviews · {{ nInspections }} inspections</div>
     </div>
-    <div style="padding:0 32px 10px; border-bottom:2px solid var(--color-divider)">
+    <div style="padding:0 32px 10px; border-bottom:2px solid var(--ir-color-divider)">
       <div class="disclosure">Scores are measured from the programme start (01 Apr) to the as-of date; the emailed site reports score the same model over a <strong>rolling 3-month window</strong>, so the two can differ. <code>?asOf=</code> moves the score only &mdash; the period windows above are pinned to the anchor date.</div>
     </div>
 
     <!-- 1. KPI BAND -->
-    <div style="display:grid; grid-template-columns:repeat(8,1fr); gap:2px; background:var(--color-divider); border-bottom:2px solid var(--color-divider)">
+    <div style="display:grid; grid-template-columns:repeat(8,1fr); gap:2px; background:var(--ir-color-divider); border-bottom:2px solid var(--ir-color-divider)">
       <sc-for list="{{ kpis }}" as="k">
-        <div style="background:var(--color-bg); padding:16px 16px 14px">
-          <div style="font-size:11px; font-weight:700; letter-spacing:0.08em; color:var(--color-neutral-600); text-transform:uppercase">{{ k.label }}</div>
+        <div style="background:var(--ir-color-bg); padding:16px 16px 14px">
+          <div style="font-size:11px; font-weight:700; letter-spacing:0.08em; color:var(--ir-color-neutral-600); text-transform:uppercase">{{ k.label }}</div>
           <div style="display:flex; align-items:baseline; gap:8px; margin-top:6px">
-            <div style="font-family:var(--font-heading); font-weight:700; font-size:32px; line-height:1">{{ k.value }}</div>
-            <div style="font-size:12px; color:var(--color-neutral-600)">{{ k.unit }}</div>
+            <div style="font-family:var(--ir-font-heading); font-weight:700; font-size:32px; line-height:1">{{ k.value }}</div>
+            <div style="font-size:12px; color:var(--ir-color-neutral-600)">{{ k.unit }}</div>
           </div>
           <div style="display:flex; align-items:center; gap:6px; margin-top:8px; min-height:24px">
-            <svg width="64" height="22" viewBox="0 0 64 22" style="flex:none"><polyline points="{{ k.spark }}" fill="none" stroke="var(--color-neutral-400)" stroke-width="1.5"></polyline><circle cx="{{ k.sparkX }}" cy="{{ k.sparkY }}" r="2.5" fill="var(--color-accent)"></circle></svg>
+            <svg width="64" height="22" viewBox="0 0 64 22" style="flex:none"><polyline points="{{ k.spark }}" fill="none" stroke="var(--ir-color-neutral-400)" stroke-width="1.5"></polyline><circle cx="{{ k.sparkX }}" cy="{{ k.sparkY }}" r="2.5" fill="var(--ir-color-accent)"></circle></svg>
             <div style="font-size:12px; font-weight:700; color:{{ k.deltaColor }}">{{ k.deltaTxt }}</div>
           </div>
-          <div style="font-size:11px; color:var(--color-neutral-500); margin-top:2px">{{ k.deltaNote }}</div>
+          <div style="font-size:11px; color:var(--ir-color-neutral-500); margin-top:2px">{{ k.deltaNote }}</div>
         </div>
       </sc-for>
     </div>
 
     <!-- 2. SITE HEALTH LEADERBOARD -->
-    <div style="padding:28px 32px; border-bottom:2px solid var(--color-divider)">
+    <div style="padding:28px 32px; border-bottom:2px solid var(--ir-color-divider)">
       <div style="display:flex; align-items:baseline; gap:16px">
-        <h2 style="font-family:var(--font-heading); font-weight:700; font-size:22px; margin:0">Site Health Leaderboard</h2>
-        <div style="font-size:13px; color:var(--color-neutral-600)">Composite v2 — Delivery 40 · Governance 35 · Engagement 25 · penalties (−3/escalation &gt;60 d, −5 any HIGH &gt;90 d)</div>
+        <h2 style="font-family:var(--ir-font-heading); font-weight:700; font-size:22px; margin:0">Site Health Leaderboard</h2>
+        <div style="font-size:13px; color:var(--ir-color-neutral-600)">Composite v2 — Delivery 40 · Governance 35 · Engagement 25 · penalties (−3/escalation &gt;60 d, −5 any HIGH &gt;90 d)</div>
       </div>
       <table class="table" style="width:100%; margin-top:16px; border-collapse:collapse">
         <thead><tr>
@@ -422,32 +422,32 @@ textarea.input { min-height: 90px; resize: vertical; }
         </tr></thead>
         <tbody>
           <sc-for list="{{ leaderboard }}" as="r">
-            <tr style="border-top:1px solid var(--color-neutral-300); background:{{ r.rowBg }}; cursor:pointer" data-q="site" data-v="{{ r.code }}">
-              <td style="padding:10px 12px 10px 0; font-weight:700; color:var(--color-neutral-500)">{{ r.rank }}</td>
-              <td style="padding:10px 12px"><span style="font-family:var(--font-heading); font-weight:700">{{ r.name }}</span> <span style="color:var(--color-neutral-500); font-size:12px">{{ r.code }} · {{ r.country }}</span></td>
+            <tr style="border-top:1px solid var(--ir-color-neutral-300); background:{{ r.rowBg }}; cursor:pointer" data-q="site" data-v="{{ r.code }}">
+              <td style="padding:10px 12px 10px 0; font-weight:700; color:var(--ir-color-neutral-500)">{{ r.rank }}</td>
+              <td style="padding:10px 12px"><span style="font-family:var(--ir-font-heading); font-weight:700">{{ r.name }}</span> <span style="color:var(--ir-color-neutral-500); font-size:12px">{{ r.code }} · {{ r.country }}</span></td>
               <td style="padding:10px 12px">
-                <div style="display:flex; height:14px; width:100%; background:var(--color-neutral-200)">
-                  <div style="width:{{ r.wDel }}%; background:var(--color-text)" title="Delivery"></div>
-                  <div style="width:{{ r.wGov }}%; background:var(--color-neutral-500)" title="Governance"></div>
-                  <div style="width:{{ r.wEng }}%; background:var(--color-accent)" title="Engagement"></div>
+                <div style="display:flex; height:14px; width:100%; background:var(--ir-color-neutral-200)">
+                  <div style="width:{{ r.wDel }}%; background:var(--ir-color-text)" title="Delivery"></div>
+                  <div style="width:{{ r.wGov }}%; background:var(--ir-color-neutral-500)" title="Governance"></div>
+                  <div style="width:{{ r.wEng }}%; background:var(--ir-color-accent)" title="Engagement"></div>
                 </div>
-                <div style="font-size:11px; color:var(--color-neutral-600); margin-top:3px">D {{ r.del }} · G {{ r.gov }} · E {{ r.eng }}</div>
+                <div style="font-size:11px; color:var(--ir-color-neutral-600); margin-top:3px">D {{ r.del }} · G {{ r.gov }} · E {{ r.eng }}</div>
               </td>
-              <td style="padding:10px 12px; text-align:right; font-family:var(--font-heading); font-weight:700; font-size:20px">{{ r.score }}</td>
+              <td style="padding:10px 12px; text-align:right; font-family:var(--ir-font-heading); font-weight:700; font-size:20px">{{ r.score }}</td>
               <td style="padding:10px 12px; text-align:right; font-weight:700; color:{{ r.deltaColor }}">{{ r.delta }}</td>
               <td style="padding:10px 12px; text-align:right">{{ r.open }}</td>
               <td style="padding:10px 12px; text-align:right; color:{{ r.overdueColor }}; font-weight:{{ r.overdueWeight }}">{{ r.overdue }}</td>
               <td style="padding:10px 12px; text-align:right; color:{{ r.highColor }}; font-weight:{{ r.highWeight }}">{{ r.high }}</td>
-              <td style="padding:10px 12px; text-align:right; color:var(--color-accent-700)">{{ r.penalty }}</td>
+              <td style="padding:10px 12px; text-align:right; color:var(--ir-color-accent-700)">{{ r.penalty }}</td>
               <td style="padding:10px 0 10px 16px"><span style="display:inline-block; padding:2px 10px; font-size:11px; font-weight:700; letter-spacing:0.05em; background:{{ r.ragBg }}; color:{{ r.ragFg }}">{{ r.rag }}</span></td>
             </tr>
           </sc-for>
           <sc-for list="{{ groupRows }}" as="g">
-            <tr style="border-top:2px solid var(--color-divider); background:var(--color-neutral-100)">
+            <tr style="border-top:2px solid var(--ir-color-divider); background:var(--ir-color-neutral-100)">
               <td style="padding:8px 12px 8px 0"></td>
               <td style="padding:8px 12px; font-weight:700; font-size:13px; letter-spacing:0.04em">{{ g.name }}</td>
-              <td style="padding:8px 12px; font-size:12px; color:var(--color-neutral-600)">{{ g.sites }}</td>
-              <td style="padding:8px 12px; text-align:right; font-family:var(--font-heading); font-weight:700; font-size:16px">{{ g.score }}</td>
+              <td style="padding:8px 12px; font-size:12px; color:var(--ir-color-neutral-600)">{{ g.sites }}</td>
+              <td style="padding:8px 12px; text-align:right; font-family:var(--ir-font-heading); font-weight:700; font-size:16px">{{ g.score }}</td>
               <td style="padding:8px 12px; text-align:right; font-weight:700; color:{{ g.deltaColor }}">{{ g.delta }}</td>
               <td style="padding:8px 12px; text-align:right">{{ g.open }}</td>
               <td style="padding:8px 12px; text-align:right">{{ g.overdue }}</td>
@@ -460,57 +460,57 @@ textarea.input { min-height: 90px; resize: vertical; }
     </div>
 
     <!-- 3. FLOW + BACKLOG -->
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:2px; background:var(--color-divider); border-bottom:2px solid var(--color-divider)">
-      <div style="background:var(--color-bg); padding:28px 32px">
-        <h3 style="font-family:var(--font-heading); font-weight:700; font-size:16px; margin:0">Raised vs closed by month</h3>
-        <div style="font-size:12px; color:var(--color-neutral-600); margin-top:2px">raised = meeting_date · closed = closed_at · closure ratio ≥ 1.0 means burning down</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:2px; background:var(--ir-color-divider); border-bottom:2px solid var(--ir-color-divider)">
+      <div style="background:var(--ir-color-bg); padding:28px 32px">
+        <h3 style="font-family:var(--ir-font-heading); font-weight:700; font-size:16px; margin:0">Raised vs closed by month</h3>
+        <div style="font-size:12px; color:var(--ir-color-neutral-600); margin-top:2px">raised = meeting_date · closed = closed_at · closure ratio ≥ 1.0 means burning down</div>
         <div style="display:flex; gap:20px; align-items:flex-end; margin-top:20px; height:150px">
           <sc-for list="{{ flowMonths }}" as="m">
             <div style="flex:1; display:flex; flex-direction:column; justify-content:flex-end; height:100%">
               <div style="display:flex; gap:4px; align-items:flex-end; height:120px">
-                <div style="flex:1; height:{{ m.hRaised }}%; background:var(--color-text)" title="raised"></div>
-                <div style="flex:1; height:{{ m.hClosed }}%; background:var(--color-accent)" title="closed"></div>
+                <div style="flex:1; height:{{ m.hRaised }}%; background:var(--ir-color-text)" title="raised"></div>
+                <div style="flex:1; height:{{ m.hClosed }}%; background:var(--ir-color-accent)" title="closed"></div>
               </div>
               <div style="font-size:12px; font-weight:700; margin-top:6px">{{ m.label }}</div>
-              <div style="font-size:11px; color:var(--color-neutral-600)">{{ m.raised }} ↑ · {{ m.closed }} ✓ · ratio <span style="font-weight:700; color:{{ m.ratioColor }}">{{ m.ratio }}</span></div>
+              <div style="font-size:11px; color:var(--ir-color-neutral-600)">{{ m.raised }} ↑ · {{ m.closed }} ✓ · ratio <span style="font-weight:700; color:{{ m.ratioColor }}">{{ m.ratio }}</span></div>
             </div>
           </sc-for>
         </div>
         <div style="display:flex; gap:16px; margin-top:14px; font-size:12px">
-          <div style="display:flex; align-items:center; gap:6px"><div style="width:10px; height:10px; background:var(--color-text)"></div>Raised</div>
-          <div style="display:flex; align-items:center; gap:6px"><div style="width:10px; height:10px; background:var(--color-accent)"></div>Closed</div>
+          <div style="display:flex; align-items:center; gap:6px"><div style="width:10px; height:10px; background:var(--ir-color-text)"></div>Raised</div>
+          <div style="display:flex; align-items:center; gap:6px"><div style="width:10px; height:10px; background:var(--ir-color-accent)"></div>Closed</div>
         </div>
       </div>
-      <div style="background:var(--color-bg); padding:28px 32px">
-        <h3 style="font-family:var(--font-heading); font-weight:700; font-size:16px; margin:0">Open backlog over time</h3>
-        <div style="font-size:12px; color:var(--color-neutral-600); margin-top:2px">reconstructed weekly from raise/close dates — {{ backlogNow }} open now</div>
+      <div style="background:var(--ir-color-bg); padding:28px 32px">
+        <h3 style="font-family:var(--ir-font-heading); font-weight:700; font-size:16px; margin:0">Open backlog over time</h3>
+        <div style="font-size:12px; color:var(--ir-color-neutral-600); margin-top:2px">reconstructed weekly from raise/close dates — {{ backlogNow }} open now</div>
         <svg width="100%" height="150" viewBox="0 0 600 150" preserveAspectRatio="none" style="margin-top:20px; display:block">
-          <line x1="0" y1="149" x2="600" y2="149" stroke="var(--color-neutral-400)" stroke-width="1"></line>
-          <polyline points="{{ backlogPts }}" fill="none" stroke="var(--color-text)" stroke-width="2.5"></polyline>
-          <circle cx="{{ backlogEndX }}" cy="{{ backlogEndY }}" r="4" fill="var(--color-accent)"></circle>
+          <line x1="0" y1="149" x2="600" y2="149" stroke="var(--ir-color-neutral-400)" stroke-width="1"></line>
+          <polyline points="{{ backlogPts }}" fill="none" stroke="var(--ir-color-text)" stroke-width="2.5"></polyline>
+          <circle cx="{{ backlogEndX }}" cy="{{ backlogEndY }}" r="4" fill="var(--ir-color-accent)"></circle>
         </svg>
-        <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--color-neutral-600); margin-top:4px"><div>{{ backlogStartLabel }}</div><div>{{ anchorLabel }}</div></div>
-        <div style="font-size:12px; margin-top:10px; color:var(--color-neutral-700)">Peak {{ backlogPeak }} · now {{ backlogNow }} <span style="font-weight:700; color:{{ backlogTrendColor }}">{{ backlogTrendTxt }}</span></div>
+        <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--ir-color-neutral-600); margin-top:4px"><div>{{ backlogStartLabel }}</div><div>{{ anchorLabel }}</div></div>
+        <div style="font-size:12px; margin-top:10px; color:var(--ir-color-neutral-700)">Peak {{ backlogPeak }} · now {{ backlogNow }} <span style="font-weight:700; color:{{ backlogTrendColor }}">{{ backlogTrendTxt }}</span></div>
       </div>
     </div>
 
     <!-- 4. 5E GOVERNANCE MATRIX -->
-    <div style="padding:28px 32px; border-bottom:2px solid var(--color-divider)">
+    <div style="padding:28px 32px; border-bottom:2px solid var(--ir-color-divider)">
       <div style="display:flex; align-items:baseline; gap:16px">
-        <h2 style="font-family:var(--font-heading); font-weight:700; font-size:22px; margin:0">5 Engagements — governance matrix</h2>
-        <div style="font-size:13px; color:var(--color-neutral-600)">E1 cadence · E2 diffusion ≤48 h · E3 champion coverage · E4 not yet measured · E5 discipline</div>
+        <h2 style="font-family:var(--ir-font-heading); font-weight:700; font-size:22px; margin:0">5 Engagements — governance matrix</h2>
+        <div style="font-size:13px; color:var(--ir-color-neutral-600)">E1 cadence · E2 diffusion ≤48 h · E3 champion coverage · E4 not yet measured · E5 discipline</div>
       </div>
       <table style="width:100%; margin-top:16px; border-collapse:collapse">
         <thead><tr>
           <th style="text-align:left; padding:8px 12px 8px 0; font-size:12px; letter-spacing:0.05em">SITE</th>
           <sc-for list="{{ eHeaders }}" as="h">
-            <th style="text-align:center; padding:8px 12px; font-size:12px; letter-spacing:0.05em">{{ h.label }}<div style="font-weight:400; font-size:10px; color:var(--color-neutral-500)">{{ h.sub }}</div></th>
+            <th style="text-align:center; padding:8px 12px; font-size:12px; letter-spacing:0.05em">{{ h.label }}<div style="font-weight:400; font-size:10px; color:var(--ir-color-neutral-500)">{{ h.sub }}</div></th>
           </sc-for>
         </tr></thead>
         <tbody>
           <sc-for list="{{ eMatrix }}" as="row">
-            <tr style="border-top:1px solid var(--color-neutral-300)">
-              <td style="padding:0 12px 0 0; font-weight:700; font-family:var(--font-heading)">{{ row.site }}</td>
+            <tr style="border-top:1px solid var(--ir-color-neutral-300)">
+              <td style="padding:0 12px 0 0; font-weight:700; font-family:var(--ir-font-heading)">{{ row.site }}</td>
               <sc-for list="{{ row.cells }}" as="c">
                 <td style="padding:2px; text-align:center">
                   <div style="padding:12px 4px; background:{{ c.bg }}; color:{{ c.fg }}; font-weight:700; font-size:15px" title="{{ c.tip }}">{{ c.val }}</div>
@@ -520,12 +520,12 @@ textarea.input { min-height: 90px; resize: vertical; }
           </sc-for>
         </tbody>
       </table>
-      <div style="font-size:12px; color:var(--color-neutral-600); margin-top:10px">Grey = not measured (never silently green). Fleet E2 diffusion is the weakest engagement — signature latency locates the break in the funnel below.</div>
-      <div style="display:flex; gap:2px; margin-top:16px; background:var(--color-divider); border:2px solid var(--color-divider)">
+      <div style="font-size:12px; color:var(--ir-color-neutral-600); margin-top:10px">Grey = not measured (never silently green). Fleet E2 diffusion is the weakest engagement — signature latency locates the break in the funnel below.</div>
+      <div style="display:flex; gap:2px; margin-top:16px; background:var(--ir-color-divider); border:2px solid var(--ir-color-divider)">
         <sc-for list="{{ sigFunnel }}" as="f">
-          <div style="flex:1; background:var(--color-bg); padding:14px 16px">
-            <div style="font-size:11px; font-weight:700; letter-spacing:0.06em; color:var(--color-neutral-600); text-transform:uppercase">{{ f.label }}</div>
-            <div style="font-family:var(--font-heading); font-weight:700; font-size:24px; margin-top:4px">{{ f.value }}</div>
+          <div style="flex:1; background:var(--ir-color-bg); padding:14px 16px">
+            <div style="font-size:11px; font-weight:700; letter-spacing:0.06em; color:var(--ir-color-neutral-600); text-transform:uppercase">{{ f.label }}</div>
+            <div style="font-family:var(--ir-font-heading); font-weight:700; font-size:24px; margin-top:4px">{{ f.value }}</div>
             <div style="font-size:12px; color:{{ f.noteColor }}; margin-top:2px">{{ f.note }}</div>
           </div>
         </sc-for>
@@ -533,66 +533,66 @@ textarea.input { min-height: 90px; resize: vertical; }
     </div>
 
     <!-- 5. DELIVERY & BACKLOG -->
-    <div style="display:grid; grid-template-columns:5fr 4fr; gap:2px; background:var(--color-divider); border-bottom:2px solid var(--color-divider)">
-      <div style="background:var(--color-bg); padding:28px 32px">
-        <h3 style="font-family:var(--font-heading); font-weight:700; font-size:16px; margin:0">Backlog aging × severity {{ scopeSuffix }}</h3>
-        <div style="font-size:12px; color:var(--color-neutral-600); margin-top:2px">age = today − raise date · &gt;90 d + HIGH = escalation candidates</div>
+    <div style="display:grid; grid-template-columns:5fr 4fr; gap:2px; background:var(--ir-color-divider); border-bottom:2px solid var(--ir-color-divider)">
+      <div style="background:var(--ir-color-bg); padding:28px 32px">
+        <h3 style="font-family:var(--ir-font-heading); font-weight:700; font-size:16px; margin:0">Backlog aging × severity {{ scopeSuffix }}</h3>
+        <div style="font-size:12px; color:var(--ir-color-neutral-600); margin-top:2px">age = today − raise date · &gt;90 d + HIGH = escalation candidates</div>
         <div style="margin-top:18px; display:flex; flex-direction:column; gap:10px">
           <sc-for list="{{ aging }}" as="b">
             <div style="display:grid; grid-template-columns:70px 1fr 110px; align-items:center; gap:12px">
               <div style="font-size:13px; font-weight:700">{{ b.label }}</div>
-              <div style="display:flex; height:22px; background:var(--color-neutral-200)">
-                <div style="width:{{ b.wHigh }}%; background:var(--color-accent)" title="HIGH"></div>
-                <div style="width:{{ b.wMed }}%; background:var(--color-neutral-600)" title="MEDIUM"></div>
-                <div style="width:{{ b.wLow }}%; background:var(--color-neutral-400)" title="LOW"></div>
+              <div style="display:flex; height:22px; background:var(--ir-color-neutral-200)">
+                <div style="width:{{ b.wHigh }}%; background:var(--ir-color-accent)" title="HIGH"></div>
+                <div style="width:{{ b.wMed }}%; background:var(--ir-color-neutral-600)" title="MEDIUM"></div>
+                <div style="width:{{ b.wLow }}%; background:var(--ir-color-neutral-400)" title="LOW"></div>
               </div>
-              <div style="font-size:12px; color:var(--color-neutral-700)">{{ b.total }} <span style="color:var(--color-accent-700); font-weight:700">{{ b.highTxt }}</span></div>
+              <div style="font-size:12px; color:var(--ir-color-neutral-700)">{{ b.total }} <span style="color:var(--ir-color-accent-700); font-weight:700">{{ b.highTxt }}</span></div>
             </div>
           </sc-for>
         </div>
         <div style="display:flex; gap:16px; margin-top:12px; font-size:12px">
-          <div style="display:flex; align-items:center; gap:6px"><div style="width:10px; height:10px; background:var(--color-accent)"></div>HIGH</div>
-          <div style="display:flex; align-items:center; gap:6px"><div style="width:10px; height:10px; background:var(--color-neutral-600)"></div>MEDIUM</div>
-          <div style="display:flex; align-items:center; gap:6px"><div style="width:10px; height:10px; background:var(--color-neutral-400)"></div>LOW</div>
+          <div style="display:flex; align-items:center; gap:6px"><div style="width:10px; height:10px; background:var(--ir-color-accent)"></div>HIGH</div>
+          <div style="display:flex; align-items:center; gap:6px"><div style="width:10px; height:10px; background:var(--ir-color-neutral-600)"></div>MEDIUM</div>
+          <div style="display:flex; align-items:center; gap:6px"><div style="width:10px; height:10px; background:var(--ir-color-neutral-400)"></div>LOW</div>
         </div>
-        <h3 style="font-family:var(--font-heading); font-weight:700; font-size:16px; margin:28px 0 0">Champion load <span style="font-weight:400; font-size:12px; color:var(--color-neutral-600)">open items per champion · alert ≥ 7</span></h3>
+        <h3 style="font-family:var(--ir-font-heading); font-weight:700; font-size:16px; margin:28px 0 0">Champion load <span style="font-weight:400; font-size:12px; color:var(--ir-color-neutral-600)">open items per champion · alert ≥ 7</span></h3>
         <div style="margin-top:14px; display:flex; flex-direction:column; gap:8px">
           <sc-for list="{{ champLoad }}" as="c">
             <div style="display:grid; grid-template-columns:180px 1fr 60px; align-items:center; gap:12px">
               <div style="font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis" title="{{ c.name }}">{{ c.name }}</div>
-              <div style="height:16px; background:var(--color-neutral-200)"><div style="width:{{ c.w }}%; height:100%; background:{{ c.color }}"></div></div>
+              <div style="height:16px; background:var(--ir-color-neutral-200)"><div style="width:{{ c.w }}%; height:100%; background:{{ c.color }}"></div></div>
               <div style="font-size:13px; font-weight:700; color:{{ c.numColor }}">{{ c.n }}{{ c.flag }}</div>
             </div>
           </sc-for>
         </div>
       </div>
-      <div style="background:var(--color-bg); padding:28px 32px">
-        <h3 style="font-family:var(--font-heading); font-weight:700; font-size:16px; margin:0">Overdue register {{ scopeSuffix }}</h3>
-        <div style="font-size:12px; color:var(--color-neutral-600); margin-top:2px">{{ overdueCount }} open past target date — worst first · K03</div>
+      <div style="background:var(--ir-color-bg); padding:28px 32px">
+        <h3 style="font-family:var(--ir-font-heading); font-weight:700; font-size:16px; margin:0">Overdue register {{ scopeSuffix }}</h3>
+        <div style="font-size:12px; color:var(--ir-color-neutral-600); margin-top:2px">{{ overdueCount }} open past target date — worst first · K03</div>
         <div style="margin-top:14px; display:flex; flex-direction:column">
           <sc-for list="{{ overdueRows }}" as="o">
-            <div style="display:grid; grid-template-columns:52px 1fr 90px; gap:10px; padding:9px 0; border-top:1px solid var(--color-neutral-300); align-items:baseline">
-              <div style="font-family:var(--font-heading); font-weight:700; font-size:16px; color:{{ o.dColor }}">{{ o.days }}<span style="font-size:10px; font-weight:400"> d</span></div>
+            <div style="display:grid; grid-template-columns:52px 1fr 90px; gap:10px; padding:9px 0; border-top:1px solid var(--ir-color-neutral-300); align-items:baseline">
+              <div style="font-family:var(--ir-font-heading); font-weight:700; font-size:16px; color:{{ o.dColor }}">{{ o.days }}<span style="font-size:10px; font-weight:400"> d</span></div>
               <div>
                 <div style="font-size:13px; font-weight:600; line-height:1.3">{{ o.title }}</div>
-                <div style="font-size:11px; color:var(--color-neutral-600); margin-top:2px">{{ o.meta }}</div>
+                <div style="font-size:11px; color:var(--ir-color-neutral-600); margin-top:2px">{{ o.meta }}</div>
               </div>
               <div style="text-align:right"><span style="display:inline-block; padding:1px 8px; font-size:10px; font-weight:700; background:{{ o.sevBg }}; color:{{ o.sevFg }}">{{ o.sev }}</span></div>
             </div>
           </sc-for>
         </div>
-        <div style="font-size:12px; color:var(--color-neutral-600); margin-top:10px">{{ noTargetNote }}</div>
+        <div style="font-size:12px; color:var(--ir-color-neutral-600); margin-top:10px">{{ noTargetNote }}</div>
       </div>
     </div>
 
     <!-- 6. INSPECTIONS -->
-    <div style="padding:28px 32px; border-bottom:2px solid var(--color-divider)">
+    <div style="padding:28px 32px; border-bottom:2px solid var(--ir-color-divider)">
       <div style="display:flex; align-items:baseline; gap:16px">
-        <h2 style="font-family:var(--font-heading); font-weight:700; font-size:22px; margin:0">Infrastructure Inspection Assurance</h2>
-        <div style="font-size:13px; color:var(--color-neutral-600)">{{ nInspections }} inspections · {{ nFindings }} checklist items assessed · {{ defectCount }} defects found</div>
+        <h2 style="font-family:var(--ir-font-heading); font-weight:700; font-size:22px; margin:0">Infrastructure Inspection Assurance</h2>
+        <div style="font-size:13px; color:var(--ir-color-neutral-600)">{{ nInspections }} inspections · {{ nFindings }} checklist items assessed · {{ defectCount }} defects found</div>
       </div>
-      <div style="display:grid; grid-template-columns:3fr 2fr; gap:2px; background:var(--color-divider); border:2px solid var(--color-divider); margin-top:16px">
-        <div style="background:var(--color-bg); padding:20px 24px">
+      <div style="display:grid; grid-template-columns:3fr 2fr; gap:2px; background:var(--ir-color-divider); border:2px solid var(--ir-color-divider); margin-top:16px">
+        <div style="background:var(--ir-color-bg); padding:20px 24px">
           <table style="width:100%; border-collapse:collapse">
             <thead><tr>
               <th style="text-align:left; padding:6px 8px 6px 0; font-size:11px; letter-spacing:0.05em">SITE</th>
@@ -605,18 +605,18 @@ textarea.input { min-height: 90px; resize: vertical; }
             </tr></thead>
             <tbody>
               <sc-for list="{{ inspSiteRows }}" as="i">
-                <tr style="border-top:1px solid var(--color-neutral-300)">
-                  <td style="padding:9px 8px 9px 0; font-weight:700; font-family:var(--font-heading)">{{ i.site }}</td>
+                <tr style="border-top:1px solid var(--ir-color-neutral-300)">
+                  <td style="padding:9px 8px 9px 0; font-weight:700; font-family:var(--ir-font-heading)">{{ i.site }}</td>
                   <td style="padding:9px 8px; text-align:right">{{ i.count }}</td>
                   <td style="padding:9px 8px; text-align:right; font-size:12px">{{ i.last }}</td>
                   <td style="padding:9px 8px; text-align:right; font-weight:700; color:{{ i.daysColor }}">{{ i.daysAgo }}</td>
                   <td style="padding:9px 8px">
-                    <div style="display:flex; height:14px; background:var(--color-neutral-200)">
-                      <div style="width:{{ i.wCrit }}%; background:var(--color-accent)"></div>
-                      <div style="width:{{ i.wMaj }}%; background:var(--color-neutral-700)"></div>
-                      <div style="width:{{ i.wMin }}%; background:var(--color-neutral-400)"></div>
+                    <div style="display:flex; height:14px; background:var(--ir-color-neutral-200)">
+                      <div style="width:{{ i.wCrit }}%; background:var(--ir-color-accent)"></div>
+                      <div style="width:{{ i.wMaj }}%; background:var(--ir-color-neutral-700)"></div>
+                      <div style="width:{{ i.wMin }}%; background:var(--ir-color-neutral-400)"></div>
                     </div>
-                    <div style="font-size:11px; color:var(--color-neutral-600); margin-top:2px">{{ i.defTxt }}</div>
+                    <div style="font-size:11px; color:var(--ir-color-neutral-600); margin-top:2px">{{ i.defTxt }}</div>
                   </td>
                   <td style="padding:9px 8px; text-align:right; font-weight:700; color:{{ i.confColor }}">{{ i.conf }}</td>
                   <td style="padding:9px 0 9px 8px; text-align:right">{{ i.actOpen }}</td>
@@ -624,15 +624,15 @@ textarea.input { min-height: 90px; resize: vertical; }
               </sc-for>
             </tbody>
           </table>
-          <div style="font-size:12px; color:var(--color-neutral-600); margin-top:10px">Conformity = ok ÷ applicable items. Sites &gt;45 days since last inspection are flagged.</div>
+          <div style="font-size:12px; color:var(--ir-color-neutral-600); margin-top:10px">Conformity = ok ÷ applicable items. Sites &gt;45 days since last inspection are flagged.</div>
         </div>
-        <div style="background:var(--color-bg); padding:20px 24px">
-          <div style="font-size:12px; font-weight:700; letter-spacing:0.06em; color:var(--color-neutral-600); text-transform:uppercase">Defects by domain {{ scopeSuffix }}</div>
+        <div style="background:var(--ir-color-bg); padding:20px 24px">
+          <div style="font-size:12px; font-weight:700; letter-spacing:0.06em; color:var(--ir-color-neutral-600); text-transform:uppercase">Defects by domain {{ scopeSuffix }}</div>
           <div style="margin-top:12px; display:flex; flex-direction:column; gap:7px">
             <sc-for list="{{ findCats }}" as="fc">
               <div style="display:grid; grid-template-columns:110px 1fr 40px; align-items:center; gap:10px">
                 <div style="font-size:12px">{{ fc.label }}</div>
-                <div style="height:13px; background:var(--color-neutral-200)"><div style="width:{{ fc.w }}%; height:100%; background:{{ fc.color }}"></div></div>
+                <div style="height:13px; background:var(--ir-color-neutral-200)"><div style="width:{{ fc.w }}%; height:100%; background:{{ fc.color }}"></div></div>
                 <div style="font-size:12px; font-weight:700; text-align:right">{{ fc.n }}</div>
               </div>
             </sc-for>
@@ -653,10 +653,10 @@ textarea.input { min-height: 90px; resize: vertical; }
          scan reads RAW text and does not skip comments, so the mention itself
          would be parsed as a tag and corrupt the page. -->
     <sc-if value="{{ hdRows }}">
-    <div style="padding:28px 32px; border-bottom:2px solid var(--color-divider)">
+    <div style="padding:28px 32px; border-bottom:2px solid var(--ir-color-divider)">
       <div style="display:flex; align-items:baseline; gap:16px">
-        <h2 style="font-family:var(--font-heading); font-weight:700; font-size:22px; margin:0">Helpdesk &amp; Changes</h2>
-        <div style="font-size:13px; color:var(--color-neutral-600)">{{ hdNote }}</div>
+        <h2 style="font-family:var(--ir-font-heading); font-weight:700; font-size:22px; margin:0">Helpdesk &amp; Changes</h2>
+        <div style="font-size:13px; color:var(--ir-color-neutral-600)">{{ hdNote }}</div>
       </div>
       <table class="table" style="width:100%; margin-top:16px; border-collapse:collapse">
         <thead><tr>
@@ -673,8 +673,8 @@ textarea.input { min-height: 90px; resize: vertical; }
         </tr></thead>
         <tbody>
           <sc-for list="{{ hdRows }}" as="h">
-            <tr style="border-top:1px solid var(--color-neutral-300)">
-              <td style="padding:10px 12px 10px 0"><span style="font-family:var(--font-heading); font-weight:700">{{ h.name }}</span> <span style="color:var(--color-neutral-500); font-size:12px">{{ h.code }}</span></td>
+            <tr style="border-top:1px solid var(--ir-color-neutral-300)">
+              <td style="padding:10px 12px 10px 0"><span style="font-family:var(--ir-font-heading); font-weight:700">{{ h.name }}</span> <span style="color:var(--ir-color-neutral-500); font-size:12px">{{ h.code }}</span></td>
               <td style="padding:10px 12px; text-align:right">{{ h.created }}</td>
               <td style="padding:10px 12px; text-align:right">{{ h.resolved }}</td>
               <td style="padding:10px 12px; text-align:right">{{ h.backlog }}</td>
@@ -688,7 +688,7 @@ textarea.input { min-height: 90px; resize: vertical; }
           </sc-for>
         </tbody>
       </table>
-      <div style="font-size:12px; color:var(--color-neutral-600); margin-top:10px">Failed includes backed-out changes. Success = successful ÷ executed; the raw counts sit beside it because some sites have very few executed changes.</div>
+      <div style="font-size:12px; color:var(--ir-color-neutral-600); margin-top:10px">Failed includes backed-out changes. Success = successful ÷ executed; the raw counts sit beside it because some sites have very few executed changes.</div>
     </div>
     </sc-if>
 
@@ -700,10 +700,10 @@ textarea.input { min-height: 90px; resize: vertical; }
          NB: never write a literal control tag in a comment — the renderer's tag
          scan reads RAW text and does not skip comments. -->
     <sc-if value="{{ sbuRows }}" hint-placeholder-val="{{ true }}">
-    <div style="padding:28px 32px; border-bottom:2px solid var(--color-divider)">
+    <div style="padding:28px 32px; border-bottom:2px solid var(--ir-color-divider)">
       <div style="display:flex; align-items:baseline; gap:16px; flex-wrap:wrap">
-        <h2 style="font-family:var(--font-heading); font-weight:700; font-size:22px; margin:0">Scoreboard opérationnel — 4 dimensions (helpdesk · inspections · réunions · actifs)</h2>
-        <div style="font-size:13px; color:var(--color-neutral-600)">Moyenne flotte <strong>{{ sbuNote.fleet_avg }}</strong> · Meilleure progression <strong>{{ sbuNote.most_improved }}</strong> · À surveiller <strong>{{ sbuNote.needs_attention }}</strong></div>
+        <h2 style="font-family:var(--ir-font-heading); font-weight:700; font-size:22px; margin:0">Scoreboard opérationnel — 4 dimensions (helpdesk · inspections · réunions · actifs)</h2>
+        <div style="font-size:13px; color:var(--ir-color-neutral-600)">Moyenne flotte <strong>{{ sbuNote.fleet_avg }}</strong> · Meilleure progression <strong>{{ sbuNote.most_improved }}</strong> · À surveiller <strong>{{ sbuNote.needs_attention }}</strong></div>
       </div>
       <table class="table" style="width:100%; margin-top:16px; border-collapse:collapse">
         <thead><tr>
@@ -718,10 +718,10 @@ textarea.input { min-height: 90px; resize: vertical; }
         </tr></thead>
         <tbody>
           <sc-for list="{{ sbuRows }}" as="r" hint-placeholder-count="6">
-            <tr style="border-top:1px solid var(--color-neutral-300)">
-              <td style="padding:8px 10px 8px 0; font-weight:700; color:var(--color-neutral-500)">{{ r.rank }}</td>
-              <td style="padding:8px 10px"><span style="font-family:var(--font-heading); font-weight:700">{{ r.name }}</span> <span style="color:var(--color-neutral-500); font-size:12px">{{ r.code }}</span></td>
-              <td style="padding:6px 10px; text-align:right"><span style="display:inline-block; min-width:32px; padding:4px 12px; font-family:var(--font-heading); font-weight:700; font-size:16px; background:{{ r.scoreBg }}; color:{{ r.scoreFg }}">{{ r.score }}</span></td>
+            <tr style="border-top:1px solid var(--ir-color-neutral-300)">
+              <td style="padding:8px 10px 8px 0; font-weight:700; color:var(--ir-color-neutral-500)">{{ r.rank }}</td>
+              <td style="padding:8px 10px"><span style="font-family:var(--ir-font-heading); font-weight:700">{{ r.name }}</span> <span style="color:var(--ir-color-neutral-500); font-size:12px">{{ r.code }}</span></td>
+              <td style="padding:6px 10px; text-align:right"><span style="display:inline-block; min-width:32px; padding:4px 12px; font-family:var(--ir-font-heading); font-weight:700; font-size:16px; background:{{ r.scoreBg }}; color:{{ r.scoreFg }}">{{ r.score }}</span></td>
               <sc-for list="{{ r.cells }}" as="c" hint-placeholder-count="4">
                 <td style="padding:6px 4px; text-align:center"><div style="padding:8px 4px; font-weight:700; font-size:14px; background:{{ c.bg }}; color:{{ c.fg }}">{{ c.val }}</div></td>
               </sc-for>
@@ -730,34 +730,34 @@ textarea.input { min-height: 90px; resize: vertical; }
           </sc-for>
         </tbody>
       </table>
-      <div style="font-size:12px; color:var(--color-neutral-600); margin-top:10px">{{ sbuNote.text }}</div>
+      <div style="font-size:12px; color:var(--ir-color-neutral-600); margin-top:10px">{{ sbuNote.text }}</div>
     </div>
     </sc-if>
 
     <!-- 7. PROJECTS + DATA QUALITY -->
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:2px; background:var(--color-divider); border-bottom:2px solid var(--color-divider)">
-      <div style="background:var(--color-bg); padding:28px 32px">
-        <h3 style="font-family:var(--font-heading); font-weight:700; font-size:16px; margin:0">Project pipeline {{ scopeSuffix }}</h3>
-        <div style="font-size:12px; color:var(--color-neutral-600); margin-top:2px">items still in scoping are uncosted exposure for the FM</div>
-        <div style="display:flex; gap:2px; margin-top:16px; background:var(--color-divider); border:2px solid var(--color-divider)">
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:2px; background:var(--ir-color-divider); border-bottom:2px solid var(--ir-color-divider)">
+      <div style="background:var(--ir-color-bg); padding:28px 32px">
+        <h3 style="font-family:var(--ir-font-heading); font-weight:700; font-size:16px; margin:0">Project pipeline {{ scopeSuffix }}</h3>
+        <div style="font-size:12px; color:var(--ir-color-neutral-600); margin-top:2px">items still in scoping are uncosted exposure for the FM</div>
+        <div style="display:flex; gap:2px; margin-top:16px; background:var(--ir-color-divider); border:2px solid var(--ir-color-divider)">
           <sc-for list="{{ pipeline }}" as="p">
             <div style="flex:{{ p.flex }}; background:{{ p.bg }}; color:{{ p.fg }}; padding:12px 10px; min-width:70px">
-              <div style="font-family:var(--font-heading); font-weight:700; font-size:22px">{{ p.n }}</div>
+              <div style="font-family:var(--ir-font-heading); font-weight:700; font-size:22px">{{ p.n }}</div>
               <div style="font-size:11px; font-weight:700; letter-spacing:0.05em; text-transform:uppercase; margin-top:2px">{{ p.label }}</div>
             </div>
           </sc-for>
         </div>
-        <div style="font-size:12px; color:var(--color-neutral-700); margin-top:12px">{{ pipelineNote }}</div>
+        <div style="font-size:12px; color:var(--ir-color-neutral-700); margin-top:12px">{{ pipelineNote }}</div>
       </div>
-      <div style="background:var(--color-bg); padding:28px 32px">
-        <h3 style="font-family:var(--font-heading); font-weight:700; font-size:16px; margin:0">Data quality — can we trust this page?</h3>
+      <div style="background:var(--ir-color-bg); padding:28px 32px">
+        <h3 style="font-family:var(--ir-font-heading); font-weight:700; font-size:16px; margin:0">Data quality — can we trust this page?</h3>
         <div style="display:flex; align-items:baseline; gap:12px; margin-top:12px">
-          <div style="font-family:var(--font-heading); font-weight:700; font-size:40px; color:{{ dqColor }}">{{ dqScore }}</div>
-          <div style="font-size:13px; color:var(--color-neutral-600)">/ 100 · K19 quality score</div>
+          <div style="font-family:var(--ir-font-heading); font-weight:700; font-size:40px; color:{{ dqColor }}">{{ dqScore }}</div>
+          <div style="font-size:13px; color:var(--ir-color-neutral-600)">/ 100 · K19 quality score</div>
         </div>
         <div style="margin-top:12px; display:flex; flex-direction:column; gap:6px">
           <sc-for list="{{ dqItems }}" as="d">
-            <div style="display:flex; justify-content:space-between; gap:12px; padding:7px 0; border-top:1px solid var(--color-neutral-300); font-size:13px">
+            <div style="display:flex; justify-content:space-between; gap:12px; padding:7px 0; border-top:1px solid var(--ir-color-neutral-300); font-size:13px">
               <div>{{ d.label }}</div>
               <div style="font-weight:700; color:{{ d.color }}">{{ d.value }}</div>
             </div>
@@ -766,7 +766,7 @@ textarea.input { min-height: 90px; resize: vertical; }
       </div>
     </div>
 
-    <div style="padding:14px 32px 40px; font-size:11px; color:var(--color-neutral-500)">Definitions per KPI dictionary v1.0 — raised = meeting_date · closed = closed_at · open = status ∈ {open, in_progress, on_hold, blocked} · created_at never plotted.</div>
+    <div style="padding:14px 32px 40px; font-size:11px; color:var(--ir-color-neutral-500)">Definitions per KPI dictionary v1.0 — raised = meeting_date · closed = closed_at · open = status ∈ {open, in_progress, on_hold, blocked} · created_at never plotted.</div>
   </div>
   </sc-if>
 
@@ -774,26 +774,26 @@ textarea.input { min-height: 90px; resize: vertical; }
   <sc-if value="{{ isScoreboard }}">
   <div>
 
-    <div style="display:flex; align-items:baseline; gap:24px; padding:24px 32px 20px; border-bottom:2px solid var(--color-divider); flex-wrap:wrap">
+    <div style="display:flex; align-items:baseline; gap:24px; padding:24px 32px 20px; border-bottom:2px solid var(--ir-color-divider); flex-wrap:wrap">
       <div>
-        <h1 style="font-family:var(--font-heading); font-weight:700; font-size:26px; margin:0">Site Position &amp; Effort Scoreboard</h1>
-        <div style="font-size:13px; color:var(--color-neutral-600); margin-top:4px">01 Apr – {{ anchorLabel }} · six dimensions × 2 pts · score = points ÷ 12 × 100 · GREEN ≥ 70 · AMBER 45–69 · RED &lt; 45</div>
+        <h1 style="font-family:var(--ir-font-heading); font-weight:700; font-size:26px; margin:0">Site Position &amp; Effort Scoreboard</h1>
+        <div style="font-size:13px; color:var(--ir-color-neutral-600); margin-top:4px">01 Apr – {{ anchorLabel }} · six dimensions × 2 pts · score = points ÷ 12 × 100 · GREEN ≥ 70 · AMBER 45–69 · RED &lt; 45</div>
         <div class="disclosure">Window · this scoreboard measures each site from the programme start (01 Apr) to the as-of date. The same six-dimension model scores a <strong>rolling 3-month window</strong> on the emailed site reports, so a site&rsquo;s score here and there can legitimately differ. Neither is the report month.</div>
         <div class="disclosure"><code>?asOf=</code> moves <strong>this scoreboard only</strong>. The period windows (WoW / MoM / QoQ / HoH) are pinned to the anchor date and do not follow it &mdash; by design, ported from the source.</div>
       </div>
       <div style="flex:1"></div>
       <div style="text-align:right">
-        <div style="font-size:11px; font-weight:700; letter-spacing:0.08em; color:var(--color-neutral-600)">GROUP AVG SCORE</div>
+        <div style="font-size:11px; font-weight:700; letter-spacing:0.08em; color:var(--ir-color-neutral-600)">GROUP AVG SCORE</div>
         <div style="display:flex; align-items:baseline; gap:10px; justify-content:flex-end">
-          <div style="font-family:var(--font-heading); font-weight:700; font-size:44px; line-height:1; color:{{ sbAvgColor }}">{{ sbAvg }}</div>
-          <div style="font-size:13px; font-weight:700; color:{{ sbAvgDeltaColor }}">{{ sbAvgDelta }} <span style="font-weight:400; color:var(--color-neutral-500)">{{ periodShort }}</span></div>
+          <div style="font-family:var(--ir-font-heading); font-weight:700; font-size:44px; line-height:1; color:{{ sbAvgColor }}">{{ sbAvg }}</div>
+          <div style="font-size:13px; font-weight:700; color:{{ sbAvgDeltaColor }}">{{ sbAvgDelta }} <span style="font-weight:400; color:var(--ir-color-neutral-500)">{{ periodShort }}</span></div>
         </div>
       </div>
     </div>
 
     <!-- league table -->
-    <div style="padding:24px 32px; border-bottom:2px solid var(--color-divider)">
-      <h2 style="font-family:var(--font-heading); font-weight:700; font-size:18px; margin:0">League table — composite score &amp; the six dimensions</h2>
+    <div style="padding:24px 32px; border-bottom:2px solid var(--ir-color-divider)">
+      <h2 style="font-family:var(--ir-font-heading); font-weight:700; font-size:18px; margin:0">League table — composite score &amp; the six dimensions</h2>
       <table style="width:100%; margin-top:14px; border-collapse:collapse">
         <thead><tr>
           <th style="text-align:left; padding:8px 10px 8px 0; font-size:12px; width:34px">#</th>
@@ -801,16 +801,16 @@ textarea.input { min-height: 90px; resize: vertical; }
           <th style="text-align:right; padding:8px 10px; font-size:12px">SCORE</th>
           <th style="text-align:right; padding:8px 10px; font-size:12px">Δ {{ periodShort }}</th>
           <sc-for list="{{ sbDimHeaders }}" as="h">
-            <th style="text-align:center; padding:8px 10px; font-size:12px">{{ h.label }}<div style="font-weight:400; font-size:10px; color:var(--color-neutral-500)">{{ h.sub }}</div></th>
+            <th style="text-align:center; padding:8px 10px; font-size:12px">{{ h.label }}<div style="font-weight:400; font-size:10px; color:var(--ir-color-neutral-500)">{{ h.sub }}</div></th>
           </sc-for>
           <th style="text-align:left; padding:8px 0 8px 14px; font-size:12px">OVERALL</th>
         </tr></thead>
         <tbody>
           <sc-for list="{{ sbRows }}" as="r">
-            <tr style="border-top:1px solid var(--color-neutral-300)">
-              <td style="padding:8px 10px 8px 0; font-weight:700; color:var(--color-neutral-500)">{{ r.rank }}</td>
-              <td style="padding:8px 10px; font-family:var(--font-heading); font-weight:700; white-space:nowrap">{{ r.name }} <span style="font-weight:400; font-size:12px; color:var(--color-neutral-500)">{{ r.code }}</span></td>
-              <td style="padding:8px 10px; text-align:right; font-family:var(--font-heading); font-weight:700; font-size:22px; color:{{ r.scoreColor }}">{{ r.score }}</td>
+            <tr style="border-top:1px solid var(--ir-color-neutral-300)">
+              <td style="padding:8px 10px 8px 0; font-weight:700; color:var(--ir-color-neutral-500)">{{ r.rank }}</td>
+              <td style="padding:8px 10px; font-family:var(--ir-font-heading); font-weight:700; white-space:nowrap">{{ r.name }} <span style="font-weight:400; font-size:12px; color:var(--ir-color-neutral-500)">{{ r.code }}</span></td>
+              <td style="padding:8px 10px; text-align:right; font-family:var(--ir-font-heading); font-weight:700; font-size:22px; color:{{ r.scoreColor }}">{{ r.score }}</td>
               <td style="padding:8px 10px; text-align:right; font-weight:700; color:{{ r.deltaColor }}">{{ r.delta }}</td>
               <sc-for list="{{ r.cells }}" as="c">
                 <td style="padding:2px; text-align:center"><div style="padding:10px 4px; background:{{ c.bg }}; color:{{ c.fg }}; font-weight:700; font-size:14px" title="{{ c.tip }}">{{ c.val }}</div></td>
@@ -820,38 +820,38 @@ textarea.input { min-height: 90px; resize: vertical; }
           </sc-for>
         </tbody>
       </table>
-      <div style="font-size:11px; color:var(--color-neutral-500); margin-top:8px">Cell colour = RAG for that dimension · Reviews G≥8 A5–7 R&lt;5 · Resolution G≥40% A20–39 R&lt;20 · Overdue G0 A1–5 R&gt;5 · Inspections G≥3 A2 R≤1 · Findings (crit+major) G0 A1–2 R≥3 · Sign-off G≥70% A30–69 R&lt;30</div>
+      <div style="font-size:11px; color:var(--ir-color-neutral-500); margin-top:8px">Cell colour = RAG for that dimension · Reviews G≥8 A5–7 R&lt;5 · Resolution G≥40% A20–39 R&lt;20 · Overdue G0 A1–5 R&gt;5 · Inspections G≥3 A2 R≤1 · Findings (crit+major) G0 A1–2 R≥3 · Sign-off G≥70% A30–69 R&lt;30</div>
     </div>
 
     <!-- effort matrix + gap to green -->
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:2px; background:var(--color-divider); border-bottom:2px solid var(--color-divider)">
-      <div style="background:var(--color-bg); padding:24px 32px">
-        <h3 style="font-family:var(--font-heading); font-weight:700; font-size:16px; margin:0">Effort matrix — where your energy goes</h3>
-        <div style="font-size:12px; color:var(--color-neutral-600); margin-top:2px">x = resolution rate (close more →) · y = overdue commitments (fewer is better ↓) · bubble = reviews held</div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:2px; background:var(--ir-color-divider); border-bottom:2px solid var(--ir-color-divider)">
+      <div style="background:var(--ir-color-bg); padding:24px 32px">
+        <h3 style="font-family:var(--ir-font-heading); font-weight:700; font-size:16px; margin:0">Effort matrix — where your energy goes</h3>
+        <div style="font-size:12px; color:var(--ir-color-neutral-600); margin-top:2px">x = resolution rate (close more →) · y = overdue commitments (fewer is better ↓) · bubble = reviews held</div>
         <svg width="100%" height="340" viewBox="0 0 560 340" style="margin-top:14px; display:block">
-          <rect x="40" y="10" width="510" height="300" fill="none" stroke="var(--color-neutral-300)" stroke-width="1"></rect>
-          <line x1="{{ emSplitX }}" y1="10" x2="{{ emSplitX }}" y2="310" stroke="var(--color-neutral-400)" stroke-width="1" stroke-dasharray="5,4"></line>
-          <line x1="40" y1="{{ emSplitY }}" x2="550" y2="{{ emSplitY }}" stroke="var(--color-neutral-400)" stroke-width="1" stroke-dasharray="5,4"></line>
-          <text x="48" y="28" font-size="11" font-weight="700" fill="var(--color-accent-700)">SLIPPING — re-date &amp; clear backlog</text>
+          <rect x="40" y="10" width="510" height="300" fill="none" stroke="var(--ir-color-neutral-300)" stroke-width="1"></rect>
+          <line x1="{{ emSplitX }}" y1="10" x2="{{ emSplitX }}" y2="310" stroke="var(--ir-color-neutral-400)" stroke-width="1" stroke-dasharray="5,4"></line>
+          <line x1="40" y1="{{ emSplitY }}" x2="550" y2="{{ emSplitY }}" stroke="var(--ir-color-neutral-400)" stroke-width="1" stroke-dasharray="5,4"></line>
+          <text x="48" y="28" font-size="11" font-weight="700" fill="var(--ir-color-accent-700)">SLIPPING — re-date &amp; clear backlog</text>
           <text x="{{ emQ2x }}" y="28" font-size="11" font-weight="700" fill="#7a5510">DELIVERING BUT LATE — hold dates</text>
           <text x="48" y="302" font-size="11" font-weight="700" fill="#7a5510">QUIET LOG — capture &amp; close</text>
           <text x="{{ emQ2x }}" y="302" font-size="11" font-weight="700" fill="#2f7d4f">ON TOP — sustain</text>
           <sc-for list="{{ emBubbles }}" as="b">
-            <g><circle cx="{{ b.x }}" cy="{{ b.y }}" r="{{ b.r }}" fill="{{ b.fill }}" opacity="0.85" stroke="var(--color-text)" stroke-width="1"></circle>
-            <text x="{{ b.lx }}" y="{{ b.ly }}" font-size="12" font-weight="700" fill="var(--color-text)">{{ b.label }}</text></g>
+            <g><circle cx="{{ b.x }}" cy="{{ b.y }}" r="{{ b.r }}" fill="{{ b.fill }}" opacity="0.85" stroke="var(--ir-color-text)" stroke-width="1"></circle>
+            <text x="{{ b.lx }}" y="{{ b.ly }}" font-size="12" font-weight="700" fill="var(--ir-color-text)">{{ b.label }}</text></g>
           </sc-for>
-          <text x="295" y="334" font-size="11" fill="var(--color-neutral-600)" text-anchor="middle">Resolution rate % → close more</text>
-          <text x="14" y="160" font-size="11" fill="var(--color-neutral-600)" transform="rotate(-90 14 160)" text-anchor="middle">Overdue commitments → fewer is better</text>
+          <text x="295" y="334" font-size="11" fill="var(--ir-color-neutral-600)" text-anchor="middle">Resolution rate % → close more</text>
+          <text x="14" y="160" font-size="11" fill="var(--ir-color-neutral-600)" transform="rotate(-90 14 160)" text-anchor="middle">Overdue commitments → fewer is better</text>
         </svg>
       </div>
-      <div style="background:var(--color-bg); padding:24px 32px">
-        <h3 style="font-family:var(--font-heading); font-weight:700; font-size:16px; margin:0">Gap to green — which dimensions cost you points</h3>
-        <div style="font-size:12px; color:var(--color-neutral-600); margin-top:2px">points earned per dimension (max 12 = 2 × 6) · green line at 8.4 (score 70)</div>
+      <div style="background:var(--ir-color-bg); padding:24px 32px">
+        <h3 style="font-family:var(--ir-font-heading); font-weight:700; font-size:16px; margin:0">Gap to green — which dimensions cost you points</h3>
+        <div style="font-size:12px; color:var(--ir-color-neutral-600); margin-top:2px">points earned per dimension (max 12 = 2 × 6) · green line at 8.4 (score 70)</div>
         <div style="margin-top:18px; display:flex; flex-direction:column; gap:14px">
           <sc-for list="{{ gapRows }}" as="g">
             <div style="display:grid; grid-template-columns:56px 1fr 90px; align-items:center; gap:12px">
-              <div style="font-size:13px; font-weight:700; font-family:var(--font-heading)">{{ g.code }}</div>
-              <div style="position:relative; height:24px; background:var(--color-neutral-200)">
+              <div style="font-size:13px; font-weight:700; font-family:var(--ir-font-heading)">{{ g.code }}</div>
+              <div style="position:relative; height:24px; background:var(--ir-color-neutral-200)">
                 <div style="position:absolute; inset:0; display:flex">
                   <sc-for list="{{ g.segs }}" as="s">
                     <div style="width:{{ s.w }}%; background:{{ s.color }}; height:100%" title="{{ s.tip }}"></div>
@@ -872,19 +872,19 @@ textarea.input { min-height: 90px; resize: vertical; }
     </div>
 
     <!-- two moves -->
-    <div style="padding:24px 32px 40px; border-bottom:2px solid var(--color-divider)">
-      <h2 style="font-family:var(--font-heading); font-weight:700; font-size:18px; margin:0">Your two moves — biggest score gain per site</h2>
-      <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:2px; background:var(--color-divider); border:2px solid var(--color-divider); margin-top:14px">
+    <div style="padding:24px 32px 40px; border-bottom:2px solid var(--ir-color-divider)">
+      <h2 style="font-family:var(--ir-font-heading); font-weight:700; font-size:18px; margin:0">Your two moves — biggest score gain per site</h2>
+      <div style="display:grid; grid-template-columns:repeat(5,1fr); gap:2px; background:var(--ir-color-divider); border:2px solid var(--ir-color-divider); margin-top:14px">
         <sc-for list="{{ sbMoves }}" as="m">
-          <div style="background:var(--color-bg); display:flex; flex-direction:column">
+          <div style="background:var(--ir-color-bg); display:flex; flex-direction:column">
             <div style="background:{{ m.hdrBg }}; color:{{ m.hdrFg }}; padding:12px 14px">
-              <div style="font-family:var(--font-heading); font-weight:700; font-size:18px">{{ m.code }}</div>
+              <div style="font-family:var(--ir-font-heading); font-weight:700; font-size:18px">{{ m.code }}</div>
               <div style="font-size:12px">{{ m.name }} · <span style="font-weight:700">{{ m.score }}</span></div>
             </div>
             <div style="padding:12px 14px; display:flex; flex-direction:column; gap:12px; flex:1">
               <sc-for list="{{ m.moves }}" as="mv">
                 <div>
-                  <div style="font-size:10px; font-weight:700; letter-spacing:0.07em; color:var(--color-accent-700)">MOVE {{ mv.n }} · {{ mv.gain }}</div>
+                  <div style="font-size:10px; font-weight:700; letter-spacing:0.07em; color:var(--ir-color-accent-700)">MOVE {{ mv.n }} · {{ mv.gain }}</div>
                   <div style="font-size:12.5px; line-height:1.45; margin-top:3px">{{ mv.text }}</div>
                 </div>
               </sc-for>
@@ -892,7 +892,7 @@ textarea.input { min-height: 90px; resize: vertical; }
           </div>
         </sc-for>
       </div>
-      <div style="font-size:11px; color:var(--color-neutral-500); margin-top:8px">Gain = points recovered on that dimension × 100 ÷ 12 · issued with the Weekly Executive Brief</div>
+      <div style="font-size:11px; color:var(--ir-color-neutral-500); margin-top:8px">Gain = points recovered on that dimension × 100 ÷ 12 · issued with the Weekly Executive Brief</div>
     </div>
   </div>
   </sc-if>
@@ -900,22 +900,22 @@ textarea.input { min-height: 90px; resize: vertical; }
   <!-- ============ WEEKLY BRIEF VIEW ============ -->
   <sc-if value="{{ isBrief }}">
   <div style="max-width:1060px; margin:0 auto; padding:36px 32px 60px">
-    <div class="brief-page" style="background:var(--color-bg)">
-      <div style="display:flex; align-items:baseline; justify-content:space-between; border-bottom:2px solid var(--color-text); padding-bottom:14px">
+    <div class="brief-page" style="background:var(--ir-color-bg)">
+      <div style="display:flex; align-items:baseline; justify-content:space-between; border-bottom:2px solid var(--ir-color-text); padding-bottom:14px">
         <div>
-          <div style="font-size:12px; font-weight:700; letter-spacing:0.1em; color:var(--color-accent)">WEEKLY EXECUTIVE BRIEF</div>
-          <h1 style="font-family:var(--font-heading); font-weight:700; font-size:30px; margin:6px 0 0">IT Business Reviews &amp; Inspection Assurance</h1>
+          <div style="font-size:12px; font-weight:700; letter-spacing:0.1em; color:var(--ir-color-accent)">WEEKLY EXECUTIVE BRIEF</div>
+          <h1 style="font-family:var(--ir-font-heading); font-weight:700; font-size:30px; margin:6px 0 0">IT Business Reviews &amp; Inspection Assurance</h1>
         </div>
-        <div style="text-align:right; font-size:13px; color:var(--color-neutral-600)">Week ending<br><span style="font-weight:700; color:var(--color-text); font-size:16px">{{ anchorLabel }}</span></div>
+        <div style="text-align:right; font-size:13px; color:var(--ir-color-neutral-600)">Week ending<br><span style="font-weight:700; color:var(--ir-color-text); font-size:16px">{{ anchorLabel }}</span></div>
       </div>
 
-      <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:2px; background:var(--color-divider); border-bottom:2px solid var(--color-divider); margin-top:0">
+      <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:2px; background:var(--ir-color-divider); border-bottom:2px solid var(--ir-color-divider); margin-top:0">
         <sc-for list="{{ briefKpis }}" as="k">
-          <div style="background:var(--color-bg); padding:14px 16px">
-            <div style="font-size:11px; font-weight:700; letter-spacing:0.07em; color:var(--color-neutral-600); text-transform:uppercase">{{ k.label }}</div>
+          <div style="background:var(--ir-color-bg); padding:14px 16px">
+            <div style="font-size:11px; font-weight:700; letter-spacing:0.07em; color:var(--ir-color-neutral-600); text-transform:uppercase">{{ k.label }}</div>
             <div style="display:flex; align-items:baseline; gap:10px; margin-top:4px">
-              <div style="font-family:var(--font-heading); font-weight:700; font-size:26px">{{ k.value }}</div>
-              <div style="font-size:12px; font-weight:700; color:{{ k.deltaColor }}">{{ k.deltaTxt }} <span style="font-weight:400; color:var(--color-neutral-500)">WoW</span></div>
+              <div style="font-family:var(--ir-font-heading); font-weight:700; font-size:26px">{{ k.value }}</div>
+              <div style="font-size:12px; font-weight:700; color:{{ k.deltaColor }}">{{ k.deltaTxt }} <span style="font-weight:400; color:var(--ir-color-neutral-500)">WoW</span></div>
             </div>
           </div>
         </sc-for>
@@ -924,27 +924,27 @@ textarea.input { min-height: 90px; resize: vertical; }
       <div style="margin-top:24px; font-size:14px; line-height:1.55; max-width:70ch">{{ briefNarrative }}</div>
 
       <sc-for list="{{ briefSites }}" as="s">
-        <div style="border-top:2px solid var(--color-divider); margin-top:24px; padding-top:16px">
+        <div style="border-top:2px solid var(--ir-color-divider); margin-top:24px; padding-top:16px">
           <div style="display:flex; align-items:baseline; gap:14px; flex-wrap:wrap">
-            <h2 style="font-family:var(--font-heading); font-weight:700; font-size:20px; margin:0">{{ s.name }}</h2>
-            <span style="font-size:12px; color:var(--color-neutral-500)">{{ s.code }} · {{ s.country }}</span>
+            <h2 style="font-family:var(--ir-font-heading); font-weight:700; font-size:20px; margin:0">{{ s.name }}</h2>
+            <span style="font-size:12px; color:var(--ir-color-neutral-500)">{{ s.code }} · {{ s.country }}</span>
             <span style="display:inline-block; padding:2px 10px; font-size:11px; font-weight:700; background:{{ s.ragBg }}; color:{{ s.ragFg }}">{{ s.rag }} · {{ s.score }}</span>
             <div style="flex:1"></div>
             <div style="display:flex; gap:14px; font-size:12px">
               <sc-for list="{{ s.deltas }}" as="d">
-                <div><span style="color:var(--color-neutral-500)">{{ d.label }}</span> <span style="font-weight:700; color:{{ d.color }}">{{ d.txt }}</span></div>
+                <div><span style="color:var(--ir-color-neutral-500)">{{ d.label }}</span> <span style="font-weight:700; color:{{ d.color }}">{{ d.txt }}</span></div>
               </sc-for>
             </div>
           </div>
           <div style="display:grid; grid-template-columns:repeat(6,1fr); gap:12px; margin-top:12px; font-size:12px">
             <sc-for list="{{ s.stats }}" as="st">
-              <div><div style="color:var(--color-neutral-500); font-size:11px; text-transform:uppercase; letter-spacing:0.05em">{{ st.label }}</div><div style="font-weight:700; font-size:15px; margin-top:2px; color:{{ st.color }}">{{ st.value }}</div></div>
+              <div><div style="color:var(--ir-color-neutral-500); font-size:11px; text-transform:uppercase; letter-spacing:0.05em">{{ st.label }}</div><div style="font-weight:700; font-size:15px; margin-top:2px; color:{{ st.color }}">{{ st.value }}</div></div>
             </sc-for>
           </div>
           <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-top:14px">
             <sc-for list="{{ s.moves }}" as="m">
-              <div style="border-left:2px solid var(--color-accent); padding:8px 0 8px 14px">
-                <div style="font-size:11px; font-weight:700; letter-spacing:0.07em; color:var(--color-accent-700)">MOVE {{ m.n }}</div>
+              <div style="border-left:2px solid var(--ir-color-accent); padding:8px 0 8px 14px">
+                <div style="font-size:11px; font-weight:700; letter-spacing:0.07em; color:var(--ir-color-accent-700)">MOVE {{ m.n }}</div>
                 <div style="font-size:13px; line-height:1.45; margin-top:3px">{{ m.text }}</div>
               </div>
             </sc-for>
@@ -952,12 +952,12 @@ textarea.input { min-height: 90px; resize: vertical; }
         </div>
       </sc-for>
 
-      <div style="border-top:2px solid var(--color-text); margin-top:28px; padding-top:10px; display:flex; justify-content:space-between; font-size:11px; color:var(--color-neutral-500)">
+      <div style="border-top:2px solid var(--ir-color-text); margin-top:28px; padding-top:10px; display:flex; justify-content:space-between; font-size:11px; color:var(--ir-color-neutral-500)">
         <div>Endeavour Mining — Group IT Operations · Partnering Analytics</div>
         <div>Composite v2 · KPI dictionary v1.0 · generated from live review &amp; inspection registers</div>
       </div>
     </div>
-    <div class="no-print" style="margin-top:16px; font-size:13px; color:var(--color-neutral-600)">Print this view (Ctrl/Cmd+P) for the PDF weekly brief.</div>
+    <div class="no-print" style="margin-top:16px; font-size:13px; color:var(--ir-color-neutral-600)">Print this view (Ctrl/Cmd+P) for the PDF weekly brief.</div>
   </div>
   </sc-if>
 
@@ -977,7 +977,7 @@ class Component extends DCLogic {
   static SITES = { SML: { name: 'Lafigué', country: 'Côte d’Ivoire' }, SMI: { name: 'Ity', country: 'Côte d’Ivoire' }, HGO: { name: 'Houndé', country: 'Burkina Faso' }, MGO: { name: 'Mana', country: 'Burkina Faso' }, SGO: { name: 'Sabodala-Massawa', country: 'Senegal' } };
   static ANCHOR = '2026-07-14';
   static OPEN = { open: 1, in_progress: 1, on_hold: 1, blocked: 1 };
-  static GREEN = '#2f7d4f'; static AMBER = '#b07a17'; static RED = 'var(--color-accent)'; static REDT = '#c2280f';
+  static GREEN = '#2f7d4f'; static AMBER = '#b07a17'; static RED = 'var(--ir-color-accent)'; static REDT = '#c2280f';
 
   d(s) { return s ? new Date(String(s).slice(0, 10) + 'T00:00:00Z') : null; }
   days(a, b) { return Math.round((this.d(a) - this.d(b)) / 86400000); }
@@ -1021,9 +1021,9 @@ class Component extends DCLogic {
   }
 
   delta(cur, prev, invert, unit) {
-    if (cur == null || prev == null) return { txt: '—', color: 'var(--color-neutral-500)' };
+    if (cur == null || prev == null) return { txt: '—', color: 'var(--ir-color-neutral-500)' };
     const d = Math.round((cur - prev) * 10) / 10;
-    if (d === 0) return { txt: '· 0', color: 'var(--color-neutral-500)' };
+    if (d === 0) return { txt: '· 0', color: 'var(--ir-color-neutral-500)' };
     const good = invert ? d < 0 : d > 0;
     return { txt: (d > 0 ? '▲ +' : '▼ ') + d + (unit || ''), color: good ? Component.GREEN : Component.REDT };
   }
@@ -1091,13 +1091,13 @@ class Component extends DCLogic {
   rag(score) {
     if (score >= 75) return { label: 'GREEN', bg: '#dcefe2', fg: Component.GREEN };
     if (score >= 55) return { label: 'AMBER', bg: '#f5e7c8', fg: Component.AMBER };
-    return { label: 'RED', bg: 'var(--color-accent-100)', fg: Component.REDT };
+    return { label: 'RED', bg: 'var(--ir-color-accent-100)', fg: Component.REDT };
   }
   ragPct(v, g, a) { // higher better
-    if (v == null) return { bg: 'var(--color-neutral-200)', fg: 'var(--color-neutral-500)' };
+    if (v == null) return { bg: 'var(--ir-color-neutral-200)', fg: 'var(--ir-color-neutral-500)' };
     if (v >= g) return { bg: '#dcefe2', fg: Component.GREEN };
     if (v >= a) return { bg: '#f5e7c8', fg: '#7a5510' };
-    return { bg: 'var(--color-accent-100)', fg: Component.REDT };
+    return { bg: 'var(--ir-color-accent-100)', fg: Component.REDT };
   }
 
   twoMoves(site, D, comp) {
@@ -1178,7 +1178,7 @@ class Component extends DCLogic {
     const codes = ['SML', 'SMI', 'HGO', 'MGO', 'SGO'];
 
     // controls
-    const mk = (label, active, pick) => ({ label, bg: active ? 'var(--color-text)' : 'var(--color-bg)', fg: active ? 'var(--color-bg)' : 'var(--color-text)', pick });
+    const mk = (label, active, pick) => ({ label, bg: active ? 'var(--ir-color-text)' : 'var(--ir-color-bg)', fg: active ? 'var(--ir-color-bg)' : 'var(--ir-color-text)', pick });
     const viewOpts = [mk('DASHBOARD', this.state.view === 'dashboard', () => this.setState({ view: 'dashboard' })), mk('SCOREBOARD', this.state.view === 'scoreboard', () => this.setState({ view: 'scoreboard' })), mk('WEEKLY BRIEF', this.state.view === 'brief', () => this.setState({ view: 'brief' }))];
     const periodOpts = [['week', 'WEEK'], ['month', 'MONTH'], ['quarter', 'QUARTER'], ['semester', 'SEMESTER']].map(([k, l]) => mk(l, period === k, () => this.setState({ period: k })));
     const siteOpts = [['ALL', 'ALL'], ...codes.map(c => [c, c])].map(([k, l]) => mk(l, site === k, () => this.setState({ site: k })));
@@ -1206,7 +1206,7 @@ class Component extends DCLogic {
       kd('Overdue', M.overdueNow, 'past target', this.delta(M.overdueNow, M.overduePrev, true), serOver),
       kd('HIGH open', M.highNow, 'severity', this.delta(M.highNow, M.highPrev, true), serHigh),
       kd('Escalations', M.escNow, 'open', { txt: M.escNow ? '● live' : '· none', color: M.escNow ? RD : G }, ends.map(e => issues.filter(i => this.openAt(i, e) && (i.escalate === '1' || i.escalate === 1)).length), 'to Council'),
-      kd('Actions open', this.filterSite(D.actions, site).filter(a => Component.OPEN[a.status]).length, 'IT promises', { txt: '', color: 'var(--color-neutral-500)' }, ends.map(e => this.filterSite(D.actions, site).filter(a => { if (!a.meeting_date || a.meeting_date > e) return false; const c = a.closed_at ? String(a.closed_at).slice(0, 10) : null; return !c || c > e; }).length), 'from reviews'),
+      kd('Actions open', this.filterSite(D.actions, site).filter(a => Component.OPEN[a.status]).length, 'IT promises', { txt: '', color: 'var(--ir-color-neutral-500)' }, ends.map(e => this.filterSite(D.actions, site).filter(a => { if (!a.meeting_date || a.meeting_date > e) return false; const c = a.closed_at ? String(a.closed_at).slice(0, 10) : null; return !c || c > e; }).length), 'from reviews'),
       kd('MTTR', M.mttrCur != null ? M.mttrCur : '—', 'days median', this.delta(M.mttrCur, M.mttrPrev, true, ' d'), months.map(mo => { const v = issues.filter(i => { const c = this.effClose(i); return i.status === 'resolved' && c && String(c).slice(0, 7) === mo && i.meeting_date; }).map(i => this.days(this.effClose(i), i.meeting_date)); return this.median(v) || 0; })),
       kd('Dept coverage', M.covCur + '/' + targetDepts, 'depts met', this.delta(M.covCur, M.covPrev, false), months.map(mo => new Set(meetings.filter(m => String(m.meeting_date || '').slice(0, 7) === mo).map(m => m.site_code + '|' + m.department)).size)),
     ];
@@ -1223,10 +1223,10 @@ class Component extends DCLogic {
         wDel: Math.round(comp.del * 0.4 / tot * 100), wGov: Math.round(comp.gov * 0.35 / tot * 100), wEng: Math.round(comp.eng * 0.25 / tot * 100),
         del: comp.del, gov: comp.gov, eng: comp.eng, score: comp.score, delta: dl.txt, deltaColor: dl.color,
         open: comp.open, overdue: comp.overdue, high: comp.high, penalty: comp.pen ? '−' + comp.pen : '·',
-        overdueColor: comp.odRate > 20 ? RD : 'var(--color-text)', overdueWeight: comp.odRate > 20 ? 700 : 400,
-        highColor: comp.high >= 4 ? RD : 'var(--color-text)', highWeight: comp.high >= 4 ? 700 : 400,
+        overdueColor: comp.odRate > 20 ? RD : 'var(--ir-color-text)', overdueWeight: comp.odRate > 20 ? 700 : 400,
+        highColor: comp.high >= 4 ? RD : 'var(--ir-color-text)', highWeight: comp.high >= 4 ? 700 : 400,
         rag: rg.label, ragBg: rg.bg, ragFg: rg.fg,
-        rowBg: site === c ? 'var(--color-accent-100)' : 'var(--color-bg)',
+        rowBg: site === c ? 'var(--ir-color-accent-100)' : 'var(--ir-color-bg)',
         pick: () => this.setState({ site: site === c ? 'ALL' : c }),
       };
     });
@@ -1244,7 +1244,7 @@ class Component extends DCLogic {
       const r = issues.filter(i => String(i.meeting_date || '').slice(0, 7) === mo).length;
       const cl = issues.filter(i => { const c = this.effClose(i); return i.status !== 'cancelled' && c && String(c).slice(0, 7) === mo; }).length;
       const ratio = r ? Math.round(cl / r * 100) / 100 : null;
-      return { label: ['APR', 'MAY', 'JUN', 'JUL'][months.indexOf(mo)], raised: r, closed: cl, hRaised: Math.round(r / maxFlow * 100), hClosed: Math.round(cl / maxFlow * 100), ratio: ratio == null ? '—' : ratio.toFixed(2), ratioColor: ratio == null ? 'var(--color-neutral-500)' : ratio >= 1 ? G : ratio >= 0.7 ? AM : RD };
+      return { label: ['APR', 'MAY', 'JUN', 'JUL'][months.indexOf(mo)], raised: r, closed: cl, hRaised: Math.round(r / maxFlow * 100), hClosed: Math.round(cl / maxFlow * 100), ratio: ratio == null ? '—' : ratio.toFixed(2), ratioColor: ratio == null ? 'var(--ir-color-neutral-500)' : ratio >= 1 ? G : ratio >= 0.7 ? AM : RD };
     });
 
     // backlog weekly polyline
@@ -1262,7 +1262,7 @@ class Component extends DCLogic {
     const eMatrix = codes.map(c => {
       const e = comps[c].e;
       const cell = (v, g, a, tip) => { const rg = this.ragPct(v, g, a); return { val: v == null ? '—' : v + '%', bg: rg.bg, fg: rg.fg, tip }; };
-      return { site: Component.SITES[c].name + ' · ' + c, cells: [cell(e.e1, 90, 70, 'PV cadence held'), cell(e.e2, 80, 50, 'both signatures ≤48h'), cell(e.e3, 90, 70, 'issues with champion'), { val: '—', bg: 'var(--color-neutral-200)', fg: 'var(--color-neutral-500)', tip: 'E4 not yet measured' }, cell(e.e5, 90, 70, 'next date + priorities set')] };
+      return { site: Component.SITES[c].name + ' · ' + c, cells: [cell(e.e1, 90, 70, 'PV cadence held'), cell(e.e2, 80, 50, 'both signatures ≤48h'), cell(e.e3, 90, 70, 'issues with champion'), { val: '—', bg: 'var(--ir-color-neutral-200)', fg: 'var(--ir-color-neutral-500)', tip: 'E4 not yet measured' }, cell(e.e5, 90, 70, 'next date + priorities set')] };
     });
 
     // signature funnel (fleet or site)
@@ -1273,7 +1273,7 @@ class Component extends DCLogic {
     const medLatH = (list, f) => { const v = list.filter(m => m[f]).map(m => (new Date(m[f].replace(' ', 'T') + 'Z') - new Date(m.submitted_at.replace(' ', 'T') + 'Z')) / 3600000).filter(h => h >= 0); const md = this.median(v); return md == null ? null : Math.round(md * 10) / 10; };
     const dhLat = medLatH(subM, 'dept_head_signed_at'); const itLat = medLatH(subM, 'site_it_signed_at');
     const sigFunnel = [
-      { label: 'PVs submitted', value: subM.length, note: 'of ' + meetings.length + ' meetings', noteColor: 'var(--color-neutral-600)' },
+      { label: 'PVs submitted', value: subM.length, note: 'of ' + meetings.length + ' meetings', noteColor: 'var(--ir-color-neutral-600)' },
       { label: 'Dept head signed', value: dhSigned.length, note: dhLat != null ? 'median ' + dhLat + ' h' : 'no data', noteColor: dhLat != null && dhLat <= 48 ? G : RD },
       { label: 'Site IT signed', value: itSigned.length, note: itLat != null ? 'median ' + itLat + ' h' : 'no data', noteColor: itLat != null && itLat <= 48 ? G : RD },
       { label: 'Both ≤ 48 h', value: both48.length + ' / ' + subM.length, note: subM.length ? Math.round(100 * both48.length / subM.length) + '% — target ≥ 80%' : '—', noteColor: subM.length && both48.length / subM.length >= 0.8 ? G : RD },
@@ -1295,12 +1295,12 @@ class Component extends DCLogic {
     openList.forEach(i => { const c = (i.champion || '').trim(); if (c) loadMap[c] = (loadMap[c] || 0) + 1; });
     const champSorted = Object.entries(loadMap).sort((a, b) => b[1] - a[1]).slice(0, 8);
     const maxL = Math.max(...champSorted.map(x => x[1]), 1);
-    const champLoad = champSorted.map(([name, n]) => ({ name, n, w: Math.round(n / maxL * 100), color: n >= 7 ? 'var(--color-accent)' : n >= 5 ? '#d9a13b' : 'var(--color-neutral-600)', numColor: n >= 7 ? RD : 'var(--color-text)', flag: n >= 7 ? ' ⚠' : '' }));
+    const champLoad = champSorted.map(([name, n]) => ({ name, n, w: Math.round(n / maxL * 100), color: n >= 7 ? 'var(--ir-color-accent)' : n >= 5 ? '#d9a13b' : 'var(--ir-color-neutral-600)', numColor: n >= 7 ? RD : 'var(--ir-color-text)', flag: n >= 7 ? ' ⚠' : '' }));
 
     // overdue register
     const odAll = openList.filter(i => i.target_date && i.target_date < A).sort((a, b) => a.target_date < b.target_date ? -1 : 1);
-    const sevTag = s => s === 'HIGH' ? { bg: 'var(--color-accent-100)', fg: RD } : s === 'MEDIUM' ? { bg: '#f5e7c8', fg: '#7a5510' } : { bg: 'var(--color-neutral-200)', fg: 'var(--color-neutral-700)' };
-    const overdueRows = odAll.slice(0, 9).map(o => { const dl = this.days(A, o.target_date); const st = sevTag(o.severity); return { days: dl, dColor: dl > 60 ? RD : dl > 30 ? AM : 'var(--color-text)', title: (o.title || '').slice(0, 80), meta: o.site_code + ' · ' + (o.department || '') + ' · ' + ((o.champion || '').trim() || 'no champion') + ' · due ' + this.fmt(o.target_date), sev: o.severity, sevBg: st.bg, sevFg: st.fg }; });
+    const sevTag = s => s === 'HIGH' ? { bg: 'var(--ir-color-accent-100)', fg: RD } : s === 'MEDIUM' ? { bg: '#f5e7c8', fg: '#7a5510' } : { bg: 'var(--ir-color-neutral-200)', fg: 'var(--ir-color-neutral-700)' };
+    const overdueRows = odAll.slice(0, 9).map(o => { const dl = this.days(A, o.target_date); const st = sevTag(o.severity); return { days: dl, dColor: dl > 60 ? RD : dl > 30 ? AM : 'var(--ir-color-text)', title: (o.title || '').slice(0, 80), meta: o.site_code + ' · ' + (o.department || '') + ' · ' + ((o.champion || '').trim() || 'no champion') + ' · due ' + this.fmt(o.target_date), sev: o.severity, sevBg: st.bg, sevFg: st.fg }; });
     const noTargetN = openList.filter(i => !i.target_date).length;
 
     // inspections
@@ -1317,7 +1317,7 @@ class Component extends DCLogic {
       const dAgo = last ? this.days(A, last) : null;
       const acts = D.inspActions.filter(a => a.site_code === c && a.status !== 'Closed').length;
       const maxD = Math.max(crit + maj + min2, 1);
-      return { site: Component.SITES[c].name + ' · ' + c, count: ins.length, last: this.fmt(last), daysAgo: dAgo == null ? '—' : dAgo, daysColor: dAgo == null || dAgo > 45 ? RD : 'var(--color-text)', wCrit: Math.round(crit / maxD * 100), wMaj: Math.round(maj / maxD * 100), wMin: Math.round(min2 / maxD * 100), defTxt: crit + ' / ' + maj + ' / ' + min2, conf: conf == null ? '—' : conf + '%', confColor: conf == null ? 'var(--color-neutral-500)' : conf >= 90 ? G : conf >= 75 ? AM : RD, actOpen: acts };
+      return { site: Component.SITES[c].name + ' · ' + c, count: ins.length, last: this.fmt(last), daysAgo: dAgo == null ? '—' : dAgo, daysColor: dAgo == null || dAgo > 45 ? RD : 'var(--ir-color-text)', wCrit: Math.round(crit / maxD * 100), wMaj: Math.round(maj / maxD * 100), wMin: Math.round(min2 / maxD * 100), defTxt: crit + ' / ' + maj + ' / ' + min2, conf: conf == null ? '—' : conf + '%', confColor: conf == null ? 'var(--ir-color-neutral-500)' : conf >= 90 ? G : conf >= 75 ? AM : RD, actOpen: acts };
     });
     const catNames = { pwr: 'Power / UPS', env: 'Environment', net: 'Network', fire: 'Fire safety', radio: 'Radio', tower: 'Towers', sec: 'Security', srv: 'Servers', sto: 'Storage', cell: 'Cellular', rack: 'Racks', doc: 'Documentation', cctv: 'CCTV', bcp: 'BCP / DR', hse: 'HSE', op: 'Operations', ug: 'Underground' };
     const defects = findAll.filter(f => f.status === 'critical' || f.status === 'major' || f.status === 'minor');
@@ -1325,12 +1325,12 @@ class Component extends DCLogic {
     defects.forEach(f => { byCat[f.category] = byCat[f.category] || { n: 0, crit: 0 }; byCat[f.category].n++; if (f.status !== 'minor') byCat[f.category].crit++; });
     const catSorted = Object.entries(byCat).sort((a, b) => b[1].n - a[1].n).slice(0, 8);
     const maxC = Math.max(...catSorted.map(x => x[1].n), 1);
-    const findCats = catSorted.map(([k, v]) => ({ label: catNames[k] || k, n: v.n, w: Math.round(v.n / maxC * 100), color: v.crit ? 'var(--color-accent)' : 'var(--color-neutral-600)' }));
+    const findCats = catSorted.map(([k, v]) => ({ label: catNames[k] || k, n: v.n, w: Math.round(v.n / maxC * 100), color: v.crit ? 'var(--ir-color-accent)' : 'var(--ir-color-neutral-600)' }));
 
     // projects pipeline
     const projs = site === 'ALL' ? D.projects : D.projects.filter(p => p.site_code === site);
     const phases = [['scoping', 'Scoping'], ['design', 'Design'], ['build', 'Build'], ['deploy', 'Deploy']];
-    const pipeline = phases.map(([k, label], i) => { const n = projs.filter(p => p.phase === k).length; return { label, n, flex: Math.max(n, 1), bg: i === 0 && n > projs.length / 2 ? 'var(--color-accent)' : 'var(--color-neutral-' + (800 - i * 150) + ')', fg: 'var(--color-bg)' }; });
+    const pipeline = phases.map(([k, label], i) => { const n = projs.filter(p => p.phase === k).length; return { label, n, flex: Math.max(n, 1), bg: i === 0 && n > projs.length / 2 ? 'var(--ir-color-accent)' : 'var(--ir-color-neutral-' + (800 - i * 150) + ')', fg: 'var(--ir-color-bg)' }; });
     const scopingN = projs.filter(p => p.phase === 'scoping').length;
     const pipelineNote = scopingN + ' of ' + projs.length + ' projects still in scoping — uncosted exposure. ' + projs.filter(p => !p.target_end).length + ' have no target end date.';
 
@@ -1373,19 +1373,19 @@ class Component extends DCLogic {
       const fs = D.findings.filter(f => f.site_code === c);
       const crit = fs.filter(f => f.status === 'critical' || f.status === 'major').length;
       const stats = [
-        { label: 'Open', value: comp.open, color: 'var(--color-text)' },
-        { label: 'Overdue', value: comp.overdue + ' (' + comp.odRate + '%)', color: comp.odRate > 20 ? RD : 'var(--color-text)' },
-        { label: 'HIGH', value: comp.high, color: comp.high >= 4 ? RD : 'var(--color-text)' },
-        { label: 'MTTR', value: comp.mttr != null ? comp.mttr + ' d' : '—', color: 'var(--color-text)' },
+        { label: 'Open', value: comp.open, color: 'var(--ir-color-text)' },
+        { label: 'Overdue', value: comp.overdue + ' (' + comp.odRate + '%)', color: comp.odRate > 20 ? RD : 'var(--ir-color-text)' },
+        { label: 'HIGH', value: comp.high, color: comp.high >= 4 ? RD : 'var(--ir-color-text)' },
+        { label: 'MTTR', value: comp.mttr != null ? comp.mttr + ' d' : '—', color: 'var(--ir-color-text)' },
         { label: 'E2 48 h', value: comp.e.e2 + '%', color: comp.e.e2 >= 80 ? G : comp.e.e2 >= 50 ? AM : RD },
-        { label: 'Last inspection', value: lastI ? this.days(A, lastI) + ' d ago' + (crit ? ' · ' + crit + ' def.' : '') : 'none', color: !lastI || this.days(A, lastI) > 45 ? RD : 'var(--color-text)' },
+        { label: 'Last inspection', value: lastI ? this.days(A, lastI) + ' d ago' + (crit ? ' · ' + crit + ' def.' : '') : 'none', color: !lastI || this.days(A, lastI) > 45 ? RD : 'var(--ir-color-text)' },
       ];
       return { code: c, name: Component.SITES[c].name, country: Component.SITES[c].country, score: comp.score, rag: rg.label, ragBg: rg.bg, ragFg: rg.fg, deltas, stats, moves: this.twoMoves(c, D, comp) };
     });
 
     // ---------- scoreboard view ----------
     const dimColors = { reviews: '#1d6b5e', resolution: '#2a9d8f', overdue: '#7fb7d9', inspections: '#2f7d4f', findings: '#d9a13b', signoff: '#8a8a8a' };
-    const ragPts = p => p === 2 ? { bg: '#dcefe2', fg: G } : p === 1 ? { bg: '#f5e7c8', fg: '#7a5510' } : { bg: 'var(--color-accent-100)', fg: RD };
+    const ragPts = p => p === 2 ? { bg: '#dcefe2', fg: G } : p === 1 ? { bg: '#f5e7c8', fg: '#7a5510' } : { bg: 'var(--ir-color-accent-100)', fg: RD };
     const sbs = {}; const sbsPrev = {};
     codes.forEach(c => { sbs[c] = this.sbDims(c, D); sbsPrev[c] = this.sbDims(c, D, win.prev[1]); });
     const sbSorted = [...codes].sort((a, b) => sbs[b].score - sbs[a].score);
@@ -1445,7 +1445,7 @@ class Component extends DCLogic {
       periodShort: win.short,
       kpis, leaderboard, groupRows, flowMonths,
       backlogPts: blPts.join(' '), backlogEndX: blEnd[0], backlogEndY: blEnd[1], backlogNow: blSeries[blSeries.length - 1], backlogPeak: Math.max(...blSeries), backlogStartLabel: 'Apr 1',
-      backlogTrendTxt: blTrend < 0 ? '▼ falling' : blTrend > 0 ? '▲ rising' : '· flat', backlogTrendColor: blTrend < 0 ? G : blTrend > 0 ? RD : 'var(--color-neutral-500)',
+      backlogTrendTxt: blTrend < 0 ? '▼ falling' : blTrend > 0 ? '▲ rising' : '· flat', backlogTrendColor: blTrend < 0 ? G : blTrend > 0 ? RD : 'var(--ir-color-neutral-500)',
       eHeaders, eMatrix, sigFunnel, aging, champLoad, overdueRows, overdueCount: odAll.length,
       noTargetNote: noTargetN ? '+ ' + noTargetN + ' open issues have no target date — invisible to this register (see Data quality).' : 'Every open issue carries a target date.',
       inspSiteRows, findCats, pipeline, pipelineNote, dqScore, dqColor: dqScore >= 90 ? G : dqScore >= 75 ? AM : RD, dqItems,
@@ -1459,7 +1459,7 @@ class Component extends DCLogic {
   rag2(score) {
     if (score >= 70) return { label: 'GREEN', fg: Component.GREEN, solidBg: '#2f7d4f', solidFg: '#fff' };
     if (score >= 45) return { label: 'AMBER', fg: Component.AMBER, solidBg: '#d99a2b', solidFg: '#fff' };
-    return { label: 'RED', fg: Component.REDT, solidBg: 'var(--color-accent)', solidFg: '#fff' };
+    return { label: 'RED', fg: Component.REDT, solidBg: 'var(--ir-color-accent)', solidFg: '#fff' };
   }
 }
 </script>

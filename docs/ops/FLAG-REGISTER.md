@@ -1,0 +1,275 @@
+# Flag register — every behaviour switch, its default and its rollback
+
+**Generated** by `node tools/agent/flag-register.js` — do not edit by hand; `--check` fails when this file is
+out of date (`tests/flag-register.test.js`). Every default below **is today's behaviour**: changing one is a
+decision of the named owner (PILOT-PROFILE "Who decides"); "to be named" means no owner is recorded yet.
+Recommended values are **proposals, not approvals**. Secrets are listed by name only — never a value.
+
+Rollback, by source: **report_config** → set the key back to its default in Admin ▸ Config (the `ui_*` keys:
+`node tools/reports/set-ui-policy.js`, dry run first); **governance policy** → Admin ▸ Governance policies
+(protected rules need two people to relax); **environment** → restore the `.env` line, then pm2 stop → start.
+
+Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
+user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
+
+## 1. report_config keys (138) — services/reportConfig.js DEFAULTS
+
+| Key | Default (today) | Kind | Owner | Recommended pilot value | Reference |
+|---|---|---|---|---|---|
+| `alert_external_enabled` | `0` | arm switch | to be named | — | — |
+| `analytics_accounts_url` | `` | setting | to be named | — | — |
+| `analytics_client_id` | `` | setting | to be named | — | — |
+| `analytics_client_secret` | (secret — not shown) | secret | to be named | — | — |
+| `analytics_org_id` | `` | setting | to be named | — | — |
+| `analytics_refresh_token` | (secret — not shown) | secret | to be named | — | — |
+| `analytics_workspace_id` | `` | setting | to be named | — | — |
+| `asset_amount_parser` | `legacy` | setting | Finance | `locale` | A-26 |
+| `asset_cost_outlier_exclude` | `0` | setting | Finance | `0` | A-26 |
+| `asset_cost_outlier_factor` | `10` | setting | Finance | `10` | A-26 |
+| `asset_currency_rates` | `` | setting | Finance | rates supplied by Finance | A-26 |
+| `asset_depreciation_config` | `{"default":{"method":"straight_line","useful_life_months"…` | setting | to be named | — | — |
+| `asset_group_recipients` | `` | setting | to be named | — | — |
+| `asset_group_send_enabled` | `0` | arm switch | to be named | — | — |
+| `asset_money_certify_display` | `0` | setting | Finance / IT management | `1` | A-16 |
+| `asset_money_certify_min_pct` | `50` | setting | Finance | `50` | A-16 |
+| `asset_money_certify_min_sites` | `3` | setting | Finance | `3` | A-16 |
+| `asset_new_alert_enabled` | `0` | arm switch | to be named | — | — |
+| `asset_reminder_send_enabled` | `0` | arm switch | to be named | — | — |
+| `asset_replacement_uplift_pct` | `0` | setting | to be named | — | — |
+| `asset_site_currency` | `` | setting | Finance | per-site JSON supplied by Finance | A-26 |
+| `backup_offsite_path` | `` | setting | to be named | — | — |
+| `commitment_notify_enabled` | `0` | arm switch | to be named | — | — |
+| `commitments_enabled` | `0` | arm switch | to be named | — | — |
+| `default_email_domain` | `edv-ops.com` | setting | to be named | — | — |
+| `embed_frame_ancestors` | `` | setting | to be named | — | — |
+| `engagement_digest_hour` | `7` | setting | to be named | — | — |
+| `engagement_teams_url` | (secret — not shown) | secret | to be named | — | — |
+| `engagement_webhook_url` | (secret — not shown) | secret | to be named | — | — |
+| `entra_client_id` | `` | setting | to be named | — | — |
+| `entra_client_secret` | (secret — not shown) | secret | to be named | — | — |
+| `entra_redirect_uri` | `` | setting | to be named | — | — |
+| `entra_tenant_id` | `` | setting | to be named | — | — |
+| `exec_payload_zero_policy` | `keep_server` | setting | KPI committee | `keep_server` until the committee chooses (`browser_wins` is the alternative) | A-17 |
+| `exec_view_change_formula` | `status` | setting | KPI committee (D-01) | `deck` | A-08 |
+| `exec_view_lang` | `en` | setting | to be named | — | — |
+| `exec_view_mi_detail` | `full` | setting | Owner (reverses the 2026-07-02 "option a") | `summarized_only` | A-08 |
+| `field_photo_max_kb` | `300` | setting | to be named | — | — |
+| `formats` | `html,pdf` | setting | to be named | — | — |
+| `from` | `` | setting | to be named | — | — |
+| `group_report_cc` | `` | setting | to be named | — | — |
+| `group_report_to` | `` | setting | to be named | — | — |
+| `group_report_to_confirmed` | `0` | setting | to be named | — | — |
+| `handoff_notify_enabled` | `0` | arm switch | to be named | — | — |
+| `handoffs_enabled` | `0` | arm switch | to be named | — | — |
+| `helpdesk_sla_definition` | `flag` | setting | KPI committee | `flag` until the committee chooses (`due_vs_resolved` is the alternative) | A-17 |
+| `hygiene_recipients` | `` | setting | to be named | — | — |
+| `hygiene_send_enabled` | `0` | arm switch | to be named | — | — |
+| `meraki_api_key` | (secret — not shown) | secret | to be named | — | — |
+| `meraki_base_url` | `https://api.meraki.com/api/v1` | setting | to be named | — | — |
+| `meraki_missing_policy` | `down` | setting | to be named | — | — |
+| `meraki_org_id` | `` | setting | to be named | — | — |
+| `meridian_base_url` | `` | setting | to be named | — | — |
+| `meridian_enabled` | `1` | arm switch | Owner (D-5) | `0` (retire) | A-20 |
+| `meridian_in_key` | (secret — not shown) | secret | to be named | — | — |
+| `meridian_out_key` | (secret — not shown) | secret | to be named | — | — |
+| `never_send_unconfirmed` | `1` | setting | to be named | — | — |
+| `notifications_stop` | `0` | setting | to be named | — | — |
+| `opm_availability_view_id` | `` | setting | to be named | — | — |
+| `opm_monitor_patterns` | `opma,abj-spm-000` | setting | to be named | — | — |
+| `opm_rest_concurrency` | `1` | setting | Ops | `1` | A-18 (A-18b) |
+| `opm_stale_days` | `9` | setting | to be named | — | — |
+| `opm_targets` | `{"lan":99,"wifi":98,"wan":98,"servers":99}` | setting | to be named | — | — |
+| `opmanager_api_key` | (secret — not shown) | secret | to be named | — | — |
+| `opmanager_base_url` | `` | setting | to be named | — | — |
+| `opmanager_ca_bundle` | (secret — not shown) | secret | to be named | — | — |
+| `opmanager_tls_insecure` | `0` | setting | to be named | — | — |
+| `outbound_allow_hosts` | `` | setting | to be named | — | — |
+| `portfolio_editor_plan_writes` | `0` | setting | Owner (access policy) | `1` | A-15 |
+| `portfolio_site_scope_reads` | `0` | setting | Owner (access policy) | `1` | A-15 |
+| `ppm_alert_blocked_days` | `5` | setting | Committee | `5` | A-27 |
+| `ppm_alert_slip_days` | `10` | setting | Committee | `10` | A-27 |
+| `ppm_alerts_enabled` | `0` | arm switch | Committee | `0` (dry run first) | A-27 |
+| `ppm_baseline_versions` | `0` | setting | Committee | `1` | A-27 |
+| `ppm_rebaseline_enabled` | `0` | arm switch | Committee | `1` | A-27 |
+| `public_base_url` | `` | setting | to be named | — | — |
+| `publish_cron_enabled` | `0` | arm switch | to be named | — | — |
+| `publish_excel_recipients` | `` | setting | to be named | — | — |
+| `publish_metric_keys` | `helpdesk.resolution_sla_pct,helpdesk.first_reply_sla_pct,…` | setting | to be named | — | — |
+| `publish_webhook_url` | (secret — not shown) | secret | to be named | — | — |
+| `reconcile_recent_days` | `30` | setting | to be named | — | — |
+| `reply_to` | `` | setting | to be named | — | — |
+| `report_drift_banner` | `0` | setting | Owner (D-3) | `1` | A-24 |
+| `report_reassign_submitted` | `1` | setting | Owner (D-3) | `0` | A-24 |
+| `report_revert_policy` | `site_editor` | setting | Owner (D-3, reverses 2026-10-02) | `second_person` | A-24 |
+| `roadmap_redirect_to_portfolio` | `0` | setting | PMO + PO (deletion of roadmap data: CAB) | `0` during the pilot; `1` only after one clean parity cycle (`tools/governance/roadmap-parity.js`) | B-09 |
+| `scoreboard_send_enabled` | `0` | arm switch | to be named | — | — |
+| `sdp_api_accounts_url` | `https://accounts.zoho.com` | setting | to be named | — | — |
+| `sdp_api_base_url` | `https://oneitsupport.endeavourmining.com/app/itdesk/api/v3` | setting | to be named | — | — |
+| `sdp_api_client_id` | `` | setting | to be named | — | — |
+| `sdp_api_client_secret` | (secret — not shown) | secret | to be named | — | — |
+| `sdp_api_open_filter` | `Open_System` | setting | to be named | — | — |
+| `sdp_api_refresh_token` | (secret — not shown) | secret | to be named | — | — |
+| `sdp_api_write_enabled` | `0` | arm switch | to be named | — | — |
+| `sharepoint_client_id` | `` | setting | to be named | — | — |
+| `sharepoint_client_secret` | (secret — not shown) | secret | to be named | — | — |
+| `sharepoint_list_id` | `` | setting | to be named | — | — |
+| `sharepoint_site_id` | `` | setting | to be named | — | — |
+| `sharepoint_tenant_id` | `` | setting | to be named | — | — |
+| `site_codes_from_registry` | `0` | setting | to be named | — | — |
+| `site_score_published_model` | `legacy` | setting | Owner (D-1) | `programme` | A-11 |
+| `sla_wan_config` | `{"notify":{"enabled":false,"trigger_minutes":15,"from_nam…` | setting | to be named | — | — |
+| `smtp_host` | `` | setting | to be named | — | — |
+| `smtp_pass` | (secret — not shown) | secret | to be named | — | — |
+| `smtp_port` | `587` | setting | to be named | — | — |
+| `smtp_secure` | `0` | setting | to be named | — | — |
+| `smtp_user` | `` | setting | to be named | — | — |
+| `soft_delete_enabled` | `0` | arm switch | Owner (retention policy) | `1` | A-19 |
+| `soft_delete_purge_enabled` | `0` | arm switch | Owner (retention policy) | `0` (keep everything during the pilot) | A-19 |
+| `soft_delete_retention_days` | `30` | setting | Owner (retention policy) | `30` | A-19 |
+| `sso_breakglass_user` | `` | setting | to be named | — | — |
+| `sso_group_map` | `` | setting | to be named | — | — |
+| `sso_mode` | `` | setting | to be named | — | — |
+| `sync_alert_enabled` | `1` | arm switch | to be named | — | — |
+| `sync_alert_recipients` | `` | setting | to be named | — | — |
+| `sync_alert_teams_url` | (secret — not shown) | secret | to be named | — | — |
+| `sync_truncation_tolerance_pct` | `20` | setting | to be named | — | — |
+| `teams_sla_channels` | (secret — not shown) | secret | to be named | — | — |
+| `teams_sla_enabled` | `0` | arm switch | to be named | — | — |
+| `teams_sla_last_run` | `` | setting | to be named | — | — |
+| `teams_sla_rules` | `` | setting | to be named | — | — |
+| `tracker_engine_cutover` | `0` | setting | to be named | — | — |
+| `transport` | `smtp` | setting | to be named | — | — |
+| `ui_deck_builder_roles` | `super_admin` | ui policy | Owner (D-6) | `super_admin` (widening also needs the page gate) | A-21 |
+| `ui_i18n_pages` | `0` | ui policy | Owner (D-2) | `1` | A-09 |
+| `ui_lang_default` | `` | ui policy | Owner (D-2) | `fr` | A-09 |
+| `ui_nav_profile` | `full` | ui policy | Owner (D-6) | `lean` (proposal — re-decide from the T1–T8 sessions) | A-21 |
+| `ui_role_landing` | `0` | ui policy | Owner (UI policy) | `1` | A-10 |
+| `wan_mos_config` | `{"r0":93.2,"codec_loss_factor":2.5,"jitter_buffer_factor"…` | setting | to be named | — | — |
+| `wan_poll_first_run` | `` | setting | to be named | — | — |
+| `wan_poll_last_run` | `` | setting | to be named | — | — |
+| `wan_quality_thresholds` | `{"loss":{"good":1,"bad":7},"latency":{"good":100,"bad":40…` | setting | to be named | — | — |
+| `wan_sla_require_contract_evidence` | `0` | setting | Finance | `1` once contracts are uploaded | A-25 |
+| `wan_stale_close_at` | `now` | setting | Network owner | `last_seen` | A-25 |
+| `wan_timeup_latency_ms` | `` | setting | to be named | — | — |
+| `wan_timeup_loss_pct` | `100` | setting | Network owner | `5` (calibration of 2026-09-04) | A-18 (pre-existing key; A-18b adds the uncalibrated banner + `tools/meraki/check-timeup-calibration.js`) |
+| `weekly_report_send_enabled` | `0` | arm switch | to be named | — | — |
+| `xof_usd_rate` | `0.00165` | setting | to be named | — | — |
+
+## 2. Planned switches (9) — named in PILOT-PROFILE, not yet in DEFAULTS on this branch
+
+| Key | Status | Default its goal fixes | Owner | Reference |
+|---|---|---|---|---|
+| `capacity_alert_weeks` | planned | `2` | Owner (D-7) | A-13 |
+| `capacity_alerts_enabled` | planned | `0` | Owner (D-7) | A-13 |
+| `capacity_amber_pct` | planned | `85` | Owner (D-7) | A-13 |
+| `capacity_enabled` | planned | `0` | Owner (D-7) | A-13 |
+| `capacity_helpdesk_basis` | planned | `resolved` | Helpdesk lead | A-13 |
+| `capacity_red_pct` | planned | `100` | Owner (D-7) | A-13 |
+| `capacity_weeks_ahead` | planned | `8` | Ops | A-13 |
+| `capacity_weeks_back` | planned | `12` | Ops | A-13 |
+| `capacity_workdays_per_week` | planned | `5` | Ops | A-13 |
+
+## 3. Governance policies (35) — services/governancePolicy.js PARAMS
+
+| Key | Default (today) | Type | Protected | Site-scoped | Owner |
+|---|---|---|---|---|---|
+| `calendar.skip_weekends` | `false` | bool | yes | yes | to be named |
+| `commitments.escalation_enabled` | `true` | bool | yes | yes | to be named |
+| `commitments.exception_max_days` | `90` | int | yes | yes | to be named |
+| `commitments.serious_due_move_needs_admin` | `true` | bool | yes | yes | to be named |
+| `freshness.assets_hours` | `30` | number | yes | no | to be named |
+| `freshness.changes_hours` | `3` | number | yes | no | to be named |
+| `freshness.helpdesk_hours` | `3` | number | yes | no | to be named |
+| `freshness.infra_hours` | `30` | number | yes | no | to be named |
+| `freshness.survey_hours` | `3` | number | yes | no | to be named |
+| `freshness.wan_hours` | `30` | number | yes | no | to be named |
+| `governance.dual_approval_relaxations` | `true` | bool | yes | no | to be named |
+| `governance.dual_approval_tightening` | `false` | bool | yes | no | to be named |
+| `governance.relaxation_max_days` | `90` | int | yes | no | to be named |
+| `governance.skip_inactive_holders` | `false` | bool | yes | no | Owner (access policy) |
+| `handoffs.commitment_ledger` | `false` | bool | no | yes | to be named |
+| `handoffs.escalation_grace_days` | `0` | int | yes | yes | to be named |
+| `handoffs.overdue_escalation` | `true` | bool | yes | yes | to be named |
+| `handoffs.proxy_accept` | `false` | bool | yes | yes | to be named |
+| `handoffs.reason_min` | `5` | int | yes | yes | to be named |
+| `meetings.cancel_reason_min` | `5` | int | yes | yes | to be named |
+| `meetings.cancel_requires_approval` | `true` | bool | yes | yes | to be named |
+| `meetings.compliance_as_of` | `false` | bool | no | yes | to be named |
+| `meetings.group_decisions_public` | `true` | bool | yes | no | to be named |
+| `meetings.minutes_four_eyes` | `true` | bool | yes | yes | to be named |
+| `meetings.missed_grace_hours` | `48` | number | yes | yes | to be named |
+| `meetings.reopen_reason_min` | `10` | int | yes | yes | to be named |
+| `meetings.reopen_two_people` | `false` | bool | yes | yes | to be named |
+| `publication.four_eyes` | `true` | bool | yes | yes | to be named |
+| `publication.override_allowed` | `true` | bool | yes | yes | to be named |
+| `publication.override_reason_min` | `10` | int | yes | yes | to be named |
+| `reports.four_eyes` | `true` | bool | yes | yes | to be named |
+| `reports.freshness_gate` | `true` | bool | yes | yes | to be named |
+| `reports.override_allowed` | `true` | bool | yes | yes | to be named |
+| `reports.override_reason_min` | `10` | int | yes | yes | to be named |
+| `reports.withdraw_reason_min` | `5` | int | yes | yes | to be named |
+
+## 4. Environment variables (60) — read in *.js, services/, routes/
+
+| Variable | Kind | Default when unset | Owner | Read in |
+|---|---|---|---|---|
+| `AI_PROVIDER` | switch | off (no AI call) | Owner | server.js |
+| `ANTHROPIC_API_KEY` | secret | (secret — not shown) | to be named | server.js |
+| `AUDIT_RISK_RETENTION_MONTHS` | setting | see the reading file | to be named | reports-db.js |
+| `BIND_HOST` | setting | see the reading file | to be named | services/netBinding.js |
+| `CORS_EXTRA_ORIGINS` | setting | see the reading file | to be named | services/netBinding.js |
+| `DASHBOARD_API_KEY` | secret | (secret — not shown) | to be named | services/apiKey.js |
+| `DASH_PASS` | secret | (secret — not shown) | to be named | reports-db.js, server.js |
+| `DASH_USER` | setting | see the reading file | to be named | reports-db.js, server.js |
+| `DATABASE_URL` | setting | see the reading file | to be named | assets-db.js, inspection-db.js, meetings-db.js, reports-db.js (+3) |
+| `ENTRA_CLIENT_ID` | setting | see the reading file | to be named | services/ssoSettings.js |
+| `ENTRA_CLIENT_SECRET` | secret | (secret — not shown) | to be named | services/ssoSettings.js |
+| `ENTRA_REDIRECT_URI` | setting | see the reading file | to be named | services/ssoSettings.js |
+| `ENTRA_TENANT_ID` | setting | see the reading file | to be named | services/ssoSettings.js |
+| `EXEC_PPTX_TIMEOUT_MS` | setting | see the reading file | to be named | server.js |
+| `EXT_API_RATE_PER_MIN` | setting | see the reading file | to be named | routes/extApi.js |
+| `FMP_API_KEY` | secret | (secret — not shown) | to be named | server.js, services/fmpClient.js |
+| `FMP_API_TIMEOUT_MS` | setting | see the reading file | to be named | services/fmpClient.js |
+| `FMP_API_URL` | setting | see the reading file | to be named | services/fmpClient.js |
+| `FMP_CACHE_MS` | setting | see the reading file | to be named | routes/fourmypeople.js |
+| `LOCAL_LLM_MODEL` | setting | see the reading file | to be named | server.js |
+| `LOCAL_LLM_TIMEOUT` | setting | see the reading file | to be named | server.js |
+| `LOCAL_LLM_URL` | setting | see the reading file | to be named | server.js |
+| `MANAGE_CMD` | setting | see the reading file | to be named | services/backupSchedule.js |
+| `MANAGE_PS1` | setting | see the reading file | to be named | services/backupSchedule.js |
+| `NODE_ENV` | setting | see the reading file | to be named | server.js, services/apiKey.js, services/configSecrets.js |
+| `ORG_ID` | setting | see the reading file | to be named | server.js |
+| `PG_POOL_MAX` | setting | see the reading file | to be named | services/pgDb.js |
+| `PG_URL` | setting | see the reading file | to be named | assets-db.js, inspection-db.js, meetings-db.js, reports-db.js (+4) |
+| `PM2_NAME` | setting | see the reading file | to be named | services/serviceControl.js |
+| `PORT` | setting | see the reading file | to be named | server.js |
+| `REPORT_BROWSER` | setting | see the reading file | to be named | services/reportRender.js |
+| `REPORT_PDF_TIMEOUT_MS` | setting | see the reading file | to be named | services/reportRender.js |
+| `REPORT_SEND_TIMEOUT_MS` | setting | see the reading file | to be named | server.js |
+| `REQUIRE_CONFIG_KEY` | setting | see the reading file | to be named | services/backendGuard.js |
+| `REQUIRE_POSTGRES` | setting | see the reading file | to be named | server.js, services/backendGuard.js |
+| `SDP_ALLOW_PLAINTEXT_SECRETS` | switch | see the reading file | to be named | services/configSecrets.js |
+| `SDP_BACKUP_DIR` | switch | see the reading file | to be named | services/backupSchedule.js |
+| `SDP_BACKUP_KEY` | secret | (secret — not shown) | to be named | services/backup.js, services/dbRestore.js |
+| `SDP_CONFIG_BOX_VERSION` | switch | unset = 2 (`enc:v2`) | Security owner | services/configSecrets.js |
+| `SDP_CONFIG_KEY` | secret | (secret — not shown) | to be named | services/backendGuard.js, services/configSecrets.js |
+| `SDP_CSP_REPORT_ONLY` | switch | unset (no report-only header, no /api/security/csp-report) | Security owner | services/cspReport.js |
+| `SDP_DATA_DIR` | switch | see the reading file | to be named | assets-db.js, inspection-db.js, meetings-db.js, reports-db.js (+2) |
+| `SDP_PDF_SANDBOX` | switch | unset (PDF render keeps --no-sandbox) | Security owner | services/reportRender.js |
+| `SDP_SERVICE` | switch | see the reading file | to be named | services/serviceControl.js |
+| `SDP_TEST_NO_RATE_LIMIT` | switch | see the reading file | to be named | server.js |
+| `SESSION_COOKIE_SECURE` | switch | unset | Security owner | server.js |
+| `SESSION_HOURS` | setting | see the reading file | to be named | reports-db.js |
+| `SSO_BREAKGLASS_USER` | setting | see the reading file | to be named | services/ssoSettings.js |
+| `SSO_ENABLED` | switch | see the reading file | to be named | services/ssoSettings.js |
+| `SSO_GROUP_MAP` | setting | see the reading file | to be named | services/ssoSettings.js |
+| `SSO_MODE` | setting | see the reading file | to be named | services/ssoSettings.js |
+| `SYNC_TRUNCATION_TOLERANCE_PCT` | setting | see the reading file | to be named | zoho-sync.js |
+| `WORKSPACE_ID` | setting | see the reading file | to be named | server.js |
+| `ZOHO_CLIENT_ID` | setting | see the reading file | to be named | server.js |
+| `ZOHO_CLIENT_SECRET` | secret | (secret — not shown) | to be named | server.js, services/analyticsSettings.js |
+| `ZOHO_REFRESH_TOKEN` | secret | (secret — not shown) | to be named | server.js |
+| `ZOHO_SURVEY_ANSWERS_VIEW_ID` | setting | see the reading file | to be named | server.js |
+| `ZOHO_SURVEY_ID` | setting | see the reading file | to be named | server.js |
+| `ZOHO_SURVEY_QUESTIONS_VIEW_ID` | setting | see the reading file | to be named | server.js |
+| `ZOHO_SURVEY_VIEW_ID` | setting | see the reading file | to be named | server.js |

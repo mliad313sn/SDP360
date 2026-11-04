@@ -75,4 +75,10 @@ Not in this table because they are not top-level `report_config` keys:
   `SDP_CONFIG_BOX_VERSION` (default `2`; `3` = new secrets sealed as `enc:v3`), `SDP_PDF_SANDBOX`
   (unset = PDF render keeps `--no-sandbox`).
 
+- C-09 (built) — **always-on internal telemetry, no switch**: the shell posts one `page_viewed` event per page load;
+  the server keeps one system_log row per user × page × day (`services/viewLog.js` gate) with the user id and role tier
+  only (no name, e-mail or IP). Nothing a user sees changes. Read-only report: Admin ▸ System Logs ▸ Page usage
+  (`GET /api/ux/page-usage?days=30`, super_admin). It feeds the exec-surfaces keep/merge decision
+  (`docs/ux/EXEC-PAGES-MATRIX.md`). Every switch of this profile is also listed in `docs/ops/FLAG-REGISTER.md`.
+
 When a goal lands, change its rows from `planned` to `built`; the test then holds the default to the code.

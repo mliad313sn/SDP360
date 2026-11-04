@@ -7774,6 +7774,7 @@ app.use(require('./routes/sync')({ express, requireReportSession }));
 // Step 3 — KPI dictionary: GET /api/metrics/registry, GET /api/metrics/:key?site=&window=.
 app.use(require('./routes/metrics')({ express, requireReportSession }));
 app.use(require('./routes/access')({ express, requireReportSession }));   // C-17 why-denied
+app.use(require('./routes/pageUsage')({ express, requireReportSession, requireSuperAdmin }));   // C-09 — page_viewed usage facts (always-on, internal)
 // Step 6 — dashboard definitions (composer) + one-call data resolver (store seeded in routes/dashboards.createStore).
 const _dashStore = require('./routes/dashboards').createStore(require('./reports-db'));
 app.use(require('./routes/dashboards')({ express, requireReportSession, store: _dashStore }));
