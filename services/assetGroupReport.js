@@ -239,7 +239,17 @@ function forecastBlock(hw, sw, fmt) {
 
 // ---- entrypoint ------------------------------------------------------------
 
-function buildAssetGroupDigest({ leaderboard, forecast, coverage, period, fmtUsd } = {}) {
+// A-16 — the "Non certifié" sentence under the hardware coverage, ONLY when the
+// caller passes certifyDisplay '1' AND the forecast carries a certification that is
+// not certified. Default (absent / '0') → digest byte-identical to before.
+function certificationLine(certifyDisplay, hwCov) {
+  if (String(certifyDisplay) !== '1') return '';
+  const s = require('./moneyCoverage').sentence(hwCov && hwCov.certification);
+  if (!s) return '';
+  return `<div role="note" style="font-family:${FONT};font-size:13px;font-weight:bold;color:${NAVY};background:#FBF5E6;border:1px solid #D9B45A;border-radius:6px;padding:10px 14px;margin:0 0 14px 0;line-height:1.5;">${escapeHtml(s)}</div>`;
+}
+
+function buildAssetGroupDigest({ leaderboard, forecast, coverage, period, fmtUsd, certifyDisplay } = {}) {
   const lb = leaderboard && typeof leaderboard === 'object' ? leaderboard : { rows: [], most_improved: null, needs_attention: null };
   const fc = forecast && typeof forecast === 'object' ? forecast : {};
   const hw = fc.hardware && typeof fc.hardware === 'object' ? fc.hardware : {};
@@ -261,6 +271,7 @@ function buildAssetGroupDigest({ leaderboard, forecast, coverage, period, fmtUsd
     headerBlock(per) +
     leaderboardBlock(lb) +
     coverageBanners(hwCov, swCov) +
+    certificationLine(certifyDisplay, hwCov) +
     forecastBlock(hw, sw, fmt) +
     `</div></div>`;
 

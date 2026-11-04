@@ -15,6 +15,7 @@
 
 const money = require('./money');
 const { resolveForType } = require('./depreciation');
+const moneyCoverage = require('./moneyCoverage');
 
 // ── Tolerant helpers ────────────────────────────────────────────────────────
 
@@ -49,8 +50,23 @@ function _pct(elig, total) {
   return total > 0 ? Math.round((100 * elig) / total) : 0;
 }
 
+// A-16: per-site coverage, ONLY when the rows carry a `site` key (rows without
+// one keep the old shape — no by_site/certification). `eligible` is the
+// builder's own coverage gate (rate-independent), recorded per row.
+function _hasSite(rows) {
+  return Array.isArray(rows) && rows.some((r) => r && Object.prototype.hasOwnProperty.call(r, 'site'));
+}
+function _attachBySite(cov, marks, rows, { minSites, minPct } = {}) {
+  if (!_hasSite(rows)) return;
+  const by_site = moneyCoverage.coverageBySite(marks, { isEligible: (m) => m.ok, siteOf: (m) => m.site });
+  cov.by_site = by_site;
+  cov.certification = moneyCoverage.certify(by_site, { minSites, minPct });
+}
+
 // ── Builder 1: historical investment curve + coverage ───────────────────────
-function buildInvestmentHistory(assetRows, licenceRows, rate) {
+function buildInvestmentHistory(assetRows, licenceRows, rate, certifyOpts = {}) {
+  const hwMarks = [];
+  const swMarks = [];
   const hwByYear = new Map();
   const swByYear = new Map();
   const hwCov = { eligible: 0, total: 0, pct: 0, excluded: { no_date: 0, no_cost: 0 } };
@@ -61,9 +77,12 @@ function buildInvestmentHistory(assetRows, licenceRows, rate) {
     const y = _yearOf(r.acquisition_date);
     // rate-INDEPENDENT eligibility gate — coverage% must not depend on rate
     const amt = money.parseAmount(r.purchase_cost);
+    const hwMark = { site: r.site, ok: false };
+    hwMarks.push(hwMark);
     if (y == null) { hwCov.excluded.no_date++; continue; }
     if (!(amt > 0)) { hwCov.excluded.no_cost++; continue; }
     hwCov.eligible++;
+    hwMark.ok = true;
     const usd = money.toUsd(r.purchase_cost, rate) || 0;
     hwByYear.set(y, (hwByYear.get(y) || 0) + usd);
   }
@@ -72,14 +91,19 @@ function buildInvestmentHistory(assetRows, licenceRows, rate) {
     swCov.total++;
     const y = _yearOf(r.acquisition_date);
     const amt = money.parseAmount(r.cost); // already USD
+    const swMark = { site: r.site, ok: false };
+    swMarks.push(swMark);
     if (y == null) { swCov.excluded.no_date++; continue; }
     if (!(amt > 0)) { swCov.excluded.no_cost++; continue; }
     swCov.eligible++;
+    swMark.ok = true;
     swByYear.set(y, (swByYear.get(y) || 0) + amt);
   }
 
   hwCov.pct = _pct(hwCov.eligible, hwCov.total);
   swCov.pct = _pct(swCov.eligible, swCov.total);
+  _attachBySite(hwCov, hwMarks, assetRows, certifyOpts);
+  _attachBySite(swCov, swMarks, licenceRows, certifyOpts);
 
   const presentYears = [...hwByYear.keys(), ...swByYear.keys()];
   const years = [];
@@ -100,7 +124,8 @@ function buildInvestmentHistory(assetRows, licenceRows, rate) {
 }
 
 // ── Builder 2: forward hardware replacement (CAPEX) forecast + coverage ──────
-function buildHardwareForecast(assetRows, { config, rate, upliftPct, horizonYears, asOf } = {}) {
+function buildHardwareForecast(assetRows, { config, rate, upliftPct, horizonYears, asOf, minSites, minPct } = {}) {
+  const marks = [];
   const cur = _curYear(asOf);
   const up = Number(upliftPct) || 0;
   const horizon = Number(horizonYears) || 0;
@@ -114,11 +139,14 @@ function buildHardwareForecast(assetRows, { config, rate, upliftPct, horizonYear
     const acqYear = _yearOf(r.acquisition_date);
     const amt = money.parseAmount(r.purchase_cost); // rate-independent gate
     const life = Number(resolveForType(config, r.product_type).useful_life_months);
+    const mark = { site: r.site, ok: false };
+    marks.push(mark);
     // First-failing gate: no_date → no_cost → no_life
     if (acqYear == null) { coverage.excluded.no_date++; continue; }
     if (!(amt > 0)) { coverage.excluded.no_cost++; continue; }
     if (!(life > 0)) { coverage.excluded.no_life++; continue; }
     coverage.eligible++;
+    mark.ok = true;
 
     const costUsd = money.toUsd(r.purchase_cost, rate) || 0;
     const lifeYears = Math.ceil(life / 12);
@@ -141,6 +169,7 @@ function buildHardwareForecast(assetRows, { config, rate, upliftPct, horizonYear
   }
 
   coverage.pct = _pct(coverage.eligible, coverage.total);
+  _attachBySite(coverage, marks, assetRows, { minSites, minPct });
   const years = [...yearMap.keys()].sort((a, b) => a - b)
     .map((year) => ({ year, replacement_usd: yearMap.get(year).replacement_usd, count: yearMap.get(year).count }));
   const total_forecast_usd = due_now.replacement_usd + years.reduce((s, y) => s + y.replacement_usd, 0);
@@ -149,7 +178,8 @@ function buildHardwareForecast(assetRows, { config, rate, upliftPct, horizonYear
 }
 
 // ── Builder 3: forward software renewal forecast + coverage ─────────────────
-function buildSoftwareForecast(licenceRows, { horizonYears, asOf } = {}) {
+function buildSoftwareForecast(licenceRows, { horizonYears, asOf, minSites, minPct } = {}) {
+  const marks = [];
   const cur = _curYear(asOf);
   const horizon = Number(horizonYears) || 0;
   const RECUR = /subscription|annual|monthly|saas/i; // NOT `volume`
@@ -170,10 +200,13 @@ function buildSoftwareForecast(licenceRows, { horizonYears, asOf } = {}) {
     coverage.total++;
     const ey = _expiryYearOf(r.expiry_date);
     const cost = money.parseAmount(r.cost); // already USD
+    const mark = { site: r.site, ok: false };
+    marks.push(mark);
     // First-failing gate: no_expiry → no_cost
     if (ey == null) { coverage.excluded.no_expiry++; continue; }
     if (!(cost > 0)) { coverage.excluded.no_cost++; continue; }
     coverage.eligible++;
+    mark.ok = true;
 
     const recurring = RECUR.test(String(r.license_option || ''));
     if (recurring) {
@@ -192,6 +225,7 @@ function buildSoftwareForecast(licenceRows, { horizonYears, asOf } = {}) {
   }
 
   coverage.pct = _pct(coverage.eligible, coverage.total);
+  _attachBySite(coverage, marks, licenceRows, { minSites, minPct });
   // Round money to whole USD for parity with the hardware/history surfaces (Nit-2)
   // — round each output field, then derive the total from the rounded parts so the
   // invariant total === due_now + Σyears holds exactly.

@@ -157,3 +157,46 @@ test('GET /api/assets/licences/summary without a session → 401/403 (requireRep
   const res = await fetch(base + '/api/assets/licences/summary');
   assert.ok(res.status === 401 || res.status === 403, `expected 401/403, got ${res.status}`);
 });
+
+// ── A-16: per-site coverage + switchable "Non certifié" state ──
+test('A-16 finance/summary echoes certify_display "0" by default (+ additive coverage fields)', async () => {
+  const res = await fetch(base + '/api/assets/finance/summary', { headers: auth() });
+  assert.equal(res.status, 200);
+  const body = await res.json();
+  assert.equal(body.certify_display, '0', 'switch OFF by default → UI unchanged');
+  assert.ok(Array.isArray(body.coverage_by_site), 'coverage_by_site always returned');
+  assert.equal(body.certification.min_sites, 3);
+  assert.equal(body.certification.min_pct, 50);
+});
+
+test('A-16 finance/summary still 403s for a non-money role (gate unchanged)', async () => {
+  const res = await fetch(base + '/api/assets/finance/summary', { headers: { 'x-report-token': viewerToken } });
+  assert.equal(res.status, 403, `viewer must stay locked out of money, got ${res.status}`);
+});
+
+test('A-16 with asset_money_certify_display=1 → certification.certified=false on the 2-site fixture; xlsx gains a Certification sheet', async () => {
+  const rdb = require('../reports-db');
+  const reportConfig = require('../services/reportConfig');
+  await reportConfig.setConfig(rdb.db, { asset_money_certify_display: '1' }, 'smoke');
+  try {
+    const res = await fetch(base + '/api/assets/finance/summary', { headers: auth() });
+    const body = await res.json();
+    assert.equal(body.certify_display, '1');
+    assert.equal(body.certification.certified, false);
+    assert.equal(body.certification.reason, 'too_few_sites');
+    for (const route of ['/api/assets/depreciation/summary', '/api/assets/investment/forecast', '/api/assets/investment/history']) {
+      const r = await fetch(base + route, { headers: auth() });
+      assert.equal(r.status, 200, route);
+      assert.equal((await r.json()).certify_display, '1', `${route} echoes the switch`);
+    }
+    const x = await fetch(base + '/api/assets/finance/export.xlsx', { headers: auth() });
+    const XLSX = require('xlsx');
+    const wb = XLSX.read(Buffer.from(await x.arrayBuffer()), { type: 'buffer' });
+    assert.ok(wb.SheetNames.includes('Certification'), `sheets: ${wb.SheetNames}`);
+  } finally {
+    await reportConfig.setConfig(rdb.db, { asset_money_certify_display: '0' }, 'smoke');
+  }
+  const x0 = await fetch(base + '/api/assets/finance/export.xlsx', { headers: auth() });
+  const wb0 = require('xlsx').read(Buffer.from(await x0.arrayBuffer()), { type: 'buffer' });
+  assert.ok(!wb0.SheetNames.includes('Certification'), 'switch OFF → export unchanged');
+});

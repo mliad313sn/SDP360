@@ -103,3 +103,18 @@ test('getDepreciationSchedule returns {years, book_value_usd} aligned + sorted',
   assert.strictEqual(sch.years[0], 2020, 'earliest year is 2020 (A3 Server)');
   assert.ok(sch.book_value_usd.every(Number.isFinite), 'all book values finite');
 });
+
+// ── A-16: per-site coverage + certification (additive) ──
+test('A-16 getAssetDepreciation returns coverage_by_site and certification', async () => {
+  const s = (await adb.getAssetDepreciation({}, OPTS));
+  assert.deepStrictEqual(s.coverage_by_site, [
+    { site: 'HGO', eligible: 1, total: 2, pct: 50 },
+    { site: 'MANA', eligible: 2, total: 2, pct: 100 },
+  ]);
+  assert.strictEqual(s.certification.certified, false);
+  assert.strictEqual(s.certification.reason, 'too_few_sites');
+  assert.strictEqual(s.certification.eligible, 3);
+  assert.strictEqual(s.certification.total, 4);
+  const t = (await adb.getAssetDepreciation({}, { ...OPTS, minSites: 1, minPct: 90 }));
+  assert.strictEqual(t.certification.reason, 'low_coverage');
+});

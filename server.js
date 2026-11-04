@@ -2662,12 +2662,30 @@ const _assetUsdRate = async () => {
   return rate;
 };
 
+// A-16 — the three certification switches (PROPOSED policy, default display '0'),
+// read once per request. Readers get min values; routes echo `certify_display`.
+const _assetCertifyOpts = async () => {
+  const reportConfig = require('./services/reportConfig');
+  const rdb = require('./reports-db');
+  return require('./services/moneyCoverage').optsFromConfig(await reportConfig.getConfig(rdb.db));
+};
+// One "Certification" sheet (scope line + per-site coverage) — only when display = '1'.
+const _certificationSheet = (title, cert, bySite) => ({
+  name: 'Certification',
+  rows: [
+    { Site: `${title} — ${cert && cert.certified ? 'Certifié' : (require('./services/moneyCoverage').sentence(cert) || '')}`,
+      Eligible: cert ? cert.eligible : null, Total: cert ? cert.total : null, 'Coverage %': cert ? cert.pct : null },
+    ...(bySite || []).map(r => ({ Site: r.site, Eligible: r.eligible, Total: r.total, 'Coverage %': r.pct })),
+  ],
+});
+
 app.get('/api/assets/finance/summary', requireReportSession, requireMoneyRead, async (req, res) => {
   try {
     const adb = require('./assets-db');
     const rate = await _assetUsdRate();
-    const s = await adb.getFinanceSummary(_assetFinanceFilters(req), rate);
-    res.json({ ...s, rate });   // echo the applied rate so the page can label it
+    const cert = await _assetCertifyOpts();
+    const s = await adb.getFinanceSummary(_assetFinanceFilters(req), rate, cert);
+    res.json({ ...s, rate, certify_display: cert.display });   // echo the applied rate so the page can label it
   } catch (e) {
     console.error('[api/assets/finance/summary]', e.message);
     fail(res, e);
@@ -2680,8 +2698,11 @@ app.get('/api/assets/finance/export.xlsx', requireReportSession, requireMoneyRea
     const adb = require('./assets-db');
     const { buildWorkbook } = require('./services/tableExcel');
     const rate = await _assetUsdRate();
-    const s = await adb.getFinanceSummary(_assetFinanceFilters(req), rate);
-    const buf = buildWorkbook([{ name: 'Finance by site', rows: s.by_site }]);
+    const cert = await _assetCertifyOpts();
+    const s = await adb.getFinanceSummary(_assetFinanceFilters(req), rate, cert);
+    const sheets = [{ name: 'Finance by site', rows: s.by_site }];
+    if (cert.display === '1') sheets.push(_certificationSheet('Finance', s.certification, s.coverage_by_site));
+    const buf = buildWorkbook(sheets);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="assets-finance.xlsx"');
     res.send(buf);
@@ -3198,8 +3219,10 @@ app.get('/api/assets/depreciation/summary', requireReportSession, requireMoneyRe
     // cost, no depreciation), so resolving here is what makes the computed
     // book value actually depreciate. Echoed unchanged in the response.
     const asOf = req.query.asOf ? String(req.query.asOf) : new Date().toISOString().slice(0, 10);
-    const s = await adb.getAssetDepreciation(_assetDeprecFilters(req), { config, rate, asOf });
-    res.json({ ...s, rate, asOf });
+    const cert = await _assetCertifyOpts();
+    const s = await adb.getAssetDepreciation(_assetDeprecFilters(req),
+      { config, rate, asOf, minSites: cert.minSites, minPct: cert.minPct });
+    res.json({ ...s, rate, asOf, certify_display: cert.display });
   } catch (e) {
     console.error('[api/assets/depreciation/summary]', e.message);
     fail(res, e);
@@ -3272,7 +3295,10 @@ const _assetUpliftPct = async () => {
 app.get('/api/assets/investment/history', requireReportSession, requireMoneyRead, async (req, res) => {
   try {
     const rate = await _assetUsdRate();
-    res.json(await require('./assets-db').getInvestmentSummary(_assetInvestmentFilters(req), { rate }));
+    const cert = await _assetCertifyOpts();
+    const out = await require('./assets-db').getInvestmentSummary(_assetInvestmentFilters(req),
+      { rate, minSites: cert.minSites, minPct: cert.minPct });
+    res.json({ ...out, certify_display: cert.display });
   } catch (e) {
     console.error('[api/assets/investment/history]', e.message);
     fail(res, e);
@@ -3289,10 +3315,11 @@ app.get('/api/assets/investment/forecast', requireReportSession, requireMoneyRea
     if (horizon > 15) horizon = 15;                              // clamp
     const asOf = new Date().toISOString().slice(0, 10);          // resolve BEFORE the reader
     const rate = await _assetUsdRate();
+    const cert = await _assetCertifyOpts();
     const out = await adb.getInvestmentForecast(_assetInvestmentFilters(req),
-      { config, rate, upliftPct, horizonYears: horizon, asOf });
+      { config, rate, upliftPct, horizonYears: horizon, asOf, minSites: cert.minSites, minPct: cert.minPct });
     // Echo the uplift as a percent (e.g. 3 for 0.03) so the UI can label the growth.
-    res.json({ ...out, uplift_pct: Math.round(upliftPct * 10000) / 100 });
+    res.json({ ...out, uplift_pct: Math.round(upliftPct * 10000) / 100, certify_display: cert.display });
   } catch (e) {
     console.error('[api/assets/investment/forecast]', e.message);
     fail(res, e);
@@ -3315,10 +3342,11 @@ app.get('/api/assets/investment/export.xlsx', requireReportSession, requireMoney
     if (!Number.isFinite(horizon) || horizon < 1) horizon = 5;
     if (horizon > 15) horizon = 15;
     const asOf = new Date().toISOString().slice(0, 10);
+    const cert = await _assetCertifyOpts();
 
-    const history = await adb.getInvestmentSummary(filters, { rate });
+    const history = await adb.getInvestmentSummary(filters, { rate, minSites: cert.minSites, minPct: cert.minPct });
     const fcst = await adb.getInvestmentForecast(filters,
-      { config, rate, upliftPct, horizonYears: horizon, asOf });
+      { config, rate, upliftPct, horizonYears: horizon, asOf, minSites: cert.minSites, minPct: cert.minPct });
 
     const historyRows = (history.years || []).map(y => ({
       Year: y.year, 'Hardware (USD)': y.hardware_usd, 'Software (USD)': y.software_usd,
@@ -3337,11 +3365,16 @@ app.get('/api/assets/investment/export.xlsx', requireReportSession, requireMoney
       { Year: 'Beyond horizon', 'Renewal (USD)': sw.beyond_horizon && sw.beyond_horizon.usd, Count: sw.beyond_horizon && sw.beyond_horizon.count },
     ];
 
-    const buf = buildWorkbook([
+    const sheets = [
       { name: 'Spend history', rows: historyRows },
       { name: 'Hardware forecast', rows: hardwareRows },
       { name: 'Software forecast', rows: softwareRows },
-    ]);
+    ];
+    const hwCov = (fcst.hardware && fcst.hardware.coverage) || {};
+    if (cert.display === '1' && hwCov.certification) {
+      sheets.push(_certificationSheet('Hardware forecast', hwCov.certification, hwCov.by_site));
+    }
+    const buf = buildWorkbook(sheets);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="assets-investment.xlsx"');
     res.send(buf);

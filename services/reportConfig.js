@@ -61,6 +61,15 @@ const DEFAULTS = {
   // Annual replacement-price uplift (%) for the investment forecast — 0 = like-for-like.
   // Must live in DEFAULTS so setConfig's KEYS filter accepts the admin's write.
   asset_replacement_uplift_pct: '0',
+  // A-16 — Assets money certification. PROPOSED policy, NOT approved (owner:
+  // Finance / IT management): a money figure is "certified" only when ≥ min_sites
+  // sites have eligible assets (purchase cost > 0) AND eligible ≥ min_pct % of the
+  // assets in scope. The fields are always computed and returned; display '0'
+  // (default) = today's UI and exports unchanged, '1' = show the "Non certifié"
+  // band + per-site coverage table + a Certification export sheet.
+  asset_money_certify_display: '0',
+  asset_money_certify_min_sites: '3',
+  asset_money_certify_min_pct: '50',
   // Asset depreciation policy (JSON) — the computed-book-value reader resolves a
   // method/useful-life/salvage per product_type from this. Must live in DEFAULTS
   // so setConfig's KEYS filter accepts the admin's write (else silently dropped).

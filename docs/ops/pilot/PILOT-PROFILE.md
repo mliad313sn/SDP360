@@ -35,9 +35,9 @@ planned switch cannot be set before its goal lands.
 | `capacity_workdays_per_week` | planned | `5` | `5` | Ops | A-13 |
 | `portfolio_site_scope_reads` | built | `0` | `1` | Owner (access policy) | A-15 |
 | `portfolio_editor_plan_writes` | built | `0` | `1` | Owner (access policy) | A-15 |
-| `asset_money_certify_display` | planned | `0` | `1` | Finance / IT management | A-16 |
-| `asset_money_certify_min_sites` | planned | `3` | `3` | Finance | A-16 |
-| `asset_money_certify_min_pct` | planned | `50` | `50` | Finance | A-16 |
+| `asset_money_certify_display` | built | `0` | `1` | Finance / IT management | A-16 |
+| `asset_money_certify_min_sites` | built | `3` | `3` | Finance | A-16 |
+| `asset_money_certify_min_pct` | built | `50` | `50` | Finance | A-16 |
 | `helpdesk_sla_definition` | built | `flag` | `flag` until the committee chooses (`due_vs_resolved` is the alternative) | KPI committee | A-17 |
 | `exec_payload_zero_policy` | built | `keep_server` | `keep_server` until the committee chooses (`browser_wins` is the alternative) | KPI committee | A-17 |
 | `soft_delete_enabled` | planned | `0` | `1` | Owner (retention policy) | A-19 |
