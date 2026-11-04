@@ -49,13 +49,19 @@ const count = async (action) => (await rdb.countSystemLog({ action }));
 // logEvent is deliberately fire-and-forget (a dead log must never break a request),
 // so the row lands just after the response — give the microtask queue a turn.
 const settle = () => new Promise(r => setTimeout(r, 60));
+// Under a loaded CI run 60 ms was not always enough (2026-11-04): wait until the expected
+// count is reached, bounded, so a real "not logged" still fails.
+async function countReaches(action, want, ms = 3000) {
+  const end = Date.now() + ms; let n;
+  do { n = await count(action); if (n >= want) return n; await new Promise(r => setTimeout(r, 50)); } while (Date.now() < end);
+  return n;
+}
 
 test('opening the module is logged ONCE per actor per day', async () => {
   const before0 = await count('assets_viewed');
   const r1 = await fetch(base + '/api/assets/summary', { headers: auth() });
   assert.equal(r1.status, 200);
-  await settle();
-  assert.strictEqual(await count('assets_viewed'), before0 + 1, 'first view logged');
+  assert.strictEqual(await countReaches('assets_viewed', before0 + 1), before0 + 1, 'first view logged');
 
   for (let i = 0; i < 3; i++) await fetch(base + '/api/assets/summary', { headers: auth() });
   await settle();
@@ -74,8 +80,7 @@ test('an export is logged every time — it is an act, not a glance', async () =
   await fetch(base + '/api/assets/export.xlsx', { headers: auth() });
   await settle();
   await fetch(base + '/api/assets/export.xlsx', { headers: auth() });
-  await settle();
-  assert.strictEqual(await count('asset_export'), before0 + 2);
+  assert.strictEqual(await countReaches('asset_export', before0 + 2), before0 + 2);
 });
 
 test('a failing log never breaks the request it rides on', async () => {

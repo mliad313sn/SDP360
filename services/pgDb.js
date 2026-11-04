@@ -80,6 +80,10 @@ function makePgDb(connectionString) {
   return {
     async connect() {
       pool = new Pool({ connectionString, max: Number(process.env.PG_POOL_MAX || 10), idleTimeoutMillis: 30000 });
+      // An IDLE pooled client whose server connection is terminated (PostgreSQL restart, pg_terminate_backend,
+      // DROP DATABASE … WITH FORCE) makes node-pg emit 'error' on the pool. With no listener that is an
+      // uncaught exception and the whole server dies. Log it; the pool drops that client and opens a new one.
+      pool.on('error', (e) => { console.error('[pgDb] idle PostgreSQL client lost:', (e && (e.code || e.message)) || e); });
       const c = await pool.connect(); try { await c.query('SELECT 1'); } finally { c.release(); }
     },
     async exec(sql) { await client().query(sql); },           // DDL / multi-statement; no placeholder xlate
