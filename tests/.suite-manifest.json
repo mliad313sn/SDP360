@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 3327,
+ "total": 3330,
  "files": {
   "a11y-static.test.js": 14,
   "access-denied-log.smoke.test.js": 3,
@@ -265,6 +265,7 @@
   "pg-inspection.test.js": 5,
   "pg-meetings-concurrency.test.js": 7,
   "pg-meetings.test.js": 12,
+  "pg-migrate-from-111.test.js": 3,
   "pg-migrate.test.js": 2,
   "pg-pilot-metrics.test.js": 1,
   "pg-report-asset-review.test.js": 1,

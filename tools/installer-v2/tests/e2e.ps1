@@ -96,20 +96,30 @@ function Wait-Up([int]$sec = 120) {
   }
   return $false
 }
-function Pm2-Online {
+# pm2 jlist is parsed by Node, not ConvertFrom-Json: every process carries its environment flattened into
+# pm2_env, and on Windows pm2's own `username` sits beside the variable USERNAME — keys that differ only by
+# case, which ConvertFrom-Json refuses, so the old helper reported a running server as not online. Node
+# prints name / status / script / restarts only (never the environment: it holds the throwaway secrets).
+$Pm2Js = Join-Path $env:TEMP 'sdp-e2e-pm2.js'
+@'
+let s = '';
+process.stdin.on('data', (d) => { s += d; }).on('end', () => {
+  const line = s.split(/\r?\n/).filter((l) => l.trim().startsWith('[')).pop();
+  let rows = [];
+  try { rows = JSON.parse(line || '[]'); } catch (_) { rows = []; }
+  console.log(JSON.stringify(rows.map((p) => ({ name: p.name, status: p.pm2_env && p.pm2_env.status,
+    script: p.pm2_env && p.pm2_env.pm_exec_path, restarts: p.pm2_env && p.pm2_env.restart_time }))));
+});
+'@ | Set-Content -Path $Pm2Js -Encoding utf8
+function Pm2-Rows {
   $raw = (& pm2 jlist 2>$null | Out-String)
-  $line = ($raw -split "`n" | Where-Object { $_.Trim().StartsWith('[') } | Select-Object -Last 1)
-  if (-not $line) { return $false }
-  try { return [bool](($line | ConvertFrom-Json) | Where-Object { $_.name -eq 'endeavour-dashboard' -and $_.pm2_env.status -eq 'online' }) } catch { return $false }
+  $out = ($raw | & node $Pm2Js 2>$null | Out-String)
+  $global:LASTEXITCODE = 0
+  try { return @($out | ConvertFrom-Json) } catch { return @() }
 }
+function Pm2-Online { return [bool](Pm2-Rows | Where-Object { $_.name -eq 'endeavour-dashboard' -and $_.status -eq 'online' }) }
 function Setup-LogText { return ((Get-ChildItem (Join-Path $Dir 'logs') -Filter 'setup-2*.log' -ErrorAction SilentlyContinue | Sort-Object LastWriteTime | Select-Object -Last 1 | Get-Content -Raw) | Out-String) }
-function Pm2-Summary([string]$file) {
-  # name / status / script only: pm2 jlist also carries the process environment (the throwaway secrets)
-  $raw = (& pm2 jlist 2>$null | Out-String)
-  $line = ($raw -split "`n" | Where-Object { $_.Trim().StartsWith('[') } | Select-Object -Last 1)
-  $rows = if ($line) { try { $line | ConvertFrom-Json } catch { @() } } else { @() }
-  $rows | ForEach-Object { [pscustomobject]@{ name = $_.name; status = $_.pm2_env.status; script = $_.pm2_env.pm_exec_path; restarts = $_.pm2_env.restart_time } } | ConvertTo-Json | Out-File $file
-}
+function Pm2-Summary([string]$file) { ConvertTo-Json -InputObject @(Pm2-Rows) | Out-File $file }
 function Pm2-Forget { & pm2 delete endeavour-dashboard 2>&1 | Out-Null; $global:LASTEXITCODE = 0 }
 # helper scripts: credentials travel in the environment of the child only, never on a command line
 $E2eJs = Join-Path $env:TEMP 'sdp-e2e-111.js'
@@ -250,7 +260,7 @@ if ($UpgradeFrom) {
   Copy-Item (Join-Path $Dir 'logs\*') $LogDir -ErrorAction SilentlyContinue
   Pm2-Summary (Join-Path $LogDir 'pm2-after-rollback.json')
   Pm2-Forget
-  Remove-Item $E2eJs -ErrorAction SilentlyContinue
+  Remove-Item $E2eJs, $Pm2Js -ErrorAction SilentlyContinue
   if ($script:fails) { Show-Logs 'upgrade from 1.11'; Write-Host "`n$($script:fails) check(s) failed" -ForegroundColor Red; exit 1 }
   Write-Host "`nAll upgrade-from-1.11 checks passed" -ForegroundColor Green
   exit 0
