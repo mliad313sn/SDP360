@@ -12,7 +12,7 @@ test('the card exists and is wired on the four admin surfaces (+ loader)', () =>
   assert.match(src, /<div class="card admin-panel" id="ap-restore-drill" data-panel="restore-drill">/);
   for (const id of ['rd-status', 'rd-counts']) assert.ok(src.includes(`id="${id}"`), id);
   assert.match(src, /'restore-drill':'ap-restore-drill'/, '_ADMIN_PANEL_IDS');
-  assert.match(src, /'backups','restore-drill','sso'[^\]]*\]\.includes\(sub\)/, 'deep-link allowlist');
+  assert.match(src, /'backups','restore-drill',(?:'trash',)?'sso'[^\]]*\]\.includes\(sub\)/, 'deep-link allowlist');
   assert.match(src, /id="admin-rail-restore-drill" style="display:none"/, 'rail hidden by default');
   assert.match(src, /getElementById\('admin-rail-restore-drill'\)[\s\S]{0,120}isSuperAdmin \? '' : 'none'/, 'rail shown for super_admin');
   assert.match(src, /name === 'restore-drill' \|\| name === 'asset-reminders'[^)]*\) && currentUser\?\.role !== 'super_admin'/, 'super_admin guard');
