@@ -6,8 +6,8 @@
 |---|---|
 | `DELETE /api/commitments/:id/links` | requireReportSession |
 | `DELETE /api/dashboards/:key` | requireReportSession |
-| `DELETE /api/engagement/consumers/:id` | requireReportSession |
-| `DELETE /api/engagement/rules/:key` | requireReportSession |
+| `DELETE /api/engagement/consumers/:id` | requireReportSession + requireAdmin |
+| `DELETE /api/engagement/rules/:key` | requireReportSession + requireAdmin |
 | `DELETE /api/engagement/share/:id` | requireReportSession |
 | `DELETE /api/engagement/subscriptions/:id` | requireReportSession |
 | `DELETE /api/governance/cadences/:id` | requireReportSession |
@@ -16,15 +16,15 @@
 | `DELETE /api/meetings/:id` | requireReportSession |
 | `DELETE /api/report-studio/templates/:key` | requireReportSession |
 | `DELETE /api/reports/:id` | requireReportSession |
-| `DELETE /api/reports/departments/:id` | requireReportSession |
+| `DELETE /api/reports/departments/:id` | requireReportSession + requireExecutiveOrSuperAdmin |
 | `DELETE /api/reports/sessions/:token` | requireReportSession |
-| `DELETE /api/reports/sites/:id` | requireReportSession |
-| `DELETE /api/reports/users/:id` | requireReportSession |
+| `DELETE /api/reports/sites/:id` | requireReportSession + requireExecutiveOrSuperAdmin |
+| `DELETE /api/reports/users/:id` | requireReportSession + requireSuperAdmin |
 | `DELETE /api/risk-register-config/aliases/:sdp_label` | requireReportSession |
-| `DELETE /api/roadmap/action/:uid` | requireReportSession |
-| `DELETE /api/roadmap/deliverable/:uid` | requireReportSession |
-| `DELETE /api/roadmap/resource/:uid` | requireReportSession |
-| `DELETE /api/roadmap/training/:uid` | requireReportSession |
+| `DELETE /api/roadmap/action/:uid` | requireReportSession + requireSuperAdmin |
+| `DELETE /api/roadmap/deliverable/:uid` | requireReportSession + requireSuperAdmin |
+| `DELETE /api/roadmap/resource/:uid` | requireReportSession + requireSuperAdmin |
+| `DELETE /api/roadmap/training/:uid` | requireReportSession + requireSuperAdmin |
 | `DELETE /api/trackers/:key` | requireReportSession |
 | `GET /api/actions/open` | public — Meridian server-to-server — own X-API-Key check inside routes/meridian.js |
 | `GET /api/admin/backup-schedule` | requireReportSession |
@@ -33,10 +33,10 @@
 | `GET /api/analytics/infra/trend` | requireReportSession |
 | `GET /api/analytics/opmanager/availability` | requireReportSession |
 | `GET /api/analytics/opmanager/coverage` | requireReportSession |
-| `GET /api/analytics/wan/mappings` | requireReportSession |
-| `GET /api/analytics/wan/sla/config` | requireReportSession |
-| `GET /api/analytics/wan/sla/contracts` | requireReportSession |
-| `GET /api/analytics/wan/sla/contracts/:key/evidence` | requireReportSession |
+| `GET /api/analytics/wan/mappings` | requireReportSession + requireSuperAdmin |
+| `GET /api/analytics/wan/sla/config` | requireReportSession + requireSuperAdmin |
+| `GET /api/analytics/wan/sla/contracts` | requireReportSession + requireSuperAdmin |
+| `GET /api/analytics/wan/sla/contracts/:key/evidence` | requireReportSession + requireSuperAdmin |
 | `GET /api/analytics/wan/sla/export.csv` | requireReportSession |
 | `GET /api/analytics/wan/sla/export.xlsx` | requireReportSession |
 | `GET /api/analytics/wan/sla/outages` | requireReportSession |
@@ -89,7 +89,7 @@
 | `GET /api/commitments/:id/evidence/:eid` | requireReportSession |
 | `GET /api/commitments/escalations` | requireReportSession |
 | `GET /api/commitments/metrics` | requireReportSession |
-| `GET /api/dashboard/groups/discovered` | requireReportSession |
+| `GET /api/dashboard/groups/discovered` | requireReportSession + requireAdmin |
 | `GET /api/dashboard/presets` | requireReportSession |
 | `GET /api/dashboards` | requireReportSession |
 | `GET /api/dashboards/:key` | requireReportSession |
@@ -130,16 +130,16 @@
 | `GET /api/data/ticket-volume` | global /api gate (session or page key) |
 | `GET /api/debug/raw-test` | requireReportSession |
 | `GET /api/engagement/comments` | requireReportSession |
-| `GET /api/engagement/consumers` | requireReportSession |
-| `GET /api/engagement/firings` | requireReportSession |
+| `GET /api/engagement/consumers` | requireReportSession + requireAdmin |
+| `GET /api/engagement/firings` | requireReportSession + requireAdmin |
 | `GET /api/engagement/notifications` | requireReportSession |
 | `GET /api/engagement/notifications/count` | requireReportSession |
 | `GET /api/engagement/rules` | requireReportSession |
 | `GET /api/engagement/share` | requireReportSession |
 | `GET /api/engagement/share/:id/receipts` | requireReportSession |
-| `GET /api/engagement/stats` | requireReportSession |
+| `GET /api/engagement/stats` | requireReportSession + requireAdmin |
 | `GET /api/engagement/subscriptions` | requireReportSession |
-| `GET /api/exec/editorial` | requireReportSession |
+| `GET /api/exec/editorial` | requireReportSession + requireSuperAdmin |
 | `GET /api/exec/summary` | public — SharePoint-facing aggregates, PII-whitelisted (Exec View v1) |
 | `GET /api/field/bootstrap` | requireReportSession |
 | `GET /api/field/outbox` | requireReportSession |
@@ -186,7 +186,7 @@
 | `GET /api/inspection/list,/api/inspection/aggregate,/api/inspection/actions,/api/inspection/:id` | requireReportSession |
 | `GET /api/inspection/lookups` | requireReportSession |
 | `GET /api/inspection/people` | requireReportSession |
-| `GET /api/integrations/analytics` | requireReportSession |
+| `GET /api/integrations/analytics` | requireReportSession + requireSuperAdmin |
 | `GET /api/me/work` | requireReportSession |
 | `GET /api/meetings/:id` | requireReportSession |
 | `GET /api/meetings/:id/export-pptx` | requireReportSession |
@@ -202,18 +202,18 @@
 | `GET /api/meetings/list` | requireReportSession |
 | `GET /api/meetings/list,/api/meetings/aggregate,/api/meetings/insights,/api/meetings/issues,/api/meetings/escalations,/api/meetings/actions,/api/meetings/unsigned,/api/meetings/progress,/api/meetings/progress/export-pptx,/api/meetings/compliance,/api/meetings/:id,/api/meetings/:id/export-pptx` | requireReportSession |
 | `GET /api/meetings/lookups` | requireReportSession |
-| `GET /api/meetings/lookups/:table` | requireReportSession |
+| `GET /api/meetings/lookups/:table` | requireReportSession + requireRole(super_admin) |
 | `GET /api/meetings/people` | requireReportSession |
 | `GET /api/meetings/progress` | requireReportSession |
 | `GET /api/meetings/progress/export-pptx` | requireReportSession |
 | `GET /api/meetings/unsigned` | requireReportSession |
 | `GET /api/metrics/:key` | requireReportSession |
-| `GET /api/metrics/cab` | requireReportSession |
-| `GET /api/metrics/change` | requireReportSession |
+| `GET /api/metrics/cab` | requireReportSession + requireRole(admin or scorecard-viewer) |
+| `GET /api/metrics/change` | requireReportSession + requireRole(admin or scorecard-viewer) |
 | `GET /api/metrics/registry` | requireReportSession |
-| `GET /api/metrics/request-filter-options` | requireReportSession |
-| `GET /api/metrics/requests` | requireReportSession |
-| `GET /api/metrics/survey` | requireReportSession |
+| `GET /api/metrics/request-filter-options` | requireReportSession + requireRole(admin or scorecard-viewer) |
+| `GET /api/metrics/requests` | requireReportSession + requireRole(admin or scorecard-viewer) |
+| `GET /api/metrics/survey` | requireReportSession + requireRole(admin or scorecard-viewer) |
 | `GET /api/metrics/targets` | requireReportSession |
 | `GET /api/notes` | requireReportSession |
 | `GET /api/obligations` | requireReportSession |
@@ -230,7 +230,7 @@
 | `GET /api/reports/:id/actions-from/:source_report_id` | requireReportSession |
 | `GET /api/reports/:id/active-incidents` | requireReportSession |
 | `GET /api/reports/:id/asset-followups` | requireReportSession |
-| `GET /api/reports/:id/audit` | requireReportSession |
+| `GET /api/reports/:id/audit` | requireReportSession + requireRole(audit-viewer or editor) |
 | `GET /api/reports/:id/carry-over-actions` | requireReportSession |
 | `GET /api/reports/:id/carry-over-infra` | requireReportSession |
 | `GET /api/reports/:id/importable-actions` | requireReportSession |
@@ -242,10 +242,10 @@
 | `GET /api/reports/:id/pptx` | requireReportSession |
 | `GET /api/reports/:id/site-open-actions` | requireReportSession |
 | `GET /api/reports/auth/me` | requireReportSession |
-| `GET /api/reports/config` | requireReportSession |
+| `GET /api/reports/config` | requireReportSession + requireSuperAdmin |
 | `GET /api/reports/current-week` | requireReportSession |
 | `GET /api/reports/departments` | requireReportSession |
-| `GET /api/reports/exec-editorial` | requireReportSession |
+| `GET /api/reports/exec-editorial` | requireReportSession + requireAdmin |
 | `GET /api/reports/helpdesk-charts` | requireReportSession |
 | `GET /api/reports/helpdesk-live` | requireReportSession |
 | `GET /api/reports/monthly/:site_id/:year/:month` | requireReportSession |
@@ -253,12 +253,12 @@
 | `GET /api/reports/monthly/:site_id/:year/:month/pptx` | requireReportSession |
 | `GET /api/reports/monthly/:site_id/:year/:month/pptx-v2` | requireReportSession |
 | `GET /api/reports/monthly/:site_id/:year/:month/site-template/pptx` | requireReportSession |
-| `GET /api/reports/monthly/all-sites/:year/:month/pptx` | requireReportSession |
+| `GET /api/reports/monthly/all-sites/:year/:month/pptx` | requireReportSession + requireAdmin |
 | `GET /api/reports/objectives/:site_id/:year` | requireReportSession |
-| `GET /api/reports/recipients` | requireReportSession |
-| `GET /api/reports/review-data` | requireReportSession |
-| `GET /api/reports/schedule` | requireReportSession |
-| `GET /api/reports/sessions/active` | requireReportSession |
+| `GET /api/reports/recipients` | requireReportSession + requireSuperAdmin |
+| `GET /api/reports/review-data` | requireReportSession + requireRole(executive or scorecard-viewer) |
+| `GET /api/reports/schedule` | requireReportSession + requireSuperAdmin |
+| `GET /api/reports/sessions/active` | requireReportSession + requireSuperAdmin |
 | `GET /api/reports/site-actions` | requireReportSession |
 | `GET /api/reports/site-data` | requireReportSession |
 | `GET /api/reports/sites` | requireReportSession |
@@ -267,22 +267,22 @@
 | `GET /api/reports/system-log/export.csv` | requireReportSession |
 | `GET /api/reports/system-log/export.json` | requireReportSession |
 | `GET /api/reports/technicians` | requireReportSession |
-| `GET /api/reports/users` | requireReportSession |
-| `GET /api/reports/weekly-summary/:year/:week/pptx` | requireReportSession |
+| `GET /api/reports/users` | requireReportSession + requireSuperAdmin |
+| `GET /api/reports/weekly-summary/:year/:week/pptx` | requireReportSession + requireAdmin |
 | `GET /api/reports/yearly/:site_id/:year` | requireReportSession |
 | `GET /api/requests` | requireReportSession |
 | `GET /api/risk-register-config/aliases` | requireReportSession |
 | `GET /api/risk-register-config/sites` | requireReportSession |
 | `GET /api/risk-register-config/unmapped` | requireReportSession |
 | `GET /api/risk-register-export` | requireReportSession |
-| `GET /api/roadmap` | requireReportSession |
-| `GET /api/roadmap/evidence/catalogue` | requireReportSession |
-| `GET /api/roadmap/evidence/incidents` | requireReportSession |
-| `GET /api/roadmap/evidence/platform` | requireReportSession |
-| `GET /api/roadmap/mode` | requireReportSession |
-| `GET /api/roadmap/parity` | requireReportSession |
-| `GET /api/roadmap/project` | requireReportSession |
-| `GET /api/roadmap/training` | requireReportSession |
+| `GET /api/roadmap` | requireReportSession + requireSuperAdmin |
+| `GET /api/roadmap/evidence/catalogue` | requireReportSession + requireSuperAdmin |
+| `GET /api/roadmap/evidence/incidents` | requireReportSession + requireSuperAdmin |
+| `GET /api/roadmap/evidence/platform` | requireReportSession + requireSuperAdmin |
+| `GET /api/roadmap/mode` | requireReportSession + requireSuperAdmin |
+| `GET /api/roadmap/parity` | requireReportSession + requireSuperAdmin |
+| `GET /api/roadmap/project` | requireReportSession + requireSuperAdmin |
+| `GET /api/roadmap/training` | requireReportSession + requireSuperAdmin |
 | `GET /api/sample/:viewId` | requireReportSession |
 | `GET /api/site-awareness/actions` | requireReportSession |
 | `GET /api/site-awareness/audit` | requireReportSession |
@@ -305,9 +305,9 @@
 | `GET /api/sync/health` | requireReportSession |
 | `GET /api/sync/runs` | requireReportSession |
 | `GET /api/sync/status` | requireReportSession |
-| `GET /api/teams-sla/settings` | requireReportSession |
-| `GET /api/tracker/delete-year` | requireReportSession |
-| `GET /api/tracker/load` | requireReportSession |
+| `GET /api/teams-sla/settings` | requireReportSession + requireSuperAdmin |
+| `GET /api/tracker/delete-year` | requireReportSession + requireRole(super_admin or tracker-admin) |
+| `GET /api/tracker/load` | requireReportSession + requireRole(admin or tracker-admin or tracker-editor) |
 | `GET /api/trackers` | requireReportSession |
 | `GET /api/trackers/:key` | requireReportSession |
 | `GET /api/trackers/:key/entries` | requireReportSession |
@@ -324,23 +324,23 @@
 | `GET /api/workspaces` | requireReportSession |
 | `GET /health` | public — liveness probe |
 | `GET /ready` | public — readiness probe — {ok, db, last_job_at} only, no business data (fiche C1/M14) |
-| `PATCH /api/meetings/lookups/:table/:code/active` | requireReportSession |
+| `PATCH /api/meetings/lookups/:table/:code/active` | requireReportSession + requireRole(super_admin) |
 | `POST /api/admin/backup-now` | requireReportSession |
 | `POST /api/admin/backup-schedule` | requireReportSession |
-| `POST /api/admin/refresh-major-incident-udfs` | requireReportSession |
-| `POST /api/ai/analyze` | requireReportSession |
-| `POST /api/analytics/opmanager/sync` | requireReportSession |
-| `POST /api/analytics/wan/sla/contracts/:key/review` | requireReportSession |
+| `POST /api/admin/refresh-major-incident-udfs` | requireReportSession + requireAdmin |
+| `POST /api/ai/analyze` | requireReportSession + requireRole(report-author) |
+| `POST /api/analytics/opmanager/sync` | requireReportSession + requireAdmin |
+| `POST /api/analytics/wan/sla/contracts/:key/review` | requireReportSession + requireSuperAdmin |
 | `POST /api/analytics/wan/sla/export-filtered.xlsx` | requireReportSession |
-| `POST /api/analytics/wan/sla/sync` | requireReportSession |
-| `POST /api/analytics/wan/sync` | requireReportSession |
-| `POST /api/assets/hygiene/send` | requireReportSession |
-| `POST /api/assets/progress/snapshot` | requireReportSession |
-| `POST /api/assets/reconcile/decision` | requireReportSession |
-| `POST /api/assets/reconcile/import` | requireReportSession |
-| `POST /api/assets/reconcile/preview` | requireReportSession |
-| `POST /api/assets/reconcile/snapshot` | requireReportSession |
-| `POST /api/cache/clear` | requireReportSession |
+| `POST /api/analytics/wan/sla/sync` | requireReportSession + requireAdmin |
+| `POST /api/analytics/wan/sync` | requireReportSession + requireAdmin |
+| `POST /api/assets/hygiene/send` | requireReportSession + requireSuperAdmin |
+| `POST /api/assets/progress/snapshot` | requireReportSession + requireAdmin |
+| `POST /api/assets/reconcile/decision` | requireReportSession + requireRole(editor) |
+| `POST /api/assets/reconcile/import` | requireReportSession + requireAdmin |
+| `POST /api/assets/reconcile/preview` | requireReportSession + requireAdmin |
+| `POST /api/assets/reconcile/snapshot` | requireReportSession + requireAdmin |
+| `POST /api/cache/clear` | requireReportSession + requireAdmin |
 | `POST /api/commitments` | requireReportSession |
 | `POST /api/commitments/:id/evidence` | requireReportSession |
 | `POST /api/commitments/:id/exception` | requireReportSession |
@@ -352,17 +352,17 @@
 | `POST /api/dashboards/:key/submit` | requireReportSession |
 | `POST /api/dashboards/:key/view` | requireReportSession |
 | `POST /api/engagement/comments` | requireReportSession |
-| `POST /api/engagement/consumers` | requireReportSession |
+| `POST /api/engagement/consumers` | requireReportSession + requireAdmin |
 | `POST /api/engagement/notifications/read` | requireReportSession |
-| `POST /api/engagement/rules/evaluate` | requireReportSession |
+| `POST /api/engagement/rules/evaluate` | requireReportSession + requireAdmin |
 | `POST /api/engagement/share` | requireReportSession |
 | `POST /api/engagement/subscriptions` | requireReportSession |
-| `POST /api/executive-new-pptx` | requireReportSession |
+| `POST /api/executive-new-pptx` | requireReportSession + requireRole(report-author) |
 | `POST /api/field/uploads` | requireReportSession |
 | `POST /api/field/uploads/:id/complete` | requireReportSession |
 | `POST /api/governance/cadences/:id/restore` | requireReportSession |
 | `POST /api/governance/cadences/:id/sessions` | requireReportSession |
-| `POST /api/governance/policies/profile` | requireReportSession |
+| `POST /api/governance/policies/profile` | requireReportSession + requireAdminTier |
 | `POST /api/governance/policies/proposals/:id/approve` | requireReportSession |
 | `POST /api/governance/policies/proposals/:id/reject` | requireReportSession |
 | `POST /api/governance/portfolio/:kind/:id/restore` | requireReportSession |
@@ -376,10 +376,10 @@
 | `POST /api/governance/roadmap-migration` | requireReportSession |
 | `POST /api/governance/roles/assignments` | requireReportSession |
 | `POST /api/governance/roles/assignments/:id/end` | requireReportSession |
-| `POST /api/governance/roles/calendar` | requireReportSession |
-| `POST /api/governance/roles/calendar/:id/remove` | requireReportSession |
-| `POST /api/governance/roles/deputies` | requireReportSession |
-| `POST /api/governance/roles/deputies/:id/revoke` | requireReportSession |
+| `POST /api/governance/roles/calendar` | requireReportSession + requireAdminTier |
+| `POST /api/governance/roles/calendar/:id/remove` | requireReportSession + requireAdminTier |
+| `POST /api/governance/roles/deputies` | requireReportSession + requireAdminTier |
+| `POST /api/governance/roles/deputies/:id/revoke` | requireReportSession + requireAdminTier |
 | `POST /api/governance/roles/matrix` | requireReportSession |
 | `POST /api/governance/roles/matrix/:id/retire` | requireReportSession |
 | `POST /api/governance/sessions/:id/accept` | requireReportSession |
@@ -399,9 +399,9 @@
 | `POST /api/inspection/:id/restore` | requireReportSession |
 | `POST /api/inspection/actions/:id/update` | requireReportSession |
 | `POST /api/inspection/aggregate/export` | requireReportSession |
-| `POST /api/inspection/reset` | requireReportSession |
+| `POST /api/inspection/reset` | requireReportSession + requireRole(super_admin) |
 | `POST /api/inspection/save` | requireReportSession |
-| `POST /api/integrations/analytics/test` | requireReportSession |
+| `POST /api/integrations/analytics/test` | requireReportSession + requireSuperAdmin |
 | `POST /api/meetings/:id/restore` | requireReportSession |
 | `POST /api/meetings/:id/sign` | requireReportSession |
 | `POST /api/meetings/actions/:id/update` | requireReportSession |
@@ -411,10 +411,10 @@
 | `POST /api/meetings/import/preview` | requireReportSession |
 | `POST /api/meetings/issues/:id/actions` | requireReportSession |
 | `POST /api/meetings/issues/:id/update` | requireReportSession |
-| `POST /api/meetings/lookups/:table` | requireReportSession |
-| `POST /api/meetings/reset` | requireReportSession |
+| `POST /api/meetings/lookups/:table` | requireReportSession + requireRole(super_admin) |
+| `POST /api/meetings/reset` | requireReportSession + requireRole(super_admin) |
 | `POST /api/meetings/save` | requireReportSession |
-| `POST /api/meridian/sync` | requireReportSession |
+| `POST /api/meridian/sync` | requireReportSession + requireSuperAdmin |
 | `POST /api/metrics/targets` | requireReportSession |
 | `POST /api/metrics/targets/:id/end` | requireReportSession |
 | `POST /api/notes` | requireReportSession |
@@ -427,43 +427,43 @@
 | `POST /api/reports/action/:uid/relineage` | requireReportSession |
 | `POST /api/reports/action/:uid/status` | requireReportSession |
 | `POST /api/reports/action/:uid/unmerge` | requireReportSession |
-| `POST /api/reports/asset-group/send` | requireReportSession |
-| `POST /api/reports/asset-reminders/send` | requireReportSession |
+| `POST /api/reports/asset-group/send` | requireReportSession + requireSuperAdmin |
+| `POST /api/reports/asset-reminders/send` | requireReportSession + requireSuperAdmin |
 | `POST /api/reports/auth/change-password` | requireReportSession |
 | `POST /api/reports/auth/login` | public — password login (rate-limited) |
 | `POST /api/reports/auth/logout` | requireReportSession |
-| `POST /api/reports/departments` | requireReportSession |
+| `POST /api/reports/departments` | requireReportSession + requireExecutiveOrSuperAdmin |
 | `POST /api/reports/ensure` | requireReportSession |
-| `POST /api/reports/exec-pptx` | requireReportSession |
+| `POST /api/reports/exec-pptx` | requireReportSession + requireAdmin |
 | `POST /api/reports/monthly/:site_id/:year/:month/edits` | requireReportSession |
 | `POST /api/reports/objectives/:site_id/:year` | requireReportSession |
-| `POST /api/reports/recipients/suggest` | requireReportSession |
-| `POST /api/reports/scoreboard/send` | requireReportSession |
-| `POST /api/reports/send` | requireReportSession |
-| `POST /api/reports/sites` | requireReportSession |
-| `POST /api/reports/test-smtp` | requireReportSession |
-| `POST /api/reports/users` | requireReportSession |
-| `POST /api/reports/weekly/send` | requireReportSession |
+| `POST /api/reports/recipients/suggest` | requireReportSession + requireSuperAdmin |
+| `POST /api/reports/scoreboard/send` | requireReportSession + requireSuperAdmin |
+| `POST /api/reports/send` | requireReportSession + requireSuperAdmin |
+| `POST /api/reports/sites` | requireReportSession + requireExecutiveOrSuperAdmin |
+| `POST /api/reports/test-smtp` | requireReportSession + requireSuperAdmin |
+| `POST /api/reports/users` | requireReportSession + requireSuperAdmin |
+| `POST /api/reports/weekly/send` | requireReportSession + requireSuperAdmin |
 | `POST /api/risk-register-config/aliases` | requireReportSession |
-| `POST /api/roadmap/action` | requireReportSession |
-| `POST /api/roadmap/deliverable` | requireReportSession |
-| `POST /api/roadmap/resource` | requireReportSession |
-| `POST /api/roadmap/training` | requireReportSession |
+| `POST /api/roadmap/action` | requireReportSession + requireSuperAdmin |
+| `POST /api/roadmap/deliverable` | requireReportSession + requireSuperAdmin |
+| `POST /api/roadmap/resource` | requireReportSession + requireSuperAdmin |
+| `POST /api/roadmap/training` | requireReportSession + requireSuperAdmin |
 | `POST /api/save-charts` | requireReportSession |
-| `POST /api/save-pptx` | requireReportSession |
-| `POST /api/survey/cache/clear` | requireReportSession |
-| `POST /api/survey/dimension-cache/clear` | requireReportSession |
-| `POST /api/survey/voice-cache/clear` | requireReportSession |
-| `POST /api/sync/trigger/:job` | requireReportSession |
-| `POST /api/sync/trigger/assets` | requireReportSession |
-| `POST /api/teams-sla/preview` | requireReportSession |
-| `POST /api/teams-sla/run` | requireReportSession |
-| `POST /api/teams-sla/test` | requireReportSession |
-| `POST /api/tracker/delete-year` | requireReportSession |
-| `POST /api/tracker/export` | requireReportSession |
-| `POST /api/tracker/import-dept-meetings` | requireReportSession |
-| `POST /api/tracker/reset` | requireReportSession |
-| `POST /api/tracker/save` | requireReportSession |
+| `POST /api/save-pptx` | requireReportSession + requireRole(report-author) |
+| `POST /api/survey/cache/clear` | requireReportSession + requireAdmin |
+| `POST /api/survey/dimension-cache/clear` | requireReportSession + requireAdmin |
+| `POST /api/survey/voice-cache/clear` | requireReportSession + requireAdmin |
+| `POST /api/sync/trigger/:job` | requireReportSession + requireAdmin |
+| `POST /api/sync/trigger/assets` | requireReportSession + requireAdmin |
+| `POST /api/teams-sla/preview` | requireReportSession + requireSuperAdmin |
+| `POST /api/teams-sla/run` | requireReportSession + requireSuperAdmin |
+| `POST /api/teams-sla/test` | requireReportSession + requireSuperAdmin |
+| `POST /api/tracker/delete-year` | requireReportSession + requireRole(super_admin or tracker-admin) |
+| `POST /api/tracker/export` | requireReportSession + requireRole(admin or tracker-admin) |
+| `POST /api/tracker/import-dept-meetings` | requireReportSession + requireRole(super_admin or tracker-admin or tracker-editor) |
+| `POST /api/tracker/reset` | requireReportSession + requireRole(super_admin or tracker-admin) |
+| `POST /api/tracker/save` | requireReportSession + requireRole(super_admin or tracker-admin or tracker-editor) |
 | `POST /api/trackers/:key/dry-run` | requireReportSession |
 | `POST /api/trackers/:key/import` | requireReportSession |
 | `POST /api/trackers/:key/publish` | requireReportSession |
@@ -472,21 +472,21 @@
 | `POST /api/trackers/:key/submit` | requireReportSession |
 | `POST /api/trackers/:key/sync` | requireReportSession |
 | `POST /api/trackers/legacy/import` | requireReportSession |
-| `PUT /api/analytics/wan/mappings` | requireReportSession |
-| `PUT /api/analytics/wan/sla/config` | requireReportSession |
-| `PUT /api/analytics/wan/sla/contracts/:key` | requireReportSession |
-| `PUT /api/assets/depreciation-config` | requireReportSession |
+| `PUT /api/analytics/wan/mappings` | requireReportSession + requireSuperAdmin |
+| `PUT /api/analytics/wan/sla/config` | requireReportSession + requireSuperAdmin |
+| `PUT /api/analytics/wan/sla/contracts/:key` | requireReportSession + requireSuperAdmin |
+| `PUT /api/assets/depreciation-config` | requireReportSession + requireSuperAdmin |
 | `PUT /api/commitments/:id` | requireReportSession |
-| `PUT /api/dashboard/presets` | requireReportSession |
+| `PUT /api/dashboard/presets` | requireReportSession + requireAdmin |
 | `PUT /api/dashboards/:key` | requireReportSession |
-| `PUT /api/engagement/firings/:id` | requireReportSession |
-| `PUT /api/engagement/rules` | requireReportSession |
-| `PUT /api/exec/editorial` | requireReportSession |
+| `PUT /api/engagement/firings/:id` | requireReportSession + requireAdmin |
+| `PUT /api/engagement/rules` | requireReportSession + requireAdmin |
+| `PUT /api/exec/editorial` | requireReportSession + requireSuperAdmin |
 | `PUT /api/field/outbox/:uuid` | requireReportSession |
 | `PUT /api/field/uploads/:id/chunks/:idx` | requireReportSession |
 | `PUT /api/governance/cadences` | requireReportSession |
 | `PUT /api/governance/decisions/:id` | requireReportSession |
-| `PUT /api/governance/policies` | requireReportSession |
+| `PUT /api/governance/policies` | requireReportSession + requireAdminTier |
 | `PUT /api/governance/portfolio/:kind` | requireReportSession |
 | `PUT /api/governance/portfolio/project/:id/sites` | requireReportSession |
 | `PUT /api/governance/rfi/:id` | requireReportSession |
@@ -495,8 +495,8 @@
 | `PUT /api/governance/site-codes` | requireReportSession |
 | `PUT /api/governance/site-codes/:site` | requireReportSession |
 | `PUT /api/governance/sites/:id/hierarchy` | requireReportSession |
-| `PUT /api/integrations/analytics` | requireReportSession |
-| `PUT /api/meetings/lookups/:table/:code` | requireReportSession |
+| `PUT /api/integrations/analytics` | requireReportSession + requireSuperAdmin |
+| `PUT /api/meetings/lookups/:table/:code` | requireReportSession + requireRole(super_admin) |
 | `PUT /api/report-studio/runs/:id/commentary` | requireReportSession |
 | `PUT /api/report-studio/templates` | requireReportSession |
 | `PUT /api/reports/:id/actions` | requireReportSession |
@@ -506,20 +506,20 @@
 | `PUT /api/reports/:id/lights` | requireReportSession |
 | `PUT /api/reports/:id/reassign-week` | requireReportSession |
 | `PUT /api/reports/:id/status` | requireReportSession |
-| `PUT /api/reports/config` | requireReportSession |
-| `PUT /api/reports/departments/:id` | requireReportSession |
-| `PUT /api/reports/exec-editorial` | requireReportSession |
-| `PUT /api/reports/recipients/:site` | requireReportSession |
-| `PUT /api/reports/schedule` | requireReportSession |
-| `PUT /api/reports/sites/:id` | requireReportSession |
-| `PUT /api/reports/users/:id` | requireReportSession |
-| `PUT /api/reports/users/emails` | requireReportSession |
-| `PUT /api/roadmap/action/:uid` | requireReportSession |
-| `PUT /api/roadmap/deliverable/:uid` | requireReportSession |
-| `PUT /api/roadmap/objective/:key` | requireReportSession |
-| `PUT /api/roadmap/resource/:uid` | requireReportSession |
-| `PUT /api/roadmap/training/:uid` | requireReportSession |
-| `PUT /api/teams-sla/settings` | requireReportSession |
+| `PUT /api/reports/config` | requireReportSession + requireSuperAdmin |
+| `PUT /api/reports/departments/:id` | requireReportSession + requireExecutiveOrSuperAdmin |
+| `PUT /api/reports/exec-editorial` | requireReportSession + requireAdmin |
+| `PUT /api/reports/recipients/:site` | requireReportSession + requireSuperAdmin |
+| `PUT /api/reports/schedule` | requireReportSession + requireSuperAdmin |
+| `PUT /api/reports/sites/:id` | requireReportSession + requireSuperAdmin |
+| `PUT /api/reports/users/:id` | requireReportSession + requireSuperAdmin |
+| `PUT /api/reports/users/emails` | requireReportSession + requireSuperAdmin |
+| `PUT /api/roadmap/action/:uid` | requireReportSession + requireSuperAdmin |
+| `PUT /api/roadmap/deliverable/:uid` | requireReportSession + requireSuperAdmin |
+| `PUT /api/roadmap/objective/:key` | requireReportSession + requireSuperAdmin |
+| `PUT /api/roadmap/resource/:uid` | requireReportSession + requireSuperAdmin |
+| `PUT /api/roadmap/training/:uid` | requireReportSession + requireSuperAdmin |
+| `PUT /api/teams-sla/settings` | requireReportSession + requireSuperAdmin |
 | `PUT /api/trackers/:key` | requireReportSession |
 | `PUT /api/trackers/:key/entries` | requireReportSession |
 | `PUT /api/trackers/:key/targets` | requireReportSession |

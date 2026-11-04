@@ -3564,6 +3564,9 @@ app.get('/api/survey/:response_id/answers', requireReportSession, async (req, re
 // ═══════════════════════════════════════════════════════════════════
 // COMPUTED METRICS — PostgreSQL, replicate Zoho Analytics aggregates
 // ═══════════════════════════════════════════════════════════════════
+// C-02 / G31 — same gate as public/analytics.html (data-require="admin|scorecard-viewer"); the
+// page gate is not a permission boundary. Only analytics.html calls these five routes.
+const requireAnalyticsData = requireRole(['admin', 'scorecard-viewer']);
 
 /**
  * GET /api/metrics/change
@@ -3576,7 +3579,7 @@ app.get('/api/survey/:response_id/answers', requireReportSession, async (req, re
  *   site_id  — filter to a single site (optional)
  *   since    — ISO date string — only changes created on/after this date (optional)
  */
-app.get('/api/metrics/change', requireReportSession, async (req, res) => {
+app.get('/api/metrics/change', requireReportSession, requireAnalyticsData, async (req, res) => {
   try {
     const { getChangeMetrics, getSyncStatus } = require('./reports-db');
     const { site_id, since } = req.query;
@@ -3597,7 +3600,7 @@ app.get('/api/metrics/change', requireReportSession, async (req, res) => {
  * Query params:
  *   since    — ISO date string — only approvals requested on/after this date (optional)
  */
-app.get('/api/metrics/cab', requireReportSession, async (req, res) => {
+app.get('/api/metrics/cab', requireReportSession, requireAnalyticsData, async (req, res) => {
   try {
     const { getCABMetrics, getSyncStatus } = require('./reports-db');
     const { since } = req.query;
@@ -3618,7 +3621,7 @@ app.get('/api/metrics/cab', requireReportSession, async (req, res) => {
  * Query params:
  *   since    — ISO date string — only surveys sent on/after this date (optional)
  */
-app.get('/api/metrics/survey', requireReportSession, async (req, res) => {
+app.get('/api/metrics/survey', requireReportSession, requireAnalyticsData, async (req, res) => {
   try {
     const { getSurveyMetrics, getSyncStatus } = require('./reports-db');
     const { since } = req.query;
@@ -3645,7 +3648,7 @@ app.get('/api/metrics/survey', requireReportSession, async (req, res) => {
  *   site   — filter by site name (optional)
  *   since  — ISO date string — only requests created on/after this date (optional)
  */
-app.get('/api/metrics/requests', requireReportSession, async (req, res) => {
+app.get('/api/metrics/requests', requireReportSession, requireAnalyticsData, async (req, res) => {
   try {
     const { getRequestMetrics, getSyncStatus } = require('./reports-db');
     const { site, since, status, rtype, impact, mode } = req.query;
@@ -3670,7 +3673,7 @@ app.get('/api/metrics/requests', requireReportSession, async (req, res) => {
  * Distinct values for the analytics multi-select filters
  * (Request Status / Request Type / Impact / Mode). 2026-06-11.
  */
-app.get('/api/metrics/request-filter-options', requireReportSession, async (req, res) => {
+app.get('/api/metrics/request-filter-options', requireReportSession, requireAnalyticsData, async (req, res) => {
   try {
     const { getRequestFilterOptions } = require('./reports-db');
     res.json({ ok: true, data: await getRequestFilterOptions() });
@@ -5194,7 +5197,7 @@ function requireExecutiveOrSuperAdmin(req, res, next) {
 //   requireRole(['tracker-admin', 'tracker-editor'])  // either is enough
 function requireRole(roleOrRoles) {
   const roles = Array.isArray(roleOrRoles) ? roleOrRoles : [roleOrRoles];
-  return function (req, res, next) {
+  const mw = function (req, res, next) {
     if (!rdb) return res.status(503).json({ error: 'RBAC unavailable' });
     if (!roles.some(r => rdb.userHasRole(req.reportUser, r))) {
       return res.status(403).json({
@@ -5203,6 +5206,9 @@ function requireRole(roleOrRoles) {
     }
     next();
   };
+  // Named so docs/ops/AUTHZ-MATRIX.md shows which roles gate the route (C-02).
+  Object.defineProperty(mw, 'name', { value: 'requireRole(' + roles.join(' or ') + ')' });
+  return mw;
 }
 
 const jsonBody = express.json({ limit: '2mb' });
