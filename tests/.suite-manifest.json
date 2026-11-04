@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 3181,
+ "total": 3194,
  "files": {
   "a11y-static.test.js": 13,
   "access-denied-log.smoke.test.js": 3,
@@ -199,9 +199,11 @@
   "limit-clamp.test.js": 2,
   "mailer-smtp-config.test.js": 9,
   "mailer.test.js": 3,
+  "meeting-save-conflict-client.test.js": 3,
   "meeting-status-options.test.js": 5,
   "meetings-contacts.test.js": 9,
   "meetings-incubation.test.js": 9,
+  "meetings-save-conflict.smoke.test.js": 3,
   "meetings-score-inputs.test.js": 11,
   "meetings-signature-stamp.test.js": 6,
   "meetings-site-scope.smoke.test.js": 5,
@@ -253,6 +255,7 @@
   "pg-governance-store.test.js": 1,
   "pg-helpers-policy.test.js": 11,
   "pg-inspection.test.js": 5,
+  "pg-meetings-concurrency.test.js": 7,
   "pg-meetings.test.js": 12,
   "pg-migrate.test.js": 2,
   "pg-report-asset-review.test.js": 1,
