@@ -11,6 +11,7 @@ module.exports = function softDeleteRoutes(deps) {
   const rdb = deps.rdb || require('../reports-db');
   const idb = () => deps.inspectionDb || require('../inspection-db');
   const mdb = () => deps.meetingsDb || require('../meetings-db');
+  const gov = () => (typeof deps.getGovStore === 'function' ? deps.getGovStore() : null);
   const router = express.Router();
   const jsonBody = express.json({ limit: '64kb' });
 
@@ -48,6 +49,32 @@ module.exports = function softDeleteRoutes(deps) {
     } catch (e) { fail(res, e); }
   });
 
+  // POST /api/governance/portfolio/:kind/:id/restore — the node comes back with its (never stamped) subtree.
+  router.post('/api/governance/portfolio/:kind/:id/restore', requireReportSession, jsonBody, async (req, res) => {
+    try {
+      if (!adminOr403(req, res)) return;
+      const st = gov(); if (!st) return res.status(503).json({ error: 'Governance module not available' });
+      const cfg = await softDelete.readConfig(rdb);
+      const row = softDelete.assertRestorable(await st.getPortfolioTrashRow(req.params.kind, req.params.id), cfg, { what: req.params.kind });
+      if (!(await st.restorePortfolio(req.params.kind, row.id, { user: req.reportUser }))) return res.status(409).json({ error: `This ${req.params.kind} is not deleted` });
+      log(req, 'portfolio', 'portfolio_restored', `${req.params.kind}:${row.id}`, { deleted_at: row.deleted_at });
+      res.json({ ok: true, kind: req.params.kind, id: row.id });
+    } catch (e) { fail(res, e); }
+  });
+
+  // POST /api/governance/cadences/:id/restore — its sessions, actions and decision links come back with it.
+  router.post('/api/governance/cadences/:id/restore', requireReportSession, jsonBody, async (req, res) => {
+    try {
+      if (!adminOr403(req, res)) return;
+      const st = gov(); if (!st) return res.status(503).json({ error: 'Governance module not available' });
+      const cfg = await softDelete.readConfig(rdb);
+      const row = softDelete.assertRestorable(await st.getCadenceTrashRow(req.params.id), cfg, { what: 'cadence' });
+      if (!(await st.restoreCadence(row.id))) return res.status(409).json({ error: 'This cadence is not deleted' });
+      log(req, 'portfolio', 'cadence_restored', row.id, { key: row.key, deleted_at: row.deleted_at });
+      res.json({ ok: true, id: row.id });
+    } catch (e) { fail(res, e); }
+  });
+
   // GET /api/admin/trash?module=inspection — deleted rows with who / when / why and whether still restorable.
   router.get('/api/admin/trash', requireReportSession, async (req, res) => {
     try {
@@ -56,7 +83,7 @@ module.exports = function softDeleteRoutes(deps) {
       if (module && !ops.moduleNames().includes(module)) return res.status(400).json({ error: `unknown module (expected one of ${ops.moduleNames().join(', ')})` });
       const cfg = await softDelete.readConfig(rdb);
       const days = softDelete.retentionDays(cfg);
-      const rows = await ops.trash({ module });
+      const rows = await ops.trash({ module, govStore: gov() });
       let names = new Map();
       try { names = new Map(((await rdb.listUsers()) || []).map((u) => [Number(u.id), u.username || u.full_name || null])); } catch (_) { /* names are optional */ }
       const now = new Date();

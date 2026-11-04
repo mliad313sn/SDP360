@@ -19,6 +19,9 @@ const GUARDED = {
   'inspection-db.js': ['insp_inspections'],
   'meetings-db.js': ['md_meetings'],
   'services/reviewData.js': ['insp_inspections', 'md_meetings'],
+  'services/governanceStore.js': ['meeting_cadences', 'meeting_sessions', 'portfolio_programmes', 'portfolio_objectives', 'portfolio_projects',
+    'portfolio_tasks', 'portfolio_milestones', 'portfolio_deliverables', 'portfolio_risks'],
+  'routes/governanceRoles.js': ['meeting_cadences'],
 };
 
 // file → function name → reason it may read deleted rows / gets its filter elsewhere
@@ -48,6 +51,24 @@ const ALLOW = {
     _listActionsPg: 'WHERE comes from `w`, always seeded with m.deleted_at IS NULL',
     _aggregatePg: 'WHERE comes from `w`, always seeded with m.deleted_at IS NULL',
     exportRows: 'WHERE comes from `wm`, always carrying m.deleted_at IS NULL',
+  },
+  'services/governanceStore.js': {
+    openSessionActions: 'WHERE comes from `where`, always seeded with c.deleted_at IS NULL',
+    _projectGone: 'reads the deleted_at of the project chain on purpose (returns true when any is set)',
+    projectDetail: 'objective read for a project already checked live by _projectGone',
+    upsertPortfolio: 'dependency siblings + before-row of a node already refused when deleted (CONFLICT guard above)',
+    moveProjectStage: 'returns the row just updated; the project was resolved live first',
+    rfiToProject: 'an RFI that became a project stays linked to it even when the project is soft-deleted (no duplicate project)',
+    restorePortfolio: 'restore reads the restored row for the ledger',
+    saveCadence: 'reads deleted_at to REFUSE editing / resurrecting a deleted cadence by key (CONFLICT)',
+    removeCadence: 'the hard delete itself (switch off)',
+    getCadenceTrashRow: 'restore / trash read: must see deleted rows',
+    listDeletedCadences: 'admin trash listing: deleted rows only',
+    purgeDeletedCadences: 'purge: deleted rows past retention only',
+    getPortfolioTrashRow: 'restore / trash read: must see deleted rows',
+    listDeletedPortfolio: 'admin trash listing: deleted rows only',
+    purgeDeletedPortfolio: 'purge: deleted rows past retention only',
+    removePortfolio: 'ledger read before the delete (filtered when soft) and the hard delete itself',
   },
 };
 

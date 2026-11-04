@@ -116,3 +116,35 @@ test('meetings: switch off → DELETE stays a hard delete and logs meeting_delet
   assert.equal(await require('../meetings-db').getMeetingTrashRow(id), null);
   assert.equal((await waitEvent('meeting_deleted', id)).length, 1);
 });
+
+const put = (p, t, b) => fetch(base + p, { method: 'PUT', headers: H(t), body: JSON.stringify(b || {}) });
+test('portfolio + cadence: switch on → soft delete, trash lists both, editor restore 403, admin restore 200, events logged', async () => {
+  await setSoft(true);
+  const idOf = async (r) => { const t = await r.text(); assert.equal(r.status, 200, t); return JSON.parse(t).id; };
+  const pr = await idOf(await put('/api/governance/portfolio/programme', superTok, { key: 'sdr-p', name: 'SDR P' }));
+  const ob = await idOf(await put('/api/governance/portfolio/objective', superTok, { programme_id: pr, key: 'sdr-o', name: 'SDR O' }));
+  const pj = await idOf(await put('/api/governance/portfolio/project', superTok, { objective_id: ob, key: 'sdr-j', name: 'SDR J' }));
+  const d = await del(`/api/governance/portfolio/project/${pj}?reason=dup`, superTok);
+  assert.equal(d.status, 200, await d.text());
+  assert.equal((await waitEvent('portfolio_soft_deleted', `project:${pj}`)).length, 1);
+  const pf = await (await get('/api/governance/portfolio', superTok)).json();
+  assert.ok(!(pf.projects || []).some((p) => Number(p.id) === Number(pj)), 'hidden from the portfolio');
+  const cad = await put('/api/governance/cadences', superTok, { key: 'sdr-cab', name: 'SDR CAB', kind: 'cab' });
+  assert.equal(cad.status, 200, await cad.text());
+  const cid = (await (await get('/api/governance/cadences', superTok)).json()).cadences.find((c) => c.key === 'sdr-cab').id;
+  assert.equal((await del(`/api/governance/cadences/${cid}`, superTok)).status, 200);
+  assert.equal((await waitEvent('cadence_soft_deleted', cid)).length, 1);
+  const t = await (await get('/api/admin/trash?module=portfolio', superTok)).json();
+  const prow = t.rows.find((x) => x.kind === 'project' && Number(x.id) === Number(pj));
+  const crow = t.rows.find((x) => x.kind === 'cadence' && Number(x.id) === Number(cid));
+  assert.ok(prow && prow.delete_reason === 'dup' && crow);
+  assert.equal((await post(prow.restore_url, edTok)).status, 403);
+  assert.equal((await post(crow.restore_url, edTok)).status, 403);
+  assert.equal((await post(prow.restore_url, superTok)).status, 200);
+  assert.equal((await post(crow.restore_url, superTok)).status, 200);
+  assert.equal((await waitEvent('portfolio_restored', `project:${pj}`)).length, 1);
+  assert.equal((await waitEvent('cadence_restored', cid)).length, 1);
+  assert.equal((await post('/api/governance/portfolio/nope/1/restore', superTok)).status, 404);
+  const pf2 = await (await get('/api/governance/portfolio', superTok)).json();
+  assert.ok((pf2.projects || []).some((p) => Number(p.id) === Number(pj)), 'back in the portfolio');
+});

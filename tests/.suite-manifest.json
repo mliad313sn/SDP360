@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 3541,
+ "total": 3552,
  "files": {
   "a11y-static.test.js": 16,
   "access-denied-log.smoke.test.js": 3,
@@ -433,8 +433,9 @@
   "sla-definition-parity.test.js": 3,
   "soft-delete-inspection.test.js": 6,
   "soft-delete-meetings.test.js": 5,
-  "soft-delete-readers.test.js": 4,
-  "soft-delete-routes.smoke.test.js": 4,
+  "soft-delete-portfolio.test.js": 7,
+  "soft-delete-readers.test.js": 7,
+  "soft-delete-routes.smoke.test.js": 5,
   "sso-db.test.js": 14,
   "sso-entra.test.js": 16,
   "sso-login.test.js": 4,
