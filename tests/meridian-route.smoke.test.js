@@ -60,6 +60,13 @@ test('wrong key → 401', async () => {
   assert.equal(r.status, 401);
 });
 
+test('key of a different length or same length but other content → 401 (constant-time path)', async () => {
+  for (const k of ['x', IN_KEY + 'x', IN_KEY.slice(0, -1) + 'X', '']) {
+    const r = await get('/api/actions/open?site=MGO', k);
+    assert.equal(r.status, 401, `key ${JSON.stringify(k)} refused`);
+  }
+});
+
 test('correct key → 200, C2 shape, seeded action present, PII-safe', async () => {
   const r = await get('/api/actions/open?site=MGO', IN_KEY);
   assert.equal(r.status, 200);

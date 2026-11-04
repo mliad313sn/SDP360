@@ -28,3 +28,12 @@ test('blank meridian_out_key / meridian_in_key are kept (not wiped), like smtp_p
   assert.equal(c.meridian_in_key, 'IN-1', 'blank in key must keep the stored value');
   assert.equal(c.meridian_base_url, 'https://m2', 'non-secret base_url still updates');
 });
+
+test('meridian_enabled (A-20 kill switch) is accepted by setConfig and defaults to "1"', async () => {
+  assert.equal(cfg.DEFAULTS.meridian_enabled, '1');
+  assert.ok(cfg.KEYS.includes('meridian_enabled'));
+  const db = await require('./_pg-fresh').fresh(['report_config']);
+  assert.equal((await cfg.getConfig(db)).meridian_enabled, '1');
+  await cfg.setConfig(db, { meridian_enabled: '0' }, 'u');
+  assert.equal((await cfg.getConfig(db)).meridian_enabled, '0');
+});

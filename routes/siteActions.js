@@ -48,8 +48,10 @@ module.exports = function siteActionsRoutes(deps) {
     let links = {}, baseUrl = '';
     try {
       const cfg = await reportConfig.getConfig(rdb.db);
-      baseUrl = cfg.meridian_base_url || '';
-      links = await require('../services/meridianLinks').getLinksForSite(code, { config: cfg });
+      if (String(cfg.meridian_enabled) !== '0') {   // A-20 kill switch: retired → no read-back, project stays null
+        baseUrl = cfg.meridian_base_url || '';
+        links = await require('../services/meridianLinks').getLinksForSite(code, { config: cfg });
+      }
     } catch (_) { links = {}; }
     require('../services/meridianActions').attachProjectLinks(sa, links, baseUrl);
     // 2027 Goal 02 — commitment status + "awaiting verification" badge on linked rows (flag

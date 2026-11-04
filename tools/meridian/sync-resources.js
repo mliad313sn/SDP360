@@ -11,6 +11,8 @@ async function main(deps = {}) {
   const log = deps.log || console.log;
   const getConfig = deps.getConfig || (async () => require('../../services/reportConfig').getConfig(require('../../reports-db').db));
   const cfg = await getConfig();
+  // A-20 kill switch (meridian_enabled = '0' = retired): no DB read, no network call.
+  if (cfg && String(cfg.meridian_enabled) === '0') { log('[meridian-sync] connector retired (meridian_enabled = 0) — skipping'); return { skipped: 'disabled' }; }
   const base = cfg && cfg.meridian_base_url;
   const key = cfg && cfg.meridian_out_key;
   if (!base || !key) { log('[meridian-sync] not configured (meridian_base_url / meridian_out_key) — skipping'); return { skipped: true }; }

@@ -49,3 +49,25 @@ test('httpPost failure is non-blocking → returns {ok:false}, does not throw', 
   assert.equal(r.ok, false);
   assert.match(r.error, /meridian down/);
 });
+
+test('meridian_enabled="1" (default) with keys still pushes — the switch only retires on "0"', async () => {
+  let called = false;
+  const r = await main({
+    getConfig: async () => ({ meridian_enabled: '1', meridian_base_url: 'https://m', meridian_out_key: 'k' }),
+    readSites: async () => sites, readPeople: async () => people,
+    httpPost: async () => { called = true; return { data: {} }; }, log: () => {},
+  });
+  assert.equal(r.ok, true);
+  assert.equal(called, true);
+});
+
+test('meridian_enabled="0" → {skipped:"disabled"}, no HTTP call', async () => {
+  let called = false;
+  const r = await main({
+    getConfig: async () => ({ meridian_enabled: '0', meridian_base_url: 'https://m', meridian_out_key: 'k' }),
+    readSites: async () => sites, readPeople: async () => people,
+    httpPost: async () => { called = true; return { data: {} }; }, log: () => {},
+  });
+  assert.deepEqual(r, { skipped: 'disabled' });
+  assert.equal(called, false);
+});

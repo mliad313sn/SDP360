@@ -5231,7 +5231,10 @@ app.use(require('./routes/adminConfig')({
 // Meridian resource sync — on-demand (admin+). Runs the same job as the nightly cron;
 // self-skips when unconfigured. Behind the /api/ dash-key gate + session/admin.
 app.post('/api/meridian/sync', requireReportSession, requireSuperAdmin, async (req, res) => {
-  try { res.json(await require('./tools/meridian/sync-resources').main()); }
+  try {
+    if (String((await reportConfig.getConfig(rdb.db)).meridian_enabled) === '0') return res.status(404).json({ error: 'not found' }); // A-20 kill switch
+    res.json(await require('./tools/meridian/sync-resources').main());
+  }
   catch (e) { fail(res, e); }
 });
 app.get('/api/reports/recipients', requireReportSession, requireSuperAdmin, async (req, res) => {
