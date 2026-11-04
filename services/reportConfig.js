@@ -93,6 +93,10 @@ const DEFAULTS = {
   //    /api/actions/open. Both keys are secrets: redacted on GET, blank-kept on save
   //    like smtp_pass / entra_client_secret. Must live here or setConfig drops them.
   meridian_base_url: '', meridian_out_key: '', meridian_in_key: '',
+  // PROPOSED D-5 kill switch (A-20 phase 1, repo decision D-07, NOT approved) — 0 = retired:
+  //    /api/actions/open + /api/meridian/sync answer 404, the nightly job skips "disabled",
+  //    the Site Actions badge and the admin form disappear. '1' = today's behaviour.
+  meridian_enabled: '1',
   // ── OPManager infra availability (V1a). The Analytics Plus view id OPS reads via
   //    fetchView; per-family availability targets (JSON); staleness threshold (days).
   //    Non-secret. Must live here or setConfig's KEYS filter silently drops them.
