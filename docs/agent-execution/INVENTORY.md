@@ -16,8 +16,8 @@
 | routes in server js | 229 |
 | jobs | 24 |
 | jobs without test reference | 10 |
-| migrations | 51 |
-| test files | 478 |
+| migrations | 52 |
+| test files | 479 |
 
 ## Pages
 
@@ -185,7 +185,7 @@
 
 | Id | Job | Tests |
 |---|---|---:|
-| JB-assets-sync | assets.sync | 3 |
+| JB-assets-sync | assets.sync | 4 |
 | JB-audit-chain-verify | audit.chain_verify | 2 |
 | JB-audit-retention | audit.retention | 1 |
 | JB-commitments-escalate | commitments.escalate | 1 |

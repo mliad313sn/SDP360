@@ -11,8 +11,8 @@
   "routes_in_server_js": 229,
   "jobs": 24,
   "jobs_without_test_reference": 10,
-  "migrations": 51,
-  "test_files": 478
+  "migrations": 52,
+  "test_files": 479
  },
  "pages": [
   {
@@ -7540,6 +7540,7 @@
    "job": "assets.sync",
    "tests": [
     "tests/governance-policy-routes.smoke.test.js",
+    "tests/pg-migrate-from-111.test.js",
     "tests/sync-jobs-registry.test.js",
     "tests/sync-routes.smoke.test.js"
    ]
@@ -7889,6 +7890,10 @@
   {
    "id": "MG-reports-043-portfolio-scope",
    "file": "db/postgres/reports/043_portfolio_scope.sql"
+  },
+  {
+   "id": "MG-sync-000-upgrade-from-1-11",
+   "file": "db/postgres/sync/000_upgrade_from_1_11.sql"
   },
   {
    "id": "MG-sync-001-init",
