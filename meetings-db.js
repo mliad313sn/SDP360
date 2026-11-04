@@ -267,7 +267,34 @@ async function _getMeetingPg(id) {
        WHERE issue_id IN (${issueIds.map(() => '?').join(',')})
        ORDER BY created_at DESC, id DESC`).all(...issueIds);
   }
+  header.edit_token = await _editTokenPg(h, id);
   return { header, projects, issues, actions, updates, attachments };
+}
+// A-06 — optimistic-concurrency token for one PV. Computed in SQL as TEXT, never compared as a
+// timestamp: node-pg hands TIMESTAMPTZ back as a JS Date (millisecond precision) while the
+// column holds microseconds, so a JSON round-trip of updated_at would give false conflicts.
+// It covers the CHILDREN, because addActionUpdate / addActionForIssue / addIssueUpdate write
+// md_actions / md_issues without touching md_meetings.updated_at. The counts catch a row
+// added or deleted without a later updated_at (projects carry no updated_at; they are only
+// written by saveMeeting, which bumps the meeting row). Format: 'YYYY-MM-DDTHH:MI:SS.US|issues|actions'.
+async function _editTokenPg(H, id) {
+  const row = await H.prepare(`SELECT
+      to_char(GREATEST(m.updated_at, COALESCE(i.mx, m.updated_at), COALESCE(a.mx, m.updated_at)) AT TIME ZONE 'UTC',
+              'YYYY-MM-DD"T"HH24:MI:SS.US') || '|' || COALESCE(i.n, 0) || '|' || COALESCE(a.n, 0) AS token
+    FROM md_meetings m
+    LEFT JOIN (SELECT meeting_id, MAX(updated_at) AS mx, COUNT(*) AS n FROM md_issues  WHERE meeting_id = ? GROUP BY meeting_id) i ON i.meeting_id = m.id
+    LEFT JOIN (SELECT meeting_id, MAX(updated_at) AS mx, COUNT(*) AS n FROM md_actions WHERE meeting_id = ? GROUP BY meeting_id) a ON a.meeting_id = m.id
+    WHERE m.id = ?`).get(id, id, id);
+  return row && row.token != null ? String(row.token) : null;
+}
+function editToken(meetingId) {
+  return _editTokenPg(pgHandle(), parseInt(meetingId, 10));
+}
+// The child writers below lock their PV row FOR SHARE so they serialise with a PV save
+// (FOR UPDATE): a save that has verified its token cannot then be overtaken by an action
+// closed between the check and the write.
+async function _lockMeetingShared(H, meetingId) {
+  if (meetingId != null) await H.prepare('SELECT id FROM md_meetings WHERE id = ? FOR SHARE').get(meetingId);
 }
 async function _getMeetingStatusPg(id) {
   const row = await pgHandle().prepare('SELECT status, site_code, department_head FROM md_meetings WHERE id = ?').get(id);
@@ -321,6 +348,7 @@ function setMeetingIncubation(id, incubation) {
  * @param {number|null} userId   for audit
  * @returns {{id, reference, created}}
  */
+const { typed: _typedErr } = require('./services/httpError');
 const _isIncubation = (h) => String((h && h.intake_source) || '') === 'business_incubation';
 // Actions upsert helper (F2, 2026-09-06): the closure stamp for one incoming action row.
 //   terminal status  → keep the existing closed_at if the row already had one, else stamp now
@@ -388,6 +416,18 @@ async function _saveMeetingPg(state, userSiteCode, userId) {
   const reference = (exist && exist.reference) || (h.reference != null ? String(h.reference).trim() : '') || _buildReference(h.site_code, h.department, h.meeting_date, h.intake_source);
 
   await H.runTransaction(async () => {
+    // A-06 — optimistic concurrency. Only when the caller carries a token (the PV page);
+    // imports, server-side callers and old cached pages send none → today's behaviour.
+    const expected = typeof h.expected_edit_token === 'string' ? h.expected_edit_token.trim() : '';
+    if (exist && expected) {
+      await H.prepare('SELECT id FROM md_meetings WHERE id = ? FOR UPDATE').get(exist.id);
+      const current = await _editTokenPg(H, exist.id);
+      if (current !== expected) {
+        const e = _typedErr('CONFLICT', 'This PV was changed elsewhere since you opened it (an action or an issue was updated from another page). Your edits were NOT saved — reload the PV.');
+        e.current_token = current;
+        throw e;
+      }
+    }
     const hp = {
       id, reference, site_code: h.site_code, department: h.department, meeting_date: h.meeting_date,
       duration_min: h.duration_min || null, department_head: h.department_head || '', department_head_title: h.department_head_title || '',
@@ -525,6 +565,7 @@ async function _addActionForIssuePg(issueId, fields, author = {}) {
   if (!issue) throw new Error('Issue not found');
   let id;
   await H.runTransaction(async () => {
+    await _lockMeetingShared(H, issue.meeting_id);
     const m = await H.prepare('SELECT COALESCE(MAX(ord), 0) AS m FROM md_actions WHERE meeting_id = ?').get(issue.meeting_id);
     const ord = (Number(m && m.m) || 0) + 1;
     const row = await H.prepare(`INSERT INTO md_actions (meeting_id, ord, description, owner_it, owner_email, target_date, status, linked_issue_id)
@@ -621,9 +662,10 @@ async function _signMeetingPg(id, col, which, opts = {}) {
 async function _addIssueUpdatePg(issueId, opts = {}) {
   opts = { ...opts, status_change: _normSt(opts.status_change) };
   const H = pgHandle();
-  const issue = await H.prepare('SELECT id, status, escalate FROM md_issues WHERE id = ?').get(issueId);
+  const issue = await H.prepare('SELECT id, status, escalate, meeting_id FROM md_issues WHERE id = ?').get(issueId);
   if (!issue) throw new Error('Issue not found');
   await H.runTransaction(async () => {
+    await _lockMeetingShared(H, issue.meeting_id);
     await H.prepare(`INSERT INTO md_issue_updates (issue_id, author_id, author_name, body, status_change, escalate_change) VALUES (?,?,?,?,?,?)`)
       .run(issueId, opts.author_id || null, opts.author_name || null, opts.body || null, opts.status_change || null, opts.escalate_change ?? null);
     if (opts.status_change && opts.status_change !== issue.status) {
@@ -666,9 +708,10 @@ async function _listIssuesPg(opts = {}) {
 async function _addActionUpdatePg(actionId, opts = {}) {
   opts = { ...opts, status_change: _normSt(opts.status_change) };
   const H = pgHandle();
-  const action = await H.prepare('SELECT id, status FROM md_actions WHERE id = ?').get(actionId);
+  const action = await H.prepare('SELECT id, status, meeting_id FROM md_actions WHERE id = ?').get(actionId);
   if (!action) throw new Error('Action not found');
   await H.runTransaction(async () => {
+    await _lockMeetingShared(H, action.meeting_id);
     await H.prepare(`INSERT INTO md_action_updates (action_id, author_id, author_name, body, status_change) VALUES (?,?,?,?,?)`)
       .run(actionId, opts.author_id || null, opts.author_name || null, opts.body || null, opts.status_change || null);
     if (opts.status_change && opts.status_change !== action.status) {
@@ -1637,7 +1680,7 @@ module.exports = {
   getSiteMonthlyMeetingSummary,
   getSiteContacts, _pickContacts,
   getSiteScoreInputs, _computeMeetingsScoreInputs, _effClose, _openAt, MD_OPEN,
-  listMeetings, countMeetings, getMeeting, saveMeeting, setMeetingIncubation, addActionForIssue, deleteMeeting, getMeetingStatus, signMeeting,
+  listMeetings, countMeetings, getMeeting, editToken, saveMeeting, setMeetingIncubation, addActionForIssue, deleteMeeting, getMeetingStatus, signMeeting,
   listIssues, listEscalations, addIssueUpdate,
   listActions, addActionUpdate, listActionUpdates, getActionParent, getIssueParent,
   exportRows,
