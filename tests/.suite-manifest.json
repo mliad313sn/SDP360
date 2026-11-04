@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 3599,
+ "total": 3618,
  "files": {
   "a11y-static.test.js": 16,
   "access-denied-log.smoke.test.js": 3,
@@ -73,7 +73,7 @@
   "audit-chain.test.js": 2,
   "audit-grants-rehearsal.test.js": 1,
   "audit-meetings-integrity.test.js": 10,
-  "audit-report-write-auth.smoke.test.js": 12,
+  "audit-report-write-auth.smoke.test.js": 19,
   "auth-cookie.smoke.test.js": 5,
   "auth-roles-refresh.test.js": 4,
   "authz-route-matrix.test.js": 1,
@@ -354,6 +354,7 @@
   "report-config-weekly.test.js": 4,
   "report-config.test.js": 4,
   "report-directory.test.js": 12,
+  "report-figures-hash.test.js": 6,
   "report-payload-zero-policy.test.js": 3,
   "report-read-scope.smoke.test.js": 12,
   "report-release.smoke.test.js": 4,
@@ -369,6 +370,7 @@
   "report-sent-log.test.js": 3,
   "report-store.test.js": 2,
   "report-studio-routes.smoke.test.js": 4,
+  "report-submission-integrity.smoke.test.js": 6,
   "report-template-coordinator.test.js": 54,
   "report-template-primitives.test.js": 2,
   "report-template-weekly.test.js": 42,

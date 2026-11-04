@@ -16,6 +16,12 @@ const DEFAULTS = {
   // status = completed/(completed+failed) by SDP status (today); deck = _computeSiteChanges
   // success_pct (cancelled in denominator); itsm = success_pct_itsm. Official formula = KPI D-01 (open).
   exec_view_change_formula: 'status',
+  // A-24 — PROPOSED D-3 (reverses the 2026-10-02 decision; NOT approved): every default reproduces today.
+  // site_editor = any editor of the report's site / admin tier may revert a submitted report (today);
+  // second_person = the submitter never reverts their own submission, another admin-tier user must,
+  // with a reason. report_reassign_submitted '0' refuses moving a SUBMITTED report to another week.
+  // report_drift_banner '1' shows a red band when the figures no longer match the submission hash.
+  report_revert_policy: 'site_editor', report_reassign_submitted: '1', report_drift_banner: '0',
   transport: 'smtp',
   smtp_host: '', smtp_port: '587', smtp_secure: '0', smtp_user: '', smtp_pass: '',
   from: '', reply_to: '',

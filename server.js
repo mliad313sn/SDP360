@@ -5336,12 +5336,14 @@ app.get('/api/reports/site-data', requireReportSession, async (req, res) => {
 // /api/reports/:id (the :id shadowing trap). Unknown/absent site → empty groups.
 // Site Actions hub — routes/siteActions.js (Step 6 modularisation).
 app.use(require('./routes/siteActions')({ express, requireReportSession, siteCodeReadDenied: _siteCodeReadDenied, reportConfig, getCommitmentStore: () => _cmtStore }));
+app.use(require('./routes/reportIntegrity')({ express, requireReportSession }));   // A-24 — submission hash vs current figures
 // ── Report-write authorisation (audit 2026-09-05, F5) ────────────────────────
 // A valid session is NOT enough to write a report or one of its follow-ups: the
 // caller must (1) hold the editor role, (2) be scoped to the OBJECT's site — a
 // site-less profile is NOT global, only admin+ is unscoped — and (3) a submitted
 // report is frozen for everyone but super_admin (mirrors the status-revert rule).
 // Returns null when allowed, else {status, error} for the route to send.
+const _submissionPolicy = require('./services/reportSubmissionPolicy');   // A-24
 function _reportWriteDenial(user, report, opts = {}) {
   if (!report) return { status: 404, error: 'Report not found' };
   if (!rdb.userHasRole(user, 'editor')) return { status: 403, error: 'editor role required' };
@@ -6774,6 +6776,8 @@ app.put('/api/reports/:id/status', requireReportSession, jsonBody, async (req, r
     // gate: submit and revert are both allowed to whoever passes it (decision 2026-10-02).
     const report = await _authorizeReportWrite(req, res, id, { allowSubmitted: true });
     if (!report) return;
+    const rv = await _submissionPolicy.checkRevert(rdb, req.reportUser, report, status, req.body);   // A-24, OFF by default
+    if (rv.denial) return res.status(rv.denial.status).json({ error: rv.denial.error });
     // Reverting a submitted report to draft (user decisions 2026-10-02): was super_admin-
     // only; now any editor of the REPORT'S site, the admin tier anywhere. That is exactly
     // what _authorizeReportWrite above already enforces (editor role + the report's site,
@@ -6793,9 +6797,10 @@ app.put('/api/reports/:id/status', requireReportSession, jsonBody, async (req, r
     }
 
     await rdb.updateReportStatus(id, status, req.reportUser.id);
+    if (status === 'submitted') await _submissionPolicy.recordSubmission(rdb, id, req.reportUser.id);   // A-24 — every submit, best-effort
     // Audit
     const action = status === 'submitted' ? 'submitted' : (report.status === 'submitted' ? 'reverted' : 'status_changed');
-    await rdb.logAudit({ report_id: id, site_id: report.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action, details: { from: report.status, to: status } });
+    await rdb.logAudit({ report_id: id, site_id: report.site_id, user_id: req.reportUser.id, username: req.reportUser.username, action, details: { from: report.status, to: status, ...(rv.reason ? { reason: rv.reason } : {}) } });
     res.json({ ok: true });
   } catch(e) { fail(res, e); }
 });
@@ -6816,6 +6821,8 @@ app.put('/api/reports/:id/reassign-week', requireReportSession, jsonBody, async 
     // F5: editor role + site scope (site-less ≠ global); any status by design (allowSubmitted).
     const existing = await _authorizeReportWrite(req, res, id, { allowSubmitted: true });
     if (!existing) return;
+    const frozen = await _submissionPolicy.checkReassign(rdb, existing);   // A-24 report_reassign_submitted, '1' = today
+    if (frozen) return res.status(frozen.status).json({ error: frozen.error });
 
     // Ensure the target week row exists in the weeks table (creates it if new)
     const newWeekId = await rdb.ensureWeek(year, week);
