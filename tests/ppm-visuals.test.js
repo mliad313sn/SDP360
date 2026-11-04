@@ -116,7 +116,9 @@ test('project.html Gantt: bars are focusable, arrows move, Enter opens the task,
   assert.match(g, /tabindex=/); assert.match(g, /data-task=/);
   assert.match(script, /function ganttKey/);
   const k = fnSource(script, 'ganttKey');
-  for (const key of ['ArrowDown', 'ArrowUp', 'Enter', 'Home', 'End']) assert.match(k, new RegExp(key));
+  // C-07: arrows / Home / End go through the shared PpmVisuals.navIndex (its keys pinned in chart-a11y.test.js)
+  assert.match(k, /PpmVisuals\.navIndex\(ev\.key/); assert.match(k, /Enter/);
+  for (const key of ['ArrowDown', 'ArrowUp', 'Home', 'End']) assert.notEqual(PV.navIndex(key, 1, 3), -1, key);
   assert.match(script, /function openTask/);
   assert.match(page, /id="gantt-legend"/);
   assert.match(fnSource(script, 'ganttLegend'), /baseline/);
@@ -126,7 +128,7 @@ test('portfolio.html: risk matrix, pressure view, keyboard row links and a swatc
   assert.match(pf, /src="lib\/ppmVisuals\.js"/);
   assert.match(pf, /id="risk-matrix"/); assert.match(pf, /id="pressure"/);
   assert.match(pf, /tl-legend-sw/);
-  assert.match(pf, /ArrowDown/);
+  assert.match(pf, /PpmVisuals\.navIndex\(ev\.key, cur, links\.length\)/);
 });
 
 test('help §25 documents the matrix, the pressure view and the Gantt keyboard in EN and FR', () => {

@@ -97,11 +97,18 @@
     var b = ev.target.closest && ev.target.closest("[data-cell]"); if (!b || !RM) return;
     var box = $("risk-matrix").querySelector(".pim-list"); if (box) box.innerHTML = window.PpmVisuals.cellListHtml(RM, RISKS, b.getAttribute("data-cell"), esc);
   });
+  // C-07 (F28): arrow keys move between the risk cells that hold risks (Enter / Space = the button's click).
+  $("risk-matrix").addEventListener("keydown", function (ev) {
+    if (!window.PpmVisuals) return;
+    var cells = Array.prototype.slice.call($("risk-matrix").querySelectorAll("button.pim-cell:not([disabled])")), cur = cells.indexOf(ev.target);
+    var to = window.PpmVisuals.navIndex(ev.key, cur, cells.length); if (to < 0) return;
+    ev.preventDefault(); cells[to].focus();
+  });
   // C-14 (F28) — the timeline rows are keyboard-operable: each project key is a link; arrows move between rows.
   $("timeline").addEventListener("keydown", function (ev) {
     var links = Array.prototype.slice.call($("timeline").querySelectorAll(".tl-row a")), cur = links.indexOf(ev.target); if (cur < 0) return;
-    var to = ev.key === "ArrowDown" ? cur + 1 : ev.key === "ArrowUp" ? cur - 1 : ev.key === "Home" ? 0 : ev.key === "End" ? links.length - 1 : -2;
-    if (to === -2) return; ev.preventDefault(); if (links[to]) links[to].focus();
+    var to = window.PpmVisuals ? window.PpmVisuals.navIndex(ev.key, cur, links.length) : -1;
+    if (to < 0) return; ev.preventDefault(); if (links[to]) links[to].focus();
   });
   function load() {
     return api("/api/governance/portfolio").then(function (v) {
