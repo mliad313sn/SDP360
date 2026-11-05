@@ -11,13 +11,13 @@
 | pages without declared role | 6 |
 | pages not in navigation | 28 |
 | pages with inline scripts | 46 |
-| routes | 567 |
+| routes | 573 |
 | routes without test reference | 80 |
 | routes in server js | 231 |
 | jobs | 27 |
 | jobs without test reference | 10 |
-| migrations | 65 |
-| test files | 561 |
+| migrations | 66 |
+| test files | 565 |
 
 ## Pages
 

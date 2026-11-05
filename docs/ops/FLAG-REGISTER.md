@@ -12,10 +12,11 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (143) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (146) — services/reportConfig.js DEFAULTS
 
 | Key | Default (today) | Kind | Owner | Recommended pilot value | Reference |
 |---|---|---|---|---|---|
+| `access_approver_policy` | `{"platform_roles":["admin","executive","super_admin","tra…` | setting | Security owner + Owner | the default (PO decision R7, encoded 2026-11-05): platform roles by a super_admin, other roles by an admin-tier user holding the site; never the requester, subject or their deputy | C-19 |
 | `access_grant_expiry_job` | `0` | setting | Security owner | `1` (ends expired grants nightly; a role held before the grant or by another live grant stays) | C-18 |
 | `access_require_approval` | `0` | setting | Security owner + Owner (approver matrix) | `1` once the approver rule and the requires_request list are decided (break-glass stays possible, logged risk=1) | C-18 |
 | `alert_external_enabled` | `0` | arm switch | to be named | — | — |
@@ -100,6 +101,8 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `publish_excel_recipients` | `` | setting | to be named | — | — |
 | `publish_metric_keys` | `helpdesk.resolution_sla_pct,helpdesk.first_reply_sla_pct,…` | setting | to be named | — | — |
 | `publish_webhook_url` | (secret — not shown) | secret | to be named | — | — |
+| `qualification_check_enabled` | `0` | arm switch | HSE owner + Security owner | `0` until each site's HSE owner has recorded and verified the evidence; then `1` per requirement (evidence only — SDP360 never grants a physical authorisation) | C-19 |
+| `qualification_requirements` | `{}` | setting | HSE owner | `{}` — which capability needs which kind (e.g. `field.capture` → `site-induction`) is a human decision | C-19 |
 | `reconcile_recent_days` | `30` | setting | to be named | — | — |
 | `reply_to` | `` | setting | to be named | — | — |
 | `report_drift_banner` | `0` | setting | Owner (D-3) | `1` | A-24 |
@@ -214,7 +217,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `reports.override_reason_min` | `10` | int | yes | yes | to be named |
 | `reports.withdraw_reason_min` | `5` | int | yes | yes | to be named |
 
-## 4. Environment variables (61) — read in *.js, services/, routes/
+## 4. Environment variables (62) — read in *.js, services/, routes/
 
 | Variable | Kind | Default when unset | Owner | Read in |
 |---|---|---|---|---|
@@ -262,6 +265,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `SDP_CSP_REPORT_ONLY` | switch | unset (no report-only header, no /api/security/csp-report) | Security owner | services/cspReport.js |
 | `SDP_DATA_DIR` | switch | see the reading file | to be named | assets-db.js, inspection-db.js, meetings-db.js, reports-db.js (+2) |
 | `SDP_PDF_SANDBOX` | switch | unset (PDF render keeps --no-sandbox) | Security owner | services/reportRender.js |
+| `SDP_QUAL_CFG_TTL_MS` | switch | see the reading file | to be named | services/qualificationStore.js |
 | `SDP_SERVICE` | switch | see the reading file | to be named | services/serviceControl.js |
 | `SDP_TEST_NO_RATE_LIMIT` | switch | see the reading file | to be named | server.js |
 | `SESSION_COOKIE_SECURE` | switch | unset | Security owner | server.js |

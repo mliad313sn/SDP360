@@ -6,13 +6,13 @@
   "pages_without_declared_role": 6,
   "pages_not_in_navigation": 28,
   "pages_with_inline_scripts": 46,
-  "routes": 567,
+  "routes": 573,
   "routes_without_test_reference": 80,
   "routes_in_server_js": 231,
   "jobs": 27,
   "jobs_without_test_reference": 10,
-  "migrations": 65,
-  "test_files": 561
+  "migrations": 66,
+  "test_files": 565
  },
  "pages": [
   {
@@ -23,7 +23,7 @@
    ],
    "in_navigation": false,
    "inline_scripts": 0,
-   "bytes": 7358,
+   "bytes": 9643,
    "tests": [
     "tests/access-routes.smoke.test.js",
     "tests/access-why.smoke.test.js",
@@ -1003,9 +1003,10 @@
    "method": "GET",
    "path": "/api/access/approvals",
    "file": "routes/access.js",
-   "line": 101,
+   "line": 102,
    "tests": [
-    "tests/access-routes.smoke.test.js"
+    "tests/access-routes.smoke.test.js",
+    "tests/qualification-routes.smoke.test.js"
    ]
   },
   {
@@ -1034,9 +1035,10 @@
    "method": "POST",
    "path": "/api/access/requests/:id/${action}",
    "file": "routes/access.js",
-   "line": 93,
+   "line": 94,
    "tests": [
-    "tests/access-routes.smoke.test.js"
+    "tests/access-routes.smoke.test.js",
+    "tests/qualification-routes.smoke.test.js"
    ]
   },
   {
@@ -1046,7 +1048,8 @@
    "file": "routes/access.js",
    "line": 84,
    "tests": [
-    "tests/access-routes.smoke.test.js"
+    "tests/access-routes.smoke.test.js",
+    "tests/qualification-routes.smoke.test.js"
    ]
   },
   {
@@ -1056,7 +1059,8 @@
    "file": "routes/access.js",
    "line": 73,
    "tests": [
-    "tests/access-routes.smoke.test.js"
+    "tests/access-routes.smoke.test.js",
+    "tests/qualification-routes.smoke.test.js"
    ]
   },
   {
@@ -2606,7 +2610,7 @@
    "method": "GET",
    "path": "/api/field/bootstrap",
    "file": "routes/field.js",
-   "line": 71,
+   "line": 75,
    "tests": [
     "tests/field-routes.smoke.test.js",
     "tests/field-storage-browser.test.js"
@@ -2617,7 +2621,7 @@
    "method": "PUT",
    "path": "/api/field/outbox/:uuid",
    "file": "routes/field.js",
-   "line": 161,
+   "line": 165,
    "tests": [
     "tests/field-routes.smoke.test.js"
    ]
@@ -2627,7 +2631,7 @@
    "method": "GET",
    "path": "/api/field/outbox",
    "file": "routes/field.js",
-   "line": 103,
+   "line": 107,
    "tests": [
     "tests/field-routes.smoke.test.js"
    ]
@@ -2637,9 +2641,10 @@
    "method": "PUT",
    "path": "/api/field/uploads/:id/chunks/:idx",
    "file": "routes/field.js",
-   "line": 222,
+   "line": 226,
    "tests": [
-    "tests/field-routes.smoke.test.js"
+    "tests/field-routes.smoke.test.js",
+    "tests/qualification-routes.smoke.test.js"
    ]
   },
   {
@@ -2647,9 +2652,10 @@
    "method": "POST",
    "path": "/api/field/uploads/:id/complete",
    "file": "routes/field.js",
-   "line": 231,
+   "line": 235,
    "tests": [
-    "tests/field-routes.smoke.test.js"
+    "tests/field-routes.smoke.test.js",
+    "tests/qualification-routes.smoke.test.js"
    ]
   },
   {
@@ -2657,9 +2663,10 @@
    "method": "GET",
    "path": "/api/field/uploads/:id",
    "file": "routes/field.js",
-   "line": 219,
+   "line": 223,
    "tests": [
-    "tests/field-routes.smoke.test.js"
+    "tests/field-routes.smoke.test.js",
+    "tests/qualification-routes.smoke.test.js"
    ]
   },
   {
@@ -2667,9 +2674,10 @@
    "method": "POST",
    "path": "/api/field/uploads",
    "file": "routes/field.js",
-   "line": 201,
+   "line": 205,
    "tests": [
-    "tests/field-routes.smoke.test.js"
+    "tests/field-routes.smoke.test.js",
+    "tests/qualification-routes.smoke.test.js"
    ]
   },
   {
@@ -4602,6 +4610,66 @@
     "tests/auth-cookie.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/dashkey-only-routes.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-POST-api-qualifications-id-action",
+   "method": "POST",
+   "path": "/api/qualifications/:id/${action}",
+   "file": "routes/qualifications.js",
+   "line": 51,
+   "tests": [
+    "tests/qualification-routes.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-GET-api-qualifications-check",
+   "method": "GET",
+   "path": "/api/qualifications/check",
+   "file": "routes/qualifications.js",
+   "line": 28,
+   "tests": [
+    "tests/qualification-routes.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-PUT-api-qualifications-kinds-key",
+   "method": "PUT",
+   "path": "/api/qualifications/kinds/:key",
+   "file": "routes/qualifications.js",
+   "line": 25,
+   "tests": [
+    "tests/qualification-routes.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-GET-api-qualifications-kinds",
+   "method": "GET",
+   "path": "/api/qualifications/kinds",
+   "file": "routes/qualifications.js",
+   "line": 22,
+   "tests": [
+    "tests/qualification-routes.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-GET-api-qualifications",
+   "method": "GET",
+   "path": "/api/qualifications",
+   "file": "routes/qualifications.js",
+   "line": 35,
+   "tests": [
+    "tests/qualification-routes.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-POST-api-qualifications",
+   "method": "POST",
+   "path": "/api/qualifications",
+   "file": "routes/qualifications.js",
+   "line": 44,
+   "tests": [
+    "tests/qualification-routes.smoke.test.js"
    ]
   },
   {
@@ -8986,6 +9054,10 @@
   {
    "id": "MG-reports-058-access-requests",
    "file": "db/postgres/reports/058_access_requests.sql"
+  },
+  {
+   "id": "MG-reports-059-qualification-evidence",
+   "file": "db/postgres/reports/059_qualification_evidence.sql"
   },
   {
    "id": "MG-reports-061-duty-rosters",
