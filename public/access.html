@@ -46,6 +46,7 @@
       <button type="button" role="tab" data-tab="appr"><span data-lng="en">Approvals</span><span data-lng="fr">Approbations</span></button>
       <button type="button" role="tab" data-tab="tpl"><span data-lng="en">Templates</span><span data-lng="fr">Modèles</span></button>
       <button type="button" role="tab" data-tab="qual"><span data-lng="en">Qualifications</span><span data-lng="fr">Qualifications</span></button>
+      <button type="button" role="tab" data-tab="emerg" id="axEmTab" hidden><span data-lng="en">Emergency</span><span data-lng="fr">Urgence</span></button>
     </div>
     <div class="ax-msg" id="axMsg" role="status" aria-live="polite"></div>
   </div>
@@ -98,6 +99,21 @@
       <label><span><span data-lng="en">Evidence reference</span><span data-lng="fr">Référence de la preuve</span></span><input id="axQRef" autocomplete="off"></label>
       <button type="submit"><span data-lng="en">Record the evidence</span><span data-lng="fr">Enregistrer la preuve</span></button>
     </form>
+  </section>
+  <section class="ax-card" data-pane="emerg" hidden>
+    <h2><span data-lng="en">Emergency access</span><span data-lng="fr">Accès d'urgence</span></h2>
+    <p class="ax-muted" data-lng="en">Granted by a super_admin who is not the beneficiary, for 24 hours at most, with a reason. Every grant is logged as a risk event and must be reviewed within 2 working days by another super_admin. An emergency access never replaces a qualification: if a task needs site induction or an electrical authorisation, it stays refused until the evidence is verified.</p>
+    <p class="ax-muted" data-lng="fr">Accordé par un super_admin qui n'est pas le bénéficiaire, pour 24 heures au plus, avec un motif. Chaque accès est journalisé comme événement à risque et doit être revu sous 2 jours ouvrés par un autre super_admin. Un accès d'urgence ne remplace jamais une qualification : si une tâche exige l'induction du site ou une habilitation électrique, elle reste refusée tant que la preuve n'est pas vérifiée.</p>
+    <form id="axEmForm" class="ax-form">
+      <label><span><span data-lng="en">Person (user id)</span><span data-lng="fr">Personne (identifiant)</span></span><input id="axEmUser" inputmode="numeric" autocomplete="off"></label>
+      <label><span><span data-lng="en">Roles (comma separated)</span><span data-lng="fr">Rôles (séparés par des virgules)</span></span><input id="axEmRoles" autocomplete="off"></label>
+      <label><span><span data-lng="en">Site ids (comma separated)</span><span data-lng="fr">Identifiants de site (séparés par des virgules)</span></span><input id="axEmSites" autocomplete="off"></label>
+      <label><span><span data-lng="en">Hours (24 at most)</span><span data-lng="fr">Heures (24 au plus)</span></span><input id="axEmHours" type="number" min="1" max="24" value="8"></label>
+      <label><span><span data-lng="en">Reason</span><span data-lng="fr">Motif</span></span><textarea id="axEmWhy" rows="2"></textarea></label>
+      <button type="submit"><span data-lng="en">Grant emergency access</span><span data-lng="fr">Accorder l'accès d'urgence</span></button>
+    </form>
+    <h2 class="ax-sub"><span data-lng="en">Emergency grants and reviews</span><span data-lng="fr">Accès d'urgence et revues</span></h2>
+    <div id="axEms"></div>
   </section>
 </main>
 <script nonce="%%CSP_NONCE%%" src="lib/errorText.js"></script>

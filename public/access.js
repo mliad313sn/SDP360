@@ -1,4 +1,4 @@
-/* C-18 — "My access" screen: My access · Requests · Approvals · Templates · Qualifications (C-19). Talks only to /api/access/*.
+/* C-18 — "My access" screen: My access · Requests · Approvals · Templates · Qualifications (C-19) · Emergency (C-22). Talks only to /api/access/*.
  * The server is the enforcement point (self-approval, deputies, template immutability); this page only shows. */
 (function () {
   'use strict';
@@ -22,12 +22,14 @@
       none: 'Nothing here.', direct: 'Roles held without a grant were given directly by an administrator (no end date).', expiring: 'ends within 14 days',
       approve: 'Approve', reject: 'Reject', review: 'Take for review', revoke: 'Revoke', withdraw: 'Withdraw', publish: 'Publish', retire: 'Retire', newVersion: 'New version',
       reason: 'Reason (kept in the history):', sent: 'Request sent.', done: 'Done.', deputies: 'Deputies', deputyFor: 'stands in for', version: 'version', draft: 'draft', published: 'published',
-      holder: 'Person', kind: 'Kind', issuer: 'Issuer', expires: 'Expires', ref: 'Evidence', state: 'State', verify: 'Verify', valid: 'valid', expired: 'expired', unverified: 'not verified', ended: 'ended' },
+      holder: 'Person', kind: 'Kind', issuer: 'Issuer', expires: 'Expires', ref: 'Evidence', state: 'State', verify: 'Verify', valid: 'valid', expired: 'expired', unverified: 'not verified', ended: 'ended',
+      granted: 'Granted by', due: 'Review due', live: 'in force', overdue: 'review overdue', reviewed: 'reviewed', reviewBtn: 'Record the review', outcome: 'Outcome: type justified or not_justified', notes: 'Review notes (10+ characters):', source: 'Source' },
     fr: { role: 'Rôle', site: 'Site', from: 'Du', until: 'Au', request: 'Demande', status: 'Statut', who: 'Pour', roles: 'Rôles', sites: 'Sites', why: 'Justification',
       none: 'Rien ici.', direct: 'Les rôles sans attribution ont été donnés directement par un administrateur (sans date de fin).', expiring: 'se termine dans les 14 jours',
       approve: 'Approuver', reject: 'Refuser', review: 'Prendre en revue', revoke: 'Révoquer', withdraw: 'Retirer', publish: 'Publier', retire: 'Retirer le modèle', newVersion: 'Nouvelle version',
       reason: 'Motif (conservé dans l\'historique) :', sent: 'Demande envoyée.', done: 'Fait.', deputies: 'Suppléances', deputyFor: 'remplace', version: 'version', draft: 'brouillon', published: 'publiée',
-      holder: 'Personne', kind: 'Type', issuer: 'Émetteur', expires: 'Expire', ref: 'Preuve', state: 'État', verify: 'Vérifier', valid: 'valide', expired: 'expirée', unverified: 'non vérifiée', ended: 'close' },
+      holder: 'Personne', kind: 'Type', issuer: 'Émetteur', expires: 'Expire', ref: 'Preuve', state: 'État', verify: 'Vérifier', valid: 'valide', expired: 'expirée', unverified: 'non vérifiée', ended: 'close',
+      granted: 'Accordé par', due: 'Revue due le', live: 'en vigueur', overdue: 'revue en retard', reviewed: 'revu', reviewBtn: 'Enregistrer la revue', outcome: 'Conclusion : tapez justified ou not_justified', notes: 'Notes de revue (10 caractères et plus) :', source: 'Origine' },
   };
   const t = () => L[lang === 'fr' ? 'fr' : 'en'];
   const msg = (x, ok) => { $('axMsg').className = 'ax-msg ' + (ok ? 'ax-ok' : 'ax-err'); $('axMsg').textContent = !ok && lang === 'fr' && window.ErrorText ? window.ErrorText.fr(x) : x; };
@@ -66,6 +68,7 @@
       (me.can_manage_templates && v.status === 'draft' ? '<button type="button" data-tplact="publish" data-id="' + v.id + '">' + esc(t().publish) + '</button>' : '') +
       (me.can_manage_templates && !x.retired_at ? ' <button type="button" data-tplact="retire" data-id="' + x.id + '">' + esc(t().retire) + '</button>' : '') + '</td></tr>')));
     await loadQuals();
+    await loadEmergencies();
   }
   async function loadQuals() {
     const [k, q] = await Promise.all([api('GET', '/api/qualifications/kinds'), api('GET', '/api/qualifications')]);
@@ -83,6 +86,18 @@
       (q.can_record && (r.status === 'verified' || r.status === 'recorded') ? ' <button type="button" data-qact="revoke" data-id="' + r.id + '">' + esc(t().revoke) + '</button>' : '') + '</td></tr>'));
   }
 
+  async function loadEmergencies() {
+    let r;
+    try { r = await api('GET', '/api/access/emergencies'); } catch (_) { $('axEmTab').hidden = true; return; }   // off, or not a super_admin
+    $('axEmTab').hidden = false;
+    const mine = Number(me && me.user.id);
+    $('axEms').innerHTML = table(['#', t().holder, t().roles, t().sites, t().granted, t().until, t().due, t().state, t().source, ''], (r.emergencies || []).map((e) => '<tr><td>' + e.id +
+      '</td><td>' + esc(e.subject_user_id) + '</td><td>' + esc((e.roles || []).join(', ')) + '</td><td>' + esc((e.site_ids || []).join(', ')) + '</td><td>' + esc(e.granted_by) +
+      '</td><td>' + esc(e.expires_at) + '</td><td>' + esc(e.review_due) + (e.review_overdue ? ' <span class="ax-tag">' + esc(t().overdue) + '</span>' : '') +
+      '</td><td><span class="ax-tag">' + esc(e.live ? t().live : t().ended) + '</span>' + (e.reviewed_at ? ' <span class="ax-tag">' + esc(t().reviewed) + ': ' + esc(e.review_outcome) + '</span>' : '') +
+      '</td><td>' + esc(e.source) + '</td><td>' +
+      (!e.reviewed_at && e.granted_by !== mine && e.subject_user_id !== mine ? '<button type="button" data-emrev="' + e.id + '">' + esc(t().reviewBtn) + '</button>' : '') + '</td></tr>'));
+  }
   document.addEventListener('click', async (ev) => {
     const b = ev.target.closest && ev.target.closest('button'); if (!b) return;
     try {
@@ -98,6 +113,10 @@
         const reason = b.dataset.qact === 'verify' ? '' : window.prompt(t().reason);
         if (reason == null) return;
         await api('POST', '/api/qualifications/' + b.dataset.id + '/' + b.dataset.qact, { reason }); msg(t().done, true); await loadQuals();
+      } else if (b.dataset.emrev) {
+        const outcome = window.prompt(t().outcome); if (outcome == null) return;
+        const notes = window.prompt(t().notes); if (notes == null) return;
+        await api('POST', '/api/access/emergencies/' + b.dataset.emrev + '/review', { outcome: outcome.trim(), notes }); msg(t().done, true); await loadEmergencies();
       } else if (b.dataset.tplact) {
         await api('POST', '/api/access/templates/' + (b.dataset.tplact === 'publish' ? 'versions/' + b.dataset.id + '/publish' : b.dataset.id + '/retire'), {}); msg(t().done, true); await load();
       }
@@ -124,6 +143,14 @@
       await api('POST', '/api/qualifications', { user_id: Number($('axQUser').value), kind: $('axQKind').value, issuer: $('axQIssuer').value,
         issued_on: $('axQIssued').value || null, expires_on: $('axQExp').value || null, evidence_ref: $('axQRef').value });
       msg(t().done, true); await loadQuals();
+    } catch (e) { msg(e.message, false); }
+  });
+  $('axEmForm').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    try {
+      await api('POST', '/api/access/emergencies', { subject_user_id: Number($('axEmUser').value), roles: list($('axEmRoles').value), site_ids: list($('axEmSites').value).map(Number),
+        hours: Number($('axEmHours').value), reason: $('axEmWhy').value });
+      msg(t().done, true); await loadEmergencies();
     } catch (e) { msg(e.message, false); }
   });
   function applyLang() { document.body.classList.toggle('lang-fr', lang === 'fr'); document.documentElement.lang = lang; $('axLang').value = lang === 'fr' ? 'fr' : 'en'; }
