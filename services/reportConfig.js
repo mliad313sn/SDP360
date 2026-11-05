@@ -278,6 +278,13 @@ DEFAULTS.qualification_requirements = '{}';
 // pending after shift_handover_flag_hours hours is FLAGGED on the page (not accepted, not escalated by itself).
 DEFAULTS.shift_handover_enabled = '0';
 DEFAULTS.shift_handover_flag_hours = '8';
+// C-22 (G49, PO decision R7) — emergency (break-glass) access, migration 063. '0' = today: no emergency routes
+// (404), no Emergency section, a C-18 break-glass stays a plain logged direct edit. '1' → a super_admin who is not
+// the beneficiary grants a role / site for at most emergency_access_max_hours (hard cap 24 h; a value above is
+// read as 24) with a reason; logged risk=1; a post-review is due within 2 working days by another super_admin;
+// a qualification prerequisite is never waived. The access.emergency_expiry job ends it at its hour.
+DEFAULTS.emergency_access_enabled = '0';
+DEFAULTS.emergency_access_max_hours = '24';
 const KEYS = Object.keys(DEFAULTS);
 
 // Secrets that the GET handler redacts to '' — a Save that doesn't retype them must

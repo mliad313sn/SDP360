@@ -57,10 +57,23 @@ module.exports = function adminUsersRoutes(deps) {
     if (!missing.length) return null;
     const b = req.body || {};
     if (b.break_glass === true && String(b.break_glass_reason || '').trim().length >= 10 && rdb.userHasRole(req.reportUser, 'super_admin')) {
+      // C-22: with emergency_access_enabled='1' a break-glass becomes an emergency record (24 h, post-review) and
+      // is never given to oneself.
+      if (String((cfg && cfg.emergency_access_enabled) || '0') === '1') {
+        if (userId != null && Number(userId) === Number(req.reportUser.id)) return typed('FORBIDDEN', 'nobody grants emergency access to themselves — another super_admin must do it');
+        req._sdpBreakGlass = { roles: missing, reason: String(b.break_glass_reason).trim().slice(0, 2000) };
+      }
       _log(req, 'access_break_glass', String(userId == null ? b.username : userId), { user_id: userId, roles: missing, reason: String(b.break_glass_reason).slice(0, 500) }, 1);
       return null;
     }
     return typed('CONFLICT', `role(s) ${missing.join(', ')} need an approved access request (or an explicit break-glass with a reason)`);
+  };
+  // C-22 — after the direct write, record the break-glass as an emergency (time-boxed grants + review due).
+  const _recordBreakGlass = async (req, userId) => {
+    const bg = req._sdpBreakGlass; if (!bg || userId == null) return null;
+    const out = await require('../services/emergencyAccessStore').forRdb(rdb).recordBreakGlass({ subjectId: userId, roles: bg.roles, actor: req.reportUser, reason: bg.reason });
+    _log(req, 'access_emergency_granted', String(userId), { via: 'break_glass', emergency_id: out.id, request_id: out.request_id, user_id: userId, roles: bg.roles, expires_at: out.expires_at, review_due: out.review_due }, 1);
+    return out;
   };
   const _rolesOf = (b) => (Array.isArray(b.roles) && b.roles.length ? b.roles : (typeof b.role === 'string' ? [b.role] : []));
 
@@ -81,7 +94,8 @@ router.post('/api/reports/users', requireReportSession, requireSuperAdmin, jsonB
     const newId = r && (r.lastInsertRowid != null ? Number(r.lastInsertRowid) : (r.lastID != null ? Number(r.lastID) : null));
     const after = newId != null ? await _snapshot(newId) : null;
     _log(req, 'user_created', username, { user_id: newId, after });
-    res.json({ ok: true });
+    const emergency = req._sdpBreakGlass ? await _recordBreakGlass(req, newId != null ? newId : ((await rdb.listUsers()).find((u) => u.username === username) || {}).id) : null;
+    res.json({ ok: true, ...(emergency ? { emergency } : {}) });
   } catch(e) {
     // sqlite raises "UNIQUE constraint failed"; postgres raises SQLSTATE 23505.
     if (e.code === '23505' || (e.message && e.message.includes('UNIQUE'))) return res.status(409).json({ error: 'Username already exists' });
@@ -123,7 +137,8 @@ router.put('/api/reports/users/:id', requireReportSession, requireSuperAdmin, js
     _log(req, 'user_updated', target, { user_id: id, changed: Object.keys(diff), diff, password_reset: !!password });
     if (diff.roles) _log(req, 'user_role_changed', target, { user_id: id, before: diff.roles.before, after: diff.roles.after });
     if (password) _log(req, 'password_reset', target, { user_id: id, by_admin: true });
-    res.json({ ok: true });
+    const emergency = await _recordBreakGlass(req, id);
+    res.json({ ok: true, ...(emergency ? { emergency } : {}) });
   } catch(e) { fail(res, e); }
 });
 

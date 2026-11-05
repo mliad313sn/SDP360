@@ -14,6 +14,11 @@ const { fail, typed } = require('../services/httpError');
 //   GET  /api/access/requests/:id                                subject, requester, super_admin or an R7 approver (with history)
 //   POST /api/access/requests/:id/{review,approve,reject,revoke} { reason } — rules in services/accessRequestLifecycle.js
 //   GET  /api/access/approvals                                   requests the caller may decide now (R7: super_admin, or admin tier holding the site)
+//   C-22 emergency access (404 while report_config emergency_access_enabled = '0'), all super_admin:
+//   GET  /api/access/emergencies[?overdue=1]                     emergency grants (live, ended), review state; ends those past their hour
+//   GET  /api/access/emergencies/overdue                         reviews overdue (more than 2 working days)
+//   POST /api/access/emergencies                                 { subject_user_id, roles[], site_ids[], hours ≤ 24, reason } — never to yourself
+//   POST /api/access/emergencies/:id/review                      { outcome: justified|not_justified, notes } — not the granter, not the beneficiary
 // Every error goes through httpError.fail. Answers about another user are never served to a plain session.
 module.exports = function accessRoutes(deps) {
   const { express, requireReportSession } = deps;
@@ -101,6 +106,21 @@ module.exports = function accessRoutes(deps) {
   }
   router.get('/api/access/approvals', requireReportSession, async (req, res) => {
     try { res.json({ ok: true, requests: isAdmin(req.reportUser) ? await store().approvalsFor(req.reportUser) : [] }); } catch (e) { fail(res, e); }
+  });
+  // ── C-22 emergency access ─────────────────────────────────────────
+  const em = () => deps.emergencyStore || (deps._em = deps._em || require('../services/emergencyAccessStore').forRdb(rdb()));
+  const emOn = async (req, res, next) => { try { return (await em().enabled()) ? next() : fail(res, typed('NOT_FOUND', 'emergency access is not enabled')); } catch (e) { fail(res, e); } };
+  router.get('/api/access/emergencies/overdue', requireReportSession, requireSuper, emOn, async (req, res) => {
+    try { await em().expireDue({ actorId: null }); res.json({ ok: true, emergencies: await em().list({ overdueOnly: true }) }); } catch (e) { fail(res, e); }
+  });
+  router.get('/api/access/emergencies', requireReportSession, requireSuper, emOn, async (req, res) => {
+    try { await em().expireDue({ actorId: null }); res.json({ ok: true, emergencies: await em().list({ overdueOnly: req.query.overdue === '1' }), max_hours: 24, review_working_days: 2 }); } catch (e) { fail(res, e); }
+  });
+  router.post('/api/access/emergencies', requireReportSession, requireSuper, emOn, json, async (req, res) => {
+    try { const out = await em().grant(req.body, req.reportUser); res.status(201).json({ ok: true, ...out }); } catch (e) { fail(res, e); }
+  });
+  router.post('/api/access/emergencies/:id/review', requireReportSession, requireSuper, emOn, json, async (req, res) => {
+    try { const b = req.body || {}; res.json({ ok: true, ...(await em().review(req.params.id, req.reportUser, { outcome: b.outcome, notes: b.notes })) }); } catch (e) { fail(res, e); }
   });
   require('./qualifications')(deps, router);   // C-19 qualification evidence, same router
   return router;

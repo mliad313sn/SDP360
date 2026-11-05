@@ -159,6 +159,8 @@ function buildJobs(d) {
   list.push({ name: 'governance.ppm_alerts', cron: '40 5 * * *', freshnessHours: 30, optional: true, job: legacyJob('governance.ppm_alerts', () => req('governance/ppm-alerts').run({}), { maxAttempts: 1 }) });
   // C-18 — access grants: end expired grants / activate approved requests whose day has come. Self-skips unless
   // report_config access_grant_expiry_job = '1' (default '0' — no grant expires by itself today).
+  // C-22 — emergency access ends at its hour (≤ 24 h). Self-skips unless emergency_access_enabled = '1'.
+  list.push({ name: 'access.emergency_expiry', cron: '*/10 * * * *', freshnessHours: 3, optional: true, job: legacyJob('access.emergency_expiry', () => accessEmergencyExpiryRun(d), { maxAttempts: 1 }) });
   list.push({ name: 'access.grant_expiry', cron: '50 3 * * *', freshnessHours: 30, optional: true, job: legacyJob('access.grant_expiry', () => accessGrantExpiryRun(d), { maxAttempts: 1 }) });
   return list;
 }
@@ -170,6 +172,15 @@ async function accessGrantExpiryRun(d = {}) {
   if (String((cfg && cfg.access_grant_expiry_job) || '0') !== '1') return { skipped: true, reason: 'access_grant_expiry_job is 0' };
   const store = d.accessStore || require('../accessStore').forRdb(rdb);
   return store.runExpiry({ actorId: null });
+}
+
+/** C-22 — the access.emergency_expiry body (exported for tests): skipped unless enabled. */
+async function accessEmergencyExpiryRun(d = {}) {
+  const rdb = d.rdb || require('../../reports-db');
+  const cfg = d.cfg || await require('../reportConfig').getConfig(rdb.db);
+  if (String((cfg && cfg.emergency_access_enabled) || '0') !== '1') return { skipped: true, reason: 'emergency_access_enabled is 0' };
+  const store = d.emergencyStore || require('../emergencyAccessStore').forRdb(rdb);
+  return store.expireDue({ actorId: null });
 }
 
 /** A-19 — the softdelete.purge body (exported for the registry test): skipped unless armed, else purge + log counts. */
@@ -193,14 +204,14 @@ const FRESHNESS_HOURS = {
   'meridian.resources': 30, 'opmanager.availability': 30, 'meraki.wan': 30, 'meraki.wan_events': 30,
   'meraki.wan_events_5m': 1, 'meraki.wan_poller': 1, 'teams.sla_poll': 1, 'db.backup': 30, 'db.restore_drill': 24 * 33, 'audit.retention': 30, 'audit.chain_verify': 30,
   'engagement.alerts': 1, 'engagement.digest': 30, 'engagement.digest_weekly': 24 * 8, 'reports.weekly': 24 * 8, 'reports.monthly': 24 * 32, 'publish.connectors': 30, 'field.purge': 30, 'softdelete.purge': 30,
-  'commitments.escalate': 3, 'handoffs.escalate': 3, 'governance.ppm_alerts': 30, 'access.grant_expiry': 30,
+  'commitments.escalate': 3, 'handoffs.escalate': 3, 'governance.ppm_alerts': 30, 'access.grant_expiry': 30, 'access.emergency_expiry': 3,
 };
 // Jobs that self-skip until configured (no API key / webhook) — never reported "stale", only "idle".
 const OPTIONAL = new Set(['meridian.resources', 'opmanager.availability', 'meraki.wan', 'meraki.wan_events', 'meraki.wan_events_5m', 'meraki.wan_poller', 'teams.sla_poll', 'db.backup', 'db.restore_drill',
-  'engagement.alerts', 'engagement.digest', 'engagement.digest_weekly', 'reports.weekly', 'reports.monthly', 'publish.connectors', 'field.purge', 'softdelete.purge', 'commitments.escalate', 'handoffs.escalate', 'governance.ppm_alerts', 'access.grant_expiry']);
+  'engagement.alerts', 'engagement.digest', 'engagement.digest_weekly', 'reports.weekly', 'reports.monthly', 'publish.connectors', 'field.purge', 'softdelete.purge', 'commitments.escalate', 'handoffs.escalate', 'governance.ppm_alerts', 'access.grant_expiry', 'access.emergency_expiry']);
 
 // Map the legacy sync_metadata job names onto the registry names (one health view, D7).
 const LEGACY_NAMES = { requests: 'zoho.requests', change_cab: 'zoho.change_cab', survey: 'zoho.survey',
   assets_assets: 'assets.sync', assets_memory: 'assets.sync', assets_logical_drives: 'assets.sync', assets_monitors: 'assets.sync', assets_software_licenses: 'assets.sync', assets_software: 'assets.sync' };
 
-module.exports = { legacyJob, buildJobs, rowsOf, FRESHNESS_HOURS, OPTIONAL, LEGACY_NAMES, softDeletePurgeRun, accessGrantExpiryRun };
+module.exports = { legacyJob, buildJobs, rowsOf, FRESHNESS_HOURS, OPTIONAL, LEGACY_NAMES, softDeletePurgeRun, accessGrantExpiryRun, accessEmergencyExpiryRun };

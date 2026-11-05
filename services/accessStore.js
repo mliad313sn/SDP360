@@ -243,6 +243,51 @@ function makeAccessStore(db, rdb, { now = () => new Date().toISOString(), getCon
     return { activated, expired, rows: activated + expired };
   }
 
+  // ── C-22 emergency access (written through the same request / grant path) ──
+  /** An emergency grant: an access_requests row kind='emergency', decided by the granter, activated at once. */
+  async function createEmergency(q, { actorId }) {
+    return tx(async () => {
+      const from = todayOf(q.starts_at), to = todayOf(q.expires_at);
+      const scope = L.scopeKey({ subject_user_id: q.subject_user_id, roles: q.roles, site_ids: q.site_ids, valid_from: from, valid_to: to });
+      const r = await P(`INSERT INTO access_requests (kind, subject_user_id, requested_by, roles, site_ids, valid_from, valid_to, justification, status, decided_by, decided_at, decision_reason, approved_scope, created_at)
+        VALUES ('emergency', ?, ?, ?, ?, ?, ?, ?, 'APPROVED', ?, ?, ?, ?, ?) RETURNING id`)
+        .get(q.subject_user_id, toId(actorId), q.roles, q.site_ids, from, to, q.reason, toId(actorId), now(), q.reason, scope, now());
+      const id = toId(r.id);
+      await event(id, 'emergency_granted', actorId, { subject: q.subject_user_id, roles: q.roles, site_ids: q.site_ids, starts_at: q.starts_at, expires_at: q.expires_at, reason: q.reason, review_due: q.review_due });
+      const grantIds = await _activate({ ...rowReq(await P('SELECT * FROM access_requests WHERE id = ?').get(id)) }, toId(actorId));
+      return { requestId: id, grantIds };
+    });
+  }
+  /** C-18 break-glass direct edit (Admin ▸ Users) recorded as an emergency: the roles are already written by the
+   *  route; this records the request + grants (held_before false, so expiry takes them away again). */
+  async function recordDirectEmergency({ subjectId, roles, actorId, reason, startsAt, expiresAt }) {
+    return tx(async () => {
+      const from = todayOf(startsAt), to = todayOf(expiresAt);
+      const r = await P(`INSERT INTO access_requests (kind, subject_user_id, requested_by, roles, site_ids, valid_from, valid_to, justification, status, decided_by, decided_at, decision_reason, activated_at, created_at)
+        VALUES ('emergency', ?, ?, ?, '{}', ?, ?, ?, 'ACTIVE', ?, ?, ?, ?, ?) RETURNING id`)
+        .get(toId(subjectId), toId(actorId), roles, from, to, reason, toId(actorId), now(), reason, now(), now());
+      const id = toId(r.id);
+      const grantIds = [];
+      for (const role of roles) {
+        grantIds.push(toId((await P(`INSERT INTO access_grants (user_id, role, site_id, request_id, valid_from, valid_to, held_before, created_at)
+          VALUES (?, ?, NULL, ?, ?, ?, false, ?) RETURNING id`).get(toId(subjectId), role, id, from, to, now())).id));
+      }
+      await event(id, 'break_glass_recorded', actorId, { subject: toId(subjectId), roles, starts_at: startsAt, expires_at: expiresAt, reason, grant_ids: grantIds });
+      return { requestId: id, grantIds };
+    });
+  }
+  /** End an ACTIVE request now (emergency hour reached): same removal rule as expiry. */
+  async function endRequest(id, { actorId = null, why = 'expired' } = {}) {
+    return tx(async () => {
+      const r = rowReq(await P('SELECT * FROM access_requests WHERE id = ? FOR UPDATE').get(toId(id)));
+      if (!r || r.status !== 'ACTIVE') return { ended: false, status: r ? r.status : null };
+      await _endGrants(r, actorId, why);
+      await P("UPDATE access_requests SET status = 'EXPIRED', ended_by = ?, ended_at = ?, end_reason = ? WHERE id = ?").run(actorId, now(), why, r.id);
+      await event(r.id, 'expire', actorId, { why });
+      return { ended: true, status: 'EXPIRED' };
+    });
+  }
+
   // ── reads ─────────────────────────────────────────────────────────
   async function liveGrants(userId) {
     const t = today();
@@ -274,7 +319,7 @@ function makeAccessStore(db, rdb, { now = () => new Date().toISOString(), getCon
   }
 
   return { listTemplates, createTemplate, addVersion, getVersion, updateDraft, publish, retire,
-    createRequest, getRequest, events, decide, approverCtx, runExpiry, liveGrants, liveGrantRoles, requestsFor, approvalsFor, hasApproved, deputiesOf };
+    createRequest, getRequest, events, decide, createEmergency, recordDirectEmergency, endRequest, approverCtx, runExpiry, liveGrants, liveGrantRoles, requestsFor, approvalsFor, hasApproved, deputiesOf };
 }
 
 /** Store bound to the live reports-db PostgreSQL handle. */
