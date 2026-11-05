@@ -11,9 +11,9 @@ const { fail, typed } = require('../services/httpError');
 //   POST /api/access/templates/:id/retire                                                                                      super_admin
 //   POST /api/access/requests                                    { subject_user_id?, template_version_id?, roles[], site_ids[], valid_from, valid_to, justification }
 //                                                                for yourself: any session; for someone else: admin tier
-//   GET  /api/access/requests/:id                                subject, requester or super_admin (with history)
+//   GET  /api/access/requests/:id                                subject, requester, super_admin or an R7 approver (with history)
 //   POST /api/access/requests/:id/{review,approve,reject,revoke} { reason } — rules in services/accessRequestLifecycle.js
-//   GET  /api/access/approvals                                   requests the caller may decide now (super_admin)
+//   GET  /api/access/approvals                                   requests the caller may decide now (R7: super_admin, or admin tier holding the site)
 // Every error goes through httpError.fail. Answers about another user are never served to a plain session.
 module.exports = function accessRoutes(deps) {
   const { express, requireReportSession } = deps;
@@ -45,7 +45,7 @@ module.exports = function accessRoutes(deps) {
       const soon = new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10);
       res.json({ ok: true, user: { id: Number(u.id), username: u.username, full_name: u.full_name, roles: u.roles || [], site_ids: u.site_ids || (u.site_id != null ? [u.site_id] : []) },
         grants, expiring_soon: grants.filter((g) => g.valid_to <= soon), requests: await s.requestsFor(u.id), deputies: await s.deputiesOf(u.id),
-        can_approve: isSuper(u), can_manage_templates: isSuper(u), can_request_for_others: isAdmin(u) });
+        can_approve: isAdmin(u), can_manage_templates: isSuper(u), can_request_for_others: isAdmin(u) });
     } catch (e) { fail(res, e); }
   });
 
@@ -85,21 +85,23 @@ module.exports = function accessRoutes(deps) {
     try {
       const r = await store().getRequest(req.params.id);
       const me = Number(req.reportUser.id);
-      if (!r || (r.subject_user_id !== me && r.requested_by !== me && !isSuper(req.reportUser))) return fail(res, typed('NOT_FOUND', 'request not found'));
+      const mayDecide = r && isAdmin(req.reportUser) && (await store().approverCtx(r, req.reportUser)).isApprover;
+      if (!r || (r.subject_user_id !== me && r.requested_by !== me && !isSuper(req.reportUser) && !mayDecide)) return fail(res, typed('NOT_FOUND', 'request not found'));
       res.json({ ok: true, request: r, events: await store().events(r.id) });
     } catch (e) { fail(res, e); }
   });
   for (const action of ['review', 'approve', 'reject', 'revoke']) {
     router.post(`/api/access/requests/:id/${action}`, requireReportSession, json, async (req, res) => {
       try {
-        const out = await store().decide(req.params.id, action, req.reportUser, { reason: (req.body || {}).reason, isApprover: isSuper(req.reportUser) });
+        const out = await store().decide(req.params.id, action, req.reportUser, { reason: (req.body || {}).reason });   // approver rule R7 inside the store
         log(req, 'access_request_' + action, req.params.id, { status: out.status }, action === 'revoke' ? 1 : 0);
         res.json({ ok: true, ...out });
       } catch (e) { fail(res, e); }
     });
   }
   router.get('/api/access/approvals', requireReportSession, async (req, res) => {
-    try { res.json({ ok: true, requests: isSuper(req.reportUser) ? await store().approvalsFor(req.reportUser) : [] }); } catch (e) { fail(res, e); }
+    try { res.json({ ok: true, requests: isAdmin(req.reportUser) ? await store().approvalsFor(req.reportUser) : [] }); } catch (e) { fail(res, e); }
   });
+  require('./qualifications')(deps, router);   // C-19 qualification evidence, same router
   return router;
 };

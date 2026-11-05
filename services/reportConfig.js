@@ -261,6 +261,16 @@ DEFAULTS.authz_capability_mode = 'off';
 // access.grant_expiry ends expired grants and activates approved requests whose start day has come.
 DEFAULTS.access_require_approval = '0';
 DEFAULTS.access_grant_expiry_job = '0';
+// C-19 (G41/G43, PO decisions R7/R8/R10). access_approver_policy = WHO decides an access request (editable JSON;
+// unreadable → the same default): platform roles (admin, executive, super_admin, tracker-admin, audit-viewer) by a
+// super_admin; any other role by an admin-tier user holding the site(s) — never the requester, subject or their
+// deputy (services/accessApproverPolicy.js + sodPolicy.js). qualification_check_enabled '0' = today: qualification
+// evidence is recorded and shown but never refuses anything; '1' → a capability that declares required kinds
+// (catalogue prereq, or qualification_requirements = {"field.capture": ["site-induction"]}) is refused while the
+// person's evidence is missing, expired or not verified. Evidence only — SDP360 never grants a physical authorisation.
+DEFAULTS.access_approver_policy = JSON.stringify(require('./accessApproverPolicy').DEFAULT_POLICY);
+DEFAULTS.qualification_check_enabled = '0';
+DEFAULTS.qualification_requirements = '{}';
 
 const KEYS = Object.keys(DEFAULTS);
 

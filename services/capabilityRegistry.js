@@ -27,7 +27,7 @@ const CAPABILITIES = Object.freeze([
   C('platform.audit_log.read', 'Read the system security log', 'Lire le journal de sécurité', 'high', 'system_log', ['super_admin'], 'platform',
     { routes: ['/api/reports/system-log'] }),
   C('platform.reference_data.manage', 'Manage reference codes and reset module lookups', 'Gérer les codes de référence et réinitialiser les listes', 'high', 'lookup', ['super_admin'], 'platform',
-    { routes: ['/api/meetings/lookups', '/api/meetings/reset', '/api/inspection/reset'] }),
+    { routes: ['/api/meetings/lookups', '/api/meetings/reset', '/api/inspection/reset', '/api/qualifications/kinds'] }),
   C('platform.roadmap.manage', 'Manage the personal ITSM roadmap', 'Gérer la feuille de route ITSM', 'med', 'roadmap', ['super_admin'], 'platform',
     { routes: ['/api/roadmap'] }),
   C('governance.roles.assign', 'Assign governance roles and deputies', 'Attribuer les rôles de gouvernance et les suppléants', 'high', 'governance_role', ['super_admin'], 'platform',

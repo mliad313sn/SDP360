@@ -65,6 +65,9 @@ planned switch cannot be set before its goal lands.
 | `authz_capability_mode` | built | `off` | `shadow` (log divergences only; `enforce` is not wired — route-by-route plan in `docs/agent-execution/C-17.md`) | Security owner | C-17 |
 | `access_require_approval` | built | `0` | `1` once the approver rule and the requires_request list are decided (break-glass stays possible, logged risk=1) | Security owner + Owner (approver matrix) | C-18 |
 | `access_grant_expiry_job` | built | `0` | `1` (ends expired grants nightly; a role held before the grant or by another live grant stays) | Security owner | C-18 |
+| `access_approver_policy` | built | `{"platform_roles":["admin","executive","super_admin","tracker-admin","audit-viewer"],"platform_approver_role":"super_admin","site_approver_role":"admin","site_approver_must_hold_site":true}` | the default (PO decision R7, encoded 2026-11-05): platform roles by a super_admin, other roles by an admin-tier user holding the site; never the requester, subject or their deputy | Security owner + Owner | C-19 |
+| `qualification_check_enabled` | built | `0` | `0` until each site's HSE owner has recorded and verified the evidence; then `1` per requirement (evidence only — SDP360 never grants a physical authorisation) | HSE owner + Security owner | C-19 |
+| `qualification_requirements` | built | `{}` | `{}` — which capability needs which kind (e.g. `field.capture` → `site-induction`) is a human decision | HSE owner | C-19 |
 
 Not in this table because they are not top-level `report_config` keys:
 

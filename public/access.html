@@ -45,6 +45,7 @@
       <button type="button" role="tab" data-tab="req"><span data-lng="en">Requests</span><span data-lng="fr">Demandes</span></button>
       <button type="button" role="tab" data-tab="appr"><span data-lng="en">Approvals</span><span data-lng="fr">Approbations</span></button>
       <button type="button" role="tab" data-tab="tpl"><span data-lng="en">Templates</span><span data-lng="fr">Modèles</span></button>
+      <button type="button" role="tab" data-tab="qual"><span data-lng="en">Qualifications</span><span data-lng="fr">Qualifications</span></button>
     </div>
     <div class="ax-msg" id="axMsg" role="status" aria-live="polite"></div>
   </div>
@@ -81,6 +82,21 @@
       <label>Titre (FR)<input id="axTFr" autocomplete="off"></label>
       <label><span><span data-lng="en">Roles (comma separated)</span><span data-lng="fr">Rôles (séparés par des virgules)</span></span><input id="axTRoles" autocomplete="off"></label>
       <button type="submit"><span data-lng="en">Create (draft v1)</span><span data-lng="fr">Créer (brouillon v1)</span></button>
+    </form>
+  </section>
+  <section class="ax-card" data-pane="qual" hidden>
+    <h2><span data-lng="en">Qualification evidence</span><span data-lng="fr">Preuves de qualification</span></h2>
+    <p class="ax-muted" data-lng="en">SDP360 records evidence only (induction, electrical authorisation, working at height, confined space). It never grants a physical authorisation: permits and habilitations stay with the site HSE process. Evidence is recorded by the admin tier and verified by someone other than the holder and the recorder.</p>
+    <p class="ax-muted" data-lng="fr">SDP360 enregistre seulement des preuves (induction, habilitation électrique, travail en hauteur, espace confiné). Il n'accorde jamais d'autorisation physique : permis et habilitations restent dans le processus HSE du site. Une preuve est saisie par le palier admin et vérifiée par une autre personne que le titulaire et que la personne qui l'a saisie.</p>
+    <div id="axQuals"></div>
+    <form id="axQualForm" class="ax-form ax-sub" hidden>
+      <label><span><span data-lng="en">Person (user id)</span><span data-lng="fr">Personne (identifiant)</span></span><input id="axQUser" inputmode="numeric" autocomplete="off"></label>
+      <label><span><span data-lng="en">Kind</span><span data-lng="fr">Type</span></span><select id="axQKind"></select></label>
+      <label><span><span data-lng="en">Issuer (as named by the site HSE owner)</span><span data-lng="fr">Émetteur (nommé par le responsable HSE du site)</span></span><input id="axQIssuer" autocomplete="off"></label>
+      <label><span><span data-lng="en">Issued on</span><span data-lng="fr">Délivré le</span></span><input id="axQIssued" type="date"></label>
+      <label><span><span data-lng="en">Expires on</span><span data-lng="fr">Expire le</span></span><input id="axQExp" type="date"></label>
+      <label><span><span data-lng="en">Evidence reference</span><span data-lng="fr">Référence de la preuve</span></span><input id="axQRef" autocomplete="off"></label>
+      <button type="submit"><span data-lng="en">Record the evidence</span><span data-lng="fr">Enregistrer la preuve</span></button>
     </form>
   </section>
 </main>
