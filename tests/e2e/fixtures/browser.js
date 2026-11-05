@@ -5,15 +5,15 @@
 // External-request policy (ADR-B05):
 //   * a request to any host other than 127.0.0.1 / localhost is aborted — nothing ever leaves the
 //     runner — and recorded;
-//   * ALLOWLIST names the only external origins a journey may still TRY to reach. Today that is
-//     Google Fonts: the PO kept fonts out of scope (they fall back to system fonts, B-01). They are
-//     aborted like everything else and reported under `allowlisted`, never silently ignored;
+//   * ALLOWLIST names the external origins a journey may still TRY to reach. It is EMPTY since C-29
+//     (PO decision P5): fonts are served same-origin from public/vendor/fonts, so Google Fonts is now
+//     `unexpected` like any other host. Anything allow-listed in future is still aborted and reported
+//     under `allowlisted`, never silently ignored;
 //   * any other external request is `unexpected` and fails the journey (must be 0).
-// Removing the font <link>s or vendoring the fonts empties `allowlisted`; then delete the entry.
 const fs = require('fs');
 const path = require('path');
 
-const ALLOWLIST = ['fonts.googleapis.com', 'fonts.gstatic.com'];
+const ALLOWLIST = [];
 const LOCAL = new Set(['127.0.0.1', 'localhost', '[::1]']);
 
 function classify(url) {

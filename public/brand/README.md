@@ -68,11 +68,12 @@ up automatically once the files appear.
 ## Fonts — drop WOFF2s in `public/brand/fonts/`
 
 The EDV primary typeface is **Franklin Gothic**. The web stack uses
-the open-source equivalent **Libre Franklin** (Google Fonts) as the
-fallback, which is loaded automatically by every page via:
+the open-source equivalent **Libre Franklin** (SIL OFL 1.1) as the
+fallback, served same-origin from `public/vendor/fonts/` (C-29 — no
+third-party font request) and loaded by every page via:
 
 ```html
-<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="fonts.css">
 ```
 
 If/when a licenced Franklin Gothic WOFF2 is provided, drop it in

@@ -1,0 +1,53 @@
+/* C-29 — Libre Franklin served same-origin (no third-party font request, PO decision P5).
+   Files: public/vendor/fonts/libre-franklin/5.3.0/ — @fontsource/libre-franklin 5.3.0, latin subset,
+   SIL Open Font License 1.1 (LICENSE alongside). Monospace and serif faces use the system stacks
+   already listed in each page's font-family. */
+@font-face {
+  font-family: 'Libre Franklin';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 300;
+  src: url(vendor/fonts/libre-franklin/5.3.0/libre-franklin-latin-300-normal.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Libre Franklin';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(vendor/fonts/libre-franklin/5.3.0/libre-franklin-latin-400-normal.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Libre Franklin';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url(vendor/fonts/libre-franklin/5.3.0/libre-franklin-latin-500-normal.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Libre Franklin';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 600;
+  src: url(vendor/fonts/libre-franklin/5.3.0/libre-franklin-latin-600-normal.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Libre Franklin';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 700;
+  src: url(vendor/fonts/libre-franklin/5.3.0/libre-franklin-latin-700-normal.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Libre Franklin';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 800;
+  src: url(vendor/fonts/libre-franklin/5.3.0/libre-franklin-latin-800-normal.woff2) format('woff2');
+}
+@font-face {
+  font-family: 'Libre Franklin';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 900;
+  src: url(vendor/fonts/libre-franklin/5.3.0/libre-franklin-latin-900-normal.woff2) format('woff2');
+}

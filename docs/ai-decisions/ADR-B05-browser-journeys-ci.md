@@ -28,6 +28,8 @@ PostgreSQL 17, every non-localhost request blocked and counted, and page weight 
    fonts; B-01 removed every script CDN). Any other origin is `unexpected` and fails the journey (must be 0).
    To close it: remove the font `<link>`s (login, index, exec-view, executive*, site-awareness, infra-health,
    design-system css) or vendor the fonts, then empty `ALLOWLIST`.
+   **Closed by C-29 (2026-11-05, PO decision P5):** Libre Franklin is vendored under `public/vendor/fonts/`,
+   every font `<link>` is gone and `ALLOWLIST` is empty — a font request is now `unexpected`.
 5. **Credentials**: the e2e job's PostgreSQL uses `POSTGRES_HOST_AUTH_METHOD: trust` (no password exists); the
    app's bootstrap admin, API key and every journey user get random values per run (`fixtures/server.js`,
    `fixtures/seed.js`). Nothing secret is committed.

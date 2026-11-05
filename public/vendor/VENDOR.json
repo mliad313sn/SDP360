@@ -8,6 +8,16 @@
     { "name": "react", "version": "18.3.1", "licence": "MIT", "npm_integrity": "sha512-wS+hAgJShR0KhEvPJArfuPVN1+Hz1t0Y6n5jLrGQbkb4urgPE/0Rve+1kMB1v/oWgHgm4WIcV+i7F2pTVj+2iQ==",
       "files": { "react/18.3.1/react.production.min.js": { "from": "package/umd/react.production.min.js", "sha256": "d949f1c3687aedadcedac85261865f29b17cd273997e7f6b2bfc53b2f9d4c4dd" } } },
     { "name": "react-dom", "version": "18.3.1", "licence": "MIT", "npm_integrity": "sha512-5m4nQKp+rZRb09LNH59GM4BxTh9251/ylbKIbpe7TpGxfJ+9kv6BLkLBXIjjspbgbnIBNqlI23tRnTWT0snUIw==",
-      "files": { "react-dom/18.3.1/react-dom.production.min.js": { "from": "package/umd/react-dom.production.min.js", "sha256": "35f4f974f4b2bcd44da73963347f8952e341f83909e4498227d4e26b98f66f0d" } } }
+      "files": { "react-dom/18.3.1/react-dom.production.min.js": { "from": "package/umd/react-dom.production.min.js", "sha256": "35f4f974f4b2bcd44da73963347f8952e341f83909e4498227d4e26b98f66f0d" } } },
+    { "name": "@fontsource/libre-franklin", "version": "5.3.0", "licence": "OFL-1.1", "npm_integrity": "sha512-owd+HDvD4hnGHG1jO3rHtg0BiNT0DJbZMaSqJ7g4r0646G5Q91MjTFWxZbpwg8njLu4BSH3EBqwkVSMLud6brg==",
+      "files": {
+        "fonts/libre-franklin/5.3.0/libre-franklin-latin-300-normal.woff2": { "from": "package/files/libre-franklin-latin-300-normal.woff2", "sha256": "87380bf074a8c572dab18cc60fba57f5020708251316b916d88f983d0244c9e6" },
+        "fonts/libre-franklin/5.3.0/libre-franklin-latin-400-normal.woff2": { "from": "package/files/libre-franklin-latin-400-normal.woff2", "sha256": "50a24a85106ad722ab9d1353977c1f7b3b3d18465a807c0d6f1551b57a705f41" },
+        "fonts/libre-franklin/5.3.0/libre-franklin-latin-500-normal.woff2": { "from": "package/files/libre-franklin-latin-500-normal.woff2", "sha256": "d34145d957f3568f0570443c2ce50bbc31a836f3f1865711b62972af4b642628" },
+        "fonts/libre-franklin/5.3.0/libre-franklin-latin-600-normal.woff2": { "from": "package/files/libre-franklin-latin-600-normal.woff2", "sha256": "aaa877781157fd03a54d6b0f27283e5b153a6d1b44a20c2d80c695f5e07d242b" },
+        "fonts/libre-franklin/5.3.0/libre-franklin-latin-700-normal.woff2": { "from": "package/files/libre-franklin-latin-700-normal.woff2", "sha256": "8ef7121d145d9e99857854efd61831391e1a8b0a91ff255f18907a1f5b9d6943" },
+        "fonts/libre-franklin/5.3.0/libre-franklin-latin-800-normal.woff2": { "from": "package/files/libre-franklin-latin-800-normal.woff2", "sha256": "bb07291260c4b6cc7fbb4fe455d41ce6897c42c226552863dfa5a833c15b215d" },
+        "fonts/libre-franklin/5.3.0/libre-franklin-latin-900-normal.woff2": { "from": "package/files/libre-franklin-latin-900-normal.woff2", "sha256": "f8386fc03ba814a07ec894149767443c12c0745b11cab042ae76ac66c18f2955" }
+      } }
   ]
 }

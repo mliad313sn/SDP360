@@ -37,8 +37,8 @@ function cspDirectives(scriptSrcDirective) {
   return [
     "default-src 'self'",
     scriptSrcDirective,
-    "style-src 'self' 'unsafe-inline' fonts.googleapis.com",   // many inline styles throughout
-    "font-src 'self' fonts.gstatic.com data:",
+    "style-src 'self' 'unsafe-inline'",   // many inline styles throughout; C-29: no font host
+    "font-src 'self' data:",                // C-29: fonts are same-origin (public/vendor/fonts)
     "img-src 'self' data:",
     // inspection.html ships its PWA manifest as an inline `data:` URL (Add-to-Home-Screen on phones).
     "manifest-src 'self' data:",

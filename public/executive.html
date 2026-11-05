@@ -4,12 +4,10 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Endeavour Mining — IT Executive Scorecard</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <!-- Libre Baskerville is intentional editorial serif for the scorecard's
      prestige feel — kept by design. Libre Franklin + JetBrains Mono come
      from the EDV design system (Franklin Gothic substitute + canonical mono). -->
-<link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Libre+Franklin:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="fonts.css">
 <!-- Chart.js loaded synchronously (NO defer) — the inline script at the
      bottom of body uses Chart.defaults.* during parse, before any deferred
      script would have executed. Switching to a non-deferred load fixed the
@@ -1427,9 +1425,7 @@ table tbody tr:hover td { background: var(--color-bg); }
 </style>
 <script src="auth.js" data-require="executive|scorecard-viewer"></script>
 <script src="lib/dashboard-shared.js"></script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@300;400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+
 <link rel="stylesheet" href="_tokens.css">
 <link rel="stylesheet" href="_shell.css">
 <link rel="stylesheet" href="brand/icons.css">
