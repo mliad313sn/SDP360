@@ -25,7 +25,8 @@ in `tests/e2e/` must appear in this table.
 | Admin (Group IT) | `admin` | See the helpdesk backlog and SLA across sites | `public/index.html` | `public/index.html` | not covered |
 | Admin (Group IT) | `admin` | Check infrastructure and WAN health of a site | `public/infra-health.html` | `public/wan.html` | not covered |
 | Executive | `executive` | Tell which site is worst this month and why | `public/executive.html` | `public/dashboards.html` | not covered |
-| Executive | `executive` | Read the IT Review scoreboard | `public/it-review.html` | `public/it-review.html` | not covered |
+| Executive | `executive` | Read the IT Review scoreboard and open the scorecard (an editor is refused the review data) | `public/it-review.html` | `public/executive.html` | `tests/e2e/u2-executive-review.spec.js` |
+| Multi-site coordinator (two countries) | `editor`, primary + extra site | See only their own sites' reports, then work in French | `public/reports.html` | `public/reports.html` | `tests/e2e/u1-multisite-french.spec.js` |
 | super_admin | `super_admin` | Change a delivery setting or a user's role | `public/reports.html` | `public/access.html` | not covered |
 | super_admin | `super_admin` | Read the security journal | `public/system-logs.html` | `public/system-logs.html` | not covered |
 | super_admin | `super_admin` | Key pages at 1440/1024/768/390 px: no horizontal scroll, header visible, no console error (layout check, not a task) | `public/index.html` | `public/access.html` | `tests/e2e/v1-viewport-layout.spec.js` |
@@ -39,7 +40,9 @@ in `tests/e2e/` must appear in this table.
 - Covered by a browser journey test: coordinator (1 of 3), site editor (4 of 4), field technician (1 of 1),
   committee member (1 of 1); super_admin: three cross-cutting checks (viewport layout, filter race, exports),
   not the two task journeys above.
-- **Not covered by any browser journey test**: admin, executive, super_admin and scorecard-viewer journeys, two of
-  the three coordinator journeys. These are the gaps a person should plan sessions or new e2e journeys for.
+- AMDEC campaign 2026-11-05 (agent-run, not user acceptance) added: executive IT Review + scorecard (U2) and the
+  multi-site coordinator in French (U1).
+- **Not covered by any browser journey test**: admin, the executive "worst site" journey, super_admin and
+  scorecard-viewer journeys, two of the three single-site coordinator journeys. These are the gaps a person should plan sessions or new e2e journeys for.
 - Personas from the committee report not mapped here because they have no separate account role today: analyst,
   business GM/FM (`site-business` lands on `public/site-awareness.html`), PMO.
