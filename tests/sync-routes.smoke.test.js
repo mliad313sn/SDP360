@@ -87,3 +87,11 @@ test('the cron registry started at boot with every declared job', async () => {
   assert.ok(sched.jobs.length >= 11);
   assert.ok(sched.jobs.some(j => j.name === 'zoho.requests' && j.cron === '45 * * * *'));
 });
+
+test('E-D04: every job carries a drift field; one successful run is UNKNOWN, never ok', async () => {
+  const body = await (await get('/api/sync/health', token)).json();
+  for (const j of body.jobs) assert.ok(j.drift && typeof j.drift.status === 'string', j.job);
+  const smoke = body.jobs.find(j => j.job === 'smoke.job');
+  assert.equal(smoke.drift.status, 'unknown');
+  assert.equal(smoke.drift.runs_considered, 1);
+});

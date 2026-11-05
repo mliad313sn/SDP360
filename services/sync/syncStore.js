@@ -66,6 +66,10 @@ function makeSyncStore(db, o = {}) {
         ? db.prepare('SELECT * FROM sync_runs WHERE job = ? ORDER BY id DESC LIMIT ?').all(job, limit)
         : db.prepare('SELECT * FROM sync_runs ORDER BY id DESC LIMIT ?').all(limit);
     },
+    // E-D04 — the last N successful runs of one job, newest first (drift detector input).
+    async recentOkRuns(job, limit = 10) {
+      return db.prepare(`SELECT id, rows, duplicates, finished_at FROM sync_runs WHERE job = ? AND status = 'ok' ORDER BY id DESC LIMIT ?`).all(job, limit);
+    },
     async health() {
       const rows = await db.prepare(
         `SELECT job, MAX(CASE WHEN status='ok' THEN finished_at END) AS last_ok,

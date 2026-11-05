@@ -10,6 +10,7 @@ nothing is approved, no owner or threshold was chosen.
 |---|---|---|
 | E-D01 — audit D-01 prep / X-DATA-01: split report for codes shared by two active sites | FIXED (tool) | `tools/sites/shared-code-report.js`; `tests/shared-code-report.test.js` (3) — Assafo+Tanda → TND fixture: rows split by writer site, unknowns marked (no writer / several sites / central / account missing), read-only queries only |
 | E-D01 — audit D-03 / X-DATA-02: registry observation mode | FIXED (behind switch, default `0`) | `site_codes_from_registry='shadow'` in `services/siteCodeRegistry.js` (`resolve`, `parseMode`); `tests/site-code-shadow.test.js` (5): shadow answers like `0` and logs one divergence, `1` unchanged; `tests/site-code-registry.smoke.test.js` (+1): PUT accepts `shadow` with the same reason / super_admin rule, divergence row written once |
+| E-D04 — audit D-06: sync content drift (shadow) | FIXED (shown always, alert behind switch default `0`) | `services/sync/drift.js`; `tests/sync-drift.test.js` (8): <5 runs = unknown, drop / spike / zero_after_history / duplicates_rate on fixtures, thresholds from config, alert not sent at `0`, sent once at `1`; `tests/sync-routes.smoke.test.js` (+1): `drift` field on every job of `/api/sync/health` |
 
 ## E-D01 — details
 
@@ -34,3 +35,19 @@ nothing is approved, no owner or threshold was chosen.
 
 Left for a person: choosing the owner of TND (gate 9) and applying any split; switching the registry to
 `shadow` then `1` (gate 10); deciding whether the legacy tracker save should start recording its writer.
+
+## E-D04 — details
+
+- `computeDrift(runs)` reads the last 10 successful `sync_runs` of a job (new store reader `recentOkRuns`):
+  fewer than 5 runs, or a missing row count, is `unknown` with a reason — never `ok`. The median is taken over
+  the previous runs (the last run is compared against them). A job that always writes 0 rows stays `ok`.
+- `/api/sync/health` adds `drift` to every job (unreadable config → proposed thresholds; unreadable run log →
+  `unknown`). The status field and the summary counts are unchanged.
+- The hourly sweep in `services/sync/schedule.js` sends drift alerts through the existing alerter senders
+  (e-mail / Teams of `sync_alert_*`) ONLY when `sync_drift_alerts = '1'`; dedup 24 h per job in
+  `sync_watermarks` (`alert:drift:<job>`), cleared when the job is back to `ok`. Detection never blocks a sync.
+- Legacy-wrapped jobs record rows from their summary (`rowsOf`), so their drift is as good as that count.
+- New keys (all PROPOSITION, PILOT-PROFILE rows + FLAG-REGISTER regenerated): `sync_drift_alerts` `0`,
+  `sync_drift_drop_pct` `50`, `sync_drift_spike_pct` `300`, `sync_drift_duplicates_pct` `10`.
+
+Left for a person: the thresholds and an owner per flow; arming `sync_drift_alerts`.

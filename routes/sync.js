@@ -2,7 +2,7 @@
 const { fail } = require('../services/httpError');
 // SDP360 — sync observability routes (Phase 1 Foundation & Sync).
 //   GET /api/sync/runs?job=&limit=   last runs of the generic runner (session-guarded)
-//   GET /api/sync/health             per-job last ok / last error / error count
+//   GET /api/sync/health             per-job last ok / last error / error count / content drift (E-D04)
 // DI factory like routes/teamsSla.js: server.js passes { express, requireReportSession }.
 // The legacy GET /api/sync/status (sync_metadata) stays as is; this is the run-level view.
 module.exports = function syncRoutes(deps) {
@@ -48,6 +48,13 @@ module.exports = function syncRoutes(deps) {
       // and the publication gate never disagree on "stale" (committee architect P1-3)
       const limits = { ...FRESHNESS_HOURS };
       try { const GP = require('../services/governancePolicy'); const pol = await GP.forContext({}); for (const [m, job] of GP.FRESHNESS_SOURCES) { const v = Number(pol[`freshness.${m}_hours`]); if (Number.isFinite(v) && v > 0) limits[job] = v; } } catch (_) { /* policy store unreadable → declared windows */ }
+      // E-D04 — content drift per job (observation; never blocks a sync). Unreadable config = proposed thresholds.
+      let drift = {};
+      try {
+        const DRIFT = require('../services/sync/drift'); const store = sync.getStore();
+        let cfg = {}; try { cfg = await require('../services/reportConfig').getConfig((deps.rdb || require('../reports-db')).db); } catch (_) { cfg = {}; }
+        if (typeof store.recentOkRuns === 'function') drift = await DRIFT.driftForJobs(store, Array.from(byJob.keys()), cfg);
+      } catch (_) { drift = {}; }
       const jobs = Array.from(byJob.values()).map((j) => {
         const hours = limits[j.job] || null;
         const ageH = j.last_ok ? (now - Date.parse(j.last_ok)) / 36e5 : null;
@@ -55,7 +62,8 @@ module.exports = function syncRoutes(deps) {
         if (!j.last_ok) status = OPTIONAL.has(j.job) ? 'idle' : 'never';
         else if (j.last_error && Date.parse(j.last_error) > Date.parse(j.last_ok)) status = 'error';
         else if (hours && ageH > hours) status = 'stale';
-        return { ...j, freshness_hours: hours, optional: OPTIONAL.has(j.job), stale_hours: ageH == null ? null : Math.round(ageH), status };
+        return { ...j, freshness_hours: hours, optional: OPTIONAL.has(j.job), stale_hours: ageH == null ? null : Math.round(ageH), status,
+          drift: drift[j.job] || { status: 'unknown', reason: 'not computed', flags: [], runs_considered: 0 } };
       }).sort((a, b) => a.job.localeCompare(b.job));
       const summary = { ok: jobs.filter((j) => j.status === 'ok').length, stale: jobs.filter((j) => j.status === 'stale').length, error: jobs.filter((j) => j.status === 'error').length, never: jobs.filter((j) => j.status === 'never').length, idle: jobs.filter((j) => j.status === 'idle').length };
       res.json({ ok: true, summary, jobs });

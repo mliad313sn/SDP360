@@ -58,6 +58,10 @@ function start(d) {
       await syncMod.ensureReady();
       const rows = await syncMod.getStore().health();
       await alerter.checkStale(rows, FRESHNESS_HOURS, OPTIONAL);
+      // E-D04 — content drift, sent only when sync_drift_alerts = '1' (default '0': computed, shown, not sent)
+      const DRIFT = require('./drift');
+      const cfg = d.getDriftConfig ? await d.getDriftConfig() : await require('../reportConfig').getConfig(require('../../reports-db').db);
+      if (DRIFT.enabled(cfg)) await alerter.checkDrift(await DRIFT.driftForJobs(syncMod.getStore(), Object.keys(FRESHNESS_HOURS), cfg), { enabled: true });
     } catch (e) { console.warn('[sync-alert] stale sweep failed:', e.message); }
   }));
 

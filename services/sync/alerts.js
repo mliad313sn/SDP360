@@ -62,7 +62,22 @@ function createAlerter({ store, senders = [], now = () => Date.now(), streak = D
     return out;
   }
 
-  return { onEvent, checkStale };
+  // E-D04 — content drift (shadow). Sends nothing unless `enabled` (report_config sync_drift_alerts = '1');
+  // once per 24 h per job while the same flags stay raised. `drift` = { job: computeDrift result }.
+  async function checkDrift(drift, { enabled = false } = {}) {
+    const out = [];
+    if (!enabled) return out;
+    for (const [job, d] of Object.entries(drift || {})) {
+      if (!d || d.status !== 'drift') { if (d && d.status === 'ok') await clearAlert(`drift:${job}`); continue; }
+      const last = await lastAlertAt(`drift:${job}`);
+      if (last && now() - last < STALE_REPEAT_MS) continue;
+      await markAlert(`drift:${job}`);
+      out.push(await send('drift', job, `${job}: ${d.flags.join(', ')} — last run ${d.last_rows} rows vs median ${d.median_rows} over ${d.runs_considered} runs${d.duplicates_pct != null ? `, duplicates ${d.duplicates_pct} %` : ''}. Thresholds are proposals; the sync was not blocked.`));
+    }
+    return out;
+  }
+
+  return { onEvent, checkStale, checkDrift };
 }
 
 // Sender factories — thin, best-effort.

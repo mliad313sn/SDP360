@@ -210,6 +210,12 @@ DEFAULTS.sync_alert_enabled = '1';
 DEFAULTS.sync_alert_recipients = '';
 DEFAULTS.sync_alert_teams_url = '';
 DEFAULTS.sync_truncation_tolerance_pct = '20';
+// ── E-D04 (audit D-06) — sync content drift. '0' = drift is computed and shown in /api/sync/health but no alert
+//    is sent (today); '1' = sent through the sync alert path. The three thresholds are PROPOSITIONS (no owner yet).
+DEFAULTS.sync_drift_alerts = '0';
+DEFAULTS.sync_drift_drop_pct = '50';
+DEFAULTS.sync_drift_spike_pct = '300';
+DEFAULTS.sync_drift_duplicates_pct = '10';
 // ── M4 (2026-10-21) — outbound URL guard (services/safeUrl.js). Comma-separated hosts
 //    (exact or `*.suffix`) that may be targeted even when they resolve to a private address —
 //    the on-prem OpManager, an internal relay. Non-secret. Must live here or setConfig drops it.
