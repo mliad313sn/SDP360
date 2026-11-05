@@ -401,6 +401,20 @@ function getPreviousWeek() {
 const ROLE_HIERARCHY = ['super_admin', 'executive', 'admin', 'editor', 'viewer'];
 const FEATURE_ROLES_KNOWN = ['tracker-admin', 'tracker-editor', 'report-author', 'audit-viewer', 'scorecard-viewer', 'site-business', 'group-business', 'dashboard-publisher', 'committee-member', 'field-tech', 'finance-viewer', 'kpi-committee'];
 
+// D-04 (AMDEC AM-04): an unknown role string is REFUSED at create/update, never dropped in
+// silence (an admin believed `kpi-comittee` had been granted). Returns the unknown ones.
+function unknownRoles(roles) {
+  const known = new Set([...ROLE_HIERARCHY, ...FEATURE_ROLES_KNOWN]);
+  return [...new Set((Array.isArray(roles) ? roles : []).map(String))].filter((r) => !known.has(r));
+}
+function _assertKnownRoles(roles) {
+  const bad = unknownRoles(roles);
+  if (!bad.length) return;
+  const e = require('./services/httpError').typed('VALIDATION', `unknown role(s): ${bad.join(', ')} — not in the role catalogue, nothing saved`);
+  e.unknown_roles = bad;
+  throw e;
+}
+
 /**
  * Returns the array of role strings explicitly assigned to a user.
  * Includes both hierarchical and feature roles. Order is alphabetical for
@@ -1006,6 +1020,7 @@ async function _createUserPg({ username, full_name, password, site_id, role, rol
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = hashPassword(password, salt);
   const finalRoles = Array.isArray(roles) && roles.length > 0 ? roles : [role || 'editor'];
+  _assertKnownRoles(finalRoles);
   const ROLE_HIERARCHY_LOCAL = ['super_admin', 'executive', 'admin', 'editor', 'viewer'];
   const highest = ROLE_HIERARCHY_LOCAL.find(h => finalRoles.includes(h)) || 'viewer';
   const result = await pgHandle().prepare(`INSERT INTO users (username, full_name, password_hash, salt, site_id, role) VALUES (?,?,?,?,?,?)`)
@@ -1030,6 +1045,7 @@ async function _updateUserPg(id, { full_name, password, site_id, role, roles, ac
   const h = pgHandle();
   const willUpdateRoles = Array.isArray(roles) || typeof role === 'string';
   const finalRoles = Array.isArray(roles) && roles.length > 0 ? roles : (typeof role === 'string' ? [role] : null);
+  if (finalRoles) _assertKnownRoles(finalRoles);
   const ROLE_HIERARCHY_LOCAL = ['super_admin', 'executive', 'admin', 'editor', 'viewer'];
   const highest = finalRoles ? (ROLE_HIERARCHY_LOCAL.find(x => finalRoles.includes(x)) || 'viewer') : null;
   if (password) {
@@ -5590,7 +5606,7 @@ module.exports = {
   listActiveSessions, forceLogoutByToken,
   // Multi-role RBAC helpers
   getUserRoles, setUserRoles, userHasRole,
-  ROLE_HIERARCHY, FEATURE_ROLES_KNOWN,
+  ROLE_HIERARCHY, FEATURE_ROLES_KNOWN, unknownRoles,
   listUsers, createUser, updateUser, deleteUser, changePassword,
   getUserExtraSiteIds, setUserExtraSites,
   listSites, updateSiteGroup, createSite, updateSite, setSiteActive,

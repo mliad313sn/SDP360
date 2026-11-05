@@ -55,13 +55,18 @@ async function provisionFromGroups(rdb, user, claims, settings = {}, ip = null) 
       }
     }
     const plan = prov.planProvisioning(user, claims.groups, settings.groupMap, { keepRoles });
+    if (plan.skipped && plan.skipped.length) {   // D-04: a mapping typo is journalled and skipped, the login goes on
+      console.warn(`[SSO] group map names unknown role(s) ${plan.skipped.join(', ')} for user=${user.username} — skipped`);
+      try { rdb.logEvent({ category:'identity', action:'sso_unknown_role_skipped', actor:'sso', actor_id:user.id, target:user.username, risk:1, details:{ roles: plan.skipped, groups: plan.matched } }); } catch (_) { /* a dead log never blocks a login */ }
+    }
+    const skipped = plan.skipped && plan.skipped.length ? { skipped_roles: plan.skipped } : {};
     if (plan.changed) {
       // updateUser rewrites full_name / site_id / active from its arguments: carry the current values so a
       // role-only patch does not null the name (NOT NULL → the update failed) nor clear the site (C-18 finding).
       await rdb.updateUser(user.id, { full_name: user.full_name, site_id: user.site_id == null ? null : user.site_id, active: user.active == null ? 1 : user.active, ...plan.patch });
       rdb.logEvent({ category:'identity', action:'user_role_changed', actor:'sso', actor_id:user.id, target:user.username, details:{ via:'entra_group_map', ...plan.patch, kept_by_grant: plan.kept || [] } });
     }
-    return { applied: !!plan.changed, overage:false };
+    return { applied: !!plan.changed, overage:false, ...skipped };
   } catch (e) { console.warn('[SSO] group provisioning skipped:', e.message); return { applied:false, overage:false }; }
 }
 

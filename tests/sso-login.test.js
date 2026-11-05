@@ -61,3 +61,24 @@ test('provisionFromGroups: normal login applies the pure plan (one update + iden
   assert.equal(rdb.calls.update.length, 1);
   assert.equal(rdb.calls.log[0].action, 'user_role_changed');
 });
+
+test('D-04 provisionFromGroups: an unknown mapped role is logged and skipped — the login goes on with the known roles', async () => {
+  const rdb = stubRdb();
+  const map = { ...settings, groupMap: [{ group: 'g-admin', roles: ['admin', 'kpi-comittee'], site_id: null }] };
+  const r = await ssoLogin.provisionFromGroups(rdb, { id: 7, username: 'ana', roles: ['viewer'] }, claims, map, null);
+  assert.equal(r.applied, true);
+  assert.deepEqual(r.skipped_roles, ['kpi-comittee']);
+  assert.deepEqual(rdb.calls.update[0].patch.roles, ['admin'], 'only known roles reach updateUser');
+  const ev = rdb.calls.log.find((e) => e.action === 'sso_unknown_role_skipped');
+  assert.ok(ev, 'the skipped role is journalled');
+  assert.deepEqual(ev.details.roles, ['kpi-comittee']);
+});
+
+test('D-04 provisionFromGroups: a map holding ONLY unknown roles changes nothing and never throws', async () => {
+  const rdb = stubRdb();
+  const map = { ...settings, groupMap: [{ group: 'g-admin', roles: ['nope'], site_id: null }] };
+  const r = await ssoLogin.provisionFromGroups(rdb, { id: 7, username: 'ana', roles: ['viewer'] }, claims, map, null);
+  assert.equal(r.applied, false);
+  assert.equal(rdb.calls.update.length, 0);
+  assert.ok(rdb.calls.log.some((e) => e.action === 'sso_unknown_role_skipped'));
+});

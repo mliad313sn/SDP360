@@ -76,6 +76,14 @@ module.exports = function adminUsersRoutes(deps) {
     return out;
   };
   const _rolesOf = (b) => (Array.isArray(b.roles) && b.roles.length ? b.roles : (typeof b.role === 'string' ? [b.role] : []));
+  // D-04: unknown roles → 400 naming them (checked before the approval gate; the reader enforces it too).
+  const _unknownRolesError = (b) => {
+    const bad = typeof rdb.unknownRoles === 'function' ? rdb.unknownRoles(_rolesOf(b || {})) : [];
+    if (!bad.length) return null;
+    const e = typed('VALIDATION', `unknown role(s): ${bad.join(', ')} — not in the role catalogue, nothing saved`);
+    e.unknown_roles = bad; return e;
+  };
+  const _failRoles = (res, e) => fail(res, e, undefined, Array.isArray(e && e.unknown_roles) ? { unknown_roles: e.unknown_roles } : undefined);
 
 // ── Users (admin only) ────────────────────────────────────────────
 router.get('/api/reports/users', requireReportSession, requireSuperAdmin, async (req, res) => {
@@ -88,6 +96,7 @@ router.post('/api/reports/users', requireReportSession, requireSuperAdmin, jsonB
     // Accept both legacy `role: 'admin'` (string) and new `roles: ['admin', 'tracker-editor']` (array).
     const { username, full_name, password, site_id, role, roles, email, extra_site_ids } = req.body || {};
     if (!username || !full_name || !password) return res.status(400).json({ error: 'username, full_name, password required' });
+    const badRoles = _unknownRolesError(req.body); if (badRoles) return _failRoles(res, badRoles);
     const denied = await _approvalGate(req, null, [], _rolesOf(req.body || {}).length ? _rolesOf(req.body || {}) : ['editor']);
     if (denied) return fail(res, denied);
     const r = await rdb.createUser({ username, full_name, password, site_id, role, roles, email, extra_site_ids });
@@ -99,7 +108,7 @@ router.post('/api/reports/users', requireReportSession, requireSuperAdmin, jsonB
   } catch(e) {
     // sqlite raises "UNIQUE constraint failed"; postgres raises SQLSTATE 23505.
     if (e.code === '23505' || (e.message && e.message.includes('UNIQUE'))) return res.status(409).json({ error: 'Username already exists' });
-    fail(res, e);
+    _failRoles(res, e);
   }
 });
 
@@ -128,6 +137,7 @@ router.put('/api/reports/users/:id', requireReportSession, requireSuperAdmin, js
     const { full_name, password, site_id, role, roles, active, email, extra_site_ids } = req.body || {};
     if (!full_name) return res.status(400).json({ error: 'full_name required' });
     const id = parseInt(req.params.id);
+    const badRoles = _unknownRolesError(req.body); if (badRoles) return _failRoles(res, badRoles);
     const before = await _snapshot(id);
     if (roles !== undefined || role !== undefined) { const denied = await _approvalGate(req, id, before ? before.roles : [], _rolesOf(req.body || {})); if (denied) return fail(res, denied); }
     await rdb.updateUser(id, { full_name, password, site_id, role, roles, active, email, extra_site_ids });
@@ -139,7 +149,7 @@ router.put('/api/reports/users/:id', requireReportSession, requireSuperAdmin, js
     if (password) _log(req, 'password_reset', target, { user_id: id, by_admin: true });
     const emergency = await _recordBreakGlass(req, id);
     res.json({ ok: true, ...(emergency ? { emergency } : {}) });
-  } catch(e) { fail(res, e); }
+  } catch(e) { _failRoles(res, e); }
 });
 
 router.delete('/api/reports/users/:id', requireReportSession, requireSuperAdmin, async (req, res) => {

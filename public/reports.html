@@ -7044,7 +7044,10 @@ async function saveUser() {
     closeUserModal();
     toast(id ? 'User updated ✓' : 'User created ✓', 'success');
     loadAdminPage();
-  } catch(e) { toast('Error: ' + e, 'error'); }
+  } catch(e) {
+    // D-04: the server refuses an unknown role and names it — the modal stays open on the refusal.
+    toast((/unknown role/.test(String(e)) ? 'Refused — ' : 'Error: ') + e, 'error');
+  }
 }
 
 async function deleteUser(id) {

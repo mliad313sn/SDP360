@@ -57,6 +57,12 @@ test('DAT-03 currencies: GBP (London) and XOF (Sabodala) convert at their own ra
   assert.equal(by.Assafo.currency, null);
   assert.equal(by.Assafo.purchase_cost_usd, null, 'an amount that could not be converted is UNKNOWN, never 0');
   assert.equal(Math.round(r.j.fleet.purchase_cost_usd), 2920, 'fleet total = converted amounts only, the excluded row is counted apart');
+  // D-06: while a row is excluded the money figure is NOT certified, and says why.
+  assert.equal(r.j.certification.certified, false);
+  assert.equal(r.j.certification.reason, 'excluded_rows');
+  assert.equal(r.j.certification.excluded_rows, 1);
+  const assafo = r.j.coverage_by_site.find((x) => x.site === 'Assafo');
+  assert.deepStrictEqual([assafo.eligible, assafo.total], [0, 1], 'an excluded row is not counted as covered');
   await cfg.setConfig(rdb.db, { asset_site_currency: '', asset_currency_rates: '' }, 'uat');
 });
 

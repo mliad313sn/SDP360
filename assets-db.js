@@ -472,14 +472,16 @@ function _refreshCycleMonths(pt) {
 // A-16: per-site money coverage + PROPOSED certification, additive. Eligible =
 // rate-INDEPENDENT money.parseAmount(purchase_cost) > 0 ("0.00" is no cost).
 const moneyCoverage = require('./services/moneyCoverage');
-function _moneyCoverage(rows, opts = {}) {
+// D-06: `rf` (row factors) — an excluded row (factor null) is never covered, and the
+// excluded count reaches certify() so the figure reads "not certified" while any row is out.
+function _moneyCoverage(rows, opts = {}, rf = null) {
   const coverage_by_site = moneyCoverage.coverageBySite(rows, {
-    isEligible: (r) => money.parseAmount(r.purchase_cost) > 0,
+    isEligible: (r) => money.parseAmount(r.purchase_cost) > 0 && !(rf && rf.factor.get(r) == null),
     siteOf: (r) => r.site,
   });
   return {
     coverage_by_site,
-    certification: moneyCoverage.certify(coverage_by_site, { minSites: opts.minSites, minPct: opts.minPct }),
+    certification: moneyCoverage.certify(coverage_by_site, { minSites: opts.minSites, minPct: opts.minPct, excluded: rf && rf.excluded }),
   };
 }
 
@@ -552,7 +554,7 @@ function _aggregateFinance(rows, rate, opts = {}) {
     refresh_due: a.refresh_due,
   });
   const by_site = [...acc.keys()].sort().map(site => shape(acc.get(site), site));
-  return _withMoneyExtras({ by_site, fleet: shape(fleet, null), ..._moneyCoverage(rows, opts) }, ctx, rf);
+  return _withMoneyExtras({ by_site, fleet: shape(fleet, null), ..._moneyCoverage(rows, opts, rf) }, ctx, rf);
 }
 
 // opts (optional, A-16): { minSites, minPct } — certification policy only.
@@ -602,11 +604,12 @@ function _aggregateDepreciation(rows, opts = {}) {
   const rf = _rowFactors(rows, ctx);
   const M = ctx.active ? 1 : R;
   const acc = new Map();   // site -> {computed,sdp,purchase,count}
-  const fleet = { computed: 0, sdp: 0, purchase: 0, count: 0 };
+  const fleet = { computed: 0, sdp: 0, purchase: 0, count: 0, known: 0 };
   const add = (a, row) => {
     a.count++;
     const f = rf.factor.get(row);
     if (f == null) return;
+    a.known++;
     const d = _computeAssetBook(row, config, asOf, ctx.parse);
     if (d.currentBookValue != null && Number.isFinite(d.currentBookValue)) a.computed += d.currentBookValue * f;
     const b = ctx.parse(row.current_book_value); if (b != null) a.sdp += b * f;
@@ -614,20 +617,22 @@ function _aggregateDepreciation(rows, opts = {}) {
   };
   for (const row of rows) {
     const site = row.site == null ? '' : String(row.site);
-    if (!acc.has(site)) acc.set(site, { computed: 0, sdp: 0, purchase: 0, count: 0 });
+    if (!acc.has(site)) acc.set(site, { computed: 0, sdp: 0, purchase: 0, count: 0, known: 0 });
     add(acc.get(site), row);
     add(fleet, row);
   }
+  // D-06: every row of the group excluded → the money is UNKNOWN (null), never a measured 0.
+  const amt = (a, v) => (a.count > 0 && a.known === 0 ? null : v * M);
   const shape = (a, site) => ({
     site,
     asset_count: a.count,
-    computed_book_value_usd: a.computed * M,
-    sdp_book_value_usd: a.sdp * M,
-    purchase_cost_usd: a.purchase * M,
+    computed_book_value_usd: amt(a, a.computed),
+    sdp_book_value_usd: amt(a, a.sdp),
+    purchase_cost_usd: amt(a, a.purchase),
     pct_depreciated: a.purchase > 0 ? 1 - a.computed / a.purchase : null,
   });
   const by_site = [...acc.keys()].sort().map(site => shape(acc.get(site), site));
-  return _withMoneyExtras({ by_site, fleet: shape(fleet, null), ..._moneyCoverage(rows, { minSites, minPct }) }, ctx, rf);
+  return _withMoneyExtras({ by_site, fleet: shape(fleet, null), ..._moneyCoverage(rows, { minSites, minPct }, rf) }, ctx, rf);
 }
 
 function getAssetDepreciation(filters, opts = {}) {

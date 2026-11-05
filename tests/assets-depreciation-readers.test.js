@@ -126,7 +126,12 @@ test('A-26 empty currency map → identical results; map set → unknown site sk
   const s = (await adb.getAssetDepreciation({}, { ...OPTS, currencyMap: '{"MANA":"XOF"}', rates: { XOF: RATE, USD: 1 } }));
   const bySite = Object.fromEntries(s.by_site.map(r => [r.site, r]));
   assert.strictEqual(bySite.HGO.currency, null);
-  assert.strictEqual(bySite.HGO.purchase_cost_usd, 0);
+  // D-06: every HGO amount was skipped → UNKNOWN (null), never a measured 0; the figure is not certified.
+  assert.strictEqual(bySite.HGO.purchase_cost_usd, null);
+  assert.strictEqual(bySite.HGO.computed_book_value_usd, null);
+  assert.strictEqual(s.certification.certified, false);
+  assert.strictEqual(s.certification.reason, 'excluded_rows');
+  assert.strictEqual(s.certification.excluded_rows, 2);
   assert.strictEqual(s.excluded.no_currency, 2);
   near(bySite.MANA.computed_book_value_usd, MANA_COMPUTED * RATE, 1, 'MANA unchanged');
   const sch0 = (await adb.getDepreciationSchedule({}, OPTS));
