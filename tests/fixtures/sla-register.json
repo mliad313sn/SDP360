@@ -1,0 +1,16 @@
+{
+  "month": "2099-01",
+  "slaDefinition": "flag",
+  "sites": [
+    { "id": 1, "name": "Alpha Mine", "zoho_group": "Alpha IT Agents" },
+    { "id": 2, "name": "Sabodala", "zoho_group": "Sabodala IT Agents, Sabodala Network" }
+  ],
+  "rows": [
+    { "tech_group": "Alpha IT Agents", "request_status": "Closed", "pending_status": 0, "overdue_status": 0, "due_by_time": "2099-01-03T10:00:00.000Z", "resolved_time": "2099-01-02T10:00:00.000Z", "responded_time": "2099-01-01T10:10:00.000Z", "first_response_overdue": "false" },
+    { "tech_group": "Alpha IT Agents", "request_status": "Closed", "pending_status": 0, "overdue_status": 0, "due_by_time": "2099-01-03T10:00:00.000Z", "resolved_time": "2099-01-05T10:00:00.000Z", "responded_time": "2099-01-01T12:00:00.000Z", "first_response_overdue": "true" },
+    { "tech_group": "Alpha IT Agents", "request_status": "Cancelled", "pending_status": 0, "overdue_status": 1, "due_by_time": "2099-01-03T10:00:00.000Z", "resolved_time": "2099-01-09T10:00:00.000Z" },
+    { "tech_group": "Alpha IT Agents", "request_status": "Open", "pending_status": 1, "overdue_status": null },
+    { "tech_group": "Sabodala Network", "request_status": "Open", "pending_status": 1, "overdue_status": null },
+    { "tech_group": "Orphan Group", "request_status": "Resolved", "pending_status": 0, "overdue_status": 1, "due_by_time": "2099-01-03T10:00:00.000Z", "resolved_time": "2099-01-04T10:00:00.000Z", "responded_time": "2099-01-01T10:00:00.000Z", "first_response_overdue": "" }
+  ]
+}
