@@ -555,7 +555,6 @@ require('./services/sync/schedule').start({
   },
 });
 
-
 // ── NIGHTLY HARD REFRESH — raw ticket cache ────────────────────────────────
 // Runs at 03:15 AM every night (after survey sync at 02:00, staggered to avoid
 // collision). Clears the in-memory AND disk raw cache so the first morning
@@ -1689,7 +1688,6 @@ function parseScore(raw) {
 /**
  * Parse Analytics Plus date string: "18 Jun, 2025 11:35:06"
  */
-
 
 const MO = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -5224,8 +5222,6 @@ const reportSentLog   = require('./services/reportSentLog');
 const reportSchedule  = require('./services/reportSchedule');
 const { siteReportData } = require('./services/siteReport');
 const { buildSiteReportDeps } = require('./services/siteReportDeps');
-
-
 
 // Report config · Zoho Analytics connection · test-smtp — routes/adminConfig.js (M12-a).
 // tokenState is passed by reference (the handlers mutate its fields, never reassign it).
