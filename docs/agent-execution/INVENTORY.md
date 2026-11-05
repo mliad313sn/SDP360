@@ -11,13 +11,13 @@
 | pages without declared role | 6 |
 | pages not in navigation | 28 |
 | pages with inline scripts | 46 |
-| routes | 573 |
+| routes | 576 |
 | routes without test reference | 80 |
 | routes in server js | 231 |
 | jobs | 27 |
 | jobs without test reference | 10 |
-| migrations | 66 |
-| test files | 565 |
+| migrations | 68 |
+| test files | 567 |
 
 ## Pages
 
@@ -149,7 +149,7 @@
 | RT-GET-api-views | GET | `/api/views` | server.js:3760 |
 | RT-GET-ext-odata-sites | GET | `/ext/odata/Sites` | routes/extApi.js:103 |
 | RT-GET- | GET | `/` | server.js:1397 |
-| RT-GET-handoffs-html | GET | `/handoffs.html` | routes/handoffs.js:77 |
+| RT-GET-handoffs-html | GET | `/handoffs.html` | routes/handoffs.js:82 |
 | RT-GET-inspection-html | GET | `/inspection.html` | server.js:1419 |
 | RT-GET-inspections-html | GET | `/inspections.html` | server.js:1458 |
 | RT-GET-meetings-compliance-html | GET | `/meetings-compliance.html` | server.js:1503 |

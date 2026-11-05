@@ -6,13 +6,13 @@
   "pages_without_declared_role": 6,
   "pages_not_in_navigation": 28,
   "pages_with_inline_scripts": 46,
-  "routes": 573,
+  "routes": 576,
   "routes_without_test_reference": 80,
   "routes_in_server_js": 231,
   "jobs": 27,
   "jobs_without_test_reference": 10,
-  "migrations": 66,
-  "test_files": 565
+  "migrations": 68,
+  "test_files": 567
  },
  "pages": [
   {
@@ -161,7 +161,7 @@
    ],
    "in_navigation": false,
    "inline_scripts": 0,
-   "bytes": 8265,
+   "bytes": 9984,
    "tests": [
     "tests/duty-routes.smoke.test.js",
     "tests/i18n-coverage.test.js"
@@ -3277,7 +3277,7 @@
    "method": "POST",
    "path": "/api/governance/roles/calendar/:id/remove",
    "file": "routes/governanceRoles.js",
-   "line": 121,
+   "line": 130,
    "tests": [
     "tests/governance-roles.smoke.test.js"
    ]
@@ -3287,7 +3287,7 @@
    "method": "POST",
    "path": "/api/governance/roles/calendar",
    "file": "routes/governanceRoles.js",
-   "line": 108,
+   "line": 117,
    "tests": [
     "tests/governance-roles.smoke.test.js"
    ]
@@ -3297,9 +3297,10 @@
    "method": "POST",
    "path": "/api/governance/roles/deputies/:id/revoke",
    "file": "routes/governanceRoles.js",
-   "line": 103,
+   "line": 112,
    "tests": [
-    "tests/governance-roles.smoke.test.js"
+    "tests/governance-roles.smoke.test.js",
+    "tests/shift-handover.smoke.test.js"
    ]
   },
   {
@@ -3309,7 +3310,8 @@
    "file": "routes/governanceRoles.js",
    "line": 80,
    "tests": [
-    "tests/governance-roles.smoke.test.js"
+    "tests/governance-roles.smoke.test.js",
+    "tests/shift-handover.smoke.test.js"
    ]
   },
   {
@@ -3327,7 +3329,7 @@
    "method": "POST",
    "path": "/api/governance/roles/matrix/:id/retire",
    "file": "routes/governanceRoles.js",
-   "line": 132,
+   "line": 141,
    "tests": [
     "tests/governance-roles.smoke.test.js"
    ]
@@ -3337,7 +3339,7 @@
    "method": "POST",
    "path": "/api/governance/roles/matrix",
    "file": "routes/governanceRoles.js",
-   "line": 125,
+   "line": 134,
    "tests": [
     "tests/governance-roles.smoke.test.js"
    ]
@@ -3349,7 +3351,8 @@
    "file": "routes/governanceRoles.js",
    "line": 49,
    "tests": [
-    "tests/governance-roles.smoke.test.js"
+    "tests/governance-roles.smoke.test.js",
+    "tests/shift-handover.smoke.test.js"
    ]
   },
   {
@@ -3637,7 +3640,7 @@
    "method": "POST",
    "path": "/api/handoffs/:id/reassign",
    "file": "routes/handoffs.js",
-   "line": 144,
+   "line": 152,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -3651,7 +3654,7 @@
    "method": "POST",
    "path": "/api/handoffs/:id/transition",
    "file": "routes/handoffs.js",
-   "line": 132,
+   "line": 140,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -3665,7 +3668,7 @@
    "method": "GET",
    "path": "/api/handoffs/:id",
    "file": "routes/handoffs.js",
-   "line": 102,
+   "line": 110,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -3679,7 +3682,7 @@
    "method": "GET",
    "path": "/api/handoffs/people",
    "file": "routes/handoffs.js",
-   "line": 80,
+   "line": 85,
    "tests": [
     "tests/handoffs.smoke.test.js"
    ]
@@ -3689,7 +3692,7 @@
    "method": "GET",
    "path": "/api/handoffs",
    "file": "routes/handoffs.js",
-   "line": 93,
+   "line": 98,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -3703,7 +3706,7 @@
    "method": "POST",
    "path": "/api/handoffs",
    "file": "routes/handoffs.js",
-   "line": 105,
+   "line": 113,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -7399,6 +7402,36 @@
    ]
   },
   {
+   "id": "RT-POST-api-shift-handovers-id-verb",
+   "method": "POST",
+   "path": "/api/shift-handovers/:id/${verb}",
+   "file": "routes/shiftHandovers.js",
+   "line": 63,
+   "tests": [
+    "tests/shift-handover.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-GET-api-shift-handovers",
+   "method": "GET",
+   "path": "/api/shift-handovers",
+   "file": "routes/shiftHandovers.js",
+   "line": 33,
+   "tests": [
+    "tests/shift-handover.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-POST-api-shift-handovers",
+   "method": "POST",
+   "path": "/api/shift-handovers",
+   "file": "routes/shiftHandovers.js",
+   "line": 48,
+   "tests": [
+    "tests/shift-handover.smoke.test.js"
+   ]
+  },
+  {
    "id": "RT-GET-api-site-awareness-actions",
    "method": "GET",
    "path": "/api/site-awareness/actions",
@@ -8248,7 +8281,7 @@
    "method": "GET",
    "path": "/handoffs.html",
    "file": "routes/handoffs.js",
-   "line": 77,
+   "line": 82,
    "tests": []
   },
   {
@@ -9060,8 +9093,16 @@
    "file": "db/postgres/reports/059_qualification_evidence.sql"
   },
   {
+   "id": "MG-reports-060-deputy-scope",
+   "file": "db/postgres/reports/060_deputy_scope.sql"
+  },
+  {
    "id": "MG-reports-061-duty-rosters",
    "file": "db/postgres/reports/061_duty_rosters.sql"
+  },
+  {
+   "id": "MG-reports-062-shift-handovers",
+   "file": "db/postgres/reports/062_shift_handovers.sql"
   },
   {
    "id": "MG-sync-000-upgrade-from-1-11",
