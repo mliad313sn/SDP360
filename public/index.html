@@ -66,11 +66,13 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
 .ddn{background:var(--green-l);color:var(--green-d)}
 .ddb{background:var(--red-l);color:var(--red-d)}
 .dne{background:#F3F4F6;color:#6B7280}
-.sec-hdr{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.sec-hdr{display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap}
 .sec-hdr-bar{width:4px;height:18px;background:var(--amber);border-radius:2px;flex-shrink:0}
 .sec-hdr-title{font-size:12px;font-weight:700;color:var(--orange);letter-spacing:.8px;text-transform:uppercase}
-.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.chart-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);padding:14px 16px}
+/* C-24 — minmax(0,1fr) + min-width:0: a wide table/header inside a card no longer widens the 2-column grid past
+   the viewport between 700 and ~800 px (index @768 px overflowed by 34 px once tickets were loaded) */
+.chart-row{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.chart-card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow);padding:14px 16px;min-width:0}
 .chart-card.full{grid-column:1/-1}
 /* G17 — 390 px: charts stack and shrink instead of widening the page */
 @media (max-width:700px){.chart-row,.kpi-row{grid-template-columns:minmax(0,1fr)}.chart-card{min-width:0}.chart-card canvas{max-width:100%!important}.sec-hdr{flex-wrap:wrap}}
