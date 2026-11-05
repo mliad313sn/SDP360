@@ -5451,6 +5451,16 @@ async function _rateLimitBumpPg(scope, key, now, windowMs) {
   return { start: Number(row.window_start), count: Number(row.count) + 1 };
 }
 
+// SEC-01 — per-account login throttle (services/accountThrottle.js): read a bucket without counting, clear it.
+async function rateLimitPeek(scope, key, now, windowMs) {
+  const row = await pgHandle().prepare(`SELECT window_start, count FROM rate_limit_hits WHERE scope=? AND key=?`).get(scope, key);
+  if (!row || now - Number(row.window_start) > windowMs) return { start: now, count: 0 };
+  return { start: Number(row.window_start), count: Number(row.count) };
+}
+async function rateLimitReset(scope, key) {
+  await pgHandle().prepare(`DELETE FROM rate_limit_hits WHERE scope=? AND key=?`).run(scope, key);
+}
+
 // Step 4 — audit retention: delete system_log rows older than `months` (default 12), never
 // the risk-flagged ones younger than `riskMonths` (default 24). Returns the deleted count.
 // Audit-trail retention (committee audit P1-8): risk events AND every governance-class event (policy
@@ -5558,7 +5568,7 @@ const db = {
 };
 
 module.exports = {
-  rateLimitBump, purgeSystemLog, GOVERNANCE_LOG_CATEGORIES, sessionHours,
+  rateLimitBump, rateLimitPeek, rateLimitReset, purgeSystemLog, GOVERNANCE_LOG_CATEGORIES, sessionHours,
   db,
   REPORTS_BACKEND, initPgReports, pgHandle,
   // System Logs v1

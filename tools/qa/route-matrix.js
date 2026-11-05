@@ -27,6 +27,13 @@ function collect(stack, prefix, out) {
     }
   }
 }
+// SEC-01 — the viewer probe reuses ONE session: a route that ends it (logout, revoking a session)
+// must run LAST, or every route registered after it answers 401 and is never probed as a viewer.
+const SESSION_ENDING = new Set(['POST /api/reports/auth/logout', 'DELETE /api/reports/sessions/:token']);
+function probeOrder(routes) {
+  const key = (r) => `${r.method} ${r.path}`;
+  return [...routes.filter((r) => !SESSION_ENDING.has(key(r))), ...routes.filter((r) => SESSION_ENDING.has(key(r)))];
+}
 function concrete(p) {
   if (typeof p !== 'string') return null;
   return p.replace(/\(\.\*\)|\*/g, 'x').split('/').map((seg) => (seg.startsWith(':') ? (/id\b/i.test(seg) ? '1' : 'ZZZ') : seg)).join('/');
@@ -55,7 +62,7 @@ async function main() {
   const base = `http://127.0.0.1:${server.address().port}`;
   const routes = []; collect(app._router.stack, '', routes);
   const rows = [];
-  for (const rt of routes) {
+  for (const rt of probeOrder(routes)) {
     const p = concrete(rt.path);
     const row = { ...rt, probe: p };
     if (p && /^\/api\//.test(p) && rt.method !== 'HEAD') {
@@ -71,4 +78,4 @@ async function main() {
   process.exit(0);
 }
 if (require.main === module) main().catch((e) => { console.error(e); process.exit(1); });
-module.exports = { collect, concrete };
+module.exports = { collect, concrete, probeOrder, SESSION_ENDING };

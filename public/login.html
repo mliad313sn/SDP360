@@ -300,7 +300,8 @@
         return 'index.html';   // the module failed to load: a safe page, the target's own gate decides
       }
 
-      const next     = new URLSearchParams(location.search).get('next');
+      // SEC-01 — never follow ?next= raw (open redirect / javascript: URL): same-origin relative pages only.
+      const next     = (window.Landing && window.Landing.safeNext) ? window.Landing.safeNext(new URLSearchParams(location.search).get('next')) : '';
       const target   = next ? next.replace(/^\//,'') : '';
       // Pages that require super_admin — if a lower-tier user came in
       // with ?next= pointing to one, fall back to their default landing

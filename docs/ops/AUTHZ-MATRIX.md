@@ -140,7 +140,7 @@ inside the handler (`userHasRole` / `isAdmin`-style helpers) · **Site scope** =
 | `GET /api/data/sla-violated-by-cat` | global /api gate (session or page key) | — | — | — |
 | `GET /api/data/submission-channels` | requireReportSession | — | — | — |
 | `GET /api/data/ticket-volume` | global /api gate (session or page key) | — | — | — |
-| `GET /api/debug/raw-test` | requireReportSession | — | — | — |
+| `GET /api/debug/raw-test` | requireReportSession + requireSuperAdmin(super_admin) | platform.settings.manage | — | — |
 | `GET /api/duty/coverage` | requireReportSession | — | admin | canEditSite, scopeSites |
 | `GET /api/duty/shifts` | requireReportSession | — | — | scopeSites |
 | `GET /api/engagement/comments` | requireReportSession | — | — | — |
@@ -232,7 +232,7 @@ inside the handler (`userHasRole` / `isAdmin`-style helpers) · **Site scope** =
 | `GET /api/metrics/targets` | requireReportSession | — | — | — |
 | `GET /api/notes` | requireReportSession | — | — | — |
 | `GET /api/obligations` | requireReportSession | — | admin | userSites |
-| `GET /api/orgs` | requireReportSession | — | — | — |
+| `GET /api/orgs` | requireReportSession + requireSuperAdmin(super_admin) | platform.settings.manage | — | — |
 | `GET /api/ping` | global /api gate (session or page key) | — | — | — |
 | `GET /api/qualifications` | requireReportSession | — | admin | — |
 | `GET /api/qualifications/check` | requireReportSession | — | — | — |
@@ -340,8 +340,8 @@ inside the handler (`userHasRole` / `isAdmin`-style helpers) · **Site scope** =
 | `GET /api/trackers/legacy/cutover` | requireReportSession + requireBuilder(admin or tracker-admin) | trackers.build | — | — |
 | `GET /api/trackers/templates` | requireReportSession | — | — | — |
 | `GET /api/ux/page-usage` | requireReportSession + requireSuperAdmin(super_admin) | platform.settings.manage | — | — |
-| `GET /api/views` | requireReportSession | — | — | — |
-| `GET /api/workspaces` | requireReportSession | — | — | — |
+| `GET /api/views` | requireReportSession + requireSuperAdmin(super_admin) | platform.settings.manage | — | — |
+| `GET /api/workspaces` | requireReportSession + requireSuperAdmin(super_admin) | platform.settings.manage | — | — |
 | `GET /health` | public — liveness probe | — | — | — |
 | `GET /ready` | public — readiness probe — {ok, db, last_job_at} only, no business data (fiche C1/M14) | — | — | — |
 | `PATCH /api/meetings/lookups/:table/:code/active` | requireReportSession + requireRole(super_admin) | platform.reference_data.manage | — | — |
@@ -450,7 +450,7 @@ inside the handler (`userHasRole` / `isAdmin`-style helpers) · **Site scope** =
 | `POST /api/meridian/sync` | requireReportSession + requireSuperAdmin(super_admin) | platform.settings.manage | — | — |
 | `POST /api/metrics/targets` | requireReportSession + requireSuper(super_admin) | metrics.targets.set | — | — |
 | `POST /api/metrics/targets/:id/end` | requireReportSession + requireSuper(super_admin) | metrics.targets.set | — | — |
-| `POST /api/notes` | requireReportSession | — | — | — |
+| `POST /api/notes` | requireReportSession + requireExecutiveOrSuperAdmin(executive) | platform.sites.structure | — | — |
 | `POST /api/qualifications` | requireReportSession | — | admin | — |
 | `POST /api/qualifications/:id/reject` | requireReportSession | — | — | — |
 | `POST /api/qualifications/:id/revoke` | requireReportSession | — | — | — |
@@ -486,7 +486,7 @@ inside the handler (`userHasRole` / `isAdmin`-style helpers) · **Site scope** =
 | `POST /api/roadmap/deliverable` | requireReportSession + requireSuperAdmin(super_admin) | platform.roadmap.manage | — | — |
 | `POST /api/roadmap/resource` | requireReportSession + requireSuperAdmin(super_admin) | platform.roadmap.manage | — | — |
 | `POST /api/roadmap/training` | requireReportSession + requireSuperAdmin(super_admin) | platform.roadmap.manage | — | — |
-| `POST /api/save-charts` | requireReportSession | — | — | — |
+| `POST /api/save-charts` | requireReportSession + requireRole(report-author) | reports.deck.author | — | — |
 | `POST /api/save-pptx` | requireReportSession + requireRole(report-author) | reports.deck.author | — | — |
 | `POST /api/shift-handovers` | requireReportSession | — | admin | userSites |
 | `POST /api/shift-handovers/:id/accept` | requireReportSession | — | — | — |
