@@ -29,7 +29,7 @@ Field, deployed and accepted are copied from the tracker — code never sets the
 | G21 E2E, load, security and resilience evidence | W5 | PARTIAL | UNIT | UNKNOWN | UNKNOWN | UNKNOWN | `docs/agent-execution/G21.md` | 2 | 2 | — |
 | G22 Windows installer, upgrade, packaging, recovery | W5 | IMPLEMENTED | CI_WINDOWS_E2E | UNKNOWN | UNKNOWN | UNKNOWN | `docs/agent-execution/G22.md` | 3 | 3 | — |
 | G23 Product packaging, licensing and go-to-market feasibility | W5 | PARTIAL | UNIT | UNKNOWN | UNKNOWN | UNKNOWN | `docs/agent-execution/G23.md` | 1 | 2 | — |
-| G24 Executive validation, adoption measurement and final NO-GO/GO dossier | W6 | PARTIAL | UNIT | UNKNOWN | UNKNOWN | UNKNOWN | `docs/agent-execution/G24.md` | 1 | 0 | — |
+| G24 Executive validation, adoption measurement and final NO-GO/GO dossier | W6 | PARTIAL | UNIT | UNKNOWN | UNKNOWN | UNKNOWN | `docs/agent-execution/G24.md` | 2 | 0 | — |
 
 ## Tests per goal
 
@@ -57,4 +57,4 @@ Field, deployed and accepted are copied from the tracker — code never sets the
 - **G21**: `tests/traceability.test.js`, `tests/fuzz-inputs.test.js`
 - **G22**: `tests/update-package-signature.test.js`, `tests/ci-config.test.js`, `tests/sbom.test.js`
 - **G23**: `tests/update-package-signature.test.js`
-- **G24**: `tests/traceability.test.js`
+- **G24**: `tests/traceability.test.js`, `tests/release-dossier.test.js`
