@@ -11,13 +11,13 @@
 | pages without declared role | 6 |
 | pages not in navigation | 29 |
 | pages with inline scripts | 46 |
-| routes | 592 |
+| routes | 593 |
 | routes without test reference | 76 |
 | routes in server js | 231 |
 | jobs | 28 |
 | jobs without test reference | 10 |
 | migrations | 70 |
-| test files | 581 |
+| test files | 582 |
 
 ## Pages
 
@@ -108,14 +108,14 @@
 | RT-POST-api-executive-new-pptx | POST | `/api/executive-new-pptx` | server.js:7142 |
 | RT-GET-api-integration-fmp-readiness | GET | `/api/integration/fmp/readiness` | routes/fourmypeople.js:31 |
 | RT-POST-api-kpi-policies-validate | POST | `/api/kpi-policies/validate` | routes/kpiPolicies.js:89 |
-| RT-GET-api-meetings-import-incubation-template | GET | `/api/meetings/import/incubation-template` | routes/meetings.js:799 |
-| RT-POST-api-meetings-import-incubation-commit | POST | `/api/meetings/import/incubation/commit` | routes/meetings.js:839 |
-| RT-POST-api-meetings-import-incubation-preview | POST | `/api/meetings/import/incubation/preview` | routes/meetings.js:812 |
-| RT-POST-api-meetings-import-preview | POST | `/api/meetings/import/preview` | routes/meetings.js:724 |
-| RT-GET-api-meetings-import-template | GET | `/api/meetings/import/template` | routes/meetings.js:704 |
+| RT-GET-api-meetings-import-incubation-template | GET | `/api/meetings/import/incubation-template` | routes/meetings.js:801 |
+| RT-POST-api-meetings-import-incubation-commit | POST | `/api/meetings/import/incubation/commit` | routes/meetings.js:841 |
+| RT-POST-api-meetings-import-incubation-preview | POST | `/api/meetings/import/incubation/preview` | routes/meetings.js:814 |
+| RT-POST-api-meetings-import-preview | POST | `/api/meetings/import/preview` | routes/meetings.js:726 |
+| RT-GET-api-meetings-import-template | GET | `/api/meetings/import/template` | routes/meetings.js:706 |
 | RT-GET-api-meetings-people | GET | `/api/meetings/people` | routes/meetings.js:147 |
-| RT-GET-api-meetings-progress-export-pptx | GET | `/api/meetings/progress/export-pptx` | routes/meetings.js:915 |
-| RT-POST-api-meetings-reset | POST | `/api/meetings/reset` | routes/meetings.js:691 |
+| RT-GET-api-meetings-progress-export-pptx | GET | `/api/meetings/progress/export-pptx` | routes/meetings.js:917 |
+| RT-POST-api-meetings-reset | POST | `/api/meetings/reset` | routes/meetings.js:693 |
 | RT-POST-api-reports-auth-change-password | POST | `/api/reports/auth/change-password` | server.js:5769 |
 | RT-GET-api-reports-current-week | GET | `/api/reports/current-week` | server.js:5921 |
 | RT-GET-api-reports-helpdesk-live | GET | `/api/reports/helpdesk-live` | server.js:6231 |
@@ -140,10 +140,10 @@
 | RT-GET-api-survey-summary | GET | `/api/survey/summary` | server.js:1729 |
 | RT-POST-api-survey-voice-cache-clear | POST | `/api/survey/voice-cache/clear` | server.js:2157 |
 | RT-GET-api-survey-voice | GET | `/api/survey/voice` | server.js:2036 |
-| RT-GET-api-tracker-delete-year | GET | `/api/tracker/delete-year` | server.js:7668 |
-| RT-POST-api-tracker-delete-year | POST | `/api/tracker/delete-year` | server.js:7685 |
-| RT-POST-api-tracker-import-dept-meetings | POST | `/api/tracker/import-dept-meetings` | server.js:7333 |
-| RT-POST-api-tracker-reset | POST | `/api/tracker/reset` | server.js:7635 |
+| RT-GET-api-tracker-delete-year | GET | `/api/tracker/delete-year` | server.js:7667 |
+| RT-POST-api-tracker-delete-year | POST | `/api/tracker/delete-year` | server.js:7684 |
+| RT-POST-api-tracker-import-dept-meetings | POST | `/api/tracker/import-dept-meetings` | server.js:7332 |
+| RT-POST-api-tracker-reset | POST | `/api/tracker/reset` | server.js:7634 |
 | RT-GET-ext-odata-sites | GET | `/ext/odata/Sites` | routes/extApi.js:103 |
 | RT-GET- | GET | `/` | server.js:1396 |
 | RT-GET-handoffs-html | GET | `/handoffs.html` | routes/handoffs.js:82 |
@@ -158,7 +158,7 @@
 | RT-GET-meetings-unsigned-html | GET | `/meetings-unsigned.html` | server.js:1500 |
 | RT-GET-meetings-html | GET | `/meetings.html` | server.js:1493 |
 | RT-GET-obligations-html | GET | `/obligations.html` | routes/obligations.js:16 |
-| RT-GET-policies-html | GET | `/policies.html` | routes/policies.js:107 |
+| RT-GET-policies-html | GET | `/policies.html` | routes/policies.js:138 |
 | RT-GET-site-awareness-html | GET | `/site-awareness.html` | server.js:1377 |
 | RT-GET-system-logs-html | GET | `/system-logs.html` | server.js:1499 |
 

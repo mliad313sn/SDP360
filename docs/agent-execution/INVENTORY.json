@@ -6,13 +6,13 @@
   "pages_without_declared_role": 6,
   "pages_not_in_navigation": 29,
   "pages_with_inline_scripts": 46,
-  "routes": 592,
+  "routes": 593,
   "routes_without_test_reference": 76,
   "routes_in_server_js": 231,
   "jobs": 28,
   "jobs_without_test_reference": 10,
   "migrations": 70,
-  "test_files": 581
+  "test_files": 582
  },
  "pages": [
   {
@@ -39,7 +39,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 0,
-   "bytes": 2781,
+   "bytes": 2849,
    "tests": [
     "tests/csp-headers.smoke.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
@@ -393,7 +393,7 @@
    ],
    "in_navigation": false,
    "inline_scripts": 2,
-   "bytes": 211453,
+   "bytes": 211546,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -525,7 +525,7 @@
    ],
    "in_navigation": false,
    "inline_scripts": 1,
-   "bytes": 81407,
+   "bytes": 81498,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -805,7 +805,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 2,
-   "bytes": 543854,
+   "bytes": 544192,
    "tests": [
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/assets-freshness.test.js",
@@ -1992,7 +1992,7 @@
    "method": "GET",
    "path": "/api/dashboard/groups/discovered",
    "file": "server.js",
-   "line": 7480,
+   "line": 7479,
    "tests": [
     "tests/deck-builder-gate.smoke.test.js"
    ]
@@ -2002,7 +2002,7 @@
    "method": "GET",
    "path": "/api/dashboard/presets",
    "file": "server.js",
-   "line": 7435,
+   "line": 7434,
    "tests": [
     "tests/server-routes-smoke.test.js"
    ]
@@ -2012,7 +2012,7 @@
    "method": "PUT",
    "path": "/api/dashboard/presets",
    "file": "server.js",
-   "line": 7457,
+   "line": 7456,
    "tests": [
     "tests/server-routes-smoke.test.js"
    ]
@@ -2759,7 +2759,7 @@
    "method": "GET",
    "path": "/api/governance/audit-chain",
    "file": "routes/policies.js",
-   "line": 154,
+   "line": 185,
    "tests": [
     "tests/governance-roles.smoke.test.js"
    ]
@@ -2885,7 +2885,7 @@
    "method": "GET",
    "path": "/api/governance/oversight",
    "file": "routes/policies.js",
-   "line": 175,
+   "line": 206,
    "tests": [
     "tests/governance-policy-routes.smoke.test.js",
     "tests/governance-roles.smoke.test.js",
@@ -2919,7 +2919,7 @@
    "method": "GET",
    "path": "/api/governance/policies/effective",
    "file": "routes/policies.js",
-   "line": 118,
+   "line": 149,
    "tests": [
     "tests/governance-policy-groups.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js"
@@ -2930,7 +2930,7 @@
    "method": "GET",
    "path": "/api/governance/policies/history",
    "file": "routes/policies.js",
-   "line": 157,
+   "line": 188,
    "tests": [
     "tests/governance-policy-routes.smoke.test.js"
    ]
@@ -2940,7 +2940,7 @@
    "method": "POST",
    "path": "/api/governance/policies/profile",
    "file": "routes/policies.js",
-   "line": 143,
+   "line": 174,
    "tests": [
     "tests/governance-policy-routes.smoke.test.js"
    ]
@@ -2950,7 +2950,7 @@
    "method": "POST",
    "path": "/api/governance/policies/proposals/:id/approve",
    "file": "routes/policies.js",
-   "line": 172,
+   "line": 203,
    "tests": [
     "tests/governance-policy-routes.smoke.test.js",
     "tests/governance-roles.smoke.test.js"
@@ -2961,7 +2961,7 @@
    "method": "POST",
    "path": "/api/governance/policies/proposals/:id/reject",
    "file": "routes/policies.js",
-   "line": 173,
+   "line": 204,
    "tests": [
     "tests/governance-policy-routes.smoke.test.js",
     "tests/governance-roles.smoke.test.js"
@@ -2972,7 +2972,7 @@
    "method": "GET",
    "path": "/api/governance/policies/proposals",
    "file": "routes/policies.js",
-   "line": 161,
+   "line": 192,
    "tests": [
     "tests/governance-policy-routes.smoke.test.js",
     "tests/governance-roles.smoke.test.js"
@@ -2983,7 +2983,7 @@
    "method": "GET",
    "path": "/api/governance/policies",
    "file": "routes/policies.js",
-   "line": 109,
+   "line": 140,
    "tests": [
     "tests/governance-policy-groups.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -2996,7 +2996,7 @@
    "method": "PUT",
    "path": "/api/governance/policies",
    "file": "routes/policies.js",
-   "line": 125,
+   "line": 156,
    "tests": [
     "tests/governance-policy-groups.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -3234,7 +3234,7 @@
    "method": "GET",
    "path": "/api/governance/profiles",
    "file": "routes/policies.js",
-   "line": 140,
+   "line": 171,
    "tests": [
     "tests/governance-policy-routes.smoke.test.js"
    ]
@@ -3674,9 +3674,19 @@
    "method": "PUT",
    "path": "/api/governance/site-codes/:site",
    "file": "routes/policies.js",
-   "line": 75,
+   "line": 106,
    "tests": [
     "tests/site-code-registry.smoke.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-GET-api-governance-site-codes-mine",
+   "method": "GET",
+   "path": "/api/governance/site-codes/mine",
+   "file": "routes/policies.js",
+   "line": 99,
+   "tests": [
     "tests/uat-amdec-org-models.smoke.test.js"
    ]
   },
@@ -3685,7 +3695,7 @@
    "method": "GET",
    "path": "/api/governance/site-codes",
    "file": "routes/policies.js",
-   "line": 72,
+   "line": 92,
    "tests": [
     "tests/site-code-registry.smoke.test.js",
     "tests/uat-amdec-org-models.smoke.test.js"
@@ -3696,7 +3706,7 @@
    "method": "PUT",
    "path": "/api/governance/site-codes",
    "file": "routes/policies.js",
-   "line": 93,
+   "line": 124,
    "tests": [
     "tests/site-code-registry.smoke.test.js",
     "tests/uat-amdec-org-models.smoke.test.js"
@@ -3829,7 +3839,7 @@
    "method": "POST",
    "path": "/api/inspection/:id/export",
    "file": "routes/inspection.js",
-   "line": 388,
+   "line": 390,
    "tests": [
     "tests/authz-route-matrix.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -3873,7 +3883,7 @@
    "method": "DELETE",
    "path": "/api/inspection/:id",
    "file": "routes/inspection.js",
-   "line": 340,
+   "line": 342,
    "tests": [
     "tests/authz-route-matrix.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -3941,7 +3951,7 @@
    "method": "POST",
    "path": "/api/inspection/aggregate/export",
    "file": "routes/inspection.js",
-   "line": 366,
+   "line": 368,
    "tests": [
     "tests/inspection-routes.test.js",
     "tests/inspection-site-scope.smoke.test.js"
@@ -4008,7 +4018,7 @@
    "method": "POST",
    "path": "/api/inspection/reset",
    "file": "routes/inspection.js",
-   "line": 407,
+   "line": 409,
    "tests": [
     "tests/inspection-routes.test.js"
    ]
@@ -4217,7 +4227,7 @@
    "method": "GET",
    "path": "/api/meetings/:id/export-pptx",
    "file": "routes/meetings.js",
-   "line": 886,
+   "line": 888,
    "tests": [
     "tests/access-revocation.smoke.test.js",
     "tests/authz-route-matrix.test.js",
@@ -4301,7 +4311,7 @@
    "method": "DELETE",
    "path": "/api/meetings/:id",
    "file": "routes/meetings.js",
-   "line": 602,
+   "line": 604,
    "tests": [
     "tests/access-revocation.smoke.test.js",
     "tests/authz-route-matrix.test.js",
@@ -4426,7 +4436,7 @@
    "method": "POST",
    "path": "/api/meetings/import/commit",
    "file": "routes/meetings.js",
-   "line": 775,
+   "line": 777,
    "tests": [
     "tests/meetings-site-scope.smoke.test.js"
    ]
@@ -4436,7 +4446,7 @@
    "method": "GET",
    "path": "/api/meetings/import/incubation-template",
    "file": "routes/meetings.js",
-   "line": 799,
+   "line": 801,
    "tests": []
   },
   {
@@ -4444,7 +4454,7 @@
    "method": "POST",
    "path": "/api/meetings/import/incubation/commit",
    "file": "routes/meetings.js",
-   "line": 839,
+   "line": 841,
    "tests": []
   },
   {
@@ -4452,7 +4462,7 @@
    "method": "POST",
    "path": "/api/meetings/import/incubation/preview",
    "file": "routes/meetings.js",
-   "line": 812,
+   "line": 814,
    "tests": []
   },
   {
@@ -4460,7 +4470,7 @@
    "method": "POST",
    "path": "/api/meetings/import/preview",
    "file": "routes/meetings.js",
-   "line": 724,
+   "line": 726,
    "tests": []
   },
   {
@@ -4468,7 +4478,7 @@
    "method": "GET",
    "path": "/api/meetings/import/template",
    "file": "routes/meetings.js",
-   "line": 704,
+   "line": 706,
    "tests": []
   },
   {
@@ -4486,7 +4496,7 @@
    "method": "POST",
    "path": "/api/meetings/issues/:id/actions",
    "file": "routes/meetings.js",
-   "line": 568,
+   "line": 570,
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
@@ -4501,7 +4511,7 @@
    "method": "POST",
    "path": "/api/meetings/issues/:id/update",
    "file": "routes/meetings.js",
-   "line": 526,
+   "line": 528,
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
@@ -4543,7 +4553,7 @@
    "method": "PATCH",
    "path": "/api/meetings/lookups/:table/:code/active",
    "file": "routes/meetings.js",
-   "line": 677,
+   "line": 679,
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js"
    ]
@@ -4553,7 +4563,7 @@
    "method": "PUT",
    "path": "/api/meetings/lookups/:table/:code",
    "file": "routes/meetings.js",
-   "line": 661,
+   "line": 663,
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js"
    ]
@@ -4563,7 +4573,7 @@
    "method": "GET",
    "path": "/api/meetings/lookups/:table",
    "file": "routes/meetings.js",
-   "line": 645,
+   "line": 647,
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js"
    ]
@@ -4573,7 +4583,7 @@
    "method": "POST",
    "path": "/api/meetings/lookups/:table",
    "file": "routes/meetings.js",
-   "line": 629,
+   "line": 631,
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js"
    ]
@@ -4601,7 +4611,7 @@
    "method": "GET",
    "path": "/api/meetings/progress/export-pptx",
    "file": "routes/meetings.js",
-   "line": 915,
+   "line": 917,
    "tests": []
   },
   {
@@ -4609,7 +4619,7 @@
    "method": "GET",
    "path": "/api/meetings/progress",
    "file": "routes/meetings.js",
-   "line": 861,
+   "line": 863,
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js"
    ]
@@ -4619,7 +4629,7 @@
    "method": "POST",
    "path": "/api/meetings/reset",
    "file": "routes/meetings.js",
-   "line": 691,
+   "line": 693,
    "tests": []
   },
   {
@@ -6939,7 +6949,7 @@
    "method": "POST",
    "path": "/api/reports/exec-pptx",
    "file": "server.js",
-   "line": 7494,
+   "line": 7493,
    "tests": [
     "tests/deck-builder-gate.smoke.test.js"
    ]
@@ -8136,7 +8146,7 @@
    "method": "GET",
    "path": "/api/tracker/delete-year",
    "file": "server.js",
-   "line": 7668,
+   "line": 7667,
    "tests": []
   },
   {
@@ -8144,7 +8154,7 @@
    "method": "POST",
    "path": "/api/tracker/delete-year",
    "file": "server.js",
-   "line": 7685,
+   "line": 7684,
    "tests": []
   },
   {
@@ -8152,7 +8162,7 @@
    "method": "POST",
    "path": "/api/tracker/export",
    "file": "server.js",
-   "line": 7371,
+   "line": 7370,
    "tests": [
     "tests/tracker-load-scope.smoke.test.js"
    ]
@@ -8162,7 +8172,7 @@
    "method": "POST",
    "path": "/api/tracker/import-dept-meetings",
    "file": "server.js",
-   "line": 7333,
+   "line": 7332,
    "tests": []
   },
   {
@@ -8184,7 +8194,7 @@
    "method": "POST",
    "path": "/api/tracker/reset",
    "file": "server.js",
-   "line": 7635,
+   "line": 7634,
    "tests": []
   },
   {
@@ -8196,7 +8206,8 @@
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/tracker-save-site-scope.smoke.test.js",
-    "tests/tracker-site-code.test.js"
+    "tests/tracker-site-code.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js"
    ]
   },
   {
@@ -8941,7 +8952,7 @@
    "method": "GET",
    "path": "/policies.html",
    "file": "routes/policies.js",
-   "line": 107,
+   "line": 138,
    "tests": []
   },
   {
