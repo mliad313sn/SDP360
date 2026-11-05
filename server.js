@@ -7254,7 +7254,6 @@ try {
   console.error('[Tracker] ❌ tracker-pptx failed to load:', e.message);
 }
 
-
 // Multi-site editors: every tracker code the user may edit, primary first (null = all sites).
 async function _trackerScopesFor(user) {
   if (rdb.userHasRole(user, 'super_admin') || rdb.userHasRole(user, 'tracker-admin')) return null;

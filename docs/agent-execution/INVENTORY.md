@@ -17,7 +17,7 @@
 | jobs | 28 |
 | jobs without test reference | 10 |
 | migrations | 70 |
-| test files | 576 |
+| test files | 579 |
 
 ## Pages
 
@@ -69,7 +69,7 @@
 | PG-portfolio | public/portfolio.html | any | yes | 1 | 7 |
 | PG-project | public/project.html | any | no | 1 | 7 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 2 |
-| PG-reports | public/reports.html | any | yes | 2 | 22 |
+| PG-reports | public/reports.html | any | yes | 2 | 23 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 3 |
 | PG-site-actions | public/site-actions.html | any | yes | 1 | 7 |
 | PG-site-awareness | public/site-awareness.html | site-business / group-business / executive | yes | 2 | 4 |
@@ -105,7 +105,7 @@
 | RT-GET-api-data-major-incidents | GET | `/api/data/major-incidents` | server.js:3965 |
 | RT-GET-api-data-monthly-summary | GET | `/api/data/monthly-summary` | server.js:4609 |
 | RT-GET-api-data-sla-by-category | GET | `/api/data/sla-by-category` | server.js:4095 |
-| RT-POST-api-executive-new-pptx | POST | `/api/executive-new-pptx` | server.js:7141 |
+| RT-POST-api-executive-new-pptx | POST | `/api/executive-new-pptx` | server.js:7142 |
 | RT-GET-api-integration-fmp-readiness | GET | `/api/integration/fmp/readiness` | routes/fourmypeople.js:31 |
 | RT-POST-api-kpi-policies-validate | POST | `/api/kpi-policies/validate` | routes/kpiPolicies.js:89 |
 | RT-GET-api-meetings-import-incubation-template | GET | `/api/meetings/import/incubation-template` | routes/meetings.js:799 |
@@ -118,9 +118,9 @@
 | RT-POST-api-meetings-reset | POST | `/api/meetings/reset` | routes/meetings.js:691 |
 | RT-POST-api-reports-auth-change-password | POST | `/api/reports/auth/change-password` | server.js:5769 |
 | RT-GET-api-reports-current-week | GET | `/api/reports/current-week` | server.js:5921 |
-| RT-GET-api-reports-helpdesk-live | GET | `/api/reports/helpdesk-live` | server.js:6230 |
+| RT-GET-api-reports-helpdesk-live | GET | `/api/reports/helpdesk-live` | server.js:6231 |
 | RT-GET-api-reports-sessions-active | GET | `/api/reports/sessions/active` | routes/adminUsers.js:164 |
-| RT-GET-api-reports-technicians | GET | `/api/reports/technicians` | server.js:6481 |
+| RT-GET-api-reports-technicians | GET | `/api/reports/technicians` | server.js:6482 |
 | RT-POST-api-reports-test-smtp | POST | `/api/reports/test-smtp` | routes/adminConfig.js:159 |
 | RT-PUT-api-reports-users-emails | PUT | `/api/reports/users/emails` | routes/adminUsers.js:109 |
 | RT-GET-api-risk-register-config-sites | GET | `/api/risk-register-config/sites` | routes/riskRegister.js:78 |
@@ -130,7 +130,7 @@
 | RT-GET-api-roadmap-evidence-platform | GET | `/api/roadmap/evidence/platform` | routes/roadmap.js:64 |
 | RT-GET-api-roadmap-project | GET | `/api/roadmap/project` | routes/roadmap.js:123 |
 | RT-GET-api-sample-viewid | GET | `/api/sample/:viewId` | server.js:5023 |
-| RT-POST-api-save-pptx | POST | `/api/save-pptx` | server.js:7221 |
+| RT-POST-api-save-pptx | POST | `/api/save-pptx` | server.js:7222 |
 | RT-GET-api-survey-by-dimension | GET | `/api/survey/by-dimension` | server.js:1926 |
 | RT-POST-api-survey-cache-clear | POST | `/api/survey/cache/clear` | server.js:1876 |
 | RT-GET-api-survey-debug | GET | `/api/survey/debug` | server.js:1885 |

@@ -129,12 +129,12 @@ test('ORG-h field technician: own site only, no PV, no weekly-report write', asy
   assert.deepStrictEqual((await c('GET', '/api/inspection/lookups', U.tech.token)).j.scopes, ['HGO']);
 });
 
-test('ORG-i KPI committee: no dedicated role exists; an unknown role is dropped, the account keeps none of it (limit AM-10)', async () => {
+test('ORG-i KPI committee: the kpi-committee role (C-31) exists and is kept when a user is created', async () => {
   const rdb = ctx.rdb;
-  assert.ok(!rdb.FEATURE_ROLES_KNOWN.includes('kpi-committee'));
+  assert.ok(rdb.FEATURE_ROLES_KNOWN.includes('kpi-committee'));
   await rdb.createUser({ username: 'uat_kpi', full_name: 'UAT KPI', password: 'Uat!kpi-' + Date.now(), roles: ['viewer', 'kpi-committee'], site_id: null });
   const u = (await rdb.listUsers()).find((x) => x.username === 'uat_kpi');
-  assert.ok(!(u.roles || []).includes('kpi-committee'), JSON.stringify(u.roles));
+  assert.ok((u.roles || []).includes('kpi-committee'), JSON.stringify(u.roles));
 });
 
 test('ORG-j deactivated account cannot sign in; Group IT admin has no Site Awareness view (limit AM-11)', async () => {

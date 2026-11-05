@@ -12,7 +12,7 @@
   "jobs": 28,
   "jobs_without_test_reference": 10,
   "migrations": 70,
-  "test_files": 576
+  "test_files": 579
  },
  "pages": [
   {
@@ -805,7 +805,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 2,
-   "bytes": 540559,
+   "bytes": 540579,
    "tests": [
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/assets-freshness.test.js",
@@ -828,6 +828,7 @@
     "tests/site-actions-register.test.js",
     "tests/status-transfer.smoke.test.js",
     "tests/teams-sla-admin-card.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/wan-timeup-default.test.js"
    ]
   },
@@ -1573,7 +1574,9 @@
    "line": 2686,
    "tests": [
     "tests/assets-finance-routes.smoke.test.js",
-    "tests/assets-money-scope.smoke.test.js"
+    "tests/assets-money-scope.smoke.test.js",
+    "tests/uat-amdec-multinational-data.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js"
    ]
   },
   {
@@ -2665,7 +2668,7 @@
    "method": "POST",
    "path": "/api/executive-new-pptx",
    "file": "server.js",
-   "line": 7141,
+   "line": 7142,
    "tests": []
   },
   {
@@ -3671,7 +3674,8 @@
    "file": "routes/policies.js",
    "line": 75,
    "tests": [
-    "tests/site-code-registry.smoke.test.js"
+    "tests/site-code-registry.smoke.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js"
    ]
   },
   {
@@ -3681,7 +3685,8 @@
    "file": "routes/policies.js",
    "line": 72,
    "tests": [
-    "tests/site-code-registry.smoke.test.js"
+    "tests/site-code-registry.smoke.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js"
    ]
   },
   {
@@ -3691,7 +3696,8 @@
    "file": "routes/policies.js",
    "line": 93,
    "tests": [
-    "tests/site-code-registry.smoke.test.js"
+    "tests/site-code-registry.smoke.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js"
    ]
   },
   {
@@ -3701,7 +3707,8 @@
    "file": "routes/policies.js",
    "line": 39,
    "tests": [
-    "tests/governance-policy-groups.smoke.test.js"
+    "tests/governance-policy-groups.smoke.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js"
    ]
   },
   {
@@ -3833,7 +3840,8 @@
     "tests/inspection-site-scope.smoke.test.js",
     "tests/multi-site-editor.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
-    "tests/soft-delete-routes.smoke.test.js"
+    "tests/soft-delete-routes.smoke.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js"
    ]
   },
   {
@@ -3854,7 +3862,8 @@
     "tests/inspection-site-scope.smoke.test.js",
     "tests/multi-site-editor.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
-    "tests/soft-delete-routes.smoke.test.js"
+    "tests/soft-delete-routes.smoke.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js"
    ]
   },
   {
@@ -3875,7 +3884,8 @@
     "tests/inspection-site-scope.smoke.test.js",
     "tests/multi-site-editor.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
-    "tests/soft-delete-routes.smoke.test.js"
+    "tests/soft-delete-routes.smoke.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js"
    ]
   },
   {
@@ -3896,7 +3906,8 @@
     "tests/inspection-site-scope.smoke.test.js",
     "tests/multi-site-editor.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
-    "tests/soft-delete-routes.smoke.test.js"
+    "tests/soft-delete-routes.smoke.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js"
    ]
   },
   {
@@ -3976,7 +3987,8 @@
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/inspection-routes.test.js",
-    "tests/multi-site-editor.smoke.test.js"
+    "tests/multi-site-editor.smoke.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js"
    ]
   },
   {
@@ -4015,7 +4027,8 @@
     "tests/inspection-routes.test.js",
     "tests/inspection-site-scope.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
-    "tests/soft-delete-routes.smoke.test.js"
+    "tests/soft-delete-routes.smoke.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js"
    ]
   },
   {
@@ -4220,6 +4233,8 @@
     "tests/site-actions-routes.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
     "tests/status-transfer.smoke.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js"
    ]
   },
@@ -4246,6 +4261,8 @@
     "tests/site-actions-routes.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
     "tests/status-transfer.smoke.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js"
    ]
   },
@@ -4272,6 +4289,8 @@
     "tests/site-actions-routes.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
     "tests/status-transfer.smoke.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js"
    ]
   },
@@ -4298,6 +4317,8 @@
     "tests/site-actions-routes.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
     "tests/status-transfer.smoke.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js"
    ]
   },
@@ -4324,6 +4345,8 @@
     "tests/site-actions-routes.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
     "tests/status-transfer.smoke.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js"
    ]
   },
@@ -4392,7 +4415,8 @@
    "tests": [
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/meetings-site-scope.smoke.test.js",
-    "tests/multi-site-editor.smoke.test.js"
+    "tests/multi-site-editor.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js"
    ]
   },
   {
@@ -4466,7 +4490,8 @@
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/meetings-site-scope.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
-    "tests/status-transfer.smoke.test.js"
+    "tests/status-transfer.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js"
    ]
   },
   {
@@ -4480,7 +4505,8 @@
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/meetings-site-scope.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
-    "tests/status-transfer.smoke.test.js"
+    "tests/status-transfer.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js"
    ]
   },
   {
@@ -4494,7 +4520,8 @@
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/meetings-site-scope.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
-    "tests/status-transfer.smoke.test.js"
+    "tests/status-transfer.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js"
    ]
   },
   {
@@ -4610,7 +4637,9 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
-    "tests/status-transfer.smoke.test.js"
+    "tests/status-transfer.smoke.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js"
    ]
   },
   {
@@ -4647,7 +4676,8 @@
     "tests/business-only-boundary.smoke.test.js",
     "tests/kpi-targets.smoke.test.js",
     "tests/metrics-routes.smoke.test.js",
-    "tests/server-routes-smoke.test.js"
+    "tests/server-routes-smoke.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js"
    ]
   },
   {
@@ -4705,7 +4735,8 @@
     "tests/analytics-logic.test.js",
     "tests/analytics-metrics-authz.smoke.test.js",
     "tests/business-only-boundary.smoke.test.js",
-    "tests/server-routes-smoke.test.js"
+    "tests/server-routes-smoke.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js"
    ]
   },
   {
@@ -4755,7 +4786,7 @@
    "method": "GET",
    "path": "/api/notes",
    "file": "server.js",
-   "line": 7187,
+   "line": 7188,
    "tests": [
     "tests/sec01-route-roles.smoke.test.js"
    ]
@@ -4765,7 +4796,7 @@
    "method": "POST",
    "path": "/api/notes",
    "file": "server.js",
-   "line": 7198,
+   "line": 7199,
    "tests": [
     "tests/sec01-route-roles.smoke.test.js"
    ]
@@ -5014,7 +5045,7 @@
    "method": "GET",
    "path": "/api/reports/:id/action-weeks",
    "file": "server.js",
-   "line": 5984,
+   "line": 5985,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -5070,6 +5101,9 @@
     "tests/status-transfer.smoke.test.js",
     "tests/system-log-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
+    "tests/uat-amdec-multinational-data.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js",
     "tests/ui-policy-me.smoke.test.js",
     "tests/weekly-send-route.smoke.test.js"
@@ -5080,7 +5114,7 @@
    "method": "GET",
    "path": "/api/reports/:id/actions-from/:source_report_id",
    "file": "server.js",
-   "line": 5999,
+   "line": 6000,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -5136,6 +5170,9 @@
     "tests/status-transfer.smoke.test.js",
     "tests/system-log-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
+    "tests/uat-amdec-multinational-data.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js",
     "tests/ui-policy-me.smoke.test.js",
     "tests/weekly-send-route.smoke.test.js"
@@ -5146,7 +5183,7 @@
    "method": "PUT",
    "path": "/api/reports/:id/actions",
    "file": "server.js",
-   "line": 6757,
+   "line": 6758,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -5202,6 +5239,9 @@
     "tests/status-transfer.smoke.test.js",
     "tests/system-log-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
+    "tests/uat-amdec-multinational-data.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js",
     "tests/ui-policy-me.smoke.test.js",
     "tests/weekly-send-route.smoke.test.js"
@@ -5212,7 +5252,7 @@
    "method": "GET",
    "path": "/api/reports/:id/active-incidents",
    "file": "server.js",
-   "line": 6570,
+   "line": 6571,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -5268,6 +5308,9 @@
     "tests/status-transfer.smoke.test.js",
     "tests/system-log-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
+    "tests/uat-amdec-multinational-data.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js",
     "tests/ui-policy-me.smoke.test.js",
     "tests/weekly-send-route.smoke.test.js"
@@ -5278,7 +5321,7 @@
    "method": "GET",
    "path": "/api/reports/:id/asset-followups",
    "file": "server.js",
-   "line": 6088,
+   "line": 6089,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -5334,6 +5377,9 @@
     "tests/status-transfer.smoke.test.js",
     "tests/system-log-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
+    "tests/uat-amdec-multinational-data.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js",
     "tests/ui-policy-me.smoke.test.js",
     "tests/weekly-send-route.smoke.test.js"
@@ -5344,7 +5390,7 @@
    "method": "PUT",
    "path": "/api/reports/:id/asset-review",
    "file": "server.js",
-   "line": 6119,
+   "line": 6120,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -5400,6 +5446,9 @@
     "tests/status-transfer.smoke.test.js",
     "tests/system-log-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
+    "tests/uat-amdec-multinational-data.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js",
     "tests/ui-policy-me.smoke.test.js",
     "tests/weekly-send-route.smoke.test.js"
@@ -5410,7 +5459,7 @@
    "method": "GET",
    "path": "/api/reports/:id/audit",
    "file": "server.js",
-   "line": 6210,
+   "line": 6211,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -5466,6 +5515,9 @@
     "tests/status-transfer.smoke.test.js",
     "tests/system-log-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
+    "tests/uat-amdec-multinational-data.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js",
     "tests/ui-policy-me.smoke.test.js",
     "tests/weekly-send-route.smoke.test.js"
@@ -5476,7 +5528,7 @@
    "method": "GET",
    "path": "/api/reports/:id/carry-over-actions",
    "file": "server.js",
-   "line": 5974,
+   "line": 5975,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -5532,6 +5584,9 @@
     "tests/status-transfer.smoke.test.js",
     "tests/system-log-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
+    "tests/uat-amdec-multinational-data.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js",
     "tests/ui-policy-me.smoke.test.js",
     "tests/weekly-send-route.smoke.test.js"
@@ -5542,7 +5597,7 @@
    "method": "GET",
    "path": "/api/reports/:id/carry-over-infra",
    "file": "server.js",
-   "line": 6197,
+   "line": 6198,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -5598,6 +5653,9 @@
     "tests/status-transfer.smoke.test.js",
     "tests/system-log-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
+    "tests/uat-amdec-multinational-data.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js",
     "tests/ui-policy-me.smoke.test.js",
     "tests/weekly-send-route.smoke.test.js"
@@ -5608,7 +5666,7 @@
    "method": "PUT",
    "path": "/api/reports/:id/helpdesk",
    "file": "server.js",
-   "line": 6693,
+   "line": 6694,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -5664,6 +5722,9 @@
     "tests/status-transfer.smoke.test.js",
     "tests/system-log-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
+    "tests/uat-amdec-multinational-data.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js",
     "tests/ui-policy-me.smoke.test.js",
     "tests/weekly-send-route.smoke.test.js"
@@ -5730,6 +5791,9 @@
     "tests/status-transfer.smoke.test.js",
     "tests/system-log-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
+    "tests/uat-amdec-multinational-data.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js",
     "tests/ui-policy-me.smoke.test.js",
     "tests/weekly-send-route.smoke.test.js"
@@ -5740,7 +5804,7 @@
    "method": "GET",
    "path": "/api/reports/:id/infra-auto",
    "file": "server.js",
-   "line": 6584,
+   "line": 6585,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -5796,6 +5860,9 @@
     "tests/status-transfer.smoke.test.js",
     "tests/system-log-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
+    "tests/uat-amdec-multinational-data.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js",
     "tests/ui-policy-me.smoke.test.js",
     "tests/weekly-send-route.smoke.test.js"
@@ -5806,7 +5873,7 @@
    "method": "PUT",
    "path": "/api/reports/:id/infra",
    "file": "server.js",
-   "line": 6679,
+   "line": 6680,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -5862,6 +5929,9 @@
     "tests/status-transfer.smoke.test.js",
     "tests/system-log-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
+    "tests/uat-amdec-multinational-data.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js",
     "tests/ui-policy-me.smoke.test.js",
     "tests/weekly-send-route.smoke.test.js"
@@ -5928,6 +5998,9 @@
     "tests/status-transfer.smoke.test.js",
     "tests/system-log-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
+    "tests/uat-amdec-multinational-data.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js",
     "tests/ui-policy-me.smoke.test.js",
     "tests/weekly-send-route.smoke.test.js"
@@ -5938,7 +6011,7 @@
    "method": "GET",
    "path": "/api/reports/:id/light-weeks",
    "file": "server.js",
-   "line": 6172,
+   "line": 6173,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -5994,6 +6067,9 @@
     "tests/status-transfer.smoke.test.js",
     "tests/system-log-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
+    "tests/uat-amdec-multinational-data.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js",
     "tests/ui-policy-me.smoke.test.js",
     "tests/weekly-send-route.smoke.test.js"
@@ -6004,7 +6080,7 @@
    "method": "GET",
    "path": "/api/reports/:id/lights-from/:source_report_id",
    "file": "server.js",
-   "line": 6182,
+   "line": 6183,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -6060,6 +6136,9 @@
     "tests/status-transfer.smoke.test.js",
     "tests/system-log-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
+    "tests/uat-amdec-multinational-data.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js",
     "tests/ui-policy-me.smoke.test.js",
     "tests/weekly-send-route.smoke.test.js"
@@ -6070,7 +6149,7 @@
    "method": "PUT",
    "path": "/api/reports/:id/lights",
    "file": "server.js",
-   "line": 6706,
+   "line": 6707,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -6126,6 +6205,9 @@
     "tests/status-transfer.smoke.test.js",
     "tests/system-log-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
+    "tests/uat-amdec-multinational-data.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js",
     "tests/ui-policy-me.smoke.test.js",
     "tests/weekly-send-route.smoke.test.js"
@@ -6136,7 +6218,7 @@
    "method": "GET",
    "path": "/api/reports/:id/open-changes",
    "file": "server.js",
-   "line": 6546,
+   "line": 6547,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -6192,6 +6274,9 @@
     "tests/status-transfer.smoke.test.js",
     "tests/system-log-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
+    "tests/uat-amdec-multinational-data.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js",
     "tests/ui-policy-me.smoke.test.js",
     "tests/weekly-send-route.smoke.test.js"
@@ -6202,7 +6287,7 @@
    "method": "GET",
    "path": "/api/reports/:id/pptx",
    "file": "server.js",
-   "line": 6878,
+   "line": 6879,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -6258,6 +6343,9 @@
     "tests/status-transfer.smoke.test.js",
     "tests/system-log-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
+    "tests/uat-amdec-multinational-data.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js",
     "tests/ui-policy-me.smoke.test.js",
     "tests/weekly-send-route.smoke.test.js"
@@ -6268,7 +6356,7 @@
    "method": "PUT",
    "path": "/api/reports/:id/reassign-week",
    "file": "server.js",
-   "line": 6828,
+   "line": 6829,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -6324,6 +6412,9 @@
     "tests/status-transfer.smoke.test.js",
     "tests/system-log-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
+    "tests/uat-amdec-multinational-data.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js",
     "tests/ui-policy-me.smoke.test.js",
     "tests/weekly-send-route.smoke.test.js"
@@ -6334,7 +6425,7 @@
    "method": "GET",
    "path": "/api/reports/:id/site-open-actions",
    "file": "server.js",
-   "line": 6154,
+   "line": 6155,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -6390,6 +6481,9 @@
     "tests/status-transfer.smoke.test.js",
     "tests/system-log-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
+    "tests/uat-amdec-multinational-data.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js",
     "tests/ui-policy-me.smoke.test.js",
     "tests/weekly-send-route.smoke.test.js"
@@ -6400,7 +6494,7 @@
    "method": "PUT",
    "path": "/api/reports/:id/status",
    "file": "server.js",
-   "line": 6785,
+   "line": 6786,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -6456,6 +6550,9 @@
     "tests/status-transfer.smoke.test.js",
     "tests/system-log-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
+    "tests/uat-amdec-multinational-data.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js",
     "tests/ui-policy-me.smoke.test.js",
     "tests/weekly-send-route.smoke.test.js"
@@ -6466,7 +6563,7 @@
    "method": "DELETE",
    "path": "/api/reports/:id",
    "file": "server.js",
-   "line": 6659,
+   "line": 6660,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -6522,6 +6619,9 @@
     "tests/status-transfer.smoke.test.js",
     "tests/system-log-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
+    "tests/uat-amdec-multinational-data.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js",
     "tests/ui-policy-me.smoke.test.js",
     "tests/weekly-send-route.smoke.test.js"
@@ -6532,7 +6632,7 @@
    "method": "GET",
    "path": "/api/reports/:id",
    "file": "server.js",
-   "line": 6536,
+   "line": 6537,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -6588,6 +6688,9 @@
     "tests/status-transfer.smoke.test.js",
     "tests/system-log-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
+    "tests/uat-amdec-multinational-data.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js",
     "tests/ui-policy-me.smoke.test.js",
     "tests/weekly-send-route.smoke.test.js"
@@ -6802,6 +6905,8 @@
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/multi-site-editor.smoke.test.js",
+    "tests/uat-amdec-multinational-data.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js"
    ]
   },
@@ -6842,7 +6947,7 @@
    "method": "GET",
    "path": "/api/reports/helpdesk-charts",
    "file": "server.js",
-   "line": 6289,
+   "line": 6290,
    "tests": [
     "tests/report-read-scope.smoke.test.js"
    ]
@@ -6852,7 +6957,7 @@
    "method": "GET",
    "path": "/api/reports/helpdesk-live",
    "file": "server.js",
-   "line": 6230,
+   "line": 6231,
    "tests": []
   },
   {
@@ -6860,7 +6965,7 @@
    "method": "GET",
    "path": "/api/reports/monthly/:site_id/:year/:month/edits",
    "file": "server.js",
-   "line": 7020,
+   "line": 7021,
    "tests": [
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
@@ -6872,7 +6977,7 @@
    "method": "POST",
    "path": "/api/reports/monthly/:site_id/:year/:month/edits",
    "file": "server.js",
-   "line": 7032,
+   "line": 7033,
    "tests": [
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
@@ -6884,7 +6989,7 @@
    "method": "GET",
    "path": "/api/reports/monthly/:site_id/:year/:month/pptx-v2",
    "file": "server.js",
-   "line": 7087,
+   "line": 7088,
    "tests": [
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
@@ -6896,7 +7001,7 @@
    "method": "GET",
    "path": "/api/reports/monthly/:site_id/:year/:month/pptx",
    "file": "server.js",
-   "line": 6940,
+   "line": 6941,
    "tests": [
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
@@ -6908,7 +7013,7 @@
    "method": "GET",
    "path": "/api/reports/monthly/:site_id/:year/:month/site-template/pptx",
    "file": "server.js",
-   "line": 7116,
+   "line": 7117,
    "tests": [
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
@@ -6920,7 +7025,7 @@
    "method": "GET",
    "path": "/api/reports/monthly/:site_id/:year/:month",
    "file": "server.js",
-   "line": 7009,
+   "line": 7010,
    "tests": [
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
@@ -6932,7 +7037,7 @@
    "method": "GET",
    "path": "/api/reports/monthly/all-sites/:year/:month/pptx",
    "file": "server.js",
-   "line": 6909,
+   "line": 6910,
    "tests": [
     "tests/report-read-scope.smoke.test.js"
    ]
@@ -6942,7 +7047,7 @@
    "method": "GET",
    "path": "/api/reports/objectives/:site_id/:year",
    "file": "server.js",
-   "line": 7065,
+   "line": 7066,
    "tests": [
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js"
@@ -6953,7 +7058,7 @@
    "method": "POST",
    "path": "/api/reports/objectives/:site_id/:year",
    "file": "server.js",
-   "line": 7075,
+   "line": 7076,
    "tests": [
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js"
@@ -6996,7 +7101,8 @@
    "file": "server.js",
    "line": 5490,
    "tests": [
-    "tests/review-page.smoke.test.js"
+    "tests/review-page.smoke.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js"
    ]
   },
   {
@@ -7072,7 +7178,8 @@
     "tests/commitments-routes.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
-    "tests/status-transfer.smoke.test.js"
+    "tests/status-transfer.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js"
    ]
   },
   {
@@ -7083,7 +7190,8 @@
    "line": 5322,
    "tests": [
     "tests/agent-inventory.test.js",
-    "tests/reporting-routes.smoke.test.js"
+    "tests/reporting-routes.smoke.test.js",
+    "tests/uat-amdec-multinational-data.test.js"
    ]
   },
   {
@@ -7135,7 +7243,7 @@
    "method": "GET",
    "path": "/api/reports/system-log/analytics",
    "file": "server.js",
-   "line": 6511,
+   "line": 6512,
    "tests": [
     "tests/system-log-routes.smoke.test.js"
    ]
@@ -7145,7 +7253,7 @@
    "method": "GET",
    "path": "/api/reports/system-log/export.csv",
    "file": "server.js",
-   "line": 6523,
+   "line": 6524,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/system-log-routes.smoke.test.js"
@@ -7156,7 +7264,7 @@
    "method": "GET",
    "path": "/api/reports/system-log/export.json",
    "file": "server.js",
-   "line": 6515,
+   "line": 6516,
    "tests": [
     "tests/system-log-routes.smoke.test.js"
    ]
@@ -7166,7 +7274,7 @@
    "method": "GET",
    "path": "/api/reports/system-log",
    "file": "server.js",
-   "line": 6505,
+   "line": 6506,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -7178,7 +7286,7 @@
    "method": "GET",
    "path": "/api/reports/technicians",
    "file": "server.js",
-   "line": 6481,
+   "line": 6482,
    "tests": []
   },
   {
@@ -7274,7 +7382,7 @@
    "method": "GET",
    "path": "/api/reports/weekly-summary/:year/:week/pptx",
    "file": "server.js",
-   "line": 6972,
+   "line": 6973,
    "tests": [
     "tests/report-read-scope.smoke.test.js"
    ]
@@ -7294,7 +7402,7 @@
    "method": "GET",
    "path": "/api/reports/yearly/:site_id/:year",
    "file": "server.js",
-   "line": 7055,
+   "line": 7056,
    "tests": [
     "tests/access-revocation.smoke.test.js"
    ]
@@ -7360,6 +7468,9 @@
     "tests/status-transfer.smoke.test.js",
     "tests/system-log-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
+    "tests/uat-amdec-multinational-data.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js",
     "tests/ui-policy-me.smoke.test.js",
     "tests/weekly-send-route.smoke.test.js"
@@ -7653,7 +7764,7 @@
    "method": "POST",
    "path": "/api/save-charts",
    "file": "server.js",
-   "line": 7212,
+   "line": 7213,
    "tests": [
     "tests/sec01-route-roles.smoke.test.js"
    ]
@@ -7663,7 +7774,7 @@
    "method": "POST",
    "path": "/api/save-pptx",
    "file": "server.js",
-   "line": 7221,
+   "line": 7222,
    "tests": []
   },
   {
@@ -7775,7 +7886,8 @@
    "line": 126,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
-    "tests/site-awareness-routes.smoke.test.js"
+    "tests/site-awareness-routes.smoke.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js"
    ]
   },
   {
@@ -7793,7 +7905,7 @@
    "method": "GET",
    "path": "/api/sites/:siteId/active-incidents",
    "file": "server.js",
-   "line": 6649,
+   "line": 6650,
    "tests": [
     "tests/authz-route-matrix.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
@@ -7805,7 +7917,7 @@
    "method": "GET",
    "path": "/api/sites/:siteId/open-changes",
    "file": "server.js",
-   "line": 6557,
+   "line": 6558,
    "tests": [
     "tests/authz-route-matrix.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
@@ -8056,7 +8168,8 @@
     "tests/multi-site-editor.smoke.test.js",
     "tests/tracker-load-scope.smoke.test.js",
     "tests/tracker-roles-client.test.js",
-    "tests/tracker-save-site-scope.smoke.test.js"
+    "tests/tracker-save-site-scope.smoke.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js"
    ]
   },
   {
