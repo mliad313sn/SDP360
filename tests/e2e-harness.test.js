@@ -19,7 +19,7 @@ test('classifier: localhost is local, NO origin is allow-listed (C-29: Google Fo
 
 test('every journey spec runs through the harness (blocked-request assertion + artefact)', () => {
   const specs = fs.readdirSync(path.join(ROOT, 'tests', 'e2e')).filter((f) => f.endsWith('.spec.js'));
-  for (const id of ['t1-', 't2-', 't3-', 't4-', 't7-', 't8-', 'deny-']) assert.ok(specs.some((f) => f.startsWith(id)), 'journey ' + id + ' exists');
+  for (const id of ['t1-', 't2-', 't3-', 't4-', 't7-', 't8-', 'deny-', 'v1-', 'r1-', 'x1-']) assert.ok(specs.some((f) => f.startsWith(id)), 'journey ' + id + ' exists');
   for (const f of specs) assert.match(read('tests/e2e/' + f), /runJourney\(/, f);
   assert.match(read('tests/e2e/fixtures/harness.js'), /external\.unexpected, \[\]/);
 });
@@ -56,4 +56,15 @@ test('field app: a missing IndexedDB key reads as undefined, and photos never de
   assert.doesNotMatch(app, /URL\.createObjectURL/, 'CSP img-src is self + data: only');
   assert.match(app, /readAsDataURL\(file\)/);
   assert.doesNotMatch(read('public/field/sw.js'), /CACHE_VERSION = 'field-v[1-4]'/, 'service worker cache bumped');
+});
+
+test('C-24 layout judge: page scroll, missing/overlapped header and escaping boxes are problems; a clean page is not', () => {
+  const { judge } = require('./e2e/fixtures/layout');
+  const ok = { vw: 390, scrollWidth: 390, header: { top: 0, bottom: 75, left: 0, right: 390 }, content: 'main#main', contentBox: { top: 103, bottom: 900, left: 0, right: 390 }, escaping: [] };
+  assert.deepStrictEqual(judge(ok), []);
+  assert.match(judge(Object.assign({}, ok, { scrollWidth: 520 })).join(), /horizontal page scroll/);
+  assert.match(judge(Object.assign({}, ok, { header: null })).join(), /no visible shell header/);
+  assert.match(judge(Object.assign({}, ok, { contentBox: { top: 40, bottom: 900, left: 0, right: 390 } })).join(), /overlaps the header/);
+  assert.match(judge(Object.assign({}, ok, { escaping: ['table#t→856'] })).join(), /outside any scroll container/);
+  assert.match(judge(Object.assign({}, ok, { header: { top: 0, bottom: 75, left: 0, right: 600 } })).join(), /header outside the viewport/);
 });
