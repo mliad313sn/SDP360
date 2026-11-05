@@ -19,7 +19,7 @@ const rdb = require('../reports-db');
 const { DEFAULTS } = require('../services/reportConfig');
 
 const HIER = ['super_admin', 'executive', 'admin', 'editor', 'viewer'];
-const FEATURE = ['tracker-admin', 'tracker-editor', 'report-author', 'audit-viewer', 'scorecard-viewer', 'site-business', 'group-business', 'dashboard-publisher', 'committee-member', 'field-tech', 'finance-viewer'];
+const FEATURE = ['tracker-admin', 'tracker-editor', 'report-author', 'audit-viewer', 'scorecard-viewer', 'site-business', 'group-business', 'dashboard-publisher', 'committee-member', 'field-tech', 'finance-viewer', 'kpi-committee'];
 // every single role, no role, every hierarchy tier combined with every feature role
 const ROLE_SETS = [[], ...HIER.map((r) => [r]), ...FEATURE.map((r) => [r]), ...HIER.flatMap((h) => FEATURE.map((f) => [h, f]))];
 const userOf = (roles) => ({ id: 42, username: 'probe', roles, site_id: 1, site_ids: [1] });

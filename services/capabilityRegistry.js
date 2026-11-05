@@ -53,6 +53,9 @@ const CAPABILITIES = Object.freeze([
   // ── feature roles (with the admin tier where the guard admits it)
   C('finance.read', 'Read asset amounts (finance, licences, investment, depreciation)', 'Lire les montants des actifs', 'high', 'asset_money', ['admin', 'finance-viewer'], 'platform',
     { requires_request: true }),
+  // C-31 — KPI policy builder: drafts, proposals, shadow comparison, committee decisions (adoption = SoD in the store)
+  C('kpi.policy.manage', 'Draft, propose, shadow-test and decide KPI policies', 'Rédiger, proposer, tester en ombre et décider les politiques KPI', 'high', 'kpi_policy', ['super_admin', 'kpi-committee'], 'platform',
+    { routes: ['/api/kpi-policies'] }),
   C('governance.committee', 'Work in governance as a committee member', 'Travailler en comité de gouvernance', 'med', 'governance', ['admin', 'committee-member'], 'platform'),
   C('trackers.build', 'Build and administer generic trackers', 'Construire et administrer les trackers', 'med', 'tracker', ['admin', 'tracker-admin'], 'platform',
     { routes: ['/api/trackers'] }),

@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 4032,
+ "total": 4043,
  "files": {
   "a11y-static.test.js": 18,
   "access-approver-policy.test.js": 4,
@@ -241,6 +241,8 @@
   "kpi-card.test.js": 8,
   "kpi-change-parity.test.js": 5,
   "kpi-change-success.test.js": 2,
+  "kpi-policy-engine.test.js": 7,
+  "kpi-policy-routes.smoke.test.js": 4,
   "kpi-rag.test.js": 7,
   "kpi-request-sla.test.js": 4,
   "kpi-targets.smoke.test.js": 2,

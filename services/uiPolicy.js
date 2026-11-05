@@ -34,7 +34,7 @@ const ENUMS = {
 // Same vocabulary as reports-db.js ROLE_HIERARCHY + FEATURE_ROLES_KNOWN (kept inline: this module stays pure).
 const KNOWN_ROLES = new Set(['super_admin', 'executive', 'admin', 'editor', 'viewer',
   'tracker-admin', 'tracker-editor', 'report-author', 'audit-viewer', 'scorecard-viewer', 'site-business',
-  'group-business', 'dashboard-publisher', 'committee-member', 'field-tech', 'finance-viewer']);
+  'group-business', 'dashboard-publisher', 'committee-member', 'field-tech', 'finance-viewer', 'kpi-committee']);
 
 function _roles(v) {
   const list = String(v == null ? '' : v).split(',').map((s) => s.trim()).filter(Boolean);

@@ -745,7 +745,7 @@ function pStats(pKey){
     // Tiles now match executive.html / executive-report.html after the
     // 2026-06-02 alignment sprint.
     // C-30 (P8): the tile, the ranking and the trend read ONE helper with ONE definition.
-    slaPct: resolutionSla(rows,{definition:HD_SLA_DEFINITION}).ok_pct,
+    slaPct: resolutionSla(rows,{definition:HD_SLA_DEFINITION,...HD_SLA_POLICY}).ok_pct,   // C-31: HD_SLA_POLICY = {} unless kpi_policy_enforced=1
     frPct:  respondedN > 0 ? Math.round((1 - frVResponded / respondedN) * 1000) / 10 : null,
     avgTta:ttaN>0?Math.round(ttaS/ttaN):null,      // integer display, Math.round avg
     avgAh: ahN>0?Math.floor(ahS/ahN):null,          // integer display, Math.floor avg (AP: 19 not 20)
@@ -1268,7 +1268,7 @@ function renderSlaRanking(){
   // C-30 (P7): sites fold spelling variants (HOUNDE / Hounde Mine → one row), counts summed.
   const keyFn=dim==='group'?helpdeskGroupKey:helpdeskSiteFoldKey;
   const rows=getPRows(REF_P);
-  const R=slaRanking(rows,keyFn,{minN:MIN_SLA_RANK_N,labelFn:dim==='group'?helpdeskGroupKey:helpdeskSiteKey,definition:HD_SLA_DEFINITION});
+  const R=slaRanking(rows,keyFn,{minN:MIN_SLA_RANK_N,labelFn:dim==='group'?helpdeskGroupKey:helpdeskSiteKey,definition:HD_SLA_DEFINITION,...HD_SLA_POLICY});
   _slaRankState={rows,R,keyFn,dim};
   const dimLbl=dim==='group'?'Group':'Site';
   setH('slaRankKeyHdr',dimLbl);
@@ -1299,8 +1299,8 @@ function openSlaRankDrill(low,idx){
   if(!_slaRankState)return;
   const e=(low?_slaRankState.R.low_sample:_slaRankState.R.ranked)[idx];if(!e)return;
   // The ranking's denominator: closed tickets of that site/group, missed-SLA first.
-  const _ov=r=>resOverdueByDefinition(r,HD_SLA_DEFINITION);
-  const drillRows=rowsForKeys(_slaRankState.rows,_slaRankState.keyFn,[e.key]).filter(isClosed)
+  const _ov=r=>resOverdueByDefinition(r,HD_SLA_POLICY.definition||HD_SLA_DEFINITION);
+  const drillRows=rowsForKeys(_slaRankState.rows,_slaRankState.keyFn,[e.key]).filter(isClosed).filter(r=>!HD_SLA_POLICY.excludeCancelled||!/^cancel+ed$/i.test(String(r['Request Status']||'').trim()))
     .sort((a,b)=>(_ov(b)?1:0)-(_ov(a)?1:0)||(parseInt(b['Days Since Created'])||0)-(parseInt(a['Days Since Created'])||0));
   const modeLbl={weekly:'Week',monthly:'Month',quarterly:'Quarter',yearly:'Year'}[VIEW_MODE];
   const dimLbl=_slaRankState.dim==='group'?'Group':'Site';
@@ -1324,7 +1324,7 @@ function renderTrend(){
     inb.push(rows.length);
     cl.push(rows.filter(isClosed).length);
     // Doctrine denominators (closed / responded); null = nothing to judge, the line breaks (A-17a).
-    const rt=periodSlaRates(rows,{definition:HD_SLA_DEFINITION});   // C-30: same definition as the tile
+    const rt=periodSlaRates(rows,{definition:HD_SLA_DEFINITION,...HD_SLA_POLICY});   // C-30: same definition as the tile
     sv.push(rt.res_violated_pct);
     fv.push(rt.fr_violated_pct);
   });
@@ -1912,6 +1912,8 @@ async function loadData(){
     }
     // Also fetch monthly summary for Zoho-authoritative SLA (non-fatal if unavailable)
     try{const ms=await pgGet('/api/data/monthly-summary',20000);window.MONTHLY_SUM=(ms&&ms.data&&ms.data.rows)?ms.data.rows:[];}catch(_){window.MONTHLY_SUM=[];}
+    // C-31 — the committee-ADOPTED resolution-SLA policy, only when report_config kpi_policy_enforced='1' (else page_opts is null: today's rule)
+    try{const ep=await pgGet('/api/kpi-policies/effective/helpdesk.resolution_sla_pct',10000);const po=ep&&ep.enforced&&ep.page_opts;if(po)Object.assign(HD_SLA_POLICY,{definition:po.definition,excludeCancelled:!!po.excludeCancelled,minN:po.minN});}catch(_){}
     dot.className='status-dot ok';
     stxt.textContent=RAW.length.toLocaleString()+' tickets loaded';
     document.getElementById('loadOverlay').style.display='none';

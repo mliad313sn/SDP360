@@ -12,7 +12,7 @@
 // Middleware names that are role guards. A layer with one of these names MUST carry `legacyRoles`.
 const ROLE_GUARD_NAMES = ['requireAdmin', 'requireSuperAdmin', 'requireExecutiveOrSuperAdmin', 'requireRole', 'requireMoneyRead',
   '_syslogGate', 'requireSuper', 'requireSuperTier', 'requireAdminTier', 'requireCommittee', 'requireBuilder', 'requirePublisher',
-  'requireField', 'requireAuthor'];
+  'requireField', 'requireAuthor', 'requireKpiCommittee'];
 // Helper names that, inside a handler, narrow the answer to the caller's sites.
 const SITE_SCOPE_HELPERS = ['_siteReadDenied', '_siteCodeReadDenied', '_userSiteGroups', '_authorizeReportWrite', '_authorizeSiteWrite',
   '_authorizeActionWrite', '_sitelessWriteDenied', '_userMeetingsSite', '_userInspectionSite', 'userSites.', 'scopeSites', 'siteIdsOf', 'scope(', 'canEditSite('];

@@ -278,6 +278,11 @@ DEFAULTS.qualification_requirements = '{}';
 // pending after shift_handover_flag_hours hours is FLAGGED on the page (not accepted, not escalated by itself).
 DEFAULTS.shift_handover_enabled = '0';
 DEFAULTS.shift_handover_flag_hours = '8';
+
+// C-31 — KPI Policy Builder (migration 065). '0' = today: every screen computes as it does now; the builder only
+// stores, validates and shadow-compares policies. '1' → the Helpdesk page's resolution-SLA tile, ranking and trend
+// read the committee-ADOPTED policy of helpdesk.resolution_sla_pct (no adopted policy = today's rule).
+DEFAULTS.kpi_policy_enforced = '0';
 const KEYS = Object.keys(DEFAULTS);
 
 // Secrets that the GET handler redacts to '' — a Save that doesn't retype them must

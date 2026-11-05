@@ -219,11 +219,18 @@ function resOverdueByDefinition(r, definition) {
   var ov = String((r && r['Overdue Status']) || '').toLowerCase().trim();
   return ov === '1' || ov === 'yes' || ov === 'true';
 }
+// C-31 — opts.excludeCancelled (a KPI policy block): cancelled closed tickets leave the denominator.
+// HD_SLA_POLICY = {} today; with report_config kpi_policy_enforced='1' the Helpdesk page fills it from the
+// committee-ADOPTED policy (GET /api/kpi-policies/effective/...) — {definition, excludeCancelled, minN}.
+var HD_SLA_POLICY = {};
+function _isCancelled(r) { var s = String((r && r['Request Status']) || '').toLowerCase().trim(); return s === 'cancelled' || s === 'canceled'; }
 function resolutionSla(rows, opts) {
   var def = _slaDef(opts && opts.definition);
+  var exc = !!(opts && opts.excludeCancelled);
   var closed = 0, violated = 0;
   (Array.isArray(rows) ? rows : []).forEach(function (r) {
     if (!isClosed(r)) return;
+    if (exc && _isCancelled(r)) return;
     closed++;
     if (resOverdueByDefinition(r, def)) violated++;
   });
@@ -342,6 +349,7 @@ function slaRanking(rows, keyFn, opts) {
   var kf = typeof keyFn === 'function' ? keyFn : _dimKey('Site');
   var lf = (opts && typeof opts.labelFn === 'function') ? opts.labelFn : kf;
   var def = opts && opts.definition;
+  var exc = !!(opts && opts.excludeCancelled);
   var groups = new Map();
   list.forEach(function (r) {
     var k = kf(r);
@@ -352,13 +360,13 @@ function slaRanking(rows, keyFn, opts) {
   });
   var all = [];
   groups.forEach(function (g, k) {
-    var s = resolutionSla(g.rows, { definition: def });
+    var s = resolutionSla(g.rows, { definition: def, excludeCancelled: exc });
     if (!s.closed) return;
     var spells = Array.from(g.spell.entries()).sort(function (a, b) { return b[1] - a[1] || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0); });
     all.push({ key: k, label: spells[0][0], variants: spells.map(function (e) { return e[0]; }).sort(),
       closed: s.closed, violated: s.violated, pct: s.ok_pct });
   });
-  var tot = resolutionSla(list, { definition: def });
+  var tot = resolutionSla(list, { definition: def, excludeCancelled: exc });
   var byKey = function (a, b) { return a.key < b.key ? -1 : a.key > b.key ? 1 : 0; };
   var ranked = all.filter(function (e) { return e.closed >= minN; })
     .sort(function (a, b) { return a.pct - b.pct || b.closed - a.closed || byKey(a, b); });
@@ -645,6 +653,7 @@ if (typeof window !== 'undefined') {
   window.resolutionSla       = resolutionSla;       // C-30 one definition for tile / ranking / trend
   window.resOverdueByDefinition = resOverdueByDefinition;
   window.HD_SLA_DEFINITION   = HD_SLA_DEFINITION;   // today's page rule ('due_vs_resolved' vocabulary)
+  window.HD_SLA_POLICY       = HD_SLA_POLICY;       // C-31 adopted-policy overrides ({} = today)
   window.paretoRows          = paretoRows;     // C-11 counts desc + cumulative %, explicit 'Other (k)'
   window.slaRanking          = slaRanking;     // C-11 resolution SLA % per site/group, tile rule, low-sample unranked
   window.rowsForKeys         = rowsForKeys;

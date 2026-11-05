@@ -70,6 +70,7 @@ planned switch cannot be set before its goal lands.
 | `qualification_requirements` | built | `{}` | `{}` — which capability needs which kind (e.g. `field.capture` → `site-induction`) is a human decision | HSE owner | C-19 |
 | `shift_handover_enabled` | built | `0` | `1` on the pilot site once the incoming / outgoing people of each shift are on the duty roster (handover must be accepted by the incoming person; never automatic) | Site IT lead + Owner | C-21 |
 | `shift_handover_flag_hours` | built | `8` | `8` (a handover still pending after this many hours is flagged on the page) | Site IT lead | C-21 |
+| `kpi_policy_enforced` | built | `0` | `0` until the KPI committee has ADOPTED a resolution-SLA policy on `/kpi-builder.html` (two different members: author ≠ adopter, with the session reference) and read the shadow comparison; then `1` (the Helpdesk tile, ranking and trend follow the adopted version) | KPI committee + Owner | C-31 |
 
 Not in this table because they are not top-level `report_config` keys:
 

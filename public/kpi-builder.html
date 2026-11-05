@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KPI policy builder — Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<style nonce="%%CSP_NONCE%%">
+  body { margin: 0; background: var(--color-bg, #F4F5F7); color: var(--color-text-strong, #1F2A33); font-family: var(--font-sans, sans-serif); font-size: 14px; }
+  .kb-wrap { max-width: 1280px; margin: 0 auto; padding: 24px 28px 48px; }
+  .kb-card { background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA); border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; overflow-x: auto; }
+  @media (max-width: 640px) { .kb-wrap { padding: 16px 12px 32px; } .kb-card { padding: 14px 12px; } }
+  h1 { margin: 0 0 6px; font-size: 22px; color: var(--edv-slate, #3A4A60); } h2 { font-size: 16px; margin: 0 0 8px; } h3 { font-size: 14px; margin: 12px 0 6px; }
+  .kb-muted { color: #5B6573; font-size: 12.5px; }
+  table { border-collapse: collapse; } td, th { padding: 5px 6px; border-bottom: 1px solid #EEF0F3; text-align: left; font-size: 12.5px; vertical-align: top; }
+  input, select, button, textarea { font: inherit; } input, select, textarea { padding: 4px 6px; border: 1px solid #D0D5DD; border-radius: 6px; }
+  button { border: 1px solid #D0D5DD; background: #fff; border-radius: 6px; padding: 4px 10px; cursor: pointer; } button.kb-primary { background: var(--edv-orange, #E87722); color: #fff; border-color: transparent; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .kb-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; align-items: end; margin-bottom: 10px; }
+  .kb-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: #3A4A60; }
+  .kb-blocks { border: 1px dashed #D0D5DD; border-radius: 8px; padding: 8px; margin: 6px 0; }
+  .kb-block { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; margin: 4px 0; }
+  .kb-msg { min-height: 18px; font-size: 13px; } .kb-err { color: #A0002C; } .kb-ok { color: #1A6B3C; }
+  .kb-pill { display: inline-block; border-radius: 6px; padding: 1px 6px; font-size: 11.5px; font-weight: 700; background: #EEF0F3; }
+  .kb-adopted { background: #DDF3E4; color: #1A6B3C; } .kb-proposed { background: #FFF1D6; color: #8A5300; } .kb-draft { background: #EEF0F3; color: #3A4A60; } .kb-retired { background: #F4F5F7; color: #8A939E; }
+  .kb-GREEN { background: #DDF3E4; color: #1A6B3C; } .kb-AMBER { background: #FFF1D6; color: #8A5300; } .kb-RED { background: #FBE0E6; color: #A0002C; }
+  .kb-UNKNOWN, .kb-NOT_COMPARABLE { background: repeating-linear-gradient(45deg, #EEF0F3, #EEF0F3 4px, #fff 4px, #fff 8px); color: #3A4A60; border: 1px dashed #9AA3AE; }
+  .kb-sel { background: #FFF7EF; }
+  pre { background: #F4F5F7; padding: 8px; border-radius: 6px; font-size: 12px; white-space: pre-wrap; } textarea { width: 100%; min-height: 90px; font-family: monospace; font-size: 12px; }
+  body.lang-fr [data-lng="en"], body:not(.lang-fr) [data-lng="fr"] { display: none; }
+</style>
+</head>
+<body>
+<a class="edv-skip" href="#main">Skip to content</a>
+<div id="__shell" data-section="reports" data-current="kpi-builder"></div>
+<main id="main" class="kb-wrap">
+  <div class="kb-card">
+    <h1><span data-lng="en">KPI policy builder</span><span data-lng="fr">Constructeur de politiques KPI</span></h1>
+    <p class="kb-muted" data-lng="en">The KPI committee defines how each figure is computed, from safe building blocks (no code). A draft is proposed by its author; it is adopted only by ANOTHER committee member, with the committee session reference. Nothing here is adopted by the software: the rules in force today are listed as "proposed — imported from current code".</p>
+    <p class="kb-muted" data-lng="fr">Le comité KPI définit comment chaque chiffre est calculé, à partir de blocs sûrs (sans code). Un brouillon est proposé par son auteur ; il n'est adopté que par UN AUTRE membre du comité, avec la référence de la séance. Rien n'est adopté par le logiciel : les règles en vigueur aujourd'hui figurent comme « proposées — importées du code actuel ».</p>
+    <p class="kb-muted"><span data-lng="en">Language</span><span data-lng="fr">Langue</span> <select id="kbLang" aria-label="Language"><option value="en">English</option><option value="fr">Français</option></select> · <span id="kbEnforced"></span></p>
+    <div id="kbMsg" class="kb-msg" role="status"></div>
+  </div>
+
+  <div class="kb-card">
+    <h2><span data-lng="en">Metrics and versions</span><span data-lng="fr">Indicateurs et versions</span></h2>
+    <label class="kb-muted"><span data-lng="en">Metric</span><span data-lng="fr">Indicateur</span> <select id="kbMetric"></select></label>
+    <div id="kbList"></div>
+  </div>
+
+  <div class="kb-card" id="kbEditor">
+    <h2><span data-lng="en">Definition</span><span data-lng="fr">Définition</span> <span id="kbEdTitle" class="kb-muted"></span></h2>
+    <div class="kb-form">
+      <label><span><span data-lng="en">Title</span><span data-lng="fr">Titre</span></span><input id="kbTitle" autocomplete="off"></label>
+      <label><span><span data-lng="en">Dataset</span><span data-lng="fr">Jeu de données</span></span><select id="kbDataset"></select></label>
+      <label><span><span data-lng="en">Aggregation</span><span data-lng="fr">Agrégation</span></span><select id="kbAgg"></select></label>
+      <label><span><span data-lng="en">Value field</span><span data-lng="fr">Champ de valeur</span></span><select id="kbValueField"></select></label>
+      <label><span><span data-lng="en">Percentile</span><span data-lng="fr">Percentile</span></span><input id="kbPct" type="number" min="1" max="99"></label>
+      <label><span><span data-lng="en">Window</span><span data-lng="fr">Fenêtre</span></span><select id="kbWin"></select></label>
+      <label><span><span data-lng="en">Rolling days</span><span data-lng="fr">Jours glissants</span></span><input id="kbWinN" type="number" min="1" max="730"></label>
+      <label><span><span data-lng="en">Unit</span><span data-lng="fr">Unité</span></span><select id="kbUnit"></select></label>
+      <label><span><span data-lng="en">Direction</span><span data-lng="fr">Sens</span></span><select id="kbDir"></select></label>
+      <label><span><span data-lng="en">Decimals</span><span data-lng="fr">Décimales</span></span><input id="kbRound" type="number" min="0" max="3"></label>
+      <label><span><span data-lng="en">Minimum sample (below: not comparable)</span><span data-lng="fr">Échantillon minimum (en dessous : non comparable)</span></span><input id="kbMin" type="number" min="0"></label>
+      <label><span><span data-lng="en">Target</span><span data-lng="fr">Cible</span></span><select id="kbTarget"><option value="none">none</option><option value="kpi_targets">kpi_targets</option></select></label>
+      <label><span><span data-lng="en">Green boundary</span><span data-lng="fr">Seuil vert</span></span><input id="kbGreen" type="number" step="any"></label>
+      <label><span><span data-lng="en">Amber boundary</span><span data-lng="fr">Seuil orange</span></span><input id="kbAmber" type="number" step="any"></label>
+      <label><span><span data-lng="en">Mine sites: green / amber</span><span data-lng="fr">Mines : vert / orange</span></span><input id="kbMine" placeholder="95 / 85" autocomplete="off"></label>
+      <label><span><span data-lng="en">Offices: green / amber</span><span data-lng="fr">Bureaux : vert / orange</span></span><input id="kbOffice" placeholder="90 / 80" autocomplete="off"></label>
+      <label><span><span data-lng="en">Effective from</span><span data-lng="fr">En vigueur le</span></span><input id="kbFrom" type="date"></label>
+      <label><span><span data-lng="en">Owner</span><span data-lng="fr">Responsable</span></span><input id="kbOwner" autocomplete="off"></label>
+    </div>
+    <p class="kb-muted" data-lng="en">Null handling: a figure with nothing to judge is UNKNOWN — never 0 and never green (fixed).</p>
+    <p class="kb-muted" data-lng="fr">Valeurs absentes : un chiffre sans rien à juger est INCONNU — jamais 0 ni vert (fixe).</p>
+    <h3><span data-lng="en">Denominator (who is counted)</span><span data-lng="fr">Dénominateur (qui est compté)</span></h3><div id="kbDen" class="kb-blocks"></div>
+    <h3><span data-lng="en">Numerator (inside the denominator)</span><span data-lng="fr">Numérateur (dans le dénominateur)</span></h3><div id="kbNum" class="kb-blocks"></div>
+    <h3><span data-lng="en">Filters (count, mean, median, percentile)</span><span data-lng="fr">Filtres (compte, moyenne, médiane, percentile)</span></h3><div id="kbFil" class="kb-blocks"></div>
+    <label class="kb-muted"><span data-lng="en">Rationale</span><span data-lng="fr">Justification</span><textarea id="kbRationale"></textarea></label>
+    <div id="kbValid" class="kb-msg"></div>
+    <p>
+      <button id="kbNew" type="button"><span data-lng="en">New draft from this</span><span data-lng="fr">Nouveau brouillon à partir de celui-ci</span></button>
+      <button id="kbSave" type="button" class="kb-primary"><span data-lng="en">Save draft</span><span data-lng="fr">Enregistrer le brouillon</span></button>
+      <button id="kbPropose" type="button"><span data-lng="en">Propose</span><span data-lng="fr">Proposer</span></button>
+      <button id="kbPreview" type="button"><span data-lng="en">Preview on real data</span><span data-lng="fr">Aperçu sur données réelles</span></button>
+    </p>
+    <details id="kbAdvanced"><summary><span data-lng="en">Advanced — JSON preview and sample data</span><span data-lng="fr">Avancé — aperçu JSON et données d'exemple</span></summary>
+      <pre id="kbJson"></pre>
+      <label class="kb-muted"><span data-lng="en">Sample rows (JSON list, canonical fields)</span><span data-lng="fr">Lignes d'exemple (liste JSON, champs canoniques)</span><textarea id="kbSample"></textarea></label>
+      <button id="kbPreviewSample" type="button"><span data-lng="en">Preview on sample</span><span data-lng="fr">Aperçu sur l'exemple</span></button>
+    </details>
+    <div id="kbPreviewOut"></div>
+  </div>
+
+  <div class="kb-card">
+    <h2><span data-lng="en">Shadow comparison (read-only, no effect on screens)</span><span data-lng="fr">Comparaison en ombre (lecture seule, sans effet sur les écrans)</span></h2>
+    <div class="kb-form">
+      <label><span><span data-lng="en">Compare against</span><span data-lng="fr">Comparer à</span></span><select id="kbAgainst"></select></label>
+      <label><span><span data-lng="en">As of</span><span data-lng="fr">À la date du</span></span><input id="kbAsOf" type="date"></label>
+      <button id="kbShadow" type="button"><span data-lng="en">Run shadow test</span><span data-lng="fr">Lancer le test en ombre</span></button>
+    </div>
+    <div id="kbShadowOut"></div>
+  </div>
+
+  <div class="kb-card">
+    <h2><span data-lng="en">Decision</span><span data-lng="fr">Décision</span></h2>
+    <p class="kb-muted" id="kbRule"></p>
+    <div id="kbMembers" class="kb-muted"></div>
+    <div class="kb-form">
+      <label><span><span data-lng="en">Committee session / PV reference</span><span data-lng="fr">Référence de séance / PV du comité</span></span><input id="kbRef" autocomplete="off"></label>
+      <label><span><span data-lng="en">Effective from (adoption)</span><span data-lng="fr">En vigueur le (adoption)</span></span><input id="kbDecFrom" type="date"></label>
+    </div>
+    <label class="kb-muted"><span data-lng="en">Minutes</span><span data-lng="fr">Compte rendu</span><textarea id="kbMinutes"></textarea></label>
+    <p>
+      <button id="kbAdopt" type="button" class="kb-primary"><span data-lng="en">Adopt</span><span data-lng="fr">Adopter</span></button>
+      <button id="kbReject" type="button"><span data-lng="en">Reject (back to draft)</span><span data-lng="fr">Rejeter (retour en brouillon)</span></button>
+      <button id="kbRetire" type="button"><span data-lng="en">Retire</span><span data-lng="fr">Retirer</span></button>
+    </p>
+    <div id="kbMayAdopt" class="kb-msg"></div>
+  </div>
+
+  <div class="kb-card">
+    <h2><span data-lng="en">History and changes</span><span data-lng="fr">Historique et changements</span></h2>
+    <div id="kbDiff"></div>
+    <div id="kbHistory"></div>
+  </div>
+</main>
+<script nonce="%%CSP_NONCE%%" src="lib/errorText.js"></script>
+<script nonce="%%CSP_NONCE%%" src="kpi-builder.js"></script>
+</body>
+</html>
