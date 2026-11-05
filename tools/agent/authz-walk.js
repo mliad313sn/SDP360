@@ -15,11 +15,11 @@ const ROLE_GUARD_NAMES = ['requireAdmin', 'requireSuperAdmin', 'requireExecutive
   'requireField', 'requireAuthor'];
 // Helper names that, inside a handler, narrow the answer to the caller's sites.
 const SITE_SCOPE_HELPERS = ['_siteReadDenied', '_siteCodeReadDenied', '_userSiteGroups', '_authorizeReportWrite', '_authorizeSiteWrite',
-  '_authorizeActionWrite', '_sitelessWriteDenied', '_userMeetingsSite', '_userInspectionSite', 'userSites.', 'scopeSites', 'siteIdsOf', 'scope('];
+  '_authorizeActionWrite', '_sitelessWriteDenied', '_userMeetingsSite', '_userInspectionSite', 'userSites.', 'scopeSites', 'siteIdsOf', 'scope(', 'canEditSite('];
 // Local predicate helpers → the role(s) they test (each is `userHasRole(u, role)` or an OR of them).
 const INLINE_HELPERS = { isAdmin: ['admin'], isSuper: ['super_admin'], isCommittee: ['admin', 'committee-member'], isBuilder: ['admin', 'tracker-admin'],
   isPublisher: ['admin', 'dashboard-publisher'], isField: ['admin', 'editor', 'field-tech'], isAuthor: ['admin', 'report-author'],
-  _canReadMoney: ['admin', 'finance-viewer'], _adminTier: ['admin'] };
+  _canReadMoney: ['admin', 'finance-viewer'], _adminTier: ['admin'], canEditSite: ['admin'] };
 
 function walkRoutes(stack, prefix = '', out = []) {
   for (const layer of stack || []) {
