@@ -12,7 +12,7 @@
   "jobs": 27,
   "jobs_without_test_reference": 10,
   "migrations": 64,
-  "test_files": 556
+  "test_files": 557
  },
  "pages": [
   {
@@ -57,7 +57,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 56866,
+   "bytes": 56325,
    "tests": [
     "tests/analytics-logic.test.js",
     "tests/analytics-metrics-authz.smoke.test.js",
@@ -198,7 +198,7 @@
    ],
    "in_navigation": false,
    "inline_scripts": 1,
-   "bytes": 35306,
+   "bytes": 35089,
    "tests": [
     "tests/csp-headers.smoke.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
@@ -215,7 +215,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 472633,
+   "bytes": 472268,
    "tests": [
     "tests/csp-headers.smoke.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
@@ -237,7 +237,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 598868,
+   "bytes": 598274,
    "tests": [
     "tests/api-key-injection.smoke.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
@@ -310,7 +310,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 119513,
+   "bytes": 119268,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -342,7 +342,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 2,
-   "bytes": 33832,
+   "bytes": 33621,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -472,7 +472,7 @@
    ],
    "in_navigation": false,
    "inline_scripts": 1,
-   "bytes": 17588,
+   "bytes": 17371,
    "tests": [
     "tests/brand-buttons.test.js",
     "tests/csp-headers.smoke.test.js",
@@ -771,7 +771,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 2,
-   "bytes": 540474,
+   "bytes": 540229,
    "tests": [
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/assets-freshness.test.js",
@@ -840,7 +840,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 2,
-   "bytes": 72033,
+   "bytes": 71822,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -856,7 +856,7 @@
    ],
    "in_navigation": false,
    "inline_scripts": 0,
-   "bytes": 17860,
+   "bytes": 17643,
    "tests": [
     "tests/agent-inventory.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
