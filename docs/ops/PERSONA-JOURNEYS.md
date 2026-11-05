@@ -28,13 +28,17 @@ in `tests/e2e/` must appear in this table.
 | Executive | `executive` | Read the IT Review scoreboard | `public/it-review.html` | `public/it-review.html` | not covered |
 | super_admin | `super_admin` | Change a delivery setting or a user's role | `public/reports.html` | `public/access.html` | not covered |
 | super_admin | `super_admin` | Read the security journal | `public/system-logs.html` | `public/system-logs.html` | not covered |
+| super_admin | `super_admin` | Key pages at 1440/1024/768/390 px: no horizontal scroll, header visible, no console error (layout check, not a task) | `public/index.html` | `public/access.html` | `tests/e2e/v1-viewport-layout.spec.js` |
+| super_admin | `super_admin` | Change a filter twice quickly on Dashboards and Analytics; the newer figures stay on screen | `public/dashboards.html` | `public/analytics.html` | `tests/e2e/r1-filter-race.spec.js` |
+| super_admin | `super_admin` | Download the dashboard CSV, the assets inventory and the WAN SLA workbook | `public/dashboards.html` | `public/wan.html` | `tests/e2e/x1-exports.spec.js` |
 | Scorecard viewer | `scorecard-viewer` | Read the executive scorecard without write powers | `public/executive.html` | `public/analytics.html` | not covered |
 | Committee member (Group IT, extra) | `viewer` + `committee-member` | Prepare Friday's agenda from the cadence | `public/cockpit.html` | `public/cockpit.html` | `tests/e2e/t4-cockpit-agenda.spec.js` |
 
 ## Coverage summary
 
 - Covered by a browser journey test: coordinator (1 of 3), site editor (4 of 4), field technician (1 of 1),
-  committee member (1 of 1).
+  committee member (1 of 1); super_admin: three cross-cutting checks (viewport layout, filter race, exports),
+  not the two task journeys above.
 - **Not covered by any browser journey test**: admin, executive, super_admin and scorecard-viewer journeys, two of
   the three coordinator journeys. These are the gaps a person should plan sessions or new e2e journeys for.
 - Personas from the committee report not mapped here because they have no separate account role today: analyst,
