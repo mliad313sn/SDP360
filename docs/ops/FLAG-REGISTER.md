@@ -131,7 +131,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `shift_handover_enabled` | `0` | arm switch | Site IT lead + Owner | `1` on the pilot site once the incoming / outgoing people of each shift are on the duty roster (handover must be accepted by the incoming person; never automatic) | C-21 |
 | `shift_handover_flag_hours` | `8` | setting | Site IT lead | `8` (a handover still pending after this many hours is flagged on the page) | C-21 |
 | `site_code_shared_block` | `0` | setting | Data owner + Owner | `1` once the data owner has given each shared code to one site (Assafo/Tanda → tracker `TND`, AM-01) — while `0` both editors keep writing the same scope; `1` refuses a scoped editor's tracker / meetings / inspection save under a code two active sites share (409 naming the sites, page banner), never picks an owner | D-01 |
-| `site_codes_from_registry` | `0` | setting | to be named | — | — |
+| `site_codes_from_registry` | `0` | setting | Data owner + KPI committee | PROPOSITION: `shadow` (E-D01 double read — hard maps keep answering, every registry divergence is logged once a day in System Logs ▸ governance) for at least two weeks, then `1` only by the committee (gate 10) | DEC-4, E-D01 |
 | `site_local_calendar` | `0` | setting | Owner + Finance (month-end figures) | `0` while every reporting site is UTC+0; `1` only when a non-UTC site (e.g. the London office) is reported and its time zone (`sites.time_zone`, else from its country) is confirmed — only the calendar-month helpdesk figures move | D-07 |
 | `site_score_published_model` | `legacy` | setting | Owner (D-1) | `programme` | A-11 |
 | `sla_wan_config` | `{"notify":{"enabled":false,"trigger_minutes":15,"from_nam…` | setting | to be named | — | — |

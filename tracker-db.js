@@ -77,8 +77,7 @@ const _NORM_SITE_MAP = (() => {
 /** Convert a site label (sites.name, a Zoho group…) to a tracker site code, or null. */
 function siteNameToCode(siteName) {
   if (!siteName) return null;
-  const reg = require('./services/siteCodeRegistry').lookup('tracker', siteName); if (reg) return reg;   // DEC-4 switch (off by default)
-  return hardSiteNameToCode(siteName);
+  return require('./services/siteCodeRegistry').resolve('tracker', siteName, hardSiteNameToCode);   // DEC-4 switch (off by default; 'shadow' = E-D01 double read)
 }
 /** The hard-coded map only (DEC-4 diff). */
 function hardSiteNameToCode(siteName) {

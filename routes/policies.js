@@ -66,7 +66,7 @@ module.exports = function policyRoutes(deps) {
   // DEC-4 — site-code registry vs the modules' hard-coded maps (services/siteCodeRegistry)
   //   GET /api/governance/site-codes                         status + every disagreement   committee | admin
   //   PUT /api/governance/site-codes/:site  { module, code, reason }   fill the registry       super_admin
-  //   PUT /api/governance/site-codes        { enabled, reason }        registry wins / not     super_admin
+  //   PUT /api/governance/site-codes        { enabled | mode, reason } registry wins / shadow / not  super_admin
   const SCR = require('../services/siteCodeRegistry');
   const OB = require('../services/siteOnboarding'); const SCS = require('../services/siteCodeShared');
   // the codes the save routes resolve (registry first when switched on) — tracker by site row, the two others by name
@@ -125,12 +125,16 @@ module.exports = function policyRoutes(deps) {
     try {
       const b = req.body || {};
       if (String(b.reason || '').trim().length < 10) return res.status(400).json({ ok: false, error: 'a reason (10+ characters) is required' });
-      const on = b.enabled === true || b.enabled === '1';
+      // E-D01: { mode: 'shadow' } (or enabled: 'shadow') = observation mode — hard maps answer, divergences logged
+      const raw = b.mode !== undefined ? b.mode : b.enabled;
+      const mode = raw === true || raw === '1' || raw === 1 ? '1' : String(raw) === 'shadow' ? 'shadow' : '0';
+      const on = mode === '1';
       const gaps = await SCR.diff(rdb(), hardMaps());
-      await require('../services/reportConfig').setConfig(rdb().db, { site_codes_from_registry: on ? '1' : '0' }, req.reportUser.username);
+      await require('../services/reportConfig').setConfig(rdb().db, { site_codes_from_registry: mode }, req.reportUser.username);
       await SCR.refresh(rdb());
       // switching it on with disagreements left is allowed (the committee decides), but recorded as a risk
-      try { await rdb().logEvent({ category: 'governance', action: on ? 'site_registry_enabled' : 'site_registry_disabled', target: 'site_codes', details: { open_differences: gaps.length, reason: String(b.reason).slice(0, 300) }, risk: on && gaps.length ? 1 : 0, ...rdb()._logCtx(req) }); } catch (_) {}
+      const action = on ? 'site_registry_enabled' : mode === 'shadow' ? 'site_registry_shadow' : 'site_registry_disabled';
+      try { await rdb().logEvent({ category: 'governance', action, target: 'site_codes', details: { mode, open_differences: gaps.length, reason: String(b.reason).slice(0, 300) }, risk: on && gaps.length ? 1 : 0, ...rdb()._logCtx(req) }); } catch (_) {}
       res.json({ ok: true, ...SCR.status(), open_differences: gaps.length });
     } catch (e) { fail(res, e); }
   });

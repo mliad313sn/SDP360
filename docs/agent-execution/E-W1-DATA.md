@@ -1,0 +1,36 @@
+# E-W1-DATA — bundle evidence (expert audit of 5 Nov 2026, plan E)
+
+Branch `goal/w1-data`. Goals in order: E-D01, E-D04, E-D05, E-D06 (merged with E-Q02). No migration.
+Everything below is agent work on synthetic or test data only; nothing was run against production data,
+nothing is approved, no owner or threshold was chosen.
+
+## Verdict table
+
+| Goal / audit action | Verdict | Proof |
+|---|---|---|
+| E-D01 — audit D-01 prep / X-DATA-01: split report for codes shared by two active sites | FIXED (tool) | `tools/sites/shared-code-report.js`; `tests/shared-code-report.test.js` (3) — Assafo+Tanda → TND fixture: rows split by writer site, unknowns marked (no writer / several sites / central / account missing), read-only queries only |
+| E-D01 — audit D-03 / X-DATA-02: registry observation mode | FIXED (behind switch, default `0`) | `site_codes_from_registry='shadow'` in `services/siteCodeRegistry.js` (`resolve`, `parseMode`); `tests/site-code-shadow.test.js` (5): shadow answers like `0` and logs one divergence, `1` unchanged; `tests/site-code-registry.smoke.test.js` (+1): PUT accepts `shadow` with the same reason / super_admin rule, divergence row written once |
+
+## E-D01 — details
+
+- **Report** (`node tools/sites/shared-code-report.js [--out=FILE]`): reads `sites`, `users`, `user_sites`,
+  `tracker_inputs_v2`, `tracker_entries`, `md_meetings`, `insp_inspections`, `system_log` inside a
+  `BEGIN READ ONLY` transaction, rolled back. Writers are printed as account ids, never user names.
+  Writer per table: `tracker_entries.updated_by` (fallback: last `tracker_entries_saved` actor of that tracker),
+  `md_meetings.created_by`, `insp_inspections.created_by`. **The legacy activity tracker
+  (`tracker_inputs_v2`) records no writer and its save writes no `system_log` row**, so every legacy TND row is
+  reported "unknown" — this is the honest answer, not a gap in the tool (see "left for a person").
+- **Shadow mode**: the three module lookups (`tracker-db`, `inspection-db`, `meetings-db`) now call
+  `siteCodeRegistry.resolve(module, name, hardFn)`. `0` → hard map; `1` → registry then hard map (unchanged);
+  `shadow` → hard map, and when the registry holds a different code for that site one `system_log` row
+  (`governance` / `site_code_shadow_divergence`, details hard_coded / registry / answered) per day per
+  site × module (in-memory dedup, reset at restart — a restart can log a second row the same day).
+  `PUT /api/governance/site-codes` accepts `{ mode: 'shadow' }` (or `enabled: 'shadow'`), action
+  `site_registry_shadow`. `tools/governance/apply-values` accepts `"shadow"` for this one switch.
+- Deviation: the goal's FILES list did not name `tracker-db.js`, `inspection-db.js`, `meetings-db.js`; a double
+  read needs the hard answer, which only those modules compute, so each lookup line was changed to call
+  `resolve` (one line each, behaviour at `0`/`1` identical).
+- PILOT-PROFILE row added for `site_codes_from_registry` (PROPOSITION: `shadow` first); FLAG-REGISTER regenerated.
+
+Left for a person: choosing the owner of TND (gate 9) and applying any split; switching the registry to
+`shadow` then `1` (gate 10); deciding whether the legacy tracker save should start recording its writer.
