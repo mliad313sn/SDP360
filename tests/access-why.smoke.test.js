@@ -69,6 +69,26 @@ test('shadow mode leaves every answer unchanged and logs no divergence on agreei
   require('../services/authzShadow')._resetCache();
 });
 
+test('E-S01: enforce with review.read listed refuses a viewer with the reason, logs authz_enforce_denied; a holder still passes', async () => {
+  const rc = require('../services/reportConfig');
+  await rc.setConfig(rdb.db, { authz_capability_mode: 'enforce', authz_enforce_caps: 'review.read' }, 'test');
+  require('../services/authzShadow')._resetCache();
+  try {
+    const r = await get('/api/reports/review-data', tok['aw-viewer']);
+    assert.equal(r.status, 403);
+    const b = await r.json();
+    assert.equal(b.reason_code, 'missing_role'); assert.equal(b.capability, 'review.read');
+    assert.notEqual((await get('/api/reports/review-data', tok['aw-super'])).status, 403);
+    assert.equal((await get('/api/reports/review-data')).status, 401, 'no session keeps the legacy 401');
+    await new Promise((res) => setTimeout(res, 150));
+    const n = await rdb.pgHandle().prepare("SELECT count(*)::int AS n FROM system_log WHERE category='authz' AND action='authz_enforce_denied'").get();
+    assert.equal(n.n, 1);
+  } finally {
+    await rc.setConfig(rdb.db, { authz_capability_mode: 'off', authz_enforce_caps: '' }, 'test');
+    require('../services/authzShadow')._resetCache();
+  }
+});
+
 test('no-access page carries the capability row and asks the why endpoint', async () => {
   const html = await (await get('/no-access.html', tok['aw-viewer'])).text();
   assert.match(html, /id="naCap"/);

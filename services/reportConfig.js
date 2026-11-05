@@ -260,8 +260,12 @@ Object.assign(DEFAULTS, { auth_account_throttle_enabled: '0', auth_account_throt
 
 // ── C-17 — capability catalogue switch. off = today (legacy role guards only). shadow = the evaluator
 //    (services/authorizationService.can) runs beside every role guard and logs divergences to system_log
-//    category 'authz'. enforce is NOT wired yet (read as shadow) — route-by-route plan in docs/agent-execution/C-17.md.
+//    category 'authz'. enforce = shadow, except for the capabilities listed in authz_enforce_caps (E-S01).
 DEFAULTS.authz_capability_mode = 'off';
+// E-S01 (audit S-04) — comma list of capability ids that mode `enforce` answers from the capability evaluator.
+// '' = today (nothing enforced). A listed capability can only REFUSE (403 + system_log authz_enforce_denied);
+// an allow still goes through the legacy guard. critical capabilities are ignored while C-18 grants are off.
+DEFAULTS.authz_enforce_caps = '';
 // C-18 (G39/G40/G50) — access requests. '0' = today: Admin ▸ Users adds any role directly; no grant ever expires
 // by itself. access_require_approval '1' → adding a role marked requires_request needs an APPROVED request
 // (super_admin break-glass with a reason, logged risk=1). access_grant_expiry_job '1' → the nightly job
