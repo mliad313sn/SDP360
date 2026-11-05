@@ -45,8 +45,8 @@ test('request → self/deputy decisions refused → approval activates through u
   await assert.rejects(store.decide(rid, 'approve', { id: ID.lead }, { isApprover: true }), /you filed/);
   await H().prepare('INSERT INTO deputies (user_id, deputy_id, start_date, end_date, reason, created_at) VALUES (?, ?, ?, ?, ?, ?)').run(ID.lead, ID.super2, '2026-11-01', '2026-11-30', 'leave cover', clock);
   await assert.rejects(store.decide(rid, 'approve', { id: ID.super2 }, { isApprover: true }), /deputy/);
-  assert.deepEqual((await store.approvalsFor({ id: ID.super2 })).map((r) => r.id).filter((x) => x === rid), []);
-  assert.ok((await store.approvalsFor({ id: ID.super })).some((r) => r.id === rid));
+  assert.deepEqual((await store.approvalsFor({ id: ID.super2, roles: ['super_admin'] })).map((r) => r.id).filter((x) => x === rid), []);
+  assert.ok((await store.approvalsFor({ id: ID.super, roles: ['super_admin'] })).some((r) => r.id === rid));
   const logs = []; const orig = rdb.logEvent; rdb.logEvent = (e) => { logs.push(e); };
   try { assert.equal((await store.decide(rid, 'approve', { id: ID.super }, { isApprover: true, reason: 'ok' })).status, 'ACTIVE'); } finally { rdb.logEvent = orig; }
   const u = await user(ID.subject);

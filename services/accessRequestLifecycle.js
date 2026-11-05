@@ -6,7 +6,8 @@
 //        └────reject / approve┴──reject──▶ REJECTED  └──revoke──▶ REVOKED (also withdraw before a decision)
 //
 // Separation of duties (same spirit as ADR-006 / governancePolicy proposals):
-//   • the approver is a super_admin (PROPOSED approver rule — see docs/agent-execution/C-18.md, human decision);
+//   • the approver follows the R7 policy (C-19, services/accessApproverPolicy.js — platform roles: a super_admin;
+//     site-scoped roles: an admin-tier user holding the site);
 //   • the approver is neither the subject nor the requester;
 //   • the approver is not a deputy of the subject or of the requester (a stand-in acts in their name);
 //   • the approval is bound to subject × roles × sites × dates (`scopeKey`) — never to a template as a whole:
@@ -91,7 +92,7 @@ function validateTemplatePayload(p, { knownRoles = [] } = {}) {
 
 /**
  * May `actor` take `action` on request `r`? null = yes, else { status, code, error }.
- * @param {object} ctx { isApprover: bool (super_admin), deputyIds: Set<number> (active deputies of subject and
+ * @param {object} ctx { isApprover: bool (R7 approver rule, see accessApproverPolicy), approverError, canRevoke, deputyIds: Set<number> (active deputies of subject and
  *                      requester), today, scopeOk: bool (activation only) }
  */
 function check(r, action, actor, ctx = {}) {
@@ -102,15 +103,17 @@ function check(r, action, actor, ctx = {}) {
   const me = actor && actor.id != null ? Number(actor.id) : null;
   const deps = ctx.deputyIds || new Set();
   if (action === 'review' || action === 'approve' || action === 'reject') {
-    if (!ctx.isApprover) return err(403, 'FORBIDDEN', 'only a super_admin may decide an access request');
-    if (me === Number(r.subject_user_id)) return err(403, 'FORBIDDEN', 'you cannot decide a request for your own access');
-    if (me === Number(r.requested_by)) return err(403, 'FORBIDDEN', 'you cannot decide a request you filed');
-    if (deps.has(me)) return err(403, 'FORBIDDEN', 'a deputy of the requester or of the subject cannot decide this request');
+    // C-19: separation of duties from the one registry (services/sodPolicy.js, R8), then the approver rule (R7,
+    // services/accessApproverPolicy.js — computed by the caller into ctx.isApprover / ctx.approverError).
+    const sod = require('./sodPolicy').evaluate('access.decide', { actorId: me, subjectId: r.subject_user_id, requesterId: r.requested_by, deputyIds: deps });
+    if (sod.refuse) return err(403, 'FORBIDDEN', sod.refuse.error);
+    if (!ctx.isApprover) return ctx.approverError || err(403, 'FORBIDDEN', 'you may not decide this access request (approver rule)');
   }
   if (action === 'revoke') {
     const undecided = r.status === 'REQUESTED' || r.status === 'REVIEWING';
     const withdraw = undecided && me != null && (me === Number(r.requested_by) || me === Number(r.subject_user_id));
-    if (!withdraw && !ctx.isApprover) return err(403, 'FORBIDDEN', 'only a super_admin may revoke an access');
+    const canRevoke = ctx.canRevoke !== undefined ? ctx.canRevoke : ctx.isApprover;
+    if (!withdraw && !canRevoke) return err(403, 'FORBIDDEN', 'only a super_admin may revoke an access');
   }
   if (action === 'activate') {
     if (ctx.today && r.valid_from > ctx.today) return err(409, 'CONFLICT', 'not yet valid');

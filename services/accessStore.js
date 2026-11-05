@@ -6,6 +6,8 @@
 // change is logged to system_log category 'identity' with request id, grant ids and valid_to (A03).
 // Every request step is written to access_request_events (append-only, hash-chained) in the same transaction.
 const L = require('./accessRequestLifecycle');
+const AP = require('./accessApproverPolicy');
+const userSites = require('./userSites');
 const { typed } = require('./httpError');
 
 const str = (v, max = 2000) => (v == null || v === '' ? null : String(v).slice(0, max));
@@ -13,7 +15,7 @@ const toId = (v) => Number(v);
 const fail = (c) => { throw typed(c.code, c.error, c.status); };
 const todayOf = (iso) => String(iso).slice(0, 10);
 
-function makeAccessStore(db, rdb, { now = () => new Date().toISOString() } = {}) {
+function makeAccessStore(db, rdb, { now = () => new Date().toISOString(), getConfig = null } = {}) {
   if (!db || !rdb) throw new Error('accessStore needs a db handle and reports-db');
   const P = (sql) => db.prepare(sql);
   const tx = (fn) => (db.runTransaction ? db.runTransaction(fn) : fn());
@@ -119,6 +121,19 @@ function makeAccessStore(db, rdb, { now = () => new Date().toISOString() } = {})
     return new Set(rows.map((x) => toId(x.deputy_id)));
   }
 
+  /** C-19 (R7): the approver rule for `actor` on request `r`, from the editable policy (report_config). */
+  async function approverCtx(r, actor, users) {
+    let policy = AP.DEFAULT_POLICY;
+    try { const cfg = await (getConfig ? getConfig() : require('./reportConfig').getConfig(rdb.db)); policy = AP.parsePolicy(cfg && cfg.access_approver_policy); } catch (_) { /* default policy */ }
+    const list = users || (await rdb.listUsers()) || [];
+    const subj = list.find((u) => toId(u.id) === toId(r.subject_user_id));
+    const subjectSiteIds = subj ? [subj.site_id, ...(subj.extra_site_ids || [])].filter((x) => x != null).map(Number) : [];
+    const actorSiteIds = userSites.siteIds(actor);
+    const hasRole = (u, role) => rdb.userHasRole(u, role);
+    const e = AP.approverCheck(r, actor, { policy, hasRole, actorSiteIds, subjectSiteIds });
+    return { isApprover: !e, approverError: e || undefined, canRevoke: !!(actor && rdb.userHasRole(actor, 'super_admin')) };
+  }
+
   async function _activate(r, actorId) {
     const t = today();
     const c = L.check(r, 'activate', null, { today: t }); if (c) fail(c);
@@ -153,7 +168,8 @@ function makeAccessStore(db, rdb, { now = () => new Date().toISOString() } = {})
     return tx(async () => {
       const r = rowReq(await P('SELECT * FROM access_requests WHERE id = ? FOR UPDATE').get(toId(id)));
       if (!r) fail({ status: 404, code: 'NOT_FOUND', error: 'request not found' });
-      const c = L.check(r, action, actor, { isApprover, deputyIds: await deputyIdsFor(r), today: today() }); if (c) fail(c);
+      const who = isApprover !== undefined ? { isApprover } : await approverCtx(r, actor);
+      const c = L.check(r, action, actor, { ...who, deputyIds: await deputyIdsFor(r), today: today() }); if (c) fail(c);
       const me = actor && actor.id != null ? toId(actor.id) : null;
       if (action === 'review') {
         await P("UPDATE access_requests SET status = 'REVIEWING', reviewed_by = ?, reviewed_at = ? WHERE id = ?").run(me, now(), r.id);
@@ -237,11 +253,12 @@ function makeAccessStore(db, rdb, { now = () => new Date().toISOString() } = {})
   async function requestsFor(userId) {
     return (await P('SELECT * FROM access_requests WHERE subject_user_id = ? OR requested_by = ? ORDER BY id DESC LIMIT 100').all(toId(userId), toId(userId))).map(rowReq);
   }
-  /** Requests the actor may decide now (pending, not their own, not where they deputise). */
+  /** Requests the actor may decide now (pending, approver rule R7, not their own, not where they deputise). */
   async function approvalsFor(actor) {
     const rows = (await P("SELECT * FROM access_requests WHERE status IN ('REQUESTED','REVIEWING') ORDER BY id").all()).map(rowReq);
     const out = [];
-    for (const r of rows) if (!L.check(r, 'approve', actor, { isApprover: true, deputyIds: await deputyIdsFor(r) })) out.push(r);
+    const users = rows.length ? await rdb.listUsers() : [];
+    for (const r of rows) if (!L.check(r, 'approve', actor, { ...(await approverCtx(r, actor, users)), deputyIds: await deputyIdsFor(r) })) out.push(r);
     return out;
   }
   /** Is `role` for `userId` covered today by an APPROVED or ACTIVE request? (access_require_approval) */
@@ -257,7 +274,7 @@ function makeAccessStore(db, rdb, { now = () => new Date().toISOString() } = {})
   }
 
   return { listTemplates, createTemplate, addVersion, getVersion, updateDraft, publish, retire,
-    createRequest, getRequest, events, decide, runExpiry, liveGrants, liveGrantRoles, requestsFor, approvalsFor, hasApproved, deputiesOf };
+    createRequest, getRequest, events, decide, approverCtx, runExpiry, liveGrants, liveGrantRoles, requestsFor, approvalsFor, hasApproved, deputiesOf };
 }
 
 /** Store bound to the live reports-db PostgreSQL handle. */

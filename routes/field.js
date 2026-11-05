@@ -45,6 +45,10 @@ module.exports = function fieldRoutes(deps) {
   function requireField(req, res, next) { if (!isField(req.reportUser)) return res.status(403).json({ ok: false, error: 'editor or field-tech role required' }); next(); }
   requireField.legacyRoles = ['admin', 'editor', 'field-tech'];   // C-17 capability catalogue tag
   const fail = (res, e) => httpFail(res, e, undefined, { ok: false, missing: e && e.missing || undefined });
+  // C-19 (G41): qualification evidence for field capture — a no-op unless qualification_check_enabled='1' AND
+  // a requirement is declared for field.capture (catalogue prereq or report_config qualification_requirements).
+  let _qg = null;
+  function qualificationGate(req, res, next) { _qg = _qg || (deps.qualStore || require('../services/qualificationStore').forRdb(rdb())).gate('field.capture'); return _qg(req, res, next); }
 
   async function scopeSites(user) {
     const all = (await rdb().listSites({ includeInactive: false })) || [];
@@ -158,7 +162,7 @@ module.exports = function fieldRoutes(deps) {
     },
   };
 
-  router.put('/api/field/outbox/:uuid', requireReportSession, requireField, json, async (req, res) => {
+  router.put('/api/field/outbox/:uuid', requireReportSession, requireField, qualificationGate, json, async (req, res) => {
     try {
       const env = { ...(req.body || {}), uuid: req.params.uuid };
       const v = F.validateEnvelope(env); if (!v.ok) return res.status(400).json({ ok: false, error: v.errors.join('; '), errors: v.errors });
@@ -198,7 +202,7 @@ module.exports = function fieldRoutes(deps) {
   });
 
   // ── chunked uploads ───────────────────────────────────────────────────────────────
-  router.post('/api/field/uploads', requireReportSession, requireField, json, async (req, res) => {
+  router.post('/api/field/uploads', requireReportSession, requireField, qualificationGate, json, async (req, res) => {
     try {
       const b = req.body || {};
       const c = await cfg();
