@@ -272,6 +272,12 @@ DEFAULTS.access_approver_policy = JSON.stringify(require('./accessApproverPolicy
 DEFAULTS.qualification_check_enabled = '0';
 DEFAULTS.qualification_requirements = '{}';
 
+// C-21 (G47) — shift handover with explicit acceptance (migration 062). '0' = today: no shift handover routes
+// (404) and no Handover section on coverage.html. '1' → the outgoing person records the open items and names the
+// incoming person, who must accept or refuse (with a reason); never accepted automatically. A handover still
+// pending after shift_handover_flag_hours hours is FLAGGED on the page (not accepted, not escalated by itself).
+DEFAULTS.shift_handover_enabled = '0';
+DEFAULTS.shift_handover_flag_hours = '8';
 const KEYS = Object.keys(DEFAULTS);
 
 // Secrets that the GET handler redacts to '' — a Save that doesn't retype them must

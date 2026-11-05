@@ -32,8 +32,12 @@ module.exports = function handoffRoutes(deps) {
   const fail = (res, e) => httpFail(res, e);
   const isAdmin = (u) => rdb().userHasRole(u, 'admin');
   // ADR-006 — deputyFor = the people this user stands in for today (table deputies; empty = as before)
-  const actorOf = (u, h, deputyFor = []) => ({ id: u.id, isAdmin: isAdmin(u), active: u.active !== 0 && u.active !== false, hasSite: h ? userSites.hasSite(u, h.site_id) : false, deputyFor });
-  const deputyFor = async (u) => { try { return deps.rolesStore ? await deps.rolesStore.principalsOf(u.id) : []; } catch (_) { return []; } };
+  // sodFor = everyone u stands in for in ANY scope (C-21): separation of duties stays conservative
+  const actorOf = (u, h, deputyFor = [], sodFor = deputyFor) => ({ id: u.id, isAdmin: isAdmin(u), active: u.active !== 0 && u.active !== false, hasSite: h ? userSites.hasSite(u, h.site_id) : false, deputyFor, sodDeputyFor: sodFor });
+  // C-21 — ctx = the handoff in hand: a scoped deputy (site / register) counts only inside its scope
+  const deputyFor = async (u, h) => { try { return deps.rolesStore ? await deps.rolesStore.principalsOf(u.id, undefined, h && h.any ? h : (h ? { siteId: h.site_id, register: 'handoffs' } : undefined)) : []; } catch (_) { return []; } };
+  /** All live deputy rows where `u` stands in (any scope) — the list is narrowed per handoff afterwards. */
+  const deputyRows = async (u) => { try { if (!deps.rolesStore || !deps.rolesStore.snapshot) return []; const d = new Date().toISOString().slice(0, 10); return ((await deps.rolesStore.snapshot()).deputies || []).filter((x) => Number(x.deputy_id) === Number(u.id) && !x.revoked_at && String(x.start_date).slice(0, 10) <= d && String(x.end_date).slice(0, 10) >= d); } catch (_) { return []; } };
   const log = (req, action, target, details) => { try { rdb().logEvent({ category: 'handoffs', action, target: String(target), details, ...rdb()._logCtx(req) }); } catch (_) {} };
   const polFor = (siteId) => require('../services/governancePolicy').forContext({ siteId });
   const cfg = async () => { try { return await reportConfig.getConfig(rdb().db); } catch (_) { return {}; } };
@@ -44,7 +48,8 @@ module.exports = function handoffRoutes(deps) {
   const visible = (u, h, dep = []) => !!h && (isAdmin(u) || userSites.hasSite(u, h.site_id) || [u.id, ...dep].map(Number).some((x) => x === Number(h.requested_by) || x === Number(h.receiver_id)));
   async function load(req, res) {
     const h = await store.get(req.params.id);
-    req.deputyFor = await deputyFor(req.reportUser);
+    req.deputyFor = await deputyFor(req.reportUser, h);
+    req.sodFor = await deputyFor(req.reportUser, { any: true });
     if (!visible(req.reportUser, h, req.deputyFor)) { res.status(404).json({ error: 'handoff not found' }); return null; }
     return h;
   }
@@ -93,7 +98,10 @@ module.exports = function handoffRoutes(deps) {
   router.get('/api/handoffs', requireReportSession, enabled, async (req, res) => {
     try {
       const u = req.reportUser;
-      const rows = await store.list({ siteIds: isAdmin(u) ? null : userSites.siteIds(u), userId: u.id, userIds: await deputyFor(u), status: req.query.status || null });
+      const drows = await deputyRows(u); const R = require('../services/governanceRoles');
+      const listed = await store.list({ siteIds: isAdmin(u) ? null : userSites.siteIds(u), userId: u.id, userIds: [...new Set(drows.map((x) => Number(x.user_id)))], status: req.query.status || null });
+      // a row seen only through a scoped deputy stays listed only when that handoff is inside the scope
+      const rows = listed.filter((h) => visible(u, h, R.principalsOf(drows, u.id, new Date().toISOString(), { siteId: h.site_id, register: 'handoffs' })));
       const mine = isAdmin(u) ? null : userSites.siteIds(u).map(Number);
       const sites = ((await rdb().listSites({ includeInactive: false })) || []).filter((x) => !mine || mine.includes(Number(x.id))).map((x) => ({ id: Number(x.id), name: x.name }));
       res.json({ handoffs: rows.map(({ idem_key: _i, ...r }) => r), statuses: L.STATUSES, sites, departments: ((await rdb().listDepartments()) || []).map((d) => d.name) });
@@ -133,7 +141,7 @@ module.exports = function handoffRoutes(deps) {
     try {
       const h = await load(req, res); if (!h) return;
       const b = req.body || {};
-      const a = actorOf(req.reportUser, h, req.deputyFor);
+      const a = actorOf(req.reportUser, h, req.deputyFor, req.sodFor);
       const out = await store.transition(h.id, String(b.to || ''), { actor: a, expectedVersion: b.version, reason: b.reason, policy: await polFor(h.site_id), idemKey: req.headers['idempotency-key'] || b.idem_key });
       if (out.replayed) return res.json({ handoff: view(out, req.reportUser, req.deputyFor), replayed: true });
       log(req, 'handoff_transition', h.ref, { from: h.status, to: out.status, acting_for: L.actingFor(h, a, 'receiver') || L.actingFor(h, a, 'requester') || undefined });
@@ -146,7 +154,7 @@ module.exports = function handoffRoutes(deps) {
       const h = await load(req, res); if (!h) return;
       const b = req.body || {};
       const to = await resolveReceiver(b.receiver, h.site_id);
-      const out = await store.reassign(h.id, to, { actor: actorOf(req.reportUser, h, req.deputyFor), expectedVersion: b.version, reason: b.reason, policy: await polFor(h.site_id) });
+      const out = await store.reassign(h.id, to, { actor: actorOf(req.reportUser, h, req.deputyFor, req.sodFor), expectedVersion: b.version, reason: b.reason, policy: await polFor(h.site_id) });
       log(req, 'handoff_reassigned', h.ref, { from: h.receiver_id, to });
       await notify(to, out, 'handed to you');
       res.json({ handoff: view(out, req.reportUser, req.deputyFor) });

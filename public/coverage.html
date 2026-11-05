@@ -82,6 +82,19 @@
       <button type="submit"><span data-lng="en">Save policy</span><span data-lng="fr">Enregistrer la règle</span></button>
     </form>
   </section>
+  <section class="cv-card" id="cvHandover" hidden>
+    <h2><span data-lng="en">Shift handover</span><span data-lng="fr">Passation de poste</span></h2>
+    <p class="cv-muted"><span data-lng="en">The outgoing person lists what is still open and names the incoming person, who must accept it (or refuse it with a reason). Nothing is accepted automatically; a handover left pending too long is flagged.</span><span data-lng="fr">La personne sortante liste ce qui reste ouvert et désigne la personne entrante, qui doit l'accepter (ou la refuser avec un motif). Rien n'est accepté automatiquement ; une passation restée en attente trop longtemps est signalée.</span></p>
+    <form id="cvHoForm" class="cv-form">
+      <label><span><span data-lng="en">Duty family</span><span data-lng="fr">Famille d'astreinte</span></span><select id="cvHoFam"></select></label>
+      <label><span><span data-lng="en">Incoming person (user id)</span><span data-lng="fr">Personne entrante (identifiant)</span></span><input id="cvHoTo" inputmode="numeric" autocomplete="off"></label>
+      <label><span><span data-lng="en">Shift</span><span data-lng="fr">Poste</span></span><input id="cvHoShift" placeholder="night 2026-11-05" autocomplete="off"></label>
+      <label><span><span data-lng="en">Open items (one per line)</span><span data-lng="fr">Points ouverts (un par ligne)</span></span><textarea id="cvHoItems"></textarea></label>
+      <label><span><span data-lng="en">Notes</span><span data-lng="fr">Notes</span></span><textarea id="cvHoNotes"></textarea></label>
+      <button type="submit"><span data-lng="en">Hand over</span><span data-lng="fr">Passer le poste</span></button>
+    </form>
+    <div id="cvHoList"></div>
+  </section>
 </main>
 <script nonce="%%CSP_NONCE%%" src="lib/errorText.js"></script>
 <script nonce="%%CSP_NONCE%%" src="coverage.js"></script>

@@ -31,6 +31,9 @@ const OBJECTS = Object.freeze({
   'handoff.verify': Object.freeze(['no_self_verification', 'no_deputy_verification']),     // also_in handoffLifecycle.js
   'commitment.verify': Object.freeze(['no_self_verification', 'no_deputy_verification']),  // also_in commitmentLifecycle.js
   'governance.relax': Object.freeze(['no_self_approval']),                                // also_in governancePolicy.js
+  // C-21 (G47) — the outgoing person (and whoever recorded the handover) never accepts it; a deputy of the
+  // outgoing person never accepts it in the name of the incoming one (services/shiftHandover.js)
+  'shift_handover.accept': Object.freeze(['no_self_approval', 'no_deputy_verification']),
 });
 const POLICY_VERSION = crypto.createHash('sha256').update(JSON.stringify({ RULES, WATCHED_PAIRS, OBJECTS })).digest('hex').slice(0, 12);
 

@@ -103,6 +103,9 @@ const PARAMS = [
   P('handoffs.proxy_accept', 'bool', false, { area: 'handoffs', protected: true, stricter: 'false',
     en: 'A handoff may name a receiver who has no account (e.g. a department head); the receiver account (a coordinator) then records each step on their behalf, with a note every time. Off = only people with an account receive handoffs, the behaviour until now.',
     fr: 'Une demande peut désigner un destinataire sans compte (ex. un chef de service) ; le compte destinataire (un coordinateur) enregistre alors chaque étape en son nom, avec une note à chaque fois. Désactivé = seules les personnes ayant un compte reçoivent des demandes, le fonctionnement actuel.' }),
+  P('handoffs.queue_receivers', 'bool', false, { area: 'handoffs', stricter: null,
+    en: 'Escalations of overdue handoffs and commitments go first to the site team queue (the people on duty for site IT support now, from the duty roster) and only to the named person when nobody is on duty. Off = the named role holder (and their deputy) only, the behaviour until now.',
+    fr: 'Les escalades des demandes et engagements en retard vont d\'abord à la file de l\'équipe du site (les personnes de garde en support informatique maintenant, selon le planning) et seulement à la personne nommée quand personne n\'est de garde. Désactivé = seul le titulaire du rôle (et son suppléant), le fonctionnement actuel.' }),
   // ── working calendar (committee #40) ───────────────────────────────────────────────────────────
   P('calendar.skip_weekends', 'bool', false, { area: 'calendar', protected: true, stricter: 'false',
     en: 'Saturdays and Sundays are not working days for the overdue rules (handoff escalation grace and days overdue, escalation levels, missed sessions). Holidays and shutdowns are listed per site in the calendar. Off = every day counts, the behaviour until now.',

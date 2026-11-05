@@ -48,9 +48,13 @@ function makeGovernanceRolesStore(db, { now = () => new Date().toISOString(), sk
   async function addDeputy(b, { actorId }) {
     const c = R.validateDeputy(b); if (c) fail(c);
     return tx(async () => {
-      const r = await P('INSERT INTO deputies (user_id, deputy_id, start_date, end_date, reason, approved_by, created_at) VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id')
-        .get(Number(b.user_id), Number(b.deputy_id), b.start_date, b.end_date, str(b.reason), n(actorId), now());
-      await event('deputy', r.id, 'named', actorId, { user_id: Number(b.user_id), deputy_id: Number(b.deputy_id), from: b.start_date, to: b.end_date, reason: str(b.reason) });
+      // C-21 — optional scope (migration 060): NULL = every site / every role, the behaviour until now
+      const js = (v) => { if (v == null || v === '') return null; const l = Array.isArray(v) ? v : JSON.parse(v); return JSON.stringify(l); };
+      const sites = b.scope_site_ids == null || b.scope_site_ids === '' ? null : JSON.stringify(JSON.parse(js(b.scope_site_ids)).map(Number));
+      const roles = js(b.scope_roles);
+      const r = await P('INSERT INTO deputies (user_id, deputy_id, start_date, end_date, reason, approved_by, created_at, scope_site_ids, scope_roles) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id')
+        .get(Number(b.user_id), Number(b.deputy_id), b.start_date, b.end_date, str(b.reason), n(actorId), now(), sites, roles);
+      await event('deputy', r.id, 'named', actorId, { user_id: Number(b.user_id), deputy_id: Number(b.deputy_id), from: b.start_date, to: b.end_date, reason: str(b.reason), scope_site_ids: sites ? JSON.parse(sites) : null, scope_roles: roles ? JSON.parse(roles) : null });
       return Number(r.id);
     });
   }
@@ -123,8 +127,8 @@ function makeGovernanceRolesStore(db, { now = () => new Date().toISOString(), sk
   }
   /** History version: moves on every change (callers re-read their snapshot when it moves). */
   async function version() { const r = await P('SELECT COALESCE(MAX(id), 0) AS v FROM governance_role_events').get(); return Number(r && r.v) || 0; }
-  /** People a deputy stands in for today (used by the lifecycles). */
-  async function principalsOf(userId, today) { return R.principalsOf((await snapshot()).deputies, userId, today || now()); }
+  /** People a deputy stands in for today (used by the lifecycles); `ctx` = the item in hand (C-21 scoped deputies). */
+  async function principalsOf(userId, today, ctx) { return R.principalsOf((await snapshot()).deputies, userId, today || now(), ctx); }
   // A10 / C-03 — governance policy governance.skip_inactive_holders (default false = today). On: the resolver
   // gets the account state — active ids and each person's sites (null = admin tier, every site).
   async function policyOn() {

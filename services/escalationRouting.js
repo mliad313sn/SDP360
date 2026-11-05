@@ -11,9 +11,21 @@ async function _notifyAll(notify, ids, n) {
   return sent;
 }
 
+// C-21 (G46) — duty queue first, under the site policy handoffs.queue_receivers (default false = unchanged).
+async function _withQueue(e, siteId, { policyFor, dutyStore, now }) {
+  if (!dutyStore || siteId == null) return e;
+  let on = false; try { on = !!(policyFor && (await policyFor(siteId))['handoffs.queue_receivers'] === true); } catch (_) { on = false; }
+  if (!on) return e;
+  const Q = require('./dutyQueue'); const at = (now || (() => new Date().toISOString()))();
+  try {
+    const [shifts, account] = await Promise.all([dutyStore.shifts([Number(siteId)], new Date(Date.parse(at) - 8 * 864e5).toISOString(), new Date(Date.parse(at) + 1).toISOString()), dutyStore.accountState()]);
+    return Q.applyQueue(e, Q.onDuty({ shifts, account, siteId, at }), { siteId });
+  } catch (_) { return e; }   // a roster read error never stops an escalation: the person route stays
+}
+
 /** Handoffs: escalate overdue ones (matrix target recorded on the event), then notify the targets. */
-async function routeHandoffEscalations({ hoStore, rolesStore, policyFor, notify, notifyEnabled }) {
-  const targetFor = rolesStore ? (h, overdueDays) => rolesStore.escalationTarget({ register: 'handoffs', severity: '*', siteId: h.site_id, overdueDays }) : null;
+async function routeHandoffEscalations({ hoStore, rolesStore, policyFor, notify, notifyEnabled, dutyStore, now }) {
+  const targetFor = rolesStore ? async (h, overdueDays) => _withQueue(await rolesStore.escalationTarget({ register: 'handoffs', severity: '*', siteId: h.site_id, overdueDays }), h.site_id, { policyFor, dutyStore, now }) : null;
   const rows = await hoStore.escalateOverdue({ policyFor, targetFor });
   let notified = 0; const gaps = [];
   for (const h of rows) {
@@ -27,7 +39,7 @@ async function routeHandoffEscalations({ hoStore, rolesStore, policyFor, notify,
 }
 
 /** Commitments: after the A01 / A02 ledger diff, notify the matrix target of every newly raised escalation. */
-async function routeCommitmentEscalations({ cmtStore, rolesStore, policyFor, notify, notifyEnabled, today }) {
+async function routeCommitmentEscalations({ cmtStore, rolesStore, policyFor, notify, notifyEnabled, today, dutyStore, now }) {
   const r = await cmtStore.escalate({ policyFor });
   let notified = 0; const gaps = [];
   if (rolesStore) {
@@ -37,7 +49,7 @@ async function routeCommitmentEscalations({ cmtStore, rolesStore, policyFor, not
       if (!cm) continue;
       const pol = policyFor ? await policyFor(cm.site_id) : null;
       const overdueDays = c.kind === 'A02' && cm.due_date ? require('./workCalendar').workingDaysAfter(cm.due_date, d, pol) : 0;   // working days (committee #40)
-      const e = await rolesStore.escalationTarget({ register: 'commitments', severity: cm.severity || '*', siteId: cm.site_id, overdueDays });
+      const e = await _withQueue(await rolesStore.escalationTarget({ register: 'commitments', severity: cm.severity || '*', siteId: cm.site_id, overdueDays }), cm.site_id, { policyFor, dutyStore, now });
       if (e.gap) gaps.push({ commitment_id: Number(cm.id), role: e.role, site_id: cm.site_id });
       if (notifyEnabled && notify && e.targets.length) {
         notified += await _notifyAll(notify, e.targets, { kind: 'commitment', title: `${c.kind} — ${String(cm.title || '').slice(0, 120)}`, body: c.kind === 'A01' ? 'serious commitment without an owner' : `overdue ${overdueDays} d without an approved exception`, link: `commitments.html?id=${cm.id}`, sourceKind: 'commitment', sourceRef: String(cm.id) });
@@ -47,4 +59,4 @@ async function routeCommitmentEscalations({ cmtStore, rolesStore, policyFor, not
   return { rows: (r.raised || []).length, raised: (r.raised || []).length, kept: r.kept, cleared: r.cleared, notified, gaps };
 }
 
-module.exports = { routeHandoffEscalations, routeCommitmentEscalations };
+module.exports = { routeHandoffEscalations, routeCommitmentEscalations, _withQueue };

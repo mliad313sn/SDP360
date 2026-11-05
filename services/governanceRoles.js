@@ -68,15 +68,43 @@ function holders(assignments, role, siteId, today, opts) {
   return [...new Set(fromSite.length ? fromSite : ok(rows.filter((a) => a.site_id == null)))];
 }
 
-/** People `deputyId` stands in for today. */
-function principalsOf(deputies, deputyId, today) {
-  const d = day(today);
-  return [...new Set((deputies || []).filter((x) => Number(x.deputy_id) === Number(deputyId) && live(x, d)).map((x) => Number(x.user_id)))];
+// C-21 (G45 · A04) — scoped deputies (migration 060). A row may carry scope_site_ids (JSON array of site ids)
+// and scope_roles (JSON array of tokens: governance role keys, registers, duty families). NULL = unscoped = the
+// behaviour until now. A scoped row counts only for an item whose context matches; no context → it does not count.
+const SCOPE_REGISTERS = Object.freeze(['handoffs', 'commitments', 'shift_handovers', 'meetings']);
+const SCOPE_FAMILIES = Object.freeze(['site-it-support', 'network-oncall']);
+const scopeTokens = () => [...Object.keys(ROLES), ...SCOPE_REGISTERS, ...SCOPE_FAMILIES];
+function _list(v) {
+  if (v == null || v === '') return null;
+  if (Array.isArray(v)) return v;
+  try { const x = JSON.parse(v); return Array.isArray(x) ? x : null; } catch (_) { return null; }
 }
-/** Who stands in for `userId` today. */
-function deputiesOf(deputies, userId, today) {
+const scopeOf = (row) => { const l = _list(row && row.scope_site_ids); const r = _list(row && row.scope_roles); return { sites: l ? l.map(Number) : null, roles: r ? r.map(String) : null }; };
+const isScoped = (row) => { const s = scopeOf(row); return !!((s.sites && s.sites.length) || (s.roles && s.roles.length)); };
+/** ctx = { siteId?, role?, register?, family? } — the item in hand ({ any:true } = every scope, for SoD). true when the row may act on it. */
+function deputyInScope(row, ctx) {
+  const s = scopeOf(row);
+  const hasSites = !!(s.sites && s.sites.length); const hasRoles = !!(s.roles && s.roles.length);
+  if (!hasSites && !hasRoles) return true;
+  if (!ctx) return false;                       // fail closed: a scoped deputy needs an item to compare against
+  if (ctx.any === true) return true;            // separation-of-duties checks: a deputy in ANY scope stays conflicted
+  if (hasSites && (ctx.siteId == null || !s.sites.includes(Number(ctx.siteId)))) return false;
+  if (hasRoles) {
+    const want = [ctx.role, ctx.register, ctx.family, ctx.role ? String(ctx.role).split('.')[0] : null].filter(Boolean);
+    if (!want.some((t) => s.roles.includes(t))) return false;
+  }
+  return true;
+}
+
+/** People `deputyId` stands in for today (for the item `ctx`; unscoped rows always count). */
+function principalsOf(deputies, deputyId, today, ctx) {
   const d = day(today);
-  return [...new Set((deputies || []).filter((x) => Number(x.user_id) === Number(userId) && live(x, d)).map((x) => Number(x.deputy_id)))];
+  return [...new Set((deputies || []).filter((x) => Number(x.deputy_id) === Number(deputyId) && live(x, d) && deputyInScope(x, ctx)).map((x) => Number(x.user_id)))];
+}
+/** Who stands in for `userId` today (for the item `ctx`). */
+function deputiesOf(deputies, userId, today, ctx) {
+  const d = day(today);
+  return [...new Set((deputies || []).filter((x) => Number(x.user_id) === Number(userId) && live(x, d) && deputyInScope(x, ctx)).map((x) => Number(x.deputy_id)))];
 }
 
 /**
@@ -100,7 +128,7 @@ function escalationTarget({ matrix, assignments, deputies }, { register, severit
     const m = rows[0];
     const who = holders(assignments, m.role, siteId, today);
     // a holder who is away is replaced by their deputy — the escalation still reaches a person
-    const targets = [...new Set(who.flatMap((u) => { const deps = deputiesOf(deputies, u, today); return deps.length ? [u, ...deps] : [u]; }))];
+    const targets = [...new Set(who.flatMap((u) => { const deps = deputiesOf(deputies, u, today, { siteId, role: m.role, register }); return deps.length ? [u, ...deps] : [u]; }))];
     return { matched: shape(m), role: m.role, targets, gap: !targets.length, why: targets.length ? 'ok' : `nobody holds ${m.role}` };
   }
   const d = day(today); const skipped = new Set();
@@ -113,7 +141,7 @@ function escalationTarget({ matrix, assignments, deputies }, { register, severit
     for (const tier of tiers) {
       for (const a of tier) {
         const u = Number(a.user_id);
-        const deps = deputiesOf(deputies, u, today).filter((x) => { const why = deputyIneligible(opts, x, u, siteId); if (why) skipped.add(x); return !why; });
+        const deps = deputiesOf(deputies, u, today, { siteId, role: m.role, register }).filter((x) => { const why = deputyIneligible(opts, x, u, siteId); if (why) skipped.add(x); return !why; });
         if (!holderIneligible(opts, u, a.site_id)) targets.push(u); else skipped.add(u);
         targets.push(...deps);
       }
@@ -171,6 +199,14 @@ function validateDeputy(b) {
   if (!isDay(b.start_date) || !isDay(b.end_date) || b.end_date < b.start_date) return no(400, 'VALIDATION', 'start_date and end_date must be dates, end on or after start');
   if ((Date.parse(b.end_date) - Date.parse(b.start_date)) / 864e5 > DEPUTY_MAX_DAYS) return no(400, 'VALIDATION', `a deputy covers at most ${DEPUTY_MAX_DAYS} days — renew it for a longer absence`);
   if (String(b.reason || '').trim().length < 5) return no(400, 'VALIDATION', 'a reason (5+ characters) is required');
+  if (b.scope_site_ids != null && b.scope_site_ids !== '') {
+    const l = _list(b.scope_site_ids);
+    if (!l || !l.length || !l.every((x) => Number.isInteger(Number(x)) && Number(x) > 0)) return no(400, 'VALIDATION', 'scope_site_ids must be a non-empty list of site ids (or empty for every site)');
+  }
+  if (b.scope_roles != null && b.scope_roles !== '') {
+    const l = _list(b.scope_roles); const known = scopeTokens();
+    if (!l || !l.length || !l.every((x) => known.includes(String(x)))) return no(400, 'VALIDATION', `scope_roles must list roles, registers or duty families among: ${known.join(', ')}`);
+  }
   return null;
 }
 function validateMatrix(b) {
@@ -183,4 +219,4 @@ function validateMatrix(b) {
   return null;
 }
 
-module.exports = { ROLES, REGISTERS, REQUIRED, DEPUTY_MAX_DAYS, CALENDAR_MAX_DAYS_PER_YEAR, holders, holderIneligible, deputyIneligible, principalsOf, deputiesOf, escalationTarget, coverageGaps, validateAssignment, validateDeputy, validateMatrix };
+module.exports = { ROLES, REGISTERS, REQUIRED, DEPUTY_MAX_DAYS, CALENDAR_MAX_DAYS_PER_YEAR, SCOPE_REGISTERS, SCOPE_FAMILIES, scopeTokens, scopeOf, isScoped, deputyInScope, holders, holderIneligible, deputyIneligible, principalsOf, deputiesOf, escalationTarget, coverageGaps, validateAssignment, validateDeputy, validateMatrix };
