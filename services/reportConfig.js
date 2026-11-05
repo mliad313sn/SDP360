@@ -201,6 +201,7 @@ const DEFAULTS = {
   ppm_alert_blocked_days: '5',
   ppm_alert_slip_days: '10',
   site_codes_from_registry: '0',   // DEC-4 — '1' = site_module_codes wins over the modules' hard-coded maps (diff first: GET /api/governance/site-codes)   // ADR-006 — in-app notice to the escalation-matrix target of a new A01 / A02 (off = ledger only, as before)
+  site_code_shared_block: '0',   // D-01 (AM-01) — '1' = refuse a scoped editor's tracker/meetings/inspection save under a code two active sites share (409, never picks an owner)
 };
 // ── Sync alerting (Step 1). Recipients = comma list of e-mail addresses; teams_url = a
 //    Workflows webhook (SECRET, blank-keep). Nothing is sent while both are empty.

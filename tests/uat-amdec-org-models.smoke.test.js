@@ -51,12 +51,19 @@ test('ORG-d shared office service desk (Dakar + Abidjan + Ouagadougou, three cou
 test('ORG-e1 onboarding a new site (Massawa): refused until a super_admin registers its codes; then the editor writes, others unchanged', async () => {
   const before0 = await pv('edMAS', 'MAS');
   assert.equal(before0.status, 403); assert.match(before0.text, /no site assigned for this module/);
+  // D-02: the site admin card's onboarding checklist says what Massawa lacks before day one
+  const ob0 = (await c('GET', '/api/governance/site-codes', U.central.token)).j.onboarding.find((x) => x.site === 'Massawa');
+  for (const item of ['inspection code', 'meetings code', 'coordinator']) assert.ok(ob0.missing.includes(item), item + ' ' + JSON.stringify(ob0.missing));
+  assert.equal(ob0.ready, false); assert.equal(ob0.country, 'SN'); assert.equal(ob0.zoho_group, 'Massawa IT Agents');
   assert.equal((await c('PUT', '/api/governance/site-codes/' + S.Massawa.id, U.edMAS.token, { module: 'meetings', code: 'MAS', reason: 'self-service attempt' })).status, 403, 'an editor cannot register codes');
   for (const mod of ['meetings', 'inspection']) {
     const r = await c('PUT', '/api/governance/site-codes/' + S.Massawa.id, U.sa.token, { module: mod, code: 'MAS', reason: 'UAT onboarding Massawa' });
     assert.equal(r.status, 200, r.text);
   }
   assert.equal((await c('PUT', '/api/governance/site-codes/' + S.Massawa.id, U.sa.token, { module: 'meetings', code: 'SGO', reason: 'clash attempt' })).status, 409, 'a code already used by Sabodala');
+  const ob1 = (await c('GET', '/api/governance/site-codes', U.central.token)).j.onboarding.find((x) => x.site === 'Massawa');
+  assert.ok(!ob1.missing.includes('meetings code') && !ob1.missing.includes('inspection code'), JSON.stringify(ob1.missing));
+  assert.equal(ob1.codes.meetings, 'MAS', 'the checklist reads the registry once filled');
   assert.equal((await c('PUT', '/api/governance/site-codes', U.sa.token, { enabled: true, reason: 'UAT registry switched on' })).status, 200);
   try {
     assert.equal((await pv('edMAS', 'MAS')).status, 200);
@@ -68,22 +75,70 @@ test('ORG-e1 onboarding a new site (Massawa): refused until a super_admin regist
   }
 });
 
-test('ORG-e2 Exploration writes PVs and inspections under EXP (hard-coded map), although the registry has no EXP row', async () => {
+test('ORG-e2 Exploration writes PVs and inspections under EXP (hard-coded map); the fill dry-run proposes EXP and writes nothing (AM-03, D-02)', async () => {
   const p = await pv('edEXP', 'EXP');
   assert.equal(p.status, 200, p.text);
   const i = await c('POST', '/api/inspection/save', U.edEXP.token, { state: { meta: { f_site: 'Exploration (EXP)', f_date: '2026-09-10', f_area: 'Camp' }, items: {}, actions: [] } });
   assert.equal(i.status, 200, i.text);
   const d = await c('GET', '/api/governance/site-codes', U.cttee.token);
   assert.ok(d.j.diff.some((x) => x.site === 'Exploration' && x.module === 'meetings' && x.kind === 'missing_in_registry'));
+  const plan = d.j.fill_plan;
+  assert.equal(plan.dry_run, true);
+  for (const mod of ['meetings', 'inspection'])
+    assert.ok(plan.proposed.some((x) => x.site === 'Exploration' && x.module === mod && x.code === 'EXP'), mod + ' ' + JSON.stringify(plan.proposed));
+  assert.ok(!plan.proposed.some((x) => x.code === 'TND' && x.module === 'tracker'), 'a shared code is never proposed: ' + JSON.stringify(plan.proposed.filter((x) => x.code === 'TND')));
+  // Tanda already holds TND in the seeded registry; Assafo's hard-coded TND is skipped, never proposed
+  assert.deepStrictEqual(plan.skipped.filter((x) => x.code === 'TND' && x.module === 'tracker').map((x) => [x.site, x.reason]), [['Assafo', 'shared_code']]);
+  const again = await c('GET', '/api/governance/site-codes', U.cttee.token);
+  assert.ok(again.j.diff.some((x) => x.site === 'Exploration' && x.module === 'meetings' && x.kind === 'missing_in_registry'), 'the dry run wrote nothing');
 });
 
-test('ORG-e3 two sites, one tracker code: Assafo and Tanda both resolve to TND — the registry diff reports it (AM-01)', async () => {
+test('ORG-e3 two sites, one tracker code: Assafo and Tanda both resolve to TND — reported; with site_code_shared_block on, their saves are refused (AM-01, D-01)', async () => {
   assert.deepStrictEqual((await c('GET', '/api/tracker/load', U.edASF.token)).j.scopes, ['TND']);
   assert.deepStrictEqual((await c('GET', '/api/tracker/load', U.edTND.token)).j.scopes, ['TND']);
   const d = await c('GET', '/api/governance/site-codes', U.cttee.token);
   const shared = d.j.diff.filter((x) => x.kind === 'shared_code' && x.module === 'tracker');
   assert.deepStrictEqual(shared.map((x) => x.site).sort(), ['Assafo', 'Tanda'], JSON.stringify(shared));
   assert.deepStrictEqual(shared.find((x) => x.site === 'Assafo').shared_with, ['Tanda']);
+  const RC = require('../services/reportConfig');
+  const D = (await c('GET', '/api/tracker/load', U.edASF.token)).j.D;
+  const save = (k) => c('POST', '/api/tracker/save', U[k].token, { D });
+  // today (switch off): the save goes through — the merged write scope AM-01 describes; no banner
+  assert.equal((await save('edASF')).status, 200);
+  const m0 = (await c('GET', '/api/governance/site-codes/mine', U.edASF.token)).j;
+  assert.equal(m0.block, false); assert.deepStrictEqual(m0.shared.tracker, [{ code: 'TND', sites: ['Assafo', 'Tanda'] }]);
+  await RC.setConfig(ctx.rdb.db, { site_code_shared_block: '1' }, 'uat');
+  try {
+    for (const k of ['edASF', 'edTND']) {
+      const r = await save(k);
+      assert.equal(r.status, 409, k + ' ' + r.text);
+      assert.equal(r.j.reason, 'site_code_shared'); assert.match(r.j.error, /tracker code TND/); assert.match(r.j.error, /Assafo, Tanda/);
+    }
+    assert.equal((await save('edSGO')).status, 200, 'a site with its own code saves as before');
+    assert.equal((await c('GET', '/api/governance/site-codes/mine', U.edASF.token)).j.block, true, 'the page banner reads this');
+    assert.equal((await c('GET', '/api/governance/site-codes/mine', U.edSGO.token)).j.shared.tracker.length, 0);
+    // no owner is picked automatically: both editors still resolve to TND
+    assert.deepStrictEqual((await c('GET', '/api/tracker/load', U.edTND.token)).j.scopes, ['TND']);
+  } finally { await RC.setConfig(ctx.rdb.db, { site_code_shared_block: '0' }, 'uat'); }
+});
+
+test('ORG-e3b same guard for meetings and inspection: a second active site resolving to HGO blocks the Hounde editor while the switch is on (D-01)', async () => {
+  const RC = require('../services/reportConfig');
+  const dup = await ctx.rdb.db.prepare("INSERT INTO sites (name, zoho_group) VALUES ('HOUNDÉ (copy)', NULL) RETURNING id").get();
+  const insp = () => c('POST', '/api/inspection/save', U.edHGO.token, { state: { meta: { f_site: 'Hounde (HGO)', f_date: '2026-09-11', f_area: 'Camp' }, items: {}, actions: [] } });
+  try {
+    await ctx.rdb.db.prepare("UPDATE sites SET name='HOUNDÉ' WHERE id=?").run(Number(dup.id));
+    assert.equal((await pv('edHGO', 'HGO', 'uat-e3b')).status, 200, 'switch off: today');
+    await RC.setConfig(ctx.rdb.db, { site_code_shared_block: '1' }, 'uat');
+    const p = await pv('edHGO', 'HGO', 'uat-e3b');
+    assert.equal(p.status, 409, p.text); assert.match(p.j.error, /meetings code HGO/);
+    const i = await insp(); assert.equal(i.status, 409, i.text); assert.match(i.j.error, /inspection code HGO/);
+    assert.equal((await pv('central', 'HGO', 'uat-e3b-admin')).status, 200, 'the admin tier writes under an explicit code, not a scope');
+    assert.equal((await pv('edSGO', 'SGO', 'uat-e3b')).status, 200);
+  } finally {
+    await RC.setConfig(ctx.rdb.db, { site_code_shared_block: '0' }, 'uat');
+    await ctx.rdb.db.prepare('UPDATE sites SET active=0 WHERE id=?').run(Number(dup.id));
+  }
 });
 
 test('ORG-e4 UK office: country set through the hierarchy API (reason required, super_admin only); no module code → no PV', async () => {

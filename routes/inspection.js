@@ -316,6 +316,8 @@ module.exports = function inspectionRoutes(deps) {
       const userCodes = await _userInspectionSites(req.reportUser);   // null = admin tier
       const userSite = userCodes === null ? null : (userCodes[0] || null);
       if (!userSite && !rdb.userHasRole(req.reportUser, 'admin')) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
+      // D-01 (AM-01, switch site_code_shared_block, off): a scoped editor holding a code two active sites share is refused
+      if (userCodes && await require('../services/siteCodeShared').refuseIfShared(rdb, res, 'inspection', userCodes, (s) => inspectionDb.siteNameToCode(s && s.name))) return;
       const out      = await inspectionDb.saveInspection(state, userCodes, req.reportUser.id || null);
       // Audit log — grep-friendly: pm2 logs … | findstr Inspection
       const itemCount  = Object.keys(state.items || {}).length;

@@ -308,6 +308,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 <script src="lib/parse-actions-csv.js"></script>
 <script src="lib/actionSimilarity.js"></script>
 <script src="lib/actionGroups.js"></script>
+<script src="lib/siteOnboardingCard.js"></script>
 <script src="lib/statusTransfer.js"></script>
 <script src="lib/wanLineMatch.js"></script>
 <!-- Unified auth (data-require="any" — any logged-in user). auth.js redirects
@@ -1211,6 +1212,10 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <thead><tr><th>Site</th><th>Zoho Group Name</th><th style="width:8%">Order</th><th style="width:10%">Status</th><th>Actions</th></tr></thead>
         <tbody id="sites-table-body"></tbody>
       </table>
+      <details id="site-onboarding" style="margin-top:12px">
+        <summary style="cursor:pointer;font-weight:600">Onboarding checklist — codes per module, country, currency, Zoho group, coordinator (read-only)</summary>
+        <div id="site-onboarding-body"></div>
+      </details>
     </div>
 
     <!-- Departments / Action Item Categories -->
