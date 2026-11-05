@@ -42,6 +42,7 @@ async function seed(app) {
   await user('edB', ['editor'], siteB);          // site IT lead of B (MANA)
   await user('groupit', ['viewer', 'committee-member'], null);
   await user('tech', ['field-tech'], siteA);     // technician of A (field app)
+  await user('sa', ['super_admin'], null);       // C-24 — viewport / filter-race / export journeys see every page
 
   // T1 — a PV on site A with one OVERDUE open action
   const pv = await mdb.saveMeeting({
