@@ -27,6 +27,7 @@
    "tests": [
     "tests/access-routes.smoke.test.js",
     "tests/access-why.smoke.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/i18n-coverage.test.js"
    ]
   },
@@ -1022,7 +1023,7 @@
    "method": "GET",
    "path": "/api/access/approvals",
    "file": "routes/access.js",
-   "line": 107,
+   "line": 108,
    "tests": [
     "tests/access-routes.smoke.test.js",
     "tests/qualification-routes.smoke.test.js"
@@ -1033,7 +1034,7 @@
    "method": "POST",
    "path": "/api/access/emergencies/:id/review",
    "file": "routes/access.js",
-   "line": 122,
+   "line": 123,
    "tests": [
     "tests/emergency-access.smoke.test.js"
    ]
@@ -1043,7 +1044,7 @@
    "method": "GET",
    "path": "/api/access/emergencies/overdue",
    "file": "routes/access.js",
-   "line": 113,
+   "line": 114,
    "tests": [
     "tests/emergency-access.smoke.test.js"
    ]
@@ -1053,7 +1054,7 @@
    "method": "GET",
    "path": "/api/access/emergencies",
    "file": "routes/access.js",
-   "line": 116,
+   "line": 117,
    "tests": [
     "tests/emergency-access.smoke.test.js"
    ]
@@ -1063,7 +1064,7 @@
    "method": "POST",
    "path": "/api/access/emergencies",
    "file": "routes/access.js",
-   "line": 119,
+   "line": 120,
    "tests": [
     "tests/emergency-access.smoke.test.js"
    ]
@@ -1086,7 +1087,8 @@
    "line": 46,
    "tests": [
     "tests/access-routes.smoke.test.js",
-    "tests/access-why.smoke.test.js"
+    "tests/access-why.smoke.test.js",
+    "tests/emergency-access.smoke.test.js"
    ]
   },
   {
@@ -1094,7 +1096,7 @@
    "method": "POST",
    "path": "/api/access/requests/:id/${action}",
    "file": "routes/access.js",
-   "line": 99,
+   "line": 100,
    "tests": [
     "tests/access-routes.smoke.test.js",
     "tests/qualification-routes.smoke.test.js"
@@ -1105,7 +1107,7 @@
    "method": "GET",
    "path": "/api/access/requests/:id",
    "file": "routes/access.js",
-   "line": 89,
+   "line": 90,
    "tests": [
     "tests/access-routes.smoke.test.js",
     "tests/qualification-routes.smoke.test.js"
@@ -1116,7 +1118,7 @@
    "method": "POST",
    "path": "/api/access/requests",
    "file": "routes/access.js",
-   "line": 78,
+   "line": 79,
    "tests": [
     "tests/access-routes.smoke.test.js",
     "tests/qualification-routes.smoke.test.js"
@@ -1127,7 +1129,7 @@
    "method": "POST",
    "path": "/api/access/templates/:id/retire",
    "file": "routes/access.js",
-   "line": 73,
+   "line": 74,
    "tests": [
     "tests/access-routes.smoke.test.js"
    ]
@@ -1137,7 +1139,7 @@
    "method": "POST",
    "path": "/api/access/templates/:id/versions",
    "file": "routes/access.js",
-   "line": 64,
+   "line": 65,
    "tests": [
     "tests/access-routes.smoke.test.js"
    ]
@@ -1147,7 +1149,7 @@
    "method": "POST",
    "path": "/api/access/templates/versions/:vid/publish",
    "file": "routes/access.js",
-   "line": 70,
+   "line": 71,
    "tests": [
     "tests/access-routes.smoke.test.js"
    ]
@@ -1157,7 +1159,7 @@
    "method": "PUT",
    "path": "/api/access/templates/versions/:vid",
    "file": "routes/access.js",
-   "line": 67,
+   "line": 68,
    "tests": [
     "tests/access-routes.smoke.test.js"
    ]
@@ -1167,7 +1169,7 @@
    "method": "GET",
    "path": "/api/access/templates",
    "file": "routes/access.js",
-   "line": 58,
+   "line": 59,
    "tests": [
     "tests/access-routes.smoke.test.js"
    ]
@@ -1177,7 +1179,7 @@
    "method": "POST",
    "path": "/api/access/templates",
    "file": "routes/access.js",
-   "line": 61,
+   "line": 62,
    "tests": [
     "tests/access-routes.smoke.test.js"
    ]
@@ -4039,7 +4041,7 @@
    "method": "POST",
    "path": "/api/integrations/analytics/test",
    "file": "routes/adminConfig.js",
-   "line": 139,
+   "line": 141,
    "tests": [
     "tests/teams-sla-admin-card.test.js"
    ]
@@ -4049,7 +4051,7 @@
    "method": "GET",
    "path": "/api/integrations/analytics",
    "file": "routes/adminConfig.js",
-   "line": 110,
+   "line": 112,
    "tests": [
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/teams-sla-admin-card.test.js"
@@ -4060,7 +4062,7 @@
    "method": "PUT",
    "path": "/api/integrations/analytics",
    "file": "routes/adminConfig.js",
-   "line": 123,
+   "line": 125,
    "tests": [
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/teams-sla-admin-card.test.js"
@@ -6722,7 +6724,7 @@
    "method": "GET",
    "path": "/api/reports/config",
    "file": "routes/adminConfig.js",
-   "line": 55,
+   "line": 65,
    "tests": [
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
@@ -6735,7 +6737,7 @@
    "method": "PUT",
    "path": "/api/reports/config",
    "file": "routes/adminConfig.js",
-   "line": 69,
+   "line": 71,
    "tests": [
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
@@ -7184,7 +7186,7 @@
    "method": "POST",
    "path": "/api/reports/test-smtp",
    "file": "routes/adminConfig.js",
-   "line": 157,
+   "line": 159,
    "tests": []
   },
   {

@@ -23,7 +23,7 @@
 
 | Id | Page | Role required | In nav | Inline scripts | Tests |
 |---|---|---|---|---:|---:|
-| PG-access | public/access.html | any | no | 0 | 3 |
+| PG-access | public/access.html | any | no | 0 | 4 |
 | PG-activity-tracker | public/activity-tracker.html | any | yes | 0 | 6 |
 | PG-analytics | public/analytics.html | admin / scorecard-viewer | yes | 1 | 5 |
 | PG-assets-finance | public/assets-finance.html | UNKNOWN | no | 1 | 2 |
@@ -121,7 +121,7 @@
 | RT-GET-api-reports-helpdesk-live | GET | `/api/reports/helpdesk-live` | server.js:6230 |
 | RT-GET-api-reports-sessions-active | GET | `/api/reports/sessions/active` | routes/adminUsers.js:164 |
 | RT-GET-api-reports-technicians | GET | `/api/reports/technicians` | server.js:6481 |
-| RT-POST-api-reports-test-smtp | POST | `/api/reports/test-smtp` | routes/adminConfig.js:157 |
+| RT-POST-api-reports-test-smtp | POST | `/api/reports/test-smtp` | routes/adminConfig.js:159 |
 | RT-PUT-api-reports-users-emails | PUT | `/api/reports/users/emails` | routes/adminUsers.js:109 |
 | RT-GET-api-risk-register-config-sites | GET | `/api/risk-register-config/sites` | routes/riskRegister.js:78 |
 | RT-GET-api-risk-register-config-unmapped | GET | `/api/risk-register-config/unmapped` | routes/riskRegister.js:129 |
