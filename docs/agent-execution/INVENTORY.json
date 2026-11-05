@@ -11,8 +11,8 @@
   "routes_in_server_js": 231,
   "jobs": 28,
   "jobs_without_test_reference": 10,
-  "migrations": 70,
-  "test_files": 582
+  "migrations": 71,
+  "test_files": 583
  },
  "pages": [
   {
@@ -1039,7 +1039,8 @@
    "file": "routes/access.js",
    "line": 123,
    "tests": [
-    "tests/emergency-access.smoke.test.js"
+    "tests/emergency-access.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js"
    ]
   },
   {
@@ -1059,7 +1060,8 @@
    "file": "routes/access.js",
    "line": 117,
    "tests": [
-    "tests/emergency-access.smoke.test.js"
+    "tests/emergency-access.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js"
    ]
   },
   {
@@ -1069,7 +1071,8 @@
    "file": "routes/access.js",
    "line": 120,
    "tests": [
-    "tests/emergency-access.smoke.test.js"
+    "tests/emergency-access.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js"
    ]
   },
   {
@@ -4100,7 +4103,8 @@
    "file": "routes/kpiPolicies.js",
    "line": 185,
    "tests": [
-    "tests/kpi-policy-routes.smoke.test.js"
+    "tests/kpi-policy-routes.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js"
    ]
   },
   {
@@ -4110,7 +4114,8 @@
    "file": "routes/kpiPolicies.js",
    "line": 163,
    "tests": [
-    "tests/kpi-policy-routes.smoke.test.js"
+    "tests/kpi-policy-routes.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js"
    ]
   },
   {
@@ -4120,7 +4125,8 @@
    "file": "routes/kpiPolicies.js",
    "line": 182,
    "tests": [
-    "tests/kpi-policy-routes.smoke.test.js"
+    "tests/kpi-policy-routes.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js"
    ]
   },
   {
@@ -4130,7 +4136,8 @@
    "file": "routes/kpiPolicies.js",
    "line": 150,
    "tests": [
-    "tests/kpi-policy-routes.smoke.test.js"
+    "tests/kpi-policy-routes.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js"
    ]
   },
   {
@@ -4140,7 +4147,8 @@
    "file": "routes/kpiPolicies.js",
    "line": 179,
    "tests": [
-    "tests/kpi-policy-routes.smoke.test.js"
+    "tests/kpi-policy-routes.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js"
    ]
   },
   {
@@ -4198,7 +4206,8 @@
    "file": "routes/kpiPolicies.js",
    "line": 69,
    "tests": [
-    "tests/kpi-policy-routes.smoke.test.js"
+    "tests/kpi-policy-routes.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js"
    ]
   },
   {
@@ -4208,7 +4217,8 @@
    "file": "routes/kpiPolicies.js",
    "line": 170,
    "tests": [
-    "tests/kpi-policy-routes.smoke.test.js"
+    "tests/kpi-policy-routes.smoke.test.js",
+    "tests/uat-amdec-workflows.smoke.test.js"
    ]
   },
   {
@@ -9532,6 +9542,10 @@
   {
    "id": "MG-reports-065-kpi-policies",
    "file": "db/postgres/reports/065_kpi_policies.sql"
+  },
+  {
+   "id": "MG-reports-066-site-time-zone",
+   "file": "db/postgres/reports/066_site_time_zone.sql"
   },
   {
    "id": "MG-sync-000-upgrade-from-1-11",
