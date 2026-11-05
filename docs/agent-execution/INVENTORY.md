@@ -17,7 +17,7 @@
 | jobs | 28 |
 | jobs without test reference | 10 |
 | migrations | 70 |
-| test files | 579 |
+| test files | 581 |
 
 ## Pages
 
@@ -69,7 +69,7 @@
 | PG-portfolio | public/portfolio.html | any | yes | 1 | 7 |
 | PG-project | public/project.html | any | no | 1 | 7 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 2 |
-| PG-reports | public/reports.html | any | yes | 2 | 24 |
+| PG-reports | public/reports.html | any | yes | 2 | 25 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 3 |
 | PG-site-actions | public/site-actions.html | any | yes | 1 | 7 |
 | PG-site-awareness | public/site-awareness.html | site-business / group-business / executive | yes | 2 | 4 |
