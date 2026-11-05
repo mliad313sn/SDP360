@@ -473,6 +473,8 @@ router.post('/api/meetings/save', requireReportSession, meetingsJsonBody, async 
     state.author_name = state.author_name || req.reportUser.full_name || req.reportUser.username;
     const userSite = await _userMeetingsSite(req.reportUser, state.header && state.header.site_code);
     if (_sitelessWriteDenied(req.reportUser, userSite)) return res.status(403).json({ error: 'Your account has no site assigned for this module. Contact your administrator.' });
+    // D-01 (AM-01, switch site_code_shared_block, off): a code two active sites share is refused for a scoped editor
+    if (userSite && await require('../services/siteCodeShared').refuseIfShared(rdb, res, 'meetings', [userSite], (s) => inspectionDb.siteNameToCode(s && s.name))) return;
     // Transfer statuses (2026-10-16): an issue / action ENTERING demand, helpdesk_ticket or
     // cancelled needs its justification (+ the SDP ticket number). Rows already in that status
     // are left alone (history predates the rule); the bulk import does not pass through here.

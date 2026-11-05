@@ -68,9 +68,40 @@ module.exports = function policyRoutes(deps) {
   //   PUT /api/governance/site-codes/:site  { module, code, reason }   fill the registry       super_admin
   //   PUT /api/governance/site-codes        { enabled, reason }        registry wins / not     super_admin
   const SCR = require('../services/siteCodeRegistry');
+  const OB = require('../services/siteOnboarding'); const SCS = require('../services/siteCodeShared');
+  // the codes the save routes resolve (registry first when switched on) — tracker by site row, the two others by name
+  const effectiveMaps = () => ({ tracker: (s) => require('../tracker-db').siteToCode(s), inspection: (s) => require('../inspection-db').siteNameToCode(s && s.name), meetings: (s) => require('../inspection-db').siteNameToCode(s && s.name) });
+  async function onboarding(diff) {
+    const sites = (await rdb().listSites()) || []; const attrs = await siteAttrs(); const hard = hardMaps(); const reg = {};
+    for (const m of SCR.MODULES) { reg[m] = new Map(); for (const r of (await rdb().listSiteModuleCodes(m)) || []) reg[m].set(Number(r.site_id), String(r.code)); }
+    const cfg = await require('../services/reportConfig').getConfig(rdb().db); const CUR = require('../services/currency');
+    const curMap = CUR.parseCurrencyMap(cfg.asset_site_currency);
+    let recips = []; try { recips = (await require('../services/reportDirectory').listRecipients(rdb().db)) || []; } catch (_) { recips = []; }
+    const shared = new Map(); for (const d of diff || []) if (d.kind === 'shared_code') shared.set(d.module + '|' + d.site_id, d.shared_with || []);
+    const fold = (x) => String(x || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
+    const codesFor = (s) => Object.fromEntries(SCR.MODULES.map((m) => [m, reg[m].get(Number(s.id)) || hard[m](s.name) || null]));
+    return OB.buildOnboarding({ sites, attrs, codesFor,
+      currencyFor: (s) => CUR.resolveSiteCurrency(s.name, curMap),
+      coordinatorFor: (s) => { const c = new Set(Object.values(codesFor(s)).filter(Boolean)); const r = recips.find((x) => c.has(String(x.site_code)) || (x.site_name && fold(x.site_name) === fold(s.name)));
+        return r && r.coordinator_email ? { name: r.coordinator_name || null, confirmed: [true, 1, '1', 't', 'true'].includes(r.coordinator_email_confirmed) } : null; },
+      sharedFor: (s, m) => shared.get(m + '|' + Number(s.id)) || [] });
+  }
   const hardMaps = () => ({ tracker: (n) => require('../tracker-db').hardSiteNameToCode(n), inspection: (n) => require('../inspection-db').hardSiteNameToCode(n), meetings: (n) => require('../inspection-db').hardSiteNameToCode(n) });
+  //   GET /api/governance/site-codes also carries D-02's read-only onboarding checklist (one row per active site)
+  //   and `fill_plan`, the "fill the registry from the hard maps" DRY RUN (applied row by row through the PUT below).
   router.get('/api/governance/site-codes', requireReportSession, requireCommittee, async (req, res) => {
-    try { res.json({ ok: true, ...SCR.status(), diff: await SCR.diff(rdb(), hardMaps()) }); } catch (e) { fail(res, e); }
+    try {
+      const diff = await SCR.diff(rdb(), hardMaps());
+      res.json({ ok: true, ...SCR.status(), diff, fill_plan: OB.fillPlan(diff), onboarding: await onboarding(diff) });
+    } catch (e) { fail(res, e); }
+  });
+  //   GET /api/governance/site-codes/mine   the caller's codes shared by two active sites + whether saves are refused (D-01 banner)
+  router.get('/api/governance/site-codes/mine', requireReportSession, async (req, res) => {
+    try {
+      const u = req.reportUser; const sites = (await rdb().listSites()) || []; const shared = {};
+      for (const [mod, of] of Object.entries(effectiveMaps())) shared[mod] = isAdmin(u) ? [] : SCS.sharedAmong(sites, userSites.codesFor(u, sites, of), of);
+      res.json({ ok: true, block: await SCS.blockOn(rdb()), shared });
+    } catch (e) { fail(res, e); }
   });
   router.put('/api/governance/site-codes/:site', requireReportSession, requireSuperTier, json, async (req, res) => {
     try {

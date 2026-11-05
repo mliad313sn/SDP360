@@ -7292,9 +7292,8 @@ app.post('/api/tracker/save', requireReportSession, requireRole(['super_admin', 
       // tracker-editor → inputs of their site(s) only (multi-site editors: a list of codes)
       const codes = (await _trackerScopesFor(req.reportUser)) || [];
       userSite = codes.length ? codes : null;
-      if (!userSite) {
-        return res.status(403).json({ error: 'Your account has no site assigned. Contact your administrator.' });
-      }
+      if (!userSite) return res.status(403).json({ error: 'Your account has no site assigned. Contact your administrator.' });
+      if (await require('./services/siteCodeShared').refuseIfShared(rdb, res, 'tracker', userSite, (s) => trackerDb.siteToCode(s))) return;   // D-01 (switch, off)
     }
 
     // Closed months (2026-10-16): below super_admin a past month keeps its stored value.
