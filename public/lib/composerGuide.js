@@ -7,7 +7,8 @@
  *
  *   INTENTS / PRESETS                         the questions a widget can answer
  *   suggestTypes(intent, metric, types)       every creatable type, suggested ones first, unfit ones with a reason
- *   fitError(type, metric, intent, types)     null, or why this type cannot answer with this metric
+ *   fitError(type, metric, intent, types, w)  null, or why this type cannot answer with this metric (E-V02: the
+ *                                             measure → chart rules come from lib/chartContract.js, shared with the API)
  *   fieldsFor(type, types, ctx)               form-field descriptors generated from WIDGET_TYPES[type].props
  *   renderFieldsHtml(fields, values, esc)     the fields as HTML (labelled controls + an error slot each)
  *   readFieldValues(fields, getEl)            the fields back into widget props (blank = absent)
@@ -15,9 +16,9 @@
  *   plainErrors(errors, widgets)              server validation errors in plain words, mapped to a field
  */
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory();
-  else root.ComposerGuide = factory();
-})(typeof self !== 'undefined' ? self : this, function () {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./chartContract'));
+  else root.ComposerGuide = factory(root.ChartContract);
+})(typeof self !== 'undefined' ? self : this, function (ChartContract) {
   'use strict';
 
   /** Window kinds that have a history, so a trend can draw them (a 'current' metric is a snapshot). */
@@ -47,7 +48,7 @@
   function creatable(types) { return Object.keys(types || {}).filter(function (t) { return types[t].creatable !== false; }); }
   function metricLabel(m) { return m ? (m.name || m.key) : ''; }
 
-  function fitError(type, metric, intent, types) {
+  function fitError(type, metric, intent, types, w) {
     var T = types && types[type];
     if (!T) return 'Unknown widget type “' + type + '”.';
     if (T.creatable === false) return T.retiredNote || (type + ' is no longer offered.');
@@ -56,6 +57,8 @@
     if (type === 'trend' && metric && TIME_SERIES_KINDS.indexOf(metric.window_kind) < 0) {
       return 'A trend needs a time series, but “' + metricLabel(metric) + '” is a current snapshot with no history — use a KPI tile or a site comparison.';
     }
+    var contract = ChartContract && T.needsMetric ? ChartContract.contractError(type, metric, w) : null;
+    if (contract) return contract;
     if (intent && INTENTS[intent] && INTENTS[intent].types.indexOf(type) < 0) {
       var alt = INTENTS[intent].types.filter(function (t) { return types[t] && types[t].creatable !== false && !!types[t].needsMetric === !!metric; });
       return 'A ' + type + ' does not answer “' + INTENTS[intent].label + '”' + (alt.length ? ' — try ' + alt.join(' or ') + '.' : '.');

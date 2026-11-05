@@ -171,7 +171,7 @@ module.exports = function dashboardsRoutes(deps) {
       if (!isAdmin(u)) { const mine = userSites.siteIds(u); if (siteId == null || !mine.includes(siteId)) siteId = mine[0] || null; if (siteId == null) return res.status(403).json({ ok: false, error: 'no site in your scope' }); }
       const reg = registry();
       const pubMetrics = reg.list({ status: 'published' });
-      const saved = await store.saveDraft(doc, { user: u, siteId, metrics: pubMetrics.map(m => m.key), metricUnits: Object.fromEntries(pubMetrics.map(m => [m.key, m.unit || ''])), metricKinds: Object.fromEntries(pubMetrics.map(m => [m.key, m.window_kind || ''])) });
+      const saved = await store.saveDraft(doc, { user: u, siteId, metrics: pubMetrics.map(m => m.key), metricUnits: Object.fromEntries(pubMetrics.map(m => [m.key, m.unit || ''])), metricKinds: Object.fromEntries(pubMetrics.map(m => [m.key, m.window_kind || ''])), metricInfo: Object.fromEntries(pubMetrics.map(m => [m.key, { name: m.name, unit: m.unit || '', window_kind: m.window_kind || '', rag_policy: m.rag_policy || null }])) });
       const field = doc.audience === 'field' ? fieldReadiness(doc) : { ok: true, issues: [] };
       rdb().logEvent({ category: 'dashboards', action: 'dashboard_saved', target: doc.key, ...rdb()._logCtx(req) });
       res.json({ ok: true, dashboard: saved, field });

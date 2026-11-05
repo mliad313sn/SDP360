@@ -58,7 +58,7 @@ metric is absent from that file and `--check` fails).
 | `assets.ghost` | assets | count | untriaged | — | `assets.ghosts` | — | — | — | — | — | 1 file(s) |
 | `assets.completeness_pct` | assets | % | untriaged | `assets-hygiene#compl (kpi)`<br>`assets-hygiene#sites (ragGrid)` | `assets.completeness.low` | — | `public/lib/composerGuide.js` | — | `routes/extApi.js`<br>`routes/governance.js` | `services/agendaBuilder.js`<br>`services/reportConfig.js`<br>`services/trackerTemplates.js` | 1 file(s) |
 | `assets.effort_score` | assets | points | untriaged | `assets-hygiene#effort (kpi)` | — | — | `public/site-report.js` | — | — | — | — |
-| `assets.effort_rank` | assets | rank | untriaged | `assets-hygiene#rank (kpi)` | — | — | `public/site-report.js` | — | — | — | — |
+| `assets.effort_rank` | assets | rank | untriaged | `assets-hygiene#rank (kpi)` | — | — | `public/site-report.js` | — | — | — | 1 file(s) |
 | `assets.effort_delta_30d` | assets | points | untriaged | — | — | — | `public/site-report.js` | — | — | — | — |
 | `tracker.site_score_pct` | tracker | % | untriaged | `exec-home#sites-tr (ragGrid)` | `tracker.site.red` | — | — | — | `routes/dashboards.js`<br>`routes/extApi.js` | `services/agendaBuilder.js`<br>`services/dashboardData.js`<br>`services/reportConfig.js` | 4 file(s) |
 | `tracker.site_green` | tracker | count | untriaged | — | — | — | — | — | — | — | — |

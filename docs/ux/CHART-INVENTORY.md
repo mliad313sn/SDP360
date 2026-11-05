@@ -7,7 +7,7 @@ records a per-page budget for hex literals, dual axes and doughnuts: those can o
 The "substitution to consider" column is a **proposal** worded from the audit's measure → chart matrix (§5.2).
 Choosing and approving a substitution is a person's decision after a browser review; nothing here is decided.
 
-Files scanned: **96** · inline <style> blocks: **52** · hex literals: **5577** · `new Chart(` call sites: **43** · dual axes (`yAxisID`): **27** · doughnut/pie: **29**
+Files scanned: **97** · inline <style> blocks: **52** · hex literals: **5577** · `new Chart(` call sites: **43** · dual axes (`yAxisID`): **27** · doughnut/pie: **29**
 
 | File | Bytes | <style> | Hex | new Chart( | Chart types | Dual axis | Doughnut/pie | chartTheme.js | ChartTable | pageStates.js | Substitution to consider |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -20,7 +20,7 @@ Files scanned: **96** · inline <style> blocks: **52** · hex literals: **5577**
 | `public/cockpit.html` | 35120 | 1 | 47 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/commitments.html` | 11551 | 1 | 19 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/coverage.html` | 9984 | 1 | 25 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/dashboard-composer.html` | 26732 | 1 | 41 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/dashboard-composer.html` | 27288 | 1 | 41 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/dashboards.html` | 19513 | 1 | 25 | 1 | line×1 | 0 | 0 | yes | — | — | chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/exec-view.html` | 35089 | 1 | 108 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/executive-report.html` | 472268 | 2 | 294 | 1 | bar×7 doughnut×4 line×5 | 8 | 4 | yes | — | — | dual axis → small multiples, one unit per panel (§5.2 "comparaison à plusieurs séries"); doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
@@ -73,10 +73,11 @@ Files scanned: **96** · inline <style> blocks: **52** · hex literals: **5577**
 | `public/lib/analyticsLogic.js` | 13104 | 0 | 0 | 0 | — | 0 | 0 | yes | — | — | — |
 | `public/lib/assetHygieneVisuals.js` | 6958 | 0 | 0 | 0 | — | 0 | 0 | — | yes | — | — |
 | `public/lib/businessRoles.js` | 933 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/chartContract.js` | 3054 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/chartTheme.js` | 17573 | 0 | 14 | 0 | — | 0 | 0 | — | yes | — | hex literals → _tokens.css variables |
 | `public/lib/charts.js` | 8548 | 0 | 7 | 2 | bar×2 line×3 | 0 | 0 | yes | yes | — | hex literals → _tokens.css variables |
 | `public/lib/cockpit-fr.js` | 6545 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/composerGuide.js` | 17116 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/composerGuide.js` | 17452 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/csvSafe.js` | 824 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/dashboard-shared.js` | 31736 | 0 | 1 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/lib/dashboardRender.js` | 23411 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |

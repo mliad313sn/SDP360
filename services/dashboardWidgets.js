@@ -15,6 +15,8 @@
 // }
 
 const KpiRag = require('./kpiRag');
+// E-V02 — the measure → chart rule table shared with the composer (one source, browser + API)
+const ChartContract = require('../public/lib/chartContract');
 
 // C-04 (F01/F02/G11-min) — every type declares HOW it renders (`render`), so a type that is
 // offered is a type that draws something distinct; `creatable:false` = kept only so stored
@@ -23,7 +25,8 @@ const KpiRag = require('./kpiRag');
 const WIDGET_TYPES = {
   kpi:        { needsMetric: true,  minW: 2, minH: 2, props: ['rag', 'format', 'compare'], render: 'tile' },
   trend:      { needsMetric: true,  minW: 4, minH: 3, props: ['series', 'window'], render: 'line' },
-  bar:        { needsMetric: true,  minW: 4, minH: 3, props: ['groupBy', 'stacked'], render: 'bar-list' },
+  // E-V02 (X-V-01) — `stacked` is no longer offered: no renderer draws it. A stored widget that carries it keeps rendering.
+  bar:        { needsMetric: true,  minW: 4, minH: 3, props: ['groupBy'], render: 'bar-list' },
   table:      { needsMetric: true,  minW: 4, minH: 3, props: ['columns', 'pageSize'], render: 'sortable-table' },
   heatmap:    { needsMetric: true,  minW: 6, minH: 3, props: ['rows', 'cols', 'rag'], render: 'sortable-table', creatable: false,
                 retiredNote: 'heatmap is no longer offered — existing widgets render as a table; use ragGrid or table' },
@@ -49,6 +52,10 @@ const ID_RE = /^[a-z0-9][a-z0-9_-]{0,47}$/i;
  * @param {object} [opts.metricKinds]   { metricKey: window_kind } — a trend needs a metric with a history (not 'current')
  * @param {Set<string>|string[]} [opts.legacyIds]  widget ids that ALREADY carried a retired type (kept rendering)
  * @param {boolean} [opts.allowRetired]  stored definitions (submit/publish) keep their retired widgets
+ * @param {object} [opts.metricInfo]  E-V02 — { metricKey: {name, unit, window_kind, rag_policy} }: enables the
+ *                                     measure → chart contract (public/lib/chartContract.js) for NEW widgets
+ * @param {object[]} [opts.storedWidgets]  widgets of the stored definition: a widget kept identical (same id, type,
+ *                                     metric, stacked, rag) is exempt from the contract, so a stored one keeps saving
  */
 function validateDashboard(doc, opts = {}) {
   const errors = [];
@@ -59,6 +66,12 @@ function validateDashboard(doc, opts = {}) {
   const units = opts.metricUnits || null;
   const kinds = opts.metricKinds || null;
   const legacy = new Set(opts.legacyIds || []);
+  const info = opts.metricInfo || null;
+  const stored = new Map((opts.storedWidgets || []).filter((x) => x && x.id).map((x) => [x.id, x]));
+  const sameAsStored = (w) => {
+    const o = stored.get(w.id);
+    return !!o && o.type === w.type && o.metric === w.metric && !!o.stacked === !!w.stacked && JSON.stringify(o.rag) === JSON.stringify(w.rag);
+  };
 
   if (!doc.key || !ID_RE.test(doc.key)) E('key', 'key is required (letters, digits, - or _, max 48)');
   if (!doc.title) E('title', 'title is required');
@@ -96,6 +109,12 @@ function validateDashboard(doc, opts = {}) {
       for (const k of [w.metric].concat(Array.isArray(w.series) ? w.series : [])) {
         if (typeof k === 'string' && kinds[k] === 'current') E(`${p}.${k === w.metric ? 'metric' : 'series'}`, `a trend needs a time series — ${k} is a current snapshot with no history (use a kpi or ragGrid)`);
       }
+    }
+    // E-V02 — measure → chart contract (stacked bar · stacked rate · ragGrid without RAG policy · bar of a rank)
+    if (T.needsMetric && !opts.allowRetired && !sameAsStored(w)) {
+      const m = info && typeof w.metric === 'string' && info[w.metric] ? Object.assign({ key: w.metric }, info[w.metric]) : null;
+      const why = (m || w.stacked) ? ChartContract.contractError(w.type, m, w) : null;
+      if (why && !(w.type === 'trend' && kinds)) E(`${p}.${w.stacked ? 'stacked' : (w.type === 'ragGrid' ? 'rag' : 'type')}`, why);
     }
     if (w.type === 'trackerRag') {
       if (!w.tracker) E(`${p}.tracker`, 'tracker key is required');
