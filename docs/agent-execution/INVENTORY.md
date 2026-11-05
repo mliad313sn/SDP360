@@ -6,18 +6,18 @@
 
 | Item | Count |
 |---|---:|
-| pages | 55 |
+| pages | 56 |
 | pages without test reference | 0 |
 | pages without declared role | 6 |
-| pages not in navigation | 27 |
+| pages not in navigation | 28 |
 | pages with inline scripts | 46 |
-| routes | 561 |
+| routes | 567 |
 | routes without test reference | 80 |
 | routes in server js | 231 |
 | jobs | 27 |
 | jobs without test reference | 10 |
-| migrations | 64 |
-| test files | 558 |
+| migrations | 65 |
+| test files | 560 |
 
 ## Pages
 
@@ -31,6 +31,7 @@
 | PG-assets | public/assets.html | any | yes | 10 | 13 |
 | PG-cockpit | public/cockpit.html | any | yes | 1 | 6 |
 | PG-commitments | public/commitments.html | any | no | 1 | 3 |
+| PG-coverage | public/coverage.html | any | no | 0 | 2 |
 | PG-dashboard-composer | public/dashboard-composer.html | admin / dashboard-publisher | no | 1 | 4 |
 | PG-dashboards | public/dashboards.html | any | yes | 1 | 8 |
 | PG-exec-view | public/exec-view.html | public | no | 1 | 5 |
