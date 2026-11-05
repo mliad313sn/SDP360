@@ -28,6 +28,8 @@
     'Monthly PPTX': 'PPTX mensuel', 'All Sites (combined)': 'Tous les sites (combiné)', 'Weekly All-Sites Summary': 'Synthèse hebdomadaire tous sites',
     "Aggregates every site's submitted weekly report for the chosen week into one consolidated PPTX.": 'Regroupe le rapport hebdomadaire soumis de chaque site pour la semaine choisie dans un seul PPTX consolidé.',
     'Download PPTX': 'Télécharger le PPTX', 'Recent Reports': 'Rapports récents', 'Click any card to reopen its editor': 'Cliquez sur une carte pour rouvrir son éditeur',
+    // D-05 — report list filters + paging
+    'All my sites': 'Tous mes sites', 'Filter the list by site': 'Filtrer la liste par site', '◀ Previous': '◀ Précédent', 'Next ▶': 'Suivant ▶',
     '7-slide PPTX for the selected site': 'PPTX de 7 diapositives pour le site choisi',
     'Single combined PPTX with one section per active site for the chosen month': 'Un seul PPTX combiné, une section par site actif, pour le mois choisi',
     // weekly editor

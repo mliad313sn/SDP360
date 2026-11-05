@@ -10,6 +10,7 @@ const DEFAULTS = {
   ui_i18n_pages: '0',                   // '1' activates the French dictionaries of the coordinator pages
   ui_role_landing: '0', ui_nav_profile: 'full', ui_deck_builder_roles: 'super_admin',
   ui_exec_nav: 'full',                  // C-28 (PO P1) 'consolidated' = Executive menu = Home + IT Review
+  ui_week_labels: 'legacy',             // D-03 'explicit' = ISO charts say "ISO W37 (7–13 Sep)", Zoho labels carry their range
   // A-08 — Exec View (public page) switches; both defaults reproduce today's output.
   // full = subject/RCA/CA public, per the 2026-07-02 decision ("option a");
   // summarized_only = generic title + AI-condensed RCA/CA only; none = generic title, no RCA/CA.

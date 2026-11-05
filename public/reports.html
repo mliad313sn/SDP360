@@ -490,7 +490,17 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <h3 style="margin:0;color:var(--dark-blue);font-size:1.05rem">Recent Reports</h3>
         <span style="font-size:0.82rem;color:#6b7a99;margin-left:4px">Click any card to reopen its editor</span>
       </div>
+      <div id="rl-filters" style="display:none;margin:0 0 10px 34px;gap:8px;align-items:center;flex-wrap:wrap;font-size:0.82rem">
+        <select id="rl-site" onchange="loadReportList(0)" title="Filter the list by site"><option value="">All my sites</option></select>
+        <input id="rl-year" type="number" min="2024" max="2035" placeholder="Year" style="width:80px" onchange="loadReportList(0)">
+        <input id="rl-week" type="number" min="1" max="53" placeholder="Week" style="width:70px" onchange="loadReportList(0)">
+      </div>
       <div class="report-list" id="report-list-grid" style="margin-left:34px"></div>
+      <div id="rl-pager" style="display:none;margin:10px 0 0 34px;gap:10px;align-items:center;font-size:0.82rem">
+        <button class="btn btn-secondary btn-sm" id="rl-prev" onclick="loadReportList(_rlOffset - RL_PAGE)">◀ Previous</button>
+        <span id="rl-page-info" style="color:#6b7a99"></span>
+        <button class="btn btn-secondary btn-sm" id="rl-next" onclick="loadReportList(_rlOffset + RL_PAGE)">Next ▶</button>
+      </div>
     </div>
   </div>
 
@@ -2908,26 +2918,52 @@ function onSiteWeekChange() {
   }
 }
 
-async function loadReportList() {
+// D-05 (AM-09) — site + week filters and paging. The server pages (?limit/&offset, limit clamped);
+// the first page is today's first 20 cards. Filters show for central and multi-site accounts.
+const RL_PAGE = 20;
+let _rlOffset = 0;
+async function loadReportList(offset) {
   const grid = document.getElementById('report-list-grid');
+  _rlOffset = Math.max(0, Math.floor(Number(offset)) || 0);
+  const many = _adminTier() || (Array.isArray(currentUser && currentUser.site_ids) && currentUser.site_ids.length > 1);
+  const filt = document.getElementById('rl-filters'), siteSel = document.getElementById('rl-site');
+  if (filt) filt.style.display = many ? 'flex' : 'none';
+  if (many && siteSel && siteSel.options.length <= 1) {
+    const mine = _adminTier() ? allSites : allSites.filter(s => currentUser.site_ids.includes(s.id));
+    siteSel.innerHTML = '<option value="">All my sites</option>' + mine.map(s => `<option value="${Number(s.id)}">${esc(s.zoho_group || s.name)}</option>`).join('');
+  }
+  const q = new URLSearchParams({ limit: String(RL_PAGE), offset: String(_rlOffset) });
+  const fv = id => { const el = document.getElementById(id); return many && el ? String(el.value || '').trim() : ''; };
+  if (fv('rl-site')) q.set('site_id', fv('rl-site'));
+  if (fv('rl-year')) q.set('year', fv('rl-year'));
+  if (fv('rl-week')) q.set('week', fv('rl-week'));
   grid.innerHTML = '<div style="color:#6b7a99;font-size:0.87rem">Loading…</div>';
   try {
     // The server limits a non-admin to their site(s) — a multi-site editor sees all of them.
-    const params = '';
-    const reports = await api('GET', `/api/reports${params}`);
+    const page = await api('GET', `/api/reports?${q.toString()}`);
+    const reports = (page && page.rows) || [];
+    const total = (page && page.total) || 0;
+    const pager = document.getElementById('rl-pager');
+    if (pager) {
+      pager.style.display = total > RL_PAGE ? 'flex' : 'none';
+      document.getElementById('rl-prev').disabled = _rlOffset <= 0;
+      document.getElementById('rl-next').disabled = _rlOffset + RL_PAGE >= total;
+      document.getElementById('rl-page-info').textContent = total ? `${_rlOffset + 1}–${Math.min(_rlOffset + RL_PAGE, total)} / ${total}` : '';
+    }
     if (!reports.length) {
       grid.innerHTML = '<div class="empty-state"><div class="es-icon">📋</div><p>No reports yet. Create the first one above.</p></div>';
       return;
     }
-    grid.innerHTML = reports.slice(0, 20).map(r => `
-      <div class="report-card ${r.status}" onclick="openReportById(${r.id})">
+    const STATUS = { submitted: '✅ Submitted', ready: '✔ Ready', in_progress: '⏳ In Progress' };
+    grid.innerHTML = reports.map(r => `
+      <div class="report-card ${esc(r.status)}" onclick="openReportById(${Number(r.id)})">
         <div class="rc-site">${esc(r.site_name)}</div>
-        <div class="rc-week">${esc(r.week_label)} &nbsp;(${esc(r.start_date)} → ${esc(r.end_date)})</div>
-        <span class="rc-status ${r.status}">${r.status === 'submitted' ? '✅ Submitted' : r.status === 'ready' ? '✔ Ready' : r.status === 'in_progress' ? '⏳ In Progress' : '✏ Draft'}</span>
-        <span style="font-size:0.77rem;color:#bbb;margin-left:8px">Updated ${r.updated_at ? r.updated_at.slice(0,10) : '—'}</span>
+        <div class="rc-week">${r.week_display ? esc(r.week_display) : `${esc(r.week_label)} &nbsp;(${esc(r.start_date)} → ${esc(r.end_date)})`}</div>
+        <span class="rc-status ${esc(r.status)}">${STATUS[r.status] || '✏ Draft'}</span>
+        <span style="font-size:0.77rem;color:#bbb;margin-left:8px">Updated ${r.updated_at ? esc(String(r.updated_at).slice(0,10)) : '—'}</span>
       </div>
     `).join('');
-  } catch(e) { grid.innerHTML = `<div class="empty-state"><p>Error loading reports: ${e}</p></div>`; }
+  } catch(e) { grid.innerHTML = `<div class="empty-state"><p>Error loading reports: ${esc(e)}</p></div>`; }
 }
 
 async function openOrCreateReport() {
@@ -3667,7 +3703,7 @@ async function fetchHelpdeskCharts() {
     if (statusEl) { statusEl.textContent = `\u2713 ${grp} \u2014 ${data.weeks.length} weeks`; statusEl.style.color = 'var(--green)'; }
     await saveSection(1);
   } catch(e) {
-    wrap.innerHTML = '<div style="text-align:center;padding:24px;color:var(--red)">Error loading charts: ' + e + '</div>';
+    wrap.innerHTML = '<div style="text-align:center;padding:24px;color:var(--red)">Error loading charts: ' + esc(e) + '</div>';
     if (statusEl) { statusEl.textContent = 'Error: ' + e; statusEl.style.color = 'var(--red)'; }
     toast('Chart load failed: ' + e, 'error');
   }
@@ -3781,7 +3817,7 @@ function buildHdKpiCards(data) {
   if (!row || !data || !data.weeks || !data.weeks.length) return;
   const cur  = data.weeks[data.weeks.length - 1];
   const prev = data.weeks.length >= 2 ? data.weeks[data.weeks.length - 2] : null;
-  const wkLbl = prev ? `prev: ${prev.label}` : '';
+  const wkLbl = prev ? `prev: ${esc(prev.label)}` : '';
 
   const absDelta = (a, b, loBetter, unit) => {
     if (a == null || b == null) return '';
@@ -3944,7 +3980,7 @@ function refreshBreakPool() {
     return;
   }
   chips.innerHTML = available.map(t =>
-    `<button class="btn btn-secondary btn-sm" onclick='addBreakTech(${JSON.stringify(t)})' style="font-size:0.75rem;padding:3px 10px">+ ${esc(t)}</button>`
+    `<button class="btn btn-secondary btn-sm" onclick="addBreakTech(${escJsonAttr(t)})" style="font-size:0.75rem;padding:3px 10px">+ ${esc(t)}</button>`
   ).join('');
 }
 
@@ -4169,7 +4205,7 @@ async function loadOpenChanges() {
     if (!changes.length) { panel.innerHTML = '<span style="color:#9aa;font-style:italic">No open changes for this site.</span>'; return; }
     _renderOpenChangesPanel(changes, panel);
   } catch(e) {
-    panel.innerHTML = `<span style="color:#c00">Error loading changes: ${e.message}</span>`;
+    panel.innerHTML = `<span style="color:#c00">Error loading changes: ${esc(e.message || e)}</span>`;
   }
 }
 
@@ -4251,7 +4287,7 @@ async function loadActiveIncidents() {
     const incidents = await api('GET', `/api/reports/${currentReport.id}/active-incidents`);
     _renderActiveIncidentsPanel(incidents, panel);
   } catch(e) {
-    panel.innerHTML = `<span style="color:#c00">Error loading incidents: ${e.message}</span>`;
+    panel.innerHTML = `<span style="color:#c00">Error loading incidents: ${esc(e.message || e)}</span>`;
   }
 }
 
@@ -4561,12 +4597,12 @@ function _renderCarryOverModal(weeks, mode) {
       ? `<span style="background:#dbeafe;color:#1d4ed8;border-radius:999px;padding:2px 10px;font-size:0.75rem;font-weight:600">${badgeLabel}</span>`
       : `<span style="background:#f1f5f9;color:#94a3b8;border-radius:999px;padding:2px 10px;font-size:0.75rem">none</span>`;
     const dateRange = (w.start_date && w.end_date)
-      ? `<span style="font-size:0.75rem;color:#94a3b8;margin-left:8px">${w.start_date} → ${w.end_date}</span>`
+      ? `<span style="font-size:0.75rem;color:#94a3b8;margin-left:8px">${esc(w.start_date)} → ${esc(w.end_date)}</span>`
       : '';
     const clickFn = hasData
       ? (isLights
-          ? `_importLightsFromWeek(${w.report_id},'${w.week_label.replace(/'/g,"\\'")}')`
-          : `_importFromWeek(${w.report_id},'${w.week_label.replace(/'/g,"\\'")}')`)
+          ? `_importLightsFromWeek(${Number(w.report_id)},${escJsonAttr(String(w.week_label || ''))})`
+          : `_importFromWeek(${Number(w.report_id)},${escJsonAttr(String(w.week_label || ''))})`)
       : '';
     return `
       <div onclick="${clickFn}"
@@ -4577,7 +4613,7 @@ function _renderCarryOverModal(weeks, mode) {
            onmouseover="${hasData ? "this.style.background='#eff6ff';this.style.borderColor='#93c5fd'" : ''}"
            onmouseout="${hasData ? "this.style.background='#f8fafc';this.style.borderColor='#e2e8f0'" : ''}">
         <div>
-          <span style="font-weight:600;color:${hasData ? '#1e293b' : '#94a3b8'};font-size:0.9rem">${w.week_label}</span>
+          <span style="font-weight:600;color:${hasData ? '#1e293b' : '#94a3b8'};font-size:0.9rem">${esc(w.week_label)}</span>
           ${dateRange}
         </div>
         ${badge}
@@ -4629,7 +4665,7 @@ function _grpBadge(key, group) {
 }
 function _grpMeta(group) {
   if (!group) return '';
-  return `suivie depuis ${esc(group.first_week || '?')} · ${group.weeks} sem.`;
+  return `suivie depuis ${esc(group.first_week || '?')} · ${Number(group.weeks) || 0} sem.`;
 }
 // Group keys already in the report being edited, saved or only typed (not saved yet).
 function _currentActionKeys() {
@@ -5346,14 +5382,14 @@ async function loadAuditLog() {
       let det = '';
       try { const d = JSON.parse(e.details||'{}'); det = Object.entries(d).map(([k,v]) => `${k}: ${v}`).join(' · '); } catch(x) {}
       return `<tr style="background:${i%2===0?'#f8f9fa':'#fff'}">
-        <td style="padding:5px 10px;font-size:0.8rem;color:#6b7a99;white-space:nowrap">${(e.created_at||'').replace('T',' ').slice(0,16)}</td>
+        <td style="padding:5px 10px;font-size:0.8rem;color:#6b7a99;white-space:nowrap">${esc(String(e.created_at||'').replace('T',' ').slice(0,16))}</td>
         <td style="padding:5px 10px;font-size:0.82rem;font-weight:600">${esc(e.username||'—')}</td>
-        <td style="padding:5px 10px;font-size:0.82rem">${actionLabel[e.action]||e.action}</td>
+        <td style="padding:5px 10px;font-size:0.82rem">${esc(actionLabel[e.action]||e.action)}</td>
         <td style="padding:5px 10px;font-size:0.8rem;color:#6b7a99">${esc(det)}</td>
       </tr>`;
     }).join('');
   } catch(err) {
-    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#e74c3c;padding:8px">${err.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;color:#e74c3c;padding:8px">${esc(err.message || err)}</td></tr>`;
   }
 }
 
@@ -5591,7 +5627,7 @@ async function _loadSyncFreshness() {
                     : diffMin < 1440? `${Math.round(diffMin/60)}h ago`
                     : `${Math.round(diffMin/1440)}d ago`;
       const warnIcon = hasErr ? ' ⚠️' : '';
-      const warnTip  = hasErr ? ` (last attempt had an error: ${job.last_error})` : '';
+      const warnTip  = hasErr ? ` (last attempt had an error: ${esc(job.last_error)})` : '';
       el.innerHTML = `<span title="Last successful Zoho sync${warnTip}" style="cursor:default">🕐 Zoho data: <strong>${diffStr}</strong>${warnIcon} &nbsp;·&nbsp; ${job.last_sync_rows || 0} rows</span>`;
       el.style.color = (diffMin > 300 || hasErr) ? '#c0392b' : '#6b7a99';  // red if >5h or error
     } else {
@@ -5906,7 +5942,7 @@ async function loadOpenChangesMonthly() {
     if (!changes.length) { panel.innerHTML = '<span style="color:#9aa;font-style:italic">No open changes for this site.</span>'; return; }
     _renderOpenChangesPanel(changes, panel);
   } catch(e) {
-    panel.innerHTML = `<span style="color:#c00">Error: ${e.message}</span>`;
+    panel.innerHTML = `<span style="color:#c00">Error: ${esc(e.message || e)}</span>`;
   }
 }
 
@@ -5923,7 +5959,7 @@ async function loadActiveIncidentsMonthly() {
     const incidents = await api('GET', `/api/sites/${siteId}/active-incidents`);
     _renderActiveIncidentsPanel(incidents, panel);
   } catch(e) {
-    panel.innerHTML = `<span style="color:#c00">Error: ${e.message}</span>`;
+    panel.innerHTML = `<span style="color:#c00">Error: ${esc(e.message || e)}</span>`;
   }
 }
 
@@ -5940,7 +5976,7 @@ function renderMonthlyLights() {
       <td style="padding:5px 8px"><input value="${esc(l.week_label||'')}" onchange="mrLights[${i}].week_label=this.value"
         style="width:100%;padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:0.83rem"></td>
       <td style="padding:5px 8px"><select onchange="mrLights[${i}].type=this.value" style="width:100%;padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:0.83rem">
-        ${typeOptions.replace(`value="${l.type}"`,`value="${l.type}" selected`)}
+        ${typeOptions.replace(`value="${esc(l.type)}"`,`value="${esc(l.type)}" selected`)}
       </select></td>
       <td style="padding:5px 8px"><input value="${esc(l.content||'')}" onchange="mrLights[${i}].content=this.value"
         style="width:100%;padding:4px 6px;border:1px solid #ddd;border-radius:4px;font-size:0.83rem"></td>
@@ -6399,8 +6435,8 @@ async function loadAdminPage() {
       const hRoles = roleArr.filter(r => HCHAIN.includes(r));
       const fRoles = roleArr.filter(r => !HCHAIN.includes(r));
       const chips = [
-        ...hRoles.map(r => `<span class="role-pill role-${r}">${r}</span>`),
-        ...fRoles.map(r => `<span class="role-pill" style="background:#CCFBF1;color:#0F766E;border:1px solid #5EEAD4;font-size:10px">${r}</span>`),
+        ...hRoles.map(r => `<span class="role-pill role-${esc(r)}">${esc(r)}</span>`),
+        ...fRoles.map(r => `<span class="role-pill" style="background:#CCFBF1;color:#0F766E;border:1px solid #5EEAD4;font-size:10px">${esc(r)}</span>`),
       ].join(' ');
       return `<tr>
         <td><strong>${esc(u.username)}</strong></td>
@@ -6409,7 +6445,7 @@ async function loadAdminPage() {
         <td style="line-height:1.8">${chips}</td>
         <td><span class="${u.active ? 'status-active' : 'status-inactive'}">${u.active ? 'Active' : 'Disabled'}</span></td>
         <td>
-          <button class="btn btn-secondary btn-sm" onclick="openUserModal(${JSON.stringify(u).replace(/"/g,'&quot;')})">Edit</button>
+          <button class="btn btn-secondary btn-sm" onclick="openUserModal(${escJsonAttr(u)})">Edit</button>
           ${u.id !== currentUser.id ? `<button class="btn btn-danger btn-sm" onclick="deleteUser(${u.id})">Delete</button>` : ''}
         </td>
       </tr>`;
@@ -6575,12 +6611,12 @@ async function loadActiveSessions() {
       } else if (s.is_self) {
         actionHtml = '<button class="btn btn-secondary btn-sm" disabled title="That\'s you — use the regular Logout">⛔ You</button>';
       } else {
-        actionHtml = `<button class="btn btn-danger btn-sm" onclick="forceLogoutSession(${JSON.stringify(s.token)},${JSON.stringify(s.username)})">⛔ Force logout</button>`;
+        actionHtml = `<button class="btn btn-danger btn-sm" onclick="forceLogoutSession(${escJsonAttr(s.token)},${escJsonAttr(s.username)})">⛔ Force logout</button>`;
       }
       return `<tr>
         <td><strong>${esc(s.username)}</strong></td>
         <td>${esc(s.full_name || '—')}</td>
-        <td><span class="role-pill role-${s.role}">${s.role}</span></td>
+        <td><span class="role-pill role-${esc(s.role)}">${esc(s.role)}</span></td>
         <td>${siteCell}</td>
         <td style="color:#475569;font-size:12px" title="${esc(s.last_seen)}">${idleStr}</td>
         <td>${actionHtml}</td>
@@ -6677,8 +6713,8 @@ async function loadRrAliases() {
         <td style="color:#64748B;font-size:12px">${esc(_rrFmtTs(a.updated_at))}</td>
         <td style="color:#64748B;font-size:12px">${esc(a.updated_by || '—')}</td>
         <td>
-          <button class="btn btn-secondary btn-sm" onclick='openRrAliasModal(${JSON.stringify(a).replace(/'/g, "&#39;")})'>Edit</button>
-          <button class="btn btn-danger btn-sm" onclick="deleteRrAlias(${JSON.stringify(a.sdp_label)})">Delete</button>
+          <button class="btn btn-secondary btn-sm" onclick="openRrAliasModal(${escJsonAttr(a)})">Edit</button>
+          <button class="btn btn-danger btn-sm" onclick="deleteRrAlias(${escJsonAttr(a.sdp_label)})">Delete</button>
         </td>
       </tr>
     `).join('');
@@ -6781,8 +6817,8 @@ async function loadRrUnmappedSites() {
     rowsWrap.innerHTML = unmapped.map(u => `
       <span style="display:inline-flex;align-items:center;gap:6px;padding:4px 8px;background:#fff;border:1px solid #FED7AA;border-radius:6px;font-size:12px">
         <code style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace">${esc(u.sdp_label)}</code>
-        <span style="color:#94a3b8">${u.ticket_count}</span>
-        <button class="btn btn-primary btn-sm" style="font-size:11px;padding:2px 8px" onclick='openRrAliasModal({sdp_label:${JSON.stringify(u.sdp_label)},code:""})'>+ Map</button>
+        <span style="color:#94a3b8">${Number(u.ticket_count) || 0}</span>
+        <button class="btn btn-primary btn-sm" style="font-size:11px;padding:2px 8px" onclick="openRrAliasModal({sdp_label:${escJsonAttr(u.sdp_label)},code:''})">+ Map</button>
       </span>
     `).join('');
   } catch (e) {
@@ -7063,6 +7099,8 @@ function esc(s) {
   if (s == null) return '';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 }
+// D-08 — a JS value passed inside an inline on*="…" attribute: JSON first, then attribute-escaped (quotes too).
+function escJsonAttr(v) { return esc(JSON.stringify(v === undefined ? null : v)).replace(/'/g, '&#39;'); }
 
 // ══════════════════════════════════════════════════════════════════
 //  EXECUTIVE VIEW EDITORIAL (admin+ card)
@@ -7307,8 +7345,8 @@ function loadReportRecipients() {
         <td>${r.asset_manager_name ? esc(r.asset_manager_name) + '<br>' : ''}${emailCell(r.asset_manager_email, _arYN(r.asset_manager_email_confirmed))}</td>
         <td style="font-size:11px;color:#6b7a99">${esc(r.cc_emails || '—')}</td>
         <td style="white-space:nowrap">
-          <button class="btn btn-secondary btn-sm" onclick='openRecipientModal(${JSON.stringify(r).replace(/'/g, "&#39;")})'>Edit</button>
-          <button class="btn btn-secondary btn-sm" style="margin-left:4px" onclick='openSendReportModal(${JSON.stringify(r).replace(/'/g, "&#39;")})'>Send ›</button>
+          <button class="btn btn-secondary btn-sm" onclick="openRecipientModal(${escJsonAttr(r)})">Edit</button>
+          <button class="btn btn-secondary btn-sm" style="margin-left:4px" onclick="openSendReportModal(${escJsonAttr(r)})">Send ›</button>
         </td>
       </tr>`).join('');
   }).catch(e => {

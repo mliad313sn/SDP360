@@ -11,6 +11,7 @@ const { deriveSiteStatus } = require('./execSummary');
 const { effortForSite } = require('./assetEffortForSite');
 const { labelsForCode, sumHygieneByKind } = require('./assetHygieneForSite');
 const scoreboardAliases = require('./scoreboardAliases');
+const weekLabels = require('./weekLabels');
 
 const MODULE_NS = 'meetings';   // the report's site codes come from the meetings/inspection namespace
 
@@ -95,10 +96,12 @@ function buildSiteReportDeps(mods) {
       if (!s) return null;
       const asOf = p.as_of || _asOfFor(p);
       const out = [];
+      // D-03 — ui_week_labels: 'legacy' (today) 'W37 2026' · 'explicit' 'ISO W37 (7–13 Sep)'.
+      const mode = m.weekLabels || await weekLabels.weekLabelMode(require('./reportConfig'), reportsDb.db);
       for (const w of _lastIsoWeeks(asOf, 6)) {
         const hd = (await reportsDb.getSiteHelpdeskWindow(s.site_id, w.from, w.to)) || {};
         const inbound = hd.created || 0, closed = hd.resolved || 0, overdue = hd.sla_overdue || 0;
-        out.push({ label: w.label, inbound, closed, overdue,
+        out.push({ label: weekLabels.isoWeekLabel(w, mode), inbound, closed, overdue,
           missed_pct: inbound > 0 ? Math.round((overdue / inbound) * 1000) / 10 : null });
       }
       return out;
