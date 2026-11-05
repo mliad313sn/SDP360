@@ -34,7 +34,7 @@ function makeShiftHandoverStore(db, { now = () => new Date().toISOString() } = {
     if (userIds.length) { const q = userIds.map(() => '?').join(','); where.push(`from_user IN (${q}) OR to_user IN (${q})`); args.push(...userIds.map(Number), ...userIds.map(Number)); }
     if (siteIds && !siteIds.length && !userIds.length) return [];
     const w = siteIds == null ? '' : ` WHERE ${where.map((x) => `(${x})`).join(' OR ')}`;
-    return (await P(`SELECT * FROM shift_handovers${w} ORDER BY created_at DESC, id DESC LIMIT ${Math.max(1, Math.min(500, Number(limit) || 200))}`).all(...args)).map(row);
+    return (await P(`SELECT * FROM shift_handovers${w} ORDER BY created_at DESC, id DESC LIMIT ${Math.max(1, Math.min(500, Math.floor(Number(limit)) || 200))}`).all(...args)).map(row);
   }
   async function decide(id, { status, actorId, actingFor = null, reason = null }) {
     const t = now();

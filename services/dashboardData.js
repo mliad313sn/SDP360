@@ -103,7 +103,7 @@ const RESOLVE_CONCURRENCY = 4;
 async function mapLimit(items, limit, fn) {
   const list = Array.from(items || []); const out = new Array(list.length); let next = 0;
   const worker = async () => { while (next < list.length) { const k = next++; out[k] = await fn(list[k], k); } };
-  await Promise.all(Array.from({ length: Math.max(1, Math.min(Number(limit) || 1, list.length)) }, worker));
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(Math.floor(Number(limit)) || 1, list.length)) }, worker));
   return out;
 }
 /** Per-widget timing at debug level only (DEBUG contains "dashboards"): never on by default in pm2 logs. */

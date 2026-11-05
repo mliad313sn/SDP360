@@ -311,6 +311,6 @@
 .edv-page-head dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 .edv-page-head__q dd { font-weight: 600; color: var(--color-text, #1E293B); }
 .edv-page-head__srcname { font-weight: 600; }
-.edv-page-head__src.is-unknown { color: var(--color-warning, #B45309); }
+.edv-page-head__src.is-unknown { color: var(--color-warning-text, #92400E); }
 .edv-page-head__note { margin: 6px 0 0; color: var(--color-text-3, #6b7785); }
 @media (max-width: 480px) { .edv-page-head__grid { grid-template-columns: 1fr; } .edv-page-head dt { padding-top: 6px; } }
