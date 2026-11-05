@@ -29,7 +29,11 @@ test('the dossier names the commit it was built on, and that commit exists', () 
   assert.ok(m, 'the header must name its base commit');
   let git = true;
   try { execFileSync('git', ['rev-parse', '--git-dir'], { cwd: ROOT, stdio: 'ignore' }); } catch { git = false; }
-  if (git) {
+  // CI checks out a shallow clone (fetch-depth 1): an older base commit is legitimately absent there,
+  // so the existence check only runs on a full clone.
+  let shallow = false;
+  if (git) { try { shallow = execFileSync('git', ['rev-parse', '--is-shallow-repository'], { cwd: ROOT }).toString().trim() === 'true'; } catch { /* old git: treat as full */ } }
+  if (git && !shallow) {
     assert.doesNotThrow(() => execFileSync('git', ['cat-file', '-e', `${m[1]}^{commit}`], { cwd: ROOT, stdio: 'ignore' }),
       `base commit ${m[1]} is not in this repository`);
   }
