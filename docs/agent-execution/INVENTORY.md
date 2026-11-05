@@ -69,7 +69,7 @@
 | PG-portfolio | public/portfolio.html | any | yes | 1 | 7 |
 | PG-project | public/project.html | any | no | 1 | 7 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 2 |
-| PG-reports | public/reports.html | any | yes | 2 | 23 |
+| PG-reports | public/reports.html | any | yes | 2 | 24 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 3 |
 | PG-site-actions | public/site-actions.html | any | yes | 1 | 7 |
 | PG-site-awareness | public/site-awareness.html | site-business / group-business / executive | yes | 2 | 4 |
@@ -119,10 +119,10 @@
 | RT-POST-api-reports-auth-change-password | POST | `/api/reports/auth/change-password` | server.js:5769 |
 | RT-GET-api-reports-current-week | GET | `/api/reports/current-week` | server.js:5921 |
 | RT-GET-api-reports-helpdesk-live | GET | `/api/reports/helpdesk-live` | server.js:6231 |
-| RT-GET-api-reports-sessions-active | GET | `/api/reports/sessions/active` | routes/adminUsers.js:164 |
+| RT-GET-api-reports-sessions-active | GET | `/api/reports/sessions/active` | routes/adminUsers.js:174 |
 | RT-GET-api-reports-technicians | GET | `/api/reports/technicians` | server.js:6482 |
 | RT-POST-api-reports-test-smtp | POST | `/api/reports/test-smtp` | routes/adminConfig.js:159 |
-| RT-PUT-api-reports-users-emails | PUT | `/api/reports/users/emails` | routes/adminUsers.js:109 |
+| RT-PUT-api-reports-users-emails | PUT | `/api/reports/users/emails` | routes/adminUsers.js:118 |
 | RT-GET-api-risk-register-config-sites | GET | `/api/risk-register-config/sites` | routes/riskRegister.js:78 |
 | RT-GET-api-risk-register-config-unmapped | GET | `/api/risk-register-config/unmapped` | routes/riskRegister.js:129 |
 | RT-GET-api-roadmap-evidence-catalogue | GET | `/api/roadmap/evidence/catalogue` | routes/roadmap.js:56 |

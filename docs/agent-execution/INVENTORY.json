@@ -805,7 +805,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 2,
-   "bytes": 540579,
+   "bytes": 540739,
    "tests": [
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/assets-freshness.test.js",
@@ -828,6 +828,7 @@
     "tests/site-actions-register.test.js",
     "tests/status-transfer.smoke.test.js",
     "tests/teams-sla-admin-card.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
     "tests/uat-amdec-workflows.smoke.test.js",
     "tests/wan-timeup-default.test.js"
    ]
@@ -7154,7 +7155,7 @@
    "method": "DELETE",
    "path": "/api/reports/sessions/:token",
    "file": "routes/adminUsers.js",
-   "line": 197,
+   "line": 207,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/route-matrix-probe-order.test.js"
@@ -7165,7 +7166,7 @@
    "method": "GET",
    "path": "/api/reports/sessions/active",
    "file": "routes/adminUsers.js",
-   "line": 164,
+   "line": 174,
    "tests": []
   },
   {
@@ -7302,7 +7303,7 @@
    "method": "DELETE",
    "path": "/api/reports/users/:id",
    "file": "routes/adminUsers.js",
-   "line": 145,
+   "line": 155,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -7312,7 +7313,8 @@
     "tests/capability-registry.test.js",
     "tests/emergency-access.smoke.test.js",
     "tests/identity-log.smoke.test.js",
-    "tests/multi-site-editor.smoke.test.js"
+    "tests/multi-site-editor.smoke.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js"
    ]
   },
   {
@@ -7320,7 +7322,7 @@
    "method": "PUT",
    "path": "/api/reports/users/:id",
    "file": "routes/adminUsers.js",
-   "line": 125,
+   "line": 134,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -7330,7 +7332,8 @@
     "tests/capability-registry.test.js",
     "tests/emergency-access.smoke.test.js",
     "tests/identity-log.smoke.test.js",
-    "tests/multi-site-editor.smoke.test.js"
+    "tests/multi-site-editor.smoke.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js"
    ]
   },
   {
@@ -7338,7 +7341,7 @@
    "method": "PUT",
    "path": "/api/reports/users/emails",
    "file": "routes/adminUsers.js",
-   "line": 109,
+   "line": 118,
    "tests": []
   },
   {
@@ -7346,7 +7349,7 @@
    "method": "GET",
    "path": "/api/reports/users",
    "file": "routes/adminUsers.js",
-   "line": 81,
+   "line": 89,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -7356,7 +7359,8 @@
     "tests/capability-registry.test.js",
     "tests/emergency-access.smoke.test.js",
     "tests/identity-log.smoke.test.js",
-    "tests/multi-site-editor.smoke.test.js"
+    "tests/multi-site-editor.smoke.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js"
    ]
   },
   {
@@ -7364,7 +7368,7 @@
    "method": "POST",
    "path": "/api/reports/users",
    "file": "routes/adminUsers.js",
-   "line": 86,
+   "line": 94,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -7374,7 +7378,8 @@
     "tests/capability-registry.test.js",
     "tests/emergency-access.smoke.test.js",
     "tests/identity-log.smoke.test.js",
-    "tests/multi-site-editor.smoke.test.js"
+    "tests/multi-site-editor.smoke.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js"
    ]
   },
   {
