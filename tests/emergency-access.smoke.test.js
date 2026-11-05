@@ -41,10 +41,13 @@ test('off by default: every emergency route answers 404, a break-glass stays a p
   assert.equal((await send('GET', '/api/access/emergencies', tok['em-s1'])).status, 404);
   assert.equal((await grant(tok['em-s1'])).status, 404);
   assert.equal(String((await cfg.getConfig(rdb.db)).emergency_access_enabled), '0');
+  assert.equal((await send('GET', '/api/access/me', tok['em-s1'])).body.emergency_enabled, false, 'C-23: off → access.html does not call the 404 route');
 });
 
 test('on: >24 h refused, self-grant refused, non-super refused; a valid grant goes through the C-18 grant path, logged risk=1', async () => {
   await cfg.setConfig(rdb.db, { emergency_access_enabled: '1' }, 'test');
+  assert.equal((await send('GET', '/api/access/me', tok['em-s1'])).body.emergency_enabled, true, 'C-23: on + super_admin → the tab loads');
+  assert.equal((await send('GET', '/api/access/me', tok['em-user'])).body.emergency_enabled, false, 'never for a plain session');
   assert.match((await grant(tok['em-s1'], { hours: 25 })).body.error, /at most 24 h/);
   assert.match((await grant(tok['em-s1'], { subject_user_id: ID['em-s1'] })).body.error, /themselves/);
   assert.equal((await grant(tok['em-user'])).status, 403, 'a plain session never grants');

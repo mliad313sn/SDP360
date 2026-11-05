@@ -31,14 +31,22 @@ in `tests/e2e/` must appear in this table.
 | super_admin | `super_admin` | Key pages at 1440/1024/768/390 px: no horizontal scroll, header visible, no console error (layout check, not a task) | `public/index.html` | `public/access.html` | `tests/e2e/v1-viewport-layout.spec.js` |
 | super_admin | `super_admin` | Change a filter twice quickly on Dashboards and Analytics; the newer figures stay on screen | `public/dashboards.html` | `public/analytics.html` | `tests/e2e/r1-filter-race.spec.js` |
 | super_admin | `super_admin` | Download the dashboard CSV, the assets inventory and the WAN SLA workbook | `public/dashboards.html` | `public/wan.html` | `tests/e2e/x1-exports.spec.js` |
+| Site IT coordinator | `viewer` → `tracker-editor` (requested), own site | Ask for an access, see it approved by the site admin, use it, see it end when its date passes (C-23) | `public/access.html` | `public/access.html` | `tests/e2e/i1-access-request-approval.spec.js` |
+| Admin (site) | `admin`, own site | Decide access requests: never one I filed, never as the requester's deputy (separation of duties, C-23) | `public/access.html` | `public/access.html` | `tests/e2e/i2-access-sod.spec.js` |
+| Site IT coordinator | `viewer` + approved grant, signs in with Microsoft | A Microsoft sign-in adds the group roles and keeps the approved grant (C-23) | `public/login.html` | `public/access.html` | `tests/e2e/i3-sso-grant-merge.spec.js` |
+| Field technician | `field-tech`, own site; recorder + verifier `admin` | Field capture refused until site-induction evidence is recorded and verified by a third person; refused again once expired (C-23) | `public/access.html` | `public/access.html` | `tests/e2e/i4-qualification-gate.spec.js` |
+| super_admin | `super_admin` (granter) + a second `super_admin` (reviewer) | Grant an emergency access of at most 24 h, see its review flagged overdue, have it reviewed by someone else, see it end (C-23) | `public/access.html` | `public/access.html` | `tests/e2e/i5-emergency-access.spec.js` |
+| Site IT coordinator | `editor`, own site (outgoing / incoming technician) | Hand the shift over; it stays pending until the incoming person accepts it (C-23) | `public/coverage.html` | `public/coverage.html` | `tests/e2e/i6-shift-handover.spec.js` |
+| super_admin | `super_admin` | Rotate a stored integration key: the old one stops working, no secret comes back to the browser or the journal; anonymous visitors never get the API key (C-23) | `public/reports.html` | `public/reports.html` | `tests/e2e/i7-secret-rotation.spec.js` |
 | Scorecard viewer | `scorecard-viewer` | Read the executive scorecard without write powers | `public/executive.html` | `public/analytics.html` | not covered |
 | Committee member (Group IT, extra) | `viewer` + `committee-member` | Prepare Friday's agenda from the cadence | `public/cockpit.html` | `public/cockpit.html` | `tests/e2e/t4-cockpit-agenda.spec.js` |
 
 ## Coverage summary
 
-- Covered by a browser journey test: coordinator (1 of 3), site editor (4 of 4), field technician (1 of 1),
-  committee member (1 of 1); super_admin: three cross-cutting checks (viewport layout, filter race, exports),
-  not the two task journeys above.
+- Covered by a browser journey test: coordinator (1 of 3 reporting journeys, plus the C-23 access / SSO /
+  shift-handover journeys), site editor (4 of 4), field technician (2 of 2), committee member (1 of 1), site
+  admin (access decisions); super_admin: three cross-cutting checks (viewport layout, filter race, exports) and
+  the C-23 emergency-access and secret-rotation journeys, not the two task journeys above.
 - **Not covered by any browser journey test**: admin, executive, super_admin and scorecard-viewer journeys, two of
   the three coordinator journeys. These are the gaps a person should plan sessions or new e2e journeys for.
 - Personas from the committee report not mapped here because they have no separate account role today: analyst,

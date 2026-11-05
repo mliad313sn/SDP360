@@ -40,6 +40,7 @@ test('session required; /me answers about the caller', async () => {
   assert.equal((await fetch(base + '/api/access/me')).status, 401);
   const r = await send('GET', '/api/access/me', tok['ar-viewer']);
   assert.equal(r.status, 200); assert.equal(r.body.user.id, ID['ar-viewer']); assert.deepEqual(r.body.grants, []); assert.equal(r.body.can_approve, false);
+  assert.equal(r.body.emergency_enabled, false, 'C-23: the page never asks the emergency list for a plain session');
 });
 
 test('a plain session cannot request for someone else; validation errors are typed 400s', async () => {
