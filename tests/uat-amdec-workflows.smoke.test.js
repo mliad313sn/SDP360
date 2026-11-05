@@ -60,3 +60,12 @@ test('WF-05 report list scale: a central account sees at most 20 report cards on
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'public', 'reports.html'), 'utf8');
   assert.match(src, /reports\.slice\(0, 20\)/, 'the page still caps the list at 20 cards (no paging) — follow-up FU-05');
 });
+
+test('WF-06 report list cards escape the site name and week label (AM-13)', () => {
+  const { fnSource } = require('./_fn-source');
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'public', 'reports.html'), 'utf8');
+  const body = fnSource(src, 'loadReportList');
+  assert.match(body, /\$\{esc\(r\.site_name\)\}/);
+  assert.match(body, /\$\{esc\(r\.week_label\)\}/);
+  assert.doesNotMatch(body, /\$\{r\.site_name\}/);
+});
