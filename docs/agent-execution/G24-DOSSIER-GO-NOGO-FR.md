@@ -26,8 +26,8 @@ accepté (`.claude/rules/SDP360_BOUNDARIES.md`).
 
 Légende statut : **CORRIGÉ** = le défaut ou le besoin est couvert par du code et un test ; **PARTIEL** = une partie
 reste ouverte (raison dans `Limites`, section 7) ; **PORTE HUMAINE** = rien de plus ne peut être fait par le code.
-« Tests » = résultat des fichiers cités dans l'exécution complète du 5 novembre (section 4). Trois `échec` existent
-à cette date : `brand-buttons` (page C-31) et les parcours `u3`, `u4` (D-10) ; tout le reste est `réussi`. Terrain / déployé / accepté : **INCONNU** pour toutes les lignes.
+« Tests » = résultat des fichiers cités dans l'exécution complète du 5 novembre (section 4). Les trois `échec` relevés en cours de journée
+(`brand-buttons`, parcours `u3`, `u4`) ont été corrigés le même jour (commit `ea208a7`) ; tout est `réussi`. Terrain / déployé / accepté : **INCONNU** pour toutes les lignes.
 
 ### 2.1 Plan v3 (C-01 … C-31)
 
@@ -63,14 +63,14 @@ reste ouverte (raison dans `Limites`, section 7) ; **PORTE HUMAINE** = rien de p
 | C-28 | Menu direction consolidé + accès au Deck Builder (P1, P12) | CORRIGÉ derrière interrupteurs | `ui_exec_nav` (`full`), `ui_deck_builder_roles` (`super_admin`) | `C-28.md` | `exec-nav-consolidated`, `deck-builder-gate`, `deck-builder-gate.smoke` réussi |
 | C-29 | Polices hébergées sur place, aucune requête de police tierce (P5) | CORRIGÉ | — | `C-29.md` | `no-external-fonts`, `vendor-libs`, `e2e-harness` réussi |
 | C-30 | Variantes de libellé de site regroupées ; même définition SLA tuile / classement / tendance (P7, P8) | CORRIGÉ | — (suit `helpdesk_sla_definition`, `flag`) | `C-30.md` | `site-fold-sla-definition`, `dashboard-shared-sla-rates` réussi |
-| C-31 | Constructeur de politiques KPI pour le comité | CORRIGÉ (code) ; l'adoption d'une politique = comité | `kpi_policy_enforced` (`0`) | `C-31.md` | `kpi-policy-engine`, `kpi-policy-routes.smoke` réussi ; **`brand-buttons` échec** (`kpi-builder.html button.kb-primary` : texte blanc sur orange de marque, contraste) |
+| C-31 | Constructeur de politiques KPI pour le comité | CORRIGÉ (code) ; l'adoption d'une politique = comité | `kpi_policy_enforced` (`0`) | `C-31.md` | `kpi-policy-engine`, `kpi-policy-routes.smoke` réussi ; `brand-buttons` réussi après correction (bouton principal sur `--color-primary-fill`) |
 
 ### 2.2 Contrôles transverses et suites AMDEC
 
 | Id | Objet | Statut | Interrupteur (défaut) | Preuve | Tests (5 nov.) |
 |---|---|---|---|---|---|
 | SEC-01 | Passe de contrôle SDLC sécurisé (dépendances, secrets, routes, en-têtes, CI) | PARTIEL : F1–F5 corrigés ; **F6 (secret dans l'historique) et F7 (désactivation Entra) en attente d'une personne** | `auth_account_throttle_enabled` (`0`), `_max` (`10`), `_window_min` (`15`) | `SEC-01.md` | `login-next-redirect`, `route-matrix-probe-order`, `sec01-route-roles.smoke`, `login-account-throttle.smoke`, `field-ticket-site-scope`, `vendor-libs` réussi |
-| AMDEC | Campagne de scénarios exécutée par un agent sur une organisation fictive (**pas une recette**) | 62 conçus · 36 exécutés par des tests neufs · 18 couverts par des suites existantes · **8 non exécutés** ; 4 défauts corrigés | — | `AMDEC.md`, `docs/audits/2026-11-05-amdec/` | `uat-amdec-org-models.smoke`, `uat-amdec-multinational-data`, `uat-amdec-workflows.smoke`, `assets-finance-readers` réussi ; parcours `u1`, `u2`, `u5` réussi, `u3`/`u4` échec (D-10) |
+| AMDEC | Campagne de scénarios exécutée par un agent sur une organisation fictive (**pas une recette**) | 62 conçus · 36 exécutés par des tests neufs · 18 couverts par des suites existantes · **8 non exécutés** ; 4 défauts corrigés | — | `AMDEC.md`, `docs/audits/2026-11-05-amdec/` | `uat-amdec-org-models.smoke`, `uat-amdec-multinational-data`, `uat-amdec-workflows.smoke`, `assets-finance-readers` réussi ; parcours `u1` à `u5` réussis |
 | D-01 | Refus d'écriture sous un code partagé par deux sites (Assafo/Tanda → `TND`) | CORRIGÉ derrière interrupteur (détection active ; choix du propriétaire = humain) | `site_code_shared_block` (`0`) | `D-0102.md` | `site-code-onboarding`, `uat-amdec-org-models.smoke` réussi |
 | D-02 | Fiche d'ajout de site + plan de remplissage du registre (essai à blanc) | PARTIEL (appliquer le plan et activer le registre = super_admin) | — | `D-0102.md` | idem |
 | D-03 | Une seule étiquette de semaine à l'écran | CORRIGÉ derrière interrupteur | `ui_week_labels` (`legacy`) | `D-030508.md` | `week-labels`, `uat-amdec-workflows.smoke` réussi |
@@ -80,7 +80,7 @@ reste ouverte (raison dans `Limites`, section 7) ; **PORTE HUMAINE** = rien de p
 | D-07 | Fuseau horaire par site (migration 066) | PARTIEL : derrière interrupteur, **lecteur mensuel du helpdesk seulement** | `site_local_calendar` (`0`) | `D-070910.md` | `site-time-zone`, `uat-amdec-multinational-data` réussi |
 | D-08 | Balayage d'échappement de `reports.html` | CORRIGÉ | — (correctif) | `D-030508.md` | `reports-html-escape-sweep` réussi |
 | D-09 | Fusion de l'accès d'urgence + scénario NE-01 | CORRIGÉ (joué ; reste désactivé) | `emergency_access_enabled` (`0`) | `D-070910.md` | `uat-amdec-workflows.smoke` réussi |
-| D-10 | Parcours navigateur admin, direction « pire site », scorecard | CORRIGÉ (2 parcours super_admin + 2 parcours coordinateur restent non couverts) | — | `D-070910.md` | parcours `u5` réussi ; **`u3`, `u4` échec** (section 4) |
+| D-10 | Parcours navigateur admin, direction « pire site », scorecard | CORRIGÉ (2 parcours super_admin + 2 parcours coordinateur restent non couverts) | — | `D-070910.md` | parcours `u3`, `u4`, `u5` réussis (u3/u4 après correction du cache, section 4) |
 
 Massawa est désormais un **site à part entière** (il n'est plus replié dans Sabodala) : le périmètre de site le
 distingue de Sabodala dans le même pays (AMDEC ORG-b), et sa fiche d'ajout liste les codes encore à enregistrer
@@ -123,22 +123,21 @@ Interrupteurs plus anciens que le pilote utilise aussi (`ui_i18n_pages`, `ui_nav
 
 | Contrôle | Commande | Résultat |
 |---|---|---|
-| Suite complète (PostgreSQL 16 local, bases jetables) | `npm test` avec `PG_ADMIN_URL` d'un rôle de test local | **584 fichiers · 4 134 tests · 4 122 réussis · 1 en échec (`brand-buttons`) · 11 ignorés avec raison (10 × « no prod-snapshot », 1 × python matplotlib/python-pptx absent)** — sur `b5e1309` avant les changements de cet objectif : 583 fichiers, 4 130 tests, 4 échecs (dont 3 `pg-reports-aggregates`, corrigés ici côté test) |
-| Parcours navigateur (Playwright Chromium, trafic externe bloqué) | `node tools/test/run-e2e.js --runs=1` | **22 parcours : 20 réussis, 2 en échec (U3, U4), 0 ignoré ; 1 test navigateur unitaire réussi ; aucune requête externe** |
+| Suite complète (PostgreSQL 16 local, bases jetables) | `npm test` avec `PG_ADMIN_URL` d'un rôle de test local | **585 fichiers · 4 135 tests · 0 échec après régénération du registre des interrupteurs (seul échec du passage : `FLAG-REGISTER.md` non régénéré, fichier généré) · 11 ignorés avec raison (10 × « no prod-snapshot », 1 × python matplotlib/python-pptx absent)** — sur `b5e1309` avant les changements de cet objectif : 583 fichiers, 4 130 tests, 4 échecs (dont 3 `pg-reports-aggregates`, corrigés ici côté test) |
+| Parcours navigateur (Playwright Chromium, trafic externe bloqué) | `node tools/test/run-e2e.js --runs=1` | **22 parcours : 22 réussis, 0 ignoré ; 1 test navigateur unitaire réussi ; aucune requête externe** (U3/U4 étaient rouges : `server.js` écrivait le cache des tickets dans `data/raw_cache.json` sans tenir compte de `SDP_DATA_DIR`, un parcours relisait les tickets d'une exécution précédente — corrigé, test `raw-cache-data-dir`) |
 | Inventaire des licences | `node tools/release/licence-inventory.js --csv …` | sortie 0 ; 121 paquets de production (MIT 109, ISC 6, BSD-2 1, BSD-3 1, Apache-2.0 1, MIT-0 1, MIT AND Zlib 1, MIT OR GPL-3.0-or-later 1) ; identique à `docs/sdp360/completion/LICENCE-INVENTORY.csv` |
 | SBOM | `node tools/release/sbom.js --out …` | sortie 0 ; CycloneDX 1.5, 132 composants (non versionné : fichier de sortie) |
 | Empreintes des preuves | `node tools/agent/evidence-manifest.js --check` | à jour (`tests/evidence-baseline.test.js`) |
 
-Détail des rouges (non corrigés dans cet objectif, qui ne touche pas au code produit) :
+Détail des rouges relevés au premier passage et corrigés le même jour (commit `ea208a7`) :
 
-- `tests/brand-buttons.test.js` — « no CSS rule or inline style puts white text on brand orange » : `kpi-builder.html
-  button.kb-primary` (page du constructeur de politiques KPI, C-31). Défaut de contraste, correction CSS à faire.
-- Parcours **U3** (admin, helpdesk tous sites) : la tuile `#k-inbound` affiche `3` au lieu de `27` ; parcours **U4**
-  (direction, pire site) : la ligne de classement lit `low sample | Hounde | 2 | 1 | 50%` au lieu de 6 tickets en
-  retard. Les deux reposent sur le jeu de tickets fictif `tests/e2e/fixtures/tickets.js` (tickets répartis entre le
-  début de la semaine Zoho courante et « maintenant ») ; reproduit deux fois le 5 novembre alors que le compte rendu
-  D-070910 les donnait verts le même jour. Enquête (jeu de données ou fenêtre de semaine de la page) à ouvrir en suite
-  de D-10.
+- `tests/brand-buttons.test.js` — `kpi-builder.html button.kb-primary` mettait du texte blanc sur l'orange de marque ;
+  le bouton utilise désormais `--color-primary-fill` (contraste AA).
+- Parcours **U3** (tuile `#k-inbound` à `3` au lieu de `27`) et **U4** (classement du pire site faux) : cause réelle
+  dans `server.js` — le cache des tickets (`raw_cache.json`) était lu et écrit dans `data/` sans tenir compte de
+  `SDP_DATA_DIR` ; un parcours démarré sur son propre répertoire jetable relisait les tickets d'une exécution
+  précédente (encore valides 4 h). Le chemin suit maintenant `SDP_DATA_DIR` (repli `data/` en production) ; test
+  `tests/raw-cache-data-dir.test.js`. Les 22 parcours sont verts.
 - `tests/pg-reports-aggregates.test.js` (3 tests) était rouge sur `b5e1309` (`column "country" does not exist` : la
   base jetable du fichier n'était pas migrée alors que le lecteur D-07 lit `sites.country`). Corrigé ici, côté test
   seulement (le fichier lance désormais le migrateur, comme ses voisins) : 16/16.
@@ -237,11 +236,10 @@ validation, deployment and business acceptance stay **UNKNOWN** for every goal. 
 R1–R14) are delegated and reversible, not signatures.
 
 - **Ledger**: C-01…C-31, SEC-01, the AMDEC campaign and D-01…D-10 are listed in section 2 with status, default switch,
-  evidence file and test proof. Every cited test file passed in today's full run except three, listed in section 4:
-  `brand-buttons` (white text on brand orange on `kpi-builder.html`, C-31) and the browser journeys U3 and U4 (D-10
-  fixture); `pg-reports-aggregates` was red on `b5e1309` (unmigrated test database) and is fixed test-side here. Partial items: C-09, C-18, C-19,
+  evidence file and test proof. Every cited test file passes; the three reds found in the first run (`brand-buttons`, journeys U3/U4 — a raw
+  ticket cache that ignored SDP_DATA_DIR) were fixed the same day (`ea208a7`, section 4); `pg-reports-aggregates` was red on `b5e1309` (unmigrated test database) and is fixed test-side here. Partial items: C-09, C-18, C-19,
   C-20, C-21, SEC-01 (F6/F7), D-02, D-07; human-only: G34 (UAT), screen-reader evidence.
-- **Tests (run by the agent today)**: full suite 584 files, 4 134 tests, 4 122 pass, 1 fail (`brand-buttons`), 11 skipped with a reason; browser journeys 22 journeys, 20 pass, 2 fail (U3, U4), 0 skipped; 1 browser unit test pass; no external request; licence inventory and
+- **Tests (run by the agent today)**: full suite 585 files, 4 135 tests, 0 fail after regenerating the generated flag register, 11 skipped with a reason; browser journeys 22/22 pass (U3/U4 fixed: the raw ticket cache now honours SDP_DATA_DIR), 0 skipped; 1 browser unit test pass; no external request; licence inventory and
   SBOM regenerated (exit 0, 121 production packages, 132 SBOM components). Not run: GitHub CI and Windows installer on
   this commit, real connectors, real load, screen reader, any real site or device.
 - **Switches**: 21 switches added by this programme, all defaulting to today's behaviour (section 3); pilot values are
