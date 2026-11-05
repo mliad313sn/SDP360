@@ -2921,8 +2921,8 @@ async function loadReportList() {
     }
     grid.innerHTML = reports.slice(0, 20).map(r => `
       <div class="report-card ${r.status}" onclick="openReportById(${r.id})">
-        <div class="rc-site">${r.site_name}</div>
-        <div class="rc-week">${r.week_label} &nbsp;(${r.start_date} → ${r.end_date})</div>
+        <div class="rc-site">${esc(r.site_name)}</div>
+        <div class="rc-week">${esc(r.week_label)} &nbsp;(${esc(r.start_date)} → ${esc(r.end_date)})</div>
         <span class="rc-status ${r.status}">${r.status === 'submitted' ? '✅ Submitted' : r.status === 'ready' ? '✔ Ready' : r.status === 'in_progress' ? '⏳ In Progress' : '✏ Draft'}</span>
         <span style="font-size:0.77rem;color:#bbb;margin-left:8px">Updated ${r.updated_at ? r.updated_at.slice(0,10) : '—'}</span>
       </div>

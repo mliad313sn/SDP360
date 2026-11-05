@@ -140,7 +140,8 @@ test('A-26 map set → by_site currency, unknown-currency amounts skipped but as
   assert.strictEqual(bySite.MANA.currency, 'XOF');
   assert.strictEqual(bySite.HGO.currency, null);
   assert.strictEqual(bySite.HGO.asset_count, 2);
-  assert.strictEqual(bySite.HGO.purchase_cost_usd, 0);
+  // AMDEC 2026-11-05 (AM-05): every HGO amount was skipped → UNKNOWN (null), never a measured 0.
+  assert.strictEqual(bySite.HGO.purchase_cost_usd, null);
   assert.strictEqual(bySite.HGO.pct_depreciated, null);
   near(bySite.MANA.purchase_cost_usd, 3000000 * RATE, 0.01, 'MANA converted');
   assert.strictEqual(s.excluded.no_currency, 2);

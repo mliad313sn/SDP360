@@ -5953,6 +5953,7 @@ app.post('/api/reports/ensure', requireReportSession, jsonBody, async (req, res)
   try {
     const { site_id, year, week } = req.body || {};
     if (!site_id || !year || !week) return res.status(400).json({ error: 'site_id, year, week required' });
+    if (!(Number.isInteger(+week) && +week >= 1 && +week <= rdb.zohoWeeksInYear(+year))) return res.status(400).json({ error: `week must be 1..${rdb.zohoWeeksInYear(+year)} for ${parseInt(year)}` });
     // Non-admin editors can only create for their own site
     if (!rdb.userHasRole(req.reportUser, 'admin') && !userSites.hasSite(req.reportUser, parseInt(site_id)))
       return res.status(403).json({ error: 'You can only manage reports for your own site' });
