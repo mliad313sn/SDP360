@@ -11,21 +11,22 @@ const aliases = require('../services/scoreboardAliases.js');
 // meetings code — that is exactly what the fold has to resolve.
 const board = (rows) => ({ rows, most_improved: null, needs_attention: null });
 
-// ── 1 · fold SGO, rank recomputed across ≥3 codes ───────────────────────────
-// Two AP labels fold to SGO (Sabodala 70 + MASSAWA 72 → mean 71). HGO 80 and
-// MGO 60 give a real 3-code ordering: HGO #1, SGO #2, MGO #3. A single-code
+// ── 1 · fold OUA, rank recomputed across ≥3 codes ───────────────────────────
+// Two AP labels fold to OUA (Ouagadougou 70 + Ouaga 72 → mean 71). HGO 80 and
+// MGO 60 give a real 3-code ordering: HGO #1, OUA #2, MGO #3. A single-code
 // fixture would make rank trivially 1 and never exercise the recomputation.
-test('folds SGO across two labels, recomputes rank and of, keeps the first label delta', () => {
-  const r = effortForSite('SGO', {
+// (Massawa is its OWN site since 2026-11-05 — it no longer folds into SGO.)
+test('folds OUA across two labels, recomputes rank and of, keeps the first label delta', () => {
+  const r = effortForSite('OUA', {
     leaderboard: board([
-      { site: 'Sabodala', effort_score: 70, delta: 5,  rank: 1 },
-      { site: 'MASSAWA',  effort_score: 72, delta: 9,  rank: 2 },
-      { site: 'Hounde',   effort_score: 80, delta: 1,  rank: 3 },
-      { site: 'Mana',     effort_score: 60, delta: -4, rank: 4 },
+      { site: 'Ouagadougou', effort_score: 70, delta: 5,  rank: 1 },
+      { site: 'Ouaga',       effort_score: 72, delta: 9,  rank: 2 },
+      { site: 'Hounde',      effort_score: 80, delta: 1,  rank: 3 },
+      { site: 'Mana',        effort_score: 60, delta: -4, rank: 4 },
     ]),
     aliases,
   });
-  // HGO 80 (#1) · SGO round((70+72)/2)=71 (#2) · MGO 60 (#3)
+  // HGO 80 (#1) · OUA round((70+72)/2)=71 (#2) · MGO 60 (#3)
   assert.deepStrictEqual(r, { score: 71, rank: 2, of: 3, delta: 5, ranked: true });
 });
 
@@ -43,14 +44,14 @@ test('a code with no label folding to it returns null', () => {
 });
 
 // ── 3 · delta is the FIRST matching row's delta ─────────────────────────────
-// Two labels fold to SGO; the delta must come from the first row that resolves
-// to SGO, not the second and not an average.
+// Two labels fold to OUA; the delta must come from the first row that resolves
+// to OUA, not the second and not an average.
 test('delta comes from the first row whose label folds to the code', () => {
-  const r = effortForSite('SGO', {
+  const r = effortForSite('OUA', {
     leaderboard: board([
-      { site: 'MASSAWA',  effort_score: 60, delta: 11, rank: 1 },  // first SGO row
-      { site: 'Sabodala', effort_score: 82, delta: 99, rank: 2 },  // second — ignored for delta
-      { site: 'Hounde',   effort_score: 40, delta: 1,  rank: 3 },
+      { site: 'Ouaga',       effort_score: 60, delta: 11, rank: 1 },  // first OUA row
+      { site: 'Ouagadougou', effort_score: 82, delta: 99, rank: 2 },  // second — ignored for delta
+      { site: 'Hounde',      effort_score: 40, delta: 1,  rank: 3 },
     ]),
     aliases,
   });

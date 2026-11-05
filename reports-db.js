@@ -108,10 +108,10 @@ for (const [siteName, net] of Object.entries(_MERAKI_NETWORK_CODES)) {
   if (_SITE_MODULE_CODES_SEED[siteName]) _SITE_MODULE_CODES_SEED[siteName].meraki = net;
 }
 // Step 3 — AP asset-site labels per site (module='assets'), the registry replacement for the
-// in-code map services/scoreboardAliases.ALIAS. Several labels may fold to ONE site (Massawa +
-// Sabodala). Seeded by site NAME; scoreboardAliases reads these rows first, the in-code map last.
+// in-code map services/scoreboardAliases.ALIAS. Several labels may fold to ONE site (Ouagadougou +
+// Ouaga). Massawa is its OWN site, never folded into Sabodala (user decision 2026-11-05). Seeded by site NAME; scoreboardAliases reads these rows first, the in-code map last.
 const _ASSET_LABEL_CODES = {
-  Hounde: ['HOUNDE'], MANA: ['MANA'], Sabodala: ['Sabodala', 'Massawa'], Lafigue: ['LAFIGUE'], Ity: ['ITY'],
+  Hounde: ['HOUNDE'], MANA: ['MANA'], Sabodala: ['Sabodala'], Lafigue: ['LAFIGUE'], Ity: ['ITY'],
   Kalana: ['KALANA'], Ouagadougou: ['Ouagadougou', 'Ouaga'], Abidjan: ['Abidjan'], Dakar: ['Dakar'],
 };
 // V1b-E — Exploration's sub-site WAN lines ("WAN1 FETEKRO") map to their OWN Meraki network.
@@ -617,6 +617,9 @@ async function _seedReportsCatalogsPg(H) {
     for (const [oldN, newN] of _MERAKI_RENAMES) {
       await H.prepare(`UPDATE site_module_codes SET code = ? WHERE module = 'meraki' AND code = ?`).run(newN, oldN);
     }
+    // 2026-11-05 — Massawa separated from Sabodala: drop it from the SEEDED Sabodala asset-label
+    // row, by exact old-string match only (an admin-edited value is never touched).
+    await H.prepare(`UPDATE site_module_codes SET code = 'Sabodala' WHERE module = 'assets' AND code = 'Sabodala,Massawa'`).run();
   });
   // infra_kpi_catalog — backfill from existing infra_kpis (empty on a fresh DB).
   await H.exec(`INSERT INTO infra_kpi_catalog (service, kpi, target_default)

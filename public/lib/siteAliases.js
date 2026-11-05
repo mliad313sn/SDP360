@@ -28,7 +28,7 @@
     hounde: 'HGO',
     mana: 'MGO',
     sabodala: 'SGO',
-    massawa: 'SGO',
+    massawa: 'MASSAWA',   // own site — never folded into Sabodala (user decision 2026-11-05)
     lafigue: 'SML',
     ity: 'SMI',
     kalana: 'KGO',

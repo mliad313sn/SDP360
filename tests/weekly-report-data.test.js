@@ -148,16 +148,20 @@ test('site absent from the active listSites() → skip', async () => {
   assert.match(r.reason, /inactive/i);
 });
 
-// ── 9 · hygiene fold, SGO (Sabodala + Massawa) ──────────────────────────────
+// ── 9 · hygiene SUM fold, OUA (Ouagadougou + Ouaga) ─────────────────────────
 // 7 discriminates a SUM from a mean (3.5) and from a single call (3 or 4).
+// (Massawa is its own site since 2026-11-05 — it no longer folds into SGO.)
 test('hygiene worklist SUMS by_kind across every AP label folding to the code', async () => {
   const { deps, calls } = makeDeps({
+    resolved: { site_id: 3, name: 'Ouagadougou', zoho_group: 'OUA IT Agents' },
+    sites: [{ id: 3, name: 'Ouagadougou', active: 1 }],
+    siteLabels: ['Ouagadougou', 'Ouaga'],
     hygiene: {
-      'Sabodala': { total: 10, by_kind: { no_owner: 3, ghost: 1 } },
-      'MASSAWA': { total: 20, by_kind: { no_owner: 4, ghost: 0 } },
+      'Ouagadougou': { total: 10, by_kind: { no_owner: 3, ghost: 1 } },
+      'Ouaga':       { total: 20, by_kind: { no_owner: 4, ghost: 0 } },
     },
   });
-  const r = await loadWeeklyReportData({ siteCode: 'SGO', ...WEEK, deps });
+  const r = await loadWeeklyReportData({ siteCode: 'OUA', ...WEEK, deps });
   assert.strictEqual(r.ok, true);
   assert.strictEqual(r.assets.hygiene.no_owner, 7);
   assert.strictEqual(calls.hygiene.length, 2, 'one call per AP label, not one per code');
@@ -210,20 +214,23 @@ test('no AP label maps to the code → assets is null, never a block of zeros', 
 
 // ── 13 · effort fold + rank RECOMPUTATION ───────────────────────────────────
 // Three distinct codes: with one, rank is trivially 1 and the recomputation is
-// never exercised. Raw AP ranks here are 1..4; after folding, SGO's mean is 71
+// never exercised. Raw AP ranks here are 1..4; after folding, OUA's mean is 71
 // which places it SECOND — a mean of the raw ranks (1.5) would be meaningless.
 test('effort score is folded and rank is recomputed across folded codes', async () => {
   const { deps } = makeDeps({
+    resolved: { site_id: 3, name: 'Ouagadougou', zoho_group: 'OUA IT Agents' },
+    sites: [{ id: 3, name: 'Ouagadougou', active: 1 }],
+    siteLabels: ['Ouagadougou', 'Ouaga'],
     effortRows: [
-      { site: 'Sabodala', effort_score: 80, baseline_score: 70, delta: 10, rank: 1 },
-      { site: 'Hounde',   effort_score: 75, baseline_score: 74, delta: 1,  rank: 2 },
-      { site: 'Massawa',  effort_score: 62, baseline_score: 60, delta: 2,  rank: 3 },
-      { site: 'Mana',     effort_score: 50, baseline_score: 55, delta: -5, rank: 4 },
+      { site: 'Ouagadougou', effort_score: 80, baseline_score: 70, delta: 10, rank: 1 },
+      { site: 'Hounde',      effort_score: 75, baseline_score: 74, delta: 1,  rank: 2 },
+      { site: 'Ouaga',       effort_score: 62, baseline_score: 60, delta: 2,  rank: 3 },
+      { site: 'Mana',        effort_score: 50, baseline_score: 55, delta: -5, rank: 4 },
     ],
   });
-  const r = await loadWeeklyReportData({ siteCode: 'SGO', ...WEEK, deps });
+  const r = await loadWeeklyReportData({ siteCode: 'OUA', ...WEEK, deps });
   assert.strictEqual(r.ok, true);
-  // folded: HGO 75 (rank 1) · SGO round((80+62)/2)=71 (rank 2) · MGO 50 (rank 3)
+  // folded: HGO 75 (rank 1) · OUA round((80+62)/2)=71 (rank 2) · MGO 50 (rank 3)
   assert.strictEqual(r.assets.effort.effort_score, 71);
   assert.strictEqual(r.assets.effort.rank, 2);
   assert.strictEqual('delta' in r.assets.effort, false, 'delta is a ~30-day lookback — it barely moves week to week');

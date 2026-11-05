@@ -2,7 +2,8 @@
 
 // Map free-form AP asset-site labels (asset_effort_history.site) to the
 // canonical meetings-namespace site codes the scoreboard iterates by.
-// Massawa + Sabodala both belong to SGO — folded by a simple mean.
+// Several labels of ONE site (Ouagadougou + Ouaga) are folded by a simple mean. Massawa is its
+// own site and is never folded into Sabodala/SGO (user decision 2026-11-05).
 // C-30: the table + fold live in public/lib/siteAliases.js (UMD) so the Helpdesk page folds the
 // SAME variants; this module re-exports them — still exactly one alias table.
 const { ALIAS, fold: _foldShared } = require('../public/lib/siteAliases');

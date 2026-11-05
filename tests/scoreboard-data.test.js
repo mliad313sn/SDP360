@@ -17,14 +17,14 @@ function makeDeps() {
       return [
         { code: 'HGO', site_id: 2, name: 'Houndé' },
         { code: 'MGO', site_id: 5, name: 'Mana' },
-        { code: 'SGO', site_id: 1, name: 'Sabodala' },
+        { code: 'OUA', site_id: 1, name: 'Ouagadougou' },
       ];
     },
     // getCalendarMonthlyHelpdesk(site_id, year, m) → null (WHOLE object) when no zoho_group
     getCalendarMonthlyHelpdesk(site_id, year, m) {
       if (site_id === 2) return { sla_res_pct: 74, inbound: 10, closed: 9 };
       if (site_id === 5) return { sla_res_pct: 70, inbound: 20, closed: 18 };
-      return null; // site 1 (SGO) — no zoho_group
+      return null; // site 1 (OUA) — no zoho_group
     },
     // meetings-db.insights({from,to}) → { site_leaderboard: [{site, score(0-1|null)}] }
     getMeetingsInsights({ from, to }) {
@@ -34,7 +34,7 @@ function makeDeps() {
         site_leaderboard: [
           { site: 'HGO', score: 0.60 },
           { site: 'MGO', score: 0.50 },
-          { site: 'SGO', score: null },
+          { site: 'OUA', score: null },
         ],
       };
     },
@@ -43,7 +43,7 @@ function makeDeps() {
       assert.ok(from && to, 'inspection window present');
       if (site === 'HGO') return { findingStatus: [{ status: 'ok', n: 8 }, { status: 'minor', n: 2 }, { status: 'na', n: 1 }] };
       if (site === 'MGO') return { findingStatus: [] };
-      if (site === 'SGO') return { findingStatus: [{ status: 'ok', n: 5 }] };
+      if (site === 'OUA') return { findingStatus: [{ status: 'ok', n: 5 }] };
       return { findingStatus: [] };
     },
     // assets-db.getEffortLeaderboard({asOf}) → { rows:[{site, effort_score, baseline_score, delta, rank}], ... }
@@ -53,8 +53,8 @@ function makeDeps() {
       return {
         rows: [
           { site: 'HOUNDE', effort_score: 52, baseline_score: 50, delta: 2, rank: 1 },
-          { site: 'MASSAWA', effort_score: 40, baseline_score: 38, delta: 2, rank: 3 },
-          { site: 'Sabodala', effort_score: 66, baseline_score: 64, delta: 2, rank: 2 },
+          { site: 'Ouaga', effort_score: 40, baseline_score: 38, delta: 2, rank: 3 },
+          { site: 'Ouagadougou', effort_score: 66, baseline_score: 64, delta: 2, rank: 2 },
         ],
         most_improved: null,
         needs_attention: null,
@@ -71,7 +71,7 @@ test('loadScoreboardData assembles 4 dims per site, null-safe', async () => {
   const byCode = Object.fromEntries(result.perSite.map(r => [r.code, r]));
 
   // Order = listSiteModuleCodes order
-  assert.deepStrictEqual(result.perSite.map(r => r.code), ['HGO', 'MGO', 'SGO']);
+  assert.deepStrictEqual(result.perSite.map(r => r.code), ['HGO', 'MGO', 'OUA']);
 
   assert.deepStrictEqual(byCode.HGO, {
     code: 'HGO', name: 'Houndé', helpdesk: 74, inspections: 80, meetings: 60, assets: 52,
@@ -79,10 +79,10 @@ test('loadScoreboardData assembles 4 dims per site, null-safe', async () => {
   assert.deepStrictEqual(byCode.MGO, {
     code: 'MGO', name: 'Mana', helpdesk: 70, inspections: null, meetings: 50, assets: null,
   });
-  // SGO: helpdesk null-object guarded; meetings score was null → stays null NOT 0;
-  //      assets = mean of MASSAWA(40)+Sabodala(66) folded → 53.
-  assert.deepStrictEqual(byCode.SGO, {
-    code: 'SGO', name: 'Sabodala', helpdesk: null, inspections: 100, meetings: null, assets: 53,
+  // OUA: helpdesk null-object guarded; meetings score was null → stays null NOT 0;
+  //      assets = mean of Ouaga(40)+Ouagadougou(66) folded → round(53) = 53.
+  assert.deepStrictEqual(byCode.OUA, {
+    code: 'OUA', name: 'Ouagadougou', helpdesk: null, inspections: 100, meetings: null, assets: 53,
   });
 });
 

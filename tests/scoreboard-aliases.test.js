@@ -8,12 +8,28 @@ test('assetLabelToCode maps AP labels to canonical meetings codes', () => {
   assert.strictEqual(assetLabelToCode('HOUNDE'), 'HGO');
   assert.strictEqual(assetLabelToCode('MANA'), 'MGO');
   assert.strictEqual(assetLabelToCode('Sabodala'), 'SGO');
-  assert.strictEqual(assetLabelToCode('MASSAWA'), 'SGO');
+  assert.strictEqual(assetLabelToCode('Ouagadougou'), 'OUA');
+  assert.strictEqual(assetLabelToCode('Ouaga'), 'OUA');
   assert.strictEqual(assetLabelToCode('LAFIGUE'), 'SML');
   assert.strictEqual(assetLabelToCode('ITY'), 'SMI');
   assert.strictEqual(assetLabelToCode('KALANA'), 'KGO');
   assert.strictEqual(assetLabelToCode('ABIDJAN'), 'ABJ');
   assert.strictEqual(assetLabelToCode('Dakar'), 'DKR');
+});
+
+// 2026-11-05 — user decision: Massawa is its OWN site, never folded into Sabodala/SGO.
+test('Massawa is separated from Sabodala (own code, own fold key)', () => {
+  const SiteAliases = require('../public/lib/siteAliases');
+  assert.strictEqual(assetLabelToCode('MASSAWA'), 'MASSAWA');
+  assert.strictEqual(assetLabelToCode('Massawa'), 'MASSAWA');
+  assert.strictEqual(assetLabelToCode('Sabodala'), 'SGO');
+  assert.notStrictEqual(SiteAliases.siteFoldKey('Massawa'), SiteAliases.siteFoldKey('Sabodala'));
+  const m = foldEffortByCode([
+    { site: 'Sabodala', effort_score: 70 },
+    { site: 'MASSAWA', effort_score: 30 },
+  ]);
+  assert.strictEqual(m.get('SGO'), 70, 'Massawa no longer drags the Sabodala mean');
+  assert.strictEqual(m.get('MASSAWA'), 30);
 });
 
 test('assetLabelToCode is accent/case-fold + trim tolerant', () => {
@@ -31,13 +47,13 @@ test('assetLabelToCode returns null for unknown/empty/null', () => {
 test('foldEffortByCode folds multiple labels per code by simple mean', () => {
   const m = foldEffortByCode([
     { site: 'HOUNDE', effort_score: 52 },
-    { site: 'MASSAWA', effort_score: 40 },
-    { site: 'Sabodala', effort_score: 66 },
+    { site: 'Ouaga', effort_score: 40 },
+    { site: 'Ouagadougou', effort_score: 66 },
     { site: 'NOPE', effort_score: 10 },
   ]);
   assert.ok(m instanceof Map);
   assert.strictEqual(m.get('HGO'), 52);
-  assert.strictEqual(m.get('SGO'), 53); // round((40+66)/2)
+  assert.strictEqual(m.get('OUA'), 53); // round((40+66)/2)
   assert.strictEqual(m.has('NOPE'), false);
   assert.strictEqual(m.size, 2);
 });

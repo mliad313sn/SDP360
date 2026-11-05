@@ -119,19 +119,19 @@ test('assetEffort folds+ranks the fleet leaderboard, fetched ONCE and memoised',
   let boardCalls = 0;
   const board = { rows: [
     { site: 'Hounde', effort_score: 80, delta: 3 },
-    { site: 'Sabodala', effort_score: 71, delta: 5 },   // Sabodala + MASSAWA
-    { site: 'MASSAWA', effort_score: 71, delta: 9 },     //   both fold to SGO
+    { site: 'Ouagadougou', effort_score: 70, delta: 5 },   // Ouagadougou + Ouaga
+    { site: 'Ouaga', effort_score: 72, delta: 9 },         //   both fold to OUA
     { site: 'Mana', effort_score: 60, delta: -2 },
   ] };
   const d = buildSiteReportDeps({ ...mods,
     assetsDb: { getEffortLeaderboard: async () => { boardCalls++; return board; } } });
 
-  const sgo = await d.assetEffort('SGO');
-  // SGO = mean(71,71)=71, ranks 2nd of 3 folded codes (HGO 80 > SGO 71 > MGO 60).
-  // delta = the first Sabodala/MASSAWA row folding to SGO (5), never a mean.
+  const oua = await d.assetEffort('OUA');
+  // OUA = round(mean(70,72))=71, ranks 2nd of 3 folded codes (HGO 80 > OUA 71 > MGO 60).
+  // delta = the first Ouagadougou/Ouaga row folding to OUA (5), never a mean.
   // `ranked` (G-04) rides along: a board with no flag means every site is ranked, so
   // this case is unchanged apart from the extra key.
-  assert.deepStrictEqual(sgo, { score: 71, rank: 2, of: 3, delta: 5, ranked: true });
+  assert.deepStrictEqual(oua, { score: 71, rank: 2, of: 3, delta: 5, ranked: true });
 
   const hgo = await d.assetEffort('HGO');
   assert.strictEqual(hgo.rank, 1);
@@ -152,19 +152,20 @@ test('assetEffort → null for a code with no AP label / no effort history', asy
 test('assetHygiene sums by_kind across EVERY label folding to the code', async () => {
   let lookupCalls = 0;
   const perLabel = {
-    Sabodala: { by_kind: { no_owner: 4, ghost: 1, no_cost: 0 } },
-    MASSAWA:  { by_kind: { no_owner: 3, never_scanned: 2 } },
+    Ouagadougou: { by_kind: { no_owner: 4, ghost: 1, no_cost: 0 } },
+    Ouaga:       { by_kind: { no_owner: 3, never_scanned: 2 } },
+    Sabodala:    { by_kind: { no_owner: 50 } },   // another site — must NOT leak in
   };
   const d = buildSiteReportDeps({ ...mods, assetsDb: {
-    getAssetLookups: async () => { lookupCalls++; return { sites: ['Sabodala', 'MASSAWA', 'Hounde'] }; },
+    getAssetLookups: async () => { lookupCalls++; return { sites: ['Ouagadougou', 'Ouaga', 'Sabodala', 'Hounde'] }; },
     getHygieneSummary: async ({ site }) => perLabel[site] || { by_kind: {} },
   } });
 
-  const sgo = await d.assetHygiene('SGO');
-  assert.deepStrictEqual(sgo.labels.sort(), ['MASSAWA', 'Sabodala']);
+  const oua = await d.assetHygiene('OUA');
+  assert.deepStrictEqual(oua.labels.sort(), ['Ouaga', 'Ouagadougou']);
   // Summed across both labels; the ZERO kind is dropped, not shown as 0 — a
   // block of zeros trains the reader to skip the section.
-  assert.deepStrictEqual(sgo.by_kind, { no_owner: 7, ghost: 1, never_scanned: 2 });
+  assert.deepStrictEqual(oua.by_kind, { no_owner: 7, ghost: 1, never_scanned: 2 });
 
   await d.assetHygiene('HGO');
   assert.strictEqual(lookupCalls, 1, 'the fleet label list is fetched once, not per site');

@@ -75,11 +75,15 @@ test('B. switch on: every deck chart total equals the KPI it illustrates (Σ cat
   assert.strictEqual(e.changes_type.Normal, 3, 'Normal changes are their own slice');
 });
 
-test('B. known KPI dispute (P8, committee): a cancelled ticket is the ONLY source of deck-vs-helpdesk-tile SLA divergence', () => {
+test('B. cancelled tickets: the deck and the helpdesk tile now share ONE SLA rule (C-30 resolutionSla)', () => {
+  // Before C-30 a cancelled closed ticket was the only source of deck-vs-tile divergence (P8).
+  // C-30 routed the tile, ranking and trend through one helper that keeps cancelled tickets in the
+  // closed denominator, like the deck — so the two now agree. Which rule is right stays with the
+  // KPI committee (helpdesk_sla_definition); this test pins that both surfaces move together.
   const rows = [...CUR, T({ 'Request Status': 'Cancelled' })];
   const deck = XP.headlineKpis(rows, PREV, H).sla_res_pct;
   const tile = Math.round((100 - H.periodSlaRates(rows).res_violated_pct) * 10) / 10;
-  assert.notStrictEqual(deck, tile, 'deck counts cancelled in the closed denominator; the helpdesk tile does not');
+  assert.strictEqual(deck, tile, 'deck and helpdesk tile must give the same SLA % with a cancelled ticket present');
   assert.strictEqual(XP.headlineKpis(CUR, PREV, H).sla_res_pct, Math.round((100 - H.periodSlaRates(CUR).res_violated_pct) * 10) / 10);
 });
 
