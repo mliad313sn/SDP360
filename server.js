@@ -5936,15 +5936,15 @@ app.get('/api/reports', requireReportSession, async (req, res) => {
     // filter on a falsy id and would return every site.
     const isAdminTier = rdb.userHasRole(req.reportUser, 'admin');
     const y = year ? parseInt(year) : undefined, w = week ? parseInt(week) : undefined;
-    if (isAdminTier) return res.json(await rdb.listReports(site_id ? parseInt(site_id) : undefined, y, w));
+    const page = (rows) => require('./services/reportListPage').pageReports(rows, req.query, rdb);   // D-05 paging
+    if (isAdminTier) return res.json(await page(await rdb.listReports(site_id ? parseInt(site_id) : undefined, y, w)));
     // Non-admin: their sites only (multi-site editors 2026-10-05). ?site_id narrows to one of them.
     let ids = userSites.siteIds(req.reportUser);
     if (site_id && ids.includes(parseInt(site_id))) ids = [parseInt(site_id)];
-    if (!ids.length) return res.json([]);
     const rows = [];
     for (const id of ids) rows.push(...((await rdb.listReports(id, y, w)) || []));
     rows.sort((a, b) => (b.year - a.year) || (b.week_number - a.week_number));
-    res.json(rows);
+    res.json(await page(rows));
   } catch(e) { fail(res, e); }
 });
 

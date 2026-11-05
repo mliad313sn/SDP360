@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (154) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (155) — services/reportConfig.js DEFAULTS
 
 | Key | Default (today) | Kind | Owner | Recommended pilot value | Reference |
 |---|---|---|---|---|---|
@@ -160,6 +160,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `ui_lang_default` | `` | ui policy | Owner (D-2) | `fr` | A-09 |
 | `ui_nav_profile` | `full` | ui policy | Owner (D-6) | `lean` (proposal — re-decide from the T1–T8 sessions) | A-21 |
 | `ui_role_landing` | `0` | ui policy | Owner (UI policy) | `1` | A-10 |
+| `ui_week_labels` | `legacy` | ui policy | Owner (UI policy) | `explicit` (proposal — ISO helpdesk charts say "ISO W37 (7–13 Sep)", report rows carry their Sun→Sat range) | D-03 |
 | `wan_mos_config` | `{"r0":93.2,"codec_loss_factor":2.5,"jitter_buffer_factor"…` | setting | to be named | — | — |
 | `wan_poll_first_run` | `` | setting | to be named | — | — |
 | `wan_poll_last_run` | `` | setting | to be named | — | — |

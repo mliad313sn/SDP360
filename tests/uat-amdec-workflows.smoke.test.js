@@ -53,12 +53,47 @@ test('WF-04 exports stay inside the account\'s sites (meetings Excel for the sha
   assert.ok(sites.length >= 1 && sites.every((s) => ['DKR', 'ABJ', 'OUA'].includes(s)), sites.join(','));
 });
 
-test('WF-05 report list scale: a central account sees at most 20 report cards on the page, but the API returns every report (limit AM-09)', async () => {
+test('WF-05 report list scale (D-05, AM-09): the API pages with a clamped limit; the page filters by site + week and pages past 20', async () => {
   for (let wk = 30; wk <= 36; wk++) for (const n of ['Sabodala', 'Hounde', 'Dakar']) await ctx.rdb.ensureReport(S[n].id, 2026, wk);
   const all = await c('GET', '/api/reports', U.central.token);
-  assert.ok(all.j.length > 20, String(all.j.length));
+  assert.ok(Array.isArray(all.j) && all.j.length > 20, 'no paging params → the whole array, as before');
+  const p1 = await c('GET', '/api/reports?limit=20&offset=0', U.central.token);
+  assert.equal(p1.status, 200, p1.text);
+  assert.equal(p1.j.total, all.j.length); assert.equal(p1.j.rows.length, 20); assert.equal(p1.j.limit, 20);
+  const p2 = await c('GET', '/api/reports?limit=20&offset=20', U.central.token);
+  assert.equal(p2.j.rows.length, all.j.length - 20, 'older reports reachable on page 2');
+  assert.notEqual(p2.j.rows[0].id, p1.j.rows[0].id);
+  for (const [lim, want] of [['-5', 1], ['1.7', 1], ['abc', 20], ['100000', 100]]) {
+    const r = await c('GET', `/api/reports?limit=${lim}`, U.central.token);
+    assert.equal(r.status, 200, lim); assert.equal(r.j.limit, want, `limit=${lim}`);
+  }
+  assert.equal((await c('GET', '/api/reports?limit=5&offset=-3', U.central.token)).j.offset, 0);
+  const one = await c('GET', `/api/reports?limit=20&site_id=${S.Hounde.id}&year=2026&week=33`, U.central.token);
+  assert.equal(one.j.total, 1); assert.equal(one.j.rows[0].site_name, 'Hounde');
+  const ms = await c('GET', '/api/reports?limit=20&offset=0', U.ms3.token);
+  assert.equal(ms.status, 200); assert.ok(ms.j.rows.length <= 20 && ms.j.total >= ms.j.rows.length);
   const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'public', 'reports.html'), 'utf8');
-  assert.match(src, /reports\.slice\(0, 20\)/, 'the page still caps the list at 20 cards (no paging) — follow-up FU-05');
+  assert.doesNotMatch(src, /reports\.slice\(0, 20\)/, 'the 20-card cap is gone');
+  const { fnSource } = require('./_fn-source');
+  const body = fnSource(src, 'loadReportList');
+  assert.match(body, /limit: String\(RL_PAGE\)/); assert.match(body, /rl-site/); assert.match(body, /rl-week/);
+  assert.match(src, /id="rl-prev"/); assert.match(src, /id="rl-next"/);
+});
+
+test('WF-05b D-03 explicit week labels: a report row carries its Sun→Sat range only when ui_week_labels = explicit', async () => {
+  const cfg = require('../services/reportConfig');
+  const legacy = await c('GET', `/api/reports?site_id=${S.Hounde.id}&year=2026&week=37`, U.central.token);
+  assert.ok(legacy.j.every((r) => r.week_display === undefined), 'legacy: rows unchanged');
+  await ctx.rdb.ensureReport(S.Hounde.id, 2026, 37);
+  await cfg.setConfig(ctx.rdb.db, { ui_week_labels: 'explicit' }, 'uat');
+  try {
+    const r = await c('GET', `/api/reports?site_id=${S.Hounde.id}&year=2026&week=37`, U.central.token);
+    assert.equal(r.j[0].week_display, 'W37 2026 (13–19 Sep)');
+    const sd = await c('GET', '/api/reports/site-data?site=HGO&year=2026&month=9', U.central.token);
+    assert.equal(sd.status, 200);
+    assert.equal((sd.j.helpdesk_weekly || []).length, 6);
+    assert.ok(sd.j.helpdesk_weekly.every((x) => /^ISO W\d+ \(/.test(x.label)), JSON.stringify(sd.j.helpdesk_weekly));
+  } finally { await cfg.setConfig(ctx.rdb.db, { ui_week_labels: 'legacy' }, 'uat'); }
 });
 
 test('WF-06 report list cards escape the site name and week label (AM-13)', () => {

@@ -151,10 +151,12 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
 
       const { _lastIsoWeeks } = require('../services/siteReportDeps');
       const weekly = [];
+      const wl = require('../services/weekLabels');
+      const wMode = await wl.weekLabelMode(require('../services/reportConfig'), rdb.db);   // D-03
       // _lastIsoWeeks expects a BARE 'YYYY-MM-DD' — a full ISO timestamp throws Invalid Date.
       for (const w of _lastIsoWeeks(now.toISOString().slice(0, 10), 6)) {
         const h = await rdb.getSiteHelpdeskWindow(gate.site_id, w.from, w.to);
-        weekly.push({ label: w.label, inbound: h.created, closed: h.resolved,
+        weekly.push({ label: wl.isoWeekLabel(w, wMode), inbound: h.created, closed: h.resolved,
           missed_pct: h.created ? Math.round((h.sla_overdue / h.created) * 1000) / 10 : null });
       }
 
