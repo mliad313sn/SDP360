@@ -11,13 +11,13 @@
 | pages without declared role | 6 |
 | pages not in navigation | 28 |
 | pages with inline scripts | 46 |
-| routes | 576 |
+| routes | 580 |
 | routes without test reference | 80 |
 | routes in server js | 231 |
-| jobs | 27 |
+| jobs | 28 |
 | jobs without test reference | 10 |
-| migrations | 68 |
-| test files | 567 |
+| migrations | 69 |
+| test files | 569 |
 
 ## Pages
 
@@ -120,10 +120,10 @@
 | RT-POST-api-reports-auth-change-password | POST | `/api/reports/auth/change-password` | server.js:5763 |
 | RT-GET-api-reports-current-week | GET | `/api/reports/current-week` | server.js:5915 |
 | RT-GET-api-reports-helpdesk-live | GET | `/api/reports/helpdesk-live` | server.js:6224 |
-| RT-GET-api-reports-sessions-active | GET | `/api/reports/sessions/active` | routes/adminUsers.js:149 |
+| RT-GET-api-reports-sessions-active | GET | `/api/reports/sessions/active` | routes/adminUsers.js:164 |
 | RT-GET-api-reports-technicians | GET | `/api/reports/technicians` | server.js:6475 |
 | RT-POST-api-reports-test-smtp | POST | `/api/reports/test-smtp` | routes/adminConfig.js:157 |
-| RT-PUT-api-reports-users-emails | PUT | `/api/reports/users/emails` | routes/adminUsers.js:95 |
+| RT-PUT-api-reports-users-emails | PUT | `/api/reports/users/emails` | routes/adminUsers.js:109 |
 | RT-GET-api-risk-register-config-sites | GET | `/api/risk-register-config/sites` | routes/riskRegister.js:78 |
 | RT-GET-api-risk-register-config-unmapped | GET | `/api/risk-register-config/unmapped` | routes/riskRegister.js:129 |
 | RT-GET-api-roadmap-evidence-catalogue | GET | `/api/roadmap/evidence/catalogue` | routes/roadmap.js:56 |
@@ -169,6 +169,7 @@
 
 | Id | Job | Tests |
 |---|---|---:|
+| JB-access-emergency-expiry | access.emergency_expiry | 1 |
 | JB-access-grant-expiry | access.grant_expiry | 2 |
 | JB-assets-sync | assets.sync | 4 |
 | JB-audit-chain-verify | audit.chain_verify | 2 |

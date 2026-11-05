@@ -6,13 +6,13 @@
   "pages_without_declared_role": 6,
   "pages_not_in_navigation": 28,
   "pages_with_inline_scripts": 46,
-  "routes": 576,
+  "routes": 580,
   "routes_without_test_reference": 80,
   "routes_in_server_js": 231,
-  "jobs": 27,
+  "jobs": 28,
   "jobs_without_test_reference": 10,
-  "migrations": 68,
-  "test_files": 567
+  "migrations": 69,
+  "test_files": 569
  },
  "pages": [
   {
@@ -23,7 +23,7 @@
    ],
    "in_navigation": false,
    "inline_scripts": 0,
-   "bytes": 9643,
+   "bytes": 12095,
    "tests": [
     "tests/access-routes.smoke.test.js",
     "tests/access-why.smoke.test.js",
@@ -1003,10 +1003,50 @@
    "method": "GET",
    "path": "/api/access/approvals",
    "file": "routes/access.js",
-   "line": 102,
+   "line": 107,
    "tests": [
     "tests/access-routes.smoke.test.js",
     "tests/qualification-routes.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-POST-api-access-emergencies-id-review",
+   "method": "POST",
+   "path": "/api/access/emergencies/:id/review",
+   "file": "routes/access.js",
+   "line": 122,
+   "tests": [
+    "tests/emergency-access.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-GET-api-access-emergencies-overdue",
+   "method": "GET",
+   "path": "/api/access/emergencies/overdue",
+   "file": "routes/access.js",
+   "line": 113,
+   "tests": [
+    "tests/emergency-access.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-GET-api-access-emergencies",
+   "method": "GET",
+   "path": "/api/access/emergencies",
+   "file": "routes/access.js",
+   "line": 116,
+   "tests": [
+    "tests/emergency-access.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-POST-api-access-emergencies",
+   "method": "POST",
+   "path": "/api/access/emergencies",
+   "file": "routes/access.js",
+   "line": 119,
+   "tests": [
+    "tests/emergency-access.smoke.test.js"
    ]
   },
   {
@@ -1014,7 +1054,7 @@
    "method": "GET",
    "path": "/api/access/me/why",
    "file": "routes/access.js",
-   "line": 32,
+   "line": 37,
    "tests": [
     "tests/access-why.smoke.test.js"
    ]
@@ -1024,7 +1064,7 @@
    "method": "GET",
    "path": "/api/access/me",
    "file": "routes/access.js",
-   "line": 41,
+   "line": 46,
    "tests": [
     "tests/access-routes.smoke.test.js",
     "tests/access-why.smoke.test.js"
@@ -1035,7 +1075,7 @@
    "method": "POST",
    "path": "/api/access/requests/:id/${action}",
    "file": "routes/access.js",
-   "line": 94,
+   "line": 99,
    "tests": [
     "tests/access-routes.smoke.test.js",
     "tests/qualification-routes.smoke.test.js"
@@ -1046,7 +1086,7 @@
    "method": "GET",
    "path": "/api/access/requests/:id",
    "file": "routes/access.js",
-   "line": 84,
+   "line": 89,
    "tests": [
     "tests/access-routes.smoke.test.js",
     "tests/qualification-routes.smoke.test.js"
@@ -1057,7 +1097,7 @@
    "method": "POST",
    "path": "/api/access/requests",
    "file": "routes/access.js",
-   "line": 73,
+   "line": 78,
    "tests": [
     "tests/access-routes.smoke.test.js",
     "tests/qualification-routes.smoke.test.js"
@@ -1068,7 +1108,7 @@
    "method": "POST",
    "path": "/api/access/templates/:id/retire",
    "file": "routes/access.js",
-   "line": 68,
+   "line": 73,
    "tests": [
     "tests/access-routes.smoke.test.js"
    ]
@@ -1078,7 +1118,7 @@
    "method": "POST",
    "path": "/api/access/templates/:id/versions",
    "file": "routes/access.js",
-   "line": 59,
+   "line": 64,
    "tests": [
     "tests/access-routes.smoke.test.js"
    ]
@@ -1088,7 +1128,7 @@
    "method": "POST",
    "path": "/api/access/templates/versions/:vid/publish",
    "file": "routes/access.js",
-   "line": 65,
+   "line": 70,
    "tests": [
     "tests/access-routes.smoke.test.js"
    ]
@@ -1098,7 +1138,7 @@
    "method": "PUT",
    "path": "/api/access/templates/versions/:vid",
    "file": "routes/access.js",
-   "line": 62,
+   "line": 67,
    "tests": [
     "tests/access-routes.smoke.test.js"
    ]
@@ -1108,7 +1148,7 @@
    "method": "GET",
    "path": "/api/access/templates",
    "file": "routes/access.js",
-   "line": 53,
+   "line": 58,
    "tests": [
     "tests/access-routes.smoke.test.js"
    ]
@@ -1118,7 +1158,7 @@
    "method": "POST",
    "path": "/api/access/templates",
    "file": "routes/access.js",
-   "line": 56,
+   "line": 61,
    "tests": [
     "tests/access-routes.smoke.test.js"
    ]
@@ -2643,6 +2683,7 @@
    "file": "routes/field.js",
    "line": 226,
    "tests": [
+    "tests/emergency-access.smoke.test.js",
     "tests/field-routes.smoke.test.js",
     "tests/qualification-routes.smoke.test.js"
    ]
@@ -2654,6 +2695,7 @@
    "file": "routes/field.js",
    "line": 235,
    "tests": [
+    "tests/emergency-access.smoke.test.js",
     "tests/field-routes.smoke.test.js",
     "tests/qualification-routes.smoke.test.js"
    ]
@@ -2665,6 +2707,7 @@
    "file": "routes/field.js",
    "line": 223,
    "tests": [
+    "tests/emergency-access.smoke.test.js",
     "tests/field-routes.smoke.test.js",
     "tests/qualification-routes.smoke.test.js"
    ]
@@ -2676,6 +2719,7 @@
    "file": "routes/field.js",
    "line": 205,
    "tests": [
+    "tests/emergency-access.smoke.test.js",
     "tests/field-routes.smoke.test.js",
     "tests/qualification-routes.smoke.test.js"
    ]
@@ -4849,6 +4893,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/deck-builder-gate.smoke.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -4912,6 +4957,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/deck-builder-gate.smoke.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -4975,6 +5021,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/deck-builder-gate.smoke.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5038,6 +5085,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/deck-builder-gate.smoke.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5101,6 +5149,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/deck-builder-gate.smoke.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5164,6 +5213,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/deck-builder-gate.smoke.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5227,6 +5277,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/deck-builder-gate.smoke.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5290,6 +5341,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/deck-builder-gate.smoke.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5353,6 +5405,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/deck-builder-gate.smoke.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5416,6 +5469,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/deck-builder-gate.smoke.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5479,6 +5533,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/deck-builder-gate.smoke.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5542,6 +5597,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/deck-builder-gate.smoke.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5605,6 +5661,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/deck-builder-gate.smoke.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5668,6 +5725,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/deck-builder-gate.smoke.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5731,6 +5789,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/deck-builder-gate.smoke.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5794,6 +5853,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/deck-builder-gate.smoke.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5857,6 +5917,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/deck-builder-gate.smoke.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5920,6 +5981,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/deck-builder-gate.smoke.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -5983,6 +6045,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/deck-builder-gate.smoke.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -6046,6 +6109,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/deck-builder-gate.smoke.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -6109,6 +6173,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/deck-builder-gate.smoke.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -6172,6 +6237,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/deck-builder-gate.smoke.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -6235,6 +6301,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/deck-builder-gate.smoke.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -6298,6 +6365,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/deck-builder-gate.smoke.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -6782,7 +6850,7 @@
    "method": "DELETE",
    "path": "/api/reports/sessions/:token",
    "file": "routes/adminUsers.js",
-   "line": 182,
+   "line": 197,
    "tests": [
     "tests/access-denied-log.smoke.test.js"
    ]
@@ -6792,7 +6860,7 @@
    "method": "GET",
    "path": "/api/reports/sessions/active",
    "file": "routes/adminUsers.js",
-   "line": 149,
+   "line": 164,
    "tests": []
   },
   {
@@ -6927,7 +6995,7 @@
    "method": "DELETE",
    "path": "/api/reports/users/:id",
    "file": "routes/adminUsers.js",
-   "line": 130,
+   "line": 145,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -6935,6 +7003,7 @@
     "tests/access-why.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/capability-registry.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/multi-site-editor.smoke.test.js"
    ]
@@ -6944,7 +7013,7 @@
    "method": "PUT",
    "path": "/api/reports/users/:id",
    "file": "routes/adminUsers.js",
-   "line": 111,
+   "line": 125,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -6952,6 +7021,7 @@
     "tests/access-why.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/capability-registry.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/multi-site-editor.smoke.test.js"
    ]
@@ -6961,7 +7031,7 @@
    "method": "PUT",
    "path": "/api/reports/users/emails",
    "file": "routes/adminUsers.js",
-   "line": 95,
+   "line": 109,
    "tests": []
   },
   {
@@ -6969,7 +7039,7 @@
    "method": "GET",
    "path": "/api/reports/users",
    "file": "routes/adminUsers.js",
-   "line": 68,
+   "line": 81,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -6977,6 +7047,7 @@
     "tests/access-why.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/capability-registry.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/multi-site-editor.smoke.test.js"
    ]
@@ -6986,7 +7057,7 @@
    "method": "POST",
    "path": "/api/reports/users",
    "file": "routes/adminUsers.js",
-   "line": 73,
+   "line": 86,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -6994,6 +7065,7 @@
     "tests/access-why.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/capability-registry.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/multi-site-editor.smoke.test.js"
    ]
@@ -7060,6 +7132,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/deck-builder-gate.smoke.test.js",
+    "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -8661,6 +8734,13 @@
  ],
  "jobs": [
   {
+   "id": "JB-access-emergency-expiry",
+   "job": "access.emergency_expiry",
+   "tests": [
+    "tests/connector-register.test.js"
+   ]
+  },
+  {
    "id": "JB-access-grant-expiry",
    "job": "access.grant_expiry",
    "tests": [
@@ -9103,6 +9183,10 @@
   {
    "id": "MG-reports-062-shift-handovers",
    "file": "db/postgres/reports/062_shift_handovers.sql"
+  },
+  {
+   "id": "MG-reports-063-emergency-access",
+   "file": "db/postgres/reports/063_emergency_access.sql"
   },
   {
    "id": "MG-sync-000-upgrade-from-1-11",
