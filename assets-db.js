@@ -517,11 +517,12 @@ function _aggregateFinance(rows, rate, opts = {}) {
   const rf = _rowFactors(rows, ctx);
   const M = ctx.active ? 1 : R;   // per-row rates already applied when a map is set
   const acc = new Map();   // site -> {purchase,book,tco,opex,count,refresh_due}
-  const fleet = { purchase: 0, book: 0, tco: 0, opex: 0, count: 0, refresh_due: 0 };
+  const fleet = { purchase: 0, book: 0, tco: 0, opex: 0, count: 0, known: 0, refresh_due: 0 };
   const add = (a, row) => {
     a.count++;
     const f = rf.factor.get(row);
     if (f != null) {
+      a.known++;
       const p = ctx.parse(row.purchase_cost); if (p != null) a.purchase += p * f;
       const b = ctx.parse(row.current_book_value); if (b != null) a.book += b * f;
       const t = ctx.parse(row.total_cost_of_ownership); if (t != null) a.tco += t * f;
@@ -532,17 +533,21 @@ function _aggregateFinance(rows, rate, opts = {}) {
   };
   for (const row of rows) {
     const site = row.site == null ? '' : String(row.site);
-    if (!acc.has(site)) acc.set(site, { purchase: 0, book: 0, tco: 0, opex: 0, count: 0, refresh_due: 0 });
+    if (!acc.has(site)) acc.set(site, { purchase: 0, book: 0, tco: 0, opex: 0, count: 0, known: 0, refresh_due: 0 });
     add(acc.get(site), row);
     add(fleet, row);
   }
+  // AMDEC 2026-11-05 (AM-05): rows whose amount could not be converted (no currency for
+  // their site, or excluded outliers) are skipped; when EVERY row of a group was skipped,
+  // its money is UNKNOWN (null), never a measured 0. Default switches never skip a row.
+  const amt = (a, v) => (a.count > 0 && a.known === 0 ? null : v * M);
   const shape = (a, site) => ({
     site,
     asset_count: a.count,
-    purchase_cost_usd: a.purchase * M,
-    book_value_usd: a.book * M,
-    tco_usd: a.tco * M,
-    operational_cost_usd: a.opex * M,
+    purchase_cost_usd: amt(a, a.purchase),
+    book_value_usd: amt(a, a.book),
+    tco_usd: amt(a, a.tco),
+    operational_cost_usd: amt(a, a.opex),
     pct_depreciated: a.purchase > 0 ? 1 - a.book / a.purchase : null,
     refresh_due: a.refresh_due,
   });

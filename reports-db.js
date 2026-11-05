@@ -357,6 +357,14 @@ function getISOWeek(date) {
   };
 }
 
+// AMDEC 2026-11-05 (AM-06): number of Zoho weeks (W01 = first Sunday) in a year — 52 or 53.
+// A week outside 1..N names dates that belong to another year (W53 2026 == W01 2027).
+function zohoWeeksInYear(year) {
+  const y = Number(year);
+  if (!Number.isInteger(y)) return 0;
+  return Math.round((_zFirstSun(y + 1) - _zFirstSun(y)) / (7 * 86400000));
+}
+
 function getWeekRange(year, week) {
   const fs = _zFirstSun(year);
   const weekStart = new Date(fs);
@@ -5588,7 +5596,7 @@ module.exports = {
   getSiteImpactCounts, _bucketSiteImpact,
   getSiteOpenChanges, _computeOpenChanges,
   getSiteTechnicianStats, _computeTechStats,
-  getPreviousWeek, ensureWeek, getWeekRange,
+  getPreviousWeek, ensureWeek, getWeekRange, getISOWeek, zohoWeeksInYear,
   ensureReport, getReport, listReports,
   saveInfraKpis, upsertInfraSnapshots, getInfraSnapshots, upsertWanSnapshots, getWanSnapshots, upsertWanOutage, getWanOutages, getWanOutagesOverlapping, listOpenWanOutages, closeWanOutage, reconcileProvisionalOutage, touchWanOutageSeen, listUnlabelledStaleOutages, setWanOutageAttribution, listWanContracts, getWanContract, upsertWanContract, reviewWanContract, wanCircuitKey, WAN_CONTRACT_KEY_RE, saveHelpdeskData, saveLights, saveActionItems,
   getRoadmap, upsertRoadmapObjective, addRoadmapDeliverable, updateRoadmapDeliverable, deleteRoadmapDeliverable,

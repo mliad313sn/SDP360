@@ -41,6 +41,17 @@ async function diff(rdb, hard) {
       const h = hard[mod] ? hard[mod](s.name) : null; const r = reg.get(Number(s.id)) || null;
       if ((h || null) !== r) out.push({ module: mod, site_id: Number(s.id), site: s.name, hard_coded: h || null, registry: r, kind: !r ? 'missing_in_registry' : !h ? 'registry_only' : 'different' });
     }
+    // AMDEC 2026-11-05 (AM-01): two active sites resolving to the SAME code share one write scope
+    // (e.g. Assafo and Tanda both → tracker TND). Reported, never repaired here: which site owns the
+    // code is a data-owner decision.
+    for (const [src, codeOf] of [['hard_coded', (s) => (hard[mod] ? hard[mod](s.name) : null)], ['registry', (s) => reg.get(Number(s.id)) || null]]) {
+      const by = new Map();
+      for (const s of sites) { const c = codeOf(s); if (c) { if (!by.has(c)) by.set(c, []); by.get(c).push(s); } }
+      for (const [code, list] of by) if (list.length > 1) for (const s of list) {
+        out.push({ module: mod, site_id: Number(s.id), site: s.name, hard_coded: src === 'hard_coded' ? code : null, registry: src === 'registry' ? code : null,
+          kind: 'shared_code', source: src, shared_with: list.filter((x) => x !== s).map((x) => x.name) });
+      }
+    }
   }
   return out;
 }
