@@ -12,7 +12,7 @@
   "jobs": 27,
   "jobs_without_test_reference": 10,
   "migrations": 64,
-  "test_files": 557
+  "test_files": 558
  },
  "pages": [
   {
@@ -321,6 +321,7 @@
     "tests/csv-safe.test.js",
     "tests/dashboard-preview-demo.test.js",
     "tests/dashboard-shared-sla-rates.test.js",
+    "tests/evidence-baseline.test.js",
     "tests/field-french.test.js",
     "tests/field-pwa-static.test.js",
     "tests/field-storage-browser.test.js",
@@ -8157,6 +8158,7 @@
     "tests/csp-headers.smoke.test.js",
     "tests/csp-report.smoke.test.js",
     "tests/csv-safe.test.js",
+    "tests/evidence-baseline.test.js",
     "tests/field-pwa-static.test.js",
     "tests/field-storage-browser.test.js",
     "tests/landing.test.js",
