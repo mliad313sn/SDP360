@@ -10,11 +10,10 @@ const ROOT = path.join(__dirname, '..');
 const read = (p) => fs.readFileSync(path.join(ROOT, p), 'utf8').replace(/\r\n/g, '\n');
 const { classify, ALLOWLIST } = require('./e2e/fixtures/browser');
 
-test('classifier: localhost is local, Google Fonts is the ONLY allow-listed origin, everything else is unexpected', () => {
+test('classifier: localhost is local, NO origin is allow-listed (C-29: Google Fonts is unexpected too), everything else is unexpected', () => {
   for (const u of ['http://127.0.0.1:4000/x.js', 'http://localhost:3456/', 'data:image/png;base64,AA', 'blob:http://127.0.0.1/abc']) assert.strictEqual(classify(u), 'local', u);
-  assert.deepStrictEqual(ALLOWLIST, ['fonts.googleapis.com', 'fonts.gstatic.com']);
-  assert.strictEqual(classify('https://fonts.googleapis.com/css2?family=X'), 'allowlisted');
-  for (const u of ['https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js', 'https://unpkg.com/react@18', 'https://cdn.jsdelivr.net/npm/x', 'https://fonts.googleapis.com.evil.example/', 'https://127.0.0.1.example.com/'])
+  assert.deepStrictEqual(ALLOWLIST, []);
+  for (const u of ['https://fonts.googleapis.com/css2?family=X', 'https://fonts.gstatic.com/s/x.woff2', 'https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js', 'https://unpkg.com/react@18', 'https://cdn.jsdelivr.net/npm/x', 'https://fonts.googleapis.com.evil.example/', 'https://127.0.0.1.example.com/'])
     assert.strictEqual(classify(u), 'unexpected', u);
 });
 

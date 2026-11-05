@@ -2,7 +2,7 @@
  * Endeavour Mining design system applied to the dashboard brief
  */
 @import url('../design-system/colors_and_type.css');
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;600;700&display=swap');
+/* C-29: no third-party font request — JetBrains Mono falls back to the system monospace stack */
 
 /* ─────────────────────────────────────────────────────────────────────
    PREVIEW :root — aliases on the CANONICAL EDV BRAND TOKENS

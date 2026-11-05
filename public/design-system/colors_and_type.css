@@ -11,7 +11,7 @@
  */
 
 /* Web-font fallbacks (Google Fonts substitutes for Franklin Gothic + Calibri) */
-@import url('https://fonts.googleapis.com/css2?family=Libre+Franklin:wght@400;500;600;700;800&family=Carlito:wght@400;700&display=swap');
+@import url('../fonts.css'); /* C-29: Libre Franklin same-origin; Carlito falls back to Calibri / system sans */
 
 :root {
   /* ============================================================

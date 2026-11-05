@@ -156,7 +156,7 @@ app.use((req, res, next) => {
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   // Content-Security-Policy — 'unsafe-inline' required for inline event handlers
   // (onclick/onchange attributes). B-01: no CDN origin — Chart.js, its datalabels plugin and
-  // React are served same-origin from public/vendor/ (fonts.googleapis.com stays, fonts are out of scope).
+  // React are served same-origin from public/vendor/; C-29: so is Libre Franklin (no font host in the CSP).
   // style-src keeps 'unsafe-inline' (many inline styles throughout).
   // inspection.html's PWA manifest is an inline data: URL → manifest-src 'self' data: (services/sessionAuth.cspDirectives).
   res.setHeader('Content-Security-Policy', sessionAuth.cspDirectives(sessionAuth.scriptSrc(nonce, sessionAuth.isStrictCspPath(req.path))).join('; '));
@@ -202,8 +202,8 @@ app.use((req, res, next) => {
       (isDevPreview
         ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' unpkg.com cdn.jsdelivr.net cdnjs.cloudflare.com"
         : "script-src 'self' 'unsafe-inline'"),
-      "style-src 'self' 'unsafe-inline' fonts.googleapis.com",
-      "font-src 'self' fonts.gstatic.com data:",
+      "style-src 'self' 'unsafe-inline'",
+      "font-src 'self' data:",
       "img-src 'self' data:",
       (isDevPreview ? "connect-src 'self' unpkg.com" : "connect-src 'self'"),
       "object-src 'none'",
