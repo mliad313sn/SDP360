@@ -12,7 +12,7 @@
   "jobs": 27,
   "jobs_without_test_reference": 10,
   "migrations": 65,
-  "test_files": 560
+  "test_files": 561
  },
  "pages": [
   {
@@ -57,7 +57,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 56325,
+   "bytes": 56737,
    "tests": [
     "tests/analytics-logic.test.js",
     "tests/analytics-metrics-authz.smoke.test.js",
@@ -192,7 +192,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 19099,
+   "bytes": 19513,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/dashboard-time-truth.test.js",
@@ -251,7 +251,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 598274,
+   "bytes": 598686,
    "tests": [
     "tests/api-key-injection.smoke.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
@@ -324,7 +324,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 119268,
+   "bytes": 119672,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/api-key-injection.smoke.test.js",
