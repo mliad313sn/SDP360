@@ -15,6 +15,12 @@
   **10 non exécutés**, chacun avec sa raison (connecteurs réels, SMTP, lecteur d'écran, accès d'urgence non fusionné…).
 - **Relance de référence** : 45 fichiers, **347 tests, 0 échec, 0 ignoré** ; parcours navigateur : **12/12 verts**, aucune
   requête externe.
+- **Mise à jour du 5 novembre (suites D-07, D-09, D-10, toujours exécutées par un agent, pas une recette)** : **62 scénarios
+  conçus, 36 exécutés par des tests nouveaux** (31 API + 5 parcours navigateur ; 32 verts du premier coup, 4 corrigés),
+  18 couverts par des suites existantes, **8 non exécutés**. L'accès d'urgence (NE-01) et le circuit du comité KPI
+  (NE-02) sont désormais **joués** ; le fuseau horaire par site (DAT-06b) existe derrière un réglage **désactivé** ;
+  les parcours navigateur admin, direction « pire site » et scorecard (U3, U4, U5) sont ajoutés. Relance : `run-e2e`
+  **22/22 parcours verts**, aucune requête externe.
 - **4 défauts corrigés** (tests rouges avant, verts après) : montant inconnu affiché « 0 USD » (AM-05), semaines
   impossibles acceptées (AM-06), deux sites partageant le même code non signalés (AM-01, détection seulement), nom de
   site non échappé dans la liste des rapports (AM-13).
@@ -53,29 +59,35 @@
 3. **Deux semaines « W37 »** : le rapport hebdo suit la semaine Zoho (dimanche→samedi, 13–19 sept.), le graphe du rapport
    de site la semaine ISO (lundi→dimanche, 7–13 sept.), sous la même étiquette (AM-07).
 4. **Calendriers en UTC** : un ticket de Londres saisi à 00:30 (heure d'été) le 1er septembre compte en août (AM-08).
-   Sans effet pour les sites d'Afrique de l'Ouest (UTC+0).
+   Sans effet pour les sites d'Afrique de l'Ouest (UTC+0). **D-07** : fuseau par site (`sites.time_zone`, sinon celui du
+   pays) derrière `site_local_calendar` (défaut `0` = UTC, comme aujourd'hui) ; à `1`, seul le lecteur mensuel du helpdesk
+   (`getCalendarMonthlyHelpdesk`) compte ce ticket en septembre (DAT-06b). Les autres lecteurs restent en UTC.
 5. **Liste des rapports plafonnée à 20 cartes**, sans filtre ni pagination (AM-09).
-6. **Pas de rôle « comité KPI »** ; un rôle inconnu est ignoré sans message (AM-04, AM-10).
+6. ~~Pas de rôle « comité KPI »~~ : le rôle `kpi-committee` existe depuis C-31 et le circuit brouillon → proposition →
+   adoption par un autre membre est joué (NE-02) ; l'auteur ne peut pas adopter. Reste : un rôle inconnu est ignoré sans
+   message (AM-04), et qui détient ce rôle reste une décision du comité (AM-10).
 7. **L'équipe IT centrale (palier admin) n'a pas accès à Site Awareness** (AM-11) — à confirmer comme voulu.
 8. **Libellé source mal orthographié** (`Fetekro Explorarion Office`) : actifs exclus du score d'effort d'Exploration (AM-12).
-9. **Accès d'urgence** non disponible sur cette branche (C-22 non fusionné) (AM-15).
-10. **Non vérifié ici** : connexion SSO réelle, envoi d'e-mails réel, données Meraki/OpManager réelles, parité chiffrée
+9. **Accès d'urgence** : fusionné (C-22) et joué (NE-01) — 24 h maximum, jamais à soi-même, revue par un autre
+   super_admin, fin à l'heure dite ; il reste **désactivé** (`emergency_access_enabled` = `0`) tant que les super_admins
+   habilités ne sont pas nommés (AM-15).
+10. **Non vérifié ici** (8 scénarios NE-03 … NE-10) : connexion SSO réelle, envoi d'e-mails réel, données Meraki/OpManager réelles, parité chiffrée
     PPTX/PDF dans cette campagne, charge concurrente réelle, lecteur d'écran, compréhension par les utilisateurs.
 
 ## 4. Résultats par modèle d'organisation et par profil
 
 | Modèle × profil | Scénarios | Résultat |
 |---|---|---|
-| (a) IT Groupe central (admin sans site) | ORG-a, WF-05, ORG-j | Vert ; limites AM-09 (liste 20), AM-11 (pas de Site Awareness) |
+| (a) IT Groupe central (admin sans site) | ORG-a, WF-05, ORG-j, U3 | Vert (helpdesk multi-sites, santé infra et WAN au navigateur) ; limites AM-09 (liste 20), AM-11 (pas de Site Awareness) |
 | (b) Coordinateur fédéré (Sabodala, Massawa, Houndé) | ORG-b, DAT-05, parcours DENY/T1/T2 | Vert ; défaut AM-06 corrigé |
 | (c) Éditeur multi-sites SN + BF + CI | ORG-c, WF-01, WF-03, U1 | Vert, y compris en français |
 | (d) Centre de services partagé (bureaux) | ORG-d, WF-02, WF-04, DAT-01 | Vert |
 | (e) Sites sans code (Massawa avant ajout, Assafo, Londres) et Exploration | ORG-e1…e4, DAT-09 | Vert ; défaut AM-01 détecté ; limites AM-02/03 |
 | (f) Comptes métier site / groupe | ORG-f | Vert |
-| (g) Direction, scorecard, finance, lecteur | ORG-g, DAT-03, U2 | Vert ; défaut AM-05 corrigé |
+| (g) Direction, scorecard, finance, lecteur | ORG-g, DAT-03, U2, U4, U5 | Vert (pire site de la semaine et pourquoi ; scorecard sans écriture) ; défaut AM-05 corrigé |
 | (h) Technicien terrain hors ligne | ORG-h, T3 | Vert |
-| (i) Comité KPI | ORG-i, NE-02 | Rôle inexistant (limite AM-10) |
-| (j) Comité, suppléants, compte désactivé, accès d'urgence | ORG-j, suites continuité, NE-01 | Vert ; accès d'urgence non exécuté (C-22) |
+| (i) Comité KPI | ORG-i, NE-02 | Vert : rôle `kpi-committee` (C-31), adoption par un autre membre que l'auteur, avec référence |
+| (j) Comité, suppléants, compte désactivé, accès d'urgence | ORG-j, suites continuité, NE-01 | Vert ; accès d'urgence joué (désactivé par défaut) |
 
 ## 5. Positions des sièges du comité (simulés)
 
@@ -125,6 +137,8 @@ valeur par défaut, sauf le refus d'une semaine inexistante. Aucun nouveau régl
 D-01 blocage d'un code partagé · D-02 fiche d'ajout de site · D-03 vocabulaire de semaine unique · D-04 rôle inconnu refusé ·
 D-05 filtres et pagination de la liste des rapports · D-06 certification des montants · D-07 fuseau par site ·
 D-08 échappement du reste de `reports.html` · D-09 fusion de l'accès d'urgence (C-22) · D-10 parcours admin et scorecard.
+D-07, D-09 et D-10 sont livrés (voir `docs/agent-execution/D-070910.md`) ; D-07 reste désactivé par défaut et limité au
+lecteur mensuel du helpdesk.
 
 ## 9. Portes humaines
 

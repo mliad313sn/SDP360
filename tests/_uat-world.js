@@ -12,8 +12,8 @@
 //                          countries · (d) shared office service desk (one editor for Dakar + Abidjan +
 //                          Ouagadougou) · (e) sites with no meetings/inspection code (Exploration, Assafo,
 //                          London) · (f) business-only accounts · (g) executive / scorecard / finance readers
-//                          · (h) field technician · (i) KPI committee (no dedicated role exists — see report)
-//                          · (j) committee member, viewer, deactivated account.
+//                          · (h) field technician · (i) KPI committee (role kpi-committee, C-31; two members in two countries)
+//                          · (j) committee member, viewer, deactivated account, second super_admin (C-22 review).
 const crypto = require('crypto');
 const http = require('http');
 
@@ -103,6 +103,9 @@ async function seedWorld(ctx) {
   await user('tech', ['field-tech'], 'Hounde');                                // (h)
   await user('cttee', ['viewer', 'committee-member'], null);                   // (i)/(j)
   await user('viewer', ['viewer'], null);                                      // (j) site-less reader
+  await user('sa2', ['super_admin'], null);                                   // (j) second super_admin (emergency review)
+  await user('kpiCI', ['viewer', 'kpi-committee'], 'Ity');                    // (i) KPI committee member, Côte d'Ivoire
+  await user('kpiGB', ['viewer', 'kpi-committee'], 'London Office');          // (i) KPI committee member, United Kingdom
   await user('viewerSGO', ['viewer'], 'Sabodala');                             // (j) site reader
   await user('gone', ['editor'], 'Hounde');                                    // (j) deactivated below
   await rdb.db.prepare('UPDATE users SET active=0 WHERE id=?').run(users.gone.id);
