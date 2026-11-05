@@ -18,6 +18,20 @@
     { key: 'cost', field: 'cost_pct', label: 'Cost' },
     { key: 'scan', field: 'scan_pct', label: 'Scanned' },
   ];
+  /* C-26 (G27) — French for the generated strings, through the page switch: only when boot.js marked
+   * <html data-i18n="on"> (ui_i18n_pages='1') AND the reader's language is French. Dictionary: I18N_FR_CHARTS
+   * (lib/i18n/common.fr.js). Labels and figures are data and never pass through here. */
+  function L(k, vars) {
+    var g = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : {});
+    var s = k;
+    try {
+      var de = g.document && g.document.documentElement;
+      var on = de && de.dataset && de.dataset.i18n === 'on' && g.I18nText && g.I18nText.lang() === 'fr';
+      var d = on && g.I18N_FR_CHARTS;
+      if (d && Object.prototype.hasOwnProperty.call(d, k)) s = d[k];
+    } catch (e) { /* English */ }
+    return vars ? s.replace(/\{(\w+)\}/g, function (m, n) { return vars[n] != null ? String(vars[n]) : m; }) : s;
+  }
   function esc(x) {
     return String(x == null ? '' : x).replace(/[&<>"']/g, function (c) {
       return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -35,9 +49,9 @@
       var total = num(r.total) || 0;
       var measures = MEASURES.map(function (m) {
         var p = total > 0 ? num(r[m.field]) : null;
-        return { key: m.key, label: m.label, pct: p, band: band(p) };
+        return { key: m.key, label: L(m.label), pct: p, band: band(p) };
       });
-      return { site: r.site == null ? '' : String(r.site), label: r.site ? String(r.site) : '(no site)', total: total,
+      return { site: r.site == null ? '' : String(r.site), label: r.site ? String(r.site) : L('(no site)'), total: total,
         completeness: total > 0 ? num(r.completeness) : null, measures: measures, _i: i };
     });
     rows.sort(function (a, b) {
@@ -51,13 +65,13 @@
   }
 
   function bulletHtml(rows) {
-    if (!rows || !rows.length) return '<p class="count-note">No assets in scope for the current filters.</p>';
-    var head = '<tr><th scope="col">Site</th><th scope="col" class="num">Assets</th>' +
-      MEASURES.map(function (m) { return '<th scope="col">' + esc(m.label) + '</th>'; }).join('') + '</tr>';
+    if (!rows || !rows.length) return '<p class="count-note">' + esc(L('No assets in scope for the current filters.')) + '</p>';
+    var head = '<tr><th scope="col">' + esc(L('Site')) + '</th><th scope="col" class="num">' + esc(L('Assets')) + '</th>' +
+      MEASURES.map(function (m) { return '<th scope="col">' + esc(L(m.label)) + '</th>'; }).join('') + '</tr>';
     var body = rows.map(function (r) {
       return '<tr><th scope="row">' + esc(r.label) + '</th><td class="num">' + esc(r.total.toLocaleString('en')) + '</td>' +
         r.measures.map(function (m) {
-          var aria = m.label + ': ' + (m.pct == null ? 'not measured' : fmtPct(m.pct) + ' present');
+          var aria = m.pct == null ? L('{label}: not measured', { label: L(m.label) }) : L('{label}: {pct} present', { label: L(m.label), pct: fmtPct(m.pct) });
           var bar = m.pct == null ? '' :
             '<span class="hyg-bullet__bar ' + m.band + '" style="width:' + Math.max(0, Math.min(100, m.pct)) + '%"></span>';
           return '<td><div class="hyg-bullet" role="img" aria-label="' + esc(aria) + '">' +
@@ -65,8 +79,8 @@
             '<span class="hyg-bullet__v">' + esc(fmtPct(m.pct)) + '</span></td>';
         }).join('') + '</tr>';
     }).join('');
-    return '<table class="list hyg-bullets"><caption>Completeness by site — share of assets with each field present ' +
-      '(bands: under 50%, 50–80%, 80% and over)</caption><thead>' + head + '</thead><tbody>' + body + '</tbody></table>';
+    return '<table class="list hyg-bullets"><caption>' +
+      esc(L('Completeness by site — share of assets with each field present (bands: under 50%, 50–80%, 80% and over)')) + '</caption><thead>' + head + '</thead><tbody>' + body + '</tbody></table>';
   }
 
   function pareto(byKind, labels) {
@@ -96,11 +110,11 @@
   function paretoSpec(p) {
     var rows = (p && p.rows) || [];
     return {
-      title: 'Data-quality anomalies — Pareto', labelHead: 'Anomaly', state: p ? p.state : 'NO_DATA',
+      title: L('Data-quality anomalies — Pareto'), labelHead: L('Anomaly'), state: p ? p.state : 'NO_DATA',
       labels: rows.map(function (r) { return r.label; }),
       datasets: [
-        { label: 'Flagged assets', data: rows.map(function (r) { return r.count; }) },
-        { label: 'Cumulative share', unit: '%', data: rows.map(function (r) { return r.cum_pct; }) },
+        { label: L('Flagged assets'), data: rows.map(function (r) { return r.count; }) },
+        { label: L('Cumulative share'), unit: '%', data: rows.map(function (r) { return r.cum_pct; }) },
       ],
     };
   }

@@ -18,7 +18,7 @@ planned switch cannot be set before its goal lands.
 | `exec_view_change_formula` | built | `status` | `deck` | KPI committee (D-01) | A-08 |
 | `wan_timeup_loss_pct` | built | `100` | `5` (calibration of 2026-09-04) | Network owner | A-18 (pre-existing key; A-18b adds the uncalibrated banner + `tools/meraki/check-timeup-calibration.js`) |
 | `opm_rest_concurrency` | built | `1` | `1` | Ops | A-18 (A-18b) |
-| `ui_i18n_pages` | built | `0` | `1` | Owner (D-2) | A-09 |
+| `ui_i18n_pages` | built | `0` | `1` | Owner (D-2) | A-09, C-26 |
 | `ui_lang_default` | built | `` (empty) | `fr` | Owner (D-2) | A-09 |
 | `ui_role_landing` | built | `0` | `1` | Owner (UI policy) | A-10 |
 | `ui_nav_profile` | built | `full` | `lean` (proposal — re-decide from the T1–T8 sessions) | Owner (D-6) | A-21 |

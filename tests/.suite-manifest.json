@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 3961,
+ "total": 3980,
  "files": {
   "a11y-static.test.js": 18,
   "access-denied-log.smoke.test.js": 3,
@@ -204,7 +204,8 @@
   "helpdesk-pareto-ranking.test.js": 5,
   "html-pages-before-static.test.js": 2,
   "http-error.test.js": 6,
-  "i18n-coverage.test.js": 29,
+  "i18n-coverage.test.js": 41,
+  "i18n-shell-charts.test.js": 7,
   "i18n-text.test.js": 6,
   "identity-log.smoke.test.js": 5,
   "importable-actions.smoke.test.js": 1,
