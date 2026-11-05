@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Duty coverage — Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<style nonce="%%CSP_NONCE%%">
+  body { margin: 0; background: var(--color-bg, #F4F5F7); color: var(--color-text-strong, #1F2A33); font-family: var(--font-sans, sans-serif); font-size: 14px; }
+  .cv-wrap { max-width: 1280px; margin: 0 auto; padding: 24px 28px 48px; }
+  .cv-card { background: var(--color-card, #fff); border: 1px solid var(--color-border, #E2E5EA); border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; overflow-x: auto; }
+  @media (max-width: 640px) { .cv-wrap { padding: 16px 12px 32px; } .cv-card { padding: 14px 12px; } }
+  h1 { margin: 0 0 6px; font-size: 22px; color: var(--edv-slate, #3A4A60); } h2 { font-size: 16px; margin: 0 0 8px; }
+  .cv-muted { color: #5B6573; font-size: 12.5px; }
+  table { border-collapse: collapse; } td, th { padding: 5px 6px; border-bottom: 1px solid #EEF0F3; text-align: left; font-size: 12.5px; vertical-align: top; white-space: nowrap; }
+  input, select, button, textarea { font: inherit; } input, select, textarea { padding: 4px 6px; border: 1px solid #D0D5DD; border-radius: 6px; }
+  button { border: 1px solid #D0D5DD; background: #fff; border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+  .cv-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; align-items: end; margin-bottom: 10px; }
+  .cv-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: #3A4A60; }
+  .cv-msg { min-height: 18px; font-size: 13px; } .cv-err { color: #A0002C; } .cv-ok { color: #1A6B3C; }
+  .cv-s { display: inline-block; min-width: 64px; text-align: center; border-radius: 6px; padding: 2px 6px; font-size: 11.5px; font-weight: 700; }
+  .cv-covered { background: #DDF3E4; color: #1A6B3C; } .cv-gap { background: #FBE0E6; color: #A0002C; }
+  .cv-unknown { background: repeating-linear-gradient(45deg, #EEF0F3, #EEF0F3 4px, #fff 4px, #fff 8px); color: #3A4A60; border: 1px dashed #9AA3AE; }
+  .cv-not_required { background: #F4F5F7; color: #8A939E; font-weight: 400; }
+  .cv-sub { margin-top: 16px; }
+  textarea { width: 100%; min-height: 110px; font-family: monospace; font-size: 12px; }
+  body.lang-fr [data-lng="en"], body:not(.lang-fr) [data-lng="fr"] { display: none; }
+</style>
+</head>
+<body>
+<a class="edv-skip" href="#main">Skip to content</a>
+<div id="__shell" data-section="operations" data-current="coverage"></div>
+<main id="main" class="cv-wrap">
+  <div class="cv-card">
+    <h1><span data-lng="en">Duty coverage</span><span data-lng="fr">Couverture des astreintes</span></h1>
+    <p class="cv-muted" data-lng="en">Who is on duty per site, duty family and shift, read from the rosters entered here (by hand or CSV — no HR connector). No roster entered = "unknown", never green. A deactivated account, or one that no longer holds the site, never counts. Times are UTC (the sites run on GMT).</p>
+    <p class="cv-muted" data-lng="fr">Qui est d'astreinte par site, famille d'astreinte et poste, d'après les plannings saisis ici (à la main ou par CSV — aucun connecteur RH). Aucun planning saisi = « inconnu », jamais vert. Un compte désactivé, ou qui n'a plus le site, ne compte jamais. Heures en UTC (les sites sont à l'heure GMT).</p>
+    <div class="cv-form">
+      <label for="cvLang">Language / Langue<select id="cvLang"><option value="en">English</option><option value="fr">Français</option></select></label>
+      <label><span><span data-lng="en">Site</span><span data-lng="fr">Site</span></span><select id="cvSite"></select></label>
+      <label><span><span data-lng="en">From</span><span data-lng="fr">Du</span></span><input id="cvFrom" type="date"></label>
+      <label><span><span data-lng="en">Days</span><span data-lng="fr">Jours</span></span><input id="cvDays" type="number" min="1" max="31" value="7"></label>
+      <button type="button" id="cvLoad"><span data-lng="en">Show</span><span data-lng="fr">Afficher</span></button>
+    </div>
+    <div class="cv-msg" id="cvMsg" role="status" aria-live="polite"></div>
+  </div>
+  <section class="cv-card">
+    <h2><span data-lng="en">Coverage grid</span><span data-lng="fr">Grille de couverture</span></h2>
+    <div id="cvSummary" class="cv-muted"></div>
+    <div id="cvGrid"></div>
+  </section>
+  <section class="cv-card" id="cvEditor" hidden>
+    <h2><span data-lng="en">Roster (admin tier of the site)</span><span data-lng="fr">Planning (palier admin du site)</span></h2>
+    <form id="cvShiftForm" class="cv-form">
+      <label><span><span data-lng="en">Duty family</span><span data-lng="fr">Famille d'astreinte</span></span><select id="cvFam"></select></label>
+      <label><span><span data-lng="en">User id</span><span data-lng="fr">Identifiant utilisateur</span></span><input id="cvUser" inputmode="numeric" autocomplete="off"></label>
+      <label><span><span data-lng="en">Start (UTC)</span><span data-lng="fr">Début (UTC)</span></span><input id="cvStart" placeholder="2026-11-02 06:00" autocomplete="off"></label>
+      <label><span><span data-lng="en">End (UTC)</span><span data-lng="fr">Fin (UTC)</span></span><input id="cvEnd" placeholder="2026-11-02 18:00" autocomplete="off"></label>
+      <button type="submit"><span data-lng="en">Add shift</span><span data-lng="fr">Ajouter le poste</span></button>
+    </form>
+    <div id="cvShifts"></div>
+    <h2 class="cv-sub"><span data-lng="en">Import a CSV</span><span data-lng="fr">Importer un CSV</span></h2>
+    <p class="cv-muted"><span data-lng="en">Columns (any order): user, family, site, start, end. Preview first; the import is refused while a row has an error, and re-importing the same file adds nothing.</span><span data-lng="fr">Colonnes (dans n'importe quel ordre) : user, family, site, start, end. Aperçu d'abord ; l'import est refusé tant qu'une ligne est en erreur, et réimporter le même fichier n'ajoute rien.</span></p>
+    <input type="file" id="cvFile" accept=".csv,text/csv" aria-label="CSV file">
+    <textarea id="cvCsv" aria-label="CSV"></textarea>
+    <button type="button" id="cvPreview"><span data-lng="en">Preview</span><span data-lng="fr">Aperçu</span></button>
+    <button type="button" id="cvApply"><span data-lng="en">Import</span><span data-lng="fr">Importer</span></button>
+    <div id="cvImport"></div>
+    <h2 class="cv-sub"><span data-lng="en">Coverage policy</span><span data-lng="fr">Règle de couverture</span></h2>
+    <form id="cvPolicyForm" class="cv-form">
+      <label><span><span data-lng="en">Duty family</span><span data-lng="fr">Famille d'astreinte</span></span><select id="cvPFam"></select></label>
+      <label><span><span data-lng="en">Mode</span><span data-lng="fr">Mode</span></span><select id="cvPMode"><option value="24x7">24/7</option><option value="business_hours">Business hours / Heures ouvrées</option><option value="none">None / Aucune</option></select></label>
+      <label><span><span data-lng="en">People per shift</span><span data-lng="fr">Personnes par poste</span></span><input id="cvPMin" type="number" min="1" max="20" value="1"></label>
+      <label><span><span data-lng="en">Shift hours</span><span data-lng="fr">Durée du poste (h)</span></span><select id="cvPHours"><option>6</option><option>8</option><option selected>12</option><option>24</option></select></label>
+      <label><span><span data-lng="en">Business hours</span><span data-lng="fr">Heures ouvrées</span></span><input id="cvPBiz" value="08:00-17:00" autocomplete="off"></label>
+      <button type="submit"><span data-lng="en">Save policy</span><span data-lng="fr">Enregistrer la règle</span></button>
+    </form>
+  </section>
+</main>
+<script nonce="%%CSP_NONCE%%" src="lib/errorText.js"></script>
+<script nonce="%%CSP_NONCE%%" src="coverage.js"></script>
+</body>
+</html>
