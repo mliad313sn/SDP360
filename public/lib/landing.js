@@ -30,7 +30,21 @@
     if (has('tracker-editor'))                   return 'activity-tracker.html';
     return 'index.html';
   }
-  var api = { landingFor: landingFor };
+  // SEC-01 — ?next= after login: only a same-origin RELATIVE page is followed. Anything absolute,
+  // protocol-relative (//host), backslashed (/\host), carrying a scheme (javascript:, data:) or a
+  // control character returns '' and the caller falls back to the role landing.
+  function safeNext(raw) {
+    if (typeof raw !== 'string') return '';
+    var v = raw.replace(/^\/+/, function (m) { return m.length === 1 ? '' : m; });
+    if (!v || v.length > 512) return '';
+    if (/[\u0000-\u001f\u007f\\]/.test(v)) return '';          // control chars / backslash
+    if (/^[\/]/.test(v)) return '';                                // '//host' (protocol-relative)
+    if (/%2f|%5c/i.test(v.split(/[?#]/)[0])) return '';             // encoded slash/backslash in the path
+    if (/^[a-z][a-z0-9+.-]*:/i.test(v)) return '';                  // any scheme
+    if (!/^[A-Za-z0-9._~\-\/]+(\.html)?([?#].*)?$/.test(v)) return '';
+    return v;
+  }
+  var api = { landingFor: landingFor, safeNext: safeNext };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Landing = api;
 })(typeof self !== 'undefined' ? self : this);

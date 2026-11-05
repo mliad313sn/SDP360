@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (150) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (153) — services/reportConfig.js DEFAULTS
 
 | Key | Default (today) | Kind | Owner | Recommended pilot value | Reference |
 |---|---|---|---|---|---|
@@ -40,6 +40,9 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `asset_reminder_send_enabled` | `0` | arm switch | to be named | — | — |
 | `asset_replacement_uplift_pct` | `0` | setting | to be named | — | — |
 | `asset_site_currency` | `` | setting | Finance | per-site JSON supplied by Finance | A-26 |
+| `auth_account_throttle_enabled` | `0` | arm switch | Security owner | `1` (per-account failed sign-in cap on top of the per-IP limiter; note a deliberate lock-out of a named account is possible for its window) | SEC-01 |
+| `auth_account_throttle_max` | `10` | setting | Security owner | `10` failed sign-ins per account per window | SEC-01 |
+| `auth_account_throttle_window_min` | `15` | setting | Security owner | `15` minutes | SEC-01 |
 | `authz_capability_mode` | `off` | setting | Security owner | `shadow` (log divergences only; `enforce` is not wired — route-by-route plan in `docs/agent-execution/C-17.md`) | C-17 |
 | `backup_offsite_path` | `` | setting | to be named | — | — |
 | `commitment_notify_enabled` | `0` | arm switch | to be named | — | — |

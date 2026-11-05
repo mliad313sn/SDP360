@@ -2,5 +2,5 @@
 # Pinned to known-good versions tested with python 3.12 on the dev box.
 matplotlib==3.9.*
 python-pptx==1.0.*
-pillow>=10.0
+pillow>=10.3.0   # SEC-01: floor above CVE-2023-50447 (10.2.0) and CVE-2024-28219 (10.3.0)
 numpy>=2.0

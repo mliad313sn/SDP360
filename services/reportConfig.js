@@ -251,6 +251,11 @@ Object.assign(DEFAULTS, { soft_delete_enabled: '0', soft_delete_retention_days: 
 //    one parity cycle (tools/governance/roadmap-parity.js) — PMO + PO.
 DEFAULTS.roadmap_redirect_to_portfolio = '0';
 
+// ── SEC-01 — per-ACCOUNT login throttle (services/accountThrottle.js). '0' = today: only the per-IP limiter
+//    (10 attempts / 15 min per address). '1' → more than auth_account_throttle_max FAILED sign-ins against one
+//    account within auth_account_throttle_window_min answer 429 (password not even checked); a success clears it.
+Object.assign(DEFAULTS, { auth_account_throttle_enabled: '0', auth_account_throttle_max: '10', auth_account_throttle_window_min: '15' });
+
 // ── C-17 — capability catalogue switch. off = today (legacy role guards only). shadow = the evaluator
 //    (services/authorizationService.can) runs beside every role guard and logs divergences to system_log
 //    category 'authz'. enforce is NOT wired yet (read as shadow) — route-by-route plan in docs/agent-execution/C-17.md.

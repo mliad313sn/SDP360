@@ -70,6 +70,9 @@ planned switch cannot be set before its goal lands.
 | `qualification_requirements` | built | `{}` | `{}` — which capability needs which kind (e.g. `field.capture` → `site-induction`) is a human decision | HSE owner | C-19 |
 | `shift_handover_enabled` | built | `0` | `1` on the pilot site once the incoming / outgoing people of each shift are on the duty roster (handover must be accepted by the incoming person; never automatic) | Site IT lead + Owner | C-21 |
 | `shift_handover_flag_hours` | built | `8` | `8` (a handover still pending after this many hours is flagged on the page) | Site IT lead | C-21 |
+| `auth_account_throttle_enabled` | built | `0` | `1` (per-account failed sign-in cap on top of the per-IP limiter; note a deliberate lock-out of a named account is possible for its window) | Security owner | SEC-01 |
+| `auth_account_throttle_max` | built | `10` | `10` failed sign-ins per account per window | Security owner | SEC-01 |
+| `auth_account_throttle_window_min` | built | `15` | `15` minutes | Security owner | SEC-01 |
 | `emergency_access_enabled` | built | `0` | `1` once the super_admins who may grant and review are named (a super_admin, never the beneficiary, max 24 h, review within 2 working days by another super_admin — PO decision R7; never waives a qualification) | Security owner + Owner | C-22 |
 | `emergency_access_max_hours` | built | `24` | `24` (hard cap; may only be lowered) | Security owner | C-22 |
 

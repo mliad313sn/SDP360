@@ -156,8 +156,16 @@ module.exports = function fieldRoutes(deps) {
       const err = F.validateTicketPayload(p); if (err) throw Object.assign(new Error(err), { code: 'INVALID' });
       const c = await cfg();
       if (String(c.sdp_api_write_enabled) !== '1') throw Object.assign(new Error('SDP ticket creation is disabled by the administrator (sdp_api_write_enabled)'), { code: 'REJECTED' });
+      // SEC-01 — a site-scoped user opens a request for one of THEIR sites only (canonical name sent); admin tier unscoped
+      let siteName = p.site || null;
+      if (!isAdmin(u)) {
+        const k = (v) => String(v == null ? '' : v).trim().toLowerCase();
+        const mine = (await scopeSites(u)).find((s) => k(s.name) === k(p.site));
+        if (!p.site || !mine) throw Object.assign(new Error(p.site ? `ticket names ${String(p.site).slice(0, 60)}, which is not one of your sites` : 'a ticket must name one of your sites'), { code: 'FORBIDDEN' });
+        siteName = mine.name;
+      }
       const client = deps.sdpClient || require('../services/sdpApiClient').makeSdpClient({ baseUrl: c.sdp_api_base_url, accountsUrl: c.sdp_api_accounts_url, allowHosts: require('../services/safeUrl').allowHostsFromConfig(c), clientId: c.sdp_api_client_id, clientSecret: c.sdp_api_client_secret, refreshToken: c.sdp_api_refresh_token, writeEnabled: true });
-      const r = await client.createRequest({ subject: String(p.subject).slice(0, 250), description: String(p.description || '').slice(0, 4000), siteName: p.site || null, priority: p.priority || null, requesterEmail: u.email || null });
+      const r = await client.createRequest({ subject: String(p.subject).slice(0, 250), description: String(p.description || '').slice(0, 4000), siteName, priority: p.priority || null, requesterEmail: u.email || null });
       return { request_id: r && r.id ? String(r.id) : null, display_id: r && r.display_id ? String(r.display_id) : null };
     },
   };

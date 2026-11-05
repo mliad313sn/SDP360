@@ -3714,7 +3714,7 @@ app.get('/api/requests', requireReportSession, async (req, res) => {
   } catch (err) { fail(res, err); }
 });
 
-app.get('/api/orgs', requireReportSession, async (req, res) => {
+app.get('/api/orgs', requireReportSession, requireSuperAdmin, async (req, res) => {
   try {
     const token = await getValidToken();
     const r = await axios.get(`${CONFIG.analyticsApi}/orgs`, { headers: { 'Authorization': `Zoho-oauthtoken ${token}` }, timeout: 10000 });
@@ -3723,7 +3723,7 @@ app.get('/api/orgs', requireReportSession, async (req, res) => {
 });
 
 // Raw diagnostic: shows full response headers + body for any scope error
-app.get('/api/debug/raw-test', requireReportSession, async (req, res) => {
+app.get('/api/debug/raw-test', requireReportSession, requireSuperAdmin, async (req, res) => {
   try {
     const token = await getValidToken();
     let result;
@@ -3749,7 +3749,7 @@ app.get('/api/debug/raw-test', requireReportSession, async (req, res) => {
   }
 });
 
-app.get('/api/workspaces', requireReportSession, async (req, res) => {
+app.get('/api/workspaces', requireReportSession, requireSuperAdmin, async (req, res) => {
   try {
     const token = await getValidToken();
     const r = await axios.get(`${CONFIG.analyticsApi}/workspaces`, { headers: apiHeaders(token), timeout: 10000 });
@@ -3757,7 +3757,7 @@ app.get('/api/workspaces', requireReportSession, async (req, res) => {
   } catch(err) { fail(res, err); }
 });
 
-app.get('/api/views', requireReportSession, async (req, res) => {
+app.get('/api/views', requireReportSession, requireSuperAdmin, async (req, res) => {
   try {
     const token = await getValidToken();
     const r = await axios.get(`${CONFIG.analyticsApi}/workspaces/${CONFIG.workspaceId}/views`, { headers: apiHeaders(token), timeout: 10000 });
@@ -5604,6 +5604,14 @@ app.post('/api/reports/auth/login', loginLimiter, jsonBody, async (req, res) => 
   if (_sso.mode === 'only' && username !== _sso.breakglassUser) {
     return res.status(403).json({ error: 'Password sign-in is disabled — use "Sign in with Microsoft".' });
   }
+  // SEC-01 — per-account failed-login throttle (switch auth_account_throttle_enabled, '0' = today)
+  const _thr = require('./services/accountThrottle'), _thrS = _thr.settings(await require('./services/reportConfig').getConfig(rdb.db).catch(() => ({})));
+  const _blk = await _thr.check(rdb, username, _thrS);
+  if (_blk.blocked) {
+    rdb.logEvent({ category:'auth', action:'login_failed', actor: username, ip: req.ip, details:{ reason:'account_throttled' } });
+    res.setHeader('Retry-After', _blk.retryAfterSec);
+    return res.status(429).json({ error: 'Too many failed sign-ins for this account. Please wait before trying again.' });
+  }
   try {
     const result = await rdb.login(username, password);
     // Step 4 — every use of the break-glass account is a RISK event (System Logs), success or not.
@@ -5612,8 +5620,10 @@ app.post('/api/reports/auth/login', loginLimiter, jsonBody, async (req, res) => 
     }
     if (!result) {
       rdb.logEvent({ category:'auth', action:'login_failed', actor: username || 'anonymous', ip: req.ip, details:{ reason:'invalid_credentials' } });
+      await _thr.recordFailure(rdb, username, _thrS);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
+    await _thr.clear(rdb, username, _thrS);
     rdb.logEvent({ category:'auth', action:'login_success', actor:(result.user && result.user.username) || username, actor_id:(result.user && result.user.id) || null, ip: req.ip });
     // SECURITY: If token is also set as a cookie, apply httpOnly + Secure + SameSite flags.
     // httpOnly prevents JavaScript from reading the cookie (XSS protection).
@@ -7189,7 +7199,7 @@ app.get('/api/notes', requireReportSession, (req, res) => {
   }
 });
 
-app.post('/api/notes', requireReportSession, express.json({ limit: '1mb' }), (req, res) => {
+app.post('/api/notes', requireReportSession, requireExecutiveOrSuperAdmin, express.json({ limit: '1mb' }), (req, res) => {
   try {
     const dataDir = path.join(__dirname, 'data');
     if (!fs.existsSync(dataDir)) fs.mkdirSync(dataDir, { recursive: true });
@@ -7203,11 +7213,11 @@ app.post('/api/notes', requireReportSession, express.json({ limit: '1mb' }), (re
 });
 
 // ── CHART IMAGE EXPORT (temporary — for PPTX generation) ─────────
-app.post('/api/save-charts', requireReportSession, express.json({ limit: '50mb' }), (req, res) => {
+app.post('/api/save-charts', requireReportSession, requireRole('report-author'), express.json({ limit: '50mb' }), (req, res) => {
   try {
     const outPath = path.join(__dirname, 'data', 'chart_images.json');
     fs.writeFileSync(outPath, JSON.stringify(req.body));
-    res.json({ ok: true, path: outPath });
+    res.json({ ok: true });   // SEC-01: never the server's absolute path
   } catch(e) { fail(res, e); }
 });
 
