@@ -16,6 +16,19 @@ const fs = require('fs');
 const path = require('path');
 const ROOT = path.join(__dirname, '..', '..');
 const OUT = path.join(ROOT, 'docs', 'ops', 'METRIC-WIDGET-MAP.md');
+// E-V01 — hand-kept triage status per metric (KPI committee); the generator only reads it.
+const TRIAGE_REL = path.join('docs', 'ux', 'METRIC-TRIAGE.json');
+
+function readTriage(root) {
+  const p = path.join(root, TRIAGE_REL);
+  if (!fs.existsSync(p)) return { metrics: {} };
+  return JSON.parse(read(p));
+}
+// Registry metrics the triage file does not list (a new metric must be added as 'untriaged').
+function missingTriage(rows, triage) {
+  const m = (triage && triage.metrics) || {};
+  return rows.filter((r) => !m[r.key]).map((r) => r.key);
+}
 
 const read = (p) => fs.readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
 function walk(dir, re, out = []) {
@@ -61,6 +74,8 @@ function build({ root = ROOT } = {}) {
   for (const f of fs.readdirSync(root)) if (/\.js$/.test(f)) files.push(path.join(root, f));
   const sources = files.map((p) => ({ file: rel(root, p), text: read(p) })).filter((s) => !DEFINERS.has(s.file) && !/\.suite-manifest\.json$/.test(s.file));
 
+  const triage = readTriage(root);
+  const tri = triage.metrics || {};
   const rows = [];
   for (const m of SEED) {
     const widgets = [];
@@ -73,7 +88,7 @@ function build({ root = ROOT } = {}) {
       if (!re.test(s.text)) continue;
       (by[classify(s.file)] = by[classify(s.file)] || []).push(s.file);
     }
-    rows.push({ key: m.key, module: m.module, unit: m.unit, widgets, rules, by });
+    rows.push({ key: m.key, module: m.module, unit: m.unit, widgets, rules, by, triage: tri[m.key] ? tri[m.key].status : null });
   }
 
   const code = (v) => '`' + v + '`';
@@ -97,10 +112,13 @@ function build({ root = ROOT } = {}) {
   L.push('');
   L.push('## Per metric');
   L.push('');
-  L.push('| Metric | Module | Unit | Dashboard widgets (dashboard#widget) | Alert rules | Pages | Browser libraries | Exports | API routes | Server code | Tests |');
-  L.push('|---|---|---|---|---|---|---|---|---|---|---|');
+  L.push('Triage = status recorded by the KPI committee in `docs/ux/METRIC-TRIAGE.json` (`untriaged` until decided; `MISSING` = the');
+  L.push('metric is absent from that file and `--check` fails).');
+  L.push('');
+  L.push('| Metric | Module | Unit | Triage | Dashboard widgets (dashboard#widget) | Alert rules | Pages | Browser libraries | Exports | API routes | Server code | Tests |');
+  L.push('|---|---|---|---|---|---|---|---|---|---|---|---|');
   for (const r of rows) {
-    L.push(`| ${code(r.key)} | ${r.module} | ${r.unit} | ${list(r.widgets)} | ${list(r.rules)} | ${list(r.by.pages)} | ${list(r.by['browser libraries'])} | ${list(r.by.exports)} | ${list(r.by['API routes'])} | ${list(r.by['server code'])} | ${r.by.tests ? r.by.tests.length + ' file(s)' : '—'} |`);
+    L.push(`| ${code(r.key)} | ${r.module} | ${r.unit} | ${r.triage || 'MISSING'} | ${list(r.widgets)} | ${list(r.rules)} | ${list(r.by.pages)} | ${list(r.by['browser libraries'])} | ${list(r.by.exports)} | ${list(r.by['API routes'])} | ${list(r.by['server code'])} | ${r.by.tests ? r.by.tests.length + ' file(s)' : '—'} |`);
   }
   L.push('');
   if (unused.length) {
@@ -111,12 +129,14 @@ function build({ root = ROOT } = {}) {
     for (const r of unused) L.push(`- ${code(r.key)}`);
     L.push('');
   }
-  return { markdown: L.join('\n'), rows };
+  return { markdown: L.join('\n'), rows, missingTriage: missingTriage(rows, triage) };
 }
 
 function main(argv = process.argv.slice(2)) {
-  const md = build().markdown;
+  const built = build();
+  const md = built.markdown;
   if (argv.includes('--check')) {
+    if (built.missingTriage.length) { console.error('METRIC-TRIAGE.json is missing: ' + built.missingTriage.join(', ') + ' — add each as "untriaged"'); return 1; }
     const cur = fs.existsSync(OUT) ? read(OUT) : '';
     if (cur !== md) { console.error('METRIC-WIDGET-MAP.md is out of date — run: node tools/agent/metric-map.js'); return 1; }
     console.log('metric-widget map up to date'); return 0;
@@ -127,4 +147,4 @@ function main(argv = process.argv.slice(2)) {
 }
 
 if (require.main === module) process.exit(main());
-module.exports = { build, main, classify, keyRe, OUT };
+module.exports = { build, main, classify, keyRe, OUT, readTriage, missingTriage, TRIAGE_REL };
