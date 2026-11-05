@@ -25,6 +25,11 @@ const TRANSLATED_PAGES = {
   'trackers.html': { dict: 'I18N_FR_TRACKERS', file: 'trackers.fr.js', runtimeInSource: true },
   'portfolio.html': { dict: 'I18N_FR_PORTFOLIO', file: 'portfolio.fr.js', runtimeInSource: true },
   'rfi.html': { dict: 'I18N_FR_RFI', file: 'rfi.fr.js', runtimeInSource: true },
+  // C-26 (G27) — the remaining shell pages of the helpdesk / group / executive audience.
+  'index.html': { dict: 'I18N_FR_INDEX', file: 'index.fr.js', runtimeInSource: true },
+  'analytics.html': { dict: 'I18N_FR_ANALYTICS', file: 'analytics.fr.js', runtimeInSource: true },
+  'dashboards.html': { dict: 'I18N_FR_DASHBOARDS', file: 'dashboards.fr.js', runtimeInSource: true },
+  'executive.html': { dict: 'I18N_FR_EXECUTIVE', file: 'executive.fr.js', runtimeInSource: true },
 };
 
 // A-09b — whole regions of a translated page left out of the coverage check, with the reason. Each marker
@@ -50,6 +55,8 @@ function cutRegions(page, html) {
 const ALREADY_FR = 'already French';
 const CODE = 'option without a value attribute: its text IS the code posted to the API';
 const fr = (list) => Object.fromEntries(list.map((k) => [k, ALREADY_FR]));
+const SDP_LABEL = 'ServiceDesk Plus picklist label quoted so users can self-trace (the page says labels match SDP exactly)';
+const names = (list) => Object.fromEntries(list.map((k) => [k, 'proper name (site / IT group / product) — data']));
 const ALLOW = {
   'site-actions.html': {},
   'meeting.html': {},
@@ -85,6 +92,22 @@ const ALLOW = {
   'portfolio.html': { 'programme': CODE, 'objective': CODE, 'project': CODE, 'milestone': CODE, 'deliverable': CODE, 'risk': CODE, 'task': CODE,
     'on_track · at_risk · planned · active · done · open': 'status codes typed into the field', 'helpdesk.resolution_sla_pct': 'metric key example' },
   'rfi.html': { 'NET-12': 'project key example (placeholder)' },
+  // C-26 — site and IT-group names are data (option labels the filters match on), never translated.
+  'index.html': {},
+  'analytics.html': names(['Sabodala', 'MANA', 'Hounde', 'Ity', 'Wahgnion', 'Lafigue', 'Ouagadougou', 'Abidjan', 'Dakar']),
+  'dashboards.html': {},
+  'executive.html': Object.assign(names(['Endeavour Mining', 'Abidjan', 'Exploration', 'Houndé', 'ITY', 'Kalana', 'Lafigue / Lafigue-SML', 'Mana',
+    'Ouagadougou', 'Sabodala', 'Tanda', 'Abidjan IT Agents', 'Exploration BF Support', 'Exploration CI Support', 'Exploration IT Support',
+    'Hounde IT Agents', 'ITY IT Agents', 'Kalana IT Agents', 'Lafigue IT Agents', 'Mana IT Agent', 'Ouaga IT Agents', 'Sabodala IT Agents',
+    'Tanda IT Agents', 'Benchmark Support Team', 'CELOXIS Support Agents', 'EDV Academy Team', 'EDV SharePoint Support', 'EQS ONEIT Support Agents',
+    'ERP Support', 'Infosec Team', 'Ivalua Support Team', 'ManageEngine ServiceDesk Plus', 'My Path Support Agents', 'Oracle Support']),
+  { 'Dec: 1,472': 'placeholder figure overwritten by the live value', '🔗 Analytics Plus API': 'product name',
+    'PIR': 'acronym kept in French (glossary)', 'RCA': 'acronym kept in French (glossary)', 'MTTR': 'acronym kept in French (glossary)',
+    'CSAT': 'acronym kept in French (glossary)', 'RAG': 'acronym kept in French (glossary)',
+    'request rework': SDP_LABEL, 'Successful': SDP_LABEL, 'Successful with issues': SDP_LABEL, 'Deferred': SDP_LABEL,
+    'Rework requested': SDP_LABEL, 'Pending decision': SDP_LABEL,
+    '1 (user had to follow up to push things forward). Lower % = smoother service. Target':
+      'not a text node: scan artefact inside the Multi-Touch title attribute (">1"); the whole title is translated' }),
 };
 
 // Shell pages that already translate their own body (data-lng blocks or their own I18nText install).
@@ -93,10 +116,9 @@ const SELF_TRANSLATED = ['access.html', 'cockpit.html', 'coverage.html', 'commit
 // Shell pages not translated yet, with the reason (A-09b covers the coordinator pages listed there).
 const UNTRANSLATED = {
   'project.html': 'A-14 project page, added after A-09b — French pending',
-  'analytics.html': 'executive / group audience, English', 'executive.html': 'executive audience, English',
   'executive-report.html': 'deck builder, decks stay English (D-2)', 'it-review.html': 'faithful port of the executive dashboard, English',
-  'index.html': 'helpdesk dashboard, group audience, English', 'integrations.html': 'admin console, English', 'system-logs.html': 'admin console, English',
-  'dashboard-composer.html': 'admin authoring, English', 'dashboards.html': 'group dashboards, English', 'report-studio.html': 'report authoring, English',
+  'integrations.html': 'admin console, English', 'system-logs.html': 'admin console, English',
+  'dashboard-composer.html': 'admin authoring, English', 'report-studio.html': 'report authoring, English',
   'tracker-builder.html': 'admin authoring, English', 'notifications.html': 'not a coordinator field page yet',
   'inspections.html': 'list page — next pass', 'inspection-actions.html': 'list page — next pass', 'meetings.html': 'list page — next pass',
   'meetings-actions.html': 'list page — next pass', 'meetings-council.html': 'list page — next pass', 'meetings-issues.html': 'list page — next pass',

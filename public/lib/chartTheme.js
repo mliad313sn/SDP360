@@ -77,6 +77,20 @@
    * spec = { title, labels:[], datasets:[{label, data:[], unit?}], unit?, state? }
    * state ∈ LOADING | VALID | ZERO | NO_DATA | STALE | ERROR (see analyticsLogic.STATES). */
   var ChartTable = (function () {
+    /* C-26 (G27) — French for the generated strings, through the page switch: only when boot.js marked
+     * <html data-i18n="on"> (ui_i18n_pages='1') AND the reader's language is French. Dictionary: I18N_FR_CHARTS
+     * (lib/i18n/common.fr.js). Labels and figures are data and never pass through here. */
+    function L(k, vars) {
+      var g = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : {});
+      var s = k;
+      try {
+        var de = g.document && g.document.documentElement;
+        var on = de && de.dataset && de.dataset.i18n === 'on' && g.I18nText && g.I18nText.lang() === 'fr';
+        var d = on && g.I18N_FR_CHARTS;
+        if (d && Object.prototype.hasOwnProperty.call(d, k)) s = d[k];
+      } catch (e) { /* English */ }
+      return vars ? s.replace(/\{(\w+)\}/g, function (m, n) { return vars[n] != null ? String(vars[n]) : m; }) : s;
+    }
     function esc(x) {
       return String(x == null ? '' : x).replace(/[&<>"']/g, function (c) {
         return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
@@ -98,8 +112,8 @@
     function rows(spec) {
       var s = spec || {};
       var labels = s.labels || [], sets = s.datasets || [];
-      var head = [s.labelHead || 'Label'].concat(sets.map(function (d) {
-        var u = unitOf(d, s); return (d.label || 'Value') + (u ? ' (' + u + ')' : '');
+      var head = [s.labelHead || L('Label')].concat(sets.map(function (d) {
+        var u = unitOf(d, s); return (d.label || L('Value')) + (u ? ' (' + u + ')' : '');
       }));
       var body = labels.map(function (l, i) {
         return [l == null || l === '' ? '—' : String(l)].concat(sets.map(function (d) { return fmt((d.data || [])[i]); }));
@@ -109,9 +123,9 @@
 
     function summary(spec) {
       var s = spec || {};
-      var title = s.title || 'Chart';
-      if (s.state === 'ERROR') return title + ' — data unavailable (load error).';
-      if (s.state === 'LOADING') return title + ' — loading.';
+      var title = s.title || L('Chart');
+      if (s.state === 'ERROR') return L('{title} — data unavailable (load error).', { title: title });
+      if (s.state === 'LOADING') return L('{title} — loading.', { title: title });
       var labels = s.labels || [], sets = s.datasets || [];
       var parts = [];
       sets.forEach(function (d) {
@@ -124,22 +138,22 @@
         });
         if (!hi) return;
         var u = unitOf(d, s);
-        var p = (d.label ? d.label + ': ' : '') + 'highest ' + hi.l + ' (' + withUnit(hi.v, u) + ')';
-        if (lo && lo.l !== hi.l) p += ', lowest ' + lo.l + ' (' + withUnit(lo.v, u) + ')';
-        if (missing) p += ', ' + missing + ' not measured';
+        var p = (d.label ? L('{label}: ', { label: d.label }) : '') + L('highest {label} ({value})', { label: hi.l, value: withUnit(hi.v, u) });
+        if (lo && lo.l !== hi.l) p += L(', lowest {label} ({value})', { label: lo.l, value: withUnit(lo.v, u) });
+        if (missing) p += L(', {n} not measured', { n: missing });
         parts.push(p);
       });
-      if (!parts.length || s.state === 'NO_DATA') return title + ' — no data for this period.';
-      var lead = s.state === 'STALE' ? 'Source not current. ' : '';
-      return lead + title + ' — ' + labels.length + ' rows. ' + parts.join('; ') + '.';
+      if (!parts.length || s.state === 'NO_DATA') return L('{title} — no data for this period.', { title: title });
+      var lead = s.state === 'STALE' ? L('Source not current. ') : '';
+      return lead + L('{title} — {n} rows. ', { title: title, n: labels.length }) + parts.join('; ') + '.';
     }
 
     function html(spec) {
       var s = spec || {};
-      var cap = esc(s.title || 'Chart') + ' — data table';
-      var out = '<summary>Data table</summary>';
-      if (s.state === 'NO_DATA' || !(s.labels || []).length) return out + '<p class="edv-chart-empty">No data for this period.</p>';
-      if (s.state === 'STALE') out += '<p class="edv-chart-stale">Source not current — figures shown as last synced, colour withheld.</p>';
+      var cap = esc(L('{title} — data table', { title: s.title || L('Chart') }));
+      var out = '<summary>' + esc(L('Data table')) + '</summary>';
+      if (s.state === 'NO_DATA' || !(s.labels || []).length) return out + '<p class="edv-chart-empty">' + esc(L('No data for this period.')) + '</p>';
+      if (s.state === 'STALE') out += '<p class="edv-chart-stale">' + esc(L('Source not current — figures shown as last synced, colour withheld.')) + '</p>';
       var t = rows(s);
       out += '<table class="edv-chart-table__t"><caption>' + cap + '</caption><thead><tr>' +
         t.head.map(function (h, i) { return '<th scope="col"' + (i ? ' class="num"' : '') + '>' + esc(h) + '</th>'; }).join('') +
@@ -202,11 +216,11 @@
       var det = d.getElementById(target.id + '-table');
       if (det && det.parentNode) det.parentNode.removeChild(det);
       if (String(target.tagName || '').toUpperCase() === 'CANVAS' && target.setAttribute) {
-        target.setAttribute('aria-label', 'Chart data unavailable.');
+        target.setAttribute('aria-label', L('Chart data unavailable.'));
         if (target.removeAttribute) target.removeAttribute('aria-describedby');
       }
     }
-    return { rows: rows, summary: summary, html: html, attach: attach, detach: detach, esc: esc };
+    return { rows: rows, summary: summary, html: html, attach: attach, detach: detach, esc: esc, L: L };
   })();
 
 
@@ -248,7 +262,7 @@
       var h = box && box.querySelector ? box.querySelector('h1,h2,h3,h4,.card-title,.panel-title') : null;
       if (h && h.textContent) title = String(h.textContent).replace(/\s+/g, ' ').trim();
     }
-    title = title || 'Chart';
+    title = title || ChartTable.L('Chart');
     if (cv.setAttribute) cv.setAttribute('data-chart-title', title);
     return title;
   }
