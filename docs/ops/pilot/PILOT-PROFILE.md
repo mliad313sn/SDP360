@@ -76,6 +76,7 @@ planned switch cannot be set before its goal lands.
 | `emergency_access_enabled` | built | `0` | `1` once the super_admins who may grant and review are named (a super_admin, never the beneficiary, max 24 h, review within 2 working days by another super_admin — PO decision R7; never waives a qualification) | Security owner + Owner | C-22 |
 | `emergency_access_max_hours` | built | `24` | `24` (hard cap; may only be lowered) | Security owner | C-22 |
 | `kpi_policy_enforced` | built | `0` | `0` until the KPI committee has ADOPTED a resolution-SLA policy on `/kpi-builder.html` (two different members: author ≠ adopter, with the session reference) and read the shadow comparison; then `1` (the Helpdesk tile, ranking and trend follow the adopted version) | KPI committee + Owner | C-31 |
+| `site_local_calendar` | built | `0` | `0` while every reporting site is UTC+0; `1` only when a non-UTC site (e.g. the London office) is reported and its time zone (`sites.time_zone`, else from its country) is confirmed — only the calendar-month helpdesk figures move | Owner + Finance (month-end figures) | D-07 |
 
 Not in this table because they are not top-level `report_config` keys:
 

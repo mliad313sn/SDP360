@@ -2853,7 +2853,7 @@ function getCalendarMonthlyTop10(site_id, year, month) {
 // GROUP BY category → GROUP BY 1 (sqlite binds the COALESCE alias; pg the raw col).
 async function _getCalendarMonthlyHelpdeskPg(site_id, year, month) {
   const H = pgHandle();
-  const siteRow = await H.prepare('SELECT zoho_group FROM sites WHERE id=?').get(site_id);
+  const siteRow = await H.prepare('SELECT zoho_group, country, time_zone FROM sites WHERE id=?').get(site_id);
   if (!siteRow || !siteRow.zoho_group) return null;
   const groups = siteRow.zoho_group.split(',').map(g => g.trim()).filter(Boolean);
   if (!groups.length) return null;
@@ -2861,8 +2861,13 @@ async function _getCalendarMonthlyHelpdeskPg(site_id, year, month) {
   const from  = `${year}-${String(month).padStart(2,'0')}-01`;
   const lastD = new Date(year, month, 0);
   const to    = `${lastD.getFullYear()}-${String(lastD.getMonth()+1).padStart(2,'0')}-${String(lastD.getDate()).padStart(2,'0')}`;
-  const gft = [...groups, from, to];
-  const DR = `tech_group IN (${inClause}) AND created_time::date>=?::date AND created_time::date<=?::date`;
+  // D-07: site_local_calendar = '1' buckets the month on the site's local date (sites.time_zone, else its country);
+  // '0' (default) = UTC dates, today. Other helpdesk readers stay UTC (follow-up, docs/agent-execution/D-070910.md).
+  const lc = await H.prepare("SELECT value FROM report_config WHERE key='site_local_calendar'").get().catch(() => null);
+  const tz = require('./services/siteTimeZone').siteTimeZone(siteRow, lc ? lc.value : '0');
+  const CD = tz ? '(created_time::timestamptz AT TIME ZONE ?)::date' : 'created_time::date';
+  const gft = tz ? [...groups, tz, from, tz, to] : [...groups, from, to];
+  const DR = `tech_group IN (${inClause}) AND ${CD}>=?::date AND ${CD}<=?::date`;
   const total = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR}`).get(...gft)).n;
   // UAT ITSM-03: no ticket → no closure rate (null), never a red 0 %.
   if (!total) return { inbound:0, closed:0, close_pct:null, sla_res_pct:null, sla_reply_pct:null, source:'calendar' };

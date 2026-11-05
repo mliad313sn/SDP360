@@ -22,9 +22,9 @@ in `tests/e2e/` must appear in this table.
 | Site editor | `editor`, own site | Switch the interface to French and open the manual | `public/site-actions.html` | `public/help.html` | `tests/e2e/t7-french-help.spec.js` |
 | Site editor | `editor`, own site | Reach Portfolio using only the keyboard | `public/login.html` | `public/portfolio.html` | `tests/e2e/t8-keyboard-portfolio.spec.js` |
 | Field technician | `field-tech`, own site | Record a quick inspection with a photo offline, then sync | `public/field/index.html` | `public/inspection.html` | `tests/e2e/t3-field-inspection.spec.js` |
-| Admin (Group IT) | `admin` | See the helpdesk backlog and SLA across sites | `public/index.html` | `public/index.html` | not covered |
-| Admin (Group IT) | `admin` | Check infrastructure and WAN health of a site | `public/infra-health.html` | `public/wan.html` | not covered |
-| Executive | `executive` | Tell which site is worst this month and why | `public/executive.html` | `public/dashboards.html` | not covered |
+| Admin (Group IT) | `admin` | See the helpdesk backlog and SLA across sites | `public/index.html` | `public/index.html` | `tests/e2e/u3-admin-helpdesk-infra.spec.js` |
+| Admin (Group IT) | `admin` | Check infrastructure and WAN health of a site | `public/infra-health.html` | `public/wan.html` | `tests/e2e/u3-admin-helpdesk-infra.spec.js` |
+| Executive | `executive` | Tell which site is worst this week and why (Helpdesk resolution-SLA ranking, worst first, with the missed count; then a published dashboard) | `public/executive.html` | `public/index.html` | `tests/e2e/u4-executive-worst-site.spec.js` |
 | Executive | `executive` | Read the IT Review scoreboard and open the scorecard (an editor is refused the review data) | `public/it-review.html` | `public/executive.html` | `tests/e2e/u2-executive-review.spec.js` |
 | Multi-site coordinator (two countries) | `editor`, primary + extra site | See only their own sites' reports, then work in French | `public/reports.html` | `public/reports.html` | `tests/e2e/u1-multisite-french.spec.js` |
 | super_admin | `super_admin` | Change a delivery setting or a user's role | `public/reports.html` | `public/access.html` | not covered |
@@ -39,7 +39,7 @@ in `tests/e2e/` must appear in this table.
 | super_admin | `super_admin` (granter) + a second `super_admin` (reviewer) | Grant an emergency access of at most 24 h, see its review flagged overdue, have it reviewed by someone else, see it end (C-23) | `public/access.html` | `public/access.html` | `tests/e2e/i5-emergency-access.spec.js` |
 | Site IT coordinator | `editor`, own site (outgoing / incoming technician) | Hand the shift over; it stays pending until the incoming person accepts it (C-23) | `public/coverage.html` | `public/coverage.html` | `tests/e2e/i6-shift-handover.spec.js` |
 | super_admin | `super_admin` | Rotate a stored integration key: the old one stops working, no secret comes back to the browser or the journal; anonymous visitors never get the API key (C-23) | `public/reports.html` | `public/reports.html` | `tests/e2e/i7-secret-rotation.spec.js` |
-| Scorecard viewer | `scorecard-viewer` | Read the executive scorecard without write powers | `public/executive.html` | `public/analytics.html` | not covered |
+| Scorecard viewer | `scorecard-viewer` | Read the executive scorecard without write powers | `public/executive.html` | `public/analytics.html` | `tests/e2e/u5-scorecard-viewer.spec.js` |
 | Committee member (Group IT, extra) | `viewer` + `committee-member` | Prepare Friday's agenda from the cadence | `public/cockpit.html` | `public/cockpit.html` | `tests/e2e/t4-cockpit-agenda.spec.js` |
 
 ## Coverage summary
@@ -48,14 +48,17 @@ in `tests/e2e/` must appear in this table.
   shift-handover journeys), site editor (4 of 4), field technician (2 of 2), committee member (1 of 1), site
   admin (access decisions); super_admin: three cross-cutting checks (viewport layout, filter race, exports) and
   the C-23 emergency-access and secret-rotation journeys, not the two task journeys above.
-- **Not covered by any browser journey test**: admin, executive, super_admin and scorecard-viewer journeys, two of
+- (before the AMDEC campaign) **Not covered by any browser journey test**: admin, executive, super_admin and scorecard-viewer journeys, two of
   the three coordinator journeys. These are the gaps a person should plan sessions or new e2e journeys for.
 - Covered by a browser journey test: coordinator (1 of 3), site editor (4 of 4), field technician (1 of 1),
   committee member (1 of 1); super_admin: three cross-cutting checks (viewport layout, filter race, exports),
   not the two task journeys above.
 - AMDEC campaign 2026-11-05 (agent-run, not user acceptance) added: executive IT Review + scorecard (U2) and the
-  multi-site coordinator in French (U1).
-- **Not covered by any browser journey test**: admin, the executive "worst site" journey, super_admin and
+  multi-site coordinator in French (U1); follow-up D-10 added the admin helpdesk + infrastructure/WAN journey (U3),
+  the executive "worst site" journey (U4) and the scorecard-viewer read-only journey (U5), on fictitious tickets.
+- **Still not covered after D-10**: the two super_admin task journeys (settings / role change, security journal)
+  and two of the three single-site coordinator journeys (tracker entry, PV write and sign).
+- (after the AMDEC campaign, before D-10) **Not covered by any browser journey test**: admin, the executive "worst site" journey, super_admin and
   scorecard-viewer journeys, two of the three single-site coordinator journeys. These are the gaps a person should plan sessions or new e2e journeys for.
 - Personas from the committee report not mapped here because they have no separate account role today: analyst,
   business GM/FM (`site-business` lands on `public/site-awareness.html`), PMO.

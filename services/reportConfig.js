@@ -295,6 +295,11 @@ DEFAULTS.emergency_access_max_hours = '24';
 // stores, validates and shadow-compares policies. '1' → the Helpdesk page's resolution-SLA tile, ranking and trend
 // read the committee-ADOPTED policy of helpdesk.resolution_sla_pct (no adopted policy = today's rule).
 DEFAULTS.kpi_policy_enforced = '0';
+// D-07 (AMDEC AM-08) — per-site local calendar (migration 066, sites.time_zone; NULL = the country's zone). '0' = today:
+// every helpdesk month is bucketed on UTC dates. '1' → the calendar-month helpdesk reader (getCalendarMonthlyHelpdesk)
+// buckets a site's tickets on its LOCAL date (a London ticket at 00:30 BST on 1 Sept counts in September). Other
+// readers stay UTC for now (follow-up). Only matters for a non-UTC site (all West-African sites are UTC+0).
+DEFAULTS.site_local_calendar = '0';
 const KEYS = Object.keys(DEFAULTS);
 
 // Secrets that the GET handler redacts to '' — a Save that doesn't retype them must

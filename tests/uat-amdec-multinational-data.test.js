@@ -88,6 +88,28 @@ test('DAT-06 time zone: a London ticket raised 00:30 BST on 1 Sept is counted in
   assert.equal((await rdb.getCalendarMonthlyHelpdesk(w.S['London Office'].id, 2026, 9)).inbound, 0);
 });
 
+test('DAT-06b D-07 site_local_calendar = 1: the London ticket counts in September (Europe/London from GB); Dakar (UTC+0) unchanged; the column wins', async () => {
+  const cfg = require('../services/reportConfig');
+  const L = w.S['London Office'].id, D = w.S.Dakar.id;
+  await ticket({ group: String(w.S.Dakar.zoho_group || 'Dakar IT Agents').split(',')[0].trim(), site: 'Dakar', created: '2026-08-31T23:30:00Z', pending: true });
+  const dAug = (await rdb.getCalendarMonthlyHelpdesk(D, 2026, 8)).inbound;
+  assert.equal(String((await cfg.getConfig(rdb.db)).site_local_calendar), '0', 'default = today (UTC)');
+  await cfg.setConfig(rdb.db, { site_local_calendar: '1' }, 'test');
+  try {
+    assert.equal((await rdb.getCalendarMonthlyHelpdesk(L, 2026, 8)).inbound, 0);
+    assert.equal((await rdb.getCalendarMonthlyHelpdesk(L, 2026, 9)).inbound, 1, '00:30 BST on 1 Sept is September in London');
+    assert.equal((await rdb.getCalendarMonthlyHelpdesk(D, 2026, 8)).inbound, dAug, 'Africa/Dakar is UTC+0: nothing moves');
+    await rdb.db.prepare("UPDATE sites SET time_zone='UTC' WHERE id=?").run(L);
+    assert.equal((await rdb.getCalendarMonthlyHelpdesk(L, 2026, 8)).inbound, 1, 'an explicit sites.time_zone wins over the country');
+    await rdb.db.prepare("UPDATE sites SET time_zone='Not/AZone' WHERE id=?").run(L);
+    assert.equal((await rdb.getCalendarMonthlyHelpdesk(L, 2026, 8)).inbound, 1, 'an invalid zone falls back to UTC, never a 500');
+  } finally {
+    await rdb.db.prepare('UPDATE sites SET time_zone=NULL WHERE id=?').run(L);
+    await cfg.setConfig(rdb.db, { site_local_calendar: '0' }, 'test');
+  }
+  assert.equal((await rdb.getCalendarMonthlyHelpdesk(L, 2026, 8)).inbound, 1, 'switch back off → UTC again');
+});
+
 test('DAT-07 large-volume site: 20 000 Houndé tickets; month reader and site report stay under their (generous) budgets', async () => {
   const vals = [];
   for (let i = 0; i < 20000; i++) vals.push(`('UAT-V${i}','${i % 4 ? 'Closed' : 'Open'}',${i % 4 ? 0 : 1},${i % 7 ? 0 : 1},'Hounde IT Agents','2026-${String(1 + (i % 9)).padStart(2, '0')}-${String(1 + (i % 28)).padStart(2, '0')}T08:00:00Z','2026-09-29T12:00:00Z')`);

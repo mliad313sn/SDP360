@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (154) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (155) — services/reportConfig.js DEFAULTS
 
 | Key | Default (today) | Kind | Owner | Recommended pilot value | Reference |
 |---|---|---|---|---|---|
@@ -131,6 +131,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `shift_handover_enabled` | `0` | arm switch | Site IT lead + Owner | `1` on the pilot site once the incoming / outgoing people of each shift are on the duty roster (handover must be accepted by the incoming person; never automatic) | C-21 |
 | `shift_handover_flag_hours` | `8` | setting | Site IT lead | `8` (a handover still pending after this many hours is flagged on the page) | C-21 |
 | `site_codes_from_registry` | `0` | setting | to be named | — | — |
+| `site_local_calendar` | `0` | setting | Owner + Finance (month-end figures) | `0` while every reporting site is UTC+0; `1` only when a non-UTC site (e.g. the London office) is reported and its time zone (`sites.time_zone`, else from its country) is confirmed — only the calendar-month helpdesk figures move | D-07 |
 | `site_score_published_model` | `legacy` | setting | Owner (D-1) | `programme` | A-11 |
 | `sla_wan_config` | `{"notify":{"enabled":false,"trigger_minutes":15,"from_nam…` | setting | to be named | — | — |
 | `smtp_host` | `` | setting | to be named | — | — |
