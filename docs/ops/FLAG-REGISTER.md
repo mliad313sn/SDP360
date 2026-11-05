@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (157) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (158) — services/reportConfig.js DEFAULTS
 
 | Key | Default (today) | Kind | Owner | Recommended pilot value | Reference |
 |---|---|---|---|---|---|
@@ -63,6 +63,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `exec_view_change_formula` | `status` | setting | KPI committee (D-01) | `deck` | A-08 |
 | `exec_view_lang` | `en` | setting | to be named | — | — |
 | `exec_view_mi_detail` | `full` | setting | Owner (reverses the 2026-07-02 "option a") | `summarized_only` | A-08 |
+| `field_outbox_resolve_enabled` | `0` | arm switch | PO + site IT | `0` until the real-device sessions (E-F04, audit F-01) show how often field entries get stuck — otherwise an admin repair becomes the normal path (X-§7-01); then `1` (admin tier may `mark_rejected` or `release` a stuck entry; a ticket / action is released only after checking SDP, with a reason; every resolution is a risk row in System Logs; nothing is applied server-side). The read-only list `GET /api/field/admin/outbox` has no switch | E-F01 |
 | `field_photo_max_kb` | `300` | setting | to be named | — | — |
 | `formats` | `html,pdf` | setting | to be named | — | — |
 | `from` | `` | setting | to be named | — | — |

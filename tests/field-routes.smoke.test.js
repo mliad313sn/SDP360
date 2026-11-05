@@ -113,3 +113,49 @@ test('meetings action closed from the field: "closed" (old phones, queued envelo
   const after = (await mdb.getMeeting(saved.id)).actions;
   for (const a of after) { assert.equal(a.status, 'resolved', a.description); assert.ok(a.closed_at, a.description + ' closed_at set'); }
 });
+
+test('E-F01 admin outbox: list (admin only, no payload), resolve 404 while off, ticket release needs confirmation, released inspection applies once, system_log risk row', async () => {
+  const F = require('../services/fieldOutbox');
+  const cfg = require('../services/reportConfig');
+  const st = require('../routes/field').createStore(rdb);
+  const techUser = (await rdb.listUsers()).find((x) => x.username === 'fd_tech');
+  // a ticket stuck in applying (a crashed send) and an inspection stuck in applying
+  const tkPayload = { subject: 'Stuck ticket' };
+  await st.receive({ uuid: U(40), userId: techUser.id, kind: 'ticket', payloadHash: F.payloadHash(tkPayload) }); await st.claim(U(40), { kind: 'ticket' });
+  const meta = { f_id: 'EM-IT-20261019-0040', f_site: `${hounde.name} (HGO)`, f_date: '2026-10-19', f_area: 'dc', f_inspector: 'Tech', f_type: 'routine' };
+  const inspEnv = { kind: 'inspection', payload: { meta, items: { net__0: { status: 'ok', notes: 'secret note' } }, actions: [] } };
+  await st.receive({ uuid: U(41), userId: techUser.id, kind: 'inspection', payloadHash: F.payloadHash(inspEnv.payload) }); await st.claim(U(41), { kind: 'inspection' });
+
+  assert.equal((await get('/api/field/admin/outbox', tech)).status, 403, 'field-tech');
+  assert.equal((await get('/api/field/admin/outbox', viewer)).status, 403, 'viewer');
+  assert.equal((await get('/api/field/admin/outbox', other)).status, 403, 'site editor');
+  const list = await (await get('/api/field/admin/outbox', admin)).json();
+  assert.equal(list.ok, true); assert.equal(list.resolve_enabled, false); assert.ok(list.stats.applying >= 2);
+  const row = list.items.find((i) => i.uuid === U(41)); assert.ok(row); assert.equal(row.status, 'applying');
+  assert.ok(!JSON.stringify(list).includes('secret note') && !('payload' in row) && !('payload_hash' in row), 'no payload in the admin list');
+
+  const resolve = (n, body) => send('POST', `/api/field/admin/outbox/${U(n)}/resolve`, admin, body);
+  assert.equal((await resolve(41, { action: 'release', reason: 'phone crashed mid-send' })).status, 404, 'switch off → 404');
+  await cfg.setConfig(rdb.db, { field_outbox_resolve_enabled: '1' }, 'test');
+  try {
+    assert.equal((await send('POST', `/api/field/admin/outbox/${U(41)}/resolve`, tech, { action: 'release', reason: 'phone crashed mid-send' })).status, 403);
+    const noConfirm = await resolve(40, { action: 'release', reason: 'checked SDP, nothing created' });
+    assert.equal(noConfirm.status, 400, 'a ticket is not released without confirm_checked_sdp');
+    assert.equal((await st.getOutbox(U(40))).status, 'applying');
+    const rel = await (await resolve(41, { action: 'release', reason: 'phone crashed mid-send' })).json();
+    assert.equal(rel.ok, true); assert.deepEqual([rel.from, rel.to], ['applying', 'failed']);
+    // the phone sends again — twice at the same time: exactly one applies
+    const [a, b] = await Promise.all([put(41, tech, inspEnv), put(41, tech, inspEnv)]);
+    const bodies = [await a.json(), await b.json()];
+    assert.equal(bodies.filter((x) => x.ok && x.duplicate === false).length, 1, 'one send applies');
+    assert.ok(bodies.every((x) => x.ok || x.in_progress), 'the other is a duplicate or in progress');
+    assert.equal((await st.getOutbox(U(41))).status, 'applied');
+    const mr = await (await resolve(40, { action: 'mark_rejected', reason: 'request created by hand in SDP' })).json();
+    assert.equal(mr.to, 'rejected');
+    const again = await (await put(40, tech, { kind: 'ticket', payload: tkPayload })).json();
+    assert.equal(again.duplicate, true); assert.equal(again.status, 'rejected', 'the phone gets a terminal answer, no ticket created');
+    const logs = (await rdb.listSystemLog({ category: 'field' }, { limit: 50 })).rows.filter((r) => r.action === 'field_outbox_resolved');
+    assert.ok(logs.length >= 2); assert.ok(logs.every((r) => Number(r.risk) === 1));
+    assert.ok(logs.some((r) => r.target === U(41) && /phone crashed/.test(r.details) && r.actor === 'fd_admin'));
+  } finally { await cfg.setConfig(rdb.db, { field_outbox_resolve_enabled: '0' }, 'test'); }
+});

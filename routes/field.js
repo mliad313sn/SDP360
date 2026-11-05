@@ -10,6 +10,8 @@ const { fail: httpFail, logError } = require('../services/httpError');
 //   PUT  /api/field/uploads/:id/chunks/:idx  one chunk (base64) — re-sending the same idx is a no-op
 //   POST /api/field/uploads/:id/complete   assemble → blob store → {ref} the inspection payload references
 //   GET  /api/field/uploads/:id            status + missing chunks (resume after a drop)
+//   GET  /api/field/admin/outbox           E-F01 admin tier: unresolved entries + counts (no payloads)
+//   POST /api/field/admin/outbox/:uuid/resolve  E-F01 admin tier, switch field_outbox_resolve_enabled (404 off)
 //
 // Field role gate: `editor` tier OR the feature role `field-tech`. Site scope ALWAYS through
 // services/userSites (never user.site_id ===). Each kind reuses the module's own writer, so the
@@ -106,6 +108,30 @@ module.exports = function fieldRoutes(deps) {
 
   router.get('/api/field/outbox', requireReportSession, requireField, async (req, res) => {
     try { res.json({ ok: true, items: await store.listOutbox(req.reportUser.id, { limit: req.query.limit, since: req.query.since || null }) }); } catch (e) { fail(res, e); }
+  });
+
+  // ── E-F01 admin: unresolved entries (read, ON) + authorised resolution (switch, default OFF) ───────
+  // The list NEVER carries a payload (the ledger holds only its hash). Resolution never applies anything
+  // server-side: mark_rejected ends an entry; release lets the phone's next send apply it exactly once.
+  function requireFieldAdmin(req, res, next) { if (!isAdmin(req.reportUser)) return res.status(403).json({ ok: false, error: 'admin tier required' }); next(); }
+  requireFieldAdmin.legacyRoles = ['admin'];   // C-17 capability catalogue tag (field.outbox.administer)
+  router.get('/api/field/admin/outbox', requireReportSession, requireFieldAdmin, async (req, res) => {
+    try {
+      const q = req.query || {};
+      const since = q.since && /^\d{4}-\d{2}-\d{2}/.test(String(q.since)) ? String(q.since) : null;
+      const items = await store.listUnresolved({ status: q.status || null, kind: q.kind ? String(q.kind) : null, since, olderThanMin: q.older_than_min, limit: q.limit });
+      const c = await cfg();
+      res.json({ ok: true, stats: await store.outboxStats({ since }), items, resolve_enabled: String(c.field_outbox_resolve_enabled) === '1' });
+    } catch (e) { fail(res, e); }
+  });
+  router.post('/api/field/admin/outbox/:uuid/resolve', requireReportSession, requireFieldAdmin, json, async (req, res) => {
+    try {
+      if (String((await cfg()).field_outbox_resolve_enabled) !== '1') return res.status(404).json({ ok: false, error: 'not found' });
+      const b = req.body || {}; const u = req.reportUser;
+      const out = await store.resolve(req.params.uuid, { action: b.action, reason: b.reason, confirmCheckedSdp: b.confirm_checked_sdp === true, actor: u.username });
+      try { await rdb().logEvent({ category: 'field', action: 'field_outbox_resolved', target: out.uuid, risk: 1, details: { resolution: b.action, reason: String(b.reason).trim().slice(0, 500), kind: out.kind, entry_user_id: out.user_id, from: out.from, to: out.to, confirm_checked_sdp: b.confirm_checked_sdp === true }, ...rdb()._logCtx(req) }); } catch (_) { /* best effort */ }
+      res.json({ ok: true, ...out });
+    } catch (e) { fail(res, e); }
   });
 
   // ── applying one envelope, exactly once ───────────────────────────────────────────

@@ -176,6 +176,8 @@ const DEFAULTS = {
   sdp_api_open_filter: 'Open_System',
   // Step 10 — quick action "SDP ticket from a finding": OFF until the CAB approves the CREATE scope.
   sdp_api_write_enabled: '0', field_photo_max_kb: '300',
+  // E-F01 — admin resolution of a stuck field outbox entry (mark_rejected / release). OFF = the route answers 404.
+  field_outbox_resolve_enabled: '0',
   // ── Zoho Analytics connection (helpdesk data), editable in Admin ▸ Intégration API ▸ Analytics
   //    (2026-10-04). BLANK = use .env (ZOHO_CLIENT_ID / ZOHO_CLIENT_SECRET / ZOHO_REFRESH_TOKEN /
   //    WORKSPACE_ID / ORG_ID) — services/analyticsSettings resolves database → .env → default.

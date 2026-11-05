@@ -21,6 +21,15 @@ test('pg: field outbox + uploads parity (idempotent receive, finish, chunk lifec
     assert.equal((await st.receive({ uuid: U, userId: 7, kind: 'inspection', payloadHash: 'h2' })).payload_hash, 'h1');
     const f = await st.finish(U, 'rejected', { error: 'no site' }); assert.equal(f.status, 'rejected'); assert.deepEqual(f.result, { error: 'no site' });
     assert.deepEqual(await st.outboxStats(), { received: 0, applying: 0, applied: 0, rejected: 1, failed: 0 });
+    // E-F01: an unresolved applying row survives the purge; final rows go; resolve works on pg
+    const V = U.replace('2f1e', '9f1e');
+    await st.receive({ uuid: V, userId: 7, kind: 'ticket', payloadHash: 'h' }); await st.claim(V, { kind: 'ticket' });
+    await rdb.pgHandle().prepare("UPDATE field_outbox SET received_at='2020-01-01T00:00:00.000Z'").run();
+    assert.deepEqual(await st.purgeOutbox({ days: 90 }), { deleted: 1, kept_unresolved: 1 });
+    assert.deepEqual((await st.listUnresolved()).map((r) => [r.uuid, r.status, r.not_reclaimable]), [[V, 'applying', true]]);
+    await assert.rejects(st.resolve(V, { action: 'release', reason: 'checked nothing' }), /confirm/);
+    assert.equal((await st.resolve(V, { action: 'release', reason: 'checked SDP: no request', confirmCheckedSdp: true })).to, 'failed');
+    assert.equal((await st.resolve(V, { action: 'mark_rejected', reason: 'abandoned' })).to, 'rejected');
     const up = await st.createUpload({ userId: 7, ownerKind: 'inspection', ownerId: 'EM-IT-1', name: 'p.jpg', mime: 'image/jpeg', size: 3, chunkBytes: 2, chunksTotal: 2 });
     assert.ok(up.id > 0);
     await st.putChunk(up.id, 1, Buffer.from([3]).toString('base64')); await st.putChunk(up.id, 0, Buffer.from([1, 2]).toString('base64'));
