@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (146) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (148) — services/reportConfig.js DEFAULTS
 
 | Key | Default (today) | Kind | Owner | Recommended pilot value | Reference |
 |---|---|---|---|---|---|
@@ -122,6 +122,8 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `sharepoint_list_id` | `` | setting | to be named | — | — |
 | `sharepoint_site_id` | `` | setting | to be named | — | — |
 | `sharepoint_tenant_id` | `` | setting | to be named | — | — |
+| `shift_handover_enabled` | `0` | arm switch | Site IT lead + Owner | `1` on the pilot site once the incoming / outgoing people of each shift are on the duty roster (handover must be accepted by the incoming person; never automatic) | C-21 |
+| `shift_handover_flag_hours` | `8` | setting | Site IT lead | `8` (a handover still pending after this many hours is flagged on the page) | C-21 |
 | `site_codes_from_registry` | `0` | setting | to be named | — | — |
 | `site_score_published_model` | `legacy` | setting | Owner (D-1) | `programme` | A-11 |
 | `sla_wan_config` | `{"notify":{"enabled":false,"trigger_minutes":15,"from_nam…` | setting | to be named | — | — |
@@ -177,7 +179,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `capacity_weeks_back` | planned | `12` | Ops | A-13 |
 | `capacity_workdays_per_week` | planned | `5` | Ops | A-13 |
 
-## 3. Governance policies (35) — services/governancePolicy.js PARAMS
+## 3. Governance policies (36) — services/governancePolicy.js PARAMS
 
 | Key | Default (today) | Type | Protected | Site-scoped | Owner |
 |---|---|---|---|---|---|
@@ -199,6 +201,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `handoffs.escalation_grace_days` | `0` | int | yes | yes | to be named |
 | `handoffs.overdue_escalation` | `true` | bool | yes | yes | to be named |
 | `handoffs.proxy_accept` | `false` | bool | yes | yes | to be named |
+| `handoffs.queue_receivers` | `false` | bool | no | yes | to be named |
 | `handoffs.reason_min` | `5` | int | yes | yes | to be named |
 | `meetings.cancel_reason_min` | `5` | int | yes | yes | to be named |
 | `meetings.cancel_requires_approval` | `true` | bool | yes | yes | to be named |

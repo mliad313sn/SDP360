@@ -45,7 +45,7 @@ module.exports = function commitmentsRoutes(deps) {
     const rs = deps.getRolesStore && deps.getRolesStore(); if (!rs || !c) return {};
     try {
       const snap = await rs.snapshot(); const R = require('../services/governanceRoles'); const day = new Date().toISOString().slice(0, 10);
-      const ids = R.principalsOf(snap.deputies, u.id, day);
+      const ids = R.principalsOf(snap.deputies, u.id, day, { siteId: c.site_id, register: 'commitments' });   // C-21 — scoped deputies
       const users = ids.length ? ((await rdb().listUsers()) || []).filter((x) => ids.includes(Number(x.id))).map((x) => ({ id: x.id, username: x.username, email: x.email, full_name: x.full_name })) : [];
       return { principals: users, roleReviewer: R.holders(snap.assignments, 'commitments.reviewer', c.site_id, day).includes(Number(u.id)) };
     } catch (_) { return {}; }
@@ -139,7 +139,12 @@ module.exports = function commitmentsRoutes(deps) {
     } catch (e) { fail(res, e); }
   });
   router.get(base + '/:id', requireReportSession, enabled, async (req, res) => {
-    try { const c = await load(req, res); if (c) res.json({ commitment: await view(c, req.reportUser) }); } catch (e) { fail(res, e); }
+    try {
+      const c = await load(req, res); if (!c) return;
+      // C-21 (R11) — optional link of the free-text owner to an account (username / e-mail match only)
+      let owner = null; try { owner = require('../services/commitmentOwner').ownerAccount(c.accountable_owner, (await rdb().listUsers()) || []); } catch (_) { owner = null; }
+      res.json({ commitment: { ...(await view(c, req.reportUser)), accountable_owner_account: owner } });
+    } catch (e) { fail(res, e); }
   });
   router.post(base, requireReportSession, enabled, async (req, res) => {
     try {

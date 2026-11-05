@@ -21,11 +21,13 @@
     en: { covered: 'covered', gap: 'gap', unknown: 'unknown', not_required: 'not required', family: 'Duty family', policy: 'Policy', day: 'Day',
       shift: 'Shift', user: 'User', from: 'Start', to: 'End', source: 'Source', none: 'Nothing here.', remove: 'Remove', added: 'Shift added.', done: 'Done.',
       line: 'Line', error: 'Error', ok: 'rows ready', imported: 'inserted', already: 'already on the roster', site_default: 'default', site: 'site', allSites: 'All my sites',
-      reasons: { inactive_holder: 'holder inactive / not on this site', partial: 'partly covered', no_one: 'nobody rostered' }, entered: 'roster entered' },
+      reasons: { inactive_holder: 'holder inactive / not on this site', partial: 'partly covered', no_one: 'nobody rostered' }, entered: 'roster entered',
+      ho: { from: 'From', to: 'To', status: 'Status', items: 'Open items', pending: 'pending', accepted: 'accepted', refused: 'refused', stale: 'pending too long', accept: 'Accept', refuse: 'Refuse', reason: 'Reason for refusing (5+ characters)', sent: 'Handover recorded — waiting for the incoming person.', pickSite: 'Pick a site first.' } },
     fr: { covered: 'couvert', gap: 'trou', unknown: 'inconnu', not_required: 'non requis', family: 'Famille d\'astreinte', policy: 'Règle', day: 'Jour',
       shift: 'Poste', user: 'Utilisateur', from: 'Début', to: 'Fin', source: 'Source', none: 'Rien ici.', remove: 'Retirer', added: 'Poste ajouté.', done: 'Fait.',
       line: 'Ligne', error: 'Erreur', ok: 'lignes prêtes', imported: 'ajoutées', already: 'déjà au planning', site_default: 'par défaut', site: 'site', allSites: 'Tous mes sites',
-      reasons: { inactive_holder: 'titulaire inactif / hors du site', partial: 'couvert en partie', no_one: 'personne au planning' }, entered: 'planning saisi' },
+      reasons: { inactive_holder: 'titulaire inactif / hors du site', partial: 'couvert en partie', no_one: 'personne au planning' }, entered: 'planning saisi',
+      ho: { from: 'De', to: 'À', status: 'Statut', items: 'Points ouverts', pending: 'en attente', accepted: 'acceptée', refused: 'refusée', stale: 'en attente depuis trop longtemps', accept: 'Accepter', refuse: 'Refuser', reason: 'Motif du refus (5 caractères ou plus)', sent: 'Passation enregistrée — en attente de la personne entrante.', pickSite: 'Choisissez d\'abord un site.' } },
   };
   const t = () => L[lang === 'fr' ? 'fr' : 'en'];
   const msg = (x, ok) => { $('cvMsg').className = 'cv-msg ' + (ok ? 'cv-ok' : 'cv-err'); $('cvMsg').textContent = !ok && lang === 'fr' && window.ErrorText ? window.ErrorText.fr(x) : x; };
@@ -74,10 +76,32 @@
       r.errors.map((e) => '<tr><td>' + esc(e.line) + '</td><td class="cv-err">' + esc(e.error) + '</td></tr>').join('') + '</tbody></table>' : '');
   }
 
+  // C-21 — shift handover (shown only when shift_handover_enabled: the API answers 404 otherwise)
+  async function loadHandovers() {
+    let r; try { r = await api('GET', '/api/shift-handovers' + ($('cvSite').value ? '?site=' + encodeURIComponent($('cvSite').value) : '')); } catch (_) { $('cvHandover').hidden = true; return; }
+    $('cvHandover').hidden = false; if (data) $('cvHoFam').innerHTML = $('cvFam').innerHTML;
+    const H = t().ho;
+    $('cvHoList').innerHTML = r.handovers.length ? '<table><thead><tr><th>' + [t().day, t().family, H.from, H.to, H.items, H.status, ''].map(esc).join('</th><th>') + '</th></tr></thead><tbody>' +
+      r.handovers.map((h) => '<tr><td>' + esc(String(h.created_at).slice(0, 16)) + (h.shift_label ? '<br>' + esc(h.shift_label) : '') + '</td><td>' + esc(h.family) + '</td><td>#' + esc(h.from_user) + '</td><td>#' + esc(h.to_user) + '</td><td>' +
+        h.items.map((i) => esc((i.ref ? i.ref + ' — ' : '') + i.title)).join('<br>') + '</td><td' + (h.stale ? ' class="cv-err"' : '') + '>' + esc(H[h.status] || h.status) + (h.stale ? ' · ' + esc(H.stale) : '') +
+        (h.refusal_reason ? '<br>' + esc(h.refusal_reason) : '') + '</td><td>' + (h.status === 'pending' ? '<button type="button" data-ho="accept" data-id="' + h.id + '">' + esc(H.accept) + '</button> <button type="button" data-ho="refuse" data-id="' + h.id + '">' + esc(H.refuse) + '</button>' : '') + '</td></tr>').join('') + '</tbody></table>'
+      : '<p class="cv-muted">' + esc(t().none) + '</p>';
+  }
   const run = (p) => p.catch((e) => msg(e.message, false));
   function applyLang() { document.body.classList.toggle('lang-fr', lang === 'fr'); document.documentElement.lang = lang; $('cvLang').value = lang === 'fr' ? 'fr' : 'en'; }
   $('cvLang').addEventListener('change', () => { lang = $('cvLang').value; try { localStorage.setItem('sdp_lang', lang); } catch (_) {} applyLang(); if (data) $('cvGrid').innerHTML = grid(data); });
-  $('cvLoad').addEventListener('click', () => run(load()));
+  $('cvLoad').addEventListener('click', () => run(load().then(loadHandovers)));
+  $('cvHoForm').addEventListener('submit', (e) => {
+    e.preventDefault(); if (!$('cvSite').value) return msg(t().ho.pickSite, false);
+    const items = String($('cvHoItems').value).split('\n').map((x) => x.trim()).filter(Boolean);
+    run(api('POST', '/api/shift-handovers', { site_id: Number($('cvSite').value), family: $('cvHoFam').value, to_user: Number($('cvHoTo').value), shift_label: $('cvHoShift').value, notes: $('cvHoNotes').value, items })
+      .then(() => { msg(t().ho.sent, true); return loadHandovers(); }));
+  });
+  $('cvHoList').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-ho]'); if (!b) return;
+    const reason = b.dataset.ho === 'refuse' ? window.prompt(t().ho.reason) : undefined; if (b.dataset.ho === 'refuse' && reason == null) return;
+    run(api('POST', '/api/shift-handovers/' + b.dataset.id + '/' + b.dataset.ho, { reason }).then(() => { msg(t().done, true); return loadHandovers(); }));
+  });
   $('cvShiftForm').addEventListener('submit', (e) => { e.preventDefault(); run(api('POST', '/api/duty/shifts', { site_id: Number($('cvSite').value), family: $('cvFam').value, user_id: Number($('cvUser').value), starts_at: $('cvStart').value, ends_at: $('cvEnd').value }).then(() => { msg(t().added, true); return load(); })); });
   $('cvShifts').addEventListener('click', (e) => { const id = e.target.closest('[data-rm]'); if (id) run(api('DELETE', '/api/duty/shifts/' + id.dataset.rm).then(() => { msg(t().done, true); return load(); })); });
   $('cvFile').addEventListener('change', () => { const f = $('cvFile').files[0]; if (f) f.text().then((x) => { $('cvCsv').value = x; }); });
@@ -91,5 +115,5 @@
   });
   $('cvFrom').value = new Date().toISOString().slice(0, 10);
   $('cvSite').innerHTML = '<option value="">' + esc(t().allSites) + '</option>';
-  applyLang(); run(load());
+  applyLang(); run(load().then(loadHandovers));
 })();

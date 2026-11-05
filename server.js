@@ -534,12 +534,12 @@ require('./services/sync/schedule').start({
   commitments: { escalate: async () => {   // G-18 — lazy: _cmtStore is created later at boot; inert while the flag is off
     const cfg = await require('./services/reportConfig').getConfig(rdb.db);
     if (String(cfg.commitments_enabled) !== '1') return { skipped: true };
-    return require('./services/escalationRouting').routeCommitmentEscalations({ cmtStore: _cmtStore, rolesStore: _rolesStore, policyFor: (siteId) => require('./services/governancePolicy').forContext({ siteId }), notify: (n) => _engStore.notify(n), notifyEnabled: String(cfg.commitment_notify_enabled) === '1' });   // ADR-006 — matrix target
+    return require('./services/escalationRouting').routeCommitmentEscalations({ dutyStore: require('./services/dutyStore').forRdb(require('./reports-db')), cmtStore: _cmtStore, rolesStore: _rolesStore, policyFor: (siteId) => require('./services/governancePolicy').forContext({ siteId }), notify: (n) => _engStore.notify(n), notifyEnabled: String(cfg.commitment_notify_enabled) === '1' });   // ADR-006 — matrix target
   } },
   handoffs: { escalate: async () => {   // G-22 — lazy: _hoStore is created later at boot; inert while the flag is off
     const cfg = await require('./services/reportConfig').getConfig(rdb.db);
     if (String(cfg.handoffs_enabled) !== '1') return { skipped: true };
-    return require('./services/escalationRouting').routeHandoffEscalations({ hoStore: _hoStore, rolesStore: _rolesStore, policyFor: (siteId) => require('./services/governancePolicy').forContext({ siteId }), notify: (n) => _engStore.notify(n), notifyEnabled: String(cfg.handoff_notify_enabled) === '1' });   // ADR-006 — matrix target
+    return require('./services/escalationRouting').routeHandoffEscalations({ dutyStore: require('./services/dutyStore').forRdb(require('./reports-db')), hoStore: _hoStore, rolesStore: _rolesStore, policyFor: (siteId) => require('./services/governancePolicy').forContext({ siteId }), notify: (n) => _engStore.notify(n), notifyEnabled: String(cfg.handoff_notify_enabled) === '1' });   // ADR-006 — matrix target
   } },
   afterRequests: () => { console.log('[Cron:requests] ✅ Sync done — rebuilding raw cache…'); return _backgroundRefreshRawCache(); },
   getAlertConfig: async () => {
@@ -7789,7 +7789,7 @@ app.use(require('./routes/governance')({ express, requireReportSession, store: _
 const _cmtStore = require('./routes/commitments').createStore(require('./reports-db')); app.use(require('./routes/commitments')({ express, requireReportSession, store: _cmtStore, sendHtmlPage, getRolesStore: () => _rolesStore, getHandoffStore: () => _hoStore }));   // 2027 Goal 02 — canonical commitments (021), flag commitments_enabled
 app.use(require('./routes/policies')({ express, requireReportSession, sendHtmlPage }));   // governance policies (027) — every regulation behaviour as a parameter
 const _rolesStore = require('./routes/governanceRoles').createStore(require('./reports-db')); app.use(require('./routes/governanceRoles')({ express, requireReportSession, store: _rolesStore }));   // ADR-006 — roles, deputies, escalation matrix (035)
-const _hoStore = require('./routes/handoffs').createStore(require('./reports-db')); app.use(require('./routes/handoffs')({ express, requireReportSession, store: _hoStore, rolesStore: _rolesStore, commitmentStore: _cmtStore, sendHtmlPage, notify: (n) => _engStore.notify(n) }));   // G-22 — interdepartmental handoffs (026), flags handoffs_enabled + handoff_notify_enabled
+const _hoStore = require('./routes/handoffs').createStore(require('./reports-db')); app.use(require('./routes/handoffs')({ express, requireReportSession, store: _hoStore, rolesStore: _rolesStore, commitmentStore: _cmtStore, sendHtmlPage, notify: (n) => _engStore.notify(n) })); app.use(require('./routes/shiftHandovers')({ express, requireReportSession, rolesStore: _rolesStore }));   // C-21 shift handover (062)   // G-22 — interdepartmental handoffs (026), flags handoffs_enabled + handoff_notify_enabled
 app.use(require('./routes/obligations')({ express, requireReportSession, sendHtmlPage, getCommitmentStore: () => _cmtStore, getHandoffStore: () => _hoStore }));   // committee #39 — one read-only view of what a site owes
 
 // ══════════════════════════════════════════════════════════════════

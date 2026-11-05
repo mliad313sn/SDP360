@@ -5,7 +5,7 @@
 //   GET  /api/governance/roles/events                append-only, hash-chained change history                               committee | admin
 //   POST /api/governance/roles/assignments           { role, site_id|null, user_id, effective_from, effective_to?, reason }   super_admin
 //   POST /api/governance/roles/assignments/:id/end   { reason }                                                              super_admin
-//   POST /api/governance/roles/deputies              { user_id, deputy_id, start_date, end_date, reason }                    admin tier
+//   POST /api/governance/roles/deputies              { user_id, deputy_id, start_date, end_date, reason, scope_site_ids?, scope_roles? }  admin tier
 //   POST /api/governance/roles/deputies/:id/revoke   { reason }                                                              admin tier
 //   POST /api/governance/roles/matrix                { register, severity, site_id|null, after_days, role, reason }         super_admin
 //   POST /api/governance/roles/matrix/:id/retire     { reason }                                                              super_admin
@@ -95,8 +95,17 @@ module.exports = function governanceRoleRoutes(deps) {
       }
       // a deputy works where the absent person works: shared site, or the admin tier (unscoped anyway)
       if (!isAdmin(dep) && !siteIdsOf(dep).some((s) => siteIdsOf(who).includes(s))) return res.status(400).json({ ok: false, code: 'VALIDATION', error: 'the deputy must work on one of the sites of the person they replace' });
+      // C-21 — a scoped deputy: every scope site is a site of both people (the admin tier is unscoped)
+      if (b.scope_site_ids != null && b.scope_site_ids !== '') {
+        const list = (Array.isArray(b.scope_site_ids) ? b.scope_site_ids : JSON.parse(b.scope_site_ids)).map(Number);
+        const known = ((await rdb().listSites({ includeInactive: true })) || []).map((s) => Number(s.id));
+        for (const s of list) {
+          if (!known.includes(s)) return httpFail(res, typed('VALIDATION', `unknown site ${s} in scope_site_ids`, 400), undefined, { ok: false });
+          if ((!isAdmin(who) && !siteIdsOf(who).includes(s)) || (!isAdmin(dep) && !siteIdsOf(dep).includes(s))) return httpFail(res, typed('VALIDATION', 'every scope site must be a site of both the absent person and the deputy', 400), undefined, { ok: false });
+        }
+      }
       const id = await store.addDeputy(b, { actorId: req.reportUser.id });
-      log(req, 'deputy_named', b.user_id, { id, deputy_id: Number(b.deputy_id), from: b.start_date, to: b.end_date });
+      log(req, 'deputy_named', b.user_id, { id, deputy_id: Number(b.deputy_id), from: b.start_date, to: b.end_date, scoped: R.isScoped(b) });
       res.status(201).json({ ok: true, id });
     } catch (e) { fail(res, e); }
   });

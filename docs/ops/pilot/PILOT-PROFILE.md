@@ -68,6 +68,8 @@ planned switch cannot be set before its goal lands.
 | `access_approver_policy` | built | `{"platform_roles":["admin","executive","super_admin","tracker-admin","audit-viewer"],"platform_approver_role":"super_admin","site_approver_role":"admin","site_approver_must_hold_site":true}` | the default (PO decision R7, encoded 2026-11-05): platform roles by a super_admin, other roles by an admin-tier user holding the site; never the requester, subject or their deputy | Security owner + Owner | C-19 |
 | `qualification_check_enabled` | built | `0` | `0` until each site's HSE owner has recorded and verified the evidence; then `1` per requirement (evidence only — SDP360 never grants a physical authorisation) | HSE owner + Security owner | C-19 |
 | `qualification_requirements` | built | `{}` | `{}` — which capability needs which kind (e.g. `field.capture` → `site-induction`) is a human decision | HSE owner | C-19 |
+| `shift_handover_enabled` | built | `0` | `1` on the pilot site once the incoming / outgoing people of each shift are on the duty roster (handover must be accepted by the incoming person; never automatic) | Site IT lead + Owner | C-21 |
+| `shift_handover_flag_hours` | built | `8` | `8` (a handover still pending after this many hours is flagged on the page) | Site IT lead | C-21 |
 
 Not in this table because they are not top-level `report_config` keys:
 
@@ -77,6 +79,12 @@ Not in this table because they are not top-level `report_config` keys:
   only, protected), not a `report_config` key: default `false` (today: a deactivated or site-less role holder or
   deputy still counts as coverage and still receives escalations); recommended pilot value `true`; decided by the
   owner (access policy).
+- C-21 (built) — governance **policy** `handoffs.queue_receivers` (Admin ▸ Governance policies, per site), not a
+  `report_config` key: default `false` (today: an escalation goes to the named role holder and their deputy);
+  `true` → it goes first to the people on duty now for `site-it-support` on that site (duty roster, C-20), and to the
+  named person only when nobody is on duty. Recommended pilot value `true` only once the site roster is entered;
+  decided by the site IT lead. Scoped deputies (migration 060) have no switch: a deputy without a scope behaves
+  exactly as before.
 - A-28 (built) — `.env` switches, not `report_config`; decided by the security owner, all default to today:
   `SDP_CSP_REPORT_ONLY` (unset = no report-only header, no `/api/security/csp-report`),
   `SDP_CONFIG_BOX_VERSION` (default `2`; `3` = new secrets sealed as `enc:v3`), `SDP_PDF_SANDBOX`

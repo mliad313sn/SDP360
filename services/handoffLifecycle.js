@@ -78,7 +78,13 @@ function check(h, to, actor, o = {}) {
   if (to === 'verified' && h.delivered_by != null && Number(h.delivered_by) === Number(actor.id)) return no(403, 'SOD', 'the person who delivered the work cannot verify it');
   // a deputy never satisfies four-eyes against the person they replace (ADR-006): no verifying the work of
   // someone you stand in for
-  if (to === 'verified' && h.delivered_by != null && standsInFor(actor, h.delivered_by)) return no(403, 'SOD', 'you stand in for the person who delivered the work — you cannot verify it');
+  // C-21 — through the SoD registry (services/sodPolicy, R8 no_deputy_verification); a deputy in ANY scope
+  // (actor.sodDeputyFor) stays conflicted, even outside the scope where they may act
+  if (to === 'verified' && h.delivered_by != null) {
+    const sod = require('./sodPolicy').evaluate('handoff.verify', { actorId: actor.id, recorderId: h.delivered_by,
+      deputyIds: (actor.sodDeputyFor || actor.deputyFor || []).map(Number).includes(Number(h.delivered_by)) ? new Set([Number(actor.id)]) : new Set() });
+    if (sod.refuse && sod.refuse.rule === 'no_deputy_verification') return no(403, 'SOD', 'you stand in for the person who delivered the work — you cannot verify it');
+  }
   // verification belongs to the requesting side: the admin tier does not verify for the requester (audit P2-10)
   if (to === 'verified' && !actsAsRequester(h, actor)) return no(403, 'FORBIDDEN', 'only the requester verifies the delivered work');
   const rmin = _rmin(o.policy);

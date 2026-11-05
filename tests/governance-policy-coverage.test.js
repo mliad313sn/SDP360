@@ -61,6 +61,7 @@ const STORE_PROVEN = {
   'meetings.compliance_as_of': 'tests/governance-policy-routes.smoke.test.js',
   'handoffs.commitment_ledger': 'tests/obligations.smoke.test.js',
   'governance.skip_inactive_holders': 'tests/governance-roles.smoke.test.js',
+  'handoffs.queue_receivers': 'tests/scoped-deputies.test.js',   // C-21 — duty queue first (escalationRouting._withQueue)
 };
 
 test('every policy parameter is covered by a behaviour probe or a named store test', () => {
