@@ -324,7 +324,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 119672,
+   "bytes": 119934,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/api-key-injection.smoke.test.js",
