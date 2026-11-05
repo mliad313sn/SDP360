@@ -88,6 +88,7 @@
 
   async function loadEmergencies() {
     let r;
+    if (!me || !me.emergency_enabled) { $('axEmTab').hidden = true; return; }   // C-23: off, or not a super_admin — no 403/404 request at all
     try { r = await api('GET', '/api/access/emergencies'); } catch (_) { $('axEmTab').hidden = true; return; }   // off, or not a super_admin
     $('axEmTab').hidden = false;
     const mine = Number(me && me.user.id);

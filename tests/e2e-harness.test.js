@@ -19,7 +19,7 @@ test('classifier: localhost is local, NO origin is allow-listed (C-29: Google Fo
 
 test('every journey spec runs through the harness (blocked-request assertion + artefact)', () => {
   const specs = fs.readdirSync(path.join(ROOT, 'tests', 'e2e')).filter((f) => f.endsWith('.spec.js'));
-  for (const id of ['t1-', 't2-', 't3-', 't4-', 't7-', 't8-', 'deny-', 'v1-', 'r1-', 'x1-']) assert.ok(specs.some((f) => f.startsWith(id)), 'journey ' + id + ' exists');
+  for (const id of ['t1-', 't2-', 't3-', 't4-', 't7-', 't8-', 'deny-', 'v1-', 'r1-', 'x1-', 'i1-', 'i2-', 'i3-', 'i4-', 'i5-', 'i6-', 'i7-']) assert.ok(specs.some((f) => f.startsWith(id)), 'journey ' + id + ' exists');
   for (const f of specs) assert.match(read('tests/e2e/' + f), /runJourney\(/, f);
   assert.match(read('tests/e2e/fixtures/harness.js'), /external\.unexpected, \[\]/);
 });

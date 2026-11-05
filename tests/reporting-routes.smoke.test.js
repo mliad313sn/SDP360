@@ -79,6 +79,25 @@ test('PUT /api/reports/config (admin) → 200 and echoes the saved value', async
   assert.equal(body.smtp_host, 'x', 'saved smtp_host reflected in response');
 });
 
+test('C-23: every stored secret is blanked on GET and in the PUT answer (never sent back to the browser)', async () => {
+  const rc = require('../services/reportConfig');
+  const rdb = require('../reports-db');
+  const keys = [...rc._SECRET_BLANK_KEEP];
+  const vals = Object.fromEntries(keys.map((k) => [k, 'c23-' + k + '-' + Math.random().toString(36).slice(2)]));
+  await rc.setConfig(rdb.db, vals, 'c23-test');
+  const get = await (await fetch(base + '/api/reports/config', { headers: authHeaders() })).text();
+  const put = await (await fetch(base + '/api/reports/config', { method: 'PUT', headers: authHeaders(), body: JSON.stringify({ smtp_host: 'y' }) })).text();
+  for (const k of keys) {
+    assert.ok(!get.includes(vals[k]), k + ' leaked on GET');
+    assert.ok(!put.includes(vals[k]), k + ' leaked in the PUT answer');
+  }
+  assert.equal(JSON.parse(get).opmanager_ca_bundle_set, true, 'the CA bundle still says it is present');
+  assert.equal(JSON.parse(put).smtp_host, 'y', 'non-secret values are still echoed');
+  const kept = await rc.getConfig(rdb.db);
+  for (const k of keys) assert.equal(kept[k], vals[k], k + ' still stored (redaction is on the answer only)');
+  await rc.setConfig(rdb.db, Object.fromEntries(keys.map((k) => [k, ' '])), 'c23-test');
+});
+
 test('PUT /api/reports/recipients/HGO (admin) → 200', async () => {
   const res = await fetch(base + '/api/reports/recipients/HGO', {
     method: 'PUT', headers: authHeaders(), body: JSON.stringify({ coordinator_name: 'X' }),

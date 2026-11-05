@@ -50,7 +50,8 @@ module.exports = function accessRoutes(deps) {
       const soon = new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10);
       res.json({ ok: true, user: { id: Number(u.id), username: u.username, full_name: u.full_name, roles: u.roles || [], site_ids: u.site_ids || (u.site_id != null ? [u.site_id] : []) },
         grants, expiring_soon: grants.filter((g) => g.valid_to <= soon), requests: await s.requestsFor(u.id), deputies: await s.deputiesOf(u.id),
-        can_approve: isAdmin(u), can_manage_templates: isSuper(u), can_request_for_others: isAdmin(u) });
+        can_approve: isAdmin(u), can_manage_templates: isSuper(u), can_request_for_others: isAdmin(u),
+        emergency_enabled: isSuper(u) ? !!(await em().enabled()) : false });   // C-23: the page asks the emergency list only when it exists for the caller
     } catch (e) { fail(res, e); }
   });
 

@@ -52,17 +52,19 @@ module.exports = function adminConfigRoutes(deps) {
     }
   }
 
+// Never hand a stored secret back to the browser: every secret-shaped key (the blank-keep set — the same set
+// that is encrypted at rest) is blanked on the GET AND on the PUT answer (setConfig returns the full, decrypted
+// config). C-23 found sharepoint_client_secret, engagement/publish webhook URLs coming back on GET, and every
+// stored secret coming back in the PUT answer. The CA bundle keeps its presence flag (opmanager_ca_bundle_set).
+function redactSecrets(c) {
+  if (!c || typeof c !== 'object') return c;
+  c.opmanager_ca_bundle_set = !!c.opmanager_ca_bundle;
+  for (const k of reportConfig._SECRET_BLANK_KEEP) if (c[k]) c[k] = '';
+  return c;
+}
 router.get('/api/reports/config', requireReportSession, requireSuperAdmin, async (req, res) => {
   try {
-    const c = await reportConfig.getConfig(rdb.db);
-    if (c && c.smtp_pass) c.smtp_pass = '';   // never expose the stored SMTP password
-    if (c && c.entra_client_secret) c.entra_client_secret = '';   // never expose the stored SSO secret
-    if (c && c.meridian_out_key) c.meridian_out_key = '';   // never expose the stored Meridian keys
-    if (c && c.meridian_in_key) c.meridian_in_key = '';
-    if (c && c.meraki_api_key) c.meraki_api_key = '';   // never expose the stored Meraki API key
-    if (c) { if (c.opmanager_api_key) c.opmanager_api_key = ''; c.opmanager_ca_bundle_set = !!c.opmanager_ca_bundle; c.opmanager_ca_bundle = ''; }   // never expose the OpManager key; E4: CA bundle write-only, only its presence is shown
-    for (const k of ['sdp_api_client_secret', 'sdp_api_refresh_token', 'teams_sla_channels', 'analytics_client_secret', 'analytics_refresh_token', 'sync_alert_teams_url']) if (c && c[k]) c[k] = '';   // Teams SLA + Analytics secrets
-    res.json(c);
+    res.json(redactSecrets(await reportConfig.getConfig(rdb.db)));
   }
   catch (e) { fail(res, e); }
 });
@@ -101,7 +103,7 @@ router.put('/api/reports/config', requireReportSession, requireSuperAdmin, async
     const out = await reportConfig.setConfig(rdb.db, body, req.reportUser?.username);
     require('../services/ssoSettings')._invalidate();   // config changed → re-read next request
     logUrlChanges(req, body, cur);
-    res.json(out);
+    res.json(redactSecrets(out));
   }
   catch (e) { fail(res, e); }
 });
