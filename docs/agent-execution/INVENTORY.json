@@ -12,7 +12,7 @@
   "jobs": 28,
   "jobs_without_test_reference": 10,
   "migrations": 71,
-  "test_files": 584
+  "test_files": 585
  },
  "pages": [
   {
@@ -492,7 +492,7 @@
    ],
    "in_navigation": false,
    "inline_scripts": 0,
-   "bytes": 12842,
+   "bytes": 12850,
    "tests": [
     "tests/i18n-coverage.test.js"
    ]
