@@ -4300,7 +4300,7 @@ _simpleViewsActive.forEach(([route, viewKey, maxR]) => {
 // All endpoints that need per-ticket data share this cache so only one Zoho API
 // call happens per cache window, regardless of how many endpoints are hit.
 // The cache is written to disk so server restarts don't cause a cold-cache wait.
-const _RAW_CACHE_FILE = path.join(__dirname, 'data', 'raw_cache.json');
+const _RAW_CACHE_FILE = path.join(process.env.SDP_DATA_DIR || path.join(__dirname, 'data'), 'raw_cache.json');
 const _rawCache = { data: null, ts: 0, TTL: 3600000 * 4 }; // 4-hour TTL on disk cache
 
 // Load persisted cache from disk at startup (instant — no Zoho call needed)
