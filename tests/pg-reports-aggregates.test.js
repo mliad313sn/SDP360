@@ -44,6 +44,9 @@ async function boot() {
   process.env.PG_URL = ctx.url;
   const rdb = require('../reports-db');
   await rdb.initPgReports();
+  // The readers now read migrated columns (sites.country / time_zone, D-07): migrate this
+  // throwaway database the way the boot preload and the sibling pg suites do.
+  await require('../db/migrate').migrateAtBoot({ log: () => {} });
   const site = await require('./_pg-fresh').ensureSite(rdb, { name: 'Hounde', zoho_group: 'Hounde IT Agents' });
   return { ctx, rdb, siteId: site.id };
 }

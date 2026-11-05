@@ -275,7 +275,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `SDP_CONFIG_BOX_VERSION` | switch | unset = 2 (`enc:v2`) | Security owner | services/configSecrets.js |
 | `SDP_CONFIG_KEY` | secret | (secret — not shown) | to be named | services/backendGuard.js, services/configSecrets.js |
 | `SDP_CSP_REPORT_ONLY` | switch | unset (no report-only header, no /api/security/csp-report) | Security owner | services/cspReport.js |
-| `SDP_DATA_DIR` | switch | see the reading file | to be named | assets-db.js, inspection-db.js, meetings-db.js, reports-db.js (+2) |
+| `SDP_DATA_DIR` | switch | see the reading file | to be named | assets-db.js, inspection-db.js, meetings-db.js, reports-db.js (+3) |
 | `SDP_PDF_SANDBOX` | switch | unset (PDF render keeps --no-sandbox) | Security owner | services/reportRender.js |
 | `SDP_QUAL_CFG_TTL_MS` | switch | see the reading file | to be named | services/qualificationStore.js |
 | `SDP_SERVICE` | switch | see the reading file | to be named | services/serviceControl.js |
