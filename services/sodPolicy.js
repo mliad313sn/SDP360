@@ -34,6 +34,9 @@ const OBJECTS = Object.freeze({
   // C-21 (G47) — the outgoing person (and whoever recorded the handover) never accepts it; a deputy of the
   // outgoing person never accepts it in the name of the incoming one (services/shiftHandover.js)
   'shift_handover.accept': Object.freeze(['no_self_approval', 'no_deputy_verification']),
+  // C-31 — a KPI policy is adopted by a kpi-committee member who neither authored nor proposed it, nor stands in
+  // for its author (services/kpiPolicyStore.js)
+  'kpi_policy.adopt': Object.freeze(['no_self_approval', 'no_deputy_verification']),
 });
 const POLICY_VERSION = crypto.createHash('sha256').update(JSON.stringify({ RULES, WATCHED_PAIRS, OBJECTS })).digest('hex').slice(0, 12);
 

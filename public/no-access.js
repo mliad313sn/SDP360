@@ -8,7 +8,7 @@
     admin: ['Administrator', 'Administrateur'], editor: ['Site editor', 'Éditeur de site'], viewer: ['Viewer', 'Lecteur'],
     'tracker-admin': ['Tracker administrator', 'Administrateur du tracker'], 'tracker-editor': ['Tracker editor', 'Éditeur du tracker'],
     'report-author': ['Report author', 'Auteur de rapports'], 'audit-viewer': ['Audit reader', 'Lecteur du journal d’audit'],
-    'scorecard-viewer': ['Scorecard reader', 'Lecteur du tableau de bord'], 'finance-viewer': ['Finance reader', 'Lecteur finance'],
+    'scorecard-viewer': ['Scorecard reader', 'Lecteur du tableau de bord'], 'finance-viewer': ['Finance reader', 'Lecteur finance'], 'kpi-committee': ['KPI committee member', 'Membre du comité KPI'],
     'site-business': ['Site business view', 'Vue métier du site'], 'group-business': ['Group business view', 'Vue métier groupe'],
   };
   const DICT = {
