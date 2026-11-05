@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 4119,
+ "total": 4128,
  "files": {
   "a11y-static.test.js": 18,
   "access-approver-policy.test.js": 4,
@@ -30,6 +30,7 @@
   "analytics-logic.test.js": 13,
   "analytics-metrics-authz.smoke.test.js": 6,
   "analytics-settings.test.js": 5,
+  "api-contract-ext.test.js": 6,
   "api-key-injection.smoke.test.js": 6,
   "asset-cost-outliers.test.js": 3,
   "asset-effort-for-site.test.js": 9,
@@ -158,6 +159,7 @@
   "emergency-access.test.js": 4,
   "engagement-routes.smoke.test.js": 4,
   "engagement-store.test.js": 6,
+  "error-shape.test.js": 3,
   "error-text-fr.test.js": 1,
   "evidence-baseline.test.js": 5,
   "exec-active-mi-filter.test.js": 2,
