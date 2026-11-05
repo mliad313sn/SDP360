@@ -159,3 +159,19 @@ test('assets.html wires the band on Finance + Investment (script + placeholders 
   assert.ok(html.includes('MoneyCertBand.html(s, s.certification, s.coverage_by_site)'));
   assert.ok(html.includes('MoneyCertBand.html(fc, hw.certification, hw.by_site)'));
 });
+
+const CertBand = require('../public/lib/moneyCertBand');
+test('D-06 certify: any excluded row (no currency, outlier) → certified:false, reason excluded_rows, counted', () => {
+  const cov = [{ site: 'A', eligible: 10, total: 10 }, { site: 'B', eligible: 10, total: 10 }, { site: 'C', eligible: 10, total: 10 }];
+  assert.strictEqual(MC.certify(cov, { minSites: 3, minPct: 50 }).certified, true);
+  const c = MC.certify(cov, { minSites: 3, minPct: 50, excluded: { no_currency: 1, outlier: 2 } });
+  assert.strictEqual(c.certified, false);
+  assert.strictEqual(c.reason, 'excluded_rows');
+  assert.strictEqual(c.excluded_rows, 3);
+  assert.strictEqual(MC.certify(cov, { excluded: { no_currency: 0, outlier: 0 } }).certified, true);
+  assert.strictEqual(MC.certify(cov, {}).excluded_rows, 0);
+  assert.match(MC.sentence(c), /3 ligne\(s\) exclue\(s\)/);
+  assert.match(CertBand.sentence(c), /3 ligne\(s\) exclue\(s\)/);
+  assert.strictEqual(MC.sentence({ certified: false, sites_covered: 1, pct: 9, min_sites: 3, min_pct: 50, excluded_rows: 0 }),
+    'Non certifié — couvre 1 site(s) / 9 % du parc (seuil : ≥ 3 sites et ≥ 50 %)');
+});

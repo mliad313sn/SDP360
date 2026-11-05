@@ -25,7 +25,8 @@
   function sentence(cert) {
     var p = cert.pct == null ? '—' : String(cert.pct);
     return 'Non certifié — couvre ' + (cert.sites_covered || 0) + ' site(s) / ' + p +
-      ' % du parc (seuil : ≥ ' + cert.min_sites + ' sites et ≥ ' + cert.min_pct + ' %)';
+      ' % du parc (seuil : ≥ ' + cert.min_sites + ' sites et ≥ ' + cert.min_pct + ' %)' +
+      (cert.excluded_rows > 0 ? ' · ' + cert.excluded_rows + ' ligne(s) exclue(s) (devise inconnue ou valeur aberrante)' : '');
   }
 
   function html(payload, cert, bySite) {

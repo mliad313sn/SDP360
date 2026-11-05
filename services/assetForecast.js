@@ -61,7 +61,7 @@ function _attachBySite(cov, marks, rows, { minSites, minPct } = {}) {
   if (!_hasSite(rows)) return;
   const by_site = moneyCoverage.coverageBySite(marks, { isEligible: (m) => m.ok, siteOf: (m) => m.site });
   cov.by_site = by_site;
-  cov.certification = moneyCoverage.certify(by_site, { minSites, minPct });
+  cov.certification = moneyCoverage.certify(by_site, { minSites, minPct, excluded: cov.excluded });   // D-06: no_currency/outlier only
 }
 
 // A-26 — per-row money gates (switches asset_site_currency / asset_cost_outlier_exclude).

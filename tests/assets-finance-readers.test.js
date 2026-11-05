@@ -146,4 +146,9 @@ test('A-26 map set → by_site currency, unknown-currency amounts skipped but as
   near(bySite.MANA.purchase_cost_usd, 3000000 * RATE, 0.01, 'MANA converted');
   assert.strictEqual(s.excluded.no_currency, 2);
   near(s.fleet.purchase_cost_usd, 3000000 * RATE, 0.01, 'fleet excludes HGO');
+  // D-06: while rows are excluded the money is not certified, and the excluded rows are not "covered".
+  assert.strictEqual(s.certification.certified, false);
+  assert.strictEqual(s.certification.reason, 'excluded_rows');
+  assert.strictEqual(s.certification.excluded_rows, 2);
+  assert.strictEqual(s.coverage_by_site.find((c) => c.site === 'HGO').eligible, 0);
 });

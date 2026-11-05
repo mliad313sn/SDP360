@@ -47,9 +47,16 @@ function _num(v, dflt) {
 }
 
 // coverageBySite → {certified, reason, sites_covered, sites_total, eligible,
-// total, pct, min_sites, min_pct}. reason ∈ null | no_eligible | too_few_sites |
-// low_coverage (first failing rule, in that order).
-function certify(cov, { minSites, minPct } = {}) {
+// total, pct, min_sites, min_pct, excluded_rows}. reason ∈ null | excluded_rows |
+// no_eligible | too_few_sites | low_coverage (first failing rule, in that order).
+// D-06 (AMDEC AM-05): `excluded` = rows the money figure had to leave out (no currency for
+// their site, flagged outliers). While ANY row is excluded the figure is not certified.
+function _excludedCount(x) {
+  if (x == null) return 0;
+  if (typeof x === 'number') return Number.isFinite(x) && x > 0 ? x : 0;
+  return (+x.no_currency || 0) + (+x.outlier || 0);
+}
+function certify(cov, { minSites, minPct, excluded } = {}) {
   const ms = _num(minSites, DEFAULT_MIN_SITES);
   const mp = _num(minPct, DEFAULT_MIN_PCT);
   const list = Array.isArray(cov) ? cov : [];
@@ -60,8 +67,10 @@ function certify(cov, { minSites, minPct } = {}) {
     if ((c.eligible || 0) > 0) covered++;
   }
   const pct = pctOf(eligible, total);
+  const excludedRows = _excludedCount(excluded);
   let reason = null;
-  if (eligible === 0) reason = 'no_eligible';
+  if (excludedRows > 0) reason = 'excluded_rows';
+  else if (eligible === 0) reason = 'no_eligible';
   else if (covered < ms) reason = 'too_few_sites';
   else if (pct == null || pct < mp) reason = 'low_coverage';
   return {
@@ -74,6 +83,7 @@ function certify(cov, { minSites, minPct } = {}) {
     pct,
     min_sites: ms,
     min_pct: mp,
+    excluded_rows: excludedRows,
   };
 }
 
@@ -93,8 +103,9 @@ function optsFromConfig(cfg) {
 function sentence(cert) {
   if (!cert || cert.certified) return null;
   const pct = cert.pct == null ? '—' : String(cert.pct);
+  const ex = cert.excluded_rows > 0 ? ` · ${cert.excluded_rows} ligne(s) exclue(s) (devise inconnue ou valeur aberrante)` : '';
   return `Non certifié — couvre ${cert.sites_covered || 0} site(s) / ${pct} % du parc ` +
-    `(seuil : ≥ ${cert.min_sites} sites et ≥ ${cert.min_pct} %)`;
+    `(seuil : ≥ ${cert.min_sites} sites et ≥ ${cert.min_pct} %)${ex}`;
 }
 
 module.exports = {

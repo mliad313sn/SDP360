@@ -137,6 +137,27 @@ test('ORG-i KPI committee: the kpi-committee role (C-31) exists and is kept when
   assert.ok((u.roles || []).includes('kpi-committee'), JSON.stringify(u.roles));
 });
 
+test('ORG-i (D-04) an unknown role is REFUSED, named, never dropped silently — reader and route, create and update', async () => {
+  const rdb = ctx.rdb;
+  await assert.rejects(rdb.createUser({ username: 'uat_typo', full_name: 'UAT typo', password: 'Uat!typo-' + Date.now(), roles: ['viewer', 'kpi-comittee'], site_id: null }),
+    (e) => e.status === 400 && /kpi-comittee/.test(e.message) && Array.isArray(e.unknown_roles) && e.unknown_roles[0] === 'kpi-comittee');
+  assert.equal((await rdb.listUsers()).some((x) => x.username === 'uat_typo'), false, 'nothing created');
+  const r = await c('POST', '/api/reports/users', U.sa.token, { username: 'uat_typo2', full_name: 'UAT typo', password: 'Uat!typo-' + Date.now(), roles: ['viewer', 'kpi-comittee'] });
+  assert.equal(r.status, 400, r.text);
+  assert.match(r.j.error, /kpi-comittee/);
+  assert.deepStrictEqual(r.j.unknown_roles, ['kpi-comittee']);
+  const u = await c('PUT', '/api/reports/users/' + U.viewer.id, U.sa.token, { full_name: 'UAT viewer', roles: ['viewer', 'Admin'] });
+  assert.equal(u.status, 400, u.text);
+  assert.deepStrictEqual(u.j.unknown_roles, ['Admin']);
+  const after = (await rdb.listUsers()).find((x) => x.id === U.viewer.id);
+  assert.deepStrictEqual(after.roles, ['viewer'], 'a refused update leaves the roles untouched');
+  await assert.rejects(rdb.updateUser(U.viewer.id, { full_name: 'UAT viewer', roles: ['bogus'] }), (e) => e.status === 400);
+  const page = require('fs').readFileSync(require('path').join(__dirname, '..', 'public', 'reports.html'), 'utf8').replace(/\r\n/g, '\n');
+  const body = page.slice(page.indexOf('async function saveUser()'), page.indexOf('async function deleteUser('));
+  assert.ok(/catch\(e\) \{[\s\S]*Refused — [\s\S]*\+ e, 'error'\)/.test(body), 'the Users card shows the server refusal (naming the role)');
+  assert.ok(body.indexOf('closeUserModal()') < body.indexOf('catch(e)'), 'the modal closes only on success');
+});
+
 test('ORG-j deactivated account cannot sign in; Group IT admin has no Site Awareness view (limit AM-11)', async () => {
   assert.equal(await ctx.rdb.login(U.gone.username, U.gone.password), null);
   assert.equal((await c('GET', '/api/site-awareness/summary?site=' + S.Hounde.id, U.central.token)).status, 403);

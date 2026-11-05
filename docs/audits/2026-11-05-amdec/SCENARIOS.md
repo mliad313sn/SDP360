@@ -38,11 +38,11 @@ Test files: `tests/uat-amdec-org-models.smoke.test.js` (ORG, 13), `tests/uat-amd
 | ORG-f | Business view | (f) site-business / group-business | `/api/reports` 403; own-site awareness 200, other site 403; group view every site; no PV | PASS | org-models |
 | ORG-g | Readers | (g) exec / scorecard / finance / viewer | Each reads exactly its slice (review, metrics, finance, reports); site-less viewer lists nothing; readers never write | PASS | org-models |
 | ORG-h | Field | (h) field technician | Own site only; no PV; no report write; inspection scope HGO | PASS | org-models |
-| ORG-i | Roles | (i) KPI committee | No `kpi-committee` role; an unknown role is dropped silently | LIMIT (AM-10) | org-models |
+| ORG-i | Roles | (i) KPI committee | `kpi-committee` role kept (C-31); an unknown role is refused with a 400 naming it (D-04) | PASS (AM-04 fixed by D-04) | org-models |
 | ORG-j | Identity | (j) deactivated / central admin | Deactivated login null; admin tier has no Site Awareness (403) | PASS + LIMIT (AM-11) | org-models |
 | DAT-01 | Helpdesk | (d) shared desk across BF/CI groups | Exploration window counts its 3 country groups; the ticket's site label is ignored; Massawa is its own site | PASS | multinational-data |
 | DAT-02 | Null truth | empty site | Kalana: closure/SLA/avg resolution null; score not applicable; risk never "low" | PASS | multinational-data |
-| DAT-03 | Finance / currency | (g) finance-viewer | GBP and XOF converted per site; a site with no currency is null (not 0), counted in `excluded` | FAIL→FIXED (AM-05) | multinational-data |
+| DAT-03 | Finance / currency | (g) finance-viewer | GBP and XOF converted per site; a site with no currency is null (not 0), counted in `excluded`; certification `false` / `excluded_rows` while any row is excluded (D-06) | FAIL→FIXED (AM-05, D-06) | multinational-data |
 | DAT-04 | Calendar | all | Weekly report week = Zoho Sun→Sat, site-report chart week = ISO Mon→Sun, same label "W37 2026" | LIMIT (AM-07) | multinational-data |
 | DAT-05 | Calendar | (b) editor | 1–2 Jan 2027 in Zoho W52 2026; API refuses weeks 53/99/-1/0 for 2026 | FAIL→FIXED (AM-06) | multinational-data |
 | DAT-06 | Time zone | UK office | Ticket 00:30 BST on 1 Sept counted in August (UTC calendars) | LIMIT (AM-08) | multinational-data |

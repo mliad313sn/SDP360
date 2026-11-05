@@ -25,3 +25,11 @@ test('planProvisioning: identical roles → unchanged; super_admin never touched
   assert.equal(P.planProvisioning({ roles: ['super_admin'] }, ['g'], map).changed, false);
   assert.equal(P.planProvisioning({ roles: ['viewer'] }, ['h'], map).changed, false, 'unknown roles filtered → empty → untouched');
 });
+
+test('D-04 planProvisioning: unknown mapped roles are reported in `skipped`, never applied', () => {
+  const map = P.parseGroupMap([{ group: 'g', roles: ['editor', 'bogus-role'] }]);
+  const plan = P.planProvisioning({ roles: ['viewer'] }, ['g'], map);
+  assert.deepEqual(plan.patch.roles, ['editor']);
+  assert.deepEqual(plan.skipped, ['bogus-role']);
+  assert.deepEqual(P.planProvisioning({ roles: ['viewer'] }, ['other'], map).skipped || [], []);
+});
