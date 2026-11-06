@@ -40,6 +40,9 @@ function analyse(o) {
       const t = trendDirection(w.points, w.unit);
       figures.push({ id, metric: w.metric, title: w.title, series: (w.points || []).map(p => ({ label: p.label, value: p.value })), unit: w.unit, trend: t.dir });
       if (t.dir !== 'flat') findings.push({ kind: (t.dir === 'up') === hib(w.metric) ? 'improving' : 'worsening', id, title: w.title, metric: w.metric, last: t.last, base: t.base, unit: w.unit, n: t.n });
+    } else if (w.mode === 'multiples') {
+      // E-V09 — one series figure per panel (own unit); the pack carries the same panels as the viewer
+      for (const pn of w.panels || []) figures.push({ id: id + '.' + pn.metric, metric: pn.metric, title: (w.title ? w.title + ' — ' : '') + pn.label, series: (pn.points || []).map(p => ({ label: p.label, value: p.value })), unit: pn.unit, trend: trendDirection(pn.points, pn.unit).dir });
     } else if (w.mode === 'per-site') {
       const rows = (w.rows || []).filter(r => r.value != null);
       figures.push({ id, metric: w.metric, title: w.title, unit: w.unit, rows: (w.rows || []).map(r => ({ site: r.site, value: r.value, rag: r.rag })) });

@@ -118,6 +118,15 @@ test('C-04: a NEW heatmap is refused (400); catalogue offers only rendered types
   assert.equal(j.widgets.tb.mode, 'per-site'); assert.ok(j.widgets.tb.rows.every((r) => 'target' in r));
 });
 
+test('E-V02: the API refuses a NEW stacked bar and a ragGrid without a RAG policy (400, plain message)', async () => {
+  const st = { key: 'ev02-stk', title: 'Stacked', audience: 'site', grid: { columns: 12 }, widgets: [{ id: 'b', type: 'bar', metric: 'assets.total', stacked: true, layout: { x: 0, y: 0, w: 6, h: 3 } }] };
+  const r = await send('PUT', '/api/dashboards/ev02-stk', admin, { definition: st }); assert.equal(r.status, 400);
+  assert.match(JSON.stringify(await r.json()), /Stacked bars are not drawn/);
+  const g = { key: 'ev02-grid', title: 'Grid', audience: 'site', grid: { columns: 12 }, widgets: [{ id: 'g', type: 'ragGrid', metric: 'assets.total', layout: { x: 0, y: 0, w: 6, h: 3 } }] };
+  const r2 = await send('PUT', '/api/dashboards/ev02-grid', admin, { definition: g }); assert.equal(r2.status, 400);
+  assert.match(JSON.stringify(await r2.json()), /no RAG policy/);
+});
+
 test('view log: one dashboard_viewed event per actor per day', async () => {
   for (let i = 0; i < 3; i++) assert.equal((await send('POST', '/api/dashboards/exec-home/view', viewer)).status, 200);
   await new Promise(r => setTimeout(r, 150));

@@ -1,0 +1,272 @@
+{
+ "note": "E-V01 — triage status of each registered metric (audit §5.4). Hand-kept: the KPI committee decides; allowed statuses: untriaged, useful-invisible, future, redundant, abandon. An agent never changes a status.",
+ "statuses": [
+  "untriaged",
+  "useful-invisible",
+  "future",
+  "redundant",
+  "abandon"
+ ],
+ "metrics": {
+  "helpdesk.inbound": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "helpdesk.closed": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "helpdesk.closure_pct": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "helpdesk.resolution_sla_pct": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "helpdesk.first_reply_sla_pct": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "helpdesk.window_created": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "helpdesk.window_resolved": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "helpdesk.window_overdue": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "helpdesk.window_major_incidents": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "helpdesk.avg_resolution_h": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "meetings.pvs_held": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "meetings.engagement_1_pct": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "meetings.diffused_48h_pct": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "meetings.champion_pct": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "meetings.escalation_discipline_pct": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "meetings.engagement_score": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "meetings.open_issues": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "meetings.overdue_issues": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "inspection.count": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "inspection.critical_count": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "inspection.conformity_pct": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "inspection.open_actions": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "inspection.overdue_actions": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "assets.total": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "assets.no_owner": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "assets.no_age": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "assets.no_cost": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "assets.no_asset_tag": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "assets.never_scanned": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "assets.ghost": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "assets.completeness_pct": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "assets.effort_score": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "assets.effort_rank": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "assets.effort_delta_30d": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "tracker.site_score_pct": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "tracker.site_green": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "tracker.site_amber": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "tracker.site_red": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "tracker.fleet_score_pct": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "tracker.fleet_attainment_pct": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "wan.wan1_availability_pct": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "wan.wan2_availability_pct": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "wan.wan1_loss_pct": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "wan.wan1_latency_ms": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "programme.site_score": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "programme.composite": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "changes.success_pct_deck": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "changes.success_pct_itsm": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "commitments.verified_on_time_pct": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "commitments.serious_unowned": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "commitments.serious_overdue": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
+  "commitments.technical_vs_verified": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  }
+ }
+}

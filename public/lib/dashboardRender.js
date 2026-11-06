@@ -9,10 +9,12 @@
  *   periodBounds/isPartial/seriesAnchor/evalDate -> C-05 time truth (window-anchored series, partial periods)
  */
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory();
-  else root.DashboardRender = factory();
-})(typeof self !== 'undefined' ? self : this, function () {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./stateBadge'));
+  else root.DashboardRender = factory(root.StateBadge);
+})(typeof self !== 'undefined' ? self : this, function (SB) {
   'use strict';
+  // E-V03 — the state words come from the shared vocabulary (lib/stateBadge.js, loaded before this file).
+  if (!SB) throw new Error('DashboardRender needs lib/stateBadge.js loaded first');
 
   function gridStyle(layout, columns) {
     var L = layout || {}; var c = columns || 12;
@@ -43,9 +45,9 @@
   /** Coloured dot that does not rely on colour alone: a symbol and an accessible name (design review R1). */
   function ragDot(rag, state) {
     var c = ragClass(rag); var sym = { 'rag-green': '✓', 'rag-amber': '!', 'rag-red': '✕', 'rag-na': '' }[c];
-    var name = { 'rag-green': 'green', 'rag-amber': 'amber', 'rag-red': 'red', 'rag-na': 'not measured' }[c];
+    var name = { 'rag-green': 'green', 'rag-amber': 'amber', 'rag-red': 'red', 'rag-na': SB.aria('not-measured') }[c];
     // a value from a stale source keeps its number but not its colour: say "stale", never "not measured"
-    if (state === 'STALE' || state === 'UNKNOWN') { sym = '–'; name = state === 'UNKNOWN' ? 'source never synced, colour withheld' : 'stale source, colour withheld'; c = 'rag-na rag-stale'; }
+    if (state === 'STALE' || state === 'UNKNOWN') { sym = SB.symbol('stale'); name = SB.aria('stale', state === 'UNKNOWN' ? 'never' : null); c = 'rag-na rag-stale'; }
     return '<span class="edv-rag-dot ' + c + '" role="img" aria-label="' + name + '">' + sym + '</span>';
   }
   /** Worst first (red, amber, green), then by value in the bad direction; not measured last. */
@@ -67,12 +69,14 @@
   }
 
   /** Target and change since the previous window, coloured by whether the move is good (design review R2). */
-  function kpiContext(d) {
+  function kpiContext(d, opts) {
     if (!d || d.value == null) return '';
+    var lowSample = !!(opts && opts.sampleSize && d.low_sample);   // E-K02 — a low sample is never compared
     var parts = [];
     var stale = !!d.freshness && d.freshness !== 'FRESH';
     if (d.target != null) parts.push('<span class="edv-target ' + (stale ? 'rag-na' : ragClass(d.vs_target && d.vs_target.rag)) + '"' + (d.target_from ? ' title="target version from ' + escapeHtml(d.target_from) + '"' : '') + '>target ' + formatValue(d.target, d.unit) + (d.target_source === 'site' ? ' (site)' : '') + '</span>');
-    if (d.previous && d.previous.comparable === false) parts.push('<span class="edv-delta flat">vs ' + escapeHtml(shortLabel(d.previous.label)) + ': not comparable — this period is still running</span>');
+    if (lowSample) { /* no delta: the sample is below the adopted minimum — sampleNote says so */ }
+    else if (d.previous && d.previous.comparable === false) parts.push('<span class="edv-delta flat">vs ' + escapeHtml(shortLabel(d.previous.label)) + ': not comparable — this period is still running</span>');
     else if (d.previous && d.previous.delta != null) {
       var dl = Number(d.previous.delta), good = dl === 0 ? null : (d.higher_is_better !== false ? dl > 0 : dl < 0);
       var unit = String(d.unit || '').toLowerCase() === '%' ? ' pts' : '';
@@ -85,7 +89,33 @@
   function staleBadge(d) {
     if (!d || !d.freshness || d.freshness === 'FRESH') return '';
     var was = d.rag_if_fresh && String(d.rag_if_fresh).toUpperCase() !== 'NA' ? ' · was ' + escapeHtml(String(d.rag_if_fresh).toLowerCase()) + ' when last current' : '';
-    return '<div class="edv-stale-badge">' + (d.freshness === 'UNKNOWN' ? 'Source never synced — colour withheld' : 'Source not current — colour withheld') + was + '</div>';
+    return '<div class="edv-stale-badge">' + SB.text('stale', d.freshness === 'UNKNOWN' ? 'never' : null) + was + '</div>';
+  }
+  /** E-V03 — the base population under a KPI value: "n = 142 tickets created", or "base not measured" (never 0). */
+  function baseLine(d) {
+    var b = d && d.base;
+    if (b && b.n != null && isFinite(Number(b.n))) return '<div class="edv-kpi-base">n = ' + Number(b.n).toLocaleString('en-GB') + (b.label ? ' ' + escapeHtml(b.label) : '') + '</div>';
+    return '<div class="edv-kpi-base edv-quiet">base not measured</div>';
+  }
+  /** E-K02 — "n = 142" and, only when an ADOPTED policy's min_sample is not reached, "low sample — not comparable". */
+  function sampleNote(d, opts) {
+    if (!d) return '';
+    var withN = !(opts && opts.withN === false);
+    var out = '';
+    if (withN && d.n != null && isFinite(Number(d.n))) out += '<div class="edv-sample">n = ' + Number(d.n).toLocaleString('en-GB') + '</div>';
+    if (d.low_sample) out += '<div class="edv-sample edv-low-sample" role="note">low sample — not comparable (n = ' + Number(d.n).toLocaleString('en-GB') + ' &lt; ' + escapeHtml(d.min_sample) + ')</div>';
+    return out;
+  }
+  /** A relative link only (no scheme, no //host, no backslash): the action page of a figure. */
+  function safeRelativeHref(href) {
+    var s = String(href == null ? '' : href).trim();
+    if (!s || s.length > 300 || /[\\\s<>"'`]/.test(s) || /^[a-z][a-z0-9+.-]*:/i.test(s) || s.indexOf('//') === 0) return null;
+    return s;
+  }
+  /** E-V03 — "→ act" link to the page where the figure is acted on; '' when the href is not a safe relative URL. */
+  function actionLink(href) {
+    var h = safeRelativeHref(href); if (!h) return '';
+    return '<a class="edv-act" href="' + escapeHtml(h) + '">→ act</a>';
   }
   function pad2(n) { return (n < 10 ? '0' : '') + n; }
   function isoWeek(d) {
@@ -166,6 +196,7 @@
     if (!w) return null;
     if (w.type === 'kpi') return { mode: 'single', compare: w.compare === 'fleet' };
     if (w.type === 'trend') { var t = trendLength(w, metricKind); return { mode: 'series', n: t.n, kind: t.kind }; }
+    if (w.type === 'multiples') { var tm = trendLength(w, metricKind); return { mode: 'multiples', n: tm.n, kind: tm.kind }; }
     if (w.type === 'ragGrid' || w.type === 'heatmap' || w.type === 'bar' || w.type === 'table') return { mode: 'per-site' };
     if (w.type === 'actions') return { mode: 'actions', sources: w.sources || ['meetings', 'inspection', 'report'], onlyOverdue: !!w.onlyOverdue };
     if (w.type === 'trackerRag') return { mode: 'tracker' };
@@ -254,12 +285,14 @@
   }
 
   /** ragGrid: one cell per site — RAG + value; unknown (null / stale / unrecognised) is grey, never green. */
-  function ragGridHtml(d) {
+  function ragGridHtml(d, opts) {
     var rows = sortRows((d && d.rows) || [], d.higher_is_better !== false);
+    var ss = !!(opts && opts.sampleSize);   // E-K02 — switch ui_kpi_sample_size; off = byte-identical to before
     var cells = rows.map(function (r) {
       var st = rowState(r, d);
       return '<div class="edv-ragcell edv-ragcell-' + st + '" role="listitem" aria-label="' + escapeHtml(r.site + ': ' + STATE_WORD[st] + ', ' + formatValue(r.value, d.unit)) + '">' + stateDot(st, r, d) +
-        '<span class="edv-ragcell-site">' + escapeHtml(r.site) + '</span><span class="edv-ragcell-val">' + formatValue(r.value, d.unit) + '</span></div>';
+        '<span class="edv-ragcell-site">' + escapeHtml(r.site) + '</span><span class="edv-ragcell-val">' + formatValue(r.value, d.unit) + '</span>' +
+        (ss && r.n != null ? '<span class="edv-ragcell-n">n = ' + Number(r.n).toLocaleString('en-GB') + (r.low_sample ? ' · low sample — not comparable' : '') + '</span>' : '') + '</div>';
     }).join('');
     var legend = '<div class="edv-rag-legend" aria-label="Legend">' + ragDot('GREEN') + 'Green ' + ragDot('AMBER') + 'Amber ' + ragDot('RED') + 'Red ' +
       '<span class="edv-rag-dot rag-na" aria-hidden="true"></span>Unknown — not measured, stale or never synced</div>';
@@ -267,9 +300,9 @@
   }
 
   /** The body of a per-site widget by its declared type (heatmap = retired → table with a notice). */
-  function perSiteHtml(type, d, sort) {
+  function perSiteHtml(type, d, sort, opts) {
     if (type === 'table' || type === 'heatmap') return tableHtml(d, sort);
-    if (type === 'ragGrid') return ragGridHtml(d);
+    if (type === 'ragGrid') return ragGridHtml(d, opts);
     return barListHtml(d);
   }
 
@@ -300,7 +333,28 @@
       '</tbody></table></div>';
   }
 
-  return { gridStyle, formatValue, ragClass, ragDot, kpiContext, staleBadge, sortRows, shortLabel, windowSeries, trendLength, widgetDataPlan, summarizeGrid, escapeHtml, miniMarkdown, isoWeek,
+  // ── E-V09 — small multiples: one panel per metric (own unit, own axis), ONE shared data table ──
+  /** ChartTable spec of the shared table: one row per period, one column per panel (each with its unit). */
+  function multiplesTableSpec(d) {
+    var panels = (d && d.panels) || [];
+    var labels = panels.length ? (panels[0].points || []).map(function (p) { return shortLabel(p.label) + (p.partial ? '*' : ''); }) : [];
+    return { title: (d && d.title) || 'Small multiples', labelHead: 'Period', labels: labels,
+      datasets: panels.map(function (p) { return { label: p.label, unit: p.unit, data: (p.points || []).map(function (x) { return x.value; }) }; }) };
+  }
+  /** Panels as HTML (a canvas per panel, its own unit in the heading); `tableHtml` = the shared table (caller's). */
+  function multiplesHtml(d, tableHtml) {
+    var panels = (d && d.panels) || [];
+    var body = panels.map(function (p, i) {
+      var vals = (p.points || []).filter(function (x) { return x.value != null; });
+      var last = vals[vals.length - 1];
+      var spoken = p.label + (last ? ': latest ' + formatValue(last.value, p.unit) + ' (' + shortLabel(last.label) + ')' : ': not measured over this period');
+      return '<div class="edv-multiple" role="group" aria-label="' + escapeHtml(p.label) + '" data-panel="' + i + '"><h4>' + escapeHtml(p.label) + (p.unit ? ' <small>(' + escapeHtml(p.unit) + ')</small>' : '') + '</h4>' +
+        (vals.length ? '<canvas role="img" aria-label="' + escapeHtml(spoken) + '"></canvas>' : '<div class="edv-kpi-sub">' + SB.text('not-measured') + '</div>') + '</div>';
+    }).join('');
+    return '<div class="edv-multiples">' + body + '</div>' + (tableHtml || '');
+  }
+
+  return { multiplesTableSpec, multiplesHtml, sampleNote, gridStyle, formatValue, ragClass, ragDot, kpiContext, staleBadge, baseLine, safeRelativeHref, actionLink, sortRows, shortLabel, windowSeries, trendLength, widgetDataPlan, summarizeGrid, escapeHtml, miniMarkdown, isoWeek,
     rowState, barListHtml, tableHtml, sortTableRows, ragGridHtml, perSiteHtml, trackerHtml, seriesTableHtml,
     periodBounds, isPartial, windowPartial, evalDate, seriesAnchor, partialNote };
 });

@@ -23,7 +23,7 @@ const { fail } = require('../services/httpError');
 // site-scoped account.
 
 const R = require('../public/lib/dashboardRender');
-const { WIDGET_TYPES, AUDIENCES, FILTER_TYPES, fieldReadiness, creatableTypes } = require('../services/dashboardWidgets');
+const { AUDIENCES, FILTER_TYPES, fieldReadiness, creatableTypes, widgetTypesFor } = require('../services/dashboardWidgets');
 const { resolveWidgets } = require('../services/dashboardData');
 
 /** Build the store against the reports DB (sqlite: DDL + seed now; pg: migration 016, seed at boot). */
@@ -72,9 +72,13 @@ module.exports = function dashboardsRoutes(deps) {
     } catch (e) { fail(res, e, 500, { ok: false }); }
   });
 
-  router.get('/api/dashboards/catalogue', requireReportSession, requirePublisher, (req, res) => {
-    const reg = registry();
-    res.json({ ok: true, widgetTypes: WIDGET_TYPES, creatableTypes: creatableTypes(), audiences: AUDIENCES, filterTypes: FILTER_TYPES, metrics: reg.list({ status: 'published' }), policies: reg.policies() });
+  // E-V09 — report_config ui_small_multiples ('0' default): the `multiples` type is offered / accepted only when '1'
+  async function smallMultiplesOn() {
+    try { const c = await require('../services/reportConfig').getConfig(rdb().db); return String(c && c.ui_small_multiples) === '1'; } catch (_) { return false; }
+  }
+  router.get('/api/dashboards/catalogue', requireReportSession, requirePublisher, async (req, res) => {
+    const reg = registry(); const sm = await smallMultiplesOn();
+    res.json({ ok: true, widgetTypes: widgetTypesFor({ smallMultiples: sm }), creatableTypes: creatableTypes({ smallMultiples: sm }), audiences: AUDIENCES, filterTypes: FILTER_TYPES, metrics: reg.list({ status: 'published' }), policies: reg.policies() });
   });
 
   async function loadVisible(req, res) {
@@ -151,6 +155,8 @@ module.exports = function dashboardsRoutes(deps) {
         else if (w.mode === 'series') {
           for (const p of w.points || []) rows.push([w.title || id, w.metric, siteName, p.label, p.value, w.unit, '', w.freshness || 'FRESH', w.as_of || v.as_of]);
           for (const l of (w.lines || []).slice(1)) for (const p of l.points || []) rows.push([w.title || id, l.metric, siteName, p.label, p.value, l.unit, '', w.freshness || 'FRESH', w.as_of || v.as_of]);
+        } else if (w.mode === 'multiples') {
+          for (const pn of w.panels || []) for (const p of pn.points || []) rows.push([w.title || id, pn.metric, siteName, p.label, p.value, pn.unit, '', w.freshness || 'FRESH', w.as_of || v.as_of]);
         } else if (w.mode === 'tracker') for (const r of w.rows || []) rows.push([w.title || id, 'tracker.site_score_pct', r.site, w.period || '', r.score_pct, '%', r.rag, w.state || '', w.as_of || v.as_of]);
       }
       const text = '\ufeff' + rows.map(r => r.map(x => csvCell(x == null ? '' : x)).join(',')).join('\r\n') + '\r\n';
@@ -171,7 +177,7 @@ module.exports = function dashboardsRoutes(deps) {
       if (!isAdmin(u)) { const mine = userSites.siteIds(u); if (siteId == null || !mine.includes(siteId)) siteId = mine[0] || null; if (siteId == null) return res.status(403).json({ ok: false, error: 'no site in your scope' }); }
       const reg = registry();
       const pubMetrics = reg.list({ status: 'published' });
-      const saved = await store.saveDraft(doc, { user: u, siteId, metrics: pubMetrics.map(m => m.key), metricUnits: Object.fromEntries(pubMetrics.map(m => [m.key, m.unit || ''])), metricKinds: Object.fromEntries(pubMetrics.map(m => [m.key, m.window_kind || ''])) });
+      const saved = await store.saveDraft(doc, { user: u, siteId, metrics: pubMetrics.map(m => m.key), metricUnits: Object.fromEntries(pubMetrics.map(m => [m.key, m.unit || ''])), metricKinds: Object.fromEntries(pubMetrics.map(m => [m.key, m.window_kind || ''])), metricInfo: Object.fromEntries(pubMetrics.map(m => [m.key, { name: m.name, unit: m.unit || '', window_kind: m.window_kind || '', rag_policy: m.rag_policy || null }])), smallMultiples: await smallMultiplesOn() });
       const field = doc.audience === 'field' ? fieldReadiness(doc) : { ok: true, issues: [] };
       rdb().logEvent({ category: 'dashboards', action: 'dashboard_saved', target: doc.key, ...rdb()._logCtx(req) });
       res.json({ ok: true, dashboard: saved, field });

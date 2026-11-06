@@ -12,6 +12,14 @@
     'Executive Scorecard': 'Tableau de performance de la direction',
     'Period (YYYY-MM or YYYY-Www)': 'Période (AAAA-MM ou AAAA-Sss)', 'latest': 'dernière',
     'Dashboard widgets': 'Widgets du tableau de bord',
+    // E-V03 — the standard state vocabulary (public/lib/stateBadge.js) and the KPI base line
+    'Loading…': 'Chargement…', 'No data for this period': 'Aucune donnée pour cette période', 'not measured': 'non mesuré',
+    'Source not current — colour withheld': 'Source périmée — couleur retenue', 'Source never synced — colour withheld': 'Source jamais synchronisée — couleur retenue',
+    'Source not monitored': 'Source non surveillée', 'Could not load — try again': 'Chargement impossible — réessayez',
+    'You do not have access to this figure': 'Vous n’avez pas accès à ce chiffre', 'Value not certified': 'Valeur non certifiée',
+    'Export in progress': 'Export en cours', 'Publication blocked': 'Publication bloquée',
+    'base not measured': 'base non mesurée', '→ act': '→ agir',
   };
+  // (the state texts are rendered by lib/stateBadge.js / lib/dashboardRender.js, not by the page source)
   root.I18N_FR_DASHBOARDS_RUNTIME = [];
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -27,7 +27,7 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `zoho.requests` — declared window 3 h |
-| Consumers | pages: `public/index.html`<br>browser libraries: `public/lib/composerGuide.js` · tests: 8 file(s) |
+| Consumers | pages: `public/index.html`<br>browser libraries: `public/lib/composerGuide.js` · tests: 10 file(s) |
 
 ## `helpdesk.closed`
 
@@ -44,7 +44,7 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `zoho.requests` — declared window 3 h |
-| Consumers | pages: `public/index.html`<br>browser libraries: `public/lib/composerGuide.js` · tests: 5 file(s) |
+| Consumers | pages: `public/index.html`<br>browser libraries: `public/lib/composerGuide.js` · tests: 6 file(s) |
 
 ## `helpdesk.closure_pct`
 
@@ -61,7 +61,7 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `zoho.requests` — declared window 3 h |
-| Consumers | server code: `services/agendaBuilder.js`<br>API routes: `routes/governance.js` |
+| Consumers | server code: `services/agendaBuilder.js`<br>API routes: `routes/governance.js` · tests: 3 file(s) |
 
 ## `helpdesk.resolution_sla_pct`
 
@@ -78,7 +78,7 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `zoho.requests` — declared window 3 h |
-| Consumers | widget `exec-home#k-sla (kpi)`<br>widget `exec-home#tr-sla (trend)`<br>widget `exec-home#sites (ragGrid)`<br>widget `governance#tr (trend)`<br>alert rule `sla.resolution.red`<br>server code: `services/agendaBuilder.js`<br>server code: `services/dashboardWidgets.js`<br>server code: `services/kpiPolicyEngine.js`<br>server code: `services/reportConfig.js`<br>API routes: `routes/extApi.js`<br>API routes: `routes/governance.js`<br>API routes: `routes/kpiPolicies.js`<br>pages: `public/index.html`<br>pages: `public/portfolio.html`<br>browser libraries: `public/kpi-builder.js`<br>browser libraries: `public/lib/composerGuide.js` · tests: 21 file(s) |
+| Consumers | widget `exec-home#k-sla (kpi)`<br>widget `exec-home#tr-sla (trend)`<br>widget `exec-home#sites (ragGrid)`<br>widget `governance#tr (trend)`<br>alert rule `sla.resolution.red`<br>server code: `services/agendaBuilder.js`<br>server code: `services/dashboardWidgets.js`<br>server code: `services/kpiPolicyEngine.js`<br>server code: `services/reportConfig.js`<br>API routes: `routes/extApi.js`<br>API routes: `routes/governance.js`<br>API routes: `routes/kpiPolicies.js`<br>pages: `public/index.html`<br>pages: `public/portfolio.html`<br>browser libraries: `public/kpi-builder.js`<br>browser libraries: `public/lib/composerGuide.js` · tests: 25 file(s) |
 
 ## `helpdesk.first_reply_sla_pct`
 
@@ -95,7 +95,7 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `zoho.requests` — declared window 3 h |
-| Consumers | alert rule `sla.first_reply.red`<br>server code: `services/agendaBuilder.js`<br>server code: `services/reportConfig.js`<br>API routes: `routes/extApi.js`<br>pages: `public/index.html` · tests: 6 file(s) |
+| Consumers | alert rule `sla.first_reply.red`<br>server code: `services/agendaBuilder.js`<br>server code: `services/reportConfig.js`<br>API routes: `routes/extApi.js`<br>pages: `public/index.html` · tests: 7 file(s) |
 
 ## `helpdesk.window_created`
 
@@ -112,7 +112,7 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `zoho.requests` — declared window 3 h |
-| Consumers | widget `site-weekly#created (kpi)`<br>widget `site-weekly#tr (trend)`<br>server code: `services/agendaBuilder.js`<br>browser libraries: `public/site-report.js` · tests: 1 file(s) |
+| Consumers | widget `site-weekly#created (kpi)`<br>widget `site-weekly#tr (trend)`<br>server code: `services/agendaBuilder.js`<br>browser libraries: `public/site-report.js` · tests: 2 file(s) |
 
 ## `helpdesk.window_resolved`
 
@@ -339,7 +339,7 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | UNKNOWN (no sync job feeds this module) |
-| Consumers | server code: `services/trackerTemplates.js`<br>browser libraries: `public/site-report.js` · tests: 2 file(s) |
+| Consumers | server code: `services/trackerTemplates.js`<br>browser libraries: `public/site-report.js` · tests: 3 file(s) |
 
 ## `inspection.critical_count`
 
@@ -373,7 +373,7 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | UNKNOWN (no sync job feeds this module) |
-| Consumers | widget `exec-home#k-insp (kpi)`<br>server code: `services/agendaBuilder.js`<br>server code: `services/reportConfig.js`<br>server code: `services/trackerTemplates.js`<br>API routes: `routes/extApi.js` · tests: 2 file(s) |
+| Consumers | widget `exec-home#k-insp (kpi)`<br>server code: `services/agendaBuilder.js`<br>server code: `services/reportConfig.js`<br>server code: `services/trackerTemplates.js`<br>API routes: `routes/extApi.js` · tests: 3 file(s) |
 
 ## `inspection.open_actions`
 
@@ -580,7 +580,7 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `assets.sync` — declared window 30 h |
-| Consumers | widget `assets-hygiene#rank (kpi)`<br>browser libraries: `public/site-report.js` |
+| Consumers | widget `assets-hygiene#rank (kpi)`<br>browser libraries: `public/site-report.js` · tests: 1 file(s) |
 
 ## `assets.effort_delta_30d`
 

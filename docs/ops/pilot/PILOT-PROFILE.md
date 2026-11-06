@@ -25,6 +25,9 @@ planned switch cannot be set before its goal lands.
 | `ui_deck_builder_roles` | built (menu entry, page gate and the page's routes since C-28) | `super_admin` | `super_admin,report-author` (PO delegated decision P12, reversible) | Owner (D-6) | A-21, C-28 |
 | `ui_exec_nav` | built | `full` | `consolidated` (PO delegated decision P1, reversible — re-examine after 30 days of `page_viewed`) | Owner (D-6) | C-28 |
 | `ui_week_labels` | built | `legacy` | `explicit` (proposal — ISO helpdesk charts say "ISO W37 (7–13 Sep)", report rows carry their Sun→Sat range) | Owner (UI policy) | D-03 |
+| `ui_kpi_base_line` | built | `0` | `1` (proposal — show the base population under each KPI value) | Owner (UI policy) | E-V03 |
+| `ui_kpi_sample_size` | built | `0` | `1` (proposal — warnings only appear once the KPI committee adopts a `min_sample`) | KPI committee | E-K02 |
+| `ui_small_multiples` | built | `0` | `1` (proposal — after a browser review of the widget) | Owner (UI policy) | E-V09 |
 | `site_score_published_model` | built | `legacy` | `programme` | Owner (D-1) | A-11 |
 | `capacity_enabled` | planned | `0` | `1` | Owner (D-7) | A-13 |
 | `capacity_amber_pct` | planned | `85` | `85` | Owner (D-7) | A-13 |

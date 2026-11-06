@@ -21,60 +21,63 @@ Metrics in the registry seed: **52** · on a shipped dashboard widget: **25** ·
 
 ## Per metric
 
-| Metric | Module | Unit | Dashboard widgets (dashboard#widget) | Alert rules | Pages | Browser libraries | Exports | API routes | Server code | Tests |
-|---|---|---|---|---|---|---|---|---|---|---|
-| `helpdesk.inbound` | helpdesk | count | — | — | `public/index.html` | `public/lib/composerGuide.js` | — | — | — | 8 file(s) |
-| `helpdesk.closed` | helpdesk | count | — | — | `public/index.html` | `public/lib/composerGuide.js` | — | — | — | 5 file(s) |
-| `helpdesk.closure_pct` | helpdesk | % | — | — | — | — | — | `routes/governance.js` | `services/agendaBuilder.js` | — |
-| `helpdesk.resolution_sla_pct` | helpdesk | % | `exec-home#k-sla (kpi)`<br>`exec-home#tr-sla (trend)`<br>`exec-home#sites (ragGrid)`<br>`governance#tr (trend)` | `sla.resolution.red` | `public/index.html`<br>`public/portfolio.html` | `public/kpi-builder.js`<br>`public/lib/composerGuide.js` | — | `routes/extApi.js`<br>`routes/governance.js`<br>`routes/kpiPolicies.js` | `services/agendaBuilder.js`<br>`services/dashboardWidgets.js`<br>`services/kpiPolicyEngine.js`<br>`services/reportConfig.js` | 21 file(s) |
-| `helpdesk.first_reply_sla_pct` | helpdesk | % | — | `sla.first_reply.red` | `public/index.html` | — | — | `routes/extApi.js` | `services/agendaBuilder.js`<br>`services/reportConfig.js` | 6 file(s) |
-| `helpdesk.window_created` | helpdesk | count | `site-weekly#created (kpi)`<br>`site-weekly#tr (trend)` | — | — | `public/site-report.js` | — | — | `services/agendaBuilder.js` | 1 file(s) |
-| `helpdesk.window_resolved` | helpdesk | count | `site-weekly#resolved (kpi)` | — | — | `public/site-report.js` | — | — | `services/agendaBuilder.js` | — |
-| `helpdesk.window_overdue` | helpdesk | count | `exec-home#overdue (kpi)`<br>`site-weekly#overdue (kpi)`<br>`field-site#overdue (kpi)` | `helpdesk.overdue.high` | — | `public/site-report.js` | — | — | `services/agendaBuilder.js` | 1 file(s) |
-| `helpdesk.window_major_incidents` | helpdesk | count | `exec-home#mi (kpi)` | `helpdesk.major_incident` | — | `public/site-report.js` | — | — | `services/agendaBuilder.js` | 1 file(s) |
-| `helpdesk.avg_resolution_h` | helpdesk | hours | `site-weekly#mttr (kpi)` | — | — | — | — | — | — | — |
-| `meetings.pvs_held` | meetings | count | — | — | — | `public/site-report.js` | — | — | `services/trackerTemplates.js` | — |
-| `meetings.engagement_1_pct` | meetings | % | — | — | — | — | — | — | — | — |
-| `meetings.diffused_48h_pct` | meetings | % | — | — | — | — | — | — | `services/trackerTemplates.js` | — |
-| `meetings.champion_pct` | meetings | % | — | — | — | — | — | — | `services/trackerTemplates.js` | — |
-| `meetings.escalation_discipline_pct` | meetings | % | — | — | — | — | — | — | — | — |
-| `meetings.engagement_score` | meetings | % | `exec-home#k-meet (kpi)`<br>`governance#eng (kpi)` | `meetings.engagement.red` | — | — | — | `routes/extApi.js` | `services/agendaBuilder.js`<br>`services/reportConfig.js` | 1 file(s) |
-| `meetings.open_issues` | meetings | count | — | — | — | `public/site-report.js` | — | — | — | 1 file(s) |
-| `meetings.overdue_issues` | meetings | count | `site-weekly#issues (kpi)` | `meetings.overdue_issues` | — | — | — | — | `services/governanceValues.js`<br>`tools/governance/values.example.json` | 2 file(s) |
-| `inspection.count` | inspection | count | — | — | — | `public/site-report.js` | — | — | `services/trackerTemplates.js` | 2 file(s) |
-| `inspection.critical_count` | inspection | count | — | `inspection.critical` | — | — | — | — | — | — |
-| `inspection.conformity_pct` | inspection | % | `exec-home#k-insp (kpi)` | — | — | — | — | `routes/extApi.js` | `services/agendaBuilder.js`<br>`services/reportConfig.js`<br>`services/trackerTemplates.js` | 2 file(s) |
-| `inspection.open_actions` | inspection | count | `site-weekly#insp (kpi)` | — | — | — | — | — | `services/agendaBuilder.js` | — |
-| `inspection.overdue_actions` | inspection | count | `field-site#insp (kpi)` | `inspection.overdue_actions` | — | — | — | — | — | — |
-| `assets.total` | assets | count | `assets-hygiene#total (kpi)` | — | — | — | — | — | `services/trackerTemplates.js` | 8 file(s) |
-| `assets.no_owner` | assets | count | `assets-hygiene#no-owner (kpi)` | — | — | — | — | — | — | — |
-| `assets.no_age` | assets | count | `assets-hygiene#no-age (kpi)` | — | — | — | — | — | — | — |
-| `assets.no_cost` | assets | count | `assets-hygiene#no-cost (kpi)` | — | — | — | — | — | — | — |
-| `assets.no_asset_tag` | assets | count | `assets-hygiene#no-tag (kpi)` | — | — | — | — | — | — | — |
-| `assets.never_scanned` | assets | count | — | — | — | — | — | — | — | — |
-| `assets.ghost` | assets | count | — | `assets.ghosts` | — | — | — | — | — | 1 file(s) |
-| `assets.completeness_pct` | assets | % | `assets-hygiene#compl (kpi)`<br>`assets-hygiene#sites (ragGrid)` | `assets.completeness.low` | — | `public/lib/composerGuide.js` | — | `routes/extApi.js`<br>`routes/governance.js` | `services/agendaBuilder.js`<br>`services/reportConfig.js`<br>`services/trackerTemplates.js` | 1 file(s) |
-| `assets.effort_score` | assets | points | `assets-hygiene#effort (kpi)` | — | — | `public/site-report.js` | — | — | — | — |
-| `assets.effort_rank` | assets | rank | `assets-hygiene#rank (kpi)` | — | — | `public/site-report.js` | — | — | — | — |
-| `assets.effort_delta_30d` | assets | points | — | — | — | `public/site-report.js` | — | — | — | — |
-| `tracker.site_score_pct` | tracker | % | `exec-home#sites-tr (ragGrid)` | `tracker.site.red` | — | — | — | `routes/dashboards.js`<br>`routes/extApi.js` | `services/agendaBuilder.js`<br>`services/dashboardData.js`<br>`services/reportConfig.js` | 4 file(s) |
-| `tracker.site_green` | tracker | count | — | — | — | — | — | — | — | — |
-| `tracker.site_amber` | tracker | count | — | — | — | — | — | — | — | — |
-| `tracker.site_red` | tracker | count | — | — | — | — | — | — | — | — |
-| `tracker.fleet_score_pct` | tracker | % | `exec-home#k-tracker (kpi)`<br>`governance#roadmap (kpi)` | — | — | — | — | — | `services/agendaBuilder.js` | 3 file(s) |
-| `tracker.fleet_attainment_pct` | tracker | % | `governance#attain (kpi)` | — | — | — | — | — | — | — |
-| `wan.wan1_availability_pct` | wan | % | `site-weekly#wan1 (kpi)`<br>`field-site#wan1 (kpi)` | `wan.wan1.availability` | — | `public/lib/composerGuide.js` | — | — | `services/agendaBuilder.js` | — |
-| `wan.wan2_availability_pct` | wan | % | `site-weekly#wan2 (kpi)`<br>`field-site#wan2 (kpi)` | `wan.wan2.availability` | — | `public/lib/composerGuide.js` | — | — | — | — |
-| `wan.wan1_loss_pct` | wan | % | — | — | — | — | — | — | — | — |
-| `wan.wan1_latency_ms` | wan | ms | — | — | — | — | — | — | — | — |
-| `programme.site_score` | programme | points | `governance#prog (kpi)`<br>`governance#sites (ragGrid)` | — | — | — | — | — | `services/agendaBuilder.js` | 1 file(s) |
-| `programme.composite` | programme | points | — | — | — | — | — | — | `services/agendaBuilder.js` | 1 file(s) |
-| `changes.success_pct_deck` | changes | % | — | — | — | — | — | — | — | 1 file(s) |
-| `changes.success_pct_itsm` | changes | % | — | — | — | — | — | — | — | 1 file(s) |
-| `commitments.verified_on_time_pct` | commitments | % | — | — | — | — | — | — | `services/commitmentMetrics.js` | — |
-| `commitments.serious_unowned` | commitments | count | — | — | — | — | — | — | `services/commitmentMetrics.js` | — |
-| `commitments.serious_overdue` | commitments | count | — | — | — | — | — | — | `services/commitmentMetrics.js` | — |
-| `commitments.technical_vs_verified` | commitments | % | — | — | — | — | — | — | `services/commitmentMetrics.js` | — |
+Triage = status recorded by the KPI committee in `docs/ux/METRIC-TRIAGE.json` (`untriaged` until decided; `MISSING` = the
+metric is absent from that file and `--check` fails).
+
+| Metric | Module | Unit | Triage | Dashboard widgets (dashboard#widget) | Alert rules | Pages | Browser libraries | Exports | API routes | Server code | Tests |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| `helpdesk.inbound` | helpdesk | count | untriaged | — | — | `public/index.html` | `public/lib/composerGuide.js` | — | — | — | 10 file(s) |
+| `helpdesk.closed` | helpdesk | count | untriaged | — | — | `public/index.html` | `public/lib/composerGuide.js` | — | — | — | 6 file(s) |
+| `helpdesk.closure_pct` | helpdesk | % | untriaged | — | — | — | — | — | `routes/governance.js` | `services/agendaBuilder.js` | 3 file(s) |
+| `helpdesk.resolution_sla_pct` | helpdesk | % | untriaged | `exec-home#k-sla (kpi)`<br>`exec-home#tr-sla (trend)`<br>`exec-home#sites (ragGrid)`<br>`governance#tr (trend)` | `sla.resolution.red` | `public/index.html`<br>`public/portfolio.html` | `public/kpi-builder.js`<br>`public/lib/composerGuide.js` | — | `routes/extApi.js`<br>`routes/governance.js`<br>`routes/kpiPolicies.js` | `services/agendaBuilder.js`<br>`services/dashboardWidgets.js`<br>`services/kpiPolicyEngine.js`<br>`services/reportConfig.js` | 25 file(s) |
+| `helpdesk.first_reply_sla_pct` | helpdesk | % | untriaged | — | `sla.first_reply.red` | `public/index.html` | — | — | `routes/extApi.js` | `services/agendaBuilder.js`<br>`services/reportConfig.js` | 7 file(s) |
+| `helpdesk.window_created` | helpdesk | count | untriaged | `site-weekly#created (kpi)`<br>`site-weekly#tr (trend)` | — | — | `public/site-report.js` | — | — | `services/agendaBuilder.js` | 2 file(s) |
+| `helpdesk.window_resolved` | helpdesk | count | untriaged | `site-weekly#resolved (kpi)` | — | — | `public/site-report.js` | — | — | `services/agendaBuilder.js` | — |
+| `helpdesk.window_overdue` | helpdesk | count | untriaged | `exec-home#overdue (kpi)`<br>`site-weekly#overdue (kpi)`<br>`field-site#overdue (kpi)` | `helpdesk.overdue.high` | — | `public/site-report.js` | — | — | `services/agendaBuilder.js` | 1 file(s) |
+| `helpdesk.window_major_incidents` | helpdesk | count | untriaged | `exec-home#mi (kpi)` | `helpdesk.major_incident` | — | `public/site-report.js` | — | — | `services/agendaBuilder.js` | 1 file(s) |
+| `helpdesk.avg_resolution_h` | helpdesk | hours | untriaged | `site-weekly#mttr (kpi)` | — | — | — | — | — | — | — |
+| `meetings.pvs_held` | meetings | count | untriaged | — | — | — | `public/site-report.js` | — | — | `services/trackerTemplates.js` | — |
+| `meetings.engagement_1_pct` | meetings | % | untriaged | — | — | — | — | — | — | — | — |
+| `meetings.diffused_48h_pct` | meetings | % | untriaged | — | — | — | — | — | — | `services/trackerTemplates.js` | — |
+| `meetings.champion_pct` | meetings | % | untriaged | — | — | — | — | — | — | `services/trackerTemplates.js` | — |
+| `meetings.escalation_discipline_pct` | meetings | % | untriaged | — | — | — | — | — | — | — | — |
+| `meetings.engagement_score` | meetings | % | untriaged | `exec-home#k-meet (kpi)`<br>`governance#eng (kpi)` | `meetings.engagement.red` | — | — | — | `routes/extApi.js` | `services/agendaBuilder.js`<br>`services/reportConfig.js` | 1 file(s) |
+| `meetings.open_issues` | meetings | count | untriaged | — | — | — | `public/site-report.js` | — | — | — | 1 file(s) |
+| `meetings.overdue_issues` | meetings | count | untriaged | `site-weekly#issues (kpi)` | `meetings.overdue_issues` | — | — | — | — | `services/governanceValues.js`<br>`tools/governance/values.example.json` | 2 file(s) |
+| `inspection.count` | inspection | count | untriaged | — | — | — | `public/site-report.js` | — | — | `services/trackerTemplates.js` | 3 file(s) |
+| `inspection.critical_count` | inspection | count | untriaged | — | `inspection.critical` | — | — | — | — | — | — |
+| `inspection.conformity_pct` | inspection | % | untriaged | `exec-home#k-insp (kpi)` | — | — | — | — | `routes/extApi.js` | `services/agendaBuilder.js`<br>`services/reportConfig.js`<br>`services/trackerTemplates.js` | 3 file(s) |
+| `inspection.open_actions` | inspection | count | untriaged | `site-weekly#insp (kpi)` | — | — | — | — | — | `services/agendaBuilder.js` | — |
+| `inspection.overdue_actions` | inspection | count | untriaged | `field-site#insp (kpi)` | `inspection.overdue_actions` | — | — | — | — | — | — |
+| `assets.total` | assets | count | untriaged | `assets-hygiene#total (kpi)` | — | — | — | — | — | `services/trackerTemplates.js` | 8 file(s) |
+| `assets.no_owner` | assets | count | untriaged | `assets-hygiene#no-owner (kpi)` | — | — | — | — | — | — | — |
+| `assets.no_age` | assets | count | untriaged | `assets-hygiene#no-age (kpi)` | — | — | — | — | — | — | — |
+| `assets.no_cost` | assets | count | untriaged | `assets-hygiene#no-cost (kpi)` | — | — | — | — | — | — | — |
+| `assets.no_asset_tag` | assets | count | untriaged | `assets-hygiene#no-tag (kpi)` | — | — | — | — | — | — | — |
+| `assets.never_scanned` | assets | count | untriaged | — | — | — | — | — | — | — | — |
+| `assets.ghost` | assets | count | untriaged | — | `assets.ghosts` | — | — | — | — | — | 1 file(s) |
+| `assets.completeness_pct` | assets | % | untriaged | `assets-hygiene#compl (kpi)`<br>`assets-hygiene#sites (ragGrid)` | `assets.completeness.low` | — | `public/lib/composerGuide.js` | — | `routes/extApi.js`<br>`routes/governance.js` | `services/agendaBuilder.js`<br>`services/reportConfig.js`<br>`services/trackerTemplates.js` | 1 file(s) |
+| `assets.effort_score` | assets | points | untriaged | `assets-hygiene#effort (kpi)` | — | — | `public/site-report.js` | — | — | — | — |
+| `assets.effort_rank` | assets | rank | untriaged | `assets-hygiene#rank (kpi)` | — | — | `public/site-report.js` | — | — | — | 1 file(s) |
+| `assets.effort_delta_30d` | assets | points | untriaged | — | — | — | `public/site-report.js` | — | — | — | — |
+| `tracker.site_score_pct` | tracker | % | untriaged | `exec-home#sites-tr (ragGrid)` | `tracker.site.red` | — | — | — | `routes/dashboards.js`<br>`routes/extApi.js` | `services/agendaBuilder.js`<br>`services/dashboardData.js`<br>`services/reportConfig.js` | 4 file(s) |
+| `tracker.site_green` | tracker | count | untriaged | — | — | — | — | — | — | — | — |
+| `tracker.site_amber` | tracker | count | untriaged | — | — | — | — | — | — | — | — |
+| `tracker.site_red` | tracker | count | untriaged | — | — | — | — | — | — | — | — |
+| `tracker.fleet_score_pct` | tracker | % | untriaged | `exec-home#k-tracker (kpi)`<br>`governance#roadmap (kpi)` | — | — | — | — | — | `services/agendaBuilder.js` | 3 file(s) |
+| `tracker.fleet_attainment_pct` | tracker | % | untriaged | `governance#attain (kpi)` | — | — | — | — | — | — | — |
+| `wan.wan1_availability_pct` | wan | % | untriaged | `site-weekly#wan1 (kpi)`<br>`field-site#wan1 (kpi)` | `wan.wan1.availability` | — | `public/lib/composerGuide.js` | — | — | `services/agendaBuilder.js` | — |
+| `wan.wan2_availability_pct` | wan | % | untriaged | `site-weekly#wan2 (kpi)`<br>`field-site#wan2 (kpi)` | `wan.wan2.availability` | — | `public/lib/composerGuide.js` | — | — | — | — |
+| `wan.wan1_loss_pct` | wan | % | untriaged | — | — | — | — | — | — | — | — |
+| `wan.wan1_latency_ms` | wan | ms | untriaged | — | — | — | — | — | — | — | — |
+| `programme.site_score` | programme | points | untriaged | `governance#prog (kpi)`<br>`governance#sites (ragGrid)` | — | — | — | — | — | `services/agendaBuilder.js` | 1 file(s) |
+| `programme.composite` | programme | points | untriaged | — | — | — | — | — | — | `services/agendaBuilder.js` | 1 file(s) |
+| `changes.success_pct_deck` | changes | % | untriaged | — | — | — | — | — | — | — | 1 file(s) |
+| `changes.success_pct_itsm` | changes | % | untriaged | — | — | — | — | — | — | — | 1 file(s) |
+| `commitments.verified_on_time_pct` | commitments | % | untriaged | — | — | — | — | — | — | `services/commitmentMetrics.js` | — |
+| `commitments.serious_unowned` | commitments | count | untriaged | — | — | — | — | — | — | `services/commitmentMetrics.js` | — |
+| `commitments.serious_overdue` | commitments | count | untriaged | — | — | — | — | — | — | `services/commitmentMetrics.js` | — |
+| `commitments.technical_vs_verified` | commitments | % | untriaged | — | — | — | — | — | — | `services/commitmentMetrics.js` | — |
 
 ## Metrics named by no widget, rule, page or server code
 

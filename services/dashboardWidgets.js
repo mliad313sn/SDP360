@@ -15,15 +15,19 @@
 // }
 
 const KpiRag = require('./kpiRag');
+// E-V02 — the measure → chart rule table shared with the composer (one source, browser + API)
+const ChartContract = require('../public/lib/chartContract');
+const R = require('../public/lib/dashboardRender');
 
 // C-04 (F01/F02/G11-min) — every type declares HOW it renders (`render`), so a type that is
 // offered is a type that draws something distinct; `creatable:false` = kept only so stored
 // definitions still render (no NEW widget of that type is accepted).
 //   render: tile | line | bar-list | sortable-table | rag-grid | tracker-rag | markdown | action-table
 const WIDGET_TYPES = {
-  kpi:        { needsMetric: true,  minW: 2, minH: 2, props: ['rag', 'format', 'compare'], render: 'tile' },
+  kpi:        { needsMetric: true,  minW: 2, minH: 2, props: ['rag', 'format', 'compare', 'action_href'], render: 'tile' },
   trend:      { needsMetric: true,  minW: 4, minH: 3, props: ['series', 'window'], render: 'line' },
-  bar:        { needsMetric: true,  minW: 4, minH: 3, props: ['groupBy', 'stacked'], render: 'bar-list' },
+  // E-V02 (X-V-01) — `stacked` is no longer offered: no renderer draws it. A stored widget that carries it keeps rendering.
+  bar:        { needsMetric: true,  minW: 4, minH: 3, props: ['groupBy'], render: 'bar-list' },
   table:      { needsMetric: true,  minW: 4, minH: 3, props: ['columns', 'pageSize'], render: 'sortable-table' },
   heatmap:    { needsMetric: true,  minW: 6, minH: 3, props: ['rows', 'cols', 'rag'], render: 'sortable-table', creatable: false,
                 retiredNote: 'heatmap is no longer offered — existing widgets render as a table; use ragGrid or table' },
@@ -31,7 +35,13 @@ const WIDGET_TYPES = {
   trackerRag: { needsMetric: false, minW: 4, minH: 3, props: ['tracker'], render: 'tracker-rag' },
   text:       { needsMetric: false, minW: 2, minH: 1, props: ['markdown'], render: 'markdown' },
   actions:    { needsMetric: false, minW: 4, minH: 3, props: ['sources', 'onlyOverdue'], render: 'action-table' },
+  // E-V09 — small multiples: 2-6 registered metrics, one panel each (own unit, own axis), one shared window and
+  // data table. Creatable only while report_config ui_small_multiples='1' (default '0'); never a dual axis.
+  multiples:  { needsMetric: false, minW: 6, minH: 3, props: ['metrics', 'window'], render: 'small-multiples', switch: 'ui_small_multiples', creatable: false,
+                switchNote: 'small multiples are not offered yet (report_config ui_small_multiples=0)', retiredNote: 'small multiples are not offered yet (report_config ui_small_multiples=0)' },
 };
+const MIN_MULTIPLES = 2, MAX_MULTIPLES = 6;
+const MONTHLY_KINDS = ['month', 'ytd', 'rolling3m'];
 /** Tracker keys the trackerRag resolver understands: the Activity Tracker, optionally pinned to a year. */
 const TRACKER_KEY_RE = /^it-activity(-20[0-9][0-9])?$/;
 const MAX_EXTRA_SERIES = 4;
@@ -49,6 +59,11 @@ const ID_RE = /^[a-z0-9][a-z0-9_-]{0,47}$/i;
  * @param {object} [opts.metricKinds]   { metricKey: window_kind } — a trend needs a metric with a history (not 'current')
  * @param {Set<string>|string[]} [opts.legacyIds]  widget ids that ALREADY carried a retired type (kept rendering)
  * @param {boolean} [opts.allowRetired]  stored definitions (submit/publish) keep their retired widgets
+ * @param {object} [opts.metricInfo]  E-V02 — { metricKey: {name, unit, window_kind, rag_policy} }: enables the
+ *                                     measure → chart contract (public/lib/chartContract.js) for NEW widgets
+ * @param {boolean} [opts.smallMultiples]  E-V09 — ui_small_multiples='1': the `multiples` type may be created
+ * @param {object[]} [opts.storedWidgets]  widgets of the stored definition: a widget kept identical (same id, type,
+ *                                     metric, stacked, rag) is exempt from the contract, so a stored one keeps saving
  */
 function validateDashboard(doc, opts = {}) {
   const errors = [];
@@ -59,6 +74,12 @@ function validateDashboard(doc, opts = {}) {
   const units = opts.metricUnits || null;
   const kinds = opts.metricKinds || null;
   const legacy = new Set(opts.legacyIds || []);
+  const info = opts.metricInfo || null;
+  const stored = new Map((opts.storedWidgets || []).filter((x) => x && x.id).map((x) => [x.id, x]));
+  const sameAsStored = (w) => {
+    const o = stored.get(w.id);
+    return !!o && o.type === w.type && o.metric === w.metric && !!o.stacked === !!w.stacked && JSON.stringify(o.rag) === JSON.stringify(w.rag);
+  };
 
   if (!doc.key || !ID_RE.test(doc.key)) E('key', 'key is required (letters, digits, - or _, max 48)');
   if (!doc.title) E('title', 'title is required');
@@ -86,7 +107,22 @@ function validateDashboard(doc, opts = {}) {
     ids.add(w && w.id);
     const T = WIDGET_TYPES[w && w.type];
     if (!T) { E(`${p}.type`, `type must be one of ${creatableTypes().join(', ')}`); return; }
-    if (T.creatable === false && !opts.allowRetired && !legacy.has(w.id)) E(`${p}.type`, T.retiredNote || `${w.type} is no longer offered`);
+    if (T.creatable === false && !T.switch && !opts.allowRetired && !legacy.has(w.id)) E(`${p}.type`, T.retiredNote || `${w.type} is no longer offered`);
+    if (T.switch && !opts.smallMultiples && !opts.allowRetired && !legacy.has(w.id) && !(stored.get(w.id) && stored.get(w.id).type === w.type)) E(`${p}.type`, T.switchNote);
+    if (w.type === 'multiples') {
+      const ms = w.metrics;
+      if (!Array.isArray(ms) || ms.length < MIN_MULTIPLES || ms.length > MAX_MULTIPLES || !ms.every((k) => typeof k === 'string' && k)) E(`${p}.metrics`, `small multiples need ${MIN_MULTIPLES}-${MAX_MULTIPLES} metric keys, one panel each`);
+      else {
+        if (new Set(ms).size !== ms.length) E(`${p}.metrics`, 'small multiples must not repeat a metric');
+        for (const k of ms) if (metrics && !metrics.has(k)) E(`${p}.metrics`, `unknown metric ${k} — only registered metrics may be charted`);
+        if (kinds) {
+          const ks = ms.filter((k) => k in kinds).map((k) => kinds[k]);
+          if (ks.includes('current')) E(`${p}.metrics`, 'small multiples draw time series — a current snapshot has no history (use a kpi or ragGrid)');
+          else if (new Set(ks.map((k) => MONTHLY_KINDS.includes(k) ? 'month' : 'week')).size > 1) E(`${p}.metrics`, 'small multiples share one window — do not mix weekly and monthly metrics');
+        }
+      }
+      // mixed units are the point of the type (one panel, one axis, one unit each) — never refused
+    }
     if (T.needsMetric) {
       if (!w.metric || typeof w.metric !== 'string') E(`${p}.metric`, 'metric key is required for this widget type');
       else if (metrics && !metrics.has(w.metric)) E(`${p}.metric`, `unknown metric ${w.metric} — only registered metrics may be charted`);
@@ -96,6 +132,12 @@ function validateDashboard(doc, opts = {}) {
       for (const k of [w.metric].concat(Array.isArray(w.series) ? w.series : [])) {
         if (typeof k === 'string' && kinds[k] === 'current') E(`${p}.${k === w.metric ? 'metric' : 'series'}`, `a trend needs a time series — ${k} is a current snapshot with no history (use a kpi or ragGrid)`);
       }
+    }
+    // E-V02 — measure → chart contract (stacked bar · stacked rate · ragGrid without RAG policy · bar of a rank)
+    if (T.needsMetric && !opts.allowRetired && !sameAsStored(w)) {
+      const m = info && typeof w.metric === 'string' && info[w.metric] ? Object.assign({ key: w.metric }, info[w.metric]) : null;
+      const why = (m || w.stacked) ? ChartContract.contractError(w.type, m, w) : null;
+      if (why && !(w.type === 'trend' && kinds)) E(`${p}.${w.stacked ? 'stacked' : (w.type === 'ragGrid' ? 'rag' : 'type')}`, why);
     }
     if (w.type === 'trackerRag') {
       if (!w.tracker) E(`${p}.tracker`, 'tracker key is required');
@@ -120,6 +162,8 @@ function validateDashboard(doc, opts = {}) {
       if (typeof w.rag === 'string') { if (!KpiRag.POLICIES[w.rag]) E(`${p}.rag`, `unknown RAG policy ${w.rag}`); }
       else if (!(w.rag.green > w.rag.amber)) E(`${p}.rag`, 'green threshold must exceed amber');
     }
+    // E-V03 — "→ act" link: a relative URL only (no scheme, no //host), so a definition cannot point viewers off-site
+    if (w.action_href != null && !R.safeRelativeHref(w.action_href)) E(`${p}.action_href`, 'action link must be a relative URL inside the dashboard (e.g. site-actions.html?site=HGO)');
     if (w.sql != null || w.query != null) E(`${p}`, 'raw sql/query is not allowed in a dashboard definition — register a metric instead');
 
     const L = w.layout || {};
@@ -151,7 +195,13 @@ function fieldReadiness(doc) {
   return { ok: issues.length === 0, issues };
 }
 
-/** The types a composer may offer (retired types keep rendering but are not offered). */
-function creatableTypes() { return Object.keys(WIDGET_TYPES).filter((t) => WIDGET_TYPES[t].creatable !== false); }
+/** The types a composer may offer (retired types keep rendering but are not offered; switch-gated types only when on). */
+function creatableTypes(opts = {}) { return Object.keys(widgetTypesFor(opts)).filter((t) => widgetTypesFor(opts)[t].creatable !== false); }
+/** WIDGET_TYPES as the composer must see them: a switch-gated type is creatable:false while its switch is off. */
+function widgetTypesFor(opts = {}) {
+  const out = {};
+  for (const [k, T] of Object.entries(WIDGET_TYPES)) out[k] = T.switch && opts.smallMultiples ? Object.assign({}, T, { creatable: true }) : T;
+  return out;
+}
 
-module.exports = { validateDashboard, fieldReadiness, creatableTypes, WIDGET_TYPES, AUDIENCES, FILTER_TYPES, TRACKER_KEY_RE, MAX_EXTRA_SERIES };
+module.exports = { validateDashboard, fieldReadiness, creatableTypes, widgetTypesFor, WIDGET_TYPES, MIN_MULTIPLES, MAX_MULTIPLES, AUDIENCES, FILTER_TYPES, TRACKER_KEY_RE, MAX_EXTRA_SERIES };

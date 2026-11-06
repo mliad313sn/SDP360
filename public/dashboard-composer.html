@@ -11,8 +11,10 @@
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="admin|dashboard-publisher" data-redirect="login.html"></script>
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/stateBadge.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/dashboardRender.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/chartContract.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/composerGuide.js"></script>
 <style nonce="%%CSP_NONCE%%">
   body { margin:0; background:var(--color-background,#f4f6f7); color:#1F2A33; font-family:var(--font-sans,'Libre Franklin',system-ui,sans-serif); font-size:14px; }
@@ -220,6 +222,10 @@
     var w = Object.assign(extra, { id: $('w-id').value.trim(), type: type }, CG.readFieldValues(currentFields(), $));
     if ($('w-title').value.trim()) w.title = $('w-title').value.trim();
     if (m) w.metric = m.key;
+    // E-V02 — the measure → chart contract with the widget's own props (stacked, rag); a stored widget kept as-is is exempt
+    var storedSame = prev.id === w.id && prev.type === w.type && prev.metric === w.metric && !!prev.stacked === !!w.stacked && JSON.stringify(prev.rag) === JSON.stringify(w.rag);
+    var contract = (keptRetired || storedSame) ? null : CG.fitError(type, m, intent, cat.widgetTypes, w);
+    if (contract) { setErr('type', contract); throw new Error(contract); }
     if (intent === 'target' && !w.rag && !(m && m.rag_policy) && (cat.widgetTypes[type].props || []).indexOf('rag') >= 0) { setErr('rag', 'A target question needs colour thresholds — pick a RAG policy.'); throw new Error('A target question needs a RAG policy'); }
     if (Array.isArray(w.series) && w.series.length > CG.MAX_EXTRA_SERIES) { setErr('series', 'At most ' + CG.MAX_EXTRA_SERIES + ' extra lines.'); throw new Error('Too many extra lines'); }
     if (!w.id) { setErr('id', 'An id is required.'); throw new Error('widget id is required'); }

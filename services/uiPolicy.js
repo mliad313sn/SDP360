@@ -13,6 +13,10 @@
 //                         writes to (services/deckBuilderGate.js) follow the same key; super_admin is always kept
 //   ui_exec_nav           'full' (today) · 'consolidated' (C-28, PO P1 — Executive menu = Executive Home + IT
 //                         Review; the Scorecard leaves the menu, stays in Home and the Ctrl+K finder)
+//   ui_kpi_base_line      '0' = KPI tiles as today · '1' = "n = 142 closed" / "base not measured" under the value (E-V03)
+//   ui_kpi_sample_size    '0' = as today · '1' = "n = …" on tiles/grid cells + low-sample warning from an ADOPTED
+//                         kpi_policy min_sample (E-K02; no adopted policy → no warning)
+//   ui_small_multiples    '0' = the `multiples` widget type is not creatable (today) · '1' = offered (E-V09)
 
 const UI_DEFAULTS = {
   ui_lang_default: '',
@@ -21,6 +25,9 @@ const UI_DEFAULTS = {
   ui_nav_profile: 'full',
   ui_deck_builder_roles: 'super_admin',
   ui_exec_nav: 'full',
+  ui_kpi_base_line: '0',
+  ui_kpi_sample_size: '0',
+  ui_small_multiples: '0',
 };
 const UI_KEYS = Object.keys(UI_DEFAULTS);
 
@@ -30,6 +37,9 @@ const ENUMS = {
   ui_role_landing: ['0', '1'],
   ui_nav_profile: ['full', 'lean'],
   ui_exec_nav: ['full', 'consolidated'],
+  ui_kpi_base_line: ['0', '1'],
+  ui_kpi_sample_size: ['0', '1'],
+  ui_small_multiples: ['0', '1'],
 };
 // Same vocabulary as reports-db.js ROLE_HIERARCHY + FEATURE_ROLES_KNOWN (kept inline: this module stays pure).
 const KNOWN_ROLES = new Set(['super_admin', 'executive', 'admin', 'editor', 'viewer',
@@ -63,6 +73,9 @@ function uiPolicyFrom(cfg) {
     nav_profile: _pick(c, 'ui_nav_profile'),
     deck_builder_roles: _roles(_pick(c, 'ui_deck_builder_roles')),
     exec_nav: _pick(c, 'ui_exec_nav'),
+    kpi_base_line: _pick(c, 'ui_kpi_base_line'),
+    kpi_sample_size: _pick(c, 'ui_kpi_sample_size'),
+    small_multiples: _pick(c, 'ui_small_multiples'),
   };
 }
 
