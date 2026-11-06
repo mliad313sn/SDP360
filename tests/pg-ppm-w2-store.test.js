@@ -37,3 +37,17 @@ test('E-P03: a task owner change writes a task_reassigned row (old, new, actor, 
   const h = await rdb.pgHandle().prepare("SELECT row_hash, prev_hash FROM ppm_events WHERE action='task_reassigned' ORDER BY id").all();
   assert.ok(h.every((r) => r.row_hash && r.row_hash.length === 64), 'hash chain reused');
 });
+
+test('E-P04: budget periods — upsert per key, justification on change / variance, every write hash-chained', async (t) => {
+  if (!ctx) return t.skip('no pg');
+  await s.saveBudgetPeriod(pj, { period: '2026-10', currency: 'usd', kind: 'baseline', amount: 100 }, { user: U });
+  await assert.rejects(s.saveBudgetPeriod(pj, { period: '2026-10', currency: 'USD', kind: 'actual', amount: 120 }, { user: U }), (e) => e.reason === 'JUSTIFICATION_REQUIRED');
+  await s.saveBudgetPeriod(pj, { period: '2026-10', currency: 'USD', kind: 'actual', amount: 100 }, { user: U });   // equals baseline: no reason
+  await assert.rejects(s.saveBudgetPeriod(pj, { period: '2026-10', currency: 'USD', kind: 'actual', amount: 110 }, { user: U }), (e) => e.reason === 'JUSTIFICATION_REQUIRED');
+  const rows = await s.saveBudgetPeriod(pj, { period: '2026-10', currency: 'USD', kind: 'actual', amount: 110, reason: 'extra cabling (fictitious)' }, { user: U });
+  assert.equal(rows.filter((r) => r.kind === 'actual').length, 1, 'one row per key');
+  assert.equal(rows.find((r) => r.kind === 'actual').amount, 110);
+  await assert.rejects(s.saveBudgetPeriod(pj, { period: '2026-10', currency: 'USD', kind: 'actual', amount: -5, reason: 'x' }), (e) => e.code === 'INVALID');
+  const ev = (await s.ppmEvents('project', pj)).filter((e) => e.action === 'budget_period_edit');
+  assert.deepEqual(ev.map((e) => [e.field, e.old_value, e.new_value, e.currency]), [['baseline:2026-10', null, '100', 'USD'], ['actual:2026-10', null, '100', 'USD'], ['actual:2026-10', '100', '110', 'USD']]);
+});

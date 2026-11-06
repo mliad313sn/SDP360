@@ -61,3 +61,24 @@ test('E-P03: capacity is 404 while ppm_capacity_view is 0; on: per site × week,
     assert.deepEqual(h.j.events.filter((e) => e.action === 'task_reassigned').map((e) => [e.old_value, e.new_value, e.note]), [['Ana', 'Bob', null], ['Bob', 'Cy', 'Bob on leave (fictitious)']]);
   } finally { await sw({ ppm_capacity_view: '0' }); }
 });
+
+test('E-P04: budget periods 404 while off; on: committee writes, finance reads, a viewer gets no amounts', async () => {
+  const url = `/api/governance/ppm/project/${pid}/budget-periods`;
+  await sw({ ppm_budget_periods_enabled: '0' });
+  assert.equal((await send('GET', url, T.pmo)).status, 404);
+  assert.equal((await send('PUT', url, T.pmo, { period: '2026-11', currency: 'USD', kind: 'baseline', amount: 10 })).status, 404);
+  await sw({ ppm_budget_periods_enabled: '1' });
+  try {
+    assert.equal((await send('PUT', url, T.pmo, { period: '2026-11', currency: 'USD', kind: 'baseline', amount: 500 })).status, 200);
+    assert.equal((await send('PUT', url, T.pmo, { period: '2026-11', currency: 'XOF', kind: 'baseline', amount: 300000 })).status, 200);
+    const noWhy = await send('PUT', url, T.pmo, { period: '2026-11', currency: 'USD', kind: 'forecast', amount: 650 });
+    assert.equal(noWhy.status, 400); assert.equal(noWhy.j.code, 'JUSTIFICATION_REQUIRED');
+    assert.equal((await send('PUT', url, T.fin, { period: '2026-11', currency: 'USD', kind: 'actual', amount: 1 })).status, 403, 'finance reads, the committee writes');
+    const fin = await send('GET', url, T.fin);
+    assert.equal(fin.status, 200); assert.equal(fin.j.view.currencies.length, 2); assert.match(fin.j.certification, /not certified/);
+    const vw = await send('GET', url, T.viewer);
+    assert.equal(vw.status, 200); assert.equal(vw.j.money_hidden, true); assert.equal(vw.j.view, null);
+    assert.doesNotMatch(JSON.stringify(vw.j), /300000|500/);
+    assert.equal((await send('GET', '/api/governance/ppm/features', T.viewer)).j.budget_periods, true);
+  } finally { await sw({ ppm_budget_periods_enabled: '0' }); }
+});

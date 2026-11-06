@@ -211,6 +211,9 @@ const DEFAULTS = {
   // E-P03 (audit P-03) — PROPOSED: '1' shows capacity per site × week + sorted conflicts (GET /api/governance/ppm/capacity,
   // 404 while '0') and makes a reason REQUIRED to reassign a task. The reassignment is traced in ppm_events either way.
   ppm_capacity_view: '0',
+  // E-P04 (audit P-04) — PROPOSED: '1' = budget per period (baseline / actual / forecast per month × currency, EAC per
+  // currency, justification on a change or a variance) on the project page; 404 while '0'. Not certified by Finance.
+  ppm_budget_periods_enabled: '0',
   site_codes_from_registry: '0',   // DEC-4 — '1' = site_module_codes wins over the modules' hard-coded maps (diff first: GET /api/governance/site-codes); 'shadow' (E-D01) = hard maps answer, divergences logged once/day   // ADR-006 — in-app notice to the escalation-matrix target of a new A01 / A02 (off = ledger only, as before)
   site_code_shared_block: '0',   // D-01 (AM-01) — '1' = refuse a scoped editor's tracker/meetings/inspection save under a code two active sites share (409, never picks an owner)
 };

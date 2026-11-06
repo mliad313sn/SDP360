@@ -3,22 +3,23 @@
 // its own helpers, so the access rules are the SAME functions: committee, money-read rule, A-15 read scope, plan writes).
 // Every action exists only while its PROPOSED switch is '1' (404 while '0' = today):
 //   E-P03 ppm_capacity_view          GET  /api/governance/ppm/capacity                capacity per site × week + conflicts (no money)
+//   E-P04 ppm_budget_periods_enabled GET/PUT /api/governance/ppm/project/:id/budget-periods  money readers / committee
 //   GET  /api/governance/ppm/features  which of these switches are on (the pages show a tab / panel only then)
 // Paths live under /api/governance/ppm/ so they never collide with /portfolio/:kind.
 const { fail: httpFail } = require('../services/httpError');
 
 module.exports = function governancePpmRoutes(router, h) {
-  const { store, rdb, reportConfig, requireReportSession, viewFor } = h;
+  const { store, rdb, reportConfig, requireReportSession, json, viewFor, isCommittee, canSeeMoney, readableProject, log } = h;
   const fail = (res, e) => httpFail(res, e, undefined, { ok: false, ...(e && e.reason ? { code: e.reason } : {}) });
   const cfg = async () => reportConfig.getConfig(rdb().db);
   const on = (c, k) => String(c[k]) === '1';
   const notFound = (res) => httpFail(res, new Error('not found'), 404, { ok: false });
-  void store;
+  const forbidden = (res, msg, code) => httpFail(res, Object.assign(new Error(msg), { reason: code }), 403, { ok: false, ...(code ? { code } : {}) });
 
   router.get('/api/governance/ppm/features', requireReportSession, async (req, res) => {
     try {
       const c = await cfg();
-      res.json({ ok: true, capacity: on(c, 'ppm_capacity_view') });
+      res.json({ ok: true, capacity: on(c, 'ppm_capacity_view'), budget_periods: on(c, 'ppm_budget_periods_enabled') });
     } catch (e) { fail(res, e); }
   });
 
@@ -32,6 +33,28 @@ module.exports = function governancePpmRoutes(router, h) {
       const site_names = {};
       for (const s of (await rdb().listSites({ includeInactive: true })) || []) site_names[String(s.id)] = s.name;
       res.json({ ok: true, capacity, site_names, as_of: new Date().toISOString() });
+    } catch (e) { fail(res, e); }
+  });
+
+  // ---- E-P04 budget periods (money rule unchanged: committee, admin tier, finance-viewer read; the committee writes) --
+  const BP = require('../services/ppmBudgetPeriods');
+  router.get('/api/governance/ppm/project/:id/budget-periods', requireReportSession, async (req, res) => {
+    try {
+      if (!on(await cfg(), 'ppm_budget_periods_enabled')) return notFound(res);
+      if (!(await readableProject(req.reportUser, req.params.id))) return notFound(res);
+      if (!canSeeMoney(req.reportUser)) return res.json({ ok: true, money_hidden: true, view: null, certification: BP.CERTIFICATION });
+      const view = BP.view(await store.listBudgetPeriods(req.params.id), { asOf: new Date().toISOString() });
+      res.json({ ok: true, money_hidden: false, can_edit: !!isCommittee(req.reportUser), view, certification: BP.CERTIFICATION });
+    } catch (e) { fail(res, e); }
+  });
+  router.put('/api/governance/ppm/project/:id/budget-periods', requireReportSession, json, async (req, res) => {
+    try {
+      if (!on(await cfg(), 'ppm_budget_periods_enabled')) return notFound(res);
+      if (!isCommittee(req.reportUser)) return forbidden(res, 'committee-member or admin role required');
+      if (!(await readableProject(req.reportUser, req.params.id))) return notFound(res);
+      const rows = await store.saveBudgetPeriod(req.params.id, req.body || {}, { user: req.reportUser });
+      log(req, 'budget_period_saved', `project:${req.params.id}`, { kind: req.body && req.body.kind, period: req.body && req.body.period, currency: req.body && req.body.currency });
+      res.json({ ok: true, view: BP.view(rows, { asOf: new Date().toISOString() }), certification: BP.CERTIFICATION });
     } catch (e) { fail(res, e); }
   });
 };

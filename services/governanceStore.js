@@ -551,6 +551,31 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       ORDER BY b.review_date, b.id`).all(String(asOf).slice(0, 10), Number(siteId), Number(siteId));
     return rows.map(r => ({ ...benefitRow(r), project_key: r.project_key, project_name: r.project_name }));
   }
+  // ── E-P04 budget periods (migration 072): every write is a hash-chained ppm_events row ───────────────────
+  const bpRow = (r) => r && ({ ...r, id: Number(r.id), project_id: Number(r.project_id), amount: num(r.amount), actor_id: r.actor_id == null ? null : Number(r.actor_id) });
+  async function listBudgetPeriods(projectId) {
+    if (await _projectGone(projectId)) return [];
+    return (await P(`SELECT * FROM ppm_budget_periods WHERE project_id=? ORDER BY currency, period, kind`).all(Number(projectId))).map(bpRow);
+  }
+  /** Upsert one (period, currency, kind) amount. A change or a variance vs the baseline needs a reason (JUSTIFICATION_REQUIRED). */
+  async function saveBudgetPeriod(projectId, body, { user } = {}) {
+    const BP = require('./ppmBudgetPeriods');
+    const pid = Number(projectId);
+    if (await _projectGone(pid)) throw Object.assign(new Error('project not found'), { code: 'NOT_FOUND', status: 404 });
+    const row = { period: String((body && body.period) || ''), currency: String((body && body.currency) || '').toUpperCase(), kind: body && body.kind, amount: num(body && body.amount) };
+    const bad = BP.validate(row); if (bad) throw Object.assign(new Error(bad), { code: 'INVALID' });
+    const reason = str(body && body.reason, 2000);
+    return tx(async () => {
+      const existing = await P(`SELECT * FROM ppm_budget_periods WHERE project_id=? AND period=? AND currency=? AND kind=?`).get(pid, row.period, row.currency, row.kind);
+      const baseline = row.kind === 'baseline' ? null : await P(`SELECT amount FROM ppm_budget_periods WHERE project_id=? AND period=? AND currency=? AND kind='baseline'`).get(pid, row.period, row.currency);
+      if (BP.needsJustification({ row, existing, baseline }) && !(reason && reason.trim())) throw Object.assign(new Error('a justification is required (the amount changes, or differs from the baseline of this period)'), { code: 'INVALID', reason: 'JUSTIFICATION_REQUIRED' });
+      const who = user ? String(user.username || user.full_name || '') : null, uid = user && user.id != null ? Number(user.id) : null;
+      if (existing) await P(`UPDATE ppm_budget_periods SET amount=?, reason=?, actor_id=?, actor=?, updated_at=? WHERE id=?`).run(row.amount, reason, uid, who, now(), Number(existing.id));
+      else await insert('ppm_budget_periods', ['project_id', 'period', 'currency', 'kind', 'amount', 'reason', 'actor_id', 'actor', 'updated_at'], [pid, row.period, row.currency, row.kind, row.amount, reason, uid, who, now()]);
+      await ppmEvent({ entity: 'project', entity_id: pid, action: 'budget_period_edit', field: `${row.kind}:${row.period}`, old_value: existing ? num(existing.amount) : null, new_value: row.amount, currency: row.currency, note: reason }, user);
+      return listBudgetPeriods(pid);
+    });
+  }
   /** G11 — stage gate passage (rules in services/projectSchedule.stageGate), recorded in the ledger. */
   // A-27 — captureBaseline: the caller (route) passes report_config ppm_baseline_versions === '1'; the store reads no config.
   async function moveProjectStage(id, to, { user, note, captureBaseline = false } = {}) {
@@ -701,7 +726,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     await insert('minutes_history', ['session_id', 'action', 'actor_id', 'at', 'reason'], [Number(sessionId), String(action), actorId == null ? null : Number(actorId), now(), str(reason, 1000)]);
   }
   async function minutesHistory(sessionId) { return (await P('SELECT action, actor_id, at, reason FROM minutes_history WHERE session_id=? ORDER BY id').all(Number(sessionId))).map(r => ({ ...r, actor_id: r.actor_id == null ? null : Number(r.actor_id) })); }
-  return { ppmEvent, ppmEvents, moveProjectStage, rfiToProject, getRfi, verifyRfi, rfiFromMeeting, rfiForMeeting, rfiLineage, setAttendance, saveDraftAgenda, getDecision, openSessionActions, addMinutesHistory, minutesHistory, init, listCadences, getCadence, saveCadence, removeCadence, listSessions, getSession, createSession, updateSession, stampItem, sessionActions, addSessionAction, setSessionActionStatus, moveSession,
+  return { ppmEvent, ppmEvents, listBudgetPeriods, saveBudgetPeriod, moveProjectStage, rfiToProject, getRfi, verifyRfi, rfiFromMeeting, rfiForMeeting, rfiLineage, setAttendance, saveDraftAgenda, getDecision, openSessionActions, addMinutesHistory, minutesHistory, init, listCadences, getCadence, saveCadence, removeCadence, listSessions, getSession, createSession, updateSession, stampItem, sessionActions, addSessionAction, setSessionActionStatus, moveSession,
     listDecisions, addDecision, updateDecision, listRfi, submitRfi, triageRfi, rfiScore, portfolio, upsertPortfolio, removePortfolio,
     restorePortfolio, getPortfolioTrashRow, listDeletedPortfolio, purgeDeletedPortfolio, restoreCadence, getCadenceTrashRow, listDeletedCadences, purgeDeletedCadences, projectSites, setProjectSites, getProject, planRow, projectDetail, gateCounts, RISK_KINDS, listBaselines, rebaseline, alertStates, saveAlertState, listBenefits, getBenefit, recordBenefitRealised, verifyBenefit, dueBenefitReviews,
     CADENCE_KINDS, SESSION_STATUSES, DECISION_STATUSES, RFI_KINDS, RFI_STATUSES, PROJECT_STATUSES, CONFIDENCE };

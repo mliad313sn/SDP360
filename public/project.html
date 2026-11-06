@@ -14,6 +14,7 @@
 <script nonce="%%CSP_NONCE%%" src="lib/stateBadge.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/dashboardRender.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/ppmVisuals.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/ppmExtras.js"></script>
 <style nonce="%%CSP_NONCE%%">
   body { margin:0; background:var(--color-background,#f4f6f7); color:#1F2A33; font-family:var(--font-sans,"Libre Franklin",system-ui,sans-serif); font-size:14px; }
   .wrap { max-width:1360px; margin:0 auto; padding:24px; }
@@ -59,6 +60,7 @@
     <button type="button" role="tab" id="tab-milestones" aria-controls="pane-milestones" aria-selected="false" tabindex="-1">Milestones</button>
     <button type="button" role="tab" id="tab-raid" aria-controls="pane-raid" aria-selected="false" tabindex="-1">RAID</button>
     <button type="button" role="tab" id="tab-benefits" aria-controls="pane-benefits" aria-selected="false" tabindex="-1">Benefits</button>
+    <button type="button" role="tab" id="tab-budget" aria-controls="pane-budget" aria-selected="false" tabindex="-1" hidden>Budget</button>
     <button type="button" role="tab" id="tab-gates" aria-controls="pane-gates" aria-selected="false" tabindex="-1">Gates</button>
     <button type="button" role="tab" id="tab-history" aria-controls="pane-history" aria-selected="false" tabindex="-1">History</button>
   </div>
@@ -174,6 +176,20 @@
     </div>
   </section>
 
+  <section id="pane-budget" role="tabpanel" aria-labelledby="tab-budget" hidden>
+    <div class="panel"><h2>Budget per period (baseline, actual, forecast)</h2><div class="scroll" id="budget"></div></div>
+    <div class="panel" id="bp-edit" hidden><h2>Enter an amount (committee)</h2>
+      <div class="row">
+        <label>Month <input id="bp-period" type="month"></label>
+        <label>Currency <input id="bp-cur" placeholder="USD" maxlength="3"></label>
+        <label>Kind <select id="bp-kind"><option value="baseline">baseline</option><option value="actual">actual</option><option value="forecast">forecast</option></select></label>
+        <label>Amount <input id="bp-amount" type="number" min="0" step="any"></label>
+        <label style="grid-column:1/-1">Justification (required when an amount changes or differs from the baseline) <textarea id="bp-reason" rows="2"></textarea></label>
+      </div>
+      <div class="bar"><button class="btn primary" id="bp-save" type="button">Save amount</button><span class="muted">Every entry is kept in the History tab with its old and new value.</span></div>
+    </div>
+  </section>
+
   <section id="pane-gates" role="tabpanel" aria-labelledby="tab-gates" hidden>
     <div class="panel"><h2>Stage gates</h2><div id="gates"></div>
       <div id="gate-reason-box" hidden><label>Reason (10 characters or more) <textarea id="gate-reason" rows="2"></textarea></label></div></div>
@@ -210,17 +226,22 @@
     PLAN_SCOPE: "You may only maintain the plan of a project of your site(s), or one you own.",
     GATE_SOD: "The project owner cannot approve their own project — another committee member must.",
     REASON_REQUIRED: "A reason is required to reassign a task.",
+    JUSTIFICATION_REQUIRED: "A justification is required: the amount changes, or differs from the baseline of this month.",
   };
   var fail = function (e) { msg((e && e.code && PLAIN[e.code]) || (e && e.message) || "Error", "errors"); };
   var V = null;
   // W2-PPM — which PROPOSED switches are on (each new tab / prompt exists only then); an error = all off (today)
   var FEAT = {};
-  api("/api/governance/ppm/features").then(function (f) { FEAT = f || {}; }).catch(function () { FEAT = {}; });
+  api("/api/governance/ppm/features").then(function (f) { FEAT = f || {}; if (FEAT.budget_periods) addTab("budget", "gates"); }).catch(function () { FEAT = {}; });
 
   // ---- tabs (role=tablist, arrows / Home / End, deep link #tab) ---------------------------------------------
   // Extension point: later goals (baselines, benefits) add a tab button + a pane + an entry in RENDER.
   var TABS = ["overview", "charter", "plan", "milestones", "raid", "benefits", "gates", "history"];
   var RENDER = { overview: renderOverview, charter: renderCharter, plan: renderPlan, milestones: renderMilestones, raid: renderRaid, benefits: renderBenefits, gates: renderGates, history: loadHistory };
+  // W2-PPM — the add-on tabs exist only while their switch is on (they join TABS, so the arrow keys skip them otherwise)
+  var X = function () { return { $: $, esc: esc, api: api, msg: msg, fail: fail, pid: PID }; };
+  RENDER.budget = function () { if (window.PpmExtras) window.PpmExtras.mountBudget(X()); };
+  function addTab(name, before) { if (TABS.indexOf(name) >= 0) return; TABS.splice(TABS.indexOf(before), 0, name); $("tab-" + name).hidden = false; }
   function showTab(name, focus) {
     if (TABS.indexOf(name) < 0) name = "overview";
     TABS.forEach(function (t) { var b = $("tab-" + t), on = t === name; b.setAttribute("aria-selected", on ? "true" : "false"); b.tabIndex = on ? 0 : -1; $("pane-" + t).hidden = !on; });
