@@ -1,6 +1,7 @@
-# Python dependencies for the executive-report PPTX renderer.
-# Pinned to known-good versions tested with python 3.12 on the dev box.
-matplotlib==3.9.*
-python-pptx==1.0.*
-pillow>=10.3.0   # SEC-01: floor above CVE-2023-50447 (10.2.0) and CVE-2024-28219 (10.3.0)
-numpy>=2.0
+# Python dependencies for the executive-report PPTX renderer (tools/exec-pptx/render.py).
+# Exact pins (E-Q01): the versions installed and run on the agent dev box on 2026-11-06 (python 3.13) and in
+# CI (python 3.12, actions/setup-python). Test/render tooling only — not shipped inside the product package.
+matplotlib==3.9.4
+python-pptx==1.0.2
+pillow==12.3.0   # SEC-01: stays above CVE-2023-50447 (10.2.0) and CVE-2024-28219 (10.3.0)
+numpy==2.5.3

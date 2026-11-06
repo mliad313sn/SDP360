@@ -26,9 +26,9 @@ module.exports = function policyRoutes(deps) {
   const isAdmin = (u) => rdb().userHasRole(u, 'admin');
   const isSuper = (u) => rdb().userHasRole(u, 'super_admin');
   const isCommittee = (u) => isAdmin(u) || rdb().userHasRole(u, 'committee-member');
-  const requireCommittee = (req, res, next) => (isCommittee(req.reportUser) ? next() : res.status(403).json({ ok: false, error: 'committee or admin role required' }));
-  const requireSuperTier = (req, res, next) => (isSuper(req.reportUser) ? next() : res.status(403).json({ ok: false, error: 'super_admin role required' }));
-  const requireAdminTier = (req, res, next) => (isAdmin(req.reportUser) ? next() : res.status(403).json({ ok: false, error: 'admin role required' }));
+  const requireCommittee = (req, res, next) => (isCommittee(req.reportUser) ? next() : httpFail(res, new Error('committee or admin role required'), 403, { ok: false }));
+  const requireSuperTier = (req, res, next) => (isSuper(req.reportUser) ? next() : httpFail(res, new Error('super_admin role required'), 403, { ok: false }));
+  const requireAdminTier = (req, res, next) => (isAdmin(req.reportUser) ? next() : httpFail(res, new Error('admin role required'), 403, { ok: false }));
   requireCommittee.legacyRoles = ['admin', 'committee-member']; requireSuperTier.legacyRoles = ['super_admin']; requireAdminTier.legacyRoles = ['admin'];   // C-17 tags
 
   // committee #49 — country / business unit of each site (migration 036); empty map if not migrated
@@ -42,9 +42,9 @@ module.exports = function policyRoutes(deps) {
       const b = req.body || {}; const id = Number(req.params.id);
       const norm = (v) => { if (v == null || String(v).trim() === '') return null; const c = GP.groupCode(v); if (!c) throw require('../services/httpError').typed('VALIDATION', 'a country / business unit code is 2 to 16 letters, digits, - or _', 400); return c; };
       const country = norm(b.country), bu = norm(b.business_unit);
-      if (String(b.reason || '').trim().length < 5) return res.status(400).json({ ok: false, error: 'a reason (5+ characters) is required' });
+      if (String(b.reason || '').trim().length < 5) return httpFail(res, new Error('a reason (5+ characters) is required'), 400, { ok: false });
       const before = (await siteAttrs()).get(id);
-      if (!before) return res.status(404).json({ ok: false, error: 'site not found' });
+      if (!before) return httpFail(res, new Error('site not found'), 404, { ok: false });
       const was = await store().snapshot({ siteId: id });
       await rdb().pgHandle().prepare('UPDATE sites SET country=?, business_unit=? WHERE id=?').run(country, bu, id);
       store().invalidate();
@@ -109,12 +109,12 @@ module.exports = function policyRoutes(deps) {
       const b = req.body || {}; const site = Number(req.params.site); const mod = String(b.module || '');
       if (!SCR.MODULES.includes(mod)) return res.status(400).json({ ok: false, error: `module must be one of ${SCR.MODULES.join(', ')}` });
       const code = String(b.code || '').trim().toUpperCase();
-      if (!/^[A-Z0-9_-]{2,16}$/.test(code)) return res.status(400).json({ ok: false, error: 'a site code is 2 to 16 letters, digits, - or _' });
-      if (String(b.reason || '').trim().length < 5) return res.status(400).json({ ok: false, error: 'a reason (5+ characters) is required' });
+      if (!/^[A-Z0-9_-]{2,16}$/.test(code)) return httpFail(res, new Error('a site code is 2 to 16 letters, digits, - or _'), 400, { ok: false });
+      if (String(b.reason || '').trim().length < 5) return httpFail(res, new Error('a reason (5+ characters) is required'), 400, { ok: false });
       const H = rdb().pgHandle();
-      if (!(await H.prepare('SELECT 1 FROM sites WHERE id=?').get(site))) return res.status(404).json({ ok: false, error: 'site not found' });
+      if (!(await H.prepare('SELECT 1 FROM sites WHERE id=?').get(site))) return httpFail(res, new Error('site not found'), 404, { ok: false });
       const clash = await H.prepare('SELECT site_id FROM site_module_codes WHERE module=? AND code=? AND site_id<>?').get(mod, code, site);
-      if (clash) return res.status(409).json({ ok: false, error: 'this code is already used by another site in this module' });
+      if (clash) return httpFail(res, new Error('this code is already used by another site in this module'), 409, { ok: false });
       const before = await H.prepare('SELECT code FROM site_module_codes WHERE site_id=? AND module=?').get(site, mod);
       await H.prepare('INSERT INTO site_module_codes (site_id, module, code) VALUES (?, ?, ?) ON CONFLICT (site_id, module) DO UPDATE SET code=EXCLUDED.code').run(site, mod, code);
       await SCR.refresh(rdb());
@@ -125,7 +125,7 @@ module.exports = function policyRoutes(deps) {
   router.put('/api/governance/site-codes', requireReportSession, requireSuperTier, json, async (req, res) => {
     try {
       const b = req.body || {};
-      if (String(b.reason || '').trim().length < 10) return res.status(400).json({ ok: false, error: 'a reason (10+ characters) is required' });
+      if (String(b.reason || '').trim().length < 10) return httpFail(res, new Error('a reason (10+ characters) is required'), 400, { ok: false });
       // E-D01: { mode: 'shadow' } (or enabled: 'shadow') = observation mode — hard maps answer, divergences logged
       const raw = b.mode !== undefined ? b.mode : b.enabled;
       const mode = raw === true || raw === '1' || raw === 1 ? '1' : String(raw) === 'shadow' ? 'shadow' : '0';
@@ -154,7 +154,7 @@ module.exports = function policyRoutes(deps) {
   router.get('/api/governance/policies/effective', requireReportSession, async (req, res) => {
     try {
       const u = req.reportUser; const site = req.query.site == null || req.query.site === '' ? null : Number(req.query.site);
-      if (site != null && !isAdmin(u) && !userSites.hasSite(u, site)) return res.status(403).json({ ok: false, error: 'site not in your scope' });
+      if (site != null && !isAdmin(u) && !userSites.hasSite(u, site)) return httpFail(res, new Error('site not in your scope'), 403, { ok: false });
       res.json({ ok: true, site, values: await store().snapshot({ siteId: site }) });
     } catch (e) { fail(res, e); }
   });
@@ -179,8 +179,8 @@ module.exports = function policyRoutes(deps) {
   router.post('/api/governance/policies/profile', requireReportSession, requireAdminTier, json, async (req, res) => {
     try {
       const b = req.body || {}; const u = req.reportUser; const site = Number(b.site_id);
-      if (!Number.isInteger(site) || site <= 0) return res.status(400).json({ ok: false, error: 'site_id is required' });
-      if (String(b.reason || '').trim().length < 3) return res.status(400).json({ ok: false, error: 'a short reason is required for every policy change' });
+      if (!Number.isInteger(site) || site <= 0) return httpFail(res, new Error('site_id is required'), 400, { ok: false });
+      if (String(b.reason || '').trim().length < 3) return httpFail(res, new Error('a short reason is required for every policy change'), 400, { ok: false });
       const results = await Profiles.applyProfile(store(), { siteId: site, profile: String(b.profile || ''), reason: b.reason, actor: { id: u.id, isAdmin: isAdmin(u), isSuper: isSuper(u) } });
       try { await rdb().logEvent({ category: 'governance', action: 'policy_profile_applied', target: `site:${site}`, details: { profile: b.profile, results }, risk: results.some((r) => r.relaxes) ? 1 : 0, ...rdb()._logCtx(req) }); } catch (_) {}
       res.json({ ok: true, profile: b.profile, results });
@@ -245,7 +245,7 @@ module.exports = function policyRoutes(deps) {
   const controls = () => deps.controlStore || CR.makeControlStore(rdb().pgHandle());
   async function controlsOn(res) {
     const cfg = await reportConfig.getConfig(rdb().db);
-    if (String(cfg.controls_register_enabled) !== '1') { res.status(404).json({ ok: false, error: 'not found' }); return null; }
+    if (String(cfg.controls_register_enabled) !== '1') { httpFail(res, new Error('not found'), 404, { ok: false }); return null; }
     return cfg;
   }
   const lastPeriods = (n = 3, now = new Date()) => Array.from({ length: n }, (_, i) => { const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1 - i, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`; });
@@ -265,9 +265,9 @@ module.exports = function policyRoutes(deps) {
     try {
       if (!(await controlsOn(res))) return;
       const b = req.body || {};
-      if (String(b.reason || '').trim().length < 10) return res.status(400).json({ ok: false, error: 'a reason (10+ characters, e.g. the GRC decision reference) is required' });
+      if (String(b.reason || '').trim().length < 10) return httpFail(res, new Error('a reason (10+ characters, e.g. the GRC decision reference) is required'), 400, { ok: false });
       const c = await controls().setStatus(req.params.id, String(b.status || ''), { user: req.reportUser });
-      if (!c) return res.status(404).json({ ok: false, error: 'control not found' });
+      if (!c) return httpFail(res, new Error('control not found'), 404, { ok: false });
       try { rdb().logEvent({ category: 'governance', action: 'control_status', target: c.key, details: { status: c.status, reason: String(b.reason).slice(0, 300) }, ...rdb()._logCtx(req) }); } catch (_) {}
       res.json({ ok: true, control: c });
     } catch (e) { fail(res, e); }

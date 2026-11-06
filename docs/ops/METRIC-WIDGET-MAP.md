@@ -28,9 +28,9 @@ metric is absent from that file and `--check` fails).
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | `helpdesk.inbound` | helpdesk | count | untriaged | — | — | `public/index.html` | `public/lib/composerGuide.js` | — | — | — | 10 file(s) |
 | `helpdesk.closed` | helpdesk | count | untriaged | — | — | `public/index.html` | `public/lib/composerGuide.js` | — | — | — | 6 file(s) |
-| `helpdesk.closure_pct` | helpdesk | % | untriaged | — | — | — | — | — | `routes/governance.js` | `services/agendaBuilder.js` | 3 file(s) |
-| `helpdesk.resolution_sla_pct` | helpdesk | % | untriaged | `exec-home#k-sla (kpi)`<br>`exec-home#tr-sla (trend)`<br>`exec-home#sites (ragGrid)`<br>`governance#tr (trend)` | `sla.resolution.red` | `public/index.html`<br>`public/portfolio.html` | `public/kpi-builder.js`<br>`public/lib/composerGuide.js` | — | `routes/extApi.js`<br>`routes/governance.js`<br>`routes/kpiPolicies.js` | `services/agendaBuilder.js`<br>`services/dashboardWidgets.js`<br>`services/kpiPolicyEngine.js`<br>`services/reportConfig.js` | 25 file(s) |
-| `helpdesk.first_reply_sla_pct` | helpdesk | % | untriaged | — | `sla.first_reply.red` | `public/index.html` | — | — | `routes/extApi.js` | `services/agendaBuilder.js`<br>`services/reportConfig.js` | 7 file(s) |
+| `helpdesk.closure_pct` | helpdesk | % | untriaged | — | — | — | — | — | `routes/governance.js` | `services/agendaBuilder.js` | 4 file(s) |
+| `helpdesk.resolution_sla_pct` | helpdesk | % | untriaged | `exec-home#k-sla (kpi)`<br>`exec-home#tr-sla (trend)`<br>`exec-home#sites (ragGrid)`<br>`governance#tr (trend)` | `sla.resolution.red` | `public/index.html`<br>`public/portfolio.html` | `public/kpi-builder.js`<br>`public/lib/composerGuide.js` | — | `routes/extApi.js`<br>`routes/governance.js`<br>`routes/kpiPolicies.js` | `services/agendaBuilder.js`<br>`services/dashboardWidgets.js`<br>`services/kpiPolicyEngine.js`<br>`services/reportConfig.js` | 27 file(s) |
+| `helpdesk.first_reply_sla_pct` | helpdesk | % | untriaged | — | `sla.first_reply.red` | `public/index.html` | — | — | `routes/extApi.js` | `services/agendaBuilder.js`<br>`services/reportConfig.js` | 8 file(s) |
 | `helpdesk.window_created` | helpdesk | count | untriaged | `site-weekly#created (kpi)`<br>`site-weekly#tr (trend)` | — | — | `public/site-report.js` | — | — | `services/agendaBuilder.js` | 2 file(s) |
 | `helpdesk.window_resolved` | helpdesk | count | untriaged | `site-weekly#resolved (kpi)` | — | — | `public/site-report.js` | — | — | `services/agendaBuilder.js` | — |
 | `helpdesk.window_overdue` | helpdesk | count | untriaged | `exec-home#overdue (kpi)`<br>`site-weekly#overdue (kpi)`<br>`field-site#overdue (kpi)` | `helpdesk.overdue.high` | — | `public/site-report.js` | — | — | `services/agendaBuilder.js` | 1 file(s) |
@@ -70,8 +70,8 @@ metric is absent from that file and `--check` fails).
 | `wan.wan2_availability_pct` | wan | % | untriaged | `site-weekly#wan2 (kpi)`<br>`field-site#wan2 (kpi)` | `wan.wan2.availability` | — | `public/lib/composerGuide.js` | — | — | — | — |
 | `wan.wan1_loss_pct` | wan | % | untriaged | — | — | — | — | — | — | — | — |
 | `wan.wan1_latency_ms` | wan | ms | untriaged | — | — | — | — | — | — | — | — |
-| `programme.site_score` | programme | points | untriaged | `governance#prog (kpi)`<br>`governance#sites (ragGrid)` | — | — | — | — | — | `services/agendaBuilder.js` | 1 file(s) |
-| `programme.composite` | programme | points | untriaged | — | — | — | — | — | — | `services/agendaBuilder.js` | 1 file(s) |
+| `programme.site_score` | programme | points | untriaged | `governance#prog (kpi)`<br>`governance#sites (ragGrid)` | — | — | — | — | — | `services/agendaBuilder.js`<br>`tools/agent/score-methodology.js` | 1 file(s) |
+| `programme.composite` | programme | points | untriaged | — | — | — | — | — | — | `services/agendaBuilder.js`<br>`tools/agent/score-methodology.js` | 1 file(s) |
 | `changes.success_pct_deck` | changes | % | untriaged | — | — | — | — | — | — | — | 1 file(s) |
 | `changes.success_pct_itsm` | changes | % | untriaged | — | — | — | — | — | — | — | 1 file(s) |
 | `commitments.verified_on_time_pct` | commitments | % | untriaged | — | — | — | — | — | — | `services/commitmentMetrics.js` | — |

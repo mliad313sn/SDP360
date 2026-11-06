@@ -7,12 +7,12 @@
   "pages_not_in_navigation": 29,
   "pages_with_inline_scripts": 46,
   "routes": 611,
-  "routes_without_test_reference": 49,
+  "routes_without_test_reference": 48,
   "routes_in_server_js": 210,
   "jobs": 30,
   "jobs_without_test_reference": 10,
   "migrations": 74,
-  "test_files": 611
+  "test_files": 619
  },
  "pages": [
   {
@@ -268,6 +268,7 @@
     "tests/api-key-injection.smoke.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/exec-nav-consolidated.test.js",
+    "tests/exec-scorecard-registry-parity.test.js",
     "tests/i18n-coverage.test.js",
     "tests/landing.test.js",
     "tests/login-next-redirect.test.js",
@@ -2558,6 +2559,7 @@
    "file": "routes/engagement.js",
    "line": 111,
    "tests": [
+    "tests/api-contract-ext.test.js",
     "tests/engagement-routes.smoke.test.js",
     "tests/ext-api.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
@@ -2570,6 +2572,7 @@
    "file": "routes/engagement.js",
    "line": 109,
    "tests": [
+    "tests/api-contract-ext.test.js",
     "tests/engagement-routes.smoke.test.js",
     "tests/ext-api.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
@@ -2582,6 +2585,7 @@
    "file": "routes/engagement.js",
    "line": 110,
    "tests": [
+    "tests/api-contract-ext.test.js",
     "tests/engagement-routes.smoke.test.js",
     "tests/ext-api.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
@@ -8972,6 +8976,7 @@
    "line": 1355,
    "tests": [
     "tests/api-key-injection.smoke.test.js",
+    "tests/exec-scorecard-registry-parity.test.js",
     "tests/page-usage.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
@@ -8983,6 +8988,7 @@
    "file": "routes/extApi.js",
    "line": 99,
    "tests": [
+    "tests/api-contract-ext.test.js",
     "tests/engagement-routes.smoke.test.js",
     "tests/ext-api.smoke.test.js",
     "tests/odata.test.js",
@@ -8996,6 +9002,7 @@
    "file": "routes/extApi.js",
    "line": 102,
    "tests": [
+    "tests/api-contract-ext.test.js",
     "tests/ext-api.smoke.test.js"
    ]
   },
@@ -9005,7 +9012,9 @@
    "path": "/ext/odata/Sites",
    "file": "routes/extApi.js",
    "line": 103,
-   "tests": []
+   "tests": [
+    "tests/api-contract-ext.test.js"
+   ]
   },
   {
    "id": "RT-GET-ext-odata-values",
@@ -9026,6 +9035,7 @@
    "file": "routes/extApi.js",
    "line": 86,
    "tests": [
+    "tests/api-contract-ext.test.js",
     "tests/engagement-routes.smoke.test.js",
     "tests/engagement-store.test.js",
     "tests/ext-api.smoke.test.js",
@@ -9040,6 +9050,7 @@
    "file": "routes/extApi.js",
    "line": 84,
    "tests": [
+    "tests/api-contract-ext.test.js",
     "tests/engagement-routes.smoke.test.js",
     "tests/engagement-store.test.js",
     "tests/ext-api.smoke.test.js",
@@ -9054,6 +9065,7 @@
    "file": "routes/extApi.js",
    "line": 85,
    "tests": [
+    "tests/api-contract-ext.test.js",
     "tests/engagement-routes.smoke.test.js",
     "tests/ext-api.smoke.test.js"
    ]

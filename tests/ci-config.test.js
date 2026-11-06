@@ -139,3 +139,16 @@ test('G01: the PostgreSQL service gets enough shared memory (one database per te
   const ci = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', 'ci.yml'), 'utf8');
   assert.match(ci, /--shm-size=\d+[gm]/);
 });
+
+test('E-Q01: the test jobs install Python + the pinned deck-renderer packages before npm test (no python skip allowed)', () => {
+  for (const f of ['ci.yml', 'release.yml']) {
+    const text = fs.readFileSync(path.join(__dirname, '..', '.github', 'workflows', f), 'utf8');
+    const py = text.indexOf('actions/setup-python@'); const pip = text.indexOf('pip install --disable-pip-version-check -r tools/exec-pptx/requirements.txt');
+    const npmTest = text.indexOf('- run: npm test');
+    assert.ok(py > 0 && pip > py && npmTest > pip, `${f}: setup-python → pip install -r requirements → npm test, in that order`);
+  }
+  const req = fs.readFileSync(path.join(__dirname, '..', 'tools', 'exec-pptx', 'requirements.txt'), 'utf8');
+  for (const pkg of ['matplotlib', 'python-pptx', 'pillow', 'numpy']) assert.match(req, new RegExp(`^${pkg}==\\d+\\.\\d+\\.\\d+`, 'm'), `${pkg} pinned to an exact version`);
+  const allow = JSON.parse(fs.readFileSync(path.join(__dirname, '.skip-allowlist.json'), 'utf8'));
+  assert.equal(allow.reasons['python with matplotlib + python-pptx not available'].max, 0);
+});

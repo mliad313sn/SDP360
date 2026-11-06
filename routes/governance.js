@@ -60,7 +60,7 @@ module.exports = function governanceRoutes(deps) {
   const isAdmin = (u) => rdb().userHasRole(u, 'admin');
   const isCommittee = (u) => isAdmin(u) || rdb().userHasRole(u, 'committee-member');
   const isSuper = (u) => rdb().userHasRole(u, 'super_admin');
-  const requireCommittee = (req, res, next) => isCommittee(req.reportUser) ? next() : res.status(403).json({ ok: false, error: 'committee-member or admin role required' });
+  const requireCommittee = (req, res, next) => isCommittee(req.reportUser) ? next() : httpFail(res, new Error('committee-member or admin role required'), 403, { ok: false });
   requireCommittee.legacyRoles = ['admin', 'committee-member'];   // C-17 capability catalogue tag
   const fail = (res, e) => httpFail(res, e, undefined, { ok: false });
   const log = (req, action, target, details) => { try { rdb().logEvent({ category: 'governance', action, target: String(target), details, ...rdb()._logCtx(req) }); } catch (_) {} };
@@ -102,13 +102,13 @@ module.exports = function governanceRoutes(deps) {
   const lifecycle = async (req, res, x, action, o) => { const c = SL.check(x.s, action, actorFor(req.reportUser, x.cad), { ...(o || {}), policy: await polFor(x.cad) }); return c ? refuse(res, c) : false; };
   const withStage = async (s, u, cad) => { if (!s) return s; const policy = await polForSession(cad, s); return { ...s, stage: SL.stage(s, new Date(), policy), allowed: ['start', 'close', 'cancel', 'accept', 'approve_exception', 'reopen'].filter((a) => !SL.check(s, a, actorFor(u, cad), { reason: 'x'.repeat(500), policy })) }; };
   async function loadSession(req, res, { run = false, decide = false } = {}) {
-    const s = await store.getSession(req.params.id); if (!s) { res.status(404).json({ ok: false, error: 'session not found' }); return null; }
+    const s = await store.getSession(req.params.id); if (!s) { httpFail(res, new Error('session not found'), 404, { ok: false }); return null; }
     const cad = await store.getCadence(s.cadence_id);
     const u = req.reportUser;
-    if (!isCommittee(u) && cad && cad.site_id != null && !userSites.hasSite(u, cad.site_id) && !canRun(u, cad)) { res.status(403).json({ ok: false, error: 'session belongs to another site' }); return null; }
-    if (!seesCadence(u, cad)) { res.status(403).json({ ok: false, error: 'group sessions are read by the committee and their participants' }); return null; }
-    if (run && !canRun(u, cad)) { res.status(403).json({ ok: false, error: 'only the chair, the secretary, the site editors or the committee may run this session' }); return null; }
-    if (decide && !canDecide(u, cad)) { res.status(403).json({ ok: false, error: 'only the chair, the secretary or an admin may record a decision' }); return null; }
+    if (!isCommittee(u) && cad && cad.site_id != null && !userSites.hasSite(u, cad.site_id) && !canRun(u, cad)) { httpFail(res, new Error('session belongs to another site'), 403, { ok: false }); return null; }
+    if (!seesCadence(u, cad)) { httpFail(res, new Error('group sessions are read by the committee and their participants'), 403, { ok: false }); return null; }
+    if (run && !canRun(u, cad)) { httpFail(res, new Error('only the chair, the secretary, the site editors or the committee may run this session'), 403, { ok: false }); return null; }
+    if (decide && !canDecide(u, cad)) { httpFail(res, new Error('only the chair, the secretary or an admin may record a decision'), 403, { ok: false }); return null; }
     return { s, cad };
   }
 
@@ -207,7 +207,7 @@ module.exports = function governanceRoutes(deps) {
   // Chair / secretary picker for the cadence form (committee field review): names, never typed ids.
   router.get('/api/governance/people', requireReportSession, async (req, res) => {
     try {
-      if (!isCommittee(req.reportUser)) return res.status(403).json({ ok: false, error: 'committee only' });
+      if (!isCommittee(req.reportUser)) return httpFail(res, new Error('committee only'), 403, { ok: false });
       const site = req.query.site == null || req.query.site === '' ? null : Number(req.query.site);
       const people = ((await rdb().listUsers()) || []).filter((x) => x.active !== 0 && x.active !== false && (site == null || [x.site_id, ...(x.extra_site_ids || [])].filter((v) => v != null).map(Number).includes(site)))
         .map((x) => ({ id: Number(x.id), name: x.full_name || x.username })).sort((a, b) => String(a.name).localeCompare(String(b.name), 'fr'));
@@ -219,10 +219,10 @@ module.exports = function governanceRoutes(deps) {
   router.delete('/api/governance/cadences/:id', requireReportSession, requireCommittee, async (req, res) => { try { const soft = await _softDelete(req); await store.removeCadence(req.params.id, soft); log(req, soft.soft ? 'cadence_soft_deleted' : 'cadence_removed', req.params.id); res.json({ ok: true, soft: !!soft.soft }); } catch (e) { fail(res, e); } });
   router.post('/api/governance/cadences/:id/sessions', requireReportSession, json, async (req, res) => {
     try {
-      const cad = await store.getCadence(req.params.id); if (!cad) return res.status(404).json({ ok: false, error: 'cadence not found' });
-      if (!canRun(req.reportUser, cad)) return res.status(403).json({ ok: false, error: 'not allowed to prepare this cadence' });
+      const cad = await store.getCadence(req.params.id); if (!cad) return httpFail(res, new Error('cadence not found'), 404, { ok: false });
+      if (!canRun(req.reportUser, cad)) return httpFail(res, new Error('not allowed to prepare this cadence'), 403, { ok: false });
       const when = (req.body && req.body.scheduled_at) || new Date().toISOString();
-      if (!cad.active) return res.status(409).json({ ok: false, error: 'the cadence is inactive' });
+      if (!cad.active) return httpFail(res, new Error('the cadence is inactive'), 409, { ok: false });
       if (!SL.inEffectiveWindow(cad, when)) return res.status(400).json({ ok: false, error: `the cadence is effective ${cad.effective_from || '…'} → ${cad.effective_to || '…'}; ${String(when).slice(0, 10)} is outside it` });
       const agenda = await generateAgenda(cad, when);
       const s = await store.createSession({ cadenceId: cad.id, scheduledAt: when, agenda, user: req.reportUser });
@@ -245,7 +245,7 @@ module.exports = function governanceRoutes(deps) {
   router.put('/api/governance/sessions/:id/attendance', requireReportSession, json, async (req, res) => {
     try {
       const x = await loadSession(req, res, { run: true }); if (!x) return;
-      if (!isCommittee(req.reportUser) && !leads(req.reportUser, x.cad)) return res.status(403).json({ ok: false, error: 'attendance is recorded by the secretary, the chair or the committee' });
+      if (!isCommittee(req.reportUser) && !leads(req.reportUser, x.cad)) return httpFail(res, new Error('attendance is recorded by the secretary, the chair or the committee'), 403, { ok: false });
       if (await lifecycle(req, res, x, 'edit')) return;
       const att = SA.normalize((req.body && req.body.attendance) || null, { by: req.reportUser.id });
       const s = await store.setAttendance(x.s.id, att);
@@ -257,11 +257,11 @@ module.exports = function governanceRoutes(deps) {
   // E-G03 — the scheduled DRAFT agenda of a cadence (job governance.agenda_drafts; nothing sent). 404 while agenda_cron_enabled = '0'.
   router.get('/api/governance/cadences/:id/draft-agenda', requireReportSession, async (req, res) => {
     try {
-      if (String((await reportConfig.getConfig(rdb().db)).agenda_cron_enabled) !== '1') return res.status(404).json({ ok: false, error: 'not found' });
-      const cad = await store.getCadence(req.params.id); if (!cad) return res.status(404).json({ ok: false, error: 'cadence not found' });
+      if (String((await reportConfig.getConfig(rdb().db)).agenda_cron_enabled) !== '1') return httpFail(res, new Error('not found'), 404, { ok: false });
+      const cad = await store.getCadence(req.params.id); if (!cad) return httpFail(res, new Error('cadence not found'), 404, { ok: false });
       const u = req.reportUser;
-      if (!isCommittee(u) && cad.site_id != null && !userSites.hasSite(u, cad.site_id) && !canRun(u, cad)) return res.status(403).json({ ok: false, error: 'cadence belongs to another site' });
-      if (!seesCadence(u, cad)) return res.status(403).json({ ok: false, error: 'group cadences are read by the committee and their participants' });
+      if (!isCommittee(u) && cad.site_id != null && !userSites.hasSite(u, cad.site_id) && !canRun(u, cad)) return httpFail(res, new Error('cadence belongs to another site'), 403, { ok: false });
+      if (!seesCadence(u, cad)) return httpFail(res, new Error('group cadences are read by the committee and their participants'), 403, { ok: false });
       res.json({ ok: true, status: cad.draft_agenda ? 'draft' : 'none', for: cad.draft_agenda_for || null, compiled_at: cad.draft_agenda_at || null, agenda: cad.draft_agenda || null });
     } catch (e) { fail(res, e); }
   });
@@ -274,7 +274,7 @@ module.exports = function governanceRoutes(deps) {
   router.post('/api/governance/sessions/:id/items/:item/:op', requireReportSession, json, async (req, res) => {
     try { const x = await loadSession(req, res, { run: true }); if (!x) return; if (await lifecycle(req, res, x, 'edit')) return; const op = req.params.op; const item = String(req.params.item).slice(0, 40);
       if (op === 'notes') { const items = x.s.items || []; let it = items.find(i => i.id === item); if (!it) { it = { id: item, started_at: null, ended_at: null }; items.push(it); } it.notes = String(req.body && req.body.notes || '').slice(0, 5000); return res.json({ ok: true, session: await store.updateSession(x.s.id, { items }) }); }
-      if (op !== 'start' && op !== 'end') return res.status(400).json({ ok: false, error: 'op must be start | end | notes' });
+      if (op !== 'start' && op !== 'end') return httpFail(res, new Error('op must be start | end | notes'), 400, { ok: false });
       res.json({ ok: true, session: await store.stampItem(x.s.id, item, op === 'start' ? 'started_at' : 'ended_at') }); } catch (e) { fail(res, e); }
   });
   router.post('/api/governance/sessions/:id/decisions', requireReportSession, json, async (req, res) => {
@@ -287,7 +287,7 @@ module.exports = function governanceRoutes(deps) {
     // follow-up status stays editable after acceptance (the work lives on); the action must belong to THIS session
     try { const x = await loadSession(req, res, { run: true }); if (!x) return;
       const n = await store.setSessionActionStatus(req.params.aid, req.body && req.body.status, x.s.id);
-      if (!n) return res.status(404).json({ ok: false, error: 'action not found in this session' });
+      if (!n) return httpFail(res, new Error('action not found in this session'), 404, { ok: false });
       log(req, 'session_action_status', req.params.aid, { session: x.s.id, status: req.body && req.body.status }); res.json({ ok: true, actions: await store.sessionActions(x.s.id) }); } catch (e) { fail(res, e); }
   });
   async function minutesFor(x) {
@@ -346,7 +346,7 @@ module.exports = function governanceRoutes(deps) {
     try { const x = await loadSession(req, res, { run: true }); if (!x) return;
       // UAT (PMO F3): minutes become official when a second person accepts them — never sent before
       if (!x.s.minutes_accepted_at) return res.status(409).json({ ok: false, code: 'NOT_ACCEPTED', error: 'the minutes are not accepted yet — a second person must accept them before they are sent' });
-      const to = (x.cad && x.cad.participants || []).filter(p => /@/.test(String(p))); if (!to.length) return res.status(400).json({ ok: false, error: 'the cadence has no participant e-mail address (edit the cadence)' });
+      const to = (x.cad && x.cad.participants || []).filter(p => /@/.test(String(p))); if (!to.length) return httpFail(res, new Error('the cadence has no participant e-mail address (edit the cadence)'), 400, { ok: false });
       const html = x.s.minutes_html || await minutesFor(x); const cfg = await reportConfig.getConfig(rdb().db);
       const pdf = await (deps.renderPdf || require('../services/reportRender').renderPdf)(html, { stamp: `minutes-${x.s.id}` });
       const sent = await (deps.buildMailer || require('../services/mailer').buildMailer)(cfg).send({ to, subject: `Minutes — ${x.cad.name} — ${String(x.s.started_at || x.s.scheduled_at).slice(0, 10)}`, html, attachments: pdf.ok ? [{ filename: `minutes-${x.s.id}.pdf`, content: pdf.pdf }] : [] });
@@ -413,14 +413,14 @@ module.exports = function governanceRoutes(deps) {
       const b = req.body || {}; const u = req.reportUser;
       if (!isCommittee(u)) {
         const keys = Object.keys(b).filter((k) => b[k] !== undefined);
-        if (keys.some((k) => k !== 'status')) return res.status(403).json({ ok: false, error: 'only the committee edits a decision; the site may update its status' });
-        const dec = await store.getDecision(req.params.id); if (!dec) return res.status(404).json({ ok: false, error: 'decision not found' });
+        if (keys.some((k) => k !== 'status')) return httpFail(res, new Error('only the committee edits a decision; the site may update its status'), 403, { ok: false });
+        const dec = await store.getDecision(req.params.id); if (!dec) return httpFail(res, new Error('decision not found'), 404, { ok: false });
         let allowed = false;
         if (dec.session_id != null) { const sess = await store.getSession(dec.session_id); const cad = sess && await store.getCadence(sess.cadence_id); allowed = !!(cad && canRun(u, cad)); }
         if (!allowed && dec.site_id != null) allowed = rdb().userHasRole(u, 'editor') && userSites.hasSite(u, Number(dec.site_id));
-        if (!allowed) return res.status(403).json({ ok: false, error: 'not allowed to update this decision' });
+        if (!allowed) return httpFail(res, new Error('not allowed to update this decision'), 403, { ok: false });
       }
-      const d = await store.updateDecision(req.params.id, b); if (!d) return res.status(404).json({ ok: false, error: 'decision not found' });
+      const d = await store.updateDecision(req.params.id, b); if (!d) return httpFail(res, new Error('decision not found'), 404, { ok: false });
       log(req, 'decision_updated', d.ref, { status: b.status || null }); res.json({ ok: true, decision: d });
     } catch (e) { fail(res, e); }
   });
@@ -432,15 +432,15 @@ module.exports = function governanceRoutes(deps) {
   const incubationRfiOn = async () => String((await reportConfig.getConfig(rdb().db)).incubation_rfi_link_enabled) === '1';
   const mdb = () => deps.meetingsDb || require('../meetings-db');
   async function incubationSource(req, res, { write = false } = {}) {
-    if (!(await incubationRfiOn())) { res.status(404).json({ ok: false, error: 'not found' }); return null; }
+    if (!(await incubationRfiOn())) { httpFail(res, new Error('not found'), 404, { ok: false }); return null; }
     const src = await mdb().getIncubationSource(req.params.id);
-    if (!src) { res.status(404).json({ ok: false, error: 'session not found' }); return null; }
+    if (!src) { httpFail(res, new Error('session not found'), 404, { ok: false }); return null; }
     const hit = src.site_code ? await rdb().getSiteIdByModuleCode('meetings', src.site_code) : null;
     const siteId = hit && hit.site_id != null ? Number(hit.site_id) : null;
     const u = req.reportUser;
     if (!isAdmin(u)) {
-      if (write && !rdb().userHasRole(u, 'editor')) { res.status(403).json({ ok: false, error: 'editor role or higher required' }); return null; }
-      if (siteId == null || !userSites.hasSite(u, siteId)) { res.status(403).json({ ok: false, error: 'session belongs to another site' }); return null; }
+      if (write && !rdb().userHasRole(u, 'editor')) { httpFail(res, new Error('editor role or higher required'), 403, { ok: false }); return null; }
+      if (siteId == null || !userSites.hasSite(u, siteId)) { httpFail(res, new Error('session belongs to another site'), 403, { ok: false }); return null; }
     }
     return { src, siteId };
   }
@@ -457,10 +457,10 @@ module.exports = function governanceRoutes(deps) {
   });
   router.get('/api/governance/rfi/:id/lineage', requireReportSession, async (req, res) => {
     try {
-      if (!(await incubationRfiOn())) return res.status(404).json({ ok: false, error: 'not found' });
-      const r = await store.getRfi(req.params.id); if (!r) return res.status(404).json({ ok: false, error: 'request not found' });
+      if (!(await incubationRfiOn())) return httpFail(res, new Error('not found'), 404, { ok: false });
+      const r = await store.getRfi(req.params.id); if (!r) return httpFail(res, new Error('request not found'), 404, { ok: false });
       const u = req.reportUser;
-      if (!isCommittee(u) && Number(r.requester_id) !== Number(u.id) && !(r.site_id != null && userSites.hasSite(u, r.site_id))) return res.status(403).json({ ok: false, error: 'request belongs to another site' });
+      if (!isCommittee(u) && Number(r.requester_id) !== Number(u.id) && !(r.site_id != null && userSites.hasSite(u, r.site_id))) return httpFail(res, new Error('request belongs to another site'), 403, { ok: false });
       res.json({ ok: true, lineage: await store.rfiLineage(r.id) });
     } catch (e) { fail(res, e); }
   });
@@ -516,7 +516,7 @@ module.exports = function governanceRoutes(deps) {
     const u = req.reportUser;
     if (isCommittee(u)) return false;
     const ctx = await accessCtx(u);
-    if (!ctx.writesOn) { res.status(403).json({ ok: false, error: 'committee-member or admin role required' }); return true; }
+    if (!ctx.writesOn) { httpFail(res, new Error('committee-member or admin role required'), 403, { ok: false }); return true; }
     const may = async (pid) => { if (pid == null || !Number.isFinite(Number(pid))) return false; const p = await store.getProject(pid); return !!p && PA.canEditPlan(u, p, { ...ctx, extraSites: await store.projectSites(p.id) }); };
     let target = body && body.project_id != null ? Number(body.project_id) : null;
     if (id) {
@@ -559,7 +559,7 @@ module.exports = function governanceRoutes(deps) {
       const u = req.reportUser; const SCH = require('../services/projectSchedule');
       const d = Number.isInteger(Number(req.params.id)) ? await store.projectDetail(req.params.id) : null;
       const ctx = await accessCtx(u); const pctx = { ...ctx, extraSites: d ? d.extra_sites : [] };
-      if (!d || !PA.canReadProject(u, d.project, pctx)) return res.status(404).json({ ok: false, error: 'project not found' });
+      if (!d || !PA.canReadProject(u, d.project, pctx)) return httpFail(res, new Error('project not found'), 404, { ok: false });
       const p = d.project; const from = p.stage || 'proposal'; const money = canSeeMoney(u);
       const allowed_stages = (SCH.GATES[from] || []).map((to) => {
         const needs_reason = to === 'on_hold' || (from === 'closure' && to === 'in_progress');
@@ -580,7 +580,7 @@ module.exports = function governanceRoutes(deps) {
   const benefitAction = (op) => async (req, res) => {
     try {
       const id = Number(req.params.id);
-      if (!Number.isInteger(id) || id <= 0) return res.status(400).json({ ok: false, error: 'benefit id must be a number' });
+      if (!Number.isInteger(id) || id <= 0) return httpFail(res, new Error('benefit id must be a number'), 400, { ok: false });
       if (await refusePlanWrite(req, res, 'benefit', { id })) return;
       if (await refuseMoneyBenefit(req, res, { id })) return;
       const b = op === 'realised' ? await store.recordBenefitRealised(id, req.body || {}, { user: req.reportUser }) : await store.verifyBenefit(id, { user: req.reportUser });
@@ -602,7 +602,7 @@ module.exports = function governanceRoutes(deps) {
   }
   router.get('/api/governance/portfolio/project/:id/baselines', requireReportSession, async (req, res) => {
     try {
-      if (!(await readableProject(req.reportUser, req.params.id))) return res.status(404).json({ ok: false, error: 'project not found' });
+      if (!(await readableProject(req.reportUser, req.params.id))) return httpFail(res, new Error('project not found'), 404, { ok: false });
       const d = await store.projectDetail(req.params.id); const current = BL.snapshotPayload(d.project, d.tasks, d.milestones);
       const cfg = await reportConfig.getConfig(rdb().db);
       const versions = (await store.listBaselines(req.params.id)).map((b) => ({ ...b, diff_vs_current: BL.diffBaselines(b.payload, current) }));
@@ -612,8 +612,8 @@ module.exports = function governanceRoutes(deps) {
   router.post('/api/governance/portfolio/project/:id/rebaseline', requireReportSession, json, async (req, res) => {
     try {
       const cfg = await reportConfig.getConfig(rdb().db);
-      if (String(cfg.ppm_rebaseline_enabled) !== '1') return res.status(404).json({ ok: false, error: 'not found' });   // the action does not exist while the switch is off
-      if (!isCommittee(req.reportUser)) return res.status(403).json({ ok: false, error: 'committee-member or admin role required' });
+      if (String(cfg.ppm_rebaseline_enabled) !== '1') return httpFail(res, new Error('not found'), 404, { ok: false });   // the action does not exist while the switch is off
+      if (!isCommittee(req.reportUser)) return httpFail(res, new Error('committee-member or admin role required'), 403, { ok: false });
       const r = await store.rebaseline(req.params.id, req.body || {}, { user: req.reportUser });
       log(req, 'project_rebaseline', `project:${req.params.id}`, { version: r.version, baseline_end: r.baseline_end });
       res.json({ ok: true, ...r });
@@ -650,12 +650,12 @@ module.exports = function governanceRoutes(deps) {
   });
   const historyOf = (entity) => async (req, res) => {
     try {
-      if (!canSeeMoney(req.reportUser)) return res.status(403).json({ ok: false, error: 'committee, admin or finance-viewer role required' });
+      if (!canSeeMoney(req.reportUser)) return httpFail(res, new Error('committee, admin or finance-viewer role required'), 403, { ok: false });
       if (entity === 'project') {   // A-15 — with the read switch on, a project of another site does not exist for this reader
         const ctx = await accessCtx(req.reportUser);
         if (ctx.scopeOn && !ctx.isCommittee && !ctx.isAdmin) {
           const p = await store.getProject(req.params.id);
-          if (!p || !PA.canReadProject(req.reportUser, p, { ...ctx, extraSites: await store.projectSites(p.id) })) return res.status(404).json({ ok: false, error: 'project not found' });
+          if (!p || !PA.canReadProject(req.reportUser, p, { ...ctx, extraSites: await store.projectSites(p.id) })) return httpFail(res, new Error('project not found'), 404, { ok: false });
         }
       }
       res.json({ ok: true, events: await store.ppmEvents(entity, req.params.id) });
@@ -685,7 +685,7 @@ module.exports = function governanceRoutes(deps) {
   // ---- Roadmap Manager migration -----------------------------------------------------------
   router.post('/api/governance/roadmap-migration', requireReportSession, json, async (req, res) => {
     try {
-      if (!isSuper(req.reportUser)) return res.status(403).json({ ok: false, error: 'super_admin required' });
+      if (!isSuper(req.reportUser)) return httpFail(res, new Error('super_admin required'), 403, { ok: false });
       const apply = req.query.apply === '1'; const uid = Number(req.body && req.body.user_id) || req.reportUser.id;
       const rm = await rdb().getRoadmap(uid); const pf = await store.portfolio();
       const KEY = 'itsm-roadmap'; const EVID = { catalogue: 'helpdesk.closure_pct', platform: 'assets.completeness_pct', incidents: 'helpdesk.resolution_sla_pct', knowledge: null };

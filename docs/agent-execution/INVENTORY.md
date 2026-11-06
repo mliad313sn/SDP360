@@ -12,12 +12,12 @@
 | pages not in navigation | 29 |
 | pages with inline scripts | 46 |
 | routes | 611 |
-| routes without test reference | 49 |
+| routes without test reference | 48 |
 | routes in server js | 210 |
 | jobs | 30 |
 | jobs without test reference | 10 |
 | migrations | 74 |
-| test files | 611 |
+| test files | 619 |
 
 ## Pages
 
@@ -36,7 +36,7 @@
 | PG-dashboards | public/dashboards.html | any | yes | 1 | 9 |
 | PG-exec-view | public/exec-view.html | public | no | 1 | 6 |
 | PG-executive-report | public/executive-report.html | super_admin | yes | 1 | 10 |
-| PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 9 |
+| PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 10 |
 | PG-handoffs | public/handoffs.html | any | yes | 1 | 7 |
 | PG-help | public/help.html | any | yes | 1 | 9 |
 | PG-home | public/home.html | any | yes | 0 | 6 |
@@ -132,7 +132,6 @@
 | RT-GET-api-sample-viewid | GET | `/api/sample/:viewId` | server.js:4428 |
 | RT-POST-api-save-pptx | POST | `/api/save-pptx` | server.js:6551 |
 | RT-POST-api-tracker-import-dept-meetings | POST | `/api/tracker/import-dept-meetings` | routes/tracker.js:108 |
-| RT-GET-ext-odata-sites | GET | `/ext/odata/Sites` | routes/extApi.js:103 |
 | RT-GET- | GET | `/` | server.js:1396 |
 
 ## Scheduled jobs
