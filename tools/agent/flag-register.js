@@ -94,14 +94,18 @@ function build({ root = ROOT } = {}) {
   const keys = Object.keys(DEFAULTS).sort();
   L.push(`## 1. report_config keys (${keys.length}) — services/reportConfig.js DEFAULTS`);
   L.push('');
-  L.push('| Key | Default (today) | Kind | Owner | Recommended pilot value | Reference |');
-  L.push('|---|---|---|---|---|---|');
+  L.push('Prerequisites (E-A07, services/switchPrereqs.js) are WARNINGS in plain words, never approvals: the config PUT');
+  L.push('answer and the `set-ui-policy.js` dry run repeat them when the switch is moved to its switched-on value.');
+  L.push('');
+  L.push('| Key | Default (today) | Kind | Owner | Recommended pilot value | Reference | Prerequisites |');
+  L.push('|---|---|---|---|---|---|---|');
   for (const k of keys) {
     const p = prof.rows.get(k);
     const secret = isSecret(k);
     const def = secret ? '(secret — not shown)' : (String(DEFAULTS[k]).length > 60 ? code(String(DEFAULTS[k]).slice(0, 57) + '…') : code(DEFAULTS[k]));
     const kind = secret ? 'secret' : (/^ui_/.test(k) ? 'ui policy' : (/_enabled$|_send_enabled$/.test(k) ? 'arm switch' : 'setting'));
-    L.push(`| ${code(k)} | ${cell(def)} | ${kind} | ${cell(p ? p.owner : 'to be named')} | ${cell(p ? p.recommended : '—')} | ${cell(p ? p.ref : '—')} |`);
+    const pre = require('../../services/switchPrereqs').textFor(k);
+    L.push(`| ${code(k)} | ${cell(def)} | ${kind} | ${cell(p ? p.owner : 'to be named')} | ${cell(p ? p.recommended : '—')} | ${cell(p ? p.ref : '—')} | ${cell(pre || '—')} |`);
   }
   L.push('');
 

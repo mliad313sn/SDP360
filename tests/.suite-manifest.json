@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 4310,
+ "total": 4320,
  "files": {
   "a11y-static.test.js": 18,
   "access-approver-policy.test.js": 4,
@@ -121,6 +121,8 @@
   "composer-guide.test.js": 8,
   "composite-fidelity.test.js": 12,
   "composite-model.test.js": 16,
+  "config-change-journal.smoke.test.js": 3,
+  "config-change-journal.test.js": 4,
   "config-secrets-compat.test.js": 10,
   "config-secrets.test.js": 26,
   "connector-register.test.js": 6,
@@ -553,6 +555,7 @@
   "status-transfer-normalize.test.js": 6,
   "status-transfer.smoke.test.js": 11,
   "survey-routes.smoke.test.js": 6,
+  "switch-prereqs.test.js": 3,
   "sync-drift.test.js": 8,
   "sync-jobs-registry.test.js": 11,
   "sync-routes.smoke.test.js": 7,
