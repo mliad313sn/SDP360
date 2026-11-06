@@ -227,13 +227,48 @@
       } else el.innerHTML = title + '<div class="edv-kpi-sub">Widget type ' + R.escapeHtml(w.type) + ' is not rendered yet.</div>';
       root.appendChild(el);
     });
+    redActions(def, data);
+  }
+
+  // E-K03 — a RED tile / ragGrid cell offers "Open actions (k)" and, to whoever may create on that site, "Create
+  // action". Only when GET /api/commitments/metric-links answers (switch dashboard_red_action_links + commitments
+  // on); any other answer leaves the page exactly as rendered above. Grey / stale / unknown cells never get a link.
+  var redCtx = null;
+  function redActions(def, data) {
+    redCtx = null;
+    var cells = [];
+    (def.widgets || []).forEach(function (w) {
+      var d = data.widgets[w.id] || {};
+      if (d.mode === 'single' && d.value != null && (!d.freshness || d.freshness === 'FRESH') && R.ragClass(d.rag) === 'rag-red') {
+        cells.push({ w: w, d: d, sid: R.redActionSourceId(d.metric, d.site_id, d.window && d.window.label) });
+      } else if (d.mode === 'per-site' && w.type === 'ragGrid') {
+        (d.rows || []).forEach(function (r) { if (R.rowState(r, d) === 'red') cells.push({ w: w, d: d, sid: R.redActionSourceId(d.metric, r.site_id, d.window && d.window.label) }); });
+      }
+    });
+    var ids = cells.map(function (c) { return c.sid; }).filter(Boolean);
+    if (!ids.length) return;
+    var seq = loadSeq;
+    fetch('/api/commitments/metric-links?ids=' + encodeURIComponent(ids.join(',')), { headers: H() }).then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      if (!j || !j.links || seq !== loadSeq) return;
+      redCtx = { links: j.links };
+      cells.forEach(function (c) {
+        var el = document.querySelector('section[data-wid="' + c.w.id + '"]'); if (!el) return;
+        if (c.d.mode === 'single') {
+          var h = R.redActionHtml({ state: 'red', metric: c.d.metric, site_id: c.d.site_id, site: '', window: c.d.window && c.d.window.label, title: c.w.title || c.d.title }, redCtx);
+          if (h && !el.querySelector('.edv-red-actions')) el.insertAdjacentHTML('beforeend', h);
+        } else if (bodies[c.w.id] && !bodies[c.w.id].red) {
+          var x = bodies[c.w.id]; x.red = true;
+          x.el.innerHTML = x.title + R.perSiteHtml(x.type, x.d, null, { sampleSize: !!(window.__uiPolicy && window.__uiPolicy.kpi_sample_size === '1'), redActions: redCtx }) + R.partialNote(x.d);
+        }
+      });
+    }).catch(function () {});
   }
 
   // C-04 — sortable table widgets: a header button re-renders that widget's table only
   $('dash').addEventListener('click', function (ev) {
     var b = ev.target && ev.target.closest ? ev.target.closest('button.edv-sort') : null; if (!b) return;
     var sec = b.closest('section'); var id = sec && sec.getAttribute('data-wid'); var x = id && bodies[id]; if (!x) return;
-    x.el.innerHTML = x.title + R.perSiteHtml(x.type, x.d, { col: b.getAttribute('data-sort'), dir: b.getAttribute('data-dir') }, { sampleSize: !!(window.__uiPolicy && window.__uiPolicy.kpi_sample_size === '1') }) + R.partialNote(x.d);
+    x.el.innerHTML = x.title + R.perSiteHtml(x.type, x.d, { col: b.getAttribute('data-sort'), dir: b.getAttribute('data-dir') }, { sampleSize: !!(window.__uiPolicy && window.__uiPolicy.kpi_sample_size === '1'), redActions: x.red ? redCtx : null }) + R.partialNote(x.d);
     var nb = x.el.querySelector('button.edv-sort[data-sort="' + b.getAttribute('data-sort') + '"]'); if (nb) nb.focus();
   });
 

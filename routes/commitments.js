@@ -33,6 +33,8 @@ module.exports = function commitmentsRoutes(deps) {
   const userSites = require('../services/userSites');
   const L = require('../services/commitmentLifecycle');
   const raw = express.raw({ type: () => true, limit: '11mb' });
+  const RedId = require('../public/lib/dashboardRender');   // E-K03 — one source-id format, page + server
+  async function redLinksOn() { try { return String((await reportConfig.getConfig(rdb().db)).dashboard_red_action_links) === '1'; } catch (_) { return false; } }
   const fail = (res, e) => httpFail(res, e);
 
   const isAdmin = (u) => rdb().userHasRole(u, 'admin');
@@ -93,6 +95,10 @@ module.exports = function commitmentsRoutes(deps) {
       const h = /^\d+$/.test(sid) && deps.getHandoffStore ? await deps.getHandoffStore().getRaw(Number(sid)) : null;
       return { checked: true, site_id: h ? Number(h.site_id) : null };
     }
+    if (system === 'metric') {   // E-K03 — '<metric>|<site_id>|<window>': the site is part of the id
+      const ps = RedId.parseRedActionSource(sid);
+      return { checked: true, site_id: ps ? ps.site_id : null };
+    }
     if (system === 'report') {
       const o = await rdb().getActionItemOwner(sid);
       return { checked: true, site_id: o && o.site_id != null ? Number(o.site_id) : null };
@@ -118,6 +124,10 @@ module.exports = function commitmentsRoutes(deps) {
       const u = req.reportUser;
       const rows = await store.list({ siteIds: isAdmin(u) ? null : userSites.siteIds(u), named: isAdmin(u) ? [] : identities(u),
         status: req.query.status || null, kind: req.query.kind || null, site: req.query.site || null, exceptions: req.query.exceptions === '1' });
+      if (req.query.metric && await redLinksOn()) {   // E-K03 — "Open actions (k)" of one red figure
+        const open = (await store.openLinksFor('metric', [String(req.query.metric)])).get(String(req.query.metric)) || [];
+        const keep = new Set(open.map((x) => x.id)); for (let i = rows.length - 1; i >= 0; i--) if (!keep.has(Number(rows[i].id))) rows.splice(i, 1);
+      }
       if (req.query.exceptions === '1') { const today = new Date().toISOString(); for (const r of rows) r.exception_state = r.exception_expires_at && String(r.exception_expires_at) < today ? 'lapsed' : 'active'; }
       res.json({ commitments: rows, kinds: L.KINDS, statuses: L.STATUSES, severities: L.SEVERITIES, sites: isAdmin(u) ? null : userSites.siteIds(u) });
     } catch (e) { fail(res, e); }
@@ -138,6 +148,26 @@ module.exports = function commitmentsRoutes(deps) {
       res.json({ status: 'draft — pending committee', escalations: await store.listEscalations({ siteIds: isAdmin(u) ? null : userSites.siteIds(u), openOnly: req.query.all !== '1' }) });
     } catch (e) { fail(res, e); }
   });
+  // E-K03 — open commitments linked to red dashboard figures. Switch dashboard_red_action_links='0' → 404.
+  // ids = comma list of '<metric>|<site_id>|<window>'; an id of a site the caller may not see is left out (no
+  // enumeration); can_create = the caller may create a commitment on that site (editor of it, or admin tier).
+  router.get(base + '/metric-links', requireReportSession, enabled, async (req, res) => {
+    try {
+      if (!(await redLinksOn())) return httpFail(res, new Error('red-figure action links are not enabled'), 404, { ok: false });
+      const u = req.reportUser;
+      const ids = String(req.query.ids || '').split(',').map((x) => x.trim()).filter((x) => RedId.parseRedActionSource(x)).slice(0, 200);
+      const visible = ids.filter((x) => isAdmin(u) || userSites.hasSite(u, RedId.parseRedActionSource(x).site_id));
+      const open = await store.openLinksFor('metric', visible);
+      const links = {};
+      for (const x of visible) {
+        const site = RedId.parseRedActionSource(x).site_id;
+        const list = (open.get(x) || []).filter((c) => visibleTo(u, c));
+        links[x] = { count: list.length, open: list.map((c) => ({ id: c.id, title: c.title, status: c.status })),
+          can_create: isAdmin(u) || (rdb().userHasRole(u, 'editor') && userSites.hasSite(u, site)) };
+      }
+      res.json({ links });
+    } catch (e) { fail(res, e); }
+  });
   router.get(base + '/:id', requireReportSession, enabled, async (req, res) => {
     try {
       const c = await load(req, res); if (!c) return;
@@ -152,6 +182,16 @@ module.exports = function commitmentsRoutes(deps) {
       if (!isAdmin(u)) {
         if (!rdb().userHasRole(u, 'editor')) return res.status(403).json({ error: 'editor role required' });
         if (b.site_id == null || !userSites.hasSite(u, b.site_id)) return res.status(403).json({ error: 'Access denied: another site' });
+      }
+      if (b.metric_link != null) {   // E-K03 — "Create action" from a red figure
+        if (!(await redLinksOn())) return httpFail(res, new Error('red-figure action links are not enabled'), 400, { ok: false });
+        const ps = RedId.parseRedActionSource(b.metric_link);
+        if (!ps) return httpFail(res, new Error('metric_link must be "<metric>|<site_id>|<window>"'), 400, { ok: false });
+        if (Number(b.site_id) !== ps.site_id) return httpFail(res, new Error('the action must be created on the site of the red figure'), 400, { ok: false });
+        if (b.source) return httpFail(res, new Error('send either source or metric_link, not both'), 400, { ok: false });
+        const r = await store.createWithLink(b, { source_system: 'metric', source_id: String(b.metric_link), relation: 'red_kpi' }, { user: u });
+        log(req, 'commitment_created', r.commitment.id, { kind: r.commitment.kind, site_id: r.commitment.site_id, metric_link: String(b.metric_link) });
+        return res.status(201).json({ created: true, commitment: await view(r.commitment, u) });
       }
       if (b.source && b.source.system) {
         const d = await sourceDenied(u, String(b.source.system), b.source.id);
@@ -199,6 +239,7 @@ module.exports = function commitmentsRoutes(deps) {
       const c = await load(req, res); if (!c) return;
       if (!canEdit(req.reportUser, c)) return res.status(403).json({ error: 'editor of this site required' });
       const lb = req.body || {};
+      if (String(lb.source_system || '') === 'metric' && !(await redLinksOn())) return httpFail(res, new Error('red-figure action links are not enabled'), 400, { ok: false });
       const d = await sourceDenied(req.reportUser, String(lb.source_system || ''), lb.source_id);
       if (d) return res.status(d.status).json({ error: d.error });
       res.json({ commitment: await view(await store.link(c.id, req.body || {}, { user: req.reportUser }), req.reportUser) });

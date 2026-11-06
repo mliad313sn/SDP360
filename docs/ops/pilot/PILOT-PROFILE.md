@@ -28,6 +28,7 @@ planned switch cannot be set before its goal lands.
 | `ui_kpi_base_line` | built | `0` | `1` (proposal — show the base population under each KPI value) | Owner (UI policy) | E-V03 |
 | `ui_kpi_sample_size` | built | `0` | `1` (proposal — warnings only appear once the KPI committee adopts a `min_sample`) | KPI committee | E-K02 |
 | `ui_small_multiples` | built | `0` | `1` (proposal — after a browser review of the widget) | Owner (UI policy) | E-V09 |
+| `dashboard_red_action_links` | built | `0` | `1` (proposal — only with `commitments_enabled=1`; no action is ever created automatically) | Owner (UI policy) + PMO | E-K03 |
 | `site_score_published_model` | built | `legacy` | `programme` | Owner (D-1) | A-11 |
 | `capacity_enabled` | planned | `0` | `1` | Owner (D-7) | A-13 |
 | `capacity_amber_pct` | planned | `85` | `85` | Owner (D-7) | A-13 |

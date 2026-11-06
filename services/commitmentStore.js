@@ -117,6 +117,49 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
     return { commitment: await get(id), created: true };
   }
 
+  /**
+   * E-K03 — OPEN commitments linked to (system, ids) by any relation. Map id → [{id, title, status, site_id}].
+   * Terminal statuses (verified_closed, cancelled_with_reason, accepted_risk_exception) are left out.
+   */
+  async function openLinksFor(system, ids) {
+    const out = new Map(); const list = [...new Set((ids || []).map(String))].slice(0, 500);
+    const T = L.TERMINAL;
+    for (let i = 0; i < list.length; i += 200) {
+      const chunk = list.slice(i, i + 200);
+      const rows = await P(`SELECT l.source_id, c.id, c.title, c.status, c.site_id FROM commitment_source_links l JOIN commitments c ON c.id=l.commitment_id
+        WHERE l.source_system=? AND l.source_id IN (${chunk.map(() => '?').join(',')}) AND c.status NOT IN (${T.map(() => '?').join(',')}) ORDER BY c.id`)
+        .all(String(system), ...chunk, ...T);
+      for (const r of rows) {
+        const k = String(r.source_id); if (!out.has(k)) out.set(k, []);
+        if (!out.get(k).some((x) => x.id === Number(r.id))) out.get(k).push({ id: Number(r.id), title: r.title, status: r.status, site_id: r.site_id == null ? null : Number(r.site_id) });
+      }
+    }
+    return out;
+  }
+  /**
+   * E-K03 — create a commitment and link it to a source in ONE unit, refusing when an OPEN commitment already
+   * carries that link (typed CONFLICT naming it). The link uses a non-origin relation so that a new commitment
+   * can follow a closed one for the same source (the origin link is unique platform-wide, migration 029).
+   */
+  async function createWithLink(d, l, { user } = {}) {
+    if (!L.SOURCE_SYSTEMS.includes(l && l.source_system)) throw bad('unknown source_system');
+    const sid = String(l.source_id || '').slice(0, 120); if (!sid) throw bad('source_id is required');
+    const f = validateFields(d || {}, false);
+    const site = d.site_id == null || d.site_id === '' ? null : Number(d.site_id);
+    if (site != null && !Number.isInteger(site)) throw bad('site_id must be an integer');
+    const t = now();
+    const id = await tx(async () => {
+      if (isPg) await P('SELECT pg_advisory_xact_lock(hashtext(?))').get(`${l.source_system}:${sid}`);   // two creates for one red cell
+      const open = (await openLinksFor(l.source_system, [sid])).get(sid);
+      if (open && open.length) throw typed('CONFLICT', `an open action already tracks this red figure: commitment #${open[0].id} "${String(open[0].title || '').slice(0, 120)}"`, 409);
+      const nid = await insert('commitments', { uid: crypto.randomUUID(), site_id: site, severity: 'medium', ...f, baseline_due_date: f.due_date || null, status: 'captured', version: 1, created_by: actorName(user), created_at: t, updated_at: t });
+      await event(nid, user, 'created', null, 'captured', { source: { system: l.source_system, id: sid } });
+      await insert('commitment_source_links', { commitment_id: nid, source_system: l.source_system, source_id: sid, relation: str(l.relation, 40) || 'related', created_by: actorName(user), created_at: t });
+      return nid;
+    });
+    return { commitment: await get(id), created: true };
+  }
+
   async function bump(c, expectedVersion, sets) {
     if (expectedVersion == null || Number(expectedVersion) !== c.version) throw typed('CONFLICT', `stale version (current ${c.version})`, 409);
     const keys = Object.keys(sets);
@@ -313,7 +356,7 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
       .map((r) => ({ ...r, commitment_id: Number(r.commitment_id), site_id: r.site_id == null ? null : Number(r.site_id), episodes: Number(r.episodes) }));
   }
 
-  return { init, create, get, getRaw, findBySource, update, transition, approveException, link, unlink, addEvidence, getEvidenceFile, list, linksFor, metricRows, escalate, listEscalations };
+  return { init, create, createWithLink, openLinksFor, get, getRaw, findBySource, update, transition, approveException, link, unlink, addEvidence, getEvidenceFile, list, linksFor, metricRows, escalate, listEscalations };
 }
 
 module.exports = { makeCommitmentStore, EVIDENCE_MIME, EVIDENCE_TYPES, EVIDENCE_MAX_BYTES, sniffOk };

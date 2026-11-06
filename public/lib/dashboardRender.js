@@ -117,6 +117,35 @@
     var h = safeRelativeHref(href); if (!h) return '';
     return '<a class="edv-act" href="' + escapeHtml(h) + '">→ act</a>';
   }
+  // ── E-K03 — red figure → linked action (switch dashboard_red_action_links; the page only passes `ctx` when the
+  //    server answered GET /api/commitments/metric-links, so with the switch off nothing below is ever rendered) ──
+  var RED_METRIC = /^[A-Za-z][A-Za-z0-9_.-]{0,79}$/, RED_WINDOW = /^[A-Za-z0-9_.:-]{1,40}$/;
+  /** Source id of a red figure: "<metric>|<site_id>|<window>"; null when one part is missing or malformed. */
+  function redActionSourceId(metric, siteId, windowLabel) {
+    var m = String(metric == null ? '' : metric), w = String(windowLabel == null ? '' : windowLabel), sid = Number(siteId);
+    if (!RED_METRIC.test(m) || !RED_WINDOW.test(w) || siteId == null || siteId === '' || !Number.isInteger(sid) || sid <= 0) return null;
+    return m + '|' + sid + '|' + w;
+  }
+  /** Inverse of redActionSourceId → { metric, site_id, window } | null. */
+  function parseRedActionSource(id) {
+    var p = String(id == null ? '' : id).split('|'); if (p.length !== 3) return null;
+    return redActionSourceId(p[0], p[1], p[2]) === String(id) ? { metric: p[0], site_id: Number(p[1]), window: p[2] } : null;
+  }
+  /**
+   * "Open actions (k)" + "Create action" under a RED cell. '' for any other state (green, amber, grey/UNKNOWN,
+   * stale), for a figure without a site, and when ctx is absent (switch off / endpoint unavailable).
+   * ctx.links = { sourceId: { count, can_create } } as returned by the server (only sites the viewer may see).
+   */
+  function redActionHtml(cell, ctx) {
+    if (!ctx || !ctx.links || !cell || cell.state !== 'red') return '';
+    var sid = redActionSourceId(cell.metric, cell.site_id, cell.window); if (!sid) return '';
+    var l = ctx.links[sid]; if (!l) return '';
+    var k = Number(l.count) || 0, q = encodeURIComponent(sid), out = [];
+    if (k > 0) out.push('<a class="edv-red-act" href="commitments.html?metric=' + q + '">Open actions (' + k + ')</a>');
+    if (l.can_create) out.push('<a class="edv-red-act" href="commitments.html?new=1&amp;metric=' + q + '&amp;site_id=' + Number(cell.site_id) + '&amp;title=' + encodeURIComponent(String(cell.title || cell.metric) + ' is red — ' + String(cell.site || '') + ' ' + cell.window) + '">Create action</a>');
+    return out.length ? '<div class="edv-red-actions">' + out.join(' · ') + '</div>' : '';
+  }
+
   function pad2(n) { return (n < 10 ? '0' : '') + n; }
   function isoWeek(d) {
     var t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
@@ -292,7 +321,8 @@
       var st = rowState(r, d);
       return '<div class="edv-ragcell edv-ragcell-' + st + '" role="listitem" aria-label="' + escapeHtml(r.site + ': ' + STATE_WORD[st] + ', ' + formatValue(r.value, d.unit)) + '">' + stateDot(st, r, d) +
         '<span class="edv-ragcell-site">' + escapeHtml(r.site) + '</span><span class="edv-ragcell-val">' + formatValue(r.value, d.unit) + '</span>' +
-        (ss && r.n != null ? '<span class="edv-ragcell-n">n = ' + Number(r.n).toLocaleString('en-GB') + (r.low_sample ? ' · low sample — not comparable' : '') + '</span>' : '') + '</div>';
+        (ss && r.n != null ? '<span class="edv-ragcell-n">n = ' + Number(r.n).toLocaleString('en-GB') + (r.low_sample ? ' · low sample — not comparable' : '') + '</span>' : '') +
+        (opts && opts.redActions ? redActionHtml({ state: st, metric: d.metric, site_id: r.site_id, site: r.site, window: d.window && d.window.label, title: d.title }, opts.redActions) : '') + '</div>';
     }).join('');
     var legend = '<div class="edv-rag-legend" aria-label="Legend">' + ragDot('GREEN') + 'Green ' + ragDot('AMBER') + 'Amber ' + ragDot('RED') + 'Red ' +
       '<span class="edv-rag-dot rag-na" aria-hidden="true"></span>Unknown — not measured, stale or never synced</div>';
@@ -354,7 +384,7 @@
     return '<div class="edv-multiples">' + body + '</div>' + (tableHtml || '');
   }
 
-  return { multiplesTableSpec, multiplesHtml, sampleNote, gridStyle, formatValue, ragClass, ragDot, kpiContext, staleBadge, baseLine, safeRelativeHref, actionLink, sortRows, shortLabel, windowSeries, trendLength, widgetDataPlan, summarizeGrid, escapeHtml, miniMarkdown, isoWeek,
+  return { redActionSourceId, parseRedActionSource, redActionHtml, multiplesTableSpec, multiplesHtml, sampleNote, gridStyle, formatValue, ragClass, ragDot, kpiContext, staleBadge, baseLine, safeRelativeHref, actionLink, sortRows, shortLabel, windowSeries, trendLength, widgetDataPlan, summarizeGrid, escapeHtml, miniMarkdown, isoWeek,
     rowState, barListHtml, tableHtml, sortTableRows, ragGridHtml, perSiteHtml, trackerHtml, seriesTableHtml,
     periodBounds, isPartial, windowPartial, evalDate, seriesAnchor, partialNote };
 });

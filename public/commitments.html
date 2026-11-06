@@ -83,10 +83,14 @@
     return j;
   }
   let selected = null, meta = null;
+  const QP = new URLSearchParams(location.search);
   const pill = (s) => `<span class="cm-pill cm-pill--${esc(s)}">${esc(String(s).replace(/_/g, ' '))}</span>`;
   async function loadList() {
     try {
-      const q = $('cmStatus').value ? '?status=' + encodeURIComponent($('cmStatus').value) : '';
+      const qs = [];
+      if ($('cmStatus').value) qs.push('status=' + encodeURIComponent($('cmStatus').value));
+      if (QP.get('metric') && !QP.get('new')) qs.push('metric=' + encodeURIComponent(QP.get('metric')));   // E-K03 — "Open actions (k)" of a red figure
+      const q = qs.length ? '?' + qs.join('&') : '';
       const j = await api('GET', '/api/commitments' + q); meta = j;
       if ($('cmStatus').options.length === 1) for (const s of j.statuses) $('cmStatus').add(new Option(s.replace(/_/g, ' '), s));
       if (!$('nfKind').options.length) { for (const k of j.kinds) $('nfKind').add(new Option(k.replace(/_/g, ' '), k)); for (const s of j.severities) $('nfSeverity').add(new Option(s, s)); $('nfSeverity').value = 'medium'; }
@@ -138,12 +142,15 @@
   $('nfSave').addEventListener('click', async () => {
     try {
       const j = await api('POST', '/api/commitments', { title: $('nfTitle').value, kind: $('nfKind').value, severity: $('nfSeverity').value, site_id: $('nfSite').value ? Number($('nfSite').value) : null,
-        accountable_owner: $('nfOwner').value, reviewer: $('nfReviewer').value, due_date: $('nfDue').value || null, treatment_plan: $('nfPlan').value });
+        accountable_owner: $('nfOwner').value, reviewer: $('nfReviewer').value, due_date: $('nfDue').value || null, treatment_plan: $('nfPlan').value,
+        ...(QP.get('new') && QP.get('metric') ? { metric_link: QP.get('metric') } : {}) });
       $('cmNew').hidden = true; $('nfMsg').textContent = ''; show(j.commitment.id);
     } catch (e) { $('nfMsg').textContent = e.message; }
   });
-  const qid = new URLSearchParams(location.search).get('id');
+  const qid = QP.get('id');
   loadList(); if (qid) show(qid);
+  // E-K03 — "Create action" from a red dashboard figure: the form opens prefilled (title, site); the server links it
+  if (QP.get('new') && QP.get('metric')) { $('cmNew').hidden = false; $('nfTitle').value = String(QP.get('title') || '').slice(0, 300); if (QP.get('site_id')) $('nfSite').value = QP.get('site_id'); }
 })();
 </script>
 </body>
