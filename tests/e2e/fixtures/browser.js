@@ -104,4 +104,11 @@ async function login(page, base, username, password, next) {
   await Promise.all([page.waitForURL((u) => !/\/login\.html/.test(u.pathname), { timeout: 15000 }), page.click('#btnLogin')]);
 }
 
-module.exports = { ALLOWLIST, classify, launch, journey, login, artifactDir };
+// E-F02 — simulated network conditions on one page (Chromium DevTools protocol). latency in ms, offline true/false.
+// SIMULATED only: it proves the app's logic under delay and drops, not a real VSAT / 4G link (human gate E-F04).
+async function netConditions(page, { offline = false, latency = 0, down = -1, up = -1 } = {}) {
+  if (!page.__cdp) { page.__cdp = await page.context().newCDPSession(page); await page.__cdp.send('Network.enable'); }
+  await page.__cdp.send('Network.emulateNetworkConditions', { offline, latency, downloadThroughput: down, uploadThroughput: up });
+}
+
+module.exports = { ALLOWLIST, classify, launch, journey, login, artifactDir, netConditions };

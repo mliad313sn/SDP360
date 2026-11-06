@@ -24,7 +24,9 @@ node tools/pilot/pilot-metrics.js --from=YYYY-MM-DD --to=YYYY-MM-DD [--site=<sit
 - Per **site × persona (the account's role) × ISO week**: active users on business events; weekly report
   created → submitted median (**proxy, not effort**); PV submitted → action created median; action created →
   closed median (meetings, inspections, report follow-ups); field entries applied / refused / failed /
-  pending; share of metric-registry entries whose source is UNKNOWN or stale.
+  pending; field task time (form open → queued, median / p75 per site × kind × week — only recorded while
+  `field_task_timing` = 1, E-F03; no target until a baseline exists); share of metric-registry entries whose
+  source is UNKNOWN or stale.
 - Every measure prints its definition and its source tables above its table. A measure without data prints
   **"no data"**.
 - **No user name, full name or e-mail** is selected or printed. Per-user activity lines appear only when

@@ -16,13 +16,15 @@
   // under the other's session
   var me = ''; try { me = String((JSON.parse(profile) || {}).username || ''); } catch (_) { me = ''; }
   var STALE_DAYS = 3, OLD_DAYS = 14, REVIEW_MS = 15 * 60000;
-  var sessionMismatch = false;   // the server session is not the person this phone's profile names: send nothing
+  var sessionMismatch = false;
+  // E-F02 — a captive portal / proxy answers an HTML page: that is the NETWORK, not a refusal by the server
+  var PORTAL_MSG = 'The network answered with a web page instead of the server (Wi-Fi sign-in page?) — the entry is kept and will be sent again.';   // the server session is not the person this phone's profile names: send nothing
   var ageDays = function (iso) { var t = Date.parse(iso || ''); return isFinite(t) ? Math.floor((Date.now() - t) / 864e5) : null; };
   var H = function (extra) { return Object.assign({}, extra || {}); };
   function api(path, o) {
     o = o || {};
     return fetch(path, { method: o.method || 'GET', credentials: 'same-origin', headers: H(o.body ? { 'content-type': 'application/json' } : {}), body: o.body ? JSON.stringify(o.body) : undefined })
-      .then(function (r) { return r.json().catch(function () { return { error: 'HTTP ' + r.status + ' (not JSON — proxy or network page)' }; }).then(function (j) { j.__status = r.status; j.__stale = r.headers.get('x-field-cache') === 'stale'; return j; }); });
+      .then(function (r) { return r.json().catch(function () { return { error: 'HTTP ' + r.status + ' (not JSON — proxy or network page)', __notjson: true }; }).then(function (j) { j.__status = r.status; j.__stale = r.headers.get('x-field-cache') === 'stale'; return j; }); });
   }
   function uuid() { if (crypto.randomUUID) return crypto.randomUUID(); var b = crypto.getRandomValues(new Uint8Array(16)); b[6] = (b[6] & 0x0f) | 0x40; b[8] = (b[8] & 0x3f) | 0x80; var h = Array.from(b, function (x) { return x.toString(16).padStart(2, '0'); }).join(''); return h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 16) + '-' + h.slice(16, 20) + '-' + h.slice(20); }
 
@@ -54,7 +56,7 @@
   var B = null, site = null, lowbw = false, draftPhotos = [];
   function msg(text, cls) { var m = $('msg'); if (!text) { m.className = 'status hidden'; m.textContent = ''; return; } m.className = 'status ' + (cls || ''); m.textContent = text; }
   function setNet() { var n = $('net'); var on = navigator.onLine; n.textContent = on ? FT('Online') : FT('Offline'); n.className = 'net ' + (on ? 'on' : 'off'); renderOutbox(); }
-  function show(view) { document.querySelectorAll('.view').forEach(function (v) { v.classList.add('hidden'); }); $('v-' + view).classList.remove('hidden'); document.querySelectorAll('nav.tabs button').forEach(function (b) { if (b.dataset.view === view) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }); if (view === 'dash') loadDash(); }
+  function show(view) { document.querySelectorAll('.view').forEach(function (v) { v.classList.add('hidden'); }); $('v-' + view).classList.remove('hidden'); document.querySelectorAll('nav.tabs button').forEach(function (b) { if (b.dataset.view === view) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current'); }); if (view === 'dash') loadDash(); if (view === 'inspect' || view === 'tracker' || view === 'actions') timerStart(); }
   function opt(sel, items, val, lab) { var s = $(sel); s.innerHTML = ''; (items || []).forEach(function (it) { var o = document.createElement('option'); o.value = val(it); o.textContent = lab(it); s.appendChild(o); }); }
   function curSite() { return (B && B.sites || []).find(function (s) { return String(s.id) === String($('site').value); }) || null; }
 
@@ -129,8 +131,16 @@
       w.classList.remove('hidden');
     }).catch(function () {});
   }
+  // E-F03 — task timing (switch field_task_timing, sent by the server only when ON): ACTIVE time from opening a form
+  // to queueing, a pause longer than 2 minutes is not counted. Nothing is measured or sent while the switch is off.
+  var PAUSE_MS = 2 * 60000, timer = null;
+  function timingOn() { return !!(B && B.features && B.features.task_timing); }
+  function timerStart() { if (!timingOn()) { timer = null; return; } var t = Date.now(); timer = { last: t, active: 0 }; }
+  function timerTick() { if (!timer) return; var t = Date.now(), d = t - timer.last; if (d > 0 && d <= PAUSE_MS) timer.active += d; timer.last = t; }
+  function timerTake() { if (!timingOn() || !timer) return null; timerTick(); var ms = Math.round(timer.active); timerStart(); return ms; }
   function queue(kind, payload, label, uploads) {
     var env = { uuid: uuid(), kind: kind, payload: payload, client_ts: new Date().toISOString(), device: navigator.userAgent.slice(0, 100), label: label, uploads: uploads || [], user: me, state: 'pending' };
+    var tms = timerTake(); if (tms != null) env.meta = { task_ms: tms };
     if (SG) SG.ensurePersist().catch(function () {});
     return obPut(env).then(function () { renderOutbox(); checkStorage(); msg(FT('Queued — it will sync when online.'), 'ok'); if (navigator.onLine) flush(); }, function (err) {
       renderOutbox(); checkStorage();
@@ -149,22 +159,25 @@
       if (!me || sessionMismatch) return;                        // no known author or a mismatched session: send nothing
       items = items.filter(function (e) { var st = stateOf(e); return st === 'pending' || st === 'failed'; });
       items.sort(function (a, b) { return a.client_ts < b.client_ts ? -1 : 1; });
-      return items.reduce(function (p, e) { return p.then(function (stop) { return stop ? stop : sendOne(e).catch(function (err) { return entryError(e, err); }); }); }, Promise.resolve());
+      var n = items.length;
+      return items.reduce(function (p, e, i) { return p.then(function (stop) { if (stop) return stop; if (n > 1) msg(FT('Sending') + ' ' + (i + 1) + '/' + n + '…', ''); return sendOne(e).catch(function (err) { return entryError(e, err); }); }); }, Promise.resolve());
     }).catch(function (e) { msg(FT('Sync problem: ') + e.message, 'err'); }).then(function () { flushing = false; renderOutbox(); });
   }
   // G19 — one failing entry never blocks the others: a 401 stops the sync (sign in again), a refusal of a photo
   // upload marks this entry refused, anything else (network, a proxy HTML page) marks it 'failed' and moves on
   function entryError(e, err) {
     if (err && err.status === 401) { msg(FT('Session expired — sign in again. Nothing was lost: your entries are kept on this phone.'), 'err'); return true; }
+    if (err && err.notJson) { e.state = 'failed'; e.last_error = FT(PORTAL_MSG); msg(FT(PORTAL_MSG), 'err'); return obPut(e).then(function () {}); }
     e.state = err && err.status >= 400 && err.status < 500 ? 'rejected' : 'failed';
     e.last_error = String((err && err.message) || err || 'error').slice(0, 300);
     return obPut(e).then(function () {});
   }
   function sendOne(e) {
     return uploadPhotos(e).then(function () {
-      return api('/api/field/outbox/' + e.uuid, { method: 'PUT', body: { kind: e.kind, payload: e.payload, client_ts: e.client_ts, device: e.device, author: e.user || me } });
+      return api('/api/field/outbox/' + e.uuid, { method: 'PUT', body: Object.assign({ kind: e.kind, payload: e.payload, client_ts: e.client_ts, device: e.device, author: e.user || me }, e.meta ? { meta: e.meta } : {}) });
     }).then(function (j) {
       if (j.__status === 503 && j.offline) return true;                             // still offline: keep, stop
+      if (j.__notjson) { e.state = 'failed'; e.last_error = FT(PORTAL_MSG); msg(FT(PORTAL_MSG), 'err'); return obPut(e).then(function () {}); }
       if (j.__status === 401) { msg(FT('Session expired — sign in again. Nothing was lost: your entries are kept on this phone.'), 'err'); return true; }
       if (j.__status === 403 && j.wrong_author) { sessionMismatch = true; msg(FT('This phone is signed in as another person — sign in again. Nothing is sent meanwhile.'), 'err'); return true; }
       if (j.__status === 409 && j.in_progress) {                     // being applied elsewhere: retry next sync, then ask for review
@@ -184,7 +197,7 @@
   }
   // Photos: each draft photo {b64, mime, size, name, upload_id?} is uploaded in chunks; once done the
   // inspection payload references {upload_id} (server turns it into a blob ref).
-  function upErr(j) { var er = new Error(FT('Photo upload: ') + (j.error || ('HTTP ' + j.__status))); er.status = j.__status; return er; }
+  function upErr(j) { var er = new Error(FT('Photo upload: ') + (j.error || ('HTTP ' + j.__status))); er.status = j.__status; er.notJson = !!j.__notjson; return er; }
   function uploadPhotos(e) {
     if (!e.uploads || !e.uploads.length) return Promise.resolve();
     return e.uploads.reduce(function (p, ph) {
@@ -247,7 +260,27 @@
     items[firstKey].photos = draftPhotos.map(function (p) { return { upload_ref: p.ref, caption: '' }; });
     var uploads = draftPhotos.map(function (p) { return { ref: p.ref, b64: p.b64, mime: p.mime, size: p.size, name: p.name, item: firstKey }; });
     var meta = { f_id: id, f_site: s.name + ' (' + s.inspection_code + ')', f_date: d.toISOString().slice(0, 10), f_time: d.toTimeString().slice(0, 5), f_area: $('i-area').value, f_inspector: $('i-insp').value || (B.user && B.user.name) || '', f_type: 'routine', f_obs: $('i-notes').value || '', f_label: 'Field quick capture' };
-    return queue('inspection', { meta: meta, items: items, actions: [], status: 'submitted' }, 'Inspection ' + id + ' · ' + s.name, uploads).then(resetInspect);
+    var go = function () { return queue('inspection', { meta: meta, items: items, actions: [], status: 'submitted' }, 'Inspection ' + id + ' · ' + s.name, uploads).then(resetInspect); };
+    if (!(B.features && B.features.review_step)) return go();
+    return review({ site: s.name, items: items, photos: draftPhotos }).then(function (ok) { if (ok) return go(); msg(FT('Not queued — correct the entry, then queue it again.'), ''); });
+  }
+  // E-F03 — one-screen summary before an inspection is queued (switch field_review_step, sent only when ON).
+  // The dialog is built here, only when the switch is on: with it off the page is exactly today's.
+  function review(sum) {
+    var d = $('review');
+    if (!d) {
+      d = document.createElement('dialog'); d.id = 'review';
+      d.innerHTML = '<form method="dialog"><h2 style="margin-top:0">' + esc(FT('Check before queueing')) + '</h2><div id="review-body"></div><div class="row"><button type="submit" value="ok" class="primary" id="review-ok">' + esc(FT('Queue it')) + '</button><button type="submit" value="cancel" id="review-fix">' + esc(FT('Correct')) + '</button></div></form>';
+      document.body.appendChild(d);
+    }
+    var by = {}; Object.keys(sum.items).forEach(function (k) { var st = sum.items[k].status; by[st] = (by[st] || 0) + 1; });
+    var kb = Math.round(sum.photos.reduce(function (t, p) { return t + (p.size || 0); }, 0) / 1024);
+    var findings = Object.keys(by).map(function (k) { return esc(FT(k)) + ' ' + by[k]; }).join(' · ') || '—';
+    $('review-body').innerHTML = '<p><b>' + esc(FT('Site')) + '</b> : ' + esc(sum.site) + '</p>'
+      + '<p><b>' + esc(FT('Items addressed')) + '</b> : ' + Object.keys(sum.items).length + ' — ' + findings + '</p>'
+      + '<p><b>' + esc(FT('Photos')) + '</b> : ' + sum.photos.length + ' (' + kb + ' KB)</p>'
+      + '<p class="muted">' + esc(navigator.onLine ? FT('Online: it will be sent now.') : FT('Offline: it stays on this phone and is sent at the next connection.')) + '</p>';
+    return new Promise(function (res) { d.returnValue = ''; d.onclose = function () { res(d.returnValue === 'ok'); }; d.showModal(); });
   }
   function resetInspect() { draftPhotos = []; $('i-photos').innerHTML = ''; $('i-notes').value = ''; $('i-photo').value = ''; renderItems(); }
 
@@ -341,6 +374,7 @@
       return obSwap(id, copy).then(function () { renderOutbox(); flush(); });
     });
   });
+  ['input', 'click', 'keydown', 'change'].forEach(function (ev) { document.addEventListener(ev, timerTick, true); });
   window.addEventListener('online', function () { setNet(); flush(); }); window.addEventListener('offline', setNet); setNet();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () { /* app still works without it */ });
 

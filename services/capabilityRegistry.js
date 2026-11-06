@@ -48,6 +48,8 @@ const CAPABILITIES = Object.freeze([
     { routes: ['/api/governance/policies', '/api/governance/roles'] }),
   C('engagement.rules.manage', 'Manage alert rules, consumers and firings', 'Gérer les règles d’alerte, consommateurs et déclenchements', 'med', 'engagement_rule', ['admin'], 'platform',
     { routes: ['/api/engagement'] }),
+  C('field.outbox.administer', 'See and resolve unresolved field outbox entries', 'Voir et résoudre les envois terrain en souffrance', 'high', 'field_record', ['admin'], 'platform',
+    { routes: ['/api/field/admin'] }),
   C('ops.operate', 'Run operational jobs (syncs, cache, exports, group decks)', 'Lancer les traitements opérationnels (synchros, cache, exports, decks groupe)', 'med', 'operation', ['admin'], 'platform'),
   C('analytics.data.read', 'Read helpdesk analytics data', 'Lire les données d’analyse du helpdesk', 'low', 'analytics', ['admin', 'scorecard-viewer'], 'platform'),
   // ── feature roles (with the admin tier where the guard admits it)

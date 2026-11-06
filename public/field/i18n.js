@@ -4,6 +4,15 @@
   'use strict';
   var DICT = {
     // G19 — outbox states and messages
+    // E-F02 — constrained networks
+    'The network answered with a web page instead of the server (Wi-Fi sign-in page?) — the entry is kept and will be sent again.': 'Le réseau a répondu par une page web au lieu du serveur (page de connexion Wi-Fi ?) — la saisie est conservée et sera renvoyée.',
+    'Sending': 'Envoi',
+    // E-F03 — review step
+    'Check before queueing': 'Vérifier avant la mise en file', 'Queue it': 'Mettre en file', 'Correct': 'Corriger',
+    'Items addressed': 'Points traités', 'Photos': 'Photos',
+    'Online: it will be sent now.': 'En ligne : la saisie sera envoyée maintenant.',
+    'Offline: it stays on this phone and is sent at the next connection.': 'Hors ligne : la saisie reste sur ce téléphone et partira à la prochaine connexion.',
+    'Not queued — correct the entry, then queue it again.': 'Non mise en file — corrigez la saisie puis remettez-la en file.',
     // B-06 — storage durability
     'NOT saved — this phone is out of storage space. Your entry is still in the form: sync or free space, then queue it again.': 'NON enregistré — le téléphone n’a plus d’espace de stockage. Votre saisie est toujours dans le formulaire : synchronisez ou libérez de l’espace, puis remettez-la en file.',
     'NOT saved on this phone: ': 'NON enregistré sur ce téléphone : ',
