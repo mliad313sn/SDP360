@@ -53,7 +53,7 @@ const REPORTS = [
     missing: 'portfolio view, plan, baseline, conflicts and money roll-up exist; no PPTX and no approved budget figures', decision: 'D-02' },
   { id: 'R14', priority: 'P2', name: 'Quarterly Business Relationship & Stakeholder Pulse', audience: 'Site GM, function heads, CIO', cadence: 'quarterly', channels: ['survey', 'dashboard'], status: 'missing',
     surfaces: [], gates: [],
-    missing: 'only the helpdesk CSAT survey exists; a business-pulse survey instrument is not defined', decision: 'D-13' },
+    missing: 'only the helpdesk CSAT survey exists; a business-pulse instrument is PROPOSED in docs/ops/BUSINESS-PULSE-DRAFT.md (E-R05, not approved, nothing sent)', decision: 'D-13' },
   { id: 'R15', priority: 'P2', name: 'Change/Incident Post-Implementation Value Review', audience: 'Change/Incident manager and business sponsor', cadence: 'per major event', channels: ['pdf', 'record'], status: 'partial',
     surfaces: ['services/reportPayload.js'], gates: [],
     missing: 'major-incident RCA/CA/PIR/LL fields are read from SDP; no per-event review record or sign-off', decision: null },
