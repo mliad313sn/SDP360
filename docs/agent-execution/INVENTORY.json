@@ -7,12 +7,12 @@
   "pages_not_in_navigation": 29,
   "pages_with_inline_scripts": 46,
   "routes": 613,
-  "routes_without_test_reference": 48,
+  "routes_without_test_reference": 35,
   "routes_in_server_js": 210,
   "jobs": 30,
-  "jobs_without_test_reference": 10,
+  "jobs_without_test_reference": 0,
   "migrations": 74,
-  "test_files": 621
+  "test_files": 625
  },
  "pages": [
   {
@@ -1338,7 +1338,9 @@
    "path": "/api/admin/backup-now",
    "file": "server.js",
    "line": 1231,
-   "tests": []
+   "tests": [
+    "tests/critical-routes.smoke.test.js"
+   ]
   },
   {
    "id": "RT-GET-api-admin-backup-schedule",
@@ -1346,7 +1348,9 @@
    "path": "/api/admin/backup-schedule",
    "file": "server.js",
    "line": 1213,
-   "tests": []
+   "tests": [
+    "tests/critical-routes.smoke.test.js"
+   ]
   },
   {
    "id": "RT-POST-api-admin-backup-schedule",
@@ -1354,7 +1358,9 @@
    "path": "/api/admin/backup-schedule",
    "file": "server.js",
    "line": 1223,
-   "tests": []
+   "tests": [
+    "tests/critical-routes.smoke.test.js"
+   ]
   },
   {
    "id": "RT-POST-api-admin-refresh-major-incident-udfs",
@@ -2100,7 +2106,9 @@
    "path": "/api/cache/clear",
    "file": "server.js",
    "line": 3171,
-   "tests": []
+   "tests": [
+    "tests/critical-routes.smoke.test.js"
+   ]
   },
   {
    "id": "RT-GET-api-cache-status",
@@ -2108,7 +2116,9 @@
    "path": "/api/cache/status",
    "file": "server.js",
    "line": 3304,
-   "tests": []
+   "tests": [
+    "tests/critical-routes.smoke.test.js"
+   ]
   },
   {
    "id": "RT-GET-api-change",
@@ -4374,6 +4384,7 @@
    "file": "routes/kpiPolicies.js",
    "line": 185,
    "tests": [
+    "tests/critical-routes.smoke.test.js",
     "tests/kpi-policy-routes.smoke.test.js",
     "tests/uat-amdec-workflows.smoke.test.js"
    ]
@@ -4385,6 +4396,7 @@
    "file": "routes/kpiPolicies.js",
    "line": 163,
    "tests": [
+    "tests/critical-routes.smoke.test.js",
     "tests/kpi-policy-routes.smoke.test.js",
     "tests/uat-amdec-workflows.smoke.test.js"
    ]
@@ -4396,6 +4408,7 @@
    "file": "routes/kpiPolicies.js",
    "line": 182,
    "tests": [
+    "tests/critical-routes.smoke.test.js",
     "tests/kpi-policy-routes.smoke.test.js",
     "tests/uat-amdec-workflows.smoke.test.js"
    ]
@@ -4407,6 +4420,7 @@
    "file": "routes/kpiPolicies.js",
    "line": 150,
    "tests": [
+    "tests/critical-routes.smoke.test.js",
     "tests/kpi-policy-routes.smoke.test.js",
     "tests/uat-amdec-workflows.smoke.test.js"
    ]
@@ -4418,6 +4432,7 @@
    "file": "routes/kpiPolicies.js",
    "line": 179,
    "tests": [
+    "tests/critical-routes.smoke.test.js",
     "tests/kpi-policy-routes.smoke.test.js",
     "tests/uat-amdec-workflows.smoke.test.js"
    ]
@@ -4468,7 +4483,9 @@
    "path": "/api/kpi-policies/validate",
    "file": "routes/kpiPolicies.js",
    "line": 89,
-   "tests": []
+   "tests": [
+    "tests/critical-routes.smoke.test.js"
+   ]
   },
   {
    "id": "RT-GET-api-kpi-policies",
@@ -4477,6 +4494,7 @@
    "file": "routes/kpiPolicies.js",
    "line": 69,
    "tests": [
+    "tests/critical-routes.smoke.test.js",
     "tests/kpi-policy-routes.smoke.test.js",
     "tests/uat-amdec-workflows.smoke.test.js"
    ]
@@ -4488,6 +4506,7 @@
    "file": "routes/kpiPolicies.js",
    "line": 170,
    "tests": [
+    "tests/critical-routes.smoke.test.js",
     "tests/kpi-policy-routes.smoke.test.js",
     "tests/uat-amdec-workflows.smoke.test.js"
    ]
@@ -4513,6 +4532,7 @@
     "tests/access-revocation.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/business-only-boundary.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
@@ -4541,6 +4561,7 @@
     "tests/access-revocation.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/business-only-boundary.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
@@ -4569,6 +4590,7 @@
     "tests/access-revocation.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/business-only-boundary.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
@@ -4597,6 +4619,7 @@
     "tests/access-revocation.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/business-only-boundary.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
@@ -4625,6 +4648,7 @@
     "tests/access-revocation.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/business-only-boundary.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
@@ -4752,7 +4776,9 @@
    "path": "/api/meetings/import/preview",
    "file": "routes/meetings.js",
    "line": 726,
-   "tests": []
+   "tests": [
+    "tests/critical-routes.smoke.test.js"
+   ]
   },
   {
    "id": "RT-GET-api-meetings-import-template",
@@ -4760,7 +4786,9 @@
    "path": "/api/meetings/import/template",
    "file": "routes/meetings.js",
    "line": 706,
-   "tests": []
+   "tests": [
+    "tests/critical-routes.smoke.test.js"
+   ]
   },
   {
    "id": "RT-GET-api-meetings-insights",
@@ -4885,7 +4913,9 @@
    "path": "/api/meetings/people",
    "file": "routes/meetings.js",
    "line": 147,
-   "tests": []
+   "tests": [
+    "tests/critical-routes.smoke.test.js"
+   ]
   },
   {
    "id": "RT-GET-api-meetings-progress-export-pptx",
@@ -4911,7 +4941,9 @@
    "path": "/api/meetings/reset",
    "file": "routes/meetings.js",
    "line": 693,
-   "tests": []
+   "tests": [
+    "tests/critical-routes.smoke.test.js"
+   ]
   },
   {
    "id": "RT-POST-api-meetings-save",
@@ -5362,6 +5394,7 @@
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -5434,6 +5467,7 @@
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -5506,6 +5540,7 @@
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -5578,6 +5613,7 @@
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -5650,6 +5686,7 @@
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -5722,6 +5759,7 @@
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -5794,6 +5832,7 @@
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -5866,6 +5905,7 @@
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -5938,6 +5978,7 @@
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -6010,6 +6051,7 @@
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -6082,6 +6124,7 @@
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -6154,6 +6197,7 @@
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -6226,6 +6270,7 @@
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -6298,6 +6343,7 @@
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -6370,6 +6416,7 @@
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -6442,6 +6489,7 @@
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -6514,6 +6562,7 @@
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -6586,6 +6635,7 @@
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -6658,6 +6708,7 @@
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -6730,6 +6781,7 @@
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -6802,6 +6854,7 @@
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -6874,6 +6927,7 @@
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -6946,6 +7000,7 @@
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -7018,6 +7073,7 @@
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -7144,7 +7200,9 @@
    "path": "/api/reports/auth/change-password",
    "file": "server.js",
    "line": 5174,
-   "tests": []
+   "tests": [
+    "tests/critical-routes.smoke.test.js"
+   ]
   },
   {
    "id": "RT-POST-api-reports-auth-login",
@@ -7219,7 +7277,9 @@
    "path": "/api/reports/current-week",
    "file": "server.js",
    "line": 5250,
-   "tests": []
+   "tests": [
+    "tests/critical-routes.smoke.test.js"
+   ]
   },
   {
    "id": "RT-DELETE-api-reports-departments-id",
@@ -7826,6 +7886,7 @@
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
+    "tests/critical-routes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -7915,7 +7976,9 @@
    "path": "/api/risk-register-config/sites",
    "file": "routes/riskRegister.js",
    "line": 78,
-   "tests": []
+   "tests": [
+    "tests/critical-routes.smoke.test.js"
+   ]
   },
   {
    "id": "RT-GET-api-risk-register-config-unmapped",
@@ -9630,17 +9693,23 @@
   {
    "id": "JB-engagement-alerts",
    "job": "engagement.alerts",
-   "tests": []
+   "tests": [
+    "tests/jobs-engagement.test.js"
+   ]
   },
   {
    "id": "JB-engagement-digest",
    "job": "engagement.digest",
-   "tests": []
+   "tests": [
+    "tests/jobs-engagement.test.js"
+   ]
   },
   {
    "id": "JB-engagement-digest-weekly",
    "job": "engagement.digest_weekly",
-   "tests": []
+   "tests": [
+    "tests/jobs-engagement.test.js"
+   ]
   },
   {
    "id": "JB-field-purge",
@@ -9674,6 +9743,7 @@
    "id": "JB-meraki-wan",
    "job": "meraki.wan",
    "tests": [
+    "tests/jobs-meraki-skip.test.js",
     "tests/pilot-metrics.test.js",
     "tests/publish-gate.test.js",
     "tests/sync-jobs-registry.test.js",
@@ -9683,22 +9753,30 @@
   {
    "id": "JB-meraki-wan-events",
    "job": "meraki.wan_events",
-   "tests": []
+   "tests": [
+    "tests/jobs-meraki-skip.test.js"
+   ]
   },
   {
    "id": "JB-meraki-wan-events-5m",
    "job": "meraki.wan_events_5m",
-   "tests": []
+   "tests": [
+    "tests/jobs-meraki-skip.test.js"
+   ]
   },
   {
    "id": "JB-meraki-wan-poller",
    "job": "meraki.wan_poller",
-   "tests": []
+   "tests": [
+    "tests/jobs-meraki-skip.test.js"
+   ]
   },
   {
    "id": "JB-meridian-resources",
    "job": "meridian.resources",
-   "tests": []
+   "tests": [
+    "tests/jobs-meraki-skip.test.js"
+   ]
   },
   {
    "id": "JB-opmanager-availability",
@@ -9710,17 +9788,23 @@
   {
    "id": "JB-publish-connectors",
    "job": "publish.connectors",
-   "tests": []
+   "tests": [
+    "tests/jobs-engagement.test.js"
+   ]
   },
   {
    "id": "JB-reports-monthly",
    "job": "reports.monthly",
-   "tests": []
+   "tests": [
+    "tests/jobs-reports-send.test.js"
+   ]
   },
   {
    "id": "JB-reports-weekly",
    "job": "reports.weekly",
-   "tests": []
+   "tests": [
+    "tests/jobs-reports-send.test.js"
+   ]
   },
   {
    "id": "JB-softdelete-purge",
