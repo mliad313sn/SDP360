@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (170) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (174) — services/reportConfig.js DEFAULTS
 
 | Key | Default (today) | Kind | Owner | Recommended pilot value | Reference |
 |---|---|---|---|---|---|
@@ -22,6 +22,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `access_recert_enabled` | `0` | arm switch | Security owner + site managers | PROPOSITION: `1` once the Security owner schedules the first campaign (site managers answer their lines; the subject never answers their own) | E-S03 |
 | `access_recert_orphan_days` | `90` | setting | Security owner | PROPOSITION: N to be chosen by the Security owner (an account with no sign-in evidence is listed as UNKNOWN, never as idle) | E-S03 |
 | `access_require_approval` | `0` | setting | Security owner + Owner (approver matrix) | `1` once the approver rule and the requires_request list are decided (break-glass stays possible, logged risk=1) | C-18 |
+| `agenda_cron_enabled` | `0` | arm switch | Committee | `1` (the Monday job prepares a DRAFT agenda per cadence due that week; nothing is sent, the secretary still prepares the session) | E-G03 |
 | `alert_external_enabled` | `0` | arm switch | to be named | — | — |
 | `analytics_accounts_url` | `` | setting | to be named | — | — |
 | `analytics_client_id` | `` | setting | to be named | — | — |
@@ -51,6 +52,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `backup_offsite_path` | `` | setting | to be named | — | — |
 | `commitment_notify_enabled` | `0` | arm switch | to be named | — | — |
 | `commitments_enabled` | `0` | arm switch | to be named | — | — |
+| `controls_register_enabled` | `0` | arm switch | GRC owner + Security owner | `1` once GRC names who adopts controls (the four seeded controls stay `candidate` until a person adopts them with a reason; frequencies and testers are GRC decisions) | E-G04 |
 | `default_email_domain` | `edv-ops.com` | setting | to be named | — | — |
 | `embed_frame_ancestors` | `` | setting | to be named | — | — |
 | `emergency_access_enabled` | `0` | arm switch | Security owner + Owner | `1` once the super_admins who may grant and review are named (a super_admin, never the beneficiary, max 24 h, review within 2 working days by another super_admin — PO decision R7; never waives a qualification) | C-22 |
@@ -80,6 +82,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `helpdesk_sla_definition` | `flag` | setting | KPI committee | `flag` until the committee chooses (`due_vs_resolved` is the alternative) | A-17 |
 | `hygiene_recipients` | `` | setting | to be named | — | — |
 | `hygiene_send_enabled` | `0` | arm switch | to be named | — | — |
+| `incubation_rfi_link_enabled` | `0` | arm switch | PMO + Owner | `1` on the pilot site once the PMO accepts incubation-born RFIs in the queue (the RFI score stays provisional: incubation scoring criteria are a human decision) | E-I04 |
 | `kpi_policy_enforced` | `0` | setting | KPI committee + Owner | `0` until the KPI committee has ADOPTED a resolution-SLA policy on `/kpi-builder.html` (two different members: author ≠ adopter, with the session reference) and read the shadow comparison; then `1` (the Helpdesk tile, ranking and trend follow the adopted version) | C-31 |
 | `meraki_api_key` | (secret — not shown) | secret | to be named | — | — |
 | `meraki_base_url` | `https://api.meraki.com/api/v1` | setting | to be named | — | — |
@@ -91,6 +94,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `meridian_out_key` | (secret — not shown) | secret | to be named | — | — |
 | `never_send_unconfirmed` | `1` | setting | to be named | — | — |
 | `notifications_stop` | `0` | setting | to be named | — | — |
+| `obligations_include_decisions` | `0` | setting | Committee + Owner | `1` (the site obligations view then counts the site's open governance decisions; the visible total of a site can grow) | E-G02 |
 | `opm_availability_view_id` | `` | setting | to be named | — | — |
 | `opm_monitor_patterns` | `opma,abj-spm-000` | setting | to be named | — | — |
 | `opm_rest_concurrency` | `1` | setting | Ops | `1` | A-18 (A-18b) |
@@ -201,7 +205,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `capacity_weeks_back` | planned | `12` | Ops | A-13 |
 | `capacity_workdays_per_week` | planned | `5` | Ops | A-13 |
 
-## 3. Governance policies (36) — services/governancePolicy.js PARAMS
+## 3. Governance policies (37) — services/governancePolicy.js PARAMS
 
 | Key | Default (today) | Type | Protected | Site-scoped | Owner |
 |---|---|---|---|---|---|
@@ -217,6 +221,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `freshness.wan_hours` | `30` | number | yes | no | to be named |
 | `governance.dual_approval_relaxations` | `true` | bool | yes | no | to be named |
 | `governance.dual_approval_tightening` | `false` | bool | yes | no | to be named |
+| `governance.quorum_min` | `null` | int | yes | yes | to be named |
 | `governance.relaxation_max_days` | `90` | int | yes | no | to be named |
 | `governance.skip_inactive_holders` | `false` | bool | yes | no | Owner (access policy) |
 | `handoffs.commitment_ledger` | `false` | bool | no | yes | to be named |

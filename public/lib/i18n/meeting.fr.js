@@ -8,6 +8,8 @@
 (function (root) {
   'use strict';
   const STATIC = {
+    'Request for improvement': 'Demande d\'amélioration', '· Demande d\'amélioration': '',
+    'One RFI per incubation session — session → RFI → project': 'Une RFI par session d\'incubation — session → RFI → projet',
     '‹ All meetings': '‹ Toutes les réunions',
     'Department meeting · Réunion départementale': 'Réunion départementale',
     'New meeting': 'Nouvelle réunion', 'draft': 'brouillon',

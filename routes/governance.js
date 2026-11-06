@@ -12,11 +12,13 @@ const { fail: httpFail, logError } = require('../services/httpError');
 //   POST /api/governance/sessions/:id/{start,close}   lifecycle planned → held → logged → accepted (services/sessionLifecycle, G-21)
 //   POST /api/governance/sessions/:id/cancel {reason} · /exception/approve (committee) · /accept (≠ who closed) · /reopen {reason} (admin)
 //   POST /sessions/:id/items/:item/{start,end,notes} · PUT /sessions/:id (attendees, notes)
+//   E-G03: PUT /sessions/:id/attendance (secretary/chair/committee) · GET /cadences/:id/draft-agenda (agenda_cron_enabled)
 //   POST /api/governance/sessions/:id/decisions       DEC-YYYY-NNN                                  chair | secretary | admin
 //   POST /api/governance/sessions/:id/actions         action linked to its source                   runner
 //   GET  /api/governance/sessions/:id/minutes.html|.pdf · POST /sessions/:id/minutes/send
 //   GET  /api/governance/decisions  · PUT /decisions/:id   (C-15: each decision carries source_links)
 //   GET  /api/governance/engagement-delays             open decisions + session actions: days overdue + ageing (C-15)
+//   E-I04: GET/POST /api/governance/rfi/from-meeting/:id · GET /rfi/:id/lineage (incubation_rfi_link_enabled, 404 while '0')
 //   GET  /api/governance/rfi · POST /rfi (any session) · PUT /rfi/:id (triage/score/decide — committee) · POST /rfi/:id/verify (requester)
 //   GET  /api/governance/portfolio (tree + evidence + gantt + risks + summary) · PUT /portfolio/:kind · DELETE /portfolio/:kind/:id   committee
 //        (A-15: site-scoped reads + editor plan writes behind portfolio_site_scope_reads / portfolio_editor_plan_writes, off = today)
@@ -34,6 +36,7 @@ const { buildAgenda, metricKeysFor } = require('../services/agendaBuilder');
 const { renderMinutes, acceptanceStamp } = require('../services/minutesRenderer');
 const PE = require('../services/portfolioEvidence');
 const GL = require('../services/governanceLinks');
+const SA = require('../services/sessionAttendance');
 
 function createStore(rdbMod, { log = console.log } = {}) {
   const pg = rdbMod.REPORTS_BACKEND === 'postgres';
@@ -175,6 +178,7 @@ module.exports = function governanceRoutes(deps) {
     return buildAgenda({ cadence: cad, scheduledAt, metrics, actions: facts.actions, incidents: facts.incidents, decisions, rfis, trackers, portfolio, now, nextSession: null });
   }
   const isCommitteeKind = (k) => k === 'committee' || k === 'group_monthly';
+  require('../services/agendaDrafts').setCompiler((cad, at) => generateAgenda(cad, at));   // E-G03: the scheduled draft uses the cockpit's builder
 
   // ---- overview ---------------------------------------------------------------------------
   router.get('/api/governance/overview', requireReportSession, async (req, res) => {
@@ -234,7 +238,32 @@ module.exports = function governanceRoutes(deps) {
       res.json({ ok: true, sessions: rows.map(s => ({ ...s, cadence: (cads.find(c => c.id === s.cadence_id) || {}).name })) }); } catch (e) { fail(res, e); }
   });
   router.get('/api/governance/sessions/:id', requireReportSession, async (req, res) => {
-    try { const x = await loadSession(req, res); if (!x) return; res.json({ ok: true, session: (await withStage(x.s, req.reportUser, x.cad)), minutes_history: await store.minutesHistory(x.s.id), cadence: x.cad, decisions: await store.listDecisions({ sessionId: x.s.id }), actions: await store.sessionActions(x.s.id), can_run: canRun(req.reportUser, x.cad), can_decide: canDecide(req.reportUser, x.cad) }); } catch (e) { fail(res, e); }
+    try { const x = await loadSession(req, res); if (!x) return; res.json({ ok: true, session: (await withStage(x.s, req.reportUser, x.cad)), minutes_history: await store.minutesHistory(x.s.id), cadence: x.cad, decisions: await store.listDecisions({ sessionId: x.s.id }), actions: await store.sessionActions(x.s.id), can_run: canRun(req.reportUser, x.cad), can_decide: canDecide(req.reportUser, x.cad), can_record_attendance: isCommittee(req.reportUser) || leads(req.reportUser, x.cad), quorum: SA.quorum(x.s.attendance, (await polForSession(x.cad, x.s))['governance.quorum_min']) }); } catch (e) { fail(res, e); }
+  });
+  // E-G03 — attendance recorded by the secretary (or the chair, a deputy of either, the committee); quorum per
+  // governance.quorum_min (null = not defined). Editing follows the session lifecycle like notes/attendees.
+  router.put('/api/governance/sessions/:id/attendance', requireReportSession, json, async (req, res) => {
+    try {
+      const x = await loadSession(req, res, { run: true }); if (!x) return;
+      if (!isCommittee(req.reportUser) && !leads(req.reportUser, x.cad)) return res.status(403).json({ ok: false, error: 'attendance is recorded by the secretary, the chair or the committee' });
+      if (await lifecycle(req, res, x, 'edit')) return;
+      const att = SA.normalize((req.body && req.body.attendance) || null, { by: req.reportUser.id });
+      const s = await store.setAttendance(x.s.id, att);
+      const quorum = SA.quorum(s.attendance, (await polForSession(x.cad, s))['governance.quorum_min']);
+      log(req, 'session_attendance', x.s.id, { present: quorum.present, state: quorum.state });
+      res.json({ ok: true, session: s, quorum });
+    } catch (e) { fail(res, e); }
+  });
+  // E-G03 — the scheduled DRAFT agenda of a cadence (job governance.agenda_drafts; nothing sent). 404 while agenda_cron_enabled = '0'.
+  router.get('/api/governance/cadences/:id/draft-agenda', requireReportSession, async (req, res) => {
+    try {
+      if (String((await reportConfig.getConfig(rdb().db)).agenda_cron_enabled) !== '1') return res.status(404).json({ ok: false, error: 'not found' });
+      const cad = await store.getCadence(req.params.id); if (!cad) return res.status(404).json({ ok: false, error: 'cadence not found' });
+      const u = req.reportUser;
+      if (!isCommittee(u) && cad.site_id != null && !userSites.hasSite(u, cad.site_id) && !canRun(u, cad)) return res.status(403).json({ ok: false, error: 'cadence belongs to another site' });
+      if (!seesCadence(u, cad)) return res.status(403).json({ ok: false, error: 'group cadences are read by the committee and their participants' });
+      res.json({ ok: true, status: cad.draft_agenda ? 'draft' : 'none', for: cad.draft_agenda_for || null, compiled_at: cad.draft_agenda_at || null, agenda: cad.draft_agenda || null });
+    } catch (e) { fail(res, e); }
   });
   router.put('/api/governance/sessions/:id', requireReportSession, json, async (req, res) => {
     try { const x = await loadSession(req, res, { run: true }); if (!x) return; if (await lifecycle(req, res, x, 'edit')) return; if (req.body.scheduled_at && await lifecycle(req, res, x, 'reschedule')) return; const p = {}; if (Array.isArray(req.body.attendees)) p.attendees = req.body.attendees.map(a => String(a).slice(0, 120)).slice(0, 50); if (req.body.notes !== undefined) p.notes = String(req.body.notes).slice(0, 20000); if (req.body.scheduled_at) p.scheduled_at = String(req.body.scheduled_at).slice(0, 25); const out = await store.updateSession(x.s.id, p); if (p.scheduled_at && p.scheduled_at !== x.s.scheduled_at) { log(req, 'session_rescheduled', x.s.id, { from: x.s.scheduled_at, to: p.scheduled_at }); await store.addMinutesHistory(x.s.id, 'rescheduled', req.reportUser.id, `from ${x.s.scheduled_at} to ${p.scheduled_at}${req.body.reason ? ' — ' + String(req.body.reason).slice(0, 300) : ''}`); } res.json({ ok: true, session: out }); } catch (e) { fail(res, e); }
@@ -264,7 +293,8 @@ module.exports = function governanceRoutes(deps) {
   async function minutesFor(x) {
     const sites = (await rdb().listSites({ includeInactive: true })) || []; const site = x.cad && x.cad.site_id != null ? sites.find(s => Number(s.id) === Number(x.cad.site_id)) : null;
     const cfg = await reportConfig.getConfig(rdb().db);
-    return renderMinutes({ cadence: x.cad, session: x.s, decisions: await store.listDecisions({ sessionId: x.s.id }), actions: await store.sessionActions(x.s.id), siteName: site ? site.name : null, baseUrl: cfg.public_base_url || '' });
+    const quorum = SA.quorum(x.s.attendance, (await polForSession(x.cad, x.s))['governance.quorum_min']);   // E-G03
+    return renderMinutes({ cadence: x.cad, session: x.s, decisions: await store.listDecisions({ sessionId: x.s.id }), actions: await store.sessionActions(x.s.id), siteName: site ? site.name : null, baseUrl: cfg.public_base_url || '', quorum });
   }
   router.post('/api/governance/sessions/:id/close', requireReportSession, async (req, res) => {
     try { const x = await loadSession(req, res, { run: true }); if (!x) return; if (await lifecycle(req, res, x, 'close')) return; x.s.closed_at = new Date().toISOString(); x.s.status = 'closed'; const html = await minutesFor(x); const s = await store.moveSession(x.s.id, 'live', { status: 'closed', closed_at: x.s.closed_at, closed_by: req.reportUser.id, minutes_html: html }); if (!s) return res.status(409).json({ ok: false, error: 'the session changed meanwhile — reload', code: 'CONFLICT' }); log(req, 'session_closed', s.id); res.json({ ok: true, session: { ...(await withStage(s, req.reportUser, x.cad)), minutes_html: undefined }, minutes_bytes: html.length }); } catch (e) { fail(res, e); }
@@ -397,6 +427,43 @@ module.exports = function governanceRoutes(deps) {
   router.get('/api/governance/rfi', requireReportSession, async (req, res) => { try { res.json({ ok: true, committee: isCommittee(req.reportUser), me: Number(req.reportUser.id), rfi: await store.listRfi({ status: req.query.status ? String(req.query.status).split(',') : null, scope: rfiScope(req.reportUser) }), kinds: store.RFI_KINDS, statuses: store.RFI_STATUSES }); } catch (e) { fail(res, e); } });
   router.post('/api/governance/rfi', requireReportSession, json, async (req, res) => { try { const r = await store.submitRfi({ ...req.body, site_id: req.body && req.body.site_id != null ? req.body.site_id : (userSites.siteIds(req.reportUser)[0] || null) }, { user: req.reportUser }); log(req, 'rfi_submitted', r.ref, { kind: r.kind }); res.json({ ok: true, rfi: r }); } catch (e) { fail(res, e); } });
   router.post('/api/governance/rfi/:id/verify', requireReportSession, async (req, res) => { try { const r = await store.verifyRfi(req.params.id, { user: req.reportUser }); log(req, 'rfi_verified', r.ref); res.json({ ok: true, rfi: r }); } catch (e) { const known = { 403: 'only the requester confirms the delivery', 404: 'request not found', 409: 'only a delivered request can be confirmed' }; if (known[e.status]) return res.status(e.status).json({ ok: false, code: e.code, error: known[e.status] }); fail(res, e); } });
+  // E-I04 — Business Incubation session → RFI (one per session) + lineage. Every route 404 while
+  // incubation_rfi_link_enabled = '0' (default, today). Writer = editor of the session's site, or the admin tier.
+  const incubationRfiOn = async () => String((await reportConfig.getConfig(rdb().db)).incubation_rfi_link_enabled) === '1';
+  const mdb = () => deps.meetingsDb || require('../meetings-db');
+  async function incubationSource(req, res, { write = false } = {}) {
+    if (!(await incubationRfiOn())) { res.status(404).json({ ok: false, error: 'not found' }); return null; }
+    const src = await mdb().getIncubationSource(req.params.id);
+    if (!src) { res.status(404).json({ ok: false, error: 'session not found' }); return null; }
+    const hit = src.site_code ? await rdb().getSiteIdByModuleCode('meetings', src.site_code) : null;
+    const siteId = hit && hit.site_id != null ? Number(hit.site_id) : null;
+    const u = req.reportUser;
+    if (!isAdmin(u)) {
+      if (write && !rdb().userHasRole(u, 'editor')) { res.status(403).json({ ok: false, error: 'editor role or higher required' }); return null; }
+      if (siteId == null || !userSites.hasSite(u, siteId)) { res.status(403).json({ ok: false, error: 'session belongs to another site' }); return null; }
+    }
+    return { src, siteId };
+  }
+  router.get('/api/governance/rfi/from-meeting/:id', requireReportSession, async (req, res) => {
+    try { const x = await incubationSource(req, res); if (!x) return; const r = await store.rfiForMeeting(x.src.id); res.json({ ok: true, is_incubation: x.src.is_incubation, rfi: r || null, lineage: r ? await store.rfiLineage(r.id) : null }); } catch (e) { fail(res, e); }
+  });
+  router.post('/api/governance/rfi/from-meeting/:id', requireReportSession, async (req, res) => {
+    try {
+      const x = await incubationSource(req, res, { write: true }); if (!x) return;
+      const out = await store.rfiFromMeeting(x.src, { siteId: x.siteId, user: req.reportUser });
+      if (out.created) log(req, 'rfi_from_meeting', out.rfi.ref, { meeting_id: x.src.id });
+      res.json({ ok: true, created: out.created, rfi: out.rfi, lineage: await store.rfiLineage(out.rfi.id) });
+    } catch (e) { fail(res, e); }
+  });
+  router.get('/api/governance/rfi/:id/lineage', requireReportSession, async (req, res) => {
+    try {
+      if (!(await incubationRfiOn())) return res.status(404).json({ ok: false, error: 'not found' });
+      const r = await store.getRfi(req.params.id); if (!r) return res.status(404).json({ ok: false, error: 'request not found' });
+      const u = req.reportUser;
+      if (!isCommittee(u) && Number(r.requester_id) !== Number(u.id) && !(r.site_id != null && userSites.hasSite(u, r.site_id))) return res.status(403).json({ ok: false, error: 'request belongs to another site' });
+      res.json({ ok: true, lineage: await store.rfiLineage(r.id) });
+    } catch (e) { fail(res, e); }
+  });
   router.put('/api/governance/rfi/:id', requireReportSession, requireCommittee, json, async (req, res) => { try { const r = await store.triageRfi(req.params.id, req.body || {}, { user: req.reportUser }); log(req, 'rfi_triaged', r && r.ref, { status: r && r.status }); res.json({ ok: true, rfi: r }); } catch (e) { fail(res, e); } });
 
   // ---- portfolio --------------------------------------------------------------------------

@@ -553,6 +553,15 @@
         <datalist id="pvPeopleList"></datalist>
       </div>
 
+      <!-- E-I04 — incubation session → RFI (one per session), shown only when incubation_rfi_link_enabled = '1' -->
+      <div class="pv-card" data-only="inc" id="incRfiCard" hidden>
+        <div class="pv-card__head">
+          <div class="pv-card__title">Request for improvement <em>· Demande d'amélioration</em></div>
+          <div class="pv-card__hint">One RFI per incubation session — session → RFI → project</div>
+        </div>
+        <div class="pv-row pv-row--single"><div class="pv-field" id="incRfiBody"></div></div>
+      </div>
+
       <!-- Business Incubation §2-§4 (2026-10-03) — editable, shown only for an incubation -->
       <div class="pv-card" data-only="inc">
         <div class="pv-card__head">
@@ -1568,6 +1577,7 @@
     document.getElementById('pvMain').dataset.mode = inc ? 'inc' : 'pv';
     const pt = document.getElementById('pvPrintTitle');
     if (pt) pt.textContent = inc ? 'Business incubation' : 'Department meeting';
+    loadIncRfi();
   }
   function renderIncubation() {
     if (!state.incubation) state.incubation = IncubationEditor.fromHeader(state.header);
@@ -1580,6 +1590,31 @@
     renderIncFlow();
     renderIncServices();
     applyMode();
+  }
+  // E-I04 — RFI raised from this incubation session (404 = switch off → the card stays hidden).
+  async function loadIncRfi() {
+    const card = document.getElementById('incRfiCard'), body = document.getElementById('incRfiBody');
+    if (!card || !state.id || !IncubationEditor.isIncubation(state.header)) { if (card) card.hidden = true; return; }
+    let j;
+    try { const r = await fetch('/api/governance/rfi/from-meeting/' + state.id, { credentials: 'same-origin', headers: authHeaders() }); if (!r.ok) { card.hidden = true; return; } j = await r.json(); }
+    catch (_) { card.hidden = true; return; }
+    card.hidden = false;
+    if (j.rfi) {
+      const ln = j.lineage || {};
+      body.innerHTML = 'Session #' + esc(state.id) + ' → <a href="rfi.html">' + esc(j.rfi.ref) + '</a> (' + esc(j.rfi.status) + ')'
+        + (ln.project ? ' → <a href="project.html?id=' + esc(ln.project.id) + '">' + esc(ln.project.key) + '</a>' : ' → no project yet');
+    } else {
+      body.innerHTML = '<button type="button" class="btn" id="incRfiRaise">Raise an RFI from this session</button>';
+      document.getElementById('incRfiRaise').addEventListener('click', async () => {
+        try {
+          const r = await fetch('/api/governance/rfi/from-meeting/' + state.id, { method: 'POST', credentials: 'same-origin', headers: authHeaders() });
+          const out = await r.json().catch(() => ({}));
+          if (!r.ok) { showBanner(out.error || ('RFI not raised (HTTP ' + r.status + ')'), 'error'); return; }
+          showBanner(out.rfi.ref + (out.created ? ' raised' : ' already exists'));
+          loadIncRfi();
+        } catch (e) { showBanner('RFI not raised: ' + e.message, 'error'); }
+      });
+    }
   }
   function renderIncFlow()     { document.getElementById('incFlow').innerHTML     = IncubationEditor.flowRowsHtml(state.incubation.flow, esc); }
   function renderIncServices() { document.getElementById('incServices').innerHTML = IncubationEditor.serviceRowsHtml(state.incubation.services, esc); }

@@ -83,3 +83,20 @@ test('handoffs.commitment_ledger: a new handoff is recorded as a commitment and 
   assert.ok(!r.body.items.some((x) => x.register === 'handoff' && x.title === 'Move the plant scanner'), 'not twice');
   assert.ok(r.body.items.some((x) => x.register === 'handoff' && x.title === 'Move the plant printer'), 'the earlier one stays a handoff');
 });
+
+test('E-G02: obligations_include_decisions = 1 adds the site decisions (not read while 0)', async () => {
+  const cfg = require('../services/reportConfig');
+  assert.equal(cfg.DEFAULTS.obligations_include_decisions, '0');
+  assert.equal('decisions' in (await get(T.edH, hounde)).body.registers, false);
+  const gs = require('../services/governanceStore').makeGovernanceStore(rdb.pgHandle());
+  const d = await gs.addDecision({ title: 'E-G02 site decision', site_id: hounde, due_date: '2099-02-01' });
+  await gs.addDecision({ title: 'E-G02 other site', site_id: mana });
+  await cfg.setConfig(rdb.db, { obligations_include_decisions: '1' }, 'test');
+  try {
+    const r = await get(T.edH, hounde);
+    assert.equal(r.body.registers.decisions, 'read');
+    const line = r.body.items.find((x) => x.register === 'decision' && x.title === 'E-G02 site decision');
+    assert.ok(line); assert.equal(line.ref, d.ref); assert.equal(line.focus, `decision:${d.id}`);
+    assert.ok(!r.body.items.some((x) => x.title === 'E-G02 other site'), 'another site decision is not listed');
+  } finally { await cfg.setConfig(rdb.db, { obligations_include_decisions: '0' }, 'test'); }
+});

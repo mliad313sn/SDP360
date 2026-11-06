@@ -8,6 +8,7 @@
 //   GET  /api/governance/policies/history?key=    append-only change history (with names)                   committee | admin
 //   GET  /api/governance/policies/proposals       pending two-person relaxations · POST …/proposals/:id/approve|reject  super_admin ≠ proposer
 //   GET  /api/governance/oversight?from=&to=[&format=csv]   relaxations, overrides, proposals, deviations, role gaps (MEA02)  committee | admin
+//   E-G04: GET /api/governance/controls (committee) · PUT /controls · POST /controls/:id/status (admin) · POST /controls/:id/tests (committee) — controls_register_enabled
 //   GET  /policies.html
 // The rules, bounds and defaults live in services/governancePolicy.js; nothing here decides a value.
 
@@ -234,6 +235,49 @@ module.exports = function policyRoutes(deps) {
         return res.send('\ufeff' + lines.join('\r\n'));
       }
       res.json({ ok: true, ...o });
+    } catch (e) { fail(res, e); }
+  });
+  // E-G04 — control register (candidates only; adoption is a GRC decision). Every route 404 while
+  // controls_register_enabled = '0' (default). Read: committee. Controls + status: admin tier. Tests: committee
+  // (tester ≠ control owner). A fail opens a commitment only when commitments_enabled = '1'.
+  const CR = require('../services/controlRegister');
+  const reportConfig = deps.reportConfig || require('../services/reportConfig');
+  const controls = () => deps.controlStore || CR.makeControlStore(rdb().pgHandle());
+  async function controlsOn(res) {
+    const cfg = await reportConfig.getConfig(rdb().db);
+    if (String(cfg.controls_register_enabled) !== '1') { res.status(404).json({ ok: false, error: 'not found' }); return null; }
+    return cfg;
+  }
+  const lastPeriods = (n = 3, now = new Date()) => Array.from({ length: n }, (_, i) => { const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1 - i, 1)); return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`; });
+  router.get('/api/governance/controls', requireReportSession, requireCommittee, async (req, res) => {
+    try {
+      if (!(await controlsOn(res))) return;
+      const st = controls(); await st.seed();
+      const periods = lastPeriods();
+      res.json({ ok: true, periods, is_admin: isAdmin(req.reportUser), statuses: CR.STATUSES, results: CR.RESULTS,
+        controls: (await st.list()).map((c) => ({ ...c, grid: CR.periodGrid(c.tests, periods) })) });
+    } catch (e) { fail(res, e); }
+  });
+  router.put('/api/governance/controls', requireReportSession, requireAdminTier, json, async (req, res) => {
+    try { if (!(await controlsOn(res))) return; const c = await controls().save(req.body || {}); res.json({ ok: true, control: c }); } catch (e) { fail(res, e); }
+  });
+  router.post('/api/governance/controls/:id/status', requireReportSession, requireAdminTier, json, async (req, res) => {
+    try {
+      if (!(await controlsOn(res))) return;
+      const b = req.body || {};
+      if (String(b.reason || '').trim().length < 10) return res.status(400).json({ ok: false, error: 'a reason (10+ characters, e.g. the GRC decision reference) is required' });
+      const c = await controls().setStatus(req.params.id, String(b.status || ''), { user: req.reportUser });
+      if (!c) return res.status(404).json({ ok: false, error: 'control not found' });
+      try { rdb().logEvent({ category: 'governance', action: 'control_status', target: c.key, details: { status: c.status, reason: String(b.reason).slice(0, 300) }, ...rdb()._logCtx(req) }); } catch (_) {}
+      res.json({ ok: true, control: c });
+    } catch (e) { fail(res, e); }
+  });
+  router.post('/api/governance/controls/:id/tests', requireReportSession, requireCommittee, json, async (req, res) => {
+    try {
+      const cfg = await controlsOn(res); if (!cfg) return;
+      const commitments = String(cfg.commitments_enabled) === '1' ? (deps.getCommitmentStore ? deps.getCommitmentStore() : require('./commitments').createStore(rdb())) : null;
+      const t = await controls().recordTest(req.params.id, { ...(req.body || {}), tester_id: (req.body && req.body.tester_id) || req.reportUser.id }, { commitments, user: req.reportUser });
+      res.json({ ok: true, test: t });
     } catch (e) { fail(res, e); }
   });
   return router;

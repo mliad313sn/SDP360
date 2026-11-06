@@ -799,7 +799,7 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Certification | not certified — D-01/D-02/D-03 pending |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | UNKNOWN (no sync job feeds this module) |
-| Consumers | widget `governance#prog (kpi)`<br>widget `governance#sites (ragGrid)`<br>server code: `services/agendaBuilder.js` · tests: 1 file(s) |
+| Consumers | widget `governance#prog (kpi)`<br>widget `governance#sites (ragGrid)`<br>server code: `services/agendaBuilder.js`<br>server code: `tools/agent/score-methodology.js` · tests: 1 file(s) |
 
 ## `programme.composite`
 
@@ -816,7 +816,7 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Certification | not certified — D-01/D-02/D-03 pending |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | UNKNOWN (no sync job feeds this module) |
-| Consumers | server code: `services/agendaBuilder.js` · tests: 1 file(s) |
+| Consumers | server code: `services/agendaBuilder.js`<br>server code: `tools/agent/score-methodology.js` · tests: 1 file(s) |
 
 ## `changes.success_pct_deck`
 

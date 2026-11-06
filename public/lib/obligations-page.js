@@ -12,9 +12,9 @@
   let lang = 'en'; try { lang = localStorage.getItem('sdp_lang') || localStorage.getItem('policies_lang') || (navigator.language || '').slice(0, 2) || 'en'; } catch (_) {}
   const L = {
     en: { reg: 'Register', item: 'Obligation', owner: 'Owner', due: 'Due', status: 'Status', open: 'open', overdue: 'overdue', all: 'All', none: 'Nothing open.', notRead: 'not read (switched off)', partial: 'partial total — a register is switched off', covers: 'covers',
-      names: { commitment: 'Commitment', handoff: 'Handoff', meetings_action: 'Meeting action', incubation_action: 'Incubation action', inspection_action: 'Inspection action', report_followup: 'Report follow-up', session_action: 'Governance session action', benefit_review: 'Benefit review' } },
+      names: { commitment: 'Commitment', handoff: 'Handoff', meetings_action: 'Meeting action', incubation_action: 'Incubation action', inspection_action: 'Inspection action', report_followup: 'Report follow-up', session_action: 'Governance session action', benefit_review: 'Benefit review', decision: 'Governance decision' } },
     fr: { reg: 'Registre', item: 'Obligation', owner: 'Responsable', due: 'Échéance', status: 'Statut', open: 'ouvertes', overdue: 'en retard', all: 'Toutes', none: 'Rien d\'ouvert.', notRead: 'non lu (désactivé)', partial: 'total partiel — un registre est désactivé', covers: 'couvre',
-      names: { commitment: 'Engagement', handoff: 'Demande inter-services', meetings_action: 'Action de réunion', incubation_action: 'Action d\'incubation', inspection_action: 'Action d\'inspection', report_followup: 'Suivi du rapport', session_action: 'Action de séance de gouvernance', benefit_review: 'Revue de bénéfice' } },
+      names: { commitment: 'Engagement', handoff: 'Demande inter-services', meetings_action: 'Action de réunion', incubation_action: 'Action d\'incubation', inspection_action: 'Action d\'inspection', report_followup: 'Suivi du rapport', session_action: 'Action de séance de gouvernance', benefit_review: 'Revue de bénéfice', decision: 'Décision de gouvernance' } },
   };
   const T = () => L[lang === 'fr' ? 'fr' : 'en'];
   let data = null;
@@ -29,9 +29,11 @@
     $('obTiles').innerHTML = `<div class="ob-tile ob-total${partial ? ' ob-partial' : ''}"><b>${data.totals.open}</b>${t.open}${late(data.totals.overdue)}${partial ? `<div class="ob-muted">⚠ ${t.partial}</div>` : ''}</div>`
       + Object.keys(by).map((k) => `<div class="ob-tile"><b>${by[k].open}</b>${esc(t.names[k] || k)}${by[k].overdue ? late(by[k].overdue) : ''}</div>`).join('')
       + Object.entries(data.registers).filter(([, v]) => v == null).map(([k]) => `<div class="ob-tile ob-muted">${esc(k)}: ${t.notRead}</div>`).join('');
-    $('obRows').innerHTML = data.items.map((x) => `<tr><td>${esc(t.names[x.register] || x.register)}</td>
+    const focus = new URLSearchParams(location.search).get('focus');   // E-G02: ?focus=<register>:<id> from a register row
+    $('obRows').innerHTML = data.items.map((x) => `<tr${focus && x.focus === focus ? ' class="ob-focus" id="obFocus"' : ''}><td>${esc(t.names[x.register] || x.register)}</td>
       <td>${x.link ? `<a href="${esc(x.link)}">${esc(x.title)}</a>` : esc(x.title)}${x.ref ? ` <span class="ob-muted">${esc(x.ref)}</span>` : ''}${x.sources && x.sources.length ? `<div class="ob-muted">${t.covers}: ${x.sources.map((s) => esc(s.title)).join(' · ')}</div>` : ''}</td>
       <td>${esc(x.owner || '—')}</td><td${x.overdue ? ' class="ob-late"' : ''}>${esc(x.due_date || '—')}</td><td>${esc(x.status)}</td></tr>`).join('') || `<tr><td colspan="5" class="ob-muted">${t.none}</td></tr>`;
+    const f = document.getElementById('obFocus'); if (f && f.scrollIntoView) f.scrollIntoView({ block: 'center' });
   }
   async function load() {
     try { $('obMsg').textContent = ''; data = await api('/api/obligations?site=' + encodeURIComponent($('obSite').value)); render(); }

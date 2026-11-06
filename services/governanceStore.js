@@ -48,7 +48,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   }
 
   // ── cadences ──────────────────────────────────────────────────────────────────────
-  const cadRow = (r) => r && ({ ...r, id: Number(r.id), site_id: r.site_id == null ? null : Number(r.site_id), active: Number(r.active) !== 0, participants: P_(r.participants, []), agenda_template: P_(r.agenda_template, null) });
+  const cadRow = (r) => r && ({ ...r, id: Number(r.id), site_id: r.site_id == null ? null : Number(r.site_id), active: Number(r.active) !== 0, participants: P_(r.participants, []), agenda_template: P_(r.agenda_template, null), draft_agenda: P_(r.draft_agenda, null) });
   async function listCadences({ siteIds = null, includeInactive = false } = {}) {
     const rows = (await P(`SELECT * FROM meeting_cadences WHERE deleted_at IS NULL${includeInactive ? '' : ' AND active=1'} ORDER BY kind, name`).all()).map(cadRow);
     return Array.isArray(siteIds) ? rows.filter(c => c.site_id == null || siteIds.includes(c.site_id)) : rows;
@@ -91,7 +91,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   const LIVE_CAD = `cadence_id IN (SELECT id FROM meeting_cadences WHERE deleted_at IS NULL)`;
 
   // ── sessions ──────────────────────────────────────────────────────────────────────
-  const sesRow = (r) => r && ({ ...r, id: Number(r.id), cadence_id: Number(r.cadence_id), agenda: P_(r.agenda, null), items: P_(r.items, []), attendees: P_(r.attendees, []) });
+  const sesRow = (r) => r && ({ ...r, id: Number(r.id), cadence_id: Number(r.cadence_id), agenda: P_(r.agenda, null), items: P_(r.items, []), attendees: P_(r.attendees, []), attendance: P_(r.attendance, null) });
   async function listSessions({ cadenceId = null, status = null, limit = 50 } = {}) {
     const where = [LIVE_CAD], args = [];
     if (cadenceId) { where.push('cadence_id=?'); args.push(Number(cadenceId)); }
@@ -158,6 +158,15 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     const p = { ...patch }; const keys = Object.keys(p);
     const r = await P(`UPDATE meeting_sessions SET ${keys.map((k) => `${k}=?`).join(', ')}, version=version+1, updated_at=? WHERE id=? AND status=?`).run(...keys.map((k) => p[k]), now(), Number(id), fromStatus);
     return Number(r && r.changes) === 1 ? getSession(id) : null;
+  }
+
+  // E-G03 — attendance (secretary) + the scheduled DRAFT agenda of a cadence (migration 071).
+  async function setAttendance(id, attendance) {
+    await P(`UPDATE meeting_sessions SET attendance=?, updated_at=? WHERE id=?`).run(J(attendance), now(), Number(id));
+    return getSession(id);
+  }
+  async function saveDraftAgenda(cadenceId, agenda, forAt) {
+    await P(`UPDATE meeting_cadences SET draft_agenda=?, draft_agenda_for=?, draft_agenda_at=? WHERE id=?`).run(J(agenda), str(forAt, 25), now(), Number(cadenceId));
   }
 
   // ── decisions ─────────────────────────────────────────────────────────────────────
@@ -240,6 +249,36 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       await ppmEvent({ entity: 'rfi', entity_id: id, action: 'triage', field: 'status', old_value: before.status, new_value: p.status || before.status, note: p.decision !== undefined ? p.decision : null }, opts.user);
     }
     return rfiRow(await P(`SELECT * FROM rfi_requests WHERE id=?`).get(Number(id)));
+  }
+
+  // E-I04 — one RFI per Business Incubation session (rfi_requests.source_meeting_id, unique, migration 070).
+  // `src` = meetings-db.getIncubationSource(id) (the caller reads it; this store never opens the meetings DB).
+  // Idempotent: a second call — or a concurrent one losing the unique race — returns the existing RFI.
+  // A department PV is refused: a PV and an incubation are never merged. No project is created here.
+  async function rfiForMeeting(meetingId) { return rfiRow(await P(`SELECT * FROM rfi_requests WHERE source_meeting_id=?`).get(Number(meetingId))); }
+  async function rfiFromMeeting(src, { siteId = null, user } = {}) {
+    if (!src || !src.id) throw Object.assign(new Error('session not found'), { code: 'NOT_FOUND', status: 404 });
+    if (!src.is_incubation) throw Object.assign(new Error('only a Business Incubation session can raise an RFI'), { code: 'INVALID', reason: 'not_incubation', status: 400 });
+    const ex = await rfiForMeeting(src.id);
+    if (ex) return { rfi: ex, created: false };
+    const ref = await nextRef('rfi_requests', 'RFI', now().slice(0, 4));
+    const title = `Incubation ${src.department || ''} — ${src.reference || `session #${src.id}`}`.replace(/\s+/g, ' ').trim();
+    const problem = src.business_description || src.priority_1 || `Needs identified during Business Incubation session ${src.reference || src.id} (${src.meeting_date || 'date unknown'}).`;
+    try {
+      await insert('rfi_requests', ['ref', 'kind', 'title', 'problem', 'proposal', 'site_id', 'requester_id', 'impact', 'effort', 'data_risk', 'status', 'source_meeting_id', 'created_at', 'updated_at'],
+        [ref, 'governance', str(title, 200), str(problem), null, num(siteId), user ? user.id : null, 2, 2, 1, 'submitted', Number(src.id), now(), now()]);
+    } catch (e) { const again = await rfiForMeeting(src.id); if (again && isDup(e)) return { rfi: again, created: false }; throw e; }
+    const r = await rfiForMeeting(src.id);
+    await ppmEvent({ entity: 'rfi', entity_id: r.id, action: 'from_meeting', field: 'source_meeting_id', old_value: null, new_value: src.id, note: src.reference || null }, user);
+    return { rfi: r, created: true };
+  }
+  /** Lineage of one RFI: the session it came from (id/reference only) → the RFI → the project it became. */
+  async function rfiLineage(rfiId) {
+    const r = await getRfi(rfiId);
+    if (!r) return null;
+    const pj = await P(`SELECT id, key, name FROM portfolio_projects WHERE rfi_id=?`).get(Number(rfiId));
+    return { meeting_id: r.source_meeting_id == null ? null : Number(r.source_meeting_id), rfi: { id: r.id, ref: r.ref, status: r.status },
+      project: pj ? { id: Number(pj.id), key: pj.key, name: pj.name } : null };
   }
 
   // ── portfolio ─────────────────────────────────────────────────────────────────────
@@ -648,7 +687,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     await insert('minutes_history', ['session_id', 'action', 'actor_id', 'at', 'reason'], [Number(sessionId), String(action), actorId == null ? null : Number(actorId), now(), str(reason, 1000)]);
   }
   async function minutesHistory(sessionId) { return (await P('SELECT action, actor_id, at, reason FROM minutes_history WHERE session_id=? ORDER BY id').all(Number(sessionId))).map(r => ({ ...r, actor_id: r.actor_id == null ? null : Number(r.actor_id) })); }
-  return { ppmEvent, ppmEvents, moveProjectStage, rfiToProject, getRfi, verifyRfi, getDecision, openSessionActions, addMinutesHistory, minutesHistory, init, listCadences, getCadence, saveCadence, removeCadence, listSessions, getSession, createSession, updateSession, stampItem, sessionActions, addSessionAction, setSessionActionStatus, moveSession,
+  return { ppmEvent, ppmEvents, moveProjectStage, rfiToProject, getRfi, verifyRfi, rfiFromMeeting, rfiForMeeting, rfiLineage, setAttendance, saveDraftAgenda, getDecision, openSessionActions, addMinutesHistory, minutesHistory, init, listCadences, getCadence, saveCadence, removeCadence, listSessions, getSession, createSession, updateSession, stampItem, sessionActions, addSessionAction, setSessionActionStatus, moveSession,
     listDecisions, addDecision, updateDecision, listRfi, submitRfi, triageRfi, rfiScore, portfolio, upsertPortfolio, removePortfolio,
     restorePortfolio, getPortfolioTrashRow, listDeletedPortfolio, purgeDeletedPortfolio, restoreCadence, getCadenceTrashRow, listDeletedCadences, purgeDeletedCadences, projectSites, setProjectSites, getProject, planRow, projectDetail, gateCounts, RISK_KINDS, listBaselines, rebaseline, alertStates, saveAlertState, listBenefits, getBenefit, recordBenefitRealised, verifyBenefit, dueBenefitReviews,
     CADENCE_KINDS, SESSION_STATUSES, DECISION_STATUSES, RFI_KINDS, RFI_STATUSES, PROJECT_STATUSES, CONFIDENCE };

@@ -329,6 +329,19 @@ DEFAULTS.kpi_policy_enforced = '0';
 // buckets a site's tickets on its LOCAL date (a London ticket at 00:30 BST on 1 Sept counts in September). Other
 // readers stay UTC for now (follow-up). Only matters for a non-UTC site (all West-African sites are UTC+0).
 DEFAULTS.site_local_calendar = '0';
+// ── Plan E / W1-GOV switches (defaults = today) ──────────────────────────────────────────────
+// ── E-I04 (audit I-04) — '1' = a Business Incubation session can raise ONE RFI (POST /api/governance/rfi/from-meeting/:id)
+//    and the session → RFI → project lineage is shown; '0' (default, today) = those routes 404, no button.
+DEFAULTS.incubation_rfi_link_enabled = '0';
+// ── E-G02 (audit G-02) — '1' = the site obligations view also lists the site's open governance decisions (once:
+//    under the commitment or session action they produced); '0' (default, today) = decisions are not read.
+DEFAULTS.obligations_include_decisions = '0';
+// ── E-G03 (catalogue A13) — '1' = the weekly job governance.agenda_drafts compiles the exception-only agenda of every
+//    cadence due this week as a DRAFT on the cadence (nothing is sent, no session is created); '0' (default) = on demand only.
+DEFAULTS.agenda_cron_enabled = '0';
+// ── E-G04 (audit G-04) — '1' = the control register (risk → control → test → exception) on Admin ▸ Governance policies;
+//    controls are seeded as CANDIDATES only (adoption is a GRC decision). '0' (default) = the routes 404, no panel.
+DEFAULTS.controls_register_enabled = '0';
 const KEYS = Object.keys(DEFAULTS);
 
 // Secrets that the GET handler redacts to '' — a Save that doesn't retype them must

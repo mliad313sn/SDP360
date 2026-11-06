@@ -31,5 +31,9 @@ window.COCKPIT_FR = {
   'Open decisions and session actions past their due date, in days. No due date = unknown (never counted as on time).': 'Décisions ouvertes et actions de séance dépassant leur échéance, en jours. Sans échéance = inconnu (jamais compté comme à l’heure).',
   '5 Engagements monitor': 'Suivi des 5 Engagements', 'Overdue': 'En retard', '1–7 days': '1–7 jours', '8–30 days': '8–30 jours', '31–90 days': '31–90 jours', '> 90 days': '> 90 jours',
   'On time': 'À l’heure', 'No due date (unknown)': 'Sans échéance (inconnu)', 'Oldest delay (days)': 'Plus ancien retard (jours)', 'Item': 'Élément',
+  // E-G03 — attendance + quorum
+  'Attendance': 'Présence', 'Save attendance': 'Enregistrer la présence', 'Attendance saved.': 'Présence enregistrée.', 'Quorum': 'Quorum',
+  'present': 'présent', 'absent': 'absent', 'excused': 'excusé', 'No participant listed on the cadence.': 'Aucun participant inscrit sur la cadence.',
+  'attendance not recorded': 'présence non enregistrée', 'quorum not defined': 'quorum non défini', 'quorate': 'quorum atteint', 'NOT quorate': 'quorum NON atteint',
   'Days overdue': 'Jours de retard', 'decision': 'décision', 'action': 'action', 'Nothing overdue.': 'Aucun retard.',
 };
