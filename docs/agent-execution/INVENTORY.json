@@ -6,13 +6,13 @@
   "pages_without_declared_role": 6,
   "pages_not_in_navigation": 29,
   "pages_with_inline_scripts": 46,
-  "routes": 613,
+  "routes": 615,
   "routes_without_test_reference": 48,
   "routes_in_server_js": 210,
   "jobs": 30,
   "jobs_without_test_reference": 10,
-  "migrations": 74,
-  "test_files": 621
+  "migrations": 76,
+  "test_files": 627
  },
  "pages": [
   {
@@ -152,7 +152,7 @@
    ],
    "in_navigation": false,
    "inline_scripts": 1,
-   "bytes": 11551,
+   "bytes": 19803,
    "tests": [
     "tests/commitments-routes.smoke.test.js",
     "tests/i18n-coverage.test.js",
@@ -397,7 +397,7 @@
    ],
    "in_navigation": false,
    "inline_scripts": 1,
-   "bytes": 43864,
+   "bytes": 45837,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -433,7 +433,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 35974,
+   "bytes": 37929,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -4113,7 +4113,7 @@
    "method": "POST",
    "path": "/api/inspection/:id/export",
    "file": "routes/inspection.js",
-   "line": 390,
+   "line": 444,
    "tests": [
     "tests/authz-route-matrix.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -4124,6 +4124,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/inspection-routes.test.js",
     "tests/inspection-site-scope.smoke.test.js",
+    "tests/inspection-verify.smoke.test.js",
     "tests/multi-site-editor.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
@@ -4146,6 +4147,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/inspection-routes.test.js",
     "tests/inspection-site-scope.smoke.test.js",
+    "tests/inspection-verify.smoke.test.js",
     "tests/multi-site-editor.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
@@ -4157,7 +4159,7 @@
    "method": "DELETE",
    "path": "/api/inspection/:id",
    "file": "routes/inspection.js",
-   "line": 342,
+   "line": 396,
    "tests": [
     "tests/authz-route-matrix.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -4168,6 +4170,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/inspection-routes.test.js",
     "tests/inspection-site-scope.smoke.test.js",
+    "tests/inspection-verify.smoke.test.js",
     "tests/multi-site-editor.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
@@ -4190,6 +4193,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/inspection-routes.test.js",
     "tests/inspection-site-scope.smoke.test.js",
+    "tests/inspection-verify.smoke.test.js",
     "tests/multi-site-editor.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
@@ -4201,11 +4205,25 @@
    "method": "POST",
    "path": "/api/inspection/actions/:id/update",
    "file": "routes/inspection.js",
-   "line": 230,
+   "line": 237,
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
-    "tests/inspection-routes.test.js"
+    "tests/inspection-routes.test.js",
+    "tests/inspection-verify.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-POST-api-inspection-actions-id-verify",
+   "method": "POST",
+   "path": "/api/inspection/actions/:id/verify",
+   "file": "routes/inspection.js",
+   "line": 268,
+   "tests": [
+    "tests/cross-site-object-writes.smoke.test.js",
+    "tests/cross-site-read-sweep.smoke.test.js",
+    "tests/inspection-routes.test.js",
+    "tests/inspection-verify.smoke.test.js"
    ]
   },
   {
@@ -4217,7 +4235,8 @@
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
-    "tests/inspection-routes.test.js"
+    "tests/inspection-routes.test.js",
+    "tests/inspection-verify.smoke.test.js"
    ]
   },
   {
@@ -4225,7 +4244,7 @@
    "method": "POST",
    "path": "/api/inspection/aggregate/export",
    "file": "routes/inspection.js",
-   "line": 368,
+   "line": 422,
    "tests": [
     "tests/inspection-routes.test.js",
     "tests/inspection-site-scope.smoke.test.js"
@@ -4247,7 +4266,7 @@
    "method": "GET",
    "path": "/api/inspection/export.xlsx",
    "file": "routes/inspection.js",
-   "line": 263,
+   "line": 317,
    "tests": [
     "tests/inspection-site-scope.smoke.test.js"
    ]
@@ -4288,11 +4307,21 @@
    ]
   },
   {
+   "id": "RT-GET-api-inspection-repeat-findings",
+   "method": "GET",
+   "path": "/api/inspection/repeat-findings",
+   "file": "routes/inspection.js",
+   "line": 293,
+   "tests": [
+    "tests/inspection-verify.smoke.test.js"
+   ]
+  },
+  {
    "id": "RT-POST-api-inspection-reset",
    "method": "POST",
    "path": "/api/inspection/reset",
    "file": "routes/inspection.js",
-   "line": 409,
+   "line": 463,
    "tests": [
     "tests/inspection-routes.test.js"
    ]
@@ -4302,7 +4331,7 @@
    "method": "POST",
    "path": "/api/inspection/save",
    "file": "routes/inspection.js",
-   "line": 303,
+   "line": 357,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/commitment-source-scope.smoke.test.js",
@@ -4312,6 +4341,7 @@
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/inspection-routes.test.js",
     "tests/inspection-site-scope.smoke.test.js",
+    "tests/inspection-verify.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js",
     "tests/uat-amdec-org-models.smoke.test.js"
@@ -8962,7 +8992,7 @@
    "method": "GET",
    "path": "/commitments.html",
    "file": "routes/commitments.js",
-   "line": 113,
+   "line": 117,
    "tests": [
     "tests/commitments-routes.smoke.test.js",
     "tests/ui-design-ratchet.test.js"
@@ -9784,6 +9814,10 @@
    "file": "db/postgres/inspection/049_soft_delete.sql"
   },
   {
+   "id": "MG-inspection-074-insp-action-verify",
+   "file": "db/postgres/inspection/074_insp_action_verify.sql"
+  },
+  {
    "id": "MG-meetings-001-init",
    "file": "db/postgres/meetings/001_init.sql"
   },
@@ -10046,6 +10080,10 @@
   {
    "id": "MG-reports-071-governance-attendance-controls",
    "file": "db/postgres/reports/071_governance_attendance_controls.sql"
+  },
+  {
+   "id": "MG-reports-074-pir-reviews",
+   "file": "db/postgres/reports/074_pir_reviews.sql"
   },
   {
    "id": "MG-sync-000-upgrade-from-1-11",
