@@ -80,10 +80,19 @@ async function collect(client, { from, to }) {
   ];
   const field = await q(client, `SELECT user_id, status, received_at FROM field_outbox
                                  WHERE substr(received_at,1,10) BETWEEN $1 AND $2`, [from, to], missing, 'field_outbox');
+  // E-F03 — task timing rides in the details of the field_<kind>_applied rows (only while field_task_timing = 1)
+  const timingRows = await q(client, `SELECT action, ts, details FROM system_log
+                                      WHERE category = 'field' AND action LIKE 'field\\_%\\_applied' AND substr(ts,1,10) BETWEEN $1 AND $2`, [from, to], missing, 'system_log');
+  const fieldTiming = [];
+  for (const r of timingRows) {
+    let d = null; try { d = typeof r.details === 'string' ? JSON.parse(r.details) : r.details; } catch (_) { d = null; }
+    if (!d || d.task_ms == null) continue;
+    fieldTiming.push({ site: d.site || null, kind: String(r.action).replace(/^field_/, '').replace(/_applied$/, ''), ts: r.ts, task_ms: d.task_ms });
+  }
   const syncRows = await q(client, `SELECT job, MAX(COALESCE(finished_at, started_at)) AS last_ok FROM sync_runs WHERE status = 'ok' GROUP BY job`, [], missing, 'sync_runs');
   const lastOk = {}; for (const r of syncRows) lastOk[r.job] = r.last_ok;
   const sites = await q(client, `SELECT s.name, c.code FROM sites s LEFT JOIN site_module_codes c ON c.site_id = s.id`, [], missing, 'sites');
-  return { users, events, reports, pvActions, closures, field, lastOk, sites, missing: [...new Set(missing)] };
+  return { users, events, reports, pvActions, closures, field, fieldTiming, lastOk, sites, missing: [...new Set(missing)] };
 }
 
 // action_items carry no creation time: a group (lineage root) is created when its first report was
@@ -133,7 +142,7 @@ async function run({ argv = process.argv.slice(2), env = process.env, client = n
     const d = await collect(c, o);
     const metrics = require('../../services/metricRegistry').SEED.map((m) => ({ key: m.key, module: m.module, status: m.status }));
     const rep = P.buildReport({ from: o.from, to: o.to, siteSet: siteSetFor(o.site, d.sites), users: d.users, events: d.events, reports: d.reports,
-      pvActions: d.pvActions, closures: d.closures, field: d.field, metrics, lastOk: d.lastOk, nowMs: now.getTime(),
+      pvActions: d.pvActions, closures: d.closures, field: d.field, fieldTiming: d.fieldTiming, metrics, lastOk: d.lastOk, nowMs: now.getTime(),
       generatedAt: now.toISOString(), pseudonymKey: env.PILOT_PSEUDONYM_KEY || null });
     let md = P.toMarkdown(rep);
     if (d.missing.length) md += `\nTables not found in this database (counted as no data): ${d.missing.join(', ')}\n`;

@@ -101,7 +101,9 @@ module.exports = function fieldRoutes(deps) {
         sites: sites.map(s => ({ id: Number(s.id), name: s.name, inspection_code: idb().siteNameToCode(s.name), tracker_code: tdb().siteToCode(s) })),
         scope_codes: codes, lookups, trackers, actions: actions.slice(0, 500), dashboard,
         limits: { photo_max_bytes: Math.min(F.MAX_PHOTO_BYTES, (Number(c.field_photo_max_kb) || 300) * 1024), chunk_bytes: F.CHUNK_BYTES, max_chunks: F.MAX_CHUNKS, conflict_policy: F.CONFLICT_POLICY },
-        features: { ticket: String(c.sdp_api_write_enabled) === '1' && !!(c.sdp_api_base_url && c.sdp_api_client_id) },
+        features: Object.assign({ ticket: String(c.sdp_api_write_enabled) === '1' && !!(c.sdp_api_base_url && c.sdp_api_client_id) },
+          // E-F03 — shadow switches, sent only when ON so the bootstrap is unchanged while they are off
+          String(c.field_review_step) === '1' ? { review_step: true } : {}, String(c.field_task_timing) === '1' ? { task_timing: true } : {}),
         server_time: new Date().toISOString() });
     } catch (e) { fail(res, e); }
   });
@@ -196,6 +198,15 @@ module.exports = function fieldRoutes(deps) {
     },
   };
 
+  // the site an entry is about, for the timing report only (a code or a site name; null when unknown)
+  function siteOfEntry(kind, p) {
+    try {
+      if (kind === 'inspection') return idb().parseSiteCode(p.meta && p.meta.f_site) || null;
+      if (kind === 'tracker') return (p.cells && p.cells[0] && p.cells[0].unit) || null;
+      if (kind === 'ticket') return p.site || null;
+    } catch (_) { /* unknown */ }
+    return null;
+  }
   router.put('/api/field/outbox/:uuid', requireReportSession, requireField, qualificationGate, json, async (req, res) => {
     try {
       const env = { ...(req.body || {}), uuid: req.params.uuid };
@@ -230,7 +241,18 @@ module.exports = function fieldRoutes(deps) {
         const now = await store.getOutbox(env.uuid);
         return res.json({ ok: now && now.status === 'applied', duplicate: true, status: now ? now.status : 'applying', result: now ? now.result : null, in_progress: !now || now.status === 'applying' });
       }
-      try { rdb().logEvent({ category: 'field', action: `field_${env.kind}_${status}`, target: env.uuid, details: { device: env.device || null }, ...rdb()._logCtx(req) }); } catch (_) { /* best effort */ }
+      // E-F03 — task time (form open → queued, ms) recorded only while field_task_timing = 1, only on an applied entry,
+      // with the user id and role tier — never a name (the row's actor becomes u<id>, like page_viewed)
+      let timing = null;
+      if (status === 'applied' && env.meta && env.meta.task_ms != null) {
+        const ms = Math.round(Number(env.meta.task_ms));
+        if (Number.isFinite(ms) && ms >= 0 && ms <= 24 * 3600e3 && String((await cfg()).field_task_timing) === '1') timing = { task_ms: ms, site: siteOfEntry(env.kind, env.payload), tier: require('../services/pageUsage').roleTier(u) };
+      }
+      try {
+        const ctx = rdb()._logCtx(req);
+        if (timing) rdb().logEvent({ category: 'field', action: `field_${env.kind}_${status}`, target: env.uuid, details: { device: env.device || null, ...timing }, ...ctx, actor: 'u' + u.id, actor_id: u.id, ip: null });
+        else rdb().logEvent({ category: 'field', action: `field_${env.kind}_${status}`, target: env.uuid, details: { device: env.device || null }, ...ctx });
+      } catch (_) { /* best effort */ }
       res.status(code).json({ ok: status === 'applied', duplicate: false, status, result: fin.result, outcome_unknown: !!(result && result.outcome_unknown) });
     } catch (e) { fail(res, e); }
   });

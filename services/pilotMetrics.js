@@ -59,6 +59,14 @@ const MEASURES = [
     sources: ['field_outbox', 'users'],
   },
   {
+    key: 'field_task_time', label: 'Field task time (form open → queued)', unit: 'seconds',
+    definition: 'median and 75th percentile of the active time a field entry took on the phone, from opening the form '
+      + 'to queueing it (pauses longer than 2 minutes excluded), per site × kind × ISO week of application. Recorded only '
+      + 'while report_config field_task_timing = 1, in the details of the field_<kind>_applied system_log row (user id and '
+      + 'role tier only, never a name). No target is set: this is a baseline. Persona column = the kind of entry.',
+    sources: ['system_log'],
+  },
+  {
     key: 'metrics_unknown_or_stale', label: 'Pilot metrics UNKNOWN or stale', unit: '%',
     definition: 'share of published metric-registry entries whose source module has never synced (UNKNOWN) or is past '
       + 'its freshness limit (STALE), with the limits of services/publishGate.js SOURCES; modules typed into the app '
@@ -123,6 +131,13 @@ function median(values) {
   return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2;
 }
 const round1 = (x) => (x == null ? null : Math.round(x * 10) / 10);
+/** Linear-interpolated quantile of the finite numbers, or null when there are none. */
+function quantile(values, q) {
+  const v = (values || []).filter((x) => typeof x === 'number' && Number.isFinite(x)).sort((a, b) => a - b);
+  if (!v.length) return null;
+  const pos = (v.length - 1) * q, lo = Math.floor(pos), hi = Math.ceil(pos);
+  return v[lo] + (v[hi] - v[lo]) * (pos - lo);
+}
 
 /** HMAC pseudonym of a user id. Throws without a key: a guessable "pseudonym" is no pseudonym. */
 function pseudonym(userId, key) {
@@ -175,6 +190,7 @@ function _medianRows(items) {
  *   pvActions         [{site, user_id, submitted_at, action_created_at}]
  *   closures          [{source, site, user_id, created_at, closed_at}]
  *   field             [{user_id, status, received_at}]
+ *   fieldTiming       [{site, kind, ts, task_ms}]   (E-F03, from field_*_applied system_log details)
  *   metrics           [{key, module, status}]  (metric registry)
  *   lastOk            {job: ISO|null}           (last successful sync per job)
  *   nowMs, generatedAt, pseudonymKey, policy
@@ -259,6 +275,21 @@ function buildReport(o = {}) {
     sections.field_outcomes = { rows: _sortRows([...g.values()]) };
   }
 
+  // E-F03 — field task time: median / p75 per site × kind × week; a bucket with no sample has no row.
+  {
+    const g = new Map();
+    for (const r of o.fieldTiming || []) {
+      if (!r || !_inWindow(r.ts, from, to)) continue;
+      const ms = Number(r.task_ms); if (!Number.isFinite(ms) || ms < 0) continue;
+      const site = _site(r.site); if (!_siteOk(site, siteSet)) continue;
+      const kind = String(r.kind || 'unknown'), week = isoWeek(r.ts);
+      const k = `${site}\u0000${kind}\u0000${week}`;
+      if (!g.has(k)) g.set(k, { site, persona: kind, week, v: [] });
+      g.get(k).v.push(ms / 1000);
+    }
+    sections.field_task_time = { rows: _sortRows([...g.values()].map((b) => ({ site: b.site, persona: b.persona, week: b.week, n: b.v.length, median_s: round1(median(b.v)), p75_s: round1(quantile(b.v, 0.75)) }))) };
+  }
+
   // Registry freshness share (as of the run date).
   sections.metrics_unknown_or_stale = freshnessShare(o.metrics, o.lastOk, o.nowMs, o.policy);
 
@@ -306,6 +337,7 @@ function toMarkdown(rep) {
     }
     if (!s.rows.length) { out.push('no data'); }
     else if (m.key === 'active_users') out.push(_mdTable(['Site', 'Persona', 'Week', 'Active users'], s.rows.map((r) => [r.site, r.persona, r.week, r.n])));
+    else if (m.key === 'field_task_time') out.push(_mdTable(['Site', 'Kind', 'Week', 'n', 'Median (s)', 'p75 (s)'], s.rows.map((r) => [r.site, r.persona, r.week, r.n, r.median_s, r.p75_s])));
     else if (m.key === 'field_outcomes') out.push(_mdTable(['Site', 'Persona', 'Week', 'Applied', 'Refused', 'Failed', 'Pending', 'Conflicted'], s.rows.map((r) => [r.site, r.persona, r.week, r.applied, r.refused, r.failed, r.pending, r.conflicted == null ? 'not recorded' : r.conflicted])));
     else out.push(_mdTable(['Site', 'Persona', 'Week', 'n', 'Median (h)', 'Before'], s.rows.map((r) => [r.site, r.persona, r.week, r.n, r.median_h == null ? 'no data' : r.median_h, r.before])));
     if (m.key === 'active_users') {
@@ -333,6 +365,7 @@ function toCsv(rep) {
       rows++;
       if (m.key === 'active_users') lines.push([m.key, r.site, r.persona, r.week, r.n, r.n, '', '', '', '', '', '', ''].map(_csv).join(','));
       else if (m.key === 'field_outcomes') lines.push([m.key, r.site, r.persona, r.week, r.applied + r.refused + r.failed + r.pending, '', '', r.applied, r.refused, r.failed, r.pending, r.conflicted, ''].map(_csv).join(','));
+      else if (m.key === 'field_task_time') lines.push([m.key, r.site, r.persona, r.week, r.n, r.median_s, '', '', '', '', '', '', 'p75=' + r.p75_s].map(_csv).join(','));
       else if (m.key === 'metrics_unknown_or_stale') lines.push([m.key, '', r.module, '', r.metrics, '', '', '', '', '', '', '', r.state].map(_csv).join(','));
       else lines.push([m.key, r.site, r.persona, r.week, r.n, r.median_h, r.before, '', '', '', '', '', ''].map(_csv).join(','));
     }
@@ -344,6 +377,6 @@ function toCsv(rep) {
 }
 
 module.exports = {
-  MEASURES, isBusinessEvent, isoWeek, toMs, hoursBetween, median, pseudonym,
+  MEASURES, isBusinessEvent, isoWeek, toMs, hoursBetween, median, quantile, pseudonym,
   buildReport, freshnessShare, toMarkdown, toCsv,
 };
