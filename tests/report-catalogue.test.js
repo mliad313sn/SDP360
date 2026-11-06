@@ -33,3 +33,22 @@ test('the published catalogue is regenerated from the module', () => {
   const doc = fs.readFileSync(path.join(ROOT, 'docs', 'sdp360', 'completion', 'REPORT-ALERT-CATALOGUE.md'), 'utf8').replace(/\r\n/g, '\n');
   assert.strictEqual(doc, C.toMarkdown(), 'run: node -e "process.stdout.write(require(\'./services/reportCatalogue\').toMarkdown())" > docs/sdp360/completion/REPORT-ALERT-CATALOGUE.md');
 });
+
+// E-R01 — every report carries a contract: owner (never invented), validation, the test proving its content and
+// the trace a delivery leaves. A report that has a sender in code and is implemented/partial must name a test
+// file, and every test file named must exist.
+test('E-R01: every report has a contract and a report with a sender names an existing test', () => {
+  for (const r of C.REPORTS) {
+    for (const k of ['owner_role', 'validation', 'test', 'delivery_proof']) assert.ok(k in r, `${r.id}: ${k}`);
+    assert.ok(Array.isArray(r.test), r.id);
+    assert.ok(C.DELIVERY_PROOFS.includes(r.delivery_proof), `${r.id}: ${r.delivery_proof}`);
+    assert.ok(typeof r.owner_role === 'string' && r.owner_role.trim(), r.id);
+    for (const t of r.test) assert.ok(fs.existsSync(path.join(ROOT, t)), `${r.id}: ${t} does not exist`);
+    if (C.DELIVERY[r.id] && r.status !== 'missing') assert.ok(r.test.length, `${r.id} has a sender but no test file`);
+  }
+});
+
+test('E-R01: no owner is invented — every owner stays "to be named" until a person names one', () => {
+  for (const r of C.REPORTS) assert.strictEqual(r.owner_role, 'to be named', r.id);
+  assert.match(C.toMarkdown(), /## Report contracts \(E-R01\)/);
+});

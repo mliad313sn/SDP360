@@ -92,6 +92,33 @@ const RULES = [
   { id: 'A16', name: 'Evidence retention / sensitive-link expiry → archive/revoke event', status: 'partial', surfaces: ['services/engagementStore.js', 'services/sync/jobs.js'], gates: [], dedup: null, cooldown: null, missing: 'links expire and are revocable with receipts; audit retention job runs; no archive event for evidence' },
 ];
 
+// E-R01 — the report CONTRACT: who owns it, who checks it before it leaves, which test proves its content and
+// where a delivery leaves a trace. owner_role stays 'to be named' wherever the code does not know an owner — naming
+// owners and audiences is a human decision (D-13). validation describes the review step the code enforces today
+// (null = none in code). delivery_proof: 'report_sent_log' (sender writes one row per send), 'report_runs' (report
+// studio run + publish connector log), 'notifications' (in-app rows), or 'none'.
+const TO_NAME = 'to be named';
+const CONTRACT = {
+  R01: { validation: null, test: ['tests/engagement-store.test.js', 'tests/alert-outbound-arm.test.js', 'tests/commitments-routes.smoke.test.js'], delivery_proof: 'notifications' },
+  R02: { validation: null, test: ['tests/governance-routes.smoke.test.js'], delivery_proof: 'none' },
+  R03: { validation: 'business verification by a reviewer other than the owner (services/commitmentLifecycle.js)', test: ['tests/commitment-lifecycle.test.js', 'tests/commitments-routes.smoke.test.js'], delivery_proof: 'none' },
+  R04: { validation: 'report studio: a draft run is moved to reviewed before it can be published (routes/reportStudio.js)', test: ['tests/report-studio-routes.smoke.test.js', 'tests/publish-gate.test.js', 'tests/exec-pptx-python.test.js'], delivery_proof: 'report_runs' },
+  R05: { validation: null, test: ['tests/meetings-summary.test.js'], delivery_proof: 'none' },
+  R06: { validation: null, test: ['tests/inspection-routes.test.js'], delivery_proof: 'none' },
+  R07: { validation: null, test: ['tests/incubation-rfi-link.smoke.test.js'], delivery_proof: 'none' },
+  R08: { validation: null, test: ['tests/metrics-registry.test.js'], delivery_proof: 'none' },
+  R09: { validation: null, test: ['tests/opm-routes.smoke.test.js'], delivery_proof: 'none' },
+  R10: { validation: null, test: ['tests/risk-register-classify.test.js'], delivery_proof: 'none' },
+  R11: { validation: null, test: ['tests/sync-schedule.test.js', 'tests/catalogue-dry-run.test.js'], delivery_proof: 'none' },
+  R12: { validation: null, test: ['tests/send-hygiene.test.js', 'tests/asset-hygiene-report.test.js'], delivery_proof: 'report_sent_log' },
+  R13: { validation: null, test: ['tests/portfolio-deck.test.js'], delivery_proof: 'none' },
+  R14: { validation: null, test: [], delivery_proof: 'none' },
+  R15: { validation: null, test: [], delivery_proof: 'none' },
+  R16: { validation: null, test: [], delivery_proof: 'none' },
+};
+for (const r of REPORTS) Object.assign(r, { owner_role: TO_NAME, validation: null, test: [], delivery_proof: 'none' }, CONTRACT[r.id] || {});
+const DELIVERY_PROOFS = ['report_sent_log', 'report_runs', 'notifications', 'none'];
+
 const STATUSES = ['implemented', 'partial', 'missing'];
 const count = (list) => Object.fromEntries(STATUSES.map((s) => [s, list.filter((x) => x.status === s).length]));
 
@@ -106,6 +133,9 @@ function toMarkdown() {
     `Reports: ${JSON.stringify(summary().reports)} · Rules: ${JSON.stringify(summary().rules)}`, '',
     '## Reports', '', '| Id | Pri | Report | Audience | Cadence | Status | Where | Switches (default) | Open | Decision |', '|---|---|---|---|---|---|---|---|---|---|'];
   for (const r of REPORTS) L.push(`| ${r.id} | ${r.priority} | ${r.name} | ${r.audience} | ${r.cadence} | ${r.status} | ${r.surfaces.map((s) => '`' + s + '`').join('<br>') || '—'} | ${r.gates.map(([k, v]) => `\`${k}\`=${v === '' ? '(empty)' : v}`).join('<br>') || '—'} | ${r.missing} | ${r.decision || '—'} |`);
+  L.push('', '## Report contracts (E-R01)', '', 'Owner = `to be named` wherever the code knows no owner (naming owners and audiences is a human decision, D-13). Validation = the review step the code enforces before release (— = none in code).', '',
+    '| Id | Owner | Validation | Test proving the content | Delivery proof |', '|---|---|---|---|---|');
+  for (const r of REPORTS) L.push(`| ${r.id} | ${r.owner_role} | ${r.validation || '—'} | ${r.test.map((t) => '`' + t + '`').join('<br>') || '—'} | ${r.delivery_proof} |`);
   L.push('', '## Automation rules', '', '| Id | Rule | Status | Where | Switches (default) | Dedup | Cool-down | Open |', '|---|---|---|---|---|---|---|---|');
   for (const a of RULES) L.push(`| ${a.id} | ${a.name} | ${a.status} | ${a.surfaces.map((s) => '`' + s + '`').join('<br>') || '—'} | ${a.gates.map(([k, v]) => `\`${k}\`=${v === '' ? '(empty)' : v}`).join('<br>') || '—'} | ${a.dedup || '—'} | ${a.cooldown || '—'} | ${a.missing} |`);
   return L.join('\n') + '\n';
@@ -369,5 +399,5 @@ function dryRunMarkdown(d) {
   return L.join('\n') + '\n';
 }
 
-module.exports = { REPORTS, RULES, STATUSES, summary, toMarkdown,
+module.exports = { REPORTS, RULES, STATUSES, DELIVERY_PROOFS, summary, toMarkdown,
   DELIVERY, OTHER_SENDERS, splitComma, splitAny, effectiveConfig, directoryRecipients, evaluateDelivery, firedSummary, buildDryRun, dryRunMarkdown };

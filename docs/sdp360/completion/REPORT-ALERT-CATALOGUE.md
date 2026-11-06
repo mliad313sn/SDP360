@@ -28,6 +28,29 @@ Reports: {"implemented":1,"partial":13,"missing":2} · Rules: {"implemented":1,"
 | R15 | P2 | Change/Incident Post-Implementation Value Review | Change/Incident manager and business sponsor | per major event | partial | `services/reportPayload.js` | — | major-incident RCA/CA/PIR/LL fields are read from SDP; no per-event review record or sign-off | — |
 | R16 | P2 | Native SDP360 Portfolio Budget & Roadmap Planning | CIO / PMO / Finance | annual | missing | — | — | per-currency budget roll-up exists in the portfolio view; no annual planning pack | D-02 |
 
+## Report contracts (E-R01)
+
+Owner = `to be named` wherever the code knows no owner (naming owners and audiences is a human decision, D-13). Validation = the review step the code enforces before release (— = none in code).
+
+| Id | Owner | Validation | Test proving the content | Delivery proof |
+|---|---|---|---|---|
+| R01 | to be named | — | `tests/engagement-store.test.js`<br>`tests/alert-outbound-arm.test.js`<br>`tests/commitments-routes.smoke.test.js` | notifications |
+| R02 | to be named | — | `tests/governance-routes.smoke.test.js` | none |
+| R03 | to be named | business verification by a reviewer other than the owner (services/commitmentLifecycle.js) | `tests/commitment-lifecycle.test.js`<br>`tests/commitments-routes.smoke.test.js` | none |
+| R04 | to be named | report studio: a draft run is moved to reviewed before it can be published (routes/reportStudio.js) | `tests/report-studio-routes.smoke.test.js`<br>`tests/publish-gate.test.js`<br>`tests/exec-pptx-python.test.js` | report_runs |
+| R05 | to be named | — | `tests/meetings-summary.test.js` | none |
+| R06 | to be named | — | `tests/inspection-routes.test.js` | none |
+| R07 | to be named | — | `tests/incubation-rfi-link.smoke.test.js` | none |
+| R08 | to be named | — | `tests/metrics-registry.test.js` | none |
+| R09 | to be named | — | `tests/opm-routes.smoke.test.js` | none |
+| R10 | to be named | — | `tests/risk-register-classify.test.js` | none |
+| R11 | to be named | — | `tests/sync-schedule.test.js`<br>`tests/catalogue-dry-run.test.js` | none |
+| R12 | to be named | — | `tests/send-hygiene.test.js`<br>`tests/asset-hygiene-report.test.js` | report_sent_log |
+| R13 | to be named | — | `tests/portfolio-deck.test.js` | none |
+| R14 | to be named | — | — | none |
+| R15 | to be named | — | — | none |
+| R16 | to be named | — | — | none |
+
 ## Automation rules
 
 | Id | Rule | Status | Where | Switches (default) | Dedup | Cool-down | Open |
