@@ -16,7 +16,7 @@ const { fail } = require('../services/httpError');
 //   app.use(require('./routes/health')({ express, checkZohoViewSchema, requireReportSession, getRdb }));
 // ─────────────────────────────────────────────────────────────────────────
 module.exports = function healthRoutes(deps) {
-  const { express, checkZohoViewSchema, requireReportSession, getRdb, getBuild } = deps;
+  const { express, checkZohoViewSchema, requireReportSession, getRdb, getBuild, getTokenState } = deps;
   const startedAt = new Date().toISOString();
   const router = express.Router();
 
@@ -73,6 +73,33 @@ router.get('/api/health/restore-drill', requireReportSession, async (req, res) =
     try { details = typeof r.details === 'string' ? JSON.parse(r.details) : r.details; } catch (_) { details = null; }
     res.json({ last: { ts: r.ts, ok: details ? !!details.ok : !r.risk, date: r.target, details } });
   } catch (e) { fail(res, e); }
+});
+
+// E-Q07 — GET /api/health/deps (admin tier): dependency health from readings already on this server —
+// PostgreSQL SELECT 1, Zoho token state (in memory), SMTP configured (never probed), sync jobs vs their
+// freshness window, last backup / restore drill, data-dir disk free. NO outbound call. unknown ≠ green.
+router.get('/api/health/deps', requireReportSession, async (req, res) => {
+  const rdb = getRdb();
+  if (!rdb.userHasRole(req.reportUser, 'admin')) return fail(res, new Error('Admin role required'), 403);
+  const r = { tokenState: null, config: null, syncRows: null, restoreDrill: null, disk: null, pg: null };
+  const { FRESHNESS_HOURS } = require('../services/sync/jobs');
+  r.freshness = FRESHNESS_HOURS;
+  try { const t0 = process.hrtime.bigint(); await rdb.pgHandle().prepare('SELECT 1 AS ok').get(); r.pg = { latency_ms: Number((process.hrtime.bigint() - t0) / 1000000n) }; }
+  catch (e) { r.pg = { error: e.message }; }
+  try { const ts = getTokenState && getTokenState(); if (ts) r.tokenState = { accessToken: !!ts.accessToken, expiresAt: ts.expiresAt, lastRefreshError: !!ts.lastRefreshError }; } catch (_) { /* unknown */ }
+  try { r.config = await require('../services/reportConfig').getConfig(rdb.db); } catch (_) { /* unknown */ }
+  try { const sync = require('../services/sync'); await sync.ensureReady(); r.syncRows = await sync.getStore().health(); } catch (_) { /* unknown */ }
+  try {
+    const { rows } = await rdb.listSystemLog({ category: 'ops', action: 'restore_drill' }, { limit: 1, offset: 0 });
+    const x = rows && rows[0];
+    if (x) { let d = null; try { d = typeof x.details === 'string' ? JSON.parse(x.details) : x.details; } catch (_) { d = null; } r.restoreDrill = { ts: x.ts, ok: d ? !!d.ok : !x.risk }; }
+  } catch (_) { /* unknown */ }
+  try {
+    const fs = require('fs'); const dir = process.env.SDP_DATA_DIR || require('path').join(__dirname, '..', 'data');
+    const st = fs.statfsSync(fs.existsSync(dir) ? dir : require('path').join(__dirname, '..'));
+    r.disk = { free_bytes: st.bavail * st.bsize, total_bytes: st.blocks * st.bsize };
+  } catch (_) { /* unknown */ }
+  res.json(require('../services/healthDeps').compose(r));
 });
 
   return router;
