@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (161) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (163) — services/reportConfig.js DEFAULTS
 
 | Key | Default (today) | Kind | Owner | Recommended pilot value | Reference |
 |---|---|---|---|---|---|
@@ -60,6 +60,8 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `engagement_webhook_url` | (secret — not shown) | secret | to be named | — | — |
 | `entra_client_id` | `` | setting | to be named | — | — |
 | `entra_client_secret` | (secret — not shown) | secret | to be named | — | — |
+| `entra_deprovision_apply` | `0` | setting | Information Security | PROPOSITION: `0` until a dry run has been reviewed and the revocation delay measured on TEST; then `1` | E-S04 |
+| `entra_deprovision_enabled` | `0` | arm switch | Information Security + tenant administrator | PROPOSITION: `1` (dry run) only after the tenant administrator decides on the Graph `User.Read.All` application consent (gate 2); read the dry-run list on TEST first | E-S04 |
 | `entra_redirect_uri` | `` | setting | to be named | — | — |
 | `entra_tenant_id` | `` | setting | to be named | — | — |
 | `exec_deck_other_bucket` | `0` | setting | Reporting owner (PO P4) | `1` (PO decision P4: "Other (n)" on every top-N deck chart, Normal changes as their own slice) | C-16 |

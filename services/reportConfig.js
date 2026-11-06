@@ -277,6 +277,12 @@ DEFAULTS.access_grant_expiry_job = '0';
 // keep / revoke / unknown (with a reason) by its R7 approver, never the subject. access_recert_apply '0' = a revoke
 // answer is RECORDED only; '1' applies it through the role-change path with an identity log row. Nothing auto-revokes.
 // access_recert_orphan_days = N for the "no sign-in for N days" orphan list (a missing sign-in is UNKNOWN, never old).
+// E-S04 (audit S-07) — Entra leaver job access.entra_deprovision (nightly). '0' = today: the job self-skips and
+// makes no Graph call at all. '1' (and SSO ready) → lists active local accounts whose linked Entra object is
+// disabled or deleted (dry run). entra_deprovision_apply '1' → also deactivates them (Admin ▸ Users path, which
+// ends their sessions); the break-glass account is never touched; a Graph 401/403 = consent missing, nothing done.
+DEFAULTS.entra_deprovision_enabled = '0';
+DEFAULTS.entra_deprovision_apply = '0';
 DEFAULTS.access_recert_enabled = '0';
 DEFAULTS.access_recert_apply = '0';
 DEFAULTS.access_recert_orphan_days = '90';
