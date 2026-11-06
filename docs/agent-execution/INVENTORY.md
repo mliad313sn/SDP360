@@ -11,13 +11,13 @@
 | pages without declared role | 6 |
 | pages not in navigation | 29 |
 | pages with inline scripts | 46 |
-| routes | 611 |
+| routes | 613 |
 | routes without test reference | 48 |
 | routes in server js | 210 |
 | jobs | 30 |
 | jobs without test reference | 10 |
 | migrations | 74 |
-| test files | 619 |
+| test files | 621 |
 
 ## Pages
 
@@ -40,7 +40,7 @@
 | PG-handoffs | public/handoffs.html | any | yes | 1 | 7 |
 | PG-help | public/help.html | any | yes | 1 | 9 |
 | PG-home | public/home.html | any | yes | 0 | 6 |
-| PG-index | public/index.html | any | yes | 1 | 24 |
+| PG-index | public/index.html | any | yes | 1 | 25 |
 | PG-infra-health | public/infra-health.html | any | yes | 2 | 5 |
 | PG-inspection-actions | public/inspection-actions.html | any | no | 1 | 5 |
 | PG-inspection | public/inspection.html | any | no | 2 | 7 |

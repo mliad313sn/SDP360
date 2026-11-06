@@ -6,13 +6,13 @@
   "pages_without_declared_role": 6,
   "pages_not_in_navigation": 29,
   "pages_with_inline_scripts": 46,
-  "routes": 611,
+  "routes": 613,
   "routes_without_test_reference": 48,
   "routes_in_server_js": 210,
   "jobs": 30,
   "jobs_without_test_reference": 10,
   "migrations": 74,
-  "test_files": 619
+  "test_files": 621
  },
  "pages": [
   {
@@ -357,6 +357,7 @@
     "tests/evidence-baseline.test.js",
     "tests/field-french.test.js",
     "tests/field-pwa-static.test.js",
+    "tests/field-review-step-browser.test.js",
     "tests/field-storage-browser.test.js",
     "tests/field-storage-guard.test.js",
     "tests/helpdesk-pareto-ranking.test.js",
@@ -2809,14 +2810,36 @@
    "tests": []
   },
   {
+   "id": "RT-POST-api-field-admin-outbox-uuid-resolve",
+   "method": "POST",
+   "path": "/api/field/admin/outbox/:uuid/resolve",
+   "file": "routes/field.js",
+   "line": 129,
+   "tests": [
+    "tests/field-routes.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-GET-api-field-admin-outbox",
+   "method": "GET",
+   "path": "/api/field/admin/outbox",
+   "file": "routes/field.js",
+   "line": 120,
+   "tests": [
+    "tests/field-routes.smoke.test.js"
+   ]
+  },
+  {
    "id": "RT-GET-api-field-bootstrap",
    "method": "GET",
    "path": "/api/field/bootstrap",
    "file": "routes/field.js",
-   "line": 75,
+   "line": 77,
    "tests": [
+    "tests/field-review-step-browser.test.js",
     "tests/field-routes.smoke.test.js",
-    "tests/field-storage-browser.test.js"
+    "tests/field-storage-browser.test.js",
+    "tests/field-task-timing.test.js"
    ]
   },
   {
@@ -2824,9 +2847,11 @@
    "method": "PUT",
    "path": "/api/field/outbox/:uuid",
    "file": "routes/field.js",
-   "line": 173,
+   "line": 210,
    "tests": [
+    "tests/field-review-step-browser.test.js",
     "tests/field-routes.smoke.test.js",
+    "tests/field-task-timing.test.js",
     "tests/field-ticket-site-scope.test.js"
    ]
   },
@@ -2835,9 +2860,11 @@
    "method": "GET",
    "path": "/api/field/outbox",
    "file": "routes/field.js",
-   "line": 107,
+   "line": 111,
    "tests": [
+    "tests/field-review-step-browser.test.js",
     "tests/field-routes.smoke.test.js",
+    "tests/field-task-timing.test.js",
     "tests/field-ticket-site-scope.test.js"
    ]
   },
@@ -2846,7 +2873,7 @@
    "method": "PUT",
    "path": "/api/field/uploads/:id/chunks/:idx",
    "file": "routes/field.js",
-   "line": 234,
+   "line": 282,
    "tests": [
     "tests/emergency-access.smoke.test.js",
     "tests/field-routes.smoke.test.js",
@@ -2858,7 +2885,7 @@
    "method": "POST",
    "path": "/api/field/uploads/:id/complete",
    "file": "routes/field.js",
-   "line": 243,
+   "line": 291,
    "tests": [
     "tests/emergency-access.smoke.test.js",
     "tests/field-routes.smoke.test.js",
@@ -2870,7 +2897,7 @@
    "method": "GET",
    "path": "/api/field/uploads/:id",
    "file": "routes/field.js",
-   "line": 231,
+   "line": 279,
    "tests": [
     "tests/emergency-access.smoke.test.js",
     "tests/field-routes.smoke.test.js",
@@ -2882,7 +2909,7 @@
    "method": "POST",
    "path": "/api/field/uploads",
    "file": "routes/field.js",
-   "line": 213,
+   "line": 261,
    "tests": [
     "tests/emergency-access.smoke.test.js",
     "tests/field-routes.smoke.test.js",
@@ -9154,6 +9181,7 @@
     "tests/csv-safe.test.js",
     "tests/evidence-baseline.test.js",
     "tests/field-pwa-static.test.js",
+    "tests/field-review-step-browser.test.js",
     "tests/field-storage-browser.test.js",
     "tests/landing.test.js",
     "tests/login-next-redirect.test.js",
