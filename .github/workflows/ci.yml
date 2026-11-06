@@ -129,6 +129,11 @@ jobs:
         run: npm run test:e2e -- --runs=2
       - name: Negative control — a deliberately broken selector must turn the journey red
         run: node tools/test/run-e2e.js --negative-control
+      # E-A04 — print the p50/p95 baseline per page and journey (report only: no threshold, never fails).
+      - name: Performance baseline (observation, not a budget)
+        if: always()
+        continue-on-error: true
+        run: node tools/test/perf-baseline.js --dir=e2e-artifacts --print
       - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
         if: always()
         with:

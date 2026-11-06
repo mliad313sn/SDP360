@@ -4,6 +4,8 @@
 //
 //   node tools/test/run-e2e.js [--runs=N] [--negative-control]
 //     --runs=N             run the journeys N times in a row (flake detection; CI uses 2)
+//     --baseline           after the run, write p50/p95 per page and journey to docs/agent-execution/PERF-BASELINE.md
+//                          (tools/test/perf-baseline.js — report only, never changes the exit code)
 //     --negative-control   prove the job CAN go red: run T1 with a deliberately broken selector and exit 0
 //                          only if it FAILS
 //
@@ -70,5 +72,8 @@ summary.finished_at = new Date().toISOString();
 summary.problems = problems;
 fs.writeFileSync(path.join(artDir, 'summary.json'), JSON.stringify(summary, null, 1) + '\n');
 for (const p of problems) console.error('[e2e] FAIL: ' + p);
+if (arg('baseline')) {
+  try { require('./perf-baseline').main([`--dir=${artDir}`, '--out=docs/agent-execution/PERF-BASELINE.md', '--print']); } catch (e) { console.error('[e2e] perf baseline not written (report only): ' + e.message); }
+}
 console.log(`[e2e] ${problems.length ? 'RED' : 'GREEN'} — ${specs.length} journeys × ${runs} run(s); artefacts in ${path.relative(root, artDir) || artDir}`);
 process.exit(problems.length ? 1 : 0);
