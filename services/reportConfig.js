@@ -201,7 +201,7 @@ const DEFAULTS = {
   ppm_alerts_enabled: '0',
   ppm_alert_blocked_days: '5',
   ppm_alert_slip_days: '10',
-  site_codes_from_registry: '0',   // DEC-4 — '1' = site_module_codes wins over the modules' hard-coded maps (diff first: GET /api/governance/site-codes)   // ADR-006 — in-app notice to the escalation-matrix target of a new A01 / A02 (off = ledger only, as before)
+  site_codes_from_registry: '0',   // DEC-4 — '1' = site_module_codes wins over the modules' hard-coded maps (diff first: GET /api/governance/site-codes); 'shadow' (E-D01) = hard maps answer, divergences logged once/day   // ADR-006 — in-app notice to the escalation-matrix target of a new A01 / A02 (off = ledger only, as before)
   site_code_shared_block: '0',   // D-01 (AM-01) — '1' = refuse a scoped editor's tracker/meetings/inspection save under a code two active sites share (409, never picks an owner)
 };
 // ── Sync alerting (Step 1). Recipients = comma list of e-mail addresses; teams_url = a
@@ -210,6 +210,12 @@ DEFAULTS.sync_alert_enabled = '1';
 DEFAULTS.sync_alert_recipients = '';
 DEFAULTS.sync_alert_teams_url = '';
 DEFAULTS.sync_truncation_tolerance_pct = '20';
+// ── E-D04 (audit D-06) — sync content drift. '0' = drift is computed and shown in /api/sync/health but no alert
+//    is sent (today); '1' = sent through the sync alert path. The three thresholds are PROPOSITIONS (no owner yet).
+DEFAULTS.sync_drift_alerts = '0';
+DEFAULTS.sync_drift_drop_pct = '50';
+DEFAULTS.sync_drift_spike_pct = '300';
+DEFAULTS.sync_drift_duplicates_pct = '10';
 // ── M4 (2026-10-21) — outbound URL guard (services/safeUrl.js). Comma-separated hosts
 //    (exact or `*.suffix`) that may be targeted even when they resolve to a private address —
 //    the on-prem OpManager, an internal relay. Non-secret. Must live here or setConfig drops it.

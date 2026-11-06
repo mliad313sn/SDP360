@@ -14,7 +14,7 @@
 //   "calendar":     [{ "site": null | "Hounde", "day": "YYYY-MM-DD", "kind": "holiday" | "shutdown", "label": "..." }],
 //   "kpi_targets":  [{ "metric": "meetings.overdue_issues", "site": null | "Hounde", "target": 2, "from": "YYYY-MM-DD" }],
 //   "site_codes":   [{ "site": "Hounde", "module": "tracker" | "inspection" | "meetings", "code": "HGO" }],
-//   "switches":     { "site_codes_from_registry": "0"|"1", "handoff_notify_enabled": "0"|"1", "commitment_notify_enabled": "0"|"1" }
+//   "switches":     { "site_codes_from_registry": "0"|"1"|"shadow", "handoff_notify_enabled": "0"|"1", "commitment_notify_enabled": "0"|"1" }
 // }
 const R = require('./governanceRoles');
 const GP = require('./governancePolicy');
@@ -80,7 +80,8 @@ function plan(file, { users = [], sites = [], metricKeys = [] } = {}) {
   });
   for (const [k, v] of Object.entries(f.switches || {})) {
     if (!SWITCHES.includes(k)) { errors.push(`switches.${k}: not a switch this tool sets`); continue; }
-    if (!['0', '1'].includes(String(v))) { errors.push(`switches.${k}: "0" or "1"`); continue; }
+    const allowed = k === 'site_codes_from_registry' ? ['0', '1', 'shadow'] : ['0', '1'];   // E-D01 shadow double read
+    if (!allowed.includes(String(v))) { errors.push(`switches.${k}: ${allowed.map((x) => '"' + x + '"').join(' or ')}`); continue; }
     out.switches[k] = String(v);
   }
   return { ok: errors.length === 0, errors, plan: out };

@@ -111,8 +111,7 @@ function _normSite(s) {
 
 function siteNameToCode(siteName) {
   if (!siteName) return null;
-  const reg = require('./services/siteCodeRegistry').lookup('inspection', siteName); if (reg) return reg;   // DEC-4 switch (off by default)
-  return hardSiteNameToCode(siteName);
+  return require('./services/siteCodeRegistry').resolve('inspection', siteName, hardSiteNameToCode);   // DEC-4 switch (off by default; 'shadow' = E-D01 double read)
 }
 /** The hard-coded map only (DEC-4 diff). */
 function hardSiteNameToCode(siteName) {

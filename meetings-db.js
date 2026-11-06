@@ -153,9 +153,9 @@ async function _seedLookupsPg() {
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 function _siteNameToCode(name) {
-  const reg = require('./services/siteCodeRegistry').lookup('meetings', name); if (reg) return reg;   // DEC-4 switch (off by default)
-  try { return require('./inspection-db.js').siteNameToCode(name); }
-  catch (e) { return null; }
+  // DEC-4 switch (off by default; 'shadow' = E-D01 double read). The fallback is the inspection lookup, as before.
+  const fallback = (n) => { try { return require('./inspection-db.js').siteNameToCode(n); } catch (e) { return null; } };
+  return require('./services/siteCodeRegistry').resolve('meetings', name, fallback);
 }
 
 // Reference format mirrors the canonical SharePoint naming:

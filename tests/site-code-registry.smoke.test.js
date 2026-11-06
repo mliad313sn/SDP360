@@ -53,3 +53,22 @@ test('off by default: the hard-coded map answers; the diff shows where the regis
   await send('PUT', '/api/governance/site-codes', T.super, { enabled: false, reason: 'back to the hard-coded maps' });
   assert.equal(tdb.siteNameToCode(hounde.name), hard);
 });
+
+test("E-D01 'shadow': PUT accepts it with the same reason rule; the hard map answers and the divergence is logged once", async () => {
+  const tdb = require('../tracker-db');
+  const hard = tdb.hardSiteNameToCode(hounde.name);
+  assert.equal((await send('PUT', '/api/governance/site-codes', T.super, { mode: 'shadow', reason: 'short' })).status, 400);
+  assert.equal((await send('PUT', '/api/governance/site-codes', T.admin, { mode: 'shadow', reason: 'observe the registry first' })).status, 403);
+  const r = await (await send('PUT', '/api/governance/site-codes', T.super, { mode: 'shadow', reason: 'observe the registry first' })).json();
+  assert.equal(r.enabled, false); assert.equal(r.mode, 'shadow');
+  const cfg = await require('../services/reportConfig').getConfig(rdb.db);
+  assert.equal(cfg.site_codes_from_registry, 'shadow');
+  const before = Number((await rdb.db.prepare("SELECT COUNT(*) AS n FROM system_log WHERE action='site_code_shadow_divergence'").get()).n);
+  assert.equal(tdb.siteNameToCode(hounde.name), hard, 'shadow answers like 0');
+  assert.equal(tdb.siteNameToCode(hounde.name), hard);
+  await new Promise((res) => setTimeout(res, 200));
+  const after = Number((await rdb.db.prepare("SELECT COUNT(*) AS n FROM system_log WHERE action='site_code_shadow_divergence'").get()).n);
+  assert.equal(after - before, 1, 'one divergence row per day per site × module');
+  await send('PUT', '/api/governance/site-codes', T.super, { enabled: false, reason: 'back to the hard-coded maps' });
+  assert.equal(require('../services/siteCodeRegistry').status().mode, '0');
+});

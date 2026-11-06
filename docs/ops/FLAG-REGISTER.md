@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (157) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (161) — services/reportConfig.js DEFAULTS
 
 | Key | Default (today) | Kind | Owner | Recommended pilot value | Reference |
 |---|---|---|---|---|---|
@@ -131,7 +131,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `shift_handover_enabled` | `0` | arm switch | Site IT lead + Owner | `1` on the pilot site once the incoming / outgoing people of each shift are on the duty roster (handover must be accepted by the incoming person; never automatic) | C-21 |
 | `shift_handover_flag_hours` | `8` | setting | Site IT lead | `8` (a handover still pending after this many hours is flagged on the page) | C-21 |
 | `site_code_shared_block` | `0` | setting | Data owner + Owner | `1` once the data owner has given each shared code to one site (Assafo/Tanda → tracker `TND`, AM-01) — while `0` both editors keep writing the same scope; `1` refuses a scoped editor's tracker / meetings / inspection save under a code two active sites share (409 naming the sites, page banner), never picks an owner | D-01 |
-| `site_codes_from_registry` | `0` | setting | to be named | — | — |
+| `site_codes_from_registry` | `0` | setting | Data owner + KPI committee | PROPOSITION: `shadow` (E-D01 double read — hard maps keep answering, every registry divergence is logged once a day in System Logs ▸ governance) for at least two weeks, then `1` only by the committee (gate 10) | DEC-4, E-D01 |
 | `site_local_calendar` | `0` | setting | Owner + Finance (month-end figures) | `0` while every reporting site is UTC+0; `1` only when a non-UTC site (e.g. the London office) is reported and its time zone (`sites.time_zone`, else from its country) is confirmed — only the calendar-month helpdesk figures move | D-07 |
 | `site_score_published_model` | `legacy` | setting | Owner (D-1) | `programme` | A-11 |
 | `sla_wan_config` | `{"notify":{"enabled":false,"trigger_minutes":15,"from_nam…` | setting | to be named | — | — |
@@ -149,6 +149,10 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `sync_alert_enabled` | `1` | arm switch | to be named | — | — |
 | `sync_alert_recipients` | `` | setting | to be named | — | — |
 | `sync_alert_teams_url` | (secret — not shown) | secret | to be named | — | — |
+| `sync_drift_alerts` | `0` | setting | Ops + data owner per flow | PROPOSITION: `1` once each flow has an owner (drift is already computed and shown in `/api/sync/health` at `0`; `1` sends it through the sync alert path, once per 24 h per job) | E-D04 |
+| `sync_drift_drop_pct` | `50` | setting | Ops + data owner per flow | PROPOSITION: `50` (last run below 50 % of the rolling median = `drop`) — to be set per flow by its owner | E-D04 |
+| `sync_drift_duplicates_pct` | `10` | setting | Ops + data owner per flow | PROPOSITION: `10` (duplicates above 10 % of the last run's rows) | E-D04 |
+| `sync_drift_spike_pct` | `300` | setting | Ops + data owner per flow | PROPOSITION: `300` (last run above 300 % of the median = `spike`) | E-D04 |
 | `sync_truncation_tolerance_pct` | `20` | setting | to be named | — | — |
 | `teams_sla_channels` | (secret — not shown) | secret | to be named | — | — |
 | `teams_sla_enabled` | `0` | arm switch | to be named | — | — |
