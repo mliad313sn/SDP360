@@ -78,6 +78,7 @@ planned switch cannot be set before its goal lands.
 | `emergency_access_max_hours` | built | `24` | `24` (hard cap; may only be lowered) | Security owner | C-22 |
 | `kpi_policy_enforced` | built | `0` | `0` until the KPI committee has ADOPTED a resolution-SLA policy on `/kpi-builder.html` (two different members: author ≠ adopter, with the session reference) and read the shadow comparison; then `1` (the Helpdesk tile, ranking and trend follow the adopted version) | KPI committee + Owner | C-31 |
 | `site_code_shared_block` | built | `0` | `1` once the data owner has given each shared code to one site (Assafo/Tanda → tracker `TND`, AM-01) — while `0` both editors keep writing the same scope; `1` refuses a scoped editor's tracker / meetings / inspection save under a code two active sites share (409 naming the sites, page banner), never picks an owner | Data owner + Owner | D-01 |
+| `incubation_rfi_link_enabled` | built | `0` | `1` on the pilot site once the PMO accepts incubation-born RFIs in the queue (the RFI score stays provisional: incubation scoring criteria are a human decision) | PMO + Owner | E-I04 |
 | `site_local_calendar` | built | `0` | `0` while every reporting site is UTC+0; `1` only when a non-UTC site (e.g. the London office) is reported and its time zone (`sites.time_zone`, else from its country) is confirmed — only the calendar-month helpdesk figures move | Owner + Finance (month-end figures) | D-07 |
 
 Not in this table because they are not top-level `report_config` keys:

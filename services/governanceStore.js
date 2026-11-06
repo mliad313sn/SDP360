@@ -242,6 +242,36 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     return rfiRow(await P(`SELECT * FROM rfi_requests WHERE id=?`).get(Number(id)));
   }
 
+  // E-I04 — one RFI per Business Incubation session (rfi_requests.source_meeting_id, unique, migration 070).
+  // `src` = meetings-db.getIncubationSource(id) (the caller reads it; this store never opens the meetings DB).
+  // Idempotent: a second call — or a concurrent one losing the unique race — returns the existing RFI.
+  // A department PV is refused: a PV and an incubation are never merged. No project is created here.
+  async function rfiForMeeting(meetingId) { return rfiRow(await P(`SELECT * FROM rfi_requests WHERE source_meeting_id=?`).get(Number(meetingId))); }
+  async function rfiFromMeeting(src, { siteId = null, user } = {}) {
+    if (!src || !src.id) throw Object.assign(new Error('session not found'), { code: 'NOT_FOUND', status: 404 });
+    if (!src.is_incubation) throw Object.assign(new Error('only a Business Incubation session can raise an RFI'), { code: 'INVALID', reason: 'not_incubation', status: 400 });
+    const ex = await rfiForMeeting(src.id);
+    if (ex) return { rfi: ex, created: false };
+    const ref = await nextRef('rfi_requests', 'RFI', now().slice(0, 4));
+    const title = `Incubation ${src.department || ''} — ${src.reference || `session #${src.id}`}`.replace(/\s+/g, ' ').trim();
+    const problem = src.business_description || src.priority_1 || `Needs identified during Business Incubation session ${src.reference || src.id} (${src.meeting_date || 'date unknown'}).`;
+    try {
+      await insert('rfi_requests', ['ref', 'kind', 'title', 'problem', 'proposal', 'site_id', 'requester_id', 'impact', 'effort', 'data_risk', 'status', 'source_meeting_id', 'created_at', 'updated_at'],
+        [ref, 'governance', str(title, 200), str(problem), null, num(siteId), user ? user.id : null, 2, 2, 1, 'submitted', Number(src.id), now(), now()]);
+    } catch (e) { const again = await rfiForMeeting(src.id); if (again && isDup(e)) return { rfi: again, created: false }; throw e; }
+    const r = await rfiForMeeting(src.id);
+    await ppmEvent({ entity: 'rfi', entity_id: r.id, action: 'from_meeting', field: 'source_meeting_id', old_value: null, new_value: src.id, note: src.reference || null }, user);
+    return { rfi: r, created: true };
+  }
+  /** Lineage of one RFI: the session it came from (id/reference only) → the RFI → the project it became. */
+  async function rfiLineage(rfiId) {
+    const r = await getRfi(rfiId);
+    if (!r) return null;
+    const pj = await P(`SELECT id, key, name FROM portfolio_projects WHERE rfi_id=?`).get(Number(rfiId));
+    return { meeting_id: r.source_meeting_id == null ? null : Number(r.source_meeting_id), rfi: { id: r.id, ref: r.ref, status: r.status },
+      project: pj ? { id: Number(pj.id), key: pj.key, name: pj.name } : null };
+  }
+
   // ── portfolio ─────────────────────────────────────────────────────────────────────
   const idRow = (r) => r && ({ ...r, id: Number(r.id) });
   const taskRow = (r) => r && ({ ...idRow(r), project_id: Number(r.project_id), parent_id: r.parent_id == null ? null : Number(r.parent_id), duration_days: num(r.duration_days), allocation_pct: num(r.allocation_pct), progress_pct: num(r.progress_pct), effort_hours: num(r.effort_hours), depends_on: P_(r.depends_on, []) });
@@ -648,7 +678,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     await insert('minutes_history', ['session_id', 'action', 'actor_id', 'at', 'reason'], [Number(sessionId), String(action), actorId == null ? null : Number(actorId), now(), str(reason, 1000)]);
   }
   async function minutesHistory(sessionId) { return (await P('SELECT action, actor_id, at, reason FROM minutes_history WHERE session_id=? ORDER BY id').all(Number(sessionId))).map(r => ({ ...r, actor_id: r.actor_id == null ? null : Number(r.actor_id) })); }
-  return { ppmEvent, ppmEvents, moveProjectStage, rfiToProject, getRfi, verifyRfi, getDecision, openSessionActions, addMinutesHistory, minutesHistory, init, listCadences, getCadence, saveCadence, removeCadence, listSessions, getSession, createSession, updateSession, stampItem, sessionActions, addSessionAction, setSessionActionStatus, moveSession,
+  return { ppmEvent, ppmEvents, moveProjectStage, rfiToProject, getRfi, verifyRfi, rfiFromMeeting, rfiForMeeting, rfiLineage, getDecision, openSessionActions, addMinutesHistory, minutesHistory, init, listCadences, getCadence, saveCadence, removeCadence, listSessions, getSession, createSession, updateSession, stampItem, sessionActions, addSessionAction, setSessionActionStatus, moveSession,
     listDecisions, addDecision, updateDecision, listRfi, submitRfi, triageRfi, rfiScore, portfolio, upsertPortfolio, removePortfolio,
     restorePortfolio, getPortfolioTrashRow, listDeletedPortfolio, purgeDeletedPortfolio, restoreCadence, getCadenceTrashRow, listDeletedCadences, purgeDeletedCadences, projectSites, setProjectSites, getProject, planRow, projectDetail, gateCounts, RISK_KINDS, listBaselines, rebaseline, alertStates, saveAlertState, listBenefits, getBenefit, recordBenefitRealised, verifyBenefit, dueBenefitReviews,
     CADENCE_KINDS, SESSION_STATUSES, DECISION_STATUSES, RFI_KINDS, RFI_STATUSES, PROJECT_STATUSES, CONFIDENCE };

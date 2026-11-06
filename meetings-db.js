@@ -1164,6 +1164,24 @@ function getMeetingStatus(id) {
   return _getMeetingStatusPg(id);
 }
 
+// E-I04 — the header of ONE incubation-capable session, for the RFI link (governance store reads through this,
+// never with its own path). null = no such live meeting. `is_incubation` follows the same two signals as the
+// rest of the module: intake 'business_incubation', or an `_INC_` reference (bulk-imported sessions).
+async function getIncubationSource(id) {
+  const n = parseInt(id, 10);
+  if (!Number.isFinite(n)) return null;
+  const h = await pgHandle().prepare(`SELECT id, reference, site_code, department, meeting_date, intake_source, status,
+      priority_1, incubation_json FROM md_meetings WHERE deleted_at IS NULL AND id = ?`).get(n);
+  if (!h) return null;
+  let inc = null; if (h.incubation_json) { try { inc = JSON.parse(h.incubation_json); } catch (_) { inc = null; } }
+  return {
+    id: Number(h.id), reference: h.reference || null, site_code: h.site_code || null, department: h.department || null,
+    meeting_date: h.meeting_date || null, intake_source: h.intake_source || null, status: h.status || null,
+    is_incubation: _isIncubation(h) || /_INC_/.test(String(h.reference || '')),
+    business_description: (inc && inc.business_description) || null, priority_1: h.priority_1 || null,
+  };
+}
+
 function resetLookups() {
   return _resetLookupsPg();
 }
@@ -1711,7 +1729,7 @@ module.exports = {
   getSiteMonthlyMeetingSummary,
   getSiteContacts, _pickContacts,
   getSiteScoreInputs, _computeMeetingsScoreInputs, _effClose, _openAt, MD_OPEN,
-  listMeetings, countMeetings, getMeeting, editToken, saveMeeting, setMeetingIncubation, addActionForIssue, deleteMeeting, getMeetingStatus, signMeeting,
+  listMeetings, countMeetings, getMeeting, getIncubationSource, editToken, saveMeeting, setMeetingIncubation, addActionForIssue, deleteMeeting, getMeetingStatus, signMeeting,
   listIssues, listEscalations, addIssueUpdate,
   listActions, addActionUpdate, listActionUpdates, getActionParent, getIssueParent,
   getMeetingTrashRow, listDeletedMeetings, restoreMeeting, purgeDeletedMeetings,

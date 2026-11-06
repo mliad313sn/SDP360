@@ -302,6 +302,10 @@ DEFAULTS.kpi_policy_enforced = '0';
 // buckets a site's tickets on its LOCAL date (a London ticket at 00:30 BST on 1 Sept counts in September). Other
 // readers stay UTC for now (follow-up). Only matters for a non-UTC site (all West-African sites are UTC+0).
 DEFAULTS.site_local_calendar = '0';
+// ── Plan E / W1-GOV switches (defaults = today) ──────────────────────────────────────────────
+// ── E-I04 (audit I-04) — '1' = a Business Incubation session can raise ONE RFI (POST /api/governance/rfi/from-meeting/:id)
+//    and the session → RFI → project lineage is shown; '0' (default, today) = those routes 404, no button.
+DEFAULTS.incubation_rfi_link_enabled = '0';
 const KEYS = Object.keys(DEFAULTS);
 
 // Secrets that the GET handler redacts to '' — a Save that doesn't retype them must

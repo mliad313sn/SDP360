@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (157) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (158) — services/reportConfig.js DEFAULTS
 
 | Key | Default (today) | Kind | Owner | Recommended pilot value | Reference |
 |---|---|---|---|---|---|
@@ -74,6 +74,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `helpdesk_sla_definition` | `flag` | setting | KPI committee | `flag` until the committee chooses (`due_vs_resolved` is the alternative) | A-17 |
 | `hygiene_recipients` | `` | setting | to be named | — | — |
 | `hygiene_send_enabled` | `0` | arm switch | to be named | — | — |
+| `incubation_rfi_link_enabled` | `0` | arm switch | PMO + Owner | `1` on the pilot site once the PMO accepts incubation-born RFIs in the queue (the RFI score stays provisional: incubation scoring criteria are a human decision) | E-I04 |
 | `kpi_policy_enforced` | `0` | setting | KPI committee + Owner | `0` until the KPI committee has ADOPTED a resolution-SLA policy on `/kpi-builder.html` (two different members: author ≠ adopter, with the session reference) and read the shadow comparison; then `1` (the Helpdesk tile, ranking and trend follow the adopted version) | C-31 |
 | `meraki_api_key` | (secret — not shown) | secret | to be named | — | — |
 | `meraki_base_url` | `https://api.meraki.com/api/v1` | setting | to be named | — | — |

@@ -17,6 +17,7 @@ const { fail: httpFail, logError } = require('../services/httpError');
 //   GET  /api/governance/sessions/:id/minutes.html|.pdf · POST /sessions/:id/minutes/send
 //   GET  /api/governance/decisions  · PUT /decisions/:id   (C-15: each decision carries source_links)
 //   GET  /api/governance/engagement-delays             open decisions + session actions: days overdue + ageing (C-15)
+//   E-I04: GET/POST /api/governance/rfi/from-meeting/:id · GET /rfi/:id/lineage (incubation_rfi_link_enabled, 404 while '0')
 //   GET  /api/governance/rfi · POST /rfi (any session) · PUT /rfi/:id (triage/score/decide — committee) · POST /rfi/:id/verify (requester)
 //   GET  /api/governance/portfolio (tree + evidence + gantt + risks + summary) · PUT /portfolio/:kind · DELETE /portfolio/:kind/:id   committee
 //        (A-15: site-scoped reads + editor plan writes behind portfolio_site_scope_reads / portfolio_editor_plan_writes, off = today)
@@ -397,6 +398,43 @@ module.exports = function governanceRoutes(deps) {
   router.get('/api/governance/rfi', requireReportSession, async (req, res) => { try { res.json({ ok: true, committee: isCommittee(req.reportUser), me: Number(req.reportUser.id), rfi: await store.listRfi({ status: req.query.status ? String(req.query.status).split(',') : null, scope: rfiScope(req.reportUser) }), kinds: store.RFI_KINDS, statuses: store.RFI_STATUSES }); } catch (e) { fail(res, e); } });
   router.post('/api/governance/rfi', requireReportSession, json, async (req, res) => { try { const r = await store.submitRfi({ ...req.body, site_id: req.body && req.body.site_id != null ? req.body.site_id : (userSites.siteIds(req.reportUser)[0] || null) }, { user: req.reportUser }); log(req, 'rfi_submitted', r.ref, { kind: r.kind }); res.json({ ok: true, rfi: r }); } catch (e) { fail(res, e); } });
   router.post('/api/governance/rfi/:id/verify', requireReportSession, async (req, res) => { try { const r = await store.verifyRfi(req.params.id, { user: req.reportUser }); log(req, 'rfi_verified', r.ref); res.json({ ok: true, rfi: r }); } catch (e) { const known = { 403: 'only the requester confirms the delivery', 404: 'request not found', 409: 'only a delivered request can be confirmed' }; if (known[e.status]) return res.status(e.status).json({ ok: false, code: e.code, error: known[e.status] }); fail(res, e); } });
+  // E-I04 — Business Incubation session → RFI (one per session) + lineage. Every route 404 while
+  // incubation_rfi_link_enabled = '0' (default, today). Writer = editor of the session's site, or the admin tier.
+  const incubationRfiOn = async () => String((await reportConfig.getConfig(rdb().db)).incubation_rfi_link_enabled) === '1';
+  const mdb = () => deps.meetingsDb || require('../meetings-db');
+  async function incubationSource(req, res, { write = false } = {}) {
+    if (!(await incubationRfiOn())) { res.status(404).json({ ok: false, error: 'not found' }); return null; }
+    const src = await mdb().getIncubationSource(req.params.id);
+    if (!src) { res.status(404).json({ ok: false, error: 'session not found' }); return null; }
+    const hit = src.site_code ? await rdb().getSiteIdByModuleCode('meetings', src.site_code) : null;
+    const siteId = hit && hit.site_id != null ? Number(hit.site_id) : null;
+    const u = req.reportUser;
+    if (!isAdmin(u)) {
+      if (write && !rdb().userHasRole(u, 'editor')) { res.status(403).json({ ok: false, error: 'editor role or higher required' }); return null; }
+      if (siteId == null || !userSites.hasSite(u, siteId)) { res.status(403).json({ ok: false, error: 'session belongs to another site' }); return null; }
+    }
+    return { src, siteId };
+  }
+  router.get('/api/governance/rfi/from-meeting/:id', requireReportSession, async (req, res) => {
+    try { const x = await incubationSource(req, res); if (!x) return; const r = await store.rfiForMeeting(x.src.id); res.json({ ok: true, is_incubation: x.src.is_incubation, rfi: r || null, lineage: r ? await store.rfiLineage(r.id) : null }); } catch (e) { fail(res, e); }
+  });
+  router.post('/api/governance/rfi/from-meeting/:id', requireReportSession, async (req, res) => {
+    try {
+      const x = await incubationSource(req, res, { write: true }); if (!x) return;
+      const out = await store.rfiFromMeeting(x.src, { siteId: x.siteId, user: req.reportUser });
+      if (out.created) log(req, 'rfi_from_meeting', out.rfi.ref, { meeting_id: x.src.id });
+      res.json({ ok: true, created: out.created, rfi: out.rfi, lineage: await store.rfiLineage(out.rfi.id) });
+    } catch (e) { fail(res, e); }
+  });
+  router.get('/api/governance/rfi/:id/lineage', requireReportSession, async (req, res) => {
+    try {
+      if (!(await incubationRfiOn())) return res.status(404).json({ ok: false, error: 'not found' });
+      const r = await store.getRfi(req.params.id); if (!r) return res.status(404).json({ ok: false, error: 'request not found' });
+      const u = req.reportUser;
+      if (!isCommittee(u) && Number(r.requester_id) !== Number(u.id) && !(r.site_id != null && userSites.hasSite(u, r.site_id))) return res.status(403).json({ ok: false, error: 'request belongs to another site' });
+      res.json({ ok: true, lineage: await store.rfiLineage(r.id) });
+    } catch (e) { fail(res, e); }
+  });
   router.put('/api/governance/rfi/:id', requireReportSession, requireCommittee, json, async (req, res) => { try { const r = await store.triageRfi(req.params.id, req.body || {}, { user: req.reportUser }); log(req, 'rfi_triaged', r && r.ref, { status: r && r.status }); res.json({ ok: true, rfi: r }); } catch (e) { fail(res, e); } });
 
   // ---- portfolio --------------------------------------------------------------------------
