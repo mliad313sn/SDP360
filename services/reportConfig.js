@@ -312,6 +312,9 @@ DEFAULTS.obligations_include_decisions = '0';
 // ── E-G03 (catalogue A13) — '1' = the weekly job governance.agenda_drafts compiles the exception-only agenda of every
 //    cadence due this week as a DRAFT on the cadence (nothing is sent, no session is created); '0' (default) = on demand only.
 DEFAULTS.agenda_cron_enabled = '0';
+// ── E-G04 (audit G-04) — '1' = the control register (risk → control → test → exception) on Admin ▸ Governance policies;
+//    controls are seeded as CANDIDATES only (adoption is a GRC decision). '0' (default) = the routes 404, no panel.
+DEFAULTS.controls_register_enabled = '0';
 const KEYS = Object.keys(DEFAULTS);
 
 // Secrets that the GET handler redacts to '' — a Save that doesn't retype them must

@@ -65,6 +65,11 @@
     <p class="gp-muted" data-lng="fr">Une règle fixée pour un pays ou une unité s'applique à ses sites, sauf valeur propre au site (site → pays → unité → plateforme). Vide = non rattaché.</p>
     <table><thead><tr><th>Site</th><th><span data-lng="en">Country</span><span data-lng="fr">Pays</span></th><th><span data-lng="en">Business unit</span><span data-lng="fr">Unité d'affaires</span></th><th></th></tr></thead><tbody id="gpHier"></tbody></table>
   </div>
+  <div class="gp-card gp-plain" id="gpControls" hidden>
+    <h2><span data-lng="en">Control register (candidates — adoption is a GRC decision)</span><span data-lng="fr">Registre des contrôles (candidats — l'adoption est une décision GRC)</span></h2>
+    <p class="gp-muted"><span data-lng="en">A period without a recorded test is “not run”, never a pass. The tester cannot be the control owner.</span><span data-lng="fr">Une période sans test enregistré est « non exécuté », jamais réussi. Le testeur ne peut pas être le responsable du contrôle.</span></p>
+    <table><thead><tr><th><span data-lng="en">Control</span><span data-lng="fr">Contrôle</span></th><th><span data-lng="en">Risk</span><span data-lng="fr">Risque</span></th><th><span data-lng="en">Status</span><span data-lng="fr">Statut</span></th><th><span data-lng="en">Last periods</span><span data-lng="fr">Dernières périodes</span></th><th><span data-lng="en">Record a test</span><span data-lng="fr">Enregistrer un test</span></th></tr></thead><tbody id="gpCtl"></tbody></table>
+  </div>
   <div class="gp-card gp-plain" id="gpRoles"></div>
   <div class="gp-card">
     <h2><span data-lng="en">History</span><span data-lng="fr">Historique</span></h2>
@@ -219,6 +224,25 @@
   $('gpScope').addEventListener('change', () => { render(); profileBar(); });
   $('gpLang').addEventListener('change', () => { lang = $('gpLang').value; document.body.classList.toggle('lang-fr', lang === 'fr'); document.documentElement.lang = lang; try { localStorage.setItem('policies_lang', lang); localStorage.setItem('sdp_lang', lang); } catch (_) {} if (data) { render(); load(); } });
   $('gpLang').value = lang === 'fr' ? 'fr' : 'en'; document.body.classList.toggle('lang-fr', lang === 'fr'); document.documentElement.lang = lang;
+  // E-G04 — control register (404 = controls_register_enabled off → the card stays hidden)
+  const RES = { pass: ['pass', 'réussi'], fail: ['fail', 'échec'], not_run: ['not run', 'non exécuté'] };
+  const rl = (r) => (RES[r] || [r, r])[lang === 'fr' ? 1 : 0];
+  async function loadControls() {
+    let j; try { j = await api('GET', '/api/governance/controls'); } catch (_) { $('gpControls').hidden = true; return; }
+    $('gpControls').hidden = false;
+    $('gpCtl').innerHTML = j.controls.map((c) => `<tr><td><b>${esc(c.key)}</b><div class="gp-muted">${esc(c.objective)}</div></td><td>${esc(c.risk_ref || '—')}</td><td>${esc(c.status)}</td>
+      <td>${c.grid.map((g) => `${esc(g.period)}: ${esc(rl(g.result))}`).join('<br>')}</td>
+      <td><input data-cp="${Number(c.id)}" placeholder="2026-10" size="8" aria-label="period ${esc(c.key)}"> <select data-cr="${Number(c.id)}" aria-label="result ${esc(c.key)}">${j.results.map((r) => `<option value="${r}">${esc(rl(r))}</option>`).join('')}</select>
+        <input data-cu="${Number(c.id)}" placeholder="https://…" size="16" aria-label="evidence ${esc(c.key)}"> <button type="button" data-ctest="${Number(c.id)}">${t().save}</button></td></tr>`).join('');
+  }
+  $('gpCtl').addEventListener('click', async (ev) => {
+    const b = ev.target.closest('button[data-ctest]'); if (!b) return; const id = b.dataset.ctest;
+    try {
+      await api('POST', `/api/governance/controls/${encodeURIComponent(id)}/tests`, { period: document.querySelector(`[data-cp="${id}"]`).value, result: document.querySelector(`[data-cr="${id}"]`).value, evidence_url: document.querySelector(`[data-cu="${id}"]`).value });
+      msg(lang === 'fr' ? 'Test enregistré.' : 'Test recorded.', true); loadControls();
+    } catch (e) { msg(e.message); }
+  });
+  loadControls();
   load();
 })();
 </script>

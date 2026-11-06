@@ -81,6 +81,7 @@ planned switch cannot be set before its goal lands.
 | `incubation_rfi_link_enabled` | built | `0` | `1` on the pilot site once the PMO accepts incubation-born RFIs in the queue (the RFI score stays provisional: incubation scoring criteria are a human decision) | PMO + Owner | E-I04 |
 | `obligations_include_decisions` | built | `0` | `1` (the site obligations view then counts the site's open governance decisions; the visible total of a site can grow) | Committee + Owner | E-G02 |
 | `agenda_cron_enabled` | built | `0` | `1` (the Monday job prepares a DRAFT agenda per cadence due that week; nothing is sent, the secretary still prepares the session) | Committee | E-G03 |
+| `controls_register_enabled` | built | `0` | `1` once GRC names who adopts controls (the four seeded controls stay `candidate` until a person adopts them with a reason; frequencies and testers are GRC decisions) | GRC owner + Security owner | E-G04 |
 | `site_local_calendar` | built | `0` | `0` while every reporting site is UTC+0; `1` only when a non-UTC site (e.g. the London office) is reported and its time zone (`sites.time_zone`, else from its country) is confirmed — only the calendar-month helpdesk figures move | Owner + Finance (month-end figures) | D-07 |
 
 Not in this table because they are not top-level `report_config` keys:
