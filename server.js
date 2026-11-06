@@ -6874,6 +6874,7 @@ app.use(require('./routes/sync')({ express, requireReportSession }));
 // Step 3 — KPI dictionary: GET /api/metrics/registry, GET /api/metrics/:key?site=&window=.
 app.use(require('./routes/metrics')({ express, requireReportSession }));
 app.use(require('./routes/access')({ express, requireReportSession }));   // C-17 why-denied · C-18 requests, approvals, templates, grants
+app.use(require('./routes/feedback')({ express, requireReportSession }));   // E-B07 in-app feedback (404 while ui_feedback_enabled = '0')
 app.use(require('./routes/duty')({ express, requireReportSession }));   // C-20 duty rosters + coverage (061)
 app.use(require('./routes/pageUsage')({ express, requireReportSession, requireSuperAdmin }));   // C-09 — page_viewed usage facts (always-on, internal)
 // Step 6 — dashboard definitions (composer) + one-call data resolver (store seeded in routes/dashboards.createStore).

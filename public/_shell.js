@@ -373,6 +373,7 @@
     'Find a page — e.g. inspections, portfolio': 'Rechercher une page — ex. inspections, portefeuille',
     'Breadcrumb': "Fil d'Ariane", 'Click to log out': 'Cliquer pour se déconnecter', 'Primary': 'Navigation principale',
     'No page found': 'Aucune page trouvée', 'Language': 'Langue', 'Skip to content': 'Aller au contenu',
+    'Feedback': 'Retour', 'Send feedback on this page': 'Envoyer un retour sur cette page',
   };
   function shellLang() {
     try { const s = localStorage.getItem('sdp_lang'); if (s === 'fr' || s === 'en') return s; } catch (_) { /* storage blocked */ }
@@ -508,6 +509,18 @@
     </div>`;
   }
 
+  // E-B07 — in-app feedback button (report_config ui_feedback_enabled via window.__uiPolicy; '0' = no button, today).
+  function feedbackOn() { try { const p = window.__uiPolicy; return !!(p && p.feedback === '1'); } catch (_) { return false; } }
+  function openFeedback() {
+    if (window.__feedback && window.__feedback.open) { window.__feedback.open(); return; }
+    try {
+      const sc = document.createElement('script');
+      sc.src = 'lib/feedback.js';
+      sc.onload = () => { if (window.__feedback && window.__feedback.open) window.__feedback.open(); };
+      document.head.appendChild(sc);
+    } catch (_) { /* no DOM */ }
+  }
+
   // ── MAIN RENDER ─────────────────────────────────────────────────
   function render(mount) {
     if (!mount) return;
@@ -539,6 +552,7 @@
         <div class="shell-actions">
           <button type="button" class="shell-search-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="shell-search" title="${T('Find a page (Ctrl+K)')}">${ICON_LIB.search || ''}<span class="shell-search-label">${T('Find')}</span><kbd>Ctrl K</kbd></button>
           <button type="button" class="shell-lang-btn" title="${T('Language')}" aria-label="${lang === 'fr' ? 'Switch to English' : 'Passer en français'}" lang="${lang === 'fr' ? 'en' : 'fr'}">${lang === 'fr' ? 'EN' : 'FR'}</button>
+          ${feedbackOn() && user ? `<button type="button" class="shell-feedback-btn" title="${T('Send feedback on this page')}">${T('Feedback')}</button>` : ''}
           ${renderUserPill(user)}
           ${version ? `<span class="shell-version">${escapeHtml(version)}</span>` : ''}
         </div>
@@ -731,6 +745,7 @@
       location.reload();
       return;
     }
+    if (e.target.closest('.shell-feedback-btn')) { e.preventDefault(); openFeedback(); return; }
     if (e.target.closest('.shell-search-btn')) {
       e.preventDefault();
       const box = document.getElementById('shell-search');

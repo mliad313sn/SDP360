@@ -13,6 +13,8 @@ const DEFAULTS = {
   ui_kpi_base_line: '0',                // E-V03 '1' = KPI tiles show their base population ("n = 142 closed" / "base not measured")
   ui_kpi_sample_size: '0',              // E-K02 '1' = "n = …" on tiles/grid cells + low-sample warning from an ADOPTED kpi_policy
   ui_small_multiples: '0',              // E-V09 '1' = the `multiples` widget type (one panel per metric) is creatable
+  ui_feedback_enabled: '0',             // E-B07 '1' = Feedback button in the shell + /api/feedback (else 404)
+  ui_data_quality_page: '0',            // E-D07 '1' = Data quality board in the nav + data-quality.html (else 404)
   ui_week_labels: 'legacy',             // D-03 'explicit' = ISO charts say "ISO W37 (7–13 Sep)", Zoho labels carry their range
   // A-08 — Exec View (public page) switches; both defaults reproduce today's output.
   // full = subject/RCA/CA public, per the 2026-07-02 decision ("option a");

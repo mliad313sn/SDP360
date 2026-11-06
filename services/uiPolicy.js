@@ -17,6 +17,8 @@
 //   ui_kpi_sample_size    '0' = as today · '1' = "n = …" on tiles/grid cells + low-sample warning from an ADOPTED
 //                         kpi_policy min_sample (E-K02; no adopted policy → no warning)
 //   ui_small_multiples    '0' = the `multiples` widget type is not creatable (today) · '1' = offered (E-V09)
+//   ui_feedback_enabled   '0' = no Feedback button, /api/feedback answers 404 (today) · '1' = in-app feedback (E-B07)
+//   ui_data_quality_page  '0' = no Data quality nav entry, the page answers 404 (today) · '1' = shown (E-D07)
 
 const UI_DEFAULTS = {
   ui_lang_default: '',
@@ -28,6 +30,8 @@ const UI_DEFAULTS = {
   ui_kpi_base_line: '0',
   ui_kpi_sample_size: '0',
   ui_small_multiples: '0',
+  ui_feedback_enabled: '0',
+  ui_data_quality_page: '0',
 };
 const UI_KEYS = Object.keys(UI_DEFAULTS);
 
@@ -40,6 +44,8 @@ const ENUMS = {
   ui_kpi_base_line: ['0', '1'],
   ui_kpi_sample_size: ['0', '1'],
   ui_small_multiples: ['0', '1'],
+  ui_feedback_enabled: ['0', '1'],
+  ui_data_quality_page: ['0', '1'],
 };
 // Same vocabulary as reports-db.js ROLE_HIERARCHY + FEATURE_ROLES_KNOWN (kept inline: this module stays pure).
 const KNOWN_ROLES = new Set(['super_admin', 'executive', 'admin', 'editor', 'viewer',
@@ -76,6 +82,8 @@ function uiPolicyFrom(cfg) {
     kpi_base_line: _pick(c, 'ui_kpi_base_line'),
     kpi_sample_size: _pick(c, 'ui_kpi_sample_size'),
     small_multiples: _pick(c, 'ui_small_multiples'),
+    feedback: _pick(c, 'ui_feedback_enabled'),
+    data_quality_page: _pick(c, 'ui_data_quality_page'),
   };
 }
 

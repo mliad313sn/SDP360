@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (180) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (182) — services/reportConfig.js DEFAULTS
 
 Prerequisites (E-A07, services/switchPrereqs.js) are WARNINGS in plain words, never approvals: the config PUT
 answer and the `set-ui-policy.js` dry run repeat them when the switch is moved to its switched-on value.
@@ -178,8 +178,10 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `teams_sla_rules` | `` | setting | to be named | — | — | — |
 | `tracker_engine_cutover` | `0` | setting | to be named | — | — | — |
 | `transport` | `smtp` | setting | to be named | — | — | — |
+| `ui_data_quality_page` | `0` | ui policy | to be named | — | — | A data steward per source to act on the board. |
 | `ui_deck_builder_roles` | `super_admin` | ui policy | Owner (D-6) | `super_admin,report-author` (PO delegated decision P12, reversible) | A-21, C-28 | — |
 | `ui_exec_nav` | `full` | ui policy | Owner (D-6) | `consolidated` (PO delegated decision P1, reversible — re-examine after 30 days of `page_viewed`) | C-28 | — |
+| `ui_feedback_enabled` | `0` | ui policy | PO | `1` on the pilot once B-05 (RACI) names who answers feedback — a Feedback button in the header (problem / idea / question, page auto-filled, ≤ 2 000 characters, named or anonymous: anonymous keeps only role tier + site), triage in `/api/feedback` (admin tier), the answer shown on Home ▸ My work; no notification sent, no AI reads the text | E-B07 | Someone named to answer feedback (B-05 RACI) before the button is shown. |
 | `ui_i18n_pages` | `0` | ui policy | Owner (D-2) | `1` | A-09, C-26 | — |
 | `ui_inject_dash_key` | (secret — not shown) | secret | Security owner | `0` (pages no longer receive `window.__ak`; every data call rides the session cookie — proven by `tests/api-key-injection.smoke.test.js` (g)) after one browser pass on the TEST instance | E-S02 | One browser pass on the TEST instance of every page that used window.__ak. |
 | `ui_kpi_base_line` | `0` | ui policy | Owner (UI policy) | `1` (proposal — show the base population under each KPI value) | E-V03 | — |
@@ -302,7 +304,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `SDP_CONFIG_BOX_VERSION` | switch | unset = 2 (`enc:v2`) | Security owner | services/configSecrets.js |
 | `SDP_CONFIG_KEY` | secret | (secret — not shown) | to be named | services/backendGuard.js, services/configSecrets.js |
 | `SDP_CSP_REPORT_ONLY` | switch | unset (no report-only header, no /api/security/csp-report) | Security owner | services/cspReport.js |
-| `SDP_DATA_DIR` | switch | see the reading file | to be named | assets-db.js, inspection-db.js, meetings-db.js, reports-db.js (+3) |
+| `SDP_DATA_DIR` | switch | see the reading file | to be named | assets-db.js, inspection-db.js, meetings-db.js, reports-db.js (+4) |
 | `SDP_PDF_SANDBOX` | switch | unset (PDF render keeps --no-sandbox) | Security owner | services/reportRender.js |
 | `SDP_QUAL_CFG_TTL_MS` | switch | see the reading file | to be named | services/qualificationStore.js |
 | `SDP_SERVICE` | switch | see the reading file | to be named | services/serviceControl.js |

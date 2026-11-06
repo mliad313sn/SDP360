@@ -70,6 +70,17 @@
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
       $('hmSites').innerHTML = (j.sites || []).map(siteCard).join('');
+      // E-B07 — answers to MY feedback (only present while ui_feedback_enabled = '1'); every value escaped
+      const fb = Array.isArray(j.feedback) ? j.feedback : [];
+      const fbBox = document.getElementById('hmFeedback');
+      if (fbBox) fbBox.remove();
+      if (fb.length) {
+        const sec = document.createElement('section');
+        sec.id = 'hmFeedback'; sec.className = 'hm-feedback';
+        const st = (s) => (lang === 'fr' ? ({ new: 'nouveau', triaged: 'trié', planned: 'prévu', declined: 'refusé', done: 'fait' })[s] || s : s);
+        sec.innerHTML = `<h2>${esc(lang === 'fr' ? 'Réponses à vos retours' : 'Answers to your feedback')}</h2><ul>${fb.map((f) => `<li><b>${esc(st(f.status))}</b> — ${esc(String(f.body || '').slice(0, 140))}${f.response ? `<br><span class="hm-muted">${esc(f.response)}</span>` : ''}</li>`).join('')}</ul>`;
+        $('hmSites').insertAdjacentElement('afterend', sec);
+      }
       const msg = [];
       if (j.message) msg.push(lang === 'fr' ? "Vous n'êtes rattaché à aucun site — utilisez le registre des actions du site." : j.message);
       if (j.truncated) msg.push(fill(T.more, { n: j.truncated }));
