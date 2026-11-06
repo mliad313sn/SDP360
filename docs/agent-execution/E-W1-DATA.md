@@ -11,6 +11,7 @@ nothing is approved, no owner or threshold was chosen.
 | E-D01 — audit D-01 prep / X-DATA-01: split report for codes shared by two active sites | FIXED (tool) | `tools/sites/shared-code-report.js`; `tests/shared-code-report.test.js` (3) — Assafo+Tanda → TND fixture: rows split by writer site, unknowns marked (no writer / several sites / central / account missing), read-only queries only |
 | E-D01 — audit D-03 / X-DATA-02: registry observation mode | FIXED (behind switch, default `0`) | `site_codes_from_registry='shadow'` in `services/siteCodeRegistry.js` (`resolve`, `parseMode`); `tests/site-code-shadow.test.js` (5): shadow answers like `0` and logs one divergence, `1` unchanged; `tests/site-code-registry.smoke.test.js` (+1): PUT accepts `shadow` with the same reason / super_admin rule, divergence row written once |
 | E-D04 — audit D-06: sync content drift (shadow) | FIXED (shown always, alert behind switch default `0`) | `services/sync/drift.js`; `tests/sync-drift.test.js` (8): <5 runs = unknown, drop / spike / zero_after_history / duplicates_rate on fixtures, thresholds from config, alert not sent at `0`, sent once at `1`; `tests/sync-routes.smoke.test.js` (+1): `drift` field on every job of `/api/sync/health` |
+| E-D05 — audit D-07 / K-03 rest / K-06 prep: metric lineage & contract sheet + decision blocks | FIXED (generated doc) | `tools/agent/metric-lineage.js` → `docs/ops/METRIC-LINEAGE.md`; `tests/metric-lineage.test.js` (4): committed file current, `--check` detects stale, every SEED key (52) has a full sheet, the 10 unreferenced keys carry the PENDING block with nothing filled |
 
 ## E-D01 — details
 
@@ -51,3 +52,17 @@ Left for a person: choosing the owner of TND (gate 9) and applying any split; sw
   `sync_drift_drop_pct` `50`, `sync_drift_spike_pct` `300`, `sync_drift_duplicates_pct` `10`.
 
 Left for a person: the thresholds and an owner per flow; arming `sync_drift_alerts`.
+
+## E-D05 — details
+
+- One sheet per seed metric: names EN/FR, module, unit, source (reader + field + reader function + code file),
+  formula, window kind, RAG policy with its code default thresholds, higher-is-better, owner role, the registry's
+  own certification text, consumers (from `tools/agent/metric-map.js`), freshness = sync job + declared window
+  (helpdesk / changes / assets / wan — from `governancePolicy.FRESHNESS_SOURCES`), `UNKNOWN` otherwise.
+- The contract line states that `metric_registry` has no version column and that the versioned contract is the
+  `kpi_policies` row, read at run time — no adopted version is copied into the file.
+- The 10 metrics no code names (same list as METRIC-WIDGET-MAP) get "use / archive / reserve — PENDING KPI
+  committee" with decision, decider, date and minutes left unfilled.
+- Not wired into `tools/agent/evidence-manifest.js` GENERATED list (left as is; the test pins the file).
+
+Left for a person: the KPI committee's decision for each of the 10 pending metrics; certification of every metric.
