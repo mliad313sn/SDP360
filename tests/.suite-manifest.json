@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 4127,
+ "total": 4131,
  "files": {
   "a11y-static.test.js": 18,
   "access-approver-policy.test.js": 4,
@@ -218,6 +218,7 @@
   "importable-actions.smoke.test.js": 1,
   "incubation-editor-client.test.js": 6,
   "incubation-form.test.js": 5,
+  "incubation-rfi-link.smoke.test.js": 4,
   "incubation-save-route.smoke.test.js": 4,
   "infra-auto-route.smoke.test.js": 8,
   "infra-basis.test.js": 2,
