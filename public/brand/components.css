@@ -314,3 +314,12 @@
 .edv-page-head__src.is-unknown { color: var(--color-warning-text, #92400E); }
 .edv-page-head__note { margin: 6px 0 0; color: var(--color-text-3, #6b7785); }
 @media (max-width: 480px) { .edv-page-head__grid { grid-template-columns: 1fr; } .edv-page-head dt { padding-top: 6px; } }
+
+/* E-V03 — standard state vocabulary (public/lib/stateBadge.js): symbol + text, never colour alone. */
+.edv-state { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:10px; font-size:12px; color:var(--color-text-muted); border:1px solid currentColor; }
+.edv-state-sym { font-weight:700; }
+.edv-state-error, .edv-state-publication-blocked { color:var(--edv-red); }
+/* E-V03 — base population line + "→ act" link under a KPI value */
+.edv-kpi-base { font-size:12px; color:var(--color-text-muted); margin-top:2px; }
+.edv-act { display:inline-block; margin-top:4px; font-size:12px; font-weight:600; color:var(--edv-blue); text-decoration:none; }
+.edv-act:hover, .edv-act:focus { text-decoration:underline; }

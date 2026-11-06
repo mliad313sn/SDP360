@@ -150,7 +150,9 @@ async function resolveWidgets({ def, sites, site, window = null, reg, dd, rdb, n
         }
         out[w.id] = { mode: 'single', metric: w.metric, title: w.title, unit: m.unit, value: one.value, rag: w.rag ? ragOverride(w.rag, one.value, m.unit) : one.rag, window: one.window, as_of: one.as_of, fleet, error: one.error || null,
           higher_is_better: m.higher_is_better !== false, target: tg.target, target_source: tg.source, target_id: tg.id == null ? null : tg.id, target_from: tg.effective_from || null, target_date: endOf(one.window),
-          vs_target: KT.vsTarget(one.value, tg.target, m.higher_is_better !== false), previous, partial };
+          vs_target: KT.vsTarget(one.value, tg.target, m.higher_is_better !== false), previous, partial,
+          // E-V03 — base population only where the reader returns the denominator; null = "base not measured"
+          base: one.base || null, action_href: w.action_href || null };
       } else if (plan.mode === 'series' && m) {
         // F05/G07 — the series ends on the selected window (no window: today's anchor, unchanged)
         const labels = R.windowSeries(plan.kind, plan.n, R.seriesAnchor(window, plan.kind, now));

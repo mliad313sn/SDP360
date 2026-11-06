@@ -17,13 +17,14 @@
 const KpiRag = require('./kpiRag');
 // E-V02 — the measure → chart rule table shared with the composer (one source, browser + API)
 const ChartContract = require('../public/lib/chartContract');
+const R = require('../public/lib/dashboardRender');
 
 // C-04 (F01/F02/G11-min) — every type declares HOW it renders (`render`), so a type that is
 // offered is a type that draws something distinct; `creatable:false` = kept only so stored
 // definitions still render (no NEW widget of that type is accepted).
 //   render: tile | line | bar-list | sortable-table | rag-grid | tracker-rag | markdown | action-table
 const WIDGET_TYPES = {
-  kpi:        { needsMetric: true,  minW: 2, minH: 2, props: ['rag', 'format', 'compare'], render: 'tile' },
+  kpi:        { needsMetric: true,  minW: 2, minH: 2, props: ['rag', 'format', 'compare', 'action_href'], render: 'tile' },
   trend:      { needsMetric: true,  minW: 4, minH: 3, props: ['series', 'window'], render: 'line' },
   // E-V02 (X-V-01) — `stacked` is no longer offered: no renderer draws it. A stored widget that carries it keeps rendering.
   bar:        { needsMetric: true,  minW: 4, minH: 3, props: ['groupBy'], render: 'bar-list' },
@@ -139,6 +140,8 @@ function validateDashboard(doc, opts = {}) {
       if (typeof w.rag === 'string') { if (!KpiRag.POLICIES[w.rag]) E(`${p}.rag`, `unknown RAG policy ${w.rag}`); }
       else if (!(w.rag.green > w.rag.amber)) E(`${p}.rag`, 'green threshold must exceed amber');
     }
+    // E-V03 — "→ act" link: a relative URL only (no scheme, no //host), so a definition cannot point viewers off-site
+    if (w.action_href != null && !R.safeRelativeHref(w.action_href)) E(`${p}.action_href`, 'action link must be a relative URL inside the dashboard (e.g. site-actions.html?site=HGO)');
     if (w.sql != null || w.query != null) E(`${p}`, 'raw sql/query is not allowed in a dashboard definition — register a metric instead');
 
     const L = w.layout || {};

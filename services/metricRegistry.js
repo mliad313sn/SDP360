@@ -173,7 +173,7 @@ const READERS = {
     const a = await d.idb.aggregate({ site: code, from: win.from, to: win.to });
     const fs = a.findingStatus || []; const n = (s) => Number((fs.find((x) => x.status === s) || {}).n) || 0;
     const applicable = ['ok', 'minor', 'major', 'critical', 'opp'].reduce((t, s) => t + n(s), 0);
-    return { total: a.counts ? a.counts.total : null, critical_count: a.counts ? a.counts.critical_count : null, conformity_pct: applicable ? Math.round(n('ok') / applicable * 100) : null, open_actions: a.open_actions, overdue_actions: a.overdue_actions };
+    return { total: a.counts ? a.counts.total : null, critical_count: a.counts ? a.counts.critical_count : null, conformity_pct: applicable ? Math.round(n('ok') / applicable * 100) : null, open_actions: a.open_actions, overdue_actions: a.overdue_actions, applicable_n: applicable };
   },
   async 'assets.hygiene_site'(d, { site }) {
     const labels = await assetLabelsFor(d, site); if (!labels.length) return null;
@@ -234,6 +234,22 @@ async function assetLabelsFor(d, site) {
   return (lookups && lookups.sites || []).filter((l) => aliases.assetLabelToCode(l) === code);
 }
 
+// ── E-V03 / E-K02 — base population (denominator) of a ratio metric ─────────────────────────
+// ONLY where the reader already returns the very denominator of the formula. A metric absent from this map, or
+// whose record lacks the field, has base = null ("base not measured") — a denominator is never invented.
+// Resolution / first-reply SLA are absent on purpose: getCalendarMonthlyHelpdesk counts the SLA denominator
+// (closed with an SLA rule, cancelled excluded) and the responded tickets but does not return them.
+const BASES = {
+  'helpdesk.closure_pct': { field: 'inbound', label: 'tickets created' },
+  'inspection.conformity_pct': { field: 'applicable_n', label: 'applicable findings' },
+  'assets.completeness_pct': { field: 'total', label: 'assets in register' },
+};
+function baseFor(m, rec) {
+  const b = BASES[m.key]; if (!b || !rec) return null;
+  const n = rec[b.field];
+  return n != null && Number.isFinite(Number(n)) ? { n: Number(n), label: b.label } : null;
+}
+
 // ── Registry object ──────────────────────────────────────────────────────────────────
 function createRegistry(rows = SEED) {
   const map = new Map(rows.map((r) => [r.key, r]));
@@ -254,7 +270,7 @@ function createRegistry(rows = SEED) {
       try {
         const rec = await reader(deps, { site: site == null ? null : Number(site), win });
         const v = rec && rec[m.field] != null && Number.isFinite(Number(rec[m.field])) ? Number(rec[m.field]) : null;
-        return { ...base, value: v, rag: ragFor(m, v), record: rec || null };
+        return { ...base, value: v, rag: ragFor(m, v), record: rec || null, base: baseFor(m, rec) };
       } catch (e) { return { ...base, value: null, rag: 'NA', error: String(e && e.message || e).slice(0, 200) }; }
     },
   };
@@ -297,4 +313,4 @@ let _current = null;
 function current() { if (!_current) _current = createRegistry(SEED.map((m) => ({ ...m }))); return _current; }
 function setCurrent(r) { _current = r; return r; }
 
-module.exports = { SEED, READERS, WINDOW_KINDS, EXTRA_POLICIES, createRegistry, resolveWindow, load, current, setCurrent, ragFor, codeFor };
+module.exports = { SEED, BASES, baseFor, READERS, WINDOW_KINDS, EXTRA_POLICIES, createRegistry, resolveWindow, load, current, setCurrent, ragFor, codeFor };

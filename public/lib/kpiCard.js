@@ -6,14 +6,17 @@
  *                      higher_is_better, freshness, rag_if_fresh, spark:[n|null…] }
  *   bulletBar(d) d = { label, actual, target, min=0, max, unit, type='PERCENT', policy='kpi-target' }
  *   sparkline(values, {width,height}) -> inline SVG; null points are GAPS (separate segments), never 0.
- * A null value renders '— not measured' and carries no RAG colour (null ≠ 0). Styles: brand/components.css. */
+ * A null value renders '— not measured' and carries no RAG colour (null ≠ 0). Styles: brand/components.css.
+ * E-V03 — kpiCard(d, {baseLine:true}) (report_config ui_kpi_base_line='1') adds the base population line
+ *   ("n = 142 tickets created" / "base not measured"); d.action_href (relative) adds "→ act". Off = unchanged. */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory(require('./dashboardRender.js'), require('./kpiRag.js'));
   else root.KpiCard = factory(root.DashboardRender, root.KpiRag);
 })(typeof self !== 'undefined' ? self : this, function (DR, KpiRag) {
   'use strict';
 
-  var NOT_MEASURED = '— not measured';
+  // E-V03 — text from the shared state vocabulary (lib/stateBadge.js): symbol + text, byte-identical to before
+  var NOT_MEASURED = (function () { var SB = (typeof module === 'object' && module.exports) ? require('./stateBadge.js') : (typeof self !== 'undefined' ? self : this).StateBadge; return SB ? SB.symbol('not-measured') + ' ' + SB.text('not-measured') : '— not measured'; })();
   function esc(s) { return DR.escapeHtml(s); }
   function isNum(v) { return v !== null && v !== undefined && v !== '' && isFinite(Number(v)); }
 
@@ -39,18 +42,19 @@
     return '<svg class="edv-spark" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '" aria-hidden="true" focusable="false">' + body + '</svg>';
   }
 
-  function kpiCard(d) {
-    var k = d || {};
+  function kpiCard(d, opts) {
+    var k = d || {}; var o = opts || {};
+    var extra = (o.baseLine ? DR.baseLine(k) : '') + (k.action_href ? DR.actionLink(k.action_href) : '');
     var label = '<div class="edv-kpi-label">' + esc(k.label || '') + '</div>';
     if (!isNum(k.value)) {
-      return '<div class="edv-kpi-card edv-quiet rag-na">' + label + '<div class="edv-kpi-value">' + NOT_MEASURED + '</div>' + DR.staleBadge(k) + '</div>';
+      return '<div class="edv-kpi-card edv-quiet rag-na">' + label + '<div class="edv-kpi-value">' + NOT_MEASURED + '</div>' + DR.staleBadge(k) + extra + '</div>';
     }
     var stale = !!k.freshness && k.freshness !== 'FRESH';
     var rag = stale ? 'rag-na' : DR.ragClass(k.rag || (k.vs_target && k.vs_target.rag));
     var dot = k.rag || (k.vs_target && k.vs_target.rag) || stale ? DR.ragDot(k.rag || (k.vs_target && k.vs_target.rag), stale ? k.freshness : null) : '';
     return '<div class="edv-kpi-card ' + rag + '">' + label +
       '<div class="edv-kpi-value">' + dot + esc(DR.formatValue(Number(k.value), k.unit)) + '</div>' +
-      (k.spark ? sparkline(k.spark) : '') + DR.kpiContext(k) + DR.staleBadge(k) + '</div>';
+      (k.spark ? sparkline(k.spark) : '') + DR.kpiContext(k) + DR.staleBadge(k) + extra + '</div>';
   }
 
   function bulletBar(d) {

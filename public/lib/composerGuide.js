@@ -115,6 +115,7 @@
         case 'tracker': return { name: p, kind: 'select', label: 'Tracker', options: (ctx.trackers && ctx.trackers.length ? ctx.trackers : ['it-activity']).map(function (k) { return [k, k]; }) };
         case 'markdown': return { name: p, kind: 'textarea', label: 'Text (simple formatting: **bold**, - lists)' };
         case 'sources': return { name: p, kind: 'multi', label: 'Action sources (none = all)', options: [['meetings', 'Meetings'], ['inspection', 'Inspections'], ['report', 'Weekly report']] };
+        case 'action_href': return { name: p, kind: 'text', label: 'Link to the action page (relative, optional)', hint: 'e.g. site-actions.html — shown as “→ act” under the value.' };
         case 'onlyOverdue': return { name: p, kind: 'checkbox', label: 'Only overdue actions' };
         default: return { name: p, kind: 'text', label: p };
       }

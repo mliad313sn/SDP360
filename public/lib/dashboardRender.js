@@ -9,10 +9,12 @@
  *   periodBounds/isPartial/seriesAnchor/evalDate -> C-05 time truth (window-anchored series, partial periods)
  */
 (function (root, factory) {
-  if (typeof module === 'object' && module.exports) module.exports = factory();
-  else root.DashboardRender = factory();
-})(typeof self !== 'undefined' ? self : this, function () {
+  if (typeof module === 'object' && module.exports) module.exports = factory(require('./stateBadge'));
+  else root.DashboardRender = factory(root.StateBadge);
+})(typeof self !== 'undefined' ? self : this, function (SB) {
   'use strict';
+  // E-V03 — the state words come from the shared vocabulary (lib/stateBadge.js, loaded before this file).
+  if (!SB) throw new Error('DashboardRender needs lib/stateBadge.js loaded first');
 
   function gridStyle(layout, columns) {
     var L = layout || {}; var c = columns || 12;
@@ -43,9 +45,9 @@
   /** Coloured dot that does not rely on colour alone: a symbol and an accessible name (design review R1). */
   function ragDot(rag, state) {
     var c = ragClass(rag); var sym = { 'rag-green': '✓', 'rag-amber': '!', 'rag-red': '✕', 'rag-na': '' }[c];
-    var name = { 'rag-green': 'green', 'rag-amber': 'amber', 'rag-red': 'red', 'rag-na': 'not measured' }[c];
+    var name = { 'rag-green': 'green', 'rag-amber': 'amber', 'rag-red': 'red', 'rag-na': SB.aria('not-measured') }[c];
     // a value from a stale source keeps its number but not its colour: say "stale", never "not measured"
-    if (state === 'STALE' || state === 'UNKNOWN') { sym = '–'; name = state === 'UNKNOWN' ? 'source never synced, colour withheld' : 'stale source, colour withheld'; c = 'rag-na rag-stale'; }
+    if (state === 'STALE' || state === 'UNKNOWN') { sym = SB.symbol('stale'); name = SB.aria('stale', state === 'UNKNOWN' ? 'never' : null); c = 'rag-na rag-stale'; }
     return '<span class="edv-rag-dot ' + c + '" role="img" aria-label="' + name + '">' + sym + '</span>';
   }
   /** Worst first (red, amber, green), then by value in the bad direction; not measured last. */
@@ -85,7 +87,24 @@
   function staleBadge(d) {
     if (!d || !d.freshness || d.freshness === 'FRESH') return '';
     var was = d.rag_if_fresh && String(d.rag_if_fresh).toUpperCase() !== 'NA' ? ' · was ' + escapeHtml(String(d.rag_if_fresh).toLowerCase()) + ' when last current' : '';
-    return '<div class="edv-stale-badge">' + (d.freshness === 'UNKNOWN' ? 'Source never synced — colour withheld' : 'Source not current — colour withheld') + was + '</div>';
+    return '<div class="edv-stale-badge">' + SB.text('stale', d.freshness === 'UNKNOWN' ? 'never' : null) + was + '</div>';
+  }
+  /** E-V03 — the base population under a KPI value: "n = 142 tickets created", or "base not measured" (never 0). */
+  function baseLine(d) {
+    var b = d && d.base;
+    if (b && b.n != null && isFinite(Number(b.n))) return '<div class="edv-kpi-base">n = ' + Number(b.n).toLocaleString('en-GB') + (b.label ? ' ' + escapeHtml(b.label) : '') + '</div>';
+    return '<div class="edv-kpi-base edv-quiet">base not measured</div>';
+  }
+  /** A relative link only (no scheme, no //host, no backslash): the action page of a figure. */
+  function safeRelativeHref(href) {
+    var s = String(href == null ? '' : href).trim();
+    if (!s || s.length > 300 || /[\\\s<>"'`]/.test(s) || /^[a-z][a-z0-9+.-]*:/i.test(s) || s.indexOf('//') === 0) return null;
+    return s;
+  }
+  /** E-V03 — "→ act" link to the page where the figure is acted on; '' when the href is not a safe relative URL. */
+  function actionLink(href) {
+    var h = safeRelativeHref(href); if (!h) return '';
+    return '<a class="edv-act" href="' + escapeHtml(h) + '">→ act</a>';
   }
   function pad2(n) { return (n < 10 ? '0' : '') + n; }
   function isoWeek(d) {
@@ -300,7 +319,7 @@
       '</tbody></table></div>';
   }
 
-  return { gridStyle, formatValue, ragClass, ragDot, kpiContext, staleBadge, sortRows, shortLabel, windowSeries, trendLength, widgetDataPlan, summarizeGrid, escapeHtml, miniMarkdown, isoWeek,
+  return { gridStyle, formatValue, ragClass, ragDot, kpiContext, staleBadge, baseLine, safeRelativeHref, actionLink, sortRows, shortLabel, windowSeries, trendLength, widgetDataPlan, summarizeGrid, escapeHtml, miniMarkdown, isoWeek,
     rowState, barListHtml, tableHtml, sortTableRows, ragGridHtml, perSiteHtml, trackerHtml, seriesTableHtml,
     periodBounds, isPartial, windowPartial, evalDate, seriesAnchor, partialNote };
 });
