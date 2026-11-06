@@ -5182,84 +5182,8 @@ app.post('/api/reports/auth/change-password', requireReportSession, jsonBody, as
   } catch(e) { fail(res, e); }
 });
 
-// ── Sites ─────────────────────────────────────────────────────────
-app.get('/api/reports/sites', requireReportSession, async (req, res) => {
-  try {
-    const includeInactive = req.query.include_inactive === '1';
-    if (includeInactive && !['executive','super_admin'].includes(req.reportUser?.role)) {
-      return res.status(403).json({ error: 'Executive or super_admin only for include_inactive' });
-    }
-    res.json(await rdb.listSites({ includeInactive }));
-  } catch(e) { fail(res, e); }
-});
-
-// PUT /api/reports/sites/:id — partial update.
-// - admin/executive/super_admin can update zoho_group (existing behavior, used by inline Save).
-// - executive+ required for sort_order or active changes (broader site config).
-// `name` is intentionally NOT editable here — see reports-db.js updateSite() comment.
-app.put('/api/reports/sites/:id', requireReportSession, requireSuperAdmin, jsonBody, async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    const { zoho_group, sort_order, active } = req.body || {};
-
-    // RBAC: edits beyond zoho_group require executive+
-    const broaderUpdate = (sort_order !== undefined) || (active !== undefined);
-    if (broaderUpdate && !['executive','super_admin'].includes(req.reportUser?.role)) {
-      return res.status(403).json({ error: 'Executive or super_admin only to change sort_order / active' });
-    }
-
-    const before = (await rdb.listSites({ includeInactive: true })).find(s => s.id === id);
-    if (!before) return res.status(404).json({ error: 'Site not found' });
-
-    const after = await rdb.updateSite(id, { zoho_group, sort_order, active });
-
-    // Audit only the broader updates; legacy zoho_group inline edits stay quiet to keep audit_log focused
-    if (broaderUpdate) {
-      const action = (before.active && !after.active) ? 'site_disabled'
-                   : (!before.active && after.active) ? 'site_enabled'
-                   : 'site_updated';
-      await rdb.logAudit({
-        site_id: id, user_id: req.reportUser.id, username: req.reportUser.username,
-        action, details: { before: { zoho_group: before.zoho_group, sort_order: before.sort_order, active: before.active },
-                            after:  { zoho_group: after.zoho_group,  sort_order: after.sort_order,  active: after.active } }
-      });
-    }
-    res.json({ ok: true, ...after });
-  } catch(e) { fail(res, e); }
-});
-
-// POST /api/reports/sites — create a new site (executive+).
-// If a site with the same name already exists but is inactive, it's reactivated
-// instead of failing the UNIQUE constraint (matches Departments behavior).
-app.post('/api/reports/sites', requireReportSession, requireExecutiveOrSuperAdmin, jsonBody, async (req, res) => {
-  try {
-    const { name, zoho_group, sort_order } = req.body || {};
-    const result = await rdb.createSite({ name, zoho_group, sort_order });
-    await rdb.logAudit({
-      site_id: result.id, user_id: req.reportUser.id, username: req.reportUser.username,
-      action: result.reactivated ? 'site_enabled' : 'site_created',
-      details: { id: result.id, name: result.name, zoho_group: zoho_group || null }
-    });
-    res.json(result);
-  } catch(e) { fail(res, e, 400); }
-});
-
-// DELETE /api/reports/sites/:id — soft-delete (sets active=0).
-// Historical reports keep their site_id link and remain accessible.
-app.delete('/api/reports/sites/:id', requireReportSession, requireExecutiveOrSuperAdmin, async (req, res) => {
-  try {
-    const id = parseInt(req.params.id);
-    const before = (await rdb.listSites({ includeInactive: true })).find(s => s.id === id);
-    if (!before) return res.status(404).json({ error: 'Site not found' });
-    const after = await rdb.setSiteActive(id, 0);
-    await rdb.logAudit({
-      site_id: id, user_id: req.reportUser.id, username: req.reportUser.username,
-      action: 'site_disabled',
-      details: { id, name: before.name }
-    });
-    res.json({ ok: true, ...after });
-  } catch(e) { fail(res, e, 400); }
-});
+// ── Sites — routes/sites.js (E-D02) ─────────────────────────────
+app.use(require('./routes/sites')({ express, rdb, requireReportSession, requireSuperAdmin, requireExecutiveOrSuperAdmin, jsonBody }));   // E-D02 — /api/reports/sites* routes
 
 // ── Users (admin only) + active sessions — routes/adminUsers.js (M12-a) ──
 app.use(require('./routes/adminUsers')({ express, rdb, requireReportSession, requireSuperAdmin, jsonBody, getCookie }));

@@ -1609,14 +1609,22 @@ async function _createSitePg({ name, zoho_group, sort_order } = {}) {
   return { id: result.lastID, name: trimmed, zoho_group: zoho_group || null, sort_order: order, active: 1 };
 }
 
-function updateSite(id, { zoho_group, sort_order, active } = {}) {
-  return _updateSitePg(id, { zoho_group, sort_order, active });
+function updateSite(id, { zoho_group, sort_order, active, time_zone } = {}) {
+  return _updateSitePg(id, { zoho_group, sort_order, active, time_zone });
 }
-async function _updateSitePg(id, { zoho_group, sort_order, active } = {}) {
+// E-D02 — `time_zone` (IANA name, sites.time_zone from migration 066): validated with Intl; '' / null clears it
+// (= today's UTC path). Never defaulted here. `country` stays on PUT /api/governance/sites/:id/hierarchy, which
+// guards the two-person rule (country is a governance grouping key).
+async function _updateSitePg(id, { zoho_group, sort_order, active, time_zone } = {}) {
   const H = pgHandle();
   const cur = await H.prepare('SELECT * FROM sites WHERE id=?').get(id);
   if (!cur) throw new Error('site not found');
   const updates = [], params = [];
+  if (time_zone !== undefined) {
+    const tz = time_zone == null ? '' : String(time_zone).trim();
+    if (tz && !require('./services/siteTimeZone').isValidTz(tz)) throw require('./services/httpError').typed('VALIDATION', 'time_zone must be an IANA time zone name (e.g. Africa/Abidjan)', 400);
+    updates.push('time_zone=?'); params.push(tz || null);
+  }
   if (zoho_group !== undefined) { updates.push('zoho_group=?'); params.push(zoho_group || null); }
   if (sort_order !== undefined) { updates.push('sort_order=?'); params.push(sort_order); }
   if (active     !== undefined) { updates.push('active=?');     params.push(active ? 1 : 0); }
@@ -1624,6 +1632,16 @@ async function _updateSitePg(id, { zoho_group, sort_order, active } = {}) {
   params.push(id);
   await H.prepare(`UPDATE sites SET ${updates.join(', ')} WHERE id=?`).run(...params);
   return H.prepare('SELECT * FROM sites WHERE id=?').get(id);
+}
+
+// E-D02 — every site (active or not) with its master fields + every (site, module, code) row, for the
+// super_admin "site master" export and the site PUT's before/after audit. Read-only.
+async function getSiteMasterRows() {
+  const H = pgHandle();
+  const sites = await H.prepare('SELECT id, name, zoho_group, active, sort_order, country, business_unit, time_zone FROM sites ORDER BY sort_order, name').all();
+  let codes = [];
+  try { codes = await H.prepare('SELECT site_id, module, code FROM site_module_codes ORDER BY module').all(); } catch (_) { codes = []; }
+  return { sites, codes };
 }
 
 function setSiteActive(id, active) {
@@ -5597,6 +5615,7 @@ const db = {
 };
 
 module.exports = {
+  getSiteMasterRows,   // E-D02
   rateLimitBump, rateLimitPeek, rateLimitReset, purgeSystemLog, GOVERNANCE_LOG_CATEGORIES, sessionHours,
   db,
   REPORTS_BACKEND, initPgReports, pgHandle,

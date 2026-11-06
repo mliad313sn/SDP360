@@ -1218,6 +1218,9 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <span style="font-size:0.78rem;font-weight:400;color:#6b7a99;margin-left:8px">Maps each site to its Zoho AP helpdesk group for automatic chart loading</span>
         <button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="openSiteModal()">+ New Site</button>
       </h3>
+      <div id="site-master-links" style="display:none;font-size:0.82rem;margin:-4px 0 8px">Site master (codes, country, time zone, currency):
+        <a href="/api/reports/sites/master?format=csv">export CSV</a> · <a href="/api/reports/sites/master" target="_blank" rel="noopener">JSON</a> ·
+        <a href="#site-onboarding" onclick="document.getElementById('site-onboarding').open=true">onboarding checklist</a></div>
       <table class="user-table" id="sites-table">
         <thead><tr><th>Site</th><th>Zoho Group Name</th><th style="width:8%">Order</th><th style="width:10%">Status</th><th>Actions</th></tr></thead>
         <tbody id="sites-table-body"></tbody>
@@ -2544,6 +2547,17 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
           <option value="1">Active</option>
           <option value="0">Inactive</option>
         </select>
+      </div>
+    </div>
+    <div class="form-row cols-2" id="site-modal-master" style="display:none">
+      <div class="form-group">
+        <label>Time zone <span style="font-size:0.75rem;color:#6b7a99;font-weight:400">(IANA, e.g. Africa/Abidjan · empty = UTC)</span></label>
+        <input id="site-modal-tz" type="text" placeholder="empty = UTC (today's behaviour)" maxlength="64">
+      </div>
+      <div class="form-group">
+        <label>Country</label>
+        <input id="site-modal-country" type="text" disabled>
+        <div style="font-size:0.72rem;color:#6b7a99">Set in Governance ▸ site hierarchy (two-person rule).</div>
       </div>
     </div>
     <div id="site-modal-warning" style="display:none;background:#FEF3C7;border:1px solid #FCD34D;border-radius:6px;padding:10px 12px;margin-top:8px;font-size:0.82rem;color:#92400E">
@@ -6483,6 +6497,8 @@ async function loadAdminPage() {
     // Hide "+ New Site" header button for non-executive roles
     const newSiteBtn = document.querySelector('h3 button[onclick="openSiteModal()"]');
     if (newSiteBtn) newSiteBtn.style.display = isExecOrSuper ? '' : 'none';
+    const smLinks = document.getElementById('site-master-links');
+    if (smLinks) smLinks.style.display = currentUser?.role === 'super_admin' ? '' : 'none';   // E-D02
   } catch(e) { toast('Failed to load admin data: ' + e, 'error'); }
 }
 
@@ -6527,7 +6543,14 @@ function openSiteModal(id) {
       document.getElementById('site-modal-order').value   = s.sort_order;
       document.getElementById('site-modal-active').value  = String(s.active);
     });
+    // E-D02 — time zone (editable) + country (read-only here) for super_admin, from the site master
+    if (currentUser?.role === 'super_admin') api('GET', '/api/reports/sites/master').then(m => {
+      const r = (m.sites || []).find(x => x.id === id) || {};
+      document.getElementById('site-modal-tz').value = r.time_zone || '';
+      document.getElementById('site-modal-country').value = r.country || '—';
+    }).catch(() => {});
   }
+  document.getElementById('site-modal-master').style.display = (!isNew && currentUser?.role === 'super_admin') ? '' : 'none';
   modal.classList.add('open');
 }
 
@@ -6545,7 +6568,9 @@ async function saveSite() {
   try {
     if (id) {
       // Edit existing: backend ignores `name` (NOT in updateSite partial fields)
-      await api('PUT', `/api/reports/sites/${id}`, { zoho_group: zoho, sort_order: order, active });
+      const patch = { zoho_group: zoho, sort_order: order, active };
+      if (currentUser?.role === 'super_admin') patch.time_zone = document.getElementById('site-modal-tz').value.trim();   // E-D02 ('' = UTC)
+      await api('PUT', `/api/reports/sites/${id}`, patch);
       toast('Site updated ✓', 'success');
     } else {
       await api('POST', '/api/reports/sites', { name, zoho_group: zoho, sort_order: order });
