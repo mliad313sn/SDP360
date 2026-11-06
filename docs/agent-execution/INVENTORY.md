@@ -10,6 +10,9 @@
 | pages without test reference | 0 |
 | pages without declared role | 6 |
 | pages not in navigation | 29 |
+| pages not in shell or module tabs | 20 |
+| pages deep link only | 8 |
+| pages without entry point | 3 |
 | pages with inline scripts | 46 |
 | routes | 613 |
 | routes without test reference | 48 |
@@ -17,7 +20,7 @@
 | jobs | 30 |
 | jobs without test reference | 10 |
 | migrations | 74 |
-| test files | 621 |
+| test files | 624 |
 
 ## Pages
 
@@ -25,10 +28,10 @@
 |---|---|---|---|---:|---:|
 | PG-access | public/access.html | any | no | 0 | 5 |
 | PG-activity-tracker | public/activity-tracker.html | any | yes | 0 | 6 |
-| PG-analytics | public/analytics.html | admin / scorecard-viewer | yes | 1 | 6 |
+| PG-analytics | public/analytics.html | admin / scorecard-viewer | yes | 1 | 7 |
 | PG-assets-finance | public/assets-finance.html | UNKNOWN | no | 1 | 2 |
 | PG-assets-hygiene | public/assets-hygiene.html | UNKNOWN | no | 1 | 3 |
-| PG-assets | public/assets.html | any | yes | 10 | 14 |
+| PG-assets | public/assets.html | any | yes | 10 | 15 |
 | PG-cockpit | public/cockpit.html | any | yes | 1 | 8 |
 | PG-commitments | public/commitments.html | any | no | 1 | 4 |
 | PG-coverage | public/coverage.html | any | no | 0 | 3 |
@@ -39,29 +42,29 @@
 | PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 10 |
 | PG-handoffs | public/handoffs.html | any | yes | 1 | 7 |
 | PG-help | public/help.html | any | yes | 1 | 9 |
-| PG-home | public/home.html | any | yes | 0 | 6 |
+| PG-home | public/home.html | any | yes | 0 | 8 |
 | PG-index | public/index.html | any | yes | 1 | 25 |
 | PG-infra-health | public/infra-health.html | any | yes | 2 | 5 |
-| PG-inspection-actions | public/inspection-actions.html | any | no | 1 | 5 |
+| PG-inspection-actions | public/inspection-actions.html | any | no | 1 | 6 |
 | PG-inspection | public/inspection.html | any | no | 2 | 7 |
-| PG-inspections | public/inspections.html | any | yes | 1 | 5 |
+| PG-inspections | public/inspections.html | any | yes | 1 | 6 |
 | PG-integrations | public/integrations.html | any | yes | 1 | 4 |
 | PG-it-review | public/it-review.html | executive / scorecard-viewer | yes | 2 | 7 |
 | PG-itsm-integrations-plan | public/itsm-integrations-plan.html | UNKNOWN | no | 0 | 5 |
 | PG-itsm-roadmap | public/itsm-roadmap.html | super_admin | no | 1 | 4 |
 | PG-kpi-builder | public/kpi-builder.html | any | no | 0 | 2 |
-| PG-login | public/login.html | public | no | 1 | 9 |
+| PG-login | public/login.html | public | no | 1 | 10 |
 | PG-meeting | public/meeting.html | any | no | 1 | 11 |
-| PG-meetings-actions | public/meetings-actions.html | any | no | 2 | 7 |
+| PG-meetings-actions | public/meetings-actions.html | any | no | 2 | 8 |
 | PG-meetings-compliance | public/meetings-compliance.html | any | no | 2 | 4 |
 | PG-meetings-council | public/meetings-council.html | any | no | 2 | 3 |
 | PG-meetings-import | public/meetings-import.html | editor | no | 2 | 4 |
-| PG-meetings-insights | public/meetings-insights.html | any | no | 2 | 3 |
+| PG-meetings-insights | public/meetings-insights.html | any | no | 2 | 4 |
 | PG-meetings-issues | public/meetings-issues.html | any | no | 2 | 5 |
 | PG-meetings-progress | public/meetings-progress.html | any | no | 2 | 3 |
-| PG-meetings-setup | public/meetings-setup.html | any | no | 1 | 3 |
-| PG-meetings-unsigned | public/meetings-unsigned.html | any | no | 2 | 3 |
-| PG-meetings | public/meetings.html | any | yes | 2 | 4 |
+| PG-meetings-setup | public/meetings-setup.html | any | no | 1 | 4 |
+| PG-meetings-unsigned | public/meetings-unsigned.html | any | no | 2 | 4 |
+| PG-meetings | public/meetings.html | any | yes | 2 | 5 |
 | PG-no-access | public/no-access.html | any | no | 0 | 2 |
 | PG-notifications | public/notifications.html | any | yes | 1 | 3 |
 | PG-obligations | public/obligations.html | any | yes | 0 | 3 |
@@ -71,15 +74,79 @@
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 3 |
 | PG-reports | public/reports.html | any | yes | 2 | 26 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 4 |
-| PG-site-actions | public/site-actions.html | any | yes | 1 | 9 |
+| PG-site-actions | public/site-actions.html | any | yes | 1 | 10 |
 | PG-site-awareness | public/site-awareness.html | site-business / group-business / executive | yes | 2 | 5 |
 | PG-site-report | public/site-report.html | UNKNOWN | no | 0 | 5 |
 | PG-system-logs | public/system-logs.html | super_admin | yes | 1 | 3 |
 | PG-tracker-builder | public/tracker-builder.html | admin / tracker-admin | no | 1 | 4 |
 | PG-trackers | public/trackers.html | any | yes | 1 | 3 |
 | PG-wan-health | public/wan-health.html | UNKNOWN | no | 0 | 4 |
-| PG-wan-sla | public/wan-sla.html | UNKNOWN | no | 0 | 3 |
+| PG-wan-sla | public/wan-sla.html | UNKNOWN | no | 0 | 4 |
 | PG-wan | public/wan.html | any | yes | 3 | 11 |
+
+## Page entry points (E-U04)
+
+"Not in navigation" above counts only the shell menu. A page is **reachable** when it is in the shell menu, in a module tab strip (public/module-tabs.js), linked from another page or page script, or allow-listed as deep-link only (with the reason). Parent = where Back / the breadcrumb leads.
+
+| Page | Shell | Module tab | Linked from | Redirects to | Deep-link only | Parent |
+|---|---|---|---|---|---|---|
+| public/access.html | — | — | no-access.html, no-access.js | — | — | no-access.html |
+| public/activity-tracker.html | yes | — | — | — | — | shell |
+| public/analytics.html | yes | — | — | — | — | shell |
+| public/assets-finance.html | — | — | — | assets.html | legacy redirect stub kept for old bookmarks → assets.html | assets.html |
+| public/assets-hygiene.html | — | — | — | assets.html | legacy redirect stub kept for old bookmarks → assets.html | assets.html |
+| public/assets.html | yes | — | assets-finance.html, assets-hygiene.html | — | — | shell |
+| public/cockpit.html | yes | — | — | — | — | shell |
+| public/commitments.html | — | — | site-actions.html | — | — | site-actions.html |
+| public/coverage.html | — | — | — | — | — | **NO ENTRY POINT** — duty coverage page — no menu entry, no link from another page |
+| public/dashboard-composer.html | — | — | dashboards.html | — | — | dashboards.html |
+| public/dashboards.html | yes | — | — | — | — | shell |
+| public/exec-view.html | — | — | — | — | public IT status snapshot: reached from the SharePoint Quick Link, outside the app | — |
+| public/executive-report.html | yes | — | — | — | — | shell |
+| public/executive.html | yes | — | dashboards.html | — | — | shell |
+| public/handoffs.html | yes | — | home.html, site-actions.html | — | — | shell |
+| public/help.html | yes | — | — | — | — | shell |
+| public/home.html | yes | — | — | — | — | shell |
+| public/index.html | yes | — | login.html, no-access.html | — | — | shell |
+| public/infra-health.html | yes | — | — | — | — | shell |
+| public/inspection-actions.html | — | yes | inspections.html | — | — | inspections.html |
+| public/inspection.html | — | yes | inspection-actions.html, inspections.html | — | — | inspections.html |
+| public/inspections.html | yes | yes | inspection-actions.html | — | — | shell |
+| public/integrations.html | yes | — | — | — | — | shell |
+| public/it-review.html | yes | — | — | — | — | shell |
+| public/itsm-integrations-plan.html | — | — | itsm-roadmap.html | — | — | itsm-roadmap.html |
+| public/itsm-roadmap.html | — | — | — | — | the manager's personal roadmap tool: reached by its URL (bookmark), deliberately outside the shared menu | — |
+| public/kpi-builder.html | — | — | — | — | — | **NO ENTRY POINT** — KPI policy builder (kpi-committee) — only named in the role help text of the Users card |
+| public/login.html | — | — | auth.js, executive-report.html, reports.html | — | sign-in page: reached by redirect from every gated page (auth.js), not from a menu | executive-report.html |
+| public/meeting.html | — | — | lib/home-page.js, meetings-actions.html, meetings-council.html, meetings-issues.html (+4) | — | — | meetings-actions.html |
+| public/meetings-actions.html | — | yes | — | — | — | meetings.html |
+| public/meetings-compliance.html | — | yes | cockpit.html, meetings.html | — | — | meetings.html |
+| public/meetings-council.html | — | yes | meetings.html | — | — | meetings.html |
+| public/meetings-import.html | — | — | meetings.html | — | — | meetings.html |
+| public/meetings-insights.html | — | yes | — | — | — | meetings.html |
+| public/meetings-issues.html | — | yes | meetings.html | — | — | meetings.html |
+| public/meetings-progress.html | — | — | meeting.html, meetings.html | — | — | meeting.html |
+| public/meetings-setup.html | — | yes | — | — | — | meetings.html |
+| public/meetings-unsigned.html | — | yes | — | — | — | meetings.html |
+| public/meetings.html | yes | yes | meeting.html, meetings-import.html | — | — | shell |
+| public/no-access.html | — | — | auth.js | — | denial page: reached by redirect from auth.js when a role is missing | auth.js |
+| public/notifications.html | yes | — | home.html, site-actions.html | — | — | shell |
+| public/obligations.html | yes | — | home.html, site-actions.html | — | — | shell |
+| public/policies.html | yes | — | — | — | — | shell |
+| public/portfolio.html | yes | — | itsm-roadmap.html, project.html | — | — | shell |
+| public/project.html | — | — | lib/home-page.js, meeting.html | — | — | meeting.html |
+| public/report-studio.html | yes | — | — | — | — | shell |
+| public/reports.html | yes | — | site-report.html | — | — | shell |
+| public/rfi.html | yes | — | meeting.html, portfolio.html | — | — | shell |
+| public/site-actions.html | yes | yes | commitments.html, handoffs.html | — | — | shell |
+| public/site-awareness.html | yes | — | auth.js | — | — | shell |
+| public/site-report.html | — | — | — | — | — | **NO ENTRY POINT** — live site scoreboard — no link from the app (the coordinator e-mail names it but carries no link) |
+| public/system-logs.html | yes | — | — | — | — | shell |
+| public/tracker-builder.html | — | — | trackers.html | — | — | trackers.html |
+| public/trackers.html | yes | — | tracker-builder.html | — | — | shell |
+| public/wan-health.html | — | — | — | wan.html | legacy redirect stub kept for old bookmarks → wan.html | wan.html |
+| public/wan-sla.html | — | — | — | wan.html | legacy redirect stub kept for old bookmarks → wan.html | wan.html |
+| public/wan.html | yes | — | infra-health.html, wan-health.html, wan-sla.html | — | — | shell |
 
 ## Routes without a test reference
 

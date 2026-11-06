@@ -59,12 +59,91 @@ function testsMentioning(tests, needle) {
   return tests.filter((t) => t.src.includes(needle)).map((t) => t.file);
 }
 
+// ---- reachability (E-U04, audit U-07 / X-UX-01) ---------------------------------------------------------
+// "Not in navigation" (the old figure) only looked at _shell.js. A page can also be reached from a module tab
+// strip (public/module-tabs.js), from a link in another page or page script, or be DEEP-LINK ONLY by design
+// (an editor opened with ?id=, the login page). Every page must have one of those; a page with none is a
+// dead end and fails tests/inventory-reachability.test.js unless it is allow-listed here WITH a reason.
+const DEEP_LINK_ONLY = {
+  'login.html': 'sign-in page: reached by redirect from every gated page (auth.js), not from a menu',
+  'no-access.html': 'denial page: reached by redirect from auth.js when a role is missing',
+  'exec-view.html': 'public IT status snapshot: reached from the SharePoint Quick Link, outside the app',
+  'itsm-roadmap.html': "the manager's personal roadmap tool: reached by its URL (bookmark), deliberately outside the shared menu",
+};
+// RATCHET — pages that have NO entry point today and are not deep-link only by design. They are listed so
+// the inventory says so; tests/inventory-reachability.test.js fails if a page is ADDED here or if one becomes
+// reachable and stays listed. Where to link them is a navigation decision for a person (E-U04 evidence).
+const KNOWN_DEAD_ENDS = {
+  'coverage.html': 'duty coverage page — no menu entry, no link from another page',
+  'kpi-builder.html': 'KPI policy builder (kpi-committee) — only named in the role help text of the Users card',
+  'site-report.html': 'live site scoreboard — no link from the app (the coordinator e-mail names it but carries no link)',
+};
+const HREF_RE = /(?:href\s*[:=]\s*|location(?:\.href)?\s*=\s*|location\.(?:assign|replace)\(\s*|url=)['"`]?(?:\/)?([a-z0-9][a-z0-9._-]*\.html)/gi;
+function linkedPages(src) {
+  const out = new Set();
+  let m;
+  HREF_RE.lastIndex = 0;
+  while ((m = HREF_RE.exec(src))) out.add(m[1]);
+  return out;
+}
+/**
+ * Pure: pages [{name, src}], shell source, module-tabs source, extra scripts [{file, src}] (page scripts).
+ * → Map name → { shell, module_tab, linked_from:[...], redirect_to, deep_link_only, parent, reachable }.
+ */
+function reachability({ pages, shell, moduleTabs, scripts, allow, deadEnds }) {
+  const allowList = allow || DEEP_LINK_ONLY;
+  const known = deadEnds || KNOWN_DEAD_ENDS;
+  const shellHrefs = new Set((String(shell || '').match(/href:\s*'([^']+)'/g) || []).map((x) => x.replace(/href:\s*'|'/g, '').split(/[?#]/)[0]));
+  const tabHrefs = new Map(); // page → first page of its module strip (the module hub)
+  const MOD_RE = /\b([a-z_]+)\s*:\s*\[([\s\S]*?)\n\s*\]/g;
+  let mm;
+  while ((mm = MOD_RE.exec(String(moduleTabs || '')))) {
+    const hrefs = (mm[2].match(/href:\s*'([^']+)'/g) || []).map((x) => x.replace(/href:\s*'|'/g, '').split(/[?#]/)[0]);
+    for (const h of hrefs) if (!tabHrefs.has(h)) tabHrefs.set(h, hrefs[0]);
+  }
+  const names = new Set(pages.map((p) => p.name));
+  const linked = new Map();
+  const add = (target, from) => { if (!names.has(target) || target === from) return; if (!linked.has(target)) linked.set(target, new Set()); linked.get(target).add(from); };
+  const redirectOf = {};
+  for (const p of pages) {
+    const r = /http-equiv="refresh"[^>]*url=([a-z0-9._-]+\.html)/i.exec(p.src)
+      || (p.src.length < 2000 ? /<script[^>]*>\s*location\.replace\(\s*'([a-z0-9._-]+\.html)/i.exec(p.src) : null);
+    if (r) redirectOf[p.name] = r[1];
+    for (const t of linkedPages(p.src)) add(t, p.name);
+  }
+  for (const s of scripts || []) for (const t of linkedPages(s.src)) add(t, s.file);
+  const out = new Map();
+  for (const p of pages) {
+    const from = [...(linked.get(p.name) || [])].sort();
+    const shellNav = shellHrefs.has(p.name);
+    const tab = tabHrefs.has(p.name);
+    const own = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+    let deep = own(allowList, p.name) ? allowList[p.name] : null;
+    // A meta-refresh stub exists for old bookmarks; it is deep-link only when its target is a real page.
+    if (!deep && redirectOf[p.name] && names.has(redirectOf[p.name])) deep = 'legacy redirect stub kept for old bookmarks → ' + redirectOf[p.name];
+    const parent = shellNav ? 'shell' : (tab ? tabHrefs.get(p.name) : (from.find((f) => f.endsWith('.html')) || from[0] || null));
+    out.set(p.name, { shell: shellNav, module_tab: tab, linked_from: from, redirect_to: redirectOf[p.name] || null,
+      deep_link_only: deep, known_dead_end: own(known, p.name) ? known[p.name] : null,
+      parent: parent === p.name ? 'shell' : (parent || (redirectOf[p.name] || null)),
+      reachable: shellNav || tab || from.length > 0 || !!deep });
+  }
+  return out;
+}
+
 function build() {
   const tests = testIndex();
   const shell = fs.existsSync(path.join(ROOT, 'public', '_shell.js')) ? read(path.join(ROOT, 'public', '_shell.js')) : '';
   const navHrefs = new Set((shell.match(/href:\s*'([^']+)'/g) || []).map((x) => x.replace(/href:\s*'|'/g, '').split(/[?#]/)[0]));
 
-  const pages = list(path.join(ROOT, 'public'), /\.html$/).map((f) => {
+  const pageFiles = list(path.join(ROOT, 'public'), /\.html$/);
+  const mt = path.join(ROOT, 'public', 'module-tabs.js');
+  const scripts = walk(path.join(ROOT, 'public'), /\.(js|jsx)$/)
+    .filter((f) => !/[\\/](vendor|_shell\.js$|module-tabs\.js$)/.test(f) && !/[\\/]vendor[\\/]/.test(f))
+    .map((f) => ({ file: rel(f).replace(/^public\//, ''), src: read(f) }));
+  const reach = reachability({ pages: pageFiles.map((f) => ({ name: path.basename(f), src: read(f) })), shell,
+    moduleTabs: fs.existsSync(mt) ? read(mt) : '', scripts });
+
+  const pages = pageFiles.map((f) => {
     const name = path.basename(f);
     const src = read(f);
     const req = (src.match(/data-require="([^"]+)"/) || [])[1] || null;
@@ -74,6 +153,9 @@ function build() {
       page: 'public/' + name,
       requires: req ? req.split('|') : (name === 'login.html' || name === 'no-access.html' || name === 'exec-view.html' ? ['public'] : ['UNKNOWN']),
       in_navigation: navHrefs.has(name),
+      entry_points: (() => { const r = reach.get(name); return { shell: r.shell, module_tab: r.module_tab, linked_from: r.linked_from, redirect_to: r.redirect_to, deep_link_only: r.deep_link_only, known_dead_end: r.known_dead_end }; })(),
+      parent: reach.get(name).parent,
+      reachable: reach.get(name).reachable,
       inline_scripts: inlineScripts,
       bytes: Buffer.byteLength(src),
       tests: testsMentioning(tests, name),
@@ -108,6 +190,9 @@ function build() {
     pages_without_test_reference: count(pages, (p) => p.tests.length === 0),
     pages_without_declared_role: count(pages, (p) => p.requires[0] === 'UNKNOWN'),
     pages_not_in_navigation: count(pages, (p) => !p.in_navigation),
+    pages_not_in_shell_or_module_tabs: count(pages, (p) => !p.entry_points.shell && !p.entry_points.module_tab),
+    pages_deep_link_only: count(pages, (p) => !!p.entry_points.deep_link_only),
+    pages_without_entry_point: count(pages, (p) => !p.reachable),
     pages_with_inline_scripts: count(pages, (p) => p.inline_scripts > 0),
     routes: routes.length,
     routes_without_test_reference: count(routes, (r) => r.tests.length === 0),
@@ -129,6 +214,14 @@ function markdown(inv) {
   for (const [k, v] of Object.entries(s)) L.push(`| ${k.replace(/_/g, ' ')} | ${v} |`);
   L.push('', '## Pages', '', '| Id | Page | Role required | In nav | Inline scripts | Tests |', '|---|---|---|---|---:|---:|');
   for (const p of inv.pages) L.push(`| ${p.id} | ${p.page} | ${p.requires.join(' / ')} | ${p.in_navigation ? 'yes' : 'no'} | ${p.inline_scripts} | ${p.tests.length} |`);
+  L.push('', '## Page entry points (E-U04)', '',
+    '"Not in navigation" above counts only the shell menu. A page is **reachable** when it is in the shell menu, in a module tab strip (public/module-tabs.js), linked from another page or page script, or allow-listed as deep-link only (with the reason). Parent = where Back / the breadcrumb leads.', '',
+    '| Page | Shell | Module tab | Linked from | Redirects to | Deep-link only | Parent |', '|---|---|---|---|---|---|---|');
+  for (const p of inv.pages) {
+    const e = p.entry_points;
+    const lf = e.linked_from.length ? e.linked_from.slice(0, 4).join(', ') + (e.linked_from.length > 4 ? ` (+${e.linked_from.length - 4})` : '') : '—';
+    L.push(`| ${p.page} | ${e.shell ? 'yes' : '—'} | ${e.module_tab ? 'yes' : '—'} | ${lf} | ${e.redirect_to || '—'} | ${e.deep_link_only || '—'} | ${p.reachable ? (p.parent || '—') : '**NO ENTRY POINT**' + (e.known_dead_end ? ' — ' + e.known_dead_end : '')} |`);
+  }
   L.push('', '## Routes without a test reference', '', '| Id | Method | Path | File:line |', '|---|---|---|---|');
   for (const r of inv.routes.filter((x) => x.tests.length === 0)) L.push(`| ${r.id} | ${r.method} | \`${r.path}\` | ${r.file}:${r.line} |`);
   L.push('', '## Scheduled jobs', '', '| Id | Job | Tests |', '|---|---|---:|');
@@ -163,4 +256,4 @@ function main() {
   console.log(JSON.stringify(inv.summary));
 }
 if (require.main === module) main();
-module.exports = { build, routesOf, literalPrefix, comparable };
+module.exports = { build, routesOf, literalPrefix, comparable, reachability, linkedPages, DEEP_LINK_ONLY, KNOWN_DEAD_ENDS };
