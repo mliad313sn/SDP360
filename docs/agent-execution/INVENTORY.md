@@ -11,13 +11,13 @@
 | pages without declared role | 6 |
 | pages not in navigation | 29 |
 | pages with inline scripts | 46 |
-| routes | 602 |
+| routes | 611 |
 | routes without test reference | 49 |
 | routes in server js | 210 |
-| jobs | 29 |
+| jobs | 30 |
 | jobs without test reference | 10 |
-| migrations | 72 |
-| test files | 605 |
+| migrations | 74 |
+| test files | 611 |
 
 ## Pages
 
@@ -29,7 +29,7 @@
 | PG-assets-finance | public/assets-finance.html | UNKNOWN | no | 1 | 2 |
 | PG-assets-hygiene | public/assets-hygiene.html | UNKNOWN | no | 1 | 3 |
 | PG-assets | public/assets.html | any | yes | 10 | 14 |
-| PG-cockpit | public/cockpit.html | any | yes | 1 | 7 |
+| PG-cockpit | public/cockpit.html | any | yes | 1 | 8 |
 | PG-commitments | public/commitments.html | any | no | 1 | 4 |
 | PG-coverage | public/coverage.html | any | no | 0 | 3 |
 | PG-dashboard-composer | public/dashboard-composer.html | admin / dashboard-publisher | no | 1 | 5 |
@@ -37,7 +37,7 @@
 | PG-exec-view | public/exec-view.html | public | no | 1 | 6 |
 | PG-executive-report | public/executive-report.html | super_admin | yes | 1 | 10 |
 | PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 9 |
-| PG-handoffs | public/handoffs.html | any | yes | 1 | 6 |
+| PG-handoffs | public/handoffs.html | any | yes | 1 | 7 |
 | PG-help | public/help.html | any | yes | 1 | 9 |
 | PG-home | public/home.html | any | yes | 0 | 6 |
 | PG-index | public/index.html | any | yes | 1 | 24 |
@@ -64,7 +64,7 @@
 | PG-meetings | public/meetings.html | any | yes | 2 | 4 |
 | PG-no-access | public/no-access.html | any | no | 0 | 2 |
 | PG-notifications | public/notifications.html | any | yes | 1 | 3 |
-| PG-obligations | public/obligations.html | any | yes | 0 | 2 |
+| PG-obligations | public/obligations.html | any | yes | 0 | 3 |
 | PG-policies | public/policies.html | admin / committee-member | yes | 1 | 4 |
 | PG-portfolio | public/portfolio.html | any | yes | 1 | 8 |
 | PG-project | public/project.html | any | no | 1 | 8 |
@@ -152,6 +152,7 @@
 | JB-engagement-digest | engagement.digest | 0 |
 | JB-engagement-digest-weekly | engagement.digest_weekly | 0 |
 | JB-field-purge | field.purge | 1 |
+| JB-governance-agenda-drafts | governance.agenda_drafts | 1 |
 | JB-governance-ppm-alerts | governance.ppm_alerts | 1 |
 | JB-handoffs-escalate | handoffs.escalate | 1 |
 | JB-meraki-wan | meraki.wan | 4 |
