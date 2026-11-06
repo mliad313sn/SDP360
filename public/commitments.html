@@ -57,6 +57,13 @@
     <table><thead><tr><th>Category</th><th>Sub-category</th><th>Incidents</th><th>Open / closed</th><th>Last</th><th></th></tr></thead><tbody id="pcList"></tbody></table>
     <div class="cm-msg" id="pcMsg"></div>
   </div>
+  <div class="cm-card" id="pirPanel" hidden>
+    <strong>Post-incident reviews (major incidents)</strong>
+    <div class="cm-muted">One review record per major incident: decisions, recurrence of the same category × sub-category on the site before / after, linked commitments. RCA / CA / PIR / LL are read from ServiceDesk Plus. The sign-off is recorded by a person other than the author; nothing is sent.</div>
+    <table><thead><tr><th>Incident</th><th>Subject</th><th>Created</th><th>Review</th></tr></thead><tbody id="pirList"></tbody></table>
+    <div id="pirDetail" class="cm-form"></div>
+    <div class="cm-msg" id="pirMsg"></div>
+  </div>
   <div class="cm-card cm-form" id="cmNew" hidden>
     <strong>New commitment</strong>
     <input id="nfTitle" placeholder="Title">
@@ -177,6 +184,46 @@
     } catch (e) { $('pcMsg').textContent = e.message; }
   });
   loadCandidates();
+  // E-I03 — post-incident reviews (404 = switch off → panel hidden)
+  let pirCur = null;
+  async function loadPir() {
+    try {
+      const j = await api('GET', '/api/commitments/pir'); $('pirPanel').hidden = false;
+      $('pirList').innerHTML = j.incidents.map((m) => `<tr class="cm-row" data-rid="${esc(m.request_id)}" tabindex="0"><td>#${esc(m.display_id || m.request_id)}</td><td>${esc(m.subject)}</td><td>${esc(m.created || '—')}</td><td>${m.review ? (m.review.signed ? 'signed off by ' + esc(m.review.signed_off_name) : 'draft by ' + esc(m.review.author)) : '<span class="cm-muted">none</span>'}</td></tr>`).join('') || '<tr><td colspan="4" class="cm-muted">No major incident in your scope (12 months).</td></tr>';
+    } catch (e) { if (e.status === 404) $('pirPanel').hidden = true; else { $('pirPanel').hidden = false; $('pirMsg').textContent = e.message; } }
+  }
+  const cnt = (v) => (v == null ? 'not measured yet' : String(v));
+  async function showPir(rid) {
+    try {
+      const j = await api('GET', '/api/commitments/pir/' + encodeURIComponent(rid)); pirCur = j; $('pirMsg').textContent = '';
+      const r = j.review, ro = !j.can_edit;
+      $('pirDetail').innerHTML = `<h3>#${esc(j.incident.display_id || j.incident.request_id)} ${esc(j.incident.subject || '')}</h3>
+        <div class="cm-muted">${esc(j.incident.category || '(none)')} / ${esc(j.incident.sub_category || '(none)')} · ${esc(j.incident.occurred_on || '—')}</div>
+        <ul class="cm-events"><li>RCA: ${esc(j.udf.rca || '—')}</li><li>Corrective action: ${esc(j.udf.ca || '—')}</li><li>PIR: ${esc(j.udf.pir || '—')}</li><li>Lessons learned: ${esc(j.udf.ll || '—')}</li></ul>
+        <div class="cm-muted">Same category × sub-category on the site — ${j.window_days} days before: ${cnt(j.counts.before)} · after: ${cnt(j.counts.after)}${j.counts.frozen ? ' (frozen at sign-off)' : ''}</div>
+        <textarea id="pirDecisions" rows="3" placeholder="Decisions taken"${ro ? ' disabled' : ''}>${esc(r ? r.decisions || '' : '')}</textarea>
+        <input id="pirWindow" type="number" min="7" max="365" value="${j.window_days}"${ro ? ' disabled' : ''}>
+        <input id="pirCommitments" placeholder="Linked commitment ids, comma-separated" value="${esc(r ? r.commitment_ids.join(', ') : '')}"${ro ? ' disabled' : ''}>
+        ${j.can_edit ? '<button id="pirSave" class="cm-primary">Save review</button>' : ''}${j.can_sign ? '<button id="pirSign">Sign off (you are not the author)</button>' : ''}
+        <div class="cm-muted">${r ? 'Author: ' + esc(r.author || '—') + (r.signed ? ' · signed off by ' + esc(r.signed_off_name) + ' on ' + esc(String(r.signed_off_at).slice(0, 10)) : ' · not signed off') : 'No review recorded yet.'}</div>`;
+    } catch (e) { $('pirMsg').textContent = e.message; }
+  }
+  $('pirList').addEventListener('click', (ev) => { const tr = ev.target.closest('tr[data-rid]'); if (tr) showPir(tr.dataset.rid); });
+  $('pirList').addEventListener('keydown', (ev) => { if (ev.key !== 'Enter' && ev.key !== ' ') return; const tr = ev.target.closest('tr[data-rid]'); if (tr) { ev.preventDefault(); showPir(tr.dataset.rid); } });
+  $('pirDetail').addEventListener('click', async (ev) => {
+    if (!pirCur) return; const rid = pirCur.incident.request_id, v = pirCur.review ? pirCur.review.version : undefined;
+    try {
+      if (ev.target.id === 'pirSave') {
+        await api('POST', '/api/commitments/pir/' + encodeURIComponent(rid), { decisions: $('pirDecisions').value, window_days: Number($('pirWindow').value),
+          commitment_ids: $('pirCommitments').value.split(',').map((x) => Number(x.trim())).filter(Boolean), version: v });
+        await showPir(rid); loadPir();
+      } else if (ev.target.id === 'pirSign') {
+        const note = await window.ReasonDialog.ask({ title: 'Sign off the review', label: 'Sign-off note (kept with the record)', min: 3 }); if (!note) return;
+        await api('POST', '/api/commitments/pir/' + encodeURIComponent(rid) + '/sign-off', { note, version: v }); await showPir(rid); loadPir();
+      }
+    } catch (e) { $('pirMsg').textContent = e.message; }
+  });
+  loadPir();
   const qid = new URLSearchParams(location.search).get('id');
   loadList(); if (qid) show(qid);
 })();

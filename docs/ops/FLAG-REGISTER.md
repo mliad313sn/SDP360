@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (179) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (180) — services/reportConfig.js DEFAULTS
 
 | Key | Default (today) | Kind | Owner | Recommended pilot value | Reference |
 |---|---|---|---|---|---|
@@ -108,6 +108,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `opmanager_ca_bundle` | (secret — not shown) | secret | to be named | — | — |
 | `opmanager_tls_insecure` | `0` | setting | to be named | — | — |
 | `outbound_allow_hosts` | `` | setting | to be named | — | — |
+| `pir_reviews_enabled` | `0` | arm switch | Incident manager + business sponsor | `1` once the Incident manager names who signs a post-incident review and the business sponsor per major incident (the sign-off is a recorded human act by someone other than the author; nothing is sent) | E-I03 |
 | `portfolio_editor_plan_writes` | `0` | setting | Owner (access policy) | `1` | A-15 |
 | `portfolio_site_scope_reads` | `0` | setting | Owner (access policy) | `1` | A-15 |
 | `ppm_alert_blocked_days` | `5` | setting | Committee | `5` | A-27 |

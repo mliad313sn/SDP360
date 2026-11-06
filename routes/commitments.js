@@ -171,6 +171,92 @@ module.exports = function commitmentsRoutes(deps) {
       res.json({ status: PC.WORDING, site_id: siteId, window: { from, to, days }, ...out });
     } catch (e) { fail(res, e); }
   });
+  // E-I03 (audit I-03, catalogue R15) — post-incident (PIR) review record per major incident. Switch pir_reviews_enabled
+  // (default '0' → 404). Sign-off = a recorded human act by someone who is NOT the author; nothing is sent anywhere.
+  const PIR = require('../services/pirReview');
+  const pirStore = () => deps.pirStore || (deps._pir = deps._pir || PIR.makePirStore({ prepare: (sql) => rdb().pgHandle().prepare(sql) }));
+  async function pirEnabled(req, res, next) {
+    try {
+      const cfg = await reportConfig.getConfig(rdb().db);
+      if (String(cfg.pir_reviews_enabled) !== '1') return httpFail(res, new Error('post-incident reviews are not enabled'), 404, { ok: false });
+      next();
+    } catch (e) { fail(res, e); }
+  }
+  const mayReadSite = (u, siteId) => isAdmin(u) || (siteId != null && userSites.hasSite(u, siteId));
+  const mayWriteSite = (u, siteId) => isAdmin(u) || (rdb().userHasRole(u, 'editor') && siteId != null && userSites.hasSite(u, siteId));
+  function udfText(udfJson) {
+    let u = {}; try { u = JSON.parse(udfJson || '{}') || {}; } catch (_) { u = {}; }
+    const { INCIDENT_UDF_VARIANTS: V } = require('../services/roadmapEvidence');
+    const pick = (keys) => { for (const k of keys) if (u[k] != null && String(u[k]).trim()) return String(u[k]).slice(0, 4000); return null; };
+    return { rca: pick(V.rca), ca: pick(V.ca), pir: pick(V.pir), ll: pick(V.ll) };
+  }
+  async function pirLoad(req, res) {
+    const ctx = await PIR.incidentContext(rdb().pgHandle(), req.params.rid);
+    if (!ctx || !ctx.is_major || !mayReadSite(req.reportUser, ctx.site_id)) { httpFail(res, new Error('major incident not found'), 404, { ok: false }); return null; }
+    return ctx;
+  }
+  async function pirCounts(ctx, w) {
+    const today = new Date().toISOString().slice(0, 10);
+    const win = ctx.occurred_on ? PIR.windows(ctx.occurred_on, w, today) : null;
+    if (!win || ctx.site_id == null) return { before: null, after: null, windows: win };
+    const rows = await PIR.sameKindIncidents(rdb().pgHandle(), ctx.site_id, ctx.category, ctx.sub_category, win.before.from, win.after.to);
+    if (rows == null) return { before: null, after: null, windows: win };
+    return PIR.countWindows(rows, { occurredDay: ctx.occurred_on, windowDays: w, today, requestId: ctx.request_id });
+  }
+  async function pirView(ctx, u) {
+    const review = await pirStore().getByRequest(ctx.request_id);
+    const w = review ? review.window_days : 90;
+    const live = review && review.signed ? { before: review.before_count, after: review.after_count, windows: null, frozen: true } : await pirCounts(ctx, w);
+    const { udf_json, ...inc } = ctx;
+    return { incident: inc, udf: udfText(udf_json), review, counts: live, window_days: w,
+      can_edit: mayWriteSite(u, ctx.site_id) && !(review && review.signed),
+      can_sign: !!review && !review.signed && mayWriteSite(u, ctx.site_id) && Number(review.author_id) !== Number(u.id) };
+  }
+  router.get(base + '/pir', requireReportSession, enabled, pirEnabled, async (req, res) => {
+    try {
+      const u = req.reportUser;
+      const sites = await rdb().listSites({ includeInactive: true });
+      const byGroup = new Map();
+      for (const s of sites || []) String(s.zoho_group || '').split(',').map((g) => g.trim()).filter(Boolean).forEach((g) => byGroup.set(g, Number(s.id)));
+      const reviews = new Map((await pirStore().list({ siteIds: isAdmin(u) ? null : userSites.siteIds(u).map(Number) })).map((r) => [r.request_id, r]));
+      const out = [];
+      for (const mi of (await rdb().getMajorIncidentsHistory(12)) || []) {
+        const siteId = byGroup.has(String(mi.Group || '').trim()) ? byGroup.get(String(mi.Group || '').trim()) : null;
+        if (!mayReadSite(u, siteId)) continue;
+        const r = reviews.get(String(mi['Request ID']));
+        out.push({ request_id: String(mi['Request ID']), display_id: mi['Request Display ID'], subject: mi.Subject, created: mi['Created Time'], site_id: siteId,
+          category: mi.Category, sub_category: mi['Sub Category'], review: r ? { id: r.id, signed: r.signed, author: r.author, signed_off_name: r.signed_off_name } : null });
+      }
+      res.json({ status: 'record — sign-off by a person other than the author', incidents: out });
+    } catch (e) { fail(res, e); }
+  });
+  router.get(base + '/pir/:rid', requireReportSession, enabled, pirEnabled, async (req, res) => {
+    try { const ctx = await pirLoad(req, res); if (!ctx) return; res.json(await pirView(ctx, req.reportUser)); } catch (e) { fail(res, e); }
+  });
+  router.post(base + '/pir/:rid', requireReportSession, enabled, pirEnabled, async (req, res) => {
+    try {
+      const ctx = await pirLoad(req, res); if (!ctx) return;
+      const u = req.reportUser, b = req.body || {};
+      if (!mayWriteSite(u, ctx.site_id)) return httpFail(res, new Error('editor of this site required'), 403, { ok: false });
+      const ex = await pirStore().getByRequest(ctx.request_id);
+      if (ex) await pirStore().update(ex.id, b, { expectedVersion: b.version });
+      else { const r = await pirStore().create(ctx, b, u); if (r.created) log(req, 'pir_review_created', ctx.request_id, { site_id: ctx.site_id }); }
+      res.status(ex ? 200 : 201).json(await pirView(ctx, u));
+    } catch (e) { fail(res, e); }
+  });
+  router.post(base + '/pir/:rid/sign-off', requireReportSession, enabled, pirEnabled, async (req, res) => {
+    try {
+      const ctx = await pirLoad(req, res); if (!ctx) return;
+      const u = req.reportUser, b = req.body || {};
+      if (!mayWriteSite(u, ctx.site_id)) return httpFail(res, new Error('editor of this site required'), 403, { ok: false });
+      const r = await pirStore().getByRequest(ctx.request_id);
+      if (!r) return httpFail(res, new Error('no review recorded yet'), 404, { ok: false });
+      const counts = await pirCounts(ctx, r.window_days);
+      await pirStore().signOff(r.id, u, { note: b.note, counts, expectedVersion: b.version });
+      log(req, 'pir_review_signed_off', ctx.request_id, { site_id: ctx.site_id, author: r.author });
+      res.json(await pirView(ctx, u));
+    } catch (e) { fail(res, e); }
+  });
   router.get(base + '/:id', requireReportSession, enabled, async (req, res) => {
     try {
       const c = await load(req, res); if (!c) return;

@@ -352,6 +352,10 @@ DEFAULTS.controls_register_enabled = '0';
 //    problem_candidate_min = the recurrence threshold (empty = no candidate at all — no threshold invented here).
 DEFAULTS.problem_candidates_enabled = '0';
 DEFAULTS.problem_candidate_min = '';
+// ── E-I03 (catalogue R15) — '1' = a post-incident (PIR) review record per major incident under /api/commitments/pir
+//    (decisions, before/after recurrence counts, linked commitments, sign-off by someone other than the author);
+//    '0' (default, today) = those routes 404, no panel.
+DEFAULTS.pir_reviews_enabled = '0';
 const KEYS = Object.keys(DEFAULTS);
 
 // Secrets that the GET handler redacts to '' — a Save that doesn't retype them must
