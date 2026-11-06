@@ -199,3 +199,22 @@ test('G08: a rescheduled session keeps its old date in the history; single-signa
   const o = await (await get('/api/governance/oversight', admin)).json();
   assert.ok((o.single_signature || o.oversight && o.oversight.single_signature || []).some((x) => x.session_id === s.id), JSON.stringify(Object.keys(o)));
 });
+
+test('E-G03: attendance by the chair, quorum not defined by default, minutes say so; draft-agenda route 404 while off', async () => {
+  const r = await (await send('POST', `/api/governance/cadences/${cadId}/sessions`, editor, { scheduled_at: '2026-11-03T09:00:00Z' })).json();
+  const sid = r.session.id;
+  try { await rdb.createUser({ username: 'gv_editor3', full_name: 'E3', password: 'gv_editor3pass1234', role: 'editor', roles: ['editor'], site_id: hounde }); } catch {}
+  const editor3 = (await rdb.login('gv_editor3', 'gv_editor3pass1234')).token;
+  assert.equal((await send('PUT', `/api/governance/sessions/${sid}/attendance`, editor3, { attendance: [] })).status, 403, 'a plain site editor does not record attendance');
+  assert.equal((await send('PUT', `/api/governance/sessions/${sid}/attendance`, editor, { attendance: [{ participant: 'chair@example.com', status: 'maybe' }] })).status, 400);
+  const a = await (await send('PUT', `/api/governance/sessions/${sid}/attendance`, editor, { attendance: [{ participant: 'chair@example.com', status: 'present' }] })).json();
+  assert.equal(a.ok, true); assert.equal(a.quorum.state, 'not_defined'); assert.equal(a.session.attendance[0].status, 'present');
+  const g = await (await get(`/api/governance/sessions/${sid}`, editor)).json(); assert.equal(g.quorum.state, 'not_defined'); assert.equal(g.can_record_attendance, true);
+  assert.equal((await get(`/api/governance/cadences/${cadId}/draft-agenda`, editor)).status, 404);
+  await require('../services/reportConfig').setConfig(rdb.db, { agenda_cron_enabled: '1' }, 'test');
+  try {
+    const d = await (await get(`/api/governance/cadences/${cadId}/draft-agenda`, editor)).json(); assert.equal(d.status, 'none');
+    const job = await require('../services/agendaDrafts').run({ now: new Date('2026-11-02T05:10:00Z') });
+    assert.ok(job.rows >= 0 && Array.isArray(job.errors), JSON.stringify(job));
+  } finally { await require('../services/reportConfig').setConfig(rdb.db, { agenda_cron_enabled: '0' }, 'test'); }
+});

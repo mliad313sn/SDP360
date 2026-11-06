@@ -70,6 +70,7 @@
       <div class="panel"><h2>Decisions of this session</h2><div id="l-dec"></div><div class="row" id="l-decform"><label>Title <input id="d-title"></label><label>Owner <input id="d-owner"></label><label>Due <input id="d-due" type="date"></label><label style="grid-column:1/-1">Text <textarea id="d-text" rows="2"></textarea></label></div><button class="btn primary" id="d-add" type="button">Record decision (DEC-)</button></div>
       <div class="panel"><h2>Actions of this session</h2><div id="l-act"></div><div class="row"><label>Action <input id="a-title"></label><label>Owner <input id="a-owner"></label><label>Due <input id="a-due" type="date"></label><label>Source <input id="a-src" placeholder="e.g. ticket 311587 / DEC-2026-003"></label></div><button class="btn" id="a-add" type="button">Add action</button></div>
     </div>
+    <div class="panel" id="l-attpanel"><h2>Attendance</h2><div id="l-attlist"></div><div class="bar"><span class="muted" id="l-quorum" aria-live="polite"></span><button class="btn" id="l-saveatt" type="button">Save attendance</button></div></div>
     <div class="panel"><h2>Session notes</h2><textarea id="l-notes" rows="4" style="width:100%" aria-label="Session notes"></textarea><div class="bar"><span class="draft" id="l-draft" aria-live="polite"></span><button class="btn" id="l-savenotes" type="button">Save notes &amp; attendees</button></div></div>
   </section>
 </main>
@@ -158,10 +159,26 @@
       $("l-decform").hidden = !j.can_decide; $("d-add").hidden = !j.can_decide; $("a-add").hidden = !j.can_run; $("l-savenotes").hidden = !j.can_run;
       $("l-att").value = (cur.attendees || []).join(", "); $("l-notes").value = cur.notes || ""; $("l-draft").textContent = "";
       try { var dr = JSON.parse(localStorage.getItem("cockpit_draft_" + cur.id) || "null"); if (dr && j.can_run && (dr.notes !== $("l-notes").value || dr.att !== $("l-att").value)) { $("l-notes").value = dr.notes; $("l-att").value = dr.att; $("l-draft").textContent = T("Unsent draft restored from this device — it will be sent automatically"); setTimeout(function () { flushNotes().catch(function () {}); }, 500); } } catch (_) {}
-      renderItems(); renderDecs(j.decisions); renderActs(j.actions);
+      renderItems(); renderDecs(j.decisions); renderActs(j.actions); renderAttendance(j);
       if (timer) clearInterval(timer); timer = setInterval(tick, 1000); tick();
     });
   }
+  // E-G03 — attendance per participant (secretary / chair / committee); quorum state from the server
+  // (governance.quorum_min empty = "quorum not defined", never "quorate").
+  var QSTATE = { not_recorded: "attendance not recorded", not_defined: "quorum not defined", quorate: "quorate", not_quorate: "NOT quorate" };
+  function renderAttendance(j) {
+    var att = cur.attendance || [], byName = {}; att.forEach(function (a) { byName[String(a.participant).toLowerCase()] = a.status; });
+    var names = []; ((j.cadence && j.cadence.participants) || []).concat(cur.attendees || []).concat(att.map(function (a) { return a.participant; })).forEach(function (n) { if (n && names.map(function (x) { return x.toLowerCase(); }).indexOf(String(n).toLowerCase()) < 0) names.push(String(n)); });
+    var can = !!j.can_record_attendance && cur.status !== "cancelled";
+    $("l-attlist").innerHTML = names.length ? names.map(function (n, i) { var st = byName[n.toLowerCase()] || ""; return "<label>" + esc(n) + " <select aria-label=\"" + esc(n) + "\" data-att=\"" + i + "\" data-name=\"" + esc(n) + "\"" + (can ? "" : " disabled") + "><option value=\"\">—</option>" + ["present", "absent", "excused"].map(function (v) { return "<option value=\"" + v + "\"" + (st === v ? " selected" : "") + ">" + T(v) + "</option>"; }).join("") + "</select></label>"; }).join(" ") : "<p class=\"muted\">" + T("No participant listed on the cadence.") + "</p>";
+    var q = j.quorum || {}; $("l-quorum").textContent = T("Quorum") + ": " + T(QSTATE[q.state] || "attendance not recorded") + (q.required != null ? " (" + (q.present == null ? "—" : q.present) + " / " + q.required + ")" : "");
+    $("l-saveatt").hidden = !can || !names.length;
+  }
+  $("l-saveatt").addEventListener("click", function () {
+    if (!cur) return;
+    var list = []; document.querySelectorAll("#l-attlist select[data-att]").forEach(function (s) { if (s.value) list.push({ participant: s.dataset.name, status: s.value }); });
+    api("/api/governance/sessions/" + cur.id + "/attendance", { method: "PUT", body: JSON.stringify({ attendance: list }) }).then(function (r) { cur.attendance = r.session.attendance; renderAttendance({ cadence: cur._cad, can_record_attendance: true, quorum: r.quorum }); msg(T("Attendance saved.")); }).catch(fail);
+  });
   function tick() { if (!cur || !cur.started_at) { $("clock").textContent = "00:00"; return; } var s = Math.max(0, Math.floor((Date.now() - new Date(cur.started_at)) / 1000)); $("clock").textContent = String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(s % 60).padStart(2, "0") + " / " + ((cur.agenda && cur.agenda.total_minutes) || 0) + " min"; }
   function renderItems() {
     var ag = cur.agenda || { items: [] }, st = {}; (cur.items || []).forEach(function (i) { st[i.id] = i; });

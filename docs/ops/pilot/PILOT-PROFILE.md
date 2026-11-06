@@ -80,12 +80,16 @@ planned switch cannot be set before its goal lands.
 | `site_code_shared_block` | built | `0` | `1` once the data owner has given each shared code to one site (Assafo/Tanda → tracker `TND`, AM-01) — while `0` both editors keep writing the same scope; `1` refuses a scoped editor's tracker / meetings / inspection save under a code two active sites share (409 naming the sites, page banner), never picks an owner | Data owner + Owner | D-01 |
 | `incubation_rfi_link_enabled` | built | `0` | `1` on the pilot site once the PMO accepts incubation-born RFIs in the queue (the RFI score stays provisional: incubation scoring criteria are a human decision) | PMO + Owner | E-I04 |
 | `obligations_include_decisions` | built | `0` | `1` (the site obligations view then counts the site's open governance decisions; the visible total of a site can grow) | Committee + Owner | E-G02 |
+| `agenda_cron_enabled` | built | `0` | `1` (the Monday job prepares a DRAFT agenda per cadence due that week; nothing is sent, the secretary still prepares the session) | Committee | E-G03 |
 | `site_local_calendar` | built | `0` | `0` while every reporting site is UTC+0; `1` only when a non-UTC site (e.g. the London office) is reported and its time zone (`sites.time_zone`, else from its country) is confirmed — only the calendar-month helpdesk figures move | Owner + Finance (month-end figures) | D-07 |
 
 Not in this table because they are not top-level `report_config` keys:
 
 - A-23 (built) — `paused_statuses` (default `[]`) and `dedup_mode` (default `once`) live **inside** the existing
   `teams_sla_rules` JSON; decided by the helpdesk lead.
+- E-G03 (built) — governance **policy** `governance.quorum_min` (Admin ▸ Governance policies, per site), not a
+  `report_config` key: default empty = not defined (minutes print "quorum not defined", never "quorate"); the
+  value (how many present) is the committee's decision.
 - C-03 (built) — governance **policy** `governance.skip_inactive_holders` (Admin ▸ Governance policies, platform
   only, protected), not a `report_config` key: default `false` (today: a deactivated or site-less role holder or
   deputy still counts as coverage and still receives escalations); recommended pilot value `true`; decided by the

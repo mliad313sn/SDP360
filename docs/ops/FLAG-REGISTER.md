@@ -12,13 +12,14 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (159) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (160) — services/reportConfig.js DEFAULTS
 
 | Key | Default (today) | Kind | Owner | Recommended pilot value | Reference |
 |---|---|---|---|---|---|
 | `access_approver_policy` | `{"platform_roles":["admin","executive","super_admin","tra…` | setting | Security owner + Owner | the default (PO decision R7, encoded 2026-11-05): platform roles by a super_admin, other roles by an admin-tier user holding the site; never the requester, subject or their deputy | C-19 |
 | `access_grant_expiry_job` | `0` | setting | Security owner | `1` (ends expired grants nightly; a role held before the grant or by another live grant stays) | C-18 |
 | `access_require_approval` | `0` | setting | Security owner + Owner (approver matrix) | `1` once the approver rule and the requires_request list are decided (break-glass stays possible, logged risk=1) | C-18 |
+| `agenda_cron_enabled` | `0` | arm switch | Committee | `1` (the Monday job prepares a DRAFT agenda per cadence due that week; nothing is sent, the secretary still prepares the session) | E-G03 |
 | `alert_external_enabled` | `0` | arm switch | to be named | — | — |
 | `analytics_accounts_url` | `` | setting | to be named | — | — |
 | `analytics_client_id` | `` | setting | to be named | — | — |
@@ -190,7 +191,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `capacity_weeks_back` | planned | `12` | Ops | A-13 |
 | `capacity_workdays_per_week` | planned | `5` | Ops | A-13 |
 
-## 3. Governance policies (36) — services/governancePolicy.js PARAMS
+## 3. Governance policies (37) — services/governancePolicy.js PARAMS
 
 | Key | Default (today) | Type | Protected | Site-scoped | Owner |
 |---|---|---|---|---|---|
@@ -206,6 +207,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `freshness.wan_hours` | `30` | number | yes | no | to be named |
 | `governance.dual_approval_relaxations` | `true` | bool | yes | no | to be named |
 | `governance.dual_approval_tightening` | `false` | bool | yes | no | to be named |
+| `governance.quorum_min` | `null` | int | yes | yes | to be named |
 | `governance.relaxation_max_days` | `90` | int | yes | no | to be named |
 | `governance.skip_inactive_holders` | `false` | bool | yes | no | Owner (access policy) |
 | `handoffs.commitment_ledger` | `false` | bool | no | yes | to be named |

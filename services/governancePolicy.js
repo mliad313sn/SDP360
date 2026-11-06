@@ -89,6 +89,11 @@ const PARAMS = [
   P('meetings.group_decisions_public', 'bool', true, { area: 'meetings', siteScoped: false, protected: true, stricter: 'false',
     en: 'Decisions of group-level (committee) sessions are listed for every account; off = only the committee, the chair / secretary and the participants see them, like the sessions themselves.',
     fr: 'Les décisions des séances de groupe (comité) sont visibles de tous ; désactivé = seuls le comité, le président / secrétaire et les participants les voient, comme les séances.' }),
+  // E-G03 (audit G-03) — null = NOT DEFINED: minutes say "quorum not defined", never "quorate". The value is the
+  // committee's (who counts, how many); no default is invented here.
+  P('governance.quorum_min', 'int', null, { area: 'meetings', nullable: true, min: 1, max: 50, protected: true, stricter: 'higher',
+    en: 'Minimum number of participants marked present for a session to be quorate. Empty = not defined (the minutes say so; nothing is called quorate).',
+    fr: 'Nombre minimal de participants présents pour qu\'une séance atteigne le quorum. Vide = non défini (le compte rendu le dit ; rien n\'est déclaré au quorum).' }),
   // ── handoffs (G-22) ──────────────────────────────────────────────────────────────────────────────
   P('handoffs.reason_min', 'int', 5, { area: 'handoffs', protected: true, min: 3, max: 500, stricter: 'higher',
     en: 'Minimum length of a reason (reject, block, escalate, cancel, rework, reassign).',
@@ -133,6 +138,7 @@ function coerce(p, raw) {
     throw bad('true or false expected');
   }
   if (p.type === 'int' || p.type === 'number') {
+    if (p.nullable && (raw === '' || raw == null)) return null;   // E-G03: an undefined value stays undefined
     const n = Number(raw);
     if (raw === '' || raw == null || !Number.isFinite(n)) throw bad('a number is expected');
     if (p.type === 'int' && !Number.isInteger(n)) throw bad('a whole number is expected');

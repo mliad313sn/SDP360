@@ -48,7 +48,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   }
 
   // ── cadences ──────────────────────────────────────────────────────────────────────
-  const cadRow = (r) => r && ({ ...r, id: Number(r.id), site_id: r.site_id == null ? null : Number(r.site_id), active: Number(r.active) !== 0, participants: P_(r.participants, []), agenda_template: P_(r.agenda_template, null) });
+  const cadRow = (r) => r && ({ ...r, id: Number(r.id), site_id: r.site_id == null ? null : Number(r.site_id), active: Number(r.active) !== 0, participants: P_(r.participants, []), agenda_template: P_(r.agenda_template, null), draft_agenda: P_(r.draft_agenda, null) });
   async function listCadences({ siteIds = null, includeInactive = false } = {}) {
     const rows = (await P(`SELECT * FROM meeting_cadences WHERE deleted_at IS NULL${includeInactive ? '' : ' AND active=1'} ORDER BY kind, name`).all()).map(cadRow);
     return Array.isArray(siteIds) ? rows.filter(c => c.site_id == null || siteIds.includes(c.site_id)) : rows;
@@ -91,7 +91,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   const LIVE_CAD = `cadence_id IN (SELECT id FROM meeting_cadences WHERE deleted_at IS NULL)`;
 
   // ── sessions ──────────────────────────────────────────────────────────────────────
-  const sesRow = (r) => r && ({ ...r, id: Number(r.id), cadence_id: Number(r.cadence_id), agenda: P_(r.agenda, null), items: P_(r.items, []), attendees: P_(r.attendees, []) });
+  const sesRow = (r) => r && ({ ...r, id: Number(r.id), cadence_id: Number(r.cadence_id), agenda: P_(r.agenda, null), items: P_(r.items, []), attendees: P_(r.attendees, []), attendance: P_(r.attendance, null) });
   async function listSessions({ cadenceId = null, status = null, limit = 50 } = {}) {
     const where = [LIVE_CAD], args = [];
     if (cadenceId) { where.push('cadence_id=?'); args.push(Number(cadenceId)); }
@@ -158,6 +158,15 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     const p = { ...patch }; const keys = Object.keys(p);
     const r = await P(`UPDATE meeting_sessions SET ${keys.map((k) => `${k}=?`).join(', ')}, version=version+1, updated_at=? WHERE id=? AND status=?`).run(...keys.map((k) => p[k]), now(), Number(id), fromStatus);
     return Number(r && r.changes) === 1 ? getSession(id) : null;
+  }
+
+  // E-G03 — attendance (secretary) + the scheduled DRAFT agenda of a cadence (migration 071).
+  async function setAttendance(id, attendance) {
+    await P(`UPDATE meeting_sessions SET attendance=?, updated_at=? WHERE id=?`).run(J(attendance), now(), Number(id));
+    return getSession(id);
+  }
+  async function saveDraftAgenda(cadenceId, agenda, forAt) {
+    await P(`UPDATE meeting_cadences SET draft_agenda=?, draft_agenda_for=?, draft_agenda_at=? WHERE id=?`).run(J(agenda), str(forAt, 25), now(), Number(cadenceId));
   }
 
   // ── decisions ─────────────────────────────────────────────────────────────────────
@@ -678,7 +687,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     await insert('minutes_history', ['session_id', 'action', 'actor_id', 'at', 'reason'], [Number(sessionId), String(action), actorId == null ? null : Number(actorId), now(), str(reason, 1000)]);
   }
   async function minutesHistory(sessionId) { return (await P('SELECT action, actor_id, at, reason FROM minutes_history WHERE session_id=? ORDER BY id').all(Number(sessionId))).map(r => ({ ...r, actor_id: r.actor_id == null ? null : Number(r.actor_id) })); }
-  return { ppmEvent, ppmEvents, moveProjectStage, rfiToProject, getRfi, verifyRfi, rfiFromMeeting, rfiForMeeting, rfiLineage, getDecision, openSessionActions, addMinutesHistory, minutesHistory, init, listCadences, getCadence, saveCadence, removeCadence, listSessions, getSession, createSession, updateSession, stampItem, sessionActions, addSessionAction, setSessionActionStatus, moveSession,
+  return { ppmEvent, ppmEvents, moveProjectStage, rfiToProject, getRfi, verifyRfi, rfiFromMeeting, rfiForMeeting, rfiLineage, setAttendance, saveDraftAgenda, getDecision, openSessionActions, addMinutesHistory, minutesHistory, init, listCadences, getCadence, saveCadence, removeCadence, listSessions, getSession, createSession, updateSession, stampItem, sessionActions, addSessionAction, setSessionActionStatus, moveSession,
     listDecisions, addDecision, updateDecision, listRfi, submitRfi, triageRfi, rfiScore, portfolio, upsertPortfolio, removePortfolio,
     restorePortfolio, getPortfolioTrashRow, listDeletedPortfolio, purgeDeletedPortfolio, restoreCadence, getCadenceTrashRow, listDeletedCadences, purgeDeletedCadences, projectSites, setProjectSites, getProject, planRow, projectDetail, gateCounts, RISK_KINDS, listBaselines, rebaseline, alertStates, saveAlertState, listBenefits, getBenefit, recordBenefitRealised, verifyBenefit, dueBenefitReviews,
     CADENCE_KINDS, SESSION_STATUSES, DECISION_STATUSES, RFI_KINDS, RFI_STATUSES, PROJECT_STATUSES, CONFIDENCE };

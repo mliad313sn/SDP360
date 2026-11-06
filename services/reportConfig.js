@@ -309,6 +309,9 @@ DEFAULTS.incubation_rfi_link_enabled = '0';
 // ── E-G02 (audit G-02) — '1' = the site obligations view also lists the site's open governance decisions (once:
 //    under the commitment or session action they produced); '0' (default, today) = decisions are not read.
 DEFAULTS.obligations_include_decisions = '0';
+// ── E-G03 (catalogue A13) — '1' = the weekly job governance.agenda_drafts compiles the exception-only agenda of every
+//    cadence due this week as a DRAFT on the cadence (nothing is sent, no session is created); '0' (default) = on demand only.
+DEFAULTS.agenda_cron_enabled = '0';
 const KEYS = Object.keys(DEFAULTS);
 
 // Secrets that the GET handler redacts to '' — a Save that doesn't retype them must

@@ -12,6 +12,7 @@ const G = require('../services/publishGate');
 const SL = require('../services/sessionLifecycle');
 const HL = require('../services/handoffLifecycle');
 const CL = require('../services/commitmentLifecycle');
+const SA = require('../services/sessionAttendance');
 
 const NOW = Date.parse('2026-10-28T12:00:00Z');
 const outcome = (c) => (c == null ? 'ok' : `${c.status}:${c.code}`);
@@ -48,6 +49,7 @@ const PROBES = {
   'calendar.skip_weekends': [true, (v) => HL.overdue([{ id: 1, status: 'requested', due_date: '2026-10-23' }], '2026-10-26', { 'calendar.skip_weekends': v, 'handoffs.escalation_grace_days': 1 }).length],
   'meetings.reopen_two_people': [true, (v) => JSON.stringify(SL.reopenStep([{ action: 'accepted', actor_id: 2 }], { id: 1 }, pol('meetings.reopen_two_people', v)))],
   'commitments.serious_due_move_needs_admin': [false, (v) => outcome(CL.dueMoveCheck({ severity: 'high', baseline_due_date: '2026-10-01' }, '2026-12-01', { isAdmin: false, policy: pol('commitments.serious_due_move_needs_admin', v) }))],
+  'governance.quorum_min': [3, (v) => SA.quorum([{ participant: 'a', status: 'present' }, { participant: 'b', status: 'excused' }], v).state],   // E-G03: null → not_defined, 3 → not_quorate
   'commitments.exception_max_days': [10, (v) => CL.exceptionExpiry('2026-10-28T00:00:00Z', pol('commitments.exception_max_days', v))],
 };
 
