@@ -46,6 +46,7 @@
       <button type="button" role="tab" data-tab="appr"><span data-lng="en">Approvals</span><span data-lng="fr">Approbations</span></button>
       <button type="button" role="tab" data-tab="tpl"><span data-lng="en">Templates</span><span data-lng="fr">Modèles</span></button>
       <button type="button" role="tab" data-tab="qual"><span data-lng="en">Qualifications</span><span data-lng="fr">Qualifications</span></button>
+      <button type="button" role="tab" data-tab="recert" id="axRcTab" hidden><span data-lng="en">Recertification</span><span data-lng="fr">Recertification</span></button>
       <button type="button" role="tab" data-tab="emerg" id="axEmTab" hidden><span data-lng="en">Emergency</span><span data-lng="fr">Urgence</span></button>
     </div>
     <div class="ax-msg" id="axMsg" role="status" aria-live="polite"></div>
@@ -99,6 +100,25 @@
       <label><span><span data-lng="en">Evidence reference</span><span data-lng="fr">Référence de la preuve</span></span><input id="axQRef" autocomplete="off"></label>
       <button type="submit"><span data-lng="en">Record the evidence</span><span data-lng="fr">Enregistrer la preuve</span></button>
     </form>
+  </section>
+  <section class="ax-card" data-pane="recert" hidden>
+    <h2><span data-lng="en">Access recertification</span><span data-lng="fr">Recertification des accès</span></h2>
+    <p class="ax-muted" data-lng="en">Each line is one role or one site held by one account. Its approver answers keep, revoke or unknown, with a reason; the account under review never answers its own line. A revoke is only recorded unless the Security owner has switched applying on. Nothing is removed automatically.</p>
+    <p class="ax-muted" data-lng="fr">Chaque ligne est un rôle ou un site détenu par un compte. Son approbateur répond conserver, révoquer ou inconnu, avec un motif ; le compte revu ne répond jamais à sa propre ligne. Une révocation est seulement enregistrée tant que le responsable sécurité n'a pas activé l'application. Rien n'est retiré automatiquement.</p>
+    <h2 class="ax-sub"><span data-lng="en">Lines waiting for my answer</span><span data-lng="fr">Lignes en attente de ma réponse</span></h2>
+    <div id="axRcMine"></div>
+    <div id="axRcAdmin" hidden>
+      <form id="axRcForm" class="ax-form ax-sub">
+        <label><span><span data-lng="en">Campaign title</span><span data-lng="fr">Titre de la campagne</span></span><input id="axRcTitle" autocomplete="off"></label>
+        <label><span><span data-lng="en">Site id (empty = every site)</span><span data-lng="fr">Identifiant de site (vide = tous les sites)</span></span><input id="axRcSite" inputmode="numeric" autocomplete="off"></label>
+        <button type="submit"><span data-lng="en">Open a campaign</span><span data-lng="fr">Ouvrir une campagne</span></button>
+      </form>
+      <h2 class="ax-sub"><span data-lng="en">Campaigns</span><span data-lng="fr">Campagnes</span></h2>
+      <div id="axRcCamps"></div>
+      <div id="axRcLines"></div>
+      <h2 class="ax-sub"><span data-lng="en">Accounts to look at</span><span data-lng="fr">Comptes à examiner</span></h2>
+      <div id="axRcOrphans"></div>
+    </div>
   </section>
   <section class="ax-card" data-pane="emerg" hidden>
     <h2><span data-lng="en">Emergency access</span><span data-lng="fr">Accès d'urgence</span></h2>

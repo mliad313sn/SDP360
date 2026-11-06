@@ -19,6 +19,15 @@ const { fail, typed } = require('../services/httpError');
 //   GET  /api/access/emergencies/overdue                         reviews overdue (more than 2 working days)
 //   POST /api/access/emergencies                                 { subject_user_id, roles[], site_ids[], hours ≤ 24, reason } — never to yourself
 //   POST /api/access/emergencies/:id/review                      { outcome: justified|not_justified, notes } — not the granter, not the beneficiary
+//   E-S03 access recertification (404 while report_config access_recert_enabled = '0'):
+//   GET  /api/access/recert/campaigns                            campaigns + progress                                          super_admin
+//   POST /api/access/recert/campaigns                            { title, scope_site_id? } → lines account × role / site        super_admin
+//   GET  /api/access/recert/campaigns/:id                        super_admin: every line; another approver: the lines assigned to them
+//   POST /api/access/recert/campaigns/:id/close                                                                               super_admin
+//   GET  /api/access/recert/orphans                              no sign-in for N days · editor without site · inactive site · role no template grants   super_admin
+//   GET  /api/access/recert/mine                                 open lines assigned to me                                     session
+//   POST /api/access/recert/lines/:id/answer                     { answer: keep|revoke|unknown, reason } — R7 approver, never the subject;
+//                                                                revoke applied only when access_recert_apply = '1'
 // Every error goes through httpError.fail. Answers about another user are never served to a plain session.
 module.exports = function accessRoutes(deps) {
   const { express, requireReportSession } = deps;
@@ -32,6 +41,7 @@ module.exports = function accessRoutes(deps) {
   const isAdmin = (u) => rdb().userHasRole(u, 'admin');
   const requireSuper = (req, res, next) => (isSuper(req.reportUser) ? next() : fail(res, typed('FORBIDDEN', 'super_admin role required')));
   requireSuper.legacyRoles = ['super_admin'];   // C-17 tag → capability platform.identity.manage
+  const cfg = async () => (deps.getConfig ? deps.getConfig() : require('../services/reportConfig').getConfig(rdb().db));
   const log = (req, action, target, details, risk = 0) => { try { Promise.resolve(rdb().logEvent({ category: 'identity', action, target: String(target), details, risk, ...rdb()._logCtx(req) })).catch(() => {}); } catch (_) {} };
 
   router.get('/api/access/me/why', requireReportSession, (req, res) => {
@@ -51,7 +61,8 @@ module.exports = function accessRoutes(deps) {
       res.json({ ok: true, user: { id: Number(u.id), username: u.username, full_name: u.full_name, roles: u.roles || [], site_ids: u.site_ids || (u.site_id != null ? [u.site_id] : []) },
         grants, expiring_soon: grants.filter((g) => g.valid_to <= soon), requests: await s.requestsFor(u.id), deputies: await s.deputiesOf(u.id),
         can_approve: isAdmin(u), can_manage_templates: isSuper(u), can_request_for_others: isAdmin(u),
-        emergency_enabled: isSuper(u) ? !!(await em().enabled()) : false });   // C-23: the page asks the emergency list only when it exists for the caller
+        emergency_enabled: isSuper(u) ? !!(await em().enabled()) : false,
+        recert_enabled: String((await cfg()).access_recert_enabled) === '1' });   // E-S03: the page shows the Recertification tab only when on   // C-23: the page asks the emergency list only when it exists for the caller
     } catch (e) { fail(res, e); }
   });
 
@@ -122,6 +133,44 @@ module.exports = function accessRoutes(deps) {
   });
   router.post('/api/access/emergencies/:id/review', requireReportSession, requireSuper, emOn, json, async (req, res) => {
     try { const b = req.body || {}; res.json({ ok: true, ...(await em().review(req.params.id, req.reportUser, { outcome: b.outcome, notes: b.notes })) }); } catch (e) { fail(res, e); }
+  });
+  // ── E-S03 recertification campaigns ───────────────────────────────
+  const recertOn = async (req, res, next) => { try { return String((await cfg()).access_recert_enabled) === '1' ? next() : fail(res, typed('NOT_FOUND', 'access recertification is not enabled')); } catch (e) { fail(res, e); } };
+  router.get('/api/access/recert/campaigns', requireReportSession, recertOn, requireSuper, async (req, res) => {
+    try { res.json({ ok: true, campaigns: await store().listCampaigns(), apply: String((await cfg()).access_recert_apply) === '1' }); } catch (e) { fail(res, e); }
+  });
+  router.post('/api/access/recert/campaigns', requireReportSession, recertOn, requireSuper, json, async (req, res) => {
+    try {
+      const c = await cfg();
+      const out = await store().openCampaign({ ...(req.body || {}), orphan_days: c.access_recert_orphan_days }, { actorId: req.reportUser.id });
+      log(req, 'access_recert_opened', out.id, { lines: out.lines, scope_site_id: (req.body || {}).scope_site_id ?? null });
+      res.status(201).json({ ok: true, ...out });
+    } catch (e) { fail(res, e); }
+  });
+  router.get('/api/access/recert/orphans', requireReportSession, recertOn, requireSuper, async (req, res) => {
+    try { res.json({ ok: true, ...(await store().recertOrphans({ days: (await cfg()).access_recert_orphan_days })) }); } catch (e) { fail(res, e); }
+  });
+  router.get('/api/access/recert/mine', requireReportSession, recertOn, async (req, res) => {
+    try { res.json({ ok: true, lines: await store().linesAssignedTo(req.reportUser.id) }); } catch (e) { fail(res, e); }
+  });
+  router.get('/api/access/recert/campaigns/:id', requireReportSession, recertOn, async (req, res) => {
+    try {
+      const sup = isSuper(req.reportUser);
+      const c = await store().getCampaign(req.params.id, { approverId: sup ? null : req.reportUser.id });
+      if (!c || (!sup && !c.lines.length)) return fail(res, typed('NOT_FOUND', 'campaign not found'));
+      res.json({ ok: true, campaign: c, apply: String((await cfg()).access_recert_apply) === '1' });
+    } catch (e) { fail(res, e); }
+  });
+  router.post('/api/access/recert/campaigns/:id/close', requireReportSession, recertOn, requireSuper, async (req, res) => {
+    try { await store().closeCampaign(req.params.id, { actorId: req.reportUser.id }); log(req, 'access_recert_closed', req.params.id, {}); res.json({ ok: true }); } catch (e) { fail(res, e); }
+  });
+  router.post('/api/access/recert/lines/:id/answer', requireReportSession, recertOn, json, async (req, res) => {
+    try {
+      const apply = String((await cfg()).access_recert_apply) === '1';
+      const out = await store().answerLine(req.params.id, req.reportUser, req.body || {}, { apply });
+      log(req, 'access_recert_answered', req.params.id, { answer: out.answer, applied: out.applied }, out.applied ? 1 : 0);
+      res.json({ ok: true, ...out });
+    } catch (e) { fail(res, e); }
   });
   require('./qualifications')(deps, router);   // C-19 qualification evidence, same router
   return router;

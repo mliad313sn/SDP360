@@ -1,11 +1,13 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 4130,
+ "total": 4144,
  "files": {
   "a11y-static.test.js": 18,
   "access-approver-policy.test.js": 4,
   "access-denied-log.smoke.test.js": 3,
   "access-grant-expiry-job.test.js": 3,
+  "access-recert.smoke.test.js": 7,
+  "access-recert.test.js": 7,
   "access-request-lifecycle.test.js": 8,
   "access-revocation.smoke.test.js": 5,
   "access-routes.smoke.test.js": 6,

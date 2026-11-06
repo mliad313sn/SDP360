@@ -12,12 +12,15 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (158) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (161) — services/reportConfig.js DEFAULTS
 
 | Key | Default (today) | Kind | Owner | Recommended pilot value | Reference |
 |---|---|---|---|---|---|
 | `access_approver_policy` | `{"platform_roles":["admin","executive","super_admin","tra…` | setting | Security owner + Owner | the default (PO decision R7, encoded 2026-11-05): platform roles by a super_admin, other roles by an admin-tier user holding the site; never the requester, subject or their deputy | C-19 |
 | `access_grant_expiry_job` | `0` | setting | Security owner | `1` (ends expired grants nightly; a role held before the grant or by another live grant stays) | C-18 |
+| `access_recert_apply` | `0` | setting | Security owner | PROPOSITION: `0` for the first campaign (revoke answers recorded only, reviewed by the Security owner); `1` only after that review | E-S03 |
+| `access_recert_enabled` | `0` | arm switch | Security owner + site managers | PROPOSITION: `1` once the Security owner schedules the first campaign (site managers answer their lines; the subject never answers their own) | E-S03 |
+| `access_recert_orphan_days` | `90` | setting | Security owner | PROPOSITION: N to be chosen by the Security owner (an account with no sign-in evidence is listed as UNKNOWN, never as idle) | E-S03 |
 | `access_require_approval` | `0` | setting | Security owner + Owner (approver matrix) | `1` once the approver rule and the requires_request list are decided (break-glass stays possible, logged risk=1) | C-18 |
 | `alert_external_enabled` | `0` | arm switch | to be named | — | — |
 | `analytics_accounts_url` | `` | setting | to be named | — | — |

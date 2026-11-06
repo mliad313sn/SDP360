@@ -23,13 +23,19 @@
       approve: 'Approve', reject: 'Reject', review: 'Take for review', revoke: 'Revoke', withdraw: 'Withdraw', publish: 'Publish', retire: 'Retire', newVersion: 'New version',
       reason: 'Reason (kept in the history):', sent: 'Request sent.', done: 'Done.', deputies: 'Deputies', deputyFor: 'stands in for', version: 'version', draft: 'draft', published: 'published',
       holder: 'Person', kind: 'Kind', issuer: 'Issuer', expires: 'Expires', ref: 'Evidence', state: 'State', verify: 'Verify', valid: 'valid', expired: 'expired', unverified: 'not verified', ended: 'ended',
-      granted: 'Granted by', due: 'Review due', live: 'in force', overdue: 'review overdue', reviewed: 'reviewed', reviewBtn: 'Record the review', outcome: 'Outcome: type justified or not_justified', notes: 'Review notes (10+ characters):', source: 'Source' },
+      granted: 'Granted by', due: 'Review due', live: 'in force', overdue: 'review overdue', reviewed: 'reviewed', reviewBtn: 'Record the review', outcome: 'Outcome: type justified or not_justified', notes: 'Review notes (10+ characters):', source: 'Source',
+      line: 'Line', account: 'Account', approver: 'Approver', answer: 'Answer', keep: 'Keep', unknownA: 'Unknown', noApprover: 'no eligible approver — UNKNOWN', campaign: 'Campaign', progress: 'Progress',
+      open: 'Show lines', close: 'Close', reasonRc: 'Reason (5+ characters):', recorded: 'Recorded (not applied — applying is off).', lastLogin: 'Last sign-in', why2: 'Why',
+      loginUnknown: 'No sign-in evidence (UNKNOWN, not counted as idle):', tplUnknown: 'No published access template: the "role no template grants" check is UNKNOWN.' },
     fr: { role: 'Rôle', site: 'Site', from: 'Du', until: 'Au', request: 'Demande', status: 'Statut', who: 'Pour', roles: 'Rôles', sites: 'Sites', why: 'Justification',
       none: 'Rien ici.', direct: 'Les rôles sans attribution ont été donnés directement par un administrateur (sans date de fin).', expiring: 'se termine dans les 14 jours',
       approve: 'Approuver', reject: 'Refuser', review: 'Prendre en revue', revoke: 'Révoquer', withdraw: 'Retirer', publish: 'Publier', retire: 'Retirer le modèle', newVersion: 'Nouvelle version',
       reason: 'Motif (conservé dans l\'historique) :', sent: 'Demande envoyée.', done: 'Fait.', deputies: 'Suppléances', deputyFor: 'remplace', version: 'version', draft: 'brouillon', published: 'publiée',
       holder: 'Personne', kind: 'Type', issuer: 'Émetteur', expires: 'Expire', ref: 'Preuve', state: 'État', verify: 'Vérifier', valid: 'valide', expired: 'expirée', unverified: 'non vérifiée', ended: 'close',
-      granted: 'Accordé par', due: 'Revue due le', live: 'en vigueur', overdue: 'revue en retard', reviewed: 'revu', reviewBtn: 'Enregistrer la revue', outcome: 'Conclusion : tapez justified ou not_justified', notes: 'Notes de revue (10 caractères et plus) :', source: 'Origine' },
+      granted: 'Accordé par', due: 'Revue due le', live: 'en vigueur', overdue: 'revue en retard', reviewed: 'revu', reviewBtn: 'Enregistrer la revue', outcome: 'Conclusion : tapez justified ou not_justified', notes: 'Notes de revue (10 caractères et plus) :', source: 'Origine',
+      line: 'Ligne', account: 'Compte', approver: 'Approbateur', answer: 'Réponse', keep: 'Conserver', unknownA: 'Inconnu', noApprover: 'aucun approbateur éligible — INCONNU', campaign: 'Campagne', progress: 'Avancement',
+      open: 'Voir les lignes', close: 'Clore', reasonRc: 'Motif (5 caractères et plus) :', recorded: 'Enregistré (non appliqué — l\'application est désactivée).', lastLogin: 'Dernière connexion', why2: 'Pourquoi',
+      loginUnknown: 'Aucune preuve de connexion (INCONNU, non compté comme inactif) :', tplUnknown: 'Aucun modèle d\'accès publié : le contrôle « rôle accordé par aucun modèle » est INCONNU.' },
   };
   const t = () => L[lang === 'fr' ? 'fr' : 'en'];
   const msg = (x, ok) => { $('axMsg').className = 'ax-msg ' + (ok ? 'ax-ok' : 'ax-err'); $('axMsg').textContent = !ok && lang === 'fr' && window.ErrorText ? window.ErrorText.fr(x) : x; };
@@ -69,6 +75,7 @@
       (me.can_manage_templates && !x.retired_at ? ' <button type="button" data-tplact="retire" data-id="' + x.id + '">' + esc(t().retire) + '</button>' : '') + '</td></tr>')));
     await loadQuals();
     await loadEmergencies();
+    await loadRecert().catch(() => { $('axRcTab').hidden = true; });
   }
   async function loadQuals() {
     const [k, q] = await Promise.all([api('GET', '/api/qualifications/kinds'), api('GET', '/api/qualifications')]);
@@ -99,6 +106,55 @@
       '</td><td>' + esc(e.source) + '</td><td>' +
       (!e.reviewed_at && e.granted_by !== mine && e.subject_user_id !== mine ? '<button type="button" data-emrev="' + e.id + '">' + esc(t().reviewBtn) + '</button>' : '') + '</td></tr>'));
   }
+  // E-S03 — access recertification (tab shown only when access_recert_enabled = '1')
+  function rcLineRow(l) {
+    const what = l.kind === 'role' ? t().role + ' ' + l.role : t().site + ' ' + l.site_id;
+    const btns = l.answer ? '<span class="ax-tag">' + esc(l.answer) + (l.applied_at ? ' ✓' : '') + '</span>'
+      : ['keep', 'revoke', 'unknown'].map((a) => '<button type="button" data-rcans="' + a + '" data-id="' + l.id + '">' + esc(a === 'unknown' ? t().unknownA : t()[a]) + '</button>').join(' ');
+    return '<tr><td>#' + l.id + '</td><td>' + esc(l.username || l.user_id) + '</td><td>' + esc(what) + '</td><td>' +
+      esc(l.approver_user_id == null ? t().noApprover : (l.approver_username || l.approver_user_id)) + '</td><td>' + btns + '</td></tr>';
+  }
+  async function loadRecert() {
+    if (!me || !me.recert_enabled) { $('axRcTab').hidden = true; return; }
+    $('axRcTab').hidden = false;
+    const mine = await api('GET', '/api/access/recert/mine');
+    $('axRcMine').innerHTML = table([t().line, t().account, t().role + ' / ' + t().site, t().approver, t().answer], (mine.lines || []).map(rcLineRow));
+    if (!me.can_manage_templates) { $('axRcAdmin').hidden = true; return; }
+    $('axRcAdmin').hidden = false;
+    const c = await api('GET', '/api/access/recert/campaigns');
+    $('axRcCamps').innerHTML = table(['#', t().campaign, t().status, t().progress, ''], (c.campaigns || []).map((x) => '<tr><td>' + x.id + '</td><td>' + esc(x.title) +
+      '</td><td><span class="ax-tag">' + esc(x.status) + '</span></td><td>' + x.progress.answered + ' / ' + x.progress.total + ' · ' + esc(t().revoke) + ' ' + x.progress.revoke +
+      ' · ' + esc(t().unknownA) + ' ' + x.progress.unknown + '</td><td><button type="button" data-rcopen="' + x.id + '">' + esc(t().open) + '</button>' +
+      (x.status === 'open' ? ' <button type="button" data-rcclose="' + x.id + '">' + esc(t().close) + '</button>' : '') + '</td></tr>'));
+    const o = await api('GET', '/api/access/recert/orphans');
+    $('axRcOrphans').innerHTML = table([t().account, t().lastLogin, t().why2], (o.rows || []).map((r) => '<tr><td>' + esc(r.username) + '</td><td>' +
+      esc(r.last_login_known ? r.last_login : 'UNKNOWN') + '</td><td>' + esc(r.reasons.map((x) => x.detail).join(' · ')) + '</td></tr>')) +
+      '<p class="ax-muted">' + esc(t().loginUnknown) + ' ' + esc((o.last_login_unknown || []).map((x) => x.username).join(', ') || '—') + '</p>' +
+      (o.templates_known ? '' : '<p class="ax-muted">' + esc(t().tplUnknown) + '</p>');
+  }
+  async function showCampaign(id) {
+    const r = await api('GET', '/api/access/recert/campaigns/' + id);
+    $('axRcLines').innerHTML = '<h2 class="ax-sub">' + esc(t().campaign) + ' #' + r.campaign.id + ' — ' + esc(r.campaign.title) + '</h2>' +
+      table([t().line, t().account, t().role + ' / ' + t().site, t().approver, t().answer], (r.campaign.lines || []).map(rcLineRow));
+  }
+  document.addEventListener('click', async (ev) => {
+    const b0 = ev.target.closest && ev.target.closest('button'); if (!b0 || !(b0.dataset.rcans || b0.dataset.rcopen || b0.dataset.rcclose)) return;
+    try {
+      if (b0.dataset.rcopen) return await showCampaign(b0.dataset.rcopen);
+      if (b0.dataset.rcclose) { await api('POST', '/api/access/recert/campaigns/' + b0.dataset.rcclose + '/close', {}); msg(t().done, true); return await loadRecert(); }
+      const reason = window.prompt(t().reasonRc); if (reason == null) return;
+      const out = await api('POST', '/api/access/recert/lines/' + b0.dataset.id + '/answer', { answer: b0.dataset.rcans, reason });
+      msg(out.recorded_only ? t().recorded : t().done, true); await loadRecert();
+    } catch (e) { msg(e.message, false); }
+  });
+  $('axRcForm').addEventListener('submit', async (ev) => {
+    ev.preventDefault();
+    try {
+      const body = { title: $('axRcTitle').value };
+      if ($('axRcSite').value.trim()) body.scope_site_id = Number($('axRcSite').value);
+      await api('POST', '/api/access/recert/campaigns', body); msg(t().done, true); await loadRecert();
+    } catch (e) { msg(e.message, false); }
+  });
   document.addEventListener('click', async (ev) => {
     const b = ev.target.closest && ev.target.closest('button'); if (!b) return;
     try {

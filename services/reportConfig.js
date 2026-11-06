@@ -272,6 +272,14 @@ DEFAULTS.authz_enforce_caps = '';
 // access.grant_expiry ends expired grants and activates approved requests whose start day has come.
 DEFAULTS.access_require_approval = '0';
 DEFAULTS.access_grant_expiry_job = '0';
+// E-S03 (audit S-05) — access recertification campaigns (migration 068). '0' = today: no campaign routes (404),
+// no card on access.html. '1' → a super_admin opens a campaign; each account × role / site line is answered
+// keep / revoke / unknown (with a reason) by its R7 approver, never the subject. access_recert_apply '0' = a revoke
+// answer is RECORDED only; '1' applies it through the role-change path with an identity log row. Nothing auto-revokes.
+// access_recert_orphan_days = N for the "no sign-in for N days" orphan list (a missing sign-in is UNKNOWN, never old).
+DEFAULTS.access_recert_enabled = '0';
+DEFAULTS.access_recert_apply = '0';
+DEFAULTS.access_recert_orphan_days = '90';
 // C-19 (G41/G43, PO decisions R7/R8/R10). access_approver_policy = WHO decides an access request (editable JSON;
 // unreadable → the same default): platform roles (admin, executive, super_admin, tracker-admin, audit-viewer) by a
 // super_admin; any other role by an admin-tier user holding the site(s) — never the requester, subject or their

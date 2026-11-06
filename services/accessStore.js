@@ -7,6 +7,7 @@
 // Every request step is written to access_request_events (append-only, hash-chained) in the same transaction.
 const L = require('./accessRequestLifecycle');
 const AP = require('./accessApproverPolicy');
+const RC = require('./accessRecert');
 const userSites = require('./userSites');
 const { typed } = require('./httpError');
 
@@ -318,8 +319,108 @@ function makeAccessStore(db, rdb, { now = () => new Date().toISOString(), getCon
       .all(toId(userId), toId(userId), t);
   }
 
+  // ── E-S03 recertification campaigns (068) ─────────────────────────
+  async function _policy() {
+    try { const cfg = await (getConfig ? getConfig() : require('./reportConfig').getConfig(rdb.db)); return AP.parsePolicy(cfg && cfg.access_approver_policy); } catch (_) { return AP.DEFAULT_POLICY; }
+  }
+  const hasRole = (u, role) => rdb.userHasRole(u, role);
+  const rowLine = (l) => ({ ...l, id: toId(l.id), campaign_id: toId(l.campaign_id), user_id: toId(l.user_id),
+    site_id: l.site_id == null ? null : Number(l.site_id), approver_user_id: l.approver_user_id == null ? null : toId(l.approver_user_id) });
+  const rowCamp = (c) => (c ? { ...c, id: toId(c.id), scope_site_id: c.scope_site_id == null ? null : Number(c.scope_site_id) } : null);
+
+  async function openCampaign(b, { actorId }) {
+    b = b || {};
+    const title = str(b.title, 200);
+    if (!title) fail({ status: 400, code: 'VALIDATION', error: 'title is required' });
+    const scope = b.scope_site_id == null || b.scope_site_id === '' ? null : Number(b.scope_site_id);
+    if (scope != null && !Number.isInteger(scope)) fail({ status: 400, code: 'VALIDATION', error: 'scope_site_id must be a site id' });
+    const users = (await rdb.listUsers()) || [];
+    const policy = await _policy();
+    const lines = RC.buildLines(users, { scopeSiteId: scope });
+    return tx(async () => {
+      const c = await P('INSERT INTO access_recert_campaigns (title, scope_site_id, status, orphan_days, opened_by, opened_at) VALUES (?, ?, \'open\', ?, ?, ?) RETURNING id')
+        .get(title, scope, b.orphan_days == null ? null : Number(b.orphan_days), toId(actorId), now());
+      for (const l of lines) {
+        const approver = RC.resolveApprover(l, users, { policy, hasRole });
+        await P('INSERT INTO access_recert_lines (campaign_id, kind, user_id, role, site_id, approver_user_id) VALUES (?, ?, ?, ?, ?, ?)')
+          .run(toId(c.id), l.kind, l.user_id, l.role, l.site_id, approver);
+      }
+      return { id: toId(c.id), lines: lines.length };
+    });
+  }
+  async function listCampaigns() {
+    const cs = (await P('SELECT * FROM access_recert_campaigns ORDER BY id DESC LIMIT 50').all()).map(rowCamp);
+    for (const c of cs) c.progress = RC.progress((await P('SELECT answer, applied_at, approver_user_id FROM access_recert_lines WHERE campaign_id = ?').all(c.id)));
+    return cs;
+  }
+  async function getCampaign(id, { approverId = null } = {}) {
+    const c = rowCamp(await P('SELECT * FROM access_recert_campaigns WHERE id = ?').get(toId(id)));
+    if (!c) return null;
+    let lines = (await P('SELECT * FROM access_recert_lines WHERE campaign_id = ? ORDER BY user_id, kind, role, site_id').all(c.id)).map(rowLine);
+    c.progress = RC.progress(lines);
+    if (approverId != null) lines = lines.filter((l) => l.approver_user_id === toId(approverId));
+    const users = new Map(((await rdb.listUsers()) || []).map((u) => [toId(u.id), u]));
+    c.lines = lines.map((l) => ({ ...l, username: (users.get(l.user_id) || {}).username || null,
+      approver_username: l.approver_user_id == null ? null : (users.get(l.approver_user_id) || {}).username || null }));
+    return c;
+  }
+  async function linesAssignedTo(actorId) {
+    return (await P("SELECT l.* FROM access_recert_lines l JOIN access_recert_campaigns c ON c.id = l.campaign_id WHERE c.status = 'open' AND l.approver_user_id = ? AND l.answer IS NULL ORDER BY l.id")
+      .all(toId(actorId))).map(rowLine);
+  }
+  /** Answer one line. apply=true (access_recert_apply '1') applies a revoke through rdb.updateUser + an identity log. */
+  async function answerLine(lineId, actor, body, { apply = false } = {}) {
+    const v = RC.validateAnswer(body); if (v.error) fail({ status: 400, code: 'VALIDATION', error: v.error });
+    const users = (await rdb.listUsers()) || [];
+    const policy = await _policy();
+    return tx(async () => {
+      const l = await P('SELECT l.*, c.status AS campaign_status FROM access_recert_lines l JOIN access_recert_campaigns c ON c.id = l.campaign_id WHERE l.id = ? FOR UPDATE OF l').get(toId(lineId));
+      if (!l) fail({ status: 404, code: 'NOT_FOUND', error: 'line not found' });
+      if (l.campaign_status !== 'open') fail({ status: 409, code: 'CONFLICT', error: 'the campaign is closed' });
+      const line = rowLine(l);
+      const why = RC.canAnswer(line, actor, { users, policy, hasRole });
+      if (why) fail({ status: 403, code: 'FORBIDDEN', error: why });
+      if (line.applied_at) fail({ status: 409, code: 'CONFLICT', error: 'this line was already applied' });
+      const me = toId(actor.id);
+      await P('UPDATE access_recert_lines SET answer = ?, reason = ?, answered_by = ?, answered_at = ? WHERE id = ?').run(v.value.answer, v.value.reason, me, now(), line.id);
+      let applied = false;
+      if (apply && v.value.answer === 'revoke') {
+        const user = users.find((u) => toId(u.id) === line.user_id);
+        const plan = RC.applyPlan(user, line);
+        if (plan) {
+          await rdb.updateUser(line.user_id, plan);
+          await P('UPDATE access_recert_lines SET applied_by = ?, applied_at = ? WHERE id = ?').run(me, now(), line.id);
+          applied = true;
+          try {
+            rdb.logEvent({ category: 'identity', action: 'user_role_changed', actor: 'user:' + me, actor_id: me, target: user.username, risk: 1,
+              details: { via: 'access_recert', campaign_id: line.campaign_id, line_id: line.id, user_id: line.user_id, kind: line.kind,
+                removed_role: line.kind === 'role' ? line.role : null, removed_site: line.kind === 'site' ? line.site_id : null, before: [...(user.roles || [])].sort(), after: [...plan.roles].sort() } });
+          } catch (_) { /* never blocks */ }
+        }
+      }
+      return { answer: v.value.answer, applied, recorded_only: v.value.answer === 'revoke' && !applied };
+    });
+  }
+  async function closeCampaign(id, { actorId }) {
+    const r = await P("UPDATE access_recert_campaigns SET status = 'closed', closed_by = ?, closed_at = ? WHERE id = ? AND status = 'open'").run(toId(actorId), now(), toId(id));
+    if (Number(r.changes) !== 1) fail({ status: 404, code: 'NOT_FOUND', error: 'campaign not found or already closed' });
+  }
+  /** Live orphan list (days = N from config). Last sign-in = latest login_success log row or session start. */
+  async function recertOrphans({ days } = {}) {
+    const users = (await rdb.listUsers()) || [];
+    const last = new Map();
+    const bump = (id, v) => { if (v == null) return; const s = v instanceof Date ? v.toISOString() : String(v); const k = toId(id); if (!last.get(k) || s > last.get(k)) last.set(k, s); };
+    for (const r of await P("SELECT actor_id, MAX(ts) AS ts FROM system_log WHERE category = 'auth' AND action = 'login_success' AND actor_id IS NOT NULL GROUP BY actor_id").all()) bump(r.actor_id, r.ts);
+    for (const r of await P('SELECT user_id, MAX(created_at) AS ts FROM sessions GROUP BY user_id').all()) bump(r.user_id, r.ts);
+    const sites = await P('SELECT id, name, active FROM sites').all();
+    const tpls = await listTemplates({});
+    const roles = new Set(); for (const t of tpls) for (const r of (t.current && t.current.payload && t.current.payload.roles) || []) roles.add(r);
+    return RC.orphans(users, { lastLoginById: last, sites, templateRoles: tpls.length ? roles : null, today: today(), days, hasRole });
+  }
+
   return { listTemplates, createTemplate, addVersion, getVersion, updateDraft, publish, retire,
-    createRequest, getRequest, events, decide, createEmergency, recordDirectEmergency, endRequest, approverCtx, runExpiry, liveGrants, liveGrantRoles, requestsFor, approvalsFor, hasApproved, deputiesOf };
+    createRequest, getRequest, events, decide, createEmergency, recordDirectEmergency, endRequest, approverCtx, runExpiry, liveGrants, liveGrantRoles, requestsFor, approvalsFor, hasApproved, deputiesOf,
+    openCampaign, listCampaigns, getCampaign, linesAssignedTo, answerLine, closeCampaign, recertOrphans };
 }
 
 /** Store bound to the live reports-db PostgreSQL handle. */
