@@ -49,6 +49,14 @@
     </div>
     <div class="cm-card" id="cmDetail"><div class="cm-muted">Select a commitment.</div></div>
   </div>
+  <div class="cm-card" id="pcPanel" hidden>
+    <strong>Recurring incidents — problem candidates</strong>
+    <div class="cm-muted">Candidate — causality not validated. Incidents of the site (its Zoho groups) sharing a category × sub-category over the window, counted open and closed. A problem owner decides; promoting creates a commitment whose owner you choose.</div>
+    <div><input id="pcSite" type="number" placeholder="Site id" style="width:110px"> <select id="pcDays"><option value="30">30 days</option><option value="90" selected>90 days</option><option value="180">180 days</option></select> <button id="pcLoad">Refresh</button></div>
+    <div class="cm-muted" id="pcInfo"></div>
+    <table><thead><tr><th>Category</th><th>Sub-category</th><th>Incidents</th><th>Open / closed</th><th>Last</th><th></th></tr></thead><tbody id="pcList"></tbody></table>
+    <div class="cm-msg" id="pcMsg"></div>
+  </div>
   <div class="cm-card cm-form" id="cmNew" hidden>
     <strong>New commitment</strong>
     <input id="nfTitle" placeholder="Title">
@@ -142,6 +150,33 @@
       $('cmNew').hidden = true; $('nfMsg').textContent = ''; show(j.commitment.id);
     } catch (e) { $('nfMsg').textContent = e.message; }
   });
+  // E-I02 — problem candidates (404 = switch off → panel stays hidden)
+  let pcRows = [];
+  async function loadCandidates() {
+    const site = $('pcSite').value || ((window.__authUser && window.__authUser.site_id) || '');
+    try {
+      const j = await api('GET', '/api/commitments/problem-candidates?days=' + encodeURIComponent($('pcDays').value) + (site ? '&site=' + encodeURIComponent(site) : ''));
+      $('pcPanel').hidden = false; if (!$('pcSite').value && j.site_id != null) $('pcSite').value = j.site_id;
+      $('pcMsg').textContent = '';
+      if (!j.enabled) { $('pcInfo').textContent = 'No recurrence threshold set (problem_candidate_min is empty): no candidate is computed.'; $('pcList').innerHTML = ''; return; }
+      if (!j.scoped) { $('pcInfo').textContent = 'This site has no Zoho resolver group: not measured.'; $('pcList').innerHTML = ''; return; }
+      $('pcInfo').textContent = `${j.window.from} → ${j.window.to} · threshold ${j.min} incidents · ${j.incidents} incidents read (${j.cancelled} cancelled, not counted)`;
+      pcRows = j.candidates || [];
+      $('pcList').innerHTML = pcRows.map((c, i) => `<tr><td>${esc(c.category)}</td><td>${esc(c.sub_category)}</td><td>${c.count}</td><td>${c.open} / ${c.closed}</td><td>${esc(c.last || '—')}</td><td>${c.commitment_id ? `<a href="?id=${c.commitment_id}">#${c.commitment_id}</a>` : `<button data-pc="${i}">Promote to commitment</button>`}</td></tr>`).join('') || '<tr><td colspan="6" class="cm-muted">No candidate at this threshold.</td></tr>';
+    } catch (e) { if (e.status === 404) $('pcPanel').hidden = true; else { $('pcPanel').hidden = false; $('pcMsg').textContent = e.message; } }
+  }
+  $('pcLoad').addEventListener('click', loadCandidates);
+  $('pcList').addEventListener('click', async (ev) => {
+    const b = ev.target.closest('button[data-pc]'); if (!b) return;
+    const c = pcRows[Number(b.dataset.pc)]; if (!c) return;
+    const owner = await window.ReasonDialog.ask({ title: 'Promote to commitment', label: 'Accountable owner (username) — chosen by you', min: 2 }); if (!owner) return;
+    try {
+      const j = await api('POST', '/api/commitments', { kind: 'issue', title: `Recurring incidents: ${c.category} / ${c.sub_category} (candidate — causality not validated)`,
+        site_id: Number(String(c.source_key).split('|')[0]), accountable_owner: owner, source: { system: 'problem_candidate', id: c.source_key } });
+      loadCandidates(); show(j.commitment.id);
+    } catch (e) { $('pcMsg').textContent = e.message; }
+  });
+  loadCandidates();
   const qid = new URLSearchParams(location.search).get('id');
   loadList(); if (qid) show(qid);
 })();

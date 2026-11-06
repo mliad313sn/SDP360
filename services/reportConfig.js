@@ -346,6 +346,12 @@ DEFAULTS.agenda_cron_enabled = '0';
 // ── E-G04 (audit G-04) — '1' = the control register (risk → control → test → exception) on Admin ▸ Governance policies;
 //    controls are seeded as CANDIDATES only (adoption is a GRC decision). '0' (default) = the routes 404, no panel.
 DEFAULTS.controls_register_enabled = '0';
+// ── Plan E / W2-ITSM switches (defaults = today) ──────────────────────────────────────────────
+// ── E-I02 (audit I-02) — '1' = GET /api/commitments/problem-candidates lists recurring-incident CANDIDATES (site ×
+//    category × sub-category, causality not validated) and a person may promote one to a commitment; '0' = 404.
+//    problem_candidate_min = the recurrence threshold (empty = no candidate at all — no threshold invented here).
+DEFAULTS.problem_candidates_enabled = '0';
+DEFAULTS.problem_candidate_min = '';
 const KEYS = Object.keys(DEFAULTS);
 
 // Secrets that the GET handler redacts to '' — a Save that doesn't retype them must

@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (177) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (179) — services/reportConfig.js DEFAULTS
 
 | Key | Default (today) | Kind | Owner | Recommended pilot value | Reference |
 |---|---|---|---|---|---|
@@ -115,6 +115,8 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `ppm_alerts_enabled` | `0` | arm switch | Committee | `0` (dry run first) | A-27 |
 | `ppm_baseline_versions` | `0` | setting | Committee | `1` | A-27 |
 | `ppm_rebaseline_enabled` | `0` | arm switch | Committee | `1` | A-27 |
+| `problem_candidate_min` | `` | setting | Problem owner + KPI committee | PROPOSITION: none — the recurrence threshold (incidents of one category × sub-category on a site in the window) is a human decision; empty = no candidate is computed | E-I02 |
+| `problem_candidates_enabled` | `0` | arm switch | Problem owner + Owner | `1` on the pilot site once a problem owner is named (candidates are listed with "causality not validated"; promoting one creates a commitment whose owner a person chooses; ServiceDesk Plus Problem records are not synced) | E-I02 |
 | `public_base_url` | `` | setting | to be named | — | — |
 | `publish_cron_enabled` | `0` | arm switch | to be named | — | — |
 | `publish_excel_recipients` | `` | setting | to be named | — | — |

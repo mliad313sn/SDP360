@@ -93,6 +93,10 @@ module.exports = function commitmentsRoutes(deps) {
       const h = /^\d+$/.test(sid) && deps.getHandoffStore ? await deps.getHandoffStore().getRaw(Number(sid)) : null;
       return { checked: true, site_id: h ? Number(h.site_id) : null };
     }
+    if (system === 'problem_candidate') {   // E-I02 — the key carries its site: <site_id>|<category>|<sub-category>
+      const k = require('../services/problemCandidates').parseSourceKey(sid);
+      return { checked: true, site_id: k ? k.site_id : null };
+    }
     if (system === 'report') {
       const o = await rdb().getActionItemOwner(sid);
       return { checked: true, site_id: o && o.site_id != null ? Number(o.site_id) : null };
@@ -138,6 +142,35 @@ module.exports = function commitmentsRoutes(deps) {
       res.json({ status: 'draft — pending committee', escalations: await store.listEscalations({ siteIds: isAdmin(u) ? null : userSites.siteIds(u), openOnly: req.query.all !== '1' }) });
     } catch (e) { fail(res, e); }
   });
+  // E-I02 (audit I-02) — recurring-incident CANDIDATES (causality not validated). Switch problem_candidates_enabled
+  // (default '0' → 404); threshold problem_candidate_min (empty = no candidate, no threshold invented). Site-scoped.
+  async function problemsEnabled(req, res, next) {
+    try {
+      const cfg = await reportConfig.getConfig(rdb().db);
+      if (String(cfg.problem_candidates_enabled) !== '1') return httpFail(res, new Error('problem candidates are not enabled'), 404, { ok: false });
+      req._pcCfg = cfg; next();
+    } catch (e) { fail(res, e); }
+  }
+  router.get(base + '/problem-candidates', requireReportSession, enabled, problemsEnabled, async (req, res) => {
+    try {
+      const u = req.reportUser; const PC = require('../services/problemCandidates');
+      const own = userSites.siteIds(u);
+      const siteId = req.query.site != null && req.query.site !== '' ? Number(req.query.site) : (own[0] != null ? Number(own[0]) : null);
+      if (!Number.isInteger(siteId)) return httpFail(res, new Error('site is required'), 400, { ok: false });
+      if (!isAdmin(u) && !userSites.hasSite(u, siteId)) return httpFail(res, new Error('Access denied: another site'), 403, { ok: false });
+      const days = PC.parseDays(req.query.days);
+      const to = new Date().toISOString().slice(0, 10);
+      const from = new Date(Date.now() - (days - 1) * 86400000).toISOString().slice(0, 10);
+      const min = PC.parseMin(req._pcCfg.problem_candidate_min);
+      const read = min == null ? { scoped: true, rows: [] } : await PC.loadSiteIncidents(rdb().pgHandle(), siteId, from, to);
+      const out = PC.computeCandidates(read.rows, { min, siteId, scoped: read.scoped });
+      for (const c of out.candidates || []) {
+        const cid = await store.findBySource('problem_candidate', c.source_key);
+        c.commitment_id = cid == null ? null : Number(cid);
+      }
+      res.json({ status: PC.WORDING, site_id: siteId, window: { from, to, days }, ...out });
+    } catch (e) { fail(res, e); }
+  });
   router.get(base + '/:id', requireReportSession, enabled, async (req, res) => {
     try {
       const c = await load(req, res); if (!c) return;
@@ -152,6 +185,12 @@ module.exports = function commitmentsRoutes(deps) {
       if (!isAdmin(u)) {
         if (!rdb().userHasRole(u, 'editor')) return res.status(403).json({ error: 'editor role required' });
         if (b.site_id == null || !userSites.hasSite(u, b.site_id)) return res.status(403).json({ error: 'Access denied: another site' });
+      }
+      if (b.source && String(b.source.system) === 'problem_candidate') {   // E-I02 — promotion only while the switch is on
+        const cfg = await reportConfig.getConfig(rdb().db);
+        if (String(cfg.problem_candidates_enabled) !== '1') return httpFail(res, new Error('problem candidates are not enabled'), 404, { ok: false });
+        const k = require('../services/problemCandidates').parseSourceKey(b.source.id);
+        if (!k || Number(b.site_id) !== k.site_id) return httpFail(res, new Error('problem candidate key does not match site_id'), 400, { ok: false });
       }
       if (b.source && b.source.system) {
         const d = await sourceDenied(u, String(b.source.system), b.source.id);
