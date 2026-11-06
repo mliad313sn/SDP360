@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 4124,
+ "total": 4125,
  "files": {
   "a11y-static.test.js": 18,
   "access-approver-policy.test.js": 4,
@@ -180,7 +180,7 @@
   "field-no-silent-loss.test.js": 4,
   "field-outbox.test.js": 5,
   "field-pwa-static.test.js": 2,
-  "field-routes.smoke.test.js": 6,
+  "field-routes.smoke.test.js": 7,
   "field-storage-browser.test.js": 1,
   "field-storage-guard.test.js": 6,
   "field-store.test.js": 8,

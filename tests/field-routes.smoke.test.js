@@ -159,3 +159,44 @@ test('E-F01 admin outbox: list (admin only, no payload), resolve 404 while off, 
     assert.ok(logs.some((r) => r.target === U(41) && /phone crashed/.test(r.details) && r.actor === 'fd_admin'));
   } finally { await cfg.setConfig(rdb.db, { field_outbox_resolve_enabled: '0' }, 'test'); }
 });
+
+test('E-F02 route level: a slow apply → the concurrent second send gets 409 in_progress then a duplicate; a throwing apply stays retryable and applies once', async () => {
+  const express = require('express');
+  const techUser = (await rdb.listUsers()).find((x) => x.username === 'fd_tech');
+  const me = await rdb.validateSession(tech);
+  const realIdb = require('../inspection-db');
+  let calls = 0, mode = 'slow';
+  const idbStub = Object.assign(Object.create(realIdb), {
+    saveInspection: async (p, codes, uid, opts) => {
+      calls++;
+      if (mode === 'throw') { mode = 'slow'; throw new Error('database hiccup'); }
+      await new Promise((r) => setTimeout(r, 400));
+      return realIdb.saveInspection(p, codes, uid, opts);
+    },
+  });
+  const st = require('../routes/field').createStore(rdb);
+  const app = express();
+  app.use(require('../routes/field')({ express, store: st, rdb, inspectionDb: idbStub, requireReportSession: (req, res, next) => { req.reportUser = me; next(); } }));
+  const srv = await new Promise((r) => { const s = http.createServer(app).listen(0, '127.0.0.1', () => r(s)); });
+  const b2 = 'http://127.0.0.1:' + srv.address().port;
+  const putTo = (n, env) => fetch(b2 + '/api/field/outbox/' + U(n), { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(env) });
+  const meta = (id) => ({ f_id: id, f_site: `${hounde.name} (HGO)`, f_date: '2026-10-19', f_area: 'dc', f_inspector: 'Tech', f_type: 'routine' });
+  try {
+    assert.ok(me && Number(me.id) === Number(techUser.id));
+    const env = { kind: 'inspection', payload: { meta: meta('EM-IT-20261019-0050'), items: {}, actions: [] } };
+    const first = putTo(50, env);
+    await new Promise((r) => setTimeout(r, 100));
+    const second = await putTo(50, env);
+    assert.equal(second.status, 409); assert.equal((await second.json()).in_progress, true);
+    const r1 = await (await first).json(); assert.equal(r1.ok, true); assert.equal(r1.duplicate, false);
+    const again = await (await putTo(50, env)).json(); assert.equal(again.duplicate, true); assert.equal(again.status, 'applied');
+    assert.equal(calls, 1, 'applied exactly once');
+    mode = 'throw'; calls = 0;
+    const env2 = { kind: 'inspection', payload: { meta: meta('EM-IT-20261019-0051'), items: {}, actions: [] } };
+    const f1 = await putTo(51, env2); assert.equal(f1.status, 500); assert.equal((await f1.json()).status, 'failed');
+    assert.equal((await st.getOutbox(U(51))).status, 'failed', 'a transient failure stays retryable');
+    const f2 = await (await putTo(51, env2)).json(); assert.equal(f2.ok, true); assert.equal(f2.duplicate, false);
+    const f3 = await (await putTo(51, env2)).json(); assert.equal(f3.duplicate, true);
+    assert.equal(calls, 2, 'one failed attempt + one apply, never a second apply');
+  } finally { srv.close(); }
+});

@@ -16,13 +16,15 @@
   // under the other's session
   var me = ''; try { me = String((JSON.parse(profile) || {}).username || ''); } catch (_) { me = ''; }
   var STALE_DAYS = 3, OLD_DAYS = 14, REVIEW_MS = 15 * 60000;
-  var sessionMismatch = false;   // the server session is not the person this phone's profile names: send nothing
+  var sessionMismatch = false;
+  // E-F02 — a captive portal / proxy answers an HTML page: that is the NETWORK, not a refusal by the server
+  var PORTAL_MSG = 'The network answered with a web page instead of the server (Wi-Fi sign-in page?) — the entry is kept and will be sent again.';   // the server session is not the person this phone's profile names: send nothing
   var ageDays = function (iso) { var t = Date.parse(iso || ''); return isFinite(t) ? Math.floor((Date.now() - t) / 864e5) : null; };
   var H = function (extra) { return Object.assign({}, extra || {}); };
   function api(path, o) {
     o = o || {};
     return fetch(path, { method: o.method || 'GET', credentials: 'same-origin', headers: H(o.body ? { 'content-type': 'application/json' } : {}), body: o.body ? JSON.stringify(o.body) : undefined })
-      .then(function (r) { return r.json().catch(function () { return { error: 'HTTP ' + r.status + ' (not JSON — proxy or network page)' }; }).then(function (j) { j.__status = r.status; j.__stale = r.headers.get('x-field-cache') === 'stale'; return j; }); });
+      .then(function (r) { return r.json().catch(function () { return { error: 'HTTP ' + r.status + ' (not JSON — proxy or network page)', __notjson: true }; }).then(function (j) { j.__status = r.status; j.__stale = r.headers.get('x-field-cache') === 'stale'; return j; }); });
   }
   function uuid() { if (crypto.randomUUID) return crypto.randomUUID(); var b = crypto.getRandomValues(new Uint8Array(16)); b[6] = (b[6] & 0x0f) | 0x40; b[8] = (b[8] & 0x3f) | 0x80; var h = Array.from(b, function (x) { return x.toString(16).padStart(2, '0'); }).join(''); return h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 16) + '-' + h.slice(16, 20) + '-' + h.slice(20); }
 
@@ -149,13 +151,15 @@
       if (!me || sessionMismatch) return;                        // no known author or a mismatched session: send nothing
       items = items.filter(function (e) { var st = stateOf(e); return st === 'pending' || st === 'failed'; });
       items.sort(function (a, b) { return a.client_ts < b.client_ts ? -1 : 1; });
-      return items.reduce(function (p, e) { return p.then(function (stop) { return stop ? stop : sendOne(e).catch(function (err) { return entryError(e, err); }); }); }, Promise.resolve());
+      var n = items.length;
+      return items.reduce(function (p, e, i) { return p.then(function (stop) { if (stop) return stop; if (n > 1) msg(FT('Sending') + ' ' + (i + 1) + '/' + n + '…', ''); return sendOne(e).catch(function (err) { return entryError(e, err); }); }); }, Promise.resolve());
     }).catch(function (e) { msg(FT('Sync problem: ') + e.message, 'err'); }).then(function () { flushing = false; renderOutbox(); });
   }
   // G19 — one failing entry never blocks the others: a 401 stops the sync (sign in again), a refusal of a photo
   // upload marks this entry refused, anything else (network, a proxy HTML page) marks it 'failed' and moves on
   function entryError(e, err) {
     if (err && err.status === 401) { msg(FT('Session expired — sign in again. Nothing was lost: your entries are kept on this phone.'), 'err'); return true; }
+    if (err && err.notJson) { e.state = 'failed'; e.last_error = FT(PORTAL_MSG); msg(FT(PORTAL_MSG), 'err'); return obPut(e).then(function () {}); }
     e.state = err && err.status >= 400 && err.status < 500 ? 'rejected' : 'failed';
     e.last_error = String((err && err.message) || err || 'error').slice(0, 300);
     return obPut(e).then(function () {});
@@ -165,6 +169,7 @@
       return api('/api/field/outbox/' + e.uuid, { method: 'PUT', body: { kind: e.kind, payload: e.payload, client_ts: e.client_ts, device: e.device, author: e.user || me } });
     }).then(function (j) {
       if (j.__status === 503 && j.offline) return true;                             // still offline: keep, stop
+      if (j.__notjson) { e.state = 'failed'; e.last_error = FT(PORTAL_MSG); msg(FT(PORTAL_MSG), 'err'); return obPut(e).then(function () {}); }
       if (j.__status === 401) { msg(FT('Session expired — sign in again. Nothing was lost: your entries are kept on this phone.'), 'err'); return true; }
       if (j.__status === 403 && j.wrong_author) { sessionMismatch = true; msg(FT('This phone is signed in as another person — sign in again. Nothing is sent meanwhile.'), 'err'); return true; }
       if (j.__status === 409 && j.in_progress) {                     // being applied elsewhere: retry next sync, then ask for review
@@ -184,7 +189,7 @@
   }
   // Photos: each draft photo {b64, mime, size, name, upload_id?} is uploaded in chunks; once done the
   // inspection payload references {upload_id} (server turns it into a blob ref).
-  function upErr(j) { var er = new Error(FT('Photo upload: ') + (j.error || ('HTTP ' + j.__status))); er.status = j.__status; return er; }
+  function upErr(j) { var er = new Error(FT('Photo upload: ') + (j.error || ('HTTP ' + j.__status))); er.status = j.__status; er.notJson = !!j.__notjson; return er; }
   function uploadPhotos(e) {
     if (!e.uploads || !e.uploads.length) return Promise.resolve();
     return e.uploads.reduce(function (p, ph) {
