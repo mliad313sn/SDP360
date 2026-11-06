@@ -11,8 +11,8 @@
   "routes_in_server_js": 210,
   "jobs": 30,
   "jobs_without_test_reference": 10,
-  "migrations": 74,
-  "test_files": 621
+  "migrations": 75,
+  "test_files": 623
  },
  "pages": [
   {
@@ -10046,6 +10046,10 @@
   {
    "id": "MG-reports-071-governance-attendance-controls",
    "file": "db/postgres/reports/071_governance_attendance_controls.sql"
+  },
+  {
+   "id": "MG-reports-077-password-iterations",
+   "file": "db/postgres/reports/077_password_iterations.sql"
   },
   {
    "id": "MG-sync-000-upgrade-from-1-11",
