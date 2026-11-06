@@ -317,14 +317,31 @@ async function _setExecMiSummaryPg(request_id, s) {
 }
 
 // ── SEED DEFAULT ADMIN ────────────────────────────────────────────
-function hashPassword(password, salt) {
-  return crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
+// E-S05 — the work factor is stored per hash (users.password_iterations, migration 077). NULL = 100000, the count
+// every hash before that column was made with. The target for NEW hashes is report_config auth_pbkdf2_iterations
+// (default '100000' = today); an invalid, lower or absurd value falls back to 100000 (never weakens a new hash).
+const PBKDF2_LEGACY = 100000;
+function _pbkdf2Target(v) {
+  const n = Number(v);
+  return Number.isInteger(n) && n >= PBKDF2_LEGACY && n <= 5000000 ? n : PBKDF2_LEGACY;
 }
-// G03 — constant-time password check. An unknown user still costs one PBKDF2 run, so the response time does
-// not tell an attacker which usernames exist.
+function _storedIterations(user) {
+  const n = Number(user && user.password_iterations);
+  return Number.isInteger(n) && n > 0 ? n : PBKDF2_LEGACY;
+}
+async function _pbkdf2TargetPg(h) {
+  const r = await h.prepare("SELECT value FROM report_config WHERE key='auth_pbkdf2_iterations'").get().catch(() => null);
+  return _pbkdf2Target(r ? r.value : undefined);
+}
+function hashPassword(password, salt, iterations = PBKDF2_LEGACY) {
+  return crypto.pbkdf2Sync(password, salt, iterations, 64, 'sha512').toString('hex');
+}
+// G03 — constant-time password check. An unknown user still costs one PBKDF2 run (at the target count, E-S05),
+// so the response time does not tell an attacker which usernames exist.
 const _DUMMY_SALT = crypto.randomBytes(16).toString('hex');
-function passwordMatches(password, user) {
-  const got = Buffer.from(hashPassword(String(password == null ? '' : password), user ? user.salt : _DUMMY_SALT), 'hex');
+function passwordMatches(password, user, dummyIterations = PBKDF2_LEGACY) {
+  const it = user ? _storedIterations(user) : _pbkdf2Target(dummyIterations);
+  const got = Buffer.from(hashPassword(String(password == null ? '' : password), user ? user.salt : _DUMMY_SALT, it), 'hex');
   if (!user || !user.password_hash) return false;
   const want = Buffer.from(String(user.password_hash), 'hex');
   return want.length === got.length && crypto.timingSafeEqual(want, got);
@@ -577,6 +594,10 @@ async function initPgReports() {            // called once at server boot
   for (const c of ['asset_manager_name TEXT', 'asset_manager_email TEXT', 'asset_manager_email_confirmed INTEGER DEFAULT 0']) {
     await _pg.exec(`ALTER TABLE report_recipients ADD COLUMN IF NOT EXISTS ${c}`);
   }
+  // E-S05 — the default admin is hashed below with its stored work factor: the column must exist first (the
+  // migration runner records 077 later; the ALTER is idempotent).
+  await _pg.exec(require('fs').readFileSync(
+    require('path').join(__dirname, 'db', 'postgres', 'reports', '077_password_iterations.sql'), 'utf8'));
   // Default admin on PostgreSQL (consolidation 2026-10-28). Before, it was seeded into the sqlite file only,
   // so a fresh PostgreSQL-only install had an empty users table and nobody could sign in.
   // Same rule as sqlite: refuse without DASH_USER / DASH_PASS; never overwrite an existing admin.
@@ -738,7 +759,17 @@ function logout(token) {
 async function _loginPg(username, password) {
   const h = pgHandle();
   const user = await h.prepare(`SELECT * FROM users WHERE username=? AND active=1`).get(username);
-  if (!passwordMatches(password, user)) return null;
+  const target = await _pbkdf2TargetPg(h);
+  if (!passwordMatches(password, user, target)) return null;
+  // E-S05: upgrade path — rehash once with the target count when the stored one is lower. Best effort: a failure
+  // here never refuses a correct password. Guarded on the old hash so two concurrent logins rehash only once.
+  if (_storedIterations(user) < target) {
+    try {
+      const salt = crypto.randomBytes(16).toString('hex');
+      await h.prepare('UPDATE users SET password_hash=?, salt=?, password_iterations=? WHERE id=? AND password_hash=?')
+        .run(hashPassword(String(password), salt, target), salt, target, user.id, user.password_hash);
+    } catch (e) { console.warn('[auth] work-factor upgrade skipped:', e.code || 'error'); }
+  }
   const token = makeSession();
   const expiresAt = new Date(Date.now() + sessionHours() * 3600 * 1000).toISOString();
   await h.prepare(`INSERT INTO sessions (token, user_id, expires_at) VALUES (?,?,?)`).run(token, user.id, expiresAt);
@@ -1018,13 +1049,14 @@ async function _listUsersPg() {
 }
 async function _createUserPg({ username, full_name, password, site_id, role, roles, email, extra_site_ids }) {
   const salt = crypto.randomBytes(16).toString('hex');
-  const hash = hashPassword(password, salt);
+  const iters = await _pbkdf2TargetPg(pgHandle());
+  const hash = hashPassword(password, salt, iters);
   const finalRoles = Array.isArray(roles) && roles.length > 0 ? roles : [role || 'editor'];
   _assertKnownRoles(finalRoles);
   const ROLE_HIERARCHY_LOCAL = ['super_admin', 'executive', 'admin', 'editor', 'viewer'];
   const highest = ROLE_HIERARCHY_LOCAL.find(h => finalRoles.includes(h)) || 'viewer';
-  const result = await pgHandle().prepare(`INSERT INTO users (username, full_name, password_hash, salt, site_id, role) VALUES (?,?,?,?,?,?)`)
-    .run(username, full_name, hash, salt, site_id || null, highest);
+  const result = await pgHandle().prepare(`INSERT INTO users (username, full_name, password_hash, salt, password_iterations, site_id, role) VALUES (?,?,?,?,?,?,?)`)
+    .run(username, full_name, hash, salt, iters, site_id || null, highest);
   if (result.lastID) await _setUserRolesPg(result.lastID, finalRoles);
   if (result.lastID && email !== undefined) await _setUserEmailPg(result.lastID, email);
   if (result.lastID && Array.isArray(extra_site_ids)) await _setUserExtraSitesPg(result.lastID, extra_site_ids, site_id);
@@ -1037,8 +1069,9 @@ async function _changePasswordPg(userId, currentPassword, newPassword) {
   if (!passwordMatches(currentPassword, user)) return { ok: false, error: 'Current password is incorrect' };
   if (newPassword.length < 8) return { ok: false, error: 'New password must be at least 8 characters' };
   const salt = crypto.randomBytes(16).toString('hex');
-  const hash = hashPassword(newPassword, salt);
-  await h.prepare('UPDATE users SET password_hash=?, salt=? WHERE id=?').run(hash, salt, userId);
+  const iters = await _pbkdf2TargetPg(h);
+  const hash = hashPassword(newPassword, salt, iters);
+  await h.prepare('UPDATE users SET password_hash=?, salt=?, password_iterations=? WHERE id=?').run(hash, salt, iters, userId);
   return { ok: true };
 }
 async function _updateUserPg(id, { full_name, password, site_id, role, roles, active, email, extra_site_ids }) {
@@ -1050,9 +1083,10 @@ async function _updateUserPg(id, { full_name, password, site_id, role, roles, ac
   const highest = finalRoles ? (ROLE_HIERARCHY_LOCAL.find(x => finalRoles.includes(x)) || 'viewer') : null;
   if (password) {
     const salt = crypto.randomBytes(16).toString('hex');
-    const hash = hashPassword(password, salt);
-    if (willUpdateRoles && highest) await h.prepare(`UPDATE users SET full_name=?, password_hash=?, salt=?, site_id=?, role=?, active=? WHERE id=?`).run(full_name, hash, salt, site_id ?? null, highest, active ?? 1, id);
-    else await h.prepare(`UPDATE users SET full_name=?, password_hash=?, salt=?, site_id=?, active=? WHERE id=?`).run(full_name, hash, salt, site_id ?? null, active ?? 1, id);
+    const iters = await _pbkdf2TargetPg(h);
+    const hash = hashPassword(password, salt, iters);
+    if (willUpdateRoles && highest) await h.prepare(`UPDATE users SET full_name=?, password_hash=?, salt=?, password_iterations=?, site_id=?, role=?, active=? WHERE id=?`).run(full_name, hash, salt, iters, site_id ?? null, highest, active ?? 1, id);
+    else await h.prepare(`UPDATE users SET full_name=?, password_hash=?, salt=?, password_iterations=?, site_id=?, active=? WHERE id=?`).run(full_name, hash, salt, iters, site_id ?? null, active ?? 1, id);
   } else {
     if (willUpdateRoles && highest) await h.prepare(`UPDATE users SET full_name=?, site_id=?, role=?, active=? WHERE id=?`).run(full_name, site_id ?? null, highest, active ?? 1, id);
     else await h.prepare(`UPDATE users SET full_name=?, site_id=?, active=? WHERE id=?`).run(full_name, site_id ?? null, active ?? 1, id);
@@ -5636,7 +5670,7 @@ module.exports = {
   // System Logs v1
   _isRiskAction, _redactKeys, _logCtx, logEvent,
   listSystemLog, countSystemLog, getSystemLogAnalytics, _backfillSystemLogFromAudit,
-  hashPassword, passwordMatches, makeSession,
+  hashPassword, passwordMatches, makeSession, _pbkdf2Target,
   login, validateSession, logout, safeUser,
   findUserByEntra, linkUserEntra, createSessionForUser,
   updateUserProfileFromEntra, setUserEmail,

@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (177) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (178) — services/reportConfig.js DEFAULTS
 
 | Key | Default (today) | Kind | Owner | Recommended pilot value | Reference |
 |---|---|---|---|---|---|
@@ -47,6 +47,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `auth_account_throttle_enabled` | `0` | arm switch | Security owner | `1` (per-account failed sign-in cap on top of the per-IP limiter; note a deliberate lock-out of a named account is possible for its window) | SEC-01 |
 | `auth_account_throttle_max` | `10` | setting | Security owner | `10` failed sign-ins per account per window | SEC-01 |
 | `auth_account_throttle_window_min` | `15` | setting | Security owner | `15` minutes | SEC-01 |
+| `auth_pbkdf2_iterations` | `100000` | setting | Security owner | PROPOSITION: `100000` (today, nothing rehashed) until a crypto review names the target (e.g. 210000, OWASP 2023 for PBKDF2-SHA512); a higher value rehashes each user once at their next successful password sign-in and costs that much more CPU per sign-in (see docs/agent-execution/E-W2-RDB.md for the measured time) | E-S05 |
 | `authz_capability_mode` | `off` | setting | Security owner | `shadow` (log divergences only; `enforce` acts only on `authz_enforce_caps` — route-by-route plan in `docs/agent-execution/C-17.md`) | C-17 |
 | `authz_enforce_caps` | `` | setting | Security owner | PROPOSITION: empty during the pilot; after two shadow weeks without unexplained divergences (`tools/security/authz-divergence-report.js`), low-risk reads first (`review.read`, `analytics.data.read`, `tracker.read`) with mode `enforce`; a listed capability can only refuse, critical ones are ignored while C-18 grants are off | E-S01 |
 | `backup_offsite_path` | `` | setting | to be named | — | — |

@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 4307,
+ "total": 4312,
  "files": {
   "a11y-static.test.js": 18,
   "access-approver-policy.test.js": 4,
@@ -334,6 +334,7 @@
   "page-usage.test.js": 7,
   "parse-actions-csv.test.js": 19,
   "password-compare.test.js": 3,
+  "password-work-factor.test.js": 5,
   "pending-status-derivation.test.js": 5,
   "perf-baseline.test.js": 4,
   "pg-adapter.test.js": 6,
