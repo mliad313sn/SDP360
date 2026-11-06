@@ -45,6 +45,53 @@ module.exports = function metricsRoutes(deps) {
     try { await targetStore().end(req.params.id, { actorId: req.reportUser.id, reason: (req.body || {}).reason }); res.json({ ok: true }); } catch (e) { fail(res, e, undefined, { ok: false }); }
   });
 
+  // E-K04 — GET /api/metrics/:key/explain?site=&a=&b=  deterministic description of the change from window a to b.
+  // Switch metric_explain_enabled='0' → 404. Same site scope as /api/metrics/:key; without ?site the parts are the
+  // caller's sites (admin tier: every active site). Counts: per-site contributions; ratios: numerator / denominator
+  // changes only. The note is data-generated (kind 'data_note'), never written into an editorial field.
+  const VX = require('../services/variationExplain');
+  const RATIO_FIELDS = { 'helpdesk.closure_pct': ['closed', 'inbound'] };   // the only ratio whose reader returns both terms
+  router.get('/api/metrics/:key/explain', requireReportSession, async (req, res) => {
+    try {
+      const cfg = await (deps.reportConfig || require('../services/reportConfig')).getConfig(rdb().db);
+      if (String(cfg.metric_explain_enabled) !== '1') return fail(res, new Error('variation explanation is not enabled'), 404, { ok: false });
+      const reg = registry();
+      const key = String(req.params.key || '').slice(0, 80);
+      const m = reg.get(key);
+      if (!m) return fail(res, new Error(`unknown metric ${key}`), 404, { ok: false });
+      const a = req.query.a ? String(req.query.a).slice(0, 24) : null, b = req.query.b ? String(req.query.b).slice(0, 24) : null;
+      if (!a || !b) return fail(res, new Error('both windows are required: ?a=<window>&b=<window>'), 400, { ok: false });
+      const siteRaw = req.query.site;
+      const site = siteRaw == null || siteRaw === '' ? null : Number(siteRaw);
+      if (siteRaw != null && siteRaw !== '' && !(Number.isInteger(site) && site > 0)) return fail(res, new Error('site must be a positive integer id'), 400, { ok: false });
+      const user = req.reportUser;
+      const admin = rdb().userHasRole(user, 'admin');
+      const US = require('../services/userSites');
+      if (site != null && !admin && !US.hasSite(user, site)) return fail(res, new Error('site not in your scope'), 403, { ok: false });
+      if (m.reader === 'tracker.fleet') return fail(res, new Error(`metric ${key} is a fleet figure — no per-site decomposition`), 400, { ok: false });
+      const all = ((await rdb().listSites()) || []).filter((s) => s.active !== 0 && s.active !== false);
+      const sites = site != null ? all.filter((s) => Number(s.id) === site) : all.filter((s) => admin || US.hasSite(user, Number(s.id)));
+      if (!sites.length) return fail(res, new Error('no site in your scope'), 403, { ok: false });
+      const d = readerDeps();
+      const at = async (s, w) => { try { return await reg.resolve(key, { site: Number(s.id), window: w, deps: d }); } catch (_) { return null; } };
+      const pairs = await Promise.all(sites.map(async (s) => ({ s, ra: await at(s, a), rb: await at(s, b) })));
+      const win = (r) => (r && r.window ? r.window.label : null);
+      const wa = win(pairs[0].ra) || a, wb = win(pairs[0].rb) || b;
+      let out;
+      if (String(m.unit) === 'count') {
+        out = VX.explainCount({ metric: key, a: wa, b: wb, parts: pairs.map((p) => ({ key: Number(p.s.id), label: p.s.name, a: p.ra && p.ra.value, b: p.rb && p.rb.value })) });
+      } else if (String(m.unit) === '%' && sites.length === 1) {
+        const side = (r) => { const f = RATIO_FIELDS[key], rec = r && r.record; return { value: r && r.value, num: f && rec ? rec[f[0]] : null, den: f && rec ? rec[f[1]] : (r && r.base ? r.base.n : null) }; };
+        out = VX.explainRatio({ metric: key, a: wa, b: wb, sideA: side(pairs[0].ra), sideB: side(pairs[0].rb) });
+      } else if (String(m.unit) === '%') {
+        return fail(res, new Error('a ratio is decomposed for ONE site (?site=<id>) — a fleet ratio is not a sum of site ratios'), 400, { ok: false });
+      } else {
+        return res.json({ ok: true, metric: key, kind: 'not_decomposable', unit: m.unit, note: `a ${m.unit} figure is neither an additive count nor a ratio — no decomposition` });
+      }
+      res.json({ ok: true, ...out, unit: m.unit, data_note: VX.dataNote(out, m.name) });
+    } catch (e) { fail(res, e, 500, { ok: false }); }
+  });
+
   router.get('/api/metrics/:key', requireReportSession, async (req, res) => {
     const reg = registry();
     const key = String(req.params.key || '').slice(0, 80);

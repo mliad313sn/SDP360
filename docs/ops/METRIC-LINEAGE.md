@@ -27,7 +27,7 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `zoho.requests` — declared window 3 h |
-| Consumers | pages: `public/index.html`<br>browser libraries: `public/lib/composerGuide.js` · tests: 10 file(s) |
+| Consumers | pages: `public/index.html`<br>browser libraries: `public/lib/composerGuide.js` · tests: 11 file(s) |
 
 ## `helpdesk.closed`
 
@@ -61,7 +61,7 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `zoho.requests` — declared window 3 h |
-| Consumers | server code: `services/agendaBuilder.js`<br>API routes: `routes/governance.js` · tests: 4 file(s) |
+| Consumers | server code: `services/agendaBuilder.js`<br>API routes: `routes/governance.js`<br>API routes: `routes/metrics.js` · tests: 5 file(s) |
 
 ## `helpdesk.resolution_sla_pct`
 
