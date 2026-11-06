@@ -329,3 +329,6 @@
 .edv-multiple h4 { margin:0 0 4px; font-size:13px; }
 .edv-multiple h4 small { color:var(--color-text-muted); font-weight:400; }
 .edv-multiple canvas { flex:1; min-height:110px; }
+/* E-K02 — sample size and low-sample warning (ui_kpi_sample_size='1') */
+.edv-sample, .edv-ragcell-n { display:block; font-size:12px; color:var(--color-text-muted); }
+.edv-low-sample { font-weight:600; }

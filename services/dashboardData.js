@@ -120,6 +120,17 @@ async function resolveWidgets({ def, sites, site, window = null, reg, dd, rdb, n
   // F06 — every version, ended ones included: a target is read on the date its period ends.
   let targets = [];
   try { if (rdb && rdb.pgHandle) { const st = KT.makeKpiTargetStore(rdb.pgHandle()); targets = await (st.listAll ? st.listAll() : st.list()); } } catch (_) { targets = []; }
+  // E-K02 — min_sample of the ADOPTED kpi_policy in force for a metric (never invented: no adopted policy → null)
+  let polStore = null;
+  try { if (rdb && rdb.pgHandle) polStore = require('./kpiPolicyStore').makeKpiPolicyStore(rdb.pgHandle()); } catch (_) { polStore = null; }
+  const minCache = new Map();
+  const minSample = async (metric, day) => {
+    const k = metric + '|' + day; if (minCache.has(k)) return minCache.get(k);
+    let v = null;
+    try { const p = polStore ? await polStore.inForce(metric, day) : null; if (p && (p.status === 'adopted' || p.status === 'retired') && p.definition && Number.isInteger(p.definition.min_sample) && p.definition.min_sample > 0) v = { min: p.definition.min_sample, policy_id: p.id }; } catch (_) { v = null; }
+    minCache.set(k, v); return v;
+  };
+  const lowSample = (n, ms) => (n != null && ms ? Number(n) < ms.min : false);
   const endOf = (win) => { const to = win && win.to ? String(win.to).slice(0, 10) : today; return to > today ? today : to; };
   const each = (items, fn) => mapLimit(items, concurrency, fn);
   for (const w of (def && def.widgets) || []) {
@@ -154,11 +165,14 @@ async function resolveWidgets({ def, sites, site, window = null, reg, dd, rdb, n
           vs_target: KT.vsTarget(one.value, tg.target, m.higher_is_better !== false), previous, partial,
           // E-V03 — base population only where the reader returns the denominator; null = "base not measured"
           base: one.base || null, action_href: w.action_href || null };
+        // E-K02 — sample size n (the base population, only where the reader returns it) + low-sample flag
+        { const ms = await minSample(w.metric, endOf(one.window)); const n = one.base ? one.base.n : null;
+          Object.assign(out[w.id], { n, min_sample: ms ? ms.min : null, low_sample: lowSample(n, ms) });}
       } else if (plan.mode === 'series' && m) {
         // F05/G07 — the series ends on the selected window (no window: today's anchor, unchanged)
         const labels = R.windowSeries(plan.kind, plan.n, R.seriesAnchor(window, plan.kind, now));
         const tsite = m.reader === 'tracker.fleet' ? null : site;
-        const pointsFor = (mm) => each(labels, async (lab) => { const r = await reg.resolve(mm.key, { site: mm.reader === 'tracker.fleet' ? null : site, window: lab, deps: dd, now }); return { label: lab, value: r ? r.value : null, partial: R.isPartial(lab, now) }; });
+        const pointsFor = (mm) => each(labels, async (lab) => { const r = await reg.resolve(mm.key, { site: mm.reader === 'tracker.fleet' ? null : site, window: lab, deps: dd, now }); return { label: lab, value: r ? r.value : null, partial: R.isPartial(lab, now), n: r && r.base ? r.base.n : null }; });
         const points = await pointsFor({ ...m, key: w.metric });
         // F06 — each point carries the target of ITS period (version shown in the table / tooltip)
         for (const p of points) { const t = KT.targetFor(targets, w.metric, tsite, R.evalDate(p.label, now)); p.target = t.target; p.target_from = t.effective_from || null; }
@@ -179,13 +193,14 @@ async function resolveWidgets({ def, sites, site, window = null, reg, dd, rdb, n
         out[w.id] = { mode: 'series', metric: w.metric, title: w.title, unit: m.unit, points, target: tgs.target, target_from: tgs.effective_from || null, window_end, partial: R.isPartial(last, now), as_of: now.toISOString() };
         if (lines) out[w.id].lines = lines;
       } else if (plan.mode === 'per-site' && m) {
-        const rows = await each(sites, async (s) => { const r = await reg.resolve(w.metric, { site: Number(s.id), window, deps: dd, now }); return { site_id: Number(s.id), site: s.name, value: r ? r.value : null, rag: w.rag ? ragOverride(w.rag, r && r.value, m.unit) : (r ? r.rag : 'NA') }; });
+        const rows = await each(sites, async (s) => { const r = await reg.resolve(w.metric, { site: Number(s.id), window, deps: dd, now }); return { site_id: Number(s.id), site: s.name, value: r ? r.value : null, rag: w.rag ? ragOverride(w.rag, r && r.value, m.unit) : (r ? r.rag : 'NA'), n: r && r.base ? r.base.n : null }; });
         rows.sort((a, b) => (a.value == null) - (b.value == null) || (a.value - b.value));
         const win = MR.resolveWindow(m.window_kind, window, now);
         // table widgets show the committee target per site (same lookup as the KPI tile, at the window end)
         if (w.type === 'table' || w.type === 'heatmap') for (const r of rows) r.target = KT.targetFor(targets, w.metric, r.site_id, endOf(win)).target;
         out[w.id] = { mode: 'per-site', metric: w.metric, title: w.title, unit: m.unit, higher_is_better: m.higher_is_better !== false, rows, summary: R.summarizeGrid(rows), window: { label: win.label, to: win.to }, partial: R.windowPartial(win, now), as_of: now.toISOString() };
         if (w.type === 'heatmap') out[w.id].notice = 'Heatmap widgets are no longer offered — shown as a table.';
+        { const ms = await minSample(w.metric, endOf(win)); out[w.id].min_sample = ms ? ms.min : null; for (const r of rows) r.low_sample = lowSample(r.n, ms); }
       } else if (plan.mode === 'multiples') {
         // E-V09 — one panel per metric over the SAME window labels and the same site; null points are gaps
         const labels = R.windowSeries(plan.kind, plan.n, R.seriesAnchor(window, plan.kind, now));

@@ -69,12 +69,14 @@
   }
 
   /** Target and change since the previous window, coloured by whether the move is good (design review R2). */
-  function kpiContext(d) {
+  function kpiContext(d, opts) {
     if (!d || d.value == null) return '';
+    var lowSample = !!(opts && opts.sampleSize && d.low_sample);   // E-K02 — a low sample is never compared
     var parts = [];
     var stale = !!d.freshness && d.freshness !== 'FRESH';
     if (d.target != null) parts.push('<span class="edv-target ' + (stale ? 'rag-na' : ragClass(d.vs_target && d.vs_target.rag)) + '"' + (d.target_from ? ' title="target version from ' + escapeHtml(d.target_from) + '"' : '') + '>target ' + formatValue(d.target, d.unit) + (d.target_source === 'site' ? ' (site)' : '') + '</span>');
-    if (d.previous && d.previous.comparable === false) parts.push('<span class="edv-delta flat">vs ' + escapeHtml(shortLabel(d.previous.label)) + ': not comparable — this period is still running</span>');
+    if (lowSample) { /* no delta: the sample is below the adopted minimum — sampleNote says so */ }
+    else if (d.previous && d.previous.comparable === false) parts.push('<span class="edv-delta flat">vs ' + escapeHtml(shortLabel(d.previous.label)) + ': not comparable — this period is still running</span>');
     else if (d.previous && d.previous.delta != null) {
       var dl = Number(d.previous.delta), good = dl === 0 ? null : (d.higher_is_better !== false ? dl > 0 : dl < 0);
       var unit = String(d.unit || '').toLowerCase() === '%' ? ' pts' : '';
@@ -94,6 +96,15 @@
     var b = d && d.base;
     if (b && b.n != null && isFinite(Number(b.n))) return '<div class="edv-kpi-base">n = ' + Number(b.n).toLocaleString('en-GB') + (b.label ? ' ' + escapeHtml(b.label) : '') + '</div>';
     return '<div class="edv-kpi-base edv-quiet">base not measured</div>';
+  }
+  /** E-K02 — "n = 142" and, only when an ADOPTED policy's min_sample is not reached, "low sample — not comparable". */
+  function sampleNote(d, opts) {
+    if (!d) return '';
+    var withN = !(opts && opts.withN === false);
+    var out = '';
+    if (withN && d.n != null && isFinite(Number(d.n))) out += '<div class="edv-sample">n = ' + Number(d.n).toLocaleString('en-GB') + '</div>';
+    if (d.low_sample) out += '<div class="edv-sample edv-low-sample" role="note">low sample — not comparable (n = ' + Number(d.n).toLocaleString('en-GB') + ' &lt; ' + escapeHtml(d.min_sample) + ')</div>';
+    return out;
   }
   /** A relative link only (no scheme, no //host, no backslash): the action page of a figure. */
   function safeRelativeHref(href) {
@@ -274,12 +285,14 @@
   }
 
   /** ragGrid: one cell per site — RAG + value; unknown (null / stale / unrecognised) is grey, never green. */
-  function ragGridHtml(d) {
+  function ragGridHtml(d, opts) {
     var rows = sortRows((d && d.rows) || [], d.higher_is_better !== false);
+    var ss = !!(opts && opts.sampleSize);   // E-K02 — switch ui_kpi_sample_size; off = byte-identical to before
     var cells = rows.map(function (r) {
       var st = rowState(r, d);
       return '<div class="edv-ragcell edv-ragcell-' + st + '" role="listitem" aria-label="' + escapeHtml(r.site + ': ' + STATE_WORD[st] + ', ' + formatValue(r.value, d.unit)) + '">' + stateDot(st, r, d) +
-        '<span class="edv-ragcell-site">' + escapeHtml(r.site) + '</span><span class="edv-ragcell-val">' + formatValue(r.value, d.unit) + '</span></div>';
+        '<span class="edv-ragcell-site">' + escapeHtml(r.site) + '</span><span class="edv-ragcell-val">' + formatValue(r.value, d.unit) + '</span>' +
+        (ss && r.n != null ? '<span class="edv-ragcell-n">n = ' + Number(r.n).toLocaleString('en-GB') + (r.low_sample ? ' · low sample — not comparable' : '') + '</span>' : '') + '</div>';
     }).join('');
     var legend = '<div class="edv-rag-legend" aria-label="Legend">' + ragDot('GREEN') + 'Green ' + ragDot('AMBER') + 'Amber ' + ragDot('RED') + 'Red ' +
       '<span class="edv-rag-dot rag-na" aria-hidden="true"></span>Unknown — not measured, stale or never synced</div>';
@@ -287,9 +300,9 @@
   }
 
   /** The body of a per-site widget by its declared type (heatmap = retired → table with a notice). */
-  function perSiteHtml(type, d, sort) {
+  function perSiteHtml(type, d, sort, opts) {
     if (type === 'table' || type === 'heatmap') return tableHtml(d, sort);
-    if (type === 'ragGrid') return ragGridHtml(d);
+    if (type === 'ragGrid') return ragGridHtml(d, opts);
     return barListHtml(d);
   }
 
@@ -341,7 +354,7 @@
     return '<div class="edv-multiples">' + body + '</div>' + (tableHtml || '');
   }
 
-  return { multiplesTableSpec, multiplesHtml, gridStyle, formatValue, ragClass, ragDot, kpiContext, staleBadge, baseLine, safeRelativeHref, actionLink, sortRows, shortLabel, windowSeries, trendLength, widgetDataPlan, summarizeGrid, escapeHtml, miniMarkdown, isoWeek,
+  return { multiplesTableSpec, multiplesHtml, sampleNote, gridStyle, formatValue, ragClass, ragDot, kpiContext, staleBadge, baseLine, safeRelativeHref, actionLink, sortRows, shortLabel, windowSeries, trendLength, widgetDataPlan, summarizeGrid, escapeHtml, miniMarkdown, isoWeek,
     rowState, barListHtml, tableHtml, sortTableRows, ragGridHtml, perSiteHtml, trackerHtml, seriesTableHtml,
     periodBounds, isPartial, windowPartial, evalDate, seriesAnchor, partialNote };
 });
