@@ -168,6 +168,45 @@ function safePostFor(cfg) {
 /** G16 — the STOP switch halts every outbound channel the engagement jobs own: alerts, digests, publication. */
 const stopped = (cfg) => String((cfg && cfg.notifications_stop) || '0') === '1';
 
+// E-R06 (catalogue A05) — schedule reminders, in-app only. Inert unless schedule_reminders_enabled = '1' AND
+// schedule_reminder_lead_days is set; nothing while notifications_stop = '1'. `read` returns the rows
+// (meetings, cadences, inspections, sites, users); `sent(key)` says whether a key was already notified.
+async function runScheduleReminders({ cfg = {}, read, store, sent, now = new Date() }) {
+  if (String(cfg.schedule_reminders_enabled || '0') !== '1') return { skipped: 'schedule_reminders_enabled' };
+  if (stopped(cfg)) return { skipped: 'notifications_stop' };
+  const R = require('./scheduleReminders');
+  if (R.leadOf(cfg.schedule_reminder_lead_days) == null) return { skipped: 'no lead days' };
+  const data = await read();
+  const { items } = R.buildReminders({ ...data, now, leadDays: cfg.schedule_reminder_lead_days, inspectionIntervalDays: cfg.schedule_inspection_interval_days, tzEnabled: cfg.site_local_calendar });
+  let notified = 0, already = 0, nobody = 0;
+  for (const it of items) {
+    if (await sent(it.key)) { already++; continue; }
+    if (!it.userIds.length) { nobody++; continue; }
+    for (const userId of it.userIds) { await store.notify({ userId, kind: 'schedule_reminder', title: it.title, body: it.body, link: it.link, sourceKind: 'schedule_reminder', sourceRef: it.key }); notified++; }
+  }
+  return { items: items.length, notified, already, nobody };
+}
+
+/** Live readers for runScheduleReminders (one PostgreSQL database). */
+function scheduleReaders(rdbM) {
+  const H = rdbM.pgHandle();
+  const codeToSite = async (module, code) => { try { const r = await rdbM.getSiteIdByModuleCode(module, code); return r && r.site_id != null ? Number(r.site_id) : null; } catch (_) { return null; } };
+  return {
+    read: async () => {
+      // the LATEST PV per site × department carries the next date agreed in that meeting
+      const pv = await H.prepare(`SELECT DISTINCT ON (site_code, department) id, site_code, department, next_meeting_date, intake_source, reference FROM md_meetings
+        WHERE deleted_at IS NULL ORDER BY site_code, department, meeting_date DESC, id DESC`).all();
+      const meetings = [];
+      for (const m of pv) if (m.next_meeting_date) meetings.push({ id: Number(m.id), site_id: await codeToSite('meetings', m.site_code), department: m.department, next_meeting_date: m.next_meeting_date, incubation: m.intake_source === 'business_incubation' || /_INC_/.test(String(m.reference || '')) });
+      const cadences = await H.prepare(`SELECT id, key, name, site_id, weekday, time_local, effective_from, effective_to, active FROM meeting_cadences WHERE deleted_at IS NULL AND active = 1 AND site_id IS NOT NULL`).all();
+      const ins = await H.prepare(`SELECT site_code, MAX(inspection_date) AS last_date FROM insp_inspections WHERE deleted_at IS NULL AND status IN ('submitted','closed') GROUP BY site_code`).all();
+      const inspections = []; for (const r of ins) inspections.push({ site_id: await codeToSite('inspection', r.site_code), last_date: r.last_date });
+      return { meetings, cadences, inspections, sites: (await rdbM.listSites({ includeInactive: false })) || [], users: (await rdbM.listUsers()) || [] };
+    },
+    sent: async (key) => !!(await H.prepare(`SELECT 1 FROM notifications WHERE source_kind = 'schedule_reminder' AND source_ref = ? LIMIT 1`).get(key)),
+  };
+}
+
 /** Bind the four job functions to the live stores (server.js). `stores()` is read at call time (lazy). */
 function bindJobs({ stores, aiProvider = 'off', execAiCall = null }) {
   const L = () => { const reportConfig = require('./reportConfig'), { buildMailer } = require('./mailer'), rdbM = require('../reports-db'); const dd = { rdb: rdbM, mdb: require('../meetings-db'), idb: require('../inspection-db'), adb: require('../assets-db'), tracker: require('../tracker-db'), trackerScore: require('../tracker-pptx') }; const reg = require('./metricRegistry').current(); return { reportConfig, buildMailer, rdbM, dd, reg, post: safePostFor }; };
@@ -176,8 +215,9 @@ function bindJobs({ stores, aiProvider = 'off', execAiCall = null }) {
     evaluate: async () => { const l = L(), st = stores(); const cfg = await l.reportConfig.getConfig(l.rdbM.db); return evaluateAlerts({ store: st.eng, registry: l.reg, deps: l.dd, rdb: l.rdbM, mailer: mail(cfg, l), post: l.post(cfg), cfg, baseUrl: cfg.public_base_url || '' }); },
     digest: async (kind) => { const l = L(), st = stores(); const cfg = await l.reportConfig.getConfig(l.rdbM.db); if (stopped(cfg)) return { skipped: 'notifications_stop' }; return sendDigest({ store: st.eng, rdb: l.rdbM, mailer: mail(cfg, l), digest: kind, baseUrl: cfg.public_base_url || '' }); },
     reports: async (cadence) => { const l = L(), st = stores(); const cfg = await l.reportConfig.getConfig(l.rdbM.db); return generateScheduledReports({ cadence, reportStore: st.rep, dashStore: st.dash, engStore: st.eng, registry: l.reg, deps: l.dd, rdb: l.rdbM, aiProvider, aiCall: execAiCall ? aiCallFrom(execAiCall) : null, baseUrl: cfg.public_base_url || '' }); },
+    reminders: async () => { const l = L(), st = stores(); const cfg = await l.reportConfig.getConfig(l.rdbM.db); const r = scheduleReaders(l.rdbM); return runScheduleReminders({ cfg, read: r.read, sent: r.sent, store: st.eng }); },
     publish: async () => { const l = L(), st = stores(); const cfg = await l.reportConfig.getConfig(l.rdbM.db); if (cfg.publish_cron_enabled !== '1') return { skipped: true }; if (stopped(cfg)) return { skipped: 'notifications_stop' }; return publishScheduled({ engStore: st.eng, reportStore: st.rep, registry: l.reg, deps: l.dd, rdb: l.rdbM, cfg, mailer: mail(cfg, l), post: l.post(cfg) }); },
   };
 }
 
-module.exports = { previewFirings, stopped, bindJobs, aiCallFrom, safePostFor, evaluateAlerts, sendDigest, generateScheduledReports, publishScheduled, readingsFor, resolveRecipients, teamsCard };
+module.exports = { runScheduleReminders, scheduleReaders, previewFirings, stopped, bindJobs, aiCallFrom, safePostFor, evaluateAlerts, sendDigest, generateScheduledReports, publishScheduled, readingsFor, resolveRecipients, teamsCard };

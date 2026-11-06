@@ -103,6 +103,9 @@ planned switch cannot be set before its goal lands.
 | `a01_missing_due_date` | built | `0` | `1` (proposal — a serious commitment without a due date or approved exception is then escalated as A01, like a missing owner) | Commitments owner (D-04) | E-R02 |
 | `a10_gate_lead_days` | built | `` (empty) | a number of days, e.g. `10` (proposal — the armed ppm-alerts job then reminds the project owner and committee before the next stage gate; empty = off) | Committee | E-R02 |
 | `delivery_failure_alert_enabled` | built | `0` | `1` once `sync_alert_recipients` (or the Teams URL) names who receives sync alerts (D-13) — the failed deliveries are already listed on System Logs either way | Platform owner (D-13) | E-R04 |
+| `schedule_reminders_enabled` | built | `0` | `1` on the pilot site once the lead days are decided (in-app reminder to the site's editors before a scheduled PV / incubation session, cadence meeting or inspection) | Site coordination owner | E-R06 |
+| `schedule_reminder_lead_days` | built | `` (empty) | e.g. `3` (proposal — empty = no reminder even when armed) | Site coordination owner | E-R06 |
+| `schedule_inspection_interval_days` | built | `` (empty) | e.g. `90` if a quarterly inspection rhythm is adopted (proposal; empty = inspections are not reminded) | Infrastructure / GRC owner | E-R06 |
 
 Not in this table because they are not top-level `report_config` keys:
 

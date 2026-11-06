@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (180) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (183) — services/reportConfig.js DEFAULTS
 
 | Key | Default (today) | Kind | Owner | Recommended pilot value | Reference |
 |---|---|---|---|---|---|
@@ -131,6 +131,9 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `report_reassign_submitted` | `1` | setting | Owner (D-3) | `0` | A-24 |
 | `report_revert_policy` | `site_editor` | setting | Owner (D-3, reverses 2026-10-02) | `second_person` | A-24 |
 | `roadmap_redirect_to_portfolio` | `0` | setting | PMO + PO (deletion of roadmap data: CAB) | `0` during the pilot; `1` only after one clean parity cycle (`tools/governance/roadmap-parity.js`) | B-09 |
+| `schedule_inspection_interval_days` | `` | setting | Infrastructure / GRC owner | e.g. `90` if a quarterly inspection rhythm is adopted (proposal; empty = inspections are not reminded) | E-R06 |
+| `schedule_reminder_lead_days` | `` | setting | Site coordination owner | e.g. `3` (proposal — empty = no reminder even when armed) | E-R06 |
+| `schedule_reminders_enabled` | `0` | arm switch | Site coordination owner | `1` on the pilot site once the lead days are decided (in-app reminder to the site's editors before a scheduled PV / incubation session, cadence meeting or inspection) | E-R06 |
 | `scoreboard_send_enabled` | `0` | arm switch | to be named | — | — |
 | `sdp_api_accounts_url` | `https://accounts.zoho.com` | setting | to be named | — | — |
 | `sdp_api_base_url` | `https://oneitsupport.endeavourmining.com/app/itdesk/api/v3` | setting | to be named | — | — |
