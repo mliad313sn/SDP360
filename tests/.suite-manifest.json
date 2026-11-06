@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 4319,
+ "total": 4325,
  "files": {
   "a11y-static.test.js": 18,
   "access-approver-policy.test.js": 4,
@@ -158,6 +158,7 @@
   "deck-governance-v2-fidelity.test.js": 8,
   "deck-site-impact-reader.test.js": 2,
   "deck-site-impact.test.js": 4,
+  "delivery-failures.test.js": 5,
   "delivery-metrics.test.js": 4,
   "dependency-sources.test.js": 2,
   "depreciation.test.js": 17,
@@ -556,7 +557,7 @@
   "survey-routes.smoke.test.js": 6,
   "sync-drift.test.js": 8,
   "sync-jobs-registry.test.js": 11,
-  "sync-routes.smoke.test.js": 7,
+  "sync-routes.smoke.test.js": 8,
   "sync-runner.test.js": 14,
   "sync-schedule.test.js": 1,
   "system-log-routes.smoke.test.js": 5,

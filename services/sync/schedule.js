@@ -62,6 +62,8 @@ function start(d) {
       const DRIFT = require('./drift');
       const cfg = d.getDriftConfig ? await d.getDriftConfig() : await require('../reportConfig').getConfig(require('../../reports-db').db);
       if (DRIFT.enabled(cfg)) await alerter.checkDrift(await DRIFT.driftForJobs(syncMod.getStore(), Object.keys(FRESHNESS_HOURS), cfg), { enabled: true });
+      // E-R04 — delivery failures, sent only when delivery_failure_alert_enabled = '1' (default '0': listed, not sent)
+      if (String(cfg.delivery_failure_alert_enabled || '0') === '1') await alerter.checkDelivery(await require('../deliveryFailures').loadDeliveryFailures(require('../../reports-db').pgHandle(), { days: 2 }), { enabled: true });
     } catch (e) { console.warn('[sync-alert] stale sweep failed:', e.message); }
   }));
 

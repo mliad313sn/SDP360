@@ -95,3 +95,15 @@ test('E-D04: every job carries a drift field; one successful run is UNKNOWN, nev
   assert.equal(smoke.drift.status, 'unknown');
   assert.equal(smoke.drift.runs_considered, 1);
 });
+
+// E-R04 — /api/sync/health carries the failed deliveries (fail rows only, no address)
+test('health lists failed report deliveries, not ok / resent ones, without recipients', async () => {
+  const rdb = require('../reports-db'); const L = require('../services/reportSentLog');
+  await L.record(rdb.db, { report_type: 'hygiene', site_code: 'GROUP', period: '2026-W44', recipients: 'probe@example.com', result: 'fail' });
+  await L.record(rdb.db, { report_type: 'scoreboard', site_code: 'HGO', period: '2026-11', recipients: 'probe@example.com', result: 'ok' });
+  const body = await (await get('/api/sync/health', token)).json();
+  assert.ok(body.delivery && Array.isArray(body.delivery.failures));
+  const kinds = body.delivery.failures.filter((f) => f.kind === 'report_send').map((f) => f.type);
+  assert.ok(kinds.includes('hygiene')); assert.ok(!kinds.includes('scoreboard'));
+  assert.ok(!JSON.stringify(body.delivery).includes('probe@example.com'));
+});

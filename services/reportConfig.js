@@ -353,6 +353,9 @@ DEFAULTS.a01_missing_due_date = '0';
 // ── E-R02 (catalogue A10) — days before a project's next stage gate (approval → start date, in progress → end date)
 //    at which the nightly ppm-alerts job (armed by ppm_alerts_enabled) raises an in-app reminder. '' (default) = off.
 DEFAULTS.a10_gate_lead_days = '';
+// ── E-R04 (audit R-04) — '1' = report-delivery failures (report_sent_log fail, failed publish runs) are also alerted
+//    through the sync-alert path (sync_alert_* recipients / Teams); '0' (default) = listed on System Logs, not sent.
+DEFAULTS.delivery_failure_alert_enabled = '0';
 const KEYS = Object.keys(DEFAULTS);
 
 // Secrets that the GET handler redacts to '' — a Save that doesn't retype them must

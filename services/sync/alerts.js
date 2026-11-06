@@ -77,7 +77,20 @@ function createAlerter({ store, senders = [], now = () => Date.now(), streak = D
     return out;
   }
 
-  return { onEvent, checkStale, checkDrift };
+  // E-R04 — report-delivery failures (services/deliveryFailures). Sends nothing unless `enabled`
+  // (report_config delivery_failure_alert_enabled = '1'); one message per batch of failures newer than the last
+  // one alerted (watermark alert:delivery), so a failure is announced once and never re-sent hourly.
+  async function checkDelivery(delivery, { enabled = false } = {}) {
+    if (!enabled || !delivery || !Array.isArray(delivery.failures)) return null;
+    const last = await lastAlertAt('delivery');
+    const fresh = delivery.failures.filter((f) => f.at && Date.parse(f.at) > last);
+    if (!fresh.length) return null;
+    await store.setWatermark('alert:delivery', fresh.map((f) => f.at).sort().pop());
+    const lines = fresh.slice(0, 10).map((f) => `${f.kind === 'publish' ? 'publish' : f.type}${f.site ? ' · ' + f.site : ''}${f.period ? ' · ' + f.period : ''} at ${f.at}${f.error ? ' — ' + f.error : ''}`);
+    return send('delivery', 'report delivery', `${fresh.length} report delivery failure(s): ${lines.join('; ')}${fresh.length > 10 ? ` (+${fresh.length - 10} more)` : ''}. Nothing is retried automatically; resend from Admin.`);
+  }
+
+  return { onEvent, checkStale, checkDrift, checkDelivery };
 }
 
 // Sender factories — thin, best-effort.

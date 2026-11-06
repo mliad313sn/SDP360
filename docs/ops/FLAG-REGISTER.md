@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (179) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (180) — services/reportConfig.js DEFAULTS
 
 | Key | Default (today) | Kind | Owner | Recommended pilot value | Reference |
 |---|---|---|---|---|---|
@@ -56,6 +56,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `commitments_enabled` | `0` | arm switch | to be named | — | — |
 | `controls_register_enabled` | `0` | arm switch | GRC owner + Security owner | `1` once GRC names who adopts controls (the four seeded controls stay `candidate` until a person adopts them with a reason; frequencies and testers are GRC decisions) | E-G04 |
 | `default_email_domain` | `edv-ops.com` | setting | to be named | — | — |
+| `delivery_failure_alert_enabled` | `0` | arm switch | Platform owner (D-13) | `1` once `sync_alert_recipients` (or the Teams URL) names who receives sync alerts (D-13) — the failed deliveries are already listed on System Logs either way | E-R04 |
 | `embed_frame_ancestors` | `` | setting | to be named | — | — |
 | `emergency_access_enabled` | `0` | arm switch | Security owner + Owner | `1` once the super_admins who may grant and review are named (a super_admin, never the beneficiary, max 24 h, review within 2 working days by another super_admin — PO decision R7; never waives a qualification) | C-22 |
 | `emergency_access_max_hours` | `24` | setting | Security owner | `24` (hard cap; may only be lowered) | C-22 |
