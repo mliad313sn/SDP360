@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 4307,
+ "total": 4319,
  "files": {
   "a11y-static.test.js": 18,
   "access-approver-policy.test.js": 4,
@@ -117,7 +117,7 @@
   "commitment-lifecycle.test.js": 7,
   "commitment-source-scope.smoke.test.js": 4,
   "commitment-store.test.js": 2,
-  "commitments-routes.smoke.test.js": 7,
+  "commitments-routes.smoke.test.js": 9,
   "composer-guide.test.js": 8,
   "composite-fidelity.test.js": 12,
   "composite-model.test.js": 16,
@@ -437,6 +437,7 @@
   "report-release.smoke.test.js": 4,
   "report-render.test.js": 7,
   "report-revert-admin.smoke.test.js": 6,
+  "report-rules-completion.test.js": 10,
   "report-schedule-asset-group.test.js": 2,
   "report-schedule-asset-reminder.test.js": 2,
   "report-schedule-hygiene.test.js": 2,

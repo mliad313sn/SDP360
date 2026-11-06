@@ -346,6 +346,13 @@ DEFAULTS.agenda_cron_enabled = '0';
 // ── E-G04 (audit G-04) — '1' = the control register (risk → control → test → exception) on Admin ▸ Governance policies;
 //    controls are seeded as CANDIDATES only (adoption is a GRC decision). '0' (default) = the routes 404, no panel.
 DEFAULTS.controls_register_enabled = '0';
+// ── Plan E / W2-REP switches (defaults = today) ──────────────────────────────────────────────
+// ── E-R02 (catalogue A01) — '1' = a serious commitment with no due date (and no approved exception) also raises A01;
+//    '0' (default, today) = only a missing accountable owner raises A01.
+DEFAULTS.a01_missing_due_date = '0';
+// ── E-R02 (catalogue A10) — days before a project's next stage gate (approval → start date, in progress → end date)
+//    at which the nightly ppm-alerts job (armed by ppm_alerts_enabled) raises an in-app reminder. '' (default) = off.
+DEFAULTS.a10_gate_lead_days = '';
 const KEYS = Object.keys(DEFAULTS);
 
 // Secrets that the GET handler redacts to '' — a Save that doesn't retype them must

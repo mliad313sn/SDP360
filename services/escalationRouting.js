@@ -39,8 +39,14 @@ async function routeHandoffEscalations({ hoStore, rolesStore, policyFor, notify,
 }
 
 /** Commitments: after the A01 / A02 ledger diff, notify the matrix target of every newly raised escalation. */
-async function routeCommitmentEscalations({ cmtStore, rolesStore, policyFor, notify, notifyEnabled, today, dutyStore, now }) {
-  const r = await cmtStore.escalate({ policyFor });
+// E-R02 — report_config a01_missing_due_date ('1' = a serious commitment without a due date also raises A01).
+// The caller may pass it; otherwise it is read here (a read error = '0' = today's behaviour).
+async function _missingDueSwitch(v) {
+  if (v !== undefined) return !!v;
+  try { const rdb = require('../reports-db'); return String((await require('./reportConfig').getConfig(rdb.db)).a01_missing_due_date) === '1'; } catch (_) { return false; }
+}
+async function routeCommitmentEscalations({ cmtStore, rolesStore, policyFor, notify, notifyEnabled, today, dutyStore, now, missingDueDate }) {
+  const r = await cmtStore.escalate({ policyFor, missingDueDate: await _missingDueSwitch(missingDueDate) });
   let notified = 0; const gaps = [];
   if (rolesStore) {
     const d = String(today || new Date().toISOString()).slice(0, 10);
@@ -52,7 +58,7 @@ async function routeCommitmentEscalations({ cmtStore, rolesStore, policyFor, not
       const e = await _withQueue(await rolesStore.escalationTarget({ register: 'commitments', severity: cm.severity || '*', siteId: cm.site_id, overdueDays }), cm.site_id, { policyFor, dutyStore, now });
       if (e.gap) gaps.push({ commitment_id: Number(cm.id), role: e.role, site_id: cm.site_id });
       if (notifyEnabled && notify && e.targets.length) {
-        notified += await _notifyAll(notify, e.targets, { kind: 'commitment', title: `${c.kind} — ${String(cm.title || '').slice(0, 120)}`, body: c.kind === 'A01' ? 'serious commitment without an owner' : `overdue ${overdueDays} d without an approved exception`, link: `commitments.html?id=${cm.id}`, sourceKind: 'commitment', sourceRef: String(cm.id) });
+        notified += await _notifyAll(notify, e.targets, { kind: 'commitment', title: `${c.kind} — ${String(cm.title || '').slice(0, 120)}`, body: c.kind === 'A01' ? (c.reason === 'no_due_date' ? 'serious commitment without a due date or approved exception' : 'serious commitment without an owner') : `overdue ${overdueDays} d without an approved exception`, link: `commitments.html?id=${cm.id}`, sourceKind: 'commitment', sourceRef: String(cm.id) });
       }
     }
   }

@@ -100,6 +100,8 @@ planned switch cannot be set before its goal lands.
 | `field_outbox_resolve_enabled` | built | `0` | `0` until the real-device sessions (E-F04, audit F-01) show how often field entries get stuck — otherwise an admin repair becomes the normal path (X-§7-01); then `1` (admin tier may `mark_rejected` or `release` a stuck entry; a ticket / action is released only after checking SDP, with a reason; every resolution is a risk row in System Logs; nothing is applied server-side). The read-only list `GET /api/field/admin/outbox` has no switch | PO + site IT | E-F01 |
 | `field_review_step` | built | `0` | `1` on the pilot site after one session shows it does not slow the technician (a one-screen summary — site, items, findings, photos, offline note — before an inspection is queued; « Corriger » queues nothing) | PO / adoption lead | E-F03 |
 | `field_task_timing` | built | `0` | `1` for the pilot window to take a BASELINE (active time form open → queued, pauses > 2 min excluded, user id + role tier only; median / p75 per site × kind × week in `tools/pilot/pilot-metrics.js`). No target is set — targets come only after the baseline (PILOT-MEASUREMENT.md) | PO / adoption lead | E-F03 |
+| `a01_missing_due_date` | built | `0` | `1` (proposal — a serious commitment without a due date or approved exception is then escalated as A01, like a missing owner) | Commitments owner (D-04) | E-R02 |
+| `a10_gate_lead_days` | built | `` (empty) | a number of days, e.g. `10` (proposal — the armed ppm-alerts job then reminds the project owner and committee before the next stage gate; empty = off) | Committee | E-R02 |
 
 Not in this table because they are not top-level `report_config` keys:
 
