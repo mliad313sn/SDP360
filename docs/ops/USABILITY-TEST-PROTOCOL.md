@@ -20,7 +20,7 @@ Owner: PO + adoption lead. Facilitator: anyone not involved in building the scre
 |---|---|---|---|
 | T1 | Find the overdue actions of your site and close one with a justification | Site IT | action closed, justification saved |
 | T2 | Open last week's report, check the helpdesk figures, submit it | Site IT | status submitted |
-| T3 | On the phone, record a quick inspection with one photo while offline, then sync | Technician | entry applied, photo visible on the dashboard |
+| T3 | On the phone, record a quick inspection with one photo while offline, then sync (real-device network / storage / user-switch scenarios: [`pilot/FIELD-DEVICE-UAT.md`](pilot/FIELD-DEVICE-UAT.md), sheet `pilot/FIELD-DEVICE-SHEET.csv`) | Technician | entry applied, photo visible on the dashboard |
 | T4 | Find the Meeting Cockpit and prepare Friday's agenda | Group IT | agenda generated |
 | T5 | Tell which site is worst this month and why, from the executive home | Executive | answer matches the data, in < 2 min |
 | T6 | Find the projects whose plan slipped versus baseline | Committee | correct list |
