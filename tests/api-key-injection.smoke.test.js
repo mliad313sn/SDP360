@@ -104,3 +104,33 @@ test('(f) key alone: accepted server-to-server, refused in a browser context (Or
   const headerOnly = await req('GET', '/api/ping', { 'x-report-token': viewerToken });
   assert.equal(headerOnly.status, 200, 'a non-browser caller (no Origin, no cookie) may still use the header');
 });
+
+// E-S02 — ui_inject_dash_key '0': no window.__ak even with a session, and every page's data calls still
+// answer with the session cookie alone (no key header).
+test('(g) ui_inject_dash_key=0 → no key in pages; cookie-only data calls succeed', async () => {
+  const rdb = require('../reports-db');
+  const rc = require('../services/reportConfig');
+  assert.equal(rc.DEFAULTS.ui_inject_dash_key, '1', 'default = today');
+  await rc.setConfig(rdb.db, { ui_inject_dash_key: '0' }, 'test');
+  require('../services/dashKeyScope')._invalidate();
+  try {
+    for (const page of ['/index.html', '/analytics.html', '/reports.html', '/executive.html', '/executive-report.html']) {
+      const r = await req('GET', page, { cookie: `report_token=${superToken}` });
+      assert.equal(r.status, 200, page);
+      assert.ok(!r.text.includes("window.__ak='"), `${page} carries no key`);
+      assert.ok(!r.text.includes(KEY), `${page} never contains the key value`);
+      assert.ok(r.text.includes('window.__akWithheld=true'), `${page} tells the page the key is withheld`);
+    }
+    const cookie = { cookie: `report_token=${superToken}` };
+    for (const p of ['/api/ping', '/api/data/ticket-volume', '/api/data/group-count', '/api/cache/status', '/api/reports/auth/me', '/api/reports']) {
+      const r = await req('GET', p, cookie);
+      assert.notEqual(r.status, 401, `${p} with the cookie alone`);
+      assert.notEqual(r.status, 403, `${p} with the cookie alone`);
+    }
+  } finally {
+    await rc.setConfig(rdb.db, { ui_inject_dash_key: '1' }, 'test');
+    require('../services/dashKeyScope')._invalidate();
+  }
+  const back = await req('GET', '/index.html', { cookie: `report_token=${superToken}` });
+  assert.ok(back.text.includes(`window.__ak='${KEY}'`), 'switch back to 1 restores today');
+});

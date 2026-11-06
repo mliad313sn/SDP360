@@ -1053,7 +1053,7 @@ app.use((req, res, next) => {
 // Fiche C1 (2026-10-20): the x-dash-key ALONE is accepted only for server-to-server callers
 // (tools/, scheduled jobs). A browser context — a report_token cookie OR an Origin header — must
 // carry a valid session; the key is never read from the query string.
-const _dashKeyGate = require('./services/viewLog').makeOncePerDay();   // EX-02: dash-key call evidence
+const _dashKeyScope = require('./services/dashKeyScope').create({ getRdb: () => rdb });   // EX-02 evidence + E-S02 key-only scope / page injection
 // G02 — every refused API call (401/403) lands in the security log, at most once per actor + route per
 // 10 minutes (a scripted probe must not flood the log; the count of refusals is in the details).
 const _denyGate = require('./services/viewLog').makeOncePerDay();
@@ -1097,15 +1097,7 @@ app.use('/api/', async (req, res, next) => {
   const key   = req.headers['x-dash-key'];
   const cookieToken = getCookie(req, 'report_token');
   const browserContext = !!(cookieToken || req.headers.origin);
-  if (!browserContext && _safeEqual(key, DASH_API_KEY)) {   // server-to-server key (constant-time)
-    // EX-02 / D-15 evidence: who still calls with the key alone — once a day per route and source
-    const _src = (req.ip || '') + ' ' + String(req.headers['user-agent'] || '').slice(0, 80);
-    const _full = '/api' + req.path;   // req.path is relative to the /api/ mount; the query string is never logged
-    if (_dashKeyGate(req.method + ' ' + _full + ' ' + _src, new Date().toISOString().slice(0, 10)) && rdb && rdb.logEvent) {
-      rdb.logEvent({ category: 'api', action: 'dashkey_call', actor: 'dash-key', target: req.method + ' ' + _full, ip: req.ip, details: { user_agent: String(req.headers['user-agent'] || '').slice(0, 160) } });
-    }
-    return next();
-  }
+  if (!browserContext && _safeEqual(key, DASH_API_KEY)) return _dashKeyScope.handle(req, res, next);   // server-to-server key (constant-time)
   const token = sessionAuth.sessionToken(req);
   if (rdb && token) {
     let user; try { user = await rdb.validateSession(token); } catch (e) { user = null; }
@@ -1338,9 +1330,7 @@ async function sendHtmlPage(res, name, injectApiKey, fallbackMsg) {
     html = _htmlCache[name];
     if (!html) return res.status(500).send(fallbackMsg);
   }
-  if (injectApiKey && await _hasValidSession(res.req)) {
-    html = html.replace('</head>', `<script nonce="${res.locals.nonce}">window.__ak='${DASH_API_KEY}';</script>\n</head>`);
-  }
+  if (injectApiKey && await _hasValidSession(res.req)) html = await _dashKeyScope.inject(html, res.locals.nonce, DASH_API_KEY);   // E-S02 ui_inject_dash_key
   html = html.replace(/%%CSP_NONCE%%/g, res.locals.nonce);
   if (sessionAuth.STRICT_PAGES.includes('/' + name) || res.getHeader('Content-Security-Policy-Report-Only')) html = sessionAuth.nonceScripts(html, res.locals.nonce);   // A-28a: nonce inline scripts under report-only
   res.setHeader('Content-Type', 'text/html; charset=utf-8');

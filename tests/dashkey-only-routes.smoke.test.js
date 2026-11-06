@@ -50,3 +50,52 @@ test('EX-02 / D-15 evidence: a key-only call is recorded once a day per route an
   assert.equal(rows.length, 1, 'once per day, not once per call');
   assert.ok(!JSON.stringify(rows[0]).includes(process.env.DASHBOARD_API_KEY), 'the key itself is never logged');
 });
+
+// ── E-S02 — dashkey_scope_mode open (default) | shadow | restrict + the consumer report ─────────────
+async function setScope(patch) {
+  const rdb = require('../reports-db');
+  await require('../services/reportConfig').setConfig(rdb.db, patch, 'test');
+  require('../services/dashKeyScope')._invalidate();
+}
+const keyH = (ua) => ({ 'x-dash-key': process.env.DASHBOARD_API_KEY, 'user-agent': ua });
+const rowsOf = async (action, ua) => (((await require('../reports-db').listSystemLog({ action }, { limit: 200 })) || {}).rows || []).filter((r) => String(r.details || '').includes(ua));
+
+test('E-S02 open (default): an unlisted key-only route still answers, nothing is refused', async () => {
+  assert.equal(require('../services/reportConfig').DEFAULTS.dashkey_scope_mode, 'open');
+  assert.notEqual(await call('GET', '/api/ping', keyH('es02-open')), 401);
+  await new Promise((r) => setTimeout(r, 200));
+  assert.equal((await rowsOf('dashkey_scope_would_refuse', 'es02-open')).length, 0);
+});
+
+test('E-S02 shadow: unlisted route answers as before and logs one would-be refusal a day', async () => {
+  await setScope({ dashkey_scope_mode: 'shadow', dashkey_allowed_routes: 'GET /api/ping' });
+  for (let i = 0; i < 3; i++) assert.equal(await call('GET', '/api/data/group-count', keyH('es02-shadow')) === 401, false);
+  assert.equal(await call('GET', '/api/ping', keyH('es02-shadow')), 200, 'listed route passes');
+  await new Promise((r) => setTimeout(r, 300));
+  const rows = await rowsOf('dashkey_scope_would_refuse', 'es02-shadow');
+  assert.equal(rows.length, 1, 'once a day per route × source');
+  assert.equal(rows[0].target, 'GET /api/data/group-count');
+  assert.ok(!JSON.stringify(rows).includes(process.env.DASHBOARD_API_KEY));
+});
+
+test('E-S02 restrict: unlisted key-only route → 401, listed route and browser sessions unaffected', async () => {
+  await setScope({ dashkey_scope_mode: 'restrict', dashkey_allowed_routes: 'GET /api/ping, /api/data/ticket-*' });
+  assert.equal(await call('GET', '/api/data/group-count', keyH('es02-restrict')), 401);
+  assert.equal(await call('GET', '/api/ping', keyH('es02-restrict')), 200);
+  assert.notEqual(await call('GET', '/api/data/ticket-volume', keyH('es02-restrict')), 401, 'prefix entry');
+  // restrict never applies to a browser: key + Origin goes to the session check (401 without a session, as before)
+  assert.equal(await call('GET', '/api/ping', { ...keyH('es02-restrict'), origin: base }), 401);
+  await new Promise((r) => setTimeout(r, 300));
+  assert.equal((await rowsOf('dashkey_scope_refused', 'es02-restrict')).length, 1);
+  await setScope({ dashkey_scope_mode: 'open', dashkey_allowed_routes: '' });
+  assert.notEqual(await call('GET', '/api/data/group-count', keyH('es02-restrict')), 401, 'back to open');
+});
+
+test('E-S02 consumer report: route × source × days seen, never the key', async () => {
+  const rep = require('../tools/security/dashkey-consumers');
+  const query = async (sql, p) => require('../reports-db').pgHandle().prepare(sql.replace(/\$1/g, '?')).all(...p);
+  const md = await rep.report({ query, days: 7 });
+  assert.match(md, /GET \/api\/ping/);
+  assert.match(md, /scheduled-task-probe/);
+  assert.ok(!md.includes(process.env.DASHBOARD_API_KEY));
+});

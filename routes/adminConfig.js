@@ -102,6 +102,7 @@ router.put('/api/reports/config', requireReportSession, requireSuperAdmin, async
     if (denied) return res.status(400).json({ error: denied });
     const out = await reportConfig.setConfig(rdb.db, body, req.reportUser?.username);
     require('../services/ssoSettings')._invalidate();   // config changed → re-read next request
+    require('../services/dashKeyScope')._invalidate();
     logUrlChanges(req, body, cur);
     res.json(redactSecrets(out));
   }

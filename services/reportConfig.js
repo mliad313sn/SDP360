@@ -279,6 +279,12 @@ DEFAULTS.authz_capability_mode = 'off';
 // '' = today (nothing enforced). A listed capability can only REFUSE (403 + system_log authz_enforce_denied);
 // an allow still goes through the legacy guard. critical capabilities are ignored while C-18 grants are off.
 DEFAULTS.authz_enforce_caps = '';
+// E-S02 (audit S-02, X-SEC-01) — the x-dash-key ALONE (server-to-server). open = today (any route the gate
+// lets through); shadow = an unlisted route still answers but writes 'dashkey_scope_would_refuse' (once a day per
+// route × source); restrict = 401. dashkey_allowed_routes: "METHOD /api/path" or "/api/path", trailing * = prefix.
+// A browser request (cookie or Origin) is never affected. ui_inject_dash_key '1' = today (window.__ak in pages
+// served with a session); '0' = no key in pages, the session cookie carries every call (services/dashKeyScope.js).
+Object.assign(DEFAULTS, { dashkey_scope_mode: 'open', dashkey_allowed_routes: '', ui_inject_dash_key: '1' });
 // C-18 (G39/G40/G50) — access requests. '0' = today: Admin ▸ Users adds any role directly; no grant ever expires
 // by itself. access_require_approval '1' → adding a role marked requires_request needs an APPROVED request
 // (super_admin break-glass with a reason, logged risk=1). access_grant_expiry_job '1' → the nightly job

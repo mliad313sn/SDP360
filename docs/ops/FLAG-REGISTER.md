@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (177) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (180) — services/reportConfig.js DEFAULTS
 
 | Key | Default (today) | Kind | Owner | Recommended pilot value | Reference |
 |---|---|---|---|---|---|
@@ -53,6 +53,8 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `commitment_notify_enabled` | `0` | arm switch | to be named | — | — |
 | `commitments_enabled` | `0` | arm switch | to be named | — | — |
 | `controls_register_enabled` | `0` | arm switch | GRC owner + Security owner | `1` once GRC names who adopts controls (the four seeded controls stay `candidate` until a person adopts them with a reason; frequencies and testers are GRC decisions) | E-G04 |
+| `dashkey_allowed_routes` | `` | setting | Integration owner + Security owner | the routes the named consumers really call (from the consumer report), e.g. `GET /api/ping, GET /api/data/*` — PROPOSITION, no list approved | E-S02 |
+| `dashkey_scope_mode` | `open` | setting | Integration owner + Security owner | `shadow` first (an unlisted key-only route still answers and logs `dashkey_scope_would_refuse`); `restrict` (401) only after every consumer in `tools/security/dashkey-consumers.js` is named and listed. A browser request is never affected | E-S02 |
 | `default_email_domain` | `edv-ops.com` | setting | to be named | — | — |
 | `embed_frame_ancestors` | `` | setting | to be named | — | — |
 | `emergency_access_enabled` | `0` | arm switch | Security owner + Owner | `1` once the super_admins who may grant and review are named (a super_admin, never the beneficiary, max 24 h, review within 2 working days by another super_admin — PO decision R7; never waives a qualification) | C-22 |
@@ -176,6 +178,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `ui_deck_builder_roles` | `super_admin` | ui policy | Owner (D-6) | `super_admin,report-author` (PO delegated decision P12, reversible) | A-21, C-28 |
 | `ui_exec_nav` | `full` | ui policy | Owner (D-6) | `consolidated` (PO delegated decision P1, reversible — re-examine after 30 days of `page_viewed`) | C-28 |
 | `ui_i18n_pages` | `0` | ui policy | Owner (D-2) | `1` | A-09, C-26 |
+| `ui_inject_dash_key` | (secret — not shown) | secret | Security owner | `0` (pages no longer receive `window.__ak`; every data call rides the session cookie — proven by `tests/api-key-injection.smoke.test.js` (g)) after one browser pass on the TEST instance | E-S02 |
 | `ui_kpi_base_line` | `0` | ui policy | Owner (UI policy) | `1` (proposal — show the base population under each KPI value) | E-V03 |
 | `ui_kpi_sample_size` | `0` | ui policy | KPI committee | `1` (proposal — warnings only appear once the KPI committee adopts a `min_sample`) | E-K02 |
 | `ui_lang_default` | `` | ui policy | Owner (D-2) | `fr` | A-09 |
