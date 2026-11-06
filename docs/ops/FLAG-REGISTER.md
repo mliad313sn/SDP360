@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (158) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (159) — services/reportConfig.js DEFAULTS
 
 | Key | Default (today) | Kind | Owner | Recommended pilot value | Reference |
 |---|---|---|---|---|---|
@@ -86,6 +86,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `meridian_out_key` | (secret — not shown) | secret | to be named | — | — |
 | `never_send_unconfirmed` | `1` | setting | to be named | — | — |
 | `notifications_stop` | `0` | setting | to be named | — | — |
+| `obligations_include_decisions` | `0` | setting | Committee + Owner | `1` (the site obligations view then counts the site's open governance decisions; the visible total of a site can grow) | E-G02 |
 | `opm_availability_view_id` | `` | setting | to be named | — | — |
 | `opm_monitor_patterns` | `opma,abj-spm-000` | setting | to be named | — | — |
 | `opm_rest_concurrency` | `1` | setting | Ops | `1` | A-18 (A-18b) |

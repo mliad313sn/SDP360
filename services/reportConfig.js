@@ -306,6 +306,9 @@ DEFAULTS.site_local_calendar = '0';
 // ── E-I04 (audit I-04) — '1' = a Business Incubation session can raise ONE RFI (POST /api/governance/rfi/from-meeting/:id)
 //    and the session → RFI → project lineage is shown; '0' (default, today) = those routes 404, no button.
 DEFAULTS.incubation_rfi_link_enabled = '0';
+// ── E-G02 (audit G-02) — '1' = the site obligations view also lists the site's open governance decisions (once:
+//    under the commitment or session action they produced); '0' (default, today) = decisions are not read.
+DEFAULTS.obligations_include_decisions = '0';
 const KEYS = Object.keys(DEFAULTS);
 
 // Secrets that the GET handler redacts to '' — a Save that doesn't retype them must

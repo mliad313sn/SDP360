@@ -46,7 +46,17 @@ module.exports = function obligationRoutes(deps) {
       // B-08 — benefits whose review date is reached on this site's projects (null = not read, never "nothing due")
       let benefitReviews = null;
       try { benefitReviews = await require('../services/governanceStore').makeGovernanceStore(rdb().pgHandle()).dueBenefitReviews({ siteId: site, asOf }); } catch (_) { benefitReviews = null; }
-      res.json({ ok: true, site_id: site, ...require('../services/obligations').compose({ commitments, handoffs, siteActions, sessionActions, benefitReviews, asOf }) });
+      // E-G02 — open governance decisions of THIS site (group-level ones are the committee's), behind
+      // obligations_include_decisions ('0' = not asked: the view is unchanged). null = not read, never "nothing owed".
+      let decisions;
+      if (String(cfg.obligations_include_decisions) === '1') {
+        try {
+          decisions = (await require('../services/governanceStore').makeGovernanceStore(rdb().pgHandle()).listDecisions({ status: ['open', 'in_progress'] }))
+            .filter((d) => Number(d.site_id) === site);
+          if (cmt && decisions.length) { const m = await cmt.linksFor(decisions.filter((d) => d.ref).map((d) => ({ system: 'governance', id: d.ref }))); for (const d of decisions) { const hit = m.get(`governance:${d.ref}`); if (hit) d.commitment = hit; } }
+        } catch (_) { decisions = null; }
+      }
+      res.json({ ok: true, site_id: site, ...require('../services/obligations').compose({ commitments, handoffs, siteActions, sessionActions, benefitReviews, decisions, asOf }) });
     } catch (e) { fail(res, e, undefined, { ok: false }); }
   });
   return router;

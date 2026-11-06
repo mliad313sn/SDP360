@@ -12,7 +12,16 @@ const OPEN_HANDOFF = new Set(['requested', 'accepted', 'blocked', 'escalated', '
 const day = (v) => (v ? String(v).slice(0, 10) : null);
 const overdue = (due, asOf) => !!(due && day(due) < day(asOf));
 
-function compose({ commitments = null, handoffs = null, siteActions = null, sessionActions = null, benefitReviews = null, asOf }) {
+// E-G02 (audit G-02, X-G-01) — `decisions` (open governance decisions of the site; undefined = not asked, the
+// default while report_config obligations_include_decisions = '0', so the view is exactly as before). A decision
+// already carried by a commitment (source governance:<ref>) or by a session action (decision_ref) is shown ONCE,
+// under that line. Every line carries `href` (its register row) and `focus` (the key ?focus= highlights).
+const OPEN_DECISION = new Set(['open', 'in_progress']);
+const focusKey = (register, id) => (id == null ? null : `${register}:${id}`);
+/** Link a register row back to its line on the obligations view. */
+const focusHref = (siteId, register, id) => `obligations.html?site=${encodeURIComponent(siteId)}&focus=${encodeURIComponent(focusKey(register, id))}`;
+
+function compose({ commitments = null, handoffs = null, siteActions = null, sessionActions = null, benefitReviews = null, decisions, asOf }) {
   const items = [];
   const cmtIds = new Set();
   for (const c of commitments || []) {
@@ -42,17 +51,32 @@ function compose({ commitments = null, handoffs = null, siteActions = null, sess
     }
   }
   // UAT (PMO F2): actions agreed in a governance session (cockpit)
+  const byDecisionRef = new Map();
   for (const a of sessionActions || []) {
-    items.push({ register: 'session_action', id: Number(a.id), ref: a.decision_ref || null, title: a.title, owner: a.owner || null, due_date: day(a.due_date), status: a.status,
-      overdue: overdue(a.due_date, asOf), link: `cockpit.html?session=${a.session_id}`, cadence: a.cadence_name || null });
+    const line = { register: 'session_action', id: Number(a.id), ref: a.decision_ref || null, title: a.title, owner: a.owner || null, due_date: day(a.due_date), status: a.status,
+      overdue: overdue(a.due_date, asOf), link: `cockpit.html?session=${a.session_id}`, cadence: a.cadence_name || null };
+    if (decisions !== undefined) line.sources = [];
+    items.push(line);
+    if (a.decision_ref && !byDecisionRef.has(a.decision_ref)) byDecisionRef.set(a.decision_ref, line);
+  }
+  for (const d of decisions || []) {
+    if (!OPEN_DECISION.has(String(d.status))) continue;
+    const src = { register: 'decision', title: d.title, decision_id: Number(d.id), ref: d.ref || null };
+    const c = d.commitment && byId.get(Number(d.commitment.id));
+    if (c) { c.sources.push(src); continue; }                         // shown once, under its commitment
+    const sa = d.ref && byDecisionRef.get(d.ref);
+    if (sa) { sa.sources.push(src); continue; }                       // shown once, under the action it produced
+    items.push({ register: 'decision', id: Number(d.id), ref: d.ref || null, title: d.title, owner: d.owner || null, due_date: day(d.due_date), status: d.status,
+      overdue: overdue(d.due_date, asOf), link: d.session_id != null ? `cockpit.html?session=${d.session_id}` : 'cockpit.html' });
   }
   // B-08 (catalogue A09): a portfolio benefit whose review date is reached and that is not verified yet — the
   // realised value is missing, or entered and waiting for an independent verification. Never a value in the line.
   for (const x of require('./portfolioBenefits').reviewItems(benefitReviews, asOf)) items.push(x);
+  for (const x of items) { x.href = x.link || null; x.focus = focusKey(x.register, x.id); }
   items.sort((a, b) => (Number(b.overdue) - Number(a.overdue)) || String(a.due_date || '9999').localeCompare(String(b.due_date || '9999')));
   const by = {}; for (const x of items) { by[x.register] = by[x.register] || { open: 0, overdue: 0 }; by[x.register].open++; if (x.overdue) by[x.register].overdue++; }
   return { as_of: day(asOf), items, totals: { open: items.length, overdue: items.filter((x) => x.overdue).length, by_register: by },
     // null = that register was not read (switched off / unavailable) — never "nothing owed"
-    registers: { commitments: commitments == null ? null : 'read', handoffs: handoffs == null ? null : 'read', actions: siteActions == null ? null : 'read', session_actions: sessionActions == null ? null : 'read', benefit_reviews: benefitReviews == null ? null : 'read' } };
+    registers: { commitments: commitments == null ? null : 'read', handoffs: handoffs == null ? null : 'read', actions: siteActions == null ? null : 'read', session_actions: sessionActions == null ? null : 'read', benefit_reviews: benefitReviews == null ? null : 'read', ...(decisions === undefined ? {} : { decisions: decisions == null ? null : 'read' }) } };
 }
-module.exports = { compose };
+module.exports = { compose, focusKey, focusHref };
