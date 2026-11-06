@@ -12,7 +12,7 @@
   "jobs": 28,
   "jobs_without_test_reference": 10,
   "migrations": 71,
-  "test_files": 589
+  "test_files": 595
  },
  "pages": [
   {
@@ -2762,7 +2762,7 @@
    "method": "GET",
    "path": "/api/governance/audit-chain",
    "file": "routes/policies.js",
-   "line": 185,
+   "line": 189,
    "tests": [
     "tests/governance-roles.smoke.test.js"
    ]
@@ -2888,7 +2888,7 @@
    "method": "GET",
    "path": "/api/governance/oversight",
    "file": "routes/policies.js",
-   "line": 206,
+   "line": 210,
    "tests": [
     "tests/governance-policy-routes.smoke.test.js",
     "tests/governance-roles.smoke.test.js",
@@ -2922,7 +2922,7 @@
    "method": "GET",
    "path": "/api/governance/policies/effective",
    "file": "routes/policies.js",
-   "line": 149,
+   "line": 153,
    "tests": [
     "tests/governance-policy-groups.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js"
@@ -2933,7 +2933,7 @@
    "method": "GET",
    "path": "/api/governance/policies/history",
    "file": "routes/policies.js",
-   "line": 188,
+   "line": 192,
    "tests": [
     "tests/governance-policy-routes.smoke.test.js"
    ]
@@ -2943,7 +2943,7 @@
    "method": "POST",
    "path": "/api/governance/policies/profile",
    "file": "routes/policies.js",
-   "line": 174,
+   "line": 178,
    "tests": [
     "tests/governance-policy-routes.smoke.test.js"
    ]
@@ -2953,7 +2953,7 @@
    "method": "POST",
    "path": "/api/governance/policies/proposals/:id/approve",
    "file": "routes/policies.js",
-   "line": 203,
+   "line": 207,
    "tests": [
     "tests/governance-policy-routes.smoke.test.js",
     "tests/governance-roles.smoke.test.js"
@@ -2964,7 +2964,7 @@
    "method": "POST",
    "path": "/api/governance/policies/proposals/:id/reject",
    "file": "routes/policies.js",
-   "line": 204,
+   "line": 208,
    "tests": [
     "tests/governance-policy-routes.smoke.test.js",
     "tests/governance-roles.smoke.test.js"
@@ -2975,7 +2975,7 @@
    "method": "GET",
    "path": "/api/governance/policies/proposals",
    "file": "routes/policies.js",
-   "line": 192,
+   "line": 196,
    "tests": [
     "tests/governance-policy-routes.smoke.test.js",
     "tests/governance-roles.smoke.test.js"
@@ -2986,7 +2986,7 @@
    "method": "GET",
    "path": "/api/governance/policies",
    "file": "routes/policies.js",
-   "line": 140,
+   "line": 144,
    "tests": [
     "tests/governance-policy-groups.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -2999,7 +2999,7 @@
    "method": "PUT",
    "path": "/api/governance/policies",
    "file": "routes/policies.js",
-   "line": 156,
+   "line": 160,
    "tests": [
     "tests/governance-policy-groups.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -3237,7 +3237,7 @@
    "method": "GET",
    "path": "/api/governance/profiles",
    "file": "routes/policies.js",
-   "line": 171,
+   "line": 175,
    "tests": [
     "tests/governance-policy-routes.smoke.test.js"
    ]
@@ -9073,7 +9073,7 @@
    "method": "GET",
    "path": "/policies.html",
    "file": "routes/policies.js",
-   "line": 138,
+   "line": 142,
    "tests": []
   },
   {
@@ -9120,7 +9120,8 @@
     "tests/engagement-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/portfolio-benefits.test.js",
-    "tests/report-release.smoke.test.js"
+    "tests/report-release.smoke.test.js",
+    "tests/shared-code-report.test.js"
    ]
   },
   {
@@ -9216,6 +9217,7 @@
    "tests": [
     "tests/governance-policy-routes.smoke.test.js",
     "tests/pg-migrate-from-111.test.js",
+    "tests/sync-drift.test.js",
     "tests/sync-jobs-registry.test.js",
     "tests/sync-routes.smoke.test.js"
    ]
@@ -9379,6 +9381,7 @@
     "tests/publish-gate.test.js",
     "tests/report-release.smoke.test.js",
     "tests/report-studio-routes.smoke.test.js",
+    "tests/sync-drift.test.js",
     "tests/sync-jobs-registry.test.js",
     "tests/sync-routes.smoke.test.js",
     "tests/sync-runner.test.js",
