@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 4139,
+ "total": 4140,
  "files": {
   "a11y-static.test.js": 18,
   "access-approver-policy.test.js": 4,
@@ -105,7 +105,7 @@
   "chart-theme.test.js": 5,
   "charts-static.test.js": 6,
   "check-secrets-verify.test.js": 2,
-  "ci-config.test.js": 9,
+  "ci-config.test.js": 10,
   "commitment-backfill-pg.test.js": 3,
   "commitment-backfill.test.js": 3,
   "commitment-escalation.test.js": 5,

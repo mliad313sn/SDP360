@@ -30,13 +30,31 @@ function findPython() {
   return null;
 }
 const PY = findPython();
+
+// E-Q01 — the brand images render.py embeds (public/brand/exec-pptx/em_banner.jpg, left_corner.png) are
+// shipped on prod only, NOT in the repository. When they are absent (CI, a fresh clone) the renderer is
+// copied into a temp tree next to synthetic placeholder images, so the test proves the deck is BUILT;
+// it does not prove the branding. With the real assets present, the real script runs unchanged.
+function stagedRenderer() {
+  const assets = path.join(ROOT, 'public', 'brand', 'exec-pptx');
+  if (fs.existsSync(path.join(assets, 'em_banner.jpg')) && fs.existsSync(path.join(assets, 'left_corner.png'))) return RENDER;
+  const os = require('os');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'exec-pptx-'));
+  const toolDir = path.join(tmp, 'tools', 'exec-pptx'); const assetDir = path.join(tmp, 'public', 'brand', 'exec-pptx');
+  fs.mkdirSync(toolDir, { recursive: true }); fs.mkdirSync(assetDir, { recursive: true });
+  for (const f of fs.readdirSync(path.dirname(RENDER)).filter((x) => x.endsWith('.py'))) fs.copyFileSync(path.join(path.dirname(RENDER), f), path.join(toolDir, f));
+  const mk = spawnSync(PY, ['-c', ['import sys', 'from PIL import Image', "Image.new('RGB', (1600, 200), (31, 61, 92)).save(sys.argv[1], 'JPEG')", "Image.new('RGBA', (200, 200), (232, 119, 34, 255)).save(sys.argv[2], 'PNG')"].join('\n'),
+    path.join(assetDir, 'em_banner.jpg'), path.join(assetDir, 'left_corner.png')], { encoding: 'utf8' });
+  assert.strictEqual(mk.status, 0, 'placeholder images: ' + mk.stderr);
+  return path.join(toolDir, 'render.py');
+}
 const skip = PY ? false : 'python with matplotlib + python-pptx not available';
 
 test('render.py turns the May fixture into a non-empty, valid PPTX', { skip }, async () => {
   assert.ok(fs.existsSync(RENDER),  'render.py missing');
   assert.ok(fs.existsSync(FIXTURE), 'fixture missing');
   const input = fs.readFileSync(FIXTURE);
-  const r = spawnSync(PY, [RENDER], { input, cwd: ROOT, maxBuffer: 64 * 1024 * 1024 });
+  const r = spawnSync(PY, [stagedRenderer()], { input, cwd: ROOT, maxBuffer: 64 * 1024 * 1024 });
   assert.strictEqual(r.status, 0,
     'render.py exited non-zero. stderr: ' + (r.stderr ? r.stderr.toString().slice(0, 800) : '(none)'));
   const buf = r.stdout;
