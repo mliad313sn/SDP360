@@ -12,74 +12,74 @@
 | pages not in navigation | 29 |
 | pages with inline scripts | 46 |
 | routes | 602 |
-| routes without test reference | 64 |
+| routes without test reference | 49 |
 | routes in server js | 210 |
 | jobs | 29 |
 | jobs without test reference | 10 |
 | migrations | 72 |
-| test files | 600 |
+| test files | 605 |
 
 ## Pages
 
 | Id | Page | Role required | In nav | Inline scripts | Tests |
 |---|---|---|---|---:|---:|
-| PG-access | public/access.html | any | no | 0 | 4 |
+| PG-access | public/access.html | any | no | 0 | 5 |
 | PG-activity-tracker | public/activity-tracker.html | any | yes | 0 | 6 |
-| PG-analytics | public/analytics.html | admin / scorecard-viewer | yes | 1 | 5 |
+| PG-analytics | public/analytics.html | admin / scorecard-viewer | yes | 1 | 6 |
 | PG-assets-finance | public/assets-finance.html | UNKNOWN | no | 1 | 2 |
 | PG-assets-hygiene | public/assets-hygiene.html | UNKNOWN | no | 1 | 3 |
-| PG-assets | public/assets.html | any | yes | 10 | 13 |
-| PG-cockpit | public/cockpit.html | any | yes | 1 | 6 |
-| PG-commitments | public/commitments.html | any | no | 1 | 3 |
-| PG-coverage | public/coverage.html | any | no | 0 | 2 |
-| PG-dashboard-composer | public/dashboard-composer.html | admin / dashboard-publisher | no | 1 | 4 |
-| PG-dashboards | public/dashboards.html | any | yes | 1 | 8 |
-| PG-exec-view | public/exec-view.html | public | no | 1 | 5 |
-| PG-executive-report | public/executive-report.html | super_admin | yes | 1 | 9 |
-| PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 8 |
-| PG-handoffs | public/handoffs.html | any | yes | 1 | 5 |
-| PG-help | public/help.html | any | yes | 1 | 8 |
-| PG-home | public/home.html | any | yes | 0 | 5 |
-| PG-index | public/index.html | any | yes | 1 | 23 |
-| PG-infra-health | public/infra-health.html | any | yes | 2 | 4 |
-| PG-inspection-actions | public/inspection-actions.html | any | no | 1 | 4 |
-| PG-inspection | public/inspection.html | any | no | 2 | 6 |
-| PG-inspections | public/inspections.html | any | yes | 1 | 4 |
-| PG-integrations | public/integrations.html | any | yes | 1 | 3 |
-| PG-it-review | public/it-review.html | executive / scorecard-viewer | yes | 2 | 6 |
-| PG-itsm-integrations-plan | public/itsm-integrations-plan.html | UNKNOWN | no | 0 | 4 |
-| PG-itsm-roadmap | public/itsm-roadmap.html | super_admin | no | 1 | 3 |
-| PG-kpi-builder | public/kpi-builder.html | any | no | 0 | 1 |
-| PG-login | public/login.html | public | no | 1 | 8 |
-| PG-meeting | public/meeting.html | any | no | 1 | 10 |
-| PG-meetings-actions | public/meetings-actions.html | any | no | 2 | 6 |
-| PG-meetings-compliance | public/meetings-compliance.html | any | no | 2 | 3 |
-| PG-meetings-council | public/meetings-council.html | any | no | 2 | 2 |
-| PG-meetings-import | public/meetings-import.html | editor | no | 2 | 3 |
-| PG-meetings-insights | public/meetings-insights.html | any | no | 2 | 2 |
-| PG-meetings-issues | public/meetings-issues.html | any | no | 2 | 4 |
-| PG-meetings-progress | public/meetings-progress.html | any | no | 2 | 2 |
-| PG-meetings-setup | public/meetings-setup.html | any | no | 1 | 2 |
-| PG-meetings-unsigned | public/meetings-unsigned.html | any | no | 2 | 2 |
-| PG-meetings | public/meetings.html | any | yes | 2 | 3 |
+| PG-assets | public/assets.html | any | yes | 10 | 14 |
+| PG-cockpit | public/cockpit.html | any | yes | 1 | 7 |
+| PG-commitments | public/commitments.html | any | no | 1 | 4 |
+| PG-coverage | public/coverage.html | any | no | 0 | 3 |
+| PG-dashboard-composer | public/dashboard-composer.html | admin / dashboard-publisher | no | 1 | 5 |
+| PG-dashboards | public/dashboards.html | any | yes | 1 | 9 |
+| PG-exec-view | public/exec-view.html | public | no | 1 | 6 |
+| PG-executive-report | public/executive-report.html | super_admin | yes | 1 | 10 |
+| PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 9 |
+| PG-handoffs | public/handoffs.html | any | yes | 1 | 6 |
+| PG-help | public/help.html | any | yes | 1 | 9 |
+| PG-home | public/home.html | any | yes | 0 | 6 |
+| PG-index | public/index.html | any | yes | 1 | 24 |
+| PG-infra-health | public/infra-health.html | any | yes | 2 | 5 |
+| PG-inspection-actions | public/inspection-actions.html | any | no | 1 | 5 |
+| PG-inspection | public/inspection.html | any | no | 2 | 7 |
+| PG-inspections | public/inspections.html | any | yes | 1 | 5 |
+| PG-integrations | public/integrations.html | any | yes | 1 | 4 |
+| PG-it-review | public/it-review.html | executive / scorecard-viewer | yes | 2 | 7 |
+| PG-itsm-integrations-plan | public/itsm-integrations-plan.html | UNKNOWN | no | 0 | 5 |
+| PG-itsm-roadmap | public/itsm-roadmap.html | super_admin | no | 1 | 4 |
+| PG-kpi-builder | public/kpi-builder.html | any | no | 0 | 2 |
+| PG-login | public/login.html | public | no | 1 | 9 |
+| PG-meeting | public/meeting.html | any | no | 1 | 11 |
+| PG-meetings-actions | public/meetings-actions.html | any | no | 2 | 7 |
+| PG-meetings-compliance | public/meetings-compliance.html | any | no | 2 | 4 |
+| PG-meetings-council | public/meetings-council.html | any | no | 2 | 3 |
+| PG-meetings-import | public/meetings-import.html | editor | no | 2 | 4 |
+| PG-meetings-insights | public/meetings-insights.html | any | no | 2 | 3 |
+| PG-meetings-issues | public/meetings-issues.html | any | no | 2 | 5 |
+| PG-meetings-progress | public/meetings-progress.html | any | no | 2 | 3 |
+| PG-meetings-setup | public/meetings-setup.html | any | no | 1 | 3 |
+| PG-meetings-unsigned | public/meetings-unsigned.html | any | no | 2 | 3 |
+| PG-meetings | public/meetings.html | any | yes | 2 | 4 |
 | PG-no-access | public/no-access.html | any | no | 0 | 2 |
-| PG-notifications | public/notifications.html | any | yes | 1 | 2 |
-| PG-obligations | public/obligations.html | any | yes | 0 | 1 |
-| PG-policies | public/policies.html | admin / committee-member | yes | 1 | 3 |
-| PG-portfolio | public/portfolio.html | any | yes | 1 | 7 |
-| PG-project | public/project.html | any | no | 1 | 7 |
-| PG-report-studio | public/report-studio.html | any | yes | 1 | 2 |
-| PG-reports | public/reports.html | any | yes | 2 | 25 |
-| PG-rfi | public/rfi.html | any | yes | 1 | 3 |
-| PG-site-actions | public/site-actions.html | any | yes | 1 | 7 |
-| PG-site-awareness | public/site-awareness.html | site-business / group-business / executive | yes | 2 | 4 |
-| PG-site-report | public/site-report.html | UNKNOWN | no | 0 | 4 |
-| PG-system-logs | public/system-logs.html | super_admin | yes | 1 | 2 |
-| PG-tracker-builder | public/tracker-builder.html | admin / tracker-admin | no | 1 | 3 |
-| PG-trackers | public/trackers.html | any | yes | 1 | 2 |
-| PG-wan-health | public/wan-health.html | UNKNOWN | no | 0 | 3 |
-| PG-wan-sla | public/wan-sla.html | UNKNOWN | no | 0 | 2 |
-| PG-wan | public/wan.html | any | yes | 3 | 10 |
+| PG-notifications | public/notifications.html | any | yes | 1 | 3 |
+| PG-obligations | public/obligations.html | any | yes | 0 | 2 |
+| PG-policies | public/policies.html | admin / committee-member | yes | 1 | 4 |
+| PG-portfolio | public/portfolio.html | any | yes | 1 | 8 |
+| PG-project | public/project.html | any | no | 1 | 8 |
+| PG-report-studio | public/report-studio.html | any | yes | 1 | 3 |
+| PG-reports | public/reports.html | any | yes | 2 | 26 |
+| PG-rfi | public/rfi.html | any | yes | 1 | 4 |
+| PG-site-actions | public/site-actions.html | any | yes | 1 | 9 |
+| PG-site-awareness | public/site-awareness.html | site-business / group-business / executive | yes | 2 | 5 |
+| PG-site-report | public/site-report.html | UNKNOWN | no | 0 | 5 |
+| PG-system-logs | public/system-logs.html | super_admin | yes | 1 | 3 |
+| PG-tracker-builder | public/tracker-builder.html | admin / tracker-admin | no | 1 | 4 |
+| PG-trackers | public/trackers.html | any | yes | 1 | 3 |
+| PG-wan-health | public/wan-health.html | UNKNOWN | no | 0 | 4 |
+| PG-wan-sla | public/wan-sla.html | UNKNOWN | no | 0 | 3 |
+| PG-wan | public/wan.html | any | yes | 3 | 11 |
 
 ## Routes without a test reference
 
@@ -134,21 +134,6 @@
 | RT-POST-api-tracker-import-dept-meetings | POST | `/api/tracker/import-dept-meetings` | routes/tracker.js:108 |
 | RT-GET-ext-odata-sites | GET | `/ext/odata/Sites` | routes/extApi.js:103 |
 | RT-GET- | GET | `/` | server.js:1396 |
-| RT-GET-handoffs-html | GET | `/handoffs.html` | routes/handoffs.js:82 |
-| RT-GET-inspection-html | GET | `/inspection.html` | server.js:1418 |
-| RT-GET-inspections-html | GET | `/inspections.html` | server.js:1457 |
-| RT-GET-meetings-compliance-html | GET | `/meetings-compliance.html` | server.js:1502 |
-| RT-GET-meetings-council-html | GET | `/meetings-council.html` | server.js:1501 |
-| RT-GET-meetings-import-html | GET | `/meetings-import.html` | server.js:1503 |
-| RT-GET-meetings-insights-html | GET | `/meetings-insights.html` | server.js:1505 |
-| RT-GET-meetings-progress-html | GET | `/meetings-progress.html` | server.js:1504 |
-| RT-GET-meetings-setup-html | GET | `/meetings-setup.html` | server.js:1506 |
-| RT-GET-meetings-unsigned-html | GET | `/meetings-unsigned.html` | server.js:1500 |
-| RT-GET-meetings-html | GET | `/meetings.html` | server.js:1493 |
-| RT-GET-obligations-html | GET | `/obligations.html` | routes/obligations.js:16 |
-| RT-GET-policies-html | GET | `/policies.html` | routes/policies.js:142 |
-| RT-GET-site-awareness-html | GET | `/site-awareness.html` | server.js:1377 |
-| RT-GET-system-logs-html | GET | `/system-logs.html` | server.js:1499 |
 
 ## Scheduled jobs
 

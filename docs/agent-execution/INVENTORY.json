@@ -7,12 +7,12 @@
   "pages_not_in_navigation": 29,
   "pages_with_inline_scripts": 46,
   "routes": 602,
-  "routes_without_test_reference": 64,
+  "routes_without_test_reference": 49,
   "routes_in_server_js": 210,
   "jobs": 29,
   "jobs_without_test_reference": 10,
   "migrations": 72,
-  "test_files": 600
+  "test_files": 605
  },
  "pages": [
   {
@@ -28,7 +28,8 @@
     "tests/access-routes.smoke.test.js",
     "tests/access-why.smoke.test.js",
     "tests/emergency-access.smoke.test.js",
-    "tests/i18n-coverage.test.js"
+    "tests/i18n-coverage.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -64,7 +65,8 @@
     "tests/analytics-metrics-authz.smoke.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
-    "tests/page-head.test.js"
+    "tests/page-head.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -118,7 +120,8 @@
     "tests/money-coverage.test.js",
     "tests/rbac-ui-gates.test.js",
     "tests/report-template-weekly.test.js",
-    "tests/reports-editor-asset-tab.test.js"
+    "tests/reports-editor-asset-tab.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -129,14 +132,15 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 35120,
+   "bytes": 35184,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/governance-c15.smoke.test.js",
     "tests/governance-links.test.js",
     "tests/i18n-coverage.test.js",
     "tests/no-native-dialogs.test.js",
-    "tests/project-page.test.js"
+    "tests/project-page.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -151,7 +155,8 @@
    "tests": [
     "tests/commitments-routes.smoke.test.js",
     "tests/i18n-coverage.test.js",
-    "tests/no-native-dialogs.test.js"
+    "tests/no-native-dialogs.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -165,7 +170,8 @@
    "bytes": 9984,
    "tests": [
     "tests/duty-routes.smoke.test.js",
-    "tests/i18n-coverage.test.js"
+    "tests/i18n-coverage.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -177,12 +183,13 @@
    ],
    "in_navigation": false,
    "inline_scripts": 1,
-   "bytes": 26732,
+   "bytes": 27352,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/i18n-coverage.test.js",
-    "tests/no-native-dialogs.test.js"
+    "tests/no-native-dialogs.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -193,7 +200,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 19513,
+   "bytes": 21623,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/dashboard-time-truth.test.js",
@@ -202,7 +209,8 @@
     "tests/i18n-coverage.test.js",
     "tests/landing.test.js",
     "tests/page-head.test.js",
-    "tests/page-usage.test.js"
+    "tests/page-usage.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -219,7 +227,8 @@
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/csp-report.smoke.test.js",
     "tests/page-usage.test.js",
-    "tests/trust-label.test.js"
+    "tests/trust-label.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -240,7 +249,8 @@
     "tests/i18n-coverage.test.js",
     "tests/page-usage.test.js",
     "tests/rbac-ui-gates.test.js",
-    "tests/site-window-readers.test.js"
+    "tests/site-window-readers.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -261,7 +271,8 @@
     "tests/landing.test.js",
     "tests/login-next-redirect.test.js",
     "tests/monthly-helpdesk-history.test.js",
-    "tests/page-usage.test.js"
+    "tests/page-usage.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -278,7 +289,8 @@
     "tests/i18n-coverage.test.js",
     "tests/no-native-dialogs.test.js",
     "tests/obligations.smoke.test.js",
-    "tests/simplicity-budget.test.js"
+    "tests/simplicity-budget.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -298,6 +310,7 @@
     "tests/i18n-coverage.test.js",
     "tests/ppm-visuals.test.js",
     "tests/project-page.test.js",
+    "tests/ui-design-ratchet.test.js",
     "tests/ui-lang-shared.test.js"
    ]
   },
@@ -315,7 +328,8 @@
     "tests/i18n-coverage.test.js",
     "tests/landing.test.js",
     "tests/my-work-route.smoke.test.js",
-    "tests/shell-navigation.test.js"
+    "tests/shell-navigation.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -350,7 +364,8 @@
     "tests/report-figures-parity.test.js",
     "tests/sdp-manager.smoke.test.js",
     "tests/site-fold-sla-definition.test.js",
-    "tests/trust-label.test.js"
+    "tests/trust-label.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -366,7 +381,8 @@
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
     "tests/infra-health-page-errors.test.js",
-    "tests/page-head.test.js"
+    "tests/page-head.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -382,7 +398,8 @@
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
     "tests/rbac-ui-gates.test.js",
-    "tests/review-dashboard.test.js"
+    "tests/review-dashboard.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -400,7 +417,8 @@
     "tests/inspection-delete-client.test.js",
     "tests/inspection-local-draft.test.js",
     "tests/module-tabs.test.js",
-    "tests/rbac-ui-gates.test.js"
+    "tests/rbac-ui-gates.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -416,7 +434,8 @@
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
     "tests/rbac-ui-gates.test.js",
-    "tests/shell-navigation.test.js"
+    "tests/shell-navigation.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -427,11 +446,12 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 17864,
+   "bytes": 17928,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/i18n-coverage.test.js",
-    "tests/shell-navigation.test.js"
+    "tests/shell-navigation.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -450,7 +470,8 @@
     "tests/i18n-coverage.test.js",
     "tests/it-review-tokens.test.js",
     "tests/page-usage.test.js",
-    "tests/review-page.smoke.test.js"
+    "tests/review-page.smoke.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -466,7 +487,8 @@
     "tests/agent-inventory.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/integrations-plan-gate.smoke.test.js",
-    "tests/login-next-redirect.test.js"
+    "tests/login-next-redirect.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -481,7 +503,8 @@
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/csv-safe.test.js",
-    "tests/roadmap-parity.test.js"
+    "tests/roadmap-parity.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -494,7 +517,8 @@
    "inline_scripts": 0,
    "bytes": 12850,
    "tests": [
-    "tests/i18n-coverage.test.js"
+    "tests/i18n-coverage.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -514,7 +538,8 @@
     "tests/html-pages-before-static.test.js",
     "tests/landing.test.js",
     "tests/login-next-redirect.test.js",
-    "tests/my-work-route.smoke.test.js"
+    "tests/my-work-route.smoke.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -536,7 +561,8 @@
     "tests/meeting-save-conflict-client.test.js",
     "tests/meeting-status-options.test.js",
     "tests/rbac-ui-gates.test.js",
-    "tests/status-transfer.smoke.test.js"
+    "tests/status-transfer.smoke.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -554,7 +580,8 @@
     "tests/meeting-status-options.test.js",
     "tests/module-tabs.test.js",
     "tests/rbac-ui-gates.test.js",
-    "tests/status-transfer.smoke.test.js"
+    "tests/status-transfer.smoke.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -569,7 +596,8 @@
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/governance-c15.smoke.test.js",
-    "tests/i18n-coverage.test.js"
+    "tests/i18n-coverage.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -583,7 +611,8 @@
    "bytes": 19892,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
-    "tests/i18n-coverage.test.js"
+    "tests/i18n-coverage.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -598,7 +627,8 @@
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
-    "tests/rbac-ui-gates.test.js"
+    "tests/rbac-ui-gates.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -612,7 +642,8 @@
    "bytes": 43821,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
-    "tests/i18n-coverage.test.js"
+    "tests/i18n-coverage.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -628,7 +659,8 @@
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
     "tests/meeting-status-options.test.js",
-    "tests/status-transfer.smoke.test.js"
+    "tests/status-transfer.smoke.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -642,7 +674,8 @@
    "bytes": 33143,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
-    "tests/i18n-coverage.test.js"
+    "tests/i18n-coverage.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -656,7 +689,8 @@
    "bytes": 24836,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
-    "tests/i18n-coverage.test.js"
+    "tests/i18n-coverage.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -670,7 +704,8 @@
    "bytes": 18795,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
-    "tests/i18n-coverage.test.js"
+    "tests/i18n-coverage.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -685,7 +720,8 @@
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
-    "tests/rbac-ui-gates.test.js"
+    "tests/rbac-ui-gates.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -710,10 +746,11 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 11115,
+   "bytes": 11179,
    "tests": [
     "tests/a11y-static.test.js",
-    "tests/i18n-coverage.test.js"
+    "tests/i18n-coverage.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -726,7 +763,8 @@
    "inline_scripts": 0,
    "bytes": 3687,
    "tests": [
-    "tests/i18n-coverage.test.js"
+    "tests/i18n-coverage.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -742,7 +780,8 @@
    "tests": [
     "tests/a11y-static.test.js",
     "tests/i18n-coverage.test.js",
-    "tests/no-native-dialogs.test.js"
+    "tests/no-native-dialogs.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -753,7 +792,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 27512,
+   "bytes": 27576,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/chart-a11y.test.js",
@@ -761,7 +800,8 @@
     "tests/ppm-visuals.test.js",
     "tests/project-page.test.js",
     "tests/roadmap-parity.test.js",
-    "tests/shell-navigation.test.js"
+    "tests/shell-navigation.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -772,7 +812,7 @@
    ],
    "in_navigation": false,
    "inline_scripts": 1,
-   "bytes": 60887,
+   "bytes": 60951,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/chart-a11y.test.js",
@@ -780,7 +820,8 @@
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-benefits.test.js",
     "tests/ppm-visuals.test.js",
-    "tests/project-page.test.js"
+    "tests/project-page.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -791,10 +832,11 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 18020,
+   "bytes": 18084,
    "tests": [
     "tests/a11y-static.test.js",
-    "tests/i18n-coverage.test.js"
+    "tests/i18n-coverage.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -805,7 +847,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 2,
-   "bytes": 546156,
+   "bytes": 546188,
    "tests": [
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/assets-freshness.test.js",
@@ -831,6 +873,7 @@
     "tests/teams-sla-admin-card.test.js",
     "tests/uat-amdec-org-models.smoke.test.js",
     "tests/uat-amdec-workflows.smoke.test.js",
+    "tests/ui-design-ratchet.test.js",
     "tests/wan-timeup-default.test.js"
    ]
   },
@@ -842,11 +885,12 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 12496,
+   "bytes": 12560,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/i18n-coverage.test.js",
-    "tests/project-page.test.js"
+    "tests/project-page.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -865,7 +909,9 @@
     "tests/module-tabs.test.js",
     "tests/my-work.test.js",
     "tests/site-actions-register.test.js",
-    "tests/status-transfer.smoke.test.js"
+    "tests/state-badge.test.js",
+    "tests/status-transfer.smoke.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -883,7 +929,8 @@
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
     "tests/landing.test.js",
-    "tests/shell-navigation.test.js"
+    "tests/shell-navigation.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -899,7 +946,8 @@
     "tests/agent-inventory.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/report-template-coordinator.test.js",
-    "tests/trust-label.test.js"
+    "tests/trust-label.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -913,7 +961,8 @@
    "bytes": 17540,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
-    "tests/i18n-coverage.test.js"
+    "tests/i18n-coverage.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -925,11 +974,12 @@
    ],
    "in_navigation": false,
    "inline_scripts": 1,
-   "bytes": 24644,
+   "bytes": 24708,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/i18n-coverage.test.js",
-    "tests/no-native-dialogs.test.js"
+    "tests/no-native-dialogs.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -940,10 +990,11 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 15497,
+   "bytes": 15561,
    "tests": [
     "tests/a11y-static.test.js",
-    "tests/i18n-coverage.test.js"
+    "tests/i18n-coverage.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -958,7 +1009,8 @@
    "tests": [
     "tests/agent-inventory.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
-    "tests/page-head.test.js"
+    "tests/page-head.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -972,7 +1024,8 @@
    "bytes": 405,
    "tests": [
     "tests/agent-inventory.test.js",
-    "tests/csp-no-inline-handlers-new-pages.test.js"
+    "tests/csp-no-inline-handlers-new-pages.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -994,6 +1047,7 @@
     "tests/opm-routes.smoke.test.js",
     "tests/page-head.test.js",
     "tests/rbac-ui-gates.test.js",
+    "tests/ui-design-ratchet.test.js",
     "tests/wan-timeup-default.test.js"
    ]
   }
@@ -1018,7 +1072,8 @@
    "line": 1401,
    "tests": [
     "tests/analytics-logic.test.js",
-    "tests/analytics-metrics-authz.smoke.test.js"
+    "tests/analytics-metrics-authz.smoke.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -2095,7 +2150,7 @@
    "method": "GET",
    "path": "/api/dashboards/:key/data.csv",
    "file": "routes/dashboards.js",
-   "line": 142,
+   "line": 146,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -2109,7 +2164,7 @@
    "method": "GET",
    "path": "/api/dashboards/:key/data",
    "file": "routes/dashboards.js",
-   "line": 138,
+   "line": 142,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -2123,7 +2178,7 @@
    "method": "POST",
    "path": "/api/dashboards/:key/publish",
    "file": "routes/dashboards.js",
-   "line": 184,
+   "line": 190,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -2137,7 +2192,7 @@
    "method": "POST",
    "path": "/api/dashboards/:key/retire",
    "file": "routes/dashboards.js",
-   "line": 227,
+   "line": 233,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -2151,7 +2206,7 @@
    "method": "POST",
    "path": "/api/dashboards/:key/rollback/:n",
    "file": "routes/dashboards.js",
-   "line": 216,
+   "line": 222,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -2165,7 +2220,7 @@
    "method": "POST",
    "path": "/api/dashboards/:key/submit",
    "file": "routes/dashboards.js",
-   "line": 203,
+   "line": 209,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -2179,7 +2234,7 @@
    "method": "GET",
    "path": "/api/dashboards/:key/versions",
    "file": "routes/dashboards.js",
-   "line": 96,
+   "line": 100,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -2193,7 +2248,7 @@
    "method": "POST",
    "path": "/api/dashboards/:key/view",
    "file": "routes/dashboards.js",
-   "line": 100,
+   "line": 104,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -2207,7 +2262,7 @@
    "method": "DELETE",
    "path": "/api/dashboards/:key",
    "file": "routes/dashboards.js",
-   "line": 237,
+   "line": 243,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -2221,7 +2276,7 @@
    "method": "GET",
    "path": "/api/dashboards/:key",
    "file": "routes/dashboards.js",
-   "line": 88,
+   "line": 92,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -2235,7 +2290,7 @@
    "method": "PUT",
    "path": "/api/dashboards/:key",
    "file": "routes/dashboards.js",
-   "line": 163,
+   "line": 169,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -2249,7 +2304,7 @@
    "method": "GET",
    "path": "/api/dashboards/catalogue",
    "file": "routes/dashboards.js",
-   "line": 75,
+   "line": 79,
    "tests": [
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js"
@@ -8752,7 +8807,8 @@
     "tests/asset-reminder-report.test.js",
     "tests/assets-freshness.test.js",
     "tests/csv-safe.test.js",
-    "tests/help-assets-section.test.js"
+    "tests/help-assets-section.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -8762,7 +8818,8 @@
    "file": "routes/commitments.js",
    "line": 113,
    "tests": [
-    "tests/commitments-routes.smoke.test.js"
+    "tests/commitments-routes.smoke.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -8774,7 +8831,8 @@
    "tests": [
     "tests/csp-headers.smoke.test.js",
     "tests/csp-report.smoke.test.js",
-    "tests/trust-label.test.js"
+    "tests/trust-label.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -8787,7 +8845,8 @@
     "tests/csp-headers.smoke.test.js",
     "tests/csv-safe.test.js",
     "tests/deck-builder-gate.test.js",
-    "tests/exec-deck-payload.test.js"
+    "tests/exec-deck-payload.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -8798,7 +8857,8 @@
    "line": 1355,
    "tests": [
     "tests/api-key-injection.smoke.test.js",
-    "tests/page-usage.test.js"
+    "tests/page-usage.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -8910,7 +8970,9 @@
    "path": "/handoffs.html",
    "file": "routes/handoffs.js",
    "line": 82,
-   "tests": []
+   "tests": [
+    "tests/ui-design-ratchet.test.js"
+   ]
   },
   {
    "id": "RT-GET-health",
@@ -8936,7 +8998,8 @@
    "line": 1472,
    "tests": [
     "tests/ppm-visuals.test.js",
-    "tests/project-page.test.js"
+    "tests/project-page.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -8946,7 +9009,8 @@
    "file": "routes/myWork.js",
    "line": 16,
    "tests": [
-    "tests/my-work-route.smoke.test.js"
+    "tests/my-work-route.smoke.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -8967,7 +9031,8 @@
     "tests/landing.test.js",
     "tests/login-next-redirect.test.js",
     "tests/sdp-manager.smoke.test.js",
-    "tests/trust-label.test.js"
+    "tests/trust-label.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -8977,7 +9042,8 @@
    "file": "server.js",
    "line": 1438,
    "tests": [
-    "tests/infra-health-page-errors.test.js"
+    "tests/infra-health-page-errors.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -8987,7 +9053,8 @@
    "file": "server.js",
    "line": 1423,
    "tests": [
-    "tests/review-dashboard.test.js"
+    "tests/review-dashboard.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -8996,7 +9063,9 @@
    "path": "/inspection.html",
    "file": "server.js",
    "line": 1418,
-   "tests": []
+   "tests": [
+    "tests/ui-design-ratchet.test.js"
+   ]
   },
   {
    "id": "RT-GET-inspections-html",
@@ -9004,7 +9073,9 @@
    "path": "/inspections.html",
    "file": "server.js",
    "line": 1457,
-   "tests": []
+   "tests": [
+    "tests/ui-design-ratchet.test.js"
+   ]
   },
   {
    "id": "RT-GET-it-review-html",
@@ -9014,7 +9085,8 @@
    "line": 1384,
    "tests": [
     "tests/it-review-tokens.test.js",
-    "tests/review-page.smoke.test.js"
+    "tests/review-page.smoke.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -9025,7 +9097,8 @@
    "line": 1477,
    "tests": [
     "tests/agent-inventory.test.js",
-    "tests/integrations-plan-gate.smoke.test.js"
+    "tests/integrations-plan-gate.smoke.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -9035,7 +9108,8 @@
    "file": "server.js",
    "line": 1446,
    "tests": [
-    "tests/csv-safe.test.js"
+    "tests/csv-safe.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -9048,7 +9122,8 @@
     "tests/csp-headers.smoke.test.js",
     "tests/csp-report.smoke.test.js",
     "tests/login-next-redirect.test.js",
-    "tests/my-work-route.smoke.test.js"
+    "tests/my-work-route.smoke.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -9059,7 +9134,8 @@
    "line": 1494,
    "tests": [
     "tests/incubation-editor-client.test.js",
-    "tests/meeting-status-options.test.js"
+    "tests/meeting-status-options.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -9069,7 +9145,8 @@
    "file": "server.js",
    "line": 1496,
    "tests": [
-    "tests/meeting-status-options.test.js"
+    "tests/meeting-status-options.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -9078,7 +9155,9 @@
    "path": "/meetings-compliance.html",
    "file": "server.js",
    "line": 1502,
-   "tests": []
+   "tests": [
+    "tests/ui-design-ratchet.test.js"
+   ]
   },
   {
    "id": "RT-GET-meetings-council-html",
@@ -9086,7 +9165,9 @@
    "path": "/meetings-council.html",
    "file": "server.js",
    "line": 1501,
-   "tests": []
+   "tests": [
+    "tests/ui-design-ratchet.test.js"
+   ]
   },
   {
    "id": "RT-GET-meetings-import-html",
@@ -9094,7 +9175,9 @@
    "path": "/meetings-import.html",
    "file": "server.js",
    "line": 1503,
-   "tests": []
+   "tests": [
+    "tests/ui-design-ratchet.test.js"
+   ]
   },
   {
    "id": "RT-GET-meetings-insights-html",
@@ -9102,7 +9185,9 @@
    "path": "/meetings-insights.html",
    "file": "server.js",
    "line": 1505,
-   "tests": []
+   "tests": [
+    "tests/ui-design-ratchet.test.js"
+   ]
   },
   {
    "id": "RT-GET-meetings-issues-html",
@@ -9111,7 +9196,8 @@
    "file": "server.js",
    "line": 1495,
    "tests": [
-    "tests/meeting-status-options.test.js"
+    "tests/meeting-status-options.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -9120,7 +9206,9 @@
    "path": "/meetings-progress.html",
    "file": "server.js",
    "line": 1504,
-   "tests": []
+   "tests": [
+    "tests/ui-design-ratchet.test.js"
+   ]
   },
   {
    "id": "RT-GET-meetings-setup-html",
@@ -9128,7 +9216,9 @@
    "path": "/meetings-setup.html",
    "file": "server.js",
    "line": 1506,
-   "tests": []
+   "tests": [
+    "tests/ui-design-ratchet.test.js"
+   ]
   },
   {
    "id": "RT-GET-meetings-unsigned-html",
@@ -9136,7 +9226,9 @@
    "path": "/meetings-unsigned.html",
    "file": "server.js",
    "line": 1500,
-   "tests": []
+   "tests": [
+    "tests/ui-design-ratchet.test.js"
+   ]
   },
   {
    "id": "RT-GET-meetings-html",
@@ -9144,7 +9236,9 @@
    "path": "/meetings.html",
    "file": "server.js",
    "line": 1493,
-   "tests": []
+   "tests": [
+    "tests/ui-design-ratchet.test.js"
+   ]
   },
   {
    "id": "RT-GET-no-access-html",
@@ -9163,7 +9257,9 @@
    "path": "/obligations.html",
    "file": "routes/obligations.js",
    "line": 16,
-   "tests": []
+   "tests": [
+    "tests/ui-design-ratchet.test.js"
+   ]
   },
   {
    "id": "RT-GET-policies-html",
@@ -9171,7 +9267,9 @@
    "path": "/policies.html",
    "file": "routes/policies.js",
    "line": 142,
-   "tests": []
+   "tests": [
+    "tests/ui-design-ratchet.test.js"
+   ]
   },
   {
    "id": "RT-GET-ready",
@@ -9200,7 +9298,8 @@
     "tests/reports-editor-asset-tab.test.js",
     "tests/reports-html-escape-sweep.test.js",
     "tests/restore-drill-admin-card.test.js",
-    "tests/teams-sla-admin-card.test.js"
+    "tests/teams-sla-admin-card.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -9229,7 +9328,8 @@
    "line": 1498,
    "tests": [
     "tests/meeting-status-options.test.js",
-    "tests/site-actions-register.test.js"
+    "tests/site-actions-register.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -9238,7 +9338,9 @@
    "path": "/site-awareness.html",
    "file": "server.js",
    "line": 1377,
-   "tests": []
+   "tests": [
+    "tests/ui-design-ratchet.test.js"
+   ]
   },
   {
    "id": "RT-GET-site-report-html",
@@ -9248,7 +9350,8 @@
    "line": 1369,
    "tests": [
     "tests/agent-inventory.test.js",
-    "tests/trust-label.test.js"
+    "tests/trust-label.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -9257,7 +9360,9 @@
    "path": "/system-logs.html",
    "file": "server.js",
    "line": 1499,
-   "tests": []
+   "tests": [
+    "tests/ui-design-ratchet.test.js"
+   ]
   },
   {
    "id": "RT-GET-wan-health-html",
@@ -9266,7 +9371,8 @@
    "file": "server.js",
    "line": 1435,
    "tests": [
-    "tests/agent-inventory.test.js"
+    "tests/agent-inventory.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -9276,7 +9382,8 @@
    "file": "server.js",
    "line": 1441,
    "tests": [
-    "tests/agent-inventory.test.js"
+    "tests/agent-inventory.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   },
   {
@@ -9288,7 +9395,8 @@
    "tests": [
     "tests/csp-headers.smoke.test.js",
     "tests/csp-report.smoke.test.js",
-    "tests/csv-safe.test.js"
+    "tests/csv-safe.test.js",
+    "tests/ui-design-ratchet.test.js"
    ]
   }
  ],
