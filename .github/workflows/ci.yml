@@ -85,7 +85,7 @@ jobs:
           PG_DUMP: /usr/lib/postgresql/17/bin/pg_dump
           PG_PSQL: /usr/lib/postgresql/17/bin/psql
         run: node tools/pg/restore-rehearsal.js --rows 100000 --out rehearsal
-      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: pg17-rehearsal
@@ -141,7 +141,7 @@ jobs:
         if: always()
         continue-on-error: true
         run: node tools/test/perf-baseline.js --dir=e2e-artifacts --print
-      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: e2e-journeys

@@ -111,7 +111,7 @@ jobs:
             if node tools/sdp-manager.js verify "dist/sdp-dashboard-${{ steps.v.outputs.version }}.zip"; then echo "unsigned package must be refused"; exit 1; fi
             node tools/sdp-manager.js verify "dist/sdp-dashboard-${{ steps.v.outputs.version }}.zip" --allow-unsigned
           fi
-      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: package
           path: dist/
@@ -165,7 +165,7 @@ jobs:
           $exe = if ($env:SIGN -eq 'true') { "signed: YES (Authenticode)" } else { "signed: NO (SIGNING_CERT_PFX_BASE64 not set)" }
           $mf  = if ("${{ needs.package.outputs.manifest_signed }}" -eq 'yes') { "manifest signed: YES (ed25519, tools/manifest-public.pem)" } else { "manifest signed: NO (SIGNING_MANIFEST_KEY not set) - the Manager refuses this package without --allow-unsigned" }
           @("Setup.exe $exe", $mf) | Tee-Object dist\SIGNING.txt
-      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: release-files
           path: |
