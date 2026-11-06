@@ -161,6 +161,7 @@
         <label>Baseline value <input id="b-base" type="number" step="any"></label>
         <label>Target value <input id="b-target" type="number" step="any"></label>
         <label>Benefit owner <input id="b-owner"></label>
+        <label id="b-owner-user-box" hidden>Owner as a user (reminder on “My work”) <select id="b-owner-user"><option value="">— not linked —</option></select></label>
         <label>Benefit review date <input id="b-review" type="date"></label>
       </div>
       <div class="bar"><button class="btn primary" id="b-save" type="button">Save benefit</button><button class="btn danger" id="b-del" type="button">Delete benefit</button><span class="muted">Changing the measure, unit, kind, baseline or target clears a verification.</span></div>
@@ -232,7 +233,7 @@
   var V = null;
   // W2-PPM — which PROPOSED switches are on (each new tab / prompt exists only then); an error = all off (today)
   var FEAT = {};
-  api("/api/governance/ppm/features").then(function (f) { FEAT = f || {}; if (FEAT.budget_periods) addTab("budget", "gates"); }).catch(function () { FEAT = {}; });
+  api("/api/governance/ppm/features").then(function (f) { FEAT = f || {}; if (FEAT.budget_periods) addTab("budget", "gates"); if (FEAT.benefit_owner_link) linkOwners(); }).catch(function () { FEAT = {}; });
 
   // ---- tabs (role=tablist, arrows / Home / End, deep link #tab) ---------------------------------------------
   // Extension point: later goals (baselines, benefits) add a tab button + a pane + an entry in RENDER.
@@ -241,6 +242,8 @@
   // W2-PPM — the add-on tabs exist only while their switch is on (they join TABS, so the arrow keys skip them otherwise)
   var X = function () { return { $: $, esc: esc, api: api, msg: msg, fail: fail, pid: PID }; };
   RENDER.budget = function () { if (window.PpmExtras) window.PpmExtras.mountBudget(X()); };
+  // E-P05 — the user picker for a benefit owner (committee: /api/governance/people answers 403 to others → stays hidden)
+  function linkOwners() { api("/api/governance/people").then(function (j) { $("b-owner-user").innerHTML = opt((j.people || []).map(function (p) { return [p.id, p.name]; }), "", "— not linked —"); $("b-owner-user-box").hidden = false; }).catch(function () { $("b-owner-user-box").hidden = true; }); }
   function addTab(name, before) { if (TABS.indexOf(name) >= 0) return; TABS.splice(TABS.indexOf(before), 0, name); $("tab-" + name).hidden = false; }
   function showTab(name, focus) {
     if (TABS.indexOf(name) < 0) name = "overview";
@@ -559,13 +562,14 @@
   function fillBenefit() {
     var id = Number($("b-id").value) || null, b = (V.benefits || []).filter(function (x) { return x.id === id; })[0] || {};
     $("b-desc").value = b.description || ""; $("b-measure").value = b.measure || ""; $("b-unit").value = b.unit || ""; $("b-kind").value = b.value_kind || "quantity"; $("b-cur").value = b.currency || "";
-    $("b-base").value = b.baseline_value == null ? "" : b.baseline_value; $("b-target").value = b.target_value == null ? "" : b.target_value; $("b-owner").value = b.owner || ""; $("b-review").value = b.review_date || ""; $("b-del").hidden = !id;
+    $("b-base").value = b.baseline_value == null ? "" : b.baseline_value; $("b-target").value = b.target_value == null ? "" : b.target_value; $("b-owner").value = b.owner || ""; $("b-owner-user").value = b.owner_user_id == null ? "" : String(b.owner_user_id); $("b-review").value = b.review_date || ""; $("b-del").hidden = !id;
   }
   $("b-id").addEventListener("change", fillBenefit);
   $("b-save").addEventListener("click", function () {
     var id = Number($("b-id").value) || null, kind = $("b-kind").value;
     var b = { project_id: V.project.id, description: $("b-desc").value.trim(), measure: $("b-measure").value.trim() || null, unit: $("b-unit").value.trim() || null, value_kind: kind, currency: kind === "money" ? ($("b-cur").value.trim().toUpperCase() || null) : null,
       baseline_value: numOrNull("b-base"), target_value: numOrNull("b-target"), owner: $("b-owner").value.trim() || null, review_date: $("b-review").value || null };
+    if (!$("b-owner-user-box").hidden) b.owner_user_id = $("b-owner-user").value ? Number($("b-owner-user").value) : null;   // E-P05
     if (id) { b.id = id; delete b.project_id; }
     api("/api/governance/portfolio/benefit", { method: "PUT", body: JSON.stringify(b) }).then(function (j) { msg("Benefit #" + j.id + " saved."); $("b-id").value = String(j.id); return load(); }).catch(fail);
   });

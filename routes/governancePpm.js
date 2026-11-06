@@ -4,6 +4,7 @@
 // Every action exists only while its PROPOSED switch is '1' (404 while '0' = today):
 //   E-P03 ppm_capacity_view          GET  /api/governance/ppm/capacity                capacity per site × week + conflicts (no money)
 //   E-P04 ppm_budget_periods_enabled GET/PUT /api/governance/ppm/project/:id/budget-periods  money readers / committee
+//   E-P05 benefit_owner_link_enabled  (PUT /portfolio/benefit accepts owner_user_id; GET /api/me/work lists owned benefits)
 //   GET  /api/governance/ppm/features  which of these switches are on (the pages show a tab / panel only then)
 // Paths live under /api/governance/ppm/ so they never collide with /portfolio/:kind.
 const { fail: httpFail } = require('../services/httpError');
@@ -19,7 +20,7 @@ module.exports = function governancePpmRoutes(router, h) {
   router.get('/api/governance/ppm/features', requireReportSession, async (req, res) => {
     try {
       const c = await cfg();
-      res.json({ ok: true, capacity: on(c, 'ppm_capacity_view'), budget_periods: on(c, 'ppm_budget_periods_enabled') });
+      res.json({ ok: true, capacity: on(c, 'ppm_capacity_view'), budget_periods: on(c, 'ppm_budget_periods_enabled'), benefit_owner_link: on(c, 'benefit_owner_link_enabled') });
     } catch (e) { fail(res, e); }
   });
 

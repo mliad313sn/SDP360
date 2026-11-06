@@ -70,6 +70,10 @@ module.exports = function myWorkRoutes(deps) {
         },
         benefitReviews: async (s) => require('../services/governanceStore').makeGovernanceStore(R.pgHandle()).dueBenefitReviews({ siteId: s.site_id, asOf }),
       };
+      // E-P05 — "My work" lists the benefits this user owns (linked owner) only while benefit_owner_link_enabled = '1'
+      if (String((await require('../services/reportConfig').getConfig(R.db)).benefit_owner_link_enabled) === '1') {
+        readers.ownedBenefits = async (u) => require('../services/governanceStore').makeGovernanceStore(R.pgHandle()).ownedBenefitReviews({ userId: u && u.id, asOf });
+      }
       const work = await buildMyWork({ user, sites, asOf, readers });
       res.json({ ok: true, ...work });
     } catch (e) { fail(res, e, undefined, { ok: false }); }

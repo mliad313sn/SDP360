@@ -545,7 +545,9 @@ module.exports = function governanceRoutes(deps) {
       const kind = req.params.kind;
       if (PLAN_KINDS.includes(kind) && await refusePlanWrite(req, res, kind, { id: req.body && req.body.id ? Number(req.body.id) : null, body: req.body || {} })) return;
       if (kind === 'benefit' && await refuseMoneyBenefit(req, res, { id: req.body && req.body.id ? Number(req.body.id) : null, body: req.body || {} })) return;
-      const requireOwnerReason = kind === 'task' && String((await reportConfig.getConfig(rdb().db)).ppm_capacity_view) === '1';   // E-P03
+      const cfgW = await reportConfig.getConfig(rdb().db);
+      const requireOwnerReason = kind === 'task' && String(cfgW.ppm_capacity_view) === '1';   // E-P03
+      if (kind === 'benefit' && req.body && String(cfgW.benefit_owner_link_enabled) !== '1') delete req.body.owner_user_id;   // E-P05: no link while off
       const id = await store.upsertPortfolio(kind, req.body, { user: req.reportUser, reason: req.body && req.body.reason, requireOwnerReason }); log(req, 'portfolio_saved', `${kind}:${id}`); res.json({ ok: true, id });
     } catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.reason ? { code: e.reason } : {}) }); }
   });

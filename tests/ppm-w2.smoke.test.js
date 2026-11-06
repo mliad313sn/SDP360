@@ -21,7 +21,7 @@ before(async () => {
   rdb = require('../reports-db'); cfg = require('../services/reportConfig');
   for (let i = 0; i < 60; i++) { if ((await rdb.db.prepare("SELECT 1 FROM information_schema.tables WHERE table_schema = current_schema() AND table_name = 'portfolio_tasks'").get())) break; await new Promise(r => setTimeout(r, 100)); }
   A = (await rdb.listSites({ includeInactive: true })).find((s) => /hounde/i.test(s.name)).id;
-  const mk = async (u, roles, site) => { const x = await rdb.createUser({ username: u, full_name: u, password: u + 'pass1234', roles, site_id: site }); ID[u] = x && x.id != null ? Number(x.id) : null; return (await rdb.login(u, u + 'pass1234')).token; };
+  const mk = async (u, roles, site) => { await rdb.createUser({ username: u, full_name: u, password: u + 'pass1234', roles, site_id: site }); ID[u] = Number(((await rdb.listUsers()) || []).find((x) => x.username === u).id); return (await rdb.login(u, u + 'pass1234')).token; };
   T.pmo = await mk('w2_pmo', ['viewer', 'committee-member']);
   T.cio = await mk('w2_cio', ['viewer', 'committee-member']);
   T.fin = await mk('w2_fin', ['viewer', 'finance-viewer']);
@@ -81,4 +81,24 @@ test('E-P04: budget periods 404 while off; on: committee writes, finance reads, 
     assert.doesNotMatch(JSON.stringify(vw.j), /300000|500/);
     assert.equal((await send('GET', '/api/governance/ppm/features', T.viewer)).j.budget_periods, true);
   } finally { await sw({ ppm_budget_periods_enabled: '0' }); }
+});
+
+test('E-P05: owner_user_id ignored while off; on: "My work" lists the owner’s due benefit', async () => {
+  await sw({ benefit_owner_link_enabled: '0' });
+  const me = ID.w2_viewer;
+  assert.ok(me, 'user id known');
+  const b0 = (await put('benefit', T.pmo, { project_id: pid, description: 'Ignored link', owner_user_id: me, review_date: '2026-01-15' })).j.id;
+  let d = await send('GET', `/api/governance/portfolio/project/${pid}`, T.pmo);
+  assert.equal(d.j.benefits.find((b) => b.id === b0).owner_user_id, null, 'switch off: not stored');
+  assert.equal('owned_benefits' in (await send('GET', '/api/me/work', T.viewer)).j, false);
+  await sw({ benefit_owner_link_enabled: '1' });
+  try {
+    const b1 = (await put('benefit', T.pmo, { project_id: pid, description: 'Linked (fictitious)', owner_user_id: me, review_date: '2026-01-15' })).j.id;
+    d = await send('GET', `/api/governance/portfolio/project/${pid}`, T.pmo);
+    assert.equal(d.j.benefits.find((b) => b.id === b1).owner_user_id, me);
+    const w = await send('GET', '/api/me/work', T.viewer);
+    assert.equal(w.status, 200); assert.deepEqual(w.j.owned_benefits.items.map((x) => x.project_id), [pid]);
+    assert.equal((await send('GET', '/api/me/work', T.cio)).j.owned_benefits.count, 0);
+    assert.equal((await send('GET', '/api/governance/ppm/features', T.viewer)).j.benefit_owner_link, true);
+  } finally { await sw({ benefit_owner_link_enabled: '0' }); }
 });

@@ -289,7 +289,8 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   const projectRow = (r) => ({ ...idRow(r), objective_id: Number(r.objective_id), site_id: r.site_id == null ? null : Number(r.site_id), progress_pct: num(r.progress_pct), budget: num(r.budget), spent: num(r.spent), depends_on: P_(r.depends_on, []), rfi_id: r.rfi_id == null ? null : Number(r.rfi_id) });
   // B-08 — expected / realised benefits (migration 056). Values are numbers or null; money values are stripped by the route.
   const benefitRow = (r) => r && ({ ...idRow(r), project_id: Number(r.project_id), baseline_value: num(r.baseline_value), target_value: num(r.target_value), realised_value: num(r.realised_value),
-    realised_by: r.realised_by == null ? null : Number(r.realised_by), verified_by: r.verified_by == null ? null : Number(r.verified_by), sort_order: num(r.sort_order), value_kind: r.value_kind || 'quantity' });
+    realised_by: r.realised_by == null ? null : Number(r.realised_by), verified_by: r.verified_by == null ? null : Number(r.verified_by), sort_order: num(r.sort_order), value_kind: r.value_kind || 'quantity',
+    owner_user_id: r.owner_user_id == null ? null : Number(r.owner_user_id) });
   const BENEFIT_TERMS = ['measure', 'unit', 'value_kind', 'currency', 'baseline_value', 'target_value'];   // a change clears a verification
   const TASK_STATUSES = ['todo', 'in_progress', 'blocked', 'done', 'cancelled'];
   const SPEND_TYPES = ['capex', 'opex', 'mixed'];
@@ -394,7 +395,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     task: { table: 'portfolio_tasks', cols: ['project_id', 'parent_id', 'wbs_code', 'name', 'owner', 'start_date', 'end_date', 'baseline_start', 'baseline_end', 'forecast_end', 'actual_start', 'actual_end', 'duration_days', 'allocation_pct', 'status', 'depends_on', 'sort_order', 'progress_pct', 'effort_hours'], req: ['project_id', 'name'] },
     milestone: { table: 'portfolio_milestones', cols: ['project_id', 'name', 'due_date', 'baseline_date', 'done_at', 'status', 'sort_order', 'owner'], req: ['project_id', 'name'] },
     deliverable: { table: 'portfolio_deliverables', cols: ['project_id', 'milestone_id', 'name', 'owner', 'due_date', 'status', 'action_kind', 'action_ref', 'sort_order', 'closed_at'], req: ['project_id', 'name'] },
-    benefit: { table: 'portfolio_benefits', cols: ['project_id', 'description', 'measure', 'unit', 'value_kind', 'currency', 'baseline_value', 'target_value', 'owner', 'review_date', 'sort_order'], req: ['project_id', 'description'] },
+    benefit: { table: 'portfolio_benefits', cols: ['project_id', 'description', 'measure', 'unit', 'value_kind', 'currency', 'baseline_value', 'target_value', 'owner', 'review_date', 'sort_order', 'owner_user_id'], req: ['project_id', 'description'] },
     risk: { table: 'portfolio_risks', cols: ['project_id', 'title', 'probability', 'impact', 'mitigation', 'owner', 'status', 'incident_ref', 'closed_at', 'kind'], req: ['project_id', 'title'] },
   };
   function normalise(kind, body) {
@@ -424,6 +425,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       if (out.currency != null && !/^[A-Z]{3}$/.test(out.currency)) throw Object.assign(new Error('currency must be an ISO code such as USD or XOF'), { code: 'INVALID' });
       if (['baseline_value', 'target_value'].some(k => out[k] != null && !Number.isFinite(out[k]))) throw Object.assign(new Error('baseline and target must be numbers (leave empty when unknown)'), { code: 'INVALID' });
       if (out.description !== undefined && !String(out.description || '').trim()) throw Object.assign(new Error('description is required'), { code: 'INVALID' });
+      if (out.owner_user_id != null && !(Number.isInteger(out.owner_user_id) && out.owner_user_id > 0)) throw Object.assign(new Error('owner_user_id must be a user id'), { code: 'INVALID' });   // E-P05
     }
     if (out.confidence && !CONFIDENCE.includes(out.confidence)) throw Object.assign(new Error('confidence must be low | medium | high'), { code: 'INVALID' });
     return out;
@@ -537,6 +539,8 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     if (b.realised_value == null) throw Object.assign(new Error('no realised value to verify yet'), { code: 'CONFLICT', status: 409, reason: 'NOT_REALISED' });
     const uid = user && user.id != null ? Number(user.id) : null;
     if (uid == null || b.realised_by == null || uid === b.realised_by) throw Object.assign(new Error('the person who entered the realised value cannot verify it'), { code: 'SELF_REVIEW', status: 403, expose: true, reason: 'SELF_REVIEW' });
+    // E-P05 — the user linked as the benefit owner cannot verify their own benefit either (four-eyes on the result)
+    if (b.owner_user_id != null && uid === b.owner_user_id) throw Object.assign(new Error('the benefit owner cannot verify their own benefit'), { code: 'SELF_REVIEW', status: 403, expose: true, reason: 'SELF_REVIEW' });
     return tx(async () => {
       await P(`UPDATE portfolio_benefits SET verified_by=?, verified_by_name=?, verified_at=?, updated_at=? WHERE id=?`).run(uid, actorName(user), now(), now(), Number(id));
       await ppmEvent({ entity: 'project', entity_id: b.project_id, action: 'benefit_verified', field: `benefit:${id}`, new_value: b.realised_value, currency: b.value_kind === 'money' ? b.currency : null }, user);
@@ -575,6 +579,15 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       await ppmEvent({ entity: 'project', entity_id: pid, action: 'budget_period_edit', field: `${row.kind}:${row.period}`, old_value: existing ? num(existing.amount) : null, new_value: row.amount, currency: row.currency, note: reason }, user);
       return listBudgetPeriods(pid);
     });
+  }
+  /** E-P05 — benefits whose LINKED owner is this user, review date reached and not verified (live projects only). */
+  async function ownedBenefitReviews({ userId, asOf }) {
+    if (userId == null) return [];
+    const rows = await P(`SELECT b.*, p.key AS project_key, p.name AS project_name FROM portfolio_benefits b JOIN portfolio_projects p ON p.id = b.project_id
+      JOIN portfolio_objectives o ON o.id = p.objective_id JOIN portfolio_programmes g ON g.id = o.programme_id
+      WHERE p.deleted_at IS NULL AND o.deleted_at IS NULL AND g.deleted_at IS NULL AND b.owner_user_id = ? AND b.verified_at IS NULL AND b.review_date IS NOT NULL AND b.review_date <= ?
+      ORDER BY b.review_date, b.id`).all(Number(userId), String(asOf).slice(0, 10));
+    return rows.map(r => ({ ...benefitRow(r), project_key: r.project_key, project_name: r.project_name }));
   }
   /** G11 — stage gate passage (rules in services/projectSchedule.stageGate), recorded in the ledger. */
   // A-27 — captureBaseline: the caller (route) passes report_config ppm_baseline_versions === '1'; the store reads no config.
@@ -728,7 +741,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   async function minutesHistory(sessionId) { return (await P('SELECT action, actor_id, at, reason FROM minutes_history WHERE session_id=? ORDER BY id').all(Number(sessionId))).map(r => ({ ...r, actor_id: r.actor_id == null ? null : Number(r.actor_id) })); }
   return { ppmEvent, ppmEvents, listBudgetPeriods, saveBudgetPeriod, moveProjectStage, rfiToProject, getRfi, verifyRfi, rfiFromMeeting, rfiForMeeting, rfiLineage, setAttendance, saveDraftAgenda, getDecision, openSessionActions, addMinutesHistory, minutesHistory, init, listCadences, getCadence, saveCadence, removeCadence, listSessions, getSession, createSession, updateSession, stampItem, sessionActions, addSessionAction, setSessionActionStatus, moveSession,
     listDecisions, addDecision, updateDecision, listRfi, submitRfi, triageRfi, rfiScore, portfolio, upsertPortfolio, removePortfolio,
-    restorePortfolio, getPortfolioTrashRow, listDeletedPortfolio, purgeDeletedPortfolio, restoreCadence, getCadenceTrashRow, listDeletedCadences, purgeDeletedCadences, projectSites, setProjectSites, getProject, planRow, projectDetail, gateCounts, RISK_KINDS, listBaselines, rebaseline, alertStates, saveAlertState, listBenefits, getBenefit, recordBenefitRealised, verifyBenefit, dueBenefitReviews,
+    restorePortfolio, getPortfolioTrashRow, listDeletedPortfolio, purgeDeletedPortfolio, restoreCadence, getCadenceTrashRow, listDeletedCadences, purgeDeletedCadences, projectSites, setProjectSites, getProject, planRow, projectDetail, gateCounts, RISK_KINDS, listBaselines, rebaseline, alertStates, saveAlertState, listBenefits, getBenefit, recordBenefitRealised, verifyBenefit, dueBenefitReviews, ownedBenefitReviews,
     CADENCE_KINDS, SESSION_STATUSES, DECISION_STATUSES, RFI_KINDS, RFI_STATUSES, PROJECT_STATUSES, CONFIDENCE };
 }
 

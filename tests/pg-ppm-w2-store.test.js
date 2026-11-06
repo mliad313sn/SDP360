@@ -51,3 +51,18 @@ test('E-P04: budget periods — upsert per key, justification on change / varian
   const ev = (await s.ppmEvents('project', pj)).filter((e) => e.action === 'budget_period_edit');
   assert.deepEqual(ev.map((e) => [e.field, e.old_value, e.new_value, e.currency]), [['baseline:2026-10', null, '100', 'USD'], ['actual:2026-10', null, '100', 'USD'], ['actual:2026-10', '100', '110', 'USD']]);
 });
+
+test('E-P05: linked owner — SELF_REVIEW refuses verification by the owner; ownedBenefitReviews lists only theirs', async (t) => {
+  if (!ctx) return t.skip('no pg');
+  const b1 = await s.upsertPortfolio('benefit', { project_id: pj, description: 'Fewer outages (fictitious)', owner: 'Site GM', owner_user_id: 42, review_date: '2026-01-15' }, { user: U });
+  await s.upsertPortfolio('benefit', { project_id: pj, description: 'Unlinked', review_date: '2026-01-15' }, { user: U });
+  await assert.rejects(s.upsertPortfolio('benefit', { project_id: pj, description: 'bad', owner_user_id: -3 }), (e) => e.code === 'INVALID');
+  assert.deepEqual((await s.ownedBenefitReviews({ userId: 42, asOf: '2026-11-06' })).map((b) => b.id), [b1]);
+  assert.deepEqual(await s.ownedBenefitReviews({ userId: 43, asOf: '2026-11-06' }), []);
+  assert.deepEqual(await s.ownedBenefitReviews({ userId: 42, asOf: '2026-01-01' }), [], 'review date not reached');
+  await s.recordBenefitRealised(b1, { realised_value: 3, evidence_link: 'https://intranet.example/kpi' }, { user: { id: 8, username: 'enterer' } });
+  await assert.rejects(s.verifyBenefit(b1, { user: { id: 42, username: 'owner' } }), (e) => e.reason === 'SELF_REVIEW');
+  await assert.rejects(s.verifyBenefit(b1, { user: { id: 8, username: 'enterer' } }), (e) => e.reason === 'SELF_REVIEW');
+  assert.ok((await s.verifyBenefit(b1, { user: { id: 9, username: 'third' } })).verified_at);
+  assert.deepEqual(await s.ownedBenefitReviews({ userId: 42, asOf: '2026-11-06' }), [], 'verified → no longer due');
+});

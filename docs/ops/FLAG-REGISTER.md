@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (179) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (180) — services/reportConfig.js DEFAULTS
 
 | Key | Default (today) | Kind | Owner | Recommended pilot value | Reference |
 |---|---|---|---|---|---|
@@ -50,6 +50,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `authz_capability_mode` | `off` | setting | Security owner | `shadow` (log divergences only; `enforce` acts only on `authz_enforce_caps` — route-by-route plan in `docs/agent-execution/C-17.md`) | C-17 |
 | `authz_enforce_caps` | `` | setting | Security owner | PROPOSITION: empty during the pilot; after two shadow weeks without unexplained divergences (`tools/security/authz-divergence-report.js`), low-risk reads first (`review.read`, `analytics.data.read`, `tracker.read`) with mode `enforce`; a listed capability can only refuse, critical ones are ignored while C-18 grants are off | E-S01 |
 | `backup_offsite_path` | `` | setting | to be named | — | — |
+| `benefit_owner_link_enabled` | `0` | arm switch | PMO | `1` once the PMO wants benefit owners named as users (the free-text owner stays; "My work" then lists the person's benefits whose review date is reached — in-app only, nothing is e-mailed). The linked owner can never verify their own benefit | E-P05 |
 | `commitment_notify_enabled` | `0` | arm switch | to be named | — | — |
 | `commitments_enabled` | `0` | arm switch | to be named | — | — |
 | `controls_register_enabled` | `0` | arm switch | GRC owner + Security owner | `1` once GRC names who adopts controls (the four seeded controls stay `candidate` until a person adopts them with a reason; frequencies and testers are GRC decisions) | E-G04 |
