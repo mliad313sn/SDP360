@@ -10,6 +10,7 @@
 <script src="lib/charts.js" defer></script>
 <script src="lib/analyticsLogic.js"></script>
 <script src="lib/pageHead.js"></script>
+<script src="lib/urlFilters.js"></script>
 <style>
 /* ── EDV Design System adoption ────────────────────────────────────────
    Page-local aliases mapped onto the canonical _tokens.css palette.
@@ -254,6 +255,8 @@ body{font-family:var(--font-sans);background:var(--bg);color:var(--text-1);min-h
       <div id="mfModeList"></div>
     </div>
   </div>
+  <!-- E-U02 — shown only when report_config ui_url_filters='1' -->
+  <button class="btn-refresh" id="urlfReset" type="button" hidden onclick="resetFilters()">Reset filters</button>
 </div>
 
 <!-- ── MAIN ── -->
@@ -562,7 +565,10 @@ async function _initMFilters() {
       const all = d[_MF_CFG[wid].optKey] || [];
       _MF_OPTIONS[wid] = all;
       let restored = null;
-      try {
+      // E-U02 — a list carried by the URL wins over the saved choice (only values the server offers survive).
+      const fromUrl = _URLF_BOOT ? window.UrlFilters.filterList(_URLF_BOOT[_MF_CFG[wid].param], all) : null;
+      if (fromUrl) restored = fromUrl;
+      else try {
         const raw = localStorage.getItem('an_' + wid);
         if (raw && raw !== '__ALL__') {
           const arr = JSON.parse(raw);
@@ -977,7 +983,62 @@ const _loader = AL.createLoadCoordinator(async (gen, isCurrent) => {
   }
   if (isCurrent()) document.getElementById('lastRefreshed').textContent = 'Updated ' + new Date().toLocaleTimeString('en', { hour: '2-digit', minute: '2-digit' });
 });
-function loadAll() { return _loader.trigger(); }
+function loadAll() { _urlfWrite(); return _loader.trigger(); }
+
+// ── E-U02 — filters in the URL (report_config ui_url_filters; '0' = today: nothing is read or written) ──
+// Only the SELECTIONS travel (site, period, status/type/impact/mode lists), never a figure. Values read from
+// the URL are allow-listed against the select options / the server's option lists, and only ever assigned to
+// .value or compared — never inserted as HTML. replaceState keeps one history entry per page; Back from
+// another page lands on the same URL and therefore the same filters; popstate re-applies a URL change.
+function _urlfOn() { return !!(window.UrlFilters && window.__uiPolicy && window.__uiPolicy.url_filters === '1'); }
+function _urlfSchema() {
+  const opts = (id) => [...document.getElementById(id).options].map((o) => o.value);
+  const sc = { site: { type: 'enum', values: opts('fSite'), def: '' }, period: { type: 'enum', values: opts('fPeriod'), def: '' } };
+  for (const wid of Object.keys(_MF_CFG)) sc[_MF_CFG[wid].param] = { type: 'list', max: 100, def: null };
+  return sc;
+}
+function _urlfState() {
+  const st = { site: document.getElementById('fSite').value, period: document.getElementById('fPeriod').value };
+  for (const wid of Object.keys(_MF_CFG)) st[_MF_CFG[wid].param] = _MF_STATE[wid];
+  return st;
+}
+function _urlfWrite() {
+  if (!_urlfOn()) return;
+  try {
+    const q = window.UrlFilters.merge(location.search, _urlfState(), _urlfSchema());
+    if (q !== location.search) history.replaceState(history.state, '', location.pathname + q + location.hash);
+  } catch (_e) { /* URL is a convenience: never break the page */ }
+}
+function _urlfApplySelects(st) {
+  document.getElementById('fSite').value = st.site;
+  document.getElementById('fPeriod').value = st.period;
+}
+const _URLF_BOOT = _urlfOn() ? window.UrlFilters.parse(location.search, _urlfSchema()) : null;
+if (_URLF_BOOT) {
+  _urlfApplySelects(_URLF_BOOT);
+  document.getElementById('urlfReset').hidden = false;
+  window.addEventListener('popstate', () => {
+    const st = window.UrlFilters.parse(location.search, _urlfSchema());
+    _urlfApplySelects(st);
+    for (const wid of Object.keys(_MF_CFG)) {
+      const list = window.UrlFilters.filterList(st[_MF_CFG[wid].param], _MF_OPTIONS[wid]);
+      document.getElementById(wid).querySelectorAll('input[type=checkbox]').forEach((cb) => { cb.checked = list === null || list.includes(cb.value); });
+      _MF_STATE[wid] = list === null || list.length === _MF_OPTIONS[wid].length ? null : list;
+      _mfUpdateBtn(wid);
+    }
+    _loader.trigger();
+  });
+}
+function resetFilters() {
+  _urlfApplySelects({ site: '', period: '' });
+  for (const wid of Object.keys(_MF_CFG)) {
+    document.getElementById(wid).querySelectorAll('input[type=checkbox]').forEach((cb) => { cb.checked = true; });
+    _MF_STATE[wid] = null;
+    try { localStorage.setItem('an_' + wid, '__ALL__'); } catch (_e) {}
+    _mfUpdateBtn(wid);
+  }
+  loadAll();
+}
 
 // Initial load + auto-refresh every 5 minutes.
 // Filter options load first so restored localStorage selections apply

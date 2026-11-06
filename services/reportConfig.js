@@ -12,6 +12,7 @@ const DEFAULTS = {
   ui_exec_nav: 'full',                  // C-28 (PO P1) 'consolidated' = Executive menu = Home + IT Review
   ui_kpi_base_line: '0',                // E-V03 '1' = KPI tiles show their base population ("n = 142 closed" / "base not measured")
   ui_kpi_sample_size: '0',              // E-K02 '1' = "n = …" on tiles/grid cells + low-sample warning from an ADOPTED kpi_policy
+  ui_url_filters: '0',                  // E-U02 '1' = Analytics filters written to / restored from the URL (Reset clears)
   ui_small_multiples: '0',              // E-V09 '1' = the `multiples` widget type (one panel per metric) is creatable
   ui_week_labels: 'legacy',             // D-03 'explicit' = ISO charts say "ISO W37 (7–13 Sep)", Zoho labels carry their range
   // A-08 — Exec View (public page) switches; both defaults reproduce today's output.

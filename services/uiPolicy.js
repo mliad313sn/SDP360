@@ -17,6 +17,8 @@
 //   ui_kpi_sample_size    '0' = as today · '1' = "n = …" on tiles/grid cells + low-sample warning from an ADOPTED
 //                         kpi_policy min_sample (E-K02; no adopted policy → no warning)
 //   ui_small_multiples    '0' = the `multiples` widget type is not creatable (today) · '1' = offered (E-V09)
+//   ui_url_filters        '0' = Analytics filters are not written to the URL (today) · '1' = written with
+//                         history.replaceState and restored on load, Reset clears them (E-U02)
 
 const UI_DEFAULTS = {
   ui_lang_default: '',
@@ -28,6 +30,7 @@ const UI_DEFAULTS = {
   ui_kpi_base_line: '0',
   ui_kpi_sample_size: '0',
   ui_small_multiples: '0',
+  ui_url_filters: '0',
 };
 const UI_KEYS = Object.keys(UI_DEFAULTS);
 
@@ -40,6 +43,7 @@ const ENUMS = {
   ui_kpi_base_line: ['0', '1'],
   ui_kpi_sample_size: ['0', '1'],
   ui_small_multiples: ['0', '1'],
+  ui_url_filters: ['0', '1'],
 };
 // Same vocabulary as reports-db.js ROLE_HIERARCHY + FEATURE_ROLES_KNOWN (kept inline: this module stays pure).
 const KNOWN_ROLES = new Set(['super_admin', 'executive', 'admin', 'editor', 'viewer',
@@ -76,6 +80,7 @@ function uiPolicyFrom(cfg) {
     kpi_base_line: _pick(c, 'ui_kpi_base_line'),
     kpi_sample_size: _pick(c, 'ui_kpi_sample_size'),
     small_multiples: _pick(c, 'ui_small_multiples'),
+    url_filters: _pick(c, 'ui_url_filters'),
   };
 }
 
