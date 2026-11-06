@@ -70,5 +70,5 @@ test('G01 checkSkips: an unlisted skip reason or more skips than allowed fails; 
 });
 test('G01: every allow-listed skip names an owner', () => {
   const allow = require('./.skip-allowlist.json');
-  for (const [r, a] of Object.entries(allow.reasons)) { assert.ok(a.owner && a.owner.length > 5, r); assert.ok(Number.isInteger(a.max) && a.max > 0, r); }
+  for (const [r, a] of Object.entries(allow.reasons)) { assert.ok(a.owner && a.owner.length > 5, r); assert.ok(Number.isInteger(a.max) && a.max >= 0, r); }   // E-Q01: max 0 = the reason is documented (dev boxes) but no skip is allowed in a guarded run
 });
