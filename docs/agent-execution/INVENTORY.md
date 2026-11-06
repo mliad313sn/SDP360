@@ -11,13 +11,13 @@
 | pages without declared role | 6 |
 | pages not in navigation | 29 |
 | pages with inline scripts | 46 |
-| routes | 595 |
+| routes | 602 |
 | routes without test reference | 64 |
 | routes in server js | 210 |
-| jobs | 28 |
+| jobs | 29 |
 | jobs without test reference | 10 |
-| migrations | 71 |
-| test files | 595 |
+| migrations | 72 |
+| test files | 600 |
 
 ## Pages
 
@@ -155,6 +155,7 @@
 | Id | Job | Tests |
 |---|---|---:|
 | JB-access-emergency-expiry | access.emergency_expiry | 1 |
+| JB-access-entra-deprovision | access.entra_deprovision | 1 |
 | JB-access-grant-expiry | access.grant_expiry | 2 |
 | JB-assets-sync | assets.sync | 5 |
 | JB-audit-chain-verify | audit.chain_verify | 2 |
