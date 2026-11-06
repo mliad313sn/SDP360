@@ -37,7 +37,7 @@ jobs:
         run: |
           $v = node -p "require('./package.json').version"
           ./tools/installer-v2/build.ps1 -Version $v
-      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: setup
           path: dist/SDP-Dashboard-Setup-*.exe
@@ -64,7 +64,7 @@ jobs:
           $pw = if ($env:PGPASSWORD) { $env:PGPASSWORD } else { 'root' }
           if ('${{ matrix.machine }}' -eq 'blank') { $pw = 'E2e-' + [guid]::NewGuid().ToString('N') }
           ./tools/installer-v2/tests/e2e.ps1 -Setup $setup -PgPassword $pw -LogDir dist\e2e-logs -Virgin:('${{ matrix.machine }}' -eq 'blank')
-      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: e2e-logs-${{ matrix.machine }}
@@ -103,7 +103,7 @@ jobs:
           $setup = (Get-ChildItem dist\SDP-Dashboard-Setup-*.exe | Select-Object -First 1).FullName
           $pw = if ($env:PGPASSWORD) { $env:PGPASSWORD } else { 'root' }
           ./tools/installer-v2/tests/e2e.ps1 -Setup $setup -PgPassword $pw -UpgradeFrom v111 -Dir C:\SDP-E2E-111 -BackupDir C:\SDP-E2E-111-Backups -LogDir dist\e2e-logs-111
-      - uses: actions/upload-artifact@b4b15b8c7c6ac21ea08fcf65892d2ee8f75cf882 # v4.4.3
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:
           name: e2e-logs-upgrade-from-111
