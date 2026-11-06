@@ -12,12 +12,15 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (161) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (167) — services/reportConfig.js DEFAULTS
 
 | Key | Default (today) | Kind | Owner | Recommended pilot value | Reference |
 |---|---|---|---|---|---|
 | `access_approver_policy` | `{"platform_roles":["admin","executive","super_admin","tra…` | setting | Security owner + Owner | the default (PO decision R7, encoded 2026-11-05): platform roles by a super_admin, other roles by an admin-tier user holding the site; never the requester, subject or their deputy | C-19 |
 | `access_grant_expiry_job` | `0` | setting | Security owner | `1` (ends expired grants nightly; a role held before the grant or by another live grant stays) | C-18 |
+| `access_recert_apply` | `0` | setting | Security owner | PROPOSITION: `0` for the first campaign (revoke answers recorded only, reviewed by the Security owner); `1` only after that review | E-S03 |
+| `access_recert_enabled` | `0` | arm switch | Security owner + site managers | PROPOSITION: `1` once the Security owner schedules the first campaign (site managers answer their lines; the subject never answers their own) | E-S03 |
+| `access_recert_orphan_days` | `90` | setting | Security owner | PROPOSITION: N to be chosen by the Security owner (an account with no sign-in evidence is listed as UNKNOWN, never as idle) | E-S03 |
 | `access_require_approval` | `0` | setting | Security owner + Owner (approver matrix) | `1` once the approver rule and the requires_request list are decided (break-glass stays possible, logged risk=1) | C-18 |
 | `alert_external_enabled` | `0` | arm switch | to be named | — | — |
 | `analytics_accounts_url` | `` | setting | to be named | — | — |
@@ -43,7 +46,8 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `auth_account_throttle_enabled` | `0` | arm switch | Security owner | `1` (per-account failed sign-in cap on top of the per-IP limiter; note a deliberate lock-out of a named account is possible for its window) | SEC-01 |
 | `auth_account_throttle_max` | `10` | setting | Security owner | `10` failed sign-ins per account per window | SEC-01 |
 | `auth_account_throttle_window_min` | `15` | setting | Security owner | `15` minutes | SEC-01 |
-| `authz_capability_mode` | `off` | setting | Security owner | `shadow` (log divergences only; `enforce` is not wired — route-by-route plan in `docs/agent-execution/C-17.md`) | C-17 |
+| `authz_capability_mode` | `off` | setting | Security owner | `shadow` (log divergences only; `enforce` acts only on `authz_enforce_caps` — route-by-route plan in `docs/agent-execution/C-17.md`) | C-17 |
+| `authz_enforce_caps` | `` | setting | Security owner | PROPOSITION: empty during the pilot; after two shadow weeks without unexplained divergences (`tools/security/authz-divergence-report.js`), low-risk reads first (`review.read`, `analytics.data.read`, `tracker.read`) with mode `enforce`; a listed capability can only refuse, critical ones are ignored while C-18 grants are off | E-S01 |
 | `backup_offsite_path` | `` | setting | to be named | — | — |
 | `commitment_notify_enabled` | `0` | arm switch | to be named | — | — |
 | `commitments_enabled` | `0` | arm switch | to be named | — | — |
@@ -56,6 +60,8 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `engagement_webhook_url` | (secret — not shown) | secret | to be named | — | — |
 | `entra_client_id` | `` | setting | to be named | — | — |
 | `entra_client_secret` | (secret — not shown) | secret | to be named | — | — |
+| `entra_deprovision_apply` | `0` | setting | Information Security | PROPOSITION: `0` until a dry run has been reviewed and the revocation delay measured on TEST; then `1` | E-S04 |
+| `entra_deprovision_enabled` | `0` | arm switch | Information Security + tenant administrator | PROPOSITION: `1` (dry run) only after the tenant administrator decides on the Graph `User.Read.All` application consent (gate 2); read the dry-run list on TEST first | E-S04 |
 | `entra_redirect_uri` | `` | setting | to be named | — | — |
 | `entra_tenant_id` | `` | setting | to be named | — | — |
 | `exec_deck_other_bucket` | `0` | setting | Reporting owner (PO P4) | `1` (PO decision P4: "Other (n)" on every top-N deck chart, Normal changes as their own slice) | C-16 |

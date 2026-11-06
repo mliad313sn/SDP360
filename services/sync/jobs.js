@@ -161,6 +161,9 @@ function buildJobs(d) {
   // report_config access_grant_expiry_job = '1' (default '0' — no grant expires by itself today).
   // C-22 — emergency access ends at its hour (≤ 24 h). Self-skips unless emergency_access_enabled = '1'.
   list.push({ name: 'access.emergency_expiry', cron: '*/10 * * * *', freshnessHours: 3, optional: true, job: legacyJob('access.emergency_expiry', () => accessEmergencyExpiryRun(d), { maxAttempts: 1 }) });
+  // E-S04 — Entra leavers (nightly, dry run first). Self-skips unless entra_deprovision_enabled = '1' AND SSO is ready;
+  // no Graph call at all otherwise. Deactivates only when entra_deprovision_apply = '1'.
+  list.push({ name: 'access.entra_deprovision', cron: '55 3 * * *', freshnessHours: 30, optional: true, job: legacyJob('access.entra_deprovision', () => entraDeprovisionRun(d), { maxAttempts: 1, rowsOf: (x) => Number((x && x.accounts) || 0) }) });
   list.push({ name: 'access.grant_expiry', cron: '50 3 * * *', freshnessHours: 30, optional: true, job: legacyJob('access.grant_expiry', () => accessGrantExpiryRun(d), { maxAttempts: 1 }) });
   return list;
 }
@@ -172,6 +175,17 @@ async function accessGrantExpiryRun(d = {}) {
   if (String((cfg && cfg.access_grant_expiry_job) || '0') !== '1') return { skipped: true, reason: 'access_grant_expiry_job is 0' };
   const store = d.accessStore || require('../accessStore').forRdb(rdb);
   return store.runExpiry({ actorId: null });
+}
+
+/** E-S04 — the access.entra_deprovision body (exported for tests). */
+async function entraDeprovisionRun(d = {}) {
+  const out = await (d.entraDeprovision || require('../entraDeprovision')).run({ rdb: d.rdb, cfg: d.cfg });
+  if (out && !out.skipped) {
+    const rdb = d.rdb || require('../../reports-db');
+    try { rdb.logEvent({ category: 'identity', action: 'entra_deprovision_run', actor: 'system', target: 'access.entra_deprovision',
+      details: { status: out.status, dry_run: out.dry_run, accounts: out.accounts, would_deactivate: out.would_deactivate || 0, deactivated: out.deactivated } }); } catch (_) { /* never blocks */ }
+  }
+  return out;
 }
 
 /** C-22 — the access.emergency_expiry body (exported for tests): skipped unless enabled. */
@@ -204,14 +218,14 @@ const FRESHNESS_HOURS = {
   'meridian.resources': 30, 'opmanager.availability': 30, 'meraki.wan': 30, 'meraki.wan_events': 30,
   'meraki.wan_events_5m': 1, 'meraki.wan_poller': 1, 'teams.sla_poll': 1, 'db.backup': 30, 'db.restore_drill': 24 * 33, 'audit.retention': 30, 'audit.chain_verify': 30,
   'engagement.alerts': 1, 'engagement.digest': 30, 'engagement.digest_weekly': 24 * 8, 'reports.weekly': 24 * 8, 'reports.monthly': 24 * 32, 'publish.connectors': 30, 'field.purge': 30, 'softdelete.purge': 30,
-  'commitments.escalate': 3, 'handoffs.escalate': 3, 'governance.ppm_alerts': 30, 'access.grant_expiry': 30, 'access.emergency_expiry': 3,
+  'commitments.escalate': 3, 'handoffs.escalate': 3, 'governance.ppm_alerts': 30, 'access.grant_expiry': 30, 'access.emergency_expiry': 3, 'access.entra_deprovision': 30,
 };
 // Jobs that self-skip until configured (no API key / webhook) — never reported "stale", only "idle".
 const OPTIONAL = new Set(['meridian.resources', 'opmanager.availability', 'meraki.wan', 'meraki.wan_events', 'meraki.wan_events_5m', 'meraki.wan_poller', 'teams.sla_poll', 'db.backup', 'db.restore_drill',
-  'engagement.alerts', 'engagement.digest', 'engagement.digest_weekly', 'reports.weekly', 'reports.monthly', 'publish.connectors', 'field.purge', 'softdelete.purge', 'commitments.escalate', 'handoffs.escalate', 'governance.ppm_alerts', 'access.grant_expiry', 'access.emergency_expiry']);
+  'engagement.alerts', 'engagement.digest', 'engagement.digest_weekly', 'reports.weekly', 'reports.monthly', 'publish.connectors', 'field.purge', 'softdelete.purge', 'commitments.escalate', 'handoffs.escalate', 'governance.ppm_alerts', 'access.grant_expiry', 'access.emergency_expiry', 'access.entra_deprovision']);
 
 // Map the legacy sync_metadata job names onto the registry names (one health view, D7).
 const LEGACY_NAMES = { requests: 'zoho.requests', change_cab: 'zoho.change_cab', survey: 'zoho.survey',
   assets_assets: 'assets.sync', assets_memory: 'assets.sync', assets_logical_drives: 'assets.sync', assets_monitors: 'assets.sync', assets_software_licenses: 'assets.sync', assets_software: 'assets.sync' };
 
-module.exports = { legacyJob, buildJobs, rowsOf, FRESHNESS_HOURS, OPTIONAL, LEGACY_NAMES, softDeletePurgeRun, accessGrantExpiryRun, accessEmergencyExpiryRun };
+module.exports = { legacyJob, buildJobs, rowsOf, FRESHNESS_HOURS, OPTIONAL, LEGACY_NAMES, softDeletePurgeRun, accessGrantExpiryRun, accessEmergencyExpiryRun, entraDeprovisionRun };
