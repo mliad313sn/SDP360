@@ -411,6 +411,12 @@
     </div>
   </div>
 
+  <div class="panel" id="repeatPanel" hidden>
+    <h2>Repeat findings</h2>
+    <div id="repeatInfo" style="font-size:12.5px;color:var(--color-text-muted)"></div>
+    <div id="repeatList"></div>
+  </div>
+
   <div class="panel">
     <h2>Inspections per month</h2>
     <div class="trend" id="trendBars"></div>
@@ -692,6 +698,24 @@
     });
   })();
 
+  // ── E-I06 repeat findings (404 = switch insp_repeat_findings off → panel stays hidden) ──
+  async function loadRepeats(f) {
+    const panel = document.getElementById('repeatPanel');
+    try {
+      const r = await fetch(INSP_API + '/repeat-findings' + (f.site ? '?site=' + encodeURIComponent(f.site) : ''), { credentials: 'same-origin', headers: authHeaders() });
+      if (!r.ok) { panel.hidden = true; return; }
+      const j = await r.json(); panel.hidden = false;
+      const info = document.getElementById('repeatInfo'), list = document.getElementById('repeatList');
+      if (!j.enabled) { info.textContent = 'No window set (insp_repeat_window is empty): nothing is computed.'; list.innerHTML = ''; return; }
+      info.textContent = 'Same item rated minor / major / critical in at least 2 of each site\'s last ' + j.n + ' submitted inspections.';
+      const esc2 = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+      const rows = [];
+      for (const [site, d] of Object.entries(j.sites || {})) for (const x of d.repeats) rows.push(`<tr><td>${esc2(site)}</td><td>${esc2(x.item_code)}</td><td>${esc2(x.item_text || '')}</td><td>${x.hits} / ${x.of}</td><td>${esc2(x.worst)}</td></tr>`);
+      list.innerHTML = rows.length ? `<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr><th align="left">Site</th><th align="left">Item</th><th align="left">Check</th><th align="left">Seen</th><th align="left">Worst</th></tr></thead><tbody>${rows.join('')}</tbody></table>`
+        : '<div style="color:var(--color-text-muted)">No repeat finding.</div>';
+    } catch (_) { panel.hidden = true; }
+  }
+
   // ── Reload everything for current filters ────────────────────────
   async function refresh() {
     const f = currentFilters();
@@ -712,6 +736,7 @@
       renderTrend(agg.monthly || []);
       renderCharts(agg, list.rows || []);
       renderTable(list.rows || []);
+      loadRepeats(f);
     } catch (e) {
       console.warn('inspections refresh failed:', e);
       renderKpis({});

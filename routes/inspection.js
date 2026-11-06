@@ -208,7 +208,10 @@ module.exports = function inspectionRoutes(deps) {
   router.get('/api/inspection/actions', requireReportSession, async (req, res) => {
     try {
       if (!inspectionDb) return res.status(503).json({ error: 'Inspection module not available' });
-      res.json({ rows: await inspectionDb.listActions({
+      const vcfg = await require('../services/reportConfig').getConfig(rdb.db);
+      const verifyOn = String(vcfg.insp_action_verify_enabled) === '1';
+      const IR = require('../services/inspectionRepeat');
+      const rows = await inspectionDb.listActions({
         site:     req.query.site     || undefined,
         status:   req.query.status   || undefined,
         priority: req.query.priority || undefined,
@@ -217,7 +220,11 @@ module.exports = function inspectionRoutes(deps) {
         from:     req.query.from     || undefined,
         to:       req.query.to       || undefined,
         q:        req.query.q        || undefined,
-      }) });
+      });
+      // E-I06 — with insp_action_verify_enabled = '1', a closed Critical / High action reads "awaiting verification"
+      // until a different person verifies it (status vocabulary unchanged). '0' = today's list, untouched.
+      if (verifyOn) for (const r of rows) r.verification_state = IR.verificationState(r);
+      res.json(verifyOn ? { rows, verify_enabled: true } : { rows });   // switch off: today's response, byte for byte
     } catch(e) {
       console.error('[Inspection] actions list error:', e.message);
       fail(res, e);
@@ -254,6 +261,53 @@ module.exports = function inspectionRoutes(deps) {
       console.error('[Inspection] action update error:', e.message);
       fail(res, e);
     }
+  });
+
+  // POST /api/inspection/actions/:id/verify — E-I06 independent verification of a closed Critical / High action.
+  // Switch insp_action_verify_enabled (default '0' → 404). editor of the action's site; never the person who closed it.
+  router.post('/api/inspection/actions/:id/verify', requireReportSession, inspectionJsonBody, async (req, res) => {
+    try {
+      if (!inspectionDb) return fail(res, new Error('Inspection module not available'), 503, { ok: false });
+      const cfg = await require('../services/reportConfig').getConfig(rdb.db);
+      if (String(cfg.insp_action_verify_enabled) !== '1') return fail(res, new Error('action verification is not enabled'), 404, { ok: false });
+      if (!rdb.userHasRole(req.reportUser, 'editor')) return fail(res, new Error('editor role or higher required'), 403, { ok: false });
+      const actionId = parseInt(req.params.id, 10);
+      if (!Number.isFinite(actionId)) return fail(res, new Error('Invalid action id'), 400, { ok: false });
+      const parent = await inspectionDb.getActionParent(actionId);
+      if (!parent) return fail(res, new Error('Action not found'), 404, { ok: false });
+      const userSite = await _userInspectionSite(req.reportUser, parent.site_code);
+      if (!userSite && !rdb.userHasRole(req.reportUser, 'admin')) return fail(res, new Error('Your account has no site assigned for this module. Contact your administrator.'), 403, { ok: false });
+      if (userSite && parent.site_code !== userSite) return fail(res, new Error(`Action belongs to ${parent.site_code}; you are scoped to ${userSite}`), 403, { ok: false });
+      const rows = await inspectionDb.listActions({ site: parent.site_code, limit: 5000 });
+      const a = rows.find((r) => Number(r.id) === actionId);
+      if (!a || !require('../services/inspectionRepeat').needsVerification(a)) return fail(res, new Error('only a Critical or High action needs a verification'), 400, { ok: false });
+      const out = await inspectionDb.verifyAction(actionId, { verifier_id: req.reportUser.id || null,
+        verifier_name: req.reportUser.full_name || req.reportUser.username, note: (req.body || {}).note || null });
+      try { rdb.logEvent({ category: 'inspection', action: 'insp_action_verified', target: String(actionId), details: { site: parent.site_code, closer_known: out.closer_known }, ...rdb._logCtx(req) }); } catch (_) {}
+      res.json({ ok: true, ...out });
+    } catch (e) { fail(res, e); }
+  });
+
+  // GET /api/inspection/repeat-findings?site= — E-I06 repeat findings (same site × item in ≥2 of the last N submitted
+  // inspections). Switch insp_repeat_findings (default '0' → 404); N = insp_repeat_window (empty = nothing computed).
+  router.get('/api/inspection/repeat-findings', requireReportSession, async (req, res) => {
+    try {
+      if (!inspectionDb) return fail(res, new Error('Inspection module not available'), 503, { ok: false });
+      const cfg = await require('../services/reportConfig').getConfig(rdb.db);
+      if (String(cfg.insp_repeat_findings) !== '1') return fail(res, new Error('repeat findings are not enabled'), 404, { ok: false });
+      const IR = require('../services/inspectionRepeat');
+      const n = IR.parseWindow(cfg.insp_repeat_window);
+      let sites = null;
+      if (!rdb.userHasRole(req.reportUser, 'admin')) {
+        sites = (await _userInspectionSites(req.reportUser)) || [];
+        if (!sites.length) return fail(res, new Error('Your account has no site assigned for this module. Contact your administrator.'), 403, { ok: false });
+      }
+      const wanted = req.query.site ? String(req.query.site) : null;
+      if (wanted && sites && !userSites.inScope(wanted, sites)) return fail(res, new Error('Access denied: another site'), 403, { ok: false });
+      const scope = wanted ? [wanted] : sites;
+      const out = IR.computeRepeatFindings(n == null ? [] : await inspectionDb.listRecentFindings({ sites: scope }), n);
+      res.json(out);
+    } catch (e) { fail(res, e); }
   });
 
   // GET /api/inspection/export.xlsx — full-table Excel dump (Inspections /

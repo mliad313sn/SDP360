@@ -164,6 +164,9 @@ async function initPgInspection() {
   // A-19a — the soft-delete columns every reader filters on (idempotent; the migrator applies the same file).
   await _pg.exec(require('fs').readFileSync(
     require('path').join(__dirname, 'db', 'postgres', 'inspection', '049_soft_delete.sql'), 'utf8'));
+  // E-I06 — closed_by / verified_by / verified_at / verify_note on insp_actions (idempotent; the migrator applies it too).
+  await _pg.exec(require('fs').readFileSync(
+    require('path').join(__dirname, 'db', 'postgres', 'inspection', '074_insp_action_verify.sql'), 'utf8'));
   await _seedLookupsPg(_pg);
   return _pg;
 }
@@ -714,7 +717,7 @@ async function _getInspectionPg(id, { includeDeleted = false } = {}) {
 
   const actions = await H.prepare(`
     SELECT id, ord, description, linked_item, priority, owner, due_date,
-           status, notes, created_at, updated_at, closed_at
+           status, notes, created_at, updated_at, closed_at, closed_by, verified_by, verified_at
       FROM insp_actions WHERE inspection_id = ? ORDER BY ord, id`).all(id);
 
   const photos = (await H.prepare(`
@@ -823,15 +826,22 @@ async function _saveInspectionPg(state, userSiteCode, createdBy, { allowRefs = n
              val.status || null, val.notes || null);
     }
 
+    // E-I06 — the form re-inserts every action: keep who closed / verified a still-Closed action (same ord + text).
+    const _kept = new Map((await H.prepare(`SELECT ord, description, closed_by, verified_by, verified_at, verify_note
+      FROM insp_actions WHERE inspection_id = ? AND (closed_by IS NOT NULL OR verified_at IS NOT NULL)`).all(id))
+      .map((k) => [String(k.ord) + '|' + String(k.description || ''), k]));
     await H.prepare('DELETE FROM insp_actions WHERE inspection_id = ?').run(id);
     let aix = 0;
     for (const a of (state.actions || [])) {
+      const desc = a.desc || a.description || '';
+      const st = a.status || 'Open';
+      const k = st === 'Closed' ? _kept.get(String(aix) + '|' + desc) : null;
       await H.prepare(`INSERT INTO insp_actions
-          (inspection_id, ord, description, linked_item, priority, owner, due_date, status, notes)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-        .run(id, aix, a.desc || a.description || '', a.link || a.linked_item || '',
+          (inspection_id, ord, description, linked_item, priority, owner, due_date, status, notes, closed_by, verified_by, verified_at, verify_note)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+        .run(id, aix, desc, a.link || a.linked_item || '',
              a.priority || 'Medium', a.owner || '', a.due || a.due_date || null,
-             a.status || 'Open', a.notes || '');
+             st, a.notes || '', k ? k.closed_by : null, k ? k.verified_by : null, k ? k.verified_at : null, k ? k.verify_note : null);
       aix++;
     }
 
@@ -952,6 +962,13 @@ async function _addActionUpdatePg(actionId, opts = {}) {
           SET status = ?, closed_at = CASE WHEN ? = 1 THEN to_char(now(),'YYYY-MM-DD HH24:MI:SS') ELSE closed_at END,
               updated_at = now()
         WHERE id = ?`).run(opts.status_change, terminal ? 1 : 0, actionId);
+      // E-I06 — who closed it (independent verification compares against this); a reopen clears a past verification.
+      if (opts.status_change === 'Closed') {
+        await H.prepare('UPDATE insp_actions SET closed_by = ?, verified_by = NULL, verified_at = NULL, verify_note = NULL WHERE id = ?')
+          .run(opts.author_name || (opts.author_id != null ? String(opts.author_id) : null), actionId);
+      } else if (!terminal) {
+        await H.prepare('UPDATE insp_actions SET closed_by = NULL, verified_by = NULL, verified_at = NULL, verify_note = NULL WHERE id = ?').run(actionId);
+      }
     }
   });
 }
@@ -988,6 +1005,47 @@ async function _listActionsPg(opts = {}) {
     LIMIT @limit OFFSET @offset`).all(params);
 }
 
+/**
+ * E-I06 — independent verification of a closed corrective action. The verifier must not be the person who closed it
+ * (closed_by, else the author of the last 'Closed' audit row). Throws a typed FORBIDDEN 'SELF_VERIFY' otherwise.
+ * Returns { closer_known } so the route can say when the closer could not be established.
+ */
+async function verifyAction(actionId, { verifier_id = null, verifier_name = null, note = null } = {}) {
+  const { typed } = require('./services/httpError');
+  const H = pgHandle();
+  const a = await H.prepare('SELECT id, status, closed_by, verified_at FROM insp_actions WHERE id = ?').get(actionId);
+  if (!a) throw typed('NOT_FOUND', 'Action not found', 404);
+  if (a.status !== 'Closed') throw typed('VALIDATION', 'only a Closed action can be verified', 400);
+  if (a.verified_at) throw typed('VALIDATION', 'already verified', 400);
+  const last = await H.prepare("SELECT author_id, author_name FROM insp_action_updates WHERE action_id = ? AND status_change = 'Closed' ORDER BY id DESC LIMIT 1").get(actionId);
+  const closerName = a.closed_by || (last && last.author_name) || null;
+  const sameId = last && last.author_id != null && verifier_id != null && Number(last.author_id) === Number(verifier_id);
+  const sameName = closerName && verifier_name && String(closerName).trim().toLowerCase() === String(verifier_name).trim().toLowerCase();
+  if (sameId || sameName) { const e = typed('FORBIDDEN', 'the person who closed this action cannot verify it (SELF_VERIFY)', 403); e.reason = 'SELF_VERIFY'; throw e; }
+  await H.runTransaction(async () => {
+    await H.prepare("UPDATE insp_actions SET verified_by = ?, verified_at = to_char(now(),'YYYY-MM-DD HH24:MI:SS'), verify_note = ?, updated_at = now() WHERE id = ?")
+      .run(verifier_name || (verifier_id != null ? String(verifier_id) : null), note ? String(note).slice(0, 1000) : null, actionId);
+    await H.prepare('INSERT INTO insp_action_updates (action_id, author_id, author_name, body, status_change) VALUES (?, ?, ?, ?, ?)')
+      .run(actionId, verifier_id, verifier_name, 'Verified' + (note ? ': ' + String(note).slice(0, 1000) : ''), null);
+  });
+  return { closer_known: !!closerName };
+}
+
+/** E-I06 — findings of the submitted / closed inspections (newest first), for the repeat-finding computation. */
+async function listRecentFindings({ sites = null } = {}) {
+  const H = pgHandle();
+  const params = [];
+  let w = "i.deleted_at IS NULL AND i.status IN ('submitted','closed')";
+  if (Array.isArray(sites)) {
+    if (!sites.length) return [];
+    w += ` AND i.site_code IN (${sites.map(() => '?').join(',')})`; params.push(...sites);
+  }
+  return H.prepare(`SELECT i.site_code, i.id AS inspection_id, i.inspection_date, f.item_code, f.item_text_en, f.status
+    FROM insp_inspections i LEFT JOIN insp_findings f ON f.inspection_id = i.id AND f.status IN ('minor','major','critical')
+    WHERE ${w}
+    ORDER BY i.inspection_date DESC, i.id DESC`).all(...params);   // LEFT JOIN: a clean inspection still counts in the last-N window
+}
+
 async function _resetLookupsPg() {
   const H = pgHandle();
   await H.exec('DELETE FROM insp_sites; DELETE FROM insp_areas; DELETE FROM insp_types;');
@@ -1007,7 +1065,7 @@ module.exports = {
   getInspectionTrashRow, listDeletedInspections, restoreInspection, purgeDeletedInspections,
   aggregate,
   getSiteScoreInputs, _computeInspectionScoreInputs,
-  listActions, addActionUpdate, listActionUpdates, getActionParent,
+  listActions, addActionUpdate, listActionUpdates, getActionParent, verifyAction, listRecentFindings,
   exportRows,
   resetLookups,
   siteNameToCode,

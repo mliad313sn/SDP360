@@ -128,6 +128,10 @@
     .mi-hero__actions { position: static; margin-top: 12px; }
     .mi-table-head, .mi-row { grid-template-columns: 44px minmax(0,1.1fr) minmax(0,1.7fr) 78px minmax(0,.9fr) 80px 130px 60px; font-size: 11.5px; padding: 9px 12px; gap: 8px; }
   }
+  .mi-verify { display:block; margin-top:3px; font-size:11px; font-weight:700; }
+  .mi-verify--wait { color: var(--color-warning, var(--edv-orange)); }
+  .mi-verify--ok { color: var(--color-success, var(--edv-green)); }
+  .mi-verify-btn { margin-top:3px; font-size:11px; padding:2px 8px; }
 </style>
 </head>
 <body>
@@ -412,6 +416,28 @@
     return `<select class="mi-status-sel" data-act="${esc(r.id)}" style="color:${col}">${opts}</select>`;
   }
 
+  // E-I06 — independent verification (only when the server says verify_enabled; otherwise nothing changes)
+  function verifyCell(r) {
+    if (!state.verifyEnabled || !r.verification_state) return '';
+    if (r.verification_state === 'verified') return `<small class="mi-verify mi-verify--ok" title="${esc('Verified by ' + (r.verified_by || '—') + ' on ' + (r.verified_at || ''))}">✓ verified</small>`;
+    return `<small class="mi-verify mi-verify--wait" title="${esc('Closed by ' + (r.closed_by || 'unknown') + ' — a different person must verify')}">awaiting verification</small>`
+      + (canEdit ? ` <button type="button" class="mi-verify-btn" data-verify="${esc(r.id)}">Verify</button>` : '');
+  }
+  async function onVerify(e) {
+    const id = e.target.getAttribute('data-verify');
+    const note = window.prompt('Verification note (what you checked):', '');
+    if (note === null) return;
+    e.target.disabled = true;
+    try {
+      const r = await fetch(API + '/actions/' + encodeURIComponent(id) + '/verify', { method: 'POST', credentials: 'same-origin',
+        headers: authHeaders({ 'Content-Type': 'application/json' }), body: JSON.stringify({ note }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+      toast(j.closer_known ? 'Action verified' : 'Action verified (the person who closed it is not recorded)');
+    } catch (err) { toast('Verification failed: ' + (err.message || ''), true); }
+    await loadAll();
+  }
+
   function renderTable() {
     const rows = state.actions;
     const today = todayIso();
@@ -443,7 +469,7 @@
           <span>${r.priority ? `<span class="mi-pill" style="background:${tint(pcol,0.12)};color:${pcol};border-color:${tint(pcol,0.3)}">${esc(r.priority)}</span>` : '—'}</span>
           <span style="font-size:12px;color:var(--color-text,#524F4E)">${esc(r.owner || '—')}</span>
           <span class="mi-row__date ${overdue ? 'mi-row__overdue' : ''}">${fmtDate(r.due_date)}</span>
-          <span>${statusCell(r)}</span>
+          <span>${statusCell(r)}${verifyCell(r)}</span>
           <a class="mi-row__open" href="inspection.html?id=${encodeURIComponent(r.inspection_id)}">Open ›</a>
         </div>`;
     }).join('');
@@ -452,6 +478,7 @@
 
     if (canEdit) {
       document.querySelectorAll('.mi-status-sel').forEach(selEl => selEl.addEventListener('change', onStatusChange));
+      document.querySelectorAll('.mi-verify-btn').forEach(b => b.addEventListener('click', onVerify));
     }
   }
 
@@ -488,6 +515,7 @@
     const list = await fetch(API + '/actions?' + qs.toString(), { credentials: 'same-origin', headers: authHeaders() })
       .then(r => r.ok ? r.json() : { rows: [] });
     state.actions = list.rows || [];
+    state.verifyEnabled = !!list.verify_enabled;
     const agg = computeAgg(state.actions);
     state.agg = agg;
     renderKpis(agg);

@@ -356,6 +356,13 @@ DEFAULTS.problem_candidate_min = '';
 //    (decisions, before/after recurrence counts, linked commitments, sign-off by someone other than the author);
 //    '0' (default, today) = those routes 404, no panel.
 DEFAULTS.pir_reviews_enabled = '0';
+// ── E-I06 (audit I-06, catalogue R06) — insp_repeat_findings '1' = the inspections dashboard lists repeat findings
+//    (same site × item rated minor/major/critical in ≥ 2 of the site's last insp_repeat_window submitted inspections;
+//    empty window = nothing computed). insp_action_verify_enabled '1' = a closed Critical / High corrective action
+//    reads "awaiting verification" until a person who did NOT close it verifies it. '0' (default) = today.
+DEFAULTS.insp_repeat_findings = '0';
+DEFAULTS.insp_repeat_window = '';
+DEFAULTS.insp_action_verify_enabled = '0';
 const KEYS = Object.keys(DEFAULTS);
 
 // Secrets that the GET handler redacts to '' — a Save that doesn't retype them must

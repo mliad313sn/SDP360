@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 4318,
+ "total": 4325,
  "files": {
   "a11y-static.test.js": 18,
   "access-approver-policy.test.js": 4,
@@ -247,9 +247,11 @@
   "inspection-delete-client.test.js": 4,
   "inspection-draft-store.test.js": 14,
   "inspection-local-draft.test.js": 12,
+  "inspection-repeat.test.js": 4,
   "inspection-routes.test.js": 5,
   "inspection-score-inputs.test.js": 5,
   "inspection-site-scope.smoke.test.js": 7,
+  "inspection-verify.smoke.test.js": 3,
   "installer-env-repair.test.js": 7,
   "installer-legacy-store.test.js": 13,
   "installer-no-stored-password.test.js": 2,
