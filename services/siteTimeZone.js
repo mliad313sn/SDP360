@@ -17,4 +17,22 @@ function siteTimeZone(site, enabled) {
   return byCountry || null;
 }
 
-module.exports = { COUNTRY_TZ, isValidTz, siteTimeZone };
+// E-D03: SQL fragment for "the local calendar date of a TEXT ISO timestamp column". tz null → the UTC
+// expression the reader used before (callers keep their own UTC SQL untouched); tz set → AT TIME ZONE ? with
+// the zone bound as a parameter (never interpolated — it is validated by isValidTz anyway).
+function localDateSql(col, tz, fmt) {
+  if (!tz) return null;
+  return fmt ? `to_char(${col}::timestamptz AT TIME ZONE ?, '${fmt}')` : `(${col}::timestamptz AT TIME ZONE ?)::date`;
+}
+
+// E-D03: read the switch + the site's zone in one place for every site-window reader (best effort: a read
+// failure means UTC, the default behaviour).
+async function readerTz(H, siteId, siteRow) {
+  const lc = await H.prepare("SELECT value FROM report_config WHERE key='site_local_calendar'").get().catch(() => null);
+  if (!lc || String(lc.value) !== '1') return null;
+  const row = siteRow && ('country' in siteRow || 'time_zone' in siteRow) ? siteRow
+    : await H.prepare('SELECT country, time_zone FROM sites WHERE id=?').get(siteId).catch(() => null);
+  return siteTimeZone(row, '1');
+}
+
+module.exports = { COUNTRY_TZ, isValidTz, siteTimeZone, localDateSql, readerTz };
