@@ -28,6 +28,7 @@ const { fail: httpFail, logError } = require('../services/httpError');
 //   GET  /api/governance/portfolio/project/:id/baselines · POST /project/:id/rebaseline (committee, 404 while off)
 //   GET  /api/governance/portfolio/deck.pptx · /workbook.xlsx (money only for canSeeMoney) · /exceptions (A11)
 //   POST /api/governance/roadmap-migration?apply=1    Roadmap Manager → portfolio (dry run by default)   super_admin
+//   W2-PPM (E-P03..E-P08): /api/governance/ppm/* in routes/governancePpm.js (each behind its PROPOSED switch)
 //
 // Committee = admin tier OR feature role `committee-member`. Runner of a session = committee, or the
 // cadence's chair/secretary, or an editor of the cadence's site (services/userSites).
@@ -544,7 +545,8 @@ module.exports = function governanceRoutes(deps) {
       const kind = req.params.kind;
       if (PLAN_KINDS.includes(kind) && await refusePlanWrite(req, res, kind, { id: req.body && req.body.id ? Number(req.body.id) : null, body: req.body || {} })) return;
       if (kind === 'benefit' && await refuseMoneyBenefit(req, res, { id: req.body && req.body.id ? Number(req.body.id) : null, body: req.body || {} })) return;
-      const id = await store.upsertPortfolio(kind, req.body, { user: req.reportUser, reason: req.body && req.body.reason }); log(req, 'portfolio_saved', `${kind}:${id}`); res.json({ ok: true, id });
+      const requireOwnerReason = kind === 'task' && String((await reportConfig.getConfig(rdb().db)).ppm_capacity_view) === '1';   // E-P03
+      const id = await store.upsertPortfolio(kind, req.body, { user: req.reportUser, reason: req.body && req.body.reason, requireOwnerReason }); log(req, 'portfolio_saved', `${kind}:${id}`); res.json({ ok: true, id });
     } catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.reason ? { code: e.reason } : {}) }); }
   });
   router.post('/api/governance/portfolio/project/:id/stage', requireReportSession, requireCommittee, json, async (req, res) => {
@@ -704,6 +706,8 @@ module.exports = function governanceRoutes(deps) {
       res.json({ ok: true, dry_run: false, programme_id: pid, plan });
     } catch (e) { fail(res, e); }
   });
+  // Plan E wave 2 (W2-PPM): capacity, budget periods, RACI, templates, annual pack — same helpers, switch-gated
+  require('./governancePpm')(router, { store, rdb, reportConfig, requireReportSession, json, isCommittee, canSeeMoney, viewFor, readableProject, refusePlanWrite, log });
   return router;
 };
 module.exports.createStore = createStore;

@@ -481,6 +481,20 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
         for (const f of FINANCE_FIELDS) if (vals[f] !== undefined && !same(f)) await ppmEvent({ entity: 'project', entity_id: id, action: 'finance_edit', field: f, old_value: before[f], new_value: vals[f], currency: vals.currency || before.currency, note: opts.reason || null }, opts.user);
         return id;
       }
+      // E-P03 (X-P-01) — a task owner change is a traced reassignment in the hash-chained ledger (old, new, actor,
+      // reason). The reason is required while ppm_capacity_view is on (opts.requireOwnerReason, decided by the route).
+      if (kind === 'task' && vals.owner !== undefined) {
+        const before = await P(`SELECT project_id, owner FROM portfolio_tasks WHERE id=?`).get(id);
+        if (before && String(before.owner || '').trim() !== String(vals.owner || '').trim()) {
+          const reason = str(opts.reason, 2000);
+          if (opts.requireOwnerReason && !(reason && reason.trim())) throw Object.assign(new Error('a reason is required to reassign a task'), { code: 'INVALID', reason: 'REASON_REQUIRED' });
+          return tx(async () => {
+            await updateRow(T.table, id, vals, T.cols);
+            await ppmEvent({ entity: 'project', entity_id: Number(before.project_id), action: 'task_reassigned', field: `task:${id}`, old_value: before.owner || null, new_value: vals.owner || null, note: reason || null }, opts.user);
+            return id;
+          });
+        }
+      }
       await updateRow(T.table, id, vals, T.cols); return id;
     }
     for (const r of T.req) if (vals[r] == null || vals[r] === '') throw Object.assign(new Error(`${r} is required`), { code: 'INVALID' });

@@ -62,6 +62,7 @@
   <div class="panel"><h2>Schedule (projects &amp; milestones)</h2><div id="timeline"></div><p class="muted">Keyboard: Tab to a project key, then the arrow keys move between projects and Enter opens the project page. The table view holds the same data.</p><details><summary class="muted">Table view (dates, plan, alerts)</summary><div class="scroll" id="gantt"></div></details></div>
   <div class="panel"><h2>Resource conflicts</h2><div class="scroll" id="conflicts"></div></div>
   <div class="panel"><h2>Resource pressure per person and week</h2><div class="scroll" id="pressure"></div></div>
+  <div class="panel" id="capacity-panel" hidden><h2>Capacity per site and week</h2><div class="scroll" id="capacity"></div></div>
   <div class="panel"><h2>Risks</h2><div class="scroll" id="risks"></div></div>
   <div class="panel"><h2>Risk matrix (probability × impact)</h2><div class="scroll" id="risk-matrix"></div></div>
   <details class="panel" id="edit" hidden><summary class="btn" id="e-sum">Add / edit an element (committee)</summary>
@@ -130,6 +131,13 @@
         $("risk-matrix").innerHTML = window.PpmVisuals.riskMatrixHtml(RM, esc);
         $("pressure").innerHTML = window.PpmVisuals.pressureHtml(window.PpmVisuals.resourcePressure(v.tasks || [], { today: new Date().toISOString().slice(0, 10) }), esc);
       }
+      // E-P03 — capacity per site and week + sorted conflicts (switch ppm_capacity_view; 404 while off = panel stays hidden)
+      api("/api/governance/ppm/capacity").then(function (c) {
+        if (!window.PpmVisuals) return;
+        var names = c.site_names || {};
+        $("capacity").innerHTML = window.PpmVisuals.capacityHtml(c.capacity, esc, function (k) { return names[k] || ("Site #" + k); });
+        $("capacity-panel").hidden = false;
+      }).catch(function () { $("capacity-panel").hidden = true; });
       var plans = {}; (v.plans || []).forEach(function (x) { plans[x.project_id] = x; });
       var stages = v.stages || [];
       var stageDots = function (st) { var i = stages.indexOf(st); return st ? "<span class=\"stage\" title=\"" + esc(st) + "\">" + stages.map(function (_, k) { return k === i ? "●" : "○"; }).join("") + "</span> " + esc(String(st).replace(/_/g, " ")) : "—"; };

@@ -209,9 +209,13 @@
     DEP_DUPLICATE: "The same dependency is listed twice.",
     PLAN_SCOPE: "You may only maintain the plan of a project of your site(s), or one you own.",
     GATE_SOD: "The project owner cannot approve their own project — another committee member must.",
+    REASON_REQUIRED: "A reason is required to reassign a task.",
   };
   var fail = function (e) { msg((e && e.code && PLAIN[e.code]) || (e && e.message) || "Error", "errors"); };
   var V = null;
+  // W2-PPM — which PROPOSED switches are on (each new tab / prompt exists only then); an error = all off (today)
+  var FEAT = {};
+  api("/api/governance/ppm/features").then(function (f) { FEAT = f || {}; }).catch(function () { FEAT = {}; });
 
   // ---- tabs (role=tablist, arrows / Home / End, deep link #tab) ---------------------------------------------
   // Extension point: later goals (baselines, benefits) add a tab button + a pane + an entry in RENDER.
@@ -449,6 +453,9 @@
       start_date: $("t-start").value || null, end_date: $("t-end").value || null, duration_days: numOrNull("t-dur"), allocation_pct: numOrNull("t-alloc"), effort_hours: numOrNull("t-effort"), status: $("t-status").value, progress_pct: numOrNull("t-prog"),
       depends_on: Array.prototype.filter.call($("t-deps").options, function (o) { return o.selected; }).map(function (o) { return Number(o.value); }) };
     if (id) { b.id = id; delete b.project_id; }
+    // E-P03 — with ppm_capacity_view on, a reassignment (owner change) carries a reason; it is traced in the ledger either way
+    var was = id ? (V.tasks.filter(function (x) { return x.id === id; })[0] || {}).owner : null;
+    if (id && FEAT.capacity && String(was || "").trim() !== String(b.owner || "").trim()) { var why = window.prompt("Reason for reassigning this task (kept in the project history):", ""); if (!why || !why.trim()) { msg("Reassignment not saved: a reason is required.", "errors"); return; } b.reason = why.trim(); }
     api("/api/governance/portfolio/task", { method: "PUT", body: JSON.stringify(b) }).then(function (j) { msg("Task #" + j.id + " saved."); $("t-id").value = String(j.id); return load(); }).catch(fail);
   });
   $("t-del").addEventListener("click", function () { var id = Number($("t-id").value); if (!id || !window.confirm("Delete task #" + id + "?")) return; api("/api/governance/portfolio/task/" + id, { method: "DELETE" }).then(function () { msg("Task deleted."); $("t-id").value = ""; return load(); }).catch(fail); });
