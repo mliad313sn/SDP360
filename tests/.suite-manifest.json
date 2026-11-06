@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 4125,
+ "total": 4133,
  "files": {
   "a11y-static.test.js": 18,
   "access-approver-policy.test.js": 4,
@@ -538,9 +538,11 @@
   "token-contrast.test.js": 19,
   "traceability.test.js": 3,
   "tracker-definitions.test.js": 6,
+  "tracker-delete-year.test.js": 2,
   "tracker-load-scope.smoke.test.js": 7,
   "tracker-month-lock.test.js": 5,
   "tracker-roles-client.test.js": 5,
+  "tracker-routes.smoke.test.js": 6,
   "tracker-save-site-scope.smoke.test.js": 3,
   "tracker-set-activity-months.test.js": 6,
   "tracker-site-code.test.js": 14,

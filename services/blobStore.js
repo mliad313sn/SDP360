@@ -33,10 +33,11 @@ const MIME_EXT = {
   'image/webp': '.webp',
   'image/gif':  '.gif',
   'application/pdf': '.pdf',
+  'application/json': '.json',
 };
 const EXT_MIME = {
   '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
-  '.webp': 'image/webp', '.gif': 'image/gif', '.pdf': 'application/pdf',
+  '.webp': 'image/webp', '.gif': 'image/gif', '.pdf': 'application/pdf', '.json': 'application/json',
 };
 
 function _safeSeg(s) {

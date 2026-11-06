@@ -465,7 +465,27 @@ async function _previewDeleteTrackerYearPg(year) {
   };
 }
 
-async function _deleteTrackerYearPg(year) {
+// E-A01b / X-Q-01 — every row the cascade below removes, read inside the delete transaction.
+const _YEAR_EXPORT_SQL = {
+  tracker_years:      'SELECT * FROM tracker_years WHERE year = ?',
+  tracker_pillars:    'SELECT * FROM tracker_pillars WHERE year = ? ORDER BY id',
+  tracker_activities: 'SELECT a.* FROM tracker_activities a JOIN tracker_pillars p ON p.id = a.pillar_id WHERE p.year = ? ORDER BY a.id',
+  tracker_targets_v2: 'SELECT t.* FROM tracker_targets_v2 t JOIN tracker_activities a ON a.id = t.activity_id JOIN tracker_pillars p ON p.id = a.pillar_id WHERE p.year = ? ORDER BY t.site, t.activity_id',
+  tracker_inputs_v2:  'SELECT i.* FROM tracker_inputs_v2 i JOIN tracker_activities a ON a.id = i.activity_id JOIN tracker_pillars p ON p.id = a.pillar_id WHERE p.year = ? ORDER BY i.site, i.activity_id',
+};
+async function _exportTrackerYearPg(h, y) {
+  const tables = {};
+  for (const [t, sql] of Object.entries(_YEAR_EXPORT_SQL)) tables[t] = await h.prepare(sql).all(y);
+  return { year: y, exported_at: new Date().toISOString(), tables };
+}
+// Default snapshot: one JSON blob (services/blobStore.js, module 'tracker', owner 'year-<y>-<ts>').
+function _snapshotYearToBlob(exp) {
+  const owner = `year-${exp.year}-${exp.exported_at.replace(/[^0-9]/g, '').slice(0, 14)}`;
+  const b64 = Buffer.from(JSON.stringify(exp), 'utf8').toString('base64');
+  return require('./services/blobStore').putB64('tracker', owner, 'tracker-year-' + exp.year, 'application/json', b64).ref;
+}
+
+async function _deleteTrackerYearPg(year, opts = {}) {
   const y = parseInt(year, 10);
   if (!Number.isFinite(y) || y < 2000 || y > 2100) throw new Error('Invalid year: ' + year);
   const h = pgHandle();
@@ -480,15 +500,22 @@ async function _deleteTrackerYearPg(year) {
   // No SQLite VACUUM-INTO backup on the pg backend (that helper is file-snapshot
   // only). FK ON DELETE CASCADE does the structural work: tracker_years →
   // tracker_pillars → tracker_activities → tracker_targets_v2 / tracker_inputs_v2.
-  let deletedYears = 0;
+  // E-A01b: the rows the cascade will remove are exported and written (blob) BEFORE the delete,
+  // inside the same transaction — a failed export throws and nothing is deleted.
+  let deletedYears = 0, backupPath = null, counts = {};
+  const snapshot = typeof opts.snapshot === 'function' ? opts.snapshot : _snapshotYearToBlob;
   await h.runTransaction(async () => {
+    const exp = await _exportTrackerYearPg(h, y);
+    for (const [t, rows] of Object.entries(exp.tables)) counts[t] = rows.length;
+    try { backupPath = await snapshot(exp); } catch (e) { throw new Error('Year ' + y + ' not deleted — snapshot failed: ' + e.message); }
+    if (!backupPath) throw new Error('Year ' + y + ' not deleted — snapshot failed: no reference returned');
     await h.prepare(`UPDATE tracker_config SET years_json = ?, updated_at = now() WHERE id = 1`)
       .run(JSON.stringify(newYears));
     const r = await h.prepare('DELETE FROM tracker_years WHERE year = ?').run(y);
     deletedYears = r.changes;
   });
-  console.log('[Tracker-DB] deleteTrackerYear(pg)', y, '— cascade removed years:', deletedYears);
-  return { year: y, years_after: newYears, years_deleted: deletedYears, backup_path: null };
+  console.log('[Tracker-DB] deleteTrackerYear(pg)', y, '— cascade removed years:', deletedYears, 'snapshot:', backupPath);
+  return { year: y, years_after: newYears, years_deleted: deletedYears, backup_path: backupPath, counts };
 }
 
 
@@ -636,8 +663,8 @@ function previewDeleteTrackerYear(year) {
   return _previewDeleteTrackerYearPg(year);
 }
 
-function deleteTrackerYear(year) {
-  return _deleteTrackerYearPg(year);
+function deleteTrackerYear(year, opts) {
+  return _deleteTrackerYearPg(year, opts);
 }
 
 
