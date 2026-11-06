@@ -270,6 +270,10 @@ DEFAULTS.roadmap_redirect_to_portfolio = '0';
 //    (10 attempts / 15 min per address). '1' → more than auth_account_throttle_max FAILED sign-ins against one
 //    account within auth_account_throttle_window_min answer 429 (password not even checked); a success clears it.
 Object.assign(DEFAULTS, { auth_account_throttle_enabled: '0', auth_account_throttle_max: '10', auth_account_throttle_window_min: '15' });
+// ── E-S05 — PBKDF2 work factor for NEW password hashes (users.password_iterations stores each hash's own count;
+//    NULL = 100000). '100000' = today: nothing is rehashed. A higher value rehashes a user once, at their next
+//    successful password login; lowering it never downgrades a stored hash. Values < 100000 or invalid → 100000.
+DEFAULTS.auth_pbkdf2_iterations = '100000';
 
 // ── C-17 — capability catalogue switch. off = today (legacy role guards only). shadow = the evaluator
 //    (services/authorizationService.can) runs beside every role guard and logs divergences to system_log

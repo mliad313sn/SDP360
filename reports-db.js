@@ -317,14 +317,31 @@ async function _setExecMiSummaryPg(request_id, s) {
 }
 
 // ── SEED DEFAULT ADMIN ────────────────────────────────────────────
-function hashPassword(password, salt) {
-  return crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
+// E-S05 — the work factor is stored per hash (users.password_iterations, migration 077). NULL = 100000, the count
+// every hash before that column was made with. The target for NEW hashes is report_config auth_pbkdf2_iterations
+// (default '100000' = today); an invalid, lower or absurd value falls back to 100000 (never weakens a new hash).
+const PBKDF2_LEGACY = 100000;
+function _pbkdf2Target(v) {
+  const n = Number(v);
+  return Number.isInteger(n) && n >= PBKDF2_LEGACY && n <= 5000000 ? n : PBKDF2_LEGACY;
 }
-// G03 — constant-time password check. An unknown user still costs one PBKDF2 run, so the response time does
-// not tell an attacker which usernames exist.
+function _storedIterations(user) {
+  const n = Number(user && user.password_iterations);
+  return Number.isInteger(n) && n > 0 ? n : PBKDF2_LEGACY;
+}
+async function _pbkdf2TargetPg(h) {
+  const r = await h.prepare("SELECT value FROM report_config WHERE key='auth_pbkdf2_iterations'").get().catch(() => null);
+  return _pbkdf2Target(r ? r.value : undefined);
+}
+function hashPassword(password, salt, iterations = PBKDF2_LEGACY) {
+  return crypto.pbkdf2Sync(password, salt, iterations, 64, 'sha512').toString('hex');
+}
+// G03 — constant-time password check. An unknown user still costs one PBKDF2 run (at the target count, E-S05),
+// so the response time does not tell an attacker which usernames exist.
 const _DUMMY_SALT = crypto.randomBytes(16).toString('hex');
-function passwordMatches(password, user) {
-  const got = Buffer.from(hashPassword(String(password == null ? '' : password), user ? user.salt : _DUMMY_SALT), 'hex');
+function passwordMatches(password, user, dummyIterations = PBKDF2_LEGACY) {
+  const it = user ? _storedIterations(user) : _pbkdf2Target(dummyIterations);
+  const got = Buffer.from(hashPassword(String(password == null ? '' : password), user ? user.salt : _DUMMY_SALT, it), 'hex');
   if (!user || !user.password_hash) return false;
   const want = Buffer.from(String(user.password_hash), 'hex');
   return want.length === got.length && crypto.timingSafeEqual(want, got);
@@ -577,6 +594,10 @@ async function initPgReports() {            // called once at server boot
   for (const c of ['asset_manager_name TEXT', 'asset_manager_email TEXT', 'asset_manager_email_confirmed INTEGER DEFAULT 0']) {
     await _pg.exec(`ALTER TABLE report_recipients ADD COLUMN IF NOT EXISTS ${c}`);
   }
+  // E-S05 — the default admin is hashed below with its stored work factor: the column must exist first (the
+  // migration runner records 077 later; the ALTER is idempotent).
+  await _pg.exec(require('fs').readFileSync(
+    require('path').join(__dirname, 'db', 'postgres', 'reports', '077_password_iterations.sql'), 'utf8'));
   // Default admin on PostgreSQL (consolidation 2026-10-28). Before, it was seeded into the sqlite file only,
   // so a fresh PostgreSQL-only install had an empty users table and nobody could sign in.
   // Same rule as sqlite: refuse without DASH_USER / DASH_PASS; never overwrite an existing admin.
@@ -738,7 +759,17 @@ function logout(token) {
 async function _loginPg(username, password) {
   const h = pgHandle();
   const user = await h.prepare(`SELECT * FROM users WHERE username=? AND active=1`).get(username);
-  if (!passwordMatches(password, user)) return null;
+  const target = await _pbkdf2TargetPg(h);
+  if (!passwordMatches(password, user, target)) return null;
+  // E-S05: upgrade path — rehash once with the target count when the stored one is lower. Best effort: a failure
+  // here never refuses a correct password. Guarded on the old hash so two concurrent logins rehash only once.
+  if (_storedIterations(user) < target) {
+    try {
+      const salt = crypto.randomBytes(16).toString('hex');
+      await h.prepare('UPDATE users SET password_hash=?, salt=?, password_iterations=? WHERE id=? AND password_hash=?')
+        .run(hashPassword(String(password), salt, target), salt, target, user.id, user.password_hash);
+    } catch (e) { console.warn('[auth] work-factor upgrade skipped:', e.code || 'error'); }
+  }
   const token = makeSession();
   const expiresAt = new Date(Date.now() + sessionHours() * 3600 * 1000).toISOString();
   await h.prepare(`INSERT INTO sessions (token, user_id, expires_at) VALUES (?,?,?)`).run(token, user.id, expiresAt);
@@ -1018,13 +1049,14 @@ async function _listUsersPg() {
 }
 async function _createUserPg({ username, full_name, password, site_id, role, roles, email, extra_site_ids }) {
   const salt = crypto.randomBytes(16).toString('hex');
-  const hash = hashPassword(password, salt);
+  const iters = await _pbkdf2TargetPg(pgHandle());
+  const hash = hashPassword(password, salt, iters);
   const finalRoles = Array.isArray(roles) && roles.length > 0 ? roles : [role || 'editor'];
   _assertKnownRoles(finalRoles);
   const ROLE_HIERARCHY_LOCAL = ['super_admin', 'executive', 'admin', 'editor', 'viewer'];
   const highest = ROLE_HIERARCHY_LOCAL.find(h => finalRoles.includes(h)) || 'viewer';
-  const result = await pgHandle().prepare(`INSERT INTO users (username, full_name, password_hash, salt, site_id, role) VALUES (?,?,?,?,?,?)`)
-    .run(username, full_name, hash, salt, site_id || null, highest);
+  const result = await pgHandle().prepare(`INSERT INTO users (username, full_name, password_hash, salt, password_iterations, site_id, role) VALUES (?,?,?,?,?,?,?)`)
+    .run(username, full_name, hash, salt, iters, site_id || null, highest);
   if (result.lastID) await _setUserRolesPg(result.lastID, finalRoles);
   if (result.lastID && email !== undefined) await _setUserEmailPg(result.lastID, email);
   if (result.lastID && Array.isArray(extra_site_ids)) await _setUserExtraSitesPg(result.lastID, extra_site_ids, site_id);
@@ -1037,8 +1069,9 @@ async function _changePasswordPg(userId, currentPassword, newPassword) {
   if (!passwordMatches(currentPassword, user)) return { ok: false, error: 'Current password is incorrect' };
   if (newPassword.length < 8) return { ok: false, error: 'New password must be at least 8 characters' };
   const salt = crypto.randomBytes(16).toString('hex');
-  const hash = hashPassword(newPassword, salt);
-  await h.prepare('UPDATE users SET password_hash=?, salt=? WHERE id=?').run(hash, salt, userId);
+  const iters = await _pbkdf2TargetPg(h);
+  const hash = hashPassword(newPassword, salt, iters);
+  await h.prepare('UPDATE users SET password_hash=?, salt=?, password_iterations=? WHERE id=?').run(hash, salt, iters, userId);
   return { ok: true };
 }
 async function _updateUserPg(id, { full_name, password, site_id, role, roles, active, email, extra_site_ids }) {
@@ -1050,9 +1083,10 @@ async function _updateUserPg(id, { full_name, password, site_id, role, roles, ac
   const highest = finalRoles ? (ROLE_HIERARCHY_LOCAL.find(x => finalRoles.includes(x)) || 'viewer') : null;
   if (password) {
     const salt = crypto.randomBytes(16).toString('hex');
-    const hash = hashPassword(password, salt);
-    if (willUpdateRoles && highest) await h.prepare(`UPDATE users SET full_name=?, password_hash=?, salt=?, site_id=?, role=?, active=? WHERE id=?`).run(full_name, hash, salt, site_id ?? null, highest, active ?? 1, id);
-    else await h.prepare(`UPDATE users SET full_name=?, password_hash=?, salt=?, site_id=?, active=? WHERE id=?`).run(full_name, hash, salt, site_id ?? null, active ?? 1, id);
+    const iters = await _pbkdf2TargetPg(h);
+    const hash = hashPassword(password, salt, iters);
+    if (willUpdateRoles && highest) await h.prepare(`UPDATE users SET full_name=?, password_hash=?, salt=?, password_iterations=?, site_id=?, role=?, active=? WHERE id=?`).run(full_name, hash, salt, iters, site_id ?? null, highest, active ?? 1, id);
+    else await h.prepare(`UPDATE users SET full_name=?, password_hash=?, salt=?, password_iterations=?, site_id=?, active=? WHERE id=?`).run(full_name, hash, salt, iters, site_id ?? null, active ?? 1, id);
   } else {
     if (willUpdateRoles && highest) await h.prepare(`UPDATE users SET full_name=?, site_id=?, role=?, active=? WHERE id=?`).run(full_name, site_id ?? null, highest, active ?? 1, id);
     else await h.prepare(`UPDATE users SET full_name=?, site_id=?, active=? WHERE id=?`).run(full_name, site_id ?? null, active ?? 1, id);
@@ -1271,11 +1305,15 @@ async function _getSiteHelpdeskWindowPg(site_id, from, to) {
   const groups = String(site?.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
   if (!groups.length) return { ..._computeSiteHelpdesk([]), scoped: false };   // no Zoho group: not measured (the metric registry reads `scoped`)
   const ph = groups.map(() => '?').join(',');
+  // E-D03: site_local_calendar = '1' → the window is read on the site's local date; '0' = the UTC SQL below, unchanged.
+  const STZ = require('./services/siteTimeZone');
+  const tz = await STZ.readerTz(H, site_id);
+  const day = tz ? STZ.localDateSql('created_time', tz, 'YYYY-MM-DD') : 'substr(created_time,1,10)';
   const rows = await H.prepare(`
     SELECT pending_status, overdue_status, request_type, template, category, sub_category, created_time, resolved_time, completed_time
     FROM request_records
-    WHERE tech_group IN (${ph}) AND substr(created_time,1,10) BETWEEN ? AND ?`).all(...groups, from, to);
-  return { ..._computeSiteHelpdesk(rows), scoped: true };
+    WHERE tech_group IN (${ph}) AND ${day} BETWEEN ? AND ?`).all(...groups, ...(tz ? [tz] : []), from, to);
+  return tz ? { ..._computeSiteHelpdesk(rows), scoped: true, time_zone: tz } : { ..._computeSiteHelpdesk(rows), scoped: true };
 }
 
 // ── SITE IMPACT (slide 7) — per-site helpdesk counts for the report window ──
@@ -2896,7 +2934,7 @@ async function _getCalendarMonthlyHelpdeskPg(site_id, year, month) {
   const lastD = new Date(year, month, 0);
   const to    = `${lastD.getFullYear()}-${String(lastD.getMonth()+1).padStart(2,'0')}-${String(lastD.getDate()).padStart(2,'0')}`;
   // D-07: site_local_calendar = '1' buckets the month on the site's local date (sites.time_zone, else its country);
-  // '0' (default) = UTC dates, today. Other helpdesk readers stay UTC (follow-up, docs/agent-execution/D-070910.md).
+  // '0' (default) = UTC dates, today. E-D03 extends it to the Top-10, the site window reader and the 6-month history.
   const lc = await H.prepare("SELECT value FROM report_config WHERE key='site_local_calendar'").get().catch(() => null);
   const tz = require('./services/siteTimeZone').siteTimeZone(siteRow, lc ? lc.value : '0');
   const CD = tz ? '(created_time::timestamptz AT TIME ZONE ?)::date' : 'created_time::date';
@@ -2926,12 +2964,12 @@ async function _getCalendarMonthlyHelpdeskPg(site_id, year, month) {
     avg_tta_h:         avgTtaRow.v  != null ? Math.round(avgTtaRow.v)  : null,
     avg_first_reply_h: avgFrRow.v   != null ? Math.round(avgFrRow.v)   : null,
     avg_resolution_d:  avgRtRow.v   != null ? Math.round(avgRtRow.v)   : null,
-    source: 'calendar', from, to,
+    source: 'calendar', from, to, ...(tz ? { time_zone: tz } : {}),
   };
 }
 async function _getCalendarMonthlyTop10Pg(site_id, year, month) {
   const H = pgHandle();
-  const siteRow = await H.prepare('SELECT zoho_group FROM sites WHERE id=?').get(site_id);
+  const siteRow = await H.prepare('SELECT zoho_group, country, time_zone FROM sites WHERE id=?').get(site_id);
   if (!siteRow || !siteRow.zoho_group) return [];
   const groups = siteRow.zoho_group.split(',').map(g => g.trim()).filter(Boolean);
   if (!groups.length) return [];
@@ -2939,15 +2977,21 @@ async function _getCalendarMonthlyTop10Pg(site_id, year, month) {
   const from  = `${year}-${String(month).padStart(2,'0')}-01`;
   const lastD = new Date(year, month, 0);
   const to    = `${lastD.getFullYear()}-${String(lastD.getMonth()+1).padStart(2,'0')}-${String(lastD.getDate()).padStart(2,'0')}`;
-  const gft   = [...groups, from, to];
+  // E-D03: same switch as the monthly helpdesk reader (D-07) — '0' keeps the UTC SQL byte-identical.
+  const STZ = require('./services/siteTimeZone');
+  const tz = await STZ.readerTz(H, site_id, siteRow);
+  const CD  = tz ? STZ.localDateSql('created_time', tz) : 'created_time::date';
+  const gft = tz ? [...groups, tz, from, tz, to] : [...groups, from, to];
   const rows = await H.prepare(`
     SELECT COALESCE(NULLIF(TRIM(category),''), 'Uncategorised') AS category,
            COUNT(*) AS total, SUM(CASE WHEN overdue_status=1 THEN 1 ELSE 0 END) AS violations
     FROM request_records
-    WHERE tech_group IN (${inClause}) AND created_time::date>=?::date AND created_time::date<=?::date
+    WHERE tech_group IN (${inClause}) AND ${CD}>=?::date AND ${CD}<=?::date
     GROUP BY 1 HAVING SUM(CASE WHEN overdue_status=1 THEN 1 ELSE 0 END) > 0
     ORDER BY violations DESC, total DESC LIMIT 10`).all(...gft);
-  return rows.map(r => ({ category: r.category, violations: r.violations, pct: Math.round(r.violations / r.total * 100) }));
+  return rows.map(r => tz
+    ? { category: r.category, violations: r.violations, pct: Math.round(r.violations / r.total * 100), time_zone: tz }
+    : { category: r.category, violations: r.violations, pct: Math.round(r.violations / r.total * 100) });
 }
 
 // ── 6-MONTH HELPDESK HISTORY (for monthly PPTX combo chart) ─────
@@ -4173,7 +4217,7 @@ async function _siteIdToNamePg(site_id) {
   } catch (_) { return null; }
 }
 // pg fork: single aggregate query — strftime('%Y-%m',created_time)=? → to_char(...,'YYYY-MM')=?.
-async function _aggregateHelpdesk6MoFromRawPg(siteName, py, pm, groups) {
+async function _aggregateHelpdesk6MoFromRawPg(siteName, py, pm, groups, tz) {
   const H = pgHandle();
   const mStr = `${py}-${String(pm).padStart(2, '0')}`;
   const gParams = Array.isArray(groups) ? groups : [];
@@ -4187,8 +4231,8 @@ async function _aggregateHelpdesk6MoFromRawPg(siteName, py, pm, groups) {
       SUM(CASE WHEN responded_time IS NOT NULL AND TRIM(responded_time) != '' THEN 1 ELSE 0 END) as responded,
       SUM(CASE WHEN responded_time IS NOT NULL AND TRIM(responded_time) != '' AND LOWER(COALESCE(first_response_overdue,'')) NOT IN ('1','true','yes') THEN 1 ELSE 0 END) as frt_ok_responded
     FROM request_records
-    WHERE to_char(created_time::timestamptz,'YYYY-MM') = ? ${siteClause} ${groupWhere}
-  `).get(mStr, ...siteParam, ...gParams);
+    WHERE ${tz ? require('./services/siteTimeZone').localDateSql('created_time', tz, 'YYYY-MM') : "to_char(created_time::timestamptz,'YYYY-MM')"} = ? ${siteClause} ${groupWhere}
+  `).get(...(tz ? [tz] : []), mStr, ...siteParam, ...gParams);
   return {
     inbound: row.inbound || 0, closed: row.closed || 0,
     res_sla_pct:   row.closed    > 0 ? Math.round(row.sla_ok_closed   / row.closed    * 100) : null,
@@ -4204,19 +4248,23 @@ async function _getHelpdesk6MonthHistoryPg(site_id, year, month, groups) {
   const groupList = Array.isArray(groups) ? groups.filter(Boolean) : [];
   const useRaw = groupList.length > 0;
   const siteName = useRaw ? await _siteIdToNamePg(site_id) : null;
+  // E-D03: the raw path buckets on the site's local month at site_local_calendar='1' (the calendar path below
+  // already does, D-07); '0' = UTC, unchanged. Each entry then carries the zone used.
+  const tz = await require('./services/siteTimeZone').readerTz(H, site_id);
+  const _z = (e) => (tz ? { ...e, time_zone: tz } : e);
   const history = [];
   for (let ago = 5; ago >= 0; ago--) {
     const d = new Date(year, month - 1 - ago, 1);
     const py = d.getFullYear(), pm = d.getMonth() + 1;
     const lbl = d.toLocaleString('en', { month: 'short', year: 'numeric' });
     if (useRaw) {
-      const agg = await _aggregateHelpdesk6MoFromRawPg(siteName, py, pm, groupList);
-      history.push({ label: lbl, inbound: agg.inbound || null, closed: agg.closed || null, res_sla_pct: agg.res_sla_pct, reply_sla_pct: agg.reply_sla_pct });
+      const agg = await _aggregateHelpdesk6MoFromRawPg(siteName, py, pm, groupList, tz);
+      history.push(_z({ label: lbl, inbound: agg.inbound || null, closed: agg.closed || null, res_sla_pct: agg.res_sla_pct, reply_sla_pct: agg.reply_sla_pct }));
       continue;
     }
     const cal = await _getCalendarMonthlyHelpdeskPg(site_id, py, pm);
     if (cal && cal.inbound > 0) {
-      history.push({ label: lbl, inbound: cal.inbound, closed: cal.closed, res_sla_pct: cal.sla_res_pct, reply_sla_pct: cal.sla_reply_pct });
+      history.push(_z({ label: lbl, inbound: cal.inbound, closed: cal.closed, res_sla_pct: cal.sla_res_pct, reply_sla_pct: cal.sla_reply_pct }));
       continue;
     }
     // weekly fallback (substr dialect-safe)
@@ -4224,7 +4272,7 @@ async function _getHelpdesk6MonthHistoryPg(site_id, year, month, groups) {
     const rptRows = await H.prepare(`SELECT wr.id as report_id, w.label as week_label
       FROM weeks w JOIN weekly_reports wr ON wr.week_id=w.id AND wr.site_id=?
       WHERE substr(w.start_date,1,7)=? OR substr(w.end_date,1,7)=?`).all(site_id, pmStr, pmStr);
-    if (!rptRows.length) { history.push({ label: lbl, inbound: null, closed: null, res_sla_pct: null, reply_sla_pct: null }); continue; }
+    if (!rptRows.length) { history.push(_z({ label: lbl, inbound: null, closed: null, res_sla_pct: null, reply_sla_pct: null })); continue; }
     let mIn = 0, mCl = 0, resSum = 0, resN = 0, frSum = 0, frN = 0;
     for (const row of rptRows) {
       const hdRow = await H.prepare('SELECT chart_data FROM helpdesk_data WHERE report_id=?').get(row.report_id);
@@ -4237,8 +4285,8 @@ async function _getHelpdesk6MonthHistoryPg(site_id, year, month, groups) {
       if (wk.res_ok_pct != null) { resSum += wk.res_ok_pct; resN++; }
       if (wk.fr_ok_pct  != null) { frSum  += wk.fr_ok_pct;  frN++;  }
     }
-    history.push({ label: lbl, inbound: mIn || null, closed: mCl || null,
-      res_sla_pct: resN > 0 ? Math.round(resSum / resN) : null, reply_sla_pct: frN > 0 ? Math.round(frSum / frN) : null });
+    history.push(_z({ label: lbl, inbound: mIn || null, closed: mCl || null,
+      res_sla_pct: resN > 0 ? Math.round(resSum / resN) : null, reply_sla_pct: frN > 0 ? Math.round(frSum / frN) : null }));
   }
   return history;
 }
@@ -5622,7 +5670,7 @@ module.exports = {
   // System Logs v1
   _isRiskAction, _redactKeys, _logCtx, logEvent,
   listSystemLog, countSystemLog, getSystemLogAnalytics, _backfillSystemLogFromAudit,
-  hashPassword, passwordMatches, makeSession,
+  hashPassword, passwordMatches, makeSession, _pbkdf2Target,
   login, validateSession, logout, safeUser,
   findUserByEntra, linkUserEntra, createSessionForUser,
   updateUserProfileFromEntra, setUserEmail,
