@@ -291,7 +291,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `ZOHO_CLIENT_ID` | setting | see the reading file | to be named | server.js |
 | `ZOHO_CLIENT_SECRET` | secret | (secret — not shown) | to be named | server.js, services/analyticsSettings.js |
 | `ZOHO_REFRESH_TOKEN` | secret | (secret — not shown) | to be named | server.js |
-| `ZOHO_SURVEY_ANSWERS_VIEW_ID` | setting | see the reading file | to be named | server.js |
+| `ZOHO_SURVEY_ANSWERS_VIEW_ID` | setting | see the reading file | to be named | routes/survey.js |
 | `ZOHO_SURVEY_ID` | setting | see the reading file | to be named | server.js |
-| `ZOHO_SURVEY_QUESTIONS_VIEW_ID` | setting | see the reading file | to be named | server.js |
+| `ZOHO_SURVEY_QUESTIONS_VIEW_ID` | setting | see the reading file | to be named | routes/survey.js |
 | `ZOHO_SURVEY_VIEW_ID` | setting | see the reading file | to be named | server.js |

@@ -19,6 +19,7 @@ const EXEMPT = new Map([
 const DELEGATES = new Map([
   ['routes/reportStudio.js', 'services/reportPack.js'],
   ['routes/trackers.js', 'services/trackerLegacy.js'],
+  ['routes/sites.js', 'services/siteMaster.js'],   // E-D02 site master export
 ]);
 
 function files() {
