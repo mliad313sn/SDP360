@@ -34,10 +34,12 @@ Completion (yes / with help / no) · time · errors · clicks/keystrokes · SUS 
 
 ## 4. Record
 
+Scoring: `node tools/pilot/usability-score.js --sheet=<filled T1-T8 copy> --sus=<filled SUS-ANSWERS copy>` (blank = UNKNOWN).
+
 One sheet per person, anonymised (role + site only, no name). Results go to `docs/agent-execution/G24.md`
 **only as measured** — a task not run stays "not measured", never "passed".
 
 ## 5. Accessibility pass (separate, by someone who uses assistive technology daily if possible)
 
-NVDA + Firefox and VoiceOver + Safari on: login, Helpdesk, Site Actions, Portfolio, field app. Check that the
+Step-by-step script with an empty result column: [`pilot/SCREEN-READER-SCRIPT.md`](pilot/SCREEN-READER-SCRIPT.md). NVDA + Firefox and VoiceOver + Safari on: login, Helpdesk, Site Actions, Portfolio, field app. Check that the
 menu groups, the finder result count and the breadcrumb are announced; record each problem with the WCAG reference.
