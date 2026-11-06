@@ -86,7 +86,8 @@ not the browser-checked level.
 | `docs/agent-execution/D-030508.md` | — (reference) | — | — | — | `d55c4ad5141b62058acc06cf2e53312ecfb2849727fbadcabf90a48912defdd0` |
 | `docs/agent-execution/D-0406.md` | — (reference) | — | — | — | `1ca2f3341f2657d0c2845ac158a4bfe26748827bb933243b6c02b9675af6ec9b` |
 | `docs/agent-execution/D-070910.md` | — (reference) | — | — | — | `a2944197927f3c3cff2deb968c54c027587f3669f824a6994493f8ba9ecd1a51` |
-| `docs/agent-execution/E-W1-DATA.md` | — (reference) | — | — | — | `2c10f274b0c27c262b12416e6cf7195418f7dee116ec4c140b311ee39786ff7e` |
+| `docs/agent-execution/E-W0-SRV.md` | — (reference) | — | — | — | `861207120229bfdd6f63c160b57908feab5e008ffc55932b705df87e9bcfca1d` |
+| `docs/agent-execution/E-W1-DATA.md` | — (reference) | — | — | — | `0f1e135312a175eefefa3e7c95502fd1c5b636fb67606bc3c4393b5551ec9a82` |
 | `docs/agent-execution/G00.md` | G00 | code+test | pending | pending | `851fd0ca5460f8907fc678153f3984ef56facd75f643cbb4676e3f97643f1210` |
 | `docs/agent-execution/G01.md` | G01 | code+test | pending | pending | `2fbce7e79960cc4e55ecc9101df2256a5df921d0a3e8bf08df363a77ae935bea` |
 | `docs/agent-execution/G02.md` | G02 | code+test | pending | pending | `933b84b8c361d4129e97e0e4203d2ee759da8891d428727599d549e287ac4f9c` |
@@ -123,9 +124,9 @@ not the browser-checked level.
 
 | File | SHA-256 |
 |---|---|
-| `docs/agent-execution/INVENTORY.json` | `06fc4a3912053033b6cb36d65b300c1a72d63b53f9ad4cfbafe438bec0d268a0` |
-| `docs/agent-execution/INVENTORY.md` | `b815ca3d9dfe8763d503d6e019467766e3e0d6d68bb22756a8ed8ef72e76e061` |
+| `docs/agent-execution/INVENTORY.json` | `8b235a3315ef72680724933f2586978a56b0ec6cdb3fe7e5d874b0a319a941bd` |
+| `docs/agent-execution/INVENTORY.md` | `4a14289c0ada5eeca57820ded299bbe731ed49d81fe54940006e76e07f090de1` |
 | `docs/agent-execution/TRACEABILITY.md` | `bab98d60573cc653947f1acead471e8655cbc78134969e91ee7f281ff9876c0a` |
-| `docs/ops/AUTHZ-MATRIX.md` | `a1a88ead56294584064c3e2300852fc53b8d1f80d0b6ae9ba30583604838f231` |
-| `docs/ops/FLAG-REGISTER.md` | `8b3cdac250d0a47938fbe23172971a47402235a1aaf8ed3c5a84034ef6feca78` |
+| `docs/ops/AUTHZ-MATRIX.md` | `1a90c0252d6f020344dbf87fe9d0472875e7a541afab2d1252e6302819fddd27` |
+| `docs/ops/FLAG-REGISTER.md` | `fd905ab16e163f0eb9daf8840792d60a6c2add780b2dcbe6346286b1eaed5721` |
 | `docs/ops/METRIC-WIDGET-MAP.md` | `e4c97c3a5d1c0736f10b8903b4a7cb119f927aa4a11d61c0fb9cb96280ffa783` |

@@ -1,7 +1,7 @@
 {
  "note": "Every reason a test may be skipped for, the most tests it may cover, and who can lift it. A new reason or a larger count fails the run (tools/test/guard.js checkSkips).",
  "reasons": {
-  "no prod-snapshot": { "max": 10, "owner": "data owner — a copy of production data is deliberately not in the repository; run with SDP_SNAPSHOT=1 SDP_TEST_PG_URL=<restored copy>. To share a copy, the data owner (or an operator they name) runs tools/data/anonymize-snapshot.js on it and approves the result (docs/ops/ANONYMISED-SNAPSHOT.md)" },
+  "no prod-snapshot": { "max": 10, "owner": "data owner — a copy of production data is deliberately not in the repository; run with SDP_SNAPSHOT=1 SDP_TEST_PG_URL=<restored copy>. To share a copy, the data owner (or an operator they name) runs tools/dev/anonymize-snapshot.js on it and approves the result (docs/ops/ANONYMISED-SNAPSHOT.md)" },
   "python with matplotlib + python-pptx not available": { "max": 1, "owner": "CI owner — pip install matplotlib python-pptx in the runner to lift it" }
  }
 }

@@ -3,7 +3,7 @@
 // process, fully migrated). Never on production data.
 const { test, before, after } = require('node:test');
 const assert = require('node:assert');
-const A = require('../tools/data/anonymize-snapshot');
+const A = require('../tools/dev/anonymize-snapshot');
 const KEY = 'test-only-anon-key-0000';
 
 test('pseudonyms are stable, keyed and never the source value', () => {

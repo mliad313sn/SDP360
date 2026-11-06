@@ -12,7 +12,7 @@ nothing is approved, no owner or threshold was chosen.
 | E-D01 — audit D-03 / X-DATA-02: registry observation mode | FIXED (behind switch, default `0`) | `site_codes_from_registry='shadow'` in `services/siteCodeRegistry.js` (`resolve`, `parseMode`); `tests/site-code-shadow.test.js` (5): shadow answers like `0` and logs one divergence, `1` unchanged; `tests/site-code-registry.smoke.test.js` (+1): PUT accepts `shadow` with the same reason / super_admin rule, divergence row written once |
 | E-D04 — audit D-06: sync content drift (shadow) | FIXED (shown always, alert behind switch default `0`) | `services/sync/drift.js`; `tests/sync-drift.test.js` (8): <5 runs = unknown, drop / spike / zero_after_history / duplicates_rate on fixtures, thresholds from config, alert not sent at `0`, sent once at `1`; `tests/sync-routes.smoke.test.js` (+1): `drift` field on every job of `/api/sync/health` |
 | E-D05 — audit D-07 / K-03 rest / K-06 prep: metric lineage & contract sheet + decision blocks | FIXED (generated doc) | `tools/agent/metric-lineage.js` → `docs/ops/METRIC-LINEAGE.md`; `tests/metric-lineage.test.js` (4): committed file current, `--check` detects stale, every SEED key (52) has a full sheet, the 10 unreferenced keys carry the PENDING block with nothing filled |
-| E-D06 + E-Q02 — audit D-08 / Q-01 prep: operator-run anonymiser (one tool) | FIXED (tool, synthetic tests only) | `tools/data/anonymize-snapshot.js`; `tests/anonymize-snapshot.test.js` (6): stable keyed pseudonyms, JSON walker, residual scan, pre-flight refusals, on the fully migrated throwaway DB no source name / e-mail / phone / IP / ticket id survives and counts + cross-table joins are kept, refuses (rollback, exit 2) on a leak in an unknown column, report never prints a value |
+| E-D06 + E-Q02 — audit D-08 / Q-01 prep: operator-run anonymiser (one tool) | FIXED (tool, synthetic tests only) | `tools/dev/anonymize-snapshot.js`; `tests/anonymize-snapshot.test.js` (6): stable keyed pseudonyms, JSON walker, residual scan, pre-flight refusals, on the fully migrated throwaway DB no source name / e-mail / phone / IP / ticket id survives and counts + cross-table joins are kept, refuses (rollback, exit 2) on a leak in an unknown column, report never prints a value |
 | E-D06 — synthetic multi-country reference organisation + readers' shape | FIXED | `tests/fixtures/reference-org/{generate.js,reference-org.json}` (5 countries, 8 sites, XOF + GBP, Europe/London BST edge ticket, every status, partial month to the 10th); `tests/reference-org-shape.test.js` (4): `loadReviewData` 7 arrays + fields, `getSiteHelpdeskWindow` / `getSiteChangesWindow` shape per site, currency map |
 
 ## E-D01 — details
@@ -71,7 +71,7 @@ Left for a person: the KPI committee's decision for each of the 10 pending metri
 
 ## E-D06 + E-Q02 — details
 
-- **One tool** (the two goals asked for `tools/data/anonymize-snapshot.js` and `tools/dev/anonymise-snapshot.js`):
+- **One tool** (the two goals asked for `tools/dev/anonymize-snapshot.js` and `tools/dev/anonymise-snapshot.js`):
   kept the E-D06 path. Deviation from E-Q02's "folder in → folder out": since PO-08 the snapshot is a restored
   **PostgreSQL copy** (`SDP_SNAPSHOT=1 SDP_TEST_PG_URL=…`, see `tests/site-window-readers.test.js`), so the tool
   rewrites that copy in one transaction (`--db` + `--confirm-copy=<exact name>`), refuses the `.env` `PG_URL`
