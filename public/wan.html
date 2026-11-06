@@ -178,6 +178,8 @@
       </div>
     </div>
 
+    <!-- E-U03 — shared page head for the SLA tab (wan-sla.html redirects here) -->
+    <div id="sl-pagehead"></div>
     <div id="sl-fresh" class="wt-fresh" role="status" aria-label="Data freshness"></div>
 
     <div id="sl-coverage-panel" class="sl-panel" style="display:none">
@@ -474,6 +476,20 @@
     const circuits = data.circuits || [], unmapped = data.unmapped || [];
     $('sl-month-lbl').textContent = data.month || month;
     renderFreshness(data.freshness);
+    // E-U03 — shared page head. Freshness = the poller's last run + the Meraki snapshot the route reports;
+    // a failed call has no freshness block → "unknown"; a source that never ran → "never synced".
+    if (window.PageHead) {
+      const hl = (document.documentElement.dataset.i18n === 'on' && window.I18nText && window.I18nText.lang) ? window.I18nText.lang() : 'en';
+      const fr = data.freshness;
+      window.PageHead.mount($('sl-pagehead'), {
+        lang: hl,
+        question: { en: 'Did each ISP circuit meet its contractual availability this month, and is a credit due?', fr: 'Chaque circuit FAI a-t-il tenu sa disponibilité contractuelle ce mois-ci, et un avoir est-il dû ?' },
+        scope: { en: 'Mapped SLA circuits (' + circuits.length + ') + unmapped uplinks (' + unmapped.length + ')', fr: 'Circuits SLA mappés (' + circuits.length + ') + liens non mappés (' + unmapped.length + ')' },
+        window: { en: 'Month ' + (data.month || month) + ', service hours only' + (month === currentMonth() ? ' — provisional' : ''), fr: 'Mois ' + (data.month || month) + ', heures de service uniquement' + (month === currentMonth() ? ' — provisoire' : '') },
+        sources: fr ? [{ label: { en: 'Outage poller', fr: 'Sondeur de coupures' }, at: fr.poll_last_run || null },
+                       { label: { en: 'Meraki snapshot', fr: 'Instantané Meraki' }, at: fr.snapshot_collected_at || null }] : [],
+      });
+    }
     renderCoverage(data.coverage);
     loadTimeline();
 

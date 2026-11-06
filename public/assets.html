@@ -15,6 +15,7 @@
 <script src="lib/chartTheme.js" defer></script>
 <script src="lib/charts.js" defer></script>
 <script src="lib/assetHygieneVisuals.js" defer></script>
+<script src="lib/pageHead.js"></script>
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
@@ -380,6 +381,8 @@ window.addEventListener('beforeprint', function () {
   <!-- Freshness (G-03): the register is synced nightly, so an edit made in
        AssetExplorer is not visible here the same minute. Saying so is what stops a
        site asset manager reading an unchanged score as "my work did nothing". -->
+  <!-- E-U03 — shared page head (lib/pageHead.js): question · scope · window · freshness -->
+  <div id="pageHead"></div>
   <div id="as-freshness" class="as-fresh">Chargement de la fraîcheur des données…</div>
 
   <!-- ── Tab bar ─────────────────────────────────────────────────── -->
@@ -3931,6 +3934,20 @@ window.addEventListener('beforeprint', function () {
       + ' — une correction faite dans AssetExplorer apparaît ici après cette synchronisation.';
   }
 
+  // E-U03 — shared page head. Freshness = the last AssetExplorer sync (/api/assets/sync-status last_sync);
+  // a failed call reads "unknown", a register never synced reads "never synced" — never the browser clock.
+  function _assetsHead(s) {
+    if (!window.PageHead) return;
+    const hl = (document.documentElement.dataset.i18n === 'on' && window.I18nText && window.I18nText.lang) ? window.I18nText.lang() : 'en';
+    window.PageHead.mount(document.getElementById('pageHead'), {
+      lang: hl,
+      question: { en: 'What IT equipment do we have, how complete is its record, and what is it worth?', fr: 'Quel matériel informatique avons-nous, sa fiche est-elle complète, et que vaut-il ?' },
+      scope: { en: 'All sites (narrow with the Site filter below; amounts admin only)', fr: 'Tous les sites (filtre Site ci-dessous ; montants réservés aux admins)' },
+      window: { en: 'Register as of its last sync (Progress tab: 30-day trend)', fr: 'Registre à sa dernière synchronisation (onglet Progress : tendance 30 jours)' },
+      sources: s ? [{ label: { en: 'AssetExplorer sync', fr: 'Synchro AssetExplorer' }, at: s.last_sync || null }] : [],
+    });
+  }
+
   async function loadFreshness() {
     var el = document.getElementById('as-freshness');
     if (!el) return;
@@ -3940,8 +3957,10 @@ window.addEventListener('beforeprint', function () {
       const s = await r.json();
       el.textContent = _freshnessLabel(s);
       el.classList.toggle('stale', !s || !s.last_sync);
+      _assetsHead(s);
     } catch (e) {
       el.textContent = 'Fraîcheur des données indisponible.';
+      _assetsHead(null);
     }
   }
 

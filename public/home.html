@@ -42,6 +42,8 @@
     <p class="hm-muted" data-lng="fr">Ce que chacun de vos sites demande aujourd'hui : actions ouvertes et en retard, rapport de la semaine, PV en attente de signature, dernière inspection et cases du suivi d'activité encore vides ce mois-ci. Chaque ligne ouvre la page qui permet de régler le point. « — non mesuré » signifie que la source n'a pas pu être lue ; ce n'est jamais un zéro.</p>
     <div id="hmMsg" class="hm-muted" role="status" aria-live="polite"></div>
   </div>
+  <!-- E-U03 — shared page head (lib/pageHead.js): question · scope · window · freshness -->
+  <div id="pageHead"></div>
   <div id="hmSites" class="hm-sites"></div>
   <div class="hm-card">
     <h2><span data-lng="en">Shortcuts</span><span data-lng="fr">Raccourcis</span></h2>
@@ -55,6 +57,7 @@
   </div>
 </main>
 <script nonce="%%CSP_NONCE%%" src="lib/errorText.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/pageHead.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/home-page.js"></script>
 </body>
 </html>

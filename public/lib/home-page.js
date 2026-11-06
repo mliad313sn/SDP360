@@ -63,6 +63,20 @@
     $('hmShortcuts').innerHTML = items.map((e) => `<li><a href="${esc(e.href)}"${e.target ? ` target="${esc(e.target)}" rel="noopener"` : ''}>${esc(e.label)}</a></li>`).join('');
   }
 
+  // E-U03 — shared page head. Freshness = the time the server computed this inbox (generated_at); a failed
+  // call reads "unknown" — never the browser clock.
+  function head(j) {
+    if (!window.PageHead) return;
+    const n = j && Array.isArray(j.sites) ? j.sites.length : null;
+    window.PageHead.mount($('pageHead'), {
+      lang: lang === 'fr' ? 'fr' : 'en',
+      question: { en: 'What does each of my sites need from me today?', fr: 'De quoi chacun de mes sites a-t-il besoin aujourd\'hui ?' },
+      scope: n == null ? null : { en: 'Your sites only (' + n + ' shown)', fr: 'Vos sites uniquement (' + n + ' affichés)' },
+      window: { en: 'Today' + (j && j.as_of ? ' (' + j.as_of + ')' : '') + ' — overdue = past its target date', fr: 'Aujourd\'hui' + (j && j.as_of ? ' (' + j.as_of + ')' : '') + ' — en retard = date cible dépassée' },
+      sources: j && j.generated_at ? [{ label: { en: 'Inbox computed', fr: 'Boîte calculée' }, at: j.generated_at }] : [],
+    });
+  }
+
   async function load() {
     $('hmMsg').textContent = T.loading;
     try {
@@ -70,12 +84,14 @@
       const j = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
       $('hmSites').innerHTML = (j.sites || []).map(siteCard).join('');
+      head(j);
       const msg = [];
       if (j.message) msg.push(lang === 'fr' ? "Vous n'êtes rattaché à aucun site — utilisez le registre des actions du site." : j.message);
       if (j.truncated) msg.push(fill(T.more, { n: j.truncated }));
       $('hmMsg').textContent = msg.join(' ');
     } catch (e) {
       $('hmSites').innerHTML = '';
+      head(null);
       $('hmMsg').textContent = lang === 'fr' && window.ErrorText ? window.ErrorText.fr(e.message) : e.message;
     }
   }

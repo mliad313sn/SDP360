@@ -14,6 +14,7 @@
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
 <link rel="stylesheet" href="module-tabs.css">
 <script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/pageHead.js"></script>
 
 <style nonce="%%CSP_NONCE%%">
   body {
@@ -377,6 +378,9 @@
     </div>
   </section>
 
+  <!-- E-U03 — shared page head (lib/pageHead.js): question · scope · window · freshness -->
+  <div id="pageHead"></div>
+
   <!-- KPI strip — meeting + issue counts -->
   <section class="md-kpis" id="mdKpis"></section>
 
@@ -663,6 +667,24 @@
     renderKpis(state.aggregate);
     renderTable();
     renderPager();
+    mdHead();
+  }
+
+  // E-U03 — shared page head. PVs are entered in SDP360 and read live (no sync date) → freshness unknown.
+  function mdHead() {
+    if (!window.PageHead) return;
+    const hl = (document.documentElement.dataset.i18n === 'on' && window.I18nText && window.I18nText.lang) ? window.I18nText.lang() : 'en';
+    const f = state.filters || {};
+    const parts = [f.site ? 'site ' + f.site : null, f.department ? 'department ' + f.department : null, f.status ? 'status ' + f.status : null].filter(Boolean);
+    const partsFr = [f.site ? 'site ' + f.site : null, f.department ? 'département ' + f.department : null, f.status ? 'statut ' + f.status : null].filter(Boolean);
+    window.PageHead.mount(document.getElementById('pageHead'), {
+      lang: hl,
+      question: { en: 'Which department meetings were held, and which issues and escalations are still open?', fr: 'Quelles réunions départementales ont eu lieu, et quels problèmes et escalades restent ouverts ?' },
+      scope: parts.length ? { en: 'Filtered: ' + parts.join(' · '), fr: 'Filtré : ' + partsFr.join(' · ') } : { en: 'All sites you can read', fr: 'Tous les sites que vous pouvez lire' },
+      window: { en: 'All PVs (no date filter); open issues = all-time', fr: 'Tous les PV (sans filtre de date) ; problèmes ouverts = depuis le début' },
+      sources: [],
+      note: { en: 'Records entered in SDP360 are read live; the server reports no sync date for them, so freshness reads unknown.', fr: 'Les enregistrements saisis dans SDP360 sont lus en direct ; le serveur ne fournit pas de date de synchronisation, la fraîcheur est donc inconnue.' },
+    });
   }
 
   // Any filter change should reset to page 1 — otherwise a user on page 4

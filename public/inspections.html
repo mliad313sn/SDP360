@@ -14,6 +14,7 @@
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
 <link rel="stylesheet" href="module-tabs.css">
 <script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/pageHead.js"></script>
 <script nonce="%%CSP_NONCE%%" src="vendor/chart.js/4.4.1/chart.umd.js" defer></script>
 <script nonce="%%CSP_NONCE%%" src="lib/chartTheme.js" defer></script>
 
@@ -355,6 +356,9 @@
     </button>
   </div>
 
+  <!-- E-U03 — shared page head (lib/pageHead.js): question · scope · window · freshness -->
+  <div id="pageHead"></div>
+
   <div class="filter-bar">
     <div>
       <label for="filterSite">Site</label>
@@ -693,8 +697,24 @@
   })();
 
   // ── Reload everything for current filters ────────────────────────
+  // E-U03 — shared page head. Inspections are entered in SDP360 and read live (no sync date) → freshness unknown.
+  function inspHead(f) {
+    if (!window.PageHead) return;
+    const hl = (document.documentElement.dataset.i18n === 'on' && window.I18nText && window.I18nText.lang) ? window.I18nText.lang() : 'en';
+    const win = (f.from || f.to) ? ((f.from || '…') + ' → ' + (f.to || '…')) : null;
+    window.PageHead.mount(document.getElementById('pageHead'), {
+      lang: hl,
+      question: { en: 'Which sites were inspected, what was found, and which corrective actions are still open?', fr: 'Quels sites ont été inspectés, qu\'a-t-on trouvé, et quelles actions correctives restent ouvertes ?' },
+      scope: f.site ? { en: 'One site: ' + f.site, fr: 'Un site : ' + f.site } : { en: 'All sites you can read', fr: 'Tous les sites que vous pouvez lire' },
+      window: win ? { en: 'Inspection date ' + win, fr: 'Date d\'inspection ' + win } : { en: 'All dates (no date filter)', fr: 'Toutes les dates (sans filtre de date)' },
+      sources: [],
+      note: { en: 'Records entered in SDP360 are read live; the server reports no sync date for them, so freshness reads unknown.', fr: 'Les enregistrements saisis dans SDP360 sont lus en direct ; le serveur ne fournit pas de date de synchronisation, la fraîcheur est donc inconnue.' },
+    });
+  }
+
   async function refresh() {
     const f = currentFilters();
+    inspHead(f);
     try {
       const [aggRes, listRes] = await Promise.all([
         fetch(INSP_API + '/aggregate' + qs(f), { credentials: 'same-origin', headers: authHeaders() }),

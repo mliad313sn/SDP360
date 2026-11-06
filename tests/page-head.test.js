@@ -78,3 +78,52 @@ test('dashboards.html: the freshness comes from the C-05 response (computed_at +
 test('components.css styles the shared head', () => {
   assert.match(read('brand/components.css'), /\.edv-page-head\s*\{/);
 });
+
+// E-U03 — rollout on six non-hot pages (wan-sla.html redirects to the SLA tab of wan.html, which mounts its own head).
+const ROLLOUT = {
+  'home.html': { src: ['home.html', 'lib/home-page.js'], el: 'pageHead', mount: /PageHead\.mount\(\$\('pageHead'\)/ },
+  'site-actions.html': { src: ['site-actions.html'], el: 'pageHead', mount: /PageHead\.mount\(document\.getElementById\('pageHead'\)/ },
+  'wan-sla (wan.html#sla)': { src: ['wan.html'], el: 'sl-pagehead', mount: /PageHead\.mount\(\$\('sl-pagehead'\)/ },
+  'assets.html': { src: ['assets.html'], el: 'pageHead', mount: /PageHead\.mount\(document\.getElementById\('pageHead'\)/ },
+  'meetings.html': { src: ['meetings.html'], el: 'pageHead', mount: /PageHead\.mount\(document\.getElementById\('pageHead'\)/ },
+  'inspections.html': { src: ['inspections.html'], el: 'pageHead', mount: /PageHead\.mount\(document\.getElementById\('pageHead'\)/ },
+};
+function mountCall(src, mountRe) {
+  const m = mountRe.exec(src);
+  assert.ok(m, 'mount call found');
+  return src.slice(m.index, m.index + 2500);
+}
+for (const [page, c] of Object.entries(ROLLOUT)) {
+  test(`E-U03 ${page}: loads pageHead.js, has #${c.el}, mounts with a non-empty question and scope, no browser clock`, () => {
+    const html = read(c.src[0]);
+    const all = c.src.map(read).join('\n');
+    assert.match(html, /src="lib\/pageHead\.js"><\/script>/);
+    assert.match(html, /<link rel="stylesheet" href="brand\/components\.css">/);
+    assert.match(html, new RegExp('id="' + c.el + '"'));
+    const call = mountCall(all, c.mount);
+    assert.match(call, /question: \{ en: '(?:[^'\\]|\\.){10,}', fr: '(?:[^'\\]|\\.){10,}' \}/, 'bilingual, non-empty question');
+    assert.match(call, /scope: /);
+    assert.match(call, /sources: /);
+    assert.doesNotMatch(call.slice(0, call.indexOf('sources:') + 400), /new Date\(\)|Date\.now\(\)/, 'freshness never taken from the browser clock');
+  });
+}
+test('E-U03 wan-sla.html still redirects to the SLA tab that carries the head', () => {
+  assert.match(read('wan-sla.html'), /url=wan\.html#sla/);
+});
+test('E-U03 unknown freshness says so: live-record pages pass no source and the head reads "unknown"', () => {
+  for (const f of ['site-actions.html', 'meetings.html', 'inspections.html']) {
+    const call = mountCall(read(f), /PageHead\.mount\(document\.getElementById\('pageHead'\)/);
+    assert.match(call, /sources: \[\],/, f + ' passes no invented source');
+  }
+  assert.match(PH.render({ question: 'q', scope: 's', sources: [] }), /<dt>Data through<\/dt><dd><span class="edv-page-head__src is-unknown">unknown/);
+  assert.match(PH.render({ question: 'q', scope: 's', sources: [{ label: 'AssetExplorer sync', at: null }] }), /AssetExplorer sync<\/span> never synced/);
+});
+test('E-U03 module tabs and the shell mount are untouched on the rollout pages', () => {
+  for (const f of ['site-actions.html', 'meetings.html', 'inspections.html']) {
+    const s = read(f);
+    assert.match(s, /<div id="__moduletabs" data-module="[a-z_]+"/);
+    assert.match(s, /<div id="__shell"/);
+    assert.ok(s.indexOf('id="__moduletabs"') < s.indexOf('id="pageHead"'), f + ': head sits below the module tabs');
+  }
+  assert.match(read('home.html'), /<div id="__shell" data-section="home"/);
+});
