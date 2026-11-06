@@ -185,6 +185,7 @@
     if (!w) return null;
     if (w.type === 'kpi') return { mode: 'single', compare: w.compare === 'fleet' };
     if (w.type === 'trend') { var t = trendLength(w, metricKind); return { mode: 'series', n: t.n, kind: t.kind }; }
+    if (w.type === 'multiples') { var tm = trendLength(w, metricKind); return { mode: 'multiples', n: tm.n, kind: tm.kind }; }
     if (w.type === 'ragGrid' || w.type === 'heatmap' || w.type === 'bar' || w.type === 'table') return { mode: 'per-site' };
     if (w.type === 'actions') return { mode: 'actions', sources: w.sources || ['meetings', 'inspection', 'report'], onlyOverdue: !!w.onlyOverdue };
     if (w.type === 'trackerRag') return { mode: 'tracker' };
@@ -319,7 +320,28 @@
       '</tbody></table></div>';
   }
 
-  return { gridStyle, formatValue, ragClass, ragDot, kpiContext, staleBadge, baseLine, safeRelativeHref, actionLink, sortRows, shortLabel, windowSeries, trendLength, widgetDataPlan, summarizeGrid, escapeHtml, miniMarkdown, isoWeek,
+  // ── E-V09 — small multiples: one panel per metric (own unit, own axis), ONE shared data table ──
+  /** ChartTable spec of the shared table: one row per period, one column per panel (each with its unit). */
+  function multiplesTableSpec(d) {
+    var panels = (d && d.panels) || [];
+    var labels = panels.length ? (panels[0].points || []).map(function (p) { return shortLabel(p.label) + (p.partial ? '*' : ''); }) : [];
+    return { title: (d && d.title) || 'Small multiples', labelHead: 'Period', labels: labels,
+      datasets: panels.map(function (p) { return { label: p.label, unit: p.unit, data: (p.points || []).map(function (x) { return x.value; }) }; }) };
+  }
+  /** Panels as HTML (a canvas per panel, its own unit in the heading); `tableHtml` = the shared table (caller's). */
+  function multiplesHtml(d, tableHtml) {
+    var panels = (d && d.panels) || [];
+    var body = panels.map(function (p, i) {
+      var vals = (p.points || []).filter(function (x) { return x.value != null; });
+      var last = vals[vals.length - 1];
+      var spoken = p.label + (last ? ': latest ' + formatValue(last.value, p.unit) + ' (' + shortLabel(last.label) + ')' : ': not measured over this period');
+      return '<div class="edv-multiple" role="group" aria-label="' + escapeHtml(p.label) + '" data-panel="' + i + '"><h4>' + escapeHtml(p.label) + (p.unit ? ' <small>(' + escapeHtml(p.unit) + ')</small>' : '') + '</h4>' +
+        (vals.length ? '<canvas role="img" aria-label="' + escapeHtml(spoken) + '"></canvas>' : '<div class="edv-kpi-sub">' + SB.text('not-measured') + '</div>') + '</div>';
+    }).join('');
+    return '<div class="edv-multiples">' + body + '</div>' + (tableHtml || '');
+  }
+
+  return { multiplesTableSpec, multiplesHtml, gridStyle, formatValue, ragClass, ragDot, kpiContext, staleBadge, baseLine, safeRelativeHref, actionLink, sortRows, shortLabel, windowSeries, trendLength, widgetDataPlan, summarizeGrid, escapeHtml, miniMarkdown, isoWeek,
     rowState, barListHtml, tableHtml, sortTableRows, ragGridHtml, perSiteHtml, trackerHtml, seriesTableHtml,
     periodBounds, isPartial, windowPartial, evalDate, seriesAnchor, partialNote };
 });

@@ -26,12 +26,12 @@ metric is absent from that file and `--check` fails).
 
 | Metric | Module | Unit | Triage | Dashboard widgets (dashboard#widget) | Alert rules | Pages | Browser libraries | Exports | API routes | Server code | Tests |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| `helpdesk.inbound` | helpdesk | count | untriaged | — | — | `public/index.html` | `public/lib/composerGuide.js` | — | — | — | 9 file(s) |
-| `helpdesk.closed` | helpdesk | count | untriaged | — | — | `public/index.html` | `public/lib/composerGuide.js` | — | — | — | 5 file(s) |
-| `helpdesk.closure_pct` | helpdesk | % | untriaged | — | — | — | — | — | `routes/governance.js` | `services/agendaBuilder.js` | 1 file(s) |
-| `helpdesk.resolution_sla_pct` | helpdesk | % | untriaged | `exec-home#k-sla (kpi)`<br>`exec-home#tr-sla (trend)`<br>`exec-home#sites (ragGrid)`<br>`governance#tr (trend)` | `sla.resolution.red` | `public/index.html`<br>`public/portfolio.html` | `public/kpi-builder.js`<br>`public/lib/composerGuide.js` | — | `routes/extApi.js`<br>`routes/governance.js`<br>`routes/kpiPolicies.js` | `services/agendaBuilder.js`<br>`services/dashboardWidgets.js`<br>`services/kpiPolicyEngine.js`<br>`services/reportConfig.js` | 23 file(s) |
-| `helpdesk.first_reply_sla_pct` | helpdesk | % | untriaged | — | `sla.first_reply.red` | `public/index.html` | — | — | `routes/extApi.js` | `services/agendaBuilder.js`<br>`services/reportConfig.js` | 6 file(s) |
-| `helpdesk.window_created` | helpdesk | count | untriaged | `site-weekly#created (kpi)`<br>`site-weekly#tr (trend)` | — | — | `public/site-report.js` | — | — | `services/agendaBuilder.js` | 1 file(s) |
+| `helpdesk.inbound` | helpdesk | count | untriaged | — | — | `public/index.html` | `public/lib/composerGuide.js` | — | — | — | 10 file(s) |
+| `helpdesk.closed` | helpdesk | count | untriaged | — | — | `public/index.html` | `public/lib/composerGuide.js` | — | — | — | 6 file(s) |
+| `helpdesk.closure_pct` | helpdesk | % | untriaged | — | — | — | — | — | `routes/governance.js` | `services/agendaBuilder.js` | 2 file(s) |
+| `helpdesk.resolution_sla_pct` | helpdesk | % | untriaged | `exec-home#k-sla (kpi)`<br>`exec-home#tr-sla (trend)`<br>`exec-home#sites (ragGrid)`<br>`governance#tr (trend)` | `sla.resolution.red` | `public/index.html`<br>`public/portfolio.html` | `public/kpi-builder.js`<br>`public/lib/composerGuide.js` | — | `routes/extApi.js`<br>`routes/governance.js`<br>`routes/kpiPolicies.js` | `services/agendaBuilder.js`<br>`services/dashboardWidgets.js`<br>`services/kpiPolicyEngine.js`<br>`services/reportConfig.js` | 24 file(s) |
+| `helpdesk.first_reply_sla_pct` | helpdesk | % | untriaged | — | `sla.first_reply.red` | `public/index.html` | — | — | `routes/extApi.js` | `services/agendaBuilder.js`<br>`services/reportConfig.js` | 7 file(s) |
+| `helpdesk.window_created` | helpdesk | count | untriaged | `site-weekly#created (kpi)`<br>`site-weekly#tr (trend)` | — | — | `public/site-report.js` | — | — | `services/agendaBuilder.js` | 2 file(s) |
 | `helpdesk.window_resolved` | helpdesk | count | untriaged | `site-weekly#resolved (kpi)` | — | — | `public/site-report.js` | — | — | `services/agendaBuilder.js` | — |
 | `helpdesk.window_overdue` | helpdesk | count | untriaged | `exec-home#overdue (kpi)`<br>`site-weekly#overdue (kpi)`<br>`field-site#overdue (kpi)` | `helpdesk.overdue.high` | — | `public/site-report.js` | — | — | `services/agendaBuilder.js` | 1 file(s) |
 | `helpdesk.window_major_incidents` | helpdesk | count | untriaged | `exec-home#mi (kpi)` | `helpdesk.major_incident` | — | `public/site-report.js` | — | — | `services/agendaBuilder.js` | 1 file(s) |
@@ -44,9 +44,9 @@ metric is absent from that file and `--check` fails).
 | `meetings.engagement_score` | meetings | % | untriaged | `exec-home#k-meet (kpi)`<br>`governance#eng (kpi)` | `meetings.engagement.red` | — | — | — | `routes/extApi.js` | `services/agendaBuilder.js`<br>`services/reportConfig.js` | 1 file(s) |
 | `meetings.open_issues` | meetings | count | untriaged | — | — | — | `public/site-report.js` | — | — | — | 1 file(s) |
 | `meetings.overdue_issues` | meetings | count | untriaged | `site-weekly#issues (kpi)` | `meetings.overdue_issues` | — | — | — | — | `services/governanceValues.js`<br>`tools/governance/values.example.json` | 2 file(s) |
-| `inspection.count` | inspection | count | untriaged | — | — | — | `public/site-report.js` | — | — | `services/trackerTemplates.js` | 2 file(s) |
+| `inspection.count` | inspection | count | untriaged | — | — | — | `public/site-report.js` | — | — | `services/trackerTemplates.js` | 3 file(s) |
 | `inspection.critical_count` | inspection | count | untriaged | — | `inspection.critical` | — | — | — | — | — | — |
-| `inspection.conformity_pct` | inspection | % | untriaged | `exec-home#k-insp (kpi)` | — | — | — | — | `routes/extApi.js` | `services/agendaBuilder.js`<br>`services/reportConfig.js`<br>`services/trackerTemplates.js` | 2 file(s) |
+| `inspection.conformity_pct` | inspection | % | untriaged | `exec-home#k-insp (kpi)` | — | — | — | — | `routes/extApi.js` | `services/agendaBuilder.js`<br>`services/reportConfig.js`<br>`services/trackerTemplates.js` | 3 file(s) |
 | `inspection.open_actions` | inspection | count | untriaged | `site-weekly#insp (kpi)` | — | — | — | — | — | `services/agendaBuilder.js` | — |
 | `inspection.overdue_actions` | inspection | count | untriaged | `field-site#insp (kpi)` | `inspection.overdue_actions` | — | — | — | — | — | — |
 | `assets.total` | assets | count | untriaged | `assets-hygiene#total (kpi)` | — | — | — | — | — | `services/trackerTemplates.js` | 8 file(s) |

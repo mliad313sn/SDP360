@@ -28,7 +28,7 @@
   var INTENTS = {
     status:  { label: 'Where do we stand now? (status)',              types: ['kpi', 'ragGrid', 'trackerRag'] },
     trend:   { label: 'How is it evolving? (trend)',                  types: ['trend'] },
-    compare: { label: 'Which site is ahead or behind? (compare sites)', types: ['ragGrid', 'bar', 'table', 'trackerRag'] },
+    compare: { label: 'Which site is ahead or behind? (compare sites)', types: ['ragGrid', 'bar', 'table', 'trackerRag', 'multiples'] },
     target:  { label: 'Are we on target? (target)',                   types: ['kpi', 'ragGrid'] },
     detail:  { label: 'Which items need action? (detail)',            types: ['table', 'actions', 'text'] },
   };
@@ -116,6 +116,12 @@
         case 'markdown': return { name: p, kind: 'textarea', label: 'Text (simple formatting: **bold**, - lists)' };
         case 'sources': return { name: p, kind: 'multi', label: 'Action sources (none = all)', options: [['meetings', 'Meetings'], ['inspection', 'Inspections'], ['report', 'Weekly report']] };
         case 'action_href': return { name: p, kind: 'text', label: 'Link to the action page (relative, optional)', hint: 'e.g. site-actions.html — shown as “→ act” under the value.' };
+        case 'metrics': {
+          // E-V09 — small multiples: 2-6 time-series metrics, units may differ (one panel each, never a dual axis)
+          var ts = (ctx.metrics || []).filter(function (m) { return TIME_SERIES_KINDS.indexOf(m.window_kind) >= 0; });
+          return { name: p, kind: 'multi', label: 'Metrics, one panel each (2 to 6 — units may differ)', max: 6,
+            options: ts.map(function (m) { return [m.key, m.name + ' (' + m.key + ', ' + (m.unit || '—') + ')']; }), hint: 'Same window and site for every panel; no dual axis.' };
+        }
         case 'onlyOverdue': return { name: p, kind: 'checkbox', label: 'Only overdue actions' };
         default: return { name: p, kind: 'text', label: p };
       }

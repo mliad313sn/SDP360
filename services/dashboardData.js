@@ -125,7 +125,8 @@ async function resolveWidgets({ def, sites, site, window = null, reg, dd, rdb, n
   for (const w of (def && def.widgets) || []) {
     const t0 = Date.now();
     const m = w.metric ? reg.get(w.metric) : null;
-    const plan = R.widgetDataPlan(w, m && m.window_kind);
+    const m0 = m || (w.type === 'multiples' && Array.isArray(w.metrics) ? reg.get(w.metrics[0]) : null);
+    const plan = R.widgetDataPlan(w, m0 && m0.window_kind);
     try {
       if (plan.mode === 'single' && m) {
         const one = await reg.resolve(w.metric, { site: m.reader === 'tracker.fleet' ? null : site, window, deps: dd, now });
@@ -185,6 +186,20 @@ async function resolveWidgets({ def, sites, site, window = null, reg, dd, rdb, n
         if (w.type === 'table' || w.type === 'heatmap') for (const r of rows) r.target = KT.targetFor(targets, w.metric, r.site_id, endOf(win)).target;
         out[w.id] = { mode: 'per-site', metric: w.metric, title: w.title, unit: m.unit, higher_is_better: m.higher_is_better !== false, rows, summary: R.summarizeGrid(rows), window: { label: win.label, to: win.to }, partial: R.windowPartial(win, now), as_of: now.toISOString() };
         if (w.type === 'heatmap') out[w.id].notice = 'Heatmap widgets are no longer offered — shown as a table.';
+      } else if (plan.mode === 'multiples') {
+        // E-V09 — one panel per metric over the SAME window labels and the same site; null points are gaps
+        const labels = R.windowSeries(plan.kind, plan.n, R.seriesAnchor(window, plan.kind, now));
+        const keys = Array.isArray(w.metrics) ? w.metrics : [];
+        const unknown = keys.filter((k) => !reg.get(k));
+        if (unknown.length) throw new Error(`unknown metric in multiples: ${unknown.join(', ')}`);
+        const panels = [];
+        for (const k of keys) {
+          const mm = reg.get(k);
+          const points = await each(labels, async (lab) => { const r = await reg.resolve(k, { site: mm.reader === 'tracker.fleet' ? null : site, window: lab, deps: dd, now }); return { label: lab, value: r ? r.value : null, partial: R.isPartial(lab, now) }; });
+          panels.push({ metric: k, label: mm.name || k, unit: mm.unit, points });
+        }
+        const last = labels[labels.length - 1];
+        out[w.id] = { mode: 'multiples', title: w.title, panels, window_end: R.evalDate(last, now), partial: R.isPartial(last, now), as_of: now.toISOString() };
       } else if (plan.mode === 'tracker') {
         out[w.id] = { mode: 'tracker', title: w.title, ...(await trackerFor({ w, sites, window, dd, reg, now })) };
       } else if (plan.mode === 'actions') {

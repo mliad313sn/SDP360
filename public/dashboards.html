@@ -202,6 +202,17 @@
             charts.push(c);
           }
         }
+      } else if (d.mode === 'multiples') {
+        // E-V09 — one panel per metric, each with its own unit and axis (never a dual axis); one shared data table
+        var mspec = R.multiplesTableSpec(d);
+        var mtable = window.ChartTable ? '<details class="edv-chart-table"><summary>Data table</summary>' + window.ChartTable.html(mspec) + '</details>' : '';
+        el.innerHTML = title + R.multiplesHtml(d, mtable) + '<div class="edv-asof">' + (d.window_end ? 'window ends ' + R.escapeHtml(d.window_end) : '') + (d.partial ? ' · last point partial (* = period still running)' : '') + '</div>';
+        if (window.Chart) (d.panels || []).forEach(function (pn, i) {
+          var cv = el.querySelector('[data-panel="' + i + '"] canvas'); if (!cv) return;
+          cv.setAttribute('data-chart-table', 'off');   // the shared table above already carries every panel
+          charts.push(new Chart(cv, { type: 'line', data: { labels: mspec.labels, datasets: [{ label: pn.label, data: (pn.points || []).map(function (p) { return p.value; }), spanGaps: false, tension: .2, pointRadius: 3 }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { maxRotation: 0, autoSkip: true } }, y: String(pn.unit) === '%' ? { min: 0, max: 100 } : { beginAtZero: true } } } }));
+        });
       } else if (d.mode === 'per-site') {
         // C-04 (F01): bar = labelled bar list, table = sortable table, ragGrid = RAG grid (unknown is grey);
         // a retired heatmap renders as a table with a notice
