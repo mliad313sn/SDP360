@@ -22,19 +22,22 @@ const DATE_FIELDS = {
   milestone: ['due_date', 'baseline_date', 'done_at'],
 };
 const DATE_PAIRS = [['start_date', 'end_date'], ['baseline_start', 'baseline_end'], ['actual_start', 'actual_end']];
-const ISO_TS = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,9})?)?(?:Z|[+-]\d{2}:?\d{2})?)?$/;
+const ISO_DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
+const ISO_TIME_HEAD = /^[T ]\d{2}:\d{2}/;
 
 /** True for a real calendar day (YYYY-MM-DD, optionally followed by a valid ISO time). */
 function isValidDate(v) {
   if (typeof v !== 'string') return false;
-  const m = ISO_TS.exec(v.trim());
+  const t = v.trim();
+  const m = ISO_DAY.exec(t.slice(0, 10));
   if (!m) return false;
   const y = Number(m[1]), mo = Number(m[2]), d = Number(m[3]);
   if (mo < 1 || mo > 12 || d < 1) return false;
-  const dim = new Date(Date.UTC(y, mo, 0)).getUTCDate();
-  if (d > dim) return false;
-  if (m[4] != null && (Number(m[4]) > 23 || Number(m[5]) > 59 || (m[6] != null && Number(m[6]) > 59))) return false;
-  return true;
+  if (d > new Date(Date.UTC(y, mo, 0)).getUTCDate()) return false;
+  const rest = t.slice(10);
+  if (!rest) return true;
+  // a full ISO timestamp is accepted (e.g. a done_at stamp); its time part must parse
+  return ISO_TIME_HEAD.test(rest) && Number(rest.slice(1, 3)) <= 23 && Number(rest.slice(4, 6)) <= 59 && !Number.isNaN(Date.parse(t.replace(' ', 'T')));
 }
 const _day = (v) => String(v).trim().slice(0, 10);
 const _p = (code, error, extra) => ({ code, error, ...(extra || {}) });
