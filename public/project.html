@@ -116,12 +116,21 @@
         <label>Owner <input id="t-owner" list="t-owner-list"><datalist id="t-owner-list"></datalist></label>
         <label>Start <input id="t-start" type="date"></label>
         <label>End <input id="t-end" type="date"></label>
-        <label>Duration (days) <input id="t-dur" type="number" min="1"></label>
+        <label>Duration (working days; 0 = milestone) <input id="t-dur" type="number" min="0"></label>
         <label>Allocation % <input id="t-alloc" type="number" min="0" max="100"></label>
         <label>Effort (hours) <input id="t-effort" type="number" min="0" step="0.5"></label>
         <label>Status <select id="t-status"><option>todo</option><option>in_progress</option><option>blocked</option><option>done</option><option>cancelled</option></select></label>
         <label>Progress % <input id="t-prog" type="number" min="0" max="100"></label>
-        <label style="grid-column:1/-1">Depends on (finish-to-start; Ctrl/⌘-click for several) <select id="t-deps" multiple size="4"></select></label>
+        <label style="grid-column:1/-1">Depends on (finish-to-start unless a link type is set below; Ctrl/⌘-click for several) <select id="t-deps" multiple size="4"></select></label>
+      </div>
+      <div class="row" id="t-sched-box" hidden>
+        <label>Scheduling <select id="t-mode"><option value="">auto (moved by its links)</option><option value="manual">manual (keeps its dates)</option></select></label>
+        <label>Constraint <select id="t-ctype"><option value="">none (entered start = start no earlier than)</option><option>ASAP</option><option>ALAP</option><option>SNET</option><option>SNLT</option><option>FNET</option><option>FNLT</option><option>MSO</option><option>MFO</option></select></label>
+        <label>Constraint date <input id="t-cdate" type="date"></label>
+        <label>Deadline <input id="t-deadline" type="date"></label>
+        <label>Task type <select id="t-ttype"><option value="">none</option><option value="fixed_units">fixed units</option><option value="fixed_duration">fixed duration</option><option value="fixed_work">fixed work</option></select></label>
+        <label>Effort-driven <select id="t-ed"><option value="">default (on)</option><option value="1">on</option><option value="0">off</option></select></label>
+        <label>Link types (e.g. 12:SS+2, 13:FF-1) <input id="t-links" placeholder="id:FS|SS|FF|SF±lag"></label>
       </div>
       <div class="bar"><button class="btn primary" id="t-save" type="button">Save task</button><button class="btn danger" id="t-del" type="button">Delete task</button></div>
     </div>
@@ -311,7 +320,7 @@
   var V = null;
   // W2-PPM — which PROPOSED switches are on (each new tab / prompt exists only then); an error = all off (today)
   var FEAT = {};
-  api("/api/governance/ppm/features").then(function (f) { FEAT = f || {}; if (FEAT.budget_periods) addTab("budget", "gates"); if (FEAT.benefit_owner_link) linkOwners(); if (FEAT.benefit_value_class) { $("b-class-box").hidden = false; if (V) renderBenefits(); } if (FEAT.raci) addTab("raci", "gates"); if (FEAT.change_requests) addTab("changes", "gates"); if (V && ["budget", "raci", "changes"].indexOf((window.location.hash || "").slice(1)) >= 0 && TABS.indexOf(window.location.hash.slice(1)) >= 0) showTab(window.location.hash.slice(1)); if (FEAT.team && V) mountTeam(); if (FEAT.time_entries && V && $("tab-plan").getAttribute("aria-selected") === "true") mountTime(); if (FEAT.templates && V && V.committee) $("tpl-save-box").hidden = false; }).catch(function () { FEAT = {}; });
+  api("/api/governance/ppm/features").then(function (f) { FEAT = f || {}; if (FEAT.budget_periods) addTab("budget", "gates"); if (FEAT.benefit_owner_link) linkOwners(); if (FEAT.benefit_value_class) { $("b-class-box").hidden = false; if (V) renderBenefits(); } if (FEAT.raci) addTab("raci", "gates"); if (FEAT.change_requests) addTab("changes", "gates"); if (V && ["budget", "raci", "changes"].indexOf((window.location.hash || "").slice(1)) >= 0 && TABS.indexOf(window.location.hash.slice(1)) >= 0) showTab(window.location.hash.slice(1)); if (FEAT.team && V) mountTeam(); if (FEAT.time_entries && V && $("tab-plan").getAttribute("aria-selected") === "true") mountTime(); if (FEAT.templates && V && V.committee) $("tpl-save-box").hidden = false; if (FEAT.schedule_v2 && V && V.can_edit_plan) fillTask(); }).catch(function () { FEAT = {}; });
 
   // ---- tabs (role=tablist, arrows / Home / End, deep link #tab) ---------------------------------------------
   // Extension point: later goals (baselines, benefits) add a tab button + a pane + an entry in RENDER.
@@ -414,7 +423,7 @@
       ["Finish vs baseline", "<span class=\"pill " + esc(rag.cls) + "\">" + esc(rag.cls === "NA" ? "—" : rag.cls) + "</span> " + esc(rag.text)],
       ["Progress", n(p.progress_pct, " %")],
       ["Open tasks", n(open) + " / " + n(V.tasks.length)],
-      ["Critical path", V.plan ? n(V.plan.length_days, " d") : "— (dependency loop)"],
+      ["Critical path", V.plan ? n(V.plan.length_days, " working d") : "— (dependency loop)"],
       ["Open high risks", n(V.gate_counts && V.gate_counts.openRisksHigh)]];
     var money = V.money_hidden ? "<span class=\"muted\">restricted to the committee, the admin tier and the finance role</span>" : (p.budget != null ? n(p.spent) + " / " + n(p.budget) + " " + esc(p.currency || "USD") + (p.currency_defaulted === 1 || !p.currency ? " <small class=\"muted\">(default, not confirmed)</small>" : "") : "—");   // F-DATA-10
     $("overview").innerHTML = "<div class=\"tiles\">" + tiles.map(function (t) { return "<div class=\"tile\"><div class=\"tl\">" + esc(t[0]) + "</div><div class=\"tn\" style=\"font-size:15px\">" + t[1] + "</div></div>"; }).join("") + "</div>" +
@@ -446,25 +455,29 @@
   });
 
   // ---- plan: SVG Gantt + table + editor -------------------------------------------------------------------
+  // W1-ENGINE — one date set: the bar is the SCHEDULED dates (a manual task keeps its entered dates, an auto task is moved
+  // by its links); the critical flag comes from the same result. Entered dates only when no plan (dependency loop).
   function barOf(t) {
     var pl = planOf(t.id);
-    if (t.start_date && t.end_date) return { s: t.start_date, e: t.end_date, computed: false };
-    if (pl && pl.es_date) return { s: pl.es_date, e: pl.ef_date, computed: true };
+    if (pl && pl.es_date) return { s: pl.es_date, e: pl.ef_date, computed: !!pl.computed && !pl.summary };
+    if (!V.plan && t.start_date && t.end_date) return { s: t.start_date, e: t.end_date, computed: false };
     return null;
   }
+  var fl = function (v) { return v == null ? "—" : v < 0 ? "<b>" + n(v, " d") + " (late)</b>" : n(v, " d"); };
   function renderPlan() {
     var rows = taskOrder(V.tasks), anchor = V.plan && V.plan.anchor;
     renderBaselines();
     var assumed = rows.filter(function (r) { var pl = planOf(r.t.id); return pl && pl.assumed_duration; }).length;
     $("plan-note").innerHTML = (V.plan ? "" : "<p class=\"refusal\">The dependencies form a loop: the plan cannot be computed.</p>") +
-      (anchor ? "Computed dates start from " + esc(anchor) + " (project start, else the earliest task start). " : "No project start and no dated task: the plan is shown in relative days only, not as dates. ") +
+      (anchor ? "Scheduled in working days (Mon–Fri) from " + esc(anchor) + " (project start, else the earliest task start); an entered start on an automatic task is a start-no-earlier-than, a manual task keeps its dates. " : "No project start and no dated task: the plan is shown in relative working days only, not as dates. ") +
+      (V.plan && V.plan.warnings && V.plan.warnings.length ? "<b>" + n(V.plan.warnings.length) + " scheduling warning(s):</b> " + V.plan.warnings.slice(0, 5).map(function (w) { return (w.task_id != null ? "#" + n(w.task_id) + " " : "") + esc(w.message); }).join(" · ") + ". " : "") +
       (assumed ? "<b>" + n(assumed) + " task(s) have no duration</b> — counted as 1 day by the critical path (“duration unknown”). " : "") +
-      "Legend: bar = plan · hatched = computed from dependencies (no dates entered) · dashed outline = baseline · <b>CP</b> + red = critical path · arrows = finish-to-start · ◆ milestone (✓ done, ! late) · orange line = today.";
+      "Legend: bar = scheduled dates · hatched = moved by the scheduler (no dates entered, or a link / constraint moved them) · dashed outline = baseline · <b>CP</b> + red = critical path (total float ≤ 0) · arrows = dependencies · ◆ milestone (✓ done, ! late) · orange line = today.";
     $("gantt").innerHTML = rows.length ? ganttSvg(rows, anchor) : "<p class=\"muted\">No task yet.</p>";
     $("gantt-legend").innerHTML = rows.length ? ganttLegend() : "";
-    $("plan-table").innerHTML = rows.length ? "<table><thead><tr><th>WBS</th><th>Task</th><th>Owner</th><th>Start</th><th>End</th><th>Duration</th><th>Slack</th><th>Critical</th><th>Progress</th><th>Effort</th><th>Allocation</th><th>Baseline end</th><th>Finish vs baseline</th><th>Status</th><th>Depends on</th></tr></thead><tbody>" + rows.map(function (r) {
+    $("plan-table").innerHTML = rows.length ? "<table><thead><tr><th>WBS</th><th>Task</th><th>Owner</th><th>Start</th><th>End</th><th>Duration</th><th>Total float</th><th>Free float</th><th>Critical</th><th>Progress</th><th>Effort</th><th>Allocation</th><th>Baseline end</th><th>Finish vs baseline</th><th>Status</th><th>Depends on</th></tr></thead><tbody>" + rows.map(function (r) {
       var t = r.t, pl = planOf(t.id) || {}, b = barOf(t), vr = pl.variance || {};
-      return "<tr id=\"task-row-" + n(t.id) + "\" tabindex=\"-1\"><td>" + n(t.wbs_code) + "</td><td style=\"padding-left:" + (7 + 14 * r.depth) + "px\">" + esc(t.name) + " <small class=\"muted\">#" + n(t.id) + "</small></td><td>" + n(t.owner) + "</td><td>" + (b ? n(b.s) + (b.computed ? " <small class=\"muted\">computed</small>" : "") : "—") + "</td><td>" + (b ? n(b.e) : "—") + "</td><td>" + (pl.assumed_duration ? "<i>duration unknown — counted as 1 day</i>" : n(pl.duration_days, " d")) + "</td><td>" + n(pl.slack, " d") + "</td><td>" + (pl.critical ? "<b>CP</b> yes" : "no") + "</td><td>" + n(t.progress_pct, " %") + "</td><td>" + n(t.effort_hours, " h") + "</td><td>" + n(t.allocation_pct, " %") + "</td><td>" + n(t.baseline_end) + "</td><td>" + n(vr.finish_variance_days, " d") + "</td><td><span class=\"pill " + esc(t.status) + "\">" + esc(t.status) + "</span></td><td>" + (t.depends_on || []).map(function (d) { return "#" + n(d); }).join(", ") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No task.</p>";
+      return "<tr id=\"task-row-" + n(t.id) + "\" tabindex=\"-1\"><td>" + n(t.wbs_code) + "</td><td style=\"padding-left:" + (7 + 14 * r.depth) + "px\">" + esc(t.name) + " <small class=\"muted\">#" + n(t.id) + "</small></td><td>" + n(t.owner) + "</td><td>" + (b ? n(b.s) + (b.computed ? " <small class=\"muted\">computed</small>" : "") : "—") + "</td><td>" + (b ? n(b.e) : "—") + "</td><td>" + (pl.assumed_duration ? "<i>duration unknown — counted as 1 day</i>" : pl.milestone ? "◆ 0 d" : n(pl.duration_days, " d")) + "</td><td>" + fl(pl.slack) + "</td><td>" + fl(pl.free_float) + "</td><td>" + (pl.critical ? "<b>CP</b> yes" : pl.near_critical ? "near" : "no") + "</td><td>" + (pl.summary && pl.rollup ? n(pl.rollup.progress_pct, " %") + " <small class=\"muted\">rolled up</small>" : n(t.progress_pct, " %")) + "</td><td>" + n(t.effort_hours, " h") + "</td><td>" + n(t.allocation_pct, " %") + "</td><td>" + n(t.baseline_end) + "</td><td>" + n(vr.finish_variance_days, " d") + "</td><td><span class=\"pill " + esc(t.status) + "\">" + esc(t.status) + "</span></td><td>" + (t.depends_on || []).map(function (d) { return "#" + n(d); }).join(", ") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No task.</p>";
     var rc = V.resource_conflicts || [];
     $("plan-conflicts").innerHTML = rc.length ? "<table><thead><tr><th>Person</th><th>From</th><th>To</th><th>Peak load</th><th>Tasks</th></tr></thead><tbody>" + rc.map(function (c) { return "<tr><td>" + esc(c.owner) + "</td><td>" + n(c.from) + "</td><td>" + n(c.to) + "</td><td><b>" + n(c.peak_pct, " %") + "</b></td><td>" + c.task_ids.map(function (i) { return "#" + n(i); }).join(", ") + "</td></tr>"; }).join("") + "</tbody></table>" : (window.PpmVisuals && V.resource_coverage ? "" : "<p class=\"muted\">Nobody is booked above 100 % on overlapping days in this project.</p>");
     if (window.PpmVisuals && V.resource_coverage) $("plan-conflicts").innerHTML += window.PpmVisuals.coverageHtml(V.resource_coverage, rc.length, esc);
@@ -479,7 +492,7 @@
     var base = v ? ["version v", v.version, " captured ", String(v.captured_at || "").slice(0, 10)].join("") : "current task baselines";
     return [
       [sw("<rect x=\"1\" y=\"3\" width=\"24\" height=\"8\" rx=\"4\" fill=\"#3A4A60\"/>"), "plan"],
-      [sw("<rect x=\"1\" y=\"3\" width=\"24\" height=\"8\" rx=\"4\" fill=\"#cfd6e0\" stroke=\"#3A4A60\"/>"), "computed from dependencies (hatched)"],
+      [sw("<rect x=\"1\" y=\"3\" width=\"24\" height=\"8\" rx=\"4\" fill=\"#cfd6e0\" stroke=\"#3A4A60\"/>"), "moved by the scheduler (hatched)"],
       [sw("<rect x=\"1\" y=\"3\" width=\"24\" height=\"8\" rx=\"4\" fill=\"#B91C1C\"/>"), "critical path (CP)"],
       [sw("<rect x=\"1\" y=\"1\" width=\"24\" height=\"12\" rx=\"4\" fill=\"none\" stroke=\"#9AA4B2\" stroke-dasharray=\"4 3\"/>"), "baseline (dashed): " + base],
       [sw("<line x1=\"13\" x2=\"13\" y1=\"0\" y2=\"14\" stroke=\"#B45309\" stroke-width=\"2\"/>"), "today"],
@@ -556,6 +569,8 @@
     $("t-name").value = t.name || ""; $("t-wbs").value = t.wbs_code || ""; $("t-owner").value = t.owner || ""; $("t-start").value = t.start_date || ""; $("t-end").value = t.end_date || "";
     $("t-dur").value = t.duration_days == null ? "" : t.duration_days; $("t-alloc").value = t.allocation_pct == null ? "" : t.allocation_pct; $("t-effort").value = t.effort_hours == null ? "" : t.effort_hours;
     $("t-status").value = t.status || "todo"; $("t-prog").value = t.progress_pct == null ? "" : t.progress_pct; $("t-del").hidden = !id;
+    $("t-sched-box").hidden = !FEAT.schedule_v2;
+    if (FEAT.schedule_v2) { $("t-mode").value = t.schedule_mode === "manual" ? "manual" : ""; $("t-ctype").value = t.constraint_type || ""; $("t-cdate").value = t.constraint_date || ""; $("t-deadline").value = t.deadline || ""; $("t-ttype").value = t.task_type || ""; $("t-ed").value = t.effort_driven == null ? "" : String(t.effort_driven); $("t-links").value = (t.dependency_links || []).filter(function (l) { return l.type !== "FS" || l.lag; }).map(function (l) { return l.id + ":" + l.type + (l.lag ? (l.lag > 0 ? "+" : "") + l.lag : ""); }).join(", "); }
   }
   $("t-id").addEventListener("change", fillTask);
   var numOrNull = function (id) { var v = $(id).value; return v === "" ? null : Number(v); };
@@ -564,6 +579,12 @@
     var b = { project_id: V.project.id, name: $("t-name").value.trim(), wbs_code: $("t-wbs").value.trim() || null, parent_id: $("t-parent").value ? Number($("t-parent").value) : null, owner: $("t-owner").value.trim() || null,
       start_date: $("t-start").value || null, end_date: $("t-end").value || null, duration_days: numOrNull("t-dur"), allocation_pct: numOrNull("t-alloc"), effort_hours: numOrNull("t-effort"), status: $("t-status").value, progress_pct: numOrNull("t-prog"),
       depends_on: Array.prototype.filter.call($("t-deps").options, function (o) { return o.selected; }).map(function (o) { return Number(o.value); }) };
+    if (FEAT.schedule_v2) {   // W1-ENGINE fields (switch ppm_schedule_engine_v2_ui)
+      b.schedule_mode = $("t-mode").value || null; b.constraint_type = $("t-ctype").value || null; b.constraint_date = $("t-cdate").value || null; b.deadline = $("t-deadline").value || null;
+      b.task_type = $("t-ttype").value || null; b.effort_driven = $("t-ed").value === "" ? null : Number($("t-ed").value);
+      var bad = []; b.dependency_links = $("t-links").value.split(",").map(function (x) { return x.trim(); }).filter(Boolean).map(function (x) { var m = /^#?(\d+)\s*:\s*(FS|SS|FF|SF)\s*([+-]\s*\d+)?$/i.exec(x); if (!m) { bad.push(x); return null; } return { id: Number(m[1]), type: m[2].toUpperCase(), lag: m[3] ? Number(m[3].replace(/\s/g, "")) : 0 }; }).filter(Boolean);
+      if (bad.length) { msg("Link type not understood: " + bad.join(", ") + " — write id:TYPE±lag, e.g. 12:SS+2.", "errors"); return; }
+    }
     if (id) { b.id = id; delete b.project_id; var t = V.tasks.filter(function (x) { return x.id === id; })[0]; if (t && t.version != null) b.version = t.version; }   // I-CONC-1
     // E-P03 — with ppm_capacity_view on, a reassignment (owner change) carries a reason; it is traced in the ledger either way
     var was = id ? (V.tasks.filter(function (x) { return x.id === id; })[0] || {}).owner : null;

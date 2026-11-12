@@ -8,6 +8,7 @@
 //   STAGES / stageGate — proposal → approval → in_progress ⇄ on_hold → closure, each gate with its rule
 
 const AC = require('../public/lib/allocationContract');
+const ENGINE = require('./ppm/scheduleEngine');
 const DAY = 86400000;
 const toMs = (d) => (d ? Date.parse(String(d).slice(0, 10) + 'T00:00:00Z') : NaN);
 const days = (a, b) => Math.round((toMs(b) - toMs(a)) / DAY);
@@ -42,37 +43,21 @@ function dependencyProblem(items, id, deps) {
 }
 
 /**
- * Critical path over tasks with a duration (end − start + 1 days, or effort_days when dates are missing).
- * Returns null when the graph cannot be scheduled (a cycle — should be refused at write time anyway).
+ * W1-ENGINE — critical path over the task network, computed by the date-based engine (services/ppm/scheduleEngine.js):
+ * working days (default Mon–Fri), entered dates honoured (manual = kept, auto = start-no-earlier-than), summary tasks
+ * rolled up from their children, 0-day milestones, typed links with lag. Relative days (es / ef / length_days) are
+ * WORKING days from the anchor (opts.anchor, else the earliest entered start). Null when the dependencies loop.
+ * `path` = every critical leaf (total float <= 0) ordered by start — all critical chains, not one walk.
  * @param {Array<{id, depends_on?, start_date?, end_date?, duration_days?}>} tasks
+ * @param {object} [opts] engine options (anchor, calendar, deadline, nearCriticalDays…)
  */
-function criticalPath(tasks) {
-  if (!tasks.length) return { length_days: 0, path: [], slack: {}, es: {}, ef: {} };
-  const dur = (t) => {
-    if (Number.isFinite(Number(t.duration_days)) && Number(t.duration_days) > 0) return Number(t.duration_days);
-    const d = t.start_date && t.end_date ? days(t.start_date, t.end_date) + 1 : NaN;
-    return Number.isFinite(d) && d > 0 ? d : 1;
-  };
-  const byId = new Map(tasks.map((t) => [Number(t.id), t]));
-  const deps = (t) => (t.depends_on || []).map(Number).filter((d) => byId.has(d));
-  // topological order (Kahn)
-  const indeg = new Map(tasks.map((t) => [Number(t.id), deps(t).length]));
-  const succ = new Map(tasks.map((t) => [Number(t.id), []]));
-  for (const t of tasks) for (const d of deps(t)) succ.get(d).push(Number(t.id));
-  const order = [];
-  const q = [...indeg].filter(([, n]) => n === 0).map(([k]) => k).sort((a, b) => a - b);
-  while (q.length) { const n = q.shift(); order.push(n); for (const s of succ.get(n)) { indeg.set(s, indeg.get(s) - 1); if (indeg.get(s) === 0) q.push(s); } }
-  if (order.length !== tasks.length) return null;
-  const es = new Map(), ef = new Map();
-  for (const n of order) { const t = byId.get(n); const s = Math.max(0, ...deps(t).map((d) => ef.get(d))); es.set(n, s); ef.set(n, s + dur(t)); }
-  const total = Math.max(...ef.values());
-  const lf = new Map(), ls = new Map();
-  for (const n of [...order].reverse()) { const f = succ.get(n).length ? Math.min(...succ.get(n).map((s) => ls.get(s))) : total; lf.set(n, f); ls.set(n, f - dur(byId.get(n))); }
-  const slack = {}; for (const n of order) slack[n] = ls.get(n) - es.get(n);
-  // walk the zero-slack chain from a start task
-  const path = []; let cur = order.find((n) => slack[n] === 0 && es.get(n) === 0);
-  while (cur != null) { path.push(cur); cur = succ.get(cur).filter((s) => slack[s] === 0 && es.get(s) === ef.get(cur)).sort((a, b) => a - b)[0]; }
-  return { length_days: total, path, slack, es: Object.fromEntries(es), ef: Object.fromEntries(ef) };
+function criticalPath(tasks, opts = {}) {
+  if (!tasks || !tasks.length) return { length_days: 0, path: [], slack: {}, es: {}, ef: {} };
+  const r = ENGINE.schedule(tasks, opts);
+  if (!r) return null;
+  const slack = {}, es = {}, ef = {};
+  for (const t of r.tasks) { slack[t.id] = t.total_float; es[t.id] = t.es; ef[t.id] = t.ef; }
+  return { length_days: r.length_days, path: r.critical_path, slack, es, ef, schedule: r };
 }
 
 /**
@@ -139,38 +124,29 @@ function charterText(c) {
   return Object.values(o).filter((v) => v != null && typeof v !== 'object').map((v) => String(v).trim()).filter(Boolean).join(' ');
 }
 
-const _addDays = (iso, n) => new Date(toMs(iso) + n * DAY).toISOString().slice(0, 10);
-/** A duration the schedule can trust: duration_days > 0, or both dates. Otherwise criticalPath assumes 1 day. */
-const _knownDuration = (t) => {
-  if (Number.isFinite(Number(t.duration_days)) && Number(t.duration_days) > 0) return Number(t.duration_days);
-  const d = t.start_date && t.end_date ? days(t.start_date, t.end_date) + 1 : NaN;
-  return Number.isFinite(d) && d > 0 ? d : null;
-};
 /**
- * A-14 — the plan as the project page draws it, built on criticalPath (no second scheduler):
- * per task es/ef (relative days), their dates from `anchor` (the project start, else the earliest task start,
- * else null → dates null and relative days only), slack, critical (slack 0), duration_days (null = unknown),
- * assumed_duration (criticalPath counted it as 1 day) and baseline/forecast variance. Null when a cycle.
+ * A-14 / W1-ENGINE — the plan as the project page draws it: ONE scheduled date set (the engine's) drives the table,
+ * the Gantt bars and the critical flags. Per task: es/ef (relative working days), es_date/ef_date (the scheduled dates),
+ * ls_date/lf_date, slack = total float (negative when a deadline / must-finish constraint is breached), free_float,
+ * critical (total float <= 0, same flag as the critical path), near_critical, summary + rollup, computed (true when the
+ * drawn dates are not the entered dates), driver (why the start is where it is), duration_days (null = unknown),
+ * assumed_duration (counted as 1 day) and baseline/forecast variance. Null when a cycle.
  * @param {Array} tasks
- * @param {{anchor?: string|null}} opts
+ * @param {{anchor?: string|null, deadline?: string|null}} opts  (+ any engine option)
  */
-function scheduleView(tasks, { anchor } = {}) {
+function scheduleView(tasks, opts = {}) {
   const list = tasks || [];
-  const cp = criticalPath(list);
-  if (!cp) return null;
-  const starts = list.map((t) => t.start_date).filter(Boolean).map((d) => String(d).slice(0, 10)).sort();
-  const a = anchor ? String(anchor).slice(0, 10) : (starts[0] || null);
-  const crit = new Set(cp.path);
+  const r = ENGINE.schedule(list, opts);
+  if (!r) return null;
+  const byId = new Map(list.map((t) => [Number(t.id), t]));
   return {
-    anchor: a,
-    length_days: cp.length_days,
-    critical_path: cp.path,
-    tasks: list.map((t) => {
-      const id = Number(t.id); const known = _knownDuration(t);
-      const es = cp.es[id], ef = cp.ef[id];
-      return { id, es, ef, es_date: a ? _addDays(a, es) : null, ef_date: a ? _addDays(a, ef - 1) : null,
-        slack: cp.slack[id], critical: cp.slack[id] === 0, on_path: crit.has(id), duration_days: known, assumed_duration: known == null, variance: varianceOf(t) };
-    }),
+    anchor: r.anchor,
+    length_days: r.length_days,
+    project_finish: r.project_finish,
+    deadline: r.deadline,
+    critical_path: r.critical_path,
+    warnings: r.warnings,
+    tasks: r.tasks.map((x) => ({ ...x, slack: x.total_float, on_path: x.critical && !x.summary, variance: varianceOf(byId.get(x.id) || {}) })),
   };
 }
 

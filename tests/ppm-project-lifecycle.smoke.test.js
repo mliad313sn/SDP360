@@ -158,7 +158,8 @@ test('A-14: GET /portfolio/project/:id — tasks, RAID, plan with critical flags
   const pt = Object.fromEntries(v.plan.tasks.map((x) => [x.id, x]));
   assert.equal(pt[t1].critical, true); assert.equal(pt[t2].critical, true); assert.equal(pt[t3].critical, false);
   assert.equal(pt[t3].assumed_duration, true); assert.equal(pt[t3].duration_days, null);
-  assert.equal(pt[t2].es_date, '2027-01-09');
+  // W1-ENGINE: 5 working days Mon 01-04 → Fri 01-08, so Build starts Monday 01-11 (was Sat 01-09: calendar days, defect R4)
+  assert.equal(pt[t2].es_date, '2027-01-11');
   assert.deepEqual(v.allowed_stages.map((s) => s.to), ['approval']);
   assert.equal(v.allowed_stages[0].refusal.code, 'GATE_CHARTER', 'a JSON charter of empty fields does not pass approval');
   assert.equal((await send('POST', `/api/governance/portfolio/project/${pid}/stage`, T.pmo, { to: 'approval' })).j.code, 'GATE_CHARTER');

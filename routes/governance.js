@@ -500,7 +500,7 @@ module.exports = function governanceRoutes(deps) {
     // G11 — plan per project: WBS tasks, critical path, baseline / forecast / actual; one resource view across projects
     const SCH = require('../services/projectSchedule');
     const tasks = pf.tasks || [];
-    const plans = pf.projects.map(p => { const t = tasks.filter(x => x.project_id === p.id); const cp = SCH.criticalPath(t); return { project_id: p.id, key: p.key, stage: p.stage || null, tasks: t.length, open_tasks: t.filter(x => !['done', 'cancelled'].includes(x.status)).length, critical_path: cp ? cp.path : null, critical_length_days: cp ? cp.length_days : null, variance: SCH.varianceOf(p) }; });
+    const plans = pf.projects.map(p => { const t = tasks.filter(x => x.project_id === p.id); const cp = SCH.criticalPath(t, { anchor: p.start_date || null, deadline: p.finish_deadline || null }); return { project_id: p.id, key: p.key, stage: p.stage || null, tasks: t.length, open_tasks: t.filter(x => !['done', 'cancelled'].includes(x.status)).length, critical_path: cp ? cp.path : null, critical_length_days: cp ? cp.length_days : null, variance: SCH.varianceOf(p) }; });
     return { ...pf, objective_views: views, gantt, risks, plans, resource_conflicts: SCH.resourceConflicts(tasks), resource_coverage: SCH.resourceCoverage(tasks), stages: SCH.STAGES, summary: PE.portfolioSummary({ programmes: pf.programmes, objectiveViews: views, gantt, risks: pf.risks }), as_of: now.toISOString() };
   }
   // G12 — amounts are read by the committee, the admin tier and the finance role; everyone else sees the plan without money.
@@ -609,7 +609,7 @@ module.exports = function governanceRoutes(deps) {
         project, objective: d.objective, extra_sites: d.extra_sites, tasks: d.tasks, milestones: d.milestones, deliverables: d.deliverables, risks: d.risks.map(PE.riskView),
         benefits: bens, ...(clsOn ? { benefit_totals: BEN.benefitTotals(bens), benefit_classes: { value_classes: BEN.VALUE_CLASSES, bases: BEN.BASES, source_kinds: BEN.SOURCE_KINDS } } : {}), me: Number(u.id),
         ...(mvRole ? { money_verifier_role: mvRole, holds_money_verifier_role: holdsExactly(u, mvRole) } : {}),   // F-PRODUCT-04: who may verify a money benefit
-        plan: SCH.scheduleView(d.tasks, { anchor: p.start_date || null }), variance: SCH.varianceOf(p), resource_conflicts: SCH.resourceConflicts(d.tasks, members), resource_coverage: SCH.resourceCoverage(d.tasks, members),
+        plan: SCH.scheduleView(d.tasks, { anchor: p.start_date || null, deadline: p.finish_deadline || null }), variance: SCH.varianceOf(p), resource_conflicts: SCH.resourceConflicts(d.tasks, members), resource_coverage: SCH.resourceCoverage(d.tasks, members),
         stages: SCH.STAGES, allowed_stages, gate_counts: d.gate_ctx, risk_kinds: store.RISK_KINDS, as_of: new Date().toISOString() });
     } catch (e) { fail(res, e); }
   });
