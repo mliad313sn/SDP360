@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 4845,
+ "total": 4861,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 18,
@@ -467,7 +467,7 @@
   "qualification-policy.test.js": 4,
   "qualification-routes.smoke.test.js": 3,
   "raci-seed.test.js": 4,
-  "rate-limit.test.js": 2,
+  "rate-limit.test.js": 3,
   "raw-cache-data-dir.test.js": 1,
   "rbac-ui-gates.test.js": 10,
   "rbac-write-scope.smoke.test.js": 12,
@@ -725,6 +725,10 @@
   "workspace-profiles.test.js": 8,
   "workspace-routes.smoke.test.js": 3,
   "zoho-sync-truncation-guard.test.js": 3,
-  "zoho-sync-udf.test.js": 3
+  "zoho-sync-udf.test.js": 3,
+  "login-limit-failures-only.smoke.test.js": 6,
+  "portfolio-executive-readonly.smoke.test.js": 5,
+  "ppm-team-picker.smoke.test.js": 3,
+  "field-queue-badge-browser.test.js": 1
  }
 }
