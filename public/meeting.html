@@ -1447,13 +1447,19 @@
   // The value we send is only a "stamp it" signal: the server writes its OWN
   // timestamp (the browser clock is untrusted) and reload() repaints the input
   // from the stored value, so the UI never shows a stamp that isn't saved.
+  // Both stamp buttons are disabled while ONE stamp's save runs: a second click
+  // during the first save used to start a concurrent save that could overwrite the
+  // first (lost signature — found by the W2-QJ persona journey c1).
+  let _stampBusy = false;
+  const STAMP_BTNS = ['pvStampDeptHead', 'pvStampItLead'];
   async function stampSignature(btnId, field, inputId) {
-    const btn   = document.getElementById(btnId);
+    if (_stampBusy) return;
     const input = document.getElementById(inputId);
     const prevState = state.header[field];
     const prevInput = input.value;
 
-    btn.disabled = true;
+    _stampBusy = true;
+    STAMP_BTNS.forEach(id => { const b = document.getElementById(id); if (b) b.disabled = true; });
     try {
       // Optimistic paint so the click feels immediate; the authoritative value
       // arrives via reload() inside save().
@@ -1472,7 +1478,8 @@
       input.value = prevInput;
       showBanner(e.message || 'Signature save failed', 'error');
     } finally {
-      btn.disabled = false;
+      _stampBusy = false;
+      STAMP_BTNS.forEach(id => { const b = document.getElementById(id); if (b) b.disabled = false; });
     }
   }
 

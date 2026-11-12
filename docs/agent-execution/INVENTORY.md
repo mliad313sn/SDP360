@@ -17,7 +17,7 @@
 | jobs | 31 |
 | jobs without test reference | 1 |
 | migrations | 77 |
-| test files | 637 |
+| test files | 638 |
 
 ## Pages
 
@@ -51,7 +51,7 @@
 | PG-itsm-roadmap | public/itsm-roadmap.html | super_admin | no | 1 | 4 |
 | PG-kpi-builder | public/kpi-builder.html | any | no | 0 | 2 |
 | PG-login | public/login.html | public | no | 1 | 9 |
-| PG-meeting | public/meeting.html | any | no | 1 | 11 |
+| PG-meeting | public/meeting.html | any | no | 1 | 12 |
 | PG-meetings-actions | public/meetings-actions.html | any | no | 2 | 7 |
 | PG-meetings-compliance | public/meetings-compliance.html | any | no | 2 | 4 |
 | PG-meetings-council | public/meetings-council.html | any | no | 2 | 3 |

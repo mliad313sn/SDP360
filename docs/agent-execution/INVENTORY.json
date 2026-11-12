@@ -12,7 +12,7 @@
   "jobs": 31,
   "jobs_without_test_reference": 1,
   "migrations": 77,
-  "test_files": 637
+  "test_files": 638
  },
  "pages": [
   {
@@ -554,7 +554,7 @@
    ],
    "in_navigation": false,
    "inline_scripts": 1,
-   "bytes": 83790,
+   "bytes": 84288,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -563,6 +563,7 @@
     "tests/incubation-editor-client.test.js",
     "tests/incubation-form.test.js",
     "tests/meeting-save-conflict-client.test.js",
+    "tests/meeting-stamp-guard.test.js",
     "tests/meeting-status-options.test.js",
     "tests/rbac-ui-gates.test.js",
     "tests/status-transfer.smoke.test.js",
