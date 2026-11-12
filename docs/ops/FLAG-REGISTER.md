@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (233) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (235) — services/reportConfig.js DEFAULTS
 
 Prerequisites (E-A07, services/switchPrereqs.js) are WARNINGS in plain words, never approvals: the config PUT
 answer and the `set-ui-policy.js` dry run repeat them when the switch is moved to its switched-on value.
@@ -112,6 +112,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `insp_repeat_findings` | `0` | setting | Infrastructure / inspection owner | `1` once the inspection owner sets the window below (the inspections dashboard then lists items rated minor / major / critical in at least 2 of a site's last N submitted inspections) | E-I06 | — |
 | `insp_repeat_window` | `` | setting | Infrastructure / inspection owner | PROPOSITION: none — N (how many of a site's last submitted inspections are compared) is a human decision; empty = nothing computed | E-I06 | — |
 | `kpi_policy_enforced` | `0` | setting | KPI committee + Owner | `0` until the KPI committee has ADOPTED a resolution-SLA policy on `/kpi-builder.html` (two different members: author ≠ adopter, with the session reference) and read the shadow comparison; then `1` (the Helpdesk tile, ranking and trend follow the adopted version) | C-31 | An ADOPTED kpi_policy (committee decision), a read shadow comparison and a check of every surface (screen, API, PPTX, e-mail); keep history and rollback. |
+| `login_limit_failures_only` | `0` | setting | Security owner | PROPOSITION: `1` once the Security owner accepts it (only FAILED sign-ins count per address + login name, 10 / 15 min, a success clears that pair; 50 failures / 15 min per address; the per-account failure throttle is forced on) — fixes the lock-out of a site seen behind one address | UAT-OI-02 | — |
 | `meraki_api_key` | (secret — not shown) | secret | to be named | — | — | — |
 | `meraki_base_url` | `https://api.meraki.com/api/v1` | setting | to be named | — | — | — |
 | `meraki_missing_policy` | `down` | setting | to be named | — | — | — |
@@ -138,6 +139,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `outbound_allow_hosts` | `` | setting | to be named | — | — | — |
 | `pir_reviews_enabled` | `0` | arm switch | Incident manager + business sponsor | `1` once the Incident manager names who signs a post-incident review and the business sponsor per major incident (the sign-off is a recorded human act by someone other than the author; nothing is sent) | E-I03 | — |
 | `portfolio_editor_plan_writes` | `0` | setting | Owner (access policy) | `1` | A-15 | — |
+| `portfolio_executive_readonly` | `0` | setting | Owner + IAM | PROPOSITION: `1` only after the PO / IAM decide that the direction reads the portfolio without changing it (an account whose only write tier is `executive` gets 403 on portfolio, project, benefit and change-request writes; admin, super_admin and committee-member unchanged) | UAT-OI-05 | — |
 | `portfolio_site_scope_reads` | `0` | setting | Owner (access policy) | `1` | A-15 | — |
 | `portfolio_views_enabled` | `0` | arm switch | PMO | `1` once the PMO wants the portfolio read as a list or a board as well as the timeline (view switch Timeline · List · Board kept in the address `?view=`; List = the table view promoted out of its fold; Board = one read-only column per stage — a card opens the project page, a stage still moves only through its gate). Nothing is written by these views | R2-WB-05 | — |
 | `ppm_alert_blocked_days` | `5` | setting | Committee | `5` | A-27 | — |

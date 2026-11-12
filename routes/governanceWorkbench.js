@@ -34,6 +34,7 @@ module.exports = function governanceWorkbenchRoutes(router, h) {
   const on = (c, k) => String(c[k]) === '1';
   const notFound = (res) => httpFail(res, new Error('not found'), 404, { ok: false });
   const wb = () => require('../services/ppmWorkbenchStore').makeWorkbenchStore(rdb().pgHandle(), store);
+  const WBP = require('../services/ppmWorkbench'), pub = (ms) => (ms || []).map(WBP.publicMember);   // UAT-OI-08: no login names
 
   // ---- R2-WB-04 project team ------------------------------------------------------------------------------------
   const teamOn = async (res) => { if (!on(await cfg(), 'ppm_project_team_enabled')) { notFound(res); return false; } return true; };
@@ -41,7 +42,17 @@ module.exports = function governanceWorkbenchRoutes(router, h) {
     try {
       if (!(await teamOn(res))) return;
       const p = await readableProject(req.reportUser, req.params.id); if (!p) return notFound(res);
-      res.json({ ok: true, members: await wb().listMembers(p.id) });
+      res.json({ ok: true, members: pub(await wb().listMembers(p.id)) });
+    } catch (e) { fail(res, e); }
+  });
+  // UAT-OI-08 — the user picker for a member: whoever may edit this project's team gets the active users (id + display
+  // name, never an e-mail); a member stays free text when no account is picked (external people).
+  router.get('/api/governance/ppm/project/:id/team/people', requireReportSession, async (req, res) => {
+    try {
+      if (!(await teamOn(res))) return;
+      const p = await readableProject(req.reportUser, req.params.id); if (!p) return notFound(res);
+      if (await refusePlanWrite(req, res, 'task', { body: { project_id: p.id } })) return;
+      res.json({ ok: true, people: WBP.pickerPeople(await rdb().listUsers()) });
     } catch (e) { fail(res, e); }
   });
   router.put('/api/governance/ppm/project/:id/team', requireReportSession, json, async (req, res) => {
@@ -49,9 +60,11 @@ module.exports = function governanceWorkbenchRoutes(router, h) {
       if (!(await teamOn(res))) return;
       const p = await readableProject(req.reportUser, req.params.id); if (!p) return notFound(res);
       if (await refusePlanWrite(req, res, 'task', { body: { project_id: p.id } })) return;
-      const m = await wb().saveMember(p.id, req.body || {}, { user: req.reportUser });
+      const b = req.body || {};   // UAT-OI-08 — a linked account must be an existing user (the picker offers active ones)
+      if (b.user_id != null && b.user_id !== '' && !((await rdb().listUsers()) || []).some((x) => Number(x.id) === Number(b.user_id))) return httpFail(res, Object.assign(new Error('user_id is not a known user account'), { code: 'VALIDATION' }), 400, { ok: false, code: 'UNKNOWN_USER' });
+      const m = await wb().saveMember(p.id, b, { user: req.reportUser });
       log(req, 'team_member_saved', `project:${p.id}`, { member: m.id });
-      res.json({ ok: true, member: m, members: await wb().listMembers(p.id) });
+      res.json({ ok: true, member: WBP.publicMember(m), members: pub(await wb().listMembers(p.id)) });
     } catch (e) { fail(res, e); }
   });
   router.delete('/api/governance/ppm/project/:id/team/:mid', requireReportSession, async (req, res) => {
@@ -61,7 +74,7 @@ module.exports = function governanceWorkbenchRoutes(router, h) {
       if (await refusePlanWrite(req, res, 'task', { body: { project_id: p.id } })) return;
       await wb().removeMember(p.id, req.params.mid, { user: req.reportUser });
       log(req, 'team_member_removed', `project:${p.id}`, { member: Number(req.params.mid) });
-      res.json({ ok: true, members: await wb().listMembers(p.id) });
+      res.json({ ok: true, members: pub(await wb().listMembers(p.id)) });
     } catch (e) { fail(res, e); }
   });
 

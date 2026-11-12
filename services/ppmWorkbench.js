@@ -93,4 +93,28 @@ function crTransition(cr, action, actor, note) {
   return null;
 }
 
-module.exports = { CR_STATUSES, CR_ACTIONS, normaliseChangeRequest, crTransition, normaliseTimeEntry, normaliseMember, day, bad, text, numOrNull };
+// UAT-OI-08 (G3-UX) — people offered by the team picker and the member rows sent to a browser. A login name can be an
+// e-mail address (SSO accounts): neither the picker nor a team row ever carries one. The display name is the full
+// name, else the login name when it is not an address, else "User #id".
+const looksLikeEmail = (v) => /@/.test(String(v || ''));
+function personName(u) {
+  if (!u) return null;
+  const full = String(u.full_name || '').trim(), login = String(u.username || '').trim();
+  if (full && !looksLikeEmail(full)) return full;
+  if (login && !looksLikeEmail(login)) return login;
+  return u.id != null ? 'User #' + Number(u.id) : null;
+}
+/** Active users → [{ id, name }] sorted by name (no e-mail, no login name that is an address, no role). */
+function pickerPeople(users) {
+  return (users || []).filter((x) => x && x.active !== 0 && x.active !== false && x.id != null)
+    .map((x) => ({ id: Number(x.id), name: personName(x) }))
+    .sort((a, b) => String(a.name).localeCompare(String(b.name), 'fr'));
+}
+/** A member row for a browser: the linked account's display name, never its login name. */
+function publicMember(m) {
+  if (!m) return m;
+  const { username, user_full_name, ...rest } = m;
+  return { ...rest, user_name: m.user_id == null ? null : personName({ id: m.user_id, full_name: user_full_name, username }) };
+}
+
+module.exports = { CR_STATUSES, CR_ACTIONS, normaliseChangeRequest, crTransition, normaliseTimeEntry, normaliseMember, day, bad, text, numOrNull, personName, pickerPeople, publicMember };

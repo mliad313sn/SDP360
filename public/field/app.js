@@ -102,6 +102,9 @@
     if (me && e.user !== me) return 'other_user';
     return e.state || 'pending';
   }
+  // UAT-OI-04 — the badge starts as "…" (index.html) and only shows a number once this phone's outbox has been
+  // READ: a hard-coded "0" before the first read said "nothing waiting" while entries were queued (the f1 journey's
+  // 1-in-4 failure: its sync loop trusted that "0" on a fresh page and stopped before anything was sent).
   function renderOutbox() {
     obAll().then(function (items) {
       $('queue').textContent = String(items.length);

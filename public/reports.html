@@ -301,7 +301,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 .ar-scope--reports{background:#eef2ff;color:#4338ca}
 .ar-scope--risk{background:#fef2f2;color:#b91c1c}
 @media (max-width:880px){
-  .admin-layout{flex-direction:column}
+  /* UAT-OI-03 — stacked layout: stretch the content column to the viewport (flex-start sized it to its widest
+     table, 684 px at 320 px) and let each admin panel scroll its own wide tables horizontally. */
+  .admin-layout{flex-direction:column;align-items:stretch}
+  .admin-content{width:100%}
+  .admin-panel.active{overflow-x:auto;-webkit-overflow-scrolling:touch}
   .admin-rail{flex:1 1 auto;position:static;flex-direction:row;flex-wrap:wrap;width:100%}
   .admin-rail__group{flex:1 1 100%}
   .admin-rail__item{width:auto;flex:1 1 auto;justify-content:flex-start}

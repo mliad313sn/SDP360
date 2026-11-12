@@ -5,7 +5,8 @@ const assert = require('node:assert');
 const { runJourney } = require('./fixtures/harness');
 const { makeCommittee } = require('./fixtures/uat');
 
-const KNOWN = { 'S7-08:A': 'UAT-OI-03 admin console at 320 px', 'S7-08:B': 'UAT-OI-03 admin console at 320 px' };
+// UAT-OI-03 fixed (G3-UX): S7-08 no longer KNOWN — every admin panel reflows at 320 px.
+const KNOWN = {};
 
 runJourney('UAT S7 super_admin / IT operations (simulation, not acceptance)', async (ctx) => {
   const { world } = ctx;
@@ -61,7 +62,27 @@ runJourney('UAT S7 super_admin / IT operations (simulation, not acceptance)', as
     });
     await c.flow('S7-08', 'Admin à 320 px', async () => {
       const p = await c.page(me, '/reports.html#admin', { width: 320, wait: 'body' });
-      try { await p.waitForTimeout(1500); const bad = await c.layoutProblems(p); assert.deepStrictEqual(bad, []); return 'OK'; } finally { await p.__close(); }
+      try {
+        await p.waitForTimeout(1500);
+        assert.deepStrictEqual(await c.layoutProblems(p), [], 'Users panel');
+        // UAT-OI-03 — every visible rail entry (and every tab of a grouped entry), not only the Users card
+        const rail = await p.evaluate(() => [...document.querySelectorAll('#admin-rail .admin-rail__item')]
+          .filter((b) => b.offsetParent !== null).map((b) => b.dataset.panel || b.dataset.group));
+        let seen = 0;
+        for (const id of rail) {
+          await p.evaluate((k) => [...document.querySelectorAll('#admin-rail .admin-rail__item')]
+            .find((b) => b.offsetParent !== null && (b.dataset.panel || b.dataset.group) === k).click(), id);
+          await p.waitForTimeout(300);
+          const tabs = await p.evaluate(() => [...document.querySelectorAll('#ap-grouptabs .ap-tab')].filter((b) => b.offsetParent !== null).length);
+          for (let t = 0; t < Math.max(1, tabs); t++) {
+            if (tabs) { await p.evaluate((i) => [...document.querySelectorAll('#ap-grouptabs .ap-tab')].filter((b) => b.offsetParent !== null)[i].click(), t); await p.waitForTimeout(300); }
+            assert.deepStrictEqual(await c.layoutProblems(p), [], id + (tabs ? ' tab ' + t : ''));
+            seen++;
+          }
+        }
+        assert.ok(seen >= 5, 'walked ' + seen + ' admin panels');
+        return seen + ' panneaux d\'administration sans défilement horizontal';
+      } finally { await p.__close(); }
     });
   });
   c.finish();

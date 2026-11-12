@@ -24,3 +24,13 @@ test('persistentLimiter: uses the store, survives a "restart" (new limiter, same
   let n2 = 0; await broken(req, res(), () => n2++); const r5 = res(); await broken(req, r5, () => n2++);
   assert.equal(n2, 1); assert.equal(r5.code, 429, 'memory fallback still limits');
 });
+
+test('persistentLimiter: skip() → true lets the request through uncounted; a throwing skip keeps the limiter (UAT-OI-02)', async () => {
+  let n = 0; const res = () => { const r = { status: (c) => { r.code = c; return r; }, json: () => r, setHeader: () => {} }; return r; };
+  const on = persistentLimiter({ windowMs: 60000, max: 1, scope: 's', skip: async () => true, log: () => {} });
+  for (let i = 0; i < 3; i++) await on({ ip: '1.1.1.1' }, res(), () => n++);
+  assert.equal(n, 3);
+  const bad = persistentLimiter({ windowMs: 60000, max: 1, scope: 's', skip: async () => { throw new Error('x'); }, log: () => {} });
+  let m = 0; await bad({ ip: '1.1.1.2' }, res(), () => m++); const r2 = res(); await bad({ ip: '1.1.1.2' }, r2, () => m++);
+  assert.equal(m, 1); assert.equal(r2.code, 429);
+});
