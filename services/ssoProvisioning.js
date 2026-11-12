@@ -13,7 +13,7 @@
 const ROLE_ORDER = ['viewer', 'editor', 'admin', 'executive'];
 // C-18: kept in step with reports-db FEATURE_ROLES_KNOWN (tests/sso-grant-merge.test.js) — a mapped role missing here was dropped.
 const FEATURE_ROLES = new Set(['tracker-admin', 'tracker-editor', 'report-author', 'audit-viewer', 'scorecard-viewer', 'group-business',
-  'site-business', 'dashboard-publisher', 'committee-member', 'field-tech', 'finance-viewer', 'kpi-committee']);
+  'site-business', 'dashboard-publisher', 'committee-member', 'field-tech', 'finance-viewer', 'kpi-committee', 'finance-verifier']);
 
 function parseGroupMap(raw) {
   if (!raw) return [];

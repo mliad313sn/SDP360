@@ -55,6 +55,14 @@ const CAPABILITIES = Object.freeze([
   // ── feature roles (with the admin tier where the guard admits it)
   C('finance.read', 'Read asset amounts (finance, licences, investment, depreciation)', 'Lire les montants des actifs', 'high', 'asset_money', ['admin', 'finance-viewer'], 'platform',
     { requires_request: true }),
+  // A1 — Finance verifier: certifies a money figure (held EXACTLY; the handler also requires the money-read rule and
+  // refuses the last editor of the figures). B8 — dated FX rates and the Pronto actuals FILE import (admin tier).
+  C('finance.certify', 'Certify or revoke a Finance figure', 'Certifier ou révoquer un chiffre financier', 'critical', 'finance_certification', ['finance-verifier'], 'platform',
+    { requires_request: true, routes: ['/api/finance/certifications'] }),
+  C('finance.fx_rates.manage', 'Enter or retire dated FX rates', 'Saisir ou retirer les taux de change datés', 'high', 'fx_rate', ['admin'], 'platform',
+    { routes: ['/api/finance/fx-rates'] }),
+  C('finance.actuals.import', 'Import Pronto actuals from a file (dry run, reconcile, commit)', 'Importer les réels Pronto depuis un fichier', 'high', 'budget_actual', ['admin'], 'platform',
+    { routes: ['/api/finance/actuals'] }),
   // C-31 — KPI policy builder: drafts, proposals, shadow comparison, committee decisions (adoption = SoD in the store)
   C('kpi.policy.manage', 'Draft, propose, shadow-test and decide KPI policies', 'Rédiger, proposer, tester en ombre et décider les politiques KPI', 'high', 'kpi_policy', ['super_admin', 'kpi-committee'], 'platform',
     { routes: ['/api/kpi-policies'] }),

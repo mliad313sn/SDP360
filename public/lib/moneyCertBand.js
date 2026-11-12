@@ -8,6 +8,10 @@
  * words "Non certifié", never by colour alone; the per-site table puts every value
  * in a cell; a site with no denominator shows "—", never 0 %. No currency glyph.
  * Wording mirrors services/moneyCoverage.sentence().
+ *
+ * A1 (2026-11-12) — MoneyCertBand.financeHtml(statuses) renders the HUMAN Finance certification next to it, one line
+ * per scope, from GET /api/finance/status (only when finance_certification_enabled = '1'; a 404 = no line). It reads
+ * "Certifié par X le Y" ONLY for a valid certification; otherwise "Non certifié — …". Coverage stays the band above.
  */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
@@ -47,5 +51,15 @@
       '</div>';
   }
 
-  return { html: html, sentence: sentence };
+  var SCOPE_FR = { asset_finance: 'Finance des actifs', licences: 'Licences', investment: 'Investissement', depreciation: 'Amortissement', project_benefits: 'Bénéfices', project_actuals: 'Réels' };
+  function financeHtml(statuses) {
+    var list = (statuses || []).filter(function (s) { return s && s.badge; });
+    if (!list.length) return '';
+    return '<div class="money-fin-cert" role="note" style="border:1px solid var(--color-border);border-radius:6px;padding:8px 14px;margin-bottom:12px;font-size:13px">' +
+      '<strong>Certification Finance</strong> (' + esc(list[0].target && list[0].target.period) + ') — ' +
+      list.map(function (s) { return esc(SCOPE_FR[s.target && s.target.scope] || (s.target && s.target.scope)) + ' : <b>' + esc(s.badge.label) + '</b>'; }).join(' · ') +
+      ' · <a href="finance.html">registre</a></div>';
+  }
+
+  return { html: html, sentence: sentence, financeHtml: financeHtml };
 });

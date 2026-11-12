@@ -617,7 +617,8 @@ module.exports = function governanceRoutes(deps) {
   // Same gate as a plan write (committee; or an editor of the project's site with portfolio_editor_plan_writes on);
   // a money benefit also needs the money-read rule. The verifier must not be the person who entered the value.
   const holdsExactly = (u, role) => !!role && Array.isArray(u && u.roles) && u.roles.includes(role);
-  async function moneyVerifierRole() { return String((await reportConfig.getConfig(rdb().db)).benefit_money_verifier_role || '').trim(); }
+  // A1: with finance_certification_enabled = '1' and no explicit role, a MONEY benefit is verified by the finance-verifier.
+  async function moneyVerifierRole() { const c = await reportConfig.getConfig(rdb().db); return String(c.benefit_money_verifier_role || '').trim() || (String(c.finance_certification_enabled) === '1' ? 'finance-verifier' : ''); }
   async function moneyVerifier(u, benefitId) {
     const role = await moneyVerifierRole();
     const b = role ? await store.getBenefit(benefitId) : null;

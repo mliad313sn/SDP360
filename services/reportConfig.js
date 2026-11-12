@@ -252,6 +252,17 @@ const DEFAULTS = {
   // ledger note says so, the caller gets a warning and the views say "default, not confirmed". The rule itself is a
   // Finance decision (docs/ops/FINANCE-CURRENCY-RULES.md).
   finance_currency_required: '0',
+  // A1 (goal programme 2026-11-12) — PROPOSED: '1' = a named holder of the feature role finance-verifier (who may also
+  // read amounts, and did not enter the figures) CERTIFIES a money figure per scope × site/project × month on
+  // /finance.html; the "Non certifié" badge disappears only while the certified figures are unchanged (SHA-256), and
+  // the asset exports carry a "Finance certification" sheet. The coverage threshold stays a separate indicator.
+  // '0' (today) = the routes answer 404 and the pages are unchanged. Who holds the role is a Finance decision.
+  finance_certification_enabled: '0',
+  // B8 — PROPOSED: '1' = dated FX rates (USD / XOF / EUR, admin tier, audited), a reproducible converter naming the
+  // rate used, a per-user display currency, and the Pronto actuals FILE import (mapping → dry run → reconciliation →
+  // commit to the budget periods, never written back). '0' (today) = 404 everywhere. Imported actuals stay
+  // "not certified" until a finance-verifier certifies them. Layout of the Pronto export and the rate source: Finance.
+  actuals_import_enabled: '0',
   // E-P06 (audit P-06) — PROPOSED: '1' = RACI tab on the project page (task × person, exactly one A per task, CSV export);
   // ppm_templates_enabled '1' = save a project's STRUCTURE as a template (no people, dates or money), approved by another
   // committee member before it can create a project. Both 404 while '0'.

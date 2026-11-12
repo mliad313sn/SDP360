@@ -77,7 +77,7 @@ const ENUMS = {
 // Same vocabulary as reports-db.js ROLE_HIERARCHY + FEATURE_ROLES_KNOWN (kept inline: this module stays pure).
 const KNOWN_ROLES = new Set(['super_admin', 'executive', 'admin', 'editor', 'viewer',
   'tracker-admin', 'tracker-editor', 'report-author', 'audit-viewer', 'scorecard-viewer', 'site-business',
-  'group-business', 'dashboard-publisher', 'committee-member', 'field-tech', 'finance-viewer', 'kpi-committee']);
+  'group-business', 'dashboard-publisher', 'committee-member', 'field-tech', 'finance-viewer', 'kpi-committee', 'finance-verifier']);
 
 function _roles(v) {
   const list = String(v == null ? '' : v).split(',').map((s) => s.trim()).filter(Boolean);
@@ -126,6 +126,8 @@ function uiPolicyFrom(cfg) {
     sla_headline: require('../public/lib/slaDual').normalizeHeadline(c.sla_headline_definition),
     // F-UX-06 — not a ui_* key (it is a telemetry switch): the browser only needs to know whether to send events
     ux_events: String(c.ux_event_telemetry == null ? '' : c.ux_event_telemetry).trim() === '1' ? '1' : '0',
+    // A1/B8 — not a ui_* key: the shell shows the Finance certification entry only while one of its switches is on
+    finance_page: ['finance_certification_enabled', 'actuals_import_enabled'].some((k) => String(c[k] == null ? '' : c[k]).trim() === '1') ? '1' : '0',
   };
 }
 
