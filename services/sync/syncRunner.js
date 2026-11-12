@@ -107,7 +107,9 @@ function createSyncRunner(options = {}) {
    * @param {function} [job.dedupe]            - (rows) => rows — defaults to dedupeBy(job.key)
    * @param {string|function} [job.key]        - natural key for dedup (field name or row => key)
    * @param {object} [job.opts]                - overrides of DEFAULTS
-   * @returns {Promise<object>} run summary {status, rows, attempts, skipped, error}
+   * @returns {Promise<object>} run summary {status: 'ok'|'error'|'skipped', rows, attempts, reason, error}
+   *   'skipped' = overlap (reason 'overlap', nothing recorded) or the job declared it did not collect
+   *   (fetch returned { skipped: true, reason }) — recorded, watermark untouched.
    */
   async function run(job) {
     if (!job || !job.name || typeof job.fetch !== 'function') throw new TypeError('run(job): name and fetch are required');
@@ -131,6 +133,17 @@ function createSyncRunner(options = {}) {
         attempt++;
         try {
           const fetched = (await job.fetch({ watermark, attempt })) || {};
+          // F-ARCH-01 / F-DATA-01 (E04) — the job says it did not collect (source not configured, feature off).
+          // That is neither a success nor a failure: status 'skipped', no rows, watermark untouched, so the last
+          // real collection (status 'ok') keeps its date and freshness never reads a skip as FRESH.
+          if (fetched.skipped === true) {
+            const reason = scrub(fetched.reason || 'not configured').slice(0, 200);
+            const t1 = now();
+            await store.finishRun(runId, { finished_at: t1, status: 'skipped', attempts: attempt, rows: null, error: null, meta: { watermark, skipped: reason } });
+            log('info', `${job.name}: skipped (${reason})`);
+            onEvent('sync_skipped', { job: job.name, reason, attempts: attempt });
+            return { status: 'skipped', job: job.name, reason, attempts: attempt, watermark };
+          }
           let rows = Array.isArray(fetched.rows) ? fetched.rows : [];
           const rawCount = rows.length;
 

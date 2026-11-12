@@ -41,8 +41,8 @@ test('without the engagement binding every engagement job is a recorded skip, ne
   const r = runner();
   for (const name of ['engagement.alerts', 'engagement.digest', 'engagement.digest_weekly', 'publish.connectors']) {
     const out = await r.run(jobOf(jobs, name).job);
-    assert.equal(out.status, 'ok', name);
-    assert.equal(out.rows, 0, name);
+    assert.equal(out.status, 'skipped', name);   // F-ARCH-01: a skip is not an ok run
+    assert.equal(await r.store.lastSuccessfulRun(name), null, name);
   }
 });
 

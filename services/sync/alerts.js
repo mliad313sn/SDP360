@@ -52,12 +52,18 @@ function createAlerter({ store, senders = [], now = () => Date.now(), streak = D
       if (!hours) continue;
       const neverRan = !r.last_ok;
       if (neverRan && optional.has(r.job)) continue;
+      // F-ARCH-01 — a skip is not a collection, so last_ok no longer moves while a job skips. An OPTIONAL job
+      // whose newest run is a skip (integration not configured / feature disarmed) is not paged: health shows
+      // it as not_configured with its last real collection date. A MANDATORY job that skips ages and alerts.
+      const skippedLast = !!r.last_skipped && (neverRan || Date.parse(r.last_skipped) > Date.parse(r.last_ok));
+      if (skippedLast && optional.has(r.job)) { await clearAlert(`stale:${r.job}`); continue; }
       const ageMs = neverRan ? Infinity : now() - Date.parse(r.last_ok);
       if (ageMs <= hours * 3600 * 1000) { await clearAlert(`stale:${r.job}`); continue; }
       const last = await lastAlertAt(`stale:${r.job}`);
       if (last && now() - last < STALE_REPEAT_MS) continue;
       await markAlert(`stale:${r.job}`);
-      out.push(await send('stale', r.job, neverRan ? `${r.job} has never succeeded.` : `${r.job} last succeeded ${Math.round(ageMs / 36e5)} h ago (window ${hours} h).`));
+      const skipNote = skippedLast ? ` Its last run was skipped${r.skip_reason ? ` (${r.skip_reason})` : ''}.` : '';
+      out.push(await send('stale', r.job, (neverRan ? `${r.job} has never succeeded.` : `${r.job} last succeeded ${Math.round(ageMs / 36e5)} h ago (window ${hours} h).`) + skipNote));
     }
     return out;
   }

@@ -122,7 +122,10 @@ test('G05 failOnZero: a configured source answering nothing is a failed run; an 
   assert.notEqual(empty.status, 'ok');
   const r2 = runnerWith(storeWithRecent());
   const skipped = await r2.run(legacyJob('meraki.wan', async () => ({ skipped: true }), { failOnZero: true, maxAttempts: 1 }));
-  assert.equal(skipped.status, 'ok');
+  // F-ARCH-01 — a skip is recorded as skipped (was: an ok run with 0 rows, which read FRESH)
+  assert.equal(skipped.status, 'skipped');
+  assert.equal(await r2.store.lastSuccessfulRun('meraki.wan'), null);
+  assert.equal(await r2.store.getWatermark('meraki.wan'), null);
   const r3 = runnerWith(storeWithRecent());
   const full = await r3.run(legacyJob('opmanager.availability', async () => ({ ok: true, mode: 'rest', devices: 12 }), { failOnZero: true, maxAttempts: 1, rowsOf: (x) => Number(x.rows ?? x.devices) }));
   assert.equal(full.status, 'ok'); assert.equal(full.rows, 12);
