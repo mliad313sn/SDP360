@@ -13,7 +13,7 @@ of the pages it renders: treat it as a candidate only after a report-only run sh
 
 Violations: not measured in this file (“—”). Run with `--violations <export.json>` after a report-only period to add observed counts.
 
-Journeys: 36 — strict 0, enforceable 9, blocked 27, unknown 0.
+Journeys: 44 — strict 0, enforceable 10, blocked 34, unknown 0.
 
 ## Journeys
 
@@ -55,6 +55,14 @@ Journeys: 36 — strict 0, enforceable 9, blocked 27, unknown 0.
 | Super admin | Share an Analytics view by its URL: the colleague opens the same filters (site, period, status, type), Back restores, Reset clears | `/home.html`, `/analytics.html` | blocked | `/analytics.html` |
 | Site editor | Leave a human note on a dashboard trend so readers see why a point moved (switch `chart_annotations_enabled`) | `/home.html`, `/dashboards.html` | blocked | `/dashboards.html` |
 | Committee member (Group IT, extra) | Prepare Friday's agenda from the cadence | `/cockpit.html` | blocked | `/cockpit.html` |
+| Site IT coordinator (UAT-F seat 1, simulation) | Daily work in pass A (defaults) and pass B (plan F pilot profile): Home queue, weekly report, action register, PV, inspections, French at 32 | `/home.html`, `/site-actions.html` | blocked | `/site-actions.html` |
+| Two-site coordinator (UAT-F seat 2, simulation) | Reports of both sites never a third, PV on the second site, queue of both sites, site carried in the menu, default site among own sites | `/home.html`, `/reports.html` | blocked | `/reports.html` |
+| Group IT / PMO (UAT-F seat 3, simulation) | Portfolio list/board, project plan, team, time entries, change request approved by another member, decision as chair, department roll-up, wo | `/portfolio.html`, `/project.html` | blocked | `/portfolio.html`, `/project.html` |
+| Finance reader (UAT-F seat 4, simulation) | Project budget visible (hidden from a viewer), asset amounts not certified, benefit value class, amount without currency, no write, budget-p | `/portfolio.html`, `/assets.html` | blocked | `/portfolio.html`, `/assets.html` |
+| Executive (UAT-F seat 5, simulation) | IT Review, scorecard charts standard, dashboards with the KPI definition drawer, portfolio and fleet reading, 390 px | `/it-review.html`, `/dashboards.html` | blocked | `/it-review.html`, `/dashboards.html` |
+| Field technician (UAT-F seat 6, simulation, SIMULATED network) | Field app at 390 px in French, offline capture then sync, no report/PV write, Home at 390 px, field profile | `/field/index.html` | enforceable | — |
+| Super admin / IT operations (UAT-F seat 7, simulation) | Admin console, security journal, source freshness, users and redacted config, controlled roadmap publication, department crosswalk, workspac | `/reports.html`, `/workspace-settings.html` | blocked | `/reports.html` |
+| Site business user (UAT-F seat 8, simulation) | Site IT status, neighbour site refused, no write and no internal list, internal queue never queried, French at 320 px, business profile | `/site-awareness.html` | blocked | `/site-awareness.html` |
 
 ## Pages used by the journeys
 
@@ -82,8 +90,10 @@ Journeys: 36 — strict 0, enforceable 9, blocked 27, unknown 0.
 | `/project.html` | 1 | 0 | blocked | — |
 | `/reports.html` | 2 | 184 | blocked | — |
 | `/site-actions.html` | 1 | 0 | blocked | — |
+| `/site-awareness.html` | 2 | 0 | blocked | — |
 | `/system-logs.html` | 1 | 0 | blocked | — |
 | `/wan.html` | 3 | 0 | blocked | — |
+| `/workspace-settings.html` | 0 | 0 | enforceable | — |
 
 ## Order of work (proposal)
 

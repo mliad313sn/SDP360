@@ -46,7 +46,10 @@
   .hq-late { color: var(--color-danger); font-weight: 700; } .hq-reg { color: var(--color-text-muted); font-size: 12px; }
   .hq-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   body.hm-compact .hm-card { padding: 10px 12px; margin-bottom: 10px; } body.hm-compact .hm-blocks li { padding: 4px 0; }
-  @media (max-width: 480px) { .hm-wrap { padding: 16px 12px 32px; } .hm-sites { grid-template-columns: 1fr; } .hq-src { min-width: 0; width: 100%; } }
+  @media (max-width: 480px) { .hm-wrap { padding: 16px 12px 32px; } .hm-sites { grid-template-columns: minmax(0, 1fr); } .hq-src { min-width: 0; width: 100%; } }
+  /* UAT-F (S1-07) — a site card must reflow at 320 px: a 1fr track floors at its content's min width, so a long label
+     pushed the card past the viewport (WCAG 1.4.10). The track may shrink to 0 and the key/value pair wraps. */
+  .hm-blocks li { flex-wrap: wrap; } .hm-k, .hm-v { min-width: 0; overflow-wrap: anywhere; }
   body.lang-fr [data-lng="en"], body:not(.lang-fr) [data-lng="fr"] { display: none; }
 </style>
 </head>
