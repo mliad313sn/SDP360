@@ -25,10 +25,10 @@ function makeFinanceCertStore(H) {
     if (scope_key) { c.push('scope_key = ?'); p.push(scope_key); }
     if (period) { c.push('period = ?'); p.push(period); }
     if (status) { c.push('status = ?'); p.push(status); }
-    return (await P(`SELECT * FROM finance_certifications ${c.length ? 'WHERE ' + c.join(' AND ') : ''} ORDER BY id DESC LIMIT ${Math.max(1, Math.min(5000, Number(limit) || 500))}`).all(...p)).map(row);
+    return (await P(`SELECT * FROM finance_certifications ${c.length ? 'WHERE ' + c.join(' AND ') : ''} ORDER BY id DESC LIMIT ${Math.max(1, Math.min(5000, Math.floor(Number(limit)) || 500))}`).all(...p)).map(row);
   }
   async function events({ limit = 2000 } = {}) {
-    return P(`SELECT id, certification_id, event, scope, scope_key, period, figures_hash, actor_id, actor_name, at, note FROM finance_certification_events ORDER BY id DESC LIMIT ${Math.max(1, Math.min(10000, Number(limit) || 2000))}`).all();
+    return P(`SELECT id, certification_id, event, scope, scope_key, period, figures_hash, actor_id, actor_name, at, note FROM finance_certification_events ORDER BY id DESC LIMIT ${Math.max(1, Math.min(10000, Math.floor(Number(limit)) || 2000))}`).all();
   }
   /** Certify (supersedes the current verified row of the same target, if any). */
   async function certify(t, { hash, summary, user }) {

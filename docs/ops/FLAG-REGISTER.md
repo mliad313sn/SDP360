@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (245) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (246) — services/reportConfig.js DEFAULTS
 
 Prerequisites (E-A07, services/switchPrereqs.js) are WARNINGS in plain words, never approvals: the config PUT
 answer and the `set-ui-policy.js` dry run repeat them when the switch is moved to its switched-on value.
@@ -66,6 +66,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `chart_annotations_enabled` | `0` | arm switch | Owner (UI policy) | `1` (proposal — after a browser review; notes are human-entered with a mandatory source) | E-V08 | — |
 | `commitment_notify_enabled` | `0` | arm switch | to be named | — | — | — |
 | `commitments_enabled` | `0` | arm switch | to be named | — | — | — |
+| `connector_health_page_enabled` | `0` | arm switch | Owner (UI policy) | `1` once the admins are told where the page is: shows the **Connector health** entry (Configure, admin tier; hidden in the lean profile, still in the finder) — per connector last success / failure with a plain cause, freshness, coverage and fix tasks with an owner. Presentation only: `/connector-health.html` and its routes stay reachable and guarded either way. Rollback: set `0` (menu as today) | P4 / A2 | — |
 | `controls_register_enabled` | `0` | arm switch | GRC owner + Security owner | `1` once GRC names who adopts controls (the four seeded controls stay `candidate` until a person adopts them with a reason; frequencies and testers are GRC decisions) | E-G04 | — |
 | `csp_strict_pages` | `` | setting | Security owner | keep empty until a page is listed as enforceable in `docs/security/CSP-JOURNEYS.md` (no inline script, no inline handler) AND a report-only run (`SDP_CSP_REPORT_ONLY=1`) shows no violation for it; then add it here, one journey at a time, e.g. `/access.html` — a comma list of pages served with the nonce-only `script-src` (applies within 30 s, no restart; emptying it returns to today). It can only make a page stricter: no script origin is ever added — PROPOSITION, no page approved | F-ARCH-06 | — |
 | `dashboard_decision_kpis_seed` | `0` | setting | KPI committee | `0` until the KPI committee has chosen its two decision KPIs (`1` only creates an unpublished draft of the two candidates) | F-DATA-11 | — |

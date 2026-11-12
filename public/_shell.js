@@ -210,7 +210,7 @@
         { id: 'obligations', group: 'Governance',  label: 'Site obligations',   icon: ICON_LIB['clipboard-check'], href: 'obligations.html',      roles: ['any'], lean_hidden: true },
         { id: 'policies', group: 'Configure',     label: 'Governance policies', icon: ICON_LIB['clipboard-check'], href: 'policies.html',        roles: ['admin', 'committee-member'] },
         { id: 'integrations', group: 'Configure', label: 'Integrations',       icon: ICON_LIB.zap,                href: 'integrations.html',     roles: ['admin'] },
-        { id: 'connector-health', group: 'Configure', label: 'Connector health', icon: ICON_LIB.zap,              href: 'connector-health.html', roles: ['admin'] },
+        { id: 'connector-health', group: 'Configure', label: 'Connector health', icon: ICON_LIB.zap,              href: 'connector-health.html', roles: ['admin'], policy: 'connector_health_page', lean_hidden: true },
         { id: 'data-quality', group: 'Configure', label: 'Data quality',       icon: ICON_LIB['clipboard-check'], href: 'data-quality.html',     roles: ['admin'], policy: 'data_quality_page' },
         { id: 'field', group: 'Configure',        label: 'Field app',          icon: ICON_LIB['clipboard-check'], href: 'field/index.html',      roles: ['editor', 'field-tech'],
           lean_roles: ['field-tech'], lean_group: 'Governance' }

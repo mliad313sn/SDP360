@@ -117,7 +117,7 @@ function buildMatrix(app, deps = {}) {
   const bguard = deps.businessGuard || require('../../services/businessGuard');
   const { isBusinessOnly } = require('../../public/lib/businessRoles');
   const roles = [...rdb.ROLE_HIERARCHY, ...rdb.FEATURE_ROLES_KNOWN];
-  const routes = walkRoutes(app._router.stack).filter((r) => typeof r.path === 'string' && (r.path.startsWith('/api') || r.path === '/health' || r.path === '/ready'));
+  const routes = walkRoutes(require('../../services/routerStack').routerStack(app)).filter((r) => typeof r.path === 'string' && (r.path.startsWith('/api') || r.path === '/health' || r.path === '/ready'));
   const seen = new Set();
   const rows = [];
   for (const r of routes) {
