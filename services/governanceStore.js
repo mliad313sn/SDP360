@@ -192,12 +192,30 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     return decRow(await P(`SELECT * FROM decisions WHERE id=?`).get(id));
   }
   async function getDecision(id) { return decRow(await P(`SELECT * FROM decisions WHERE id=?`).get(Number(id))); }
-  async function updateDecision(id, patch) {
+  // F-PRODUCT-06 — a status change goes through services/decisionLifecycle (free while the switch is off, the transition
+  // table while it is on) and ALWAYS leaves a hash-chained ppm_events row (entity 'decision': old / new / actor / reason).
+  // opts.lifecycle = { enforced, actor: 'committee' | 'site' }; opts.reason; opts.user.
+  async function updateDecision(id, patch, opts = {}) {
+    const DL = require('./decisionLifecycle');
     const p = {}; for (const k of ['title', 'text', 'owner', 'due_date']) if (patch[k] !== undefined) p[k] = str(patch[k]);
-    if (patch.status) { if (!DECISION_STATUSES.includes(patch.status)) throw Object.assign(new Error('bad decision status'), { code: 'INVALID' }); p.status = patch.status; p.closed_at = ['done', 'cancelled'].includes(patch.status) ? now() : null; }
-    await updateRow('decisions', id, p, Object.keys(p));
-    return decRow(await P(`SELECT * FROM decisions WHERE id=?`).get(Number(id)));
+    if (!patch.status) { await updateRow('decisions', id, p, Object.keys(p)); return getDecision(id); }
+    const lc = opts.lifecycle || {};
+    return tx(async () => {
+      const cur = await getDecision(id); if (!cur) return null;
+      const r = DL.resolve(cur.status, patch.status, { actor: lc.actor || 'committee', reason: opts.reason, enforced: lc.enforced === true });
+      if (!r.ok) throw Object.assign(new Error(r.error), { code: r.code, status: r.status, expose: true });
+      if (r.changed) {
+        // guarded by the status we read: two writers cannot both move the same decision
+        const moved = await P(`UPDATE decisions SET status=?, closed_at=?, updated_at=? WHERE id=? AND status=?`).run(r.to, DL.isClosed(r.to) ? now() : null, now(), Number(id), cur.status);
+        if (Number(moved && moved.changes) !== 1) throw Object.assign(new Error('the decision changed meanwhile — reload and retry'), { code: 'STALE', status: 409, expose: true });
+        await ppmEvent({ entity: 'decision', entity_id: Number(id), action: r.proposed ? 'completion_proposed' : 'status', field: 'status', old_value: cur.status, new_value: r.to, note: opts.reason }, opts.user);
+      }
+      await updateRow('decisions', id, p, Object.keys(p));
+      const d = await getDecision(id);
+      return r.proposed ? { ...d, proposed: true } : d;
+    });
   }
+  const decisionHistory = (id) => ppmEvents('decision', id);
 
   // ── RFI register ──────────────────────────────────────────────────────────────────
   const rfiRow = (r) => r && ({ ...r, id: Number(r.id), impact: Number(r.impact), effort: Number(r.effort), data_risk: Number(r.data_risk), site_id: r.site_id == null ? null : Number(r.site_id), score: rfiScore(r) });
@@ -799,7 +817,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   }
   async function minutesHistory(sessionId) { return (await P('SELECT action, actor_id, at, reason FROM minutes_history WHERE session_id=? ORDER BY id').all(Number(sessionId))).map(r => ({ ...r, actor_id: r.actor_id == null ? null : Number(r.actor_id) })); }
   return { ppmEvent, ppmEvents, listBudgetPeriods, saveBudgetPeriod, getRaci, saveRaci, listTemplates, getTemplate, saveTemplateFromProject, approveTemplate, createProjectFromTemplate, moveProjectStage, rfiToProject, getRfi, verifyRfi, rfiFromMeeting, rfiForMeeting, rfiLineage, setAttendance, saveDraftAgenda, getDecision, openSessionActions, addMinutesHistory, minutesHistory, init, listCadences, getCadence, saveCadence, removeCadence, listSessions, getSession, createSession, updateSession, stampItem, sessionActions, addSessionAction, setSessionActionStatus, moveSession,
-    listDecisions, addDecision, updateDecision, listRfi, submitRfi, triageRfi, rfiScore, portfolio, upsertPortfolio, removePortfolio,
+    listDecisions, addDecision, updateDecision, decisionHistory, listRfi, submitRfi, triageRfi, rfiScore, portfolio, upsertPortfolio, removePortfolio,
     restorePortfolio, getPortfolioTrashRow, listDeletedPortfolio, purgeDeletedPortfolio, restoreCadence, getCadenceTrashRow, listDeletedCadences, purgeDeletedCadences, projectSites, setProjectSites, getProject, planRow, projectDetail, gateCounts, RISK_KINDS, listBaselines, rebaseline, alertStates, saveAlertState, listBenefits, getBenefit, recordBenefitRealised, verifyBenefit, dueBenefitReviews, ownedBenefitReviews,
     CADENCE_KINDS, SESSION_STATUSES, DECISION_STATUSES, RFI_KINDS, RFI_STATUSES, PROJECT_STATUSES, CONFIDENCE };
 }

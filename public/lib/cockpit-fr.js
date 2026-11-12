@@ -18,7 +18,7 @@ window.COCKPIT_FR = {
   'Start': 'Commencer', 'Done': 'Terminé', 'Notes': 'Notes', 'None yet.': 'Rien pour l\'instant.', 'No active major incident.': 'Aucun incident majeur en cours.', 'No pending decision.': 'Aucune décision en attente.', 'Nothing to triage.': 'Rien à trier.',
   'No published tracker.': 'Aucun suivi publié.', 'No objective.': 'Aucun objectif.', 'Agree the next session date and owners.': 'Convenir de la date de la prochaine séance et des responsables.',
   'Why is this session cancelled? (the committee approves it as an exception)': 'Pourquoi cette séance est-elle annulée ? (le comité l\'approuve comme exception)',
-  'Close the session and generate the minutes?': 'Clore la séance et générer le compte rendu ?', 'Session closed — minutes generated.': 'Séance close — compte rendu généré.', 'Recorded': 'Enregistrée',
+  'Close the session and generate the minutes?': 'Clore la séance et générer le compte rendu ?', 'Session closed — minutes generated.': 'Séance close — compte rendu généré.', 'Recorded': 'Enregistrée', 'Reason (required for this change)': 'Motif (obligatoire pour ce changement)',
   'No cadence yet — create one below.': 'Aucune cadence — créez-en une ci-dessous.', 'No cadence yet.': 'Aucune cadence.', 'Saved.': 'Enregistré.', 'Cadence saved.': 'Cadence enregistrée.', 'Saved': 'Enregistré', 'Not sent yet — kept on this device': 'Pas encore envoyé — conservé sur cet appareil',
   'Unsent draft restored from this device — it will be sent automatically': 'Brouillon non envoyé restauré depuis cet appareil — il sera envoyé automatiquement',
   'Minutes accepted — the session is now read-only.': 'Compte rendu accepté — la séance est désormais en lecture seule.', 'Skip to content': 'Aller au contenu',

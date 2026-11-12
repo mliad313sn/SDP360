@@ -230,6 +230,11 @@ const DEFAULTS = {
   // E-P08 (catalogue R16) — PROPOSED: '1' = the annual planning DRAFT pack (XLSX, every sheet "DRAFT — not approved",
   // per-currency budget roll-up under the money rule, envelope UNKNOWN until Finance enters it); 404 while '0'.
   ppm_annual_pack_enabled: '0',
+  // F-PRODUCT-06 (committee 12 Nov 2026, N6 / E08) — PROPOSED: '0' = today (a decision's status moves freely between
+  // open / in_progress / done / cancelled). '1' = services/decisionLifecycle applies: a site moves open ↔ in_progress and
+  // its "done" is stored as awaiting_confirmation until the committee confirms; cancel / reopen need a reason; an illegal
+  // jump is refused (409). The status history (ppm_events, entity 'decision') is written either way.
+  decision_lifecycle_enforced: '0',
   site_codes_from_registry: '0',   // DEC-4 — '1' = site_module_codes wins over the modules' hard-coded maps (diff first: GET /api/governance/site-codes); 'shadow' (E-D01) = hard maps answer, divergences logged once/day   // ADR-006 — in-app notice to the escalation-matrix target of a new A01 / A02 (off = ledger only, as before)
   site_code_shared_block: '0',   // D-01 (AM-01) — '1' = refuse a scoped editor's tracker/meetings/inspection save under a code two active sites share (409, never picks an owner)
 };
