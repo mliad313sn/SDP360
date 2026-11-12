@@ -14,24 +14,9 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 
 const GUARDS = ['requireReportSession', 'requireAdmin', 'requireSuperAdmin', 'requireRole', 'requireExecutiveOrSuperAdmin', 'requireEditor', 'requireExecutive'];
-// Public by design (reason). Everything else under /api needs a guard.
-const PUBLIC = {
-  'GET /health': 'liveness probe',
-  'GET /ready': 'readiness probe — {ok, db, last_job_at} only, no business data (fiche C1/M14)',
-  'GET /api/health': 'liveness probe',
-  'GET /api/exec/summary': 'SharePoint-facing aggregates, PII-whitelisted (Exec View v1)',
-  'GET /api/auth/config': 'SSO mode discovery before login',
-  'GET /api/auth/sso/login': 'OIDC start',
-  'GET /api/auth/sso/callback': 'OIDC return',
-  'POST /api/reports/auth/login': 'password login (rate-limited)',
-  'GET /api/actions/open': 'Meridian server-to-server — own X-API-Key check inside routes/meridian.js',
-};
-// Routes that rely ONLY on the global /api/ gate (a session, or — for server-to-server callers
-// without cookie/Origin — the x-dash-key). Since fiche C1 (2026-10-20) the key is injected into a
-// page only with a valid session and never satisfies the gate alone from a browser. Listed so the
-// gate's reach is explicit; /api/orgs, /api/workspaces, /api/health/views and the risk-register
-// export left this list when they moved to requireReportSession.
-const GLOBAL_GATE_PREFIXES = ['/api/data/', '/api/survey/', '/api/sync/', '/api/dashboard/', '/api/ai/', '/api/risk-register-config', '/api/admin/', '/api/exec/', '/api/analytics/', '/api/integrations/', '/api/meetings/', '/api/inspection/', '/api/tracker/', '/api/assets/', '/api/roadmap/', '/api/teams-sla/', '/api/metrics/', '/api/fmp/', '/api/meridian/', '/api/sites', '/api/reconcile', '/api/4mp', '/api/site-awareness', '/api/changes', '/api/major-incidents', '/api/weeks', '/api/exec-pptx', '/api/ping'];
+// Public by design (reason) + the prefixes behind the global /api gate only. A0: the single source is
+// tools/agent/authz-walk.js, shared with the machine-readable docs/ops/authz-matrix.json (tests/authz-matrix-json.test.js).
+const { PUBLIC, GLOBAL_GATE_PREFIXES } = require('../tools/agent/authz-walk');
 
 function walk(stack, prefix, out) {
   for (const layer of stack || []) {
