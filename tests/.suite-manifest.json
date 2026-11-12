@@ -155,7 +155,7 @@
   "dashboard-store.test.js": 5,
   "dashboard-time-truth.test.js": 12,
   "dashboard-widget-truth.test.js": 13,
-  "dashboard-widgets.test.js": 10,
+  "dashboard-widgets.test.js": 11,
   "dashboards-routes.smoke.test.js": 9,
   "dashkey-only-routes.smoke.test.js": 6,
   "data-quality.smoke.test.js": 2,
@@ -667,6 +667,7 @@
   "week-labels.test.js": 5,
   "weekly-report-data.test.js": 16,
   "weekly-send-route.smoke.test.js": 4,
+  "widget-catalogue.test.js": 4,
   "zoho-sync-truncation-guard.test.js": 3,
   "zoho-sync-udf.test.js": 3
  }

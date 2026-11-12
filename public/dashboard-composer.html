@@ -191,7 +191,7 @@
     var errCount = function (id) { return lastErrors.filter(function (x) { return x.widgetId === id; }).length; };
     $('wlist').innerHTML = doc.widgets.map(function (w, i) {
       var n = errCount(w.id), id = R.escapeHtml(w.id);
-      return '<li><span class="edv-chip">' + R.escapeHtml(w.type) + '</span><span class="grow">' + R.escapeHtml(w.id + ' — ' + (w.title || '') + (w.metric ? ' · ' + w.metric : '')) + (n ? ' <span class="ferr">(' + n + ' to fix)</span>' : '') + '</span>' +
+      return '<li><span class="edv-chip">' + R.escapeHtml(w.type) + '</span><span class="grow">' + R.escapeHtml(w.id + ' — ' + (w.title || '') + (w.metric ? ' · ' + w.metric : '')) + ' <span class="meta">' + R.escapeHtml(R.decisionText(w)) + '</span>' + (n ? ' <span class="ferr">(' + n + ' to fix)</span>' : '') + '</span>' +
         '<span class="meta">' + (sizes[w.id] || CG.sizeOf(w.layout, cols)) + '</span>' +
         '<button class="btn mv" type="button" data-move="up" data-id="' + id + '" aria-label="Move ' + id + ' up"' + (i === 0 ? ' disabled' : '') + '>↑</button>' +
         '<button class="btn mv" type="button" data-move="down" data-id="' + id + '" aria-label="Move ' + id + ' down"' + (i === doc.widgets.length - 1 ? ' disabled' : '') + '>↓</button></li>';

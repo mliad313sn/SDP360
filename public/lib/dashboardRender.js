@@ -267,6 +267,11 @@
     return c;
   }
 
+  // F-DATA-12 — the decision a widget supports, as the composer lists it; empty = "not stated", never guessed.
+  function decisionText(w) {
+    var d = w && typeof w.decision === 'string' ? w.decision.trim() : '';
+    return 'decision: ' + (d || 'not stated');
+  }
   function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]; }); }
 
   /** Minimal Markdown for the text widget: **bold**, *italic*, line breaks — escaped first. */
@@ -415,5 +420,5 @@
 
   return { redActionSourceId, parseRedActionSource, redActionHtml, multiplesTableSpec, multiplesHtml, sampleNote, gridStyle, formatValue, ragClass, ragDot, kpiContext, staleBadge, baseLine, safeRelativeHref, actionLink, sortRows, shortLabel, windowSeries, trendLength, widgetDataPlan, summarizeGrid, escapeHtml, miniMarkdown, isoWeek,
     rowState, barListHtml, tableHtml, sortTableRows, ragGridHtml, perSiteHtml, trackerHtml, seriesTableHtml,
-    periodBounds, isPartial, windowPartial, evalDate, seriesAnchor, partialNote, definitionDrawer, fleetCount };
+    periodBounds, isPartial, windowPartial, evalDate, seriesAnchor, partialNote, definitionDrawer, fleetCount, decisionText };
 });

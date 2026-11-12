@@ -93,7 +93,7 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `zoho.requests` — declared window 3 h |
-| Consumers | widget `exec-home#k-sla (kpi)`<br>widget `exec-home#tr-sla (trend)`<br>widget `exec-home#sites (ragGrid)`<br>widget `governance#tr (trend)`<br>alert rule `sla.resolution.red`<br>server code: `services/agendaBuilder.js`<br>server code: `services/dashboardWidgets.js`<br>server code: `services/kpiPolicyEngine.js`<br>server code: `services/reportConfig.js`<br>API routes: `routes/extApi.js`<br>API routes: `routes/governance.js`<br>API routes: `routes/kpiPolicies.js`<br>pages: `public/index.html`<br>pages: `public/portfolio.html`<br>browser libraries: `public/kpi-builder.js`<br>browser libraries: `public/lib/composerGuide.js` · tests: 32 file(s) |
+| Consumers | widget `exec-home#k-sla (kpi)`<br>widget `exec-home#tr-sla (trend)`<br>widget `exec-home#sites (ragGrid)`<br>widget `governance#tr (trend)`<br>alert rule `sla.resolution.red`<br>server code: `services/agendaBuilder.js`<br>server code: `services/dashboardWidgets.js`<br>server code: `services/kpiPolicyEngine.js`<br>server code: `services/reportConfig.js`<br>API routes: `routes/extApi.js`<br>API routes: `routes/governance.js`<br>API routes: `routes/kpiPolicies.js`<br>pages: `public/index.html`<br>pages: `public/portfolio.html`<br>browser libraries: `public/kpi-builder.js`<br>browser libraries: `public/lib/composerGuide.js` · tests: 33 file(s) |
 
 ## `helpdesk.first_reply_sla_pct`
 
@@ -460,7 +460,7 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | not tracked (no sync job feeds this module) |
-| Consumers | widget `field-site#insp (kpi)`<br>alert rule `inspection.overdue_actions` · tests: 1 file(s) |
+| Consumers | widget `field-site#insp (kpi)`<br>alert rule `inspection.overdue_actions` · tests: 2 file(s) |
 
 ## `assets.total`
 

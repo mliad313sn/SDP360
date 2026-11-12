@@ -21,6 +21,7 @@ const DELEGATES = new Map([
   ['routes/trackers.js', 'services/trackerLegacy.js'],
   ['routes/sites.js', 'services/siteMaster.js'],   // E-D02 site master export
   ['routes/dashboards.js', 'services/dashboardCsv.js'],   // F-DATA-05 dashboard figures CSV
+  ['routes/governancePpm.js', 'services/ppmRaci.js'],     // E-P06 RACI matrix CSV (raciCsv guards each cell)
 ]);
 
 function files() {

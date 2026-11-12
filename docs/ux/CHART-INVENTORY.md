@@ -20,8 +20,8 @@ Files scanned: **102** · inline <style> blocks: **53** · hex literals: **5577*
 | `public/cockpit.html` | 37755 | 1 | 47 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/commitments.html` | 20454 | 1 | 19 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/coverage.html` | 9984 | 1 | 25 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/dashboard-composer.html` | 27352 | 1 | 41 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/dashboards.html` | 23922 | 1 | 25 | 2 | line×2 | 0 | 0 | yes | yes | — | hex literals → _tokens.css variables |
+| `public/dashboard-composer.html` | 27423 | 1 | 41 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/dashboards.html` | 25022 | 1 | 25 | 2 | line×2 | 0 | 0 | yes | yes | — | hex literals → _tokens.css variables |
 | `public/data-quality.html` | 2733 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/exec-view.html` | 35089 | 1 | 108 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/executive-report.html` | 472416 | 2 | 294 | 1 | bar×7 doughnut×4 line×5 | 8 | 4 | yes | — | — | dual axis → small multiples, one unit per panel (§5.2 "comparaison à plusieurs séries"); doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
@@ -81,7 +81,7 @@ Files scanned: **102** · inline <style> blocks: **53** · hex literals: **5577*
 | `public/lib/composerGuide.js` | 18228 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/csvSafe.js` | 824 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/dashboard-shared.js` | 31736 | 0 | 1 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/lib/dashboardRender.js` | 30276 | 0 | 0 | 0 | — | 0 | 0 | — | yes | — | — |
+| `public/lib/dashboardRender.js` | 32866 | 0 | 0 | 0 | — | 0 | 0 | — | yes | — | — |
 | `public/lib/data-quality-page.js` | 2371 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/draftStore.js` | 11259 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/errorText.js` | 8003 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |

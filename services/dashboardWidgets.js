@@ -45,6 +45,9 @@ const MONTHLY_KINDS = ['month', 'ytd', 'rolling3m'];
 /** Tracker keys the trackerRag resolver understands: the Activity Tracker, optionally pinned to a year. */
 const TRACKER_KEY_RE = /^it-activity(-20[0-9][0-9])?$/;
 const MAX_EXTRA_SERIES = 4;
+// F-DATA-12 (C06/C19) — optional decision context per widget: the question it answers, the decision it supports,
+// the role that acts on it. Free text, never required; absent = "not stated" (shown so, never invented).
+const DECISION_FIELDS = { question: 200, decision: 200, audience_role: 64 };
 
 const AUDIENCES = ['site', 'executive', 'field', 'committee'];
 const FILTER_TYPES = ['site', 'window', 'month', 'week', 'group', 'department', 'text'];
@@ -164,6 +167,11 @@ function validateDashboard(doc, opts = {}) {
     }
     // E-V03 — "→ act" link: a relative URL only (no scheme, no //host), so a definition cannot point viewers off-site
     if (w.action_href != null && !R.safeRelativeHref(w.action_href)) E(`${p}.action_href`, 'action link must be a relative URL inside the dashboard (e.g. site-actions.html?site=HGO)');
+    for (const [f, max] of Object.entries(DECISION_FIELDS)) {
+      if (w[f] == null) continue;
+      if (typeof w[f] !== 'string' || !w[f].trim()) E(`${p}.${f}`, `${f} must be non-empty text when given (leave it out when not stated)`);
+      else if (w[f].length > max) E(`${p}.${f}`, `${f} is capped at ${max} characters`);
+    }
     if (w.sql != null || w.query != null) E(`${p}`, 'raw sql/query is not allowed in a dashboard definition — register a metric instead');
 
     const L = w.layout || {};
@@ -204,4 +212,4 @@ function widgetTypesFor(opts = {}) {
   return out;
 }
 
-module.exports = { validateDashboard, fieldReadiness, creatableTypes, widgetTypesFor, WIDGET_TYPES, MIN_MULTIPLES, MAX_MULTIPLES, AUDIENCES, FILTER_TYPES, TRACKER_KEY_RE, MAX_EXTRA_SERIES };
+module.exports = { DECISION_FIELDS, validateDashboard, fieldReadiness, creatableTypes, widgetTypesFor, WIDGET_TYPES, MIN_MULTIPLES, MAX_MULTIPLES, AUDIENCES, FILTER_TYPES, TRACKER_KEY_RE, MAX_EXTRA_SERIES };
