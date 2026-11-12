@@ -3,7 +3,7 @@
 // .env BEFORE any *-db module loads: each picks its backend (*_BACKEND) at require time,
 // and without it a prod run silently reads the frozen SQLite archives. In-process calls
 // (server.js already loaded .env) and tests skip this.
-if (require.main === module) require('dotenv').config({ path: require('path').join(__dirname, '..', '..', '.env') });
+if (require.main === module) require('dotenv').config({ quiet: true, path: require('path').join(__dirname, '..', '..', '.env') });
 // One-shot backfill (2026-09-21): freeze the Parc informatique counts on each site's
 // LATEST submitted weekly report that has none yet.
 //

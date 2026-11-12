@@ -117,11 +117,15 @@ async function _meetingsReadScope(req, res, next) {
     if (wanted && !userSites.inScope(String(wanted), codes)) {
       return res.status(403).json({ error: `Site ${wanted} is outside your scope (${userSites.scopeLabel(codes) || 'no site'})` });
     }
-    if (!wanted && _READ_LIST_PATHS.includes(req.path)) req.query.site = codes;
+    // Express-5 safe: req.query is a re-parsed getter there, so an assignment is silently lost.
+    if (!wanted && _READ_LIST_PATHS.includes(req.path)) req.scopedSites = codes;
     next();
   } catch (e) { fail(res, e); }
 }
 router.get([..._READ_LIST_PATHS, ..._READ_SITE_PATHS], requireReportSession, _meetingsReadScope);
+// The site filter a list handler applies: the reader's own sites when the guard narrowed it,
+// else the ?site= the guard already validated. Never read the scope back from req.query.
+function _listSite(req) { return req.scopedSites !== undefined ? req.scopedSites : req.query.site; }
 function _readDenied(req, res, siteCode) {
   if (!req.readSites || userSites.inScope(siteCode, req.readSites)) return false;
   res.status(403).json({ error: `This record belongs to ${siteCode}; you are scoped to ${userSites.scopeLabel(req.readSites) || 'no site'}` });
@@ -165,7 +169,7 @@ router.get('/api/meetings/list', requireReportSession, async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
     const opts = {
-      site:       req.query.site       || undefined,
+      site:       _listSite(req) || undefined,
       department: req.query.department || undefined,
       status:     req.query.status     || undefined,
       intake:     req.query.intake     || undefined,
@@ -190,7 +194,7 @@ router.get('/api/meetings/aggregate', requireReportSession, async (req, res) => 
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
     res.json(await meetingsDb.aggregate({
-      site:       req.query.site       || undefined,
+      site:       _listSite(req) || undefined,
       department: req.query.department || undefined,
       from:       req.query.from       || undefined,
       to:         req.query.to         || undefined,
@@ -210,7 +214,7 @@ router.get('/api/meetings/insights', requireReportSession, async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
     res.json(await meetingsDb.insights({
-      site:       req.query.site       || undefined,
+      site:       _listSite(req) || undefined,
       department: req.query.department || undefined,
       from:       req.query.from       || undefined,
       to:         req.query.to         || undefined,
@@ -241,7 +245,7 @@ router.get('/api/meetings/issues', requireReportSession, async (req, res) => {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
     const escalate = req.query.escalate;
     const opts = {
-      site:          req.query.site          || undefined,
+      site:          _listSite(req) || undefined,
       department:    req.query.department    || undefined,
       category:      req.query.category      || undefined,
       severity:      req.query.severity      || undefined,
@@ -268,7 +272,7 @@ router.get('/api/meetings/escalations', requireReportSession, async (req, res) =
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
     res.json({ rows: await meetingsDb.listEscalations({
-      site:          req.query.site          || undefined,
+      site:          _listSite(req) || undefined,
       department:    req.query.department    || undefined,
       category:      req.query.category      || undefined,
       severity:      req.query.severity      || undefined,
@@ -318,7 +322,7 @@ router.get('/api/meetings/actions', requireReportSession, async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
     res.json({ rows: await meetingsDb.listActions({
-      site:       req.query.site       || undefined,
+      site:       _listSite(req) || undefined,
       department: req.query.department || undefined,
       status:     req.query.status     || undefined,
       owner:      req.query.owner      || undefined,

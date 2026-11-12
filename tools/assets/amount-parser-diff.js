@@ -10,7 +10,7 @@
 //
 // .env FIRST: every *-db module picks its backend at require time.
 const path = require('path');
-if (require.main === module) require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+if (require.main === module) require('dotenv').config({ quiet: true, path: path.join(__dirname, '..', '..', '.env') });
 
 const money = require('../../services/money');
 const currency = require('../../services/currency');

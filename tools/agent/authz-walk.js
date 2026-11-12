@@ -70,7 +70,7 @@ function scanInlineChecks(root) {
 
 /** One row per API route: {key, session, guards:[{name,roles}], capability, inline_roles, site_scope}. */
 function buildRows(app, registry = require('../../services/capabilityRegistry')) {
-  return walkRoutes(app._router.stack).filter((r) => r.path.startsWith('/api') || r.path === '/health' || r.path === '/ready').map((r) => {
+  return walkRoutes(require('../../services/routerStack').routerStack(app)).filter((r) => r.path.startsWith('/api') || r.path === '/health' || r.path === '/ready').map((r) => {
     const guards = guardsOf(r);
     const caps = guards.filter((g) => g.roles).map((g) => registry.forRoute(r.method, r.path, g.roles));
     const inl = inlineOf(r);

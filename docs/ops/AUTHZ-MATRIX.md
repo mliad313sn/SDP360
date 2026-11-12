@@ -286,7 +286,7 @@ inside the handler (`userHasRole` / `isAdmin`-style helpers) · **Site scope** =
 | `GET /api/qualifications/kinds` | requireReportSession | — | super_admin | — |
 | `GET /api/report-studio/runs` | requireReportSession | — | admin, report-author | userSites |
 | `GET /api/report-studio/runs/:id` | requireReportSession | — | — | — |
-| `GET /api/report-studio/runs/:id.:fmt(html|pdf|csv|pptx|xlsx)` | requireReportSession | — | — | — |
+| `GET /api/report-studio/runs/:id.:fmt` | requireReportSession | — | — | — |
 | `GET /api/report-studio/stats` | requireReportSession + requireAuthor(admin or report-author) | reports.studio.author | — | — |
 | `GET /api/report-studio/templates` | requireReportSession | — | admin, report-author | — |
 | `GET /api/reports` | requireReportSession | — | admin | userSites |

@@ -65,7 +65,7 @@ async function report({ query, days = 30, asOf = new Date().toISOString().slice(
 module.exports = { ACTIONS, summarize, formatReport, fetchRows, report };
 
 if (require.main === module) {
-  require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+  require('dotenv').config({ quiet: true, path: path.join(__dirname, '..', '..', '.env') });
   const arg = (k, d) => { const a = process.argv.find((x) => x.startsWith(`--${k}=`)); return a ? a.split('=')[1] : d; };
   (async () => {
     if (!process.env.PG_URL) { console.error('PG_URL missing from .env — nothing to read.'); process.exitCode = 1; return; }

@@ -16,7 +16,7 @@
 // .env FIRST: only server.js loads dotenv; a standalone run needs PG_URL.
 const path = require('path');
 const fs = require('fs');
-if (require.main === module) require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+if (require.main === module) require('dotenv').config({ quiet: true, path: path.join(__dirname, '..', '..', '.env') });
 
 const LABEL = 'unknown';
 const REASON = 'stale_open — not reviewed';

@@ -1,7 +1,7 @@
 'use strict';
 // Standalone runs must read the app's .env BEFORE any *-db module loads (backend + PG_URL are
 // picked at require time). In-process calls and tests skip this.
-if (require.main === module) require('dotenv').config({ path: require('path').join(__dirname, '..', '..', '.env') });
+if (require.main === module) require('dotenv').config({ quiet: true, path: require('path').join(__dirname, '..', '..', '.env') });
 // A-18b — WAN "% Time Up" calibration check (owner-run).
 //
 // The "% Time Up" of WAN Health counts a Meraki loss sample as DOWN when its loss is ≥

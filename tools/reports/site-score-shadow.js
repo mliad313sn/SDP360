@@ -1,6 +1,6 @@
 'use strict';
 // Standalone runs must read .env BEFORE any db module loads (tests/reports-cli-dotenv.test.js).
-if (require.main === module) require('dotenv').config({ path: require('path').join(__dirname, '..', '..', '.env') });
+if (require.main === module) require('dotenv').config({ quiet: true, path: require('path').join(__dirname, '..', '..', '.env') });
 // A-11 — READ-ONLY shadow report for decision D-03 ("reference site score", OPEN).
 // Prints, per site, both verdicts side by side for one month so the committee can decide on
 // evidence: the programme score (sbDims · 70/45 · 3-month rolling window — the coordinator

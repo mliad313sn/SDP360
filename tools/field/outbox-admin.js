@@ -11,7 +11,7 @@
 //
 // The --apply path also honours report_config field_outbox_resolve_enabled (refused while '0', like the route).
 const path = require('path');
-if (require.main === module) require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+if (require.main === module) require('dotenv').config({ quiet: true, path: path.join(__dirname, '..', '..', '.env') });
 
 function parseArgs(argv) {
   const o = {};

@@ -53,7 +53,7 @@ const registry = require('../services/capabilityRegistry');
 
 test('every /api route is guarded, public by declaration, or behind the global gate — matrix written', () => {
   const { app } = require('../server');
-  const routes = []; walk(app._router.stack, '', routes);
+  const routes = []; walk(require('../services/routerStack').routerStack(app), '', routes);
   assert.ok(routes.length > 250, `found ${routes.length} routes`);
   const rows = [], unguarded = [];
   for (const r of routes) {

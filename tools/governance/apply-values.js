@@ -11,7 +11,7 @@
 // run before anything is written (rows already applied by an earlier run are reported, not repeated).
 const path = require('path');
 const fs = require('fs');
-if (require.main === module) require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+if (require.main === module) require('dotenv').config({ quiet: true, path: path.join(__dirname, '..', '..', '.env') });
 
 async function main(argv, { rdb, log = console.log } = {}) {
   const file = argv.find((a) => !a.startsWith('--'));

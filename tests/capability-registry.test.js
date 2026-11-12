@@ -68,7 +68,7 @@ let _rows = null;
 function rows() {
   if (_rows) return _rows;
   const { app } = require('../server');
-  _rows = walker.walkRoutes(app._router.stack).filter((r) => r.path.startsWith('/api'));
+  _rows = walker.walkRoutes(require('../services/routerStack').routerStack(app)).filter((r) => r.path.startsWith('/api'));
   return _rows;
 }
 

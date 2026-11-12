@@ -16,7 +16,7 @@
 // Idempotent: already-encrypted and empty values are skipped, so a second run does
 // nothing. Values are never printed.
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+require('dotenv').config({ quiet: true, path: path.join(__dirname, '..', '..', '.env') });
 
 const { planSecretEncryption, envKey, describeSecretState } = require('../../services/configSecrets');
 const { _SECRET_BLANK_KEEP } = require('../../services/reportConfig');

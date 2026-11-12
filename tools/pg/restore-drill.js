@@ -33,7 +33,7 @@ const path = require('path');
 const { spawnSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..', '..');
-if (require.main === module) require('dotenv').config({ path: path.join(ROOT, '.env') });
+if (require.main === module) require('dotenv').config({ quiet: true, path: path.join(ROOT, '.env') });
 
 const backup = require('../../services/backup');
 const drill = require('../../services/restoreDrill');

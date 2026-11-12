@@ -8,7 +8,7 @@
 // first-click-on-expected-page ratio per landing page — numerator / denominator always shown. A figure with no
 // sample is UNKNOWN, never 0. The expected first clicks are a HUMAN input (decision D4, the CSV's `expected_page`
 // column); without it the ratio is UNKNOWN. Users are counted, never listed; no name, e-mail or IP is read.
-if (require.main === module) require('dotenv').config({ path: require('path').join(__dirname, '..', '..', '.env') });
+if (require.main === module) require('dotenv').config({ quiet: true, path: require('path').join(__dirname, '..', '..', '.env') });
 const fs = require('fs');
 const path = require('path');
 

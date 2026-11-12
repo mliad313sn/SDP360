@@ -3,7 +3,7 @@
 // .env BEFORE any *-db module loads: each picks its backend (*_BACKEND) at require time,
 // and without it a prod run silently reads the frozen SQLite archives. In-process calls
 // (server.js already loaded .env) and tests skip this.
-if (require.main === module) require('dotenv').config({ path: require('path').join(__dirname, '..', '..', '.env') });
+if (require.main === module) require('dotenv').config({ quiet: true, path: require('path').join(__dirname, '..', '..', '.env') });
 // Scheduled entry point for the reporting suite. Resolves config + the recipient
 // directory, decides WHO to mail (decideSends), then hands each sendable site to
 // services/sendCoordinator.sendCoordinatorReport — the SAME pipeline the manual

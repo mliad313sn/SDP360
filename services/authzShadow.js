@@ -137,7 +137,7 @@ function instrument(app, deps = {}) {
       } else if (layer.handle && layer.handle.stack) visit(layer.handle.stack);
     }
   };
-  visit(app && app._router && app._router.stack);
+  visit(require('./routerStack').routerStack(app));
   return n;
 }
 

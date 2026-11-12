@@ -15,7 +15,7 @@
 // loads dotenv, so a standalone run without this line reads the frozen SQLite archives
 // (the trap that made the September backfill dry-run report July weeks).
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+require('dotenv').config({ quiet: true, path: path.join(__dirname, '..', '..', '.env') });
 
 const { formatKpiReport, effortDelta } = require('../../services/assetEngagementKpis');
 const {

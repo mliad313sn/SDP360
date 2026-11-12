@@ -161,18 +161,22 @@ module.exports = function inspectionRoutes(deps) {
       if (wanted && !userSites.inScope(String(wanted), codes)) {
         return res.status(403).json({ error: `Site ${wanted} is outside your scope (${userSites.scopeLabel(codes) || 'no site'})` });
       }
-      if (!wanted && _READ_LIST_PATHS.includes(req.path)) req.query.site = codes;
+      // Express-5 safe: req.query is a re-parsed getter there, so an assignment is silently lost.
+    if (!wanted && _READ_LIST_PATHS.includes(req.path)) req.scopedSites = codes;
       next();
     } catch (e) { fail(res, e); }
   }
   router.get([..._READ_LIST_PATHS, '/api/inspection/:id'], requireReportSession, _inspectionReadScope);
+  // The site filter a list handler applies: the reader's own sites when the guard narrowed it,
+  // else the ?site= the guard already validated. Never read the scope back from req.query.
+  function _listSite(req) { return req.scopedSites !== undefined ? req.scopedSites : req.query.site; }
 
   // GET /api/inspection/list — paginated header list with optional filters
   router.get('/api/inspection/list', requireReportSession, async (req, res) => {
     try {
       if (!inspectionDb) return res.status(503).json({ error: 'Inspection module not available' });
       const rows = await inspectionDb.listInspections({
-        site:   req.query.site   || undefined,
+        site:   _listSite(req) || undefined,
         from:   req.query.from   || undefined,
         to:     req.query.to     || undefined,
         risk:   req.query.risk   || undefined,
@@ -192,7 +196,7 @@ module.exports = function inspectionRoutes(deps) {
     try {
       if (!inspectionDb) return res.status(503).json({ error: 'Inspection module not available' });
       res.json(await inspectionDb.aggregate({
-        site: req.query.site || undefined,
+        site: _listSite(req) || undefined,
         from: req.query.from || undefined,
         to:   req.query.to   || undefined
       }));
@@ -212,7 +216,7 @@ module.exports = function inspectionRoutes(deps) {
       const verifyOn = String(vcfg.insp_action_verify_enabled) === '1';
       const IR = require('../services/inspectionRepeat');
       const rows = await inspectionDb.listActions({
-        site:     req.query.site     || undefined,
+        site:     _listSite(req) || undefined,
         status:   req.query.status   || undefined,
         priority: req.query.priority || undefined,
         owner:    req.query.owner    || undefined,

@@ -63,7 +63,7 @@ before(async () => {
 after(() => { try { server && server.close(); } catch {} });
 
 test('every export / download route refuses anonymous, dash-key-only and business-only callers', async () => {
-  const routes = []; collect(require('../server').app._router.stack, routes);
+  const routes = []; collect(require('../services/routerStack').routerStack(require('../server').app), routes);
   const exp = routes.filter((r) => EXPORT_RE.test(r.path) && r.path.startsWith('/api/'));
   assert.ok(exp.length >= 30, `too few export routes found (${exp.length})`);
   const bad = [];

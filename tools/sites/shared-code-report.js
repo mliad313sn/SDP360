@@ -122,7 +122,7 @@ function toMarkdown(report, { at = new Date().toISOString() } = {}) {
 }
 
 async function main() {
-  require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+  require('dotenv').config({ quiet: true, path: path.join(__dirname, '..', '..', '.env') });
   if (!process.env.PG_URL) { console.error('PG_URL is not set (.env) — nothing to read.'); process.exitCode = 1; return; }
   const { Client } = require('pg');
   const c = new Client({ connectionString: process.env.PG_URL }); await c.connect();

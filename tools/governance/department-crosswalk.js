@@ -9,7 +9,7 @@
 //
 // A pair is never created here: the mapping is approved by people. "not set" (blank department) is listed apart.
 const path = require('path');
-if (require.main === module) require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+if (require.main === module) require('dotenv').config({ quiet: true, path: path.join(__dirname, '..', '..', '.env') });
 
 const X = require('../../services/departmentCrosswalk');
 const { makeDepartmentCrosswalkStore } = require('../../services/departmentCrosswalkStore');

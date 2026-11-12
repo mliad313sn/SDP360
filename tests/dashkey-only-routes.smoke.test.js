@@ -19,7 +19,7 @@ const KEY_ONLY_KNOWN = new Set(['GET /api/ping', ...['ticket-volume', 'changes',
 let server, base, routes;
 before(async () => {
   const { app } = require('../server');
-  routes = []; collect(app._router.stack, '', routes);
+  routes = []; collect(require('../services/routerStack').routerStack(app), '', routes);
   await new Promise((r) => { server = http.createServer(app).listen(0, '127.0.0.1', r); });
   base = `http://127.0.0.1:${server.address().port}`;
 });

@@ -13,7 +13,7 @@
 //
 // The values themselves are never printed.
 const path = require('path');
-if (require.main === module) require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+if (require.main === module) require('dotenv').config({ quiet: true, path: path.join(__dirname, '..', '..', '.env') });
 
 const { describeSecretState, envKey, isEncrypted, decryptValue } = require('../../services/configSecrets');
 const { _SECRET_BLANK_KEEP } = require('../../services/reportConfig');

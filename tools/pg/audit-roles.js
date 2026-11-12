@@ -16,7 +16,7 @@
 // .env FIRST: every *-db module picks its backend at require time and only server.js
 // loads dotenv, so a standalone run without this reads the frozen SQLite archives.
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+require('dotenv').config({ quiet: true, path: path.join(__dirname, '..', '..', '.env') });
 
 const { formatRoleAudit } = require('../../services/roleAudit');
 
