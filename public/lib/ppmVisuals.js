@@ -108,6 +108,7 @@
    *  text only — nobody is reassigned by this function. */
   function capacityBySite(tasks, projects, opts) {
     var o = opts || {}, siteOf = {};
+    if (o.members && o.members.length) tasks = AC.withMembers(tasks, o.members);   // R2-WB-04: none = unchanged
     (projects || []).forEach(function (p) { if (p && p.id != null) siteOf[Number(p.id)] = p.site_id == null ? 'none' : String(p.site_id); });
     var groups = {};
     (tasks || []).forEach(function (t) { if (!t) return; var k = siteOf[Number(t.project_id)]; if (k == null) k = 'none'; (groups[k] = groups[k] || []).push(t); });

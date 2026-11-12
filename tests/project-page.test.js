@@ -62,10 +62,10 @@ test('History tab handles HTTP 403 with a restricted message distinct from an em
 test('project.html wires its handlers in JS (no inline on…= attributes) and uses role=tablist with keyboard arrows', () => {
   assert.ok(!/\son[a-z]+="/i.test(page));
   assert.match(page, /role="tablist"/);
-  // 8 tabs always shown; the W2-PPM add-on tabs (Budget, RACI) are hidden until their switch answers
+  // 8 tabs always shown; the W2-PPM add-on tabs (Budget, RACI) and R2-WB-01 Changes are hidden until their switch answers
   const tabs = page.match(/<button[^>]*role="tab"[^>]*>/g) || [];
   assert.equal(tabs.filter((t) => !/\shidden[\s>]/.test(t)).length, 8);
-  assert.ok(tabs.filter((t) => /\shidden[\s>]/.test(t)).every((t) => /id="tab-(budget|raci)"/.test(t)), 'only the add-on tabs are hidden');
+  assert.ok(tabs.filter((t) => /\shidden[\s>]/.test(t)).every((t) => /id="tab-(budget|raci|changes)"/.test(t)), 'only the add-on tabs are hidden');
   assert.match(script, /ArrowRight/); assert.match(script, /ArrowLeft/);
   assert.match(script, /\/api\/governance\/portfolio\/project\//);
 });

@@ -134,4 +134,4 @@ function renderMarkdown(report) {
   return L.join('\n');
 }
 
-module.exports = { PROGRAMME_KEY, objectiveStatus, deliverableStatus, objectiveKey, projectKey, computeParity, loadRoadmapUsers, loadRoadmap, loadPortfolio, buildReport, renderMarkdown };
+module.exports = { norm, PROGRAMME_KEY, objectiveStatus, deliverableStatus, objectiveKey, projectKey, computeParity, loadRoadmapUsers, loadRoadmap, loadPortfolio, buildReport, renderMarkdown };

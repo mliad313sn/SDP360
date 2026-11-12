@@ -596,12 +596,14 @@ module.exports = function governanceRoutes(deps) {
       // F-PRODUCT-03 / F-DATA-09 — class view + totals per class only while the switch is on (never added across classes)
       const clsOn = String((await reportConfig.getConfig(rdb().db)).benefit_value_class_enabled) === '1';
       const mvRole = await moneyVerifierRole();
+      // R2-WB-04 — team switch on: a task of unknown allocation reads its owner's member allocation (none = today)
+      const members = String((await reportConfig.getConfig(rdb().db)).ppm_project_team_enabled) === '1' ? await wbStore().listMembers(p.id) : [];
       const bens = (d.benefits || []).map((b) => BEN.visibleBenefit(b, { money, asOf: new Date().toISOString(), classes: clsOn }));
       res.json({ ok: true, committee: !!isCommittee(u), can_gate: !!isCommittee(u), can_edit_plan: PA.canEditPlan(u, p, pctx), can_see_history: !!money, money_hidden: !money,
         project, objective: d.objective, extra_sites: d.extra_sites, tasks: d.tasks, milestones: d.milestones, deliverables: d.deliverables, risks: d.risks.map(PE.riskView),
         benefits: bens, ...(clsOn ? { benefit_totals: BEN.benefitTotals(bens), benefit_classes: { value_classes: BEN.VALUE_CLASSES, bases: BEN.BASES, source_kinds: BEN.SOURCE_KINDS } } : {}), me: Number(u.id),
         ...(mvRole ? { money_verifier_role: mvRole, holds_money_verifier_role: holdsExactly(u, mvRole) } : {}),   // F-PRODUCT-04: who may verify a money benefit
-        plan: SCH.scheduleView(d.tasks, { anchor: p.start_date || null }), variance: SCH.varianceOf(p), resource_conflicts: SCH.resourceConflicts(d.tasks), resource_coverage: SCH.resourceCoverage(d.tasks),
+        plan: SCH.scheduleView(d.tasks, { anchor: p.start_date || null }), variance: SCH.varianceOf(p), resource_conflicts: SCH.resourceConflicts(d.tasks, members), resource_coverage: SCH.resourceCoverage(d.tasks, members),
         stages: SCH.STAGES, allowed_stages, gate_counts: d.gate_ctx, risk_kinds: store.RISK_KINDS, as_of: new Date().toISOString() });
     } catch (e) { fail(res, e); }
   });
@@ -633,6 +635,7 @@ module.exports = function governanceRoutes(deps) {
   router.post('/api/governance/portfolio/benefit/:id/verify', requireReportSession, json, benefitAction('verify'));
   // ---- A-27 baselines, re-baseline gate, deck / workbook, exceptions (PROPOSED switches, all '0' = today) ----------
   const BL = require('../services/ppmBaseline');
+  const wbStore = () => require('../services/ppmWorkbenchStore').makeWorkbenchStore(rdb().pgHandle(), store);   // R2-WORKBENCH (migration 085)
   const PX = require('../services/ppmAlerts');
   /** The project if this user may read it (A-15 read scope), else null. */
   async function readableProject(u, id) {
@@ -678,8 +681,17 @@ module.exports = function governanceRoutes(deps) {
     const v = money ? v0 : stripMoney(v0);
     const ids = new Set(v.projects.map((p) => p.id));
     const baselines = (await store.listBaselines()).filter((b) => ids.has(b.project_id));
+    const cx = await reportConfig.getConfig(rdb().db);
+    // R2-WB-02 — actual hours per task (sum of the time entries; no entry = unknown) only while the switch is on
+    const actualHours = String(cx.ppm_time_entries_enabled) === '1'
+      ? require('../services/projectSchedule').actualHours(v.tasks || [], await wbStore().listTimeEntriesForTasks((v.tasks || []).map((t) => t.id))) : null;
+    // R2-WB-03 — the budget periods of the readable projects, for a money reader, while ppm_budget_periods_enabled is on
+    let budgetPeriods = null;
+    if (money && String(cx.ppm_budget_periods_enabled) === '1') { budgetPeriods = []; for (const id of ids) budgetPeriods.push(...await store.listBudgetPeriods(id)); }
+    // R2-WB-01 — change requests of the readable projects while ppm_change_requests_enabled is on
+    const changeRequests = String(cx.ppm_change_requests_enabled) === '1' ? await wbStore().listChangeRequestsFor([...ids]) : null;
     return { v: { ...v, benefits: (v.benefits || []).filter((b) => ids.has(b.project_id)) }, money, baselines, exceptions: await exceptionsFor(v0),
-      benefitClasses: String((await reportConfig.getConfig(rdb().db)).benefit_value_class_enabled) === '1' };
+      benefitClasses: String(cx.benefit_value_class_enabled) === '1', actualHours, budgetPeriods, changeRequests };
   }
   router.get('/api/governance/portfolio/deck.pptx', requireReportSession, async (req, res) => {
     try { const x = await exportData(req.reportUser); const buf = await require('../services/portfolioDeck').buildDeck(x.v, { money: x.money, exceptions: x.exceptions, asOf: x.v.as_of });
@@ -687,7 +699,7 @@ module.exports = function governanceRoutes(deps) {
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'); res.setHeader('Content-Disposition', `attachment; filename="portfolio-${x.v.as_of.slice(0, 10)}.pptx"`); res.send(buf); } catch (e) { fail(res, e); }
   });
   router.get('/api/governance/portfolio/workbook.xlsx', requireReportSession, async (req, res) => {
-    try { const x = await exportData(req.reportUser); const buf = require('../services/portfolioDeck').buildWorkbookBuffer(x.v, { money: x.money, baselines: x.baselines, exceptions: x.exceptions, benefitClasses: x.benefitClasses });
+    try { const x = await exportData(req.reportUser); const buf = require('../services/portfolioDeck').buildWorkbookBuffer(x.v, { money: x.money, baselines: x.baselines, exceptions: x.exceptions, benefitClasses: x.benefitClasses, actualHours: x.actualHours, budgetPeriods: x.budgetPeriods, changeRequests: x.changeRequests });
       log(req, 'portfolio_workbook', 'portfolio', { money: x.money });
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); res.setHeader('Content-Disposition', `attachment; filename="portfolio-${x.v.as_of.slice(0, 10)}.xlsx"`); res.send(buf); } catch (e) { fail(res, e); }
   });
@@ -732,11 +744,16 @@ module.exports = function governanceRoutes(deps) {
       const apply = req.query.apply === '1'; const uid = Number(req.body && req.body.user_id) || req.reportUser.id;
       const rm = await rdb().getRoadmap(uid); const pf = await store.portfolio();
       const KEY = 'itsm-roadmap'; const EVID = { catalogue: 'helpdesk.closure_pct', platform: 'assets.completeness_pct', incidents: 'helpdesk.resolution_sla_pct', knowledge: null };
-      const plan = { programme: { key: KEY, name: 'ITSM roadmap (migrated from Roadmap Manager)', sponsor: 'Service & Support Manager' }, exists: pf.programmes.some(p => p.key === KEY),
+      let plan = { programme: { key: KEY, name: 'ITSM roadmap (migrated from Roadmap Manager)', sponsor: 'Service & Support Manager' }, exists: pf.programmes.some(p => p.key === KEY),
         objectives: (rm.objectives || []).map(o => ({ key: `${KEY}-${o.obj_key}`, name: o.title || o.name || o.obj_key, weight: Number(o.weight) || 1, progress_pct: o.progress_pct != null ? Number(o.progress_pct) : null, status: /red|rouge/i.test(o.status || '') ? 'at_risk' : /orange|amber/i.test(o.status || '') ? 'at_risk' : 'on_track', confidence: /low|faible/i.test(o.confidence || '') ? 'low' : /high|élevée|elevee/i.test(o.confidence || '') ? 'high' : 'medium', target_date: o.target_date || null, evidence_metric: EVID[o.obj_key] || null, evidence_target: EVID[o.obj_key] ? 90 : null, manual_evidence: o.evidence || null,
           deliverables: (rm.deliverables || []).filter(d => d.obj_key === o.obj_key).map(d => ({ name: d.label || d.title || d.name, due_date: d.delivery_date || d.due_date || d.target_date || null, status: /exec|done|fait/i.test(d.status || '') ? 'done' : /cours|progress/i.test(d.status || '') ? 'in_progress' : 'todo' })) })) };
-      if (!apply) return res.json({ ok: true, dry_run: true, plan });
-      if (plan.exists) return res.status(409).json({ ok: false, error: 'programme already migrated (delete it to redo)', plan });
+      // R2-WB-06 — controlled publication (roadmap_publication_enabled; '0' = this route exactly as before): duplicates
+      // are reported on the dry run and refused at apply unless ?skip_duplicates=1; the apply is a recorded ppm_events row
+      const PUB = require('./governanceWorkbench').roadmapPublication; const pub = await PUB.enabled(rdb, reportConfig);
+      const dups = pub ? await PUB.duplicates(rdb, plan) : null;
+      if (!apply) return res.json({ ok: true, dry_run: true, plan, ...(dups ? { duplicates: dups } : {}) });
+      if (plan.exists) return httpFail(res, new Error('programme already migrated (delete it to redo)'), 409, { ok: false, plan });
+      if (dups && dups.count) { if (req.query.skip_duplicates !== '1') return httpFail(res, new Error('duplicates found: review them, then apply with skip_duplicates=1 to leave them out'), 409, { ok: false, code: 'DUPLICATES', duplicates: dups, plan }); plan = PUB.withoutDuplicates(plan, dups); }
       const pid = await store.upsertPortfolio('programme', plan.programme);
       for (const [i, o] of plan.objectives.entries()) {
         const oid = await store.upsertPortfolio('objective', { programme_id: pid, key: o.key, name: o.name, weight: o.weight, progress_pct: o.progress_pct, status: o.status, confidence: o.confidence, target_date: o.target_date, evidence_metric: o.evidence_metric, evidence_target: o.evidence_target, evidence_hib: 1, manual_evidence: o.manual_evidence, sort_order: i });
@@ -744,6 +761,7 @@ module.exports = function governanceRoutes(deps) {
         for (const [j, d] of o.deliverables.entries()) await store.upsertPortfolio('deliverable', { project_id: prj, name: d.name, due_date: d.due_date, status: d.status, sort_order: j, closed_at: d.status === 'done' ? new Date().toISOString() : null });
       }
       log(req, 'roadmap_migrated', KEY, { objectives: plan.objectives.length });
+      if (pub) await store.ppmEvent({ entity: 'programme', entity_id: pid, action: 'roadmap_migrated', field: 'key', old_value: null, new_value: KEY, note: `${plan.objectives.length} objective(s)${dups && dups.count ? `, ${dups.count} duplicate(s) left out` : ''}` }, req.reportUser);
       res.json({ ok: true, dry_run: false, programme_id: pid, plan });
     } catch (e) { fail(res, e); }
   });

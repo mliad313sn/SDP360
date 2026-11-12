@@ -134,3 +134,20 @@ test('F-PRODUCT-03 workbook Benefits sheet: class columns only with the switch; 
   assert.strictEqual(rows[1].measurement_class, undefined);
   assert.equal(rows[2].measurement_class, 'observed'); assert.equal(rows[2].verification_independent, 'no');
 });
+
+test('R2-WB-03 workbook "Budget periods" sheet: absent without money or without periods (switch off); present = the store rows, currency per row, no total', () => {
+  const read = (buf) => XLSX.read(buf, { type: 'buffer' });
+  const periods = [
+    { project_id: 1, period: '2027-01', currency: 'USD', kind: 'baseline', amount: 15000, reason: null },
+    { project_id: 1, period: '2027-01', currency: 'USD', kind: 'actual', amount: 12000, reason: 'below baseline' },
+    { project_id: 2, period: '2027-01', currency: 'XOF', kind: 'actual', amount: 1500000, reason: 'local' },
+  ];
+  assert.ok(!read(D.buildWorkbookBuffer(view, { money: true })).SheetNames.includes('Budget periods'), 'switch off: no periods given');
+  assert.ok(!read(D.buildWorkbookBuffer(view, { money: false, budgetPeriods: periods })).SheetNames.includes('Budget periods'), 'no money reader: never');
+  const wb = read(D.buildWorkbookBuffer(view, { money: true, budgetPeriods: periods }));
+  assert.strictEqual(wb.SheetNames[wb.SheetNames.length - 1], 'Budget periods');
+  const rows = XLSX.utils.sheet_to_json(wb.Sheets['Budget periods'], { defval: null });
+  assert.deepStrictEqual(rows.map((r) => [r.project, r.period, r.currency, r.kind, r.amount, r.reason]), [['NET-1', '2027-01', 'USD', 'baseline', 15000, null], ['NET-1', '2027-01', 'USD', 'actual', 12000, 'below baseline'], ['NET-2', '2027-01', 'XOF', 'actual', 1500000, 'local']]);
+  assert.ok(rows.every((r) => /^[A-Z]{3}$/.test(r.currency)), 'every amount carries its currency');
+  assert.ok(!rows.some((r) => /total/i.test(String(r.kind) + String(r.project))), 'no cross-currency total row');
+});

@@ -9,6 +9,7 @@
 //   E-P06 ppm_templates_enabled      GET /api/governance/ppm/templates · POST /templates {project_id,name} · POST /templates/:id/approve
 //                                    · POST /templates/:id/create-project {objective_id,key,name,site_id}       committee (approver ≠ author)
 //   E-P08 ppm_annual_pack_enabled    GET /api/governance/ppm/annual-pack.xlsx?year=YYYY  DRAFT pack (money rule; RFI sheet committee)
+//   R2-WORKBENCH (team, time, change requests): routes/governanceWorkbench.js, registered at the end of this file
 //   GET  /api/governance/ppm/features  which of these switches are on (the pages show a tab / panel only then)
 // Paths live under /api/governance/ppm/ so they never collide with /portfolio/:kind.
 const { fail: httpFail } = require('../services/httpError');
@@ -19,12 +20,14 @@ module.exports = function governancePpmRoutes(router, h) {
   const cfg = async () => reportConfig.getConfig(rdb().db);
   const on = (c, k) => String(c[k]) === '1';
   const notFound = (res) => httpFail(res, new Error('not found'), 404, { ok: false });
+  const wbStore = () => require('../services/ppmWorkbenchStore').makeWorkbenchStore(rdb().pgHandle(), store);
   const forbidden = (res, msg, code) => httpFail(res, Object.assign(new Error(msg), { reason: code }), 403, { ok: false, ...(code ? { code } : {}) });
 
   router.get('/api/governance/ppm/features', requireReportSession, async (req, res) => {
     try {
       const c = await cfg();
-      res.json({ ok: true, capacity: on(c, 'ppm_capacity_view'), budget_periods: on(c, 'ppm_budget_periods_enabled'), benefit_owner_link: on(c, 'benefit_owner_link_enabled'), benefit_value_class: on(c, 'benefit_value_class_enabled'), raci: on(c, 'ppm_raci_enabled'), templates: on(c, 'ppm_templates_enabled'), annual_pack: on(c, 'ppm_annual_pack_enabled') });
+      res.json({ ok: true, capacity: on(c, 'ppm_capacity_view'), budget_periods: on(c, 'ppm_budget_periods_enabled'), benefit_owner_link: on(c, 'benefit_owner_link_enabled'), benefit_value_class: on(c, 'benefit_value_class_enabled'), raci: on(c, 'ppm_raci_enabled'), templates: on(c, 'ppm_templates_enabled'), annual_pack: on(c, 'ppm_annual_pack_enabled'),
+        team: on(c, 'ppm_project_team_enabled'), time_entries: on(c, 'ppm_time_entries_enabled'), change_requests: on(c, 'ppm_change_requests_enabled'), portfolio_views: on(c, 'portfolio_views_enabled'), roadmap_publication: on(c, 'roadmap_publication_enabled') });
     } catch (e) { fail(res, e); }
   });
 
@@ -34,7 +37,9 @@ module.exports = function governancePpmRoutes(router, h) {
       if (!on(await cfg(), 'ppm_capacity_view')) return notFound(res);
       const PV = require('../public/lib/ppmVisuals');
       const { v } = await viewFor(req.reportUser);
-      const capacity = PV.capacityBySite(v.tasks || [], (v.projects || []).map((p) => ({ id: p.id, site_id: p.site_id })), { today: new Date().toISOString().slice(0, 10) });
+      // R2-WB-04 — with the team switch on, a task of unknown allocation reads its owner's member allocation
+      const members = on(await cfg(), 'ppm_project_team_enabled') ? await wbStore().listMembersFor((v.projects || []).map((p) => p.id)) : [];
+      const capacity = PV.capacityBySite(v.tasks || [], (v.projects || []).map((p) => ({ id: p.id, site_id: p.site_id })), { today: new Date().toISOString().slice(0, 10), members });
       const site_names = {};
       for (const s of (await rdb().listSites({ includeInactive: true })) || []) site_names[String(s.id)] = s.name;
       res.json({ ok: true, capacity, site_names, as_of: new Date().toISOString() });
@@ -139,4 +144,7 @@ module.exports = function governancePpmRoutes(router, h) {
       res.send(AP.toWorkbookBuffer(pack));
     } catch (e) { fail(res, e); }
   });
+
+  // R2-WORKBENCH (REBUILD-SPEC R5): team, time entries, change requests — routes/governanceWorkbench.js
+  require('./governanceWorkbench')(router, h);
 };

@@ -16,6 +16,7 @@
 <script nonce="%%CSP_NONCE%%" src="lib/allocationContract.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/ppmVisuals.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/ppmExtras.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/ppmWorkbench.js"></script>
 <style nonce="%%CSP_NONCE%%">
   body { margin:0; background:var(--color-background,#f4f6f7); color:#1F2A33; font-family:var(--font-sans,"Libre Franklin",system-ui,sans-serif); font-size:14px; }
   .wrap { max-width:1360px; margin:0 auto; padding:24px; }
@@ -63,11 +64,24 @@
     <button type="button" role="tab" id="tab-benefits" aria-controls="pane-benefits" aria-selected="false" tabindex="-1">Benefits</button>
     <button type="button" role="tab" id="tab-budget" aria-controls="pane-budget" aria-selected="false" tabindex="-1" hidden>Budget</button>
     <button type="button" role="tab" id="tab-raci" aria-controls="pane-raci" aria-selected="false" tabindex="-1" hidden>RACI</button>
+    <button type="button" role="tab" id="tab-changes" aria-controls="pane-changes" aria-selected="false" tabindex="-1" hidden>Changes</button>
     <button type="button" role="tab" id="tab-gates" aria-controls="pane-gates" aria-selected="false" tabindex="-1">Gates</button>
     <button type="button" role="tab" id="tab-history" aria-controls="pane-history" aria-selected="false" tabindex="-1">History</button>
   </div>
 
-  <section id="pane-overview" role="tabpanel" aria-labelledby="tab-overview"><div id="overview"></div></section>
+  <section id="pane-overview" role="tabpanel" aria-labelledby="tab-overview"><div id="overview"></div>
+    <div class="panel" id="team-panel" hidden><h2>Team</h2><div class="scroll" id="team"></div>
+      <div id="team-edit" hidden>
+        <div class="row">
+          <label>Name <input id="tm-label"></label>
+          <label>Role <input id="tm-role" placeholder="e.g. network engineer"></label>
+          <label>Allocation to the project % (empty = unknown) <input id="tm-alloc" type="number" min="0" max="100"></label>
+          <label>From <input id="tm-from" type="date"></label>
+          <label>To <input id="tm-to" type="date"></label>
+          <label>User account id (optional) <input id="tm-user" type="number" min="1"></label>
+        </div>
+        <div class="bar"><button class="btn primary" id="team-save" type="button">Save member</button></div></div></div>
+  </section>
 
   <section id="pane-charter" role="tabpanel" aria-labelledby="tab-charter" hidden>
     <div class="panel"><h2>Charter</h2><div id="charter-view"></div></div>
@@ -99,7 +113,7 @@
         <label>Name <input id="t-name"></label>
         <label>WBS code <input id="t-wbs" placeholder="1.2"></label>
         <label>Parent task <select id="t-parent"></select></label>
-        <label>Owner <input id="t-owner"></label>
+        <label>Owner <input id="t-owner" list="t-owner-list"><datalist id="t-owner-list"></datalist></label>
         <label>Start <input id="t-start" type="date"></label>
         <label>End <input id="t-end" type="date"></label>
         <label>Duration (days) <input id="t-dur" type="number" min="1"></label>
@@ -111,6 +125,16 @@
       </div>
       <div class="bar"><button class="btn primary" id="t-save" type="button">Save task</button><button class="btn danger" id="t-del" type="button">Delete task</button></div>
     </div>
+    <div class="panel" id="time-panel" hidden><h2>Hours — planned, actual, variance</h2><div class="scroll" id="time-hours"></div>
+      <h2>Time entries</h2>
+      <div class="row"><label>Task <select id="te-task"></select></label></div>
+      <div id="time-edit" hidden><div class="row">
+        <label>Person (empty = you) <input id="te-person"></label>
+        <label>Day <input id="te-day" type="date"></label>
+        <label>Hours (0-24) <input id="te-hours" type="number" min="0" max="24" step="0.25"></label>
+        <label>Note <input id="te-note"></label>
+      </div><div class="bar"><button class="btn primary" id="te-save" type="button">Record hours</button></div></div>
+      <div class="scroll" id="time-entries"></div></div>
   </section>
 
   <section id="pane-milestones" role="tabpanel" aria-labelledby="tab-milestones" hidden>
@@ -214,6 +238,19 @@
     </div>
   </section>
 
+  <section id="pane-changes" role="tabpanel" aria-labelledby="tab-changes" hidden>
+    <div class="panel"><h2>Change requests</h2><div class="scroll" id="changes"></div>
+      <label>Note for the next step (required to reject or withdraw, 10 characters or more) <textarea id="cr-note" rows="2"></textarea></label></div>
+    <div class="panel" id="cr-new" hidden><h2>Propose a change</h2>
+      <div class="row">
+        <label>Title <input id="cr-title"></label>
+        <label style="grid-column:1/-1">Reason (10 characters or more) <textarea id="cr-reason" rows="2"></textarea></label>
+        <label>Dates impact (days, + later / − earlier; empty = not known) <input id="cr-days" type="number" step="1"></label>
+        <span id="cr-money-box" class="row" style="grid-column:1/-1"><label>Money impact (empty = not known) <input id="cr-amount" type="number" step="any"></label><label>Currency (with an amount) <input id="cr-cur" placeholder="USD" maxlength="3"></label></span>
+      </div>
+      <div class="bar"><button class="btn primary" id="cr-save" type="button">Propose the change</button></div></div>
+  </section>
+
   <section id="pane-gates" role="tabpanel" aria-labelledby="tab-gates" hidden>
     <div class="panel"><h2>Stage gates</h2><div id="gates"></div>
       <div id="gate-reason-box" hidden><label>Reason (10 characters or more) <textarea id="gate-reason" rows="2"></textarea></label></div></div>
@@ -253,13 +290,20 @@
     VERIFIER_ROLE: "A money benefit is verified by a holder of the verifier role set by the administrator.",
     NO_ACCOUNTABLE: "Every task with letters needs exactly one A (accountable).",
     MULTIPLE_ACCOUNTABLE: "Only one person is accountable (A) for a task.",
+    COMMITTEE_ONLY: "This step is taken by the committee.",
+    AUTHOR_OR_COMMITTEE: "Only the author or the committee withdraws a change request.",
+    CR_ORDER: "This step does not apply to the change request in its current status — reload the page.",
+    NOTE_REQUIRED: "A note of 10 characters or more is required for this step.",
+    REBASELINE_OFF: "This change moves the dates: applying it needs the committee re-baseline, which is switched off.",
+    NO_BASELINE: "The project has no baseline end to move.",
+    CURRENCY_REQUIRED: "An amount needs its currency (ISO code such as USD or XOF).",
     JUSTIFICATION_REQUIRED: "A justification is required: the amount changes, or differs from the baseline of this month.",
   };
   var fail = function (e) { msg((e && e.code && PLAIN[e.code]) || (e && e.message) || "Error", "errors"); };
   var V = null;
   // W2-PPM — which PROPOSED switches are on (each new tab / prompt exists only then); an error = all off (today)
   var FEAT = {};
-  api("/api/governance/ppm/features").then(function (f) { FEAT = f || {}; if (FEAT.budget_periods) addTab("budget", "gates"); if (FEAT.benefit_owner_link) linkOwners(); if (FEAT.benefit_value_class) { $("b-class-box").hidden = false; if (V) renderBenefits(); } if (FEAT.raci) addTab("raci", "gates"); if (FEAT.templates && V && V.committee) $("tpl-save-box").hidden = false; }).catch(function () { FEAT = {}; });
+  api("/api/governance/ppm/features").then(function (f) { FEAT = f || {}; if (FEAT.budget_periods) addTab("budget", "gates"); if (FEAT.benefit_owner_link) linkOwners(); if (FEAT.benefit_value_class) { $("b-class-box").hidden = false; if (V) renderBenefits(); } if (FEAT.raci) addTab("raci", "gates"); if (FEAT.change_requests) addTab("changes", "gates"); if (V && ["budget", "raci", "changes"].indexOf((window.location.hash || "").slice(1)) >= 0 && TABS.indexOf(window.location.hash.slice(1)) >= 0) showTab(window.location.hash.slice(1)); if (FEAT.team && V) mountTeam(); if (FEAT.time_entries && V && $("tab-plan").getAttribute("aria-selected") === "true") mountTime(); if (FEAT.templates && V && V.committee) $("tpl-save-box").hidden = false; }).catch(function () { FEAT = {}; });
 
   // ---- tabs (role=tablist, arrows / Home / End, deep link #tab) ---------------------------------------------
   // Extension point: later goals (baselines, benefits) add a tab button + a pane + an entry in RENDER.
@@ -268,7 +312,12 @@
   // W2-PPM — the add-on tabs exist only while their switch is on (they join TABS, so the arrow keys skip them otherwise)
   var X = function () { return { $: $, esc: esc, api: api, msg: msg, fail: fail, pid: PID }; };
   RENDER.budget = function () { if (window.PpmExtras) window.PpmExtras.mountBudget(X()); };
+  RENDER.changes = function () { if (window.PpmWorkbench) window.PpmWorkbench.mountChanges(Object.assign(X(), { canEdit: !!(V && V.can_edit_plan) })); };   // R2-WB-01
   RENDER.raci = function () { if (window.PpmExtras) window.PpmExtras.mountRaci(Object.assign(X(), { canEdit: !!(V && V.can_edit_plan) })); };
+  // R2-WB-04 — the Team panel (Overview) exists only while ppm_project_team_enabled is on
+  // R2-WB-02 — hours panel (Plan tab) only while ppm_time_entries_enabled is on
+  function mountTime() { if (window.PpmWorkbench) window.PpmWorkbench.mountTime(Object.assign(X(), { canEdit: !!(V && V.can_edit_plan), tasks: (V && V.tasks) || [] })); }
+  function mountTeam() { if (window.PpmWorkbench) window.PpmWorkbench.mountTeam(Object.assign(X(), { canEdit: !!(V && V.can_edit_plan) })); }
   $("tpl-save").addEventListener("click", function () { api("/api/governance/ppm/templates", { method: "POST", body: JSON.stringify({ project_id: Number(PID), name: $("tpl-name").value.trim() }) }).then(function (j) { msg("Template #" + j.template.id + " saved as a draft."); }).catch(fail); });
   // E-P05 — the user picker for a benefit owner (committee: /api/governance/people answers 403 to others → stays hidden)
   function linkOwners() { api("/api/governance/people").then(function (j) { $("b-owner-user").innerHTML = opt((j.people || []).map(function (p) { return [p.id, p.name]; }), "", "— not linked —"); $("b-owner-user-box").hidden = false; }).catch(function () { $("b-owner-user-box").hidden = true; }); }
@@ -370,6 +419,7 @@
       "<tr><th>Spent / budget</th><td>" + money + "</td></tr>" +
       "<tr><th>Origin</th><td>" + (p.rfi_id != null ? "request #" + n(p.rfi_id) + " (<a href=\"rfi.html\">RFI register</a>)" : "—") + "</td></tr>" +
       "</tbody></table></div>";
+    if (FEAT.team) mountTeam();
   }
 
   function renderCharter() {
@@ -413,6 +463,7 @@
     // C-14 — resource pressure per person and week (tasks without an allocation are counted "unknown", never guessed)
     $("plan-pressure").innerHTML = window.PpmVisuals ? window.PpmVisuals.pressureHtml(window.PpmVisuals.resourcePressure(V.tasks || [], { today: today() }), esc) : "";
     taskEditor();
+    if (FEAT.time_entries) mountTime();
   }
   // C-14 (G22 / F28) — visible legend (swatches, not only words) naming the baseline actually drawn.
   function ganttLegend() {

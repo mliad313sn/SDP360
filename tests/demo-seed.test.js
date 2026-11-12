@@ -67,3 +67,18 @@ test('seed → inventory → remove: exactly what was created, nothing else', as
   const again = await D.removeDemo({ rdb, inventory: inv, target });
   assert.equal(Object.values(again.removed).reduce((a, b) => a + b, 0), 0);
 });
+
+test('R2-WB-01: with nativeChangeRequests the demo change request is a native one (no stand-in request), removed by cascade', async () => {
+  const pg = rdb.pgHandle();
+  const target = await D.targetIdentity(pg);
+  const gov = require('../routes/governance').createStore(rdb); await gov.init();
+  const r = await D.seedDemo({ rdb, gov, dash: null, tag: 't2', nativeChangeRequests: true });
+  const inv = { ...r.inventory, database: target.database, schema: target.schema };
+  assert.equal(inv.ids.rfis.length, 0, 'no governance-request stand-in');
+  const wb = require('../services/ppmWorkbenchStore').makeWorkbenchStore(pg, gov);
+  const crs = await wb.listChangeRequests(r.ids.project);
+  assert.deepEqual(crs.map((c) => [c.id, c.status, c.impact_dates_days, c.currency]), [[r.ids.changeRequest, 'proposed', 14, 'USD']]);
+  assert.match(crs[0].title, /^DEMO /);
+  await D.removeDemo({ rdb, inventory: inv, target });
+  assert.equal(Number((await pg.prepare('SELECT COUNT(*) AS n FROM ppm_change_requests').get()).n), 0, 'change requests cascaded with the project');
+});

@@ -3,7 +3,8 @@
 //
 // Creates a clearly-labelled SYNTHETIC organisation (every name starts with "DEMO"): two sites, one person per role
 // (coordinator, PMO / committee, finance reader, executive, editor of site B), a portfolio project on site A with
-// tasks, a dependency, a milestone, a risk, a change request, time (effort hours) and actuals in two currencies,
+// tasks, a dependency, a milestone, a risk, a change request (native when ppm_change_requests_enabled = '1' on the
+// target, else a governance-request stand-in), time (effort hours) and actuals in two currencies,
 // a benefit with baseline / target (NOT realised — no benefit is invented), and a published dashboard reference.
 // Everything it creates is recorded in an inventory file; `--remove` deletes exactly that, nothing else.
 //
@@ -74,7 +75,7 @@ const ROLES = [
  * Seed the synthetic organisation. deps: { rdb (initialised reports-db), gov (governance store), dash (dashboard store) }.
  * → { inventory, users: { key: {id, username, password, full_name, roles} }, ids }
  */
-async function seedDemo({ rdb, gov, dash, tag = crypto.randomBytes(3).toString('hex') } = {}) {
+async function seedDemo({ rdb, gov, dash, tag = crypto.randomBytes(3).toString('hex'), nativeChangeRequests = false } = {}) {
   const pg = rdb.pgHandle();
   const inv = { label: 'SYNTHETIC DEMO — not real data', version: 1, created_at: new Date().toISOString(), tag,
     ids: { sites: [], users: [], programmes: [], objectives: [], projects: [], rfis: [], dashboards: [] },
@@ -107,9 +108,16 @@ async function seedDemo({ rdb, gov, dash, tag = crypto.randomBytes(3).toString('
   ids.t3 = await up('task', { project_id: ids.project, wbs_code: '3', name: `${LABEL} failover test`, owner: users.coordinator.username, start_date: day(11), end_date: day(20), duration_days: 7, status: 'todo', depends_on: [ids.t2] });
   ids.milestone = await up('milestone', { project_id: ids.project, name: `${LABEL} second link live`, due_date: day(20), baseline_date: day(18), status: 'open', owner: users.coordinator.username });
   ids.risk = await up('risk', { project_id: ids.project, title: `${LABEL} carrier delivery slips`, probability: 3, impact: 3, mitigation: 'second carrier quote kept open', owner: users.pmo.username, status: 'open', kind: 'risk' });
-  // a change request: no native change-request entity exists (WORKBENCH-GAPS R5) — recorded as a governance request
-  const cr = await gov.submitRfi({ kind: 'governance', title: `${LABEL} change request — extend scope to site B (synthetic)`, problem: 'scope change on the demo project; stand-in for a change request', site_id: ids.siteA }, { user: actor });
-  ids.rfi = Number(cr.id); inv.ids.rfis.push(ids.rfi);
+  // a change request. R2-WB-01: with the target's ppm_change_requests_enabled = '1' it is a NATIVE change request
+  // (ppm_change_requests, removed with the project by cascade); otherwise the earlier stand-in (a governance request)
+  if (nativeChangeRequests) {
+    const wb = require(path.join(ROOT, 'services', 'ppmWorkbenchStore.js')).makeWorkbenchStore(pg, gov);
+    const ch = await wb.createChangeRequest(ids.project, { title: `${LABEL} change request — extend scope to site B (synthetic)`, reason: 'scope change on the demo project (synthetic)', impact_dates_days: 14, impact_budget: 2500, currency: 'USD' }, { user: actor });
+    ids.changeRequest = ch.id;
+  } else {
+    const cr = await gov.submitRfi({ kind: 'governance', title: `${LABEL} change request — extend scope to site B (synthetic)`, problem: 'scope change on the demo project; stand-in for a change request', site_id: ids.siteA }, { user: actor });
+    ids.rfi = Number(cr.id); inv.ids.rfis.push(ids.rfi);
+  }
   // actuals in two currencies (+ a baseline) — budget periods, justification given where the store asks for one
   const m = month(0);
   await gov.saveBudgetPeriod(ids.project, { period: m, currency: 'USD', kind: 'baseline', amount: 15000 }, { user: actor });
@@ -117,7 +125,7 @@ async function seedDemo({ rdb, gov, dash, tag = crypto.randomBytes(3).toString('
   await gov.saveBudgetPeriod(ids.project, { period: m, currency: 'XOF', kind: 'actual', amount: 1500000, reason: 'synthetic local-currency actual' }, { user: actor });
   // a benefit with baseline and target — realised value left UNKNOWN (never invented)
   ids.benefit = await up('benefit', { project_id: ids.project, description: `${LABEL} fewer unplanned WAN outage hours (synthetic)`, measure: 'unplanned outage hours', unit: 'hours / month', value_kind: 'quantity', baseline_value: 12, target_value: 4, owner: users.pmo.username, review_date: day(90) });
-  inv.children = { tasks: [ids.t1, ids.t2, ids.t3], milestones: [ids.milestone], risks: [ids.risk], benefits: [ids.benefit], budget_periods: [`${m} USD baseline`, `${m} USD actual`, `${m} XOF actual`] };
+  inv.children = { tasks: [ids.t1, ids.t2, ids.t3], milestones: [ids.milestone], risks: [ids.risk], benefits: [ids.benefit], ...(ids.changeRequest ? { change_requests: [ids.changeRequest] } : {}), budget_periods: [`${m} USD baseline`, `${m} USD actual`, `${m} XOF actual`] };
   // a published dashboard reference (text + one registered metric)
   if (dash) {
     const key = `demo-synthetic-${tag}`;
@@ -161,7 +169,7 @@ async function removeDemo({ rdb, inventory, target }) {
   await pg.runTransaction(async () => {
     await del('dashboards', ['DELETE FROM dashboard_definition_versions WHERE key=?', 'DELETE FROM dashboard_definitions WHERE key=?']);
     await del('rfis', ['DELETE FROM rfi_requests WHERE id=?']);
-    await del('projects', ['DELETE FROM portfolio_projects WHERE id=?']);   // tasks, milestones, risks, benefits, budget periods cascade
+    await del('projects', ['DELETE FROM portfolio_projects WHERE id=?']);   // tasks, milestones, risks, benefits, budget periods, change requests (R2-WB-01) cascade
     await del('objectives', ['DELETE FROM portfolio_objectives WHERE id=?']);
     await del('programmes', ['DELETE FROM portfolio_programmes WHERE id=?']);
     await del('users', ['DELETE FROM sessions WHERE user_id=?', 'DELETE FROM users WHERE id=?']);
@@ -205,7 +213,9 @@ async function main(argv = process.argv.slice(2), { log = console.log } = {}) {
   await require(path.join(ROOT, 'db', 'migrate.js')).migrateAtBoot({ log: () => {} });
   const gov = require(path.join(ROOT, 'routes', 'governance.js')).createStore(rdb); await gov.init();
   const dash = require(path.join(ROOT, 'services', 'dashboardStore.js')).makeDashboardStore({ prepare: (sql) => rdb.pgHandle().prepare(sql) }, { isPg: true });
-  const r = await seedDemo({ rdb, gov, dash });
+  // R2-WB-01 — the native change request only where the target already switched it on (no switch is flipped here)
+  const nativeChangeRequests = String((await require(path.join(ROOT, 'services', 'reportConfig.js')).getConfig(rdb.db)).ppm_change_requests_enabled) === '1';
+  const r = await seedDemo({ rdb, gov, dash, nativeChangeRequests });
   const inventory = { ...r.inventory, database: target.database, schema: target.schema };
   if (bootAdmin) { inventory.bootstrap_admin = bootAdmin.user; inventory.retained_by_design = [...inventory.retained_by_design, `first admin ${bootAdmin.user} (the database's own admin; drop the throwaway database to remove it)`]; }
   fs.writeFileSync(invPath, JSON.stringify(inventory, null, 2));

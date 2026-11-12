@@ -4,6 +4,7 @@
 // Boots the real app on a throwaway database, seeds the SYNTHETIC organisation with tools/demo/seed-demo.js (its
 // own guard runs first — the database must be throwaway and empty of projects), then walks:
 //   Home → portfolio → project (plan: measured zero vs unknown) → workbook export (same figures as the screen,
+//   budget periods in two currencies and the native change request — R2-WB-01/03),
 //   zero vs unknown preserved) → audit trail (History tab) → site B editor cannot see site A's project once
 //   portfolio_site_scope_reads = '1' (set in THIS throwaway database only) → --remove leaves no DEMO residue.
 // It proves the software path on synthetic data. It does NOT prove a field result or a realised benefit.
@@ -36,7 +37,10 @@ function demoSeed(holder) {
     DEMO.assertSafeTarget(target);                                   // the same guard the CLI applies
     const gov = require(path.join(ROOT, 'routes', 'governance.js')).createStore(app.rdb); await gov.init();
     const dash = require(path.join(ROOT, 'services', 'dashboardStore.js')).makeDashboardStore({ prepare: (sql) => pg.prepare(sql) }, { isPg: true });
-    const seeded = await DEMO.seedDemo({ rdb: app.rdb, gov, dash, tag: 'e2e' });
+    // R2-WORKBENCH — the workbench switches are set in THIS throwaway database only, before seeding, so the demo's
+    // change request is a native one and the workbook carries the budget periods and the changes (R2-WB-01/03)
+    await require(path.join(ROOT, 'services', 'reportConfig.js')).setConfig(app.rdb.db, { ppm_change_requests_enabled: '1', ppm_budget_periods_enabled: '1', portfolio_views_enabled: '1' }, 'demo-e2e');
+    const seeded = await DEMO.seedDemo({ rdb: app.rdb, gov, dash, tag: 'e2e', nativeChangeRequests: true });
     holder.target = target;
     return { ...seeded, users: seeded.users, inventory: { ...seeded.inventory, database: target.database, schema: target.schema } };
   };
@@ -55,6 +59,16 @@ runJourney('DEMO two-site synthetic journey: Home → portfolio → project → 
   await pmo.goto(app.base + '/portfolio.html');
   await pmo.waitForFunction(() => /DEMO WAN redundancy/.test(document.body.textContent), null, { timeout: 20000 });
   await j.measure(pmo, 'portfolio');
+  // R2-WB-05 — the board view (?view=board) shows the demo project under its stage; the board is read-only links
+  await pmo.goto(app.base + '/portfolio.html?view=board');
+  await pmo.waitForFunction(() => { const b = document.getElementById('board'); return b && !b.hidden && /DEMO WAN redundancy/.test(b.textContent); }, null, { timeout: 20000 });
+  const col = await pmo.$eval('#board', (b) => { const a = [...b.querySelectorAll('.pf-card a')].find((x) => /DEMO WAN redundancy/.test(x.textContent)); return a ? a.closest('.pf-col').getAttribute('aria-label') : null; });
+  assert.match(col || '', /^proposal \(/, 'the demo project (no stage yet) is in the proposal column');
+  assert.equal(await pmo.$eval('#pf-views [aria-current="page"]', (a) => a.getAttribute('data-view')), 'board');
+  assert.equal(await pmo.$$eval('#pf-views [aria-current]', (l) => l.length), 1);
+  await pmo.click('#pf-views [data-view="list"]');
+  assert.match(pmo.url(), /view=list/); assert.ok(await pmo.$eval('#list-view', (x) => !x.hidden && /DEMO WAN redundancy/.test(x.textContent)), 'list view = the table');
+  await j.measure(pmo, 'portfolio-board');
   await pmo.goto(app.base + '/project.html?id=' + ids.project + '#plan');
   await pmo.waitForSelector('#task-row-' + ids.t3, { state: 'attached', timeout: 20000 });
   const cells = async (tid) => pmo.$$eval('#task-row-' + tid + ' td', (tds) => tds.map((td) => td.textContent.trim()));
@@ -81,6 +95,21 @@ runJourney('DEMO two-site synthetic journey: Home → portfolio → project → 
   assert.strictEqual(brow.realised_value, null, 'no realised benefit invented — empty, not 0');
   assert.equal(sheet(wb, 'Milestones').filter((r) => r.project === screen.project.key).length, 1);
   assert.equal(sheet(wb, 'RAID').filter((r) => r.project === screen.project.key).length, 1);
+
+  // 2b. R2-WB-03 — the XOF and USD actuals of the screen (budget-periods API) are in the workbook, one currency per row
+  const bpScreen = (await getJson(pmo, '/api/governance/ppm/project/' + ids.project + '/budget-periods')).body.view;
+  const bpRows = sheet(wb, 'Budget periods').filter((r) => r.project === screen.project.key);
+  for (const c of bpScreen.currencies) for (const p of c.periods) if (p.actual != null) {
+    assert.equal(Number(bpRows.find((r) => r.currency === c.currency && r.period === p.period && r.kind === 'actual').amount), Number(p.actual), c.currency + ' actual = screen');
+  }
+  assert.deepEqual([...new Set(bpRows.filter((r) => r.kind === 'actual').map((r) => r.currency))].sort(), ['USD', 'XOF']);
+  // 2c. R2-WB-01 — the demo change request is a native one: on the Changes tab and in the workbook "Changes" sheet
+  assert.ok(ids.changeRequest, 'native change request seeded');
+  assert.deepEqual(sheet(wb, 'Changes').filter((r) => r.project === screen.project.key).map((r) => [r.id, r.status, r.impact_dates_days, r.currency]), [[ids.changeRequest, 'proposed', 14, 'USD']]);
+  await pmo.waitForSelector('#tab-changes:not([hidden])', { timeout: 20000 });
+  await pmo.click('#tab-changes');
+  await pmo.waitForFunction(() => /extend scope to site B/.test((document.getElementById('changes') || {}).textContent || ''), null, { timeout: 20000 });
+  await j.measure(pmo, 'project-changes');
 
   // 3. Audit trail
   await pmo.click('#tab-history');
