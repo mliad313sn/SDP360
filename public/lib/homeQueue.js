@@ -242,6 +242,9 @@
     }
     function loadCommitments() {
       if (sites == null) { settle('commitments', { state: 'unknown' }); return Promise.resolve(); }
+      // UAT-F: the page knows commitments_enabled = '0' (window.__uiPolicy.commitments) → "switched off" at once, without a
+      // request that can only answer 404 (it printed a console error on every Home load of the pilot profile)
+      if (o.commitmentsOff === true) { settle('commitments', { state: 'unknown', reason: 'off' }); return Promise.resolve(); }
       return run(function () { return call('/api/commitments'); }).then(function (r) {
         if (r.status === 'ok') settle('commitments', { state: 'available', items: fromCommitments(r.json, sites.map(function (s) { return s.site_id; }), codeById, asOf) });
         else if (r.status === 'off') settle('commitments', { state: 'unknown', reason: 'off' });
