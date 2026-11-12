@@ -19,6 +19,9 @@
     'You do not have access to this figure': 'Vous n’avez pas accès à ce chiffre', 'Value not certified': 'Valeur non certifiée',
     'Export in progress': 'Export en cours', 'Publication blocked': 'Publication bloquée',
     'base not measured': 'base non mesurée', '→ act': '→ agir',
+    // F-UX-03 — 'partial' state and the partial-period note ("2026-11 période partielle · données au 4 nov.")
+    'Partial — some sources missing, total unknown': 'Partiel — sources manquantes, total inconnu',
+    'is partial · data to': 'période partielle · données au',
   };
   // (the state texts are rendered by lib/stateBadge.js / lib/dashboardRender.js, not by the page source)
   root.I18N_FR_DASHBOARDS_RUNTIME = [];

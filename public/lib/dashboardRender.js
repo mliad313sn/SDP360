@@ -206,11 +206,20 @@
     }
     return end;
   }
-  /** "partial · data to 4 Nov" under a tile / chart whose period is still running. */
-  function partialNote(d, now) {
+  /** "2026-11 is partial · data to 4 Nov" under a tile / chart whose period is still running.
+   *  F-UX-03 — in French the sentence and the date follow the language: `opts` = { lang, dict } (tests), else the
+   *  page's I18nText (active only when the page dictionaries are on). English output is unchanged. */
+  var PARTIAL_EN = 'is partial · data to';
+  function partialNote(d, now, opts) {
     if (!d || !d.partial) return '';
+    var o = opts || {}, I = null;
+    try { I = typeof self !== 'undefined' ? self.I18nText : null; } catch (_) { I = null; }
+    var lang = o.lang || (I && I.lang && I.lang() === 'fr' ? 'fr' : 'en');
+    var words = PARTIAL_EN;
+    if (lang === 'fr') words = (o.dict && o.dict[PARTIAL_EN]) || (I && I.t ? I.t(PARTIAL_EN) : PARTIAL_EN);
+    var fr = lang === 'fr' && words !== PARTIAL_EN;          // no French sentence available → stay fully English
     var t = new Date((now ? _ymd(new Date(now)) : _today()) + 'T00:00:00Z');
-    return '<div class="edv-partial" role="note">' + escapeHtml((d.window && d.window.label) || '') + ' is partial · data to ' + t.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }) + '</div>';
+    return '<div class="edv-partial" role="note">' + escapeHtml((d.window && d.window.label) || '') + ' ' + escapeHtml(words) + ' ' + t.toLocaleDateString(fr ? 'fr-FR' : 'en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' }) + '</div>';
   }
 
   /** Default trend length from the widget's window hint: '13w' → 13 weeks, '6m' → 6 months. */

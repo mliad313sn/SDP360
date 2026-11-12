@@ -318,6 +318,8 @@
 /* E-V03 — standard state vocabulary (public/lib/stateBadge.js): symbol + text, never colour alone. */
 .edv-state { display:inline-flex; align-items:center; gap:4px; padding:2px 8px; border-radius:10px; font-size:12px; color:var(--color-text-muted); border:1px solid currentColor; }
 .edv-state-sym { font-weight:700; }
+.edv-state-partial { border-style:dashed; }
+.edv-live { position:absolute; width:1px; height:1px; margin:-1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
 .edv-state-error, .edv-state-publication-blocked { color:var(--edv-red); }
 /* E-V03 — base population line + "→ act" link under a KPI value */
 .edv-kpi-base { font-size:12px; color:var(--color-text-muted); margin-top:2px; }

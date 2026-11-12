@@ -8,16 +8,50 @@ const SB = require('../public/lib/stateBadge');
 const DR = require('../public/lib/dashboardRender');
 const KC = require('../public/lib/kpiCard');
 
-test('the ten states of audit §5.3 exist, each with a symbol, a text and an accessible name', () => {
-  assert.deepEqual(SB.KEYS, ['loading', 'no-data', 'not-measured', 'stale', 'unmonitored', 'error', 'no-right', 'uncertified', 'export-in-progress', 'publication-blocked']);
+test('the ten states of audit §5.3 + partial exist, each with a symbol, a text and an accessible name', () => {
+  assert.deepEqual(SB.KEYS, ['loading', 'no-data', 'not-measured', 'stale', 'unmonitored', 'error', 'no-right', 'uncertified', 'export-in-progress', 'publication-blocked', 'partial']);
+  assert.deepEqual(Object.keys(SB.STATES).sort(), SB.KEYS.slice().sort());
   for (const k of SB.KEYS) {
     const html = SB.badge(k);
     assert.ok(SB.symbol(k) && SB.text(k) && SB.aria(k), k);
-    assert.match(html, new RegExp('role="status" aria-label="' + SB.aria(k)), k);
+    assert.match(html, new RegExp('role="img" aria-label="' + SB.aria(k)), k);
     assert.ok(html.includes(SB.symbol(k)) && html.includes(SB.text(k)), k + ': symbol AND text, never colour alone');
   }
   assert.throws(() => SB.badge('nope'), /unknown state/);
   assert.match(SB.badge('error', { detail: '<b>x</b>' }), /&lt;b&gt;x&lt;\/b&gt;/, 'detail is escaped');
+});
+
+test('F-UX-03: a badge is static markup, never a live region; announcements go through liveRegion()', () => {
+  for (const k of SB.KEYS) {
+    const html = SB.badge(k, { detail: 'x' });
+    assert.ok(!/role="status"|aria-live|role="alert"/.test(html), k + ' must not be a live region');
+  }
+  assert.equal(SB.liveRegion('3 rows loaded', { id: 'pgLive' }), '<div class="edv-live" id="pgLive" role="status" aria-live="polite" aria-atomic="true">3 rows loaded</div>');
+  assert.match(SB.liveRegion('<i>', { assertive: true }), /role="alert" aria-live="assertive" aria-atomic="true">&lt;i&gt;</);
+  assert.match(SB.liveRegion(), /aria-atomic="true"><\/div>$/, 'empty = silent container');
+});
+
+test('F-UX-03: partial is not stale and not "not measured" — different symbol, text and accessible name', () => {
+  const sym = new Set(SB.KEYS.map((k) => SB.symbol(k)));
+  assert.equal(sym.size, SB.KEYS.length, 'every state has its own symbol');
+  for (const other of ['stale', 'not-measured', 'no-data', 'unmonitored']) {
+    assert.notEqual(SB.text('partial'), SB.text(other)); assert.notEqual(SB.aria('partial'), SB.aria(other)); assert.notEqual(SB.symbol('partial'), SB.symbol(other));
+  }
+  assert.match(SB.text('partial'), /total unknown/, 'a partial total is never presented as a total');
+  const fr = require('../public/lib/i18n/dashboards.fr.js'); void fr;
+  assert.equal(globalThis.I18N_FR_DASHBOARDS[SB.text('partial')], 'Partiel — sources manquantes, total inconnu');
+  for (const k of SB.KEYS) assert.ok(globalThis.I18N_FR_DASHBOARDS[SB.text(k)], 'French text for ' + k);
+});
+
+test('F-UX-03: the partial-period note follows the language (sentence and date); English is unchanged', () => {
+  const NOW = new Date('2026-11-04T10:00:00Z');
+  const d = { partial: true, window: { label: '2026-11', to: '2026-11-30' } };
+  assert.equal(DR.partialNote(d, NOW), '<div class="edv-partial" role="note">2026-11 is partial · data to 4 Nov</div>');
+  require('../public/lib/i18n/dashboards.fr.js');
+  const fr = DR.partialNote(d, NOW, { lang: 'fr', dict: globalThis.I18N_FR_DASHBOARDS });
+  assert.equal(fr, '<div class="edv-partial" role="note">2026-11 période partielle · données au 4 nov.</div>');
+  assert.equal(DR.partialNote(d, NOW, { lang: 'fr', dict: {} }), DR.partialNote(d, NOW), 'no French sentence → fully English, never a mix');
+  assert.equal(DR.partialNote({ partial: false }, NOW, { lang: 'fr' }), '');
 });
 
 test('existing state texts are byte-identical to before (pinned)', () => {
