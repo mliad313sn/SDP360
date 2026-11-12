@@ -48,12 +48,12 @@ function aggregate(artefacts) {
     j.pages.push((a.pages || []).length);
     for (const p of a.pages || []) {
       const k = p.path || p.label || '?';
-      const s = (pages[k] = pages[k] || { dcl: [], load: [], bytes: [] });
-      s.dcl.push(p.dom_content_loaded_ms); s.load.push(p.load_ms); s.bytes.push(p.transfer_bytes);
+      const s = (pages[k] = pages[k] || { dcl: [], load: [], bytes: [], fu: [] });
+      s.dcl.push(p.dom_content_loaded_ms); s.load.push(p.load_ms); s.bytes.push(p.transfer_bytes); s.fu.push(p.first_usable_ms);
     }
   }
   const out = { runs: runs.size, samples: (artefacts || []).length, pages: {}, journeys: {} };
-  for (const [k, s] of Object.entries(pages).sort()) out.pages[k] = { dcl_ms: stat(s.dcl), load_ms: stat(s.load), transfer_bytes: stat(s.bytes), budget: BUDGET };
+  for (const [k, s] of Object.entries(pages).sort()) out.pages[k] = { dcl_ms: stat(s.dcl), load_ms: stat(s.load), first_usable_ms: stat(s.fu), transfer_bytes: stat(s.bytes), budget: BUDGET };
   for (const [k, s] of Object.entries(journeys).sort()) out.journeys[k] = { duration_ms: stat(s.duration), pages: stat(s.pages), budget: BUDGET };
   return out;
 }
@@ -83,9 +83,11 @@ function renderMarkdown(agg, meta = {}) {
   L.push('');
   L.push('## Per page (local Chromium, localhost)');
   L.push('');
-  L.push('| Page | n | DCL p50 (ms) | DCL p95 (ms) | Load p50 (ms) | Load p95 (ms) | Transfer p50 (KB) | Transfer p95 (KB) | Budget |');
-  L.push('|---|---|---|---|---|---|---|---|---|');
-  for (const [k, s] of Object.entries(agg.pages)) L.push(`| \`${k}\` | ${s.dcl_ms.n} | ${fmt(s.dcl_ms.p50)} | ${fmt(s.dcl_ms.p95)} | ${fmt(s.load_ms.p50)} | ${fmt(s.load_ms.p95)} | ${kb(s.transfer_bytes.p50)} | ${kb(s.transfer_bytes.p95)} | ${s.budget} |`);
+  L.push('| Page | n | DCL p50 (ms) | DCL p95 (ms) | Load p50 (ms) | Load p95 (ms) | First usable p50 (ms) | First usable p95 (ms) | Transfer p50 (KB) | Transfer p95 (KB) | Budget |');
+  L.push('|---|---|---|---|---|---|---|---|---|---|---|');
+  for (const [k, s] of Object.entries(agg.pages)) { const fu = s.first_usable_ms || { p50: null, p95: null }; L.push(`| \`${k}\` | ${s.dcl_ms.n} | ${fmt(s.dcl_ms.p50)} | ${fmt(s.dcl_ms.p95)} | ${fmt(s.load_ms.p50)} | ${fmt(s.load_ms.p95)} | ${fmt(fu.p50)} | ${fmt(fu.p95)} | ${kb(s.transfer_bytes.p50)} | ${kb(s.transfer_bytes.p95)} | ${s.budget} |`); }
+  L.push('');
+  L.push('"First usable" = the page\'s `sdp:first-usable` performance mark: its primary table or figure shows data or an explicit state (F-UX-05). `—` = the page sets no mark or no sample — never 0. The vision\'s "< 3 s to first usable table" is a budget for a person to approve.');
   L.push('');
   L.push('## Per journey (wall clock, includes the scripted waits)');
   L.push('');

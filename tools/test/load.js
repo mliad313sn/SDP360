@@ -54,6 +54,14 @@ function percentile(values, p) {
   return v[Math.min(v.length, Math.max(1, Math.ceil((p / 100) * v.length))) - 1];
 }
 
+// F-UX-05 — the route template behind each step, so the report can give API p95 PER ROUTE (the vision's
+// "p95 < 800 ms" is a budget for a person; nothing here is a threshold). Unknown step → its own name.
+const ROUTES = {
+  'reports.list': 'GET /api/reports', 'reports.open': 'GET /api/reports/:id', 'reports.save_section': 'PUT /api/reports/:id/infra',
+  'helpdesk.data': 'GET /api/data/requests-raw', 'field.envelope': 'PUT /api/field/outbox/:id', 'export.risk_register': 'GET /api/risk-register-export',
+};
+const routeOf = (step) => ROUTES[step] || step;
+
 /** Pure aggregation: samples [{step, ms, status}] → per-step and overall statistics. */
 function aggregate(samples, { durationSec = null, rss = [] } = {}) {
   const by = {};
@@ -67,8 +75,10 @@ function aggregate(samples, { durationSec = null, rss = [] } = {}) {
       statuses: list.reduce((a, s) => { a[s.status] = (a[s.status] || 0) + 1; return a; }, {}) };
   };
   const steps = {}; for (const k of Object.keys(by).sort()) steps[k] = stat(by[k]);
+  const byRoute = {}; for (const x of samples) (byRoute[routeOf(x.step)] = byRoute[routeOf(x.step)] || []).push(x);
+  const routes = {}; for (const k of Object.keys(byRoute).sort()) routes[k] = stat(byRoute[k]);
   const rssKb = rss.filter((x) => Number.isFinite(x));
-  return { overall: stat(samples), steps, throughput_rps: durationSec ? Math.round(samples.length / durationSec * 10) / 10 : null,
+  return { overall: stat(samples), steps, routes, throughput_rps: durationSec ? Math.round(samples.length / durationSec * 10) / 10 : null,
     rss_kb: rssKb.length ? { first: rssKb[0], last: rssKb[rssKb.length - 1], max: Math.max(...rssKb) } : null };
 }
 
@@ -82,6 +92,8 @@ function renderMarkdown(agg, meta) {
     `- Server RSS: ${agg.rss_kb ? `${Math.round(agg.rss_kb.first / 1024)} MB at start → ${Math.round(agg.rss_kb.last / 1024)} MB at end (max ${Math.round(agg.rss_kb.max / 1024)} MB)` : 'UNKNOWN (pass --pid=<server pid>; the server exposes no memory figure)'}`, '',
     '| Step | n | p50 (ms) | p95 (ms) | p99 (ms) | errors | 5xx | statuses |', '|---|---|---|---|---|---|---|---|'];
   for (const [k, s] of Object.entries(agg.steps)) L.push(`| ${k} | ${s.n} | ${f(s.p50)} | ${f(s.p95)} | ${f(s.p99)} | ${s.errors} | ${s.five_xx} | ${Object.entries(s.statuses).map(([c, n]) => `${c}×${n}`).join(' ')} |`);
+  L.push('', '## API latency per route template (F-UX-05) — observation only, no threshold', '', '| Route | n | p50 (ms) | p95 (ms) | p99 (ms) |', '|---|---|---|---|---|');
+  for (const [k, s] of Object.entries(agg.routes || {})) L.push(`| ${k} | ${s.n} | ${f(s.p50)} | ${f(s.p95)} | ${f(s.p99)} |`);
   return L.join('\n') + '\n';
 }
 
@@ -161,5 +173,5 @@ async function main(argv = process.argv.slice(2)) {
   return agg;
 }
 
-module.exports = { assertTarget, parseArgs, percentile, aggregate, renderMarkdown, LOCAL, __main: main };
+module.exports = { assertTarget, parseArgs, percentile, aggregate, renderMarkdown, LOCAL, ROUTES, routeOf, __main: main };
 if (require.main === module) main().catch((e) => { console.error('[load] ' + e.message); process.exit(2); });

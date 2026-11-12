@@ -211,8 +211,10 @@
       state.data = await r.json();
       saHead(true);
       render();
+      window.__markFirstUsable && window.__markFirstUsable('site-actions');   // F-UX-05
     } catch (e) {
       const m = String(e.message || '');
+      window.__markFirstUsable && window.__markFirstUsable('site-actions:error');
       groupsEl.innerHTML = '<div class="sa-group"><div class="sa-empty">' + (/^This site is not one of yours/.test(m) ? '' : 'Failed to load: ') + esc(m) + '</div></div>';
     }
   }

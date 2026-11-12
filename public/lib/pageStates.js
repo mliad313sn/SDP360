@@ -28,7 +28,8 @@
     setTimeout(dismissLoader, 3500);
     if (typeof window.loadLiveData === 'function') {
       var orig = window.loadLiveData;
-      window.loadLiveData = async function () { try { return await orig.apply(this, arguments); } finally { setTimeout(settle, 1500); } };
+      // F-UX-05 — the live data call settled (data or error): the page's figures are usable now
+      window.loadLiveData = async function () { try { return await orig.apply(this, arguments); } finally { try { if (window.__markFirstUsable) window.__markFirstUsable('live-data'); } catch (_) { /* no mark */ } setTimeout(settle, 1500); } };
     }
     if (lastResort) setTimeout(settle, 30000);   // last resort: nothing arrived at all
   });

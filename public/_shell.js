@@ -629,6 +629,18 @@
     sendPageView();
   }
 
+  // F-UX-05 — "first usable" mark: a page calls window.__markFirstUsable(label) once its primary table / figure
+  // shows data OR an explicit state (empty, error). The browser journeys read performance mark 'sdp:first-usable'
+  // (tests/e2e/fixtures/browser.js) so the vision's "first usable table" can be measured; no budget is set here.
+  function markFirstUsable(label) {
+    try {
+      if (typeof performance === 'undefined' || !performance.mark || performance.getEntriesByName('sdp:first-usable').length) return false;
+      performance.mark('sdp:first-usable', { detail: { label: String(label || '') } });
+      return true;
+    } catch (_) { return false; }
+  }
+  try { window.__markFirstUsable = markFirstUsable; } catch (_) { /* no window */ }
+
   // C-09 (F16/F29/G14) — usage facts before any keep/merge decision: one `page_viewed` per page load of a shell
   // page, fire-and-forget. The server keeps ONE row per user × page × day (services/viewLog.js) with user id +
   // role tier only. A re-render (reports.html after login) does not send twice; a failure is silent.

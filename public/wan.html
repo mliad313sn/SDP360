@@ -313,6 +313,7 @@
       : 'le seuil réglé en Admin (' + thr + ' % — calibration du 04/09/2026, écart ≈ 1 pt sur semaine/mois)';
     const asOfTxt = data.data_as_of ? String(data.data_as_of).slice(0, 16).replace('T', ' ') : null;
     $('wh-empty').style.display = sites.length ? 'none' : 'block';
+    window.__markFirstUsable && window.__markFirstUsable('wan');   // F-UX-05
     $('wh-basis').innerHTML = '<b>Dispo</b> (le gros chiffre) = % du temps où le lien <b>répondait</b> (une connexion passait). <b>Qualité</b> = indice <b>R (0-100)</b> du <b>modèle E de l’ITU-T (G.107)</b> sur perte / latence / gigue, converti en <b>MOS</b> (score voix standard 1 à 5 : Excellent ≥4.3 · Bon ≥4.0 · Correct ≥3.6 · Médiocre ≥3.1 · Mauvais). Un lien peut être <b>Dispo</b> mais de <b>Qualité/MOS</b> basse (il répond mais la voix passe mal). La <b>Dispo</b> est <b>calibrée sur le « % Time Up » de Meraki</b> (non exposé par l’API) : un échantillon dont la perte dépasse ' + thrTxt + ' compte comme <i>down</i>. Chaque lien porte son <b>ISP</b> une fois le circuit mappé (Admin → SLA WAN).';
     $('wh-basis').innerHTML += ` <span style="display:inline-block;margin-top:4px;color:#6b7a99">🗓 Période : <b>${period === 'month' ? 'mois' : (period === 'day' ? 'jour' : 'semaine')} archivé(e)</b> — dernière collecte Meraki${asOfTxt ? ' : <b>' + asOfTxt + ' UTC</b>' : ' : <b>aucune</b>'}.</span>`;
     // C-13 — per-source freshness (null = never ran, never invented).

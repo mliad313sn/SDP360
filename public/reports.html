@@ -2980,6 +2980,7 @@ async function loadReportList(offset) {
     }
     if (!reports.length) {
       grid.innerHTML = '<div class="empty-state"><div class="es-icon">📋</div><p>No reports yet. Create the first one above.</p></div>';
+      window.__markFirstUsable && window.__markFirstUsable('reports:list');   // F-UX-05
       return;
     }
     const STATUS = { submitted: '✅ Submitted', ready: '✔ Ready', in_progress: '⏳ In Progress' };
@@ -2991,7 +2992,8 @@ async function loadReportList(offset) {
         <span style="font-size:0.77rem;color:#bbb;margin-left:8px">Updated ${r.updated_at ? esc(String(r.updated_at).slice(0,10)) : '—'}</span>
       </div>
     `).join('');
-  } catch(e) { grid.innerHTML = `<div class="empty-state"><p>Error loading reports: ${esc(e)}</p></div>`; }
+    window.__markFirstUsable && window.__markFirstUsable('reports:list');   // F-UX-05
+  } catch(e) { grid.innerHTML = `<div class="empty-state"><p>Error loading reports: ${esc(e)}</p></div>`; window.__markFirstUsable && window.__markFirstUsable('reports:error'); }
 }
 
 async function openOrCreateReport() {

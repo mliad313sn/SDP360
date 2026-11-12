@@ -116,7 +116,9 @@
       if (j.message) msg.push(lang === 'fr' ? "Vous n'êtes rattaché à aucun site — utilisez le registre des actions du site." : j.message);
       if (j.truncated) msg.push(fill(T.more, { n: j.truncated }));
       $('hmMsg').textContent = msg.join(' ');
+      window.__markFirstUsable && window.__markFirstUsable('home');   // F-UX-05
     } catch (e) {
+      window.__markFirstUsable && window.__markFirstUsable('home:error');   // F-UX-05 — an explicit state is usable too
       if (blocksOn) { failedHome(e); return; }
       $('hmSites').innerHTML = '';
       head(null);
