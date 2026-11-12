@@ -476,6 +476,32 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     const p = require('./portfolioBenefits').classProblem(row);
     if (p) throw Object.assign(new Error(p.error), { code: 'INVALID', reason: p.code });
   }
+  // W1-INTEGRITY / A-INT-1 — hierarchy + date integrity before a task / project / milestone write (pure rules in
+  // services/ppm/planIntegrity). Only what this write CHANGES is checked: a legacy row that already breaks a rule
+  // stays editable for its other fields (tools/pg/ppm-integrity-report.js lists such rows).
+  async function _integrityCheck(kind, id, vals) {
+    const PI = require('./ppm/planIntegrity');
+    const T = TABLES[kind];
+    const before = id ? await P(`SELECT * FROM ${T.table} WHERE id=?`).get(id) : null;
+    const same = (a, b) => String(a ?? '') === String(b ?? '');
+    const datePatch = {};
+    for (const f of PI.DATE_FIELDS[kind]) if (vals[f] !== undefined && !(before && same(vals[f], before[f]))) datePatch[f] = vals[f];
+    const dp = PI.dateProblem(kind, datePatch, before);
+    if (dp) throw Object.assign(new Error(dp.error), { code: 'INVALID', reason: dp.code });
+    if (kind !== 'task') return;
+    const pid = vals.project_id != null ? Number(vals.project_id) : before ? Number(before.project_id) : null;
+    const parent = vals.parent_id !== undefined ? vals.parent_id : (before ? before.parent_id : null);
+    const deps = vals.depends_on !== undefined ? P_(vals.depends_on, []) : (before ? P_(before.depends_on, []) : []);
+    const depKey = (a) => (a || []).map(Number).sort((x, y) => x - y).join(',');
+    const moved = !!(before && vals.project_id != null && Number(vals.project_id) !== Number(before.project_id));
+    const changed = { parent: !before || moved || (vals.parent_id !== undefined && !same(vals.parent_id, before.parent_id)), deps: !before || (vals.depends_on !== undefined && depKey(deps) !== depKey(P_(before.depends_on, []))) };
+    if (moved && (await P(`SELECT id FROM portfolio_tasks WHERE parent_id=? AND deleted_at IS NULL`).get(id))) throw Object.assign(new Error('a task with sub-tasks cannot move to another project'), { code: 'INVALID', reason: 'PARENT_OTHER_PROJECT' });
+    if (!changed.parent && !changed.deps) return;
+    const rows = await P(`SELECT id, project_id, parent_id FROM portfolio_tasks WHERE project_id=? AND deleted_at IS NULL`).all(pid);
+    if (parent != null && !rows.some((r) => Number(r.id) === Number(parent))) { const pr = await P(`SELECT id, project_id, parent_id FROM portfolio_tasks WHERE id=? AND deleted_at IS NULL`).get(Number(parent)); if (pr) rows.push(pr); }
+    const hp = PI.hierarchyProblem({ id, project_id: pid, parent_id: parent, depends_on: deps }, rows, changed);
+    if (hp) throw Object.assign(new Error(hp.error), { code: 'INVALID', reason: hp.code });
+  }
   async function upsertPortfolio(kind, body, opts = {}) {
     const T = TABLES[kind]; if (!T) throw Object.assign(new Error('unknown portfolio entity'), { code: 'INVALID' });
     const vals = normalise(kind, body || {});
@@ -497,6 +523,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       if (pid == null && id) { const cur = await P(`SELECT project_id FROM ${T.table} WHERE id=?`).get(id); pid = cur ? cur.project_id : null; }
       if (pid != null && (await P(`SELECT id FROM portfolio_projects WHERE id=?`).get(Number(pid))) && await _projectGone(pid)) throw softDelete.deletedConflict('project', { deleted_at: await _goneSince(pid) });
     }
+    if (kind === 'task' || kind === 'project' || kind === 'milestone') await _integrityCheck(kind, id, vals);   // W1-INTEGRITY A-INT-1
     if (id && kind === 'benefit') {
       const before = await getBenefit(id);
       if (!before) throw Object.assign(new Error('benefit not found'), { code: 'NOT_FOUND', status: 404 });
