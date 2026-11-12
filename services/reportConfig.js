@@ -289,6 +289,11 @@ DEFAULTS.outbound_allow_hosts = '';
 // ── E11 — off-site copy of every verified dump (UNC or local path; '' = local only; S3 out of scope).
 //    Not a secret (a path), but super_admin-only like the rest of /api/reports/config.
 DEFAULTS.backup_offsite_path = '';
+// ── F-ARCH-05 — full-service restore drill. restore_drill_full '0' = the monthly drill stays
+//    database-only (today); '1' adds files + keys + timing. restore_rto_minutes '' = no recovery-time
+//    target set → the timing step reads UNKNOWN (never "met"); the value is the operations owner's.
+DEFAULTS.restore_drill_full = '0';
+DEFAULTS.restore_rto_minutes = '';
 // ── Step 9 — engagement + external publishing. Teams / webhook URLs let anyone post → SECRETS
 //    (blank-keep, encrypted). SharePoint: Graph client-credentials app (client_secret = SECRET).
 //    publish_metric_keys = comma list of KPI keys the connectors + the OData Values default to.

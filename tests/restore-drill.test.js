@@ -85,7 +85,8 @@ test('PG: fresh dump → restore into a disposable database → counts match; th
     assert.equal(logged.length, 1); assert.deepEqual([logged[0].category, logged[0].action, logged[0].details.ok], ['ops', 'restore_drill', true]);
     // the disposable database is gone
     const a = new Client({ connectionString: ctx.adminUrl }); await a.connect();
-    const left = await a.query("SELECT datname FROM pg_database WHERE datname LIKE 'sdp_drill_%'");
+    // its OWN target (another drill test may hold a sdp_drill_* database on the same cluster at this instant)
+    const left = await a.query('SELECT datname FROM pg_database WHERE datname = $1', [out.target.name]);
     await a.end();
     assert.equal(left.rows.length, 0, 'target dropped');
 

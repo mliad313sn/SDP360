@@ -12,6 +12,7 @@
 // Usage:
 //   node tools/agent/inventory.js                write docs/agent-execution/INVENTORY.json + INVENTORY.md
 //   node tools/agent/inventory.js --check        exit 1 if the committed inventory differs from the code
+//   node tools/agent/inventory.js --strict [--check]   strict coverage signal + criticality (inventory-strict.js)
 const fs = require('fs');
 const path = require('path');
 
@@ -243,6 +244,18 @@ function comparable(inv) {
 
 function main() {
   const inv = build();
+  // F-ARCH-08 — strict coverage signal + criticality classes (docs/agent-execution/INVENTORY-STRICT.md)
+  if (process.argv.includes('--strict')) {
+    const strict = require('./inventory-strict');
+    if (process.argv.includes('--check')) {
+      const c = strict.check(inv);
+      if (!c.ok) { console.error(c.reason); process.exit(1); }
+      console.log('strict inventory up to date: ' + JSON.stringify(c.summary));
+      return;
+    }
+    console.log(JSON.stringify(strict.write(inv).summary));
+    return;
+  }
   if (process.argv.includes('--check')) {
     if (!fs.existsSync(OUT_JSON)) { console.error('INVENTORY.json missing — run node tools/agent/inventory.js'); process.exit(1); }
     const committed = JSON.parse(fs.readFileSync(OUT_JSON, 'utf8'));
