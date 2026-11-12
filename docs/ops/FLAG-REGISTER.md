@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (208) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (209) — services/reportConfig.js DEFAULTS
 
 Prerequisites (E-A07, services/switchPrereqs.js) are WARNINGS in plain words, never approvals: the config PUT
 answer and the `set-ui-policy.js` dry run repeat them when the switch is moved to its switched-on value.
@@ -226,6 +226,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `wan_timeup_latency_ms` | `` | setting | to be named | — | — | — |
 | `wan_timeup_loss_pct` | `100` | setting | Network owner | `5` (calibration of 2026-09-04) | A-18 (pre-existing key; A-18b adds the uncalibrated banner + `tools/meraki/check-timeup-calibration.js`) | — |
 | `weekly_report_send_enabled` | `0` | arm switch | to be named | — | — | — |
+| `workspace_profiles_enabled` | `0` | arm switch | PO | `1` for the pilot cohort once the PO confirms the 11 profiles and their first destinations — presentation profiles (REBUILD-SPEC R1) + `workspace-settings.html` (R2: profile among those the roles allow, destination order / hidden, density, default site among the person's own sites), stored per user (migration 078); a profile NEVER grants a page, a role or a site (tested); a business-only account is offered only the business profile; the login landing and Home are not rewired here (R2-QUEUE) | R1-PROFILES | — |
 | `xof_usd_rate` | `0.00165` | setting | to be named | — | — | — |
 
 ## 2. Planned switches (9) — named in PILOT-PROFILE, not yet in DEFAULTS on this branch

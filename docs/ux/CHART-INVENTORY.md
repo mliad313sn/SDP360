@@ -7,7 +7,7 @@ records a per-page budget for hex literals, dual axes and doughnuts: those can o
 The "substitution to consider" column is a **proposal** worded from the audit's measure → chart matrix (§5.2).
 Choosing and approving a substitution is a person's decision after a browser review; nothing here is decided.
 
-Files scanned: **104** · inline <style> blocks: **53** · hex literals: **5577** · `new Chart(` call sites: **44** · dual axes (`yAxisID`): **27** · doughnut/pie: **29**
+Files scanned: **107** · inline <style> blocks: **54** · hex literals: **5577** · `new Chart(` call sites: **44** · dual axes (`yAxisID`): **27** · doughnut/pie: **29**
 
 | File | Bytes | <style> | Hex | new Chart( | Chart types | Dual axis | Doughnut/pie | chartTheme.js | ChartTable | pageStates.js | Substitution to consider |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -69,6 +69,7 @@ Files scanned: **104** · inline <style> blocks: **53** · hex literals: **5577*
 | `public/wan-health.html` | 403 | 0 | 1 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/wan-sla.html` | 405 | 0 | 1 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/wan.html` | 50162 | 1 | 99 | 1 | line×1 | 2 | 0 | yes | yes | — | dual axis → small multiples, one unit per panel (§5.2 "comparaison à plusieurs séries"); hex literals → _tokens.css variables |
+| `public/workspace-settings.html` | 4254 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/actionGroups.js` | 4944 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/actionSimilarity.js` | 2883 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/analyticsLogic.js` | 13104 | 0 | 0 | 0 | — | 0 | 0 | yes | — | — | — |
@@ -115,3 +116,5 @@ Files scanned: **104** · inline <style> blocks: **53** · hex literals: **5577*
 | `public/lib/urlFilters.js` | 4748 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/wanLineMatch.js` | 1934 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/wanTimeline.js` | 7263 | 0 | 0 | 0 | — | 0 | 0 | — | yes | — | — |
+| `public/lib/workspaceProfiles.js` | 15189 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/workspaceSettingsPage.js` | 8703 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |

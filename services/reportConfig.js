@@ -234,6 +234,9 @@ const DEFAULTS = {
   ppm_annual_pack_enabled: '0',
   site_codes_from_registry: '0',   // DEC-4 — '1' = site_module_codes wins over the modules' hard-coded maps (diff first: GET /api/governance/site-codes); 'shadow' (E-D01) = hard maps answer, divergences logged once/day   // ADR-006 — in-app notice to the escalation-matrix target of a new A01 / A02 (off = ledger only, as before)
   site_code_shared_block: '0',   // D-01 (AM-01) — '1' = refuse a scoped editor's tracker/meetings/inspection save under a code two active sites share (409, never picks an owner)
+  // R1-PROFILES (REBUILD-SPEC R1/R2) — '1' = presentation profiles + workspace-settings.html + /api/workspace/* (else 404).
+  // Presentation only: a profile never grants a page, a role or a site (tests/workspace-profiles-grants-nothing).
+  workspace_profiles_enabled: '0',
 };
 // ── Sync alerting (Step 1). Recipients = comma list of e-mail addresses; teams_url = a
 //    Workflows webhook (SECRET, blank-keep). Nothing is sent while both are empty.

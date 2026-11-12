@@ -6,21 +6,21 @@
 
 | Item | Count |
 |---|---:|
-| pages | 58 |
+| pages | 59 |
 | pages without test reference | 0 |
 | pages without declared role | 6 |
-| pages not in navigation | 29 |
-| pages not in shell or module tabs | 20 |
+| pages not in navigation | 30 |
+| pages not in shell or module tabs | 21 |
 | pages deep link only | 8 |
-| pages without entry point | 3 |
+| pages without entry point | 4 |
 | pages with inline scripts | 46 |
-| routes | 640 |
+| routes | 644 |
 | routes without test reference | 35 |
 | routes in server js | 210 |
 | jobs | 31 |
 | jobs without test reference | 1 |
-| migrations | 81 |
-| test files | 669 |
+| migrations | 82 |
+| test files | 672 |
 
 ## Pages
 
@@ -84,6 +84,7 @@
 | PG-wan-health | public/wan-health.html | UNKNOWN | no | 0 | 4 |
 | PG-wan-sla | public/wan-sla.html | UNKNOWN | no | 0 | 4 |
 | PG-wan | public/wan.html | any | yes | 3 | 11 |
+| PG-workspace-settings | public/workspace-settings.html | any | no | 0 | 2 |
 
 ## Page entry points (E-U04)
 
@@ -92,30 +93,30 @@
 | Page | Shell | Module tab | Linked from | Redirects to | Deep-link only | Parent |
 |---|---|---|---|---|---|---|
 | public/access.html | — | — | no-access.html, no-access.js | — | — | no-access.html |
-| public/activity-tracker.html | yes | — | — | — | — | shell |
-| public/analytics.html | yes | — | — | — | — | shell |
+| public/activity-tracker.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
+| public/analytics.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
 | public/assets-finance.html | — | — | — | assets.html | legacy redirect stub kept for old bookmarks → assets.html | assets.html |
 | public/assets-hygiene.html | — | — | — | assets.html | legacy redirect stub kept for old bookmarks → assets.html | assets.html |
-| public/assets.html | yes | — | assets-finance.html, assets-hygiene.html | — | — | shell |
-| public/cockpit.html | yes | — | — | — | — | shell |
+| public/assets.html | yes | — | assets-finance.html, assets-hygiene.html, lib/workspaceProfiles.js | — | — | shell |
+| public/cockpit.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
 | public/commitments.html | — | — | lib/dashboardRender.js, site-actions.html | — | — | site-actions.html |
 | public/coverage.html | — | — | — | — | — | **NO ENTRY POINT** — duty coverage page — no menu entry, no link from another page |
 | public/dashboard-composer.html | — | — | dashboards.html | — | — | dashboards.html |
-| public/dashboards.html | yes | — | — | — | — | shell |
+| public/dashboards.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
 | public/data-quality.html | yes | — | — | — | — | shell |
 | public/exec-view.html | — | — | — | — | public IT status snapshot: reached from the SharePoint Quick Link, outside the app | — |
 | public/executive-report.html | yes | — | — | — | — | shell |
 | public/executive.html | yes | — | dashboards.html | — | — | shell |
 | public/handoffs.html | yes | — | home.html, site-actions.html | — | — | shell |
 | public/help.html | yes | — | — | — | — | shell |
-| public/home.html | yes | — | — | — | — | shell |
-| public/index.html | yes | — | login.html, no-access.html | — | — | shell |
+| public/home.html | yes | — | lib/workspaceProfiles.js, workspace-settings.html | — | — | shell |
+| public/index.html | yes | — | lib/workspaceProfiles.js, login.html, no-access.html | — | — | shell |
 | public/infra-health.html | yes | — | — | — | — | shell |
 | public/inspection-actions.html | — | yes | inspections.html | — | — | inspections.html |
 | public/inspection.html | — | yes | inspection-actions.html, inspections.html | — | — | inspections.html |
-| public/inspections.html | yes | yes | inspection-actions.html | — | — | shell |
-| public/integrations.html | yes | — | — | — | — | shell |
-| public/it-review.html | yes | — | — | — | — | shell |
+| public/inspections.html | yes | yes | inspection-actions.html, lib/workspaceProfiles.js | — | — | shell |
+| public/integrations.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
+| public/it-review.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
 | public/itsm-integrations-plan.html | — | — | itsm-roadmap.html | — | — | itsm-roadmap.html |
 | public/itsm-roadmap.html | — | — | — | — | the manager's personal roadmap tool: reached by its URL (bookmark), deliberately outside the shared menu | — |
 | public/kpi-builder.html | — | — | — | — | — | **NO ENTRY POINT** — KPI policy builder (kpi-committee) — only named in the role help text of the Users card |
@@ -130,25 +131,26 @@
 | public/meetings-progress.html | — | — | meeting.html, meetings.html | — | — | meeting.html |
 | public/meetings-setup.html | — | yes | — | — | — | meetings.html |
 | public/meetings-unsigned.html | — | yes | — | — | — | meetings.html |
-| public/meetings.html | yes | yes | meeting.html, meetings-import.html | — | — | shell |
+| public/meetings.html | yes | yes | lib/workspaceProfiles.js, meeting.html, meetings-import.html | — | — | shell |
 | public/no-access.html | — | — | auth.js | — | denial page: reached by redirect from auth.js when a role is missing | auth.js |
 | public/notifications.html | yes | — | home.html, site-actions.html | — | — | shell |
 | public/obligations.html | yes | — | home.html, site-actions.html | — | — | shell |
-| public/policies.html | yes | — | — | — | — | shell |
-| public/portfolio.html | yes | — | itsm-roadmap.html, project.html | — | — | shell |
+| public/policies.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
+| public/portfolio.html | yes | — | itsm-roadmap.html, lib/workspaceProfiles.js, project.html | — | — | shell |
 | public/project.html | — | — | lib/home-page.js, meeting.html, portfolio.html | — | — | meeting.html |
-| public/report-studio.html | yes | — | — | — | — | shell |
+| public/report-studio.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
 | public/reports.html | yes | — | site-report.html | — | — | shell |
 | public/rfi.html | yes | — | meeting.html, portfolio.html | — | — | shell |
-| public/site-actions.html | yes | yes | commitments.html, handoffs.html | — | — | shell |
-| public/site-awareness.html | yes | — | auth.js | — | — | shell |
+| public/site-actions.html | yes | yes | commitments.html, handoffs.html, lib/workspaceProfiles.js | — | — | shell |
+| public/site-awareness.html | yes | — | auth.js, lib/workspaceProfiles.js | — | — | shell |
 | public/site-report.html | — | — | — | — | — | **NO ENTRY POINT** — live site scoreboard — no link from the app (the coordinator e-mail names it but carries no link) |
-| public/system-logs.html | yes | — | — | — | — | shell |
+| public/system-logs.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
 | public/tracker-builder.html | — | — | trackers.html | — | — | trackers.html |
 | public/trackers.html | yes | — | tracker-builder.html | — | — | shell |
 | public/wan-health.html | — | — | — | wan.html | legacy redirect stub kept for old bookmarks → wan.html | wan.html |
 | public/wan-sla.html | — | — | — | wan.html | legacy redirect stub kept for old bookmarks → wan.html | wan.html |
 | public/wan.html | yes | — | infra-health.html, wan-health.html, wan-sla.html | — | — | shell |
+| public/workspace-settings.html | — | — | — | — | — | **NO ENTRY POINT** |
 
 ## Routes without a test reference
 
