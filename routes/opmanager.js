@@ -383,6 +383,7 @@ module.exports = function opmanagerRoutes(deps) {
   // Multi-site editors (2026-10-05): the list of the caller's site ids ([] = nothing).
   // finance-viewer (UAT F-06): the finance head reads the chargeback for every site, read only.
   const _slaSite = (user) => (rdb.userHasRole(user, 'admin') || rdb.userHasRole(user, 'finance-viewer') ? null : require('../services/userSites').siteIds(user));
+  const _canReadMoney = (user) => rdb.userHasRole(user, 'admin') || rdb.userHasRole(user, 'finance-viewer');
   const _slaKeep = (user) => { const s = _slaSite(user); return (o) => s === null || s.includes(Number(o.site_id)); };
 
   router.get('/api/analytics/wan/sla/summary', requireReportSession, async (req, res) => {
@@ -419,11 +420,13 @@ module.exports = function opmanagerRoutes(deps) {
         const certified = !!(contract && contract.reviewed_by && contract.mrc_amount != null &&
           resolved.mrc_amount != null && Number(contract.mrc_amount) === Number(resolved.mrc_amount));
         const gate = (requireEvidence && !certified) ? { amount: null, amount_reason: 'not certified' } : {};
+        // Invariant 2 (P8): an amount is served to the admin tier and finance-viewer only.
+        const moneyGate = _canReadMoney(req.reportUser) ? {} : { amount: null, amount_reason: 'restricted' };
         circuits.push({
           site_id, site_name: _siteName(site_id), sub_site, uplink, tier: c.tier, isp: resolved.isp || null,
           circuit_id: resolved.circuit_id || null, outage_count: outages.length,
           resolution_breaches: resolutionBreaches(outages, resolved.tier, resolved), ...sla,
-          pending_review: pendingReview(outages, monthStart, monthEnd), certified, ...gate });
+          pending_review: pendingReview(outages, monthStart, monthEnd), certified, ...gate, ...moneyGate });
       }
 
       // UNMAPPED — distinct (site_id, sub_site, uplink) with month outages that match no circuit.
@@ -660,6 +663,9 @@ module.exports = function opmanagerRoutes(deps) {
       _sendXlsx(res, buildWorkbook(_outageSheets(rows, await _siteNames(), label)), `wan-outages-${label}-filtre.xlsx`);
     } catch (e) { fail(res, e); }
   });
+
+  // P8 / goal B1 — SLA credit claims (404 while wan_sla_claims_enabled = '0').
+  router.use(require('./wanSlaClaims')({ express, requireReportSession, requireAdmin }));
 
   return router;
 };

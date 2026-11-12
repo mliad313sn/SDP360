@@ -518,6 +518,13 @@ DEFAULTS.alert_quiet_hours = '';
 // through services/metricDeps.js. '0' (default) = today: not computed, shown as "—". '1' = computed on dashboards,
 // agendas, /api/metrics and /ext/v1 — NOT certified (D-01 / D-02 / D-03 pending): a KPI-committee decision.
 DEFAULTS.metric_programme_readers = '0';
+// ── P8 / goal B1 (migration 098) — PROPOSED, '0' = today (the claim routes answer 404, no Claims tab).
+//    wan_sla_claims_enabled '1' → SLA credit claims per WAN circuit × closed month on the WAN ▸ Claims tab: due → claimed
+//    → credited | disputed | written_off (motive on every change, hash-chained audit), due amount frozen from the SLA
+//    engine with an evidence hash (stale flag when outages change), evidence pack (CSV / printable / PDF), operator
+//    e-mail with dry run + second-person approval that never leaves while sla_wan_config.notify.enabled is off.
+//    Amounts are read by the admin tier and finance-viewer only. Arming it is a Finance + Network owner decision.
+DEFAULTS.wan_sla_claims_enabled = '0';
 
 const KEYS = Object.keys(DEFAULTS);
 

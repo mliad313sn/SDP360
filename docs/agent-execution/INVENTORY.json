@@ -14,8 +14,8 @@
   "routes_in_server_js": 210,
   "jobs": 31,
   "jobs_without_test_reference": 0,
-  "migrations": 90,
-  "test_files": 744
+  "migrations": 91,
+  "test_files": 747
  },
  "pages": [
   {
@@ -1514,7 +1514,8 @@
     "shell": true,
     "module_tab": false,
     "linked_from": [
-     "site-report.html"
+     "site-report.html",
+     "wan.html"
     ],
     "redirect_to": null,
     "deep_link_only": null,
@@ -1849,7 +1850,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 3,
-   "bytes": 50304,
+   "bytes": 55013,
    "tests": [
     "tests/agent-inventory.test.js",
     "tests/csp-headers.smoke.test.js",
@@ -1864,6 +1865,7 @@
     "tests/page-states-adoption.test.js",
     "tests/rbac-ui-gates.test.js",
     "tests/ui-design-ratchet.test.js",
+    "tests/wan-sla-claims-ui.test.js",
     "tests/wan-timeup-default.test.js"
    ]
   },
@@ -2305,7 +2307,7 @@
    "method": "GET",
    "path": "/api/analytics/wan/sla/config",
    "file": "routes/opmanager.js",
-   "line": 490,
+   "line": 493,
    "tests": [
     "tests/wan-contracts.smoke.test.js",
     "tests/wan-sla-routes.smoke.test.js"
@@ -2316,7 +2318,7 @@
    "method": "PUT",
    "path": "/api/analytics/wan/sla/config",
    "file": "routes/opmanager.js",
-   "line": 495,
+   "line": 498,
    "tests": [
     "tests/wan-contracts.smoke.test.js",
     "tests/wan-sla-routes.smoke.test.js"
@@ -2327,7 +2329,7 @@
    "method": "GET",
    "path": "/api/analytics/wan/sla/contracts/:key/evidence",
    "file": "routes/opmanager.js",
-   "line": 514,
+   "line": 517,
    "tests": [
     "tests/wan-contracts.smoke.test.js"
    ]
@@ -2337,7 +2339,7 @@
    "method": "POST",
    "path": "/api/analytics/wan/sla/contracts/:key/review",
    "file": "routes/opmanager.js",
-   "line": 548,
+   "line": 551,
    "tests": [
     "tests/wan-contracts.smoke.test.js"
    ]
@@ -2347,7 +2349,7 @@
    "method": "PUT",
    "path": "/api/analytics/wan/sla/contracts/:key",
    "file": "routes/opmanager.js",
-   "line": 526,
+   "line": 529,
    "tests": [
     "tests/wan-contracts.smoke.test.js"
    ]
@@ -2357,7 +2359,7 @@
    "method": "GET",
    "path": "/api/analytics/wan/sla/contracts",
    "file": "routes/opmanager.js",
-   "line": 510,
+   "line": 513,
    "tests": [
     "tests/wan-contracts.smoke.test.js"
    ]
@@ -2367,7 +2369,7 @@
    "method": "POST",
    "path": "/api/analytics/wan/sla/export-filtered.xlsx",
    "file": "routes/opmanager.js",
-   "line": 655,
+   "line": 658,
    "tests": [
     "tests/wan-sla-routes.smoke.test.js"
    ]
@@ -2377,7 +2379,7 @@
    "method": "GET",
    "path": "/api/analytics/wan/sla/export.csv",
    "file": "routes/opmanager.js",
-   "line": 570,
+   "line": 573,
    "tests": [
     "tests/wan-sla-routes.smoke.test.js",
     "tests/wan-sla-site-scope.smoke.test.js"
@@ -2388,7 +2390,7 @@
    "method": "GET",
    "path": "/api/analytics/wan/sla/export.xlsx",
    "file": "routes/opmanager.js",
-   "line": 645,
+   "line": 648,
    "tests": [
     "tests/wan-sla-routes.smoke.test.js"
    ]
@@ -2398,7 +2400,7 @@
    "method": "GET",
    "path": "/api/analytics/wan/sla/outages",
    "file": "routes/opmanager.js",
-   "line": 467,
+   "line": 470,
    "tests": [
     "tests/wan-sla-routes.smoke.test.js",
     "tests/wan-sla-site-scope.smoke.test.js"
@@ -2409,9 +2411,10 @@
    "method": "GET",
    "path": "/api/analytics/wan/sla/summary",
    "file": "routes/opmanager.js",
-   "line": 388,
+   "line": 389,
    "tests": [
     "tests/wan-contracts.smoke.test.js",
+    "tests/wan-sla-claims-routes.smoke.test.js",
     "tests/wan-sla-routes.smoke.test.js",
     "tests/wan-sla-site-scope.smoke.test.js"
    ]
@@ -2421,7 +2424,7 @@
    "method": "POST",
    "path": "/api/analytics/wan/sla/sync",
    "file": "routes/opmanager.js",
-   "line": 559,
+   "line": 562,
    "tests": [
     "tests/wan-sla-routes.smoke.test.js"
    ]
@@ -12298,6 +12301,10 @@
   {
    "id": "MG-reports-093-ppm-evm",
    "file": "db/postgres/reports/093_ppm_evm.sql"
+  },
+  {
+   "id": "MG-reports-098-wan-sla-claims",
+   "file": "db/postgres/reports/098_wan_sla_claims.sql"
   },
   {
    "id": "MG-sync-000-upgrade-from-1-11",

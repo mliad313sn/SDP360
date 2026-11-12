@@ -7,7 +7,7 @@ records a per-page budget for hex literals, dual axes and doughnuts: those can o
 The "substitution to consider" column is a **proposal** worded from the audit's measure → chart matrix (§5.2).
 Choosing and approving a substitution is a person's decision after a browser review; nothing here is decided.
 
-Files scanned: **114** · inline <style> blocks: **54** · hex literals: **5577** · `new Chart(` call sites: **44** · dual axes (`yAxisID`): **27** · doughnut/pie: **29**
+Files scanned: **115** · inline <style> blocks: **54** · hex literals: **5577** · `new Chart(` call sites: **44** · dual axes (`yAxisID`): **27** · doughnut/pie: **29**
 
 | File | Bytes | <style> | Hex | new Chart( | Chart types | Dual axis | Doughnut/pie | chartTheme.js | ChartTable | pageStates.js | Substitution to consider |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -68,7 +68,7 @@ Files scanned: **114** · inline <style> blocks: **54** · hex literals: **5577*
 | `public/trackers.html` | 15561 | 1 | 33 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/wan-health.html` | 403 | 0 | 1 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/wan-sla.html` | 405 | 0 | 1 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/wan.html` | 50304 | 1 | 99 | 1 | line×1 | 2 | 0 | yes | yes | yes | dual axis → small multiples, one unit per panel (§5.2 "comparaison à plusieurs séries"); hex literals → _tokens.css variables |
+| `public/wan.html` | 54997 | 1 | 99 | 1 | line×1 | 2 | 0 | yes | yes | yes | dual axis → small multiples, one unit per panel (§5.2 "comparaison à plusieurs séries"); hex literals → _tokens.css variables |
 | `public/workspace-settings.html` | 4322 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/actionGroups.js` | 4944 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/actionSimilarity.js` | 2883 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
@@ -121,6 +121,7 @@ Files scanned: **114** · inline <style> blocks: **54** · hex literals: **5577*
 | `public/lib/trackerMonthLock.js` | 2160 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/trustLabel.js` | 10620 | 0 | 1 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/lib/urlFilters.js` | 4748 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/wanClaimsPane.js` | 11802 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/wanLineMatch.js` | 1934 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/wanTimeline.js` | 7263 | 0 | 0 | 0 | — | 0 | 0 | — | yes | — | — |
 | `public/lib/workspaceProfiles.js` | 15229 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |

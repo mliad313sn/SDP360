@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (238) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (239) — services/reportConfig.js DEFAULTS
 
 Prerequisites (E-A07, services/switchPrereqs.js) are WARNINGS in plain words, never approvals: the config PUT
 answer and the `set-ui-policy.js` dry run repeat them when the switch is moved to its switched-on value.
@@ -250,6 +250,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `wan_poll_first_run` | `` | setting | to be named | — | — | — |
 | `wan_poll_last_run` | `` | setting | to be named | — | — | — |
 | `wan_quality_thresholds` | `{"loss":{"good":1,"bad":7},"latency":{"good":100,"bad":40…` | setting | to be named | — | — | — |
+| `wan_sla_claims_enabled` | `0` | arm switch | Finance + Network owner | `1` on the canary circuit once Finance names the claim owner and the contract terms of that circuit are entered and reviewed (Admin ▸ SLA WAN + contract evidence): WAN ▸ Réclamations — one claim per circuit × closed month, due → claimed → credited · disputed · written_off with a motive on every change (hash-chained `wan_sla_claim_events`), due amount frozen from the SLA engine with an evidence hash (stale flag when outages change), evidence pack CSV / printable / PDF, operator e-mail with dry run + second-person approval that never leaves while `sla_wan_config.notify.enabled` is off. Amounts: admin tier + finance-viewer only. Rollback: `0` (claims stay stored, nothing is deleted) | P8-B1 | — |
 | `wan_sla_require_contract_evidence` | `0` | setting | Finance | `1` once contracts are uploaded | A-25 | — |
 | `wan_stale_close_at` | `now` | setting | Network owner | `last_seen` | A-25 | — |
 | `wan_timeup_latency_ms` | `` | setting | to be named | — | — | — |

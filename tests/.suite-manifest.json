@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 4936,
+ "total": 4958,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 18,
@@ -725,6 +725,9 @@
   "wan-outage-poller.test.js": 17,
   "wan-outages-store.test.js": 9,
   "wan-quality-availability.test.js": 13,
+  "wan-sla-claims-routes.smoke.test.js": 10,
+  "wan-sla-claims-ui.test.js": 2,
+  "wan-sla-claims.test.js": 10,
   "wan-sla-config.test.js": 12,
   "wan-sla-engine.test.js": 23,
   "wan-sla-routes.smoke.test.js": 11,

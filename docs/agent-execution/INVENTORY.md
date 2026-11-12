@@ -19,8 +19,8 @@
 | routes in server js | 210 |
 | jobs | 31 |
 | jobs without test reference | 0 |
-| migrations | 90 |
-| test files | 744 |
+| migrations | 91 |
+| test files | 747 |
 
 ## Pages
 
@@ -83,7 +83,7 @@
 | PG-trackers | public/trackers.html | any | yes | 1 | 3 |
 | PG-wan-health | public/wan-health.html | UNKNOWN | no | 0 | 4 |
 | PG-wan-sla | public/wan-sla.html | UNKNOWN | no | 0 | 4 |
-| PG-wan | public/wan.html | any | yes | 3 | 14 |
+| PG-wan | public/wan.html | any | yes | 3 | 15 |
 | PG-workspace-settings | public/workspace-settings.html | any | no | 0 | 3 |
 
 ## Page entry points (E-U04)
@@ -139,7 +139,7 @@
 | public/portfolio.html | yes | — | itsm-roadmap.html, lib/workspaceProfiles.js, project.html | — | — | shell |
 | public/project.html | — | — | lib/home-page.js, lib/portfolioViews.js, meeting.html, portfolio.html | — | — | meeting.html |
 | public/report-studio.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
-| public/reports.html | yes | — | site-report.html | — | — | shell |
+| public/reports.html | yes | — | site-report.html, wan.html | — | — | shell |
 | public/rfi.html | yes | — | meeting.html, portfolio.html | — | — | shell |
 | public/site-actions.html | yes | yes | commitments.html, handoffs.html, lib/workspaceProfiles.js | — | — | shell |
 | public/site-awareness.html | yes | — | auth.js, lib/workspaceProfiles.js | — | — | shell |
