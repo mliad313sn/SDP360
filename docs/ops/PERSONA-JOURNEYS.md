@@ -45,6 +45,8 @@ in `tests/e2e/` must appear in this table.
 | Site IT coordinator | `editor`, own site (outgoing / incoming technician) | Hand the shift over; it stays pending until the incoming person accepts it (C-23) | `public/coverage.html` | `public/coverage.html` | `tests/e2e/i6-shift-handover.spec.js` |
 | super_admin | `super_admin` | Rotate a stored integration key: the old one stops working, no secret comes back to the browser or the journal; anonymous visitors never get the API key (C-23) | `public/reports.html` | `public/reports.html` | `tests/e2e/i7-secret-rotation.spec.js` |
 | Scorecard viewer | `scorecard-viewer` | Read the executive scorecard without write powers | `public/executive.html` | `public/analytics.html` | `tests/e2e/u5-scorecard-viewer.spec.js` |
+| Super admin | `super_admin` | Share an Analytics view by its URL: the colleague opens the same filters (site, period, status, type), Back restores, Reset clears | `public/home.html` | `public/analytics.html` | `tests/e2e/u6-shared-analytics-url.spec.js` |
+| Site editor | `editor` (own site) | Leave a human note on a dashboard trend so readers see why a point moved (switch `chart_annotations_enabled`) | `public/home.html` | `public/dashboards.html` | `tests/e2e/u7-chart-annotations.spec.js` |
 | Committee member (Group IT, extra) | `viewer` + `committee-member` | Prepare Friday's agenda from the cadence | `public/cockpit.html` | `public/cockpit.html` | `tests/e2e/t4-cockpit-agenda.spec.js` |
 
 ## Coverage summary
