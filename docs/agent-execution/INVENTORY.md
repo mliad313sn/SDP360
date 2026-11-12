@@ -11,13 +11,13 @@
 | pages without declared role | 6 |
 | pages not in navigation | 29 |
 | pages with inline scripts | 46 |
-| routes | 613 |
+| routes | 616 |
 | routes without test reference | 35 |
 | routes in server js | 210 |
-| jobs | 30 |
-| jobs without test reference | 0 |
-| migrations | 74 |
-| test files | 625 |
+| jobs | 31 |
+| jobs without test reference | 1 |
+| migrations | 77 |
+| test files | 637 |
 
 ## Pages
 
@@ -137,6 +137,7 @@
 | JB-engagement-alerts | engagement.alerts | 1 |
 | JB-engagement-digest | engagement.digest | 1 |
 | JB-engagement-digest-weekly | engagement.digest_weekly | 1 |
+| JB-engagement-schedule-reminders | engagement.schedule_reminders | 0 |
 | JB-field-purge | field.purge | 1 |
 | JB-governance-agenda-drafts | governance.agenda_drafts | 1 |
 | JB-governance-ppm-alerts | governance.ppm_alerts | 1 |
@@ -147,7 +148,7 @@
 | JB-meraki-wan-poller | meraki.wan_poller | 1 |
 | JB-meridian-resources | meridian.resources | 1 |
 | JB-opmanager-availability | opmanager.availability | 1 |
-| JB-publish-connectors | publish.connectors | 1 |
+| JB-publish-connectors | publish.connectors | 2 |
 | JB-reports-monthly | reports.monthly | 1 |
 | JB-reports-weekly | reports.weekly | 1 |
 | JB-softdelete-purge | softdelete.purge | 2 |
