@@ -333,6 +333,33 @@
       '</tbody></table></div>';
   }
 
+  // ── E-V08 — human-entered chart annotations (report_config chart_annotations_enabled). A note is a person's
+  // statement with a source; it is drawn where its date falls and listed under the chart — never inferred.
+  /** [{index, annotation}] — each annotation on the FIRST point whose period contains its date (none if outside). */
+  function annotationMarks(points, annotations) {
+    var b = (points || []).map(function (p) { return periodBounds(p && p.label); });
+    var out = [];
+    (annotations || []).forEach(function (a) {
+      var at = String(a && a.at || '');
+      for (var i = 0; i < b.length; i++) if (b[i] && at >= b[i].from && at <= b[i].to) { out.push({ index: i, annotation: a }); return; }
+    });
+    return out;
+  }
+  function _annSource(a) {
+    var ref = String(a.source_ref || '');
+    if (a.source_kind === 'url') return /^https?:\/\//i.test(ref) ? '<a href="' + escapeHtml(ref) + '" target="_blank" rel="noopener noreferrer">source</a>' : '';
+    return escapeHtml((a.source_kind === 'ticket' ? 'ticket ' : 'decision ') + ref);
+  }
+  /** The annotations as a list (the chart's text alternative); a delete button when the viewer may write. */
+  function annotationsHtml(list, opts) {
+    if (!list || !list.length) return '';
+    var del = !!(opts && opts.canDelete);
+    return '<ul class="edv-annotations" aria-label="Annotations (human notes)">' + list.map(function (a) {
+      return '<li><span class="edv-ann-at">' + escapeHtml(a.at) + '</span> ' + escapeHtml(a.label) + ' <span class="edv-ann-src">(' + _annSource(a) + ')</span>' +
+        (del ? ' <button type="button" class="edv-ann-del" data-ann-del="' + Number(a.id) + '" aria-label="Delete this note">×</button>' : '') + '</li>';
+    }).join('') + '</ul>';
+  }
+
   // ── E-V09 — small multiples: one panel per metric (own unit, own axis), ONE shared data table ──
   /** ChartTable spec of the shared table: one row per period, one column per panel (each with its unit). */
   function multiplesTableSpec(d) {
@@ -354,7 +381,7 @@
     return '<div class="edv-multiples">' + body + '</div>' + (tableHtml || '');
   }
 
-  return { multiplesTableSpec, multiplesHtml, sampleNote, gridStyle, formatValue, ragClass, ragDot, kpiContext, staleBadge, baseLine, safeRelativeHref, actionLink, sortRows, shortLabel, windowSeries, trendLength, widgetDataPlan, summarizeGrid, escapeHtml, miniMarkdown, isoWeek,
+  return { annotationMarks, annotationsHtml, multiplesTableSpec, multiplesHtml, sampleNote, gridStyle, formatValue, ragClass, ragDot, kpiContext, staleBadge, baseLine, safeRelativeHref, actionLink, sortRows, shortLabel, windowSeries, trendLength, widgetDataPlan, summarizeGrid, escapeHtml, miniMarkdown, isoWeek,
     rowState, barListHtml, tableHtml, sortTableRows, ragGridHtml, perSiteHtml, trackerHtml, seriesTableHtml,
     periodBounds, isPartial, windowPartial, evalDate, seriesAnchor, partialNote };
 });

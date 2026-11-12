@@ -8,7 +8,7 @@
     'Published dashboards — every figure comes from the KPI dictionary and is dated.':
       'Tableaux de bord publiés — chaque chiffre vient du dictionnaire des KPI et porte sa date.',
     'Period': 'Période', 'Apply': 'Appliquer', 'Edit in composer': 'Modifier dans le compositeur',
-    'Download figures (CSV)': 'Télécharger les chiffres (CSV)', 'All dashboards': 'Tous les tableaux de bord',
+    'Download figures (CSV)': 'Télécharger les chiffres (CSV)', 'All dashboards': 'Tous les tableaux de bord', 'Show notes': 'Afficher les notes', 'Add a note': 'Ajouter une note', 'Save note': 'Enregistrer la note',
     'Executive Scorecard': 'Tableau de performance de la direction',
     'Period (YYYY-MM or YYYY-Www)': 'Période (AAAA-MM ou AAAA-Sss)', 'latest': 'dernière',
     'Dashboard widgets': 'Widgets du tableau de bord',

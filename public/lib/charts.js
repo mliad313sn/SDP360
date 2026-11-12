@@ -50,6 +50,7 @@
           y: { beginAtZero: true, afterFit: yWidth, ticks: tick, title: { display: !!s.volumeTitle, text: s.volumeTitle || '', font: { size: 12 } } } } }, s.volumeOptions),
     };
 
+    var targetCol = (c && c.target) || '#3A4A60';
     var rateSets = [];
     rate.forEach(function (r, j) {
       var col = colourAt(vol.length + j);
@@ -60,9 +61,22 @@
     rate.forEach(function (r) {
       if (r.target == null || !isFinite(Number(r.target))) return;
       rateSets.push({ type: 'line', label: r.label + ' — target', data: labels.map(function () { return Number(r.target); }),
-        borderColor: (c && c.target) || '#3A4A60', borderWidth: 1.5, borderDash: [2, 4], pointRadius: 0, pointStyle: 'line', fill: false,
+        borderColor: targetCol, borderWidth: 1.5, borderDash: [2, 4], pointRadius: 0, pointStyle: 'line', fill: false,
         spanGaps: true, datalabels: { display: false } });
     });
+    // E-V08 — human-entered annotations (opt-in: spec.annotations = [{ index, label }]): one marker per note on the
+    // rate panel at the first rate series' value of that period, plus ONE legend entry. A period with no value
+    // gets no marker (the note stays in the list the page shows) — a marker is never placed on an invented 0.
+    var notes = Array.isArray(s.annotations) ? s.annotations.filter(function (a) { return a && a.index >= 0 && a.index < labels.length; }) : [];
+    if (notes.length && rate.length) {
+      var first = rate[0].data || [];
+      var mark = labels.map(function (_, i) { var hit = notes.some(function (a) { return a.index === i; }); return hit && first[i] != null ? first[i] : null; });
+      if (mark.some(function (v) { return v != null; })) {
+        rateSets.push({ type: 'line', label: s.annotationLabel || 'Annotation (human note)', data: mark, showLine: false, spanGaps: false,
+          pointStyle: 'triangle', pointRadius: 7, pointHoverRadius: 9, borderColor: targetCol, backgroundColor: targetCol,
+          fill: false, datalabels: { display: false }, edvAnnotations: notes });
+      }
+    }
     var suffix = unit ? (unit === '%' ? '%' : ' ' + unit) : '';
     var rateOpts = { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
       plugins: { legend: { position: 'bottom', labels: { font: { size: 12 }, usePointStyle: true, boxWidth: 10 } },
