@@ -71,6 +71,11 @@ function makeSyncStore(db, o = {}) {
     async recentOkRuns(job, limit = 10) {
       return db.prepare(`SELECT id, rows, duplicates, finished_at FROM sync_runs WHERE job = ? AND status = 'ok' ORDER BY id DESC LIMIT ?`).all(job, limit);
     },
+    // F-ARCH-09 — finish time of the newest successful run of ANY job (readiness probe). Skips and errors do not count.
+    async lastOkAt() {
+      const r = await db.prepare(`SELECT MAX(finished_at) AS t FROM sync_runs WHERE status = 'ok'`).get();
+      return (r && r.t) || null;
+    },
     async health() {
       const rows = await db.prepare(
         `SELECT job, MAX(CASE WHEN status='ok' THEN finished_at END) AS last_ok,

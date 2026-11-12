@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 4502,
+ "total": 4506,
  "files": {
   "a11y-static.test.js": 18,
   "access-approver-policy.test.js": 4,
@@ -432,6 +432,7 @@
   "rbac-ui-gates.test.js": 10,
   "rbac-write-scope.smoke.test.js": 12,
   "readme-truth.test.js": 7,
+  "ready-probe.smoke.test.js": 4,
   "reconcile-assets.test.js": 24,
   "reconcile-history-readers.test.js": 8,
   "reconcile-import.test.js": 26,
