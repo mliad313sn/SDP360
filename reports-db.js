@@ -2905,8 +2905,8 @@ async function _getMonthlyDataPg(site_id, year, month) {
  * Also returns sla_res_den / sla_reply_den — the two SLA denominators (F-DATA-07); null when unknown, never 0.
  * Returns null when request_records is empty for this site (data not yet synced).
  */
-function getCalendarMonthlyHelpdesk(site_id, year, month) {
-  return _getCalendarMonthlyHelpdeskPg(site_id, year, month);
+function getCalendarMonthlyHelpdesk(site_id, year, month, opts) {
+  return _getCalendarMonthlyHelpdeskPg(site_id, year, month, opts);
 }
 
 // ── MONTHLY SLA VIOLATION TOP-10 (full month, by category) ──────
@@ -2924,7 +2924,7 @@ function getCalendarMonthlyTop10(site_id, year, month) {
 // ── Chunk 4D-2a pg forks (calendar) ─────────────────────────────────────────
 // Dialect: date(x)>=? → x::date>=?::date; julianday duration → EXTRACT(EPOCH …)/3600|/86400;
 // GROUP BY category → GROUP BY 1 (sqlite binds the COALESCE alias; pg the raw col).
-async function _getCalendarMonthlyHelpdeskPg(site_id, year, month) {
+async function _getCalendarMonthlyHelpdeskPg(site_id, year, month, opts = {}) {
   const H = pgHandle();
   const siteRow = await H.prepare('SELECT zoho_group, country, time_zone FROM sites WHERE id=?').get(site_id);
   if (!siteRow || !siteRow.zoho_group) return null;
@@ -2944,7 +2944,12 @@ async function _getCalendarMonthlyHelpdeskPg(site_id, year, month) {
   const total = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR}`).get(...gft)).n;
   // UAT ITSM-03: no ticket → no closure rate (null), never a red 0 %.
   // F-DATA-07: no ticket → no SLA base either (null = not measured, never a 0 denominator).
-  if (!total) return { inbound:0, closed:0, close_pct:null, sla_res_pct:null, sla_reply_pct:null, sla_res_den:null, sla_reply_den:null, source:'calendar' };
+  // A7: the incl-open rate and the open & breached counts are measured as of the month's exclusive end (or now).
+  const SD = require('./services/slaDefinition');
+  const slaAsOf = SD.monthAsOfIso(year, month, opts && opts.now);
+  const A7_NULL = { sla_res_open_breached:null, sla_reply_open_breached:null, sla_res_den_incl_open:null, sla_reply_den_incl_open:null,
+    sla_res_pct_incl_open:null, sla_reply_pct_incl_open:null, sla_as_of:slaAsOf, sla_definition:'closed_only' };
+  if (!total) return { inbound:0, closed:0, close_pct:null, sla_res_pct:null, sla_reply_pct:null, sla_res_den:null, sla_reply_den:null, ...A7_NULL, source:'calendar' };
   const closed         = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND pending_status=0`).get(...gft)).n;
   // UAT ITSM-05 (same rule as the Helpdesk page, dashboard-shared.isResOverdue): a cancelled ticket and a
   // ticket with no SLA rule (overdue_status NULL) are neither met nor missed — out of the SLA denominator.
@@ -2955,6 +2960,10 @@ async function _getCalendarMonthlyHelpdeskPg(site_id, year, month) {
   // Helpdesk page; an empty flag is not a breach.
   const rplyOk    = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND responded_time IS NOT NULL AND responded_time!='' AND LOWER(COALESCE(first_response_overdue,'')) NOT IN ('true','1','yes')`).get(...gft)).n;
   const rplyTotal = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND responded_time IS NOT NULL AND responded_time!=''`).get(...gft)).n;
+  const resOpenBr = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND ${SD.OPEN_RES_BREACHED_SQL}`).get(...gft, slaAsOf)).n;
+  const frOpenBr  = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND ${SD.OPEN_FR_BREACHED_SQL}`).get(...gft)).n;
+  const dRes = require('./public/lib/slaDual').dual({ den: slaClosed, violated: slaClosed - slaResOkClosed, openBreached: resOpenBr }, 0);
+  const dFr  = require('./public/lib/slaDual').dual({ den: rplyTotal, violated: rplyTotal - rplyOk, openBreached: frOpenBr }, 0);
   const avgTtaRow = await H.prepare(`SELECT AVG(EXTRACT(EPOCH FROM (assigned_time::timestamptz - created_time::timestamptz))/3600) as v FROM request_records WHERE ${DR} AND assigned_time IS NOT NULL AND assigned_time!=''`).get(...gft);
   const avgFrRow  = await H.prepare(`SELECT AVG(EXTRACT(EPOCH FROM (responded_time::timestamptz - created_time::timestamptz))/3600) as v FROM request_records WHERE ${DR} AND responded_time IS NOT NULL AND responded_time!=''`).get(...gft);
   const avgRtRow  = await H.prepare(`SELECT AVG(EXTRACT(EPOCH FROM (COALESCE(resolved_time,completed_time)::timestamptz - created_time::timestamptz))/86400) as v FROM request_records WHERE ${DR} AND COALESCE(resolved_time,completed_time) IS NOT NULL`).get(...gft);
@@ -2968,6 +2977,12 @@ async function _getCalendarMonthlyHelpdeskPg(site_id, year, month) {
     // (the percentage is then null too) — never a 0 denominator.
     sla_res_den:   slaClosed > 0 ? slaClosed : null,
     sla_reply_den: rplyTotal > 0 ? rplyTotal : null,
+    // A7 — the same tickets judged with open-and-already-late tickets counted as failures (public/lib/slaDual.js).
+    // sla_res_pct / sla_reply_pct above stay the labelled "closed tickets only" rate (sla_definition).
+    sla_res_open_breached: resOpenBr, sla_reply_open_breached: frOpenBr,
+    sla_res_den_incl_open: dRes.incl_open.den, sla_reply_den_incl_open: dFr.incl_open.den,
+    sla_res_pct_incl_open: dRes.incl_open.ok_pct, sla_reply_pct_incl_open: dFr.incl_open.ok_pct,
+    sla_as_of: slaAsOf, sla_definition: 'closed_only',
     avg_tta_h:         avgTtaRow.v  != null ? Math.round(avgTtaRow.v)  : null,
     avg_first_reply_h: avgFrRow.v   != null ? Math.round(avgFrRow.v)   : null,
     avg_resolution_d:  avgRtRow.v   != null ? Math.round(avgRtRow.v)   : null,
@@ -3044,9 +3059,10 @@ async function _getMonthlyHelpdeskHistoryPg(monthsBack = 12, opts = {}) {
   const resOverdue = require('./services/slaDefinition').resOverdueSql(opts && opts.slaDefinition);
   const H = pgHandle();
   const MN = ['', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-  const today = new Date();
+  const today = (opts && opts.now instanceof Date) ? opts.now : new Date();
   const rows = [];
   const DR = `created_time::date >= ?::date AND created_time::date <= ?::date`;
+  const SD = require('./services/slaDefinition');
   for (let ago = monthsBack - 1; ago >= 0; ago--) {
     const d  = new Date(today.getFullYear(), today.getMonth() - ago, 1);
     const yr = d.getFullYear(), mo = d.getMonth() + 1;
@@ -3059,6 +3075,11 @@ async function _getMonthlyHelpdeskHistoryPg(monthsBack = 12, opts = {}) {
     const slaViolClosed = (await H.prepare(`SELECT COUNT(*) AS n FROM request_records WHERE ${DR} AND pending_status = 0 AND ${resOverdue}`).get(...params)).n;
     const replyViol   = (await H.prepare(`SELECT COUNT(*) AS n FROM request_records WHERE ${DR} AND responded_time IS NOT NULL AND responded_time != '' AND LOWER(TRIM(first_response_overdue)) IN ('true','1','yes')`).get(...params)).n;
     const replyTotal  = (await H.prepare(`SELECT COUNT(*) AS n FROM request_records WHERE ${DR} AND responded_time IS NOT NULL AND responded_time != ''`).get(...params)).n;
+    // A7 — open tickets already past target as of the month end (or now), counted as failures in the incl-open rate.
+    const asOf = SD.monthAsOfIso(yr, mo, today);
+    const resOpen = (await H.prepare(`SELECT COUNT(*) AS n FROM request_records WHERE ${DR} AND ${SD.OPEN_RES_BREACHED_SQL}`).get(...params, asOf)).n;
+    const frOpen  = (await H.prepare(`SELECT COUNT(*) AS n FROM request_records WHERE ${DR} AND ${SD.OPEN_FR_BREACHED_SQL}`).get(...params)).n;
+    const resD = closed + resOpen, frD = replyTotal + frOpen;
     rows.push({
       'Created Time': `${MN[mo]} ${yr}`,
       'Requests': total,
@@ -3066,6 +3087,12 @@ async function _getMonthlyHelpdeskHistoryPg(monthsBack = 12, opts = {}) {
       // nothing to judge → null, never a fake 0 % (A-17b)
       '% of SLA Violated':                 closed     > 0 ? Math.round(slaViolClosed / closed     * 1000) / 10 : null,
       '% of First Responses SLA Violated': replyTotal > 0 ? Math.round(replyViol     / replyTotal * 1000) / 10 : null,
+      // A7 — the two figures above are "closed tickets only" / "responded only"; these add the open & breached.
+      'Open Breached (resolution)':     resOpen,
+      'Open Breached (first response)': frOpen,
+      '% of SLA Violated (incl. open past target)':                 resD > 0 ? Math.round((slaViolClosed + resOpen) / resD * 1000) / 10 : null,
+      '% of First Responses SLA Violated (incl. open past target)': frD  > 0 ? Math.round((replyViol + frOpen)     / frD  * 1000) / 10 : null,
+      'SLA As Of': asOf,
     });
   }
   return rows;
@@ -3330,15 +3357,25 @@ function _mapFrtTrend(rows) {
  *             passive   = 70 <= overall_score < 90
  *             detractor = overall_score <  70
  */
-function getCustomerVoiceDB(monthsBack = 12) {
-  return _getCustomerVoiceDBPg(monthsBack);
+// A8 — site perimeter on survey readers: a survey reply belongs to the helpdesk group of its ticket (request_id, else
+// display_id). groups = null → no filter (admin tier); [] → nothing; [..] → lowercased Zoho groups of the caller's sites.
+function _surveyGroupClause(groups, alias) {
+  if (groups == null) return { sql: '', p: [] };
+  const g = groups.map((x) => String(x).trim().toLowerCase()).filter(Boolean);
+  if (!g.length) return { sql: ' AND FALSE', p: [] };
+  return { sql: ` AND EXISTS (SELECT 1 FROM request_records _rr WHERE (_rr.request_id = ${alias}.request_id OR _rr.display_id = ${alias}.request_display_id)`
+    + ` AND LOWER(TRIM(_rr.tech_group)) IN (${g.map(() => '?').join(',')}))`, p: g };
+}
+function getCustomerVoiceDB(monthsBack = 12, opts = {}) {
+  return _getCustomerVoiceDBPg(monthsBack, opts);
 }
 // PG fork — 3 queries awaited. Raw ISO cutoff (COALESCE(...) >= ?) UNCHANGED (sendCounts +
 // monthlyRows). monthly bucket `strftime('%Y-%m', COALESCE(...))` → direct
 // `to_char(COALESCE(...)::timestamptz,'YYYY-MM')` (NO NULLIF — the WHERE `COALESCE(...) >= ?`
 // guarantees a valid non-null timestamp in grouped rows). NO SQL ROUND (all averaging is JS
 // Math.round over raw AVG(overall_score)), so no `::numeric` cast here.
-async function _getCustomerVoiceDBPg(monthsBack = 12) {
+async function _getCustomerVoiceDBPg(monthsBack = 12, opts = {}) {
+  const GC = _surveyGroupClause(opts && opts.groups !== undefined ? opts.groups : null, 'survey_results');
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - monthsBack + 1);
   cutoff.setDate(1); cutoff.setHours(0,0,0,0);
@@ -3350,8 +3387,8 @@ async function _getCustomerVoiceDBPg(monthsBack = 12) {
       COUNT(*)                                                       AS total_sent,
       SUM(CASE WHEN survey_responded_on IS NOT NULL THEN 1 ELSE 0 END) AS total_responded
     FROM survey_results
-    WHERE COALESCE(survey_sent_on, survey_responded_on) >= ?
-  `).get(cutoffISO);
+    WHERE COALESCE(survey_sent_on, survey_responded_on) >= ?${GC.sql}
+  `).get(cutoffISO, ...GC.p);
 
   const tot = await H.prepare(`
     SELECT COUNT(*) AS total_responses,
@@ -3362,8 +3399,8 @@ async function _getCustomerVoiceDBPg(monthsBack = 12) {
            SUM(CASE WHEN overall_score <  70 THEN 1 ELSE 0 END) AS detractors,
            SUM(CASE WHEN overall_score IS NOT NULL THEN 1 ELSE 0 END) AS scored
     FROM survey_results
-    WHERE overall_score IS NOT NULL
-  `).get();
+    WHERE overall_score IS NOT NULL${GC.sql}
+  `).get(...GC.p);
 
   const monthlyRows = await H.prepare(`
     SELECT to_char(COALESCE(survey_sent_on, survey_responded_on)::timestamptz, 'YYYY-MM') AS yyyymm,
@@ -3376,10 +3413,10 @@ async function _getCustomerVoiceDBPg(monthsBack = 12) {
            SUM(CASE WHEN overall_score <  70 THEN 1 ELSE 0 END) AS detractors,
            SUM(CASE WHEN overall_score IS NOT NULL THEN 1 ELSE 0 END) AS scored
     FROM survey_results
-    WHERE COALESCE(survey_sent_on, survey_responded_on) >= ?
+    WHERE COALESCE(survey_sent_on, survey_responded_on) >= ?${GC.sql}
     GROUP BY yyyymm
     ORDER BY yyyymm
-  `).all(cutoffISO);
+  `).all(cutoffISO, ...GC.p);
 
   return _assembleCustomerVoice({ sendCounts, tot, monthlyRows });
 }
@@ -3886,14 +3923,18 @@ function _mapCabRecommendations(rows) {
  *     totalSurvey, totalJoined, joinRate, closedCount,
  *   }
  */
-function getCustomerVoiceByDimensionDB() {
-  return _getCustomerVoiceByDimensionDBPg();
+function getCustomerVoiceByDimensionDB(opts = {}) {
+  return _getCustomerVoiceByDimensionDBPg(opts);
 }
 // PG fork — awaits the survey⨝request LEFT JOIN + the closed-ticket count. NO dialect rewrite in
 // the SQL (no strftime/julianday/datetime/ROUND); ALL aggregation is engine-agnostic JS reused via
 // the shared assembler.
-async function _getCustomerVoiceByDimensionDBPg() {
+async function _getCustomerVoiceByDimensionDBPg(opts = {}) {
   const H = pgHandle();
+  // A8: groups (see _surveyGroupClause) narrows to the caller's helpdesk groups — the row's own group is the join key here
+  const gl = opts && Array.isArray(opts.groups) ? opts.groups.map((x) => String(x).trim().toLowerCase()).filter(Boolean) : null;
+  const gw = gl == null ? '' : (gl.length ? ` AND LOWER(TRIM(r.tech_group)) IN (${gl.map(() => '?').join(',')})` : ' AND FALSE');
+  const gw2 = gl == null ? '' : (gl.length ? ` AND LOWER(TRIM(tech_group)) IN (${gl.map(() => '?').join(',')})` : ' AND FALSE');
   const rows = await H.prepare(`
     SELECT
       s.overall_score                                                AS score,
@@ -3904,14 +3945,14 @@ async function _getCustomerVoiceByDimensionDBPg() {
       r.tech_group                                                   AS grp
     FROM survey_results s
     LEFT JOIN request_records r ON r.display_id = s.request_display_id
-    WHERE s.overall_score IS NOT NULL
-  `).all();
+    WHERE s.overall_score IS NOT NULL${gw}
+  `).all(...(gl || []));
 
   const closedRow = await H.prepare(`
     SELECT COUNT(*) AS n
     FROM request_records
-    WHERE pending_status = 0
-  `).get();
+    WHERE pending_status = 0${gw2}
+  `).get(...(gl || []));
 
   return _assembleCustomerVoiceByDimension(rows, closedRow);
 }
@@ -4666,23 +4707,31 @@ async function _getCABApprovalsPg({ change_id, status, limit = 500 } = {}) {
   return pgHandle().prepare(sql).all(...p);
 }
 
-function getSurveyResults({ limit = 500, offset = 0, since } = {}) {
-  return _getSurveyResultsPg({ limit, offset, since });
+function getSurveyResults({ limit = 500, offset = 0, since, groups } = {}) {
+  return _getSurveyResultsPg({ limit, offset, since, groups });
 }
-async function _getSurveyResultsPg({ limit = 500, offset = 0, since } = {}) {
+async function _getSurveyResultsPg({ limit = 500, offset = 0, since, groups } = {}) {
   let sql = `SELECT * FROM survey_results WHERE 1=1`; const p = [];
   if (since) { sql += ` AND survey_sent_on>=?`; p.push(since); }
+  const GC = _surveyGroupClause(groups === undefined ? null : groups, 'survey_results'); sql += GC.sql; p.push(...GC.p);
   sql += ` ORDER BY survey_sent_on DESC LIMIT ? OFFSET ?`; p.push(limit, offset);
   return pgHandle().prepare(sql).all(...p);
 }
 
-function getSurveyAnswers(response_id) {
-  return pgHandle().prepare(`SELECT * FROM survey_answers WHERE response_id=? ORDER BY id`).all(response_id);
+function getSurveyAnswers(response_id, opts = {}) {
+  // A8: with opts.groups, the answers of a reply outside the caller's groups read as none (no existence oracle)
+  const GC = _surveyGroupClause(opts && opts.groups !== undefined ? opts.groups : null, 'sr');
+  if (!GC.sql) return pgHandle().prepare(`SELECT * FROM survey_answers WHERE response_id=? ORDER BY id`).all(response_id);
+  return pgHandle().prepare(`SELECT * FROM survey_answers WHERE response_id=? AND EXISTS (SELECT 1 FROM survey_results sr
+    WHERE sr.response_id = survey_answers.response_id${GC.sql}) ORDER BY id`).all(response_id, ...GC.p);
 }
 
 // ── /api/survey/voice readers (replace the route's raw rdb.db.prepare reads) ──
 // Per-response context (full table, voice columns) — feeds the voice cache's resultMap.
-const _VOICE_RESULTS_SQL = `SELECT response_id, request_id, request_display_id, overall_score, survey_responded_on, survey_sent_on FROM survey_results`;
+// A8: tech_group = the helpdesk group of the reply's ticket (request_id, else display_id) — the perimeter key of a verbatim.
+const _VOICE_RESULTS_SQL = `SELECT s.response_id, s.request_id, s.request_display_id, s.overall_score, s.survey_responded_on, s.survey_sent_on,
+  (SELECT r.tech_group FROM request_records r WHERE r.request_id = s.request_id OR r.display_id = s.request_display_id LIMIT 1) AS tech_group
+  FROM survey_results s`;
 function getSurveyResultsForVoice() {
   return pgHandle().prepare(_VOICE_RESULTS_SQL).all();
 }
@@ -4697,6 +4746,32 @@ const _VOICE_ANSWERS_SQL = `
        OR (answer_option IS NOT NULL AND LENGTH(answer_option) > 25) )`;
 function getSurveyVoiceAnswers() {
   return pgHandle().prepare(_VOICE_ANSWERS_SQL).all();
+}
+
+// A8 — Voice-of-the-user tiles: per helpdesk group × ticket-creation month, the scored survey replies (CSAT/NPS buckets)
+// and the ticket volumes (created, closed). Both are attributed to the month the TICKET was created, so the response rate
+// = scored replies ÷ closed tickets of the same population. from/to = 'YYYY-MM-01' (to exclusive). Lexical TEXT compare.
+async function getSurveyVoiceTilesDB({ from, to } = {}) {
+  const H = pgHandle();
+  const survey = await H.prepare(`
+    SELECT LOWER(TRIM(rr.tech_group)) AS grp, to_char(rr.created_time::timestamptz, 'YYYY-MM') AS ym,
+           COUNT(*) AS responses,
+           SUM(CASE WHEN sr.overall_score >= 80 THEN 1 ELSE 0 END) AS satisfied,
+           SUM(CASE WHEN sr.overall_score >= 90 THEN 1 ELSE 0 END) AS promoters,
+           SUM(CASE WHEN sr.overall_score >= 70 AND sr.overall_score < 90 THEN 1 ELSE 0 END) AS passives,
+           SUM(CASE WHEN sr.overall_score < 70 THEN 1 ELSE 0 END) AS detractors
+    FROM survey_results sr
+    CROSS JOIN LATERAL (SELECT r.tech_group, r.created_time FROM request_records r
+                        WHERE r.request_id = sr.request_id OR r.display_id = sr.request_display_id LIMIT 1) rr
+    WHERE sr.overall_score IS NOT NULL AND rr.created_time >= ? AND rr.created_time < ? AND rr.tech_group IS NOT NULL
+    GROUP BY 1, 2`).all(from, to);
+  const tickets = await H.prepare(`
+    SELECT LOWER(TRIM(tech_group)) AS grp, to_char(created_time::timestamptz, 'YYYY-MM') AS ym,
+           COUNT(*) AS inbound, SUM(CASE WHEN pending_status = 0 THEN 1 ELSE 0 END) AS closed
+    FROM request_records WHERE created_time >= ? AND created_time < ? AND tech_group IS NOT NULL
+    GROUP BY 1, 2`).all(from, to);
+  const num = (r) => { for (const k of Object.keys(r)) if (k !== 'grp' && k !== 'ym') r[k] = Number(r[k]) || 0; return r; };
+  return { survey: survey.map(num), tickets: tickets.map(num) };
 }
 
 function getRequestRecords({ limit = 200, offset = 0, status, site, since, pending_only, overdue_only } = {}) {
@@ -5748,6 +5823,7 @@ module.exports = {
   // Query helpers
   getChangeRecords, getCABApprovals, getSurveyResults, getSurveyAnswers,
   getSurveyResultsForVoice, getSurveyVoiceAnswers,   // /api/survey/voice readers
+  getSurveyVoiceTilesDB,                             // A8 voice-of-the-user tiles
   getRequestRecords,
   // 4D-wiring-1 readers (replace raw-sqlite-handle reads in server.js)
   getRequestRecordsSince, getSubmissionChannelsDB, getSurveyKpisDB,

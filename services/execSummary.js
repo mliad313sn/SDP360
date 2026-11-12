@@ -42,7 +42,9 @@ function buildExecSummary(d) {
     major_incidents: majorIncidents.length ? majorIncidents : null,
     kpis: {
       requests_resolved: pick(d.helpdesk.requests_resolved, ['value','delta_pct']),
-      sla_compliance:    pick(d.helpdesk.sla_compliance,    ['value_pct','delta_pp']),
+      // A7: value_pct = the headline definition (report_config sla_headline_definition, default closed_only);
+      // both rates + the open & breached count always travel, each named by its definition.
+      sla_compliance:    pick(d.helpdesk.sla_compliance,    ['value_pct','delta_pp','definition','value_pct_closed_only','value_pct_incl_open','open_breached']),
       avg_resolution_h:  pick(d.helpdesk.avg_resolution_h,  ['value','delta_h']),
       csat:              pick(d.helpdesk.csat,              ['value_pct','delta_pp']),
       change_success:    pick(d.helpdesk.change_success,    ['value_pct','delta_pp']),
@@ -108,7 +110,7 @@ async function mapHelpdeskKpis(rdb, now, cfg = {}) {
   // month before it is [len-3].
   try {
     // A-17b: report_config helpdesk_sla_definition ('flag' default = today; KPI-committee switch).
-    const hist = (await rdb.getMonthlyHelpdeskHistory(13, { slaDefinition: cfg.helpdesk_sla_definition || 'flag' })) || [];
+    const hist = (await rdb.getMonthlyHelpdeskHistory(13, { slaDefinition: cfg.helpdesk_sla_definition || 'flag', now })) || [];
     const cur = hist[hist.length - 2] || {};
     const pv  = hist[hist.length - 3] || {};
     const curClosed = _num(cur['Closed Requests Count']);
@@ -121,10 +123,22 @@ async function mapHelpdeskKpis(rdb, now, cfg = {}) {
     const curSla = _num(cur['% of SLA Violated']);
     const pvSla  = _num(pv['% of SLA Violated']);
     // UAT F-08: no closed ticket → no SLA figure (100 − 0 is not "100 % on time")
-    if (curSla != null && curClosed > 0) out.sla_compliance.value_pct = _round(100 - curSla);
-    if (curSla != null && pvSla != null && curClosed > 0 && pvClosed > 0) {
-      out.sla_compliance.delta_pp = _round((100 - curSla) - (100 - pvSla));
-    }
+    const IO = '% of SLA Violated (incl. open past target)';
+    const curInc = _num(cur[IO]), pvInc = _num(pv[IO]);
+    const headline = require('../public/lib/slaDual').normalizeHeadline(cfg.sla_headline_definition);
+    let co = null, coDelta = null, io = null, ioDelta = null;
+    if (curSla != null && curClosed > 0) co = _round(100 - curSla);
+    if (curSla != null && pvSla != null && curClosed > 0 && pvClosed > 0) coDelta = _round((100 - curSla) - (100 - pvSla));
+    if (curInc != null) io = _round(100 - curInc);
+    if (curInc != null && pvInc != null) ioDelta = _round((100 - curInc) - (100 - pvInc));
+    const sc = out.sla_compliance;
+    sc.definition = headline;
+    if (co != null) sc.value_pct_closed_only = co;
+    if (io != null) sc.value_pct_incl_open = io;
+    if (_num(cur['Open Breached (resolution)']) != null) sc.open_breached = _num(cur['Open Breached (resolution)']);
+    const v = headline === 'incl_open' ? io : co, dv = headline === 'incl_open' ? ioDelta : coDelta;
+    if (v != null) sc.value_pct = v;
+    if (dv != null) sc.delta_pp = dv;
   } catch (e) { console.warn('[execSummary] helpdesk history failed:', e.message); }
 
   // ── Avg resolution hours (fleet-wide) — two point-in-month reads ──────────

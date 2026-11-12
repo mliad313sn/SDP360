@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (238) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (239) — services/reportConfig.js DEFAULTS
 
 Prerequisites (E-A07, services/switchPrereqs.js) are WARNINGS in plain words, never approvals: the config PUT
 answer and the `set-ui-policy.js` dry run repeat them when the switch is moved to its switched-on value.
@@ -199,6 +199,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `site_codes_from_registry` | `0` | setting | Data owner + KPI committee | PROPOSITION: `shadow` (E-D01 double read — hard maps keep answering, every registry divergence is logged once a day in System Logs ▸ governance) for at least two weeks, then `1` only by the committee (gate 10) | DEC-4, E-D01 | — |
 | `site_local_calendar` | `0` | setting | Owner + Finance (month-end figures) | `0` while every reporting site is UTC+0; `1` only when a non-UTC site (e.g. the London office) is reported and its time zone (`sites.time_zone`, else from its country) is confirmed — the calendar-month helpdesk figures, the monthly Top-10, the site-report window (weekly chart) and the 6-month history move (WAN SLA keeps its own calendar) | D-07, E-D03 | — |
 | `site_score_published_model` | `legacy` | setting | Owner (D-1) | `programme` | A-11 | — |
+| `sla_headline_definition` | `closed_only` | setting | KPI committee | `closed_only` until the committee chooses (`incl_open` counts open tickets past target as failures; both rates are always shown, labelled) | A7 | — |
 | `sla_wan_config` | `{"notify":{"enabled":false,"trigger_minutes":15,"from_nam…` | setting | to be named | — | — | — |
 | `smtp_host` | `` | setting | to be named | — | — | — |
 | `smtp_pass` | (secret — not shown) | secret | to be named | — | — | — |

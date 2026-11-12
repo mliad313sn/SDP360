@@ -116,6 +116,10 @@ function helpdeskBaseline(cur, prev) {
     fcr_rate: 0, fcr_delta_pp: null,   // fcr_rate stays under exec_payload_zero_policy (A-17b, committee choice)
     avg_res_days: null,
     time_to_assign_h: null, first_reply_h: null, closing_time_d: null,
+    // A7 — sla_compliance / frt_sla stay the "closed tickets only" rates (sla_definition says so); the incl-open
+    // rates count open tickets already past target as failures. null = not measured, never 0.
+    sla_definition: 'closed_only', sla_compliance_incl_open: null, frt_sla_incl_open: null,
+    sla_open_breached: null, frt_open_breached: null,
   };
   if (cur) {
     out.total          = _safeNum(cur.inbound);
@@ -126,6 +130,10 @@ function helpdeskBaseline(cur, prev) {
     out.avg_res_days   = _nullable(cur.avg_resolution_d);
     out.time_to_assign_h = _nullable(cur.avg_tta_h);
     out.first_reply_h  = _nullable(cur.avg_first_reply_h);
+    out.sla_compliance_incl_open = _nullable(cur.sla_res_pct_incl_open);
+    out.frt_sla_incl_open        = _nullable(cur.sla_reply_pct_incl_open);
+    out.sla_open_breached        = _nullable(cur.sla_res_open_breached);
+    out.frt_open_breached        = _nullable(cur.sla_reply_open_breached);
   }
   if (cur && prev) {
     out.total_apr               = _safeNum(prev.inbound);

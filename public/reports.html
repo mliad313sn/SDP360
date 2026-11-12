@@ -1013,8 +1013,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
               <th style="width:13%;text-align:center">Inbound</th>
               <th style="width:13%;text-align:center">Closed</th>
               <th style="width:13%;text-align:center">Closed %</th>
-              <th style="width:18%;text-align:center">Res. SLA OK%</th>
-              <th style="width:18%;text-align:center">1st Reply OK%</th>
+              <th style="width:18%;text-align:center" data-sla-definition="closed_only">Res. SLA OK% <span style="font-size:0.7rem;font-weight:400">(closed tickets only)</span></th>
+              <th style="width:18%;text-align:center" data-sla-definition="closed_only">1st Reply OK% <span style="font-size:0.7rem;font-weight:400">(responded tickets only)</span></th>
             </tr>
           </thead>
           <tbody id="mr-hd-body">
@@ -3898,6 +3898,8 @@ function buildHdKpiCards(data) {
   }
 
   // ── Volume / SLA cards row ─────────────────────────────────────
+  // A7: incl-open rate (open tickets past target counted as failures) — absent on reports saved before A7 → '—'
+  const _slaDualLine = (pct, ob) => `incl. open past target: ${pct != null ? pct + '%' : '—'} · open & breached: ${ob != null ? ob : '—'}`;
   const closedPct = cur.inbound > 0 ? Math.round(cur.closed/cur.inbound*100) : 0;
   row.innerHTML = [
     card('#1976BC', 'Inbound Tickets',     cur.inbound,       '',
@@ -3906,12 +3908,13 @@ function buildHdKpiCards(data) {
     card('#16A34A', 'Closed Tickets',      `${cur.closed} (${closedPct}%)`, '',
       pctDelta(cur.closed, prev&&prev.closed, true),
       prev ? `prev: ${prev.closed}  ${wkLbl}` : ''),
-    card('#16A34A', 'Res. SLA OK %',       cur.res_ok_pct,    '%',
+    // A7 — each SLA card names its definition; the incl-open rate + open & breached count ride in the sub-line.
+    card('#16A34A', 'Res. SLA OK % (closed tickets only)', cur.res_ok_pct,    '%',
       absDelta(cur.res_ok_pct, prev&&prev.res_ok_pct, true, 'pt'),
-      prev&&prev.res_ok_pct!=null ? `prev: ${prev.res_ok_pct}%  ${wkLbl}` : ''),
-    card('#D97706', '1st Reply SLA OK %',  cur.fr_ok_pct,     '%',
+      (prev&&prev.res_ok_pct!=null ? `prev: ${prev.res_ok_pct}%  ${wkLbl} · ` : '') + _slaDualLine(cur.res_ok_pct_incl_open, cur.res_open_breached)),
+    card('#D97706', '1st Reply SLA OK % (responded tickets only)', cur.fr_ok_pct,     '%',
       absDelta(cur.fr_ok_pct, prev&&prev.fr_ok_pct, true, 'pt'),
-      prev&&prev.fr_ok_pct!=null ? `prev: ${prev.fr_ok_pct}%  ${wkLbl}` : ''),
+      (prev&&prev.fr_ok_pct!=null ? `prev: ${prev.fr_ok_pct}%  ${wkLbl} · ` : '') + _slaDualLine(cur.fr_ok_pct_incl_open, cur.fr_open_breached)),
     card('#7C3AED', 'Avg 1st Response',    cur.avg_fr_hrs != null ? Math.round(cur.avg_fr_hrs) : null, 'h',
       absDelta(cur.avg_fr_hrs != null ? Math.round(cur.avg_fr_hrs) : null,
                prev&&prev.avg_fr_hrs != null ? Math.round(prev.avg_fr_hrs) : null, true, 'h'),
@@ -5886,8 +5889,8 @@ function renderMrHelpdesk(reports, yearlyData, calendarHd) {
       <td style="padding:6px 10px;text-align:center;font-size:0.85rem">${calendarHd.inbound}</td>
       <td style="padding:6px 10px;text-align:center;font-size:0.85rem">${calendarHd.closed}</td>
       <td style="padding:6px 10px;text-align:center;font-size:0.85rem">${calendarHd.close_pct == null ? '—' : calendarHd.close_pct + '%'}</td>
-      <td style="padding:6px 10px;text-align:center;font-size:0.85rem">${fmt(calendarHd.sla_res_pct)}</td>
-      <td style="padding:6px 10px;text-align:center;font-size:0.85rem">${fmt(calendarHd.sla_reply_pct)}</td>
+      <td style="padding:6px 10px;text-align:center;font-size:0.85rem" title="Closed tickets only · incl. open past target: ${fmt(calendarHd.sla_res_pct_incl_open)} · open &amp; breached: ${calendarHd.sla_res_open_breached ?? '—'}">${fmt(calendarHd.sla_res_pct)}<div style="font-size:0.7rem;font-weight:400;opacity:0.85">incl. open: ${fmt(calendarHd.sla_res_pct_incl_open)} · ${calendarHd.sla_res_open_breached ?? '—'} open &amp; breached</div></td>
+      <td style="padding:6px 10px;text-align:center;font-size:0.85rem" title="Responded tickets only · incl. open past target: ${fmt(calendarHd.sla_reply_pct_incl_open)}">${fmt(calendarHd.sla_reply_pct)}<div style="font-size:0.7rem;font-weight:400;opacity:0.85">incl. open: ${fmt(calendarHd.sla_reply_pct_incl_open)} · ${calendarHd.sla_reply_open_breached ?? '—'} open &amp; breached</div></td>
     </tr>`);
   } else {
     // Fallback: sum from weekly reports
@@ -5933,7 +5936,7 @@ function renderMrHelpdesk(reports, yearlyData, calendarHd) {
   const ytdRply  = rplyMs.length ? Math.round(rplyMs.reduce((s, m) => s + m.hd.sla_reply_pct, 0) / rplyMs.length) : null;
   const ytdVals  = [ytdIn || '—', ytdCl || '—', ytdClPct ? ytdClPct+'%' : '—', fmtV(ytdSla), fmtV(ytdRply)];
 
-  const hdMetrics = ['Inbound','Closed','Closed %','Res. SLA OK%','1st Reply OK%'];
+  const hdMetrics = ['Inbound','Closed','Closed %','Res. SLA OK% (closed tickets only)','1st Reply OK% (responded tickets only)'];
   const hdRows = hdMetrics.map((label, li) => {
     const cells = yearlyData.map(m => {
       if (!m.hd || !m.hd.inbound) return `<td style="padding:5px 6px;text-align:center;color:#c7d0e0;font-size:0.78rem">—</td>`;

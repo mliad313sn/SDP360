@@ -162,6 +162,7 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
 </style>
 <script src="auth.js" data-require="any"></script>
 <script src="lib/siteAliases.js"></script>
+<script src="lib/slaDual.js"></script>
 <script src="lib/dashboard-shared.js"></script>
 <script src="lib/trustLabel.js"></script>
 <!-- EDV brand tokens MUST load before _shell.css so the shell CSS variables resolve -->
@@ -339,8 +340,8 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
   <div class="kpi-row">
     <div class="kpi-card" data-metric-key="helpdesk.inbound" title="Total tickets created during this period (all statuses). Counts every new request logged via portal or email."><div class="kpi-card-accent" style="background:var(--blue)"></div><div class="kpi-lbl">Inbound Tickets</div><div class="kpi-val" id="k-inbound" style="color:var(--blue)">—</div><div class="kpi-sub" id="k-inbound-sub"></div></div>
     <div class="kpi-card" data-metric-key="helpdesk.closed" title="Closed Tickets — AP formula: countif(Request Pending Status = 0). Includes Closed, Resolved, Confirmed Resolution, Cancelled and any other non-pending status. Closure rate = Closed ÷ Inbound."><div class="kpi-card-accent" style="background:var(--green)"></div><div class="kpi-lbl">Closed Tickets</div><div class="kpi-val" id="k-closed" style="color:var(--green)">—</div><div class="kpi-sub" id="k-closed-sub"></div></div>
-    <div class="kpi-card" data-metric-key="helpdesk.first_reply_sla_pct" title="1st Reply SLA % — percentage of tickets that received their first technician response within the SLA target time. Does NOT measure resolution. Higher is better. Target ≥80%."><div class="kpi-card-accent" style="background:var(--orange)"></div><div class="kpi-lbl">1st Reply SLA % <span style="font-size:9px;opacity:.7">(on-time responses)</span></div><div class="kpi-val" id="k-frsla" style="color:var(--orange)">—</div><div class="kpi-sub" id="k-frsla-sub"></div></div>
-    <div class="kpi-card" data-metric-key="helpdesk.resolution_sla_pct" title="Resolution SLA % — percentage of tickets fully resolved within the SLA target time. Separate from first reply. Higher is better. Target ≥90%."><div class="kpi-card-accent" style="background:var(--slate2)"></div><div class="kpi-lbl">Resolution SLA % <span style="font-size:9px;opacity:.7">(on-time closures)</span></div><div class="kpi-val" id="k-ressla" style="color:var(--slate2)">—</div><div class="kpi-sub" id="k-ressla-sub"></div></div>
+    <div class="kpi-card" id="k-frsla-card" data-metric-key="helpdesk.first_reply_sla_pct" data-sla-definition="closed_only" title="1st Reply SLA % — percentage of tickets that received their first technician response within the SLA target time. Headline = responded tickets only unless the KPI committee switches it; the line below counts open, unanswered tickets already late as failures. Higher is better. Target ≥80%."><div class="kpi-card-accent" style="background:var(--orange)"></div><div class="kpi-lbl">1st Reply SLA % <span style="font-size:9px;opacity:.7" id="k-frsla-def">(responded tickets only)</span></div><div class="kpi-val" id="k-frsla" style="color:var(--orange)">—</div><div class="kpi-sub" id="k-frsla-dual"></div><div class="kpi-sub" id="k-frsla-sub"></div></div>
+    <div class="kpi-card" id="k-ressla-card" data-metric-key="helpdesk.resolution_sla_pct" data-sla-definition="closed_only" title="Resolution SLA % — percentage of tickets resolved within the SLA target time. Headline = closed tickets only unless the KPI committee switches it; the line below counts open tickets already past their target as failures (on hold = SLA paused). Higher is better. Target ≥90%."><div class="kpi-card-accent" style="background:var(--slate2)"></div><div class="kpi-lbl">Resolution SLA % <span style="font-size:9px;opacity:.7" id="k-ressla-def">(closed tickets only)</span></div><div class="kpi-val" id="k-ressla" style="color:var(--slate2)">—</div><div class="kpi-sub" id="k-ressla-dual"></div><div class="kpi-sub" id="k-ressla-sub"></div></div>
   </div>
 
   <div class="kpi-row">
@@ -378,6 +379,17 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
         <tbody id="slaRankBody"><tr><td colspan="5" class="empty-state">Loading…</td></tr></tbody>
       </table></div>
     </div>
+  </div>
+
+  <div class="chart-card full" id="voicePanel">
+    <div class="sec-hdr"><div class="sec-hdr-bar"></div><span class="sec-hdr-title" id="voiceTitle">Voice of the user — CSAT / NPS by site</span>
+      <label style="margin-left:auto;font-size:11px;color:var(--slate3)">By <select class="flt" id="voiceDim" style="min-width:80px"><option value="site" selected>Site</option><option value="group">Group</option></select></label></div>
+    <div style="font-size:11px;color:var(--slate3);margin:-2px 0 6px" id="voiceNote"></div>
+    <div class="tbl-wrap" style="max-height:320px"><table id="voiceTable" aria-describedby="voiceNote">
+      <thead><tr><th scope="col" id="voiceKeyHdr">Site</th><th scope="col" style="text-align:right">Replies</th><th scope="col" style="text-align:right" title="Replies ÷ closed tickets created in the month">Response rate</th><th scope="col" style="text-align:right">CSAT %</th><th scope="col" style="text-align:right">NPS</th><th scope="col">CSAT trend (6 months)</th><th scope="col" style="text-align:right">Tickets created / closed</th><th scope="col">Verbatims</th></tr></thead>
+      <tbody id="voiceBody"><tr><td colspan="8" class="empty-state">Loading…</td></tr></tbody>
+    </table></div>
+    <div id="voiceDrill" style="display:none;margin-top:8px;font-size:12px"></div>
   </div>
 
   <div class="chart-card full">
@@ -748,6 +760,9 @@ function pStats(pKey){
     // C-30 (P8): the tile, the ranking and the trend read ONE helper with ONE definition.
     slaPct: resolutionSla(rows,{definition:HD_SLA_DEFINITION,...HD_SLA_POLICY}).ok_pct,   // C-31: HD_SLA_POLICY = {} unless kpi_policy_enforced=1
     frPct:  respondedN > 0 ? Math.round((1 - frVResponded / respondedN) * 1000) / 10 : null,
+    // A7 — both definitions + open & breached, from the shared rule (lib/slaDual.js); as of period end or now.
+    dual: (typeof dualSlaRates==='function') ? dualSlaRates(rows,{definition:HD_SLA_DEFINITION,...HD_SLA_POLICY,
+      asOfMs: window.SlaDual ? SlaDual.asOfFor(pEnd(pKey).getTime()+1, Date.now()) : Date.now()}) : null,
     avgTta:ttaN>0?Math.round(ttaS/ttaN):null,      // integer display, Math.round avg
     avgAh: ahN>0?Math.floor(ahS/ahN):null,          // integer display, Math.floor avg (AP: 19 not 20)
     avgRd: rdN>0?Math.round(rdS/rdN):null,          // integer display, Math.round avg
@@ -778,10 +793,8 @@ function renderKPIs(r,c){
   setH('k-inbound-sub',delta(r.n,c.n,false)+' &nbsp; prev: '+c.n+cLbl);
   setH('k-closed',r.closed);
   setH('k-closed-sub',delta(r.closed,c.closed,false)+' &nbsp; prev: '+c.closed+cLbl);
-  setH('k-frsla',r.frPct!==null?r.frPct+'%':'—');
-  setH('k-frsla-sub',r.frPct!==null&&c.frPct!==null?deltaAbs(r.frPct,c.frPct,false,'pt')+' &nbsp; prev: '+c.frPct+'%'+cLbl:'No FR SLA data');
-  setH('k-ressla',r.slaPct!==null?r.slaPct+'%':'—');
-  setH('k-ressla-sub',r.slaPct!==null&&c.slaPct!==null?deltaAbs(r.slaPct,c.slaPct,false,'pt')+' &nbsp; prev: '+c.slaPct+'%'+cLbl:'No SLA data');
+  _renderSlaTile('frsla','first_response',r,c,cLbl,'No FR SLA data');
+  _renderSlaTile('ressla','resolution',r,c,cLbl,'No SLA data');
   setH('k-assign',r.avgTta!==null?r.avgTta+'h':'—');
   setH('k-assign-sub',r.avgTta!==null&&c.avgTta!==null?deltaAbs(r.avgTta,c.avgTta,true,'h')+' &nbsp; prev: '+c.avgTta+'h'+cLbl:'No assign data');
   setH('k-reply',r.avgAh!==null?r.avgAh+'h':'—');
@@ -790,6 +803,27 @@ function renderKPIs(r,c){
   setH('k-res-sub',r.avgRd!==null&&c.avgRd!==null?deltaAbs(r.avgRd,c.avgRd,true,'d')+' &nbsp; prev: '+c.avgRd+'d'+cLbl:'No resolution data');
   setH('k-close',r.avgCd!==null?r.avgCd+'d':'—');
   setH('k-close-sub',r.avgCd!==null&&c.avgCd!==null?deltaAbs(r.avgCd,c.avgCd,true,'d')+' &nbsp; prev: '+c.avgCd+'d'+cLbl:'No closing time data');
+}
+
+// A7 — one SLA tile = ONE named definition for the big number (report_config sla_headline_definition via
+// window.__uiPolicy.sla_headline, default closed_only) + the other definition and the open & breached count below.
+function _renderSlaTile(id,kind,r,c,cLbl,noData){
+  const HL=(window.SlaDual&&window.__uiPolicy)?SlaDual.normalizeHeadline(window.__uiPolicy.sla_headline):'closed_only';
+  const other=HL==='incl_open'?'closed_only':'incl_open';
+  const d=r.dual&&r.dual[kind], pd=c.dual&&c.dual[kind];
+  const lbl=def=>def==='incl_open'?'incl. open past target':(kind==='resolution'?'closed tickets only':'responded tickets only');
+  // closed-only headline = today's figure exactly (incl. the monthly Zoho-summary override of slaPct)
+  const legacy=x=>kind==='resolution'?x.slaPct:x.frPct;
+  const cur=(d&&HL==='incl_open')?d.incl_open.ok_pct:legacy(r);
+  const prev=(pd&&HL==='incl_open')?pd.incl_open.ok_pct:legacy(c);
+  const card=document.getElementById('k-'+id+'-card');if(card)card.setAttribute('data-sla-definition',d?HL:'closed_only');
+  setH('k-'+id+'-def','('+lbl(d?HL:'closed_only')+')');
+  setH('k-'+id,cur!=null?cur+'%':'—');
+  setH('k-'+id+'-sub',cur!=null&&prev!=null?deltaAbs(cur,prev,false,'pt')+' &nbsp; prev: '+prev+'%'+cLbl:noData);
+  if(!d){setH('k-'+id+'-dual','');return;}
+  const ov=other==='closed_only'?legacy(r):d[other].ok_pct, ob=d.open_breached;
+  setH('k-'+id+'-dual','<span data-sla-definition="'+other+'">'+lbl(other)+': <strong>'+(ov!=null?ov+'%':'—')+'</strong></span>'+
+    ' &nbsp;·&nbsp; <span data-sla-definition="open_breached" title="Open tickets already past their target as of the period end (or now)">open &amp; breached: <strong>'+(ob!=null?ob:'—')+'</strong></span>');
 }
 
 // ── Ageing Chart ──────────────────────────────────────────────────────────
@@ -1872,6 +1906,60 @@ function renderAll(){
   renderPresence();
   renderTechTbl();
   updateUnassignedBadge();
+  loadVoice();
+}
+
+// ── A8 — Voice of the user: CSAT / NPS per site or group, from /api/survey/voice-tiles (server-side perimeter:
+// an editor only receives his sites). No reply = "—" (never 0); a failed survey sync = "unknown" + its cause.
+let _VOICE=null,_VOICE_KEY='';
+function _voiceYm(){const e=pEnd(REF_P);return {yr:e.getFullYear(),mo:e.getMonth()+1};}
+async function loadVoice(){
+  const {yr,mo}=_voiceYm(),key=yr+'-'+mo;
+  if(_VOICE&&_VOICE_KEY===key){renderVoice();return;}
+  try{_VOICE=await pgGet('/api/survey/voice-tiles?yr='+yr+'&mo='+mo,20000);_VOICE_KEY=key;}catch(e){_VOICE={error:String(e&&e.message||e)};}
+  renderVoice();
+}
+function _vEsc(v){return String(v==null?'':v).replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));}
+function renderVoice(){
+  const body=document.getElementById('voiceBody');if(!body)return;
+  const v=_VOICE||{};
+  if(v.error){setH('voiceNote','Survey data unavailable: '+_vEsc(v.error));body.innerHTML='<tr><td colspan="8" class="empty-state">Unknown</td></tr>';return;}
+  const dim=(document.getElementById('voiceDim')||{}).value==='group'?'group':'site';
+  setH('voiceKeyHdr',dim==='group'?'Group':'Site');
+  const f=v.freshness||{};
+  setH('voiceNote','Month '+_vEsc(v.period)+' ('+_vEsc(v.period_basis)+') · response rate = '+_vEsc(v.response_rate_definition)+' · CSAT = '+_vEsc(v.csat_definition)+
+    (f.state==='unknown'?' · <strong style="color:var(--red)">Survey sync: unknown — '+_vEsc(f.cause)+'</strong>':(f.last_sync_at?' · survey synced '+_vEsc(String(f.last_sync_at).slice(0,16).replace('T',' ')):'')));
+  const rows=(dim==='group'?v.groups:v.sites)||[];
+  if(!rows.length){body.innerHTML='<tr><td colspan="8" class="empty-state">No site in your perimeter has survey data</td></tr>';return;}
+  const pct=x=>x==null?'—':x+'%';
+  body.innerHTML=rows.map((r,i)=>{
+    const unk=r.state==='unknown';
+    const tr=(r.trend||[]).map(t=>t.csat_pct==null?'—':t.csat_pct).join(' · ');
+    const name=dim==='group'?r.group:r.site;
+    return '<tr><td style="font-weight:600">'+_vEsc(name)+'</td>'+
+      '<td style="text-align:right">'+(unk?'unknown':(r.responses||(r.state==='no_responses'?'no responses':'—')))+'</td>'+
+      '<td style="text-align:right">'+(unk?'unknown':pct(r.response_rate_pct))+'</td>'+
+      '<td style="text-align:right">'+(unk?'unknown':pct(r.csat_pct))+'</td>'+
+      '<td style="text-align:right">'+(unk?'unknown':(r.nps==null?'—':r.nps))+'</td>'+
+      '<td style="font-size:11px;color:var(--slate3)">'+_vEsc(tr)+'</td>'+
+      '<td style="text-align:right">'+r.inbound+' / '+r.closed+'</td>'+
+      '<td><button type="button" class="btn-export" style="padding:2px 8px;font-size:11px" data-voice-drill="'+i+'"'+(r.responses?'':' disabled')+'>Read</button></td></tr>';
+  }).join('');
+}
+// A8 — listeners instead of inline handlers (a11y ratchet: no new inline handler)
+document.addEventListener('change',e=>{if(e.target&&e.target.id==='voiceDim')renderVoice();});
+document.addEventListener('click',e=>{const b=e.target&&e.target.closest&&e.target.closest('[data-voice-drill]');if(b)drillVoice(+b.getAttribute('data-voice-drill'));});
+async function drillVoice(i){
+  const v=_VOICE||{},dim=(document.getElementById('voiceDim')||{}).value==='group'?'group':'site';
+  const r=((dim==='group'?v.groups:v.sites)||[])[i];if(!r)return;
+  const groups=dim==='group'?[r.group]:(r.groups||[]);
+  const box=document.getElementById('voiceDrill');box.style.display='block';box.textContent='Loading verbatims…';
+  try{
+    const d=await pgGet('/api/survey/voice?month='+encodeURIComponent(v.period)+'&groups='+encodeURIComponent(groups.join(',')),20000);
+    const list=(d&&d.allComments)||[];
+    box.innerHTML='<strong>'+_vEsc(dim==='group'?r.group:r.site)+' — '+list.length+' verbatim(s) received in '+_vEsc(v.period)+'</strong>'+
+      (list.length?'<ul style="margin:4px 0 0 16px">'+list.slice(0,50).map(c=>'<li>'+_vEsc(c.text)+(c.score!=null?' <span style="color:var(--slate3)">('+c.score+')</span>':'')+'</li>').join('')+'</ul>':'<div>No verbatim for this month.</div>');
+  }catch(e){box.textContent='Verbatims unavailable: '+(e&&e.message||e);}
 }
 
 // ── Force Sync — admin only: triggers background cache refresh without blocking users ──

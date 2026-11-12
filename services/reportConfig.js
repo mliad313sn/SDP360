@@ -316,6 +316,11 @@ Object.assign(DEFAULTS, { alert_external_enabled: '0', notifications_stop: '0', 
 //    getMonthlyHelpdeskHistory (Exec View) consumes it (services/slaDefinition.js).
 //    exec_payload_zero_policy: 'keep_server' (2026-06-04 behaviour) | 'browser_wins' (Group IT deck merge).
 DEFAULTS.helpdesk_sla_definition = 'flag';
+// ── A7 — PROPOSED KPI switch (KPI committee, not approved): which SLA rate is the HEADLINE of a tile.
+//    closed_only (today) = closed / responded tickets only · incl_open = open tickets already past target count
+//    as failures. Both rates + the open & breached count are always shown, each labelled (public/lib/slaDual.js);
+//    this only picks the big number. Unknown values fall back to closed_only.
+DEFAULTS.sla_headline_definition = 'closed_only';
 DEFAULTS.exec_payload_zero_policy = 'keep_server';
 // ── C-16 — PO decision P4 (2026-11-05): exec_deck_other_bucket '0' (today: top-N charts silently truncated,
 //    Normal changes folded into Standard on the Group IT deck) | '1' ("Other (k)" bucket on every truncated

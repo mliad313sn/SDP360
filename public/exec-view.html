@@ -473,7 +473,7 @@
   // These fleet figures are not in the metric dictionary yet (exec.* keys): the label says so.
   function kpiCard(label, obj, opts) {
     opts = opts || {};
-    const mk = ' data-metric-key="' + esc(opts.key || '') + '"';
+    const mk = ' data-metric-key="' + esc(opts.key || '') + '"' + (opts.slaDef ? ' data-sla-definition="' + esc(opts.slaDef) + '"' : '');
     if (!hasVal(obj)) {
       return '<div class="kpi-card"' + mk + '><div class="kpi-label">' + esc(label) + '</div>' +
         '<div class="kpi-unavailable">Data unavailable</div></div>';
@@ -486,7 +486,17 @@
       '<div class="kpi-label">' + esc(label) + '</div>' +
       '<div class="kpi-value">' + valStr + '</div>' +
       '<div class="kpi-foot">' + delta + spark + '</div>' +
+      (opts.note ? '<div class="kpi-foot" style="font-size:11px">' + opts.note + '</div>' : '') +
       '</div>';
+  }
+  // A7 — the SLA tile names its definition; the other rate + the open & breached count ride below.
+  const SLA_DEF_LBL = { closed_only: 'closed tickets only', incl_open: 'incl. open tickets past target' };
+  function slaNote(sla) {
+    const def = sla.definition === 'incl_open' ? 'incl_open' : 'closed_only';
+    const other = def === 'incl_open' ? 'closed_only' : 'incl_open';
+    const ov = other === 'incl_open' ? sla.value_pct_incl_open : sla.value_pct_closed_only;
+    return '<span data-sla-definition="' + other + '">' + esc(SLA_DEF_LBL[other]) + ': ' + (isNum(ov) ? esc(ov) + '%' : '—') + '</span>' +
+      ' · <span data-sla-definition="open_breached">open &amp; breached: ' + (isNum(sla.open_breached) ? esc(sla.open_breached) : '—') + '</span>';
   }
 
   function renderKpis(k, period) {
@@ -500,7 +510,8 @@
     const chg = k.change_success || {};
     const html = [
       kpiCard('Requests Resolved', rr, { key: 'exec.requests_resolved', deltaVal: rr.delta_pct, deltaUnit: '%' }),
-      kpiCard('Answered within SLA', sla, { key: 'exec.sla_compliance', unit: '%', deltaVal: sla.delta_pp, deltaUnit: 'pp',
+      kpiCard('Answered within SLA (' + SLA_DEF_LBL[sla.definition === 'incl_open' ? 'incl_open' : 'closed_only'] + ')', sla, { key: 'exec.sla_compliance', unit: '%', deltaVal: sla.delta_pp, deltaUnit: 'pp',
+        slaDef: sla.definition === 'incl_open' ? 'incl_open' : 'closed_only', note: slaNote(sla),
         spark: spark.sla, sparkColor: '#145FAE' }),
       kpiCard('Average Resolution Time', art, { key: 'exec.avg_resolution_h', unit: 'h', deltaVal: art.delta_h, deltaUnit: 'h', invert: true }),
       kpiCard('User Satisfaction', csat, { key: 'exec.csat', unit: '%', deltaVal: csat.delta_pp, deltaUnit: 'pp',

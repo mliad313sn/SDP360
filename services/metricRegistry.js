@@ -150,6 +150,8 @@ const READERS = {
     const rec = { inbound: r.inbound, closed: r.closed, close_pct: r.close_pct, sla_res_pct: r.sla_res_pct, sla_reply_pct: r.sla_reply_pct };
     // F-DATA-07 (N7) — the SLA denominators travel when the reader returns them (never recomputed here)
     for (const k of ['sla_res_den', 'sla_reply_den']) if (r[k] != null) rec[k] = r[k];
+    // A7 — the incl-open rates + open & breached counts travel with the record (the published metric stays closed-only)
+    for (const k of ['sla_res_pct_incl_open', 'sla_reply_pct_incl_open', 'sla_res_open_breached', 'sla_reply_open_breached']) if (r[k] != null) rec[k] = r[k];
     return rec;
   },
   async 'changes.window'(d, { site, win }) {

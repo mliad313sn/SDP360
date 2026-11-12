@@ -57,6 +57,7 @@ planned switch cannot be set before its goal lands.
 | `asset_money_certify_min_sites` | built | `3` | `3` | Finance | A-16 |
 | `asset_money_certify_min_pct` | built | `50` | `50` | Finance | A-16 |
 | `helpdesk_sla_definition` | built | `flag` | `flag` until the committee chooses (`due_vs_resolved` is the alternative) | KPI committee | A-17 |
+| `sla_headline_definition` | built | `closed_only` | `closed_only` until the committee chooses (`incl_open` counts open tickets past target as failures; both rates are always shown, labelled) | KPI committee | A7 |
 | `exec_payload_zero_policy` | built | `keep_server` | `keep_server` until the committee chooses (`browser_wins` is the alternative) | KPI committee | A-17 |
 | `exec_deck_other_bucket` | built | `0` | `1` (PO decision P4: "Other (n)" on every top-N deck chart, Normal changes as their own slice) | Reporting owner (PO P4) | C-16 |
 | `soft_delete_enabled` | built | `0` | `1` | Owner (retention policy) | A-19 |
