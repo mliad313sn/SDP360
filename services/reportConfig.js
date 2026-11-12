@@ -263,6 +263,9 @@ const DEFAULTS = {
   // commit to the budget periods, never written back). '0' (today) = 404 everywhere. Imported actuals stay
   // "not certified" until a finance-verifier certifies them. Layout of the Pronto export and the rate source: Finance.
   actuals_import_enabled: '0',
+  // P4 (A2) — '1' = the Connector health entry appears in the menu (Configure, admin tier). Presentation only: the
+  // page and its /api/connector-health routes stay reachable and guarded either way. '0' (today) = menu unchanged.
+  connector_health_page_enabled: '0',
   // E-P06 (audit P-06) — PROPOSED: '1' = RACI tab on the project page (task × person, exactly one A per task, CSV export);
   // ppm_templates_enabled '1' = save a project's STRUCTURE as a template (no people, dates or money), approved by another
   // committee member before it can create a project. Both 404 while '0'.
