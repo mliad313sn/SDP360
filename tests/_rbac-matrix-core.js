@@ -137,7 +137,7 @@ async function checkRoleGuards(w, opts = {}) {
   const rows = w.matrix.routes.filter((r) => r.guards.some((g) => g.roles) && (!opts.methods || opts.methods.includes(r.method)) && (!opts.keys || opts.keys.has(r.key)));
   const limit = opts.limit || Infinity;
   const denyBodies = new Map();
-  const stats = { routes: rows.length, deny_probes: 0, allow_probes: 0, allow_ok: 0 };
+  const stats = { routes: rows.length, deny_probes: 0, allow_probes: 0, allow_ok: 0, capabilities: new Set(), guard_classes: new Set() };
   v.stats = stats;
   const cases = [];
   for (const r of rows) for (const p of PERSONAS) if (!expectedAllow(r, p)) cases.push([r, p]);
@@ -145,6 +145,8 @@ async function checkRoleGuards(w, opts = {}) {
     if (v.length >= limit) return;
     const res = await w.send(r.method, concrete(r.path), w.tok[p.key]);
     stats.deny_probes++;
+    for (const c of r.capabilities) stats.capabilities.add(c);
+    for (const g of r.guards) stats.guard_classes.add(g.name.replace(/\(.*$/, ''));
     if (res.status !== 403) v.push(`DENY ${r.key} as ${p.key} (${p.roles.join('+')}): expected 403, got ${res.status}`);
     else if (!denyBodies.has(r.key) && !isBusinessOnly(p.roles)) denyBodies.set(r.key, res.text);
   });
@@ -300,5 +302,143 @@ async function checkWorkspaceGrantsNothing(w, keys = ['viewA', 'edA', 'finA', 'a
   return v;
 }
 
-module.exports = { KNOWN_MONEY_DEVIATIONS, splitKnown, MONEY_KEYS, BUDGET, seedMoney, checkMoneyMasking, decisionSnapshot, checkWorkspaceGrantsNothing, FLAG_KEEP_OFF, MATRIX_PATH, PERSONAS, BUSINESS, personaOf, expectedAllow, loadMatrix, concrete, request, pool, bootWorld,
+// ── Invariant 1 — site perimeter: editor = own site(s) only; admin tier = every site; no-site = nothing ───────
+async function seedScope(w) {
+  if (w.scope) return w.scope;
+  const rdb = w.rdb;
+  const rA = await rdb.ensureReport(w.A.id, 2026, 30), rB = await rdb.ensureReport(w.B.id, 2026, 30);
+  await rdb.saveActionItems(rB.id, [{ task: 'A0 site-B follow-up', department: 'IT', priority: 'Medium', status: 'open' }]);
+  const uidB = (await rdb.getReport(rB.id)).action_items[0].uid;
+  const pv = await w.send('POST', '/api/meetings/save', w.tok.super, { state: {
+    header: { site_code: 'SGO', department: 'Mining', meeting_date: '2026-09-10', status: 'draft' },
+    issues: [{ ord: 1, title: 'A0 B issue', category: 'CN', severity: 'HIGH', status: 'open' }],
+    actions: [{ ord: 1, description: 'A0 B action', owner_it: 'someone', status: 'open' }] } });
+  const pvB = pv.json && pv.json.id ? (await w.send('GET', `/api/meetings/${pv.json.id}`, w.tok.super)).json : null;
+  const ins = await w.send('POST', '/api/inspection/save', w.tok.super, { state: {
+    meta: { f_site: 'Sabodala (SGO)', f_date: '2026-09-10', f_area: 'Server room' }, items: {},
+    actions: [{ desc: 'A0 B corrective action', owner: 'x', due: '2026-10-01', priority: 'High' }] } });
+  const insB = ins.json && ins.json.id ? (await w.send('GET', `/api/inspection/${ins.json.id}`, w.tok.super)).json : null;
+  // portfolio projects on site A and site B (plan writes by an editor exist only behind portfolio_editor_plan_writes)
+  const put = (k, b) => w.send('PUT', '/api/governance/portfolio/' + k, w.tok.admin, b);
+  const prog = await put('programme', { key: 'a0s-prog', name: 'A0 scope programme' });
+  const obj = await put('objective', { programme_id: prog.json && prog.json.id, key: 'a0s-obj', name: 'A0 scope objective' });
+  const proj = async (key, site) => (await put('project', { objective_id: obj.json && obj.json.id, key, name: 'A0 ' + key, site_id: site, owner: 'nobody', start_date: '2026-01-01', end_date: '2026-12-31', status: 'active' })).json;
+  const pA = await proj('a0s-pa', w.A.id), pB = await proj('a0s-pb', w.B.id);
+  const flat = (o) => (o && o.header ? Object.assign({}, o.header, { actions: o.actions, issues: o.issues }) : o);
+  w.scope = { rA, rB, uidB, pvB: flat(pvB), insB: flat(insB), pA: pA && pA.id, pB: pB && pB.id };
+  return w.scope;
+}
+
+async function checkSitePerimeter(w, opts = {}) {
+  const v = [];
+  const s = await seedScope(w);
+  const t = w.tok;
+  const exp = async (label, method, p, tok, body, want) => {
+    if (opts.limit && v.length >= opts.limit) return;
+    const r = await w.send(method, p, tok, body);
+    const ok = want === 'deny' ? (r.status === 403 || r.status === 404) : (r.status >= 200 && r.status < 300);
+    if (!ok) v.push(`SITE ${label}: ${method} ${p} → ${r.status} (expected ${want}) ${String(r.text).slice(0, 100)}`);
+  };
+  if (!s.pvB || !s.insB || !s.pA || !s.pB || !(s.pvB.actions || [])[0] || !(s.pvB.issues || [])[0] || !(s.insB.actions || [])[0] || !s.pvB.id || !s.insB.id) v.push('SITE fixture incomplete ' + JSON.stringify({ pv: !!s.pvB, ins: !!s.insB, pA: s.pA, pB: s.pB }));
+  // reports — writes by object site, reads by object site, site-less editor not global
+  await exp('editor A writes report B', 'PUT', `/api/reports/${s.rB.id}/lights`, t.edA, [], 'deny');
+  await exp('editor A writes report A (control)', 'PUT', `/api/reports/${s.rA.id}/lights`, t.edA, [], 'allow');
+  await exp('site-less editor writes report A', 'PUT', `/api/reports/${s.rA.id}/lights`, t.edNoSite, [], 'deny');
+  await exp('viewer A writes own report', 'PUT', `/api/reports/${s.rA.id}/lights`, t.viewA, [], 'deny');
+  await exp('admin writes report B', 'PUT', `/api/reports/${s.rB.id}/lights`, t.admin, [], 'allow');
+  await exp('editor A reads report B', 'GET', `/api/reports/${s.rB.id}`, t.edA, undefined, 'deny');
+  await exp('site-less editor reads report A', 'GET', `/api/reports/${s.rA.id}`, t.edNoSite, undefined, 'deny');
+  await exp('editor A follow-up of site B', 'POST', `/api/reports/action/${s.uidB}/status`, t.edA, { status: 'closed', note: 'x' }, 'deny');
+  await exp('editor A monthly edits of site B', 'POST', `/api/reports/monthly/${w.B.id}/2026/9/edits`, t.edA, { edited_lights: [], edited_actions: [], notes: 'x', status: 'draft' }, 'deny');
+  await exp('editor A objectives of site B', 'POST', `/api/reports/objectives/${w.B.id}/2026`, t.edA, [], 'deny');
+  const list = await w.send('GET', '/api/reports', t.edNoSite);
+  if (list.status === 200 && Array.isArray(list.json) && list.json.length) v.push(`SITE site-less editor lists ${list.json.length} report(s) (expected none)`);
+  const listA = await w.send('GET', '/api/reports', t.edA);
+  if (listA.status === 200 && Array.isArray(listA.json) && listA.json.some((r) => r.id === s.rB.id)) v.push('SITE editor A lists the site-B report');
+  // meetings — new PV on site B, object-id writes on site-B PV / action / issue
+  await exp('editor A saves a site-B PV', 'POST', '/api/meetings/save', t.edA, { state: { header: { site_code: 'SGO', department: 'IT', meeting_date: '2026-09-02' } } }, 'deny');
+  await exp('site-less editor saves a PV', 'POST', '/api/meetings/save', t.edNoSite, { state: { header: { site_code: 'HGO', department: 'IT', meeting_date: '2026-09-03' } } }, 'deny');
+  await exp('editor A saves a site-A PV (control)', 'POST', '/api/meetings/save', t.edA, { state: { header: { site_code: 'HGO', department: 'IT', meeting_date: '2026-09-04' } } }, 'allow');
+  if (s.pvB) {
+    await exp('editor A overwrites site-B PV by id', 'POST', '/api/meetings/save', t.edA, { state: { header: { id: s.pvB.id, reference: s.pvB.reference, site_code: 'HGO', department: 'Mining', meeting_date: '2026-09-10' } } }, 'deny');
+    if (s.pvB.actions && s.pvB.actions[0]) await exp('editor A updates site-B meeting action', 'POST', `/api/meetings/actions/${s.pvB.actions[0].id}/update`, t.edA, { body: 'x', status_change: 'in_progress' }, 'deny');
+    if (s.pvB.issues && s.pvB.issues[0]) await exp('editor A updates site-B issue', 'POST', `/api/meetings/issues/${s.pvB.issues[0].id}/update`, t.edA, { body: 'x', status_change: 'in_progress' }, 'deny');
+    await exp('editor A deletes site-B PV', 'DELETE', `/api/meetings/${s.pvB.id}`, t.edA, undefined, 'deny');
+  }
+  // inspections
+  await exp('editor A saves a site-B inspection', 'POST', '/api/inspection/save', t.edA, { state: { meta: { f_id: 'EM-IT-A0-X1', f_site: 'Sabodala (SGO)', f_date: '2026-09-11' } } }, 'deny');
+  await exp('site-less editor saves an inspection', 'POST', '/api/inspection/save', t.edNoSite, { state: { meta: { f_id: 'EM-IT-A0-X2', f_site: 'MGO' } } }, 'deny');
+  if (s.insB) {
+    await exp('editor A overwrites site-B inspection by id', 'POST', '/api/inspection/save', t.edA, { state: { meta: { f_id: s.insB.id, f_site: 'Hounde (HGO)', f_date: '2026-09-10' } } }, 'deny');
+    if (s.insB.actions && s.insB.actions[0]) await exp('editor A updates site-B inspection action', 'POST', `/api/inspection/actions/${s.insB.actions[0].id}/update`, t.edA, { status: 'Closed', body: 'x' }, 'deny');
+    await exp('editor A deletes site-B inspection', 'DELETE', `/api/inspection/${encodeURIComponent(s.insB.id)}`, t.edA, undefined, 'deny');
+  }
+  // portfolio plan writes: switch off → only the committee writes; switch on → an editor writes only its site's plan
+  const task = (pid, name) => ({ project_id: pid, name, start_date: '2026-02-01', end_date: '2026-02-10' });
+  await exp('editor A plan write (switch off)', 'PUT', '/api/governance/portfolio/task', t.edA, task(s.pA, 'a0-off'), 'deny');
+  await require('../services/reportConfig').setConfig(w.rdb.db, { portfolio_editor_plan_writes: '1' }, 'a0');
+  await exp('editor A plan write on site-B project (switch on)', 'PUT', '/api/governance/portfolio/task', t.edA, task(s.pB, 'a0-b'), 'deny');
+  await exp('editor A plan write on site-A project (switch on, control)', 'PUT', '/api/governance/portfolio/task', t.edA, task(s.pA, 'a0-a'), 'allow');
+  await exp('site-less editor plan write (switch on)', 'PUT', '/api/governance/portfolio/task', t.edNoSite, task(s.pA, 'a0-n'), 'deny');
+  await require('../services/reportConfig').setConfig(w.rdb.db, { portfolio_editor_plan_writes: '0' }, 'a0');
+  // tracker — a tracker-editor's edit of another site's cell is not stored
+  const D = (await w.send('GET', '/api/tracker/load', t.trkA)).json;
+  const doc = D && D.D;
+  const y = new Date().getFullYear(), cur = new Date().getMonth();
+  const row = doc && doc.inputs && doc.inputs[y] && doc.inputs[y].SGO && doc.inputs[y].SGO[0];
+  if (!row) v.push('SITE tracker fixture: no SGO input row for ' + y);
+  else {
+    const before = row[cur];
+    row[cur] = (Number(before) || 0) + 7;
+    await w.send('POST', '/api/tracker/save', t.trkA, { D: doc });
+    const after = (await w.send('GET', '/api/tracker/load', t.super)).json.D.inputs[y].SGO[0][cur];
+    if (String(after) !== String(before)) v.push(`SITE tracker: tracker-editor of HGO changed an SGO cell (${before} → ${after})`);
+  }
+  return v;
+}
+
+// ── Invariant 5 — frozen periods: a submitted report, closed tracker months ──────────────────────────────────
+async function checkFrozen(w, opts = {}) {
+  const v = [];
+  const s = await seedScope(w);
+  await w.rdb.updateReportStatus(s.rA.id, 'submitted', null);
+  try {
+    for (const [k, want] of [['edA', 403], ['admin', 403], ['exec', 403]]) {
+      const r = await w.send('PUT', `/api/reports/${s.rA.id}/lights`, w.tok[k], []);
+      if (r.status !== want) v.push(`FROZEN submitted report: ${k} section write → ${r.status} (expected ${want})`);
+    }
+    const r = await w.send('PUT', `/api/reports/${s.rA.id}/lights`, w.tok.super, []);
+    if (r.status !== 200) v.push(`FROZEN submitted report: super_admin section write → ${r.status} (expected 200)`);
+  } finally { await w.rdb.updateReportStatus(s.rA.id, 'draft', null); }
+  if (opts.limit && v.length >= opts.limit) return v;
+  // tracker: below super_admin only the current month (+ the previous one until the 5th) is editable
+  const now = new Date(), y = now.getFullYear(), cur = now.getMonth(), past = cur - 2;
+  if (past < 0) return v;   // January/February: the closed month sits in the previous year (rule pinned by tests/tracker-month-lock.test.js)
+  const doc = (await w.send('GET', '/api/tracker/load', w.tok.trkA)).json.D;
+  const row = doc.inputs && doc.inputs[y] && doc.inputs[y].HGO && doc.inputs[y].HGO[0];
+  if (!row) { v.push('FROZEN tracker fixture: no HGO row'); return v; }
+  const before = row[past];
+  row[past] = (Number(before) || 0) + 5;
+  row[cur] = (Number(row[cur]) || 0) + 1;
+  const wantCur = row[cur];
+  const res = await w.send('POST', '/api/tracker/save', w.tok.trkA, { D: doc });
+  const stored = (await w.send('GET', '/api/tracker/load', w.tok.super)).json.D.inputs[y].HGO[0];
+  if (String(stored[past]) !== String(before)) v.push(`FROZEN tracker: closed month ${past + 1} changed by a tracker-editor (${before} → ${stored[past]})`);
+  if (String(stored[cur]) !== String(wantCur)) v.push(`FROZEN tracker: current month not saved (${stored[cur]} vs ${wantCur}) status ${res.status}`);
+  if (!(res.json && res.json.closed_blocked > 0)) v.push('FROZEN tracker: closed_blocked not reported ' + JSON.stringify(res.json || res.status));
+  return v;
+}
+
+// ── Invariant 6 — server-side timestamps: a client clock on a PV signature is never stored ──────────────────
+async function checkServerTimestamps(w) {
+  const v = [];
+  const r = await w.send('POST', '/api/meetings/save', w.tok.edA, { state: { header: { site_code: 'HGO', department: 'Finance', meeting_date: '2026-08-05', dept_head_signed_at: '1999-01-01T00:00:00.000Z', site_it_signed_at: '1999-01-01T00:00:00.000Z' } } });
+  if (r.status !== 200 || !r.json || !r.json.id) { v.push('TS save → ' + r.status + ' ' + r.text.slice(0, 120)); return v; }
+  const g = await w.send('GET', `/api/meetings/${r.json.id}`, w.tok.edA);
+  if (/1999-01-01/.test(g.text)) v.push('TS a client-supplied signature timestamp (1999) was stored');
+  if (!/"dept_head_signed_at":"20\d\d-/.test(g.text)) v.push('TS signature not stamped by the server');
+  return v;
+}
+
+module.exports = { seedScope, checkSitePerimeter, checkFrozen, checkServerTimestamps, KNOWN_MONEY_DEVIATIONS, splitKnown, MONEY_KEYS, BUDGET, seedMoney, checkMoneyMasking, decisionSnapshot, checkWorkspaceGrantsNothing, FLAG_KEEP_OFF, MATRIX_PATH, PERSONAS, BUSINESS, personaOf, expectedAllow, loadMatrix, concrete, request, pool, bootWorld,
   checkRoleGuards, checkAnonymous, checkBusinessLock, isBusinessOnly, originalHasRole };

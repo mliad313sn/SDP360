@@ -30,9 +30,15 @@ test('matrix covers every guard class and every canonical persona', () => {
 
 test('invariant 1/3 — route × role: every guard refuses exactly the personas it must (all methods) and admits the narrowest one (GET)', async () => {
   const v = await core.checkRoleGuards(w);
+  console.log(`# route x role: ${v.stats.routes} routes, ${v.stats.deny_probes} deny probes, ${v.stats.allow_probes} allow probes, ${v.stats.capabilities.size} capabilities, ${v.stats.guard_classes.size} guard classes`);
   assert.equal(v.length, 0, fmt(v));
-  assert.ok(v.stats.routes >= 200 && v.stats.deny_probes >= 2000, JSON.stringify(v.stats));
-  assert.ok(v.stats.allow_probes >= 60 && v.stats.allow_ok >= 60, 'allow side not vacuous: ' + JSON.stringify(v.stats));
+  assert.ok(v.stats.routes >= 200 && v.stats.deny_probes >= 2000, `routes ${v.stats.routes} deny ${v.stats.deny_probes}`);
+  // every catalogued capability and every guard class of the committed matrix received at least one deny probe
+  const caps = new Set(), classes = new Set();
+  for (const r of w.matrix.routes) { r.capabilities.forEach((c) => caps.add(c)); r.guards.forEach((g) => g.roles && classes.add(g.name.replace(/\(.*$/, ''))); }
+  assert.deepEqual([...caps].filter((c) => !v.stats.capabilities.has(c)), [], 'capabilities never probed');
+  assert.deepEqual([...classes].filter((c) => !v.stats.guard_classes.has(c)), [], 'guard classes never probed');
+  assert.ok(v.stats.allow_probes >= 60 && v.stats.allow_ok >= 60, `allow side not vacuous: ${v.stats.allow_probes}/${v.stats.allow_ok}`);
 });
 
 test('session rule: every non-public /api route refuses an anonymous caller (401/403)', async () => {

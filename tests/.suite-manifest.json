@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 4845,
+ "total": 4873,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 18,
@@ -101,6 +101,7 @@
   "auth-cookie.smoke.test.js": 5,
   "auth-roles-refresh.test.js": 4,
   "authz-enforce.test.js": 10,
+  "authz-matrix-json.test.js": 6,
   "authz-route-matrix.test.js": 1,
   "await-precedence.test.js": 5,
   "backfill-asset-review.test.js": 2,
@@ -469,6 +470,10 @@
   "raci-seed.test.js": 4,
   "rate-limit.test.js": 2,
   "raw-cache-data-dir.test.js": 1,
+  "rbac-external-writes.test.js": 5,
+  "rbac-matrix.smoke.test.js": 6,
+  "rbac-mutation.smoke.test.js": 8,
+  "rbac-scope-frozen.smoke.test.js": 3,
   "rbac-ui-gates.test.js": 10,
   "rbac-write-scope.smoke.test.js": 12,
   "readme-truth.test.js": 7,
