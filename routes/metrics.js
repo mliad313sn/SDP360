@@ -111,7 +111,17 @@ module.exports = function metricsRoutes(deps) {
       let target = { target: null, source: null };
       try { target = KT.targetFor(await targetStore().list(), key, site, new Date().toISOString()); } catch (_) { /* table absent: no target, as before */ }
       const vs = KT.vsTarget(out && out.value, target.target, m.higher_is_better !== false);
-      res.json({ ok: true, ...out, target: target.target, target_source: target.source, vs_target: vs });
+      // F-DATA-05 — same freshness rule as the dashboard, the report run and the external API (G05): a value whose
+      // source is stale or never synced keeps its number and loses its colour; `freshness` says why.
+      let fr = null;
+      try {
+        const gate = require('../services/publishGate'); const jobs = gate.jobsFor([m.module]);
+        if (jobs.length) { const lastOk = deps.lastSyncOk ? await deps.lastSyncOk(jobs) : await gate.lastOkFromSyncStore(jobs); fr = gate.moduleFreshness(m.module, lastOk, Date.now(), await require('../services/governancePolicy').forContext({})).state; }
+      } catch (_) { fr = 'UNKNOWN'; }
+      const stale = fr && fr !== 'FRESH';
+      const body = { ok: true, ...out, target: target.target, target_source: target.source, vs_target: stale && vs && vs.rag ? { ...vs, rag_if_fresh: vs.rag, rag: 'NA' } : vs, freshness: fr || 'NO_SYNC_JOB', partial: require('../public/lib/dashboardRender').windowPartial(out && out.window, new Date()) };
+      if (stale && body.rag !== undefined && body.rag !== 'NA') { body.rag_if_fresh = body.rag; body.rag = 'NA'; }
+      res.json(body);
     } catch (e) { fail(res, e, 500, { ok: false }); }
   });
   return router;

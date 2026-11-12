@@ -156,7 +156,7 @@ test('G15: dashboard figures export as CSV with unit, window, as-of and freshnes
   const r = await get('/api/dashboards/exec-home/data.csv', viewer); assert.equal(r.status, 200);
   assert.match(r.headers.get('content-type'), /text\/csv/);
   const lines = (await r.text()).replace(/^﻿/, '').trim().split('\r\n');
-  assert.equal(lines[0], 'widget,metric,site,window,value,unit,rag,freshness,as_of');
+  assert.equal(lines[0], 'widget,metric,site,window,value,unit,rag,freshness,as_of,partial,n,target,low_sample,error', 'F-DATA-05: five columns appended, the former nine in place');
   assert.ok(lines.length > 13, 'series points and single values are rows');
   assert.ok(lines.slice(1).every((l) => !/^[=+@]/.test(l)), 'no cell starts as a formula');
 });

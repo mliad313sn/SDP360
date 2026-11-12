@@ -142,24 +142,12 @@ module.exports = function dashboardsRoutes(deps) {
   router.get('/api/dashboards/:key/data', requireReportSession, async (req, res) => {
     try { const v = await dashboardData(req, res); if (v) res.json(v); } catch (e) { fail(res, e, 500, { ok: false }); }
   });
-  // G15 — the figures behind a dashboard as CSV (one row per value, with unit, window, as-of and freshness)
+  // G15 — the figures behind a dashboard as CSV (one row per value, with unit, window, as-of, freshness, partial, n, target, low sample, error)
   router.get('/api/dashboards/:key/data.csv', requireReportSession, async (req, res) => {
     try {
       const v = await dashboardData(req, res); if (!v) return;
-      const { neutralize } = require('../public/lib/csvSafe'); const csvCell = (x) => { const t = neutralize(x); return /[",\r\n]/.test(t) ? '"' + t.replace(/"/g, '""') + '"' : t; };
-      const rows = [['widget', 'metric', 'site', 'window', 'value', 'unit', 'rag', 'freshness', 'as_of']];
-      const siteName = (v.sites.find(s => s.id === v.site) || {}).name || '';
-      for (const [id, w] of Object.entries(v.widgets || {})) {
-        if (w.mode === 'single') rows.push([w.title || id, w.metric, siteName, w.window && w.window.label || '', w.value, w.unit, w.rag, w.freshness || 'FRESH', w.as_of || v.as_of]);
-        else if (w.mode === 'per-site') for (const r of w.rows || []) rows.push([w.title || id, w.metric, r.site, '', r.value, w.unit, r.rag, w.freshness || 'FRESH', w.as_of || v.as_of]);
-        else if (w.mode === 'series') {
-          for (const p of w.points || []) rows.push([w.title || id, w.metric, siteName, p.label, p.value, w.unit, '', w.freshness || 'FRESH', w.as_of || v.as_of]);
-          for (const l of (w.lines || []).slice(1)) for (const p of l.points || []) rows.push([w.title || id, l.metric, siteName, p.label, p.value, l.unit, '', w.freshness || 'FRESH', w.as_of || v.as_of]);
-        } else if (w.mode === 'multiples') {
-          for (const pn of w.panels || []) for (const p of pn.points || []) rows.push([w.title || id, pn.metric, siteName, p.label, p.value, pn.unit, '', w.freshness || 'FRESH', w.as_of || v.as_of]);
-        } else if (w.mode === 'tracker') for (const r of w.rows || []) rows.push([w.title || id, 'tracker.site_score_pct', r.site, w.period || '', r.score_pct, '%', r.rag, w.state || '', w.as_of || v.as_of]);
-      }
-      const text = '\ufeff' + rows.map(r => r.map(x => csvCell(x == null ? '' : x)).join(',')).join('\r\n') + '\r\n';
+      // F-DATA-05 — rows built by services/dashboardCsv (freshness read from the sources, never a literal default)
+      const CSV = require('../services/dashboardCsv'); const text = CSV.toCsv(CSV.dashboardCsvRows(v, registry()));
       res.setHeader('Content-Type', 'text/csv; charset=utf-8'); res.setHeader('Content-Disposition', `attachment; filename="dashboard-${String(v.key).replace(/[^a-z0-9_-]/gi, '')}.csv"`);
       res.send(text);
     } catch (e) { fail(res, e, 500, { ok: false }); }
