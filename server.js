@@ -4415,23 +4415,13 @@ app.post('/api/ai/analyze', requireReportSession, requireRole('report-author'), 
   }
 });
 
-app.get('/api/sample/:viewId', requireReportSession, async (req, res) => {
-  // SECURITY: Whitelist viewId against the registered VIEWS map only.
-  // Prevents enumeration of any view in the Zoho workspace by guessing numeric IDs.
-  const viewId = req.params.viewId;
-  const allowedViewIds = new Set(Object.values(VIEWS));
-  if (!allowedViewIds.has(viewId)) {
-    return res.status(403).json({ error: 'View not permitted.' });
-  }
-  try {
-    const token = await getValidToken();
-    const r = await axios.get(`${CONFIG.analyticsApi}/workspaces/${CONFIG.workspaceId}/views/${viewId}/data`,
-      { headers: apiHeaders(token), params: { responseFormat: 'json', maxRows: 3 }, timeout: 30000 });
-    const raw  = r.data;
-    const rows = typeof raw === 'string' ? csvToRows(raw) : (raw?.data?.rows||raw?.data?.data||raw?.data||[]);
-    const cols = Array.isArray(rows) && rows.length > 0 ? Object.keys(rows[0]) : [];
-    res.json({ totalRows: Array.isArray(rows)?rows.length:0, columns:cols, sample:Array.isArray(rows)?rows.slice(0,5):rows, rawPreview:typeof raw==='string'?raw.substring(0,500):JSON.stringify(raw).substring(0,500) });
-  } catch(err) { safeError(err, res); }
+// F-ARCH-02 — super_admin diagnostic only: PII-filtered read (fetchView), capped answer, cool-down (services/viewSample).
+app.get('/api/sample/:viewId', requireReportSession, requireSuperAdmin, async (req, res) => {
+  const viewId = req.params.viewId, vs = require('./services/viewSample');
+  if (!new Set(Object.values(VIEWS)).has(viewId)) return fail(res, new Error('View not permitted.'), 403, { ok: false });
+  const wait = vs.cooldown();
+  if (wait) return fail(res, new Error(`Try again in ${wait} s.`), 429, { ok: false });
+  try { res.json(vs.buildSample(await fetchView(viewId, 3), stripPiiColumns)); } catch (err) { safeError(err, res); }
 });
 
 // ── SITE REPORTS (PostgreSQL) ─────────────────────────────────────────

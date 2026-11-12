@@ -336,7 +336,7 @@ inside the handler (`userHasRole` / `isAdmin`-style helpers) · **Site scope** =
 | `GET /api/roadmap/parity` | requireReportSession + requireSuperAdmin(super_admin) | platform.roadmap.manage | — | — |
 | `GET /api/roadmap/project` | requireReportSession + requireSuperAdmin(super_admin) | platform.roadmap.manage | — | — |
 | `GET /api/roadmap/training` | requireReportSession + requireSuperAdmin(super_admin) | platform.roadmap.manage | — | — |
-| `GET /api/sample/:viewId` | requireReportSession | — | — | — |
+| `GET /api/sample/:viewId` | requireReportSession + requireSuperAdmin(super_admin) | platform.settings.manage | — | — |
 | `GET /api/shift-handovers` | requireReportSession | — | admin | userSites |
 | `GET /api/site-awareness/actions` | requireReportSession | — | — | — |
 | `GET /api/site-awareness/audit` | requireReportSession | — | super_admin | — |
