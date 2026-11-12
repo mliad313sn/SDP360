@@ -164,7 +164,8 @@ async function resolveWidgets({ def, sites, site, window = null, reg, dd, rdb, n
           higher_is_better: m.higher_is_better !== false, target: tg.target, target_source: tg.source, target_id: tg.id == null ? null : tg.id, target_from: tg.effective_from || null, target_date: endOf(one.window),
           vs_target: KT.vsTarget(one.value, tg.target, m.higher_is_better !== false), previous, partial,
           // E-V03 — base population only where the reader returns the denominator; null = "base not measured"
-          base: one.base || null, action_href: w.action_href || null };
+          base: one.base || null, action_href: w.action_href || null,
+          site_id: tsite == null || tsite === '' ? null : Number(tsite) };   // E-K03 — the site of a single figure (red → linked action)
         // E-K02 — sample size n (the base population, only where the reader returns it) + low-sample flag
         { const ms = await minSample(w.metric, endOf(one.window)); const n = one.base ? one.base.n : null;
           Object.assign(out[w.id], { n, min_sample: ms ? ms.min : null, low_sample: lowSample(n, ms) });}

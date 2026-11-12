@@ -376,7 +376,119 @@ function toCsv(rep) {
   return lines.join('\n') + '\n';
 }
 
+// ── E-B03 — value table (audit §9): one row per proposed indicator ─────────────────────
+// Every row carries a PROPOSED definition, its formula, source, population, observations n, value, and the ROLES
+// that own and validate it (never a name). A value with no recorded source is null with state UNKNOWN and the
+// missing source named — never 0. No target is set anywhere: this is the baseline instrument (§9.1).
+const VALUE_OWNER = 'Product owner (pilot)';
+const VALUE_VALIDATOR = 'Business validator (to be named)';
+function _vRow(o) {
+  return { key: o.key, indicator: o.indicator, definition: o.definition, formula: o.formula, source: o.source,
+    population: o.population == null ? null : o.population, n: o.n == null ? null : o.n, value: o.value == null ? null : o.value,
+    unit: o.unit || null, state: o.value == null ? 'UNKNOWN' : 'MEASURED', missing: o.value == null ? (o.missing || 'no observation in the window') : null,
+    owner_role: o.owner_role || VALUE_OWNER, validator_role: o.validator_role || VALUE_VALIDATOR };
+}
+const _num = (v) => (v == null || String(v).trim() === '' || !Number.isFinite(Number(v)) ? null : Number(v));
+const _pct = (a, b) => (b > 0 ? round1(100 * a / b) : null);
+
+/**
+ * @param {object} o  from, to, events [{user_id, ts}], targetedUserIds [ids]|null, lastOk {job: ISO|null}, nowMs, policy,
+ *   commitmentsEnabled bool, commitments [{status, created_at, technical_completed_at, verified_at}],
+ *   fieldTiming [{ts, task_ms}], stopwatch [{phase, active_minutes}]|null
+ */
+function buildValueTable(o = {}) {
+  const { from = null, to = null } = o;
+  const rows = [];
+  // Report preparation time — WEEKLY-REPORT-STOPWATCH.csv, one row per phase (baseline vs pilot, constant scope §9.1)
+  for (const phase of ['baseline', 'pilot']) {
+    const v = (o.stopwatch || []).filter((r) => String(r.phase || '').trim().toLowerCase() === phase).map((r) => _num(r.active_minutes)).filter((x) => x != null);
+    rows.push(_vRow({ key: `report_preparation_${phase}`, indicator: `Report preparation time — ${phase}`, unit: 'minutes',
+      definition: 'median active minutes per complete weekly report, from start to submission, stopwatch-observed (proposed)',
+      formula: 'median(active_minutes) over the sheet rows of this phase', source: 'docs/ops/pilot/WEEKLY-REPORT-STOPWATCH.csv',
+      population: 'observed reports, per site and role', n: v.length, value: round1(median(v)),
+      missing: o.stopwatch == null ? 'stopwatch sheet not supplied (--stopwatch=FILE)' : `no filled ${phase} row in the stopwatch sheet`, owner_role: 'Site IT coordinator', validator_role: 'Service & Support Manager' }));
+  }
+  // Verified closure delay + share of verified actions — commitment model only
+  {
+    const off = !o.commitmentsEnabled;
+    const list = off ? [] : (o.commitments || []);
+    const verified = list.filter((c) => c && c.status === 'verified_closed' && c.verified_at && _inWindow(c.verified_at, from, to));
+    const delays = verified.map((c) => hoursBetween(c.created_at, c.verified_at)).filter((h) => h != null && h >= 0);
+    const missingC = off ? 'commitment model off (report_config commitments_enabled = 0)' : 'no commitment verified in the window';
+    rows.push(_vRow({ key: 'verified_closure_delay', indicator: 'Verified closure delay', unit: 'hours',
+      definition: 'median of verified closure date − opening date (proposed; split by severity is a follow-up)',
+      formula: 'median(verified_at − created_at) for commitments verified_closed in the window', source: 'commitments (db 021)',
+      population: 'commitments verified in the window', n: delays.length, value: round1(median(delays)), missing: missingC, validator_role: 'Independent reviewer role (commitments.reviewer)' }));
+    const tech = list.filter((c) => c && c.technical_completed_at && _inWindow(c.technical_completed_at, from, to));
+    const ok = tech.filter((c) => c.status === 'verified_closed').length;
+    rows.push(_vRow({ key: 'verified_action_share', indicator: 'Share of verified actions', unit: '%',
+      definition: 'actions closed with independent verification ÷ actions technically completed (proposed)',
+      formula: 'count(verified_closed) ÷ count(technical_completed_at in window)', source: 'commitments (db 021)',
+      population: 'commitments technically completed in the window', n: tech.length, value: _pct(ok, tech.length),
+      missing: off ? missingC : 'no commitment technically completed in the window', validator_role: 'Independent reviewer role (commitments.reviewer)' }));
+  }
+  // Data freshness — sources within their declared limit ÷ ACTIVE sources (synced at least once)
+  {
+    const jobs = Object.values(publishGate.SOURCES).flat().map(([j]) => j);
+    const active = jobs.filter((j) => o.lastOk && o.lastOk[j]);
+    let fresh = null;
+    if (active.length && Number.isFinite(Number(o.nowMs))) {
+      const f = publishGate.freshness(Object.keys(publishGate.SOURCES), o.lastOk || {}, Number(o.nowMs), o.policy);
+      fresh = f.sources.filter((x) => active.includes(x.job) && x.state === 'FRESH').length;
+    }
+    rows.push(_vRow({ key: 'data_freshness', indicator: 'Data freshness', unit: '%',
+      definition: 'external sources within their freshness limit ÷ active sources (synced at least once), at the run date (proposed)',
+      formula: 'count(source age ≤ limit) ÷ count(sources with a successful sync)', source: 'sync_runs + services/publishGate.js SOURCES',
+      population: `${active.length} active of ${jobs.length} declared sources${jobs.length - active.length ? ` (never synced: ${jobs.filter((j) => !active.includes(j)).join(', ')})` : ''}`,
+      n: active.length, value: fresh == null ? null : _pct(fresh, active.length), missing: 'no source has ever synced successfully', owner_role: 'Ops / SRE', validator_role: 'Product owner (pilot)' }));
+  }
+  // Active adoption — users with ≥ 1 business action ÷ targeted users (targeted list = input file)
+  {
+    const targeted = Array.isArray(o.targetedUserIds) ? [...new Set(o.targetedUserIds.map(Number).filter(Number.isFinite))] : null;
+    const doers = new Set((o.events || []).filter((e) => e && e.user_id != null && _inWindow(e.ts, from, to)).map((e) => Number(e.user_id)));
+    const hit = targeted ? targeted.filter((id) => doers.has(id)).length : 0;
+    rows.push(_vRow({ key: 'active_adoption', indicator: 'Active adoption', unit: '%',
+      definition: 'targeted users with at least one business action in the window ÷ targeted users (page views and sign-ins excluded) (proposed)',
+      formula: 'count(targeted ∩ users with a business event) ÷ count(targeted)', source: 'system_log + audit_log; targeted list = input file',
+      population: targeted ? `${targeted.length} targeted users` : null, n: targeted ? targeted.length : null, value: targeted && targeted.length ? _pct(hit, targeted.length) : null,
+      missing: targeted ? 'the targeted list is empty' : 'targeted users list not supplied (--targeted=FILE, one user id per line)' }));
+  }
+  // Field task time (E-F03)
+  {
+    const v = (o.fieldTiming || []).filter((r) => r && _inWindow(r.ts, from, to)).map((r) => _num(r.task_ms)).filter((x) => x != null).map((ms) => ms / 1000);
+    rows.push(_vRow({ key: 'field_task_time', indicator: 'Field task time', unit: 'seconds',
+      definition: 'median active seconds from opening a field form to queueing it (pauses > 2 min excluded) (proposed)',
+      formula: 'median(task_ms) ÷ 1000', source: 'system_log field_<kind>_applied details (report_config field_task_timing = 1)',
+      population: 'field entries applied in the window', n: v.length, value: round1(median(v)), missing: 'no timed field entry (field_task_timing = 0, or no entry)', owner_role: 'Site IT coordinator', validator_role: 'Field technician representative' }));
+  }
+  // Not computable from recorded data today — named, never 0
+  const NOT_SOURCED = [
+    ['certified_resolution_sla', 'Certified resolution SLA', '%', 'compliant tickets ÷ eligible population, with published exclusions', 'ServiceDesk Plus + KPI committee', 'no resolution-SLA policy adopted by the KPI committee (docs/kpi/FORMULA-REFERENCE.md DV-01..03)', 'KPI committee'],
+    ['duplicate_entry_reduction', 'Reduction of duplicate entries', 'ratio', 'repeated entries per event / site', 'journey observation', 'no journey observation recorded (data_re_entered_count in the stopwatch sheet is a partial proxy)', 'Product owner (pilot)'],
+    ['kpi_reliability', 'KPI reliability', '%', 'indicators officially approved and reconciled ÷ indicators used in decisions', 'KPI catalogue + committee minutes', 'no committee minutes recorded; which indicators are "used in decisions" is not recorded', 'KPI committee'],
+    ['usability', 'Usability', '%', 'critical tasks completed without help ÷ attempts, per role', 'UX sessions (T1-T8-SHEET.csv)', 'UX sessions not run yet (tools/pilot/usability-score.js reads the sheet)', 'UX lead'],
+    ['project_benefits', 'Project benefits realised', '%', 'verified benefits ÷ benefits due and eligible', 'native portfolio', 'benefits are not recorded in the portfolio', 'Finance / BRM'],
+    ['service_availability', 'Service availability', '%', 'measured available time ÷ contractual window, measurement gaps excluded', 'SRE + monitoring', 'no service-availability monitoring is recorded by the platform', 'SRE'],
+    ['delivery_rate', 'Correct delivery rate', '%', 'reports received / validated ÷ reports scheduled', 'delivery engine + acknowledgements', 'report_sent_log records sends, not receipts or validations', 'Product owner (pilot)'],
+  ];
+  for (const [key, indicator, unit, definition, source, missing, validator] of NOT_SOURCED) {
+    rows.push(_vRow({ key, indicator, unit, definition: definition + ' (proposed)', formula: definition, source, population: null, n: null, value: null, missing, validator_role: validator }));
+  }
+  return { from, to, generated_at: o.generatedAt || null, rows,
+    note: 'Baseline before the pilot, then compare on a constant scope (same sites, roles, formula); note any formula change and keep n (audit §9.1). No target is set.' };
+}
+function valueTableMarkdown(t) {
+  const head = ['Indicator', 'Definition (proposed)', 'Formula', 'Source', 'Population', 'n', 'Value', 'Unit', 'State / missing source', 'Owner role', 'Validator role'];
+  const body = t.rows.map((r) => [r.indicator, r.definition, r.formula, r.source, r.population, r.n, r.value, r.unit, r.state === 'UNKNOWN' ? 'UNKNOWN — ' + r.missing : 'measured', r.owner_role, r.validator_role]);
+  return `# Value table ${t.from || ''} → ${t.to || ''}\n\n${t.note}\n\n${_mdTable(head, body)}\n`;
+}
+function valueTableCsv(t) {
+  const cols = ['key', 'indicator', 'definition', 'formula', 'source', 'population', 'n', 'value', 'unit', 'state', 'missing', 'owner_role', 'validator_role'];
+  const cell = (v) => { let x = v == null ? '' : String(v); if (/^[=+\-@\t\r]/.test(x)) x = "'" + x; return /[",\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; };
+  return [cols.join(','), ...t.rows.map((r) => cols.map((c) => cell(r[c])).join(','))].join('\n') + '\n';
+}
+
 module.exports = {
   MEASURES, isBusinessEvent, isoWeek, toMs, hoursBetween, median, quantile, pseudonym,
-  buildReport, freshnessShare, toMarkdown, toCsv,
+  buildReport, freshnessShare, toMarkdown, toCsv, buildValueTable, valueTableMarkdown, valueTableCsv,
 };

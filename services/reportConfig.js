@@ -190,6 +190,8 @@ const DEFAULTS = {
   analytics_workspace_id: '', analytics_org_id: '', analytics_accounts_url: '',
   // 2027 Goal 02 — canonical commitments (routes/commitments.js, hub badge). OFF = no behaviour change.
   commitments_enabled: '0',
+  metric_explain_enabled: '0',          // E-K04 '1' = GET /api/metrics/:key/explain (deterministic change description, no cause asserted)
+  dashboard_red_action_links: '0',     // E-K03 '1' = a RED kpi tile / ragGrid cell offers "Open actions (k)" + "Create action" (needs commitments_enabled)
   // G-22 — interdepartmental handoffs (routes/handoffs.js). OFF = every route 404. Notifications are a
   // separate switch, also OFF: who is told about a handoff is decision D-04's, not the code's.
   handoffs_enabled: '0',
