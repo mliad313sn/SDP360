@@ -51,3 +51,13 @@ test('provenance badge: auto shows source and date, manual says manuel, measurab
   assert.strictEqual(u.kind, 'unknown'); assert.doesNotMatch(u.text, /0/);
   assert.strictEqual(P.provenance({ status_value: '', measurable: false }).kind, 'none');
 });
+
+test('reports.html is wired to the shared rule: badge after the value, manual on typing, provenance sent on save', () => {
+  const src = require('fs').readFileSync(require('path').join(__dirname, '..', 'public', 'reports.html'), 'utf8').replace(/\r\n/g, '\n');
+  assert.match(src, /<script src="lib\/infraPrefill\.js"><\/script>/);
+  assert.match(src, /window\.InfraPrefill\.applyToDom\(document\.getElementById\('infra-body'\)/, 'maybeAutoFillInfra delegates to the shared rule');
+  assert.match(src, /oninput="autoInfraStatusTrend\(this\);_infraMarkManual\(this\)"/, 'typing marks the value manual');
+  assert.match(src, /<span class="infra-prov" aria-live="polite"><\/span>/, 'visible badge next to every Current Value');
+  assert.match(src, /value_source:\s+tr\.dataset\.valueSource \|\| null/, 'provenance is sent with the save');
+  assert.doesNotMatch(src, /if \(valInput\.value && valInput\.value\.trim\(\) !== ''\) return;   \/\/ NEVER clobber/, 'the old inline loop is gone (one rule only)');
+});

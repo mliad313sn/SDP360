@@ -7,7 +7,7 @@ records a per-page budget for hex literals, dual axes and doughnuts: those can o
 The "substitution to consider" column is a **proposal** worded from the audit's measure → chart matrix (§5.2).
 Choosing and approving a substitution is a person's decision after a browser review; nothing here is decided.
 
-Files scanned: **114** · inline <style> blocks: **54** · hex literals: **5577** · `new Chart(` call sites: **44** · dual axes (`yAxisID`): **27** · doughnut/pie: **29**
+Files scanned: **117** · inline <style> blocks: **55** · hex literals: **5576** · `new Chart(` call sites: **44** · dual axes (`yAxisID`): **27** · doughnut/pie: **29**
 
 | File | Bytes | <style> | Hex | new Chart( | Chart types | Dual axis | Doughnut/pie | chartTheme.js | ChartTable | pageStates.js | Substitution to consider |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -19,6 +19,7 @@ Files scanned: **114** · inline <style> blocks: **54** · hex literals: **5577*
 | `public/assets.html` | 202731 | 1 | 230 | 6 | bar×7 doughnut×4 line×5 | 2 | 4 | yes | yes | yes | dual axis → small multiples, one unit per panel (§5.2 "comparaison à plusieurs séries"); doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); hex literals → _tokens.css variables |
 | `public/cockpit.html` | 38661 | 1 | 47 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/commitments.html` | 20454 | 1 | 19 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/connector-health.html` | 4083 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/coverage.html` | 9984 | 1 | 25 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/dashboard-composer.html` | 27423 | 1 | 41 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/dashboards.html` | 30239 | 1 | 25 | 2 | line×2 | 0 | 0 | yes | yes | — | hex literals → _tokens.css variables |
@@ -58,7 +59,7 @@ Files scanned: **114** · inline <style> blocks: **54** · hex literals: **5577*
 | `public/portfolio.html` | 35045 | 1 | 74 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/project.html` | 76745 | 1 | 79 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/report-studio.html` | 18084 | 1 | 42 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/reports.html` | 540379 | 1 | 818 | 2 | bar×2 | 0 | 0 | yes | — | — | chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
+| `public/reports.html` | 543796 | 1 | 817 | 2 | bar×2 | 0 | 0 | yes | — | — | chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/rfi.html` | 12560 | 1 | 40 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/site-actions.html` | 41652 | 1 | 76 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/site-awareness.html` | 71960 | 1 | 131 | 7 | bar×5 doughnut×3 line×3 | 4 | 5 | yes | — | — | dual axis → small multiples, one unit per panel (§5.2 "comparaison à plusieurs séries"); doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
@@ -81,6 +82,7 @@ Files scanned: **114** · inline <style> blocks: **54** · hex literals: **5577*
 | `public/lib/charts.js` | 9723 | 0 | 7 | 2 | bar×2 line×4 | 0 | 0 | yes | yes | — | hex literals → _tokens.css variables |
 | `public/lib/cockpit-fr.js` | 7125 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/composerGuide.js` | 18228 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/connector-health-page.js` | 6133 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/csvSafe.js` | 824 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/dashboard-shared.js` | 31736 | 0 | 1 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/lib/dashboardRender.js` | 35417 | 0 | 0 | 0 | — | 0 | 0 | — | yes | — | — |
@@ -94,6 +96,7 @@ Files scanned: **114** · inline <style> blocks: **54** · hex literals: **5577*
 | `public/lib/homeQueue.js` | 24519 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/i18nText.js` | 5067 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/incubationEditor.js` | 5909 | 0 | 1 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/lib/infraPrefill.js` | 6926 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/kpiCard.js` | 5805 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/kpiRag.js` | 6862 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/landing.js` | 2995 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
