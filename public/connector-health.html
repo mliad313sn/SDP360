@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Connector health — Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="admin" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<style nonce="%%CSP_NONCE%%">
+  body { margin: 0; background: var(--color-bg); color: var(--color-text-strong); font-family: var(--font-sans, sans-serif); font-size: 14px; }
+  .ch-wrap { max-width: 1280px; margin: 0 auto; padding: 24px 28px 48px; }
+  .ch-card { background: var(--color-card); border: 1px solid var(--color-border); border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; overflow-x: auto; }
+  @media (max-width: 640px) { .ch-wrap { padding: 16px 12px 32px; } .ch-card { padding: 14px 12px; } }
+  h1 { margin: 0 0 6px; font-size: 22px; } h2 { font-size: 16px; margin: 0 0 8px; }
+  .ch-muted { color: var(--color-text-muted); font-size: 12.5px; }
+  .ch-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(300px, 100%), 1fr)); gap: 14px; }
+  .ch-conn { border: 1px solid var(--color-border); border-radius: 10px; padding: 14px; min-width: 0; overflow-wrap: anywhere; }
+  .ch-conn dl { display: grid; grid-template-columns: max-content 1fr; gap: 4px 10px; margin: 8px 0; font-size: 12.5px; }
+  .ch-conn dt { color: var(--color-text-muted); } .ch-conn dd { margin: 0; }
+  .ch-s { display: inline-block; border-radius: 6px; padding: 2px 8px; font-size: 12px; font-weight: 600; }
+  .ch-ok { background: var(--color-success-bg); color: var(--color-success-text); }
+  .ch-partial, .ch-stale { background: var(--color-warning-bg); color: var(--color-warning-text); }
+  .ch-error, .ch-not_configured { background: var(--color-danger-bg, #fde8e8); color: var(--color-danger-text, #8a1c1c); }
+  .ch-disarmed, .ch-unknown { background: var(--color-bg); color: var(--color-text-muted); border: 1px dashed var(--color-border-strong); }
+  .ch-step { background: var(--color-bg); border-left: 3px solid var(--color-border-strong); padding: 6px 10px; font-size: 12.5px; margin: 6px 0; }
+  .ch-unk { background: none; border: 1px dashed var(--color-border-strong); border-radius: 6px; padding: 1px 6px; cursor: pointer; font: inherit; color: inherit; }
+  .ch-unk:focus-visible, .ch-btn:focus-visible { outline: 2px solid var(--edv-orange, #E87722); outline-offset: 2px; }
+  .ch-btn { border: 1px solid var(--color-border-strong); background: var(--color-card); border-radius: 6px; padding: 4px 10px; cursor: pointer; font: inherit; font-size: 12.5px; }
+  table { border-collapse: collapse; width: 100%; } td, th { padding: 5px 8px; border-bottom: 1px solid var(--color-border); text-align: left; font-size: 12.5px; vertical-align: top; }
+  ul.ch-miss { margin: 4px 0 0; padding-left: 18px; font-size: 12.5px; }
+</style>
+</head>
+<body>
+<a class="edv-skip" href="#main">Skip to content</a>
+<div id="__shell" data-section="operations" data-current="connector-health"></div>
+<main id="main" class="ch-wrap">
+  <div class="ch-card">
+    <h1>Connector health</h1>
+    <p class="ch-muted">Read from this server only (run log, configuration presence, snapshot tables) — no call is made to a source system. A value that could not be read is shown as <b>—</b> (unknown), never as 0 or green. A switched-off feature reads <b>désarmé</b> with the human step that would turn it on. Every “—” is a button that opens a fix task for the connector owner.</p>
+    <p class="ch-muted" id="chMeta" aria-live="polite">Loading…</p>
+  </div>
+  <div class="ch-card"><h2>Connectors</h2><div id="chList" class="ch-grid"></div></div>
+  <div class="ch-card"><h2>Open fix tasks</h2><div id="chTasks"></div></div>
+</main>
+<script nonce="%%CSP_NONCE%%" src="lib/connector-health-page.js"></script>
+</body>
+</html>
