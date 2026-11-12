@@ -142,8 +142,9 @@ _DEFAULTS = {
 # tiles can print an em dash when the payload asks for it (_unknown_as_dash). Default path
 # formats exactly as before.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from kpi_fmt import unknown_kpis, pct_text  # noqa: E402
+from kpi_fmt import unknown_kpis, pct_text, num_text, null_kpis, is_null, verdict_mark  # noqa: E402
 _UNKNOWN_KPIS = unknown_kpis(K)
+K['_null_set'] = null_kpis(K)   # F-DATA-06 — not measured: em dash, no verdict (before the defaults below)
 for k, v in _DEFAULTS.items():
     # Both missing keys AND explicit-None values get the default. The
     # browser payload + server enricher will frequently send `null` for
@@ -869,7 +870,7 @@ _cv_mi      = _cover_delta(K.get('mi_total_delta'),          '',   invert=True)
 _cv_changes = _cover_delta(K.get('changes_total_delta'),     '')
 
 cover_stat(Inches(6.4), Inches(2.5), f"{K['total']:,}",           "TOTAL TICKETS",   _cv_total[0],   _cv_total[1])
-cover_stat(Inches(8.7), Inches(2.5), f"{K['closure_rate']:.1f}%", "CLOSURE RATE",    _cv_closure[0], _cv_closure[1])
+cover_stat(Inches(8.7), Inches(2.5), pct_text(K, 'closure_rate', _UNKNOWN_KPIS), "CLOSURE RATE",    _cv_closure[0], _cv_closure[1])
 cover_stat(Inches(11.0), Inches(2.5), pct_text(K, 'sla_compliance', _UNKNOWN_KPIS), "SLA COMPLIANCE", _cv_sla[0],     _cv_sla[1])
 cover_stat(Inches(6.4), Inches(3.9), f"{K['open_backlog']}",      "OPEN BACKLOG",    _cv_backlog[0], _cv_backlog[1])
 cover_stat(Inches(8.7), Inches(3.9), f"{K['mi_total']}",           "MAJOR INCIDENTS", _cv_mi[0],      _cv_mi[1])
@@ -1123,8 +1124,8 @@ _emerg_pct = (_emerg_n / max(K.get('changes_total', 0), 1) * 100) if K.get('chan
 
 # Row 1 — Volume & SLA
 x,y = get_pos(0,0); kpi_tile(s,x,y,TILE_W,TILE_H,"TOTAL TICKETS", f"{K['total']:,}", f"Created in {MONTH}", accent=BLUE, value_size=24);                  tile_delta(x,y,_d_total[0],   _d_total[1])
-x,y = get_pos(0,1); kpi_tile(s,x,y,TILE_W,TILE_H,"CLOSED TICKETS", f"{K['closed']:,}", f"{K['closure_rate']:.1f}% closure rate", accent=GREEN, value_size=24); tile_delta(x,y,_d_closed[0],  _d_closed[1])
-x,y = get_pos(0,2); kpi_tile(s,x,y,TILE_W,TILE_H,"SLA COMPLIANCE (Res)", pct_text(K, 'sla_compliance', _UNKNOWN_KPIS), f"Target ≥ 90%  {'✓' if K.get('sla_compliance', 0) >= 90 else '⚠'}", accent=(GREEN if K.get('sla_compliance', 0) >= 90 else AMBER), value_color=NAVY, value_size=24); tile_delta(x,y,_d_sla[0],     _d_sla[1])
+x,y = get_pos(0,1); kpi_tile(s,x,y,TILE_W,TILE_H,"CLOSED TICKETS", f"{K['closed']:,}", f"{pct_text(K, 'closure_rate', _UNKNOWN_KPIS)} closure rate", accent=GREEN, value_size=24); tile_delta(x,y,_d_closed[0],  _d_closed[1])
+x,y = get_pos(0,2); kpi_tile(s,x,y,TILE_W,TILE_H,"SLA COMPLIANCE (Res)", pct_text(K, 'sla_compliance', _UNKNOWN_KPIS), f"Target ≥ 90%  {verdict_mark(K, 'sla_compliance', K.get('sla_compliance', 0) >= 90)}", accent=(BLUE if is_null(K, 'sla_compliance') else GREEN if K.get('sla_compliance', 0) >= 90 else AMBER), value_color=NAVY, value_size=24); tile_delta(x,y,_d_sla[0],     _d_sla[1])
 x,y = get_pos(0,3); kpi_tile(s,x,y,TILE_W,TILE_H,"OPEN BACKLOG", f"{K['open_backlog']}", "Active open tickets", accent=ORANGE, value_size=24);          tile_delta(x,y,_d_backlog[0], _d_backlog[1])
 
 # Row 2 — Quality: FCR · FRT · Resolution · SLA Violations (4 tiles, May-final layout)
@@ -1136,9 +1137,9 @@ _sla_viol = max(0.0, 100 - K.get('sla_compliance', 0))
 _FRT_TARGET = 80
 _frt_ok = (K.get('frt_sla', 0) or 0) >= _FRT_TARGET
 x,y = get_pos(1,0); kpi_tile(s,x,y,TILE_W,TILE_H,"FCR RATE", pct_text(K, 'fcr_rate', _UNKNOWN_KPIS), "Closed, no escalation / reopen", accent=GREEN, value_size=24);      tile_delta(x,y,_d_fcr[0],  _d_fcr[1])
-x,y = get_pos(1,1); kpi_tile(s,x,y,TILE_W,TILE_H,"FRT SLA", pct_text(K, 'frt_sla', _UNKNOWN_KPIS), f"Target ≥ {_FRT_TARGET}%  {'✓' if _frt_ok else '⚠'}", accent=(GREEN if _frt_ok else RED), value_size=24); tile_delta(x,y,_d_frt[0],  _d_frt[1])
-x,y = get_pos(1,2); kpi_tile(s,x,y,TILE_W,TILE_H,"AVG RESOLUTION", f"{K['avg_res_days']}d", "MTTR — all tickets", accent=BLUE, value_size=24);              tile_delta(x,y,_d_res[0],  _d_res[1])
-x,y = get_pos(1,3); kpi_tile(s,x,y,TILE_W,TILE_H,"SLA VIOLATIONS", f"{_sla_viol:.1f}%", "Missed Resolution SLA", accent=ORANGE, value_color=NAVY, value_size=24)
+x,y = get_pos(1,1); kpi_tile(s,x,y,TILE_W,TILE_H,"FRT SLA", pct_text(K, 'frt_sla', _UNKNOWN_KPIS), f"Target ≥ {_FRT_TARGET}%  {verdict_mark(K, 'frt_sla', _frt_ok)}", accent=(BLUE if is_null(K, 'frt_sla') else GREEN if _frt_ok else RED), value_size=24); tile_delta(x,y,_d_frt[0],  _d_frt[1])
+x,y = get_pos(1,2); kpi_tile(s,x,y,TILE_W,TILE_H,"AVG RESOLUTION", num_text(K, 'avg_res_days', 'd'), "MTTR — all tickets", accent=BLUE, value_size=24);              tile_delta(x,y,_d_res[0],  _d_res[1])
+x,y = get_pos(1,3); kpi_tile(s,x,y,TILE_W,TILE_H,"SLA VIOLATIONS", ('—' if is_null(K, 'sla_compliance') else f"{_sla_viol:.1f}%"), "Missed Resolution SLA", accent=ORANGE, value_color=NAVY, value_size=24)
 
 # Row 3 — Governance & Incident
 x,y = get_pos(2,0); kpi_tile(s,x,y,TILE_W,TILE_H,"CHANGES (NEW)", f"{K['changes_total']}", "Created this period", accent=BLUE, value_size=24);            tile_delta(x,y,_d_changes[0], _d_changes[1])
@@ -1154,15 +1155,16 @@ _exec_comment = (K.get('commentary') or {}).get('exec', '').strip()
 if not _exec_comment:
     _sla_gap_pp = 90 - K.get('sla_compliance', 0)
     _sla_status = "below 90% target ⚠" if K.get('sla_compliance', 0) < 90 else "above 90% target ✓"
+    _sla_nm = is_null(K, 'sla_compliance')   # F-DATA-06 — not measured: no figure, no verdict, no gap
     _exec_comment = (
         f"{MONTH} {K.get('year','')}: {K.get('total', 0):,} tickets, "
-        f"{K.get('closure_rate', 0):.1f}% closure, Resolution SLA "
-        f"{K.get('sla_compliance', 0):.1f}% ({_sla_status}), "
-        f"FRT SLA {K.get('frt_sla', 0):.1f}%. "
+        f"{pct_text(K, 'closure_rate', _UNKNOWN_KPIS)} closure, Resolution SLA "
+        f"{'not measured' if _sla_nm else format(K.get('sla_compliance', 0), '.1f') + '% (' + _sla_status + ')'}, "
+        f"FRT SLA {'not measured' if is_null(K, 'frt_sla') else format(K.get('frt_sla', 0), '.1f') + '%'}. "
         f"{K.get('mi_total', 0)} major incidents ({K.get('mi_critical', 0)} P1, "
         f"{K.get('mi_high', 0)} P2). {K.get('changes_total', 0)} new changes; "
         f"emergency rate {_emerg_pct:.1f}%. "
-        f"Focus: {'close ' + format(_sla_gap_pp, '.1f') + 'pp gap to 90% Res SLA' if _sla_gap_pp > 0 else 'maintain Res SLA above target'}; "
+        f"Focus: {'measure Res SLA' if _sla_nm else 'close ' + format(_sla_gap_pp, '.1f') + 'pp gap to 90% Res SLA' if _sla_gap_pp > 0 else 'maintain Res SLA above target'}; "
         f"lift FRT to 80%."
     )
 add_rect(s, Inches(0.4), Inches(5.9), Inches(12.55), Inches(1.1), DARK_NAVY)
@@ -1184,10 +1186,10 @@ s.shapes.add_picture(_chart('volume_trend', figsize=(8.5, 4.5), data_fn=_draw_vo
 
 # Right: TWO KPI tiles side-by-side (FRT SLA + Res. SLA), then SLA trend chart below
 kpi_tile(s, Inches(9.2), Inches(1.55), Inches(1.80), Inches(1.4),
-         "FRT SLA", pct_text(K, 'frt_sla', _UNKNOWN_KPIS), f"Target ≥ {_FRT_TARGET}%  {'✓' if _frt_ok else '⚠'}",
-         accent=(GREEN if _frt_ok else RED), value_size=24)
+         "FRT SLA", pct_text(K, 'frt_sla', _UNKNOWN_KPIS), f"Target ≥ {_FRT_TARGET}%  {verdict_mark(K, 'frt_sla', _frt_ok)}",
+         accent=(BLUE if is_null(K, 'frt_sla') else GREEN if _frt_ok else RED), value_size=24)
 kpi_tile(s, Inches(11.10), Inches(1.55), Inches(1.80), Inches(1.4),
-         "RES. SLA", pct_text(K, 'sla_compliance', _UNKNOWN_KPIS, '.0f'), f"Target ≥ 90%  {'✓' if K.get('sla_compliance', 0) >= 90 else '⚠'}", accent=(GREEN if K.get('sla_compliance', 0) >= 90 else AMBER), value_color=NAVY, value_size=24)
+         "RES. SLA", pct_text(K, 'sla_compliance', _UNKNOWN_KPIS, '.0f'), f"Target ≥ 90%  {verdict_mark(K, 'sla_compliance', K.get('sla_compliance', 0) >= 90)}", accent=(BLUE if is_null(K, 'sla_compliance') else GREEN if K.get('sla_compliance', 0) >= 90 else AMBER), value_color=NAVY, value_size=24)
 
 s.shapes.add_picture(_chart('sla_trend', figsize=(5.0, 4.0), data_fn=_draw_sla_trend, title='SLA Compliance — 12 Months'), Inches(9.2), Inches(3.10), width=Inches(3.7), height=Inches(2.95))
 
@@ -1203,13 +1205,16 @@ if not _sla_comment:
     _iti = K.get('categories', {}).get('IT Infrastructure', 0)
     _cat_share = (_swa + _iti) / max(K.get('total', 0), 1) * 100
     _sla_comment = (
-        f"Resolution SLA {K['sla_compliance']:.0f}% ({_sla_mom_s} MoM) — "
-        f"{'above 90% target ✓' if K['sla_compliance'] >= 90 else 'within ' + format(90 - K['sla_compliance'], '.1f') + 'pp of the 90% target'}. "
-        f"FRT SLA at {K['frt_sla']:.1f}% ({_frt_mom_s}) "
-        f"{'meets the 80% target ✓' if _frt_ok else 'is below the 80% target'}. "
+        ("Resolution SLA not measured this period. " if is_null(K, 'sla_compliance') else
+           f"Resolution SLA {K['sla_compliance']:.0f}% ({_sla_mom_s} MoM) — "
+           f"{'above 90% target ✓' if K['sla_compliance'] >= 90 else 'within ' + format(90 - K['sla_compliance'], '.1f') + 'pp of the 90% target'}. ")
+        + ("FRT SLA not measured this period. " if is_null(K, 'frt_sla') else
+           f"FRT SLA at {K['frt_sla']:.1f}% ({_frt_mom_s}) "
+           f"{'meets the 80% target ✓' if _frt_ok else 'is below the 80% target'}. ")
+        + f""
         f"Software/Apps ({_swa:,} tickets) and IT Infrastructure ({_iti:,}) are "
         f"{_cat_share:.0f}% of volume. "
-        f"Action: {'close the SLA gap to 90% and ' if K['sla_compliance'] < 90 else ''}"
+        f"Action: {'close the SLA gap to 90% and ' if (K['sla_compliance'] < 90 and not is_null(K, 'sla_compliance')) else ''}"
         f"lift FRT via dedicated first-response triage across top 3 sites."
     )
 add_rect(s, Inches(0.4), Inches(6.25), Inches(12.55), Inches(0.85), DARK_NAVY)

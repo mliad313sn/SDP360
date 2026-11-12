@@ -19,7 +19,7 @@
 | Screen — "missed" rule | due vs resolved, flag fallback (`due_vs_resolved`) | | | | `public/lib/dashboard-shared.js:184` (`function isResOverdue(r)`), default `public/lib/dashboard-shared.js:213` (`var HD_SLA_DEFINITION = 'due_vs_resolved'`) | `tests/sla-definition-parity.test.js` |
 | API (calendar-month reader, registry `helpdesk.resolution_sla_pct`) | closed AND `overdue_status = 0` AND not cancelled | closed AND `overdue_status IS NOT NULL` AND **not cancelled** | cancelled and no-SLA (NULL flag) tickets out | calendar month, `created_time` (UTC, or site-local when `site_local_calendar='1'`) | `reports-db.js:2962` (`sla_res_pct:   slaClosed > 0`), exclusions `reports-db.js:2949` (`const NOT_CANCELLED`), registry `services/metricRegistry.js:38` (`M('helpdesk.resolution_sla_pct'`) | `tests/uat-itsm-figures.test.js` |
 | API — server "missed" rule (other readers) | | | | | `services/slaDefinition.js:40` (`function resOverdueRow(row, mode)`), default `services/slaDefinition.js:20` (`const DEFAULT_MODE = 'flag'`) | `tests/sla-definition-parity.test.js` |
-| PPTX (Group IT deck) | = API calendar reader `sla_res_pct` | | | calendar month | `services/reportPayload.js:121` (`out.sla_compliance = _safeNum(cur.sla_res_pct)`) | `tests/report-figures-parity.test.js` |
+| PPTX (Group IT deck) | = API calendar reader `sla_res_pct` | | | calendar month | `services/reportPayload.js:124` (`out.sla_compliance = _nullable(cur.sla_res_pct)`) | `tests/report-figures-parity.test.js` |
 | E-mail (coordinator monthly) | **no percentage** — a count of created tickets with `overdue_status === 1` (open or closed) | — | — | calendar month | `reports-db.js:1228` (`function _computeSiteHelpdesk(rows)`) | — (no parity test with the % layers) |
 
 ## 2. First-reply SLA %
@@ -28,7 +28,7 @@
 | Screen (trend) | responded − flagged late | responded tickets (non-empty `Responded Time`) | none | selected period | `public/lib/dashboard-shared.js:271` (`fr_violated_pct:  pct(frViol, responded)`) | `tests/dashboard-shared-sla-rates.test.js` |
 | Screen (technician table) | 1 − late/responded | responded per technician | none | selected period | `public/index.html:1421` (`frSla: e.respondedN > 0`) | — |
 | API (calendar reader, registry `helpdesk.first_reply_sla_pct`) | responded AND flag not true/1/yes | responded | none (cancelled kept) | calendar month | `reports-db.js:2963` (`sla_reply_pct: rplyTotal > 0`), `services/metricRegistry.js:39` (`M('helpdesk.first_reply_sla_pct'`) | `tests/uat-itsm-figures.test.js` |
-| PPTX | = API `sla_reply_pct` | | | calendar month | `services/reportPayload.js:122` (`out.frt_sla        = _safeNum(cur.sla_reply_pct)`) | `tests/report-figures-parity.test.js` |
+| PPTX | = API `sla_reply_pct` | | | calendar month | `services/reportPayload.js:125` (`out.frt_sla        = _nullable(cur.sla_reply_pct)`) | `tests/report-figures-parity.test.js` |
 | E-mail | not reported | — | — | — | — | — |
 
 ## 3. Change success rate
@@ -67,7 +67,7 @@
 | DV-05 | First-reply SLA: no exclusion on any layer, but the screen trend is on the selected period and the API on the calendar month (`created_time` bucket). | Screen vs API | KPI committee |
 | DV-06 | Change success — three definitions in use: deck (cancelled in), ITSM (cancelled out), status-based (exec summary). Decision D-01. | Screen/API/E-mail vs exec summary | KPI committee (D-01) |
 | DV-07 | Change success window: month on the site report, rolling 90 days on the IT Review panel. | API vs IT Review | KPI committee |
-| DV-08 | PPTX converts a null rate to `0` (`services/reportPayload.js:88` (`function _safeNum(v, def = 0)`)), the other layers keep null = UNKNOWN. | PPTX vs others | KPI committee + product owner (defect candidate) |
+| DV-08 | Corrected by F-DATA-06 (plan F): the server baseline keeps a null rate or duration null (`services/reportPayload.js:88` (`function _safeNum(v, def = 0)`) is now used for counts only) and the deck prints an em dash without a target tick. `fcr_rate` stays under `exec_payload_zero_policy` (A-17). | PPTX vs others | Release manager (deployment window: reporting freeze) |
 | DV-09 | Site score window: rolling 3 months (e-mail) vs programme-to-date (IT Review page). | E-mail vs IT Review | model author + KPI committee |
 | DV-10 | Two site-scoring models (`sbDims` 70/45 and composite 75/55) give different RAG on the same site, by design of the source model. | IT Review | model author |
 | DV-11 | Composite `cov` is not clamped (> 12 departments pushes the score above 100). | IT Review | model author |
