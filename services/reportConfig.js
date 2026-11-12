@@ -358,6 +358,17 @@ DEFAULTS.portfolio_views_enabled = '0';
 //    (read-only) gesture recorded in ppm_events, and a soft-delete rollback. '0' = the migration API exactly as today.
 DEFAULTS.roadmap_publication_enabled = '0';
 
+// ── W1-EVM (PPM parity E-EVM-1, migration 093) — PROPOSED, '0' = today (the routes answer 404, nothing is computed).
+//    ppm_evm_enabled '1' → earned value per project and per portfolio (PV time-phased from the baseline, EV by task
+//    method, AC from actual budget periods or costed time entries; SPI/CPI/EAC/ETC/VAC/TCPI; S-curve), read under the
+//    money-read rule; per-task EVM fields (method, physical %, baseline cost, rate, CapEx/OpEx) written by the committee.
+//    Every figure is "non certifié" — Finance certifies. Arming it is a PMO + Finance decision.
+DEFAULTS.ppm_evm_enabled = '0';
+//    ppm_evm_fx_rates — an EXPLICIT rate table for the converted portfolio view, JSON
+//    {"target":"USD","rates":{"XOF":0.00165,"EUR":1.08},"as_of":"YYYY-MM-DD","source":"…"}. '' = no converted view
+//    (currencies stay separate, which is always the primary view). Rates are a Finance input, never guessed.
+DEFAULTS.ppm_evm_fx_rates = '';
+
 // ── SEC-01 — per-ACCOUNT login throttle (services/accountThrottle.js). '0' = today: only the per-IP limiter
 //    (10 attempts / 15 min per address). '1' → more than auth_account_throttle_max FAILED sign-ins against one
 //    account within auth_account_throttle_window_min answer 429 (password not even checked); a success clears it.
