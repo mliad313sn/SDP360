@@ -16,7 +16,12 @@
      tasks = the OPEN tasks (known + unknown + invalid + unassigned + undated). A possible conflict is a run of days
      where a person has at least two tasks running, at least one of them with an unknown or invalid allocation, and
      a known load that is not above 100: it is never counted as a conflict and never shown as "none".
-     known_peak_pct is null when no known allocation runs on those days. */
+     known_peak_pct is null when no known allocation runs on those days.
+   withMembers(tasks, members) → tasks (R2-WB-04, project team)
+     A task whose allocation is UNKNOWN takes the allocation of the project member it is owned by (owner = member label
+     or username, trimmed, case-insensitive; same project; the task's dates inside the member's window when one is
+     set; the member's allocation known 0..100). A task with a known (or invalid) allocation is never changed. No
+     member → the SAME array is returned (the output of conflicts / coverage is unchanged — golden). */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.AllocationContract = factory();
@@ -123,5 +128,24 @@
     return bits.length ? head + ' · ' + bits.join(' · ') : head;
   }
 
-  return { classify: classify, conflicts: conflicts, coverage: coverage, coverageText: coverageText, ownerKey: ownerKey };
+  function withMembers(tasks, members) {
+    if (!members || !members.length) return tasks;
+    var m = (members || []).filter(function (x) { return x && x.allocation_pct != null && x.allocation_pct !== '' && isFinite(Number(x.allocation_pct)) && Number(x.allocation_pct) >= 0 && Number(x.allocation_pct) <= 100; });
+    if (!m.length) return tasks;
+    return (tasks || []).map(function (t) {
+      if (!t || classify(t).state !== 'unknown') return t;
+      var k = ownerKey(t.owner), s = String(t.start_date || '').slice(0, 10), e = String(t.end_date || '').slice(0, 10);
+      var hit = null;
+      m.forEach(function (x) {
+        if (hit || Number(x.project_id) !== Number(t.project_id)) return;
+        if (ownerKey(x.label) !== k && !(x.username && ownerKey(x.username) === k)) return;
+        if (x.from_day && s < String(x.from_day)) return;
+        if (x.to_day && e > String(x.to_day)) return;
+        hit = x;
+      });
+      return hit ? Object.assign({}, t, { allocation_pct: Number(hit.allocation_pct), allocation_from: 'member' }) : t;
+    });
+  }
+
+  return { withMembers: withMembers, classify: classify, conflicts: conflicts, coverage: coverage, coverageText: coverageText, ownerKey: ownerKey };
 }));

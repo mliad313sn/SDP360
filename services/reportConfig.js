@@ -333,6 +333,12 @@ Object.assign(DEFAULTS, { soft_delete_enabled: '0', soft_delete_retention_days: 
 //    one parity cycle (tools/governance/roadmap-parity.js) — PMO + PO.
 DEFAULTS.roadmap_redirect_to_portfolio = '0';
 
+// ── R2-WORKBENCH (REBUILD-SPEC R5, migration 085) — PROPOSED, '0' = today (the routes answer 404, no tab / panel).
+//    ppm_project_team_enabled '1' → a Team panel on the project page (named members, role, optional user link and
+//    allocation to the project); a task whose allocation is UNKNOWN then reads its owner's member allocation in the
+//    conflicts and the capacity view (a known allocation is never overridden; no member = today's figures).
+DEFAULTS.ppm_project_team_enabled = '0';
+
 // ── SEC-01 — per-ACCOUNT login throttle (services/accountThrottle.js). '0' = today: only the per-IP limiter
 //    (10 attempts / 15 min per address). '1' → more than auth_account_throttle_max FAILED sign-ins against one
 //    account within auth_account_throttle_window_min answer 429 (password not even checked); a success clears it.

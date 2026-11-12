@@ -7,7 +7,7 @@ records a per-page budget for hex literals, dual axes and doughnuts: those can o
 The "substitution to consider" column is a **proposal** worded from the audit's measure → chart matrix (§5.2).
 Choosing and approving a substitution is a person's decision after a browser review; nothing here is decided.
 
-Files scanned: **108** · inline <style> blocks: **54** · hex literals: **5577** · `new Chart(` call sites: **44** · dual axes (`yAxisID`): **27** · doughnut/pie: **29**
+Files scanned: **109** · inline <style> blocks: **54** · hex literals: **5577** · `new Chart(` call sites: **44** · dual axes (`yAxisID`): **27** · doughnut/pie: **29**
 
 | File | Bytes | <style> | Hex | new Chart( | Chart types | Dual axis | Doughnut/pie | chartTheme.js | ChartTable | pageStates.js | Substitution to consider |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -56,7 +56,7 @@ Files scanned: **108** · inline <style> blocks: **54** · hex literals: **5577*
 | `public/obligations.html` | 3741 | 1 | 13 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/policies.html` | 25419 | 1 | 15 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/portfolio.html` | 32068 | 1 | 74 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/project.html` | 72129 | 1 | 79 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/project.html` | 73362 | 1 | 79 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/report-studio.html` | 18084 | 1 | 42 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/reports.html` | 539578 | 1 | 818 | 2 | bar×2 | 0 | 0 | yes | — | — | chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/rfi.html` | 12560 | 1 | 40 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
@@ -72,7 +72,7 @@ Files scanned: **108** · inline <style> blocks: **54** · hex literals: **5577*
 | `public/workspace-settings.html` | 4254 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/actionGroups.js` | 4944 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/actionSimilarity.js` | 2883 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/allocationContract.js` | 7321 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/allocationContract.js` | 8932 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/analyticsLogic.js` | 13104 | 0 | 0 | 0 | — | 0 | 0 | yes | — | — | — |
 | `public/lib/assetHygieneVisuals.js` | 6958 | 0 | 0 | 0 | — | 0 | 0 | — | yes | — | — |
 | `public/lib/businessRoles.js` | 933 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
@@ -102,7 +102,8 @@ Files scanned: **108** · inline <style> blocks: **54** · hex literals: **5577*
 | `public/lib/parse-actions-csv.js` | 8439 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/policiesRoles.js` | 16086 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmExtras.js` | 8858 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/ppmVisuals.js` | 23490 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/ppmVisuals.js` | 23603 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/ppmWorkbench.js` | 4717 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/reasonDialog.js` | 6938 | 0 | 10 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/lib/reports-backups.js` | 7874 | 0 | 15 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/lib/siteAliases.js` | 3000 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |

@@ -596,12 +596,14 @@ module.exports = function governanceRoutes(deps) {
       // F-PRODUCT-03 / F-DATA-09 — class view + totals per class only while the switch is on (never added across classes)
       const clsOn = String((await reportConfig.getConfig(rdb().db)).benefit_value_class_enabled) === '1';
       const mvRole = await moneyVerifierRole();
+      // R2-WB-04 — team switch on: a task of unknown allocation reads its owner's member allocation (none = today)
+      const members = String((await reportConfig.getConfig(rdb().db)).ppm_project_team_enabled) === '1' ? await wbStore().listMembers(p.id) : [];
       const bens = (d.benefits || []).map((b) => BEN.visibleBenefit(b, { money, asOf: new Date().toISOString(), classes: clsOn }));
       res.json({ ok: true, committee: !!isCommittee(u), can_gate: !!isCommittee(u), can_edit_plan: PA.canEditPlan(u, p, pctx), can_see_history: !!money, money_hidden: !money,
         project, objective: d.objective, extra_sites: d.extra_sites, tasks: d.tasks, milestones: d.milestones, deliverables: d.deliverables, risks: d.risks.map(PE.riskView),
         benefits: bens, ...(clsOn ? { benefit_totals: BEN.benefitTotals(bens), benefit_classes: { value_classes: BEN.VALUE_CLASSES, bases: BEN.BASES, source_kinds: BEN.SOURCE_KINDS } } : {}), me: Number(u.id),
         ...(mvRole ? { money_verifier_role: mvRole, holds_money_verifier_role: holdsExactly(u, mvRole) } : {}),   // F-PRODUCT-04: who may verify a money benefit
-        plan: SCH.scheduleView(d.tasks, { anchor: p.start_date || null }), variance: SCH.varianceOf(p), resource_conflicts: SCH.resourceConflicts(d.tasks), resource_coverage: SCH.resourceCoverage(d.tasks),
+        plan: SCH.scheduleView(d.tasks, { anchor: p.start_date || null }), variance: SCH.varianceOf(p), resource_conflicts: SCH.resourceConflicts(d.tasks, members), resource_coverage: SCH.resourceCoverage(d.tasks, members),
         stages: SCH.STAGES, allowed_stages, gate_counts: d.gate_ctx, risk_kinds: store.RISK_KINDS, as_of: new Date().toISOString() });
     } catch (e) { fail(res, e); }
   });
@@ -633,6 +635,7 @@ module.exports = function governanceRoutes(deps) {
   router.post('/api/governance/portfolio/benefit/:id/verify', requireReportSession, json, benefitAction('verify'));
   // ---- A-27 baselines, re-baseline gate, deck / workbook, exceptions (PROPOSED switches, all '0' = today) ----------
   const BL = require('../services/ppmBaseline');
+  const wbStore = () => require('../services/ppmWorkbenchStore').makeWorkbenchStore(rdb().pgHandle(), store);   // R2-WORKBENCH (migration 085)
   const PX = require('../services/ppmAlerts');
   /** The project if this user may read it (A-15 read scope), else null. */
   async function readableProject(u, id) {

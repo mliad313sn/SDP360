@@ -16,6 +16,7 @@
 <script nonce="%%CSP_NONCE%%" src="lib/allocationContract.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/ppmVisuals.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/ppmExtras.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/ppmWorkbench.js"></script>
 <style nonce="%%CSP_NONCE%%">
   body { margin:0; background:var(--color-background,#f4f6f7); color:#1F2A33; font-family:var(--font-sans,"Libre Franklin",system-ui,sans-serif); font-size:14px; }
   .wrap { max-width:1360px; margin:0 auto; padding:24px; }
@@ -67,7 +68,19 @@
     <button type="button" role="tab" id="tab-history" aria-controls="pane-history" aria-selected="false" tabindex="-1">History</button>
   </div>
 
-  <section id="pane-overview" role="tabpanel" aria-labelledby="tab-overview"><div id="overview"></div></section>
+  <section id="pane-overview" role="tabpanel" aria-labelledby="tab-overview"><div id="overview"></div>
+    <div class="panel" id="team-panel" hidden><h2>Team</h2><div class="scroll" id="team"></div>
+      <div id="team-edit" hidden><input type="hidden" id="tm-id">
+        <div class="row">
+          <label>Name <input id="tm-label"></label>
+          <label>Role <input id="tm-role" placeholder="e.g. network engineer"></label>
+          <label>Allocation to the project % (empty = unknown) <input id="tm-alloc" type="number" min="0" max="100"></label>
+          <label>From <input id="tm-from" type="date"></label>
+          <label>To <input id="tm-to" type="date"></label>
+          <label>User account id (optional) <input id="tm-user" type="number" min="1"></label>
+        </div>
+        <div class="bar"><button class="btn primary" id="team-save" type="button">Save member</button></div></div></div>
+  </section>
 
   <section id="pane-charter" role="tabpanel" aria-labelledby="tab-charter" hidden>
     <div class="panel"><h2>Charter</h2><div id="charter-view"></div></div>
@@ -99,7 +112,7 @@
         <label>Name <input id="t-name"></label>
         <label>WBS code <input id="t-wbs" placeholder="1.2"></label>
         <label>Parent task <select id="t-parent"></select></label>
-        <label>Owner <input id="t-owner"></label>
+        <label>Owner <input id="t-owner" list="t-owner-list"><datalist id="t-owner-list"></datalist></label>
         <label>Start <input id="t-start" type="date"></label>
         <label>End <input id="t-end" type="date"></label>
         <label>Duration (days) <input id="t-dur" type="number" min="1"></label>
@@ -259,7 +272,7 @@
   var V = null;
   // W2-PPM — which PROPOSED switches are on (each new tab / prompt exists only then); an error = all off (today)
   var FEAT = {};
-  api("/api/governance/ppm/features").then(function (f) { FEAT = f || {}; if (FEAT.budget_periods) addTab("budget", "gates"); if (FEAT.benefit_owner_link) linkOwners(); if (FEAT.benefit_value_class) { $("b-class-box").hidden = false; if (V) renderBenefits(); } if (FEAT.raci) addTab("raci", "gates"); if (FEAT.templates && V && V.committee) $("tpl-save-box").hidden = false; }).catch(function () { FEAT = {}; });
+  api("/api/governance/ppm/features").then(function (f) { FEAT = f || {}; if (FEAT.budget_periods) addTab("budget", "gates"); if (FEAT.benefit_owner_link) linkOwners(); if (FEAT.benefit_value_class) { $("b-class-box").hidden = false; if (V) renderBenefits(); } if (FEAT.raci) addTab("raci", "gates"); if (FEAT.team && V) mountTeam(); if (FEAT.templates && V && V.committee) $("tpl-save-box").hidden = false; }).catch(function () { FEAT = {}; });
 
   // ---- tabs (role=tablist, arrows / Home / End, deep link #tab) ---------------------------------------------
   // Extension point: later goals (baselines, benefits) add a tab button + a pane + an entry in RENDER.
@@ -269,6 +282,8 @@
   var X = function () { return { $: $, esc: esc, api: api, msg: msg, fail: fail, pid: PID }; };
   RENDER.budget = function () { if (window.PpmExtras) window.PpmExtras.mountBudget(X()); };
   RENDER.raci = function () { if (window.PpmExtras) window.PpmExtras.mountRaci(Object.assign(X(), { canEdit: !!(V && V.can_edit_plan) })); };
+  // R2-WB-04 — the Team panel (Overview) exists only while ppm_project_team_enabled is on
+  function mountTeam() { if (window.PpmWorkbench) window.PpmWorkbench.mountTeam(Object.assign(X(), { canEdit: !!(V && V.can_edit_plan) })); }
   $("tpl-save").addEventListener("click", function () { api("/api/governance/ppm/templates", { method: "POST", body: JSON.stringify({ project_id: Number(PID), name: $("tpl-name").value.trim() }) }).then(function (j) { msg("Template #" + j.template.id + " saved as a draft."); }).catch(fail); });
   // E-P05 — the user picker for a benefit owner (committee: /api/governance/people answers 403 to others → stays hidden)
   function linkOwners() { api("/api/governance/people").then(function (j) { $("b-owner-user").innerHTML = opt((j.people || []).map(function (p) { return [p.id, p.name]; }), "", "— not linked —"); $("b-owner-user-box").hidden = false; }).catch(function () { $("b-owner-user-box").hidden = true; }); }
@@ -370,6 +385,7 @@
       "<tr><th>Spent / budget</th><td>" + money + "</td></tr>" +
       "<tr><th>Origin</th><td>" + (p.rfi_id != null ? "request #" + n(p.rfi_id) + " (<a href=\"rfi.html\">RFI register</a>)" : "—") + "</td></tr>" +
       "</tbody></table></div>";
+    if (FEAT.team) mountTeam();
   }
 
   function renderCharter() {

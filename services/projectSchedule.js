@@ -81,11 +81,13 @@ function criticalPath(tasks) {
  * null, '', omitted or not a number is UNKNOWN (never 0 %, never 100 %); a number outside 0..100 is invalid and
  * never summed. Both are counted by resourceCoverage, which also lists the POSSIBLE conflicts they hide.
  * @param {Array<{id, owner?, start_date?, end_date?, allocation_pct?}>} tasks
+ * R2-WB-04: `members` (project team, optional) — a task with an UNKNOWN allocation reads its owner's member allocation;
+ * no member = today's output, unchanged.
  * @returns {Array<{owner, from, to, peak_pct, task_ids}>}
  */
-function resourceConflicts(tasks) { return AC.conflicts(tasks || []); }
+function resourceConflicts(tasks, members) { return AC.conflicts(AC.withMembers(tasks || [], members)); }
 /** @returns {{tasks, known, unknown, invalid, unassigned, undated, closed, invalid_task_ids, possible_conflicts}} */
-function resourceCoverage(tasks) { return AC.coverage(tasks || []); }
+function resourceCoverage(tasks, members) { return AC.coverage(AC.withMembers(tasks || [], members)); }
 
 /** Baseline vs forecast vs actual. Missing dates give null (not measured), never 0. */
 function varianceOf(x) {
