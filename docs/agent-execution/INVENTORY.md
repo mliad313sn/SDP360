@@ -12,12 +12,12 @@
 | pages not in navigation | 29 |
 | pages with inline scripts | 46 |
 | routes | 637 |
-| routes without test reference | 35 |
+| routes without test reference | 32 |
 | routes in server js | 210 |
 | jobs | 31 |
 | jobs without test reference | 1 |
 | migrations | 80 |
-| test files | 662 |
+| test files | 669 |
 
 ## Pages
 
@@ -62,7 +62,7 @@
 | PG-meetings-progress | public/meetings-progress.html | any | no | 2 | 3 |
 | PG-meetings-setup | public/meetings-setup.html | any | no | 1 | 3 |
 | PG-meetings-unsigned | public/meetings-unsigned.html | any | no | 2 | 3 |
-| PG-meetings | public/meetings.html | any | yes | 2 | 4 |
+| PG-meetings | public/meetings.html | any | yes | 2 | 5 |
 | PG-no-access | public/no-access.html | any | no | 0 | 2 |
 | PG-notifications | public/notifications.html | any | yes | 1 | 3 |
 | PG-obligations | public/obligations.html | any | yes | 0 | 3 |
@@ -90,7 +90,6 @@
 | RT-GET-api-cab | GET | `/api/cab` | server.js:2939 |
 | RT-GET-api-data-ageing-by-group | GET | `/api/data/ageing-by-group` | server.js:4099 |
 | RT-GET-api-data-ageing-by-site | GET | `/api/data/ageing-by-site` | server.js:4049 |
-| RT-GET-api-data-ageing | GET | `/api/data/ageing` | server.js:3577 |
 | RT-GET-api-data-cab-approvals | GET | `/api/data/cab-approvals` | server.js:3621 |
 | RT-GET-api-data-cab-recommendations | GET | `/api/data/cab-recommendations` | server.js:3643 |
 | RT-GET-api-data-change-table | GET | `/api/data/change-table` | server.js:3387 |
@@ -111,12 +110,10 @@
 | RT-GET-api-reports-sessions-active | GET | `/api/reports/sessions/active` | routes/adminUsers.js:174 |
 | RT-GET-api-reports-technicians | GET | `/api/reports/technicians` | server.js:5801 |
 | RT-POST-api-reports-test-smtp | POST | `/api/reports/test-smtp` | routes/adminConfig.js:176 |
-| RT-PUT-api-reports-users-emails | PUT | `/api/reports/users/emails` | routes/adminUsers.js:118 |
 | RT-GET-api-risk-register-config-unmapped | GET | `/api/risk-register-config/unmapped` | routes/riskRegister.js:129 |
 | RT-GET-api-roadmap-evidence-catalogue | GET | `/api/roadmap/evidence/catalogue` | routes/roadmap.js:56 |
 | RT-GET-api-roadmap-evidence-incidents | GET | `/api/roadmap/evidence/incidents` | routes/roadmap.js:73 |
 | RT-GET-api-roadmap-evidence-platform | GET | `/api/roadmap/evidence/platform` | routes/roadmap.js:64 |
-| RT-GET-api-roadmap-project | GET | `/api/roadmap/project` | routes/roadmap.js:123 |
 | RT-GET-api-sample-viewid | GET | `/api/sample/:viewId` | server.js:4418 |
 | RT-POST-api-save-pptx | POST | `/api/save-pptx` | server.js:6541 |
 | RT-POST-api-tracker-import-dept-meetings | POST | `/api/tracker/import-dept-meetings` | routes/tracker.js:108 |
@@ -151,7 +148,7 @@
 | JB-opmanager-availability | opmanager.availability | 1 |
 | JB-publish-connectors | publish.connectors | 2 |
 | JB-reports-monthly | reports.monthly | 1 |
-| JB-reports-weekly | reports.weekly | 1 |
+| JB-reports-weekly | reports.weekly | 2 |
 | JB-softdelete-purge | softdelete.purge | 2 |
 | JB-teams-sla-poll | teams.sla_poll | 1 |
 | JB-zoho-change-cab | zoho.change_cab | 1 |
