@@ -685,8 +685,11 @@ module.exports = function governanceRoutes(deps) {
     // R2-WB-02 — actual hours per task (sum of the time entries; no entry = unknown) only while the switch is on
     const actualHours = String(cx.ppm_time_entries_enabled) === '1'
       ? require('../services/projectSchedule').actualHours(v.tasks || [], await wbStore().listTimeEntriesForTasks((v.tasks || []).map((t) => t.id))) : null;
+    // R2-WB-03 — the budget periods of the readable projects, for a money reader, while ppm_budget_periods_enabled is on
+    let budgetPeriods = null;
+    if (money && String(cx.ppm_budget_periods_enabled) === '1') { budgetPeriods = []; for (const id of ids) budgetPeriods.push(...await store.listBudgetPeriods(id)); }
     return { v: { ...v, benefits: (v.benefits || []).filter((b) => ids.has(b.project_id)) }, money, baselines, exceptions: await exceptionsFor(v0),
-      benefitClasses: String(cx.benefit_value_class_enabled) === '1', actualHours };
+      benefitClasses: String(cx.benefit_value_class_enabled) === '1', actualHours, budgetPeriods };
   }
   router.get('/api/governance/portfolio/deck.pptx', requireReportSession, async (req, res) => {
     try { const x = await exportData(req.reportUser); const buf = await require('../services/portfolioDeck').buildDeck(x.v, { money: x.money, exceptions: x.exceptions, asOf: x.v.as_of });
@@ -694,7 +697,7 @@ module.exports = function governanceRoutes(deps) {
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'); res.setHeader('Content-Disposition', `attachment; filename="portfolio-${x.v.as_of.slice(0, 10)}.pptx"`); res.send(buf); } catch (e) { fail(res, e); }
   });
   router.get('/api/governance/portfolio/workbook.xlsx', requireReportSession, async (req, res) => {
-    try { const x = await exportData(req.reportUser); const buf = require('../services/portfolioDeck').buildWorkbookBuffer(x.v, { money: x.money, baselines: x.baselines, exceptions: x.exceptions, benefitClasses: x.benefitClasses, actualHours: x.actualHours });
+    try { const x = await exportData(req.reportUser); const buf = require('../services/portfolioDeck').buildWorkbookBuffer(x.v, { money: x.money, baselines: x.baselines, exceptions: x.exceptions, benefitClasses: x.benefitClasses, actualHours: x.actualHours, budgetPeriods: x.budgetPeriods });
       log(req, 'portfolio_workbook', 'portfolio', { money: x.money });
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); res.setHeader('Content-Disposition', `attachment; filename="portfolio-${x.v.as_of.slice(0, 10)}.xlsx"`); res.send(buf); } catch (e) { fail(res, e); }
   });

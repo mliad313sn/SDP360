@@ -116,3 +116,23 @@ test('R2-WB-02 time entries: 404 while off; on: plan-write rule, null vs 0, cros
     assert.deepEqual(h.j.events.filter((e) => /^time_entry/.test(e.action)).map((e) => e.action), ['time_entry_added', 'time_entry_added', 'time_entry_added', 'time_entry_removed']);
   } finally { await sw({ ppm_time_entries_enabled: '0', portfolio_site_scope_reads: '0' }); }
 });
+
+test('R2-WB-03 workbook budget periods: only for a money reader while ppm_budget_periods_enabled is on, equal to the stored periods', async () => {
+  const XLSX = require('xlsx');
+  const sheets = async (t) => XLSX.read(await wbBuf(t), { type: 'buffer' });
+  await sw({ ppm_budget_periods_enabled: '1' });
+  try {
+    const url = `/api/governance/ppm/project/${pid}/budget-periods`;
+    assert.equal((await send('PUT', url, T.pmo, { period: '2026-11', currency: 'USD', kind: 'actual', amount: 12000 })).status, 200);
+    assert.equal((await send('PUT', url, T.pmo, { period: '2026-11', currency: 'XOF', kind: 'actual', amount: 1500000 })).status, 200);
+    const screen = (await send('GET', url, T.fin)).j.view;
+    const wb = await sheets(T.fin);
+    assert.ok(wb.SheetNames.includes('Budget periods'));
+    const rows = XLSX.utils.sheet_to_json(wb.Sheets['Budget periods'], { defval: null }).filter((r) => r.project === 'WB-1');
+    for (const c of screen.currencies) for (const p of c.periods) assert.equal(rows.find((r) => r.currency === c.currency && r.period === p.period && r.kind === 'actual').amount, p.actual, `${c.currency} ${p.period} = screen`);
+    assert.deepEqual(rows.map((r) => r.currency).sort(), ['USD', 'XOF']);
+    assert.ok(!(await sheets(T.viewer)).SheetNames.includes('Budget periods'), 'no money reader: no sheet');
+    await sw({ ppm_budget_periods_enabled: '0' });
+    assert.ok(!(await sheets(T.fin)).SheetNames.includes('Budget periods'), 'switch off: today’s workbook');
+  } finally { await sw({ ppm_budget_periods_enabled: '0' }); }
+});

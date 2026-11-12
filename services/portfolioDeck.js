@@ -118,7 +118,10 @@ function capacityRows(tasks) {
 /** Workbook sheets: Projects, Tasks, Milestones, RAID, Baselines, Exceptions, Benefits, Capacity (SheetJS CE — no styling). */
 // R2-WB-02 actualHours: [{task_id, actual, variance}] (projectSchedule.actualHours) — when given, the Tasks sheet gains
 // actual_hours / hours_variance (an empty cell = no time entry = unknown, never 0). Absent = today's sheet.
-function buildWorkbookBuffer(view, { money: showMoney = false, baselines = [], exceptions = [], benefitClasses = false, actualHours = null } = {}) {
+// R2-WB-03 budgetPeriods: rows of store.listBudgetPeriods for the readable projects — a "Budget periods" sheet ONLY when
+// showMoney and the array is given (the route gives it only with ppm_budget_periods_enabled = '1'). One row per
+// project × month × currency × kind, the currency on every row; NO total row (currencies are never added together).
+function buildWorkbookBuffer(view, { money: showMoney = false, baselines = [], exceptions = [], benefitClasses = false, actualHours = null, budgetPeriods = null } = {}) {
   const v = view || {};
   const keyOf = new Map((v.projects || []).map((p) => [Number(p.id), p.key]));
   const hoursOf = Array.isArray(actualHours) ? new Map(actualHours.map((h) => [Number(h.task_id), h])) : null;
@@ -151,7 +154,12 @@ function buildWorkbookBuffer(view, { money: showMoney = false, baselines = [], e
       baseline_value: x.baseline_value ?? null, target_value: x.target_value ?? null, realised_value: x.realised_value ?? null, owner: b.owner || null, review_date: b.review_date || null,
       state: x.state, evidence_link: b.evidence_link || null, realised_by: b.realised_by_name || null, verified_by: b.verified_by_name || null, verified_at: b.verified_at || null, ...cls };
   });
-  return require('./tableExcel').buildWorkbook([{ name: 'Projects', rows: projects }, { name: 'Tasks', rows: tasks }, { name: 'Milestones', rows: milestones }, { name: 'RAID', rows: raid }, { name: 'Baselines', rows: bl }, { name: 'Exceptions', rows: ex }, { name: 'Benefits', rows: ben }, { name: 'Capacity', rows: capacity }]);
+  const sheets = [{ name: 'Projects', rows: projects }, { name: 'Tasks', rows: tasks }, { name: 'Milestones', rows: milestones }, { name: 'RAID', rows: raid }, { name: 'Baselines', rows: bl }, { name: 'Exceptions', rows: ex }, { name: 'Benefits', rows: ben }, { name: 'Capacity', rows: capacity }];
+  if (showMoney && Array.isArray(budgetPeriods)) {
+    sheets.push({ name: 'Budget periods', rows: budgetPeriods.map((b) => ({ project: keyOf.get(Number(b.project_id)) || null, period: b.period, currency: b.currency, kind: b.kind, amount: _numOrNull(b.amount), reason: b.reason || null,
+      note: 'not certified by Finance' })) });
+  }
+  return require('./tableExcel').buildWorkbook(sheets);
 }
 
 module.exports = { buildDeck, buildWorkbookBuffer, capacityRows, X, W, BOTTOM };
