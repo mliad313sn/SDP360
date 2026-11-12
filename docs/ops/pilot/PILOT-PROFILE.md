@@ -105,6 +105,7 @@ planned switch cannot be set before its goal lands.
 | `benefit_owner_link_enabled` | built | `0` | `1` once the PMO wants benefit owners named as users (the free-text owner stays; "My work" then lists the person's benefits whose review date is reached — in-app only, nothing is e-mailed). The linked owner can never verify their own benefit | PMO | E-P05 |
 | `ppm_raci_enabled` | built | `0` | `1` when the PMO wants responsibilities per task on the project page (R / A / C / I per person, exactly one A per task — a matrix without it is refused; CSV export; every change is a `ppm_events` row) | PMO | E-P06 |
 | `ppm_templates_enabled` | built | `0` | `1` once the PMO names who validates templates (a template is the STRUCTURE only — task names, WBS, durations, milestone names; no people, dates or money; `draft` until another committee member approves it; only an approved template creates a project) | PMO (template validation is a human act) | E-P06 |
+| `ppm_annual_pack_enabled` | built | `0` | `1` before the annual planning committee (the XLSX pack is a DRAFT on every sheet: projects of the year, per-currency budget roll-up under the money rule, capacity summary, provisional RFI scores; the envelope column stays UNKNOWN until Finance enters it — envelopes and arbitration are human decisions) | CIO + PMO + Finance | E-P08 |
 
 Not in this table because they are not top-level `report_config` keys:
 

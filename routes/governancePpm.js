@@ -8,6 +8,7 @@
 //   E-P06 ppm_raci_enabled           GET/PUT /api/governance/ppm/project/:id/raci · GET …/raci.csv   read scope / plan-write rule
 //   E-P06 ppm_templates_enabled      GET /api/governance/ppm/templates · POST /templates {project_id,name} · POST /templates/:id/approve
 //                                    · POST /templates/:id/create-project {objective_id,key,name,site_id}       committee (approver ≠ author)
+//   E-P08 ppm_annual_pack_enabled    GET /api/governance/ppm/annual-pack.xlsx?year=YYYY  DRAFT pack (money rule; RFI sheet committee)
 //   GET  /api/governance/ppm/features  which of these switches are on (the pages show a tab / panel only then)
 // Paths live under /api/governance/ppm/ so they never collide with /portfolio/:kind.
 const { fail: httpFail } = require('../services/httpError');
@@ -23,7 +24,7 @@ module.exports = function governancePpmRoutes(router, h) {
   router.get('/api/governance/ppm/features', requireReportSession, async (req, res) => {
     try {
       const c = await cfg();
-      res.json({ ok: true, capacity: on(c, 'ppm_capacity_view'), budget_periods: on(c, 'ppm_budget_periods_enabled'), benefit_owner_link: on(c, 'benefit_owner_link_enabled'), raci: on(c, 'ppm_raci_enabled'), templates: on(c, 'ppm_templates_enabled') });
+      res.json({ ok: true, capacity: on(c, 'ppm_capacity_view'), budget_periods: on(c, 'ppm_budget_periods_enabled'), benefit_owner_link: on(c, 'benefit_owner_link_enabled'), raci: on(c, 'ppm_raci_enabled'), templates: on(c, 'ppm_templates_enabled'), annual_pack: on(c, 'ppm_annual_pack_enabled') });
     } catch (e) { fail(res, e); }
   });
 
@@ -118,6 +119,24 @@ module.exports = function governancePpmRoutes(router, h) {
       if (!(await tplOn(res)) || !committeeOnly(req, res)) return;
       const pid = await store.createProjectFromTemplate(req.params.id, req.body || {}, { user: req.reportUser });
       log(req, 'project_from_template', `template:${req.params.id}`, { project_id: pid }); res.json({ ok: true, project_id: pid });
+    } catch (e) { fail(res, e); }
+  });
+
+  // ---- E-P08 annual planning DRAFT pack (R16) — the reader's scoped portfolio, money rule, no envelope ---------------
+  router.get('/api/governance/ppm/annual-pack.xlsx', requireReportSession, async (req, res) => {
+    try {
+      if (!on(await cfg(), 'ppm_annual_pack_enabled')) return notFound(res);
+      const year = Number(req.query.year || new Date().getUTCFullYear() + 1);
+      if (!Number.isInteger(year) || year < 2000 || year > 2100) return httpFail(res, new Error('year must be YYYY'), 400, { ok: false });
+      const AP = require('../services/annualPlanPack'), PV = require('../public/lib/ppmVisuals');
+      const u = req.reportUser, money = !!canSeeMoney(u), committee = !!isCommittee(u);
+      const { v } = await viewFor(u);
+      const capacity = PV.capacityBySite(v.tasks || [], (v.projects || []).map((p) => ({ id: p.id, site_id: p.site_id })), { today: new Date().toISOString().slice(0, 10) });
+      const pack = AP.buildAnnualPack({ year, view: { projects: (v.projects || []).map((p) => (money ? p : { ...p, budget: undefined, spent: undefined })) }, money, capacity, rfis: committee ? await store.listRfi({}) : [], rfiVisible: committee, asOf: new Date().toISOString() });
+      log(req, 'annual_pack', `year:${year}`, { money });
+      res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+      res.setHeader('Content-Disposition', `attachment; filename="annual-plan-DRAFT-${year}.xlsx"`);
+      res.send(AP.toWorkbookBuffer(pack));
     } catch (e) { fail(res, e); }
   });
 };

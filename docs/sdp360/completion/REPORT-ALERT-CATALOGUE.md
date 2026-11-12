@@ -5,7 +5,7 @@ Generated from `services/reportCatalogue.js` — do not edit by hand. Source of 
 report or rule is approved, configured in production or accepted by its audience. Every switch that lets something
 leave the server ships off; the STOP switch `notifications_stop` halts every engagement outbound channel at once.
 
-Reports: {"implemented":1,"partial":13,"missing":2} · Rules: {"implemented":1,"partial":13,"missing":2}
+Reports: {"implemented":1,"partial":14,"missing":1} · Rules: {"implemented":1,"partial":13,"missing":2}
 
 ## Reports
 
@@ -26,7 +26,7 @@ Reports: {"implemented":1,"partial":13,"missing":2} · Rules: {"implemented":1,"
 | R13 | P1 | Native SDP360 Portfolio, Programme & Investment Review | CIO / PMO / Finance | monthly/quarterly | partial | `public/portfolio.html`<br>`routes/governance.js`<br>`services/portfolioEvidence.js` | — | portfolio view, plan, baseline, conflicts and money roll-up exist; no PPTX and no approved budget figures | D-02 |
 | R14 | P2 | Quarterly Business Relationship & Stakeholder Pulse | Site GM, function heads, CIO | quarterly | missing | — | — | only the helpdesk CSAT survey exists; a business-pulse survey instrument is not defined | D-13 |
 | R15 | P2 | Change/Incident Post-Implementation Value Review | Change/Incident manager and business sponsor | per major event | partial | `services/reportPayload.js` | — | major-incident RCA/CA/PIR/LL fields are read from SDP; no per-event review record or sign-off | — |
-| R16 | P2 | Native SDP360 Portfolio Budget & Roadmap Planning | CIO / PMO / Finance | annual | missing | — | — | per-currency budget roll-up exists in the portfolio view; no annual planning pack | D-02 |
+| R16 | P2 | Native SDP360 Portfolio Budget & Roadmap Planning | CIO / PMO / Finance | annual | partial | `services/annualPlanPack.js`<br>`routes/governancePpm.js` | `ppm_annual_pack_enabled`=0 | a DRAFT XLSX pack exists (projects of the year, per-currency budget roll-up, capacity, provisional RFI scores); no PPTX, envelopes stay UNKNOWN until Finance enters them, the fiscal year and the arbitration are human decisions | D-02 |
 
 ## Automation rules
 

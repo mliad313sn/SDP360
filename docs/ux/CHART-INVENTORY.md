@@ -54,7 +54,7 @@ Files scanned: **99** · inline <style> blocks: **52** · hex literals: **5577**
 | `public/notifications.html` | 11179 | 1 | 41 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/obligations.html` | 3741 | 1 | 13 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/policies.html` | 25419 | 1 | 15 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/portfolio.html` | 30152 | 1 | 74 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/portfolio.html` | 30948 | 1 | 74 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/project.html` | 66599 | 1 | 79 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/report-studio.html` | 18084 | 1 | 42 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/reports.html` | 546188 | 1 | 833 | 2 | bar×2 | 0 | 0 | yes | — | — | chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |

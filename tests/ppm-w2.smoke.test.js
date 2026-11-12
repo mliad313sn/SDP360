@@ -128,3 +128,21 @@ test('E-P06: RACI and templates 404 while off; on: one A enforced, CSV export, t
     const f = (await send('GET', '/api/governance/ppm/features', T.viewer)).j; assert.equal(f.raci, true); assert.equal(f.templates, true);
   } finally { await sw({ ppm_raci_enabled: '0', ppm_templates_enabled: '0' }); }
 });
+
+test('E-P08: annual pack 404 while off; on: XLSX, every sheet DRAFT, amounts only for a money reader', async () => {
+  await sw({ ppm_annual_pack_enabled: '0' });
+  assert.equal((await send('GET', '/api/governance/ppm/annual-pack.xlsx?year=2027', T.pmo)).status, 404);
+  await sw({ ppm_annual_pack_enabled: '1' });
+  try {
+    const XLSX = require('xlsx');
+    const get = async (t) => { const r = await fetch(base + '/api/governance/ppm/annual-pack.xlsx?year=2027', { headers: { 'x-report-token': t } }); assert.equal(r.status, 200); return XLSX.read(Buffer.from(await r.arrayBuffer()), { type: 'buffer' }); };
+    const fin = await get(T.fin);
+    for (const n of fin.SheetNames) assert.equal(fin.Sheets[n].A1.v, 'DRAFT — not approved');
+    const bud = XLSX.utils.sheet_to_json(fin.Sheets.Budget, { header: 1 });
+    assert.deepEqual(bud[2].slice(0, 1).concat(bud[2].slice(4)), ['USD', 'UNKNOWN']);
+    const vw = await get(T.viewer);
+    assert.match(JSON.stringify(XLSX.utils.sheet_to_json(vw.Sheets.Budget, { header: 1 })), /restricted/);
+    assert.doesNotMatch(JSON.stringify(XLSX.utils.sheet_to_json(vw.Sheets.Projects, { header: 1 })), /1000|Currency/);
+    assert.equal((await send('GET', '/api/governance/ppm/annual-pack.xlsx?year=abc', T.pmo)).status, 400);
+  } finally { await sw({ ppm_annual_pack_enabled: '0' }); }
+});
