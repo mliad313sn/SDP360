@@ -77,10 +77,10 @@ const SEED = [
   M('tracker.fleet_score_pct', 'Activity tracker fleet score', 'Score du tracker (flotte)', 'tracker', '%', 'mean of site scores over active sites', 'ytd', 'tracker-executive', 'tracker.fleet', 'avg_pct', { source: 'tracker-pptx.fleetStats' }),
   M('tracker.fleet_attainment_pct', 'Fleet attainment', 'Atteinte flotte', 'tracker', '%', 'GREEN activities / scored activities × 100', 'ytd', 'tracker-executive', 'tracker.fleet', 'attainment_pct', { source: 'tracker-pptx.fleetStats' }),
   // WAN — latest weekly snapshot per uplink (Meraki, calibrated % Time Up).
-  M('wan.wan1_availability_pct', 'WAN1 availability (% Time Up)', 'Disponibilité WAN1 (% Time Up)', 'wan', '%', 'calibrated % Time Up (loss ≥ wan_timeup_loss_pct per sample = down), latest weekly snapshot', 'week', 'wan-availability', 'wan.latest_site', 'wan1_availability_pct', { source: 'wan_link_snapshots' }),
-  M('wan.wan2_availability_pct', 'WAN2 availability (% Time Up)', 'Disponibilité WAN2 (% Time Up)', 'wan', '%', 'same as wan1 for the second uplink', 'week', 'wan-availability', 'wan.latest_site', 'wan2_availability_pct', { source: 'wan_link_snapshots' }),
-  M('wan.wan1_loss_pct', 'WAN1 packet loss', 'Perte de paquets WAN1', 'wan', '%', 'mean lossPercent over the week', 'week', null, 'wan.latest_site', 'wan1_loss_pct', { hib: false, source: 'wan_link_snapshots' }),
-  M('wan.wan1_latency_ms', 'WAN1 latency', 'Latence WAN1', 'wan', 'ms', 'mean latencyMs over the week', 'week', null, 'wan.latest_site', 'wan1_latency_ms', { hib: false, source: 'wan_link_snapshots' }),
+  M('wan.wan1_availability_pct', 'WAN1 availability (% Time Up)', 'Disponibilité WAN1 (% Time Up)', 'wan', '%', 'calibrated % Time Up (loss ≥ wan_timeup_loss_pct per sample = down); weekly snapshot of the requested week, site-level link only (sub-sites excluded); no window = latest snapshot', 'week', 'wan-availability', 'wan.latest_site', 'wan1_availability_pct', { source: 'wan_link_snapshots' }),
+  M('wan.wan2_availability_pct', 'WAN2 availability (% Time Up)', 'Disponibilité WAN2 (% Time Up)', 'wan', '%', 'same as wan1 for the second uplink (requested week, site-level link; no window = latest snapshot)', 'week', 'wan-availability', 'wan.latest_site', 'wan2_availability_pct', { source: 'wan_link_snapshots' }),
+  M('wan.wan1_loss_pct', 'WAN1 packet loss', 'Perte de paquets WAN1', 'wan', '%', 'mean lossPercent over the requested week (site-level link; no window = latest snapshot)', 'week', null, 'wan.latest_site', 'wan1_loss_pct', { hib: false, source: 'wan_link_snapshots' }),
+  M('wan.wan1_latency_ms', 'WAN1 latency', 'Latence WAN1', 'wan', 'ms', 'mean latencyMs over the requested week (site-level link; no window = latest snapshot)', 'week', null, 'wan.latest_site', 'wan1_latency_ms', { hib: false, source: 'wan_link_snapshots' }),
   // Programme scores — the two authoritative models, registered as metrics (policies as data).
   M('programme.site_score', 'Programme score (sbDims)', 'Score programme (sbDims)', 'programme', 'points', '6 dims × 0/1/2 ÷ 12 × 100 over a rolling 3-month window — the author’s model, ported verbatim', 'rolling3m', 'site-score', 'programme.site_score', 'score', { source: 'services/siteScore.js' , decision: 'D-01/D-02/D-03' }),
   M('programme.composite', 'Operational composite (4 dims)', 'Composite opérationnel (4 dimensions)', 'programme', 'points', 'weighted 40/20/20/20 mean renormalised over present dims (helpdesk SLA, inspections, meetings, assets)', 'month', 'site-composite', 'programme.composite', 'score', { source: 'services/siteScoreboard.js' , decision: 'D-01/D-02/D-03' }),
@@ -204,15 +204,31 @@ const READERS = {
     const f = d.trackerScore.fleetStats(D, D.activeSites || [], win.year || new Date().getUTCFullYear(), win.month || new Date().getUTCMonth() + 1);
     return { avg_pct: f && f.avg != null ? Math.round(f.avg * 100) : null, attainment_pct: f && f.attainment != null ? Math.round(f.attainment * 100) : null };
   },
-  async 'wan.latest_site'(d, { site }) {
-    const rows = await d.rdb.getWanSnapshots({ site_id: site, period_type: 'week' });
-    if (!rows || !rows.length) return null;
-    const latest = {}; for (const r of rows) { const k = r.uplink; if (!latest[k] || String(r.period_start) > String(latest[k].period_start)) latest[k] = r; }
-    const out = {}; for (const [u, r] of Object.entries(latest)) { out[`${u}_availability_pct`] = r.availability_pct ?? null; out[`${u}_loss_pct`] = r.loss_pct ?? null; out[`${u}_latency_ms`] = r.latency_ms ?? null; }
+  // F-DATA-02 — a WAN metric is the SITE-level link (sub_site ''): an Exploration sub-site row (wan1 'FETEKRO') is a
+  // different circuit and never stands in for the site. With a window, the value is the weekly snapshot whose period
+  // contains the window's first day (snapshots are Zoho weeks, Sunday-anchored; registry weeks start on Monday) —
+  // no snapshot for that week → null, never another week's figure. Without a window (dashboard default) the newest
+  // snapshot per uplink is read, and the record says which week it is (period_start).
+  async 'wan.latest_site'(d, { site, win, explicit }) {
+    const all = await d.rdb.getWanSnapshots({ site_id: site, period_type: 'week' });
+    const rows = (all || []).filter((r) => (r.sub_site == null ? '' : String(r.sub_site)) === '');
+    if (!rows.length) return null;
+    const day = (v) => String(v || '').slice(0, 10);
+    const endOf = (r) => { if (r.period_end) return day(r.period_end); const e = new Date(day(r.period_start) + 'T00:00:00Z'); e.setUTCDate(e.getUTCDate() + 6); return e.toISOString().slice(0, 10); };
+    const pick = explicit && win && win.from
+      ? rows.filter((r) => day(r.period_start) <= win.from && win.from <= endOf(r))
+      : rows;
+    if (!pick.length) return null;
+    const latest = {}; for (const r of pick) { const k = r.uplink; if (!latest[k] || String(r.period_start) > String(latest[k].period_start)) latest[k] = r; }
+    const out = {}; let ps = null;
+    for (const [u, r] of Object.entries(latest)) { out[`${u}_availability_pct`] = r.availability_pct ?? null; out[`${u}_loss_pct`] = r.loss_pct ?? null; out[`${u}_latency_ms`] = r.latency_ms ?? null; if (!ps || day(r.period_start) > ps) ps = day(r.period_start); }
+    out.period_start = ps;
     return out;
   },
-  async 'programme.site_score'(d, { site }) { return d.programme ? d.programme.siteScore(site) : null; },
-  async 'programme.composite'(d, { site }) { return d.programme ? d.programme.composite(site) : null; },
+  // F-DATA-03 — deps.programme comes from services/metricDeps.js (resolve() completes the deps). No programme
+  // dependency = the reader is NOT WIRED, said as an error — never a silent null on a published metric.
+  async 'programme.site_score'(d, { site, win }) { if (!d || !d.programme) throw new Error('reader not wired: programme.site_score needs deps.programme'); return d.programme.siteScore(site, win); },
+  async 'programme.composite'(d, { site, win }) { if (!d || !d.programme) throw new Error('reader not wired: programme.composite needs deps.programme'); return d.programme.composite(site, win); },
 };
 
 // resolveSite is pure + synchronous; on PostgreSQL the readers return Promises, so the lists
@@ -268,7 +284,8 @@ function createRegistry(rows = SEED) {
       const reader = READERS[m.reader];
       if (!reader) return { ...base, value: null, rag: 'NA', error: `reader not wired: ${m.reader}` };
       try {
-        const rec = await reader(deps, { site: site == null ? null : Number(site), win });
+        // F-DATA-03 — one shared builder completes the reader deps (adds `programme` when rdb + mdb + idb are there)
+        const rec = await reader(require('./metricDeps').complete(deps), { site: site == null ? null : Number(site), win, explicit: window != null && window !== '' });
         const v = rec && rec[m.field] != null && Number.isFinite(Number(rec[m.field])) ? Number(rec[m.field]) : null;
         return { ...base, value: v, rag: ragFor(m, v), record: rec || null, base: baseFor(m, rec) };
       } catch (e) { return { ...base, value: null, rag: 'NA', error: String(e && e.message || e).slice(0, 200) }; }
@@ -306,6 +323,8 @@ async function load({ pg = null, log = () => {} } = {}) {
     }
     log(`[metrics] registry loaded: ${reg.keys().length} metrics (${rows.length} from DB, ${inserted} seeded), ${Object.keys(KpiRag.POLICIES).length} RAG policies`);
   } catch (e) { log(`[metrics] registry DB load failed (seed in use): ${e.message}`); }
+  // F-DATA-03 — a published metric nothing can compute is said at boot, not discovered as a permanent "—"
+  try { for (const x of require('./metricDeps').integrity(reg)) log(`[metrics] ${x.key}: ${x.problem}`); } catch (e) { log(`[metrics] integrity check failed: ${e.message}`); }
   return reg;
 }
 

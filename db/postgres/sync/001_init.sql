@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS sync_runs (
   job         TEXT NOT NULL,
   started_at  TEXT NOT NULL,
   finished_at TEXT,
-  status      TEXT NOT NULL DEFAULT 'running',   -- running | ok | error
+  status      TEXT NOT NULL DEFAULT 'running',   -- running | ok | error | skipped (did not collect: reason in meta.skipped)
   attempts    INTEGER NOT NULL DEFAULT 0,
   rows        INTEGER,
   duplicates  INTEGER,

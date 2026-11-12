@@ -26,11 +26,11 @@ test('reports.weekly / reports.monthly: crons, freshness, optional, call engagem
   assert.deepEqual(calls, ['weekly', 'monthly']);
 });
 
-test('reports.weekly / reports.monthly without the engagement binding: a recorded skip (ok, 0 rows)', async () => {
+test('reports.weekly / reports.monthly without the engagement binding: a recorded skip (F-ARCH-01: status skipped, not ok)', async () => {
   const jobs = buildJobs({ sync: {}, assets: {}, tools: {} });
   for (const n of ['reports.weekly', 'reports.monthly']) {
     const out = await runner().run(jobs.find((j) => j.name === n).job);
-    assert.equal(out.status, 'ok'); assert.equal(out.rows, 0);
+    assert.equal(out.status, 'skipped'); assert.equal(out.reason, 'not configured');
   }
 });
 

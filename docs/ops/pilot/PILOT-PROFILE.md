@@ -33,6 +33,7 @@ planned switch cannot be set before its goal lands.
 | `chart_annotations_enabled` | built | `0` | `1` (proposal — after a browser review; notes are human-entered with a mandatory source) | Owner (UI policy) | E-V08 |
 | `ui_url_filters` | built | `0` | `1` (proposal — shareable Analytics links; filters only, never a data value) | Owner (UI policy) | E-U02 |
 | `site_score_published_model` | built | `legacy` | `programme` | Owner (D-1) | A-11 |
+| `metric_programme_readers` | built | `0` | `0` until the KPI committee and the model author decide (`1` computes `programme.site_score` / `programme.composite` on dashboards, agendas, `/api/metrics`, `/ext/v1` — not certified, D-01..D-03) | KPI committee + model author | F-DATA-03 |
 | `capacity_enabled` | planned | `0` | `1` | Owner (D-7) | A-13 |
 | `capacity_amber_pct` | planned | `85` | `85` | Owner (D-7) | A-13 |
 | `capacity_red_pct` | planned | `100` | `100` | Owner (D-7) | A-13 |

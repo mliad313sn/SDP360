@@ -1,6 +1,6 @@
 'use strict';
 // E-Q03 (audit Q-03) — the Meraki WAN jobs self-skip when Meraki is not configured: no client built, no
-// network call, a recorded "ok / 0 rows" run instead of a failure. Tools reached through buildJobs' injected
+// network call, a recorded "skipped" run (F-ARCH-01: not an ok run, no watermark) instead of a failure. Tools reached through buildJobs' injected
 // `tools` map, config through an injected getConfig — no database, no Meraki API.
 const test = require('node:test');
 const assert = require('node:assert');
@@ -22,7 +22,7 @@ for (const tool of ['sync-wan-events', 'poll-wan-outages']) {
   });
 }
 
-test('meraki.wan_events / meraki.wan_events_5m / meraki.wan_poller: wired to the tools, optional, a self-skip is an ok run with 0 rows', async () => {
+test('meraki.wan_events / meraki.wan_events_5m / meraki.wan_poller: wired to the tools, optional, a self-skip is a skipped run (not ok, no watermark)', async () => {
   const calls = [];
   const tools = {
     'meraki/sync-wan-events': { main: async (o) => { calls.push(['events', o]); return { skipped: true }; } },
@@ -38,8 +38,10 @@ test('meraki.wan_events / meraki.wan_events_5m / meraki.wan_poller: wired to the
     assert.equal(j.freshnessHours, fresh);
     assert.equal(j.optional, true);
     const out = await r.run(j.job);
-    assert.equal(out.status, 'ok', name);
-    assert.equal(out.rows, 0, name);
+    assert.equal(out.status, 'skipped', name);
+    assert.equal(out.reason, 'not configured', name);
+    assert.equal(await r.store.lastSuccessfulRun(name), null, name + ': no successful collection recorded');
+    assert.equal(await r.store.getWatermark(name), null, name + ': no watermark');
   }
   assert.equal(calls.length, 3);
   assert.deepEqual(calls[0], ['events', {}], 'nightly ingest: default lookback');
@@ -54,7 +56,7 @@ test('a Meraki tool that reports an error result fails the run (not a silent ok)
   assert.equal((await runner().run(j.job)).status, 'error');
 });
 
-test('meridian.resources (dormant connector): retired or unconfigured → self-skip with no read/post; the job records an ok run', async () => {
+test('meridian.resources (dormant connector): retired or unconfigured → self-skip with no read/post; the job records a skipped run', async () => {
   const { main } = require('../tools/meridian/sync-resources');
   const trap = async () => { throw new Error('no read / post expected'); };
   const deps = (cfg) => ({ getConfig: async () => cfg, readSites: trap, readPeople: trap, httpPost: trap, log: () => {} });
@@ -63,5 +65,5 @@ test('meridian.resources (dormant connector): retired or unconfigured → self-s
   const j = buildJobs({ sync: {}, assets: {}, tools: { 'meridian/sync-resources': { main: async () => ({ skipped: true }) } } }).find((x) => x.name === 'meridian.resources');
   assert.equal(j.optional, true);
   const out = await runner().run(j.job);
-  assert.equal(out.status, 'ok'); assert.equal(out.rows, 0);
+  assert.equal(out.status, 'skipped'); assert.equal(out.reason, 'not configured');
 });

@@ -37,10 +37,15 @@ function legacyJob(name, fn, o = {}) {
         e.transient = summary.transient === true;
         throw e;
       }
+      // F-ARCH-01 / F-DATA-01 (E04) — a function that did NOT collect (source not configured, feature disarmed,
+      // binding absent) is a SKIP, not a collection: no rows, no new watermark, so the runner records
+      // status 'skipped' and the last real collection date stays what it was. A skip never reads FRESH.
+      const why = skipReason(summary);
+      if (why) return { skipped: true, reason: why, summary };
       const n = typeof o.rowsOf === 'function' ? o.rowsOf(summary) : rowsOf(summary);
       // G05 — a configured source that answers with nothing is a failed sync, not a fresh one: freshness then
       // turns STALE and the KPIs fed by it lose their colour instead of showing yesterday's numbers as new.
-      if (o.failOnZero && n === 0 && summary && !summary.skipped) { const e = new Error('source returned no rows'); e.transient = true; throw e; }
+      if (o.failOnZero && n === 0) { const e = new Error('source returned no rows'); e.transient = true; throw e; }
       return { rows: n > 0 ? new Array(n).fill(0).map((_, i) => ({ i })) : [], nextWatermark: new Date().toISOString(), summary };
     },
     async apply({ rows, fetched }) {
@@ -49,6 +54,16 @@ function legacyJob(name, fn, o = {}) {
     },
     key: 'i',
   };
+}
+
+// A legacy summary declares "I did not collect" with skipped: true or skipped: '<reason>' (e.g. 'disarmed',
+// 'no_channels', 'notifications_stop'). A NUMBER is a count of skipped items inside a run that did work
+// (digest: {sent, skipped}) and is not a skip of the run. Returns the reason, or null when the run collected.
+function skipReason(s) {
+  if (!s || typeof s !== 'object' || Array.isArray(s)) return null;
+  if (s.skipped === true) return String(s.reason || 'not configured').slice(0, 200);
+  if (typeof s.skipped === 'string' && s.skipped.trim()) return s.skipped.trim().slice(0, 200);
+  return null;
 }
 
 // Best-effort row count from the heterogeneous legacy summaries.
@@ -224,7 +239,8 @@ const FRESHNESS_HOURS = {
   'engagement.alerts': 1, 'engagement.digest': 30, 'engagement.digest_weekly': 24 * 8, 'reports.weekly': 24 * 8, 'reports.monthly': 24 * 32, 'engagement.schedule_reminders': 30, 'publish.connectors': 30, 'field.purge': 30, 'softdelete.purge': 30,
   'commitments.escalate': 3, 'handoffs.escalate': 3, 'governance.ppm_alerts': 30, 'governance.agenda_drafts': 24 * 8, 'access.grant_expiry': 30, 'access.emergency_expiry': 3, 'access.entra_deprovision': 30,
 };
-// Jobs that self-skip until configured (no API key / webhook) — never reported "stale", only "idle".
+// Jobs that self-skip until configured (no API key / webhook) — never reported "stale": "idle" when they never
+// ran, "not_configured" when their last run was a skip (routes/sync.js). A skip is never a successful collection.
 const OPTIONAL = new Set(['meridian.resources', 'opmanager.availability', 'meraki.wan', 'meraki.wan_events', 'meraki.wan_events_5m', 'meraki.wan_poller', 'teams.sla_poll', 'db.backup', 'db.restore_drill',
   'engagement.alerts', 'engagement.digest', 'engagement.digest_weekly', 'reports.weekly', 'reports.monthly', 'engagement.schedule_reminders', 'publish.connectors', 'field.purge', 'softdelete.purge', 'commitments.escalate', 'handoffs.escalate', 'governance.ppm_alerts', 'governance.agenda_drafts', 'access.grant_expiry', 'access.emergency_expiry', 'access.entra_deprovision']);
 
@@ -232,4 +248,4 @@ const OPTIONAL = new Set(['meridian.resources', 'opmanager.availability', 'merak
 const LEGACY_NAMES = { requests: 'zoho.requests', change_cab: 'zoho.change_cab', survey: 'zoho.survey',
   assets_assets: 'assets.sync', assets_memory: 'assets.sync', assets_logical_drives: 'assets.sync', assets_monitors: 'assets.sync', assets_software_licenses: 'assets.sync', assets_software: 'assets.sync' };
 
-module.exports = { legacyJob, buildJobs, rowsOf, FRESHNESS_HOURS, OPTIONAL, LEGACY_NAMES, softDeletePurgeRun, accessGrantExpiryRun, accessEmergencyExpiryRun, entraDeprovisionRun };
+module.exports = { legacyJob, buildJobs, rowsOf, skipReason, FRESHNESS_HOURS, OPTIONAL, LEGACY_NAMES, softDeletePurgeRun, accessGrantExpiryRun, accessEmergencyExpiryRun, entraDeprovisionRun };

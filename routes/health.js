@@ -22,7 +22,10 @@ module.exports = function healthRoutes(deps) {
   const startedAt = new Date().toISOString();
   const router = express.Router();
 
-// Readiness: can we reach the database? When was the last sync job marked successful?
+// sync_metadata stamps carry no zone (UTC by convention, as routes/sync.js reads them); sync_runs stamps are ISO.
+const _ms = (t) => { const s = String(t); const n = Date.parse(/[zZ]|[+-]\d\d:?\d\d$/.test(s) ? s : s.replace(' ', 'T') + 'Z'); return Number.isFinite(n) ? n : -Infinity; };
+
+// Readiness: can we reach the database? When was the last job marked successful (legacy sync_metadata OR runner sync_runs)?
 // `getSyncStatus` is a dual-backend dispatcher (Promise on PostgreSQL) → awaited.
 router.get('/ready', async (req, res) => {
   let db = false, last_job_at = null;
@@ -35,6 +38,16 @@ router.get('/ready', async (req, res) => {
         const t = r && r.last_sync_at;
         if (t && (!last_job_at || String(t) > String(last_job_at))) last_job_at = t;
       }
+      // F-ARCH-09 — jobs run by the shared runner (backup, audit, Meraki, …) never write sync_metadata: also read
+      // the newest SUCCESSFUL run of sync_runs (a skip or an error is not a success) and keep the later of the two.
+      // Unreadable run log → the legacy value stands; the probe never fails because of it.
+      try {
+        const sync = deps.sync || require('../services/sync');
+        await sync.ensureReady();
+        const store = sync.getStore();
+        const t = typeof store.lastOkAt === 'function' ? await store.lastOkAt() : null;
+        if (t && (!last_job_at || _ms(t) > _ms(last_job_at))) last_job_at = t;
+      } catch (_) { /* run log optional for readiness */ }
     }
   } catch (e) { db = false; }
   res.status(db ? 200 : 503).json({ ok: db, db, last_job_at });

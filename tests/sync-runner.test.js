@@ -153,3 +153,19 @@ test('run() rejects a job without name or fetch', async () => {
   await assert.rejects(async () => r.run({ name: 'x' }), TypeError);
   await assert.rejects(async () => r.run({ fetch: async () => ({}) }), TypeError);
 });
+
+// F-ARCH-01 / F-DATA-01 — a native job can also declare that it did not collect
+test('skip: fetch returning { skipped: true } → status skipped, apply not called, watermark and last ok unchanged', async () => {
+  const { r, store } = runner();
+  await r.run({ name: 'j', key: 'id', fetch: async () => ({ rows: [{ id: 1 }], nextWatermark: 'W1' }) });
+  let applied = 0;
+  const out = await r.run({ name: 'j', key: 'id', fetch: async () => ({ skipped: true, reason: 'no key token=abc123', nextWatermark: 'W2' }), apply: async () => { applied++; } });
+  assert.equal(out.status, 'skipped');
+  assert.match(out.reason, /token=\*\*\*/, 'reason scrubbed');
+  assert.equal(applied, 0);
+  assert.equal(await store.getWatermark('j'), 'W1');
+  assert.equal((await store.lastSuccessfulRun('j')).id, 1);
+  assert.equal(store.runs[1].status, 'skipped');
+  assert.equal(store.runs[1].rows, null);
+  assert.equal(store.locks.size, 0);
+});

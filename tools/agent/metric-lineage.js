@@ -31,6 +31,7 @@ function sourceFile(m, root) {
 function build({ root = ROOT } = {}) {
   const { SEED } = require(path.join(root, 'services', 'metricRegistry'));
   const KpiRag = require(path.join(root, 'services', 'kpiRag'));
+  const MD = require(path.join(root, 'services', 'metricDeps'));   // F-DATA-03 — is the reader computable at all?
   const { FRESHNESS_HOURS } = require(path.join(root, 'services', 'sync', 'jobs'));
   const { FRESHNESS_SOURCES } = require(path.join(root, 'services', 'governancePolicy'));
   const jobOf = new Map(FRESHNESS_SOURCES);
@@ -71,6 +72,7 @@ function build({ root = ROOT } = {}) {
     L.push(`| Name | ${cell(m.name)} / ${cell(m.name_fr)} |`);
     L.push(`| Module · unit | ${cell(m.module)} · ${cell(m.unit)} |`);
     L.push(`| Source | reader ${code(m.reader)} · field ${code(m.field)} · ${cell(m.source)}${sourceFile(m, root) ? ' (' + code(sourceFile(m, root)) + ')' : ''} |`);
+    L.push(`| Reader wiring | ${cell(MD.wiringOf(m))} |`);
     L.push(`| Formula | ${cell(m.formula)} |`);
     L.push(`| Window kind | ${cell(m.window_kind)} |`);
     L.push(`| RAG policy | ${m.rag_policy ? code(m.rag_policy) + (pol ? ` (code default: scale ${cell(pol.scale)}, green ${cell(pol.green)}, amber ${cell(pol.amber)})` : ' (not defined in code)') : 'none (no colour)'} |`);

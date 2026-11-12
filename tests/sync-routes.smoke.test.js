@@ -107,3 +107,38 @@ test('health lists failed report deliveries, not ok / resent ones, without recip
   assert.ok(kinds.includes('hygiene')); assert.ok(!kinds.includes('scoreboard'));
   assert.ok(!JSON.stringify(body.delivery).includes('probe@example.com'));
 });
+
+// F-ARCH-01 / F-DATA-01 — a skip is not a collection: health says not_configured / skipped and keeps the last real date
+test('health: a skipped optional job reads not_configured, a skipped mandatory one reads skipped; last_ok is the last real collection', async () => {
+  const sync = require('../services/sync'); const { legacyJob } = require('../services/sync/jobs'); const R = sync.getRunner();
+  // optional, collected once, then the key is removed
+  assert.equal((await R.run(legacyJob('meraki.wan', async () => ({ rows: 6 }), { failOnZero: true, maxAttempts: 1 }))).status, 'ok');
+  const before = (await (await get('/api/sync/health', token)).json()).jobs.find((j) => j.job === 'meraki.wan');
+  assert.equal(before.status, 'ok'); assert.ok(before.last_ok);
+  await new Promise((r) => setTimeout(r, 15));
+  assert.equal((await R.run(legacyJob('meraki.wan', async () => ({ skipped: true }), { failOnZero: true, maxAttempts: 1 }))).status, 'skipped');
+  // optional, never collected
+  await R.run(legacyJob('meraki.wan_poller', async () => ({ skipped: true })));
+  // mandatory, skipped with a reason
+  await R.run(legacyJob('audit.retention', async () => ({ skipped: 'disarmed' })));
+  const body = await (await get('/api/sync/health', token)).json();
+  const wan = body.jobs.find((j) => j.job === 'meraki.wan');
+  assert.equal(wan.status, 'not_configured');
+  assert.equal(wan.last_ok, before.last_ok, 'last valid collection date kept');
+  assert.ok(wan.last_skipped > wan.last_ok);
+  assert.equal(wan.skip_reason, 'not configured');
+  const poller = body.jobs.find((j) => j.job === 'meraki.wan_poller');
+  assert.equal(poller.status, 'not_configured'); assert.equal(poller.last_ok, null); assert.equal(poller.stale_hours, null);
+  const ret = body.jobs.find((j) => j.job === 'audit.retention');
+  assert.equal(ret.status, 'skipped'); assert.equal(ret.skip_reason, 'disarmed'); assert.equal(ret.last_ok, null);
+  assert.ok(body.summary.not_configured >= 2); assert.ok(body.summary.skipped >= 1);
+  // the run log shows the skip as such, with its reason and no row count
+  const runs = (await (await get('/api/sync/runs?job=meraki.wan&limit=5', token)).json()).runs;
+  assert.equal(runs[0].status, 'skipped'); assert.equal(runs[0].rows, null); assert.equal(runs[0].meta.skipped, 'not configured');
+  assert.equal(runs[1].status, 'ok');
+  // the publication gate reads the last REAL collection only
+  const PG = require('../services/publishGate');
+  const lastOk = await PG.lastOkFromSyncStore(['meraki.wan', 'meraki.wan_poller']);
+  assert.equal(new Date(lastOk['meraki.wan']).toISOString(), new Date(before.last_ok).toISOString());
+  assert.equal(lastOk['meraki.wan_poller'], null);
+});
