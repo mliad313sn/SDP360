@@ -5,14 +5,17 @@
   "pages_without_test_reference": 0,
   "pages_without_declared_role": 6,
   "pages_not_in_navigation": 29,
+  "pages_not_in_shell_or_module_tabs": 20,
+  "pages_deep_link_only": 8,
+  "pages_without_entry_point": 3,
   "pages_with_inline_scripts": 46,
-  "routes": 637,
+  "routes": 640,
   "routes_without_test_reference": 34,
   "routes_in_server_js": 210,
   "jobs": 31,
   "jobs_without_test_reference": 1,
-  "migrations": 80,
-  "test_files": 667
+  "migrations": 81,
+  "test_files": 674
  },
  "pages": [
   {
@@ -22,6 +25,19 @@
     "any"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": false,
+    "linked_from": [
+     "no-access.html",
+     "no-access.js"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "no-access.html",
+   "reachable": true,
    "inline_scripts": 0,
    "bytes": 14267,
    "tests": [
@@ -39,6 +55,16 @@
     "any"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": false,
+    "linked_from": [],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 0,
    "bytes": 2849,
    "tests": [
@@ -58,8 +84,18 @@
     "scorecard-viewer"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": false,
+    "linked_from": [],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 1,
-   "bytes": 56737,
+   "bytes": 60140,
    "tests": [
     "tests/analytics-logic.test.js",
     "tests/analytics-metrics-authz.smoke.test.js",
@@ -67,7 +103,8 @@
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
     "tests/page-head.test.js",
-    "tests/ui-design-ratchet.test.js"
+    "tests/ui-design-ratchet.test.js",
+    "tests/url-filters.test.js"
    ]
   },
   {
@@ -77,6 +114,16 @@
     "UNKNOWN"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": false,
+    "linked_from": [],
+    "redirect_to": "assets.html",
+    "deep_link_only": "legacy redirect stub kept for old bookmarks → assets.html",
+    "known_dead_end": null
+   },
+   "parent": "assets.html",
+   "reachable": true,
    "inline_scripts": 1,
    "bytes": 417,
    "tests": [
@@ -91,6 +138,16 @@
     "UNKNOWN"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": false,
+    "linked_from": [],
+    "redirect_to": "assets.html",
+    "deep_link_only": "legacy redirect stub kept for old bookmarks → assets.html",
+    "known_dead_end": null
+   },
+   "parent": "assets.html",
+   "reachable": true,
    "inline_scripts": 1,
    "bytes": 372,
    "tests": [
@@ -106,8 +163,21 @@
     "any"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": false,
+    "linked_from": [
+     "assets-finance.html",
+     "assets-hygiene.html"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 10,
-   "bytes": 201278,
+   "bytes": 202667,
    "tests": [
     "tests/agent-inventory.test.js",
     "tests/asset-hygiene-visuals.test.js",
@@ -119,6 +189,7 @@
     "tests/help-assets-section.test.js",
     "tests/i18n-coverage.test.js",
     "tests/money-coverage.test.js",
+    "tests/page-head.test.js",
     "tests/rbac-ui-gates.test.js",
     "tests/report-template-weekly.test.js",
     "tests/reports-editor-asset-tab.test.js",
@@ -132,6 +203,16 @@
     "any"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": false,
+    "linked_from": [],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 1,
    "bytes": 37755,
    "tests": [
@@ -152,6 +233,19 @@
     "any"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": false,
+    "linked_from": [
+     "lib/dashboardRender.js",
+     "site-actions.html"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "site-actions.html",
+   "reachable": true,
    "inline_scripts": 1,
    "bytes": 20454,
    "tests": [
@@ -168,6 +262,16 @@
     "any"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": false,
+    "linked_from": [],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": "duty coverage page — no menu entry, no link from another page"
+   },
+   "parent": null,
+   "reachable": false,
    "inline_scripts": 0,
    "bytes": 9984,
    "tests": [
@@ -184,6 +288,18 @@
     "dashboard-publisher"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": false,
+    "linked_from": [
+     "dashboards.html"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "dashboards.html",
+   "reachable": true,
    "inline_scripts": 1,
    "bytes": 27352,
    "tests": [
@@ -201,10 +317,21 @@
     "any"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": false,
+    "linked_from": [],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 1,
-   "bytes": 23922,
+   "bytes": 28961,
    "tests": [
     "tests/a11y-static.test.js",
+    "tests/chart-annotations.test.js",
     "tests/dashboard-time-truth.test.js",
     "tests/dashboard-widget-truth.test.js",
     "tests/exec-nav-consolidated.test.js",
@@ -222,6 +349,16 @@
     "admin"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": false,
+    "linked_from": [],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 0,
    "bytes": 2733,
    "tests": [
@@ -236,6 +373,16 @@
     "public"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": false,
+    "linked_from": [],
+    "redirect_to": null,
+    "deep_link_only": "public IT status snapshot: reached from the SharePoint Quick Link, outside the app",
+    "known_dead_end": null
+   },
+   "parent": null,
+   "reachable": true,
    "inline_scripts": 1,
    "bytes": 35089,
    "tests": [
@@ -255,6 +402,16 @@
     "super_admin"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": false,
+    "linked_from": [],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 1,
    "bytes": 472416,
    "tests": [
@@ -279,6 +436,18 @@
     "scorecard-viewer"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": false,
+    "linked_from": [
+     "dashboards.html"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 1,
    "bytes": 598686,
    "tests": [
@@ -301,11 +470,25 @@
     "any"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": false,
+    "linked_from": [
+     "home.html",
+     "site-actions.html"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 1,
    "bytes": 18105,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/i18n-coverage.test.js",
+    "tests/i18n-inline-glossary.test.js",
     "tests/no-native-dialogs.test.js",
     "tests/obligations-decisions.test.js",
     "tests/obligations.smoke.test.js",
@@ -320,6 +503,16 @@
     "any"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": false,
+    "linked_from": [],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 1,
    "bytes": 329783,
    "tests": [
@@ -342,14 +535,26 @@
     "any"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": false,
+    "linked_from": [],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 0,
-   "bytes": 4296,
+   "bytes": 4484,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/feedback.smoke.test.js",
     "tests/i18n-coverage.test.js",
+    "tests/inventory-reachability.test.js",
     "tests/landing.test.js",
     "tests/my-work-route.smoke.test.js",
+    "tests/page-head.test.js",
     "tests/shell-navigation.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
@@ -361,6 +566,19 @@
     "any"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": false,
+    "linked_from": [
+     "login.html",
+     "no-access.html"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 1,
    "bytes": 120582,
    "tests": [
@@ -399,6 +617,16 @@
     "any"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": false,
+    "linked_from": [],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 2,
    "bytes": 33621,
    "tests": [
@@ -417,11 +645,24 @@
     "any"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": true,
+    "linked_from": [
+     "inspections.html"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "inspections.html",
+   "reachable": true,
    "inline_scripts": 1,
    "bytes": 45837,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
+    "tests/inventory-reachability.test.js",
     "tests/rbac-ui-gates.test.js",
     "tests/review-dashboard.test.js",
     "tests/ui-design-ratchet.test.js"
@@ -434,6 +675,19 @@
     "any"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": true,
+    "linked_from": [
+     "inspection-actions.html",
+     "inspections.html"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "inspections.html",
+   "reachable": true,
    "inline_scripts": 2,
    "bytes": 211546,
    "tests": [
@@ -453,11 +707,24 @@
     "any"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": true,
+    "linked_from": [
+     "inspection-actions.html"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 1,
-   "bytes": 37929,
+   "bytes": 39502,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
+    "tests/page-head.test.js",
     "tests/rbac-ui-gates.test.js",
     "tests/shell-navigation.test.js",
     "tests/ui-design-ratchet.test.js"
@@ -470,6 +737,16 @@
     "any"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": false,
+    "linked_from": [],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 1,
    "bytes": 17928,
    "tests": [
@@ -487,6 +764,16 @@
     "scorecard-viewer"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": false,
+    "linked_from": [],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 2,
    "bytes": 109788,
    "tests": [
@@ -506,6 +793,18 @@
     "UNKNOWN"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": false,
+    "linked_from": [
+     "itsm-roadmap.html"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "itsm-roadmap.html",
+   "reachable": true,
    "inline_scripts": 0,
    "bytes": 31308,
    "tests": [
@@ -523,6 +822,16 @@
     "super_admin"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": false,
+    "linked_from": [],
+    "redirect_to": null,
+    "deep_link_only": "the manager's personal roadmap tool: reached by its URL (bookmark), deliberately outside the shared menu",
+    "known_dead_end": null
+   },
+   "parent": null,
+   "reachable": true,
    "inline_scripts": 1,
    "bytes": 51104,
    "tests": [
@@ -539,6 +848,16 @@
     "any"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": false,
+    "linked_from": [],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": "KPI policy builder (kpi-committee) — only named in the role help text of the Users card"
+   },
+   "parent": null,
+   "reachable": false,
    "inline_scripts": 0,
    "bytes": 12850,
    "tests": [
@@ -553,6 +872,20 @@
     "public"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": false,
+    "linked_from": [
+     "auth.js",
+     "executive-report.html",
+     "reports.html"
+    ],
+    "redirect_to": null,
+    "deep_link_only": "sign-in page: reached by redirect from every gated page (auth.js), not from a menu",
+    "known_dead_end": null
+   },
+   "parent": "executive-report.html",
+   "reachable": true,
    "inline_scripts": 1,
    "bytes": 17559,
    "tests": [
@@ -563,6 +896,7 @@
     "tests/csp-report.smoke.test.js",
     "tests/csp-strict-pages-config.test.js",
     "tests/html-pages-before-static.test.js",
+    "tests/inventory-reachability.test.js",
     "tests/landing.test.js",
     "tests/login-next-redirect.test.js",
     "tests/my-work-route.smoke.test.js",
@@ -576,6 +910,25 @@
     "any"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": false,
+    "linked_from": [
+     "lib/home-page.js",
+     "meetings-actions.html",
+     "meetings-council.html",
+     "meetings-issues.html",
+     "meetings-progress.html",
+     "meetings-unsigned.html",
+     "meetings.html",
+     "site-actions.html"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "meetings-actions.html",
+   "reachable": true,
    "inline_scripts": 1,
    "bytes": 84288,
    "tests": [
@@ -600,11 +953,22 @@
     "any"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": true,
+    "linked_from": [],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "meetings.html",
+   "reachable": true,
    "inline_scripts": 2,
    "bytes": 45581,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
+    "tests/inventory-reachability.test.js",
     "tests/meeting-status-options.test.js",
     "tests/module-tabs.test.js",
     "tests/rbac-ui-gates.test.js",
@@ -619,6 +983,19 @@
     "any"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": true,
+    "linked_from": [
+     "cockpit.html",
+     "meetings.html"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "meetings.html",
+   "reachable": true,
    "inline_scripts": 2,
    "bytes": 20620,
    "tests": [
@@ -635,6 +1012,18 @@
     "any"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": true,
+    "linked_from": [
+     "meetings.html"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "meetings.html",
+   "reachable": true,
    "inline_scripts": 2,
    "bytes": 19892,
    "tests": [
@@ -650,6 +1039,18 @@
     "editor"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": false,
+    "linked_from": [
+     "meetings.html"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "meetings.html",
+   "reachable": true,
    "inline_scripts": 2,
    "bytes": 73400,
    "tests": [
@@ -666,11 +1067,23 @@
     "any"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": true,
+    "linked_from": [],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "meetings.html",
+   "reachable": true,
    "inline_scripts": 2,
    "bytes": 43821,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
+    "tests/i18n-inline-glossary.test.js",
+    "tests/inventory-reachability.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
   },
@@ -681,6 +1094,18 @@
     "any"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": true,
+    "linked_from": [
+     "meetings.html"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "meetings.html",
+   "reachable": true,
    "inline_scripts": 2,
    "bytes": 32065,
    "tests": [
@@ -698,6 +1123,19 @@
     "any"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": false,
+    "linked_from": [
+     "meeting.html",
+     "meetings.html"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "meeting.html",
+   "reachable": true,
    "inline_scripts": 2,
    "bytes": 33143,
    "tests": [
@@ -713,11 +1151,22 @@
     "any"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": true,
+    "linked_from": [],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "meetings.html",
+   "reachable": true,
    "inline_scripts": 1,
    "bytes": 24836,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
+    "tests/inventory-reachability.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
   },
@@ -728,11 +1177,22 @@
     "any"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": true,
+    "linked_from": [],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "meetings.html",
+   "reachable": true,
    "inline_scripts": 2,
    "bytes": 18795,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
+    "tests/inventory-reachability.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
   },
@@ -743,11 +1203,25 @@
     "any"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": true,
+    "linked_from": [
+     "meeting.html",
+     "meetings-import.html"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 2,
-   "bytes": 32029,
+   "bytes": 33867,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
+    "tests/page-head.test.js",
     "tests/rbac-ui-gates.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
@@ -759,6 +1233,18 @@
     "any"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": false,
+    "linked_from": [
+     "auth.js"
+    ],
+    "redirect_to": null,
+    "deep_link_only": "denial page: reached by redirect from auth.js when a role is missing",
+    "known_dead_end": null
+   },
+   "parent": "auth.js",
+   "reachable": true,
    "inline_scripts": 0,
    "bytes": 1625,
    "tests": [
@@ -773,6 +1259,19 @@
     "any"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": false,
+    "linked_from": [
+     "home.html",
+     "site-actions.html"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 1,
    "bytes": 11179,
    "tests": [
@@ -788,6 +1287,19 @@
     "any"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": false,
+    "linked_from": [
+     "home.html",
+     "site-actions.html"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 0,
    "bytes": 3741,
    "tests": [
@@ -804,6 +1316,16 @@
     "committee-member"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": false,
+    "linked_from": [],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 1,
    "bytes": 25419,
    "tests": [
@@ -820,6 +1342,19 @@
     "any"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": false,
+    "linked_from": [
+     "itsm-roadmap.html",
+     "project.html"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 1,
    "bytes": 30948,
    "tests": [
@@ -842,6 +1377,20 @@
     "any"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": false,
+    "linked_from": [
+     "lib/home-page.js",
+     "meeting.html",
+     "portfolio.html"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "meeting.html",
+   "reachable": true,
    "inline_scripts": 1,
    "bytes": 66599,
    "tests": [
@@ -866,6 +1415,16 @@
     "any"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": false,
+    "linked_from": [],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 1,
    "bytes": 18084,
    "tests": [
@@ -881,8 +1440,20 @@
     "any"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": false,
+    "linked_from": [
+     "site-report.html"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 2,
-   "bytes": 546188,
+   "bytes": 539578,
    "tests": [
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -900,6 +1471,7 @@
     "tests/report-audit-log-client.test.js",
     "tests/reports-action-import-ui.test.js",
     "tests/reports-admin-asset-reminders.test.js",
+    "tests/reports-backups-module.test.js",
     "tests/reports-editor-asset-tab.test.js",
     "tests/reports-html-escape-sweep.test.js",
     "tests/restore-drill-admin-card.test.js",
@@ -920,6 +1492,19 @@
     "any"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": false,
+    "linked_from": [
+     "meeting.html",
+     "portfolio.html"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 1,
    "bytes": 12560,
    "tests": [
@@ -936,8 +1521,21 @@
     "any"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": true,
+    "linked_from": [
+     "commitments.html",
+     "handoffs.html"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 1,
-   "bytes": 39741,
+   "bytes": 41481,
    "tests": [
     "tests/csp-journey-report.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
@@ -946,6 +1544,7 @@
     "tests/meeting-status-options.test.js",
     "tests/module-tabs.test.js",
     "tests/my-work.test.js",
+    "tests/page-head.test.js",
     "tests/site-actions-register.test.js",
     "tests/state-badge.test.js",
     "tests/status-transfer.smoke.test.js",
@@ -961,6 +1560,18 @@
     "executive"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": false,
+    "linked_from": [
+     "auth.js"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 2,
    "bytes": 71822,
    "tests": [
@@ -978,6 +1589,16 @@
     "UNKNOWN"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": false,
+    "linked_from": [],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": "live site scoreboard — no link from the app (the coordinator e-mail names it but carries no link)"
+   },
+   "parent": null,
+   "reachable": false,
    "inline_scripts": 0,
    "bytes": 17643,
    "tests": [
@@ -995,6 +1616,16 @@
     "super_admin"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": false,
+    "linked_from": [],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 1,
    "bytes": 18893,
    "tests": [
@@ -1011,6 +1642,18 @@
     "tracker-admin"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": false,
+    "linked_from": [
+     "trackers.html"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "trackers.html",
+   "reachable": true,
    "inline_scripts": 1,
    "bytes": 24708,
    "tests": [
@@ -1027,6 +1670,18 @@
     "any"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": false,
+    "linked_from": [
+     "tracker-builder.html"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 1,
    "bytes": 15561,
    "tests": [
@@ -1042,6 +1697,16 @@
     "UNKNOWN"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": false,
+    "linked_from": [],
+    "redirect_to": "wan.html",
+    "deep_link_only": "legacy redirect stub kept for old bookmarks → wan.html",
+    "known_dead_end": null
+   },
+   "parent": "wan.html",
+   "reachable": true,
    "inline_scripts": 0,
    "bytes": 403,
    "tests": [
@@ -1058,11 +1723,22 @@
     "UNKNOWN"
    ],
    "in_navigation": false,
+   "entry_points": {
+    "shell": false,
+    "module_tab": false,
+    "linked_from": [],
+    "redirect_to": "wan.html",
+    "deep_link_only": "legacy redirect stub kept for old bookmarks → wan.html",
+    "known_dead_end": null
+   },
+   "parent": "wan.html",
+   "reachable": true,
    "inline_scripts": 0,
    "bytes": 405,
    "tests": [
     "tests/agent-inventory.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
+    "tests/page-head.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
   },
@@ -1073,8 +1749,22 @@
     "any"
    ],
    "in_navigation": true,
+   "entry_points": {
+    "shell": true,
+    "module_tab": false,
+    "linked_from": [
+     "infra-health.html",
+     "wan-health.html",
+     "wan-sla.html"
+    ],
+    "redirect_to": null,
+    "deep_link_only": null,
+    "known_dead_end": null
+   },
+   "parent": "shell",
+   "reachable": true,
    "inline_scripts": 3,
-   "bytes": 48594,
+   "bytes": 50162,
    "tests": [
     "tests/agent-inventory.test.js",
     "tests/csp-headers.smoke.test.js",
@@ -2202,9 +2892,10 @@
    "method": "GET",
    "path": "/api/dashboards/:key/data.csv",
    "file": "routes/dashboards.js",
-   "line": 146,
+   "line": 201,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -2216,9 +2907,10 @@
    "method": "GET",
    "path": "/api/dashboards/:key/data",
    "file": "routes/dashboards.js",
-   "line": 142,
+   "line": 197,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -2230,9 +2922,10 @@
    "method": "POST",
    "path": "/api/dashboards/:key/publish",
    "file": "routes/dashboards.js",
-   "line": 190,
+   "line": 245,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -2244,9 +2937,10 @@
    "method": "POST",
    "path": "/api/dashboards/:key/retire",
    "file": "routes/dashboards.js",
-   "line": 233,
+   "line": 288,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -2258,9 +2952,10 @@
    "method": "POST",
    "path": "/api/dashboards/:key/rollback/:n",
    "file": "routes/dashboards.js",
-   "line": 222,
+   "line": 277,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -2272,9 +2967,10 @@
    "method": "POST",
    "path": "/api/dashboards/:key/submit",
    "file": "routes/dashboards.js",
-   "line": 209,
+   "line": 264,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -2286,9 +2982,10 @@
    "method": "GET",
    "path": "/api/dashboards/:key/versions",
    "file": "routes/dashboards.js",
-   "line": 100,
+   "line": 155,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -2300,9 +2997,10 @@
    "method": "POST",
    "path": "/api/dashboards/:key/view",
    "file": "routes/dashboards.js",
-   "line": 104,
+   "line": 159,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -2314,9 +3012,10 @@
    "method": "DELETE",
    "path": "/api/dashboards/:key",
    "file": "routes/dashboards.js",
-   "line": 243,
+   "line": 298,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -2328,9 +3027,10 @@
    "method": "GET",
    "path": "/api/dashboards/:key",
    "file": "routes/dashboards.js",
-   "line": 92,
+   "line": 147,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -2342,13 +3042,44 @@
    "method": "PUT",
    "path": "/api/dashboards/:key",
    "file": "routes/dashboards.js",
-   "line": 169,
+   "line": 224,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-DELETE-api-dashboards-annotations-id",
+   "method": "DELETE",
+   "path": "/api/dashboards/annotations/:id",
+   "file": "routes/dashboards.js",
+   "line": 125,
+   "tests": [
+    "tests/chart-annotations-routes.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-GET-api-dashboards-annotations",
+   "method": "GET",
+   "path": "/api/dashboards/annotations",
+   "file": "routes/dashboards.js",
+   "line": 96,
+   "tests": [
+    "tests/chart-annotations-routes.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-POST-api-dashboards-annotations",
+   "method": "POST",
+   "path": "/api/dashboards/annotations",
+   "file": "routes/dashboards.js",
+   "line": 112,
+   "tests": [
+    "tests/chart-annotations-routes.smoke.test.js"
    ]
   },
   {
@@ -2370,6 +3101,7 @@
    "line": 65,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -8610,7 +9342,8 @@
    "file": "server.js",
    "line": 4422,
    "tests": [
-    "tests/api-sample-guard.smoke.test.js"
+    "tests/api-sample-guard.smoke.test.js",
+    "tests/server-size-budget.test.js"
    ]
   },
   {
@@ -9598,6 +10331,7 @@
    "file": "routes/handoffs.js",
    "line": 82,
    "tests": [
+    "tests/i18n-inline-glossary.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
   },
@@ -9821,6 +10555,7 @@
    "file": "server.js",
    "line": 1498,
    "tests": [
+    "tests/i18n-inline-glossary.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
   },
@@ -9931,6 +10666,7 @@
     "tests/csp-report.smoke.test.js",
     "tests/csv-guard-coverage.test.js",
     "tests/login-next-redirect.test.js",
+    "tests/reports-backups-module.test.js",
     "tests/reports-editor-asset-tab.test.js",
     "tests/reports-html-escape-sweep.test.js",
     "tests/restore-drill-admin-card.test.js",
@@ -10581,6 +11317,10 @@
   {
    "id": "MG-reports-074-pir-reviews",
    "file": "db/postgres/reports/074_pir_reviews.sql"
+  },
+  {
+   "id": "MG-reports-075-chart-annotations",
+   "file": "db/postgres/reports/075_chart_annotations.sql"
   },
   {
    "id": "MG-reports-076-product-feedback",

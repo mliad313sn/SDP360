@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (207) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (209) — services/reportConfig.js DEFAULTS
 
 Prerequisites (E-A07, services/switchPrereqs.js) are WARNINGS in plain words, never approvals: the config PUT
 answer and the `set-ui-policy.js` dry run repeat them when the switch is moved to its switched-on value.
@@ -60,6 +60,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `authz_enforce_caps` | `` | setting | Security owner | PROPOSITION: empty during the pilot; after two shadow weeks without unexplained divergences (`tools/security/authz-divergence-report.js`), low-risk reads first (`review.read`, `analytics.data.read`, `tracker.read`) with mode `enforce`; a listed capability can only refuse, critical ones are ignored while C-18 grants are off | E-S01 | — |
 | `backup_offsite_path` | `` | setting | to be named | — | — | — |
 | `benefit_owner_link_enabled` | `0` | arm switch | PMO | `1` once the PMO wants benefit owners named as users (the free-text owner stays; "My work" then lists the person's benefits whose review date is reached — in-app only, nothing is e-mailed). The linked owner can never verify their own benefit | E-P05 | — |
+| `chart_annotations_enabled` | `0` | arm switch | Owner (UI policy) | `1` (proposal — after a browser review; notes are human-entered with a mandatory source) | E-V08 | — |
 | `commitment_notify_enabled` | `0` | arm switch | to be named | — | — | — |
 | `commitments_enabled` | `0` | arm switch | to be named | — | — | — |
 | `controls_register_enabled` | `0` | arm switch | GRC owner + Security owner | `1` once GRC names who adopts controls (the four seeded controls stay `candidate` until a person adopts them with a reason; frequencies and testers are GRC decisions) | E-G04 | — |
@@ -215,6 +216,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `ui_nav_profile` | `full` | ui policy | Owner (D-6) | `lean` (proposal — re-decide from the T1–T8 sessions) | A-21 | — |
 | `ui_role_landing` | `0` | ui policy | Owner (UI policy) | `1` | A-10 | — |
 | `ui_small_multiples` | `0` | ui policy | Owner (UI policy) | `1` (proposal — after a browser review of the widget) | E-V09 | — |
+| `ui_url_filters` | `0` | ui policy | Owner (UI policy) | `1` (proposal — shareable Analytics links; filters only, never a data value) | E-U02 | — |
 | `ui_week_labels` | `legacy` | ui policy | Owner (UI policy) | `explicit` (proposal — ISO helpdesk charts say "ISO W37 (7–13 Sep)", report rows carry their Sun→Sat range) | D-03 | — |
 | `wan_mos_config` | `{"r0":93.2,"codec_loss_factor":2.5,"jitter_buffer_factor"…` | setting | to be named | — | — | — |
 | `wan_poll_first_run` | `` | setting | to be named | — | — | — |
