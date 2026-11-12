@@ -226,6 +226,12 @@ const DEFAULTS = {
   // "My work" lists the benefits that person owns whose review date is reached (in-app only). The linked owner never
   // verifies their own benefit (SELF_REVIEW) — that rule holds whenever a link exists.
   benefit_owner_link_enabled: '0',
+  // F-PRODUCT-03 + F-DATA-09 (gap E09) — PROPOSED: '1' = a benefit carries a value class (realised cash / cost-avoidance
+  // ESTIMATE / productivity time / risk reduction / other; empty = unclassified), a measurement basis (observed /
+  // estimated avoidance), baseline and measurement periods, a method note and a source. The project page then shows
+  // observed, estimated and validated values in separate columns, with totals per class (never across). '0' = today's
+  // form; the fields are ignored on write. The classes accepted at a benefits review are a Finance / sponsor decision.
+  benefit_value_class_enabled: '0',
   // E-P06 (audit P-06) — PROPOSED: '1' = RACI tab on the project page (task × person, exactly one A per task, CSV export);
   // ppm_templates_enabled '1' = save a project's STRUCTURE as a template (no people, dates or money), approved by another
   // committee member before it can create a project. Both 404 while '0'.

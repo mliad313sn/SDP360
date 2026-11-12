@@ -116,7 +116,7 @@ function capacityRows(tasks) {
 }
 
 /** Workbook sheets: Projects, Tasks, Milestones, RAID, Baselines, Exceptions, Benefits, Capacity (SheetJS CE — no styling). */
-function buildWorkbookBuffer(view, { money: showMoney = false, baselines = [], exceptions = [] } = {}) {
+function buildWorkbookBuffer(view, { money: showMoney = false, baselines = [], exceptions = [], benefitClasses = false } = {}) {
   const v = view || {};
   const keyOf = new Map((v.projects || []).map((p) => [Number(p.id), p.key]));
   const projects = (v.projects || []).map((p) => {
@@ -136,10 +136,14 @@ function buildWorkbookBuffer(view, { money: showMoney = false, baselines = [], e
   // B-08 — benefits: a money benefit's values only for a money reader (the row stays, its values are empty)
   const BEN = require('./portfolioBenefits');
   const ben = (v.benefits || []).map((b) => {
-    const x = BEN.visibleBenefit(b, { money: showMoney, asOf: v.as_of || null });
+    const x = BEN.visibleBenefit(b, { money: showMoney, asOf: v.as_of || null, classes: benefitClasses });
+    // F-PRODUCT-03 / F-DATA-09 — one row per benefit, its class next to its value; the sheet has NO total row
+    // (a realised amount, an estimate and a validated benefit are never added together).
+    const cls = benefitClasses ? { value_class: b.value_class || null, basis: b.basis || null, measurement_class: x.class_label || null, evidence_level: x.evidence_level, verification_independent: x.verification_independent ? 'yes' : 'no',
+      measured_from: b.measured_from || null, measured_to: b.measured_to || null, baseline_period_from: b.baseline_period_from || null, baseline_period_to: b.baseline_period_to || null, source_kind: b.source_kind || null, metric_key: b.metric_key || null, method_note: b.method_note || null } : {};
     return { project: keyOf.get(Number(b.project_id)) || null, id: b.id, description: b.description, measure: b.measure || null, unit: b.unit || null, value_kind: b.value_kind || 'quantity',
       baseline_value: x.baseline_value ?? null, target_value: x.target_value ?? null, realised_value: x.realised_value ?? null, owner: b.owner || null, review_date: b.review_date || null,
-      state: x.state, evidence_link: b.evidence_link || null, realised_by: b.realised_by_name || null, verified_by: b.verified_by_name || null, verified_at: b.verified_at || null };
+      state: x.state, evidence_link: b.evidence_link || null, realised_by: b.realised_by_name || null, verified_by: b.verified_by_name || null, verified_at: b.verified_at || null, ...cls };
   });
   return require('./tableExcel').buildWorkbook([{ name: 'Projects', rows: projects }, { name: 'Tasks', rows: tasks }, { name: 'Milestones', rows: milestones }, { name: 'RAID', rows: raid }, { name: 'Baselines', rows: bl }, { name: 'Exceptions', rows: ex }, { name: 'Benefits', rows: ben }, { name: 'Capacity', rows: capacity }]);
 }

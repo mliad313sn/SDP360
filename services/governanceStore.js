@@ -291,7 +291,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   const benefitRow = (r) => r && ({ ...idRow(r), project_id: Number(r.project_id), baseline_value: num(r.baseline_value), target_value: num(r.target_value), realised_value: num(r.realised_value),
     realised_by: r.realised_by == null ? null : Number(r.realised_by), verified_by: r.verified_by == null ? null : Number(r.verified_by), sort_order: num(r.sort_order), value_kind: r.value_kind || 'quantity',
     owner_user_id: r.owner_user_id == null ? null : Number(r.owner_user_id) });
-  const BENEFIT_TERMS = ['measure', 'unit', 'value_kind', 'currency', 'baseline_value', 'target_value'];   // a change clears a verification
+  const BENEFIT_TERMS = ['measure', 'unit', 'value_kind', 'currency', 'baseline_value', 'target_value', 'value_class', 'basis', 'measured_from', 'measured_to'];   // a change clears a verification
   const TASK_STATUSES = ['todo', 'in_progress', 'blocked', 'done', 'cancelled'];
   const SPEND_TYPES = ['capex', 'opex', 'mixed'];
   const FINANCE_FIELDS = ['budget', 'spent', 'currency', 'spend_type'];
@@ -395,7 +395,8 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     task: { table: 'portfolio_tasks', cols: ['project_id', 'parent_id', 'wbs_code', 'name', 'owner', 'start_date', 'end_date', 'baseline_start', 'baseline_end', 'forecast_end', 'actual_start', 'actual_end', 'duration_days', 'allocation_pct', 'status', 'depends_on', 'sort_order', 'progress_pct', 'effort_hours'], req: ['project_id', 'name'] },
     milestone: { table: 'portfolio_milestones', cols: ['project_id', 'name', 'due_date', 'baseline_date', 'done_at', 'status', 'sort_order', 'owner'], req: ['project_id', 'name'] },
     deliverable: { table: 'portfolio_deliverables', cols: ['project_id', 'milestone_id', 'name', 'owner', 'due_date', 'status', 'action_kind', 'action_ref', 'sort_order', 'closed_at'], req: ['project_id', 'name'] },
-    benefit: { table: 'portfolio_benefits', cols: ['project_id', 'description', 'measure', 'unit', 'value_kind', 'currency', 'baseline_value', 'target_value', 'owner', 'review_date', 'sort_order', 'owner_user_id'], req: ['project_id', 'description'] },
+    benefit: { table: 'portfolio_benefits', cols: ['project_id', 'description', 'measure', 'unit', 'value_kind', 'currency', 'baseline_value', 'target_value', 'owner', 'review_date', 'sort_order', 'owner_user_id',
+      'value_class', 'basis', 'baseline_period_from', 'baseline_period_to', 'measured_from', 'measured_to', 'method_note', 'source_kind', 'metric_key'], req: ['project_id', 'description'] },   // F-PRODUCT-03 / F-DATA-09 class fields
     risk: { table: 'portfolio_risks', cols: ['project_id', 'title', 'probability', 'impact', 'mitigation', 'owner', 'status', 'incident_ref', 'closed_at', 'kind'], req: ['project_id', 'title'] },
   };
   function normalise(kind, body) {
@@ -406,7 +407,9 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       else if (c === 'evidence_hib') v = v === false || v === 0 ? 0 : 1;
       else if (/_id$|^sort_order$|^probability$|^impact$|^duration_days$|^allocation_pct$|^effort_hours$/.test(c)) v = num(v);
       else if (/pct$|^weight$|^budget$|^spent$|evidence_target|_value$/.test(c)) v = num(v);
-      else if (c === 'review_date') v = _day(v);
+      else if (c === 'review_date' || /^(baseline_period|measured)_(from|to)$/.test(c)) v = _day(v);
+      else if (kind === 'benefit' && ['value_class', 'basis', 'source_kind', 'metric_key'].includes(c)) v = v == null || String(v).trim() === '' ? null : String(v).trim().slice(0, 120);
+      else if (c === 'method_note') v = str(v, 2000);
       else v = str(v, c === 'description' || c === 'mitigation' || c === 'manual_evidence' ? 4000 : 300);
       out[c] = v;
     }
@@ -429,6 +432,11 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     }
     if (out.confidence && !CONFIDENCE.includes(out.confidence)) throw Object.assign(new Error('confidence must be low | medium | high'), { code: 'INVALID' });
     return out;
+  }
+  /** F-PRODUCT-03 / F-DATA-09 — the class fields of a benefit AS IT WOULD BE STORED must be coherent. */
+  function _benefitClassCheck(row) {
+    const p = require('./portfolioBenefits').classProblem(row);
+    if (p) throw Object.assign(new Error(p.error), { code: 'INVALID', reason: p.code });
   }
   async function upsertPortfolio(kind, body, opts = {}) {
     const T = TABLES[kind]; if (!T) throw Object.assign(new Error('unknown portfolio entity'), { code: 'INVALID' });
@@ -455,6 +463,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       const before = await getBenefit(id);
       if (!before) throw Object.assign(new Error('benefit not found'), { code: 'NOT_FOUND', status: 404 });
       delete vals.project_id;   // a benefit never moves to another project
+      _benefitClassCheck({ ...before, ...vals });
       await updateRow(T.table, id, vals, T.cols);
       // the terms a verification vouched for changed → the verification no longer holds
       const termsChanged = BENEFIT_TERMS.some(k => vals[k] !== undefined && String(vals[k] ?? '') !== String(before[k] ?? ''));
@@ -503,6 +512,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     // F-PRODUCT-09 — a new task whose caller did not send allocation_pct: with ppm_alloc_unspecified = 'unknown' the
     // row says NULL (unknown) instead of taking the column default 100. 'full_time' (today) leaves the default.
     if (kind === 'task' && vals.allocation_pct === undefined && opts.allocUnspecified === 'unknown') vals.allocation_pct = null;
+    if (kind === 'benefit') _benefitClassCheck(vals);
     const nid = await insert(T.table, [...Object.keys(vals), 'created_at', 'updated_at'], [...Object.values(vals), now(), now()]);
     if (kind === 'project') for (const f of FINANCE_FIELDS) if (vals[f] != null) await ppmEvent({ entity: 'project', entity_id: nid, action: 'finance_edit', field: f, old_value: null, new_value: vals[f], currency: vals.currency || 'USD' }, opts.user);
     return nid;

@@ -119,3 +119,50 @@ test('money read rule: a money benefit is written only by a money reader and its
   const wbC = XLSX.read((await (await fetch(base + '/api/governance/portfolio/workbook.xlsx', { headers: { 'x-report-token': T.pmo } })).arrayBuffer()));
   assert.ok(XLSX.utils.sheet_to_json(wbC.Sheets.Benefits).some((r) => r.target_value === 30000));
 });
+
+// ── F-PRODUCT-03 + F-DATA-09 — value class / basis / measurement window behind benefit_value_class_enabled ──────────
+test('value class: switch off → the fields are ignored and the answer is today\'s; on → round trip, coherence refused, totals per class', async () => {
+  const cls = { value_class: 'cost_avoidance_estimate', basis: 'estimated_avoidance', measured_from: '2026-01-01', measured_to: '2026-03-31', method_note: 'tickets avoided x mean handling time', source_kind: 'manual' };
+  assert.equal(cfg.DEFAULTS.benefit_value_class_enabled, '0');
+  const off = await put('benefit', T.pmo, { project_id: pid, description: 'Avoided call-outs', unit: 'call-outs', target_value: 10, ...cls });
+  assert.equal(off.status, 200, JSON.stringify(off.j));
+  let d = await detail();
+  let b = d.benefits.find((x) => x.id === off.j.id);
+  assert.strictEqual(b.value_class, null, 'ignored while off'); assert.strictEqual(b.basis, null);
+  assert.strictEqual(b.evidence_level, undefined); assert.strictEqual(d.benefit_totals, undefined);
+  assert.equal((await send('GET', '/api/governance/ppm/features', T.pmo)).j.benefit_value_class, false);
+  await cfg.setConfig(rdb.db, { benefit_value_class_enabled: '1' }, 'smoke');
+  try {
+    assert.equal((await send('GET', '/api/governance/ppm/features', T.pmo)).j.benefit_value_class, true);
+    assert.equal((await put('benefit', T.pmo, { id: off.j.id, ...cls })).status, 200);
+    d = await detail(); b = d.benefits.find((x) => x.id === off.j.id);
+    assert.deepEqual([b.value_class, b.basis, b.measured_from, b.measured_to, b.source_kind, b.method_note], ['cost_avoidance_estimate', 'estimated_avoidance', '2026-01-01', '2026-03-31', 'manual', 'tickets avoided x mean handling time']);
+    assert.equal(b.evidence_level, 'planned'); assert.equal(b.class_label, 'estimate'); assert.equal(b.verification_independent, false);
+    // incoherent or unknown values are refused with a code, nothing is written
+    const bad = await put('benefit', T.pmo, { id: off.j.id, basis: 'observed' });
+    assert.equal(bad.status, 400); assert.equal(bad.j.code, 'CLASS_BASIS');
+    assert.equal((await put('benefit', T.pmo, { id: off.j.id, value_class: 'savings' })).j.code, 'VALUE_CLASS');
+    assert.equal((await put('benefit', T.pmo, { id: off.j.id, measured_from: '2026-05-01' })).j.code, 'PERIOD');
+    assert.equal((await put('benefit', T.pmo, { project_id: pid, description: 'm', value_kind: 'money', basis: 'observed' })).j.code, 'CURRENCY_REQUIRED');
+    assert.equal((await detail()).benefits.find((x) => x.id === off.j.id).basis, 'estimated_avoidance', 'refused = not written');
+    // an observed benefit in the same unit: the two realised values are never added
+    const obs = (await put('benefit', T.pmo, { project_id: pid, description: 'Observed call-outs', unit: 'call-outs', basis: 'observed', value_class: 'productivity_time' })).j.id;
+    for (const [id, val] of [[off.j.id, 40], [obs, 6]]) assert.equal((await send('POST', `/api/governance/portfolio/benefit/${id}/realised`, T.pmo, { realised_value: val, evidence_link: 'https://example.test/evidence' })).status, 200);
+    d = await detail();
+    const tot = d.benefit_totals.filter((g) => g.unit === 'call-outs');
+    assert.deepEqual(tot.map((g) => [g.label, g.realised_total]).sort(), [['estimate', 40], ['observed', 6]]);
+    assert.ok(!d.benefit_totals.some((g) => g.realised_total === 46), 'never added across classes');
+    // verified by another member with no required role: verified, still not "validated"
+    assert.equal((await send('POST', `/api/governance/portfolio/benefit/${obs}/verify`, T.cio)).status, 200);
+    b = (await detail()).benefits.find((x) => x.id === obs);
+    assert.equal(b.evidence_level, 'verified'); assert.equal(b.measurement_class, 'observed'); assert.equal(b.verification_independent, false);
+    // changing the class after a verification clears it
+    assert.equal((await put('benefit', T.pmo, { id: obs, value_class: 'other' })).status, 200);
+    assert.equal((await detail()).benefits.find((x) => x.id === obs).verified_at, null);
+    // workbook: class columns present for this reader, the estimate labelled
+    const wb = XLSX.read((await (await fetch(base + '/api/governance/portfolio/workbook.xlsx', { headers: { 'x-report-token': T.pmo } })).arrayBuffer()));
+    const row = XLSX.utils.sheet_to_json(wb.Sheets.Benefits).find((r) => r.id === off.j.id);
+    assert.equal(row.measurement_class, 'estimate'); assert.equal(row.value_class, 'cost_avoidance_estimate');
+  } finally { await cfg.setConfig(rdb.db, { benefit_value_class_enabled: '0' }, 'smoke'); }
+  assert.strictEqual((await detail()).benefit_totals, undefined, 'off again: today\'s answer');
+});

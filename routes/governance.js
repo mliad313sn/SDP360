@@ -548,6 +548,7 @@ module.exports = function governanceRoutes(deps) {
       const cfgW = await reportConfig.getConfig(rdb().db);
       const requireOwnerReason = kind === 'task' && String(cfgW.ppm_capacity_view) === '1';   // E-P03
       if (kind === 'benefit' && req.body && String(cfgW.benefit_owner_link_enabled) !== '1') delete req.body.owner_user_id;   // E-P05: no link while off
+      if (kind === 'benefit' && req.body && String(cfgW.benefit_value_class_enabled) !== '1') for (const f of BEN.CLASS_FIELDS) delete req.body[f];   // F-PRODUCT-03: the fields do not exist while off
       const id = await store.upsertPortfolio(kind, req.body, { user: req.reportUser, reason: req.body && req.body.reason, requireOwnerReason, allocUnspecified: cfgW.ppm_alloc_unspecified }); log(req, 'portfolio_saved', `${kind}:${id}`); res.json({ ok: true, id });
     } catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.reason ? { code: e.reason } : {}) }); }
   });
@@ -571,9 +572,12 @@ module.exports = function governanceRoutes(deps) {
         return { to, needs_reason, refusal: SCH.stageGate(p, to, u, { ...d.gate_ctx, note: needs_reason ? 'reason given at the move' : undefined }) };
       });
       const project = money ? p : { ...p, budget: undefined, spent: undefined };
+      // F-PRODUCT-03 / F-DATA-09 — class view + totals per class only while the switch is on (never added across classes)
+      const clsOn = String((await reportConfig.getConfig(rdb().db)).benefit_value_class_enabled) === '1';
+      const bens = (d.benefits || []).map((b) => BEN.visibleBenefit(b, { money, asOf: new Date().toISOString(), classes: clsOn }));
       res.json({ ok: true, committee: !!isCommittee(u), can_gate: !!isCommittee(u), can_edit_plan: PA.canEditPlan(u, p, pctx), can_see_history: !!money, money_hidden: !money,
         project, objective: d.objective, extra_sites: d.extra_sites, tasks: d.tasks, milestones: d.milestones, deliverables: d.deliverables, risks: d.risks.map(PE.riskView),
-        benefits: (d.benefits || []).map((b) => BEN.visibleBenefit(b, { money, asOf: new Date().toISOString() })), me: Number(u.id),
+        benefits: bens, ...(clsOn ? { benefit_totals: BEN.benefitTotals(bens), benefit_classes: { value_classes: BEN.VALUE_CLASSES, bases: BEN.BASES, source_kinds: BEN.SOURCE_KINDS } } : {}), me: Number(u.id),
         plan: SCH.scheduleView(d.tasks, { anchor: p.start_date || null }), variance: SCH.varianceOf(p), resource_conflicts: SCH.resourceConflicts(d.tasks), resource_coverage: SCH.resourceCoverage(d.tasks),
         stages: SCH.STAGES, allowed_stages, gate_counts: d.gate_ctx, risk_kinds: store.RISK_KINDS, as_of: new Date().toISOString() });
     } catch (e) { fail(res, e); }
@@ -641,7 +645,8 @@ module.exports = function governanceRoutes(deps) {
     const v = money ? v0 : stripMoney(v0);
     const ids = new Set(v.projects.map((p) => p.id));
     const baselines = (await store.listBaselines()).filter((b) => ids.has(b.project_id));
-    return { v: { ...v, benefits: (v.benefits || []).filter((b) => ids.has(b.project_id)) }, money, baselines, exceptions: await exceptionsFor(v0) };
+    return { v: { ...v, benefits: (v.benefits || []).filter((b) => ids.has(b.project_id)) }, money, baselines, exceptions: await exceptionsFor(v0),
+      benefitClasses: String((await reportConfig.getConfig(rdb().db)).benefit_value_class_enabled) === '1' };
   }
   router.get('/api/governance/portfolio/deck.pptx', requireReportSession, async (req, res) => {
     try { const x = await exportData(req.reportUser); const buf = await require('../services/portfolioDeck').buildDeck(x.v, { money: x.money, exceptions: x.exceptions, asOf: x.v.as_of });
@@ -649,7 +654,7 @@ module.exports = function governanceRoutes(deps) {
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'); res.setHeader('Content-Disposition', `attachment; filename="portfolio-${x.v.as_of.slice(0, 10)}.pptx"`); res.send(buf); } catch (e) { fail(res, e); }
   });
   router.get('/api/governance/portfolio/workbook.xlsx', requireReportSession, async (req, res) => {
-    try { const x = await exportData(req.reportUser); const buf = require('../services/portfolioDeck').buildWorkbookBuffer(x.v, { money: x.money, baselines: x.baselines, exceptions: x.exceptions });
+    try { const x = await exportData(req.reportUser); const buf = require('../services/portfolioDeck').buildWorkbookBuffer(x.v, { money: x.money, baselines: x.baselines, exceptions: x.exceptions, benefitClasses: x.benefitClasses });
       log(req, 'portfolio_workbook', 'portfolio', { money: x.money });
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); res.setHeader('Content-Disposition', `attachment; filename="portfolio-${x.v.as_of.slice(0, 10)}.xlsx"`); res.send(buf); } catch (e) { fail(res, e); }
   });

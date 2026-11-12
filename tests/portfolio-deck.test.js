@@ -120,3 +120,17 @@ test('F-PRODUCT-02 workbook: Tasks carry allocation and effort (unknown = empty 
   for (const k of ['budget', 'spent', 'currency']) assert.ok(!capHead.includes(k), 'no money in the Capacity sheet');
   assert.doesNotMatch(JSON.stringify(cap), /USD|XOF|120000/);
 });
+
+test('F-PRODUCT-03 workbook Benefits sheet: class columns only with the switch; an estimate is labelled; no total row', () => {
+  const ben = (id, o) => ({ id, project_id: 1, description: 'B' + id, value_kind: 'quantity', unit: 'h', realised_value: 5, realised_by: 2, evidence_link: 'https://example.test/e', ...o });
+  const v = { ...view, benefits: [ben(1, { basis: 'estimated_avoidance', value_class: 'cost_avoidance_estimate', measured_from: '2027-01-01', measured_to: '2027-03-31', method_note: 'tickets avoided x mean handling time' }), ben(2, {}), ben(3, { basis: 'observed', value_class: 'productivity_time' })] };
+  const off = XLSX.utils.sheet_to_json(XLSX.read(D.buildWorkbookBuffer(v, {}), { type: 'buffer' }).Sheets.Benefits, { header: 1 })[0];
+  assert.ok(!off.includes('value_class') && !off.includes('measurement_class'), "switch off: today's columns");
+  const wb = XLSX.read(D.buildWorkbookBuffer(v, { benefitClasses: true }), { type: 'buffer' });
+  const rows = XLSX.utils.sheet_to_json(wb.Sheets.Benefits);
+  assert.equal(rows.length, 3, 'one row per benefit, no total row');
+  assert.deepStrictEqual([rows[0].value_class, rows[0].basis, rows[0].measurement_class, rows[0].evidence_level, rows[0].measured_from, rows[0].measured_to], ['cost_avoidance_estimate', 'estimated_avoidance', 'estimate', 'entered', '2027-01-01', '2027-03-31']);
+  assert.strictEqual(rows[1].value_class, undefined, 'unclassified stays an empty cell');
+  assert.strictEqual(rows[1].measurement_class, undefined);
+  assert.equal(rows[2].measurement_class, 'observed'); assert.equal(rows[2].verification_independent, 'no');
+});
