@@ -160,6 +160,7 @@ function buildJobs(d) {
   list.push({ name: 'reports.monthly', cron: '45 6 1 * *', freshnessHours: 24 * 32, optional: true, job: legacyJob('reports.monthly', () => eng ? eng.reports('monthly') : { skipped: true }) });
   // E-R06 — A05 schedule reminders (in-app), daily; inert while schedule_reminders_enabled != '1'
   list.push({ name: 'engagement.schedule_reminders', cron: '50 6 * * *', freshnessHours: 30, optional: true, job: legacyJob('engagement.schedule_reminders', () => eng && eng.reminders ? eng.reminders() : { skipped: true }) });
+  list.push({ name: 'engagement.weekly_report_nudges', cron: '40 6 * * *', freshnessHours: 30, optional: true, job: legacyJob('engagement.weekly_report_nudges', () => eng && eng.weeklyNudges ? eng.weeklyNudges() : { skipped: true }) });
   list.push({ name: 'publish.connectors', cron: '0 6 * * *', freshnessHours: 30, optional: true, job: legacyJob('publish.connectors', () => eng ? eng.publish() : { skipped: true }) });
   // Step 10 — field outbox hygiene: ledger rows > 90 days and abandoned chunk uploads > 48 h (d.field = store, lazy).
   const fld = d.field || null;
@@ -268,13 +269,13 @@ const FRESHNESS_HOURS = {
   'zoho.requests': 3, 'zoho.change_cab': 3, 'zoho.survey': 3, 'assets.sync': 30,
   'meridian.resources': 30, 'opmanager.availability': 30, 'meraki.wan': 30, 'meraki.wan_events': 30,
   'meraki.wan_events_5m': 1, 'meraki.wan_poller': 1, 'teams.sla_poll': 1, 'db.backup': 30, 'db.restore_drill': 24 * 33, 'audit.retention': 30, 'audit.chain_verify': 30,
-  'engagement.alerts': 1, 'engagement.digest': 30, 'engagement.digest_weekly': 24 * 8, 'reports.weekly': 24 * 8, 'reports.monthly': 24 * 32, 'engagement.schedule_reminders': 30, 'publish.connectors': 30, 'field.purge': 30, 'softdelete.purge': 30,
+  'engagement.alerts': 1, 'engagement.digest': 30, 'engagement.digest_weekly': 24 * 8, 'reports.weekly': 24 * 8, 'reports.monthly': 24 * 32, 'engagement.schedule_reminders': 30, 'engagement.weekly_report_nudges': 30, 'publish.connectors': 30, 'field.purge': 30, 'softdelete.purge': 30,
   'commitments.escalate': 3, 'handoffs.escalate': 3, 'governance.ppm_alerts': 30, 'governance.agenda_drafts': 24 * 8, 'access.grant_expiry': 30, 'access.emergency_expiry': 3, 'access.entra_deprovision': 30,
 };
 // Jobs that self-skip until configured (no API key / webhook) — never reported "stale": "idle" when they never
 // ran, "not_configured" when their last run was a skip (routes/sync.js). A skip is never a successful collection.
 const OPTIONAL = new Set(['meridian.resources', 'opmanager.availability', 'meraki.wan', 'meraki.wan_events', 'meraki.wan_events_5m', 'meraki.wan_poller', 'teams.sla_poll', 'db.backup', 'db.restore_drill',
-  'engagement.alerts', 'engagement.digest', 'engagement.digest_weekly', 'reports.weekly', 'reports.monthly', 'engagement.schedule_reminders', 'publish.connectors', 'field.purge', 'softdelete.purge', 'commitments.escalate', 'handoffs.escalate', 'governance.ppm_alerts', 'governance.agenda_drafts', 'access.grant_expiry', 'access.emergency_expiry', 'access.entra_deprovision']);
+  'engagement.alerts', 'engagement.digest', 'engagement.digest_weekly', 'reports.weekly', 'reports.monthly', 'engagement.schedule_reminders', 'engagement.weekly_report_nudges', 'publish.connectors', 'field.purge', 'softdelete.purge', 'commitments.escalate', 'handoffs.escalate', 'governance.ppm_alerts', 'governance.agenda_drafts', 'access.grant_expiry', 'access.emergency_expiry', 'access.entra_deprovision']);
 
 // Map the legacy sync_metadata job names onto the registry names (one health view, D7).
 const LEGACY_NAMES = { requests: 'zoho.requests', change_cab: 'zoho.change_cab', survey: 'zoho.survey',

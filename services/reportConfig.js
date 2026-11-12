@@ -523,6 +523,16 @@ DEFAULTS.alert_quiet_hours = '';
 // through services/metricDeps.js. '0' (default) = today: not computed, shown as "—". '1' = computed on dashboards,
 // agendas, /api/metrics and /ext/v1 — NOT certified (D-01 / D-02 / D-03 pending): a KPI-committee decision.
 DEFAULTS.metric_programme_readers = '0';
+// ── P4 / B9 (goal B9, 2026-11-12) — weekly report deadline, nudges and value metrics. Defaults = today (nothing fires):
+//    weekly_report_due_days        days after the report week's end (Saturday) when the report is due; '' = policy
+//                                  not decided → % on-time is UNKNOWN and no nudge has a date. Proposed: '2' (Monday).
+//    weekly_report_nudges_enabled  '1' = the daily engagement.weekly_report_nudges job writes in-app nudges to the site's
+//                                  coordinators (day before the deadline, and once when late); '0' (default) = none.
+//    weekly_report_minutes_per_kpi_cell  minutes a coordinator spends looking up ONE infrastructure value by hand (from the
+//                                  stopwatch sheet docs/ops/pilot/WEEKLY-REPORT-STOPWATCH.csv); '' = minutes saved UNKNOWN.
+DEFAULTS.weekly_report_due_days = '';
+DEFAULTS.weekly_report_nudges_enabled = '0';
+DEFAULTS.weekly_report_minutes_per_kpi_cell = '';
 
 const KEYS = Object.keys(DEFAULTS);
 

@@ -8,15 +8,15 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 
 | Item | Count |
 |---|---:|
-| routes | 665 |
+| routes | 669 |
 | routes not measurable | 3 |
-| routes without strict test | 55 |
-| critical routes | 183 |
+| routes without strict test | 57 |
+| critical routes | 184 |
 | critical routes without strict test | 16 |
-| writes without strict test | 18 |
-| jobs | 31 |
+| writes without strict test | 20 |
+| jobs | 32 |
 | jobs without strict test | 0 |
-| test sources | 796 |
+| test sources | 784 |
 | without strict test access | 4 |
 | without strict test finance | 0 |
 | without strict test export | 7 |
@@ -66,8 +66,10 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 | GET | `/api/data/monthly-summary` | read | server.js |
 | GET | `/api/data/sla-by-category` | read | server.js |
 | POST | `/api/governance/policies/proposals/:id/reject` | write | routes/policies.js |
+| POST | `/api/governance/ppm/project/:id/changes/:cid/:action` | write | routes/governanceWorkbench.js |
 | PUT | `/api/governance/ppm/project/:id/raci` | write | routes/governancePpm.js |
 | GET | `/api/integration/fmp/readiness` | read | routes/fourmypeople.js |
+| POST | `/api/integrations/analytics/test` | write | routes/adminConfig.js |
 | GET | `/api/meetings/import/incubation-template` | read | routes/meetings.js |
 | POST | `/api/meetings/import/incubation/commit` | write | routes/meetings.js |
 | POST | `/api/meetings/import/incubation/preview` | write | routes/meetings.js |
@@ -107,7 +109,7 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 |---|---:|---:|
 | access | 64 | 4 |
 | finance | 22 | 0 |
-| export | 59 | 7 |
+| export | 60 | 7 |
 | audit | 20 | 4 |
 | destructive | 35 | 2 |
-<!-- structure 52a031b32f9a80fb -->
+<!-- structure 18e46311afb51235 -->

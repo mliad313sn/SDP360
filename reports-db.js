@@ -518,6 +518,9 @@ async function initPgReports() {            // called once at server boot
   for (const c of ['uid TEXT', 'source TEXT', 'origin_id INTEGER', 'lineage TEXT', 'status_changed_at TEXT']) {
     await _pg.exec(`ALTER TABLE action_items ADD COLUMN IF NOT EXISTS ${c}`);
   }
+  // P4 / B9 — infra value provenance (same columns as migration 096; idempotent here too so a save never fails
+  // on a database whose boot migration did not run).
+  for (const c of ['value_source TEXT', 'value_data_through TEXT']) await _pg.exec(`ALTER TABLE infra_kpis ADD COLUMN IF NOT EXISTS ${c}`);
   { const nulls = await _pg.prepare('SELECT id FROM action_items WHERE uid IS NULL').all();
     for (const r of nulls) await _pg.prepare('UPDATE action_items SET uid=? WHERE id=?').run(crypto.randomUUID(), r.id); }
   await _seedReportsCatalogsPg(_pg);
@@ -1720,8 +1723,11 @@ async function _saveInfraKpisPg(report_id, kpis) {
     await H.prepare('DELETE FROM infra_kpis WHERE report_id=?').run(report_id);
     let i = 0;
     for (const k of (kpis || [])) {
-      await H.prepare('INSERT INTO infra_kpis (report_id,service,kpi,target,status_value,status_color,trend,sort_order) VALUES (?,?,?,?,?,?,?,?)')
-        .run(report_id, k.service, k.kpi, k.target, k.status_value, k.status_color||'green', k.trend||'stable', i); i++;
+      // P4/B9 — prefill provenance (096). Only the closed vocabulary is stored; anything else → NULL ("not recorded").
+      const src = ['meraki', 'opmanager', 'manual'].includes(k.value_source) ? k.value_source : null;
+      const thr = src && src !== 'manual' && k.value_data_through ? String(k.value_data_through).slice(0, 32) : null;
+      await H.prepare('INSERT INTO infra_kpis (report_id,service,kpi,target,status_value,status_color,trend,sort_order,value_source,value_data_through) VALUES (?,?,?,?,?,?,?,?,?,?)')
+        .run(report_id, k.service, k.kpi, k.target, k.status_value, k.status_color||'green', k.trend||'stable', i, src, thr); i++;
     }
   });
 }

@@ -248,6 +248,13 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
   #weekly-summary-card,#weekly-summary-card *{min-width:0;max-width:100%;overflow-wrap:anywhere}
   .report-list{grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr))}
 }
+/* P4/B9 — visible provenance badge under each infrastructure Current Value (source · data-through · manuel · — inconnu) */
+.infra-prov{display:inline-block;margin-top:3px;max-width:100%;overflow-wrap:anywhere;font-size:.72rem;font-weight:600;line-height:1.3;border-radius:6px;padding:1px 6px}
+.infra-prov:empty{display:none}
+.infra-prov--auto{background:var(--color-warning-bg);color:var(--color-warning-text);border:1px solid var(--color-warning)}
+.infra-prov--manual{background:var(--color-info-bg);color:var(--color-info);border:1px solid var(--color-info)}
+.infra-prov--unknown{background:var(--color-card);color:var(--color-text-muted);border:1px dashed var(--color-border-strong);cursor:pointer;font-family:inherit}
+.infra-prov--unknown:focus-visible{outline:2px solid var(--edv-orange);outline-offset:2px}
 @media(max-width:700px){
   .page{padding:16px}
   .lights-grid{grid-template-columns:1fr}
@@ -322,6 +329,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 <script src="lib/siteOnboardingCard.js"></script>
 <script src="lib/statusTransfer.js"></script>
 <script src="lib/wanLineMatch.js"></script>
+<script src="lib/infraPrefill.js"></script>
 <!-- E-A02 — first slice of the inline script: the Backups & recovery admin cards (globals kept on window) -->
 <script src="lib/reports-backups.js"></script>
 <!-- Unified auth (data-require="any" — any logged-in user). auth.js redirects
@@ -3375,7 +3383,7 @@ function addInfraRow(k, prevValue) {
     <td><input type="text" value="${esc(k.service)}" placeholder="Service name"></td>
     <td><input type="text" value="${esc(k.kpi)}" placeholder="KPI description"></td>
     <td><input type="text" value="${esc(k.target)}" placeholder="e.g. 99%" class="infra-target-input"></td>
-    <td><input type="text" value="${esc(k.status_value)}" placeholder="Actual value" class="infra-value-input"${prevAttr} oninput="autoInfraStatusTrend(this)"></td>
+    <td><input type="text" value="${esc(k.status_value)}" placeholder="Actual value" class="infra-value-input"${prevAttr} oninput="autoInfraStatusTrend(this);_infraMarkManual(this)" aria-label="Current value"><span class="infra-prov" aria-live="polite"></span></td>
     <td>
       <select onchange="updateStatusDot(this)" class="infra-status-select">
         <option value="green"  ${k.status_color==='green' ?'selected':''}>🟢 Green</option>
@@ -3394,7 +3402,11 @@ function addInfraRow(k, prevValue) {
     </td>
     <td><button class="btn-remove" onclick="this.closest('tr').remove()" title="Remove">✕</button></td>
   `;
+  // P4/B9 — provenance as stored (verified by the server at save time); rows saved before 096 carry none
+  tr.dataset.valueSource = k.value_source || '';
+  tr.dataset.valueDataThrough = k.value_data_through || '';
   tbody.appendChild(tr);
+  _infraRenderProv(tr);
   // If the row already has a value (editing an existing report), auto-derive status immediately
   if (k.status_value) {
     const valueInput = tr.querySelector('.infra-value-input');
@@ -3484,6 +3496,44 @@ function _infraFillTooltip(f, family, win) {
   return lines.join('\n');
 }
 
+// P4/B9 — typing in a Current Value makes it 'manual' (an auto value edited by hand is no longer the snapshot's).
+function _infraMarkManual(input) {
+  const tr = input.closest('tr'); if (!tr) return;
+  tr.dataset.valueSource = input.value.trim() ? 'manual' : '';
+  tr.dataset.valueDataThrough = '';
+  input.style.background = '';
+  _infraRenderProv(tr);
+}
+// The visible badge (not only a tooltip): "Meraki · 2026-11-07", "manuel", or a "— inconnu" button that opens a fix task.
+function _infraRenderProv(tr, fill) {
+  const badge = tr.querySelector('.infra-prov'); if (!badge || !window.InfraPrefill) return;
+  const val = tr.querySelector('.infra-value-input');
+  const svc = tr.querySelector('input');
+  const fam = window.WanLineMatch ? window.WanLineMatch.parseServiceLine(svc ? svc.value : '', []).family : null;
+  const p = window.InfraPrefill.provenance({ status_value: val ? val.value : '', value_source: tr.dataset.valueSource,
+    value_data_through: tr.dataset.valueDataThrough, stale: fill && fill.stale, measurable: !!fam });
+  badge.className = 'infra-prov' + (p.kind !== 'none' ? ' infra-prov--' + p.kind : '');
+  badge.title = p.title || '';
+  if (p.kind === 'unknown' && currentReport && currentReport.status !== 'submitted') {
+    badge.innerHTML = '';
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'infra-prov infra-prov--unknown';
+    b.textContent = p.text; b.title = p.title; b.setAttribute('aria-label', 'Valeur inconnue — créer une tâche de correction');
+    b.onclick = () => _infraOpenFixTask(fam, svc ? svc.value : '');
+    badge.className = ''; badge.appendChild(b);
+  } else {
+    badge.textContent = p.text;
+  }
+}
+async function _infraOpenFixTask(family, service) {
+  const connector = window.InfraPrefill.connectorOf(family);
+  if (!connector || !currentReport) return;
+  try {
+    const r = await api('POST', '/api/connector-health/fix-tasks', { connector, site_id: currentReport.site_id, scope: family, report_id: currentReport.id,
+      cause: `${service || family}: no ${connector === 'meraki' ? 'Meraki' : 'OpManager'} value for ${currentReport.week_label || 'this week'} (weekly report)` });
+    toast((r.created ? 'Fix task #' : 'Already open: task #') + r.task.id + ' — owner: ' + r.task.owner_role, 'success');
+  } catch (e) { toast('Could not open the fix task: ' + e, 'error'); }
+}
+
 async function maybeAutoFillInfra(manual) {
   if (!currentReport || currentReport.status === 'submitted') return;
   const banner = document.getElementById('infra-auto-banner');
@@ -3491,31 +3541,23 @@ async function maybeAutoFillInfra(manual) {
   try { data = await api('GET', `/api/reports/${currentReport.id}/infra-auto`); }
   catch (e) { if (manual) toast('Could not reach OPManager/Meraki data: ' + e.message, 'error'); return; }
   const fills = (data && data.fills) || [];
-  if (!fills.length) { if (manual) toast('No OPManager/Meraki data for this week yet', 'info'); return; }
-  const tokens = (data && data.tokens) || [];
-
-  let filled = 0;
-  document.querySelectorAll('#infra-body tr').forEach(tr => {
-    const svc = tr.querySelector('input');                 // first input = Service name
-    const valInput = tr.querySelector('.infra-value-input');
-    if (!svc || !valInput) return;
-    if (valInput.value && valInput.value.trim() !== '') return;   // NEVER clobber a typed value
-    const svcName = svc.value;
-    const parsed = (window.WanLineMatch && window.WanLineMatch.parseServiceLine)
-      ? window.WanLineMatch.parseServiceLine(svcName, tokens)
-      : { family: _serviceToFill(svcName), sub_site: '' };   // fallback if the lib failed to load
-    const family = parsed.family, subSite = parsed.sub_site || '';
-    const f = family && fills.find(x => x.match === family && (x.sub_site || '') === subSite);
-    if (!f) return;
-    valInput.value = f.value;
-    const statusSel = tr.querySelector('.infra-status-select');
-    const trendSel  = tr.querySelector('.infra-trend-select');
-    if (statusSel && f.status_color) { statusSel.value = f.status_color; updateStatusDot(statusSel); }
-    if (trendSel  && f.trend) trendSel.value = f.trend;
-    valInput.style.background = '#fff7ed';                  // subtle "auto-filled" cue
-    valInput.title = _infraFillTooltip(f, family, data.window);   // explanatory hover on the number
-    filled++;
+  if (!fills.length && manual) toast('No OPManager/Meraki data for this week yet — empty measurable cells show “— inconnu”', 'info');
+  // P4/B9 — the shared rule (public/lib/infraPrefill.js): every value is re-read at write time, so a value typed
+  // while this request was in flight is NEVER overwritten; a measurable row with no snapshot becomes "— inconnu".
+  const res = window.InfraPrefill.applyToDom(document.getElementById('infra-body'), data, {
+    onFill: (tr, f, family) => {
+      const valInput = tr.querySelector('.infra-value-input');
+      const statusSel = tr.querySelector('.infra-status-select');
+      const trendSel  = tr.querySelector('.infra-trend-select');
+      if (statusSel && f.status_color) { statusSel.value = f.status_color; updateStatusDot(statusSel); }
+      if (trendSel  && f.trend) trendSel.value = f.trend;
+      valInput.style.background = 'var(--color-warning-bg)';
+      valInput.title = _infraFillTooltip(f, family, data.window);
+      _infraRenderProv(tr, f);
+    },
+    onUnknown: (tr) => _infraRenderProv(tr),
   });
+  const filled = res.filled;
 
   if (banner) {
     if (filled > 0) {
@@ -3577,6 +3619,9 @@ function collectInfra() {
       status_value: inputs[3].value.trim(),
       status_color: selects[0].value,
       trend:        selects[1].value,
+      // P4/B9 — claimed provenance; the server keeps an auto source only if the value equals the snapshot
+      value_source:       tr.dataset.valueSource || null,
+      value_data_through: tr.dataset.valueDataThrough || null,
     };
   }).filter(k => k.service || k.kpi);
 }
