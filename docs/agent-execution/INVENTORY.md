@@ -11,13 +11,13 @@
 | pages without declared role | 6 |
 | pages not in navigation | 29 |
 | pages with inline scripts | 46 |
-| routes | 621 |
-| routes without test reference | 47 |
+| routes | 637 |
+| routes without test reference | 35 |
 | routes in server js | 210 |
-| jobs | 30 |
-| jobs without test reference | 10 |
-| migrations | 75 |
-| test files | 632 |
+| jobs | 31 |
+| jobs without test reference | 1 |
+| migrations | 80 |
+| test files | 662 |
 
 ## Pages
 
@@ -52,7 +52,7 @@
 | PG-itsm-roadmap | public/itsm-roadmap.html | super_admin | no | 1 | 4 |
 | PG-kpi-builder | public/kpi-builder.html | any | no | 0 | 2 |
 | PG-login | public/login.html | public | no | 1 | 9 |
-| PG-meeting | public/meeting.html | any | no | 1 | 11 |
+| PG-meeting | public/meeting.html | any | no | 1 | 12 |
 | PG-meetings-actions | public/meetings-actions.html | any | no | 2 | 7 |
 | PG-meetings-compliance | public/meetings-compliance.html | any | no | 2 | 4 |
 | PG-meetings-council | public/meetings-council.html | any | no | 2 | 3 |
@@ -67,8 +67,8 @@
 | PG-notifications | public/notifications.html | any | yes | 1 | 3 |
 | PG-obligations | public/obligations.html | any | yes | 0 | 3 |
 | PG-policies | public/policies.html | admin / committee-member | yes | 1 | 4 |
-| PG-portfolio | public/portfolio.html | any | yes | 1 | 8 |
-| PG-project | public/project.html | any | no | 1 | 8 |
+| PG-portfolio | public/portfolio.html | any | yes | 1 | 10 |
+| PG-project | public/project.html | any | no | 1 | 12 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 3 |
 | PG-reports | public/reports.html | any | yes | 2 | 27 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 4 |
@@ -86,12 +86,8 @@
 
 | Id | Method | Path | File:line |
 |---|---|---|---|
-| RT-POST-api-admin-backup-now | POST | `/api/admin/backup-now` | server.js:1223 |
-| RT-GET-api-admin-backup-schedule | GET | `/api/admin/backup-schedule` | server.js:1205 |
-| RT-POST-api-admin-backup-schedule | POST | `/api/admin/backup-schedule` | server.js:1215 |
 | RT-POST-api-admin-refresh-major-incident-udfs | POST | `/api/admin/refresh-major-incident-udfs` | server.js:3189 |
 | RT-GET-api-cab | GET | `/api/cab` | server.js:2939 |
-| RT-POST-api-cache-clear | POST | `/api/cache/clear` | server.js:3161 |
 | RT-GET-api-data-ageing-by-group | GET | `/api/data/ageing-by-group` | server.js:4099 |
 | RT-GET-api-data-ageing-by-site | GET | `/api/data/ageing-by-site` | server.js:4049 |
 | RT-GET-api-data-ageing | GET | `/api/data/ageing` | server.js:3577 |
@@ -107,23 +103,15 @@
 | RT-GET-api-data-sla-by-category | GET | `/api/data/sla-by-category` | server.js:3490 |
 | RT-POST-api-executive-new-pptx | POST | `/api/executive-new-pptx` | server.js:6461 |
 | RT-GET-api-integration-fmp-readiness | GET | `/api/integration/fmp/readiness` | routes/fourmypeople.js:31 |
-| RT-POST-api-kpi-policies-validate | POST | `/api/kpi-policies/validate` | routes/kpiPolicies.js:89 |
 | RT-GET-api-meetings-import-incubation-template | GET | `/api/meetings/import/incubation-template` | routes/meetings.js:801 |
 | RT-POST-api-meetings-import-incubation-commit | POST | `/api/meetings/import/incubation/commit` | routes/meetings.js:841 |
 | RT-POST-api-meetings-import-incubation-preview | POST | `/api/meetings/import/incubation/preview` | routes/meetings.js:814 |
-| RT-POST-api-meetings-import-preview | POST | `/api/meetings/import/preview` | routes/meetings.js:726 |
-| RT-GET-api-meetings-import-template | GET | `/api/meetings/import/template` | routes/meetings.js:706 |
-| RT-GET-api-meetings-people | GET | `/api/meetings/people` | routes/meetings.js:147 |
 | RT-GET-api-meetings-progress-export-pptx | GET | `/api/meetings/progress/export-pptx` | routes/meetings.js:917 |
-| RT-POST-api-meetings-reset | POST | `/api/meetings/reset` | routes/meetings.js:693 |
-| RT-POST-api-reports-auth-change-password | POST | `/api/reports/auth/change-password` | server.js:5164 |
-| RT-GET-api-reports-current-week | GET | `/api/reports/current-week` | server.js:5240 |
 | RT-GET-api-reports-helpdesk-live | GET | `/api/reports/helpdesk-live` | server.js:5550 |
 | RT-GET-api-reports-sessions-active | GET | `/api/reports/sessions/active` | routes/adminUsers.js:174 |
 | RT-GET-api-reports-technicians | GET | `/api/reports/technicians` | server.js:5801 |
 | RT-POST-api-reports-test-smtp | POST | `/api/reports/test-smtp` | routes/adminConfig.js:176 |
 | RT-PUT-api-reports-users-emails | PUT | `/api/reports/users/emails` | routes/adminUsers.js:118 |
-| RT-GET-api-risk-register-config-sites | GET | `/api/risk-register-config/sites` | routes/riskRegister.js:78 |
 | RT-GET-api-risk-register-config-unmapped | GET | `/api/risk-register-config/unmapped` | routes/riskRegister.js:129 |
 | RT-GET-api-roadmap-evidence-catalogue | GET | `/api/roadmap/evidence/catalogue` | routes/roadmap.js:56 |
 | RT-GET-api-roadmap-evidence-incidents | GET | `/api/roadmap/evidence/incidents` | routes/roadmap.js:73 |
@@ -141,30 +129,31 @@
 | JB-access-emergency-expiry | access.emergency_expiry | 1 |
 | JB-access-entra-deprovision | access.entra_deprovision | 1 |
 | JB-access-grant-expiry | access.grant_expiry | 2 |
-| JB-assets-sync | assets.sync | 5 |
+| JB-assets-sync | assets.sync | 6 |
 | JB-audit-chain-verify | audit.chain_verify | 2 |
 | JB-audit-retention | audit.retention | 1 |
 | JB-commitments-escalate | commitments.escalate | 1 |
 | JB-db-backup | db.backup | 2 |
 | JB-db-restore-drill | db.restore_drill | 2 |
-| JB-engagement-alerts | engagement.alerts | 0 |
-| JB-engagement-digest | engagement.digest | 0 |
-| JB-engagement-digest-weekly | engagement.digest_weekly | 0 |
+| JB-engagement-alerts | engagement.alerts | 1 |
+| JB-engagement-digest | engagement.digest | 1 |
+| JB-engagement-digest-weekly | engagement.digest_weekly | 1 |
+| JB-engagement-schedule-reminders | engagement.schedule_reminders | 0 |
 | JB-field-purge | field.purge | 1 |
 | JB-governance-agenda-drafts | governance.agenda_drafts | 1 |
 | JB-governance-ppm-alerts | governance.ppm_alerts | 1 |
 | JB-handoffs-escalate | handoffs.escalate | 1 |
-| JB-meraki-wan | meraki.wan | 4 |
-| JB-meraki-wan-events | meraki.wan_events | 0 |
-| JB-meraki-wan-events-5m | meraki.wan_events_5m | 0 |
-| JB-meraki-wan-poller | meraki.wan_poller | 0 |
-| JB-meridian-resources | meridian.resources | 0 |
+| JB-meraki-wan | meraki.wan | 5 |
+| JB-meraki-wan-events | meraki.wan_events | 1 |
+| JB-meraki-wan-events-5m | meraki.wan_events_5m | 1 |
+| JB-meraki-wan-poller | meraki.wan_poller | 1 |
+| JB-meridian-resources | meridian.resources | 1 |
 | JB-opmanager-availability | opmanager.availability | 1 |
-| JB-publish-connectors | publish.connectors | 0 |
-| JB-reports-monthly | reports.monthly | 0 |
-| JB-reports-weekly | reports.weekly | 0 |
+| JB-publish-connectors | publish.connectors | 2 |
+| JB-reports-monthly | reports.monthly | 1 |
+| JB-reports-weekly | reports.weekly | 1 |
 | JB-softdelete-purge | softdelete.purge | 2 |
 | JB-teams-sla-poll | teams.sla_poll | 1 |
 | JB-zoho-change-cab | zoho.change_cab | 1 |
-| JB-zoho-requests | zoho.requests | 16 |
+| JB-zoho-requests | zoho.requests | 17 |
 | JB-zoho-survey | zoho.survey | 2 |
