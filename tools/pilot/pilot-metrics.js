@@ -2,6 +2,7 @@
 // B-02 — Pilot measurement kit, READ-ONLY collector.
 //
 //   node tools/pilot/pilot-metrics.js --from=2026-11-02 --to=2026-11-29 [--site=Hounde] [--format=md|csv|both] [--out=DIR]
+//   ... --value [--targeted=FILE] [--stopwatch=FILE]   E-B03: the audit §9 value table instead (UNKNOWN where unsourced)
 //
 // Reads data the platform already records (system_log, audit_log, weekly_reports, md_*, insp_*,
 // action_items, field_outbox, sync_runs) and prints a per site × persona × ISO week report.
@@ -19,10 +20,11 @@ const path = require('path');
 const P = require('../../services/pilotMetrics');
 
 function parseArgs(argv) {
-  const o = { from: null, to: null, site: null, format: 'md', out: null };
+  const o = { from: null, to: null, site: null, format: 'md', out: null, value: false, targeted: null, stopwatch: null };
   for (const a of argv || []) {
+    if (a === '--value') { o.value = true; continue; }
     const m = /^--([a-z]+)=(.*)$/.exec(a);
-    if (m && m[1] in o) o[m[1]] = m[2];
+    if (m && m[1] in o && m[1] !== 'value') o[m[1]] = m[2];
   }
   return o;
 }
@@ -92,7 +94,11 @@ async function collect(client, { from, to }) {
   const syncRows = await q(client, `SELECT job, MAX(COALESCE(finished_at, started_at)) AS last_ok FROM sync_runs WHERE status = 'ok' GROUP BY job`, [], missing, 'sync_runs');
   const lastOk = {}; for (const r of syncRows) lastOk[r.job] = r.last_ok;
   const sites = await q(client, `SELECT s.name, c.code FROM sites s LEFT JOIN site_module_codes c ON c.site_id = s.id`, [], missing, 'sites');
-  return { users, events, reports, pvActions, closures, field, fieldTiming, lastOk, sites, missing: [...new Set(missing)] };
+  // E-B03 — the commitment model (only read; the value table says UNKNOWN while commitments_enabled = 0)
+  const commitments = await q(client, `SELECT status, created_at, technical_completed_at, verified_at FROM commitments`, [], missing, 'commitments');
+  const ce = await q(client, `SELECT value FROM report_config WHERE key = 'commitments_enabled'`, [], missing, 'report_config');
+  const commitmentsEnabled = !!(ce[0] && String(ce[0].value) === '1');
+  return { users, events, reports, pvActions, closures, field, fieldTiming, lastOk, sites, commitments, commitmentsEnabled, missing: [...new Set(missing)] };
 }
 
 // action_items carry no creation time: a group (lineage root) is created when its first report was
@@ -112,6 +118,22 @@ function reportActionClosures(rows) {
     out.push({ source: 'report follow-up', site: last.site, user_id: first.user_id, created_at: first.report_created_at, closed_at: last.status_changed_at });
   }
   return out;
+}
+
+// E-B03 — targeted users: one numeric user id per line (or comma separated); no file → null (UNKNOWN), never 0.
+function readTargeted(file) {
+  if (!file) return null;
+  return fs.readFileSync(file, 'utf8').split(/[\s,;]+/).map((x) => x.trim()).filter((x) => /^\d+$/.test(x)).map(Number);
+}
+// WEEKLY-REPORT-STOPWATCH.csv (header row; plain cells, no quoted commas in this sheet) → [{phase, active_minutes}]
+function readStopwatch(file) {
+  if (!file) return null;
+  const lines = fs.readFileSync(file, 'utf8').replace(/^\uFEFF/, '').split(/\r?\n/).filter((l) => l.trim());
+  if (!lines.length) return [];
+  const head = lines[0].split(',').map((h) => h.trim());
+  const ip = head.indexOf('phase'), im = head.indexOf('active_minutes');
+  if (ip < 0 || im < 0) throw new Error('stopwatch sheet must have the columns phase and active_minutes');
+  return lines.slice(1).map((l) => { const c = l.split(','); return { phase: c[ip], active_minutes: c[im] }; });
 }
 
 /** --site → every label that names that site (name + module codes), lower-cased; null = all sites. */
@@ -140,6 +162,13 @@ async function run({ argv = process.argv.slice(2), env = process.env, client = n
   try {
     await c.query('SET SESSION CHARACTERISTICS AS TRANSACTION READ ONLY');
     const d = await collect(c, o);
+    if (o.value) {
+      const t = P.buildValueTable({ from: o.from, to: o.to, events: d.events, targetedUserIds: readTargeted(o.targeted), lastOk: d.lastOk, nowMs: now.getTime(),
+        commitmentsEnabled: d.commitmentsEnabled, commitments: d.commitments, fieldTiming: d.fieldTiming, stopwatch: readStopwatch(o.stopwatch), generatedAt: now.toISOString() });
+      const out = o.format === 'csv' ? P.valueTableCsv(t) : o.format === 'both' ? P.valueTableMarkdown(t) + '\n' + P.valueTableCsv(t) : P.valueTableMarkdown(t);
+      write(out);
+      return { ok: true, valueTable: t, output: out, missing: d.missing };
+    }
     const metrics = require('../../services/metricRegistry').SEED.map((m) => ({ key: m.key, module: m.module, status: m.status }));
     const rep = P.buildReport({ from: o.from, to: o.to, siteSet: siteSetFor(o.site, d.sites), users: d.users, events: d.events, reports: d.reports,
       pvActions: d.pvActions, closures: d.closures, field: d.field, fieldTiming: d.fieldTiming, metrics, lastOk: d.lastOk, nowMs: now.getTime(),
@@ -161,7 +190,7 @@ async function run({ argv = process.argv.slice(2), env = process.env, client = n
   } finally { if (own) await c.end(); }
 }
 
-module.exports = { parseArgs, validate, collect, reportActionClosures, siteSetFor, run };
+module.exports = { parseArgs, validate, collect, reportActionClosures, siteSetFor, readTargeted, readStopwatch, run };
 
 if (require.main === module) {
   run().then((r) => { if (!r.ok) process.exitCode = 1; }).catch((e) => { process.stderr.write('pilot-metrics failed: ' + (e && e.message) + '\n'); process.exitCode = 1; });
