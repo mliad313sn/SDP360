@@ -38,6 +38,12 @@
     for (const w of [SB.text(key), SB.aria(key)]) if (SBT[w]) html = html.split(w).join(SBT[w]);
     return html;
   };
+  // R2-QUEUE (R3) — report_config ui_home_queue: '0' (today) = no queue · '1' = the progressive queue "S1" (lib/homeQueue.js)
+  const queueOn = (() => { try { const p = window.__uiPolicy; return !!(p && p.home_queue === '1' && window.HomeQueue); } catch (_) { return false; } })();
+  // R2-QUEUE — the person's workspace profile (R1/R2), read only while workspace_profiles_enabled = '1' reaches the
+  // browser; null (switch off, 404, any error) = today's Home. Presentation only: it reorders and hides, never adds.
+  const profileOn = (() => { try { const p = window.__uiPolicy; return !!(p && p.workspace_profiles === '1' && window.WorkspaceProfiles && window.WorkspaceProfiles.load); } catch (_) { return false; } })();
+  let profile = null;
   const nm = blocksOn ? stateHtml('not-measured') : `<span class="hm-nm">${esc(T.nm)}</span>`;
   const row = (k, href, v) => `<li><span class="hm-k">${href ? `<a href="${esc(href)}">${esc(k)}</a>` : esc(k)}</span><span class="hm-v">${v}</span></li>`;
 
@@ -72,6 +78,11 @@
   }
 
   function shortcuts() {
+    if (profile && Array.isArray(profile.visible)) {
+      const items = profile.visible.filter((d) => d.href !== 'home.html' && /^[a-z/-]+\.html(?:[?#][A-Za-z0-9_=&#-]*)?$/i.test(String(d.href)));
+      $('hmShortcuts').innerHTML = items.map((d) => `<li><a href="${esc(d.href)}">${esc(d.label)}</a></li>`).join('');
+      return;
+    }
     let ws = null;
     try { ws = window.__shell && window.__shell.workspaceFor ? window.__shell.workspaceFor() : null; } catch (_) { ws = null; }
     const items = ((ws && ws.items) || []).filter((e) => e.href !== 'home.html');
@@ -107,7 +118,8 @@
       const awBlock = (k) => { const b = aw[k]; if (!b) return nm; if (b.count === 0) return esc(T.awNone);
         return `<b>${b.count}</b><ul class="hm-pv">${b.items.map((x) => `<li><a href="${esc(awSafe(x.link) || '#')}">${esc(x.ref || x.title || x.id)}</a> <span class="hm-muted">${esc(x.ref && x.title ? x.title : '')}${x.due_date ? ' · ' + esc(x.due_date) : ''}</span>${x.overdue ? ` <span class="hm-late">${esc(T.awLate)}</span>` : ''}${awSafe(x.evidence_link) && /^https:/i.test(x.evidence_link) ? ` · <a href="${esc(x.evidence_link)}" rel="noopener noreferrer" target="_blank">${esc(T.awEv)}</a>` : ''}</li>`).join('')}</ul>`; };
       const awaiting = aw === undefined || aw === null ? '' : `<section class="hm-card" aria-labelledby="hm-aw"><h2 id="hm-aw">${esc(T.aw)}${aw.total != null ? ` <span class="hm-muted">${aw.total}</span>` : ''}</h2><ul class="hm-blocks">${['commitments', 'handoffs', 'benefits', 'decisions', 'pvs'].map((k) => row(T.awSrc[k], null, awBlock(k))).join('')}</ul></section>`;
-      $('hmSites').innerHTML = awaiting + mine + (j.sites || []).map(siteCard).join('');
+      $('hmSites').innerHTML = awaiting + mine + orderSites(j.sites || []).map(siteCard).join('');
+      mountQueue(j);
       // E-B07 — answers to MY feedback (only present while ui_feedback_enabled = '1'); every value escaped
       const fb = Array.isArray(j.feedback) ? j.feedback : [];
       const fbBox = document.getElementById('hmFeedback');
@@ -127,11 +139,35 @@
       window.__markFirstUsable && window.__markFirstUsable('home');   // F-UX-05
     } catch (e) {
       window.__markFirstUsable && window.__markFirstUsable('home:error');   // F-UX-05 — an explicit state is usable too
+      mountQueue(null);
       if (blocksOn) { failedHome(e); return; }
       $('hmSites').innerHTML = '';
       head(null);
       $('hmMsg').textContent = lang === 'fr' && window.ErrorText ? window.ErrorText.fr(e.message) : e.message;
     }
+  }
+  // the default site of the profile comes first; every other site keeps its order (never adds a site)
+  function orderSites(list) {
+    const d = profile && profile.default_site_id;
+    if (!d) return list;
+    return list.slice().sort((a, b) => (Number(b.site_id) === Number(d)) - (Number(a.site_id) === Number(d)));
+  }
+  async function workJson() {
+    const r = await fetch('/api/me/work', { credentials: 'same-origin' });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+    return j;
+  }
+  // R2-QUEUE — one queue across sources; j = the /api/me/work answer (its own sites, ≤ 12) or null when it failed.
+  let queue = null;
+  function mountQueue(j) {
+    const box = $('hmQueue');
+    if (!queueOn || !box || (profile && profile.queue === false)) return;
+    queue = window.HomeQueue.mount(box, {
+      lang: lang === 'fr' ? 'fr' : 'en', sites: j ? orderSites(j.sites || []) : null, truncated: j ? j.truncated : 0,
+      awaiting: j ? j.awaiting_me : null, asOf: j ? j.as_of : null, reloadWork: workJson, announce: false,
+      fetchJson: async (url) => { const r = await fetch(url, { credentials: 'same-origin' }); return { status: r.status, json: r.ok ? await r.json().catch(() => null) : null }; },
+    });
   }
   // F-UX-09 (switch on) — the whole inbox failed: keep the page, say so with the shared state, offer a retry.
   function failedHome(e) {
@@ -170,7 +206,14 @@
       reloadSite(id, b);
     });
   }
-  window.__homePage = { blocksOn, siteCard, load, reloadSite };   // F-UX-09 — read by tests only
-  shortcuts();
-  load();
+  window.__homePage = { blocksOn, queueOn, siteCard, load, reloadSite, get queue() { return queue; }, get profile() { return profile; } };   // read by tests only
+  if (profileOn) {
+    window.WorkspaceProfiles.load(lang === 'fr' ? 'fr' : 'en').then((p) => {
+      profile = p && Array.isArray(p.destinations) ? p : null;
+      if (profile && profile.density === 'compact') document.body.classList.add('hm-compact');
+    }, () => { profile = null; }).then(() => { shortcuts(); load(); });
+  } else {
+    shortcuts();
+    load();
+  }
 })();

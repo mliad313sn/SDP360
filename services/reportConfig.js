@@ -17,6 +17,8 @@ const DEFAULTS = {
   dashboard_decision_kpis_seed: '0',    // F-DATA-11 '1' = the two candidate decision KPIs are saved as a DRAFT dashboard `decision-kpis` (never published by code)
   ui_nav_active_from_url: '0',          // F-UX-02 '1' = a page whose data-current names no menu entry is marked from its address
   ux_event_telemetry: '0',              // F-UX-06 '1' = task events (export, drill, action open/done, first click) are recorded
+  ui_home_queue: '0',                   // R2-QUEUE (R3) '1' = Home shows the progressive queue "S1" of my authorised work, each source with its own state
+  ui_nav_carry_site: '0',               // R2-QUEUE (R4) '1' = menu links to site-aware pages carry the current ?site=CODE
   ui_home_blocks: '0',                  // F-UX-09 '1' = Home blocks show their own state, retry per card, failed call keeps the page
   ui_exec_charts_v2: '0',               // F-UX-12 '1' = Executive Scorecard: small multiples instead of dual axes, bars instead of rings
   ui_small_multiples: '0',              // E-V09 '1' = the `multiples` widget type (one panel per metric) is creatable

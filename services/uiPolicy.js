@@ -27,6 +27,9 @@
 //                         data-current names no menu entry, the entry matching the address is marked (F-UX-02)
 //   ui_exec_charts_v2     '0' = Executive Scorecard charts as today · '1' = dual axes as small multiples, rings as bars,
 //                         same figures (F-UX-12; arming needs a browser review, decision D5)
+//   ui_home_queue         '0' = Home as today · '1' = progressive queue "S1" of my authorised work across sources, each source with
+//                         its own state (available / unknown / stale / partial / denied), 12 sites, 150 items (R2-QUEUE, R3)
+//   ui_nav_carry_site     '0' = menu links as today · '1' = links to site-aware pages carry the current ?site=CODE (R2-QUEUE, R4)
 //   ui_home_blocks        '0' = Home renders in one pass, a failed call blanks it (today) · '1' = each block shows
 //                         its own state, a failed call keeps the page with a retry, each site card reloads alone (F-UX-09)
 
@@ -47,6 +50,8 @@ const UI_DEFAULTS = {
   ui_nav_active_from_url: '0',
   ui_home_blocks: '0',
   ui_exec_charts_v2: '0',
+  ui_home_queue: '0',
+  ui_nav_carry_site: '0',
 };
 const UI_KEYS = Object.keys(UI_DEFAULTS);
 
@@ -66,6 +71,8 @@ const ENUMS = {
   ui_nav_active_from_url: ['0', '1'],
   ui_home_blocks: ['0', '1'],
   ui_exec_charts_v2: ['0', '1'],
+  ui_home_queue: ['0', '1'],
+  ui_nav_carry_site: ['0', '1'],
 };
 // Same vocabulary as reports-db.js ROLE_HIERARCHY + FEATURE_ROLES_KNOWN (kept inline: this module stays pure).
 const KNOWN_ROLES = new Set(['super_admin', 'executive', 'admin', 'editor', 'viewer',
@@ -109,6 +116,10 @@ function uiPolicyFrom(cfg) {
     nav_active_from_url: _pick(c, 'ui_nav_active_from_url'),
     home_blocks: _pick(c, 'ui_home_blocks'),
     exec_charts_v2: _pick(c, 'ui_exec_charts_v2'),
+    home_queue: _pick(c, 'ui_home_queue'),
+    nav_carry_site: _pick(c, 'ui_nav_carry_site'),
+    // R2-QUEUE — not a ui_* key: the shell shows the "My workspace" link only while the settings page exists
+    workspace_profiles: String(c.workspace_profiles_enabled == null ? '' : c.workspace_profiles_enabled).trim() === '1' ? '1' : '0',
     // F-UX-06 — not a ui_* key (it is a telemetry switch): the browser only needs to know whether to send events
     ux_events: String(c.ux_event_telemetry == null ? '' : c.ux_event_telemetry).trim() === '1' ? '1' : '0',
   };
