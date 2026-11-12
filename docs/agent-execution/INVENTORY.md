@@ -20,7 +20,7 @@
 | jobs | 31 |
 | jobs without test reference | 0 |
 | migrations | 86 |
-| test files | 722 |
+| test files | 724 |
 
 ## Pages
 
@@ -43,7 +43,7 @@
 | PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 14 |
 | PG-handoffs | public/handoffs.html | any | yes | 1 | 9 |
 | PG-help | public/help.html | any | yes | 1 | 10 |
-| PG-home | public/home.html | any | yes | 0 | 14 |
+| PG-home | public/home.html | any | yes | 0 | 15 |
 | PG-index | public/index.html | any | yes | 1 | 29 |
 | PG-infra-health | public/infra-health.html | any | yes | 2 | 6 |
 | PG-inspection-actions | public/inspection-actions.html | any | no | 1 | 6 |

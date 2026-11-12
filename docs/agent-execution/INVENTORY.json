@@ -15,7 +15,7 @@
   "jobs": 31,
   "jobs_without_test_reference": 0,
   "migrations": 86,
-  "test_files": 722
+  "test_files": 724
  },
  "pages": [
   {
@@ -573,7 +573,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 0,
-   "bytes": 6515,
+   "bytes": 6853,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/feedback.smoke.test.js",
@@ -587,6 +587,7 @@
     "tests/page-states-adoption.test.js",
     "tests/shell-nav-r4.test.js",
     "tests/shell-navigation.test.js",
+    "tests/uat-committee.test.js",
     "tests/ui-design-ratchet.test.js",
     "tests/ux-events.smoke.test.js"
    ]
@@ -4229,6 +4230,7 @@
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
+    "tests/portfolio-duplicate-key.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
@@ -4249,6 +4251,7 @@
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
+    "tests/portfolio-duplicate-key.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
@@ -4269,6 +4272,7 @@
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
+    "tests/portfolio-duplicate-key.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
@@ -4480,6 +4484,7 @@
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
+    "tests/portfolio-duplicate-key.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
