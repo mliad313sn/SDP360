@@ -14,13 +14,13 @@
 | pages deep link only | 9 |
 | pages without entry point | 3 |
 | pages with inline scripts | 46 |
-| routes | 661 |
+| routes | 662 |
 | routes without test reference | 31 |
 | routes in server js | 210 |
 | jobs | 31 |
 | jobs without test reference | 0 |
 | migrations | 87 |
-| test files | 726 |
+| test files | 730 |
 
 ## Pages
 
@@ -44,7 +44,7 @@
 | PG-handoffs | public/handoffs.html | any | yes | 1 | 9 |
 | PG-help | public/help.html | any | yes | 1 | 10 |
 | PG-home | public/home.html | any | yes | 0 | 15 |
-| PG-index | public/index.html | any | yes | 1 | 29 |
+| PG-index | public/index.html | any | yes | 1 | 30 |
 | PG-infra-health | public/infra-health.html | any | yes | 2 | 6 |
 | PG-inspection-actions | public/inspection-actions.html | any | no | 1 | 6 |
 | PG-inspection | public/inspection.html | any | no | 2 | 7 |
@@ -170,21 +170,21 @@
 | RT-GET-api-data-major-incidents | GET | `/api/data/major-incidents` | server.js:3344 |
 | RT-GET-api-data-monthly-summary | GET | `/api/data/monthly-summary` | server.js:3988 |
 | RT-GET-api-data-sla-by-category | GET | `/api/data/sla-by-category` | server.js:3474 |
-| RT-POST-api-executive-new-pptx | POST | `/api/executive-new-pptx` | server.js:6435 |
+| RT-POST-api-executive-new-pptx | POST | `/api/executive-new-pptx` | server.js:6434 |
 | RT-GET-api-integration-fmp-readiness | GET | `/api/integration/fmp/readiness` | routes/fourmypeople.js:31 |
 | RT-GET-api-meetings-import-incubation-template | GET | `/api/meetings/import/incubation-template` | routes/meetings.js:801 |
 | RT-POST-api-meetings-import-incubation-commit | POST | `/api/meetings/import/incubation/commit` | routes/meetings.js:841 |
 | RT-POST-api-meetings-import-incubation-preview | POST | `/api/meetings/import/incubation/preview` | routes/meetings.js:814 |
 | RT-GET-api-meetings-progress-export-pptx | GET | `/api/meetings/progress/export-pptx` | routes/meetings.js:917 |
-| RT-GET-api-reports-helpdesk-live | GET | `/api/reports/helpdesk-live` | server.js:5524 |
+| RT-GET-api-reports-helpdesk-live | GET | `/api/reports/helpdesk-live` | server.js:5523 |
 | RT-GET-api-reports-sessions-active | GET | `/api/reports/sessions/active` | routes/adminUsers.js:174 |
-| RT-GET-api-reports-technicians | GET | `/api/reports/technicians` | server.js:5775 |
+| RT-GET-api-reports-technicians | GET | `/api/reports/technicians` | server.js:5774 |
 | RT-POST-api-reports-test-smtp | POST | `/api/reports/test-smtp` | routes/adminConfig.js:176 |
 | RT-GET-api-risk-register-config-unmapped | GET | `/api/risk-register-config/unmapped` | routes/riskRegister.js:129 |
 | RT-GET-api-roadmap-evidence-catalogue | GET | `/api/roadmap/evidence/catalogue` | routes/roadmap.js:56 |
 | RT-GET-api-roadmap-evidence-incidents | GET | `/api/roadmap/evidence/incidents` | routes/roadmap.js:73 |
 | RT-GET-api-roadmap-evidence-platform | GET | `/api/roadmap/evidence/platform` | routes/roadmap.js:64 |
-| RT-POST-api-save-pptx | POST | `/api/save-pptx` | server.js:6515 |
+| RT-POST-api-save-pptx | POST | `/api/save-pptx` | server.js:6514 |
 | RT-POST-api-tracker-import-dept-meetings | POST | `/api/tracker/import-dept-meetings` | routes/tracker.js:108 |
 | RT-GET- | GET | `/` | server.js:1389 |
 
