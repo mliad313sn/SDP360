@@ -116,9 +116,12 @@ function capacityRows(tasks) {
 }
 
 /** Workbook sheets: Projects, Tasks, Milestones, RAID, Baselines, Exceptions, Benefits, Capacity (SheetJS CE — no styling). */
-function buildWorkbookBuffer(view, { money: showMoney = false, baselines = [], exceptions = [], benefitClasses = false } = {}) {
+// R2-WB-02 actualHours: [{task_id, actual, variance}] (projectSchedule.actualHours) — when given, the Tasks sheet gains
+// actual_hours / hours_variance (an empty cell = no time entry = unknown, never 0). Absent = today's sheet.
+function buildWorkbookBuffer(view, { money: showMoney = false, baselines = [], exceptions = [], benefitClasses = false, actualHours = null } = {}) {
   const v = view || {};
   const keyOf = new Map((v.projects || []).map((p) => [Number(p.id), p.key]));
+  const hoursOf = Array.isArray(actualHours) ? new Map(actualHours.map((h) => [Number(h.task_id), h])) : null;
   const projects = (v.projects || []).map((p) => {
     const x = varianceOf(p);
     const row = { key: p.key, name: p.name, owner: p.owner, stage: p.stage || null, status: p.status, site_id: p.site_id, start_date: p.start_date, end_date: p.end_date, baseline_start: p.baseline_start, baseline_end: p.baseline_end, forecast_end: x.forecast_end, actual_end: x.actual_end, slip_days: x.finish_variance_days, progress_pct: p.progress_pct };
@@ -129,7 +132,8 @@ function buildWorkbookBuffer(view, { money: showMoney = false, baselines = [], e
   });
   const tasks = (v.tasks || []).map((t) => ({ project: keyOf.get(Number(t.project_id)) || null, id: t.id, wbs_code: t.wbs_code, name: t.name, owner: t.owner, status: t.status, start_date: t.start_date, end_date: t.end_date, baseline_start: t.baseline_start, baseline_end: t.baseline_end, progress_pct: t.progress_pct,
     // F-PRODUCT-02: an allocation / effort that was not entered stays an EMPTY cell (never 0, never 100)
-    allocation_pct: _numOrNull(t.allocation_pct), effort_hours: _numOrNull(t.effort_hours), depends_on: (t.depends_on || []).join(',') }));
+    allocation_pct: _numOrNull(t.allocation_pct), effort_hours: _numOrNull(t.effort_hours), depends_on: (t.depends_on || []).join(','),
+    ...(hoursOf ? { actual_hours: hoursOf.has(Number(t.id)) ? hoursOf.get(Number(t.id)).actual : null, hours_variance: hoursOf.has(Number(t.id)) ? hoursOf.get(Number(t.id)).variance : null } : {}) }));
   const capacity = capacityRows(v.tasks || []);
   const milestones = (v.milestones || []).map((m) => ({ project: keyOf.get(Number(m.project_id)) || null, id: m.id, name: m.name, owner: m.owner || null, status: m.status, due_date: m.due_date, baseline_date: m.baseline_date, done_at: m.done_at }));
   const raid = (v.risks || []).map((r) => ({ project: keyOf.get(Number(r.project_id)) || null, id: r.id, kind: r.kind || 'risk', title: r.title, probability: r.probability, impact: r.impact, exposure: r.exposure, severity: r.severity, owner: r.owner, status: r.status, mitigation: r.mitigation }));

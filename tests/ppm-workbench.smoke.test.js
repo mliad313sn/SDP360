@@ -38,6 +38,7 @@ before(async () => {
 after(() => server && server.close());
 const send = async (m, p, t, body) => { const r = await fetch(base + p, { method: m, headers: Object.assign({ 'x-report-token': t }, body ? { 'content-type': 'application/json' } : {}), body: body ? JSON.stringify(body) : undefined }); let j = null; try { j = await r.json(); } catch (_) {} return { status: r.status, j, r }; };
 const put = (k, t, b) => send('PUT', '/api/governance/portfolio/' + k, t, b);
+const wbBuf = async (t) => Buffer.from(await (await fetch(base + '/api/governance/portfolio/workbook.xlsx', { headers: { 'x-report-token': t } })).arrayBuffer());
 const sw = (patch) => cfg.setConfig(rdb.db, patch, 'smoke');
 
 test('R2-WB-04 team: 404 while off and the conflicts are today’s; on: plan-write rule, member allocation fills unknown tasks, ledger row', async () => {
@@ -69,4 +70,49 @@ test('R2-WB-04 team: 404 while off and the conflicts are today’s; on: plan-wri
     assert.deepEqual(h.j.events.filter((e) => /^team_member/.test(e.action)).map((e) => e.action), ['team_member_added', 'team_member_removed']);
     assert.equal((await send('GET', '/api/governance/ppm/features', T.viewer)).j.team, true);
   } finally { await sw({ ppm_project_team_enabled: '0', portfolio_site_scope_reads: '0' }); }
+});
+
+test('R2-WB-02 time entries: 404 while off; on: plan-write rule, null vs 0, cross-site 404 under the read scope, workbook parity', async () => {
+  await sw({ ppm_time_entries_enabled: '0' });
+  const t1 = (await put('task', T.pmo, { project_id: pid, name: 'Cabling', owner: 'Bob', effort_hours: 10 })).j.id;
+  const t2 = (await put('task', T.pmo, { project_id: pid, name: 'Labels', owner: 'Bob', effort_hours: 3 })).j.id;
+  const t3 = (await put('task', T.pmo, { project_id: pid, name: 'Not started', owner: 'Bob', effort_hours: 5 })).j.id;
+  const tB = (await put('task', T.pmo, { project_id: pidB, name: 'Site B task', owner: 'Cy', effort_hours: 2 })).j.id;
+  assert.equal((await send('GET', `/api/governance/ppm/task/${t1}/time`, T.pmo)).status, 404);
+  assert.equal((await send('POST', `/api/governance/ppm/task/${t1}/time`, T.pmo, { day: '2026-11-03', hours: 4 })).status, 404);
+  assert.equal((await send('GET', `/api/governance/ppm/project/${pid}/actual-hours`, T.pmo)).status, 404);
+  const XLSX = require('xlsx');
+  const wbHead = async () => XLSX.utils.sheet_to_json(XLSX.read(await wbBuf(T.pmo), { type: 'buffer' }).Sheets.Tasks, { defval: null });
+  assert.ok(!('actual_hours' in (await wbHead())[0]), 'switch off: today’s Tasks sheet');
+  await sw({ ppm_time_entries_enabled: '1' });
+  try {
+    assert.equal((await send('POST', `/api/governance/ppm/task/${t1}/time`, T.viewer, { day: '2026-11-03', hours: 4 })).status, 403, 'plan-write rule');
+    const bad = await send('POST', `/api/governance/ppm/task/${t1}/time`, T.pmo, { day: '2026-11-03', hours: 30 });
+    assert.equal(bad.status, 400); assert.equal(bad.j.code, 'BAD_HOURS');
+    for (const h of [6, 5.5]) assert.equal((await send('POST', `/api/governance/ppm/task/${t1}/time`, T.pmo, { day: '2026-11-03', hours: h, person_label: 'Bob' })).status, 200);
+    const zero = await send('POST', `/api/governance/ppm/task/${t2}/time`, T.pmo, { day: '2026-11-04', hours: 0 });
+    assert.equal(zero.status, 200); assert.equal(zero.j.entry.person_label, 'wb_pmo', 'the recorder by default');
+    const ah = await send('GET', `/api/governance/ppm/project/${pid}/actual-hours`, T.viewer);
+    assert.equal(ah.status, 200);
+    const by = Object.fromEntries(ah.j.hours.map((x) => [x.task_id, x]));
+    assert.deepEqual([by[t1].actual, by[t1].variance], [11.5, 1.5]);
+    assert.deepEqual([by[t2].actual, by[t2].variance], [0, -3], 'a recorded 0 h is 0');
+    assert.deepEqual([by[t3].actual, by[t3].variance], [null, null], 'no entry = unknown, never 0');
+    const one = await send('GET', `/api/governance/ppm/task/${t1}/time`, T.viewer);
+    assert.equal(one.j.entries.length, 2); assert.equal(one.j.hours.actual, 11.5);
+    // workbook parity: the Tasks sheet carries the same actual hours as the screen's API
+    const rows = await wbHead();
+    const r = (id) => rows.find((x) => x.id === id);
+    assert.deepEqual([r(t1).actual_hours, r(t2).actual_hours, r(t3).actual_hours], [11.5, 0, null]);
+    // cross-site: under the read scope a task of another site does not exist for the site-A viewer
+    assert.equal((await send('GET', `/api/governance/ppm/task/${tB}/time`, T.viewer)).status, 200);
+    await sw({ portfolio_site_scope_reads: '1' });
+    assert.equal((await send('GET', `/api/governance/ppm/task/${tB}/time`, T.viewer)).status, 404);
+    assert.equal((await send('GET', `/api/governance/ppm/project/${pidB}/actual-hours`, T.viewer)).status, 404);
+    await sw({ portfolio_site_scope_reads: '0' });
+    const eid = one.j.entries[0].id;
+    assert.equal((await send('DELETE', `/api/governance/ppm/task/${t1}/time/${eid}`, T.pmo)).status, 200);
+    const h = await send('GET', `/api/governance/portfolio/project/${pid}/history`, T.pmo);
+    assert.deepEqual(h.j.events.filter((e) => /^time_entry/.test(e.action)).map((e) => e.action), ['time_entry_added', 'time_entry_added', 'time_entry_added', 'time_entry_removed']);
+  } finally { await sw({ ppm_time_entries_enabled: '0', portfolio_site_scope_reads: '0' }); }
 });

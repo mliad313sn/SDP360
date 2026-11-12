@@ -338,6 +338,9 @@ DEFAULTS.roadmap_redirect_to_portfolio = '0';
 //    allocation to the project); a task whose allocation is UNKNOWN then reads its owner's member allocation in the
 //    conflicts and the capacity view (a known allocation is never overridden; no member = today's figures).
 DEFAULTS.ppm_project_team_enabled = '0';
+//    ppm_time_entries_enabled '1' → time entries per task (who, day, hours 0..24) on the Plan tab; planned effort vs
+//    actual hours vs variance (no entry = unknown, never 0); the workbook Tasks sheet gains actual_hours.
+DEFAULTS.ppm_time_entries_enabled = '0';
 
 // ── SEC-01 — per-ACCOUNT login throttle (services/accountThrottle.js). '0' = today: only the per-IP limiter
 //    (10 attempts / 15 min per address). '1' → more than auth_account_throttle_max FAILED sign-ins against one

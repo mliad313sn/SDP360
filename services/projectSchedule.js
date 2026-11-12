@@ -89,6 +89,29 @@ function resourceConflicts(tasks, members) { return AC.conflicts(AC.withMembers(
 /** @returns {{tasks, known, unknown, invalid, unassigned, undated, closed, invalid_task_ids, possible_conflicts}} */
 function resourceCoverage(tasks, members) { return AC.coverage(AC.withMembers(tasks || [], members)); }
 
+/**
+ * R2-WB-02 — planned vs actual hours per task. planned = effort_hours (null when not entered); actual = the sum of the
+ * task's time entries, NULL when the task has no entry at all (not measured — never 0; an entry of 0 h gives 0);
+ * variance = actual − planned when both are known, else null.
+ * @param {Array<{id, effort_hours?}>} tasks @param {Array<{task_id, hours}>} entries
+ * @returns {Array<{task_id, planned, actual, variance, entries}>}
+ */
+function actualHours(tasks, entries) {
+  const by = new Map();
+  for (const e of entries || []) {
+    const h = Number(e && e.hours); if (!e || !Number.isFinite(h)) continue;
+    const k = Number(e.task_id), cur = by.get(k) || { sum: 0, n: 0 };
+    cur.sum += h; cur.n += 1; by.set(k, cur);
+  }
+  const r2 = (x) => Math.round(x * 100) / 100;
+  return (tasks || []).map((t) => {
+    const p = t.effort_hours == null || t.effort_hours === '' || !Number.isFinite(Number(t.effort_hours)) ? null : Number(t.effort_hours);
+    const a = by.get(Number(t.id));
+    const actual = a ? r2(a.sum) : null;
+    return { task_id: Number(t.id), planned: p, actual, variance: p != null && actual != null ? r2(actual - p) : null, entries: a ? a.n : 0 };
+  });
+}
+
 /** Baseline vs forecast vs actual. Missing dates give null (not measured), never 0. */
 function varianceOf(x) {
   const forecast = x.actual_end || x.forecast_end || x.end_date || null;
@@ -187,4 +210,4 @@ function stageGate(project, to, actor, ctx = {}) {
   return null;
 }
 
-module.exports = { charterText, scheduleView, dependencyProblem, criticalPath, resourceConflicts, resourceCoverage, varianceOf, STAGES, GATES, stageGate, days };
+module.exports = { actualHours, charterText, scheduleView, dependencyProblem, criticalPath, resourceConflicts, resourceCoverage, varianceOf, STAGES, GATES, stageGate, days };

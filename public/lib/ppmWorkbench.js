@@ -1,7 +1,9 @@
 /* R2-WORKBENCH (REBUILD-SPEC R5) — project page add-ons, each shown only while its PROPOSED switch is on
    (GET /api/governance/ppm/features). UMD: loaded by project.html, required by tests. The *Html functions are PURE
    (esc = the page's HTML escaper; every value goes through it, "—" = not known, never 0); mount* wire a panel.
-   R2-WB-04 teamHtml(members) — the project team (name, user link, role, allocation, window). */
+   R2-WB-04 teamHtml(members) — the project team (name, user link, role, allocation, window).
+   R2-WB-02 hoursHtml(rows, tasks) — per task planned effort / actual hours / variance ("—" = no entry = unknown);
+            entriesHtml(entries) — the time entries of one task. */
 (function (root, factory) {
   if (typeof module === 'object' && module.exports) module.exports = factory();
   else root.PpmWorkbench = factory();
@@ -45,5 +47,48 @@
     });
   }
 
-  return { teamHtml: teamHtml, mountTeam: mountTeam };
+  function hoursHtml(rows, tasks, esc) {
+    var name = {}; (tasks || []).forEach(function (t) { name[t.id] = [t.wbs_code, t.name].filter(function (x) { return x != null && x !== ''; }).join(' '); });
+    var list = rows || [];
+    if (!list.length) return '<p class="muted">No task yet.</p>';
+    var known = list.filter(function (r) { return r.actual != null; }).length;
+    return '<table><thead><tr><th>Task</th><th>Planned effort</th><th>Actual hours</th><th>Variance</th><th>Entries</th></tr></thead><tbody>' + list.map(function (r) {
+      return '<tr><td>' + esc(name[r.task_id] || ('#' + r.task_id)) + '</td><td>' + n(r.planned, esc, ' h') + '</td><td>' + n(r.actual, esc, ' h') + '</td><td>' + (r.variance == null ? '—' : esc((r.variance > 0 ? '+' : '') + r.variance + ' h')) + '</td><td>' + esc(String(r.entries || 0)) + '</td></tr>';
+    }).join('') + '</tbody></table><p class="muted">' + esc(known + ' of ' + list.length) + ' task(s) have recorded hours. “—” = no time entry (not measured), never 0; the variance needs both a planned effort and recorded hours.</p>';
+  }
+  function entriesHtml(entries, esc, canEdit) {
+    if (!entries || !entries.length) return '<p class="muted">No hours recorded on this task.</p>';
+    return '<table><thead><tr><th>Day</th><th>Person</th><th>Hours</th><th>Note</th>' + (canEdit ? '<th></th>' : '') + '</tr></thead><tbody>' + entries.map(function (e) {
+      return '<tr><td>' + n(e.day, esc) + '</td><td>' + n(e.person_label, esc) + '</td><td>' + n(e.hours, esc, ' h') + '</td><td>' + n(e.note, esc) + '</td>' + (canEdit ? '<td><button class="btn danger" type="button" data-time-del="' + esc(String(e.id)) + '">Remove</button></td>' : '') + '</tr>';
+    }).join('') + '</tbody></table>';
+  }
+  var TIME = { ctx: null };
+  /** ctx: { $, esc, api, msg, fail, pid, canEdit, tasks } — fills #time-hours, the task picker and #time-entries. */
+  function mountTime(ctx) {
+    var $ = ctx.$, esc = ctx.esc; TIME.ctx = ctx;
+    $('time-panel').hidden = false; $('time-edit').hidden = !ctx.canEdit;
+    var tasks = ctx.tasks || [];
+    var sel = $('te-task').value;
+    $('te-task').innerHTML = tasks.map(function (t) { return '<option value="' + esc(String(t.id)) + '">' + esc([t.wbs_code, t.name].filter(function (x) { return x != null && x !== ''; }).join(' ')) + '</option>'; }).join('');
+    if (sel) $('te-task').value = sel;
+    var drawHours = function () { ctx.api('/api/governance/ppm/project/' + encodeURIComponent(ctx.pid) + '/actual-hours').then(function (j) { $('time-hours').innerHTML = hoursHtml(j.hours, tasks, esc); }).catch(ctx.fail); };
+    var drawEntries = function () { var tid = $('te-task').value; if (!tid) { $('time-entries').innerHTML = ''; return; } ctx.api('/api/governance/ppm/task/' + encodeURIComponent(tid) + '/time').then(function (j) { $('time-entries').innerHTML = entriesHtml(j.entries, esc, TIME.ctx.canEdit); }).catch(ctx.fail); };
+    TIME.redraw = function () { drawHours(); drawEntries(); };
+    TIME.redraw();
+    if ($('te-save').getAttribute('data-wired')) return;
+    $('te-save').setAttribute('data-wired', '1');
+    $('te-task').addEventListener('change', function () { TIME.redraw(); });
+    $('te-save').addEventListener('click', function () {
+      var c = TIME.ctx, tid = $('te-task').value; if (!tid) return;
+      var b = { person_label: $('te-person').value.trim() || null, day: $('te-day').value || null, hours: $('te-hours').value === '' ? null : Number($('te-hours').value), note: $('te-note').value.trim() || null };
+      c.api('/api/governance/ppm/task/' + encodeURIComponent(tid) + '/time', { method: 'POST', body: JSON.stringify(b) }).then(function () { c.msg('Hours recorded.'); $('te-hours').value = ''; $('te-note').value = ''; TIME.redraw(); }).catch(c.fail);
+    });
+    $('time-entries').addEventListener('click', function (ev) {
+      var d = ev.target.closest && ev.target.closest('[data-time-del]'); if (!d) return;
+      var c = TIME.ctx;
+      c.api('/api/governance/ppm/task/' + encodeURIComponent($('te-task').value) + '/time/' + encodeURIComponent(d.getAttribute('data-time-del')), { method: 'DELETE' }).then(function () { c.msg('Time entry removed.'); TIME.redraw(); }).catch(c.fail);
+    });
+  }
+
+  return { teamHtml: teamHtml, mountTeam: mountTeam, hoursHtml: hoursHtml, entriesHtml: entriesHtml, mountTime: mountTime };
 }));

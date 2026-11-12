@@ -3,6 +3,8 @@
 //   R2-WB-04 normaliseMember — a project team member: a label (free text, kept), optional user id, role, allocation to
 //            the project (null = unknown, never 0 % nor 100 %), optional window. The allocation rule itself lives in
 //            public/lib/allocationContract.withMembers (the ONE allocation contract).
+//   R2-WB-02 normaliseTimeEntry — one entry: person (label, optional user id; default = the person recording), a day
+//            YYYY-MM-DD, hours 0..24 (a stated 0 stays 0), a note. The sum per task is projectSchedule.actualHours.
 // Every error carries a stable code (the page turns it into plain words).
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -30,4 +32,19 @@ function normaliseMember(body) {
   return { user_id: userId, label, role: text(b.role, 120), allocation_pct: alloc, from_day: from, to_day: to };
 }
 
-module.exports = { normaliseMember, day, bad, text, numOrNull };
+/** @returns {{person_user_id:number|null, person_label:string, day:string, hours:number, note:string|null}} */
+function normaliseTimeEntry(body, user) {
+  const b = body || {};
+  const d = day(b.day, 'day');
+  if (!d) throw bad('DAY_REQUIRED', 'a day (YYYY-MM-DD) is required');
+  const h = numOrNull(b.hours);
+  if (h == null || Number.isNaN(h) || h < 0 || h > 24) throw bad('BAD_HOURS', 'hours must be a number from 0 to 24');
+  let userId = b.person_user_id == null || b.person_user_id === '' ? null : Number(b.person_user_id);
+  if (userId != null && !(Number.isInteger(userId) && userId > 0)) throw bad('BAD_USER', 'person_user_id must be a user id');
+  let label = text(b.person_label, 200);
+  if (!label && userId == null && user) { label = text(user.full_name || user.username, 200); userId = user.id != null ? Number(user.id) : null; }
+  if (!label) throw bad('PERSON_REQUIRED', 'who worked these hours (person_label) is required');
+  return { person_user_id: userId, person_label: label, day: d, hours: h, note: text(b.note, 1000) };
+}
+
+module.exports = { normaliseTimeEntry, normaliseMember, day, bad, text, numOrNull };

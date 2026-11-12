@@ -20,3 +20,19 @@ CREATE TABLE IF NOT EXISTS ppm_project_members (
   updated_at     TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_ppm_project_members_project ON ppm_project_members(project_id);
+
+-- R2-WB-02 — time entries: who (a label, optional user id), which task, which day, how many hours (0..24). No entry
+-- for a task = actual hours UNKNOWN (null), never 0. Switch ppm_time_entries_enabled. The project page compares the
+-- planned effort_hours of the task with the sum of its entries.
+CREATE TABLE IF NOT EXISTS ppm_time_entries (
+  id             BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  task_id        BIGINT NOT NULL REFERENCES portfolio_tasks(id) ON DELETE CASCADE,
+  person_user_id INTEGER,
+  person_label   TEXT NOT NULL,
+  day            TEXT NOT NULL CHECK (day ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'),
+  hours          NUMERIC NOT NULL CHECK (hours >= 0 AND hours <= 24),
+  note           TEXT,
+  created_by     INTEGER,
+  created_at     TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_ppm_time_entries_task ON ppm_time_entries(task_id, day);

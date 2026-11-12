@@ -124,6 +124,16 @@
       </div>
       <div class="bar"><button class="btn primary" id="t-save" type="button">Save task</button><button class="btn danger" id="t-del" type="button">Delete task</button></div>
     </div>
+    <div class="panel" id="time-panel" hidden><h2>Hours — planned, actual, variance</h2><div class="scroll" id="time-hours"></div>
+      <h2>Time entries</h2>
+      <div class="row"><label>Task <select id="te-task"></select></label></div>
+      <div id="time-edit" hidden><div class="row">
+        <label>Person (empty = you) <input id="te-person"></label>
+        <label>Day <input id="te-day" type="date"></label>
+        <label>Hours (0-24) <input id="te-hours" type="number" min="0" max="24" step="0.25"></label>
+        <label>Note <input id="te-note"></label>
+      </div><div class="bar"><button class="btn primary" id="te-save" type="button">Record hours</button></div></div>
+      <div class="scroll" id="time-entries"></div></div>
   </section>
 
   <section id="pane-milestones" role="tabpanel" aria-labelledby="tab-milestones" hidden>
@@ -272,7 +282,7 @@
   var V = null;
   // W2-PPM — which PROPOSED switches are on (each new tab / prompt exists only then); an error = all off (today)
   var FEAT = {};
-  api("/api/governance/ppm/features").then(function (f) { FEAT = f || {}; if (FEAT.budget_periods) addTab("budget", "gates"); if (FEAT.benefit_owner_link) linkOwners(); if (FEAT.benefit_value_class) { $("b-class-box").hidden = false; if (V) renderBenefits(); } if (FEAT.raci) addTab("raci", "gates"); if (FEAT.team && V) mountTeam(); if (FEAT.templates && V && V.committee) $("tpl-save-box").hidden = false; }).catch(function () { FEAT = {}; });
+  api("/api/governance/ppm/features").then(function (f) { FEAT = f || {}; if (FEAT.budget_periods) addTab("budget", "gates"); if (FEAT.benefit_owner_link) linkOwners(); if (FEAT.benefit_value_class) { $("b-class-box").hidden = false; if (V) renderBenefits(); } if (FEAT.raci) addTab("raci", "gates"); if (FEAT.team && V) mountTeam(); if (FEAT.time_entries && V && $("tab-plan").getAttribute("aria-selected") === "true") mountTime(); if (FEAT.templates && V && V.committee) $("tpl-save-box").hidden = false; }).catch(function () { FEAT = {}; });
 
   // ---- tabs (role=tablist, arrows / Home / End, deep link #tab) ---------------------------------------------
   // Extension point: later goals (baselines, benefits) add a tab button + a pane + an entry in RENDER.
@@ -283,6 +293,8 @@
   RENDER.budget = function () { if (window.PpmExtras) window.PpmExtras.mountBudget(X()); };
   RENDER.raci = function () { if (window.PpmExtras) window.PpmExtras.mountRaci(Object.assign(X(), { canEdit: !!(V && V.can_edit_plan) })); };
   // R2-WB-04 — the Team panel (Overview) exists only while ppm_project_team_enabled is on
+  // R2-WB-02 — hours panel (Plan tab) only while ppm_time_entries_enabled is on
+  function mountTime() { if (window.PpmWorkbench) window.PpmWorkbench.mountTime(Object.assign(X(), { canEdit: !!(V && V.can_edit_plan), tasks: (V && V.tasks) || [] })); }
   function mountTeam() { if (window.PpmWorkbench) window.PpmWorkbench.mountTeam(Object.assign(X(), { canEdit: !!(V && V.can_edit_plan) })); }
   $("tpl-save").addEventListener("click", function () { api("/api/governance/ppm/templates", { method: "POST", body: JSON.stringify({ project_id: Number(PID), name: $("tpl-name").value.trim() }) }).then(function (j) { msg("Template #" + j.template.id + " saved as a draft."); }).catch(fail); });
   // E-P05 — the user picker for a benefit owner (committee: /api/governance/people answers 403 to others → stays hidden)
@@ -429,6 +441,7 @@
     // C-14 — resource pressure per person and week (tasks without an allocation are counted "unknown", never guessed)
     $("plan-pressure").innerHTML = window.PpmVisuals ? window.PpmVisuals.pressureHtml(window.PpmVisuals.resourcePressure(V.tasks || [], { today: today() }), esc) : "";
     taskEditor();
+    if (FEAT.time_entries) mountTime();
   }
   // C-14 (G22 / F28) — visible legend (swatches, not only words) naming the baseline actually drawn.
   function ganttLegend() {

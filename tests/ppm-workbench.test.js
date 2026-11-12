@@ -60,3 +60,42 @@ test('R2-WB-04 teamHtml escapes every field and reads unknown, never 0', () => {
   assert.match(h, /unknown/); assert.match(h, /0 %/); assert.match(h, /data-team-del="2"/);
   assert.match(UI.teamHtml([], esc), /No team member/);
 });
+
+test('R2-WB-02 actualHours: no entry = null (unknown), an entry of 0 h = 0; variance only when both are known', () => {
+  const tasks = [{ id: 1, effort_hours: 10 }, { id: 2, effort_hours: 4 }, { id: 3, effort_hours: null }, { id: 4, effort_hours: 8 }];
+  const entries = [{ task_id: 1, hours: 6 }, { task_id: 1, hours: 5.5 }, { task_id: 2, hours: 0 }, { task_id: 3, hours: 2 }, { task_id: 9, hours: 3 }, { task_id: 1, hours: 'x' }];
+  assert.deepEqual(SCH.actualHours(tasks, entries), [
+    { task_id: 1, planned: 10, actual: 11.5, variance: 1.5, entries: 2 },
+    { task_id: 2, planned: 4, actual: 0, variance: -4, entries: 1 },
+    { task_id: 3, planned: null, actual: 2, variance: null, entries: 1 },
+    { task_id: 4, planned: 8, actual: null, variance: null, entries: 0 },
+  ]);
+  assert.deepEqual(SCH.actualHours([], entries), []);
+});
+
+test('R2-WB-02 normaliseTimeEntry: day and hours 0..24 required, the recorder by default, a stated 0 h stays 0', () => {
+  const me = { id: 7, username: 'pmo', full_name: 'PMO Person' };
+  assert.deepEqual(WB.normaliseTimeEntry({ day: '2026-11-03', hours: 0 }, me), { person_user_id: 7, person_label: 'PMO Person', day: '2026-11-03', hours: 0, note: null });
+  assert.equal(WB.normaliseTimeEntry({ day: '2026-11-03', hours: '7.5', person_label: 'Ana' }, me).person_user_id, null, 'another named person is not linked to the recorder');
+  for (const [b, code] of [[{ hours: 2 }, 'DAY_REQUIRED'], [{ day: '2026-11-03' }, 'BAD_HOURS'], [{ day: '2026-11-03', hours: 25 }, 'BAD_HOURS'], [{ day: '2026-11-03', hours: -1 }, 'BAD_HOURS'], [{ day: '03/11/2026', hours: 1 }, 'BAD_DAY']]) {
+    assert.throws(() => WB.normaliseTimeEntry(b, me), (e) => e.reason === code, code);
+  }
+  assert.throws(() => WB.normaliseTimeEntry({ day: '2026-11-03', hours: 1 }, null), (e) => e.reason === 'PERSON_REQUIRED');
+});
+
+test('R2-WB-02 hoursHtml / entriesHtml: "—" for unknown, escaped labels', () => {
+  const h = UI.hoursHtml([{ task_id: 1, planned: 10, actual: null, variance: null, entries: 0 }, { task_id: 2, planned: null, actual: 0, variance: null, entries: 1 }], [{ id: 1, name: '<i>A</i>' }, { id: 2, name: 'B' }], esc);
+  assert.ok(h.includes('&lt;i&gt;A&lt;/i&gt;')); assert.match(h, /0 h/); assert.match(h, /1 of 2/);
+  assert.match(UI.entriesHtml([{ id: 3, day: '2026-11-03', person_label: 'Ana', hours: 2, note: null }], esc, true), /data-time-del="3"/);
+});
+
+test('R2-WB-02 workbook: no actual_hours column unless given; given = per task actual / variance, unknown = empty cell', () => {
+  const XLSX = require('xlsx'), D = require('../services/portfolioDeck');
+  const view = { projects: [{ id: 1, key: 'P-1', name: 'P' }], tasks: [{ id: 1, project_id: 1, name: 'A', effort_hours: 10 }, { id: 2, project_id: 1, name: 'B', effort_hours: null }] };
+  const head = (wb) => XLSX.utils.sheet_to_json(wb.Sheets.Tasks, { header: 1 })[0];
+  const off = XLSX.read(D.buildWorkbookBuffer(view, {}), { type: 'buffer' });
+  assert.ok(!head(off).includes('actual_hours'), 'today: no column');
+  const on = XLSX.read(D.buildWorkbookBuffer(view, { actualHours: SCH.actualHours(view.tasks, [{ task_id: 1, hours: 12 }]) }), { type: 'buffer' });
+  const rows = XLSX.utils.sheet_to_json(on.Sheets.Tasks, { defval: null });
+  assert.deepEqual(rows.map((r) => [r.name, r.effort_hours, r.actual_hours, r.hours_variance]), [['A', 10, 12, 2], ['B', null, null, null]]);
+});

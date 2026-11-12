@@ -49,7 +49,37 @@ function makeWorkbenchStore(db, gov, { now = () => new Date().toISOString() } = 
     });
   }
 
-  return { listMembers, listMembersFor, saveMember, removeMember };
+  // ── R2-WB-02 time entries ───────────────────────────────────────────────────────────────────────────────────
+  const timeRow = (r) => r && ({ id: Number(r.id), task_id: Number(r.task_id), person_user_id: n(r.person_user_id), person_label: r.person_label, day: r.day, hours: n(r.hours), note: r.note || null, created_by: n(r.created_by), created_at: r.created_at || null });
+  async function listTimeEntries(taskId) { return (await P(`SELECT * FROM ppm_time_entries WHERE task_id=? ORDER BY day, id`).all(Number(taskId))).map(timeRow); }
+  /** Every entry of the LIVE tasks of a project (a soft-deleted task's hours are not served). */
+  async function listProjectTimeEntries(projectId) {
+    return (await P(`SELECT e.* FROM ppm_time_entries e JOIN portfolio_tasks t ON t.id = e.task_id WHERE t.project_id=? AND t.deleted_at IS NULL ORDER BY e.task_id, e.day, e.id`).all(Number(projectId))).map(timeRow);
+  }
+  async function listTimeEntriesForTasks(taskIds) {
+    const ids = [...new Set((taskIds || []).map(Number).filter(Number.isInteger))];
+    if (!ids.length) return [];
+    return (await P(`SELECT * FROM ppm_time_entries WHERE task_id IN (${ids.map(() => '?').join(',')}) ORDER BY task_id, day, id`).all(...ids)).map(timeRow);
+  }
+  async function addTimeEntry(taskId, projectId, body, { user } = {}) {
+    const e = WB.normaliseTimeEntry(body, user);
+    return tx(async () => {
+      const id = await insert('ppm_time_entries', ['task_id', 'person_user_id', 'person_label', 'day', 'hours', 'note', 'created_by', 'created_at'], [Number(taskId), e.person_user_id, e.person_label, e.day, e.hours, e.note, uid(user), now()]);
+      await gov.ppmEvent({ entity: 'project', entity_id: Number(projectId), action: 'time_entry_added', field: `task:${taskId}`, old_value: null, new_value: `${e.hours} h`, note: `${e.person_label} · ${e.day}${e.note ? ' · ' + e.note : ''}` }, user);
+      return timeRow(await P(`SELECT * FROM ppm_time_entries WHERE id=?`).get(id));
+    });
+  }
+  async function removeTimeEntry(taskId, entryId, projectId, { user } = {}) {
+    const before = await P(`SELECT * FROM ppm_time_entries WHERE id=? AND task_id=?`).get(Number(entryId), Number(taskId));
+    if (!before) throw notFound('time entry');
+    return tx(async () => {
+      await P(`DELETE FROM ppm_time_entries WHERE id=?`).run(Number(entryId));
+      await gov.ppmEvent({ entity: 'project', entity_id: Number(projectId), action: 'time_entry_removed', field: `task:${taskId}`, old_value: `${n(before.hours)} h`, new_value: null, note: `${before.person_label} · ${before.day}` }, user);
+      return true;
+    });
+  }
+
+  return { listMembers, listMembersFor, saveMember, removeMember, listTimeEntries, listProjectTimeEntries, listTimeEntriesForTasks, addTimeEntry, removeTimeEntry };
 }
 
 module.exports = { makeWorkbenchStore };
