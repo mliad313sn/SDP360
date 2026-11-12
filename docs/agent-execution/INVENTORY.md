@@ -14,13 +14,13 @@
 | pages deep link only | 9 |
 | pages without entry point | 3 |
 | pages with inline scripts | 46 |
-| routes | 662 |
+| routes | 665 |
 | routes without test reference | 31 |
 | routes in server js | 210 |
 | jobs | 31 |
 | jobs without test reference | 0 |
-| migrations | 87 |
-| test files | 735 |
+| migrations | 88 |
+| test files | 737 |
 
 ## Pages
 
