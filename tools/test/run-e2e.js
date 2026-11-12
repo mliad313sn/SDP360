@@ -10,7 +10,7 @@
 //                          only if it FAILS
 //
 // Fails when: a test fails or is skipped, a journey wrote no artefact, an artefact is not 'passed', or any
-// artefact counts an unexpected external request. Writes <artefacts>/summary.json.
+// artefact counts an unexpected external request (browser side, or server side — UAT-OI-07). Writes <artefacts>/summary.json.
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
@@ -54,8 +54,9 @@ for (let i = 1; i <= runs; i++) {
   if (r.tests !== specs.length) problems.push(`run ${i}: ${r.tests} journeys reported, ${specs.length} spec files`);
   for (const f of fs.readdirSync(artDir).filter((x) => x.endsWith('.json') && x !== 'summary.json' && !/^run\d+-/.test(x))) {
     const a = JSON.parse(fs.readFileSync(path.join(artDir, f), 'utf8'));
-    (summary.journeys[a.journey] = summary.journeys[a.journey] || []).push({ run: i, status: a.status, unexpected_external: a.external.unexpected_count, allowlisted_external: a.external.allowlisted_count, pages: a.pages, page_errors: a.page_errors.length });
+    (summary.journeys[a.journey] = summary.journeys[a.journey] || []).push({ run: i, status: a.status, unexpected_external: a.external.unexpected_count, server_unexpected: a.external.server_unexpected_count, allowlisted_external: a.external.allowlisted_count, pages: a.pages, page_errors: a.page_errors.length });
     if (a.status !== 'passed') problems.push(`run ${i}: ${a.journey} status ${a.status}`);
+    if (a.external.server_unexpected_count) problems.push(`run ${i}: ${a.journey} server tried ${a.external.server_unexpected_count} external connection(s): ${a.external.server_unexpected.slice(0, 5).map((x) => x.host + ':' + x.port).join(', ')}`);
     if (a.external.unexpected_count) problems.push(`run ${i}: ${a.journey} made ${a.external.unexpected_count} external request(s): ${a.external.unexpected.slice(0, 5).join(', ')}`);
     fs.renameSync(path.join(artDir, f), path.join(artDir, `run${i}-${f}`));
   }
