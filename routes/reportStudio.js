@@ -99,7 +99,11 @@ module.exports = function reportStudioRoutes(deps) {
       let rows = await store.listRuns({ templateKey: req.query.template || null, siteIds: ids, status: req.query.status ? String(req.query.status).split(',') : (author ? null : 'published'), limit: req.query.limit });
       res.json({ ok: true, author, runs: rows.map(r => ({ ...r, html: undefined })) }); } catch (e) { fail(res, e); }
   });
-  router.get('/api/report-studio/runs/:id.:fmt(html|pdf|csv|pptx|xlsx)', requireReportSession, async (req, res) => {
+  // Express-5 safe (path-to-regexp v8 rejects inline `:fmt(a|b)` groups): the allowed formats are checked
+  // here instead; an unknown suffix falls through to the next route exactly as the old regex did.
+  const RUN_FORMATS = new Set(['html', 'pdf', 'csv', 'pptx', 'xlsx']);
+  const knownFormat = (req, res, next) => (RUN_FORMATS.has(req.params.fmt) ? next() : next('route'));
+  router.get('/api/report-studio/runs/:id.:fmt', knownFormat, requireReportSession, async (req, res) => {
     try { const r = await visibleRun(req, res); if (!r) return; const t = await store.getTemplate(r.template_key); const name = `${r.template_key}-${r.id}`;
       // G07 — a published run is served from its frozen publication, never from a later re-render
       const pub = r.status === 'published' && store.publication ? await store.publication(r.id) : null;
