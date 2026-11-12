@@ -1,0 +1,13 @@
+task,persona,landing_page,candidate_page,expected_page,participant,first_click,correct,time_s,notes
+T1,Site IT Lead,home,site-actions,UNKNOWN,,,,,
+T2,Site IT Lead,home,reports,UNKNOWN,,,,,
+T3,Site IT Lead,field,field,UNKNOWN,,,,,
+T4,Administrator,index,cockpit,UNKNOWN,,,,,
+T5,Executive / Group Management,dashboards:exec-home,index,UNKNOWN,,,,,
+T6,Executive / Group Management,home,portfolio,UNKNOWN,,,,,
+T7,Site IT Lead,site-actions,help,UNKNOWN,,,,,
+T8,Site IT Lead,site-actions,portfolio,UNKNOWN,,,,,
+T9,Executive / Group Management,dashboards:exec-home,dashboards,UNKNOWN,,,,,
+T10,Executive / Group Management,dashboards:exec-home,dashboards,UNKNOWN,,,,,
+T11,Site IT Lead,home,site-actions,UNKNOWN,,,,,
+T12,Executive / Group Management,dashboards:exec-home,dashboards,UNKNOWN,,,,,

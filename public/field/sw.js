@@ -3,7 +3,7 @@
    service worker (the app's IndexedDB outbox owns retries). Bump CACHE_VERSION on every deploy of
    the field app. */
 'use strict';
-const CACHE_VERSION = 'field-v7';
+const CACHE_VERSION = 'field-v8';
 const SHELL = ['/field/index.html', '/field/app.js', '/field/styles.css', '/field/manifest.webmanifest', '/field/icon.svg', '/field/i18n.js', '/field/storage.js', '/lib/i18nText.js', '/_tokens.css'];
 
 self.addEventListener('install', (e) => {

@@ -171,6 +171,7 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
 <link rel="stylesheet" href="_shell.css">
 <script src="_shell.js"></script>
+<script src="lib/pageStates.js" data-last-resort="off"></script>
 </head>
 <body>
 
@@ -1899,6 +1900,7 @@ async function forceSync(){
 
 // ── Load ──────────────────────────────────────────────────────────────────
 async function loadData(){
+  if(window.PageStates)PageStates.slowNotice({overlayId:'loadOverlay',msgId:'loadMsg',after:20000,summaryHref:'home.html',stillLoading:()=>{const sp=document.querySelector('.spinner');return !!sp&&sp.style.display!=='none';}}); // F-UX-11
   const dot=document.getElementById('sdot'),stxt=document.getElementById('statusText');
   try{
     setH('loadMsg','Fetching ticket data from proxy…');
@@ -1925,12 +1927,14 @@ async function loadData(){
     populatePeriodSel();
     _initMFilters(); // populate Status/Type/Impact/Mode dropdowns from RAW
     renderAll();
+    window.__markFirstUsable && window.__markFirstUsable('helpdesk'); // F-UX-05
     // B-03: the DATA date (last successful requests sync, /api/cache/status), never the browser clock.
     _setDataDate(window.__dataTs);
     if(window.TrustLabel)TrustLabel.init({dataDate:window.__dataTs});
   }catch(e){
     dot.className='status-dot err';
     stxt.textContent='Server unreachable';
+    window.__markFirstUsable && window.__markFirstUsable('helpdesk:error'); // F-UX-05
     setH('loadMsg','<div style="margin-bottom:14px;color:#94a3b8"><i class="icon icon-cloud-off icon-2xl"></i></div><strong style="font-size:16px;color:#0d2b4e">Unable to reach the dashboard server.</strong><br><br><span style="font-size:13px;color:#6b7280">The server may be restarting or temporarily unavailable.<br>Please wait a moment and try again, or contact your IT administrator.</span>');if(window.EDV_ICONS)window.EDV_ICONS.hydrate(document.getElementById('loadMsg'));
     document.querySelector('.spinner').style.display='none';
     document.getElementById('loadErrBtn').style.display='inline-block';

@@ -1,0 +1,11 @@
+{
+  "note": "F-UX-04 — reflow problems known when 320 px and the coordinator pages joined the matrix (2026-11-12). The list may only SHRINK (tests/reflow-known.test.js pins its size). Each fix removes its line; the journey fails on a listed entry that passes.",
+  "known": {
+    "index@320": "group picker widget (div#grpWidget) 367 px wide",
+    "dashboards@320": "dashboard list cards 324 px (min width of the card grid)",
+    "wan@320": "WAN health chart canvas#wh-chart 341 px",
+    "cockpit@320": "cadence panel and its form row 344 px",
+    "site-awareness@320": "chart data table (edv-chart-table) outside a scroll container, 326 px",
+    "field/index@320": "field PWA header button row 364 px"
+  }
+}

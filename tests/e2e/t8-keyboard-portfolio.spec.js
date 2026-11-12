@@ -28,4 +28,8 @@ runJourney('T8 reach Portfolio by keyboard', async ({ base, world, browser, j })
   await page.waitForLoadState('load');
   await j.measure(page, 'portfolio');
   assert.match(await page.title(), /Portfolio/i);
+  // F-UX-02 — the primary menu announces exactly one current page, and it is Portfolio
+  await page.waitForSelector('.shell-nav [aria-current="page"]', { state: 'attached' });
+  const cur = await page.$$eval('.shell-nav [aria-current="page"]', (els) => els.map((e) => e.getAttribute('href')));
+  assert.deepStrictEqual(cur, ['portfolio.html']);
 });

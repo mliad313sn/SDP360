@@ -240,6 +240,13 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
   /* G17 — 390 px: the week bar loses its left indent and a long group name no longer widens the page */
   .week-bar{margin-left:0!important;padding:12px}
   .week-bar select{max-width:100%;min-width:0;flex:1 1 100%}
+  /* F-UX-04 — 390 / 320 px reflow: the report-list filters lose their indent and a long site name shrinks;
+     the weekly-summary card's three-column row and its year / week boxes fit the width */
+  #rl-filters{margin-left:0!important}
+  #rl-filters select{max-width:100%;min-width:0;flex:1 1 100%}
+  #weekly-summary-card .form-row{grid-template-columns:1fr!important}
+  #weekly-summary-card,#weekly-summary-card *{min-width:0;max-width:100%;overflow-wrap:anywhere}
+  .report-list{grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr))}
 }
 @media(max-width:700px){
   .page{padding:16px}
@@ -2973,6 +2980,7 @@ async function loadReportList(offset) {
     }
     if (!reports.length) {
       grid.innerHTML = '<div class="empty-state"><div class="es-icon">📋</div><p>No reports yet. Create the first one above.</p></div>';
+      window.__markFirstUsable && window.__markFirstUsable('reports:list');   // F-UX-05
       return;
     }
     const STATUS = { submitted: '✅ Submitted', ready: '✔ Ready', in_progress: '⏳ In Progress' };
@@ -2984,7 +2992,8 @@ async function loadReportList(offset) {
         <span style="font-size:0.77rem;color:#bbb;margin-left:8px">Updated ${r.updated_at ? esc(String(r.updated_at).slice(0,10)) : '—'}</span>
       </div>
     `).join('');
-  } catch(e) { grid.innerHTML = `<div class="empty-state"><p>Error loading reports: ${esc(e)}</p></div>`; }
+    window.__markFirstUsable && window.__markFirstUsable('reports:list');   // F-UX-05
+  } catch(e) { grid.innerHTML = `<div class="empty-state"><p>Error loading reports: ${esc(e)}</p></div>`; window.__markFirstUsable && window.__markFirstUsable('reports:error'); }
 }
 
 async function openOrCreateReport() {

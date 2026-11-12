@@ -6,7 +6,7 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   let lang = 'en';
   try { lang = (window.__shell && window.__shell.shellLang && window.__shell.shellLang()) || 'en'; } catch (_) { lang = 'en'; }
-  if (lang === 'fr') document.body.classList.add('lang-fr');
+  if (lang === 'fr') { document.body.classList.add('lang-fr'); document.documentElement.lang = 'fr'; }   // F-UX-01: French body, French voice
   const MONTHS = { en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], fr: ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'] };
   const L = {
     en: { nm: '— not measured', actions: 'Open actions', open: 'open', overdue: 'overdue', oldest: 'oldest', days: 'days', none: 'nothing open',
@@ -26,7 +26,19 @@
   };
   const T = L[lang === 'fr' ? 'fr' : 'en'];
   const fill = (s, o) => s.replace(/\{(\w+)\}/g, (_, k) => o[k]);
-  const nm = `<span class="hm-nm">${esc(T.nm)}</span>`;
+  // F-UX-09 — report_config ui_home_blocks: '0' (today) = one render, a failed call blanks the page with a message ·
+  // '1' = every block shows its own state (StateBadge), a failed call keeps the page and offers a retry, and each
+  // site card can be reloaded on its own (focus stays on the card). null is still "not measured", never 0.
+  const blocksOn = (() => { try { const p = window.__uiPolicy; return !!(p && p.home_blocks === '1' && window.StateBadge); } catch (_) { return false; } })();
+  const SBT = { 'not measured': 'non mesuré', 'Could not load — try again': 'Chargement impossible — réessayez', 'error': 'erreur' };
+  const stateHtml = (key, detail) => {
+    const SB = window.StateBadge;
+    let html = SB.badge(key, detail ? { detail } : undefined);
+    if (lang !== 'fr') return html;
+    for (const w of [SB.text(key), SB.aria(key)]) if (SBT[w]) html = html.split(w).join(SBT[w]);
+    return html;
+  };
+  const nm = blocksOn ? stateHtml('not-measured') : `<span class="hm-nm">${esc(T.nm)}</span>`;
   const row = (k, href, v) => `<li><span class="hm-k">${href ? `<a href="${esc(href)}">${esc(k)}</a>` : esc(k)}</span><span class="hm-v">${v}</span></li>`;
 
   function siteCard(s) {
@@ -47,7 +59,8 @@
         : `<span class="hm-late">${t.empty_cells}</span> ${esc(fill(T.empty, { t: t.total_cells, m: mon }))}`);
     const bf = s.benefit_reviews;
     const ben = !bf ? nm : (bf.count === 0 ? esc(T.noBenefit) : `<b${bf.items.some((x) => x.overdue) ? ' class="hm-late"' : ''}>${bf.count}</b><ul class="hm-pv">${bf.items.map((x) => `<li><a href="project.html?id=${encodeURIComponent(x.project_id)}#benefits">${esc(x.project_key || x.project_id)}</a> <span class="hm-muted">${esc(x.due_date || '')} · ${esc(x.status === 'missing' ? T.missing : T.awaiting)}</span></li>`).join('')}</ul>`);
-    return `<section class="hm-card" aria-labelledby="hm-s-${esc(s.site_id)}"><h2 id="hm-s-${esc(s.site_id)}">${esc(s.name || s.code)}${s.code ? ` <span class="hm-muted">${esc(s.code)}</span>` : ''}</h2>
+    const reload = blocksOn ? ` <button type="button" class="hm-retry" data-site="${esc(s.site_id)}">${esc(lang === 'fr' ? 'Recharger ce site' : 'Reload this site')}</button>` : '';
+    return `<section class="hm-card" data-site-card="${esc(s.site_id)}" aria-labelledby="hm-s-${esc(s.site_id)}"><h2 id="hm-s-${esc(s.site_id)}">${esc(s.name || s.code)}${s.code ? ` <span class="hm-muted">${esc(s.code)}</span>` : ''}${reload}</h2>
       <ul class="hm-blocks">
         ${row(T.actions, s.code ? `site-actions.html?site=${code}` : 'site-actions.html', actions)}
         ${row(T.report, w && w.report_id ? `reports.html?report=${encodeURIComponent(w.report_id)}` : 'reports.html', report)}
@@ -111,12 +124,53 @@
       if (j.message) msg.push(lang === 'fr' ? "Vous n'êtes rattaché à aucun site — utilisez le registre des actions du site." : j.message);
       if (j.truncated) msg.push(fill(T.more, { n: j.truncated }));
       $('hmMsg').textContent = msg.join(' ');
+      window.__markFirstUsable && window.__markFirstUsable('home');   // F-UX-05
     } catch (e) {
+      window.__markFirstUsable && window.__markFirstUsable('home:error');   // F-UX-05 — an explicit state is usable too
+      if (blocksOn) { failedHome(e); return; }
       $('hmSites').innerHTML = '';
       head(null);
       $('hmMsg').textContent = lang === 'fr' && window.ErrorText ? window.ErrorText.fr(e.message) : e.message;
     }
   }
+  // F-UX-09 (switch on) — the whole inbox failed: keep the page, say so with the shared state, offer a retry.
+  function failedHome(e) {
+    head(null);
+    const msg = lang === 'fr' && window.ErrorText ? window.ErrorText.fr(e.message) : e.message;
+    $('hmSites').innerHTML = `<section class="hm-card hm-failed" aria-labelledby="hm-failed-h"><h2 id="hm-failed-h">${esc(lang === 'fr' ? 'Votre travail' : 'Your work')}</h2><p>${stateHtml('error', msg)}</p><button type="button" class="hm-retry" data-site="*">${esc(lang === 'fr' ? 'Réessayer' : 'Try again')}</button></section>`;
+    $('hmMsg').textContent = msg;
+  }
+  // Reload ONE site card: the other cards stay as they are; on failure only that card says so.
+  async function reloadSite(id, btn) {
+    const card = document.querySelector(`[data-site-card="${String(id).replace(/[^0-9A-Za-z_-]/g, '')}"]`);
+    if (!card) return;
+    if (btn) btn.disabled = true;
+    try {
+      const r = await fetch('/api/me/work', { credentials: 'same-origin' });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+      const s = (j.sites || []).find((x) => String(x.site_id) === String(id));
+      if (!s) throw new Error(lang === 'fr' ? 'site absent de la réponse' : 'site not in the answer');
+      card.outerHTML = siteCard(s);
+    } catch (e) {
+      const box = card.querySelector('.hm-card-err');
+      const html = stateHtml('error', e.message);
+      if (box) box.innerHTML = html; else card.insertAdjacentHTML('beforeend', `<p class="hm-card-err">${html}</p>`);
+      if (btn) btn.disabled = false;
+    }
+    const again = document.querySelector(`[data-site-card="${String(id).replace(/[^0-9A-Za-z_-]/g, '')}"] .hm-retry`);
+    if (again && again.focus) again.focus();
+  }
+  if (blocksOn) {
+    $('hmSites').addEventListener('click', (ev) => {
+      const b = ev.target && ev.target.closest ? ev.target.closest('.hm-retry') : null;
+      if (!b) return;
+      const id = b.getAttribute('data-site');
+      if (id === '*') { load().then(() => { const f = document.querySelector('#hmSites .hm-card h2'); if (f && f.focus) { f.setAttribute('tabindex', '-1'); f.focus(); } }); return; }
+      reloadSite(id, b);
+    });
+  }
+  window.__homePage = { blocksOn, siteCard, load, reloadSite };   // F-UX-09 — read by tests only
   shortcuts();
   load();
 })();

@@ -61,6 +61,12 @@
   function curSite() { return (B && B.sites || []).find(function (s) { return String(s.id) === String($('site').value); }) || null; }
 
   // ── bootstrap (network first, cache fallback) ─────────────────────────────────────
+  // F-UX-06 — one usage fact per page load, only after a FRESH (online) bootstrap; silent offline / on failure
+  var viewSent = false;
+  function pageView() {
+    if (viewSent) return; viewSent = true;
+    try { fetch('/api/ux/page-view', { method: 'POST', credentials: 'same-origin', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ page: 'field' }) }).catch(function () {}); } catch (_) { /* silent */ }
+  }
   function bootstrap() {
     return api('/api/field/bootstrap').then(function (j) {
       // a cached answer from the service worker may belong to the previous user of this phone: refuse it
@@ -71,7 +77,7 @@
         location.href = '../login.html?next=' + encodeURIComponent('/field/index.html');
         throw new Error('session of another user');
       }
-      if (j.ok) { B = j; kvSet('bootstrap:' + me, j); kvSet('bootstrap_at:' + me, new Date().toISOString()); return B; }
+      if (j.ok) { B = j; kvSet('bootstrap:' + me, j); kvSet('bootstrap_at:' + me, new Date().toISOString()); pageView(); return B; }
       if (j.__status === 401) { location.href = '../login.html?next=' + encodeURIComponent('/field/index.html'); throw new Error('login'); }
       throw new Error(j.error || 'bootstrap failed');
     }).catch(function (e) { return kvGet('bootstrap:' + me).then(function (c) { if (!c) throw e; B = c; msg(FT('Working from cached data (offline).'), ''); return B; }); });

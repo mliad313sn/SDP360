@@ -78,7 +78,9 @@ function journey(name) {
     const t = await page.evaluate(() => {
       const n = performance.getEntriesByType('navigation')[0];
       if (!n) return null;
-      return { dom_content_loaded_ms: Math.round(n.domContentLoadedEventEnd), load_ms: Math.round(n.loadEventEnd), transfer_bytes_doc: n.transferSize };
+      // F-UX-05 — first usable table / figure (performance mark set by the page); null when the page has none
+      const fu = performance.getEntriesByName('sdp:first-usable')[0];
+      return { dom_content_loaded_ms: Math.round(n.domContentLoadedEventEnd), load_ms: Math.round(n.loadEventEnd), transfer_bytes_doc: n.transferSize, first_usable_ms: fu ? Math.round(fu.startTime) : null };
     }).catch(() => null);
     rec.pages.push(Object.assign({ label, path: new URL(page.url()).pathname, transfer_bytes: sizes.get(page) || 0 }, t || {}));
   }

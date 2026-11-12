@@ -23,6 +23,9 @@
     'Definition': 'Définition', 'Formula': 'Formule', 'Unit': 'Unité', 'Window': 'Fenêtre', 'Denominator': 'Dénominateur', 'Data state': 'État de la donnée',
     'Source': 'Source', 'Owner role': 'Rôle propriétaire', 'Certification': 'Certification', 'to be named': 'à désigner', 'not a ratio': 'pas un ratio',
     'not returned by the reader': 'non renvoyé par le lecteur', 'typed into the application — no sync job': 'saisi dans l’application — aucune synchronisation',
+    // F-UX-03 — 'partial' state and the partial-period note ("2026-11 période partielle · données au 4 nov.")
+    'Partial — some sources missing, total unknown': 'Partiel — sources manquantes, total inconnu',
+    'is partial · data to': 'période partielle · données au',
   };
   // (the state texts are rendered by lib/stateBadge.js / lib/dashboardRender.js, not by the page source)
   root.I18N_FR_DASHBOARDS_RUNTIME = [];

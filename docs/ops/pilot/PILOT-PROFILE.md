@@ -34,6 +34,10 @@ planned switch cannot be set before its goal lands.
 | `metric_explain_enabled` | built | `0` | `1` (proposal — read-only; counts by site, ratios as numerator / denominator; the note never asserts a cause) | KPI committee | E-K04 |
 | `chart_annotations_enabled` | built | `0` | `1` (proposal — after a browser review; notes are human-entered with a mandatory source) | Owner (UI policy) | E-V08 |
 | `ui_url_filters` | built | `0` | `1` (proposal — shareable Analytics links; filters only, never a data value) | Owner (UI policy) | E-U02 |
+| `ui_nav_active_from_url` | built | `0` | `1` (proposal — pages whose `data-current` names no menu entry get their active entry from the address; visibility unchanged) | Owner (UI policy) | F-UX-02 |
+| `ui_home_blocks` | built | `0` | `1` (proposal — after a browser review: per-block states and per-card reload on Home; never shows a figure the server did not send) | Owner (UI policy) | F-UX-09 |
+| `ux_event_telemetry` | built | `0` | `0` until the privacy notice and retention are agreed (decision D3); then `1` for the pilot cohort — counts export / drill / action / first-click events, user id + role tier only | Data protection officer + Owner (UI policy) | F-UX-06 |
+| `ui_exec_charts_v2` | built | `0` | `0` until a browser review of the Executive Scorecard with the executive sponsor and the data / BI owner (decision D5) — same figures, small multiples instead of dual axes, bars instead of rings | Executive sponsor + data / BI owner | F-UX-12 |
 | `site_score_published_model` | built | `legacy` | `programme` | Owner (D-1) | A-11 |
 | `metric_programme_readers` | built | `0` | `0` until the KPI committee and the model author decide (`1` computes `programme.site_score` / `programme.composite` on dashboards, agendas, `/api/metrics`, `/ext/v1` — not certified, D-01..D-03) | KPI committee + model author | F-DATA-03 |
 | `capacity_enabled` | planned | `0` | `1` | Owner (D-7) | A-13 |

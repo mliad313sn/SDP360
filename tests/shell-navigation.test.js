@@ -11,14 +11,14 @@ const SRC = fs.readFileSync(path.join(ROOT, 'public', '_shell.js'), 'utf8').repl
 const ICONS = fs.readFileSync(path.join(ROOT, 'public', 'brand', 'icons.js'), 'utf8');
 
 const j = (x) => JSON.parse(JSON.stringify(x)); // sandbox arrays come from another realm
-function load(roles, { businessOnly = false, lang = null, navLang = 'en-US', policy = undefined } = {}) {
-  const mount = { dataset: { section: 'operations', current: 'portfolio' }, innerHTML: '' };
+function load(roles, { businessOnly = false, lang = null, navLang = 'en-US', policy = undefined, section = 'operations', current = 'portfolio', location = undefined } = {}) {
+  const mount = { dataset: { section, current }, innerHTML: '' };
   const document = { readyState: 'complete', getElementById: (id) => (id === '__shell' ? mount : null), addEventListener() {}, querySelector: () => null, querySelectorAll: () => [] };
   const HIER = ['viewer', 'editor', 'admin', 'executive', 'super_admin'];
   const has = (r) => roles.includes(r) || (HIER.includes(r) && roles.some((x) => HIER.indexOf(x) >= HIER.indexOf(r)));
   const window = { __userHasRole: has, __isBusinessOnly: businessOnly, __authUser: { full_name: 'Ana', role: roles[0] }, __uiPolicy: policy, EDV_ICONS: { html: (k) => `<svg data-i="${k}"></svg>`, get: () => '' } };
   const localStorage = { getItem: (k) => (k === 'sdp_lang' ? lang : null), setItem() {} };
-  vm.runInNewContext(SRC, { window, document, console, localStorage, navigator: { language: navLang } });
+  vm.runInNewContext(SRC, { window, document, console, localStorage, navigator: { language: navLang }, location });
   return { shell: window.__shell, mount };
 }
 
@@ -178,4 +178,67 @@ test('Home is first for an editor and absent for a business-only user', () => {
   assert.ok(!/href="home.html"/.test(biz.mount.innerHTML), 'business-only: no Home');
   assert.ok(!biz.shell.searchEntries('home').some((e) => e.href === 'home.html'));
   assert.match(load(['editor'], { lang: 'fr' }).mount.innerHTML, /shell-nav-label">Accueil</);
+});
+
+// ── F-UX-02 — one aria-current="page" per navigation landmark ──────────────────────────────────────────
+const navOf = (html) => (/<nav class="shell-nav">([\s\S]*?)<\/nav>/.exec(html) || [])[1] || '';
+const curCount = (html) => (navOf(html).match(/aria-current="page"/g) || []).length;
+const ROLE_SETS = [['viewer'], ['editor'], ['admin'], ['executive'], ['super_admin']];
+
+test('F-UX-02: every menu entry a role can see is announced as current exactly once on its own page', () => {
+  let checked = 0;
+  for (const roles of ROLE_SETS) {
+    const model = j(load(roles).shell.menuModel());
+    for (const sec of model) {
+      const ids = sec.children.length ? sec.children.map((c) => c.id) : [sec.id];
+      for (const id of ids) {
+        const { mount } = load(roles, { section: sec.id, current: id });
+        assert.strictEqual(curCount(mount.innerHTML), 1, `${roles[0]} on ${sec.id}/${id}`);
+        checked++;
+      }
+    }
+  }
+  assert.ok(checked > 40, 'the matrix covered the menu (' + checked + ')');
+});
+
+test('F-UX-02: flat link and single-child collapse carry aria-current (they only had a CSS class)', () => {
+  const home = load(['editor'], { section: 'home', current: 'home' }).mount.innerHTML;
+  assert.match(navOf(home), /<a href="home.html" aria-current="page" class="shell-nav-item-link is-active"/);
+  // a business-only account sees one flat entry: Site Overview
+  const biz = load(['site-business'], { businessOnly: true, section: 'site-awareness', current: 'site-awareness' }).mount.innerHTML;
+  assert.match(navOf(biz), /href="site-awareness.html" aria-current="page"/);
+  // a viewer's Helpdesk collapses to its single visible child
+  const hd = j(load(['viewer']).shell.menuModel()).find((s) => s.id === 'helpdesk');
+  assert.strictEqual(hd.children.length, 1, 'a viewer sees one Helpdesk entry (collapsed to a flat link)');
+  const v = load(['viewer'], { section: 'helpdesk', current: hd.children[0].id });
+  assert.match(navOf(v.mount.innerHTML), /aria-current="page" class="shell-nav-item-link is-active"/);
+});
+
+test('F-UX-02: no current page announced when the page names none, or names an entry that is not on the menu', () => {
+  for (const roles of ROLE_SETS) {
+    assert.strictEqual(curCount(load(roles, { section: '', current: '' }).mount.innerHTML), 0);
+    assert.strictEqual(curCount(load(roles, { section: 'operations', current: 'access' }).mount.innerHTML), 0, 'today: access is not a menu id');
+  }
+});
+
+test('F-UX-02: ui_nav_active_from_url — off = today; on = the entry matching path, ?key= and #fragment is marked', () => {
+  const loc = (pathname, search = '', hash = '') => ({ pathname, search, hash });
+  const off = load(['super_admin'], { section: 'x', current: 'not-a-menu-id', location: loc('/dashboards.html', '?key=exec-home') });
+  assert.strictEqual(curCount(off.mount.innerHTML), 0, 'switch off: nothing derived from the address');
+  const on = { nav_active_from_url: '1' };
+  const a = load(['super_admin'], { policy: on, section: 'x', current: 'not-a-menu-id', location: loc('/dashboards.html', '?key=exec-home') });
+  assert.strictEqual(curCount(a.mount.innerHTML), 1);
+  assert.match(navOf(a.mount.innerHTML), /href="dashboards.html\?key=exec-home" aria-current="page"/);
+  assert.deepStrictEqual(j(a.shell.entryFromUrl(loc('/reports.html', '', '#admin'))), { section: 'admin', current: 'admin-settings' });
+  assert.strictEqual(a.shell.entryFromUrl(loc('/no-such-page.html')), null);
+  // a link that names ?key= never matches another key
+  const other = a.shell.entryFromUrl(loc('/dashboards.html', '?key=something-else'));
+  assert.ok(!other || other.current !== 'exec-home');
+  // a valid data-current always wins over the address
+  const b = load(['admin'], { policy: on, location: loc('/home.html') });
+  assert.match(navOf(b.mount.innerHTML), /href="portfolio.html" aria-current="page"/);
+  assert.strictEqual(curCount(b.mount.innerHTML), 1);
+  // an entry the user cannot see is never marked from the address
+  const v = load(['viewer'], { policy: on, section: 'x', current: 'nope', location: loc('/reports.html', '', '#admin') });
+  assert.ok(!/admin-settings/.test(JSON.stringify(v.shell.entryFromUrl(loc('/reports.html', '', '#admin')))));
 });

@@ -49,7 +49,7 @@
     if ($('obSite').options.length) load(); else render();
   }
   $('obSite').addEventListener('change', load);
-  $('obLang').addEventListener('change', () => { lang = $('obLang').value; document.body.classList.toggle('lang-fr', lang === 'fr'); try { localStorage.setItem('policies_lang', lang); localStorage.setItem('sdp_lang', lang); } catch (_) {} render(); });
-  $('obLang').value = lang === 'fr' ? 'fr' : 'en'; document.body.classList.toggle('lang-fr', lang === 'fr');
+  $('obLang').addEventListener('change', () => { lang = $('obLang').value; document.body.classList.toggle('lang-fr', lang === 'fr'); document.documentElement.lang = lang === 'fr' ? 'fr' : 'en'; try { localStorage.setItem('policies_lang', lang); localStorage.setItem('sdp_lang', lang); } catch (_) {} render(); });
+  $('obLang').value = lang === 'fr' ? 'fr' : 'en'; document.body.classList.toggle('lang-fr', lang === 'fr'); document.documentElement.lang = lang === 'fr' ? 'fr' : 'en';
   init();
 })();

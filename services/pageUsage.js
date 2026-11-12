@@ -64,10 +64,20 @@ function aggregate(rows) {
   return { pages: out, tiers: order };
 }
 
+// F-UX-06 — the task events a page may report (allow-list) and the shape of their target token.
+const EVENT_KINDS = ['export', 'drill', 'action_open', 'action_done', 'first_click'];
+function normalizeEventKind(raw) { const k = String(raw == null ? '' : raw).trim().toLowerCase(); return EVENT_KINDS.includes(k) ? k : null; }
+/** null = no target; undefined = refused (anything but a short lowercase token: no URL, no query value, no text). */
+function normalizeTarget(raw) {
+  if (raw == null || raw === '') return null;
+  const t = String(raw).trim().toLowerCase();
+  return /^[a-z0-9][a-z0-9._:-]{0,63}$/.test(t) ? t : undefined;
+}
+
 function clampDays(raw) {
   const n = parseInt(raw, 10);
   if (!Number.isFinite(n)) return 30;
   return Math.max(1, Math.min(180, n));
 }
 
-module.exports = { TIERS, normalizePage, roleTier, aggregate, clampDays };
+module.exports = { TIERS, EVENT_KINDS, normalizePage, normalizeEventKind, normalizeTarget, roleTier, aggregate, clampDays };

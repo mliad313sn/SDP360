@@ -96,6 +96,7 @@
       });
       if (j.publisher) html += '<div class="section-title">Composer</div><p><a class="btn primary" href="dashboard-composer.html">New dashboard</a></p>';
       $('listSection').innerHTML = html || '<div class="edv-dash-empty">No published dashboard is visible to your account yet.</div>';
+      window.__markFirstUsable && window.__markFirstUsable('dashboards:list');   // F-UX-05
       if (window.PageHead) window.PageHead.mount($('pageHead'), { question: 'Which published dashboards can I open?', scope: 'Dashboards visible to your account', sources: false });
       status('');
     }).catch(function (e) { status('Could not load dashboards: ' + e.message); });
@@ -151,6 +152,7 @@
         api('/api/metrics/registry?status=all').then(function (j) { metricDefs = {}; (j.metrics || []).forEach(function (m) { metricDefs[m.key] = m; }); if (seq === loadSeq) renderWidgets(def, d); }).catch(function () {});
       }
       renderWidgets(def, d);
+      window.__markFirstUsable && window.__markFirstUsable('dashboard');   // F-UX-05
       var st = (d.stale_sources || []).map(function (x) { return x.module + (x.state === 'UNKNOWN' ? ' (never synced)' : ' (last sync ' + x.age_h + ' h ago, limit ' + x.limit_h + ' h)'); });
       // F21 — the response time is "Computed at"; how recent the DATA is comes per source ("Data through")
       // C-10 — the shared page head carries scope / window / "Data through" per source / "Computed at",

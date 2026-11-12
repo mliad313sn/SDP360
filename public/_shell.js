@@ -92,6 +92,12 @@
   function execNav() {
     try { const p = window.__uiPolicy; return p && p.exec_nav === 'consolidated' ? 'consolidated' : 'full'; } catch (_) { return 'full'; }
   }
+  // F-UX-02 — report_config ui_nav_active_from_url: '0' (today: the active entry comes from the page's
+  // data-section / data-current only) · '1' = when data-current names no menu entry, the entry whose link
+  // matches the address (path, then ?key=, then #fragment) is marked instead. Never changes what is visible.
+  function navFromUrl() {
+    try { const p = window.__uiPolicy; return !!(p && p.nav_active_from_url === '1'); } catch (_) { return false; }
+  }
   function deckBuilderRoles() {
     try { const r = window.__uiPolicy && window.__uiPolicy.deck_builder_roles; if (Array.isArray(r) && r.length) return r; } catch (_) { /* no policy */ }
     return ['super_admin'];
@@ -444,6 +450,41 @@
     }[c]));
   }
 
+  // F-UX-02 — exactly one aria-current="page" in the primary menu: the first entry that claims it wins.
+  function markCurrent(ctx) {
+    if (ctx._marked) return '';
+    ctx._marked = true;
+    return ' aria-current="page"';
+  }
+  function isMenuId(id) {
+    return NAV.some(s => s.id === id || (s.children || []).some(c => c.id === id));
+  }
+  // Which menu entry does this address open? Path must match; a link that also names ?key= or a #fragment
+  // only matches when the address carries the same one; the most specific match wins. null = none.
+  function entryFromUrl(loc) {
+    const file = (String((loc && loc.pathname) || '').split('/').pop() || 'index.html').toLowerCase();
+    const key = (/[?&]key=([^&#]*)/.exec(String((loc && loc.search) || '')) || [])[1] || '';
+    const hash = String((loc && loc.hash) || '').replace(/^#/, '');
+    let best = null;
+    const consider = (sec, child) => {
+      const it = child || sec;
+      if (!it.href || !inMenu(it)) return;
+      const m = /^([^?#]*)(?:\?([^#]*))?(?:#(.*))?$/.exec(it.href);
+      if (!m || m[1].toLowerCase() !== file) return;
+      const hk = (/(?:^|&)key=([^&]*)/.exec(m[2] || '') || [])[1] || '';
+      const hh = m[3] || '';
+      if (hk && hk !== key) return;
+      if (hh && hh !== hash) return;
+      const score = 1 + (hk ? 2 : 0) + (hh ? 2 : 0);
+      if (!best || score > best.score) best = { score, section: sec.id, current: it.id };
+    };
+    for (const sec of NAV) {
+      if (!sectionVisible(sec)) continue;
+      if (sec.children) sec.children.forEach(c => consider(sec, c)); else consider(sec, null);
+    }
+    return best ? { section: best.section, current: best.current } : null;
+  }
+
   function renderNavItem(item, ctx) {
     const isActive = ctx.section === item.id;
     const visKids  = item.children ? visibleItems(item.children) : [];
@@ -462,7 +503,8 @@
     if (hasKids && visKids.length === 1) {
       const onlyChild = visKids[0];
       const childT    = onlyChild.target ? ` target="${onlyChild.target}"` : '';
-      return `<a href="${escapeHtml(onlyChild.href)}"${childT} class="shell-nav-item-link${activeC}"${titleA}>
+      const curA      = ctx.current === onlyChild.id ? markCurrent(ctx) : '';
+      return `<a href="${escapeHtml(onlyChild.href)}"${childT}${curA} class="shell-nav-item-link${activeC}"${titleA}>
         <span class="shell-nav-icon">${item.icon || ''}</span>
         <span class="shell-nav-label">${escapeHtml(item.label)}</span>
       </a>`;
@@ -474,7 +516,7 @@
       const link = c => {
         const ca = ctx.current === c.id ? ' is-active' : '';
         const ct = c.target ? ` target="${c.target}"` : '';
-        const cur = ctx.current === c.id ? ' aria-current="page"' : '';
+        const cur = ctx.current === c.id ? markCurrent(ctx) : '';
         return `<a href="${escapeHtml(c.href)}"${ct}${cur} class="${ca.trim()}" title="${escapeHtml(c.label)}">
           <span class="shell-nav-icon">${c.icon || ''}</span>
           <span>${escapeHtml(c.label)}</span>
@@ -496,7 +538,10 @@
       </div>`;
     }
 
-    return `<a href="${escapeHtml(href)}"${target} class="shell-nav-item-link${activeC}"${titleA}>
+    // F-UX-02 — a flat entry IS its page: when it is the active section and the page names no other entry,
+    // it carries aria-current (it only had a CSS class, so a screen reader announced no current page).
+    const flatCur = isActive && (!ctx.current || ctx.current === item.id || !isMenuId(ctx.current)) ? markCurrent(ctx) : '';
+    return `<a href="${escapeHtml(href)}"${target}${flatCur} class="shell-nav-item-link${activeC}"${titleA}>
       <span class="shell-nav-icon">${item.icon || ''}</span>
       <span class="shell-nav-label">${escapeHtml(item.label)}</span>
     </a>`;
@@ -532,6 +577,9 @@
       section: mount.dataset.section || '',
       current: mount.dataset.current || ''
     };
+    if (navFromUrl() && !isMenuId(ctx.current)) {
+      try { const hit = typeof location !== 'undefined' ? entryFromUrl(location) : null; if (hit) { ctx.section = hit.section; ctx.current = hit.current; } } catch (_) { /* no location */ }
+    }
     const version = mount.dataset.version || '';
     const user    = window.__authUser || null;
     translateNav(NAV); translateNav(WORKSPACES);
@@ -579,6 +627,63 @@
     fitLeanLabels();
     ensureSkipLink(mount);
     sendPageView();
+    wireUxEvents();
+  }
+
+  // F-UX-05 — "first usable" mark: a page calls window.__markFirstUsable(label) once its primary table / figure
+  // shows data OR an explicit state (empty, error). The browser journeys read performance mark 'sdp:first-usable'
+  // (tests/e2e/fixtures/browser.js) so the vision's "first usable table" can be measured; no budget is set here.
+  function markFirstUsable(label) {
+    try {
+      if (typeof performance === 'undefined' || !performance.mark || performance.getEntriesByName('sdp:first-usable').length) return false;
+      performance.mark('sdp:first-usable', { detail: { label: String(label || '') } });
+      return true;
+    } catch (_) { return false; }
+  }
+  try { window.__markFirstUsable = markFirstUsable; } catch (_) { /* no window */ }
+
+  // F-UX-06 — task events (report_config ux_event_telemetry via window.__uiPolicy.ux_events; '0' = nothing sent).
+  // Fire-and-forget, one listener per document: the first click after the page opened (target = the page it leads
+  // to, or 'control'), exports (a[download], data-ux-export, or an Export / Download / CSV / XLSX / PPTX control),
+  // drills ([data-ux-drill]) and explicit [data-ux-event="action_open|action_done"]. Never sends text or URLs.
+  function uxEventsOn() { try { const p = window.__uiPolicy; return !!(p && p.ux_events === '1'); } catch (_) { return false; } }
+  function uxEvent(kind, target) {
+    try {
+      if (!uxEventsOn() || !window.__authUser || typeof fetch !== 'function' || typeof location === 'undefined') return false;
+      fetch('/api/ux/event', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind, page: pageIdFor(location), target: target || null }) }).catch(function () { /* never breaks a page */ });
+      return true;
+    } catch (_) { return false; }
+  }
+  const EXPORT_TEXT = /\b(export|download|csv|xlsx|pptx|excel|télécharger|exporter)\b/i;
+  function classifyClick(el) {
+    if (!el || !el.closest) return null;
+    const ev = el.closest('[data-ux-event]');
+    if (ev && /^(action_open|action_done|drill|export)$/.test(ev.getAttribute('data-ux-event'))) return { kind: ev.getAttribute('data-ux-event'), target: (ev.getAttribute('data-ux-target') || '').toLowerCase() || null };
+    if (el.closest('[data-ux-drill]')) return { kind: 'drill', target: null };
+    const a = el.closest('a,button');
+    if (!a) return null;
+    if (a.hasAttribute('download') || a.hasAttribute('data-ux-export') || EXPORT_TEXT.test(a.textContent || '')) return { kind: 'export', target: null };
+    return null;
+  }
+  let uxWired = false, firstClickSent = false;
+  function wireUxEvents() {
+    if (uxWired || !uxEventsOn() || typeof document === 'undefined' || !document.addEventListener) return;
+    uxWired = true;
+    document.addEventListener('click', function (e) {
+      try {
+        const el = e.target;
+        if (!firstClickSent) {
+          firstClickSent = true;
+          const a = el && el.closest ? el.closest('a[href]') : null;
+          let to = 'control';
+          if (a) { try { to = pageIdFor(new URL(a.getAttribute('href'), location.href)); } catch (_) { to = 'control'; } }
+          uxEvent('first_click', /^[a-z0-9][a-z0-9._:-]{0,63}$/.test(to) ? to : 'control');
+        }
+        const c = classifyClick(el);
+        if (c) uxEvent(c.kind, c.target);
+      } catch (_) { /* never breaks a click */ }
+    }, true);
   }
 
   // C-09 (F16/F29/G14) — usage facts before any keep/merge decision: one `page_viewed` per page load of a shell
@@ -593,6 +698,14 @@
       if (m) id += ':' + m[1].toLowerCase();
     }
     return id;
+  }
+  // F-UX-06 — pages without the shell mount (it-review, site-report) report their view through lib/pageView.js.
+  function sendPageViewFor(id) {
+    try {
+      if (typeof fetch !== 'function') return false;
+      fetch('/api/ux/page-view', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ page: String(id || '') }) }).catch(function () { /* silent */ });
+      return true;
+    } catch (_) { return false; }
   }
   function sendPageView() {
     if (pageViewSent) return;
@@ -709,6 +822,8 @@
     NAV,
     WORKSPACES,
     shellLang,
+    entryFromUrl,
+    uxEvent, classifyClick, pageView: sendPageViewFor,
     workspaceFor,
     searchEntries,
     breadcrumbFor,
