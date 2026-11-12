@@ -18,7 +18,7 @@ kind,name,version,licence,how,legal_review
 "npm","debug","4.4.3","MIT","node_modules (shipped)","no"
 "npm","delayed-stream","1.0.0","MIT","node_modules (shipped)","no"
 "npm","depd","2.0.0","MIT","node_modules (shipped)","no"
-"npm","dotenv","16.6.1","BSD-2-Clause","node_modules (shipped)","no"
+"npm","dotenv","18.0.10","BSD-2-Clause","node_modules (shipped)","no"
 "npm","dunder-proto","1.0.1","MIT","node_modules (shipped)","no"
 "npm","ee-first","1.1.1","MIT","node_modules (shipped)","no"
 "npm","encodeurl","2.0.2","MIT","node_modules (shipped)","no"
