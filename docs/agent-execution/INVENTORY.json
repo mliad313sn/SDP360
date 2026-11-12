@@ -14,8 +14,8 @@
   "routes_in_server_js": 210,
   "jobs": 31,
   "jobs_without_test_reference": 0,
-  "migrations": 86,
-  "test_files": 724
+  "migrations": 87,
+  "test_files": 726
  },
  "pages": [
   {
@@ -1453,7 +1453,7 @@
    "parent": "meeting.html",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 76745,
+   "bytes": 80652,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/allocation-contract.test.js",
@@ -12049,6 +12049,10 @@
   {
    "id": "MG-reports-085-ppm-workbench",
    "file": "db/postgres/reports/085_ppm_workbench.sql"
+  },
+  {
+   "id": "MG-reports-091-ppm-schedule-engine",
+   "file": "db/postgres/reports/091_ppm_schedule_engine.sql"
   },
   {
    "id": "MG-sync-000-upgrade-from-1-11",
