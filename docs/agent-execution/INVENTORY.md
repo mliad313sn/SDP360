@@ -6,7 +6,7 @@
 
 | Item | Count |
 |---|---:|
-| pages | 59 |
+| pages | 60 |
 | pages without test reference | 0 |
 | pages without declared role | 6 |
 | pages not in navigation | 30 |
@@ -14,13 +14,13 @@
 | pages deep link only | 9 |
 | pages without entry point | 3 |
 | pages with inline scripts | 46 |
-| routes | 661 |
+| routes | 669 |
 | routes without test reference | 31 |
-| routes in server js | 210 |
-| jobs | 31 |
+| routes in server js | 209 |
+| jobs | 32 |
 | jobs without test reference | 0 |
-| migrations | 86 |
-| test files | 724 |
+| migrations | 87 |
+| test files | 732 |
 
 ## Pages
 
@@ -34,6 +34,7 @@
 | PG-assets | public/assets.html | any | yes | 10 | 16 |
 | PG-cockpit | public/cockpit.html | any | yes | 1 | 10 |
 | PG-commitments | public/commitments.html | any | no | 1 | 6 |
+| PG-connector-health | public/connector-health.html | admin | yes | 0 | 2 |
 | PG-coverage | public/coverage.html | any | no | 0 | 3 |
 | PG-dashboard-composer | public/dashboard-composer.html | admin / dashboard-publisher | no | 1 | 5 |
 | PG-dashboards | public/dashboards.html | any | yes | 1 | 13 |
@@ -73,7 +74,7 @@
 | PG-portfolio | public/portfolio.html | any | yes | 1 | 15 |
 | PG-project | public/project.html | any | no | 1 | 16 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 3 |
-| PG-reports | public/reports.html | any | yes | 2 | 33 |
+| PG-reports | public/reports.html | any | yes | 2 | 35 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 4 |
 | PG-site-actions | public/site-actions.html | any | yes | 1 | 17 |
 | PG-site-awareness | public/site-awareness.html | site-business / group-business / executive | yes | 2 | 5 |
@@ -100,6 +101,7 @@
 | public/assets.html | yes | — | assets-finance.html, assets-hygiene.html, lib/workspaceProfiles.js | — | — | shell |
 | public/cockpit.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
 | public/commitments.html | — | — | lib/dashboardRender.js, site-actions.html | — | — | site-actions.html |
+| public/connector-health.html | yes | — | — | — | — | shell |
 | public/coverage.html | — | — | — | — | — | **NO ENTRY POINT** — duty coverage page — no menu entry, no link from another page |
 | public/dashboard-composer.html | — | — | dashboards.html | — | — | dashboards.html |
 | public/dashboards.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
@@ -170,7 +172,7 @@
 | RT-GET-api-data-major-incidents | GET | `/api/data/major-incidents` | server.js:3363 |
 | RT-GET-api-data-monthly-summary | GET | `/api/data/monthly-summary` | server.js:4007 |
 | RT-GET-api-data-sla-by-category | GET | `/api/data/sla-by-category` | server.js:3493 |
-| RT-POST-api-executive-new-pptx | POST | `/api/executive-new-pptx` | server.js:6454 |
+| RT-POST-api-executive-new-pptx | POST | `/api/executive-new-pptx` | server.js:6393 |
 | RT-GET-api-integration-fmp-readiness | GET | `/api/integration/fmp/readiness` | routes/fourmypeople.js:31 |
 | RT-GET-api-meetings-import-incubation-template | GET | `/api/meetings/import/incubation-template` | routes/meetings.js:801 |
 | RT-POST-api-meetings-import-incubation-commit | POST | `/api/meetings/import/incubation/commit` | routes/meetings.js:841 |
@@ -184,7 +186,7 @@
 | RT-GET-api-roadmap-evidence-catalogue | GET | `/api/roadmap/evidence/catalogue` | routes/roadmap.js:56 |
 | RT-GET-api-roadmap-evidence-incidents | GET | `/api/roadmap/evidence/incidents` | routes/roadmap.js:73 |
 | RT-GET-api-roadmap-evidence-platform | GET | `/api/roadmap/evidence/platform` | routes/roadmap.js:64 |
-| RT-POST-api-save-pptx | POST | `/api/save-pptx` | server.js:6534 |
+| RT-POST-api-save-pptx | POST | `/api/save-pptx` | server.js:6473 |
 | RT-POST-api-tracker-import-dept-meetings | POST | `/api/tracker/import-dept-meetings` | routes/tracker.js:108 |
 | RT-GET- | GET | `/` | server.js:1389 |
 
@@ -205,21 +207,22 @@
 | JB-engagement-digest | engagement.digest | 2 |
 | JB-engagement-digest-weekly | engagement.digest_weekly | 1 |
 | JB-engagement-schedule-reminders | engagement.schedule_reminders | 1 |
+| JB-engagement-weekly-report-nudges | engagement.weekly_report_nudges | 1 |
 | JB-field-purge | field.purge | 1 |
 | JB-governance-agenda-drafts | governance.agenda_drafts | 1 |
 | JB-governance-ppm-alerts | governance.ppm_alerts | 1 |
 | JB-handoffs-escalate | handoffs.escalate | 1 |
-| JB-meraki-wan | meraki.wan | 7 |
+| JB-meraki-wan | meraki.wan | 9 |
 | JB-meraki-wan-events | meraki.wan_events | 1 |
 | JB-meraki-wan-events-5m | meraki.wan_events_5m | 1 |
 | JB-meraki-wan-poller | meraki.wan_poller | 2 |
 | JB-meridian-resources | meridian.resources | 1 |
-| JB-opmanager-availability | opmanager.availability | 2 |
+| JB-opmanager-availability | opmanager.availability | 3 |
 | JB-publish-connectors | publish.connectors | 2 |
 | JB-reports-monthly | reports.monthly | 1 |
 | JB-reports-weekly | reports.weekly | 2 |
 | JB-softdelete-purge | softdelete.purge | 2 |
-| JB-teams-sla-poll | teams.sla_poll | 2 |
+| JB-teams-sla-poll | teams.sla_poll | 3 |
 | JB-zoho-change-cab | zoho.change_cab | 1 |
-| JB-zoho-requests | zoho.requests | 21 |
+| JB-zoho-requests | zoho.requests | 22 |
 | JB-zoho-survey | zoho.survey | 2 |

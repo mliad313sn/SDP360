@@ -90,3 +90,16 @@ test('fix tasks: editor opens one for their site (idempotent), not for another s
   const h = await call('GET', '/api/connector-health', tok.admin);
   assert.strictEqual(h.body.connectors.find((x) => x.id === 'opmanager').open_tasks, 0);
 });
+
+test('assign: admin only; the assigned owner may then close the task, and only an open task can be assigned', async () => {
+  const me = ((await require('../reports-db').listUsers()) || []).find((u) => u.username === 'ch-ed');
+  const t = await call('POST', '/api/connector-health/fix-tasks', tok.ed, { connector: 'meraki', site_id: siteA.id, scope: 'wan1', cause: 'no Meraki snapshot for this week' });
+  const id = t.body.task.id;
+  assert.strictEqual((await call('POST', `/api/connector-health/fix-tasks/${id}/assign`, tok.ed, { user_id: me.id })).status, 403);
+  assert.strictEqual((await call('POST', `/api/connector-health/fix-tasks/${id}/assign`, tok.admin, { user_id: 'x' })).status, 400);
+  assert.strictEqual((await call('POST', '/api/connector-health/fix-tasks/999999/assign', tok.admin, { user_id: me.id })).status, 404);
+  const a = await call('POST', `/api/connector-health/fix-tasks/${id}/assign`, tok.admin, { user_id: me.id });
+  assert.strictEqual(a.status, 200); assert.strictEqual(Number(a.body.task.owner_user_id), Number(me.id));
+  const c = await call('POST', `/api/connector-health/fix-tasks/${id}/close`, tok.ed, { status: 'done', note: 'network mapped' });
+  assert.strictEqual(c.status, 200, 'assigned owner closes'); assert.strictEqual(c.body.task.status, 'done');
+});

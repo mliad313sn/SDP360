@@ -38,8 +38,8 @@ module.exports = function weeklyReportAssist(deps) {
   router.get('/api/reports/:id/infra-auto', requireReportSession, async (req, res) => {
     try {
       const report = await rdb.getReport(parseInt(req.params.id, 10));
-      if (!report) return res.status(404).json({ error: 'Report not found', fills: [] });
-      if (!isAdmin(req.reportUser) && !userSites.hasSite(req.reportUser, report.site_id)) return res.status(403).json({ error: 'Access denied', fills: [] });
+      if (!report) return fail(res, new Error('Report not found'), 404, { fills: [] });
+      if (!isAdmin(req.reportUser) && !userSites.hasSite(req.reportUser, report.site_id)) return fail(res, new Error('Access denied'), 403, { fills: [] });
       const cfg = await reportConfig.getConfig(rdb.db);
       res.json(await require('../services/infraAutoFill').computeInfraAuto(rdb, report, cfg));
     } catch (e) { res.json({ fills: [], reason: 'internal_error', correlation_id: logError(e, req) }); }
