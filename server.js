@@ -971,7 +971,7 @@ app.use('/api/assets/reconcile/import',     express.raw({ type: '*/*', limit: '3
 // Global JSON parser — Express default limit (~100 KB). Covers the
 // long tail of small REST calls. Large endpoints are handled by the
 // path-scoped parsers registered ABOVE.
-app.use(express.json());
+app.use(require('./services/bodyDefault'), express.json());   // G2: Express 5 leaves req.body undefined
 
 // ── HSTS — force browsers to use HTTPS for the dashboard hostname ──
 // IIS sets this header too (see iis/web.config) — defence in depth: if

@@ -60,7 +60,7 @@ async function main() {
   const viewer = (await rdb.login('rm-viewer', 'rm-pass-1111-xyz')).token;
   const server = await new Promise((r) => { const s = http.createServer(app).listen(0, '127.0.0.1', () => r(s)); });
   const base = `http://127.0.0.1:${server.address().port}`;
-  const routes = []; collect(app._router.stack, '', routes);
+  const routes = []; collect(require('../../services/routerStack').routerStack(app), '', routes);
   const rows = [];
   for (const rt of probeOrder(routes)) {
     const p = concrete(rt.path);

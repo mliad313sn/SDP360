@@ -114,7 +114,7 @@ before(async () => {
 after(() => { try { server && server.close(); } catch {} });
 
 test('a site-A editor cannot change a site-B object through any write route', async () => {
-  const routes = []; collect(require('../server').app._router.stack, routes);
+  const routes = []; collect(require('../services/routerStack').routerStack(require('../server').app), routes);
   const writes = routes.filter((r) => ['POST', 'PUT', 'PATCH', 'DELETE'].includes(r.method));
   const before = await snapshot();
   const accepted = [], statuses = {};

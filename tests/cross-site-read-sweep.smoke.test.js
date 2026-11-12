@@ -127,7 +127,7 @@ after(() => { try { server && server.close(); } catch {} });
 
 test('a site-A editor never reads site-B content through any GET route', async () => {
   const { app } = require('../server');
-  const paths = []; collect(app._router.stack, paths);
+  const paths = []; collect(require('../services/routerStack').routerStack(app), paths);
   const rows = [], leaks = [];
   for (const p of [...new Set(paths)]) {
     for (const url of probeFor(p) || []) {

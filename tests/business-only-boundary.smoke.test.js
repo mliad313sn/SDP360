@@ -27,7 +27,7 @@ before(async () => {
   await mk('bo-site', ['site-business'], { site_id: A.id });
   await mk('bo-group', ['group-business']);
   await mk('bo-mixed', ['site-business', 'viewer'], { site_id: A.id });
-  routes = []; collect(app._router.stack, '', routes);
+  routes = []; collect(require('../services/routerStack').routerStack(app), '', routes);
   await new Promise((r) => { server = http.createServer(app).listen(0, '127.0.0.1', r); });
   base = `http://127.0.0.1:${server.address().port}`;
 });

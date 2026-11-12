@@ -33,7 +33,7 @@ test('authz_enforce_caps defaults to empty (nothing enforced = today)', () => {
 
 test('mode enforce + empty list = identical answers to shadow on every guarded route', async () => {
   const { app } = require('../server');
-  const rows = walker.walkRoutes(app._router.stack).filter((r) => r.path.startsWith('/api'));
+  const rows = walker.walkRoutes(require('../services/routerStack').routerStack(app)).filter((r) => r.path.startsWith('/api'));
   const HIER = ['super_admin', 'executive', 'admin', 'editor', 'viewer'];
   let n = 0;
   for (const r of rows) for (const g of walker.guardsOf(r).filter((x) => x.roles)) for (const roles of [[], ...HIER.map((x) => [x]), ['scorecard-viewer'], ['tracker-editor']]) {
