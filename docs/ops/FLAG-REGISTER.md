@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (206) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (207) — services/reportConfig.js DEFAULTS
 
 Prerequisites (E-A07, services/switchPrereqs.js) are WARNINGS in plain words, never approvals: the config PUT
 answer and the `set-ui-policy.js` dry run repeat them when the switch is moved to its switched-on value.
@@ -113,6 +113,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `meridian_in_key` | (secret — not shown) | secret | to be named | — | — | — |
 | `meridian_out_key` | (secret — not shown) | secret | to be named | — | — | — |
 | `metric_explain_enabled` | `0` | arm switch | KPI committee | `1` (proposal — read-only; counts by site, ratios as numerator / denominator; the note never asserts a cause) | E-K04 | — |
+| `metric_programme_readers` | `0` | setting | KPI committee + model author | `0` until the KPI committee and the model author decide (`1` computes `programme.site_score` / `programme.composite` on dashboards, agendas, `/api/metrics`, `/ext/v1` — not certified, D-01..D-03) | F-DATA-03 | — |
 | `never_send_unconfirmed` | `1` | setting | to be named | — | — | — |
 | `notifications_stop` | `0` | setting | to be named | — | — | — |
 | `obligations_include_decisions` | `0` | setting | Committee + Owner | `1` (the site obligations view then counts the site's open governance decisions; the visible total of a site can grow) | E-G02 | — |

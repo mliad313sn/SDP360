@@ -12,7 +12,7 @@
   "jobs": 31,
   "jobs_without_test_reference": 1,
   "migrations": 80,
-  "test_files": 662
+  "test_files": 665
  },
  "pages": [
   {
@@ -988,7 +988,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 18893,
+   "bytes": 19348,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -4310,7 +4310,7 @@
    "method": "GET",
    "path": "/api/health/deps",
    "file": "routes/health.js",
-   "line": 81,
+   "line": 94,
    "tests": [
     "tests/health-deps.smoke.test.js"
    ]
@@ -4320,7 +4320,7 @@
    "method": "GET",
    "path": "/api/health/restore-drill",
    "file": "routes/health.js",
-   "line": 65,
+   "line": 78,
    "tests": [
     "tests/restore-drill-admin-card.test.js"
    ]
@@ -4330,7 +4330,7 @@
    "method": "GET",
    "path": "/api/health/version",
    "file": "routes/health.js",
-   "line": 41,
+   "line": 54,
    "tests": [
     "tests/health-version.smoke.test.js"
    ]
@@ -4340,7 +4340,7 @@
    "method": "GET",
    "path": "/api/health/views",
    "file": "routes/health.js",
-   "line": 48,
+   "line": 61,
    "tests": [
     "tests/api-key-injection.smoke.test.js",
     "tests/authz-route-matrix.test.js"
@@ -8840,11 +8840,12 @@
    "method": "GET",
    "path": "/api/sync/health",
    "file": "routes/sync.js",
-   "line": 27,
+   "line": 29,
    "tests": [
     "tests/agent-inventory.test.js",
     "tests/governance-policy-routes.smoke.test.js",
-    "tests/sync-routes.smoke.test.js"
+    "tests/sync-routes.smoke.test.js",
+    "tests/sync-skip-semantics.test.js"
    ]
   },
   {
@@ -9560,7 +9561,8 @@
     "tests/health-deps.test.js",
     "tests/health-version.smoke.test.js",
     "tests/restore-drill-admin-card.test.js",
-    "tests/sync-routes.smoke.test.js"
+    "tests/sync-routes.smoke.test.js",
+    "tests/sync-skip-semantics.test.js"
    ]
   },
   {
@@ -9850,11 +9852,12 @@
    "method": "GET",
    "path": "/ready",
    "file": "routes/health.js",
-   "line": 25,
+   "line": 28,
    "tests": [
     "tests/api-key-injection.smoke.test.js",
     "tests/authz-route-matrix.test.js",
-    "tests/installer-upgrade-order.test.js"
+    "tests/installer-upgrade-order.test.js",
+    "tests/ready-probe.smoke.test.js"
    ]
   },
   {
@@ -10022,7 +10025,9 @@
    "id": "JB-audit-retention",
    "job": "audit.retention",
    "tests": [
-    "tests/connector-register.test.js"
+    "tests/connector-register.test.js",
+    "tests/sync-routes.smoke.test.js",
+    "tests/sync-skip-semantics.test.js"
    ]
   },
   {
@@ -10059,7 +10064,8 @@
    "id": "JB-engagement-digest",
    "job": "engagement.digest",
    "tests": [
-    "tests/jobs-engagement.test.js"
+    "tests/jobs-engagement.test.js",
+    "tests/sync-skip-semantics.test.js"
    ]
   },
   {
@@ -10110,7 +10116,9 @@
     "tests/pilot-metrics.test.js",
     "tests/publish-gate.test.js",
     "tests/sync-jobs-registry.test.js",
-    "tests/sync-runner.test.js"
+    "tests/sync-routes.smoke.test.js",
+    "tests/sync-runner.test.js",
+    "tests/sync-skip-semantics.test.js"
    ]
   },
   {
@@ -10131,7 +10139,8 @@
    "id": "JB-meraki-wan-poller",
    "job": "meraki.wan_poller",
    "tests": [
-    "tests/jobs-meraki-skip.test.js"
+    "tests/jobs-meraki-skip.test.js",
+    "tests/sync-routes.smoke.test.js"
    ]
   },
   {
@@ -10145,7 +10154,8 @@
    "id": "JB-opmanager-availability",
    "job": "opmanager.availability",
    "tests": [
-    "tests/sync-jobs-registry.test.js"
+    "tests/sync-jobs-registry.test.js",
+    "tests/sync-skip-semantics.test.js"
    ]
   },
   {
@@ -10182,7 +10192,8 @@
    "id": "JB-teams-sla-poll",
    "job": "teams.sla_poll",
    "tests": [
-    "tests/sync-routes.smoke.test.js"
+    "tests/sync-routes.smoke.test.js",
+    "tests/sync-skip-semantics.test.js"
    ]
   },
   {
@@ -10212,7 +10223,8 @@
     "tests/sync-jobs-registry.test.js",
     "tests/sync-routes.smoke.test.js",
     "tests/sync-runner.test.js",
-    "tests/sync-schedule.test.js"
+    "tests/sync-schedule.test.js",
+    "tests/sync-skip-semantics.test.js"
    ]
   },
   {

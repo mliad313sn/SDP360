@@ -420,6 +420,11 @@ DEFAULTS.schedule_inspection_interval_days = '';
 //    (UTC) = non-critical in-app firings inside the window are deferred until it ends; '' (default) = no quiet window.
 DEFAULTS.alert_group_by_rule = '0';
 DEFAULTS.alert_quiet_hours = '';
+// F-DATA-03 — the two programme metrics of the registry (programme.site_score, programme.composite) are wired
+// through services/metricDeps.js. '0' (default) = today: not computed, shown as "—". '1' = computed on dashboards,
+// agendas, /api/metrics and /ext/v1 — NOT certified (D-01 / D-02 / D-03 pending): a KPI-committee decision.
+DEFAULTS.metric_programme_readers = '0';
+
 const KEYS = Object.keys(DEFAULTS);
 
 // Secrets that the GET handler redacts to '' — a Save that doesn't retype them must

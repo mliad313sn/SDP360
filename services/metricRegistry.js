@@ -225,8 +225,10 @@ const READERS = {
     out.period_start = ps;
     return out;
   },
-  async 'programme.site_score'(d, { site }) { return d.programme ? d.programme.siteScore(site) : null; },
-  async 'programme.composite'(d, { site }) { return d.programme ? d.programme.composite(site) : null; },
+  // F-DATA-03 — deps.programme comes from services/metricDeps.js (resolve() completes the deps). No programme
+  // dependency = the reader is NOT WIRED, said as an error — never a silent null on a published metric.
+  async 'programme.site_score'(d, { site, win }) { if (!d || !d.programme) throw new Error('reader not wired: programme.site_score needs deps.programme'); return d.programme.siteScore(site, win); },
+  async 'programme.composite'(d, { site, win }) { if (!d || !d.programme) throw new Error('reader not wired: programme.composite needs deps.programme'); return d.programme.composite(site, win); },
 };
 
 // resolveSite is pure + synchronous; on PostgreSQL the readers return Promises, so the lists
@@ -282,7 +284,8 @@ function createRegistry(rows = SEED) {
       const reader = READERS[m.reader];
       if (!reader) return { ...base, value: null, rag: 'NA', error: `reader not wired: ${m.reader}` };
       try {
-        const rec = await reader(deps, { site: site == null ? null : Number(site), win, explicit: window != null && window !== '' });
+        // F-DATA-03 — one shared builder completes the reader deps (adds `programme` when rdb + mdb + idb are there)
+        const rec = await reader(require('./metricDeps').complete(deps), { site: site == null ? null : Number(site), win, explicit: window != null && window !== '' });
         const v = rec && rec[m.field] != null && Number.isFinite(Number(rec[m.field])) ? Number(rec[m.field]) : null;
         return { ...base, value: v, rag: ragFor(m, v), record: rec || null, base: baseFor(m, rec) };
       } catch (e) { return { ...base, value: null, rag: 'NA', error: String(e && e.message || e).slice(0, 200) }; }
@@ -320,6 +323,8 @@ async function load({ pg = null, log = () => {} } = {}) {
     }
     log(`[metrics] registry loaded: ${reg.keys().length} metrics (${rows.length} from DB, ${inserted} seeded), ${Object.keys(KpiRag.POLICIES).length} RAG policies`);
   } catch (e) { log(`[metrics] registry DB load failed (seed in use): ${e.message}`); }
+  // F-DATA-03 — a published metric nothing can compute is said at boot, not discovered as a permanent "—"
+  try { for (const x of require('./metricDeps').integrity(reg)) log(`[metrics] ${x.key}: ${x.problem}`); } catch (e) { log(`[metrics] integrity check failed: ${e.message}`); }
   return reg;
 }
 

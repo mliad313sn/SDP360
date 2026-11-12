@@ -31,6 +31,7 @@ planned switch cannot be set before its goal lands.
 | `dashboard_red_action_links` | built | `0` | `1` (proposal — only with `commitments_enabled=1`; no action is ever created automatically) | Owner (UI policy) + PMO | E-K03 |
 | `metric_explain_enabled` | built | `0` | `1` (proposal — read-only; counts by site, ratios as numerator / denominator; the note never asserts a cause) | KPI committee | E-K04 |
 | `site_score_published_model` | built | `legacy` | `programme` | Owner (D-1) | A-11 |
+| `metric_programme_readers` | built | `0` | `0` until the KPI committee and the model author decide (`1` computes `programme.site_score` / `programme.composite` on dashboards, agendas, `/api/metrics`, `/ext/v1` — not certified, D-01..D-03) | KPI committee + model author | F-DATA-03 |
 | `capacity_enabled` | planned | `0` | `1` | Owner (D-7) | A-13 |
 | `capacity_amber_pct` | planned | `85` | `85` | Owner (D-7) | A-13 |
 | `capacity_red_pct` | planned | `100` | `100` | Owner (D-7) | A-13 |
