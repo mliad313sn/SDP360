@@ -7,7 +7,7 @@ records a per-page budget for hex literals, dual axes and doughnuts: those can o
 The "substitution to consider" column is a **proposal** worded from the audit's measure → chart matrix (§5.2).
 Choosing and approving a substitution is a person's decision after a browser review; nothing here is decided.
 
-Files scanned: **110** · inline <style> blocks: **54** · hex literals: **5577** · `new Chart(` call sites: **44** · dual axes (`yAxisID`): **27** · doughnut/pie: **29**
+Files scanned: **111** · inline <style> blocks: **54** · hex literals: **5577** · `new Chart(` call sites: **44** · dual axes (`yAxisID`): **27** · doughnut/pie: **29**
 
 | File | Bytes | <style> | Hex | new Chart( | Chart types | Dual axis | Doughnut/pie | chartTheme.js | ChartTable | pageStates.js | Substitution to consider |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -37,7 +37,7 @@ Files scanned: **110** · inline <style> blocks: **54** · hex literals: **5577*
 | `public/integrations.html` | 17928 | 1 | 40 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/it-review.html` | 109788 | 1 | 71 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/itsm-integrations-plan.html` | 31308 | 1 | 44 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/itsm-roadmap.html` | 51104 | 1 | 47 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/itsm-roadmap.html` | 51893 | 1 | 47 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/kpi-builder.html` | 12850 | 1 | 39 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/login.html` | 17559 | 1 | 32 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/meeting.html` | 84288 | 1 | 105 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
@@ -107,6 +107,7 @@ Files scanned: **110** · inline <style> blocks: **54** · hex literals: **5577*
 | `public/lib/ppmWorkbench.js` | 14081 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/reasonDialog.js` | 6938 | 0 | 10 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/lib/reports-backups.js` | 7874 | 0 | 15 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/lib/roadmapPublish.js` | 8455 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/siteAliases.js` | 3000 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/siteCodeBanner.js` | 1668 | 0 | 3 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/lib/siteOnboardingCard.js` | 3465 | 0 | 4 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |

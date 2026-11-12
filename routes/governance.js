@@ -744,11 +744,16 @@ module.exports = function governanceRoutes(deps) {
       const apply = req.query.apply === '1'; const uid = Number(req.body && req.body.user_id) || req.reportUser.id;
       const rm = await rdb().getRoadmap(uid); const pf = await store.portfolio();
       const KEY = 'itsm-roadmap'; const EVID = { catalogue: 'helpdesk.closure_pct', platform: 'assets.completeness_pct', incidents: 'helpdesk.resolution_sla_pct', knowledge: null };
-      const plan = { programme: { key: KEY, name: 'ITSM roadmap (migrated from Roadmap Manager)', sponsor: 'Service & Support Manager' }, exists: pf.programmes.some(p => p.key === KEY),
+      let plan = { programme: { key: KEY, name: 'ITSM roadmap (migrated from Roadmap Manager)', sponsor: 'Service & Support Manager' }, exists: pf.programmes.some(p => p.key === KEY),
         objectives: (rm.objectives || []).map(o => ({ key: `${KEY}-${o.obj_key}`, name: o.title || o.name || o.obj_key, weight: Number(o.weight) || 1, progress_pct: o.progress_pct != null ? Number(o.progress_pct) : null, status: /red|rouge/i.test(o.status || '') ? 'at_risk' : /orange|amber/i.test(o.status || '') ? 'at_risk' : 'on_track', confidence: /low|faible/i.test(o.confidence || '') ? 'low' : /high|élevée|elevee/i.test(o.confidence || '') ? 'high' : 'medium', target_date: o.target_date || null, evidence_metric: EVID[o.obj_key] || null, evidence_target: EVID[o.obj_key] ? 90 : null, manual_evidence: o.evidence || null,
           deliverables: (rm.deliverables || []).filter(d => d.obj_key === o.obj_key).map(d => ({ name: d.label || d.title || d.name, due_date: d.delivery_date || d.due_date || d.target_date || null, status: /exec|done|fait/i.test(d.status || '') ? 'done' : /cours|progress/i.test(d.status || '') ? 'in_progress' : 'todo' })) })) };
-      if (!apply) return res.json({ ok: true, dry_run: true, plan });
-      if (plan.exists) return res.status(409).json({ ok: false, error: 'programme already migrated (delete it to redo)', plan });
+      // R2-WB-06 — controlled publication (roadmap_publication_enabled; '0' = this route exactly as before): duplicates
+      // are reported on the dry run and refused at apply unless ?skip_duplicates=1; the apply is a recorded ppm_events row
+      const PUB = require('./governanceWorkbench').roadmapPublication; const pub = await PUB.enabled(rdb, reportConfig);
+      const dups = pub ? await PUB.duplicates(rdb, plan) : null;
+      if (!apply) return res.json({ ok: true, dry_run: true, plan, ...(dups ? { duplicates: dups } : {}) });
+      if (plan.exists) return httpFail(res, new Error('programme already migrated (delete it to redo)'), 409, { ok: false, plan });
+      if (dups && dups.count) { if (req.query.skip_duplicates !== '1') return httpFail(res, new Error('duplicates found: review them, then apply with skip_duplicates=1 to leave them out'), 409, { ok: false, code: 'DUPLICATES', duplicates: dups, plan }); plan = PUB.withoutDuplicates(plan, dups); }
       const pid = await store.upsertPortfolio('programme', plan.programme);
       for (const [i, o] of plan.objectives.entries()) {
         const oid = await store.upsertPortfolio('objective', { programme_id: pid, key: o.key, name: o.name, weight: o.weight, progress_pct: o.progress_pct, status: o.status, confidence: o.confidence, target_date: o.target_date, evidence_metric: o.evidence_metric, evidence_target: o.evidence_target, evidence_hib: 1, manual_evidence: o.manual_evidence, sort_order: i });
@@ -756,6 +761,7 @@ module.exports = function governanceRoutes(deps) {
         for (const [j, d] of o.deliverables.entries()) await store.upsertPortfolio('deliverable', { project_id: prj, name: d.name, due_date: d.due_date, status: d.status, sort_order: j, closed_at: d.status === 'done' ? new Date().toISOString() : null });
       }
       log(req, 'roadmap_migrated', KEY, { objectives: plan.objectives.length });
+      if (pub) await store.ppmEvent({ entity: 'programme', entity_id: pid, action: 'roadmap_migrated', field: 'key', old_value: null, new_value: KEY, note: `${plan.objectives.length} objective(s)${dups && dups.count ? `, ${dups.count} duplicate(s) left out` : ''}` }, req.reportUser);
       res.json({ ok: true, dry_run: false, programme_id: pid, plan });
     } catch (e) { fail(res, e); }
   });

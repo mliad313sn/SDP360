@@ -6,6 +6,8 @@
 <title>Roadmap Manager — outil personnel</title>
 
 <script nonce="%%CSP_NONCE%%" src="auth.js" data-require="super_admin" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/roadmapPublish.js"></script>
 
 <style nonce="%%CSP_NONCE%%">
   :root {
@@ -126,6 +128,8 @@
   /* B-09 — read-only mode (switch roadmap_redirect_to_portfolio = '1'): banner + every edit control inert. */
   .rm-readonly { background:#fff7e6; border:1px solid #f0c36d; border-radius:10px; padding:12px 16px; margin-bottom:16px;
     font-size:13px; color:#5c4400; line-height:1.5; }
+  .rm-publish { border:1px solid var(--line); border-radius:10px; padding:12px 16px; margin-bottom:16px; }
+  .rm-publish .rp-steps { margin:6px 0 10px 18px; }
   .rm-readonly a { color:var(--blue); font-weight:700; }
   body.rm-ro #rm-content input, body.rm-ro #rm-content select, body.rm-ro #rm-content textarea,
   body.rm-ro #rm-content button:not(#rm-csv):not(.rm-tab) { pointer-events:none; opacity:.6; }
@@ -147,6 +151,8 @@
     les objectifs et livrables se modifient dans <a id="rm-readonly-link" href="/portfolio.html">le portefeuille</a>.
     Les données ci-dessous sont conservées (aucune suppression).
   </div>
+  <!-- R2-WB-06 — "Publier dans le portefeuille" (switch roadmap_publication_enabled; hidden while '0') -->
+  <section id="rm-publish" class="rm-publish" aria-label="Publier dans le portefeuille" hidden></section>
   <div id="rm-content" style="display:none;">
     <div class="rm-tabs" id="rm-tabs">
       <button class="rm-tab active" data-tab="objectives">Objectifs</button>
@@ -898,6 +904,8 @@
     if (phost) { phost.addEventListener('change', onProjChange); phost.addEventListener('click', onProjClick); }
     // B-09 — read-only mode, decided by the server switch (default off = today). The server ALSO refuses
     // every write with 409, so this is convenience; a failed mode read keeps today's editable page.
+    // R2-WB-06 — controlled publication; mount() renders nothing unless the server switch is on.
+    if (window.RoadmapPublish && window.ReasonDialog) window.RoadmapPublish.mount($('rm-publish'), { headers: authHeaders, esc: esc, ask: window.ReasonDialog.ask, toast: toast });
     fetch('/api/roadmap/mode', { headers: authHeaders(false) })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (m) { if (m && m.read_only) applyReadOnly(m.portfolio_url); }, function () {});

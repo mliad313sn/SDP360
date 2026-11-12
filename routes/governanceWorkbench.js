@@ -14,6 +14,17 @@
 //                                      never approves or rejects (403 SELF_REVIEW); withdraw = author or committee; apply
 //                                      with a dates impact = the committee re-baseline (ppm_rebaseline_enabled, else 409).
 //                                      impact_budget / currency only under the money-read rule.
+//   R2-WB-06 roadmap_publication_enabled POST /api/governance/roadmap-migration (routes/governance.js) gains the
+//                                      duplicates report + refusal + a ppm_events 'roadmap_migrated' row, and here:
+//                                      GET  /api/governance/roadmap-publication           state (super_admin)
+//                                      POST /api/governance/roadmap-migration/rollback    dry run by default; ?apply=1
+//                                        SOFT-deletes the migrated programme (soft_delete_enabled, else 409) after
+//                                        renaming its keys (keys are unique even when deleted) and turns the read-only
+//                                        switch back off — nothing is hard-deleted, the Roadmap Manager rows are untouched
+//                                      POST /api/governance/roadmap-migration/archive     the EXPLICIT "Roadmap Manager is
+//                                        read-only now" gesture: needs a live migrated programme, records ppm_events
+//                                        'published' with the parity verdict, sets roadmap_redirect_to_portfolio = '1'.
+//                                      Never automatic: nothing here runs on a timer or after an apply.
 const { fail: httpFail } = require('../services/httpError');
 
 module.exports = function governanceWorkbenchRoutes(router, h) {
@@ -134,4 +145,87 @@ module.exports = function governanceWorkbenchRoutes(router, h) {
       res.json({ ok: true, change: crView(req.reportUser)(cr) });
     } catch (e) { fail(res, e); }
   });
+
+  // ---- R2-WB-06 controlled roadmap publication ---------------------------------------------------------------------
+  const isSuper = (u) => rdb().userHasRole(u, 'super_admin');
+  const pubGate = async (req, res) => {
+    if (!(await PUB.enabled(rdb, reportConfig))) { notFound(res); return false; }
+    if (!isSuper(req.reportUser)) { httpFail(res, new Error('super_admin required'), 403, { ok: false }); return false; }
+    return true;
+  };
+  const parity = async (userId) => { const H = rdb().pgHandle(); const r = await require('../services/roadmapParity').buildReport((sql, a) => H.prepare(sql).all(...(a || [])), { userId }); return (r.users[0] && r.users[0].verdict) || 'no_roadmap'; };
+  router.get('/api/governance/roadmap-publication', requireReportSession, async (req, res) => {
+    try {
+      if (!(await pubGate(req, res))) return;
+      const c = await cfg(); const sub = await PUB.subtree(rdb);
+      const events = sub ? await store.ppmEvents('programme', sub.programme.id) : [];
+      res.json({ ok: true, migrated: !!sub, programme: sub ? sub.programme : null, read_only: on(c, 'roadmap_redirect_to_portfolio'), soft_delete: on(c, 'soft_delete_enabled'),
+        parity: await parity(req.reportUser.id), published: events.filter((e) => e.action === 'published').slice(-1)[0] || null });
+    } catch (e) { fail(res, e); }
+  });
+  router.post('/api/governance/roadmap-migration/rollback', requireReportSession, json, async (req, res) => {
+    try {
+      if (!(await pubGate(req, res))) return;
+      const sub = await PUB.subtree(rdb); if (!sub) return httpFail(res, new Error('no migrated programme to roll back'), 404, { ok: false, code: 'NOT_MIGRATED' });
+      const plan = { programme: sub.programme, objectives: sub.objectives.length, projects: sub.projects.length, deliverables: sub.deliverables.length, items: sub };
+      if (req.query.apply !== '1') return res.json({ ok: true, dry_run: true, plan });
+      const c = await cfg();
+      if (!on(c, 'soft_delete_enabled')) return httpFail(res, new Error('rollback is a soft delete: turn soft_delete_enabled on first (nothing is ever hard-deleted here)'), 409, { ok: false, code: 'SOFT_DELETE_OFF' });
+      const reason = String((req.body && req.body.reason) || '').trim();
+      if (reason.length < 10) return httpFail(res, new Error('a reason of at least 10 characters is required'), 400, { ok: false, code: 'NOTE_REQUIRED' });
+      const suffix = await PUB.freeKeys(rdb, sub);
+      await store.removePortfolio('programme', sub.programme.id, { soft: true, user: req.reportUser, reason });
+      if (on(c, 'roadmap_redirect_to_portfolio')) await reportConfig.setConfig(rdb().db, { roadmap_redirect_to_portfolio: '0' }, req.reportUser.username);
+      await store.ppmEvent({ entity: 'programme', entity_id: sub.programme.id, action: 'roadmap_rollback', field: 'key', old_value: sub.programme.key, new_value: sub.programme.key + suffix, note: reason }, req.reportUser);
+      log(req, 'roadmap_rollback', `programme:${sub.programme.id}`, { objectives: plan.objectives, deliverables: plan.deliverables });
+      res.json({ ok: true, dry_run: false, plan, renamed_suffix: suffix, read_only: false });
+    } catch (e) { fail(res, e); }
+  });
+  router.post('/api/governance/roadmap-migration/archive', requireReportSession, json, async (req, res) => {
+    try {
+      if (!(await pubGate(req, res))) return;
+      const sub = await PUB.subtree(rdb); if (!sub) return httpFail(res, new Error('publish the roadmap first: there is no migrated programme'), 409, { ok: false, code: 'NOT_MIGRATED' });
+      if (req.body == null || req.body.confirm !== true) return httpFail(res, new Error('archive needs an explicit confirmation'), 400, { ok: false, code: 'CONFIRM_REQUIRED' });
+      const verdict = await parity(req.reportUser.id); const was = on(await cfg(), 'roadmap_redirect_to_portfolio') ? '1' : '0';
+      await reportConfig.setConfig(rdb().db, { roadmap_redirect_to_portfolio: '1' }, req.reportUser.username);
+      await store.ppmEvent({ entity: 'programme', entity_id: sub.programme.id, action: 'published', field: 'roadmap_redirect_to_portfolio', old_value: was, new_value: '1', note: `parity: ${verdict}` }, req.reportUser);
+      log(req, 'roadmap_published', `programme:${sub.programme.id}`, { parity: verdict });
+      res.json({ ok: true, read_only: true, parity: verdict });
+    } catch (e) { fail(res, e); }
+  });
 };
+
+// R2-WB-06 helpers shared with the migration route in routes/governance.js (one place for the switch and the reads).
+const PUB = {
+  KEY: 'itsm-roadmap',
+  enabled: async (rdb, reportConfig) => String((await reportConfig.getConfig(rdb().db)).roadmap_publication_enabled) === '1',
+  // objective keys already taken in the portfolio, live or soft-deleted (the unique key covers both)
+  duplicates: async (rdb, plan) => {
+    const H = rdb().pgHandle(); const keys = (plan.objectives || []).map((o) => o.key);
+    const taken = keys.length ? (await H.prepare(`SELECT key FROM portfolio_objectives WHERE key IN (${keys.map(() => '?').join(',')})`).all(...keys)).map((r) => r.key) : [];
+    return require('../services/roadmapPublication').duplicates(plan, { existingObjectiveKeys: taken });
+  },
+  withoutDuplicates: (plan, d) => require('../services/roadmapPublication').withoutDuplicates(plan, d),
+  // the live migrated programme and its live subtree (null when not migrated / already rolled back)
+  subtree: async (rdb) => {
+    const H = rdb().pgHandle(); const n = (r) => ({ ...r, id: Number(r.id) });
+    const p = await H.prepare(`SELECT id, key, name FROM portfolio_programmes WHERE key=? AND deleted_at IS NULL`).get(PUB.KEY); if (!p) return null;
+    const objectives = (await H.prepare(`SELECT id, key, name FROM portfolio_objectives WHERE programme_id=? AND deleted_at IS NULL ORDER BY sort_order, id`).all(Number(p.id))).map(n);
+    const oids = objectives.map((o) => o.id);
+    const projects = oids.length ? (await H.prepare(`SELECT id, key, name, objective_id FROM portfolio_projects WHERE deleted_at IS NULL AND objective_id IN (${oids.map(() => '?').join(',')}) ORDER BY id`).all(...oids)).map(n) : [];
+    const pids = projects.map((x) => x.id);
+    const deliverables = pids.length ? (await H.prepare(`SELECT id, name, project_id FROM portfolio_deliverables WHERE deleted_at IS NULL AND project_id IN (${pids.map(() => '?').join(',')}) ORDER BY id`).all(...pids)).map(n) : [];
+    return { programme: n(p), objectives, projects, deliverables };
+  },
+  // keys are unique even on soft-deleted rows: suffix them so a later publication can reuse the original keys
+  freeKeys: async (rdb, sub) => {
+    const H = rdb().pgHandle(); const suffix = `-rb${Date.now()}`;
+    await H.runTransaction(async () => {
+      await H.prepare(`UPDATE portfolio_programmes SET key = key || ? WHERE id=?`).run(suffix, sub.programme.id);
+      for (const o of sub.objectives) await H.prepare(`UPDATE portfolio_objectives SET key = key || ? WHERE id=?`).run(suffix, o.id);
+      for (const x of sub.projects) await H.prepare(`UPDATE portfolio_projects SET key = key || ? WHERE id=?`).run(suffix, x.id);
+    });
+    return suffix;
+  },
+};
+module.exports.roadmapPublication = PUB;
