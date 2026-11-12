@@ -11,7 +11,7 @@ const { launch, journey, login } = require('./browser');
 function runJourney(name, steps, opts) {
   test(name, { timeout: (opts && opts.timeout) || 120000 }, async () => {
     const app = await bootApp();
-    const world = await seed(app);
+    const world = await ((opts && opts.seed) || seed)(app);   // R6: a journey may bring its own seed (the demo)
     const browser = await launch();
     const j = journey(name);
     let status = 'failed';

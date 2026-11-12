@@ -152,3 +152,4 @@ docs/sdp_dashboard_*.sql
 # Prebuilt front-end bundles ARE committed (served without Babel/unsafe-eval)
 !public/activity-tracker/dist/
 e2e-artifacts/
+demo-inventory*.json
