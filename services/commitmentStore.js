@@ -280,10 +280,10 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
   // ── G-18 escalation ledger (023_commitment_escalations) ─────────────────────────────
   /** Evaluate A01 / A02 now against the ledger; write the diff. Returns what was raised (nothing for a kept condition). */
   /** policyFor(siteId) → resolved governance policy; a site with commitments.escalation_enabled = false records nothing. */
-  async function escalate({ asOf, policyFor = null } = {}) {
+  async function escalate({ asOf, policyFor = null, missingDueDate = false } = {}) {
     const E = require('./commitmentEscalation');
     const t = now();
-    let cur = E.conditions(await metricRows({}), asOf || t);
+    let cur = E.conditions(await metricRows({}), asOf || t, { missingDueDate });
     let ledger = (await P('SELECT key, cleared_at, site_id FROM commitment_escalations').all()).map((r) => ({ ...r, site_id: r.site_id == null ? null : Number(r.site_id) }));
     let muted = 0;
     if (policyFor) {

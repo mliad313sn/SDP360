@@ -197,3 +197,27 @@ test('G09: approved due-date exceptions have their own register, with active / l
   const row = list.find((x) => x.id === c.id); assert.ok(row && row.exception_state === 'active' && row.exception_reason, JSON.stringify(row));
   assert.ok(!(await (await get('/api/commitments?exceptions=1', otherEditor)).json()).commitments.some((x) => x.id === c.id), 'another site does not see it');
 });
+
+// E-R02 — A03 / A04 in-app notices through the real transition route (demo F-1 above drove the commitment through
+// awaiting_verification twice and one rejection), and the STOP switch silences them.
+const _notes = async (username) => {
+  const u = ((await rdb.listUsers()) || []).find((x) => x.username === username);
+  return (await rdb.db.prepare("SELECT title, body, link FROM notifications WHERE user_id=? AND kind='commitment' ORDER BY id").all(Number(u.id)));
+};
+test('E-R02: the reviewer is told of technical completion (A03), the owner of a rejection with its reason (A04)', async () => {
+  const rev = await _notes('cm_reviewer'); const own = await _notes('cm_editor');
+  assert.ok(rev.filter((n) => /^A03 — to verify: Rugged laptops/.test(n.title)).length >= 2, JSON.stringify(rev));
+  const a04 = own.filter((n) => /^A04 — verification rejected: Rugged laptops/.test(n.title));
+  assert.equal(a04.length, 1); assert.match(a04[0].body, /no acceptance evidence/); assert.match(a04[0].link, /commitments\.html\?id=/);
+  assert.ok(!own.some((n) => /^A03/.test(n.title)), 'the author of the completion is not notified');
+});
+test('E-R02: with notifications_stop = 1 no A03 notice is written', async () => {
+  await require('../services/reportConfig').setConfig(rdb.db, { notifications_stop: '1' }, 'test');
+  try {
+    const before = (await _notes('cm_reviewer')).length;
+    let c = (await (await send('POST', '/api/commitments', editor, { kind: 'issue', title: 'Stop-switch probe', site_id: hounde, accountable_owner: 'cm_editor', reviewer: 'cm_reviewer', due_date: '2099-12-31' })).json()).commitment;
+    for (const to of ['committed', 'in_progress', 'awaiting_verification']) c = (await (await send('POST', `/api/commitments/${c.id}/transition`, editor, { to, version: c.version })).json()).commitment;
+    assert.equal(c.status, 'awaiting_verification');
+    assert.equal((await _notes('cm_reviewer')).length, before);
+  } finally { await require('../services/reportConfig').setConfig(rdb.db, { notifications_stop: '0' }, 'test'); }
+});

@@ -3,6 +3,7 @@ const { fail } = require('../services/httpError');
 // SDP360 — sync observability routes (Phase 1 Foundation & Sync).
 //   GET /api/sync/runs?job=&limit=   last runs of the generic runner (session-guarded)
 //   GET /api/sync/health             per-job last ok / last error / error count / content drift (E-D04)
+//                                    + `delivery`: failed report sends / publish runs, last ?delivery_days (E-R04)
 // DI factory like routes/teamsSla.js: server.js passes { express, requireReportSession }.
 // The legacy GET /api/sync/status (sync_metadata) stays as is; this is the run-level view.
 module.exports = function syncRoutes(deps) {
@@ -66,7 +67,11 @@ module.exports = function syncRoutes(deps) {
           drift: drift[j.job] || { status: 'unknown', reason: 'not computed', flags: [], runs_considered: 0 } };
       }).sort((a, b) => a.job.localeCompare(b.job));
       const summary = { ok: jobs.filter((j) => j.status === 'ok').length, stale: jobs.filter((j) => j.status === 'stale').length, error: jobs.filter((j) => j.status === 'error').length, never: jobs.filter((j) => j.status === 'never').length, idle: jobs.filter((j) => j.status === 'idle').length };
-      res.json({ ok: true, summary, jobs });
+      // E-R04 — report-delivery failures, read-only (no retry here; resending stays the explicit force action)
+      let delivery = null;
+      try { delivery = await require('../services/deliveryFailures').loadDeliveryFailures((deps.rdb || require('../reports-db')).pgHandle(), { days: req.query.delivery_days }); }
+      catch (_) { delivery = { window_days: null, total: null, by_kind: {}, failures: [], errors: ['unreadable'] }; }
+      res.json({ ok: true, summary, jobs, delivery });
     } catch (e) { fail(res, e, 500, { ok: false }); }
   });
 

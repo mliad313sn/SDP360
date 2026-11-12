@@ -7,7 +7,7 @@
 //   publishScheduled — connectors: scheduled Excel (e-mail), webhook, SharePoint list (Graph), all config-gated
 //   generateScheduledReports — templates by cadence → draft runs (+ notify subscribers)
 
-const { evaluate, fanOut } = require('./alertEngine');
+const { evaluate, fanOut, partitionQuiet, groupDigestItems } = require('./alertEngine');
 
 async function readingsFor(rules, { registry, deps, sites, now }) {
   const out = [];
@@ -36,7 +36,12 @@ async function evaluateAlerts({ store, registry, deps, rdb, now = new Date(), ma
   const sites = ((await rdb.listSites({ includeInactive: false })) || []).map(s => ({ id: Number(s.id), name: s.name }));
   const readings = await readingsFor(rules, { registry, deps, sites, now });
   const state = await store.loadState();
-  const { firings, state: next } = evaluate(rules, readings, state, { now });
+  const ev = evaluate(rules, readings, state, { now });
+  // E-R07 — alert_quiet_hours (empty = none): non-critical firings inside the window are DEFERRED — not recorded,
+  // not notified, and their state is restored so they fire after the window; critical firings are never deferred.
+  const part = dryRun ? { now: ev.firings, deferred: [] } : partitionQuiet(ev.firings, { now, quiet: cfg.alert_quiet_hours });
+  const firings = part.now; const next = { ...ev.state };
+  for (const f of part.deferred) next[f.key] = { ...(next[f.key] || {}), last_fired_at: (state[f.key] && state[f.key].last_fired_at) || null };
   // G16 — dry run: what WOULD fire and who WOULD receive it. Nothing is saved (state, firings, notifications)
   // and nothing leaves the server, so an admin can check the recipients before arming a channel.
   if (dryRun) {
@@ -65,7 +70,7 @@ async function evaluateAlerts({ store, registry, deps, rdb, now = new Date(), ma
     if ((f.rule.channels || []).includes('teams')) { const url = String(cfg.engagement_teams_url || '').trim(); if (post && url) { try { await post(url, teamsCard(f)); posted++; } catch (_) { skipped++; } } else skipped++; }
     if ((f.rule.channels || []).includes('webhook')) { const url = String(cfg.engagement_webhook_url || '').trim(); if (post && url) { try { await post(url, { kind: 'alert', severity: f.severity || 'warning', rule: f.rule.key, name: f.rule.name, metric: f.rule.metric, site_id: f.reading.site_id, site: f.reading.site, value: f.reading.value, unit: f.reading.unit, rag: f.reading.rag, message: f.message, fired_at: now.toISOString() }); posted++; } catch (_) { skipped++; } } else skipped++; }
   }
-  return { rules: rules.length, readings: readings.length, firings: firings.length, notified, mailed, posted, skipped, rows: firings.length };
+  return { rules: rules.length, readings: readings.length, firings: firings.length, deferred: part.deferred.length, notified, mailed, posted, skipped, rows: firings.length };
 }
 /** G16 — the per-firing recipient list a dry run shows. Webhook / Teams URLs are secrets: only "configured" is said. */
 async function previewFirings(firings, { rdb, cfg = {}, mailer = null, post = null }) {
@@ -91,11 +96,12 @@ async function previewFirings(firings, { rdb, cfg = {}, mailer = null, post = nu
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 function teamsCard(f) { return { type: 'message', attachments: [{ contentType: 'application/vnd.microsoft.card.adaptive', content: { type: 'AdaptiveCard', version: '1.4', body: [{ type: 'TextBlock', weight: 'Bolder', size: 'Medium', text: `${String(f.severity || 'warning').toUpperCase()} · ${f.rule.name || f.rule.key}` }, { type: 'TextBlock', wrap: true, text: f.message }] } }] }; }
 
-async function sendDigest({ store, rdb, mailer, digest = 'daily', baseUrl = '', now = new Date() }) {
+async function sendDigest({ store, rdb, mailer, digest = 'daily', baseUrl = '', now = new Date(), groupByRule = false }) {
   const userIds = await store.digestSubscribers(digest); if (!userIds.length) return { users: 0, sent: 0, rows: 0 };
   const users = (await rdb.listUsers()) || []; let sent = 0, skipped = 0;
   for (const uid of userIds) {
-    const u = users.find(x => Number(x.id) === Number(uid)); const items = await store.pullForDigest(uid);
+    const u = users.find(x => Number(x.id) === Number(uid)); const pulled = await store.pullForDigest(uid);
+    const items = groupByRule ? groupDigestItems(pulled) : pulled;   // E-R07 — alert_group_by_rule = '1'
     if (!items.length) continue; if (!u || !u.email || !mailer) { skipped++; continue; }
     const html = `<h2 style="font-family:Calibri,Arial">Your ${digest} digest — ${items.length} notification(s)</h2><ul style="font-family:Calibri,Arial">${items.map(n => `<li><b>${esc(n.title)}</b> — ${esc(n.body || '')} <small>${esc(String(n.created_at).slice(0, 16))}</small></li>`).join('')}</ul><p><a href="${esc(baseUrl)}/notifications.html">Open the notification centre</a></p>`;
     const r = await mailer.send({ to: [u.email], subject: `IT dashboard — ${digest} digest (${items.length})`, html }); if (r.ok) sent++; else skipped++;
@@ -168,16 +174,56 @@ function safePostFor(cfg) {
 /** G16 — the STOP switch halts every outbound channel the engagement jobs own: alerts, digests, publication. */
 const stopped = (cfg) => String((cfg && cfg.notifications_stop) || '0') === '1';
 
+// E-R06 (catalogue A05) — schedule reminders, in-app only. Inert unless schedule_reminders_enabled = '1' AND
+// schedule_reminder_lead_days is set; nothing while notifications_stop = '1'. `read` returns the rows
+// (meetings, cadences, inspections, sites, users); `sent(key)` says whether a key was already notified.
+async function runScheduleReminders({ cfg = {}, read, store, sent, now = new Date() }) {
+  if (String(cfg.schedule_reminders_enabled || '0') !== '1') return { skipped: 'schedule_reminders_enabled' };
+  if (stopped(cfg)) return { skipped: 'notifications_stop' };
+  const R = require('./scheduleReminders');
+  if (R.leadOf(cfg.schedule_reminder_lead_days) == null) return { skipped: 'no lead days' };
+  const data = await read();
+  const { items } = R.buildReminders({ ...data, now, leadDays: cfg.schedule_reminder_lead_days, inspectionIntervalDays: cfg.schedule_inspection_interval_days, tzEnabled: cfg.site_local_calendar });
+  let notified = 0, already = 0, nobody = 0;
+  for (const it of items) {
+    if (await sent(it.key)) { already++; continue; }
+    if (!it.userIds.length) { nobody++; continue; }
+    for (const userId of it.userIds) { await store.notify({ userId, kind: 'schedule_reminder', title: it.title, body: it.body, link: it.link, sourceKind: 'schedule_reminder', sourceRef: it.key }); notified++; }
+  }
+  return { items: items.length, notified, already, nobody };
+}
+
+/** Live readers for runScheduleReminders (one PostgreSQL database). */
+function scheduleReaders(rdbM) {
+  const H = rdbM.pgHandle();
+  const codeToSite = async (module, code) => { try { const r = await rdbM.getSiteIdByModuleCode(module, code); return r && r.site_id != null ? Number(r.site_id) : null; } catch (_) { return null; } };
+  return {
+    read: async () => {
+      // the LATEST PV per site × department carries the next date agreed in that meeting
+      const pv = await H.prepare(`SELECT DISTINCT ON (site_code, department) id, site_code, department, next_meeting_date, intake_source, reference FROM md_meetings
+        WHERE deleted_at IS NULL ORDER BY site_code, department, meeting_date DESC, id DESC`).all();
+      const meetings = [];
+      for (const m of pv) if (m.next_meeting_date) meetings.push({ id: Number(m.id), site_id: await codeToSite('meetings', m.site_code), department: m.department, next_meeting_date: m.next_meeting_date, incubation: m.intake_source === 'business_incubation' || /_INC_/.test(String(m.reference || '')) });
+      const cadences = await H.prepare(`SELECT id, key, name, site_id, weekday, time_local, effective_from, effective_to, active FROM meeting_cadences WHERE deleted_at IS NULL AND active = 1 AND site_id IS NOT NULL`).all();
+      const ins = await H.prepare(`SELECT site_code, MAX(inspection_date) AS last_date FROM insp_inspections WHERE deleted_at IS NULL AND status IN ('submitted','closed') GROUP BY site_code`).all();
+      const inspections = []; for (const r of ins) inspections.push({ site_id: await codeToSite('inspection', r.site_code), last_date: r.last_date });
+      return { meetings, cadences, inspections, sites: (await rdbM.listSites({ includeInactive: false })) || [], users: (await rdbM.listUsers()) || [] };
+    },
+    sent: async (key) => !!(await H.prepare(`SELECT 1 FROM notifications WHERE source_kind = 'schedule_reminder' AND source_ref = ? LIMIT 1`).get(key)),
+  };
+}
+
 /** Bind the four job functions to the live stores (server.js). `stores()` is read at call time (lazy). */
 function bindJobs({ stores, aiProvider = 'off', execAiCall = null }) {
   const L = () => { const reportConfig = require('./reportConfig'), { buildMailer } = require('./mailer'), rdbM = require('../reports-db'); const dd = { rdb: rdbM, mdb: require('../meetings-db'), idb: require('../inspection-db'), adb: require('../assets-db'), tracker: require('../tracker-db'), trackerScore: require('../tracker-pptx') }; const reg = require('./metricRegistry').current(); return { reportConfig, buildMailer, rdbM, dd, reg, post: safePostFor }; };
   const mail = (cfg, l) => (cfg.smtp_host ? l.buildMailer(cfg) : null);
   return {
     evaluate: async () => { const l = L(), st = stores(); const cfg = await l.reportConfig.getConfig(l.rdbM.db); return evaluateAlerts({ store: st.eng, registry: l.reg, deps: l.dd, rdb: l.rdbM, mailer: mail(cfg, l), post: l.post(cfg), cfg, baseUrl: cfg.public_base_url || '' }); },
-    digest: async (kind) => { const l = L(), st = stores(); const cfg = await l.reportConfig.getConfig(l.rdbM.db); if (stopped(cfg)) return { skipped: 'notifications_stop' }; return sendDigest({ store: st.eng, rdb: l.rdbM, mailer: mail(cfg, l), digest: kind, baseUrl: cfg.public_base_url || '' }); },
+    digest: async (kind) => { const l = L(), st = stores(); const cfg = await l.reportConfig.getConfig(l.rdbM.db); if (stopped(cfg)) return { skipped: 'notifications_stop' }; return sendDigest({ store: st.eng, rdb: l.rdbM, mailer: mail(cfg, l), digest: kind, baseUrl: cfg.public_base_url || '', groupByRule: String(cfg.alert_group_by_rule || '0') === '1' }); },
     reports: async (cadence) => { const l = L(), st = stores(); const cfg = await l.reportConfig.getConfig(l.rdbM.db); return generateScheduledReports({ cadence, reportStore: st.rep, dashStore: st.dash, engStore: st.eng, registry: l.reg, deps: l.dd, rdb: l.rdbM, aiProvider, aiCall: execAiCall ? aiCallFrom(execAiCall) : null, baseUrl: cfg.public_base_url || '' }); },
+    reminders: async () => { const l = L(), st = stores(); const cfg = await l.reportConfig.getConfig(l.rdbM.db); const r = scheduleReaders(l.rdbM); return runScheduleReminders({ cfg, read: r.read, sent: r.sent, store: st.eng }); },
     publish: async () => { const l = L(), st = stores(); const cfg = await l.reportConfig.getConfig(l.rdbM.db); if (cfg.publish_cron_enabled !== '1') return { skipped: true }; if (stopped(cfg)) return { skipped: 'notifications_stop' }; return publishScheduled({ engStore: st.eng, reportStore: st.rep, registry: l.reg, deps: l.dd, rdb: l.rdbM, cfg, mailer: mail(cfg, l), post: l.post(cfg) }); },
   };
 }
 
-module.exports = { previewFirings, stopped, bindJobs, aiCallFrom, safePostFor, evaluateAlerts, sendDigest, generateScheduledReports, publishScheduled, readingsFor, resolveRecipients, teamsCard };
+module.exports = { runScheduleReminders, scheduleReaders, previewFirings, stopped, bindJobs, aiCallFrom, safePostFor, evaluateAlerts, sendDigest, generateScheduledReports, publishScheduled, readingsFor, resolveRecipients, teamsCard };

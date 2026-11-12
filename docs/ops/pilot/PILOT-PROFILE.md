@@ -107,6 +107,14 @@ planned switch cannot be set before its goal lands.
 | `field_outbox_resolve_enabled` | built | `0` | `0` until the real-device sessions (E-F04, audit F-01) show how often field entries get stuck — otherwise an admin repair becomes the normal path (X-§7-01); then `1` (admin tier may `mark_rejected` or `release` a stuck entry; a ticket / action is released only after checking SDP, with a reason; every resolution is a risk row in System Logs; nothing is applied server-side). The read-only list `GET /api/field/admin/outbox` has no switch | PO + site IT | E-F01 |
 | `field_review_step` | built | `0` | `1` on the pilot site after one session shows it does not slow the technician (a one-screen summary — site, items, findings, photos, offline note — before an inspection is queued; « Corriger » queues nothing) | PO / adoption lead | E-F03 |
 | `field_task_timing` | built | `0` | `1` for the pilot window to take a BASELINE (active time form open → queued, pauses > 2 min excluded, user id + role tier only; median / p75 per site × kind × week in `tools/pilot/pilot-metrics.js`). No target is set — targets come only after the baseline (PILOT-MEASUREMENT.md) | PO / adoption lead | E-F03 |
+| `a01_missing_due_date` | built | `0` | `1` (proposal — a serious commitment without a due date or approved exception is then escalated as A01, like a missing owner) | Commitments owner (D-04) | E-R02 |
+| `a10_gate_lead_days` | built | `` (empty) | a number of days, e.g. `10` (proposal — the armed ppm-alerts job then reminds the project owner and committee before the next stage gate; empty = off) | Committee | E-R02 |
+| `delivery_failure_alert_enabled` | built | `0` | `1` once `sync_alert_recipients` (or the Teams URL) names who receives sync alerts (D-13) — the failed deliveries are already listed on System Logs either way | Platform owner (D-13) | E-R04 |
+| `schedule_reminders_enabled` | built | `0` | `1` on the pilot site once the lead days are decided (in-app reminder to the site's editors before a scheduled PV / incubation session, cadence meeting or inspection) | Site coordination owner | E-R06 |
+| `schedule_reminder_lead_days` | built | `` (empty) | e.g. `3` (proposal — empty = no reminder even when armed) | Site coordination owner | E-R06 |
+| `schedule_inspection_interval_days` | built | `` (empty) | e.g. `90` if a quarterly inspection rhythm is adopted (proposal; empty = inspections are not reminded) | Infrastructure / GRC owner | E-R06 |
+| `alert_group_by_rule` | built | `0` | `1` (proposal — the e-mail digest shows one line per alert rule listing its sites instead of one line per site) | Owner (alerting policy) | E-R07 |
+| `alert_quiet_hours` | built | `` (empty) | e.g. `22:00-06:00` UTC (proposal — non-critical in-app firings wait until the window ends; critical ones are never deferred) | Owner (alerting policy) | E-R07 |
 
 Not in this table because they are not top-level `report_config` keys:
 

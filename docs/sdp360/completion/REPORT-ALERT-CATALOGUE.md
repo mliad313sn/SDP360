@@ -5,7 +5,7 @@ Generated from `services/reportCatalogue.js` — do not edit by hand. Source of 
 report or rule is approved, configured in production or accepted by its audience. Every switch that lets something
 leave the server ships off; the STOP switch `notifications_stop` halts every engagement outbound channel at once.
 
-Reports: {"implemented":1,"partial":13,"missing":2} · Rules: {"implemented":1,"partial":13,"missing":2}
+Reports: {"implemented":1,"partial":13,"missing":2} · Rules: {"implemented":1,"partial":14,"missing":1}
 
 ## Reports
 
@@ -21,27 +21,50 @@ Reports: {"implemented":1,"partial":13,"missing":2} · Rules: {"implemented":1,"
 | R08 | P1 | ServiceDesk Plus ITSM & SLA Reconciliation | Service owners and IT Operations | daily/weekly/monthly | partial | `public/index.html`<br>`services/metricRegistry.js`<br>`FORMULA_RECONCILIATION.md` | — | figures and reconciliation notes exist; KPI definitions are not certified by the KPI Committee | D-01 |
 | R09 | P1 | OpManager Infrastructure & Network Service Health | Infrastructure / Enterprise Architecture / Site | weekly/monthly | partial | `routes/opmanager.js`<br>`public/wan-health.html` | — | OpManager availability and coverage routes exist; OpManager alarms are not read; no Teams delivery. wan-health reads Meraki (kept, D-06) and is listed for the WAN picture, not as OpManager coverage | — |
 | R10 | P1 | IT Risk, Controls & Audit Action Pack | Security Lead, control owners, auditors | monthly/quarterly | partial | `risk-register-export.js`<br>`routes/governance.js` | — | risk register export and governance risks exist; no restricted audit pack | D-14 |
-| R11 | P1 | Data Integration & Reporting Reliability | Platform admins / data engineer | daily and on failure | partial | `public/system-logs.html`<br>`services/sync/alerts.js`<br>`services/sync/jobs.js` | `sync_alert_enabled`=1<br>`sync_alert_recipients`=(empty) | sync health and failure alerts exist; alerts reach nobody until recipients or a Teams URL are set; report-delivery failures are logged, not alerted; export mismatch is not detected | — |
+| R11 | P1 | Data Integration & Reporting Reliability | Platform admins / data engineer | daily and on failure | partial | `public/system-logs.html`<br>`services/sync/alerts.js`<br>`services/sync/jobs.js`<br>`services/deliveryFailures.js` | `sync_alert_enabled`=1<br>`sync_alert_recipients`=(empty)<br>`delivery_failure_alert_enabled`=0 | sync health and failure alerts exist; alerts reach nobody until recipients or a Teams URL are set; report-delivery failures are listed on System Logs (E-R04) and alerted only with delivery_failure_alert_enabled = 1; export mismatch is not detected | — |
 | R12 | P2 | ITSM Asset & Ownership Exceptions | IT asset / service owners | monthly | implemented | `public/assets.html`<br>`tools/reports/send-hygiene.js`<br>`services/assetHygieneReport.js` | `hygiene_send_enabled`=0<br>`hygiene_recipients`=(empty) | no money is shown by design; renewals only where the SDP fields exist | — |
 | R13 | P1 | Native SDP360 Portfolio, Programme & Investment Review | CIO / PMO / Finance | monthly/quarterly | partial | `public/portfolio.html`<br>`routes/governance.js`<br>`services/portfolioEvidence.js` | — | portfolio view, plan, baseline, conflicts and money roll-up exist; no PPTX and no approved budget figures | D-02 |
-| R14 | P2 | Quarterly Business Relationship & Stakeholder Pulse | Site GM, function heads, CIO | quarterly | missing | — | — | only the helpdesk CSAT survey exists; a business-pulse survey instrument is not defined | D-13 |
+| R14 | P2 | Quarterly Business Relationship & Stakeholder Pulse | Site GM, function heads, CIO | quarterly | missing | — | — | only the helpdesk CSAT survey exists; a business-pulse instrument is PROPOSED in docs/ops/BUSINESS-PULSE-DRAFT.md (E-R05, not approved, nothing sent) | D-13 |
 | R15 | P2 | Change/Incident Post-Implementation Value Review | Change/Incident manager and business sponsor | per major event | partial | `services/reportPayload.js`<br>`services/pirReview.js`<br>`routes/commitments.js`<br>`public/commitments.html` | `pir_reviews_enabled`=0 | major-incident RCA/CA/PIR/LL fields are read from SDP; a per-event review record (decisions, before/after recurrence, linked commitments, sign-off by someone other than the author) exists behind pir_reviews_enabled (E-I03); who signs and the business sponsor are not named; no PDF of the record | — |
 | R16 | P2 | Native SDP360 Portfolio Budget & Roadmap Planning | CIO / PMO / Finance | annual | missing | — | — | per-currency budget roll-up exists in the portfolio view; no annual planning pack | D-02 |
+
+## Report contracts (E-R01)
+
+Owner = `to be named` wherever the code knows no owner (naming owners and audiences is a human decision, D-13). Validation = the review step the code enforces before release (— = none in code).
+
+| Id | Owner | Validation | Test proving the content | Delivery proof |
+|---|---|---|---|---|
+| R01 | to be named | — | `tests/engagement-store.test.js`<br>`tests/alert-outbound-arm.test.js`<br>`tests/commitments-routes.smoke.test.js` | notifications |
+| R02 | to be named | — | `tests/governance-routes.smoke.test.js` | none |
+| R03 | to be named | business verification by a reviewer other than the owner (services/commitmentLifecycle.js) | `tests/commitment-lifecycle.test.js`<br>`tests/commitments-routes.smoke.test.js` | none |
+| R04 | to be named | report studio: a draft run is moved to reviewed before it can be published (routes/reportStudio.js) | `tests/report-studio-routes.smoke.test.js`<br>`tests/publish-gate.test.js`<br>`tests/exec-pptx-python.test.js` | report_runs |
+| R05 | to be named | — | `tests/meetings-summary.test.js` | none |
+| R06 | to be named | — | `tests/inspection-routes.test.js` | none |
+| R07 | to be named | — | `tests/incubation-rfi-link.smoke.test.js` | none |
+| R08 | to be named | — | `tests/metrics-registry.test.js` | none |
+| R09 | to be named | — | `tests/opm-routes.smoke.test.js` | none |
+| R10 | to be named | — | `tests/risk-register-classify.test.js` | none |
+| R11 | to be named | — | `tests/sync-schedule.test.js`<br>`tests/catalogue-dry-run.test.js`<br>`tests/delivery-failures.test.js` | none |
+| R12 | to be named | — | `tests/send-hygiene.test.js`<br>`tests/asset-hygiene-report.test.js` | report_sent_log |
+| R13 | to be named | — | `tests/portfolio-deck.test.js` | none |
+| R14 | to be named | — | — | none |
+| R15 | to be named | — | — | none |
+| R16 | to be named | — | — | none |
 
 ## Automation rules
 
 | Id | Rule | Status | Where | Switches (default) | Dedup | Cool-down | Open |
 |---|---|---|---|---|---|---|---|
-| A01 | High/critical finding without owner/date or exception | partial | `services/escalationRouting.js`<br>`services/commitmentEscalation.js`<br>`services/commitmentStore.js` | `commitments_enabled`=0<br>`commitment_notify_enabled`=0 | commitment_escalations.key | one episode per key until cleared | escalation recorded; outbound notice armed off; only a missing accountable owner raises A01 (a missing due date does not); commitments only, not inspection findings; hourly job, in-app only |
+| A01 | High/critical finding without owner/date or exception | partial | `services/escalationRouting.js`<br>`services/commitmentEscalation.js`<br>`services/commitmentStore.js` | `commitments_enabled`=0<br>`commitment_notify_enabled`=0<br>`a01_missing_due_date`=0 | commitment_escalations.key | one episode per key until cleared | escalation recorded; outbound notice armed off; a missing due date also raises A01 only with a01_missing_due_date = 1 (E-R02, default off); commitments only, not inspection findings; hourly job, in-app only |
 | A02 | High/critical remedy due date breached | implemented | `services/commitmentEscalation.js`<br>`services/commitmentStore.js` | `commitments_enabled`=0<br>`commitment_notify_enabled`=0 | commitment_escalations.key | one episode per key until cleared | escalation recorded; outbound notice armed off |
-| A03 | Commitment technically completed → independent reviewer sign-off | partial | `services/commitmentLifecycle.js` | `commitments_enabled`=0 | — | — | self-verification refused; the reviewer is not notified |
-| A04 | Verification rejected → reopen with reason | partial | `services/commitmentLifecycle.js` | `commitments_enabled`=0 | — | — | reopen requires a reason and keeps history; owner is not notified |
-| A05 | Meeting / incubation / inspection approaching its schedule | missing | — | — | — | — | site calendar exists; no reminder job |
+| A03 | Commitment technically completed → independent reviewer sign-off | partial | `services/commitmentLifecycle.js`<br>`services/commitmentNotices.js`<br>`routes/commitments.js` | `commitments_enabled`=0<br>`notifications_stop`=0 | one notice per transition | — | self-verification refused; the named reviewer (or the commitments.reviewer holders) gets an in-app notice (E-R02); no outbound channel; an unmatched reviewer name reaches nobody |
+| A04 | Verification rejected → reopen with reason | partial | `services/commitmentLifecycle.js`<br>`services/commitmentNotices.js`<br>`routes/commitments.js` | `commitments_enabled`=0<br>`notifications_stop`=0 | one notice per transition | — | reopen requires a reason and keeps history; the accountable owner gets an in-app notice with the reason (E-R02); no outbound channel |
+| A05 | Meeting / incubation / inspection approaching its schedule | partial | `services/scheduleReminders.js`<br>`services/engagementJobs.js`<br>`services/sync/jobs.js` | `schedule_reminders_enabled`=0<br>`schedule_reminder_lead_days`=(empty)<br>`notifications_stop`=0 | notifications.source_ref A05:<kind>:<ref>:<due> | one reminder per item and due date | daily in-app reminder to the site editors before the next PV / incubation date, a cadence meeting or (with schedule_inspection_interval_days) an inspection (E-R06); off until lead days are set; no outbound channel; site_calendar is off-days, not a schedule |
 | A06 | Recorded activity not submitted by deadline | partial | `services/weeklyReportData.js` | `weekly_report_send_enabled`=0 | — | — | "complete but not submitted" is shown in the weekly e-mail; no exception record |
 | A07 | Critical monitored service/link outage or recurring incident pattern | partial | `tools/teams/poll-sla.js`<br>`tools/meraki/poll-wan-outages.js` | `teams_sla_enabled`=0 | sla_alert_log (request_id, kind) | once per ticket and kind | SDP SLA alerts and Meraki WAN outages (kept, D-06) exist; OpManager alarms are not read |
-| A08 | Source stale / row-count anomaly / failed delivery | partial | `services/sync/alerts.js`<br>`services/publishGate.js`<br>`services/sync/syncRunner.js` | `sync_alert_enabled`=1<br>`sync_alert_recipients`=(empty) | after 2 failures, per job | per job state | stale sources lose their colour and block publication; report-delivery failure is logged, not alerted; export mismatch is not detected |
+| A08 | Source stale / row-count anomaly / failed delivery | partial | `services/sync/alerts.js`<br>`services/publishGate.js`<br>`services/sync/syncRunner.js` | `sync_alert_enabled`=1<br>`sync_alert_recipients`=(empty) | after 2 failures, per job | per job state | stale sources lose their colour and block publication; a report-delivery failure is listed on System Logs (E-R04) and alerted once per new failure only with delivery_failure_alert_enabled = 1 (no automatic retry); export mismatch is not detected |
 | A09 | Benefit review date reached | partial | `services/portfolioBenefits.js`<br>`services/obligations.js`<br>`services/myWork.js`<br>`public/project.html` | — | one line per benefit until verified | — | in-app reminder only (Site obligations + My work), no outbound notice; the benefit owner is free text, so the line goes to the project site, not to the person |
-| A10 | Funding review / stage gate / renewal date approaching | partial | `services/projectSchedule.js` | — | — | — | stage gates enforced; no reminder |
+| A10 | Funding review / stage gate / renewal date approaching | partial | `services/projectSchedule.js`<br>`services/ppmAlerts.js`<br>`tools/governance/ppm-alerts.js` | `ppm_alerts_enabled`=0<br>`a10_gate_lead_days`=(empty) | ppm_alert_state per project, stage and gate date | 7 days | stage gates enforced; in-app reminder before the next gate (start / planned end) when a10_gate_lead_days is set (E-R02); no funding-review or renewal date exists in the schema; lead days not decided |
 | A11 | Milestone / dependency / capacity blocked, late or unowned | partial | `services/ppmAlerts.js`<br>`tools/governance/ppm-alerts.js`<br>`routes/governance.js`<br>`public/cockpit.html` | `ppm_alerts_enabled`=0 | item key, 7 days | 7 days per item; cleared when the item disappears | armed off until the committee decides the thresholds; capacity overload waits for A-13 |
 | A12 | KPI policy / source mapping change → controlled recalculation | partial | `services/governancePolicy.js` | — | — | — | policy history is hash-chained; no RFI and dual-run comparison |
 | A13 | Friday review preparation (exception-only agenda) | partial | `public/cockpit.html`<br>`routes/governance.js`<br>`services/agendaDrafts.js` | `agenda_cron_enabled`=0 | — | — | with agenda_cron_enabled = 1 the Monday job compiles a DRAFT agenda per cadence due that week (E-G03); nothing is sent, the secretary still prepares and distributes; distribution list not authorised |

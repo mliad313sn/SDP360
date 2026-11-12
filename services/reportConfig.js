@@ -367,6 +367,27 @@ DEFAULTS.pir_reviews_enabled = '0';
 DEFAULTS.insp_repeat_findings = '0';
 DEFAULTS.insp_repeat_window = '';
 DEFAULTS.insp_action_verify_enabled = '0';
+// ── Plan E / W2-REP switches (defaults = today) ──────────────────────────────────────────────
+// ── E-R02 (catalogue A01) — '1' = a serious commitment with no due date (and no approved exception) also raises A01;
+//    '0' (default, today) = only a missing accountable owner raises A01.
+DEFAULTS.a01_missing_due_date = '0';
+// ── E-R02 (catalogue A10) — days before a project's next stage gate (approval → start date, in progress → end date)
+//    at which the nightly ppm-alerts job (armed by ppm_alerts_enabled) raises an in-app reminder. '' (default) = off.
+DEFAULTS.a10_gate_lead_days = '';
+// ── E-R04 (audit R-04) — '1' = report-delivery failures (report_sent_log fail, failed publish runs) are also alerted
+//    through the sync-alert path (sync_alert_* recipients / Teams); '0' (default) = listed on System Logs, not sent.
+DEFAULTS.delivery_failure_alert_enabled = '0';
+// ── E-R06 (catalogue A05) — '1' = the daily engagement.schedule_reminders job writes in-app reminders to the site's
+//    editors before a scheduled PV / incubation session, cadence meeting or (with an interval) site inspection;
+//    '0' (default, today) = no reminder. Lead days and inspection interval: '' = off (policy, not decided).
+DEFAULTS.schedule_reminders_enabled = '0';
+DEFAULTS.schedule_reminder_lead_days = '';
+DEFAULTS.schedule_inspection_interval_days = '';
+// ── E-R07 (audit R-07) — sober alerting. alert_group_by_rule '1' = the e-mail digest folds one rule's alert notifications
+//    into ONE line listing the sites; '0' (default) = one line per notification (today). alert_quiet_hours "HH:MM-HH:MM"
+//    (UTC) = non-critical in-app firings inside the window are deferred until it ends; '' (default) = no quiet window.
+DEFAULTS.alert_group_by_rule = '0';
+DEFAULTS.alert_quiet_hours = '';
 const KEYS = Object.keys(DEFAULTS);
 
 // Secrets that the GET handler redacts to '' — a Save that doesn't retype them must

@@ -11,9 +11,13 @@
 //   dependency_blocked an open task whose predecessor is late or blocked
 //   baseline_slip      project finish later than its baseline by more than slipDays (projectSchedule.varianceOf)
 //   capacity_overload  one item per conflict, only when a capacity grid is passed
+//   gate_approaching   (E-R02, catalogue A10 — only with gateLeadDays set) the project's next stage gate falls within
+//                      gateLeadDays: a project in proposal / approval whose start_date is near (the approval gate must be
+//                      passed before it starts), an in_progress project whose end_date is near (the closure gate).
+//                      There is no funding-review or renewal date in the schema — those are not raised.
 const { varianceOf } = require('./projectSchedule');
 
-const KINDS = ['task_overdue', 'task_blocked', 'unowned_task', 'unowned_milestone', 'milestone_overdue', 'dependency_blocked', 'baseline_slip', 'capacity_overload'];
+const KINDS = ['task_overdue', 'task_blocked', 'unowned_task', 'unowned_milestone', 'milestone_overdue', 'dependency_blocked', 'baseline_slip', 'capacity_overload', 'gate_approaching'];
 const DONE = ['done', 'cancelled'];
 const _iso = (v) => {
   if (v == null || v === '') return null;
@@ -23,7 +27,7 @@ const _iso = (v) => {
 const _ms = (d) => Date.parse(d + 'T00:00:00Z');
 const _blank = (v) => v == null || String(v).trim() === '';
 
-function findExceptions(view, { today, blockedDays = 5, slipDays = 10, capacity = null } = {}) {
+function findExceptions(view, { today, blockedDays = 5, slipDays = 10, capacity = null, gateLeadDays = null } = {}) {
   const T = _iso(today); if (!T) throw new Error('findExceptions needs today (YYYY-MM-DD)');
   const v = view || {};
   const projects = new Map((v.projects || []).map((p) => [Number(p.id), p]));
@@ -60,6 +64,16 @@ function findExceptions(view, { today, blockedDays = 5, slipDays = 10, capacity 
     if (!live(p)) continue;
     const d = varianceOf(p).finish_variance_days;
     if (d != null && d > Number(slipDays)) add('baseline_slip', 'project', Number(p.id), p, p.owner, `${p.key || '#' + p.id} ${p.name || ''}: finish ${d} d later than its baseline (${_iso(p.baseline_end)})`.replace(/\s+/g, ' '), _iso(p.baseline_end));
+  }
+  const lead = gateLeadDays == null || String(gateLeadDays).trim() === '' || !Number.isFinite(Number(gateLeadDays)) || Number(gateLeadDays) < 0 ? null : Number(gateLeadDays);
+  if (lead != null) for (const p of projects.values()) {
+    if (!live(p)) continue;
+    const stage = p.stage || 'proposal';
+    const gate = ['proposal', 'approval'].includes(stage) ? { date: _iso(p.start_date), name: 'approval (before start)' }
+      : stage === 'in_progress' ? { date: _iso(p.end_date), name: 'closure (planned end)' } : null;
+    if (!gate || !gate.date || gate.date < T) continue;   // no date = nothing to remind; a past date is A11's business
+    const inDays = Math.round((_ms(gate.date) - _ms(T)) / 86400000);
+    if (inDays <= lead) add('gate_approaching', 'project', `${Number(p.id)}:${stage}:${gate.date}`, p, p.owner, `${p.key || '#' + p.id} ${p.name || ''}: stage gate ${gate.name} due ${gate.date} (in ${inDays} d)`.replace(/\s+/g, ' '), gate.date);
   }
   if (Array.isArray(capacity)) for (const c of capacity) {
     const who = String(c.owner || '').trim(); if (!who) continue;

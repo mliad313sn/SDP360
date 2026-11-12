@@ -75,6 +75,10 @@
     <table class="sl-tbl"><thead><tr><th>Job</th><th>Status</th><th>Last success</th><th>Age</th><th>Window</th><th>Last error</th><th>Errors</th></tr></thead><tbody id="syncRows"></tbody></table>
     <h3 style="margin-top:18px">Last runs</h3>
     <table class="sl-tbl"><thead><tr><th>#</th><th>Job</th><th>Started</th><th>Status</th><th>Attempts</th><th>Rows</th><th>Deleted</th><th>Error</th></tr></thead><tbody id="syncRuns"></tbody></table>
+    <h3 style="margin-top:18px">Failed deliveries</h3>
+    <p class="sl-hint" style="margin:0 0 6px">Report e-mails recorded as failed and publication runs that ended in error, last 14 days. Read-only: nothing is retried automatically — resend from Admin (force). Recipients are shown as a count; error texts are redacted.</p>
+    <div id="delivSummary" class="sl-hint" style="margin-bottom:6px"></div>
+    <table class="sl-tbl"><thead><tr><th>When</th><th>Kind</th><th>Report / job</th><th>Site</th><th>Period</th><th>Recipients</th><th>Error</th></tr></thead><tbody id="delivRows"></tbody></table>
   </section>
 
   <!-- PAGE USAGE (C-09) -->
@@ -156,6 +160,11 @@
     api('/api/sync/health').then(function(h){
       if(!h||!h.ok){ el('syncRows').innerHTML='<tr><td colspan="7">'+esc(h&&h.error||'unavailable')+'</td></tr>'; return; }
       var s=h.summary||{}; el('syncSummary').textContent = 'ok '+(s.ok||0)+' · stale '+(s.stale||0)+' · error '+(s.error||0)+' · never '+(s.never||0)+' · idle '+(s.idle||0);
+      var d=h.delivery||{};
+      el('delivSummary').textContent = d.total==null ? 'Delivery log unreadable.' : (d.total+' failure(s) in '+(d.window_days||'—')+' days'+(d.errors&&d.errors.length?' · partial: '+d.errors.join(', '):''));
+      el('delivRows').innerHTML = (d.failures||[]).map(function(f){
+        return '<tr><td>'+esc(f.at?f.at.replace('T',' ').slice(0,16):'—')+'</td><td>'+esc(f.kind==='publish'?'publish':'report e-mail')+'</td><td><code>'+esc(f.type||'—')+'</code></td><td>'+esc(f.site||'—')+'</td><td>'+esc(f.period||'—')+'</td><td>'+(f.recipients_count==null?'—':f.recipients_count)+'</td><td>'+esc(f.error||'—')+'</td></tr>';
+      }).join('') || '<tr><td colspan="7">No failed delivery in the window.</td></tr>';
       el('syncRows').innerHTML = (h.jobs||[]).map(function(j){
         return '<tr><td><code>'+esc(j.job)+'</code></td><td><b style="color:'+(COL[j.status]||'#333')+'">'+esc(j.status)+'</b></td><td>'+esc(j.last_ok?j.last_ok.replace('T',' ').slice(0,16):'—')+'</td><td>'+(j.stale_hours==null?'—':j.stale_hours+' h')+'</td><td>'+(j.freshness_hours?j.freshness_hours+' h':'—')+'</td><td>'+esc(j.last_error?j.last_error.replace('T',' ').slice(0,16):'—')+'</td><td>'+(j.errors||0)+'</td></tr>';
       }).join('');

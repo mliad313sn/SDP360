@@ -107,3 +107,11 @@ test('API consumers → /ext: admin only, key shown once, 401 without key, scope
   assert.equal((await send('DELETE', `/api/engagement/consumers/${c.id}`, admin)).status, 200);
   assert.equal((await get('/ext/v1/metrics', null, { 'x-api-key': c.key })).status, 401, 'revoked key');
 });
+
+// E-R07 — alert noise view: admin tier only, labelled "read" (not acknowledgement)
+test('E-R07: GET /api/engagement/alert-noise is admin-only and answers per rule', async () => {
+  assert.equal((await get('/api/engagement/alert-noise', viewer)).status, 403);
+  const r = await get('/api/engagement/alert-noise?days=7', admin); assert.equal(r.status, 200);
+  const j = await r.json(); assert.equal(j.days, 7); assert.ok(Array.isArray(j.rules)); assert.equal(j.read_is_not_acknowledgement, true); assert.equal(j.grouping, false); assert.equal(j.quiet_hours, null);
+  for (const x of j.rules) if (x.notified === 0) assert.equal(x.read_rate_pct, null);
+});

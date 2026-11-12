@@ -61,6 +61,12 @@ function makeEngagementStore(db, { isPg = false, now = () => new Date().toISOStr
   /** False-positive rate over the window (the "< 5 %" acceptance). */
   async function firingStats({ since = null } = {}) { const rows = await listFirings({ limit: 2000, since }); const fp = rows.filter(r => r.false_positive).length; return { firings: rows.length, false_positives: fp, false_positive_pct: rows.length ? Math.round(fp / rows.length * 1000) / 10 : null }; }
 
+  /** E-R07 — raw rows for the alert-noise view (alertEngine.noiseMetrics): firings + alert notifications since `since`. */
+  async function alertNoiseRows({ since } = {}) {
+    const f = await P(`SELECT rule_key, site_id, severity, fired_at FROM alert_firings WHERE fired_at >= ? ORDER BY fired_at LIMIT 20000`).all(String(since));
+    const n = await P(`SELECT source_kind, source_ref, created_at, read_at FROM notifications WHERE source_kind = 'alert_rule' AND created_at >= ? ORDER BY created_at LIMIT 50000`).all(String(since));
+    return { firings: f.map((r) => ({ ...r, site_id: r.site_id == null ? null : Number(r.site_id) })), notifications: n };
+  }
   // ── notifications ─────────────────────────────────────────────────────────────────
   const notifRow = (r) => r && ({ ...r, id: Number(r.id), user_id: Number(r.user_id) });
   async function notify({ userId, kind, title, body, link, sourceKind, sourceRef }) { return insert('notifications', ['user_id', 'kind', 'title', 'body', 'link', 'source_kind', 'source_ref', 'created_at'], [Number(userId), String(kind).slice(0, 40), String(title).slice(0, 300), body == null ? null : String(body).slice(0, 4000), link == null ? null : String(link).slice(0, 500), sourceKind || null, sourceRef == null ? null : String(sourceRef).slice(0, 120), now()]); }
@@ -130,7 +136,7 @@ function makeEngagementStore(db, { isPg = false, now = () => new Date().toISOStr
   async function callStats({ days = 7 } = {}) { const since = new Date(Date.parse(now()) - days * 864e5).toISOString(); return (await P(`SELECT consumer_id, COUNT(*) AS calls, SUM(CASE WHEN status>=400 THEN 1 ELSE 0 END) AS errors FROM api_calls WHERE called_at>=? GROUP BY consumer_id`).all(since)).map(r => ({ consumer_id: Number(r.consumer_id), calls: Number(r.calls), errors: Number(r.errors) || 0 })); }
   async function purgeCalls({ days = 90 } = {}) { const r = await P(`DELETE FROM api_calls WHERE called_at<?`).run(new Date(Date.parse(now()) - days * 864e5).toISOString()); return Number(r && r.changes) || 0; }
 
-  return { init, listRules, getRule, saveRule, removeRule, seedRules, loadState, saveState, recordFiring, listFirings, markFalsePositive, firingStats,
+  return { init, listRules, getRule, saveRule, removeRule, seedRules, loadState, saveState, recordFiring, listFirings, markFalsePositive, firingStats, alertNoiseRows,
     notify, listNotifications, unreadCount, markRead, markAllRead, pullForDigest, addComment, listComments,
     listSubscriptions, subscribe, unsubscribe, subscribersOf, digestSubscribers,
     createShareLink, listShareLinks, revokeShareLink, openShareLink, shareReceipts,

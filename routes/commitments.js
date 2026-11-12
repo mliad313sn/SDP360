@@ -52,6 +52,27 @@ module.exports = function commitmentsRoutes(deps) {
   }
   const log = (req, action, target, details) => { try { rdb().logEvent({ category: 'commitments', action, target: String(target), details, ...rdb()._logCtx(req) }); } catch (_) {} };
 
+  // E-R02 — A03 / A04 in-app notices (services/commitmentNotices). Inside commitments_enabled (the route is gated),
+  // nothing at all while notifications_stop = '1', in-app only, best effort: a notice failure never fails the transition.
+  let _eng = null;
+  const engStore = () => deps.engStore || (_eng = _eng || require('../services/engagementStore').makeEngagementStore({ prepare: (sql) => rdb().pgHandle().prepare(sql) }, { isPg: true }));
+  async function noticeTransition(before, after, { reason, actorId }) {
+    try {
+      if (!after || !['awaiting_verification', 'rejected_for_rework'].includes(after.status)) return;
+      const cfg = await reportConfig.getConfig(rdb().db);
+      if (String(cfg.notifications_stop || '0') === '1') return;
+      const users = (await rdb().listUsers()) || [];
+      let roleReviewerIds = [];
+      const rs = deps.getRolesStore && deps.getRolesStore();
+      if (rs && !String(after.reviewer || '').trim() && after.site_id != null) {
+        try { const snap = await rs.snapshot(); roleReviewerIds = require('../services/governanceRoles').holders(snap.assignments, 'commitments.reviewer', after.site_id, new Date().toISOString().slice(0, 10)); } catch (_) { roleReviewerIds = []; }
+      }
+      const N = require('../services/commitmentNotices').noticesFor(before, after, { reason, actorId, users, roleReviewerIds });
+      const eng = engStore();
+      for (const n of N.notices) { const { rule, ...row } = n; void rule; await eng.notify(row); }
+    } catch (e) { console.warn('[commitments] A03/A04 notice skipped:', e.message); }
+  }
+
   async function enabled(req, res, next) {
     try {
       const cfg = await reportConfig.getConfig(rdb().db);
@@ -307,6 +328,7 @@ module.exports = function commitmentsRoutes(deps) {
       const b = req.body || {};
       const out = await store.transition(c.id, String(b.to || ''), { actor: actorOf(req.reportUser, c, await extrasFor(req.reportUser, c)), expectedVersion: b.version, reason: b.reason });
       log(req, 'commitment_transition', c.id, { from: c.status, to: out.status });
+      await noticeTransition(c, out, { reason: b.reason, actorId: req.reportUser.id });
       res.json({ commitment: await view(out, req.reportUser) });
     } catch (e) { fail(res, e); }
   });

@@ -43,8 +43,8 @@ const REPORTS = [
     surfaces: ['risk-register-export.js', 'routes/governance.js'], gates: [],
     missing: 'risk register export and governance risks exist; no restricted audit pack', decision: 'D-14' },
   { id: 'R11', priority: 'P1', name: 'Data Integration & Reporting Reliability', audience: 'Platform admins / data engineer', cadence: 'daily and on failure', channels: ['admin', 'teams', 'email'], status: 'partial',
-    surfaces: ['public/system-logs.html', 'services/sync/alerts.js', 'services/sync/jobs.js'], gates: [['sync_alert_enabled', '1'], ['sync_alert_recipients', '']],
-    missing: 'sync health and failure alerts exist; alerts reach nobody until recipients or a Teams URL are set; report-delivery failures are logged, not alerted; export mismatch is not detected', decision: null },
+    surfaces: ['public/system-logs.html', 'services/sync/alerts.js', 'services/sync/jobs.js', 'services/deliveryFailures.js'], gates: [['sync_alert_enabled', '1'], ['sync_alert_recipients', ''], ['delivery_failure_alert_enabled', '0']],
+    missing: 'sync health and failure alerts exist; alerts reach nobody until recipients or a Teams URL are set; report-delivery failures are listed on System Logs (E-R04) and alerted only with delivery_failure_alert_enabled = 1; export mismatch is not detected', decision: null },
   { id: 'R12', priority: 'P2', name: 'ITSM Asset & Ownership Exceptions', audience: 'IT asset / service owners', cadence: 'monthly', channels: ['excel', 'email'], status: 'implemented',
     surfaces: ['public/assets.html', 'tools/reports/send-hygiene.js', 'services/assetHygieneReport.js'], gates: [['hygiene_send_enabled', '0'], ['hygiene_recipients', '']],
     missing: 'no money is shown by design; renewals only where the SDP fields exist', decision: null },
@@ -53,7 +53,7 @@ const REPORTS = [
     missing: 'portfolio view, plan, baseline, conflicts and money roll-up exist; no PPTX and no approved budget figures', decision: 'D-02' },
   { id: 'R14', priority: 'P2', name: 'Quarterly Business Relationship & Stakeholder Pulse', audience: 'Site GM, function heads, CIO', cadence: 'quarterly', channels: ['survey', 'dashboard'], status: 'missing',
     surfaces: [], gates: [],
-    missing: 'only the helpdesk CSAT survey exists; a business-pulse survey instrument is not defined', decision: 'D-13' },
+    missing: 'only the helpdesk CSAT survey exists; a business-pulse instrument is PROPOSED in docs/ops/BUSINESS-PULSE-DRAFT.md (E-R05, not approved, nothing sent)', decision: 'D-13' },
   { id: 'R15', priority: 'P2', name: 'Change/Incident Post-Implementation Value Review', audience: 'Change/Incident manager and business sponsor', cadence: 'per major event', channels: ['pdf', 'record'], status: 'partial',
     surfaces: ['services/reportPayload.js', 'services/pirReview.js', 'routes/commitments.js', 'public/commitments.html'], gates: [['pir_reviews_enabled', '0']],
     missing: 'major-incident RCA/CA/PIR/LL fields are read from SDP; a per-event review record (decisions, before/after recurrence, linked commitments, sign-off by someone other than the author) exists behind pir_reviews_enabled (E-I03); who signs and the business sponsor are not named; no PDF of the record', decision: null },
@@ -63,25 +63,25 @@ const REPORTS = [
 ];
 
 const RULES = [
-  { id: 'A01', name: 'High/critical finding without owner/date or exception', status: 'partial', surfaces: ['services/escalationRouting.js', 'services/commitmentEscalation.js', 'services/commitmentStore.js'], gates: [['commitments_enabled', '0'], ['commitment_notify_enabled', '0']],
-    dedup: 'commitment_escalations.key', cooldown: 'one episode per key until cleared', missing: 'escalation recorded; outbound notice armed off; only a missing accountable owner raises A01 (a missing due date does not); commitments only, not inspection findings; hourly job, in-app only' },
+  { id: 'A01', name: 'High/critical finding without owner/date or exception', status: 'partial', surfaces: ['services/escalationRouting.js', 'services/commitmentEscalation.js', 'services/commitmentStore.js'], gates: [['commitments_enabled', '0'], ['commitment_notify_enabled', '0'], ['a01_missing_due_date', '0']],
+    dedup: 'commitment_escalations.key', cooldown: 'one episode per key until cleared', missing: 'escalation recorded; outbound notice armed off; a missing due date also raises A01 only with a01_missing_due_date = 1 (E-R02, default off); commitments only, not inspection findings; hourly job, in-app only' },
   { id: 'A02', name: 'High/critical remedy due date breached', status: 'implemented', surfaces: ['services/commitmentEscalation.js', 'services/commitmentStore.js'], gates: [['commitments_enabled', '0'], ['commitment_notify_enabled', '0']],
     dedup: 'commitment_escalations.key', cooldown: 'one episode per key until cleared', missing: 'escalation recorded; outbound notice armed off' },
-  { id: 'A03', name: 'Commitment technically completed → independent reviewer sign-off', status: 'partial', surfaces: ['services/commitmentLifecycle.js'], gates: [['commitments_enabled', '0']],
-    dedup: null, cooldown: null, missing: 'self-verification refused; the reviewer is not notified' },
-  { id: 'A04', name: 'Verification rejected → reopen with reason', status: 'partial', surfaces: ['services/commitmentLifecycle.js'], gates: [['commitments_enabled', '0']],
-    dedup: null, cooldown: null, missing: 'reopen requires a reason and keeps history; owner is not notified' },
-  { id: 'A05', name: 'Meeting / incubation / inspection approaching its schedule', status: 'missing', surfaces: [], gates: [],
-    dedup: null, cooldown: null, missing: 'site calendar exists; no reminder job' },
+  { id: 'A03', name: 'Commitment technically completed → independent reviewer sign-off', status: 'partial', surfaces: ['services/commitmentLifecycle.js', 'services/commitmentNotices.js', 'routes/commitments.js'], gates: [['commitments_enabled', '0'], ['notifications_stop', '0']],
+    dedup: 'one notice per transition', cooldown: null, missing: 'self-verification refused; the named reviewer (or the commitments.reviewer holders) gets an in-app notice (E-R02); no outbound channel; an unmatched reviewer name reaches nobody' },
+  { id: 'A04', name: 'Verification rejected → reopen with reason', status: 'partial', surfaces: ['services/commitmentLifecycle.js', 'services/commitmentNotices.js', 'routes/commitments.js'], gates: [['commitments_enabled', '0'], ['notifications_stop', '0']],
+    dedup: 'one notice per transition', cooldown: null, missing: 'reopen requires a reason and keeps history; the accountable owner gets an in-app notice with the reason (E-R02); no outbound channel' },
+  { id: 'A05', name: 'Meeting / incubation / inspection approaching its schedule', status: 'partial', surfaces: ['services/scheduleReminders.js', 'services/engagementJobs.js', 'services/sync/jobs.js'], gates: [['schedule_reminders_enabled', '0'], ['schedule_reminder_lead_days', ''], ['notifications_stop', '0']],
+    dedup: 'notifications.source_ref A05:<kind>:<ref>:<due>', cooldown: 'one reminder per item and due date', missing: 'daily in-app reminder to the site editors before the next PV / incubation date, a cadence meeting or (with schedule_inspection_interval_days) an inspection (E-R06); off until lead days are set; no outbound channel; site_calendar is off-days, not a schedule' },
   { id: 'A06', name: 'Recorded activity not submitted by deadline', status: 'partial', surfaces: ['services/weeklyReportData.js'], gates: [['weekly_report_send_enabled', '0']],
     dedup: null, cooldown: null, missing: '"complete but not submitted" is shown in the weekly e-mail; no exception record' },
   { id: 'A07', name: 'Critical monitored service/link outage or recurring incident pattern', status: 'partial', surfaces: ['tools/teams/poll-sla.js', 'tools/meraki/poll-wan-outages.js'], gates: [['teams_sla_enabled', '0']],
     dedup: 'sla_alert_log (request_id, kind)', cooldown: 'once per ticket and kind', missing: 'SDP SLA alerts and Meraki WAN outages (kept, D-06) exist; OpManager alarms are not read' },
   { id: 'A08', name: 'Source stale / row-count anomaly / failed delivery', status: 'partial', surfaces: ['services/sync/alerts.js', 'services/publishGate.js', 'services/sync/syncRunner.js'], gates: [['sync_alert_enabled', '1'], ['sync_alert_recipients', '']],
-    dedup: 'after 2 failures, per job', cooldown: 'per job state', missing: 'stale sources lose their colour and block publication; report-delivery failure is logged, not alerted; export mismatch is not detected' },
+    dedup: 'after 2 failures, per job', cooldown: 'per job state', missing: 'stale sources lose their colour and block publication; a report-delivery failure is listed on System Logs (E-R04) and alerted once per new failure only with delivery_failure_alert_enabled = 1 (no automatic retry); export mismatch is not detected' },
   { id: 'A09', name: 'Benefit review date reached', status: 'partial', surfaces: ['services/portfolioBenefits.js', 'services/obligations.js', 'services/myWork.js', 'public/project.html'], gates: [], dedup: 'one line per benefit until verified', cooldown: null,
     missing: 'in-app reminder only (Site obligations + My work), no outbound notice; the benefit owner is free text, so the line goes to the project site, not to the person' },
-  { id: 'A10', name: 'Funding review / stage gate / renewal date approaching', status: 'partial', surfaces: ['services/projectSchedule.js'], gates: [], dedup: null, cooldown: null, missing: 'stage gates enforced; no reminder' },
+  { id: 'A10', name: 'Funding review / stage gate / renewal date approaching', status: 'partial', surfaces: ['services/projectSchedule.js', 'services/ppmAlerts.js', 'tools/governance/ppm-alerts.js'], gates: [['ppm_alerts_enabled', '0'], ['a10_gate_lead_days', '']], dedup: 'ppm_alert_state per project, stage and gate date', cooldown: '7 days', missing: 'stage gates enforced; in-app reminder before the next gate (start / planned end) when a10_gate_lead_days is set (E-R02); no funding-review or renewal date exists in the schema; lead days not decided' },
   { id: 'A11', name: 'Milestone / dependency / capacity blocked, late or unowned', status: 'partial', surfaces: ['services/ppmAlerts.js', 'tools/governance/ppm-alerts.js', 'routes/governance.js', 'public/cockpit.html'], gates: [['ppm_alerts_enabled', '0']],
     dedup: 'item key, 7 days', cooldown: '7 days per item; cleared when the item disappears', missing: 'armed off until the committee decides the thresholds; capacity overload waits for A-13' },
   { id: 'A12', name: 'KPI policy / source mapping change → controlled recalculation', status: 'partial', surfaces: ['services/governancePolicy.js'], gates: [], dedup: null, cooldown: null, missing: 'policy history is hash-chained; no RFI and dual-run comparison' },
@@ -91,6 +91,33 @@ const RULES = [
   { id: 'A15', name: 'Inactive stakeholder closure approval → reminder/escalation', status: 'missing', surfaces: [], gates: [], dedup: null, cooldown: null, missing: 'service window not decided' },
   { id: 'A16', name: 'Evidence retention / sensitive-link expiry → archive/revoke event', status: 'partial', surfaces: ['services/engagementStore.js', 'services/sync/jobs.js'], gates: [], dedup: null, cooldown: null, missing: 'links expire and are revocable with receipts; audit retention job runs; no archive event for evidence' },
 ];
+
+// E-R01 — the report CONTRACT: who owns it, who checks it before it leaves, which test proves its content and
+// where a delivery leaves a trace. owner_role stays 'to be named' wherever the code does not know an owner — naming
+// owners and audiences is a human decision (D-13). validation describes the review step the code enforces today
+// (null = none in code). delivery_proof: 'report_sent_log' (sender writes one row per send), 'report_runs' (report
+// studio run + publish connector log), 'notifications' (in-app rows), or 'none'.
+const TO_NAME = 'to be named';
+const CONTRACT = {
+  R01: { validation: null, test: ['tests/engagement-store.test.js', 'tests/alert-outbound-arm.test.js', 'tests/commitments-routes.smoke.test.js'], delivery_proof: 'notifications' },
+  R02: { validation: null, test: ['tests/governance-routes.smoke.test.js'], delivery_proof: 'none' },
+  R03: { validation: 'business verification by a reviewer other than the owner (services/commitmentLifecycle.js)', test: ['tests/commitment-lifecycle.test.js', 'tests/commitments-routes.smoke.test.js'], delivery_proof: 'none' },
+  R04: { validation: 'report studio: a draft run is moved to reviewed before it can be published (routes/reportStudio.js)', test: ['tests/report-studio-routes.smoke.test.js', 'tests/publish-gate.test.js', 'tests/exec-pptx-python.test.js'], delivery_proof: 'report_runs' },
+  R05: { validation: null, test: ['tests/meetings-summary.test.js'], delivery_proof: 'none' },
+  R06: { validation: null, test: ['tests/inspection-routes.test.js'], delivery_proof: 'none' },
+  R07: { validation: null, test: ['tests/incubation-rfi-link.smoke.test.js'], delivery_proof: 'none' },
+  R08: { validation: null, test: ['tests/metrics-registry.test.js'], delivery_proof: 'none' },
+  R09: { validation: null, test: ['tests/opm-routes.smoke.test.js'], delivery_proof: 'none' },
+  R10: { validation: null, test: ['tests/risk-register-classify.test.js'], delivery_proof: 'none' },
+  R11: { validation: null, test: ['tests/sync-schedule.test.js', 'tests/catalogue-dry-run.test.js', 'tests/delivery-failures.test.js'], delivery_proof: 'none' },
+  R12: { validation: null, test: ['tests/send-hygiene.test.js', 'tests/asset-hygiene-report.test.js'], delivery_proof: 'report_sent_log' },
+  R13: { validation: null, test: ['tests/portfolio-deck.test.js'], delivery_proof: 'none' },
+  R14: { validation: null, test: [], delivery_proof: 'none' },
+  R15: { validation: null, test: [], delivery_proof: 'none' },
+  R16: { validation: null, test: [], delivery_proof: 'none' },
+};
+for (const r of REPORTS) Object.assign(r, { owner_role: TO_NAME, validation: null, test: [], delivery_proof: 'none' }, CONTRACT[r.id] || {});
+const DELIVERY_PROOFS = ['report_sent_log', 'report_runs', 'notifications', 'none'];
 
 const STATUSES = ['implemented', 'partial', 'missing'];
 const count = (list) => Object.fromEntries(STATUSES.map((s) => [s, list.filter((x) => x.status === s).length]));
@@ -106,6 +133,9 @@ function toMarkdown() {
     `Reports: ${JSON.stringify(summary().reports)} · Rules: ${JSON.stringify(summary().rules)}`, '',
     '## Reports', '', '| Id | Pri | Report | Audience | Cadence | Status | Where | Switches (default) | Open | Decision |', '|---|---|---|---|---|---|---|---|---|---|'];
   for (const r of REPORTS) L.push(`| ${r.id} | ${r.priority} | ${r.name} | ${r.audience} | ${r.cadence} | ${r.status} | ${r.surfaces.map((s) => '`' + s + '`').join('<br>') || '—'} | ${r.gates.map(([k, v]) => `\`${k}\`=${v === '' ? '(empty)' : v}`).join('<br>') || '—'} | ${r.missing} | ${r.decision || '—'} |`);
+  L.push('', '## Report contracts (E-R01)', '', 'Owner = `to be named` wherever the code knows no owner (naming owners and audiences is a human decision, D-13). Validation = the review step the code enforces before release (— = none in code).', '',
+    '| Id | Owner | Validation | Test proving the content | Delivery proof |', '|---|---|---|---|---|');
+  for (const r of REPORTS) L.push(`| ${r.id} | ${r.owner_role} | ${r.validation || '—'} | ${r.test.map((t) => '`' + t + '`').join('<br>') || '—'} | ${r.delivery_proof} |`);
   L.push('', '## Automation rules', '', '| Id | Rule | Status | Where | Switches (default) | Dedup | Cool-down | Open |', '|---|---|---|---|---|---|---|---|');
   for (const a of RULES) L.push(`| ${a.id} | ${a.name} | ${a.status} | ${a.surfaces.map((s) => '`' + s + '`').join('<br>') || '—'} | ${a.gates.map(([k, v]) => `\`${k}\`=${v === '' ? '(empty)' : v}`).join('<br>') || '—'} | ${a.dedup || '—'} | ${a.cooldown || '—'} | ${a.missing} |`);
   return L.join('\n') + '\n';
@@ -369,5 +399,5 @@ function dryRunMarkdown(d) {
   return L.join('\n') + '\n';
 }
 
-module.exports = { REPORTS, RULES, STATUSES, summary, toMarkdown,
+module.exports = { REPORTS, RULES, STATUSES, DELIVERY_PROOFS, summary, toMarkdown,
   DELIVERY, OTHER_SENDERS, splitComma, splitAny, effectiveConfig, directoryRecipients, evaluateDelivery, firedSummary, buildDryRun, dryRunMarkdown };

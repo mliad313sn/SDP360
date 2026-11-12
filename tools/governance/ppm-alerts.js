@@ -46,7 +46,9 @@ async function run({ dryRun = false, deps = {}, log = console.log } = {}) {
   const nowD = D.now(); const nowIso = nowD.toISOString(); const today = nowIso.slice(0, 10);
   const armed = String(cfg.ppm_alerts_enabled) === '1' && !dryRun;
   const pf = await D.store.portfolio();
-  const items = findExceptions(pf, { today, blockedDays: num(cfg.ppm_alert_blocked_days, 5), slipDays: num(cfg.ppm_alert_slip_days, 10) });
+  // E-R02 (A10) — stage-gate reminders only with a10_gate_lead_days set, never while notifications_stop = '1'
+  const stop = String(cfg.notifications_stop || '0') === '1';
+  const items = findExceptions(pf, { today, blockedDays: num(cfg.ppm_alert_blocked_days, 5), slipDays: num(cfg.ppm_alert_slip_days, 10), gateLeadDays: stop ? null : num(cfg.a10_gate_lead_days, null) });
   const states = new Map((await D.store.alertStates()).map((s) => [s.item_key, s]));
   const due = items.filter((it) => { const s = states.get(it.key); if (!s || s.cleared_at || !s.last_notified) return true; return (Date.parse(nowIso) - Date.parse(s.last_notified)) / 86400000 >= RENOTIFY_DAYS; });
   const users = await D.listUsers();
