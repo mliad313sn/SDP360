@@ -17,7 +17,7 @@ Files scanned: **104** · inline <style> blocks: **53** · hex literals: **5577*
 | `public/assets-finance.html` | 417 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/assets-hygiene.html` | 372 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/assets.html` | 202667 | 1 | 230 | 6 | bar×7 doughnut×4 line×5 | 2 | 4 | yes | yes | — | dual axis → small multiples, one unit per panel (§5.2 "comparaison à plusieurs séries"); doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); hex literals → _tokens.css variables |
-| `public/cockpit.html` | 37755 | 1 | 47 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/cockpit.html` | 38531 | 1 | 47 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/commitments.html` | 20454 | 1 | 19 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/coverage.html` | 9984 | 1 | 25 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/dashboard-composer.html` | 27352 | 1 | 41 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
@@ -77,7 +77,7 @@ Files scanned: **104** · inline <style> blocks: **53** · hex literals: **5577*
 | `public/lib/chartContract.js` | 3054 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/chartTheme.js` | 17573 | 0 | 14 | 0 | — | 0 | 0 | — | yes | — | hex literals → _tokens.css variables |
 | `public/lib/charts.js` | 9723 | 0 | 7 | 2 | bar×2 line×4 | 0 | 0 | yes | yes | — | hex literals → _tokens.css variables |
-| `public/lib/cockpit-fr.js` | 7046 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/cockpit-fr.js` | 7125 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/composerGuide.js` | 18228 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/csvSafe.js` | 824 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/dashboard-shared.js` | 31736 | 0 | 1 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
@@ -87,7 +87,7 @@ Files scanned: **104** · inline <style> blocks: **53** · hex literals: **5577*
 | `public/lib/errorText.js` | 8003 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/execDeckPayload.js` | 5238 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/feedback.js` | 4689 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/home-page.js` | 9764 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/home-page.js` | 11637 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/i18nText.js` | 5067 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/incubationEditor.js` | 5909 | 0 | 1 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/lib/kpiCard.js` | 5805 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |

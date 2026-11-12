@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (209) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (213) — services/reportConfig.js DEFAULTS
 
 Prerequisites (E-A07, services/switchPrereqs.js) are WARNINGS in plain words, never approvals: the config PUT
 answer and the `set-ui-policy.js` dry run repeat them when the switch is moved to its switched-on value.
@@ -60,9 +60,11 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `authz_enforce_caps` | `` | setting | Security owner | PROPOSITION: empty during the pilot; after two shadow weeks without unexplained divergences (`tools/security/authz-divergence-report.js`), low-risk reads first (`review.read`, `analytics.data.read`, `tracker.read`) with mode `enforce`; a listed capability can only refuse, critical ones are ignored while C-18 grants are off | E-S01 | — |
 | `backup_offsite_path` | `` | setting | to be named | — | — | — |
 | `benefit_owner_link_enabled` | `0` | arm switch | PMO | `1` once the PMO wants benefit owners named as users (the free-text owner stays; "My work" then lists the person's benefits whose review date is reached — in-app only, nothing is e-mailed). The linked owner can never verify their own benefit | E-P05 | — |
+| `chart_annotations_enabled` | `0` | arm switch | Owner (UI policy) | `1` (proposal — after a browser review; notes are human-entered with a mandatory source) | E-V08 | — |
 | `commitment_notify_enabled` | `0` | arm switch | to be named | — | — | — |
 | `commitments_enabled` | `0` | arm switch | to be named | — | — | — |
 | `controls_register_enabled` | `0` | arm switch | GRC owner + Security owner | `1` once GRC names who adopts controls (the four seeded controls stay `candidate` until a person adopts them with a reason; frequencies and testers are GRC decisions) | E-G04 | — |
+| `csp_strict_pages` | `` | setting | Security owner | keep empty until a page is listed as enforceable in `docs/security/CSP-JOURNEYS.md` (no inline script, no inline handler) AND a report-only run (`SDP_CSP_REPORT_ONLY=1`) shows no violation for it; then add it here, one journey at a time, e.g. `/access.html` — a comma list of pages served with the nonce-only `script-src` (applies within 30 s, no restart; emptying it returns to today). It can only make a page stricter: no script origin is ever added — PROPOSITION, no page approved | F-ARCH-06 | — |
 | `dashboard_red_action_links` | `0` | setting | Owner (UI policy) + PMO | `1` (proposal — only with `commitments_enabled=1`; no action is ever created automatically) | E-K03 | — |
 | `dashkey_allowed_routes` | `` | setting | Integration owner + Security owner | the routes the named consumers really call (from the consumer report), e.g. `GET /api/ping, GET /api/data/*` — PROPOSITION, no list approved | E-S02 | — |
 | `dashkey_scope_mode` | `open` | setting | Integration owner + Security owner | `shadow` first (an unlisted key-only route still answers and logs `dashkey_scope_would_refuse`); `restrict` (401) only after every consumer in `tools/security/dashkey-consumers.js` is named and listed. A browser request is never affected | E-S02 | Every key-only consumer named and listed in dashkey_allowed_routes (tools/security/dashkey-consumers.js), after a shadow period. |
@@ -115,6 +117,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `meridian_in_key` | (secret — not shown) | secret | to be named | — | — | — |
 | `meridian_out_key` | (secret — not shown) | secret | to be named | — | — | — |
 | `metric_explain_enabled` | `0` | arm switch | KPI committee | `1` (proposal — read-only; counts by site, ratios as numerator / denominator; the note never asserts a cause) | E-K04 | — |
+| `metric_programme_readers` | `0` | setting | KPI committee + model author | `0` until the KPI committee and the model author decide (`1` computes `programme.site_score` / `programme.composite` on dashboards, agendas, `/api/metrics`, `/ext/v1` — not certified, D-01..D-03) | F-DATA-03 | — |
 | `mywork_awaiting_me_enabled` | `0` | arm switch | Product owner | `1` on the pilot once the product owner has compared it with the review.1 validation queue (one queue, not two). Home ▸ My work then shows "Awaiting me": commitments I review (named reviewer or role holder, never my own work), handoffs waiting for my acceptance, benefits I may verify (never the one I entered or own), decisions I own due within 7 days, PVs I am named to sign. Only items the person can already open; a source that cannot be read shows "not measured"; nothing is e-mailed | F-PRODUCT-07 | — |
 | `never_send_unconfirmed` | `1` | setting | to be named | — | — | — |
 | `notifications_stop` | `0` | setting | to be named | — | — | — |
@@ -217,6 +220,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `ui_nav_profile` | `full` | ui policy | Owner (D-6) | `lean` (proposal — re-decide from the T1–T8 sessions) | A-21 | — |
 | `ui_role_landing` | `0` | ui policy | Owner (UI policy) | `1` | A-10 | — |
 | `ui_small_multiples` | `0` | ui policy | Owner (UI policy) | `1` (proposal — after a browser review of the widget) | E-V09 | — |
+| `ui_url_filters` | `0` | ui policy | Owner (UI policy) | `1` (proposal — shareable Analytics links; filters only, never a data value) | E-U02 | — |
 | `ui_week_labels` | `legacy` | ui policy | Owner (UI policy) | `explicit` (proposal — ISO helpdesk charts say "ISO W37 (7–13 Sep)", report rows carry their Sun→Sat range) | D-03 | — |
 | `wan_mos_config` | `{"r0":93.2,"codec_loss_factor":2.5,"jitter_buffer_factor"…` | setting | to be named | — | — | — |
 | `wan_poll_first_run` | `` | setting | to be named | — | — | — |
