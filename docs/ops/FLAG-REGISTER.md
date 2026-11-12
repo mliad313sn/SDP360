@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (208) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (209) — services/reportConfig.js DEFAULTS
 
 Prerequisites (E-A07, services/switchPrereqs.js) are WARNINGS in plain words, never approvals: the config PUT
 answer and the `set-ui-policy.js` dry run repeat them when the switch is moved to its switched-on value.
@@ -115,6 +115,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `meridian_in_key` | (secret — not shown) | secret | to be named | — | — | — |
 | `meridian_out_key` | (secret — not shown) | secret | to be named | — | — | — |
 | `metric_explain_enabled` | `0` | arm switch | KPI committee | `1` (proposal — read-only; counts by site, ratios as numerator / denominator; the note never asserts a cause) | E-K04 | — |
+| `mywork_awaiting_me_enabled` | `0` | arm switch | Product owner | `1` on the pilot once the product owner has compared it with the review.1 validation queue (one queue, not two). Home ▸ My work then shows "Awaiting me": commitments I review (named reviewer or role holder, never my own work), handoffs waiting for my acceptance, benefits I may verify (never the one I entered or own), decisions I own due within 7 days, PVs I am named to sign. Only items the person can already open; a source that cannot be read shows "not measured"; nothing is e-mailed | F-PRODUCT-07 | — |
 | `never_send_unconfirmed` | `1` | setting | to be named | — | — | — |
 | `notifications_stop` | `0` | setting | to be named | — | — | — |
 | `obligations_include_decisions` | `0` | setting | Committee + Owner | `1` (the site obligations view then counts the site's open governance decisions; the visible total of a site can grow) | E-G02 | — |
