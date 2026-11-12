@@ -8,7 +8,7 @@ const fs = require('fs');
 const path = require('path');
 
 const ROOT = path.join(__dirname, '..');
-const DOCS = ['COMMITTEE-CHARTER.md', 'PV-TEMPLATE.md', 'FORMULA-REFERENCE.md'].map((f) => path.join(ROOT, 'docs', 'kpi', f));
+const DOCS = ['COMMITTEE-CHARTER.md', 'PV-TEMPLATE.md', 'FORMULA-REFERENCE.md', 'DECISION-KPIS-PROPOSAL.md'].map((f) => path.join(ROOT, 'docs', 'kpi', f));
 const CITE = /`([\w./-]+\.(?:js|mjs|html|sql)):(\d+)`(?: \(`([^`]+)`\))?/g;
 const TESTREF = /`(tests\/[\w./-]+\.test\.js)`/g;
 const read = (p) => fs.readFileSync(p, 'utf8').replace(/\r\n/g, '\n');
@@ -59,4 +59,26 @@ test('the formula sheet covers the five families and lists divergences without r
   assert.ok(rows.length >= 8, 'divergences listed');
   assert.ok(!/\b(approved|adopted|certified)\b/i.test(rows.join('\n')), 'no divergence is declared decided');
   for (const layer of ['Screen', 'API', 'PPTX', 'E-mail']) assert.ok(s.includes(`| ${layer}`), layer);
+});
+
+// F-DATA-11 — the two decision-KPI candidates: a proposal pack, a draft-only seed, both keys in the parity harness.
+test('decision-KPI proposal: says it decides nothing, cites both keys, leaves the committee table empty', () => {
+  const s = read(DOCS[3]);
+  assert.match(s, /PROPOSITION, not adopted/);
+  for (const k of ['helpdesk.resolution_sla_pct', 'inspection.overdue_actions', 'DV-01', 'tests/figure-parity-five-surfaces.test.js']) assert.ok(s.includes(k), k);
+  const table = s.slice(s.indexOf('## Left for the committee'));
+  for (const row of table.split('\n').filter((l) => /^\| [A-Z]/.test(l) && !/^\| Question/.test(l))) assert.match(row, /^\|[^|]+\| \| \|$/, 'left empty: ' + row);
+  assert.ok(!/\b(approved|certified by|signed off)\b/i.test(s));
+  const harness = read(path.join(ROOT, 'tests', 'figure-parity-five-surfaces.test.js'));
+  assert.match(harness, /const KEYS = \['helpdesk\.resolution_sla_pct', 'inspection\.overdue_actions'\]/, 'the parity harness resolves both candidates');
+});
+
+test('decision-kpis dashboard: valid, not in the shipped seeds, created only as a draft behind dashboard_decision_kpis_seed', async () => {
+  const S = require('../services/dashboardSeeds');
+  const { validateDashboard } = require('../services/dashboardWidgets');
+  assert.deepEqual(validateDashboard(S.DECISION_KPIS, {}).errors, []);
+  assert.ok(!S.SEED_DASHBOARDS.some((d) => d.key === 'decision-kpis'), 'never seeded/published with the shipped dashboards');
+  assert.equal(require('../services/reportConfig').DEFAULTS.dashboard_decision_kpis_seed, '0');
+  const { createStore } = (() => { const src = read(path.join(ROOT, 'routes', 'dashboards.js')); assert.match(src, /dashboard_decision_kpis_seed\) === '1' && !\(await st\.get\(S\.DECISION_KPIS\.key\)\)\) \{ await st\.saveDraft\(S\.DECISION_KPIS, \{ user: null \}\);/); assert.ok(!/publish\(S\.DECISION_KPIS/.test(src), 'code never publishes it'); return {}; })();
+  assert.equal(createStore, undefined);
 });

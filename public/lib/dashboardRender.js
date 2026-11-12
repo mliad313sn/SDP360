@@ -91,6 +91,35 @@
     var was = d.rag_if_fresh && String(d.rag_if_fresh).toUpperCase() !== 'NA' ? ' · was ' + escapeHtml(String(d.rag_if_fresh).toLowerCase()) + ' when last current' : '';
     return '<div class="edv-stale-badge">' + SB.text('stale', d.freshness === 'UNKNOWN' ? 'never' : null) + was + '</div>';
   }
+  /**
+   * F-DATA-07 (C18) — the definition of a figure, on the tile: formula, unit, window, denominator, source job and
+   * certification text, read from the KPI dictionary (m = /api/metrics/registry row) and this response
+   * (d = resolved widget, sources = response.sources). A native <details>: no script, keyboard-operable.
+   * Rendered only when ui_kpi_definition_drawer = '1' (the caller decides); '' when the dictionary has no row.
+   */
+  function definitionDrawer(d, m, sources) {
+    if (!d || !m) return '';
+    var row = function (k, v) { return '<dt>' + k + '</dt><dd>' + v + '</dd>'; };
+    var jobs = (sources || []).filter(function (x) { return x && x.module === m.module; });
+    var src = jobs.length ? jobs.map(function (x) { return escapeHtml(x.job) + ' — ' + (x.state === 'UNKNOWN' ? 'never synced' : x.state === 'STALE' ? 'not current' : 'current') + (x.last_success ? ' (last success ' + escapeHtml(String(x.last_success).slice(0, 16).replace('T', ' ')) + ')' : ''); }).join('; ')
+      : 'typed into the application — no sync job';
+    var b = d.base;
+    var den = b && b.n != null ? Number(b.n).toLocaleString('en-GB') + (b.label ? ' ' + escapeHtml(b.label) : '') : (String(m.unit || '') === '%' ? 'not returned by the reader' : 'not a ratio');
+    var states = { measured: 'measured', partial: 'partial — period still running or source read in part', not_measured: 'not measured', reader_not_wired: 'reader not wired', error: 'reader error' };
+    return '<details class="edv-kpi-def"><summary>Definition</summary><dl>' +
+      row('Formula', escapeHtml(m.formula || '—')) +
+      row('Unit', escapeHtml(m.unit || '—')) +
+      row('Window', escapeHtml((d.window && d.window.label) || '—') + ' (' + escapeHtml(m.window_kind || '—') + ')') +
+      row('Denominator', den) +
+      row('Data state', escapeHtml(states[d.data_state] || '—')) +
+      row('Source', src) +
+      row('Owner role', escapeHtml(m.owner_role || 'to be named')) +
+      row('Certification', escapeHtml(m.certification || 'not certified')) +
+      '</dl></details>';
+  }
+  /** F-DATA-07 (N8) — "2 of 11 sites": measured sites out of the sites in scope. */
+  function fleetCount(f) { return f ? f.n + (f.of != null ? ' of ' + f.of : '') + ' sites' : ''; }
+
   /** E-V03 — the base population under a KPI value: "n = 142 tickets created", or "base not measured" (never 0). */
   function baseLine(d) {
     var b = d && d.base;
@@ -238,6 +267,11 @@
     return c;
   }
 
+  // F-DATA-12 — the decision a widget supports, as the composer lists it; empty = "not stated", never guessed.
+  function decisionText(w) {
+    var d = w && typeof w.decision === 'string' ? w.decision.trim() : '';
+    return 'decision: ' + (d || 'not stated');
+  }
   function escapeHtml(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]; }); }
 
   /** Minimal Markdown for the text widget: **bold**, *italic*, line breaks — escaped first. */
@@ -413,5 +447,5 @@
 
   return { annotationMarks, annotationsHtml, redActionSourceId, parseRedActionSource, redActionHtml, multiplesTableSpec, multiplesHtml, sampleNote, gridStyle, formatValue, ragClass, ragDot, kpiContext, staleBadge, baseLine, safeRelativeHref, actionLink, sortRows, shortLabel, windowSeries, trendLength, widgetDataPlan, summarizeGrid, escapeHtml, miniMarkdown, isoWeek,
     rowState, barListHtml, tableHtml, sortTableRows, ragGridHtml, perSiteHtml, trackerHtml, seriesTableHtml,
-    periodBounds, isPartial, windowPartial, evalDate, seriesAnchor, partialNote };
+    periodBounds, isPartial, windowPartial, evalDate, seriesAnchor, partialNote, definitionDrawer, fleetCount, decisionText };
 });

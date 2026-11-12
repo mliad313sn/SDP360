@@ -92,19 +92,61 @@ function _safeNum(v, def = 0) {
 
 
 
+// F-DATA-06 (N6 / DV-08) — null stays null. `_safeNum` (def 0) is for COUNTS read from a measured window only.
+// A rate or a duration the reader could not compute (no closed ticket, no responded ticket, site without a
+// helpdesk group) is NOT 0 % / 0 d, and a delta against an unmeasured side is not a delta.
+function _nullable(v) {
+  if (v == null || v === '' || !Number.isFinite(Number(v))) return null;
+  return Number(v);
+}
+const _deltaPp = (a, b) => (a == null || b == null ? null : Math.round((a - b) * 10) / 10);
+const _deltaPct = (a, b) => (a == null || !b ? null : Math.round(((a - b) / b) * 100));
+/** Verdict / duration keys of the baseline that may be null; render.py prints "—" for those listed in _null_kpis. */
+const NULLABLE_KPIS = ['closure_rate', 'sla_compliance', 'frt_sla', 'avg_res_days'];
+
+/** Pure: server baseline of the helpdesk block from the month record and the previous month record (or null). */
+function helpdeskBaseline(cur, prev) {
+  const out = {
+    total: 0, total_apr: 0, total_delta_pct: null,
+    closed: 0, closed_delta_pct: null,
+    closure_rate: null, closure_rate_delta_pp: null,
+    sla_compliance: null, sla_compliance_delta_pp: null,
+    frt_sla: null, frt_sla_delta_pp: null,
+    open_backlog: 0, open_backlog_delta_pct: null,
+    fcr_rate: 0, fcr_delta_pp: null,   // fcr_rate stays under exec_payload_zero_policy (A-17b, committee choice)
+    avg_res_days: null,
+    time_to_assign_h: null, first_reply_h: null, closing_time_d: null,
+  };
+  if (cur) {
+    out.total          = _safeNum(cur.inbound);
+    out.closed         = _safeNum(cur.closed);
+    out.closure_rate   = _nullable(cur.close_pct);
+    out.sla_compliance = _nullable(cur.sla_res_pct);
+    out.frt_sla        = _nullable(cur.sla_reply_pct);
+    out.avg_res_days   = _nullable(cur.avg_resolution_d);
+    out.time_to_assign_h = _nullable(cur.avg_tta_h);
+    out.first_reply_h  = _nullable(cur.avg_first_reply_h);
+  }
+  if (cur && prev) {
+    out.total_apr               = _safeNum(prev.inbound);
+    out.total_delta_pct         = _deltaPct(out.total, _nullable(prev.inbound));
+    out.closed_delta_pct        = _deltaPct(out.closed, _nullable(prev.closed));
+    out.closure_rate_delta_pp   = _deltaPp(out.closure_rate,   _nullable(prev.close_pct));
+    out.sla_compliance_delta_pp = _deltaPp(out.sla_compliance, _nullable(prev.sla_res_pct));
+    out.frt_sla_delta_pp        = _deltaPp(out.frt_sla,        _nullable(prev.sla_reply_pct));
+  }
+  return out;
+}
+/** After the browser merge: list the nullable KPIs nobody measured, so render.py prints an em dash. Mutates. */
+function markNullKpis(enriched) {
+  const nul = NULLABLE_KPIS.filter((k) => enriched[k] == null);
+  if (nul.length) enriched._null_kpis = nul; else delete enriched._null_kpis;
+  return enriched;
+}
+
 // ── Helpdesk KPIs from request_records ─────────────────────────────────────
 async function _helpdeskKpis(filters) {
-  const out = {
-    total: 0, total_apr: 0, total_delta_pct: 0,
-    closed: 0, closed_delta_pct: 0,
-    closure_rate: 0, closure_rate_delta_pp: 0,
-    sla_compliance: 0, sla_compliance_delta_pp: 0,
-    frt_sla: 0, frt_sla_delta_pp: 0,
-    open_backlog: 0, open_backlog_delta_pct: null,
-    fcr_rate: 0, fcr_delta_pp: null,
-    avg_res_days: 0,
-    time_to_assign_h: 0, first_reply_h: 0, closing_time_d: 0,
-  };
+  let out = helpdeskBaseline(null, null);
   const { site_id, year, month } = filters;
   if (!site_id || !year || !month) return out;
 
@@ -114,24 +156,7 @@ async function _helpdeskKpis(filters) {
       const { year: py, month: pm } = _prevMonth(year, month);
       return reportsDb.getCalendarMonthlyHelpdesk(site_id, py, pm);
     })();
-    if (cur) {
-      out.total          = _safeNum(cur.inbound);
-      out.closed         = _safeNum(cur.closed);
-      out.closure_rate   = _safeNum(cur.close_pct);
-      out.sla_compliance = _safeNum(cur.sla_res_pct);
-      out.frt_sla        = _safeNum(cur.sla_reply_pct);
-      out.avg_res_days   = _safeNum(cur.avg_resolution_d);
-      out.time_to_assign_h = _safeNum(cur.avg_tta_h);
-      out.first_reply_h  = _safeNum(cur.avg_first_reply_h);
-    }
-    if (prev) {
-      out.total_apr               = _safeNum(prev.inbound);
-      out.total_delta_pct         = prev.inbound  ? Math.round(((out.total  - prev.inbound) / prev.inbound)  * 100) : 0;
-      out.closed_delta_pct        = prev.closed   ? Math.round(((out.closed - prev.closed)  / prev.closed)   * 100) : 0;
-      out.closure_rate_delta_pp   = Math.round((out.closure_rate   - _safeNum(prev.close_pct))     * 10) / 10;
-      out.sla_compliance_delta_pp = Math.round((out.sla_compliance - _safeNum(prev.sla_res_pct))   * 10) / 10;
-      out.frt_sla_delta_pp        = Math.round((out.frt_sla        - _safeNum(prev.sla_reply_pct)) * 10) / 10;
-    }
+    out = helpdeskBaseline(cur, prev);
   } catch (e) {
     console.warn('[reportPayload] helpdeskKpis failed:', e.message);
   }
@@ -1047,6 +1072,7 @@ async function build(browserPayload) {
     otherBucket = XP.otherBucketOn(c && c.exec_deck_other_bucket);
   } catch (e) { console.warn('[reportPayload] config read failed, zero policy keep_server:', e && e.message); }
   mergeBrowserKpis(enriched, browserPayload.kpis, zeroPolicy);
+  markNullKpis(enriched);   // F-DATA-06 — rates / durations nobody measured are listed for render.py ("—", no verdict)
 
   // Major Incidents MoM — server-owned (the browser can't reliably re-derive the
   // MI definition). _majorIncidents already computes mi_total + mi_prev_total.
@@ -1120,4 +1146,4 @@ async function build(browserPayload) {
   return enriched;
 }
 
-module.exports = { build, mergeBrowserKpis, mergeBrowserCategories, mergeBrowserAgeing, mergeBrowserChanges };
+module.exports = { build, helpdeskBaseline, markNullKpis, NULLABLE_KPIS, mergeBrowserKpis, mergeBrowserCategories, mergeBrowserAgeing, mergeBrowserChanges };

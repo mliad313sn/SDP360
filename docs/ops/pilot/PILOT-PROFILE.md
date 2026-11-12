@@ -27,6 +27,8 @@ planned switch cannot be set before its goal lands.
 | `ui_week_labels` | built | `legacy` | `explicit` (proposal — ISO helpdesk charts say "ISO W37 (7–13 Sep)", report rows carry their Sun→Sat range) | Owner (UI policy) | D-03 |
 | `ui_kpi_base_line` | built | `0` | `1` (proposal — show the base population under each KPI value) | Owner (UI policy) | E-V03 |
 | `ui_kpi_sample_size` | built | `0` | `1` (proposal — warnings only appear once the KPI committee adopts a `min_sample`) | KPI committee | E-K02 |
+| `ui_kpi_definition_drawer` | built | `0` | `1` (proposal — the tile then shows formula, window, denominator, source job and the certification text; nothing is certified by showing it) | KPI committee | F-DATA-07 |
+| `dashboard_decision_kpis_seed` | built | `0` | `0` until the KPI committee has chosen its two decision KPIs (`1` only creates an unpublished draft of the two candidates) | KPI committee | F-DATA-11 |
 | `ui_small_multiples` | built | `0` | `1` (proposal — after a browser review of the widget) | Owner (UI policy) | E-V09 |
 | `dashboard_red_action_links` | built | `0` | `1` (proposal — only with `commitments_enabled=1`; no action is ever created automatically) | Owner (UI policy) + PMO | E-K03 |
 | `metric_explain_enabled` | built | `0` | `1` (proposal — read-only; counts by site, ratios as numerator / denominator; the note never asserts a cause) | KPI committee | E-K04 |

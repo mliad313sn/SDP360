@@ -19,6 +19,10 @@
     'You do not have access to this figure': 'Vous n’avez pas accès à ce chiffre', 'Value not certified': 'Valeur non certifiée',
     'Export in progress': 'Export en cours', 'Publication blocked': 'Publication bloquée',
     'base not measured': 'base non mesurée', '→ act': '→ agir',
+    // F-DATA-07 — definition drawer (ui_kpi_definition_drawer)
+    'Definition': 'Définition', 'Formula': 'Formule', 'Unit': 'Unité', 'Window': 'Fenêtre', 'Denominator': 'Dénominateur', 'Data state': 'État de la donnée',
+    'Source': 'Source', 'Owner role': 'Rôle propriétaire', 'Certification': 'Certification', 'to be named': 'à désigner', 'not a ratio': 'pas un ratio',
+    'not returned by the reader': 'non renvoyé par le lecteur', 'typed into the application — no sync job': 'saisi dans l’application — aucune synchronisation',
   };
   // (the state texts are rendered by lib/stateBadge.js / lib/dashboardRender.js, not by the page source)
   root.I18N_FR_DASHBOARDS_RUNTIME = [];

@@ -25,7 +25,7 @@ const WINDOW_KINDS = ['month', 'week', 'rolling3m', 'rolling13w', 'ytd', 'curren
 // ── Seed ──────────────────────────────────────────────────────────────────────────────
 // owner_role = the committee role accountable for the definition (docs/sdp360/02).
 const M = (key, name, name_fr, module, unit, formula, window_kind, rag_policy, reader, field, o = {}) =>
-  ({ key, name, name_fr, module, unit, formula, window_kind, rag_policy, reader, field, higher_is_better: o.hib !== false, owner_role: o.owner || 'service-support-manager', source: o.source || null, status: 'published', decision: o.decision || null,
+  ({ key, name, name_fr, module, unit, formula, window_kind, rag_policy, reader, field, higher_is_better: o.hib !== false, owner_role: o.owner || null /* F-DATA-07 (N10): nobody decided an owner → null = "to be named", never a default role */, source: o.source || null, status: 'published', decision: o.decision || null,
     // G06 — nothing is "certified" until the KPI Committee records an approval (none exists yet). A disputed
     // metric names its pending decision; every other one says the approval is not recorded.
     certification: o.decision ? 'not certified — ' + o.decision + ' pending' : 'not certified — KPI Committee approval not recorded', approved_by: null, approved_at: null });
@@ -147,7 +147,10 @@ const READERS = {
   async 'helpdesk.calendar_month'(d, { site, win }) {
     const r = await d.rdb.getCalendarMonthlyHelpdesk(site, win.year, win.month);
     if (!r) return null; // site has no Zoho group → not measured
-    return { inbound: r.inbound, closed: r.closed, close_pct: r.close_pct, sla_res_pct: r.sla_res_pct, sla_reply_pct: r.sla_reply_pct };
+    const rec = { inbound: r.inbound, closed: r.closed, close_pct: r.close_pct, sla_res_pct: r.sla_res_pct, sla_reply_pct: r.sla_reply_pct };
+    // F-DATA-07 (N7) — the SLA denominators travel when the reader returns them (never recomputed here)
+    for (const k of ['sla_res_den', 'sla_reply_den']) if (r[k] != null) rec[k] = r[k];
+    return rec;
   },
   async 'changes.window'(d, { site, win }) {
     if (!d.rdb.getSiteChangesWindow) return null;
@@ -178,11 +181,20 @@ const READERS = {
   async 'assets.hygiene_site'(d, { site }) {
     const labels = await assetLabelsFor(d, site); if (!labels.length) return null;
     const acc = { total: 0, no_owner: 0, no_age: 0, no_cost: 0, no_asset_tag: 0, never_scanned: 0, ghost: 0 };
+    // F-DATA-08 (C04) — a site is the SUM of its labels. A label that cannot be read (reader throws or returns
+    // nothing) is counted, not skipped: the rows that were read are kept (per-kind counts = "at least"), but the
+    // total and the completeness of the site are then UNKNOWN (null) — a confident lower total is a wrong number.
+    let read = 0; const unread = []; let lastErr = null;
     for (const label of labels) {
-      const s = await d.adb.getHygieneSummary({ site: label }); if (!s) continue;
+      let s = null;
+      try { s = await d.adb.getHygieneSummary({ site: label }); } catch (e) { lastErr = e; }
+      if (!s) { unread.push(label); continue; }
+      read++;
       acc.total += Number(s.total) || 0;
       for (const k of Object.keys(acc)) if (k !== 'total') acc[k] += Number((s.by_kind || {})[k]) || 0;
     }
+    if (!read) { if (lastErr) throw lastErr; return null; }   // nothing read at all: an error / not measured, as before
+    if (unread.length) return { ...acc, total: null, completeness_pct: null, partial_source: { read, unread: unread.length, unread_labels: unread } };
     const pres = (k) => acc.total ? 1 - acc[k] / acc.total : null;
     acc.completeness_pct = acc.total ? Math.round(100 * (pres('no_owner') + pres('no_age') + pres('no_cost')) / 3) : null;
     return acc;
@@ -253,9 +265,12 @@ async function assetLabelsFor(d, site) {
 // ── E-V03 / E-K02 — base population (denominator) of a ratio metric ─────────────────────────
 // ONLY where the reader already returns the very denominator of the formula. A metric absent from this map, or
 // whose record lacks the field, has base = null ("base not measured") — a denominator is never invented.
-// Resolution / first-reply SLA are absent on purpose: getCalendarMonthlyHelpdesk counts the SLA denominator
-// (closed with an SLA rule, cancelled excluded) and the responded tickets but does not return them.
+// F-DATA-07 (N7) — resolution / first-reply SLA: the base is read from `sla_res_den` / `sla_reply_den` WHEN the
+// reader returns them. reports-db.getCalendarMonthlyHelpdesk counts both (closed with an SLA rule, cancelled
+// excluded; responded tickets) but does not return them yet → base stays null ("base not measured") until it does.
 const BASES = {
+  'helpdesk.resolution_sla_pct': { field: 'sla_res_den', label: 'closed tickets with an SLA rule (cancelled excluded)' },
+  'helpdesk.first_reply_sla_pct': { field: 'sla_reply_den', label: 'responded tickets' },
   'helpdesk.closure_pct': { field: 'inbound', label: 'tickets created' },
   'inspection.conformity_pct': { field: 'applicable_n', label: 'applicable findings' },
   'assets.completeness_pct': { field: 'total', label: 'assets in register' },
@@ -264,6 +279,15 @@ function baseFor(m, rec) {
   const b = BASES[m.key]; if (!b || !rec) return null;
   const n = rec[b.field];
   return n != null && Number.isFinite(Number(n)) ? { n: Number(n), label: b.label } : null;
+}
+
+const DATA_STATES = ['measured', 'partial', 'not_measured', 'reader_not_wired', 'error'];
+/** not_measured (null) · partial (period still running, or a source read in part) · measured. */
+function dataState(v, rec, win, now) {
+  if (rec && rec.partial_source) return 'partial';
+  if (v == null) return 'not_measured';
+  const today = (now || new Date()).toISOString().slice(0, 10);
+  return win && win.to && String(win.to).slice(0, 10) > today ? 'partial' : 'measured';
 }
 
 // ── Registry object ──────────────────────────────────────────────────────────────────
@@ -282,13 +306,16 @@ function createRegistry(rows = SEED) {
       const win = resolveWindow(m.window_kind, window, now);
       const base = { key: m.key, name: m.name, module: m.module, unit: m.unit, site: site == null ? null : Number(site), window: { kind: win.kind, label: win.label, from: win.from, to: win.to }, as_of: now.toISOString() };
       const reader = READERS[m.reader];
-      if (!reader) return { ...base, value: null, rag: 'NA', error: `reader not wired: ${m.reader}` };
+      // F-DATA-07 — data_state says WHY a figure is what it is: measured | partial | not_measured | reader_not_wired | error
+      if (!reader) return { ...base, value: null, rag: 'NA', data_state: 'reader_not_wired', error: `reader not wired: ${m.reader}` };
+      // N9 — a row added in the table without a field can never produce a value: said, not silently null
+      if (!m.field) return { ...base, value: null, rag: 'NA', data_state: 'reader_not_wired', error: `no field declared for ${m.key}` };
       try {
         // F-DATA-03 — one shared builder completes the reader deps (adds `programme` when rdb + mdb + idb are there)
         const rec = await reader(require('./metricDeps').complete(deps), { site: site == null ? null : Number(site), win, explicit: window != null && window !== '' });
         const v = rec && rec[m.field] != null && Number.isFinite(Number(rec[m.field])) ? Number(rec[m.field]) : null;
-        return { ...base, value: v, rag: ragFor(m, v), record: rec || null, base: baseFor(m, rec) };
-      } catch (e) { return { ...base, value: null, rag: 'NA', error: String(e && e.message || e).slice(0, 200) }; }
+        return { ...base, value: v, rag: ragFor(m, v), record: rec || null, base: baseFor(m, rec), data_state: dataState(v, rec, win, now), ...(rec && rec.partial_source ? { partial_source: rec.partial_source } : {}) };
+      } catch (e) { return { ...base, value: null, rag: 'NA', data_state: 'error', error: String(e && e.message || e).slice(0, 200) }; }
     },
   };
 }
@@ -332,4 +359,4 @@ let _current = null;
 function current() { if (!_current) _current = createRegistry(SEED.map((m) => ({ ...m }))); return _current; }
 function setCurrent(r) { _current = r; return r; }
 
-module.exports = { SEED, BASES, baseFor, READERS, WINDOW_KINDS, EXTRA_POLICIES, createRegistry, resolveWindow, load, current, setCurrent, ragFor, codeFor };
+module.exports = { SEED, BASES, DATA_STATES, dataState, baseFor, READERS, WINDOW_KINDS, EXTRA_POLICIES, createRegistry, resolveWindow, load, current, setCurrent, ragFor, codeFor };

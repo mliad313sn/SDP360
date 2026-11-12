@@ -321,6 +321,12 @@
 .edv-state-error, .edv-state-publication-blocked { color:var(--edv-red); }
 /* E-V03 — base population line + "→ act" link under a KPI value */
 .edv-kpi-base { font-size:12px; color:var(--color-text-muted); margin-top:2px; }
+/* F-DATA-07 — definition drawer on a KPI tile (ui_kpi_definition_drawer) */
+.edv-kpi-def { font-size:12px; margin-top:6px; }
+.edv-kpi-def summary { cursor:pointer; color:var(--color-text-muted); }
+.edv-kpi-def dl { margin:6px 0 0; display:grid; grid-template-columns:max-content 1fr; gap:2px 10px; }
+.edv-kpi-def dt { color:var(--color-text-muted); }
+.edv-kpi-def dd { margin:0; overflow-wrap:anywhere; }
 .edv-act { display:inline-block; margin-top:4px; font-size:12px; font-weight:600; color:var(--edv-blue); text-decoration:none; }
 .edv-act:hover, .edv-act:focus { text-decoration:underline; }
 /* E-V09 — small multiples: one panel per metric, each with its own axis and unit */

@@ -13,7 +13,9 @@ test('seed: ≥ 40 published metrics, unique keys, every rag_policy registered, 
     assert.ok(MR.WINDOW_KINDS.includes(m.window_kind), `${m.key} window ${m.window_kind}`);
     if (m.rag_policy) assert.ok(KpiRag.POLICIES[m.rag_policy], `${m.key} policy ${m.rag_policy}`);
     assert.equal(typeof MR.READERS[m.reader], 'function', `${m.key} reader ${m.reader}`);
-    assert.ok(m.formula && m.name && m.name_fr && m.module && m.owner_role, `${m.key} incomplete`);
+    assert.ok(m.formula && m.name && m.name_fr && m.module, `${m.key} incomplete`);
+    // F-DATA-07 (N10) — an owner role is either named in the seed or null ("to be named"); never a default placeholder
+    assert.ok(m.owner_role === null || (typeof m.owner_role === 'string' && m.owner_role !== 'service-support-manager'), `${m.key} owner_role`);
   }
 });
 

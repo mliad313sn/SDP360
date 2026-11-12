@@ -146,3 +146,20 @@ test('E-V02: no shipped seed dashboard is flagged by the new rules', () => {
   const info = Object.fromEntries(SEED.map((m) => [m.key, { name: m.name, unit: m.unit, window_kind: m.window_kind, rag_policy: m.rag_policy }]));
   for (const d of SEED_DASHBOARDS) assert.deepEqual(D.validateDashboard(d, { metrics: SEED.map((m) => m.key), metricInfo: info }).errors, [], d.key);
 });
+
+// F-DATA-12 — optional decision context per widget
+test('question / decision / audience_role: accepted when text, ignored when absent, refused when empty or too long', () => {
+  const R = require('../public/lib/dashboardRender');
+  const plain = doc();
+  assert.ok(D.validateDashboard(plain, { metrics: METRICS }).ok, 'absent fields change nothing');
+  const d = doc();
+  Object.assign(d.widgets[0], { question: 'Are tickets resolved in time?', decision: 'Escalate the OLA', audience_role: 'site coordinator' });
+  assert.ok(D.validateDashboard(d, { metrics: METRICS }).ok);
+  const bad = doc();
+  Object.assign(bad.widgets[0], { decision: '  ', audience_role: 'x'.repeat(65), question: 7 });
+  const r = D.validateDashboard(bad, { metrics: METRICS });
+  assert.ok(!r.ok);
+  for (const f of ['decision', 'audience_role', 'question']) assert.ok(r.errors.some((e) => e.path === 'widgets[0].' + f), f);
+  assert.strictEqual(R.decisionText(plain.widgets[0]), 'decision: not stated');
+  assert.strictEqual(R.decisionText(d.widgets[0]), 'decision: Escalate the OLA');
+});
