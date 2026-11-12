@@ -15,7 +15,7 @@
   "jobs": 31,
   "jobs_without_test_reference": 0,
   "migrations": 87,
-  "test_files": 725
+  "test_files": 726
  },
  "pages": [
   {
@@ -976,7 +976,7 @@
    "parent": "meetings-actions.html",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 84288,
+   "bytes": 84791,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -5915,6 +5915,7 @@
     "tests/incubation-save-route.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/meeting-save-conflict-client.test.js",
+    "tests/meeting-stamp-guard.test.js",
     "tests/meetings-lookups-writes.smoke.test.js",
     "tests/meetings-save-conflict.smoke.test.js",
     "tests/meetings-site-scope.smoke.test.js",
@@ -5948,6 +5949,7 @@
     "tests/incubation-save-route.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/meeting-save-conflict-client.test.js",
+    "tests/meeting-stamp-guard.test.js",
     "tests/meetings-lookups-writes.smoke.test.js",
     "tests/meetings-save-conflict.smoke.test.js",
     "tests/meetings-site-scope.smoke.test.js",
@@ -5981,6 +5983,7 @@
     "tests/incubation-save-route.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/meeting-save-conflict-client.test.js",
+    "tests/meeting-stamp-guard.test.js",
     "tests/meetings-lookups-writes.smoke.test.js",
     "tests/meetings-save-conflict.smoke.test.js",
     "tests/meetings-site-scope.smoke.test.js",
@@ -6014,6 +6017,7 @@
     "tests/incubation-save-route.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/meeting-save-conflict-client.test.js",
+    "tests/meeting-stamp-guard.test.js",
     "tests/meetings-lookups-writes.smoke.test.js",
     "tests/meetings-save-conflict.smoke.test.js",
     "tests/meetings-site-scope.smoke.test.js",
@@ -6047,6 +6051,7 @@
     "tests/incubation-save-route.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/meeting-save-conflict-client.test.js",
+    "tests/meeting-stamp-guard.test.js",
     "tests/meetings-lookups-writes.smoke.test.js",
     "tests/meetings-save-conflict.smoke.test.js",
     "tests/meetings-site-scope.smoke.test.js",
