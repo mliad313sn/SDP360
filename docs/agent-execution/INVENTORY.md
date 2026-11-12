@@ -14,13 +14,13 @@
 | pages deep link only | 8 |
 | pages without entry point | 3 |
 | pages with inline scripts | 46 |
-| routes | 640 |
+| routes | 641 |
 | routes without test reference | 35 |
 | routes in server js | 210 |
 | jobs | 31 |
 | jobs without test reference | 1 |
 | migrations | 81 |
-| test files | 669 |
+| test files | 679 |
 
 ## Pages
 
@@ -31,26 +31,26 @@
 | PG-analytics | public/analytics.html | admin / scorecard-viewer | yes | 1 | 8 |
 | PG-assets-finance | public/assets-finance.html | UNKNOWN | no | 1 | 2 |
 | PG-assets-hygiene | public/assets-hygiene.html | UNKNOWN | no | 1 | 3 |
-| PG-assets | public/assets.html | any | yes | 10 | 15 |
+| PG-assets | public/assets.html | any | yes | 10 | 16 |
 | PG-cockpit | public/cockpit.html | any | yes | 1 | 8 |
 | PG-commitments | public/commitments.html | any | no | 1 | 4 |
 | PG-coverage | public/coverage.html | any | no | 0 | 3 |
 | PG-dashboard-composer | public/dashboard-composer.html | admin / dashboard-publisher | no | 1 | 5 |
-| PG-dashboards | public/dashboards.html | any | yes | 1 | 10 |
+| PG-dashboards | public/dashboards.html | any | yes | 1 | 12 |
 | PG-data-quality | public/data-quality.html | admin | yes | 0 | 2 |
 | PG-exec-view | public/exec-view.html | public | no | 1 | 6 |
 | PG-executive-report | public/executive-report.html | super_admin | yes | 1 | 11 |
-| PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 10 |
+| PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 14 |
 | PG-handoffs | public/handoffs.html | any | yes | 1 | 8 |
 | PG-help | public/help.html | any | yes | 1 | 9 |
-| PG-home | public/home.html | any | yes | 0 | 9 |
-| PG-index | public/index.html | any | yes | 1 | 25 |
+| PG-home | public/home.html | any | yes | 0 | 12 |
+| PG-index | public/index.html | any | yes | 1 | 28 |
 | PG-infra-health | public/infra-health.html | any | yes | 2 | 5 |
 | PG-inspection-actions | public/inspection-actions.html | any | no | 1 | 6 |
 | PG-inspection | public/inspection.html | any | no | 2 | 7 |
-| PG-inspections | public/inspections.html | any | yes | 1 | 6 |
+| PG-inspections | public/inspections.html | any | yes | 1 | 7 |
 | PG-integrations | public/integrations.html | any | yes | 1 | 4 |
-| PG-it-review | public/it-review.html | executive / scorecard-viewer | yes | 2 | 7 |
+| PG-it-review | public/it-review.html | executive / scorecard-viewer | yes | 2 | 8 |
 | PG-itsm-integrations-plan | public/itsm-integrations-plan.html | UNKNOWN | no | 0 | 5 |
 | PG-itsm-roadmap | public/itsm-roadmap.html | super_admin | no | 1 | 4 |
 | PG-kpi-builder | public/kpi-builder.html | any | no | 0 | 2 |
@@ -65,7 +65,7 @@
 | PG-meetings-progress | public/meetings-progress.html | any | no | 2 | 3 |
 | PG-meetings-setup | public/meetings-setup.html | any | no | 1 | 4 |
 | PG-meetings-unsigned | public/meetings-unsigned.html | any | no | 2 | 4 |
-| PG-meetings | public/meetings.html | any | yes | 2 | 5 |
+| PG-meetings | public/meetings.html | any | yes | 2 | 6 |
 | PG-no-access | public/no-access.html | any | no | 0 | 2 |
 | PG-notifications | public/notifications.html | any | yes | 1 | 3 |
 | PG-obligations | public/obligations.html | any | yes | 0 | 3 |
@@ -73,17 +73,17 @@
 | PG-portfolio | public/portfolio.html | any | yes | 1 | 10 |
 | PG-project | public/project.html | any | no | 1 | 12 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 3 |
-| PG-reports | public/reports.html | any | yes | 2 | 28 |
+| PG-reports | public/reports.html | any | yes | 2 | 31 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 4 |
-| PG-site-actions | public/site-actions.html | any | yes | 1 | 10 |
+| PG-site-actions | public/site-actions.html | any | yes | 1 | 12 |
 | PG-site-awareness | public/site-awareness.html | site-business / group-business / executive | yes | 2 | 5 |
-| PG-site-report | public/site-report.html | UNKNOWN | no | 0 | 5 |
+| PG-site-report | public/site-report.html | UNKNOWN | no | 0 | 6 |
 | PG-system-logs | public/system-logs.html | super_admin | yes | 1 | 3 |
 | PG-tracker-builder | public/tracker-builder.html | admin / tracker-admin | no | 1 | 4 |
 | PG-trackers | public/trackers.html | any | yes | 1 | 3 |
 | PG-wan-health | public/wan-health.html | UNKNOWN | no | 0 | 4 |
 | PG-wan-sla | public/wan-sla.html | UNKNOWN | no | 0 | 4 |
-| PG-wan | public/wan.html | any | yes | 3 | 11 |
+| PG-wan | public/wan.html | any | yes | 3 | 13 |
 
 ## Page entry points (E-U04)
 
@@ -108,7 +108,7 @@
 | public/executive.html | yes | — | dashboards.html | — | — | shell |
 | public/handoffs.html | yes | — | home.html, site-actions.html | — | — | shell |
 | public/help.html | yes | — | — | — | — | shell |
-| public/home.html | yes | — | — | — | — | shell |
+| public/home.html | yes | — | index.html, lib/pageStates.js | — | — | shell |
 | public/index.html | yes | — | login.html, no-access.html | — | — | shell |
 | public/infra-health.html | yes | — | — | — | — | shell |
 | public/inspection-actions.html | — | yes | inspections.html | — | — | inspections.html |

@@ -26,7 +26,7 @@
 | Layer | Numerator | Denominator | Exclusions | Window | Code | Pinned by |
 |---|---|---|---|---|---|---|
 | Screen (trend) | responded − flagged late | responded tickets (non-empty `Responded Time`) | none | selected period | `public/lib/dashboard-shared.js:271` (`fr_violated_pct:  pct(frViol, responded)`) | `tests/dashboard-shared-sla-rates.test.js` |
-| Screen (technician table) | 1 − late/responded | responded per technician | none | selected period | `public/index.html:1421` (`frSla: e.respondedN > 0`) | — |
+| Screen (technician table) | 1 − late/responded | responded per technician | none | selected period | `public/index.html:1422` (`frSla: e.respondedN > 0`) | — |
 | API (calendar reader, registry `helpdesk.first_reply_sla_pct`) | responded AND flag not true/1/yes | responded | none (cancelled kept) | calendar month | `reports-db.js:2963` (`sla_reply_pct: rplyTotal > 0`), `services/metricRegistry.js:39` (`M('helpdesk.first_reply_sla_pct'`) | `tests/uat-itsm-figures.test.js` |
 | PPTX | = API `sla_reply_pct` | | | calendar month | `services/reportPayload.js:122` (`out.frt_sla        = _safeNum(cur.sla_reply_pct)`) | `tests/report-figures-parity.test.js` |
 | E-mail | not reported | — | — | — | — | — |

@@ -9,13 +9,13 @@
   "pages_deep_link_only": 8,
   "pages_without_entry_point": 3,
   "pages_with_inline_scripts": 46,
-  "routes": 640,
+  "routes": 641,
   "routes_without_test_reference": 35,
   "routes_in_server_js": 210,
   "jobs": 31,
   "jobs_without_test_reference": 1,
   "migrations": 81,
-  "test_files": 669
+  "test_files": 679
  },
  "pages": [
   {
@@ -177,7 +177,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 10,
-   "bytes": 202667,
+   "bytes": 202731,
    "tests": [
     "tests/agent-inventory.test.js",
     "tests/asset-hygiene-visuals.test.js",
@@ -190,6 +190,7 @@
     "tests/i18n-coverage.test.js",
     "tests/money-coverage.test.js",
     "tests/page-head.test.js",
+    "tests/page-states-adoption.test.js",
     "tests/rbac-ui-gates.test.js",
     "tests/report-template-weekly.test.js",
     "tests/reports-editor-asset-tab.test.js",
@@ -328,17 +329,19 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 28961,
+   "bytes": 29139,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/chart-annotations.test.js",
     "tests/dashboard-time-truth.test.js",
     "tests/dashboard-widget-truth.test.js",
     "tests/exec-nav-consolidated.test.js",
+    "tests/first-usable.test.js",
     "tests/i18n-coverage.test.js",
     "tests/landing.test.js",
     "tests/page-head.test.js",
     "tests/page-usage.test.js",
+    "tests/shell-navigation.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
   },
@@ -448,16 +451,20 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 598686,
+   "bytes": 598861,
    "tests": [
+    "tests/a11y-legacy-ratchet.test.js",
     "tests/api-key-injection.smoke.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
+    "tests/exec-charts-v2.test.js",
     "tests/exec-nav-consolidated.test.js",
     "tests/exec-scorecard-registry-parity.test.js",
+    "tests/first-usable.test.js",
     "tests/i18n-coverage.test.js",
     "tests/landing.test.js",
     "tests/login-next-redirect.test.js",
     "tests/monthly-helpdesk-history.test.js",
+    "tests/page-states-adoption.test.js",
     "tests/page-usage.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
@@ -536,7 +543,10 @@
    "entry_points": {
     "shell": true,
     "module_tab": false,
-    "linked_from": [],
+    "linked_from": [
+     "index.html",
+     "lib/pageStates.js"
+    ],
     "redirect_to": null,
     "deep_link_only": null,
     "known_dead_end": null
@@ -544,17 +554,20 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 0,
-   "bytes": 4484,
+   "bytes": 4599,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/feedback.smoke.test.js",
+    "tests/home-page-blocks.test.js",
     "tests/i18n-coverage.test.js",
     "tests/inventory-reachability.test.js",
     "tests/landing.test.js",
     "tests/my-work-route.smoke.test.js",
     "tests/page-head.test.js",
+    "tests/page-states-adoption.test.js",
     "tests/shell-navigation.test.js",
-    "tests/ui-design-ratchet.test.js"
+    "tests/ui-design-ratchet.test.js",
+    "tests/ux-events.smoke.test.js"
    ]
   },
   {
@@ -578,8 +591,9 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 120582,
+   "bytes": 121054,
    "tests": [
+    "tests/a11y-legacy-ratchet.test.js",
     "tests/a11y-static.test.js",
     "tests/api-key-injection.smoke.test.js",
     "tests/charts-static.test.js",
@@ -595,11 +609,13 @@
     "tests/field-review-step-browser.test.js",
     "tests/field-storage-browser.test.js",
     "tests/field-storage-guard.test.js",
+    "tests/first-usable.test.js",
     "tests/helpdesk-pareto-ranking.test.js",
     "tests/i18n-coverage.test.js",
     "tests/kpi-policy-routes.smoke.test.js",
     "tests/landing.test.js",
     "tests/login-next-redirect.test.js",
+    "tests/page-states-adoption.test.js",
     "tests/report-figures-parity.test.js",
     "tests/sdp-manager.smoke.test.js",
     "tests/site-fold-sla-definition.test.js",
@@ -625,7 +641,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 33621,
+   "bytes": 33729,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -716,11 +732,12 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 39502,
+   "bytes": 39566,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
     "tests/page-head.test.js",
+    "tests/page-states-adoption.test.js",
     "tests/rbac-ui-gates.test.js",
     "tests/shell-navigation.test.js",
     "tests/ui-design-ratchet.test.js"
@@ -771,7 +788,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 109788,
+   "bytes": 109850,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/exec-nav-consolidated.test.js",
@@ -779,7 +796,8 @@
     "tests/it-review-tokens.test.js",
     "tests/page-usage.test.js",
     "tests/review-page.smoke.test.js",
-    "tests/ui-design-ratchet.test.js"
+    "tests/ui-design-ratchet.test.js",
+    "tests/ux-events.smoke.test.js"
    ]
   },
   {
@@ -1046,7 +1064,7 @@
    "parent": "meetings.html",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 73400,
+   "bytes": 73508,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -1211,11 +1229,12 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 33867,
+   "bytes": 33931,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
     "tests/page-head.test.js",
+    "tests/page-states-adoption.test.js",
     "tests/rbac-ui-gates.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
@@ -1447,8 +1466,9 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 539578,
+   "bytes": 540379,
    "tests": [
+    "tests/a11y-legacy-ratchet.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
     "tests/assets-freshness.test.js",
@@ -1459,6 +1479,7 @@
     "tests/csp-report.smoke.test.js",
     "tests/csv-guard-coverage.test.js",
     "tests/field-pwa-static.test.js",
+    "tests/first-usable.test.js",
     "tests/i18n-coverage.test.js",
     "tests/login-next-redirect.test.js",
     "tests/rbac-ui-gates.test.js",
@@ -1470,6 +1491,7 @@
     "tests/reports-html-escape-sweep.test.js",
     "tests/restore-drill-admin-card.test.js",
     "tests/send-reports-cli.test.js",
+    "tests/shell-navigation.test.js",
     "tests/site-actions-register.test.js",
     "tests/status-transfer.smoke.test.js",
     "tests/teams-sla-admin-card.test.js",
@@ -1529,9 +1551,11 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 41481,
+   "bytes": 41652,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
+    "tests/first-usable.test.js",
+    "tests/home-page-blocks.test.js",
     "tests/i18n-coverage.test.js",
     "tests/meeting-status-options.test.js",
     "tests/module-tabs.test.js",
@@ -1565,7 +1589,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 71822,
+   "bytes": 71930,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -1592,13 +1616,14 @@
    "parent": null,
    "reachable": false,
    "inline_scripts": 0,
-   "bytes": 17643,
+   "bytes": 17707,
    "tests": [
     "tests/agent-inventory.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/report-template-coordinator.test.js",
     "tests/trust-label.test.js",
-    "tests/ui-design-ratchet.test.js"
+    "tests/ui-design-ratchet.test.js",
+    "tests/ux-events.smoke.test.js"
    ]
   },
   {
@@ -1756,16 +1781,18 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 3,
-   "bytes": 50162,
+   "bytes": 50304,
    "tests": [
     "tests/agent-inventory.test.js",
     "tests/csp-headers.smoke.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/csp-report.smoke.test.js",
     "tests/csv-safe.test.js",
+    "tests/first-usable.test.js",
     "tests/i18n-coverage.test.js",
     "tests/opm-routes.smoke.test.js",
     "tests/page-head.test.js",
+    "tests/page-states-adoption.test.js",
     "tests/rbac-ui-gates.test.js",
     "tests/ui-design-ratchet.test.js",
     "tests/wan-timeup-default.test.js"
@@ -6416,6 +6443,7 @@
     "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
+    "tests/first-usable.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -6491,6 +6519,7 @@
     "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
+    "tests/first-usable.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -6566,6 +6595,7 @@
     "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
+    "tests/first-usable.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -6641,6 +6671,7 @@
     "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
+    "tests/first-usable.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -6716,6 +6747,7 @@
     "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
+    "tests/first-usable.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -6791,6 +6823,7 @@
     "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
+    "tests/first-usable.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -6866,6 +6899,7 @@
     "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
+    "tests/first-usable.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -6941,6 +6975,7 @@
     "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
+    "tests/first-usable.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -7016,6 +7051,7 @@
     "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
+    "tests/first-usable.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -7091,6 +7127,7 @@
     "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
+    "tests/first-usable.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -7166,6 +7203,7 @@
     "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
+    "tests/first-usable.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -7241,6 +7279,7 @@
     "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
+    "tests/first-usable.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -7316,6 +7355,7 @@
     "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
+    "tests/first-usable.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -7391,6 +7431,7 @@
     "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
+    "tests/first-usable.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -7466,6 +7507,7 @@
     "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
+    "tests/first-usable.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -7541,6 +7583,7 @@
     "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
+    "tests/first-usable.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -7616,6 +7659,7 @@
     "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
+    "tests/first-usable.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -7691,6 +7735,7 @@
     "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
+    "tests/first-usable.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -7766,6 +7811,7 @@
     "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
+    "tests/first-usable.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -7841,6 +7887,7 @@
     "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
+    "tests/first-usable.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -7916,6 +7963,7 @@
     "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
+    "tests/first-usable.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -7991,6 +8039,7 @@
     "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
+    "tests/first-usable.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -8066,6 +8115,7 @@
     "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
+    "tests/first-usable.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -8141,6 +8191,7 @@
     "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
+    "tests/first-usable.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -8969,6 +9020,7 @@
     "tests/emergency-access.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
+    "tests/first-usable.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -10018,11 +10070,21 @@
    ]
   },
   {
+   "id": "RT-POST-api-ux-event",
+   "method": "POST",
+   "path": "/api/ux/event",
+   "file": "routes/pageUsage.js",
+   "line": 58,
+   "tests": [
+    "tests/ux-events.smoke.test.js"
+   ]
+  },
+  {
    "id": "RT-GET-api-ux-page-usage",
    "method": "GET",
    "path": "/api/ux/page-usage",
    "file": "routes/pageUsage.js",
-   "line": 50,
+   "line": 78,
    "tests": [
     "tests/page-usage-routes.smoke.test.js"
    ]
@@ -10032,7 +10094,7 @@
    "method": "POST",
    "path": "/api/ux/page-view",
    "file": "routes/pageUsage.js",
-   "line": 37,
+   "line": 42,
    "tests": [
     "tests/page-usage-routes.smoke.test.js",
     "tests/page-usage.test.js"
@@ -10153,6 +10215,7 @@
    "tests": [
     "tests/api-key-injection.smoke.test.js",
     "tests/exec-scorecard-registry-parity.test.js",
+    "tests/first-usable.test.js",
     "tests/page-usage.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
@@ -10316,7 +10379,9 @@
    "line": 16,
    "tests": [
     "tests/my-work-route.smoke.test.js",
-    "tests/ui-design-ratchet.test.js"
+    "tests/shell-navigation.test.js",
+    "tests/ui-design-ratchet.test.js",
+    "tests/ux-events.smoke.test.js"
    ]
   },
   {
@@ -10326,6 +10391,7 @@
    "file": "server.js",
    "line": 1386,
    "tests": [
+    "tests/a11y-legacy-ratchet.test.js",
     "tests/a11y-static.test.js",
     "tests/api-key-injection.smoke.test.js",
     "tests/csp-headers.smoke.test.js",
@@ -10335,6 +10401,7 @@
     "tests/field-pwa-static.test.js",
     "tests/field-review-step-browser.test.js",
     "tests/field-storage-browser.test.js",
+    "tests/first-usable.test.js",
     "tests/landing.test.js",
     "tests/login-next-redirect.test.js",
     "tests/sdp-manager.smoke.test.js",
@@ -10603,11 +10670,13 @@
     "tests/csp-headers.smoke.test.js",
     "tests/csp-report.smoke.test.js",
     "tests/csv-guard-coverage.test.js",
+    "tests/first-usable.test.js",
     "tests/login-next-redirect.test.js",
     "tests/reports-backups-module.test.js",
     "tests/reports-editor-asset-tab.test.js",
     "tests/reports-html-escape-sweep.test.js",
     "tests/restore-drill-admin-card.test.js",
+    "tests/shell-navigation.test.js",
     "tests/teams-sla-admin-card.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
@@ -10637,6 +10706,7 @@
    "file": "server.js",
    "line": 1488,
    "tests": [
+    "tests/first-usable.test.js",
     "tests/meeting-status-options.test.js",
     "tests/site-actions-register.test.js",
     "tests/ui-design-ratchet.test.js"
@@ -10706,6 +10776,7 @@
     "tests/csp-headers.smoke.test.js",
     "tests/csp-report.smoke.test.js",
     "tests/csv-safe.test.js",
+    "tests/first-usable.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
   }
