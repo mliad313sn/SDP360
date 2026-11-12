@@ -8,20 +8,20 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 
 | Item | Count |
 |---|---:|
-| routes | 648 |
+| routes | 661 |
 | routes not measurable | 3 |
-| routes without strict test | 55 |
-| critical routes | 182 |
-| critical routes without strict test | 15 |
-| writes without strict test | 18 |
+| routes without strict test | 57 |
+| critical routes | 184 |
+| critical routes without strict test | 16 |
+| writes without strict test | 20 |
 | jobs | 31 |
 | jobs without strict test | 0 |
-| test sources | 761 |
+| test sources | 766 |
 | without strict test access | 4 |
 | without strict test finance | 0 |
 | without strict test export | 7 |
 | without strict test audit | 4 |
-| without strict test destructive | 1 |
+| without strict test destructive | 2 |
 
 ## Critical routes without a strict test reference
 
@@ -31,6 +31,7 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 | POST | `/api/executive-new-pptx` | export, write | server.js |
 | POST | `/api/governance/cadences/:id/restore` | audit, destructive, write | routes/softDelete.js |
 | GET | `/api/governance/ppm/project/:id/raci.csv` | export, read | routes/governancePpm.js |
+| DELETE | `/api/governance/ppm/project/:id/team/:mid` | destructive, write | routes/governanceWorkbench.js |
 | POST | `/api/governance/roles/assignments/:id/end` | access, write | routes/governanceRoles.js |
 | POST | `/api/governance/roles/matrix/:id/retire` | access, write | routes/governanceRoles.js |
 | GET | `/api/meetings/progress/export-pptx` | export, read | routes/meetings.js |
@@ -65,6 +66,7 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 | GET | `/api/data/monthly-summary` | read | server.js |
 | GET | `/api/data/sla-by-category` | read | server.js |
 | POST | `/api/governance/policies/proposals/:id/reject` | write | routes/policies.js |
+| POST | `/api/governance/ppm/project/:id/changes/:cid/:action` | write | routes/governanceWorkbench.js |
 | PUT | `/api/governance/ppm/project/:id/raci` | write | routes/governancePpm.js |
 | GET | `/api/integration/fmp/readiness` | read | routes/fourmypeople.js |
 | POST | `/api/integrations/analytics/test` | write | routes/adminConfig.js |
@@ -109,5 +111,5 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 | finance | 22 | 0 |
 | export | 60 | 7 |
 | audit | 20 | 4 |
-| destructive | 33 | 1 |
-<!-- structure 037513bbf91aa79a -->
+| destructive | 35 | 2 |
+<!-- structure 7453bb0d6a7117ea -->

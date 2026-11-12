@@ -14,13 +14,13 @@
 | pages deep link only | 9 |
 | pages without entry point | 3 |
 | pages with inline scripts | 46 |
-| routes | 648 |
+| routes | 661 |
 | routes without test reference | 31 |
 | routes in server js | 210 |
 | jobs | 31 |
 | jobs without test reference | 0 |
-| migrations | 85 |
-| test files | 717 |
+| migrations | 86 |
+| test files | 722 |
 
 ## Pages
 
@@ -52,7 +52,7 @@
 | PG-integrations | public/integrations.html | any | yes | 1 | 4 |
 | PG-it-review | public/it-review.html | executive / scorecard-viewer | yes | 2 | 8 |
 | PG-itsm-integrations-plan | public/itsm-integrations-plan.html | UNKNOWN | no | 0 | 5 |
-| PG-itsm-roadmap | public/itsm-roadmap.html | super_admin | no | 1 | 4 |
+| PG-itsm-roadmap | public/itsm-roadmap.html | super_admin | no | 1 | 5 |
 | PG-kpi-builder | public/kpi-builder.html | any | no | 0 | 2 |
 | PG-login | public/login.html | public | no | 1 | 12 |
 | PG-meeting | public/meeting.html | any | no | 1 | 13 |
@@ -70,7 +70,7 @@
 | PG-notifications | public/notifications.html | any | yes | 1 | 3 |
 | PG-obligations | public/obligations.html | any | yes | 0 | 4 |
 | PG-policies | public/policies.html | admin / committee-member | yes | 1 | 4 |
-| PG-portfolio | public/portfolio.html | any | yes | 1 | 14 |
+| PG-portfolio | public/portfolio.html | any | yes | 1 | 15 |
 | PG-project | public/project.html | any | no | 1 | 16 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 3 |
 | PG-reports | public/reports.html | any | yes | 2 | 33 |
@@ -137,7 +137,7 @@
 | public/obligations.html | yes | — | home.html, site-actions.html | — | — | shell |
 | public/policies.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
 | public/portfolio.html | yes | — | itsm-roadmap.html, lib/workspaceProfiles.js, project.html | — | — | shell |
-| public/project.html | — | — | lib/home-page.js, meeting.html, portfolio.html | — | — | meeting.html |
+| public/project.html | — | — | lib/home-page.js, lib/portfolioViews.js, meeting.html, portfolio.html | — | — | meeting.html |
 | public/report-studio.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
 | public/reports.html | yes | — | site-report.html | — | — | shell |
 | public/rfi.html | yes | — | meeting.html, portfolio.html | — | — | shell |
