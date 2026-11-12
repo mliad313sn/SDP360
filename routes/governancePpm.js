@@ -10,6 +10,7 @@
 //                                    · POST /templates/:id/create-project {objective_id,key,name,site_id}       committee (approver ≠ author)
 //   E-P08 ppm_annual_pack_enabled    GET /api/governance/ppm/annual-pack.xlsx?year=YYYY  DRAFT pack (money rule; RFI sheet committee)
 //   R2-WORKBENCH (team, time, change requests): routes/governanceWorkbench.js, registered at the end of this file
+//   W1-EVM ppm_evm_enabled           earned value (project / portfolio / task fields): routes/governanceEvm.js, same
 //   GET  /api/governance/ppm/features  which of these switches are on (the pages show a tab / panel only then)
 // Paths live under /api/governance/ppm/ so they never collide with /portfolio/:kind.
 const { fail: httpFail } = require('../services/httpError');
@@ -27,7 +28,7 @@ module.exports = function governancePpmRoutes(router, h) {
     try {
       const c = await cfg();
       res.json({ ok: true, capacity: on(c, 'ppm_capacity_view'), budget_periods: on(c, 'ppm_budget_periods_enabled'), benefit_owner_link: on(c, 'benefit_owner_link_enabled'), benefit_value_class: on(c, 'benefit_value_class_enabled'), raci: on(c, 'ppm_raci_enabled'), templates: on(c, 'ppm_templates_enabled'), annual_pack: on(c, 'ppm_annual_pack_enabled'),
-        team: on(c, 'ppm_project_team_enabled'), time_entries: on(c, 'ppm_time_entries_enabled'), change_requests: on(c, 'ppm_change_requests_enabled'), portfolio_views: on(c, 'portfolio_views_enabled'), roadmap_publication: on(c, 'roadmap_publication_enabled') });
+        team: on(c, 'ppm_project_team_enabled'), time_entries: on(c, 'ppm_time_entries_enabled'), change_requests: on(c, 'ppm_change_requests_enabled'), evm: on(c, 'ppm_evm_enabled'), portfolio_views: on(c, 'portfolio_views_enabled'), roadmap_publication: on(c, 'roadmap_publication_enabled') });
     } catch (e) { fail(res, e); }
   });
 
@@ -147,4 +148,6 @@ module.exports = function governancePpmRoutes(router, h) {
 
   // R2-WORKBENCH (REBUILD-SPEC R5): team, time entries, change requests — routes/governanceWorkbench.js
   require('./governanceWorkbench')(router, h);
+  // W1-EVM (PPM parity E-EVM-1): earned value — routes/governanceEvm.js (switch ppm_evm_enabled)
+  require('./governanceEvm')(router, h);
 };
