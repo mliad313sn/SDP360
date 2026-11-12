@@ -29,3 +29,21 @@ Rollback for every row = **revert the single commit that changes `package.json` 
 
 Pinned by `tests/dependency-sources.test.js`: a lockfile entry resolved outside the npm registry must carry
 an `integrity` and appear in that test's allow-list with a reason and a review owner; a new one fails.
+
+## Execution — F-ARCH-07 (bundle F1-OPS, 2026-11-12, branch `goal/f1-ops`)
+
+Registry reachable through the agent proxy (TLS unchanged). One bump per commit; each install changed only the
+listed lockfile entries. Action SHAs were checked against the **peeled upstream tags** (`git ls-remote`) and are
+equal to the Dependabot branches. Nothing is merged: every row below waits for a person's review and a CI run.
+
+| # | Bump | Result | Proof (local) | Left for a person |
+|---|---|---|---|---|
+| #5 | nodemailer 10.1.7 → **10.3.1** | **taken** (lock pinned to 10.3.1; `^` would have resolved 10.5.0) | mailer / report-config / send-* / teams-sla-poll / dependency-sources / version-consistency: 162 green | CI |
+| #11 | playwright 1.56.1 → **1.64.1** (dev) | **taken**; `ubuntu-24.04` runner pin **kept** (a 26.04 build was not proven); `fsevents` (macOS optional dep of 1.56) leaves the lock | Chromium 1.64 downloaded; both `*-browser.test.js` + ci-config: 20 green, 0 skipped | the 22 e2e journeys in CI |
+| #12 | codeql-action 3.26.6 → **4.39.1** | **taken** for `init` **and** `analyze` (the Dependabot branch moved `init` only — a v4/v3 mixed pair) | ci-config green | first CodeQL run |
+| #4 #3 #7 | upload-artifact **7.0.2** + download-artifact **8.0.2** + setup-node **7.1.0** | **taken together** (16 pins, 3 workflows) | release notes read: download by `name`+`path` unchanged; setup-node 5–7 = Node 24 runtime, explicit `cache: npm` unchanged, no `registry-url`; ci-config + release tests 23 green | a full CI run incl. release dry run |
+| #2 | action-gh-release 2.0.8 → **3.0.3** | **taken** (v3 = Node 24 runtime; inputs unchanged) | ci-config + release tests green | release owner: release dry run |
+| #10 | eslint 9.39.5 → **10.14.0** (dev) | **taken with eslint-plugin-security 3.0.1 → 4.2.1** (3.0.1 crashed: `context.getSourceCode` removed in 10) | `npm run lint`: 0 problems; negative control: eval + unsafe regex still reported | CI |
+| #9 | pptxgenjs 3.12.0 → **4.0.1** | **taken** | golden fingerprints unchanged and not regenerated; PPTX/deck/tracker/inspection/meetings suites 74 + 66 green | reporting owner: visual check in PowerPoint (the fingerprint is structural, not byte identity). Browser decks still use the committed `public/pptxgen.min.js` **3.12.0** — refreshing it is a separate change |
+| #6 | dotenv 16.6.1 → 18 | **NOT taken — deferred** | parsing identical on `#`, quotes, backslash, comments; but v18 writes `◇ injected env (N) from <path>` to **stderr** at every `config()` unless `quiet: true` | add `quiet: true` at the 43 `dotenv.config` call sites (server.js is owned by F1-SEC this wave) or set `DOTENV_QUIET=true` in the service environment, then bump |
+| #8 | express 4.22.3 → 5 | **NOT taken — deferred (blocker found)** | (1) the app does not load: `routes/reportStudio.js:102` `/:id.:fmt(html\|pdf\|csv\|pptx\|xlsx)` is rejected by path-to-regexp v8; (2) **security**: `req.query` is re-parsed on every access in Express 5, so the site-scoping write `req.query.site = codes` (`routes/meetings.js:120`, `routes/inspection.js:164`) is **silently dropped** — editors' list reads would lose their site scope while answering 200 (proved with a 5-line probe on 5.3.0) | migration goal: replace the two `req.query` writes with a request-local value read by the handlers (+ a test that fails on Express 5 today), rewrite the one inline-regex route, then run the full suite + e2e |
