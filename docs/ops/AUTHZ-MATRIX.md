@@ -217,7 +217,7 @@ inside the handler (`userHasRole` / `isAdmin`-style helpers) · **Site scope** =
 | `GET /api/handoffs/people` | requireReportSession | — | admin | userSites |
 | `GET /api/health/deps` | requireReportSession | — | admin | — |
 | `GET /api/health/restore-drill` | requireReportSession | — | super_admin | — |
-| `GET /api/health/version` | requireReportSession | — | — | — |
+| `GET /api/health/version` | requireReportSession | — | admin | — |
 | `GET /api/health/views` | requireReportSession | — | admin | — |
 | `GET /api/inspection/:id` | requireReportSession | — | — | userSites |
 | `GET /api/inspection/actions` | requireReportSession | — | — | — |

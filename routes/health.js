@@ -11,12 +11,14 @@ const { fail } = require('../services/httpError');
 //   GET /api/health/restore-drill — last `restore_drill` system_log row (E11), super_admin.
 //   GET /api/health/version — package version + build SHA + Node + start time; any signed-in user
 //                             (consolidation P0-E / backlog E0.3). Nothing sensitive: no host, path or config.
+//                             Admin tier also gets `provenance` (F-ARCH-03): source vs installed artifact
+//                             (manifest.json, signature check, SBOM) — services/runtimeProvenance.js.
 //
 // Wiring in server.js:
 //   app.use(require('./routes/health')({ express, checkZohoViewSchema, requireReportSession, getRdb }));
 // ─────────────────────────────────────────────────────────────────────────
 module.exports = function healthRoutes(deps) {
-  const { express, checkZohoViewSchema, requireReportSession, getRdb, getBuild, getTokenState } = deps;
+  const { express, checkZohoViewSchema, requireReportSession, getRdb, getBuild, getTokenState, getProvenance } = deps;
   const startedAt = new Date().toISOString();
   const router = express.Router();
 
@@ -39,8 +41,12 @@ router.get('/ready', async (req, res) => {
 });
 
 router.get('/api/health/version', requireReportSession, (req, res) => {
-  res.json({ version: require('../package.json').version, build: (getBuild && getBuild()) || null,
-    node: process.version, started_at: startedAt });
+  const out = { version: require('../package.json').version, build: (getBuild && getBuild()) || null,
+    node: process.version, started_at: startedAt };
+  let admin = false;
+  try { admin = !!getRdb().userHasRole(req.reportUser, 'admin'); } catch (_) { admin = false; }
+  if (admin && getProvenance) { try { out.provenance = getProvenance(); } catch (_) { out.provenance = null; } }
+  res.json(out);
 });
 
 // Expose as an admin-only endpoint for manual health checks (session required — the admin tier

@@ -99,8 +99,11 @@ jobs:
           else
             echo "manifest_signed=no" >> "$GITHUB_OUTPUT"
           fi
-      - name: SBOM (CycloneDX) of the shipped components
-        run: node tools/release/sbom.js --out dist/sbom.cdx.json --timestamp
+      - name: SBOM (CycloneDX) shipped inside the package and listed in the manifest
+        # F-ARCH-03: the packager generates sbom.cdx.json BEFORE zipping and lists its sha256 in the
+        # (signed) manifest; dist/sbom.cdx.json is the same bytes. Fail the release if they differ.
+        run: |
+          node -e "const m=require('./dist/manifest.json'),c=require('crypto'),f=require('fs');const want=m.files['sbom.cdx.json']&&m.files['sbom.cdx.json'].sha256;const got=c.createHash('sha256').update(f.readFileSync('dist/sbom.cdx.json')).digest('hex');if(!want||want!==got){console.error('SBOM not listed in the manifest or different');process.exit(1)}"
       - name: Manager accepts the freshly built package (signature + hashes)
         # Exactly what the server will run. Fails the release if the embedded public key does not
         # match the signing secret (or, unsigned, proves the refusal path still works).

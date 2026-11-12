@@ -32,3 +32,14 @@ test('lockfile integrity becomes a hex hash; bundled installer components are pr
   assert.ok(bom.components.some((c) => /PostgreSQL 17/.test(c.name)));
   assert.ok(bom.components.filter((c) => c.purl).every((c) => !c.hashes || c.hashes[0].content.length >= 40));
 });
+
+// F-ARCH-03 — the packager builds the SBOM of the tree it packages (root option).
+test('build({ root }) reads the given tree', () => {
+  const os = require('os');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'sbom-root-'));
+  fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ name: 'x', version: '9.9.9' }));
+  fs.writeFileSync(path.join(root, 'package-lock.json'), JSON.stringify({ packages: { 'node_modules/only': { version: '1.2.3' } } }));
+  const bom = build({ root });
+  assert.strictEqual(bom.metadata.component.version, '9.9.9');
+  assert.deepStrictEqual(bom.components.filter((c) => c.purl).map((c) => c.name), ['only']);
+});

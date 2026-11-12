@@ -633,7 +633,7 @@ async function checkZohoViewSchema() {
 }
 
 // Zoho view schema health check — routes/health.js (M12-a).
-app.use(require('./routes/health')({ express, checkZohoViewSchema, requireReportSession, getRdb: () => rdb, getBuild: () => APP_VERSION, getTokenState: () => tokenState }));
+app.use(require('./routes/health')({ express, checkZohoViewSchema, requireReportSession, getRdb: () => rdb, getBuild: () => APP_VERSION, getTokenState: () => tokenState, getProvenance: () => PROVENANCE }));
 
 // ── Startup behaviour (2026-05-28) ──────────────────────────────────────
 // Previously: on every pm2 restart, this fired all 3 syncs against Zoho
@@ -1251,6 +1251,8 @@ const APP_VERSION = (() => {
   return 't' + Date.now().toString(36);
 })();
 console.log('[boot] APP_VERSION =', APP_VERSION);
+const PROVENANCE = require('./services/runtimeProvenance').load(__dirname, { build: APP_VERSION }); // F-ARCH-03 — computed once at boot
+console.log('[boot] provenance:', require('./services/runtimeProvenance').line(PROVENANCE));
 
 // Inject ?v=<APP_VERSION> into every local <script src> and <link href> that
 // doesn't already carry a query string. Absolute URLs (CDN), data: URIs,
