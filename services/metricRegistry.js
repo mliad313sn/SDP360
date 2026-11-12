@@ -266,8 +266,8 @@ async function assetLabelsFor(d, site) {
 // ONLY where the reader already returns the very denominator of the formula. A metric absent from this map, or
 // whose record lacks the field, has base = null ("base not measured") — a denominator is never invented.
 // F-DATA-07 (N7) — resolution / first-reply SLA: the base is read from `sla_res_den` / `sla_reply_den` WHEN the
-// reader returns them. reports-db.getCalendarMonthlyHelpdesk counts both (closed with an SLA rule, cancelled
-// excluded; responded tickets) but does not return them yet → base stays null ("base not measured") until it does.
+// reader returns them. reports-db.getCalendarMonthlyHelpdesk returns both (closed with an SLA rule, cancelled
+// excluded; responded tickets) since G4-CI; null there (no base) → base null ("base not measured").
 const BASES = {
   'helpdesk.resolution_sla_pct': { field: 'sla_res_den', label: 'closed tickets with an SLA rule (cancelled excluded)' },
   'helpdesk.first_reply_sla_pct': { field: 'sla_reply_den', label: 'responded tickets' },

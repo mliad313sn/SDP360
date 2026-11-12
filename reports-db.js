@@ -2902,6 +2902,7 @@ async function _getMonthlyDataPg(site_id, year, month) {
  * AP formula: Inbound = COUNT(*), Closed = countif(pending_status=0),
  *             Res SLA OK = countif(overdue_status=0),
  *             1st Reply OK = countif(first_response_overdue='false')
+ * Also returns sla_res_den / sla_reply_den — the two SLA denominators (F-DATA-07); null when unknown, never 0.
  * Returns null when request_records is empty for this site (data not yet synced).
  */
 function getCalendarMonthlyHelpdesk(site_id, year, month) {
@@ -2942,7 +2943,8 @@ async function _getCalendarMonthlyHelpdeskPg(site_id, year, month) {
   const DR = `tech_group IN (${inClause}) AND ${CD}>=?::date AND ${CD}<=?::date`;
   const total = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR}`).get(...gft)).n;
   // UAT ITSM-03: no ticket → no closure rate (null), never a red 0 %.
-  if (!total) return { inbound:0, closed:0, close_pct:null, sla_res_pct:null, sla_reply_pct:null, source:'calendar' };
+  // F-DATA-07: no ticket → no SLA base either (null = not measured, never a 0 denominator).
+  if (!total) return { inbound:0, closed:0, close_pct:null, sla_res_pct:null, sla_reply_pct:null, sla_res_den:null, sla_reply_den:null, source:'calendar' };
   const closed         = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND pending_status=0`).get(...gft)).n;
   // UAT ITSM-05 (same rule as the Helpdesk page, dashboard-shared.isResOverdue): a cancelled ticket and a
   // ticket with no SLA rule (overdue_status NULL) are neither met nor missed — out of the SLA denominator.
@@ -2961,6 +2963,11 @@ async function _getCalendarMonthlyHelpdeskPg(site_id, year, month) {
     close_pct: Math.round(closed / total * 100),
     sla_res_pct:   slaClosed > 0 ? Math.round(slaResOkClosed / slaClosed * 100) : null,
     sla_reply_pct: rplyTotal > 0 ? Math.round(rplyOk / rplyTotal * 100) : null,
+    // F-DATA-07 (ITSM denominator doctrine) — the bases of the two SLA percentages, exactly the denominators above:
+    // closed tickets with an SLA rule (cancelled excluded) and responded tickets. null when there is no base
+    // (the percentage is then null too) — never a 0 denominator.
+    sla_res_den:   slaClosed > 0 ? slaClosed : null,
+    sla_reply_den: rplyTotal > 0 ? rplyTotal : null,
     avg_tta_h:         avgTtaRow.v  != null ? Math.round(avgTtaRow.v)  : null,
     avg_first_reply_h: avgFrRow.v   != null ? Math.round(avgFrRow.v)   : null,
     avg_resolution_d:  avgRtRow.v   != null ? Math.round(avgRtRow.v)   : null,

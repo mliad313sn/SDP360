@@ -44,6 +44,34 @@ test('ITSM-03/04/05: closure null without tickets; cancelled and no-SLA tickets 
   assert.equal(m.sla_reply_pct, 75, '3 of 4 replies not flagged late');
 });
 
+test('F-DATA-07: the calendar reader returns the SLA denominators (closed with an SLA rule, responded) — null without a base, never 0', async () => {
+  const site = await siteWithGroup('G4 SLA Base Site', 'G4 SLA Desk');
+  const empty = await rdb.getCalendarMonthlyHelpdesk(site, 2026, 6);
+  assert.strictEqual(empty.sla_res_den, null, 'no ticket: base not measured');
+  assert.strictEqual(empty.sla_reply_den, null);
+  const g = 'G4 SLA Desk'; const c = '2026-05-05T08:00:00Z';
+  await addReq({ group: g, created: c, pending: 0, overdue: 0, flag: 'false' });                 // in both bases
+  await addReq({ group: g, created: c, pending: 0, overdue: 1, flag: 'true' });                  // in both bases
+  await addReq({ group: g, created: c, pending: 0, overdue: 0, status: 'Cancelled', flag: '' }); // reply base only
+  await addReq({ group: g, created: c, pending: 0, overdue: null, flag: null });                 // reply base only
+  await addReq({ group: g, created: c, pending: 1, overdue: 0, responded: null });               // open, unanswered: neither
+  const m = await rdb.getCalendarMonthlyHelpdesk(site, 2026, 5);
+  assert.strictEqual(m.sla_res_den, 2, 'closed, SLA-bearing, not cancelled');
+  assert.strictEqual(m.sla_reply_den, 4, 'responded tickets');
+  assert.strictEqual(m.sla_res_pct, 50); assert.strictEqual(m.sla_reply_pct, 75);
+  // only open, unanswered tickets → both bases null (the percentages are null too)
+  await addReq({ group: g, created: '2026-04-05T08:00:00Z', pending: 1, overdue: 0, responded: null });
+  const open = await rdb.getCalendarMonthlyHelpdesk(site, 2026, 4);
+  assert.strictEqual(open.sla_res_den, null); assert.strictEqual(open.sla_res_pct, null);
+  assert.strictEqual(open.sla_reply_den, null); assert.strictEqual(open.sla_reply_pct, null);
+  // end to end through the registry: the tile now carries its base instead of "base not measured"
+  const reg = MR.createRegistry();
+  const r = await reg.resolve('helpdesk.resolution_sla_pct', { site, window: '2026-05', deps: { rdb }, now: new Date('2026-07-01T00:00:00Z') });
+  assert.deepStrictEqual(r.base, { n: 2, label: 'closed tickets with an SLA rule (cancelled excluded)' });
+  const r2 = await reg.resolve('helpdesk.first_reply_sla_pct', { site, window: '2026-05', deps: { rdb }, now: new Date('2026-07-01T00:00:00Z') });
+  assert.deepStrictEqual(r2.base, { n: 4, label: 'responded tickets' });
+});
+
 test('ITSM-02: the window reader feeds overdue and average resolution time; a site without a group is not measured', async () => {
   const site = await siteWithGroup('UAT ITSM Window', 'UAT Window Desk');
   await addReq({ group: 'UAT Window Desk', pending: 0, overdue: 1, created: '2026-09-07T08:00:00Z', resolved: '2026-09-07T12:00:00Z' });
