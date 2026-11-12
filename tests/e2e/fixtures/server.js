@@ -24,12 +24,19 @@ async function bootApp() {
   process.env.DASHBOARD_API_KEY = rnd(16);
   process.env.SDP_TEST_NO_RATE_LIMIT = '1';
   process.env.TZ = process.env.TZ || 'UTC';
-  for (const k of ['ZOHO_CLIENT_ID', 'ZOHO_CLIENT_SECRET', 'ZOHO_REFRESH_TOKEN']) process.env[k] = process.env[k] || 'unused-in-e2e';
+  // UAT-OI-07 — the server makes NO external call during a journey. (1) No Zoho credentials at all (empty, so a
+  // developer .env cannot fill them either: dotenv never overrides a set variable): the token refresh stops at
+  // "credentials missing" instead of calling accounts.zoho.com (it used to get invalid_client with a dummy pair).
+  // Meraki / OpManager / SDP API / SMTP / webhooks are unconfigured on a fresh database. (2) The outbound guard
+  // refuses and records any connection to a non-loopback host; the harness fails the journey if one is recorded.
+  for (const k of ['ZOHO_CLIENT_ID', 'ZOHO_CLIENT_SECRET', 'ZOHO_REFRESH_TOKEN']) process.env[k] = '';
+  const outbound = require('./outboundGuard').install();
 
   const ctx = await provisionTestDb();
   if (!ctx) throw new Error('[e2e] PostgreSQL is required (set PG_ADMIN_URL or PG_URL)');
   process.env.PG_URL = ctx.url;
   process.env.DATABASE_URL = ctx.url;
+  require('./outboundGuard').install({ allowHosts: require('./outboundGuard').dbHosts(ctx.url) });
   for (const m of MODULES) process.env[m + '_BACKEND'] = 'postgres';
 
   const quiet = console.log; console.log = () => {};
@@ -51,8 +58,9 @@ async function bootApp() {
 
   const server = await new Promise((r) => { const s = http.createServer(app).listen(0, '127.0.0.1', () => r(s)); });
   const base = 'http://127.0.0.1:' + server.address().port;
+  outbound.reset();   // provisioning talks to the database host only; count from the moment the app serves
   return {
-    base, rdb, ctx,
+    base, rdb, ctx, outbound,
     async close() {
       await new Promise((r) => server.close(() => r()));
       try { await dropTestDb(ctx); } catch (_) { /* best effort */ }

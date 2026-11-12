@@ -169,3 +169,46 @@ test('skip: fetch returning { skipped: true } → status skipped, apply not call
   assert.equal(store.runs[1].rows, null);
   assert.equal(store.locks.size, 0);
 });
+
+// G1-SYNC — memory store has the same lease contract as the pg store (tests/sync-write-fence.test.js).
+test('memory store lease: token on acquire, release / check / renew only with the holder token', async () => {
+  const s = memoryStore();
+  const a = await s.acquireLock('j', 0, 1000);
+  assert.ok(a);
+  assert.equal(await s.acquireLock('j', 500, 1000), false);
+  const b = await s.acquireLock('j', 5000, 1000);
+  assert.ok(b && b !== a);
+  assert.equal(await s.checkFence('j', a), false);
+  assert.equal(await s.releaseLock('j', a), false, 'the old holder cannot release the new lease');
+  assert.equal(await s.renewLock('j', a, 6000), false);
+  assert.equal(await s.checkFence('j', b), true);
+  await assert.rejects(s.fencedTransaction('j', a, async () => {}), (e) => e.code === 'LEASE_LOST');
+  assert.equal(await s.releaseLock('j', b), true);
+  assert.equal(s.locks.size, 0);
+});
+
+test('runner.start: started → done resolves; held lease → started:false with the overlap summary', async () => {
+  const store = memoryStore();
+  const r = createSyncRunner({ store, log: quiet });
+  let release; const gate = new Promise((res) => { release = res; });
+  const h = await r.start({ name: 'm', fetch: async () => { await gate; return { rows: [] }; } });
+  assert.equal(h.started, true);
+  const h2 = await r.start({ name: 'm', fetch: async () => ({ rows: [] }) });
+  assert.deepEqual(h2, { started: false, result: { status: 'skipped', reason: 'overlap', job: 'm' } });
+  release();
+  assert.equal((await h.done).status, 'ok');
+});
+
+test('a lost lease is never retried and records no watermark (memory store)', async () => {
+  const store = memoryStore();
+  let fetches = 0;
+  const r = createSyncRunner({ store, log: quiet, sleep: async () => {} });
+  const out = await r.run({ name: 'w', opts: { maxAttempts: 4 },
+    fetch: async () => { fetches++; store.locks.set('w', { at: Date.now(), token: 'someone-else' }); return { rows: [{ id: 1 }], nextWatermark: 'x' }; },
+    key: 'id', apply: async () => ({ upserted: 1 }) });
+  assert.equal(out.status, 'error');
+  assert.equal(out.reason, 'lease_lost');
+  assert.equal(fetches, 1);
+  assert.equal(store.watermarks.has('w'), false);
+  assert.equal(store.locks.get('w').token, 'someone-else', 'the new holder keeps its lease');
+});

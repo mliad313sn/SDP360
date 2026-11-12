@@ -90,6 +90,7 @@ function journey(name) {
     rec.status = status;
     rec.external.unexpected_count = rec.external.unexpected.length;
     rec.external.allowlisted_count = rec.external.allowlisted.length;
+    rec.external.server_unexpected_count = Array.isArray(rec.external.server_unexpected) ? rec.external.server_unexpected.length : null;
     const f = path.join(artifactDir(), name.replace(/[^a-z0-9-]+/gi, '_') + '.json');
     fs.writeFileSync(f, JSON.stringify(rec, null, 1) + '\n');
     return rec;
