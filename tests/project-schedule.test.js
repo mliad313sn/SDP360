@@ -14,15 +14,19 @@ test('dependencies: self, unknown, duplicate and cycles are refused; a valid cha
   assert.strictEqual(S.dependencyProblem(items, null, [1]), null, 'a new item cannot close a cycle');
 });
 
+// W1-ENGINE: durations are WORKING days (default Mon–Fri). Task 1 runs Fri 01-01 → Tue 01-05 = 3 working days
+// (it was 5 calendar days: the calendar-day count was defect R4 / B8 of the W0 matrix), so the chain is 3+10+2 = 15.
+// The 24/7 (elapsed) calendar gives back the calendar-day figure 17.
 test('critical path: longest finish-to-start chain, slack of the parallel task', () => {
   const t = [
-    { id: 1, start_date: '2027-01-01', end_date: '2027-01-05' },          // 5 d
+    { id: 1, start_date: '2027-01-01', end_date: '2027-01-05' },          // Fri → Tue = 3 working days
     { id: 2, depends_on: [1], duration_days: 10 },                        // 10 d
     { id: 3, depends_on: [1], duration_days: 3 },                         // 3 d, slack 7
     { id: 4, depends_on: [2, 3], duration_days: 2 },
   ];
   const cp = S.criticalPath(t);
-  assert.strictEqual(cp.length_days, 17);
+  assert.strictEqual(cp.length_days, 15);
+  assert.strictEqual(S.criticalPath(t, { calendar: { elapsed: true } }).length_days, 17, '24/7 calendar = calendar days');
   assert.deepStrictEqual(cp.path, [1, 2, 4]);
   assert.strictEqual(cp.slack[3], 7);
   assert.strictEqual(S.criticalPath([{ id: 1, depends_on: [2] }, { id: 2, depends_on: [1] }]), null, 'a cycle cannot be scheduled');
@@ -95,17 +99,19 @@ test('scheduleView: anchors es/ef to the project start; critical flags equal the
     { id: 3, depends_on: [1], duration_days: 3 },
     { id: 4, depends_on: [2, 3], duration_days: 2 },
   ];
+  // W1-ENGINE: working days; task 1's entered start (Fri 01-01) is a start-no-earlier-than, the project start (Mon 01-04)
+  // is later so it wins; 3 working days → 01-04..01-06 (old expectations counted calendar days from day 0 — defect R1/R4).
   const v = S.scheduleView(t, { anchor: '2027-01-04' });
-  const cp = S.criticalPath(t);
+  const cp = S.criticalPath(t, { anchor: '2027-01-04' });
   assert.strictEqual(v.anchor, '2027-01-04');
-  assert.strictEqual(v.length_days, 17);
+  assert.strictEqual(v.length_days, 15);
   assert.deepStrictEqual(v.tasks.filter((x) => x.critical).map((x) => x.id), cp.path);
   const by = Object.fromEntries(v.tasks.map((x) => [x.id, x]));
-  assert.deepStrictEqual([by[1].es, by[1].ef, by[1].es_date, by[1].ef_date], [0, 5, '2027-01-04', '2027-01-08']);
-  assert.deepStrictEqual([by[2].es, by[2].es_date, by[2].ef_date], [5, '2027-01-09', '2027-01-18'], 'ef_date is the last working day of the task');
+  assert.deepStrictEqual([by[1].es, by[1].ef, by[1].es_date, by[1].ef_date], [0, 3, '2027-01-04', '2027-01-06']);
+  assert.deepStrictEqual([by[2].es, by[2].es_date, by[2].ef_date], [3, '2027-01-07', '2027-01-20'], 'ef_date is the last working day of the task');
   assert.strictEqual(by[3].slack, 7);
   assert.strictEqual(by[3].critical, false);
-  assert.strictEqual(by[1].duration_days, 5);
+  assert.strictEqual(by[1].duration_days, 3);
   assert.ok('finish_variance_days' in by[1].variance);
 });
 

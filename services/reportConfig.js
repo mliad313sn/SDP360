@@ -350,6 +350,11 @@ DEFAULTS.ppm_time_entries_enabled = '0';
 //    ppm_change_requests_enabled '1' → native change requests on the project page (Changes tab): proposed → assessed
 //    → approved | rejected → applied; the author never decides; applying a dates impact uses the committee re-baseline.
 DEFAULTS.ppm_change_requests_enabled = '0';
+//    ppm_schedule_engine_v2_ui '1' (W1-ENGINE, migration 091) → the task editor offers the scheduling fields: manual / auto
+//    mode, constraint (ASAP…MFO) + date, deadline, task type (fixed units / duration / work) + effort-driven, and link
+//    types FS/SS/FF/SF with lag. '0' = today's editor. The engine itself (working days, entered start = SNET, summary
+//    rollup, 0-day milestones, date-based critical path) is a defect fix and is ON regardless of this switch.
+DEFAULTS.ppm_schedule_engine_v2_ui = '0';
 //    portfolio_views_enabled '1' → the portfolio page offers Timeline · List · Board (?view= in the URL); the board is
 //    read-only columns by stage (a stage moves only through the gated project page). '0' = today's single timeline.
 DEFAULTS.portfolio_views_enabled = '0';

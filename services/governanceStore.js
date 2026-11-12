@@ -22,6 +22,24 @@ const P_ = (s, d) => { if (s == null) return d; if (typeof s !== 'string') retur
 const num = (v) => (v == null || v === '' ? null : Number(v));
 const str = (v, max = 4000) => (v == null ? null : String(v).slice(0, max));
 // G-21 — effective dates: YYYY-MM-DD or null; anything else is refused rather than stored.
+// W1-ENGINE — the scheduling fields (migration 091): light shape checks only; the engine reads unknown values as defaults.
+const _SCHED_ENUMS = { schedule_mode: ['auto', 'manual'], task_type: ['fixed_units', 'fixed_duration', 'fixed_work'], constraint_type: ['ASAP', 'ALAP', 'SNET', 'SNLT', 'FNET', 'FNLT', 'MSO', 'MFO'] };
+function _schedEnum(c, v) {
+  if (v == null || v === '') return null;
+  const x = c === 'constraint_type' ? String(v).trim().toUpperCase() : String(v).trim();
+  if (!_SCHED_ENUMS[c].includes(x)) throw Object.assign(new Error(`${c} must be ${_SCHED_ENUMS[c].join(' | ')}`), { code: 'INVALID' });
+  return x;
+}
+function _schedLinks(v) {
+  if (v == null || v === '') return null;
+  let a = v; if (typeof a === 'string') { try { a = JSON.parse(a); } catch (_) { a = null; } }
+  if (!Array.isArray(a)) throw Object.assign(new Error('dependency_links must be a list of {id, type, lag}'), { code: 'INVALID' });
+  return JSON.stringify(a.filter((l) => l && Number.isFinite(Number(l.id))).map((l) => {
+    const type = String(l.type || 'FS').toUpperCase(); const lag = l.lag == null || l.lag === '' ? 0 : Number(l.lag);
+    if (!['FS', 'SS', 'FF', 'SF'].includes(type) || !Number.isFinite(lag)) throw Object.assign(new Error('a link type is FS | SS | FF | SF with a numeric lag'), { code: 'INVALID' });
+    return { id: Number(l.id), type, lag: Math.round(lag) };
+  }));
+}
 const _day = (v) => { if (v == null || v === '') return null; const d = String(v).slice(0, 10); if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) throw Object.assign(new Error('effective dates must be YYYY-MM-DD'), { code: 'INVALID' }); return d; };
 
 function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOString() } = {}) {
@@ -301,7 +319,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
 
   // ── portfolio ─────────────────────────────────────────────────────────────────────
   const idRow = (r) => r && ({ ...r, id: Number(r.id) });
-  const taskRow = (r) => r && ({ ...idRow(r), project_id: Number(r.project_id), parent_id: r.parent_id == null ? null : Number(r.parent_id), duration_days: num(r.duration_days), allocation_pct: num(r.allocation_pct), progress_pct: num(r.progress_pct), effort_hours: num(r.effort_hours), depends_on: P_(r.depends_on, []) });
+  const taskRow = (r) => r && ({ ...idRow(r), dependency_links: P_(r.dependency_links, null), effort_driven: r.effort_driven == null ? null : Number(r.effort_driven), project_id: Number(r.project_id), parent_id: r.parent_id == null ? null : Number(r.parent_id), duration_days: num(r.duration_days), allocation_pct: num(r.allocation_pct), progress_pct: num(r.progress_pct), effort_hours: num(r.effort_hours), depends_on: P_(r.depends_on, []) });
   const RISK_KINDS = ['risk', 'issue', 'assumption'];   // A-14 RAID (dependencies live in depends_on, decisions in DEC-…)
   const riskRow = (r) => ({ ...idRow(r), project_id: Number(r.project_id), probability: Number(r.probability), impact: Number(r.impact), kind: r.kind || 'risk' });
   const projectRow = (r) => ({ ...idRow(r), currency_defaulted: r.currency_defaulted == null ? null : Number(r.currency_defaulted), objective_id: Number(r.objective_id), site_id: r.site_id == null ? null : Number(r.site_id), progress_pct: num(r.progress_pct), budget: num(r.budget), spent: num(r.spent), depends_on: P_(r.depends_on, []), rfi_id: r.rfi_id == null ? null : Number(r.rfi_id) });
@@ -409,8 +427,9 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   const TABLES = {
     programme: { table: 'portfolio_programmes', cols: ['key', 'name', 'sponsor', 'description', 'status'], req: ['key', 'name'] },
     objective: { table: 'portfolio_objectives', cols: ['programme_id', 'key', 'name', 'weight', 'owner', 'target_date', 'status', 'confidence', 'progress_pct', 'evidence_metric', 'evidence_target', 'evidence_hib', 'manual_evidence', 'sort_order'], req: ['programme_id', 'key', 'name'] },
-    project: { table: 'portfolio_projects', cols: ['objective_id', 'key', 'name', 'owner', 'site_id', 'start_date', 'end_date', 'baseline_end', 'status', 'confidence', 'progress_pct', 'budget', 'spent', 'currency', 'depends_on', 'charter', 'sponsor', 'baseline_start', 'forecast_end', 'actual_start', 'actual_end', 'spend_type'], req: ['objective_id', 'key', 'name'] },
-    task: { table: 'portfolio_tasks', cols: ['project_id', 'parent_id', 'wbs_code', 'name', 'owner', 'start_date', 'end_date', 'baseline_start', 'baseline_end', 'forecast_end', 'actual_start', 'actual_end', 'duration_days', 'allocation_pct', 'status', 'depends_on', 'sort_order', 'progress_pct', 'effort_hours'], req: ['project_id', 'name'] },
+    project: { table: 'portfolio_projects', cols: ['objective_id', 'key', 'name', 'owner', 'site_id', 'start_date', 'end_date', 'baseline_end', 'status', 'confidence', 'progress_pct', 'budget', 'spent', 'currency', 'depends_on', 'charter', 'sponsor', 'baseline_start', 'forecast_end', 'actual_start', 'actual_end', 'spend_type', 'finish_deadline'], req: ['objective_id', 'key', 'name'] },
+    task: { table: 'portfolio_tasks', cols: ['project_id', 'parent_id', 'wbs_code', 'name', 'owner', 'start_date', 'end_date', 'baseline_start', 'baseline_end', 'forecast_end', 'actual_start', 'actual_end', 'duration_days', 'allocation_pct', 'status', 'depends_on', 'sort_order', 'progress_pct', 'effort_hours',
+      'schedule_mode', 'task_type', 'effort_driven', 'deadline', 'constraint_type', 'constraint_date', 'dependency_links'], req: ['project_id', 'name'] },   // W1-ENGINE (091)
     milestone: { table: 'portfolio_milestones', cols: ['project_id', 'name', 'due_date', 'baseline_date', 'done_at', 'status', 'sort_order', 'owner'], req: ['project_id', 'name'] },
     deliverable: { table: 'portfolio_deliverables', cols: ['project_id', 'milestone_id', 'name', 'owner', 'due_date', 'status', 'action_kind', 'action_ref', 'sort_order', 'closed_at'], req: ['project_id', 'name'] },
     benefit: { table: 'portfolio_benefits', cols: ['project_id', 'description', 'measure', 'unit', 'value_kind', 'currency', 'baseline_value', 'target_value', 'owner', 'review_date', 'sort_order', 'owner_user_id',
@@ -422,6 +441,10 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     for (const c of TABLES[kind].cols) if (body[c] !== undefined) {
       let v = body[c];
       if (c === 'depends_on') v = J(Array.isArray(v) ? v.map(Number) : []);
+      else if (c === 'dependency_links') v = _schedLinks(v);   // W1-ENGINE
+      else if (c === 'effort_driven') v = v == null || v === '' ? null : (v === true || Number(v) === 1 ? 1 : 0);
+      else if (c === 'deadline' || c === 'constraint_date' || c === 'finish_deadline') v = _day(v);
+      else if (c === 'schedule_mode' || c === 'task_type' || c === 'constraint_type') v = _schedEnum(c, v);
       else if (c === 'evidence_hib') v = v === false || v === 0 ? 0 : 1;
       else if (/_id$|^sort_order$|^probability$|^impact$|^duration_days$|^allocation_pct$|^effort_hours$/.test(c)) v = num(v);
       else if (/pct$|^weight$|^budget$|^spent$|evidence_target|_value$/.test(c)) v = num(v);

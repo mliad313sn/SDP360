@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (233) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (234) — services/reportConfig.js DEFAULTS
 
 Prerequisites (E-A07, services/switchPrereqs.js) are WARNINGS in plain words, never approvals: the config PUT
 answer and the `set-ui-policy.js` dry run repeat them when the switch is moved to its switched-on value.
@@ -152,6 +152,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `ppm_project_team_enabled` | `0` | arm switch | PMO | `1` once the PMO wants a named team per project (Team panel on the project Overview: member name, role, optional link to a user account, allocation to the project, optional window; the task owner field then offers the members — free text still accepted, no existing owner is migrated). A task whose allocation is UNKNOWN then reads its owner's member allocation in the conflicts and the capacity view; a known allocation is never overridden. Every change is a `ppm_events` row | R2-WB-04 | — |
 | `ppm_raci_enabled` | `0` | arm switch | PMO | `1` when the PMO wants responsibilities per task on the project page (R / A / C / I per person, exactly one A per task — a matrix without it is refused; CSV export; every change is a `ppm_events` row) | E-P06 | — |
 | `ppm_rebaseline_enabled` | `0` | arm switch | Committee | `1` | A-27 | — |
+| `ppm_schedule_engine_v2_ui` | `0` | setting | PMO | `1` once the PMO wants to enter scheduling data on tasks (task editor: manual / auto mode, constraint ASAP…MFO + date, deadline, task type fixed units / duration / work + effort-driven, link types FS/SS/FF/SF with lag). `0` = today's editor; the date-based engine itself (working days, entered start = start-no-earlier-than, summary rollup, 0-day milestones, critical path from the same dates as the Gantt) is a defect fix and runs regardless. Rollback: `0` (stored fields stay and are still scheduled) | W1-ENGINE | — |
 | `ppm_templates_enabled` | `0` | arm switch | PMO (template validation is a human act) | `1` once the PMO names who validates templates (a template is the STRUCTURE only — task names, WBS, durations, milestone names; no people, dates or money; `draft` until another committee member approves it; only an approved template creates a project) | E-P06 | — |
 | `ppm_time_entries_enabled` | `0` | arm switch | PMO + PO | `1` once the PMO wants actual hours per task (Plan tab: time entries — person, day, hours 0..24, note — and planned effort vs actual hours vs variance; a task without any entry reads "—" (unknown), never 0; the workbook Tasks sheet gains `actual_hours`). Recording is the plan-write rule; whether a person may record their OWN time on a project they only read is a PO decision (not built). Every entry is a `ppm_events` row | R2-WB-02 | — |
 | `problem_candidate_min` | `` | setting | Problem owner + KPI committee | PROPOSITION: none — the recurrence threshold (incidents of one category × sub-category on a site in the window) is a human decision; empty = no candidate is computed | E-I02 | — |
