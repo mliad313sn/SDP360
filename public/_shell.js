@@ -98,6 +98,32 @@
   function navFromUrl() {
     try { const p = window.__uiPolicy; return !!(p && p.nav_active_from_url === '1'); } catch (_) { return false; }
   }
+  // R2-QUEUE (R4) — report_config ui_nav_carry_site: '0' (today) · '1' = when the address carries ?site=CODE, the menu,
+  // the finder and the workspace links to a site-aware page carry the same site (the page still checks the right).
+  function navCarrySite() {
+    try { const p = window.__uiPolicy; return !!(p && p.nav_carry_site === '1'); } catch (_) { return false; }
+  }
+  // R2-QUEUE — the "My workspace" link exists only while workspace_profiles_enabled = '1' (the page answers 404 otherwise)
+  function workspaceLinkOn() {
+    try { const p = window.__uiPolicy; return !!(p && p.workspace_profiles === '1'); } catch (_) { return false; }
+  }
+  // pages that read ?site=<meetings code> and scope themselves with it (every other link is left untouched)
+  const SITE_PAGES = ['site-actions.html', 'obligations.html', 'meetings-actions.html', 'inspection-actions.html'];
+  function currentSite(loc) {
+    try {
+      const m = /[?&]site=([^&#]*)/.exec(String((loc && loc.search) || ''));
+      const v = m ? decodeURIComponent(m[1]) : '';
+      return /^[A-Za-z0-9_-]{1,16}$/.test(v) ? v : '';
+    } catch (_) { return ''; }
+  }
+  function withSite(href, loc) {
+    if (!href || !navCarrySite()) return href;
+    const code = currentSite(loc === undefined ? (typeof location !== 'undefined' ? location : null) : loc);
+    if (!code) return href;
+    const m = /^([^?#]*)(\?[^#]*)?(#.*)?$/.exec(String(href));
+    if (!m || !SITE_PAGES.includes(m[1].toLowerCase()) || /[?&]site=/.test(m[2] || '')) return href;
+    return m[1] + (m[2] ? m[2] + '&' : '?') + 'site=' + encodeURIComponent(code) + (m[3] || '');
+  }
   function deckBuilderRoles() {
     try { const r = window.__uiPolicy && window.__uiPolicy.deck_builder_roles; if (Array.isArray(r) && r.length) return r; } catch (_) { /* no policy */ }
     return ['super_admin'];
@@ -384,6 +410,7 @@
     'Breadcrumb': "Fil d'Ariane", 'Click to log out': 'Cliquer pour se déconnecter', 'Primary': 'Navigation principale',
     'No page found': 'Aucune page trouvée', 'Language': 'Langue', 'Skip to content': 'Aller au contenu',
     'Data quality': 'Qualité des données', 'Feedback': 'Retour', 'Send feedback on this page': 'Envoyer un retour sur cette page',
+    'My workspace': 'Mon espace', 'My workspace — profile, order of my pages, density, default site': 'Mon espace — profil, ordre de mes pages, densité, site par défaut',
   };
   function shellLang() {
     try { const s = localStorage.getItem('sdp_lang'); if (s === 'fr' || s === 'en') return s; } catch (_) { /* storage blocked */ }
@@ -417,8 +444,8 @@
     const out = [];
     for (const sec of NAV) {
       // the finder lists every page the user may open, including entries the lean menu leaves out (A-21)
-      if (sec.href && !sec.children && mayOpen(sec)) out.push({ id: sec.id, label: sec.label, en: sec.label_en || '', href: sec.href, section: sec.label, group: '', target: sec.target });
-      for (const c of (sec.children || []).filter(mayOpen)) out.push({ id: c.id, label: c.label, en: c.label_en || '', href: c.href, section: sec.label, group: groupOf(c), target: c.target });
+      if (sec.href && !sec.children && mayOpen(sec)) out.push({ id: sec.id, label: sec.label, en: sec.label_en || '', href: withSite(sec.href), section: sec.label, group: '', target: sec.target });
+      for (const c of (sec.children || []).filter(mayOpen)) out.push({ id: c.id, label: c.label, en: c.label_en || '', href: withSite(c.href), section: sec.label, group: groupOf(c), target: c.target });
     }
     return out;
   }
@@ -462,6 +489,10 @@
   // Which menu entry does this address open? Path must match; a link that also names ?key= or a #fragment
   // only matches when the address carries the same one; the most specific match wins. null = none.
   function entryFromUrl(loc) {
+    const hit = urlHit(loc);
+    return hit ? { section: hit.section, current: hit.current } : null;
+  }
+  function urlHit(loc) {
     const file = (String((loc && loc.pathname) || '').split('/').pop() || 'index.html').toLowerCase();
     const key = (/[?&]key=([^&#]*)/.exec(String((loc && loc.search) || '')) || [])[1] || '';
     const hash = String((loc && loc.hash) || '').replace(/^#/, '');
@@ -482,14 +513,24 @@
       if (!sectionVisible(sec)) continue;
       if (sec.children) sec.children.forEach(c => consider(sec, c)); else consider(sec, null);
     }
-    return best ? { section: best.section, current: best.current } : null;
+    return best;
+  }
+  // R4 — the ONE active destination. Today (switch off): data-section / data-current. Switch on (F-UX-02, extended by
+  // R2-QUEUE): the address decides when data-current names no menu entry, OR when the address names an entry by its
+  // ?key= or #fragment (more specific than the page's static attribute: reports.html#admin, dashboards.html?key=…).
+  function activeFor(ctx, loc) {
+    if (!navFromUrl() || !loc) return ctx;
+    const hit = urlHit(loc);
+    if (!hit) return ctx;
+    if (!isMenuId(ctx.current) || (hit.score > 1 && hit.current !== ctx.current)) return { section: hit.section, current: hit.current };
+    return ctx;
   }
 
   function renderNavItem(item, ctx) {
     const isActive = ctx.section === item.id;
     const visKids  = item.children ? visibleItems(item.children) : [];
     const hasKids  = visKids.length > 0;
-    const href     = item.href || (hasKids ? landingFor(item.id) : '#');
+    const href     = withSite(item.href || (hasKids ? landingFor(item.id) : '#'));
     const target   = item.target ? ` target="${item.target}"` : '';
     // the label doubles as tooltip / accessible name: on narrow screens only the icon is shown
     const titleA   = ` title="${escapeHtml(item.title || item.label)}" aria-label="${escapeHtml(item.label)}"`;
@@ -504,7 +545,7 @@
       const onlyChild = visKids[0];
       const childT    = onlyChild.target ? ` target="${onlyChild.target}"` : '';
       const curA      = ctx.current === onlyChild.id ? markCurrent(ctx) : '';
-      return `<a href="${escapeHtml(onlyChild.href)}"${childT}${curA} class="shell-nav-item-link${activeC}"${titleA}>
+      return `<a href="${escapeHtml(withSite(onlyChild.href))}"${childT}${curA} class="shell-nav-item-link${activeC}"${titleA}>
         <span class="shell-nav-icon">${item.icon || ''}</span>
         <span class="shell-nav-label">${escapeHtml(item.label)}</span>
       </a>`;
@@ -517,7 +558,7 @@
         const ca = ctx.current === c.id ? ' is-active' : '';
         const ct = c.target ? ` target="${c.target}"` : '';
         const cur = ctx.current === c.id ? markCurrent(ctx) : '';
-        return `<a href="${escapeHtml(c.href)}"${ct}${cur} class="${ca.trim()}" title="${escapeHtml(c.label)}">
+        return `<a href="${escapeHtml(withSite(c.href))}"${ct}${cur} class="${ca.trim()}" title="${escapeHtml(c.label)}">
           <span class="shell-nav-icon">${c.icon || ''}</span>
           <span>${escapeHtml(c.label)}</span>
         </a>`;
@@ -577,9 +618,8 @@
       section: mount.dataset.section || '',
       current: mount.dataset.current || ''
     };
-    if (navFromUrl() && !isMenuId(ctx.current)) {
-      try { const hit = typeof location !== 'undefined' ? entryFromUrl(location) : null; if (hit) { ctx.section = hit.section; ctx.current = hit.current; } } catch (_) { /* no location */ }
-    }
+    try { const a = activeFor(ctx, typeof location !== 'undefined' ? location : null); ctx.section = a.section; ctx.current = a.current; } catch (_) { /* no location */ }
+    wireHashChange();
     const version = mount.dataset.version || '';
     const user    = window.__authUser || null;
     translateNav(NAV); translateNav(WORKSPACES);
@@ -604,6 +644,7 @@
         <div class="shell-actions">
           <button type="button" class="shell-search-btn" aria-haspopup="dialog" aria-expanded="false" aria-controls="shell-search" title="${T('Find a page (Ctrl+K)')}">${ICON_LIB.search || ''}<span class="shell-search-label">${T('Find')}</span><kbd>Ctrl K</kbd></button>
           <button type="button" class="shell-lang-btn" title="${T('Language')}" aria-label="${lang === 'fr' ? 'Switch to English' : 'Passer en français'}" lang="${lang === 'fr' ? 'en' : 'fr'}">${lang === 'fr' ? 'EN' : 'FR'}</button>
+          ${workspaceLinkOn() && user ? `<a class="shell-ws-link" href="workspace-settings.html" title="${T('My workspace — profile, order of my pages, density, default site')}">${T('My workspace')}</a>` : ''}
           ${feedbackOn() && user ? `<button type="button" class="shell-feedback-btn" title="${T('Send feedback on this page')}">${T('Feedback')}</button>` : ''}
           ${renderUserPill(user)}
           ${version ? `<span class="shell-version">${escapeHtml(version)}</span>` : ''}
@@ -628,6 +669,18 @@
     ensureSkipLink(mount);
     sendPageView();
     wireUxEvents();
+  }
+
+  // R4 — an in-page tab change (#fragment) moves the active destination: re-render the header once per change
+  // (switch on only; one listener per document).
+  let hashWired = false;
+  function wireHashChange() {
+    if (hashWired || !navFromUrl()) return;
+    try {
+      if (typeof window === 'undefined' || !window.addEventListener) return;
+      hashWired = true;
+      window.addEventListener('hashchange', function () { try { window.__shell.render(); } catch (_) { /* never breaks a page */ } });
+    } catch (_) { /* no window */ }
   }
 
   // F-UX-05 — "first usable" mark: a page calls window.__markFirstUsable(label) once its primary table / figure
@@ -823,6 +876,7 @@
     WORKSPACES,
     shellLang,
     entryFromUrl,
+    activeFor, withSite, currentSite, SITE_PAGES,
     uxEvent, classifyClick, pageView: sendPageViewFor,
     workspaceFor,
     searchEntries,

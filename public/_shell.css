@@ -459,3 +459,6 @@ nav.shell-breadcrumb [aria-current="page"] { color: #3A4A60; font-weight: 600; }
    brand/components.css get no .edv-skip style, so the shell link carries its own. */
 .shell-skip { position: absolute; left: -9999px; top: 0; z-index: 1200; background: #fff; color: #1a2233; padding: 8px 12px; border: 2px solid var(--focus-ring, #145FAE); border-radius: 4px; font-weight: 600; text-decoration: none; }
 .shell-skip:focus { left: 8px; top: 8px; }
+/* R2-QUEUE — "My workspace" link (shown only while workspace_profiles_enabled = '1') */
+.shell-ws-link { color: var(--color-header-text, inherit); border: 1px solid rgba(255,255,255,.25); border-radius: 6px; font: 600 12px/1 inherit; padding: 7px 8px; text-decoration: none; min-height: 28px; display: inline-flex; align-items: center; }
+.shell-ws-link:hover { background: rgba(255,255,255,.18); }

@@ -77,7 +77,10 @@ test('"Awaiting me" switched off = unknown (not switched on); not measured = unk
   assert.equal(q1.state.awaiting.state, 'unknown'); assert.match(q1.state.awaiting.detail, /not switched on/);
   const q2 = HQ.createQueue({ sites: [], fetchJson: async () => ({ status: 200, json: {} }), awaiting: null });
   await q2.loadAll();
-  assert.equal(q2.state.awaiting.state, 'unknown'); assert.equal(q2.state.awaiting.detail, null);
+  assert.equal(q2.state.awaiting.state, 'unknown'); assert.equal(q2.state.awaiting.detail, 'could not be read');
+  const h1 = HQ.renderHtml(q1.view(), 'en');
+  assert.ok(!/hq-retry" data-source="awaiting"/.test(h1), 'a switched-off source offers no retry');
+  assert.match(HQ.renderHtml(q2.view(), 'en'), /hq-retry" data-source="awaiting"/);
   assert.equal(q2.state.meetings.state, 'unknown', 'no site → unknown, never an empty "available"'); assert.match(q2.state.meetings.detail, /no site code/);
 });
 

@@ -35,7 +35,7 @@
   var STATES = {
     loading:   { symbol: '…', en: 'Loading…', fr: 'Chargement…' },
     available: { symbol: '✓', en: 'Available', fr: 'Disponible' },
-    unknown:   { symbol: '?', en: 'Unknown — could not be read', fr: 'Inconnu — source illisible' },
+    unknown:   { symbol: '?', en: 'Unknown', fr: 'Inconnu' },
     stale:     { symbol: '–', en: 'Stale — last read kept', fr: 'Périmé — dernière lecture conservée' },
     partial:   { symbol: '◐', en: 'Partial — some parts missing, total unknown', fr: 'Partiel — des parties manquent, total inconnu' },
     denied:    { symbol: '⊘', en: 'Not allowed', fr: 'Accès refusé' },
@@ -47,14 +47,14 @@
       retry: 'Try again', late: 'late', due: 'due', owner: 'owner', noOwner: 'no owner', register: 'register', empty: 'Nothing open in the sources that answered.',
       limits: 'Limits: up to {s} sites and {n} items are shown. For the full list, open the {reg}.', regLink: 'Site Actions register',
       more: '{shown} of {total} items shown', sitesMore: '{n} more site(s) not read', noCode: 'no site code', off: 'not switched on',
-      sitesOk: '{ok} of {all} sites', asOf: 'kept from {t}', items: '{n} item(s)', announce: 'Queue: {n} item(s) loaded' },
+      sitesOk: '{ok} of {all} sites', unread: 'could not be read', asOf: 'kept from {t}', items: '{n} item(s)', announce: 'Queue: {n} item(s) loaded' },
     fr: { title: 'Ma file de travail', sub: 'Votre travail ouvert sur vos sites, le plus à risque d\'abord. Chaque source se charge seule.',
       src: { meetings: 'Actions de réunion', inspections: 'Actions d\'inspection', report: 'Suivis de rapport', commitments: 'Engagements', awaiting: 'En attente de moi' },
       aw: { commitments: 'engagement à vérifier', handoffs: 'passation à accepter', benefits: 'bénéfice à vérifier', decisions: 'décision due', pvs: 'PV à signer' },
       retry: 'Réessayer', late: 'en retard', due: 'échéance', owner: 'responsable', noOwner: 'sans responsable', register: 'registre', empty: 'Rien d\'ouvert dans les sources qui ont répondu.',
       limits: 'Limites : {s} sites et {n} éléments au plus sont affichés. Pour la liste complète, ouvrez le {reg}.', regLink: 'registre des actions du site',
       more: '{shown} éléments affichés sur {total}', sitesMore: '{n} autre(s) site(s) non lu(s)', noCode: 'pas de code de site', off: 'non activé',
-      sitesOk: '{ok} sites sur {all}', asOf: 'conservé depuis {t}', items: '{n} élément(s)', announce: 'File : {n} élément(s) chargé(s)' },
+      sitesOk: '{ok} sites sur {all}', unread: 'source illisible', asOf: 'conservé depuis {t}', items: '{n} élément(s)', announce: 'File : {n} élément(s) chargé(s)' },
   };
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -202,8 +202,9 @@
         else if (res.reason === 'off') detail = L[lang].off;
         else if (res.reason === 'nocode') detail = L[lang].noCode;
         else if (res.detail) detail = res.detail;
+        else if (res.state === 'unknown') detail = L[lang].unread;
         var t = now(); var hm = ('0' + t.getHours()).slice(-2) + ':' + ('0' + t.getMinutes()).slice(-2);
-        st[source] = { state: res.state, items: res.items || [], detail: detail, loadedAt: res.state === 'available' || res.state === 'partial' ? hm : prev.loadedAt };
+        st[source] = { state: res.state, reason: res.reason || null, items: res.items || [], detail: detail, loadedAt: res.state === 'available' || res.state === 'partial' ? hm : prev.loadedAt };
       }
       if (typeof o.onChange === 'function') o.onChange(source);
     }
@@ -281,7 +282,7 @@
       var by = {};
       SOURCES.forEach(function (s) { by[s] = st[s].items; });
       var m = merge(by);
-      return { states: SOURCES.map(function (s) { return { source: s, state: st[s].state, detail: st[s].detail, count: st[s].items.length }; }),
+      return { states: SOURCES.map(function (s) { return { source: s, state: st[s].state, reason: st[s].reason || null, detail: st[s].detail, count: st[s].items.length }; }),
         items: m.items, total: m.total, truncatedSites: truncated, sites: sites || [] };
     }
     return { load: load, loadAll: loadAll, view: view, state: st, requested: requested };
@@ -299,7 +300,7 @@
     var single = v.sites.length === 1 && v.sites[0].code ? v.sites[0].code : null;
     var reg = register('report', single);
     var srcRows = v.states.map(function (s) {
-      var retry = s.state === 'available' || s.state === 'loading' ? ''
+      var retry = s.state === 'available' || s.state === 'loading' || s.reason === 'off' ? ''
         : ' <button type="button" class="hq-retry" data-source="' + esc(s.source) + '">' + esc(T.retry) + '<span class="hq-sr"> — ' + esc(T.src[s.source]) + '</span></button>';
       var count = s.state === 'available' || s.state === 'partial' || s.state === 'stale' ? ' <span class="hq-count">' + esc(fill(T.items, { n: s.count })) + '</span>' : '';
       return '<li data-source="' + esc(s.source) + '"><span class="hq-src">' + esc(T.src[s.source]) + '</span> ' + stateHtml(s.state, lang, s.detail) + count + retry + '</li>';

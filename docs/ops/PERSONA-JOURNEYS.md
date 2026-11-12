@@ -18,6 +18,7 @@ in `tests/e2e/` must appear in this table.
 | Site IT coordinator | `editor` + `tracker-editor`, own site | Enter this month's activity tracker values (stored for her own site) | `public/activity-tracker.html` | `public/activity-tracker.html` | `tests/e2e/c1-coordinator-tracker-pv.spec.js` (E-Q09) |
 | Site IT coordinator | `editor`, own site | Write and sign a department PV (both stamps persisted with the SERVER clock) | `public/meetings.html` | `public/meeting.html` | `tests/e2e/c1-coordinator-tracker-pv.spec.js` (E-Q09) |
 | Site editor | `editor`, own site | Find the site's overdue actions, close one with a justification | `public/site-actions.html` | `public/site-actions.html` | `tests/e2e/t1-site-action.spec.js` |
+| Site editor | `editor`, own site | See all of my open work in one queue on Home (switches `ui_home_queue` / `ui_nav_*` on in a throwaway database), 320 px and French, never another site's item | `public/home.html` | `public/home.html` | `tests/e2e/r2-home-queue.spec.js` (R2-QUEUE) |
 | Site editor | `editor`, own site | Cannot read another site's report or portfolio project (deny) | `public/reports.html` | `public/portfolio.html` | `tests/e2e/deny-cross-site.spec.js` |
 | Site editor | `editor`, own site | Switch the interface to French and open the manual | `public/site-actions.html` | `public/help.html` | `tests/e2e/t7-french-help.spec.js` |
 | Site editor | `editor`, own site | Reach Portfolio using only the keyboard | `public/login.html` | `public/portfolio.html` | `tests/e2e/t8-keyboard-portfolio.spec.js` |
