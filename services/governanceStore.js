@@ -589,6 +589,65 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       ORDER BY b.review_date, b.id`).all(Number(userId), String(asOf).slice(0, 10));
     return rows.map(r => ({ ...benefitRow(r), project_key: r.project_key, project_name: r.project_name }));
   }
+  // ── E-P06 RACI (migration 073) — replace the matrix of a project in one transaction; exactly one A per task ──
+  async function getRaci(projectId) {
+    if (await _projectGone(projectId)) return [];
+    return (await P(`SELECT r.task_id, r.person, r.letter FROM ppm_raci r JOIN portfolio_tasks t ON t.id = r.task_id WHERE r.project_id=? AND t.deleted_at IS NULL ORDER BY r.task_id, r.person, r.letter`).all(Number(projectId)))
+      .map((r) => ({ task_id: Number(r.task_id), person: r.person, letter: r.letter }));
+  }
+  async function saveRaci(projectId, rows, { user } = {}) {
+    const RC = require('./ppmRaci'); const pid = Number(projectId);
+    if (await _projectGone(pid)) throw Object.assign(new Error('project not found'), { code: 'NOT_FOUND', status: 404 });
+    const taskIds = (await P(`SELECT id FROM portfolio_tasks WHERE project_id=? AND deleted_at IS NULL`).all(pid)).map((r) => Number(r.id));
+    const list = RC.normalise(rows);
+    const errors = RC.validateRaci(list, taskIds);
+    if (errors.length) throw Object.assign(new Error(errors[0].error), { code: 'INVALID', reason: errors[0].code, errors });
+    return tx(async () => {
+      const before = await P(`SELECT COUNT(*) AS n FROM ppm_raci WHERE project_id=?`).get(pid);
+      await P(`DELETE FROM ppm_raci WHERE project_id=?`).run(pid);
+      for (const r of list) await P(`INSERT INTO ppm_raci (project_id, task_id, person, letter, updated_by, updated_at) VALUES (?, ?, ?, ?, ?, ?)`).run(pid, r.task_id, r.person, r.letter, user && user.id != null ? Number(user.id) : null, now());
+      await ppmEvent({ entity: 'project', entity_id: pid, action: 'raci_edit', field: 'raci', old_value: Number(before && before.n) || 0, new_value: list.length }, user);
+      return getRaci(pid);
+    });
+  }
+  // ── E-P06 project templates: structure only, draft → approved by ANOTHER committee member, recorded in ppm_events ──
+  const tplRow = (r) => r && ({ ...r, id: Number(r.id), structure: P_(r.structure, { tasks: [], milestones: [] }), source_project_id: r.source_project_id == null ? null : Number(r.source_project_id), created_by: r.created_by == null ? null : Number(r.created_by), approved_by: r.approved_by == null ? null : Number(r.approved_by) });
+  async function listTemplates() { return (await P(`SELECT * FROM ppm_templates WHERE status <> 'retired' ORDER BY name, id`).all()).map(tplRow); }
+  async function getTemplate(id) { return tplRow(await P(`SELECT * FROM ppm_templates WHERE id=?`).get(Number(id))); }
+  async function saveTemplateFromProject(projectId, { name, user } = {}) {
+    const d = await projectDetail(projectId);
+    if (!d) throw Object.assign(new Error('project not found'), { code: 'NOT_FOUND', status: 404 });
+    const nm = str(name, 200); if (!nm || !nm.trim()) throw Object.assign(new Error('template name is required'), { code: 'INVALID' });
+    const structure = require('./ppmRaci').templateFromProject(d);
+    const id = await insert('ppm_templates', ['name', 'structure', 'status', 'source_project_id', 'created_by', 'created_by_name', 'created_at'], [nm.trim(), J(structure), 'draft', Number(projectId), user && user.id != null ? Number(user.id) : null, actorName(user), now()]);
+    await ppmEvent({ entity: 'template', entity_id: id, action: 'template_saved', field: 'source_project', new_value: Number(projectId) }, user);
+    return getTemplate(id);
+  }
+  async function approveTemplate(id, { user, note } = {}) {
+    const t = await getTemplate(id);
+    if (!t) throw Object.assign(new Error('template not found'), { code: 'NOT_FOUND', status: 404 });
+    if (t.status !== 'draft') throw Object.assign(new Error('only a draft template can be approved'), { code: 'CONFLICT', status: 409, reason: 'NOT_DRAFT' });
+    const uid = user && user.id != null ? Number(user.id) : null;
+    if (uid == null || uid === t.created_by) throw Object.assign(new Error('the author of a template cannot approve it'), { code: 'SELF_REVIEW', status: 403, expose: true, reason: 'SELF_REVIEW' });
+    await P(`UPDATE ppm_templates SET status='approved', approved_by=?, approved_by_name=?, approved_at=?, approval_note=? WHERE id=? AND status='draft'`).run(uid, actorName(user), now(), str(note, 2000), Number(id));
+    await ppmEvent({ entity: 'template', entity_id: Number(id), action: 'template_approved', old_value: 'draft', new_value: 'approved', note: str(note, 2000) }, user);
+    return getTemplate(id);
+  }
+  /** A new project (no owner, no dates, no money) with the template's tasks, hierarchy, durations and milestone names. */
+  async function createProjectFromTemplate(id, body, { user } = {}) {
+    const t = await getTemplate(id);
+    if (!t) throw Object.assign(new Error('template not found'), { code: 'NOT_FOUND', status: 404 });
+    if (t.status !== 'approved') throw Object.assign(new Error('only an approved template creates a project'), { code: 'CONFLICT', status: 409, reason: 'TEMPLATE_DRAFT' });
+    const plan = require('./ppmRaci').planFromTemplate(t.structure);
+    return tx(async () => {
+      const pid = await upsertPortfolio('project', { objective_id: body && body.objective_id, key: body && body.key, name: body && body.name, site_id: body && body.site_id, status: 'planned' }, { user });
+      const ids = new Map();
+      for (const [i, x] of plan.tasks.entries()) ids.set(x.ref, await upsertPortfolio('task', { project_id: pid, name: x.name, wbs_code: x.wbs_code, parent_id: x.parent_ref ? ids.get(x.parent_ref) : null, duration_days: x.duration_days, sort_order: i }, { user }));
+      for (const [i, m] of plan.milestones.entries()) await upsertPortfolio('milestone', { project_id: pid, name: m.name, sort_order: i }, { user });
+      await ppmEvent({ entity: 'project', entity_id: pid, action: 'created_from_template', field: 'template', new_value: Number(id) }, user);
+      return pid;
+    });
+  }
   /** G11 — stage gate passage (rules in services/projectSchedule.stageGate), recorded in the ledger. */
   // A-27 — captureBaseline: the caller (route) passes report_config ppm_baseline_versions === '1'; the store reads no config.
   async function moveProjectStage(id, to, { user, note, captureBaseline = false } = {}) {
@@ -739,7 +798,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     await insert('minutes_history', ['session_id', 'action', 'actor_id', 'at', 'reason'], [Number(sessionId), String(action), actorId == null ? null : Number(actorId), now(), str(reason, 1000)]);
   }
   async function minutesHistory(sessionId) { return (await P('SELECT action, actor_id, at, reason FROM minutes_history WHERE session_id=? ORDER BY id').all(Number(sessionId))).map(r => ({ ...r, actor_id: r.actor_id == null ? null : Number(r.actor_id) })); }
-  return { ppmEvent, ppmEvents, listBudgetPeriods, saveBudgetPeriod, moveProjectStage, rfiToProject, getRfi, verifyRfi, rfiFromMeeting, rfiForMeeting, rfiLineage, setAttendance, saveDraftAgenda, getDecision, openSessionActions, addMinutesHistory, minutesHistory, init, listCadences, getCadence, saveCadence, removeCadence, listSessions, getSession, createSession, updateSession, stampItem, sessionActions, addSessionAction, setSessionActionStatus, moveSession,
+  return { ppmEvent, ppmEvents, listBudgetPeriods, saveBudgetPeriod, getRaci, saveRaci, listTemplates, getTemplate, saveTemplateFromProject, approveTemplate, createProjectFromTemplate, moveProjectStage, rfiToProject, getRfi, verifyRfi, rfiFromMeeting, rfiForMeeting, rfiLineage, setAttendance, saveDraftAgenda, getDecision, openSessionActions, addMinutesHistory, minutesHistory, init, listCadences, getCadence, saveCadence, removeCadence, listSessions, getSession, createSession, updateSession, stampItem, sessionActions, addSessionAction, setSessionActionStatus, moveSession,
     listDecisions, addDecision, updateDecision, listRfi, submitRfi, triageRfi, rfiScore, portfolio, upsertPortfolio, removePortfolio,
     restorePortfolio, getPortfolioTrashRow, listDeletedPortfolio, purgeDeletedPortfolio, restoreCadence, getCadenceTrashRow, listDeletedCadences, purgeDeletedCadences, projectSites, setProjectSites, getProject, planRow, projectDetail, gateCounts, RISK_KINDS, listBaselines, rebaseline, alertStates, saveAlertState, listBenefits, getBenefit, recordBenefitRealised, verifyBenefit, dueBenefitReviews, ownedBenefitReviews,
     CADENCE_KINDS, SESSION_STATUSES, DECISION_STATUSES, RFI_KINDS, RFI_STATUSES, PROJECT_STATUSES, CONFIDENCE };

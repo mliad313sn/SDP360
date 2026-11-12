@@ -102,3 +102,29 @@ test('E-P05: owner_user_id ignored while off; on: "My work" lists the owner’s 
     assert.equal((await send('GET', '/api/governance/ppm/features', T.viewer)).j.benefit_owner_link, true);
   } finally { await sw({ benefit_owner_link_enabled: '0' }); }
 });
+
+test('E-P06: RACI and templates 404 while off; on: one A enforced, CSV export, template approval by another member', async () => {
+  const url = `/api/governance/ppm/project/${pid}/raci`;
+  await sw({ ppm_raci_enabled: '0', ppm_templates_enabled: '0' });
+  assert.equal((await send('GET', url, T.pmo)).status, 404);
+  assert.equal((await send('GET', '/api/governance/ppm/templates', T.pmo)).status, 404);
+  await sw({ ppm_raci_enabled: '1', ppm_templates_enabled: '1' });
+  try {
+    const tid = (await put('task', T.pmo, { project_id: pid, name: 'RACI task' })).j.id;
+    const bad = await send('PUT', url, T.pmo, { rows: [{ task_id: tid, person: 'Ana', letter: 'R' }] });
+    assert.equal(bad.status, 400); assert.equal(bad.j.code, 'NO_ACCOUNTABLE');
+    assert.equal((await send('PUT', url, T.viewer, { rows: [{ task_id: tid, person: 'Ana', letter: 'A' }] })).status, 403, 'plan-write rule');
+    assert.equal((await send('PUT', url, T.pmo, { rows: [{ task_id: tid, person: 'Ana', letter: 'A' }, { task_id: tid, person: '=x', letter: 'C' }] })).status, 200);
+    const g = await send('GET', url, T.viewer); assert.equal(g.status, 200); assert.equal(g.j.rows.length, 2);
+    const csv = await fetch(base + url + '.csv', { headers: { 'x-report-token': T.viewer } });
+    assert.equal(csv.status, 200); assert.match(await csv.text(), /'=x/);
+    const tp = await send('POST', '/api/governance/ppm/templates', T.pmo, { project_id: pid, name: 'Fictitious template' });
+    assert.equal(tp.status, 200); assert.equal(tp.j.template.status, 'draft');
+    assert.equal((await send('POST', '/api/governance/ppm/templates', T.viewer, { project_id: pid, name: 'x' })).status, 403);
+    assert.equal((await send('POST', `/api/governance/ppm/templates/${tp.j.template.id}/approve`, T.pmo, {})).j.code, 'SELF_REVIEW');
+    assert.equal((await send('POST', `/api/governance/ppm/templates/${tp.j.template.id}/approve`, T.cio, {})).status, 200);
+    const np = await send('POST', `/api/governance/ppm/templates/${tp.j.template.id}/create-project`, T.cio, { objective_id: obj, key: 'W2-TPL', name: 'From template' });
+    assert.equal(np.status, 200, JSON.stringify(np.j)); assert.ok(np.j.project_id);
+    const f = (await send('GET', '/api/governance/ppm/features', T.viewer)).j; assert.equal(f.raci, true); assert.equal(f.templates, true);
+  } finally { await sw({ ppm_raci_enabled: '0', ppm_templates_enabled: '0' }); }
+});

@@ -66,3 +66,29 @@ test('E-P05: linked owner — SELF_REVIEW refuses verification by the owner; own
   assert.ok((await s.verifyBenefit(b1, { user: { id: 9, username: 'third' } })).verified_at);
   assert.deepEqual(await s.ownedBenefitReviews({ userId: 42, asOf: '2026-11-06' }), [], 'verified → no longer due');
 });
+
+test('E-P06: RACI saved only with exactly one A per task; templates draft → approved by another member → project', async (t) => {
+  if (!ctx) return t.skip('no pg');
+  const t1 = await s.upsertPortfolio('task', { project_id: pj, name: 'Design', duration_days: 3 }, { user: U });
+  const t2 = await s.upsertPortfolio('task', { project_id: pj, name: 'Build', parent_id: t1, duration_days: 5, owner: 'Ana', start_date: '2026-11-02', end_date: '2026-11-06' }, { user: U });
+  await s.upsertPortfolio('milestone', { project_id: pj, name: 'Go-live', due_date: '2026-12-01' }, { user: U });
+  await assert.rejects(s.saveRaci(pj, [{ task_id: t1, person: 'Ana', letter: 'R' }], { user: U }), (e) => e.reason === 'NO_ACCOUNTABLE');
+  const rows = await s.saveRaci(pj, [{ task_id: t1, person: 'Ana', letter: 'A' }, { task_id: t1, person: 'Bob', letter: 'R' }, { task_id: t2, person: 'Bob', letter: 'A' }], { user: U });
+  assert.equal(rows.length, 3);
+  assert.equal((await s.saveRaci(pj, [{ task_id: t2, person: 'Cy', letter: 'A' }], { user: U })).length, 1, 'replaced, not appended');
+  assert.ok((await s.ppmEvents('project', pj)).some((e) => e.action === 'raci_edit'));
+  const tpl = await s.saveTemplateFromProject(pj, { name: 'WAN rollout', user: { id: 7, username: 'pmo' } });
+  assert.equal(tpl.status, 'draft'); assert.ok(!JSON.stringify(tpl.structure).includes('Ana'));
+  await assert.rejects(s.createProjectFromTemplate(tpl.id, { objective_id: 1, key: 'X', name: 'X' }, { user: U }), (e) => e.reason === 'TEMPLATE_DRAFT');
+  await assert.rejects(s.approveTemplate(tpl.id, { user: { id: 7, username: 'pmo' } }), (e) => e.reason === 'SELF_REVIEW');
+  const ok = await s.approveTemplate(tpl.id, { user: { id: 9, username: 'cio' }, note: 'checked (fictitious)' });
+  assert.equal(ok.status, 'approved'); assert.equal(ok.approved_by, 9);
+  assert.ok((await s.ppmEvents('template', tpl.id)).some((e) => e.action === 'template_approved'));
+  const obj = Number((await rdb.pgHandle().prepare('SELECT objective_id FROM portfolio_projects WHERE id=?').get(pj)).objective_id);
+  const np = await s.createProjectFromTemplate(tpl.id, { objective_id: obj, key: 'W2-T', name: 'From template' }, { user: { id: 9, username: 'cio' } });
+  const d = await s.projectDetail(np);
+  assert.deepEqual(d.tasks.map((x) => [x.name, x.duration_days, x.owner || null, x.start_date || null]).sort(), [['Build', 5, null, null], ['Cabling (renamed)', null, null, null], ['Design', 3, null, null]], 'owners (Cy on Cabling, Ana on Build) and dates are not carried');
+  assert.equal(d.tasks.find((x) => x.name === 'Build').parent_id, d.tasks.find((x) => x.name === 'Design').id);
+  assert.deepEqual(d.milestones.map((m) => [m.name, m.due_date || null]), [['Go-live', null]]);
+  assert.equal(d.project.budget, null);
+});

@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (180) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (182) — services/reportConfig.js DEFAULTS
 
 | Key | Default (today) | Kind | Owner | Recommended pilot value | Reference |
 |---|---|---|---|---|---|
@@ -117,7 +117,9 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `ppm_baseline_versions` | `0` | setting | Committee | `1` | A-27 |
 | `ppm_budget_periods_enabled` | `0` | arm switch | Finance + PMO | `1` once Finance agrees the period grid (month × currency × baseline / actual / forecast, EAC = actual to date + remaining forecast per currency, never across currencies; a change or a variance vs the baseline needs a justification and is hash-chained in `ppm_events`). Every view says "not certified" until Finance certifies the figures; who may approve a budget stays a Finance decision | E-P04 |
 | `ppm_capacity_view` | `0` | setting | PMO + capacity owner (to be named) | `1` once the PMO accepts the team-load reading (capacity per site × week, conflicts sorted by excess then duration, suggestions are proposals only; a task reassignment then needs a reason — it is traced in `ppm_events` at `0` too). What "availability" means for a team stays undefined until a capacity owner signs `docs/ops/CAPACITY-DATA-CONTRACT.md` | E-P03 |
+| `ppm_raci_enabled` | `0` | arm switch | PMO | `1` when the PMO wants responsibilities per task on the project page (R / A / C / I per person, exactly one A per task — a matrix without it is refused; CSV export; every change is a `ppm_events` row) | E-P06 |
 | `ppm_rebaseline_enabled` | `0` | arm switch | Committee | `1` | A-27 |
+| `ppm_templates_enabled` | `0` | arm switch | PMO (template validation is a human act) | `1` once the PMO names who validates templates (a template is the STRUCTURE only — task names, WBS, durations, milestone names; no people, dates or money; `draft` until another committee member approves it; only an approved template creates a project) | E-P06 |
 | `public_base_url` | `` | setting | to be named | — | — |
 | `publish_cron_enabled` | `0` | arm switch | to be named | — | — |
 | `publish_excel_recipients` | `` | setting | to be named | — | — |

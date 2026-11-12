@@ -5,12 +5,15 @@
 //   E-P03 ppm_capacity_view          GET  /api/governance/ppm/capacity                capacity per site × week + conflicts (no money)
 //   E-P04 ppm_budget_periods_enabled GET/PUT /api/governance/ppm/project/:id/budget-periods  money readers / committee
 //   E-P05 benefit_owner_link_enabled  (PUT /portfolio/benefit accepts owner_user_id; GET /api/me/work lists owned benefits)
+//   E-P06 ppm_raci_enabled           GET/PUT /api/governance/ppm/project/:id/raci · GET …/raci.csv   read scope / plan-write rule
+//   E-P06 ppm_templates_enabled      GET /api/governance/ppm/templates · POST /templates {project_id,name} · POST /templates/:id/approve
+//                                    · POST /templates/:id/create-project {objective_id,key,name,site_id}       committee (approver ≠ author)
 //   GET  /api/governance/ppm/features  which of these switches are on (the pages show a tab / panel only then)
 // Paths live under /api/governance/ppm/ so they never collide with /portfolio/:kind.
 const { fail: httpFail } = require('../services/httpError');
 
 module.exports = function governancePpmRoutes(router, h) {
-  const { store, rdb, reportConfig, requireReportSession, json, viewFor, isCommittee, canSeeMoney, readableProject, log } = h;
+  const { store, rdb, reportConfig, requireReportSession, json, viewFor, isCommittee, canSeeMoney, readableProject, refusePlanWrite, log } = h;
   const fail = (res, e) => httpFail(res, e, undefined, { ok: false, ...(e && e.reason ? { code: e.reason } : {}) });
   const cfg = async () => reportConfig.getConfig(rdb().db);
   const on = (c, k) => String(c[k]) === '1';
@@ -20,7 +23,7 @@ module.exports = function governancePpmRoutes(router, h) {
   router.get('/api/governance/ppm/features', requireReportSession, async (req, res) => {
     try {
       const c = await cfg();
-      res.json({ ok: true, capacity: on(c, 'ppm_capacity_view'), budget_periods: on(c, 'ppm_budget_periods_enabled'), benefit_owner_link: on(c, 'benefit_owner_link_enabled') });
+      res.json({ ok: true, capacity: on(c, 'ppm_capacity_view'), budget_periods: on(c, 'ppm_budget_periods_enabled'), benefit_owner_link: on(c, 'benefit_owner_link_enabled'), raci: on(c, 'ppm_raci_enabled'), templates: on(c, 'ppm_templates_enabled') });
     } catch (e) { fail(res, e); }
   });
 
@@ -56,6 +59,65 @@ module.exports = function governancePpmRoutes(router, h) {
       const rows = await store.saveBudgetPeriod(req.params.id, req.body || {}, { user: req.reportUser });
       log(req, 'budget_period_saved', `project:${req.params.id}`, { kind: req.body && req.body.kind, period: req.body && req.body.period, currency: req.body && req.body.currency });
       res.json({ ok: true, view: BP.view(rows, { asOf: new Date().toISOString() }), certification: BP.CERTIFICATION });
+    } catch (e) { fail(res, e); }
+  });
+
+  // ---- E-P06 RACI (task × person, exactly one A per task) --------------------------------------------------------
+  const RC = require('../services/ppmRaci');
+  const raciMatrix = async (pid) => { const d = await store.projectDetail(pid); return RC.matrix(await store.getRaci(pid), (d && d.tasks) || []); };
+  router.get('/api/governance/ppm/project/:id/raci', requireReportSession, async (req, res) => {
+    try {
+      if (!on(await cfg(), 'ppm_raci_enabled')) return notFound(res);
+      const p = await readableProject(req.reportUser, req.params.id); if (!p) return notFound(res);
+      res.json({ ok: true, rows: await store.getRaci(p.id), matrix: await raciMatrix(p.id), letters: RC.LETTERS });
+    } catch (e) { fail(res, e); }
+  });
+  router.get('/api/governance/ppm/project/:id/raci.csv', requireReportSession, async (req, res) => {
+    try {
+      if (!on(await cfg(), 'ppm_raci_enabled')) return notFound(res);
+      const p = await readableProject(req.reportUser, req.params.id); if (!p) return notFound(res);
+      res.setHeader('Content-Type', 'text/csv; charset=utf-8'); res.setHeader('Content-Disposition', `attachment; filename="raci-project-${p.id}.csv"`);
+      res.send('\ufeff' + RC.raciCsv(await raciMatrix(p.id)));
+    } catch (e) { fail(res, e); }
+  });
+  router.put('/api/governance/ppm/project/:id/raci', requireReportSession, json, async (req, res) => {
+    try {
+      if (!on(await cfg(), 'ppm_raci_enabled')) return notFound(res);
+      const p = await readableProject(req.reportUser, req.params.id); if (!p) return notFound(res);
+      if (await refusePlanWrite(req, res, 'task', { body: { project_id: p.id } })) return;
+      const rows = await store.saveRaci(p.id, (req.body && req.body.rows) || [], { user: req.reportUser });
+      log(req, 'raci_saved', `project:${p.id}`, { rows: rows.length });
+      res.json({ ok: true, rows, matrix: await raciMatrix(p.id) });
+    } catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.reason ? { code: e.reason } : {}), ...(e.errors ? { errors: e.errors } : {}) }); }
+  });
+
+  // ---- E-P06 project templates (structure only; draft until another committee member approves) -------------------
+  const tplOn = async (res) => { if (!on(await cfg(), 'ppm_templates_enabled')) { notFound(res); return false; } return true; };
+  const committeeOnly = (req, res) => { if (isCommittee(req.reportUser)) return true; forbidden(res, 'committee-member or admin role required'); return false; };
+  router.get('/api/governance/ppm/templates', requireReportSession, async (req, res) => {
+    try { if (!(await tplOn(res))) return; res.json({ ok: true, committee: !!isCommittee(req.reportUser), me: Number(req.reportUser.id), templates: await store.listTemplates() }); } catch (e) { fail(res, e); }
+  });
+  router.post('/api/governance/ppm/templates', requireReportSession, json, async (req, res) => {
+    try {
+      if (!(await tplOn(res)) || !committeeOnly(req, res)) return;
+      const pid = Number(req.body && req.body.project_id);
+      if (!Number.isInteger(pid) || !(await readableProject(req.reportUser, pid))) return notFound(res);
+      const t = await store.saveTemplateFromProject(pid, { name: req.body && req.body.name, user: req.reportUser });
+      log(req, 'template_saved', `template:${t.id}`, { project_id: pid }); res.json({ ok: true, template: t });
+    } catch (e) { fail(res, e); }
+  });
+  router.post('/api/governance/ppm/templates/:id/approve', requireReportSession, json, async (req, res) => {
+    try {
+      if (!(await tplOn(res)) || !committeeOnly(req, res)) return;
+      const t = await store.approveTemplate(req.params.id, { user: req.reportUser, note: req.body && req.body.note });
+      log(req, 'template_approved', `template:${t.id}`); res.json({ ok: true, template: t });
+    } catch (e) { fail(res, e); }
+  });
+  router.post('/api/governance/ppm/templates/:id/create-project', requireReportSession, json, async (req, res) => {
+    try {
+      if (!(await tplOn(res)) || !committeeOnly(req, res)) return;
+      const pid = await store.createProjectFromTemplate(req.params.id, req.body || {}, { user: req.reportUser });
+      log(req, 'project_from_template', `template:${req.params.id}`, { project_id: pid }); res.json({ ok: true, project_id: pid });
     } catch (e) { fail(res, e); }
   });
 };

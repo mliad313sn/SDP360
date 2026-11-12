@@ -218,6 +218,11 @@ const DEFAULTS = {
   // "My work" lists the benefits that person owns whose review date is reached (in-app only). The linked owner never
   // verifies their own benefit (SELF_REVIEW) — that rule holds whenever a link exists.
   benefit_owner_link_enabled: '0',
+  // E-P06 (audit P-06) — PROPOSED: '1' = RACI tab on the project page (task × person, exactly one A per task, CSV export);
+  // ppm_templates_enabled '1' = save a project's STRUCTURE as a template (no people, dates or money), approved by another
+  // committee member before it can create a project. Both 404 while '0'.
+  ppm_raci_enabled: '0',
+  ppm_templates_enabled: '0',
   site_codes_from_registry: '0',   // DEC-4 — '1' = site_module_codes wins over the modules' hard-coded maps (diff first: GET /api/governance/site-codes); 'shadow' (E-D01) = hard maps answer, divergences logged once/day   // ADR-006 — in-app notice to the escalation-matrix target of a new A01 / A02 (off = ledger only, as before)
   site_code_shared_block: '0',   // D-01 (AM-01) — '1' = refuse a scoped editor's tracker/meetings/inspection save under a code two active sites share (409, never picks an owner)
 };

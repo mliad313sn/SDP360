@@ -14,6 +14,7 @@
 <script nonce="%%CSP_NONCE%%" src="lib/stateBadge.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/dashboardRender.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/ppmVisuals.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/ppmExtras.js"></script>
 <style nonce="%%CSP_NONCE%%">
   body { margin:0; background:var(--color-background,#f4f6f7); color:#1F2A33; font-family:var(--font-sans,"Libre Franklin",system-ui,sans-serif); font-size:14px; }
   .wrap { max-width:1360px; margin:0 auto; padding:24px; }
@@ -65,6 +66,8 @@
   <div class="panel" id="capacity-panel" hidden><h2>Capacity per site and week</h2><div class="scroll" id="capacity"></div></div>
   <div class="panel"><h2>Risks</h2><div class="scroll" id="risks"></div></div>
   <div class="panel"><h2>Risk matrix (probability × impact)</h2><div class="scroll" id="risk-matrix"></div></div>
+  <div class="panel" id="templates-panel" hidden><h2>Project templates</h2><div class="scroll" id="templates"></div>
+    <div class="row" id="tpl-use" hidden><label>Objective id <input id="tpl-obj" type="number"></label><label>Project key <input id="tpl-key"></label><label>Project name <input id="tpl-pname"></label><button class="btn primary" id="tpl-create" type="button">Create the project</button></div></div>
   <details class="panel" id="edit" hidden><summary class="btn" id="e-sum">Add / edit an element (committee)</summary>
     <div class="row" style="margin-top:8px">
       <label>Kind <select id="e-kind"><option>programme</option><option>objective</option><option>project</option><option>milestone</option><option>deliverable</option><option>risk</option><option>task</option></select></label>
@@ -112,6 +115,19 @@
     var to = window.PpmVisuals ? window.PpmVisuals.navIndex(ev.key, cur, links.length) : -1;
     if (to < 0) return; ev.preventDefault(); if (links[to]) links[to].focus();
   });
+  var TPL = null;
+  function loadTemplates() {
+    api("/api/governance/ppm/templates").then(function (r) { if (!window.PpmExtras) return; $("templates").innerHTML = window.PpmExtras.templatesHtml(r, esc); $("templates-panel").hidden = false; }).catch(function () { $("templates-panel").hidden = true; });
+  }
+  $("templates").addEventListener("click", function (ev) {
+    var a = ev.target.closest && ev.target.closest("[data-tpl-approve]"), u = ev.target.closest && ev.target.closest("[data-tpl-use]");
+    if (a) api("/api/governance/ppm/templates/" + encodeURIComponent(a.getAttribute("data-tpl-approve")) + "/approve", { method: "POST", body: JSON.stringify({}) }).then(function () { msg("Template approved."); loadTemplates(); }).catch(fail);
+    if (u) { TPL = u.getAttribute("data-tpl-use"); $("tpl-use").hidden = false; }
+  });
+  $("tpl-create").addEventListener("click", function () {
+    if (!TPL) return;
+    api("/api/governance/ppm/templates/" + encodeURIComponent(TPL) + "/create-project", { method: "POST", body: JSON.stringify({ objective_id: Number($("tpl-obj").value), key: $("tpl-key").value.trim(), name: $("tpl-pname").value.trim() }) }).then(function (j) { msg("Project created from the template."); window.location.href = "project.html?id=" + encodeURIComponent(j.project_id); }).catch(fail);
+  });
   function load() {
     return api("/api/governance/portfolio").then(function (v) {
       V = v; committee = v.committee; planEdit(v); $("mig-dry").hidden = !isSuper; $("mig-apply").hidden = !isSuper;
@@ -138,6 +154,8 @@
         $("capacity").innerHTML = window.PpmVisuals.capacityHtml(c.capacity, esc, function (k) { return names[k] || ("Site #" + k); });
         $("capacity-panel").hidden = false;
       }).catch(function () { $("capacity-panel").hidden = true; });
+      // E-P06 — project templates (switch ppm_templates_enabled; 404 while off = panel stays hidden)
+      loadTemplates();
       var plans = {}; (v.plans || []).forEach(function (x) { plans[x.project_id] = x; });
       var stages = v.stages || [];
       var stageDots = function (st) { var i = stages.indexOf(st); return st ? "<span class=\"stage\" title=\"" + esc(st) + "\">" + stages.map(function (_, k) { return k === i ? "●" : "○"; }).join("") + "</span> " + esc(String(st).replace(/_/g, " ")) : "—"; };
