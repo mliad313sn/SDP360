@@ -18,14 +18,14 @@ function makeWorkbenchStore(db, gov, { now = () => new Date().toISOString() } = 
   const notFound = (what) => Object.assign(new Error(`${what} not found`), { code: 'NOT_FOUND', status: 404 });
 
   // ── R2-WB-04 project team ──────────────────────────────────────────────────────────────────────────────────
-  const memberRow = (r) => r && ({ id: Number(r.id), project_id: Number(r.project_id), user_id: n(r.user_id), label: r.label, role: r.role || null, allocation_pct: n(r.allocation_pct), from_day: r.from_day || null, to_day: r.to_day || null, username: r.username || null });
+  const memberRow = (r) => r && ({ id: Number(r.id), project_id: Number(r.project_id), user_id: n(r.user_id), label: r.label, role: r.role || null, allocation_pct: n(r.allocation_pct), from_day: r.from_day || null, to_day: r.to_day || null, username: r.username || null, user_full_name: r.user_full_name || null });
   async function listMembers(projectId) {
-    return (await P(`SELECT m.*, u.username FROM ppm_project_members m LEFT JOIN users u ON u.id = m.user_id WHERE m.project_id=? ORDER BY m.label, m.id`).all(Number(projectId))).map(memberRow);
+    return (await P(`SELECT m.*, u.username, u.full_name AS user_full_name FROM ppm_project_members m LEFT JOIN users u ON u.id = m.user_id WHERE m.project_id=? ORDER BY m.label, m.id`).all(Number(projectId))).map(memberRow);
   }
   async function listMembersFor(projectIds) {
     const ids = [...new Set((projectIds || []).map(Number).filter(Number.isInteger))];
     if (!ids.length) return [];
-    return (await P(`SELECT m.*, u.username FROM ppm_project_members m LEFT JOIN users u ON u.id = m.user_id WHERE m.project_id IN (${ids.map(() => '?').join(',')}) ORDER BY m.project_id, m.label, m.id`).all(...ids)).map(memberRow);
+    return (await P(`SELECT m.*, u.username, u.full_name AS user_full_name FROM ppm_project_members m LEFT JOIN users u ON u.id = m.user_id WHERE m.project_id IN (${ids.map(() => '?').join(',')}) ORDER BY m.project_id, m.label, m.id`).all(...ids)).map(memberRow);
   }
   async function saveMember(projectId, body, { user } = {}) {
     const pid = Number(projectId), m = WB.normaliseMember(body), id = body && body.id ? Number(body.id) : null;
@@ -35,7 +35,7 @@ function makeWorkbenchStore(db, gov, { now = () => new Date().toISOString() } = 
       if (before) await P(`UPDATE ppm_project_members SET user_id=?, label=?, role=?, allocation_pct=?, from_day=?, to_day=?, updated_at=? WHERE id=?`).run(m.user_id, m.label, m.role, m.allocation_pct, m.from_day, m.to_day, now(), id);
       const mid = before ? id : await insert('ppm_project_members', ['project_id', 'user_id', 'label', 'role', 'allocation_pct', 'from_day', 'to_day', 'created_by', 'created_at', 'updated_at'], [pid, m.user_id, m.label, m.role, m.allocation_pct, m.from_day, m.to_day, uid(user), now(), now()]);
       await gov.ppmEvent({ entity: 'project', entity_id: pid, action: before ? 'team_member_edit' : 'team_member_added', field: `member:${mid}`, old_value: before ? `${before.label} · ${before.role || '—'} · ${before.allocation_pct == null ? 'unknown' : before.allocation_pct + ' %'}` : null, new_value: `${m.label} · ${m.role || '—'} · ${m.allocation_pct == null ? 'unknown' : m.allocation_pct + ' %'}` }, user);
-      return memberRow(await P(`SELECT m.*, u.username FROM ppm_project_members m LEFT JOIN users u ON u.id = m.user_id WHERE m.id=?`).get(mid));
+      return memberRow(await P(`SELECT m.*, u.username, u.full_name AS user_full_name FROM ppm_project_members m LEFT JOIN users u ON u.id = m.user_id WHERE m.id=?`).get(mid));
     });
   }
   async function removeMember(projectId, memberId, { user } = {}) {

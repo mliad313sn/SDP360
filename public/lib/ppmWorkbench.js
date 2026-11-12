@@ -17,9 +17,20 @@
     if (!list.length) return '<p class="muted">No team member recorded yet. Task owners stay free text; members are offered in the task owner field.</p>';
     return '<table><thead><tr><th>Member</th><th>User account</th><th>Role</th><th>Allocation to the project</th><th>From</th><th>To</th>' + (canEdit ? '<th></th>' : '') + '</tr></thead><tbody>' +
       list.map(function (m) {
-        return '<tr><td>' + esc(m.label) + '</td><td>' + (m.user_id != null ? n(m.username || ('#' + m.user_id), esc) : '<span class="muted">not linked</span>') + '</td><td>' + n(m.role, esc) + '</td><td>' + (m.allocation_pct == null ? '<span class="muted">unknown</span>' : n(m.allocation_pct, esc, ' %')) + '</td><td>' + n(m.from_day, esc) + '</td><td>' + n(m.to_day, esc) + '</td>' +
+        return '<tr><td>' + esc(m.label) + '</td><td>' + (m.user_id != null ? n(m.user_name || ('User #' + m.user_id), esc) : '<span class="muted">not linked</span>') + '</td><td>' + n(m.role, esc) + '</td><td>' + (m.allocation_pct == null ? '<span class="muted">unknown</span>' : n(m.allocation_pct, esc, ' %')) + '</td><td>' + n(m.from_day, esc) + '</td><td>' + n(m.to_day, esc) + '</td>' +
           (canEdit ? '<td><button class="btn" type="button" data-team-edit="' + esc(String(m.id)) + '">Edit</button> <button class="btn danger" type="button" data-team-del="' + esc(String(m.id)) + '">Remove</button></td>' : '') + '</tr>';
       }).join('') + '</tbody></table><p class="muted">A task whose allocation is not entered is read at its owner\'s allocation to the project (when the owner is a member); an entered allocation always wins.</p>';
+  }
+
+  /** UAT-OI-08 — <option>s for the team picker: "not linked" first, then the people (id + display name). PURE. */
+  function pickerOptions(people, esc) {
+    return '<option value="">— not linked —</option>' + (people || []).map(function (p) { return '<option value="' + esc(String(p.id)) + '">' + esc(p.name) + '</option>'; }).join('');
+  }
+  // a member linked to an account the picker does not offer (inactive) keeps its link visible while edited
+  function ensureOption(sel, m, esc) {
+    if (!sel || m.user_id == null) return;
+    for (var i = 0; i < sel.options.length; i++) if (sel.options[i].value === String(m.user_id)) return;
+    sel.insertAdjacentHTML('beforeend', '<option value="' + esc(String(m.user_id)) + '">' + esc(m.user_name || ('User #' + m.user_id)) + '</option>');
   }
 
   var TEAM = { members: [] };   // shared by the listeners wired once and every later mount
@@ -33,6 +44,8 @@
       if ($('t-owner-list')) $('t-owner-list').innerHTML = TEAM.members.map(function (m) { return '<option value="' + esc(m.label) + '">' + esc(m.role || '') + '</option>'; }).join('');
     };
     ctx.api(url).then(function (j) { draw(j.members); }).catch(ctx.fail);
+    // UAT-OI-08 — the account picker (active users, display names only); free text stays allowed for external people
+    if (ctx.canEdit) ctx.api(url + '/people').then(function (j) { $('tm-user').innerHTML = pickerOptions(j.people, esc); }).catch(function () { /* the picker stays "not linked" */ });
     if ($('team-save').getAttribute('data-wired')) return;
     $('team-save').setAttribute('data-wired', '1');
     var field = function (id) { var v = $(id).value.trim(); return v === '' ? null : v; };
@@ -40,10 +53,13 @@
       var b = { id: TEAM.editId || undefined, label: field('tm-label'), role: field('tm-role'), allocation_pct: field('tm-alloc') == null ? null : Number(field('tm-alloc')), from_day: field('tm-from'), to_day: field('tm-to'), user_id: field('tm-user') == null ? null : Number(field('tm-user')) };
       ctx.api(url, { method: 'PUT', body: JSON.stringify(b) }).then(function (j) { ctx.msg('Team member saved.'); draw(j.members); TEAM.editId = null; ['tm-label', 'tm-role', 'tm-alloc', 'tm-from', 'tm-to', 'tm-user'].forEach(function (k) { $(k).value = ''; }); }).catch(ctx.fail);
     });
+    $('tm-user').addEventListener('change', function () {   // picking an account fills an empty name with its display name
+      var o = this.options[this.selectedIndex]; if (o && o.value && !$('tm-label').value.trim()) $('tm-label').value = o.textContent;
+    });
     $('team').addEventListener('click', function (ev) {
       var e = ev.target.closest && ev.target.closest('[data-team-edit]'), d = ev.target.closest && ev.target.closest('[data-team-del]');
       if (e) { var m = TEAM.members.filter(function (x) { return String(x.id) === e.getAttribute('data-team-edit'); })[0]; if (!m) return;
-        TEAM.editId = m.id; $('tm-label').value = m.label || ''; $('tm-role').value = m.role || ''; $('tm-alloc').value = m.allocation_pct == null ? '' : m.allocation_pct; $('tm-from').value = m.from_day || ''; $('tm-to').value = m.to_day || ''; $('tm-user').value = m.user_id == null ? '' : m.user_id; }
+        TEAM.editId = m.id; $('tm-label').value = m.label || ''; $('tm-role').value = m.role || ''; $('tm-alloc').value = m.allocation_pct == null ? '' : m.allocation_pct; $('tm-from').value = m.from_day || ''; $('tm-to').value = m.to_day || ''; ensureOption($('tm-user'), m, esc); $('tm-user').value = m.user_id == null ? '' : String(m.user_id); }
       if (d) ctx.api(url + '/' + encodeURIComponent(d.getAttribute('data-team-del')), { method: 'DELETE' }).then(function (j) { ctx.msg('Team member removed.'); draw(j.members); }).catch(ctx.fail);
     });
   }
@@ -136,5 +152,5 @@
     });
   }
 
-  return { crSteps: crSteps, changesHtml: changesHtml, mountChanges: mountChanges, teamHtml: teamHtml, mountTeam: mountTeam, hoursHtml: hoursHtml, entriesHtml: entriesHtml, mountTime: mountTime };
+  return { crSteps: crSteps, changesHtml: changesHtml, mountChanges: mountChanges, teamHtml: teamHtml, mountTeam: mountTeam, pickerOptions: pickerOptions, hoursHtml: hoursHtml, entriesHtml: entriesHtml, mountTime: mountTime };
 }));
