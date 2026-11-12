@@ -1512,6 +1512,24 @@ window.addEventListener('beforeprint', function () {
   'use strict';
   const API = '/api/assets';
 
+  // A1 — the HUMAN Finance certification of the figures on screen (GET /api/finance/status, one per scope).
+  // finance_certification_enabled = '0' → 404 → nothing is added (the page is unchanged). Scope key = the Site
+  // filter when set, else the fleet; period = the current month. The coverage band above stays a separate indicator.
+  window.appendFinanceCert = async function appendFinanceCert(el, scopes) {
+    if (!window.MoneyCertBand || !window.MoneyCertBand.financeHtml) return;
+    const f = window.__assetFilters ? window.__assetFilters() : {};
+    const key = f && f.site ? 'site:' + f.site : 'fleet';
+    const period = new Date().toISOString().slice(0, 7);
+    const out = [];
+    for (const scope of scopes) {
+      try {
+        const r = await fetch('/api/finance/status?' + new URLSearchParams({ scope, scope_key: key, period }), { credentials: 'same-origin', headers: authHeaders() });
+        if (!r.ok) return;
+        out.push(await r.json());
+      } catch (_) { return; }
+    }
+    el.insertAdjacentHTML('beforeend', window.MoneyCertBand.financeHtml(out));
+  };
   function authHeaders() {
     const h = {};
     return h;
@@ -2173,6 +2191,7 @@ window.addEventListener('beforeprint', function () {
 
     const certEl = document.getElementById('fin-certBand');
     if (certEl) certEl.innerHTML = window.MoneyCertBand ? window.MoneyCertBand.html(s, s.certification, s.coverage_by_site) : '';
+    if (certEl && window.appendFinanceCert) window.appendFinanceCert(certEl, ['asset_finance', 'depreciation', 'licences']);
     renderMoneyExclusions(s, window.__assetFilters ? window.__assetFilters() : { site: siteVal() });
 
     const fleet = s.fleet || {};
@@ -3089,6 +3108,7 @@ window.addEventListener('beforeprint', function () {
     const hwEx = hw.excluded || {}, swEx = sw.excluded || {};
     const certEl = document.getElementById('invf-certBand');
     if (certEl) certEl.innerHTML = window.MoneyCertBand ? window.MoneyCertBand.html(fc, hw.certification, hw.by_site) : '';
+    if (certEl && window.appendFinanceCert) window.appendFinanceCert(certEl, ['investment']);
 
     document.getElementById('invf-covHw-line').textContent =
       'Hardware forecast based on ' + num(hw.eligible) + ' of ' + num(hw.total) +

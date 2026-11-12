@@ -416,7 +416,7 @@ function getPreviousWeek() {
 // Hierarchy chain — index N implies index N..end (so super_admin implies
 // everything, viewer implies only viewer).
 const ROLE_HIERARCHY = ['super_admin', 'executive', 'admin', 'editor', 'viewer'];
-const FEATURE_ROLES_KNOWN = ['tracker-admin', 'tracker-editor', 'report-author', 'audit-viewer', 'scorecard-viewer', 'site-business', 'group-business', 'dashboard-publisher', 'committee-member', 'field-tech', 'finance-viewer', 'kpi-committee'];
+const FEATURE_ROLES_KNOWN = ['tracker-admin', 'tracker-editor', 'report-author', 'audit-viewer', 'scorecard-viewer', 'site-business', 'group-business', 'dashboard-publisher', 'committee-member', 'field-tech', 'finance-viewer', 'kpi-committee', 'finance-verifier'];
 
 // D-04 (AMDEC AM-04): an unknown role string is REFUSED at create/update, never dropped in
 // silence (an admin believed `kpi-comittee` had been granted). Returns the unknown ones.

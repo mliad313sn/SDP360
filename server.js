@@ -1313,7 +1313,7 @@ function loadHtml(name) {
   'site-awareness.html', 'no-access.html',
   'assets.html', 'assets-hygiene.html', 'assets-finance.html', 'wan.html', 'wan-health.html', 'wan-sla.html', 'itsm-roadmap.html',
   'infra-health.html', 'itsm-integrations-plan.html',
-  'dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html', 'cockpit.html', 'portfolio.html', 'project.html', 'rfi.html', 'report-studio.html', 'notifications.html', 'integrations.html', 'commitments.html', 'handoffs.html', 'obligations.html', 'home.html', 'policies.html', 'access.html', 'coverage.html', 'kpi-builder.html', 'data-quality.html', 'workspace-settings.html',
+  'dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html', 'cockpit.html', 'portfolio.html', 'project.html', 'rfi.html', 'report-studio.html', 'notifications.html', 'integrations.html', 'commitments.html', 'handoffs.html', 'obligations.html', 'home.html', 'policies.html', 'access.html', 'coverage.html', 'kpi-builder.html', 'finance.html', 'data-quality.html', 'workspace-settings.html',
 ].forEach(loadHtml);
 
 // Helper: build the per-request HTML, inject api-key + nonce, send. Pages
@@ -1424,7 +1424,7 @@ app.get('/assets.html', (req, res) => {
 app.get('/wan.html', (req, res) => {
   sendHtmlPage(res, 'wan.html', false, 'WAN unavailable');
 });
-for (const _p of ['dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html', 'cockpit.html', 'portfolio.html', 'project.html', 'rfi.html', 'report-studio.html', 'notifications.html', 'integrations.html', 'commitments.html', 'handoffs.html', 'obligations.html', 'policies.html', 'access.html', 'coverage.html', 'kpi-builder.html']) app.get('/' + _p, (req, res) => sendHtmlPage(res, _p, false, 'Page unavailable'));
+for (const _p of ['dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html', 'cockpit.html', 'portfolio.html', 'project.html', 'rfi.html', 'report-studio.html', 'notifications.html', 'integrations.html', 'commitments.html', 'handoffs.html', 'obligations.html', 'policies.html', 'access.html', 'coverage.html', 'kpi-builder.html', 'finance.html']) app.get('/' + _p, (req, res) => sendHtmlPage(res, _p, false, 'Page unavailable'));
 app.get('/wan-health.html', (req, res) => {
   sendHtmlPage(res, 'wan-health.html', false, 'WAN Health unavailable');
 });
@@ -2155,7 +2155,7 @@ app.get('/api/assets/finance/export.xlsx', requireReportSession, requireMoneyRea
     const s = await adb.getFinanceSummary(_assetFinanceFilters(req), rate, { ...mo, ...cert });
     const sheets = [{ name: 'Finance by site', rows: s.by_site }];
     if (cert.display === '1') sheets.push(_certificationSheet('Finance', s.certification, s.coverage_by_site));
-    const buf = buildWorkbook(sheets);
+    const buf = buildWorkbook([...sheets, ...await require('./services/financeCertExport').sheets(['asset_finance', 'depreciation'], req)]);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="assets-finance.xlsx"');
     res.send(buf);
@@ -2233,7 +2233,7 @@ app.get('/api/assets/licences/export.xlsx', requireReportSession, requireMoneyRe
       sheets.push({ name: adb.LICENCE_KINDS[key].label || key,
         rows: await adb.getLicenceExceptions(key, filters) });
     }
-    const buf = buildWorkbook(sheets);
+    const buf = buildWorkbook([...sheets, ...await require('./services/financeCertExport').sheets(['licences'], req)]);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="assets-licences.xlsx"');
     res.send(buf);
@@ -2859,7 +2859,7 @@ app.get('/api/assets/investment/export.xlsx', requireReportSession, requireMoney
     if (cert.display === '1' && hwCov.certification) {
       sheets.push(_certificationSheet('Hardware forecast', hwCov.certification, hwCov.by_site));
     }
-    const buf = buildWorkbook(sheets);
+    const buf = buildWorkbook([...sheets, ...await require('./services/financeCertExport').sheets(['investment'], req)]);
     res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     res.setHeader('Content-Disposition', 'attachment; filename="assets-investment.xlsx"');
     res.send(buf);
@@ -6882,7 +6882,7 @@ const _cmtStore = require('./routes/commitments').createStore(require('./reports
 app.use(require('./routes/policies')({ express, requireReportSession, sendHtmlPage }));   // governance policies (027) — every regulation behaviour as a parameter
 const _rolesStore = require('./routes/governanceRoles').createStore(require('./reports-db')); app.use(require('./routes/governanceRoles')({ express, requireReportSession, store: _rolesStore }));   // ADR-006 — roles, deputies, escalation matrix (035)
 const _hoStore = require('./routes/handoffs').createStore(require('./reports-db')); app.use(require('./routes/handoffs')({ express, requireReportSession, store: _hoStore, rolesStore: _rolesStore, commitmentStore: _cmtStore, sendHtmlPage, notify: (n) => _engStore.notify(n) })); app.use(require('./routes/shiftHandovers')({ express, requireReportSession, rolesStore: _rolesStore }));   // C-21 shift handover (062)   // G-22 — interdepartmental handoffs (026), flags handoffs_enabled + handoff_notify_enabled
-app.use(require('./routes/kpiPolicies')({ express, requireReportSession, rolesStore: _rolesStore }));   // C-31 KPI policy builder (065), switch kpi_policy_enforced
+app.use(require('./routes/kpiPolicies')({ express, requireReportSession, rolesStore: _rolesStore })); app.use(require('./routes/finance')({ express, requireReportSession }));   // C-31 KPI policy builder (065), switch kpi_policy_enforced · A1/B8 finance certification + FX + actuals import (094/095)
 app.use(require('./routes/obligations')({ express, requireReportSession, sendHtmlPage, getCommitmentStore: () => _cmtStore, getHandoffStore: () => _hoStore }));   // committee #39 — one read-only view of what a site owes
 
 // ══════════════════════════════════════════════════════════════════

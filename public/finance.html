@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Certification Finance — Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="admin|finance-viewer|finance-verifier" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<style nonce="%%CSP_NONCE%%">
+  body { margin: 0; background: var(--color-bg); color: var(--color-text-strong); font-family: var(--font-sans, sans-serif); font-size: 14px; }
+  .fn-wrap { max-width: 1280px; margin: 0 auto; padding: 24px 28px 48px; }
+  .fn-card { background: var(--color-card); border: 1px solid var(--color-border); border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; overflow-x: auto; }
+  @media (max-width: 640px) { .fn-wrap { padding: 16px 12px 32px; } .fn-card { padding: 14px 12px; } }
+  h1 { margin: 0 0 6px; font-size: 22px; } h2 { font-size: 16px; margin: 0 0 8px; }
+  .fn-muted { color: var(--color-text-muted); font-size: 12.5px; }
+  table { border-collapse: collapse; } td, th { padding: 5px 6px; border-bottom: 1px solid var(--color-border); text-align: left; font-size: 12.5px; vertical-align: top; }
+  .fn-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; align-items: end; margin-bottom: 10px; }
+  .fn-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
+  .fn-msg { min-height: 18px; font-size: 13px; } .fn-err { color: var(--color-danger); } .fn-ok { color: var(--color-success); }
+  .fn-badge { display: inline-block; border-radius: 6px; padding: 2px 8px; font-weight: 700; border: 1px solid var(--color-border); }
+  .fn-num { text-align: right; font-variant-numeric: tabular-nums; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<a class="edv-skip" href="#main">Aller au contenu</a>
+<div id="__shell" data-section="reports" data-current="finance"></div>
+<main id="main" class="fn-wrap">
+  <div class="fn-card">
+    <h1>Certification Finance, taux de change et réels Pronto</h1>
+    <p class="fn-muted">Un chiffre financier n'est « Certifié » que lorsqu'un vérificateur Finance nommé (rôle <b>finance-verifier</b>, qui peut lire les montants et n'a pas saisi ces chiffres) l'a certifié, avec sa preuve et sa source. Si les chiffres changent ensuite, le badge redevient « Non certifié ». La couverture (part des actifs avec un coût) reste un indicateur distinct. Les réels Pronto arrivent par FICHIER uniquement — aucune connexion à Pronto, aucune écriture en retour.</p>
+    <div id="fnMsg" class="fn-msg" role="status" aria-live="polite"></div>
+  </div>
+
+  <section class="fn-card" id="fnCertCard" hidden aria-labelledby="fnCertH">
+    <h2 id="fnCertH">Certification d'un chiffre</h2>
+    <div class="fn-form">
+      <label>Périmètre <select id="fnScope"></select></label>
+      <label>Clé (fleet · site:&lt;site&gt; · project:&lt;id&gt;) <input id="fnKey" value="fleet" autocomplete="off"></label>
+      <label>Mois (AAAA-MM) <input id="fnPeriod" autocomplete="off" inputmode="numeric"></label>
+      <div><button type="button" id="fnStatusBtn">Voir l'état</button></div>
+    </div>
+    <p>État : <span id="fnBadge" class="fn-badge">—</span> <span id="fnBadgeDetail" class="fn-muted"></span></p>
+    <div id="fnCertify" hidden>
+      <div class="fn-form">
+        <label>Preuve (ce qui a été rapproché de quoi) <input id="fnEvidence" autocomplete="off"></label>
+        <label>Source <input id="fnSource" autocomplete="off" placeholder="Extrait GL Pronto 2026-10"></label>
+        <label>Lien de preuve (http/https, facultatif) <input id="fnLink" autocomplete="off"></label>
+        <div><button type="button" id="fnCertifyBtn">Certifier</button></div>
+      </div>
+    </div>
+    <h2>Registre</h2>
+    <p class="fn-muted"><a id="fnExport" href="/api/finance/certifications/export.xlsx">Exporter le registre et le journal (Excel)</a></p>
+    <table aria-label="Registre des certifications"><thead><tr><th scope="col">#</th><th scope="col">Périmètre</th><th scope="col">Clé</th><th scope="col">Mois</th><th scope="col">Statut</th><th scope="col">État actuel</th><th scope="col">Par</th><th scope="col">Le</th><th scope="col">Source</th><th scope="col">Action</th></tr></thead><tbody id="fnReg"></tbody></table>
+  </section>
+
+  <section class="fn-card" id="fnFxCard" hidden aria-labelledby="fnFxH">
+    <h2 id="fnFxH">Taux de change datés</h2>
+    <p class="fn-muted">Taux = USD pour 1 unité de la devise ; USD est la base. Le taux d'un jour est le dernier taux non retiré en vigueur ce jour-là. Un taux n'est jamais modifié : on le retire et on en saisit un nouveau.</p>
+    <table aria-label="Taux de change"><thead><tr><th scope="col">#</th><th scope="col">Devise</th><th scope="col">En vigueur au</th><th scope="col" class="fn-num">Taux</th><th scope="col">Source</th><th scope="col">Saisi par</th><th scope="col">Retiré</th><th scope="col">Action</th></tr></thead><tbody id="fnRates"></tbody></table>
+    <div class="fn-form" id="fnRateForm" hidden>
+      <label>Devise <select id="fnRateCur"><option>XOF</option><option>EUR</option></select></label>
+      <label>En vigueur au (AAAA-MM-JJ) <input id="fnRateFrom" autocomplete="off"></label>
+      <label>Taux (USD pour 1) <input id="fnRateVal" autocomplete="off" inputmode="decimal"></label>
+      <label>Source <input id="fnRateSrc" autocomplete="off" placeholder="BCEAO, BCE, Finance"></label>
+      <div><button type="button" id="fnRateAdd">Ajouter le taux</button></div>
+    </div>
+    <h2>Convertir</h2>
+    <div class="fn-form">
+      <label>Montant <input id="fnCvAmt" autocomplete="off" inputmode="decimal"></label>
+      <label>De <select id="fnCvFrom"><option>XOF</option><option>EUR</option><option>USD</option></select></label>
+      <label>Vers <select id="fnCvTo"><option>USD</option><option>XOF</option><option>EUR</option></select></label>
+      <label>Date <input id="fnCvDate" autocomplete="off"></label>
+      <div><button type="button" id="fnCvBtn">Convertir</button></div>
+    </div>
+    <p id="fnCvOut" class="fn-muted" aria-live="polite"></p>
+    <h2>Ma devise d'affichage</h2>
+    <div class="fn-form">
+      <label>Devise <select id="fnPref"><option value="">(défaut du site)</option><option>USD</option><option>XOF</option><option>EUR</option></select></label>
+      <div><button type="button" id="fnPrefSave">Enregistrer</button></div>
+    </div>
+    <p id="fnPrefOut" class="fn-muted"></p>
+  </section>
+
+  <section class="fn-card" id="fnImpCard" hidden aria-labelledby="fnImpH">
+    <h2 id="fnImpH">Import des réels Pronto (fichier CSV / Excel)</h2>
+    <p class="fn-muted">1. Choisir le fichier · 2. Associer les colonnes (ou choisir un modèle enregistré) · 3. Simulation : erreurs par ligne et rapprochement avec les périodes budgétaires · 4. Valider avec un motif. Les montants restent dans leur devise ; rien n'est additionné entre devises. Les réels importés restent « Non certifiés » jusqu'à la certification Finance.</p>
+    <div class="fn-form">
+      <label>Fichier <input type="file" id="fnFile" accept=".csv,.xlsx,.xls"></label>
+      <label>Modèle enregistré <select id="fnTpl"><option value="">(aucun)</option></select></label>
+      <label>Format des dates <select id="fnDateFmt"><option>ISO</option><option>DMY</option><option>MDY</option></select></label>
+    </div>
+    <div class="fn-form" id="fnMap"></div>
+    <div class="fn-form">
+      <label>Enregistrer le modèle sous <input id="fnTplName" autocomplete="off"></label>
+      <div><button type="button" id="fnTplSave">Enregistrer le modèle</button></div>
+      <div><button type="button" id="fnDry">Simulation</button></div>
+    </div>
+    <div id="fnDryOut"></div>
+    <div class="fn-form" id="fnCommitRow" hidden>
+      <label>Motif <input id="fnReason" autocomplete="off" placeholder="Clôture Pronto octobre"></label>
+      <label><span><input type="checkbox" id="fnSkip"> ignorer les lignes en erreur</span></label>
+      <div><button type="button" id="fnCommit">Valider l'import</button></div>
+    </div>
+    <h2>Imports validés</h2>
+    <table aria-label="Imports validés"><thead><tr><th scope="col">#</th><th scope="col">Fichier</th><th scope="col">Lignes</th><th scope="col">Écrites</th><th scope="col">Par</th><th scope="col">Le</th><th scope="col">Rapprochement</th></tr></thead><tbody id="fnBatches"></tbody></table>
+  </section>
+</main>
+<script nonce="%%CSP_NONCE%%" src="finance.js"></script>
+</body>
+</html>
