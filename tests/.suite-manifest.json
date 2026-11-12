@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 4505,
+ "total": 4510,
  "files": {
   "a11y-static.test.js": 18,
   "access-approver-policy.test.js": 4,
@@ -396,10 +396,11 @@
   "portfolio-access.test.js": 9,
   "portfolio-benefits.smoke.test.js": 6,
   "portfolio-benefits.test.js": 7,
-  "portfolio-deck.test.js": 4,
+  "portfolio-capacity-parity.test.js": 3,
+  "portfolio-deck.test.js": 5,
   "portfolio-site-scope.smoke.test.js": 7,
   "postgres-only.test.js": 5,
-  "ppm-alerts-cli.test.js": 4,
+  "ppm-alerts-cli.test.js": 5,
   "ppm-alerts.test.js": 9,
   "ppm-baseline.test.js": 3,
   "ppm-baselines.smoke.test.js": 6,

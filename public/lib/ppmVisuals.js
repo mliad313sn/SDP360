@@ -250,5 +250,18 @@
       '<details><summary class="muted">List view (the same data)</summary><table><thead><tr><th>Person</th><th>Week of</th><th>Peak</th><th>Over 100 %</th><th>Unknown allocations</th><th>Effort</th></tr></thead><tbody>' + list.join('') + '</tbody></table></details>';
   }
 
-  return { navIndex: navIndex, riskMatrix: riskMatrix, resourcePressure: resourcePressure, capacityBySite: capacityBySite, capacityConflicts: capacityConflicts, capacityHtml: capacityHtml, riskMatrixHtml: riskMatrixHtml, cellListHtml: cellListHtml, pressureHtml: pressureHtml, SCALE: SCALE };
+  /** F-PRODUCT-02 — what sits under a conflict table: the coverage sentence and the POSSIBLE conflicts (overlapping
+   *  tasks where an allocation is not known). Never "none" when something is unknown. Every value through esc. */
+  function coverageHtml(cov, nConflicts, esc) {
+    if (!cov) return '';
+    var blind = cov.unknown + cov.invalid;
+    var head = nConflicts ? '' : '<p class="muted">' + esc(blind ? 'No conflict among the KNOWN allocations — this is not “none”: ' + cov.unknown + ' open task(s) have no allocation' + (cov.invalid ? ' and ' + cov.invalid + ' carry a value outside 0–100 %' : '') + '.' : 'Nobody is booked above 100 % on overlapping days.') + '</p>';
+    var line = '<p class="muted">' + esc(['Coverage: ', cov.known, ' of ', cov.tasks, ' open task(s) with a known allocation · ', cov.unknown, ' unknown · ', cov.invalid, ' invalid · ', cov.unassigned, ' without owner · ', cov.undated, ' without dates.'].join('')) + '</p>';
+    var pc = cov.possible_conflicts || [];
+    var tbl = pc.length ? '<table><caption>Possible conflicts — overlapping tasks where an allocation is not known (not counted as conflicts)</caption><thead><tr><th>Person</th><th>From</th><th>To</th><th>Known load</th><th>Tasks without a usable allocation</th></tr></thead><tbody>' +
+      pc.map(function (c) { return '<tr><td>' + esc(c.owner) + '</td><td>' + esc(c.from) + '</td><td>' + esc(c.to) + '</td><td>' + esc(c.known_peak_pct == null ? 'unknown' : c.known_peak_pct + ' % known') + '</td><td>' + esc('#' + c.unknown_task_ids.concat(c.invalid_task_ids).join(', #')) + '</td></tr>'; }).join('') + '</tbody></table>' : '';
+    return head + line + tbl;
+  }
+
+  return { coverageHtml: coverageHtml, navIndex: navIndex, riskMatrix: riskMatrix, resourcePressure: resourcePressure, capacityBySite: capacityBySite, capacityConflicts: capacityConflicts, capacityHtml: capacityHtml, riskMatrixHtml: riskMatrixHtml, cellListHtml: cellListHtml, pressureHtml: pressureHtml, SCALE: SCALE };
 }));

@@ -627,7 +627,8 @@ module.exports = function governanceRoutes(deps) {
   async function exceptionsFor(v) {
     const cfg = await reportConfig.getConfig(rdb().db);
     const num = (x, d) => (Number.isFinite(Number(x)) && String(x).trim() !== '' ? Number(x) : d);
-    return PX.findExceptions(v, { today: new Date().toISOString().slice(0, 10), blockedDays: num(cfg.ppm_alert_blocked_days, 5), slipDays: num(cfg.ppm_alert_slip_days, 10) });
+    return PX.findExceptions(v, { today: new Date().toISOString().slice(0, 10), blockedDays: num(cfg.ppm_alert_blocked_days, 5), slipDays: num(cfg.ppm_alert_slip_days, 10),
+      capacity: require('../services/projectSchedule').resourceConflicts(v.tasks || []) });   // F-PRODUCT-02: same list as the tile and the workbook
   }
   router.get('/api/governance/portfolio/exceptions', requireReportSession, async (req, res) => {
     try { const { v } = await viewFor(req.reportUser); const items = await exceptionsFor(v);

@@ -69,3 +69,14 @@ test('the CLI loads .env before any db module and is guarded by require.main', (
   assert.match(src, /if \(require\.main === module\) require\('dotenv'\)/);
   assert.match(src, /if \(require\.main === module\) \{/);
 });
+
+test('F-PRODUCT-02: the CLI feeds over-allocation to A11 from the KNOWN allocations (unknown is never an alert)', async () => {
+  const day = (id, o) => ({ id, project_id: 1, name: 'T' + id, owner: 'Jane Doe', status: 'todo', start_date: '2027-03-01', end_date: '2027-03-05', ...o });
+  const f = fakes({ tasks: [day(1, { allocation_pct: 70 }), day(2, { allocation_pct: 50 }), day(3, { owner: 'Sam', allocation_pct: 60 }), day(4, { owner: 'Sam' })] });
+  const r = await CLI.run({ deps: f.deps, log: quiet });
+  assert.deepStrictEqual(r.would_notify.map((x) => x.key), ['capacity_overload:person:jane doe:2027-03-01'], 'Jane 120 %; Sam 60 % + unknown is not an alert');
+  assert.strictEqual(f.firings.length, 0, 'disarmed: nothing recorded');
+  const g = fakes({ cfg: { ppm_alerts_enabled: '1' }, tasks: [day(1, { allocation_pct: 70 }), day(2, { allocation_pct: 50 })] });
+  await CLI.run({ deps: g.deps, log: quiet }); await CLI.run({ deps: g.deps, log: quiet });
+  assert.strictEqual(g.firings.length, 1, 'the same conflict is not re-notified the same day');
+});

@@ -80,6 +80,10 @@ test('capacity_overload only when a capacity grid is passed', () => {
   assert.strictEqual(kinds(run({}), 'capacity_overload').length, 0);
   const r = run({}, { capacity: [{ owner: 'A. Kone', from: '2027-01-11', to: '2027-01-15', peak_pct: 120, task_ids: [1, 2] }] });
   assert.deepStrictEqual(kinds(r, 'capacity_overload').map((x) => x.key), ['capacity_overload:person:a. kone:2027-01-11']);
+  // F-PRODUCT-02: the key does not move with the peak or the end date (dedup in ppm_alert_state stays stable)
+  const r2 = run({}, { capacity: [{ owner: ' A. KONE ', from: '2027-01-11', to: '2027-01-20', peak_pct: 160, task_ids: [1, 2, 3] }] });
+  assert.deepStrictEqual(kinds(r2, 'capacity_overload').map((x) => x.key), ['capacity_overload:person:a. kone:2027-01-11']);
+  assert.match(kinds(r2, 'capacity_overload')[0].message, /160 %/);
 });
 
 test('item keys are stable across runs (same data, same keys, same order)', () => {
