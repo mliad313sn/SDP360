@@ -473,6 +473,7 @@
   // These fleet figures are not in the metric dictionary yet (exec.* keys): the label says so.
   function kpiCard(label, obj, opts) {
     opts = opts || {};
+    if (opts.labelSuffix) label = label + opts.labelSuffix;   // e.g. the SLA definition named in the label
     const mk = ' data-metric-key="' + esc(opts.key || '') + '"' + (opts.slaDef ? ' data-sla-definition="' + esc(opts.slaDef) + '"' : '');
     if (!hasVal(obj)) {
       return '<div class="kpi-card"' + mk + '><div class="kpi-label">' + esc(label) + '</div>' +
@@ -510,7 +511,7 @@
     const chg = k.change_success || {};
     const html = [
       kpiCard('Requests Resolved', rr, { key: 'exec.requests_resolved', deltaVal: rr.delta_pct, deltaUnit: '%' }),
-      kpiCard('Answered within SLA (' + SLA_DEF_LBL[sla.definition === 'incl_open' ? 'incl_open' : 'closed_only'] + ')', sla, { key: 'exec.sla_compliance', unit: '%', deltaVal: sla.delta_pp, deltaUnit: 'pp',
+      kpiCard('Answered within SLA', sla, { key: 'exec.sla_compliance', labelSuffix: ' (' + SLA_DEF_LBL[sla.definition === 'incl_open' ? 'incl_open' : 'closed_only'] + ')', unit: '%', deltaVal: sla.delta_pp, deltaUnit: 'pp',
         slaDef: sla.definition === 'incl_open' ? 'incl_open' : 'closed_only', note: slaNote(sla),
         spark: spark.sla, sparkColor: '#145FAE' }),
       kpiCard('Average Resolution Time', art, { key: 'exec.avg_resolution_h', unit: 'h', deltaVal: art.delta_h, deltaUnit: 'h', invert: true }),

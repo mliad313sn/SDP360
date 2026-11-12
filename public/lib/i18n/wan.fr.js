@@ -36,6 +36,28 @@
       'Sites rattachés = sites ayant un réseau Meraki (Admin → Infra WAN). Liens rattachés = liens vus dans l’archive WAN ou le journal des coupures qui correspondent à un circuit SLA (Admin → SLA WAN).',
     'Outage timeline —': 'Chronologie des coupures —', 'Site (both links / power)': 'Site (deux liens / électricité)',
     'Maintenance': 'Maintenance', 'Not attributed': 'Non attribuée', 'Still open': 'Toujours ouverte', 'Data freshness': 'Fraîcheur des données',
+    // P8 (B1) — SLA credit claims tab + Teams SLA alerts readiness.
+    'Réclamations': 'Réclamations', 'SLA credit claims': 'Réclamations de crédits SLA', 'From': 'De', 'due': 'dû', 'to': 'à',
+    'recovered': 'récupéré',
+    ": one claim per circuit × closed month. The due amount is the SLA engine's figure, frozen with an evidence hash; every status change carries a motive and is recorded in a tamper-evident trail.":
+      ' : une réclamation par circuit × mois clos. Le montant dû est le chiffre du moteur SLA, figé avec une empreinte de preuve ; chaque changement de statut porte un motif et est consigné dans une piste infalsifiable.',
+    'Quarter': 'Trimestre', 'Claimed': 'Réclamé', 'Credited': 'Crédité', 'Disputed': 'Contesté', 'Written off': 'Abandonné',
+    'Quarter totals — due vs claimed vs recovered (per currency, never added together)':
+      'Totaux du trimestre — dû, réclamé, récupéré (par devise, jamais additionnées)',
+    'Currency': 'Devise', 'Recovered': 'Récupéré', 'Open claims': 'Réclamations ouvertes', 'Median age (days)': 'Âge médian (jours)',
+    'Open a claim': 'Ouvrir une réclamation', 'Circuit (from the SLA tab)': 'Circuit (de l’onglet SLA)', 'Open claim': 'Ouvrir la réclamation',
+    'Only a closed month with a credit due can be claimed; one claim per circuit and month.':
+      'Seul un mois clos avec un crédit dû peut être réclamé ; une réclamation par circuit et par mois.',
+    'Claims': 'Réclamations', 'Site / Uplink': 'Site / Lien', 'ISP · Circuit': 'FAI · Circuit', 'Days since due': 'Jours depuis l’échéance',
+    'Days since claimed': 'Jours depuis la réclamation', 'Evidence': 'Preuves', 'Stale': 'Périmé',
+    '= outages or contract terms changed after the amount was frozen — review before claiming. Amounts are shown to the admin tier and Finance only.':
+      '= les coupures ou les termes du contrat ont changé après le gel du montant — à revoir avant de réclamer. Les montants ne sont visibles que du palier admin et de la Finance.',
+    'Real-time Teams SLA alerts (SDP Cloud) — readiness': 'Alertes SLA Teams en temps réel (SDP Cloud) — état de préparation',
+    'These alerts are switched on by a person, never from this page: OAuth client + refresh token for SDP Cloud, one Workflows webhook per Teams channel, then arm them in':
+      'Ces alertes sont activées par une personne, jamais depuis cette page : client OAuth + jeton de rafraîchissement pour SDP Cloud, un webhook Workflows par canal Teams, puis armement dans',
+    'Admin ▸ Intégration API ▸ Alertes SLA': 'Admin ▸ Intégration API ▸ Alertes SLA',
+    '. Guide: docs/integration/2026-10-03-teams-sla-alerts-setup.md.': '. Guide : docs/integration/2026-10-03-teams-sla-alerts-setup.md.',
+    'who chases the ISP': 'qui relance le FAI',
   };
   const RUNTIME_KEYS = {
     'no data for this site': 'pas de données pour ce site', '⏳ Syncing…': '⏳ Synchronisation…',

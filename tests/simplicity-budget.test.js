@@ -42,6 +42,7 @@ const PERSONAS = {
 };
 
 // Today's menu (measured on sdp-waves before A-21) — the 'full' profile must reproduce it entry for entry.
+// P4 (A2): 'connector-health' is a deliberate, switch-less admin entry (read-only status page) — in the full menu, lean_hidden in the lean one.
 const OPS_ANY = ['inspections', 'meetings', 'site-actions', 'tracker', 'trackers', 'dashboards', 'cockpit', 'portfolio', 'rfi', 'report-studio', 'notifications', 'handoffs', 'obligations'];
 const INFRA = ['assets', 'wan', 'infra-health'];
 const TODAY = {
@@ -49,9 +50,9 @@ const TODAY = {
   editor: { home: [], helpdesk: ['dashboard'], operations: [...OPS_ANY, 'field'], infrastructure: INFRA, reports: ['site-reports'], help: [] },
   'editor+tracker-editor': { home: [], helpdesk: ['dashboard'], operations: [...OPS_ANY, 'field'], infrastructure: INFRA, reports: ['site-reports'], help: [] },
   'field-tech': { home: [], helpdesk: ['dashboard'], operations: [...OPS_ANY, 'field'], infrastructure: INFRA, reports: ['site-reports'], help: [] },
-  admin: { home: [], helpdesk: ['dashboard', 'analytics'], operations: [...OPS_ANY, 'policies', 'integrations', 'field'], infrastructure: INFRA, reports: ['site-reports'], help: [] },
-  executive: { home: [], 'site-awareness': [], helpdesk: ['dashboard', 'analytics'], operations: [...OPS_ANY, 'policies', 'integrations', 'field'], infrastructure: INFRA, reports: ['site-reports'], executive: ['exec-home', 'it-review', 'scorecard'], help: [] },
-  super_admin: { home: [], 'site-awareness': [], helpdesk: ['dashboard', 'analytics'], operations: [...OPS_ANY, 'policies', 'integrations', 'field'], infrastructure: INFRA, reports: ['site-reports', 'reports-builder'], executive: ['exec-home', 'it-review', 'scorecard'], admin: ['admin-settings', 'system-logs'], help: [] },
+  admin: { home: [], helpdesk: ['dashboard', 'analytics'], operations: [...OPS_ANY, 'policies', 'integrations', 'connector-health', 'field'], infrastructure: INFRA, reports: ['site-reports'], help: [] },
+  executive: { home: [], 'site-awareness': [], helpdesk: ['dashboard', 'analytics'], operations: [...OPS_ANY, 'policies', 'integrations', 'connector-health', 'field'], infrastructure: INFRA, reports: ['site-reports'], executive: ['exec-home', 'it-review', 'scorecard'], help: [] },
+  super_admin: { home: [], 'site-awareness': [], helpdesk: ['dashboard', 'analytics'], operations: [...OPS_ANY, 'policies', 'integrations', 'connector-health', 'field'], infrastructure: INFRA, reports: ['site-reports', 'reports-builder'], executive: ['exec-home', 'it-review', 'scorecard'], admin: ['admin-settings', 'system-logs'], help: [] },
   'committee-member': { helpdesk: ['dashboard'], operations: [...OPS_ANY, 'policies'], infrastructure: INFRA, reports: ['site-reports'], help: [] },
   'business-only': { 'site-awareness': [] },
 };

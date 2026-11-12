@@ -73,6 +73,16 @@
       '% SLA 1re réponse — part des tickets de ce technicien ayant reçu une première réponse dans le délai SLA. Plus haut = mieux. Cible ≥ 80 %.',
     'Resolution SLA % — % of this technician\'s tickets fully resolved within the SLA target time. Higher is better. Target ≥90%.':
       '% SLA de résolution — part des tickets de ce technicien entièrement résolus dans le délai SLA. Plus haut = mieux. Cible ≥ 90 %.',
+    // P3 — SLA dual rates + voice-of-the-user tiles.
+    '(responded tickets only)': '(tickets avec réponse uniquement)', '(closed tickets only)': '(tickets clos uniquement)',
+    'Voice of the user — CSAT / NPS by site': 'Voix de l’utilisateur — CSAT / NPS par site', 'Replies': 'Réponses',
+    'Response rate': 'Taux de réponse', 'CSAT %': '% CSAT', 'NPS': 'NPS', 'CSAT trend (6 months)': 'Tendance CSAT (6 mois)',
+    'Tickets created / closed': 'Tickets créés / clos', 'Verbatims': 'Verbatims',
+    '1st Reply SLA % — percentage of tickets that received their first technician response within the SLA target time. Headline = responded tickets only unless the KPI committee switches it; the line below counts open, unanswered tickets already late as failures. Higher is better. Target ≥80%.':
+      '% SLA 1re réponse — part des tickets ayant reçu la première réponse d’un technicien dans le délai SLA. Chiffre principal = tickets avec réponse uniquement, sauf bascule du comité KPI ; la ligne en dessous compte comme échecs les tickets ouverts sans réponse déjà en retard. Plus haut = mieux. Cible ≥ 80 %.',
+    'Resolution SLA % — percentage of tickets resolved within the SLA target time. Headline = closed tickets only unless the KPI committee switches it; the line below counts open tickets already past their target as failures (on hold = SLA paused). Higher is better. Target ≥90%.':
+      '% SLA de résolution — part des tickets résolus dans le délai SLA. Chiffre principal = tickets clos uniquement, sauf bascule du comité KPI ; la ligne en dessous compte comme échecs les tickets ouverts déjà hors délai (en attente = SLA en pause). Plus haut = mieux. Cible ≥ 90 %.',
+    'Replies ÷ closed tickets created in the month': 'Réponses ÷ tickets clos créés dans le mois',
     // runtime (set by the page script)
     '⏳ Exporting…': '⏳ Export en cours…',
   };
