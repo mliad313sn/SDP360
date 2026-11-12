@@ -5,7 +5,7 @@
 const assert = require('node:assert');
 const { runJourney } = require('./fixtures/harness');
 
-runJourney('T7 switch to French and open the manual', async ({ world, browser, j, login }) => {
+runJourney('T7 switch to French and open the manual', async ({ app, world, browser, j, login }) => {
   await world.setConfig({ ui_i18n_pages: '1' });
   const ctx = await j.newContext(browser);
   const page = await ctx.newPage();
@@ -28,4 +28,9 @@ runJourney('T7 switch to French and open the manual', async ({ world, browser, j
   assert.match(await manual.textContent('#sec-fr h2'), /Vue d'ensemble/);
   assert.strictEqual(await manual.getAttribute('html', 'lang'), 'fr');
   await j.measure(manual, 'help-fr');
+
+  // F-UX-01 — a bilingual data-lng page (Home) announces French too, not only the dictionary pages.
+  await page.goto(app.base + '/home.html');
+  await page.waitForFunction(() => document.body.classList.contains('lang-fr'), null, { timeout: 15000 });
+  assert.strictEqual(await page.getAttribute('html', 'lang'), 'fr', '<html lang> follows the French body on Home');
 });

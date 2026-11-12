@@ -6,7 +6,7 @@
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   let lang = 'en';
   try { lang = (window.__shell && window.__shell.shellLang && window.__shell.shellLang()) || 'en'; } catch (_) { lang = 'en'; }
-  if (lang === 'fr') document.body.classList.add('lang-fr');
+  if (lang === 'fr') { document.body.classList.add('lang-fr'); document.documentElement.lang = 'fr'; }   // F-UX-01: French body, French voice
   const MONTHS = { en: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'], fr: ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'] };
   const L = {
     en: { nm: '— not measured', actions: 'Open actions', open: 'open', overdue: 'overdue', oldest: 'oldest', days: 'days', none: 'nothing open',
