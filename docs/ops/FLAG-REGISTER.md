@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (183) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (185) — services/reportConfig.js DEFAULTS
 
 | Key | Default (today) | Kind | Owner | Recommended pilot value | Reference |
 |---|---|---|---|---|---|
@@ -26,6 +26,8 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `access_require_approval` | `0` | setting | Security owner + Owner (approver matrix) | `1` once the approver rule and the requires_request list are decided (break-glass stays possible, logged risk=1) | C-18 |
 | `agenda_cron_enabled` | `0` | arm switch | Committee | `1` (the Monday job prepares a DRAFT agenda per cadence due that week; nothing is sent, the secretary still prepares the session) | E-G03 |
 | `alert_external_enabled` | `0` | arm switch | to be named | — | — |
+| `alert_group_by_rule` | `0` | setting | Owner (alerting policy) | `1` (proposal — the e-mail digest shows one line per alert rule listing its sites instead of one line per site) | E-R07 |
+| `alert_quiet_hours` | `` | setting | Owner (alerting policy) | e.g. `22:00-06:00` UTC (proposal — non-critical in-app firings wait until the window ends; critical ones are never deferred) | E-R07 |
 | `analytics_accounts_url` | `` | setting | to be named | — | — |
 | `analytics_client_id` | `` | setting | to be named | — | — |
 | `analytics_client_secret` | (secret — not shown) | secret | to be named | — | — |

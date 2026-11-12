@@ -362,6 +362,11 @@ DEFAULTS.delivery_failure_alert_enabled = '0';
 DEFAULTS.schedule_reminders_enabled = '0';
 DEFAULTS.schedule_reminder_lead_days = '';
 DEFAULTS.schedule_inspection_interval_days = '';
+// ── E-R07 (audit R-07) — sober alerting. alert_group_by_rule '1' = the e-mail digest folds one rule's alert notifications
+//    into ONE line listing the sites; '0' (default) = one line per notification (today). alert_quiet_hours "HH:MM-HH:MM"
+//    (UTC) = non-critical in-app firings inside the window are deferred until it ends; '' (default) = no quiet window.
+DEFAULTS.alert_group_by_rule = '0';
+DEFAULTS.alert_quiet_hours = '';
 const KEYS = Object.keys(DEFAULTS);
 
 // Secrets that the GET handler redacts to '' — a Save that doesn't retype them must

@@ -106,6 +106,8 @@ planned switch cannot be set before its goal lands.
 | `schedule_reminders_enabled` | built | `0` | `1` on the pilot site once the lead days are decided (in-app reminder to the site's editors before a scheduled PV / incubation session, cadence meeting or inspection) | Site coordination owner | E-R06 |
 | `schedule_reminder_lead_days` | built | `` (empty) | e.g. `3` (proposal — empty = no reminder even when armed) | Site coordination owner | E-R06 |
 | `schedule_inspection_interval_days` | built | `` (empty) | e.g. `90` if a quarterly inspection rhythm is adopted (proposal; empty = inspections are not reminded) | Infrastructure / GRC owner | E-R06 |
+| `alert_group_by_rule` | built | `0` | `1` (proposal — the e-mail digest shows one line per alert rule listing its sites instead of one line per site) | Owner (alerting policy) | E-R07 |
+| `alert_quiet_hours` | built | `` (empty) | e.g. `22:00-06:00` UTC (proposal — non-critical in-app firings wait until the window ends; critical ones are never deferred) | Owner (alerting policy) | E-R07 |
 
 Not in this table because they are not top-level `report_config` keys:
 

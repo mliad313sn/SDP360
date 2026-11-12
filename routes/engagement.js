@@ -68,6 +68,17 @@ module.exports = function engagementRoutes(deps) {
   });
   router.get('/api/engagement/firings', requireReportSession, requireAdmin, async (req, res) => { try { res.json({ ok: true, firings: await store.listFirings({ limit: req.query.limit, since: req.query.since || null }) }); } catch (e) { fail(res, e); } });
   router.put('/api/engagement/firings/:id', requireReportSession, requireAdmin, json, async (req, res) => { try { await store.markFalsePositive(req.params.id, { fp: req.body && req.body.false_positive !== false, note: req.body && req.body.note }); log(req, 'alert_firing_reviewed', req.params.id, { false_positive: req.body && req.body.false_positive !== false }); res.json({ ok: true }); } catch (e) { fail(res, e); } });
+  // E-R07 — alert noise per rule (admin tier): fired, sites, read rate (read_at — a READ, not an acknowledgement),
+  // median minutes to read. ?days= 1..90 (default 30). Null = no notification / nothing read, never 0.
+  router.get('/api/engagement/alert-noise', requireReportSession, requireAdmin, async (req, res) => {
+    try {
+      const days = Math.max(1, Math.min(90, Math.floor(Number(req.query.days)) || 30));
+      const rows = await store.alertNoiseRows({ since: new Date(Date.now() - days * 864e5).toISOString() });
+      const cfg = await require('../services/reportConfig').getConfig(rdb().db);
+      res.json({ ok: true, days, rules: require('../services/alertEngine').noiseMetrics(rows), read_is_not_acknowledgement: true,
+        grouping: String(cfg.alert_group_by_rule || '0') === '1', quiet_hours: String(cfg.alert_quiet_hours || '') || null });
+    } catch (e) { fail(res, e); }
+  });
   router.get('/api/engagement/stats', requireReportSession, requireAdmin, async (req, res) => { try { res.json({ ok: true, alerts: await store.firingStats({ since: new Date(Date.now() - 30 * 864e5).toISOString() }), rules_live: (await store.listRules({ includeDisabled: false })).length, reports: reportStore ? await reportStore.ratingStats() : null, api: await store.callStats({ days: 7 }) }); } catch (e) { fail(res, e); } });
 
   // ── share links ─────────────────────────────────────────────────────────────────
