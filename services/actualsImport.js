@@ -40,11 +40,18 @@ function parseAmount(raw) {
   let s = String(raw == null ? '' : raw).replace(/[\s  ]/g, '');
   if (!s) return null;
   let neg = false;
-  if (/^\(.*\)$/.test(s)) { neg = true; s = s.slice(1, -1); }
-  if (/^-?\d{1,3}(,\d{3})+(\.\d+)?$/.test(s)) s = s.replace(/,/g, '');
-  else if (/^-?\d{1,3}(\.\d{3})+(,\d+)?$/.test(s)) s = s.replace(/\./g, '').replace(',', '.');
-  else if (/^-?\d+,\d+$/.test(s)) s = s.replace(',', '.');
-  if (!/^-?\d+(\.\d+)?$/.test(s)) return null;
+  if (s.startsWith('(') && s.endsWith(')')) { neg = true; s = s.slice(1, -1); }
+  if (s.startsWith('-')) { neg = !neg; s = s.slice(1); }
+  const hasC = s.includes(','), hasD = s.includes('.');
+  if (hasC && hasD) {                                   // the LAST separator is the decimal one
+    const dec = s.lastIndexOf(',') > s.lastIndexOf('.') ? ',' : '.';
+    s = s.split(dec === ',' ? '.' : ',').join('').replace(',', '.');
+  } else if (hasC || hasD) {
+    const sep = hasC ? ',' : '.', parts = s.split(sep);
+    const thousands = parts.length > 2 || (sep === ',' && parts[1].length === 3);
+    s = thousands ? parts.join('') : parts.join('.');
+  }
+  if (!/^[0-9.]+$/.test(s) || s.split('.').length > 2 || s.startsWith('.') || s.endsWith('.')) return null;
   const n = Number(s);
   return Number.isFinite(n) ? (neg ? -n : n) : null;
 }
@@ -52,7 +59,7 @@ const mm = (m) => String(m).padStart(2, '0');
 function parsePeriod(raw, fmt) {
   const s = String(raw == null ? '' : raw).trim();
   let m;
-  if ((m = s.match(/^(\d{4})-(\d{2})(?:-(\d{2}))?$/))) return +m[2] >= 1 && +m[2] <= 12 ? { value: `${m[1]}-${m[2]}` } : { error: 'BAD_DATE' };
+  if ((m = s.match(/^(\d{4})-(\d{2})$/) || s.match(/^(\d{4})-(\d{2})-\d{2}$/))) return +m[2] >= 1 && +m[2] <= 12 ? { value: `${m[1]}-${m[2]}` } : { error: 'BAD_DATE' };
   if ((m = s.match(/^(\d{1,2})[/.-](\d{4})$/))) return +m[1] >= 1 && +m[1] <= 12 ? { value: `${m[2]}-${mm(m[1])}` } : { error: 'BAD_DATE' };
   if ((m = s.match(/^(\d{1,2})[/.](\d{1,2})[/.](\d{4})$/))) {
     const a = +m[1], b = +m[2];

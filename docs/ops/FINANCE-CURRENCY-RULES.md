@@ -27,3 +27,12 @@ still to decide. Nothing here is an approval. Amounts in two currencies are neve
 - Decide whether a currency is mandatory (`finance_currency_required`).
 - Review the projects listed as "default, not confirmed" on the portfolio page and state their currency.
 - Rows written before the flag existed are not classified: a Finance reviewer confirms them one by one.
+
+## A1 / B8 (goal programme 2026-11-12) — certification, dated rates, actuals import
+
+| Money path | Rule in code | Finance decision pending |
+|---|---|---|
+| Certification of a money figure (`finance_certification_enabled`) | `services/financeCertification.js`: certified only by a holder of `finance-verifier` (exact) who may read amounts and did not enter the figures; per scope × fleet / site / project × month; SHA-256 of the source rows + rates — any change = "Non certifié" again. Coverage stays separate (`services/moneyCoverage.js`) | Who is the verifier; the monthly certification policy (what evidence is enough) |
+| Dated FX rates (`actuals_import_enabled`) | `services/fxRates.js`: rate = USD for 1 unit, the latest non-retired rate on or before the day; never edited (retire + re-enter); a conversion names the rate id, value, date and source; no rate = UNKNOWN, never 0; a converted total exists only when every currency converted | The rate source (BCEAO / ECB / treasury) and who enters it |
+| Pronto actuals (file import) | `services/actualsImport.js`: CSV / Excel only, saved column mapping, row errors, GL lines netted per project × month × currency, kept in their native currency (never converted on import), written to `ppm_budget_periods` with a justification + `ppm_events` row; a re-import of the same file is refused | The Pronto export layout; whether credit lines are allowed per period |
+| Display currency | per user (`user_finance_prefs`), else the site currency (`asset_site_currency`), else USD — presentation only | — |
