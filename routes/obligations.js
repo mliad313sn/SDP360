@@ -51,7 +51,7 @@ module.exports = function obligationRoutes(deps) {
       let decisions;
       if (String(cfg.obligations_include_decisions) === '1') {
         try {
-          decisions = (await require('../services/governanceStore').makeGovernanceStore(rdb().pgHandle()).listDecisions({ status: ['open', 'in_progress'] }))
+          decisions = (await require('../services/governanceStore').makeGovernanceStore(rdb().pgHandle()).listDecisions({ status: require('../services/decisionLifecycle').OPEN_STATUSES }))
             .filter((d) => Number(d.site_id) === site);
           if (cmt && decisions.length) { const m = await cmt.linksFor(decisions.filter((d) => d.ref).map((d) => ({ system: 'governance', id: d.ref }))); for (const d of decisions) { const hit = m.get(`governance:${d.ref}`); if (hit) d.commitment = hit; } }
         } catch (_) { decisions = null; }

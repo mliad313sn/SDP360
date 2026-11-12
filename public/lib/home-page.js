@@ -13,12 +13,14 @@
       report: 'Weekly report', unsigned: 'PVs to sign', allSigned: 'all signed', insp: 'Last inspection', never: 'none recorded', ago: 'days ago', today: 'today',
       tracker: 'Activity tracker', empty: 'of {t} activities have nothing entered for {m}', full: 'all {t} activities filled for {m}', noAct: 'no activity due in {m}',
       loading: 'Loading…', more: '+ {n} more site(s) not shown', open_pv: 'Open',
+      aw: 'Awaiting me', awEv: 'evidence', awNone: 'nothing is waiting for you', awLate: 'late', awSrc: { commitments: 'Commitments to verify', handoffs: 'Handoffs to accept', benefits: 'Benefits to verify', decisions: 'My decisions due within 7 days', pvs: 'PVs to sign' },
       benefits: 'Benefit reviews due', mine: 'Benefits I own — review due', noBenefit: 'none due', missing: 'value missing', awaiting: 'awaiting verification',
       labels: { 'Not started': 'Not started', 'In progress': 'In progress', 'Complete but not submitted': 'Complete but not submitted', 'Submitted': 'Submitted' } },
     fr: { nm: '— non mesuré', actions: 'Actions ouvertes', open: 'ouvertes', overdue: 'en retard', oldest: 'la plus ancienne', days: 'jours', none: 'rien d\'ouvert',
       report: 'Rapport hebdomadaire', unsigned: 'PV à signer', allSigned: 'tous signés', insp: 'Dernière inspection', never: 'aucune enregistrée', ago: 'jours', today: 'aujourd\'hui',
       tracker: 'Suivi d\'activité', empty: 'activités sur {t} sans saisie pour {m}', full: 'les {t} activités sont saisies pour {m}', noAct: 'aucune activité prévue en {m}',
       loading: 'Chargement…', more: '+ {n} autre(s) site(s) non affiché(s)', open_pv: 'Ouvrir',
+      aw: 'En attente de moi', awEv: 'preuve', awNone: 'rien ne vous attend', awLate: 'en retard', awSrc: { commitments: 'Engagements à vérifier', handoffs: 'Passations à accepter', benefits: 'Bénéfices à vérifier', decisions: 'Mes décisions dues sous 7 jours', pvs: 'PV à signer' },
       benefits: 'Revues de bénéfices dues', mine: 'Mes bénéfices à revoir', noBenefit: 'aucune', missing: 'valeur manquante', awaiting: 'en attente de vérification',
       labels: { 'Not started': 'Pas commencé', 'In progress': 'En cours', 'Complete but not submitted': 'Complet mais non soumis', 'Submitted': 'Soumis' } },
   };
@@ -86,7 +88,13 @@
       // E-P05 — present only while benefit_owner_link_enabled is on: the benefits this person owns (null = not measured)
       const ob = j.owned_benefits;
       const mine = ob === undefined ? '' : `<section class="hm-card" aria-labelledby="hm-mine"><h2 id="hm-mine">${esc(T.mine)}</h2><ul class="hm-blocks">${row(T.mine, 'portfolio.html', !ob ? nm : (ob.count === 0 ? esc(T.noBenefit) : `<b${ob.items.some((x) => x.overdue) ? ' class="hm-late"' : ''}>${ob.count}</b><ul class="hm-pv">${ob.items.map((x) => `<li><a href="project.html?id=${encodeURIComponent(x.project_id)}#benefits">${esc(x.project_key || x.project_id)}</a> <span class="hm-muted">${esc(x.due_date || '')} · ${esc(x.status === 'missing' ? T.missing : T.awaiting)}</span></li>`).join('')}</ul>`))}</ul></section>`;
-      $('hmSites').innerHTML = mine + (j.sites || []).map(siteCard).join('');
+      // F-PRODUCT-07 — present only while mywork_awaiting_me_enabled is on; a source that could not be read = "not measured"
+      const aw = j.awaiting_me;
+      const awSafe = (h) => (/^(?:[a-z-]+\.html(?:[?#].*)?|https:\/\/\S+)$/i.test(String(h || '')) ? String(h) : null);
+      const awBlock = (k) => { const b = aw[k]; if (!b) return nm; if (b.count === 0) return esc(T.awNone);
+        return `<b>${b.count}</b><ul class="hm-pv">${b.items.map((x) => `<li><a href="${esc(awSafe(x.link) || '#')}">${esc(x.ref || x.title || x.id)}</a> <span class="hm-muted">${esc(x.ref && x.title ? x.title : '')}${x.due_date ? ' · ' + esc(x.due_date) : ''}</span>${x.overdue ? ` <span class="hm-late">${esc(T.awLate)}</span>` : ''}${awSafe(x.evidence_link) && /^https:/i.test(x.evidence_link) ? ` · <a href="${esc(x.evidence_link)}" rel="noopener noreferrer" target="_blank">${esc(T.awEv)}</a>` : ''}</li>`).join('')}</ul>`; };
+      const awaiting = aw === undefined || aw === null ? '' : `<section class="hm-card" aria-labelledby="hm-aw"><h2 id="hm-aw">${esc(T.aw)}${aw.total != null ? ` <span class="hm-muted">${aw.total}</span>` : ''}</h2><ul class="hm-blocks">${['commitments', 'handoffs', 'benefits', 'decisions', 'pvs'].map((k) => row(T.awSrc[k], null, awBlock(k))).join('')}</ul></section>`;
+      $('hmSites').innerHTML = awaiting + mine + (j.sites || []).map(siteCard).join('');
       // E-B07 — answers to MY feedback (only present while ui_feedback_enabled = '1'); every value escaped
       const fb = Array.isArray(j.feedback) ? j.feedback : [];
       const fbBox = document.getElementById('hmFeedback');

@@ -64,6 +64,8 @@ module.exports = function governanceRoutes(deps) {
   const requireCommittee = (req, res, next) => isCommittee(req.reportUser) ? next() : httpFail(res, new Error('committee-member or admin role required'), 403, { ok: false });
   requireCommittee.legacyRoles = ['admin', 'committee-member'];   // C-17 capability catalogue tag
   const fail = (res, e) => httpFail(res, e, undefined, { ok: false });
+  const DL = require('../services/decisionLifecycle');   // F-PRODUCT-06
+  const decisionLifecycleOn = async () => String((await reportConfig.getConfig(rdb().db)).decision_lifecycle_enforced) === '1';
   const log = (req, action, target, details) => { try { rdb().logEvent({ category: 'governance', action, target: String(target), details, ...rdb()._logCtx(req) }); } catch (_) {} };
   // ADR-006 — role holders and deputies, from a snapshot refreshed before every governance request
   // (empty tables = the behaviour until now). deputyFor(u) = people u stands in for today.
@@ -172,7 +174,7 @@ module.exports = function governanceRoutes(deps) {
         facts.actions.carried = carried.length;
       }
     } catch (_) { /* the agenda still builds */ }
-    const decisions = (await store.listDecisions({ status: ['open', 'in_progress'], siteIds: site ? [Number(site.id)] : null })).slice(0, 15);
+    const decisions = (await store.listDecisions({ status: DL.OPEN_STATUSES, siteIds: site ? [Number(site.id)] : null })).slice(0, 15);
     const rfis = isCommitteeKind(cad.kind) ? (await store.listRfi({ status: ['submitted', 'triaged'] })).slice(0, 10) : [];
     const trackers = await trackerFacts(site);
     const portfolio = isCommitteeKind(cad.kind) || cad.kind === 'group_monthly' ? { objectives: (await objectiveViews(now)).views } : { objectives: [] };
@@ -185,7 +187,7 @@ module.exports = function governanceRoutes(deps) {
   router.get('/api/governance/overview', requireReportSession, async (req, res) => {
     try {
       const ids = await scopeIds(req.reportUser);
-      const [cad, dec, rfi, sess] = [await store.listCadences({ siteIds: ids }), await store.listDecisions({ status: ['open', 'in_progress'], siteIds: ids }), await store.listRfi({ status: ['submitted', 'triaged', 'accepted', 'scheduled'], scope: rfiScope(req.reportUser) }), await store.listSessions({ limit: 200 })];
+      const [cad, dec, rfi, sess] = [await store.listCadences({ siteIds: ids }), await store.listDecisions({ status: DL.OPEN_STATUSES, siteIds: ids }), await store.listRfi({ status: ['submitted', 'triaged', 'accepted', 'scheduled'], scope: rfiScope(req.reportUser) }), await store.listSessions({ limit: 200 })];
       const today = new Date().toISOString().slice(0, 10);
       const allowedCad = new Set(cad.map(c => c.id));
       const since = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10);
@@ -396,7 +398,7 @@ module.exports = function governanceRoutes(deps) {
   router.get('/api/governance/engagement-delays', requireReportSession, async (req, res) => {
     try {
       const u = req.reportUser; const asOf = new Date().toISOString().slice(0, 10);
-      const decs = await withSourceLinks(await visibleDecisions(u, ['open', 'in_progress']));
+      const decs = await withSourceLinks(await visibleDecisions(u, DL.OPEN_STATUSES));
       const cads = new Map((await store.listCadences({ siteIds: await scopeIds(u), includeInactive: true })).filter((c) => seesCadence(u, c)).map((c) => [c.id, c]));
       const acts = (await store.openSessionActions()).filter((a) => cads.has(a.cadence_id));
       const items = [
@@ -409,20 +411,38 @@ module.exports = function governanceRoutes(deps) {
   });
   // UAT (PMO F8): the site follows its decisions between meetings — the chair / secretary of the session's
   // cadence or an editor of the decision's site may move its STATUS; the content stays a committee edit.
+  // F-PRODUCT-06: who may move this decision's status at all — the committee, or (as a 'site' actor) the chair /
+  // secretary of the session's cadence or an editor of the decision's site.
+  async function decisionActor(u, dec) {
+    if (isCommittee(u)) return 'committee';
+    let allowed = false;
+    if (dec.session_id != null) { const sess = await store.getSession(dec.session_id); const cad = sess && await store.getCadence(sess.cadence_id); allowed = !!(cad && canRun(u, cad)); }
+    if (!allowed && dec.site_id != null) allowed = rdb().userHasRole(u, 'editor') && userSites.hasSite(u, Number(dec.site_id));
+    return allowed ? 'site' : null;
+  }
   router.put('/api/governance/decisions/:id', requireReportSession, json, async (req, res) => {
     try {
       const b = req.body || {}; const u = req.reportUser;
+      const dec = await store.getDecision(req.params.id);
       if (!isCommittee(u)) {
         const keys = Object.keys(b).filter((k) => b[k] !== undefined);
-        if (keys.some((k) => k !== 'status')) return httpFail(res, new Error('only the committee edits a decision; the site may update its status'), 403, { ok: false });
-        const dec = await store.getDecision(req.params.id); if (!dec) return httpFail(res, new Error('decision not found'), 404, { ok: false });
-        let allowed = false;
-        if (dec.session_id != null) { const sess = await store.getSession(dec.session_id); const cad = sess && await store.getCadence(sess.cadence_id); allowed = !!(cad && canRun(u, cad)); }
-        if (!allowed && dec.site_id != null) allowed = rdb().userHasRole(u, 'editor') && userSites.hasSite(u, Number(dec.site_id));
-        if (!allowed) return httpFail(res, new Error('not allowed to update this decision'), 403, { ok: false });
+        if (keys.some((k) => k !== 'status' && k !== 'reason')) return httpFail(res, new Error('only the committee edits a decision; the site may update its status'), 403, { ok: false });
       }
-      const d = await store.updateDecision(req.params.id, b); if (!d) return httpFail(res, new Error('decision not found'), 404, { ok: false });
-      log(req, 'decision_updated', d.ref, { status: b.status || null }); res.json({ ok: true, decision: d });
+      if (!dec) return httpFail(res, new Error('decision not found'), 404, { ok: false });
+      const actor = await decisionActor(u, dec);
+      if (!actor) return httpFail(res, new Error('not allowed to update this decision'), 403, { ok: false });
+      const d = await store.updateDecision(req.params.id, b, { user: u, reason: b.reason, lifecycle: { enforced: await decisionLifecycleOn(), actor } }); if (!d) return httpFail(res, new Error('decision not found'), 404, { ok: false });
+      log(req, 'decision_updated', d.ref, { status: b.status ? d.status : null, proposed: d.proposed === true || undefined }); res.json({ ok: true, decision: d });
+    } catch (e) { if (e && e.expose === true && e.code) return httpFail(res, e, undefined, { ok: false, code: e.code }); fail(res, e); }
+  });
+  // F-PRODUCT-06 — the decision's own ledger (status changes with actor and reason), for whoever may see the decision
+  router.get('/api/governance/decisions/:id/history', requireReportSession, async (req, res) => {
+    try {
+      // the committee owns the register; anyone else reads the history of a decision they can already see
+      const dec = isCommittee(req.reportUser) ? await store.getDecision(req.params.id) : (await visibleDecisions(req.reportUser, null)).find((d) => Number(d.id) === Number(req.params.id));
+      if (!dec) return httpFail(res, new Error('decision not found'), 404, { ok: false });
+      const enforced = await decisionLifecycleOn(); const actor = await decisionActor(req.reportUser, dec);
+      res.json({ ok: true, ref: dec.ref, status: dec.status, lifecycle_enforced: enforced, allowed: actor ? DL.allowed(dec.status, actor, { enforced }) : [], events: await store.decisionHistory(dec.id) });
     } catch (e) { fail(res, e); }
   });
   router.get('/api/governance/rfi', requireReportSession, async (req, res) => { try { res.json({ ok: true, committee: isCommittee(req.reportUser), me: Number(req.reportUser.id), rfi: await store.listRfi({ status: req.query.status ? String(req.query.status).split(',') : null, scope: rfiScope(req.reportUser) }), kinds: store.RFI_KINDS, statuses: store.RFI_STATUSES }); } catch (e) { fail(res, e); } });
@@ -709,6 +729,30 @@ module.exports = function governanceRoutes(deps) {
     } catch (e) { fail(res, e); }
   });
   // Plan E wave 2 (W2-PPM): capacity, budget periods, RACI, templates, annual pack — same helpers, switch-gated
+  // ---- F-PRODUCT-05 — department crosswalk (migration 082): list-only admin view + roll-up behind a switch ------------
+  const DX = require('../services/departmentCrosswalk');
+  const dxStore = () => { let meetings = null; try { meetings = require('../meetings-db').getDB(); } catch (_) { meetings = null; } return require('../services/departmentCrosswalkStore').makeDepartmentCrosswalkStore({ reports: rdb().pgHandle(), meetings }); };
+  const rollupOn = async () => String((await reportConfig.getConfig(rdb().db)).department_rollup_enabled) === '1';
+  // list-only: the pairs are PROPOSED; approving or adding one is a decision for people, there is no write route
+  router.get('/api/governance/department-crosswalk', requireReportSession, async (req, res) => {
+    try {
+      if (!isAdmin(req.reportUser)) return httpFail(res, new Error('admin only'), 403, { ok: false });
+      const S = dxStore(); const [rows, mdNames, data] = [await S.listCrosswalk(), await S.mdNames(), await S.collectValues()];
+      const c = DX.check(data.values, DX.makeIndex(rows, { mdNames }));
+      res.json({ ok: true, read_only: true, rollup_enabled: await rollupOn(), rows: rows.map((r) => ({ ...r, md_name: r.md_code ? (mdNames[r.md_code] || null) : null })),
+        data: { total: c.total, mapped: c.mapped, not_set: c.not_set, unmapped_total: c.unmapped_total, unmapped: c.unmapped, not_measured: data.not_measured } });
+    } catch (e) { fail(res, e); }
+  });
+  // counts per crosswalked department across commitments, handoffs, report actions and PV issues (committee, fleet-wide);
+  // a value without a pair stays under "unmapped", listed as stored
+  router.get('/api/governance/department-rollup', requireReportSession, async (req, res) => {
+    try {
+      if (!(await rollupOn())) return httpFail(res, new Error('not found'), 404, { ok: false });
+      if (!isCommittee(req.reportUser)) return httpFail(res, new Error('committee only'), 403, { ok: false });
+      const S = dxStore(); const [rows, mdNames, data] = [await S.listCrosswalk(), await S.mdNames(), await S.collectValues()];
+      res.json({ ok: true, proposed: rows.some((r) => r.status === 'proposed'), sources: S.SOURCES, not_measured: data.not_measured, ...DX.rollup(data.values, DX.makeIndex(rows, { mdNames })) });
+    } catch (e) { fail(res, e); }
+  });
   require('./governancePpm')(router, { store, rdb, reportConfig, requireReportSession, json, isCommittee, canSeeMoney, viewFor, readableProject, refusePlanWrite, log });
   return router;
 };

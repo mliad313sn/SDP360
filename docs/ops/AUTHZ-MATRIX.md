@@ -178,6 +178,9 @@ inside the handler (`userHasRole` / `isAdmin`-style helpers) · **Site scope** =
 | `GET /api/governance/cadences/:id/draft-agenda` | requireReportSession | — | admin, committee-member | userSites |
 | `GET /api/governance/controls` | requireReportSession + requireCommittee(admin or committee-member) | governance.committee | admin | — |
 | `GET /api/governance/decisions` | requireReportSession | — | — | — |
+| `GET /api/governance/decisions/:id/history` | requireReportSession | — | admin, committee-member | — |
+| `GET /api/governance/department-crosswalk` | requireReportSession | — | admin | — |
+| `GET /api/governance/department-rollup` | requireReportSession | — | admin, committee-member | — |
 | `GET /api/governance/engagement-delays` | requireReportSession | — | — | — |
 | `GET /api/governance/oversight` | requireReportSession + requireCommittee(admin or committee-member) | governance.committee | — | — |
 | `GET /api/governance/overview` | requireReportSession | — | admin, committee-member | — |
@@ -588,7 +591,7 @@ inside the handler (`userHasRole` / `isAdmin`-style helpers) · **Site scope** =
 | `PUT /api/field/uploads/:id/chunks/:idx` | requireReportSession + requireField(admin or editor or field-tech) | field.capture | — | — |
 | `PUT /api/governance/cadences` | requireReportSession + requireCommittee(admin or committee-member) | governance.committee | — | — |
 | `PUT /api/governance/controls` | requireReportSession + requireAdminTier(admin) | ops.operate | — | — |
-| `PUT /api/governance/decisions/:id` | requireReportSession | — | admin, committee-member, editor | userSites |
+| `PUT /api/governance/decisions/:id` | requireReportSession | — | admin, committee-member | — |
 | `PUT /api/governance/policies` | requireReportSession + requireAdminTier(admin) | governance.policies.administer | admin, super_admin | — |
 | `PUT /api/governance/portfolio/:kind` | requireReportSession | — | — | — |
 | `PUT /api/governance/portfolio/project/:id/sites` | requireReportSession + requireCommittee(admin or committee-member) | governance.committee | — | — |

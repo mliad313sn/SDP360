@@ -89,7 +89,7 @@
   var pct = function (v, u) { return v == null ? "—" : (u === "%" ? (Math.round(v * 10) / 10) + " %" : String(Math.round(v * 100) / 100)); };
 
   function loadAll() {
-    return Promise.all([api("/api/governance/overview"), api("/api/governance/cadences"), api("/api/governance/sessions?limit=40"), api("/api/governance/decisions?status=open,in_progress")]).then(function (r) {
+    return Promise.all([api("/api/governance/overview"), api("/api/governance/cadences"), api("/api/governance/sessions?limit=40"), api("/api/governance/decisions?status=open,in_progress,awaiting_confirmation")]).then(function (r) {
       var o = r[0]; committee = o.committee; cads = r[1].cadences; sites = r[1].sites || [];
       $("tiles").innerHTML = [["Cadences", o.cadences], ["Sessions held (30 d)", o.sessions_held_30d], ["Planned", o.sessions_planned], ["Open decisions", o.decisions_open], ["Overdue decisions", o.decisions_overdue], ["RFIs to triage", o.rfi_to_triage]].map(function (t) { return "<div class=\"tile\"><div class=\"tn\">" + t[1] + "</div><div class=\"tl\">" + t[0] + "</div></div>"; }).join("");
       $("cadForm").hidden = !committee; if (committee) fillPeople($("c-site").value);
@@ -98,7 +98,7 @@
       $("sessions").innerHTML = r[2].sessions.length ? "<table><thead><tr><th>Date</th><th>Cadence</th><th>Status</th><th></th></tr></thead><tbody>" + r[2].sessions.map(function (s) { return "<tr><td>" + esc(String(s.scheduled_at).replace("T", " ").slice(0, 16)) + "</td><td>" + esc(s.cadence || "") + "</td><td><span class=\"pill " + s.status + "\">" + s.status + "</span>" + (s.minutes_sent_at ? " ✉" : "") + "</td><td><button class=\"btn\" data-open=\"" + s.id + "\" type=\"button\">" + (s.status === "closed" ? "Review" : "Open") + "</button></td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No session yet — prepare one from a cadence.</p>";
       if (committee) loadExceptions();
       loadDelays();
-      $("decisions").innerHTML = r[3].decisions.length ? "<table><thead><tr><th>Ref</th><th>Decision</th><th>" + T("Source") + "</th><th>Owner</th><th>Due</th><th>Status</th></tr></thead><tbody>" + r[3].decisions.map(function (d) { return "<tr><td><b>" + esc(d.ref) + "</b></td><td>" + esc(d.title) + "</td><td>" + sourceLinks(d.source_links) + "</td><td>" + esc(d.owner || "—") + "</td><td>" + esc(d.due_date || "—") + "</td><td>" + (committee ? "<select data-dec=\"" + d.id + "\" aria-label=\"Decision status\">" + ["open", "in_progress", "done", "cancelled"].map(function (s) { return "<option value=\"" + s + "\"" + (s === d.status ? " selected" : "") + ">" + s + "</option>"; }).join("") + "</select>" : "<span class=\"pill " + d.status + "\">" + d.status + "</span>") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No open decision.</p>";
+      $("decisions").innerHTML = r[3].decisions.length ? "<table><thead><tr><th>Ref</th><th>Decision</th><th>" + T("Source") + "</th><th>Owner</th><th>Due</th><th>Status</th></tr></thead><tbody>" + r[3].decisions.map(function (d) { return "<tr><td><b>" + esc(d.ref) + "</b></td><td>" + esc(d.title) + "</td><td>" + sourceLinks(d.source_links) + "</td><td>" + esc(d.owner || "—") + "</td><td>" + esc(d.due_date || "—") + "</td><td>" + (committee ? "<select data-dec=\"" + d.id + "\" data-from=\"" + esc(d.status) + "\" aria-label=\"Decision status\">" + (d.status === "awaiting_confirmation" ? ["awaiting_confirmation", "in_progress", "done", "cancelled"] : ["open", "in_progress", "done", "cancelled"]).map(function (s) { return "<option value=\"" + s + "\"" + (s === d.status ? " selected" : "") + ">" + s + "</option>"; }).join("") + "</select>" : "<span class=\"pill " + d.status + "\">" + d.status + "</span>") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No open decision.</p>";
     }).catch(fail);
   }
   // C-15 (G23) — where a decision came from: its session (cockpit) and / or the PV it names; none = unknown
@@ -140,7 +140,14 @@
     if (b.dataset.istart) stamp(b.dataset.istart, "start"); if (b.dataset.iend) stamp(b.dataset.iend, "end"); if (b.dataset.inotes) saveItemNotes(b.dataset.inotes);
     if (b.dataset.act) api("/api/governance/sessions/" + cur.id + "/actions/" + b.dataset.act, { method: "PUT", body: JSON.stringify({ status: b.dataset.st }) }).then(function (j) { renderActs(j.actions); }).catch(fail2);
   });
-  document.addEventListener("change", function (ev) { var t = ev.target; if (t.dataset && t.dataset.dec) api("/api/governance/decisions/" + t.dataset.dec, { method: "PUT", body: JSON.stringify({ status: t.value }) }).then(loadAll).catch(fail); });
+  // F-PRODUCT-06 — the server asks for a reason on cancel / reopen / send-back while decision_lifecycle_enforced = 1 (400 REASON_REQUIRED): ask once and retry
+  function putDecision(id, status, reason) { return api("/api/governance/decisions/" + id, { method: "PUT", body: JSON.stringify(reason ? { status: status, reason: reason } : { status: status }) }); }
+  document.addEventListener("change", function (ev) { var t = ev.target; if (!(t.dataset && t.dataset.dec)) return;
+    putDecision(t.dataset.dec, t.value).catch(function (e) {
+      if (!/reason is required/i.test(String(e && e.message))) throw e;
+      var why = window.prompt(T("Reason (required for this change)")); if (!why) { t.value = t.dataset.from; return null; }
+      return putDecision(t.dataset.dec, t.value, why);
+    }).then(loadAll).catch(function (e) { fail(e); loadAll(); }); });
   $("c-site").addEventListener("change", function () { fillPeople($("c-site").value); });
   $("c-save").addEventListener("click", function () {
     api("/api/governance/cadences", { method: "PUT", body: JSON.stringify({ key: $("c-key").value.trim(), name: $("c-name").value.trim(), kind: $("c-kind").value, site_id: $("c-site").value || null, weekday: $("c-weekday").value || null, time_local: $("c-time").value || null, duration_min: $("c-dur").value, chair_id: $("c-chair").value || null, secretary_id: $("c-sec").value || null, participants: $("c-part").value.split(/\n/).map(function (x) { return x.trim(); }).filter(Boolean) }) }).then(function () { msg(T("Cadence saved.")); return loadAll(); }).catch(fail);

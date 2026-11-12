@@ -65,6 +65,7 @@ async function buildMyWork({ user, sites, asOf, readers } = {}) {
     const res = { generated_at: new Date().toISOString(), as_of: as, sites: [], truncated: 0,
       message: 'You are not attached to a site — use the Site Actions hub.' };
     if (typeof r.ownedBenefits === 'function') res.owned_benefits = await _ownedBlock(r.ownedBenefits, user, as);
+    if (r.awaiting) res.awaiting_me = await buildAwaitingMe({ user, asOf: as, readers: r.awaiting });   // F-PRODUCT-07 — a person without a site still verifies
     return res;
   }
   const shown = list.slice(0, MAX_SITES);
@@ -107,6 +108,7 @@ async function buildMyWork({ user, sites, asOf, readers } = {}) {
   // E-P05 — benefits this PERSON owns (linked owner) whose review date is reached; present only when the route passes
   // the reader (switch benefit_owner_link_enabled on); a reader that throws → null (not measured), never 0.
   if (typeof r.ownedBenefits === 'function') res.owned_benefits = await _ownedBlock(r.ownedBenefits, user, as);
+  if (r.awaiting) res.awaiting_me = await buildAwaitingMe({ user, asOf: as, readers: r.awaiting });   // F-PRODUCT-07
   return res;
 }
 async function _ownedBlock(reader, user, as) {
@@ -117,4 +119,61 @@ async function _ownedBlock(reader, user, as) {
   });
 }
 
-module.exports = { buildMyWork, weeklyLabel, trackerEmptyCells, MAX_SITES };
+// ── F-PRODUCT-07 (committee 12 Nov 2026, C22 / N11) — "Awaiting me": the items that wait for THIS person's verification,
+// acceptance, signature or decision follow-up. Present only when the route passes `readers.awaiting` (switch
+// mywork_awaiting_me_enabled). PURE: each reader returns the rows the user may already open (the route applies each
+// module's own scope); this function applies the eligibility rule of each module and shapes the lines.
+//   • every source is computed on its own: no reader, or a reader that throws → null ("not measured"), never 0;
+//   • separation of duties is kept: I never see my own work as "to verify" (commitment owner / executor / creator,
+//     handoff requester, benefit entrant or owner).
+const CL = require('./commitmentLifecycle');
+const DL = require('./decisionLifecycle');
+const AWAITING_SOURCES = ['commitments', 'handoffs', 'benefits', 'decisions', 'pvs'];
+const DECISION_DUE_DAYS = 7;
+const MAX_AWAITING = 20;
+const _low = (v) => String(v == null ? '' : v).trim().toLowerCase();
+const _names = (u) => [u && u.username, u && u.full_name, u && u.email].map(_low).filter(Boolean);
+const _addDays = (d, n) => new Date(Date.parse(d + 'T00:00:00Z') + n * DAY).toISOString().slice(0, 10);
+const _line = (source, o, as) => ({ source, id: o.id, ref: o.ref || null, title: o.title || null, due_date: day(o.due_date), overdue: o.due_date ? day(o.due_date) < as : null,
+  evidence_link: o.evidence_link || null, link: o.link });
+const _shape = (lines) => { const sorted = lines.slice().sort((a, b) => String(a.due_date || '9999').localeCompare(String(b.due_date || '9999')) || String(a.ref || '').localeCompare(String(b.ref || '')));
+  return { count: sorted.length, items: sorted.slice(0, MAX_AWAITING) }; };
+
+const AWAITING_RULES = {
+  // rows: [{ commitment, actor }] — the actor carries principals / roleReviewer as the commitments route builds it
+  commitments: (rows, user, as) => rows.filter((x) => x && x.commitment && x.commitment.status === 'awaiting_verification'
+    && CL.isReviewer(x.commitment, x.actor || user) && !CL.isSelf(x.commitment, x.actor || user))
+    .map(({ commitment: c }) => _line('commitment', { id: c.id, ref: c.uid || null, title: c.title, due_date: c.due_date, evidence_link: c.evidence_link, link: `commitments.html?id=${encodeURIComponent(c.id)}` }, as)),
+  // a handoff waits for its NAMED receiver; the requester never accepts their own
+  handoffs: (rows, user, as) => rows.filter((h) => h && h.status === 'requested' && user && Number(h.receiver_id) === Number(user.id) && Number(h.requested_by) !== Number(user.id))
+    .map((h) => _line('handoff', { id: h.id, ref: h.ref, title: h.title, due_date: h.due_date, link: `handoffs.html?id=${encodeURIComponent(h.id)}` }, as)),
+  // rows: benefits with a realised value and no verification, already limited by the route to those the user may verify
+  benefits: (rows, user, as) => rows.filter((b) => b && b.verified_at == null && b.realised_by != null && user && Number(b.realised_by) !== Number(user.id)
+    && !(b.owner_user_id != null && Number(b.owner_user_id) === Number(user.id)) && !(b.owner && _names(user).includes(_low(b.owner))))
+    .map((b) => _line('benefit', { id: b.id, ref: b.project_key || null, title: b.measure || b.name || null, due_date: b.review_date, evidence_link: b.evidence_link, link: `project.html?id=${encodeURIComponent(b.project_id)}#benefits` }, as)),
+  // decisions I own, still open, due within 7 days (or already late); no due date = not listed (unknown, not "on time")
+  decisions: (rows, user, as) => { const limit = _addDays(as, DECISION_DUE_DAYS); const me = _names(user);
+    return rows.filter((d) => d && DL.OPEN_STATUSES.includes(d.status) && d.owner && me.includes(_low(d.owner)) && d.due_date && day(d.due_date) <= limit)
+      .map((d) => _line('decision', { id: d.id, ref: d.ref, title: d.title, due_date: d.due_date, link: d.session_id != null ? `cockpit.html?session=${encodeURIComponent(d.session_id)}` : 'cockpit.html' }, as)); },
+  // PVs that name me as department head or site IT lead and that I have not signed
+  pvs: (rows, user, as) => { const me = _names(user);
+    return rows.filter((m) => m && ((m.department_head && me.includes(_low(m.department_head)) && !m.dept_head_signed_at) || (m.site_it_lead && me.includes(_low(m.site_it_lead)) && !m.site_it_signed_at)))
+      .map((m) => _line('pv', { id: m.id, ref: m.reference || null, title: m.department || null, due_date: null, link: `meeting.html?id=${encodeURIComponent(m.id)}` }, as)); },
+};
+
+async function buildAwaitingMe({ user, asOf, readers } = {}) {
+  const as = day(asOf) || new Date().toISOString().slice(0, 10);
+  const r = readers || {}; const out = { as_of: as, decision_due_days: DECISION_DUE_DAYS, total: 0, not_measured: [] };
+  for (const k of AWAITING_SOURCES) {
+    let block = null;
+    if (typeof r[k] === 'function') { try { const rows = await r[k](user); block = Array.isArray(rows) ? _shape(AWAITING_RULES[k](rows, user, as)) : null; } catch (_) { block = null; } }
+    out[k] = block;
+    if (block) out.total += block.count; else out.not_measured.push(k);
+  }
+  // nothing measured at all → the total is unknown, not 0
+  if (out.not_measured.length === AWAITING_SOURCES.length) out.total = null;
+  return out;
+}
+
+module.exports = { buildMyWork, buildAwaitingMe, weeklyLabel, trackerEmptyCells, MAX_SITES, AWAITING_SOURCES, DECISION_DUE_DAYS };
+

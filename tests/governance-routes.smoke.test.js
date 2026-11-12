@@ -86,6 +86,86 @@ test('live: start, stamp items, notes, decisions (chair ok, plain editor of the 
   assert.equal((await get('/api/governance/overview', admin)).status, 200);
 });
 
+// F-PRODUCT-06 — decision register lifecycle: free while decision_lifecycle_enforced = 0 (today), the transition table at 1
+test('decision lifecycle: off = any status, history rows either way; on = site proposes, committee confirms, reasons, 409 on an illegal jump', async () => {
+  const rc = require('../services/reportConfig'); const sw = (v) => rc.setConfig(rdb.db, { decision_lifecycle_enforced: v });
+  assert.equal((await rc.getConfig(rdb.db)).decision_lifecycle_enforced, '0', 'default = today');
+  const cad = (await (await send('PUT', '/api/governance/cadences', member, { key: 'hgo-dl', name: 'HGO lifecycle', kind: 'site_weekly', site_id: hounde, chair_id: editorId })).json()).cadence;
+  const s = (await (await send('POST', `/api/governance/cadences/${cad.id}/sessions`, editor, { scheduled_at: '2026-11-10T09:00:00Z' })).json()).session;
+  await send('POST', `/api/governance/sessions/${s.id}/start`, editor);
+  const mkDec = async (title) => (await (await send('POST', `/api/governance/sessions/${s.id}/decisions`, editor, { title })).json()).decision;
+  const put = (id, t, body) => send('PUT', `/api/governance/decisions/${id}`, t, body);
+  const hist = async (id, t) => (await get(`/api/governance/decisions/${id}/history`, t || member)).json();
+  // ---- off: unchanged behaviour (any → any, no reason), and the ledger is written
+  const a = await mkDec('Lifecycle A');
+  assert.equal((await (await put(a.id, editor, { status: 'done' })).json()).decision.status, 'done', 'off: the site still closes');
+  assert.equal((await (await put(a.id, editor, { status: 'in_progress' })).json()).decision.status, 'in_progress', 'off: done → in_progress still allowed');
+  assert.equal((await (await put(a.id, member, { status: 'cancelled' })).json()).decision.status, 'cancelled', 'off: no reason needed');
+  assert.equal((await put(a.id, member, { status: 'awaiting_confirmation' })).status, 400, 'off: the new status cannot be set');
+  let h = await hist(a.id); assert.equal(h.ok, true); assert.equal(h.lifecycle_enforced, false);
+  assert.deepEqual(h.events.map((e) => [e.old_value, e.new_value]), [['open', 'done'], ['done', 'in_progress'], ['in_progress', 'cancelled']]);
+  assert.equal(h.events[0].actor, 'gv_editor'); assert.equal(h.events[0].entity, 'decision');
+  assert.equal((await get(`/api/governance/decisions/${a.id}/history`)).status, 401);
+  assert.equal((await get(`/api/governance/decisions/${a.id}/history`, otherEditor)).status, 404, 'another site does not see the decision');
+  assert.equal((await get('/api/governance/decisions/999999/history', member)).status, 404);
+  // ---- on
+  await sw('1');
+  try {
+    const b = await mkDec('Lifecycle B');
+    assert.equal((await put(b.id, otherEditor, { status: 'in_progress' })).status, 403);
+    assert.equal((await (await put(b.id, editor, { status: 'in_progress' })).json()).decision.status, 'in_progress');
+    assert.equal((await put(b.id, editor, { status: 'cancelled', reason: 'not needed' })).status, 403, 'a site cannot cancel');
+    const prop = await (await put(b.id, editor, { status: 'done' })).json();
+    assert.equal(prop.decision.status, 'awaiting_confirmation', 'a site cannot close: its done is a proposal'); assert.equal(prop.decision.proposed, true); assert.equal(prop.decision.closed_at, null);
+    assert.equal((await put(b.id, editor, { status: 'done' })).status, 403, 'nor confirm its own proposal');
+    const open = await (await get('/api/governance/decisions?status=open,in_progress,awaiting_confirmation', viewer)).json(); assert.ok(open.decisions.some((x) => x.id === b.id));
+    assert.equal((await put(b.id, member, { status: 'in_progress' })).status, 400, 'sending back needs a reason');
+    const done = await (await put(b.id, member, { status: 'done' })).json(); assert.equal(done.decision.status, 'done'); assert.ok(done.decision.closed_at);
+    const jump = await put(b.id, member, { status: 'in_progress', reason: 'x'.repeat(10) }); assert.equal(jump.status, 409, 'done → in_progress is an illegal jump');
+    assert.equal((await jump.json()).code, 'ILLEGAL_TRANSITION');
+    assert.equal((await put(b.id, member, { status: 'open' })).status, 400, 'reopening needs a reason');
+    assert.equal((await put(b.id, editor, { status: 'open', reason: 'still broken' })).status, 403, 'only the committee reopens');
+    const re = await (await put(b.id, member, { status: 'open', reason: 'UPS failed again' })).json(); assert.equal(re.decision.status, 'open'); assert.equal(re.decision.closed_at, null);
+    assert.equal((await put(b.id, member, { status: 'cancelled' })).status, 400);
+    assert.equal((await (await put(b.id, member, { status: 'cancelled', reason: 'merged into DEC-2026-001' })).json()).decision.status, 'cancelled');
+    h = await hist(b.id, editor); assert.equal(h.lifecycle_enforced, true);
+    assert.deepEqual(h.events.map((e) => e.new_value), ['in_progress', 'awaiting_confirmation', 'done', 'open', 'cancelled']);
+    assert.equal(h.events[1].action, 'completion_proposed'); assert.equal(h.events[3].note, 'UPS failed again'); assert.equal(h.events[4].note, 'merged into DEC-2026-001');
+    assert.deepEqual(h.allowed, [], 'a site has no move on a cancelled decision');
+    assert.deepEqual((await hist(b.id, member)).allowed, [{ to: 'open', reason: true }]);
+    // the ledger is hash-chained
+    const row = await rdb.db.prepare("SELECT row_hash FROM ppm_events WHERE entity='decision' AND entity_id=? ORDER BY id DESC LIMIT 1").get(b.id); assert.match(row.row_hash, /^[0-9a-f]{64}$/);
+  } finally { await sw('0'); }
+});
+
+// F-PRODUCT-05 — department crosswalk: list-only admin view; roll-up 404 while department_rollup_enabled = 0
+test('department crosswalk: admin list (read-only), roll-up behind the switch, unmapped values kept apart', async () => {
+  const rc = require('../services/reportConfig'); const sw = (v) => rc.setConfig(rdb.db, { department_rollup_enabled: v });
+  assert.equal((await rc.getConfig(rdb.db)).department_rollup_enabled, '0', 'default = today (no roll-up)');
+  assert.equal((await get('/api/governance/department-crosswalk')).status, 401);
+  for (const t of [editor, viewer, member]) assert.equal((await get('/api/governance/department-crosswalk', t)).status, 403);
+  const l = await (await get('/api/governance/department-crosswalk', admin)).json();
+  assert.equal(l.ok, true); assert.equal(l.read_only, true); assert.equal(l.rollup_enabled, false);
+  const pairs = l.rows.filter((r) => r.md_code && r.action_department_name);
+  assert.deepEqual(pairs.map((r) => r.md_code).sort(), ['finance', 'maintenance', 'mining', 'security', 'supply_chain']); assert.ok(pairs.every((r) => r.status === 'proposed'));
+  assert.equal(l.rows.find((r) => r.md_code === 'mill').md_name, 'Mill / Plant');
+  assert.ok(Array.isArray(l.data.unmapped)); assert.ok(Array.isArray(l.data.not_measured));
+  for (const m of ['POST', 'PUT', 'DELETE']) assert.ok((await send(m, '/api/governance/department-crosswalk', admin, { md_code: 'hr', action_department_name: 'Human Resource' })).status >= 400, `${m}: there is no write route`);
+  assert.deepEqual((await (await get('/api/governance/department-crosswalk', admin)).json()).rows, l.rows, 'nothing was written');
+  assert.equal((await get('/api/governance/department-rollup', admin)).status, 404, 'off: no roll-up');
+  await sw('1');
+  try {
+    assert.equal((await get('/api/governance/department-rollup', editor)).status, 403);
+    await rdb.db.prepare("INSERT INTO commitments (uid, kind, title, department, created_at, updated_at) VALUES ('gv-dx-1', 'issue', 'dx', 'Supply Chain', '2026-11-12', '2026-11-12'), ('gv-dx-2', 'issue', 'dx', 'Processing', '2026-11-12', '2026-11-12'), ('gv-dx-3', 'issue', 'dx', 'process', '2026-11-12', '2026-11-12')").run();
+    const r = await (await get('/api/governance/department-rollup', member)).json();
+    assert.equal(r.ok, true); assert.equal(r.proposed, true);
+    assert.ok(r.groups.find((g) => g.key === 'supply_chain').by_source.commitments >= 1);
+    const un = Object.fromEntries(r.unmapped.values.map((v) => [v.value, v.total]));
+    assert.ok(un.Processing >= 1 && un.process >= 1, 'Processing and process stay two lines');
+    assert.ok(!r.groups.some((g) => /process/i.test(g.key)));
+  } finally { await sw('0'); }
+});
+
 test('RFI: anyone submits, committee triages, list sorted by score; portfolio upsert + report; roadmap dry-run is super_admin only', async () => {
   assert.equal((await send('POST', '/api/governance/rfi', viewer, { kind: 'nope', title: 't', problem: 'p' })).status, 400);
   const r1 = await (await send('POST', '/api/governance/rfi', viewer, { kind: 'widget', title: 'Small', problem: 'p', impact: 1, effort: 3 })).json(); assert.match(r1.rfi.ref, /^RFI-\d{4}-001$/); assert.equal(r1.rfi.site_id, hounde);
