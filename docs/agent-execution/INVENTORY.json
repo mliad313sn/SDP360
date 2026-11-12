@@ -11,8 +11,8 @@
   "routes_in_server_js": 210,
   "jobs": 31,
   "jobs_without_test_reference": 1,
-  "migrations": 80,
-  "test_files": 662
+  "migrations": 82,
+  "test_files": 666
  },
  "pages": [
   {
@@ -815,11 +815,14 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 30948,
+   "bytes": 32068,
    "tests": [
     "tests/a11y-static.test.js",
+    "tests/allocation-contract.test.js",
     "tests/chart-a11y.test.js",
     "tests/i18n-coverage.test.js",
+    "tests/portfolio-capacity-parity.test.js",
+    "tests/portfolio-finance-currency.smoke.test.js",
     "tests/ppm-capacity.test.js",
     "tests/ppm-raci-templates.test.js",
     "tests/ppm-visuals.test.js",
@@ -837,14 +840,17 @@
    ],
    "in_navigation": false,
    "inline_scripts": 1,
-   "bytes": 66599,
+   "bytes": 72129,
    "tests": [
     "tests/a11y-static.test.js",
+    "tests/allocation-contract.test.js",
     "tests/benefit-owner-link.test.js",
     "tests/chart-a11y.test.js",
     "tests/i18n-coverage.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-benefits.test.js",
+    "tests/portfolio-capacity-parity.test.js",
+    "tests/portfolio-finance-currency.smoke.test.js",
     "tests/ppm-budget-periods.test.js",
     "tests/ppm-capacity.test.js",
     "tests/ppm-raci-templates.test.js",
@@ -3330,6 +3336,7 @@
     "tests/access-denied-log.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
+    "tests/portfolio-finance-currency.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-project-lifecycle.smoke.test.js",
@@ -3342,11 +3349,12 @@
    "method": "DELETE",
    "path": "/api/governance/portfolio/:kind/:id",
    "file": "routes/governance.js",
-   "line": 675,
+   "line": 694,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
+    "tests/portfolio-finance-currency.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-project-lifecycle.smoke.test.js",
@@ -3364,6 +3372,7 @@
     "tests/access-denied-log.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
+    "tests/portfolio-finance-currency.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-project-lifecycle.smoke.test.js",
@@ -3376,7 +3385,7 @@
    "method": "POST",
    "path": "/api/governance/portfolio/benefit/:id/realised",
    "file": "routes/governance.js",
-   "line": 595,
+   "line": 612,
    "tests": [
     "tests/portfolio-benefits.smoke.test.js"
    ]
@@ -3386,7 +3395,7 @@
    "method": "POST",
    "path": "/api/governance/portfolio/benefit/:id/verify",
    "file": "routes/governance.js",
-   "line": 596,
+   "line": 613,
    "tests": [
     "tests/portfolio-benefits.smoke.test.js"
    ]
@@ -3396,7 +3405,7 @@
    "method": "GET",
    "path": "/api/governance/portfolio/deck.pptx",
    "file": "routes/governance.js",
-   "line": 645,
+   "line": 664,
    "tests": [
     "tests/ppm-baselines.smoke.test.js"
    ]
@@ -3406,7 +3415,7 @@
    "method": "GET",
    "path": "/api/governance/portfolio/exceptions",
    "file": "routes/governance.js",
-   "line": 632,
+   "line": 650,
    "tests": [
     "tests/ppm-baselines.smoke.test.js"
    ]
@@ -3416,10 +3425,11 @@
    "method": "GET",
    "path": "/api/governance/portfolio/project/:id/baselines",
    "file": "routes/governance.js",
-   "line": 607,
+   "line": 624,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
+    "tests/portfolio-finance-currency.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-project-lifecycle.smoke.test.js",
@@ -3432,10 +3442,11 @@
    "method": "GET",
    "path": "/api/governance/portfolio/project/:id/history",
    "file": "routes/governance.js",
-   "line": 668,
+   "line": 687,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
+    "tests/portfolio-finance-currency.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-project-lifecycle.smoke.test.js",
@@ -3448,10 +3459,11 @@
    "method": "POST",
    "path": "/api/governance/portfolio/project/:id/rebaseline",
    "file": "routes/governance.js",
-   "line": 616,
+   "line": 633,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
+    "tests/portfolio-finance-currency.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-project-lifecycle.smoke.test.js",
@@ -3468,6 +3480,7 @@
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
+    "tests/portfolio-finance-currency.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-project-lifecycle.smoke.test.js",
@@ -3480,10 +3493,11 @@
    "method": "POST",
    "path": "/api/governance/portfolio/project/:id/stage",
    "file": "routes/governance.js",
-   "line": 554,
+   "line": 556,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
+    "tests/portfolio-finance-currency.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-project-lifecycle.smoke.test.js",
@@ -3496,10 +3510,11 @@
    "method": "GET",
    "path": "/api/governance/portfolio/project/:id",
    "file": "routes/governance.js",
-   "line": 561,
+   "line": 563,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
+    "tests/portfolio-finance-currency.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-project-lifecycle.smoke.test.js",
@@ -3512,7 +3527,7 @@
    "method": "GET",
    "path": "/api/governance/portfolio/report.html",
    "file": "routes/governance.js",
-   "line": 676,
+   "line": 695,
    "tests": [
     "tests/governance-routes.smoke.test.js"
    ]
@@ -3522,7 +3537,7 @@
    "method": "GET",
    "path": "/api/governance/portfolio/rfi/:id/history",
    "file": "routes/governance.js",
-   "line": 670,
+   "line": 689,
    "tests": [
     "tests/ppm-project-lifecycle.smoke.test.js"
    ]
@@ -3532,9 +3547,10 @@
    "method": "GET",
    "path": "/api/governance/portfolio/workbook.xlsx",
    "file": "routes/governance.js",
-   "line": 650,
+   "line": 669,
    "tests": [
     "tests/portfolio-benefits.smoke.test.js",
+    "tests/portfolio-finance-currency.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js"
    ]
   },
@@ -3548,6 +3564,7 @@
     "tests/access-denied-log.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
+    "tests/portfolio-finance-currency.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-project-lifecycle.smoke.test.js",
@@ -3582,6 +3599,7 @@
    "file": "routes/governancePpm.js",
    "line": 24,
    "tests": [
+    "tests/portfolio-benefits.smoke.test.js",
     "tests/ppm-w2.smoke.test.js"
    ]
   },
@@ -3706,7 +3724,7 @@
    "method": "POST",
    "path": "/api/governance/rfi/:id/to-project",
    "file": "routes/governance.js",
-   "line": 671,
+   "line": 690,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
@@ -3806,7 +3824,7 @@
    "method": "POST",
    "path": "/api/governance/roadmap-migration",
    "file": "routes/governance.js",
-   "line": 690,
+   "line": 709,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/ppm-project-lifecycle.smoke.test.js",
@@ -10524,6 +10542,14 @@
   {
    "id": "MG-reports-077-password-iterations",
    "file": "db/postgres/reports/077_password_iterations.sql"
+  },
+  {
+   "id": "MG-reports-080-task-allocation-check",
+   "file": "db/postgres/reports/080_task_allocation_check.sql"
+  },
+  {
+   "id": "MG-reports-081-benefit-class-and-currency-flag",
+   "file": "db/postgres/reports/081_benefit_class_and_currency_flag.sql"
   },
   {
    "id": "MG-sync-000-upgrade-from-1-11",

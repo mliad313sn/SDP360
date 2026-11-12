@@ -16,8 +16,8 @@
 | routes in server js | 210 |
 | jobs | 31 |
 | jobs without test reference | 1 |
-| migrations | 80 |
-| test files | 662 |
+| migrations | 82 |
+| test files | 666 |
 
 ## Pages
 
@@ -67,8 +67,8 @@
 | PG-notifications | public/notifications.html | any | yes | 1 | 3 |
 | PG-obligations | public/obligations.html | any | yes | 0 | 3 |
 | PG-policies | public/policies.html | admin / committee-member | yes | 1 | 4 |
-| PG-portfolio | public/portfolio.html | any | yes | 1 | 10 |
-| PG-project | public/project.html | any | no | 1 | 12 |
+| PG-portfolio | public/portfolio.html | any | yes | 1 | 13 |
+| PG-project | public/project.html | any | no | 1 | 15 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 3 |
 | PG-reports | public/reports.html | any | yes | 2 | 27 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 4 |
