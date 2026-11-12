@@ -15,8 +15,8 @@ in `tests/e2e/` must appear in this table.
 | Persona | Account role | Journey (question → action) | Start page | Action page | Browser journey test |
 |---|---|---|---|---|---|
 | Site IT coordinator | `editor` + `tracker-editor`, own site | Open last week's report, check helpdesk figures, submit it | `public/reports.html` | `public/reports.html` | `tests/e2e/t2-weekly-report.spec.js` |
-| Site IT coordinator | `editor` + `tracker-editor`, own site | Enter this month's activity tracker values | `public/activity-tracker.html` | `public/activity-tracker.html` | not covered |
-| Site IT coordinator | `editor`, own site | Write and sign a department PV | `public/meetings.html` | `public/meeting.html` | not covered |
+| Site IT coordinator | `editor` + `tracker-editor`, own site | Enter this month's activity tracker values (stored for her own site) | `public/activity-tracker.html` | `public/activity-tracker.html` | `tests/e2e/c1-coordinator-tracker-pv.spec.js` (E-Q09) |
+| Site IT coordinator | `editor`, own site | Write and sign a department PV (both stamps persisted with the SERVER clock) | `public/meetings.html` | `public/meeting.html` | `tests/e2e/c1-coordinator-tracker-pv.spec.js` (E-Q09) |
 | Site editor | `editor`, own site | Find the site's overdue actions, close one with a justification | `public/site-actions.html` | `public/site-actions.html` | `tests/e2e/t1-site-action.spec.js` |
 | Site editor | `editor`, own site | Cannot read another site's report or portfolio project (deny) | `public/reports.html` | `public/portfolio.html` | `tests/e2e/deny-cross-site.spec.js` |
 | Site editor | `editor`, own site | Switch the interface to French and open the manual | `public/site-actions.html` | `public/help.html` | `tests/e2e/t7-french-help.spec.js` |
@@ -28,8 +28,12 @@ in `tests/e2e/` must appear in this table.
 | Executive | `executive` | Tell which site is worst this week and why (Helpdesk resolution-SLA ranking, worst first, with the missed count; then a published dashboard) | `public/executive.html` | `public/index.html` | `tests/e2e/u4-executive-worst-site.spec.js` |
 | Executive | `executive` | Read the IT Review scoreboard and open the scorecard (an editor is refused the review data) | `public/it-review.html` | `public/executive.html` | `tests/e2e/u2-executive-review.spec.js` |
 | Multi-site coordinator (two countries) | `editor`, primary + extra site | See only their own sites' reports, then work in French | `public/reports.html` | `public/reports.html` | `tests/e2e/u1-multisite-french.spec.js` |
-| super_admin | `super_admin` | Change a delivery setting or a user's role | `public/reports.html` | `public/access.html` | not covered |
-| super_admin | `super_admin` | Read the security journal | `public/system-logs.html` | `public/system-logs.html` | not covered |
+| super_admin | `super_admin` | Change a delivery setting | `public/reports.html` | `public/reports.html` | not covered |
+| super_admin | `super_admin` | Remove a user's role: the user's next request is refused (E-Q09) | `public/system-logs.html` | `public/system-logs.html` | `tests/e2e/c5-superadmin-role-removal-log.spec.js` |
+| super_admin | `super_admin` | Read the security journal and export it (the role change is in the CSV) | `public/system-logs.html` | `public/system-logs.html` | `tests/e2e/c5-superadmin-role-removal-log.spec.js` (E-Q09) |
+| Admin (Group IT) | `admin` | From the worst-gap ranking (Helpdesk resolution SLA) to that site's overdue action, update it, see it in the register (E-Q09; finding: the ranking has no link to the register) | `public/index.html` | `public/site-actions.html` | `tests/e2e/c2-groupit-worst-gap-action.spec.js` |
+| Finance reader | `finance-viewer` | Read an asset amount that is "Non certifié" and a site with no currency (UNKNOWN "—", never $0) (E-Q09) | `public/assets.html` | `public/assets.html` | `tests/e2e/c3-finance-not-certified.spec.js` |
+| PMO (committee) | `viewer` + `committee-member` | Demand (RFI) → triage → project → benefit realised → verified by another member (E-Q09; capacity conflict NOT built — asserted absent) | `public/portfolio.html` | `public/project.html` | `tests/e2e/c4-pmo-demand-project-benefit.spec.js` |
 | super_admin | `super_admin` | Key pages at 1440/1024/768/390 px: no horizontal scroll, header visible, no console error (layout check, not a task) | `public/index.html` | `public/access.html` | `tests/e2e/v1-viewport-layout.spec.js` |
 | super_admin | `super_admin` | Change a filter twice quickly on Dashboards and Analytics; the newer figures stay on screen | `public/dashboards.html` | `public/analytics.html` | `tests/e2e/r1-filter-race.spec.js` |
 | super_admin | `super_admin` | Download the dashboard CSV, the assets inventory and the WAN SLA workbook | `public/dashboards.html` | `public/wan.html` | `tests/e2e/x1-exports.spec.js` |
@@ -57,9 +61,14 @@ in `tests/e2e/` must appear in this table.
 - AMDEC campaign 2026-11-05 (agent-run, not user acceptance) added: executive IT Review + scorecard (U2) and the
   multi-site coordinator in French (U1); follow-up D-10 added the admin helpdesk + infrastructure/WAN journey (U3),
   the executive "worst site" journey (U4) and the scorecard-viewer read-only journey (U5), on fictitious tickets.
-- **Still not covered after D-10**: the two super_admin task journeys (settings / role change, security journal)
+- **E-Q09 (agent committee, 2026-11-06 — automated on a synthetic organisation, NOT user acceptance)** added C1 (tracker
+  entry + PV signature, server-time stamp), C2 (Group IT worst gap → site overdue action), C3 (Finance "Non certifié" /
+  no-currency UNKNOWN), C4 (PMO demand → project → benefit verification; capacity conflict recorded as not built) and C5
+  (super_admin role removal → next request refused → security-log CSV). Still not covered: the super_admin delivery-setting
+  journey and a capacity-conflict journey (the capacity feature does not exist).
+- **Still not covered after D-10** (superseded by the E-Q09 line above): the two super_admin task journeys (settings / role change, security journal)
   and two of the three single-site coordinator journeys (tracker entry, PV write and sign).
 - (after the AMDEC campaign, before D-10) **Not covered by any browser journey test**: admin, the executive "worst site" journey, super_admin and
   scorecard-viewer journeys, two of the three single-site coordinator journeys. These are the gaps a person should plan sessions or new e2e journeys for.
 - Personas from the committee report not mapped here because they have no separate account role today: analyst,
-  business GM/FM (`site-business` lands on `public/site-awareness.html`), PMO.
+  business GM/FM (`site-business` lands on `public/site-awareness.html`). (PMO is now mapped through the committee role, C4.)
