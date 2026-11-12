@@ -179,7 +179,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `teams_sla_rules` | `` | setting | to be named | — | — | — |
 | `tracker_engine_cutover` | `0` | setting | to be named | — | — | — |
 | `transport` | `smtp` | setting | to be named | — | — | — |
-| `ui_data_quality_page` | `0` | ui policy | to be named | — | — | A data steward per source to act on the board. |
+| `ui_data_quality_page` | `0` | ui policy | Data owner | `1` for the admin tier once a data steward per source is named — a read-only board (Configure ▸ Data quality) of freshness, content drift, duplicates per sync job and hygiene completeness, money coverage, site-code disagreements per site, plus unmapped Risk-Register labels; every unreadable signal shows UNKNOWN; the two warn lines (80 % / 50 %) are PROPOSITIONS | E-D07 | A data steward per source to act on the board. |
 | `ui_deck_builder_roles` | `super_admin` | ui policy | Owner (D-6) | `super_admin,report-author` (PO delegated decision P12, reversible) | A-21, C-28 | — |
 | `ui_exec_nav` | `full` | ui policy | Owner (D-6) | `consolidated` (PO delegated decision P1, reversible — re-examine after 30 days of `page_viewed`) | C-28 | — |
 | `ui_feedback_enabled` | `0` | ui policy | PO | `1` on the pilot once B-05 (RACI) names who answers feedback — a Feedback button in the header (problem / idea / question, page auto-filled, ≤ 2 000 characters, named or anonymous: anonymous keeps only role tier + site), triage in `/api/feedback` (admin tier), the answer shown on Home ▸ My work; no notification sent, no AI reads the text | E-B07 | Someone named to answer feedback (B-05 RACI) before the button is shown. |

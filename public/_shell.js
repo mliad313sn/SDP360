@@ -177,6 +177,7 @@
         { id: 'obligations', group: 'Governance',  label: 'Site obligations',   icon: ICON_LIB['clipboard-check'], href: 'obligations.html',      roles: ['any'], lean_hidden: true },
         { id: 'policies', group: 'Configure',     label: 'Governance policies', icon: ICON_LIB['clipboard-check'], href: 'policies.html',        roles: ['admin', 'committee-member'] },
         { id: 'integrations', group: 'Configure', label: 'Integrations',       icon: ICON_LIB.zap,                href: 'integrations.html',     roles: ['admin'] },
+        { id: 'data-quality', group: 'Configure', label: 'Data quality',       icon: ICON_LIB['clipboard-check'], href: 'data-quality.html',     roles: ['admin'], policy: 'data_quality_page' },
         { id: 'field', group: 'Configure',        label: 'Field app',          icon: ICON_LIB['clipboard-check'], href: 'field/index.html',      roles: ['editor', 'field-tech'],
           lean_roles: ['field-tech'], lean_group: 'Governance' }
       ]
@@ -274,9 +275,12 @@
   }
   // May the user open this page? (drives the finder and workspaces)
   function mayOpen(it) {
+    if (!policyOn(it)) return false;
     return hasAnyRole(it.roles_from === 'deck_builder_roles' ? deckBuilderRoles() : it.roles);
   }
   // Is it listed in the MENU? Same as mayOpen in the full profile.
+  // E-D07 — an entry carrying `policy` is shown only while window.__uiPolicy[policy] === '1' (default '0' = today)
+  function policyOn(it) { if (!it.policy) return true; try { const p = window.__uiPolicy; return !!(p && p[it.policy] === '1'); } catch (_) { return false; } }
   function inMenu(it) {
     if (!mayOpen(it)) return false;
     if (it.exec_nav_hidden && execNav() === 'consolidated') return false;
@@ -373,7 +377,7 @@
     'Find a page — e.g. inspections, portfolio': 'Rechercher une page — ex. inspections, portefeuille',
     'Breadcrumb': "Fil d'Ariane", 'Click to log out': 'Cliquer pour se déconnecter', 'Primary': 'Navigation principale',
     'No page found': 'Aucune page trouvée', 'Language': 'Langue', 'Skip to content': 'Aller au contenu',
-    'Feedback': 'Retour', 'Send feedback on this page': 'Envoyer un retour sur cette page',
+    'Data quality': 'Qualité des données', 'Feedback': 'Retour', 'Send feedback on this page': 'Envoyer un retour sur cette page',
   };
   function shellLang() {
     try { const s = localStorage.getItem('sdp_lang'); if (s === 'fr' || s === 'en') return s; } catch (_) { /* storage blocked */ }

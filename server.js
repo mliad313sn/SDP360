@@ -1310,7 +1310,7 @@ function loadHtml(name) {
   'site-awareness.html', 'no-access.html',
   'assets.html', 'assets-hygiene.html', 'assets-finance.html', 'wan.html', 'wan-health.html', 'wan-sla.html', 'itsm-roadmap.html',
   'infra-health.html', 'itsm-integrations-plan.html',
-  'dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html', 'cockpit.html', 'portfolio.html', 'project.html', 'rfi.html', 'report-studio.html', 'notifications.html', 'integrations.html', 'commitments.html', 'handoffs.html', 'obligations.html', 'home.html', 'policies.html', 'access.html', 'coverage.html', 'kpi-builder.html',
+  'dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html', 'cockpit.html', 'portfolio.html', 'project.html', 'rfi.html', 'report-studio.html', 'notifications.html', 'integrations.html', 'commitments.html', 'handoffs.html', 'obligations.html', 'home.html', 'policies.html', 'access.html', 'coverage.html', 'kpi-builder.html', 'data-quality.html',
 ].forEach(loadHtml);
 
 // Helper: build the per-request HTML, inject api-key + nonce, send. Pages
@@ -1494,7 +1494,7 @@ app.get('/meetings-import.html',     (req, res) => sendHtmlPage(res, 'meetings-i
 app.get('/meetings-progress.html',   (req, res) => sendHtmlPage(res, 'meetings-progress.html',   false, 'Progress view unavailable'));
 app.get('/meetings-insights.html',   (req, res) => sendHtmlPage(res, 'meetings-insights.html',   false, 'Meetings dashboard unavailable'));
 app.get('/meetings-setup.html',      (req, res) => sendHtmlPage(res, 'meetings-setup.html',      false, 'Meetings setup unavailable'));
-app.use(require('./routes/myWork')({ express, requireReportSession, sendHtmlPage }));   // A-10 Home / My work — before express.static so home.html gets its nonce + ?v=
+app.use(require('./routes/myWork')({ express, requireReportSession, sendHtmlPage })); app.use(require('./routes/dataQuality')({ express, requireReportSession, sendHtmlPage }));   // A-10 · E-D07 Home / My work — before express.static so home.html gets its nonce + ?v=
 
 // ── Static assets — cached aggressively in the browser ───────────────────────
 // Everything in public/ that isn't one of the protected HTML pages above:
