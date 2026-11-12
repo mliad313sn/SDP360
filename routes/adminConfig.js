@@ -68,9 +68,22 @@ router.get('/api/reports/config', requireReportSession, requireSuperAdmin, async
   }
   catch (e) { fail(res, e); }
 });
+// E-A07 — GET /api/reports/config/history?key=&limit= : the config_changed journal (newest first, no secret values).
+router.get('/api/reports/config/history', requireReportSession, requireSuperAdmin, async (req, res) => {
+  try {
+    const limit = Math.max(1, Math.min(500, Number.parseInt(req.query.limit, 10) || 100));
+    const key = String(req.query.key || '').trim().slice(0, 80);
+    const fetchN = key ? 2000 : limit;
+    const { rows } = await rdb.listSystemLog({ category: 'config', action: 'config_changed' }, { limit: fetchN });
+    const out = require('../services/configJournal').historyRows(rows).filter((r) => !key || r.key === key).slice(0, limit);
+    res.json({ rows: out });
+  }
+  catch (e) { fail(res, e); }
+});
 router.put('/api/reports/config', requireReportSession, requireSuperAdmin, async (req, res) => {
   try {
-    const body = req.body || {};
+    const body = { ...(req.body || {}) };
+    const reason = body.reason; delete body.reason;   // E-A07 — optional, stored with each journal row
     // SSO settings (mode / secret / tenant) are auth-critical. The endpoint is
     // requireAdmin (shared with SMTP etc.), so enforce super_admin server-side for
     // the SSO keys — the UI hide alone is not a boundary.
@@ -102,8 +115,12 @@ router.put('/api/reports/config', requireReportSession, requireSuperAdmin, async
     if (denied) return res.status(400).json({ error: denied });
     const out = await reportConfig.setConfig(rdb.db, body, req.reportUser?.username);
     require('../services/ssoSettings')._invalidate();   // config changed → re-read next request
+    require('../services/dashKeyScope')._invalidate();
     logUrlChanges(req, body, cur);
-    res.json(redactSecrets(out));
+    // E-A07 — one system_log row per ACTUALLY changed key (secrets: set/cleared only) + prerequisite warnings
+    const J = require('../services/configJournal');
+    J.journal((ev) => rdb.logEvent(ev), J.diffConfig(cur, body, { keys: reportConfig.KEYS, secretSet: reportConfig._SECRET_BLANK_KEEP, blankKeep: reportConfig._SECRET_BLANK_KEEP }), rdb._logCtx(req), reason);
+    res.json({ ...redactSecrets(out), warnings: require('../services/switchPrereqs').warningsFor(body, cur) });
   }
   catch (e) { fail(res, e); }
 });

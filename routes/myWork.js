@@ -75,6 +75,14 @@ module.exports = function myWorkRoutes(deps) {
         readers.ownedBenefits = async (u) => require('../services/governanceStore').makeGovernanceStore(R.pgHandle()).ownedBenefitReviews({ userId: u && u.id, asOf });
       }
       const work = await buildMyWork({ user, sites, asOf, readers });
+      // E-B07 — the requester's own named feedback with its answer, only while ui_feedback_enabled = '1'
+      try {
+        const cfg = await require('../services/reportConfig').getConfig(R.db);
+        if (String(cfg.ui_feedback_enabled) === '1') {
+          work.feedback = await R.pgHandle().prepare(`SELECT id, created_at, kind, page, body, status, response FROM product_feedback
+            WHERE user_id = ? AND anonymous = 0 AND (status <> 'new' OR response IS NOT NULL) ORDER BY id DESC LIMIT 10`).all(Number(user.id));
+        }
+      } catch (_) { /* feedback is optional on this page */ }
       res.json({ ok: true, ...work });
     } catch (e) { fail(res, e, undefined, { ok: false }); }
   });

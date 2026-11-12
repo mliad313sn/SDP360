@@ -13,6 +13,8 @@ const DEFAULTS = {
   ui_kpi_base_line: '0',                // E-V03 '1' = KPI tiles show their base population ("n = 142 closed" / "base not measured")
   ui_kpi_sample_size: '0',              // E-K02 '1' = "n = …" on tiles/grid cells + low-sample warning from an ADOPTED kpi_policy
   ui_small_multiples: '0',              // E-V09 '1' = the `multiples` widget type (one panel per metric) is creatable
+  ui_feedback_enabled: '0',             // E-B07 '1' = Feedback button in the shell + /api/feedback (else 404)
+  ui_data_quality_page: '0',            // E-D07 '1' = Data quality board in the nav + data-quality.html (else 404)
   ui_week_labels: 'legacy',             // D-03 'explicit' = ISO charts say "ISO W37 (7–13 Sep)", Zoho labels carry their range
   // A-08 — Exec View (public page) switches; both defaults reproduce today's output.
   // full = subject/RCA/CA public, per the 2026-07-02 decision ("option a");
@@ -303,6 +305,16 @@ DEFAULTS.authz_capability_mode = 'off';
 // '' = today (nothing enforced). A listed capability can only REFUSE (403 + system_log authz_enforce_denied);
 // an allow still goes through the legacy guard. critical capabilities are ignored while C-18 grants are off.
 DEFAULTS.authz_enforce_caps = '';
+// E-S02 (audit S-02, X-SEC-01) — the x-dash-key ALONE (server-to-server). open = today (any route the gate
+// lets through); shadow = an unlisted route still answers but writes 'dashkey_scope_would_refuse' (once a day per
+// route × source); restrict = 401. dashkey_allowed_routes: "METHOD /api/path" or "/api/path", trailing * = prefix.
+// A browser request (cookie or Origin) is never affected. ui_inject_dash_key '1' = today (window.__ak in pages
+// served with a session); '0' = no key in pages, the session cookie carries every call (services/dashKeyScope.js).
+Object.assign(DEFAULTS, { dashkey_scope_mode: 'open', dashkey_allowed_routes: '', ui_inject_dash_key: '1' });
+// E-B08 (audit B-08) — '0' = today (the AI commentary is generated whatever the source freshness). '1' = when a model
+// would be called and any source feeding the run's figures is stale / never synced (publication's freshness gate),
+// the run keeps its deterministic text with error 'sources stale — AI commentary not generated' (system_log row).
+DEFAULTS.ai_commentary_stale_block = '0';
 // C-18 (G39/G40/G50) — access requests. '0' = today: Admin ▸ Users adds any role directly; no grant ever expires
 // by itself. access_require_approval '1' → adding a role marked requires_request needs an APPROVED request
 // (super_admin break-glass with a reason, logged risk=1). access_grant_expiry_job '1' → the nightly job

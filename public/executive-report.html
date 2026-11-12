@@ -8544,8 +8544,9 @@ function renderTrackerSummarySlide(pres, D, aS, yr, mo, im, period, pageStr, C, 
 // ── Init ──────────────────────────────────────────────────────────────────────
 // window.__ak is injected only when the page request carried a valid session (fiche C1). Without
 // it the API calls still work through the session token auth.js attaches; the banner just tells
-// the user to sign in again if the session cookie is gone.
-if (!AK) {
+// the user to sign in again if the session cookie is gone. E-S02: ui_inject_dash_key=0 sets
+// window.__akWithheld (a valid session, key deliberately not shipped) — no banner then.
+if (!AK && !window.__akWithheld) {
   const sr = document.getElementById('statusRow');
   if (sr) {
     sr.innerHTML = `<span style="color:#92400E;font-weight:700">⚠ Session not recognised by the server.</span>

@@ -633,7 +633,7 @@ async function checkZohoViewSchema() {
 }
 
 // Zoho view schema health check — routes/health.js (M12-a).
-app.use(require('./routes/health')({ express, checkZohoViewSchema, requireReportSession, getRdb: () => rdb, getBuild: () => APP_VERSION }));
+app.use(require('./routes/health')({ express, checkZohoViewSchema, requireReportSession, getRdb: () => rdb, getBuild: () => APP_VERSION, getTokenState: () => tokenState }));
 
 // ── Startup behaviour (2026-05-28) ──────────────────────────────────────
 // Previously: on every pm2 restart, this fired all 3 syncs against Zoho
@@ -1053,7 +1053,7 @@ app.use((req, res, next) => {
 // Fiche C1 (2026-10-20): the x-dash-key ALONE is accepted only for server-to-server callers
 // (tools/, scheduled jobs). A browser context — a report_token cookie OR an Origin header — must
 // carry a valid session; the key is never read from the query string.
-const _dashKeyGate = require('./services/viewLog').makeOncePerDay();   // EX-02: dash-key call evidence
+const _dashKeyScope = require('./services/dashKeyScope').create({ getRdb: () => rdb });   // EX-02 evidence + E-S02 key-only scope / page injection
 // G02 — every refused API call (401/403) lands in the security log, at most once per actor + route per
 // 10 minutes (a scripted probe must not flood the log; the count of refusals is in the details).
 const _denyGate = require('./services/viewLog').makeOncePerDay();
@@ -1097,15 +1097,7 @@ app.use('/api/', async (req, res, next) => {
   const key   = req.headers['x-dash-key'];
   const cookieToken = getCookie(req, 'report_token');
   const browserContext = !!(cookieToken || req.headers.origin);
-  if (!browserContext && _safeEqual(key, DASH_API_KEY)) {   // server-to-server key (constant-time)
-    // EX-02 / D-15 evidence: who still calls with the key alone — once a day per route and source
-    const _src = (req.ip || '') + ' ' + String(req.headers['user-agent'] || '').slice(0, 80);
-    const _full = '/api' + req.path;   // req.path is relative to the /api/ mount; the query string is never logged
-    if (_dashKeyGate(req.method + ' ' + _full + ' ' + _src, new Date().toISOString().slice(0, 10)) && rdb && rdb.logEvent) {
-      rdb.logEvent({ category: 'api', action: 'dashkey_call', actor: 'dash-key', target: req.method + ' ' + _full, ip: req.ip, details: { user_agent: String(req.headers['user-agent'] || '').slice(0, 160) } });
-    }
-    return next();
-  }
+  if (!browserContext && _safeEqual(key, DASH_API_KEY)) return _dashKeyScope.handle(req, res, next);   // server-to-server key (constant-time)
   const token = sessionAuth.sessionToken(req);
   if (rdb && token) {
     let user; try { user = await rdb.validateSession(token); } catch (e) { user = null; }
@@ -1318,7 +1310,7 @@ function loadHtml(name) {
   'site-awareness.html', 'no-access.html',
   'assets.html', 'assets-hygiene.html', 'assets-finance.html', 'wan.html', 'wan-health.html', 'wan-sla.html', 'itsm-roadmap.html',
   'infra-health.html', 'itsm-integrations-plan.html',
-  'dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html', 'cockpit.html', 'portfolio.html', 'project.html', 'rfi.html', 'report-studio.html', 'notifications.html', 'integrations.html', 'commitments.html', 'handoffs.html', 'obligations.html', 'home.html', 'policies.html', 'access.html', 'coverage.html', 'kpi-builder.html',
+  'dashboards.html', 'dashboard-composer.html', 'trackers.html', 'tracker-builder.html', 'cockpit.html', 'portfolio.html', 'project.html', 'rfi.html', 'report-studio.html', 'notifications.html', 'integrations.html', 'commitments.html', 'handoffs.html', 'obligations.html', 'home.html', 'policies.html', 'access.html', 'coverage.html', 'kpi-builder.html', 'data-quality.html',
 ].forEach(loadHtml);
 
 // Helper: build the per-request HTML, inject api-key + nonce, send. Pages
@@ -1338,9 +1330,7 @@ async function sendHtmlPage(res, name, injectApiKey, fallbackMsg) {
     html = _htmlCache[name];
     if (!html) return res.status(500).send(fallbackMsg);
   }
-  if (injectApiKey && await _hasValidSession(res.req)) {
-    html = html.replace('</head>', `<script nonce="${res.locals.nonce}">window.__ak='${DASH_API_KEY}';</script>\n</head>`);
-  }
+  if (injectApiKey && await _hasValidSession(res.req)) html = await _dashKeyScope.inject(html, res.locals.nonce, DASH_API_KEY);   // E-S02 ui_inject_dash_key
   html = html.replace(/%%CSP_NONCE%%/g, res.locals.nonce);
   if (sessionAuth.STRICT_PAGES.includes('/' + name) || res.getHeader('Content-Security-Policy-Report-Only')) html = sessionAuth.nonceScripts(html, res.locals.nonce);   // A-28a: nonce inline scripts under report-only
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -1504,7 +1494,7 @@ app.get('/meetings-import.html',     (req, res) => sendHtmlPage(res, 'meetings-i
 app.get('/meetings-progress.html',   (req, res) => sendHtmlPage(res, 'meetings-progress.html',   false, 'Progress view unavailable'));
 app.get('/meetings-insights.html',   (req, res) => sendHtmlPage(res, 'meetings-insights.html',   false, 'Meetings dashboard unavailable'));
 app.get('/meetings-setup.html',      (req, res) => sendHtmlPage(res, 'meetings-setup.html',      false, 'Meetings setup unavailable'));
-app.use(require('./routes/myWork')({ express, requireReportSession, sendHtmlPage }));   // A-10 Home / My work — before express.static so home.html gets its nonce + ?v=
+app.use(require('./routes/myWork')({ express, requireReportSession, sendHtmlPage })); app.use(require('./routes/dataQuality')({ express, requireReportSession, sendHtmlPage }));   // A-10 · E-D07 Home / My work — before express.static so home.html gets its nonce + ?v=
 
 // ── Static assets — cached aggressively in the browser ───────────────────────
 // Everything in public/ that isn't one of the protected HTML pages above:
@@ -4416,7 +4406,7 @@ app.post('/api/ai/analyze', requireReportSession, requireRole('report-author'), 
     const data = AI_PROVIDER === 'local'
       ? await _aiCallLocal(body)
       : await _aiCallAnthropic(body);
-    res.json(data);
+    res.json(require('./services/aiAnalyzeGuard').annotate(data, body.facts));   // E-B08 — number check when `facts` is sent (metadata only)
   } catch(err) {
     const status = err.status || err.response?.status || 500;
     const tag    = AI_PROVIDER === 'local' ? 'Local LLM' : 'Anthropic API';
@@ -6884,6 +6874,7 @@ app.use(require('./routes/sync')({ express, requireReportSession }));
 // Step 3 — KPI dictionary: GET /api/metrics/registry, GET /api/metrics/:key?site=&window=.
 app.use(require('./routes/metrics')({ express, requireReportSession }));
 app.use(require('./routes/access')({ express, requireReportSession }));   // C-17 why-denied · C-18 requests, approvals, templates, grants
+app.use(require('./routes/feedback')({ express, requireReportSession }));   // E-B07 in-app feedback (404 while ui_feedback_enabled = '0')
 app.use(require('./routes/duty')({ express, requireReportSession }));   // C-20 duty rosters + coverage (061)
 app.use(require('./routes/pageUsage')({ express, requireReportSession, requireSuperAdmin }));   // C-09 — page_viewed usage facts (always-on, internal)
 // Step 6 — dashboard definitions (composer) + one-call data resolver (store seeded in routes/dashboards.createStore).

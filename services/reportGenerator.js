@@ -20,7 +20,10 @@ async function generateRun(o) {
   const lang = o.lang === 'fr' || o.lang === 'en' ? o.lang : o.template.lang; // chosen at generation, template default otherwise
   const tpl = { ...o.template, lang };
   const analysis = analyse({ widgets, def: o.dashboardDef, audience: o.template.audience, lang, siteName: o.site ? o.site.name : null, window: o.window || null, registry: o.registry });
-  const commentary = await generateCommentary({ analysis, audience: o.template.audience, lang, provider: o.template.ai_enabled === false ? 'off' : (o.aiProvider || 'off'), aiCall: o.aiCall, now });
+  const prov = o.template.ai_enabled === false ? 'off' : (o.aiProvider || 'off');
+  // E-B08 — only consulted when a model would be called (provider on); null = switch off = today
+  const staleSources = (o.aiCall && prov !== 'off') ? await (o.staleSources || ((figs) => require('./aiStaleGate').staleSourcesFor({ figures: figs, registry: o.registry, siteId, runRef: o.template.key })))(analysis.figures, siteId) : null;
+  const commentary = await generateCommentary({ analysis, audience: o.template.audience, lang, provider: prov, aiCall: o.aiCall, now, staleSources });
   const pending = { template_key: o.template.key, site_id: siteId, window_label: o.window || null, status: 'draft', figures: analysis.figures, analysis: { ...analysis, figures: undefined }, commentary, created_at: now.toISOString() };
   const html = renderHtml({ template: tpl, run: pending, siteName: o.site ? o.site.name : null, baseUrl: o.baseUrl || '' });
   return o.store.createRun({ templateKey: o.template.key, siteId, windowLabel: o.window || null, figures: analysis.figures, analysis: pending.analysis, commentary, html, provider: commentary.source === 'ai' ? commentary.provider : 'deterministic', deviation: 0, user: o.user });

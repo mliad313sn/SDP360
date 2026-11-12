@@ -86,7 +86,8 @@ module.exports = function reportStudioRoutes(deps) {
         const already = (await store.listRuns({ templateKey: t.key, limit: 500 })).some((x) => Number(x.supersedes_id) === sup);
         if (already) return res.status(409).json({ ok: false, error: 'this withdrawn run already has a correction' });
       }
-      const run = await generateRun({ template: t, lang, site, sites, window: req.body && req.body.window ? String(req.body.window).slice(0, 24) : null, dashboardDef: d.definition, registry: registry(), deps: readerDeps(), rdb: rdb(), aiProvider: provider(), aiCall: deps.aiCall || null, baseUrl: await baseUrl(), user: u, store });
+      const run = await generateRun({ template: t, lang, site, sites, window: req.body && req.body.window ? String(req.body.window).slice(0, 24) : null, dashboardDef: d.definition, registry: registry(), deps: readerDeps(), rdb: rdb(), aiProvider: provider(), aiCall: deps.aiCall || null, baseUrl: await baseUrl(), user: u, store,
+        staleSources: (figs, sid) => require('../services/aiStaleGate').staleSourcesFor({ figures: figs, registry: registry(), siteId: sid, runRef: t.key }, { lastOk: lastOkFor }) });
       if (sup != null) Object.assign(run, await store.setSupersedes(run.id, sup));
       log(req, 'report_generated', run.id, { template: t.key, site: site && site.id, lang: run.analysis && run.analysis.lang, provider: run.provider, verified: run.commentary && run.commentary.verified, supersedes_id: sup });
       res.json({ ok: true, run: { ...run, html: undefined } });
@@ -150,7 +151,8 @@ module.exports = function reportStudioRoutes(deps) {
   });
   router.post('/api/report-studio/runs/:id/commentary/regenerate', requireReportSession, async (req, res) => {
     try { const r = await visibleRun(req, res, { write: true }); if (!r) return; if (r.status === 'published' || r.status === 'withdrawn') return res.status(409).json({ ok: false, error: `${r.status} run is frozen` }); const t = await store.getTemplate(r.template_key);
-      const c = await generateCommentary({ analysis: { ...(r.analysis || {}), figures: r.figures || [] }, audience: t.audience, lang: runLang(t, r), provider: provider(), aiCall: deps.aiCall || null }); let out = await store.updateCommentary(r.id, c); if (r.status === 'reviewed') out = await store.setStatus(r.id, 'draft', { user: req.reportUser }); await rerenderRun(out); log(req, 'report_commentary_regenerated', r.id, { source: c.source, verified: c.verified }); res.json({ ok: true, commentary: c }); } catch (e) { fail(res, e); }
+      const staleSources = deps.aiCall && provider() !== 'off' ? await require('../services/aiStaleGate').staleSourcesFor({ figures: r.figures || [], registry: registry(), siteId: r.site_id != null ? r.site_id : null, runRef: r.id }, { lastOk: lastOkFor, policy: () => policyFor(r) }) : null;   // E-B08
+      const c = await generateCommentary({ analysis: { ...(r.analysis || {}), figures: r.figures || [] }, audience: t.audience, lang: runLang(t, r), provider: provider(), aiCall: deps.aiCall || null, staleSources }); let out = await store.updateCommentary(r.id, c); if (r.status === 'reviewed') out = await store.setStatus(r.id, 'draft', { user: req.reportUser }); await rerenderRun(out); log(req, 'report_commentary_regenerated', r.id, { source: c.source, verified: c.verified }); res.json({ ok: true, commentary: c }); } catch (e) { fail(res, e); }
   });
   // G-13 — take a published run back (admin, reason required). Readers and share links stop seeing it; a corrected
   // version is a new run (generate → review → publish), so the withdrawn one stays as the audit record.

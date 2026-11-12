@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Data quality — Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="admin" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<style nonce="%%CSP_NONCE%%">
+  body { margin: 0; background: var(--color-bg); color: var(--color-text-strong); font-family: var(--font-sans, sans-serif); font-size: 14px; }
+  .dq-wrap { max-width: 1280px; margin: 0 auto; padding: 24px 28px 48px; }
+  .dq-card { background: var(--color-card); border: 1px solid var(--color-border); border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; overflow-x: auto; }
+  @media (max-width: 640px) { .dq-wrap { padding: 16px 12px 32px; } .dq-card { padding: 14px 12px; } }
+  h1 { margin: 0 0 6px; font-size: 22px; } h2 { font-size: 16px; margin: 0 0 8px; }
+  .dq-muted { color: var(--color-text-muted); font-size: 12.5px; }
+  table { border-collapse: collapse; } td, th { padding: 5px 8px; border-bottom: 1px solid var(--color-border); text-align: left; font-size: 12.5px; vertical-align: top; }
+  .dq-s { display: inline-block; min-width: 70px; border-radius: 6px; padding: 2px 6px; font-size: 12px; }
+  .dq-ok { background: var(--color-success-bg); color: var(--color-success-text); }
+  .dq-warn { background: var(--color-warning-bg); color: var(--color-warning-text); }
+  .dq-UNKNOWN { background: var(--color-bg); color: var(--color-text-muted); border: 1px dashed var(--color-border-strong); }
+</style>
+</head>
+<body>
+<a class="edv-skip" href="#main">Skip to content</a>
+<div id="__shell" data-section="operations" data-current="data-quality"></div>
+<main id="main" class="dq-wrap">
+  <div class="dq-card">
+    <h1>Data quality</h1>
+    <p class="dq-muted">Read-only. Each cell says ok, warn or UNKNOWN (a signal that could not be read is never shown as ok) and links to the page where it is fixed. The warn lines are proposals, not approved thresholds.</p>
+    <p class="dq-muted" id="dqMeta" aria-live="polite">Loading…</p>
+  </div>
+  <div class="dq-card"><h2>Sources (sync jobs)</h2><div id="dqSources"></div></div>
+  <div class="dq-card"><h2>Sites</h2><div id="dqSites"></div></div>
+  <div class="dq-card"><h2>Risk Register — unmapped site labels this month</h2><div id="dqRisk"></div></div>
+</main>
+<script nonce="%%CSP_NONCE%%" src="lib/data-quality-page.js"></script>
+</body>
+</html>

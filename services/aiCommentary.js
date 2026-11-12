@@ -58,11 +58,13 @@ function verifyNumbers(text, canonicalSet, { allow = [] } = {}) {
  * Produce the commentary. aiCall({system,user}) → text. provider 'off' → deterministic only.
  * @returns {{text, source:'ai'|'deterministic', provider, verified, offending, anonymised, error}}
  */
-async function generateCommentary({ analysis, audience = 'site', lang = 'en', provider = 'off', aiCall = null, now = new Date() }) {
+async function generateCommentary({ analysis, audience = 'site', lang = 'en', provider = 'off', aiCall = null, now = new Date(), staleSources = null }) {
   const L = lang === 'fr' ? 'fr' : 'en';
   const fallback = plain.dejargon([analysis.headline, ...(analysis.bullets || [])].join(' '), L);
   const base = { text: fallback, source: 'deterministic', provider, verified: true, offending: [], anonymised: false, generated_at: now.toISOString() };
   if (!aiCall || provider === 'off') return base;
+  // E-B08 — ai_commentary_stale_block = '1': a stale / never-synced source → no model call, deterministic text kept
+  if (Array.isArray(staleSources) && staleSources.length) return { ...base, error: 'sources stale — AI commentary not generated', stale_sources: staleSources.map((x) => x.job || x) };
   const cloud = provider !== 'local';
   const { analysis: a, map } = cloud ? anonymise(analysis) : { analysis, map: new Map() };
   const prompt = buildPrompt(a, { audience, lang });

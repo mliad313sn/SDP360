@@ -118,6 +118,7 @@ const UNTRANSLATED = {
   'project.html': 'A-14 project page, added after A-09b — French pending',
   'executive-report.html': 'deck builder, decks stay English (D-2)', 'it-review.html': 'faithful port of the executive dashboard, English',
   'integrations.html': 'admin console, English', 'system-logs.html': 'admin console, English',
+  'data-quality.html': 'E-D07 admin data-quality board (hidden by default), English',
   'dashboard-composer.html': 'admin authoring, English', 'report-studio.html': 'report authoring, English',
   'tracker-builder.html': 'admin authoring, English', 'notifications.html': 'not a coordinator field page yet',
   'inspections.html': 'list page — next pass', 'inspection-actions.html': 'list page — next pass', 'meetings.html': 'list page — next pass',

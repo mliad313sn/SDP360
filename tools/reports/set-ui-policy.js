@@ -5,6 +5,7 @@ if (require.main === module) require('dotenv').config({ path: require('path').jo
 // ui_nav_profile, ui_deck_builder_roles, ui_exec_nav). DRY RUN by default: prints current -> proposed and writes nothing.
 //   node tools/reports/set-ui-policy.js --key=ui_i18n_pages --value=1            (dry run)
 //   node tools/reports/set-ui-policy.js --key=ui_i18n_pages --value=1 --apply    (writes through setConfig)
+//   [--reason="…"] is stored with the system_log config_changed row (E-A07); the dry run prints prerequisite warnings.
 // Rollback: the same command with the previous value (printed by the dry run) and --apply.
 // Browsers pick the change up on their next page load (public/auth.js refreshes the cached policy).
 
@@ -16,6 +17,7 @@ function parseArgs(argv) {
     if (a === '--apply') out.apply = true;
     else if (a.startsWith('--key=')) out.key = a.slice(6).trim();
     else if (a.startsWith('--value=')) out.value = a.slice(8).trim();
+    else if (a.startsWith('--reason=')) out.reason = a.slice(9).trim();
   }
   return out;
 }
@@ -39,14 +41,25 @@ async function main(argv, deps) {
       getConfig: () => reportConfig.getConfig(rdb.db),
       setConfig: (patch) => reportConfig.setConfig(rdb.db, patch, 'cli:set-ui-policy'),
       log: (s) => console.log(s),
+      logEvent: (ev) => rdb.logEvent(ev),
     };
   }
-  const p = plan(args, await d.getConfig());
+  const cfg = await d.getConfig();
+  const p = plan(args, cfg);
+  // E-A07 — prerequisites in plain words (warnings, never a block, never an approval)
+  const warnings = require('../../services/switchPrereqs').warningsFor({ [p.key]: p.proposed }, cfg);
   d.log(`${p.key}: '${p.current}' -> '${p.proposed}'${p.changed ? '' : ' (no change)'}`);
-  if (!args.apply) { d.log('DRY RUN — nothing written. Re-run with --apply to write it.'); return { ...p, applied: false }; }
-  if (p.changed) await d.setConfig({ [p.key]: p.proposed });
+  for (const w of warnings) d.log(`WARNING prerequisite for ${w.key}=${w.value}: ${w.prerequisite}`);
+  if (!args.apply) { d.log('DRY RUN — nothing written. Re-run with --apply to write it.'); return { ...p, warnings, applied: false }; }
+  if (p.changed) {
+    await d.setConfig({ [p.key]: p.proposed });
+    if (d.logEvent) {
+      const J = require('../../services/configJournal');
+      J.journal(d.logEvent, J.diffConfig(cfg, { [p.key]: p.proposed }), { actor: 'cli:set-ui-policy' }, args.reason);
+    }
+  }
   d.log(p.changed ? 'Applied.' : 'Nothing to apply.');
-  return { ...p, applied: p.changed };
+  return { ...p, warnings, applied: p.changed };
 }
 
 if (require.main === module) {

@@ -73,6 +73,17 @@
       const ob = j.owned_benefits;
       const mine = ob === undefined ? '' : `<section class="hm-card" aria-labelledby="hm-mine"><h2 id="hm-mine">${esc(T.mine)}</h2><ul class="hm-blocks">${row(T.mine, 'portfolio.html', !ob ? nm : (ob.count === 0 ? esc(T.noBenefit) : `<b${ob.items.some((x) => x.overdue) ? ' class="hm-late"' : ''}>${ob.count}</b><ul class="hm-pv">${ob.items.map((x) => `<li><a href="project.html?id=${encodeURIComponent(x.project_id)}#benefits">${esc(x.project_key || x.project_id)}</a> <span class="hm-muted">${esc(x.due_date || '')} · ${esc(x.status === 'missing' ? T.missing : T.awaiting)}</span></li>`).join('')}</ul>`))}</ul></section>`;
       $('hmSites').innerHTML = mine + (j.sites || []).map(siteCard).join('');
+      // E-B07 — answers to MY feedback (only present while ui_feedback_enabled = '1'); every value escaped
+      const fb = Array.isArray(j.feedback) ? j.feedback : [];
+      const fbBox = document.getElementById('hmFeedback');
+      if (fbBox) fbBox.remove();
+      if (fb.length) {
+        const sec = document.createElement('section');
+        sec.id = 'hmFeedback'; sec.className = 'hm-feedback';
+        const st = (s) => (lang === 'fr' ? ({ new: 'nouveau', triaged: 'trié', planned: 'prévu', declined: 'refusé', done: 'fait' })[s] || s : s);
+        sec.innerHTML = `<h2>${esc(lang === 'fr' ? 'Réponses à vos retours' : 'Answers to your feedback')}</h2><ul>${fb.map((f) => `<li><b>${esc(st(f.status))}</b> — ${esc(String(f.body || '').slice(0, 140))}${f.response ? `<br><span class="hm-muted">${esc(f.response)}</span>` : ''}</li>`).join('')}</ul>`;
+        $('hmSites').insertAdjacentElement('afterend', sec);
+      }
       const msg = [];
       if (j.message) msg.push(lang === 'fr' ? "Vous n'êtes rattaché à aucun site — utilisez le registre des actions du site." : j.message);
       if (j.truncated) msg.push(fill(T.more, { n: j.truncated }));
