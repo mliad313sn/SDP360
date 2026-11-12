@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Workspace settings — Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<style nonce="%%CSP_NONCE%%">
+  body { margin: 0; background: var(--color-bg); color: var(--color-text-strong); font-family: var(--font-sans, sans-serif); font-size: 14px; }
+  .ws-wrap { max-width: 860px; margin: 0 auto; padding: 24px 28px 48px; }
+  .ws-card { background: var(--color-card); border: 1px solid var(--color-border); border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; }
+  @media (max-width: 640px) { .ws-wrap { padding: 16px 12px 32px; } .ws-card { padding: 14px 12px; } }
+  h1 { margin: 0 0 6px; font-size: 22px; } h2 { font-size: 16px; margin: 0 0 8px; }
+  .ws-muted { color: var(--color-text-muted); font-size: 12.5px; }
+  fieldset { border: 0; margin: 0; padding: 0; } legend { font-weight: 600; margin-bottom: 6px; padding: 0; }
+  label { display: block; margin: 4px 0; } select { max-width: 100%; min-height: 36px; font-size: 14px; }
+  .ws-list { list-style: none; margin: 0; padding: 0; }
+  .ws-list li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 0; border-bottom: 1px solid var(--color-border); }
+  .ws-list .ws-name { flex: 1 1 140px; min-width: 0; overflow-wrap: anywhere; }
+  .ws-list button, .ws-actions button { min-height: 36px; min-width: 36px; font-size: 13px; cursor: pointer; }
+  .ws-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 4px; }
+  .ws-gap { margin-top: 18px; }
+  .ws-primary { background: var(--color-primary-fill); color: var(--color-text-on-dark); border: 0; border-radius: 6px; padding: 8px 16px; }
+  .ws-primary:hover { background: var(--color-primary-fill-hover); }
+</style>
+</head>
+<body>
+<a class="edv-skip" href="#main">Skip to content</a>
+<div id="__shell" data-section="" data-current="workspace-settings"></div>
+<main id="main" class="ws-wrap">
+  <div class="ws-card">
+    <h1 id="wsTitle">Workspace settings</h1>
+    <p class="ws-muted" id="wsIntro">These choices change what you see first. They never change what you are allowed to open: every page keeps its own access rules.</p>
+    <p class="ws-muted" id="wsStatus" role="status" aria-live="polite">Loading…</p>
+  </div>
+  <form id="wsForm" class="ws-card" hidden>
+    <fieldset>
+      <legend id="wsProfileLegend">Profile</legend>
+      <label for="wsProfile" id="wsProfileHelp" class="ws-muted">Only the profiles your roles allow are offered.</label>
+      <select id="wsProfile" name="profile"></select>
+    </fieldset>
+    <h2 id="wsCardsTitle" class="ws-gap">Destinations</h2>
+    <p class="ws-muted" id="wsCardsHelp">Move a destination up or down, or hide it. Hidden destinations stay reachable from the menu.</p>
+    <ul class="ws-list" id="wsCards"></ul>
+    <fieldset class="ws-gap">
+      <legend id="wsDensityLegend">Density</legend>
+      <label><input type="radio" name="density" value="comfortable"> <span id="wsDensComfortable">Comfortable</span></label>
+      <label><input type="radio" name="density" value="compact"> <span id="wsDensCompact">Compact</span></label>
+    </fieldset>
+    <fieldset class="ws-gap">
+      <legend id="wsSiteLegend">Default site</legend>
+      <label for="wsSite" class="ws-muted" id="wsSiteHelp">Only your own sites are listed.</label>
+      <select id="wsSite" name="default_site_id"></select>
+    </fieldset>
+    <div class="ws-actions ws-gap">
+      <button type="submit" class="ws-primary" id="wsSave">Save</button>
+      <button type="button" id="wsReset">Back to my role defaults</button>
+      <a href="home.html" id="wsHome">Return to Home</a>
+    </div>
+  </form>
+</main>
+<script nonce="%%CSP_NONCE%%" src="lib/workspaceProfiles.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/workspaceSettingsPage.js"></script>
+</body>
+</html>

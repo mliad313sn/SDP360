@@ -144,6 +144,7 @@ planned switch cannot be set before its goal lands.
 | `ui_data_quality_page` | built | `0` | `1` for the admin tier once a data steward per source is named — a read-only board (Configure ▸ Data quality) of freshness, content drift, duplicates per sync job and hygiene completeness, money coverage, site-code disagreements per site, plus unmapped Risk-Register labels; every unreadable signal shows UNKNOWN; the two warn lines (80 % / 50 %) are PROPOSITIONS | Data owner | E-D07 |
 | `restore_drill_full` | built | `0` | `1` on the TEST instance once a backup copy of `data/blobs` exists (`SDP_BLOB_BACKUP_DIR`) and both keys are set — proposal | Operations owner | F-ARCH-05 |
 | `restore_rto_minutes` | built | `` (empty) | the recovery-time target in minutes — **not proposed here**: empty reads UNKNOWN, never "met" | Operations owner (RTO/RPO) | F-ARCH-05 |
+| `workspace_profiles_enabled` | built | `0` | `1` for the pilot cohort once the PO confirms the 11 profiles and their first destinations — presentation profiles (REBUILD-SPEC R1) + `workspace-settings.html` (R2: profile among those the roles allow, destination order / hidden, density, default site among the person's own sites), stored per user (migration 078); a profile NEVER grants a page, a role or a site (tested); a business-only account is offered only the business profile; the login landing and Home are not rewired here (R2-QUEUE) | PO | R1-PROFILES |
 
 Not in this table because they are not top-level `report_config` keys:
 

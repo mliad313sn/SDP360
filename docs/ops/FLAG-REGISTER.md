@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (221) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (209) — services/reportConfig.js DEFAULTS
 
 Prerequisites (E-A07, services/switchPrereqs.js) are WARNINGS in plain words, never approvals: the config PUT
 answer and the `set-ui-policy.js` dry run repeat them when the switch is moved to its switched-on value.
@@ -59,22 +59,16 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `authz_capability_mode` | `off` | setting | Security owner | `shadow` (log divergences only; `enforce` acts only on `authz_enforce_caps` — route-by-route plan in `docs/agent-execution/C-17.md`) | C-17 | Enforce is wired only for the capabilities in authz_enforce_caps: resolve every shadow divergence (tools/security/authz-divergence-report.js) and add negative API tests first. |
 | `authz_enforce_caps` | `` | setting | Security owner | PROPOSITION: empty during the pilot; after two shadow weeks without unexplained divergences (`tools/security/authz-divergence-report.js`), low-risk reads first (`review.read`, `analytics.data.read`, `tracker.read`) with mode `enforce`; a listed capability can only refuse, critical ones are ignored while C-18 grants are off | E-S01 | — |
 | `backup_offsite_path` | `` | setting | to be named | — | — | — |
-| `benefit_money_verifier_role` | `` | setting | Finance controller | a role name such as `finance-viewer` once the Finance owner adopts the rule (a money benefit is then verified only by a holder of that role who is neither the person who entered the value nor the linked owner — refusal `VERIFIER_ROLE`; the role required is stamped on the verification; no role is granted by this key, and a name nobody holds blocks every money verification) | F-PRODUCT-04 | — |
 | `benefit_owner_link_enabled` | `0` | arm switch | PMO | `1` once the PMO wants benefit owners named as users (the free-text owner stays; "My work" then lists the person's benefits whose review date is reached — in-app only, nothing is e-mailed). The linked owner can never verify their own benefit | E-P05 | — |
-| `benefit_value_class_enabled` | `0` | arm switch | Finance + executive sponsor | `1` once Finance and the sponsor agree the classes used at a benefits review (value class, observed / estimated basis, baseline and measurement periods, method note, source; the project page then separates observed, estimated and validated values and totals them per class and currency / unit, never across). No class is set by default; "validated" is only derived from a verification by the holder of the required role (`benefit_money_verifier_role`) | F-PRODUCT-03 / F-DATA-09 | — |
 | `chart_annotations_enabled` | `0` | arm switch | Owner (UI policy) | `1` (proposal — after a browser review; notes are human-entered with a mandatory source) | E-V08 | — |
 | `commitment_notify_enabled` | `0` | arm switch | to be named | — | — | — |
 | `commitments_enabled` | `0` | arm switch | to be named | — | — | — |
 | `controls_register_enabled` | `0` | arm switch | GRC owner + Security owner | `1` once GRC names who adopts controls (the four seeded controls stay `candidate` until a person adopts them with a reason; frequencies and testers are GRC decisions) | E-G04 | — |
-| `csp_strict_pages` | `` | setting | Security owner | keep empty until a page is listed as enforceable in `docs/security/CSP-JOURNEYS.md` (no inline script, no inline handler) AND a report-only run (`SDP_CSP_REPORT_ONLY=1`) shows no violation for it; then add it here, one journey at a time, e.g. `/access.html` — a comma list of pages served with the nonce-only `script-src` (applies within 30 s, no restart; emptying it returns to today). It can only make a page stricter: no script origin is ever added — PROPOSITION, no page approved | F-ARCH-06 | — |
-| `dashboard_decision_kpis_seed` | `0` | setting | KPI committee | `0` until the KPI committee has chosen its two decision KPIs (`1` only creates an unpublished draft of the two candidates) | F-DATA-11 | — |
 | `dashboard_red_action_links` | `0` | setting | Owner (UI policy) + PMO | `1` (proposal — only with `commitments_enabled=1`; no action is ever created automatically) | E-K03 | — |
 | `dashkey_allowed_routes` | `` | setting | Integration owner + Security owner | the routes the named consumers really call (from the consumer report), e.g. `GET /api/ping, GET /api/data/*` — PROPOSITION, no list approved | E-S02 | — |
 | `dashkey_scope_mode` | `open` | setting | Integration owner + Security owner | `shadow` first (an unlisted key-only route still answers and logs `dashkey_scope_would_refuse`); `restrict` (401) only after every consumer in `tools/security/dashkey-consumers.js` is named and listed. A browser request is never affected | E-S02 | Every key-only consumer named and listed in dashkey_allowed_routes (tools/security/dashkey-consumers.js), after a shadow period. |
-| `decision_lifecycle_enforced` | `0` | setting | Governance committee chair | `1` once the governance committee chair accepts the rule (PROPOSED: a site moves a decision `open` ↔ `in_progress` and proposes completion — its `done` is stored as `awaiting_confirmation` until the committee confirms; cancelling and reopening are committee acts with a reason; an illegal jump is refused, 409). The status history with actor and reason is recorded at `0` too | F-PRODUCT-06 | — |
 | `default_email_domain` | `edv-ops.com` | setting | to be named | — | — | — |
 | `delivery_failure_alert_enabled` | `0` | arm switch | Platform owner (D-13) | `1` once `sync_alert_recipients` (or the Teams URL) names who receives sync alerts (D-13) — the failed deliveries are already listed on System Logs either way | E-R04 | — |
-| `department_rollup_enabled` | `0` | arm switch | HR / department heads + Group IT | `1` only after HR / the department heads and Group IT have reviewed the crosswalk (`node tools/governance/department-crosswalk.js --check`; five exact pairs are PROPOSED, every other value is left alone — Process, Mill / Plant and Processing are not merged). At `1` the committee reads counts per crosswalked department (`GET /api/governance/department-rollup`); a value without a pair stays "unmapped". No stored label is renamed and no user gets a department | F-PRODUCT-05 | — |
 | `embed_frame_ancestors` | `` | setting | to be named | — | — | — |
 | `emergency_access_enabled` | `0` | arm switch | Security owner + Owner | `1` once the super_admins who may grant and review are named (a super_admin, never the beneficiary, max 24 h, review within 2 working days by another super_admin — PO decision R7; never waives a qualification) | C-22 | — |
 | `emergency_access_max_hours` | `24` | setting | Security owner | `24` (hard cap; may only be lowered) | C-22 | — |
@@ -96,7 +90,6 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `field_photo_max_kb` | `300` | setting | to be named | — | — | — |
 | `field_review_step` | `0` | setting | PO / adoption lead | `1` on the pilot site after one session shows it does not slow the technician (a one-screen summary — site, items, findings, photos, offline note — before an inspection is queued; « Corriger » queues nothing) | E-F03 | — |
 | `field_task_timing` | `0` | setting | PO / adoption lead | `1` for the pilot window to take a BASELINE (active time form open → queued, pauses > 2 min excluded, user id + role tier only; median / p75 per site × kind × week in `tools/pilot/pilot-metrics.js`). No target is set — targets come only after the baseline (PILOT-MEASUREMENT.md) | E-F03 | — |
-| `finance_currency_required` | `0` | setting | Finance controller | `1` once Finance requires a stated currency on every amount (a project budget / spent or a money benefit written without a currency is then refused, `CURRENCY_REQUIRED`). At `0` the write is accepted but flagged: "default, not confirmed" on the portfolio and project pages, `currency_defaulted=true` in the ledger note, a warning in the answer. Rules per money path: `docs/ops/FINANCE-CURRENCY-RULES.md` | F-DATA-10 | — |
 | `formats` | `html,pdf` | setting | to be named | — | — | — |
 | `from` | `` | setting | to be named | — | — | — |
 | `group_report_cc` | `` | setting | to be named | — | — | — |
@@ -121,8 +114,6 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `meridian_in_key` | (secret — not shown) | secret | to be named | — | — | — |
 | `meridian_out_key` | (secret — not shown) | secret | to be named | — | — | — |
 | `metric_explain_enabled` | `0` | arm switch | KPI committee | `1` (proposal — read-only; counts by site, ratios as numerator / denominator; the note never asserts a cause) | E-K04 | — |
-| `metric_programme_readers` | `0` | setting | KPI committee + model author | `0` until the KPI committee and the model author decide (`1` computes `programme.site_score` / `programme.composite` on dashboards, agendas, `/api/metrics`, `/ext/v1` — not certified, D-01..D-03) | F-DATA-03 | — |
-| `mywork_awaiting_me_enabled` | `0` | arm switch | Product owner | `1` on the pilot once the product owner has compared it with the review.1 validation queue (one queue, not two). Home ▸ My work then shows "Awaiting me": commitments I review (named reviewer or role holder, never my own work), handoffs waiting for my acceptance, benefits I may verify (never the one I entered or own), decisions I own due within 7 days, PVs I am named to sign. Only items the person can already open; a source that cannot be read shows "not measured"; nothing is e-mailed | F-PRODUCT-07 | — |
 | `never_send_unconfirmed` | `1` | setting | to be named | — | — | — |
 | `notifications_stop` | `0` | setting | to be named | — | — | — |
 | `obligations_include_decisions` | `0` | setting | Committee + Owner | `1` (the site obligations view then counts the site's open governance decisions; the visible total of a site can grow) | E-G02 | — |
@@ -142,7 +133,6 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `ppm_alert_blocked_days` | `5` | setting | Committee | `5` | A-27 | — |
 | `ppm_alert_slip_days` | `10` | setting | Committee | `10` | A-27 | — |
 | `ppm_alerts_enabled` | `0` | arm switch | Committee | `0` (dry run first) | A-27 | — |
-| `ppm_alloc_unspecified` | `full_time` | setting | PMO | `unknown` if the PMO decides that a task created without an allocation is "not known" rather than full time (a NEW task then stores NULL — shown "unknown", never summed; existing rows are never changed; `node tools/governance/alloc-audit.js` lists legacy values outside 0–100 and says whether the range CHECK of migration 080 is present) | F-PRODUCT-09 | — |
 | `ppm_annual_pack_enabled` | `0` | arm switch | CIO + PMO + Finance | `1` before the annual planning committee (the XLSX pack is a DRAFT on every sheet: projects of the year, per-currency budget roll-up under the money rule, capacity summary, provisional RFI scores; the envelope column stays UNKNOWN until Finance enters it — envelopes and arbitration are human decisions) | E-P08 | — |
 | `ppm_baseline_versions` | `0` | setting | Committee | `1` | A-27 | — |
 | `ppm_budget_periods_enabled` | `0` | arm switch | Finance + PMO | `1` once Finance agrees the period grid (month × currency × baseline / actual / forecast, EAC = actual to date + remaining forecast per currency, never across currencies; a change or a variance vs the baseline needs a justification and is hash-chained in `ppm_events`). Every view says "not certified" until Finance certifies the figures; who may approve a budget stays a Finance decision | E-P04 | — |
@@ -164,8 +154,6 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `report_drift_banner` | `0` | setting | Owner (D-3) | `1` | A-24 | — |
 | `report_reassign_submitted` | `1` | setting | Owner (D-3) | `0` | A-24 | — |
 | `report_revert_policy` | `site_editor` | setting | Owner (D-3, reverses 2026-10-02) | `second_person` | A-24 | — |
-| `restore_drill_full` | `0` | setting | Operations owner | `1` on the TEST instance once a backup copy of `data/blobs` exists (`SDP_BLOB_BACKUP_DIR`) and both keys are set — proposal | F-ARCH-05 | — |
-| `restore_rto_minutes` | `` | setting | Operations owner (RTO/RPO) | the recovery-time target in minutes — **not proposed here**: empty reads UNKNOWN, never "met" | F-ARCH-05 | — |
 | `roadmap_redirect_to_portfolio` | `0` | setting | PMO + PO (deletion of roadmap data: CAB) | `0` during the pilot; `1` only after one clean parity cycle (`tools/governance/roadmap-parity.js`) | B-09 | — |
 | `schedule_inspection_interval_days` | `` | setting | Infrastructure / GRC owner | e.g. `90` if a quarterly inspection rhythm is adopted (proposal; empty = inspections are not reminded) | E-R06 | — |
 | `schedule_reminder_lead_days` | `` | setting | Site coordination owner | e.g. `3` (proposal — empty = no reminder even when armed) | E-R06 | — |
@@ -222,7 +210,6 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `ui_i18n_pages` | `0` | ui policy | Owner (D-2) | `1` | A-09, C-26 | — |
 | `ui_inject_dash_key` | (secret — not shown) | secret | Security owner | `0` (pages no longer receive `window.__ak`; every data call rides the session cookie — proven by `tests/api-key-injection.smoke.test.js` (g)) after one browser pass on the TEST instance | E-S02 | One browser pass on the TEST instance of every page that used window.__ak. |
 | `ui_kpi_base_line` | `0` | ui policy | Owner (UI policy) | `1` (proposal — show the base population under each KPI value) | E-V03 | — |
-| `ui_kpi_definition_drawer` | `0` | ui policy | KPI committee | `1` (proposal — the tile then shows formula, window, denominator, source job and the certification text; nothing is certified by showing it) | F-DATA-07 | — |
 | `ui_kpi_sample_size` | `0` | ui policy | KPI committee | `1` (proposal — warnings only appear once the KPI committee adopts a `min_sample`) | E-K02 | — |
 | `ui_lang_default` | `` | ui policy | Owner (D-2) | `fr` | A-09 | — |
 | `ui_nav_profile` | `full` | ui policy | Owner (D-6) | `lean` (proposal — re-decide from the T1–T8 sessions) | A-21 | — |
@@ -239,6 +226,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `wan_timeup_latency_ms` | `` | setting | to be named | — | — | — |
 | `wan_timeup_loss_pct` | `100` | setting | Network owner | `5` (calibration of 2026-09-04) | A-18 (pre-existing key; A-18b adds the uncalibrated banner + `tools/meraki/check-timeup-calibration.js`) | — |
 | `weekly_report_send_enabled` | `0` | arm switch | to be named | — | — | — |
+| `workspace_profiles_enabled` | `0` | arm switch | PO | `1` for the pilot cohort once the PO confirms the 11 profiles and their first destinations — presentation profiles (REBUILD-SPEC R1) + `workspace-settings.html` (R2: profile among those the roles allow, destination order / hidden, density, default site among the person's own sites), stored per user (migration 078); a profile NEVER grants a page, a role or a site (tested); a business-only account is offered only the business profile; the login landing and Home are not rewired here (R2-QUEUE) | R1-PROFILES | — |
 | `xof_usd_rate` | `0.00165` | setting | to be named | — | — | — |
 
 ## 2. Planned switches (9) — named in PILOT-PROFILE, not yet in DEFAULTS on this branch
