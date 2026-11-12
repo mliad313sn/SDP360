@@ -54,13 +54,20 @@ inside the handler (`userHasRole` / `isAdmin`-style helpers) · **Site scope** =
 | `GET /api/analytics/opmanager/availability` | requireReportSession | — | — | — |
 | `GET /api/analytics/opmanager/coverage` | requireReportSession | — | — | — |
 | `GET /api/analytics/wan/mappings` | requireReportSession + requireSuperAdmin(super_admin) | platform.settings.manage | — | — |
+| `GET /api/analytics/wan/sla/claims` | requireReportSession | — | admin, finance-viewer | — |
+| `GET /api/analytics/wan/sla/claims/:id` | requireReportSession | — | admin, finance-viewer | — |
+| `GET /api/analytics/wan/sla/claims/:id/evidence.csv` | requireReportSession | — | — | — |
+| `GET /api/analytics/wan/sla/claims/:id/evidence.html` | requireReportSession | — | — | — |
+| `GET /api/analytics/wan/sla/claims/:id/evidence.pdf` | requireReportSession | — | — | — |
+| `GET /api/analytics/wan/sla/claims/status` | requireReportSession | — | admin, finance-viewer | — |
+| `GET /api/analytics/wan/sla/claims/value` | requireReportSession | — | admin, finance-viewer | — |
 | `GET /api/analytics/wan/sla/config` | requireReportSession + requireSuperAdmin(super_admin) | platform.settings.manage | — | — |
 | `GET /api/analytics/wan/sla/contracts` | requireReportSession + requireSuperAdmin(super_admin) | platform.settings.manage | — | — |
 | `GET /api/analytics/wan/sla/contracts/:key/evidence` | requireReportSession + requireSuperAdmin(super_admin) | platform.settings.manage | — | — |
 | `GET /api/analytics/wan/sla/export.csv` | requireReportSession | — | — | — |
 | `GET /api/analytics/wan/sla/export.xlsx` | requireReportSession | — | — | — |
 | `GET /api/analytics/wan/sla/outages` | requireReportSession | — | — | — |
-| `GET /api/analytics/wan/sla/summary` | requireReportSession | — | — | — |
+| `GET /api/analytics/wan/sla/summary` | requireReportSession | — | admin, finance-viewer | — |
 | `GET /api/analytics/wan/summary` | requireReportSession | — | — | — |
 | `GET /api/analytics/wan/trend` | requireReportSession | — | — | — |
 | `GET /api/assets/depreciation-config` | requireReportSession | — | — | — |
@@ -220,6 +227,7 @@ inside the handler (`userHasRole` / `isAdmin`-style helpers) · **Site scope** =
 | `GET /api/governance/ppm/project/:id/raci` | requireReportSession | — | — | — |
 | `GET /api/governance/ppm/project/:id/raci.csv` | requireReportSession | — | — | — |
 | `GET /api/governance/ppm/project/:id/team` | requireReportSession | — | — | — |
+| `GET /api/governance/ppm/project/:id/team/people` | requireReportSession | — | — | — |
 | `GET /api/governance/ppm/task/:id/time` | requireReportSession | — | — | — |
 | `GET /api/governance/ppm/templates` | requireReportSession | — | admin, committee-member | — |
 | `GET /api/governance/profiles` | requireReportSession + requireCommittee(admin or committee-member) | governance.committee | — | — |
@@ -295,7 +303,7 @@ inside the handler (`userHasRole` / `isAdmin`-style helpers) · **Site scope** =
 | `GET /api/qualifications/kinds` | requireReportSession | — | super_admin | — |
 | `GET /api/report-studio/runs` | requireReportSession | — | admin, report-author | userSites |
 | `GET /api/report-studio/runs/:id` | requireReportSession | — | — | — |
-| `GET /api/report-studio/runs/:id.:fmt(html|pdf|csv|pptx|xlsx)` | requireReportSession | — | — | — |
+| `GET /api/report-studio/runs/:id.:fmt` | requireReportSession | — | — | — |
 | `GET /api/report-studio/stats` | requireReportSession + requireAuthor(admin or report-author) | reports.studio.author | — | — |
 | `GET /api/report-studio/templates` | requireReportSession | — | admin, report-author | — |
 | `GET /api/reports` | requireReportSession | — | admin | userSites |
@@ -423,6 +431,12 @@ inside the handler (`userHasRole` / `isAdmin`-style helpers) · **Site scope** =
 | `POST /api/admin/refresh-major-incident-udfs` | requireReportSession + requireAdmin(admin) | ops.operate | — | — |
 | `POST /api/ai/analyze` | requireReportSession + requireRole(report-author) | reports.deck.author | — | — |
 | `POST /api/analytics/opmanager/sync` | requireReportSession + requireAdmin(admin) | ops.operate | — | — |
+| `POST /api/analytics/wan/sla/claims` | requireReportSession + requireAdmin(admin) | wan.sla.claims.manage | — | — |
+| `POST /api/analytics/wan/sla/claims/:id/notify/approve` | requireReportSession + requireAdmin(admin) | wan.sla.claims.manage | — | — |
+| `POST /api/analytics/wan/sla/claims/:id/notify/preview` | requireReportSession + requireAdmin(admin) | wan.sla.claims.manage | — | — |
+| `POST /api/analytics/wan/sla/claims/:id/notify/request` | requireReportSession + requireAdmin(admin) | wan.sla.claims.manage | — | — |
+| `POST /api/analytics/wan/sla/claims/:id/notify/send` | requireReportSession + requireAdmin(admin) | wan.sla.claims.manage | — | — |
+| `POST /api/analytics/wan/sla/claims/:id/transition` | requireReportSession + requireAdmin(admin) | wan.sla.claims.manage | — | — |
 | `POST /api/analytics/wan/sla/contracts/:key/review` | requireReportSession + requireSuperAdmin(super_admin) | platform.settings.manage | — | — |
 | `POST /api/analytics/wan/sla/export-filtered.xlsx` | requireReportSession | — | — | — |
 | `POST /api/analytics/wan/sla/sync` | requireReportSession + requireAdmin(admin) | ops.operate | — | — |
@@ -608,6 +622,7 @@ inside the handler (`userHasRole` / `isAdmin`-style helpers) · **Site scope** =
 | `POST /api/ux/page-view` | requireReportSession | — | — | — |
 | `PUT /api/access/templates/versions/:vid` | requireReportSession + requireSuper(super_admin) | platform.identity.manage | — | — |
 | `PUT /api/analytics/wan/mappings` | requireReportSession + requireSuperAdmin(super_admin) | platform.settings.manage | — | — |
+| `PUT /api/analytics/wan/sla/claims/:id` | requireReportSession + requireAdmin(admin) | wan.sla.claims.manage | — | — |
 | `PUT /api/analytics/wan/sla/config` | requireReportSession + requireSuperAdmin(super_admin) | platform.settings.manage | — | — |
 | `PUT /api/analytics/wan/sla/contracts/:key` | requireReportSession + requireSuperAdmin(super_admin) | platform.settings.manage | — | — |
 | `PUT /api/assets/depreciation-config` | requireReportSession + requireSuperAdmin(super_admin) | platform.settings.manage | — | — |

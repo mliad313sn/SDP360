@@ -8,17 +8,17 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 
 | Item | Count |
 |---|---:|
-| routes | 692 |
+| routes | 665 |
 | routes not measurable | 3 |
-| routes without strict test | 57 |
-| critical routes | 201 |
-| critical routes without strict test | 18 |
+| routes without strict test | 55 |
+| critical routes | 183 |
+| critical routes without strict test | 16 |
 | writes without strict test | 18 |
-| jobs | 32 |
+| jobs | 31 |
 | jobs without strict test | 0 |
-| test sources | 820 |
+| test sources | 799 |
 | without strict test access | 4 |
-| without strict test finance | 2 |
+| without strict test finance | 0 |
 | without strict test export | 7 |
 | without strict test audit | 4 |
 | without strict test destructive | 2 |
@@ -29,8 +29,6 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 |---|---|---|---|
 | POST | `/api/access/templates/:id/retire` | access, write | routes/access.js |
 | POST | `/api/executive-new-pptx` | export, write | server.js |
-| GET | `/api/finance/actuals/batches/:id` | finance, read | routes/finance.js |
-| GET | `/api/finance/actuals/batches` | finance, read | routes/finance.js |
 | POST | `/api/governance/cadences/:id/restore` | audit, destructive, write | routes/softDelete.js |
 | GET | `/api/governance/ppm/project/:id/raci.csv` | export, read | routes/governancePpm.js |
 | DELETE | `/api/governance/ppm/project/:id/team/:mid` | destructive, write | routes/governanceWorkbench.js |
@@ -108,8 +106,8 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 | Class | Routes | Without strict test |
 |---|---:|---:|
 | access | 64 | 4 |
-| finance | 40 | 2 |
-| export | 61 | 7 |
+| finance | 22 | 0 |
+| export | 59 | 7 |
 | audit | 20 | 4 |
 | destructive | 35 | 2 |
-<!-- structure bbc2bac3d40588fe -->
+<!-- structure 52a031b32f9a80fb -->

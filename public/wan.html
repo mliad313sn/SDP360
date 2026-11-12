@@ -121,6 +121,7 @@
 <div class="wan-tabs" id="wan-tabs">
   <button class="wan-tab on" id="wtab-health" data-tab="health">Santé &amp; Qualité</button>
   <button class="wan-tab" id="wtab-sla" data-tab="sla">SLA &amp; Refacturation</button>
+  <button class="wan-tab" id="wtab-claims" data-tab="claims" style="display:none">Réclamations</button>
 </div>
 
 <!-- ════ Pane: Santé & Qualité (WAN Health) ════ -->
@@ -267,6 +268,62 @@
   </div>
 </div>
 
+
+<!-- ════ Pane: SLA credit claims (P8 / B1) — shown only while wan_sla_claims_enabled = '1' (the API answers 404 otherwise) ════ -->
+<div id="pane-claims" style="display:none">
+  <div class="sl-wrap">
+    <div class="sl-head">
+      <div>
+        <h1>SLA credit claims</h1>
+        <div class="sub">From <b>due</b> to <b>recovered</b>: one claim per circuit × closed month. The due amount is the SLA engine's figure, frozen with an evidence hash; every status change carries a motive and is recorded in a tamper-evident trail.</div>
+      </div>
+      <div class="sl-controls">
+        <label class="sl-muted" for="cl-quarter" style="font-size:12px">Quarter</label>
+        <select id="cl-quarter"></select>
+        <label class="sl-muted" for="cl-status" style="font-size:12px">Status</label>
+        <select id="cl-status"><option value="">All</option><option value="due">Due</option><option value="claimed">Claimed</option><option value="credited">Credited</option><option value="disputed">Disputed</option><option value="written_off">Written off</option></select>
+      </div>
+    </div>
+    <div id="cl-msg" class="sl-note" role="status" aria-live="polite"></div>
+
+    <div class="sl-panel" id="cl-value-panel" style="display:none">
+      <h2>Quarter totals — due vs claimed vs recovered (per currency, never added together)</h2>
+      <div class="sl-scroll"><table class="sl-tbl"><thead><tr><th>Quarter</th><th>Currency</th><th class="sl-num">Due</th><th class="sl-num">Claimed</th><th class="sl-num">Recovered</th><th class="sl-num">Written off</th><th class="sl-num">Open claims</th><th class="sl-num">Median age (days)</th></tr></thead><tbody id="cl-value"></tbody></table></div>
+      <p class="sl-note" id="cl-value-note"></p>
+    </div>
+
+    <div class="sl-panel" id="cl-new-panel" style="display:none">
+      <h2>Open a claim</h2>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+        <label class="sl-muted" style="font-size:12px" for="cl-new-circuit">Circuit (from the SLA tab)</label>
+        <select id="cl-new-circuit"></select>
+        <label class="sl-muted" style="font-size:12px" for="cl-new-period">Month</label>
+        <input type="month" id="cl-new-period">
+        <label class="sl-muted" style="font-size:12px" for="cl-new-owner">Owner</label>
+        <input type="text" id="cl-new-owner" maxlength="120" placeholder="who chases the ISP">
+        <button class="sl-btn" id="cl-new-btn" type="button">Open claim</button>
+      </div>
+      <p class="sl-note">Only a closed month with a credit due can be claimed; one claim per circuit and month.</p>
+    </div>
+
+    <div class="sl-panel">
+      <h2>Claims</h2>
+      <div class="sl-scroll"><table class="sl-tbl">
+        <thead><tr><th>#</th><th>Site / Uplink</th><th>ISP · Circuit</th><th>Month</th><th>Status</th><th>Owner</th><th class="sl-num">Due</th><th class="sl-num">Claimed</th><th class="sl-num">Credited</th><th class="sl-num">Days since due</th><th class="sl-num">Days since claimed</th><th>Evidence</th><th>Actions</th></tr></thead>
+        <tbody id="cl-rows"></tbody>
+      </table></div>
+      <p class="sl-note"><b>Stale</b> = outages or contract terms changed after the amount was frozen — review before claiming. Amounts are shown to the admin tier and Finance only.</p>
+    </div>
+
+    <div class="sl-panel" id="cl-detail" style="display:none"></div>
+
+    <div class="sl-panel" id="cl-ready-panel">
+      <h2>Real-time Teams SLA alerts (SDP Cloud) — readiness</h2>
+      <div id="cl-ready" class="sl-note"></div>
+      <p class="sl-note">These alerts are switched on by a person, never from this page: OAuth client + refresh token for SDP Cloud, one Workflows webhook per Teams channel, then arm them in <a href="reports.html#admin/teams-sla">Admin ▸ Intégration API ▸ Alertes SLA</a>. Guide: docs/integration/2026-10-03-teams-sla-alerts-setup.md.</p>
+    </div>
+  </div>
+</div>
 <!-- ════ Santé & Qualité logic (init exposed, called lazily on tab activation) ════ -->
 <script nonce="%%CSP_NONCE%%">
 (function () {
@@ -744,15 +801,17 @@
   // RBAC lot 4d (2026-10-02): the SLA tab is open to coordinators — every SLA route limits
   // a non-admin to their own site server-side.
   const canSeeSla = !!(window.__userHasRole && window.__userHasRole('editor'));
-  const TABS = ['health', 'sla'];
+  const TABS = ['health', 'sla', 'claims'];
   const inited = {};
+  let claimsOn = false;
   function init(name) {
     if (inited[name]) return;
     inited[name] = 1;
-    try { (name === 'health' ? window.__wanHealthInit : window.__wanSlaInit)(); } catch (e) { /* pane init best-effort */ }
+    try { (name === 'health' ? window.__wanHealthInit : name === 'claims' ? window.__wanClaimsInit : window.__wanSlaInit)(); } catch (e) { /* pane init best-effort */ }
   }
   function show(name) {
     if (name === 'sla' && !canSeeSla) name = 'health';
+    if (name === 'claims' && (!canSeeSla || !claimsOn)) name = canSeeSla ? 'sla' : 'health';
     if (!TABS.includes(name)) name = 'health';
     TABS.forEach(t => {
       const b = $('wtab-' + t), p = $('pane-' + t);
@@ -764,12 +823,19 @@
   }
   document.addEventListener('DOMContentLoaded', function () {
     if (!canSeeSla) { const b = $('wtab-sla'); if (b) b.style.display = 'none'; }
+    // P8 — the Claims tab exists only while the switch is on (its status route answers 404 otherwise)
+    if (canSeeSla) fetch('/api/analytics/wan/sla/claims/status').then(function (r) {
+      if (!r.ok) return;
+      claimsOn = true; const b = $('wtab-claims'); if (b) b.style.display = '';
+      if (location.hash.slice(1) === 'claims') show('claims');
+    }).catch(function () { /* switch off or offline: no tab */ });
     $('wan-tabs').addEventListener('click', function (e) { const b = e.target.closest('[data-tab]'); if (b) show(b.dataset.tab); });
     window.addEventListener('hashchange', function () { show(location.hash.slice(1) || 'health'); });
     show(location.hash.slice(1) || 'health');
   });
 })();
 </script>
+<script nonce="%%CSP_NONCE%%" src="lib/wanClaimsPane.js"></script>
 <!-- A-09b — French dictionary, INERT unless report_config ui_i18n_pages='1' (boot.js checks window.__uiPolicy). -->
 <script nonce="%%CSP_NONCE%%" src="lib/i18nText.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/common.fr.js"></script>
