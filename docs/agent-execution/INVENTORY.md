@@ -15,12 +15,12 @@
 | pages without entry point | 3 |
 | pages with inline scripts | 46 |
 | routes | 666 |
-| routes without test reference | 31 |
+| routes without test reference | 32 |
 | routes in server js | 210 |
 | jobs | 31 |
 | jobs without test reference | 0 |
 | migrations | 90 |
-| test files | 748 |
+| test files | 753 |
 
 ## Pages
 
@@ -158,6 +158,7 @@
 |---|---|---|---|
 | RT-POST-api-admin-refresh-major-incident-udfs | POST | `/api/admin/refresh-major-incident-udfs` | server.js:3173 |
 | RT-GET-api-cab | GET | `/api/cab` | server.js:2923 |
+| RT-GET-api-change | GET | `/api/change` | server.js:2901 |
 | RT-GET-api-data-ageing-by-group | GET | `/api/data/ageing-by-group` | server.js:4083 |
 | RT-GET-api-data-ageing-by-site | GET | `/api/data/ageing-by-site` | server.js:4033 |
 | RT-GET-api-data-cab-approvals | GET | `/api/data/cab-approvals` | server.js:3605 |

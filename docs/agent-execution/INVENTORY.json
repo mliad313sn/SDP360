@@ -10,12 +10,12 @@
   "pages_without_entry_point": 3,
   "pages_with_inline_scripts": 46,
   "routes": 666,
-  "routes_without_test_reference": 31,
+  "routes_without_test_reference": 32,
   "routes_in_server_js": 210,
   "jobs": 31,
   "jobs_without_test_reference": 0,
   "migrations": 90,
-  "test_files": 748
+  "test_files": 753
  },
  "pages": [
   {
@@ -2168,7 +2168,6 @@
    "file": "routes/meridian.js",
    "line": 29,
    "tests": [
-    "tests/authz-route-matrix.test.js",
     "tests/meridian-retired.test.js",
     "tests/meridian-route.smoke.test.js"
    ]
@@ -2558,7 +2557,9 @@
    "tests": [
     "tests/assets-finance-routes.smoke.test.js",
     "tests/assets-money-scope.smoke.test.js",
+    "tests/authz-matrix-json.test.js",
     "tests/inventory-strict.test.js",
+    "tests/rbac-mutation.smoke.test.js",
     "tests/uat-amdec-multinational-data.test.js",
     "tests/uat-amdec-org-models.smoke.test.js",
     "tests/workspace-profiles-grants-nothing.smoke.test.js"
@@ -2908,7 +2909,6 @@
    "file": "server.js",
    "line": 5039,
    "tests": [
-    "tests/authz-route-matrix.test.js",
     "tests/sso-routes.smoke.test.js"
    ]
   },
@@ -2919,7 +2919,6 @@
    "file": "server.js",
    "line": 5065,
    "tests": [
-    "tests/authz-route-matrix.test.js",
     "tests/sso-entra.test.js",
     "tests/sso-routes.smoke.test.js",
     "tests/sso-settings.test.js"
@@ -2932,7 +2931,6 @@
    "file": "server.js",
    "line": 5050,
    "tests": [
-    "tests/authz-route-matrix.test.js",
     "tests/sso-routes.smoke.test.js"
    ]
   },
@@ -2971,9 +2969,7 @@
    "path": "/api/change",
    "file": "server.js",
    "line": 2901,
-   "tests": [
-    "tests/authz-route-matrix.test.js"
-   ]
+   "tests": []
   },
   {
    "id": "RT-GET-api-dashboard-groups-discovered",
@@ -3728,7 +3724,6 @@
    "file": "server.js",
    "line": 1148,
    "tests": [
-    "tests/authz-route-matrix.test.js",
     "tests/exec-routes.smoke.test.js"
    ]
   },
@@ -5581,8 +5576,7 @@
    "file": "routes/health.js",
    "line": 67,
    "tests": [
-    "tests/api-key-injection.smoke.test.js",
-    "tests/authz-route-matrix.test.js"
+    "tests/api-key-injection.smoke.test.js"
    ]
   },
   {
@@ -5592,7 +5586,6 @@
    "file": "routes/inspection.js",
    "line": 448,
    "tests": [
-    "tests/authz-route-matrix.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/commitment-source-scope.smoke.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -5619,7 +5612,6 @@
    "file": "routes/softDelete.js",
    "line": 28,
    "tests": [
-    "tests/authz-route-matrix.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/commitment-source-scope.smoke.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -5646,7 +5638,6 @@
    "file": "routes/inspection.js",
    "line": 400,
    "tests": [
-    "tests/authz-route-matrix.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/commitment-source-scope.smoke.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -5673,7 +5664,6 @@
    "file": "routes/inspection.js",
    "line": 169,
    "tests": [
-    "tests/authz-route-matrix.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/commitment-source-scope.smoke.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -6064,7 +6054,6 @@
    "line": 892,
    "tests": [
     "tests/access-revocation.smoke.test.js",
-    "tests/authz-route-matrix.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/critical-routes.smoke.test.js",
     "tests/cross-site-object-writes.smoke.test.js",
@@ -6100,7 +6089,6 @@
    "line": 41,
    "tests": [
     "tests/access-revocation.smoke.test.js",
-    "tests/authz-route-matrix.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/critical-routes.smoke.test.js",
     "tests/cross-site-object-writes.smoke.test.js",
@@ -6136,7 +6124,6 @@
    "line": 407,
    "tests": [
     "tests/access-revocation.smoke.test.js",
-    "tests/authz-route-matrix.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/critical-routes.smoke.test.js",
     "tests/cross-site-object-writes.smoke.test.js",
@@ -6172,7 +6159,6 @@
    "line": 608,
    "tests": [
     "tests/access-revocation.smoke.test.js",
-    "tests/authz-route-matrix.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/critical-routes.smoke.test.js",
     "tests/cross-site-object-writes.smoke.test.js",
@@ -6208,7 +6194,6 @@
    "line": 444,
    "tests": [
     "tests/access-revocation.smoke.test.js",
-    "tests/authz-route-matrix.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/critical-routes.smoke.test.js",
     "tests/cross-site-object-writes.smoke.test.js",
@@ -6582,7 +6567,6 @@
     "tests/analytics-charts.test.js",
     "tests/analytics-logic.test.js",
     "tests/analytics-metrics-authz.smoke.test.js",
-    "tests/authz-route-matrix.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/figure-parity-five-surfaces.test.js",
     "tests/kpi-targets.smoke.test.js",
@@ -6602,7 +6586,6 @@
     "tests/analytics-charts.test.js",
     "tests/analytics-logic.test.js",
     "tests/analytics-metrics-authz.smoke.test.js",
-    "tests/authz-route-matrix.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/figure-parity-five-surfaces.test.js",
     "tests/kpi-targets.smoke.test.js",
@@ -6753,7 +6736,6 @@
    "line": 3094,
    "tests": [
     "tests/api-key-injection.smoke.test.js",
-    "tests/authz-route-matrix.test.js",
     "tests/sec01-route-roles.smoke.test.js"
    ]
   },
@@ -6766,7 +6748,6 @@
    "tests": [
     "tests/api-key-injection.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
-    "tests/authz-route-matrix.test.js",
     "tests/dashkey-only-routes.smoke.test.js"
    ]
   },
@@ -7005,6 +6986,7 @@
     "tests/auth-cookie.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
+    "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -7090,6 +7072,7 @@
     "tests/auth-cookie.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
+    "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -7175,6 +7158,7 @@
     "tests/auth-cookie.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
+    "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -7260,6 +7244,7 @@
     "tests/auth-cookie.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
+    "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -7345,6 +7330,7 @@
     "tests/auth-cookie.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
+    "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -7430,6 +7416,7 @@
     "tests/auth-cookie.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
+    "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -7515,6 +7502,7 @@
     "tests/auth-cookie.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
+    "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -7600,6 +7588,7 @@
     "tests/auth-cookie.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
+    "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -7685,6 +7674,7 @@
     "tests/auth-cookie.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
+    "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -7770,6 +7760,7 @@
     "tests/auth-cookie.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
+    "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -7855,6 +7846,7 @@
     "tests/auth-cookie.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
+    "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -7940,6 +7932,7 @@
     "tests/auth-cookie.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
+    "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -8025,6 +8018,7 @@
     "tests/auth-cookie.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
+    "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -8110,6 +8104,7 @@
     "tests/auth-cookie.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
+    "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -8195,6 +8190,7 @@
     "tests/auth-cookie.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
+    "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -8280,6 +8276,7 @@
     "tests/auth-cookie.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
+    "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -8365,6 +8362,7 @@
     "tests/auth-cookie.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
+    "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -8450,6 +8448,7 @@
     "tests/auth-cookie.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
+    "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -8535,6 +8534,7 @@
     "tests/auth-cookie.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
+    "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -8620,6 +8620,7 @@
     "tests/auth-cookie.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
+    "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -8705,6 +8706,7 @@
     "tests/auth-cookie.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
+    "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -8790,6 +8792,7 @@
     "tests/auth-cookie.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
+    "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -8875,6 +8878,7 @@
     "tests/auth-cookie.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
+    "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -8960,6 +8964,7 @@
     "tests/auth-cookie.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
+    "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -9115,7 +9120,6 @@
    "line": 4950,
    "tests": [
     "tests/auth-cookie.smoke.test.js",
-    "tests/authz-route-matrix.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/login-account-throttle.smoke.test.js",
     "tests/login-limit-failures-only.smoke.test.js",
@@ -9654,6 +9658,7 @@
    "file": "server.js",
    "line": 5793,
    "tests": [
+    "tests/authz-matrix-json.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/inventory-strict.test.js",
@@ -9826,6 +9831,7 @@
     "tests/auth-cookie.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/authz-enforce.test.js",
+    "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
     "tests/business-only-boundary.smoke.test.js",
@@ -10177,7 +10183,6 @@
    "file": "routes/roadmap.js",
    "line": 48,
    "tests": [
-    "tests/authz-route-matrix.test.js",
     "tests/inventory-strict.test.js",
     "tests/roadmap-parity.test.js",
     "tests/roadmap-training.test.js",
@@ -10344,7 +10349,6 @@
    "file": "server.js",
    "line": 5937,
    "tests": [
-    "tests/authz-route-matrix.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js"
    ]
@@ -10356,7 +10360,6 @@
    "file": "server.js",
    "line": 5845,
    "tests": [
-    "tests/authz-route-matrix.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js"
    ]
@@ -10368,7 +10371,6 @@
    "file": "routes/survey.js",
    "line": 674,
    "tests": [
-    "tests/authz-route-matrix.test.js",
     "tests/survey-perimeter.smoke.test.js",
     "tests/survey-routes.smoke.test.js"
    ]
@@ -10484,7 +10486,6 @@
    "file": "routes/survey.js",
    "line": 647,
    "tests": [
-    "tests/authz-route-matrix.test.js",
     "tests/survey-perimeter.smoke.test.js",
     "tests/survey-routes.smoke.test.js"
    ]
@@ -11002,6 +11003,7 @@
    "file": "routes/workspace.js",
    "line": 67,
    "tests": [
+    "tests/authz-matrix-json.test.js",
     "tests/workspace-profiles-grants-nothing.smoke.test.js",
     "tests/workspace-routes.smoke.test.js"
    ]
@@ -11013,6 +11015,7 @@
    "file": "routes/workspace.js",
    "line": 52,
    "tests": [
+    "tests/authz-matrix-json.test.js",
     "tests/workspace-profiles-grants-nothing.smoke.test.js",
     "tests/workspace-routes.smoke.test.js"
    ]
@@ -11025,7 +11028,6 @@
    "line": 3129,
    "tests": [
     "tests/api-key-injection.smoke.test.js",
-    "tests/authz-route-matrix.test.js",
     "tests/sec01-route-roles.smoke.test.js"
    ]
   },
