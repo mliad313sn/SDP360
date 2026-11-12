@@ -574,10 +574,12 @@ module.exports = function governanceRoutes(deps) {
       const project = money ? p : { ...p, budget: undefined, spent: undefined };
       // F-PRODUCT-03 / F-DATA-09 — class view + totals per class only while the switch is on (never added across classes)
       const clsOn = String((await reportConfig.getConfig(rdb().db)).benefit_value_class_enabled) === '1';
+      const mvRole = await moneyVerifierRole();
       const bens = (d.benefits || []).map((b) => BEN.visibleBenefit(b, { money, asOf: new Date().toISOString(), classes: clsOn }));
       res.json({ ok: true, committee: !!isCommittee(u), can_gate: !!isCommittee(u), can_edit_plan: PA.canEditPlan(u, p, pctx), can_see_history: !!money, money_hidden: !money,
         project, objective: d.objective, extra_sites: d.extra_sites, tasks: d.tasks, milestones: d.milestones, deliverables: d.deliverables, risks: d.risks.map(PE.riskView),
         benefits: bens, ...(clsOn ? { benefit_totals: BEN.benefitTotals(bens), benefit_classes: { value_classes: BEN.VALUE_CLASSES, bases: BEN.BASES, source_kinds: BEN.SOURCE_KINDS } } : {}), me: Number(u.id),
+        ...(mvRole ? { money_verifier_role: mvRole, holds_money_verifier_role: holdsExactly(u, mvRole) } : {}),   // F-PRODUCT-04: who may verify a money benefit
         plan: SCH.scheduleView(d.tasks, { anchor: p.start_date || null }), variance: SCH.varianceOf(p), resource_conflicts: SCH.resourceConflicts(d.tasks), resource_coverage: SCH.resourceCoverage(d.tasks),
         stages: SCH.STAGES, allowed_stages, gate_counts: d.gate_ctx, risk_kinds: store.RISK_KINDS, as_of: new Date().toISOString() });
     } catch (e) { fail(res, e); }
@@ -585,13 +587,23 @@ module.exports = function governanceRoutes(deps) {
   // ---- B-08 benefits: realised value (evidence link) + independent verification (catalogue A09) ------------------
   // Same gate as a plan write (committee; or an editor of the project's site with portfolio_editor_plan_writes on);
   // a money benefit also needs the money-read rule. The verifier must not be the person who entered the value.
+  const holdsExactly = (u, role) => !!role && Array.isArray(u && u.roles) && u.roles.includes(role);
+  async function moneyVerifierRole() { return String((await reportConfig.getConfig(rdb().db)).benefit_money_verifier_role || '').trim(); }
+  async function moneyVerifier(u, benefitId) {
+    const role = await moneyVerifierRole();
+    const b = role ? await store.getBenefit(benefitId) : null;
+    return { role, applies: !!(role && b && b.value_kind === 'money'), holds: holdsExactly(u, role) };
+  }
   const benefitAction = (op) => async (req, res) => {
     try {
       const id = Number(req.params.id);
       if (!Number.isInteger(id) || id <= 0) return httpFail(res, new Error('benefit id must be a number'), 400, { ok: false });
-      if (await refusePlanWrite(req, res, 'benefit', { id })) return;
+      // F-PRODUCT-04 — with benefit_money_verifier_role set, a MONEY benefit is verified by a holder of that role
+      // (held exactly; nothing is granted here) — that role, not the plan-write rule, opens the verification.
+      const vr = op === 'verify' ? await moneyVerifier(req.reportUser, id) : null;
+      if (!(vr && vr.applies && vr.holds) && await refusePlanWrite(req, res, 'benefit', { id })) return;
       if (await refuseMoneyBenefit(req, res, { id })) return;
-      const b = op === 'realised' ? await store.recordBenefitRealised(id, req.body || {}, { user: req.reportUser }) : await store.verifyBenefit(id, { user: req.reportUser });
+      const b = op === 'realised' ? await store.recordBenefitRealised(id, req.body || {}, { user: req.reportUser }) : await store.verifyBenefit(id, { user: req.reportUser, requiredRole: vr && vr.applies ? vr.role : '', holdsRole: !!(vr && vr.holds) });
       log(req, op === 'realised' ? 'benefit_realised' : 'benefit_verified', `benefit:${id}`, { project_id: b.project_id });
       res.json({ ok: true, benefit: BEN.visibleBenefit(b, { money: canSeeMoney(req.reportUser), asOf: new Date().toISOString() }) });
     } catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.reason ? { code: e.reason } : {}) }); }

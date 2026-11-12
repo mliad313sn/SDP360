@@ -232,6 +232,10 @@ const DEFAULTS = {
   // observed, estimated and validated values in separate columns, with totals per class (never across). '0' = today's
   // form; the fields are ignored on write. The classes accepted at a benefits review are a Finance / sponsor decision.
   benefit_value_class_enabled: '0',
+  // F-PRODUCT-04 — PROPOSED policy: a role name (e.g. 'finance-viewer') = a MONEY benefit is verified only by a holder
+  // of that role (held exactly), who is neither the entrant nor the linked owner; refusal code VERIFIER_ROLE. '' (today)
+  // = any other person with plan-write. No role is granted by this key; a name nobody holds blocks money verification.
+  benefit_money_verifier_role: '',
   // E-P06 (audit P-06) — PROPOSED: '1' = RACI tab on the project page (task × person, exactly one A per task, CSV export);
   // ppm_templates_enabled '1' = save a project's STRUCTURE as a template (no people, dates or money), approved by another
   // committee member before it can create a project. Both 404 while '0'.

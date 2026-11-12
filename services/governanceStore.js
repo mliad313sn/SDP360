@@ -468,7 +468,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       // the terms a verification vouched for changed → the verification no longer holds
       const termsChanged = BENEFIT_TERMS.some(k => vals[k] !== undefined && String(vals[k] ?? '') !== String(before[k] ?? ''));
       if (termsChanged && before.verified_at) {
-        await P(`UPDATE portfolio_benefits SET verified_by=NULL, verified_by_name=NULL, verified_at=NULL WHERE id=?`).run(Number(id));
+        await P(`UPDATE portfolio_benefits SET verified_by=NULL, verified_by_name=NULL, verified_at=NULL, verifier_role_required=NULL WHERE id=?`).run(Number(id));
         await ppmEvent({ entity: 'project', entity_id: before.project_id, action: 'benefit_unverified', field: `benefit:${id}`, note: 'terms changed after verification' }, opts.user);
       }
       return id;
@@ -538,14 +538,18 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     if (!BV.evidenceLinkOk(body && body.evidence_link)) throw Object.assign(new Error('evidence_link must be an http(s) link to the evidence'), { code: 'INVALID' });
     const link = String(body.evidence_link).trim(); const note = str(body && body.note, 2000);
     return tx(async () => {
-      await P(`UPDATE portfolio_benefits SET realised_value=?, evidence_link=?, realised_note=?, realised_by=?, realised_by_name=?, realised_at=?, verified_by=NULL, verified_by_name=NULL, verified_at=NULL, updated_at=? WHERE id=?`)
+      await P(`UPDATE portfolio_benefits SET realised_value=?, evidence_link=?, realised_note=?, realised_by=?, realised_by_name=?, realised_at=?, verified_by=NULL, verified_by_name=NULL, verified_at=NULL, verifier_role_required=NULL, updated_at=? WHERE id=?`)
         .run(v, link, note, user && user.id != null ? Number(user.id) : null, actorName(user), now(), now(), Number(id));
       await ppmEvent({ entity: 'project', entity_id: b.project_id, action: 'benefit_realised', field: `benefit:${id}`, old_value: b.realised_value, new_value: v, currency: b.value_kind === 'money' ? b.currency : null, note: link }, user);
       return getBenefit(id);
     });
   }
   /** Verify the realised value — never by the person who entered it (SELF_REVIEW, 403). */
-  async function verifyBenefit(id, { user } = {}) {
+  // F-PRODUCT-04 — requiredRole (route: report_config benefit_money_verifier_role, '' = today) applies to a MONEY
+  // benefit only: the verifier must HOLD that role (holdsRole, exact — a higher tier does not imply it). The role
+  // required at that moment is stamped on the row (verifier_role_required): that is what makes the verification
+  // "independent" (services/portfolioBenefits.verificationIndependent). No role is ever granted here.
+  async function verifyBenefit(id, { user, requiredRole = '', holdsRole = false } = {}) {
     await _benefitOfGoneProject(id);
     const b = await getBenefit(id);
     if (!b) throw Object.assign(new Error('benefit not found'), { code: 'NOT_FOUND', status: 404 });
@@ -554,9 +558,11 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     if (uid == null || b.realised_by == null || uid === b.realised_by) throw Object.assign(new Error('the person who entered the realised value cannot verify it'), { code: 'SELF_REVIEW', status: 403, expose: true, reason: 'SELF_REVIEW' });
     // E-P05 — the user linked as the benefit owner cannot verify their own benefit either (four-eyes on the result)
     if (b.owner_user_id != null && uid === b.owner_user_id) throw Object.assign(new Error('the benefit owner cannot verify their own benefit'), { code: 'SELF_REVIEW', status: 403, expose: true, reason: 'SELF_REVIEW' });
+    const role = b.value_kind === 'money' && requiredRole && String(requiredRole).trim() ? String(requiredRole).trim() : null;
+    if (role && !holdsRole) throw Object.assign(new Error(`a money benefit is verified by a holder of the role "${role}"`), { code: 'VERIFIER_ROLE', status: 403, expose: true, reason: 'VERIFIER_ROLE' });
     return tx(async () => {
-      await P(`UPDATE portfolio_benefits SET verified_by=?, verified_by_name=?, verified_at=?, updated_at=? WHERE id=?`).run(uid, actorName(user), now(), now(), Number(id));
-      await ppmEvent({ entity: 'project', entity_id: b.project_id, action: 'benefit_verified', field: `benefit:${id}`, new_value: b.realised_value, currency: b.value_kind === 'money' ? b.currency : null }, user);
+      await P(`UPDATE portfolio_benefits SET verified_by=?, verified_by_name=?, verified_at=?, verifier_role_required=?, updated_at=? WHERE id=?`).run(uid, actorName(user), now(), role, now(), Number(id));
+      await ppmEvent({ entity: 'project', entity_id: b.project_id, action: 'benefit_verified', field: `benefit:${id}`, new_value: b.realised_value, currency: b.value_kind === 'money' ? b.currency : null, note: role ? `verifier role required: ${role}` : null }, user);
       return getBenefit(id);
     });
   }

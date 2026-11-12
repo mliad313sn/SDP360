@@ -250,6 +250,7 @@
     PLAN_SCOPE: "You may only maintain the plan of a project of your site(s), or one you own.",
     GATE_SOD: "The project owner cannot approve their own project — another committee member must.",
     REASON_REQUIRED: "A reason is required to reassign a task.",
+    VERIFIER_ROLE: "A money benefit is verified by a holder of the verifier role set by the administrator.",
     NO_ACCOUNTABLE: "Every task with letters needs exactly one A (accountable).",
     MULTIPLE_ACCOUNTABLE: "Only one person is accountable (A) for a task.",
     JUSTIFICATION_REQUIRED: "A justification is required: the amount changes, or differs from the baseline of this month.",
@@ -586,9 +587,11 @@
     var clsCell = function (b) { return CLS ? "<td>" + (b.value_class ? esc(String(b.value_class).replace(/_/g, " ")) : "<span class=\"muted\">unclassified</span>") + (b.measured_from || b.measured_to ? "<br><small class=\"muted\">" + n(b.measured_from) + " → " + n(b.measured_to) + "</small>" : "") + "</td>" : ""; };
     $("benefits").innerHTML = bs.length ? "<table><thead><tr><th>Benefit</th><th>Measure</th><th>Unit</th><th>Baseline</th><th>Target</th>" + (CLS ? "<th>Class · measured</th><th>Realised (no basis stated)</th><th>Observed</th><th>Estimated</th><th>Validated</th>" : "<th>Realised</th>") + "<th>Owner</th><th>Review date</th><th>State</th><th>Evidence</th><th>Entered by</th><th>Verified by</th><th></th></tr></thead><tbody>" + bs.map(function (b) {
       var st = BEN_STATE[b.state] || ["planned", String(b.state)];
-      var canVerify = V.can_edit_plan && b.state === "awaiting_verification" && b.realised_by !== V.me;
+      // F-PRODUCT-04 — with a verifier role set, a money benefit is verified by a holder of that role (not entrant, not owner)
+      var roleRule = !!V.money_verifier_role && b.value_kind === "money";
+      var canVerify = b.state === "awaiting_verification" && b.realised_by !== V.me && b.owner_user_id !== V.me && (roleRule ? !!V.holds_money_verifier_role : V.can_edit_plan);
       return "<tr><td>" + esc(b.description) + " <small class=\"muted\">#" + n(b.id) + "</small></td><td>" + n(b.measure) + "</td><td>" + n(b.unit) + (b.value_kind === "money" ? " <small class=\"muted\">" + n(b.currency) + "</small>" : "") + "</td><td>" + val(b, "baseline_value") + "</td><td>" + val(b, "target_value") + "</td>" + clsCell(b) + realCols(b) + "<td>" + n(b.owner) + "</td><td>" + n(b.review_date) + "</td><td><span class=\"pill " + esc(st[0]) + "\">" + esc(st[1]) + "</span></td><td>" + safeLink(b.evidence_link) + "</td><td>" + n(b.realised_by_name) + "</td><td>" + n(b.verified_by_name) + "</td><td>" +
-        (canVerify ? "<button class=\"btn\" type=\"button\" data-verify=\"" + esc(b.id) + "\">Verify</button>" : b.state === "awaiting_verification" && V.can_edit_plan ? "<small class=\"muted\">you entered it — someone else verifies</small>" : "") + "</td></tr>"; }).join("") + "</tbody></table>" + benefitTotalsHtml() : "<p class=\"muted\">No expected benefit recorded for this project.</p>";
+        (canVerify ? "<button class=\"btn\" type=\"button\" data-verify=\"" + esc(b.id) + "\">Verify</button>" : b.state === "awaiting_verification" && roleRule ? "<small class=\"muted\">verified by a holder of the role “" + esc(V.money_verifier_role) + "” who did not enter the value and is not its owner</small>" : b.state === "awaiting_verification" && V.can_edit_plan ? "<small class=\"muted\">you entered it — someone else verifies</small>" : "") + "</td></tr>"; }).join("") + "</tbody></table>" + benefitTotalsHtml() : "<p class=\"muted\">No expected benefit recorded for this project.</p>";
     $("ben-edit").hidden = !V.can_edit_plan; $("ben-real").hidden = !V.can_edit_plan || !bs.length;
     if (V.can_edit_plan) {
       var cur = $("b-id").value; $("b-id").innerHTML = opt(bs.map(function (b) { return [b.id, b.description]; }), cur, "— new benefit —"); fillBenefit();

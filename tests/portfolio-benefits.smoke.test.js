@@ -166,3 +166,59 @@ test('value class: switch off → the fields are ignored and the answer is today
   } finally { await cfg.setConfig(rdb.db, { benefit_value_class_enabled: '0' }, 'smoke'); }
   assert.strictEqual((await detail()).benefit_totals, undefined, 'off again: today\'s answer');
 });
+
+// ── F-PRODUCT-04 — Finance-side verifier for a MONEY benefit, behind benefit_money_verifier_role ('' = today) ───────
+test('money verifier role: off = any other member verifies; set = committee member refused (VERIFIER_ROLE), role holder accepted, entrant still refused', async () => {
+  assert.equal(cfg.DEFAULTS.benefit_money_verifier_role, '');
+  const mk = async (u, roles, site) => { await rdb.createUser({ username: u, full_name: u, password: u + 'pass1234', roles, site_id: site }); return (await rdb.login(u, u + 'pass1234')).token; };
+  T.fin = await mk('ben_fin', ['viewer', 'finance-viewer']);
+  T.finpmo = await mk('ben_finpmo', ['viewer', 'committee-member', 'finance-viewer']);
+  const money = async (desc) => {
+    const id = (await put('benefit', T.pmo, { project_id: pid, description: desc, value_kind: 'money', currency: 'USD', target_value: 100 })).j.id;
+    assert.equal((await send('POST', `/api/governance/portfolio/benefit/${id}/realised`, T.pmo, { realised_value: 80, evidence_link: 'https://example.test/ledger' })).status, 200);
+    return id;
+  };
+  const verify = (id, t) => send('POST', `/api/governance/portfolio/benefit/${id}/verify`, t);
+  // today ('' ): the finance viewer has no plan-write → refused; another committee member verifies; nothing is stamped
+  const m0 = await money('Penalty refund (off)');
+  assert.equal((await verify(m0, T.fin)).status, 403, 'no role rule: the plan-write rule applies');
+  assert.equal((await verify(m0, T.cio)).status, 200);
+  assert.strictEqual((await detail()).benefits.find((x) => x.id === m0).verifier_role_required, null);
+  assert.strictEqual((await detail()).money_verifier_role, undefined);
+  await cfg.setConfig(rdb.db, { benefit_money_verifier_role: 'finance-viewer', benefit_value_class_enabled: '1' }, 'smoke');
+  try {
+    const m1 = await money('Penalty refund (role)');
+    assert.equal((await put('benefit', T.pmo, { id: m1, basis: 'observed', value_class: 'realised_cash' })).status, 200);
+    assert.equal((await send('POST', `/api/governance/portfolio/benefit/${m1}/realised`, T.finpmo, { realised_value: 80, evidence_link: 'https://example.test/ledger' })).status, 200);
+    const c = await verify(m1, T.cio);
+    assert.equal(c.status, 403); assert.equal(c.j.code, 'VERIFIER_ROLE', 'a committee member without the role');
+    const self = await verify(m1, T.finpmo);
+    assert.equal(self.status, 403); assert.equal(self.j.code, 'SELF_REVIEW', 'the entrant, even holding the role');
+    assert.equal((await verify(m1, T.viewer)).status, 403, 'neither plan-write nor the role');
+    const ok = await verify(m1, T.fin);
+    assert.equal(ok.status, 200, JSON.stringify(ok.j));
+    const d = await detail();
+    const b = d.benefits.find((x) => x.id === m1);
+    assert.equal(b.verifier_role_required, 'finance-viewer'); assert.equal(b.verification_independent, true); assert.equal(b.measurement_class, 'validated');
+    assert.equal(d.money_verifier_role, 'finance-viewer'); assert.equal(d.holds_money_verifier_role, false);
+    assert.equal((await detail(T.fin)).holds_money_verifier_role, true);
+    // a new realised value clears the verification AND its stamp
+    assert.equal((await send('POST', `/api/governance/portfolio/benefit/${m1}/realised`, T.pmo, { realised_value: 81, evidence_link: 'https://example.test/ledger' })).status, 200);
+    const b2 = (await detail()).benefits.find((x) => x.id === m1);
+    assert.strictEqual(b2.verifier_role_required, null); assert.equal(b2.measurement_class, 'observed');
+    // a QUANTITY benefit keeps today's rule (the role does not apply, nothing stamped); the role alone gives no plan-write
+    const q = (await put('benefit', T.pmo, { project_id: pid, description: 'Quantity under the role rule', unit: 'h' })).j.id;
+    assert.equal((await send('POST', `/api/governance/portfolio/benefit/${q}/realised`, T.pmo, { realised_value: 3, evidence_link: 'https://example.test/q' })).status, 200);
+    assert.equal((await verify(q, T.fin)).status, 403, 'the finance role does not open a quantity benefit');
+    assert.equal((await verify(q, T.cio)).status, 200);
+    assert.strictEqual((await detail()).benefits.find((x) => x.id === q).verifier_role_required, null);
+    assert.equal((await put('benefit', T.fin, { project_id: pid, description: 'x' })).status, 403, 'no write right granted');
+    // the ledger says which role was required
+    const ev = await rdb.db.prepare("SELECT note FROM ppm_events WHERE action='benefit_verified' AND field=? ORDER BY id DESC").get(`benefit:${m1}`);
+    assert.match(ev.note, /finance-viewer/);
+    // a role name nobody holds blocks money verification (fail closed)
+    await cfg.setConfig(rdb.db, { benefit_money_verifier_role: 'no-such-role' }, 'smoke');
+    assert.equal((await verify(m1, T.cio)).j.code, 'VERIFIER_ROLE');
+    assert.equal((await verify(m1, T.fin)).status, 403);
+  } finally { await cfg.setConfig(rdb.db, { benefit_money_verifier_role: '', benefit_value_class_enabled: '0' }, 'smoke'); }
+});
