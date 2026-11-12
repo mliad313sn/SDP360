@@ -1,0 +1,8 @@
+Job Code,GL Period,Curr,Amount,Description
+WAN-2,31/10/2026,XOF,"1,000,000.00",Fibre install (fictitious)
+WAN-2,31/10/2026,XOF,"300,000.00",Router (fictitious)
+WAN-2,31/10/2026,XOF,"-50,000.00",Credit note (fictitious)
+ERP-1,30/09/2026,USD,400.00,Licence (fictitious)
+ERP-1,31/10/2026,USD,900.00,Consulting (fictitious)
+NOPE-9,31/10/2026,USD,10.00,Unknown job (fictitious)
+ERP-1,31/10/2026,GBP,10.00,Unsupported currency (fictitious)
