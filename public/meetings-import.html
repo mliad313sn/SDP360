@@ -807,7 +807,7 @@ HGO_Mining_PV_2026-05-24        │ 2026-05-24</div>
   function setLang(lang) {
     if (lang === 'fr') document.body.classList.add('lang-fr');
     else               document.body.classList.remove('lang-fr');
-    document.documentElement.lang = lang === 'fr' ? 'fr' : 'en';   // F-UX-01: <html lang> follows the body
+    if (document.documentElement) document.documentElement.lang = lang === 'fr' ? 'fr' : 'en';   // F-UX-01: <html lang> follows the body
     document.querySelectorAll('#mimLangToggle button').forEach(b => {
       b.classList.toggle('active', b.dataset.lang === lang);
     });

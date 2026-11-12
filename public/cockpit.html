@@ -145,8 +145,10 @@
   document.addEventListener("change", function (ev) { var t = ev.target; if (!(t.dataset && t.dataset.dec)) return;
     putDecision(t.dataset.dec, t.value).catch(function (e) {
       if (!/reason is required/i.test(String(e && e.message))) throw e;
-      var why = window.prompt(T("Reason (required for this change)")); if (!why) { t.value = t.dataset.from; return null; }
-      return putDecision(t.dataset.dec, t.value, why);
+      return window.ReasonDialog.ask({ title: T("Reason (required for this change)"), label: T("Reason (required for this change)"), min: 5, lang: I.lang() }).then(function (why) {
+        if (!why) { t.value = t.dataset.from; return null; }
+        return putDecision(t.dataset.dec, t.value, why);
+      });
     }).then(loadAll).catch(function (e) { fail(e); loadAll(); }); });
   $("c-site").addEventListener("change", function () { fillPeople($("c-site").value); });
   $("c-save").addEventListener("click", function () {

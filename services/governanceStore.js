@@ -294,7 +294,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   async function rfiLineage(rfiId) {
     const r = await getRfi(rfiId);
     if (!r) return null;
-    const pj = await P(`SELECT id, key, name FROM portfolio_projects WHERE rfi_id=?`).get(Number(rfiId));
+    const pj = await P(`SELECT id, key, name FROM portfolio_projects WHERE rfi_id=? AND deleted_at IS NULL`).get(Number(rfiId));
     return { meeting_id: r.source_meeting_id == null ? null : Number(r.source_meeting_id), rfi: { id: r.id, ref: r.ref, status: r.status },
       project: pj ? { id: Number(pj.id), key: pj.key, name: pj.name } : null };
   }

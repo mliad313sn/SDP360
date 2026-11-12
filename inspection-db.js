@@ -1035,14 +1035,14 @@ async function verifyAction(actionId, { verifier_id = null, verifier_name = null
 async function listRecentFindings({ sites = null } = {}) {
   const H = pgHandle();
   const params = [];
-  let w = "i.deleted_at IS NULL AND i.status IN ('submitted','closed')";
+  let w = "i.status IN ('submitted','closed')";
   if (Array.isArray(sites)) {
     if (!sites.length) return [];
     w += ` AND i.site_code IN (${sites.map(() => '?').join(',')})`; params.push(...sites);
   }
   return H.prepare(`SELECT i.site_code, i.id AS inspection_id, i.inspection_date, f.item_code, f.item_text_en, f.status
     FROM insp_inspections i LEFT JOIN insp_findings f ON f.inspection_id = i.id AND f.status IN ('minor','major','critical')
-    WHERE ${w}
+    WHERE i.deleted_at IS NULL AND ${w}
     ORDER BY i.inspection_date DESC, i.id DESC`).all(...params);   // LEFT JOIN: a clean inspection still counts in the last-N window
 }
 

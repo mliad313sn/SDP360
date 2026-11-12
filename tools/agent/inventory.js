@@ -70,6 +70,7 @@ const DEEP_LINK_ONLY = {
   'no-access.html': 'denial page: reached by redirect from auth.js when a role is missing',
   'exec-view.html': 'public IT status snapshot: reached from the SharePoint Quick Link, outside the app',
   'itsm-roadmap.html': "the manager's personal roadmap tool: reached by its URL (bookmark), deliberately outside the shared menu",
+  'workspace-settings.html': 'workspace settings (R1-PROFILES): 404 while workspace_profiles_enabled = 0; its shell menu link lands with R2-QUEUE — drop this entry then',
 };
 // RATCHET — pages that have NO entry point today and are not deep-link only by design. They are listed so
 // the inventory says so; tests/inventory-reachability.test.js fails if a page is ADDED here or if one becomes

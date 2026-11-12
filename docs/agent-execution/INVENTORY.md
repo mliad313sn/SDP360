@@ -11,8 +11,8 @@
 | pages without declared role | 6 |
 | pages not in navigation | 30 |
 | pages not in shell or module tabs | 21 |
-| pages deep link only | 8 |
-| pages without entry point | 4 |
+| pages deep link only | 9 |
+| pages without entry point | 3 |
 | pages with inline scripts | 46 |
 | routes | 648 |
 | routes without test reference | 31 |
@@ -150,7 +150,7 @@
 | public/wan-health.html | — | — | — | wan.html | legacy redirect stub kept for old bookmarks → wan.html | wan.html |
 | public/wan-sla.html | — | — | — | wan.html | legacy redirect stub kept for old bookmarks → wan.html | wan.html |
 | public/wan.html | yes | — | infra-health.html, wan-health.html, wan-sla.html | — | — | shell |
-| public/workspace-settings.html | — | — | — | — | — | **NO ENTRY POINT** |
+| public/workspace-settings.html | — | — | — | — | workspace settings (R1-PROFILES): 404 while workspace_profiles_enabled = 0; its shell menu link lands with R2-QUEUE — drop this entry then | — |
 
 ## Routes without a test reference
 

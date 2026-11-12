@@ -6,8 +6,8 @@
   "pages_without_declared_role": 6,
   "pages_not_in_navigation": 30,
   "pages_not_in_shell_or_module_tabs": 21,
-  "pages_deep_link_only": 8,
-  "pages_without_entry_point": 4,
+  "pages_deep_link_only": 9,
+  "pages_without_entry_point": 3,
   "pages_with_inline_scripts": 46,
   "routes": 648,
   "routes_without_test_reference": 31,
@@ -222,7 +222,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 38531,
+   "bytes": 38661,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -660,7 +660,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 33729,
+   "bytes": 33759,
    "tests": [
     "tests/csp-journey-report.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
@@ -1092,7 +1092,7 @@
    "parent": "meetings.html",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 73508,
+   "bytes": 73538,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -1635,7 +1635,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 71930,
+   "bytes": 71960,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -1859,13 +1859,13 @@
     "module_tab": false,
     "linked_from": [],
     "redirect_to": null,
-    "deep_link_only": null,
+    "deep_link_only": "workspace settings (R1-PROFILES): 404 while workspace_profiles_enabled = 0; its shell menu link lands with R2-QUEUE — drop this entry then",
     "known_dead_end": null
    },
    "parent": null,
-   "reachable": false,
+   "reachable": true,
    "inline_scripts": 0,
-   "bytes": 4254,
+   "bytes": 4348,
    "tests": [
     "tests/i18n-coverage.test.js",
     "tests/workspace-routes.smoke.test.js"
