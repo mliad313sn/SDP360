@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 4368,
+ "total": 4392,
  "files": {
   "a11y-static.test.js": 18,
   "access-approver-policy.test.js": 4,
@@ -128,6 +128,7 @@
   "control-register.smoke.test.js": 4,
   "coordinator-actions-block.test.js": 3,
   "copy-legacy-sqlite.test.js": 8,
+  "critical-routes.smoke.test.js": 7,
   "cross-site-object-writes.smoke.test.js": 9,
   "cross-site-read-sweep.smoke.test.js": 2,
   "cross-site-write-sweep.smoke.test.js": 2,
@@ -263,6 +264,9 @@
   "installer-v2-static.test.js": 13,
   "integrations-plan-gate.smoke.test.js": 3,
   "it-review-tokens.test.js": 3,
+  "jobs-engagement.test.js": 8,
+  "jobs-meraki-skip.test.js": 5,
+  "jobs-reports-send.test.js": 4,
   "kpi-card.test.js": 8,
   "kpi-change-parity.test.js": 5,
   "kpi-change-success.test.js": 2,
