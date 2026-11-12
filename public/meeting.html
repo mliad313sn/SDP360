@@ -689,8 +689,8 @@
         </div>
 
         <div class="pv-actions" style="margin-top:8px">
-          <button class="btn-ghost" type="button" id="pvStampDeptHead">Stamp dept head signature</button>
-          <button class="btn-ghost" type="button" id="pvStampItLead">Stamp IT lead signature</button>
+          <button class="btn-ghost" type="button" id="pvStampDeptHead" disabled>Stamp dept head signature</button>
+          <button class="btn-ghost" type="button" id="pvStampItLead" disabled>Stamp IT lead signature</button>
         </div>
       </div>
 
@@ -1451,9 +1451,14 @@
   // during the first save used to start a concurrent save that could overwrite the
   // first (lost signature — found by the W2-QJ persona journey c1).
   let _stampBusy = false;
+  // G4-CI — the stamp buttons are disabled in the markup until the PV has LOADED: a click before reload()
+  // finished posted an empty header (no site, no edit token), the save failed, the optimistic paint was undone
+  // and the signature silently never landed (CI journey C1, second pass, under load).
+  let _pvReady = false;
   const STAMP_BTNS = ['pvStampDeptHead', 'pvStampItLead'];
   async function stampSignature(btnId, field, inputId) {
     if (_stampBusy) return;
+    if (!_pvReady) return;
     const input = document.getElementById(inputId);
     const prevState = state.header[field];
     const prevInput = input.value;
@@ -1659,6 +1664,8 @@
     try {
       await loadLookups();
       await reload();
+      _pvReady = true;
+      STAMP_BTNS.forEach(id => { const b = document.getElementById(id); if (b) b.disabled = false; });
     } catch (e) {
       console.error('[meeting] load failed:', e);
       showBanner(e.message || 'Failed to load', 'error');
