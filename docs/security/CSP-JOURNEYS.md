@@ -13,7 +13,7 @@ of the pages it renders: treat it as a candidate only after a report-only run sh
 
 Violations: not measured in this file (“—”). Run with `--violations <export.json>` after a report-only period to add observed counts.
 
-Journeys: 35 — strict 0, enforceable 8, blocked 27, unknown 0.
+Journeys: 36 — strict 0, enforceable 9, blocked 27, unknown 0.
 
 ## Journeys
 
@@ -23,6 +23,7 @@ Journeys: 35 — strict 0, enforceable 8, blocked 27, unknown 0.
 | Site IT coordinator | Enter this month's activity tracker values (stored for her own site) | `/activity-tracker.html` | enforceable | — |
 | Site IT coordinator | Write and sign a department PV (both stamps persisted with the SERVER clock) | `/meetings.html`, `/meeting.html` | blocked | `/meetings.html`, `/meeting.html` |
 | Site editor | Find the site's overdue actions, close one with a justification | `/site-actions.html` | blocked | `/site-actions.html` |
+| Site editor | See all of my open work in one queue on Home (switches `ui_home_queue` / `ui_nav_*` on in a throwaway database), 320 px and French, never an | `/home.html` | enforceable | — |
 | Site editor | Cannot read another site's report or portfolio project (deny) | `/reports.html`, `/portfolio.html` | blocked | `/reports.html`, `/portfolio.html` |
 | Site editor | Switch the interface to French and open the manual | `/site-actions.html`, `/help.html` | blocked | `/site-actions.html`, `/help.html` |
 | Site editor | Reach Portfolio using only the keyboard | `/login.html`, `/portfolio.html` | blocked | `/portfolio.html` |

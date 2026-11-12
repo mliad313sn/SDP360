@@ -11,7 +11,7 @@ Sources: vision pack v2.0 §3.2 (seven personas), `public/_shell.js` WORKSPACES 
 |---|---|---|---|---|---|
 | Executive / Group Management | Where are the critical exceptions, decisions, cross-site gaps and strategic risks? | Executive (`executive`) | `dashboards.html?key=exec-home`, `it-review.html`, `executive.html`, `portfolio.html`, `cockpit.html` | NEEDS-REVIEW.1-ARTIFACT | 7 |
 | Site Management / Business Lead | What is the site posture, business impact and management action required? | Site business view (`business`) | `site-awareness.html` | NEEDS-REVIEW.1-ARTIFACT | 0 |
-| Site IT Lead | What is failing, at risk, overdue or awaiting evidence at my site? | Site IT (`site-it`), Technician (`technician`) | `home.html`, `site-actions.html`, `inspections.html`, `meetings.html`, `reports.html`, `activity-tracker.html`, `obligations.html`, `field/index.html` | NEEDS-REVIEW.1-ARTIFACT | 15 |
+| Site IT Lead | What is failing, at risk, overdue or awaiting evidence at my site? | Site IT (`site-it`), Technician (`technician`) | `home.html`, `site-actions.html`, `inspections.html`, `meetings.html`, `reports.html`, `activity-tracker.html`, `obligations.html`, `field/index.html` | NEEDS-REVIEW.1-ARTIFACT | 16 |
 | Department Member | What is assigned to my department and what do I need to update or submit? | **none at head — gap** | — | NEEDS-REVIEW.1-ARTIFACT | 0 |
 | Validator | What requires my decision, by when, with what evidence and conflict check? | **none at head — gap** | — | NEEDS-REVIEW.1-ARTIFACT | 0 |
 | Administrator | What configuration, mapping, access, connector or quality issue requires control? | Group IT (`super`), Group IT (`admin`) | `index.html`, `site-actions.html`, `cockpit.html`, `dashboards.html`, `report-studio.html`, `integrations.html`, `system-logs.html` | NEEDS-REVIEW.1-ARTIFACT | 12 |
@@ -28,6 +28,7 @@ Expected first click = the action page when it differs from the start page (a **
 | Site IT Lead | Site IT coordinator | Enter this month's activity tracker values (stored for her own site) | `public/activity-tracker.html` | in-page control | `tests/e2e/c1-coordinator-tracker-pv.spec.js` (E-Q09) |
 | Site IT Lead | Site IT coordinator | Write and sign a department PV (both stamps persisted with the SERVER clock) | `public/meetings.html` | `public/meeting.html` | `tests/e2e/c1-coordinator-tracker-pv.spec.js` (E-Q09) |
 | Site IT Lead | Site editor | Find the site's overdue actions, close one with a justification | `public/site-actions.html` | in-page control | `tests/e2e/t1-site-action.spec.js` |
+| Site IT Lead | Site editor | See all of my open work in one queue on Home (switches `ui_home_queue` / `ui_nav_*` on in a throwaway database), 320 px and French, never another site's item | `public/home.html` | in-page control | `tests/e2e/r2-home-queue.spec.js` (R2-QUEUE) |
 | Site IT Lead | Site editor | Cannot read another site's report or portfolio project (deny) | `public/reports.html` | `public/portfolio.html` | `tests/e2e/deny-cross-site.spec.js` |
 | Site IT Lead | Site editor | Switch the interface to French and open the manual | `public/site-actions.html` | `public/help.html` | `tests/e2e/t7-french-help.spec.js` |
 | Site IT Lead | Site editor | Reach Portfolio using only the keyboard | `public/login.html` | `public/portfolio.html` | `tests/e2e/t8-keyboard-portfolio.spec.js` |

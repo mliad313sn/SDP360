@@ -20,7 +20,7 @@
 | jobs | 31 |
 | jobs without test reference | 0 |
 | migrations | 85 |
-| test files | 713 |
+| test files | 717 |
 
 ## Pages
 
@@ -32,8 +32,8 @@
 | PG-assets-finance | public/assets-finance.html | UNKNOWN | no | 1 | 2 |
 | PG-assets-hygiene | public/assets-hygiene.html | UNKNOWN | no | 1 | 3 |
 | PG-assets | public/assets.html | any | yes | 10 | 16 |
-| PG-cockpit | public/cockpit.html | any | yes | 1 | 9 |
-| PG-commitments | public/commitments.html | any | no | 1 | 5 |
+| PG-cockpit | public/cockpit.html | any | yes | 1 | 10 |
+| PG-commitments | public/commitments.html | any | no | 1 | 6 |
 | PG-coverage | public/coverage.html | any | no | 0 | 3 |
 | PG-dashboard-composer | public/dashboard-composer.html | admin / dashboard-publisher | no | 1 | 5 |
 | PG-dashboards | public/dashboards.html | any | yes | 1 | 13 |
@@ -43,12 +43,12 @@
 | PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 14 |
 | PG-handoffs | public/handoffs.html | any | yes | 1 | 9 |
 | PG-help | public/help.html | any | yes | 1 | 10 |
-| PG-home | public/home.html | any | yes | 0 | 12 |
+| PG-home | public/home.html | any | yes | 0 | 14 |
 | PG-index | public/index.html | any | yes | 1 | 29 |
 | PG-infra-health | public/infra-health.html | any | yes | 2 | 6 |
 | PG-inspection-actions | public/inspection-actions.html | any | no | 1 | 6 |
 | PG-inspection | public/inspection.html | any | no | 2 | 7 |
-| PG-inspections | public/inspections.html | any | yes | 1 | 7 |
+| PG-inspections | public/inspections.html | any | yes | 1 | 8 |
 | PG-integrations | public/integrations.html | any | yes | 1 | 4 |
 | PG-it-review | public/it-review.html | executive / scorecard-viewer | yes | 2 | 8 |
 | PG-itsm-integrations-plan | public/itsm-integrations-plan.html | UNKNOWN | no | 0 | 5 |
@@ -56,7 +56,7 @@
 | PG-kpi-builder | public/kpi-builder.html | any | no | 0 | 2 |
 | PG-login | public/login.html | public | no | 1 | 12 |
 | PG-meeting | public/meeting.html | any | no | 1 | 13 |
-| PG-meetings-actions | public/meetings-actions.html | any | no | 2 | 8 |
+| PG-meetings-actions | public/meetings-actions.html | any | no | 2 | 9 |
 | PG-meetings-compliance | public/meetings-compliance.html | any | no | 2 | 4 |
 | PG-meetings-council | public/meetings-council.html | any | no | 2 | 3 |
 | PG-meetings-import | public/meetings-import.html | editor | no | 2 | 4 |
@@ -68,14 +68,14 @@
 | PG-meetings | public/meetings.html | any | yes | 2 | 7 |
 | PG-no-access | public/no-access.html | any | no | 0 | 2 |
 | PG-notifications | public/notifications.html | any | yes | 1 | 3 |
-| PG-obligations | public/obligations.html | any | yes | 0 | 3 |
+| PG-obligations | public/obligations.html | any | yes | 0 | 4 |
 | PG-policies | public/policies.html | admin / committee-member | yes | 1 | 4 |
-| PG-portfolio | public/portfolio.html | any | yes | 1 | 13 |
+| PG-portfolio | public/portfolio.html | any | yes | 1 | 14 |
 | PG-project | public/project.html | any | no | 1 | 16 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 3 |
-| PG-reports | public/reports.html | any | yes | 2 | 31 |
+| PG-reports | public/reports.html | any | yes | 2 | 33 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 4 |
-| PG-site-actions | public/site-actions.html | any | yes | 1 | 14 |
+| PG-site-actions | public/site-actions.html | any | yes | 1 | 17 |
 | PG-site-awareness | public/site-awareness.html | site-business / group-business / executive | yes | 2 | 5 |
 | PG-site-report | public/site-report.html | UNKNOWN | no | 0 | 6 |
 | PG-system-logs | public/system-logs.html | super_admin | yes | 1 | 3 |
@@ -150,7 +150,7 @@
 | public/wan-health.html | — | — | — | wan.html | legacy redirect stub kept for old bookmarks → wan.html | wan.html |
 | public/wan-sla.html | — | — | — | wan.html | legacy redirect stub kept for old bookmarks → wan.html | wan.html |
 | public/wan.html | yes | — | infra-health.html, wan-health.html, wan-sla.html | — | — | shell |
-| public/workspace-settings.html | — | — | — | — | workspace settings (R1-PROFILES): 404 while workspace_profiles_enabled = 0; its shell menu link lands with R2-QUEUE — drop this entry then | — |
+| public/workspace-settings.html | — | — | — | — | workspace settings: the header "My workspace" link is drawn by _shell.js only while workspace_profiles_enabled = 1 (not visible to this static scan); 404 while off | — |
 
 ## Routes without a test reference
 
