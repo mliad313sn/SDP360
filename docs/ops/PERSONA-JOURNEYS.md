@@ -50,8 +50,20 @@ in `tests/e2e/` must appear in this table.
 | Super admin | `super_admin` | Share an Analytics view by its URL: the colleague opens the same filters (site, period, status, type), Back restores, Reset clears | `public/home.html` | `public/analytics.html` | `tests/e2e/u6-shared-analytics-url.spec.js` |
 | Site editor | `editor` (own site) | Leave a human note on a dashboard trend so readers see why a point moved (switch `chart_annotations_enabled`) | `public/home.html` | `public/dashboards.html` | `tests/e2e/u7-chart-annotations.spec.js` |
 | Committee member (Group IT, extra) | `viewer` + `committee-member` | Prepare Friday's agenda from the cadence | `public/cockpit.html` | `public/cockpit.html` | `tests/e2e/t4-cockpit-agenda.spec.js` |
+| Site IT coordinator (UAT-F seat 1, simulation) | `editor`, one site | Daily work in pass A (defaults) and pass B (plan F pilot profile): Home queue, weekly report, action register, PV, inspections, French at 320 px, My work, workspace settings | `public/home.html` | `public/site-actions.html` | `tests/e2e/uat-s1-site-coordinator.spec.js` |
+| Two-site coordinator (UAT-F seat 2, simulation) | `editor`, two sites | Reports of both sites never a third, PV on the second site, queue of both sites, site carried in the menu, default site among own sites | `public/home.html` | `public/reports.html` | `tests/e2e/uat-s2-multisite-coordinator.spec.js` |
+| Group IT / PMO (UAT-F seat 3, simulation) | `viewer` + `committee-member` | Portfolio list/board, project plan, team, time entries, change request approved by another member, decision as chair, department roll-up, workbook export | `public/portfolio.html` | `public/project.html` | `tests/e2e/uat-s3-pmo.spec.js` |
+| Finance reader (UAT-F seat 4, simulation) | `finance-viewer` | Project budget visible (hidden from a viewer), asset amounts not certified, benefit value class, amount without currency, no write, budget-period sheet | `public/portfolio.html` | `public/assets.html` | `tests/e2e/uat-s4-finance.spec.js` |
+| Executive (UAT-F seat 5, simulation) | `executive` | IT Review, scorecard charts standard, dashboards with the KPI definition drawer, portfolio and fleet reading, 390 px | `public/it-review.html` | `public/dashboards.html` | `tests/e2e/uat-s5-executive.spec.js` |
+| Field technician (UAT-F seat 6, simulation, SIMULATED network) | `field-tech`, one site | Field app at 390 px in French, offline capture then sync, no report/PV write, Home at 390 px, field profile | `public/field/index.html` | `public/field/index.html` | `tests/e2e/uat-s6-field-technician.spec.js` |
+| Super admin / IT operations (UAT-F seat 7, simulation) | `super_admin` | Admin console, security journal, source freshness, users and redacted config, controlled roadmap publication, department crosswalk, workspace settings, admin at 320 px | `public/reports.html` | `public/workspace-settings.html` | `tests/e2e/uat-s7-super-admin.spec.js` |
+| Site business user (UAT-F seat 8, simulation) | `site-business`, one site | Site IT status, neighbour site refused, no write and no internal list, internal queue never queried, French at 320 px, business profile | `public/site-awareness.html` | `public/site-awareness.html` | `tests/e2e/uat-s8-site-business.spec.js` |
 
 ## Coverage summary
+
+- **UAT-F (plan F wave 3, 2026-11-12 — AI-SIMULATED committee of 8 seats on a synthetic organisation, NOT user acceptance)**
+  added the eight `uat-s*` seat journeys, each run twice (shipped defaults, then the plan F pilot profile); results and
+  verdicts in `docs/audits/2026-11-12-enterprise-review/UAT-COMITE-UTILISATEURS.md`.
 
 - Covered by a browser journey test: coordinator (1 of 3 reporting journeys, plus the C-23 access / SSO /
   shift-handover journeys), site editor (4 of 4), field technician (2 of 2), committee member (1 of 1), site

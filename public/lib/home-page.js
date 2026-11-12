@@ -166,6 +166,7 @@
     queue = window.HomeQueue.mount(box, {
       lang: lang === 'fr' ? 'fr' : 'en', sites: j ? orderSites(j.sites || []) : null, truncated: j ? j.truncated : 0,
       awaiting: j ? j.awaiting_me : null, asOf: j ? j.as_of : null, reloadWork: workJson, announce: false,
+      commitmentsOff: !!(window.__uiPolicy && window.__uiPolicy.commitments === '0'),   // UAT-F: no 404 probe while the module is off
       fetchJson: async (url) => { const r = await fetch(url, { credentials: 'same-origin' }); return { status: r.status, json: r.ok ? await r.json().catch(() => null) : null }; },
     });
   }

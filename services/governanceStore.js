@@ -558,7 +558,11 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     if (kind === 'benefit') { _benefitClassCheck(vals); _benefitCurrency(vals, opts); }
     const curFlagNew = kind === 'project' ? _currencyFlag(vals, null) : undefined;
     if (curFlagNew === 1 && opts.currencyRequired) throw _currencyRefused();
-    const nid = await insert(T.table, [...Object.keys(vals), 'created_at', 'updated_at'], [...Object.values(vals), now(), now()]);
+    let nid;
+    // UAT-F (S5-07): a new row whose key is already taken (live or soft-deleted) is a CONFLICT the person can act on
+    // ("this key is already used"), not a raw 500 carrying the constraint name
+    try { nid = await insert(T.table, [...Object.keys(vals), 'created_at', 'updated_at'], [...Object.values(vals), now(), now()]); }
+    catch (e) { if (isDup(e)) throw Object.assign(new Error(`a ${kind} with this key already exists — open it to edit it, or choose another key`), { code: 'CONFLICT', status: 409 }); throw e; }
     if (kind === 'project') for (const f of FINANCE_FIELDS) if (vals[f] != null) await ppmEvent({ entity: 'project', entity_id: nid, action: 'finance_edit', field: f, old_value: null, new_value: vals[f], currency: vals.currency || 'USD', note: curFlagNew === 1 ? 'currency_defaulted=true' : null }, opts.user);
     if (curFlagNew !== undefined) await P(`UPDATE portfolio_projects SET currency_defaulted=? WHERE id=?`).run(curFlagNew, Number(nid));
     if (curFlagNew === 1) _warn(opts, 'CURRENCY_DEFAULTED', 'no currency was stated with the amount: it is recorded as USD by default and shown "default, not confirmed" until a currency is sent');

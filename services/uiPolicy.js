@@ -120,6 +120,8 @@ function uiPolicyFrom(cfg) {
     nav_carry_site: _pick(c, 'ui_nav_carry_site'),
     // R2-QUEUE — not a ui_* key: the shell shows the "My workspace" link only while the settings page exists
     workspace_profiles: String(c.workspace_profiles_enabled == null ? '' : c.workspace_profiles_enabled).trim() === '1' ? '1' : '0',
+    // UAT-F — not a ui_* key: the Home queue skips the commitments source (no 404 probe) while the module is off
+    commitments: String(c.commitments_enabled == null ? '' : c.commitments_enabled).trim() === '1' ? '1' : '0',
     // F-UX-06 — not a ui_* key (it is a telemetry switch): the browser only needs to know whether to send events
     ux_events: String(c.ux_event_telemetry == null ? '' : c.ux_event_telemetry).trim() === '1' ? '1' : '0',
   };

@@ -136,3 +136,17 @@ test('requests run through a small pool (never 36 at once)', async () => {
   await q.loadAll();
   assert.ok(peak <= HQ.LIMITS.parallel, 'peak ' + peak);
 });
+
+test('UAT-F: commitments switched off (policy) → the source says "switched off" and /api/commitments is never requested', async () => {
+  const f = fake(happy);
+  const q = HQ.createQueue({ sites: SITES, asOf: '2026-11-12', fetchJson: f.fetchJson, awaiting: undefined, commitmentsOff: true });
+  await q.loadAll();
+  assert.ok(!f.calls.includes('/api/commitments'), 'no 404 probe');
+  const s = q.view().states.find((x) => x.source === 'commitments');
+  assert.equal(s.state, 'unknown'); assert.equal(s.reason, 'off');
+  const P = require('../services/uiPolicy');
+  assert.equal(P.uiPolicyFrom({}).commitments, '0'); assert.equal(P.uiPolicyFrom({ commitments_enabled: '1' }).commitments, '1');
+  const on = fake(happy);
+  await HQ.createQueue({ sites: SITES, asOf: '2026-11-12', fetchJson: on.fetchJson, awaiting: undefined }).loadAll();
+  assert.ok(on.calls.includes('/api/commitments'), 'without the flag: today\'s behaviour (the call is made)');
+});

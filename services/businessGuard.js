@@ -10,6 +10,10 @@ const { isBusinessOnly } = require('../public/lib/businessRoles');
 
 // 2.0 sends business-only users to site-awareness.html only; it calls nothing else.
 const ALLOWED = [/^\/site-awareness(\/|$)/, /^\/reports\/auth\//, /^\/auth\//, /^\/ping$/, /^\/health\/version$/];   // version info: not sensitive
+// UAT-F (S8-06): the workspace profile engine (R1) has a "business" profile, but its two routes were outside this list,
+// so a business-only account got 403 and could never choose it. They are presentation-only and keyed on the SESSION's
+// user (never the body); while workspace_profiles_enabled = '0' they still answer 404, i.e. today's behaviour.
+ALLOWED.push(/^\/workspace\/(me|prefs)$/);
 function isAllowed(path) { return ALLOWED.some((re) => re.test(path)); }
 
 function _cookie(req, name) {

@@ -42,7 +42,9 @@ runJourney('X1 exports CSV and XLSX downloads are non-empty with headers', async
   const csv = await download(page, () => page.click('#csv'));
   const text = csv.buf.toString('utf8').replace(/^﻿/, '');
   assert.match(csv.name, /^dashboard-.*\.csv$/);
-  assert.strictEqual(text.split(/\r?\n/)[0], 'widget,metric,site,window,value,unit,rag,freshness,as_of');
+  // UAT-F: the header is the one services/dashboardCsv.js writes (F-DATA-05 appended partial/n/target/low_sample/error;
+  // the literal here had not been updated and the journey was red on main)
+  assert.strictEqual(text.split(/\r?\n/)[0], require('../../services/dashboardCsv').HEADER.join(','));
   got.push({ page: 'dashboards', file: csv.name, bytes: csv.buf.length, header: text.split(/\r?\n/)[0] });
 
   // Assets inventory XLSX (admin-only button) — one throwaway asset row so the sheet has a header row

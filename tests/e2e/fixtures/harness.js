@@ -12,6 +12,8 @@ function runJourney(name, steps, opts) {
   test(name, { timeout: (opts && opts.timeout) || 120000 }, async () => {
     const app = await bootApp();
     const world = await ((opts && opts.seed) || seed)(app);   // R6: a journey may bring its own seed (the demo)
+    // UAT-F pass B: UAT_PILOT_PROFILE=1 re-runs any journey with the plan F pilot switches ON (throwaway database only)
+    if (process.env.UAT_PILOT_PROFILE === '1') await require('../../../services/reportConfig').setConfig(app.rdb.db, require('./uat').PILOT_PROFILE, 'uat-pilot');
     const browser = await launch();
     const j = journey(name);
     let status = 'failed';
