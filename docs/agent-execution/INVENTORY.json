@@ -11,8 +11,8 @@
   "routes_in_server_js": 210,
   "jobs": 30,
   "jobs_without_test_reference": 10,
-  "migrations": 76,
-  "test_files": 627
+  "migrations": 77,
+  "test_files": 629
  },
  "pages": [
   {
@@ -10084,6 +10084,10 @@
   {
    "id": "MG-reports-074-pir-reviews",
    "file": "db/postgres/reports/074_pir_reviews.sql"
+  },
+  {
+   "id": "MG-reports-077-password-iterations",
+   "file": "db/postgres/reports/077_password_iterations.sql"
   },
   {
    "id": "MG-sync-000-upgrade-from-1-11",
