@@ -9,9 +9,9 @@ Sources: vision pack v2.0 §3.2 (seven personas), `public/_shell.js` WORKSPACES 
 
 | Vision persona | Primary question (vision §3.2) | Head workspace (proposal) | Workspace pages | review.1 profile | Journeys mapped |
 |---|---|---|---|---|---|
-| Executive / Group Management | Where are the critical exceptions, decisions, cross-site gaps and strategic risks? | Executive (`executive`) | `dashboards.html?key=exec-home`, `it-review.html`, `executive.html`, `portfolio.html`, `cockpit.html` | NEEDS-REVIEW.1-ARTIFACT | 6 |
+| Executive / Group Management | Where are the critical exceptions, decisions, cross-site gaps and strategic risks? | Executive (`executive`) | `dashboards.html?key=exec-home`, `it-review.html`, `executive.html`, `portfolio.html`, `cockpit.html` | NEEDS-REVIEW.1-ARTIFACT | 7 |
 | Site Management / Business Lead | What is the site posture, business impact and management action required? | Site business view (`business`) | `site-awareness.html` | NEEDS-REVIEW.1-ARTIFACT | 0 |
-| Site IT Lead | What is failing, at risk, overdue or awaiting evidence at my site? | Site IT (`site-it`), Technician (`technician`) | `home.html`, `site-actions.html`, `inspections.html`, `meetings.html`, `reports.html`, `activity-tracker.html`, `obligations.html`, `field/index.html` | NEEDS-REVIEW.1-ARTIFACT | 14 |
+| Site IT Lead | What is failing, at risk, overdue or awaiting evidence at my site? | Site IT (`site-it`), Technician (`technician`) | `home.html`, `site-actions.html`, `inspections.html`, `meetings.html`, `reports.html`, `activity-tracker.html`, `obligations.html`, `field/index.html` | NEEDS-REVIEW.1-ARTIFACT | 15 |
 | Department Member | What is assigned to my department and what do I need to update or submit? | **none at head — gap** | — | NEEDS-REVIEW.1-ARTIFACT | 0 |
 | Validator | What requires my decision, by when, with what evidence and conflict check? | **none at head — gap** | — | NEEDS-REVIEW.1-ARTIFACT | 0 |
 | Administrator | What configuration, mapping, access, connector or quality issue requires control? | Group IT (`super`), Group IT (`admin`) | `index.html`, `site-actions.html`, `cockpit.html`, `dashboards.html`, `report-studio.html`, `integrations.html`, `system-logs.html` | NEEDS-REVIEW.1-ARTIFACT | 12 |
@@ -44,6 +44,7 @@ Expected first click = the action page when it differs from the start page (a **
 | Administrator | Admin (Group IT) | From the worst-gap ranking (Helpdesk resolution SLA) to that site's overdue action, update it, see it in the register (E-Q09; finding: the ranking has no link to the register) | `public/index.html` | `public/site-actions.html` | `tests/e2e/c2-groupit-worst-gap-action.spec.js` |
 | Executive / Group Management | Finance reader | Read an asset amount that is "Non certifié" and a site with no currency (UNKNOWN "—", never $0) (E-Q09) | `public/assets.html` | in-page control | `tests/e2e/c3-finance-not-certified.spec.js` |
 | Executive / Group Management | PMO (committee) | Demand (RFI) → triage → project → benefit realised → verified by another member (E-Q09; capacity conflict NOT built — asserted absent) | `public/portfolio.html` | `public/project.html` | `tests/e2e/c4-pmo-demand-project-benefit.spec.js` |
+| Executive / Group Management | PMO (committee) | R6 synthetic two-site demonstration: Home → portfolio → project plan (zero vs unknown) → workbook export with the screen's figures → History ledger; site B editor denied site A's project once the read scope is on (SYNTHETIC data, `docs/ops/DEMO-SCENARIO.md`) | `public/home.html` | `public/project.html` | `tests/e2e/demo-journey.spec.js` |
 | Administrator | super_admin | Key pages at 1440/1024/768/390 px: no horizontal scroll, header visible, no console error (layout check, not a task) | `public/index.html` | `public/access.html` | `tests/e2e/v1-viewport-layout.spec.js` |
 | Administrator | super_admin | Change a filter twice quickly on Dashboards and Analytics; the newer figures stay on screen | `public/dashboards.html` | `public/analytics.html` | `tests/e2e/r1-filter-race.spec.js` |
 | Administrator | super_admin | Download the dashboard CSV, the assets inventory and the WAN SLA workbook | `public/dashboards.html` | `public/wan.html` | `tests/e2e/x1-exports.spec.js` |
@@ -55,6 +56,8 @@ Expected first click = the action page when it differs from the start page (a **
 | Site IT Lead | Site IT coordinator | Hand the shift over; it stays pending until the incoming person accepts it (C-23) | `public/coverage.html` | in-page control | `tests/e2e/i6-shift-handover.spec.js` |
 | Administrator | super_admin | Rotate a stored integration key: the old one stops working, no secret comes back to the browser or the journal; anonymous visitors never get the API key (C-23) | `public/reports.html` | in-page control | `tests/e2e/i7-secret-rotation.spec.js` |
 | Executive / Group Management | Scorecard viewer | Read the executive scorecard without write powers | `public/executive.html` | `public/analytics.html` | `tests/e2e/u5-scorecard-viewer.spec.js` |
+| — | Super admin | Share an Analytics view by its URL: the colleague opens the same filters (site, period, status, type), Back restores, Reset clears | `public/home.html` | `public/analytics.html` | `tests/e2e/u6-shared-analytics-url.spec.js` |
+| Site IT Lead | Site editor | Leave a human note on a dashboard trend so readers see why a point moved (switch `chart_annotations_enabled`) | `public/home.html` | `public/dashboards.html` | `tests/e2e/u7-chart-annotations.spec.js` |
 | Executive / Group Management | Committee member (Group IT, extra) | Prepare Friday's agenda from the cadence | `public/cockpit.html` | in-page control | `tests/e2e/t4-cockpit-agenda.spec.js` |
 
 ## 3. Usability tasks (protocol)
