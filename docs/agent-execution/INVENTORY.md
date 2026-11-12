@@ -11,13 +11,13 @@
 | pages without declared role | 6 |
 | pages not in navigation | 29 |
 | pages with inline scripts | 46 |
-| routes | 637 |
+| routes | 640 |
 | routes without test reference | 35 |
 | routes in server js | 210 |
 | jobs | 31 |
 | jobs without test reference | 1 |
-| migrations | 80 |
-| test files | 662 |
+| migrations | 81 |
+| test files | 665 |
 
 ## Pages
 
@@ -29,8 +29,8 @@
 | PG-assets-finance | public/assets-finance.html | UNKNOWN | no | 1 | 2 |
 | PG-assets-hygiene | public/assets-hygiene.html | UNKNOWN | no | 1 | 3 |
 | PG-assets | public/assets.html | any | yes | 10 | 14 |
-| PG-cockpit | public/cockpit.html | any | yes | 1 | 8 |
-| PG-commitments | public/commitments.html | any | no | 1 | 4 |
+| PG-cockpit | public/cockpit.html | any | yes | 1 | 9 |
+| PG-commitments | public/commitments.html | any | no | 1 | 5 |
 | PG-coverage | public/coverage.html | any | no | 0 | 3 |
 | PG-dashboard-composer | public/dashboard-composer.html | admin / dashboard-publisher | no | 1 | 5 |
 | PG-dashboards | public/dashboards.html | any | yes | 1 | 9 |
@@ -38,7 +38,7 @@
 | PG-exec-view | public/exec-view.html | public | no | 1 | 6 |
 | PG-executive-report | public/executive-report.html | super_admin | yes | 1 | 11 |
 | PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 10 |
-| PG-handoffs | public/handoffs.html | any | yes | 1 | 7 |
+| PG-handoffs | public/handoffs.html | any | yes | 1 | 8 |
 | PG-help | public/help.html | any | yes | 1 | 9 |
 | PG-home | public/home.html | any | yes | 0 | 7 |
 | PG-index | public/index.html | any | yes | 1 | 25 |
@@ -52,7 +52,7 @@
 | PG-itsm-roadmap | public/itsm-roadmap.html | super_admin | no | 1 | 4 |
 | PG-kpi-builder | public/kpi-builder.html | any | no | 0 | 2 |
 | PG-login | public/login.html | public | no | 1 | 9 |
-| PG-meeting | public/meeting.html | any | no | 1 | 12 |
+| PG-meeting | public/meeting.html | any | no | 1 | 13 |
 | PG-meetings-actions | public/meetings-actions.html | any | no | 2 | 7 |
 | PG-meetings-compliance | public/meetings-compliance.html | any | no | 2 | 4 |
 | PG-meetings-council | public/meetings-council.html | any | no | 2 | 3 |
@@ -68,7 +68,7 @@
 | PG-obligations | public/obligations.html | any | yes | 0 | 3 |
 | PG-policies | public/policies.html | admin / committee-member | yes | 1 | 4 |
 | PG-portfolio | public/portfolio.html | any | yes | 1 | 10 |
-| PG-project | public/project.html | any | no | 1 | 12 |
+| PG-project | public/project.html | any | no | 1 | 13 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 3 |
 | PG-reports | public/reports.html | any | yes | 2 | 27 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 4 |

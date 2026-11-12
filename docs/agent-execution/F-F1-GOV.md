@@ -24,9 +24,10 @@ switch whose default is today's behaviour; no switch was turned on.
 - `npx eslint` clean on every touched `.js` (`public/lib/home-page.js` is in the lint ignore list; parsed with `new Function`).
 - `tests/.suite-manifest.json`: +3 files (`decision-lifecycle` 6, `department-crosswalk` 6, `pilot-observed` 6),
   `governance-routes.smoke` 9 → 11, `my-work` 10 → 15, `my-work-route.smoke` 6 → 7; total 4491 → 4517.
-- Regenerated, not hand-edited: `docs/ops/FLAG-REGISTER.md`, `docs/ops/AUTHZ-MATRIX.md` (METRIC-WIDGET-MAP and
-  METRIC-LINEAGE unchanged). `docs/agent-execution/INVENTORY.*` was regenerated in the worktree but is NOT committed
-  (the machine's disk filled up before the last commit); it is regenerated at merge.
+- Regenerated, not hand-edited: `docs/ops/FLAG-REGISTER.md`, `docs/ops/AUTHZ-MATRIX.md`,
+  `docs/agent-execution/INVENTORY.*` (METRIC-WIDGET-MAP and METRIC-LINEAGE unchanged).
+- Incident during the run: the machine's disk filled up (leftover throwaway test databases of all bundles) just
+  after the last test run; nothing of this bundle was lost and no test result above was taken after it.
 
 No existing test had to be changed: the two existing decision assertions (`editor` sets `done`, committee sets `done`)
 still pass with the switch off.
