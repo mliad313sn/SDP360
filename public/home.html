@@ -30,6 +30,23 @@
   .hm-shortcuts a { display: inline-block; padding: 6px 12px; border: 1px solid #D0D5DD; border-radius: 999px; text-decoration: none; }
   a { color: var(--edv-blue, #1F6FB2); }
   .hm-retry { margin-left: 8px; font-size: 12px; }
+  /* R2-QUEUE — progressive queue "S1" (shown only while ui_home_queue = '1'); tokens only, wraps at 320 px */
+  .hq-sources { list-style: none; margin: 8px 0 12px; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .hq-sources li { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+  .hq-src { font-weight: 600; min-width: 10em; }
+  .hq-state { display: inline-flex; gap: 4px; align-items: baseline; padding: 2px 8px; border: 1px solid var(--color-border); border-radius: 999px; font-size: 12.5px; }
+  .hq-state-available { border-color: var(--color-success); } .hq-state-denied, .hq-state-unknown { border-style: dashed; }
+  .hq-state-partial, .hq-state-stale { background: var(--color-warning-bg); color: var(--color-warning-text); }
+  .hq-count { color: var(--color-text-muted); font-size: 12.5px; }
+  .hq-retry, .hm-retry { min-height: 36px; min-width: 44px; padding: 4px 10px; }
+  .hq-list { margin: 0; padding-left: 22px; }
+  .hq-item { padding: 6px 0; border-top: 1px solid var(--color-border); overflow-wrap: anywhere; }
+  .hq-item:first-child { border-top: 0; }
+  .hq-meta { color: var(--color-text-muted); font-size: 12.5px; }
+  .hq-late { color: var(--color-danger); font-weight: 700; } .hq-reg { color: var(--color-text-muted); font-size: 12px; }
+  .hq-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  body.hm-compact .hm-card { padding: 10px 12px; margin-bottom: 10px; } body.hm-compact .hm-blocks li { padding: 4px 0; }
+  @media (max-width: 480px) { .hm-wrap { padding: 16px 12px 32px; } .hm-sites { grid-template-columns: 1fr; } .hq-src { min-width: 0; width: 100%; } }
   body.lang-fr [data-lng="en"], body:not(.lang-fr) [data-lng="fr"] { display: none; }
 </style>
 </head>
@@ -45,6 +62,7 @@
   </div>
   <!-- E-U03 — shared page head (lib/pageHead.js): question · scope · window · freshness -->
   <div id="pageHead"></div>
+  <div id="hmQueue"></div>
   <div id="hmSites" class="hm-sites"></div>
   <div class="hm-card">
     <h2><span data-lng="en">Shortcuts</span><span data-lng="fr">Raccourcis</span></h2>
@@ -60,6 +78,9 @@
 <script nonce="%%CSP_NONCE%%" src="lib/errorText.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/pageHead.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/stateBadge.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/statusTransfer.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/homeQueue.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/workspaceProfiles.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/home-page.js"></script>
 </body>
 </html>

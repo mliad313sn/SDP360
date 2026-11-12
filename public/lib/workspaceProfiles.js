@@ -203,10 +203,10 @@
 
   // Browser: the hand-off point for the shell / Home (R2-QUEUE). Resolves null while the switch is off
   // (the API answers 404) or on any error — callers then behave exactly as today.
-  api.load = function () {
+  api.load = function (lang) {
     var h = { 'Accept': 'application/json' };
     try { if (window.__authToken) h['x-report-token'] = window.__authToken; } catch (_) {}
-    return fetch('/api/workspace/me', { headers: h, credentials: 'same-origin' })
+    return fetch('/api/workspace/me' + (lang === 'fr' ? '?lang=fr' : ''), { headers: h, credentials: 'same-origin' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .catch(function () { return null; });
   };
