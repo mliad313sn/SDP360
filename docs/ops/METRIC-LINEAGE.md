@@ -717,7 +717,7 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Name | WAN1 availability (% Time Up) / Disponibilité WAN1 (% Time Up) |
 | Module · unit | wan · % |
 | Source | reader `wan.latest_site` · field `wan1_availability_pct` · wan_link_snapshots |
-| Formula | calibrated % Time Up (loss ≥ wan_timeup_loss_pct per sample = down), latest weekly snapshot |
+| Formula | calibrated % Time Up (loss ≥ wan_timeup_loss_pct per sample = down); weekly snapshot of the requested week, site-level link only (sub-sites excluded); no window = latest snapshot |
 | Window kind | week |
 | RAG policy | `wan-availability` (code default: scale target-ratio, green 1, amber 0.9) |
 | Higher is better | yes |
@@ -725,7 +725,7 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `meraki.wan` — declared window 30 h |
-| Consumers | widget `site-weekly#wan1 (kpi)`<br>widget `field-site#wan1 (kpi)`<br>alert rule `wan.wan1.availability`<br>server code: `services/agendaBuilder.js`<br>browser libraries: `public/lib/composerGuide.js` |
+| Consumers | widget `site-weekly#wan1 (kpi)`<br>widget `field-site#wan1 (kpi)`<br>alert rule `wan.wan1.availability`<br>server code: `services/agendaBuilder.js`<br>browser libraries: `public/lib/composerGuide.js` · tests: 2 file(s) |
 
 ## `wan.wan2_availability_pct`
 
@@ -734,7 +734,7 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Name | WAN2 availability (% Time Up) / Disponibilité WAN2 (% Time Up) |
 | Module · unit | wan · % |
 | Source | reader `wan.latest_site` · field `wan2_availability_pct` · wan_link_snapshots |
-| Formula | same as wan1 for the second uplink |
+| Formula | same as wan1 for the second uplink (requested week, site-level link; no window = latest snapshot) |
 | Window kind | week |
 | RAG policy | `wan-availability` (code default: scale target-ratio, green 1, amber 0.9) |
 | Higher is better | yes |
@@ -742,7 +742,7 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `meraki.wan` — declared window 30 h |
-| Consumers | widget `site-weekly#wan2 (kpi)`<br>widget `field-site#wan2 (kpi)`<br>alert rule `wan.wan2.availability`<br>browser libraries: `public/lib/composerGuide.js` |
+| Consumers | widget `site-weekly#wan2 (kpi)`<br>widget `field-site#wan2 (kpi)`<br>alert rule `wan.wan2.availability`<br>browser libraries: `public/lib/composerGuide.js` · tests: 1 file(s) |
 
 ## `wan.wan1_loss_pct`
 
@@ -751,7 +751,7 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Name | WAN1 packet loss / Perte de paquets WAN1 |
 | Module · unit | wan · % |
 | Source | reader `wan.latest_site` · field `wan1_loss_pct` · wan_link_snapshots |
-| Formula | mean lossPercent over the week |
+| Formula | mean lossPercent over the requested week (site-level link; no window = latest snapshot) |
 | Window kind | week |
 | RAG policy | none (no colour) |
 | Higher is better | no |
@@ -759,7 +759,7 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `meraki.wan` — declared window 30 h |
-| Consumers | generic consumers only (composer, /api/metrics, external API) |
+| Consumers | generic consumers only (composer, /api/metrics, external API) · tests: 1 file(s) |
 
 > **Decision — use / archive / reserve — PENDING KPI committee.** No widget, alert rule, page or server code names
 > this metric. Decision: _(not taken)_ · Decided by: _(not recorded)_ · Date: _(not recorded)_ · Minutes ref: _(not recorded)_
@@ -771,7 +771,7 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Name | WAN1 latency / Latence WAN1 |
 | Module · unit | wan · ms |
 | Source | reader `wan.latest_site` · field `wan1_latency_ms` · wan_link_snapshots |
-| Formula | mean latencyMs over the week |
+| Formula | mean latencyMs over the requested week (site-level link; no window = latest snapshot) |
 | Window kind | week |
 | RAG policy | none (no colour) |
 | Higher is better | no |
@@ -779,7 +779,7 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `meraki.wan` — declared window 30 h |
-| Consumers | generic consumers only (composer, /api/metrics, external API) |
+| Consumers | generic consumers only (composer, /api/metrics, external API) · tests: 1 file(s) |
 
 > **Decision — use / archive / reserve — PENDING KPI committee.** No widget, alert rule, page or server code names
 > this metric. Decision: _(not taken)_ · Decided by: _(not recorded)_ · Date: _(not recorded)_ · Minutes ref: _(not recorded)_

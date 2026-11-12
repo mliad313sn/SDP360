@@ -66,10 +66,10 @@ metric is absent from that file and `--check` fails).
 | `tracker.site_red` | tracker | count | untriaged | — | — | — | — | — | — | — | — |
 | `tracker.fleet_score_pct` | tracker | % | untriaged | `exec-home#k-tracker (kpi)`<br>`governance#roadmap (kpi)` | — | — | — | — | — | `services/agendaBuilder.js` | 3 file(s) |
 | `tracker.fleet_attainment_pct` | tracker | % | untriaged | `governance#attain (kpi)` | — | — | — | — | — | — | — |
-| `wan.wan1_availability_pct` | wan | % | untriaged | `site-weekly#wan1 (kpi)`<br>`field-site#wan1 (kpi)` | `wan.wan1.availability` | — | `public/lib/composerGuide.js` | — | — | `services/agendaBuilder.js` | — |
-| `wan.wan2_availability_pct` | wan | % | untriaged | `site-weekly#wan2 (kpi)`<br>`field-site#wan2 (kpi)` | `wan.wan2.availability` | — | `public/lib/composerGuide.js` | — | — | — | — |
-| `wan.wan1_loss_pct` | wan | % | untriaged | — | — | — | — | — | — | — | — |
-| `wan.wan1_latency_ms` | wan | ms | untriaged | — | — | — | — | — | — | — | — |
+| `wan.wan1_availability_pct` | wan | % | untriaged | `site-weekly#wan1 (kpi)`<br>`field-site#wan1 (kpi)` | `wan.wan1.availability` | — | `public/lib/composerGuide.js` | — | — | `services/agendaBuilder.js` | 2 file(s) |
+| `wan.wan2_availability_pct` | wan | % | untriaged | `site-weekly#wan2 (kpi)`<br>`field-site#wan2 (kpi)` | `wan.wan2.availability` | — | `public/lib/composerGuide.js` | — | — | — | 1 file(s) |
+| `wan.wan1_loss_pct` | wan | % | untriaged | — | — | — | — | — | — | — | 1 file(s) |
+| `wan.wan1_latency_ms` | wan | ms | untriaged | — | — | — | — | — | — | — | 1 file(s) |
 | `programme.site_score` | programme | points | untriaged | `governance#prog (kpi)`<br>`governance#sites (ragGrid)` | — | — | — | — | — | `services/agendaBuilder.js`<br>`tools/agent/score-methodology.js` | 1 file(s) |
 | `programme.composite` | programme | points | untriaged | — | — | — | — | — | — | `services/agendaBuilder.js`<br>`tools/agent/score-methodology.js` | 1 file(s) |
 | `changes.success_pct_deck` | changes | % | untriaged | — | — | — | — | — | — | — | 1 file(s) |

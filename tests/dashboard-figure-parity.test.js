@@ -89,3 +89,25 @@ test('E-V06: viewer = ChartTable = report-pack CSV/XLSX for the same fixture sel
 
   assert.deepEqual(diffs, [], 'parity diff (figure · surface · expected · got):\n' + diffs.map((d) => `${d.figure} · ${d.surface} · ${d.expected} · ${d.got}`).join('\n'));
 });
+
+// F-DATA-02 — a WAN trend is one snapshot per week (was: the latest week repeated on every point), and the kpi of a
+// selected past week is THAT week's figure. FIXTURE — fictitious site and figures.
+test('F-DATA-02: a WAN weekly trend through resolveWidgets is not flat and ignores sub-site rows', async () => {
+  // Zoho-week snapshots (Sunday-anchored) for 4 consecutive weeks; the ISO Monday of each is start + 1 day
+  const weeks = [['2026-06-14', 99.9], ['2026-06-21', 96.4], ['2026-06-28', null], ['2026-07-05', 91.2]];
+  const snaps = weeks.map(([ps, v]) => ({ site_id: 1, sub_site: '', uplink: 'wan1', period_type: 'week', period_start: ps, availability_pct: v, loss_pct: 1, latency_ms: 40 }));
+  snaps.push({ site_id: 1, sub_site: 'FIXTURE-SUB', uplink: 'wan1', period_type: 'week', period_start: '2026-07-05', availability_pct: 3.3, loss_pct: 90, latency_ms: 999 });
+  const dd = { rdb: { getWanSnapshots: async (f) => snaps.filter((r) => r.site_id === f.site_id) } };
+  const def = { key: 'fixture-wan', title: 'FIXTURE — WAN', audience: 'site', grid: { columns: 12 }, widgets: [
+    { id: 'k', type: 'kpi', metric: 'wan.wan1_availability_pct', title: 'WAN1', layout: { x: 0, y: 0, w: 3, h: 2 } },
+    { id: 't', type: 'trend', metric: 'wan.wan1_availability_pct', title: 'WAN1 trend', window: '4w', layout: { x: 0, y: 2, w: 12, h: 4 } },
+  ] };
+  const W = await resolveWidgets({ def, sites: SITES, site: 1, window: '2026-W28', reg: MR.createRegistry(), dd, rdb: null, now: NOW });
+  const pts = W.t.points;
+  assert.deepEqual(pts.map((p) => p.label), ['2026-W25', '2026-W26', '2026-W27', '2026-W28']);
+  assert.deepEqual(pts.map((p) => p.value), [99.9, 96.4, null, 91.2], 'one snapshot per week; a week not measured is a gap');
+  assert.ok(new Set(pts.map((p) => p.value)).size > 1, 'the trend is not the latest value repeated');
+  assert.equal(W.k.value, 91.2, 'kpi = the selected week, site-level link (not the sub-site 3.3)');
+  const past = await resolveWidgets({ def, sites: SITES, site: 1, window: '2026-W26', reg: MR.createRegistry(), dd, rdb: null, now: NOW });
+  assert.equal(past.k.value, 96.4, 'a past week shows its own WAN figure, not this week\'s');
+});
