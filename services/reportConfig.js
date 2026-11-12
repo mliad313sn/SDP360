@@ -366,6 +366,10 @@ Object.assign(DEFAULTS, { auth_account_throttle_enabled: '0', auth_account_throt
 //    attempt (successes included). '1' → only FAILED attempts count, per address + login name (a success clears that
 //    pair), plus a per-address failure cap (5× = 50 / 15 min) and the per-account failure throttle forced on.
 DEFAULTS.login_limit_failures_only = '0';
+// ── UAT-OI-05 — portfolio_executive_readonly (services/portfolioExecutiveReadonly.js). '0' = today: the executive
+//    tier writes portfolio objects like the admin tier. '1' → an account whose only write tier is `executive` (no
+//    super_admin / admin / committee-member) gets 403 on portfolio / project / benefit / change-request writes.
+DEFAULTS.portfolio_executive_readonly = '0';
 // ── E-S05 — PBKDF2 work factor for NEW password hashes (users.password_iterations stores each hash's own count;
 //    NULL = 100000). '100000' = today: nothing is rehashed. A higher value rehashes a user once, at their next
 //    successful password login; lowering it never downgrades a stored hash. Values < 100000 or invalid → 100000.

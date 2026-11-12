@@ -70,6 +70,13 @@ module.exports = function governanceRoutes(deps) {
   // ADR-006 — role holders and deputies, from a snapshot refreshed before every governance request
   // (empty tables = the behaviour until now). deputyFor(u) = people u stands in for today.
   let roles = null, rolesVersion = -1;
+  // UAT-OI-05 — portfolio_executive_readonly ('0' = today): an executive-only account reads but does not write portfolio objects
+  const PXR = require('../services/portfolioExecutiveReadonly');
+  router.use('/api/governance', PXR.middleware({
+    getConfig: () => reportConfig.getConfig(rdb().db),
+    resolveUser: (req) => rdb().validateSession(require('../services/sessionAuth').sessionToken(req)),
+    fail: (res, e, st) => httpFail(res, e, st, { ok: false, code: e.reason }),
+  }));
   router.use('/api/governance', async (req, res, next) => {
     const rs = deps.getRolesStore && deps.getRolesStore();
     if (rs) { try { const v = await rs.version(); if (v !== rolesVersion) { roles = await rs.snapshot(); rolesVersion = v; } } catch (_) { /* keep the last snapshot */ } }
@@ -526,7 +533,8 @@ module.exports = function governanceRoutes(deps) {
     const editable = v.projects.filter(p => PA.canEditPlan(u, p, { ...ctx, extraSites: v0.project_sites })).map(p => p.id);
     return { v, ctx, editable };
   }
-  router.get('/api/governance/portfolio', requireReportSession, async (req, res) => { try { const { v, editable } = await viewFor(req.reportUser); res.json({ ok: true, committee: isCommittee(req.reportUser), can_edit_plan_projects: editable, ...(canSeeMoney(req.reportUser) ? v : stripMoney(v)) }); } catch (e) { fail(res, e); } });
+  router.get('/api/governance/portfolio', requireReportSession, async (req, res) => { try { const { v, editable } = await viewFor(req.reportUser); const ro = PXR.enabled(await reportConfig.getConfig(rdb().db)) && PXR.isExecutiveOnly(req.reportUser);   // UAT-OI-05: the page hides edit controls it would refuse
+    res.json({ ok: true, committee: !ro && isCommittee(req.reportUser), can_edit_plan_projects: !ro && editable, ...(ro ? { executive_read_only: true } : {}), ...(canSeeMoney(req.reportUser) ? v : stripMoney(v)) }); } catch (e) { fail(res, e); } });
   const planScope = (res) => res.status(403).json({ ok: false, code: 'PLAN_SCOPE', error: 'you may only maintain the plan of a project of your site(s), or one you own' });
   /**
    * Gate for a plan write (task / milestone / risk / deliverable). Committee → as today. Otherwise the switch must be on
