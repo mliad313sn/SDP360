@@ -32,7 +32,8 @@ function trendDirection(points, unit) {
 // written, so a figure built from a widget without them keeps its former shape.
 function truths(w) {
   const o = {};
-  if (w.partial) o.partial = true;
+  if (w.partial || w.partial_source) o.partial = true;
+  if (w.partial_source) o.partial_source = { read: w.partial_source.read, unread: w.partial_source.unread };   // F-DATA-08
   if (w.n != null) o.n = w.n;
   if (w.low_sample) o.low_sample = true;
   if (w.target != null) o.target = w.target;

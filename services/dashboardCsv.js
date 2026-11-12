@@ -21,12 +21,14 @@ function dashboardCsvRows(v, reg) {
     return byModule.has(m.module) ? byModule.get(m.module) : 'NO_SYNC_JOB';
   };
   const yes = (x) => (x ? 'true' : '');
+  // F-DATA-08 — a source read in part: the row is partial and says how much was not read
+  const ps = (x) => (x && x.partial_source ? `partial source: ${x.partial_source.unread} of ${x.partial_source.read + x.partial_source.unread} parts not read` : '');
   const rows = [HEADER.slice()];
   const siteName = (((v && v.sites) || []).find((s) => s.id === v.site) || {}).name || '';
   for (const [id, w] of Object.entries((v && v.widgets) || {})) {
     const t = w.title || id; const at = w.as_of || v.as_of; const before = rows.length;
-    if (w.mode === 'single') rows.push([t, w.metric, 'site_id' in w && w.site_id == null ? 'fleet' : siteName, (w.window && w.window.label) || '', w.value, w.unit, w.rag, fresh(w, w.metric), at, yes(w.partial), w.n, w.target, yes(w.low_sample), w.error || '']);
-    else if (w.mode === 'per-site') for (const r of w.rows || []) rows.push([t, w.metric, r.site, (w.window && w.window.label) || '', r.value, w.unit, r.rag, fresh(w, w.metric), at, yes(w.partial), r.n, r.target, yes(r.low_sample), w.error || '']);
+    if (w.mode === 'single') rows.push([t, w.metric, 'site_id' in w && w.site_id == null ? 'fleet' : siteName, (w.window && w.window.label) || '', w.value, w.unit, w.rag, fresh(w, w.metric), at, yes(w.partial || w.partial_source), w.n, w.target, yes(w.low_sample), w.error || ps(w)]);
+    else if (w.mode === 'per-site') for (const r of w.rows || []) rows.push([t, w.metric, r.site, (w.window && w.window.label) || '', r.value, w.unit, r.rag, fresh(w, w.metric), at, yes(w.partial || r.partial_source), r.n, r.target, yes(r.low_sample), w.error || ps(r)]);
     else if (w.mode === 'series') {
       for (const p of w.points || []) rows.push([t, w.metric, siteName, p.label, p.value, w.unit, '', fresh(w, w.metric), at, yes(p.partial), p.n, p.target, '', w.error || '']);
       for (const l of (w.lines || []).slice(1)) for (const p of l.points || []) rows.push([t, l.metric, siteName, p.label, p.value, l.unit, '', fresh(w, l.metric), at, yes(p.partial), p.n, '', '', w.error || '']);

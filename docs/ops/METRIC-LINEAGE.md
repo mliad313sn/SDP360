@@ -479,7 +479,7 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `assets.sync` — declared window 30 h |
-| Consumers | widget `assets-hygiene#total (kpi)`<br>server code: `services/trackerTemplates.js` · tests: 9 file(s) |
+| Consumers | widget `assets-hygiene#total (kpi)`<br>server code: `services/trackerTemplates.js` · tests: 10 file(s) |
 
 ## `assets.no_owner`
 
@@ -498,7 +498,7 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `assets.sync` — declared window 30 h |
-| Consumers | widget `assets-hygiene#no-owner (kpi)` |
+| Consumers | widget `assets-hygiene#no-owner (kpi)` · tests: 1 file(s) |
 
 ## `assets.no_age`
 
@@ -615,7 +615,7 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `assets.sync` — declared window 30 h |
-| Consumers | widget `assets-hygiene#compl (kpi)`<br>widget `assets-hygiene#sites (ragGrid)`<br>alert rule `assets.completeness.low`<br>server code: `services/agendaBuilder.js`<br>server code: `services/reportConfig.js`<br>server code: `services/trackerTemplates.js`<br>API routes: `routes/extApi.js`<br>API routes: `routes/governance.js`<br>browser libraries: `public/lib/composerGuide.js` · tests: 1 file(s) |
+| Consumers | widget `assets-hygiene#compl (kpi)`<br>widget `assets-hygiene#sites (ragGrid)`<br>alert rule `assets.completeness.low`<br>server code: `services/agendaBuilder.js`<br>server code: `services/reportConfig.js`<br>server code: `services/trackerTemplates.js`<br>API routes: `routes/extApi.js`<br>API routes: `routes/governance.js`<br>browser libraries: `public/lib/composerGuide.js` · tests: 2 file(s) |
 
 ## `assets.effort_score`
 

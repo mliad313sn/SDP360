@@ -181,11 +181,20 @@ const READERS = {
   async 'assets.hygiene_site'(d, { site }) {
     const labels = await assetLabelsFor(d, site); if (!labels.length) return null;
     const acc = { total: 0, no_owner: 0, no_age: 0, no_cost: 0, no_asset_tag: 0, never_scanned: 0, ghost: 0 };
+    // F-DATA-08 (C04) — a site is the SUM of its labels. A label that cannot be read (reader throws or returns
+    // nothing) is counted, not skipped: the rows that were read are kept (per-kind counts = "at least"), but the
+    // total and the completeness of the site are then UNKNOWN (null) — a confident lower total is a wrong number.
+    let read = 0; const unread = []; let lastErr = null;
     for (const label of labels) {
-      const s = await d.adb.getHygieneSummary({ site: label }); if (!s) continue;
+      let s = null;
+      try { s = await d.adb.getHygieneSummary({ site: label }); } catch (e) { lastErr = e; }
+      if (!s) { unread.push(label); continue; }
+      read++;
       acc.total += Number(s.total) || 0;
       for (const k of Object.keys(acc)) if (k !== 'total') acc[k] += Number((s.by_kind || {})[k]) || 0;
     }
+    if (!read) { if (lastErr) throw lastErr; return null; }   // nothing read at all: an error / not measured, as before
+    if (unread.length) return { ...acc, total: null, completeness_pct: null, partial_source: { read, unread: unread.length, unread_labels: unread } };
     const pres = (k) => acc.total ? 1 - acc[k] / acc.total : null;
     acc.completeness_pct = acc.total ? Math.round(100 * (pres('no_owner') + pres('no_age') + pres('no_cost')) / 3) : null;
     return acc;
@@ -288,7 +297,7 @@ function createRegistry(rows = SEED) {
       try {
         const rec = await reader(deps, { site: site == null ? null : Number(site), win });
         const v = rec && rec[m.field] != null && Number.isFinite(Number(rec[m.field])) ? Number(rec[m.field]) : null;
-        return { ...base, value: v, rag: ragFor(m, v), record: rec || null, base: baseFor(m, rec), data_state: dataState(v, rec, win, now) };
+        return { ...base, value: v, rag: ragFor(m, v), record: rec || null, base: baseFor(m, rec), data_state: dataState(v, rec, win, now), ...(rec && rec.partial_source ? { partial_source: rec.partial_source } : {}) };
       } catch (e) { return { ...base, value: null, rag: 'NA', data_state: 'error', error: String(e && e.message || e).slice(0, 200) }; }
     },
   };

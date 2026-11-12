@@ -49,14 +49,14 @@ metric is absent from that file and `--check` fails).
 | `inspection.conformity_pct` | inspection | % | untriaged | `exec-home#k-insp (kpi)` | — | — | — | — | `routes/extApi.js` | `services/agendaBuilder.js`<br>`services/reportConfig.js`<br>`services/trackerTemplates.js` | 3 file(s) |
 | `inspection.open_actions` | inspection | count | untriaged | `site-weekly#insp (kpi)` | — | — | — | — | — | `services/agendaBuilder.js` | — |
 | `inspection.overdue_actions` | inspection | count | untriaged | `field-site#insp (kpi)` | `inspection.overdue_actions` | — | — | — | — | — | 1 file(s) |
-| `assets.total` | assets | count | untriaged | `assets-hygiene#total (kpi)` | — | — | — | — | — | `services/trackerTemplates.js` | 9 file(s) |
-| `assets.no_owner` | assets | count | untriaged | `assets-hygiene#no-owner (kpi)` | — | — | — | — | — | — | — |
+| `assets.total` | assets | count | untriaged | `assets-hygiene#total (kpi)` | — | — | — | — | — | `services/trackerTemplates.js` | 10 file(s) |
+| `assets.no_owner` | assets | count | untriaged | `assets-hygiene#no-owner (kpi)` | — | — | — | — | — | — | 1 file(s) |
 | `assets.no_age` | assets | count | untriaged | `assets-hygiene#no-age (kpi)` | — | — | — | — | — | — | — |
 | `assets.no_cost` | assets | count | untriaged | `assets-hygiene#no-cost (kpi)` | — | — | — | — | — | — | — |
 | `assets.no_asset_tag` | assets | count | untriaged | `assets-hygiene#no-tag (kpi)` | — | — | — | — | — | — | — |
 | `assets.never_scanned` | assets | count | untriaged | — | — | — | — | — | — | — | — |
 | `assets.ghost` | assets | count | untriaged | — | `assets.ghosts` | — | — | — | — | — | 1 file(s) |
-| `assets.completeness_pct` | assets | % | untriaged | `assets-hygiene#compl (kpi)`<br>`assets-hygiene#sites (ragGrid)` | `assets.completeness.low` | — | `public/lib/composerGuide.js` | — | `routes/extApi.js`<br>`routes/governance.js` | `services/agendaBuilder.js`<br>`services/reportConfig.js`<br>`services/trackerTemplates.js` | 1 file(s) |
+| `assets.completeness_pct` | assets | % | untriaged | `assets-hygiene#compl (kpi)`<br>`assets-hygiene#sites (ragGrid)` | `assets.completeness.low` | — | `public/lib/composerGuide.js` | — | `routes/extApi.js`<br>`routes/governance.js` | `services/agendaBuilder.js`<br>`services/reportConfig.js`<br>`services/trackerTemplates.js` | 2 file(s) |
 | `assets.effort_score` | assets | points | untriaged | `assets-hygiene#effort (kpi)` | — | — | `public/site-report.js` | — | — | — | — |
 | `assets.effort_rank` | assets | rank | untriaged | `assets-hygiene#rank (kpi)` | — | — | `public/site-report.js` | — | — | — | 1 file(s) |
 | `assets.effort_delta_30d` | assets | points | untriaged | — | — | — | `public/site-report.js` | — | — | — | — |
