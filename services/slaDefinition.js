@@ -64,4 +64,21 @@ function resOverdueSql(mode) {
   return SQL[normalizeMode(mode)];
 }
 
-module.exports = { MODES, DEFAULT_MODE, normalizeMode, resOverdueRow, resOverdueSql };
+// ── A7 — open & breached (the SQL mirror of public/lib/slaDual.js openResBreached / openFrBreached) ──────────
+// An open ticket (pending, not in a closed / cancelled status — the ageing guard of 2026-08-03 against a stale
+// pending_status) WITH an SLA rule (a flag or a due time) that is already late as of `?` (ISO asOf):
+// the stored flag says so, OR it is not on hold and its due time is strictly before asOf (on hold = SLA paused).
+const _OPEN = `pending_status = 1 AND ${_ST} NOT IN ('closed','resolved','confirmed resolution','confirm resolution','cancelled','canceled')`;
+const OPEN_RES_BREACHED_SQL = `(${_OPEN} AND NOT (overdue_status IS NULL AND NULLIF(due_by_time, '') IS NULL)`
+  + ` AND (COALESCE(overdue_status, 0) = 1 OR (${_ST} NOT LIKE '%hold%' AND NULLIF(due_by_time, '') IS NOT NULL AND due_by_time < ?)))`;
+const OPEN_FR_BREACHED_SQL = `(${_OPEN} AND (responded_time IS NULL OR responded_time = '')`
+  + ` AND LOWER(TRIM(COALESCE(first_response_overdue, ''))) IN ('true','1','yes'))`;
+/** asOf ISO for a calendar month: its exclusive end (1st of next month, UTC), or now while it is running. */
+function monthAsOfIso(year, month, now) {
+  const end = Date.UTC(year, month, 1);
+  const n = now instanceof Date ? now.getTime() : (now != null ? Number(now) : Date.now());
+  return new Date(Math.min(end, n)).toISOString();
+}
+
+module.exports = { MODES, DEFAULT_MODE, normalizeMode, resOverdueRow, resOverdueSql,
+  OPEN_RES_BREACHED_SQL, OPEN_FR_BREACHED_SQL, monthAsOfIso };

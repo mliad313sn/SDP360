@@ -122,6 +122,8 @@ function uiPolicyFrom(cfg) {
     workspace_profiles: String(c.workspace_profiles_enabled == null ? '' : c.workspace_profiles_enabled).trim() === '1' ? '1' : '0',
     // UAT-F — not a ui_* key: the Home queue skips the commitments source (no 404 probe) while the module is off
     commitments: String(c.commitments_enabled == null ? '' : c.commitments_enabled).trim() === '1' ? '1' : '0',
+    // A7 — not a ui_* key (a KPI switch): which SLA rate the Helpdesk / scorecard tiles show as the headline
+    sla_headline: require('../public/lib/slaDual').normalizeHeadline(c.sla_headline_definition),
     // F-UX-06 — not a ui_* key (it is a telemetry switch): the browser only needs to know whether to send events
     ux_events: String(c.ux_event_telemetry == null ? '' : c.ux_event_telemetry).trim() === '1' ? '1' : '0',
   };

@@ -14,6 +14,15 @@ module.exports = function surveyRoutes(deps) {
   } = deps;
   const router = express.Router();
   const rdb = new Proxy({}, { get: (_t, k) => deps.getRdb()[k] });
+  // A8 — invariant 1 on survey data: a reply belongs to the helpdesk group of its ticket. null = admin tier (all),
+  // [] = site-less account (nothing), else the lowercased Zoho groups of the caller's sites (services/siteGroups).
+  const scopeOf = (req) => require('../services/siteGroups').userSiteGroups(rdb, req.reportUser);
+  // ?groups= narrows WITHIN the perimeter, never widens it.
+  const narrow = (own, q) => {
+    const asked = String(q || '').split(',').map((g) => g.trim().toLowerCase()).filter(Boolean);
+    if (!asked.length) return own;
+    return own == null ? asked : asked.filter((g) => own.includes(g));
+  };
 
   // ══════════════════════════════════════════════════════════════════
   // SURVEY — reads from Analytics Plus view 106803000000002079
@@ -133,6 +142,18 @@ module.exports = function surveyRoutes(deps) {
    * Returns same shape as before so dashboard works without changes
    */
   router.get('/api/survey/summary', requireReportSession, async (req, res) => {
+    // A8: a non-admin reads only his sites' replies — computed per request, never from the shared fleet cache
+    const own = await scopeOf(req);
+    if (own != null) {
+      try {
+        const v = await require('../reports-db').getCustomerVoiceDB(12, { groups: own }) || {};
+        if (!(v.totalResponses > 0)) return res.json({ ...emptyResult('No survey reply on your sites\' tickets.'), scope: 'own_sites' });
+        return res.json({ surveyId: SURVEY_VIEW_ID, surveyName: 'IT Helpdesk CSAT', source: 'PostgreSQL (survey_results)', scope: 'own_sites',
+          totalResponses: v.totalResponses, totalSent: v.totalSent ?? null, totalResponded: v.totalResponded ?? null, responseRate: v.responseRate ?? null,
+          ratingScale: 100, avgRating: v.avgRating, csatPct: v.csatPct, nps: v.nps, promoters: v.promoters, passives: v.passives, detractors: v.detractors,
+          byMonth: v.byMonth || [], verbatim: [], sentimentSummary: { positive: 0, neutral: 0, negative: 0 }, questionMap: { ratingQ: 'Overall Score' } });
+      } catch (e) { return fail(res, e); }
+    }
     // Serve cache if fresh
     if (_surveyCache.data && Date.now() - _surveyCache.ts < _surveyCache.TTL) {
       return res.json(_surveyCache.data);
@@ -221,8 +242,17 @@ module.exports = function surveyRoutes(deps) {
   router.get('/api/survey/kpis', requireReportSession, async (req, res) => {
     try {
       const { yr, mo, groups } = req.query;
-      const groupList = groups ? groups.split(',').map(g => g.trim()).filter(Boolean) : [];
+      let groupList = groups ? groups.split(',').map(g => g.trim()).filter(Boolean) : [];
       const rdb = require('../reports-db');
+      // A8: non-admin → requested groups ∩ own groups (or own groups when none requested); none left → nothing measured
+      const own = await scopeOf(req);
+      if (own != null) {
+        const keep = narrow(own, groups);
+        if (!keep.length) return res.json({ totalResponses: 0, avgRating: null, csatPct: null, nps: null, promoters: 0, passives: 0, detractors: 0, byMonth: [], groupFiltered: groupList.length > 0, scope: 'own_sites', as_of: null });
+        const kept = new Set(keep);
+        groupList = [...new Set([...groupList.filter((g) => kept.has(g.toLowerCase())), ...((await rdb.listSites()) || [])
+          .flatMap((s) => String(s.zoho_group || '').split(',').map((x) => x.trim())).filter((g) => g && kept.has(g.toLowerCase()))])];
+      }
 
       // Forked reader  — q1 period+group-filtered scores, q2 12-mo trend rows.
       const { rows1: kpiRows, rows2: trendRows } = await rdb.getSurveyKpisDB({ yr, mo, groups: groupList });
@@ -330,6 +360,13 @@ module.exports = function surveyRoutes(deps) {
   const _dimCache = { data: null, ts: 0, TTL: 600000 }; // 10 min cache
 
   router.get('/api/survey/by-dimension', requireReportSession, async (req, res) => {
+    const own = await scopeOf(req);
+    if (own != null) {   // A8: own groups only, never the fleet cache
+      try {
+        const d = await require('../reports-db').getCustomerVoiceByDimensionDB({ groups: own });
+        return res.json({ ...d, scope: 'own_sites' });
+      } catch (e) { return fail(res, e); }
+    }
     if (_dimCache.data && Date.now() - _dimCache.ts < _dimCache.TTL) {
       return res.json(_dimCache.data);
     }
@@ -476,6 +513,7 @@ module.exports = function surveyRoutes(deps) {
             score:     r.overall_score != null ? Math.round(r.overall_score) : null,
             requestId: r.request_id || '',
             displayId: r.request_display_id || '',
+            group:     String(r.tech_group || '').trim().toLowerCase(),   // A8 perimeter key
             date:      isoToZohoDateShort(iso),
             ym:        iso ? iso.slice(0, 7) : '',
           };
@@ -521,6 +559,7 @@ module.exports = function surveyRoutes(deps) {
           allComments.push({
             responseId: rid,
             requestId:  ctx.requestId || '',
+            group:      ctx.group || '',
             text,
             score:     ctx.score,
             date:      ctx.date || '',
@@ -546,6 +585,16 @@ module.exports = function surveyRoutes(deps) {
       }
     }
 
+    // A8: the cache is fleet-wide; a non-admin (or a ?groups= drill-down) is filtered per request
+    const own = await scopeOf(req);
+    const keep = narrow(own, req.query.groups);
+    if (keep != null) {
+      const set = new Set(keep);
+      const mine = _voiceCache.comments.filter(c => set.has(c.group) && (!monthFilter || c.ym === monthFilter));
+      const out = aggregateVoice(mine, { month: monthFilter || null, scope: own == null ? 'groups' : 'own_sites' });
+      if (!monthFilter) delete out.allComments;
+      return res.json(out);
+    }
     // Month filter: compute on-the-fly from cached comment list
     if (monthFilter) {
       const filtered = _voiceCache.comments.filter(c => c.ym === monthFilter);
@@ -565,6 +614,29 @@ module.exports = function surveyRoutes(deps) {
     res.json({ ok: true });
   });
 
+  /**
+   * GET /api/survey/voice-tiles?yr=YYYY&mo=M — A8 CSAT / NPS tiles per site and helpdesk group (services/voiceTiles.js):
+   * replies, response rate on closed tickets, CSAT, NPS, 6-month trend, created/closed volumes; perimeter-filtered;
+   * a failed or never-run survey sync reads 'unknown' with its cause. No reply = null, never 0.
+   */
+  router.get('/api/survey/voice-tiles', requireReportSession, async (req, res) => {
+    try {
+      const now = new Date();
+      const yr = Number(req.query.yr) || now.getUTCFullYear();
+      const mo = Number(req.query.mo) || (now.getUTCMonth() + 1);
+      if (!(yr >= 2000 && yr <= 2100 && mo >= 1 && mo <= 12)) return res.status(400).json({ error: 'yr / mo out of range' });
+      const VT = require('../services/voiceTiles');
+      const ms = VT.months(yr, mo, 6);
+      const [ny, nm] = [mo === 12 ? yr + 1 : yr, mo === 12 ? 1 : mo + 1];
+      const rdb2 = require('../reports-db');
+      const data = await rdb2.getSurveyVoiceTilesDB({ from: ms[0] + '-01', to: `${ny}-${String(nm).padStart(2, '0')}-01` });
+      const own = await scopeOf(req);
+      const ids = own == null ? null : require('../services/userSites').siteIds(req.reportUser);
+      const meta = ((await rdb2.getSyncStatus()) || []).find((j) => j.job_name === 'survey') || null;
+      res.json(VT.build({ data, sites: (await rdb2.listSites()) || [], year: yr, month: mo, trendMonths: 6, scopeGroups: own, scopeSiteIds: ids, meta }));
+    } catch (err) { fail(res, err); }
+  });
+
   // ── SURVEY DATA ENDPOINTS ─────────────────────────────────────────
 
   /**
@@ -576,7 +648,8 @@ module.exports = function surveyRoutes(deps) {
     try {
       const { getSurveyResults, getSyncStatus } = require('../reports-db');
       const { since, limit = 500, offset = 0 } = req.query;
-      const records  = await getSurveyResults({ since, limit: +limit, offset: +offset });
+      const own = await scopeOf(req);   // A8 — own sites' replies only below the admin tier
+      const records  = await getSurveyResults({ since, limit: +limit, offset: +offset, ...(own != null ? { groups: own } : {}) });
       const syncMeta = (await getSyncStatus()).find(j => j.job_name === 'survey') || {};
       const freshness = buildDataFreshness(syncMeta);
       // Override the stale_warning to name the correct trigger job
@@ -601,7 +674,8 @@ module.exports = function surveyRoutes(deps) {
   router.get('/api/survey/:response_id/answers', requireReportSession, async (req, res) => {
     try {
       const { getSurveyAnswers, getSyncStatus } = require('../reports-db');
-      const answers  = await getSurveyAnswers(req.params.response_id);
+      const own = await scopeOf(req);   // A8 — a reply outside the caller's sites reads as none (no existence oracle)
+      const answers  = await getSurveyAnswers(req.params.response_id, own != null ? { groups: own } : {});
       const syncMeta = (await getSyncStatus()).find(j => j.job_name === 'survey') || {};
       res.json({
         ok: true,

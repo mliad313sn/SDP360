@@ -4480,19 +4480,8 @@ function _siteReadDenied(user, siteId) {
   if (rdb.userHasRole(user, 'admin')) return false;
   return !userSites.hasSite(user, siteId);
 }
-// The caller's Zoho helpdesk groups (lowercased), or null for the admin tier (all groups).
-// A site-less non-admin gets [] — no group at all. A multi-site editor gets the union.
-async function _userSiteGroups(user) {
-  if (rdb.userHasRole(user, 'admin')) return null;
-  const ids = userSites.siteIds(user);
-  if (!ids.length) return [];
-  const all = (await rdb.listSites()) || [];
-  const out = [];
-  for (const s of all.filter(x => ids.includes(Number(x.id)))) {
-    for (const g of String(s.zoho_group || '').split(',').map(x => x.trim().toLowerCase()).filter(Boolean)) if (!out.includes(g)) out.push(g);
-  }
-  return out;
-}
+// The caller's Zoho helpdesk groups (lowercased; null = admin tier, [] = none) — services/siteGroups.js.
+const _userSiteGroups = (user) => require('./services/siteGroups').userSiteGroups(rdb, user);
 // Same rule for reads addressed by the meetings site CODE (site-data, site-actions):
 // the code must resolve to the caller's own site. 'all'/empty is a fleet request.
 async function _siteCodeReadDenied(user, code) {
@@ -5674,6 +5663,11 @@ app.get('/api/reports/helpdesk-charts', requireReportSession, async (req, res) =
       const respondedRows= wr.filter(r => { const rt = r['Responded Time']; return rt != null && String(rt).trim() !== ''; });
       const respondedN   = respondedRows.length;
       const frVResponded = respondedRows.filter(r => { const f=(r['First Response Overdue Status']||'').toLowerCase(); return f==='true'||f==='1'||f==='yes'; }).length;
+      // A7 — open tickets already past target as of the week end (or now) → incl-open rates (public/lib/slaDual.js)
+      const SD = require('./public/lib/slaDual'), asOf = SD.asOfFor(wk.end.getTime() + 1, Date.now());
+      const _t = r => { const d = parseZohoDT(r['Due By Time'] || r['DueBy Time']); return { closed: isClosed(r), status: r['Request Status'], resFlag: r['Overdue Status'], dueMs: d ? d.getTime() : null, responded: !!String(r['Responded Time'] || '').trim(), frFlag: r['First Response Overdue Status'] }; };
+      const dR = SD.dual({ den: closed, violated: slaVClosed, openBreached: wr.filter(r => SD.openResBreached(_t(r), asOf)).length }, 1);
+      const dF = SD.dual({ den: respondedN, violated: frVResponded, openBreached: wr.filter(r => SD.openFrBreached(_t(r))).length }, 1);
       // Per-tech counts + timing averages — all AP-aligned (mirrors pStats in index.html)
       const techCounts = {};
       let frSum=0, frN=0, ttaSum=0, ttaN=0, rtSum=0, rtN=0, cdSum=0, cdN=0, onHoldCnt=0;
@@ -5716,6 +5710,7 @@ app.get('/api/reports/helpdesk-charts', requireReportSession, async (req, res) =
         fr_missed_pct:  respondedN > 0 ? Math.round(frVResponded / respondedN * 1000) / 10 : 0,
         res_ok_pct:     closed     > 0 ? Math.round((1 - slaVClosed   / closed)     * 1000) / 10 : null,
         fr_ok_pct:      respondedN > 0 ? Math.round((1 - frVResponded / respondedN) * 1000) / 10 : null,
+        res_ok_pct_incl_open: dR.incl_open.ok_pct, fr_ok_pct_incl_open: dF.incl_open.ok_pct, res_open_breached: dR.open_breached, fr_open_breached: dF.open_breached,
         avg_tta_hrs:  ttaN > 0 ? Math.round(ttaSum/ttaN) : null,   // Math.round, integer hrs
         avg_fr_hrs:   frN  > 0 ? Math.floor(frSum/frN)  : null,   // Math.floor, integer hrs (AP-aligned)
         avg_rt_days:  rtN  > 0 ? Math.round(rtSum/rtN)  : null,   // timestamp-based, Math.round, integer days

@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 4936,
+ "total": 4958,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 18,
@@ -644,7 +644,10 @@
   "sites-routes.smoke.test.js": 5,
   "sla-alert-log.test.js": 6,
   "sla-definition-parity.test.js": 3,
+  "sla-dual-pg.test.js": 3,
+  "sla-dual.test.js": 8,
   "sla-register.test.js": 8,
+  "sla-tile-definitions.test.js": 6,
   "sod-policy.test.js": 4,
   "soft-delete-inspection.test.js": 6,
   "soft-delete-meetings.test.js": 5,
@@ -662,6 +665,7 @@
   "state-badge.test.js": 9,
   "status-transfer-normalize.test.js": 6,
   "status-transfer.smoke.test.js": 11,
+  "survey-perimeter.smoke.test.js": 5,
   "survey-routes.smoke.test.js": 6,
   "switch-prereqs.test.js": 3,
   "sync-drift.test.js": 8,

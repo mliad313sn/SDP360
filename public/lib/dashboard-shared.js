@@ -273,6 +273,43 @@ function periodSlaRates(rows, opts) {
 }
 
 /**
+ * A7 — dualSlaRates: the closed-only rate (the tiles' doctrine rate, unchanged) AND the rate that
+ * counts open tickets already past their target as failures, plus the open & breached counts.
+ * The rule lives in public/lib/slaDual.js (SlaDual, shared with the server SQL); this adapter only maps
+ * the Zoho row shape. opts = resolutionSla opts + asOfMs (period exclusive end, or now while running).
+ * SlaDual absent (page did not load it) → the incl-open half is null (unknown), never 0.
+ */
+function dualSlaRates(rows, opts) {
+  var list = Array.isArray(rows) ? rows : [];
+  var SD = (typeof SlaDual !== 'undefined') ? SlaDual : (typeof window !== 'undefined' ? window.SlaDual : null);
+  var asOf = opts && opts.asOfMs != null ? opts.asOfMs : Date.now();
+  var res = resolutionSla(list, opts);
+  var responded = 0, frViol = 0, resOpen = SD ? 0 : null, frOpen = SD ? 0 : null;
+  list.forEach(function (r) {
+    var rt = r['Responded Time'];
+    var isResp = rt != null && String(rt).trim() !== '';
+    var f = String(r['First Response Overdue Status'] || '').toLowerCase().trim();
+    if (isResp) { responded++; if (f === 'true' || f === '1' || f === 'yes') frViol++; }
+    if (!SD) return;
+    var due = parseZohoDT(String(r['Due By Time'] || r['DueBy Time'] || ''));
+    var t = { closed: isClosed(r), status: r['Request Status'], resFlag: r['Overdue Status'],
+      dueMs: due ? due.getTime() : null, responded: isResp, frFlag: r['First Response Overdue Status'] };
+    if (SD.openResBreached(t, asOf)) resOpen++;
+    if (SD.openFrBreached(t)) frOpen++;
+  });
+  var dual = SD ? SD.dual : function (o) {
+    var d = o.den, v = o.violated;
+    return { closed_only: { definition: 'closed_only', den: d > 0 ? d : null, violated: d > 0 ? v : null,
+      ok_pct: d > 0 ? Math.round((d - v) / d * 1000) / 10 : null, violated_pct: d > 0 ? Math.round(v / d * 1000) / 10 : null },
+    incl_open: { definition: 'incl_open', den: null, violated: null, ok_pct: null, violated_pct: null }, open_breached: null };
+  };
+  return {
+    resolution: dual({ den: res.closed, violated: res.violated, openBreached: resOpen }, 1),
+    first_response: dual({ den: responded, violated: frViol, openBreached: frOpen }, 1),
+  };
+}
+
+/**
  * C-11 (G19) — Helpdesk analytical views: category Pareto + per-site / per-group
  * resolution-SLA ranking. Pure helpers, shared by index.html and its tests.
  *
@@ -646,6 +683,7 @@ if (typeof window !== 'undefined') {
   window.isClosed            = isClosed;
   window.isResOverdue        = isResOverdue;   // shared SLA violation check
   window.periodSlaRates      = periodSlaRates; // per-period SLA rates (doctrine denominators, null when empty)
+  window.dualSlaRates        = dualSlaRates;   // A7 closed-only + incl-open-past-target rates, open & breached counts
   window.helpdeskCategoryKey = helpdeskCategoryKey; // C-11 Pareto key (empty -> '(No category)')
   window.helpdeskSiteKey     = helpdeskSiteKey;
   window.helpdeskGroupKey    = helpdeskGroupKey;

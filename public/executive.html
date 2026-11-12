@@ -1426,6 +1426,7 @@ table tbody tr:hover td { background: var(--color-bg); }
 <script src="auth.js" data-require="executive|scorecard-viewer"></script>
 <!-- F-UX-12 — chart standard v2 (small multiples / bars), INERT unless report_config ui_exec_charts_v2 = 1 -->
 <script src="lib/execChartsV2.js" data-install="1"></script>
+<script src="lib/slaDual.js"></script>
 <script src="lib/dashboard-shared.js"></script>
 
 <link rel="stylesheet" href="_tokens.css">
@@ -1716,9 +1717,10 @@ table tbody tr:hover td { background: var(--color-bg); }
           <div class="rag-indicator rag-amber"></div>
         </div>
       </div>
-      <div class="kpi-tile kpi-amber" title="Resolution SLA Compliance — % of tickets fully resolved within their SLA deadline. Separate from 1st Reply SLA. Higher is better. Target ≥90%.">
-        <div class="kpi-tile-label">Resolution SLA %</div>
+      <div class="kpi-tile kpi-amber" id="kv-sla-tile" data-sla-definition="closed_only" title="Resolution SLA Compliance — % of tickets resolved within their SLA deadline. Headline = closed tickets only unless the KPI committee switches it (sla_headline_definition); the line below gives the rate counting open tickets already past target as failures, and the open &amp; breached count. Higher is better. Target ≥90%.">
+        <div class="kpi-tile-label">Resolution SLA % <span style="font-size:9px;opacity:.7" id="kv-sla-def">(closed tickets only)</span></div>
         <div class="kpi-tile-value" id="kv-sla">73%</div>
+        <div class="kpi-prev" id="kv-sla-dual" style="font-size:10px"></div>
         <div class="kpi-tile-meta">
           <span class="kpi-trend trend-bad" id="kt-sla">▼ −1pt</span>
           <span class="kpi-prev">Target: 80%</span>
@@ -9976,8 +9978,15 @@ function applyLiveDataToCharts(ld) {
     const _slaHistRows = (_hasGrpFlt || _hasSitFlt) && _fullSumRows.length > 0 ? _fullSumRows : (ld.summary || []);
 
     // Helper: extract SLA compliance % from any row format
+    // A7 — headline definition (report_config sla_headline_definition, default closed_only). The incl-open rate exists
+    // only on server month rows ('% of SLA Violated (incl. open past target)'); without it the tile stays closed-only.
+    const _SLA_IO = '% of SLA Violated (incl. open past target)';
+    const _slaHL = (window.SlaDual && window.__uiPolicy) ? SlaDual.normalizeHeadline(window.__uiPolicy.sla_headline) : 'closed_only';
+    const _lastRow = sumRows.length ? sumRows[sumRows.length - 1] : null;
+    const _slaUseIO = _slaHL === 'incl_open' && !!_lastRow && _lastRow[_SLA_IO] != null;
     const _slaComplianceFromRow = function(row) {
       if (!row) return null;
+      if (_slaUseIO) return row[_SLA_IO] != null ? Math.round(100 - parseFloat(row[_SLA_IO])) : null;
       if (isPrebuiltView) return Math.round(100 - (parseFloat(row['% of SLA Violated']) || 0));
       if (row.slaCompliancePct != null) return row.slaCompliancePct;
       if (row.slaViolatedPct   != null) return Math.round((100 - row.slaViolatedPct) * 10) / 10;
@@ -10003,6 +10012,21 @@ function applyLiveDataToCharts(ld) {
       }
       if (slaPrevRow) {
         slaV_prev = _slaComplianceFromRow(slaPrevRow);
+      }
+    }
+    {
+      const _def = _slaUseIO ? 'incl_open' : 'closed_only', _oth = _slaUseIO ? 'closed_only' : 'incl_open';
+      const _lbl = { closed_only: 'closed tickets only', incl_open: 'incl. open past target' };
+      const t = document.getElementById('kv-sla-tile'); if (t) t.setAttribute('data-sla-definition', _def);
+      const dl = document.getElementById('kv-sla-def'); if (dl) dl.textContent = '(' + _lbl[_def] + ')';
+      const du = document.getElementById('kv-sla-dual');
+      if (du) {
+        const r = _lastRow || {};
+        const ov = _oth === 'incl_open' ? (r[_SLA_IO] != null ? Math.round(100 - parseFloat(r[_SLA_IO])) : null)
+                                        : (r['% of SLA Violated'] != null ? Math.round(100 - parseFloat(r['% of SLA Violated'])) : null);
+        const ob = r['Open Breached (resolution)'];
+        du.textContent = _lbl[_oth] + ': ' + (ov != null ? ov + '%' : '—') + ' · open & breached: ' + (ob != null ? ob : '—');
+        du.setAttribute('data-sla-definition', _oth);
       }
     }
     if (slaV_cur !== null) {
