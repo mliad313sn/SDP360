@@ -1658,46 +1658,27 @@ app.get('/api/sync/status', requireReportSession, async (req, res) => {
  * Add ?force=true to bypass the incremental filter for 'requests' and re-upsert
  * every row from Zoho, refreshing overdue_status and filling historical data gaps.
  */
-// Manual assets sync — admin only. Fire-and-forget; respond immediately (mirrors the
-// :job trigger below). MUST be registered BEFORE /api/sync/trigger/:job or the param
+// Manual assets sync — admin only. The lease is taken first (409 if held), then the run goes on in the
+// background (mirrors the :job trigger below). MUST be registered BEFORE /api/sync/trigger/:job or the param
 // route swallows it as job='assets' → 400 (the /:id shadowing pitfall in CLAUDE.md).
 // markSyncSuccess upserts the 5 sync_metadata rows on first run.
-app.post('/api/sync/trigger/assets', requireReportSession, requireAdmin, (req, res) => {
-  res.json({ ok: true, message: 'Assets sync started' });
-  require('./assets-sync').syncAllAssets()
-    .then(summary => require('./assets-sync').afterAssetsSync(summary, { sendAlerts: false }))
-    .catch(e => console.error('[ManualSync:assets]', e && e.message));
+app.post('/api/sync/trigger/assets', requireReportSession, requireAdmin, async (req, res) => {
+  // G1-SYNC — runs under the scheduled job's lease (assets.sync): 409 when a run already holds it.
+  const run = await require('./services/sync/manualTrigger').startManualSync(res, 'assets', { assets: require('./assets-sync') });
+  if (run) res.json({ ok: true, message: 'Assets sync started', job: run.job });
 });
 
 app.post('/api/sync/trigger/:job', requireReportSession, requireAdmin, async (req, res) => {
   const { job } = req.params;
   const force = req.query.force === 'true' || req.body?.force === true;
-
-  const validJobs = {
-    change_cab: () => sync.syncChangeCab(),
-    survey:     () => sync.syncSurveyData(),
-    requests:   () => sync.syncRequestData({ force }),
-  };
-  if (!validJobs[job]) {
-    return res.status(400).json({ error: `Unknown job: ${job}. Valid: ${Object.keys(validJobs).join(', ')}` });
-  }
-  // Run async — respond immediately so the HTTP request doesn't timeout on large syncs
+  // G1-SYNC — same lease as the cron run of zoho.<job>: 409 when it is running. After requests: rebuild the cache.
+  const afterRequests = async () => { _rawCache.data = null; _rawCache.ts = 0; _backgroundRefreshRawCache().catch(e => console.warn('[ManualSync:requests] cache refresh:', e.message)); };
+  const run = await require('./services/sync/manualTrigger').startManualSync(res, job, { sync, afterRequests }, { force });
+  if (!run) return;
   const msg = force && job === 'requests'
     ? `Force full re-sync of requests started — all overdue_status values will be refreshed. Check /api/sync/status for progress.`
     : `Sync job '${job}' started. Check /api/sync/status for progress.`;
-  res.json({ ok: true, message: msg, force: force && job === 'requests' });
-
-  validJobs[job]()
-    .then(() => {
-      // After requests sync: immediately rebuild cache so new data appears without waiting 2h
-      if (job === 'requests') {
-        _rawCache.data = null;
-        _rawCache.ts   = 0;
-        console.log('[ManualSync:requests] ✅ Cleared _rawCache — triggering background refresh…');
-        _backgroundRefreshRawCache().catch(e => console.warn('[ManualSync:requests] cache refresh:', e.message));
-      }
-    })
-    .catch(e => console.error(`[ManualSync:${job}]`, e.message));
+  res.json({ ok: true, message: msg, force: force && job === 'requests', job: run.job });
 });
 
 // ── ASSETS (Foundation) ──────────────────────────────────────────

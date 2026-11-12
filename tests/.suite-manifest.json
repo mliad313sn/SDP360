@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 4845,
+ "total": 4852,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 18,
@@ -647,10 +647,10 @@
   "sync-drift.test.js": 8,
   "sync-jobs-registry.test.js": 11,
   "sync-routes.smoke.test.js": 9,
-  "sync-runner.test.js": 15,
+  "sync-runner.test.js": 18,
   "sync-schedule.test.js": 1,
   "sync-skip-semantics.test.js": 9,
-  "sync-write-fence.test.js": 6,
+  "sync-write-fence.test.js": 10,
   "system-log-routes.smoke.test.js": 5,
   "system-log.test.js": 8,
   "teams-sla-admin-card.test.js": 7,

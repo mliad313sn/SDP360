@@ -5,7 +5,16 @@
 // Schema: db/postgres/sync/001_init.sql, applied by db/migrate.js.
 
 
+const crypto = require('crypto');
+
 function iso(ms) { return new Date(ms).toISOString(); }
+
+/** The error a run gets when it no longer holds its lease (never retried, nothing written after it). */
+function leaseLost(job) {
+  const e = new Error(`${job}: lease lost — another run holds the lock now; this run stopped before writing`);
+  e.code = 'LEASE_LOST'; e.transient = false; e.leaseLost = true;
+  return e;
+}
 
 /**
  * @param {object} db   - pgDb instance
@@ -16,22 +25,49 @@ function makeSyncStore(db, o = {}) {
   const owner = o.owner || `${require('os').hostname()}:${process.pid}`;
 
   return {
+    // G1-SYNC (R8 holes 1-2) — compare-and-set lease. ONE statement takes a free lock or steals a stale one
+    // (locked_at older than now - ttl); two runs racing a stale lock cannot both win because the conflict
+    // UPDATE re-checks the row it locks. Returns the lease token (truthy) or false.
     async acquireLock(job, nowMs, ttlMs) {
-      const cur = await db.prepare('SELECT locked_at FROM sync_locks WHERE job = ?').get(job);
-      if (cur) {
-        const age = nowMs - Date.parse(cur.locked_at);
-        if (age < ttlMs) return false;
-        // stale lock from a crashed run → steal it
-        await db.prepare('DELETE FROM sync_locks WHERE job = ?').run(job);
-      }
-      try {
-        await db.prepare('INSERT INTO sync_locks (job, locked_at, owner) VALUES (?, ?, ?)').run(job, iso(nowMs), owner);
-        return true;
-      } catch (e) {
-        return false; // lost the race on the PRIMARY KEY
-      }
+      const token = crypto.randomUUID();
+      const row = await db.prepare(
+        `INSERT INTO sync_locks (job, locked_at, owner, token) VALUES (?, ?, ?, ?)
+         ON CONFLICT (job) DO UPDATE SET locked_at = excluded.locked_at, owner = excluded.owner, token = excluded.token
+         WHERE sync_locks.locked_at <= ?
+         RETURNING token`
+      ).get(job, iso(nowMs), owner, token, iso(nowMs - ttlMs));
+      return row && row.token === token ? token : false;
     },
-    async releaseLock(job) { await db.prepare('DELETE FROM sync_locks WHERE job = ?').run(job); },
+    // Deletes the lock only while it is still ours: a slow run whose lease was taken over leaves the new holder alone.
+    async releaseLock(job, token) {
+      if (!token) return false;
+      const r = await db.prepare('DELETE FROM sync_locks WHERE job = ? AND token = ?').run(job, String(token));
+      return !!(r && r.changes);
+    },
+    /** True while `token` still holds the lease of `job`. */
+    async checkFence(job, token) {
+      if (!token) return false;
+      return !!(await db.prepare('SELECT 1 AS ok FROM sync_locks WHERE job = ? AND token = ?').get(job, String(token)));
+    },
+    /** Heartbeat: extends the lease of a live run (only while the token is still ours). */
+    async renewLock(job, token, nowMs) {
+      if (!token) return false;
+      const r = await db.prepare('UPDATE sync_locks SET locked_at = ? WHERE job = ? AND token = ?').run(iso(nowMs), job, String(token));
+      return !!(r && r.changes);
+    },
+    /**
+     * Fenced write: runs `fn` in ONE transaction that first takes pg_advisory_xact_lock(hashtext(job)) and then
+     * verifies the lease; a lost lease throws LEASE_LOST before anything is written. Use it for DELETE+INSERT
+     * replaces so two writers of one job serialise instead of interleaving.
+     */
+    async fencedTransaction(job, token, fn) {
+      return db.runTransaction(async () => {
+        await db.prepare('SELECT pg_advisory_xact_lock(hashtext(?)) AS l').get(job);
+        const ok = await db.prepare('SELECT 1 AS ok FROM sync_locks WHERE job = ? AND token = ?').get(job, String(token || ''));
+        if (!ok) throw leaseLost(job);
+        return fn();
+      });
+    },
     async getWatermark(job) {
       const r = await db.prepare('SELECT value FROM sync_watermarks WHERE job = ?').get(job);
       return r ? r.value : null;
@@ -99,4 +135,4 @@ function makeSyncStore(db, o = {}) {
   };
 }
 
-module.exports = { makeSyncStore };
+module.exports = { makeSyncStore, leaseLost };

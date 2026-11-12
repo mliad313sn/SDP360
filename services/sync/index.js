@@ -24,7 +24,9 @@ function getStore() {
   const pg = rdb.pgHandle();
   _store = makeSyncStore(pg, { init: false });
   // apply the pg DDL once; callers await ensureReady() before the first run
-  _pgReady = pg.exec(require('fs').readFileSync(require('path').join(__dirname, '..', '..', 'db', 'postgres', 'sync', '001_init.sql'), 'utf8'))
+  // 001 = tables, 086 = lease token column (G1-SYNC); db/migrate.js applies both too — this is the boot safety net.
+  const dir = require('path').join(__dirname, '..', '..', 'db', 'postgres', 'sync');
+  _pgReady = ['001_init.sql', '086_lock_token.sql'].reduce((p, f) => p.then(() => pg.exec(require('fs').readFileSync(require('path').join(dir, f), 'utf8'))), Promise.resolve())
     .catch((e) => console.warn('[sync] pg schema init failed (runs will not be recorded):', e.message));
   return _store;
 }

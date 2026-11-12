@@ -231,6 +231,38 @@ async function softDeletePurgeRun(d = {}) {
   return { rows, purged: counts, skipped, cutoff: out.cutoff };
 }
 
+/**
+ * G1-SYNC (R8 hole 4) — the manual "sync now" triggers run under the SAME lease as the scheduled job, so a
+ * manual run and the cron run of one job can never write at the same time. Returns { lockName, job, label }
+ * for the runner (`runner.start(job)`), or null for an unknown trigger name.
+ *   assets              → 'assets.sync'     (alerts NOT sent, as before for a manual run)
+ *   requests|change_cab|survey → 'zoho.<name>'  (requests keeps ?force=true)
+ * One attempt only: an admin who clicked "sync now" sees the outcome and can click again.
+ * @param {string} name
+ * @param {object} d  { sync, assets, afterRequests }
+ * @param {object} [o] { force }
+ */
+function manualTriggerJob(name, d, o = {}) {
+  const one = { maxAttempts: 1 };
+  const force = !!o.force;
+  const map = {
+    assets: () => legacyJob('assets.sync', async () => {
+      const summary = await d.assets.syncAllAssets();
+      await d.assets.afterAssetsSync(summary, { sendAlerts: false });
+      const failed = (summary || []).filter((v) => v && v.error);
+      if (failed.length) throw new Error(`assets views failed: ${failed.map((v) => `${v.name}: ${v.error}`).join('; ')}`);
+      return summary;
+    }, one),
+    requests: () => legacyJob('zoho.requests', async () => { const r = await d.sync.syncRequestData({ force }); if (d.afterRequests) await d.afterRequests(r); return r; }, one),
+    change_cab: () => legacyJob('zoho.change_cab', () => d.sync.syncChangeCab(), one),
+    survey: () => legacyJob('zoho.survey', () => d.sync.syncSurveyData(), one),
+  };
+  if (!Object.prototype.hasOwnProperty.call(map, name)) return null;
+  const job = map[name]();
+  return { lockName: job.name, job };
+}
+const MANUAL_TRIGGERS = ['change_cab', 'survey', 'requests'];
+
 // Declared freshness per job — read by routes/sync.js without needing the live deps.
 const FRESHNESS_HOURS = {
   'zoho.requests': 3, 'zoho.change_cab': 3, 'zoho.survey': 3, 'assets.sync': 30,
@@ -248,4 +280,4 @@ const OPTIONAL = new Set(['meridian.resources', 'opmanager.availability', 'merak
 const LEGACY_NAMES = { requests: 'zoho.requests', change_cab: 'zoho.change_cab', survey: 'zoho.survey',
   assets_assets: 'assets.sync', assets_memory: 'assets.sync', assets_logical_drives: 'assets.sync', assets_monitors: 'assets.sync', assets_software_licenses: 'assets.sync', assets_software: 'assets.sync' };
 
-module.exports = { legacyJob, buildJobs, rowsOf, skipReason, FRESHNESS_HOURS, OPTIONAL, LEGACY_NAMES, softDeletePurgeRun, accessGrantExpiryRun, accessEmergencyExpiryRun, entraDeprovisionRun };
+module.exports = { legacyJob, buildJobs, manualTriggerJob, MANUAL_TRIGGERS, rowsOf, skipReason, FRESHNESS_HOURS, OPTIONAL, LEGACY_NAMES, softDeletePurgeRun, accessGrantExpiryRun, accessEmergencyExpiryRun, entraDeprovisionRun };

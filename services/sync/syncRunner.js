@@ -20,12 +20,21 @@ const DEFAULTS = {
   jitter: 0.2,               // ±20 % so parallel jobs do not retry in lockstep
   emptyGuard: true,          // refuse to accept 0 rows when the previous run had rows
   lockTtlMs: 2 * 60 * 60_000, // a lock older than this is considered stale (crashed run)
+  heartbeatMs: null,         // lease renewal period of a live run; null → min(lockTtlMs / 4, 10 min); 0 → off
 };
+
+/** The error a run gets when it no longer holds its lease (G1-SYNC): never retried, nothing written after it. */
+function leaseLost(job) {
+  const e = new Error(`${job}: lease lost — another run holds the lock now; this run stopped before writing`);
+  e.code = 'LEASE_LOST'; e.transient = false; e.leaseLost = true;
+  return e;
+}
 
 // Transient = worth retrying. Anything else fails fast (a 400 from a bad filter will not
 // become a 200 by waiting).
 function isTransient(err) {
   if (!err) return false;
+  if (err.leaseLost === true) return false;
   if (err.transient === true) return true;
   if (err.transient === false) return false;
   const status = Number(err.status || err.statusCode || (err.response && err.response.status));
@@ -57,15 +66,35 @@ function memoryStore() {
   const runs = [];
   const watermarks = new Map();
   const locks = new Map();
+  let seq = 0;
   return {
     runs, watermarks, locks,
+    // Same lease contract as syncStore.js (G1-SYNC): acquire returns a token or false, release / check / renew
+    // only act while the token is still the holder's.
     async acquireLock(job, now, ttlMs) {
       const cur = locks.get(job);
-      if (cur && now - cur < ttlMs) return false;
-      locks.set(job, now);
-      return true;
+      const at = typeof cur === 'number' ? cur : cur && cur.at;   // a bare number = a lock without a token (legacy seed)
+      if (cur != null && now - at < ttlMs) return false;
+      const token = `${job}#${++seq}`;
+      locks.set(job, { at: now, token });
+      return token;
     },
-    async releaseLock(job) { locks.delete(job); },
+    async releaseLock(job, token) {
+      const cur = locks.get(job);
+      if (!cur || !token || cur.token !== token) return false;
+      locks.delete(job); return true;
+    },
+    async checkFence(job, token) { const cur = locks.get(job); return !!(cur && token && cur.token === token); },
+    async renewLock(job, token, now) {
+      const cur = locks.get(job);
+      if (!cur || !token || cur.token !== token) return false;
+      cur.at = now; return true;
+    },
+    async fencedTransaction(job, token, fn) {
+      const cur = locks.get(job);
+      if (!cur || !token || cur.token !== token) throw leaseLost(job);
+      return fn();
+    },
     async getWatermark(job) { return watermarks.has(job) ? watermarks.get(job) : null; },
     async setWatermark(job, value) { watermarks.set(job, value); },
     async startRun(job, now, meta) {
@@ -112,16 +141,42 @@ function createSyncRunner(options = {}) {
    *   (fetch returned { skipped: true, reason }) — recorded, watermark untouched.
    */
   async function run(job) {
+    const h = await start(job);
+    return h.started ? h.done : h.result;
+  }
+
+  /**
+   * Take the lease and start the run in the background (G1-SYNC — manual "sync now" triggers).
+   * @returns {Promise<{started:true, done:Promise<object>}|{started:false, result:object}>}
+   *   started:false = another run of the same job holds the lease (result is the 'skipped' overlap summary).
+   */
+  async function start(job) {
     if (!job || !job.name || typeof job.fetch !== 'function') throw new TypeError('run(job): name and fetch are required');
     const opts = { ...DEFAULTS, ...(job.opts || {}) };
     const t0 = now();
 
-    const locked = await store.acquireLock(job.name, t0, opts.lockTtlMs);
-    if (!locked) {
+    const token = await store.acquireLock(job.name, t0, opts.lockTtlMs);
+    if (!token) {
       log('warn', `${job.name}: skipped — previous run still active`);
       onEvent('sync_skipped_overlap', { job: job.name });
-      return { status: 'skipped', reason: 'overlap', job: job.name };
+      return { started: false, result: { status: 'skipped', reason: 'overlap', job: job.name } };
     }
+    return { started: true, done: body(job, opts, t0, token) };
+  }
+
+  async function body(job, opts, t0, token) {
+    // The lease fence handed to the write step: check() before each write batch, assert() to stop on a lost
+    // lease, transaction(fn) for a DELETE+INSERT replace (advisory lock + fence check in one transaction).
+    const fence = {
+      job: job.name, token,
+      check: () => store.checkFence(job.name, token),
+      assert: async () => { if (!(await store.checkFence(job.name, token))) throw leaseLost(job.name); },
+      transaction: (fn) => store.fencedTransaction(job.name, token, fn),
+    };
+    // Heartbeat: a live run renews its lease so a slow (not crashed) run is never taken over.
+    const hb = opts.heartbeatMs === 0 ? 0 : (opts.heartbeatMs || Math.min(Math.floor(opts.lockTtlMs / 4), 10 * 60_000));
+    const timer = hb > 0 ? setInterval(() => { store.renewLock(job.name, token, now()).catch(() => {}); }, hb) : null;
+    if (timer && timer.unref) timer.unref();
 
     const watermark = await store.getWatermark(job.name);
     const runId = await store.startRun(job.name, t0, { watermark });
@@ -132,7 +187,7 @@ function createSyncRunner(options = {}) {
       while (attempt < opts.maxAttempts) {
         attempt++;
         try {
-          const fetched = (await job.fetch({ watermark, attempt })) || {};
+          const fetched = (await job.fetch({ watermark, attempt, fence })) || {};
           // F-ARCH-01 / F-DATA-01 (E04) — the job says it did not collect (source not configured, feature off).
           // That is neither a success nor a failure: status 'skipped', no rows, watermark untouched, so the last
           // real collection (status 'ok') keeps its date and freshness never reads a skip as FRESH.
@@ -164,7 +219,11 @@ function createSyncRunner(options = {}) {
           const duplicates = rawCount - rows.length;
 
           let applied = { upserted: rows.length, deleted: 0 };
-          if (typeof job.apply === 'function') applied = (await job.apply({ rows, watermark, fetched })) || applied;
+          if (typeof job.apply === 'function') {
+            await fence.assert();                                   // lost the lease while fetching → write nothing
+            applied = (await job.apply({ rows, watermark, fetched, fence })) || applied;
+          }
+          await fence.assert();                                     // never record a watermark for a run that lost its lease
 
           const nextWatermark = fetched.nextWatermark !== undefined ? fetched.nextWatermark : watermark;
           if (nextWatermark !== undefined && nextWatermark !== null) await store.setWatermark(job.name, nextWatermark);
@@ -186,16 +245,18 @@ function createSyncRunner(options = {}) {
       }
       const t1 = now();
       const msg = scrub(lastErr && lastErr.message);
+      const leaseLostFlag = !!(lastErr && lastErr.leaseLost);
       await store.finishRun(runId, { finished_at: t1, status: 'error', attempts: attempt, error: msg });
       log('error', `${job.name}: FAILED after ${attempt} attempt(s): ${msg}`);
-      onEvent('sync_failed', { job: job.name, attempts: attempt, error: msg, emptyGuard: !!(lastErr && lastErr.emptyGuard) });
-      return { status: 'error', job: job.name, attempts: attempt, error: msg };
+      onEvent('sync_failed', { job: job.name, attempts: attempt, error: msg, emptyGuard: !!(lastErr && lastErr.emptyGuard), leaseLost: leaseLostFlag });
+      return { status: 'error', job: job.name, attempts: attempt, error: msg, ...(leaseLostFlag ? { reason: 'lease_lost' } : {}) };
     } finally {
-      await store.releaseLock(job.name);
+      if (timer) clearInterval(timer);
+      await store.releaseLock(job.name, token);
     }
   }
 
-  return { run, store };
+  return { run, start, store };
 }
 
 // Keep the LAST occurrence of a natural key (feeds are usually ordered oldest → newest,
@@ -237,4 +298,4 @@ function scrub(s) {
     .replace(/(X-Cisco-Meraki-API-Key|X-API-Key|Authorization)[:=]\s*\S+/gi, '$1: ***');
 }
 
-module.exports = { createSyncRunner, memoryStore, dedupeBy, deltaSince, isTransient, backoffDelay, scrub, DEFAULTS };
+module.exports = { createSyncRunner, memoryStore, leaseLost, dedupeBy, deltaSince, isTransient, backoffDelay, scrub, DEFAULTS };

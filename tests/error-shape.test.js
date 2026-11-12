@@ -9,7 +9,7 @@ const assert = require('node:assert');
 const { scan, scanSource, summarise } = require('../tools/test/error-shape-scan');
 
 // Measured on 2026-11-05 (d38fa41 + goal/w1-qa): 485 call sites; 446 after the plan-E wave-1 merges moved governance/policies denials to fail(). Lower these when you migrate calls.
-const RATCHET = { total: 444, without_error_field: 1, five_xx_leaking_message: 0 };
+const RATCHET = { total: 443, without_error_field: 1, five_xx_leaking_message: 0 };
 // The one known body without `error`: the tracker validation answer `{ ok:false, errors:[…] }`.
 const KNOWN_WITHOUT_ERROR = ['routes/trackers.js'];
 
