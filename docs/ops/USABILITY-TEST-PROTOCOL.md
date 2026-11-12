@@ -27,6 +27,33 @@ Owner: PO + adoption lead. Facilitator: anyone not involved in building the scre
 | T7 | Change the interface to French and open the manual | any | manual opens in French |
 | T8 | Using only the keyboard, reach "Portfolio" from any page | any | reached without the mouse |
 
+## 2b. Dataviz reading tasks T9–T12 (E-V10, audit V-10) — run with each of the four roles
+
+These test whether a person can READ the charts and figures, not whether a feature works. Each of the four roles
+below does all four tasks on the screens they normally use (executive home / dashboards, site report, portfolio,
+finance views). Use the **test instance with its fixture data** (`pilot/TEST-INSTANCE.md`): the facilitator writes
+the expected answer of each task from that data BEFORE the session, so a success is "the answer matches the fixture
+data", never "the person seemed confident".
+
+| # | Task | Success = |
+|---|---|---|
+| T9 — find the worst | Find the worst site this month on the dashboard you normally use, and say on which figure | site and figure match the fixture data |
+| T10 — explain a variation | Explain why one figure changed versus last period: what moved, by how much, from which data | the change and its size match the fixture data; a cause is only accepted if a note / ticket on screen backs it |
+| T11 — find the action | From a figure that is off target, find the action (or the page) that handles it | the action / page reached is the one the fixture links to that figure |
+| T12 — compare two sites | Compare two sites named by the facilitator on one figure: which is better, by how much | better site and gap match the fixture data (same period, same unit) |
+
+| Role | Real account role | Typical screens |
+|---|---|---|
+| Executive | executive | executive home, dashboards, IT Review |
+| Site IT coordinator | editor, own site | home, site report, Site Actions, dashboards (own site) |
+| PMO / portfolio | committee-member | portfolio, project pages, dashboards |
+| Finance | finance-viewer (or admin for asset amounts) | assets Finance / Investment, WAN SLA credits |
+
+Record per task: completion, **time**, errors, help, the **answer given** (`answer_given`) and whether it matches the
+fixture (`answer_correct` yes/no). Sheet: `pilot/T9-T12-SHEET.csv` (one copy per participant). Score with
+`node tools/pilot/usability-score.js --sheet=<filled copy>` — it adds the **accuracy** column; a blank cell is
+UNKNOWN, and a task not run stays **"not measured"**, never "passed". Nothing is filled in this repository.
+
 ## 3. Measures (recorded per task)
 
 Completion (yes / with help / no) · time · errors · clicks/keystrokes · SUS questionnaire at the end
@@ -34,10 +61,12 @@ Completion (yes / with help / no) · time · errors · clicks/keystrokes · SUS 
 
 ## 4. Record
 
+Scoring: `node tools/pilot/usability-score.js --sheet=<filled T1-T8 copy> --sus=<filled SUS-ANSWERS copy>` (blank = UNKNOWN).
+
 One sheet per person, anonymised (role + site only, no name). Results go to `docs/agent-execution/G24.md`
 **only as measured** — a task not run stays "not measured", never "passed".
 
 ## 5. Accessibility pass (separate, by someone who uses assistive technology daily if possible)
 
-NVDA + Firefox and VoiceOver + Safari on: login, Helpdesk, Site Actions, Portfolio, field app. Check that the
+Step-by-step script with an empty result column: [`pilot/SCREEN-READER-SCRIPT.md`](pilot/SCREEN-READER-SCRIPT.md). NVDA + Firefox and VoiceOver + Safari on: login, Helpdesk, Site Actions, Portfolio, field app. Check that the
 menu groups, the finder result count and the breadcrumb are announced; record each problem with the WCAG reference.

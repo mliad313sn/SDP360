@@ -81,6 +81,61 @@ module.exports = function dashboardsRoutes(deps) {
     res.json({ ok: true, widgetTypes: widgetTypesFor({ smallMultiples: sm }), creatableTypes: creatableTypes({ smallMultiples: sm }), audiences: AUDIENCES, filterTypes: FILTER_TYPES, metrics: reg.list({ status: 'published' }), policies: reg.policies() });
   });
 
+  // ---- E-V08 — human-entered chart annotations (report_config chart_annotations_enabled; '0' = 404) ----------
+  //   GET    /api/dashboards/annotations?site=&metric=&from=&to=   read scope = the viewer's sites (+ group-wide notes)
+  //   POST   /api/dashboards/annotations                          editor on one of their sites; admin tier anywhere
+  //   DELETE /api/dashboards/annotations/:id                       same rule on the note's site (soft delete)
+  // Registered BEFORE /api/dashboards/:key so "annotations" is never read as a dashboard key.
+  const CA = require('../services/chartAnnotations');
+  const annStore = () => deps.annotationStore || CA.makeStore(rdb().pgHandle ? rdb().pgHandle() : rdb().db);
+  async function annotationsOn() {
+    try { const c = await require('../services/reportConfig').getConfig(rdb().db); return String(c && c.chart_annotations_enabled) === '1'; } catch (_) { return false; }
+  }
+  const annOff = (res) => fail(res, new Error('chart annotations are not enabled (report_config chart_annotations_enabled=0)'), 404, { ok: false });
+  const isEditor = (u) => rdb().userHasRole(u, 'editor');
+  router.get('/api/dashboards/annotations', requireReportSession, async (req, res) => {
+    try {
+      if (!(await annotationsOn())) return annOff(res);
+      const u = req.reportUser;
+      const scope = isAdmin(u) ? null : userSites.siteIds(u).map(Number);
+      let siteIds = scope;
+      if (req.query.site != null && req.query.site !== '') {
+        const s = Number(req.query.site);
+        if (!Number.isInteger(s) || (scope && !scope.includes(s))) return fail(res, new Error('site not in your scope'), 403, { ok: false });
+        siteIds = [s];
+      }
+      const metric = typeof req.query.metric === 'string' && /^[a-z0-9_.-]{1,80}$/i.test(req.query.metric) ? req.query.metric : null;
+      const rows = await annStore().list({ siteIds, metric, from: String(req.query.from || '') || null, to: String(req.query.to || '') || null });
+      res.json({ ok: true, can_write: isEditor(u), annotations: rows });
+    } catch (e) { fail(res, e, 500, { ok: false }); }
+  });
+  router.post('/api/dashboards/annotations', requireReportSession, express.json({ limit: '16kb' }), async (req, res) => {
+    try {
+      if (!(await annotationsOn())) return annOff(res);
+      const u = req.reportUser;
+      if (!isEditor(u)) return fail(res, new Error('editor role required'), 403, { ok: false });
+      const v = CA.validate(req.body);
+      if (!v.ok) return fail(res, new Error(v.errors.join('; ')), 400, { ok: false });
+      if (!CA.canWrite(u, v.value.site_id, { isAdmin: isAdmin(u), siteIds: userSites.siteIds(u) })) return fail(res, new Error(v.value.site_id == null ? 'a group-wide note needs the admin tier — pick one of your sites' : 'site not in your scope'), 403, { ok: false });
+      const row = await annStore().create(v.value, u.id);
+      rdb().logEvent({ category: 'dashboards', action: 'chart_annotation_created', target: String(row.id), ...rdb()._logCtx(req) });
+      res.status(201).json({ ok: true, annotation: row });
+    } catch (e) { fail(res, e, 500, { ok: false }); }
+  });
+  router.delete('/api/dashboards/annotations/:id', requireReportSession, async (req, res) => {
+    try {
+      if (!(await annotationsOn())) return annOff(res);
+      const u = req.reportUser;
+      if (!isEditor(u)) return fail(res, new Error('editor role required'), 403, { ok: false });
+      const row = await annStore().get(Number(req.params.id));
+      if (!row) return fail(res, new Error('annotation not found'), 404, { ok: false });
+      if (!CA.canWrite(u, row.site_id, { isAdmin: isAdmin(u), siteIds: userSites.siteIds(u) })) return fail(res, new Error('site not in your scope'), 403, { ok: false });
+      await annStore().remove(row.id, u.id);
+      rdb().logEvent({ category: 'dashboards', action: 'chart_annotation_deleted', target: String(row.id), ...rdb()._logCtx(req) });
+      res.json({ ok: true });
+    } catch (e) { fail(res, e, 500, { ok: false }); }
+  });
+
   async function loadVisible(req, res) {
     const u = req.reportUser;
     const d = isPublisher(u) ? await store.get(key(req)) : await store.published(key(req));

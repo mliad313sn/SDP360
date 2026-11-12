@@ -34,6 +34,9 @@
   .status { font-size:12.5px; color:#6b7785; margin:8px 0; }
   canvas { max-height:220px; }
   .sr-only { position:absolute; left:-9999px; }
+  .edv-annotations { margin:6px 0 0; padding-left:18px; font-size:12px; color:var(--color-text-muted); }
+  .edv-ann-at { font-family:var(--font-mono); } .edv-ann-del { border:0; background:none; cursor:pointer; color:inherit; }
+  .edv-ann-form { font-size:12px; margin-top:6px; } .edv-ann-form input, .edv-ann-form select { font-size:12px; margin:2px 4px 2px 0; }
 </style>
 </head>
 <body>
@@ -49,6 +52,8 @@
       <button class="btn" id="edit" type="button" hidden>Edit in composer</button>
       <a class="btn" id="csv" href="#" download>Download figures (CSV)</a>
       <a class="btn" id="back" href="dashboards.html">All dashboards</a>
+      <!-- E-V08 — shown only when report_config chart_annotations_enabled='1' (the annotations route answers) -->
+      <label class="ctl" id="annWrap" hidden><input type="checkbox" id="annShow" checked> Show notes</label>
       <!-- C-28 — the Executive Scorecard leaves the menu when ui_exec_nav='consolidated'; Executive Home links to it -->
       <a class="btn shell-exec-consolidated-only" id="scorecardLink" href="executive.html">Executive Scorecard</a>
     </div>
@@ -68,6 +73,9 @@
   var params = new URLSearchParams(location.search);
   var key = params.get('key');
   var charts = [], bodies = {};
+  var annotations = null;   // E-V08 — { can_write, annotations:[…] } when the switch is on, else null
+  try { $('annShow').checked = localStorage.getItem('dash_show_notes') !== '0'; } catch (_) { /* per-viewer convenience only */ }
+  $('annShow').addEventListener('change', function () { try { localStorage.setItem('dash_show_notes', $('annShow').checked ? '1' : '0'); } catch (_) { /* ignore */ } loadData(); });
 
   function api(path, opts) { return fetch(path, Object.assign({ headers: H() }, opts || {})).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status)); return j; }); }); }
   function status(msg) { $('status').textContent = msg || ''; }
@@ -121,8 +129,14 @@
     if ($('window').value.trim()) q.push('window=' + encodeURIComponent($('window').value.trim()));
     if (meta && meta.status !== 'published') q.push('draft=1');
     $('csv').href = '/api/dashboards/' + encodeURIComponent(key) + '/data.csv' + (q.length ? '?' + q.join('&') : '');   // same filters as the screen
-    api('/api/dashboards/' + encodeURIComponent(key) + '/data' + (q.length ? '?' + q.join('&') : '')).then(function (d) {
+    var dataP = api('/api/dashboards/' + encodeURIComponent(key) + '/data' + (q.length ? '?' + q.join('&') : ''));
+    // E-V08 — human notes; a 404 (switch off) or any failure = no notes, the dashboard renders as today
+    var annP = fetch('/api/dashboards/annotations' + ($('site').value ? '?site=' + encodeURIComponent($('site').value) : ''), { headers: H() })
+      .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+    Promise.all([dataP, annP]).then(function (both) {
+      var d = both[0]; annotations = both[1];
       if (seq !== loadSeq) return;
+      $('annWrap').hidden = !annotations;
       var sel = $('site');
       // design review B3: the single figures are ONE site's (the server never mixes sites into a tile);
       // the per-site charts list every site in scope — say so instead of implying a fleet total
@@ -145,6 +159,28 @@
       var bn = $('staleBanner'); bn.hidden = !st.length; bn.textContent = st.length ? 'Some figures are not current — their colour is withheld: ' + st.join(', ') + '.' : '';
     }).catch(function (e) { if (seq !== loadSeq) return; status('Data unavailable: ' + e.message); });
   }
+
+  // E-V08 — a small "add a note" form under each trend (editors; the server checks site scope and the source)
+  function annFormHtml(w) {
+    return '<details class="edv-ann-form"><summary>Add a note</summary><form data-ann-form="' + R.escapeHtml(w.metric || '') + '">' +
+      '<input type="date" name="at" required aria-label="Date"><input name="label" maxlength="120" required placeholder="What happened (120 max)" aria-label="Note">' +
+      '<select name="source_kind" aria-label="Source type"><option value="ticket">Ticket #</option><option value="decision">Decision ref</option><option value="url">Link</option></select>' +
+      '<input name="source_ref" required placeholder="Source (mandatory)" aria-label="Source"><button class="btn" type="submit">Save note</button></form></details>';
+  }
+  $('dash').addEventListener('submit', function (ev) {
+    var f = ev.target; if (!f || !f.getAttribute || f.getAttribute('data-ann-form') == null) return;
+    ev.preventDefault();
+    var body = { metric_key: f.getAttribute('data-ann-form') || null, site_id: $('site').value ? Number($('site').value) : null,
+      at: f.at.value, label: f.label.value, source_kind: f.source_kind.value, source_ref: f.source_ref.value };
+    api('/api/dashboards/annotations', { method: 'POST', headers: Object.assign({ 'Content-Type': 'application/json' }, H()), body: JSON.stringify(body) })
+      .then(function () { status('Note saved.'); loadData(); }).catch(function (e) { status('Note not saved: ' + e.message); });
+  });
+  $('dash').addEventListener('click', function (ev) {
+    var b = ev.target && ev.target.closest ? ev.target.closest('[data-ann-del]') : null; if (!b) return;
+    if (!window.confirm('Delete this note?')) return;
+    api('/api/dashboards/annotations/' + encodeURIComponent(b.getAttribute('data-ann-del')), { method: 'DELETE', headers: H() })
+      .then(function () { loadData(); }).catch(function (e) { status('Note not deleted: ' + e.message); });
+  });
 
   function renderWidgets(def, data) {
     charts.forEach(function (c) { try { c.destroy(); } catch (_) {} }); charts = [];
@@ -184,6 +220,14 @@
           var spoken = (w.title || w.metric) + ': latest ' + R.formatValue(last.value, d.unit) + ' (' + R.shortLabel(last.label) + '), low ' + R.formatValue(lo, d.unit) + ', high ' + R.formatValue(hi, d.unit) + (d.target != null ? ', target ' + R.formatValue(d.target, d.unit) : '') + (d.freshness && d.freshness !== 'FRESH' ? ', source not current' : '');
           var anyPartial = pts.some(function (p) { return p.partial; });
           var foot = R.staleBadge(d) + '<div class="edv-asof">' + Object.keys(years).join('–') + (d.window_end ? ' · window ends ' + R.escapeHtml(d.window_end) : '') + (anyPartial ? ' · last point partial (* = period still running)' : '') + (d.target != null ? ' · dashed line = target' + (d.target_from ? ' (version from ' + R.escapeHtml(d.target_from) + ')' : '') : '') + '</div>';
+          // E-V08 — the human notes of this trend's metric(s) (+ notes for every metric), hideable per viewer
+          var annList = [], annMarks = [];
+          if (annotations && $('annShow').checked) {
+            var mkeys = (d.lines && d.lines.length ? d.lines.map(function (l) { return l.metric; }) : [w.metric]).filter(Boolean);
+            annMarks = R.annotationMarks(pts, (annotations.annotations || []).filter(function (a) { return a.metric_key == null || mkeys.indexOf(a.metric_key) >= 0; }));
+            annList = annMarks.map(function (m) { return m.annotation; });
+          }
+          foot += R.annotationsHtml(annList, { canDelete: !!(annotations && annotations.can_write) }) + (annotations && annotations.can_write ? annFormHtml(w) : '');
           // F13 — no chart library: the figures as a table, never an empty canvas
           if (!window.Chart) { el.innerHTML = title + '<div class="edv-kpi-sub">Chart unavailable — figures shown as a table.</div>' + R.seriesTableHtml(d) + foot; }
           else {
@@ -196,8 +240,12 @@
             // F06 — the target line follows each period's own target version
             var tline = pts.map(function (p) { return p.target !== undefined ? p.target : d.target; });
             var tIdx = -1; if (tline.some(function (v) { return v != null; })) { tIdx = ds.length; ds.push({ label: 'target', data: tline, borderColor: '#B45309', borderDash: [4, 4], pointRadius: 0, fill: false, stepped: true }); }
+            // E-V08 — one marker per note at the first line's value of that period (never on an invented 0) + one legend entry
+            var aIdx = -1, firstVals = ds[0].data;
+            var amark = pts.map(function (_, i) { return annMarks.some(function (m) { return m.index === i; }) && firstVals[i] != null ? firstVals[i] : null; });
+            if (amark.some(function (v) { return v != null; })) { aIdx = ds.length; ds.push({ label: 'Note (human)', data: amark, showLine: false, pointStyle: 'triangle', pointRadius: 7, borderColor: ds[0].borderColor, backgroundColor: ds[0].borderColor, fill: false }); }
             var c = new Chart(el.querySelector('canvas'), { type: 'line', data: { labels: pts.map(function (p) { return R.shortLabel(p.label) + (p.partial ? '*' : ''); }), datasets: ds },
-              options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: lines.length > 1 }, tooltip: { callbacks: { label: function (ctx) { var p = pts[ctx.dataIndex] || {}; if (ctx.datasetIndex === tIdx) return 'target ' + R.formatValue(ctx.parsed.y, d.unit) + (p.target_from ? ' (version from ' + p.target_from + ')' : ''); return R.formatValue(ctx.parsed.y, d.unit) + (p.partial ? ' (partial period)' : ''); } } } },
+              options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: lines.length > 1 || aIdx >= 0 }, tooltip: { callbacks: { label: function (ctx) { var p = pts[ctx.dataIndex] || {}; if (ctx.datasetIndex === aIdx) return annMarks.filter(function (m) { return m.index === ctx.dataIndex; }).map(function (m) { return 'note: ' + m.annotation.label; }).join(' · '); if (ctx.datasetIndex === tIdx) return 'target ' + R.formatValue(ctx.parsed.y, d.unit) + (p.target_from ? ' (version from ' + p.target_from + ')' : ''); return R.formatValue(ctx.parsed.y, d.unit) + (p.partial ? ' (partial period)' : ''); } } } },
                 scales: { x: { ticks: { maxRotation: 0, autoSkip: true } }, y: pct ? { min: 0, max: 100 } : { beginAtZero: true } } } });
             charts.push(c);
           }

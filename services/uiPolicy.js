@@ -19,6 +19,8 @@
 //   ui_small_multiples    '0' = the `multiples` widget type is not creatable (today) · '1' = offered (E-V09)
 //   ui_feedback_enabled   '0' = no Feedback button, /api/feedback answers 404 (today) · '1' = in-app feedback (E-B07)
 //   ui_data_quality_page  '0' = no Data quality nav entry, the page answers 404 (today) · '1' = shown (E-D07)
+//   ui_url_filters        '0' = Analytics filters are not written to the URL (today) · '1' = written with
+//                         history.replaceState and restored on load, Reset clears them (E-U02)
 
 const UI_DEFAULTS = {
   ui_lang_default: '',
@@ -32,6 +34,7 @@ const UI_DEFAULTS = {
   ui_small_multiples: '0',
   ui_feedback_enabled: '0',
   ui_data_quality_page: '0',
+  ui_url_filters: '0',
 };
 const UI_KEYS = Object.keys(UI_DEFAULTS);
 
@@ -46,6 +49,7 @@ const ENUMS = {
   ui_small_multiples: ['0', '1'],
   ui_feedback_enabled: ['0', '1'],
   ui_data_quality_page: ['0', '1'],
+  ui_url_filters: ['0', '1'],
 };
 // Same vocabulary as reports-db.js ROLE_HIERARCHY + FEATURE_ROLES_KNOWN (kept inline: this module stays pure).
 const KNOWN_ROLES = new Set(['super_admin', 'executive', 'admin', 'editor', 'viewer',
@@ -84,6 +88,7 @@ function uiPolicyFrom(cfg) {
     small_multiples: _pick(c, 'ui_small_multiples'),
     feedback: _pick(c, 'ui_feedback_enabled'),
     data_quality_page: _pick(c, 'ui_data_quality_page'),
+    url_filters: _pick(c, 'ui_url_filters'),
   };
 }
 

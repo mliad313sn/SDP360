@@ -15,6 +15,7 @@
 <link rel="stylesheet" href="module-tabs.css">
 <script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/statusTransfer.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/pageHead.js"></script>
 
 <style nonce="%%CSP_NONCE%%">
   body { margin: 0; background: var(--color-bg, #F4F5F7); color: var(--color-text-strong, #1F2A33);
@@ -120,6 +121,9 @@
     <p class="shell-lean-only">Also: <a href="handoffs.html">Handoffs</a> · <a href="notifications.html">Notifications</a> · <a href="obligations.html">Site obligations</a></p>
   </div>
 
+  <!-- E-U03 — shared page head (lib/pageHead.js): question · scope · window · freshness -->
+  <div id="pageHead"></div>
+
   <div class="sa-filters">
     <select id="saSite" class="sa-select"><option value="">— Select a site —</option></select>
     <input id="saQ" class="sa-search" type="text" placeholder="Filter by text…">
@@ -193,8 +197,9 @@
 
   async function loadActions() {
     const groupsEl = document.getElementById('saGroups');
-    if (!state.site) { groupsEl.innerHTML = '<div class="sa-group"><div class="sa-empty">Pick a site to see its open actions.</div></div>'; document.getElementById('saNote').textContent = ''; return; }
+    if (!state.site) { groupsEl.innerHTML = '<div class="sa-group"><div class="sa-empty">Pick a site to see its open actions.</div></div>'; document.getElementById('saNote').textContent = ''; saHead(false); return; }
     groupsEl.innerHTML = '<div class="sa-group"><div class="sa-empty">Loading…</div></div>';
+    saHead(false);
     try {
       const r = await fetch('/api/reports/site-actions?site=' + encodeURIComponent(state.site) + (state.showClosed ? '&closed=1' : ''), { credentials: 'same-origin', headers: authHeaders() });
       if (r.status === 403) {
@@ -204,11 +209,28 @@
       }
       if (!r.ok) { const j = await r.json().catch(() => ({})); throw new Error(j.error || ('HTTP ' + r.status)); }
       state.data = await r.json();
+      saHead(true);
       render();
     } catch (e) {
       const m = String(e.message || '');
       groupsEl.innerHTML = '<div class="sa-group"><div class="sa-empty">' + (/^This site is not one of yours/.test(m) ? '' : 'Failed to load: ') + esc(m) + '</div></div>';
     }
+  }
+
+  // E-U03 — shared page head. The register reads live SDP360 records (no sync date) → freshness unknown.
+  function saHead(loaded) {
+    if (!window.PageHead) return;
+    const hl = (document.documentElement.dataset.i18n === 'on' && window.I18nText && window.I18nText.lang) ? window.I18nText.lang() : 'en';
+    const s = (state.sites || []).find(x => x.code === state.site);
+    const name = state.site ? ((s && (s.name || s.code)) || state.site) : null;
+    window.PageHead.mount(document.getElementById('pageHead'), {
+      lang: hl,
+      question: { en: 'Which actions and problems of this site are still open, and where are they closed?', fr: 'Quelles actions et quels problèmes de ce site sont encore ouverts, et où les clôturer ?' },
+      scope: name ? { en: 'One site: ' + name, fr: 'Un site : ' + name } : { en: 'No site selected yet', fr: 'Aucun site choisi' },
+      window: state.showClosed ? { en: 'Open now + closed / cancelled in the last 30 days', fr: 'Ouverts aujourd\'hui + clos / annulés depuis 30 jours' } : { en: 'Open now (overdue = past its target date today)', fr: 'Ouverts aujourd\'hui (en retard = date cible dépassée)' },
+      sources: [],
+      note: loaded ? { en: 'Records entered in SDP360 are read live; the server reports no sync date for them, so freshness reads unknown.', fr: 'Les enregistrements saisis dans SDP360 sont lus en direct ; le serveur ne fournit pas de date de synchronisation, la fraîcheur est donc inconnue.' } : null,
+    });
   }
 
   function matchQ(it) {

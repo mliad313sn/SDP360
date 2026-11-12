@@ -30,6 +30,8 @@ planned switch cannot be set before its goal lands.
 | `ui_small_multiples` | built | `0` | `1` (proposal — after a browser review of the widget) | Owner (UI policy) | E-V09 |
 | `dashboard_red_action_links` | built | `0` | `1` (proposal — only with `commitments_enabled=1`; no action is ever created automatically) | Owner (UI policy) + PMO | E-K03 |
 | `metric_explain_enabled` | built | `0` | `1` (proposal — read-only; counts by site, ratios as numerator / denominator; the note never asserts a cause) | KPI committee | E-K04 |
+| `chart_annotations_enabled` | built | `0` | `1` (proposal — after a browser review; notes are human-entered with a mandatory source) | Owner (UI policy) | E-V08 |
+| `ui_url_filters` | built | `0` | `1` (proposal — shareable Analytics links; filters only, never a data value) | Owner (UI policy) | E-U02 |
 | `site_score_published_model` | built | `legacy` | `programme` | Owner (D-1) | A-11 |
 | `capacity_enabled` | planned | `0` | `1` | Owner (D-7) | A-13 |
 | `capacity_amber_pct` | planned | `85` | `85` | Owner (D-7) | A-13 |

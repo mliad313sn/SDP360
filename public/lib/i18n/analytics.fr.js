@@ -5,7 +5,7 @@
 (function (root) {
   'use strict';
   root.I18N_FR_ANALYTICS = {
-    'Performance': 'Performance', 'Analytics': 'Analyses', '↻ Refresh': '↻ Actualiser', 'All Sites': 'Tous les sites',
+    'Performance': 'Performance', 'Analytics': 'Analyses', '↻ Refresh': '↻ Actualiser', 'Reset filters': 'Réinitialiser les filtres', 'All Sites': 'Tous les sites',
     'All Time': 'Depuis le début', 'Last 7 Days': '7 derniers jours', 'Last 30 Days': '30 derniers jours',
     'Last 90 Days': '90 derniers jours', 'Last 180 Days': '180 derniers jours', 'Last 12 Months': '12 derniers mois',
     '▾ All Statuses': '▾ Tous les statuts', 'Statuses': 'Statuts', '▾ All Types': '▾ Tous les types', 'Types': 'Types',
