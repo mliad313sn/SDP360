@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (206) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (208) — services/reportConfig.js DEFAULTS
 
 Prerequisites (E-A07, services/switchPrereqs.js) are WARNINGS in plain words, never approvals: the config PUT
 answer and the `set-ui-policy.js` dry run repeat them when the switch is moved to its switched-on value.
@@ -153,6 +153,8 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `report_drift_banner` | `0` | setting | Owner (D-3) | `1` | A-24 | — |
 | `report_reassign_submitted` | `1` | setting | Owner (D-3) | `0` | A-24 | — |
 | `report_revert_policy` | `site_editor` | setting | Owner (D-3, reverses 2026-10-02) | `second_person` | A-24 | — |
+| `restore_drill_full` | `0` | setting | Operations owner | `1` on the TEST instance once a backup copy of `data/blobs` exists (`SDP_BLOB_BACKUP_DIR`) and both keys are set — proposal | F-ARCH-05 | — |
+| `restore_rto_minutes` | `` | setting | Operations owner (RTO/RPO) | the recovery-time target in minutes — **not proposed here**: empty reads UNKNOWN, never "met" | F-ARCH-05 | — |
 | `roadmap_redirect_to_portfolio` | `0` | setting | PMO + PO (deletion of roadmap data: CAB) | `0` during the pilot; `1` only after one clean parity cycle (`tools/governance/roadmap-parity.js`) | B-09 | — |
 | `schedule_inspection_interval_days` | `` | setting | Infrastructure / GRC owner | e.g. `90` if a quarterly inspection rhythm is adopted (proposal; empty = inspections are not reminded) | E-R06 | — |
 | `schedule_reminder_lead_days` | `` | setting | Site coordination owner | e.g. `3` (proposal — empty = no reminder even when armed) | E-R06 | — |

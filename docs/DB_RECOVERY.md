@@ -52,3 +52,17 @@ Run from **prod cmd.exe as administrator** at `C:\Apps\SDP-Dashboard\`.
 A nightly encrypted dump (`*.sql.gz.enc`) is restored the same way once decrypted with
 `SDP_BACKUP_KEY` (see `docs/ops/INCIDENT-RESPONSE.md`). Restoring on another machine needs the
 same `SDP_CONFIG_KEY`, or the encrypted configuration secrets read back empty.
+
+### Full-service drill (files + keys + timing)
+
+A restored database is not a restored service. `node tools/pg/restore-drill.js --full --blob-backup <copy of data/blobs>`
+(or `SDP_BLOB_BACKUP_DIR`; the monthly job does it when `report_config.restore_drill_full` = `1`, default `0`)
+adds five steps to the row-count comparison: `SDP_BACKUP_KEY` opened the dump; `SDP_CONFIG_KEY` opens the
+encrypted secrets of the **restored** `report_config` (values are never read out); a hashed sample of
+`data/blobs` matches its backup copy; every completed field upload of the restored database has its file in
+that copy; the drill duration is held against `report_config.restore_rto_minutes`.
+
+Each step is `ok`, `FAILED` or `UNKNOWN`. A failed step exits 1. `UNKNOWN` (no backup copy given, nothing
+encrypted to open, no recovery-time target set) is **not a pass**: the report then reads "NOT PROVEN".
+The recovery-time and recovery-point targets, the escrow of the two keys and the qualification of the packaged
+installer are the operations owner's — the drill does not assert them.
