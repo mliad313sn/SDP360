@@ -53,7 +53,7 @@ const BUDGETS = {
   "public/portfolio.html": {hex: 74},
   "public/project.html": {hex: 79},
   "public/report-studio.html": {hex: 42},
-  "public/reports.html": {hex: 833},
+  "public/reports.html": {hex: 818},   // E-A02: 15 moved with the Backups cards to lib/reports-backups.js
   "public/rfi.html": {hex: 40},
   "public/site-actions.html": {hex: 76},
   "public/site-awareness.html": {hex: 131, dualAxis: 4, doughnut: 5},
@@ -70,6 +70,7 @@ const BUDGETS = {
   "public/lib/incubationEditor.js": {hex: 1},
   "public/lib/moneyCertBand.js": {hex: 3},
   "public/lib/reasonDialog.js": {hex: 10},
+  "public/lib/reports-backups.js": {hex: 15},   // E-A02 — moved from reports.html, no restyling in this goal
   "public/lib/siteCodeBanner.js": {hex: 3},
   "public/lib/siteOnboardingCard.js": {hex: 4},
   "public/lib/statusTransfer.js": {hex: 11},

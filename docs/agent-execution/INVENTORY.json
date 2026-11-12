@@ -9,13 +9,13 @@
   "pages_deep_link_only": 8,
   "pages_without_entry_point": 3,
   "pages_with_inline_scripts": 46,
-  "routes": 613,
+  "routes": 616,
   "routes_without_test_reference": 48,
   "routes_in_server_js": 210,
   "jobs": 30,
   "jobs_without_test_reference": 10,
-  "migrations": 74,
-  "test_files": 624
+  "migrations": 75,
+  "test_files": 628
  },
  "pages": [
   {
@@ -326,9 +326,10 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 21623,
+   "bytes": 26662,
    "tests": [
     "tests/a11y-static.test.js",
+    "tests/chart-annotations.test.js",
     "tests/dashboard-time-truth.test.js",
     "tests/dashboard-widget-truth.test.js",
     "tests/exec-nav-consolidated.test.js",
@@ -459,6 +460,7 @@
    "tests": [
     "tests/a11y-static.test.js",
     "tests/i18n-coverage.test.js",
+    "tests/i18n-inline-glossary.test.js",
     "tests/no-native-dialogs.test.js",
     "tests/obligations-decisions.test.js",
     "tests/obligations.smoke.test.js",
@@ -1045,6 +1047,7 @@
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
+    "tests/i18n-inline-glossary.test.js",
     "tests/inventory-reachability.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
@@ -1408,7 +1411,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 546188,
+   "bytes": 539578,
    "tests": [
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/assets-freshness.test.js",
@@ -1425,6 +1428,7 @@
     "tests/report-audit-log-client.test.js",
     "tests/reports-action-import-ui.test.js",
     "tests/reports-admin-asset-reminders.test.js",
+    "tests/reports-backups-module.test.js",
     "tests/reports-editor-asset-tab.test.js",
     "tests/reports-html-escape-sweep.test.js",
     "tests/restore-drill-admin-card.test.js",
@@ -2829,9 +2833,10 @@
    "method": "GET",
    "path": "/api/dashboards/:key/data.csv",
    "file": "routes/dashboards.js",
-   "line": 146,
+   "line": 201,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -2843,9 +2848,10 @@
    "method": "GET",
    "path": "/api/dashboards/:key/data",
    "file": "routes/dashboards.js",
-   "line": 142,
+   "line": 197,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -2857,9 +2863,10 @@
    "method": "POST",
    "path": "/api/dashboards/:key/publish",
    "file": "routes/dashboards.js",
-   "line": 190,
+   "line": 245,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -2871,9 +2878,10 @@
    "method": "POST",
    "path": "/api/dashboards/:key/retire",
    "file": "routes/dashboards.js",
-   "line": 233,
+   "line": 288,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -2885,9 +2893,10 @@
    "method": "POST",
    "path": "/api/dashboards/:key/rollback/:n",
    "file": "routes/dashboards.js",
-   "line": 222,
+   "line": 277,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -2899,9 +2908,10 @@
    "method": "POST",
    "path": "/api/dashboards/:key/submit",
    "file": "routes/dashboards.js",
-   "line": 209,
+   "line": 264,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -2913,9 +2923,10 @@
    "method": "GET",
    "path": "/api/dashboards/:key/versions",
    "file": "routes/dashboards.js",
-   "line": 100,
+   "line": 155,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -2927,9 +2938,10 @@
    "method": "POST",
    "path": "/api/dashboards/:key/view",
    "file": "routes/dashboards.js",
-   "line": 104,
+   "line": 159,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -2941,9 +2953,10 @@
    "method": "DELETE",
    "path": "/api/dashboards/:key",
    "file": "routes/dashboards.js",
-   "line": 243,
+   "line": 298,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -2955,9 +2968,10 @@
    "method": "GET",
    "path": "/api/dashboards/:key",
    "file": "routes/dashboards.js",
-   "line": 92,
+   "line": 147,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -2969,13 +2983,44 @@
    "method": "PUT",
    "path": "/api/dashboards/:key",
    "file": "routes/dashboards.js",
-   "line": 169,
+   "line": 224,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-DELETE-api-dashboards-annotations-id",
+   "method": "DELETE",
+   "path": "/api/dashboards/annotations/:id",
+   "file": "routes/dashboards.js",
+   "line": 125,
+   "tests": [
+    "tests/chart-annotations-routes.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-GET-api-dashboards-annotations",
+   "method": "GET",
+   "path": "/api/dashboards/annotations",
+   "file": "routes/dashboards.js",
+   "line": 96,
+   "tests": [
+    "tests/chart-annotations-routes.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-POST-api-dashboards-annotations",
+   "method": "POST",
+   "path": "/api/dashboards/annotations",
+   "file": "routes/dashboards.js",
+   "line": 112,
+   "tests": [
+    "tests/chart-annotations-routes.smoke.test.js"
    ]
   },
   {
@@ -2997,6 +3042,7 @@
    "line": 65,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
+    "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -9799,6 +9845,7 @@
    "file": "routes/handoffs.js",
    "line": 82,
    "tests": [
+    "tests/i18n-inline-glossary.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
   },
@@ -10015,6 +10062,7 @@
    "file": "server.js",
    "line": 1505,
    "tests": [
+    "tests/i18n-inline-glossary.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
   },
@@ -10124,6 +10172,7 @@
     "tests/csp-report.smoke.test.js",
     "tests/csv-guard-coverage.test.js",
     "tests/login-next-redirect.test.js",
+    "tests/reports-backups-module.test.js",
     "tests/reports-editor-asset-tab.test.js",
     "tests/reports-html-escape-sweep.test.js",
     "tests/restore-drill-admin-card.test.js",
@@ -10720,6 +10769,10 @@
   {
    "id": "MG-reports-071-governance-attendance-controls",
    "file": "db/postgres/reports/071_governance_attendance_controls.sql"
+  },
+  {
+   "id": "MG-reports-075-chart-annotations",
+   "file": "db/postgres/reports/075_chart_annotations.sql"
   },
   {
    "id": "MG-sync-000-upgrade-from-1-11",

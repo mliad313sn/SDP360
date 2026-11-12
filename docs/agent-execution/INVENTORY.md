@@ -14,13 +14,13 @@
 | pages deep link only | 8 |
 | pages without entry point | 3 |
 | pages with inline scripts | 46 |
-| routes | 613 |
+| routes | 616 |
 | routes without test reference | 48 |
 | routes in server js | 210 |
 | jobs | 30 |
 | jobs without test reference | 10 |
-| migrations | 74 |
-| test files | 624 |
+| migrations | 75 |
+| test files | 628 |
 
 ## Pages
 
@@ -36,11 +36,11 @@
 | PG-commitments | public/commitments.html | any | no | 1 | 4 |
 | PG-coverage | public/coverage.html | any | no | 0 | 3 |
 | PG-dashboard-composer | public/dashboard-composer.html | admin / dashboard-publisher | no | 1 | 5 |
-| PG-dashboards | public/dashboards.html | any | yes | 1 | 9 |
+| PG-dashboards | public/dashboards.html | any | yes | 1 | 10 |
 | PG-exec-view | public/exec-view.html | public | no | 1 | 6 |
 | PG-executive-report | public/executive-report.html | super_admin | yes | 1 | 10 |
 | PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 10 |
-| PG-handoffs | public/handoffs.html | any | yes | 1 | 7 |
+| PG-handoffs | public/handoffs.html | any | yes | 1 | 8 |
 | PG-help | public/help.html | any | yes | 1 | 9 |
 | PG-home | public/home.html | any | yes | 0 | 8 |
 | PG-index | public/index.html | any | yes | 1 | 25 |
@@ -59,7 +59,7 @@
 | PG-meetings-compliance | public/meetings-compliance.html | any | no | 2 | 4 |
 | PG-meetings-council | public/meetings-council.html | any | no | 2 | 3 |
 | PG-meetings-import | public/meetings-import.html | editor | no | 2 | 4 |
-| PG-meetings-insights | public/meetings-insights.html | any | no | 2 | 4 |
+| PG-meetings-insights | public/meetings-insights.html | any | no | 2 | 5 |
 | PG-meetings-issues | public/meetings-issues.html | any | no | 2 | 5 |
 | PG-meetings-progress | public/meetings-progress.html | any | no | 2 | 3 |
 | PG-meetings-setup | public/meetings-setup.html | any | no | 1 | 4 |
@@ -72,7 +72,7 @@
 | PG-portfolio | public/portfolio.html | any | yes | 1 | 8 |
 | PG-project | public/project.html | any | no | 1 | 8 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 3 |
-| PG-reports | public/reports.html | any | yes | 2 | 26 |
+| PG-reports | public/reports.html | any | yes | 2 | 27 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 4 |
 | PG-site-actions | public/site-actions.html | any | yes | 1 | 10 |
 | PG-site-awareness | public/site-awareness.html | site-business / group-business / executive | yes | 2 | 5 |

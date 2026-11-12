@@ -17,7 +17,10 @@ test('the card exists and is wired on the four admin surfaces (+ loader)', () =>
   assert.match(src, /getElementById\('admin-rail-restore-drill'\)[\s\S]{0,120}isSuperAdmin \? '' : 'none'/, 'rail shown for super_admin');
   assert.match(src, /name === 'restore-drill' \|\| name === 'asset-reminders'[^)]*\) && currentUser\?\.role !== 'super_admin'/, 'super_admin guard');
   assert.match(src, /if \(name === 'restore-drill' && typeof loadRestoreDrillCard === 'function'\) loadRestoreDrillCard\(\);/);
-  assert.ok(src.includes("'/api/health/restore-drill'"));
+  // E-A02 — the card's loader moved to public/lib/reports-backups.js (loaded by the page)
+  const mod = fs.readFileSync(path.join(__dirname, '../public/lib/reports-backups.js'), 'utf8');
+  assert.ok(src.includes('<script src="lib/reports-backups.js"></script>'));
+  assert.ok(mod.includes("'/api/health/restore-drill'"));
 });
 
 test('every inline <script> of reports.html still compiles', () => {
