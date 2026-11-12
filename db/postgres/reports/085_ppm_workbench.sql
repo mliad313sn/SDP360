@@ -36,3 +36,32 @@ CREATE TABLE IF NOT EXISTS ppm_time_entries (
   created_at     TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_ppm_time_entries_task ON ppm_time_entries(task_id, day);
+
+-- R2-WB-01 — native change requests on a project: proposed → assessed → approved | rejected → applied, withdrawn at any
+-- open step. The approver (and the person rejecting) is never the author. Applying an approved request with a dates
+-- impact moves the baseline through the existing committee re-baseline (portfolio_baselines version written there);
+-- impact_budget is an amount in `currency` (never mixed) read only under the money-read rule. Switch
+-- ppm_change_requests_enabled.
+CREATE TABLE IF NOT EXISTS ppm_change_requests (
+  id                       BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  project_id               BIGINT NOT NULL REFERENCES portfolio_projects(id) ON DELETE CASCADE,
+  title                    TEXT NOT NULL,
+  reason                   TEXT NOT NULL,
+  impact_dates_days        INTEGER,
+  impact_budget            NUMERIC,
+  currency                 TEXT CHECK (currency IS NULL OR currency ~ '^[A-Z]{3}$'),
+  status                   TEXT NOT NULL DEFAULT 'proposed' CHECK (status IN ('proposed', 'assessed', 'approved', 'rejected', 'applied', 'withdrawn')),
+  author_id                INTEGER,
+  author_name              TEXT,
+  assessed_by              INTEGER,
+  assessed_at              TEXT,
+  assessment_note          TEXT,
+  decided_by               INTEGER,
+  decided_by_name          TEXT,
+  decided_at               TEXT,
+  decision_note            TEXT,
+  applied_baseline_version INTEGER,
+  applied_at               TEXT,
+  created_at               TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_ppm_change_requests_project ON ppm_change_requests(project_id, status);

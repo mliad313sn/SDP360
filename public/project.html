@@ -64,6 +64,7 @@
     <button type="button" role="tab" id="tab-benefits" aria-controls="pane-benefits" aria-selected="false" tabindex="-1">Benefits</button>
     <button type="button" role="tab" id="tab-budget" aria-controls="pane-budget" aria-selected="false" tabindex="-1" hidden>Budget</button>
     <button type="button" role="tab" id="tab-raci" aria-controls="pane-raci" aria-selected="false" tabindex="-1" hidden>RACI</button>
+    <button type="button" role="tab" id="tab-changes" aria-controls="pane-changes" aria-selected="false" tabindex="-1" hidden>Changes</button>
     <button type="button" role="tab" id="tab-gates" aria-controls="pane-gates" aria-selected="false" tabindex="-1">Gates</button>
     <button type="button" role="tab" id="tab-history" aria-controls="pane-history" aria-selected="false" tabindex="-1">History</button>
   </div>
@@ -237,6 +238,19 @@
     </div>
   </section>
 
+  <section id="pane-changes" role="tabpanel" aria-labelledby="tab-changes" hidden>
+    <div class="panel"><h2>Change requests</h2><div class="scroll" id="changes"></div>
+      <label>Note for the next step (required to reject or withdraw, 10 characters or more) <textarea id="cr-note" rows="2"></textarea></label></div>
+    <div class="panel" id="cr-new" hidden><h2>Propose a change</h2>
+      <div class="row">
+        <label>Title <input id="cr-title"></label>
+        <label style="grid-column:1/-1">Reason (10 characters or more) <textarea id="cr-reason" rows="2"></textarea></label>
+        <label>Dates impact (days, + later / − earlier; empty = not known) <input id="cr-days" type="number" step="1"></label>
+        <span id="cr-money-box" class="row" style="grid-column:1/-1"><label>Money impact (empty = not known) <input id="cr-amount" type="number" step="any"></label><label>Currency (with an amount) <input id="cr-cur" placeholder="USD" maxlength="3"></label></span>
+      </div>
+      <div class="bar"><button class="btn primary" id="cr-save" type="button">Propose the change</button></div></div>
+  </section>
+
   <section id="pane-gates" role="tabpanel" aria-labelledby="tab-gates" hidden>
     <div class="panel"><h2>Stage gates</h2><div id="gates"></div>
       <div id="gate-reason-box" hidden><label>Reason (10 characters or more) <textarea id="gate-reason" rows="2"></textarea></label></div></div>
@@ -276,13 +290,20 @@
     VERIFIER_ROLE: "A money benefit is verified by a holder of the verifier role set by the administrator.",
     NO_ACCOUNTABLE: "Every task with letters needs exactly one A (accountable).",
     MULTIPLE_ACCOUNTABLE: "Only one person is accountable (A) for a task.",
+    COMMITTEE_ONLY: "This step is taken by the committee.",
+    AUTHOR_OR_COMMITTEE: "Only the author or the committee withdraws a change request.",
+    CR_ORDER: "This step does not apply to the change request in its current status — reload the page.",
+    NOTE_REQUIRED: "A note of 10 characters or more is required for this step.",
+    REBASELINE_OFF: "This change moves the dates: applying it needs the committee re-baseline, which is switched off.",
+    NO_BASELINE: "The project has no baseline end to move.",
+    CURRENCY_REQUIRED: "An amount needs its currency (ISO code such as USD or XOF).",
     JUSTIFICATION_REQUIRED: "A justification is required: the amount changes, or differs from the baseline of this month.",
   };
   var fail = function (e) { msg((e && e.code && PLAIN[e.code]) || (e && e.message) || "Error", "errors"); };
   var V = null;
   // W2-PPM — which PROPOSED switches are on (each new tab / prompt exists only then); an error = all off (today)
   var FEAT = {};
-  api("/api/governance/ppm/features").then(function (f) { FEAT = f || {}; if (FEAT.budget_periods) addTab("budget", "gates"); if (FEAT.benefit_owner_link) linkOwners(); if (FEAT.benefit_value_class) { $("b-class-box").hidden = false; if (V) renderBenefits(); } if (FEAT.raci) addTab("raci", "gates"); if (FEAT.team && V) mountTeam(); if (FEAT.time_entries && V && $("tab-plan").getAttribute("aria-selected") === "true") mountTime(); if (FEAT.templates && V && V.committee) $("tpl-save-box").hidden = false; }).catch(function () { FEAT = {}; });
+  api("/api/governance/ppm/features").then(function (f) { FEAT = f || {}; if (FEAT.budget_periods) addTab("budget", "gates"); if (FEAT.benefit_owner_link) linkOwners(); if (FEAT.benefit_value_class) { $("b-class-box").hidden = false; if (V) renderBenefits(); } if (FEAT.raci) addTab("raci", "gates"); if (FEAT.change_requests) addTab("changes", "gates"); if (V && ["budget", "raci", "changes"].indexOf((window.location.hash || "").slice(1)) >= 0 && TABS.indexOf(window.location.hash.slice(1)) >= 0) showTab(window.location.hash.slice(1)); if (FEAT.team && V) mountTeam(); if (FEAT.time_entries && V && $("tab-plan").getAttribute("aria-selected") === "true") mountTime(); if (FEAT.templates && V && V.committee) $("tpl-save-box").hidden = false; }).catch(function () { FEAT = {}; });
 
   // ---- tabs (role=tablist, arrows / Home / End, deep link #tab) ---------------------------------------------
   // Extension point: later goals (baselines, benefits) add a tab button + a pane + an entry in RENDER.
@@ -291,6 +312,7 @@
   // W2-PPM — the add-on tabs exist only while their switch is on (they join TABS, so the arrow keys skip them otherwise)
   var X = function () { return { $: $, esc: esc, api: api, msg: msg, fail: fail, pid: PID }; };
   RENDER.budget = function () { if (window.PpmExtras) window.PpmExtras.mountBudget(X()); };
+  RENDER.changes = function () { if (window.PpmWorkbench) window.PpmWorkbench.mountChanges(Object.assign(X(), { canEdit: !!(V && V.can_edit_plan) })); };   // R2-WB-01
   RENDER.raci = function () { if (window.PpmExtras) window.PpmExtras.mountRaci(Object.assign(X(), { canEdit: !!(V && V.can_edit_plan) })); };
   // R2-WB-04 — the Team panel (Overview) exists only while ppm_project_team_enabled is on
   // R2-WB-02 — hours panel (Plan tab) only while ppm_time_entries_enabled is on

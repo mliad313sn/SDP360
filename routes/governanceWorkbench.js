@@ -8,10 +8,16 @@
 //                                      GET /api/governance/ppm/project/:id/actual-hours (planned / actual / variance)
 //                                      read scope; writes = plan-write rule (recording one's OWN time on a readable
 //                                      project without plan-write is a PO decision — not built)
+//   R2-WB-01 ppm_change_requests_enabled GET/POST /api/governance/ppm/project/:id/changes
+//                                      POST …/changes/:cid/{assess,approve,reject,withdraw,apply}
+//                                      create = plan-write rule; assess / approve / reject / apply = committee, the author
+//                                      never approves or rejects (403 SELF_REVIEW); withdraw = author or committee; apply
+//                                      with a dates impact = the committee re-baseline (ppm_rebaseline_enabled, else 409).
+//                                      impact_budget / currency only under the money-read rule.
 const { fail: httpFail } = require('../services/httpError');
 
 module.exports = function governanceWorkbenchRoutes(router, h) {
-  const { store, rdb, reportConfig, requireReportSession, json, readableProject, refusePlanWrite, log } = h;
+  const { store, rdb, reportConfig, requireReportSession, json, readableProject, refusePlanWrite, isCommittee, canSeeMoney, log } = h;
   const fail = (res, e) => httpFail(res, e, undefined, { ok: false, ...(e && e.reason ? { code: e.reason } : {}) });
   const cfg = async () => reportConfig.getConfig(rdb().db);
   const on = (c, k) => String(c[k]) === '1';
@@ -93,6 +99,39 @@ module.exports = function governanceWorkbenchRoutes(router, h) {
       const p = await readableProject(req.reportUser, req.params.id); if (!p) return notFound(res);
       const d = await store.projectDetail(p.id);
       res.json({ ok: true, hours: SCH.actualHours(d.tasks || [], await wb().listProjectTimeEntries(p.id)) });
+    } catch (e) { fail(res, e); }
+  });
+
+  // ---- R2-WB-01 change requests --------------------------------------------------------------------------------
+  const crOn = async (res) => { if (!on(await cfg(), 'ppm_change_requests_enabled')) { notFound(res); return false; } return true; };
+  const crView = (u) => (cr) => (canSeeMoney(u) ? cr : { ...cr, impact_budget: undefined, currency: undefined, money_hidden: true });
+  router.get('/api/governance/ppm/project/:id/changes', requireReportSession, async (req, res) => {
+    try {
+      if (!(await crOn(res))) return;
+      const p = await readableProject(req.reportUser, req.params.id); if (!p) return notFound(res);
+      res.json({ ok: true, committee: !!isCommittee(req.reportUser), me: Number(req.reportUser.id), money_hidden: !canSeeMoney(req.reportUser), changes: (await wb().listChangeRequests(p.id)).map(crView(req.reportUser)) });
+    } catch (e) { fail(res, e); }
+  });
+  router.post('/api/governance/ppm/project/:id/changes', requireReportSession, json, async (req, res) => {
+    try {
+      if (!(await crOn(res))) return;
+      const p = await readableProject(req.reportUser, req.params.id); if (!p) return notFound(res);
+      if (await refusePlanWrite(req, res, 'task', { body: { project_id: p.id } })) return;
+      const b = req.body || {};
+      if (!canSeeMoney(req.reportUser) && b.impact_budget != null && b.impact_budget !== '') return httpFail(res, Object.assign(new Error('a money impact is entered by the committee, the admin tier or the finance role'), { reason: 'MONEY_SCOPE' }), 403, { ok: false, code: 'MONEY_SCOPE' });
+      const cr = await wb().createChangeRequest(p.id, b, { user: req.reportUser });
+      log(req, 'change_request_proposed', `project:${p.id}`, { cr: cr.id });
+      res.json({ ok: true, change: crView(req.reportUser)(cr) });
+    } catch (e) { fail(res, e); }
+  });
+  router.post('/api/governance/ppm/project/:id/changes/:cid/:action', requireReportSession, json, async (req, res) => {
+    try {
+      if (!(await crOn(res))) return;
+      const p = await readableProject(req.reportUser, req.params.id); if (!p) return notFound(res);
+      const c = await cfg();
+      const cr = await wb().transitionChangeRequest(p.id, req.params.cid, String(req.params.action), { user: req.reportUser, isCommittee: !!isCommittee(req.reportUser), note: req.body && req.body.note, rebaselineEnabled: on(c, 'ppm_rebaseline_enabled') });
+      log(req, `change_request_${cr.status}`, `project:${p.id}`, { cr: cr.id, baseline_version: cr.applied_baseline_version });
+      res.json({ ok: true, change: crView(req.reportUser)(cr) });
     } catch (e) { fail(res, e); }
   });
 };

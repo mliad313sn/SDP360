@@ -121,7 +121,9 @@ function capacityRows(tasks) {
 // R2-WB-03 budgetPeriods: rows of store.listBudgetPeriods for the readable projects — a "Budget periods" sheet ONLY when
 // showMoney and the array is given (the route gives it only with ppm_budget_periods_enabled = '1'). One row per
 // project × month × currency × kind, the currency on every row; NO total row (currencies are never added together).
-function buildWorkbookBuffer(view, { money: showMoney = false, baselines = [], exceptions = [], benefitClasses = false, actualHours = null, budgetPeriods = null } = {}) {
+// R2-WB-01 changeRequests: when given (ppm_change_requests_enabled = '1'), a "Changes" sheet; the money impact and its
+// currency only for a money reader (otherwise the columns do not exist).
+function buildWorkbookBuffer(view, { money: showMoney = false, baselines = [], exceptions = [], benefitClasses = false, actualHours = null, budgetPeriods = null, changeRequests = null } = {}) {
   const v = view || {};
   const keyOf = new Map((v.projects || []).map((p) => [Number(p.id), p.key]));
   const hoursOf = Array.isArray(actualHours) ? new Map(actualHours.map((h) => [Number(h.task_id), h])) : null;
@@ -155,6 +157,11 @@ function buildWorkbookBuffer(view, { money: showMoney = false, baselines = [], e
       state: x.state, evidence_link: b.evidence_link || null, realised_by: b.realised_by_name || null, verified_by: b.verified_by_name || null, verified_at: b.verified_at || null, ...cls };
   });
   const sheets = [{ name: 'Projects', rows: projects }, { name: 'Tasks', rows: tasks }, { name: 'Milestones', rows: milestones }, { name: 'RAID', rows: raid }, { name: 'Baselines', rows: bl }, { name: 'Exceptions', rows: ex }, { name: 'Benefits', rows: ben }, { name: 'Capacity', rows: capacity }];
+  if (Array.isArray(changeRequests)) {
+    sheets.push({ name: 'Changes', rows: changeRequests.map((c) => ({ project: keyOf.get(Number(c.project_id)) || null, id: c.id, title: c.title, reason: c.reason, status: c.status, impact_dates_days: _numOrNull(c.impact_dates_days),
+      ...(showMoney ? { impact_budget: _numOrNull(c.impact_budget), currency: c.currency || null } : {}), author: c.author_name || null, decided_by: c.decided_by_name || null, decided_at: c.decided_at || null,
+      applied_baseline_version: _numOrNull(c.applied_baseline_version), created_at: c.created_at || null })) });
+  }
   if (showMoney && Array.isArray(budgetPeriods)) {
     sheets.push({ name: 'Budget periods', rows: budgetPeriods.map((b) => ({ project: keyOf.get(Number(b.project_id)) || null, period: b.period, currency: b.currency, kind: b.kind, amount: _numOrNull(b.amount), reason: b.reason || null,
       note: 'not certified by Finance' })) });

@@ -136,3 +136,54 @@ test('R2-WB-03 workbook budget periods: only for a money reader while ppm_budget
     assert.ok(!(await sheets(T.fin)).SheetNames.includes('Budget periods'), 'switch off: today’s workbook');
   } finally { await sw({ ppm_budget_periods_enabled: '0' }); }
 });
+
+test('R2-WB-01 change requests: 404 while off; on: author ≠ approver, illegal steps refused, apply → baseline version + ledger, money rule, workbook sheet', async () => {
+  // a project past its approval gate (owner wb_owner; the committee members are not the owner)
+  const p3 = (await put('project', T.pmo, { objective_id: obj, key: 'WB-3', name: 'Fictitious failover', owner: 'wb_owner', sponsor: 'Sponsor', site_id: A, charter: 'Second WAN link for the fictitious mine, with failover tests and documentation.',
+    start_date: '2026-11-02', end_date: '2027-02-26', baseline_start: '2026-11-02', baseline_end: '2027-02-26' })).j.id;
+  for (const to of ['approval', 'in_progress']) { const r = await send('POST', `/api/governance/portfolio/project/${p3}/stage`, T.cio, { to }); assert.equal(r.status, 200, JSON.stringify(r.j)); }
+  const url = `/api/governance/ppm/project/${p3}/changes`;
+  await sw({ ppm_change_requests_enabled: '0' });
+  assert.equal((await send('GET', url, T.pmo)).status, 404);
+  assert.equal((await send('POST', url, T.pmo, { title: 'x', reason: 'a long enough reason' })).status, 404);
+  await sw({ ppm_change_requests_enabled: '1', ppm_rebaseline_enabled: '0' });
+  try {
+    assert.equal((await send('POST', url, T.viewer, { title: 'x', reason: 'a long enough reason' })).status, 403, 'plan-write rule');
+    const c = await send('POST', url, T.pmo, { title: 'Add site B to the scope', reason: 'site B asked for the same failover', impact_dates_days: 14, impact_budget: 2500, currency: 'USD' });
+    assert.equal(c.status, 200, JSON.stringify(c.j));
+    const cid = c.j.change.id; const step = (t, a, note) => send('POST', `${url}/${cid}/${a}`, t, { note });
+    assert.equal((await step(T.cio, 'approve')).j.code, 'CR_ORDER', 'proposed cannot jump to approved');
+    assert.equal((await step(T.viewer, 'assess')).status, 403);
+    assert.equal((await step(T.pmo, 'assess', 'impact checked with the carrier')).status, 200);
+    const self = await step(T.pmo, 'approve');
+    assert.equal(self.status, 403); assert.equal(self.j.code, 'SELF_REVIEW');
+    assert.equal((await step(T.cio, 'approve', 'agreed in the change board')).status, 200);
+    const off = await step(T.cio, 'apply');
+    assert.equal(off.status, 409); assert.equal(off.j.code, 'REBASELINE_OFF', 'a dates impact needs the committee re-baseline');
+    await sw({ ppm_rebaseline_enabled: '1' });
+    const ap = await step(T.cio, 'apply');
+    assert.equal(ap.status, 200, JSON.stringify(ap.j)); assert.equal(ap.j.change.status, 'applied'); assert.ok(ap.j.change.applied_baseline_version >= 1);
+    const bl = await send('GET', `/api/governance/portfolio/project/${p3}/baselines`, T.pmo);
+    const v = bl.j.versions.find((x) => x.version === ap.j.change.applied_baseline_version);
+    assert.equal(v.payload.project.baseline_end, '2027-03-12', '+14 days on the baseline end'); assert.match(v.reason, /Change request #/);
+    assert.equal((await step(T.cio, 'apply')).j.code, 'CR_ORDER', 'applied once');
+    const h = await send('GET', `/api/governance/portfolio/project/${p3}/history`, T.pmo);
+    assert.deepEqual(h.j.events.filter((e) => /^change_request_|^rebaseline$/.test(e.action)).map((e) => e.action), ['change_request_proposed', 'change_request_assessed', 'change_request_approved', 'rebaseline', 'change_request_applied']);
+    // money rule
+    const vw = await send('GET', url, T.viewer);
+    assert.equal(vw.status, 200); assert.equal(vw.j.money_hidden, true); assert.doesNotMatch(JSON.stringify(vw.j.changes), /2500/);
+    assert.equal((await send('POST', url, T.viewer, { title: 'x', reason: 'a long enough reason', impact_budget: 5, currency: 'USD' })).status, 403);
+    assert.match(JSON.stringify((await send('GET', url, T.fin)).j.changes), /2500/);
+    // a change without dates impact applies without a baseline; withdraw by the author
+    const c2 = (await send('POST', url, T.pmo, { title: 'Rename the deliverable', reason: 'naming aligned with the site' })).j.change.id;
+    assert.equal((await send('POST', `${url}/${c2}/withdraw`, T.pmo, { note: 'not needed after all' })).j.change.status, 'withdrawn');
+    // workbook sheet
+    const XLSX = require('xlsx');
+    const rows = (t) => wbBuf(t).then((b) => XLSX.utils.sheet_to_json(XLSX.read(b, { type: 'buffer' }).Sheets.Changes, { defval: null }));
+    const fin = (await rows(T.fin)).filter((r) => r.project === 'WB-3');
+    assert.deepEqual(fin.map((r) => [r.status, r.impact_dates_days, r.impact_budget, r.currency]), [['applied', 14, 2500, 'USD'], ['withdrawn', null, null, null]]);
+    assert.ok(!('impact_budget' in (await rows(T.viewer))[0]), 'no money column for a non-money reader');
+  } finally { await sw({ ppm_change_requests_enabled: '0', ppm_rebaseline_enabled: '0' }); }
+  const XLSX = require('xlsx');
+  assert.ok(!XLSX.read(await wbBuf(T.fin), { type: 'buffer' }).SheetNames.includes('Changes'), 'switch off: no sheet');
+});

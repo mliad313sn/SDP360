@@ -5,6 +5,8 @@
 //            public/lib/allocationContract.withMembers (the ONE allocation contract).
 //   R2-WB-02 normaliseTimeEntry — one entry: person (label, optional user id; default = the person recording), a day
 //            YYYY-MM-DD, hours 0..24 (a stated 0 stays 0), a note. The sum per task is projectSchedule.actualHours.
+//   R2-WB-01 normaliseChangeRequest / crTransition — native change requests: proposed → assessed → approved |
+//            rejected → applied, withdrawn while open; approver ≠ author; apply only an approved request.
 // Every error carries a stable code (the page turns it into plain words).
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -47,4 +49,48 @@ function normaliseTimeEntry(body, user) {
   return { person_user_id: userId, person_label: label, day: d, hours: h, note: text(b.note, 1000) };
 }
 
-module.exports = { normaliseTimeEntry, normaliseMember, day, bad, text, numOrNull };
+const CR_STATUSES = Object.freeze(['proposed', 'assessed', 'approved', 'rejected', 'applied', 'withdrawn']);
+// action → { from: allowed statuses, to, committee: only the committee, sod: the actor may not be the author, note: min chars }
+const CR_ACTIONS = Object.freeze({
+  assess: { from: ['proposed'], to: 'assessed', committee: true, sod: false, note: 0 },
+  approve: { from: ['assessed'], to: 'approved', committee: true, sod: true, note: 0 },
+  reject: { from: ['proposed', 'assessed'], to: 'rejected', committee: true, sod: true, note: 10 },
+  withdraw: { from: ['proposed', 'assessed', 'approved'], to: 'withdrawn', committee: false, sod: false, note: 10 },
+  apply: { from: ['approved'], to: 'applied', committee: true, sod: false, note: 0 },
+});
+const MIN_CR_REASON = 10;
+
+/** @returns {{title, reason, impact_dates_days:number|null, impact_budget:number|null, currency:string|null}} */
+function normaliseChangeRequest(body) {
+  const b = body || {};
+  const title = text(b.title, 300);
+  if (!title) throw bad('TITLE_REQUIRED', 'a change request needs a title');
+  const reason = text(b.reason, 4000);
+  if (!reason || reason.length < MIN_CR_REASON) throw bad('REASON_REQUIRED', `a reason (${MIN_CR_REASON}+ characters) is required`);
+  const days = numOrNull(b.impact_dates_days);
+  if (days != null && !Number.isInteger(days)) throw bad('BAD_DAYS', 'impact_dates_days must be a whole number of days (empty = no dates impact known)');
+  const money = numOrNull(b.impact_budget);
+  if (money != null && Number.isNaN(money)) throw bad('BAD_AMOUNT', 'impact_budget must be a number (empty = not known)');
+  const currency = text(b.currency, 3) ? String(b.currency).trim().toUpperCase() : null;
+  if (currency && !/^[A-Z]{3}$/.test(currency)) throw bad('BAD_CURRENCY', 'currency must be an ISO code such as USD or XOF');
+  if (money != null && !currency) throw bad('CURRENCY_REQUIRED', 'an amount needs its currency (ISO code such as USD or XOF)');
+  return { title, reason, impact_dates_days: days, impact_budget: money, currency: money == null ? null : currency };
+}
+
+/**
+ * Can `actor` do `action` on `cr`? → null when allowed, else { code, error, status }.
+ * @param {{status, author_id}} cr @param {string} action @param {{id, isCommittee:boolean}} actor @param {string} [note]
+ */
+function crTransition(cr, action, actor, note) {
+  const a = CR_ACTIONS[action];
+  if (!a) return { code: 'UNKNOWN_ACTION', error: `unknown action ${action}`, status: 400 };
+  const isAuthor = actor && cr.author_id != null && Number(actor.id) === Number(cr.author_id);
+  if (a.committee && !(actor && actor.isCommittee)) return { code: 'COMMITTEE_ONLY', error: 'committee-member or admin role required', status: 403 };
+  if (action === 'withdraw' && !isAuthor && !(actor && actor.isCommittee)) return { code: 'AUTHOR_OR_COMMITTEE', error: 'only the author or the committee withdraws a change request', status: 403 };
+  if (a.sod && (isAuthor || !actor || actor.id == null)) return { code: 'SELF_REVIEW', error: 'the author of a change request cannot decide it', status: 403 };
+  if (!a.from.includes(cr.status)) return { code: 'CR_ORDER', error: `cannot ${action} a change request that is ${cr.status}`, status: 409 };
+  if (a.note && !(note && String(note).trim().length >= a.note)) return { code: 'NOTE_REQUIRED', error: `a note (${a.note}+ characters) is required to ${action}`, status: 400 };
+  return null;
+}
+
+module.exports = { CR_STATUSES, CR_ACTIONS, normaliseChangeRequest, crTransition, normaliseTimeEntry, normaliseMember, day, bad, text, numOrNull };

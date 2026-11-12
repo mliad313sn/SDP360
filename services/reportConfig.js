@@ -341,6 +341,9 @@ DEFAULTS.ppm_project_team_enabled = '0';
 //    ppm_time_entries_enabled '1' → time entries per task (who, day, hours 0..24) on the Plan tab; planned effort vs
 //    actual hours vs variance (no entry = unknown, never 0); the workbook Tasks sheet gains actual_hours.
 DEFAULTS.ppm_time_entries_enabled = '0';
+//    ppm_change_requests_enabled '1' → native change requests on the project page (Changes tab): proposed → assessed
+//    → approved | rejected → applied; the author never decides; applying a dates impact uses the committee re-baseline.
+DEFAULTS.ppm_change_requests_enabled = '0';
 
 // ── SEC-01 — per-ACCOUNT login throttle (services/accountThrottle.js). '0' = today: only the per-IP limiter
 //    (10 attempts / 15 min per address). '1' → more than auth_account_throttle_max FAILED sign-ins against one

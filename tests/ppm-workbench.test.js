@@ -99,3 +99,44 @@ test('R2-WB-02 workbook: no actual_hours column unless given; given = per task a
   const rows = XLSX.utils.sheet_to_json(on.Sheets.Tasks, { defval: null });
   assert.deepEqual(rows.map((r) => [r.name, r.effort_hours, r.actual_hours, r.hours_variance]), [['A', 10, 12, 2], ['B', null, null, null]]);
 });
+
+test('R2-WB-01 normaliseChangeRequest: title, reason ≥ 10, whole days, an amount needs its currency', () => {
+  assert.deepEqual(WB.normaliseChangeRequest({ title: 'Extend to site B', reason: 'scope change requested', impact_dates_days: '14', impact_budget: '2500', currency: 'usd' }),
+    { title: 'Extend to site B', reason: 'scope change requested', impact_dates_days: 14, impact_budget: 2500, currency: 'USD' });
+  assert.deepEqual(WB.normaliseChangeRequest({ title: 'x', reason: 'a long enough reason', impact_dates_days: '', impact_budget: null, currency: 'XOF' }).impact_budget, null, 'no amount = unknown, never 0');
+  for (const [b, code] of [[{ reason: 'a long enough reason' }, 'TITLE_REQUIRED'], [{ title: 'x', reason: 'short' }, 'REASON_REQUIRED'], [{ title: 'x', reason: 'a long enough reason', impact_dates_days: 1.5 }, 'BAD_DAYS'],
+    [{ title: 'x', reason: 'a long enough reason', impact_budget: 10 }, 'CURRENCY_REQUIRED'], [{ title: 'x', reason: 'a long enough reason', impact_budget: 10, currency: 'dollars' }, 'BAD_CURRENCY']]) {
+    assert.throws(() => WB.normaliseChangeRequest(b), (e) => e.reason === code, code);
+  }
+});
+
+test('R2-WB-01 crTransition: legal path only, committee steps, the author never decides, withdraw by author or committee', () => {
+  const cr = (status) => ({ status, author_id: 5 });
+  const author = { id: 5, isCommittee: true }, other = { id: 6, isCommittee: true }, plain = { id: 5, isCommittee: false }, stranger = { id: 9, isCommittee: false };
+  assert.equal(WB.crTransition(cr('proposed'), 'assess', author), null, 'the author may assess (assessment is not a decision)');
+  assert.equal(WB.crTransition(cr('assessed'), 'approve', other), null);
+  assert.equal(WB.crTransition(cr('assessed'), 'approve', author).code, 'SELF_REVIEW');
+  assert.equal(WB.crTransition(cr('assessed'), 'reject', author, 'no budget left this year').code, 'SELF_REVIEW');
+  assert.equal(WB.crTransition(cr('assessed'), 'reject', other).code, 'NOTE_REQUIRED');
+  assert.equal(WB.crTransition(cr('assessed'), 'reject', other, 'no budget left this year'), null);
+  assert.equal(WB.crTransition(cr('approved'), 'apply', other), null);
+  assert.equal(WB.crTransition(cr('proposed'), 'assess', stranger).code, 'COMMITTEE_ONLY');
+  assert.equal(WB.crTransition(cr('proposed'), 'withdraw', plain, 'no longer needed here'), null, 'the author withdraws without the committee role');
+  assert.equal(WB.crTransition(cr('proposed'), 'withdraw', stranger, 'no longer needed here').code, 'AUTHOR_OR_COMMITTEE');
+  // illegal jumps
+  for (const [st, act] of [['proposed', 'approve'], ['proposed', 'apply'], ['assessed', 'apply'], ['rejected', 'approve'], ['applied', 'withdraw'], ['withdrawn', 'assess'], ['applied', 'apply']]) {
+    const p = WB.crTransition(cr(st), act, other, 'a long enough note');
+    assert.ok(p && p.code === 'CR_ORDER' && p.status === 409, `${st} → ${act}`);
+  }
+  assert.equal(WB.crTransition(cr('proposed'), 'delete', other).code, 'UNKNOWN_ACTION');
+});
+
+test('R2-WB-01 changesHtml: next steps shown per role, money restricted text, escaped', () => {
+  const list = [{ id: 1, title: '<x>', reason: 'r', status: 'assessed', author_id: 5, author_name: 'pmo', impact_dates_days: 7, impact_budget: 100, currency: 'USD' }];
+  const mine = UI.changesHtml(list, esc, { me: 5, committee: true });
+  assert.ok(mine.includes('&lt;x&gt;') && !mine.includes('data-cr-action="approve"') && mine.includes('data-cr-action="withdraw"'));
+  const other = UI.changesHtml(list, esc, { me: 6, committee: true });
+  assert.ok(other.includes('data-cr-action="approve"') && other.includes('100 USD') && other.includes('+7 d'));
+  const viewer = UI.changesHtml([{ ...list[0], impact_budget: undefined, currency: undefined }], esc, { me: 9, committee: false, moneyHidden: true });
+  assert.ok(viewer.includes('restricted') && !viewer.includes('data-cr-action'));
+});

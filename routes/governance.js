@@ -688,8 +688,10 @@ module.exports = function governanceRoutes(deps) {
     // R2-WB-03 — the budget periods of the readable projects, for a money reader, while ppm_budget_periods_enabled is on
     let budgetPeriods = null;
     if (money && String(cx.ppm_budget_periods_enabled) === '1') { budgetPeriods = []; for (const id of ids) budgetPeriods.push(...await store.listBudgetPeriods(id)); }
+    // R2-WB-01 — change requests of the readable projects while ppm_change_requests_enabled is on
+    const changeRequests = String(cx.ppm_change_requests_enabled) === '1' ? await wbStore().listChangeRequestsFor([...ids]) : null;
     return { v: { ...v, benefits: (v.benefits || []).filter((b) => ids.has(b.project_id)) }, money, baselines, exceptions: await exceptionsFor(v0),
-      benefitClasses: String(cx.benefit_value_class_enabled) === '1', actualHours, budgetPeriods };
+      benefitClasses: String(cx.benefit_value_class_enabled) === '1', actualHours, budgetPeriods, changeRequests };
   }
   router.get('/api/governance/portfolio/deck.pptx', requireReportSession, async (req, res) => {
     try { const x = await exportData(req.reportUser); const buf = await require('../services/portfolioDeck').buildDeck(x.v, { money: x.money, exceptions: x.exceptions, asOf: x.v.as_of });
@@ -697,7 +699,7 @@ module.exports = function governanceRoutes(deps) {
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'); res.setHeader('Content-Disposition', `attachment; filename="portfolio-${x.v.as_of.slice(0, 10)}.pptx"`); res.send(buf); } catch (e) { fail(res, e); }
   });
   router.get('/api/governance/portfolio/workbook.xlsx', requireReportSession, async (req, res) => {
-    try { const x = await exportData(req.reportUser); const buf = require('../services/portfolioDeck').buildWorkbookBuffer(x.v, { money: x.money, baselines: x.baselines, exceptions: x.exceptions, benefitClasses: x.benefitClasses, actualHours: x.actualHours, budgetPeriods: x.budgetPeriods });
+    try { const x = await exportData(req.reportUser); const buf = require('../services/portfolioDeck').buildWorkbookBuffer(x.v, { money: x.money, baselines: x.baselines, exceptions: x.exceptions, benefitClasses: x.benefitClasses, actualHours: x.actualHours, budgetPeriods: x.budgetPeriods, changeRequests: x.changeRequests });
       log(req, 'portfolio_workbook', 'portfolio', { money: x.money });
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); res.setHeader('Content-Disposition', `attachment; filename="portfolio-${x.v.as_of.slice(0, 10)}.xlsx"`); res.send(buf); } catch (e) { fail(res, e); }
   });
