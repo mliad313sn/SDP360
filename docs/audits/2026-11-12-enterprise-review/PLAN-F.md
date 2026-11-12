@@ -61,3 +61,15 @@ service module (as W2-ITSM did) or lists the change as deferred.
 See section (f) of each panel report. The ones that block a pilot: supplying the review.1 artifact; portfolio access exceptions
 (IAM + PMO); the allocation convention (PMO); the Finance verifier and benefit method (Finance); KPI committee membership and the
 two decision KPIs; integration credentials (Meraki, Zoho/SDP Cloud); performance budgets; pilot cohort; signing and CAB.
+
+## 6. Amendment (12 Nov, requester decision): rebuild instead of waiting for review.1
+
+The requester asked not to depend on the unavailable artifact. The review.1 capabilities are re-specified in `REBUILD-SPEC.md`
+and built natively. Decision 4 and the reservation of 078/079 are superseded.
+
+| Bundle | Scope (REBUILD-SPEC ids) | Owns | Migrations |
+|---|---|---|---|
+| R1-PROFILES | R1, R2 (profile engine, workspace settings, per-user preferences API) — Home/shell wiring limited to a new module the shell loads behind the switch | services/workspaceProfiles.js, routes/workspace.js, public/workspace-settings.html, public/lib/workspace*.js | 078 |
+| R1-DEMO | R6 (repeatable two-site demonstration + journey) and R8 (sync write fence), plus a workbench gap list for R5 | tools/demo/*, tests/e2e demo spec, services/sync lease (after F1-SYNC: additive file) | 079 |
+| R2-QUEUE (after F2-UX merge) | R3, R4 (progressive queue S1 on Home, single active destination, site carried in links) | public/lib/home-page.js, public/_shell.js | — |
+| R2-WORKBENCH (after F1-PPM merge) | R5 gaps found by R1-DEMO (views list/board/timeline, roadmap publication checks) | project/portfolio pages | 085 |
