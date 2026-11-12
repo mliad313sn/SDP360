@@ -12,6 +12,7 @@ const MAX_FACTS = 500;
 function canonicalFrom(facts) {
   const set = new Set();
   for (const f of (facts || []).slice(0, MAX_FACTS)) {
+    // eslint-disable-next-line security/detect-unsafe-regex -- same bounded token pattern as aiCommentary.verifyNumbers (no nested quantifier)
     const nums = String(f == null ? '' : f).match(/-?\d+(?:[.,]\d+)?/g) || [];
     for (const raw of nums) {
       const v = Number(raw.replace(',', '.'));
