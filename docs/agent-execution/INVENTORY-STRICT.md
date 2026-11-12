@@ -8,15 +8,15 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 
 | Item | Count |
 |---|---:|
-| routes | 637 |
+| routes | 643 |
 | routes not measurable | 3 |
-| routes without strict test | 57 |
-| critical routes | 180 |
+| routes without strict test | 56 |
+| critical routes | 181 |
 | critical routes without strict test | 15 |
 | writes without strict test | 19 |
 | jobs | 31 |
-| jobs without strict test | 1 |
-| test sources | 709 |
+| jobs without strict test | 0 |
+| test sources | 739 |
 | without strict test access | 4 |
 | without strict test finance | 0 |
 | without strict test export | 7 |
@@ -81,7 +81,6 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 | GET | `/api/reports/technicians` | read | server.js |
 | POST | `/api/reports/test-smtp` | write | routes/adminConfig.js |
 | GET | `/api/risk-register-config/unmapped` | read | routes/riskRegister.js |
-| GET | `/api/sample/:viewId` | read | server.js |
 | GET | `/api/sites/:siteId/active-incidents` | read | server.js |
 | GET | `/api/sites/:siteId/open-changes` | read | server.js |
 | POST | `/api/survey/cache/clear` | write | routes/survey.js |
@@ -102,7 +101,6 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 
 | Job |
 |---|
-| engagement.schedule_reminders |
 
 ## Critical routes by class
 
@@ -112,5 +110,5 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 | finance | 22 | 0 |
 | export | 60 | 7 |
 | audit | 20 | 4 |
-| destructive | 31 | 1 |
-<!-- structure 3db9f16c4f200d76 -->
+| destructive | 32 | 1 |
+<!-- structure bf64fb4ac54a631e -->
