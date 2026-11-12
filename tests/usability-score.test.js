@@ -96,3 +96,16 @@ test('CLI main renders md and json, needs an input', () => {
   assert.match(U.main([`--sheet=${p}`]), /Usability scores/);
   assert.equal(JSON.parse(U.main([`--sheet=${p}`, '--format=json'])).tasks.template, 'T1-T8');
 });
+
+test('E-V10: the shipped T9-T12 sheet is accepted, covers 4 tasks x 4 roles, and carries no result', () => {
+  const csv = fs.readFileSync(path.join(__dirname, '..', 'docs/ops/pilot/T9-T12-SHEET.csv'), 'utf8');
+  const r = U.scoreTasks(csv);
+  assert.equal(r.template, 'T9-T12');
+  assert.equal(r.groups.length, 16);
+  assert.deepEqual([...new Set(r.groups.map((g) => g.task))].sort(), ['T10', 'T11', 'T12', 'T9']);
+  assert.deepEqual([...new Set(r.groups.map((g) => g.role))].sort(), ['Executive', 'Finance', 'PMO / portfolio', 'Site IT coordinator']);
+  for (const g of r.groups) { assert.equal(g.completion_known, 0); assert.equal(g.accuracy_pct, null); }
+  const proto = fs.readFileSync(path.join(__dirname, '..', 'docs/ops/USABILITY-TEST-PROTOCOL.md'), 'utf8');
+  assert.match(proto, /T9 — find the worst/); assert.match(proto, /T12 — compare two sites/);
+  assert.match(proto, /not measured/);
+});
