@@ -44,7 +44,8 @@ async function main(argv = process.argv.slice(2)) {
 }
 
 if (require.main === module) {
-  require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+  const envPath = path.join(__dirname, '..', '..', '.env');
+  require('dotenv').config({ path: envPath, quiet: true });
   main().catch((e) => { console.error('[ppm-integrity-report] ' + (e && e.message)); process.exitCode = 1; });
 }
 
