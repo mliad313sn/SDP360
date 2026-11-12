@@ -11,13 +11,13 @@
 | pages without declared role | 6 |
 | pages not in navigation | 29 |
 | pages with inline scripts | 46 |
-| routes | 613 |
+| routes | 625 |
 | routes without test reference | 48 |
 | routes in server js | 210 |
 | jobs | 30 |
 | jobs without test reference | 10 |
-| migrations | 74 |
-| test files | 621 |
+| migrations | 76 |
+| test files | 628 |
 
 ## Pages
 
@@ -66,8 +66,8 @@
 | PG-notifications | public/notifications.html | any | yes | 1 | 3 |
 | PG-obligations | public/obligations.html | any | yes | 0 | 3 |
 | PG-policies | public/policies.html | admin / committee-member | yes | 1 | 4 |
-| PG-portfolio | public/portfolio.html | any | yes | 1 | 8 |
-| PG-project | public/project.html | any | no | 1 | 8 |
+| PG-portfolio | public/portfolio.html | any | yes | 1 | 10 |
+| PG-project | public/project.html | any | no | 1 | 12 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 3 |
 | PG-reports | public/reports.html | any | yes | 2 | 26 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 4 |
