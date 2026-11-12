@@ -133,11 +133,9 @@ module.exports = function governanceRoutes(deps) {
   }
   async function trackerFacts(site) {
     const ts = trackerStore(); if (!ts) return [];
-    const out = [];
-    for (const t of await ts.list({ status: 'published' })) {
-      try { const r = await ts.scoreTracker(t.key); if (!r) continue; const unitCode = site ? (require('../tracker-db').siteToCode(site)) : null; const u = unitCode && r.units[unitCode]; out.push({ key: t.key, name: t.name, score: u ? u.score : r.fleet.mean, rag: u ? u.rag : (r.fleet.mean == null ? 'NA' : require('../services/kpiRag').rag(r.fleet.mean, 'tracker-executive')) }); } catch (_) {}
-    }
-    return out;
+    // W1-INTEGRITY — a tracker whose scoring fails stays listed as NOT MEASURED (null + reason), never dropped silently
+    const unitCode = site ? (require('../tracker-db').siteToCode(site)) : null;
+    return require('../services/trackerFacts').trackerFacts(await ts.list({ status: 'published' }), { score: (k) => ts.scoreTracker(k), unitCode, rag: (m) => require('../services/kpiRag').rag(m, 'tracker-executive'), onError: (e) => logError(e) });
   }
   async function objectiveViews(now = new Date()) {
     const pf = await store.portfolio(); const reg = registry(); const dd = readerDeps();
@@ -727,7 +725,8 @@ module.exports = function governanceRoutes(deps) {
   router.get('/api/governance/portfolio/report.html', requireReportSession, async (req, res) => {
     try { const v0 = (await viewFor(req.reportUser)).v; const v = canSeeMoney(req.reportUser) ? v0 : stripMoney(v0); const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
       const month = new Date().toISOString().slice(0, 7);
-      const rows = v.summary.map(s => `<tr><td>${esc(s.name)}</td><td>${s.objectives}</td><td>${s.auto_evidence_pct == null ? '—' : s.auto_evidence_pct + ' %'}</td><td>${s.weighted_evidence_pct == null ? '—' : s.weighted_evidence_pct + ' %'}</td><td>${s.projects}</td><td>${s.late_projects}</td><td>${s.high_risks}</td><td>${v.money_hidden ? '<small>restricted</small>' : s.currency_mixed ? Object.entries(s.budget_by_currency).map(([c, b]) => Math.round(b.spent) + ' / ' + Math.round(b.budget) + ' ' + esc(c)).join('<br>') : s.budget != null ? Math.round(s.spent) + ' / ' + Math.round(s.budget) + ' ' + esc(s.currency || '') : '—'}</td></tr>`).join('');
+      const amt = (n) => (n == null ? '—' : String(Math.round(n)));   // E-NULL-3: an unknown amount is "—", never 0
+      const rows = v.summary.map(s => `<tr><td>${esc(s.name)}</td><td>${s.objectives}</td><td>${s.auto_evidence_pct == null ? '—' : s.auto_evidence_pct + ' %'}</td><td>${s.weighted_evidence_pct == null ? '—' : s.weighted_evidence_pct + ' %'}</td><td>${s.projects}</td><td>${s.late_projects}</td><td>${s.high_risks}</td><td>${v.money_hidden ? '<small>restricted</small>' : s.currency_mixed ? Object.entries(s.budget_by_currency).map(([c, b]) => amt(b.spent) + ' / ' + amt(b.budget) + ' ' + esc(c)).join('<br>') : s.budget != null ? amt(s.spent) + ' / ' + amt(s.budget) + ' ' + esc(s.currency || '') : '—'}</td></tr>`).join('');
       const objs = v.objective_views.map(o => `<tr><td>${esc(o.name)}</td><td>${esc(o.status)}</td><td>${esc(o.confidence)}</td><td>${o.evidence_pct == null ? '—' : o.evidence_pct + ' %'} <small>(${esc(o.evidence_source)}${o.metric ? ' · ' + esc(o.metric.key) + ' @ ' + esc(o.metric.window || '') : ''})</small></td><td>${o.slip_days == null ? '—' : o.slip_days + ' d'}</td></tr>`).join('');
       const late = v.gantt.filter(g => g.alerts.length).map(g => `<li><b>${esc(g.key)}</b> ${esc(g.name)} — ${esc(g.alerts.join('; '))}</li>`).join('');
       const risks = v.risks.filter(r => r.status === 'open' && r.severity !== 'low').map(r => `<li>${esc(r.title)} — exposure ${r.exposure}${r.incident_ref ? ' · incident ' + esc(r.incident_ref) : ''}</li>`).join('');
