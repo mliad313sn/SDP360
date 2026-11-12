@@ -729,6 +729,30 @@ module.exports = function governanceRoutes(deps) {
     } catch (e) { fail(res, e); }
   });
   // Plan E wave 2 (W2-PPM): capacity, budget periods, RACI, templates, annual pack — same helpers, switch-gated
+  // ---- F-PRODUCT-05 — department crosswalk (migration 082): list-only admin view + roll-up behind a switch ------------
+  const DX = require('../services/departmentCrosswalk');
+  const dxStore = () => { let meetings = null; try { meetings = require('../meetings-db').getDB(); } catch (_) { meetings = null; } return require('../services/departmentCrosswalkStore').makeDepartmentCrosswalkStore({ reports: rdb().pgHandle(), meetings }); };
+  const rollupOn = async () => String((await reportConfig.getConfig(rdb().db)).department_rollup_enabled) === '1';
+  // list-only: the pairs are PROPOSED; approving or adding one is a decision for people, there is no write route
+  router.get('/api/governance/department-crosswalk', requireReportSession, async (req, res) => {
+    try {
+      if (!isAdmin(req.reportUser)) return httpFail(res, new Error('admin only'), 403, { ok: false });
+      const S = dxStore(); const [rows, mdNames, data] = [await S.listCrosswalk(), await S.mdNames(), await S.collectValues()];
+      const c = DX.check(data.values, DX.makeIndex(rows, { mdNames }));
+      res.json({ ok: true, read_only: true, rollup_enabled: await rollupOn(), rows: rows.map((r) => ({ ...r, md_name: r.md_code ? (mdNames[r.md_code] || null) : null })),
+        data: { total: c.total, mapped: c.mapped, not_set: c.not_set, unmapped_total: c.unmapped_total, unmapped: c.unmapped, not_measured: data.not_measured } });
+    } catch (e) { fail(res, e); }
+  });
+  // counts per crosswalked department across commitments, handoffs, report actions and PV issues (committee, fleet-wide);
+  // a value without a pair stays under "unmapped", listed as stored
+  router.get('/api/governance/department-rollup', requireReportSession, async (req, res) => {
+    try {
+      if (!(await rollupOn())) return httpFail(res, new Error('not found'), 404, { ok: false });
+      if (!isCommittee(req.reportUser)) return httpFail(res, new Error('committee only'), 403, { ok: false });
+      const S = dxStore(); const [rows, mdNames, data] = [await S.listCrosswalk(), await S.mdNames(), await S.collectValues()];
+      res.json({ ok: true, proposed: rows.some((r) => r.status === 'proposed'), sources: S.SOURCES, not_measured: data.not_measured, ...DX.rollup(data.values, DX.makeIndex(rows, { mdNames })) });
+    } catch (e) { fail(res, e); }
+  });
   require('./governancePpm')(router, { store, rdb, reportConfig, requireReportSession, json, isCommittee, canSeeMoney, viewFor, readableProject, refusePlanWrite, log });
   return router;
 };

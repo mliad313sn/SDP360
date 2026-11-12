@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (207) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (208) — services/reportConfig.js DEFAULTS
 
 Prerequisites (E-A07, services/switchPrereqs.js) are WARNINGS in plain words, never approvals: the config PUT
 answer and the `set-ui-policy.js` dry run repeat them when the switch is moved to its switched-on value.
@@ -69,6 +69,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `decision_lifecycle_enforced` | `0` | setting | Governance committee chair | `1` once the governance committee chair accepts the rule (PROPOSED: a site moves a decision `open` ↔ `in_progress` and proposes completion — its `done` is stored as `awaiting_confirmation` until the committee confirms; cancelling and reopening are committee acts with a reason; an illegal jump is refused, 409). The status history with actor and reason is recorded at `0` too | F-PRODUCT-06 | — |
 | `default_email_domain` | `edv-ops.com` | setting | to be named | — | — | — |
 | `delivery_failure_alert_enabled` | `0` | arm switch | Platform owner (D-13) | `1` once `sync_alert_recipients` (or the Teams URL) names who receives sync alerts (D-13) — the failed deliveries are already listed on System Logs either way | E-R04 | — |
+| `department_rollup_enabled` | `0` | arm switch | HR / department heads + Group IT | `1` only after HR / the department heads and Group IT have reviewed the crosswalk (`node tools/governance/department-crosswalk.js --check`; five exact pairs are PROPOSED, every other value is left alone — Process, Mill / Plant and Processing are not merged). At `1` the committee reads counts per crosswalked department (`GET /api/governance/department-rollup`); a value without a pair stays "unmapped". No stored label is renamed and no user gets a department | F-PRODUCT-05 | — |
 | `embed_frame_ancestors` | `` | setting | to be named | — | — | — |
 | `emergency_access_enabled` | `0` | arm switch | Security owner + Owner | `1` once the super_admins who may grant and review are named (a super_admin, never the beneficiary, max 24 h, review within 2 working days by another super_admin — PO decision R7; never waives a qualification) | C-22 | — |
 | `emergency_access_max_hours` | `24` | setting | Security owner | `24` (hard cap; may only be lowered) | C-22 | — |

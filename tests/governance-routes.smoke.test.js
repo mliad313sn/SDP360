@@ -138,6 +138,34 @@ test('decision lifecycle: off = any status, history rows either way; on = site p
   } finally { await sw('0'); }
 });
 
+// F-PRODUCT-05 — department crosswalk: list-only admin view; roll-up 404 while department_rollup_enabled = 0
+test('department crosswalk: admin list (read-only), roll-up behind the switch, unmapped values kept apart', async () => {
+  const rc = require('../services/reportConfig'); const sw = (v) => rc.setConfig(rdb.db, { department_rollup_enabled: v });
+  assert.equal((await rc.getConfig(rdb.db)).department_rollup_enabled, '0', 'default = today (no roll-up)');
+  assert.equal((await get('/api/governance/department-crosswalk')).status, 401);
+  for (const t of [editor, viewer, member]) assert.equal((await get('/api/governance/department-crosswalk', t)).status, 403);
+  const l = await (await get('/api/governance/department-crosswalk', admin)).json();
+  assert.equal(l.ok, true); assert.equal(l.read_only, true); assert.equal(l.rollup_enabled, false);
+  const pairs = l.rows.filter((r) => r.md_code && r.action_department_name);
+  assert.deepEqual(pairs.map((r) => r.md_code).sort(), ['finance', 'maintenance', 'mining', 'security', 'supply_chain']); assert.ok(pairs.every((r) => r.status === 'proposed'));
+  assert.equal(l.rows.find((r) => r.md_code === 'mill').md_name, 'Mill / Plant');
+  assert.ok(Array.isArray(l.data.unmapped)); assert.ok(Array.isArray(l.data.not_measured));
+  for (const m of ['POST', 'PUT', 'DELETE']) assert.ok((await send(m, '/api/governance/department-crosswalk', admin, { md_code: 'hr', action_department_name: 'Human Resource' })).status >= 400, `${m}: there is no write route`);
+  assert.deepEqual((await (await get('/api/governance/department-crosswalk', admin)).json()).rows, l.rows, 'nothing was written');
+  assert.equal((await get('/api/governance/department-rollup', admin)).status, 404, 'off: no roll-up');
+  await sw('1');
+  try {
+    assert.equal((await get('/api/governance/department-rollup', editor)).status, 403);
+    await rdb.db.prepare("INSERT INTO commitments (uid, kind, title, department, created_at, updated_at) VALUES ('gv-dx-1', 'issue', 'dx', 'Supply Chain', '2026-11-12', '2026-11-12'), ('gv-dx-2', 'issue', 'dx', 'Processing', '2026-11-12', '2026-11-12'), ('gv-dx-3', 'issue', 'dx', 'process', '2026-11-12', '2026-11-12')").run();
+    const r = await (await get('/api/governance/department-rollup', member)).json();
+    assert.equal(r.ok, true); assert.equal(r.proposed, true);
+    assert.ok(r.groups.find((g) => g.key === 'supply_chain').by_source.commitments >= 1);
+    const un = Object.fromEntries(r.unmapped.values.map((v) => [v.value, v.total]));
+    assert.ok(un.Processing >= 1 && un.process >= 1, 'Processing and process stay two lines');
+    assert.ok(!r.groups.some((g) => /process/i.test(g.key)));
+  } finally { await sw('0'); }
+});
+
 test('RFI: anyone submits, committee triages, list sorted by score; portfolio upsert + report; roadmap dry-run is super_admin only', async () => {
   assert.equal((await send('POST', '/api/governance/rfi', viewer, { kind: 'nope', title: 't', problem: 'p' })).status, 400);
   const r1 = await (await send('POST', '/api/governance/rfi', viewer, { kind: 'widget', title: 'Small', problem: 'p', impact: 1, effort: 3 })).json(); assert.match(r1.rfi.ref, /^RFI-\d{4}-001$/); assert.equal(r1.rfi.site_id, hounde);
