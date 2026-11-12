@@ -171,6 +171,7 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
 <script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
 <link rel="stylesheet" href="_shell.css">
 <script src="_shell.js"></script>
+<script src="lib/pageStates.js" data-last-resort="off"></script>
 </head>
 <body>
 
@@ -1899,6 +1900,7 @@ async function forceSync(){
 
 // ── Load ──────────────────────────────────────────────────────────────────
 async function loadData(){
+  if(window.PageStates)PageStates.slowNotice({overlayId:'loadOverlay',msgId:'loadMsg',after:20000,summaryHref:'home.html',stillLoading:()=>{const sp=document.querySelector('.spinner');return !!sp&&sp.style.display!=='none';}}); // F-UX-11
   const dot=document.getElementById('sdot'),stxt=document.getElementById('statusText');
   try{
     setH('loadMsg','Fetching ticket data from proxy…');
