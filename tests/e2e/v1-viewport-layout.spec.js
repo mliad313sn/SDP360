@@ -15,7 +15,9 @@ const layout = require('./fixtures/layout');
 const WIDTHS = [1440, 1024, 768, 390, 320];
 const PAGES = ['index', 'dashboards', 'analytics', 'assets', 'wan', 'cockpit', 'site-actions', 'access',
   // F-UX-04 — the pages a site coordinator lives in
-  'home', 'reports', 'meetings', 'meeting', 'inspection', 'inspections', 'site-awareness', 'field/index'];
+  'home', 'reports', 'meetings', 'meeting', 'inspection', 'inspections', 'site-awareness', 'field/index',
+  // UAT-OI-03 — the admin console (reports.html#admin, Users panel) at every width
+  'reports#admin'];
 // Pages without the shared shell (the field PWA has its own header): the header checks do not apply.
 const NO_SHELL = new Set(['field/index']);
 // F-UX-04 — known reflow problems as of the day the matrix was widened: "page@width" → reason. The list may only
@@ -65,9 +67,11 @@ runJourney('V1 viewport matrix key pages layout and console', async ({ app, base
     await login(page, world.users.sa, '/home.html');
     for (const p of PAGES) {
       errs = [];
-      await page.goto(base + '/' + p + '.html');
+      const [file, hash] = p.split('#');
+      await page.goto(base + '/' + file + '.html' + (hash ? '#' + hash : ''));
       await page.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
-      assert.strictEqual(new URL(page.url()).pathname, '/' + p + '.html', p + ' at ' + w + ' px was redirected to ' + page.url());
+      assert.strictEqual(new URL(page.url()).pathname, '/' + file + '.html', p + ' at ' + w + ' px was redirected to ' + page.url());
+      if (hash === 'admin') await page.waitForSelector('#ap-users.active', { timeout: 15000 });
       const m = await page.evaluate(layout.measure);
       const bad = layout.judge(m, { shell: !NO_SHELL.has(p) });
       if (errs.length) bad.push('console errors: ' + errs.join(' | '));
@@ -75,7 +79,7 @@ runJourney('V1 viewport matrix key pages layout and console', async ({ app, base
       if (bad.length && !KNOWN[key]) problems.push(`${p} @${w}px: ${bad.join('; ')}`);
       if (!bad.length && KNOWN[key]) problems.push(`${key} is listed in fixtures/reflow-known.json but now passes — remove it`);
       if (w === 1440) await j.measure(page, p);
-      await page.screenshot({ path: path.join(shots, `${p.replace('/', '-')}-${w}.png`) }).catch(() => {});
+      await page.screenshot({ path: path.join(shots, `${p.replace(/[\/#]/g, '-')}-${w}.png`) }).catch(() => {});
     }
     await ctx.close();
   }
