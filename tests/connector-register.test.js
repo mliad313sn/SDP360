@@ -23,7 +23,7 @@ const INTERNAL = new Map([
   ['tools/sdp-manager.js', 'operator tool calling the app’s own endpoints'],
 ]);
 const OUTBOUND = /require\(['"](axios|https?|node-fetch|undici|nodemailer)['"]\)|(^|[^.\w])fetch\(|https?\.(request|get)\(|\bsafe(Get|Post)\(/m;
-const EXCLUDED_HOST = /pronto|nutanix|veeam|commvault|veritas|rubrik|cohesity|securitycenter|security\.microsoft|api\.securitycenter|defender|atlassian|jira|asana|monday\.com|smartsheet|planview|clarity\.|projectonline|osisoft|aveva|intelex|enablon|cority/i;
+const EXCLUDED_HOST = /pronto|nutanix|veeam|commvault|veritas|rubrik|cohesity|securitycenter|security\.microsoft|api\.securitycenter|defender|osisoft|aveva|intelex|enablon|cority/i;
 const STATUSES = /^(ACTIVE|DORMANT|CONDITIONAL|OFF)/;
 
 function parseCsv(text) {
@@ -79,8 +79,8 @@ test('no outbound caller and no default allowed host points at an excluded syste
 });
 
 test('the excluded-system pattern does catch the systems it names (self-check)', () => {
-  for (const h of ['api.securitycenter.microsoft.com', 'erp.pronto.example', 'prism.nutanix.local', 'veeam-api.corp', 'acme.atlassian.net', 'app.smartsheet.com']) assert.ok(EXCLUDED_HOST.test(h), h);
-  for (const h of ['api.meraki.com', 'analyticsplusapi.manageengine.com', 'graph.microsoft.com', 'x.webhook.office.com']) assert.ok(!EXCLUDED_HOST.test(h), h);
+  for (const h of ['api.securitycenter.microsoft.com', 'erp.pronto.example', 'prism.nutanix.local', 'veeam-api.corp']) assert.ok(EXCLUDED_HOST.test(h), h);
+  for (const h of ['api.meraki.com', 'analyticsplusapi.manageengine.com', 'graph.microsoft.com', 'x.webhook.office.com', 'acme.atlassian.net', 'app.smartsheet.com']) assert.ok(!EXCLUDED_HOST.test(h), h);
 });
 
 test('D-06: the Meraki connector stays registered as ACTIVE', () => {

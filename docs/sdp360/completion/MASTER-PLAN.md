@@ -37,8 +37,9 @@ The review's evidence predates three facts. Each one updates the plan:
    to KPI formulas and thresholds (D-01…D-03) and financial figures (G14).
 6. **Meraki is kept (D-06, requester decision 2026-10-28).** The Meraki connectors are supported scope, not dormant legacy: they stay in the connector register as active, and the excluded-connector audit allows them.
 7. **Excluded connectors are checked by a test, not by policy alone.** G19 adds an automated audit that fails
-   if new code calls a prohibited system: Pronto, OT/HSE, ISP, Nutanix, backup platforms, Defender, or an
-   external PPM tool.
+   if new code calls a prohibited system: Pronto, OT/HSE, ISP, Nutanix, backup platforms or Defender.
+   (External PPM tools were removed from this list on 2026-11-12 by user decision: optional connectors are
+   allowed, but the native project tool must stay usable on its own.)
 
 ## 3. Dependency-ordered execution (agent work only)
 

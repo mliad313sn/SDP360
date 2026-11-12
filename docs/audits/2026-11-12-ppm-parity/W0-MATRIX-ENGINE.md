@@ -111,7 +111,7 @@ SDP360's PPM is a **lightweight IT portfolio/governance tool, not a scheduling e
 | J1 | MSPDI XML lossless round-trip | MISSING | no MSPDI code (grep) | — | P1 | Importer/exporter — a FILE format, in boundary (not a connector) |
 | J2 | CSV/Excel mapped import/export documented as lossy | PARTIAL | exports: `workbook.xlsx`, `deck.pptx`, `raci.csv`, `annual-pack.xlsx` (`routes/governance.js:696-706`, `routes/governancePpm.js:81,131`); no task import, no lossiness doc | ppm-baselines.smoke "deck.pptx and workbook.xlsx…"; ppm-raci-templates "matrix + CSV…" | P1 | Mapped task import + documented loss |
 | J3 | .mpp / Primavera P6 files | MISSING | — | — | P3 | File import (XER/XML) is in boundary; binary .mpp needs licensed library |
-| J4 | Jira / Azure DevOps | OUT-OF-BOUNDARY | — | — | — | Live connectors to an external work/PPM tool are forbidden by SDP360_BOUNDARIES.md |
+| J4 | Jira / Azure DevOps | MISSING | — | — | P3 | Was OUT-OF-BOUNDARY at audit time; the user lifted the external-PPM-connector ban on 2026-11-12. Allowed as an optional extra only — the native tool must stand alone. |
 | J5 | REST API | PARTIAL | internal JSON routes, session-cookie auth, undocumented for third parties | ppm-project-lifecycle.smoke (HTTP) | P3 | Documented, token-auth API |
 | J6 | Webhooks (PPM events) | MISSING | webhooks exist only for Teams SLA alerts | — | P3 | Outbound event webhook (not a connector to a PPM tool) |
 | J7 | SSO | IMPLEMENTED (platform) | Entra OIDC `services/ssoEntra.js`, `ssoSettings.js` | sso-routes.smoke, sso-entra, sso-login | — | — |
