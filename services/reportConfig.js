@@ -15,7 +15,8 @@ const DEFAULTS = {
   ui_url_filters: '0',                  // E-U02 '1' = Analytics filters written to / restored from the URL (Reset clears)
   ui_nav_active_from_url: '0',          // F-UX-02 '1' = a page whose data-current names no menu entry is marked from its address
   ux_event_telemetry: '0',              // F-UX-06 '1' = task events (export, drill, action open/done, first click) are recorded
-  ui_home_blocks: '0',                  // F-UX-09 '1' = Home blocks show their own state, retry per card, failed call keeps the page
+  ui_home_blocks: '0',
+  ui_exec_charts_v2: '0',               // F-UX-12 '1' = Executive Scorecard: small multiples instead of dual axes, bars instead of rings                  // F-UX-09 '1' = Home blocks show their own state, retry per card, failed call keeps the page
   ui_small_multiples: '0',              // E-V09 '1' = the `multiples` widget type (one panel per metric) is creatable
   ui_feedback_enabled: '0',             // E-B07 '1' = Feedback button in the shell + /api/feedback (else 404)
   ui_data_quality_page: '0',            // E-D07 '1' = Data quality board in the nav + data-quality.html (else 404)

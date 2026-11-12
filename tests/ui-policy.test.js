@@ -6,7 +6,7 @@ const assert = require('node:assert');
 const { uiPolicyFrom, UI_DEFAULTS, isAllowed, UI_KEYS } = require('../services/uiPolicy');
 const { DEFAULTS } = require('../services/reportConfig');
 
-const TODAY = { lang_default: '', i18n_pages: '0', role_landing: '0', nav_profile: 'full', deck_builder_roles: ['super_admin'], exec_nav: 'full', kpi_base_line: '0', kpi_sample_size: '0', small_multiples: '0', feedback: '0', data_quality_page: '0', url_filters: '0', nav_active_from_url: '0', home_blocks: '0', ux_events: '0' };
+const TODAY = { lang_default: '', i18n_pages: '0', role_landing: '0', nav_profile: 'full', deck_builder_roles: ['super_admin'], exec_nav: 'full', kpi_base_line: '0', kpi_sample_size: '0', small_multiples: '0', feedback: '0', data_quality_page: '0', url_filters: '0', nav_active_from_url: '0', home_blocks: '0', exec_charts_v2: '0', ux_events: '0' };
 
 test('an empty config gives today\'s defaults', () => {
   assert.deepStrictEqual(uiPolicyFrom({}), TODAY);
@@ -20,8 +20,8 @@ test('unknown values fall back to the defaults', () => {
 });
 
 test('allowed values are passed through', () => {
-  const p = uiPolicyFrom({ ui_lang_default: 'fr', ui_nav_profile: 'lean', ui_i18n_pages: '1', ui_role_landing: '1', ui_deck_builder_roles: 'super_admin, executive,report-author', ui_exec_nav: 'consolidated', kpi_base_line: '0', kpi_sample_size: '0', small_multiples: '0', feedback: '0', data_quality_page: '0', url_filters: '0', nav_active_from_url: '0', home_blocks: '0', ux_events: '0' });
-  assert.deepStrictEqual(p, { lang_default: 'fr', i18n_pages: '1', role_landing: '1', nav_profile: 'lean', deck_builder_roles: ['super_admin', 'executive', 'report-author'], exec_nav: 'consolidated', kpi_base_line: '0', kpi_sample_size: '0', small_multiples: '0', feedback: '0', data_quality_page: '0', url_filters: '0', nav_active_from_url: '0', home_blocks: '0', ux_events: '0' });
+  const p = uiPolicyFrom({ ui_lang_default: 'fr', ui_nav_profile: 'lean', ui_i18n_pages: '1', ui_role_landing: '1', ui_deck_builder_roles: 'super_admin, executive,report-author', ui_exec_nav: 'consolidated', kpi_base_line: '0', kpi_sample_size: '0', small_multiples: '0', feedback: '0', data_quality_page: '0', url_filters: '0', nav_active_from_url: '0', home_blocks: '0', exec_charts_v2: '0', ux_events: '0' });
+  assert.deepStrictEqual(p, { lang_default: 'fr', i18n_pages: '1', role_landing: '1', nav_profile: 'lean', deck_builder_roles: ['super_admin', 'executive', 'report-author'], exec_nav: 'consolidated', kpi_base_line: '0', kpi_sample_size: '0', small_multiples: '0', feedback: '0', data_quality_page: '0', url_filters: '0', nav_active_from_url: '0', home_blocks: '0', exec_charts_v2: '0', ux_events: '0' });
 });
 
 test('every ui_* key is in reportConfig.DEFAULTS with today\'s value', () => {
@@ -29,7 +29,7 @@ test('every ui_* key is in reportConfig.DEFAULTS with today\'s value', () => {
     assert.ok(k in DEFAULTS, `${k} missing from reportConfig.DEFAULTS (setConfig would drop it)`);
     assert.strictEqual(DEFAULTS[k], UI_DEFAULTS[k], `${k} default`);
   }
-  assert.deepStrictEqual(UI_KEYS.slice().sort(), ['ui_data_quality_page', 'ui_deck_builder_roles', 'ui_exec_nav', 'ui_feedback_enabled', 'ui_home_blocks', 'ui_i18n_pages', 'ui_kpi_base_line', 'ui_kpi_sample_size', 'ui_lang_default', 'ui_nav_active_from_url', 'ui_nav_profile', 'ui_role_landing', 'ui_small_multiples', 'ui_url_filters']);
+  assert.deepStrictEqual(UI_KEYS.slice().sort(), ['ui_data_quality_page', 'ui_deck_builder_roles', 'ui_exec_charts_v2', 'ui_exec_nav', 'ui_feedback_enabled', 'ui_home_blocks', 'ui_i18n_pages', 'ui_kpi_base_line', 'ui_kpi_sample_size', 'ui_lang_default', 'ui_nav_active_from_url', 'ui_nav_profile', 'ui_role_landing', 'ui_small_multiples', 'ui_url_filters']);
 });
 
 test('isAllowed validates a value against the allowed set', () => {
