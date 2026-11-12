@@ -17,7 +17,7 @@ module.exports = function dataQualityRoutes(deps) {
 
   router.get('/data-quality.html', gate, (req, res) => deps.sendHtmlPage(res, 'data-quality.html', false, 'Data quality unavailable'));
 
-  router.get('/api/data-quality', gate, requireReportSession, async (req, res) => {
+  router.get('/api/data-quality', requireReportSession, gate, async (req, res) => {
     try {
       const R = rdb();
       if (!R.userHasRole(req.reportUser, 'admin')) return fail(res, new Error('Admin role required'), 403);

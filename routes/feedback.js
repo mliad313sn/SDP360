@@ -47,7 +47,7 @@ module.exports = function feedbackRoutes(deps) {
   const gate = async (req, res, next) => ((await enabled()) ? next() : fail(res, new Error('Not found'), 404));
   const admin = (req, res, next) => (rdb().userHasRole(req.reportUser, 'admin') ? next() : fail(res, new Error('Admin role required'), 403));
 
-  router.post('/api/feedback', gate, requireReportSession, async (req, res) => {
+  router.post('/api/feedback', requireReportSession, gate, async (req, res) => {
     try {
       const v = validateSubmission(req.body, req.reportUser, tierOf);
       if (v.error) return fail(res, new Error(v.error), 400);
@@ -58,7 +58,7 @@ module.exports = function feedbackRoutes(deps) {
     } catch (e) { fail(res, e); }
   });
 
-  router.get('/api/feedback/mine', gate, requireReportSession, async (req, res) => {
+  router.get('/api/feedback/mine', requireReportSession, gate, async (req, res) => {
     try {
       const rows = await H().prepare(`SELECT id, created_at, kind, page, body, status, response, triaged_at FROM product_feedback
         WHERE user_id = ? AND anonymous = 0 ORDER BY id DESC LIMIT 50`).all(Number(req.reportUser.id));
@@ -66,7 +66,7 @@ module.exports = function feedbackRoutes(deps) {
     } catch (e) { fail(res, e); }
   });
 
-  router.get('/api/feedback', gate, requireReportSession, admin, async (req, res) => {
+  router.get('/api/feedback', requireReportSession, gate, admin, async (req, res) => {
     try {
       const c = [], p = [];
       const st = clip(req.query.status, 20);
@@ -79,7 +79,7 @@ module.exports = function feedbackRoutes(deps) {
     } catch (e) { fail(res, e); }
   });
 
-  router.post('/api/feedback/:id/triage', gate, requireReportSession, admin, async (req, res) => {
+  router.post('/api/feedback/:id/triage', requireReportSession, gate, admin, async (req, res) => {
     try {
       const id = Number.parseInt(req.params.id, 10);
       if (!(id > 0)) return fail(res, new Error('bad id'), 400);

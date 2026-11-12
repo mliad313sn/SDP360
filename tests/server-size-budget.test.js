@@ -6,7 +6,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 
-const BUDGET = 7012;   // 2026-11-05 (E-D02): /api/reports/sites* routes extracted to routes/sites.js (E-A01 survey, E-A01b tracker before: 7909 -> 7314 -> 7088 -> 7012 lines by split count)
+const BUDGET = 7003;   // 2026-11-12 (W2-SRV): dash-key scope moved to services/dashKeyScope.js (7012 -> 7003 after E-Q07/E-B07/E-B08/E-D07 wiring). Before: 2026-11-05 (E-D02): /api/reports/sites* routes extracted to routes/sites.js (E-A01 survey, E-A01b tracker before: 7909 -> 7314 -> 7088 -> 7012 lines by split count)
 
 test(`server.js stays under its line budget (${BUDGET})`, () => {
   const n = fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8').split('\n').length;
