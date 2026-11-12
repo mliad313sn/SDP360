@@ -95,6 +95,22 @@ const GOVERNANCE = {
   ],
 };
 
+// F-DATA-11 (E08) — the two decision-KPI CANDIDATES proposed to the KPI committee (docs/kpi/DECISION-KPIS-PROPOSAL.md).
+// NOT in SEED_DASHBOARDS: saved as an unpublished DRAFT only when report_config dashboard_decision_kpis_seed = '1'
+// (default '0' = nothing is created). Nothing here selects a KPI, sets a threshold or names a decider.
+const DECISION_KPIS = {
+  key: 'decision-kpis', title: 'Decision KPIs — candidates (draft, not adopted)', audience: 'committee',
+  grid: { columns: 12 },
+  filters: [{ key: 'site', type: 'site' }, { key: 'window', type: 'window' }],
+  widgets: [
+    { id: 'intro', type: 'text', layout: L(0, 0, 12, 1), markdown: '**Candidates, not decisions.** Two figures proposed to the KPI committee as decision KPIs. No threshold, owner or decision is recorded here.' },
+    { id: 'sla', type: 'kpi', metric: 'helpdesk.resolution_sla_pct', title: 'Resolution SLA (site, month)', layout: L(0, 1, 3, 2), compare: 'fleet' },
+    { id: 'sla-sites', type: 'table', metric: 'helpdesk.resolution_sla_pct', title: 'Resolution SLA — per site', layout: L(3, 1, 9, 4) },
+    { id: 'insp', type: 'kpi', metric: 'inspection.overdue_actions', title: 'Overdue corrective actions (site)', layout: L(0, 3, 3, 2), compare: 'fleet' },
+    { id: 'insp-sites', type: 'table', metric: 'inspection.overdue_actions', title: 'Overdue corrective actions — per site', layout: L(0, 5, 12, 4) },
+  ],
+};
+
 const SEED_DASHBOARDS = [EXEC_HOME, SITE_WEEKLY, ASSETS_HYGIENE, FIELD_SITE, GOVERNANCE];
 
-module.exports = { SEED_DASHBOARDS, EXEC_HOME, SITE_WEEKLY, ASSETS_HYGIENE, FIELD_SITE };
+module.exports = { DECISION_KPIS, SEED_DASHBOARDS, EXEC_HOME, SITE_WEEKLY, ASSETS_HYGIENE, FIELD_SITE };

@@ -13,6 +13,7 @@ const DEFAULTS = {
   ui_kpi_base_line: '0',                // E-V03 '1' = KPI tiles show their base population ("n = 142 closed" / "base not measured")
   ui_kpi_sample_size: '0',              // E-K02 '1' = "n = …" on tiles/grid cells + low-sample warning from an ADOPTED kpi_policy
   ui_kpi_definition_drawer: '0',        // F-DATA-07 '1' = "Definition" drawer on KPI tiles (formula, window, denominator, source job, certification)
+  dashboard_decision_kpis_seed: '0',    // F-DATA-11 '1' = the two candidate decision KPIs are saved as a DRAFT dashboard `decision-kpis` (never published by code)
   ui_small_multiples: '0',              // E-V09 '1' = the `multiples` widget type (one panel per metric) is creatable
   ui_feedback_enabled: '0',             // E-B07 '1' = Feedback button in the shell + /api/feedback (else 404)
   ui_data_quality_page: '0',            // E-D07 '1' = Data quality board in the nav + data-quality.html (else 404)

@@ -8,7 +8,7 @@ const path = require('path');
 const ROOT = path.join(__dirname, '..', '..');
 const CITE = /`([\w./-]+\.(?:js|mjs|html|sql)):(\d+)`( \(`([^`]+)`\))/g;
 let moved = 0, lost = 0;
-for (const f of ['COMMITTEE-CHARTER.md', 'PV-TEMPLATE.md', 'FORMULA-REFERENCE.md']) {
+for (const f of ['COMMITTEE-CHARTER.md', 'PV-TEMPLATE.md', 'FORMULA-REFERENCE.md', 'DECISION-KPIS-PROPOSAL.md']) {
   const p = path.join(ROOT, 'docs', 'kpi', f);
   const text = fs.readFileSync(p, 'utf8');
   const out = text.replace(CITE, (all, file, line, tail, anchor) => {

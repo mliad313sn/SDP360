@@ -31,7 +31,15 @@ function createStore(rdbMod, { log = console.log } = {}) {
   const pg = rdbMod.REPORTS_BACKEND === 'postgres';
   const st = require('../services/dashboardStore').makeDashboardStore(({ prepare: (sql) => rdbMod.pgHandle().prepare(sql) }), { isPg: pg });
   
-  st.seedAtBoot = async () => {  await st.init(); const a = await st.seed(require('../services/dashboardSeeds').SEED_DASHBOARDS); if (a.length) log(`[dashboards] seeded ${a.join(', ')}`); return a; };
+  st.seedAtBoot = async () => {
+    await st.init(); const S = require('../services/dashboardSeeds'); const a = await st.seed(S.SEED_DASHBOARDS); if (a.length) log(`[dashboards] seeded ${a.join(', ')}`);
+    // F-DATA-11 — dashboard_decision_kpis_seed ('0' default = nothing): '1' saves the candidate dashboard as a DRAFT, never published
+    try {
+      const c = await require('../services/reportConfig').getConfig(rdbMod.db);
+      if (String(c && c.dashboard_decision_kpis_seed) === '1' && !(await st.get(S.DECISION_KPIS.key))) { await st.saveDraft(S.DECISION_KPIS, { user: null }); a.push(S.DECISION_KPIS.key + ' (draft)'); log('[dashboards] decision-kpis saved as a draft (not published)'); }
+    } catch (e) { log(`[dashboards] decision-kpis draft not created: ${e.message}`); }
+    return a;
+  };
   return st;
 }
 

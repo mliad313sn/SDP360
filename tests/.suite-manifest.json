@@ -286,7 +286,7 @@
   "kpi-change-parity.test.js": 5,
   "kpi-change-success.test.js": 2,
   "kpi-contract-completion.test.js": 6,
-  "kpi-docs-links.test.js": 5,
+  "kpi-docs-links.test.js": 7,
   "kpi-policy-engine.test.js": 7,
   "kpi-policy-routes.smoke.test.js": 4,
   "kpi-rag.test.js": 7,
