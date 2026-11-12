@@ -1497,7 +1497,7 @@ app.get('/meetings-import.html',     (req, res) => sendHtmlPage(res, 'meetings-i
 app.get('/meetings-progress.html',   (req, res) => sendHtmlPage(res, 'meetings-progress.html',   false, 'Progress view unavailable'));
 app.get('/meetings-insights.html',   (req, res) => sendHtmlPage(res, 'meetings-insights.html',   false, 'Meetings dashboard unavailable'));
 app.get('/meetings-setup.html',      (req, res) => sendHtmlPage(res, 'meetings-setup.html',      false, 'Meetings setup unavailable'));
-app.use(require('./routes/myWork')({ express, requireReportSession, sendHtmlPage })); app.use(require('./routes/dataQuality')({ express, requireReportSession, sendHtmlPage }));   // A-10 · E-D07 Home / My work — before express.static so home.html gets its nonce + ?v= app.use(require('./routes/workspace')({ express, requireReportSession, sendHtmlPage }));   // R1-PROFILES workspace settings (404 while workspace_profiles_enabled = '0')
+app.use(require('./routes/myWork')({ express, requireReportSession, sendHtmlPage })); app.use(require('./routes/dataQuality')({ express, requireReportSession, sendHtmlPage })); app.use(require('./routes/workspace')({ express, requireReportSession, sendHtmlPage }));   // R1-PROFILES workspace (404 while switch off) · A-10 · E-D07 Home / My work — before express.static so home.html gets its nonce + ?v=
 
 // ── Static assets — cached aggressively in the browser ───────────────────────
 // Everything in public/ that isn't one of the protected HTML pages above:

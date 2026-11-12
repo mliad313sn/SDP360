@@ -15,7 +15,7 @@
   "jobs": 31,
   "jobs_without_test_reference": 0,
   "migrations": 85,
-  "test_files": 712
+  "test_files": 713
  },
  "pages": [
   {
@@ -1868,6 +1868,7 @@
    "bytes": 4348,
    "tests": [
     "tests/i18n-coverage.test.js",
+    "tests/workspace-mounted.smoke.test.js",
     "tests/workspace-routes.smoke.test.js"
    ]
   }
@@ -10473,6 +10474,7 @@
    "file": "routes/workspace.js",
    "line": 38,
    "tests": [
+    "tests/workspace-mounted.smoke.test.js",
     "tests/workspace-profiles-grants-nothing.smoke.test.js",
     "tests/workspace-routes.smoke.test.js"
    ]
@@ -11190,6 +11192,7 @@
    "file": "routes/workspace.js",
    "line": 36,
    "tests": [
+    "tests/workspace-mounted.smoke.test.js",
     "tests/workspace-routes.smoke.test.js"
    ]
   }

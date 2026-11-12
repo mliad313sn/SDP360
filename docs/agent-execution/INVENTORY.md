@@ -20,7 +20,7 @@
 | jobs | 31 |
 | jobs without test reference | 0 |
 | migrations | 85 |
-| test files | 712 |
+| test files | 713 |
 
 ## Pages
 
@@ -84,7 +84,7 @@
 | PG-wan-health | public/wan-health.html | UNKNOWN | no | 0 | 4 |
 | PG-wan-sla | public/wan-sla.html | UNKNOWN | no | 0 | 4 |
 | PG-wan | public/wan.html | any | yes | 3 | 14 |
-| PG-workspace-settings | public/workspace-settings.html | any | no | 0 | 2 |
+| PG-workspace-settings | public/workspace-settings.html | any | no | 0 | 3 |
 
 ## Page entry points (E-U04)
 
