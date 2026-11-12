@@ -39,7 +39,7 @@ function demoSeed(holder) {
     const dash = require(path.join(ROOT, 'services', 'dashboardStore.js')).makeDashboardStore({ prepare: (sql) => pg.prepare(sql) }, { isPg: true });
     // R2-WORKBENCH — the workbench switches are set in THIS throwaway database only, before seeding, so the demo's
     // change request is a native one and the workbook carries the budget periods and the changes (R2-WB-01/03)
-    await require(path.join(ROOT, 'services', 'reportConfig.js')).setConfig(app.rdb.db, { ppm_change_requests_enabled: '1', ppm_budget_periods_enabled: '1' }, 'demo-e2e');
+    await require(path.join(ROOT, 'services', 'reportConfig.js')).setConfig(app.rdb.db, { ppm_change_requests_enabled: '1', ppm_budget_periods_enabled: '1', portfolio_views_enabled: '1' }, 'demo-e2e');
     const seeded = await DEMO.seedDemo({ rdb: app.rdb, gov, dash, tag: 'e2e', nativeChangeRequests: true });
     holder.target = target;
     return { ...seeded, users: seeded.users, inventory: { ...seeded.inventory, database: target.database, schema: target.schema } };
@@ -59,6 +59,16 @@ runJourney('DEMO two-site synthetic journey: Home → portfolio → project → 
   await pmo.goto(app.base + '/portfolio.html');
   await pmo.waitForFunction(() => /DEMO WAN redundancy/.test(document.body.textContent), null, { timeout: 20000 });
   await j.measure(pmo, 'portfolio');
+  // R2-WB-05 — the board view (?view=board) shows the demo project under its stage; the board is read-only links
+  await pmo.goto(app.base + '/portfolio.html?view=board');
+  await pmo.waitForFunction(() => { const b = document.getElementById('board'); return b && !b.hidden && /DEMO WAN redundancy/.test(b.textContent); }, null, { timeout: 20000 });
+  const col = await pmo.$eval('#board', (b) => { const a = [...b.querySelectorAll('.pf-card a')].find((x) => /DEMO WAN redundancy/.test(x.textContent)); return a ? a.closest('.pf-col').getAttribute('aria-label') : null; });
+  assert.match(col || '', /^proposal \(/, 'the demo project (no stage yet) is in the proposal column');
+  assert.equal(await pmo.$eval('#pf-views [aria-current="page"]', (a) => a.getAttribute('data-view')), 'board');
+  assert.equal(await pmo.$$eval('#pf-views [aria-current]', (l) => l.length), 1);
+  await pmo.click('#pf-views [data-view="list"]');
+  assert.match(pmo.url(), /view=list/); assert.ok(await pmo.$eval('#list-view', (x) => !x.hidden && /DEMO WAN redundancy/.test(x.textContent)), 'list view = the table');
+  await j.measure(pmo, 'portfolio-board');
   await pmo.goto(app.base + '/project.html?id=' + ids.project + '#plan');
   await pmo.waitForSelector('#task-row-' + ids.t3, { state: 'attached', timeout: 20000 });
   const cells = async (tid) => pmo.$$eval('#task-row-' + tid + ' td', (tds) => tds.map((td) => td.textContent.trim()));

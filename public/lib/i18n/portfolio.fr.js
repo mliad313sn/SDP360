@@ -16,6 +16,7 @@
     'Effort hours (task)': 'Effort en heures (tâche)',
     'Depends on task ids (task, comma)': 'Dépend des tâches (ids, séparés par des virgules)',
     'Portfolio': 'Portefeuille',
+    'Portfolio views': 'Vues du portefeuille', 'Timeline': 'Chronologie', 'List': 'Liste', 'Board': 'Tableau par étape',
     'Programmes → objectives (evidence from the KPI dictionary) → projects → milestones → deliverables, with risks. “—” means not measured, never 0 (help §25).':
       'Programmes → objectifs (preuve issue du dictionnaire de KPI) → projets → jalons → livrables, avec les risques. « — » signifie non mesuré, jamais 0 (aide §25).',
     'Monthly report (HTML)': 'Rapport mensuel (HTML)', 'Roadmap Manager migration — dry run': 'Migration du Roadmap Manager — simulation',

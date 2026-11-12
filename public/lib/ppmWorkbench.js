@@ -37,13 +37,13 @@
     $('team-save').setAttribute('data-wired', '1');
     var field = function (id) { var v = $(id).value.trim(); return v === '' ? null : v; };
     $('team-save').addEventListener('click', function () {
-      var b = { id: field('tm-id') ? Number(field('tm-id')) : undefined, label: field('tm-label'), role: field('tm-role'), allocation_pct: field('tm-alloc') == null ? null : Number(field('tm-alloc')), from_day: field('tm-from'), to_day: field('tm-to'), user_id: field('tm-user') == null ? null : Number(field('tm-user')) };
-      ctx.api(url, { method: 'PUT', body: JSON.stringify(b) }).then(function (j) { ctx.msg('Team member saved.'); draw(j.members); ['tm-id', 'tm-label', 'tm-role', 'tm-alloc', 'tm-from', 'tm-to', 'tm-user'].forEach(function (k) { $(k).value = ''; }); }).catch(ctx.fail);
+      var b = { id: TEAM.editId || undefined, label: field('tm-label'), role: field('tm-role'), allocation_pct: field('tm-alloc') == null ? null : Number(field('tm-alloc')), from_day: field('tm-from'), to_day: field('tm-to'), user_id: field('tm-user') == null ? null : Number(field('tm-user')) };
+      ctx.api(url, { method: 'PUT', body: JSON.stringify(b) }).then(function (j) { ctx.msg('Team member saved.'); draw(j.members); TEAM.editId = null; ['tm-label', 'tm-role', 'tm-alloc', 'tm-from', 'tm-to', 'tm-user'].forEach(function (k) { $(k).value = ''; }); }).catch(ctx.fail);
     });
     $('team').addEventListener('click', function (ev) {
       var e = ev.target.closest && ev.target.closest('[data-team-edit]'), d = ev.target.closest && ev.target.closest('[data-team-del]');
       if (e) { var m = TEAM.members.filter(function (x) { return String(x.id) === e.getAttribute('data-team-edit'); })[0]; if (!m) return;
-        $('tm-id').value = m.id; $('tm-label').value = m.label || ''; $('tm-role').value = m.role || ''; $('tm-alloc').value = m.allocation_pct == null ? '' : m.allocation_pct; $('tm-from').value = m.from_day || ''; $('tm-to').value = m.to_day || ''; $('tm-user').value = m.user_id == null ? '' : m.user_id; }
+        TEAM.editId = m.id; $('tm-label').value = m.label || ''; $('tm-role').value = m.role || ''; $('tm-alloc').value = m.allocation_pct == null ? '' : m.allocation_pct; $('tm-from').value = m.from_day || ''; $('tm-to').value = m.to_day || ''; $('tm-user').value = m.user_id == null ? '' : m.user_id; }
       if (d) ctx.api(url + '/' + encodeURIComponent(d.getAttribute('data-team-del')), { method: 'DELETE' }).then(function (j) { ctx.msg('Team member removed.'); draw(j.members); }).catch(ctx.fail);
     });
   }

@@ -344,6 +344,9 @@ DEFAULTS.ppm_time_entries_enabled = '0';
 //    ppm_change_requests_enabled '1' → native change requests on the project page (Changes tab): proposed → assessed
 //    → approved | rejected → applied; the author never decides; applying a dates impact uses the committee re-baseline.
 DEFAULTS.ppm_change_requests_enabled = '0';
+//    portfolio_views_enabled '1' → the portfolio page offers Timeline · List · Board (?view= in the URL); the board is
+//    read-only columns by stage (a stage moves only through the gated project page). '0' = today's single timeline.
+DEFAULTS.portfolio_views_enabled = '0';
 
 // ── SEC-01 — per-ACCOUNT login throttle (services/accountThrottle.js). '0' = today: only the per-IP limiter
 //    (10 attempts / 15 min per address). '1' → more than auth_account_throttle_max FAILED sign-ins against one

@@ -16,6 +16,8 @@
 <script nonce="%%CSP_NONCE%%" src="lib/allocationContract.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/ppmVisuals.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/ppmExtras.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/urlFilters.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/portfolioViews.js"></script>
 <style nonce="%%CSP_NONCE%%">
   body { margin:0; background:var(--color-background,#f4f6f7); color:#1F2A33; font-family:var(--font-sans,"Libre Franklin",system-ui,sans-serif); font-size:14px; }
   .wrap { max-width:1360px; margin:0 auto; padding:24px; }
@@ -44,6 +46,9 @@
   table.pim { width:auto; } table.pim td { text-align:center; padding:3px; } .pim-cell { min-width:64px; min-height:40px; font-size:15px; font-weight:700; border:1px solid #cfd6e0; border-radius:6px; background:#fff; cursor:pointer; font-family:inherit; color:#1F2A33; }
   .pim-cell[disabled] { cursor:default; color:#9AA4B2; } td.pim-high .pim-cell:not([disabled]) { background:#fde2e2; border-color:#B91C1C; } td.pim-medium .pim-cell:not([disabled]) { background:#fdecc8; border-color:#B45309; } td.pim-low .pim-cell:not([disabled]) { background:#e3f1e8; border-color:#1E7B45; }
   td.pr-over { background:#fde2e2; color:#7f1d1d; }
+  .pf-board { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; } .pf-col { background:var(--color-bg); border:1px solid var(--color-border); border-radius:10px; padding:8px; }
+  .pf-col h3 { margin:0 0 6px; font-size:13px; text-transform:capitalize; } .pf-col ul { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:6px; }
+  .pf-card { background:var(--color-card); border:1px solid var(--color-border); border-radius:8px; padding:6px 8px; font-size:12.5px; } .pf-card a:focus { outline:2px solid var(--color-primary); outline-offset:2px; }
   @media (max-width:760px) { .tl-row { grid-template-columns:1fr; } }
 </style>
 </head>
@@ -61,7 +66,9 @@
   <pre id="mig" class="panel" hidden style="font-size:12px;white-space:pre-wrap"></pre>
   <div class="panel"><h2>Programmes &amp; objectives</h2><div class="scroll" id="tree"></div></div>
   <div class="panel"><h2>Money by programme</h2><div class="scroll" id="money"></div></div>
-  <div class="panel"><h2>Schedule (projects &amp; milestones)</h2><div id="timeline"></div><p class="muted">Keyboard: Tab to a project key, then the arrow keys move between projects and Enter opens the project page. The table view holds the same data.</p><details><summary class="muted">Table view (dates, plan, alerts)</summary><div class="scroll" id="gantt"></div></details></div>
+  <div class="panel"><h2>Schedule (projects &amp; milestones)</h2>
+    <nav class="bar" id="pf-views" aria-label="Portfolio views" hidden><a class="btn pf-view primary" href="?view=timeline" data-view="timeline" aria-current="page">Timeline</a> <a class="btn pf-view" href="?view=list" data-view="list">List</a> <a class="btn pf-view" href="?view=board" data-view="board">Board</a></nav>
+    <div id="list-view" hidden></div><div id="board" hidden></div><div id="timeline"></div><p class="muted">Keyboard: Tab to a project key, then the arrow keys move between projects and Enter opens the project page. The table view holds the same data.</p><details><summary class="muted">Table view (dates, plan, alerts)</summary><div class="scroll" id="gantt"></div></details></div>
   <div class="panel"><h2>Resource conflicts</h2><div class="scroll" id="conflicts"></div></div>
   <div class="panel"><h2>Resource pressure per person and week</h2><div class="scroll" id="pressure"></div></div>
   <div class="panel" id="capacity-panel" hidden><h2>Capacity per site and week</h2><div class="scroll" id="capacity"></div></div>
@@ -133,6 +140,28 @@
     if (!TPL) return;
     api("/api/governance/ppm/templates/" + encodeURIComponent(TPL) + "/create-project", { method: "POST", body: JSON.stringify({ objective_id: Number($("tpl-obj").value), key: $("tpl-key").value.trim(), name: $("tpl-pname").value.trim() }) }).then(function (j) { msg("Project created from the template."); window.location.href = "project.html?id=" + encodeURIComponent(j.project_id); }).catch(fail);
   });
+  // R2-WB-05 — Timeline · List · Board (switch portfolio_views_enabled; off = today's single timeline). The choice is in
+  // the URL (?view=, lib/urlFilters.js); List = the table view promoted out of its <details>; Board = read-only columns
+  // by stage (a card opens the project page — no stage move here).
+  var VIEWS_ON = false, BOARD = null, PV = window.PortfolioViews;
+  function curView() { return VIEWS_ON && PV ? (window.UrlFilters ? window.UrlFilters.parse(location.search, PV.SCHEMA).view : PV.viewOf(location.search)) : "timeline"; }
+  function drawViews() {
+    if (!PV) return;
+    var view = curView(), details = $("gantt").closest("details");
+    $("pf-views").hidden = !VIEWS_ON;
+    if (VIEWS_ON) $("pf-views").innerHTML = PV.navHtml(view, esc);
+    if (VIEWS_ON && $("gantt").parentNode !== $("list-view")) { $("list-view").appendChild($("gantt")); if (details) details.hidden = true; }
+    $("timeline").hidden = view !== "timeline"; $("list-view").hidden = view !== "list"; $("board").hidden = view !== "board";
+    if (view === "board" && BOARD) $("board").innerHTML = PV.boardHtml(BOARD.gantt, BOARD.stages, esc);
+  }
+  $("pf-views").addEventListener("click", function (ev) {
+    var a = ev.target.closest && ev.target.closest("[data-view]"); if (!a || !VIEWS_ON) return;
+    ev.preventDefault();
+    var q = window.UrlFilters ? window.UrlFilters.merge(location.search, { view: a.getAttribute("data-view") }, PV.SCHEMA) : "?view=" + encodeURIComponent(a.getAttribute("data-view"));
+    if (window.history && window.history.replaceState) window.history.replaceState(null, "", location.pathname + q + location.hash);
+    drawViews();
+    var cur = $("pf-views").querySelector("[aria-current]"); if (cur) cur.focus();
+  });
   function load() {
     return api("/api/governance/portfolio").then(function (v) {
       V = v; committee = v.committee; planEdit(v); $("mig-dry").hidden = !isSuper; $("mig-apply").hidden = !isSuper;
@@ -168,7 +197,8 @@
       // E-P06 — project templates (switch ppm_templates_enabled; 404 while off = panel stays hidden)
       loadTemplates();
       // E-P08 — the annual DRAFT pack link exists only while ppm_annual_pack_enabled is on
-      api("/api/governance/ppm/features").then(function (f) { $("annual-panel").hidden = !f.annual_pack; }).catch(function () { $("annual-panel").hidden = true; });
+      api("/api/governance/ppm/features").then(function (f) { $("annual-panel").hidden = !f.annual_pack; VIEWS_ON = !!f.portfolio_views; drawViews(); }).catch(function () { $("annual-panel").hidden = true; });
+      BOARD = { gantt: v.gantt, stages: v.stages || [] };
       var plans = {}; (v.plans || []).forEach(function (x) { plans[x.project_id] = x; });
       var stages = v.stages || [];
       var stageDots = function (st) { var i = stages.indexOf(st); return st ? "<span class=\"stage\" title=\"" + esc(st) + "\">" + stages.map(function (_, k) { return k === i ? "●" : "○"; }).join("") + "</span> " + esc(String(st).replace(/_/g, " ")) : "—"; };

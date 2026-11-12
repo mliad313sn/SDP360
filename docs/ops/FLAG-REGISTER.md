@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (225) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (226) — services/reportConfig.js DEFAULTS
 
 Prerequisites (E-A07, services/switchPrereqs.js) are WARNINGS in plain words, never approvals: the config PUT
 answer and the `set-ui-policy.js` dry run repeat them when the switch is moved to its switched-on value.
@@ -139,6 +139,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `pir_reviews_enabled` | `0` | arm switch | Incident manager + business sponsor | `1` once the Incident manager names who signs a post-incident review and the business sponsor per major incident (the sign-off is a recorded human act by someone other than the author; nothing is sent) | E-I03 | — |
 | `portfolio_editor_plan_writes` | `0` | setting | Owner (access policy) | `1` | A-15 | — |
 | `portfolio_site_scope_reads` | `0` | setting | Owner (access policy) | `1` | A-15 | — |
+| `portfolio_views_enabled` | `0` | arm switch | PMO | `1` once the PMO wants the portfolio read as a list or a board as well as the timeline (view switch Timeline · List · Board kept in the address `?view=`; List = the table view promoted out of its fold; Board = one read-only column per stage — a card opens the project page, a stage still moves only through its gate). Nothing is written by these views | R2-WB-05 | — |
 | `ppm_alert_blocked_days` | `5` | setting | Committee | `5` | A-27 | — |
 | `ppm_alert_slip_days` | `10` | setting | Committee | `10` | A-27 | — |
 | `ppm_alerts_enabled` | `0` | arm switch | Committee | `0` (dry run first) | A-27 | — |
