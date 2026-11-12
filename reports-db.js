@@ -1720,8 +1720,11 @@ async function _saveInfraKpisPg(report_id, kpis) {
     await H.prepare('DELETE FROM infra_kpis WHERE report_id=?').run(report_id);
     let i = 0;
     for (const k of (kpis || [])) {
-      await H.prepare('INSERT INTO infra_kpis (report_id,service,kpi,target,status_value,status_color,trend,sort_order) VALUES (?,?,?,?,?,?,?,?)')
-        .run(report_id, k.service, k.kpi, k.target, k.status_value, k.status_color||'green', k.trend||'stable', i); i++;
+      // P4/B9 — prefill provenance (096). Only the closed vocabulary is stored; anything else → NULL ("not recorded").
+      const src = ['meraki', 'opmanager', 'manual'].includes(k.value_source) ? k.value_source : null;
+      const thr = src && src !== 'manual' && k.value_data_through ? String(k.value_data_through).slice(0, 32) : null;
+      await H.prepare('INSERT INTO infra_kpis (report_id,service,kpi,target,status_value,status_color,trend,sort_order,value_source,value_data_through) VALUES (?,?,?,?,?,?,?,?,?,?)')
+        .run(report_id, k.service, k.kpi, k.target, k.status_value, k.status_color||'green', k.trend||'stable', i, src, thr); i++;
     }
   });
 }
