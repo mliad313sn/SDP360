@@ -29,7 +29,7 @@ Files scanned: **115** · inline <style> blocks: **54** · hex literals: **5577*
 | `public/handoffs.html` | 18105 | 1 | 21 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/help.html` | 329783 | 1 | 85 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/home.html` | 6853 | 1 | 12 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/index.html` | 123202 | 1 | 114 | 2 | bar×2 | 0 | 0 | yes | — | yes | chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
+| `public/index.html` | 128893 | 1 | 114 | 2 | bar×2 | 0 | 0 | yes | — | yes | chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/infra-health.html` | 33759 | 1 | 88 | 1 | line×1 | 0 | 2 | yes | — | — | doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/inspection-actions.html` | 45810 | 1 | 100 | 1 | bar×2 doughnut×3 line×1 | 0 | 3 | yes | — | — | doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/inspection.html` | 211546 | 1 | 200 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
