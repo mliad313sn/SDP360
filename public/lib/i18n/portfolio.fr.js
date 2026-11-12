@@ -7,6 +7,7 @@
 (function (root) {
   'use strict';
   const STATIC = {
+    'Capacity per site and week': 'Capacité par site et par semaine', 'Project templates': 'Modèles de projet', 'Objective id': 'Id de l’objectif', 'Project key': 'Clé du projet', 'Project name': 'Nom du projet', 'Create the project': 'Créer le projet', 'Annual planning pack (draft)': 'Dossier de planification annuelle (brouillon)', 'Year': 'Année', 'Download the draft pack (XLSX)': 'Télécharger le dossier brouillon (XLSX)',
     'Requests that may become projects:': 'Demandes susceptibles de devenir des projets :', 'RFI register': 'Registre des demandes',
     'WBS code (task)': 'Code WBS (tâche)',
     'Parent task id (task)': 'Id de la tâche parente (tâche)',

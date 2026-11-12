@@ -58,13 +58,14 @@ async function _block(reader, site, shape) {
 }
 
 async function buildMyWork({ user, sites, asOf, readers } = {}) {
-  void user;
   const r = readers || {};
   const as = day(asOf) || new Date().toISOString().slice(0, 10);
   const list = Array.isArray(sites) ? sites : [];
   if (!list.length) {
-    return { generated_at: new Date().toISOString(), as_of: as, sites: [], truncated: 0,
+    const res = { generated_at: new Date().toISOString(), as_of: as, sites: [], truncated: 0,
       message: 'You are not attached to a site — use the Site Actions hub.' };
+    if (typeof r.ownedBenefits === 'function') res.owned_benefits = await _ownedBlock(r.ownedBenefits, user, as);
+    return res;
   }
   const shown = list.slice(0, MAX_SITES);
   const out = [];
@@ -102,7 +103,18 @@ async function buildMyWork({ user, sites, asOf, readers } = {}) {
     });
     out.push(card);
   }
-  return { generated_at: new Date().toISOString(), as_of: as, sites: out, truncated: list.length - shown.length, message: null };
+  const res = { generated_at: new Date().toISOString(), as_of: as, sites: out, truncated: list.length - shown.length, message: null };
+  // E-P05 — benefits this PERSON owns (linked owner) whose review date is reached; present only when the route passes
+  // the reader (switch benefit_owner_link_enabled on); a reader that throws → null (not measured), never 0.
+  if (typeof r.ownedBenefits === 'function') res.owned_benefits = await _ownedBlock(r.ownedBenefits, user, as);
+  return res;
+}
+async function _ownedBlock(reader, user, as) {
+  return _block(reader, user, (rows) => {
+    if (!Array.isArray(rows)) return null;
+    const items = require('./portfolioBenefits').reviewItems(rows, as);
+    return { count: items.length, items: items.slice(0, MAX_UNSIGNED).map((x) => ({ project_id: x.project_id, project_key: x.ref, title: x.title, due_date: x.due_date, status: x.status, overdue: x.overdue, link: x.link })) };
+  });
 }
 
 module.exports = { buildMyWork, weeklyLabel, trackerEmptyCells, MAX_SITES };

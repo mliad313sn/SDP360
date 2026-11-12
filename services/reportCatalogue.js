@@ -57,9 +57,9 @@ const REPORTS = [
   { id: 'R15', priority: 'P2', name: 'Change/Incident Post-Implementation Value Review', audience: 'Change/Incident manager and business sponsor', cadence: 'per major event', channels: ['pdf', 'record'], status: 'partial',
     surfaces: ['services/reportPayload.js', 'services/pirReview.js', 'routes/commitments.js', 'public/commitments.html'], gates: [['pir_reviews_enabled', '0']],
     missing: 'major-incident RCA/CA/PIR/LL fields are read from SDP; a per-event review record (decisions, before/after recurrence, linked commitments, sign-off by someone other than the author) exists behind pir_reviews_enabled (E-I03); who signs and the business sponsor are not named; no PDF of the record', decision: null },
-  { id: 'R16', priority: 'P2', name: 'Native SDP360 Portfolio Budget & Roadmap Planning', audience: 'CIO / PMO / Finance', cadence: 'annual', channels: ['pptx', 'excel'], status: 'missing',
-    surfaces: [], gates: [],
-    missing: 'per-currency budget roll-up exists in the portfolio view; no annual planning pack', decision: 'D-02' },
+  { id: 'R16', priority: 'P2', name: 'Native SDP360 Portfolio Budget & Roadmap Planning', audience: 'CIO / PMO / Finance', cadence: 'annual', channels: ['pptx', 'excel'], status: 'partial',
+    surfaces: ['services/annualPlanPack.js', 'routes/governancePpm.js'], gates: [['ppm_annual_pack_enabled', '0']],
+    missing: 'a DRAFT XLSX pack exists (projects of the year, per-currency budget roll-up, capacity, provisional RFI scores); no PPTX, envelopes stay UNKNOWN until Finance enters them, the fiscal year and the arbitration are human decisions', decision: 'D-02' },
 ];
 
 const RULES = [

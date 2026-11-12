@@ -1,0 +1,94 @@
+'use strict';
+// W2-PPM (E-P03..E-P06) — governance store on PostgreSQL: traced task reassignment in the hash-chained ledger,
+// budget periods, linked benefit owner, RACI and templates. Fictitious data only.
+process.env.REPORTS_BACKEND = 'postgres';
+const _os = require('os'), _fs = require('fs'), _path = require('path');
+process.env.SDP_DATA_DIR = process.env.SDP_DATA_DIR || _fs.mkdtempSync(_path.join(_os.tmpdir(), 'ppmw2-'));
+process.env.DASH_USER = process.env.DASH_USER || 'pgtest-admin'; process.env.DASH_PASS = process.env.DASH_PASS || 'pgtest-pass-0000';
+const { test, before, after } = require('node:test');
+const assert = require('node:assert');
+const { provisionTestDb, dropTestDb } = require('./pg-helpers');
+let ctx, s, rdb, pj;
+const U = { id: 7, username: 'pmo' };
+
+before(async () => {
+  ctx = await provisionTestDb(); if (!ctx) return;
+  process.env.PG_URL = ctx.url;
+  rdb = require('../reports-db'); await rdb.initPgReports();
+  await require('../db/migrate').migrateAtBoot({ log: () => {} });
+  const { makeGovernanceStore } = require('../services/governanceStore');
+  s = makeGovernanceStore({ prepare: (sql) => rdb.pgHandle().prepare(sql), runTransaction: (fn) => rdb.pgHandle().runTransaction(fn) }, { isPg: true });
+  const pr = await s.upsertPortfolio('programme', { key: 'w2-p', name: 'P' }); const ob = await s.upsertPortfolio('objective', { programme_id: pr, key: 'w2-o', name: 'O' });
+  pj = await s.upsertPortfolio('project', { objective_id: ob, key: 'W2-J', name: 'J', site_id: 1 });
+});
+after(async () => { if (ctx) await dropTestDb(ctx); });
+
+test('E-P03: a task owner change writes a task_reassigned row (old, new, actor, reason); reason required when asked', async (t) => {
+  if (!ctx) return t.skip('no pg');
+  const tid = await s.upsertPortfolio('task', { project_id: pj, name: 'Cabling', owner: 'Ana' }, { user: U });
+  await s.upsertPortfolio('task', { id: tid, name: 'Cabling (renamed)' }, { user: U });
+  await assert.rejects(s.upsertPortfolio('task', { id: tid, owner: 'Bob' }, { user: U, requireOwnerReason: true }), (e) => e.reason === 'REASON_REQUIRED');
+  assert.equal((await rdb.pgHandle().prepare('SELECT owner FROM portfolio_tasks WHERE id=?').get(tid)).owner, 'Ana', 'refused = not written');
+  await s.upsertPortfolio('task', { id: tid, owner: 'Bob' }, { user: U, reason: 'Ana is on the WAN cut-over', requireOwnerReason: true });
+  await s.upsertPortfolio('task', { id: tid, owner: ' Bob ' }, { user: U });   // same person (trimmed) → no new row
+  await s.upsertPortfolio('task', { id: tid, owner: 'Cy' }, { user: U });       // switch off: no reason, still traced
+  const ev = (await s.ppmEvents('project', pj)).filter((e) => e.action === 'task_reassigned');
+  assert.deepEqual(ev.map((e) => [e.field, e.old_value, e.new_value, e.note, e.actor_id]), [[`task:${tid}`, 'Ana', 'Bob', 'Ana is on the WAN cut-over', 7], [`task:${tid}`, ' Bob ', 'Cy', null, 7]]);
+  const h = await rdb.pgHandle().prepare("SELECT row_hash, prev_hash FROM ppm_events WHERE action='task_reassigned' ORDER BY id").all();
+  assert.ok(h.every((r) => r.row_hash && r.row_hash.length === 64), 'hash chain reused');
+});
+
+test('E-P04: budget periods — upsert per key, justification on change / variance, every write hash-chained', async (t) => {
+  if (!ctx) return t.skip('no pg');
+  await s.saveBudgetPeriod(pj, { period: '2026-10', currency: 'usd', kind: 'baseline', amount: 100 }, { user: U });
+  await assert.rejects(s.saveBudgetPeriod(pj, { period: '2026-10', currency: 'USD', kind: 'actual', amount: 120 }, { user: U }), (e) => e.reason === 'JUSTIFICATION_REQUIRED');
+  await s.saveBudgetPeriod(pj, { period: '2026-10', currency: 'USD', kind: 'actual', amount: 100 }, { user: U });   // equals baseline: no reason
+  await assert.rejects(s.saveBudgetPeriod(pj, { period: '2026-10', currency: 'USD', kind: 'actual', amount: 110 }, { user: U }), (e) => e.reason === 'JUSTIFICATION_REQUIRED');
+  const rows = await s.saveBudgetPeriod(pj, { period: '2026-10', currency: 'USD', kind: 'actual', amount: 110, reason: 'extra cabling (fictitious)' }, { user: U });
+  assert.equal(rows.filter((r) => r.kind === 'actual').length, 1, 'one row per key');
+  assert.equal(rows.find((r) => r.kind === 'actual').amount, 110);
+  await assert.rejects(s.saveBudgetPeriod(pj, { period: '2026-10', currency: 'USD', kind: 'actual', amount: -5, reason: 'x' }), (e) => e.code === 'INVALID');
+  const ev = (await s.ppmEvents('project', pj)).filter((e) => e.action === 'budget_period_edit');
+  assert.deepEqual(ev.map((e) => [e.field, e.old_value, e.new_value, e.currency]), [['baseline:2026-10', null, '100', 'USD'], ['actual:2026-10', null, '100', 'USD'], ['actual:2026-10', '100', '110', 'USD']]);
+});
+
+test('E-P05: linked owner — SELF_REVIEW refuses verification by the owner; ownedBenefitReviews lists only theirs', async (t) => {
+  if (!ctx) return t.skip('no pg');
+  const b1 = await s.upsertPortfolio('benefit', { project_id: pj, description: 'Fewer outages (fictitious)', owner: 'Site GM', owner_user_id: 42, review_date: '2026-01-15' }, { user: U });
+  await s.upsertPortfolio('benefit', { project_id: pj, description: 'Unlinked', review_date: '2026-01-15' }, { user: U });
+  await assert.rejects(s.upsertPortfolio('benefit', { project_id: pj, description: 'bad', owner_user_id: -3 }), (e) => e.code === 'INVALID');
+  assert.deepEqual((await s.ownedBenefitReviews({ userId: 42, asOf: '2026-11-06' })).map((b) => b.id), [b1]);
+  assert.deepEqual(await s.ownedBenefitReviews({ userId: 43, asOf: '2026-11-06' }), []);
+  assert.deepEqual(await s.ownedBenefitReviews({ userId: 42, asOf: '2026-01-01' }), [], 'review date not reached');
+  await s.recordBenefitRealised(b1, { realised_value: 3, evidence_link: 'https://intranet.example/kpi' }, { user: { id: 8, username: 'enterer' } });
+  await assert.rejects(s.verifyBenefit(b1, { user: { id: 42, username: 'owner' } }), (e) => e.reason === 'SELF_REVIEW');
+  await assert.rejects(s.verifyBenefit(b1, { user: { id: 8, username: 'enterer' } }), (e) => e.reason === 'SELF_REVIEW');
+  assert.ok((await s.verifyBenefit(b1, { user: { id: 9, username: 'third' } })).verified_at);
+  assert.deepEqual(await s.ownedBenefitReviews({ userId: 42, asOf: '2026-11-06' }), [], 'verified → no longer due');
+});
+
+test('E-P06: RACI saved only with exactly one A per task; templates draft → approved by another member → project', async (t) => {
+  if (!ctx) return t.skip('no pg');
+  const t1 = await s.upsertPortfolio('task', { project_id: pj, name: 'Design', duration_days: 3 }, { user: U });
+  const t2 = await s.upsertPortfolio('task', { project_id: pj, name: 'Build', parent_id: t1, duration_days: 5, owner: 'Ana', start_date: '2026-11-02', end_date: '2026-11-06' }, { user: U });
+  await s.upsertPortfolio('milestone', { project_id: pj, name: 'Go-live', due_date: '2026-12-01' }, { user: U });
+  await assert.rejects(s.saveRaci(pj, [{ task_id: t1, person: 'Ana', letter: 'R' }], { user: U }), (e) => e.reason === 'NO_ACCOUNTABLE');
+  const rows = await s.saveRaci(pj, [{ task_id: t1, person: 'Ana', letter: 'A' }, { task_id: t1, person: 'Bob', letter: 'R' }, { task_id: t2, person: 'Bob', letter: 'A' }], { user: U });
+  assert.equal(rows.length, 3);
+  assert.equal((await s.saveRaci(pj, [{ task_id: t2, person: 'Cy', letter: 'A' }], { user: U })).length, 1, 'replaced, not appended');
+  assert.ok((await s.ppmEvents('project', pj)).some((e) => e.action === 'raci_edit'));
+  const tpl = await s.saveTemplateFromProject(pj, { name: 'WAN rollout', user: { id: 7, username: 'pmo' } });
+  assert.equal(tpl.status, 'draft'); assert.ok(!JSON.stringify(tpl.structure).includes('Ana'));
+  await assert.rejects(s.createProjectFromTemplate(tpl.id, { objective_id: 1, key: 'X', name: 'X' }, { user: U }), (e) => e.reason === 'TEMPLATE_DRAFT');
+  await assert.rejects(s.approveTemplate(tpl.id, { user: { id: 7, username: 'pmo' } }), (e) => e.reason === 'SELF_REVIEW');
+  const ok = await s.approveTemplate(tpl.id, { user: { id: 9, username: 'cio' }, note: 'checked (fictitious)' });
+  assert.equal(ok.status, 'approved'); assert.equal(ok.approved_by, 9);
+  assert.ok((await s.ppmEvents('template', tpl.id)).some((e) => e.action === 'template_approved'));
+  const obj = Number((await rdb.pgHandle().prepare('SELECT objective_id FROM portfolio_projects WHERE id=?').get(pj)).objective_id);
+  const np = await s.createProjectFromTemplate(tpl.id, { objective_id: obj, key: 'W2-T', name: 'From template' }, { user: { id: 9, username: 'cio' } });
+  const d = await s.projectDetail(np);
+  assert.deepEqual(d.tasks.map((x) => [x.name, x.duration_days, x.owner || null, x.start_date || null]).sort(), [['Build', 5, null, null], ['Cabling (renamed)', null, null, null], ['Design', 3, null, null]], 'owners (Cy on Cabling, Ana on Build) and dates are not carried');
+  assert.equal(d.tasks.find((x) => x.name === 'Build').parent_id, d.tasks.find((x) => x.name === 'Design').id);
+  assert.deepEqual(d.milestones.map((m) => [m.name, m.due_date || null]), [['Go-live', null]]);
+  assert.equal(d.project.budget, null);
+});

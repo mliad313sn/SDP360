@@ -94,6 +94,77 @@
     return { weeks: weeks.map(iso), people: out, unassigned: unassigned, undated: undated, truncated: truncated };
   }
 
+  /** E-P03 (audit P-03) — capacity roll-up. PURE, no money.
+   *  capacityBySite(tasks, projects, opts): the open tasks of each project site (project.site_id; none → key 'none')
+   *  through resourcePressure, then per site and week: total_pct = SUM of the people's known peaks (a team load in
+   *  "% of one person"), max_pct, people_over (count > 100 %), unknown (task-weeks with no allocation — never 0 %),
+   *  tasks. A week where no allocation is known has total_pct null (not measured), never 0.
+   *  capacityConflicts(pressure): per person, consecutive weeks above 100 % merged into one conflict
+   *  {owner, from, to, weeks, peak_pct, excess_pct, task_ids}, sorted by excess then duration (largest first).
+   *  A suggestion (another person of the same pressure view below 100 % in every week of the conflict) is a PROPOSAL
+   *  text only — nobody is reassigned by this function. */
+  function capacityBySite(tasks, projects, opts) {
+    var o = opts || {}, siteOf = {};
+    (projects || []).forEach(function (p) { if (p && p.id != null) siteOf[Number(p.id)] = p.site_id == null ? 'none' : String(p.site_id); });
+    var groups = {};
+    (tasks || []).forEach(function (t) { if (!t) return; var k = siteOf[Number(t.project_id)]; if (k == null) k = 'none'; (groups[k] = groups[k] || []).push(t); });
+    var all = resourcePressure(tasks, o);
+    var sites = Object.keys(groups).sort().map(function (k) {
+      var pr = resourcePressure(groups[k], o);
+      var weeks = all.weeks.map(function (w) {
+        var known = [], unknown = 0, n = 0, over = 0;
+        pr.people.forEach(function (pp) { pp.cells.forEach(function (c) { if (c.week !== w || !c.tasks) return; n += c.tasks; unknown += c.unknown; if (c.peak_pct != null) { known.push(c.peak_pct); if (c.peak_pct > 100) over++; } }); });
+        return { week: w, tasks: n, total_pct: known.length ? known.reduce(function (a, b) { return a + b; }, 0) : null, max_pct: known.length ? Math.max.apply(null, known) : null, people_over: over, unknown: unknown };
+      });
+      return { site: k, people: pr.people.length, weeks: weeks, over_weeks: weeks.filter(function (x) { return x.people_over > 0; }).length, unknown_tasks: pr.people.reduce(function (a, pp) { return a + pp.unknown_tasks; }, 0), unassigned: pr.unassigned, undated: pr.undated };
+    });
+    return { weeks: all.weeks, sites: sites, conflicts: capacityConflicts(all), truncated: all.truncated };
+  }
+  function capacityConflicts(pressure) {
+    var p = pressure || { people: [], weeks: [] }, out = [];
+    (p.people || []).forEach(function (pp) {
+      var run = null;
+      var close = function () { if (run) { out.push(run); run = null; } };
+      pp.cells.forEach(function (c) {
+        if (!c.over) { close(); return; }
+        if (!run) run = { owner: pp.owner, from: c.week, to: c.week, weeks: 0, peak_pct: c.peak_pct, task_ids: [] };
+        run.to = c.week; run.weeks++; run.peak_pct = Math.max(run.peak_pct, c.peak_pct);
+        c.task_ids.forEach(function (id) { if (run.task_ids.indexOf(id) < 0) run.task_ids.push(id); });
+      });
+      close();
+    });
+    out.forEach(function (c) {
+      c.excess_pct = c.peak_pct - 100;
+      var idx = (p.weeks || []).map(function (w, i) { return w >= c.from && w <= c.to ? i : -1; }).filter(function (i) { return i >= 0; });
+      var cands = (p.people || []).filter(function (q) { return q.owner.toLowerCase() !== c.owner.toLowerCase(); }).map(function (q) {
+        var ok = idx.every(function (i) { var cc = q.cells[i]; return cc && (!cc.tasks || (cc.peak_pct != null && !cc.unknown && cc.peak_pct < 100)); });
+        var peak = idx.reduce(function (m, i) { var cc = q.cells[i]; return cc && cc.peak_pct != null ? Math.max(m, cc.peak_pct) : m; }, 0);
+        return ok ? { owner: q.owner, peak_pct: peak } : null;
+      }).filter(Boolean).sort(function (a, b) { return a.peak_pct - b.peak_pct || a.owner.localeCompare(b.owner); });
+      c.suggestion = cands.length ? { proposal: true, to: cands[0].owner, their_peak_pct: cands[0].peak_pct, text: 'Proposal only: ' + cands[0].owner + ' is at ' + cands[0].peak_pct + ' % in those weeks — a person decides any reassignment.' } : null;
+    });
+    out.sort(function (a, b) { return b.excess_pct - a.excess_pct || b.weeks - a.weeks || a.owner.localeCompare(b.owner) || String(a.from).localeCompare(String(b.from)); });
+    return out;
+  }
+  /** Site × week table + sorted conflicts. siteName(k) → label; every value through esc. */
+  function capacityHtml(v, esc, siteName) {
+    var nm = function (k) { return k === 'none' ? 'No site' : (siteName ? siteName(k) : 'Site #' + k); };
+    if (!v || !v.sites.length) return '<p class="muted">No open task in the projects you may read.</p>';
+    var head = '<tr><th scope="col">Site</th>' + v.weeks.map(function (w) { return '<th scope="col">' + esc('wk ' + short(w)) + '</th>'; }).join('') + '<th scope="col">Weeks with someone over 100 %</th></tr>';
+    var cell = function (c) {
+      if (!c.tasks) return '<td class="muted">·</td>';
+      var t = [c.total_pct == null ? '—' : c.total_pct + ' %'];
+      if (c.unknown) t.push('+' + c.unknown + ' unknown');
+      if (c.people_over) t.push(c.people_over + ' over');
+      return '<td class="' + (c.people_over ? 'pr-over' : '') + '">' + (c.people_over ? '<b>▲</b> ' : '') + esc(t.join(' · ')) + '</td>';
+    };
+    var body = v.sites.map(function (s) { return '<tr><th scope="row">' + esc(nm(s.site)) + '</th>' + s.weeks.map(cell).join('') + '<td>' + esc(String(s.over_weeks)) + '</td></tr>'; }).join('');
+    var conf = v.conflicts.length ? '<table><caption>Conflicts — largest excess first, then the longest</caption><thead><tr><th>Person</th><th>From week</th><th>To week</th><th>Weeks</th><th>Peak</th><th>Excess</th><th>Tasks</th><th>Suggestion (proposal only)</th></tr></thead><tbody>' +
+      v.conflicts.map(function (c) { return '<tr><td>' + esc(c.owner) + '</td><td>' + esc(c.from) + '</td><td>' + esc(c.to) + '</td><td>' + esc(String(c.weeks)) + '</td><td>' + esc(c.peak_pct + ' %') + '</td><td><b>+' + esc(String(c.excess_pct)) + ' %</b></td><td>' + esc('#' + c.task_ids.join(', #')) + '</td><td>' + (c.suggestion ? esc(c.suggestion.text) : '<span class="muted">none found</span>') + '</td></tr>'; }).join('') + '</tbody></table>'
+      : '<p class="muted">Nobody is above 100 % in a week of this view.</p>';
+    return '<table class="pr"><caption>Team load per site and week = sum of the people’s peak allocation (100 % = one person full time). “+N unknown” = tasks with no allocation, never counted as 0 or 100 %. No money in this view.</caption><thead>' + head + '</thead><tbody>' + body + '</tbody></table>' + conf;
+  }
+
   /** C-07 (F28) — ONE keyboard model for the PPM diagrams (Gantt bars, timeline rows, risk cells).
    *  Returns the index to focus after `key` from `cur` among `n` items, or -1 (key not handled / focus outside).
    *  Linear by default (arrows ±1, Home/End); with opts.cols, Up/Down jump one row of a grid. Clamped, never wraps. */
@@ -171,5 +242,5 @@
       '<details><summary class="muted">List view (the same data)</summary><table><thead><tr><th>Person</th><th>Week of</th><th>Peak</th><th>Over 100 %</th><th>Unknown allocations</th><th>Effort</th></tr></thead><tbody>' + list.join('') + '</tbody></table></details>';
   }
 
-  return { navIndex: navIndex, riskMatrix: riskMatrix, resourcePressure: resourcePressure, riskMatrixHtml: riskMatrixHtml, cellListHtml: cellListHtml, pressureHtml: pressureHtml, SCALE: SCALE };
+  return { navIndex: navIndex, riskMatrix: riskMatrix, resourcePressure: resourcePressure, capacityBySite: capacityBySite, capacityConflicts: capacityConflicts, capacityHtml: capacityHtml, riskMatrixHtml: riskMatrixHtml, cellListHtml: cellListHtml, pressureHtml: pressureHtml, SCALE: SCALE };
 }));

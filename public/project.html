@@ -14,6 +14,7 @@
 <script nonce="%%CSP_NONCE%%" src="lib/stateBadge.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/dashboardRender.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/ppmVisuals.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/ppmExtras.js"></script>
 <style nonce="%%CSP_NONCE%%">
   body { margin:0; background:var(--color-background,#f4f6f7); color:#1F2A33; font-family:var(--font-sans,"Libre Franklin",system-ui,sans-serif); font-size:14px; }
   .wrap { max-width:1360px; margin:0 auto; padding:24px; }
@@ -59,6 +60,8 @@
     <button type="button" role="tab" id="tab-milestones" aria-controls="pane-milestones" aria-selected="false" tabindex="-1">Milestones</button>
     <button type="button" role="tab" id="tab-raid" aria-controls="pane-raid" aria-selected="false" tabindex="-1">RAID</button>
     <button type="button" role="tab" id="tab-benefits" aria-controls="pane-benefits" aria-selected="false" tabindex="-1">Benefits</button>
+    <button type="button" role="tab" id="tab-budget" aria-controls="pane-budget" aria-selected="false" tabindex="-1" hidden>Budget</button>
+    <button type="button" role="tab" id="tab-raci" aria-controls="pane-raci" aria-selected="false" tabindex="-1" hidden>RACI</button>
     <button type="button" role="tab" id="tab-gates" aria-controls="pane-gates" aria-selected="false" tabindex="-1">Gates</button>
     <button type="button" role="tab" id="tab-history" aria-controls="pane-history" aria-selected="false" tabindex="-1">History</button>
   </div>
@@ -85,6 +88,8 @@
     <div class="panel"><h2>Schedule</h2><div id="plan-note" class="muted"></div><div id="gantt-legend" class="gantt-legend" aria-label="Legend of the schedule"></div><div class="gantt scroll" id="gantt"></div><p class="muted">Keyboard: Tab to the chart, then the arrow keys move from task to task (Home / End: first / last) and Enter opens the task in the table below (and in the editor when you may edit). The table view holds the same data.</p>
       <details><summary class="muted">Table view (the same data)</summary><div class="scroll" id="plan-table"></div></details></div>
     <div class="panel"><h2>Baseline versions</h2><div class="row"><label>Show as the dashed baseline <select id="bl-version" aria-label="Baseline version"><option value="">Current task baselines</option></select></label></div><div id="bl-note" class="muted"></div><div class="scroll" id="bl-diff"></div></div>
+    <div class="panel" id="tpl-save-box" hidden><h2>Save this structure as a template</h2><p class="muted">Task names, WBS, durations and milestone names only — no people, dates or money. The template stays a draft until another committee member approves it (portfolio page).</p>
+      <div class="row"><label>Template name <input id="tpl-name"></label></div><div class="bar"><button class="btn" id="tpl-save" type="button">Save as template</button></div></div>
     <div class="panel"><h2>Resource conflicts on this project</h2><div class="scroll" id="plan-conflicts"></div></div>
     <div class="panel"><h2>Resource pressure per person and week</h2><div class="scroll" id="plan-pressure"></div></div>
     <div class="panel" id="task-edit" hidden><h2>Add / edit a task</h2>
@@ -159,6 +164,7 @@
         <label>Baseline value <input id="b-base" type="number" step="any"></label>
         <label>Target value <input id="b-target" type="number" step="any"></label>
         <label>Benefit owner <input id="b-owner"></label>
+        <label id="b-owner-user-box" hidden>Owner as a user (reminder on “My work”) <select id="b-owner-user"><option value="">— not linked —</option></select></label>
         <label>Benefit review date <input id="b-review" type="date"></label>
       </div>
       <div class="bar"><button class="btn primary" id="b-save" type="button">Save benefit</button><button class="btn danger" id="b-del" type="button">Delete benefit</button><span class="muted">Changing the measure, unit, kind, baseline or target clears a verification.</span></div>
@@ -171,6 +177,28 @@
         <label style="grid-column:1/-1">Note <textarea id="br-note" rows="2"></textarea></label>
       </div>
       <div class="bar"><button class="btn primary" id="br-save" type="button">Record realised value</button><span class="muted">A new value clears an earlier verification; someone else then verifies it.</span></div>
+    </div>
+  </section>
+
+  <section id="pane-budget" role="tabpanel" aria-labelledby="tab-budget" hidden>
+    <div class="panel"><h2>Budget per period (baseline, actual, forecast)</h2><div class="scroll" id="budget"></div></div>
+    <div class="panel" id="bp-edit" hidden><h2>Enter an amount (committee)</h2>
+      <div class="row">
+        <label>Month <input id="bp-period" type="month"></label>
+        <label>Currency <input id="bp-cur" placeholder="USD" maxlength="3"></label>
+        <label>Kind <select id="bp-kind"><option value="baseline">baseline</option><option value="actual">actual</option><option value="forecast">forecast</option></select></label>
+        <label>Amount <input id="bp-amount" type="number" min="0" step="any"></label>
+        <label style="grid-column:1/-1">Justification (required when an amount changes or differs from the baseline) <textarea id="bp-reason" rows="2"></textarea></label>
+      </div>
+      <div class="bar"><button class="btn primary" id="bp-save" type="button">Save amount</button><span class="muted">Every entry is kept in the History tab with its old and new value.</span></div>
+    </div>
+  </section>
+
+  <section id="pane-raci" role="tabpanel" aria-labelledby="tab-raci" hidden>
+    <div class="panel"><h2>Who does what (RACI)</h2><div class="bar"><a class="btn" id="raci-csv" href="#">Export CSV</a></div><div class="scroll" id="raci"></div></div>
+    <div class="panel" id="raci-edit" hidden><h2>Edit the RACI</h2><p class="muted">Names separated by commas. Every task that has letters needs exactly one A.</p>
+      <div class="scroll" id="raci-editor"></div>
+      <div class="bar"><button class="btn primary" id="raci-save" type="button">Save RACI</button></div>
     </div>
   </section>
 
@@ -209,14 +237,29 @@
     DEP_DUPLICATE: "The same dependency is listed twice.",
     PLAN_SCOPE: "You may only maintain the plan of a project of your site(s), or one you own.",
     GATE_SOD: "The project owner cannot approve their own project — another committee member must.",
+    REASON_REQUIRED: "A reason is required to reassign a task.",
+    NO_ACCOUNTABLE: "Every task with letters needs exactly one A (accountable).",
+    MULTIPLE_ACCOUNTABLE: "Only one person is accountable (A) for a task.",
+    JUSTIFICATION_REQUIRED: "A justification is required: the amount changes, or differs from the baseline of this month.",
   };
   var fail = function (e) { msg((e && e.code && PLAIN[e.code]) || (e && e.message) || "Error", "errors"); };
   var V = null;
+  // W2-PPM — which PROPOSED switches are on (each new tab / prompt exists only then); an error = all off (today)
+  var FEAT = {};
+  api("/api/governance/ppm/features").then(function (f) { FEAT = f || {}; if (FEAT.budget_periods) addTab("budget", "gates"); if (FEAT.benefit_owner_link) linkOwners(); if (FEAT.raci) addTab("raci", "gates"); if (FEAT.templates && V && V.committee) $("tpl-save-box").hidden = false; }).catch(function () { FEAT = {}; });
 
   // ---- tabs (role=tablist, arrows / Home / End, deep link #tab) ---------------------------------------------
   // Extension point: later goals (baselines, benefits) add a tab button + a pane + an entry in RENDER.
   var TABS = ["overview", "charter", "plan", "milestones", "raid", "benefits", "gates", "history"];
   var RENDER = { overview: renderOverview, charter: renderCharter, plan: renderPlan, milestones: renderMilestones, raid: renderRaid, benefits: renderBenefits, gates: renderGates, history: loadHistory };
+  // W2-PPM — the add-on tabs exist only while their switch is on (they join TABS, so the arrow keys skip them otherwise)
+  var X = function () { return { $: $, esc: esc, api: api, msg: msg, fail: fail, pid: PID }; };
+  RENDER.budget = function () { if (window.PpmExtras) window.PpmExtras.mountBudget(X()); };
+  RENDER.raci = function () { if (window.PpmExtras) window.PpmExtras.mountRaci(Object.assign(X(), { canEdit: !!(V && V.can_edit_plan) })); };
+  $("tpl-save").addEventListener("click", function () { api("/api/governance/ppm/templates", { method: "POST", body: JSON.stringify({ project_id: Number(PID), name: $("tpl-name").value.trim() }) }).then(function (j) { msg("Template #" + j.template.id + " saved as a draft."); }).catch(fail); });
+  // E-P05 — the user picker for a benefit owner (committee: /api/governance/people answers 403 to others → stays hidden)
+  function linkOwners() { api("/api/governance/people").then(function (j) { $("b-owner-user").innerHTML = opt((j.people || []).map(function (p) { return [p.id, p.name]; }), "", "— not linked —"); $("b-owner-user-box").hidden = false; }).catch(function () { $("b-owner-user-box").hidden = true; }); }
+  function addTab(name, before) { if (TABS.indexOf(name) >= 0) return; TABS.splice(TABS.indexOf(before), 0, name); $("tab-" + name).hidden = false; }
   function showTab(name, focus) {
     if (TABS.indexOf(name) < 0) name = "overview";
     TABS.forEach(function (t) { var b = $("tab-" + t), on = t === name; b.setAttribute("aria-selected", on ? "true" : "false"); b.tabIndex = on ? 0 : -1; $("pane-" + t).hidden = !on; });
@@ -280,7 +323,7 @@
   function load() {
     if (!PID || !/^\d+$/.test(PID)) { $("p-title").textContent = "Project"; msg("No project id in the address — open a project from the portfolio.", "errors"); return Promise.resolve(); }
     return api("/api/governance/portfolio/project/" + encodeURIComponent(PID)).then(function (v) {
-      V = v; BLV = null; renderHeader();
+      V = v; BLV = null; renderHeader(); $("tpl-save-box").hidden = !(FEAT.templates && V.committee);
       var t = (window.location.hash || "").slice(1);
       showTab(TABS.indexOf(t) >= 0 ? t : (TABS.filter(function (x) { return $("tab-" + x).getAttribute("aria-selected") === "true"; })[0] || "overview"));
     }).catch(function (e) { if (e.status === 404) { $("p-title").textContent = "Project not found"; msg("This project does not exist, or it is outside the sites you may read.", "errors"); } else fail(e); });
@@ -449,6 +492,9 @@
       start_date: $("t-start").value || null, end_date: $("t-end").value || null, duration_days: numOrNull("t-dur"), allocation_pct: numOrNull("t-alloc"), effort_hours: numOrNull("t-effort"), status: $("t-status").value, progress_pct: numOrNull("t-prog"),
       depends_on: Array.prototype.filter.call($("t-deps").options, function (o) { return o.selected; }).map(function (o) { return Number(o.value); }) };
     if (id) { b.id = id; delete b.project_id; }
+    // E-P03 — with ppm_capacity_view on, a reassignment (owner change) carries a reason; it is traced in the ledger either way
+    var was = id ? (V.tasks.filter(function (x) { return x.id === id; })[0] || {}).owner : null;
+    if (id && FEAT.capacity && String(was || "").trim() !== String(b.owner || "").trim()) { var why = window.prompt("Reason for reassigning this task (kept in the project history):", ""); if (!why || !why.trim()) { msg("Reassignment not saved: a reason is required.", "errors"); return; } b.reason = why.trim(); }
     api("/api/governance/portfolio/task", { method: "PUT", body: JSON.stringify(b) }).then(function (j) { msg("Task #" + j.id + " saved."); $("t-id").value = String(j.id); return load(); }).catch(fail);
   });
   $("t-del").addEventListener("click", function () { var id = Number($("t-id").value); if (!id || !window.confirm("Delete task #" + id + "?")) return; api("/api/governance/portfolio/task/" + id, { method: "DELETE" }).then(function () { msg("Task deleted."); $("t-id").value = ""; return load(); }).catch(fail); });
@@ -531,13 +577,14 @@
   function fillBenefit() {
     var id = Number($("b-id").value) || null, b = (V.benefits || []).filter(function (x) { return x.id === id; })[0] || {};
     $("b-desc").value = b.description || ""; $("b-measure").value = b.measure || ""; $("b-unit").value = b.unit || ""; $("b-kind").value = b.value_kind || "quantity"; $("b-cur").value = b.currency || "";
-    $("b-base").value = b.baseline_value == null ? "" : b.baseline_value; $("b-target").value = b.target_value == null ? "" : b.target_value; $("b-owner").value = b.owner || ""; $("b-review").value = b.review_date || ""; $("b-del").hidden = !id;
+    $("b-base").value = b.baseline_value == null ? "" : b.baseline_value; $("b-target").value = b.target_value == null ? "" : b.target_value; $("b-owner").value = b.owner || ""; $("b-owner-user").value = b.owner_user_id == null ? "" : String(b.owner_user_id); $("b-review").value = b.review_date || ""; $("b-del").hidden = !id;
   }
   $("b-id").addEventListener("change", fillBenefit);
   $("b-save").addEventListener("click", function () {
     var id = Number($("b-id").value) || null, kind = $("b-kind").value;
     var b = { project_id: V.project.id, description: $("b-desc").value.trim(), measure: $("b-measure").value.trim() || null, unit: $("b-unit").value.trim() || null, value_kind: kind, currency: kind === "money" ? ($("b-cur").value.trim().toUpperCase() || null) : null,
       baseline_value: numOrNull("b-base"), target_value: numOrNull("b-target"), owner: $("b-owner").value.trim() || null, review_date: $("b-review").value || null };
+    if (!$("b-owner-user-box").hidden) b.owner_user_id = $("b-owner-user").value ? Number($("b-owner-user").value) : null;   // E-P05
     if (id) { b.id = id; delete b.project_id; }
     api("/api/governance/portfolio/benefit", { method: "PUT", body: JSON.stringify(b) }).then(function (j) { msg("Benefit #" + j.id + " saved."); $("b-id").value = String(j.id); return load(); }).catch(fail);
   });
