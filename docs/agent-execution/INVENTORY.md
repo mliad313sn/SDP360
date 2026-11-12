@@ -20,7 +20,7 @@
 | jobs | 31 |
 | jobs without test reference | 0 |
 | migrations | 85 |
-| test files | 700 |
+| test files | 702 |
 
 ## Pages
 

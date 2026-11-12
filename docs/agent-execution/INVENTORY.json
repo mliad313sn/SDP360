@@ -15,7 +15,7 @@
   "jobs": 31,
   "jobs_without_test_reference": 0,
   "migrations": 85,
-  "test_files": 700
+  "test_files": 702
  },
  "pages": [
   {
@@ -675,7 +675,7 @@
    "parent": "inspections.html",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 45837,
+   "bytes": 45810,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -9962,7 +9962,8 @@
    "line": 1672,
    "tests": [
     "tests/admin-superadmin-gate.smoke.test.js",
-    "tests/assets-routes.smoke.test.js"
+    "tests/assets-routes.smoke.test.js",
+    "tests/sync-write-fence.test.js"
    ]
   },
   {
@@ -9973,7 +9974,8 @@
    "line": 1665,
    "tests": [
     "tests/admin-superadmin-gate.smoke.test.js",
-    "tests/assets-routes.smoke.test.js"
+    "tests/assets-routes.smoke.test.js",
+    "tests/sync-write-fence.test.js"
    ]
   },
   {

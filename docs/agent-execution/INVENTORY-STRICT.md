@@ -10,13 +10,13 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 |---|---:|
 | routes | 647 |
 | routes not measurable | 3 |
-| routes without strict test | 56 |
+| routes without strict test | 55 |
 | critical routes | 182 |
 | critical routes without strict test | 15 |
-| writes without strict test | 19 |
+| writes without strict test | 18 |
 | jobs | 31 |
 | jobs without strict test | 0 |
-| test sources | 742 |
+| test sources | 745 |
 | without strict test access | 4 |
 | without strict test finance | 0 |
 | without strict test export | 7 |
@@ -85,7 +85,6 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 | GET | `/api/sites/:siteId/open-changes` | read | server.js |
 | POST | `/api/survey/cache/clear` | write | routes/survey.js |
 | POST | `/api/survey/dimension-cache/clear` | write | routes/survey.js |
-| POST | `/api/sync/trigger/:job` | write | server.js |
 | POST | `/api/teams-sla/run` | write | routes/teamsSla.js |
 | POST | `/api/tracker/import-dept-meetings` | write | routes/tracker.js |
 

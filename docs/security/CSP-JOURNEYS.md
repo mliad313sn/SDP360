@@ -13,7 +13,7 @@ of the pages it renders: treat it as a candidate only after a report-only run sh
 
 Violations: not measured in this file (“—”). Run with `--violations <export.json>` after a report-only period to add observed counts.
 
-Journeys: 32 — strict 0, enforceable 8, blocked 24, unknown 0.
+Journeys: 35 — strict 0, enforceable 8, blocked 27, unknown 0.
 
 ## Journeys
 
@@ -39,6 +39,7 @@ Journeys: 32 — strict 0, enforceable 8, blocked 24, unknown 0.
 | Admin (Group IT) | From the worst-gap ranking (Helpdesk resolution SLA) to that site's overdue action, update it, see it in the register | `/index.html`, `/site-actions.html` | blocked | `/index.html`, `/site-actions.html` |
 | Finance reader | Read an asset amount that is "Non certifié" and a site with no currency (UNKNOWN "—", never $0) | `/assets.html` | blocked | `/assets.html` |
 | PMO (committee) | Demand (RFI) → triage → project → benefit realised → verified by another member | `/portfolio.html`, `/project.html` | blocked | `/portfolio.html`, `/project.html` |
+| PMO (committee) | R6 synthetic two-site demonstration: Home → portfolio → project plan (zero vs unknown) → workbook export with the screen's figures → History | `/home.html`, `/project.html` | blocked | `/project.html` |
 | super_admin | Key pages at 1440/1024/768/390 px: no horizontal scroll, header visible, no console error (layout check, not a task) | `/index.html`, `/access.html` | blocked | `/index.html` |
 | super_admin | Change a filter twice quickly on Dashboards and Analytics; the newer figures stay on screen | `/dashboards.html`, `/analytics.html` | blocked | `/dashboards.html`, `/analytics.html` |
 | super_admin | Download the dashboard CSV, the assets inventory and the WAN SLA workbook | `/dashboards.html`, `/wan.html` | blocked | `/dashboards.html`, `/wan.html` |
@@ -50,6 +51,8 @@ Journeys: 32 — strict 0, enforceable 8, blocked 24, unknown 0.
 | Site IT coordinator | Hand the shift over; it stays pending until the incoming person accepts it | `/coverage.html` | enforceable | — |
 | super_admin | Rotate a stored integration key: the old one stops working, no secret comes back to the browser or the journal; anonymous visitors never get | `/reports.html` | blocked | `/reports.html` |
 | Scorecard viewer | Read the executive scorecard without write powers | `/executive.html`, `/analytics.html` | blocked | `/executive.html`, `/analytics.html` |
+| Super admin | Share an Analytics view by its URL: the colleague opens the same filters (site, period, status, type), Back restores, Reset clears | `/home.html`, `/analytics.html` | blocked | `/analytics.html` |
+| Site editor | Leave a human note on a dashboard trend so readers see why a point moved (switch `chart_annotations_enabled`) | `/home.html`, `/dashboards.html` | blocked | `/dashboards.html` |
 | Committee member (Group IT, extra) | Prepare Friday's agenda from the cadence | `/cockpit.html` | blocked | `/cockpit.html` |
 
 ## Pages used by the journeys
@@ -66,6 +69,7 @@ Journeys: 32 — strict 0, enforceable 8, blocked 24, unknown 0.
 | `/executive.html` | 1 | 65 | blocked | — |
 | `/field/index.html` | 0 | 0 | enforceable | — |
 | `/help.html` | 1 | 2 | blocked | — |
+| `/home.html` | 0 | 0 | enforceable | — |
 | `/index.html` | 1 | 51 | blocked | — |
 | `/infra-health.html` | 2 | 0 | blocked | — |
 | `/inspection.html` | 2 | 40 | blocked | — |
