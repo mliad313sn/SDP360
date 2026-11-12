@@ -68,7 +68,29 @@ Known limits (written in the definitions too):
 
 - `T1-T8-SHEET.csv` — one line per participant × task. `completion` = `yes` | `with_help` | `no` | `not_run`.
   `time_seconds`, `errors`, `clicks_or_keystrokes` stay empty when not measured.
+- `SUS-SHEET.csv` — one line per SUS questionnaire (`SUS-FORM.md`): the participant code and the ten answers `q1`…`q10`
+  (1–5) as ticked. Leave a cell empty when the participant did not answer: the questionnaire is then incomplete and
+  gets no score.
 - `WEEKLY-REPORT-STOPWATCH.csv` — one line per weekly report written under observation. `phase` = `baseline`
   (the old way) | `pilot`. `active_minutes` = stopwatch time actually spent writing (pause it during
   interruptions). **This is the effort measure**; the tool's created → submitted median is only a proxy.
   `data_re_entered_count` = how many values the writer typed that SDP360 already held (audit §11 duplicate entry).
+
+## 6. Summarising the observed sheets
+
+```
+node tools/pilot/pilot-observed.js --sheets=DIR [--format=md|csv|both] [--out=DIR]
+```
+
+`DIR` holds the filled copies of `T1-T8-SHEET.csv`, `WEEKLY-REPORT-STOPWATCH.csv` and `SUS-SHEET.csv` (any of them may
+be absent: it is then reported "not measured"). Offline: no database, no network. The output gives, per task and per
+task × role / site, the number of runs, the completion counts (yes / with help / no / not run / not recorded), the
+median and 75th-percentile time and the median errors; the stopwatch comparison for the participants observed in
+**both** phases (the others are excluded and counted); and the SUS score per participant with its median (standard
+0–100 formula, incomplete questionnaires not scored).
+
+- An empty cell is "not measured": it is never read as 0 and never enters a median.
+- A group with fewer than 3 measured lines shows "insufficient sample" instead of a number.
+- Anything in `participant_code` that is not a code (`P01`…) is hidden, never printed.
+- The tool writes no target, no threshold and no verdict. Whether the pilot scales, adjusts or stops is decided by
+  the product owner and the sponsor.
