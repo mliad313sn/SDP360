@@ -5,6 +5,9 @@ const { fail, typed } = require('../services/httpError');
 //
 //   POST /api/ux/page-view   {page}   any session — one `page_viewed` system_log row per user × page × day
 //   GET  /api/ux/page-usage?days=30   super_admin  — distinct users per page per role tier (read-only)
+//   POST /api/ux/event {kind, page, target}  any session — F-UX-06 task events (export, drill, action_open,
+//                                     action_done, first_click), ONLY while report_config ux_event_telemetry = '1'
+//                                     (default '0' = no row, today). One row per user × kind × page × target × day.
 //
 // Always-on internal telemetry (no switch): it changes nothing a user sees. Privacy: actor = 'u<id>', actor_id,
 // details {tier}; no name, no e-mail, no IP. The write is fire-and-forget (logEvent never throws).
@@ -23,6 +26,8 @@ function knownPages(publicDir) {
     }
   };
   walk(publicDir, '');
+  // F-UX-06 — the field PWA lives in public/field/ and reports itself as 'field'
+  try { if (fs.existsSync(path.join(publicDir, 'field', 'index.html'))) set.add('field'); } catch (_) { /* no field app */ }
   return set;
 }
 
@@ -45,6 +50,29 @@ module.exports = function pageUsageRoutes(deps) {
       return res.json({ ok: true, logged: true });
     }
     res.json({ ok: true, logged: false });
+  });
+
+  // F-UX-06 — task-level adoption events. Same privacy rules as page_viewed: actor = 'u<id>' + role tier, no name,
+  // no e-mail, no IP; `target` is a short allow-listed token (a page id or a control name), never a URL with values.
+  const eventGate = deps.eventGate || require('../services/viewLog').makeOncePerDay();
+  router.post('/api/ux/event', requireReportSession, async (req, res) => {
+    try {
+      const b = req.body || {};
+      const kind = PU.normalizeEventKind(b.kind);
+      if (!kind) return fail(res, typed('VALIDATION', 'unknown event kind'), 400, { ok: false });
+      const page = PU.normalizePage(b.page, known);
+      if (!page) return fail(res, typed('VALIDATION', 'unknown page'), 400, { ok: false });
+      const target = PU.normalizeTarget(b.target);
+      if (target === undefined) return fail(res, typed('VALIDATION', 'invalid target'), 400, { ok: false });
+      const cfg = await require('../services/reportConfig').getConfig(rdb().db);
+      if (String(cfg.ux_event_telemetry) !== '1') return res.json({ ok: true, logged: false, armed: false });
+      const u = req.reportUser || {};
+      if (u.id == null) return res.json({ ok: true, logged: false });
+      if (!eventGate(`${u.id}|${kind}|${page}|${target || ''}`, today())) return res.json({ ok: true, logged: false });
+      rdb().logEvent({ category: 'ux', action: 'ux_' + kind, actor: 'u' + u.id, actor_id: u.id, target: page,
+        details: { tier: PU.roleTier(u), to: target }, ip: null });
+      res.json({ ok: true, logged: true });
+    } catch (e) { fail(res, e, 500, { ok: false }); }
   });
 
   router.get('/api/ux/page-usage', requireReportSession, requireSuperAdmin, async (req, res) => {

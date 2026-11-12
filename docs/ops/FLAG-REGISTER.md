@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (210) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (211) — services/reportConfig.js DEFAULTS
 
 Prerequisites (E-A07, services/switchPrereqs.js) are WARNINGS in plain words, never approvals: the config PUT
 answer and the `set-ui-policy.js` dry run repeat them when the switch is moved to its switched-on value.
@@ -219,6 +219,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `ui_small_multiples` | `0` | ui policy | Owner (UI policy) | `1` (proposal — after a browser review of the widget) | E-V09 | — |
 | `ui_url_filters` | `0` | ui policy | Owner (UI policy) | `1` (proposal — shareable Analytics links; filters only, never a data value) | E-U02 | — |
 | `ui_week_labels` | `legacy` | ui policy | Owner (UI policy) | `explicit` (proposal — ISO helpdesk charts say "ISO W37 (7–13 Sep)", report rows carry their Sun→Sat range) | D-03 | — |
+| `ux_event_telemetry` | `0` | setting | Data protection officer + Owner (UI policy) | `0` until the privacy notice and retention are agreed (decision D3); then `1` for the pilot cohort — counts export / drill / action / first-click events, user id + role tier only | F-UX-06 | — |
 | `wan_mos_config` | `{"r0":93.2,"codec_loss_factor":2.5,"jitter_buffer_factor"…` | setting | to be named | — | — | — |
 | `wan_poll_first_run` | `` | setting | to be named | — | — | — |
 | `wan_poll_last_run` | `` | setting | to be named | — | — | — |

@@ -99,6 +99,8 @@ function uiPolicyFrom(cfg) {
     url_filters: _pick(c, 'ui_url_filters'),
     nav_active_from_url: _pick(c, 'ui_nav_active_from_url'),
     home_blocks: _pick(c, 'ui_home_blocks'),
+    // F-UX-06 — not a ui_* key (it is a telemetry switch): the browser only needs to know whether to send events
+    ux_events: String(c.ux_event_telemetry == null ? '' : c.ux_event_telemetry).trim() === '1' ? '1' : '0',
   };
 }
 

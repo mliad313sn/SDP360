@@ -34,6 +34,7 @@ planned switch cannot be set before its goal lands.
 | `ui_url_filters` | built | `0` | `1` (proposal — shareable Analytics links; filters only, never a data value) | Owner (UI policy) | E-U02 |
 | `ui_nav_active_from_url` | built | `0` | `1` (proposal — pages whose `data-current` names no menu entry get their active entry from the address; visibility unchanged) | Owner (UI policy) | F-UX-02 |
 | `ui_home_blocks` | built | `0` | `1` (proposal — after a browser review: per-block states and per-card reload on Home; never shows a figure the server did not send) | Owner (UI policy) | F-UX-09 |
+| `ux_event_telemetry` | built | `0` | `0` until the privacy notice and retention are agreed (decision D3); then `1` for the pilot cohort — counts export / drill / action / first-click events, user id + role tier only | Data protection officer + Owner (UI policy) | F-UX-06 |
 | `site_score_published_model` | built | `legacy` | `programme` | Owner (D-1) | A-11 |
 | `capacity_enabled` | planned | `0` | `1` | Owner (D-7) | A-13 |
 | `capacity_amber_pct` | planned | `85` | `85` | Owner (D-7) | A-13 |

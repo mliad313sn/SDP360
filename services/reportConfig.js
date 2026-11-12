@@ -14,6 +14,7 @@ const DEFAULTS = {
   ui_kpi_sample_size: '0',              // E-K02 '1' = "n = …" on tiles/grid cells + low-sample warning from an ADOPTED kpi_policy
   ui_url_filters: '0',                  // E-U02 '1' = Analytics filters written to / restored from the URL (Reset clears)
   ui_nav_active_from_url: '0',          // F-UX-02 '1' = a page whose data-current names no menu entry is marked from its address
+  ux_event_telemetry: '0',              // F-UX-06 '1' = task events (export, drill, action open/done, first click) are recorded
   ui_home_blocks: '0',                  // F-UX-09 '1' = Home blocks show their own state, retry per card, failed call keeps the page
   ui_small_multiples: '0',              // E-V09 '1' = the `multiples` widget type (one panel per metric) is creatable
   ui_feedback_enabled: '0',             // E-B07 '1' = Feedback button in the shell + /api/feedback (else 404)

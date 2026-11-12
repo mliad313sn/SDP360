@@ -627,6 +627,7 @@
     fitLeanLabels();
     ensureSkipLink(mount);
     sendPageView();
+    wireUxEvents();
   }
 
   // F-UX-05 — "first usable" mark: a page calls window.__markFirstUsable(label) once its primary table / figure
@@ -641,6 +642,50 @@
   }
   try { window.__markFirstUsable = markFirstUsable; } catch (_) { /* no window */ }
 
+  // F-UX-06 — task events (report_config ux_event_telemetry via window.__uiPolicy.ux_events; '0' = nothing sent).
+  // Fire-and-forget, one listener per document: the first click after the page opened (target = the page it leads
+  // to, or 'control'), exports (a[download], data-ux-export, or an Export / Download / CSV / XLSX / PPTX control),
+  // drills ([data-ux-drill]) and explicit [data-ux-event="action_open|action_done"]. Never sends text or URLs.
+  function uxEventsOn() { try { const p = window.__uiPolicy; return !!(p && p.ux_events === '1'); } catch (_) { return false; } }
+  function uxEvent(kind, target) {
+    try {
+      if (!uxEventsOn() || !window.__authUser || typeof fetch !== 'function' || typeof location === 'undefined') return false;
+      fetch('/api/ux/event', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ kind, page: pageIdFor(location), target: target || null }) }).catch(function () { /* never breaks a page */ });
+      return true;
+    } catch (_) { return false; }
+  }
+  const EXPORT_TEXT = /\b(export|download|csv|xlsx|pptx|excel|télécharger|exporter)\b/i;
+  function classifyClick(el) {
+    if (!el || !el.closest) return null;
+    const ev = el.closest('[data-ux-event]');
+    if (ev && /^(action_open|action_done|drill|export)$/.test(ev.getAttribute('data-ux-event'))) return { kind: ev.getAttribute('data-ux-event'), target: (ev.getAttribute('data-ux-target') || '').toLowerCase() || null };
+    if (el.closest('[data-ux-drill]')) return { kind: 'drill', target: null };
+    const a = el.closest('a,button');
+    if (!a) return null;
+    if (a.hasAttribute('download') || a.hasAttribute('data-ux-export') || EXPORT_TEXT.test(a.textContent || '')) return { kind: 'export', target: null };
+    return null;
+  }
+  let uxWired = false, firstClickSent = false;
+  function wireUxEvents() {
+    if (uxWired || !uxEventsOn() || typeof document === 'undefined' || !document.addEventListener) return;
+    uxWired = true;
+    document.addEventListener('click', function (e) {
+      try {
+        const el = e.target;
+        if (!firstClickSent) {
+          firstClickSent = true;
+          const a = el && el.closest ? el.closest('a[href]') : null;
+          let to = 'control';
+          if (a) { try { to = pageIdFor(new URL(a.getAttribute('href'), location.href)); } catch (_) { to = 'control'; } }
+          uxEvent('first_click', /^[a-z0-9][a-z0-9._:-]{0,63}$/.test(to) ? to : 'control');
+        }
+        const c = classifyClick(el);
+        if (c) uxEvent(c.kind, c.target);
+      } catch (_) { /* never breaks a click */ }
+    }, true);
+  }
+
   // C-09 (F16/F29/G14) — usage facts before any keep/merge decision: one `page_viewed` per page load of a shell
   // page, fire-and-forget. The server keeps ONE row per user × page × day (services/viewLog.js) with user id +
   // role tier only. A re-render (reports.html after login) does not send twice; a failure is silent.
@@ -653,6 +698,14 @@
       if (m) id += ':' + m[1].toLowerCase();
     }
     return id;
+  }
+  // F-UX-06 — pages without the shell mount (it-review, site-report) report their view through lib/pageView.js.
+  function sendPageViewFor(id) {
+    try {
+      if (typeof fetch !== 'function') return false;
+      fetch('/api/ux/page-view', { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ page: String(id || '') }) }).catch(function () { /* silent */ });
+      return true;
+    } catch (_) { return false; }
   }
   function sendPageView() {
     if (pageViewSent) return;
@@ -770,6 +823,7 @@
     WORKSPACES,
     shellLang,
     entryFromUrl,
+    uxEvent, classifyClick, pageView: sendPageViewFor,
     workspaceFor,
     searchEntries,
     breadcrumbFor,
