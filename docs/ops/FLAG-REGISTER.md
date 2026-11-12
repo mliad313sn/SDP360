@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (182) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (183) — services/reportConfig.js DEFAULTS
 
 Prerequisites (E-A07, services/switchPrereqs.js) are WARNINGS in plain words, never approvals: the config PUT
 answer and the `set-ui-policy.js` dry run repeat them when the switch is moved to its switched-on value.
@@ -26,6 +26,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `access_recert_orphan_days` | `90` | setting | Security owner | PROPOSITION: N to be chosen by the Security owner (an account with no sign-in evidence is listed as UNKNOWN, never as idle) | E-S03 | — |
 | `access_require_approval` | `0` | setting | Security owner + Owner (approver matrix) | `1` once the approver rule and the requires_request list are decided (break-glass stays possible, logged risk=1) | C-18 | — |
 | `agenda_cron_enabled` | `0` | arm switch | Committee | `1` (the Monday job prepares a DRAFT agenda per cadence due that week; nothing is sent, the secretary still prepares the session) | E-G03 | — |
+| `ai_commentary_stale_block` | `0` | setting | Owner (AI) + KPI committee | `1` once an AI provider is switched on (today `AI_PROVIDER=off`, so the switch changes nothing) — a report run whose sources are stale or never synced keeps its deterministic text with the reason, instead of an AI commentary written on old data; the deck builder's `/api/ai/analyze` also returns `verification` (offending numbers) when the page sends `facts` (metadata, no switch) | E-B08 | Sync freshness thresholds reviewed, so a "stale" verdict means what the readers expect. |
 | `alert_external_enabled` | `0` | arm switch | to be named | — | — | A reviewed list of senders and recipients, a dry run, habilitations, and the stop switch (notifications_stop) tested. |
 | `analytics_accounts_url` | `` | setting | to be named | — | — | — |
 | `analytics_client_id` | `` | setting | to be named | — | — | — |

@@ -4406,7 +4406,7 @@ app.post('/api/ai/analyze', requireReportSession, requireRole('report-author'), 
     const data = AI_PROVIDER === 'local'
       ? await _aiCallLocal(body)
       : await _aiCallAnthropic(body);
-    res.json(data);
+    res.json(require('./services/aiAnalyzeGuard').annotate(data, body.facts));   // E-B08 — number check when `facts` is sent (metadata only)
   } catch(err) {
     const status = err.status || err.response?.status || 500;
     const tag    = AI_PROVIDER === 'local' ? 'Local LLM' : 'Anthropic API';

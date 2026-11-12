@@ -287,6 +287,10 @@ DEFAULTS.authz_enforce_caps = '';
 // A browser request (cookie or Origin) is never affected. ui_inject_dash_key '1' = today (window.__ak in pages
 // served with a session); '0' = no key in pages, the session cookie carries every call (services/dashKeyScope.js).
 Object.assign(DEFAULTS, { dashkey_scope_mode: 'open', dashkey_allowed_routes: '', ui_inject_dash_key: '1' });
+// E-B08 (audit B-08) — '0' = today (the AI commentary is generated whatever the source freshness). '1' = when a model
+// would be called and any source feeding the run's figures is stale / never synced (publication's freshness gate),
+// the run keeps its deterministic text with error 'sources stale — AI commentary not generated' (system_log row).
+DEFAULTS.ai_commentary_stale_block = '0';
 // C-18 (G39/G40/G50) — access requests. '0' = today: Admin ▸ Users adds any role directly; no grant ever expires
 // by itself. access_require_approval '1' → adding a role marked requires_request needs an APPROVED request
 // (super_admin break-glass with a reason, logged risk=1). access_grant_expiry_job '1' → the nightly job

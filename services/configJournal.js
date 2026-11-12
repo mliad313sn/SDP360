@@ -31,12 +31,12 @@ function diffConfig(current, patch, { keys, secretSet, blankKeep } = {}) {
 function cleanReason(r) { const s = _s(r).replace(/[\r\n]+/g, ' ').trim(); return s ? s.slice(0, MAX_REASON) : null; }
 
 /** Writes one row per change (best-effort, never throws). ctx = {actor, actor_id, ip}. */
-function journal(logEvent, changes, ctx = {}, reason) {
+function journal(emit, changes, ctx = {}, reason) {
   const why = cleanReason(reason);
   for (const c of changes || []) {
     try {
       const details = { ...c, ...(why ? { reason: why } : {}) };
-      logEvent({ category: 'config', action: 'config_changed', target: c.key, details, ...ctx });
+      emit({ category: 'config', action: 'config_changed', target: c.key, details, ...ctx });
     } catch (_) { /* a log never breaks a save */ }
   }
   return (changes || []).length;

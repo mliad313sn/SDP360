@@ -104,6 +104,7 @@ planned switch cannot be set before its goal lands.
 | `dashkey_allowed_routes` | built | `` | the routes the named consumers really call (from the consumer report), e.g. `GET /api/ping, GET /api/data/*` — PROPOSITION, no list approved | Integration owner + Security owner | E-S02 |
 | `ui_inject_dash_key` | built | `1` | `0` (pages no longer receive `window.__ak`; every data call rides the session cookie — proven by `tests/api-key-injection.smoke.test.js` (g)) after one browser pass on the TEST instance | Security owner | E-S02 |
 | `ui_feedback_enabled` | built | `0` | `1` on the pilot once B-05 (RACI) names who answers feedback — a Feedback button in the header (problem / idea / question, page auto-filled, ≤ 2 000 characters, named or anonymous: anonymous keeps only role tier + site), triage in `/api/feedback` (admin tier), the answer shown on Home ▸ My work; no notification sent, no AI reads the text | PO | E-B07 |
+| `ai_commentary_stale_block` | built | `0` | `1` once an AI provider is switched on (today `AI_PROVIDER=off`, so the switch changes nothing) — a report run whose sources are stale or never synced keeps its deterministic text with the reason, instead of an AI commentary written on old data; the deck builder's `/api/ai/analyze` also returns `verification` (offending numbers) when the page sends `facts` (metadata, no switch) | Owner (AI) + KPI committee | E-B08 |
 
 Not in this table because they are not top-level `report_config` keys:
 
