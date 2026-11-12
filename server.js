@@ -5890,71 +5890,9 @@ app.get('/api/reports/:id/active-incidents', requireReportSession, async (req, r
   } catch(e) { fail(res, e); }
 });
 
-// GET /api/reports/:id/infra-auto — V1b-C. Pre-fill values for the Infrastructure KPIs
-// Current Value cells, from the OPManager/Meraki snapshots for THIS report's site + Zoho
-// week. Best-effort: unconfigured / no snapshot → { fills: [] }, never 500. The client fills
-// only EMPTY cells (editor override) — nothing is persisted here; no infra_kpis change.
-app.get('/api/reports/:id/infra-auto', requireReportSession, async (req, res) => {
-  try {
-    const report = await rdb.getReport(parseInt(req.params.id));
-    if (!report) return res.status(404).json({ error: 'Report not found', fills: [] });
-    const { buildFills } = require('./services/opmReportFill');
-    const cfg = await reportConfig.getConfig(rdb.db);
-    const staleDays = parseInt(cfg.opm_stale_days, 10) || 9;
-    const start = report.start_date;                       // Zoho Sunday = weeks.start_date
-    const wan = await rdb.getWanSnapshots({ site_id: report.site_id, period_type: 'week', period_start: start });
-    const infra = await rdb.getInfraSnapshots({ site_id: report.site_id, period_type: 'week', period_start: start });
-
-    // The report cell covers the report's OWN week (fixed & reproducible — an archived weekly
-    // report must NOT drift with a rolling "as of today" window). Expose it so the editor can
-    // cross-check Meraki WITHOUT Custom: Meraki "Past Week" opened the day AFTER this week ends
-    // is the same period (Zoho weeks are Sun→Sat; Meraki's presets end yesterday).
-    let winFrom = null, winTo = null;
-    for (const u of wan) {
-      const ps = u.period_start || null, pe = u.period_end || u.period_start || null;
-      if (ps && (!winFrom || ps < winFrom)) winFrom = ps;
-      if (pe && (!winTo || pe > winTo)) winTo = pe;
-    }
-    const window = (winFrom && winTo)
-      ? { from: winFrom, to: winTo, days: Math.round((Date.parse(winTo) - Date.parse(winFrom)) / 86400000) + 1 }
-      : null;
-
-    // WAN availability in the report cell = the snapshot's CALIBRATED "% Time Up" (loss >= 5 % per
-    // sample = down, calibrated against Meraki on 2026-09-04) — the SAME primary figure the WAN
-    // Health dashboard shows, so the cell and the dashboard never disagree (audit 2026-09-05 F9,
-    // decision 2026-09-06). The poller's EVENT-based figure (total-outage minutes, the SLA
-    // instrument) rides along as the secondary `event_pct` when the poller has run — never as
-    // the cell value. An earlier version overwrote the cell with the event figure (or left it
-    // blank before the poller's first run); that made the report disagree with the dashboard.
-    for (const u of wan) { u.avail_event_pct = null; if (u.availability_pct != null) u.basis = 'timeup'; }
-    if (wan.length && cfg.wan_poll_last_run) {
-      let wanTarget = 98; try { const t = JSON.parse(cfg.opm_targets || '{}'); if (t && t.wan != null) wanTarget = Number(t.wan); } catch (_) {}
-      let minFrom = null, maxTo = null;
-      for (const u of wan) {
-        const f = (u.period_start || '') + 'T00:00:00Z'; if (u.period_start && (!minFrom || f < minFrom)) minFrom = f;
-        const end = u.period_end || u.period_start; const tt = (end || '') + 'T23:59:59Z'; if (end && (!maxTo || tt > maxTo)) maxTo = tt;
-      }
-      let outages = [];
-      if (minFrom && maxTo) { try { outages = (await rdb.getWanOutagesOverlapping(minFrom, maxTo)) || []; } catch (_) { outages = []; } }
-      const wanFirstRunMs = cfg.wan_poll_first_run ? Date.parse(cfg.wan_poll_first_run) : null;
-      // Compute the event figure on CLONES so the snapshot's primary %/colour/trend stay untouched.
-      const clones = wan.map(u => ({ ...u }));
-      require('./services/wanEventAvailability').applyEventAvailability(clones, outages, {
-        target: wanTarget, minFromMs: (wanFirstRunMs && Number.isFinite(wanFirstRunMs)) ? wanFirstRunMs : undefined });
-      clones.forEach((c, i) => { wan[i].avail_event_pct = (c.availability_pct == null) ? null : c.availability_pct; });
-    }
-
-    const fills = buildFills({ wan, infra, staleDays, nowMs: Date.now() });
-    // Per-site sub-site tokens (Exploration) — for the client to token-gate its line
-    // matching. Row-driven; NOT passed into buildFills (buildFills is snapshot-driven).
-    const tokens = ((await rdb.listWanSubsiteNetworks()) || [])
-      .filter(r => r.site_id === report.site_id).map(r => r.sub_site);
-    // data_as_of (A-18a): when the snapshots behind these fills were COLLECTED (max collected_at),
-    // null when there is none — never today's date for data that does not exist.
-    const data_as_of = require('./services/opmanagerAvailability').dataAsOf(wan, infra);
-    res.json({ week_label: report.week_label, period_start: start, window, data_as_of, fills, tokens });
-  } catch (e) { res.json({ fills: [], reason: 'internal_error', correlation_id: logError(e, req) }); }
-});
+// GET /api/reports/:id/infra-auto (V1b-C) + weekly-report telemetry/value metrics (P4/B9) — routes/weeklyReportAssist.js.
+// Mounted HERE, after the central report read guard, so the site perimeter applies before the route runs.
+app.use(require('./routes/weeklyReportAssist')({ express, requireReportSession, rdb, reportConfig, logError }));
 
 // GET /api/sites/:siteId/active-incidents — same payload, looked up by
 // site id. Used by the monthly editor (which doesn't have a report id
@@ -5993,7 +5931,8 @@ app.put('/api/reports/:id/infra', requireReportSession, jsonBody, async (req, re
   try {
     const id = parseInt(req.params.id);
     if (!(await _authorizeReportWrite(req, res, id))) return;   // F5: role + site + submitted-state
-    const kpis = Array.isArray(req.body) ? req.body : [];
+    let kpis = Array.isArray(req.body) ? req.body : [];
+    kpis = await require('./routes/weeklyReportAssist').verifyInfraProvenance(rdb, reportConfig, id, kpis);   // P4/B9
     await rdb.saveInfraKpis(id, kpis);
     await rdb.touchReport(id);
     const r = await rdb.getReport(id);
