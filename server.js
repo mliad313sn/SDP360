@@ -159,6 +159,7 @@ app.use((req, res, next) => {
   // React are served same-origin from public/vendor/; C-29: so is Libre Franklin (no font host in the CSP).
   // style-src keeps 'unsafe-inline' (many inline styles throughout).
   // inspection.html's PWA manifest is an inline data: URL → manifest-src 'self' data: (services/sessionAuth.cspDirectives).
+  sessionAuth.touchStrictPages(async () => (await require('./services/reportConfig').getConfig(rdb.db)).csp_strict_pages);   // F-ARCH-06 — csp_strict_pages, cached 30 s
   res.setHeader('Content-Security-Policy', sessionAuth.cspDirectives(sessionAuth.scriptSrc(nonce, sessionAuth.isStrictCspPath(req.path))).join('; '));
   // A-28a — opt-in (SDP_CSP_REPORT_ONLY=1, read at boot): the nonce-only policy, reported not enforced.
   if (_cspReportOnly && !sessionAuth.isStrictCspPath(req.path)) {
@@ -1334,7 +1335,7 @@ async function sendHtmlPage(res, name, injectApiKey, fallbackMsg) {
   }
   if (injectApiKey && await _hasValidSession(res.req)) html = await _dashKeyScope.inject(html, res.locals.nonce, DASH_API_KEY);   // E-S02 ui_inject_dash_key
   html = html.replace(/%%CSP_NONCE%%/g, res.locals.nonce);
-  if (sessionAuth.STRICT_PAGES.includes('/' + name) || res.getHeader('Content-Security-Policy-Report-Only')) html = sessionAuth.nonceScripts(html, res.locals.nonce);   // A-28a: nonce inline scripts under report-only
+  if (sessionAuth.isStrictCspPath('/' + name) || res.getHeader('Content-Security-Policy-Report-Only')) html = sessionAuth.nonceScripts(html, res.locals.nonce);   // A-28a: nonce inline scripts under report-only
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   // Page HTML must NOT be cached by the browser — every visit gets a fresh
   // CSP nonce. Static assets (.js, .css, fonts) are cached aggressively below.

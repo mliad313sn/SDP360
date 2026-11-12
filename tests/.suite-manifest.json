@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 4516,
+ "total": 4525,
  "files": {
   "a11y-static.test.js": 18,
   "access-approver-policy.test.js": 4,
@@ -140,8 +140,10 @@
   "cross-site-read-sweep.smoke.test.js": 2,
   "cross-site-write-sweep.smoke.test.js": 2,
   "csp-headers.smoke.test.js": 13,
+  "csp-journey-report.test.js": 5,
   "csp-no-inline-handlers-new-pages.test.js": 2,
   "csp-report.smoke.test.js": 6,
+  "csp-strict-pages-config.test.js": 4,
   "csv-guard-coverage.test.js": 2,
   "csv-safe.test.js": 4,
   "currency.test.js": 6,

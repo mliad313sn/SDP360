@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (206) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (207) — services/reportConfig.js DEFAULTS
 
 Prerequisites (E-A07, services/switchPrereqs.js) are WARNINGS in plain words, never approvals: the config PUT
 answer and the `set-ui-policy.js` dry run repeat them when the switch is moved to its switched-on value.
@@ -63,6 +63,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `commitment_notify_enabled` | `0` | arm switch | to be named | — | — | — |
 | `commitments_enabled` | `0` | arm switch | to be named | — | — | — |
 | `controls_register_enabled` | `0` | arm switch | GRC owner + Security owner | `1` once GRC names who adopts controls (the four seeded controls stay `candidate` until a person adopts them with a reason; frequencies and testers are GRC decisions) | E-G04 | — |
+| `csp_strict_pages` | `` | setting | Security owner | keep empty until a page is listed as enforceable in `docs/security/CSP-JOURNEYS.md` (no inline script, no inline handler) AND a report-only run (`SDP_CSP_REPORT_ONLY=1`) shows no violation for it; then add it here, one journey at a time, e.g. `/access.html` — a comma list of pages served with the nonce-only `script-src` (applies within 30 s, no restart; emptying it returns to today). It can only make a page stricter: no script origin is ever added — PROPOSITION, no page approved | F-ARCH-06 | — |
 | `dashboard_red_action_links` | `0` | setting | Owner (UI policy) + PMO | `1` (proposal — only with `commitments_enabled=1`; no action is ever created automatically) | E-K03 | — |
 | `dashkey_allowed_routes` | `` | setting | Integration owner + Security owner | the routes the named consumers really call (from the consumer report), e.g. `GET /api/ping, GET /api/data/*` — PROPOSITION, no list approved | E-S02 | — |
 | `dashkey_scope_mode` | `open` | setting | Integration owner + Security owner | `shadow` first (an unlisted key-only route still answers and logs `dashkey_scope_would_refuse`); `restrict` (401) only after every consumer in `tools/security/dashkey-consumers.js` is named and listed. A browser request is never affected | E-S02 | Every key-only consumer named and listed in dashkey_allowed_routes (tools/security/dashkey-consumers.js), after a shadow period. |

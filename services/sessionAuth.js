@@ -21,7 +21,32 @@ function sessionToken(req) {
 
 // Pages served with script-src 'nonce-…' (no 'unsafe-inline'). Others are progressive work.
 const STRICT_PAGES = ['/exec-view.html', '/login.html'];
-function isStrictCspPath(p) { return STRICT_PAGES.includes(p) || String(p || '').startsWith('/share/'); }
+// F-ARCH-06 — report_config.csp_strict_pages: extra pages enforced without a deploy (a page whose inline
+// scripts and handlers were extracted). Default '' = today. The list can only ADD strict pages: it never
+// removes a built-in one and never touches the allowed origins. Entries are local `/name.html` paths.
+let _extraStrict = [];
+let _extraAt = 0, _extraBusy = false;
+const STRICT_TTL_MS = 30000;
+function parseStrictPages(csv) {
+  const out = [];
+  for (const raw of String(csv == null ? '' : csv).split(',')) {
+    let p = raw.trim(); if (!p) continue;
+    if (!p.startsWith('/')) p = '/' + p;
+    const seg = p.slice(1).split('/');
+    if (!p.endsWith('.html') || p.length > 200 || !seg.every((x, i) => (i === seg.length - 1 ? /^[A-Za-z0-9_-]+\.html$/ : /^[A-Za-z0-9_-]+$/).test(x))) continue;
+    if (!out.includes(p)) out.push(p);
+  }
+  return out;
+}
+function setStrictPages(csv) { _extraStrict = parseStrictPages(csv); _extraAt = Date.now(); return _extraStrict; }
+function invalidateStrictPages() { _extraAt = 0; }
+/** Called on each request: when the cached list is older than the TTL, reload it in the background. load() → the setting (Promise). */
+function touchStrictPages(load, now = Date.now()) {
+  if (_extraBusy || now - _extraAt < STRICT_TTL_MS) return;
+  _extraBusy = true;
+  Promise.resolve().then(load).then((v) => setStrictPages(v), () => { _extraAt = Date.now(); /* unreadable: keep the last list */ }).finally(() => { _extraBusy = false; });
+}
+function isStrictCspPath(p) { return STRICT_PAGES.includes(p) || _extraStrict.includes(p) || String(p || '').startsWith('/share/'); }
 
 function scriptSrc(nonce, strict) {
   return strict
@@ -63,5 +88,5 @@ function nonceScripts(html, nonce) {
   return String(html).replace(/<script\b(?![^>]*\bnonce=)/gi, `<script nonce="${nonce}"`);
 }
 
-module.exports = { cookieValue, sessionToken, isStrictCspPath, scriptSrc, nonceScripts, STRICT_PAGES,
+module.exports = { cookieValue, sessionToken, isStrictCspPath, parseStrictPages, setStrictPages, invalidateStrictPages, touchStrictPages, scriptSrc, nonceScripts, STRICT_PAGES,
   cspDirectives, reportOnlyScriptSrc, reportOnlyPolicy, CSP_REPORT_PATH };
