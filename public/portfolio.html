@@ -99,9 +99,10 @@
   "use strict";
   var R = window.DashboardRender, $ = function (id) { return document.getElementById(id); }, esc = R.escapeHtml;
   var H = function (x) { return Object.assign({}, x || {}); };
-  function api(p, o) { return fetch(p, Object.assign({ headers: H(o && o.body ? { "content-type": "application/json" } : {}) }, o || {})).then(function (r) { return r.json().then(function (j) { if (!r.ok) throw new Error(j.error || ("HTTP " + r.status)); return j; }); }); }
+  function api(p, o) { return fetch(p, Object.assign({ headers: H(o && o.body ? { "content-type": "application/json" } : {}) }, o || {})).then(function (r) { return r.json().then(function (j) { if (!r.ok) { var e = new Error(j.error || ("HTTP " + r.status)); e.status = r.status; e.code = j.code; throw e; } return j; }); }); }
   var msg = function (h, cls) { $("msg").innerHTML = h ? "<div class=\"" + (cls || "ok") + "\">" + esc(h) + "</div>" : ""; };
-  var fail = function (e) { msg(e.message, "errors"); };
+  // I-CONC-1 — someone saved the same item in between: say it in plain words (the server refused, nothing was overwritten)
+  var fail = function (e) { msg(e && e.code === "STALE_VERSION" ? "Someone else changed this item since this page was loaded. Reload the page to see their change, then make your edit again." : e.message, "errors"); };
   var V = null, committee = false, isSuper = !!(window.__userHasRole && window.__userHasRole("super_admin"));
   var p = function (v) { return v == null ? "—" : v + " %"; };
   // A-14 — a project key opens its record page
@@ -252,6 +253,9 @@
     if (k === "task") { b.wbs_code = $("e-wbs").value || null; b.parent_id = num("e-tparent"); b.start_date = $("e-start").value || null; b.end_date = $("e-end").value || null; b.duration_days = num("e-dur"); b.allocation_pct = num("e-alloc"); b.effort_hours = num("e-effort"); b.progress_pct = num("e-prog"); if ($("e-deps").value.trim()) b.depends_on = $("e-deps").value.split(",").map(function (x) { return Number(x.trim()); }).filter(function (x) { return x > 0; }); }
     if (k === "milestone" || k === "deliverable") { b.due_date = $("e-end").value || null; if (k === "milestone") b.baseline_date = $("e-base").value || null; }
     Object.keys(b).forEach(function (x) { if (b[x] === null || b[x] === "") delete b[x]; });
+    // I-CONC-1 — send the version this page read, so a concurrent edit is refused instead of overwritten
+    var src = b.id && V ? ({ project: V.projects, task: V.tasks, milestone: V.milestones })[k] : null, row = src ? src.filter(function (x) { return Number(x.id) === b.id; })[0] : null;
+    if (row && row.version != null) b.version = row.version;
     api("/api/governance/portfolio/" + k, { method: "PUT", body: JSON.stringify(b) }).then(function (j) { msg(k + " #" + j.id + " saved."); return load(); }).catch(fail);
   });
   $("e-del").addEventListener("click", function () { var id = num("e-id"); if (!id || !window.confirm("Delete " + $("e-kind").value + " #" + id + " and its children?")) return; api("/api/governance/portfolio/" + $("e-kind").value + "/" + id, { method: "DELETE" }).then(function () { msg("Deleted."); return load(); }).catch(fail); });

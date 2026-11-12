@@ -298,6 +298,14 @@
     NO_BASELINE: "The project has no baseline end to move.",
     CURRENCY_REQUIRED: "An amount needs its currency (ISO code such as USD or XOF).",
     JUSTIFICATION_REQUIRED: "A justification is required: the amount changes, or differs from the baseline of this month.",
+    STALE_VERSION: "Someone else changed this item since you opened the page. Reload the page to see their change, then make your edit again.",
+    PARENT_SELF: "A task cannot be its own parent.",
+    PARENT_CYCLE: "This parent would make a loop: the chosen parent is already under this task.",
+    PARENT_OTHER_PROJECT: "The parent task belongs to another project.",
+    PARENT_NOT_FOUND: "The parent task does not exist (any more).",
+    DEPENDS_ON_HIERARCHY: "A task cannot depend on its own parent or on one of its sub-tasks.",
+    DATE_INVALID: "A date is not a real calendar date (YYYY-MM-DD).",
+    DATE_ORDER: "An end date is before its start date.",
   };
   var fail = function (e) { msg((e && e.code && PLAIN[e.code]) || (e && e.message) || "Error", "errors"); };
   var V = null;
@@ -433,7 +441,7 @@
   }
   $("c-save").addEventListener("click", function () {
     var o = {}; CHARTER_FIELDS.forEach(function (k) { o[k[0]] = $("c-" + k[0]).value.trim(); });
-    var b = { id: V.project.id, charter: JSON.stringify(o) }; if ($("c-sponsor").value.trim()) b.sponsor = $("c-sponsor").value.trim();
+    var b = { id: V.project.id, charter: JSON.stringify(o), version: V.project.version }; if ($("c-sponsor").value.trim()) b.sponsor = $("c-sponsor").value.trim();
     api("/api/governance/portfolio/project", { method: "PUT", body: JSON.stringify(b) }).then(function () { msg("Charter saved."); return load(); }).catch(fail);
   });
 
@@ -556,7 +564,7 @@
     var b = { project_id: V.project.id, name: $("t-name").value.trim(), wbs_code: $("t-wbs").value.trim() || null, parent_id: $("t-parent").value ? Number($("t-parent").value) : null, owner: $("t-owner").value.trim() || null,
       start_date: $("t-start").value || null, end_date: $("t-end").value || null, duration_days: numOrNull("t-dur"), allocation_pct: numOrNull("t-alloc"), effort_hours: numOrNull("t-effort"), status: $("t-status").value, progress_pct: numOrNull("t-prog"),
       depends_on: Array.prototype.filter.call($("t-deps").options, function (o) { return o.selected; }).map(function (o) { return Number(o.value); }) };
-    if (id) { b.id = id; delete b.project_id; }
+    if (id) { b.id = id; delete b.project_id; var t = V.tasks.filter(function (x) { return x.id === id; })[0]; if (t && t.version != null) b.version = t.version; }   // I-CONC-1
     // E-P03 — with ppm_capacity_view on, a reassignment (owner change) carries a reason; it is traced in the ledger either way
     var was = id ? (V.tasks.filter(function (x) { return x.id === id; })[0] || {}).owner : null;
     if (id && FEAT.capacity && String(was || "").trim() !== String(b.owner || "").trim()) { var why = window.prompt("Reason for reassigning this task (kept in the project history):", ""); if (!why || !why.trim()) { msg("Reassignment not saved: a reason is required.", "errors"); return; } b.reason = why.trim(); }
@@ -580,7 +588,7 @@
   $("m-save").addEventListener("click", function () {
     var id = Number($("m-id").value) || null, done = $("m-status").value === "done";
     var b = { project_id: V.project.id, name: $("m-name").value.trim(), owner: $("m-owner").value.trim() || null, due_date: $("m-due").value || null, baseline_date: $("m-base").value || null, status: $("m-status").value, done_at: done ? today() : null };
-    if (id) { b.id = id; delete b.project_id; }
+    if (id) { b.id = id; delete b.project_id; var m = (V.milestones || []).filter(function (x) { return x.id === id; })[0]; if (m && m.version != null) b.version = m.version; }   // I-CONC-1
     api("/api/governance/portfolio/milestone", { method: "PUT", body: JSON.stringify(b) }).then(function () { msg("Milestone saved."); return load(); }).catch(fail);
   });
 
