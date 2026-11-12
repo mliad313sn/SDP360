@@ -350,6 +350,23 @@ DEFAULTS.agenda_cron_enabled = '0';
 // ── E-G04 (audit G-04) — '1' = the control register (risk → control → test → exception) on Admin ▸ Governance policies;
 //    controls are seeded as CANDIDATES only (adoption is a GRC decision). '0' (default) = the routes 404, no panel.
 DEFAULTS.controls_register_enabled = '0';
+// ── Plan E / W2-ITSM switches (defaults = today) ──────────────────────────────────────────────
+// ── E-I02 (audit I-02) — '1' = GET /api/commitments/problem-candidates lists recurring-incident CANDIDATES (site ×
+//    category × sub-category, causality not validated) and a person may promote one to a commitment; '0' = 404.
+//    problem_candidate_min = the recurrence threshold (empty = no candidate at all — no threshold invented here).
+DEFAULTS.problem_candidates_enabled = '0';
+DEFAULTS.problem_candidate_min = '';
+// ── E-I03 (catalogue R15) — '1' = a post-incident (PIR) review record per major incident under /api/commitments/pir
+//    (decisions, before/after recurrence counts, linked commitments, sign-off by someone other than the author);
+//    '0' (default, today) = those routes 404, no panel.
+DEFAULTS.pir_reviews_enabled = '0';
+// ── E-I06 (audit I-06, catalogue R06) — insp_repeat_findings '1' = the inspections dashboard lists repeat findings
+//    (same site × item rated minor/major/critical in ≥ 2 of the site's last insp_repeat_window submitted inspections;
+//    empty window = nothing computed). insp_action_verify_enabled '1' = a closed Critical / High corrective action
+//    reads "awaiting verification" until a person who did NOT close it verifies it. '0' (default) = today.
+DEFAULTS.insp_repeat_findings = '0';
+DEFAULTS.insp_repeat_window = '';
+DEFAULTS.insp_action_verify_enabled = '0';
 const KEYS = Object.keys(DEFAULTS);
 
 // Secrets that the GET handler redacts to '' — a Save that doesn't retype them must
