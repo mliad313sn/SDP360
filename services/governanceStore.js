@@ -35,10 +35,20 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     const r = await P(sql + ((' RETURNING id'))).run(...vals);
     return Number(r && (r.id != null ? r.id : r.lastID != null ? r.lastID : (r.rows && r.rows[0] && r.rows[0].id)));
   }
-  async function updateRow(table, id, patch, allowed) {
+  // W1-INTEGRITY / I-CONC-1 — rows of these tables carry a version (migration 092): every write bumps it, and a write
+  // given `expectedVersion` only lands when the row still has that version (else 409 STALE_VERSION, nothing written).
+  const VERSIONED = new Set(['portfolio_projects', 'portfolio_tasks', 'portfolio_milestones']);
+  const _stale = (cur) => Object.assign(new Error('this item was changed by someone else since you opened it — reload to see their change, then edit again'), { code: 'CONFLICT', status: 409, reason: 'STALE_VERSION', current_version: cur == null ? null : Number(cur) });
+  async function updateRow(table, id, patch, allowed, { expectedVersion = null } = {}) {
     const keys = Object.keys(patch || {}).filter(k => allowed.includes(k));
-    if (!keys.length) return;
-    await P(`UPDATE ${table} SET ${keys.map(k => `${k}=?`).join(', ')}, updated_at=? WHERE id=?`).run(...keys.map(k => patch[k]), now(), Number(id));
+    const versioned = VERSIONED.has(table);
+    const guard = versioned && expectedVersion != null;
+    if (!keys.length) {
+      if (guard) { const r = await P(`SELECT version FROM ${table} WHERE id=?`).get(Number(id)); if (r && Number(r.version) !== Number(expectedVersion)) throw _stale(r.version); }
+      return;
+    }
+    const r = await P(`UPDATE ${table} SET ${keys.map(k => `${k}=?`).join(', ')}, updated_at=?${versioned ? ', version=version+1' : ''} WHERE id=?${guard ? ' AND version=?' : ''}`).run(...keys.map(k => patch[k]), now(), Number(id), ...(guard ? [Number(expectedVersion)] : []));
+    if (guard && Number(r && r.changes) !== 1) { const cur = await P(`SELECT version FROM ${table} WHERE id=?`).get(Number(id)); if (cur) throw _stale(cur.version); }
   }
   async function nextRef(table, prefix, year) {
     const like = `${prefix}-${year}-%`;
@@ -476,10 +486,40 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     const p = require('./portfolioBenefits').classProblem(row);
     if (p) throw Object.assign(new Error(p.error), { code: 'INVALID', reason: p.code });
   }
+  // W1-INTEGRITY / A-INT-1 — hierarchy + date integrity before a task / project / milestone write (pure rules in
+  // services/ppm/planIntegrity). Only what this write CHANGES is checked: a legacy row that already breaks a rule
+  // stays editable for its other fields (tools/pg/ppm-integrity-report.js lists such rows).
+  async function _integrityCheck(kind, id, vals) {
+    const PI = require('./ppm/planIntegrity');
+    const T = TABLES[kind];
+    const before = id ? await P(`SELECT * FROM ${T.table} WHERE id=?`).get(id) : null;
+    const same = (a, b) => String(a ?? '') === String(b ?? '');
+    const datePatch = {};
+    for (const f of PI.DATE_FIELDS[kind]) if (vals[f] !== undefined && !(before && same(vals[f], before[f]))) datePatch[f] = vals[f];
+    const dp = PI.dateProblem(kind, datePatch, before);
+    if (dp) throw Object.assign(new Error(dp.error), { code: 'INVALID', reason: dp.code });
+    if (kind !== 'task') return;
+    const pid = vals.project_id != null ? Number(vals.project_id) : before ? Number(before.project_id) : null;
+    const parent = vals.parent_id !== undefined ? vals.parent_id : (before ? before.parent_id : null);
+    const deps = vals.depends_on !== undefined ? P_(vals.depends_on, []) : (before ? P_(before.depends_on, []) : []);
+    const depKey = (a) => (a || []).map(Number).sort((x, y) => x - y).join(',');
+    const moved = !!(before && vals.project_id != null && Number(vals.project_id) !== Number(before.project_id));
+    const changed = { parent: !before || moved || (vals.parent_id !== undefined && !same(vals.parent_id, before.parent_id)), deps: !before || (vals.depends_on !== undefined && depKey(deps) !== depKey(P_(before.depends_on, []))) };
+    if (moved && (await P(`SELECT id FROM portfolio_tasks WHERE parent_id=? AND deleted_at IS NULL`).get(id))) throw Object.assign(new Error('a task with sub-tasks cannot move to another project'), { code: 'INVALID', reason: 'PARENT_OTHER_PROJECT' });
+    if (!changed.parent && !changed.deps) return;
+    const rows = await P(`SELECT id, project_id, parent_id FROM portfolio_tasks WHERE project_id=? AND deleted_at IS NULL`).all(pid);
+    if (parent != null && !rows.some((r) => Number(r.id) === Number(parent))) { const pr = await P(`SELECT id, project_id, parent_id FROM portfolio_tasks WHERE id=? AND deleted_at IS NULL`).get(Number(parent)); if (pr) rows.push(pr); }
+    const hp = PI.hierarchyProblem({ id, project_id: pid, parent_id: parent, depends_on: deps }, rows, changed);
+    if (hp) throw Object.assign(new Error(hp.error), { code: 'INVALID', reason: hp.code });
+  }
   async function upsertPortfolio(kind, body, opts = {}) {
     const T = TABLES[kind]; if (!T) throw Object.assign(new Error('unknown portfolio entity'), { code: 'INVALID' });
     const vals = normalise(kind, body || {});
     const id = body && body.id ? Number(body.id) : null;
+    // I-CONC-1 — the version the caller read (optional: absent = today's last-writer-wins)
+    const ev = id && ['project', 'task', 'milestone'].includes(kind) && body.version != null && body.version !== '' ? Number(body.version) : null;
+    if (ev != null && !(Number.isInteger(ev) && ev >= 1)) throw Object.assign(new Error('version must be the positive integer read with the item'), { code: 'INVALID' });
+    const vopt = { expectedVersion: ev };
     // G11 — dependencies must exist, stay inside their family (projects / tasks of the same project) and never loop
     if ((kind === 'project' || kind === 'task') && body && body.depends_on !== undefined) {
       const S = require('./projectSchedule');
@@ -497,6 +537,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       if (pid == null && id) { const cur = await P(`SELECT project_id FROM ${T.table} WHERE id=?`).get(id); pid = cur ? cur.project_id : null; }
       if (pid != null && (await P(`SELECT id FROM portfolio_projects WHERE id=?`).get(Number(pid))) && await _projectGone(pid)) throw softDelete.deletedConflict('project', { deleted_at: await _goneSince(pid) });
     }
+    if (kind === 'task' || kind === 'project' || kind === 'milestone') await _integrityCheck(kind, id, vals);   // W1-INTEGRITY A-INT-1
     if (id && kind === 'benefit') {
       const before = await getBenefit(id);
       if (!before) throw Object.assign(new Error('benefit not found'), { code: 'NOT_FOUND', status: 404 });
@@ -526,7 +567,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
         if (before.stage && before.stage !== 'proposal' && changed('status')) throw Object.assign(new Error('the status follows the stage gates — use the stage action'), { code: 'CONFLICT', status: 409, reason: 'STATUS_BY_STAGE' });
         const curFlag = _currencyFlag(vals, before);
         if (curFlag === 1 && opts.currencyRequired) throw _currencyRefused();
-        await updateRow(T.table, id, vals, T.cols);
+        await updateRow(T.table, id, vals, T.cols, vopt);
         if (curFlag !== undefined) await P(`UPDATE portfolio_projects SET currency_defaulted=? WHERE id=?`).run(curFlag, Number(id));
         if (curFlag === 1) _warn(opts, 'CURRENCY_DEFAULTED', 'no currency was stated with the amount: it is recorded as ' + (before.currency || 'USD') + ' by default and shown "default, not confirmed" until a currency is sent');
         // G12 — every financial edit is kept with its old and new value
@@ -543,13 +584,13 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
           const reason = str(opts.reason, 2000);
           if (opts.requireOwnerReason && !(reason && reason.trim())) throw Object.assign(new Error('a reason is required to reassign a task'), { code: 'INVALID', reason: 'REASON_REQUIRED' });
           return tx(async () => {
-            await updateRow(T.table, id, vals, T.cols);
+            await updateRow(T.table, id, vals, T.cols, vopt);
             await ppmEvent({ entity: 'project', entity_id: Number(before.project_id), action: 'task_reassigned', field: `task:${id}`, old_value: before.owner || null, new_value: vals.owner || null, note: reason || null }, opts.user);
             return id;
           });
         }
       }
-      await updateRow(T.table, id, vals, T.cols); return id;
+      await updateRow(T.table, id, vals, T.cols, vopt); return id;
     }
     for (const r of T.req) if (vals[r] == null || vals[r] === '') throw Object.assign(new Error(`${r} is required`), { code: 'INVALID' });
     // F-PRODUCT-09 — a new task whose caller did not send allocation_pct: with ppm_alloc_unspecified = 'unknown' the
@@ -733,7 +774,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       await ppmEvent({ entity: 'project', entity_id: id, action: 'stage', field: 'stage', old_value: p.stage, new_value: to, note }, user);
       if (capture) {
         // the plan approved at the gate becomes the task baselines where none was entered (never overwrites one)
-        await P(`UPDATE portfolio_tasks SET baseline_start=COALESCE(baseline_start, start_date), baseline_end=COALESCE(baseline_end, end_date) WHERE project_id=? AND (baseline_start IS NULL OR baseline_end IS NULL)`).run(Number(id));
+        await P(`UPDATE portfolio_tasks SET baseline_start=COALESCE(baseline_start, start_date), baseline_end=COALESCE(baseline_end, end_date), version=version+1 WHERE project_id=? AND (baseline_start IS NULL OR baseline_end IS NULL)`).run(Number(id));
         const v = await writeBaseline(id, { user, approved: false, reason: note || null });
         await ppmEvent({ entity: 'project', entity_id: id, action: 'baseline_captured', field: 'baseline_version', old_value: null, new_value: v, note: 'approval gate' }, user);
       }
@@ -787,10 +828,10 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     const newStart = bs === undefined ? p.baseline_start : bs, newEnd = be === undefined ? p.baseline_end : be;
     if (newStart && newEnd && newStart > newEnd) throw Object.assign(new Error('the baseline start is after its end'), { code: 'INVALID', status: 400 });
     return tx(async () => {
-      await P(`UPDATE portfolio_projects SET baseline_start=?, baseline_end=?, updated_at=? WHERE id=?`).run(newStart || null, newEnd || null, now(), pid);
+      await P(`UPDATE portfolio_projects SET baseline_start=?, baseline_end=?, updated_at=?, version=version+1 WHERE id=?`).run(newStart || null, newEnd || null, now(), pid);
       for (const t of tasks) {
-        if (t.start !== undefined) await P(`UPDATE portfolio_tasks SET baseline_start=?, updated_at=? WHERE id=? AND project_id=?`).run(t.start, now(), t.id, pid);
-        if (t.end !== undefined) await P(`UPDATE portfolio_tasks SET baseline_end=?, updated_at=? WHERE id=? AND project_id=?`).run(t.end, now(), t.id, pid);
+        if (t.start !== undefined) await P(`UPDATE portfolio_tasks SET baseline_start=?, updated_at=?, version=version+1 WHERE id=? AND project_id=?`).run(t.start, now(), t.id, pid);
+        if (t.end !== undefined) await P(`UPDATE portfolio_tasks SET baseline_end=?, updated_at=?, version=version+1 WHERE id=? AND project_id=?`).run(t.end, now(), t.id, pid);
       }
       const version = await writeBaseline(pid, { user, approved: true, reason: String(body.reason).trim() });
       await ppmEvent({ entity: 'project', entity_id: pid, action: 'rebaseline', field: 'baseline_end', old_value: p.baseline_end, new_value: newEnd, note: `v${version}: ${String(body.reason).trim()}` }, user);

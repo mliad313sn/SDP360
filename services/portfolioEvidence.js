@@ -18,14 +18,18 @@ function evidencePct(value, target, hib = true) {
 /** Objective view: evidence (auto from metric, else manual progress), slip vs target date, confidence. */
 function objectiveView(o, { metric = null, projects = [], now = new Date() } = {}) {
   const auto = metric ? evidencePct(metric.value, o.evidence_target, o.evidence_hib !== false) : null;
-  const projDone = projects.length ? Math.round(projects.reduce((a, p) => a + (Number(p.progress_pct) || 0), 0) / projects.length) : null;
+  // E-NULL-1 (W1-INTEGRITY) — a project that reports no progress is UNKNOWN: excluded from the mean (never 0 %), and the
+  // coverage says how many projects reported (projects_reporting of projects_total).
+  const reporting = projects.filter(p => p.progress_pct != null && p.progress_pct !== '' && Number.isFinite(Number(p.progress_pct)));
+  const projDone = reporting.length ? Math.round(reporting.reduce((a, p) => a + Number(p.progress_pct), 0) / reporting.length) : null;
   const evidence_pct = auto != null ? auto : (o.progress_pct != null ? Number(o.progress_pct) : projDone);
   const latestEnd = projects.map(p => p.end_date).filter(Boolean).sort().pop() || null;
   const slip_days = o.target_date && latestEnd ? Math.max(0, days(o.target_date, latestEnd)) : null;
   const overdue = o.target_date && new Date(o.target_date) < now && (evidence_pct == null || evidence_pct < 100);
   return { id: o.id, key: o.key, name: o.name, status: o.status, confidence: o.confidence, weight: o.weight, target_date: o.target_date,
     evidence_pct, evidence_source: auto != null ? 'metric' : (o.progress_pct != null ? 'manual' : (projDone != null ? 'projects' : 'none')),
-    metric: metric ? { key: metric.key, value: metric.value, unit: metric.unit, window: metric.window && metric.window.label, as_of: metric.as_of } : null, slip_days, overdue: !!overdue };
+    metric: metric ? { key: metric.key, value: metric.value, unit: metric.unit, window: metric.window && metric.window.label, as_of: metric.as_of } : null, slip_days, overdue: !!overdue,
+    projects_reporting: reporting.length, projects_total: projects.length };
 }
 
 /** Gantt rows: one per project (+ its milestones), with slippage vs baseline and dependency alerts. */
@@ -33,7 +37,7 @@ function ganttRows(projects, milestones = [], { now = new Date() } = {}) {
   const byId = new Map(projects.map(p => [Number(p.id), p]));
   return projects.map(p => {
     const ms = milestones.filter(m => Number(m.project_id) === Number(p.id));
-    const slip = p.baseline_end && p.end_date ? Math.max(0, days(p.baseline_end, p.end_date)) : 0;
+    const slip = p.baseline_end && p.end_date ? Math.max(0, days(p.baseline_end, p.end_date)) : null;   // E-NULL-2: no baseline = not measurable (null), never "on baseline" (0)
     const late = p.end_date && new Date(p.end_date) < now && !['done', 'cancelled'].includes(p.status);
     const deps = (p.depends_on || []).map(Number).map(id => byId.get(id)).filter(Boolean);
     const blocked_by = deps.filter(d => d.end_date && p.start_date && d.end_date > p.start_date && !['done', 'cancelled'].includes(d.status)).map(d => d.key);
@@ -70,19 +74,25 @@ function portfolioSummary({ programmes, objectiveViews, gantt, risks }) {
  * G12 — money roll-up per currency. Amounts in different currencies are never added together: `budget` and
  * `spent` are set only when every costed project uses one currency; otherwise they are null and the
  * per-currency totals say why. A project with no budget is not counted as 0 (budget_unknown).
+ * E-NULL-3 (W1-INTEGRITY) — inside a costed project an unknown amount is UNKNOWN, never 0: the sums are of KNOWN
+ * amounts only, `spent_unknown` counts costed projects whose spend is not known (`budget_missing` the reverse), and a
+ * sum with no known amount at all is null.
  */
 function moneyRollup(projs) {
   const by = {};
-  let unknown = 0;
+  let unknown = 0, spentUnknown = 0, budgetMissing = 0;
   for (const p of projs) {
     if (p.budget == null && p.spent == null) { unknown++; continue; }
     const c = p.currency || 'USD';
-    const b = by[c] || (by[c] = { budget: 0, spent: 0, projects: 0 });
-    b.budget += Number(p.budget) || 0; b.spent += Number(p.spent) || 0; b.projects++;
+    const b = by[c] || (by[c] = { budget: null, spent: null, projects: 0, spent_unknown: 0, budget_unknown: 0 });
+    if (p.budget != null && Number.isFinite(Number(p.budget))) b.budget = (b.budget || 0) + Number(p.budget); else { b.budget_unknown++; budgetMissing++; }
+    if (p.spent != null && Number.isFinite(Number(p.spent))) b.spent = (b.spent || 0) + Number(p.spent); else { b.spent_unknown++; spentUnknown++; }
+    b.projects++;
   }
   const cur = Object.keys(by);
   const one = cur.length === 1 ? by[cur[0]] : null;
-  return { budget: one ? one.budget : null, spent: one ? one.spent : null, currency: one ? cur[0] : null, currency_mixed: cur.length > 1, budget_by_currency: by, budget_unknown: unknown };
+  return { budget: one ? one.budget : null, spent: one ? one.spent : null, currency: one ? cur[0] : null, currency_mixed: cur.length > 1, budget_by_currency: by, budget_unknown: unknown,
+    spent_unknown: spentUnknown, budget_missing: budgetMissing };
 }
 
 module.exports = { moneyRollup, evidencePct, objectiveView, ganttRows, riskView, portfolioSummary };

@@ -43,7 +43,7 @@ function buildAgenda(o) {
     if (s === 'actions') { const a = o.actions || {}; it.content = { open: a.open ?? null, overdue: a.overdue ?? null, list: (a.list || []).slice(0, 15) }; }
     if (s === 'decisions') it.content = (o.decisions || []).slice(0, 15).map(d => ({ ref: d.ref, title: d.title, owner: d.owner, due_date: d.due_date, status: d.status }));
     if (s === 'rfis') it.content = (o.rfis || []).slice(0, 10).map(r => ({ ref: r.ref, title: r.title, kind: r.kind, score: r.score, status: r.status }));
-    if (s === 'trackers') it.content = (o.trackers || []).map(t => ({ key: t.key, name: t.name, score: t.score, rag: t.rag }));
+    if (s === 'trackers') it.content = (o.trackers || []).map(t => ({ key: t.key, name: t.name, score: t.score, rag: t.rag, ...(t.not_measured ? { not_measured: true, reason: t.reason || null } : {}) }));
     if (s === 'portfolio') it.content = (o.portfolio && o.portfolio.objectives || []).map(x => ({ name: x.name, status: x.status, evidence_pct: x.evidence_pct ?? null, slip_days: x.slip_days ?? null }));
     if (s === 'next') it.content = { next_session: o.nextSession || null };
     return it;
