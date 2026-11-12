@@ -85,5 +85,5 @@ test('the e2e harness installs the guard, clears the Zoho credentials, and fails
   assert.doesNotMatch(srv, /unused-in-e2e/);
   assert.match(read('tests/e2e/fixtures/harness.js'), /assert\.deepStrictEqual\(app\.outbound\.attempts\(\), \[\]/);
   assert.match(read('tests/e2e/fixtures/harness.js'), /server_unexpected = app\.outbound\.attempts\(\)/);
-  assert.match(read('tools/test/run-e2e.js'), /server_unexpected_count/);
+  assert.match(read('tools/test/e2e-artefacts.js'), /server_unexpected_count/); // the run summary moved into tools/test/e2e-artefacts.js (G4-CI)
 });
