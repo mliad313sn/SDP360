@@ -60,3 +60,38 @@ test('install state is protected: .env, data/, node_modules/, logs/', () => {
   for (const p of ['.env', 'data/reports.db', 'node_modules/x/index.js', 'logs/out.log', 'backups/a.sql']) assert.ok(u.isProtected(p), p);
   for (const p of ['server.js', 'public/.env.example', 'tools/data/x']) assert.ok(!u.isProtected(p), p);
 });
+
+// F-ARCH-03 — the SBOM is generated before packaging, shipped in the zip and listed in the manifest.
+test('packager ships sbom.cdx.json and lists its hash in the manifest; a tree without package.json says so', async () => {
+  const fs = require('fs'), os = require('os'), path = require('path');
+  const { execFileSync } = require('child_process');
+  const JSZip = require('jszip');
+  const { buildPackage } = require('../tools/deploy/make-update-package');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'pkg-sbom-'));
+  execFileSync('git', ['init', '-q'], { cwd: root });
+  fs.mkdirSync(path.join(root, 'public', 'activity-tracker', 'dist'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'server.js'), 'x');
+  fs.writeFileSync(path.join(root, 'public', 'activity-tracker', 'dist', 'app.js'), 'b');
+  fs.writeFileSync(path.join(root, 'package-lock.json'), '{}');
+  execFileSync('git', ['add', '-A'], { cwd: root });
+  const logs = [];
+  const none = await buildPackage({ outDir: path.join(root, 'd0'), version: '2.0.0', commit: 'abc', root, log: (l) => logs.push(l), signingKey: '' });
+  assert.equal(none.sbom, false);
+  assert.ok(logs.some((l) => /SBOM NOT shipped/.test(l)), 'the gap is said, not hidden');
+
+  fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ name: 'sdp-dashboard', version: '2.0.0' }));
+  fs.writeFileSync(path.join(root, 'package-lock.json'), JSON.stringify({ packages: { 'node_modules/a': { version: '1.0.0', integrity: 'sha512-AAAA' }, 'node_modules/d': { version: '1.0.0', dev: true } } }));
+  execFileSync('git', ['add', '-A'], { cwd: root });
+  const r = await buildPackage({ outDir: path.join(root, 'd1'), version: '2.0.0', commit: 'abc', root, log: () => {}, signingKey: '' });
+  assert.equal(r.sbom, true);
+  const entry = r.manifest.files['sbom.cdx.json'];
+  assert.ok(entry && /^[0-9a-f]{64}$/.test(entry.sha256));
+  const zip = await JSZip.loadAsync(fs.readFileSync(r.out));
+  const inZip = await zip.file('files/sbom.cdx.json').async('nodebuffer');
+  assert.equal(u.sha256(inZip), entry.sha256);
+  assert.equal(u.sha256(fs.readFileSync(path.join(root, 'd1', 'sbom.cdx.json'))), entry.sha256, 'the copy next to the zip is the same bytes');
+  const bom = JSON.parse(inZip.toString('utf8'));
+  assert.equal(bom.bomFormat, 'CycloneDX');
+  assert.ok(bom.components.some((c) => c.name === 'a') && !bom.components.some((c) => c.name === 'd'));
+  assert.ok(!bom.metadata.timestamp, 'deterministic: no timestamp');
+});

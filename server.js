@@ -159,6 +159,7 @@ app.use((req, res, next) => {
   // React are served same-origin from public/vendor/; C-29: so is Libre Franklin (no font host in the CSP).
   // style-src keeps 'unsafe-inline' (many inline styles throughout).
   // inspection.html's PWA manifest is an inline data: URL → manifest-src 'self' data: (services/sessionAuth.cspDirectives).
+  sessionAuth.touchStrictPages(async () => (await require('./services/reportConfig').getConfig(rdb.db)).csp_strict_pages);   // F-ARCH-06 — csp_strict_pages, cached 30 s
   res.setHeader('Content-Security-Policy', sessionAuth.cspDirectives(sessionAuth.scriptSrc(nonce, sessionAuth.isStrictCspPath(req.path))).join('; '));
   // A-28a — opt-in (SDP_CSP_REPORT_ONLY=1, read at boot): the nonce-only policy, reported not enforced.
   if (_cspReportOnly && !sessionAuth.isStrictCspPath(req.path)) {
@@ -633,7 +634,7 @@ async function checkZohoViewSchema() {
 }
 
 // Zoho view schema health check — routes/health.js (M12-a).
-app.use(require('./routes/health')({ express, checkZohoViewSchema, requireReportSession, getRdb: () => rdb, getBuild: () => APP_VERSION, getTokenState: () => tokenState }));
+app.use(require('./routes/health')({ express, checkZohoViewSchema, requireReportSession, getRdb: () => rdb, getBuild: () => APP_VERSION, getTokenState: () => tokenState, getProvenance: () => PROVENANCE }));
 
 // ── Startup behaviour (2026-05-28) ──────────────────────────────────────
 // Previously: on every pm2 restart, this fired all 3 syncs against Zoho
@@ -1251,6 +1252,8 @@ const APP_VERSION = (() => {
   return 't' + Date.now().toString(36);
 })();
 console.log('[boot] APP_VERSION =', APP_VERSION);
+const PROVENANCE = require('./services/runtimeProvenance').load(__dirname, { build: APP_VERSION }); // F-ARCH-03 — computed once at boot
+console.log('[boot] provenance:', require('./services/runtimeProvenance').line(PROVENANCE));
 
 // Inject ?v=<APP_VERSION> into every local <script src> and <link href> that
 // doesn't already carry a query string. Absolute URLs (CDN), data: URIs,
@@ -1332,7 +1335,7 @@ async function sendHtmlPage(res, name, injectApiKey, fallbackMsg) {
   }
   if (injectApiKey && await _hasValidSession(res.req)) html = await _dashKeyScope.inject(html, res.locals.nonce, DASH_API_KEY);   // E-S02 ui_inject_dash_key
   html = html.replace(/%%CSP_NONCE%%/g, res.locals.nonce);
-  if (sessionAuth.STRICT_PAGES.includes('/' + name) || res.getHeader('Content-Security-Policy-Report-Only')) html = sessionAuth.nonceScripts(html, res.locals.nonce);   // A-28a: nonce inline scripts under report-only
+  if (sessionAuth.isStrictCspPath('/' + name) || res.getHeader('Content-Security-Policy-Report-Only')) html = sessionAuth.nonceScripts(html, res.locals.nonce);   // A-28a: nonce inline scripts under report-only
   res.setHeader('Content-Type', 'text/html; charset=utf-8');
   // Page HTML must NOT be cached by the browser — every visit gets a fresh
   // CSP nonce. Static assets (.js, .css, fonts) are cached aggressively below.
@@ -4415,23 +4418,13 @@ app.post('/api/ai/analyze', requireReportSession, requireRole('report-author'), 
   }
 });
 
-app.get('/api/sample/:viewId', requireReportSession, async (req, res) => {
-  // SECURITY: Whitelist viewId against the registered VIEWS map only.
-  // Prevents enumeration of any view in the Zoho workspace by guessing numeric IDs.
-  const viewId = req.params.viewId;
-  const allowedViewIds = new Set(Object.values(VIEWS));
-  if (!allowedViewIds.has(viewId)) {
-    return res.status(403).json({ error: 'View not permitted.' });
-  }
-  try {
-    const token = await getValidToken();
-    const r = await axios.get(`${CONFIG.analyticsApi}/workspaces/${CONFIG.workspaceId}/views/${viewId}/data`,
-      { headers: apiHeaders(token), params: { responseFormat: 'json', maxRows: 3 }, timeout: 30000 });
-    const raw  = r.data;
-    const rows = typeof raw === 'string' ? csvToRows(raw) : (raw?.data?.rows||raw?.data?.data||raw?.data||[]);
-    const cols = Array.isArray(rows) && rows.length > 0 ? Object.keys(rows[0]) : [];
-    res.json({ totalRows: Array.isArray(rows)?rows.length:0, columns:cols, sample:Array.isArray(rows)?rows.slice(0,5):rows, rawPreview:typeof raw==='string'?raw.substring(0,500):JSON.stringify(raw).substring(0,500) });
-  } catch(err) { safeError(err, res); }
+// F-ARCH-02 — super_admin diagnostic only: PII-filtered read (fetchView), capped answer, cool-down (services/viewSample).
+app.get('/api/sample/:viewId', requireReportSession, requireSuperAdmin, async (req, res) => {
+  const viewId = req.params.viewId, vs = require('./services/viewSample');
+  if (!new Set(Object.values(VIEWS)).has(viewId)) return fail(res, new Error('View not permitted.'), 403, { ok: false });
+  const wait = vs.cooldown();
+  if (wait) return fail(res, new Error(`Try again in ${wait} s.`), 429, { ok: false });
+  try { res.json(vs.buildSample(await fetchView(viewId, 3), stripPiiColumns)); } catch (err) { safeError(err, res); }
 });
 
 // ── SITE REPORTS (PostgreSQL) ─────────────────────────────────────────

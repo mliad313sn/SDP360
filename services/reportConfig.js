@@ -14,6 +14,7 @@ const DEFAULTS = {
   ui_kpi_sample_size: '0',              // E-K02 '1' = "n = …" on tiles/grid cells + low-sample warning from an ADOPTED kpi_policy
   ui_url_filters: '0',                  // E-U02 '1' = Analytics filters written to / restored from the URL (Reset clears)
   ui_small_multiples: '0',              // E-V09 '1' = the `multiples` widget type (one panel per metric) is creatable
+  csp_strict_pages: '',                 // F-ARCH-06 comma list of extra pages served with the nonce-only script-src ('' = today: login, Exec View, share links)
   ui_feedback_enabled: '0',             // E-B07 '1' = Feedback button in the shell + /api/feedback (else 404)
   ui_data_quality_page: '0',            // E-D07 '1' = Data quality board in the nav + data-quality.html (else 404)
   chart_annotations_enabled: '0',       // E-V08 '1' = human-entered chart annotations (marker + legend on dashboard trends; source mandatory)

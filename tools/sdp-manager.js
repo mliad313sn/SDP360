@@ -304,7 +304,8 @@ async function statusObject({ dir, url = 'http://localhost:3456', env = readEnv(
   const o = { version: installedVersion(dir), commit: (mf && mf.commit) || null, built_at: (mf && mf.built_at) || null, dir, url,
     service: svc, http: { ok: h.ok, reason: h.ok ? null : h.reason },
     backups: { dir: backupDirOf(dir, env), count: backups.length, latest: backups[0] ? { name: backups[0].name, at: backups[0].at, bytes: backups[0].bytes } : null, encrypted_key_set: !!env.SDP_BACKUP_KEY },
-    rollback_available: !!latestRollback(dir), disk: diskFree(dir), sync: null };
+    rollback_available: !!latestRollback(dir), disk: diskFree(dir), sync: null,
+    provenance: require('../services/runtimeProvenance').load(dir, { build: null }) };   // F-ARCH-03 — same block as /api/health/version
   if (h.ok) {
     try {
       const token = await login(url, env);
@@ -323,6 +324,7 @@ async function status({ dir, url = 'http://localhost:3456', env = readEnv(dir), 
   const o = await statusObject({ dir, url, env });
   out(`SDP Dashboard  version ${o.version || '?'}  commit ${o.commit || '?'}  built ${o.built_at || '?'}`);
   out(`install dir    ${dir}`);
+  out(`identity       ${require('../services/runtimeProvenance').line(o.provenance)}`);
   out(`service        ${o.service.kind === 'none' ? 'not installed' : `${o.service.kind} ${o.service.name || ''} — ${o.service.state}${o.service.restarts != null ? ' (restarts ' + o.service.restarts + ')' : ''}`}`);
   out(`http           ${o.http.ok ? 'answers at ' + url : 'no answer at ' + url + ' (' + o.http.reason + ')'}`);
   out(`backups        ${o.backups.count} in ${o.backups.dir}${o.backups.latest ? ', latest ' + o.backups.latest.at : ''}`);

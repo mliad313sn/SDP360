@@ -31,3 +31,20 @@ test('a signed-in viewer gets version = package.json, a build id, node; nothing 
   assert.match(j.node, /^v\d+/);
   assert.deepEqual(Object.keys(j).sort(), ['build', 'node', 'started_at', 'version']);
 });
+// F-ARCH-03 — the admin tier also gets the provenance block; a repository checkout has no installed manifest.
+test('an admin gets the same four keys plus provenance (source known, artifact unknown in a checkout)', async () => {
+  const rdb = require('../reports-db');
+  await rdb.createUser({ username: 'hv-admin', full_name: 'A', password: 'hv-admin-0000', roles: ['admin'] });
+  const t = (await rdb.login('hv-admin', 'hv-admin-0000')).token;
+  const r = await get('/api/health/version', { 'x-report-token': t });
+  assert.equal(r.status, 200);
+  const j = JSON.parse(r.body);
+  assert.deepEqual(Object.keys(j).sort(), ['build', 'node', 'provenance', 'started_at', 'version']);
+  assert.deepEqual(Object.keys(j.provenance).sort(), ['artifact', 'consistent', 'sbom', 'source']);
+  assert.equal(j.provenance.source.version, require('../package.json').version);
+  assert.ok(['git', 'none'].includes(j.provenance.source.commit_source));
+  if (!_fs.existsSync(_p.join(__dirname, '..', 'manifest.json'))) {
+    assert.equal(j.provenance.artifact, null); assert.equal(j.provenance.consistent, null);
+  }
+  assert.ok(!r.body.includes(_p.join(__dirname, '..')), 'no install path in the answer');
+});

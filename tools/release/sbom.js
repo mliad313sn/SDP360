@@ -21,9 +21,9 @@ function hashOf(integrity) {
 }
 const purl = (name, version) => 'pkg:npm/' + name.replace(/^@/, '%40') + '@' + encodeURIComponent(version);
 
-function build({ timestamp = false } = {}) {
-  const pkg = JSON.parse(fs.readFileSync(path.join(ROOT, 'package.json'), 'utf8'));
-  const lock = JSON.parse(fs.readFileSync(path.join(ROOT, 'package-lock.json'), 'utf8'));
+function build({ timestamp = false, root = ROOT } = {}) {
+  const pkg = JSON.parse(fs.readFileSync(path.join(root, 'package.json'), 'utf8'));
+  const lock = JSON.parse(fs.readFileSync(path.join(root, 'package-lock.json'), 'utf8'));
   const components = [];
   for (const [p, v] of Object.entries(lock.packages || {})) {
     if (!p.startsWith('node_modules/') || v.dev) continue;
