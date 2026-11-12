@@ -10,6 +10,13 @@ decision. A **capacity owner** (to be named) must accept or rewrite it before an
   `allocation_pct`) and `capacityBySite` (sum of those peaks per project site × week, behind `ppm_capacity_view`).
   100 % means "one person full time", nothing more.
 - A task with no allocation is **unknown** — never 0 %, never 100 %.
+- **One rule for every reader (F-PRODUCT-01)**: `public/lib/allocationContract.js` is required by the server
+  (`services/projectSchedule.js` `resourceConflicts` / `resourceCoverage`) and loaded by the pages before
+  `ppmVisuals.js`. null, empty, omitted or non-numeric → unknown; 0–100 → known (0 adds 0); below 0 or above 100
+  (legacy rows only, the write path refuses them) → **invalid**, never summed, listed; done / cancelled, no owner,
+  no or inverted dates → excluded. Every portfolio / project answer carries `resource_coverage` next to
+  `resource_conflicts`, with the **possible conflicts** (overlapping tasks where an allocation is not known):
+  they are never counted as conflicts and never shown as "none".
 - Conflicts = a person above 100 % in consecutive weeks, sorted by excess then duration. A "suggestion" names a
   person below 100 % in those weeks; it is a **proposal only**, nobody is reassigned automatically.
 - A reassignment (task owner change) is written to the hash-chained `ppm_events` ledger (`task_reassigned`: old,

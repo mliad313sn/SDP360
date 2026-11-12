@@ -60,11 +60,21 @@ test('resourcePressure: peak per person/week, >100 flagged, missing allocation c
   assert.equal(r.people[0].owner.toLowerCase(), 'ana', 'over-allocated people first');
 });
 
-test('resourcePressure agrees with projectSchedule.resourceConflicts when every allocation is known', () => {
+test('resourcePressure agrees with projectSchedule.resourceConflicts — known, unknown, omitted, empty, 0 and legacy out-of-range (F-PRODUCT-01)', () => {
   const tasks = [
     { id: 1, owner: 'Ana', start_date: '2026-11-02', end_date: '2026-11-20', allocation_pct: 70 },
     { id: 2, owner: 'Ana', start_date: '2026-11-16', end_date: '2026-11-27', allocation_pct: 40 },
     { id: 3, owner: 'Bob', start_date: '2026-11-02', end_date: '2026-11-27', allocation_pct: 100 },
+    { id: 4, owner: 'Bob', start_date: '2026-11-02', end_date: '2026-11-06', allocation_pct: null },
+    { id: 5, owner: 'Cy', start_date: '2026-11-02', end_date: '2026-11-13', allocation_pct: 60 },
+    { id: 6, owner: 'Cy', start_date: '2026-11-02', end_date: '2026-11-06' },
+    { id: 7, owner: 'Cy', start_date: '2026-11-09', end_date: '2026-11-13', allocation_pct: '' },
+    { id: 8, owner: 'Dee', start_date: '2026-11-02', end_date: '2026-11-06', allocation_pct: 60 },
+    { id: 9, owner: 'Dee', start_date: '2026-11-02', end_date: '2026-11-06', allocation_pct: 120 },
+    { id: 10, owner: 'Dee', start_date: '2026-11-09', end_date: '2026-11-13', allocation_pct: 60 },
+    { id: 11, owner: 'Dee', start_date: '2026-11-09', end_date: '2026-11-13', allocation_pct: -50 },
+    { id: 12, owner: 'Eve', start_date: '2026-11-02', end_date: '2026-11-06', allocation_pct: 60 },
+    { id: 13, owner: 'Eve', start_date: '2026-11-02', end_date: '2026-11-06', allocation_pct: 0 },
   ];
   const r = PV.resourcePressure(tasks, { today: '2026-11-04' });
   const conf = SCH.resourceConflicts(tasks);
@@ -100,9 +110,10 @@ test('shared renderers: matrix grid + table + not-scored list, pressure table + 
   assert.match(h, /data-cell="3-3"/); assert.match(h, /Not scored/); assert.match(h, /<table/); assert.match(h, /unscored/);
   assert.ok(!h.includes('<b>x</b>'));
   assert.match(PV.cellListHtml(m, items, '3-3', esc), /&lt;b&gt;x/);
-  const r = PV.resourcePressure([{ id: 1, owner: 'A"', start_date: '2026-11-02', end_date: '2026-11-03', allocation_pct: 120 }], { today: '2026-11-02' });
+  const r = PV.resourcePressure([{ id: 1, owner: 'A"', start_date: '2026-11-02', end_date: '2026-11-03', allocation_pct: 70 }, { id: 2, owner: 'A"', start_date: '2026-11-02', end_date: '2026-11-03', allocation_pct: 50 }, { id: 3, owner: 'A"', start_date: '2026-11-02', end_date: '2026-11-03', allocation_pct: 120 }], { today: '2026-11-02' });
   const ph = PV.pressureHtml(r, esc);
   assert.match(ph, /▲ over/); assert.match(ph, /List view/); assert.match(ph, /A&quot;/);
+  assert.match(ph, /\+1 invalid/); assert.match(ph, /outside 0–100 % \(#3\): not summed/);
 });
 
 test('project.html: risk matrix in the RAID tab, pressure view in the Plan tab', () => {

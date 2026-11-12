@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 4491,
+ "total": 4505,
  "files": {
   "a11y-static.test.js": 18,
   "access-approver-policy.test.js": 4,
@@ -29,6 +29,7 @@
   "alert-noise.test.js": 7,
   "alert-outbound-arm.test.js": 5,
   "alert-severity-dryrun.test.js": 10,
+  "allocation-contract.test.js": 13,
   "amount-parser-diff.test.js": 3,
   "analytics-charts.test.js": 15,
   "analytics-integration-routes.smoke.test.js": 4,
@@ -403,7 +404,7 @@
   "ppm-baseline.test.js": 3,
   "ppm-baselines.smoke.test.js": 6,
   "ppm-budget-periods.test.js": 5,
-  "ppm-capacity.test.js": 5,
+  "ppm-capacity.test.js": 6,
   "ppm-project-lifecycle.smoke.test.js": 7,
   "ppm-raci-templates.test.js": 5,
   "ppm-visuals.test.js": 9,
