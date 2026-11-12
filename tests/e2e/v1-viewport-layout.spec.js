@@ -1,5 +1,6 @@
 'use strict';
-// C-24 (G32) — the key pages at 1440 / 1024 / 768 / 390 px: no horizontal page scroll, the shell header
+// C-24 (G32) — the key pages at 1440 / 1024 / 768 / 390 px (F-UX-04: + 320 px = WCAG 1.4.10 reflow width,
+// + the coordinator pages): no horizontal page scroll, the shell header
 // visible and inside the viewport, header and content not overlapping, no box escaping the viewport
 // outside a scroll container, and no console error / uncaught page error.
 // Structural assertions only (fixtures/layout.js) — the viewport screenshots are written to the artefact
@@ -11,8 +12,18 @@ const { runJourney } = require('./fixtures/harness');
 const { artifactDir, classify } = require('./fixtures/browser');
 const layout = require('./fixtures/layout');
 
-const WIDTHS = [1440, 1024, 768, 390];
-const PAGES = ['index', 'dashboards', 'analytics', 'assets', 'wan', 'cockpit', 'site-actions', 'access'];
+const WIDTHS = [1440, 1024, 768, 390, 320];
+const PAGES = ['index', 'dashboards', 'analytics', 'assets', 'wan', 'cockpit', 'site-actions', 'access',
+  // F-UX-04 — the pages a site coordinator lives in
+  'home', 'reports', 'meetings', 'meeting', 'inspection', 'inspections', 'site-awareness', 'field/index'];
+// Pages without the shared shell (the field PWA has its own header): the header checks do not apply.
+const NO_SHELL = new Set(['field/index']);
+// F-UX-04 — known reflow problems as of the day the matrix was widened: "page@width" → reason. The list may only
+// SHRINK (tests/reflow-known.test.js pins its size). A problem not listed fails the journey; a listed entry that
+// no longer fails also fails it (remove it from the list). Screenshots are for a person; nothing is auto-approved.
+// Routes that answer 404 by design while their switch is off (the page hides the panel on a 404).
+const EXPECTED_404 = ['/api/inspection/repeat-findings'];   // insp_repeat_findings = '0'
+const KNOWN = require('./fixtures/reflow-known.json').known;
 
 // A handful of recent tickets so the Helpdesk page renders its charts and tables (an empty page hides the
 // layouts that overflow). Without them the outcome depended on a stray data/raw_cache.json in the checkout:
@@ -45,6 +56,8 @@ runJourney('V1 viewport matrix key pages layout and console', async ({ app, base
       if (m.type() !== 'error') return;
       const loc = (m.location() && m.location().url) || '';
       // a blocked request to an allow-listed origin (fonts, ADR-B05) is reported by the harness, not here
+      // F-UX-04 — a 404 that IS the documented "switch off" answer is not a console defect
+      if (/status of 404/.test(m.text()) && EXPECTED_404.some((u) => loc.includes(u))) return;
       if (/ERR_BLOCKED_BY_CLIENT/.test(m.text()) && j.rec.external.unexpected.length === 0 && (classify(loc) !== 'unexpected')) return;
       errs.push(m.text().slice(0, 200));
     });
@@ -54,16 +67,18 @@ runJourney('V1 viewport matrix key pages layout and console', async ({ app, base
       errs = [];
       await page.goto(base + '/' + p + '.html');
       await page.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => {});
-      assert.strictEqual(new URL(page.url()).pathname, '/' + p + '.html', p + ' at ' + w + ' px was redirected');
+      assert.strictEqual(new URL(page.url()).pathname, '/' + p + '.html', p + ' at ' + w + ' px was redirected to ' + page.url());
       const m = await page.evaluate(layout.measure);
-      const bad = layout.judge(m);
+      const bad = layout.judge(m, { shell: !NO_SHELL.has(p) });
       if (errs.length) bad.push('console errors: ' + errs.join(' | '));
-      if (bad.length) problems.push(`${p} @${w}px: ${bad.join('; ')}`);
+      const key = `${p}@${w}`;
+      if (bad.length && !KNOWN[key]) problems.push(`${p} @${w}px: ${bad.join('; ')}`);
+      if (!bad.length && KNOWN[key]) problems.push(`${key} is listed in fixtures/reflow-known.json but now passes — remove it`);
       if (w === 1440) await j.measure(page, p);
-      await page.screenshot({ path: path.join(shots, `${p}-${w}.png`) }).catch(() => {});
+      await page.screenshot({ path: path.join(shots, `${p.replace('/', '-')}-${w}.png`) }).catch(() => {});
     }
     await ctx.close();
   }
   // one line per failing page × width, in the assertion MESSAGE (the runner's TAP filter drops YAML diffs)
   assert.ok(problems.length === 0, 'V1 layout / console problems (' + problems.length + '):\n  ' + problems.join('\n  '));
-}, { timeout: 400000 });
+}, { timeout: 1200000 });

@@ -240,6 +240,13 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
   /* G17 — 390 px: the week bar loses its left indent and a long group name no longer widens the page */
   .week-bar{margin-left:0!important;padding:12px}
   .week-bar select{max-width:100%;min-width:0;flex:1 1 100%}
+  /* F-UX-04 — 390 / 320 px reflow: the report-list filters lose their indent and a long site name shrinks;
+     the weekly-summary card's three-column row and its year / week boxes fit the width */
+  #rl-filters{margin-left:0!important}
+  #rl-filters select{max-width:100%;min-width:0;flex:1 1 100%}
+  #weekly-summary-card .form-row{grid-template-columns:1fr!important}
+  #weekly-summary-card,#weekly-summary-card *{min-width:0;max-width:100%;overflow-wrap:anywhere}
+  .report-list{grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr))}
 }
 @media(max-width:700px){
   .page{padding:16px}
