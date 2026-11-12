@@ -13,7 +13,7 @@
   "routes_without_test_reference": 34,
   "routes_in_server_js": 210,
   "jobs": 31,
-  "jobs_without_test_reference": 1,
+  "jobs_without_test_reference": 0,
   "migrations": 81,
   "test_files": 674
  },
@@ -10873,7 +10873,9 @@
   {
    "id": "JB-engagement-schedule-reminders",
    "job": "engagement.schedule_reminders",
-   "tests": []
+   "tests": [
+    "tests/connector-register.test.js"
+   ]
   },
   {
    "id": "JB-field-purge",

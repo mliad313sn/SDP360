@@ -58,7 +58,7 @@ Journeys: 32 — strict 0, enforceable 8, blocked 24, unknown 0.
 |---|---|---|---|---|
 | `/access.html` | 0 | 0 | enforceable | — |
 | `/activity-tracker.html` | 0 | 0 | enforceable | — |
-| `/analytics.html` | 1 | 15 | blocked | — |
+| `/analytics.html` | 1 | 16 | blocked | — |
 | `/assets.html` | 10 | 0 | blocked | — |
 | `/cockpit.html` | 1 | 0 | blocked | — |
 | `/coverage.html` | 0 | 0 | enforceable | — |

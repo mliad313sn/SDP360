@@ -18,7 +18,7 @@
 | routes without test reference | 34 |
 | routes in server js | 210 |
 | jobs | 31 |
-| jobs without test reference | 1 |
+| jobs without test reference | 0 |
 | migrations | 81 |
 | test files | 674 |
 
@@ -205,7 +205,7 @@
 | JB-engagement-alerts | engagement.alerts | 1 |
 | JB-engagement-digest | engagement.digest | 1 |
 | JB-engagement-digest-weekly | engagement.digest_weekly | 1 |
-| JB-engagement-schedule-reminders | engagement.schedule_reminders | 0 |
+| JB-engagement-schedule-reminders | engagement.schedule_reminders | 1 |
 | JB-field-purge | field.purge | 1 |
 | JB-governance-agenda-drafts | governance.agenda_drafts | 1 |
 | JB-governance-ppm-alerts | governance.ppm_alerts | 1 |
