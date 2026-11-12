@@ -10,10 +10,11 @@
 //                          only if it FAILS
 //
 // Fails when: a test fails or is skipped, a journey wrote no artefact, an artefact is not 'passed', or any
-// artefact counts an unexpected external request (browser side, or server side — UAT-OI-07). Writes <artefacts>/summary.json.
+// artefact counts an unexpected external request. Writes <artefacts>/summary.json.
 const fs = require('fs');
 const path = require('path');
 const { spawnSync } = require('child_process');
+const { collectRun } = require('./e2e-artefacts');
 
 const root = path.resolve(__dirname, '..', '..');
 const artDir = process.env.E2E_ARTIFACT_DIR || path.join(root, 'e2e-artifacts');
@@ -45,21 +46,21 @@ fs.rmSync(artDir, { recursive: true, force: true });
 fs.mkdirSync(artDir, { recursive: true });
 const runs = Math.max(1, Number(arg('runs')) || 1);
 const problems = [];
-const summary = { started_at: new Date().toISOString(), runs: [], browser_units: null, journeys: {} };
+const summary = { started_at: new Date().toISOString(), runs: [], browser_units: null, journeys: {}, side_records: {} };
 for (let i = 1; i <= runs; i++) {
   console.log(`[e2e] journeys run ${i}/${runs} (${specs.length} specs)`);
   const r = run(specs);
   summary.runs.push(r);
   if (r.status !== 0 || r.fail || r.cancelled || r.skipped) problems.push(`run ${i}: ${JSON.stringify(r)}`);
   if (r.tests !== specs.length) problems.push(`run ${i}: ${r.tests} journeys reported, ${specs.length} spec files`);
-  for (const f of fs.readdirSync(artDir).filter((x) => x.endsWith('.json') && x !== 'summary.json' && !/^run\d+-/.test(x))) {
-    const a = JSON.parse(fs.readFileSync(path.join(artDir, f), 'utf8'));
-    (summary.journeys[a.journey] = summary.journeys[a.journey] || []).push({ run: i, status: a.status, unexpected_external: a.external.unexpected_count, server_unexpected: a.external.server_unexpected_count, allowlisted_external: a.external.allowlisted_count, pages: a.pages, page_errors: a.page_errors.length });
-    if (a.status !== 'passed') problems.push(`run ${i}: ${a.journey} status ${a.status}`);
-    if (a.external.server_unexpected_count) problems.push(`run ${i}: ${a.journey} server tried ${a.external.server_unexpected_count} external connection(s): ${a.external.server_unexpected.slice(0, 5).map((x) => x.host + ':' + x.port).join(', ')}`);
-    if (a.external.unexpected_count) problems.push(`run ${i}: ${a.journey} made ${a.external.unexpected_count} external request(s): ${a.external.unexpected.slice(0, 5).join(', ')}`);
-    fs.renameSync(path.join(artDir, f), path.join(artDir, `run${i}-${f}`));
+  const files = fs.readdirSync(artDir).filter((x) => x.endsWith('.json') && x !== 'summary.json' && !/^run\d+-/.test(x));
+  const items = [];
+  for (const f of files) {
+    try { items.push({ file: f, data: JSON.parse(fs.readFileSync(path.join(artDir, f), 'utf8')) }); }
+    catch (e) { problems.push(`run ${i}: ${f} is not valid JSON (${e.message})`); }
   }
+  problems.push(...collectRun(i, items, summary));
+  for (const f of files) fs.renameSync(path.join(artDir, f), path.join(artDir, `run${i}-${f}`));
 }
 const seen = Object.keys(summary.journeys).length;
 if (seen !== specs.length) problems.push(`${seen} journey artefacts for ${specs.length} specs`);

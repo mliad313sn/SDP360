@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 4857,
+ "total": 4865,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 18,
@@ -188,6 +188,7 @@
   "dept-meetings-tracker.test.js": 5,
   "duty-coverage.test.js": 8,
   "duty-routes.smoke.test.js": 6,
+  "e2e-artefacts.test.js": 6,
   "e2e-harness.test.js": 6,
   "e2e-outbound-guard.test.js": 5,
   "emergency-access.smoke.test.js": 6,
@@ -325,7 +326,7 @@
   "mailer-smtp-config.test.js": 9,
   "mailer.test.js": 3,
   "meeting-save-conflict-client.test.js": 3,
-  "meeting-stamp-guard.test.js": 1,
+  "meeting-stamp-guard.test.js": 2,
   "meeting-status-options.test.js": 5,
   "meetings-contacts.test.js": 9,
   "meetings-incubation.test.js": 9,
@@ -681,7 +682,7 @@
   "uat-amdec-workflows.smoke.test.js": 8,
   "uat-committee.test.js": 5,
   "uat-governance-users.smoke.test.js": 4,
-  "uat-itsm-figures.test.js": 4,
+  "uat-itsm-figures.test.js": 5,
   "ui-design-ratchet.test.js": 5,
   "ui-lang-shared.test.js": 3,
   "ui-policy-me.smoke.test.js": 3,

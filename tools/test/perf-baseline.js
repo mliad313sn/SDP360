@@ -40,6 +40,7 @@ function loadArtefacts(dir) {
 function aggregate(artefacts) {
   const pages = {}; const journeys = {}; const runs = new Set();
   for (const a of artefacts || []) {
+    if (typeof a.journey !== 'string') continue;        // a side record (e.g. uat-<seat>.json) is not a journey
     if (a.status && a.status !== 'passed') continue;   // a failed journey is not a timing sample
     if (a.__run != null) runs.add(a.__run);
     const j = (journeys[a.journey] = journeys[a.journey] || { duration: [], pages: [] });
