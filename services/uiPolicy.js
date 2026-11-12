@@ -23,6 +23,8 @@
 //                         history.replaceState and restored on load, Reset clears them (E-U02)
 //   ui_nav_active_from_url '0' = the active menu entry comes from the page's data-current only (today) · '1' = when
 //                         data-current names no menu entry, the entry matching the address is marked (F-UX-02)
+//   ui_home_blocks        '0' = Home renders in one pass, a failed call blanks it (today) · '1' = each block shows
+//                         its own state, a failed call keeps the page with a retry, each site card reloads alone (F-UX-09)
 
 const UI_DEFAULTS = {
   ui_lang_default: '',
@@ -38,6 +40,7 @@ const UI_DEFAULTS = {
   ui_data_quality_page: '0',
   ui_url_filters: '0',
   ui_nav_active_from_url: '0',
+  ui_home_blocks: '0',
 };
 const UI_KEYS = Object.keys(UI_DEFAULTS);
 
@@ -54,6 +57,7 @@ const ENUMS = {
   ui_data_quality_page: ['0', '1'],
   ui_url_filters: ['0', '1'],
   ui_nav_active_from_url: ['0', '1'],
+  ui_home_blocks: ['0', '1'],
 };
 // Same vocabulary as reports-db.js ROLE_HIERARCHY + FEATURE_ROLES_KNOWN (kept inline: this module stays pure).
 const KNOWN_ROLES = new Set(['super_admin', 'executive', 'admin', 'editor', 'viewer',
@@ -94,6 +98,7 @@ function uiPolicyFrom(cfg) {
     data_quality_page: _pick(c, 'ui_data_quality_page'),
     url_filters: _pick(c, 'ui_url_filters'),
     nav_active_from_url: _pick(c, 'ui_nav_active_from_url'),
+    home_blocks: _pick(c, 'ui_home_blocks'),
   };
 }
 
