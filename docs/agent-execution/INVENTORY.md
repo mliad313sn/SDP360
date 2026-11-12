@@ -20,7 +20,7 @@
 | jobs | 31 |
 | jobs without test reference | 0 |
 | migrations | 84 |
-| test files | 684 |
+| test files | 690 |
 
 ## Pages
 
@@ -36,7 +36,7 @@
 | PG-commitments | public/commitments.html | any | no | 1 | 5 |
 | PG-coverage | public/coverage.html | any | no | 0 | 3 |
 | PG-dashboard-composer | public/dashboard-composer.html | admin / dashboard-publisher | no | 1 | 5 |
-| PG-dashboards | public/dashboards.html | any | yes | 1 | 10 |
+| PG-dashboards | public/dashboards.html | any | yes | 1 | 11 |
 | PG-data-quality | public/data-quality.html | admin | yes | 0 | 2 |
 | PG-exec-view | public/exec-view.html | public | no | 1 | 7 |
 | PG-executive-report | public/executive-report.html | super_admin | yes | 1 | 11 |
@@ -222,5 +222,5 @@
 | JB-softdelete-purge | softdelete.purge | 2 |
 | JB-teams-sla-poll | teams.sla_poll | 2 |
 | JB-zoho-change-cab | zoho.change_cab | 1 |
-| JB-zoho-requests | zoho.requests | 18 |
+| JB-zoho-requests | zoho.requests | 21 |
 | JB-zoho-survey | zoho.survey | 2 |

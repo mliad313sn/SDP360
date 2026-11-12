@@ -15,7 +15,7 @@
   "jobs": 31,
   "jobs_without_test_reference": 0,
   "migrations": 84,
-  "test_files": 684
+  "test_files": 690
  },
  "pages": [
   {
@@ -303,7 +303,7 @@
    "parent": "dashboards.html",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 27352,
+   "bytes": 27423,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -330,7 +330,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 28961,
+   "bytes": 30061,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/chart-annotations.test.js",
@@ -338,6 +338,7 @@
     "tests/dashboard-widget-truth.test.js",
     "tests/exec-nav-consolidated.test.js",
     "tests/i18n-coverage.test.js",
+    "tests/kpi-contract-completion.test.js",
     "tests/landing.test.js",
     "tests/page-head.test.js",
     "tests/page-usage.test.js",
@@ -2903,12 +2904,13 @@
    "method": "GET",
    "path": "/api/dashboards/:key/data.csv",
    "file": "routes/dashboards.js",
-   "line": 201,
+   "line": 209,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
+    "tests/figure-parity-five-surfaces.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
    ]
@@ -2918,12 +2920,13 @@
    "method": "GET",
    "path": "/api/dashboards/:key/data",
    "file": "routes/dashboards.js",
-   "line": 197,
+   "line": 205,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
+    "tests/figure-parity-five-surfaces.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
    ]
@@ -2933,12 +2936,13 @@
    "method": "POST",
    "path": "/api/dashboards/:key/publish",
    "file": "routes/dashboards.js",
-   "line": 245,
+   "line": 241,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
+    "tests/figure-parity-five-surfaces.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
    ]
@@ -2948,12 +2952,13 @@
    "method": "POST",
    "path": "/api/dashboards/:key/retire",
    "file": "routes/dashboards.js",
-   "line": 288,
+   "line": 284,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
+    "tests/figure-parity-five-surfaces.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
    ]
@@ -2963,12 +2968,13 @@
    "method": "POST",
    "path": "/api/dashboards/:key/rollback/:n",
    "file": "routes/dashboards.js",
-   "line": 277,
+   "line": 273,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
+    "tests/figure-parity-five-surfaces.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
    ]
@@ -2978,12 +2984,13 @@
    "method": "POST",
    "path": "/api/dashboards/:key/submit",
    "file": "routes/dashboards.js",
-   "line": 264,
+   "line": 260,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
+    "tests/figure-parity-five-surfaces.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
    ]
@@ -2993,12 +3000,13 @@
    "method": "GET",
    "path": "/api/dashboards/:key/versions",
    "file": "routes/dashboards.js",
-   "line": 155,
+   "line": 163,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
+    "tests/figure-parity-five-surfaces.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
    ]
@@ -3008,12 +3016,13 @@
    "method": "POST",
    "path": "/api/dashboards/:key/view",
    "file": "routes/dashboards.js",
-   "line": 159,
+   "line": 167,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
+    "tests/figure-parity-five-surfaces.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
    ]
@@ -3023,12 +3032,13 @@
    "method": "DELETE",
    "path": "/api/dashboards/:key",
    "file": "routes/dashboards.js",
-   "line": 298,
+   "line": 294,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
+    "tests/figure-parity-five-surfaces.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
    ]
@@ -3038,12 +3048,13 @@
    "method": "GET",
    "path": "/api/dashboards/:key",
    "file": "routes/dashboards.js",
-   "line": 147,
+   "line": 155,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
+    "tests/figure-parity-five-surfaces.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
    ]
@@ -3053,12 +3064,13 @@
    "method": "PUT",
    "path": "/api/dashboards/:key",
    "file": "routes/dashboards.js",
-   "line": 224,
+   "line": 220,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
+    "tests/figure-parity-five-surfaces.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
    ]
@@ -3068,7 +3080,7 @@
    "method": "DELETE",
    "path": "/api/dashboards/annotations/:id",
    "file": "routes/dashboards.js",
-   "line": 125,
+   "line": 133,
    "tests": [
     "tests/chart-annotations-routes.smoke.test.js"
    ]
@@ -3078,7 +3090,7 @@
    "method": "GET",
    "path": "/api/dashboards/annotations",
    "file": "routes/dashboards.js",
-   "line": 96,
+   "line": 104,
    "tests": [
     "tests/chart-annotations-routes.smoke.test.js"
    ]
@@ -3088,7 +3100,7 @@
    "method": "POST",
    "path": "/api/dashboards/annotations",
    "file": "routes/dashboards.js",
-   "line": 112,
+   "line": 120,
    "tests": [
     "tests/chart-annotations-routes.smoke.test.js"
    ]
@@ -3098,7 +3110,7 @@
    "method": "GET",
    "path": "/api/dashboards/catalogue",
    "file": "routes/dashboards.js",
-   "line": 79,
+   "line": 87,
    "tests": [
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js"
@@ -3109,12 +3121,13 @@
    "method": "GET",
    "path": "/api/dashboards",
    "file": "routes/dashboards.js",
-   "line": 65,
+   "line": 73,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
+    "tests/figure-parity-five-surfaces.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
    ]
@@ -6071,6 +6084,7 @@
     "tests/analytics-metrics-authz.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/business-only-boundary.smoke.test.js",
+    "tests/figure-parity-five-surfaces.test.js",
     "tests/kpi-targets.smoke.test.js",
     "tests/metrics-routes.smoke.test.js",
     "tests/server-routes-smoke.test.js",
@@ -6090,6 +6104,7 @@
     "tests/analytics-metrics-authz.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/business-only-boundary.smoke.test.js",
+    "tests/figure-parity-five-surfaces.test.js",
     "tests/kpi-targets.smoke.test.js",
     "tests/metrics-routes.smoke.test.js",
     "tests/server-routes-smoke.test.js",
@@ -10370,6 +10385,7 @@
     "tests/engagement-routes.smoke.test.js",
     "tests/engagement-store.test.js",
     "tests/ext-api.smoke.test.js",
+    "tests/figure-parity-five-surfaces.test.js",
     "tests/publication-freshness.smoke.test.js"
    ]
   },
@@ -11069,14 +11085,17 @@
     "tests/ai-commentary-stale.test.js",
     "tests/catalogue-dry-run.test.js",
     "tests/data-quality.test.js",
+    "tests/figure-parity-five-surfaces.test.js",
     "tests/governance-policy.test.js",
     "tests/health-deps.smoke.test.js",
     "tests/health-deps.test.js",
+    "tests/kpi-contract-completion.test.js",
     "tests/pilot-metrics-value.test.js",
     "tests/pilot-metrics.test.js",
     "tests/publication-freshness.smoke.test.js",
     "tests/publish-gate.test.js",
     "tests/report-release.smoke.test.js",
+    "tests/report-run-truths.test.js",
     "tests/report-studio-routes.smoke.test.js",
     "tests/sync-drift.test.js",
     "tests/sync-jobs-registry.test.js",

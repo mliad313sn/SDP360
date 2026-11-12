@@ -18,8 +18,8 @@ what is not known about it.
 | Moment | to be decided (proposal: the monthly service review) |
 | Definition | `services/metricRegistry.js:38` (`M('helpdesk.resolution_sla_pct'`) — (closed AND NOT overdue) / closed × 100 |
 | Reader | `services/metricRegistry.js:147` (`async 'helpdesk.calendar_month'`) → `reports-db.js:2962` (`sla_res_pct:   slaClosed > 0`) |
-| Window | calendar month of ticket creation; a running month is flagged partial (`services/metricRegistry.js:270` (`function dataState(v, rec, win, now)`)) |
-| Denominator | closed tickets with an SLA rule, cancelled excluded. Declared in `services/metricRegistry.js:256` (`'helpdesk.resolution_sla_pct': { field: 'sla_res_den'`); the reader does not return it yet, so the tile says "base not measured" and the low-sample guard cannot fire (left for a person: see evidence F-F1-DATA) |
+| Window | calendar month of ticket creation; a running month is flagged partial (`services/metricRegistry.js:286` (`function dataState(v, rec, win, now)`)) |
+| Denominator | closed tickets with an SLA rule, cancelled excluded. Declared in `services/metricRegistry.js:272` (`'helpdesk.resolution_sla_pct': { field: 'sla_res_den'`); the reader does not return it yet, so the tile says "base not measured" and the low-sample guard cannot fire (left for a person: see evidence F-F1-DATA) |
 | Scope | the site's helpdesk groups (`sites.zoho_group`); a site without a group is not measured (null, never 0) |
 | Freshness | job `zoho.requests`, limit 3 h — `services/publishGate.js:17` (`helpdesk: [['zoho.requests', 3]]`); a stale or never-synced source withdraws the colour on every surface |
 | Threshold | none proposed. The colour today comes from the RAG policy `sla-percent`; a per-site target is a committee decision (`kpi_targets`) |
