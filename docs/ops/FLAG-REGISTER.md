@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (206) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (207) — services/reportConfig.js DEFAULTS
 
 Prerequisites (E-A07, services/switchPrereqs.js) are WARNINGS in plain words, never approvals: the config PUT
 answer and the `set-ui-policy.js` dry run repeat them when the switch is moved to its switched-on value.
@@ -132,6 +132,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `ppm_alert_blocked_days` | `5` | setting | Committee | `5` | A-27 | — |
 | `ppm_alert_slip_days` | `10` | setting | Committee | `10` | A-27 | — |
 | `ppm_alerts_enabled` | `0` | arm switch | Committee | `0` (dry run first) | A-27 | — |
+| `ppm_alloc_unspecified` | `full_time` | setting | PMO | `unknown` if the PMO decides that a task created without an allocation is "not known" rather than full time (a NEW task then stores NULL — shown "unknown", never summed; existing rows are never changed; `node tools/governance/alloc-audit.js` lists legacy values outside 0–100 and says whether the range CHECK of migration 080 is present) | F-PRODUCT-09 | — |
 | `ppm_annual_pack_enabled` | `0` | arm switch | CIO + PMO + Finance | `1` before the annual planning committee (the XLSX pack is a DRAFT on every sheet: projects of the year, per-currency budget roll-up under the money rule, capacity summary, provisional RFI scores; the envelope column stays UNKNOWN until Finance enters it — envelopes and arbitration are human decisions) | E-P08 | — |
 | `ppm_baseline_versions` | `0` | setting | Committee | `1` | A-27 | — |
 | `ppm_budget_periods_enabled` | `0` | arm switch | Finance + PMO | `1` once Finance agrees the period grid (month × currency × baseline / actual / forecast, EAC = actual to date + remaining forecast per currency, never across currencies; a change or a variance vs the baseline needs a justification and is hash-chained in `ppm_events`). Every view says "not certified" until Finance certifies the figures; who may approve a budget stays a Finance decision | E-P04 | — |

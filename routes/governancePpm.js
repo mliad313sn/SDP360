@@ -117,7 +117,7 @@ module.exports = function governancePpmRoutes(router, h) {
   router.post('/api/governance/ppm/templates/:id/create-project', requireReportSession, json, async (req, res) => {
     try {
       if (!(await tplOn(res)) || !committeeOnly(req, res)) return;
-      const pid = await store.createProjectFromTemplate(req.params.id, req.body || {}, { user: req.reportUser });
+      const pid = await store.createProjectFromTemplate(req.params.id, req.body || {}, { user: req.reportUser, allocUnspecified: (await cfg()).ppm_alloc_unspecified });
       log(req, 'project_from_template', `template:${req.params.id}`, { project_id: pid }); res.json({ ok: true, project_id: pid });
     } catch (e) { fail(res, e); }
   });

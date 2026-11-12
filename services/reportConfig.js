@@ -215,6 +215,10 @@ const DEFAULTS = {
   // E-P03 (audit P-03) — PROPOSED: '1' shows capacity per site × week + sorted conflicts (GET /api/governance/ppm/capacity,
   // 404 while '0') and makes a reason REQUIRED to reassign a task. The reassignment is traced in ppm_events either way.
   ppm_capacity_view: '0',
+  // F-PRODUCT-09 (gap E07) — PROPOSED: what a NEW task stores when the caller does not send allocation_pct.
+  // 'full_time' (today) = the column default 100 %; 'unknown' = NULL (shown "unknown", never summed). Existing rows are
+  // never changed. The convention is a PMO decision.
+  ppm_alloc_unspecified: 'full_time',
   // E-P04 (audit P-04) — PROPOSED: '1' = budget per period (baseline / actual / forecast per month × currency, EAC per
   // currency, justification on a change or a variance) on the project page; 404 while '0'. Not certified by Finance.
   ppm_budget_periods_enabled: '0',

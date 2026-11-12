@@ -500,6 +500,9 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       await updateRow(T.table, id, vals, T.cols); return id;
     }
     for (const r of T.req) if (vals[r] == null || vals[r] === '') throw Object.assign(new Error(`${r} is required`), { code: 'INVALID' });
+    // F-PRODUCT-09 — a new task whose caller did not send allocation_pct: with ppm_alloc_unspecified = 'unknown' the
+    // row says NULL (unknown) instead of taking the column default 100. 'full_time' (today) leaves the default.
+    if (kind === 'task' && vals.allocation_pct === undefined && opts.allocUnspecified === 'unknown') vals.allocation_pct = null;
     const nid = await insert(T.table, [...Object.keys(vals), 'created_at', 'updated_at'], [...Object.values(vals), now(), now()]);
     if (kind === 'project') for (const f of FINANCE_FIELDS) if (vals[f] != null) await ppmEvent({ entity: 'project', entity_id: nid, action: 'finance_edit', field: f, old_value: null, new_value: vals[f], currency: vals.currency || 'USD' }, opts.user);
     return nid;
@@ -634,7 +637,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     return getTemplate(id);
   }
   /** A new project (no owner, no dates, no money) with the template's tasks, hierarchy, durations and milestone names. */
-  async function createProjectFromTemplate(id, body, { user } = {}) {
+  async function createProjectFromTemplate(id, body, { user, allocUnspecified } = {}) {
     const t = await getTemplate(id);
     if (!t) throw Object.assign(new Error('template not found'), { code: 'NOT_FOUND', status: 404 });
     if (t.status !== 'approved') throw Object.assign(new Error('only an approved template creates a project'), { code: 'CONFLICT', status: 409, reason: 'TEMPLATE_DRAFT' });
@@ -642,7 +645,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     return tx(async () => {
       const pid = await upsertPortfolio('project', { objective_id: body && body.objective_id, key: body && body.key, name: body && body.name, site_id: body && body.site_id, status: 'planned' }, { user });
       const ids = new Map();
-      for (const [i, x] of plan.tasks.entries()) ids.set(x.ref, await upsertPortfolio('task', { project_id: pid, name: x.name, wbs_code: x.wbs_code, parent_id: x.parent_ref ? ids.get(x.parent_ref) : null, duration_days: x.duration_days, sort_order: i }, { user }));
+      for (const [i, x] of plan.tasks.entries()) ids.set(x.ref, await upsertPortfolio('task', { project_id: pid, name: x.name, wbs_code: x.wbs_code, parent_id: x.parent_ref ? ids.get(x.parent_ref) : null, duration_days: x.duration_days, sort_order: i }, { user, allocUnspecified }));
       for (const [i, m] of plan.milestones.entries()) await upsertPortfolio('milestone', { project_id: pid, name: m.name, sort_order: i }, { user });
       await ppmEvent({ entity: 'project', entity_id: pid, action: 'created_from_template', field: 'template', new_value: Number(id) }, user);
       return pid;
