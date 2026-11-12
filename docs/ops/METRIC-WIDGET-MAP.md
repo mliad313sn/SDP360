@@ -28,9 +28,9 @@ metric is absent from that file and `--check` fails).
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | `helpdesk.inbound` | helpdesk | count | untriaged | — | — | `public/index.html` | `public/lib/composerGuide.js` | — | — | — | 11 file(s) |
 | `helpdesk.closed` | helpdesk | count | untriaged | — | — | `public/index.html` | `public/lib/composerGuide.js` | — | — | — | 6 file(s) |
-| `helpdesk.closure_pct` | helpdesk | % | untriaged | — | — | — | — | — | `routes/governance.js`<br>`routes/metrics.js` | `services/agendaBuilder.js` | 5 file(s) |
-| `helpdesk.resolution_sla_pct` | helpdesk | % | untriaged | `exec-home#k-sla (kpi)`<br>`exec-home#tr-sla (trend)`<br>`exec-home#sites (ragGrid)`<br>`governance#tr (trend)` | `sla.resolution.red` | `public/index.html`<br>`public/portfolio.html` | `public/kpi-builder.js`<br>`public/lib/composerGuide.js` | — | `routes/extApi.js`<br>`routes/governance.js`<br>`routes/kpiPolicies.js` | `services/agendaBuilder.js`<br>`services/dashboardWidgets.js`<br>`services/kpiPolicyEngine.js`<br>`services/reportConfig.js` | 30 file(s) |
-| `helpdesk.first_reply_sla_pct` | helpdesk | % | untriaged | — | `sla.first_reply.red` | `public/index.html` | — | — | `routes/extApi.js` | `services/agendaBuilder.js`<br>`services/reportConfig.js` | 8 file(s) |
+| `helpdesk.closure_pct` | helpdesk | % | untriaged | — | — | — | — | — | `routes/governance.js`<br>`routes/metrics.js` | `services/agendaBuilder.js` | 6 file(s) |
+| `helpdesk.resolution_sla_pct` | helpdesk | % | untriaged | `exec-home#k-sla (kpi)`<br>`exec-home#tr-sla (trend)`<br>`exec-home#sites (ragGrid)`<br>`governance#tr (trend)` | `sla.resolution.red` | `public/index.html`<br>`public/portfolio.html` | `public/kpi-builder.js`<br>`public/lib/composerGuide.js` | — | `routes/extApi.js`<br>`routes/governance.js`<br>`routes/kpiPolicies.js` | `services/agendaBuilder.js`<br>`services/dashboardWidgets.js`<br>`services/kpiPolicyEngine.js`<br>`services/reportConfig.js` | 32 file(s) |
+| `helpdesk.first_reply_sla_pct` | helpdesk | % | untriaged | — | `sla.first_reply.red` | `public/index.html` | — | — | `routes/extApi.js` | `services/agendaBuilder.js`<br>`services/reportConfig.js` | 9 file(s) |
 | `helpdesk.window_created` | helpdesk | count | untriaged | `site-weekly#created (kpi)`<br>`site-weekly#tr (trend)` | — | — | `public/site-report.js` | — | — | `services/agendaBuilder.js` | 2 file(s) |
 | `helpdesk.window_resolved` | helpdesk | count | untriaged | `site-weekly#resolved (kpi)` | — | — | `public/site-report.js` | — | — | `services/agendaBuilder.js` | — |
 | `helpdesk.window_overdue` | helpdesk | count | untriaged | `exec-home#overdue (kpi)`<br>`site-weekly#overdue (kpi)`<br>`field-site#overdue (kpi)` | `helpdesk.overdue.high` | — | `public/site-report.js` | — | — | `services/agendaBuilder.js` | 1 file(s) |
@@ -48,8 +48,8 @@ metric is absent from that file and `--check` fails).
 | `inspection.critical_count` | inspection | count | untriaged | — | `inspection.critical` | — | — | — | — | — | — |
 | `inspection.conformity_pct` | inspection | % | untriaged | `exec-home#k-insp (kpi)` | — | — | — | — | `routes/extApi.js` | `services/agendaBuilder.js`<br>`services/reportConfig.js`<br>`services/trackerTemplates.js` | 3 file(s) |
 | `inspection.open_actions` | inspection | count | untriaged | `site-weekly#insp (kpi)` | — | — | — | — | — | `services/agendaBuilder.js` | — |
-| `inspection.overdue_actions` | inspection | count | untriaged | `field-site#insp (kpi)` | `inspection.overdue_actions` | — | — | — | — | — | — |
-| `assets.total` | assets | count | untriaged | `assets-hygiene#total (kpi)` | — | — | — | — | — | `services/trackerTemplates.js` | 8 file(s) |
+| `inspection.overdue_actions` | inspection | count | untriaged | `field-site#insp (kpi)` | `inspection.overdue_actions` | — | — | — | — | — | 1 file(s) |
+| `assets.total` | assets | count | untriaged | `assets-hygiene#total (kpi)` | — | — | — | — | — | `services/trackerTemplates.js` | 9 file(s) |
 | `assets.no_owner` | assets | count | untriaged | `assets-hygiene#no-owner (kpi)` | — | — | — | — | — | — | — |
 | `assets.no_age` | assets | count | untriaged | `assets-hygiene#no-age (kpi)` | — | — | — | — | — | — | — |
 | `assets.no_cost` | assets | count | untriaged | `assets-hygiene#no-cost (kpi)` | — | — | — | — | — | — | — |
@@ -60,7 +60,7 @@ metric is absent from that file and `--check` fails).
 | `assets.effort_score` | assets | points | untriaged | `assets-hygiene#effort (kpi)` | — | — | `public/site-report.js` | — | — | — | — |
 | `assets.effort_rank` | assets | rank | untriaged | `assets-hygiene#rank (kpi)` | — | — | `public/site-report.js` | — | — | — | 1 file(s) |
 | `assets.effort_delta_30d` | assets | points | untriaged | — | — | — | `public/site-report.js` | — | — | — | — |
-| `tracker.site_score_pct` | tracker | % | untriaged | `exec-home#sites-tr (ragGrid)` | `tracker.site.red` | — | — | — | `routes/dashboards.js`<br>`routes/extApi.js` | `services/agendaBuilder.js`<br>`services/dashboardData.js`<br>`services/reportConfig.js` | 4 file(s) |
+| `tracker.site_score_pct` | tracker | % | untriaged | `exec-home#sites-tr (ragGrid)` | `tracker.site.red` | — | — | `services/dashboardCsv.js` | `routes/extApi.js` | `services/agendaBuilder.js`<br>`services/dashboardData.js`<br>`services/reportConfig.js` | 4 file(s) |
 | `tracker.site_green` | tracker | count | untriaged | — | — | — | — | — | — | — | — |
 | `tracker.site_amber` | tracker | count | untriaged | — | — | — | — | — | — | — | — |
 | `tracker.site_red` | tracker | count | untriaged | — | — | — | — | — | — | — | — |

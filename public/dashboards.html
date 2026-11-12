@@ -113,6 +113,7 @@
 
   // Annex B #6 — a late response from an earlier filter must never overwrite a newer one
   var loadSeq = 0;
+  var metricDefs = null, metricDefsAsked = false;
   function loadData() {
     var seq = ++loadSeq;
     status('Loading…');
@@ -130,6 +131,11 @@
       if (d.site != null) sel.value = String(d.site);
       var nm = (d.sites || []).filter(function (s) { return Number(s.id) === Number(d.site); })[0];
       d.scope_note = nm ? 'Single figures: ' + nm.name + ' · per-site charts: your ' + d.sites.length + ' sites' : '';
+      // F-DATA-07 — the KPI dictionary is fetched once, only when the definition drawer is switched on
+      if (window.__uiPolicy && window.__uiPolicy.kpi_definition_drawer === '1' && !metricDefs && !metricDefsAsked) {
+        metricDefsAsked = true;
+        api('/api/metrics/registry?status=all').then(function (j) { metricDefs = {}; (j.metrics || []).forEach(function (m) { metricDefs[m.key] = m; }); if (seq === loadSeq) renderWidgets(def, d); }).catch(function () {});
+      }
       renderWidgets(def, d);
       var st = (d.stale_sources || []).map(function (x) { return x.module + (x.state === 'UNKNOWN' ? ' (never synced)' : ' (last sync ' + x.age_h + ' h ago, limit ' + x.limit_h + ' h)'); });
       // F21 — the response time is "Computed at"; how recent the DATA is comes per source ("Data through")
@@ -167,10 +173,12 @@
       else if (d.mode === 'single') {
         el.innerHTML = title + '<div class="edv-kpi-value">' + R.ragDot(d.rag, d.freshness) + R.formatValue(d.value, d.unit) + '</div>' +
           R.staleBadge(d) + R.kpiContext(d, { sampleSize: uiOn('kpi_sample_size') }) +
-          '<div class="edv-kpi-sub">' + (d.fleet ? (d.fleet.kind === 'unweighted_site_mean' ? 'average of site rates ' : 'fleet mean ') + R.formatValue(d.fleet.mean, d.unit) + ' (' + d.fleet.n + ' sites' + (d.fleet.kind === 'unweighted_site_mean' ? ', unweighted — not the group rate' : '') + ')' : (d.value == null ? StateBadge.text('not-measured') : '')) + '</div>' +
+          '<div class="edv-kpi-sub">' + (d.fleet ? (d.fleet.kind === 'unweighted_site_mean' ? 'average of site rates ' : 'fleet mean ') + R.formatValue(d.fleet.mean, d.unit) + ' (' + (uiOn('kpi_definition_drawer') ? R.fleetCount(d.fleet) : d.fleet.n + ' sites') + (d.fleet.kind === 'unweighted_site_mean' ? ', unweighted — not the group rate' : '') + ')' : (d.value == null ? StateBadge.text('not-measured') : '')) + '</div>' +
           '<div class="edv-asof">' + (d.window ? R.escapeHtml(d.window.label) : '') + (d.partial ? ' · partial' : '') + '</div>' + R.partialNote(d) +
           // E-V03 — base population (ui_kpi_base_line='1') and the "→ act" link of the widget (relative href only)
-          (uiOn('kpi_base_line') ? R.baseLine(d) : '') + (uiOn('kpi_sample_size') ? R.sampleNote(d, { withN: !uiOn('kpi_base_line') }) : '') + R.actionLink(d.action_href);
+          (uiOn('kpi_base_line') ? R.baseLine(d) : '') + (uiOn('kpi_sample_size') ? R.sampleNote(d, { withN: !uiOn('kpi_base_line') }) : '') + R.actionLink(d.action_href)
+          // F-DATA-07 — definition on the tile (ui_kpi_definition_drawer='1'): formula, window, denominator, source, certification
+          + (uiOn('kpi_definition_drawer') && metricDefs ? R.definitionDrawer(d, metricDefs[d.metric], data.sources) : '');
       } else if (d.mode === 'series') {
         // design review B4 / R6: no empty axis; % axes run 0–100; short week labels, the year said once
         var pts = d.points || [];

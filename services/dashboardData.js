@@ -146,7 +146,8 @@ async function resolveWidgets({ def, sites, site, window = null, reg, dd, rdb, n
           const res = await each(sites, (s) => reg.resolve(w.metric, { site: Number(s.id), window, deps: dd, now }));
           const vals = res.filter((r) => r && r.value != null).map((r) => Number(r.value));
           // G06 — a mean of site percentages is NOT the group rate (that needs Σnumerators ÷ Σdenominators): labelled as such.
-          fleet = vals.length ? { mean: Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10, n: vals.length, kind: m.unit === '%' ? 'unweighted_site_mean' : 'site_mean' } : null;
+          // F-DATA-07 (N8) — `of` = sites in scope: "mean of 2 of 11", never a bare "mean of 2"
+          fleet = vals.length ? { mean: Math.round((vals.reduce((a, b) => a + b, 0) / vals.length) * 10) / 10, n: vals.length, of: (sites || []).length, kind: m.unit === '%' ? 'unweighted_site_mean' : 'site_mean' } : null;
         }
         const tsite = m.reader === 'tracker.fleet' ? null : site;
         const tg = KT.targetFor(targets, w.metric, tsite, endOf(one.window));
@@ -164,7 +165,7 @@ async function resolveWidgets({ def, sites, site, window = null, reg, dd, rdb, n
           higher_is_better: m.higher_is_better !== false, target: tg.target, target_source: tg.source, target_id: tg.id == null ? null : tg.id, target_from: tg.effective_from || null, target_date: endOf(one.window),
           vs_target: KT.vsTarget(one.value, tg.target, m.higher_is_better !== false), previous, partial,
           // E-V03 — base population only where the reader returns the denominator; null = "base not measured"
-          base: one.base || null, action_href: w.action_href || null,
+          base: one.base || null, data_state: one.data_state || null, action_href: w.action_href || null,
           site_id: tsite == null || tsite === '' ? null : Number(tsite) };   // E-K03 — the site of a single figure (red → linked action)
         // E-K02 — sample size n (the base population, only where the reader returns it) + low-sample flag
         { const ms = await minSample(w.metric, endOf(one.window)); const n = one.base ? one.base.n : null;

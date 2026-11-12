@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (206) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (207) — services/reportConfig.js DEFAULTS
 
 Prerequisites (E-A07, services/switchPrereqs.js) are WARNINGS in plain words, never approvals: the config PUT
 answer and the `set-ui-policy.js` dry run repeat them when the switch is moved to its switched-on value.
@@ -209,6 +209,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `ui_i18n_pages` | `0` | ui policy | Owner (D-2) | `1` | A-09, C-26 | — |
 | `ui_inject_dash_key` | (secret — not shown) | secret | Security owner | `0` (pages no longer receive `window.__ak`; every data call rides the session cookie — proven by `tests/api-key-injection.smoke.test.js` (g)) after one browser pass on the TEST instance | E-S02 | One browser pass on the TEST instance of every page that used window.__ak. |
 | `ui_kpi_base_line` | `0` | ui policy | Owner (UI policy) | `1` (proposal — show the base population under each KPI value) | E-V03 | — |
+| `ui_kpi_definition_drawer` | `0` | ui policy | KPI committee | `1` (proposal — the tile then shows formula, window, denominator, source job and the certification text; nothing is certified by showing it) | F-DATA-07 | — |
 | `ui_kpi_sample_size` | `0` | ui policy | KPI committee | `1` (proposal — warnings only appear once the KPI committee adopts a `min_sample`) | E-K02 | — |
 | `ui_lang_default` | `` | ui policy | Owner (D-2) | `fr` | A-09 | — |
 | `ui_nav_profile` | `full` | ui policy | Owner (D-6) | `lean` (proposal — re-decide from the T1–T8 sessions) | A-21 | — |

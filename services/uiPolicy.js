@@ -14,6 +14,8 @@
 //   ui_exec_nav           'full' (today) · 'consolidated' (C-28, PO P1 — Executive menu = Executive Home + IT
 //                         Review; the Scorecard leaves the menu, stays in Home and the Ctrl+K finder)
 //   ui_kpi_base_line      '0' = KPI tiles as today · '1' = "n = 142 closed" / "base not measured" under the value (E-V03)
+//   ui_kpi_definition_drawer '0' = as today · '1' = "Definition" drawer on KPI tiles (formula, window, denominator, source job,
+//                         certification) and "n of N sites" on the fleet comparator (F-DATA-07)
 //   ui_kpi_sample_size    '0' = as today · '1' = "n = …" on tiles/grid cells + low-sample warning from an ADOPTED
 //                         kpi_policy min_sample (E-K02; no adopted policy → no warning)
 //   ui_small_multiples    '0' = the `multiples` widget type is not creatable (today) · '1' = offered (E-V09)
@@ -29,6 +31,7 @@ const UI_DEFAULTS = {
   ui_exec_nav: 'full',
   ui_kpi_base_line: '0',
   ui_kpi_sample_size: '0',
+  ui_kpi_definition_drawer: '0',
   ui_small_multiples: '0',
   ui_feedback_enabled: '0',
   ui_data_quality_page: '0',
@@ -43,6 +46,7 @@ const ENUMS = {
   ui_exec_nav: ['full', 'consolidated'],
   ui_kpi_base_line: ['0', '1'],
   ui_kpi_sample_size: ['0', '1'],
+  ui_kpi_definition_drawer: ['0', '1'],
   ui_small_multiples: ['0', '1'],
   ui_feedback_enabled: ['0', '1'],
   ui_data_quality_page: ['0', '1'],
@@ -81,6 +85,7 @@ function uiPolicyFrom(cfg) {
     exec_nav: _pick(c, 'ui_exec_nav'),
     kpi_base_line: _pick(c, 'ui_kpi_base_line'),
     kpi_sample_size: _pick(c, 'ui_kpi_sample_size'),
+    kpi_definition_drawer: _pick(c, 'ui_kpi_definition_drawer'),
     small_multiples: _pick(c, 'ui_small_multiples'),
     feedback: _pick(c, 'ui_feedback_enabled'),
     data_quality_page: _pick(c, 'ui_data_quality_page'),

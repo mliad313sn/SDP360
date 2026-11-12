@@ -8,7 +8,14 @@ immutable once adopted). The adopted version is read at run time (Admin ▸ KPI 
 Database rows of `metric_registry` / `kpi_rag_policies` win over the code seed shown here.
 
 **Freshness** = the sync job feeding the module and its declared window (`services/sync/jobs.js`); a governance
-`freshness.*_hours` policy can override it at run time. A module with no sync job reads `UNKNOWN`.
+`freshness.*_hours` policy can override it at run time. A module typed into the application (meetings,
+inspection, tracker, commitments, programme) has **no sync job**: its freshness is not tracked. The publication gate
+(`services/publishGate.js`) does not block on such a module, and the dashboard CSV writes `NO_SYNC_JOB` — neither
+means the figures were checked as current.
+
+**Denominator** = the base population a ratio is computed on, shown only when the reader returns it (`BASES`); a
+denominator is never recomputed or invented. **Data state** — every resolved figure carries one of: `measured` · `partial` · `not_measured` · `reader_not_wired` · `error`.
+**Owner role** `to be named` = nobody decided an owner for the definition (a person or a committee names it).
 
 Metrics: **52** · named by no code outside tests (decision pending): **10**
 
@@ -23,7 +30,9 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | month |
 | RAG policy | none (no colour) |
 | Higher is better | yes |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `zoho.requests` — declared window 3 h |
@@ -40,7 +49,9 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | month |
 | RAG policy | none (no colour) |
 | Higher is better | yes |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `zoho.requests` — declared window 3 h |
@@ -57,11 +68,13 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | month |
 | RAG policy | `sla-percent` (code default: scale points, green 90, amber 70) |
 | Higher is better | yes |
-| Owner role | service-support-manager |
+| Denominator | tickets created — record field `inbound` |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `zoho.requests` — declared window 3 h |
-| Consumers | server code: `services/agendaBuilder.js`<br>API routes: `routes/governance.js`<br>API routes: `routes/metrics.js` · tests: 5 file(s) |
+| Consumers | server code: `services/agendaBuilder.js`<br>API routes: `routes/governance.js`<br>API routes: `routes/metrics.js` · tests: 6 file(s) |
 
 ## `helpdesk.resolution_sla_pct`
 
@@ -74,11 +87,13 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | month |
 | RAG policy | `sla-percent` (code default: scale points, green 90, amber 70) |
 | Higher is better | yes |
-| Owner role | service-support-manager |
+| Denominator | closed tickets with an SLA rule (cancelled excluded) — record field `sla_res_den` |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `zoho.requests` — declared window 3 h |
-| Consumers | widget `exec-home#k-sla (kpi)`<br>widget `exec-home#tr-sla (trend)`<br>widget `exec-home#sites (ragGrid)`<br>widget `governance#tr (trend)`<br>alert rule `sla.resolution.red`<br>server code: `services/agendaBuilder.js`<br>server code: `services/dashboardWidgets.js`<br>server code: `services/kpiPolicyEngine.js`<br>server code: `services/reportConfig.js`<br>API routes: `routes/extApi.js`<br>API routes: `routes/governance.js`<br>API routes: `routes/kpiPolicies.js`<br>pages: `public/index.html`<br>pages: `public/portfolio.html`<br>browser libraries: `public/kpi-builder.js`<br>browser libraries: `public/lib/composerGuide.js` · tests: 30 file(s) |
+| Consumers | widget `exec-home#k-sla (kpi)`<br>widget `exec-home#tr-sla (trend)`<br>widget `exec-home#sites (ragGrid)`<br>widget `governance#tr (trend)`<br>alert rule `sla.resolution.red`<br>server code: `services/agendaBuilder.js`<br>server code: `services/dashboardWidgets.js`<br>server code: `services/kpiPolicyEngine.js`<br>server code: `services/reportConfig.js`<br>API routes: `routes/extApi.js`<br>API routes: `routes/governance.js`<br>API routes: `routes/kpiPolicies.js`<br>pages: `public/index.html`<br>pages: `public/portfolio.html`<br>browser libraries: `public/kpi-builder.js`<br>browser libraries: `public/lib/composerGuide.js` · tests: 32 file(s) |
 
 ## `helpdesk.first_reply_sla_pct`
 
@@ -91,11 +106,13 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | month |
 | RAG policy | `sla-percent` (code default: scale points, green 90, amber 70) |
 | Higher is better | yes |
-| Owner role | service-support-manager |
+| Denominator | responded tickets — record field `sla_reply_den` |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `zoho.requests` — declared window 3 h |
-| Consumers | alert rule `sla.first_reply.red`<br>server code: `services/agendaBuilder.js`<br>server code: `services/reportConfig.js`<br>API routes: `routes/extApi.js`<br>pages: `public/index.html` · tests: 8 file(s) |
+| Consumers | alert rule `sla.first_reply.red`<br>server code: `services/agendaBuilder.js`<br>server code: `services/reportConfig.js`<br>API routes: `routes/extApi.js`<br>pages: `public/index.html` · tests: 9 file(s) |
 
 ## `helpdesk.window_created`
 
@@ -108,7 +125,9 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | week |
 | RAG policy | none (no colour) |
 | Higher is better | yes |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `zoho.requests` — declared window 3 h |
@@ -125,7 +144,9 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | week |
 | RAG policy | none (no colour) |
 | Higher is better | yes |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `zoho.requests` — declared window 3 h |
@@ -142,7 +163,9 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | week |
 | RAG policy | none (no colour) |
 | Higher is better | no |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `zoho.requests` — declared window 3 h |
@@ -159,7 +182,9 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | week |
 | RAG policy | none (no colour) |
 | Higher is better | no |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `zoho.requests` — declared window 3 h |
@@ -176,7 +201,9 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | week |
 | RAG policy | none (no colour) |
 | Higher is better | no |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `zoho.requests` — declared window 3 h |
@@ -193,10 +220,12 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | rolling3m |
 | RAG policy | none (no colour) |
 | Higher is better | yes |
+| Denominator | not a ratio |
+| Reader wired | yes |
 | Owner role | site-coordinator |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
-| Freshness | UNKNOWN (no sync job feeds this module) |
+| Freshness | not tracked (no sync job feeds this module) |
 | Consumers | server code: `services/trackerTemplates.js`<br>browser libraries: `public/site-report.js` |
 
 ## `meetings.engagement_1_pct`
@@ -210,10 +239,12 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | rolling3m |
 | RAG policy | `sla-percent` (code default: scale points, green 90, amber 70) |
 | Higher is better | yes |
-| Owner role | service-support-manager |
+| Denominator | not returned by the reader (base not measured) |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
-| Freshness | UNKNOWN (no sync job feeds this module) |
+| Freshness | not tracked (no sync job feeds this module) |
 | Consumers | generic consumers only (composer, /api/metrics, external API) |
 
 > **Decision — use / archive / reserve — PENDING KPI committee.** No widget, alert rule, page or server code names
@@ -230,10 +261,12 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | rolling3m |
 | RAG policy | `sla-percent` (code default: scale points, green 90, amber 70) |
 | Higher is better | yes |
-| Owner role | service-support-manager |
+| Denominator | not returned by the reader (base not measured) |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
-| Freshness | UNKNOWN (no sync job feeds this module) |
+| Freshness | not tracked (no sync job feeds this module) |
 | Consumers | server code: `services/trackerTemplates.js` |
 
 ## `meetings.champion_pct`
@@ -247,10 +280,12 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | rolling3m |
 | RAG policy | `sla-percent` (code default: scale points, green 90, amber 70) |
 | Higher is better | yes |
-| Owner role | service-support-manager |
+| Denominator | not returned by the reader (base not measured) |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
-| Freshness | UNKNOWN (no sync job feeds this module) |
+| Freshness | not tracked (no sync job feeds this module) |
 | Consumers | server code: `services/trackerTemplates.js` |
 
 ## `meetings.escalation_discipline_pct`
@@ -264,10 +299,12 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | rolling3m |
 | RAG policy | `sla-percent` (code default: scale points, green 90, amber 70) |
 | Higher is better | yes |
-| Owner role | service-support-manager |
+| Denominator | not returned by the reader (base not measured) |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
-| Freshness | UNKNOWN (no sync job feeds this module) |
+| Freshness | not tracked (no sync job feeds this module) |
 | Consumers | generic consumers only (composer, /api/metrics, external API) |
 
 > **Decision — use / archive / reserve — PENDING KPI committee.** No widget, alert rule, page or server code names
@@ -284,10 +321,12 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | rolling3m |
 | RAG policy | `sla-percent` (code default: scale points, green 90, amber 70) |
 | Higher is better | yes |
-| Owner role | service-support-manager |
+| Denominator | not returned by the reader (base not measured) |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
-| Freshness | UNKNOWN (no sync job feeds this module) |
+| Freshness | not tracked (no sync job feeds this module) |
 | Consumers | widget `exec-home#k-meet (kpi)`<br>widget `governance#eng (kpi)`<br>alert rule `meetings.engagement.red`<br>server code: `services/agendaBuilder.js`<br>server code: `services/reportConfig.js`<br>API routes: `routes/extApi.js` · tests: 1 file(s) |
 
 ## `meetings.open_issues`
@@ -301,10 +340,12 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | current |
 | RAG policy | none (no colour) |
 | Higher is better | no |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
-| Freshness | UNKNOWN (no sync job feeds this module) |
+| Freshness | not tracked (no sync job feeds this module) |
 | Consumers | browser libraries: `public/site-report.js` · tests: 1 file(s) |
 
 ## `meetings.overdue_issues`
@@ -318,10 +359,12 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | current |
 | RAG policy | none (no colour) |
 | Higher is better | no |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
-| Freshness | UNKNOWN (no sync job feeds this module) |
+| Freshness | not tracked (no sync job feeds this module) |
 | Consumers | widget `site-weekly#issues (kpi)`<br>alert rule `meetings.overdue_issues`<br>server code: `services/governanceValues.js`<br>server code: `tools/governance/values.example.json` · tests: 2 file(s) |
 
 ## `inspection.count`
@@ -335,10 +378,12 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | month |
 | RAG policy | none (no colour) |
 | Higher is better | yes |
+| Denominator | not a ratio |
+| Reader wired | yes |
 | Owner role | site-coordinator |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
-| Freshness | UNKNOWN (no sync job feeds this module) |
+| Freshness | not tracked (no sync job feeds this module) |
 | Consumers | server code: `services/trackerTemplates.js`<br>browser libraries: `public/site-report.js` · tests: 3 file(s) |
 
 ## `inspection.critical_count`
@@ -352,10 +397,12 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | month |
 | RAG policy | none (no colour) |
 | Higher is better | no |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
-| Freshness | UNKNOWN (no sync job feeds this module) |
+| Freshness | not tracked (no sync job feeds this module) |
 | Consumers | alert rule `inspection.critical` |
 
 ## `inspection.conformity_pct`
@@ -369,10 +416,12 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | month |
 | RAG policy | `sla-percent` (code default: scale points, green 90, amber 70) |
 | Higher is better | yes |
-| Owner role | service-support-manager |
+| Denominator | applicable findings — record field `applicable_n` |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
-| Freshness | UNKNOWN (no sync job feeds this module) |
+| Freshness | not tracked (no sync job feeds this module) |
 | Consumers | widget `exec-home#k-insp (kpi)`<br>server code: `services/agendaBuilder.js`<br>server code: `services/reportConfig.js`<br>server code: `services/trackerTemplates.js`<br>API routes: `routes/extApi.js` · tests: 3 file(s) |
 
 ## `inspection.open_actions`
@@ -386,10 +435,12 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | current |
 | RAG policy | none (no colour) |
 | Higher is better | no |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
-| Freshness | UNKNOWN (no sync job feeds this module) |
+| Freshness | not tracked (no sync job feeds this module) |
 | Consumers | widget `site-weekly#insp (kpi)`<br>server code: `services/agendaBuilder.js` |
 
 ## `inspection.overdue_actions`
@@ -403,11 +454,13 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | current |
 | RAG policy | none (no colour) |
 | Higher is better | no |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
-| Freshness | UNKNOWN (no sync job feeds this module) |
-| Consumers | widget `field-site#insp (kpi)`<br>alert rule `inspection.overdue_actions` |
+| Freshness | not tracked (no sync job feeds this module) |
+| Consumers | widget `field-site#insp (kpi)`<br>alert rule `inspection.overdue_actions` · tests: 1 file(s) |
 
 ## `assets.total`
 
@@ -420,11 +473,13 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | current |
 | RAG policy | none (no colour) |
 | Higher is better | yes |
+| Denominator | not a ratio |
+| Reader wired | yes |
 | Owner role | asset-manager |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `assets.sync` — declared window 30 h |
-| Consumers | widget `assets-hygiene#total (kpi)`<br>server code: `services/trackerTemplates.js` · tests: 8 file(s) |
+| Consumers | widget `assets-hygiene#total (kpi)`<br>server code: `services/trackerTemplates.js` · tests: 9 file(s) |
 
 ## `assets.no_owner`
 
@@ -437,7 +492,9 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | current |
 | RAG policy | none (no colour) |
 | Higher is better | no |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `assets.sync` — declared window 30 h |
@@ -454,7 +511,9 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | current |
 | RAG policy | none (no colour) |
 | Higher is better | no |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `assets.sync` — declared window 30 h |
@@ -471,7 +530,9 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | current |
 | RAG policy | none (no colour) |
 | Higher is better | no |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `assets.sync` — declared window 30 h |
@@ -488,7 +549,9 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | current |
 | RAG policy | none (no colour) |
 | Higher is better | no |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `assets.sync` — declared window 30 h |
@@ -505,7 +568,9 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | current |
 | RAG policy | none (no colour) |
 | Higher is better | no |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `assets.sync` — declared window 30 h |
@@ -525,7 +590,9 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | current |
 | RAG policy | none (no colour) |
 | Higher is better | no |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `assets.sync` — declared window 30 h |
@@ -542,7 +609,9 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | current |
 | RAG policy | `sla-percent` (code default: scale points, green 90, amber 70) |
 | Higher is better | yes |
-| Owner role | service-support-manager |
+| Denominator | assets in register — record field `total` |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `assets.sync` — declared window 30 h |
@@ -559,7 +628,9 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | current |
 | RAG policy | `site-composite` (code default: scale points, green 75, amber 55) |
 | Higher is better | yes |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `assets.sync` — declared window 30 h |
@@ -576,7 +647,9 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | current |
 | RAG policy | none (no colour) |
 | Higher is better | no |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `assets.sync` — declared window 30 h |
@@ -593,7 +666,9 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | current |
 | RAG policy | none (no colour) |
 | Higher is better | yes |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `assets.sync` — declared window 30 h |
@@ -610,11 +685,13 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | ytd |
 | RAG policy | `tracker-executive` (code default: scale ratio, green 0.7, amber 0.5) |
 | Higher is better | yes |
+| Denominator | not returned by the reader (base not measured) |
+| Reader wired | yes |
 | Owner role | site-coordinator |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
-| Freshness | UNKNOWN (no sync job feeds this module) |
-| Consumers | widget `exec-home#sites-tr (ragGrid)`<br>alert rule `tracker.site.red`<br>server code: `services/agendaBuilder.js`<br>server code: `services/dashboardData.js`<br>server code: `services/reportConfig.js`<br>API routes: `routes/dashboards.js`<br>API routes: `routes/extApi.js` · tests: 4 file(s) |
+| Freshness | not tracked (no sync job feeds this module) |
+| Consumers | widget `exec-home#sites-tr (ragGrid)`<br>alert rule `tracker.site.red`<br>server code: `services/agendaBuilder.js`<br>server code: `services/dashboardData.js`<br>server code: `services/reportConfig.js`<br>exports: `services/dashboardCsv.js`<br>API routes: `routes/extApi.js` · tests: 4 file(s) |
 
 ## `tracker.site_green`
 
@@ -627,10 +704,12 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | ytd |
 | RAG policy | none (no colour) |
 | Higher is better | yes |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
-| Freshness | UNKNOWN (no sync job feeds this module) |
+| Freshness | not tracked (no sync job feeds this module) |
 | Consumers | generic consumers only (composer, /api/metrics, external API) |
 
 > **Decision — use / archive / reserve — PENDING KPI committee.** No widget, alert rule, page or server code names
@@ -647,10 +726,12 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | ytd |
 | RAG policy | none (no colour) |
 | Higher is better | no |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
-| Freshness | UNKNOWN (no sync job feeds this module) |
+| Freshness | not tracked (no sync job feeds this module) |
 | Consumers | generic consumers only (composer, /api/metrics, external API) |
 
 > **Decision — use / archive / reserve — PENDING KPI committee.** No widget, alert rule, page or server code names
@@ -667,10 +748,12 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | ytd |
 | RAG policy | none (no colour) |
 | Higher is better | no |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
-| Freshness | UNKNOWN (no sync job feeds this module) |
+| Freshness | not tracked (no sync job feeds this module) |
 | Consumers | generic consumers only (composer, /api/metrics, external API) |
 
 > **Decision — use / archive / reserve — PENDING KPI committee.** No widget, alert rule, page or server code names
@@ -687,10 +770,12 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | ytd |
 | RAG policy | `tracker-executive` (code default: scale ratio, green 0.7, amber 0.5) |
 | Higher is better | yes |
-| Owner role | service-support-manager |
+| Denominator | not returned by the reader (base not measured) |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
-| Freshness | UNKNOWN (no sync job feeds this module) |
+| Freshness | not tracked (no sync job feeds this module) |
 | Consumers | widget `exec-home#k-tracker (kpi)`<br>widget `governance#roadmap (kpi)`<br>server code: `services/agendaBuilder.js` · tests: 3 file(s) |
 
 ## `tracker.fleet_attainment_pct`
@@ -704,10 +789,12 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | ytd |
 | RAG policy | `tracker-executive` (code default: scale ratio, green 0.7, amber 0.5) |
 | Higher is better | yes |
-| Owner role | service-support-manager |
+| Denominator | not returned by the reader (base not measured) |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
-| Freshness | UNKNOWN (no sync job feeds this module) |
+| Freshness | not tracked (no sync job feeds this module) |
 | Consumers | widget `governance#attain (kpi)` |
 
 ## `wan.wan1_availability_pct`
@@ -721,7 +808,9 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | week |
 | RAG policy | `wan-availability` (code default: scale target-ratio, green 1, amber 0.9) |
 | Higher is better | yes |
-| Owner role | service-support-manager |
+| Denominator | not returned by the reader (base not measured) |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `meraki.wan` — declared window 30 h |
@@ -738,7 +827,9 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | week |
 | RAG policy | `wan-availability` (code default: scale target-ratio, green 1, amber 0.9) |
 | Higher is better | yes |
-| Owner role | service-support-manager |
+| Denominator | not returned by the reader (base not measured) |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `meraki.wan` — declared window 30 h |
@@ -755,7 +846,9 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | week |
 | RAG policy | none (no colour) |
 | Higher is better | no |
-| Owner role | service-support-manager |
+| Denominator | not returned by the reader (base not measured) |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `meraki.wan` — declared window 30 h |
@@ -775,7 +868,9 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | week |
 | RAG policy | none (no colour) |
 | Higher is better | no |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `meraki.wan` — declared window 30 h |
@@ -795,10 +890,12 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | rolling3m |
 | RAG policy | `site-score` (code default: scale points, green 70, amber 45) |
 | Higher is better | yes |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — D-01/D-02/D-03 pending |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
-| Freshness | UNKNOWN (no sync job feeds this module) |
+| Freshness | not tracked (no sync job feeds this module) |
 | Consumers | widget `governance#prog (kpi)`<br>widget `governance#sites (ragGrid)`<br>server code: `services/agendaBuilder.js`<br>server code: `tools/agent/score-methodology.js` · tests: 1 file(s) |
 
 ## `programme.composite`
@@ -812,10 +909,12 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | month |
 | RAG policy | `site-composite` (code default: scale points, green 75, amber 55) |
 | Higher is better | yes |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — D-01/D-02/D-03 pending |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
-| Freshness | UNKNOWN (no sync job feeds this module) |
+| Freshness | not tracked (no sync job feeds this module) |
 | Consumers | server code: `services/agendaBuilder.js`<br>server code: `tools/agent/score-methodology.js` · tests: 1 file(s) |
 
 ## `changes.success_pct_deck`
@@ -829,7 +928,9 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | rolling3m |
 | RAG policy | `sla-percent` (code default: scale points, green 90, amber 70) |
 | Higher is better | yes |
-| Owner role | service-support-manager |
+| Denominator | not returned by the reader (base not measured) |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — D-01 pending |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `zoho.change_cab` — declared window 3 h |
@@ -849,7 +950,9 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | rolling3m |
 | RAG policy | `sla-percent` (code default: scale points, green 90, amber 70) |
 | Higher is better | yes |
-| Owner role | service-support-manager |
+| Denominator | not returned by the reader (base not measured) |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — D-01 pending |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | `zoho.change_cab` — declared window 3 h |
@@ -869,10 +972,12 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | current |
 | RAG policy | none (no colour) |
 | Higher is better | yes |
-| Owner role | service-support-manager |
+| Denominator | not returned by the reader (base not measured) |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
-| Freshness | UNKNOWN (no sync job feeds this module) |
+| Freshness | not tracked (no sync job feeds this module) |
 | Consumers | server code: `services/commitmentMetrics.js` |
 
 ## `commitments.serious_unowned`
@@ -886,10 +991,12 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | current |
 | RAG policy | none (no colour) |
 | Higher is better | no |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
-| Freshness | UNKNOWN (no sync job feeds this module) |
+| Freshness | not tracked (no sync job feeds this module) |
 | Consumers | server code: `services/commitmentMetrics.js` |
 
 ## `commitments.serious_overdue`
@@ -903,10 +1010,12 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | current |
 | RAG policy | none (no colour) |
 | Higher is better | no |
-| Owner role | service-support-manager |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
-| Freshness | UNKNOWN (no sync job feeds this module) |
+| Freshness | not tracked (no sync job feeds this module) |
 | Consumers | server code: `services/commitmentMetrics.js` |
 
 ## `commitments.technical_vs_verified`
@@ -920,8 +1029,10 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Window kind | current |
 | RAG policy | none (no colour) |
 | Higher is better | yes |
-| Owner role | service-support-manager |
+| Denominator | not returned by the reader (base not measured) |
+| Reader wired | yes |
+| Owner role | to be named |
 | Certification | not certified — KPI Committee approval not recorded |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
-| Freshness | UNKNOWN (no sync job feeds this module) |
+| Freshness | not tracked (no sync job feeds this module) |
 | Consumers | server code: `services/commitmentMetrics.js` |

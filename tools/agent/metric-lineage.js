@@ -29,7 +29,7 @@ function sourceFile(m, root) {
 }
 
 function build({ root = ROOT } = {}) {
-  const { SEED } = require(path.join(root, 'services', 'metricRegistry'));
+  const { SEED, BASES, READERS, DATA_STATES } = require(path.join(root, 'services', 'metricRegistry'));
   const KpiRag = require(path.join(root, 'services', 'kpiRag'));
   const { FRESHNESS_HOURS } = require(path.join(root, 'services', 'sync', 'jobs'));
   const { FRESHNESS_SOURCES } = require(path.join(root, 'services', 'governancePolicy'));
@@ -50,7 +50,14 @@ function build({ root = ROOT } = {}) {
   L.push('Database rows of `metric_registry` / `kpi_rag_policies` win over the code seed shown here.');
   L.push('');
   L.push('**Freshness** = the sync job feeding the module and its declared window (`services/sync/jobs.js`); a governance');
-  L.push('`freshness.*_hours` policy can override it at run time. A module with no sync job reads `UNKNOWN`.');
+  L.push('`freshness.*_hours` policy can override it at run time. A module typed into the application (meetings,');
+  L.push('inspection, tracker, commitments, programme) has **no sync job**: its freshness is not tracked. The publication gate');
+  L.push('(`services/publishGate.js`) does not block on such a module, and the dashboard CSV writes `NO_SYNC_JOB` — neither');
+  L.push('means the figures were checked as current.');
+  L.push('');
+  L.push('**Denominator** = the base population a ratio is computed on, shown only when the reader returns it (`BASES`); a');
+  L.push('denominator is never recomputed or invented. **Data state** — every resolved figure carries one of: ' + (DATA_STATES || []).map(code).join(' · ') + '.');
+  L.push('**Owner role** `to be named` = nobody decided an owner for the definition (a person or a committee names it).');
   L.push('');
   L.push(`Metrics: **${SEED.length}** · named by no code outside tests (decision pending): **${unused.length}**`);
   L.push('');
@@ -58,7 +65,10 @@ function build({ root = ROOT } = {}) {
     const r = byKey.get(m.key) || { widgets: [], rules: [], by: {} };
     const pol = m.rag_policy ? KpiRag.POLICIES[m.rag_policy] : null;
     const job = jobOf.get(m.module);
-    const fresh = job && FRESHNESS_HOURS[job] ? `${code(job)} — declared window ${FRESHNESS_HOURS[job]} h` : 'UNKNOWN (no sync job feeds this module)';
+    const fresh = job && FRESHNESS_HOURS[job] ? `${code(job)} — declared window ${FRESHNESS_HOURS[job]} h` : 'not tracked (no sync job feeds this module)';
+    const b = (BASES || {})[m.key];
+    const den = b ? `${cell(b.label)} — record field ${code(b.field)}` : (m.unit === '%' ? 'not returned by the reader (base not measured)' : 'not a ratio');
+    const wired = READERS && READERS[m.reader] ? (m.field ? 'yes' : 'no — no field declared') : 'no — reader not wired';
     const consumers = [
       ...r.widgets.map((w) => 'widget ' + code(w)),
       ...r.rules.map((x) => 'alert rule ' + code(x)),
@@ -75,7 +85,9 @@ function build({ root = ROOT } = {}) {
     L.push(`| Window kind | ${cell(m.window_kind)} |`);
     L.push(`| RAG policy | ${m.rag_policy ? code(m.rag_policy) + (pol ? ` (code default: scale ${cell(pol.scale)}, green ${cell(pol.green)}, amber ${cell(pol.amber)})` : ' (not defined in code)') : 'none (no colour)'} |`);
     L.push(`| Higher is better | ${m.higher_is_better ? 'yes' : 'no'} |`);
-    L.push(`| Owner role | ${cell(m.owner_role)} |`);
+    L.push(`| Denominator | ${den} |`);
+    L.push(`| Reader wired | ${wired} |`);
+    L.push(`| Owner role | ${m.owner_role ? cell(m.owner_role) : 'to be named'} |`);
     L.push(`| Certification | ${cell(m.certification)} |`);
     L.push(`| Versioned contract | kpi_policies (adopted version read at run time — not in this file) |`);
     L.push(`| Freshness | ${fresh} |`);
