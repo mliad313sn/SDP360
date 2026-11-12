@@ -124,6 +124,8 @@ function uiPolicyFrom(cfg) {
     commitments: String(c.commitments_enabled == null ? '' : c.commitments_enabled).trim() === '1' ? '1' : '0',
     // F-UX-06 — not a ui_* key (it is a telemetry switch): the browser only needs to know whether to send events
     ux_events: String(c.ux_event_telemetry == null ? '' : c.ux_event_telemetry).trim() === '1' ? '1' : '0',
+    // A1/B8 — not a ui_* key: the shell shows the Finance certification entry only while one of its switches is on
+    finance_page: ['finance_certification_enabled', 'actuals_import_enabled'].some((k) => String(c[k] == null ? '' : c[k]).trim() === '1') ? '1' : '0',
   };
 }
 

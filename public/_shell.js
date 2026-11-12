@@ -204,6 +204,7 @@
         { id: 'rfi', group: 'Plan & track',          label: 'RFI register',       icon: ICON_LIB.lightbulb,          href: 'rfi.html',              roles: ['any'], lean_hidden: true },
         { id: 'report-studio', group: 'Report & share', label: 'Report studio',     icon: ICON_LIB['file-text'],       href: 'report-studio.html',    roles: ['any'],
           lean_roles: ['editor', 'report-author', 'committee-member', 'finance-viewer', 'scorecard-viewer'] },
+        { id: 'finance', group: 'Report & share',  label: 'Finance certification', icon: ICON_LIB['clipboard-check'], href: 'finance.html',         roles: ['admin', 'finance-viewer', 'finance-verifier'], policy: 'finance_page', lean_hidden: true },
         { id: 'notifications', group: 'Report & share', label: 'Notifications',     icon: ICON_LIB['alert-circle'],    href: 'notifications.html',    roles: ['any'], lean_hidden: true },
         { id: 'handoffs', group: 'Governance',     label: 'Handoffs',           icon: ICON_LIB.users,              href: 'handoffs.html',         roles: ['any'], lean_hidden: true },
         { id: 'obligations', group: 'Governance',  label: 'Site obligations',   icon: ICON_LIB['clipboard-check'], href: 'obligations.html',      roles: ['any'], lean_hidden: true },

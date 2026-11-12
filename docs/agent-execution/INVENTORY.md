@@ -6,7 +6,7 @@
 
 | Item | Count |
 |---|---:|
-| pages | 59 |
+| pages | 60 |
 | pages without test reference | 0 |
 | pages without declared role | 6 |
 | pages not in navigation | 30 |
@@ -14,13 +14,13 @@
 | pages deep link only | 9 |
 | pages without entry point | 3 |
 | pages with inline scripts | 46 |
-| routes | 661 |
+| routes | 679 |
 | routes without test reference | 31 |
 | routes in server js | 210 |
 | jobs | 31 |
 | jobs without test reference | 0 |
-| migrations | 86 |
-| test files | 724 |
+| migrations | 88 |
+| test files | 730 |
 
 ## Pages
 
@@ -41,6 +41,7 @@
 | PG-exec-view | public/exec-view.html | public | no | 1 | 7 |
 | PG-executive-report | public/executive-report.html | super_admin | yes | 1 | 11 |
 | PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 14 |
+| PG-finance | public/finance.html | admin / finance-viewer / finance-verifier | yes | 0 | 2 |
 | PG-handoffs | public/handoffs.html | any | yes | 1 | 9 |
 | PG-help | public/help.html | any | yes | 1 | 10 |
 | PG-home | public/home.html | any | yes | 0 | 15 |
@@ -107,6 +108,7 @@
 | public/exec-view.html | — | — | — | — | public IT status snapshot: reached from the SharePoint Quick Link, outside the app | — |
 | public/executive-report.html | yes | — | — | — | — | shell |
 | public/executive.html | yes | — | dashboards.html | — | — | shell |
+| public/finance.html | yes | — | lib/moneyCertBand.js | — | — | shell |
 | public/handoffs.html | yes | — | home.html, site-actions.html | — | — | shell |
 | public/help.html | yes | — | — | — | — | shell |
 | public/home.html | yes | — | index.html, lib/pageStates.js, lib/workspaceProfiles.js, workspace-settings.html | — | — | shell |
