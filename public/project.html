@@ -13,6 +13,7 @@
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/stateBadge.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/dashboardRender.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/allocationContract.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/ppmVisuals.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/ppmExtras.js"></script>
 <style nonce="%%CSP_NONCE%%">
@@ -167,6 +168,17 @@
         <label id="b-owner-user-box" hidden>Owner as a user (reminder on “My work”) <select id="b-owner-user"><option value="">— not linked —</option></select></label>
         <label>Benefit review date <input id="b-review" type="date"></label>
       </div>
+      <div class="row" id="b-class-box" hidden>
+        <label>Value class <select id="b-vclass"><option value="">— unclassified —</option><option value="realised_cash">realised cash</option><option value="cost_avoidance_estimate">cost avoidance (estimate)</option><option value="productivity_time">productivity time</option><option value="risk_reduction">risk reduction</option><option value="other">other</option></select></label>
+        <label>Basis of the realised value <select id="b-basis"><option value="">— not stated —</option><option value="observed">observed (measured)</option><option value="estimated_avoidance">estimated avoidance</option></select></label>
+        <label>Baseline period from <input id="b-bfrom" type="date"></label>
+        <label>Baseline period to <input id="b-bto" type="date"></label>
+        <label>Measured from <input id="b-mfrom" type="date"></label>
+        <label>Measured to <input id="b-mto" type="date"></label>
+        <label>Source <select id="b-source"><option value="">— not stated —</option><option value="manual">manual</option><option value="metric">metric</option></select></label>
+        <label>Metric key (metric source only) <input id="b-metric"></label>
+        <label style="grid-column:1/-1">Method note (how it was measured or estimated) <textarea id="b-method" rows="2"></textarea></label>
+      </div>
       <div class="bar"><button class="btn primary" id="b-save" type="button">Save benefit</button><button class="btn danger" id="b-del" type="button">Delete benefit</button><span class="muted">Changing the measure, unit, kind, baseline or target clears a verification.</span></div>
     </div>
     <div class="panel" id="ben-real" hidden><h2>Record a realised value</h2>
@@ -238,6 +250,7 @@
     PLAN_SCOPE: "You may only maintain the plan of a project of your site(s), or one you own.",
     GATE_SOD: "The project owner cannot approve their own project — another committee member must.",
     REASON_REQUIRED: "A reason is required to reassign a task.",
+    VERIFIER_ROLE: "A money benefit is verified by a holder of the verifier role set by the administrator.",
     NO_ACCOUNTABLE: "Every task with letters needs exactly one A (accountable).",
     MULTIPLE_ACCOUNTABLE: "Only one person is accountable (A) for a task.",
     JUSTIFICATION_REQUIRED: "A justification is required: the amount changes, or differs from the baseline of this month.",
@@ -246,7 +259,7 @@
   var V = null;
   // W2-PPM — which PROPOSED switches are on (each new tab / prompt exists only then); an error = all off (today)
   var FEAT = {};
-  api("/api/governance/ppm/features").then(function (f) { FEAT = f || {}; if (FEAT.budget_periods) addTab("budget", "gates"); if (FEAT.benefit_owner_link) linkOwners(); if (FEAT.raci) addTab("raci", "gates"); if (FEAT.templates && V && V.committee) $("tpl-save-box").hidden = false; }).catch(function () { FEAT = {}; });
+  api("/api/governance/ppm/features").then(function (f) { FEAT = f || {}; if (FEAT.budget_periods) addTab("budget", "gates"); if (FEAT.benefit_owner_link) linkOwners(); if (FEAT.benefit_value_class) { $("b-class-box").hidden = false; if (V) renderBenefits(); } if (FEAT.raci) addTab("raci", "gates"); if (FEAT.templates && V && V.committee) $("tpl-save-box").hidden = false; }).catch(function () { FEAT = {}; });
 
   // ---- tabs (role=tablist, arrows / Home / End, deep link #tab) ---------------------------------------------
   // Extension point: later goals (baselines, benefits) add a tab button + a pane + an entry in RENDER.
@@ -346,7 +359,7 @@
       ["Open tasks", n(open) + " / " + n(V.tasks.length)],
       ["Critical path", V.plan ? n(V.plan.length_days, " d") : "— (dependency loop)"],
       ["Open high risks", n(V.gate_counts && V.gate_counts.openRisksHigh)]];
-    var money = V.money_hidden ? "<span class=\"muted\">restricted to the committee, the admin tier and the finance role</span>" : (p.budget != null ? n(p.spent) + " / " + n(p.budget) + " " + esc(p.currency || "") : "—");
+    var money = V.money_hidden ? "<span class=\"muted\">restricted to the committee, the admin tier and the finance role</span>" : (p.budget != null ? n(p.spent) + " / " + n(p.budget) + " " + esc(p.currency || "USD") + (p.currency_defaulted === 1 || !p.currency ? " <small class=\"muted\">(default, not confirmed)</small>" : "") : "—");   // F-DATA-10
     $("overview").innerHTML = "<div class=\"tiles\">" + tiles.map(function (t) { return "<div class=\"tile\"><div class=\"tl\">" + esc(t[0]) + "</div><div class=\"tn\" style=\"font-size:15px\">" + t[1] + "</div></div>"; }).join("") + "</div>" +
       "<div class=\"panel\" style=\"margin-top:14px\"><table><tbody>" +
       "<tr><th>Objective</th><td>" + (V.objective ? esc(V.objective.key) + " — " + esc(V.objective.name) : "—") + "</td></tr>" +
@@ -395,7 +408,8 @@
       var t = r.t, pl = planOf(t.id) || {}, b = barOf(t), vr = pl.variance || {};
       return "<tr id=\"task-row-" + n(t.id) + "\" tabindex=\"-1\"><td>" + n(t.wbs_code) + "</td><td style=\"padding-left:" + (7 + 14 * r.depth) + "px\">" + esc(t.name) + " <small class=\"muted\">#" + n(t.id) + "</small></td><td>" + n(t.owner) + "</td><td>" + (b ? n(b.s) + (b.computed ? " <small class=\"muted\">computed</small>" : "") : "—") + "</td><td>" + (b ? n(b.e) : "—") + "</td><td>" + (pl.assumed_duration ? "<i>duration unknown — counted as 1 day</i>" : n(pl.duration_days, " d")) + "</td><td>" + n(pl.slack, " d") + "</td><td>" + (pl.critical ? "<b>CP</b> yes" : "no") + "</td><td>" + n(t.progress_pct, " %") + "</td><td>" + n(t.effort_hours, " h") + "</td><td>" + n(t.allocation_pct, " %") + "</td><td>" + n(t.baseline_end) + "</td><td>" + n(vr.finish_variance_days, " d") + "</td><td><span class=\"pill " + esc(t.status) + "\">" + esc(t.status) + "</span></td><td>" + (t.depends_on || []).map(function (d) { return "#" + n(d); }).join(", ") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No task.</p>";
     var rc = V.resource_conflicts || [];
-    $("plan-conflicts").innerHTML = rc.length ? "<table><thead><tr><th>Person</th><th>From</th><th>To</th><th>Peak load</th><th>Tasks</th></tr></thead><tbody>" + rc.map(function (c) { return "<tr><td>" + esc(c.owner) + "</td><td>" + n(c.from) + "</td><td>" + n(c.to) + "</td><td><b>" + n(c.peak_pct, " %") + "</b></td><td>" + c.task_ids.map(function (i) { return "#" + n(i); }).join(", ") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">Nobody is booked above 100 % on overlapping days in this project.</p>";
+    $("plan-conflicts").innerHTML = rc.length ? "<table><thead><tr><th>Person</th><th>From</th><th>To</th><th>Peak load</th><th>Tasks</th></tr></thead><tbody>" + rc.map(function (c) { return "<tr><td>" + esc(c.owner) + "</td><td>" + n(c.from) + "</td><td>" + n(c.to) + "</td><td><b>" + n(c.peak_pct, " %") + "</b></td><td>" + c.task_ids.map(function (i) { return "#" + n(i); }).join(", ") + "</td></tr>"; }).join("") + "</tbody></table>" : (window.PpmVisuals && V.resource_coverage ? "" : "<p class=\"muted\">Nobody is booked above 100 % on overlapping days in this project.</p>");
+    if (window.PpmVisuals && V.resource_coverage) $("plan-conflicts").innerHTML += window.PpmVisuals.coverageHtml(V.resource_coverage, rc.length, esc);
     // C-14 — resource pressure per person and week (tasks without an allocation are counted "unknown", never guessed)
     $("plan-pressure").innerHTML = window.PpmVisuals ? window.PpmVisuals.pressureHtml(window.PpmVisuals.resourcePressure(V.tasks || [], { today: today() }), esc) : "";
     taskEditor();
@@ -563,21 +577,38 @@
   function renderBenefits() {
     var bs = V.benefits || [];
     var val = function (b, k) { return b.values_hidden ? "<span class=\"muted\">hidden</span>" : n(b[k]); };
-    $("benefits").innerHTML = bs.length ? "<table><thead><tr><th>Benefit</th><th>Measure</th><th>Unit</th><th>Baseline</th><th>Target</th><th>Realised</th><th>Owner</th><th>Review date</th><th>State</th><th>Evidence</th><th>Entered by</th><th>Verified by</th><th></th></tr></thead><tbody>" + bs.map(function (b) {
+    // F-PRODUCT-03 / F-DATA-09 — with the switch on the realised value sits in ONE of four columns (never added together)
+    var CLS = !!(FEAT && FEAT.benefit_value_class);
+    var realCols = function (b) {
+      if (!CLS) return "<td>" + val(b, "realised_value") + "</td>";
+      var mc = b.measurement_class || "unclassified";
+      return ["unclassified", "observed", "estimated", "validated"].map(function (k) { return "<td>" + (k === mc ? val(b, "realised_value") + (k === "estimated" && b.realised_value != null && !b.values_hidden ? " <small class=\"muted\">estimate</small>" : "") : "") + "</td>"; }).join("");
+    };
+    var clsCell = function (b) { return CLS ? "<td>" + (b.value_class ? esc(String(b.value_class).replace(/_/g, " ")) : "<span class=\"muted\">unclassified</span>") + (b.measured_from || b.measured_to ? "<br><small class=\"muted\">" + n(b.measured_from) + " → " + n(b.measured_to) + "</small>" : "") + "</td>" : ""; };
+    $("benefits").innerHTML = bs.length ? "<table><thead><tr><th>Benefit</th><th>Measure</th><th>Unit</th><th>Baseline</th><th>Target</th>" + (CLS ? "<th>Class · measured</th><th>Realised (no basis stated)</th><th>Observed</th><th>Estimated</th><th>Validated</th>" : "<th>Realised</th>") + "<th>Owner</th><th>Review date</th><th>State</th><th>Evidence</th><th>Entered by</th><th>Verified by</th><th></th></tr></thead><tbody>" + bs.map(function (b) {
       var st = BEN_STATE[b.state] || ["planned", String(b.state)];
-      var canVerify = V.can_edit_plan && b.state === "awaiting_verification" && b.realised_by !== V.me;
-      return "<tr><td>" + esc(b.description) + " <small class=\"muted\">#" + n(b.id) + "</small></td><td>" + n(b.measure) + "</td><td>" + n(b.unit) + (b.value_kind === "money" ? " <small class=\"muted\">" + n(b.currency) + "</small>" : "") + "</td><td>" + val(b, "baseline_value") + "</td><td>" + val(b, "target_value") + "</td><td>" + val(b, "realised_value") + "</td><td>" + n(b.owner) + "</td><td>" + n(b.review_date) + "</td><td><span class=\"pill " + esc(st[0]) + "\">" + esc(st[1]) + "</span></td><td>" + safeLink(b.evidence_link) + "</td><td>" + n(b.realised_by_name) + "</td><td>" + n(b.verified_by_name) + "</td><td>" +
-        (canVerify ? "<button class=\"btn\" type=\"button\" data-verify=\"" + esc(b.id) + "\">Verify</button>" : b.state === "awaiting_verification" && V.can_edit_plan ? "<small class=\"muted\">you entered it — someone else verifies</small>" : "") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No expected benefit recorded for this project.</p>";
+      // F-PRODUCT-04 — with a verifier role set, a money benefit is verified by a holder of that role (not entrant, not owner)
+      var roleRule = !!V.money_verifier_role && b.value_kind === "money";
+      var canVerify = b.state === "awaiting_verification" && b.realised_by !== V.me && b.owner_user_id !== V.me && (roleRule ? !!V.holds_money_verifier_role : V.can_edit_plan);
+      return "<tr><td>" + esc(b.description) + " <small class=\"muted\">#" + n(b.id) + "</small></td><td>" + n(b.measure) + "</td><td>" + n(b.unit) + (b.value_kind === "money" ? " <small class=\"muted\">" + n(b.currency) + "</small>" : "") + "</td><td>" + val(b, "baseline_value") + "</td><td>" + val(b, "target_value") + "</td>" + clsCell(b) + realCols(b) + "<td>" + n(b.owner) + "</td><td>" + n(b.review_date) + "</td><td><span class=\"pill " + esc(st[0]) + "\">" + esc(st[1]) + "</span></td><td>" + safeLink(b.evidence_link) + "</td><td>" + n(b.realised_by_name) + "</td><td>" + n(b.verified_by_name) + "</td><td>" +
+        (canVerify ? "<button class=\"btn\" type=\"button\" data-verify=\"" + esc(b.id) + "\">Verify</button>" : b.state === "awaiting_verification" && roleRule ? "<small class=\"muted\">verified by a holder of the role “" + esc(V.money_verifier_role) + "” who did not enter the value and is not its owner</small>" : b.state === "awaiting_verification" && V.can_edit_plan ? "<small class=\"muted\">you entered it — someone else verifies</small>" : "") + "</td></tr>"; }).join("") + "</tbody></table>" + benefitTotalsHtml() : "<p class=\"muted\">No expected benefit recorded for this project.</p>";
     $("ben-edit").hidden = !V.can_edit_plan; $("ben-real").hidden = !V.can_edit_plan || !bs.length;
     if (V.can_edit_plan) {
       var cur = $("b-id").value; $("b-id").innerHTML = opt(bs.map(function (b) { return [b.id, b.description]; }), cur, "— new benefit —"); fillBenefit();
       var cr = $("br-id").value; $("br-id").innerHTML = opt(bs.map(function (b) { return [b.id, b.description]; }), cr, "");
     }
   }
+  function benefitTotalsHtml() {
+    var ts = V.benefit_totals || [];
+    if (!(FEAT && FEAT.benefit_value_class) || !ts.length) return "";
+    return "<table><caption>Realised values per class — a line is never added to another (an estimate is not a realised amount; two currencies or units are never added). “Validated” = observed, with evidence, verified by the holder of the required role who is neither the entrant nor the owner.</caption><thead><tr><th>Class</th><th>Value class</th><th>Currency / unit</th><th>Benefits</th><th>With a value</th><th>Total of the realised values</th></tr></thead><tbody>" +
+      ts.map(function (g) { return "<tr><td>" + esc(g.label) + "</td><td>" + esc(String(g.value_class).replace(/_/g, " ")) + "</td><td>" + n(g.currency || g.unit) + "</td><td>" + n(g.benefits) + "</td><td>" + n(g.with_value) + (g.hidden ? " <small class=\"muted\">(" + n(g.hidden) + " hidden)</small>" : "") + "</td><td>" + (g.realised_total == null ? "<span class=\"muted\">not measured</span>" : n(g.realised_total)) + "</td></tr>"; }).join("") + "</tbody></table>";
+  }
   function fillBenefit() {
     var id = Number($("b-id").value) || null, b = (V.benefits || []).filter(function (x) { return x.id === id; })[0] || {};
     $("b-desc").value = b.description || ""; $("b-measure").value = b.measure || ""; $("b-unit").value = b.unit || ""; $("b-kind").value = b.value_kind || "quantity"; $("b-cur").value = b.currency || "";
     $("b-base").value = b.baseline_value == null ? "" : b.baseline_value; $("b-target").value = b.target_value == null ? "" : b.target_value; $("b-owner").value = b.owner || ""; $("b-owner-user").value = b.owner_user_id == null ? "" : String(b.owner_user_id); $("b-review").value = b.review_date || ""; $("b-del").hidden = !id;
+    $("b-vclass").value = b.value_class || ""; $("b-basis").value = b.basis || ""; $("b-bfrom").value = b.baseline_period_from || ""; $("b-bto").value = b.baseline_period_to || ""; $("b-mfrom").value = b.measured_from || ""; $("b-mto").value = b.measured_to || ""; $("b-source").value = b.source_kind || ""; $("b-metric").value = b.metric_key || ""; $("b-method").value = b.method_note || "";
   }
   $("b-id").addEventListener("change", fillBenefit);
   $("b-save").addEventListener("click", function () {
@@ -585,6 +616,7 @@
     var b = { project_id: V.project.id, description: $("b-desc").value.trim(), measure: $("b-measure").value.trim() || null, unit: $("b-unit").value.trim() || null, value_kind: kind, currency: kind === "money" ? ($("b-cur").value.trim().toUpperCase() || null) : null,
       baseline_value: numOrNull("b-base"), target_value: numOrNull("b-target"), owner: $("b-owner").value.trim() || null, review_date: $("b-review").value || null };
     if (!$("b-owner-user-box").hidden) b.owner_user_id = $("b-owner-user").value ? Number($("b-owner-user").value) : null;   // E-P05
+    if (!$("b-class-box").hidden) { b.value_class = $("b-vclass").value || null; b.basis = $("b-basis").value || null; b.baseline_period_from = $("b-bfrom").value || null; b.baseline_period_to = $("b-bto").value || null; b.measured_from = $("b-mfrom").value || null; b.measured_to = $("b-mto").value || null; b.source_kind = $("b-source").value || null; b.metric_key = $("b-metric").value.trim() || null; b.method_note = $("b-method").value.trim() || null; }   // F-PRODUCT-03
     if (id) { b.id = id; delete b.project_id; }
     api("/api/governance/portfolio/benefit", { method: "PUT", body: JSON.stringify(b) }).then(function (j) { msg("Benefit #" + j.id + " saved."); $("b-id").value = String(j.id); return load(); }).catch(fail);
   });

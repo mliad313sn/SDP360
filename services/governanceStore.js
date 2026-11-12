@@ -304,12 +304,12 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   const taskRow = (r) => r && ({ ...idRow(r), project_id: Number(r.project_id), parent_id: r.parent_id == null ? null : Number(r.parent_id), duration_days: num(r.duration_days), allocation_pct: num(r.allocation_pct), progress_pct: num(r.progress_pct), effort_hours: num(r.effort_hours), depends_on: P_(r.depends_on, []) });
   const RISK_KINDS = ['risk', 'issue', 'assumption'];   // A-14 RAID (dependencies live in depends_on, decisions in DEC-…)
   const riskRow = (r) => ({ ...idRow(r), project_id: Number(r.project_id), probability: Number(r.probability), impact: Number(r.impact), kind: r.kind || 'risk' });
-  const projectRow = (r) => ({ ...idRow(r), objective_id: Number(r.objective_id), site_id: r.site_id == null ? null : Number(r.site_id), progress_pct: num(r.progress_pct), budget: num(r.budget), spent: num(r.spent), depends_on: P_(r.depends_on, []), rfi_id: r.rfi_id == null ? null : Number(r.rfi_id) });
+  const projectRow = (r) => ({ ...idRow(r), currency_defaulted: r.currency_defaulted == null ? null : Number(r.currency_defaulted), objective_id: Number(r.objective_id), site_id: r.site_id == null ? null : Number(r.site_id), progress_pct: num(r.progress_pct), budget: num(r.budget), spent: num(r.spent), depends_on: P_(r.depends_on, []), rfi_id: r.rfi_id == null ? null : Number(r.rfi_id) });
   // B-08 — expected / realised benefits (migration 056). Values are numbers or null; money values are stripped by the route.
   const benefitRow = (r) => r && ({ ...idRow(r), project_id: Number(r.project_id), baseline_value: num(r.baseline_value), target_value: num(r.target_value), realised_value: num(r.realised_value),
     realised_by: r.realised_by == null ? null : Number(r.realised_by), verified_by: r.verified_by == null ? null : Number(r.verified_by), sort_order: num(r.sort_order), value_kind: r.value_kind || 'quantity',
     owner_user_id: r.owner_user_id == null ? null : Number(r.owner_user_id) });
-  const BENEFIT_TERMS = ['measure', 'unit', 'value_kind', 'currency', 'baseline_value', 'target_value'];   // a change clears a verification
+  const BENEFIT_TERMS = ['measure', 'unit', 'value_kind', 'currency', 'baseline_value', 'target_value', 'value_class', 'basis', 'measured_from', 'measured_to'];   // a change clears a verification
   const TASK_STATUSES = ['todo', 'in_progress', 'blocked', 'done', 'cancelled'];
   const SPEND_TYPES = ['capex', 'opex', 'mixed'];
   const FINANCE_FIELDS = ['budget', 'spent', 'currency', 'spend_type'];
@@ -413,7 +413,8 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     task: { table: 'portfolio_tasks', cols: ['project_id', 'parent_id', 'wbs_code', 'name', 'owner', 'start_date', 'end_date', 'baseline_start', 'baseline_end', 'forecast_end', 'actual_start', 'actual_end', 'duration_days', 'allocation_pct', 'status', 'depends_on', 'sort_order', 'progress_pct', 'effort_hours'], req: ['project_id', 'name'] },
     milestone: { table: 'portfolio_milestones', cols: ['project_id', 'name', 'due_date', 'baseline_date', 'done_at', 'status', 'sort_order', 'owner'], req: ['project_id', 'name'] },
     deliverable: { table: 'portfolio_deliverables', cols: ['project_id', 'milestone_id', 'name', 'owner', 'due_date', 'status', 'action_kind', 'action_ref', 'sort_order', 'closed_at'], req: ['project_id', 'name'] },
-    benefit: { table: 'portfolio_benefits', cols: ['project_id', 'description', 'measure', 'unit', 'value_kind', 'currency', 'baseline_value', 'target_value', 'owner', 'review_date', 'sort_order', 'owner_user_id'], req: ['project_id', 'description'] },
+    benefit: { table: 'portfolio_benefits', cols: ['project_id', 'description', 'measure', 'unit', 'value_kind', 'currency', 'baseline_value', 'target_value', 'owner', 'review_date', 'sort_order', 'owner_user_id',
+      'value_class', 'basis', 'baseline_period_from', 'baseline_period_to', 'measured_from', 'measured_to', 'method_note', 'source_kind', 'metric_key'], req: ['project_id', 'description'] },   // F-PRODUCT-03 / F-DATA-09 class fields
     risk: { table: 'portfolio_risks', cols: ['project_id', 'title', 'probability', 'impact', 'mitigation', 'owner', 'status', 'incident_ref', 'closed_at', 'kind'], req: ['project_id', 'title'] },
   };
   function normalise(kind, body) {
@@ -424,7 +425,9 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       else if (c === 'evidence_hib') v = v === false || v === 0 ? 0 : 1;
       else if (/_id$|^sort_order$|^probability$|^impact$|^duration_days$|^allocation_pct$|^effort_hours$/.test(c)) v = num(v);
       else if (/pct$|^weight$|^budget$|^spent$|evidence_target|_value$/.test(c)) v = num(v);
-      else if (c === 'review_date') v = _day(v);
+      else if (c === 'review_date' || /^(baseline_period|measured)_(from|to)$/.test(c)) v = _day(v);
+      else if (kind === 'benefit' && ['value_class', 'basis', 'source_kind', 'metric_key'].includes(c)) v = v == null || String(v).trim() === '' ? null : String(v).trim().slice(0, 120);
+      else if (c === 'method_note') v = str(v, 2000);
       else v = str(v, c === 'description' || c === 'mitigation' || c === 'manual_evidence' ? 4000 : 300);
       out[c] = v;
     }
@@ -447,6 +450,31 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     }
     if (out.confidence && !CONFIDENCE.includes(out.confidence)) throw Object.assign(new Error('confidence must be low | medium | high'), { code: 'INVALID' });
     return out;
+  }
+  // F-DATA-10 — Finance currency: no silent default. A project amount written while nobody stated the currency is
+  // FLAGGED (currency_defaulted = 1, 'currency_defaulted=true' in the ppm_events note, a warning for the caller); a
+  // sent currency clears the flag (0). Rows from before migration 081 (flag NULL) that already carry an amount are
+  // left as they are — not known. With opts.currencyRequired (report_config finance_currency_required = '1') the
+  // write is refused instead (CURRENCY_REQUIRED). A money benefit without a currency: same warning / refusal.
+  function _currencyFlag(vals, before) {
+    if (vals.currency != null) return 0;
+    if (!['budget', 'spent'].some((f) => vals[f] != null)) return undefined;
+    if (!before) return 1;
+    const flag = before.currency_defaulted == null ? null : Number(before.currency_defaulted);
+    if (flag === 0) return undefined;
+    return flag === 1 || (before.budget == null && before.spent == null) ? 1 : undefined;
+  }
+  const _currencyRefused = () => Object.assign(new Error('a currency (ISO code such as USD or XOF) is required with an amount'), { code: 'INVALID', reason: 'CURRENCY_REQUIRED' });
+  const _warn = (opts, code, message) => { if (Array.isArray(opts.warnings)) opts.warnings.push({ code, message }); };
+  function _benefitCurrency(row, opts) {
+    if (row.value_kind !== 'money' || (row.currency != null && String(row.currency).trim() !== '')) return;
+    if (opts.currencyRequired) throw _currencyRefused();
+    _warn(opts, 'CURRENCY_MISSING', 'this money benefit has no currency: its values cannot be read as an amount until one is stated');
+  }
+  /** F-PRODUCT-03 / F-DATA-09 — the class fields of a benefit AS IT WOULD BE STORED must be coherent. */
+  function _benefitClassCheck(row) {
+    const p = require('./portfolioBenefits').classProblem(row);
+    if (p) throw Object.assign(new Error(p.error), { code: 'INVALID', reason: p.code });
   }
   async function upsertPortfolio(kind, body, opts = {}) {
     const T = TABLES[kind]; if (!T) throw Object.assign(new Error('unknown portfolio entity'), { code: 'INVALID' });
@@ -473,11 +501,13 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       const before = await getBenefit(id);
       if (!before) throw Object.assign(new Error('benefit not found'), { code: 'NOT_FOUND', status: 404 });
       delete vals.project_id;   // a benefit never moves to another project
+      _benefitClassCheck({ ...before, ...vals });
+      _benefitCurrency({ ...before, ...vals }, opts);
       await updateRow(T.table, id, vals, T.cols);
       // the terms a verification vouched for changed → the verification no longer holds
       const termsChanged = BENEFIT_TERMS.some(k => vals[k] !== undefined && String(vals[k] ?? '') !== String(before[k] ?? ''));
       if (termsChanged && before.verified_at) {
-        await P(`UPDATE portfolio_benefits SET verified_by=NULL, verified_by_name=NULL, verified_at=NULL WHERE id=?`).run(Number(id));
+        await P(`UPDATE portfolio_benefits SET verified_by=NULL, verified_by_name=NULL, verified_at=NULL, verifier_role_required=NULL WHERE id=?`).run(Number(id));
         await ppmEvent({ entity: 'project', entity_id: before.project_id, action: 'benefit_unverified', field: `benefit:${id}`, note: 'terms changed after verification' }, opts.user);
       }
       return id;
@@ -494,11 +524,15 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
         // around an approval, and the status follows the stage (only a gate passage moves it)
         if ((before.stage && before.stage !== 'proposal' && changed('owner')) || (gated && changed('sponsor'))) throw Object.assign(new Error('the owner is fixed once the project is submitted for approval, the sponsor once it is approved'), { code: 'CONFLICT', status: 409, reason: 'ROLES_FROZEN' });
         if (before.stage && before.stage !== 'proposal' && changed('status')) throw Object.assign(new Error('the status follows the stage gates — use the stage action'), { code: 'CONFLICT', status: 409, reason: 'STATUS_BY_STAGE' });
+        const curFlag = _currencyFlag(vals, before);
+        if (curFlag === 1 && opts.currencyRequired) throw _currencyRefused();
         await updateRow(T.table, id, vals, T.cols);
+        if (curFlag !== undefined) await P(`UPDATE portfolio_projects SET currency_defaulted=? WHERE id=?`).run(curFlag, Number(id));
+        if (curFlag === 1) _warn(opts, 'CURRENCY_DEFAULTED', 'no currency was stated with the amount: it is recorded as ' + (before.currency || 'USD') + ' by default and shown "default, not confirmed" until a currency is sent');
         // G12 — every financial edit is kept with its old and new value
         const same = (f) => (['budget', 'spent'].includes(f) ? (vals[f] == null ? before[f] == null : before[f] != null && Number(before[f]) === Number(vals[f])) : String(vals[f] ?? '') === String(before[f] ?? ''));
         for (const f of ROLE_FIELDS) if (changed(f)) await ppmEvent({ entity: 'project', entity_id: id, action: 'role_edit', field: f, old_value: before[f], new_value: vals[f], note: opts.reason || null }, opts.user);
-        for (const f of FINANCE_FIELDS) if (vals[f] !== undefined && !same(f)) await ppmEvent({ entity: 'project', entity_id: id, action: 'finance_edit', field: f, old_value: before[f], new_value: vals[f], currency: vals.currency || before.currency, note: opts.reason || null }, opts.user);
+        for (const f of FINANCE_FIELDS) if (vals[f] !== undefined && !same(f)) await ppmEvent({ entity: 'project', entity_id: id, action: 'finance_edit', field: f, old_value: before[f], new_value: vals[f], currency: vals.currency || before.currency, note: [opts.reason || null, curFlag === 1 && ['budget', 'spent'].includes(f) ? 'currency_defaulted=true' : null].filter(Boolean).join(' · ') || null }, opts.user);
         return id;
       }
       // E-P03 (X-P-01) — a task owner change is a traced reassignment in the hash-chained ledger (old, new, actor,
@@ -518,8 +552,16 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       await updateRow(T.table, id, vals, T.cols); return id;
     }
     for (const r of T.req) if (vals[r] == null || vals[r] === '') throw Object.assign(new Error(`${r} is required`), { code: 'INVALID' });
+    // F-PRODUCT-09 — a new task whose caller did not send allocation_pct: with ppm_alloc_unspecified = 'unknown' the
+    // row says NULL (unknown) instead of taking the column default 100. 'full_time' (today) leaves the default.
+    if (kind === 'task' && vals.allocation_pct === undefined && opts.allocUnspecified === 'unknown') vals.allocation_pct = null;
+    if (kind === 'benefit') { _benefitClassCheck(vals); _benefitCurrency(vals, opts); }
+    const curFlagNew = kind === 'project' ? _currencyFlag(vals, null) : undefined;
+    if (curFlagNew === 1 && opts.currencyRequired) throw _currencyRefused();
     const nid = await insert(T.table, [...Object.keys(vals), 'created_at', 'updated_at'], [...Object.values(vals), now(), now()]);
-    if (kind === 'project') for (const f of FINANCE_FIELDS) if (vals[f] != null) await ppmEvent({ entity: 'project', entity_id: nid, action: 'finance_edit', field: f, old_value: null, new_value: vals[f], currency: vals.currency || 'USD' }, opts.user);
+    if (kind === 'project') for (const f of FINANCE_FIELDS) if (vals[f] != null) await ppmEvent({ entity: 'project', entity_id: nid, action: 'finance_edit', field: f, old_value: null, new_value: vals[f], currency: vals.currency || 'USD', note: curFlagNew === 1 ? 'currency_defaulted=true' : null }, opts.user);
+    if (curFlagNew !== undefined) await P(`UPDATE portfolio_projects SET currency_defaulted=? WHERE id=?`).run(curFlagNew, Number(nid));
+    if (curFlagNew === 1) _warn(opts, 'CURRENCY_DEFAULTED', 'no currency was stated with the amount: it is recorded as USD by default and shown "default, not confirmed" until a currency is sent');
     return nid;
   }
   // ── B-08 benefits: realised value + independent verification (catalogue A09) ──────────
@@ -543,14 +585,18 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     if (!BV.evidenceLinkOk(body && body.evidence_link)) throw Object.assign(new Error('evidence_link must be an http(s) link to the evidence'), { code: 'INVALID' });
     const link = String(body.evidence_link).trim(); const note = str(body && body.note, 2000);
     return tx(async () => {
-      await P(`UPDATE portfolio_benefits SET realised_value=?, evidence_link=?, realised_note=?, realised_by=?, realised_by_name=?, realised_at=?, verified_by=NULL, verified_by_name=NULL, verified_at=NULL, updated_at=? WHERE id=?`)
+      await P(`UPDATE portfolio_benefits SET realised_value=?, evidence_link=?, realised_note=?, realised_by=?, realised_by_name=?, realised_at=?, verified_by=NULL, verified_by_name=NULL, verified_at=NULL, verifier_role_required=NULL, updated_at=? WHERE id=?`)
         .run(v, link, note, user && user.id != null ? Number(user.id) : null, actorName(user), now(), now(), Number(id));
       await ppmEvent({ entity: 'project', entity_id: b.project_id, action: 'benefit_realised', field: `benefit:${id}`, old_value: b.realised_value, new_value: v, currency: b.value_kind === 'money' ? b.currency : null, note: link }, user);
       return getBenefit(id);
     });
   }
   /** Verify the realised value — never by the person who entered it (SELF_REVIEW, 403). */
-  async function verifyBenefit(id, { user } = {}) {
+  // F-PRODUCT-04 — requiredRole (route: report_config benefit_money_verifier_role, '' = today) applies to a MONEY
+  // benefit only: the verifier must HOLD that role (holdsRole, exact — a higher tier does not imply it). The role
+  // required at that moment is stamped on the row (verifier_role_required): that is what makes the verification
+  // "independent" (services/portfolioBenefits.verificationIndependent). No role is ever granted here.
+  async function verifyBenefit(id, { user, requiredRole = '', holdsRole = false } = {}) {
     await _benefitOfGoneProject(id);
     const b = await getBenefit(id);
     if (!b) throw Object.assign(new Error('benefit not found'), { code: 'NOT_FOUND', status: 404 });
@@ -559,9 +605,11 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     if (uid == null || b.realised_by == null || uid === b.realised_by) throw Object.assign(new Error('the person who entered the realised value cannot verify it'), { code: 'SELF_REVIEW', status: 403, expose: true, reason: 'SELF_REVIEW' });
     // E-P05 — the user linked as the benefit owner cannot verify their own benefit either (four-eyes on the result)
     if (b.owner_user_id != null && uid === b.owner_user_id) throw Object.assign(new Error('the benefit owner cannot verify their own benefit'), { code: 'SELF_REVIEW', status: 403, expose: true, reason: 'SELF_REVIEW' });
+    const role = b.value_kind === 'money' && requiredRole && String(requiredRole).trim() ? String(requiredRole).trim() : null;
+    if (role && !holdsRole) throw Object.assign(new Error(`a money benefit is verified by a holder of the role "${role}"`), { code: 'VERIFIER_ROLE', status: 403, expose: true, reason: 'VERIFIER_ROLE' });
     return tx(async () => {
-      await P(`UPDATE portfolio_benefits SET verified_by=?, verified_by_name=?, verified_at=?, updated_at=? WHERE id=?`).run(uid, actorName(user), now(), now(), Number(id));
-      await ppmEvent({ entity: 'project', entity_id: b.project_id, action: 'benefit_verified', field: `benefit:${id}`, new_value: b.realised_value, currency: b.value_kind === 'money' ? b.currency : null }, user);
+      await P(`UPDATE portfolio_benefits SET verified_by=?, verified_by_name=?, verified_at=?, verifier_role_required=?, updated_at=? WHERE id=?`).run(uid, actorName(user), now(), role, now(), Number(id));
+      await ppmEvent({ entity: 'project', entity_id: b.project_id, action: 'benefit_verified', field: `benefit:${id}`, new_value: b.realised_value, currency: b.value_kind === 'money' ? b.currency : null, note: role ? `verifier role required: ${role}` : null }, user);
       return getBenefit(id);
     });
   }
@@ -652,7 +700,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     return getTemplate(id);
   }
   /** A new project (no owner, no dates, no money) with the template's tasks, hierarchy, durations and milestone names. */
-  async function createProjectFromTemplate(id, body, { user } = {}) {
+  async function createProjectFromTemplate(id, body, { user, allocUnspecified } = {}) {
     const t = await getTemplate(id);
     if (!t) throw Object.assign(new Error('template not found'), { code: 'NOT_FOUND', status: 404 });
     if (t.status !== 'approved') throw Object.assign(new Error('only an approved template creates a project'), { code: 'CONFLICT', status: 409, reason: 'TEMPLATE_DRAFT' });
@@ -660,7 +708,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     return tx(async () => {
       const pid = await upsertPortfolio('project', { objective_id: body && body.objective_id, key: body && body.key, name: body && body.name, site_id: body && body.site_id, status: 'planned' }, { user });
       const ids = new Map();
-      for (const [i, x] of plan.tasks.entries()) ids.set(x.ref, await upsertPortfolio('task', { project_id: pid, name: x.name, wbs_code: x.wbs_code, parent_id: x.parent_ref ? ids.get(x.parent_ref) : null, duration_days: x.duration_days, sort_order: i }, { user }));
+      for (const [i, x] of plan.tasks.entries()) ids.set(x.ref, await upsertPortfolio('task', { project_id: pid, name: x.name, wbs_code: x.wbs_code, parent_id: x.parent_ref ? ids.get(x.parent_ref) : null, duration_days: x.duration_days, sort_order: i }, { user, allocUnspecified }));
       for (const [i, m] of plan.milestones.entries()) await upsertPortfolio('milestone', { project_id: pid, name: m.name, sort_order: i }, { user });
       await ppmEvent({ entity: 'project', entity_id: pid, action: 'created_from_template', field: 'template', new_value: Number(id) }, user);
       return pid;

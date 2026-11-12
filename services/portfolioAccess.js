@@ -97,6 +97,7 @@ function filterPortfolio(view, user, ctx = {}) {
     gantt,
     objective_views,
     resource_conflicts: SCH.resourceConflicts(tasks),
+    resource_coverage: SCH.resourceCoverage(tasks),   // F-PRODUCT-01: unknown / invalid allocations are counted, never read as 0
     summary: PE.portfolioSummary({ programmes: view.programmes || [], objectiveViews: objective_views, gantt, risks }),
     scoped: true,
   };

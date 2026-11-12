@@ -15,7 +15,8 @@ const tasks = [
   { id: 1, project_id: 1, owner: 'Ana', start_date: '2026-11-02', end_date: '2026-11-13', allocation_pct: 80 },
   { id: 2, project_id: 1, owner: 'Ana', start_date: '2026-11-02', end_date: '2026-11-06', allocation_pct: 50 },
   { id: 3, project_id: 1, owner: 'Bob', start_date: '2026-11-02', end_date: '2026-11-13', allocation_pct: 40 },
-  { id: 4, project_id: 2, owner: 'Cy', start_date: '2026-11-02', end_date: '2026-11-13', allocation_pct: 150 },
+  { id: 4, project_id: 2, owner: 'Cy', start_date: '2026-11-02', end_date: '2026-11-13', allocation_pct: 90 },
+  { id: 7, project_id: 2, owner: 'Cy', start_date: '2026-11-02', end_date: '2026-11-13', allocation_pct: 60 },
   { id: 5, project_id: 2, owner: 'Dee', start_date: '2026-11-09', end_date: '2026-11-13', allocation_pct: null },
   { id: 6, project_id: 3, owner: 'Eve', start_date: '2026-11-02', end_date: '2026-11-03', allocation_pct: 30 },
 ];
@@ -43,11 +44,20 @@ test('capacityBySite: unknown allocation stays unknown (never 0 %), a week with 
   assert.equal(only.sites[0].unknown_tasks, 1);
 });
 
+test('capacityBySite follows the allocation contract (F-PRODUCT-01): a legacy 150 % is invalid, never summed, never a conflict', () => {
+  const v = PV.capacityBySite([{ id: 1, project_id: 1, owner: 'Ana', start_date: '2026-11-02', end_date: '2026-11-06', allocation_pct: 150 }, { id: 2, project_id: 1, owner: 'Ana', start_date: '2026-11-02', end_date: '2026-11-06', allocation_pct: 60 }], projects, { today: '2026-11-04' });
+  const w = v.sites[0].weeks[0];
+  assert.equal(w.total_pct, 60); assert.equal(w.invalid, 1); assert.equal(w.people_over, 0);
+  assert.deepEqual(v.conflicts, []);
+  assert.equal(v.coverage.invalid, 1); assert.equal(v.coverage.possible_conflicts.length, 1);
+  assert.equal(v.sites[0].invalid_tasks, 1);
+});
+
 test('capacityConflicts: consecutive weeks merged, sorted by excess then duration; suggestion is a proposal only', () => {
   const v = PV.capacityBySite(tasks, projects, { today: '2026-11-04' });
   assert.deepEqual(v.conflicts.map((c) => [c.owner, c.excess_pct, c.weeks]), [['Cy', 50, 2], ['Ana', 30, 1]]);
   const cy = v.conflicts[0];
-  assert.equal(cy.from, '2026-11-02'); assert.equal(cy.to, '2026-11-09'); assert.deepEqual(cy.task_ids, [4]);
+  assert.equal(cy.from, '2026-11-02'); assert.equal(cy.to, '2026-11-09'); assert.deepEqual(cy.task_ids, [4, 7]);
   // Bob is at 40 % in both weeks; Dee's week-2 allocation is unknown and Eve is free in week 2 but has a task in week 1
   assert.ok(cy.suggestion && cy.suggestion.proposal === true);
   assert.equal(cy.suggestion.to, 'Eve', 'lowest known peak first (Eve 30 % < Bob 40 %), Dee excluded (unknown)');

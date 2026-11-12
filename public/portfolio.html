@@ -13,6 +13,7 @@
 <script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/stateBadge.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/dashboardRender.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/allocationContract.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/ppmVisuals.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/ppmExtras.js"></script>
 <style nonce="%%CSP_NONCE%%">
@@ -137,14 +138,20 @@
       V = v; committee = v.committee; planEdit(v); $("mig-dry").hidden = !isSuper; $("mig-apply").hidden = !isSuper;
       var s = v.summary || [];
       // design review #12: what needs attention first, coloured AND worded (colour is never the only signal)
-      var late = s.reduce(function (a, x) { return a + (x.late_projects || 0); }, 0), hr = s.reduce(function (a, x) { return a + (x.high_risks || 0); }, 0), rc = (v.resource_conflicts || []).length;
-      $("tiles").innerHTML = [["Slipped / late projects", late, late ? "alert" : "", late ? late + " late" : "none late"], ["High risks", hr, hr ? "crit" : "", hr ? hr + " open" : "none open"], ["Resource conflicts", rc, rc ? "alert" : "", rc ? rc + " over 100 %" : "none"], ["Programmes", v.programmes.length, "", ""], ["Objectives", v.objectives.length, "", ""], ["Projects", v.projects.length, "", ""]].map(function (t) { return "<div class=\"tile " + t[2] + "\"><div class=\"tn\">" + t[1] + "</div><div class=\"tl\">" + t[0] + (t[3] ? " — " + t[3] : "") + "</div></div>"; }).join("");
+      var late = s.reduce(function (a, x) { return a + (x.late_projects || 0); }, 0), hr = s.reduce(function (a, x) { return a + (x.high_risks || 0); }, 0), rc = (v.resource_conflicts || []).length, cov = v.resource_coverage || null, blind = cov ? cov.unknown + cov.invalid : 0;
+      // F-PRODUCT-02: with unknown allocations the tile never reads "0 — none" (a null is not a calm zero)
+      var rcText = window.AllocationContract && cov ? window.AllocationContract.coverageText(cov, rc) + (rc ? " over 100 %" : "") : (rc ? rc + " over 100 %" : "none");
+      $("tiles").innerHTML = [["Slipped / late projects", late, late ? "alert" : "", late ? late + " late" : "none late"], ["High risks", hr, hr ? "crit" : "", hr ? hr + " open" : "none open"], ["Resource conflicts", rc || !blind ? rc : "—", rc ? "alert" : "", rcText], ["Programmes", v.programmes.length, "", ""], ["Objectives", v.objectives.length, "", ""], ["Projects", v.projects.length, "", ""]].map(function (t) { return "<div class=\"tile " + t[2] + "\"><div class=\"tn\">" + t[1] + "</div><div class=\"tl\">" + t[0] + (t[3] ? " — " + t[3] : "") + "</div></div>"; }).join("");
       var fmtN = function (n) { return Math.round(Number(n)).toLocaleString("en-GB"); };
       $("money").innerHTML = v.money_hidden ? "<p class=\"muted\">Amounts are restricted to the committee, the admin tier and the finance role.</p>" : (s.length ? "<table><thead><tr><th>Programme</th><th>Spent / budget</th><th>Projects without a budget</th></tr></thead><tbody>" + s.map(function (x) {
         var m = x.currency_mixed ? Object.keys(x.budget_by_currency).map(function (c) { var b = x.budget_by_currency[c]; return fmtN(b.spent) + " / " + fmtN(b.budget) + " " + esc(c); }).join("<br>") + " <small class=\"muted\">(currencies are never added together)</small>" : (x.budget != null ? fmtN(x.spent) + " / " + fmtN(x.budget) + " " + esc(x.currency || "") : "—");
         return "<tr><td>" + esc(x.name) + "</td><td>" + m + "</td><td>" + (x.budget_unknown || 0) + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No programme.</p>");
+      // F-DATA-10 — an amount whose currency nobody stated is said so (never shown as a confirmed USD figure)
+      var dflt = v.money_hidden ? [] : (v.projects || []).filter(function (p) { return (p.budget != null || p.spent != null) && (p.currency_defaulted === 1 || !p.currency); });
+      if (dflt.length) $("money").innerHTML += "<p class=\"muted\">" + esc(dflt.length + " project(s) carry an amount in USD by default, not confirmed (no currency was stated): " + dflt.map(function (p) { return p.key; }).join(", ") + ".") + "</p>";
       var conf = v.resource_conflicts || [];
-      $("conflicts").innerHTML = conf.length ? "<table><thead><tr><th>Person</th><th>From</th><th>To</th><th>Peak load</th><th>Tasks</th></tr></thead><tbody>" + conf.map(function (c) { return "<tr><td>" + esc(c.owner) + "</td><td>" + esc(c.from) + "</td><td>" + esc(c.to) + "</td><td><b>" + c.peak_pct + " %</b></td><td>" + c.task_ids.map(function (i) { return "#" + i; }).join(", ") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">Nobody is booked above 100 % on overlapping days.</p>";
+      $("conflicts").innerHTML = conf.length ? "<table><thead><tr><th>Person</th><th>From</th><th>To</th><th>Peak load</th><th>Tasks</th></tr></thead><tbody>" + conf.map(function (c) { return "<tr><td>" + esc(c.owner) + "</td><td>" + esc(c.from) + "</td><td>" + esc(c.to) + "</td><td><b>" + c.peak_pct + " %</b></td><td>" + c.task_ids.map(function (i) { return "#" + i; }).join(", ") + "</td></tr>"; }).join("") + "</tbody></table>" : (window.PpmVisuals && cov ? "" : "<p class=\"muted\">Nobody is booked above 100 % on overlapping days.</p>");
+      if (window.PpmVisuals && cov) $("conflicts").innerHTML += window.PpmVisuals.coverageHtml(cov, conf.length, esc);
       // C-14 (G22) — risk P × I matrix and resource pressure per person/week, from the same (scoped) view
       if (window.PpmVisuals) {
         RM = window.PpmVisuals.riskMatrix(v.risks || []); RISKS = v.risks || [];

@@ -24,7 +24,7 @@ module.exports = function governancePpmRoutes(router, h) {
   router.get('/api/governance/ppm/features', requireReportSession, async (req, res) => {
     try {
       const c = await cfg();
-      res.json({ ok: true, capacity: on(c, 'ppm_capacity_view'), budget_periods: on(c, 'ppm_budget_periods_enabled'), benefit_owner_link: on(c, 'benefit_owner_link_enabled'), raci: on(c, 'ppm_raci_enabled'), templates: on(c, 'ppm_templates_enabled'), annual_pack: on(c, 'ppm_annual_pack_enabled') });
+      res.json({ ok: true, capacity: on(c, 'ppm_capacity_view'), budget_periods: on(c, 'ppm_budget_periods_enabled'), benefit_owner_link: on(c, 'benefit_owner_link_enabled'), benefit_value_class: on(c, 'benefit_value_class_enabled'), raci: on(c, 'ppm_raci_enabled'), templates: on(c, 'ppm_templates_enabled'), annual_pack: on(c, 'ppm_annual_pack_enabled') });
     } catch (e) { fail(res, e); }
   });
 
@@ -117,7 +117,7 @@ module.exports = function governancePpmRoutes(router, h) {
   router.post('/api/governance/ppm/templates/:id/create-project', requireReportSession, json, async (req, res) => {
     try {
       if (!(await tplOn(res)) || !committeeOnly(req, res)) return;
-      const pid = await store.createProjectFromTemplate(req.params.id, req.body || {}, { user: req.reportUser });
+      const pid = await store.createProjectFromTemplate(req.params.id, req.body || {}, { user: req.reportUser, allocUnspecified: (await cfg()).ppm_alloc_unspecified });
       log(req, 'project_from_template', `template:${req.params.id}`, { project_id: pid }); res.json({ ok: true, project_id: pid });
     } catch (e) { fail(res, e); }
   });

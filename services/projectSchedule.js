@@ -7,6 +7,7 @@
 //   varianceOf         — baseline vs forecast vs actual for one task or project
 //   STAGES / stageGate — proposal → approval → in_progress ⇄ on_hold → closure, each gate with its rule
 
+const AC = require('../public/lib/allocationContract');
 const DAY = 86400000;
 const toMs = (d) => (d ? Date.parse(String(d).slice(0, 10) + 'T00:00:00Z') : NaN);
 const days = (a, b) => Math.round((toMs(b) - toMs(a)) / DAY);
@@ -75,36 +76,16 @@ function criticalPath(tasks) {
 }
 
 /**
- * Over-allocation: for each person, days where the sum of allocation_pct of their tasks exceeds 100.
+ * Over-allocation: for each person, days where the sum of the KNOWN allocation_pct of their tasks exceeds 100.
+ * F-PRODUCT-01: the rule is public/lib/allocationContract.js — the same module the pages load. An allocation that is
+ * null, '', omitted or not a number is UNKNOWN (never 0 %, never 100 %); a number outside 0..100 is invalid and
+ * never summed. Both are counted by resourceCoverage, which also lists the POSSIBLE conflicts they hide.
  * @param {Array<{id, owner?, start_date?, end_date?, allocation_pct?}>} tasks
  * @returns {Array<{owner, from, to, peak_pct, task_ids}>}
  */
-function resourceConflicts(tasks) {
-  const byOwner = new Map();
-  for (const t of tasks) {
-    if (!t.owner || !t.start_date || !t.end_date || ['done', 'cancelled'].includes(t.status)) continue;
-    const pct = Number.isFinite(Number(t.allocation_pct)) ? Number(t.allocation_pct) : 100;
-    if (pct <= 0) continue;
-    const k = String(t.owner).trim().toLowerCase();
-    (byOwner.get(k) || byOwner.set(k, []).get(k)).push({ id: Number(t.id), owner: t.owner, s: toMs(t.start_date), e: toMs(t.end_date), pct });
-  }
-  const out = [];
-  for (const list of byOwner.values()) {
-    const points = [...new Set(list.flatMap((x) => [x.s, x.e + DAY]))].sort((a, b) => a - b);
-    let open = null;
-    for (let i = 0; i < points.length - 1; i++) {
-      const at = points[i];
-      const active = list.filter((x) => x.s <= at && at <= x.e);
-      const load = active.reduce((a, x) => a + x.pct, 0);
-      if (load > 100) {
-        if (!open) open = { owner: list[0].owner, from: at, to: points[i + 1] - DAY, peak_pct: load, task_ids: new Set() };
-        open.to = points[i + 1] - DAY; open.peak_pct = Math.max(open.peak_pct, load); active.forEach((x) => open.task_ids.add(x.id));
-      } else if (open) { out.push(open); open = null; }
-    }
-    if (open) out.push(open);
-  }
-  return out.map((c) => ({ owner: c.owner, from: new Date(c.from).toISOString().slice(0, 10), to: new Date(c.to).toISOString().slice(0, 10), peak_pct: c.peak_pct, task_ids: [...c.task_ids].sort((a, b) => a - b) }));
-}
+function resourceConflicts(tasks) { return AC.conflicts(tasks || []); }
+/** @returns {{tasks, known, unknown, invalid, unassigned, undated, closed, invalid_task_ids, possible_conflicts}} */
+function resourceCoverage(tasks) { return AC.coverage(tasks || []); }
 
 /** Baseline vs forecast vs actual. Missing dates give null (not measured), never 0. */
 function varianceOf(x) {
@@ -204,4 +185,4 @@ function stageGate(project, to, actor, ctx = {}) {
   return null;
 }
 
-module.exports = { charterText, scheduleView, dependencyProblem, criticalPath, resourceConflicts, varianceOf, STAGES, GATES, stageGate, days };
+module.exports = { charterText, scheduleView, dependencyProblem, criticalPath, resourceConflicts, resourceCoverage, varianceOf, STAGES, GATES, stageGate, days };

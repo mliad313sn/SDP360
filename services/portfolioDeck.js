@@ -101,17 +101,36 @@ async function buildDeck(view, { money: showMoney = false, exceptions = [], asOf
   return pptx.write('nodebuffer');
 }
 
-/** Workbook sheets: Projects, Tasks, Milestones, RAID, Baselines, Exceptions, Benefits (SheetJS CE — no styling). */
-function buildWorkbookBuffer(view, { money: showMoney = false, baselines = [], exceptions = [] } = {}) {
+const _numOrNull = (v) => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
+/** F-PRODUCT-02 — the Capacity sheet: one coverage line, the conflicts (same list as the portfolio tile and the A11
+ *  queue), then the possible conflicts. No money. An unknown load is an empty cell. */
+function capacityRows(tasks) {
+  const SCH = require('./projectSchedule');
+  const conf = SCH.resourceConflicts(tasks), cov = SCH.resourceCoverage(tasks);
+  const row = (kind, o) => ({ kind, owner: null, from: null, to: null, peak_pct: null, task_ids: null, note: null, ...o });
+  return [
+    row('coverage', { note: `${cov.known} of ${cov.tasks} open task(s) with a known allocation; ${cov.unknown} unknown; ${cov.invalid} invalid (outside 0-100 %, not summed); ${cov.unassigned} without owner; ${cov.undated} without dates` }),
+    ...conf.map((c) => row('conflict', { owner: c.owner, from: c.from, to: c.to, peak_pct: c.peak_pct, task_ids: c.task_ids.join(','), note: 'known allocations above 100 %' })),
+    ...cov.possible_conflicts.map((c) => row('possible conflict', { owner: c.owner, from: c.from, to: c.to, peak_pct: c.known_peak_pct, task_ids: [...c.unknown_task_ids, ...c.invalid_task_ids].join(','), note: 'peak = known load only; the listed tasks have no usable allocation — not counted as a conflict' })),
+  ];
+}
+
+/** Workbook sheets: Projects, Tasks, Milestones, RAID, Baselines, Exceptions, Benefits, Capacity (SheetJS CE — no styling). */
+function buildWorkbookBuffer(view, { money: showMoney = false, baselines = [], exceptions = [], benefitClasses = false } = {}) {
   const v = view || {};
   const keyOf = new Map((v.projects || []).map((p) => [Number(p.id), p.key]));
   const projects = (v.projects || []).map((p) => {
     const x = varianceOf(p);
     const row = { key: p.key, name: p.name, owner: p.owner, stage: p.stage || null, status: p.status, site_id: p.site_id, start_date: p.start_date, end_date: p.end_date, baseline_start: p.baseline_start, baseline_end: p.baseline_end, forecast_end: x.forecast_end, actual_end: x.actual_end, slip_days: x.finish_variance_days, progress_pct: p.progress_pct };
-    if (showMoney) Object.assign(row, { currency: p.currency || null, budget: p.budget, spent: p.spent, spend_type: p.spend_type || null });
+    if (showMoney) Object.assign(row, { currency: p.currency || null, budget: p.budget, spent: p.spent, spend_type: p.spend_type || null,
+      // F-DATA-10 — an amount whose currency nobody stated
+      currency_status: (p.budget != null || p.spent != null) && (p.currency_defaulted === 1 || !p.currency) ? 'default, not confirmed' : null });
     return row;
   });
-  const tasks = (v.tasks || []).map((t) => ({ project: keyOf.get(Number(t.project_id)) || null, id: t.id, wbs_code: t.wbs_code, name: t.name, owner: t.owner, status: t.status, start_date: t.start_date, end_date: t.end_date, baseline_start: t.baseline_start, baseline_end: t.baseline_end, progress_pct: t.progress_pct, depends_on: (t.depends_on || []).join(',') }));
+  const tasks = (v.tasks || []).map((t) => ({ project: keyOf.get(Number(t.project_id)) || null, id: t.id, wbs_code: t.wbs_code, name: t.name, owner: t.owner, status: t.status, start_date: t.start_date, end_date: t.end_date, baseline_start: t.baseline_start, baseline_end: t.baseline_end, progress_pct: t.progress_pct,
+    // F-PRODUCT-02: an allocation / effort that was not entered stays an EMPTY cell (never 0, never 100)
+    allocation_pct: _numOrNull(t.allocation_pct), effort_hours: _numOrNull(t.effort_hours), depends_on: (t.depends_on || []).join(',') }));
+  const capacity = capacityRows(v.tasks || []);
   const milestones = (v.milestones || []).map((m) => ({ project: keyOf.get(Number(m.project_id)) || null, id: m.id, name: m.name, owner: m.owner || null, status: m.status, due_date: m.due_date, baseline_date: m.baseline_date, done_at: m.done_at }));
   const raid = (v.risks || []).map((r) => ({ project: keyOf.get(Number(r.project_id)) || null, id: r.id, kind: r.kind || 'risk', title: r.title, probability: r.probability, impact: r.impact, exposure: r.exposure, severity: r.severity, owner: r.owner, status: r.status, mitigation: r.mitigation }));
   const bl = (baselines || []).map((b) => ({ project: keyOf.get(Number(b.project_id)) || null, version: b.version, captured_at: b.captured_at, approved_by: b.approved_by_name, reason: b.reason, baseline_start: b.payload && b.payload.project ? b.payload.project.baseline_start : null, baseline_end: b.payload && b.payload.project ? b.payload.project.baseline_end : null, tasks: b.payload && b.payload.tasks ? b.payload.tasks.length : null }));
@@ -119,12 +138,16 @@ function buildWorkbookBuffer(view, { money: showMoney = false, baselines = [], e
   // B-08 — benefits: a money benefit's values only for a money reader (the row stays, its values are empty)
   const BEN = require('./portfolioBenefits');
   const ben = (v.benefits || []).map((b) => {
-    const x = BEN.visibleBenefit(b, { money: showMoney, asOf: v.as_of || null });
+    const x = BEN.visibleBenefit(b, { money: showMoney, asOf: v.as_of || null, classes: benefitClasses });
+    // F-PRODUCT-03 / F-DATA-09 — one row per benefit, its class next to its value; the sheet has NO total row
+    // (a realised amount, an estimate and a validated benefit are never added together).
+    const cls = benefitClasses ? { value_class: b.value_class || null, basis: b.basis || null, measurement_class: x.class_label || null, evidence_level: x.evidence_level, verification_independent: x.verification_independent ? 'yes' : 'no',
+      measured_from: b.measured_from || null, measured_to: b.measured_to || null, baseline_period_from: b.baseline_period_from || null, baseline_period_to: b.baseline_period_to || null, source_kind: b.source_kind || null, metric_key: b.metric_key || null, method_note: b.method_note || null } : {};
     return { project: keyOf.get(Number(b.project_id)) || null, id: b.id, description: b.description, measure: b.measure || null, unit: b.unit || null, value_kind: b.value_kind || 'quantity',
       baseline_value: x.baseline_value ?? null, target_value: x.target_value ?? null, realised_value: x.realised_value ?? null, owner: b.owner || null, review_date: b.review_date || null,
-      state: x.state, evidence_link: b.evidence_link || null, realised_by: b.realised_by_name || null, verified_by: b.verified_by_name || null, verified_at: b.verified_at || null };
+      state: x.state, evidence_link: b.evidence_link || null, realised_by: b.realised_by_name || null, verified_by: b.verified_by_name || null, verified_at: b.verified_at || null, ...cls };
   });
-  return require('./tableExcel').buildWorkbook([{ name: 'Projects', rows: projects }, { name: 'Tasks', rows: tasks }, { name: 'Milestones', rows: milestones }, { name: 'RAID', rows: raid }, { name: 'Baselines', rows: bl }, { name: 'Exceptions', rows: ex }, { name: 'Benefits', rows: ben }]);
+  return require('./tableExcel').buildWorkbook([{ name: 'Projects', rows: projects }, { name: 'Tasks', rows: tasks }, { name: 'Milestones', rows: milestones }, { name: 'RAID', rows: raid }, { name: 'Baselines', rows: bl }, { name: 'Exceptions', rows: ex }, { name: 'Benefits', rows: ben }, { name: 'Capacity', rows: capacity }]);
 }
 
-module.exports = { buildDeck, buildWorkbookBuffer, X, W, BOTTOM };
+module.exports = { buildDeck, buildWorkbookBuffer, capacityRows, X, W, BOTTOM };

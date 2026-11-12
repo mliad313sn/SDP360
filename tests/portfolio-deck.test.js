@@ -87,14 +87,50 @@ test('null renders as an em dash, never 0; without money no amount slide and no 
   assert.ok(fp.slides[0].texts.includes('Amounts are restricted for this reader (committee, admin or finance-viewer only).'));
 });
 
-test('workbook: seven sheets; money columns only when allowed; null stays empty, never 0', () => {
+test('workbook: eight sheets; money columns only when allowed; null stays empty, never 0', () => {
   const read = (buf) => XLSX.read(buf, { type: 'buffer' });
   const wb = read(D.buildWorkbookBuffer(view, { money: true, exceptions, baselines: [{ project_id: 1, version: 1, captured_at: '2027-01-04T00:00:00Z', approved_by_name: null, reason: null, payload: { project: { baseline_end: '2027-03-31' }, tasks: [{}] } }] }));
-  assert.deepStrictEqual(wb.SheetNames, ['Projects', 'Tasks', 'Milestones', 'RAID', 'Baselines', 'Exceptions', 'Benefits']);
+  assert.deepStrictEqual(wb.SheetNames, ['Projects', 'Tasks', 'Milestones', 'RAID', 'Baselines', 'Exceptions', 'Benefits', 'Capacity']);
   const rows = XLSX.utils.sheet_to_json(wb.Sheets.Projects);
   assert.strictEqual(rows[0].budget, 120000);
   assert.strictEqual(rows[2].slip_days, undefined, 'unknown slip is an empty cell');
   const wb2 = read(D.buildWorkbookBuffer(view, { money: false }));
   const head = XLSX.utils.sheet_to_json(wb2.Sheets.Projects, { header: 1 })[0];
   assert.ok(!head.includes('budget') && !head.includes('spent'));
+});
+
+test('F-PRODUCT-02 workbook: Tasks carry allocation and effort (unknown = empty cell, never 0); Capacity sheet lists coverage, conflicts and possible conflicts, no money', () => {
+  const t = (id, o) => ({ id, project_id: 1, wbs_code: String(id), name: 'T' + id, owner: 'Ana', status: 'todo', start_date: '2027-01-04', end_date: '2027-01-08', depends_on: [], ...o });
+  const v = { ...view, tasks: [t(1, { allocation_pct: 70, effort_hours: 12 }), t(2, { allocation_pct: 50 }), t(3, { allocation_pct: null, effort_hours: null }), t(4, { owner: 'Bob', allocation_pct: 60 }), t(5, { owner: 'Bob' }), t(6, { owner: 'Cy', allocation_pct: 0 })] };
+  const wb = XLSX.read(D.buildWorkbookBuffer(v, { money: true }), { type: 'buffer' });
+  const head = XLSX.utils.sheet_to_json(wb.Sheets.Tasks, { header: 1 })[0];
+  assert.ok(head.includes('allocation_pct') && head.includes('effort_hours'));
+  const rows = XLSX.utils.sheet_to_json(wb.Sheets.Tasks);
+  assert.strictEqual(rows[0].allocation_pct, 70); assert.strictEqual(rows[0].effort_hours, 12);
+  assert.strictEqual(rows[2].allocation_pct, undefined, 'unknown allocation is an empty cell, not 0 and not 100');
+  assert.strictEqual(rows[2].effort_hours, undefined);
+  assert.strictEqual(rows[4].allocation_pct, undefined, 'omitted allocation is empty too');
+  assert.strictEqual(rows[5].allocation_pct, 0, 'an entered 0 % stays 0');
+  const cap = XLSX.utils.sheet_to_json(wb.Sheets.Capacity);
+  assert.deepStrictEqual(cap.map((r) => r.kind), ['coverage', 'conflict', 'possible conflict']);
+  assert.match(cap[0].note, /4 of 6 open task\(s\) with a known allocation; 2 unknown/);
+  assert.deepStrictEqual([cap[1].owner, cap[1].peak_pct, cap[1].task_ids], ['Ana', 120, '1,2']);
+  assert.deepStrictEqual([cap[2].owner, cap[2].peak_pct, cap[2].task_ids], ['Bob', 60, '5']);
+  const capHead = XLSX.utils.sheet_to_json(wb.Sheets.Capacity, { header: 1 })[0];
+  for (const k of ['budget', 'spent', 'currency']) assert.ok(!capHead.includes(k), 'no money in the Capacity sheet');
+  assert.doesNotMatch(JSON.stringify(cap), /USD|XOF|120000/);
+});
+
+test('F-PRODUCT-03 workbook Benefits sheet: class columns only with the switch; an estimate is labelled; no total row', () => {
+  const ben = (id, o) => ({ id, project_id: 1, description: 'B' + id, value_kind: 'quantity', unit: 'h', realised_value: 5, realised_by: 2, evidence_link: 'https://example.test/e', ...o });
+  const v = { ...view, benefits: [ben(1, { basis: 'estimated_avoidance', value_class: 'cost_avoidance_estimate', measured_from: '2027-01-01', measured_to: '2027-03-31', method_note: 'tickets avoided x mean handling time' }), ben(2, {}), ben(3, { basis: 'observed', value_class: 'productivity_time' })] };
+  const off = XLSX.utils.sheet_to_json(XLSX.read(D.buildWorkbookBuffer(v, {}), { type: 'buffer' }).Sheets.Benefits, { header: 1 })[0];
+  assert.ok(!off.includes('value_class') && !off.includes('measurement_class'), "switch off: today's columns");
+  const wb = XLSX.read(D.buildWorkbookBuffer(v, { benefitClasses: true }), { type: 'buffer' });
+  const rows = XLSX.utils.sheet_to_json(wb.Sheets.Benefits);
+  assert.equal(rows.length, 3, 'one row per benefit, no total row');
+  assert.deepStrictEqual([rows[0].value_class, rows[0].basis, rows[0].measurement_class, rows[0].evidence_level, rows[0].measured_from, rows[0].measured_to], ['cost_avoidance_estimate', 'estimated_avoidance', 'estimate', 'entered', '2027-01-01', '2027-03-31']);
+  assert.strictEqual(rows[1].value_class, undefined, 'unclassified stays an empty cell');
+  assert.strictEqual(rows[1].measurement_class, undefined);
+  assert.equal(rows[2].measurement_class, 'observed'); assert.equal(rows[2].verification_independent, 'no');
 });

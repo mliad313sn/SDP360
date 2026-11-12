@@ -496,7 +496,7 @@ module.exports = function governanceRoutes(deps) {
     const SCH = require('../services/projectSchedule');
     const tasks = pf.tasks || [];
     const plans = pf.projects.map(p => { const t = tasks.filter(x => x.project_id === p.id); const cp = SCH.criticalPath(t); return { project_id: p.id, key: p.key, stage: p.stage || null, tasks: t.length, open_tasks: t.filter(x => !['done', 'cancelled'].includes(x.status)).length, critical_path: cp ? cp.path : null, critical_length_days: cp ? cp.length_days : null, variance: SCH.varianceOf(p) }; });
-    return { ...pf, objective_views: views, gantt, risks, plans, resource_conflicts: SCH.resourceConflicts(tasks), stages: SCH.STAGES, summary: PE.portfolioSummary({ programmes: pf.programmes, objectiveViews: views, gantt, risks: pf.risks }), as_of: now.toISOString() };
+    return { ...pf, objective_views: views, gantt, risks, plans, resource_conflicts: SCH.resourceConflicts(tasks), resource_coverage: SCH.resourceCoverage(tasks), stages: SCH.STAGES, summary: PE.portfolioSummary({ programmes: pf.programmes, objectiveViews: views, gantt, risks: pf.risks }), as_of: now.toISOString() };
   }
   // G12 — amounts are read by the committee, the admin tier and the finance role; everyone else sees the plan without money.
   const canSeeMoney = (u) => isCommittee(u) || rdb().userHasRole(u, 'finance-viewer');
@@ -568,7 +568,9 @@ module.exports = function governanceRoutes(deps) {
       const cfgW = await reportConfig.getConfig(rdb().db);
       const requireOwnerReason = kind === 'task' && String(cfgW.ppm_capacity_view) === '1';   // E-P03
       if (kind === 'benefit' && req.body && String(cfgW.benefit_owner_link_enabled) !== '1') delete req.body.owner_user_id;   // E-P05: no link while off
-      const id = await store.upsertPortfolio(kind, req.body, { user: req.reportUser, reason: req.body && req.body.reason, requireOwnerReason }); log(req, 'portfolio_saved', `${kind}:${id}`); res.json({ ok: true, id });
+      if (kind === 'benefit' && req.body && String(cfgW.benefit_value_class_enabled) !== '1') for (const f of BEN.CLASS_FIELDS) delete req.body[f];   // F-PRODUCT-03: the fields do not exist while off
+      const warnings = [];   // F-DATA-10: an amount without a stated currency is a warning (a refusal with finance_currency_required = '1')
+      const id = await store.upsertPortfolio(kind, req.body, { user: req.reportUser, reason: req.body && req.body.reason, requireOwnerReason, allocUnspecified: cfgW.ppm_alloc_unspecified, warnings, currencyRequired: String(cfgW.finance_currency_required) === '1' }); log(req, 'portfolio_saved', `${kind}:${id}`); res.json({ ok: true, id, ...(warnings.length ? { warnings } : {}) });
     } catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.reason ? { code: e.reason } : {}) }); }
   });
   router.post('/api/governance/portfolio/project/:id/stage', requireReportSession, requireCommittee, json, async (req, res) => {
@@ -591,23 +593,38 @@ module.exports = function governanceRoutes(deps) {
         return { to, needs_reason, refusal: SCH.stageGate(p, to, u, { ...d.gate_ctx, note: needs_reason ? 'reason given at the move' : undefined }) };
       });
       const project = money ? p : { ...p, budget: undefined, spent: undefined };
+      // F-PRODUCT-03 / F-DATA-09 — class view + totals per class only while the switch is on (never added across classes)
+      const clsOn = String((await reportConfig.getConfig(rdb().db)).benefit_value_class_enabled) === '1';
+      const mvRole = await moneyVerifierRole();
+      const bens = (d.benefits || []).map((b) => BEN.visibleBenefit(b, { money, asOf: new Date().toISOString(), classes: clsOn }));
       res.json({ ok: true, committee: !!isCommittee(u), can_gate: !!isCommittee(u), can_edit_plan: PA.canEditPlan(u, p, pctx), can_see_history: !!money, money_hidden: !money,
         project, objective: d.objective, extra_sites: d.extra_sites, tasks: d.tasks, milestones: d.milestones, deliverables: d.deliverables, risks: d.risks.map(PE.riskView),
-        benefits: (d.benefits || []).map((b) => BEN.visibleBenefit(b, { money, asOf: new Date().toISOString() })), me: Number(u.id),
-        plan: SCH.scheduleView(d.tasks, { anchor: p.start_date || null }), variance: SCH.varianceOf(p), resource_conflicts: SCH.resourceConflicts(d.tasks),
+        benefits: bens, ...(clsOn ? { benefit_totals: BEN.benefitTotals(bens), benefit_classes: { value_classes: BEN.VALUE_CLASSES, bases: BEN.BASES, source_kinds: BEN.SOURCE_KINDS } } : {}), me: Number(u.id),
+        ...(mvRole ? { money_verifier_role: mvRole, holds_money_verifier_role: holdsExactly(u, mvRole) } : {}),   // F-PRODUCT-04: who may verify a money benefit
+        plan: SCH.scheduleView(d.tasks, { anchor: p.start_date || null }), variance: SCH.varianceOf(p), resource_conflicts: SCH.resourceConflicts(d.tasks), resource_coverage: SCH.resourceCoverage(d.tasks),
         stages: SCH.STAGES, allowed_stages, gate_counts: d.gate_ctx, risk_kinds: store.RISK_KINDS, as_of: new Date().toISOString() });
     } catch (e) { fail(res, e); }
   });
   // ---- B-08 benefits: realised value (evidence link) + independent verification (catalogue A09) ------------------
   // Same gate as a plan write (committee; or an editor of the project's site with portfolio_editor_plan_writes on);
   // a money benefit also needs the money-read rule. The verifier must not be the person who entered the value.
+  const holdsExactly = (u, role) => !!role && Array.isArray(u && u.roles) && u.roles.includes(role);
+  async function moneyVerifierRole() { return String((await reportConfig.getConfig(rdb().db)).benefit_money_verifier_role || '').trim(); }
+  async function moneyVerifier(u, benefitId) {
+    const role = await moneyVerifierRole();
+    const b = role ? await store.getBenefit(benefitId) : null;
+    return { role, applies: !!(role && b && b.value_kind === 'money'), holds: holdsExactly(u, role) };
+  }
   const benefitAction = (op) => async (req, res) => {
     try {
       const id = Number(req.params.id);
       if (!Number.isInteger(id) || id <= 0) return httpFail(res, new Error('benefit id must be a number'), 400, { ok: false });
-      if (await refusePlanWrite(req, res, 'benefit', { id })) return;
+      // F-PRODUCT-04 — with benefit_money_verifier_role set, a MONEY benefit is verified by a holder of that role
+      // (held exactly; nothing is granted here) — that role, not the plan-write rule, opens the verification.
+      const vr = op === 'verify' ? await moneyVerifier(req.reportUser, id) : null;
+      if (!(vr && vr.applies && vr.holds) && await refusePlanWrite(req, res, 'benefit', { id })) return;
       if (await refuseMoneyBenefit(req, res, { id })) return;
-      const b = op === 'realised' ? await store.recordBenefitRealised(id, req.body || {}, { user: req.reportUser }) : await store.verifyBenefit(id, { user: req.reportUser });
+      const b = op === 'realised' ? await store.recordBenefitRealised(id, req.body || {}, { user: req.reportUser }) : await store.verifyBenefit(id, { user: req.reportUser, requiredRole: vr && vr.applies ? vr.role : '', holdsRole: !!(vr && vr.holds) });
       log(req, op === 'realised' ? 'benefit_realised' : 'benefit_verified', `benefit:${id}`, { project_id: b.project_id });
       res.json({ ok: true, benefit: BEN.visibleBenefit(b, { money: canSeeMoney(req.reportUser), asOf: new Date().toISOString() }) });
     } catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.reason ? { code: e.reason } : {}) }); }
@@ -647,7 +664,8 @@ module.exports = function governanceRoutes(deps) {
   async function exceptionsFor(v) {
     const cfg = await reportConfig.getConfig(rdb().db);
     const num = (x, d) => (Number.isFinite(Number(x)) && String(x).trim() !== '' ? Number(x) : d);
-    return PX.findExceptions(v, { today: new Date().toISOString().slice(0, 10), blockedDays: num(cfg.ppm_alert_blocked_days, 5), slipDays: num(cfg.ppm_alert_slip_days, 10) });
+    return PX.findExceptions(v, { today: new Date().toISOString().slice(0, 10), blockedDays: num(cfg.ppm_alert_blocked_days, 5), slipDays: num(cfg.ppm_alert_slip_days, 10),
+      capacity: require('../services/projectSchedule').resourceConflicts(v.tasks || []) });   // F-PRODUCT-02: same list as the tile and the workbook
   }
   router.get('/api/governance/portfolio/exceptions', requireReportSession, async (req, res) => {
     try { const { v } = await viewFor(req.reportUser); const items = await exceptionsFor(v);
@@ -660,7 +678,8 @@ module.exports = function governanceRoutes(deps) {
     const v = money ? v0 : stripMoney(v0);
     const ids = new Set(v.projects.map((p) => p.id));
     const baselines = (await store.listBaselines()).filter((b) => ids.has(b.project_id));
-    return { v: { ...v, benefits: (v.benefits || []).filter((b) => ids.has(b.project_id)) }, money, baselines, exceptions: await exceptionsFor(v0) };
+    return { v: { ...v, benefits: (v.benefits || []).filter((b) => ids.has(b.project_id)) }, money, baselines, exceptions: await exceptionsFor(v0),
+      benefitClasses: String((await reportConfig.getConfig(rdb().db)).benefit_value_class_enabled) === '1' };
   }
   router.get('/api/governance/portfolio/deck.pptx', requireReportSession, async (req, res) => {
     try { const x = await exportData(req.reportUser); const buf = await require('../services/portfolioDeck').buildDeck(x.v, { money: x.money, exceptions: x.exceptions, asOf: x.v.as_of });
@@ -668,7 +687,7 @@ module.exports = function governanceRoutes(deps) {
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'); res.setHeader('Content-Disposition', `attachment; filename="portfolio-${x.v.as_of.slice(0, 10)}.pptx"`); res.send(buf); } catch (e) { fail(res, e); }
   });
   router.get('/api/governance/portfolio/workbook.xlsx', requireReportSession, async (req, res) => {
-    try { const x = await exportData(req.reportUser); const buf = require('../services/portfolioDeck').buildWorkbookBuffer(x.v, { money: x.money, baselines: x.baselines, exceptions: x.exceptions });
+    try { const x = await exportData(req.reportUser); const buf = require('../services/portfolioDeck').buildWorkbookBuffer(x.v, { money: x.money, baselines: x.baselines, exceptions: x.exceptions, benefitClasses: x.benefitClasses });
       log(req, 'portfolio_workbook', 'portfolio', { money: x.money });
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); res.setHeader('Content-Disposition', `attachment; filename="portfolio-${x.v.as_of.slice(0, 10)}.xlsx"`); res.send(buf); } catch (e) { fail(res, e); }
   });
