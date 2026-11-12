@@ -11,13 +11,13 @@
 | pages without declared role | 6 |
 | pages not in navigation | 29 |
 | pages with inline scripts | 46 |
-| routes | 616 |
+| routes | 617 |
 | routes without test reference | 35 |
 | routes in server js | 210 |
 | jobs | 31 |
 | jobs without test reference | 1 |
 | migrations | 77 |
-| test files | 638 |
+| test files | 644 |
 
 ## Pages
 
@@ -128,7 +128,7 @@
 | JB-access-emergency-expiry | access.emergency_expiry | 1 |
 | JB-access-entra-deprovision | access.entra_deprovision | 1 |
 | JB-access-grant-expiry | access.grant_expiry | 2 |
-| JB-assets-sync | assets.sync | 5 |
+| JB-assets-sync | assets.sync | 6 |
 | JB-audit-chain-verify | audit.chain_verify | 2 |
 | JB-audit-retention | audit.retention | 1 |
 | JB-commitments-escalate | commitments.escalate | 1 |
@@ -154,5 +154,5 @@
 | JB-softdelete-purge | softdelete.purge | 2 |
 | JB-teams-sla-poll | teams.sla_poll | 1 |
 | JB-zoho-change-cab | zoho.change_cab | 1 |
-| JB-zoho-requests | zoho.requests | 12 |
+| JB-zoho-requests | zoho.requests | 13 |
 | JB-zoho-survey | zoho.survey | 1 |

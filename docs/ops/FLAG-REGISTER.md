@@ -12,10 +12,12 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (179) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (194) — services/reportConfig.js DEFAULTS
 
 | Key | Default (today) | Kind | Owner | Recommended pilot value | Reference |
 |---|---|---|---|---|---|
+| `a01_missing_due_date` | `0` | setting | Commitments owner (D-04) | `1` (proposal — a serious commitment without a due date or approved exception is then escalated as A01, like a missing owner) | E-R02 |
+| `a10_gate_lead_days` | `` | setting | Committee | a number of days, e.g. `10` (proposal — the armed ppm-alerts job then reminds the project owner and committee before the next stage gate; empty = off) | E-R02 |
 | `access_approver_policy` | `{"platform_roles":["admin","executive","super_admin","tra…` | setting | Security owner + Owner | the default (PO decision R7, encoded 2026-11-05): platform roles by a super_admin, other roles by an admin-tier user holding the site; never the requester, subject or their deputy | C-19 |
 | `access_grant_expiry_job` | `0` | setting | Security owner | `1` (ends expired grants nightly; a role held before the grant or by another live grant stays) | C-18 |
 | `access_recert_apply` | `0` | setting | Security owner | PROPOSITION: `0` for the first campaign (revoke answers recorded only, reviewed by the Security owner); `1` only after that review | E-S03 |
@@ -24,6 +26,8 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `access_require_approval` | `0` | setting | Security owner + Owner (approver matrix) | `1` once the approver rule and the requires_request list are decided (break-glass stays possible, logged risk=1) | C-18 |
 | `agenda_cron_enabled` | `0` | arm switch | Committee | `1` (the Monday job prepares a DRAFT agenda per cadence due that week; nothing is sent, the secretary still prepares the session) | E-G03 |
 | `alert_external_enabled` | `0` | arm switch | to be named | — | — |
+| `alert_group_by_rule` | `0` | setting | Owner (alerting policy) | `1` (proposal — the e-mail digest shows one line per alert rule listing its sites instead of one line per site) | E-R07 |
+| `alert_quiet_hours` | `` | setting | Owner (alerting policy) | e.g. `22:00-06:00` UTC (proposal — non-critical in-app firings wait until the window ends; critical ones are never deferred) | E-R07 |
 | `analytics_accounts_url` | `` | setting | to be named | — | — |
 | `analytics_client_id` | `` | setting | to be named | — | — |
 | `analytics_client_secret` | (secret — not shown) | secret | to be named | — | — |
@@ -47,6 +51,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `auth_account_throttle_enabled` | `0` | arm switch | Security owner | `1` (per-account failed sign-in cap on top of the per-IP limiter; note a deliberate lock-out of a named account is possible for its window) | SEC-01 |
 | `auth_account_throttle_max` | `10` | setting | Security owner | `10` failed sign-ins per account per window | SEC-01 |
 | `auth_account_throttle_window_min` | `15` | setting | Security owner | `15` minutes | SEC-01 |
+| `auth_pbkdf2_iterations` | `100000` | setting | Security owner | PROPOSITION: `100000` (today, nothing rehashed) until a crypto review names the target (e.g. 210000, OWASP 2023 for PBKDF2-SHA512); a higher value rehashes each user once at their next successful password sign-in and costs that much more CPU per sign-in (see docs/agent-execution/E-W2-RDB.md for the measured time) | E-S05 |
 | `authz_capability_mode` | `off` | setting | Security owner | `shadow` (log divergences only; `enforce` acts only on `authz_enforce_caps` — route-by-route plan in `docs/agent-execution/C-17.md`) | C-17 |
 | `authz_enforce_caps` | `` | setting | Security owner | PROPOSITION: empty during the pilot; after two shadow weeks without unexplained divergences (`tools/security/authz-divergence-report.js`), low-risk reads first (`review.read`, `analytics.data.read`, `tracker.read`) with mode `enforce`; a listed capability can only refuse, critical ones are ignored while C-18 grants are off | E-S01 |
 | `backup_offsite_path` | `` | setting | to be named | — | — |
@@ -55,6 +60,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `controls_register_enabled` | `0` | arm switch | GRC owner + Security owner | `1` once GRC names who adopts controls (the four seeded controls stay `candidate` until a person adopts them with a reason; frequencies and testers are GRC decisions) | E-G04 |
 | `dashboard_red_action_links` | `0` | setting | Owner (UI policy) + PMO | `1` (proposal — only with `commitments_enabled=1`; no action is ever created automatically) | E-K03 |
 | `default_email_domain` | `edv-ops.com` | setting | to be named | — | — |
+| `delivery_failure_alert_enabled` | `0` | arm switch | Platform owner (D-13) | `1` once `sync_alert_recipients` (or the Teams URL) names who receives sync alerts (D-13) — the failed deliveries are already listed on System Logs either way | E-R04 |
 | `embed_frame_ancestors` | `` | setting | to be named | — | — |
 | `emergency_access_enabled` | `0` | arm switch | Security owner + Owner | `1` once the super_admins who may grant and review are named (a super_admin, never the beneficiary, max 24 h, review within 2 working days by another super_admin — PO decision R7; never waives a qualification) | C-22 |
 | `emergency_access_max_hours` | `24` | setting | Security owner | `24` (hard cap; may only be lowered) | C-22 |
@@ -87,6 +93,9 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `hygiene_recipients` | `` | setting | to be named | — | — |
 | `hygiene_send_enabled` | `0` | arm switch | to be named | — | — |
 | `incubation_rfi_link_enabled` | `0` | arm switch | PMO + Owner | `1` on the pilot site once the PMO accepts incubation-born RFIs in the queue (the RFI score stays provisional: incubation scoring criteria are a human decision) | E-I04 |
+| `insp_action_verify_enabled` | `0` | arm switch | Infrastructure / inspection owner + GRC | `1` once the inspection owner confirms that Critical and High corrective actions need an independent check (a closed one reads "awaiting verification" until a person who did not close it verifies it) | E-I06 |
+| `insp_repeat_findings` | `0` | setting | Infrastructure / inspection owner | `1` once the inspection owner sets the window below (the inspections dashboard then lists items rated minor / major / critical in at least 2 of a site's last N submitted inspections) | E-I06 |
+| `insp_repeat_window` | `` | setting | Infrastructure / inspection owner | PROPOSITION: none — N (how many of a site's last submitted inspections are compared) is a human decision; empty = nothing computed | E-I06 |
 | `kpi_policy_enforced` | `0` | setting | KPI committee + Owner | `0` until the KPI committee has ADOPTED a resolution-SLA policy on `/kpi-builder.html` (two different members: author ≠ adopter, with the session reference) and read the shadow comparison; then `1` (the Helpdesk tile, ranking and trend follow the adopted version) | C-31 |
 | `meraki_api_key` | (secret — not shown) | secret | to be named | — | — |
 | `meraki_base_url` | `https://api.meraki.com/api/v1` | setting | to be named | — | — |
@@ -110,6 +119,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `opmanager_ca_bundle` | (secret — not shown) | secret | to be named | — | — |
 | `opmanager_tls_insecure` | `0` | setting | to be named | — | — |
 | `outbound_allow_hosts` | `` | setting | to be named | — | — |
+| `pir_reviews_enabled` | `0` | arm switch | Incident manager + business sponsor | `1` once the Incident manager names who signs a post-incident review and the business sponsor per major incident (the sign-off is a recorded human act by someone other than the author; nothing is sent) | E-I03 |
 | `portfolio_editor_plan_writes` | `0` | setting | Owner (access policy) | `1` | A-15 |
 | `portfolio_site_scope_reads` | `0` | setting | Owner (access policy) | `1` | A-15 |
 | `ppm_alert_blocked_days` | `5` | setting | Committee | `5` | A-27 |
@@ -117,6 +127,8 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `ppm_alerts_enabled` | `0` | arm switch | Committee | `0` (dry run first) | A-27 |
 | `ppm_baseline_versions` | `0` | setting | Committee | `1` | A-27 |
 | `ppm_rebaseline_enabled` | `0` | arm switch | Committee | `1` | A-27 |
+| `problem_candidate_min` | `` | setting | Problem owner + KPI committee | PROPOSITION: none — the recurrence threshold (incidents of one category × sub-category on a site in the window) is a human decision; empty = no candidate is computed | E-I02 |
+| `problem_candidates_enabled` | `0` | arm switch | Problem owner + Owner | `1` on the pilot site once a problem owner is named (candidates are listed with "causality not validated"; promoting one creates a commitment whose owner a person chooses; ServiceDesk Plus Problem records are not synced) | E-I02 |
 | `public_base_url` | `` | setting | to be named | — | — |
 | `publish_cron_enabled` | `0` | arm switch | to be named | — | — |
 | `publish_excel_recipients` | `` | setting | to be named | — | — |
@@ -130,6 +142,9 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `report_reassign_submitted` | `1` | setting | Owner (D-3) | `0` | A-24 |
 | `report_revert_policy` | `site_editor` | setting | Owner (D-3, reverses 2026-10-02) | `second_person` | A-24 |
 | `roadmap_redirect_to_portfolio` | `0` | setting | PMO + PO (deletion of roadmap data: CAB) | `0` during the pilot; `1` only after one clean parity cycle (`tools/governance/roadmap-parity.js`) | B-09 |
+| `schedule_inspection_interval_days` | `` | setting | Infrastructure / GRC owner | e.g. `90` if a quarterly inspection rhythm is adopted (proposal; empty = inspections are not reminded) | E-R06 |
+| `schedule_reminder_lead_days` | `` | setting | Site coordination owner | e.g. `3` (proposal — empty = no reminder even when armed) | E-R06 |
+| `schedule_reminders_enabled` | `0` | arm switch | Site coordination owner | `1` on the pilot site once the lead days are decided (in-app reminder to the site's editors before a scheduled PV / incubation session, cadence meeting or inspection) | E-R06 |
 | `scoreboard_send_enabled` | `0` | arm switch | to be named | — | — |
 | `sdp_api_accounts_url` | `https://accounts.zoho.com` | setting | to be named | — | — |
 | `sdp_api_base_url` | `https://oneitsupport.endeavourmining.com/app/itdesk/api/v3` | setting | to be named | — | — |
@@ -147,7 +162,7 @@ user × page × day, user id + role tier only; report at Admin ▸ System Logs �
 | `shift_handover_flag_hours` | `8` | setting | Site IT lead | `8` (a handover still pending after this many hours is flagged on the page) | C-21 |
 | `site_code_shared_block` | `0` | setting | Data owner + Owner | `1` once the data owner has given each shared code to one site (Assafo/Tanda → tracker `TND`, AM-01) — while `0` both editors keep writing the same scope; `1` refuses a scoped editor's tracker / meetings / inspection save under a code two active sites share (409 naming the sites, page banner), never picks an owner | D-01 |
 | `site_codes_from_registry` | `0` | setting | Data owner + KPI committee | PROPOSITION: `shadow` (E-D01 double read — hard maps keep answering, every registry divergence is logged once a day in System Logs ▸ governance) for at least two weeks, then `1` only by the committee (gate 10) | DEC-4, E-D01 |
-| `site_local_calendar` | `0` | setting | Owner + Finance (month-end figures) | `0` while every reporting site is UTC+0; `1` only when a non-UTC site (e.g. the London office) is reported and its time zone (`sites.time_zone`, else from its country) is confirmed — only the calendar-month helpdesk figures move | D-07 |
+| `site_local_calendar` | `0` | setting | Owner + Finance (month-end figures) | `0` while every reporting site is UTC+0; `1` only when a non-UTC site (e.g. the London office) is reported and its time zone (`sites.time_zone`, else from its country) is confirmed — the calendar-month helpdesk figures, the monthly Top-10, the site-report window (weekly chart) and the 6-month history move (WAN SLA keeps its own calendar) | D-07, E-D03 |
 | `site_score_published_model` | `legacy` | setting | Owner (D-1) | `programme` | A-11 |
 | `sla_wan_config` | `{"notify":{"enabled":false,"trigger_minutes":15,"from_nam…` | setting | to be named | — | — |
 | `smtp_host` | `` | setting | to be named | — | — |

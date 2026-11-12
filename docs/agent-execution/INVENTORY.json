@@ -6,13 +6,13 @@
   "pages_without_declared_role": 6,
   "pages_not_in_navigation": 29,
   "pages_with_inline_scripts": 46,
-  "routes": 616,
+  "routes": 617,
   "routes_without_test_reference": 35,
   "routes_in_server_js": 210,
   "jobs": 31,
   "jobs_without_test_reference": 1,
   "migrations": 77,
-  "test_files": 638
+  "test_files": 644
  },
  "pages": [
   {
@@ -152,7 +152,7 @@
    ],
    "in_navigation": false,
    "inline_scripts": 1,
-   "bytes": 19803,
+   "bytes": 20454,
    "tests": [
     "tests/commitments-routes.smoke.test.js",
     "tests/i18n-coverage.test.js",
@@ -201,7 +201,7 @@
    ],
    "in_navigation": true,
    "inline_scripts": 1,
-   "bytes": 21623,
+   "bytes": 23922,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/dashboard-time-truth.test.js",
@@ -5029,11 +5029,11 @@
    ]
   },
   {
-   "id": "RT-GET-api-metrics-key",
+   "id": "RT-GET-api-metrics-key-explain",
    "method": "GET",
-   "path": "/api/metrics/:key",
+   "path": "/api/metrics/:key/explain",
    "file": "routes/metrics.js",
-   "line": 48,
+   "line": 54,
    "tests": [
     "tests/analytics-charts.test.js",
     "tests/analytics-logic.test.js",
@@ -5043,7 +5043,27 @@
     "tests/kpi-targets.smoke.test.js",
     "tests/metrics-routes.smoke.test.js",
     "tests/server-routes-smoke.test.js",
-    "tests/uat-amdec-org-models.smoke.test.js"
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/variation-explain.test.js"
+   ]
+  },
+  {
+   "id": "RT-GET-api-metrics-key",
+   "method": "GET",
+   "path": "/api/metrics/:key",
+   "file": "routes/metrics.js",
+   "line": 95,
+   "tests": [
+    "tests/analytics-charts.test.js",
+    "tests/analytics-logic.test.js",
+    "tests/analytics-metrics-authz.smoke.test.js",
+    "tests/authz-route-matrix.test.js",
+    "tests/business-only-boundary.smoke.test.js",
+    "tests/kpi-targets.smoke.test.js",
+    "tests/metrics-routes.smoke.test.js",
+    "tests/server-routes-smoke.test.js",
+    "tests/uat-amdec-org-models.smoke.test.js",
+    "tests/variation-explain.test.js"
    ]
   },
   {
@@ -9066,7 +9086,7 @@
    "method": "GET",
    "path": "/commitments.html",
    "file": "routes/commitments.js",
-   "line": 138,
+   "line": 144,
    "tests": [
     "tests/commitments-routes.smoke.test.js",
     "tests/ui-design-ratchet.test.js"
@@ -9688,6 +9708,7 @@
    "tests": [
     "tests/governance-policy-routes.smoke.test.js",
     "tests/pg-migrate-from-111.test.js",
+    "tests/pilot-metrics-value.test.js",
     "tests/sync-drift.test.js",
     "tests/sync-jobs-registry.test.js",
     "tests/sync-routes.smoke.test.js"
@@ -9881,6 +9902,7 @@
    "tests": [
     "tests/catalogue-dry-run.test.js",
     "tests/governance-policy.test.js",
+    "tests/pilot-metrics-value.test.js",
     "tests/pilot-metrics.test.js",
     "tests/publication-freshness.smoke.test.js",
     "tests/publish-gate.test.js",
