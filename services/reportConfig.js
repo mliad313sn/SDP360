@@ -236,6 +236,11 @@ const DEFAULTS = {
   // of that role (held exactly), who is neither the entrant nor the linked owner; refusal code VERIFIER_ROLE. '' (today)
   // = any other person with plan-write. No role is granted by this key; a name nobody holds blocks money verification.
   benefit_money_verifier_role: '',
+  // F-DATA-10 — PROPOSED: '1' = a project amount (budget / spent) or a money benefit written WITHOUT a currency is refused
+  // (CURRENCY_REQUIRED). '0' (today) = accepted, but no longer silently: the project is flagged currency_defaulted, the
+  // ledger note says so, the caller gets a warning and the views say "default, not confirmed". The rule itself is a
+  // Finance decision (docs/ops/FINANCE-CURRENCY-RULES.md).
+  finance_currency_required: '0',
   // E-P06 (audit P-06) — PROPOSED: '1' = RACI tab on the project page (task × person, exactly one A per task, CSV export);
   // ppm_templates_enabled '1' = save a project's STRUCTURE as a template (no people, dates or money), approved by another
   // committee member before it can create a project. Both 404 while '0'.

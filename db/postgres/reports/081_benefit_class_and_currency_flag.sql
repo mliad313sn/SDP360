@@ -20,3 +20,9 @@ ALTER TABLE portfolio_benefits ADD COLUMN IF NOT EXISTS method_note TEXT;
 ALTER TABLE portfolio_benefits ADD COLUMN IF NOT EXISTS source_kind TEXT;
 ALTER TABLE portfolio_benefits ADD COLUMN IF NOT EXISTS metric_key TEXT;
 ALTER TABLE portfolio_benefits ADD COLUMN IF NOT EXISTS verifier_role_required TEXT;
+
+-- F-DATA-10 — Finance currency: no silent default. portfolio_projects.currency has DEFAULT 'USD' (018): a budget
+-- written without a currency silently became US dollars. currency_defaulted: 1 = an amount was written and nobody
+-- stated the currency (the views say "default, not confirmed"); 0 = a person sent the currency; NULL = rows written
+-- before this migration (not known — never guessed, never back-filled).
+ALTER TABLE portfolio_projects ADD COLUMN IF NOT EXISTS currency_defaulted INTEGER;

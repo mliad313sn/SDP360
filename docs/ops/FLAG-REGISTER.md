@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (209) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (210) — services/reportConfig.js DEFAULTS
 
 Prerequisites (E-A07, services/switchPrereqs.js) are WARNINGS in plain words, never approvals: the config PUT
 answer and the `set-ui-policy.js` dry run repeat them when the switch is moved to its switched-on value.
@@ -91,6 +91,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `field_photo_max_kb` | `300` | setting | to be named | — | — | — |
 | `field_review_step` | `0` | setting | PO / adoption lead | `1` on the pilot site after one session shows it does not slow the technician (a one-screen summary — site, items, findings, photos, offline note — before an inspection is queued; « Corriger » queues nothing) | E-F03 | — |
 | `field_task_timing` | `0` | setting | PO / adoption lead | `1` for the pilot window to take a BASELINE (active time form open → queued, pauses > 2 min excluded, user id + role tier only; median / p75 per site × kind × week in `tools/pilot/pilot-metrics.js`). No target is set — targets come only after the baseline (PILOT-MEASUREMENT.md) | E-F03 | — |
+| `finance_currency_required` | `0` | setting | Finance controller | `1` once Finance requires a stated currency on every amount (a project budget / spent or a money benefit written without a currency is then refused, `CURRENCY_REQUIRED`). At `0` the write is accepted but flagged: "default, not confirmed" on the portfolio and project pages, `currency_defaulted=true` in the ledger note, a warning in the answer. Rules per money path: `docs/ops/FINANCE-CURRENCY-RULES.md` | F-DATA-10 | — |
 | `formats` | `html,pdf` | setting | to be named | — | — | — |
 | `from` | `` | setting | to be named | — | — | — |
 | `group_report_cc` | `` | setting | to be named | — | — | — |

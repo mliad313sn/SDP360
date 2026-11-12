@@ -359,7 +359,7 @@
       ["Open tasks", n(open) + " / " + n(V.tasks.length)],
       ["Critical path", V.plan ? n(V.plan.length_days, " d") : "— (dependency loop)"],
       ["Open high risks", n(V.gate_counts && V.gate_counts.openRisksHigh)]];
-    var money = V.money_hidden ? "<span class=\"muted\">restricted to the committee, the admin tier and the finance role</span>" : (p.budget != null ? n(p.spent) + " / " + n(p.budget) + " " + esc(p.currency || "") : "—");
+    var money = V.money_hidden ? "<span class=\"muted\">restricted to the committee, the admin tier and the finance role</span>" : (p.budget != null ? n(p.spent) + " / " + n(p.budget) + " " + esc(p.currency || "USD") + (p.currency_defaulted === 1 || !p.currency ? " <small class=\"muted\">(default, not confirmed)</small>" : "") : "—");   // F-DATA-10
     $("overview").innerHTML = "<div class=\"tiles\">" + tiles.map(function (t) { return "<div class=\"tile\"><div class=\"tl\">" + esc(t[0]) + "</div><div class=\"tn\" style=\"font-size:15px\">" + t[1] + "</div></div>"; }).join("") + "</div>" +
       "<div class=\"panel\" style=\"margin-top:14px\"><table><tbody>" +
       "<tr><th>Objective</th><td>" + (V.objective ? esc(V.objective.key) + " — " + esc(V.objective.name) : "—") + "</td></tr>" +

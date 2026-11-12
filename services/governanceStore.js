@@ -286,7 +286,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   const taskRow = (r) => r && ({ ...idRow(r), project_id: Number(r.project_id), parent_id: r.parent_id == null ? null : Number(r.parent_id), duration_days: num(r.duration_days), allocation_pct: num(r.allocation_pct), progress_pct: num(r.progress_pct), effort_hours: num(r.effort_hours), depends_on: P_(r.depends_on, []) });
   const RISK_KINDS = ['risk', 'issue', 'assumption'];   // A-14 RAID (dependencies live in depends_on, decisions in DEC-…)
   const riskRow = (r) => ({ ...idRow(r), project_id: Number(r.project_id), probability: Number(r.probability), impact: Number(r.impact), kind: r.kind || 'risk' });
-  const projectRow = (r) => ({ ...idRow(r), objective_id: Number(r.objective_id), site_id: r.site_id == null ? null : Number(r.site_id), progress_pct: num(r.progress_pct), budget: num(r.budget), spent: num(r.spent), depends_on: P_(r.depends_on, []), rfi_id: r.rfi_id == null ? null : Number(r.rfi_id) });
+  const projectRow = (r) => ({ ...idRow(r), currency_defaulted: r.currency_defaulted == null ? null : Number(r.currency_defaulted), objective_id: Number(r.objective_id), site_id: r.site_id == null ? null : Number(r.site_id), progress_pct: num(r.progress_pct), budget: num(r.budget), spent: num(r.spent), depends_on: P_(r.depends_on, []), rfi_id: r.rfi_id == null ? null : Number(r.rfi_id) });
   // B-08 — expected / realised benefits (migration 056). Values are numbers or null; money values are stripped by the route.
   const benefitRow = (r) => r && ({ ...idRow(r), project_id: Number(r.project_id), baseline_value: num(r.baseline_value), target_value: num(r.target_value), realised_value: num(r.realised_value),
     realised_by: r.realised_by == null ? null : Number(r.realised_by), verified_by: r.verified_by == null ? null : Number(r.verified_by), sort_order: num(r.sort_order), value_kind: r.value_kind || 'quantity',
@@ -433,6 +433,26 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     if (out.confidence && !CONFIDENCE.includes(out.confidence)) throw Object.assign(new Error('confidence must be low | medium | high'), { code: 'INVALID' });
     return out;
   }
+  // F-DATA-10 — Finance currency: no silent default. A project amount written while nobody stated the currency is
+  // FLAGGED (currency_defaulted = 1, 'currency_defaulted=true' in the ppm_events note, a warning for the caller); a
+  // sent currency clears the flag (0). Rows from before migration 081 (flag NULL) that already carry an amount are
+  // left as they are — not known. With opts.currencyRequired (report_config finance_currency_required = '1') the
+  // write is refused instead (CURRENCY_REQUIRED). A money benefit without a currency: same warning / refusal.
+  function _currencyFlag(vals, before) {
+    if (vals.currency != null) return 0;
+    if (!['budget', 'spent'].some((f) => vals[f] != null)) return undefined;
+    if (!before) return 1;
+    const flag = before.currency_defaulted == null ? null : Number(before.currency_defaulted);
+    if (flag === 0) return undefined;
+    return flag === 1 || (before.budget == null && before.spent == null) ? 1 : undefined;
+  }
+  const _currencyRefused = () => Object.assign(new Error('a currency (ISO code such as USD or XOF) is required with an amount'), { code: 'INVALID', reason: 'CURRENCY_REQUIRED' });
+  const _warn = (opts, code, message) => { if (Array.isArray(opts.warnings)) opts.warnings.push({ code, message }); };
+  function _benefitCurrency(row, opts) {
+    if (row.value_kind !== 'money' || (row.currency != null && String(row.currency).trim() !== '')) return;
+    if (opts.currencyRequired) throw _currencyRefused();
+    _warn(opts, 'CURRENCY_MISSING', 'this money benefit has no currency: its values cannot be read as an amount until one is stated');
+  }
   /** F-PRODUCT-03 / F-DATA-09 — the class fields of a benefit AS IT WOULD BE STORED must be coherent. */
   function _benefitClassCheck(row) {
     const p = require('./portfolioBenefits').classProblem(row);
@@ -464,6 +484,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       if (!before) throw Object.assign(new Error('benefit not found'), { code: 'NOT_FOUND', status: 404 });
       delete vals.project_id;   // a benefit never moves to another project
       _benefitClassCheck({ ...before, ...vals });
+      _benefitCurrency({ ...before, ...vals }, opts);
       await updateRow(T.table, id, vals, T.cols);
       // the terms a verification vouched for changed → the verification no longer holds
       const termsChanged = BENEFIT_TERMS.some(k => vals[k] !== undefined && String(vals[k] ?? '') !== String(before[k] ?? ''));
@@ -485,11 +506,15 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
         // around an approval, and the status follows the stage (only a gate passage moves it)
         if ((before.stage && before.stage !== 'proposal' && changed('owner')) || (gated && changed('sponsor'))) throw Object.assign(new Error('the owner is fixed once the project is submitted for approval, the sponsor once it is approved'), { code: 'CONFLICT', status: 409, reason: 'ROLES_FROZEN' });
         if (before.stage && before.stage !== 'proposal' && changed('status')) throw Object.assign(new Error('the status follows the stage gates — use the stage action'), { code: 'CONFLICT', status: 409, reason: 'STATUS_BY_STAGE' });
+        const curFlag = _currencyFlag(vals, before);
+        if (curFlag === 1 && opts.currencyRequired) throw _currencyRefused();
         await updateRow(T.table, id, vals, T.cols);
+        if (curFlag !== undefined) await P(`UPDATE portfolio_projects SET currency_defaulted=? WHERE id=?`).run(curFlag, Number(id));
+        if (curFlag === 1) _warn(opts, 'CURRENCY_DEFAULTED', 'no currency was stated with the amount: it is recorded as ' + (before.currency || 'USD') + ' by default and shown "default, not confirmed" until a currency is sent');
         // G12 — every financial edit is kept with its old and new value
         const same = (f) => (['budget', 'spent'].includes(f) ? (vals[f] == null ? before[f] == null : before[f] != null && Number(before[f]) === Number(vals[f])) : String(vals[f] ?? '') === String(before[f] ?? ''));
         for (const f of ROLE_FIELDS) if (changed(f)) await ppmEvent({ entity: 'project', entity_id: id, action: 'role_edit', field: f, old_value: before[f], new_value: vals[f], note: opts.reason || null }, opts.user);
-        for (const f of FINANCE_FIELDS) if (vals[f] !== undefined && !same(f)) await ppmEvent({ entity: 'project', entity_id: id, action: 'finance_edit', field: f, old_value: before[f], new_value: vals[f], currency: vals.currency || before.currency, note: opts.reason || null }, opts.user);
+        for (const f of FINANCE_FIELDS) if (vals[f] !== undefined && !same(f)) await ppmEvent({ entity: 'project', entity_id: id, action: 'finance_edit', field: f, old_value: before[f], new_value: vals[f], currency: vals.currency || before.currency, note: [opts.reason || null, curFlag === 1 && ['budget', 'spent'].includes(f) ? 'currency_defaulted=true' : null].filter(Boolean).join(' · ') || null }, opts.user);
         return id;
       }
       // E-P03 (X-P-01) — a task owner change is a traced reassignment in the hash-chained ledger (old, new, actor,
@@ -512,9 +537,13 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     // F-PRODUCT-09 — a new task whose caller did not send allocation_pct: with ppm_alloc_unspecified = 'unknown' the
     // row says NULL (unknown) instead of taking the column default 100. 'full_time' (today) leaves the default.
     if (kind === 'task' && vals.allocation_pct === undefined && opts.allocUnspecified === 'unknown') vals.allocation_pct = null;
-    if (kind === 'benefit') _benefitClassCheck(vals);
+    if (kind === 'benefit') { _benefitClassCheck(vals); _benefitCurrency(vals, opts); }
+    const curFlagNew = kind === 'project' ? _currencyFlag(vals, null) : undefined;
+    if (curFlagNew === 1 && opts.currencyRequired) throw _currencyRefused();
     const nid = await insert(T.table, [...Object.keys(vals), 'created_at', 'updated_at'], [...Object.values(vals), now(), now()]);
-    if (kind === 'project') for (const f of FINANCE_FIELDS) if (vals[f] != null) await ppmEvent({ entity: 'project', entity_id: nid, action: 'finance_edit', field: f, old_value: null, new_value: vals[f], currency: vals.currency || 'USD' }, opts.user);
+    if (kind === 'project') for (const f of FINANCE_FIELDS) if (vals[f] != null) await ppmEvent({ entity: 'project', entity_id: nid, action: 'finance_edit', field: f, old_value: null, new_value: vals[f], currency: vals.currency || 'USD', note: curFlagNew === 1 ? 'currency_defaulted=true' : null }, opts.user);
+    if (curFlagNew !== undefined) await P(`UPDATE portfolio_projects SET currency_defaulted=? WHERE id=?`).run(curFlagNew, Number(nid));
+    if (curFlagNew === 1) _warn(opts, 'CURRENCY_DEFAULTED', 'no currency was stated with the amount: it is recorded as USD by default and shown "default, not confirmed" until a currency is sent');
     return nid;
   }
   // ── B-08 benefits: realised value + independent verification (catalogue A09) ──────────

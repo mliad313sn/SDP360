@@ -122,7 +122,9 @@ function buildWorkbookBuffer(view, { money: showMoney = false, baselines = [], e
   const projects = (v.projects || []).map((p) => {
     const x = varianceOf(p);
     const row = { key: p.key, name: p.name, owner: p.owner, stage: p.stage || null, status: p.status, site_id: p.site_id, start_date: p.start_date, end_date: p.end_date, baseline_start: p.baseline_start, baseline_end: p.baseline_end, forecast_end: x.forecast_end, actual_end: x.actual_end, slip_days: x.finish_variance_days, progress_pct: p.progress_pct };
-    if (showMoney) Object.assign(row, { currency: p.currency || null, budget: p.budget, spent: p.spent, spend_type: p.spend_type || null });
+    if (showMoney) Object.assign(row, { currency: p.currency || null, budget: p.budget, spent: p.spent, spend_type: p.spend_type || null,
+      // F-DATA-10 — an amount whose currency nobody stated
+      currency_status: (p.budget != null || p.spent != null) && (p.currency_defaulted === 1 || !p.currency) ? 'default, not confirmed' : null });
     return row;
   });
   const tasks = (v.tasks || []).map((t) => ({ project: keyOf.get(Number(t.project_id)) || null, id: t.id, wbs_code: t.wbs_code, name: t.name, owner: t.owner, status: t.status, start_date: t.start_date, end_date: t.end_date, baseline_start: t.baseline_start, baseline_end: t.baseline_end, progress_pct: t.progress_pct,
