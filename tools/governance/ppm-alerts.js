@@ -9,7 +9,7 @@
 //   node tools/governance/ppm-alerts.js            # one pass (dry run while disarmed)
 //   node tools/governance/ppm-alerts.js --dry-run  # preview only
 const path = require('path');
-if (require.main === module) require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+if (require.main === module) require('dotenv').config({ quiet: true, path: path.join(__dirname, '..', '..', '.env') });
 
 const { findExceptions } = require('../../services/ppmAlerts');
 const { resourceConflicts } = require('../../services/projectSchedule');

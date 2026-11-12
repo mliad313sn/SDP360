@@ -1,6 +1,6 @@
 'use strict';
 // Standalone runs must read the app's .env BEFORE any app module loads (PG_URL lives there).
-if (require.main === module) require('dotenv').config({ path: require('path').join(__dirname, '..', '..', '.env') });
+if (require.main === module) require('dotenv').config({ quiet: true, path: require('path').join(__dirname, '..', '..', '.env') });
 // B-09 — Roadmap Manager → portfolio PARITY report (read-only).
 // Compares every user's Roadmap Manager objectives/deliverables with the portfolio programme `itsm-roadmap`
 // created by the roadmap migration, item by item (services/roadmapParity.js), and prints Markdown (or JSON).

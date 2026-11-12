@@ -11,7 +11,7 @@
 // → that group's alerts are NOT recorded, so the next pass retries them. A group with no
 // channel → counted, not recorded. A webhook URL never appears in a result or a log line.
 const path = require('path');
-if (require.main === module) require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+if (require.main === module) require('dotenv').config({ quiet: true, path: path.join(__dirname, '..', '..', '.env') });
 
 const S = require('../../services/teamsSla');
 const { buildGroupCard } = require('../../services/teamsCard');

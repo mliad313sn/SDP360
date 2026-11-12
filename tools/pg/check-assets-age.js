@@ -26,7 +26,7 @@
 
 const path = require('path');
 if (!process.env.PG_URL && !process.env.DATABASE_URL) {
-  try { require('dotenv').config({ path: path.join(__dirname, '../../.env') }); } catch (_) {}
+  try { require('dotenv').config({ quiet: true, path: path.join(__dirname, '../../.env') }); } catch (_) {}
 }
 const url = process.env.PG_URL || process.env.DATABASE_URL;
 if (!url) { console.error('Set PG_URL or DATABASE_URL (or run where .env has it).'); process.exit(1); }

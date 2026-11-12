@@ -5,7 +5,7 @@
  *          Survey data read directly from Analytics Plus view — no separate survey API needed
  */
 
-require('dotenv').config();
+require('dotenv').config({ quiet: true });
 const express = require('express');
 const axios   = require('axios');
 const cors    = require('cors');

@@ -3,7 +3,7 @@
 // .env BEFORE any *-db module loads: each picks its backend (*_BACKEND) at require time,
 // and without it a prod run silently reads the frozen SQLite archives. In-process calls
 // (server.js already loaded .env) and tests skip this.
-if (require.main === module) require('dotenv').config({ path: require('path').join(__dirname, '..', '..', '.env') });
+if (require.main === module) require('dotenv').config({ quiet: true, path: require('path').join(__dirname, '..', '..', '.env') });
 // Asset engagement reminders (2026-09-18). Two types, one core:
 //   --type=asset_reminder   weekly recap per site (scheduled, Monday 07:00 by default)
 //   --type=asset_new_alert  same-day "new hardware" alert (called IN-PROCESS after

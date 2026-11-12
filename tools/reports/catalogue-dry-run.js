@@ -1,6 +1,6 @@
 'use strict';
 // Standalone runs must read the app's .env BEFORE any app module loads (PG_URL lives there).
-if (require.main === module) require('dotenv').config({ path: require('path').join(__dirname, '..', '..', '.env') });
+if (require.main === module) require('dotenv').config({ quiet: true, path: require('path').join(__dirname, '..', '..', '.env') });
 // B-07 — D-13 decision pack. A READ-ONLY dry run of every report (R01–R16) and automation rule (A01–A16)
 // of the catalogue (services/reportCatalogue.js), plus the scheduled senders that carry no catalogue id.
 // For each one it prints, as Markdown for the decision meeting: the switch states, the recipients the

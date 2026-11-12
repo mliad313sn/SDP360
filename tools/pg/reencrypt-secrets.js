@@ -11,7 +11,7 @@
 //   node tools/pg/reencrypt-secrets.js --to=v2 [--apply]   rollback before running an older build
 // Never prints a secret value. A box that opens with neither key is listed and left alone.
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+require('dotenv').config({ quiet: true, path: path.join(__dirname, '..', '..', '.env') });
 const { planReencryption, keyFrom, envKey, defaultBoxVersion } = require('../../services/configSecrets');
 
 /** A-28b — `--to=v2|v3` or null; v3 is refused unless SDP_CONFIG_BOX_VERSION=3 (the app must keep writing v3). */

@@ -13,7 +13,7 @@
 // per-user section carries an HMAC pseudonym keyed by PILOT_PSEUDONYM_KEY from .env.
 //
 // .env FIRST: only server.js loads dotenv; a standalone CLI must read PG_URL itself.
-if (require.main === module) require('dotenv').config({ path: require('path').join(__dirname, '..', '..', '.env') });
+if (require.main === module) require('dotenv').config({ quiet: true, path: require('path').join(__dirname, '..', '..', '.env') });
 
 const fs = require('fs');
 const path = require('path');

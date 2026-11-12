@@ -165,7 +165,7 @@ if (require.main === module) {
     const argv = process.argv.slice(2);
     const arg = (f, d) => { const i = argv.indexOf(f); return i >= 0 && argv[i + 1] && !argv[i + 1].startsWith('--') ? argv[i + 1] : d; };
     const appDir = path.resolve(__dirname, '..', '..');
-    if (!process.env.PG_URL && !process.env.DATABASE_URL) { try { require('dotenv').config({ path: path.join(appDir, '.env') }); } catch (_) {} }
+    if (!process.env.PG_URL && !process.env.DATABASE_URL) { try { require('dotenv').config({ quiet: true, path: path.join(appDir, '.env') }); } catch (_) {} }
     const url = process.env.PG_URL || process.env.DATABASE_URL;
     if (!url) { console.error('PG_URL is not set (export it, or run from the application folder where .env lives)'); process.exit(2); }
     const modName = arg('--module', 'assets');

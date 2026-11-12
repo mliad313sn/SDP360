@@ -3,7 +3,7 @@
 // .env BEFORE any *-db module loads: each picks its backend (*_BACKEND) at require time,
 // and without it a prod run silently reads the frozen SQLite archives. In-process calls
 // (server.js already loaded .env) and tests skip this.
-if (require.main === module) require('dotenv').config({ path: require('path').join(__dirname, '..', '..', '.env') });
+if (require.main === module) require('dotenv').config({ quiet: true, path: require('path').join(__dirname, '..', '..', '.env') });
 // Scheduled entry point for the CMDB-hygiene digest (Assets sub-project B, Task 4).
 // Mirrors tools/reports/send-reports.js: a tolerant arg parse, a pure decision
 // gate split out for testing, a require.main guard, and a fully-injectable core so

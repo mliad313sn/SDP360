@@ -12,7 +12,7 @@
 //
 // .env FIRST — every *-db module picks its backend at require time (CLAUDE.md pitfall).
 const path = require('path');
-if (require.main === module) require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+if (require.main === module) require('dotenv').config({ quiet: true, path: path.join(__dirname, '..', '..', '.env') });
 
 const { proposeCommitments } = require('../../services/commitmentBackfill');
 

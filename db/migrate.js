@@ -149,7 +149,7 @@ module.exports = { migrate, status, listMigrations, migrateAtBoot, ensureJournal
 
 if (require.main === module) {
   (async () => {
-    if (!process.env.PG_URL && !process.env.DATABASE_URL) { try { require('dotenv').config({ path: path.join(__dirname, '..', '.env') }); } catch (_) {} }
+    if (!process.env.PG_URL && !process.env.DATABASE_URL) { try { require('dotenv').config({ quiet: true, path: path.join(__dirname, '..', '.env') }); } catch (_) {} }
     const url = process.env.PG_URL || process.env.DATABASE_URL;
     if (!url) { console.error('Set PG_URL or DATABASE_URL'); process.exit(2); }
     const { makePgDb } = require('../services/pgDb');

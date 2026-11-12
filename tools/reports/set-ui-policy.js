@@ -1,6 +1,6 @@
 'use strict';
 // Standalone runs must read the app's .env BEFORE any *-db module loads (tests/reports-cli-dotenv.test.js).
-if (require.main === module) require('dotenv').config({ path: require('path').join(__dirname, '..', '..', '.env') });
+if (require.main === module) require('dotenv').config({ quiet: true, path: require('path').join(__dirname, '..', '..', '.env') });
 // A-09a — change ONE UI-policy switch in report_config (ui_lang_default, ui_i18n_pages, ui_role_landing,
 // ui_nav_profile, ui_deck_builder_roles, ui_exec_nav). DRY RUN by default: prints current -> proposed and writes nothing.
 //   node tools/reports/set-ui-policy.js --key=ui_i18n_pages --value=1            (dry run)

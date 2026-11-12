@@ -1,6 +1,6 @@
 'use strict';
 // Standalone runs must read .env BEFORE any db module loads (tests/reports-cli-dotenv.test.js).
-if (require.main === module) require('dotenv').config({ path: require('path').join(__dirname, '..', '..', '.env') });
+if (require.main === module) require('dotenv').config({ quiet: true, path: require('path').join(__dirname, '..', '..', '.env') });
 // E-I01 — SLA/OLA reconciliation register, READ-ONLY. Prints (or writes with --out) a Markdown register:
 // per site × tech_group for one month, the resolution SLA under BOTH definitions of services/slaDefinition.js,
 // the first-reply SLA, the counts, the documented Zoho profile and OLA = UNKNOWN. See services/slaRegister.js.

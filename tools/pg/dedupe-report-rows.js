@@ -15,7 +15,7 @@
 // its rows are keyed by uid and a doubled follow-up may have been edited since — review
 // those by hand in the report editor (✕ on the duplicate, then Save once).
 const path = require('path');
-require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+require('dotenv').config({ quiet: true, path: path.join(__dirname, '..', '..', '.env') });
 const { Client } = require('pg');
 const APPLY = process.argv.includes('--apply');
 const TABLES = ['infra_kpis', 'lights'];

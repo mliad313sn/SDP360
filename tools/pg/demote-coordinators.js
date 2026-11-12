@@ -23,7 +23,7 @@
 // loads dotenv, so a standalone run without this reads the frozen SQLite archives.
 const path = require('path');
 const fs = require('fs');
-if (require.main === module) require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+if (require.main === module) require('dotenv').config({ quiet: true, path: path.join(__dirname, '..', '..', '.env') });
 
 const { planRoles } = require('../../services/roleDemotion');
 

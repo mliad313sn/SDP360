@@ -17,7 +17,7 @@
 // Reads PG_URL from the environment (or .env in the app root).
 const path = require('path');
 const fs = require('fs');
-if (require.main === module) require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+if (require.main === module) require('dotenv').config({ quiet: true, path: path.join(__dirname, '..', '..', '.env') });
 const { Client } = require('pg');
 
 const BODY = 'Status code normalised closed→resolved (tools/pg/normalize-action-status.js)';

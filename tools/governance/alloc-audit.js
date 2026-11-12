@@ -8,7 +8,7 @@
 //   node tools/governance/alloc-audit.js          # human-readable
 //   node tools/governance/alloc-audit.js --json   # machine-readable
 const path = require('path');
-if (require.main === module) require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env') });
+if (require.main === module) require('dotenv').config({ quiet: true, path: path.join(__dirname, '..', '..', '.env') });
 
 const CONSTRAINT = 'portfolio_tasks_allocation_pct_range';
 const ADD_SQL = `ALTER TABLE portfolio_tasks ADD CONSTRAINT ${CONSTRAINT} CHECK (allocation_pct IS NULL OR allocation_pct BETWEEN 0 AND 100) NOT VALID;`;
