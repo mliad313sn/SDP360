@@ -40,7 +40,9 @@ error-shape, await-precedence, pg-migrate, pg-migrate-from-111, ui-design-ratche
 readme-truth, licence-inventory, inventory-strict, agent-inventory, inventory-reachability, audit-chain, sso-grant-merge,
 rbac-ui-gates, money-coverage, currency, ui-policy(.me smoke, +1 test), shell-*, portfolio-benefits(.smoke),
 ppm-budget-periods, assets money/finance/investment/depreciation/licence suites, access-*, sso-*, portfolio-site-scope,
-ppm-w2, ppm-workbench, workspace-profiles (302 + 113 + 103 in the three batches). The full suite was not run.
+ppm-w2, ppm-workbench, workspace-profiles, governance*, i18n* — final consolidated batch 411 tests, 410 pass, 1 fail
+(i18n-coverage: the new page had to be classified — fixed, `finance.html` listed as French-only, 41/41 green after);
+an earlier batch of 302 related suites was green. The full suite was not run.
 
 ## 4. Flag / rollout note
 | Switch | Default | Canary | Rollback trigger | Owner |
