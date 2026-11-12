@@ -276,7 +276,7 @@ const aiLimiter = makeRateLimiter({
 const loginLimiter = require('./services/rateLimit').persistentLimiter({
   windowMs: 15 * 60 * 1000, max: 10, scope: 'login',
   message: 'Too many login attempts. Please wait 15 minutes before trying again.',
-  store: () => require('./reports-db'),
+  store: () => require('./reports-db'), skip: () => require('./services/loginGuard').skipIpLimiter(rdb),   // UAT-OI-02
 });
 
 // Apply global limiter to all routes (except /health which is polled by Docker)
@@ -4988,13 +4988,12 @@ app.post('/api/reports/auth/login', loginLimiter, jsonBody, async (req, res) => 
   if (_sso.mode === 'only' && username !== _sso.breakglassUser) {
     return res.status(403).json({ error: 'Password sign-in is disabled — use "Sign in with Microsoft".' });
   }
-  // SEC-01 — per-account failed-login throttle (switch auth_account_throttle_enabled, '0' = today)
-  const _thr = require('./services/accountThrottle'), _thrS = _thr.settings(await require('./services/reportConfig').getConfig(rdb.db).catch(() => ({})));
-  const _blk = await _thr.check(rdb, username, _thrS);
+  // SEC-01 per-account throttle + UAT-OI-02 failures-only address limit (services/loginGuard.js; both '0' = today)
+  const _lg = require('./services/loginGuard'), _blk = await _lg.begin(rdb, req, username), _thrS = _blk.s;
   if (_blk.blocked) {
-    rdb.logEvent({ category:'auth', action:'login_failed', actor: username, ip: req.ip, details:{ reason:'account_throttled' } });
+    rdb.logEvent({ category:'auth', action:'login_failed', actor: username, ip: req.ip, details:{ reason: _blk.reason } });
     res.setHeader('Retry-After', _blk.retryAfterSec);
-    return res.status(429).json({ error: 'Too many failed sign-ins for this account. Please wait before trying again.' });
+    return fail(res, require('./services/httpError').typed('RATE_LIMITED', _blk.error));
   }
   try {
     const result = await rdb.login(username, password);
@@ -5004,10 +5003,10 @@ app.post('/api/reports/auth/login', loginLimiter, jsonBody, async (req, res) => 
     }
     if (!result) {
       rdb.logEvent({ category:'auth', action:'login_failed', actor: username || 'anonymous', ip: req.ip, details:{ reason:'invalid_credentials' } });
-      await _thr.recordFailure(rdb, username, _thrS);
+      await _lg.failure(rdb, req, username, _thrS);
       return res.status(401).json({ error: 'Invalid credentials' });
     }
-    await _thr.clear(rdb, username, _thrS);
+    await _lg.success(rdb, req, username, _thrS);
     rdb.logEvent({ category:'auth', action:'login_success', actor:(result.user && result.user.username) || username, actor_id:(result.user && result.user.id) || null, ip: req.ip });
     // SECURITY: If token is also set as a cookie, apply httpOnly + Secure + SameSite flags.
     // httpOnly prevents JavaScript from reading the cookie (XSS protection).

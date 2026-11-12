@@ -26,10 +26,13 @@ function decide(entry, { max, windowMs, now }) {
  * Express middleware. `store()` returns an object with `rateLimitBump(scope, key, now, windowMs)`
  * (reports-db) — any failure there degrades to the in-memory store for that request.
  */
-function persistentLimiter({ windowMs, max, message, scope = 'default', store = null, now = () => Date.now(), log = console.warn }) {
+function persistentLimiter({ windowMs, max, message, scope = 'default', store = null, now = () => Date.now(), log = console.warn, skip = null }) {
   const mem = memoryStore();
   let warned = false;
   return async (req, res, next) => {
+    // UAT-OI-02 — `skip()` (async, optional) lets a switch hand counting to another guard; a failing skip
+    // never disables the limiter (fail closed on the limiter, not on the sign-in).
+    if (skip) { let s = false; try { s = await skip(req); } catch (_) { s = false; } if (s === true) return next(); }
     const ip = req.ip || (req.connection && req.connection.remoteAddress) || 'unknown';
     const t = now();
     let entry = null;
