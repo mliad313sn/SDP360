@@ -21,6 +21,8 @@
 //   ui_data_quality_page  '0' = no Data quality nav entry, the page answers 404 (today) · '1' = shown (E-D07)
 //   ui_url_filters        '0' = Analytics filters are not written to the URL (today) · '1' = written with
 //                         history.replaceState and restored on load, Reset clears them (E-U02)
+//   ui_nav_active_from_url '0' = the active menu entry comes from the page's data-current only (today) · '1' = when
+//                         data-current names no menu entry, the entry matching the address is marked (F-UX-02)
 
 const UI_DEFAULTS = {
   ui_lang_default: '',
@@ -35,6 +37,7 @@ const UI_DEFAULTS = {
   ui_feedback_enabled: '0',
   ui_data_quality_page: '0',
   ui_url_filters: '0',
+  ui_nav_active_from_url: '0',
 };
 const UI_KEYS = Object.keys(UI_DEFAULTS);
 
@@ -50,6 +53,7 @@ const ENUMS = {
   ui_feedback_enabled: ['0', '1'],
   ui_data_quality_page: ['0', '1'],
   ui_url_filters: ['0', '1'],
+  ui_nav_active_from_url: ['0', '1'],
 };
 // Same vocabulary as reports-db.js ROLE_HIERARCHY + FEATURE_ROLES_KNOWN (kept inline: this module stays pure).
 const KNOWN_ROLES = new Set(['super_admin', 'executive', 'admin', 'editor', 'viewer',
@@ -89,6 +93,7 @@ function uiPolicyFrom(cfg) {
     feedback: _pick(c, 'ui_feedback_enabled'),
     data_quality_page: _pick(c, 'ui_data_quality_page'),
     url_filters: _pick(c, 'ui_url_filters'),
+    nav_active_from_url: _pick(c, 'ui_nav_active_from_url'),
   };
 }
 

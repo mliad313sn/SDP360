@@ -92,6 +92,12 @@
   function execNav() {
     try { const p = window.__uiPolicy; return p && p.exec_nav === 'consolidated' ? 'consolidated' : 'full'; } catch (_) { return 'full'; }
   }
+  // F-UX-02 — report_config ui_nav_active_from_url: '0' (today: the active entry comes from the page's
+  // data-section / data-current only) · '1' = when data-current names no menu entry, the entry whose link
+  // matches the address (path, then ?key=, then #fragment) is marked instead. Never changes what is visible.
+  function navFromUrl() {
+    try { const p = window.__uiPolicy; return !!(p && p.nav_active_from_url === '1'); } catch (_) { return false; }
+  }
   function deckBuilderRoles() {
     try { const r = window.__uiPolicy && window.__uiPolicy.deck_builder_roles; if (Array.isArray(r) && r.length) return r; } catch (_) { /* no policy */ }
     return ['super_admin'];
@@ -444,6 +450,41 @@
     }[c]));
   }
 
+  // F-UX-02 — exactly one aria-current="page" in the primary menu: the first entry that claims it wins.
+  function markCurrent(ctx) {
+    if (ctx._marked) return '';
+    ctx._marked = true;
+    return ' aria-current="page"';
+  }
+  function isMenuId(id) {
+    return NAV.some(s => s.id === id || (s.children || []).some(c => c.id === id));
+  }
+  // Which menu entry does this address open? Path must match; a link that also names ?key= or a #fragment
+  // only matches when the address carries the same one; the most specific match wins. null = none.
+  function entryFromUrl(loc) {
+    const file = (String((loc && loc.pathname) || '').split('/').pop() || 'index.html').toLowerCase();
+    const key = (/[?&]key=([^&#]*)/.exec(String((loc && loc.search) || '')) || [])[1] || '';
+    const hash = String((loc && loc.hash) || '').replace(/^#/, '');
+    let best = null;
+    const consider = (sec, child) => {
+      const it = child || sec;
+      if (!it.href || !inMenu(it)) return;
+      const m = /^([^?#]*)(?:\?([^#]*))?(?:#(.*))?$/.exec(it.href);
+      if (!m || m[1].toLowerCase() !== file) return;
+      const hk = (/(?:^|&)key=([^&]*)/.exec(m[2] || '') || [])[1] || '';
+      const hh = m[3] || '';
+      if (hk && hk !== key) return;
+      if (hh && hh !== hash) return;
+      const score = 1 + (hk ? 2 : 0) + (hh ? 2 : 0);
+      if (!best || score > best.score) best = { score, section: sec.id, current: it.id };
+    };
+    for (const sec of NAV) {
+      if (!sectionVisible(sec)) continue;
+      if (sec.children) sec.children.forEach(c => consider(sec, c)); else consider(sec, null);
+    }
+    return best ? { section: best.section, current: best.current } : null;
+  }
+
   function renderNavItem(item, ctx) {
     const isActive = ctx.section === item.id;
     const visKids  = item.children ? visibleItems(item.children) : [];
@@ -462,7 +503,8 @@
     if (hasKids && visKids.length === 1) {
       const onlyChild = visKids[0];
       const childT    = onlyChild.target ? ` target="${onlyChild.target}"` : '';
-      return `<a href="${escapeHtml(onlyChild.href)}"${childT} class="shell-nav-item-link${activeC}"${titleA}>
+      const curA      = ctx.current === onlyChild.id ? markCurrent(ctx) : '';
+      return `<a href="${escapeHtml(onlyChild.href)}"${childT}${curA} class="shell-nav-item-link${activeC}"${titleA}>
         <span class="shell-nav-icon">${item.icon || ''}</span>
         <span class="shell-nav-label">${escapeHtml(item.label)}</span>
       </a>`;
@@ -474,7 +516,7 @@
       const link = c => {
         const ca = ctx.current === c.id ? ' is-active' : '';
         const ct = c.target ? ` target="${c.target}"` : '';
-        const cur = ctx.current === c.id ? ' aria-current="page"' : '';
+        const cur = ctx.current === c.id ? markCurrent(ctx) : '';
         return `<a href="${escapeHtml(c.href)}"${ct}${cur} class="${ca.trim()}" title="${escapeHtml(c.label)}">
           <span class="shell-nav-icon">${c.icon || ''}</span>
           <span>${escapeHtml(c.label)}</span>
@@ -496,7 +538,10 @@
       </div>`;
     }
 
-    return `<a href="${escapeHtml(href)}"${target} class="shell-nav-item-link${activeC}"${titleA}>
+    // F-UX-02 — a flat entry IS its page: when it is the active section and the page names no other entry,
+    // it carries aria-current (it only had a CSS class, so a screen reader announced no current page).
+    const flatCur = isActive && (!ctx.current || ctx.current === item.id || !isMenuId(ctx.current)) ? markCurrent(ctx) : '';
+    return `<a href="${escapeHtml(href)}"${target}${flatCur} class="shell-nav-item-link${activeC}"${titleA}>
       <span class="shell-nav-icon">${item.icon || ''}</span>
       <span class="shell-nav-label">${escapeHtml(item.label)}</span>
     </a>`;
@@ -532,6 +577,9 @@
       section: mount.dataset.section || '',
       current: mount.dataset.current || ''
     };
+    if (navFromUrl() && !isMenuId(ctx.current)) {
+      try { const hit = typeof location !== 'undefined' ? entryFromUrl(location) : null; if (hit) { ctx.section = hit.section; ctx.current = hit.current; } } catch (_) { /* no location */ }
+    }
     const version = mount.dataset.version || '';
     const user    = window.__authUser || null;
     translateNav(NAV); translateNav(WORKSPACES);
@@ -709,6 +757,7 @@
     NAV,
     WORKSPACES,
     shellLang,
+    entryFromUrl,
     workspaceFor,
     searchEntries,
     breadcrumbFor,
