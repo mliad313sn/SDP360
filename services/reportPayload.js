@@ -955,7 +955,7 @@ function mergeBrowserChanges(enriched, bc, opts) {
 }
 
 // ── Public — build() merges DB enrichment over the browser payload ────────
-async function build(browserPayload) {
+async function build(browserPayload, opts = {}) {
   const filters = browserPayload.filters || {};
   // Render.py wants the month NAME ('May') + year. Browser sends
   // filters.month_name + filters.year already; mirror to top-level for
@@ -1150,6 +1150,13 @@ async function build(browserPayload) {
   // changes_total + changes_type + changes_emergency (see mergeBrowserChanges).
   if (browserPayload.changes && typeof browserPayload.changes === 'object') mergeBrowserChanges(enriched, browserPayload.changes, { otherBucket });
   if (otherBucket) enriched.other_bucket = true;   // render.py keeps the "Other (k)" entries only under this marker
+
+  // D3 (P10) — portfolio highlights slide, only when report_config exec_pack_portfolio_slide = '1' and the author is known
+  // (amounts only for admin tier / finance-viewer). Absent key = render.py draws no slide = today's deck.
+  if (opts && opts.user) {
+    try { const blk = await require('./execPackPortfolio').loadForAuthor(opts.user, opts.portfolioDeps || {}); if (blk) enriched.portfolio = blk; }
+    catch (e) { console.warn('[reportPayload] portfolio block skipped:', e.message); }
+  }
 
   return enriched;
 }

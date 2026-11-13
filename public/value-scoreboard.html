@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Value scoreboard — Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="admin" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<style nonce="%%CSP_NONCE%%">
+  body { margin: 0; background: var(--color-bg); color: var(--color-text-strong); font-family: var(--font-sans, sans-serif); font-size: 14px; }
+  .vs-wrap { max-width: 1280px; margin: 0 auto; padding: 24px 28px 48px; }
+  .vs-card { background: var(--color-card); border: 1px solid var(--color-border); border-radius: 12px; padding: 18px 20px; margin-bottom: 16px; overflow-x: auto; }
+  @media (max-width: 640px) { .vs-wrap { padding: 16px 12px 32px; } .vs-card { padding: 14px 12px; } }
+  h1 { margin: 0 0 6px; font-size: 22px; } h2 { font-size: 16px; margin: 0 0 8px; }
+  .vs-muted { color: var(--color-text-muted); font-size: 12.5px; }
+  table { border-collapse: collapse; width: 100%; } td, th { padding: 6px 8px; border-bottom: 1px solid var(--color-border); text-align: left; font-size: 12.5px; vertical-align: top; }
+  .vs-val { font-weight: 700; font-size: 15px; white-space: nowrap; }
+  .vs-unk { color: var(--color-text-muted); border: 1px dashed var(--color-border-strong); border-radius: 6px; padding: 1px 6px; }
+  .vs-btn { border: 1px solid var(--color-border-strong); background: var(--color-card); border-radius: 6px; padding: 4px 10px; cursor: pointer; font: inherit; font-size: 12.5px; }
+  .vs-btn:focus-visible, summary:focus-visible { outline: 2px solid var(--edv-orange); outline-offset: 2px; }
+  details summary { cursor: pointer; font-size: 12px; color: var(--color-text-muted); }
+</style>
+</head>
+<body>
+<a class="edv-skip" href="#main">Skip to content</a>
+<div id="__shell" data-section="operations" data-current="value-scoreboard"></div>
+<main id="main" class="vs-wrap">
+  <div class="vs-card">
+    <h1 id="vsTitle">Value scoreboard</h1>
+    <p class="vs-muted" id="vsIntro"></p>
+    <p class="vs-muted" id="vsMeta" aria-live="polite"></p>
+  </div>
+  <div class="vs-card"><h2 id="vsMetricsH"></h2><div id="vsMetrics"></div></div>
+  <div class="vs-card"><h2 id="vsRollH"></h2><p class="vs-muted" id="vsRollIntro"></p><div id="vsSnap"></div><div id="vsRoll"></div></div>
+</main>
+<script nonce="%%CSP_NONCE%%" src="lib/value-scoreboard-page.js"></script>
+</body>
+</html>
