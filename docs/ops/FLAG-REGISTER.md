@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (260) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (262) — services/reportConfig.js DEFAULTS
 
 Prerequisites (E-A07, services/switchPrereqs.js) are WARNINGS in plain words, never approvals: the config PUT
 answer and the `set-ui-policy.js` dry run repeat them when the switch is moved to its switched-on value.
@@ -100,6 +100,8 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `exec_view_change_formula` | `status` | setting | KPI committee (D-01) | `deck` | A-08 | — |
 | `exec_view_lang` | `en` | setting | to be named | — | — | — |
 | `exec_view_mi_detail` | `full` | setting | Owner (reverses the 2026-07-02 "option a") | `summarized_only` | A-08 | — |
+| `export_policy_strict` | `0` | setting | Data owner + Security | `1` once the data owner + security adopt the strict sensitivity matrix of `services/exportPolicy.js` (PROPOSED: viewer refused on the PV / pre-brief / action-register exports, fleet risk register admin tier only, amounts in every export for the admin tier + finance-viewer only — ends the portfolio committee-member exception). Rollback: `0` | P9-B7 | — |
+| `export_watermark_enabled` | `0` | arm switch | Security | `1` with the strict policy (user + UTC timestamp on CSV / HTML / XLSX / PPTX; PDF and JSON carry it as a header only). Rollback: `0` | P9-B7 | — |
 | `field_outbox_resolve_enabled` | `0` | arm switch | PO + site IT | `0` until the real-device sessions (E-F04, audit F-01) show how often field entries get stuck — otherwise an admin repair becomes the normal path (X-§7-01); then `1` (admin tier may `mark_rejected` or `release` a stuck entry; a ticket / action is released only after checking SDP, with a reason; every resolution is a risk row in System Logs; nothing is applied server-side). The read-only list `GET /api/field/admin/outbox` has no switch | E-F01 | Real-device field sessions (E-F04) must first show how often entries get stuck. |
 | `field_photo_max_kb` | `300` | setting | to be named | — | — | — |
 | `field_review_step` | `0` | setting | PO / adoption lead | `1` on the pilot site after one session shows it does not slow the technician (a one-screen summary — site, items, findings, photos, offline note — before an inspection is queued; « Corriger » queues nothing) | E-F03 | — |
