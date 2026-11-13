@@ -26,7 +26,7 @@ Shared rules: `$S/ppack-preamble.md`. Pack: `$S/prompt-pack.md`. Assessment: `$S
 | p03-switch-lots | running | — | — |
 | p04-ppm-cert | running | — | — |
 | p05-perf | running | — | must drop only its own DB |
-| p06-monolith | running | — | owns server.js / reports-db.js; merge LAST among code lots; CLAUDE.md split is a proposal only |
+| p06-monolith | DONE | 8a8906d | assets (42 routes) + backup schedule (3) extracted; systemLog/rateLimit stores; named guard (3 backup rows now super_admin in matrix); server.js budget 5817; merge LAST; CLAUDE.md split = proposal only |
 | p07-security | DONE | 5549dd6 | no P0; `_shell.js` logout inline onclick fixed; 46 pages PROPOSED for `csp_strict_pages` (default stays ''); session-security smoke tests |
 | p08-kpi | DONE | 6c0ce4c | KPI dossiers + parity test + unknown-sweep ratchet (after merges run `node tools/kpi/unknown-sweep.js --write` + review); regenerate METRIC-LINEAGE/METRIC-WIDGET-MAP |
 | p09-adoption | DONE | 618975b | 2 red static checks fixed (i18n project.html, colour budget); page inventory (63 pages), PROFILE-TASKS + 2 e2e journeys, pilot runbook S1–S10, training pages; recommend a static-suite merge gate |
