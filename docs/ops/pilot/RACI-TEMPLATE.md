@@ -6,7 +6,7 @@ data-steward and decision-SLA cell below is deliberately empty**: no name, no de
 the delivery team or an agent. R = responsible, A = accountable (one per row), C = consulted, I = informed.
 
 Sources: the product domains (below), 14 connectors from `docs/sdp360/completion/CONNECTOR-REGISTER.csv`, and
-**193 switches whose owner is "to be named"** in `docs/ops/FLAG-REGISTER.md`, grouped into 77 areas.
+**200 switches whose owner is "to be named"** in `docs/ops/FLAG-REGISTER.md`, grouped into 78 areas.
 
 ## 1. Product domains
 
@@ -41,7 +41,7 @@ Sources: the product domains (below), 14 connectors from `docs/sdp360/completion
 | C13 | Defender, AD and Entra device exports | ACTIVE (manual) | Infrastructure owner | | | | | | |
 | C14 | Microsoft Graph — Entra leaver check (users/{id} accountEnabled) | DORMANT (entra_deprovision_enabled 0; needs User.Read.All application consent — human gate 2) | Information Security | | | | | | |
 
-## 3. Switches with no owner yet — 193, by area
+## 3. Switches with no owner yet — 200, by area
 
 | Area | Switches | Count | R | A | C | I | Data steward | Decision SLA |
 |---|---|---|---|---|---|---|---|---|
@@ -105,6 +105,7 @@ Sources: the product domains (below), 14 connectors from `docs/sdp360/completion
 | report_config keys · opm | `opm_availability_view_id` `opm_monitor_patterns` `opm_stale_days` `opm_targets` | 4 | | | | | | |
 | report_config keys · opmanager | `opmanager_api_key` `opmanager_base_url` `opmanager_ca_bundle` `opmanager_tls_insecure` | 4 | | | | | | |
 | report_config keys · outbound | `outbound_allow_hosts` | 1 | | | | | | |
+| report_config keys · ppm | `ppm_azdo_org_url` `ppm_azdo_pat` `ppm_azdo_project` `ppm_jira_api_token` `ppm_jira_base_url` `ppm_jira_user` `ppm_mpp_converter_cmd` | 7 | | | | | | |
 | report_config keys · public | `public_base_url` | 1 | | | | | | |
 | report_config keys · publish | `publish_cron_enabled` `publish_excel_recipients` `publish_metric_keys` `publish_webhook_url` | 4 | | | | | | |
 | report_config keys · reconcile | `reconcile_recent_days` | 1 | | | | | | |
