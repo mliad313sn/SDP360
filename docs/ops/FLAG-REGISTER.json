@@ -12,12 +12,12 @@
   "expiry"
  ],
  "counts": {
-  "report_config": 265,
+  "report_config": 270,
   "planned": 9,
   "governance_policies": 37,
   "environment": 62,
   "pseudo": 4,
-  "dark": 131,
+  "dark": 136,
   "dark_complete": 0
  },
  "frozen_lots_source": "CLAUDE.md (tools/deploy/frozen-lots.json absent on this branch)",
@@ -1679,6 +1679,18 @@
    "prerequisites": null
   },
   {
+   "key": "ppm_agile_board_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": "PMO",
+   "recommended": "`1` once the PMO wants a board view: a Board tab on the project page with the work packages (leaf tasks) in status columns; a move (drag or \"Move to\") is the existing task update with its row version — refused 409 when someone saved in between, and refused by the server when the person may not edit that task",
+   "reference": "W4 (PPM parity)",
+   "prerequisites": null
+  },
+  {
    "key": "ppm_alert_blocked_days",
    "source": "report_config",
    "kind": "setting",
@@ -1787,6 +1799,18 @@
    "prerequisites": null
   },
   {
+   "key": "ppm_comments_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": "PMO",
+   "recommended": "`1` once the PMO wants discussion on projects and tasks: append-only comments (never edited or deleted — a correction is a new comment) by anyone who may read the project except a client project role; `@username` notifies in-app only the mentioned people who may read the project (others reach nobody and the author is told \"unresolved\" without the reason); nothing is notified while `notifications_stop` = `1`. Who may comment (PROPOSED: every reader) is a PMO decision",
+   "reference": "W4 (PPM parity)",
+   "prerequisites": null
+  },
+  {
    "key": "ppm_cr_simulation_enabled",
    "source": "report_config",
    "kind": "arm switch",
@@ -1835,6 +1859,30 @@
    "prerequisites": null
   },
   {
+   "key": "ppm_offline_edit_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": "PMO",
+   "recommended": "`1` on a canary project team once a field test is planned: task / milestone edits made on the project page without a connection are kept on the device (IndexedDB, in order), replayed when the connection is back with their row version; a change saved by someone else on the same field opens a merge screen (keep mine / keep theirs per field), a change on other fields is re-applied automatically; a refused edit stays visible until discarded. Field acceptance (T8: 50 offline edits, zero loss) is a human test",
+   "reference": "W4 (PPM parity)",
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_project_roles_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": "PMO",
+   "recommended": "`1` with `ppm_project_team_enabled` once the PMO decides who holds which PROJECT role (PROPOSED matrix, services/ppm/projectRoles.js): a team member linked to an account may be **pm** (the whole plan of that project, team, time, RACI, change requests), **scheduler** (tasks, milestones, time), **resource manager** (team, time; on a task only owner / allocation / effort), **contributor** (progress fields and time on a task they own) or **client** (reads the project, never writes, never an amount — even with the money role). A role replaces the default plan-write rule for that user on that project and opens reading it; the committee and the admin tier are unchanged; the money rule is never widened. Roles are assigned by the committee or the project's pm, each change is a `ppm_events` row",
+   "reference": "W4 (PPM parity)",
+   "prerequisites": null
+  },
+  {
    "key": "ppm_project_team_enabled",
    "source": "report_config",
    "kind": "arm switch",
@@ -1868,6 +1916,18 @@
    "owner_role": "Committee",
    "recommended": "`1`",
    "reference": "A-27",
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_roadmap_nnl_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": "PMO",
+   "recommended": "`1` once the PMO wants a Now / Next / Later roadmap on the portfolio (a pure grouping of the projects the reader already sees: in delivery or started = now, starting within 90 days = next, later, and \"not scheduled\" for projects without a start date — never guessed). Nothing is written",
+   "reference": "W4 (PPM parity)",
    "prerequisites": null
   },
   {
@@ -6266,6 +6326,34 @@
    ]
   },
   {
+   "key": "ppm_agile_board_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": "PMO",
+   "reference": "W4 (PPM parity)",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
    "key": "ppm_alerts_enabled",
    "source": "report_config",
    "default": "0",
@@ -6434,6 +6522,34 @@
    ]
   },
   {
+   "key": "ppm_comments_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": "PMO",
+   "reference": "W4 (PPM parity)",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
    "key": "ppm_cr_simulation_enabled",
    "source": "report_config",
    "default": "0",
@@ -6518,6 +6634,62 @@
    ]
   },
   {
+   "key": "ppm_offline_edit_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": "PMO",
+   "reference": "W4 (PPM parity)",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
+   "key": "ppm_project_roles_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": "PMO",
+   "reference": "W4 (PPM parity)",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
    "key": "ppm_project_team_enabled",
    "source": "report_config",
    "default": "0",
@@ -6579,6 +6751,34 @@
    "default": "0",
    "owner_role": "Committee",
    "reference": "A-27",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
+   "key": "ppm_roadmap_nnl_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": "PMO",
+   "reference": "W4 (PPM parity)",
    "prerequisites": null,
    "decision": {
     "owner": null,

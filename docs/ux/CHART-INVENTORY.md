@@ -7,7 +7,7 @@ records a per-page budget for hex literals, dual axes and doughnuts: those can o
 The "substitution to consider" column is a **proposal** worded from the audit's measure → chart matrix (§5.2).
 Choosing and approving a substitution is a person's decision after a browser review; nothing here is decided.
 
-Files scanned: **125** · inline <style> blocks: **57** · hex literals: **5580** · `new Chart(` call sites: **44** · dual axes (`yAxisID`): **27** · doughnut/pie: **29**
+Files scanned: **129** · inline <style> blocks: **57** · hex literals: **5589** · `new Chart(` call sites: **44** · dual axes (`yAxisID`): **27** · doughnut/pie: **29**
 
 | File | Bytes | <style> | Hex | new Chart( | Chart types | Dual axis | Doughnut/pie | chartTheme.js | ChartTable | pageStates.js | Substitution to consider |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -57,8 +57,8 @@ Files scanned: **125** · inline <style> blocks: **57** · hex literals: **5580*
 | `public/notifications.html` | 11179 | 1 | 41 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/obligations.html` | 3741 | 1 | 13 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/policies.html` | 25419 | 1 | 15 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/portfolio.html` | 44163 | 1 | 74 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/project.html` | 84025 | 1 | 79 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/portfolio.html` | 44981 | 1 | 75 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/project.html` | 87590 | 1 | 87 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/report-studio.html` | 18084 | 1 | 42 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/reports.html` | 546026 | 1 | 817 | 2 | bar×2 | 0 | 0 | yes | — | — | chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/rfi.html` | 12560 | 1 | 40 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
@@ -113,7 +113,11 @@ Files scanned: **125** · inline <style> blocks: **57** · hex literals: **5580*
 | `public/lib/policiesRoles.js` | 16086 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/portfolioMine.js` | 2023 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/portfolioViews.js` | 3669 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/ppmBoard.js` | 5556 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/ppmCollabUi.js` | 16333 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmExtras.js` | 8858 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/ppmOfflineQueue.js` | 7926 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/ppmRoadmapNnl.js` | 3911 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmVisuals.js` | 23603 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmWorkbench.js` | 24791 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/reasonDialog.js` | 6938 | 0 | 10 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
