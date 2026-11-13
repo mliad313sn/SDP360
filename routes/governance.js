@@ -646,12 +646,15 @@ module.exports = function governanceRoutes(deps) {
       // R2-WB-04 — team switch on: a task of unknown allocation reads its owner's member allocation (none = today)
       const members = String((await reportConfig.getConfig(rdb().db)).ppm_project_team_enabled) === '1' ? await wbStore().listMembers(p.id) : [];
       const bens = (d.benefits || []).map((b) => BEN.visibleBenefit(b, { money, asOf: new Date().toISOString(), classes: clsOn }));
+      // B4 — "plan updated X days ago": latest of the ledger and the plan rows; null = unknown (never 0)
+      const FR = require('../services/ppm/planFreshness');
+      const fresh = FR.freshness((await FR.planUpdatedAt(rdb().pgHandle(), [p.id]))[p.id], new Date().toISOString());
       res.json({ ok: true, committee: !!isCommittee(u), can_gate: !!isCommittee(u), can_edit_plan: PA.canEditPlan(u, p, pctx), can_see_history: !!money, money_hidden: !money,
         project, objective: d.objective, extra_sites: d.extra_sites, tasks: d.tasks, milestones: d.milestones, deliverables: d.deliverables, risks: d.risks.map(PE.riskView),
         benefits: bens, ...(clsOn ? { benefit_totals: BEN.benefitTotals(bens), benefit_classes: { value_classes: BEN.VALUE_CLASSES, bases: BEN.BASES, source_kinds: BEN.SOURCE_KINDS } } : {}), me: Number(u.id),
         ...(mvRole ? { money_verifier_role: mvRole, holds_money_verifier_role: holdsExactly(u, mvRole) } : {}),   // F-PRODUCT-04: who may verify a money benefit
         plan: SCH.scheduleView(d.tasks, { anchor: p.start_date || null, deadline: p.finish_deadline || null }), variance: SCH.varianceOf(p), resource_conflicts: SCH.resourceConflicts(d.tasks, members), resource_coverage: SCH.resourceCoverage(d.tasks, members),
-        stages: SCH.STAGES, allowed_stages, gate_counts: d.gate_ctx, risk_kinds: store.RISK_KINDS, as_of: new Date().toISOString() });
+        stages: SCH.STAGES, allowed_stages, gate_counts: d.gate_ctx, risk_kinds: store.RISK_KINDS, plan_freshness: fresh, as_of: new Date().toISOString() });
     } catch (e) { fail(res, e); }
   });
   // ---- B-08 benefits: realised value (evidence link) + independent verification (catalogue A09) ------------------
@@ -715,13 +718,16 @@ module.exports = function governanceRoutes(deps) {
   async function exceptionsFor(v) {
     const cfg = await reportConfig.getConfig(rdb().db);
     const num = (x, d) => (Number.isFinite(Number(x)) && String(x).trim() !== '' ? Number(x) : d);
+    // B4 — stale-plan rule only with stale_plan_days set ('' = off = today); the update dates come from the ledger + plan rows
+    const staleDays = num(cfg.stale_plan_days, null);
+    const planUpdated = staleDays != null ? await require('../services/ppm/planFreshness').planUpdatedAt(rdb().pgHandle(), (v.projects || []).map((p) => p.id)) : null;
     return PX.findExceptions(v, { today: new Date().toISOString().slice(0, 10), blockedDays: num(cfg.ppm_alert_blocked_days, 5), slipDays: num(cfg.ppm_alert_slip_days, 10),
-      capacity: require('../services/projectSchedule').resourceConflicts(v.tasks || []) });   // F-PRODUCT-02: same list as the tile and the workbook
+      capacity: require('../services/projectSchedule').resourceConflicts(v.tasks || []), staleDays, planUpdated });   // F-PRODUCT-02: same list as the tile and the workbook
   }
   router.get('/api/governance/portfolio/exceptions', requireReportSession, async (req, res) => {
     try { const { v } = await viewFor(req.reportUser); const items = await exceptionsFor(v);
       const cfg = await reportConfig.getConfig(rdb().db);
-      res.json({ ok: true, alerts_armed: String(cfg.ppm_alerts_enabled) === '1', thresholds: { blocked_days: Number(cfg.ppm_alert_blocked_days), slip_days: Number(cfg.ppm_alert_slip_days) }, items, as_of: new Date().toISOString() }); } catch (e) { fail(res, e); }
+      res.json({ ok: true, alerts_armed: String(cfg.ppm_alerts_enabled) === '1', thresholds: { blocked_days: Number(cfg.ppm_alert_blocked_days), slip_days: Number(cfg.ppm_alert_slip_days), stale_plan_days: String(cfg.stale_plan_days || '').trim() === '' ? null : Number(cfg.stale_plan_days) }, items, as_of: new Date().toISOString() }); } catch (e) { fail(res, e); }
   });
   /** The deck / workbook data: the readable portfolio, money stripped unless canSeeMoney, + baselines and exceptions. */
   async function exportData(u) {

@@ -14,6 +14,15 @@
 //                                      never approves or rejects (403 SELF_REVIEW); withdraw = author or committee; apply
 //                                      with a dates impact = the committee re-baseline (ppm_rebaseline_enabled, else 409).
 //                                      impact_budget / currency only under the money-read rule.
+//   B5 ppm_timesheet_approval_enabled (with ppm_time_entries_enabled) GET /api/governance/ppm/project/:id/timesheets
+//                                      POST …/timesheets/{submit,recall,approve,reject} {week_start, person_key, note}
+//                                      every step = the plan-write rule; approve / reject never by a person who entered or
+//                                      submitted the hours (403 SELF_REVIEW); a submitted / approved week freezes its time
+//                                      entries (POST/DELETE …/task/:id/time → 409 WEEK_FROZEN).
+//   B5 ppm_cr_simulation_enabled (with ppm_change_requests_enabled) POST …/changes accepts task_changes and simulates;
+//                                      POST …/changes/:cid/simulate (plan-write rule) re-runs it; assess / approve re-run it
+//                                      first; apply moves the baseline by the typed dates impact, else the simulated one.
+//                                      The cost part of a simulation is shown under the money-read rule only.
 //   R2-WB-06 roadmap_publication_enabled POST /api/governance/roadmap-migration (routes/governance.js) gains the
 //                                      duplicates report + refusal + a ppm_events 'roadmap_migrated' row, and here:
 //                                      GET  /api/governance/roadmap-publication           state (super_admin)
@@ -102,7 +111,7 @@ module.exports = function governanceWorkbenchRoutes(router, h) {
       if (!(await timeOn(res))) return;
       const t = await readableTask(req.reportUser, req.params.id); if (!t) return notFound(res);
       if (await refusePlanWrite(req, res, 'task', { id: t.task_id })) return;
-      const e = await wb().addTimeEntry(t.task_id, t.project.id, req.body || {}, { user: req.reportUser });
+      const e = await wb().addTimeEntry(t.task_id, t.project.id, req.body || {}, { user: req.reportUser, timesheetLock: on(await cfg(), 'ppm_timesheet_approval_enabled') });
       log(req, 'time_entry_added', `task:${t.task_id}`, { hours: e.hours, day: e.day });
       res.json({ ok: true, entry: e, entries: await wb().listTimeEntries(t.task_id) });
     } catch (e) { fail(res, e); }
@@ -112,7 +121,7 @@ module.exports = function governanceWorkbenchRoutes(router, h) {
       if (!(await timeOn(res))) return;
       const t = await readableTask(req.reportUser, req.params.id); if (!t) return notFound(res);
       if (await refusePlanWrite(req, res, 'task', { id: t.task_id })) return;
-      await wb().removeTimeEntry(t.task_id, req.params.eid, t.project.id, { user: req.reportUser });
+      await wb().removeTimeEntry(t.task_id, req.params.eid, t.project.id, { user: req.reportUser, timesheetLock: on(await cfg(), 'ppm_timesheet_approval_enabled') });
       log(req, 'time_entry_removed', `task:${t.task_id}`, { entry: Number(req.params.eid) });
       res.json({ ok: true, entries: await wb().listTimeEntries(t.task_id) });
     } catch (e) { fail(res, e); }
@@ -126,14 +135,42 @@ module.exports = function governanceWorkbenchRoutes(router, h) {
     } catch (e) { fail(res, e); }
   });
 
+  // ---- B5 timesheet weeks (submit → approve / reject by another person; approved weeks frozen) --------------------
+  const tsOn = async (res) => { const c = await cfg(); if (!on(c, 'ppm_time_entries_enabled') || !on(c, 'ppm_timesheet_approval_enabled')) { notFound(res); return false; } return true; };
+  router.get('/api/governance/ppm/project/:id/timesheets', requireReportSession, async (req, res) => {
+    try {
+      if (!(await tsOn(res))) return;
+      const p = await readableProject(req.reportUser, req.params.id); if (!p) return notFound(res);
+      const weeks = (await wb().timesheetView(p.id)).map(({ entrants, ...w }) => ({ ...w, i_entered: entrants.includes(Number(req.reportUser.id)) || Number(w.submitted_by) === Number(req.reportUser.id) }));
+      res.json({ ok: true, me: Number(req.reportUser.id), weeks });
+    } catch (e) { fail(res, e); }
+  });
+  router.post('/api/governance/ppm/project/:id/timesheets/:action', requireReportSession, json, async (req, res) => {
+    try {
+      if (!(await tsOn(res))) return;
+      const p = await readableProject(req.reportUser, req.params.id); if (!p) return notFound(res);
+      if (await refusePlanWrite(req, res, 'task', { body: { project_id: p.id } })) return;
+      const b = req.body || {};
+      const w = await wb().transitionTimesheet(p.id, b, String(req.params.action), { user: req.reportUser, canPlanWrite: true, canDecide: true, note: b.note });
+      log(req, `timesheet_${w.status}`, `project:${p.id}`, { person_key: w.person_key, week_start: w.week_start });
+      const { entrants, ...week } = w;
+      res.json({ ok: true, week });
+    } catch (e) { fail(res, e); }
+  });
+
   // ---- R2-WB-01 change requests --------------------------------------------------------------------------------
   const crOn = async (res) => { if (!on(await cfg(), 'ppm_change_requests_enabled')) { notFound(res); return false; } return true; };
-  const crView = (u) => (cr) => (canSeeMoney(u) ? cr : { ...cr, impact_budget: undefined, currency: undefined, money_hidden: true });
+  const crView = (u) => (cr) => {
+    if (canSeeMoney(u)) return cr;
+    const sim = cr.simulation ? { ...cr.simulation, cost: cr.simulation.cost ? { money_hidden: true } : cr.simulation.cost } : cr.simulation;
+    return { ...cr, impact_budget: undefined, currency: undefined, simulation: sim, money_hidden: true };
+  };
+  const simOn = (c) => on(c, 'ppm_cr_simulation_enabled');
   router.get('/api/governance/ppm/project/:id/changes', requireReportSession, async (req, res) => {
     try {
       if (!(await crOn(res))) return;
       const p = await readableProject(req.reportUser, req.params.id); if (!p) return notFound(res);
-      res.json({ ok: true, committee: !!isCommittee(req.reportUser), me: Number(req.reportUser.id), money_hidden: !canSeeMoney(req.reportUser), changes: (await wb().listChangeRequests(p.id)).map(crView(req.reportUser)) });
+      res.json({ ok: true, committee: !!isCommittee(req.reportUser), me: Number(req.reportUser.id), money_hidden: !canSeeMoney(req.reportUser), simulation: simOn(await cfg()), changes: (await wb().listChangeRequests(p.id)).map(crView(req.reportUser)) });
     } catch (e) { fail(res, e); }
   });
   router.post('/api/governance/ppm/project/:id/changes', requireReportSession, json, async (req, res) => {
@@ -143,8 +180,30 @@ module.exports = function governanceWorkbenchRoutes(router, h) {
       if (await refusePlanWrite(req, res, 'task', { body: { project_id: p.id } })) return;
       const b = req.body || {};
       if (!canSeeMoney(req.reportUser) && b.impact_budget != null && b.impact_budget !== '') return httpFail(res, Object.assign(new Error('a money impact is entered by the committee, the admin tier or the finance role'), { reason: 'MONEY_SCOPE' }), 403, { ok: false, code: 'MONEY_SCOPE' });
-      const cr = await wb().createChangeRequest(p.id, b, { user: req.reportUser });
-      log(req, 'change_request_proposed', `project:${p.id}`, { cr: cr.id });
+      // B5 — task changes are accepted (and simulated at once) only while ppm_cr_simulation_enabled is on
+      const sim = simOn(await cfg());
+      let taskChanges = null;
+      if (b.task_changes != null && b.task_changes !== '' && !(Array.isArray(b.task_changes) && !b.task_changes.length)) {
+        if (!sim) return httpFail(res, Object.assign(new Error('task changes need the change-request simulation (ppm_cr_simulation_enabled)'), { reason: 'SIMULATION_OFF' }), 409, { ok: false, code: 'SIMULATION_OFF' });
+        const d = await store.projectDetail(p.id);
+        taskChanges = require('../services/ppm/crSimulation').normaliseTaskChanges(b.task_changes, (d.tasks || []).map((t) => t.id));
+      }
+      let cr = await wb().createChangeRequest(p.id, b, { user: req.reportUser, taskChanges });
+      if (taskChanges && taskChanges.length) { await wb().simulateChangeRequest(cr.id, { user: req.reportUser }); cr = await wb().getChangeRequest(cr.id); }
+      log(req, 'change_request_proposed', `project:${p.id}`, { cr: cr.id, task_changes: taskChanges ? taskChanges.length : 0 });
+      res.json({ ok: true, change: crView(req.reportUser)(cr) });
+    } catch (e) { fail(res, e); }
+  });
+  router.post('/api/governance/ppm/project/:id/changes/:cid/simulate', requireReportSession, json, async (req, res) => {
+    try {
+      if (!(await crOn(res))) return;
+      if (!simOn(await cfg())) return notFound(res);
+      const p = await readableProject(req.reportUser, req.params.id); if (!p) return notFound(res);
+      if (await refusePlanWrite(req, res, 'task', { body: { project_id: p.id } })) return;
+      const cr0 = await wb().getChangeRequest(req.params.cid); if (!cr0 || cr0.project_id !== Number(p.id)) return notFound(res);
+      await wb().simulateChangeRequest(cr0.id, { user: req.reportUser });
+      const cr = await wb().getChangeRequest(cr0.id);
+      log(req, 'change_request_simulated', `project:${p.id}`, { cr: cr.id, ok: !!(cr.simulation && cr.simulation.ok) });
       res.json({ ok: true, change: crView(req.reportUser)(cr) });
     } catch (e) { fail(res, e); }
   });
@@ -153,7 +212,7 @@ module.exports = function governanceWorkbenchRoutes(router, h) {
       if (!(await crOn(res))) return;
       const p = await readableProject(req.reportUser, req.params.id); if (!p) return notFound(res);
       const c = await cfg();
-      const cr = await wb().transitionChangeRequest(p.id, req.params.cid, String(req.params.action), { user: req.reportUser, isCommittee: !!isCommittee(req.reportUser), note: req.body && req.body.note, rebaselineEnabled: on(c, 'ppm_rebaseline_enabled') });
+      const cr = await wb().transitionChangeRequest(p.id, req.params.cid, String(req.params.action), { user: req.reportUser, isCommittee: !!isCommittee(req.reportUser), note: req.body && req.body.note, rebaselineEnabled: on(c, 'ppm_rebaseline_enabled'), simulation: simOn(c) });
       log(req, `change_request_${cr.status}`, `project:${p.id}`, { cr: cr.id, baseline_version: cr.applied_baseline_version });
       res.json({ ok: true, change: crView(req.reportUser)(cr) });
     } catch (e) { fail(res, e); }

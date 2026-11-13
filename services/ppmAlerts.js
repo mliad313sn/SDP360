@@ -15,9 +15,13 @@
 //                      gateLeadDays: a project in proposal / approval whose start_date is near (the approval gate must be
 //                      passed before it starts), an in_progress project whose end_date is near (the closure gate).
 //                      There is no funding-review or renewal date in the schema — those are not raised.
+//   stale_plan         (B4, only with staleDays set — config stale_plan_days, '' = off = today) an in_progress project
+//                      whose plan was last updated (services/ppm/planFreshness: ledger + plan rows) more than staleDays
+//                      ago. The update dates are passed in `planUpdated` ({project_id: iso}); an UNKNOWN date (no row,
+//                      no event) is never stale — the rule says nothing rather than guess.
 const { varianceOf } = require('./projectSchedule');
 
-const KINDS = ['task_overdue', 'task_blocked', 'unowned_task', 'unowned_milestone', 'milestone_overdue', 'dependency_blocked', 'baseline_slip', 'capacity_overload', 'gate_approaching'];
+const KINDS = ['task_overdue', 'task_blocked', 'unowned_task', 'unowned_milestone', 'milestone_overdue', 'dependency_blocked', 'baseline_slip', 'capacity_overload', 'gate_approaching', 'stale_plan'];
 const DONE = ['done', 'cancelled'];
 const _iso = (v) => {
   if (v == null || v === '') return null;
@@ -27,7 +31,7 @@ const _iso = (v) => {
 const _ms = (d) => Date.parse(d + 'T00:00:00Z');
 const _blank = (v) => v == null || String(v).trim() === '';
 
-function findExceptions(view, { today, blockedDays = 5, slipDays = 10, capacity = null, gateLeadDays = null } = {}) {
+function findExceptions(view, { today, blockedDays = 5, slipDays = 10, capacity = null, gateLeadDays = null, staleDays = null, planUpdated = null } = {}) {
   const T = _iso(today); if (!T) throw new Error('findExceptions needs today (YYYY-MM-DD)');
   const v = view || {};
   const projects = new Map((v.projects || []).map((p) => [Number(p.id), p]));
@@ -74,6 +78,14 @@ function findExceptions(view, { today, blockedDays = 5, slipDays = 10, capacity 
     if (!gate || !gate.date || gate.date < T) continue;   // no date = nothing to remind; a past date is A11's business
     const inDays = Math.round((_ms(gate.date) - _ms(T)) / 86400000);
     if (inDays <= lead) add('gate_approaching', 'project', `${Number(p.id)}:${stage}:${gate.date}`, p, p.owner, `${p.key || '#' + p.id} ${p.name || ''}: stage gate ${gate.name} due ${gate.date} (in ${inDays} d)`.replace(/\s+/g, ' '), gate.date);
+  }
+  const stale = staleDays == null || String(staleDays).trim() === '' || !Number.isFinite(Number(staleDays)) || Number(staleDays) < 1 ? null : Number(staleDays);
+  if (stale != null && planUpdated) for (const p of projects.values()) {
+    if (!live(p) || p.stage !== 'in_progress') continue;
+    const at = planUpdated[p.id] != null ? planUpdated[p.id] : planUpdated[String(p.id)];
+    const last = _iso(at); if (!last) continue;              // unknown = never stale
+    const age = Math.floor((_ms(T) - _ms(last)) / 86400000);
+    if (age > stale) add('stale_plan', 'project', `${Number(p.id)}:${last}`, p, p.owner, `${p.key || '#' + p.id} ${p.name || ''}: plan not updated for ${age} d (last update ${last})`.replace(/\s+/g, ' '), last);
   }
   if (Array.isArray(capacity)) for (const c of capacity) {
     const who = String(c.owner || '').trim(); if (!who) continue;
