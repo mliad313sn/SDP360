@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (253) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (256) — services/reportConfig.js DEFAULTS
 
 Prerequisites (E-A07, services/switchPrereqs.js) are WARNINGS in plain words, never approvals: the config PUT
 answer and the `set-ui-policy.js` dry run repeat them when the switch is moved to its switched-on value.

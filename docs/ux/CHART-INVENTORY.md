@@ -7,7 +7,7 @@ records a per-page budget for hex literals, dual axes and doughnuts: those can o
 The "substitution to consider" column is a **proposal** worded from the audit's measure → chart matrix (§5.2).
 Choosing and approving a substitution is a person's decision after a browser review; nothing here is decided.
 
-Files scanned: **120** · inline <style> blocks: **56** · hex literals: **5576** · `new Chart(` call sites: **44** · dual axes (`yAxisID`): **27** · doughnut/pie: **29**
+Files scanned: **121** · inline <style> blocks: **56** · hex literals: **5576** · `new Chart(` call sites: **44** · dual axes (`yAxisID`): **27** · doughnut/pie: **29**
 
 | File | Bytes | <style> | Hex | new Chart( | Chart types | Dual axis | Doughnut/pie | chartTheme.js | ChartTable | pageStates.js | Substitution to consider |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -57,7 +57,7 @@ Files scanned: **120** · inline <style> blocks: **56** · hex literals: **5576*
 | `public/notifications.html` | 11179 | 1 | 41 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/obligations.html` | 3741 | 1 | 13 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/policies.html` | 25419 | 1 | 15 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/portfolio.html` | 36641 | 1 | 74 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/portfolio.html` | 44163 | 1 | 74 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/project.html` | 82834 | 1 | 79 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/report-studio.html` | 18084 | 1 | 42 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/reports.html` | 546026 | 1 | 817 | 2 | bar×2 | 0 | 0 | yes | — | — | chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
@@ -108,6 +108,7 @@ Files scanned: **120** · inline <style> blocks: **56** · hex literals: **5576*
 | `public/lib/pageView.js` | 764 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/parse-actions-csv.js` | 8439 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/policiesRoles.js` | 16086 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/portfolioMine.js` | 2023 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/portfolioViews.js` | 3669 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmExtras.js` | 8858 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmVisuals.js` | 23603 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
