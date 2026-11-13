@@ -1,0 +1,38 @@
+/* W3-GOVERNANCE — simplified project view, gate checklist, RAID log, DCMA, report links and the paginated schedule print.
+   Loaded by project.html; every rule is scoped to a w3- class/id or to body.w3-* so nothing else changes. */
+body.w3-simple #tabs, body.w3-simple main > section[role=tabpanel] { display:none !important; }
+#w3-simple .w3-cards { display:grid; grid-template-columns:repeat(auto-fit,minmax(170px,1fr)); gap:10px; margin-bottom:12px; }
+#w3-simple .w3-card { background:#fff; border:1px solid #e4e8ee; border-radius:12px; padding:10px 12px; }
+#w3-simple .w3-card .v { font-size:20px; font-weight:700; color:#3A4A60; } #w3-simple .w3-card .l { font-size:12px; color:#6b7785; }
+.w3-rag { display:inline-block; padding:2px 10px; border-radius:999px; color:#fff; font-weight:700; font-size:12px; background:#6b7785; }
+.w3-rag.green { background:#1E7B45; } .w3-rag.amber { background:#B45309; } .w3-rag.red { background:#B91C1C; }
+.w3-strip { display:flex; gap:4px; margin:8px 0 12px; flex-wrap:wrap; }
+.w3-strip .ph { flex:1 1 140px; border:1px solid #e4e8ee; border-radius:8px; padding:6px 10px; background:#fff; font-size:12px; }
+.w3-strip .ph.done { background:#e3f1e8; } .w3-strip .ph.current { border:2px solid #3A4A60; font-weight:600; } .w3-strip .ph.upcoming { color:#6b7785; }
+.w3-mode { display:inline-flex; border:1px solid #cfd6e0; border-radius:8px; overflow:hidden; margin-left:8px; vertical-align:middle; }
+.w3-mode button { border:0; background:#fff; padding:5px 12px; font-size:12px; cursor:pointer; font-family:inherit; }
+.w3-mode button[aria-pressed=true] { background:#3A4A60; color:#fff; }
+.w3-ok { color:#1E7B45; } .w3-ko { color:#B91C1C; } .w3-na { color:#6b7785; }
+.w3-print-page { display:none; }
+@media print {
+  #__shell, .edv-skip, #msg, #w3-mode, #w3-print-bar, .tabs, .btn, button { display:none !important; }
+  .wrap { max-width:none; padding:0; }
+  .panel { border:0; break-inside:auto; }
+  /* "Print schedule": only the schedule panel, paginated into page-sized slices of the chart with the legend on each page */
+  body.w3-print-gantt main > *:not(#pane-plan):not(h1) { display:none !important; }
+  body.w3-print-gantt #pane-plan > .panel:not(:has(#gantt)) { display:none !important; }
+  body.w3-print-gantt #pane-plan { display:block !important; }
+  body.w3-print-gantt #pane-plan details, body.w3-print-gantt #plan-note + .muted, body.w3-print-gantt #pane-plan p.muted { display:none !important; }
+  body.w3-print-gantt.w3-sliced #gantt, body.w3-print-gantt.w3-sliced #gantt-legend { display:none !important; }
+  body.w3-print-gantt .w3-print-page { display:block; break-after:page; page-break-after:always; }
+  body.w3-print-gantt .w3-print-page:last-child { break-after:auto; page-break-after:auto; }
+  body.w3-print-gantt .w3-print-page svg { width:100%; height:auto; }
+  body.w3-print-gantt .w3-print-page .w3-pg { font-size:10px; color:#6b7785; text-align:right; }
+  /* W2 interactive Gantt (lib/ganttV2.css): every row painted, no scroll box, no toolbar */
+  body.w3-print-gantt .g2-tools, body.w3-print-gantt .g2-help { display:none !important; }
+  body.w3-print-gantt .g2-split { height:auto !important; overflow:visible !important; border:0; }
+  body.w3-print-gantt .g2-tl, body.w3-print-gantt .g2-gbody, body.w3-print-gantt .g2-grid { overflow:visible !important; }
+  body.w3-print-gantt .g2-row, body.w3-print-gantt .g2-bar { break-inside:avoid; }
+  body.w3-print-gantt .g2-thead { position:static; }
+  @page { size:A4 landscape; margin:10mm; }
+}

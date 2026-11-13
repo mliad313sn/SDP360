@@ -640,8 +640,21 @@ module.exports = function governanceRoutes(deps) {
       const id = await store.upsertPortfolio(kind, req.body, { user: req.reportUser, reason: req.body && req.body.reason, requireOwnerReason, allocUnspecified: cfgW.ppm_alloc_unspecified, warnings, currencyRequired: String(cfgW.finance_currency_required) === '1' }); log(req, 'portfolio_saved', `${kind}:${id}`); res.json({ ok: true, id, ...(warnings.length ? { warnings } : {}) });
     } catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.reason ? { code: e.reason } : {}) }); }
   });
+  /** W3-GOVERNANCE — the refusal of the target stage's checklist, or null (switch off / no checklist / complete / bad order). */
+  async function w3GateRefusal(cfg, projectId, to) {
+    if (String(cfg.ppm_gate_checklist_enabled) !== '1' || !Number.isInteger(Number(projectId))) return null;
+    const p = await store.getProject(projectId); if (!p) return null;
+    if (!((require('../services/projectSchedule').GATES[p.stage || 'proposal'] || []).includes(to))) return null;   // stageGate reports the order
+    const ev = await require('../services/ppm/governanceW3Store').makeW3Store(rdb().pgHandle(), store).evaluateGate(Number(projectId), to);
+    return ev.refusal || null;
+  }
   router.post('/api/governance/portfolio/project/:id/stage', requireReportSession, requireCommittee, json, async (req, res) => {
-    try { const cfg = await reportConfig.getConfig(rdb().db); const p = await store.moveProjectStage(req.params.id, String((req.body && req.body.to) || ''), { user: req.reportUser, note: req.body && req.body.note, captureBaseline: String(cfg.ppm_baseline_versions) === '1' }); log(req, 'project_stage', `project:${req.params.id}`, { to: p.stage }); res.json({ ok: true, project: { ...p, id: Number(p.id) } }); }
+    try { const cfg = await reportConfig.getConfig(rdb().db);
+      // W3-GOVERNANCE — ppm_gate_checklist_enabled: a defined checklist of the target stage must be complete (items +
+      // sign-offs); never moves the stage by itself ('0' = today: no check). services/ppm/gateChecklist
+      const gr = await w3GateRefusal(cfg, req.params.id, String((req.body && req.body.to) || ''));
+      if (gr) return httpFail(res, Object.assign(new Error(gr.error), { reason: gr.code }), 409, { ok: false, code: gr.code });
+      const p = await store.moveProjectStage(req.params.id, String((req.body && req.body.to) || ''), { user: req.reportUser, note: req.body && req.body.note, captureBaseline: String(cfg.ppm_baseline_versions) === '1' }); log(req, 'project_stage', `project:${req.params.id}`, { to: p.stage }); res.json({ ok: true, project: { ...p, id: Number(p.id) } }); }
     catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.reason ? { code: e.reason } : {}) }); }
   });
   // A-14 — one project for the project page (public/project.html): plan (scheduleView), RAID, and the next stages
@@ -659,6 +672,8 @@ module.exports = function governanceRoutes(deps) {
         // the reason is typed at the moment of the move: the dry run assumes one so the OTHER checks show
         return { to, needs_reason, refusal: SCH.stageGate(p, to, u, { ...d.gate_ctx, note: needs_reason ? 'reason given at the move' : undefined }) };
       });
+      const gcfg = await reportConfig.getConfig(rdb().db);   // W3-GOVERNANCE — the checklist refusal shows in the dry run too
+      for (const g of allowed_stages) if (!g.refusal) { const gr = await w3GateRefusal(gcfg, p.id, g.to); if (gr) g.refusal = gr; }
       const project = money ? p : { ...p, budget: undefined, spent: undefined };
       // F-PRODUCT-03 / F-DATA-09 — class view + totals per class only while the switch is on (never added across classes)
       const clsOn = String((await reportConfig.getConfig(rdb().db)).benefit_value_class_enabled) === '1';
