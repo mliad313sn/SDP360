@@ -37,7 +37,9 @@ function _schedLinks(v) {
   return JSON.stringify(a.filter((l) => l && Number.isFinite(Number(l.id))).map((l) => {
     const type = String(l.type || 'FS').toUpperCase(); const lag = l.lag == null || l.lag === '' ? 0 : Number(l.lag);
     if (!['FS', 'SS', 'FF', 'SF'].includes(type) || !Number.isFinite(lag)) throw Object.assign(new Error('a link type is FS | SS | FF | SF with a numeric lag'), { code: 'INVALID' });
-    return { id: Number(l.id), type, lag: Math.round(lag) };
+    // W2-ENGINE — lag unit: d (working days, default) | ed (elapsed days) | % (of the predecessor's duration)
+    const unit = require('./ppm/scheduleEngine').lagUnit(l.lag_unit);
+    return unit === 'd' ? { id: Number(l.id), type, lag: Math.round(lag) } : { id: Number(l.id), type, lag: unit === '%' ? Math.round(lag * 100) / 100 : Math.round(lag), lag_unit: unit };
   }));
 }
 const _day = (v) => { if (v == null || v === '') return null; const d = String(v).slice(0, 10); if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) throw Object.assign(new Error('effective dates must be YYYY-MM-DD'), { code: 'INVALID' }); return d; };

@@ -422,6 +422,19 @@ DEFAULTS.ppm_timesheet_approval_enabled = '0';
 //    typed dates impact, else by the simulated finish delta. Arming it is a PMO decision.
 DEFAULTS.ppm_cr_simulation_enabled = '0';
 
+// ── W2-ENGINE (PPM parity W2, migration 105) — PROPOSED, '0' = today (the routes answer 404, nothing is read or written).
+//    ppm_calendars_enabled '1' → project / task / resource calendars (work week, hours per day, base calendar, the site
+//    holiday calendar, working / non-working exceptions) drive the W2 schedule API; '0' = the engine's Mon–Fri default.
+//    ppm_resources_enabled '1' → the enterprise resource pool (work / material / cost), rate tables A–E with effective
+//    dates (committee, money rule), assignments with work contours, time-phased loads, over-allocations, costs.
+//    ppm_leveling_enabled '1' (needs ppm_resources_enabled) → a delay-only, priority-based levelling PROPOSAL with one
+//    explanation per moved task; nothing changes until a plan writer applies the proposal (fingerprint-checked).
+//    ppm_baseline_slots_enabled '1' → Baseline, Baseline1..10 and Interim1..10 snapshots of the scheduled plan, immutable
+//    once saved; they never move the A-27 approved baseline nor feed earned value.
+//    ppm_mspdi_enabled '1' → MS-Project XML (MSPDI) export, and import into an EMPTY project (dry run by default; apply =
+//    committee). A file format, not a connector. Arming any of these is a PMO decision.
+Object.assign(DEFAULTS, { ppm_calendars_enabled: '0', ppm_resources_enabled: '0', ppm_leveling_enabled: '0', ppm_baseline_slots_enabled: '0', ppm_mspdi_enabled: '0' });
+
 // ── SEC-01 — per-ACCOUNT login throttle (services/accountThrottle.js). '0' = today: only the per-IP limiter
 //    (10 attempts / 15 min per address). '1' → more than auth_account_throttle_max FAILED sign-ins against one
 //    account within auth_account_throttle_window_min answer 429 (password not even checked); a success clears it.
