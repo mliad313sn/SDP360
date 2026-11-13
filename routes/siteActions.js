@@ -26,8 +26,8 @@ module.exports = function siteActionsRoutes(deps) {
   router.get('/api/reports/site-actions/export.xlsx', requireReportSession, async (req, res) => {
     try {
       const code = String(req.query.site || '').trim();
-      if (!code || code === 'all' || !/^[A-Za-z0-9_-]{1,16}$/.test(code)) return res.status(400).json({ error: 'site code required' });
-      if (await siteCodeReadDenied(req.reportUser, code)) return res.status(403).json({ error: 'Access denied: another site' });
+      if (!code || code === 'all' || !/^[A-Za-z0-9_-]{1,16}$/.test(code)) return fail(res, new Error('site code required'), 400);
+      if (await siteCodeReadDenied(req.reportUser, code)) return fail(res, new Error('Access denied: another site'), 403);
       const R = require('../services/siteActionsRegister');
       const rows = R.exportRows(await composeSite(code, new Date().toISOString().slice(0, 10)), code);
       const buf = require('../services/tableExcel').buildWorkbook([{ name: 'Site actions', rows: rows.length ? rows : [] }]);
@@ -56,8 +56,8 @@ module.exports = function siteActionsRoutes(deps) {
       const b = req.body || {};
       const items = Array.isArray(b.items) ? b.items : [];
       const status = String(b.status || '').trim();
-      if (!items.length || !status) return res.status(400).json({ error: 'items and status are required' });
-      if (items.length > BULK_MAX) return res.status(400).json({ error: `at most ${BULK_MAX} lines per call` });
+      if (!items.length || !status) return fail(res, new Error('items and status are required'), 400);
+      if (items.length > BULK_MAX) return fail(res, new Error(`at most ${BULK_MAX} lines per call`), 400);
       const results = [];
       for (const it of items) {
         const src = String((it && it.source) || ''), id = String((it && it.id) || '');
@@ -81,9 +81,9 @@ module.exports = function siteActionsRoutes(deps) {
       const R = rdbM(); const u = req.reportUser; const b = req.body || {};
       const src = String(b.source || ''), id = String(b.id || ''), owner = String(b.owner || '').trim().slice(0, 200);
       const why = String(b.justification || '').trim();
-      if (!owner) return res.status(400).json({ error: 'owner is required' });
-      if (why.length < 10) return res.status(400).json({ error: 'a justification (10+ characters) is required' });
-      if (!R.userHasRole(u, 'editor')) return res.status(403).json({ error: 'editor role required' });
+      if (!owner) return fail(res, new Error('owner is required'), 400);
+      if (why.length < 10) return fail(res, new Error('a justification (10+ characters) is required'), 400);
+      if (!R.userHasRole(u, 'editor')) return fail(res, new Error('editor role required'), 403);
       const isAdmin = R.userHasRole(u, 'admin');
       const userSites = require('../services/userSites');
       const siteOk = async (code) => {
@@ -95,24 +95,24 @@ module.exports = function siteActionsRoutes(deps) {
       let out, site = null;
       if (src === 'meetings' && /^\d+$/.test(id)) {
         const mdb = require('../meetings-db'); const p = await mdb.getActionParent(Number(id));
-        if (!p) return res.status(404).json({ error: 'action not found' });
-        if (!(await siteOk(p.site_code))) return res.status(403).json({ error: 'Access denied: another site' });
+        if (!p) return fail(res, new Error('action not found'), 404);
+        if (!(await siteOk(p.site_code))) return fail(res, new Error('Access denied: another site'), 403);
         site = p.site_code; out = await mdb.setActionOwner(Number(id), { owner, ...actor });
       } else if (src === 'inspections' && /^\d+$/.test(id)) {
         const idb = require('../inspection-db'); const p = await idb.getActionParent(Number(id));
-        if (!p) return res.status(404).json({ error: 'action not found' });
-        if (!(await siteOk(p.site_code))) return res.status(403).json({ error: 'Access denied: another site' });
+        if (!p) return fail(res, new Error('action not found'), 404);
+        if (!(await siteOk(p.site_code))) return fail(res, new Error('Access denied: another site'), 403);
         site = p.site_code; out = await idb.setActionOwner(Number(id), { owner, ...actor });
       } else if (src === 'report' && /^[A-Za-z0-9_.-]{1,64}$/.test(id)) {
         const o = await R.getActionItemOwner(id);
-        if (!o) return res.status(404).json({ error: 'action not found' });
+        if (!o) return fail(res, new Error('action not found'), 404);
         const denial = deps.reportWriteDenial ? deps.reportWriteDenial(u, { site_id: o.site_id, status: o.report_status }) : { status: 403, error: 'not available' };
-        if (denial) return res.status(denial.status).json({ error: denial.error });
+        if (denial) return fail(res, new Error(denial.error), denial.status);
         out = await R.setActionOwner(id, owner);
         if (out.ok) { try { await R.logAudit({ report_id: o.report_id, site_id: o.site_id, user_id: u.id, username: u.username, action: 'action_owner_reassigned', details: { uid: id, from: out.previous, to: owner, justification: actor.justification } }); } catch (_) { /* audit best-effort, the system log below still records it */ } }
         site = String(o.site_id);
-      } else return res.status(400).json({ error: 'unknown source or id' });
-      if (!out || !out.ok) return res.status(404).json({ error: 'action not found' });
+      } else return fail(res, new Error('unknown source or id'), 400);
+      if (!out || !out.ok) return fail(res, new Error('action not found'), 404);
       try { R.logEvent({ category: 'report', action: 'action_owner_reassigned', target: `${src}:${id}`, details: { site, from: out.previous, to: owner, justification: actor.justification }, ...R._logCtx(req) }); } catch (_) { /* best-effort */ }
       res.json({ ok: true, previous: out.previous, owner });
     } catch (e) { fail(res, e); }

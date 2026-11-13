@@ -17,7 +17,7 @@ what is not known about it.
 | Decider role | to be decided (KPI committee) |
 | Moment | to be decided (proposal: the monthly service review) |
 | Definition | `services/metricRegistry.js:38` (`M('helpdesk.resolution_sla_pct'`) — (closed AND NOT overdue) / closed × 100 |
-| Reader | `services/metricRegistry.js:147` (`async 'helpdesk.calendar_month'`) → `reports-db.js:2979` (`sla_res_pct:   slaClosed > 0`) |
+| Reader | `services/metricRegistry.js:147` (`async 'helpdesk.calendar_month'`) → `reports-db.js:2989` (`sla_res_pct:   slaClosed > 0`) |
 | Window | calendar month of ticket creation; a running month is flagged partial (`services/metricRegistry.js:288` (`function dataState(v, rec, win, now)`)) |
 | Denominator | closed tickets with an SLA rule, cancelled excluded. Declared in `services/metricRegistry.js:274` (`'helpdesk.resolution_sla_pct': { field: 'sla_res_den'`); `reports-db.getCalendarMonthlyHelpdesk` returns it since G4-CI (null when there is no base, never 0), so the tile shows "n = … closed tickets" and the low-sample guard can fire (evidence F-G4-CI) |
 | Scope | the site's helpdesk groups (`sites.zoho_group`); a site without a group is not measured (null, never 0) |
