@@ -1722,10 +1722,26 @@ async function _getSiteMonthlyMeetingSummaryPg(siteCode, year, month) {
   };
 }
 
+// P5 / B2 — owner reassignment of ONE action (Site Actions register): the owner text changes and an audit row in
+// md_action_updates names the old and new owner and the justification, in one transaction. The caller authorises.
+async function setActionOwner(actionId, { owner, author_id, author_name, justification }) {
+  const H = pgHandle();
+  const a = await H.prepare('SELECT id, owner_it, meeting_id FROM md_actions WHERE id = ?').get(Number(actionId));
+  if (!a) return { ok: false };
+  await H.runTransaction(async () => {
+    await _lockMeetingShared(H, a.meeting_id);
+    await H.prepare('UPDATE md_actions SET owner_it = ?, updated_at = now() WHERE id = ?').run(owner, Number(actionId));
+    await H.prepare('INSERT INTO md_action_updates (action_id, author_id, author_name, body, status_change) VALUES (?,?,?,?,?)')
+      .run(Number(actionId), author_id || null, author_name || null, `Owner reassigned: ${a.owner_it || '—'} → ${owner}. Justification: ${justification}`, null);
+  });
+  return { ok: true, previous: a.owner_it || null };
+}
+
 module.exports = {
   getDB,
   loadLookups,
   siteNameToCode: _siteNameToCode,
+  setActionOwner,
   getSiteMonthlyMeetingSummary,
   getSiteContacts, _pickContacts,
   getSiteScoreInputs, _computeMeetingsScoreInputs, _effClose, _openAt, MD_OPEN,

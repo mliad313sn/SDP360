@@ -21,6 +21,7 @@ const INTERNAL = new Map([
   ['services/sync/syncRunner.js', 'job runner; calls job.fetch()'],
   ['tools/installer-v2/post-install.js', 'checks the installed app answers on localhost'],
   ['tools/sdp-manager.js', 'operator tool calling the app’s own endpoints'],
+  ['services/selfDispatch.js', 'P5/B2 — loopback to this server’s own per-item routes (127.0.0.1), never leaves the host'],
 ]);
 const OUTBOUND = /require\(['"](axios|https?|node-fetch|undici|nodemailer)['"]\)|(^|[^.\w])fetch\(|https?\.(request|get)\(|\bsafe(Get|Post)\(/m;
 const EXCLUDED_HOST = /pronto|nutanix|veeam|commvault|veritas|rubrik|cohesity|securitycenter|security\.microsoft|api\.securitycenter|defender|osisoft|aveva|intelex|enablon|cority/i;
@@ -93,7 +94,7 @@ test('D-06: the Meraki connector stays registered as ACTIVE', () => {
 // G05 — every scheduled job that talks to the outside is owned by a register row, and every job a row
 // names really exists in services/sync/jobs.js (no orphan connector, no phantom job).
 test('scheduled jobs map to connectors and connectors name real jobs', () => {
-  const INTERNAL_JOBS = new Set(['access.emergency_expiry', 'access.grant_expiry', 'audit.chain_verify', 'audit.retention', 'commitments.escalate', 'db.backup', 'db.restore_drill', 'engagement.schedule_reminders', 'engagement.weekly_report_nudges', 'field.purge', 'governance.agenda_drafts', 'governance.ppm_alerts', 'handoffs.escalate', 'softdelete.purge']);
+  const INTERNAL_JOBS = new Set(['access.emergency_expiry', 'access.grant_expiry', 'audit.chain_verify', 'audit.retention', 'commitments.escalate', 'db.backup', 'db.restore_drill', 'engagement.schedule_reminders', 'engagement.weekly_report_nudges', 'engagement.action_aging', 'field.purge', 'governance.agenda_drafts', 'governance.ppm_alerts', 'handoffs.escalate', 'softdelete.purge']);
   const src = fs.readFileSync(path.join(ROOT, 'services', 'sync', 'jobs.js'), 'utf8');
   const declared = new Set([...src.matchAll(/legacyJob\('([a-z0-9_.]+)'/g), ...src.matchAll(/\bname:\s*'([a-z0-9_.]+)'/g)].map((m) => m[1]));
   const named = new Set(register.flatMap((r) => String(r.jobs || '').split(';').map((x) => x.trim()).filter((x) => x && x !== '-')));

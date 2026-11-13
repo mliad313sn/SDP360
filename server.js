@@ -4699,7 +4699,7 @@ app.get('/api/reports/site-data', requireReportSession, async (req, res) => {
 // schema change, no touch to the report save path. Registered ABOVE
 // /api/reports/:id (the :id shadowing trap). Unknown/absent site → empty groups.
 // Site Actions hub — routes/siteActions.js (Step 6 modularisation).
-app.use(require('./routes/siteActions')({ express, requireReportSession, siteCodeReadDenied: _siteCodeReadDenied, reportConfig, getCommitmentStore: () => _cmtStore }));
+app.use(require('./routes/siteActions')({ express, requireReportSession, siteCodeReadDenied: _siteCodeReadDenied, reportConfig, getCommitmentStore: () => _cmtStore, reportWriteDenial: _reportWriteDenial }));
 app.use(require('./routes/reportIntegrity')({ express, requireReportSession }));   // A-24 — submission hash vs current figures
 // ── Report-write authorisation (audit 2026-09-05, F5) ────────────────────────
 // A valid session is NOT enough to write a report or one of its follow-ups: the

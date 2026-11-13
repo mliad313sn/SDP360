@@ -223,4 +223,23 @@ function buildRecentlyClosed(input) {
   return out.sort((x, y) => String(y.closed_at).localeCompare(String(x.closed_at)));
 }
 
-module.exports = { buildSiteActions, buildRecentlyClosed, TERMINAL, _isIncubation };
+// P5 (B2) — the rows of GET /api/reports/site-actions/export.xlsx: an EXPLICIT column list (never the raw row, so no
+// money, comment or personal column can ride along; the action registers hold no amount today and this list keeps it
+// so). Unknown age / due date stays empty, never 0.
+const EXPORT_GROUPS = ['meetings', 'incubation', 'inspection', 'report', 'issues'];
+const EXPORT_SOURCE_LABEL = { meetings: 'Meeting action', incubation: 'Incubation action', inspection: 'Inspection action', report: 'Report follow-up', issues: 'Open issue' };
+function exportRows(sa, siteCode) {
+  const out = [];
+  const g = (sa && sa.groups) || {};
+  for (const k of EXPORT_GROUPS) {
+    for (const it of ((g[k] && g[k].items) || [])) {
+      out.push({ site: siteCode || '', source: EXPORT_SOURCE_LABEL[k], ref: it.uid ? 'report:' + it.uid : (it.action_id != null ? `${k}:${it.action_id}` : (it.issue_id != null ? 'issue:' + it.issue_id : '')),
+        title: it.title || '', owner: it.owner || '', status: it.status || '', due_date: it.due_date || '',
+        overdue: it.overdue ? 'yes' : 'no', age_days: it.age_days == null ? '' : it.age_days, origin: it.origin_label || '' });
+    }
+  }
+  return out;
+}
+const EXPORT_COLUMNS = ['site', 'source', 'ref', 'title', 'owner', 'status', 'due_date', 'overdue', 'age_days', 'origin'];
+
+module.exports = { buildSiteActions, buildRecentlyClosed, exportRows, EXPORT_COLUMNS, TERMINAL, _isIncubation };

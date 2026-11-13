@@ -576,6 +576,15 @@ DEFAULTS.metric_programme_readers = '0';
 DEFAULTS.weekly_report_due_days = '';
 DEFAULTS.weekly_report_nudges_enabled = '0';
 DEFAULTS.weekly_report_minutes_per_kpi_cell = '';
+// ── P5 / goal B2 — aging reminders over the site actions (meetings / inspections / report follow-ups). '0' = today:
+//    action_aging_reminders_enabled  '1' = the daily engagement.action_aging job writes in-app reminders (owner when the
+//                                    owner text names one account of the site, else the coordinators) and escalations to
+//                                    the site coordinators; '0' (default) = nothing.
+//    action_aging_reminder_days      days past due before the first reminder; '' = policy not decided → nothing fires.
+//    action_aging_escalation_days    days past due before the escalation to the coordinators; '' = no escalation.
+DEFAULTS.action_aging_reminders_enabled = '0';
+DEFAULTS.action_aging_reminder_days = '';
+DEFAULTS.action_aging_escalation_days = '';
 // ── P8 / goal B1 (migration 098) — PROPOSED, '0' = today (the claim routes answer 404, no Claims tab).
 //    wan_sla_claims_enabled '1' → SLA credit claims per WAN circuit × closed month on the WAN ▸ Claims tab: due → claimed
 //    → credited | disputed | written_off (motive on every change, hash-chained audit), due amount frozen from the SLA

@@ -118,6 +118,17 @@
     return 'reader';
   }
 
+  // P5 (A3) — the Home blocks whose order a person may choose (presentation only; never a right)
+  var HOME_BLOCKS = ['queue', 'awaiting', 'owned', 'sites'];
+  function _blocks(v) {
+    var a = v;
+    if (typeof a === 'string') { try { a = JSON.parse(a); } catch (_) { a = null; } }
+    if (!Array.isArray(a)) return null;
+    var out = [];
+    a.forEach(function (x) { var s = String(x); if (HOME_BLOCKS.indexOf(s) !== -1 && out.indexOf(s) === -1) out.push(s); });
+    return out.length ? out : null;
+  }
+
   function _ids(v) {
     var a = v;
     if (typeof a === 'string') { try { a = JSON.parse(a); } catch (_) { a = null; } }
@@ -158,6 +169,7 @@
       default_site_id: p.default_site_id != null ? Number(p.default_site_id) : null,
       destinations: destinations,
       visible: destinations.filter(function (d) { return !d.hidden; }),
+      block_order: _blocks(p.block_order),
     };
   }
 
@@ -181,6 +193,12 @@
     }
     var co = list('card_order'); if (co && co.error) return co; out.card_order = co ? co.ok : null;
     var ch = list('cards_hidden'); if (ch && ch.error) return ch; out.cards_hidden = ch ? ch.ok : null;
+    if (b.block_order != null) {
+      if (!Array.isArray(b.block_order)) return { error: 'block_order must be a list' };
+      if (b.block_order.length > HOME_BLOCKS.length) return { error: 'block_order is too long' };
+      for (var j = 0; j < b.block_order.length; j++) if (HOME_BLOCKS.indexOf(String(b.block_order[j])) === -1) return { error: 'block_order: unknown block ' + String(b.block_order[j]).slice(0, 40) };
+      out.block_order = _blocks(b.block_order);
+    }   // absent = no stored block order (the page order of today); savePrefs writes NULL
     if (b.density != null && b.density !== '') {
       if (DENSITIES.indexOf(String(b.density)) === -1) return { error: 'density must be comfortable or compact' };
       out.density = String(b.density);
@@ -194,7 +212,7 @@
   }
 
   var api = {
-    PROFILES: PROFILES, DESTINATIONS: DESTINATIONS, DENSITIES: DENSITIES, BUSINESS_ROLES: BUSINESS_ROLES,
+    PROFILES: PROFILES, DESTINATIONS: DESTINATIONS, DENSITIES: DENSITIES, HOME_BLOCKS: HOME_BLOCKS, BUSINESS_ROLES: BUSINESS_ROLES,
     isBusinessOnly: isBusinessOnly, mayOpen: mayOpen, eligibleProfiles: eligibleProfiles,
     defaultProfile: defaultProfile, resolve: resolve, validatePrefs: validatePrefs,
   };

@@ -118,8 +118,9 @@
       const awBlock = (k) => { const b = aw[k]; if (!b) return nm; if (b.count === 0) return esc(T.awNone);
         return `<b>${b.count}</b><ul class="hm-pv">${b.items.map((x) => `<li><a href="${esc(awSafe(x.link) || '#')}">${esc(x.ref || x.title || x.id)}</a> <span class="hm-muted">${esc(x.ref && x.title ? x.title : '')}${x.due_date ? ' · ' + esc(x.due_date) : ''}</span>${x.overdue ? ` <span class="hm-late">${esc(T.awLate)}</span>` : ''}${awSafe(x.evidence_link) && /^https:/i.test(x.evidence_link) ? ` · <a href="${esc(x.evidence_link)}" rel="noopener noreferrer" target="_blank">${esc(T.awEv)}</a>` : ''}</li>`).join('')}</ul>`; };
       const awaiting = aw === undefined || aw === null ? '' : `<section class="hm-card" aria-labelledby="hm-aw"><h2 id="hm-aw">${esc(T.aw)}${aw.total != null ? ` <span class="hm-muted">${aw.total}</span>` : ''}</h2><ul class="hm-blocks">${['commitments', 'handoffs', 'benefits', 'decisions', 'pvs'].map((k) => row(T.awSrc[k], null, awBlock(k))).join('')}</ul></section>`;
-      $('hmSites').innerHTML = awaiting + mine + orderSites(j.sites || []).map(siteCard).join('');
+      $('hmSites').innerHTML = orderBlocks({ awaiting, owned: mine, sites: orderSites(j.sites || []).map(siteCard).join('') });
       mountQueue(j);
+      placeQueue();
       // E-B07 — answers to MY feedback (only present while ui_feedback_enabled = '1'); every value escaped
       const fb = Array.isArray(j.feedback) ? j.feedback : [];
       const fbBox = document.getElementById('hmFeedback');
@@ -146,6 +147,20 @@
       $('hmMsg').textContent = lang === 'fr' && window.ErrorText ? window.ErrorText.fr(e.message) : e.message;
     }
   }
+  // P5 (A3) — the person's block order (workspace prefs, presentation only): awaiting / owned / sites inside the card
+  // list, and the queue before or after them. No stored order = the page order of today.
+  function blockOrder() { const b = profile && Array.isArray(profile.block_order) ? profile.block_order : null; return b && b.length ? b : null; }
+  function orderBlocks(parts) {
+    const o = blockOrder();
+    const keys = (o || []).filter((k) => k !== 'queue').concat(['awaiting', 'owned', 'sites'].filter((k) => !(o || []).includes(k)));
+    return keys.map((k) => parts[k] || '').join('');
+  }
+  function placeQueue() {
+    const o = blockOrder(); if (!o) return;
+    const qi = o.indexOf('queue'), si = Math.max(o.indexOf('sites'), o.indexOf('awaiting'), o.indexOf('owned'));
+    const box = $('hmQueue'), sites = $('hmSites');
+    try { if (qi > -1 && si > -1 && qi > si && box && sites && sites.insertAdjacentElement) sites.insertAdjacentElement('afterend', box); } catch (_) { /* order is best-effort */ }
+  }
   // the default site of the profile comes first; every other site keeps its order (never adds a site)
   function orderSites(list) {
     const d = profile && profile.default_site_id;
@@ -166,6 +181,10 @@
     queue = window.HomeQueue.mount(box, {
       lang: lang === 'fr' ? 'fr' : 'en', sites: j ? orderSites(j.sites || []) : null, truncated: j ? j.truncated : 0,
       awaiting: j ? j.awaiting_me : null, asOf: j ? j.as_of : null, reloadWork: workJson, announce: false,
+      // P5 (A3) — extra sources (absent = switched off), my snoozed lines, inline actions through the existing routes
+      pending: j ? j.queue_extra : null, snoozed: (j && j.queue_snoozed) || {},
+      delegate: !!(window.__uiPolicy && window.__uiPolicy.handoffs === '1'),
+      postJson: async (method, url, body) => { const r = await fetch(url, { method, credentials: 'same-origin', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) }); return { status: r.status, json: await r.json().catch(() => null) }; },
       commitmentsOff: !!(window.__uiPolicy && window.__uiPolicy.commitments === '0'),   // UAT-F: no 404 probe while the module is off
       fetchJson: async (url) => { const r = await fetch(url, { credentials: 'same-origin' }); return { status: r.status, json: r.ok ? await r.json().catch(() => null) : null }; },
     });

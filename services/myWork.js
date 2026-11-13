@@ -175,5 +175,45 @@ async function buildAwaitingMe({ user, asOf, readers } = {}) {
   return out;
 }
 
-module.exports = { buildMyWork, buildAwaitingMe, weeklyLabel, trackerEmptyCells, MAX_SITES, AWAITING_SOURCES, DECISION_DUE_DAYS };
+// ── P5 (A3) — the queue sources Home lacked: access requests I may decide, change requests waiting for the committee,
+// stage-gate sign-offs, my / my sites' open RFIs and MY overdue portfolio tasks and milestones. Present only when the
+// route passes `readers` (switch ui_home_queue = '1'); kept apart from "Awaiting me" so that block keeps its contract.
+// Same rules as buildAwaitingMe: a missing reader or one that throws → null (not measured), never 0; nothing measured
+// → total null; separation of duties is kept (never my own change request to decide, never my own project to sign).
+const QUEUE_EXTRA_SOURCES = ['access', 'change_requests', 'gates', 'rfis', 'tasks'];
+const RFI_OPEN = ['submitted', 'triaged', 'accepted', 'scheduled'];
+const TASK_DONE = ['done', 'completed', 'closed', 'cancelled'];
+const _owns = (row, user) => require('./portfolioAccess').ownerMatches(row, user);
+const QUEUE_EXTRA_RULES = {
+  // rows: access requests the route already limited to what the user may decide (store.approvalsFor)
+  access: (rows, user, as) => rows.filter((r) => r && user && Number(r.subject_user_id) !== Number(user.id) && Number(r.requested_by) !== Number(user.id))
+    .map((r) => _line('access', { id: r.id, ref: `AR-${r.id}`, title: (Array.isArray(r.roles) ? r.roles : []).join(', ') || null, due_date: r.valid_from, link: 'access.html' }, as)),
+  // rows: { id, project_id, project_key, title, status, author_id } — proposed = to assess, assessed = to decide (never my own)
+  change_requests: (rows, user, as) => rows.filter((c) => c && (c.status === 'proposed' || (c.status === 'assessed' && user && Number(c.author_id) !== Number(user.id))))
+    .map((c) => _line('change_request', { id: c.id, ref: c.project_key ? `${c.project_key} CR-${c.id}` : `CR-${c.id}`, title: `${c.status === 'proposed' ? 'assess' : 'decide'}: ${c.title || ''}`.trim(), due_date: null, link: `project.html?id=${encodeURIComponent(c.project_id)}#changes` }, as)),
+  // rows: projects waiting at a gate — approval (→ in progress, the owner never signs) or closure (→ closed)
+  gates: (rows, user, as) => rows.filter((p) => p && (p.stage === 'approval' || p.stage === 'closure') && !_owns(p, user))
+    .map((p) => _line('gate', { id: p.id, ref: p.key || null, title: `${p.stage === 'approval' ? 'approval → start' : 'closure → closed'}: ${p.name || ''}`.trim(), due_date: p.stage === 'approval' ? p.start_date : p.end_date, link: `project.html?id=${encodeURIComponent(p.id)}` }, as)),
+  // rows: RFIs in my scope (my own + my sites); open ones, and delivered ones I asked for (to confirm)
+  rfis: (rows, user, as) => rows.filter((r) => r && (RFI_OPEN.includes(r.status) || (r.status === 'delivered' && user && Number(r.requester_id) === Number(user.id))))
+    .map((r) => _line('rfi', { id: r.id, ref: r.ref || null, title: `${r.status === 'delivered' ? 'confirm delivery' : r.status}: ${r.title || ''}`.trim(), due_date: null, link: 'rfi.html' }, as)),
+  // rows: { kind: task|milestone, id, project_id, project_key, name, owner, due, status, done_at } — mine, open, late
+  tasks: (rows, user, as) => rows.filter((t) => t && _owns(t, user) && !t.done_at && !TASK_DONE.includes(String(t.status || '').toLowerCase()) && day(t.due) && day(t.due) < as)
+    .map((t) => _line(t.kind === 'milestone' ? 'milestone' : 'task', { id: `${t.kind === 'milestone' ? 'm' : 't'}${t.id}`, ref: t.project_key || null, title: t.name || null, due_date: t.due, link: `project.html?id=${encodeURIComponent(t.project_id)}` }, as)),
+};
+
+async function buildQueueExtra({ user, asOf, readers } = {}) {
+  const as = day(asOf) || new Date().toISOString().slice(0, 10);
+  const r = readers || {}; const out = { as_of: as, total: 0, not_measured: [] };
+  for (const k of QUEUE_EXTRA_SOURCES) {
+    let block = null;
+    if (typeof r[k] === 'function') { try { const rows = await r[k](user); block = Array.isArray(rows) ? _shape(QUEUE_EXTRA_RULES[k](rows, user, as)) : null; } catch (_) { block = null; } }
+    out[k] = block;
+    if (block) out.total += block.count; else out.not_measured.push(k);
+  }
+  if (out.not_measured.length === QUEUE_EXTRA_SOURCES.length) out.total = null;
+  return out;
+}
+
+module.exports = { buildMyWork, buildAwaitingMe, buildQueueExtra, weeklyLabel, trackerEmptyCells, MAX_SITES, AWAITING_SOURCES, QUEUE_EXTRA_SOURCES, DECISION_DUE_DAYS };
 
