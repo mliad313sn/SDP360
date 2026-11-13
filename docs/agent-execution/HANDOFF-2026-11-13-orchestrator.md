@@ -22,7 +22,7 @@ Shared rules: `$S/ppack-preamble.md`. Pack: `$S/prompt-pack.md`. Assessment: `$S
 | Lot | Status | Head | Notes for merge |
 |---|---|---|---|
 | p01-baseline | DONE | 390e3e1 | rules/TRUTH fixes, boot-integrity + rules-trunk tests, README size block (re-run `node tools/agent/inventory.js` + `--strict` on conflict), fence flake fix |
-| p02-authz | running | — | — |
+| p02-authz | DONE | 7151bf4 | no P0; outcome probe 748 routes × 23 personas (snapshot docs/ops/authz-outcomes.json, `AUTHZ_OUTCOMES_UPDATE=1` regenerates — must be refreshed after merging other lots that add routes); handler_check declarations; mutation control 5/5; P02-F1 engagement comments open (P2 proposal); committee money option for security owner |
 | p03-switch-lots | running | — | — |
 | p04-ppm-cert | DONE | 04e58be | NOT CERTIFIED (human checks open); re-audit 32+51 impl / 45 partial / 13 missing; 2 defects fixed (calendar-aware engine input, offline queue rebase); interop + witness kits |
 | p05-perf | running | — | must drop only its own DB |
