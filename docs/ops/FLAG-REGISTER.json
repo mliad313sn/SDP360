@@ -12,12 +12,12 @@
   "expiry"
  ],
  "counts": {
-  "report_config": 270,
+  "report_config": 275,
   "planned": 9,
   "governance_policies": 37,
   "environment": 62,
   "pseudo": 4,
-  "dark": 136,
+  "dark": 141,
   "dark_complete": 0
  },
  "frozen_lots_source": "CLAUDE.md (tools/deploy/frozen-lots.json absent on this branch)",
@@ -1751,6 +1751,18 @@
    "prerequisites": null
   },
   {
+   "key": "ppm_baseline_slots_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": "PMO",
+   "recommended": "`1` once the PMO wants MS-Project-style comparison points: Baseline, Baseline1..10 and Interim1..10 snapshots of the SCHEDULED plan (dates, duration, work; cost for money readers), saved once with a reason and never edited; variances vs the current plan. They do not move the A-27 approved baseline and do not feed earned value",
+   "reference": "W2-ENGINE",
+   "prerequisites": null
+  },
+  {
    "key": "ppm_baseline_versions",
    "source": "report_config",
    "kind": "setting",
@@ -1772,6 +1784,18 @@
    "owner_role": "Finance + PMO",
    "recommended": "`1` once Finance agrees the period grid (month × currency × baseline / actual / forecast, EAC = actual to date + remaining forecast per currency, never across currencies; a change or a variance vs the baseline needs a justification and is hash-chained in `ppm_events`). Every view says \"not certified\" until Finance certifies the figures; who may approve a budget stays a Finance decision. While on, the portfolio workbook (`/portfolio/workbook.xlsx`) also carries a \"Budget periods\" sheet for a money reader (one row per project × month × currency × kind, no cross-currency total — R2-WB-03); the deck does not",
    "reference": "E-P04",
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_calendars_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": "PMO",
+   "recommended": "`1` once the PMO wants schedules on real working time: project / task / resource calendars (work week, hours per day, a base calendar, the SITE holiday calendar, working or non-working exceptions such as a Saturday shift or a shutdown) drive the W2 schedule API (`GET …/project/:id/schedule`); a task takes its own calendar, else its primary resource's, else the project's. Shared calendars are a committee write",
+   "reference": "W2-ENGINE",
    "prerequisites": null
   },
   {
@@ -1859,6 +1883,30 @@
    "prerequisites": null
   },
   {
+   "key": "ppm_leveling_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": "PMO",
+   "recommended": "`1` with `ppm_resources_enabled` once the PMO wants levelling proposals: delay-only, priority-based (priority 0–1000, 1000 = do not level), links and constraints respected, one explanation per moved task (resource, day, load vs capacity, competing tasks, rule). Nothing changes until a plan writer applies the proposal (fingerprint-checked, `ppm_events` row); a clear action removes the delays",
+   "reference": "W2-ENGINE",
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_mspdi_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": "PMO",
+   "recommended": "`1` once the PMO wants to exchange plans with MS Project as an XML file (MSPDI): export of a project (rates and costs only for money readers), import into an EMPTY project — dry run by default, apply = committee (creates calendars, pool resources, rates, assignments, baseline slots). A file format, not a connector; MS Project itself is never required. Import into MS Project of our file still to be verified by a human with a licence",
+   "reference": "W2-ENGINE",
+   "prerequisites": null
+  },
+  {
    "key": "ppm_offline_edit_enabled",
    "source": "report_config",
    "kind": "arm switch",
@@ -1916,6 +1964,18 @@
    "owner_role": "Committee",
    "recommended": "`1`",
    "reference": "A-27",
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_resources_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": "PMO + Finance",
+   "recommended": "`1` once the PMO maintains an enterprise resource pool: work / material / cost resources (site perimeter), rate tables A–E with effective dates and cost per use (committee, money-read rule, **non certifié** — rates are a Finance input), assignments with units / work / contour (flat, back / front loaded, double / early / late peak, bell, turtle), time-phased load and over-allocations; an unknown rate gives an unknown cost, never 0",
+   "reference": "W2-ENGINE",
    "prerequisites": null
   },
   {
@@ -6410,6 +6470,34 @@
    ]
   },
   {
+   "key": "ppm_baseline_slots_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": "PMO",
+   "reference": "W2-ENGINE",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
    "key": "ppm_baseline_versions",
    "source": "report_config",
    "default": "0",
@@ -6443,6 +6531,34 @@
    "default": "0",
    "owner_role": "Finance + PMO",
    "reference": "E-P04",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
+   "key": "ppm_calendars_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": "PMO",
+   "reference": "W2-ENGINE",
    "prerequisites": null,
    "decision": {
     "owner": null,
@@ -6634,6 +6750,62 @@
    ]
   },
   {
+   "key": "ppm_leveling_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": "PMO",
+   "reference": "W2-ENGINE",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
+   "key": "ppm_mspdi_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": "PMO",
+   "reference": "W2-ENGINE",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
    "key": "ppm_offline_edit_enabled",
    "source": "report_config",
    "default": "0",
@@ -6751,6 +6923,34 @@
    "default": "0",
    "owner_role": "Committee",
    "reference": "A-27",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
+   "key": "ppm_resources_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": "PMO + Finance",
+   "reference": "W2-ENGINE",
    "prerequisites": null,
    "decision": {
     "owner": null,

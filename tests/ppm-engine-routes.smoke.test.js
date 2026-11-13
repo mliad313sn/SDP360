@@ -84,6 +84,7 @@ test('W2-ENGINE: calendars on the site holiday calendar, pool + rates, schedule 
     assert.deepEqual([row(s, task.B).es_date, row(s, task.B).ef_date, row(s, task.C).es_date, row(s, task.D).es_date], ['2027-01-04', '2027-01-06', '2027-01-09', '2027-01-12']);
     assert.deepEqual(row(s, task.C).calendar, { calendar_id: cal.j.id, source: 'project' });
     assert.equal(s.j.schedule.links.find((l) => l.to === task.C).lag_unit, 'ed');
+    assert.deepEqual(s.j.ui_calendar, { workdays: [1, 2, 3, 4, 5], holidays: ['2027-01-11'], working_exceptions: ['2027-01-09'] });
 
     // pool + rates (committee; rates are money) + assignments (plan write)
     assert.equal((await send('PUT', '/api/governance/ppm/resources', T.viewer, { name: 'x' })).status, 403);
@@ -162,5 +163,17 @@ test('W2-ENGINE: calendars on the site holiday calendar, pool + rates, schedule 
     const x2 = await send('GET', `/api/governance/ppm/project/${pid2}/mspdi.xml`, T.pmo);
     const strip = (t) => t.replace(/<UID>\d+<\/UID>|<TaskUID>\d+<\/TaskUID>|<ResourceUID>\d+<\/ResourceUID>|<PredecessorUID>\d+<\/PredecessorUID>|<CalendarUID>-?\d+<\/CalendarUID>|<BaseCalendarUID>-?\d+<\/BaseCalendarUID>|<Name>[^<]*<\/Name>/g, '');
     assert.equal(strip(x2.txt), strip(x.txt), 'export → import → export is lossless (ids and names aside)');
+    // assignments read (money rule), levelling clear, exception removal (committee)
+    const av = (await send('GET', `/api/governance/ppm/project/${pid}/assignments`, T.viewer)).j;
+    assert.equal(av.money_hidden, true); assert.equal(av.assignments.length, 2); assert.equal(av.task_costs, undefined);
+    assert.deepEqual((await send('GET', `/api/governance/ppm/project/${pid}/assignments`, T.fin)).j.task_costs[task.B], { USD: 1210 });
+    assert.equal((await send('POST', `/api/governance/ppm/project/${pid}/leveling/clear`, T.viewer, {})).status, 403);
+    const clr = await send('POST', `/api/governance/ppm/project/${pid}/leveling/clear`, T.pmo, {});
+    assert.equal(clr.status, 200); assert.equal(clr.j.cleared, 1);
+    assert.equal(row(await send('GET', `/api/governance/ppm/project/${pid}/schedule`, T.pmo), task.B).es_date, '2027-01-04');
+    const exid = (await send('GET', '/api/governance/ppm/calendars', T.pmo)).j.calendars[0].exceptions[0].id;
+    const dv = await send('DELETE', `/api/governance/ppm/calendars/${cal.j.id}/exceptions/${exid}`, T.viewer); assert.equal(dv.status, 403, JSON.stringify([exid, dv.j]));
+    assert.equal((await send('DELETE', `/api/governance/ppm/calendars/${cal.j.id}/exceptions/${exid}`, T.pmo)).status, 200);
+    assert.equal((await send('GET', `/api/governance/ppm/project/${pid}/schedule`, T.pmo)).j.ui_calendar.working_exceptions.length, 0);
   } finally { await sw(OFF); }
 });

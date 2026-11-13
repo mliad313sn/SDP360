@@ -50,13 +50,13 @@ It is **not** a scheduling engine of the MS Project class:
 
 | T | Definition | Closest existing test | Today |
 |---|---|---|---|
-| T1 | 1,000-task MSPDI golden file round-trip, to the minute | none (no MSPDI import or export) | MISSING |
-| T2 | CPM: 4 link types × lag × 8 constraints × calendars, float incl. negative | `project-schedule.test.js` (finish-to-start only, day 0) | MISSING |
+| T1 | 1,000-task MSPDI golden file round-trip, to the minute | `ppm-mspdi.test.js` (generated golden, SHA-256 pinned, fixed point, re-schedule identical) + `ppm-engine-routes.smoke` (DB export → import → export) — W2-ENGINE | PASS on our parser; opening the file in MS Project = human check |
+| T2 | CPM: 4 link types × lag × 8 constraints × calendars, float incl. negative | `ppm-schedule-engine.test.js` (W1) + `ppm-w2-engine.test.js` (lag units d/ed/%, leads, constraints with typed lags, deadlines, holidays / exceptions, hand fixtures) | PASS at engine level (not an exhaustive cartesian product) |
 | T3 | Task-type matrix, 3 types × effort-driven | none | MISSING |
 | T4 | Rollups: work-weighted %, cost/work leaf→portfolio, 100 % rule | none (unweighted mean, see E-NULL-1) | MISSING |
 | T5 | EVM hand-computed reference | `ppm-budget-periods.test.js` (EAC from money periods only) | MISSING |
-| T6 | Levelling, every move explained | `project-schedule.test.js` (conflict detection only) | MISSING |
-| T7 | Performance: 10k reschedule < 1 s, 5k rows at 60 fps, memory soak | ad-hoc 102 ms for a 10k scheduleView (not committed, and it does not propagate dates) | MISSING |
+| T6 | Levelling, every move explained | `ppm-w2-engine.test.js` + `ppm-w2-bench.test.js` (1,000 tasks) + smoke (proposal → fingerprinted apply) — W2-ENGINE | PASS (engine, switch off by default) |
+| T7 | Performance: 10k reschedule < 1 s, 5k rows at 60 fps, memory soak | `ppm-schedule-engine.test.js` (10k CPM < 1 s) + `ppm-w2-bench.test.js` / `tools/ppm/bench-engine.js` (CPM + levelling 1k / 5k, recorded in `docs/ppm/W2-ENGINE-CONTRACT.md` §7) | engine half PASS; 60 fps / soak = W2-ui |
 | T8 | Offline: 50 edits disconnected, zero loss, conflicts surfaced | field outbox tests (inspections, tracker, actions only) | MISSING for projects |
 | T9 | Gate negative tests + RAG boundary and hysteresis | `project-schedule.test.js` "stage gates…", lifecycle smoke `GATE_SOD 409` (gates) — no project RAG engine | PARTIAL (gates only) |
 | T10 | Dashboard reconciles to the engine, drill-down, toggle preserves state | `portfolio-views.test.js` (views, not EVM reconciliation) | PARTIAL |

@@ -112,6 +112,9 @@ module.exports = function ppmEngineRoutes(router, h) {
       res.json({ ok: true, contract: 'w2-engine/1', project_id: p.id, version_fingerprint: fingerprint(x.tasks, x.tf), switches: s, money_hidden: !money, hours_per_day: x.hpd,
         schedule: x.schedule,
         calendars: s.calendars ? { project_calendar_id: x.pe.calendar_id, resolved: Object.fromEntries(Object.entries(x.ec.resolved).filter(([, v]) => v).map(([k, v]) => [k, { id: v.id, name: v.name, workdays: v.workdays, hours_per_day: v.hours_per_day, holidays: v.holidays, exceptions: v.exceptions, loop: v.loop }])) } : null,
+        // the project calendar in the shape public/lib/ganttCore.makeCal reads (ctx.calendar): working exceptions on a
+        // non-working weekday cannot be expressed there (listed in working_exceptions for the screen to show)
+        ui_calendar: x.ec.calendar ? { workdays: x.ec.calendar.workdays, holidays: [...new Set([...x.ec.calendar.holidays.filter((d) => !x.ec.calendar.exceptions.some((e) => e.date === d && e.working)), ...x.ec.calendar.exceptions.filter((e) => !e.working).map((e) => e.date)])].sort(), working_exceptions: x.ec.calendar.exceptions.filter((e) => e.working).map((e) => e.date) } : null,
         resources: s.resources ? x.resources.map((r) => resOut(r, false, [])) : null,
         assignments: rv ? rv.assignments : null, overallocations: rv ? rv.overallocations : null, task_costs: rv && money ? rv.task_costs : undefined });
     } catch (e) { fail(res, e); }

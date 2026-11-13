@@ -187,7 +187,7 @@ const finishOf = (v) => {
   if (/T00:00(:00)?$/.test(v)) return new Date(Date.parse(d + 'T00:00:00Z') - 86400000).toISOString().slice(0, 10);
   return d;
 };
-const minutesOfDur = (v) => { const m = /^-?PT(\d+)H(\d+)M(\d+(?:\.\d+)?)S$/.exec(String(v || '')); return m ? Number(m[1]) * 60 + Number(m[2]) + Math.round(Number(m[3]) / 60) : null; };
+const minutesOfDur = (v) => { const m = /^-?PT(\d+)H(\d+)M([0-9.]+)S$/.exec(String(v || '')); return m ? Number(m[1]) * 60 + Number(m[2]) + Math.round(Number(m[3]) / 60) : null; };
 const r2 = (x) => Math.round(x * 100) / 100;
 
 function fromXml(xml) {
