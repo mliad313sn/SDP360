@@ -29,7 +29,7 @@ Shared rules: `$S/ppack-preamble.md`. Pack: `$S/prompt-pack.md`. Assessment: `$S
 | p06-monolith | running | — | owns server.js / reports-db.js; merge LAST among code lots; CLAUDE.md split is a proposal only |
 | p07-security | DONE | 5549dd6 | no P0; `_shell.js` logout inline onclick fixed; 46 pages PROPOSED for `csp_strict_pages` (default stays ''); session-security smoke tests |
 | p08-kpi | DONE | 6c0ce4c | KPI dossiers + parity test + unknown-sweep ratchet (after merges run `node tools/kpi/unknown-sweep.js --write` + review); regenerate METRIC-LINEAGE/METRIC-WIDGET-MAP |
-| p09-adoption | running | — | owns project.html; fixes 2 red static checks |
+| p09-adoption | DONE | 618975b | 2 red static checks fixed (i18n project.html, colour budget); page inventory (63 pages), PROFILE-TASKS + 2 e2e journeys, pilot runbook S1–S10, training pages; recommend a static-suite merge gate |
 | p10-gates | DONE | 5f1329a | gate dossiers generator; after all merges run `node tools/release/gate-dossiers.js --sha=<merge sha>` then `tests/gate-dossiers.test.js` |
 
 If an agent died on a usage limit: `SendMessage` to its id with "continue from where you stopped".
