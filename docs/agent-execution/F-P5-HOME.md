@@ -54,8 +54,8 @@ New: `home-queue-p5` (7), `home-queue-extra-route.smoke` (4), `access-bundles` (
 Neighbour sweep (home-queue*, home-page*, workspace*, access*, site-actions*, status-transfer*, report-action-status,
 export-share-boundary, authz-route-matrix, flag-register, inventory-strict, await-precedence, server-size-budget,
 cross-site sweeps, my-work*, ui-policy*, connector-register, ppm-rollback, readme-truth, weekly-report-nudges,
-business-only, capability-registry, first-usable, perf-baseline): **272/272** after the merge. Full suite: see the
-final report. Generated artefacts regenerated: INVENTORY(.json/.md/-STRICT), FLAG-REGISTER, AUTHZ-MATRIX (.md/.json).
+business-only, capability-registry, first-usable, perf-baseline): **272/272** after the merge. Full suite (`npm test -- --update-manifest`, after the
+merge): **5110 tests, 5100 pass, 0 fail, 10 skipped** (prod-snapshot suites, no snapshot here); manifest updated. Generated artefacts regenerated: INVENTORY(.json/.md/-STRICT), FLAG-REGISTER, AUTHZ-MATRIX (.md/.json).
 ESLint clean.
 
 ## Human decisions needed
