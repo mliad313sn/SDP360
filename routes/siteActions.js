@@ -1,4 +1,5 @@
 'use strict';
+const xpGate = require('../services/exportPolicy').gate;   // P9 / B7 — one export policy (allow / mask / deny + export log + watermark)
 const { fail } = require('../services/httpError');
 // Site Actions register hub — GET /api/reports/site-actions?site=CODE[&closed=1] (moved out of
 // server.js, handler unchanged: composes the three action sources + open issues, folds Meridian links).
@@ -23,7 +24,7 @@ module.exports = function siteActionsRoutes(deps) {
   // P5 (B2) — GET /api/reports/site-actions/export.xlsx?site=CODE — the hub's open lines of ONE site, as Excel.
   // Same perimeter as the hub (siteCodeReadDenied: editor = own sites, admin tier = any). Explicit column list
   // (services/siteActionsRegister.exportRows): no amount, no comment — nothing to mask, and nothing can leak.
-  router.get('/api/reports/site-actions/export.xlsx', requireReportSession, async (req, res) => {
+  router.get('/api/reports/site-actions/export.xlsx', requireReportSession, xpGate('reports.site_actions'), async (req, res) => {
     try {
       const code = String(req.query.site || '').trim();
       if (!code || code === 'all' || !/^[A-Za-z0-9_-]{1,16}$/.test(code)) return fail(res, new Error('site code required'), 400);

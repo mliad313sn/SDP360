@@ -1,4 +1,5 @@
 'use strict';
+const xpGate = require('../services/exportPolicy').gate;   // P9 / B7 — one export policy (allow / mask / deny + export log + watermark)
 const { fail } = require('../services/httpError');
 // Step 6 — dashboard definitions (composer output) + the one-call data resolver the viewer uses.
 //
@@ -206,7 +207,7 @@ module.exports = function dashboardsRoutes(deps) {
     try { const v = await dashboardData(req, res); if (v) res.json(v); } catch (e) { fail(res, e, 500, { ok: false }); }
   });
   // G15 — the figures behind a dashboard as CSV (one row per value, with unit, window, as-of, freshness, partial, n, target, low sample, error)
-  router.get('/api/dashboards/:key/data.csv', requireReportSession, async (req, res) => {
+  router.get('/api/dashboards/:key/data.csv', requireReportSession, xpGate('dashboards.csv'), async (req, res) => {
     try {
       const v = await dashboardData(req, res); if (!v) return;
       // F-DATA-05 — rows built by services/dashboardCsv (freshness read from the sources, never a literal default)

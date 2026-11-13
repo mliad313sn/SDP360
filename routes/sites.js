@@ -1,4 +1,5 @@
 'use strict';
+const xpGate = require('../services/exportPolicy').gate;   // P9 / B7 — one export policy (allow / mask / deny + export log + watermark)
 // ─────────────────────────────────────────────────────────────────────────
 // Sites routes — extracted from server.js (E-D02, expert audit 2026-11-05; X-SEC-03 frees server.js budget).
 // GET/PUT/POST/DELETE /api/reports/sites* — same paths, chains and answers (`app.` → `router.`), plus:
@@ -13,7 +14,7 @@ module.exports = function sitesRoutes(deps) {
   // GET /api/reports/sites/master[?format=csv] — E-D02 site master export (super_admin): id, name, codes per
   // module, country, business unit, time zone, asset currency (report_config asset_site_currency), Zoho group,
   // active. Unmapped = null, never guessed.
-  router.get('/api/reports/sites/master', requireReportSession, requireSuperAdmin, async (req, res) => {
+  router.get('/api/reports/sites/master', requireReportSession, requireSuperAdmin, xpGate('reports.site_master'), async (req, res) => {
     try {
       const SM = require('../services/siteMaster'), CUR = require('../services/currency');
       const { sites, codes } = await rdb.getSiteMasterRows();

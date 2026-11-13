@@ -45,7 +45,10 @@ function buildWorkbook(sheets) {
     XLSX.utils.book_append_sheet(wb, _sheet(s.rows), _safeName(s.name, ix));
   });
   if (!wb.SheetNames.length) XLSX.utils.book_append_sheet(wb, _sheet([]), 'Empty');
-  return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+  const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' });
+  // P9 / B7 — the export log reads the data row count off the buffer (non-enumerable; the bytes are unchanged)
+  try { Object.defineProperty(buf, 'exportRows', { value: (sheets || []).reduce((n, s) => n + (Array.isArray(s.rows) ? s.rows.length : 0), 0) }); } catch (_) { /* rows unknown */ }
+  return buf;
 }
 
 module.exports = { buildWorkbook };

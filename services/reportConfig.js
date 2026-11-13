@@ -390,6 +390,11 @@ DEFAULTS.ppm_change_requests_enabled = '0';
 //    types FS/SS/FF/SF with lag. '0' = today's editor. The engine itself (working days, entered start = SNET, summary
 //    rollup, 0-day milestones, date-based critical path) is a defect fix and is ON regardless of this switch.
 DEFAULTS.ppm_schedule_engine_v2_ui = '0';
+//    ppm_gantt_v2_enabled '1' (W2-UI, no migration) → the project page Plan tab shows the interactive, virtualised Gantt
+//    (zoom day/week/month/quarter, drag / resize / link, undo / redo, inline grid edits with the row version) and its
+//    companion views (task / resource usage, resource graph, network, list). Writes use the existing plan-write route
+//    and guard only. '0' = today's read-only SVG Gantt.
+DEFAULTS.ppm_gantt_v2_enabled = '0';
 //    portfolio_views_enabled '1' → the portfolio page offers Timeline · List · Board (?view= in the URL); the board is
 //    read-only columns by stage (a stage moves only through the gated project page). '0' = today's single timeline.
 DEFAULTS.portfolio_views_enabled = '0';
@@ -606,6 +611,16 @@ DEFAULTS.wan_sla_claims_enabled = '0';
 //                                  admin tier + finance-viewer only. '0' = every route answers 404. Independent of the
 //                                  Roadmap Manager migration switch roadmap_publication_enabled.
 Object.assign(DEFAULTS, { portfolio_my_projects_default: '0', portfolio_sensitive_projects: '0', roadmap_audience_publication_enabled: '0' });
+
+// ── P9 / goal B7 — one export policy (services/exportPolicy.js). PROPOSED, both '0' = today.
+//    export_policy_strict      '1' → the STRICT sensitivity matrix (PROPOSED for the data owner / security, not approved):
+//                              viewer refused on the PV deck / pre-brief deck / action-register exports, the fleet-wide
+//                              risk register limited to the admin tier, and amounts in every export for the admin tier +
+//                              finance-viewer only (the portfolio committee-member exception ends). '0' = today's access.
+//                              Every export is logged (system_log category `export`) in BOTH states.
+//    export_watermark_enabled  '1' → user + UTC timestamp stamped on exported files (CSV last line, HTML footer, XLSX
+//                              first sheet "Export", PPTX footer on every slide; PDF/JSON carry it in a response header).
+Object.assign(DEFAULTS, { export_policy_strict: '0', export_watermark_enabled: '0' });
 
 const KEYS = Object.keys(DEFAULTS);
 

@@ -1,4 +1,5 @@
 'use strict';
+const xpGate = require('../services/exportPolicy').gate;   // P9 / B7 — one export policy (allow / mask / deny + export log + watermark)
 // P8 / goal B1 — SLA credit claims: from "due" to "recovered". Mounted by routes/opmanager.js on its router.
 // Every route answers 404 while report_config wan_sla_claims_enabled = '0' (the default = today, nothing exists).
 //
@@ -168,7 +169,7 @@ module.exports = function wanSlaClaimsRoutes(deps) {
     const claim = await loadClaim(req, res); if (!claim) return null;
     const nowMs = Date.now();
     const basis = await computeBasis(rdb, c, { site_id: claim.site_id, sub_site: claim.sub_site, uplink: claim.uplink, period: claim.period, nowMs });
-    const money = _canReadMoney(req.reportUser);
+    const money = req.exportPolicy ? !!req.exportPolicy.money : _canReadMoney(req.reportUser);   // P9 / B7 — one amount rule
     const shown = W.maskClaim(claim, money);
     const names = await siteNames();
     const rows = basis ? W.outageBreakdown(basis.outages, basis.circuit, { monthStart: basis.bounds.monthStart, monthEnd: basis.bounds.monthEnd, nowMs, clockStart: basis.clockStart, triggerMinutes: basis.triggerMinutes }) : [];
@@ -200,7 +201,7 @@ module.exports = function wanSlaClaimsRoutes(deps) {
       + ev.rows.map((r) => '<tr>' + COLS.map((c) => `<td>${esc(r[c])}</td>`).join('') + '</tr>').join('') + '</table>'
       + '<p>counted_s = seconds inside the contract service hours, from the contract clock start, within the month, ISP-attributed outages only.</p></body></html>';
   }
-  router.get(BASE + '/:id/evidence.csv', requireReportSession, async (req, res) => {
+  router.get(BASE + '/:id/evidence.csv', requireReportSession, xpGate('wan_sla.claim_evidence'), async (req, res) => {
     try {
       const ev = await evidence(req, res); if (!ev) return;
       const lines = ev.header.map(([k, v]) => [csvCell(k), csvCell(v)].join(','));
@@ -211,7 +212,7 @@ module.exports = function wanSlaClaimsRoutes(deps) {
       res.send('﻿' + lines.join('\r\n'));
     } catch (e) { fail(res, e); }
   });
-  router.get(BASE + '/:id/evidence.html', requireReportSession, async (req, res) => {
+  router.get(BASE + '/:id/evidence.html', requireReportSession, xpGate('wan_sla.claim_evidence'), async (req, res) => {
     try {
       const ev = await evidence(req, res); if (!ev) return;
       res.setHeader('Content-Type', 'text/html; charset=utf-8');
@@ -219,7 +220,7 @@ module.exports = function wanSlaClaimsRoutes(deps) {
       res.send(evidenceHtml(ev));
     } catch (e) { fail(res, e); }
   });
-  router.get(BASE + '/:id/evidence.pdf', requireReportSession, async (req, res) => {
+  router.get(BASE + '/:id/evidence.pdf', requireReportSession, xpGate('wan_sla.claim_evidence'), async (req, res) => {
     try {
       const ev = await evidence(req, res); if (!ev) return;
       const html = evidenceHtml(ev);
