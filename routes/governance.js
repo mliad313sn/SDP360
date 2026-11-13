@@ -1,4 +1,5 @@
 'use strict';
+const xpGate = require('../services/exportPolicy').gate;   // P9 / B7 — one export policy (allow / mask / deny + export log + watermark)
 const { fail: httpFail, logError } = require('../services/httpError');
 // Step 8 — meeting cockpit (cadences, sessions, agenda, minutes), decision register, RFI register,
 // portfolio (programmes → objectives → projects → milestones → deliverables, risks), governance overview,
@@ -370,8 +371,8 @@ module.exports = function governanceRoutes(deps) {
       await store.addMinutesHistory(s.id, 'reopened', req.reportUser.id, reason);
       log(req, 'minutes_reopened', s.id, { reason: reason.slice(0, 200) }); res.json({ ok: true, session: { ...(await withStage(s, req.reportUser, x.cad)), minutes_html: undefined } }); } catch (e) { fail(res, e); }
   });
-  router.get('/api/governance/sessions/:id/minutes.html', requireReportSession, async (req, res) => { try { const x = await loadSession(req, res); if (!x) return; res.type('html').send(x.s.minutes_html || await minutesFor(x)); } catch (e) { fail(res, e); } });
-  router.get('/api/governance/sessions/:id/minutes.pdf', requireReportSession, async (req, res) => {
+  router.get('/api/governance/sessions/:id/minutes.html', requireReportSession, xpGate('governance.minutes'), async (req, res) => { try { const x = await loadSession(req, res); if (!x) return; res.type('html').send(x.s.minutes_html || await minutesFor(x)); } catch (e) { fail(res, e); } });
+  router.get('/api/governance/sessions/:id/minutes.pdf', requireReportSession, xpGate('governance.minutes'), async (req, res) => {
     try { const x = await loadSession(req, res); if (!x) return; const html = x.s.minutes_html || await minutesFor(x); const r = await (deps.renderPdf || require('../services/reportRender').renderPdf)(html, { stamp: `minutes-${x.s.id}` });
       if (!r.ok) return res.status(503).json({ ok: false, error: 'PDF unavailable: ' + r.reason, html_available: true }); res.setHeader('Content-Type', 'application/pdf'); res.setHeader('Content-Disposition', `attachment; filename="minutes-${x.s.id}.pdf"`); res.send(r.pdf); } catch (e) { fail(res, e); }
   });
@@ -790,8 +791,8 @@ module.exports = function governanceRoutes(deps) {
       res.json({ ok: true, alerts_armed: String(cfg.ppm_alerts_enabled) === '1', thresholds: { blocked_days: Number(cfg.ppm_alert_blocked_days), slip_days: Number(cfg.ppm_alert_slip_days), stale_plan_days: String(cfg.stale_plan_days || '').trim() === '' ? null : Number(cfg.stale_plan_days) }, items, as_of: new Date().toISOString() }); } catch (e) { fail(res, e); }
   });
   /** The deck / workbook data: the readable portfolio, money stripped unless canSeeMoney, + baselines and exceptions. */
-  async function exportData(u) {
-    const { v: v0 } = await viewFor(u); const money = canSeeMoney(u);
+  async function exportData(u, xp) {   // P9 / B7 — the amount rule comes from services/exportPolicy (req.exportPolicy.money)
+    const { v: v0 } = await viewFor(u); const money = (xp && typeof xp.money === 'boolean' ? xp.money : canSeeMoney(u)) && !u.__ppmClient;   // W4: a client project role never gets amounts
     const v = money ? v0 : stripMoney(v0);
     const ids = new Set(v.projects.map((p) => p.id));
     const baselines = (await store.listBaselines()).filter((b) => ids.has(b.project_id));
@@ -807,13 +808,13 @@ module.exports = function governanceRoutes(deps) {
     return { v: { ...v, benefits: (v.benefits || []).filter((b) => ids.has(b.project_id)) }, money, baselines, exceptions: await exceptionsFor(v0),
       benefitClasses: String(cx.benefit_value_class_enabled) === '1', actualHours, budgetPeriods, changeRequests };
   }
-  router.get('/api/governance/portfolio/deck.pptx', requireReportSession, async (req, res) => {
-    try { const x = await exportData(req.reportUser); const buf = await require('../services/portfolioDeck').buildDeck(x.v, { money: x.money, exceptions: x.exceptions, asOf: x.v.as_of });
+  router.get('/api/governance/portfolio/deck.pptx', requireReportSession, xpGate('governance.portfolio_deck'), async (req, res) => {
+    try { const x = await exportData(req.reportUser, req.exportPolicy); const buf = await require('../services/portfolioDeck').buildDeck(x.v, { money: x.money, exceptions: x.exceptions, asOf: x.v.as_of });
       log(req, 'portfolio_deck', 'portfolio', { money: x.money });
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'); res.setHeader('Content-Disposition', `attachment; filename="portfolio-${x.v.as_of.slice(0, 10)}.pptx"`); res.send(buf); } catch (e) { fail(res, e); }
   });
-  router.get('/api/governance/portfolio/workbook.xlsx', requireReportSession, async (req, res) => {
-    try { const x = await exportData(req.reportUser); const buf = require('../services/portfolioDeck').buildWorkbookBuffer(x.v, { money: x.money, baselines: x.baselines, exceptions: x.exceptions, benefitClasses: x.benefitClasses, actualHours: x.actualHours, budgetPeriods: x.budgetPeriods, changeRequests: x.changeRequests });
+  router.get('/api/governance/portfolio/workbook.xlsx', requireReportSession, xpGate('governance.portfolio_workbook'), async (req, res) => {
+    try { const x = await exportData(req.reportUser, req.exportPolicy); const buf = require('../services/portfolioDeck').buildWorkbookBuffer(x.v, { money: x.money, baselines: x.baselines, exceptions: x.exceptions, benefitClasses: x.benefitClasses, actualHours: x.actualHours, budgetPeriods: x.budgetPeriods, changeRequests: x.changeRequests });
       log(req, 'portfolio_workbook', 'portfolio', { money: x.money });
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); res.setHeader('Content-Disposition', `attachment; filename="portfolio-${x.v.as_of.slice(0, 10)}.xlsx"`); res.send(buf); } catch (e) { fail(res, e); }
   });
@@ -838,8 +839,8 @@ module.exports = function governanceRoutes(deps) {
     catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.project_id ? { project_id: e.project_id } : {}) }); }
   });
   router.delete('/api/governance/portfolio/:kind/:id', requireReportSession, json, (req, res, next) => (PLAN_KINDS.includes(req.params.kind) ? next() : requireCommittee(req, res, next)), async (req, res) => { try { if (PLAN_KINDS.includes(req.params.kind) && await refusePlanWrite(req, res, req.params.kind, { id: Number(req.params.id), op: 'delete' })) return; const soft = await _softDelete(req, res, req.params.kind, req.params.id); if (!soft) return; await store.removePortfolio(req.params.kind, req.params.id, { user: req.reportUser, ...soft }); await _confirmed(req, soft); log(req, soft.soft ? 'portfolio_soft_deleted' : 'portfolio_removed', `${req.params.kind}:${req.params.id}`); res.json({ ok: true, soft: !!soft.soft }); } catch (e) { fail(res, e); } });
-  router.get('/api/governance/portfolio/report.html', requireReportSession, async (req, res) => {
-    try { const v0 = (await viewFor(req.reportUser)).v; const v = canSeeMoney(req.reportUser) ? v0 : stripMoney(v0); const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  router.get('/api/governance/portfolio/report.html', requireReportSession, xpGate('governance.portfolio_report'), async (req, res) => {
+    try { const v0 = (await viewFor(req.reportUser)).v; const v = (req.exportPolicy ? req.exportPolicy.money && !req.reportUser.__ppmClient : canSeeMoney(req.reportUser)) ? v0 : stripMoney(v0);   // W4: client role const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
       const month = new Date().toISOString().slice(0, 7);
       const amt = (n) => (n == null ? '—' : String(Math.round(n)));   // E-NULL-3: an unknown amount is "—", never 0
       const rows = v.summary.map(s => `<tr><td>${esc(s.name)}</td><td>${s.objectives}</td><td>${s.auto_evidence_pct == null ? '—' : s.auto_evidence_pct + ' %'}</td><td>${s.weighted_evidence_pct == null ? '—' : s.weighted_evidence_pct + ' %'}</td><td>${s.projects}</td><td>${s.late_projects}</td><td>${s.high_risks}</td><td>${v.money_hidden ? '<small>restricted</small>' : s.currency_mixed ? Object.entries(s.budget_by_currency).map(([c, b]) => amt(b.spent) + ' / ' + amt(b.budget) + ' ' + esc(c)).join('<br>') : s.budget != null ? amt(s.spent) + ' / ' + amt(s.budget) + ' ' + esc(s.currency || '') : '—'}</td></tr>`).join('');

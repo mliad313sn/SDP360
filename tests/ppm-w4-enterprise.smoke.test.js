@@ -138,6 +138,8 @@ test('client: reads the project (even outside the site scope) and never an amoun
     const pf = await send('GET', '/api/governance/portfolio', T.client);
     assert.equal(pf.j.money_hidden, true, 'no amount anywhere in the portfolio for a client');
     assert.equal((await send('GET', `/api/governance/portfolio/project/${pid}/history`, T.client)).status, 403, 'the ledger carries amounts');
+    const rep = await fetch(base + '/api/governance/portfolio/report.html', { headers: { 'x-report-token': T.client } });
+    if (rep.status === 200) assert.doesNotMatch(await rep.text(), /5000/, 'the monthly report (export policy) carries no amount for a client');
     assert.equal((await send('GET', `/api/governance/portfolio/project/${pid}`, T.outsider)).status, 404, 'no role: the site scope still hides it');
     const p = await send('GET', `/api/governance/portfolio/project/${pid}`, T.pm);
     assert.equal(p.j.project_role, 'pm'); assert.equal(p.j.can_edit_plan, true);

@@ -1694,6 +1694,7 @@ function _canReadMoney(user) {
   const r = require('./reports-db');
   return r.userHasRole(user, 'admin') || r.userHasRole(user, 'finance-viewer');
 }
+const _xp = (id, o) => require('./services/exportPolicy').gate(id, o);   // P9 / B7 — one export policy on every export route
 function requireMoneyRead(req, res, next) {
   if (_canReadMoney(req.reportUser)) return next();
   return res.status(403).json({ error: 'Forbidden — required role(s): admin or finance-viewer' });
@@ -1784,7 +1785,7 @@ app.get('/api/assets/summary', requireReportSession, async (req, res) => {
 // as /inventory) as a two-sheet workbook (Assets + Installed Software). The
 // software sheet is empty for now — the Foundation has no software table (it
 // moved to sub-project C); the sheet is emitted so the contract is stable.
-app.get('/api/assets/export.xlsx', requireReportSession, requireMoneyRead, async (req, res) => {
+app.get('/api/assets/export.xlsx', requireReportSession, requireMoneyRead, _xp('assets.inventory'), async (req, res) => {
   try {
     const adb = require('./assets-db');
     const { buildAssetWorkbook } = require('./services/assetExcel');
@@ -1865,7 +1866,7 @@ app.get('/api/assets/hygiene/exceptions', requireReportSession, async (req, res)
 // GET /api/assets/hygiene/export.xlsx?kind=all|<kind> — one sheet per hygiene kind
 // (kind=all, the default), or a single sheet for a specific valid kind. An unknown
 // specific kind → 400 (pre-validated). No cost column (getHygieneExceptions excludes it).
-app.get('/api/assets/hygiene/export.xlsx', requireReportSession, async (req, res) => {
+app.get('/api/assets/hygiene/export.xlsx', requireReportSession, _xp('assets.hygiene'), async (req, res) => {
   const adb = require('./assets-db');
   const kind = String(req.query.kind || 'all');
   if (kind !== 'all' && !adb.HYGIENE_KINDS[kind]) return res.status(400).json({ error: 'unknown kind' });
@@ -2033,7 +2034,7 @@ app.get('/api/assets/hardware/exceptions', requireReportSession, async (req, res
 // GET /api/assets/hardware/export.xlsx?kind=all|<kind> — one sheet per hardware kind
 // (kind=all, the default), or a single sheet for a specific valid kind. An unknown
 // specific kind → 400 (pre-validated). No money column (getHardwareHealthExceptions excludes it).
-app.get('/api/assets/hardware/export.xlsx', requireReportSession, async (req, res) => {
+app.get('/api/assets/hardware/export.xlsx', requireReportSession, _xp('assets.hardware'), async (req, res) => {
   const adb = require('./assets-db');
   const kind = String(req.query.kind || 'all');
   if (kind !== 'all' && !adb.HARDWARE_KINDS[kind]) return res.status(400).json({ error: 'unknown kind' });
@@ -2126,7 +2127,7 @@ app.get('/api/assets/finance/summary', requireReportSession, requireMoneyRead, a
 });
 
 // One-sheet USD-only workbook (no raw XOF ever leaves this route).
-app.get('/api/assets/finance/export.xlsx', requireReportSession, requireMoneyRead, async (req, res) => {
+app.get('/api/assets/finance/export.xlsx', requireReportSession, requireMoneyRead, _xp('assets.finance'), async (req, res) => {
   try {
     const adb = require('./assets-db');
     const { buildWorkbook } = require('./services/tableExcel');
@@ -2159,7 +2160,7 @@ app.get('/api/assets/finance/outliers', requireReportSession, requireMoneyRead, 
     fail(res, e);
   }
 });
-app.get('/api/assets/finance/outliers/export.xlsx', requireReportSession, requireMoneyRead, async (req, res) => {
+app.get('/api/assets/finance/outliers/export.xlsx', requireReportSession, requireMoneyRead, _xp('assets.finance_outliers'), async (req, res) => {
   try {
     const { buildWorkbook } = require('./services/tableExcel');
     const out = await require('./assets-db').getCostOutliers(_assetFinanceFilters(req), await _assetMoneyOpts());
@@ -2201,7 +2202,7 @@ app.get('/api/assets/licences/exceptions', requireReportSession, requireMoneyRea
 // GET /api/assets/licences/export.xlsx?kind=all|<kind> — one sheet per licence kind
 // (kind=all, the default), or a single sheet for a specific valid kind. Unknown specific
 // kind → 400 (pre-validated).
-app.get('/api/assets/licences/export.xlsx', requireReportSession, requireMoneyRead, async (req, res) => {
+app.get('/api/assets/licences/export.xlsx', requireReportSession, requireMoneyRead, _xp('assets.licences'), async (req, res) => {
   const adb = require('./assets-db');
   const kind = String(req.query.kind || 'all');
   if (kind !== 'all' && !adb.LICENCE_KINDS[kind]) return res.status(400).json({ error: 'unknown kind' });
@@ -2261,7 +2262,7 @@ app.get('/api/assets/software/exceptions', requireReportSession, async (req, res
 // GET /api/assets/software/export.xlsx?kind=all|<kind> — one sheet per software kind
 // (kind=all, the default), or a single sheet for a specific valid kind. Unknown specific
 // kind → 400 (pre-validated).
-app.get('/api/assets/software/export.xlsx', requireReportSession, async (req, res) => {
+app.get('/api/assets/software/export.xlsx', requireReportSession, _xp('assets.software'), async (req, res) => {
   const adb = require('./assets-db');
   const kind = String(req.query.kind || 'all');
   if (kind !== 'all' && !adb.SOFTWARE_KINDS[kind]) return res.status(400).json({ error: 'unknown kind' });
@@ -2561,7 +2562,7 @@ app.post('/api/assets/reconcile/snapshot', requireReportSession, requireAdmin, a
   }
 });
 
-app.get('/api/assets/reconcile/export.xlsx', requireReportSession, async (req, res) => {
+app.get('/api/assets/reconcile/export.xlsx', requireReportSession, _xp('assets.reconcile'), async (req, res) => {
   try {
     const v = await _reconcileView(req);
     const XLSX = require('xlsx');
@@ -2796,7 +2797,7 @@ app.get('/api/assets/investment/forecast', requireReportSession, requireMoneyRea
 // forecast sheet is the year rows plus a "Due now" and a "Beyond horizon" row
 // (the Year column labels those two). Same horizon-clamp + config/rate/uplift reads
 // as the forecast route.
-app.get('/api/assets/investment/export.xlsx', requireReportSession, requireMoneyRead, async (req, res) => {
+app.get('/api/assets/investment/export.xlsx', requireReportSession, requireMoneyRead, _xp('assets.investment'), async (req, res) => {
   try {
     const adb = require('./assets-db');
     const { buildWorkbook } = require('./services/tableExcel');
@@ -5804,7 +5805,7 @@ app.get('/api/reports/system-log/analytics', requireReportSession, _syslogGate, 
   try { res.json(await rdb.getSystemLogAnalytics({ window: req.query.window || '30d' })); }
   catch (e) { fail(res, e); }
 });
-app.get('/api/reports/system-log/export.json', requireReportSession, _syslogGate, async (req, res) => {
+app.get('/api/reports/system-log/export.json', requireReportSession, _syslogGate, _xp('reports.system_log'), async (req, res) => {
   try {
     const { rows } = await rdb.listSystemLog(_syslogFilters(req), { limit: 100000, offset: 0 });
     res.setHeader('Content-Type', 'application/json');
@@ -5812,7 +5813,7 @@ app.get('/api/reports/system-log/export.json', requireReportSession, _syslogGate
     res.send(JSON.stringify(rows));
   } catch (e) { res.status(500).json({ error: 'export error' }); }
 });
-app.get('/api/reports/system-log/export.csv', requireReportSession, _syslogGate, async (req, res) => {
+app.get('/api/reports/system-log/export.csv', requireReportSession, _syslogGate, _xp('reports.system_log'), async (req, res) => {
   try {
     const { rows } = await rdb.listSystemLog(_syslogFilters(req), { limit: 100000, offset: 0 });
     const COLS = ['ts','category','action','actor','actor_id','target','ip','risk','details'];
@@ -6106,7 +6107,7 @@ async function _meetingsSummaryForSite(siteName, year, month) {
 }
 
 // GET /api/reports/:id/pptx  — download weekly PPTX
-app.get('/api/reports/:id/pptx', requireReportSession, async (req, res) => {
+app.get('/api/reports/:id/pptx', requireReportSession, _xp('reports.weekly_pptx'), async (req, res) => {
   if (!rpptx) return res.status(503).json({ error: 'PPTX module not available' });
   try {
     const report = await rdb.getReport(parseInt(req.params.id));
@@ -6137,7 +6138,7 @@ app.get('/api/reports/:id/pptx', requireReportSession, async (req, res) => {
 
 // GET /api/reports/monthly/all-sites/:year/:month/pptx  — combined all-sites monthly deck
 // NOTE: must be registered BEFORE the /:site_id route so Express does not treat "all-sites" as a site_id
-app.get('/api/reports/monthly/all-sites/:year/:month/pptx', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/reports/monthly/all-sites/:year/:month/pptx', requireReportSession, requireAdmin, _xp('reports.monthly_all_pptx'), async (req, res) => {
   if (!rpptxMonthly) return res.status(503).json({ error: 'Monthly PPTX module not available' });
   try {
     const { year, month } = req.params;
@@ -6168,7 +6169,7 @@ app.get('/api/reports/monthly/all-sites/:year/:month/pptx', requireReportSession
 });
 
 // GET /api/reports/monthly/:site_id/:year/:month/pptx  — download monthly PPTX
-app.get('/api/reports/monthly/:site_id/:year/:month/pptx', requireReportSession, async (req, res) => {
+app.get('/api/reports/monthly/:site_id/:year/:month/pptx', requireReportSession, _xp('reports.monthly_pptx'), async (req, res) => {
   if (!rpptx) return res.status(503).json({ error: 'PPTX module not available' });
   try {
     const { site_id, year, month } = req.params;
@@ -6200,7 +6201,7 @@ app.get('/api/reports/monthly/:site_id/:year/:month/pptx', requireReportSession,
 });
 
 // GET /api/reports/weekly-summary/:year/:week/pptx  — all-sites aggregated weekly PPTX
-app.get('/api/reports/weekly-summary/:year/:week/pptx', requireReportSession, requireAdmin, async (req, res) => {
+app.get('/api/reports/weekly-summary/:year/:week/pptx', requireReportSession, requireAdmin, _xp('reports.weekly_summary_pptx'), async (req, res) => {
   if (!rpptx) return res.status(503).json({ error: 'PPTX module not available' });
   try {
     const { year, week } = req.params;
@@ -6315,7 +6316,7 @@ app.post('/api/reports/objectives/:site_id/:year', requireReportSession, express
 });
 
 // GET /api/reports/monthly/:site_id/:year/:month/pptx-v2  — new 7-slide monthly format
-app.get('/api/reports/monthly/:site_id/:year/:month/pptx-v2', requireReportSession, async (req, res) => {
+app.get('/api/reports/monthly/:site_id/:year/:month/pptx-v2', requireReportSession, _xp('reports.monthly_pptx'), async (req, res) => {
   if (!rpptxMonthly) return res.status(503).json({ error: 'Monthly PPTX module not available' });
   try {
     const { site_id, year, month } = req.params;
@@ -6344,7 +6345,7 @@ app.get('/api/reports/monthly/:site_id/:year/:month/pptx-v2', requireReportSessi
 
 // GET /api/reports/monthly/:site_id/:year/:month/site-template/pptx
 // 19-slide mine-site template PPTX — auto-fills all data-driven sections
-app.get('/api/reports/monthly/:site_id/:year/:month/site-template/pptx', requireReportSession, async (req, res) => {
+app.get('/api/reports/monthly/:site_id/:year/:month/site-template/pptx', requireReportSession, _xp('reports.monthly_pptx'), async (req, res) => {
   if (!rpptxSiteTemplate) return res.status(503).json({ error: 'Site template PPTX module not available' });
   try {
     const { site_id, year, month } = req.params;
@@ -6369,7 +6370,7 @@ app.get('/api/reports/monthly/:site_id/:year/:month/site-template/pptx', require
 // Protected by the standard API key guard (X-Dash-Key), same as other executive-report.html calls.
 // Body: { site_id, year, month, period, siteFilter, groupFilter, groups, helpdesk, changes, incidents, csat,
 //         ageing, categoryBreakdown, siteSummary, monthlyTrend, savedComments }
-app.post('/api/executive-new-pptx', requireReportSession, requireRole('report-author'), express.json({ limit: '256kb' }), async (req, res) => {
+app.post('/api/executive-new-pptx', requireReportSession, requireRole('report-author'), express.json({ limit: '256kb' }), _xp('reports.exec_new_pptx'), async (req, res) => {
   if (!rExecNewReport) return res.status(503).json({ error: 'Executive new report module not available' });
   try {
     const payload = req.body || {};
@@ -6568,7 +6569,7 @@ app.get('/api/dashboard/groups/discovered', requireReportSession, requireDeckBui
   }
 });
 
-app.post('/api/reports/exec-pptx', requireReportSession, requireDeckBuilder, async (req, res) => {
+app.post('/api/reports/exec-pptx', requireReportSession, requireDeckBuilder, _xp('reports.exec_pptx'), async (req, res) => {
   const browserPayload = req.body || {};
   if (!browserPayload.filters || !browserPayload.filters.period_label) {
     return res.status(400).json({ error: 'Missing filters.period_label' });

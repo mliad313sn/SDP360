@@ -1,4 +1,5 @@
 'use strict';
+const xpGate = require('../services/exportPolicy').gate;   // P9 / B7 — one export policy (allow / mask / deny + export log + watermark)
 const { fail } = require('../services/httpError');
 // Step 5 — meetings routes extracted from server.js (modularisation, inspection.js pattern).
 // Handlers are byte-identical to the former inline ones; `app.` became `router.` and the
@@ -292,7 +293,7 @@ router.get('/api/meetings/escalations', requireReportSession, async (req, res) =
 // route's non-numeric guard (parseInt("export.xlsx")=NaN → next()) lets this
 // specific path resolve here regardless of registration order.
 // RBAC lot 4c: open to an editor, limited to their site (admin tier: every site).
-router.get('/api/meetings/export.xlsx', requireReportSession, async (req, res) => {
+router.get('/api/meetings/export.xlsx', requireReportSession, xpGate('meetings.table'), async (req, res) => {
   try {
     if (!meetingsDb) return res.status(503).json({ error: 'Meetings module not available' });
     const scope = await _meetingsImportScope(req, res); if (!scope) return;
@@ -889,7 +890,7 @@ router.get('/api/meetings/progress', requireReportSession, async (req, res) => {
 // Returns a Buffer with mime `application/vnd.openxmlformats-officedocument.presentationml.presentation`.
 // Filename derived from the meeting reference for readability in the
 // browser's download bar (so coordinators don't email "download.pptx").
-router.get('/api/meetings/:id/export-pptx', requireReportSession, async (req, res, next) => {
+router.get('/api/meetings/:id/export-pptx', requireReportSession, xpGate('meetings.pv_pptx', { skip: (req) => !/^\d+$/.test(String(req.params.id)) }), async (req, res, next) => {
   // Same guard as GET /api/meetings/:id — let /progress/export-pptx fall
   // through to its specific route instead of matching :id="progress".
   if (!Number.isFinite(parseInt(req.params.id, 10))) return next();
@@ -918,7 +919,7 @@ router.get('/api/meetings/:id/export-pptx', requireReportSession, async (req, re
 // GET /api/meetings/progress/export-pptx — pre-brief deck (4 slides)
 // Cover + KPI strip + history table · Standing issues · Resolved since ·
 // New since + audit trail. Same query params as /progress.
-router.get('/api/meetings/progress/export-pptx', requireReportSession, async (req, res) => {
+router.get('/api/meetings/progress/export-pptx', requireReportSession, xpGate('meetings.progress_pptx'), async (req, res) => {
   try {
     if (!meetingsDb)   return res.status(503).json({ error: 'Meetings module not available' });
     if (!meetingsPptx) return res.status(503).json({ error: 'PPTX generator not available' });
