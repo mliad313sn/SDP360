@@ -260,7 +260,9 @@
     if (row && row.version != null) b.version = row.version;
     api("/api/governance/portfolio/" + k, { method: "PUT", body: JSON.stringify(b) }).then(function (j) { msg(k + " #" + j.id + " saved."); return load(); }).catch(fail);
   });
-  $("e-del").addEventListener("click", function () { var id = num("e-id"); if (!id || !window.confirm("Delete " + $("e-kind").value + " #" + id + " and its children?")) return; api("/api/governance/portfolio/" + $("e-kind").value + "/" + id, { method: "DELETE" }).then(function () { msg("Deleted."); return load(); }).catch(fail); });
+  $("e-del").addEventListener("click", function () { var id = num("e-id"); if (!id || !window.confirm("Delete " + $("e-kind").value + " #" + id + " and its children?")) return; var url = "/api/governance/portfolio/" + $("e-kind").value + "/" + id, done = function (j) { msg(j && j.pending ? j.message : "Deleted."); return load(); };
+    // A5 (P6) — soft_delete_two_person: the server asks for a reason (400) and a second person (202 = request recorded)
+    api(url, { method: "DELETE" }).then(done).catch(function (e) { if (!/reason is required/i.test(String(e && e.message))) throw e; var why = window.prompt("Reason for the deletion (at least 10 characters):"); if (!why) return null; return api(url, { method: "DELETE", body: JSON.stringify({ reason: why }) }).then(done); }).catch(fail); });
   $("mig-dry").addEventListener("click", function () { api("/api/governance/roadmap-migration", { method: "POST", body: "{}" }).then(function (j) { $("mig").hidden = false; $("mig").textContent = JSON.stringify(j.plan, null, 2); }).catch(fail); });
   $("mig-apply").addEventListener("click", function () { if (!window.confirm("Create the ITSM roadmap programme from the Roadmap Manager now?")) return; api("/api/governance/roadmap-migration?apply=1", { method: "POST", body: "{}" }).then(function () { msg("Roadmap migrated into the portfolio."); $("mig").hidden = true; return load(); }).catch(fail); });
   load();

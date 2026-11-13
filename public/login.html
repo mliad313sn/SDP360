@@ -250,12 +250,20 @@
     btn.disabled = true;
 
     try {
-      const res = await fetch('/api/reports/auth/login', {
+      const post = (extra) => fetch('/api/reports/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify(Object.assign({ username, password }, extra || {}))
       });
-      const data = await res.json();
+      let res = await post();
+      let data = await res.json();
+      // A6 — break-glass time-box: the server asks for a reason (400 REASON_REQUIRED) before a break-glass sign-in
+      if (res.status === 400 && data.code === 'REASON_REQUIRED') {
+        const reason = window.prompt('Break-glass sign-in — why do you need it? (at least 10 characters, kept in the security log)');
+        if (!reason) throw new Error(data.error);
+        res = await post({ reason });
+        data = await res.json();
+      }
       if (!res.ok) throw new Error(data.error || 'Invalid credentials');
 
       // Store the profile only — the session cookie was set by the server (E5)

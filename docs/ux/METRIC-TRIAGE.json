@@ -267,6 +267,11 @@
    "status": "untriaged",
    "decided_by": null,
    "decision_ref": null
+  },
+  "governance.decision_cycle_days": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
   }
  }
 }

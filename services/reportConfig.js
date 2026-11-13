@@ -276,6 +276,9 @@ const DEFAULTS = {
   // its "done" is stored as awaiting_confirmation until the committee confirms; cancel / reopen need a reason; an illegal
   // jump is refused (409). The status history (ppm_events, entity 'decision') is written either way.
   decision_lifecycle_enforced: '0',
+  // A5 (P6) — PROPOSED: '1' = every decision status CHANGE needs a motive (≥ 3 characters, 400 REASON_REQUIRED
+  // otherwise), in both modes. '0' = today (a reason only where decision_lifecycle_enforced asks for one).
+  decision_motive_required: '0',
   // F-PRODUCT-05 (committee 12 Nov 2026, N9) — PROPOSED: '1' = GET /api/governance/department-rollup counts commitments,
   // handoffs, report actions and PV issues per crosswalked department (migration 082; a value without a pair stays
   // "unmapped", never merged). '0' = today: no roll-up (404). The crosswalk list and the --check tool read either way.
@@ -348,6 +351,15 @@ DEFAULTS.site_score_published_model = 'legacy';
 //    removed, restorable by the admin tier within soft_delete_retention_days; soft_delete_purge_enabled '1' arms
 //    the nightly softdelete.purge job (hard-deletes stamped rows older than the retention). services/softDelete.js.
 Object.assign(DEFAULTS, { soft_delete_enabled: '0', soft_delete_retention_days: '30', soft_delete_purge_enabled: '0' });
+// A5 (P6) — PROPOSED: soft_delete_two_person '1' (effective only with soft_delete_enabled = '1') = deleting a
+// portfolio node or a cadence needs a reason (≥ 10 characters) and a SECOND person: the first DELETE records a request
+// (202, ledger ppm_events 'delete_request:<kind>'), a DELETE by another authorised person confirms and stamps it; the
+// requester can never confirm. '0' = today (one DELETE stamps, reason optional).
+DEFAULTS.soft_delete_two_person = '0';
+// A6 (P6) — PROPOSED (ADR-P6-decisions-and-breakglass): breakglass_timebox_enabled '1' = a password sign-in of the
+// break-glass account (SSO mode available / only) needs a reason (≥ 10 characters, logged on the risk event) and its
+// session is capped at breakglass_session_minutes (default 60). '0' = today (24 h session, no reason asked).
+Object.assign(DEFAULTS, { breakglass_timebox_enabled: '0', breakglass_session_minutes: '60' });
 
 // ── B-09 — Roadmap Manager → portfolio single source. '0' = today (the Roadmap Manager stays editable);
 //    '1' = itsm-roadmap.html turns READ-ONLY with a link to the portfolio, and the roadmap write routes answer

@@ -4958,6 +4958,9 @@ app.post('/api/reports/auth/login', loginLimiter, jsonBody, async (req, res) => 
   if (_sso.mode === 'only' && username !== _sso.breakglassUser) {
     return res.status(403).json({ error: 'Password sign-in is disabled — use "Sign in with Microsoft".' });
   }
+  // A6 — break-glass time-box (breakglass_timebox_enabled, '0' = today): a reason, and a session capped in minutes
+  const _bgG = require('./services/breakglassGuard'), _bg = await _bgG.begin(rdb, { sso: _sso, username, reason: (req.body || {}).reason });
+  if (_bg.refuse) return res.status(_bg.refuse.status).json({ error: _bg.refuse.error, code: _bg.refuse.code });
   // SEC-01 per-account throttle + UAT-OI-02 failures-only address limit (services/loginGuard.js; both '0' = today)
   const _lg = require('./services/loginGuard'), _blk = await _lg.begin(rdb, req, username), _thrS = _blk.s;
   if (_blk.blocked) {
@@ -4969,7 +4972,7 @@ app.post('/api/reports/auth/login', loginLimiter, jsonBody, async (req, res) => 
     const result = await rdb.login(username, password);
     // Step 4 — every use of the break-glass account is a RISK event (System Logs), success or not.
     if (_sso.breakglassUser && username === _sso.breakglassUser && _sso.mode !== 'off') {
-      rdb.logEvent({ category:'auth', action:'breakglass_login', actor: username, ip: req.ip, details:{ ok: !!result, sso_mode: _sso.mode } });
+      rdb.logEvent({ category:'auth', action:'breakglass_login', actor: username, ip: req.ip, details:{ ok: !!result, sso_mode: _sso.mode, ...(_bg.applies ? { reason: _bg.reason, session_minutes: _bg.minutes } : {}) } });
     }
     if (!result) {
       rdb.logEvent({ category:'auth', action:'login_failed', actor: username || 'anonymous', ip: req.ip, details:{ reason:'invalid_credentials' } });
@@ -4986,8 +4989,9 @@ app.post('/api/reports/auth/login', loginLimiter, jsonBody, async (req, res) => 
         httpOnly: true,
         secure:   netBinding.cookieSecure(req, SESSION_COOKIE_SECURE),
         sameSite: 'lax',          // 'lax' allows cookie on same-site page navigations (GET)
-        maxAge:   24 * 60 * 60 * 1000, // 24 hours
+        maxAge:   _bg.applies ? _bg.minutes * 60 * 1000 : 24 * 60 * 60 * 1000, // 24 hours (break-glass time-box: minutes)
       });
+      if (_bg.applies) await _bgG.capSession(rdb, result.token, _bg.minutes);
     }
     res.json({ user: result.user });   // E5: the token travels ONLY in the httpOnly cookie
   } catch(e) { fail(res, e); }

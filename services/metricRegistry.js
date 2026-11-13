@@ -94,6 +94,8 @@ const SEED = [
   { ...M('commitments.serious_unowned', 'Serious commitments without an owner (A01)', 'Engagements graves sans propriétaire (A01)', 'commitments', 'count', 'COUNT high/critical commitments not terminal with no accountable_owner — a red flag, never a score improvement', 'current', null, 'commitments.summary', 'serious_unowned', { hib: false, source: 'services/commitmentMetrics.js' }), status: 'draft — pending committee' },
   { ...M('commitments.serious_overdue', 'Overdue serious commitments without exception (A02)', 'Engagements graves en retard sans exception (A02)', 'commitments', 'count', 'COUNT high/critical commitments not terminal, not awaiting verification, due_date < today, no approved exception', 'current', null, 'commitments.summary', 'serious_overdue', { hib: false, source: 'services/commitmentMetrics.js' }), status: 'draft — pending committee' },
   { ...M('commitments.technical_vs_verified', 'Verified share of technically completed commitments', 'Part vérifiée des engagements techniquement terminés', 'commitments', '%', 'verified_closed ÷ commitments with technical_completed_at set (pending = the difference)', 'current', null, 'commitments.summary', 'verified_of_technical_pct', { source: 'services/commitmentMetrics.js' }), status: 'draft — pending committee' },
+  // A5 (P6) — decision cycle time (proposed → adopted). DRAFT: which decision KPIs the committee follows is F-DATA-11.
+  { ...M('governance.decision_cycle_days', 'Decision cycle time (proposed → adopted)', 'Délai de décision (proposée → adoptée)', 'governance', 'days', 'mean(first move to done in ppm_events − decisions.created_at) over decisions adopted in the window (legacy done without ledger row: closed_at); null when none adopted', 'rolling3m', null, 'governance.decisions', 'cycle_days', { hib: false, decision: 'F-DATA-11', source: 'services/decisionCycle.js' }), status: 'draft — pending committee' },
 ];
 
 // WAN report band (≥ target → green, ≥ target × 0.9 → amber) expressed as a policy on the
@@ -143,6 +145,19 @@ const READERS = {
     if (!d || !d.commitmentStore) return null;
     const rows = await d.commitmentStore.metricRows({ siteIds: site == null ? null : [Number(site)] });
     return require('./commitmentMetrics').summary(rows);
+  },
+  // A5 — decision cycle time from the decision register + its hash-chained ledger (ppm_events). Site = the
+  // decision's site_id (group decisions only in the fleet figure). No adopted decision → value null.
+  async 'governance.decisions'(d, { site, win }) {
+    const P = (sql) => d.rdb.pgHandle().prepare(sql);
+    const decs = await P(`SELECT id, ref, site_id, status, created_at, closed_at FROM decisions${site == null ? '' : ' WHERE site_id=?'} ORDER BY id`).all(...(site == null ? [] : [Number(site)]));
+    const ev = await P(`SELECT entity_id, MIN(at) AS done_at FROM ppm_events WHERE entity='decision' AND new_value='done' GROUP BY entity_id`).all();
+    const doneAt = new Map(ev.map((e) => [Number(e.entity_id), e.done_at]));
+    const rows = decs.map((x) => ({ id: Number(x.id), ref: x.ref, created_at: x.created_at,
+      adopted_at: doneAt.get(Number(x.id)) || (x.status === 'done' ? x.closed_at || null : null),
+      adopted_source: doneAt.has(Number(x.id)) ? 'ppm_events' : (x.status === 'done' && x.closed_at ? 'closed_at' : null) }));
+    const c = require('./decisionCycle').cycle(rows, { from: win && win.from, to: win && win.to });
+    return { cycle_days: c.value, median_days: c.median, n: c.n, unreadable: c.unreadable };
   },
   async 'helpdesk.calendar_month'(d, { site, win }) {
     const r = await d.rdb.getCalendarMonthlyHelpdesk(site, win.year, win.month);

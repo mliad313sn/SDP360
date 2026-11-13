@@ -80,7 +80,30 @@ function assertRestorable(row, cfg, { what = 'record', now = new Date() } = {}) 
   return row;
 }
 
+// ── A5 (P6) — second-person confirmation (switch soft_delete_two_person, effective only while soft delete is on) ──
+const TWO_PERSON_REASON_MIN = 10;
+const REQUEST_TTL_DAYS = 7;
+const twoPersonEnabled = (cfg) => isEnabled(cfg) && String((cfg && cfg.soft_delete_two_person) || '0') === '1';
+/**
+ * PURE. What a DELETE does under the two-person rule.
+ * last = the latest ledger event of this node's delete requests ({action, actor_id, note, at}) or null.
+ * @returns {{step:'request', reason}|{step:'confirm', reason, requested_by, requested_at}|{step:'refuse', status, code, error}}
+ */
+function twoPersonStep({ last = null, userId = null, reason = null, now = new Date() } = {}) {
+  const why = String(reason == null ? '' : reason).trim();
+  const pending = last && last.action === 'requested' && withinRetention({ deleted_at: last.at }, REQUEST_TTL_DAYS, now) ? last : null;
+  if (!pending) {
+    if (why.length < TWO_PERSON_REASON_MIN) return { step: 'refuse', status: 400, code: 'REASON_REQUIRED', error: `a reason is required to delete (at least ${TWO_PERSON_REASON_MIN} characters)` };
+    return { step: 'request', reason: why.slice(0, 500) };
+  }
+  if (userId != null && pending.actor_id != null && Number(pending.actor_id) === Number(userId)) {
+    return { step: 'refuse', status: 409, code: 'SECOND_PERSON_REQUIRED', error: 'you asked for this deletion — another authorised person must confirm it' };
+  }
+  return { step: 'confirm', reason: String(pending.note || '').slice(0, 500), requested_by: pending.actor_id == null ? null : Number(pending.actor_id), requested_at: pending.at };
+}
+
 module.exports = {
+  TWO_PERSON_REASON_MIN, REQUEST_TTL_DAYS, twoPersonEnabled, twoPersonStep,
   DEFAULT_RETENTION_DAYS, TABLES, isEnabled, purgeEnabled, retentionDays, readConfig,
   stamp, unstamp, withinRetention, cutoffIso, deletedConflict, assertRestorable,
 };

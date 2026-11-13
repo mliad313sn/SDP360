@@ -222,7 +222,8 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   async function getDecision(id) { return decRow(await P(`SELECT * FROM decisions WHERE id=?`).get(Number(id))); }
   // F-PRODUCT-06 — a status change goes through services/decisionLifecycle (free while the switch is off, the transition
   // table while it is on) and ALWAYS leaves a hash-chained ppm_events row (entity 'decision': old / new / actor / reason).
-  // opts.lifecycle = { enforced, actor: 'committee' | 'site' }; opts.reason; opts.user.
+  // opts.lifecycle = { enforced, actor: 'committee' | 'site', motive }; opts.reason; opts.user.
+  // A5 — motive = decision_motive_required (every change needs a reason); the proposer of a completion never confirms it.
   async function updateDecision(id, patch, opts = {}) {
     const DL = require('./decisionLifecycle');
     const p = {}; for (const k of ['title', 'text', 'owner', 'due_date']) if (patch[k] !== undefined) p[k] = str(patch[k]);
@@ -230,8 +231,12 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     const lc = opts.lifecycle || {};
     return tx(async () => {
       const cur = await getDecision(id); if (!cur) return null;
-      const r = DL.resolve(cur.status, patch.status, { actor: lc.actor || 'committee', reason: opts.reason, enforced: lc.enforced === true });
+      const r = DL.resolve(cur.status, patch.status, { actor: lc.actor || 'committee', reason: opts.reason, enforced: lc.enforced === true, motive: lc.motive === true });
       if (!r.ok) throw Object.assign(new Error(r.error), { code: r.code, status: r.status, expose: true });
+      if (r.changed && cur.status === 'awaiting_confirmation') {
+        const sod = DL.selfConfirmRefusal({ from: cur.status, to: r.to, proposerId: await decisionProposer(id), actorId: opts.user && opts.user.id });
+        if (sod) throw Object.assign(new Error(sod.error), { code: sod.code, status: sod.status, expose: true });
+      }
       if (r.changed) {
         // guarded by the status we read: two writers cannot both move the same decision
         const moved = await P(`UPDATE decisions SET status=?, closed_at=?, updated_at=? WHERE id=? AND status=?`).run(r.to, DL.isClosed(r.to) ? now() : null, now(), Number(id), cur.status);
@@ -244,6 +249,26 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     });
   }
   const decisionHistory = (id) => ppmEvents('decision', id);
+  /** A5 — who moved the decision INTO awaiting_confirmation last (null = unknown / never proposed). */
+  async function decisionProposer(id) {
+    const r = await P(`SELECT actor_id, actor, at FROM ppm_events WHERE entity='decision' AND entity_id=? AND new_value='awaiting_confirmation' ORDER BY id DESC LIMIT 1`).get(Number(id));
+    return r && r.actor_id != null ? Number(r.actor_id) : null;
+  }
+  async function decisionProposal(id) {
+    const r = await P(`SELECT actor_id, actor, at FROM ppm_events WHERE entity='decision' AND entity_id=? AND new_value='awaiting_confirmation' ORDER BY id DESC LIMIT 1`).get(Number(id));
+    return r ? { actor_id: r.actor_id == null ? null : Number(r.actor_id), actor: r.actor || null, at: r.at } : null;
+  }
+  // A5 — second-person confirmation of a soft delete: the requests live in the hash-chained ledger
+  // (entity 'delete_request:<kind>', actions requested / confirmed / cancelled). Latest event wins.
+  async function deleteRequestState(kind, id) {
+    const evs = await ppmEvents('delete_request:' + kind, id);
+    return evs.length ? evs[evs.length - 1] : null;
+  }
+  async function pendingDeleteRequests() {
+    const rows = (await P(`SELECT entity, entity_id, action, note, actor_id, actor, at FROM ppm_events WHERE entity LIKE 'delete_request:%' ORDER BY id`).all());
+    const last = new Map(); for (const r of rows) last.set(r.entity + '#' + r.entity_id, r);
+    return [...last.values()].filter((r) => r.action === 'requested').map((r) => ({ kind: String(r.entity).slice('delete_request:'.length), id: Number(r.entity_id), reason: r.note, requested_by: r.actor_id == null ? null : Number(r.actor_id), requested_by_name: r.actor, requested_at: r.at }));
+  }
 
   // ── RFI register ──────────────────────────────────────────────────────────────────
   const rfiRow = (r) => r && ({ ...r, id: Number(r.id), impact: Number(r.impact), effort: Number(r.effort), data_risk: Number(r.data_risk), site_id: r.site_id == null ? null : Number(r.site_id), score: rfiScore(r) });
@@ -933,7 +958,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   }
   async function minutesHistory(sessionId) { return (await P('SELECT action, actor_id, at, reason FROM minutes_history WHERE session_id=? ORDER BY id').all(Number(sessionId))).map(r => ({ ...r, actor_id: r.actor_id == null ? null : Number(r.actor_id) })); }
   return { ppmEvent, ppmEvents, listBudgetPeriods, saveBudgetPeriod, getRaci, saveRaci, listTemplates, getTemplate, saveTemplateFromProject, approveTemplate, createProjectFromTemplate, moveProjectStage, rfiToProject, getRfi, verifyRfi, rfiFromMeeting, rfiForMeeting, rfiLineage, setAttendance, saveDraftAgenda, getDecision, openSessionActions, addMinutesHistory, minutesHistory, init, listCadences, getCadence, saveCadence, removeCadence, listSessions, getSession, createSession, updateSession, stampItem, sessionActions, addSessionAction, setSessionActionStatus, moveSession,
-    listDecisions, addDecision, updateDecision, decisionHistory, listRfi, submitRfi, triageRfi, rfiScore, portfolio, upsertPortfolio, removePortfolio,
+    listDecisions, addDecision, updateDecision, decisionHistory, decisionProposer, decisionProposal, deleteRequestState, pendingDeleteRequests, listRfi, submitRfi, triageRfi, rfiScore, portfolio, upsertPortfolio, removePortfolio,
     restorePortfolio, getPortfolioTrashRow, listDeletedPortfolio, purgeDeletedPortfolio, restoreCadence, getCadenceTrashRow, listDeletedCadences, purgeDeletedCadences, projectSites, setProjectSites, getProject, planRow, projectDetail, gateCounts, RISK_KINDS, listBaselines, rebaseline, alertStates, saveAlertState, listBenefits, getBenefit, recordBenefitRealised, verifyBenefit, dueBenefitReviews, ownedBenefitReviews,
     CADENCE_KINDS, SESSION_STATUSES, DECISION_STATUSES, RFI_KINDS, RFI_STATUSES, PROJECT_STATUSES, CONFIDENCE };
 }

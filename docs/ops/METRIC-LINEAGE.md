@@ -17,7 +17,7 @@ means the figures were checked as current.
 denominator is never recomputed or invented. **Data state** — every resolved figure carries one of: `measured` · `partial` · `not_measured` · `reader_not_wired` · `error`.
 **Owner role** `to be named` = nobody decided an owner for the definition (a person or a committee names it).
 
-Metrics: **52** · named by no code outside tests (decision pending): **10**
+Metrics: **53** · named by no code outside tests (decision pending): **10**
 
 ## `helpdesk.inbound`
 
@@ -1088,3 +1088,23 @@ Metrics: **52** · named by no code outside tests (decision pending): **10**
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | not tracked (no sync job feeds this module) |
 | Consumers | server code: `services/commitmentMetrics.js` |
+
+## `governance.decision_cycle_days`
+
+| Field | Value |
+|---|---|
+| Name | Decision cycle time (proposed → adopted) / Délai de décision (proposée → adoptée) |
+| Module · unit | governance · days |
+| Source | reader `governance.decisions` · field `cycle_days` · services/decisionCycle.js (`services/decisionCycle.js`) |
+| Reader wiring | wired |
+| Formula | mean(first move to done in ppm_events − decisions.created_at) over decisions adopted in the window (legacy done without ledger row: closed_at); null when none adopted |
+| Window kind | rolling3m |
+| RAG policy | none (no colour) |
+| Higher is better | no |
+| Denominator | not a ratio |
+| Reader wired | yes |
+| Owner role | to be named |
+| Certification | not certified — F-DATA-11 pending |
+| Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
+| Freshness | not tracked (no sync job feeds this module) |
+| Consumers | server code: `services/decisionCycle.js` · tests: 1 file(s) |

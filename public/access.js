@@ -53,6 +53,16 @@
   }
   const reqHead = () => [t().request, t().who, t().roles, t().sites, t().from + ' → ' + t().until, t().status, t().why, ''];
 
+  // A6 (P6) — the hub only shows links; every target page / route keeps its own guard (presentation grants nothing)
+  function renderHub(m) {
+    const hub = (m && m.hub) || {};
+    $('axHubSessionsLink').hidden = !hub.sessions_href; $('axHubSessionsNone').hidden = !!hub.sessions_href;
+    if (hub.sessions_href) $('axHubSessionsLink').setAttribute('href', hub.sessions_href);
+    if (hub.deputies_href) $('axHubDeputiesLink').setAttribute('href', hub.deputies_href);
+    $('axHubEmergencyLink').hidden = !hub.emergency; $('axHubEmergencyNone').hidden = !!hub.emergency;
+  }
+  document.addEventListener('click', (ev) => { const a = ev.target.closest && ev.target.closest('[data-tab-link]'); if (!a) return; ev.preventDefault();
+    const b = document.querySelector('[data-tab="' + a.dataset.tabLink + '"]'); if (b) b.click(); });
   async function load() {
     me = await api('GET', '/api/access/me');
     const soon = new Set((me.expiring_soon || []).map((g) => g.id));
@@ -61,6 +71,7 @@
         '</td><td>' + esc(g.valid_from) + '</td><td>' + esc(g.valid_to) + (soon.has(g.id) ? ' <span class="ax-tag">' + esc(t().expiring) + '</span>' : '') + '</td></tr>')) +
       '<p class="ax-muted">' + esc(t().direct) + '</p><h2>' + esc(t().deputies) + '</h2>' +
       table(['', t().from, t().until], (me.deputies || []).map((d) => '<tr><td>' + esc(d.deputy_id) + ' ' + esc(t().deputyFor) + ' ' + esc(d.user_id) + '</td><td>' + esc(d.start_date) + '</td><td>' + esc(d.end_date) + '</td></tr>'));
+    renderHub(me);
     $('axReqs').innerHTML = table(reqHead(), (me.requests || []).map((r) => reqRow(r, ['REQUESTED', 'REVIEWING'].includes(r.status) && Number(r.requested_by) === Number(me.user.id) ? ['revoke'] : [])));
     const appr = await api('GET', '/api/access/approvals');
     $('axAppr').innerHTML = table(reqHead(), (appr.requests || []).map((r) => reqRow(r, r.status === 'REQUESTED' ? ['review', 'approve', 'reject'] : ['approve', 'reject'])));

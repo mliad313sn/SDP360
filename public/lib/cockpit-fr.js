@@ -36,4 +36,9 @@ window.COCKPIT_FR = {
   'present': 'présent', 'absent': 'absent', 'excused': 'excusé', 'No participant listed on the cadence.': 'Aucun participant inscrit sur la cadence.',
   'attendance not recorded': 'présence non enregistrée', 'quorum not defined': 'quorum non défini', 'quorate': 'quorum atteint', 'NOT quorate': 'quorum NON atteint',
   'Days overdue': 'Jours de retard', 'decision': 'décision', 'action': 'action', 'Nothing overdue.': 'Aucun retard.',
+  // A5 (P6) — pending approver + deletions awaiting a second person
+  'Reason': 'Motif', 'Awaiting confirmation by the committee': 'En attente de confirmation par le comité', 'proposed by': 'proposée par', 'cannot confirm': 'ne peut pas confirmer',
+  'Deletions awaiting a second person': 'Suppressions en attente d’une seconde personne', 'Requested by': 'Demandée par', 'Confirm deletion': 'Confirmer la suppression',
+  'A portfolio item or cadence is deleted only when a second authorised person confirms the request. The person who asked cannot confirm it.': 'Un élément du portefeuille ou une cadence n’est supprimé que lorsqu’une seconde personne autorisée confirme la demande. La personne qui l’a demandée ne peut pas la confirmer.',
+  'Deleted (restorable by an administrator).': 'Supprimé (restaurable par un administrateur).',
 };

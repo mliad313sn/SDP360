@@ -62,6 +62,8 @@ module.exports = function accessRoutes(deps) {
         grants, expiring_soon: grants.filter((g) => g.valid_to <= soon), requests: await s.requestsFor(u.id), deputies: await s.deputiesOf(u.id),
         can_approve: isAdmin(u), can_manage_templates: isSuper(u), can_request_for_others: isAdmin(u),
         emergency_enabled: isSuper(u) ? !!(await em().enabled()) : false,
+        // A6 (P6) — "My access" hub: links only (each target keeps its own guard; nothing is granted here)
+        hub: { sessions_href: isSuper(u) ? 'reports.html#admin/sessions' : null, deputies_href: 'policies.html#gpRoles', emergency: isSuper(u) ? !!(await em().enabled()) : false },
         recert_enabled: String((await cfg()).access_recert_enabled) === '1' });   // E-S03: the page shows the Recertification tab only when on   // C-23: the page asks the emergency list only when it exists for the caller
     } catch (e) { fail(res, e); }
   });
