@@ -6,6 +6,11 @@
 // Both policies sit behind report_config switches (portfolio_site_scope_reads, portfolio_editor_plan_writes)
 // that default to '0' = today's behaviour (every session reads every project; the committee alone writes).
 // Sites are checked through services/userSites only (multi-site editors), never user.site_id === x.
+// B3 (P7a, ADR-P7a-portfolio-sensitive-and-publication) — a SENSITIVE project (portfolio_projects.sensitive = 1) is read
+// only by the admin tier, the committee, its owner, its named team members and the holders of one of its sites —
+// in BOTH states of portfolio_site_scope_reads — and only while report_config portfolio_sensitive_projects = '1'
+// (ctx.sensitiveOn). '0' = today: the flag means nothing. A group-level sensitive project (no site) is therefore read
+// by the admin tier, the committee, its owner and its members only. Grants nothing: it only ever narrows.
 
 const userSites = require('./userSites');
 
@@ -38,8 +43,18 @@ function projectSiteIds(project, extra) {
 
 const _holdsSite = (user, sites) => { const mine = userSites.siteIds(user); return sites.some((s) => mine.includes(s)); };
 
-/** ctx: { scopeOn, isCommittee, isAdmin, extraSites } */
+const isSensitive = (project) => !!project && (project.sensitive === true || Number(project.sensitive) === 1);
+/** memberProjectIds: ids of the projects where the user is a named team member (ppm_project_members.user_id). */
+const _isMember = (project, ctx) => (ctx.memberProjectIds || []).map(Number).includes(Number(project.id));
+
+/** ctx: { scopeOn, sensitiveOn, isCommittee, isAdmin, extraSites, memberProjectIds } */
 function canReadProject(user, project, ctx = {}) {
+  if (ctx.sensitiveOn && isSensitive(project)) {
+    if (ctx.isCommittee || ctx.isAdmin) return true;
+    if (ownerMatches(project, user) || _isMember(project, ctx)) return true;
+    const sites = projectSiteIds(project, ctx.extraSites);
+    return sites.length > 0 && _holdsSite(user, sites);   // group-level sensitive: committee, owner and members only
+  }
   if (!ctx.scopeOn) return true;                       // today: every session reads every project
   if (ctx.isCommittee || ctx.isAdmin) return true;
   if (!project) return false;
@@ -66,7 +81,9 @@ function canEditPlan(user, project, ctx = {}) {
  * set so that no count of a hidden project leaks. ctx: { scopeOn, isCommittee, isAdmin, now }.
  */
 function filterPortfolio(view, user, ctx = {}) {
-  if (!view || !ctx.scopeOn || ctx.isCommittee || ctx.isAdmin) return view;
+  if (!view || ctx.isCommittee || ctx.isAdmin) return view;
+  const sensitiveBites = !!ctx.sensitiveOn && (view.projects || []).some(isSensitive);
+  if (!ctx.scopeOn && !sensitiveBites) return view;
   const PE = require('./portfolioEvidence');
   const SCH = require('./projectSchedule');
   const extra = view.project_sites || [];
@@ -103,4 +120,12 @@ function filterPortfolio(view, user, ctx = {}) {
   };
 }
 
-module.exports = { actorIds, ownerMatches, projectSiteIds, canReadProject, canEditPlan, filterPortfolio };
+/**
+ * B3 — "my projects" (a PRESENTATION default, grants nothing): the ids, among the projects already readable, that the
+ * user owns, holds a site of, or is a named member of. ctx: { extraSites, memberProjectIds }.
+ */
+function myProjectIds(user, projects, ctx = {}) {
+  return (projects || []).filter((p) => ownerMatches(p, user) || _isMember(p, ctx) || _holdsSite(user, projectSiteIds(p, ctx.extraSites))).map((p) => Number(p.id));
+}
+
+module.exports = { actorIds, ownerMatches, projectSiteIds, isSensitive, canReadProject, canEditPlan, filterPortfolio, myProjectIds };

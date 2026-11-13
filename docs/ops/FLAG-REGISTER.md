@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (250) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (253) — services/reportConfig.js DEFAULTS
 
 Prerequisites (E-A07, services/switchPrereqs.js) are WARNINGS in plain words, never approvals: the config PUT
 answer and the `set-ui-policy.js` dry run repeat them when the switch is moved to its switched-on value.
@@ -146,6 +146,8 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `pir_reviews_enabled` | `0` | arm switch | Incident manager + business sponsor | `1` once the Incident manager names who signs a post-incident review and the business sponsor per major incident (the sign-off is a recorded human act by someone other than the author; nothing is sent) | E-I03 | — |
 | `portfolio_editor_plan_writes` | `0` | setting | Owner (access policy) | `1` | A-15 | — |
 | `portfolio_executive_readonly` | `0` | setting | Owner + IAM | PROPOSITION: `1` only after the PO / IAM decide that the direction reads the portfolio without changing it (an account whose only write tier is `executive` gets 403 on portfolio, project, benefit and change-request writes; admin, super_admin and committee-member unchanged) | UAT-OI-05 | — |
+| `portfolio_my_projects_default` | `0` | setting | PMO | `1` once the PMO wants the portfolio page to open on "My projects" (projects I own, of my sites, or where I am a named team member) — the admin tier, the committee and finance-viewer keep an explicit "All projects" choice. Presentation only: grants nothing, the API still answers with what the reader may read | B3 (P7a) | — |
+| `portfolio_sensitive_projects` | `0` | setting | Owner (access policy) | `1` once the access-policy owner decides who may mark a project sensitive (built: committee / admin tier) and accepts the rule: a sensitive project is read only by the admin tier, the committee, its owner, its named members and the holders of one of its sites, whatever `portfolio_site_scope_reads` says. PROPOSED — ADR-P7a | B3 (P7a) | — |
 | `portfolio_site_scope_reads` | `0` | setting | Owner (access policy) | `1` | A-15 | — |
 | `portfolio_views_enabled` | `0` | arm switch | PMO | `1` once the PMO wants the portfolio read as a list or a board as well as the timeline (view switch Timeline · List · Board kept in the address `?view=`; List = the table view promoted out of its fold; Board = one read-only column per stage — a card opens the project page, a stage still moves only through its gate). Nothing is written by these views | R2-WB-05 | — |
 | `ppm_alert_blocked_days` | `5` | setting | Committee | `5` | A-27 | — |
@@ -181,6 +183,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `report_revert_policy` | `site_editor` | setting | Owner (D-3, reverses 2026-10-02) | `second_person` | A-24 | — |
 | `restore_drill_full` | `0` | setting | Operations owner | `1` on the TEST instance once a backup copy of `data/blobs` exists (`SDP_BLOB_BACKUP_DIR`) and both keys are set — proposal | F-ARCH-05 | — |
 | `restore_rto_minutes` | `` | setting | Operations owner (RTO/RPO) | the recovery-time target in minutes — **not proposed here**: empty reads UNKNOWN, never "met" | F-ARCH-05 | — |
+| `roadmap_audience_publication_enabled` | `0` | arm switch | PMO (publication owner) | `1` once the PMO names the publication owner and the audiences to use: frozen roadmap snapshots per audience (site · programme · committee · exec), optional expiry, public share link for site / programme only (never amounts, stops with the publication); amounts only in committee / exec snapshots and only for the admin tier + finance-viewer. Independent of `roadmap_publication_enabled` | B6 (P7a) | — |
 | `roadmap_publication_enabled` | `0` | arm switch | Service & Support Manager | `1` once the Service & Support Manager wants to publish the Roadmap Manager into the portfolio from the page (dry run → duplicates listed and refused unless explicitly left out → apply → parity shown → a separate, explicit archive gesture turns Roadmap Manager read-only). Rollback = soft delete of the migrated programme (needs `soft_delete_enabled`); Roadmap Manager rows are never deleted | R2-WB-06 | — |
 | `roadmap_redirect_to_portfolio` | `0` | setting | PMO + PO (deletion of roadmap data: CAB) | `0` during the pilot; `1` only after one clean parity cycle (`tools/governance/roadmap-parity.js`) | B-09 | — |
 | `schedule_inspection_interval_days` | `` | setting | Infrastructure / GRC owner | e.g. `90` if a quarterly inspection rhythm is adopted (proposal; empty = inspections are not reminded) | E-R06 | — |

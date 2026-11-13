@@ -87,6 +87,7 @@ module.exports = function engagementRoutes(deps) {
       if (!rdb().userHasRole(u, 'editor')) return res.status(403).json({ ok: false, error: 'editor role required' });
       let siteId = b.site_id == null || b.site_id === '' ? null : Number(b.site_id);
       if (b.target_kind === 'dashboard') { if (!dashStore || !(await dashStore.published(b.target_key))) return res.status(400).json({ ok: false, error: 'dashboard has no published version' }); if (!isAdmin(u)) { const mine = userSites.siteIds(u).map(Number); if (siteId == null) siteId = mine[0]; if (siteId == null || !mine.includes(siteId)) return res.status(403).json({ ok: false, error: 'site not in your scope' }); } }
+      else if (b.target_kind === 'roadmap_publication') return res.status(400).json({ ok: false, error: 'a roadmap publication is shared from its own page (audience and expiry are checked there)' });   // B6
       else if (b.target_kind === 'report_run') { const r = reportStore ? await reportStore.getRun(b.target_key) : null; if (!r || r.status !== 'published') return res.status(400).json({ ok: false, error: 'only a published report run can be shared' }); if (!isAdmin(u) && r.site_id != null && !userSites.hasSite(u, r.site_id)) return res.status(403).json({ ok: false, error: 'run belongs to another site' }); siteId = r.site_id; }
       const l = await store.createShareLink({ targetKind: b.target_kind, targetKey: b.target_key, siteId, label: b.label, embed: !!b.embed, ttlHours: b.ttl_hours, maxViews: b.max_views, user: u });
       const base = String((await cfg()).public_base_url || ''); log(req, 'share_link_created', l.id, { kind: b.target_kind, key: String(b.target_key), embed: !!b.embed });
@@ -102,7 +103,10 @@ module.exports = function engagementRoutes(deps) {
       const l = await store.openShareLink(String(req.params.token || ''), { agent: req.headers['user-agent'], ip: req.ip });
       if (!l) return res.status(404).type('html').send('<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Link expired</title></head><body style="font-family:Calibri,Arial"><h1>This link has expired or was revoked.</h1><p>Ask the person who shared it for a new one.</p></body></html>');
       const c = await cfg(); let html = '';
-      if (l.target_kind === 'report_run') { const r = reportStore ? await reportStore.getRun(l.target_key) : null; if (!r || r.status !== 'published') return res.status(404).send('Report no longer available'); const pub = reportStore.publication ? await reportStore.publication(r.id) : null; html = pub ? pub.html : (r.html || ''); }   // G07: the frozen copy
+      if (l.target_kind === 'roadmap_publication') {   // B6 — frozen, audience-checked at creation, never an amount; dies with its publication
+        html = await require('./governanceRoadmapAudience').sharedHtml(rdb().pgHandle(), l.target_key, { enabled: String(c.roadmap_audience_publication_enabled) === '1' });
+        if (!html) return res.status(404).send('Roadmap no longer available');
+      } else if (l.target_kind === 'report_run') { const r = reportStore ? await reportStore.getRun(l.target_key) : null; if (!r || r.status !== 'published') return res.status(404).send('Report no longer available'); const pub = reportStore.publication ? await reportStore.publication(r.id) : null; html = pub ? pub.html : (r.html || ''); }   // G07: the frozen copy
       else {
         const d = dashStore ? await dashStore.published(l.target_key) : null; if (!d) return res.status(404).send('Dashboard no longer available');
         const sites = ((await rdb().listSites({ includeInactive: false })) || []).map(s => ({ id: Number(s.id), name: s.name })); const site = l.site_id != null ? sites.find(s => s.id === l.site_id) : null;

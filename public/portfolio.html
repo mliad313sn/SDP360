@@ -18,6 +18,7 @@
 <script nonce="%%CSP_NONCE%%" src="lib/ppmExtras.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/urlFilters.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/portfolioViews.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/portfolioMine.js"></script>
 <style nonce="%%CSP_NONCE%%">
   body { margin:0; background:var(--color-background,#f4f6f7); color:#1F2A33; font-family:var(--font-sans,"Libre Franklin",system-ui,sans-serif); font-size:14px; }
   .wrap { max-width:1360px; margin:0 auto; padding:24px; }
@@ -62,6 +63,8 @@
   <p class="shell-lean-only">Requests that may become projects: <a href="rfi.html">RFI register</a></p>
   <div id="msg" role="status" aria-live="polite"></div>
   <div class="tiles" id="tiles"></div>
+  <!-- B3 (P7a) — "My projects" default, only while portfolio_my_projects_default = '1' (presentation; grants nothing) -->
+  <div class="bar" id="pf-mine" hidden><label>Show <select id="pf-mine-sel"><option value="mine">My projects</option><option value="all">All projects</option></select></label><span class="muted" id="pf-mine-note">Totals and money still cover every project you may read.</span></div>
   <div class="bar"><a class="btn" id="report" href="/api/governance/portfolio/report.html" target="_blank" rel="noopener">Monthly report (HTML)</a><button class="btn" id="mig-dry" type="button" hidden>Roadmap Manager migration — dry run</button><button class="btn danger" id="mig-apply" type="button" hidden>Apply migration</button></div>
   <pre id="mig" class="panel" hidden style="font-size:12px;white-space:pre-wrap"></pre>
   <div class="panel"><h2>Programmes &amp; objectives</h2><div class="scroll" id="tree"></div></div>
@@ -77,6 +80,17 @@
   <div class="panel" id="annual-panel" hidden><h2>Annual planning pack (draft)</h2><div class="row"><label>Year <input id="ap-year" type="number" min="2000" max="2100"></label><a class="btn" id="ap-get" href="#">Download the draft pack (XLSX)</a></div></div>
   <div class="panel" id="templates-panel" hidden><h2>Project templates</h2><div class="scroll" id="templates"></div>
     <div class="row" id="tpl-use" hidden><label>Objective id <input id="tpl-obj" type="number"></label><label>Project key <input id="tpl-key"></label><label>Project name <input id="tpl-pname"></label><button class="btn primary" id="tpl-create" type="button">Create the project</button></div></div>
+  <!-- B6 (P7a) — audience-scoped roadmap publications, only while roadmap_audience_publication_enabled = '1' -->
+  <div class="panel" id="pub-panel" hidden><h2>Published roadmaps</h2><div class="scroll" id="pubs"></div>
+    <details id="pub-new"><summary class="btn">Publish a roadmap snapshot</summary>
+      <div class="row" style="margin-top:8px">
+        <label>Audience <select id="pub-aud"><option value="site">Site</option><option value="programme">Programme</option><option value="committee">Committee</option><option value="exec">Executive</option></select></label>
+        <label>Site or programme id <input id="pub-ref" type="number" min="1"></label>
+        <label>Title <input id="pub-title" maxlength="200"></label>
+        <label>Expires after (days, blank = never) <input id="pub-exp" type="number" min="1" max="365"></label>
+        <label>Include amounts (committee / executive only) <input id="pub-amt" type="checkbox"></label>
+      </div><div class="bar"><button class="btn primary" id="pub-go" type="button">Publish</button></div></details>
+    <div id="pub-view"></div></div>
   <details class="panel" id="edit" hidden><summary class="btn" id="e-sum">Add / edit an element (committee)</summary>
     <div class="row" style="margin-top:8px">
       <label>Kind <select id="e-kind"><option>programme</option><option>objective</option><option>project</option><option>milestone</option><option>deliverable</option><option>risk</option><option>task</option></select></label>
@@ -92,7 +106,9 @@
       <label>Effort hours (task) <input id="e-effort" type="number" min="0" step="0.5"></label><label>Depends on task ids (task, comma) <input id="e-deps" placeholder="12, 13"></label>
       <label>Probability (1-3) <input id="e-prob" type="number" min="1" max="3"></label><label>Impact (1-3) <input id="e-imp" type="number" min="1" max="3"></label>
       <label style="grid-column:1/-1">Description / mitigation / manual evidence <textarea id="e-text" rows="2"></textarea></label>
-    </div><div class="bar"><button class="btn primary" id="e-save" type="button">Save</button><button class="btn danger" id="e-del" type="button">Delete</button></div></details>
+    </div><div class="bar"><button class="btn primary" id="e-save" type="button">Save</button><button class="btn danger" id="e-del" type="button">Delete</button></div>
+    <!-- B3 (P7a) — sensitive flag, committee / admin tier, only while portfolio_sensitive_projects = '1' -->
+    <div class="bar" id="sens-bar" hidden><label>Project id (sensitivity) <input id="sens-id" type="number" min="1"></label><label>Sensitive project <input id="sens-on" type="checkbox"></label><button class="btn" id="sens-save" type="button">Save sensitivity</button></div></details>
 </main>
 <script nonce="%%CSP_NONCE%%">
 (function () {
@@ -163,8 +179,29 @@
     drawViews();
     var cur = $("pf-views").querySelector("[aria-current]"); if (cur) cur.focus();
   });
+  // B3 — "My projects" (presentation only) + the sensitive flag (committee)
+  var PM = window.PortfolioMine;
+  $("pf-mine-sel").addEventListener("change", function () {
+    var u = new URL(location.href); if (this.value === "all") u.searchParams.set("show", "all"); else u.searchParams.delete("show");
+    if (window.history && window.history.replaceState) window.history.replaceState(null, "", u.pathname + u.search + u.hash);
+    load();
+  });
+  $("sens-save").addEventListener("click", function () {
+    var id = Number($("sens-id").value); if (!id) return;
+    api("/api/governance/portfolio/project/" + encodeURIComponent(id) + "/sensitive", { method: "PUT", body: JSON.stringify({ sensitive: $("sens-on").checked }) }).then(function (j) { msg("Project #" + id + (j.sensitive ? " is now sensitive." : " is no longer sensitive.")); load(); }).catch(fail);
+  });
+  function mineView(v) {
+    var mp = v.my_projects, box = $("pf-mine");
+    box.hidden = !mp || !PM;
+    if (!mp || !PM) return v;
+    var c = PM.choice(location.search, mp), sel = $("pf-mine-sel");
+    sel.querySelector("option[value=all]").hidden = !mp.can_see_all; sel.value = c;
+    return c === "mine" ? PM.filterView(v, mp.ids) : v;
+  }
   function load() {
-    return api("/api/governance/portfolio").then(function (v) {
+    return api("/api/governance/portfolio").then(function (v0) {
+      var v = mineView(v0);
+      $("sens-bar").hidden = !v0.can_mark_sensitive; loadPubs();
       V = v; committee = v.committee; planEdit(v); $("mig-dry").hidden = !isSuper; $("mig-apply").hidden = !isSuper;
       var s = v.summary || [];
       // design review #12: what needs attention first, coloured AND worded (colour is never the only signal)
@@ -229,6 +266,33 @@
       $("risks").innerHTML = v.risks.length ? "<table><thead><tr><th>Risk</th><th>Project</th><th>P × I</th><th>Severity</th><th>Status</th><th>Mitigation</th></tr></thead><tbody>" + v.risks.map(function (r) { return "<tr><td>" + esc(r.title) + " <small class=\"muted\">#" + r.id + "</small></td><td>#" + r.project_id + "</td><td>" + r.exposure + "</td><td><span class=\"pill " + (r.severity === "high" ? "RED" : r.severity === "medium" ? "AMBER" : "GREEN") + "\">" + esc(r.severity) + "</span></td><td>" + esc(r.status) + "</td><td>" + esc(r.mitigation || "") + (r.incident_ref ? " · incident " + esc(r.incident_ref) : "") + "</td></tr>"; }).join("") + "</tbody></table>" : "<p class=\"muted\">No risk.</p>";
     }).catch(fail);
   }
+  // B6 — audience-scoped roadmap publications (404 while roadmap_audience_publication_enabled = '0' → panel hidden)
+  function loadPubs() {
+    api("/api/governance/roadmap-publications").then(function (r) {
+      $("pub-panel").hidden = false;
+      var d = function (x) { return x ? esc(String(x).slice(0, 10)) : "—"; };
+      $("pubs").innerHTML = r.publications.length ? "<table><thead><tr><th>Title</th><th>Audience</th><th>Published</th><th>Expires</th><th>State</th><th></th></tr></thead><tbody>" + r.publications.map(function (p) {
+        return "<tr><td>" + esc(p.title) + "</td><td>" + esc(p.audience + (p.audience_ref != null ? " #" + p.audience_ref : "")) + "</td><td>" + d(p.created_at) + " <small class=\"muted\">" + esc(p.created_by_name || "") + "</small></td><td>" + d(p.expires_at) + "</td><td>" + (p.revoked_at ? "revoked" : p.live ? "live" : "expired") + "</td><td>" +
+          (p.live ? "<button class=\"btn\" type=\"button\" data-pub-open=\"" + p.id + "\">Open</button> " : "") + (p.shareable ? "<button class=\"btn\" type=\"button\" data-pub-share=\"" + p.id + "\">Share link</button> " : "") + (p.can_revoke ? "<button class=\"btn danger\" type=\"button\" data-pub-revoke=\"" + p.id + "\">Revoke</button>" : "") + "</td></tr>";
+      }).join("") + "</tbody></table>" : "<p class=\"muted\">No published roadmap you may read.</p>";
+    }).catch(function () { $("pub-panel").hidden = true; });
+  }
+  $("pubs").addEventListener("click", function (ev) {
+    var o = ev.target.closest && ev.target.closest("[data-pub-open]"), sh = ev.target.closest && ev.target.closest("[data-pub-share]"), rv = ev.target.closest && ev.target.closest("[data-pub-revoke]");
+    if (o) api("/api/governance/roadmap-publications/" + encodeURIComponent(o.getAttribute("data-pub-open"))).then(function (j) {
+      var rm = j.roadmap, money = !!rm.has_amounts, f = function (x) { return x == null || x === "" ? "—" : esc(String(x)); };
+      $("pub-view").innerHTML = "<h2>" + esc(j.publication.title) + "</h2><p class=\"muted\">Frozen snapshot · audience " + esc(j.publication.audience) + (rm.amounts_hidden ? " · amounts restricted to the admin tier and the finance role" : "") + "</p><table><thead><tr><th>Key</th><th>Project</th><th>Programme</th><th>Stage</th><th>Start</th><th>End</th><th>Baseline end</th><th>Progress</th>" + (money ? "<th>Spent / budget</th>" : "") + "</tr></thead><tbody>" +
+        rm.projects.map(function (p) { return "<tr><td>" + esc(p.key) + (p.sensitive ? " <small class=\"muted\">(sensitive)</small>" : "") + "</td><td>" + esc(p.name) + "</td><td>" + f(p.programme && p.programme.name) + "</td><td>" + f(p.stage) + "</td><td>" + f(p.start_date) + "</td><td>" + f(p.end_date) + "</td><td>" + f(p.baseline_end) + "</td><td>" + (p.progress_pct == null ? "—" : esc(p.progress_pct + " %")) + "</td>" + (money ? "<td>" + f(p.spent) + " / " + f(p.budget) + " " + f(p.currency) + "</td>" : "") + "</tr>"; }).join("") + "</tbody></table>";
+    }).catch(fail);
+    if (sh) api("/api/governance/roadmap-publications/" + encodeURIComponent(sh.getAttribute("data-pub-share")) + "/share", { method: "POST", body: JSON.stringify({ ttl_hours: 72 }) }).then(function (j) { msg("Share link (shown once, read-only, no amounts, expires " + String(j.expires_at).slice(0, 16).replace("T", " ") + " UTC): " + (j.url || "")); }).catch(fail);
+    if (rv) api("/api/governance/roadmap-publications/" + encodeURIComponent(rv.getAttribute("data-pub-revoke")) + "/revoke", { method: "POST", body: JSON.stringify({}) }).then(function () { msg("Publication revoked."); loadPubs(); }).catch(fail);
+  });
+  $("pub-go").addEventListener("click", function () {
+    var a = $("pub-aud").value, ref = $("pub-ref").value, b = { audience: a, title: $("pub-title").value.trim(), include_amounts: $("pub-amt").checked };
+    if (a === "site") b.site_id = Number(ref); if (a === "programme") b.programme_id = Number(ref);
+    if ($("pub-exp").value) b.expires_in_days = Number($("pub-exp").value);
+    api("/api/governance/roadmap-publications", { method: "POST", body: JSON.stringify(b) }).then(function (j) { msg("Roadmap published: " + j.projects + " project(s)" + (j.has_amounts ? ", with amounts" : "") + "."); loadPubs(); }).catch(fail);
+  });
   // A-15 — a site editor (switch portfolio_editor_plan_writes) maintains the plan of the projects the server lists.
   var ALL_KINDS = ["programme", "objective", "project", "milestone", "deliverable", "risk", "task"], PLAN_KINDS = ["milestone", "deliverable", "risk", "task"];
   function planEdit(v) {

@@ -9,13 +9,13 @@
   "pages_deep_link_only": 9,
   "pages_without_entry_point": 3,
   "pages_with_inline_scripts": 46,
-  "routes": 693,
+  "routes": 699,
   "routes_without_test_reference": 32,
   "routes_in_server_js": 209,
   "jobs": 32,
   "jobs_without_test_reference": 0,
-  "migrations": 94,
-  "test_files": 772
+  "migrations": 95,
+  "test_files": 776
  },
  "pages": [
   {
@@ -1471,7 +1471,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 36641,
+   "bytes": 44163,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/allocation-contract.test.js",
@@ -3599,7 +3599,7 @@
    "method": "DELETE",
    "path": "/api/engagement/consumers/:id",
    "file": "routes/engagement.js",
-   "line": 122,
+   "line": 126,
    "tests": [
     "tests/api-contract-ext.test.js",
     "tests/engagement-routes.smoke.test.js",
@@ -3612,7 +3612,7 @@
    "method": "GET",
    "path": "/api/engagement/consumers",
    "file": "routes/engagement.js",
-   "line": 120,
+   "line": 124,
    "tests": [
     "tests/api-contract-ext.test.js",
     "tests/engagement-routes.smoke.test.js",
@@ -3625,7 +3625,7 @@
    "method": "POST",
    "path": "/api/engagement/consumers",
    "file": "routes/engagement.js",
-   "line": 121,
+   "line": 125,
    "tests": [
     "tests/api-contract-ext.test.js",
     "tests/engagement-routes.smoke.test.js",
@@ -3728,11 +3728,12 @@
    "method": "GET",
    "path": "/api/engagement/share/:id/receipts",
    "file": "routes/engagement.js",
-   "line": 97,
+   "line": 98,
    "tests": [
     "tests/engagement-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
-    "tests/report-release.smoke.test.js"
+    "tests/report-release.smoke.test.js",
+    "tests/roadmap-audience.smoke.test.js"
    ]
   },
   {
@@ -3740,11 +3741,12 @@
    "method": "DELETE",
    "path": "/api/engagement/share/:id",
    "file": "routes/engagement.js",
-   "line": 96,
+   "line": 97,
    "tests": [
     "tests/engagement-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
-    "tests/report-release.smoke.test.js"
+    "tests/report-release.smoke.test.js",
+    "tests/roadmap-audience.smoke.test.js"
    ]
   },
   {
@@ -3752,11 +3754,12 @@
    "method": "GET",
    "path": "/api/engagement/share",
    "file": "routes/engagement.js",
-   "line": 95,
+   "line": 96,
    "tests": [
     "tests/engagement-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
-    "tests/report-release.smoke.test.js"
+    "tests/report-release.smoke.test.js",
+    "tests/roadmap-audience.smoke.test.js"
    ]
   },
   {
@@ -3768,7 +3771,8 @@
    "tests": [
     "tests/engagement-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
-    "tests/report-release.smoke.test.js"
+    "tests/report-release.smoke.test.js",
+    "tests/roadmap-audience.smoke.test.js"
    ]
   },
   {
@@ -4195,7 +4199,7 @@
    "method": "GET",
    "path": "/api/governance/cadences/:id/draft-agenda",
    "file": "routes/governance.js",
-   "line": 289,
+   "line": 291,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -4229,7 +4233,7 @@
    "method": "POST",
    "path": "/api/governance/cadences/:id/sessions",
    "file": "routes/governance.js",
-   "line": 251,
+   "line": 253,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -4246,7 +4250,7 @@
    "method": "DELETE",
    "path": "/api/governance/cadences/:id",
    "file": "routes/governance.js",
-   "line": 250,
+   "line": 252,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -4263,7 +4267,7 @@
    "method": "GET",
    "path": "/api/governance/cadences",
    "file": "routes/governance.js",
-   "line": 248,
+   "line": 250,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -4280,7 +4284,7 @@
    "method": "PUT",
    "path": "/api/governance/cadences",
    "file": "routes/governance.js",
-   "line": 249,
+   "line": 251,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -4337,7 +4341,7 @@
    "method": "GET",
    "path": "/api/governance/decisions/:id/history",
    "file": "routes/governance.js",
-   "line": 484,
+   "line": 486,
    "tests": [
     "tests/governance-c15.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -4351,7 +4355,7 @@
    "method": "PUT",
    "path": "/api/governance/decisions/:id",
    "file": "routes/governance.js",
-   "line": 468,
+   "line": 470,
    "tests": [
     "tests/governance-c15.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -4365,7 +4369,7 @@
    "method": "GET",
    "path": "/api/governance/decisions",
    "file": "routes/governance.js",
-   "line": 435,
+   "line": 437,
    "tests": [
     "tests/governance-c15.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -4379,7 +4383,7 @@
    "method": "GET",
    "path": "/api/governance/delete-requests",
    "file": "routes/governance.js",
-   "line": 236,
+   "line": 238,
    "tests": [
     "tests/p6-decisions-access.smoke.test.js"
    ]
@@ -4389,7 +4393,7 @@
    "method": "GET",
    "path": "/api/governance/department-crosswalk",
    "file": "routes/governance.js",
-   "line": 823,
+   "line": 842,
    "tests": [
     "tests/governance-routes.smoke.test.js"
    ]
@@ -4399,7 +4403,7 @@
    "method": "GET",
    "path": "/api/governance/department-rollup",
    "file": "routes/governance.js",
-   "line": 834,
+   "line": 853,
    "tests": [
     "tests/governance-routes.smoke.test.js"
    ]
@@ -4409,7 +4413,7 @@
    "method": "GET",
    "path": "/api/governance/engagement-delays",
    "file": "routes/governance.js",
-   "line": 443,
+   "line": 445,
    "tests": [
     "tests/governance-c15.smoke.test.js"
    ]
@@ -4431,7 +4435,7 @@
    "method": "GET",
    "path": "/api/governance/overview",
    "file": "routes/governance.js",
-   "line": 193,
+   "line": 195,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -4443,7 +4447,7 @@
    "method": "GET",
    "path": "/api/governance/people",
    "file": "routes/governance.js",
-   "line": 239,
+   "line": 241,
    "tests": [
     "tests/governance-routes.smoke.test.js"
    ]
@@ -4555,6 +4559,7 @@
     "tests/portfolio-duplicate-key.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-concurrency.smoke.test.js",
@@ -4563,6 +4568,7 @@
     "tests/ppm-team-picker.smoke.test.js",
     "tests/ppm-w2.smoke.test.js",
     "tests/ppm-workbench.smoke.test.js",
+    "tests/roadmap-audience.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js"
    ]
   },
@@ -4571,7 +4577,7 @@
    "method": "DELETE",
    "path": "/api/governance/portfolio/:kind/:id",
    "file": "routes/governance.js",
-   "line": 774,
+   "line": 793,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/actuals-import.smoke.test.js",
@@ -4583,6 +4589,7 @@
     "tests/portfolio-duplicate-key.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-concurrency.smoke.test.js",
@@ -4591,6 +4598,7 @@
     "tests/ppm-team-picker.smoke.test.js",
     "tests/ppm-w2.smoke.test.js",
     "tests/ppm-workbench.smoke.test.js",
+    "tests/roadmap-audience.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js"
    ]
   },
@@ -4599,7 +4607,7 @@
    "method": "PUT",
    "path": "/api/governance/portfolio/:kind",
    "file": "routes/governance.js",
-   "line": 607,
+   "line": 626,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/actuals-import.smoke.test.js",
@@ -4611,6 +4619,7 @@
     "tests/portfolio-duplicate-key.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-concurrency.smoke.test.js",
@@ -4619,6 +4628,7 @@
     "tests/ppm-team-picker.smoke.test.js",
     "tests/ppm-w2.smoke.test.js",
     "tests/ppm-workbench.smoke.test.js",
+    "tests/roadmap-audience.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js"
    ]
   },
@@ -4627,7 +4637,7 @@
    "method": "POST",
    "path": "/api/governance/portfolio/benefit/:id/realised",
    "file": "routes/governance.js",
-   "line": 682,
+   "line": 701,
    "tests": [
     "tests/finance-certification.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js"
@@ -4638,7 +4648,7 @@
    "method": "POST",
    "path": "/api/governance/portfolio/benefit/:id/verify",
    "file": "routes/governance.js",
-   "line": 683,
+   "line": 702,
    "tests": [
     "tests/finance-certification.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js"
@@ -4649,7 +4659,7 @@
    "method": "GET",
    "path": "/api/governance/portfolio/deck.pptx",
    "file": "routes/governance.js",
-   "line": 744,
+   "line": 763,
    "tests": [
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js"
@@ -4660,7 +4670,7 @@
    "method": "GET",
    "path": "/api/governance/portfolio/exceptions",
    "file": "routes/governance.js",
-   "line": 721,
+   "line": 740,
    "tests": [
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js"
@@ -4671,13 +4681,14 @@
    "method": "GET",
    "path": "/api/governance/portfolio/project/:id/baselines",
    "file": "routes/governance.js",
-   "line": 695,
+   "line": 714,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-concurrency.smoke.test.js",
@@ -4686,6 +4697,7 @@
     "tests/ppm-team-picker.smoke.test.js",
     "tests/ppm-w2.smoke.test.js",
     "tests/ppm-workbench.smoke.test.js",
+    "tests/roadmap-audience.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js"
    ]
   },
@@ -4694,13 +4706,14 @@
    "method": "GET",
    "path": "/api/governance/portfolio/project/:id/history",
    "file": "routes/governance.js",
-   "line": 767,
+   "line": 786,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-concurrency.smoke.test.js",
@@ -4709,6 +4722,7 @@
     "tests/ppm-team-picker.smoke.test.js",
     "tests/ppm-w2.smoke.test.js",
     "tests/ppm-workbench.smoke.test.js",
+    "tests/roadmap-audience.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js"
    ]
   },
@@ -4717,13 +4731,14 @@
    "method": "POST",
    "path": "/api/governance/portfolio/project/:id/rebaseline",
    "file": "routes/governance.js",
-   "line": 704,
+   "line": 723,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-concurrency.smoke.test.js",
@@ -4732,6 +4747,32 @@
     "tests/ppm-team-picker.smoke.test.js",
     "tests/ppm-w2.smoke.test.js",
     "tests/ppm-workbench.smoke.test.js",
+    "tests/roadmap-audience.smoke.test.js",
+    "tests/soft-delete-routes.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-PUT-api-governance-portfolio-project-id-sensitive",
+   "method": "PUT",
+   "path": "/api/governance/portfolio/project/:id/sensitive",
+   "file": "routes/governance.js",
+   "line": 585,
+   "tests": [
+    "tests/governance-routes.smoke.test.js",
+    "tests/portfolio-access-parity.smoke.test.js",
+    "tests/portfolio-benefits.smoke.test.js",
+    "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-sensitive.smoke.test.js",
+    "tests/portfolio-site-scope.smoke.test.js",
+    "tests/ppm-baselines.smoke.test.js",
+    "tests/ppm-concurrency.smoke.test.js",
+    "tests/ppm-evm.smoke.test.js",
+    "tests/ppm-project-lifecycle.smoke.test.js",
+    "tests/ppm-team-picker.smoke.test.js",
+    "tests/ppm-w2.smoke.test.js",
+    "tests/ppm-workbench.smoke.test.js",
+    "tests/roadmap-audience.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js"
    ]
   },
@@ -4740,13 +4781,14 @@
    "method": "PUT",
    "path": "/api/governance/portfolio/project/:id/sites",
    "file": "routes/governance.js",
-   "line": 603,
+   "line": 622,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-concurrency.smoke.test.js",
@@ -4755,6 +4797,7 @@
     "tests/ppm-team-picker.smoke.test.js",
     "tests/ppm-w2.smoke.test.js",
     "tests/ppm-workbench.smoke.test.js",
+    "tests/roadmap-audience.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js"
    ]
   },
@@ -4763,13 +4806,14 @@
    "method": "POST",
    "path": "/api/governance/portfolio/project/:id/stage",
    "file": "routes/governance.js",
-   "line": 623,
+   "line": 642,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-concurrency.smoke.test.js",
@@ -4778,6 +4822,7 @@
     "tests/ppm-team-picker.smoke.test.js",
     "tests/ppm-w2.smoke.test.js",
     "tests/ppm-workbench.smoke.test.js",
+    "tests/roadmap-audience.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js"
    ]
   },
@@ -4786,13 +4831,14 @@
    "method": "GET",
    "path": "/api/governance/portfolio/project/:id",
    "file": "routes/governance.js",
-   "line": 630,
+   "line": 649,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-concurrency.smoke.test.js",
@@ -4801,6 +4847,7 @@
     "tests/ppm-team-picker.smoke.test.js",
     "tests/ppm-w2.smoke.test.js",
     "tests/ppm-workbench.smoke.test.js",
+    "tests/roadmap-audience.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js"
    ]
   },
@@ -4809,7 +4856,7 @@
    "method": "GET",
    "path": "/api/governance/portfolio/report.html",
    "file": "routes/governance.js",
-   "line": 775,
+   "line": 794,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js"
@@ -4820,7 +4867,7 @@
    "method": "GET",
    "path": "/api/governance/portfolio/rfi/:id/history",
    "file": "routes/governance.js",
-   "line": 769,
+   "line": 788,
    "tests": [
     "tests/ppm-project-lifecycle.smoke.test.js"
    ]
@@ -4830,7 +4877,7 @@
    "method": "GET",
    "path": "/api/governance/portfolio/workbook.xlsx",
    "file": "routes/governance.js",
-   "line": 749,
+   "line": 768,
    "tests": [
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
@@ -4844,7 +4891,7 @@
    "method": "GET",
    "path": "/api/governance/portfolio",
    "file": "routes/governance.js",
-   "line": 575,
+   "line": 580,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/actuals-import.smoke.test.js",
@@ -4856,6 +4903,7 @@
     "tests/portfolio-duplicate-key.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-concurrency.smoke.test.js",
@@ -4864,6 +4912,7 @@
     "tests/ppm-team-picker.smoke.test.js",
     "tests/ppm-w2.smoke.test.js",
     "tests/ppm-workbench.smoke.test.js",
+    "tests/roadmap-audience.smoke.test.js",
     "tests/soft-delete-routes.smoke.test.js"
    ]
   },
@@ -5206,7 +5255,7 @@
    "method": "GET",
    "path": "/api/governance/rfi/:id/lineage",
    "file": "routes/governance.js",
-   "line": 525,
+   "line": 527,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
@@ -5222,7 +5271,7 @@
    "method": "POST",
    "path": "/api/governance/rfi/:id/to-project",
    "file": "routes/governance.js",
-   "line": 770,
+   "line": 789,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
@@ -5238,7 +5287,7 @@
    "method": "POST",
    "path": "/api/governance/rfi/:id/verify",
    "file": "routes/governance.js",
-   "line": 496,
+   "line": 498,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
@@ -5254,7 +5303,7 @@
    "method": "PUT",
    "path": "/api/governance/rfi/:id",
    "file": "routes/governance.js",
-   "line": 534,
+   "line": 536,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
@@ -5270,7 +5319,7 @@
    "method": "GET",
    "path": "/api/governance/rfi/from-meeting/:id",
    "file": "routes/governance.js",
-   "line": 514,
+   "line": 516,
    "tests": [
     "tests/incubation-rfi-link.smoke.test.js"
    ]
@@ -5280,7 +5329,7 @@
    "method": "POST",
    "path": "/api/governance/rfi/from-meeting/:id",
    "file": "routes/governance.js",
-   "line": 517,
+   "line": 519,
    "tests": [
     "tests/incubation-rfi-link.smoke.test.js"
    ]
@@ -5290,7 +5339,7 @@
    "method": "GET",
    "path": "/api/governance/rfi",
    "file": "routes/governance.js",
-   "line": 494,
+   "line": 496,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
@@ -5306,7 +5355,7 @@
    "method": "POST",
    "path": "/api/governance/rfi",
    "file": "routes/governance.js",
-   "line": 495,
+   "line": 497,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
@@ -5342,7 +5391,7 @@
    "method": "POST",
    "path": "/api/governance/roadmap-migration",
    "file": "routes/governance.js",
-   "line": 790,
+   "line": 809,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/ppm-project-lifecycle.smoke.test.js",
@@ -5357,7 +5406,58 @@
    "file": "routes/governanceWorkbench.js",
    "line": 170,
    "tests": [
+    "tests/roadmap-audience.smoke.test.js",
     "tests/roadmap-publication.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-POST-api-governance-roadmap-publications-id-revoke",
+   "method": "POST",
+   "path": "/api/governance/roadmap-publications/:id/revoke",
+   "file": "routes/governanceRoadmapAudience.js",
+   "line": 98,
+   "tests": [
+    "tests/roadmap-audience.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-POST-api-governance-roadmap-publications-id-share",
+   "method": "POST",
+   "path": "/api/governance/roadmap-publications/:id/share",
+   "file": "routes/governanceRoadmapAudience.js",
+   "line": 110,
+   "tests": [
+    "tests/roadmap-audience.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-GET-api-governance-roadmap-publications-id",
+   "method": "GET",
+   "path": "/api/governance/roadmap-publications/:id",
+   "file": "routes/governanceRoadmapAudience.js",
+   "line": 87,
+   "tests": [
+    "tests/roadmap-audience.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-GET-api-governance-roadmap-publications",
+   "method": "GET",
+   "path": "/api/governance/roadmap-publications",
+   "file": "routes/governanceRoadmapAudience.js",
+   "line": 50,
+   "tests": [
+    "tests/roadmap-audience.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-POST-api-governance-roadmap-publications",
+   "method": "POST",
+   "path": "/api/governance/roadmap-publications",
+   "file": "routes/governanceRoadmapAudience.js",
+   "line": 60,
+   "tests": [
+    "tests/roadmap-audience.smoke.test.js"
    ]
   },
   {
@@ -5468,7 +5568,7 @@
    "method": "POST",
    "path": "/api/governance/sessions/:id/accept",
    "file": "routes/governance.js",
-   "line": 346,
+   "line": 348,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -5485,7 +5585,7 @@
    "method": "PUT",
    "path": "/api/governance/sessions/:id/actions/:aid",
    "file": "routes/governance.js",
-   "line": 317,
+   "line": 319,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -5502,7 +5602,7 @@
    "method": "POST",
    "path": "/api/governance/sessions/:id/actions",
    "file": "routes/governance.js",
-   "line": 314,
+   "line": 316,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -5519,7 +5619,7 @@
    "method": "PUT",
    "path": "/api/governance/sessions/:id/attendance",
    "file": "routes/governance.js",
-   "line": 276,
+   "line": 278,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -5536,7 +5636,7 @@
    "method": "POST",
    "path": "/api/governance/sessions/:id/cancel",
    "file": "routes/governance.js",
-   "line": 334,
+   "line": 336,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -5553,7 +5653,7 @@
    "method": "POST",
    "path": "/api/governance/sessions/:id/close",
    "file": "routes/governance.js",
-   "line": 330,
+   "line": 332,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -5570,7 +5670,7 @@
    "method": "POST",
    "path": "/api/governance/sessions/:id/decisions",
    "file": "routes/governance.js",
-   "line": 311,
+   "line": 313,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -5587,7 +5687,7 @@
    "method": "POST",
    "path": "/api/governance/sessions/:id/exception/approve",
    "file": "routes/governance.js",
-   "line": 341,
+   "line": 343,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -5604,7 +5704,7 @@
    "method": "POST",
    "path": "/api/governance/sessions/:id/items/:item/:op",
    "file": "routes/governance.js",
-   "line": 305,
+   "line": 307,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -5621,7 +5721,7 @@
    "method": "GET",
    "path": "/api/governance/sessions/:id/minutes.html",
    "file": "routes/governance.js",
-   "line": 371,
+   "line": 373,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -5638,7 +5738,7 @@
    "method": "GET",
    "path": "/api/governance/sessions/:id/minutes.pdf",
    "file": "routes/governance.js",
-   "line": 372,
+   "line": 374,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -5655,7 +5755,7 @@
    "method": "POST",
    "path": "/api/governance/sessions/:id/minutes/send",
    "file": "routes/governance.js",
-   "line": 376,
+   "line": 378,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -5672,7 +5772,7 @@
    "method": "POST",
    "path": "/api/governance/sessions/:id/reopen",
    "file": "routes/governance.js",
-   "line": 359,
+   "line": 361,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -5689,7 +5789,7 @@
    "method": "POST",
    "path": "/api/governance/sessions/:id/start",
    "file": "routes/governance.js",
-   "line": 302,
+   "line": 304,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -5706,7 +5806,7 @@
    "method": "GET",
    "path": "/api/governance/sessions/:id",
    "file": "routes/governance.js",
-   "line": 271,
+   "line": 273,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -5723,7 +5823,7 @@
    "method": "PUT",
    "path": "/api/governance/sessions/:id",
    "file": "routes/governance.js",
-   "line": 299,
+   "line": 301,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -5740,7 +5840,7 @@
    "method": "GET",
    "path": "/api/governance/sessions",
    "file": "routes/governance.js",
-   "line": 266,
+   "line": 268,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -12036,7 +12136,7 @@
    "method": "GET",
    "path": "/share/:token",
    "file": "routes/engagement.js",
-   "line": 100,
+   "line": 101,
    "tests": [
     "tests/backup-encrypt.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -12047,6 +12147,7 @@
     "tests/export-share-boundary.smoke.test.js",
     "tests/portfolio-benefits.test.js",
     "tests/report-release.smoke.test.js",
+    "tests/roadmap-audience.smoke.test.js",
     "tests/shared-code-report.test.js"
    ]
   },
@@ -12776,6 +12877,10 @@
   {
    "id": "MG-reports-098-wan-sla-claims",
    "file": "db/postgres/reports/098_wan_sla_claims.sql"
+  },
+  {
+   "id": "MG-reports-101-portfolio-sensitive-roadmap-audience",
+   "file": "db/postgres/reports/101_portfolio_sensitive_roadmap_audience.sql"
   },
   {
    "id": "MG-sync-000-upgrade-from-1-11",

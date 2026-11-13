@@ -566,6 +566,20 @@ DEFAULTS.weekly_report_minutes_per_kpi_cell = '';
 //    e-mail with dry run + second-person approval that never leaves while sla_wan_config.notify.enabled is off.
 //    Amounts are read by the admin tier and finance-viewer only. Arming it is a Finance + Network owner decision.
 DEFAULTS.wan_sla_claims_enabled = '0';
+// ── P7a / goals B3 + B6 (migration 101) — PROPOSED, every default '0' = today. ADR-P7a-portfolio-sensitive-and-publication.
+//    portfolio_my_projects_default '1' → the portfolio page opens on "My projects" (owned, of my sites, or where I am a
+//                                  named team member) with an explicit "All projects" choice for the admin tier, the
+//                                  committee and finance-viewer. PRESENTATION only: the API still returns what the reader
+//                                  may read; it grants nothing and hides nothing the server would otherwise refuse.
+//    portfolio_sensitive_projects  '1' → a project flagged sensitive (committee / admin tier set it) is read only by the
+//                                  admin tier, the committee, its owner, its named members and the holders of one of its
+//                                  sites — in both states of portfolio_site_scope_reads. '0' = the flag means nothing.
+//    roadmap_audience_publication_enabled '1' → frozen roadmap snapshots published to an audience (site · programme ·
+//                                  committee · exec) with optional expiry and, for site / programme, a public share link
+//                                  (engagement share links); amounts kept only for committee / exec and served to the
+//                                  admin tier + finance-viewer only. '0' = every route answers 404. Independent of the
+//                                  Roadmap Manager migration switch roadmap_publication_enabled.
+Object.assign(DEFAULTS, { portfolio_my_projects_default: '0', portfolio_sensitive_projects: '0', roadmap_audience_publication_enabled: '0' });
 
 const KEYS = Object.keys(DEFAULTS);
 
