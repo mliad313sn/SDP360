@@ -1,4 +1,5 @@
 'use strict';
+const xpGate = require('../services/exportPolicy').gate;   // P9 / B7 — one export policy (allow / mask / deny + export log + watermark)
 // A1 + B8 (goal programme 2026-11-12) — Finance certification, dated FX rates, display currency and the Pronto
 // actuals FILE import. Every error goes through services/httpError.fail. Two switches, both '0' by default:
 //   finance_certification_enabled  /api/finance/status, /api/finance/certifications*            (404 while '0')
@@ -77,7 +78,7 @@ module.exports = function financeRoutes(deps) {
       res.json({ ok: true, certifications: out, scopes: FC.SCOPES, can_certify: FC.mayCertify(req.reportUser, has).ok, verifier_role: FC.VERIFIER_ROLE });
     } catch (e) { fail(res, e); }
   });
-  router.get('/api/finance/certifications/export.xlsx', requireReportSession, requireMoneyRead, certOn, async (req, res) => {
+  router.get('/api/finance/certifications/export.xlsx', requireReportSession, requireMoneyRead, certOn, xpGate('finance.certifications'), async (req, res) => {
     try {
       const rows = await certStore().list({ limit: 5000 });
       const reg = rows.map((r) => ({ Id: r.id, Scope: r.scope, 'Scope key': r.scope_key, Period: r.period, Status: r.status, 'Figures hash': r.figures_hash,
@@ -246,7 +247,7 @@ module.exports = function financeRoutes(deps) {
   router.get('/api/finance/actuals/batches/:id', requireReportSession, requireFinanceAdmin, importOn, async (req, res) => {
     try { const bt = await fxStore().getBatch(req.params.id); if (!bt) return notFound(res); res.json({ ok: true, batch: bt }); } catch (e) { fail(res, e); }
   });
-  router.get('/api/finance/actuals/batches/:id/export.xlsx', requireReportSession, requireFinanceAdmin, importOn, async (req, res) => {
+  router.get('/api/finance/actuals/batches/:id/export.xlsx', requireReportSession, requireFinanceAdmin, importOn, xpGate('finance.actuals_batch'), async (req, res) => {
     try {
       const bt = await fxStore().getBatch(req.params.id); if (!bt) return notFound(res);
       const c = await cfg(); const certifying = on(c, 'finance_certification_enabled');

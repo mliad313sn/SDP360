@@ -1,4 +1,5 @@
 'use strict';
+const xpGate = require('../services/exportPolicy').gate;   // P9 / B7 — one export policy (allow / mask / deny + export log + watermark)
 const { fail: httpFail } = require('../services/httpError');
 // Step 7 — generic trackers: builder (definitions), entry runtime, source bindings, exports,
 // legacy IT Activity Tracker migration. Every score comes from services/trackerDefinitions.score.
@@ -106,7 +107,7 @@ module.exports = function trackersRoutes(deps) {
 
   // ---- legacy migration ------------------------------------------------------------------
   const legacyYear = (req) => { const y = Number(req.query.year); return Number.isInteger(y) && y > 2000 ? y : new Date().getUTCFullYear(); };
-  router.get('/api/trackers/legacy/compare', requireReportSession, requireBuilder, async (req, res) => {
+  router.get('/api/trackers/legacy/compare', requireReportSession, requireBuilder, xpGate('trackers.legacy_compare'), async (req, res) => {
     try {
       const D = await tdb().loadTracker(); const year = legacyYear(req);
       const r = Legacy.compare(D, year, legacyScore(), { upToMonth: Math.min(12, Math.max(1, Number(req.query.months) || 12)) });
@@ -225,10 +226,10 @@ module.exports = function trackersRoutes(deps) {
       const r = await writeCells(req, res, p.cells, 'import'); if (r) res.json({ ok: true, ...r, parse_errors: p.errors.slice(0, 50) });
     } catch (e) { fail(res, e); }
   });
-  router.get('/api/trackers/:key/export.xlsx', requireReportSession, async (req, res) => {
+  router.get('/api/trackers/:key/export.xlsx', requireReportSession, xpGate('trackers.xlsx'), async (req, res) => {
     try { const x = await loadDef(req, res); if (!x) return; const r = await store.scoreTracker(x.row.key, { currentPeriod: Number(req.query.period) || null }); const e = await store.entries(x.row.key); const buf = Exp.buildWorkbook(x.def, r, e.inputs); rdb().logEvent({ category: 'trackers', action: 'tracker_export', target: x.row.key, details: { fmt: 'xlsx' }, ...rdb()._logCtx(req) }); res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'); res.setHeader('Content-Disposition', `attachment; filename="${x.row.key}.xlsx"`); res.send(buf); } catch (e) { fail(res, e); }
   });
-  router.get('/api/trackers/:key/export.pptx', requireReportSession, async (req, res) => {
+  router.get('/api/trackers/:key/export.pptx', requireReportSession, xpGate('trackers.pptx'), async (req, res) => {
     try { const x = await loadDef(req, res); if (!x) return; const r = await store.scoreTracker(x.row.key, { currentPeriod: Number(req.query.period) || null }); const buf = await Exp.buildPptx(x.def, r); rdb().logEvent({ category: 'trackers', action: 'tracker_export', target: x.row.key, details: { fmt: 'pptx' }, ...rdb()._logCtx(req) }); res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.presentationml.presentation'); res.setHeader('Content-Disposition', `attachment; filename="${x.row.key}.pptx"`); res.send(buf); } catch (e) { fail(res, e); }
   });
   return router;

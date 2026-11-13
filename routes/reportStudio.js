@@ -1,4 +1,5 @@
 'use strict';
+const xpGate = require('../services/exportPolicy').gate;   // P9 / B7 — one export policy (allow / mask / deny + export log + watermark)
 const { fail: httpFail } = require('../services/httpError');
 // Step 9 — report studio: templates per audience composed of a dashboard definition, generated
 // packs (draft → reviewed → published), outputs HTML / PDF / CSV / PPTX / XLSX, AI commentary
@@ -103,7 +104,7 @@ module.exports = function reportStudioRoutes(deps) {
   // here instead; an unknown suffix falls through to the next route exactly as the old regex did.
   const RUN_FORMATS = new Set(['html', 'pdf', 'csv', 'pptx', 'xlsx']);
   const knownFormat = (req, res, next) => (RUN_FORMATS.has(req.params.fmt) ? next() : next('route'));
-  router.get('/api/report-studio/runs/:id.:fmt', knownFormat, requireReportSession, async (req, res) => {
+  router.get('/api/report-studio/runs/:id.:fmt', knownFormat, requireReportSession, xpGate('reports.studio_run'), async (req, res) => {
     try { const r = await visibleRun(req, res); if (!r) return; const t = await store.getTemplate(r.template_key); const name = `${r.template_key}-${r.id}`;
       // G07 — a published run is served from its frozen publication, never from a later re-render
       const pub = r.status === 'published' && store.publication ? await store.publication(r.id) : null;

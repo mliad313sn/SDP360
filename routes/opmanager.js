@@ -1,4 +1,5 @@
 'use strict';
+const xpGate = require('../services/exportPolicy').gate;   // P9 / B7 — one export policy (allow / mask / deny + export log + watermark)
 const { fail, logError } = require('../services/httpError');
 // V1a — OPManager infrastructure availability READ API. Serves the snapshots the sync
 // composed from the prepared Analytics view; OPS never polls devices. DI factory like
@@ -570,7 +571,7 @@ module.exports = function opmanagerRoutes(deps) {
   });
 
   // CSV evidence export for the month — UTF-8 BOM + CRLF + quote-escaped (index.html convention).
-  router.get('/api/analytics/wan/sla/export.csv', requireReportSession, async (req, res) => {
+  router.get('/api/analytics/wan/sla/export.csv', requireReportSession, xpGate('wan_sla.outages'), async (req, res) => {
     const cols = ['site_id', 'sub_site', 'uplink', 'isp', 'circuit_id', 'detected_start', 'restored_end',
       'notified_at', 'duration_s', 'attribution', 'attribution_reason'];
     try {
@@ -645,7 +646,7 @@ module.exports = function opmanagerRoutes(deps) {
     res.send(buf);
   }
   // Month evidence workbook (same scope as export.csv).
-  router.get('/api/analytics/wan/sla/export.xlsx', requireReportSession, async (req, res) => {
+  router.get('/api/analytics/wan/sla/export.xlsx', requireReportSession, xpGate('wan_sla.outages'), async (req, res) => {
     try {
       const { buildWorkbook } = require('../services/tableExcel');
       const { label, fromISO, toISO } = _monthBounds(req.query.month);
@@ -655,7 +656,7 @@ module.exports = function opmanagerRoutes(deps) {
   });
   // "What I see" workbook: the page POSTs the rows it currently shows (its own filters applied:
   // period, min duration, ISP, uplink, attribution) — same three sheets, server-side names.
-  router.post('/api/analytics/wan/sla/export-filtered.xlsx', requireReportSession, express.json({ limit: '5mb' }), async (req, res) => {
+  router.post('/api/analytics/wan/sla/export-filtered.xlsx', requireReportSession, express.json({ limit: '5mb' }), xpGate('wan_sla.outages_filtered'), async (req, res) => {
     try {
       const { buildWorkbook } = require('../services/tableExcel');
       const rows = Array.isArray(req.body && req.body.rows) ? req.body.rows : [];
