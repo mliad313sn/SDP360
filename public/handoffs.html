@@ -106,6 +106,11 @@
     return j;
   }
   let selected = null, sitesLoaded = false; const reasonMin = {};
+  // P5 (A3) — ?delegate=1&title=&site=&due=&src=<source>:<id> (from the Home queue); every value is checked before use
+  const delegate = (() => { const p = new URLSearchParams(location.search); if (p.get('delegate') !== '1') return null;
+    const src = String(p.get('src') || ''); const due = String(p.get('due') || '');
+    return { title: String(p.get('title') || '').slice(0, 300), site: /^\d+$/.test(String(p.get('site') || '')) ? String(p.get('site')) : null,
+      due: /^\d{4}-\d{2}-\d{2}$/.test(due) ? due : null, src: /^[a-z_]{2,24}:[A-Za-z0-9_.-]{1,64}$/.test(src) ? src : '' }; })();
   const pill = (s) => `<span class="ho-pill ho-pill--${esc(s)}">${esc(lbl(s))}</span>`;
   async function minFor(site) {
     if (reasonMin[site] != null) return reasonMin[site];
@@ -124,7 +129,9 @@
       const j = await api('GET', '/api/handoffs' + q);
       if ($('hoStatus').options.length === 1) for (const s of j.statuses) $('hoStatus').add(new Option(lbl(s), s));
       if (!$('nfFrom').options.length) for (const d of j.departments) { $('nfFrom').add(new Option(d, d)); $('nfTo').add(new Option(d, d)); }
-      if (!sitesLoaded && Array.isArray(j.sites)) { sitesLoaded = true; for (const s of j.sites) $('nfSite').add(new Option(s.name, s.id)); if (j.sites.length === 1) $('nfSite').value = String(j.sites[0].id); fillReceivers(); }
+      if (!sitesLoaded && Array.isArray(j.sites)) { sitesLoaded = true; for (const s of j.sites) $('nfSite').add(new Option(s.name, s.id)); if (j.sites.length === 1) $('nfSite').value = String(j.sites[0].id);
+        if (delegate && delegate.site && j.sites.some((s) => String(s.id) === delegate.site)) $('nfSite').value = delegate.site;
+        fillReceivers(); }
       $('hoList').innerHTML = j.handoffs.map((h) => `<tr class="ho-row${selected === h.id ? ' ho-sel' : ''}" tabindex="0" data-id="${Number(h.id)}"><td>${esc(h.ref)}</td><td>${esc(h.title)}</td><td>${esc(h.to_department)}</td><td>${esc(h.due_date || '—')}</td><td>${pill(h.status)}</td></tr>`).join('')
         || `<tr><td colspan="5" class="ho-muted">${L() === 'fr' ? 'Aucune demande dans votre périmètre.' : 'No handoff in your scope.'}</td></tr>`;
     } catch (e) { if (e.status === 404) { $('hoDisabled').hidden = false; $('hoNewBtn').disabled = true; } else $('hoList').innerHTML = `<tr><td colspan="5">${esc(errText(e))}</td></tr>`; }
@@ -186,6 +193,7 @@
     try {
       const j = await api('POST', '/api/handoffs', { title: $('nfTitle').value, description: $('nfDesc').value, site_id: Number($('nfSite').value) || null,
         from_department: $('nfFrom').value, to_department: $('nfTo').value, receiver: $('nfReceiver').value, due_date: $('nfDue').value || null,
+        ...(delegate && delegate.src ? { source_kind: delegate.src.split(':')[0], source_ref: delegate.src.split(':').slice(1).join(':') } : {}),
         idem_key: formKey || (formKey = newKey()) });
       $('hoNew').hidden = true; formKey = null; show(j.handoff.id);
     } catch (e) { $('nfMsg').textContent = errText(e); }
@@ -195,6 +203,13 @@
   $('hoFr').addEventListener('click', () => setLang('fr'));
   setLang(lang === 'fr' ? 'fr' : 'en');
   const q = new URLSearchParams(location.search).get('id'); if (q && /^\d+$/.test(q)) show(q);
+  // P5 (A3) — "Delegate" from the Home queue: the new-handoff form opens prefilled (title, site, due date, source line).
+  // Nothing is sent until the person picks the departments and the receiver and saves — same rules as a new handoff.
+  if (delegate && !$('hoNewBtn').hidden) {
+    $('hoNew').hidden = false; formKey = newKey();
+    $('nfTitle').value = delegate.title; if (delegate.due) $('nfDue').value = delegate.due;
+    $('nfDesc').value = (L() === 'fr' ? 'Délégué depuis ma file de travail : ' : 'Delegated from my Home queue: ') + delegate.src;
+  }
 })();
 </script>
 </body>

@@ -1052,9 +1052,23 @@ async function _resetLookupsPg() {
   await _seedLookupsPg(H);
 }
 
+// P5 / B2 — owner reassignment of ONE corrective action, with an audit row in insp_action_updates (one transaction).
+async function setActionOwner(actionId, { owner, author_id, author_name, justification }) {
+  const H = pgHandle();
+  const a = await H.prepare('SELECT id, owner FROM insp_actions WHERE id = ?').get(Number(actionId));
+  if (!a) return { ok: false };
+  await H.runTransaction(async () => {
+    await H.prepare('UPDATE insp_actions SET owner = ?, updated_at = now() WHERE id = ?').run(owner, Number(actionId));
+    await H.prepare('INSERT INTO insp_action_updates (action_id, author_id, author_name, body, status_change) VALUES (?, ?, ?, ?, ?)')
+      .run(Number(actionId), author_id || null, author_name || null, `Owner reassigned: ${a.owner || '—'} → ${owner}. Justification: ${justification}`, null);
+  });
+  return { ok: true, previous: a.owner || null };
+}
+
 module.exports = {
   getDB,
   loadLookups,
+  setActionOwner,
   listPeople,
   listInspections,
   getInspection,

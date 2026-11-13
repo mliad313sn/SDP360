@@ -2654,6 +2654,16 @@ async function _setActionStatusPg(uid, status, note) {
   return { ok: (info.changes || info.rowCount || 0) > 0 };
 }
 
+// P5 / B2 — owner reassignment of ONE report follow-up, keyed by its uid (never touches source/origin/lineage). The
+// audit row is written by the route (logAudit, report-scoped). Returns the previous owner.
+async function setActionOwner(uid, owner) {
+  const H = pgHandle();
+  const cur = await H.prepare('SELECT owner FROM action_items WHERE uid = ?').get(String(uid));
+  if (!cur) return { ok: false };
+  await H.prepare('UPDATE action_items SET owner = ? WHERE uid = ?').run(owner, String(uid));
+  return { ok: true, previous: cur.owner || null };
+}
+
 function updateReportStatus(report_id, status, user_id) {
   return _updateReportStatusPg(report_id, status, user_id);
 }
@@ -5789,7 +5799,7 @@ module.exports = {
   getRoadmapTraining, addRoadmapTraining, updateRoadmapTraining, deleteRoadmapTraining,
   getRoadmapProject, addRoadmapAction, updateRoadmapAction, deleteRoadmapAction,
   addRoadmapResource, updateRoadmapResource, deleteRoadmapResource,
-  setActionMerge, clearActionMerge, setActionStatus, setActionLineage, getActionItemOwner, getSiteOpenReportActions,
+  setActionMerge, clearActionMerge, setActionStatus, setActionOwner, setActionLineage, getActionItemOwner, getSiteOpenReportActions,
   relineageGroup, getSiteActionRows, getSiteClosedReportActions,
   getPreviousWeekOpenActions, listAllWeeksWithActions, getActionsForReport,
   listAllWeeksWithLights, getLightsForReport,

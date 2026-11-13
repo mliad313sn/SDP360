@@ -53,7 +53,7 @@ after(() => { try { server && server.close(); } catch {} });
 test('migration 078 created user_workspace_prefs with its foreign keys', async () => {
   const cols = await rdb.pgHandle().prepare(`SELECT column_name FROM information_schema.columns
     WHERE table_schema = current_schema() AND table_name = 'user_workspace_prefs' ORDER BY ordinal_position`).all();
-  assert.deepEqual(cols.map((c) => c.column_name), ['user_id', 'profile', 'card_order', 'cards_hidden', 'density', 'default_site_id', 'updated_at']);
+  assert.deepEqual(cols.map((c) => c.column_name), ['user_id', 'profile', 'card_order', 'cards_hidden', 'density', 'default_site_id', 'updated_at', 'block_order', 'queue_snoozed'], '078 + 099 (P5 Home queue)');
   const fks = await rdb.pgHandle().prepare(`SELECT confdeltype FROM pg_constraint c JOIN pg_class t ON t.oid = c.conrelid
     JOIN pg_namespace n ON n.oid = t.relnamespace WHERE t.relname = 'user_workspace_prefs' AND n.nspname = current_schema() AND c.contype = 'f' ORDER BY confdeltype`).all();
   assert.deepEqual(fks.map((f) => f.confdeltype).sort(), ['c', 'n'], 'users ON DELETE CASCADE, sites ON DELETE SET NULL');

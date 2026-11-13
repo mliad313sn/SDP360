@@ -11,7 +11,8 @@ module.exports = function myWorkRoutes(deps) {
   const router = express.Router();
   const rdb = () => deps.rdb || require('../reports-db');
   const userSites = require('../services/userSites');
-  const { buildMyWork, trackerEmptyCells } = require('../services/myWork');
+  const { buildMyWork, buildQueueExtra, trackerEmptyCells } = require('../services/myWork');
+  const json = express.json({ limit: '8kb' });
 
   // F-PRODUCT-07 — readers of the "Awaiting me" block. A module that is switched off has no reader (→ "not measured").
   function awaitingReaders({ R, cfg, user, sites, asOf, meetingsDb }) {
@@ -60,6 +61,59 @@ module.exports = function myWorkRoutes(deps) {
     };
     return out;
   }
+
+  // P5 (A3) — readers of the extra queue sources (ui_home_queue = '1'). Each one reads only what the user may already
+  // open in its own module; a module switched off has no reader (→ "not measured"). Never a money column.
+  function queueExtraReaders({ R, cfg, user, asOf }) {
+    const isAdmin = R.userHasRole(user, 'admin'); const isCommittee = isAdmin || R.userHasRole(user, 'committee-member');
+    const H = () => R.pgHandle();
+    const out = {};
+    // access requests the person may decide now — the same rule as GET /api/access/approvals
+    out.access = async () => (isAdmin ? require('../services/accessStore').forRdb(R).approvalsFor(user) : []);
+    // change requests: assessing and deciding are committee acts (services/ppmWorkbench CR_ACTIONS)
+    if (String(cfg.ppm_change_requests_enabled) === '1') out.change_requests = async () => {
+      if (!isCommittee) return [];
+      return (await H().prepare(`SELECT c.id, c.project_id, c.title, c.status, c.author_id, p.key AS project_key FROM ppm_change_requests c
+        JOIN portfolio_projects p ON p.id = c.project_id WHERE p.deleted_at IS NULL AND c.status IN ('proposed','assessed') ORDER BY c.id LIMIT 500`).all())
+        .map((c) => ({ ...c, id: Number(c.id), project_id: Number(c.project_id), author_id: c.author_id == null ? null : Number(c.author_id) }));
+    };
+    // stage gates: moving a project through a gate is a committee act (POST …/project/:id/stage, requireCommittee)
+    out.gates = async () => {
+      if (!isCommittee) return [];
+      return (await H().prepare(`SELECT id, key, name, stage, owner, start_date, end_date FROM portfolio_projects
+        WHERE deleted_at IS NULL AND stage IN ('approval','closure') ORDER BY id LIMIT 500`).all()).map((p) => ({ ...p, id: Number(p.id) }));
+    };
+    // RFIs: always MY scope (mine + my sites), even for the committee — the queue is personal, not the register
+    out.rfis = async () => require('../services/governanceStore').makeGovernanceStore(H())
+      .listRfi({ status: ['submitted', 'triaged', 'accepted', 'scheduled', 'delivered'], scope: { userId: user.id, siteIds: userSites.siteIds(user) }, limit: 200 });
+    // my overdue tasks and milestones (owner = me; the owner reads their own line whatever the project scope)
+    out.tasks = async () => {
+      const t = await H().prepare(`SELECT 'task' AS kind, t.id, t.project_id, p.key AS project_key, t.name, t.owner, t.end_date AS due, t.status, t.actual_end AS done_at
+        FROM portfolio_tasks t JOIN portfolio_projects p ON p.id = t.project_id
+        WHERE t.deleted_at IS NULL AND p.deleted_at IS NULL AND COALESCE(p.stage,'') <> 'closed' AND t.owner IS NOT NULL AND t.end_date IS NOT NULL AND t.end_date < ? LIMIT 2000`).all(asOf);
+      const m = await H().prepare(`SELECT 'milestone' AS kind, m.id, m.project_id, p.key AS project_key, m.name, m.owner, m.due_date AS due, m.status, m.done_at
+        FROM portfolio_milestones m JOIN portfolio_projects p ON p.id = m.project_id
+        WHERE m.deleted_at IS NULL AND p.deleted_at IS NULL AND COALESCE(p.stage,'') <> 'closed' AND m.owner IS NOT NULL AND m.due_date IS NOT NULL AND m.due_date < ? LIMIT 2000`).all(asOf);
+      return [...t, ...m].map((x) => ({ ...x, id: Number(x.id), project_id: Number(x.project_id) }));
+    };
+    return out;
+  }
+  const queueOn = async (R) => { try { return String((await require('../services/reportConfig').getConfig(R.db)).ui_home_queue) === '1'; } catch (_) { return false; } };
+
+  // P5 (A3) — snooze one line of MY queue until a day (≤ 30 days) or clear it. Presentation only: the item, its owner and
+  // its status are untouched; the key is free text from the page and only ever hides a line of this user's own Home.
+  router.put('/api/me/work/snooze', requireReportSession, json, async (req, res) => {
+    try {
+      const R = rdb();
+      if (!(await queueOn(R))) return fail(res, new Error('Not found'), 404);
+      const wp = require('../services/workspaceProfiles');
+      const today = new Date().toISOString().slice(0, 10);
+      const v = wp.validateSnooze(req.body, today);
+      if (v.error) return fail(res, new Error(v.error), 400);
+      const snoozed = await wp.setSnooze(req.reportUser.id, v, deps.rdb, today);
+      res.json({ ok: true, snoozed });
+    } catch (e) { fail(res, e, e.status === 400 ? 400 : undefined); }
+  });
 
   router.get('/home.html', (req, res) => deps.sendHtmlPage(res, 'home.html', false, 'Home unavailable'));
 
@@ -127,6 +181,11 @@ module.exports = function myWorkRoutes(deps) {
       const cfgA = await require('../services/reportConfig').getConfig(R.db);
       if (String(cfgA.mywork_awaiting_me_enabled) === '1') readers.awaiting = awaitingReaders({ R, cfg: cfgA, user, sites, asOf, meetingsDb });
       const work = await buildMyWork({ user, sites, asOf, readers });
+      // P5 (A3) — the extra queue sources + my snoozed lines, only while ui_home_queue = '1' (absent = today's answer)
+      if (String(cfgA.ui_home_queue) === '1') {
+        work.queue_extra = await buildQueueExtra({ user, asOf, readers: queueExtraReaders({ R, cfg: cfgA, user, asOf }) });
+        try { work.queue_snoozed = await require('../services/workspaceProfiles').getSnoozes(user.id, deps.rdb, asOf); } catch (_) { work.queue_snoozed = {}; }
+      }
       // E-B07 — the requester's own named feedback with its answer, only while ui_feedback_enabled = '1'
       try {
         const cfg = await require('../services/reportConfig').getConfig(R.db);
