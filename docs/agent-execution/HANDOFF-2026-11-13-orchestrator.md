@@ -12,7 +12,7 @@ Read this first to resume. Short on purpose.
   2. `i18n-coverage` project.html (~37 W3 strings + W4 panel) → P09 fixes
   3. `sync-write-fence` "R8 hole 4" flake → fixed in P01 (poll instead of fixed sleep)
 - GitHub CI on `11d831a`: **test** and **e2e** jobs red. The unit failures are probably the 3 above (unconfirmed: the log tail shows only PostgreSQL output).
-  e2e cause still unknown. A local run was in progress: `npm run test:e2e > /home/user/e2e.log`.
+  e2e cause still unknown: local `npm run test:e2e` hit the 900 s timeout (exit 124) with no failure printed, while 10 agents loaded PostgreSQL — inconclusive. Re-run when no agent is running (`timeout 2400`), or read the CI e2e artifact.
   Read that log; a journey failure is likely in W3/W4 project.html changes.
 
 ## Prompt-pack lots (agents, worktrees `/home/user/w/<lot>`, branches `qual/<lot>`, base `11d831a`)
