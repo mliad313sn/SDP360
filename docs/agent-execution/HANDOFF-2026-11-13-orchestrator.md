@@ -23,7 +23,7 @@ Shared rules: `$S/ppack-preamble.md`. Pack: `$S/prompt-pack.md`. Assessment: `$S
 |---|---|---|---|
 | p01-baseline | DONE | 390e3e1 | rules/TRUTH fixes, boot-integrity + rules-trunk tests, README size block (re-run `node tools/agent/inventory.js` + `--strict` on conflict), fence flake fix |
 | p02-authz | DONE | 7151bf4 | no P0; outcome probe 748 routes × 23 personas (snapshot docs/ops/authz-outcomes.json, `AUTHZ_OUTCOMES_UPDATE=1` regenerates — must be refreshed after merging other lots that add routes); handler_check declarations; mutation control 5/5; P02-F1 engagement comments open (P2 proposal); committee money option for security owner |
-| p03-switch-lots | running | — | — |
+| p03-switch-lots | DONE | cb0e17f | 152 dark switches → 16 lots (126) + 24 keep + 4 retire proposals; STOP-AND-REPORT: L03 `portfolio_editor_plan_writes` widens access (owner must accept or move it); 4 sends armed in prod need keep decisions |
 | p04-ppm-cert | DONE | 04e58be | NOT CERTIFIED (human checks open); re-audit 32+51 impl / 45 partial / 13 missing; 2 defects fixed (calendar-aware engine input, offline queue rebase); interop + witness kits |
 | p05-perf | running | — | must drop only its own DB |
 | p06-monolith | DONE | 8a8906d | assets (42 routes) + backup schedule (3) extracted; systemLog/rateLimit stores; named guard (3 backup rows now super_admin in matrix); server.js budget 5817; merge LAST; CLAUDE.md split = proposal only |
