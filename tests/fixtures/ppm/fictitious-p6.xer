@@ -1,0 +1,34 @@
+ERMHDR	19.12	2027-01-01	Project	fict	fict	dbxDatabaseNoName	Project Management	USD
+%T	CURRTYPE
+%F	curr_id	decimal_digit_cnt	curr_symbol	curr_short_name	curr_type
+%R	1	2	$	USD	US Dollar
+%T	PROJECT
+%F	proj_id	proj_short_name	clndr_id	plan_start_date	scd_end_date
+%R	500	FICT-P6	10	2027-01-04 08:00	2027-02-26 17:00
+%T	CALENDAR
+%F	clndr_id	default_flag	clndr_name	proj_id	base_clndr_id	clndr_type	day_hr_cnt	week_hr_cnt	clndr_data
+%R	10	Y	Fictitious Mon-Fri			CA_Base	8	40	(0||CalendarData()( (0||DaysOfWeek()( (0||1()()) (0||2()( (0||0(s|08:00|f|12:00)()) (0||1(s|13:00|f|17:00)()))) (0||3()( (0||0(s|08:00|f|17:00)()))) (0||4()( (0||0(s|08:00|f|17:00)()))) (0||5()( (0||0(s|08:00|f|17:00)()))) (0||6()( (0||0(s|08:00|f|17:00)()))) (0||7()()))) (0||VIEW(ShowTotal|Y)()) (0||Exceptions()( (0||0(d|46398)()) (0||1(d|46399)()) (0||2(d|46402)( (0||0(s|08:00|f|17:00)()))))))) 
+%R	11	N	Fictitious 10h		10	CA_Base	10	50	(0||CalendarData()((0||DaysOfWeek()((0||1()())(0||2()((0||0(s|07:00|f|17:00)())))(0||3()((0||0(s|07:00|f|17:00)())))(0||4()((0||0(s|07:00|f|17:00)())))(0||5()((0||0(s|07:00|f|17:00)())))(0||6()((0||0(s|07:00|f|17:00)())))(0||7()((0||0(s|07:00|f|17:00)())))))))
+%T	PROJWBS
+%F	wbs_id	proj_id	obs_id	seq_num	proj_node_flag	status_code	wbs_short_name	wbs_name	parent_wbs_id
+%R	900	500		0	Y	WS_Open	FICT-P6	Fictitious P6 project	
+%R	901	500		1	N	WS_Open	DES	Design	900
+%R	902	500		2	N	WS_Open	BLD	Build	900
+%R	903	500		1	N	WS_Open	BLD.SITE	Site works	902
+%T	TASK
+%F	task_id	proj_id	wbs_id	clndr_id	task_code	task_name	task_type	status_code	phys_complete_pct	target_drtn_hr_cnt	target_start_date	target_end_date	cstr_type	cstr_date	priority_type
+%R	1001	500	900	10	A0010	Kick-off	TT_Mile	TK_Complete		0	2027-01-04 08:00	2027-01-04 08:00			PT_Normal
+%R	1002	500	901	10	A1000	Requirements	TT_Task	TK_Active	40	40	2027-01-04 08:00	2027-01-08 17:00			PT_High
+%R	1003	500	901	10	A1010	Design review	TT_Task	TK_NotStart		16	2027-01-11 08:00	2027-01-12 17:00	CS_MSOA	2027-01-11 08:00	PT_Normal
+%R	1004	500	903	11	A2000	Foundations	TT_Task	TK_NotStart		50	2027-01-13 07:00	2027-01-18 17:00			PT_Top
+%R	1005	500	902	10	A2010	Commissioning	TT_Task	TK_NotStart		24	2027-01-19 08:00	2027-01-21 17:00	CS_MEOB	2027-02-26 17:00	PT_Low
+%R	1006	500	902	10	A9999	Handover	TT_FinMile	TK_NotStart		0	2027-01-21 17:00	2027-01-21 17:00			PT_Normal
+%T	TASKPRED
+%F	task_pred_id	task_id	pred_task_id	proj_id	pred_proj_id	pred_type	lag_hr_cnt
+%R	1	1002	1001	500	500	PR_FS	0
+%R	2	1003	1002	500	500	PR_FS	8
+%R	3	1004	1003	500	500	PR_SS	4
+%R	4	1005	1004	500	500	PR_FF	0
+%R	5	1006	1005	500	500	PR_FS	0
+%R	6	1005	1003	500	500	PR_SF	-8
+%E

@@ -448,6 +448,17 @@ DEFAULTS.ppm_cr_simulation_enabled = '0';
 //    ppm_mspdi_enabled '1' → MS-Project XML (MSPDI) export, and import into an EMPTY project (dry run by default; apply =
 //    committee). A file format, not a connector. Arming any of these is a PMO decision.
 Object.assign(DEFAULTS, { ppm_calendars_enabled: '0', ppm_resources_enabled: '0', ppm_leveling_enabled: '0', ppm_baseline_slots_enabled: '0', ppm_mspdi_enabled: '0' });
+// W4-CONNECTORS (PPM parity J3 · J4, PROPOSED, all '0' = today) — OPTIONAL interoperability with external PPM tools; the
+// native tool never needs them (routes/ppmConnectors.js, 404 while '0'):
+//    ppm_xer_enabled        '1' → Primavera P6 XER export + import into an EMPTY project (dry run; apply = committee)
+//    ppm_mpp_import_enabled '1' → .mpp import through the local converter at ppm_mpp_converter_cmd (absolute path of an
+//                           executable taking <in.mpp> <out.xml>, e.g. an MPXJ wrapper); empty = 501, nothing executed
+//    ppm_jira_sync_enabled  '1' → read-only pull of Jira issues into projects that opted in (base URL, user = Jira
+//                           Cloud e-mail or empty for a Server PAT, ppm_jira_api_token = SECRET)
+//    ppm_azdo_sync_enabled  '1' → read-only pull of Azure DevOps work items (org URL, project, ppm_azdo_pat = SECRET)
+Object.assign(DEFAULTS, { ppm_xer_enabled: '0', ppm_mpp_import_enabled: '0', ppm_mpp_converter_cmd: '',
+  ppm_jira_sync_enabled: '0', ppm_jira_base_url: '', ppm_jira_user: '', ppm_jira_api_token: '',
+  ppm_azdo_sync_enabled: '0', ppm_azdo_org_url: '', ppm_azdo_project: '', ppm_azdo_pat: '' });
 
 // ── PPM parity W4 (enterprise, migration 108) — PROPOSED, every key '0' = today (routes 404, tabs absent, rules unchanged).
 //    ppm_project_roles_enabled '1' → a team member linked to an account may hold a PROJECT role (pm · scheduler ·
@@ -693,6 +704,7 @@ const _SECRET_BLANK_KEEP = new Set([
   'analytics_client_secret', 'analytics_refresh_token',
   'engagement_teams_url', 'engagement_webhook_url', 'publish_webhook_url', 'sharepoint_client_secret',
   'sync_alert_teams_url',
+  'ppm_jira_api_token', 'ppm_azdo_pat',
 ]);
 
 function _h(db) {

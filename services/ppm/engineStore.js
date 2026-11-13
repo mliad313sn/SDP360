@@ -271,7 +271,7 @@ function makeEngineStore(db, gov, { now = () => new Date().toISOString() } = {})
    * @param {{user, allocUnspecified?}} opts
    * @returns {{tasks, links, calendars, resources_created, resources_reused, rates, assignments, slots, warnings}}
    */
-  async function importModel(projectId, model, { user, allocUnspecified } = {}) {
+  async function importModel(projectId, model, { user, allocUnspecified, source = 'mspdi' } = {}) {
     const pid = Number(projectId);
     if ((await P(`SELECT COUNT(*) AS n FROM portfolio_tasks WHERE project_id=? AND deleted_at IS NULL`).get(pid)).n > 0) throw Object.assign(new Error('an MSPDI import goes into a project without tasks (create an empty project first)'), { code: 'CONFLICT', status: 409, reason: 'PROJECT_NOT_EMPTY' });
     const warnings = [];
@@ -339,10 +339,10 @@ function makeEngineStore(db, gov, { now = () => new Date().toISOString() } = {})
         const rows = model.tasks.filter((t) => t.baselines.some((b) => b.number === n));
         if (!rows.length) continue;
         const tasks = rows.map((t) => { const b = t.baselines.find((x) => x.number === n); return { id: idOf.get(t.uid), name: t.name, wbs_code: t.wbs, summary: t.summary, start: b.start, finish: b.finish, duration_days: b.duration_days, work_hours: b.work_hours, cost: b.cost == null || !model.currency_code ? null : { [model.currency_code]: b.cost } }; });
-        await saveSlot(pid, 'baseline', n, { kind: 'baseline', source: 'mspdi', project: { start: null, finish: null }, tasks }, { user, reason: 'imported from an MSPDI file' });
+        await saveSlot(pid, 'baseline', n, { kind: 'baseline', source, project: { start: null, finish: null }, tasks }, { user, reason: `imported from an ${source.toUpperCase()} file` });
         slots++;
       }
-      await event(pid, 'mspdi_imported', 'tasks', null, `${model.tasks.length} tasks · ${links} links · ${created} new resources · ${assignments} assignments · ${slots} baseline slots`, user);
+      await event(pid, `${source}_imported`, 'tasks', null, `${model.tasks.length} tasks · ${links} links · ${created} new resources · ${assignments} assignments · ${slots} baseline slots`, user);
       return { tasks: model.tasks.length, links, calendars: calMap.size, resources_created: created, resources_reused: reused, rates, assignments, slots, task_ids: Object.fromEntries(idOf), warnings };
     });
   }

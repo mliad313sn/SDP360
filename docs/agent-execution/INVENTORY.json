@@ -9,13 +9,13 @@
   "pages_deep_link_only": 9,
   "pages_without_entry_point": 3,
   "pages_with_inline_scripts": 46,
-  "routes": 746,
+  "routes": 753,
   "routes_without_test_reference": 32,
   "routes_in_server_js": 209,
   "jobs": 33,
   "jobs_without_test_reference": 0,
-  "migrations": 101,
-  "test_files": 804
+  "migrations": 102,
+  "test_files": 808
  },
  "pages": [
   {
@@ -1517,7 +1517,7 @@
    "parent": "meeting.html",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 92036,
+   "bytes": 92407,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/allocation-contract.test.js",
@@ -4596,6 +4596,7 @@
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-concurrency.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-gantt-v2-page.smoke.test.js",
@@ -4631,6 +4632,7 @@
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-concurrency.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-gantt-v2-page.smoke.test.js",
@@ -4666,6 +4668,7 @@
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-concurrency.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-gantt-v2-page.smoke.test.js",
@@ -4741,6 +4744,7 @@
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-concurrency.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -4770,6 +4774,7 @@
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-concurrency.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -4799,6 +4804,7 @@
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-concurrency.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -4828,6 +4834,7 @@
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-concurrency.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -4857,6 +4864,7 @@
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-concurrency.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -4886,6 +4894,7 @@
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-concurrency.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -4915,6 +4924,7 @@
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-concurrency.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -4985,6 +4995,7 @@
     "tests/portfolio-site-scope.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-concurrency.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-gantt-v2-page.smoke.test.js",
@@ -5004,7 +5015,7 @@
    "method": "GET",
    "path": "/api/governance/ppm/annual-pack.xlsx",
    "file": "routes/governancePpm.js",
-   "line": 141,
+   "line": 143,
    "tests": [
     "tests/ppm-w2.smoke.test.js"
    ]
@@ -5054,9 +5065,19 @@
    "method": "GET",
    "path": "/api/governance/ppm/capacity",
    "file": "routes/governancePpm.js",
-   "line": 45,
+   "line": 47,
    "tests": [
     "tests/ppm-w2.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-GET-api-governance-ppm-connectors-status",
+   "method": "GET",
+   "path": "/api/governance/ppm/connectors/status",
+   "file": "routes/ppmConnectors.js",
+   "line": 144,
+   "tests": [
+    "tests/ppm-connectors-routes.smoke.test.js"
    ]
   },
   {
@@ -5074,9 +5095,10 @@
    "method": "GET",
    "path": "/api/governance/ppm/features",
    "file": "routes/governancePpm.js",
-   "line": 31,
+   "line": 32,
    "tests": [
     "tests/portfolio-benefits.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-gantt-v2-page.smoke.test.js",
@@ -5095,6 +5117,7 @@
    "line": 129,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5113,6 +5136,7 @@
    "line": 221,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5131,6 +5155,7 @@
    "line": 316,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5149,6 +5174,7 @@
    "line": 328,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5164,9 +5190,10 @@
    "method": "GET",
    "path": "/api/governance/ppm/project/:id/budget-periods",
    "file": "routes/governancePpm.js",
-   "line": 61,
+   "line": 63,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5182,9 +5209,10 @@
    "method": "PUT",
    "path": "/api/governance/ppm/project/:id/budget-periods",
    "file": "routes/governancePpm.js",
-   "line": 70,
+   "line": 72,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5203,6 +5231,7 @@
    "line": 167,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5221,6 +5250,7 @@
    "line": 210,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5239,6 +5269,7 @@
    "line": 197,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5257,6 +5288,7 @@
    "line": 169,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5275,6 +5307,7 @@
    "line": 176,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5293,6 +5326,7 @@
    "line": 51,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5311,6 +5345,7 @@
    "line": 60,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5329,6 +5364,7 @@
    "line": 70,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5347,6 +5383,7 @@
    "line": 45,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5365,6 +5402,7 @@
    "line": 102,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5383,6 +5421,7 @@
    "line": 112,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5401,6 +5440,7 @@
    "line": 92,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5419,6 +5459,7 @@
    "line": 83,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5437,6 +5478,7 @@
    "line": 273,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5455,6 +5497,7 @@
    "line": 289,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5473,6 +5516,26 @@
    "line": 262,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
+    "tests/ppm-engine-routes.smoke.test.js",
+    "tests/ppm-evm.smoke.test.js",
+    "tests/ppm-p7b.smoke.test.js",
+    "tests/ppm-team-picker.smoke.test.js",
+    "tests/ppm-w2.smoke.test.js",
+    "tests/ppm-w3.smoke.test.js",
+    "tests/ppm-w4-enterprise.smoke.test.js",
+    "tests/ppm-workbench.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-POST-api-governance-ppm-project-id-mpp-import",
+   "method": "POST",
+   "path": "/api/governance/ppm/project/:id/mpp/import",
+   "file": "routes/ppmConnectors.js",
+   "line": 69,
+   "tests": [
+    "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5491,6 +5554,7 @@
    "line": 396,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5506,9 +5570,29 @@
    "method": "POST",
    "path": "/api/governance/ppm/project/:id/mspdi/import",
    "file": "routes/ppmEngine.js",
-   "line": 409,
+   "line": 435,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
+    "tests/ppm-engine-routes.smoke.test.js",
+    "tests/ppm-evm.smoke.test.js",
+    "tests/ppm-p7b.smoke.test.js",
+    "tests/ppm-team-picker.smoke.test.js",
+    "tests/ppm-w2.smoke.test.js",
+    "tests/ppm-w3.smoke.test.js",
+    "tests/ppm-w4-enterprise.smoke.test.js",
+    "tests/ppm-workbench.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-GET-api-governance-ppm-project-id-project-xer",
+   "method": "GET",
+   "path": "/api/governance/ppm/project/:id/project.xer",
+   "file": "routes/ppmConnectors.js",
+   "line": 41,
+   "tests": [
+    "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5524,9 +5608,10 @@
    "method": "GET",
    "path": "/api/governance/ppm/project/:id/raci.csv",
    "file": "routes/governancePpm.js",
-   "line": 91,
+   "line": 93,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5542,9 +5627,10 @@
    "method": "GET",
    "path": "/api/governance/ppm/project/:id/raci",
    "file": "routes/governancePpm.js",
-   "line": 84,
+   "line": 86,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5560,9 +5646,10 @@
    "method": "PUT",
    "path": "/api/governance/ppm/project/:id/raci",
    "file": "routes/governancePpm.js",
-   "line": 99,
+   "line": 101,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5581,6 +5668,7 @@
    "line": 60,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5599,6 +5687,7 @@
    "line": 130,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5617,6 +5706,7 @@
    "line": 138,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5635,6 +5725,7 @@
    "line": 163,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5653,6 +5744,7 @@
    "line": 170,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5671,6 +5763,7 @@
    "line": 36,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5689,6 +5782,7 @@
    "line": 28,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5707,6 +5801,7 @@
    "line": 101,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5725,6 +5820,7 @@
    "line": 48,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5743,6 +5839,7 @@
    "line": 79,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5761,6 +5858,7 @@
    "line": 59,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5779,6 +5877,7 @@
    "line": 50,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5797,6 +5896,7 @@
    "line": 67,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5815,6 +5915,7 @@
    "line": 148,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5833,6 +5934,83 @@
    "line": 140,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
+    "tests/ppm-engine-routes.smoke.test.js",
+    "tests/ppm-evm.smoke.test.js",
+    "tests/ppm-p7b.smoke.test.js",
+    "tests/ppm-team-picker.smoke.test.js",
+    "tests/ppm-w2.smoke.test.js",
+    "tests/ppm-w3.smoke.test.js",
+    "tests/ppm-w4-enterprise.smoke.test.js",
+    "tests/ppm-workbench.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-POST-api-governance-ppm-project-id-work-items-system-sync",
+   "method": "POST",
+   "path": "/api/governance/ppm/project/:id/work-items/:system/sync",
+   "file": "routes/ppmConnectors.js",
+   "line": 120,
+   "tests": [
+    "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
+    "tests/ppm-engine-routes.smoke.test.js",
+    "tests/ppm-evm.smoke.test.js",
+    "tests/ppm-p7b.smoke.test.js",
+    "tests/ppm-team-picker.smoke.test.js",
+    "tests/ppm-w2.smoke.test.js",
+    "tests/ppm-w3.smoke.test.js",
+    "tests/ppm-w4-enterprise.smoke.test.js",
+    "tests/ppm-workbench.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-GET-api-governance-ppm-project-id-work-items-system",
+   "method": "GET",
+   "path": "/api/governance/ppm/project/:id/work-items/:system",
+   "file": "routes/ppmConnectors.js",
+   "line": 95,
+   "tests": [
+    "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
+    "tests/ppm-engine-routes.smoke.test.js",
+    "tests/ppm-evm.smoke.test.js",
+    "tests/ppm-p7b.smoke.test.js",
+    "tests/ppm-team-picker.smoke.test.js",
+    "tests/ppm-w2.smoke.test.js",
+    "tests/ppm-w3.smoke.test.js",
+    "tests/ppm-w4-enterprise.smoke.test.js",
+    "tests/ppm-workbench.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-PUT-api-governance-ppm-project-id-work-items-system",
+   "method": "PUT",
+   "path": "/api/governance/ppm/project/:id/work-items/:system",
+   "file": "routes/ppmConnectors.js",
+   "line": 106,
+   "tests": [
+    "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
+    "tests/ppm-engine-routes.smoke.test.js",
+    "tests/ppm-evm.smoke.test.js",
+    "tests/ppm-p7b.smoke.test.js",
+    "tests/ppm-team-picker.smoke.test.js",
+    "tests/ppm-w2.smoke.test.js",
+    "tests/ppm-w3.smoke.test.js",
+    "tests/ppm-w4-enterprise.smoke.test.js",
+    "tests/ppm-workbench.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-POST-api-governance-ppm-project-id-xer-import",
+   "method": "POST",
+   "path": "/api/governance/ppm/project/:id/xer/import",
+   "file": "routes/ppmConnectors.js",
+   "line": 56,
+   "tests": [
+    "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
@@ -5956,7 +6134,7 @@
    "method": "POST",
    "path": "/api/governance/ppm/templates/:id/approve",
    "file": "routes/governancePpm.js",
-   "line": 125,
+   "line": 127,
    "tests": [
     "tests/ppm-w2.smoke.test.js"
    ]
@@ -5966,7 +6144,7 @@
    "method": "POST",
    "path": "/api/governance/ppm/templates/:id/create-project",
    "file": "routes/governancePpm.js",
-   "line": 132,
+   "line": 134,
    "tests": [
     "tests/ppm-w2.smoke.test.js"
    ]
@@ -5976,7 +6154,7 @@
    "method": "GET",
    "path": "/api/governance/ppm/templates",
    "file": "routes/governancePpm.js",
-   "line": 113,
+   "line": 115,
    "tests": [
     "tests/ppm-w2.smoke.test.js"
    ]
@@ -5986,7 +6164,7 @@
    "method": "POST",
    "path": "/api/governance/ppm/templates",
    "file": "routes/governancePpm.js",
-   "line": 116,
+   "line": 118,
    "tests": [
     "tests/ppm-w2.smoke.test.js"
    ]
@@ -7088,7 +7266,7 @@
    "method": "POST",
    "path": "/api/integrations/analytics/test",
    "file": "routes/adminConfig.js",
-   "line": 158,
+   "line": 159,
    "tests": [
     "tests/e2e-outbound-guard.test.js",
     "tests/teams-sla-admin-card.test.js"
@@ -7099,7 +7277,7 @@
    "method": "GET",
    "path": "/api/integrations/analytics",
    "file": "routes/adminConfig.js",
-   "line": 129,
+   "line": 130,
    "tests": [
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/e2e-outbound-guard.test.js",
@@ -7112,7 +7290,7 @@
    "method": "PUT",
    "path": "/api/integrations/analytics",
    "file": "routes/adminConfig.js",
-   "line": 142,
+   "line": 143,
    "tests": [
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/e2e-outbound-guard.test.js",
@@ -10553,7 +10731,7 @@
    "method": "GET",
    "path": "/api/reports/config/history",
    "file": "routes/adminConfig.js",
-   "line": 72,
+   "line": 73,
    "tests": [
     "tests/config-change-journal.smoke.test.js"
    ]
@@ -10563,7 +10741,7 @@
    "method": "GET",
    "path": "/api/reports/config",
    "file": "routes/adminConfig.js",
-   "line": 65,
+   "line": 66,
    "tests": [
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
@@ -10579,7 +10757,7 @@
    "method": "PUT",
    "path": "/api/reports/config",
    "file": "routes/adminConfig.js",
-   "line": 83,
+   "line": 84,
    "tests": [
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
@@ -11107,7 +11285,7 @@
    "method": "POST",
    "path": "/api/reports/test-smtp",
    "file": "routes/adminConfig.js",
-   "line": 176,
+   "line": 177,
    "tests": []
   },
   {
@@ -13895,6 +14073,10 @@
   {
    "id": "MG-reports-110-ppm-governance-w3",
    "file": "db/postgres/reports/110_ppm_governance_w3.sql"
+  },
+  {
+   "id": "MG-reports-112-ppm-external-connectors",
+   "file": "db/postgres/reports/112_ppm_external_connectors.sql"
   },
   {
    "id": "MG-sync-000-upgrade-from-1-11",

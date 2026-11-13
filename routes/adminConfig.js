@@ -20,7 +20,8 @@ module.exports = function adminConfigRoutes(deps) {
   const safeUrl = require('../services/safeUrl');
   // M4 — the config keys that hold an outbound URL the server will call.
   const URL_KEYS = ['opmanager_base_url', 'meraki_base_url', 'sdp_api_base_url', 'sdp_api_accounts_url',
-    'engagement_teams_url', 'engagement_webhook_url', 'publish_webhook_url', 'sync_alert_teams_url'];
+    'engagement_teams_url', 'engagement_webhook_url', 'publish_webhook_url', 'sync_alert_teams_url',
+    'ppm_jira_base_url', 'ppm_azdo_org_url'];
   const _s = (v) => String(v == null ? '' : v).trim();
   /** Returns an error message for the first changed, non-blank URL that fails the guard; null when all pass. */
   async function checkOutboundUrls(body, cur) {

@@ -100,6 +100,7 @@ test('static: the outbound-write surface is closed — every file sending a non-
     'services/entraDeprovision.js': 'Microsoft Graph (identity), behind entra_deprovision_enabled',
     'services/ssoEntra.js': 'OIDC token exchange',
     'services/safeUrl.js': 'the guarded transport itself',
+    'services/ppm/workItemClient.js': 'W4-CONNECTORS: the Azure DevOps WIQL QUERY (a read sent as POST by that API; nothing created upstream), behind ppm_azdo_sync_enabled',
     'services/sdpApiClient.js': 'Zoho OAuth token + the gated createRequest (pinned above)',
     'tools/teams/poll-sla.js': 'Teams Workflows webhook cards',
   };

@@ -30,7 +30,9 @@ const PPM = ['010_roadmap', '011_roadmap_project', '039_native_ppm', '043_portfo
   // W4 (PPM parity, enterprise) — per-project roles + append-only comments with @mentions
   '108_ppm_roles_comments',
   // W3-GOVERNANCE — gate checklists + sign-offs, RAID details, RAG hysteresis memory, view preference
-  '110_ppm_governance_w3'];
+  '110_ppm_governance_w3',
+  // W4-CONNECTORS — optional Jira / Azure DevOps read-only pull: per-project opt-in + task ↔ work-item links
+  '112_ppm_external_connectors'];
 
 async function snapshot(pg) {
   const q = async (sql) => (await pg.prepare(sql).all()).map((r) => Object.values(r).join('|'));
