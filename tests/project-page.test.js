@@ -9,7 +9,7 @@ const { fnSource } = require('./_fn-source');
 const ROOT = path.join(__dirname, '..');
 const read = (f) => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/\r\n/g, '\n');
 const page = read('public/project.html');
-const script = page.slice(page.lastIndexOf('<script nonce='));
+const script = page.slice(page.lastIndexOf('<script nonce="%%CSP_NONCE%%">'));   // the page's inline script (W4: the i18n script tags follow it)
 
 test('project.html is in the _htmlCache list and served by sendHtmlPage before express.static', () => {
   const src = read('server.js');
@@ -65,7 +65,7 @@ test('project.html wires its handlers in JS (no inline on…= attributes) and us
   // 8 tabs always shown; the W2-PPM add-on tabs (Budget, RACI) and R2-WB-01 Changes are hidden until their switch answers
   const tabs = page.match(/<button[^>]*role="tab"[^>]*>/g) || [];
   assert.equal(tabs.filter((t) => !/\shidden[\s>]/.test(t)).length, 8);
-  assert.ok(tabs.filter((t) => /\shidden[\s>]/.test(t)).every((t) => /id="tab-(budget|raci|changes)"/.test(t)), 'only the add-on tabs are hidden');
+  assert.ok(tabs.filter((t) => /\shidden[\s>]/.test(t)).every((t) => /id="tab-(budget|raci|changes|board|comments)"/.test(t)), 'only the add-on tabs are hidden (W4: board, comments)');
   assert.match(script, /ArrowRight/); assert.match(script, /ArrowLeft/);
   assert.match(script, /\/api\/governance\/portfolio\/project\//);
 });

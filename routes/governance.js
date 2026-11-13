@@ -657,7 +657,7 @@ module.exports = function governanceRoutes(deps) {
     if (!v.allow) return refuseRole(res, v);
     return refuseCrossLinks(res, body, pid);
   }
-  const refuseRole = (res, v) => { res.status(403).json({ ok: false, code: v.code, error: v.error }); return true; };
+  const refuseRole = (res, v) => { httpFail(res, Object.assign(new Error(v.error), { reason: v.code }), 403, { ok: false, code: v.code }); return true; };   // W4 (client role: also ANDed into the export-policy money flag)
   router.put('/api/governance/portfolio/project/:id/sites', requireReportSession, requireCommittee, json, async (req, res) => {
     try { const ids = await store.setProjectSites(req.params.id, (req.body && req.body.site_ids) || [], { user: req.reportUser }); log(req, 'project_sites', `project:${req.params.id}`, { site_ids: ids }); res.json({ ok: true, site_ids: ids }); }
     catch (e) { if (e.status === 404 || e.status === 400) return fail(res, e, e.status, { ok: false }); fail(res, e); }
@@ -840,7 +840,7 @@ module.exports = function governanceRoutes(deps) {
   });
   router.delete('/api/governance/portfolio/:kind/:id', requireReportSession, json, (req, res, next) => (PLAN_KINDS.includes(req.params.kind) ? next() : requireCommittee(req, res, next)), async (req, res) => { try { if (PLAN_KINDS.includes(req.params.kind) && await refusePlanWrite(req, res, req.params.kind, { id: Number(req.params.id), op: 'delete' })) return; const soft = await _softDelete(req, res, req.params.kind, req.params.id); if (!soft) return; await store.removePortfolio(req.params.kind, req.params.id, { user: req.reportUser, ...soft }); await _confirmed(req, soft); log(req, soft.soft ? 'portfolio_soft_deleted' : 'portfolio_removed', `${req.params.kind}:${req.params.id}`); res.json({ ok: true, soft: !!soft.soft }); } catch (e) { fail(res, e); } });
   router.get('/api/governance/portfolio/report.html', requireReportSession, xpGate('governance.portfolio_report'), async (req, res) => {
-    try { const v0 = (await viewFor(req.reportUser)).v; const v = (req.exportPolicy ? req.exportPolicy.money && !req.reportUser.__ppmClient : canSeeMoney(req.reportUser)) ? v0 : stripMoney(v0);   // W4: client role const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    try { const v0 = (await viewFor(req.reportUser)).v; const v = (req.exportPolicy ? req.exportPolicy.money && !req.reportUser.__ppmClient : canSeeMoney(req.reportUser)) ? v0 : stripMoney(v0); const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
       const month = new Date().toISOString().slice(0, 7);
       const amt = (n) => (n == null ? '—' : String(Math.round(n)));   // E-NULL-3: an unknown amount is "—", never 0
       const rows = v.summary.map(s => `<tr><td>${esc(s.name)}</td><td>${s.objectives}</td><td>${s.auto_evidence_pct == null ? '—' : s.auto_evidence_pct + ' %'}</td><td>${s.weighted_evidence_pct == null ? '—' : s.weighted_evidence_pct + ' %'}</td><td>${s.projects}</td><td>${s.late_projects}</td><td>${s.high_risks}</td><td>${v.money_hidden ? '<small>restricted</small>' : s.currency_mixed ? Object.entries(s.budget_by_currency).map(([c, b]) => amt(b.spent) + ' / ' + amt(b.budget) + ' ' + esc(c)).join('<br>') : s.budget != null ? amt(s.spent) + ' / ' + amt(s.budget) + ' ' + esc(s.currency || '') : '—'}</td></tr>`).join('');
