@@ -73,7 +73,7 @@
 | PG-obligations | public/obligations.html | any | yes | 0 | 4 |
 | PG-policies | public/policies.html | admin / committee-member | yes | 1 | 5 |
 | PG-portfolio | public/portfolio.html | any | yes | 1 | 16 |
-| PG-project | public/project.html | any | no | 1 | 19 |
+| PG-project | public/project.html | any | no | 1 | 20 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 3 |
 | PG-reports | public/reports.html | any | yes | 2 | 37 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 4 |
@@ -142,7 +142,7 @@
 | public/obligations.html | yes | — | home.html, site-actions.html | — | — | shell |
 | public/policies.html | yes | — | access.html, lib/workspaceProfiles.js | — | — | shell |
 | public/portfolio.html | yes | — | itsm-roadmap.html, lib/workspaceProfiles.js, project.html | — | — | shell |
-| public/project.html | — | — | lib/home-page.js, lib/portfolioViews.js, meeting.html, portfolio.html | — | — | meeting.html |
+| public/project.html | — | — | lib/home-page.js, lib/portfolioViews.js, lib/ppmRoadmapNnl.js, meeting.html (+1) | — | — | meeting.html |
 | public/report-studio.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
 | public/reports.html | yes | — | access.html, site-report.html, wan.html | — | — | shell |
 | public/rfi.html | yes | — | meeting.html, portfolio.html | — | — | shell |

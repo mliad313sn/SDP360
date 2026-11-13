@@ -92,7 +92,7 @@ test('resourcePressure caps a long range and says so', () => {
 });
 
 const page = read('public/project.html');
-const script = page.slice(page.lastIndexOf('<script nonce='));
+const script = page.slice(page.lastIndexOf('<script nonce="%%CSP_NONCE%%">'));   // the page's inline script (W4: the i18n script tags follow it)
 const pf = read('public/portfolio.html');
 
 test('shared renderers: matrix grid + table + not-scored list, pressure table + list view, every value escaped, no money', () => {

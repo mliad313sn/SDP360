@@ -60,7 +60,7 @@ module.exports = function governanceWorkbenchRoutes(router, h) {
     try {
       if (!(await teamOn(res))) return;
       const p = await readableProject(req.reportUser, req.params.id); if (!p) return notFound(res);
-      if (await refusePlanWrite(req, res, 'task', { body: { project_id: p.id } })) return;
+      if (await refusePlanWrite(req, res, 'team', { body: { project_id: p.id }, op: 'team' })) return;
       res.json({ ok: true, people: WBP.pickerPeople(await rdb().listUsers()) });
     } catch (e) { fail(res, e); }
   });
@@ -68,7 +68,7 @@ module.exports = function governanceWorkbenchRoutes(router, h) {
     try {
       if (!(await teamOn(res))) return;
       const p = await readableProject(req.reportUser, req.params.id); if (!p) return notFound(res);
-      if (await refusePlanWrite(req, res, 'task', { body: { project_id: p.id } })) return;
+      if (await refusePlanWrite(req, res, 'team', { body: { project_id: p.id }, op: 'team' })) return;
       const b = req.body || {};   // UAT-OI-08 — a linked account must be an existing user (the picker offers active ones)
       if (b.user_id != null && b.user_id !== '' && !((await rdb().listUsers()) || []).some((x) => Number(x.id) === Number(b.user_id))) return httpFail(res, Object.assign(new Error('user_id is not a known user account'), { code: 'VALIDATION' }), 400, { ok: false, code: 'UNKNOWN_USER' });
       const m = await wb().saveMember(p.id, b, { user: req.reportUser });
@@ -80,7 +80,7 @@ module.exports = function governanceWorkbenchRoutes(router, h) {
     try {
       if (!(await teamOn(res))) return;
       const p = await readableProject(req.reportUser, req.params.id); if (!p) return notFound(res);
-      if (await refusePlanWrite(req, res, 'task', { body: { project_id: p.id } })) return;
+      if (await refusePlanWrite(req, res, 'team', { body: { project_id: p.id }, op: 'team' })) return;
       await wb().removeMember(p.id, req.params.mid, { user: req.reportUser });
       log(req, 'team_member_removed', `project:${p.id}`, { member: Number(req.params.mid) });
       res.json({ ok: true, members: pub(await wb().listMembers(p.id)) });
@@ -110,7 +110,7 @@ module.exports = function governanceWorkbenchRoutes(router, h) {
     try {
       if (!(await timeOn(res))) return;
       const t = await readableTask(req.reportUser, req.params.id); if (!t) return notFound(res);
-      if (await refusePlanWrite(req, res, 'task', { id: t.task_id })) return;
+      if (await refusePlanWrite(req, res, 'task', { id: t.task_id, op: 'time' })) return;
       const e = await wb().addTimeEntry(t.task_id, t.project.id, req.body || {}, { user: req.reportUser, timesheetLock: on(await cfg(), 'ppm_timesheet_approval_enabled') });
       log(req, 'time_entry_added', `task:${t.task_id}`, { hours: e.hours, day: e.day });
       res.json({ ok: true, entry: e, entries: await wb().listTimeEntries(t.task_id) });
@@ -120,7 +120,7 @@ module.exports = function governanceWorkbenchRoutes(router, h) {
     try {
       if (!(await timeOn(res))) return;
       const t = await readableTask(req.reportUser, req.params.id); if (!t) return notFound(res);
-      if (await refusePlanWrite(req, res, 'task', { id: t.task_id })) return;
+      if (await refusePlanWrite(req, res, 'task', { id: t.task_id, op: 'time' })) return;
       await wb().removeTimeEntry(t.task_id, req.params.eid, t.project.id, { user: req.reportUser, timesheetLock: on(await cfg(), 'ppm_timesheet_approval_enabled') });
       log(req, 'time_entry_removed', `task:${t.task_id}`, { entry: Number(req.params.eid) });
       res.json({ ok: true, entries: await wb().listTimeEntries(t.task_id) });

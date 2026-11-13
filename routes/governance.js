@@ -548,7 +548,9 @@ module.exports = function governanceRoutes(deps) {
     return { ...pf, objective_views: views, gantt, risks, plans, resource_conflicts: SCH.resourceConflicts(tasks), resource_coverage: SCH.resourceCoverage(tasks), stages: SCH.STAGES, summary: PE.portfolioSummary({ programmes: pf.programmes, objectiveViews: views, gantt, risks: pf.risks }), as_of: now.toISOString() };
   }
   // G12 — amounts are read by the committee, the admin tier and the finance role; everyone else sees the plan without money.
-  const canSeeMoney = (u) => isCommittee(u) || rdb().userHasRole(u, 'finance-viewer');
+  // W4 — a CLIENT project role (ppm_project_roles_enabled) never sees an amount: accessCtx marks the request's user
+  // (u.__ppmClient) before any money decision of the PPM routes, so the rule below reads it.
+  const canSeeMoney = (u) => !(u && u.__ppmClient) && (isCommittee(u) || rdb().userHasRole(u, 'finance-viewer'));
   function stripMoney(v) {
     const z = (o) => ({ ...o, budget: undefined, spent: undefined, budget_by_currency: undefined });
     return { ...v, projects: v.projects.map(z), gantt: v.gantt.map(z), summary: v.summary.map(z), benefits: (v.benefits || []).map((b) => BEN.visibleBenefit(b, { money: false })), money_hidden: true };
@@ -569,8 +571,16 @@ module.exports = function governanceRoutes(deps) {
     const sensitiveOn = String(c.portfolio_sensitive_projects) === '1', myDefault = String(c.portfolio_my_projects_default) === '1';
     // B3 — team membership only matters for a sensitive project or the "my projects" default (no query otherwise)
     const memberProjectIds = (sensitiveOn || myDefault) && u ? await store.memberProjectIds(u.id).catch(() => []) : [];
-    return { scopeOn: c.portfolio_site_scope_reads === '1', writesOn: c.portfolio_editor_plan_writes === '1', sensitiveOn, myDefault, memberProjectIds, isCommittee: !!isCommittee(u), isAdmin: !!isAdmin(u), isEditor: !!rdb().userHasRole(u, 'editor') };
+    // W4 — per-project roles (PROPOSED ppm_project_roles_enabled; '0' = today, no query): the projects where the user
+    // holds a role are readable, and a client membership anywhere removes amounts for this request (never for the committee)
+    const rolesOn = String(c.ppm_project_roles_enabled) === '1';
+    const roleMemberships = rolesOn && u ? await collabStore().membershipsOf(u.id).catch(() => []) : [];
+    if (rolesOn && u && !isCommittee(u) && roleMemberships.some((m) => m.ppm_role === 'client')) u.__ppmClient = true;
+    return { scopeOn: c.portfolio_site_scope_reads === '1', writesOn: c.portfolio_editor_plan_writes === '1', sensitiveOn, myDefault, memberProjectIds, rolesOn, roleMemberships, roleMemberProjectIds: roleMemberships.map((m) => m.project_id),
+      isCommittee: !!isCommittee(u), isAdmin: !!isAdmin(u), isEditor: !!rdb().userHasRole(u, 'editor') };
   }
+  const collabStore = () => require('../services/ppm/collabStore').makeCollabStore(rdb().pgHandle(), store);
+  const PR = require('../services/ppm/projectRoles');
   /** The portfolio view this user may read (filtered when the read switch is on) and the projects whose plan they may edit. */
   async function viewFor(u) {
     const ctx = await accessCtx(u); const v0 = await portfolioView();
@@ -600,10 +610,12 @@ module.exports = function governanceRoutes(deps) {
    * and canEditPlan must hold on the row's STORED project (never trust body.project_id on an update) and, for a move,
    * on the target project too. Returns true when it has answered.
    */
-  async function refusePlanWrite(req, res, kind, { id = null, body = null } = {}) {
+  async function refusePlanWrite(req, res, kind, { id = null, body = null, op = 'action' } = {}) {
     const u = req.reportUser;
     if (isCommittee(u)) return false;
     const ctx = await accessCtx(u);
+    // W4 — a project role on the touched project REPLACES the default rule for this user (services/ppm/projectRoles)
+    if (ctx.rolesOn && (ctx.roleMemberships || []).length) { const r = await roleGate(req, res, kind, { id, body, op }, ctx); if (r !== null) return r; }
     if (!ctx.writesOn) { httpFail(res, new Error('committee-member or admin role required'), 403, { ok: false }); return true; }
     const may = async (pid) => { if (pid == null || !Number.isFinite(Number(pid))) return false; const p = await store.getProject(pid); return !!p && PA.canEditPlan(u, p, { ...ctx, extraSites: await store.projectSites(p.id) }); };
     let target = body && body.project_id != null ? Number(body.project_id) : null;
@@ -614,12 +626,38 @@ module.exports = function governanceRoutes(deps) {
       if (target != null && target !== row.project_id && !(await may(target))) { planScope(res); return true; }
       if (target == null) target = row.project_id;
     } else if (!(await may(target))) { planScope(res); return true; }
-    // a link to another element must stay inside the editable project (no reach into another site's plan)
+    return refuseCrossLinks(res, body, target);
+  }
+  // a link to another element must stay inside the editable project (no reach into another site's plan)
+  async function refuseCrossLinks(res, body, target) {
     for (const [k, linkKind] of [['milestone_id', 'milestone'], ['parent_id', 'task']]) {
       if (body && body[k] != null && body[k] !== '') { const l = await store.planRow(linkKind, body[k]); if (!l || l.project_id !== target) { planScope(res); return true; } }
     }
     return false;
   }
+  /**
+   * W4 — the project-role decision for a non-committee user holding at least one project role. Returns null when the
+   * user holds no role on the touched project (the default rule then applies), else true (answered, refused) / false.
+   */
+  async function roleGate(req, res, kind, { id, body, op }, ctx) {
+    const u = req.reportUser;
+    const roleOn = (pid) => { const m = (ctx.roleMemberships || []).find((x) => Number(x.project_id) === Number(pid)); return m ? m.ppm_role : null; };
+    let pid = body && body.project_id != null && body.project_id !== '' ? Number(body.project_id) : null, ownsTask = false, moves = false;
+    if (id && kind !== 'team') {
+      const row = await store.planRow(kind, id);
+      if (!row) return null;                                   // the default path answers the 404
+      if (pid != null && pid !== row.project_id) moves = true;
+      if (kind === 'task') { const t = await collabStore().taskOwner(id); ownsTask = !!(t && PA.ownerMatches({ owner: t.owner }, u)); }
+      if (moves && (roleOn(pid) !== 'pm' || roleOn(row.project_id) !== 'pm')) return refuseRole(res, { code: 'ROLE_SCOPE', error: 'only the project manager of both projects moves an item between them' });
+      pid = row.project_id;
+    }
+    const role = roleOn(pid);
+    if (!role) return null;
+    const v = PR.decide({ role, kind, op, isNew: !id, body: body || {}, ownsTask, moves });
+    if (!v.allow) return refuseRole(res, v);
+    return refuseCrossLinks(res, body, pid);
+  }
+  const refuseRole = (res, v) => { httpFail(res, Object.assign(new Error(v.error), { reason: v.code }), 403, { ok: false, code: v.code }); return true; };   // W4 (client role: also ANDed into the export-policy money flag)
   router.put('/api/governance/portfolio/project/:id/sites', requireReportSession, requireCommittee, json, async (req, res) => {
     try { const ids = await store.setProjectSites(req.params.id, (req.body && req.body.site_ids) || [], { user: req.reportUser }); log(req, 'project_sites', `project:${req.params.id}`, { site_ids: ids }); res.json({ ok: true, site_ids: ids }); }
     catch (e) { if (e.status === 404 || e.status === 400) return fail(res, e, e.status, { ok: false }); fail(res, e); }
@@ -630,7 +668,7 @@ module.exports = function governanceRoutes(deps) {
   }, async (req, res) => {
     try {
       const kind = req.params.kind;
-      if (PLAN_KINDS.includes(kind) && await refusePlanWrite(req, res, kind, { id: req.body && req.body.id ? Number(req.body.id) : null, body: req.body || {} })) return;
+      if (PLAN_KINDS.includes(kind) && await refusePlanWrite(req, res, kind, { id: req.body && req.body.id ? Number(req.body.id) : null, body: req.body || {}, op: 'write' })) return;
       if (kind === 'benefit' && await refuseMoneyBenefit(req, res, { id: req.body && req.body.id ? Number(req.body.id) : null, body: req.body || {} })) return;
       const cfgW = await reportConfig.getConfig(rdb().db);
       const requireOwnerReason = kind === 'task' && String(cfgW.ppm_capacity_view) === '1';   // E-P03
@@ -653,7 +691,9 @@ module.exports = function governanceRoutes(deps) {
       const d = Number.isInteger(Number(req.params.id)) ? await store.projectDetail(req.params.id) : null;
       const ctx = await accessCtx(u); const pctx = { ...ctx, extraSites: d ? d.extra_sites : [] };
       if (!d || !PA.canReadProject(u, d.project, pctx)) return httpFail(res, new Error('project not found'), 404, { ok: false });
-      const p = d.project; const from = p.stage || 'proposal'; const money = canSeeMoney(u);
+      const p = d.project; const from = p.stage || 'proposal';
+      const projectRole = ctx.rolesOn ? ((ctx.roleMemberships || []).find((m) => Number(m.project_id) === Number(p.id)) || {}).ppm_role || null : null;   // W4
+      const money = canSeeMoney(u) && projectRole !== 'client';
       const allowed_stages = (SCH.GATES[from] || []).map((to) => {
         const needs_reason = to === 'on_hold' || (from === 'closure' && to === 'in_progress');
         // the reason is typed at the moment of the move: the dry run assumes one so the OTHER checks show
@@ -669,7 +709,8 @@ module.exports = function governanceRoutes(deps) {
       // B4 — "plan updated X days ago": latest of the ledger and the plan rows; null = unknown (never 0)
       const FR = require('../services/ppm/planFreshness');
       const fresh = FR.freshness((await FR.planUpdatedAt(rdb().pgHandle(), [p.id]))[p.id], new Date().toISOString());
-      res.json({ ok: true, committee: !!isCommittee(u), can_gate: !!isCommittee(u), can_edit_plan: PA.canEditPlan(u, p, pctx), can_see_history: !!money, money_hidden: !money,
+      res.json({ ok: true, committee: !!isCommittee(u), can_gate: !!isCommittee(u), can_edit_plan: projectRole && !isCommittee(u) ? ['pm', 'scheduler'].includes(projectRole) : PA.canEditPlan(u, p, pctx), can_see_history: !!money, money_hidden: !money,
+        ...(ctx.rolesOn ? { project_role: projectRole } : {}),
         project, objective: d.objective, extra_sites: d.extra_sites, tasks: d.tasks, milestones: d.milestones, deliverables: d.deliverables, risks: d.risks.map(PE.riskView),
         benefits: bens, ...(clsOn ? { benefit_totals: BEN.benefitTotals(bens), benefit_classes: { value_classes: BEN.VALUE_CLASSES, bases: BEN.BASES, source_kinds: BEN.SOURCE_KINDS } } : {}), me: Number(u.id),
         ...(mvRole ? { money_verifier_role: mvRole, holds_money_verifier_role: holdsExactly(u, mvRole) } : {}),   // F-PRODUCT-04: who may verify a money benefit
@@ -751,7 +792,7 @@ module.exports = function governanceRoutes(deps) {
   });
   /** The deck / workbook data: the readable portfolio, money stripped unless canSeeMoney, + baselines and exceptions. */
   async function exportData(u, xp) {   // P9 / B7 — the amount rule comes from services/exportPolicy (req.exportPolicy.money)
-    const { v: v0 } = await viewFor(u); const money = xp && typeof xp.money === 'boolean' ? xp.money : canSeeMoney(u);
+    const { v: v0 } = await viewFor(u); const money = (xp && typeof xp.money === 'boolean' ? xp.money : canSeeMoney(u)) && !u.__ppmClient;   // W4: a client project role never gets amounts
     const v = money ? v0 : stripMoney(v0);
     const ids = new Set(v.projects.map((p) => p.id));
     const baselines = (await store.listBaselines()).filter((b) => ids.has(b.project_id));
@@ -779,9 +820,9 @@ module.exports = function governanceRoutes(deps) {
   });
   const historyOf = (entity) => async (req, res) => {
     try {
+      const ctx = await accessCtx(req.reportUser);   // W4: marks a client project role before the money decision
       if (!canSeeMoney(req.reportUser)) return httpFail(res, new Error('committee, admin or finance-viewer role required'), 403, { ok: false });
       if (entity === 'project') {   // A-15 — with the read switch on, a project of another site does not exist for this reader
-        const ctx = await accessCtx(req.reportUser);
         if ((ctx.scopeOn || ctx.sensitiveOn) && !ctx.isCommittee && !ctx.isAdmin) {   // B3: a sensitive project hides its ledger too
           const p = await store.getProject(req.params.id);
           if (!p || !PA.canReadProject(req.reportUser, p, { ...ctx, extraSites: await store.projectSites(p.id) })) return httpFail(res, new Error('project not found'), 404, { ok: false });
@@ -797,9 +838,9 @@ module.exports = function governanceRoutes(deps) {
     try { const pid = await store.rfiToProject(req.params.id, req.body || {}, { user: req.reportUser }); log(req, 'rfi_to_project', `rfi:${req.params.id}`, { project_id: pid }); res.json({ ok: true, project_id: pid }); }
     catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.project_id ? { project_id: e.project_id } : {}) }); }
   });
-  router.delete('/api/governance/portfolio/:kind/:id', requireReportSession, json, (req, res, next) => (PLAN_KINDS.includes(req.params.kind) ? next() : requireCommittee(req, res, next)), async (req, res) => { try { if (PLAN_KINDS.includes(req.params.kind) && await refusePlanWrite(req, res, req.params.kind, { id: Number(req.params.id) })) return; const soft = await _softDelete(req, res, req.params.kind, req.params.id); if (!soft) return; await store.removePortfolio(req.params.kind, req.params.id, { user: req.reportUser, ...soft }); await _confirmed(req, soft); log(req, soft.soft ? 'portfolio_soft_deleted' : 'portfolio_removed', `${req.params.kind}:${req.params.id}`); res.json({ ok: true, soft: !!soft.soft }); } catch (e) { fail(res, e); } });
+  router.delete('/api/governance/portfolio/:kind/:id', requireReportSession, json, (req, res, next) => (PLAN_KINDS.includes(req.params.kind) ? next() : requireCommittee(req, res, next)), async (req, res) => { try { if (PLAN_KINDS.includes(req.params.kind) && await refusePlanWrite(req, res, req.params.kind, { id: Number(req.params.id), op: 'delete' })) return; const soft = await _softDelete(req, res, req.params.kind, req.params.id); if (!soft) return; await store.removePortfolio(req.params.kind, req.params.id, { user: req.reportUser, ...soft }); await _confirmed(req, soft); log(req, soft.soft ? 'portfolio_soft_deleted' : 'portfolio_removed', `${req.params.kind}:${req.params.id}`); res.json({ ok: true, soft: !!soft.soft }); } catch (e) { fail(res, e); } });
   router.get('/api/governance/portfolio/report.html', requireReportSession, xpGate('governance.portfolio_report'), async (req, res) => {
-    try { const v0 = (await viewFor(req.reportUser)).v; const v = (req.exportPolicy ? req.exportPolicy.money : canSeeMoney(req.reportUser)) ? v0 : stripMoney(v0); const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    try { const v0 = (await viewFor(req.reportUser)).v; const v = (req.exportPolicy ? req.exportPolicy.money && !req.reportUser.__ppmClient : canSeeMoney(req.reportUser)) ? v0 : stripMoney(v0); const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
       const month = new Date().toISOString().slice(0, 7);
       const amt = (n) => (n == null ? '—' : String(Math.round(n)));   // E-NULL-3: an unknown amount is "—", never 0
       const rows = v.summary.map(s => `<tr><td>${esc(s.name)}</td><td>${s.objectives}</td><td>${s.auto_evidence_pct == null ? '—' : s.auto_evidence_pct + ' %'}</td><td>${s.weighted_evidence_pct == null ? '—' : s.weighted_evidence_pct + ' %'}</td><td>${s.projects}</td><td>${s.late_projects}</td><td>${s.high_risks}</td><td>${v.money_hidden ? '<small>restricted</small>' : s.currency_mixed ? Object.entries(s.budget_by_currency).map(([c, b]) => amt(b.spent) + ' / ' + amt(b.budget) + ' ' + esc(c)).join('<br>') : s.budget != null ? amt(s.spent) + ' / ' + amt(s.budget) + ' ' + esc(s.currency || '') : '—'}</td></tr>`).join('');

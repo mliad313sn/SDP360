@@ -91,6 +91,21 @@ const CAPABILITIES = Object.freeze([
   C('audit.read', 'Read the audit log of every site', 'Lire le journal d’audit de tous les sites', 'med', 'audit', ['audit-viewer'], 'platform', { inline: true }),
 ]);
 
+// W4 (PPM parity, enterprise) — PROJECT roles. They are NOT account roles (no route guard tests them): each is held per
+// project through a team membership (ppm_project_members.ppm_role) and only counts while report_config
+// ppm_project_roles_enabled = '1'. They are catalogued here so the platform names every right it grants; the decision
+// itself is services/ppm/projectRoles.decide (one rule, server-side, inside refusePlanWrite). Grants are per project only
+// and never widen the money rule; the committee / admin tier keep today's rights. `ops` lists the steps the role covers
+// (write / delete / team / time / action, see projectRoles) — tests/ppm-project-roles.test.js proves they match decide().
+const P_ = (role, en, fr, risk, ops) => Object.freeze({ id: 'ppm.project_role.' + role, role, en, fr, risk, resource: 'project_plan', scope: 'project', switch: 'ppm_project_roles_enabled', ops: Object.freeze(ops) });
+const PROJECT_ROLES = Object.freeze([
+  P_('pm', 'Project manager: maintain the whole plan of one project', 'Chef de projet : maintenir tout le plan d’un projet', 'med', ['write', 'delete', 'team', 'time', 'action']),
+  P_('scheduler', 'Scheduler: tasks, milestones and time of one project', 'Planificateur : tâches, jalons et temps d’un projet', 'med', ['write', 'delete', 'time']),
+  P_('resource_manager', 'Resource manager: team, time and task assignments of one project', 'Gestionnaire des ressources : équipe, temps et affectations d’un projet', 'low', ['write', 'team', 'time']),
+  P_('contributor', 'Contributor: progress and time of one’s own tasks', 'Contributeur : avancement et temps de ses propres tâches', 'low', ['write', 'time']),
+  P_('client', 'Client: read one project, no amounts, no writes', 'Client : lire un projet, sans montants, sans écriture', 'low', []),
+]);
+
 const _BY_ID = new Map(CAPABILITIES.map((c) => [c.id, c]));
 const _key = (roles) => [...new Set((roles || []).map(String))].sort().join('|');
 
@@ -118,4 +133,4 @@ function forRoute(method, path, roles) {
   return best || cands.find((c) => !c.routes.length) || null;
 }
 
-module.exports = { CAPABILITIES, RISKS: Object.freeze(['low', 'med', 'high', 'critical']), get, list, byRoles, forRoute };
+module.exports = { CAPABILITIES, PROJECT_ROLES, RISKS: Object.freeze(['low', 'med', 'high', 'critical']), get, list, byRoles, forRoute };

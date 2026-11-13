@@ -30,6 +30,8 @@ const TRANSLATED_PAGES = {
   'analytics.html': { dict: 'I18N_FR_ANALYTICS', file: 'analytics.fr.js', runtimeInSource: true },
   'dashboards.html': { dict: 'I18N_FR_DASHBOARDS', file: 'dashboards.fr.js', runtimeInSource: true },
   'executive.html': { dict: 'I18N_FR_EXECUTIVE', file: 'executive.fr.js', runtimeInSource: true },
+  // W4 (PPM parity, enterprise) — the project page; its runtime keys also cover lib/ppmCollabUi.js + lib/ppmBoard.js
+  'project.html': { dict: 'I18N_FR_PROJECT', file: 'project.fr.js' },
 };
 
 // A-09b — whole regions of a translated page left out of the coverage check, with the reason. Each marker
@@ -92,6 +94,9 @@ const ALLOW = {
   'portfolio.html': { 'programme': CODE, 'objective': CODE, 'project': CODE, 'milestone': CODE, 'deliverable': CODE, 'risk': CODE, 'task': CODE,
     'on_track · at_risk · planned · active · done · open': 'status codes typed into the field', 'helpdesk.resolution_sla_pct': 'metric key example' },
   'rfi.html': { 'NET-12': 'project key example (placeholder)' },
+  'project.html': Object.assign(Object.fromEntries(['todo', 'in_progress', 'blocked', 'done', 'cancelled', 'planned', 'open', 'closed', 'risk', 'issue', 'assumption',
+    'ASAP', 'ALAP', 'SNET', 'SNLT', 'FNET', 'FNLT', 'MSO', 'MFO'].map((k) => [k, CODE])),
+  { 'id:FS|SS|FF|SF±lag': 'link syntax placeholder (typed as is)', 'USD': 'ISO currency code placeholder', 'https://…': 'URL placeholder' }),
   // C-26 — site and IT-group names are data (option labels the filters match on), never translated.
   'index.html': {},
   'analytics.html': names(['Sabodala', 'MANA', 'Hounde', 'Ity', 'Wahgnion', 'Lafigue', 'Ouagadougou', 'Abidjan', 'Dakar']),
@@ -117,7 +122,6 @@ const SELF_TRANSLATED = ['access.html', 'cockpit.html', 'coverage.html', 'commit
   'value-scoreboard.html'];   // D2 (P10) — own EN/FR table in lib/value-scoreboard-page.js, language from the shell   // R1-PROFILES — own EN/FR table, language from the shell (like home.html)
 // Shell pages not translated yet, with the reason (A-09b covers the coordinator pages listed there).
 const UNTRANSLATED = {
-  'project.html': 'A-14 project page, added after A-09b — French pending',
   'finance.html': 'A1/B8 Finance certification + Pronto import (hidden by default), French only — English pending',
   'executive-report.html': 'deck builder, decks stay English (D-2)', 'it-review.html': 'faithful port of the executive dashboard, English',
   'integrations.html': 'admin console, English', 'system-logs.html': 'admin console, English',

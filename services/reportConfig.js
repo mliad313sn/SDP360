@@ -436,6 +436,20 @@ DEFAULTS.ppm_timesheet_approval_enabled = '0';
 //    typed dates impact, else by the simulated finish delta. Arming it is a PMO decision.
 DEFAULTS.ppm_cr_simulation_enabled = '0';
 
+// ── PPM parity W4 (enterprise, migration 108) — PROPOSED, every key '0' = today (routes 404, tabs absent, rules unchanged).
+//    ppm_project_roles_enabled '1' → a team member linked to an account may hold a PROJECT role (pm · scheduler ·
+//    resource_manager · contributor · client) that replaces the default plan-write rule for that user on that project
+//    and opens reading it; a client never writes and never sees an amount (services/ppm/projectRoles.js). Needs the team
+//    (ppm_project_team_enabled) to name members. Which role is given to whom is a PMO decision.
+//    ppm_comments_enabled '1' → append-only comments on a project / task with @mentions resolved only among people who
+//    may read the project; in-app notification to the mentioned (nothing while notifications_stop = '1').
+//    ppm_agile_board_enabled '1' → a Board tab on the project page: the work packages (leaf tasks) by status; a move is
+//    the existing task update with its row version (409 STALE_VERSION when someone saved in between).
+//    ppm_roadmap_nnl_enabled '1' → a Now / Next / Later panel on the portfolio (pure grouping by stage and dates).
+//    ppm_offline_edit_enabled '1' → project-page task / milestone edits made without a connection are queued in the
+//    browser, replayed with their row version, and a conflict opens a merge screen (keep mine / keep theirs per field).
+Object.assign(DEFAULTS, { ppm_project_roles_enabled: '0', ppm_comments_enabled: '0', ppm_agile_board_enabled: '0', ppm_roadmap_nnl_enabled: '0', ppm_offline_edit_enabled: '0' });
+
 // ── SEC-01 — per-ACCOUNT login throttle (services/accountThrottle.js). '0' = today: only the per-IP limiter
 //    (10 attempts / 15 min per address). '1' → more than auth_account_throttle_max FAILED sign-ins against one
 //    account within auth_account_throttle_window_min answer 429 (password not even checked); a success clears it.

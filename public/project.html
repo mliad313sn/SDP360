@@ -17,6 +17,11 @@
 <script nonce="%%CSP_NONCE%%" src="lib/ppmVisuals.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/ppmExtras.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/ppmWorkbench.js"></script>
+<!-- W4 (PPM parity, enterprise): board, comments, project roles, offline editing — each inert unless its switch is on -->
+<script nonce="%%CSP_NONCE%%" src="lib/draftStore.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/ppmBoard.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/ppmOfflineQueue.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/ppmCollabUi.js"></script>
 <link rel="stylesheet" href="lib/ganttV2.css">
 <script nonce="%%CSP_NONCE%%" src="lib/ganttCore.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/gantt.fr.js"></script>
@@ -49,6 +54,10 @@
   table.pim { width:auto; } table.pim td { text-align:center; padding:3px; } .pim-cell { min-width:64px; min-height:40px; font-size:15px; font-weight:700; border:1px solid #cfd6e0; border-radius:6px; background:#fff; cursor:pointer; font-family:inherit; color:#1F2A33; }
   .pim-cell[disabled] { cursor:default; color:#9AA4B2; } td.pim-high .pim-cell:not([disabled]) { background:#fde2e2; border-color:#B91C1C; } td.pim-medium .pim-cell:not([disabled]) { background:#fdecc8; border-color:#B45309; } td.pim-low .pim-cell:not([disabled]) { background:#e3f1e8; border-color:#1E7B45; }
   td.pr-over { background:#fde2e2; color:#7f1d1d; }
+  /* W4 — board, comments, offline banner */
+  .pb-board { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; } .pb-col { background:#f4f6f7; border-radius:10px; padding:8px; min-height:80px; } .pb-col h3 { margin:0 0 6px; font-size:13px; }
+  .pb-list, .cm-list { list-style:none; margin:0; padding:0; } .pb-card { background:#fff; border:1px solid #e4e8ee; border-radius:8px; padding:6px 8px; margin-bottom:6px; } .pb-card[draggable=true] { cursor:grab; } .pb-name { font-weight:600; font-size:12.5px; } .pb-lane, .pb-meta { font-size:11.5px; color:#6b7785; } .pb-move { font-size:11px; }
+  .cm-list li { border-bottom:1px solid #f0f2f5; padding:6px 0; } .cm-body { white-space:pre-wrap; } #offline-banner { background:#fff7ed; border:1px solid #fdba74; border-radius:10px; padding:8px 12px; margin-bottom:10px; } .merge { border-top:1px solid #fed7aa; padding-top:6px; margin-top:6px; }
 </style>
 </head>
 <body>
@@ -59,6 +68,7 @@
   <h1 id="p-title">Project</h1>
   <div class="sub" id="p-sub">Charter, plan, milestones, risks and gates of one project. “—” means not measured, never 0 (help §25).</div>
   <div id="msg" role="status" aria-live="polite"></div>
+  <div id="offline-banner" role="status" aria-live="polite" hidden></div>
   <div class="tabs" role="tablist" aria-label="Project sections" id="tabs">
     <button type="button" role="tab" id="tab-overview" aria-controls="pane-overview" aria-selected="true">Overview</button>
     <button type="button" role="tab" id="tab-charter" aria-controls="pane-charter" aria-selected="false" tabindex="-1">Charter</button>
@@ -69,7 +79,9 @@
     <button type="button" role="tab" id="tab-budget" aria-controls="pane-budget" aria-selected="false" tabindex="-1" hidden>Budget</button>
     <button type="button" role="tab" id="tab-raci" aria-controls="pane-raci" aria-selected="false" tabindex="-1" hidden>RACI</button>
     <button type="button" role="tab" id="tab-changes" aria-controls="pane-changes" aria-selected="false" tabindex="-1" hidden>Changes</button>
+    <button type="button" role="tab" id="tab-board" aria-controls="pane-board" aria-selected="false" tabindex="-1" hidden>Board</button>
     <button type="button" role="tab" id="tab-gates" aria-controls="pane-gates" aria-selected="false" tabindex="-1">Gates</button>
+    <button type="button" role="tab" id="tab-comments" aria-controls="pane-comments" aria-selected="false" tabindex="-1" hidden>Comments</button>
     <button type="button" role="tab" id="tab-history" aria-controls="pane-history" aria-selected="false" tabindex="-1">History</button>
   </div>
 
@@ -85,6 +97,7 @@
           <label>Linked user account (optional — leave “not linked” for an external person) <select id="tm-user"><option value="">— not linked —</option></select></label>
         </div>
         <div class="bar"><button class="btn primary" id="team-save" type="button">Save member</button></div></div></div>
+    <div class="panel" id="roles-panel" hidden><h2>Project roles</h2><div class="scroll" id="roles"></div></div>
   </section>
 
   <section id="pane-charter" role="tabpanel" aria-labelledby="tab-charter" hidden>
@@ -267,6 +280,14 @@
       <div class="bar"><button class="btn primary" id="cr-save" type="button">Propose the change</button></div></div>
   </section>
 
+  <section id="pane-board" role="tabpanel" aria-labelledby="tab-board" hidden>
+    <div class="panel"><h2>Board — work packages by status</h2><div id="board"></div></div>
+  </section>
+
+  <section id="pane-comments" role="tabpanel" aria-labelledby="tab-comments" hidden>
+    <div class="panel"><h2>Comments</h2><div id="comments"></div></div>
+  </section>
+
   <section id="pane-gates" role="tabpanel" aria-labelledby="tab-gates" hidden>
     <div class="panel"><h2>Stage gates</h2><div id="gates"></div>
       <div id="gate-reason-box" hidden><label>Reason (10 characters or more) <textarea id="gate-reason" rows="2"></textarea></label></div></div>
@@ -327,7 +348,7 @@
   var V = null;
   // W2-PPM — which PROPOSED switches are on (each new tab / prompt exists only then); an error = all off (today)
   var FEAT = {};
-  api("/api/governance/ppm/features").then(function (f) { FEAT = f || {}; if (FEAT.budget_periods) addTab("budget", "gates"); if (FEAT.benefit_owner_link) linkOwners(); if (FEAT.benefit_value_class) { $("b-class-box").hidden = false; if (V) renderBenefits(); } if (FEAT.raci) addTab("raci", "gates"); if (FEAT.change_requests) addTab("changes", "gates"); if (V && ["budget", "raci", "changes"].indexOf((window.location.hash || "").slice(1)) >= 0 && TABS.indexOf(window.location.hash.slice(1)) >= 0) showTab(window.location.hash.slice(1)); if (FEAT.team && V) mountTeam(); if (FEAT.time_entries && V && $("tab-plan").getAttribute("aria-selected") === "true") { mountTime(); if (FEAT.timesheets) mountTimesheets(); } if (FEAT.templates && V && V.committee) $("tpl-save-box").hidden = false; if (FEAT.schedule_v2 && V && V.can_edit_plan) fillTask(); if (FEAT.gantt_v2 && V && $("tab-plan").getAttribute("aria-selected") === "true") renderPlan(); }).catch(function () { FEAT = {}; });
+  api("/api/governance/ppm/features").then(function (f) { FEAT = f || {}; if (FEAT.budget_periods) addTab("budget", "gates"); if (FEAT.benefit_owner_link) linkOwners(); if (FEAT.benefit_value_class) { $("b-class-box").hidden = false; if (V) renderBenefits(); } if (FEAT.raci) addTab("raci", "gates"); if (FEAT.change_requests) addTab("changes", "gates"); if (V && ["budget", "raci", "changes"].indexOf((window.location.hash || "").slice(1)) >= 0 && TABS.indexOf(window.location.hash.slice(1)) >= 0) showTab(window.location.hash.slice(1)); if (FEAT.team && V) mountTeam(); if (FEAT.time_entries && V && $("tab-plan").getAttribute("aria-selected") === "true") { mountTime(); if (FEAT.timesheets) mountTimesheets(); } if (FEAT.templates && V && V.committee) $("tpl-save-box").hidden = false; if (FEAT.schedule_v2 && V && V.can_edit_plan) fillTask(); if (FEAT.gantt_v2 && V && $("tab-plan").getAttribute("aria-selected") === "true") renderPlan(); mountW4(); }).catch(function () { FEAT = {}; });
 
   // ---- tabs (role=tablist, arrows / Home / End, deep link #tab) ---------------------------------------------
   // Extension point: later goals (baselines, benefits) add a tab button + a pane + an entry in RENDER.
@@ -337,6 +358,17 @@
   var X = function () { return { $: $, esc: esc, api: api, msg: msg, fail: fail, pid: PID }; };
   RENDER.budget = function () { if (window.PpmExtras) window.PpmExtras.mountBudget(X()); };
   RENDER.changes = function () { if (window.PpmWorkbench) window.PpmWorkbench.mountChanges(Object.assign(X(), { canEdit: !!(V && V.can_edit_plan) })); };   // R2-WB-01
+  // W4 (PPM parity, enterprise) — Board / Comments tabs, Project roles panel, offline editing; each only while its switch is on
+  var W4 = function () { return Object.assign(X(), { V: function () { return V; }, reload: load }); };
+  RENDER.board = function () { if (window.PpmCollabUi && V) window.PpmCollabUi.mountBoard(W4()); };
+  RENDER.comments = function () { if (window.PpmCollabUi && V) window.PpmCollabUi.mountComments(W4()); };
+  function mountW4() {
+    if (FEAT.agile_board) addTab("board", "gates");
+    if (FEAT.comments) addTab("comments", "history");
+    if (FEAT.project_roles && V && window.PpmCollabUi) window.PpmCollabUi.mountRoles(W4());
+    if (FEAT.offline_edit && window.PpmCollabUi) window.PpmCollabUi.installOffline({ pid: PID, esc: esc, msg: msg, reload: load });
+    var h = (window.location.hash || "").slice(1); if (V && (h === "board" || h === "comments") && TABS.indexOf(h) >= 0) showTab(h);
+  }
   RENDER.raci = function () { if (window.PpmExtras) window.PpmExtras.mountRaci(Object.assign(X(), { canEdit: !!(V && V.can_edit_plan) })); };
   // R2-WB-04 — the Team panel (Overview) exists only while ppm_project_team_enabled is on
   // R2-WB-02 — hours panel (Plan tab) only while ppm_time_entries_enabled is on
@@ -411,7 +443,7 @@
   function load() {
     if (!PID || !/^\d+$/.test(PID)) { $("p-title").textContent = "Project"; msg("No project id in the address — open a project from the portfolio.", "errors"); return Promise.resolve(); }
     return api("/api/governance/portfolio/project/" + encodeURIComponent(PID)).then(function (v) {
-      V = v; BLV = null; renderHeader(); $("tpl-save-box").hidden = !(FEAT.templates && V.committee);
+      V = v; BLV = null; renderHeader(); if (FEAT.project_roles && window.PpmCollabUi) window.PpmCollabUi.mountRoles(W4()); $("tpl-save-box").hidden = !(FEAT.templates && V.committee);
       var t = (window.location.hash || "").slice(1);
       showTab(TABS.indexOf(t) >= 0 ? t : (TABS.filter(function (x) { return $("tab-" + x).getAttribute("aria-selected") === "true"; })[0] || "overview"));
     }).catch(function (e) { if (e.status === 404) { $("p-title").textContent = "Project not found"; msg("This project does not exist, or it is outside the sites you may read.", "errors"); } else fail(e); });
@@ -770,5 +802,10 @@
   load();
 })();
 </script>
+<!-- W4 — French dictionary, INERT unless report_config ui_i18n_pages='1' (boot.js checks window.__uiPolicy). -->
+<script nonce="%%CSP_NONCE%%" src="lib/i18nText.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/i18n/common.fr.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/i18n/project.fr.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/i18n/boot.js" data-dict="I18N_FR_PROJECT"></script>
 </body>
 </html>
