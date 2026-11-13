@@ -10,7 +10,7 @@ const crypto = require('crypto');
 const CHANNELS = ['inapp', 'email', 'teams', 'webhook'];
 const SUB_KINDS = ['report_template', 'dashboard', 'alert_rule'];
 const DIGESTS = ['none', 'daily', 'weekly'];
-const SHARE_KINDS = ['dashboard', 'report_run'];
+const SHARE_KINDS = ['dashboard', 'report_run', 'roadmap_publication'];   // B6: roadmap_publication links are created ONLY by /api/governance/roadmap-publications/:id/share
 const SCOPES = ['metrics:read', 'values:read', 'sites:read'];
 const J = (v) => (v == null ? null : JSON.stringify(v));
 const P_ = (s, d) => { if (s == null) return d; if (typeof s !== 'string') return s; try { return JSON.parse(s); } catch (_) { return d; } };

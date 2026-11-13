@@ -23,6 +23,8 @@ const { fail: httpFail, logError } = require('../services/httpError');
 //   GET  /api/governance/portfolio (tree + evidence + gantt + risks + summary) · PUT /portfolio/:kind · DELETE /portfolio/:kind/:id   committee
 //        (A-15: site-scoped reads + editor plan writes behind portfolio_site_scope_reads / portfolio_editor_plan_writes, off = today)
 //   PUT  /api/governance/portfolio/project/:id/sites {site_ids}   extra sites of a project   committee
+//   B3 (P7a): PUT /api/governance/portfolio/project/:id/sensitive {sensitive}  committee, 404 while portfolio_sensitive_projects = '0'
+//   B6 (P7a): /api/governance/roadmap-publications* in routes/governanceRoadmapAudience.js (404 while roadmap_audience_publication_enabled = '0')
 //   GET  /api/governance/portfolio/report.html        monthly portfolio report
 //   A-27 (switches ppm_baseline_versions / ppm_rebaseline_enabled / ppm_alerts_enabled, '0' = today):
 //   GET  /api/governance/portfolio/project/:id/baselines · POST /project/:id/rebaseline (committee, 404 while off)
@@ -563,7 +565,10 @@ module.exports = function governanceRoutes(deps) {
   }
   async function accessCtx(u) {
     const c = await reportConfig.getConfig(rdb().db);
-    return { scopeOn: c.portfolio_site_scope_reads === '1', writesOn: c.portfolio_editor_plan_writes === '1', isCommittee: !!isCommittee(u), isAdmin: !!isAdmin(u), isEditor: !!rdb().userHasRole(u, 'editor') };
+    const sensitiveOn = String(c.portfolio_sensitive_projects) === '1', myDefault = String(c.portfolio_my_projects_default) === '1';
+    // B3 — team membership only matters for a sensitive project or the "my projects" default (no query otherwise)
+    const memberProjectIds = (sensitiveOn || myDefault) && u ? await store.memberProjectIds(u.id).catch(() => []) : [];
+    return { scopeOn: c.portfolio_site_scope_reads === '1', writesOn: c.portfolio_editor_plan_writes === '1', sensitiveOn, myDefault, memberProjectIds, isCommittee: !!isCommittee(u), isAdmin: !!isAdmin(u), isEditor: !!rdb().userHasRole(u, 'editor') };
   }
   /** The portfolio view this user may read (filtered when the read switch is on) and the projects whose plan they may edit. */
   async function viewFor(u) {
@@ -572,8 +577,22 @@ module.exports = function governanceRoutes(deps) {
     const editable = v.projects.filter(p => PA.canEditPlan(u, p, { ...ctx, extraSites: v0.project_sites })).map(p => p.id);
     return { v, ctx, editable };
   }
-  router.get('/api/governance/portfolio', requireReportSession, async (req, res) => { try { const { v, editable } = await viewFor(req.reportUser); const ro = PXR.enabled(await reportConfig.getConfig(rdb().db)) && PXR.isExecutiveOnly(req.reportUser);   // UAT-OI-05: the page hides edit controls it would refuse
-    res.json({ ok: true, committee: !ro && isCommittee(req.reportUser), can_edit_plan_projects: !ro && editable, ...(ro ? { executive_read_only: true } : {}), ...(canSeeMoney(req.reportUser) ? v : stripMoney(v)) }); } catch (e) { fail(res, e); } });
+  router.get('/api/governance/portfolio', requireReportSession, async (req, res) => { try { const { v, ctx, editable } = await viewFor(req.reportUser); const ro = PXR.enabled(await reportConfig.getConfig(rdb().db)) && PXR.isExecutiveOnly(req.reportUser);   // UAT-OI-05: the page hides edit controls it would refuse
+    // B3 — "my projects" default (portfolio_my_projects_default): a PRESENTATION hint over what is already readable; "all" is offered to the admin tier, the committee and finance
+    const mine = ctx.myDefault ? { my_projects: { ids: PA.myProjectIds(req.reportUser, v.projects, { extraSites: v.project_sites, memberProjectIds: ctx.memberProjectIds }), can_see_all: !!(ctx.isCommittee || ctx.isAdmin || rdb().userHasRole(req.reportUser, 'finance-viewer')) } } : {};
+    res.json({ ok: true, committee: !ro && isCommittee(req.reportUser), can_edit_plan_projects: !ro && editable, ...(ro ? { executive_read_only: true } : {}), ...(ctx.sensitiveOn && isCommittee(req.reportUser) && !ro ? { can_mark_sensitive: true } : {}), ...mine, ...(canSeeMoney(req.reportUser) ? v : stripMoney(v)) }); } catch (e) { fail(res, e); } });
+  // B3 — mark / unmark a project sensitive (committee / admin tier). The action exists only while portfolio_sensitive_projects = '1'.
+  router.put('/api/governance/portfolio/project/:id/sensitive', requireReportSession, requireCommittee, json, async (req, res) => {
+    try {
+      if (String((await reportConfig.getConfig(rdb().db)).portfolio_sensitive_projects) !== '1') return httpFail(res, new Error('not found'), 404, { ok: false });
+      if (!Number.isInteger(Number(req.params.id))) return httpFail(res, new Error('project not found'), 404, { ok: false });
+      const b = req.body || {};
+      if (typeof b.sensitive !== 'boolean') return httpFail(res, Object.assign(new Error('sensitive must be true or false'), { reason: 'INVALID' }), 400, { ok: false, code: 'INVALID' });
+      const v = await store.setProjectSensitive(req.params.id, b.sensitive, { user: req.reportUser });
+      log(req, 'project_sensitive', `project:${req.params.id}`, { sensitive: v });
+      res.json({ ok: true, sensitive: v === 1 });
+    } catch (e) { if (e.status === 404) return httpFail(res, e, 404, { ok: false }); fail(res, e); }
+  });
   const planScope = (res) => res.status(403).json({ ok: false, code: 'PLAN_SCOPE', error: 'you may only maintain the plan of a project of your site(s), or one you own' });
   /**
    * Gate for a plan write (task / milestone / risk / deliverable). Committee → as today. Otherwise the switch must be on
@@ -762,7 +781,7 @@ module.exports = function governanceRoutes(deps) {
       if (!canSeeMoney(req.reportUser)) return httpFail(res, new Error('committee, admin or finance-viewer role required'), 403, { ok: false });
       if (entity === 'project') {   // A-15 — with the read switch on, a project of another site does not exist for this reader
         const ctx = await accessCtx(req.reportUser);
-        if (ctx.scopeOn && !ctx.isCommittee && !ctx.isAdmin) {
+        if ((ctx.scopeOn || ctx.sensitiveOn) && !ctx.isCommittee && !ctx.isAdmin) {   // B3: a sensitive project hides its ledger too
           const p = await store.getProject(req.params.id);
           if (!p || !PA.canReadProject(req.reportUser, p, { ...ctx, extraSites: await store.projectSites(p.id) })) return httpFail(res, new Error('project not found'), 404, { ok: false });
         }
@@ -846,6 +865,8 @@ module.exports = function governanceRoutes(deps) {
     } catch (e) { fail(res, e); }
   });
   require('./governancePpm')(router, { store, rdb, reportConfig, requireReportSession, json, isCommittee, canSeeMoney, viewFor, readableProject, refusePlanWrite, log });
+  // B6 (P7a) — audience-scoped roadmap publications (roadmap_audience_publication_enabled, 404 while '0')
+  require('./governanceRoadmapAudience')(router, { store, rdb, reportConfig, requireReportSession, json, isCommittee, isAdmin, portfolioView, log });
   return router;
 };
 module.exports.createStore = createStore;

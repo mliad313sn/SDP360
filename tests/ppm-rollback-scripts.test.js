@@ -17,6 +17,8 @@ const PPM = ['010_roadmap', '011_roadmap_project', '039_native_ppm', '043_portfo
   '081_benefit_class_and_currency_flag', '085_ppm_workbench', '091_ppm_schedule_engine', '092_ppm_row_version', '093_ppm_evm',
   // P8 / B1 — not PPM, but an additive feature migration that ships its manual rollback and is proved here the same way
   '098_wan_sla_claims',
+  // P7a / B3 + B6 — sensitive flag + audience-scoped roadmap publications
+  '101_portfolio_sensitive_roadmap_audience',
   // P7 / B4-B5 — timesheet week approval + change-request simulation
   '102_ppm_timesheets_cr_simulation'];
 

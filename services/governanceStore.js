@@ -431,7 +431,26 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     });
   }
   /** The project row a plan element (task / milestone / risk / deliverable) belongs to — for the access guard. */
-  async function getProject(id) { if (await _projectGone(id)) return null; const r = await P(`SELECT id, site_id, owner, objective_id FROM portfolio_projects WHERE id=? AND deleted_at IS NULL`).get(Number(id)); return r ? { ...r, id: Number(r.id), site_id: r.site_id == null ? null : Number(r.site_id) } : null; }
+  async function getProject(id) { if (await _projectGone(id)) return null; const r = await P(`SELECT id, site_id, owner, objective_id, sensitive FROM portfolio_projects WHERE id=? AND deleted_at IS NULL`).get(Number(id)); return r ? { ...r, id: Number(r.id), site_id: r.site_id == null ? null : Number(r.site_id), sensitive: Number(r.sensitive) === 1 ? 1 : 0 } : null; }
+  /** B3 (migration 101) — mark / unmark a project sensitive; the ledger keeps the before / after value. */
+  async function setProjectSensitive(projectId, flag, { user } = {}) {
+    const id = Number(projectId), v = flag ? 1 : 0;
+    return tx(async () => {
+      const r = await P(`SELECT sensitive FROM portfolio_projects WHERE id=? AND deleted_at IS NULL`).get(id);
+      if (!r) throw Object.assign(new Error('project not found'), { code: 'NOT_FOUND', status: 404 });
+      const before = Number(r.sensitive) === 1 ? 1 : 0;
+      if (before !== v) {
+        await P(`UPDATE portfolio_projects SET sensitive=? WHERE id=?`).run(v, id);
+        await ppmEvent({ entity: 'project', entity_id: id, action: 'sensitive_edit', field: 'sensitive', old_value: before, new_value: v }, user);
+      }
+      return v;
+    });
+  }
+  /** B3 — ids of the projects where this user account is a named team member (ppm_project_members, migration 085). */
+  async function memberProjectIds(userId) {
+    if (userId == null) return [];
+    return (await P(`SELECT DISTINCT project_id FROM ppm_project_members WHERE user_id=?`).all(Number(userId))).map((r) => Number(r.project_id));
+  }
   /**
    * A-14 — one project with the same shapes portfolio() returns, read by project_id (never a filter over the whole
    * portfolio), plus the counts the stage gates need. Null when the project does not exist.
@@ -959,7 +978,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   async function minutesHistory(sessionId) { return (await P('SELECT action, actor_id, at, reason FROM minutes_history WHERE session_id=? ORDER BY id').all(Number(sessionId))).map(r => ({ ...r, actor_id: r.actor_id == null ? null : Number(r.actor_id) })); }
   return { ppmEvent, ppmEvents, listBudgetPeriods, saveBudgetPeriod, getRaci, saveRaci, listTemplates, getTemplate, saveTemplateFromProject, approveTemplate, createProjectFromTemplate, moveProjectStage, rfiToProject, getRfi, verifyRfi, rfiFromMeeting, rfiForMeeting, rfiLineage, setAttendance, saveDraftAgenda, getDecision, openSessionActions, addMinutesHistory, minutesHistory, init, listCadences, getCadence, saveCadence, removeCadence, listSessions, getSession, createSession, updateSession, stampItem, sessionActions, addSessionAction, setSessionActionStatus, moveSession,
     listDecisions, addDecision, updateDecision, decisionHistory, decisionProposer, decisionProposal, deleteRequestState, pendingDeleteRequests, listRfi, submitRfi, triageRfi, rfiScore, portfolio, upsertPortfolio, removePortfolio,
-    restorePortfolio, getPortfolioTrashRow, listDeletedPortfolio, purgeDeletedPortfolio, restoreCadence, getCadenceTrashRow, listDeletedCadences, purgeDeletedCadences, projectSites, setProjectSites, getProject, planRow, projectDetail, gateCounts, RISK_KINDS, listBaselines, rebaseline, alertStates, saveAlertState, listBenefits, getBenefit, recordBenefitRealised, verifyBenefit, dueBenefitReviews, ownedBenefitReviews,
+    restorePortfolio, getPortfolioTrashRow, listDeletedPortfolio, purgeDeletedPortfolio, restoreCadence, getCadenceTrashRow, listDeletedCadences, purgeDeletedCadences, projectSites, setProjectSites, getProject, setProjectSensitive, memberProjectIds, planRow, projectDetail, gateCounts, RISK_KINDS, listBaselines, rebaseline, alertStates, saveAlertState, listBenefits, getBenefit, recordBenefitRealised, verifyBenefit, dueBenefitReviews, ownedBenefitReviews,
     CADENCE_KINDS, SESSION_STATUSES, DECISION_STATUSES, RFI_KINDS, RFI_STATUSES, PROJECT_STATUSES, CONFIDENCE };
 }
 

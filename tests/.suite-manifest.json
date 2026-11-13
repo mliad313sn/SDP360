@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 5092,
+ "total": 5109,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 18,
@@ -457,6 +457,8 @@
   "portfolio-evidence-null.test.js": 3,
   "portfolio-executive-readonly.smoke.test.js": 5,
   "portfolio-finance-currency.smoke.test.js": 7,
+  "portfolio-sensitive.smoke.test.js": 5,
+  "portfolio-sensitive.test.js": 4,
   "portfolio-site-scope.smoke.test.js": 7,
   "portfolio-views.test.js": 3,
   "postgres-only.test.js": 5,
@@ -590,6 +592,8 @@
   "review-render.test.js": 19,
   "risk-register-alias-delete.smoke.test.js": 1,
   "risk-register-classify.test.js": 14,
+  "roadmap-audience.smoke.test.js": 4,
+  "roadmap-audience.test.js": 4,
   "roadmap-evidence.test.js": 16,
   "roadmap-parity.test.js": 11,
   "roadmap-publication.smoke.test.js": 2,

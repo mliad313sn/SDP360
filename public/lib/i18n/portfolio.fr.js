@@ -7,6 +7,14 @@
 (function (root) {
   'use strict';
   const STATIC = {
+    // B3 / B6 (P7a)
+    'Show': 'Afficher', 'My projects': 'Mes projets', 'All projects': 'Tous les projets',
+    'Totals and money still cover every project you may read.': 'Les totaux et les montants couvrent toujours tous les projets que vous pouvez lire.',
+    'Published roadmaps': 'Feuilles de route publiées', 'Publish a roadmap snapshot': 'Publier un instantané de la feuille de route',
+    'Audience': 'Public', 'Site': 'Site', 'Committee': 'Comité', 'Executive': 'Direction',
+    'Site or programme id': 'Id du site ou du programme', 'Title': 'Titre', 'Expires after (days, blank = never)': 'Expire après (jours, vide = jamais)',
+    'Include amounts (committee / executive only)': 'Inclure les montants (comité / direction seulement)', 'Publish': 'Publier',
+    'Project id (sensitivity)': 'Id du projet (sensibilité)', 'Sensitive project': 'Projet sensible', 'Save sensitivity': 'Enregistrer la sensibilité',
     'Capacity per site and week': 'Capacité par site et par semaine', 'Project templates': 'Modèles de projet', 'Objective id': 'Id de l’objectif', 'Project key': 'Clé du projet', 'Project name': 'Nom du projet', 'Create the project': 'Créer le projet', 'Annual planning pack (draft)': 'Dossier de planification annuelle (brouillon)', 'Year': 'Année', 'Download the draft pack (XLSX)': 'Télécharger le dossier brouillon (XLSX)',
     'Requests that may become projects:': 'Demandes susceptibles de devenir des projets :', 'RFI register': 'Registre des demandes',
     'WBS code (task)': 'Code WBS (tâche)',
