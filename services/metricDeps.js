@@ -29,7 +29,7 @@ const REQUIRES = {
   'meetings.insights_site': ['rdb', 'mdb'], 'inspection.aggregate_site': ['rdb', 'idb'],
   'assets.hygiene_site': ['rdb', 'adb'], 'assets.effort_site': ['rdb', 'adb'],
   'tracker.site': ['rdb', 'tracker', 'trackerScore'], 'tracker.fleet': ['tracker', 'trackerScore'],
-  'commitments.summary': ['commitmentStore'],
+  'commitments.summary': ['commitmentStore'], 'governance.decisions': ['rdb'],
   'programme.site_score': ['programme'], 'programme.composite': ['programme'],
 };
 // What build() supplies. Kept as data so integrity() needs no database.

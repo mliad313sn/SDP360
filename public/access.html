@@ -52,6 +52,17 @@
     <div class="ax-msg" id="axMsg" role="status" aria-live="polite"></div>
   </div>
   <section class="ax-card" data-pane="me">
+    <!-- A6 (P6) — one front door: sessions, deputies and emergency access from one place (links; each target keeps its own guard) -->
+    <div id="axHub" class="ax-sub">
+      <h2><span data-lng="en">Sessions, deputies and emergency access</span><span data-lng="fr">Sessions, suppléances et accès d'urgence</span></h2>
+      <ul>
+        <li id="axHubSessions"><a id="axHubSessionsLink" href="reports.html#admin/sessions" hidden><span data-lng="en">Active sessions (who is signed in, sign someone out)</span><span data-lng="fr">Sessions actives (qui est connecté, déconnecter quelqu'un)</span></a>
+          <span id="axHubSessionsNone" class="ax-muted"><span data-lng="en">Active sessions: reserved to a super_admin — sign out yourself from the menu; ask a super_admin to end a lost session.</span><span data-lng="fr">Sessions actives : réservé à un super_admin — déconnectez-vous depuis le menu ; demandez à un super_admin de clore une session perdue.</span></span></li>
+        <li id="axHubDeputies"><a id="axHubDeputiesLink" href="policies.html#gpRoles"><span data-lng="en">Deputies (who stands in for whom, scoped by site or role)</span><span data-lng="fr">Suppléances (qui remplace qui, limité par site ou rôle)</span></a> <span class="ax-muted"><span data-lng="en">— your own deputies are listed below.</span><span data-lng="fr">— vos suppléances sont listées ci-dessous.</span></span></li>
+        <li id="axHubEmergency"><a id="axHubEmergencyLink" href="#" data-tab-link="emerg" hidden><span data-lng="en">Emergency access (time-boxed, reviewed by another super_admin)</span><span data-lng="fr">Accès d'urgence (limité dans le temps, revu par un autre super_admin)</span></a>
+          <span id="axHubEmergencyNone" class="ax-muted"><span data-lng="en">Emergency access: not available for your account (granted only by a super_admin who is not the beneficiary).</span><span data-lng="fr">Accès d'urgence : non disponible pour votre compte (accordé uniquement par un super_admin qui n'est pas le bénéficiaire).</span></span></li>
+      </ul>
+    </div>
     <h2><span data-lng="en">Roles and grants</span><span data-lng="fr">Rôles et attributions</span></h2>
     <div id="axMe"></div>
   </section>

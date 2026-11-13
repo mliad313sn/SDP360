@@ -14,19 +14,19 @@
 | pages deep link only | 9 |
 | pages without entry point | 3 |
 | pages with inline scripts | 46 |
-| routes | 692 |
+| routes | 693 |
 | routes without test reference | 32 |
 | routes in server js | 209 |
 | jobs | 32 |
 | jobs without test reference | 0 |
 | migrations | 94 |
-| test files | 770 |
+| test files | 772 |
 
 ## Pages
 
 | Id | Page | Role required | In nav | Inline scripts | Tests |
 |---|---|---|---|---:|---:|
-| PG-access | public/access.html | any | no | 0 | 5 |
+| PG-access | public/access.html | any | no | 0 | 6 |
 | PG-activity-tracker | public/activity-tracker.html | any | yes | 0 | 6 |
 | PG-analytics | public/analytics.html | admin / scorecard-viewer | yes | 1 | 8 |
 | PG-assets-finance | public/assets-finance.html | UNKNOWN | no | 1 | 2 |
@@ -71,7 +71,7 @@
 | PG-no-access | public/no-access.html | any | no | 0 | 2 |
 | PG-notifications | public/notifications.html | any | yes | 1 | 3 |
 | PG-obligations | public/obligations.html | any | yes | 0 | 4 |
-| PG-policies | public/policies.html | admin / committee-member | yes | 1 | 4 |
+| PG-policies | public/policies.html | admin / committee-member | yes | 1 | 5 |
 | PG-portfolio | public/portfolio.html | any | yes | 1 | 16 |
 | PG-project | public/project.html | any | no | 1 | 17 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 3 |
@@ -139,11 +139,11 @@
 | public/no-access.html | — | — | auth.js | — | denial page: reached by redirect from auth.js when a role is missing | auth.js |
 | public/notifications.html | yes | — | home.html, site-actions.html | — | — | shell |
 | public/obligations.html | yes | — | home.html, site-actions.html | — | — | shell |
-| public/policies.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
+| public/policies.html | yes | — | access.html, lib/workspaceProfiles.js | — | — | shell |
 | public/portfolio.html | yes | — | itsm-roadmap.html, lib/workspaceProfiles.js, project.html | — | — | shell |
 | public/project.html | — | — | lib/home-page.js, lib/portfolioViews.js, meeting.html, portfolio.html | — | — | meeting.html |
 | public/report-studio.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
-| public/reports.html | yes | — | site-report.html, wan.html | — | — | shell |
+| public/reports.html | yes | — | access.html, site-report.html, wan.html | — | — | shell |
 | public/rfi.html | yes | — | meeting.html, portfolio.html | — | — | shell |
 | public/site-actions.html | yes | yes | commitments.html, handoffs.html, lib/workspaceProfiles.js | — | — | shell |
 | public/site-awareness.html | yes | — | auth.js, lib/workspaceProfiles.js | — | — | shell |
@@ -175,21 +175,21 @@
 | RT-GET-api-data-major-incidents | GET | `/api/data/major-incidents` | server.js:3344 |
 | RT-GET-api-data-monthly-summary | GET | `/api/data/monthly-summary` | server.js:3988 |
 | RT-GET-api-data-sla-by-category | GET | `/api/data/sla-by-category` | server.js:3474 |
-| RT-POST-api-executive-new-pptx | POST | `/api/executive-new-pptx` | server.js:6368 |
+| RT-POST-api-executive-new-pptx | POST | `/api/executive-new-pptx` | server.js:6372 |
 | RT-GET-api-integration-fmp-readiness | GET | `/api/integration/fmp/readiness` | routes/fourmypeople.js:31 |
 | RT-GET-api-meetings-import-incubation-template | GET | `/api/meetings/import/incubation-template` | routes/meetings.js:805 |
 | RT-POST-api-meetings-import-incubation-commit | POST | `/api/meetings/import/incubation/commit` | routes/meetings.js:845 |
 | RT-POST-api-meetings-import-incubation-preview | POST | `/api/meetings/import/incubation/preview` | routes/meetings.js:818 |
 | RT-GET-api-meetings-progress-export-pptx | GET | `/api/meetings/progress/export-pptx` | routes/meetings.js:921 |
-| RT-GET-api-reports-helpdesk-live | GET | `/api/reports/helpdesk-live` | server.js:5512 |
+| RT-GET-api-reports-helpdesk-live | GET | `/api/reports/helpdesk-live` | server.js:5516 |
 | RT-GET-api-reports-sessions-active | GET | `/api/reports/sessions/active` | routes/adminUsers.js:174 |
-| RT-GET-api-reports-technicians | GET | `/api/reports/technicians` | server.js:5769 |
+| RT-GET-api-reports-technicians | GET | `/api/reports/technicians` | server.js:5773 |
 | RT-POST-api-reports-test-smtp | POST | `/api/reports/test-smtp` | routes/adminConfig.js:176 |
 | RT-GET-api-risk-register-config-unmapped | GET | `/api/risk-register-config/unmapped` | routes/riskRegister.js:129 |
 | RT-GET-api-roadmap-evidence-catalogue | GET | `/api/roadmap/evidence/catalogue` | routes/roadmap.js:56 |
 | RT-GET-api-roadmap-evidence-incidents | GET | `/api/roadmap/evidence/incidents` | routes/roadmap.js:73 |
 | RT-GET-api-roadmap-evidence-platform | GET | `/api/roadmap/evidence/platform` | routes/roadmap.js:64 |
-| RT-POST-api-save-pptx | POST | `/api/save-pptx` | server.js:6448 |
+| RT-POST-api-save-pptx | POST | `/api/save-pptx` | server.js:6452 |
 | RT-POST-api-tracker-import-dept-meetings | POST | `/api/tracker/import-dept-meetings` | routes/tracker.js:108 |
 | RT-GET- | GET | `/` | server.js:1389 |
 

@@ -14,6 +14,10 @@
 //   • a site moves open ↔ in_progress and PROPOSES completion: its `done` is stored as `awaiting_confirmation`,
 //     the committee confirms (→ done) or sends it back (→ in_progress, reason).
 //   • cancelling needs a reason; reopening a done or cancelled decision is a committee act with a reason.
+//   • A5 (P6) — switch `decision_motive_required` (default '0' = today): every status CHANGE needs a motive, in both
+//     modes (free and enforced). Separation of duties: the person who proposed a completion (moved the decision to
+//     awaiting_confirmation) never confirms it — selfConfirmRefusal(), applied by the store whatever the switch
+//     (awaiting_confirmation only exists while decision_lifecycle_enforced = '1').
 // The rule is PROPOSED: who closes a decision is the governance committee chair's call (PANEL-PRODUCT §f).
 
 const BASE_STATUSES = ['open', 'in_progress', 'done', 'cancelled'];
@@ -40,11 +44,15 @@ const _reason = (r) => String(r == null ? '' : r).trim();
  * @returns {{ok:true,to:string,changed:boolean,proposed:boolean}|{ok:false,status:number,code:string,error:string}}
  *   `proposed` = a site asked for `done` and the stored status is `awaiting_confirmation`.
  */
-function resolve(from, requested, { actor = 'site', reason = null, enforced = false } = {}) {
+const MOTIVE_MIN = 3;
+const _motiveMissing = (reason) => _reason(reason).length < MOTIVE_MIN;
+function resolve(from, requested, { actor = 'site', reason = null, enforced = false, motive = false } = {}) {
   const cur = STATUSES.includes(from) ? from : 'open';
   if (!enforced) {   // today's behaviour: any of the four historical statuses, from anywhere, by whoever the route lets in
     if (!BASE_STATUSES.includes(requested)) return err(400, 'INVALID', 'bad decision status');
-    return { ok: true, to: requested, changed: requested !== from, proposed: false };
+    const changed = requested !== from;
+    if (changed && motive && _motiveMissing(reason)) return err(400, 'REASON_REQUIRED', `a reason is required to move a decision from ${from} to ${requested}`);
+    return { ok: true, to: requested, changed, proposed: false };
   }
   if (!STATUSES.includes(requested)) return err(400, 'INVALID', 'bad decision status');
   if (!ACTORS.includes(actor)) return err(403, 'FORBIDDEN', 'not allowed to update this decision');
@@ -56,20 +64,31 @@ function resolve(from, requested, { actor = 'site', reason = null, enforced = fa
   if (!options.length) return err(409, 'ILLEGAL_TRANSITION', `a decision cannot go from ${cur} to ${to}`);
   const mine = options.find((t) => t.who.includes(actor));
   if (!mine) return err(403, 'COMMITTEE_ONLY', `only the committee moves a decision from ${cur} to ${to}`);
-  if (mine.reason && _reason(reason).length < 3) return err(400, 'REASON_REQUIRED', `a reason is required to move a decision from ${cur} to ${to}`);
+  if ((mine.reason || motive) && _motiveMissing(reason)) return err(400, 'REASON_REQUIRED', `a reason is required to move a decision from ${cur} to ${to}`);
   return { ok: true, to, changed: true, proposed };
 }
 
+/**
+ * A5 — separation of duties: the person who proposed a completion does not confirm it.
+ * proposerId = actor of the latest move INTO awaiting_confirmation (null = unknown → nothing to refuse on).
+ * @returns {null|{ok:false,status:403,code:'SELF_CONFIRM',error:string}}
+ */
+function selfConfirmRefusal({ from, to, proposerId, actorId }) {
+  if (from !== 'awaiting_confirmation' || to !== 'done') return null;
+  if (proposerId == null || actorId == null || Number(proposerId) !== Number(actorId)) return null;
+  return err(403, 'SELF_CONFIRM', 'you proposed this completion — another person (the committee) must confirm it');
+}
+
 /** Targets an actor may request from a status (for the UI). */
-function allowed(from, actor, { enforced = false } = {}) {
+function allowed(from, actor, { enforced = false, motive = false } = {}) {
   if (!enforced) return BASE_STATUSES.filter((s) => s !== from);
   const cur = STATUSES.includes(from) ? from : 'open';
-  const out = (TRANSITIONS[cur] || []).filter((t) => t.who.includes(actor)).map((t) => ({ to: t.to, reason: t.reason }));
+  const out = (TRANSITIONS[cur] || []).filter((t) => t.who.includes(actor)).map((t) => ({ to: t.to, reason: t.reason || !!motive }));
   // a site sees "done" as the way to propose completion
-  if (actor === 'site' && out.some((t) => t.to === 'awaiting_confirmation')) out.push({ to: 'done', reason: false, proposes: 'awaiting_confirmation' });
+  if (actor === 'site' && out.some((t) => t.to === 'awaiting_confirmation')) out.push({ to: 'done', reason: !!motive, proposes: 'awaiting_confirmation' });
   return out;
 }
 
 const isClosed = (status) => CLOSED_STATUSES.includes(status);
 
-module.exports = { BASE_STATUSES, STATUSES, OPEN_STATUSES, CLOSED_STATUSES, ACTORS, TRANSITIONS, resolve, allowed, isClosed };
+module.exports = { BASE_STATUSES, STATUSES, OPEN_STATUSES, CLOSED_STATUSES, ACTORS, TRANSITIONS, MOTIVE_MIN, resolve, allowed, isClosed, selfConfirmRefusal };

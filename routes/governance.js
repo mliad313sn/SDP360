@@ -66,6 +66,7 @@ module.exports = function governanceRoutes(deps) {
   const fail = (res, e) => httpFail(res, e, undefined, { ok: false });
   const DL = require('../services/decisionLifecycle');   // F-PRODUCT-06
   const decisionLifecycleOn = async () => String((await reportConfig.getConfig(rdb().db)).decision_lifecycle_enforced) === '1';
+  const decisionMotiveOn = async () => String((await reportConfig.getConfig(rdb().db)).decision_motive_required) === '1';   // A5
   const log = (req, action, target, details) => { try { rdb().logEvent({ category: 'governance', action, target: String(target), details, ...rdb()._logCtx(req) }); } catch (_) {} };
   // ADR-006 — role holders and deputies, from a snapshot refreshed before every governance request
   // (empty tables = the behaviour until now). deputyFor(u) = people u stands in for today.
@@ -210,7 +211,29 @@ module.exports = function governanceRoutes(deps) {
   });
 
   // A-19c — soft delete when report_config soft_delete_enabled = '1' (default '0' = today's hard delete). Restore: routes/softDelete.js.
-  const _softDelete = async (req) => { const SD = require('../services/softDelete'); return SD.isEnabled(await SD.readConfig(rdb())) ? { soft: true, user: req.reportUser, reason: (req.body && req.body.reason) || req.query.reason || null } : {}; };
+  // A5 (P6) — soft_delete_two_person = '1' (with soft delete on): a reason (≥ 10 chars) + a SECOND person. The first DELETE
+  // records a request in the ledger (202), a DELETE by another authorised person confirms and stamps; the requester never confirms.
+  // Returns the store options, or null when the response was already sent (refusal, or request recorded).
+  const _softDelete = async (req, res, kind, id) => {
+    const SD = require('../services/softDelete'); const cfg = await SD.readConfig(rdb());
+    if (!SD.isEnabled(cfg)) return {};
+    const u = req.reportUser; const reason = (req.body && req.body.reason) || req.query.reason || null;
+    const softable = kind === 'cadence' || !!SD.TABLES['portfolio_' + kind + 's'];
+    if (!SD.twoPersonEnabled(cfg) || !softable) return { soft: true, user: u, reason };
+    const row = kind === 'cadence' ? await store.getCadenceTrashRow(id) : await store.getPortfolioTrashRow(kind, id);
+    if (!row) { httpFail(res, new Error('not found'), 404, { ok: false }); return null; }
+    if (row.deleted_at) { httpFail(res, new Error('already deleted'), 409, { ok: false }); return null; }
+    const step = SD.twoPersonStep({ last: await store.deleteRequestState(kind, id), userId: u.id, reason });
+    if (step.step === 'refuse') { res.status(step.status).json({ ok: false, code: step.code, error: step.error }); return null; }
+    if (step.step === 'request') {
+      await store.ppmEvent({ entity: 'delete_request:' + kind, entity_id: Number(id), action: 'requested', note: step.reason }, u);
+      log(req, 'delete_requested', `${kind}:${id}`, { reason: step.reason });
+      res.status(202).json({ ok: true, pending: true, soft: true, kind, id: Number(id), message: 'deletion requested — another authorised person must confirm it' }); return null;
+    }
+    return { soft: true, user: u, reason: `${step.reason} — requested by #${step.requested_by}, confirmed by #${u.id}`, _confirm: { kind, id: Number(id), note: step.reason } };
+  };
+  const _confirmed = async (req, soft) => { if (soft && soft._confirm) { await store.ppmEvent({ entity: 'delete_request:' + soft._confirm.kind, entity_id: soft._confirm.id, action: 'confirmed', note: soft._confirm.note }, req.reportUser); log(req, 'delete_confirmed', `${soft._confirm.kind}:${soft._confirm.id}`, {}); } };
+  router.get('/api/governance/delete-requests', requireReportSession, requireCommittee, async (req, res) => { try { res.json({ ok: true, requests: await store.pendingDeleteRequests() }); } catch (e) { fail(res, e); } });
   // ---- cadences ---------------------------------------------------------------------------
   // Chair / secretary picker for the cadence form (committee field review): names, never typed ids.
   router.get('/api/governance/people', requireReportSession, async (req, res) => {
@@ -224,7 +247,7 @@ module.exports = function governanceRoutes(deps) {
   });
   router.get('/api/governance/cadences', requireReportSession, async (req, res) => { try { const ids = await scopeIds(req.reportUser); const sites = ((await rdb().listSites({ includeInactive: false })) || []).filter(s => !ids || ids.includes(Number(s.id))).map(s => ({ id: s.id, name: s.name })); res.json({ ok: true, committee: isCommittee(req.reportUser), sites, cadences: (await store.listCadences({ siteIds: ids, includeInactive: isCommittee(req.reportUser) })).filter(c => seesCadence(req.reportUser, c)) }); } catch (e) { fail(res, e); } });
   router.put('/api/governance/cadences', requireReportSession, requireCommittee, json, async (req, res) => { try { const c = await store.saveCadence(req.body, { user: req.reportUser }); log(req, 'cadence_saved', c.key); res.json({ ok: true, cadence: c }); } catch (e) { fail(res, e); } });
-  router.delete('/api/governance/cadences/:id', requireReportSession, requireCommittee, async (req, res) => { try { const soft = await _softDelete(req); await store.removeCadence(req.params.id, soft); log(req, soft.soft ? 'cadence_soft_deleted' : 'cadence_removed', req.params.id); res.json({ ok: true, soft: !!soft.soft }); } catch (e) { fail(res, e); } });
+  router.delete('/api/governance/cadences/:id', requireReportSession, requireCommittee, json, async (req, res) => { try { const soft = await _softDelete(req, res, 'cadence', req.params.id); if (!soft) return; await store.removeCadence(req.params.id, soft); await _confirmed(req, soft); log(req, soft.soft ? 'cadence_soft_deleted' : 'cadence_removed', req.params.id); res.json({ ok: true, soft: !!soft.soft }); } catch (e) { fail(res, e); } });
   router.post('/api/governance/cadences/:id/sessions', requireReportSession, json, async (req, res) => {
     try {
       const cad = await store.getCadence(req.params.id); if (!cad) return httpFail(res, new Error('cadence not found'), 404, { ok: false });
@@ -392,10 +415,27 @@ module.exports = function governanceRoutes(deps) {
     }
     return rows.map((d) => ({ ...d, source_links: GL.decisionSourceLinks(d, { sessions }) }));
   }
+  // A5 (P6) — a decision awaiting confirmation names who is expected to act: the chair / secretary of its session's
+  // cadence (names, never ids typed by hand), who proposed it and when. The confirmation itself stays a committee act,
+  // and never by the proposer (services/decisionLifecycle.selfConfirmRefusal).
+  async function withApprovers(rows) {
+    const waiting = rows.filter((d) => d.status === 'awaiting_confirmation'); if (!waiting.length) return rows;
+    const names = new Map(((await rdb().listUsers()) || []).map((x) => [Number(x.id), x.full_name || x.username]));
+    const who = (id) => (id == null ? null : { id: Number(id), name: names.get(Number(id)) || null });
+    const out = new Map();
+    for (const d of waiting) {
+      let cad = null;
+      if (d.session_id != null) { const sess = await store.getSession(d.session_id); cad = sess ? await store.getCadence(sess.cadence_id) : null; }
+      const prop = await store.decisionProposal(d.id);
+      out.set(d.id, { chair: cad ? who(cad.chair_id) : null, secretary: cad ? who(cad.secretary_id) : null, cadence_name: cad ? cad.name : null, confirmed_by: 'committee',
+        proposed_by: prop ? { id: prop.actor_id, name: (prop.actor_id != null && names.get(prop.actor_id)) || prop.actor || null } : null, proposed_at: prop ? prop.at : null });
+    }
+    return rows.map((d) => (out.has(d.id) ? { ...d, pending_approver: out.get(d.id) } : d));
+  }
   router.get('/api/governance/decisions', requireReportSession, async (req, res) => {
     try {
       const rows = await visibleDecisions(req.reportUser, req.query.status ? String(req.query.status).split(',') : null);
-      res.json({ ok: true, decisions: await withSourceLinks(rows) });
+      res.json({ ok: true, decisions: await withApprovers(await withSourceLinks(rows)) });
     } catch (e) { fail(res, e); }
   });
   // C-15 (G23) — engagement delays: open decisions + open session actions the reader may see, with days overdue
@@ -436,7 +476,7 @@ module.exports = function governanceRoutes(deps) {
       if (!dec) return httpFail(res, new Error('decision not found'), 404, { ok: false });
       const actor = await decisionActor(u, dec);
       if (!actor) return httpFail(res, new Error('not allowed to update this decision'), 403, { ok: false });
-      const d = await store.updateDecision(req.params.id, b, { user: u, reason: b.reason, lifecycle: { enforced: await decisionLifecycleOn(), actor } }); if (!d) return httpFail(res, new Error('decision not found'), 404, { ok: false });
+      const d = await store.updateDecision(req.params.id, b, { user: u, reason: b.reason, lifecycle: { enforced: await decisionLifecycleOn(), actor, motive: await decisionMotiveOn() } }); if (!d) return httpFail(res, new Error('decision not found'), 404, { ok: false });
       log(req, 'decision_updated', d.ref, { status: b.status ? d.status : null, proposed: d.proposed === true || undefined }); res.json({ ok: true, decision: d });
     } catch (e) { if (e && e.expose === true && e.code) return httpFail(res, e, undefined, { ok: false, code: e.code }); fail(res, e); }
   });
@@ -447,7 +487,8 @@ module.exports = function governanceRoutes(deps) {
       const dec = isCommittee(req.reportUser) ? await store.getDecision(req.params.id) : (await visibleDecisions(req.reportUser, null)).find((d) => Number(d.id) === Number(req.params.id));
       if (!dec) return httpFail(res, new Error('decision not found'), 404, { ok: false });
       const enforced = await decisionLifecycleOn(); const actor = await decisionActor(req.reportUser, dec);
-      res.json({ ok: true, ref: dec.ref, status: dec.status, lifecycle_enforced: enforced, allowed: actor ? DL.allowed(dec.status, actor, { enforced }) : [], events: await store.decisionHistory(dec.id) });
+      const motive = await decisionMotiveOn();
+      res.json({ ok: true, ref: dec.ref, status: dec.status, lifecycle_enforced: enforced, motive_required: motive, allowed: actor ? DL.allowed(dec.status, actor, { enforced, motive }) : [], events: await store.decisionHistory(dec.id) });
     } catch (e) { fail(res, e); }
   });
   router.get('/api/governance/rfi', requireReportSession, async (req, res) => { try { res.json({ ok: true, committee: isCommittee(req.reportUser), me: Number(req.reportUser.id), rfi: await store.listRfi({ status: req.query.status ? String(req.query.status).split(',') : null, scope: rfiScope(req.reportUser) }), kinds: store.RFI_KINDS, statuses: store.RFI_STATUSES }); } catch (e) { fail(res, e); } });
@@ -730,7 +771,7 @@ module.exports = function governanceRoutes(deps) {
     try { const pid = await store.rfiToProject(req.params.id, req.body || {}, { user: req.reportUser }); log(req, 'rfi_to_project', `rfi:${req.params.id}`, { project_id: pid }); res.json({ ok: true, project_id: pid }); }
     catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.project_id ? { project_id: e.project_id } : {}) }); }
   });
-  router.delete('/api/governance/portfolio/:kind/:id', requireReportSession, (req, res, next) => (PLAN_KINDS.includes(req.params.kind) ? next() : requireCommittee(req, res, next)), async (req, res) => { try { if (PLAN_KINDS.includes(req.params.kind) && await refusePlanWrite(req, res, req.params.kind, { id: Number(req.params.id) })) return; const soft = await _softDelete(req); await store.removePortfolio(req.params.kind, req.params.id, { user: req.reportUser, ...soft }); log(req, soft.soft ? 'portfolio_soft_deleted' : 'portfolio_removed', `${req.params.kind}:${req.params.id}`); res.json({ ok: true, soft: !!soft.soft }); } catch (e) { fail(res, e); } });
+  router.delete('/api/governance/portfolio/:kind/:id', requireReportSession, json, (req, res, next) => (PLAN_KINDS.includes(req.params.kind) ? next() : requireCommittee(req, res, next)), async (req, res) => { try { if (PLAN_KINDS.includes(req.params.kind) && await refusePlanWrite(req, res, req.params.kind, { id: Number(req.params.id) })) return; const soft = await _softDelete(req, res, req.params.kind, req.params.id); if (!soft) return; await store.removePortfolio(req.params.kind, req.params.id, { user: req.reportUser, ...soft }); await _confirmed(req, soft); log(req, soft.soft ? 'portfolio_soft_deleted' : 'portfolio_removed', `${req.params.kind}:${req.params.id}`); res.json({ ok: true, soft: !!soft.soft }); } catch (e) { fail(res, e); } });
   router.get('/api/governance/portfolio/report.html', requireReportSession, async (req, res) => {
     try { const v0 = (await viewFor(req.reportUser)).v; const v = canSeeMoney(req.reportUser) ? v0 : stripMoney(v0); const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
       const month = new Date().toISOString().slice(0, 7);

@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (246) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (250) — services/reportConfig.js DEFAULTS
 
 Prerequisites (E-A07, services/switchPrereqs.js) are WARNINGS in plain words, never approvals: the config PUT
 answer and the `set-ui-policy.js` dry run repeat them when the switch is moved to its switched-on value.
@@ -63,6 +63,8 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `benefit_money_verifier_role` | `` | setting | Finance controller | a role name such as `finance-viewer` once the Finance owner adopts the rule (a money benefit is then verified only by a holder of that role who is neither the person who entered the value nor the linked owner — refusal `VERIFIER_ROLE`; the role required is stamped on the verification; no role is granted by this key, and a name nobody holds blocks every money verification) | F-PRODUCT-04 | — |
 | `benefit_owner_link_enabled` | `0` | arm switch | PMO | `1` once the PMO wants benefit owners named as users (the free-text owner stays; "My work" then lists the person's benefits whose review date is reached — in-app only, nothing is e-mailed). The linked owner can never verify their own benefit | E-P05 | — |
 | `benefit_value_class_enabled` | `0` | arm switch | Finance + executive sponsor | `1` once Finance and the sponsor agree the classes used at a benefits review (value class, observed / estimated basis, baseline and measurement periods, method note, source; the project page then separates observed, estimated and validated values and totals them per class and currency / unit, never across). No class is set by default; "validated" is only derived from a verification by the holder of the required role (`benefit_money_verifier_role`) | F-PRODUCT-03 / F-DATA-09 | — |
+| `breakglass_session_minutes` | `60` | setting | Security owner | the break-glass session length in minutes (clamped 5..1440) — PROPOSED, the security owner decides | A6 (P6) | — |
+| `breakglass_timebox_enabled` | `0` | arm switch | Security owner | `1` once the security owner names the break-glass holder and SSO is `available` / `only` — a break-glass password sign-in then needs a reason (≥ 10 characters, written on the `breakglass_login` risk event) and its session is capped at `breakglass_session_minutes`. No effect while SSO is off (the account is then an ordinary admin) | A6 (P6) | — |
 | `chart_annotations_enabled` | `0` | arm switch | Owner (UI policy) | `1` (proposal — after a browser review; notes are human-entered with a mandatory source) | E-V08 | — |
 | `commitment_notify_enabled` | `0` | arm switch | to be named | — | — | — |
 | `commitments_enabled` | `0` | arm switch | to be named | — | — | — |
@@ -74,6 +76,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `dashkey_allowed_routes` | `` | setting | Integration owner + Security owner | the routes the named consumers really call (from the consumer report), e.g. `GET /api/ping, GET /api/data/*` — PROPOSITION, no list approved | E-S02 | — |
 | `dashkey_scope_mode` | `open` | setting | Integration owner + Security owner | `shadow` first (an unlisted key-only route still answers and logs `dashkey_scope_would_refuse`); `restrict` (401) only after every consumer in `tools/security/dashkey-consumers.js` is named and listed. A browser request is never affected | E-S02 | Every key-only consumer named and listed in dashkey_allowed_routes (tools/security/dashkey-consumers.js), after a shadow period. |
 | `decision_lifecycle_enforced` | `0` | setting | Governance committee chair | `1` once the governance committee chair accepts the rule (PROPOSED: a site moves a decision `open` ↔ `in_progress` and proposes completion — its `done` is stored as `awaiting_confirmation` until the committee confirms; cancelling and reopening are committee acts with a reason; an illegal jump is refused, 409). The status history with actor and reason is recorded at `0` too | F-PRODUCT-06 | — |
+| `decision_motive_required` | `0` | setting | Governance committee chair | `1` once the governance committee chair wants a written motive on EVERY decision status change (PROPOSED; 400 `REASON_REQUIRED` without one, in free and enforced modes alike; the motive is stored on the decision's ledger row). The proposer of a completion never confirms it — that separation of duties applies whenever `decision_lifecycle_enforced` = `1`, no switch | A5 (P6) | — |
 | `default_email_domain` | `edv-ops.com` | setting | to be named | — | — | — |
 | `delivery_failure_alert_enabled` | `0` | arm switch | Platform owner (D-13) | `1` once `sync_alert_recipients` (or the Teams URL) names who receives sync alerts (D-13) — the failed deliveries are already listed on System Logs either way | E-R04 | — |
 | `department_rollup_enabled` | `0` | arm switch | HR / department heads + Group IT | `1` only after HR / the department heads and Group IT have reviewed the crosswalk (`node tools/governance/department-crosswalk.js --check`; five exact pairs are PROPOSED, every other value is left alone — Process, Mill / Plant and Processing are not merged). At `1` the committee reads counts per crosswalked department (`GET /api/governance/department-rollup`); a value without a pair stays "unmapped". No stored label is renamed and no user gets a department | F-PRODUCT-05 | — |
@@ -212,6 +215,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `soft_delete_enabled` | `0` | arm switch | Owner (retention policy) | `1` | A-19 | — |
 | `soft_delete_purge_enabled` | `0` | arm switch | Owner (retention policy) | `0` (keep everything during the pilot) | A-19 | — |
 | `soft_delete_retention_days` | `30` | setting | Owner (retention policy) | `30` | A-19 | — |
+| `soft_delete_two_person` | `0` | setting | Owner (retention policy) | `1` with `soft_delete_enabled` once the retention owner wants deletions of portfolio nodes and cadences to need a reason (≥ 10 characters) and a SECOND authorised person (the first DELETE records the request, 202; another person confirms within 7 days; the requester is refused, 409; requests and confirmations are in the hash-chained ledger; the stamped row stays restorable by the admin tier) | A5 (P6) | — |
 | `sso_breakglass_user` | `` | setting | to be named | — | — | — |
 | `sso_group_map` | `` | setting | to be named | — | — | — |
 | `sso_mode` | `` | setting | to be named | — | — | — |
