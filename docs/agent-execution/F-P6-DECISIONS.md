@@ -25,16 +25,19 @@
 - Neighbours (decision-lifecycle, governance*, soft-delete*, metric*, kpi-docs*, sso-*, emergency-access*,
   scoped-deputies, access-*, sod-policy, authz-route-matrix, flag-register, inventory-strict, await-precedence,
   server-size-budget, agent-inventory, uat-governance-users, switch-prereqs, report-config*, capability-registry,
-  business-only-boundary, login*, obligations-decisions, workspace-profiles*) → **473 / 474**; the 1 failure is
-  `authz-matrix-json` — one of the 15 known base failures (`app._router` under Express 5, owned by `goal/merge-fix`),
-  same error on `fe08c1c`.
-- Wider sweep (every test file naming a touched file): see the result appended below.
+  business-only-boundary, login*, obligations-decisions, workspace-profiles*) on `fe08c1c` → 473 / 474 (the 1 failure
+  was `authz-matrix-json`, a known base failure since fixed on sdp-waves).
+- **Final run after `git merge sdp-waves` (6a01d77, the green base with the 15 known failures fixed):** new tests +
+  every neighbour above + every test file naming a touched file (cockpit / portfolio / access / login pages,
+  PILOT-PROFILE, reportConfig, decisionLifecycle, metricRegistry, softDelete, governanceStore, routes/access) + the
+  previously-known suites (authz-*, i18n*, brand-buttons, trust-label, readme-truth, portfolio-finance*, simplicity,
+  limit-clamp, rbac-mutation, evidence-baseline, ui-design-ratchet) → **1492 / 1492 pass, 0 fail**.
 - eslint clean on every touched JS file.
 
 ## Regenerated artefacts
 `docs/ops/FLAG-REGISTER.md`, `docs/ops/AUTHZ-MATRIX.md` (new route `GET /api/governance/delete-requests`, committee),
-`docs/agent-execution/INVENTORY.{json,md}`, `INVENTORY-STRICT.md`, `docs/ops/METRIC-WIDGET-MAP.md`,
-`docs/ops/METRIC-LINEAGE.md`, docs/kpi citations re-anchored (`kpi-docs-reanchor.js`). `server.js` 6913 lines
+`docs/ops/authz-matrix.json`, `docs/ux/METRIC-TRIAGE.json` (new metric added as `untriaged` — the committee triages), `docs/agent-execution/INVENTORY.{json,md}`, `INVENTORY-STRICT.md`, `docs/ops/METRIC-WIDGET-MAP.md`,
+`docs/ops/METRIC-LINEAGE.md`, docs/kpi citations re-anchored (`kpi-docs-reanchor.js`). `server.js` +3 lines
 (budget 6977) — break-glass logic lives in `services/breakglassGuard.js`.
 
 ## Observed on the way (not changed)
