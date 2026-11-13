@@ -406,26 +406,41 @@ module.exports = function ppmEngineRoutes(router, h) {
       res.send(MSPDI.toXml(model));
     } catch (e) { fail(res, e); }
   });
+  /**
+   * The file-import flow shared by MSPDI, XER (routes/ppmConnectors.js) and .mpp-via-converter: plan-write rule for the
+   * dry run, committee for the apply (it creates calendars, pool resources, rates), an EMPTY project, no cycle.
+   * Returns true when it answered (refusal); the caller then parses the file and calls finishImport.
+   */
+  async function refuseImport(req, res, p) {
+    if (await writeProject(req, res, p.id)) return true;
+    if (req.query && req.query.apply === '1' && !isCommittee(req.reportUser)) { forbidden(res, 'committee-member or admin role required to apply an import (it creates calendars, pool resources and rates)', 'IMPORT_SCOPE'); return true; }
+    return false;
+  }
+  async function finishImport(req, res, p, model, { source = 'mspdi', fileWarnings = [] } = {}) {
+    const apply = req.query && req.query.apply === '1';
+    const { tasks, opts } = MSPDI.modelToEngine(model);
+    const check = ENGINE.schedule(tasks, opts);
+    const summary = { tasks: model.tasks.length, summaries: model.tasks.filter((t) => t.summary).length, links: model.tasks.reduce((a, t) => a + t.predecessors.length, 0), calendars: model.calendars.length, resources: model.resources.length,
+      assignments: model.assignments.length, baselines: [...new Set(model.tasks.flatMap((t) => t.baselines.map((b) => b.number)))].sort((a, b) => a - b), currency: model.currency_code,
+      cycle: !check, project_finish: check ? check.project_finish : null, warnings: check ? check.warnings.length : null, ...(fileWarnings.length ? { file_warnings: fileWarnings } : {}) };
+    const route = source === 'mspdi' ? 'mspdi' : source;
+    if (!apply) return res.json({ ok: true, dry_run: true, source, summary, apply_with: `POST …/${route}/import?apply=1 (committee) into an empty project` });
+    if (!check) return httpFail(res, Object.assign(new Error('the file\'s dependency network has a cycle'), { reason: 'CYCLE' }), 409, { ok: false, code: 'CYCLE' });
+    const r = await eng().importModel(p.id, model, { user: req.reportUser, source });
+    log(req, `ppm_${source}_import`, `project:${p.id}`, { tasks: r.tasks, links: r.links });
+    res.json({ ok: true, dry_run: false, source, summary, result: r });
+  }
+  // W4-CONNECTORS (routes/ppmConnectors.js) reuses the export model and the import flow — one implementation.
+  h.ppmEngine = { exportModel, refuseImport, finishImport, switches, cfg };
   router.post('/api/governance/ppm/project/:id/mspdi/import', requireReportSession, xmlBody, async (req, res) => {
     try {
       if (!(await gate(res, 'mspdi'))) return;
       const p = await readableProject(req.reportUser, req.params.id); if (!p) return notFound(res);
-      if (await writeProject(req, res, p.id)) return;
-      const apply = req.query && req.query.apply === '1';
-      if (apply && !isCommittee(req.reportUser)) return forbidden(res, 'committee-member or admin role required to apply an import (it creates calendars, pool resources and rates)', 'IMPORT_SCOPE');
+      if (await refuseImport(req, res, p)) return;
       const text = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : typeof req.body === 'string' ? req.body : '';
       if (!text.trim()) return bad(res, 'send the MSPDI XML file as the request body', 'EMPTY_BODY');
       let model; try { model = MSPDI.fromXml(text); } catch (e) { return bad(res, e.message, 'MSPDI_PARSE'); }
-      const { tasks, opts } = MSPDI.modelToEngine(model);
-      const check = ENGINE.schedule(tasks, opts);
-      const summary = { tasks: model.tasks.length, summaries: model.tasks.filter((t) => t.summary).length, links: model.tasks.reduce((a, t) => a + t.predecessors.length, 0), calendars: model.calendars.length, resources: model.resources.length,
-        assignments: model.assignments.length, baselines: [...new Set(model.tasks.flatMap((t) => t.baselines.map((b) => b.number)))].sort((a, b) => a - b), currency: model.currency_code,
-        cycle: !check, project_finish: check ? check.project_finish : null, warnings: check ? check.warnings.length : null };
-      if (!apply) return res.json({ ok: true, dry_run: true, summary, apply_with: `POST …/mspdi/import?apply=1 (committee) into an empty project` });
-      if (!check) return httpFail(res, Object.assign(new Error('the file\'s dependency network has a cycle'), { reason: 'CYCLE' }), 409, { ok: false, code: 'CYCLE' });
-      const r = await eng().importModel(p.id, model, { user: req.reportUser });
-      log(req, 'ppm_mspdi_import', `project:${p.id}`, { tasks: r.tasks, links: r.links });
-      res.json({ ok: true, dry_run: false, summary, result: r });
+      await finishImport(req, res, p, model, { source: 'mspdi' });
     } catch (e) { fail(res, e); }
   });
 };

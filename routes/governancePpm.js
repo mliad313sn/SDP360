@@ -14,6 +14,7 @@ const xpGate = require('../services/exportPolicy').gate;   // P9 / B7 — one ex
 //   W2-ENGINE ppm_calendars_enabled / ppm_resources_enabled / ppm_leveling_enabled / ppm_baseline_slots_enabled /
 //                                    ppm_mspdi_enabled (+ GET …/schedule under ppm_schedule_engine_v2_ui): routes/ppmEngine.js
 //   W1-EVM ppm_evm_enabled           earned value (project / portfolio / task fields): routes/governanceEvm.js, same
+//   W4-CONNECTORS ppm_xer_enabled / ppm_mpp_import_enabled / ppm_jira_sync_enabled / ppm_azdo_sync_enabled: routes/ppmConnectors.js
 //   W4 ppm_project_roles_enabled / ppm_comments_enabled: routes/governanceCollab.js (roles, comments + @mentions)
 //   GET  /api/governance/ppm/features  which of these switches are on (the pages show a tab / panel only then)
 // Paths live under /api/governance/ppm/ so they never collide with /portfolio/:kind.
@@ -37,6 +38,7 @@ module.exports = function governancePpmRoutes(router, h) {
         project_roles: on(c, 'ppm_project_roles_enabled'), comments: on(c, 'ppm_comments_enabled'), agile_board: on(c, 'ppm_agile_board_enabled'), roadmap_nnl: on(c, 'ppm_roadmap_nnl_enabled'), offline_edit: on(c, 'ppm_offline_edit_enabled'),   // W4
         calendars: on(c, 'ppm_calendars_enabled'), resources: on(c, 'ppm_resources_enabled'), leveling: on(c, 'ppm_leveling_enabled') && on(c, 'ppm_resources_enabled'), baseline_slots: on(c, 'ppm_baseline_slots_enabled'), mspdi: on(c, 'ppm_mspdi_enabled'),   // W2-ENGINE
 
+        xer: on(c, 'ppm_xer_enabled'), mpp_import: on(c, 'ppm_mpp_import_enabled'), jira_sync: on(c, 'ppm_jira_sync_enabled'), azdo_sync: on(c, 'ppm_azdo_sync_enabled'),   // W4-CONNECTORS (optional)
         simplified_view: on(c, 'ppm_simplified_view_enabled'), project_rag: on(c, 'ppm_project_rag_enabled'), dcma: on(c, 'ppm_dcma_enabled'), gate_checklist: on(c, 'ppm_gate_checklist_enabled'), raid: on(c, 'ppm_raid_enabled'), project_report: on(c, 'ppm_project_report_enabled') });
     } catch (e) { fail(res, e); }
   });
@@ -162,6 +164,8 @@ module.exports = function governancePpmRoutes(router, h) {
   require('./governanceEvm')(router, h);
   // W2-ENGINE (PPM parity W2): schedule contract, calendars, resource pool, levelling, baseline slots, MSPDI — routes/ppmEngine.js
   require('./ppmEngine')(router, h);
+  // W4-CONNECTORS (PPM parity J3 · J4): OPTIONAL P6 XER, .mpp via converter, Jira / Azure DevOps read-only pull — routes/ppmConnectors.js
+  require('./ppmConnectors')(router, h);
   // W4 (PPM parity, enterprise): project roles + comments with @mentions — routes/governanceCollab.js
   require('./governanceCollab')(router, h);
   // W3-GOVERNANCE (PPM parity W3): simplified view, RAG, DCMA, gate checklists, RAID, project report — routes/governanceW3.js

@@ -12,12 +12,12 @@
   "expiry"
  ],
  "counts": {
-  "report_config": 284,
+  "report_config": 295,
   "planned": 9,
   "governance_policies": 37,
   "environment": 62,
   "pseudo": 4,
-  "dark": 148,
+  "dark": 152,
   "dark_complete": 0
  },
  "frozen_lots_source": "CLAUDE.md (tools/deploy/frozen-lots.json absent on this branch)",
@@ -1751,6 +1751,54 @@
    "prerequisites": null
   },
   {
+   "key": "ppm_azdo_org_url",
+   "source": "report_config",
+   "kind": "setting",
+   "secret": false,
+   "default": "",
+   "dark": false,
+   "owner_role": null,
+   "recommended": null,
+   "reference": null,
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_azdo_pat",
+   "source": "report_config",
+   "kind": "secret",
+   "secret": true,
+   "default": null,
+   "dark": false,
+   "owner_role": null,
+   "recommended": null,
+   "reference": null,
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_azdo_project",
+   "source": "report_config",
+   "kind": "setting",
+   "secret": false,
+   "default": "",
+   "dark": false,
+   "owner_role": null,
+   "recommended": null,
+   "reference": null,
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_azdo_sync_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": "PMO + IT admin",
+   "recommended": "`1` only if a project team plans in Azure DevOps (OPTIONAL extra): READ-ONLY pull of work items under an area path into a project that explicitly opted in. Dry run first; apply = plan writer; idempotent by work item id; only the WIQL query and GETs are sent. Connection = `ppm_azdo_org_url`, `ppm_azdo_project` and the SECRET `ppm_azdo_pat` (read-only scope recommended). NOT tested against a real Azure DevOps organisation",
+   "reference": "W4-CONNECTORS",
+   "prerequisites": null
+  },
+  {
    "key": "ppm_baseline_slots_enabled",
    "source": "report_config",
    "kind": "arm switch",
@@ -1907,6 +1955,54 @@
    "prerequisites": null
   },
   {
+   "key": "ppm_jira_api_token",
+   "source": "report_config",
+   "kind": "secret",
+   "secret": true,
+   "default": null,
+   "dark": false,
+   "owner_role": null,
+   "recommended": null,
+   "reference": null,
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_jira_base_url",
+   "source": "report_config",
+   "kind": "setting",
+   "secret": false,
+   "default": "",
+   "dark": false,
+   "owner_role": null,
+   "recommended": null,
+   "reference": null,
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_jira_sync_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": "PMO + IT admin",
+   "recommended": "`1` only if a project team plans in Jira (OPTIONAL extra): READ-ONLY pull of Jira issues into a project that explicitly opted in (project key or JQL). Dry run first; apply = plan writer; idempotent by issue key; nothing is ever written to Jira. Connection = `ppm_jira_base_url`, `ppm_jira_user` (Cloud e-mail; empty = Server PAT as Bearer) and the SECRET `ppm_jira_api_token` (super_admin, encrypted at rest). Which projects may opt in and the service account are human decisions; NOT tested against a real Jira tenant",
+   "reference": "W4-CONNECTORS",
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_jira_user",
+   "source": "report_config",
+   "kind": "setting",
+   "secret": false,
+   "default": "",
+   "dark": false,
+   "owner_role": null,
+   "recommended": null,
+   "reference": null,
+   "prerequisites": null
+  },
+  {
    "key": "ppm_leveling_enabled",
    "source": "report_config",
    "kind": "arm switch",
@@ -1916,6 +2012,30 @@
    "owner_role": "PMO",
    "recommended": "`1` with `ppm_resources_enabled` once the PMO wants levelling proposals: delay-only, priority-based (priority 0–1000, 1000 = do not level), links and constraints respected, one explanation per moved task (resource, day, load vs capacity, competing tasks, rule). Nothing changes until a plan writer applies the proposal (fingerprint-checked, `ppm_events` row); a clear action removes the delays",
    "reference": "W2-ENGINE",
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_mpp_converter_cmd",
+   "source": "report_config",
+   "kind": "setting",
+   "secret": false,
+   "default": "",
+   "dark": false,
+   "owner_role": null,
+   "recommended": null,
+   "reference": null,
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_mpp_import_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": "IT admin + PMO",
+   "recommended": "`1` only if the PMO receives binary .mpp files AND an administrator has installed a local converter (OPTIONAL extra): `ppm_mpp_converter_cmd` = absolute path of an executable taking `<in.mpp> <out.xml>` and writing MSPDI (e.g. a wrapper around MPXJ — its licence is a human decision). The server runs it without a shell, with a timeout, in a private temp dir, then reuses the MSPDI import. Empty command = 501 with the how-to, nothing is executed",
+   "reference": "W4-CONNECTORS",
    "prerequisites": null
   },
   {
@@ -2144,6 +2264,18 @@
    "owner_role": "PMO",
    "recommended": "`1` with `ppm_time_entries_enabled` once the PMO wants approved hours: the Plan tab gains \"Timesheet weeks\" (one person × project × ISO week) — submit, then approve or reject (note ≥ 10 characters) by a person who neither entered nor submitted those hours (403 `SELF_REVIEW`, server-side); a submitted or approved week freezes its entries (409 `WEEK_FROZEN`), a rejected week can be corrected and re-submitted; every step is a `ppm_events` row. Who may approve (PROPOSED: the plan-write rule of the project, or the committee) is a PMO decision",
    "reference": "P7-B5",
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_xer_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": "PMO",
+   "recommended": "`1` only if the PMO exchanges plans with Primavera P6 (OPTIONAL extra — the native tool never needs it): XER export of a project (WBS, activities, typed links, constraints, calendars; no resources, costs or baselines — use MSPDI for those) and import into an EMPTY project — dry run by default, apply = committee (same path as the MSPDI import). A file format, not a connector. Opening our file in Primavera is still to be verified by a human with a licence",
+   "reference": "W4-CONNECTORS",
    "prerequisites": null
   },
   {
@@ -6578,6 +6710,34 @@
    ]
   },
   {
+   "key": "ppm_azdo_sync_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": "PMO + IT admin",
+   "reference": "W4-CONNECTORS",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
    "key": "ppm_baseline_slots_enabled",
    "source": "report_config",
    "default": "0",
@@ -6914,11 +7074,67 @@
    ]
   },
   {
+   "key": "ppm_jira_sync_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": "PMO + IT admin",
+   "reference": "W4-CONNECTORS",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
    "key": "ppm_leveling_enabled",
    "source": "report_config",
    "default": "0",
    "owner_role": "PMO",
    "reference": "W2-ENGINE",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
+   "key": "ppm_mpp_import_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": "IT admin + PMO",
+   "reference": "W4-CONNECTORS",
    "prerequisites": null,
    "decision": {
     "owner": null,
@@ -7395,6 +7611,34 @@
    "default": "0",
    "owner_role": "PMO",
    "reference": "P7-B5",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
+   "key": "ppm_xer_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": "PMO",
+   "reference": "W4-CONNECTORS",
    "prerequisites": null,
    "decision": {
     "owner": null,

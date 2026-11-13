@@ -22,6 +22,7 @@
 <script nonce="%%CSP_NONCE%%" src="lib/ppmBoard.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/ppmOfflineQueue.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/ppmCollabUi.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/ppmConnectorsUi.js"></script>
 <link rel="stylesheet" href="lib/ganttV2.css">
 <script nonce="%%CSP_NONCE%%" src="lib/ganttCore.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/i18n/gantt.fr.js"></script>
@@ -402,6 +403,8 @@
     if (FEAT.comments) addTab("comments", "history");
     if (FEAT.project_roles && V && window.PpmCollabUi) window.PpmCollabUi.mountRoles(W4());
     if (FEAT.offline_edit && window.PpmCollabUi) window.PpmCollabUi.installOffline({ pid: PID, esc: esc, msg: msg, reload: load });
+    // W4-CONNECTORS — optional external PPM tools (shown only while one of their switches is on)
+    if (V && window.PpmConnectorsUi && (FEAT.xer || FEAT.mpp_import || FEAT.jira_sync || FEAT.azdo_sync)) window.PpmConnectorsUi.mount({ pid: PID, feat: FEAT, V: V, msg: msg, api: api, reload: load });
     var h = (window.location.hash || "").slice(1); if (V && (h === "board" || h === "comments") && TABS.indexOf(h) >= 0) showTab(h);
   }
   RENDER.raci = function () { if (window.PpmExtras) window.PpmExtras.mountRaci(Object.assign(X(), { canEdit: !!(V && V.can_edit_plan) })); };
