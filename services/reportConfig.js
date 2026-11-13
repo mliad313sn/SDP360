@@ -390,6 +390,11 @@ DEFAULTS.ppm_change_requests_enabled = '0';
 //    types FS/SS/FF/SF with lag. '0' = today's editor. The engine itself (working days, entered start = SNET, summary
 //    rollup, 0-day milestones, date-based critical path) is a defect fix and is ON regardless of this switch.
 DEFAULTS.ppm_schedule_engine_v2_ui = '0';
+//    ppm_gantt_v2_enabled '1' (W2-UI, no migration) → the project page Plan tab shows the interactive, virtualised Gantt
+//    (zoom day/week/month/quarter, drag / resize / link, undo / redo, inline grid edits with the row version) and its
+//    companion views (task / resource usage, resource graph, network, list). Writes use the existing plan-write route
+//    and guard only. '0' = today's read-only SVG Gantt.
+DEFAULTS.ppm_gantt_v2_enabled = '0';
 //    portfolio_views_enabled '1' → the portfolio page offers Timeline · List · Board (?view= in the URL); the board is
 //    read-only columns by stage (a stage moves only through the gated project page). '0' = today's single timeline.
 DEFAULTS.portfolio_views_enabled = '0';

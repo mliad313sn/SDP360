@@ -15,7 +15,7 @@
   "jobs": 33,
   "jobs_without_test_reference": 0,
   "migrations": 97,
-  "test_files": 784
+  "test_files": 786
  },
  "pages": [
   {
@@ -1516,7 +1516,7 @@
    "parent": "meeting.html",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 82834,
+   "bytes": 84025,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/allocation-contract.test.js",
@@ -1532,6 +1532,7 @@
     "tests/ppm-budget-periods.test.js",
     "tests/ppm-capacity.test.js",
     "tests/ppm-concurrency.smoke.test.js",
+    "tests/ppm-gantt-v2-page.smoke.test.js",
     "tests/ppm-raci-templates.test.js",
     "tests/ppm-visuals.test.js",
     "tests/project-page.test.js",
@@ -4569,6 +4570,7 @@
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-concurrency.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
+    "tests/ppm-gantt-v2-page.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
     "tests/ppm-project-lifecycle.smoke.test.js",
     "tests/ppm-team-picker.smoke.test.js",
@@ -4600,6 +4602,7 @@
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-concurrency.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
+    "tests/ppm-gantt-v2-page.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
     "tests/ppm-project-lifecycle.smoke.test.js",
     "tests/ppm-team-picker.smoke.test.js",
@@ -4631,6 +4634,7 @@
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-concurrency.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
+    "tests/ppm-gantt-v2-page.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
     "tests/ppm-project-lifecycle.smoke.test.js",
     "tests/ppm-team-picker.smoke.test.js",
@@ -4924,6 +4928,7 @@
     "tests/ppm-baselines.smoke.test.js",
     "tests/ppm-concurrency.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
+    "tests/ppm-gantt-v2-page.smoke.test.js",
     "tests/ppm-p7b.smoke.test.js",
     "tests/ppm-project-lifecycle.smoke.test.js",
     "tests/ppm-team-picker.smoke.test.js",
@@ -4972,6 +4977,7 @@
    "tests": [
     "tests/portfolio-benefits.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
+    "tests/ppm-gantt-v2-page.smoke.test.js",
     "tests/ppm-w2.smoke.test.js",
     "tests/ppm-workbench.smoke.test.js",
     "tests/roadmap-publication.smoke.test.js"
