@@ -8,15 +8,15 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 
 | Item | Count |
 |---|---:|
-| routes | 719 |
+| routes | 746 |
 | routes not measurable | 3 |
 | routes without strict test | 70 |
-| critical routes | 205 |
+| critical routes | 208 |
 | critical routes without strict test | 20 |
 | writes without strict test | 24 |
 | jobs | 33 |
 | jobs without strict test | 0 |
-| test sources | 843 |
+| test sources | 857 |
 | without strict test access | 4 |
 | without strict test finance | 2 |
 | without strict test export | 8 |
@@ -120,9 +120,9 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 
 | Class | Routes | Without strict test |
 |---|---:|---:|
-| access | 64 | 4 |
+| access | 66 | 4 |
 | finance | 40 | 2 |
 | export | 64 | 8 |
 | audit | 21 | 5 |
-| destructive | 35 | 2 |
-<!-- structure c3aaee10aa21642f -->
+| destructive | 36 | 2 |
+<!-- structure 9dbc5360da127ca0 -->

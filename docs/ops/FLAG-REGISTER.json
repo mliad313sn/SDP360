@@ -12,12 +12,12 @@
   "expiry"
  ],
  "counts": {
-  "report_config": 275,
+  "report_config": 284,
   "planned": 9,
   "governance_policies": 37,
   "environment": 62,
   "pseudo": 4,
-  "dark": 141,
+  "dark": 148,
   "dark_complete": 0
  },
  "frozen_lots_source": "CLAUDE.md (tools/deploy/frozen-lots.json absent on this branch)",
@@ -1847,6 +1847,18 @@
    "prerequisites": null
   },
   {
+   "key": "ppm_dcma_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": "PMO / scheduler",
+   "recommended": "`1` once the PMO wants the DCMA 14-point schedule quality check on the Plan tab (published thresholds; points that need data the plan does not hold — link types / lags, hard constraints, resources, baselines, a deadline — read “not measurable”, never pass)",
+   "reference": "W3-GOVERNANCE",
+   "prerequisites": null
+  },
+  {
    "key": "ppm_evm_enabled",
    "source": "report_config",
    "kind": "arm switch",
@@ -1880,6 +1892,18 @@
    "owner_role": "PMO",
    "recommended": "PROPOSED `1` once the PMO has tried it on a pilot project: the Plan tab shows the interactive, virtualised Gantt (zoom day/week/month/quarter, drag to move, drag the edge to resize, drag the handle to link FS, undo/redo, inline grid edits of name/duration/start/predecessors/% complete with the row version — a 409 reloads), plus Task usage / Resource usage / Resource graph / Network / List (the list is the fallback at 560 px). Writes go through the existing task route and plan-write guard only. `0` = today's read-only SVG Gantt. Rollback: `0` (nothing stored by the switch)",
    "reference": "W2-UI",
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_gate_checklist_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": "PMO",
+   "recommended": "`1` once the PMO defines gate checklists: per project and target stage, required artifacts (links) and checks, N named approvers or roles, all or quorum; the approver is never the project owner, a reject needs a reason, sign-offs are append-only with server time and are a recorded approval (not a legal signature); a stage move is refused (409) while a defined checklist is incomplete and nothing is approved automatically. Who approves which gate is a PMO decision",
+   "reference": "W3-GOVERNANCE",
    "prerequisites": null
   },
   {
@@ -1919,6 +1943,30 @@
    "prerequisites": null
   },
   {
+   "key": "ppm_project_rag_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": "PMO",
+   "recommended": "`1` once the PMO adopts a composite project RAG (schedule = SPI and forecast-finish slip in working days, cost = CPI, risk = highest open P × I) with hysteresis; the per-metric colours are stored as the memory and a colour change is a `ppm_events` row. Unknown inputs are never green",
+   "reference": "W3-GOVERNANCE",
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_project_report_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": "PMO",
+   "recommended": "`1` once the PMO wants the project status report on demand (printable HTML, Excel; export policy `governance.project_report`, amounts only for the admin tier + finance-viewer)",
+   "reference": "W3-GOVERNANCE",
+   "prerequisites": null
+  },
+  {
    "key": "ppm_project_roles_enabled",
    "source": "report_config",
    "kind": "arm switch",
@@ -1955,6 +2003,30 @@
    "prerequisites": null
   },
   {
+   "key": "ppm_rag_thresholds",
+   "source": "report_config",
+   "kind": "setting",
+   "secret": false,
+   "default": "",
+   "dark": false,
+   "owner_role": "PMO",
+   "recommended": "the RAG thresholds as JSON (`{spi:{red_enter,red_exit,amber_enter,amber_exit}, cpi, slip_wd, risk_score}`) — **not decided**: empty = the PROPOSED defaults (W0 row G2: RED SPI/CPI < 0.90 or slip > 10 working days or a severe risk; AMBER < 0.95 / slip ≥ 1 / a high risk; exits 0.92 / 0.97 / 8 days)",
+   "reference": "W3-GOVERNANCE",
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_raid_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": "PMO + Finance",
+   "recommended": "`1` once the PMO wants the RAID log (risks, assumptions, issues, dependencies) with response, review date (overdue flagged), probability % and impact amount + currency → exposure; amounts entered and read by the admin tier and finance-viewer only, never written to the ledger",
+   "reference": "W3-GOVERNANCE",
+   "prerequisites": null
+  },
+  {
    "key": "ppm_rebaseline_enabled",
    "source": "report_config",
    "kind": "arm switch",
@@ -1964,6 +2036,30 @@
    "owner_role": "Committee",
    "recommended": "`1`",
    "reference": "A-27",
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_report_recipients",
+   "source": "report_config",
+   "kind": "setting",
+   "secret": false,
+   "default": "",
+   "dark": false,
+   "owner_role": "PMO",
+   "recommended": "the comma-separated distribution list of the scheduled project report — **not decided**; empty = nothing is sent",
+   "reference": "W3-GOVERNANCE",
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_report_send_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": "PMO",
+   "recommended": "`1` with `ppm_report_recipients` and a `ppm_project` schedule once the PMO wants the scheduled project status report (PDF when a browser is on the server, else HTML, plus Excel; every in-progress / on-hold / closure project; NO amounts)",
+   "reference": "W3-GOVERNANCE",
    "prerequisites": null
   },
   {
@@ -2000,6 +2096,18 @@
    "owner_role": "PMO",
    "recommended": "`1` once the PMO wants to enter scheduling data on tasks (task editor: manual / auto mode, constraint ASAP…MFO + date, deadline, task type fixed units / duration / work + effort-driven, link types FS/SS/FF/SF with lag). `0` = today's editor; the date-based engine itself (working days, entered start = start-no-earlier-than, summary rollup, 0-day milestones, critical path from the same dates as the Gantt) is a defect fix and runs regardless. Rollback: `0` (stored fields stay and are still scheduled)",
    "reference": "W1-ENGINE",
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_simplified_view_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": "PMO",
+   "recommended": "`1` once the PMO wants the Simplified ↔ Expert switch on the project page (per-user preference; simplified = KPI cards — composite RAG, work-weighted % schedule complete from the W1 engine, budget burn actual vs planned from W1-EVM for the admin tier + finance-viewer only, active risks / blockers, next milestone —, the phase strip with a PROPOSED stage → phase mapping, top risks and next milestones; Expert = today's tabs, kept where they were)",
+   "reference": "W3-GOVERNANCE",
    "prerequisites": null
   },
   {
@@ -6694,6 +6802,34 @@
    ]
   },
   {
+   "key": "ppm_dcma_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": "PMO / scheduler",
+   "reference": "W3-GOVERNANCE",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
    "key": "ppm_evm_enabled",
    "source": "report_config",
    "default": "0",
@@ -6727,6 +6863,34 @@
    "default": "0",
    "owner_role": "PMO",
    "reference": "W2-UI",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
+   "key": "ppm_gate_checklist_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": "PMO",
+   "reference": "W3-GOVERNANCE",
    "prerequisites": null,
    "decision": {
     "owner": null,
@@ -6834,6 +6998,62 @@
    ]
   },
   {
+   "key": "ppm_project_rag_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": "PMO",
+   "reference": "W3-GOVERNANCE",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
+   "key": "ppm_project_report_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": "PMO",
+   "reference": "W3-GOVERNANCE",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
    "key": "ppm_project_roles_enabled",
    "source": "report_config",
    "default": "0",
@@ -6918,11 +7138,67 @@
    ]
   },
   {
+   "key": "ppm_raid_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": "PMO + Finance",
+   "reference": "W3-GOVERNANCE",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
    "key": "ppm_rebaseline_enabled",
    "source": "report_config",
    "default": "0",
    "owner_role": "Committee",
    "reference": "A-27",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
+   "key": "ppm_report_send_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": "PMO",
+   "reference": "W3-GOVERNANCE",
    "prerequisites": null,
    "decision": {
     "owner": null,
@@ -7007,6 +7283,34 @@
    "default": "0",
    "owner_role": "PMO",
    "reference": "W1-ENGINE",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
+   "key": "ppm_simplified_view_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": "PMO",
+   "reference": "W3-GOVERNANCE",
    "prerequisites": null,
    "decision": {
     "owner": null,
