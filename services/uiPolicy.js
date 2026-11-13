@@ -132,6 +132,8 @@ function uiPolicyFrom(cfg) {
     // P4 (A2) — not a ui_* key: the shell shows the Connector health entry only while its switch is on
     connector_health_page: String(c.connector_health_page_enabled == null ? '' : c.connector_health_page_enabled).trim() === '1' ? '1' : '0',
     finance_page: ['finance_certification_enabled', 'actuals_import_enabled'].some((k) => String(c[k] == null ? '' : c[k]).trim() === '1') ? '1' : '0',
+    // D2 (P10) — not a ui_* key: the shell shows the Value scoreboard entry only while its switch is on
+    value_scoreboard_page: String(c.value_scoreboard_enabled == null ? '' : c.value_scoreboard_enabled).trim() === '1' ? '1' : '0',
   };
 }
 

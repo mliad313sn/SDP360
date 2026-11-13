@@ -299,6 +299,15 @@ const DEFAULTS = {
   // R1-PROFILES (REBUILD-SPEC R1/R2) — '1' = presentation profiles + workspace-settings.html + /api/workspace/* (else 404).
   // Presentation only: a profile never grants a page, a role or a site (tests/workspace-profiles-grants-nothing).
   workspace_profiles_enabled: '0',
+  // D2 (P10) — PROPOSED: '1' = admin-only Value scoreboard page + /api/value-scoreboard* (else 404) and its menu entry
+  // (Configure, admin tier). Read-only figures from existing builders; a metric with no source is null (unknown).
+  value_scoreboard_enabled: '0',
+  // D3 (P10) — PROPOSED: '1' = the monthly Group IT pack (exec-pptx) gains one "Portfolio highlights" slide; amounts only
+  // for an admin-tier or finance-viewer author. '0' = today (no slide, deck unchanged).
+  exec_pack_portfolio_slide: '0',
+  // D3 (P10) — PROPOSED small-cell suppression on the PUBLIC Exec View: a site whose count of active major incidents is
+  // below N is no longer named (site, title and RCA/CA of its incidents withheld). '0' = today (off; sites are named).
+  exec_view_min_cell: '0',
 };
 // ── Sync alerting (Step 1). Recipients = comma list of e-mail addresses; teams_url = a
 //    Workflows webhook (SECRET, blank-keep). Nothing is sent while both are empty.
@@ -390,6 +399,11 @@ DEFAULTS.ppm_change_requests_enabled = '0';
 //    types FS/SS/FF/SF with lag. '0' = today's editor. The engine itself (working days, entered start = SNET, summary
 //    rollup, 0-day milestones, date-based critical path) is a defect fix and is ON regardless of this switch.
 DEFAULTS.ppm_schedule_engine_v2_ui = '0';
+//    ppm_gantt_v2_enabled '1' (W2-UI, no migration) → the project page Plan tab shows the interactive, virtualised Gantt
+//    (zoom day/week/month/quarter, drag / resize / link, undo / redo, inline grid edits with the row version) and its
+//    companion views (task / resource usage, resource graph, network, list). Writes use the existing plan-write route
+//    and guard only. '0' = today's read-only SVG Gantt.
+DEFAULTS.ppm_gantt_v2_enabled = '0';
 //    portfolio_views_enabled '1' → the portfolio page offers Timeline · List · Board (?view= in the URL); the board is
 //    read-only columns by stage (a stage moves only through the gated project page). '0' = today's single timeline.
 DEFAULTS.portfolio_views_enabled = '0';
@@ -434,6 +448,20 @@ DEFAULTS.ppm_cr_simulation_enabled = '0';
 //    ppm_mspdi_enabled '1' → MS-Project XML (MSPDI) export, and import into an EMPTY project (dry run by default; apply =
 //    committee). A file format, not a connector. Arming any of these is a PMO decision.
 Object.assign(DEFAULTS, { ppm_calendars_enabled: '0', ppm_resources_enabled: '0', ppm_leveling_enabled: '0', ppm_baseline_slots_enabled: '0', ppm_mspdi_enabled: '0' });
+
+// ── PPM parity W4 (enterprise, migration 108) — PROPOSED, every key '0' = today (routes 404, tabs absent, rules unchanged).
+//    ppm_project_roles_enabled '1' → a team member linked to an account may hold a PROJECT role (pm · scheduler ·
+//    resource_manager · contributor · client) that replaces the default plan-write rule for that user on that project
+//    and opens reading it; a client never writes and never sees an amount (services/ppm/projectRoles.js). Needs the team
+//    (ppm_project_team_enabled) to name members. Which role is given to whom is a PMO decision.
+//    ppm_comments_enabled '1' → append-only comments on a project / task with @mentions resolved only among people who
+//    may read the project; in-app notification to the mentioned (nothing while notifications_stop = '1').
+//    ppm_agile_board_enabled '1' → a Board tab on the project page: the work packages (leaf tasks) by status; a move is
+//    the existing task update with its row version (409 STALE_VERSION when someone saved in between).
+//    ppm_roadmap_nnl_enabled '1' → a Now / Next / Later panel on the portfolio (pure grouping by stage and dates).
+//    ppm_offline_edit_enabled '1' → project-page task / milestone edits made without a connection are queued in the
+//    browser, replayed with their row version, and a conflict opens a merge screen (keep mine / keep theirs per field).
+Object.assign(DEFAULTS, { ppm_project_roles_enabled: '0', ppm_comments_enabled: '0', ppm_agile_board_enabled: '0', ppm_roadmap_nnl_enabled: '0', ppm_offline_edit_enabled: '0' });
 
 // ── SEC-01 — per-ACCOUNT login throttle (services/accountThrottle.js). '0' = today: only the per-IP limiter
 //    (10 attempts / 15 min per address). '1' → more than auth_account_throttle_max FAILED sign-ins against one
@@ -619,6 +647,16 @@ DEFAULTS.wan_sla_claims_enabled = '0';
 //                                  admin tier + finance-viewer only. '0' = every route answers 404. Independent of the
 //                                  Roadmap Manager migration switch roadmap_publication_enabled.
 Object.assign(DEFAULTS, { portfolio_my_projects_default: '0', portfolio_sensitive_projects: '0', roadmap_audience_publication_enabled: '0' });
+
+// ── P9 / goal B7 — one export policy (services/exportPolicy.js). PROPOSED, both '0' = today.
+//    export_policy_strict      '1' → the STRICT sensitivity matrix (PROPOSED for the data owner / security, not approved):
+//                              viewer refused on the PV deck / pre-brief deck / action-register exports, the fleet-wide
+//                              risk register limited to the admin tier, and amounts in every export for the admin tier +
+//                              finance-viewer only (the portfolio committee-member exception ends). '0' = today's access.
+//                              Every export is logged (system_log category `export`) in BOTH states.
+//    export_watermark_enabled  '1' → user + UTC timestamp stamped on exported files (CSV last line, HTML footer, XLSX
+//                              first sheet "Export", PPTX footer on every slide; PDF/JSON carry it in a response header).
+Object.assign(DEFAULTS, { export_policy_strict: '0', export_watermark_enabled: '0' });
 
 const KEYS = Object.keys(DEFAULTS);
 

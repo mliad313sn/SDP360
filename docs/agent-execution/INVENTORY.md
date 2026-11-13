@@ -6,7 +6,7 @@
 
 | Item | Count |
 |---|---:|
-| pages | 61 |
+| pages | 62 |
 | pages without test reference | 0 |
 | pages without declared role | 6 |
 | pages not in navigation | 30 |
@@ -14,13 +14,13 @@
 | pages deep link only | 9 |
 | pages without entry point | 3 |
 | pages with inline scripts | 46 |
-| routes | 706 |
+| routes | 714 |
 | routes without test reference | 32 |
 | routes in server js | 209 |
 | jobs | 33 |
 | jobs without test reference | 0 |
-| migrations | 97 |
-| test files | 784 |
+| migrations | 99 |
+| test files | 798 |
 
 ## Pages
 
@@ -73,7 +73,7 @@
 | PG-obligations | public/obligations.html | any | yes | 0 | 4 |
 | PG-policies | public/policies.html | admin / committee-member | yes | 1 | 5 |
 | PG-portfolio | public/portfolio.html | any | yes | 1 | 16 |
-| PG-project | public/project.html | any | no | 1 | 18 |
+| PG-project | public/project.html | any | no | 1 | 20 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 3 |
 | PG-reports | public/reports.html | any | yes | 2 | 37 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 4 |
@@ -83,6 +83,7 @@
 | PG-system-logs | public/system-logs.html | super_admin | yes | 1 | 3 |
 | PG-tracker-builder | public/tracker-builder.html | admin / tracker-admin | no | 1 | 4 |
 | PG-trackers | public/trackers.html | any | yes | 1 | 3 |
+| PG-value-scoreboard | public/value-scoreboard.html | admin | yes | 0 | 2 |
 | PG-wan-health | public/wan-health.html | UNKNOWN | no | 0 | 4 |
 | PG-wan-sla | public/wan-sla.html | UNKNOWN | no | 0 | 4 |
 | PG-wan | public/wan.html | any | yes | 3 | 15 |
@@ -141,7 +142,7 @@
 | public/obligations.html | yes | — | home.html, site-actions.html | — | — | shell |
 | public/policies.html | yes | — | access.html, lib/workspaceProfiles.js | — | — | shell |
 | public/portfolio.html | yes | — | itsm-roadmap.html, lib/workspaceProfiles.js, project.html | — | — | shell |
-| public/project.html | — | — | lib/home-page.js, lib/portfolioViews.js, meeting.html, portfolio.html | — | — | meeting.html |
+| public/project.html | — | — | lib/home-page.js, lib/portfolioViews.js, lib/ppmRoadmapNnl.js, meeting.html (+1) | — | — | meeting.html |
 | public/report-studio.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
 | public/reports.html | yes | — | access.html, site-report.html, wan.html | — | — | shell |
 | public/rfi.html | yes | — | meeting.html, portfolio.html | — | — | shell |
@@ -151,6 +152,7 @@
 | public/system-logs.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
 | public/tracker-builder.html | — | — | trackers.html | — | — | trackers.html |
 | public/trackers.html | yes | — | tracker-builder.html | — | — | shell |
+| public/value-scoreboard.html | yes | — | — | — | — | shell |
 | public/wan-health.html | — | — | — | wan.html | legacy redirect stub kept for old bookmarks → wan.html | wan.html |
 | public/wan-sla.html | — | — | — | wan.html | legacy redirect stub kept for old bookmarks → wan.html | wan.html |
 | public/wan.html | yes | — | infra-health.html, wan-health.html, wan-sla.html | — | — | shell |
@@ -160,37 +162,37 @@
 
 | Id | Method | Path | File:line |
 |---|---|---|---|
-| RT-POST-api-admin-refresh-major-incident-udfs | POST | `/api/admin/refresh-major-incident-udfs` | server.js:3173 |
-| RT-GET-api-cab | GET | `/api/cab` | server.js:2923 |
-| RT-GET-api-change | GET | `/api/change` | server.js:2901 |
-| RT-GET-api-data-ageing-by-group | GET | `/api/data/ageing-by-group` | server.js:4083 |
-| RT-GET-api-data-ageing-by-site | GET | `/api/data/ageing-by-site` | server.js:4033 |
-| RT-GET-api-data-cab-approvals | GET | `/api/data/cab-approvals` | server.js:3605 |
-| RT-GET-api-data-cab-recommendations | GET | `/api/data/cab-recommendations` | server.js:3627 |
-| RT-GET-api-data-change-table | GET | `/api/data/change-table` | server.js:3371 |
-| RT-GET-api-data-emergency-changes | GET | `/api/data/emergency-changes` | server.js:3539 |
-| RT-GET-api-data-first-response | GET | `/api/data/first-response` | server.js:3404 |
-| RT-GET-api-data-group-requests | GET | `/api/data/group-requests` | server.js:3517 |
-| RT-GET-api-data-incident-vs-sr | GET | `/api/data/incident-vs-sr` | server.js:3583 |
-| RT-GET-api-data-major-incidents | GET | `/api/data/major-incidents` | server.js:3344 |
-| RT-GET-api-data-monthly-summary | GET | `/api/data/monthly-summary` | server.js:3988 |
-| RT-GET-api-data-sla-by-category | GET | `/api/data/sla-by-category` | server.js:3474 |
-| RT-POST-api-executive-new-pptx | POST | `/api/executive-new-pptx` | server.js:6372 |
+| RT-POST-api-admin-refresh-major-incident-udfs | POST | `/api/admin/refresh-major-incident-udfs` | server.js:3174 |
+| RT-GET-api-cab | GET | `/api/cab` | server.js:2924 |
+| RT-GET-api-change | GET | `/api/change` | server.js:2902 |
+| RT-GET-api-data-ageing-by-group | GET | `/api/data/ageing-by-group` | server.js:4084 |
+| RT-GET-api-data-ageing-by-site | GET | `/api/data/ageing-by-site` | server.js:4034 |
+| RT-GET-api-data-cab-approvals | GET | `/api/data/cab-approvals` | server.js:3606 |
+| RT-GET-api-data-cab-recommendations | GET | `/api/data/cab-recommendations` | server.js:3628 |
+| RT-GET-api-data-change-table | GET | `/api/data/change-table` | server.js:3372 |
+| RT-GET-api-data-emergency-changes | GET | `/api/data/emergency-changes` | server.js:3540 |
+| RT-GET-api-data-first-response | GET | `/api/data/first-response` | server.js:3405 |
+| RT-GET-api-data-group-requests | GET | `/api/data/group-requests` | server.js:3518 |
+| RT-GET-api-data-incident-vs-sr | GET | `/api/data/incident-vs-sr` | server.js:3584 |
+| RT-GET-api-data-major-incidents | GET | `/api/data/major-incidents` | server.js:3345 |
+| RT-GET-api-data-monthly-summary | GET | `/api/data/monthly-summary` | server.js:3989 |
+| RT-GET-api-data-sla-by-category | GET | `/api/data/sla-by-category` | server.js:3475 |
+| RT-POST-api-executive-new-pptx | POST | `/api/executive-new-pptx` | server.js:6373 |
 | RT-GET-api-integration-fmp-readiness | GET | `/api/integration/fmp/readiness` | routes/fourmypeople.js:31 |
-| RT-GET-api-meetings-import-incubation-template | GET | `/api/meetings/import/incubation-template` | routes/meetings.js:805 |
-| RT-POST-api-meetings-import-incubation-commit | POST | `/api/meetings/import/incubation/commit` | routes/meetings.js:845 |
-| RT-POST-api-meetings-import-incubation-preview | POST | `/api/meetings/import/incubation/preview` | routes/meetings.js:818 |
-| RT-GET-api-meetings-progress-export-pptx | GET | `/api/meetings/progress/export-pptx` | routes/meetings.js:921 |
-| RT-GET-api-reports-helpdesk-live | GET | `/api/reports/helpdesk-live` | server.js:5516 |
+| RT-GET-api-meetings-import-incubation-template | GET | `/api/meetings/import/incubation-template` | routes/meetings.js:806 |
+| RT-POST-api-meetings-import-incubation-commit | POST | `/api/meetings/import/incubation/commit` | routes/meetings.js:846 |
+| RT-POST-api-meetings-import-incubation-preview | POST | `/api/meetings/import/incubation/preview` | routes/meetings.js:819 |
+| RT-GET-api-meetings-progress-export-pptx | GET | `/api/meetings/progress/export-pptx` | routes/meetings.js:922 |
+| RT-GET-api-reports-helpdesk-live | GET | `/api/reports/helpdesk-live` | server.js:5517 |
 | RT-GET-api-reports-sessions-active | GET | `/api/reports/sessions/active` | routes/adminUsers.js:174 |
-| RT-GET-api-reports-technicians | GET | `/api/reports/technicians` | server.js:5773 |
+| RT-GET-api-reports-technicians | GET | `/api/reports/technicians` | server.js:5774 |
 | RT-POST-api-reports-test-smtp | POST | `/api/reports/test-smtp` | routes/adminConfig.js:176 |
-| RT-GET-api-risk-register-config-unmapped | GET | `/api/risk-register-config/unmapped` | routes/riskRegister.js:129 |
+| RT-GET-api-risk-register-config-unmapped | GET | `/api/risk-register-config/unmapped` | routes/riskRegister.js:130 |
 | RT-GET-api-roadmap-evidence-catalogue | GET | `/api/roadmap/evidence/catalogue` | routes/roadmap.js:56 |
 | RT-GET-api-roadmap-evidence-incidents | GET | `/api/roadmap/evidence/incidents` | routes/roadmap.js:73 |
 | RT-GET-api-roadmap-evidence-platform | GET | `/api/roadmap/evidence/platform` | routes/roadmap.js:64 |
-| RT-POST-api-save-pptx | POST | `/api/save-pptx` | server.js:6452 |
-| RT-POST-api-tracker-import-dept-meetings | POST | `/api/tracker/import-dept-meetings` | routes/tracker.js:108 |
+| RT-POST-api-save-pptx | POST | `/api/save-pptx` | server.js:6453 |
+| RT-POST-api-tracker-import-dept-meetings | POST | `/api/tracker/import-dept-meetings` | routes/tracker.js:109 |
 | RT-GET- | GET | `/` | server.js:1389 |
 
 ## Scheduled jobs

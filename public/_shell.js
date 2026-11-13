@@ -212,6 +212,7 @@
         { id: 'integrations', group: 'Configure', label: 'Integrations',       icon: ICON_LIB.zap,                href: 'integrations.html',     roles: ['admin'] },
         { id: 'connector-health', group: 'Configure', label: 'Connector health', icon: ICON_LIB.zap,              href: 'connector-health.html', roles: ['admin'], policy: 'connector_health_page', lean_hidden: true },
         { id: 'data-quality', group: 'Configure', label: 'Data quality',       icon: ICON_LIB['clipboard-check'], href: 'data-quality.html',     roles: ['admin'], policy: 'data_quality_page' },
+        { id: 'value-scoreboard', group: 'Configure', label: 'Value scoreboard', icon: ICON_LIB['clipboard-check'], href: 'value-scoreboard.html', roles: ['admin'], policy: 'value_scoreboard_page', lean_hidden: true },   // D2 (P10)
         { id: 'field', group: 'Configure',        label: 'Field app',          icon: ICON_LIB['clipboard-check'], href: 'field/index.html',      roles: ['editor', 'field-tech'],
           lean_roles: ['field-tech'], lean_group: 'Governance' }
       ]

@@ -59,8 +59,8 @@ module.exports = function governanceEvmRoutes(router, h) {
     try {
       if (!(await evmOn(res))) return;
       const sd = statusDate(req, res); if (!sd) return;
+      const { v } = await viewFor(req.reportUser);   // W4: read first — it marks a client project role before the money rule
       if (!canSeeMoney(req.reportUser)) return res.json({ ok: true, money_hidden: true, portfolio: null, certification: EVM.CERTIFICATION });
-      const { v } = await viewFor(req.reportUser);
       const progOf = new Map((v.objectives || []).map((o) => [Number(o.id), o.programme_id == null ? null : Number(o.programme_id)]));
       const results = await compute(v.projects || [], v.tasks || [], sd);
       const portfolio = EVM.portfolioEvm((v.projects || []).map((p, i) => ({ project_id: p.id, programme_id: progOf.get(Number(p.objective_id)) ?? null, rollup_input: results[i].rollup_input })), { rates: fxTable(await cfg()) });

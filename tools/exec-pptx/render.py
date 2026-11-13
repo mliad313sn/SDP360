@@ -2513,6 +2513,50 @@ if DECK == 'v14' and (_GOV_PROBE.get('rows') or []):
     _v14_footer(s, GOV.get('effort_footer'))
     footer_bar(s, 16)
 
+# ── D3 (P10) — Portfolio highlights (only when the payload carries `portfolio`) ───────────────────
+# reportPayload.js adds K['portfolio'] only while report_config exec_pack_portfolio_slide = '1'; without it no slide is
+# drawn and the deck is exactly today's. Amounts appear only when the block says money=true (admin tier /
+# finance-viewer author); "—" = not recorded, never 0. Currencies are never added together.
+_PF = K.get('portfolio') if isinstance(K.get('portfolio'), dict) else None
+if _PF:
+    def _d(v, unit=''):
+        return '—' if v is None or v == '' else f"{v}{unit}"
+    s = prs.slides.add_slide(BLANK)
+    header_band(s, "Portfolio Highlights", "PORTFOLIO", PERIOD_SHORT)
+    _tiles = [("Open projects", _PF.get('open_projects')), ("Late vs baseline", _PF.get('late_vs_baseline')),
+              ("Milestones overdue", _PF.get('milestones_overdue'))]
+    for i, (lbl, val) in enumerate(_tiles):
+        x = 0.4 + i * 4.2
+        add_rect(s, Inches(x), Inches(1.1), Inches(4.0), Inches(0.9), RGBColor(0xF4, 0xF6, 0xF7), line=RGBColor(0xE5, 0xE7, 0xEB))
+        add_text(s, Inches(x + 0.15), Inches(1.13), Inches(3.7), Inches(0.3), lbl, size=11, bold=True, color=NAVY)
+        add_text(s, Inches(x + 0.15), Inches(1.43), Inches(3.7), Inches(0.5), _d(val), size=24, bold=True, color=NAVY)
+    _money = bool(_PF.get('money'))
+    _hdr = ['Project', 'Status', 'Finish vs baseline', 'Next milestone', 'Due'] + (['Budget'] if _money else [])
+    _rows = _PF.get('rows') or []
+    if _rows:
+        _tbl = s.shapes.add_table(len(_rows) + 1, len(_hdr), Inches(0.4), Inches(2.2), Inches(12.5), Inches(0.32 * (len(_rows) + 1))).table
+        for c, h in enumerate(_hdr):
+            cell = _tbl.cell(0, c); cell.text = h
+            cell.text_frame.paragraphs[0].runs[0].font.size = Pt(10); cell.text_frame.paragraphs[0].runs[0].font.bold = True
+        for r, row in enumerate(_rows, start=1):
+            fv = row.get('finish_variance_days')
+            vals = [f"{row.get('key') or ''} · {row.get('name') or ''}", _d(row.get('status')),
+                    '—' if fv is None else (f"+{fv} d" if fv > 0 else f"{fv} d"), _d(row.get('next_milestone')), _d(row.get('next_milestone_due'))]
+            if _money:
+                vals.append('—' if row.get('budget') is None else f"{round(row.get('budget')):,} {row.get('currency') or ''}".strip())
+            for c, v in enumerate(vals):
+                cell = _tbl.cell(r, c); cell.text = str(v)
+                cell.text_frame.paragraphs[0].runs[0].font.size = Pt(9)
+        if _PF.get('more'):
+            add_text(s, Inches(0.4), Inches(2.25 + 0.32 * (len(_rows) + 1)), Inches(12.5), Inches(0.3), f"+ {_PF.get('more')} more open projects on the portfolio page", size=9, color=GRAY)
+    else:
+        add_text(s, Inches(0.4), Inches(2.2), Inches(12.5), Inches(0.4), "No open project in the portfolio this reader may see.", size=12, color=GRAY)
+    _ben = _PF.get('benefits') or []
+    _bl = ["Benefits to review: " + ("; ".join(f"{b.get('project') or ''} — {b.get('description') or ''} (review {_d(b.get('review_date'))}{', realised' if b.get('realised') else ''})" for b in _ben) if _ben else "none recorded")]
+    _bl.append("Amounts shown in their own currency (ISO code), never added together." if _money else "Amounts restricted for this author (admin tier or finance-viewer only).")
+    add_text(s, Inches(0.4), Inches(6.2), Inches(12.5), Inches(0.9), "\n".join(_bl), size=9, color=CHARCOAL)
+    footer_bar(s, 17)
+
 # ── Save to stdout (Node spawn contract) ──────────────────────────────
 # Server.js streams stdout to the browser as the PPTX download. The
 # Windows binary-mode setmode at the top of this file is what keeps the

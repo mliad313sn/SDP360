@@ -32,8 +32,26 @@ function buildExecSummary(d) {
   // Active Major Incidents — whitelisted operational detail (title/impact/
   // status/root-cause/corrective-action/downtime). Public per the 2026-07-02
   // decision (option a); personal fields were already dropped in mapMajorIncidents.
-  const majorIncidents = (d.majorIncidents || []).map(mi =>
+  let majorIncidents = (d.majorIncidents || []).map(mi =>
     pick(mi, ['title', 'site', 'status', 'impact', 'root_cause', 'corrective_action', 'downtime_h', 'summarized']));
+  // D3 (P10) — small-cell suppression (report_config exec_view_min_cell, '0' = off = today). A site whose count of
+  // active major incidents is below N is not named anywhere on the public page: its attention line folds into one
+  // unnamed "other sites" line (no per-site count), and its incidents lose site, title and RCA / CA free text.
+  const minCell = Math.max(0, Math.floor(Number(d.minCell) || 0));
+  let sitesOut = sites;
+  if (minCell > 0) {
+    const counts = {};
+    for (const r of d.siteRows || []) counts[_normSite(r.name || r.site || r.code)] = (counts[_normSite(r.name || r.site || r.code)] || 0) + (Number(r.open_incidents) || 0);
+    const small = (name) => (counts[_normSite(name)] || 0) < minCell;
+    const kept = sites.filter((st) => !small(st.name || st.code));
+    const hidden = sites.filter((st) => small(st.name || st.code));
+    sitesOut = hidden.length
+      ? [...kept, { code: null, name: 'Other sites', status: hidden.some((h) => h.status === 'major') ? 'major' : 'degraded', open_incidents: null, suppressed: true }]
+      : kept;
+    majorIncidents = majorIncidents.map((mi) => (small(mi.site)
+      ? { title: 'Major incident', site: null, status: mi.status, impact: mi.impact, root_cause: null, corrective_action: null, downtime_h: mi.downtime_h, suppressed: true }
+      : mi));
+  }
   return {
     data_as_of: d.dataAsOf || null,
     period: d.period,
@@ -50,8 +68,9 @@ function buildExecSummary(d) {
       change_success:    pick(d.helpdesk.change_success,    ['value_pct','delta_pp']),
       spark: { sla: (d.spark && d.spark.sla) || [], csat: (d.spark && d.spark.csat) || [] },
     },
-    sites_attention: sites,
+    sites_attention: sitesOut,
     all_sites_ok: sites.length === 0,
+    ...(minCell > 0 ? { suppression: { min_cell: minCell } } : {}),
     planned_maintenance: (d.upcomingMaintenance || []).slice(0, 3).map(m =>
       pick(m, ['date','title','window','impact','scope'])),
     strategic_progress: d.strategic || { overall_pct: 0, pillars: [] },
@@ -410,7 +429,7 @@ async function loadExecSummary(deps) {
   try { editorial = (await deps.rdb.getExecEditorial(period)) || editorial; } catch (_) {}
   return buildExecSummary({
     period, reportMonth, dataAsOf, helpdesk, spark, siteRows, majorIncidents,
-    activeMajorIncidents, upcomingMaintenance, strategic, editorial,
+    activeMajorIncidents, upcomingMaintenance, strategic, editorial, minCell: cfg.exec_view_min_cell,
   });
 }
 

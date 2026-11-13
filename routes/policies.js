@@ -1,4 +1,5 @@
 'use strict';
+const xpGate = require('../services/exportPolicy').gate;   // P9 / B7 — one export policy (allow / mask / deny + export log + watermark)
 // Governance policies — Admin ▸ Governance policies (validation request 2026-10-28).
 //
 //   GET  /api/governance/policies                 registry + global value + per-site values + effective   committee | admin
@@ -208,7 +209,7 @@ module.exports = function policyRoutes(deps) {
   router.post('/api/governance/policies/proposals/:id/approve', requireReportSession, json, decideRoute('approve'));
   router.post('/api/governance/policies/proposals/:id/reject', requireReportSession, json, decideRoute('reject'));
   // Oversight / exceptions register (MEA02): relaxations, overrides, proposals, values that differ from the defaults.
-  router.get('/api/governance/oversight', requireReportSession, requireCommittee, async (req, res) => {
+  router.get('/api/governance/oversight', requireReportSession, requireCommittee, xpGate('governance.oversight'), async (req, res) => {
     try {
       const day = (v) => (/^\d{4}-\d{2}-\d{2}$/.test(String(v || '')) ? String(v) : null);
       const o = await store().oversight({ from: day(req.query.from), to: day(req.query.to) }); const m = await names();

@@ -1,4 +1,5 @@
 'use strict';
+const xpGate = require('../services/exportPolicy').gate;   // P9 / B7 — one export policy (allow / mask / deny + export log + watermark)
 // Plan E wave 2 (W2-PPM) — PPM additions registered on the governance router (routes/governance.js calls this with
 // its own helpers, so the access rules are the SAME functions: committee, money-read rule, A-15 read scope, plan writes).
 // Every action exists only while its PROPOSED switch is '1' (404 while '0' = today):
@@ -13,6 +14,7 @@
 //   W2-ENGINE ppm_calendars_enabled / ppm_resources_enabled / ppm_leveling_enabled / ppm_baseline_slots_enabled /
 //                                    ppm_mspdi_enabled (+ GET …/schedule under ppm_schedule_engine_v2_ui): routes/ppmEngine.js
 //   W1-EVM ppm_evm_enabled           earned value (project / portfolio / task fields): routes/governanceEvm.js, same
+//   W4 ppm_project_roles_enabled / ppm_comments_enabled: routes/governanceCollab.js (roles, comments + @mentions)
 //   GET  /api/governance/ppm/features  which of these switches are on (the pages show a tab / panel only then)
 // Paths live under /api/governance/ppm/ so they never collide with /portfolio/:kind.
 const { fail: httpFail } = require('../services/httpError');
@@ -30,9 +32,10 @@ module.exports = function governancePpmRoutes(router, h) {
     try {
       const c = await cfg();
       res.json({ ok: true, capacity: on(c, 'ppm_capacity_view'), budget_periods: on(c, 'ppm_budget_periods_enabled'), benefit_owner_link: on(c, 'benefit_owner_link_enabled'), benefit_value_class: on(c, 'benefit_value_class_enabled'), raci: on(c, 'ppm_raci_enabled'), templates: on(c, 'ppm_templates_enabled'), annual_pack: on(c, 'ppm_annual_pack_enabled'),
-        team: on(c, 'ppm_project_team_enabled'), time_entries: on(c, 'ppm_time_entries_enabled'), change_requests: on(c, 'ppm_change_requests_enabled'), evm: on(c, 'ppm_evm_enabled'), portfolio_views: on(c, 'portfolio_views_enabled'), roadmap_publication: on(c, 'roadmap_publication_enabled'), schedule_v2: on(c, 'ppm_schedule_engine_v2_ui'),
+        team: on(c, 'ppm_project_team_enabled'), time_entries: on(c, 'ppm_time_entries_enabled'), change_requests: on(c, 'ppm_change_requests_enabled'), evm: on(c, 'ppm_evm_enabled'), portfolio_views: on(c, 'portfolio_views_enabled'), roadmap_publication: on(c, 'roadmap_publication_enabled'), schedule_v2: on(c, 'ppm_schedule_engine_v2_ui'), gantt_v2: on(c, 'ppm_gantt_v2_enabled'),
         timesheets: on(c, 'ppm_time_entries_enabled') && on(c, 'ppm_timesheet_approval_enabled'), cr_simulation: on(c, 'ppm_change_requests_enabled') && on(c, 'ppm_cr_simulation_enabled'),
-        calendars: on(c, 'ppm_calendars_enabled'), resources: on(c, 'ppm_resources_enabled'), leveling: on(c, 'ppm_leveling_enabled') && on(c, 'ppm_resources_enabled'), baseline_slots: on(c, 'ppm_baseline_slots_enabled'), mspdi: on(c, 'ppm_mspdi_enabled') });
+        project_roles: on(c, 'ppm_project_roles_enabled'), comments: on(c, 'ppm_comments_enabled'), agile_board: on(c, 'ppm_agile_board_enabled'), roadmap_nnl: on(c, 'ppm_roadmap_nnl_enabled'), offline_edit: on(c, 'ppm_offline_edit_enabled'),   // W4
+        calendars: on(c, 'ppm_calendars_enabled'), resources: on(c, 'ppm_resources_enabled'), leveling: on(c, 'ppm_leveling_enabled') && on(c, 'ppm_resources_enabled'), baseline_slots: on(c, 'ppm_baseline_slots_enabled'), mspdi: on(c, 'ppm_mspdi_enabled') });   // W2-ENGINE
     } catch (e) { fail(res, e); }
   });
 
@@ -83,7 +86,7 @@ module.exports = function governancePpmRoutes(router, h) {
       res.json({ ok: true, rows: await store.getRaci(p.id), matrix: await raciMatrix(p.id), letters: RC.LETTERS });
     } catch (e) { fail(res, e); }
   });
-  router.get('/api/governance/ppm/project/:id/raci.csv', requireReportSession, async (req, res) => {
+  router.get('/api/governance/ppm/project/:id/raci.csv', requireReportSession, xpGate('governance.raci'), async (req, res) => {
     try {
       if (!on(await cfg(), 'ppm_raci_enabled')) return notFound(res);
       const p = await readableProject(req.reportUser, req.params.id); if (!p) return notFound(res);
@@ -133,14 +136,15 @@ module.exports = function governancePpmRoutes(router, h) {
   });
 
   // ---- E-P08 annual planning DRAFT pack (R16) — the reader's scoped portfolio, money rule, no envelope ---------------
-  router.get('/api/governance/ppm/annual-pack.xlsx', requireReportSession, async (req, res) => {
+  router.get('/api/governance/ppm/annual-pack.xlsx', requireReportSession, xpGate('governance.annual_pack'), async (req, res) => {
     try {
       if (!on(await cfg(), 'ppm_annual_pack_enabled')) return notFound(res);
       const year = Number(req.query.year || new Date().getUTCFullYear() + 1);
       if (!Number.isInteger(year) || year < 2000 || year > 2100) return httpFail(res, new Error('year must be YYYY'), 400, { ok: false });
       const AP = require('../services/annualPlanPack'), PV = require('../public/lib/ppmVisuals');
-      const u = req.reportUser, money = !!canSeeMoney(u), committee = !!isCommittee(u);
-      const { v } = await viewFor(u);
+      const u = req.reportUser;
+      const { v } = await viewFor(u);   // W4: read first — it marks a client project role, which never gets amounts
+      const money = (req.exportPolicy ? !!req.exportPolicy.money : !!canSeeMoney(u)) && !u.__ppmClient, committee = !!isCommittee(u);
       const capacity = PV.capacityBySite(v.tasks || [], (v.projects || []).map((p) => ({ id: p.id, site_id: p.site_id })), { today: new Date().toISOString().slice(0, 10) });
       const pack = AP.buildAnnualPack({ year, view: { projects: (v.projects || []).map((p) => (money ? p : { ...p, budget: undefined, spent: undefined })) }, money, capacity, rfis: committee ? await store.listRfi({}) : [], rfiVisible: committee, asOf: new Date().toISOString() });
       log(req, 'annual_pack', `year:${year}`, { money });
@@ -156,4 +160,6 @@ module.exports = function governancePpmRoutes(router, h) {
   require('./governanceEvm')(router, h);
   // W2-ENGINE (PPM parity W2): schedule contract, calendars, resource pool, levelling, baseline slots, MSPDI — routes/ppmEngine.js
   require('./ppmEngine')(router, h);
+  // W4 (PPM parity, enterprise): project roles + comments with @mentions — routes/governanceCollab.js
+  require('./governanceCollab')(router, h);
 };

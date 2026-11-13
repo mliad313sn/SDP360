@@ -1,4 +1,5 @@
 'use strict';
+const xpGate = require('../services/exportPolicy').gate;   // P9 / B7 — one export policy (allow / mask / deny + export log + watermark)
 const { fail } = require('../services/httpError');
 // ─────────────────────────────────────────────────────────────────────────
 // Risk Register routes (/api/risk-register-export, /api/risk-register-config/*) — extracted from server.js (fiche M12-a, 2026-10-20), same
@@ -28,7 +29,7 @@ module.exports = function riskRegisterRoutes(deps) {
 // All business logic (classifier rules, site list, Excel styling)
 // lives in risk-register-export.js — the only thing this handler
 // does is parse the month query, run the export, and stream bytes.
-router.get('/api/risk-register-export', requireReportSession, async (req, res) => {
+router.get('/api/risk-register-export', requireReportSession, xpGate('risk_register.xlsx'), async (req, res) => {
   const month = (req.query.month || '').trim();
   if (!/^\d{4}-\d{2}$/.test(month)) {
     return res.status(400).json({ error: 'Invalid month format. Use YYYY-MM (e.g. 2026-05).' });
