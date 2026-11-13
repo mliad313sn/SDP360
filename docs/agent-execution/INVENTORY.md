@@ -14,19 +14,19 @@
 | pages deep link only | 9 |
 | pages without entry point | 3 |
 | pages with inline scripts | 46 |
-| routes | 692 |
+| routes | 696 |
 | routes without test reference | 32 |
 | routes in server js | 209 |
-| jobs | 32 |
+| jobs | 33 |
 | jobs without test reference | 0 |
-| migrations | 94 |
-| test files | 770 |
+| migrations | 95 |
+| test files | 776 |
 
 ## Pages
 
 | Id | Page | Role required | In nav | Inline scripts | Tests |
 |---|---|---|---|---:|---:|
-| PG-access | public/access.html | any | no | 0 | 5 |
+| PG-access | public/access.html | any | no | 0 | 6 |
 | PG-activity-tracker | public/activity-tracker.html | any | yes | 0 | 6 |
 | PG-analytics | public/analytics.html | admin / scorecard-viewer | yes | 1 | 8 |
 | PG-assets-finance | public/assets-finance.html | UNKNOWN | no | 1 | 2 |
@@ -73,9 +73,9 @@
 | PG-obligations | public/obligations.html | any | yes | 0 | 4 |
 | PG-policies | public/policies.html | admin / committee-member | yes | 1 | 4 |
 | PG-portfolio | public/portfolio.html | any | yes | 1 | 16 |
-| PG-project | public/project.html | any | no | 1 | 17 |
+| PG-project | public/project.html | any | no | 1 | 18 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 3 |
-| PG-reports | public/reports.html | any | yes | 2 | 36 |
+| PG-reports | public/reports.html | any | yes | 2 | 37 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 4 |
 | PG-site-actions | public/site-actions.html | any | yes | 1 | 17 |
 | PG-site-awareness | public/site-awareness.html | site-business / group-business / executive | yes | 2 | 5 |
@@ -95,7 +95,7 @@
 | Page | Shell | Module tab | Linked from | Redirects to | Deep-link only | Parent |
 |---|---|---|---|---|---|---|
 | public/access.html | — | — | no-access.html, no-access.js | — | — | no-access.html |
-| public/activity-tracker.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
+| public/activity-tracker.html | yes | — | lib/homeQueue.js, lib/workspaceProfiles.js | — | — | shell |
 | public/analytics.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
 | public/assets-finance.html | — | — | — | assets.html | legacy redirect stub kept for old bookmarks → assets.html | assets.html |
 | public/assets-hygiene.html | — | — | — | assets.html | legacy redirect stub kept for old bookmarks → assets.html | assets.html |
@@ -206,6 +206,7 @@
 | JB-commitments-escalate | commitments.escalate | 1 |
 | JB-db-backup | db.backup | 2 |
 | JB-db-restore-drill | db.restore_drill | 2 |
+| JB-engagement-action-aging | engagement.action_aging | 1 |
 | JB-engagement-alerts | engagement.alerts | 1 |
 | JB-engagement-digest | engagement.digest | 2 |
 | JB-engagement-digest-weekly | engagement.digest_weekly | 1 |
