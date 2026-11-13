@@ -33,6 +33,14 @@ const LINK_TYPES = Object.freeze(['FS', 'SS', 'FF', 'SF']);
 const CONSTRAINTS = Object.freeze(['ASAP', 'ALAP', 'SNET', 'SNLT', 'FNET', 'FNLT', 'MSO', 'MFO']);
 const MODES = Object.freeze(['auto', 'manual']);
 const TASK_TYPES = Object.freeze(['fixed_units', 'fixed_duration', 'fixed_work']);
+const LAG_UNITS = Object.freeze(['d', 'ed', '%']);   // W2: working days (default) · elapsed calendar days · % of the predecessor's duration
+/** 'd' | 'ed' | '%' from the many spellings a file or a form may carry; absent = 'd' (W1 behaviour). */
+function lagUnit(u) {
+  const x = u == null ? '' : String(u).trim().toLowerCase();
+  if (x === 'ed' || x === 'elapsed' || x === 'eday' || x === 'edays' || x === 'elapsed_days') return 'ed';
+  if (x === '%' || x === 'pct' || x === 'percent') return '%';
+  return 'd';
+}
 const MAX_DAY = 400000;   // year 3065: a guard against a calendar without any working day
 
 // ---- calendars ------------------------------------------------------------------------------------------------
@@ -147,7 +155,8 @@ function _parseLinks(t) {
     if (!l || l.id == null) continue;
     const type = LINK_TYPES.includes(String(l.type || 'FS').toUpperCase()) ? String(l.type || 'FS').toUpperCase() : 'FS';
     const lag = numOrNull(l.lag);
-    m.set(Number(l.id), { type, lag: lag == null ? 0 : Math.round(lag) });
+    const unit = lagUnit(l.lag_unit);
+    m.set(Number(l.id), { type, unit, lag: lag == null ? 0 : unit === '%' ? lag : Math.round(lag) });
   }
   return m;
 }
@@ -170,6 +179,7 @@ function schedule(tasks, opts = {}) {
   const hpd = Number(opts.hoursPerDay) > 0 ? Number(opts.hoursPerDay) : 8;
   const projCal = makeCalendar(opts.calendar || null);
   const N = list.length;
+  const levelOverride = opts.levelingDelays || null;   // W2 levelling proposal: { taskId: working days } wins over the stored delay
   const ids = list.map((t) => Number(t.id));
   const pos = new Map(ids.map((id, i) => [id, i]));
 
@@ -185,6 +195,7 @@ function schedule(tasks, opts = {}) {
   const isSummary = (i) => children[i].length > 0;
   const depth = new Array(N).fill(-1);
   const depthOf = (i) => { if (depth[i] >= 0) return depth[i]; let d = 0, c = parent[i]; while (c >= 0) { d++; c = parent[c]; } depth[i] = d; return d; };
+  const levelDelay = (i) => { const o = levelOverride && levelOverride[ids[i]]; const v = numOrNull(o != null ? o : list[i].leveling_delay_days); return v != null && v > 0 ? Math.round(v) : 0; };
   const isAncestor = (a, b) => { let c = parent[b]; while (c >= 0) { if (c === a) return true; c = parent[c]; } return false; };
 
   // per-task calendar, mode, duration
@@ -215,8 +226,8 @@ function schedule(tasks, opts = {}) {
       if (!pos.has(d) || d === ids[i] || seen.has(d)) continue; seen.add(d);
       const p = pos.get(d);
       if (isAncestor(p, i) || isAncestor(i, p)) { warn('LINK_HIERARCHY_IGNORED', ids[i], `the link with #${d} joins a task and its own summary: ignored`); continue; }
-      const s = spec.get(d) || { type: 'FS', lag: 0 };
-      links.push({ from: p, to: i, type: s.type, lag: s.lag });
+      const s = spec.get(d) || { type: 'FS', unit: 'd', lag: 0 };
+      links.push({ from: p, to: i, type: s.type, lag: s.lag, unit: s.unit });
     }
   }
 
@@ -257,13 +268,19 @@ function schedule(tasks, opts = {}) {
   const fixed = new Array(N).fill(false);
   const alapFix = new Map();                   // second pass: ALAP tasks pinned at their late start (ordinal)
 
-  const linkReq = (l, toCal, Dto) => {         // the ordinal (in toCal) the successor's START must reach
-    const p = tail(l.from);
-    if (l.type === 'FS') return toCal.ord(F[p]) + l.lag;
-    if (l.type === 'SS') return toCal.ord(S[p]) + l.lag;
-    if (l.type === 'FF') return toCal.ord(F[p]) + l.lag - Dto;
-    return toCal.ord(S[p]) + l.lag - Dto;      // SF
+  // W2 — lag units. A working-day lag counts in the SUCCESSOR's calendar (W1); a % lag is that share of the
+  // predecessor's duration, rounded to whole working days; an elapsed lag counts calendar days (24/7) from the
+  // predecessor's boundary and lands on the successor's calendar (a start goes to the next working day, a finish to
+  // the end of the working day it reaches).
+  const predDur = (i) => (nOut[i] >= 0 ? projCal.ord(F[nOut[i]]) - projCal.ord(S[nOut[i]]) : D[i]);
+  const lagWd = (l) => (l.unit === '%' ? Math.round((l.lag * predDur(l.durFrom == null ? l.from : l.durFrom)) / 100) : l.lag);
+  /** The ordinal (in cal) the successor's START (FS / SS) or FINISH (FF / SF) must reach. */
+  const baseOrd = (l, cal) => {
+    const p = tail(l.from), b = l.type === 'FS' || l.type === 'FF' ? F[p] : S[p];
+    if (l.unit === 'ed') { const x = b + l.lag; return l.type === 'FF' || l.type === 'SF' ? cal.ord(x - 1) + 1 : cal.ord(x); }
+    return cal.ord(b) + lagWd(l);
   };
+  const linkReq = (l, toCal, Dto) => (l.type === 'FS' || l.type === 'SS' ? baseOrd(l, toCal) : baseOrd(l, toCal) - Dto);   // the successor's START ordinal
   const constraintOf = (t) => {
     const ct = CONSTRAINTS.includes(String(t.constraint_type || '').toUpperCase()) ? String(t.constraint_type).toUpperCase() : null;
     const cd = toDay(t.constraint_date);
@@ -278,7 +295,7 @@ function schedule(tasks, opts = {}) {
         let st = -Infinity, fi = -Infinity;
         for (const e of inE[v]) {
           if (e.kind === 'down') { st = Math.max(st, inStart[e.a]); fi = Math.max(fi, inFinish[e.a]); continue; }
-          const l = e.link, p = tail(l.from), o = (l.type === 'FS' || l.type === 'FF') ? projCal.ord(F[p]) + l.lag : projCal.ord(S[p]) + l.lag;
+          const l = e.link, o = baseOrd(l, projCal);
           if (l.type === 'FS' || l.type === 'SS') st = Math.max(st, projCal.dayOf(o)); else fi = Math.max(fi, projCal.finishOf(o));
         }
         if (mode[i] === 'auto') {
@@ -310,7 +327,7 @@ function schedule(tasks, opts = {}) {
           continue;
         }
         const l = e.link;
-        bump(linkReq(l, cal, d), { type: 'link', from: ids[l.from], link_type: l.type, lag: l.lag }, l.type === 'FS' || l.type === 'FF' ? 'finish' : 'start');
+        bump(linkReq(l, cal, d), { type: 'link', from: ids[l.from], link_type: l.type, lag: l.lag, lag_unit: l.unit }, l.type === 'FS' || l.type === 'FF' ? 'finish' : 'start');
       }
       if (as != null || ae != null) {
         fixed[i] = true;
@@ -334,6 +351,8 @@ function schedule(tasks, opts = {}) {
         if (c.type === 'SNET') take(cal.ord(c.day), { type: 'constraint', constraint: 'SNET' }, 'start');
         if (c.type === 'FNET') take(cal.ord(c.day + 1) - d, { type: 'constraint', constraint: 'FNET' }, 'finish');
         if (req > o) { o = req; drv = reqDrv; k = reqKind; }
+        const lv = levelDelay(i);   // W2 — a levelling delay is added after every network requirement (MS-Project semantics)
+        if (lv > 0) { o += lv; drv = { type: 'leveling_delay', days: lv, after: drv }; }
         if (c.type === 'MSO') { o = cal.ord(c.day); drv = { type: 'constraint', constraint: 'MSO' }; k = 'start'; }
         if (c.type === 'MFO') { o = cal.ord(c.day + 1) - d; drv = { type: 'constraint', constraint: 'MFO' }; k = 'finish'; }
         sO = o;
@@ -365,10 +384,10 @@ function schedule(tasks, opts = {}) {
       for (const e of inE[v]) {
         if (e.kind !== 'link') continue;
         const l = e.link, p = tail(l.from);
-        if (l.type === 'FS') capF[p] = Math.min(capF[p], cal.dayOf(lsO - l.lag));
-        else if (l.type === 'SS') capS[p] = Math.min(capS[p], cal.dayOf(lsO - l.lag));
-        else if (l.type === 'FF') capF[p] = Math.min(capF[p], cal.dayOf(lfO - l.lag));
-        else capS[p] = Math.min(capS[p], cal.dayOf(lfO - l.lag));
+        let b;
+        if (l.unit === 'ed') b = (l.type === 'FS' || l.type === 'SS' ? cal.dayOf(lsO) : cal.finishOf(lfO)) - l.lag;
+        else { const lw = lagWd(l); b = l.type === 'FS' || l.type === 'SS' ? cal.dayOf(lsO - lw) : cal.dayOf(lfO - lw); }
+        if (l.type === 'FS' || l.type === 'FF') capF[p] = Math.min(capF[p], b); else capS[p] = Math.min(capS[p], b);
       }
     };
     for (let x = order.length - 1; x >= 0; x--) {
@@ -390,7 +409,7 @@ function schedule(tasks, opts = {}) {
       const c = constraintOf(t);
       let lfO = cal.ord(termAbs);
       if (capF[v] < Infinity) lfO = Math.min(lfO, cal.ord(capF[v]));
-      if (capS[v] < Infinity) lfO = Math.min(lfO, cal.ord(capS[v]) + d);
+      if (capS[v] < Infinity) lfO = Math.min(lfO, cal.ord(capS[v] + 1) - 1 + d);   // the last start day on or before the bound
       const dli = toDay(t.deadline); if (dli != null) lfO = Math.min(lfO, cal.ord(dli + 1));
       if (!fixed[i] || mode[i] === 'manual') {
         if (c.type === 'FNLT' || c.type === 'MFO') lfO = Math.min(lfO, cal.ord(c.day + 1));
@@ -425,11 +444,8 @@ function schedule(tasks, opts = {}) {
   const succReq = (l, p) => {   // free room between predecessor p (task index) and the successor of link l
     const to = l.to, vt = head(to), cal = nIn[to] >= 0 ? projCal : cals[to];
     const sO = cal.ord(S[vt] != null ? S[vt] : S[nOut[to]]), fO = cal.ord(F[vt] != null ? F[vt] : F[nOut[to]]);
-    const pv = tail(p);
-    if (l.type === 'FS') return sO - l.lag - cal.ord(F[pv]);
-    if (l.type === 'SS') return sO - l.lag - cal.ord(S[pv]);
-    if (l.type === 'FF') return fO - l.lag - cal.ord(F[pv]);
-    return fO - l.lag - cal.ord(S[pv]);
+    void p;
+    return (l.type === 'FS' || l.type === 'SS' ? sO : fO) - baseOrd(l, cal);
   };
   const outLinks = Array.from({ length: N }, () => []);
   for (const l of links) outLinks[l.from].push(l);
@@ -437,7 +453,7 @@ function schedule(tasks, opts = {}) {
     const v = nLeaf[i]; if (v < 0) continue;
     let ff = Infinity, any = false;
     for (let a = i; a >= 0; a = parent[a]) {   // its own links, then the links of the summaries it finishes
-      for (const l of outLinks[a]) { any = true; const r = a === i ? succReq(l, i) : succReq({ ...l, from: i }, i); ff = Math.min(ff, r); }
+      for (const l of outLinks[a]) { any = true; const r = a === i ? succReq(l, i) : succReq({ ...l, from: i, durFrom: a }, i); ff = Math.min(ff, r); }
     }
     if (!any) ff = cals[i].ord(termAbs) - cals[i].ord(F[v]);
     FF[i] = Math.min(ff, TF[i]);
@@ -450,6 +466,7 @@ function schedule(tasks, opts = {}) {
   // ---- output ----
   const a0 = projCal.ord(anchorDay);
   const out = [];
+  const deadlinesMissed = [];
   const crit = [];
   for (let i = 0; i < N; i++) {
     const t = list[i], sum = isSummary(i);
@@ -471,6 +488,7 @@ function schedule(tasks, opts = {}) {
       ls_date: datesKnown ? isoOf(lsDisp) : null, lf_date: datesKnown ? isoOf(lfDisp) : null,
       total_float: TF[i], free_float: FF[i], critical, near_critical: !critical && near != null && TF[i] != null && TF[i] <= near,
       negative_float: TF[i] != null && TF[i] < 0,
+      leveling_delay_days: sum ? null : levelDelay(i) || null,
       computed: sum || fixed[i] ? !!sum : !(enteredS != null && enteredE != null && isoOf(dispS) === isoOf(enteredS) && isoOf(dispF) === isoOf(enteredE)),
       driver: sum ? { type: 'rollup' } : driver[i],
     };
@@ -487,6 +505,15 @@ function schedule(tasks, opts = {}) {
       const od = numOrNull(t.duration_days);
       if (od != null && od !== row.duration_days) warn('SUMMARY_DURATION_IGNORED', ids[i], `a summary task takes its dates from its children; the entered ${od} d is not used`);
     }
+    // W2 — deadline report: working days between the finish and the deadline (negative = late), in the task's calendar
+    const dl = toDay(t.deadline);
+    if (dl != null) {
+      const c = sum ? projCal : cals[i];
+      row.deadline = isoOf(dl);
+      row.deadline_slack_days = c.ord(dl + 1) - c.ord(f);
+      row.deadline_missed = row.deadline_slack_days < 0;
+      if (row.deadline_missed && datesKnown) { deadlinesMissed.push({ id: ids[i], deadline: isoOf(dl), finish: isoOf(dispF), late_days: -row.deadline_slack_days }); warn('DEADLINE_MISSED', ids[i], `finishes ${-row.deadline_slack_days} working day(s) after its deadline ${isoOf(dl)}`); }
+    }
     out.push(row);
   }
   crit.sort((x, y) => S[nLeaf[x]] - S[nLeaf[y]] || ids[x] - ids[y]);
@@ -498,9 +525,11 @@ function schedule(tasks, opts = {}) {
     deadline: opts.deadline ? String(opts.deadline).slice(0, 10) : null,
     length_days: projCal.ord(projFinish) - a0,
     critical_path: crit.map((i) => ids[i]),
+    deadlines_missed: deadlinesMissed,
+    links: links.map((l) => ({ from: ids[l.from], to: ids[l.to], type: l.type, lag: l.lag, lag_unit: l.unit, lag_working_days: l.unit === 'ed' ? null : lagWd(l) })),
     warnings,
     tasks: out,
   };
 }
 
-module.exports = { schedule, makeCalendar, recalc, workInvariant, rollupProgress, toDay, isoOf, LINK_TYPES, CONSTRAINTS, MODES, TASK_TYPES };
+module.exports = { schedule, makeCalendar, recalc, workInvariant, rollupProgress, toDay, isoOf, lagUnit, LINK_TYPES, LAG_UNITS, CONSTRAINTS, MODES, TASK_TYPES };
