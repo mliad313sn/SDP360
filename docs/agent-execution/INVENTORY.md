@@ -6,7 +6,7 @@
 
 | Item | Count |
 |---|---:|
-| pages | 61 |
+| pages | 62 |
 | pages without test reference | 0 |
 | pages without declared role | 6 |
 | pages not in navigation | 30 |
@@ -14,13 +14,13 @@
 | pages deep link only | 9 |
 | pages without entry point | 3 |
 | pages with inline scripts | 46 |
-| routes | 706 |
+| routes | 710 |
 | routes without test reference | 32 |
 | routes in server js | 209 |
 | jobs | 33 |
 | jobs without test reference | 0 |
-| migrations | 97 |
-| test files | 788 |
+| migrations | 98 |
+| test files | 793 |
 
 ## Pages
 
@@ -83,6 +83,7 @@
 | PG-system-logs | public/system-logs.html | super_admin | yes | 1 | 3 |
 | PG-tracker-builder | public/tracker-builder.html | admin / tracker-admin | no | 1 | 4 |
 | PG-trackers | public/trackers.html | any | yes | 1 | 3 |
+| PG-value-scoreboard | public/value-scoreboard.html | admin | yes | 0 | 2 |
 | PG-wan-health | public/wan-health.html | UNKNOWN | no | 0 | 4 |
 | PG-wan-sla | public/wan-sla.html | UNKNOWN | no | 0 | 4 |
 | PG-wan | public/wan.html | any | yes | 3 | 15 |
@@ -151,6 +152,7 @@
 | public/system-logs.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
 | public/tracker-builder.html | — | — | trackers.html | — | — | trackers.html |
 | public/trackers.html | yes | — | tracker-builder.html | — | — | shell |
+| public/value-scoreboard.html | yes | — | — | — | — | shell |
 | public/wan-health.html | — | — | — | wan.html | legacy redirect stub kept for old bookmarks → wan.html | wan.html |
 | public/wan-sla.html | — | — | — | wan.html | legacy redirect stub kept for old bookmarks → wan.html | wan.html |
 | public/wan.html | yes | — | infra-health.html, wan-health.html, wan-sla.html | — | — | shell |
