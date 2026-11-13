@@ -1,4 +1,5 @@
 'use strict';
+const xpGate = require('../services/exportPolicy').gate;   // P9 / B7 — one export policy (allow / mask / deny + export log + watermark)
 // Plan E wave 2 (W2-PPM) — PPM additions registered on the governance router (routes/governance.js calls this with
 // its own helpers, so the access rules are the SAME functions: committee, money-read rule, A-15 read scope, plan writes).
 // Every action exists only while its PROPOSED switch is '1' (404 while '0' = today):
@@ -80,7 +81,7 @@ module.exports = function governancePpmRoutes(router, h) {
       res.json({ ok: true, rows: await store.getRaci(p.id), matrix: await raciMatrix(p.id), letters: RC.LETTERS });
     } catch (e) { fail(res, e); }
   });
-  router.get('/api/governance/ppm/project/:id/raci.csv', requireReportSession, async (req, res) => {
+  router.get('/api/governance/ppm/project/:id/raci.csv', requireReportSession, xpGate('governance.raci'), async (req, res) => {
     try {
       if (!on(await cfg(), 'ppm_raci_enabled')) return notFound(res);
       const p = await readableProject(req.reportUser, req.params.id); if (!p) return notFound(res);
@@ -130,13 +131,13 @@ module.exports = function governancePpmRoutes(router, h) {
   });
 
   // ---- E-P08 annual planning DRAFT pack (R16) — the reader's scoped portfolio, money rule, no envelope ---------------
-  router.get('/api/governance/ppm/annual-pack.xlsx', requireReportSession, async (req, res) => {
+  router.get('/api/governance/ppm/annual-pack.xlsx', requireReportSession, xpGate('governance.annual_pack'), async (req, res) => {
     try {
       if (!on(await cfg(), 'ppm_annual_pack_enabled')) return notFound(res);
       const year = Number(req.query.year || new Date().getUTCFullYear() + 1);
       if (!Number.isInteger(year) || year < 2000 || year > 2100) return httpFail(res, new Error('year must be YYYY'), 400, { ok: false });
       const AP = require('../services/annualPlanPack'), PV = require('../public/lib/ppmVisuals');
-      const u = req.reportUser, money = !!canSeeMoney(u), committee = !!isCommittee(u);
+      const u = req.reportUser, money = req.exportPolicy ? !!req.exportPolicy.money : !!canSeeMoney(u), committee = !!isCommittee(u);
       const { v } = await viewFor(u);
       const capacity = PV.capacityBySite(v.tasks || [], (v.projects || []).map((p) => ({ id: p.id, site_id: p.site_id })), { today: new Date().toISOString().slice(0, 10) });
       const pack = AP.buildAnnualPack({ year, view: { projects: (v.projects || []).map((p) => (money ? p : { ...p, budget: undefined, spent: undefined })) }, money, capacity, rfis: committee ? await store.listRfi({}) : [], rfiVisible: committee, asOf: new Date().toISOString() });

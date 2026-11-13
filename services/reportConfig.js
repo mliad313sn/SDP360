@@ -607,6 +607,16 @@ DEFAULTS.wan_sla_claims_enabled = '0';
 //                                  Roadmap Manager migration switch roadmap_publication_enabled.
 Object.assign(DEFAULTS, { portfolio_my_projects_default: '0', portfolio_sensitive_projects: '0', roadmap_audience_publication_enabled: '0' });
 
+// ── P9 / goal B7 — one export policy (services/exportPolicy.js). PROPOSED, both '0' = today.
+//    export_policy_strict      '1' → the STRICT sensitivity matrix (PROPOSED for the data owner / security, not approved):
+//                              viewer refused on the PV deck / pre-brief deck / action-register exports, the fleet-wide
+//                              risk register limited to the admin tier, and amounts in every export for the admin tier +
+//                              finance-viewer only (the portfolio committee-member exception ends). '0' = today's access.
+//                              Every export is logged (system_log category `export`) in BOTH states.
+//    export_watermark_enabled  '1' → user + UTC timestamp stamped on exported files (CSV last line, HTML footer, XLSX
+//                              first sheet "Export", PPTX footer on every slide; PDF/JSON carry it in a response header).
+Object.assign(DEFAULTS, { export_policy_strict: '0', export_watermark_enabled: '0' });
+
 const KEYS = Object.keys(DEFAULTS);
 
 // Secrets that the GET handler redacts to '' — a Save that doesn't retype them must

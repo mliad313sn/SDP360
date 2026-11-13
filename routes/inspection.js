@@ -1,4 +1,5 @@
 'use strict';
+const xpGate = require('../services/exportPolicy').gate;   // P9 / B7 — one export policy (allow / mask / deny + export log + watermark)
 const { fail } = require('../services/httpError');
 const userSites = require('../services/userSites');   // multi-site editors (2026-10-05)
 
@@ -318,7 +319,7 @@ module.exports = function inspectionRoutes(deps) {
   // Findings / Actions sheets). admin+ (bulk data export). MUST be registered
   // BEFORE /api/inspection/:id (ids are TEXT → :id would swallow "export.xlsx").
   // Lot 4b: open to an editor, limited to their site (admin tier: every site).
-  router.get('/api/inspection/export.xlsx', requireReportSession, async (req, res) => {
+  router.get('/api/inspection/export.xlsx', requireReportSession, xpGate('inspection.table'), async (req, res) => {
     try {
       if (!inspectionDb) return res.status(503).json({ error: 'Inspection module not available' });
       const scope = await _scopeOr403(req, res, req.query.site); if (!scope) return;
@@ -423,7 +424,7 @@ module.exports = function inspectionRoutes(deps) {
   // parametric route swallows it (:id="aggregate" → getInspection('aggregate')
   // → 404 "Not found"). Same route-ordering class as the /actions vs /:id pitfall.
   // Lot 4b: open to an editor, forced to their site (admin tier: any filter).
-  router.post('/api/inspection/aggregate/export', requireReportSession, inspectionJsonBody, async (req, res) => {
+  router.post('/api/inspection/aggregate/export', requireReportSession, inspectionJsonBody, xpGate('inspection.aggregate_pptx'), async (req, res) => {
     try {
       if (!inspectionDb)   return res.status(503).json({ error: 'Inspection module not available' });
       if (!inspectionPptx) return res.status(503).json({ error: 'PPTX module not available' });
@@ -445,7 +446,7 @@ module.exports = function inspectionRoutes(deps) {
 
   // POST /api/inspection/:id/export — single-inspection PPTX
   // Lot 4b: an editor on their own site, admin tier anywhere.
-  router.post('/api/inspection/:id/export', requireReportSession, async (req, res) => {
+  router.post('/api/inspection/:id/export', requireReportSession, xpGate('inspection.single_pptx'), async (req, res) => {
     try {
       if (!inspectionDb)   return res.status(503).json({ error: 'Inspection module not available' });
       if (!inspectionPptx) return res.status(503).json({ error: 'PPTX module not available' });
