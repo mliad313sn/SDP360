@@ -24,10 +24,10 @@ Files scanned: **120** · inline <style> blocks: **56** · hex literals: **5576*
 | `public/dashboard-composer.html` | 27423 | 1 | 41 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/dashboards.html` | 30239 | 1 | 25 | 2 | line×2 | 0 | 0 | yes | yes | — | hex literals → _tokens.css variables |
 | `public/data-quality.html` | 2733 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/exec-view.html` | 36212 | 1 | 108 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/exec-view.html` | 36337 | 1 | 108 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/executive-report.html` | 472416 | 2 | 294 | 1 | bar×7 doughnut×4 line×5 | 8 | 4 | yes | — | — | dual axis → small multiples, one unit per panel (§5.2 "comparaison à plusieurs séries"); doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/executive.html` | 601032 | 1 | 1080 | 14 | bar×5 doughnut×3 line×10 | 11 | 3 | yes | — | yes | dual axis → small multiples, one unit per panel (§5.2 "comparaison à plusieurs séries"); doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
-| `public/finance.html` | 8824 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/finance.html` | 8829 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/handoffs.html` | 18105 | 1 | 21 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/help.html` | 329783 | 1 | 85 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/home.html` | 6853 | 1 | 12 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |

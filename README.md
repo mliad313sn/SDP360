@@ -39,7 +39,7 @@ Everything else (modules, pages, PPTX/Excel/e-mail engines, installer, RBAC) is 
 cp DOTENV.example .env          # set DASH_PASS (≥ 12 chars); Zoho keys optional for local work
 npm ci
 export PG_ADMIN_URL=postgres://<superuser>:<pw>@localhost:5432/postgres   # throwaway cluster for tests
-npm test                        # ~4 500 tests on PostgreSQL; refuses to run without PG_ADMIN_URL (or PG_URL)
+npm test                        # ~5 100 tests on PostgreSQL; refuses to run without PG_ADMIN_URL (or PG_URL)
 npm start                       # http://localhost:3456
 ```
 

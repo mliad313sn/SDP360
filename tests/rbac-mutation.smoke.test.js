@@ -8,6 +8,7 @@ const { test, before, after } = require('node:test');
 const assert = require('node:assert');
 const core = require('./_rbac-matrix-core');
 const walker = require('../tools/agent/authz-walk');
+const { routerStack } = require('../services/routerStack');
 const { diffMatrix, widenings } = require('../tools/agent/authz-diff');
 
 let w;
@@ -20,13 +21,13 @@ async function mutated(apply, run) {
 }
 
 function findRouteLayer(app, method, path) {
-  const routes = walker.walkRoutes(app._router.stack);
+  const routes = walker.walkRoutes(routerStack(app));
   const r = routes.find((x) => x.method === method && x.path === path);
   if (!r) throw new Error('route not found ' + method + ' ' + path);
   // walkRoutes copies layers; find the real Layer objects in the router to mutate them
   const stack = [];
   const visit = (s) => { for (const l of s || []) { if (l.route && l.route.path === path && l.route.methods[method.toLowerCase()]) stack.push(...l.route.stack); else if (l.handle && l.handle.stack) visit(l.handle.stack); } };
-  visit(app._router.stack);
+  visit(routerStack(app));
   return stack;
 }
 
@@ -55,7 +56,7 @@ test('M2 — one guard removed from one route (requireMoneyRead on GET /api/asse
 });
 
 test('M3 — the business-only (métier) lock is switched off: the métier sweep fails', async () => {
-  const layer = w.app._router.stack.find((l) => { try { return /site view only/.test(Function.prototype.toString.call(l.handle)); } catch (_) { return false; } });
+  const layer = routerStack(w.app).find((l) => { try { return /site view only/.test(Function.prototype.toString.call(l.handle)); } catch (_) { return false; } });
   assert.ok(layer, 'business guard middleware found');
   const v = await mutated(() => { const h = layer.handle; layer.handle = (req, res, next) => next(); return () => { layer.handle = h; }; },
     () => core.checkBusinessLock(w, { methods: ['GET'], limit: 3 }));

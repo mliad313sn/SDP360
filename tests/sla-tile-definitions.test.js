@@ -39,7 +39,7 @@ test('Executive scorecard: the Resolution SLA tile names its definition and show
 
 test('Exec View: the SLA card is labelled with its definition and carries the other rate', () => {
   const html = read('exec-view.html');
-  assert.match(html, /kpiCard\('Answered within SLA \(' \+ SLA_DEF_LBL\[/);
+  assert.match(html, /kpiCard\('Answered within SLA', sla, \{[^}]*labelSuffix: ' \(' \+ SLA_DEF_LBL\[/);
   assert.match(html, /slaDef: sla\.definition === 'incl_open' \? 'incl_open' : 'closed_only', note: slaNote\(sla\)/);
 });
 

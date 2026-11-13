@@ -87,6 +87,8 @@
     'This cannot be undone.': 'Cette opération est irréversible.', '📋 This report has already been': '📋 Ce rapport a déjà été', 'submitted': 'soumis',
     '. Changing the week will not automatically notify anyone — make sure to re-share the corrected report.': '. Changer la semaine ne prévient personne automatiquement — pensez à repartager le rapport corrigé.',
     'Confirm Change': 'Confirmer le changement',
+    // P3 — SLA dual rates.
+    '(closed tickets only)': '(tickets clos uniquement)', '(responded tickets only)': '(tickets avec réponse uniquement)',
   };
   const RUNTIME_KEYS = {
     // report cards and status label
