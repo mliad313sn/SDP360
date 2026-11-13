@@ -29,7 +29,7 @@ module.exports = function governancePpmRoutes(router, h) {
     try {
       const c = await cfg();
       res.json({ ok: true, capacity: on(c, 'ppm_capacity_view'), budget_periods: on(c, 'ppm_budget_periods_enabled'), benefit_owner_link: on(c, 'benefit_owner_link_enabled'), benefit_value_class: on(c, 'benefit_value_class_enabled'), raci: on(c, 'ppm_raci_enabled'), templates: on(c, 'ppm_templates_enabled'), annual_pack: on(c, 'ppm_annual_pack_enabled'),
-        team: on(c, 'ppm_project_team_enabled'), time_entries: on(c, 'ppm_time_entries_enabled'), change_requests: on(c, 'ppm_change_requests_enabled'), evm: on(c, 'ppm_evm_enabled'), portfolio_views: on(c, 'portfolio_views_enabled'), roadmap_publication: on(c, 'roadmap_publication_enabled'), schedule_v2: on(c, 'ppm_schedule_engine_v2_ui'),
+        team: on(c, 'ppm_project_team_enabled'), time_entries: on(c, 'ppm_time_entries_enabled'), change_requests: on(c, 'ppm_change_requests_enabled'), evm: on(c, 'ppm_evm_enabled'), portfolio_views: on(c, 'portfolio_views_enabled'), roadmap_publication: on(c, 'roadmap_publication_enabled'), schedule_v2: on(c, 'ppm_schedule_engine_v2_ui'), gantt_v2: on(c, 'ppm_gantt_v2_enabled'),
         timesheets: on(c, 'ppm_time_entries_enabled') && on(c, 'ppm_timesheet_approval_enabled'), cr_simulation: on(c, 'ppm_change_requests_enabled') && on(c, 'ppm_cr_simulation_enabled') });
     } catch (e) { fail(res, e); }
   });
