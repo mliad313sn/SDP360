@@ -1,0 +1,14 @@
+{
+ "_readme": "HAND-MAINTAINED by the deciding humans (never by the agent). One entry per dark switch, keyed by its register key (report_config key, 'frozen:<lot id>' or a nested arm such as 'sla_wan_config.notify.enabled'). Fill only what has been decided; leave a field out (or null) when it is not decided — node tools/agent/flag-register.js lists it in docs/ops/FLAG-DECISIONS-GAPS.md. Dates are YYYY-MM-DD. 'owner' is a NAMED person (the profile already carries the deciding role). 'expiry' = the date the switch must be reviewed or deleted; node tools/agent/flag-register.js --stale reports passed expiries and decision deadlines, and entries whose switch no longer exists.",
+ "_fields": {
+  "owner": "named person who decides and answers for the switch",
+  "risk": "low | medium | high + one line on what could go wrong",
+  "dependencies": "other switches / data / people needed first",
+  "canary_site": "site code where it is turned on first",
+  "rollback_trigger": "the observable condition that makes the owner set it back to its default",
+  "success_metric": "the value-scoreboard metric (or other measure) and the change expected",
+  "decision_deadline": "YYYY-MM-DD — date the go / no-go is due",
+  "expiry": "YYYY-MM-DD — date the switch is reviewed (kept, re-dated or deleted)"
+ },
+ "items": {}
+}

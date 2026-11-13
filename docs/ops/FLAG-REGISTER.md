@@ -12,7 +12,7 @@ Rollback, by source: **report_config** → set the key back to its default in Ad
 Always-on internal telemetry (no switch, nothing a user sees): `page_viewed` (C-09) — one system_log row per
 user × page × day, user id + role tier only; report at Admin ▸ System Logs ▸ Page usage.
 
-## 1. report_config keys (259) — services/reportConfig.js DEFAULTS
+## 1. report_config keys (262) — services/reportConfig.js DEFAULTS
 
 Prerequisites (E-A07, services/switchPrereqs.js) are WARNINGS in plain words, never approvals: the config PUT
 answer and the `set-ui-policy.js` dry run repeat them when the switch is moved to its switched-on value.
@@ -96,10 +96,12 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `entra_redirect_uri` | `` | setting | to be named | — | — | — |
 | `entra_tenant_id` | `` | setting | to be named | — | — | — |
 | `exec_deck_other_bucket` | `0` | setting | Reporting owner (PO P4) | `1` (PO decision P4: "Other (n)" on every top-N deck chart, Normal changes as their own slice) | C-16 | — |
+| `exec_pack_portfolio_slide` | `0` | setting | Committee | `1` once the committee wants portfolio highlights in the monthly Group IT pack: one slide (open projects, late vs baseline, next milestones, benefits) built from the portfolio the author may read; amounts only when the author is admin tier or finance-viewer, otherwise "restricted". Rollback: set `0` (deck exactly as today) | D3 (P10) | — |
 | `exec_payload_zero_policy` | `keep_server` | setting | KPI committee | `keep_server` until the committee chooses (`browser_wins` is the alternative) | A-17 | — |
 | `exec_view_change_formula` | `status` | setting | KPI committee (D-01) | `deck` | A-08 | — |
 | `exec_view_lang` | `en` | setting | to be named | — | — | — |
 | `exec_view_mi_detail` | `full` | setting | Owner (reverses the 2026-07-02 "option a") | `summarized_only` | A-08 | — |
+| `exec_view_min_cell` | `0` | setting | Owner (reverses Exec View v1) | a number N, e.g. `3`, **only if the Owner decides** the public Exec View must stop naming sites (reverses the Exec View v1 design): a site with fewer than N active major incidents is no longer named — its line becomes "another site", its incidents lose site, title and RCA / CA text; totals stay. Combine with `exec_view_mi_detail` = `summarized_only` / `none` for incident detail. Rollback: set `0` | D3 (P10) | — |
 | `field_outbox_resolve_enabled` | `0` | arm switch | PO + site IT | `0` until the real-device sessions (E-F04, audit F-01) show how often field entries get stuck — otherwise an admin repair becomes the normal path (X-§7-01); then `1` (admin tier may `mark_rejected` or `release` a stuck entry; a ticket / action is released only after checking SDP, with a reason; every resolution is a risk row in System Logs; nothing is applied server-side). The read-only list `GET /api/field/admin/outbox` has no switch | E-F01 | Real-device field sessions (E-F04) must first show how often entries get stuck. |
 | `field_photo_max_kb` | `300` | setting | to be named | — | — | — |
 | `field_review_step` | `0` | setting | PO / adoption lead | `1` on the pilot site after one session shows it does not slow the technician (a one-screen summary — site, items, findings, photos, offline note — before an inspection is queued; « Corriger » queues nothing) | E-F03 | — |
@@ -263,6 +265,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `ui_url_filters` | `0` | ui policy | Owner (UI policy) | `1` (proposal — shareable Analytics links; filters only, never a data value) | E-U02 | — |
 | `ui_week_labels` | `legacy` | ui policy | Owner (UI policy) | `explicit` (proposal — ISO helpdesk charts say "ISO W37 (7–13 Sep)", report rows carry their Sun→Sat range) | D-03 | — |
 | `ux_event_telemetry` | `0` | setting | Data protection officer + Owner (UI policy) | `0` until the privacy notice and retention are agreed (decision D3); then `1` for the pilot cohort — counts export / drill / action / first-click events, user id + role tier only | F-UX-06 | — |
+| `value_scoreboard_enabled` | `0` | arm switch | Owner (UI policy) + KPI committee | `1` once the committee agrees the value contract (which metrics, which window): shows the admin-only **Value scoreboard** (Configure) — report on-time %, action age / % overdue, asset money coverage, repeat findings, decision cycle, % plans updated < 30 days, WAU by role tier, CSAT, SLA credits due / claimed / recovered — each from its existing builder, **unknown when it has no source (never 0)**; site rows limited to the reader's own sites below super_admin; before / after a switch flip from manual snapshots keyed on the config journal. Rollback: set `0` (page 404, menu as today; snapshots stay stored) | D2 (P10) | — |
 | `wan_mos_config` | `{"r0":93.2,"codec_loss_factor":2.5,"jitter_buffer_factor"…` | setting | to be named | — | — | — |
 | `wan_poll_first_run` | `` | setting | to be named | — | — | — |
 | `wan_poll_last_run` | `` | setting | to be named | — | — | — |
@@ -401,3 +404,16 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `ZOHO_SURVEY_ID` | setting | see the reading file | to be named | server.js |
 | `ZOHO_SURVEY_QUESTIONS_VIEW_ID` | setting | see the reading file | to be named | routes/survey.js |
 | `ZOHO_SURVEY_VIEW_ID` | setting | see the reading file | to be named | server.js |
+
+## 5. Pseudo-switches (4) — frozen lots and nested arms
+
+Frozen lots come from CLAUDE.md (tools/deploy/frozen-lots.json absent on this branch): commits kept behind the deploy marker on purpose — "turning on" = packaging the files
+by hand after the owner's decision; rollback = do not package them. Nested arms are booleans inside a JSON setting.
+Machine-readable copy: `docs/ops/FLAG-REGISTER.json`; decision fields still missing: `docs/ops/FLAG-DECISIONS-GAPS.md`.
+
+| Key | Kind | Default (today) | What it changes | Reference |
+|---|---|---|---|---|
+| `frozen:tracker_green_band_90` | frozen lot | not in production: GREEN needs 100 % of the pro-rated target | Tracker RAG band: GREEN ≥ 90 % of the pro-rated target (COUNT/PERCENT/CURRENCY/RATING) — 437a80f · public/activity-tracker/engine.js, tracker-pptx.js | CLAUDE.md "Deployment reality" (frozen 2026-09-04) |
+| `frozen:tracker_weighted_donut` | frozen lot | not in production: unweighted donut | Tracker attainment donut weighted by activity weight — b681083 · public/activity-tracker/App.jsx | CLAUDE.md "Deployment reality" (frozen 2026-09-04) |
+| `frozen:installer_safety_parity` | frozen lot | not in production: previous installer | Installer safety parity (red screens, backup before DROP, pre-restore point) — f6f0b12 · tools/installer/*, _sdp_admin.cmd, tools/pg/dump-db.js | CLAUDE.md "Deployment reality" (installer files behind the marker) |
+| `sla_wan_config.notify.enabled` | nested arm | `false` | WAN SLA operator / ISP notification (15 min) | WAN SLA V1 (2026-08-17) — Admin ▸ SLA WAN |

@@ -299,6 +299,15 @@ const DEFAULTS = {
   // R1-PROFILES (REBUILD-SPEC R1/R2) — '1' = presentation profiles + workspace-settings.html + /api/workspace/* (else 404).
   // Presentation only: a profile never grants a page, a role or a site (tests/workspace-profiles-grants-nothing).
   workspace_profiles_enabled: '0',
+  // D2 (P10) — PROPOSED: '1' = admin-only Value scoreboard page + /api/value-scoreboard* (else 404) and its menu entry
+  // (Configure, admin tier). Read-only figures from existing builders; a metric with no source is null (unknown).
+  value_scoreboard_enabled: '0',
+  // D3 (P10) — PROPOSED: '1' = the monthly Group IT pack (exec-pptx) gains one "Portfolio highlights" slide; amounts only
+  // for an admin-tier or finance-viewer author. '0' = today (no slide, deck unchanged).
+  exec_pack_portfolio_slide: '0',
+  // D3 (P10) — PROPOSED small-cell suppression on the PUBLIC Exec View: a site whose count of active major incidents is
+  // below N is no longer named (site, title and RCA/CA of its incidents withheld). '0' = today (off; sites are named).
+  exec_view_min_cell: '0',
 };
 // ── Sync alerting (Step 1). Recipients = comma list of e-mail addresses; teams_url = a
 //    Workflows webhook (SECRET, blank-keep). Nothing is sent while both are empty.
