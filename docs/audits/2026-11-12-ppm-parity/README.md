@@ -62,6 +62,8 @@ It is **not** a scheduling engine of the MS Project class:
 | T10 | Dashboard reconciles to the engine, drill-down, toggle preserves state | `portfolio-views.test.js` (views, not EVM reconciliation) | PARTIAL |
 | T11 | DCMA 14-point schedule quality check | none | MISSING |
 
+**W3 update (`goal/w3-governance`):** T9 — gate negatives (owner, non-approver, reject without reason, incomplete checklist → 409, standing reject, cycle/version scope, append-only) and RAG boundary + hysteresis tests now exist (`tests/ppm-w3-pure.test.js`, `tests/ppm-w3.smoke.test.js`) → PARTIAL-built behind switches off; T10 — KPI cards recomputed from the source rows and the engines, preference per user (drill-down + browser toggle check still open) → PARTIAL; T11 — DCMA 14 points on hand-built fixtures, unmeasurable points null → built (OFF). Thresholds are PROPOSED; nothing is certified.
+
 Engine test coverage ≥ 90 % has not been measured; no coverage tool runs on these files yet.
 
 ## 5. Plan for W1–W4
