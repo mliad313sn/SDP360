@@ -425,7 +425,7 @@
    "parent": null,
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 36212,
+   "bytes": 36337,
    "tests": [
     "tests/csp-headers.smoke.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
@@ -532,7 +532,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 0,
-   "bytes": 8824,
+   "bytes": 8829,
    "tests": [
     "tests/agent-inventory.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",

@@ -459,6 +459,10 @@
     'Manually re-fetch the MAJOR_INCIDENTS view from Zoho Analytics Plus and backfill request_records.udf_json. Use this when the PIR table dots are all red and you need to verify whether the issue is on the Zoho side (techs haven\'t filled UDFs) or the sync side (view mis-configured).': 'Relance manuellement la vue MAJOR_INCIDENTS depuis Zoho Analytics Plus et complète request_records.udf_json. À utiliser quand les pastilles du tableau PIR sont toutes rouges, pour savoir si le problème vient de Zoho (UDF non renseignés par les techniciens) ou de la synchronisation (vue mal configurée).',
     'Regenerate from current verbatim + survey data (deterministic, no AI). Overwrites any previously edited text.': 'Régénérer à partir des verbatims et des données d’enquête actuels (déterministe, sans IA). Remplace tout texte modifié auparavant.',
     'Hourly cron sync from ServiceDesk Plus → reports.db (workspace 106803000000002012). Page reads from the local cache only.': 'Synchronisation horaire depuis ServiceDesk Plus → reports.db (espace de travail 106803000000002012). La page lit uniquement le cache local.',
+    // P3 — SLA dual rates.
+    '(closed tickets only)': '(tickets clos uniquement)',
+    'Resolution SLA Compliance — % of tickets resolved within their SLA deadline. Headline = closed tickets only unless the KPI committee switches it (sla_headline_definition); the line below gives the rate counting open tickets already past target as failures, and the open & breached count. Higher is better. Target ≥90%.':
+      'Conformité SLA de résolution — part des tickets résolus avant leur échéance SLA. Chiffre principal = tickets clos uniquement, sauf bascule du comité KPI (sla_headline_definition) ; la ligne en dessous donne le taux en comptant comme échecs les tickets ouverts déjà hors délai, et le nombre d’ouverts en dépassement. Plus haut = mieux. Cible ≥ 90 %.',
     // runtime (set by the page script)
     'No data': 'Aucune donnée',
     'Loading filtered data…': 'Chargement des données filtrées…',
