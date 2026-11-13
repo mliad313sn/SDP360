@@ -8,19 +8,19 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 
 | Item | Count |
 |---|---:|
-| routes | 733 |
+| routes | 719 |
 | routes not measurable | 3 |
-| routes without strict test | 59 |
-| critical routes | 206 |
-| critical routes without strict test | 18 |
-| writes without strict test | 20 |
+| routes without strict test | 70 |
+| critical routes | 205 |
+| critical routes without strict test | 20 |
+| writes without strict test | 24 |
 | jobs | 33 |
 | jobs without strict test | 0 |
-| test sources | 855 |
+| test sources | 843 |
 | without strict test access | 4 |
 | without strict test finance | 2 |
-| without strict test export | 7 |
-| without strict test audit | 4 |
+| without strict test export | 8 |
+| without strict test audit | 5 |
 | without strict test destructive | 2 |
 
 ## Critical routes without a strict test reference
@@ -32,7 +32,9 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 | GET | `/api/finance/actuals/batches/:id` | finance, read | routes/finance.js |
 | GET | `/api/finance/actuals/batches` | finance, read | routes/finance.js |
 | POST | `/api/governance/cadences/:id/restore` | audit, destructive, write | routes/softDelete.js |
+| POST | `/api/governance/ppm/project/:id/gates/:gate/evidence` | audit, write | routes/governanceW3.js |
 | GET | `/api/governance/ppm/project/:id/raci.csv` | export, read | routes/governancePpm.js |
+| GET | `/api/governance/ppm/project/:id/report.xlsx` | export, read | routes/governanceW3.js |
 | DELETE | `/api/governance/ppm/project/:id/team/:mid` | destructive, write | routes/governanceWorkbench.js |
 | POST | `/api/governance/roles/assignments/:id/end` | access, write | routes/governanceRoles.js |
 | POST | `/api/governance/roles/matrix/:id/retire` | access, write | routes/governanceRoles.js |
@@ -69,7 +71,16 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 | GET | `/api/data/sla-by-category` | read | server.js |
 | POST | `/api/governance/policies/proposals/:id/reject` | write | routes/policies.js |
 | POST | `/api/governance/ppm/project/:id/changes/:cid/simulate` | write | routes/governanceWorkbench.js |
+| GET | `/api/governance/ppm/project/:id/dcma` | read | routes/governanceW3.js |
+| POST | `/api/governance/ppm/project/:id/gates/:gate/signoff` | write | routes/governanceW3.js |
+| PUT | `/api/governance/ppm/project/:id/gates/:gate` | write | routes/governanceW3.js |
+| GET | `/api/governance/ppm/project/:id/gates` | read | routes/governanceW3.js |
 | PUT | `/api/governance/ppm/project/:id/raci` | write | routes/governancePpm.js |
+| GET | `/api/governance/ppm/project/:id/rag` | read | routes/governanceW3.js |
+| GET | `/api/governance/ppm/project/:id/raid` | read | routes/governanceW3.js |
+| PUT | `/api/governance/ppm/project/:id/raid` | write | routes/governanceW3.js |
+| GET | `/api/governance/ppm/project/:id/report.html` | read | routes/governanceW3.js |
+| GET | `/api/governance/ppm/project/:id/summary` | read | routes/governanceW3.js |
 | POST | `/api/governance/ppm/project/:id/timesheets/:action` | write | routes/governanceWorkbench.js |
 | GET | `/api/integration/fmp/readiness` | read | routes/fourmypeople.js |
 | GET | `/api/meetings/import/incubation-template` | read | routes/meetings.js |
@@ -109,9 +120,9 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 
 | Class | Routes | Without strict test |
 |---|---:|---:|
-| access | 66 | 4 |
+| access | 64 | 4 |
 | finance | 40 | 2 |
-| export | 63 | 7 |
-| audit | 20 | 4 |
-| destructive | 36 | 2 |
-<!-- structure f2e20d9f0cf8a094 -->
+| export | 64 | 8 |
+| audit | 21 | 5 |
+| destructive | 35 | 2 |
+<!-- structure c3aaee10aa21642f -->

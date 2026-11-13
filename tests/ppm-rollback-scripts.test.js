@@ -28,7 +28,9 @@ const PPM = ['010_roadmap', '011_roadmap_project', '039_native_ppm', '043_portfo
   // W2-ENGINE — calendars, resource pool, rates, assignments, levelling delays, baseline slots
   '105_ppm_engine_w2',
   // W4 (PPM parity, enterprise) — per-project roles + append-only comments with @mentions
-  '108_ppm_roles_comments'];
+  '108_ppm_roles_comments',
+  // W3-GOVERNANCE — gate checklists + sign-offs, RAID details, RAG hysteresis memory, view preference
+  '110_ppm_governance_w3'];
 
 async function snapshot(pg) {
   const q = async (sql) => (await pg.prepare(sql).all()).map((r) => Object.values(r).join('|'));

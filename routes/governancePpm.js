@@ -35,7 +35,9 @@ module.exports = function governancePpmRoutes(router, h) {
         team: on(c, 'ppm_project_team_enabled'), time_entries: on(c, 'ppm_time_entries_enabled'), change_requests: on(c, 'ppm_change_requests_enabled'), evm: on(c, 'ppm_evm_enabled'), portfolio_views: on(c, 'portfolio_views_enabled'), roadmap_publication: on(c, 'roadmap_publication_enabled'), schedule_v2: on(c, 'ppm_schedule_engine_v2_ui'), gantt_v2: on(c, 'ppm_gantt_v2_enabled'),
         timesheets: on(c, 'ppm_time_entries_enabled') && on(c, 'ppm_timesheet_approval_enabled'), cr_simulation: on(c, 'ppm_change_requests_enabled') && on(c, 'ppm_cr_simulation_enabled'),
         project_roles: on(c, 'ppm_project_roles_enabled'), comments: on(c, 'ppm_comments_enabled'), agile_board: on(c, 'ppm_agile_board_enabled'), roadmap_nnl: on(c, 'ppm_roadmap_nnl_enabled'), offline_edit: on(c, 'ppm_offline_edit_enabled'),   // W4
-        calendars: on(c, 'ppm_calendars_enabled'), resources: on(c, 'ppm_resources_enabled'), leveling: on(c, 'ppm_leveling_enabled') && on(c, 'ppm_resources_enabled'), baseline_slots: on(c, 'ppm_baseline_slots_enabled'), mspdi: on(c, 'ppm_mspdi_enabled') });   // W2-ENGINE
+        calendars: on(c, 'ppm_calendars_enabled'), resources: on(c, 'ppm_resources_enabled'), leveling: on(c, 'ppm_leveling_enabled') && on(c, 'ppm_resources_enabled'), baseline_slots: on(c, 'ppm_baseline_slots_enabled'), mspdi: on(c, 'ppm_mspdi_enabled'),   // W2-ENGINE
+
+        simplified_view: on(c, 'ppm_simplified_view_enabled'), project_rag: on(c, 'ppm_project_rag_enabled'), dcma: on(c, 'ppm_dcma_enabled'), gate_checklist: on(c, 'ppm_gate_checklist_enabled'), raid: on(c, 'ppm_raid_enabled'), project_report: on(c, 'ppm_project_report_enabled') });
     } catch (e) { fail(res, e); }
   });
 
@@ -162,4 +164,6 @@ module.exports = function governancePpmRoutes(router, h) {
   require('./ppmEngine')(router, h);
   // W4 (PPM parity, enterprise): project roles + comments with @mentions — routes/governanceCollab.js
   require('./governanceCollab')(router, h);
+  // W3-GOVERNANCE (PPM parity W3): simplified view, RAG, DCMA, gate checklists, RAID, project report — routes/governanceW3.js
+  require('./governanceW3')(router, h);
 };

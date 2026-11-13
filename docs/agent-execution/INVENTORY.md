@@ -6,7 +6,7 @@
 
 | Item | Count |
 |---|---:|
-| pages | 62 |
+| pages | 61 |
 | pages without test reference | 0 |
 | pages without declared role | 6 |
 | pages not in navigation | 30 |
@@ -14,13 +14,13 @@
 | pages deep link only | 9 |
 | pages without entry point | 3 |
 | pages with inline scripts | 46 |
-| routes | 733 |
+| routes | 719 |
 | routes without test reference | 32 |
 | routes in server js | 209 |
 | jobs | 33 |
 | jobs without test reference | 0 |
-| migrations | 100 |
-| test files | 802 |
+| migrations | 98 |
+| test files | 790 |
 
 ## Pages
 
@@ -73,7 +73,7 @@
 | PG-obligations | public/obligations.html | any | yes | 0 | 4 |
 | PG-policies | public/policies.html | admin / committee-member | yes | 1 | 5 |
 | PG-portfolio | public/portfolio.html | any | yes | 1 | 16 |
-| PG-project | public/project.html | any | no | 1 | 20 |
+| PG-project | public/project.html | any | no | 1 | 19 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 3 |
 | PG-reports | public/reports.html | any | yes | 2 | 37 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 4 |
@@ -83,7 +83,6 @@
 | PG-system-logs | public/system-logs.html | super_admin | yes | 1 | 3 |
 | PG-tracker-builder | public/tracker-builder.html | admin / tracker-admin | no | 1 | 4 |
 | PG-trackers | public/trackers.html | any | yes | 1 | 3 |
-| PG-value-scoreboard | public/value-scoreboard.html | admin | yes | 0 | 2 |
 | PG-wan-health | public/wan-health.html | UNKNOWN | no | 0 | 4 |
 | PG-wan-sla | public/wan-sla.html | UNKNOWN | no | 0 | 4 |
 | PG-wan | public/wan.html | any | yes | 3 | 15 |
@@ -142,7 +141,7 @@
 | public/obligations.html | yes | — | home.html, site-actions.html | — | — | shell |
 | public/policies.html | yes | — | access.html, lib/workspaceProfiles.js | — | — | shell |
 | public/portfolio.html | yes | — | itsm-roadmap.html, lib/workspaceProfiles.js, project.html | — | — | shell |
-| public/project.html | — | — | lib/home-page.js, lib/portfolioViews.js, lib/ppmRoadmapNnl.js, meeting.html (+1) | — | — | meeting.html |
+| public/project.html | — | — | lib/home-page.js, lib/portfolioViews.js, meeting.html, portfolio.html | — | — | meeting.html |
 | public/report-studio.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
 | public/reports.html | yes | — | access.html, site-report.html, wan.html | — | — | shell |
 | public/rfi.html | yes | — | meeting.html, portfolio.html | — | — | shell |
@@ -152,7 +151,6 @@
 | public/system-logs.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
 | public/tracker-builder.html | — | — | trackers.html | — | — | trackers.html |
 | public/trackers.html | yes | — | tracker-builder.html | — | — | shell |
-| public/value-scoreboard.html | yes | — | — | — | — | shell |
 | public/wan-health.html | — | — | — | wan.html | legacy redirect stub kept for old bookmarks → wan.html | wan.html |
 | public/wan-sla.html | — | — | — | wan.html | legacy redirect stub kept for old bookmarks → wan.html | wan.html |
 | public/wan.html | yes | — | infra-health.html, wan-health.html, wan-sla.html | — | — | shell |

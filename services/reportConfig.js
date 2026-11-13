@@ -462,6 +462,31 @@ Object.assign(DEFAULTS, { ppm_calendars_enabled: '0', ppm_resources_enabled: '0'
 //    ppm_offline_edit_enabled '1' → project-page task / milestone edits made without a connection are queued in the
 //    browser, replayed with their row version, and a conflict opens a merge screen (keep mine / keep theirs per field).
 Object.assign(DEFAULTS, { ppm_project_roles_enabled: '0', ppm_comments_enabled: '0', ppm_agile_board_enabled: '0', ppm_roadmap_nnl_enabled: '0', ppm_offline_edit_enabled: '0' });
+// ── W3-GOVERNANCE (PPM parity W3, migration 110) — PROPOSED, '0' = today (the routes answer 404, nothing is stored).
+//    ppm_simplified_view_enabled '1' → the project page offers a Simplified ↔ Expert switch (per-user preference):
+//    KPI cards (RAG, % schedule complete, budget burn for the admin tier + finance-viewer, risks / blockers, next
+//    milestone), the phase strip, top risks and next milestones — every figure derived from the engines.
+DEFAULTS.ppm_simplified_view_enabled = '0';
+//    ppm_project_rag_enabled '1' → composite project RAG (schedule SPI + slip in working days, cost CPI, open risk score)
+//    with hysteresis (enter / exit thresholds); the per-metric colours are stored as the memory. ppm_rag_thresholds =
+//    JSON override; '' = the PROPOSED defaults (W0 row G2), not approved by the PMO.
+DEFAULTS.ppm_project_rag_enabled = '0';
+DEFAULTS.ppm_rag_thresholds = '';
+//    ppm_dcma_enabled '1' → the DCMA 14-point schedule quality check on the project page (unmeasurable points = '—').
+DEFAULTS.ppm_dcma_enabled = '0';
+//    ppm_gate_checklist_enabled '1' → per project and target stage, a checklist (required artifacts / checks) and N
+//    named approvers or roles (all or quorum, approver ≠ project owner, reject with a reason); a stage move is refused
+//    (409) while a defined checklist is incomplete. Nothing is auto-approved; a sign-off is not a legal signature.
+DEFAULTS.ppm_gate_checklist_enabled = '0';
+//    ppm_raid_enabled '1' → the RAID log (risks, assumptions, issues, dependencies): response, review date, probability %,
+//    impact amount + currency → exposure (amounts: admin tier + finance-viewer only).
+DEFAULTS.ppm_raid_enabled = '0';
+//    ppm_project_report_enabled '1' → project status report as printable HTML and Excel (export policy).
+DEFAULTS.ppm_project_report_enabled = '0';
+//    ppm_report_send_enabled '1' + ppm_report_recipients (comma list) → the scheduled 'ppm_project' report (PDF + Excel of
+//    every in-progress project, NO amounts — a distribution list is not a finance reader). Armed OFF.
+DEFAULTS.ppm_report_send_enabled = '0';
+DEFAULTS.ppm_report_recipients = '';
 
 // ── SEC-01 — per-ACCOUNT login throttle (services/accountThrottle.js). '0' = today: only the per-IP limiter
 //    (10 attempts / 15 min per address). '1' → more than auth_account_throttle_max FAILED sign-ins against one

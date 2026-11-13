@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 5271,
+ "total": 5292,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 18,
@@ -501,6 +501,8 @@
   "ppm-w2-bench.test.js": 2,
   "ppm-w2-engine.test.js": 11,
   "ppm-w2.smoke.test.js": 5,
+  "ppm-w3-pure.test.js": 13,
+  "ppm-w3.smoke.test.js": 8,
   "ppm-w4-enterprise.smoke.test.js": 5,
   "ppm-workbench.smoke.test.js": 4,
   "ppm-workbench.test.js": 11,

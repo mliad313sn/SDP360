@@ -13,8 +13,9 @@ const SEND_SCOREBOARD_CLI = path.join(APP_ROOT, 'tools', 'reports', 'send-scoreb
 const SEND_WEEKLY_CLI = path.join(APP_ROOT, 'tools', 'reports', 'send-weekly.js');
 const SEND_ASSET_GROUP_CLI = path.join(APP_ROOT, 'tools', 'reports', 'send-asset-group.js');
 const SEND_ASSET_REMINDERS_CLI = path.join(APP_ROOT, 'tools', 'reports', 'send-asset-reminders.js');
+const SEND_PPM_CLI = path.join(APP_ROOT, 'tools', 'reports', 'send-ppm-reports.js');   // W3-GOVERNANCE
 const DAYS = ['MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT', 'SUN'];
-const TYPES = ['coordinator', 'group', 'finance', 'hygiene', 'scoreboard', 'weekly_report', 'asset_group', 'asset_reminder'];
+const TYPES = ['coordinator', 'group', 'finance', 'hygiene', 'scoreboard', 'weekly_report', 'asset_group', 'asset_reminder', 'ppm_project'];
 
 // The hygiene digest, the scoreboard email and the weekly report each have their
 // own CLI (hygiene composes the Group-IT digest; scoreboard and weekly_report
@@ -28,6 +29,7 @@ function cliFor(report_type) {
   if (report_type === 'weekly_report') return SEND_WEEKLY_CLI;
   if (report_type === 'asset_group') return SEND_ASSET_GROUP_CLI;
   if (report_type === 'asset_reminder') return SEND_ASSET_REMINDERS_CLI;
+  if (report_type === 'ppm_project') return SEND_PPM_CLI;
   return SEND_CLI;
 }
 
