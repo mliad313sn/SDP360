@@ -223,6 +223,10 @@ const DEFAULTS = {
   ppm_alerts_enabled: '0',
   ppm_alert_blocked_days: '5',
   ppm_alert_slip_days: '10',
+  // B4 (P7) — PROPOSED stale-plan nudge: an in_progress project whose plan (ledger + plan rows, services/ppm/planFreshness)
+  // was not updated for more than N days raises 'stale_plan' in the A11 exception list (and the nightly job, armed by
+  // ppm_alerts_enabled). '' = off = today. The threshold is a PMO decision.
+  stale_plan_days: '',
   // E-P03 (audit P-03) — PROPOSED: '1' shows capacity per site × week + sorted conflicts (GET /api/governance/ppm/capacity,
   // 404 while '0') and makes a reason REQUIRED to reassign a task. The reassignment is traced in ppm_events either way.
   ppm_capacity_view: '0',
@@ -404,6 +408,19 @@ DEFAULTS.ppm_evm_enabled = '0';
 //    {"target":"USD","rates":{"XOF":0.00165,"EUR":1.08},"as_of":"YYYY-MM-DD","source":"…"}. '' = no converted view
 //    (currencies stay separate, which is always the primary view). Rates are a Finance input, never guessed.
 DEFAULTS.ppm_evm_fx_rates = '';
+
+// ── B5 (goal programme P7, migration 102) — PROPOSED, '0' = today (the routes answer 404, nothing is frozen / stored).
+//    ppm_timesheet_approval_enabled '1' (needs ppm_time_entries_enabled) → the hours of one person on one project are
+//    submitted per ISO week, then approved or rejected by ANOTHER person (never one who entered or submitted them —
+//    403 SELF_REVIEW); a submitted or approved week is frozen (409 WEEK_FROZEN); a rejected week is open again. Who may
+//    approve (today: the plan-write rule of the project, or the committee) is a PMO decision.
+DEFAULTS.ppm_timesheet_approval_enabled = '0';
+//    ppm_cr_simulation_enabled '1' (needs ppm_change_requests_enabled) → a change request may carry task changes
+//    (duration, dates, dependencies, effort) whose schedule impact (W1 date engine: finish, critical path) and cost impact
+//    (Δ hours × the W1-EVM hourly rate, per currency; unknown = null) are SIMULATED and stored; assess and approve re-run
+//    the simulation on the current plan, so the decision always sees fresh numbers; apply moves the baseline by the
+//    typed dates impact, else by the simulated finish delta. Arming it is a PMO decision.
+DEFAULTS.ppm_cr_simulation_enabled = '0';
 
 // ── SEC-01 — per-ACCOUNT login throttle (services/accountThrottle.js). '0' = today: only the per-IP limiter
 //    (10 attempts / 15 min per address). '1' → more than auth_account_throttle_max FAILED sign-ins against one

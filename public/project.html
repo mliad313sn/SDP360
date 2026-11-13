@@ -144,6 +144,8 @@
         <label>Note <input id="te-note"></label>
       </div><div class="bar"><button class="btn primary" id="te-save" type="button">Record hours</button></div></div>
       <div class="scroll" id="time-entries"></div></div>
+    <div class="panel" id="ts-panel" hidden><h2>Timesheet weeks — submit, approve, reject</h2><div class="scroll" id="ts-weeks"></div>
+      <label>Note for the next step (required to reject, 10 characters or more) <textarea id="ts-note" rows="2"></textarea></label></div>
   </section>
 
   <section id="pane-milestones" role="tabpanel" aria-labelledby="tab-milestones" hidden>
@@ -255,6 +257,7 @@
         <label>Title <input id="cr-title"></label>
         <label style="grid-column:1/-1">Reason (10 characters or more) <textarea id="cr-reason" rows="2"></textarea></label>
         <label>Dates impact (days, + later / − earlier; empty = not known) <input id="cr-days" type="number" step="1"></label>
+        <label id="cr-sim-box" style="grid-column:1/-1" hidden>Task changes to simulate (optional, one task per line: task id duration=5 effort=40 start=YYYY-MM-DD end=YYYY-MM-DD depends=3,4) <textarea id="cr-tasks" rows="3"></textarea></label>
         <span id="cr-money-box" class="row" style="grid-column:1/-1"><label>Money impact (empty = not known) <input id="cr-amount" type="number" step="any"></label><label>Currency (with an amount) <input id="cr-cur" placeholder="USD" maxlength="3"></label></span>
       </div>
       <div class="bar"><button class="btn primary" id="cr-save" type="button">Propose the change</button></div></div>
@@ -320,7 +323,7 @@
   var V = null;
   // W2-PPM — which PROPOSED switches are on (each new tab / prompt exists only then); an error = all off (today)
   var FEAT = {};
-  api("/api/governance/ppm/features").then(function (f) { FEAT = f || {}; if (FEAT.budget_periods) addTab("budget", "gates"); if (FEAT.benefit_owner_link) linkOwners(); if (FEAT.benefit_value_class) { $("b-class-box").hidden = false; if (V) renderBenefits(); } if (FEAT.raci) addTab("raci", "gates"); if (FEAT.change_requests) addTab("changes", "gates"); if (V && ["budget", "raci", "changes"].indexOf((window.location.hash || "").slice(1)) >= 0 && TABS.indexOf(window.location.hash.slice(1)) >= 0) showTab(window.location.hash.slice(1)); if (FEAT.team && V) mountTeam(); if (FEAT.time_entries && V && $("tab-plan").getAttribute("aria-selected") === "true") mountTime(); if (FEAT.templates && V && V.committee) $("tpl-save-box").hidden = false; if (FEAT.schedule_v2 && V && V.can_edit_plan) fillTask(); }).catch(function () { FEAT = {}; });
+  api("/api/governance/ppm/features").then(function (f) { FEAT = f || {}; if (FEAT.budget_periods) addTab("budget", "gates"); if (FEAT.benefit_owner_link) linkOwners(); if (FEAT.benefit_value_class) { $("b-class-box").hidden = false; if (V) renderBenefits(); } if (FEAT.raci) addTab("raci", "gates"); if (FEAT.change_requests) addTab("changes", "gates"); if (V && ["budget", "raci", "changes"].indexOf((window.location.hash || "").slice(1)) >= 0 && TABS.indexOf(window.location.hash.slice(1)) >= 0) showTab(window.location.hash.slice(1)); if (FEAT.team && V) mountTeam(); if (FEAT.time_entries && V && $("tab-plan").getAttribute("aria-selected") === "true") { mountTime(); if (FEAT.timesheets) mountTimesheets(); } if (FEAT.templates && V && V.committee) $("tpl-save-box").hidden = false; if (FEAT.schedule_v2 && V && V.can_edit_plan) fillTask(); }).catch(function () { FEAT = {}; });
 
   // ---- tabs (role=tablist, arrows / Home / End, deep link #tab) ---------------------------------------------
   // Extension point: later goals (baselines, benefits) add a tab button + a pane + an entry in RENDER.
@@ -334,6 +337,8 @@
   // R2-WB-04 — the Team panel (Overview) exists only while ppm_project_team_enabled is on
   // R2-WB-02 — hours panel (Plan tab) only while ppm_time_entries_enabled is on
   function mountTime() { if (window.PpmWorkbench) window.PpmWorkbench.mountTime(Object.assign(X(), { canEdit: !!(V && V.can_edit_plan), tasks: (V && V.tasks) || [] })); }
+  // B5 — timesheet weeks (Plan tab) only while ppm_timesheet_approval_enabled is on
+  function mountTimesheets() { if (window.PpmWorkbench) window.PpmWorkbench.mountTimesheets(Object.assign(X(), { canEdit: !!(V && V.can_edit_plan) })); }
   function mountTeam() { if (window.PpmWorkbench) window.PpmWorkbench.mountTeam(Object.assign(X(), { canEdit: !!(V && V.can_edit_plan) })); }
   $("tpl-save").addEventListener("click", function () { api("/api/governance/ppm/templates", { method: "POST", body: JSON.stringify({ project_id: Number(PID), name: $("tpl-name").value.trim() }) }).then(function (j) { msg("Template #" + j.template.id + " saved as a draft."); }).catch(fail); });
   // E-P05 — the user picker for a benefit owner (committee: /api/governance/people answers 403 to others → stays hidden)
@@ -422,6 +427,7 @@
       ["Status", "<span class=\"pill " + esc(p.status || "NA") + "\">" + esc(p.status || "—") + "</span>"],
       ["Finish vs baseline", "<span class=\"pill " + esc(rag.cls) + "\">" + esc(rag.cls === "NA" ? "—" : rag.cls) + "</span> " + esc(rag.text)],
       ["Progress", n(p.progress_pct, " %")],
+      ["Plan freshness", esc(window.PpmWorkbench ? window.PpmWorkbench.freshnessText(V.plan_freshness) : "—") + (V.plan_freshness && V.plan_freshness.plan_updated_at ? " <span class=\"muted\">(" + esc(String(V.plan_freshness.plan_updated_at).slice(0, 10)) + ")</span>" : "")],   // B4
       ["Open tasks", n(open) + " / " + n(V.tasks.length)],
       ["Critical path", V.plan ? n(V.plan.length_days, " working d") : "— (dependency loop)"],
       ["Open high risks", n(V.gate_counts && V.gate_counts.openRisksHigh)]];
@@ -484,7 +490,7 @@
     // C-14 — resource pressure per person and week (tasks without an allocation are counted "unknown", never guessed)
     $("plan-pressure").innerHTML = window.PpmVisuals ? window.PpmVisuals.pressureHtml(window.PpmVisuals.resourcePressure(V.tasks || [], { today: today() }), esc) : "";
     taskEditor();
-    if (FEAT.time_entries) mountTime();
+    if (FEAT.time_entries) { mountTime(); if (FEAT.timesheets) mountTimesheets(); }
   }
   // C-14 (G22 / F28) — visible legend (swatches, not only words) naming the baseline actually drawn.
   function ganttLegend() {
