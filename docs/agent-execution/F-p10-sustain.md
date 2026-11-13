@@ -13,9 +13,9 @@ report_config switch defaulting to today's behaviour (PILOT-PROFILE rows added).
 - Pseudo-rows: `frozen:tracker_green_band_90` (437a80f), `frozen:tracker_weighted_donut` (b681083),
   `frozen:installer_safety_parity` (f6f0b12) — from CLAUDE.md because `tools/deploy/frozen-lots.json` is absent on this
   branch — and nested arm `sla_wan_config.notify.enabled` (default read from the code: false).
-- Dark list today: 128 rows (report_config `'0'` defaults incl. P2 finance, P4 connectors, P5 queue/bundles/aging, P6
-  decisions/break-glass, P7 portfolio/timesheets/CR/publication, P8 claims; P3 `sla_headline_definition`; the 3 new D2/D3
-  switches; pseudo-rows). P9 export policy: no key on this branch. 0 rows complete — expected, owners/dates are human.
+- Dark list today: 131 rows (report_config `'0'` defaults incl. P2 finance, P4 connectors, P5 queue/bundles/aging, P6
+  decisions/break-glass, P7 portfolio/timesheets/CR/publication, P8 claims; P9 export_policy_strict + export_watermark_enabled (merged from sdp-waves); P3 `sla_headline_definition`; the 3 new D2/D3
+  switches; pseudo-rows). 0 rows complete — expected, owners/dates are human.
 - Test: `tests/flag-decisions.test.js` (6).
 
 ## D2 — value scoreboard
@@ -44,9 +44,9 @@ report_config switch defaulting to today's behaviour (PILOT-PROFILE rows added).
 ## Tests run (all green)
 New 24 tests + neighbours: authz-*, rbac-*, ui-policy*, cross-site-*, flag-register, inventory-strict, i18n-coverage,
 error-shape, await-precedence, server-size-budget, readme-truth, simplicity-budget, ppm-rollback-scripts, exec-*,
-pptx-monthly-golden, shell-navigation, business-only-boundary, capability-registry, connector-register (338/338) +
+pptx-monthly-golden, shell-navigation, business-only-boundary, capability-registry, connector-register (338/338; after merging sdp-waves df506f0: 408/408 incl. export-* ) +
 figure/home/kpi/sla/state/url/ux/connector/wan-claims/page/a11y (162/162). `npx eslint .` clean. Artefacts regenerated
-(inventory, inventory --strict, flag register, AUTHZ-MATRIX + authz-matrix.json, suite manifest 5156).
+(inventory, inventory --strict, flag register, AUTHZ-MATRIX + authz-matrix.json, suite manifest 5226 after the merge).
 
 ## Human decisions (not taken)
 - Every dark switch: owner, canary site, rollback trigger, success metric, deadline, expiry (fill the sidecar).

@@ -1,0 +1,58 @@
+/* W2-UI — interactive Gantt v2 (lib/ganttV2.js). Brand tokens from _tokens.css; red = #B91C1C (critical path, as today). */
+.g2-tools { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin:6px 0; }
+.g2-lbl { flex-direction:row; align-items:center; gap:6px; font-size:12px; color:#6b7785; display:inline-flex; }
+.g2-grp { display:inline-flex; gap:4px; align-items:center; }
+.g2-live { min-height:1em; }
+.g2-split { display:flex; border:1px solid #e4e8ee; border-radius:10px; overflow:hidden; background:#fff; }
+.g2-grid { flex:0 0 auto; max-width:46%; display:flex; flex-direction:column; border-right:2px solid #e4e8ee; overflow-x:auto; overflow-y:hidden; }
+.g2-ghead { height:40px; display:flex; background:#f4f6f7; border-bottom:1px solid #e4e8ee; flex:0 0 auto; }
+.g2-ghead .g2-c { font-weight:600; line-height:40px; }
+.g2-gbody { flex:1 1 auto; overflow:hidden; position:relative; }
+.g2-gin { position:relative; }
+.g2-row { position:absolute; left:0; right:0; height:26px; display:flex; border-bottom:1px solid #f0f2f5; }
+.g2-row:nth-child(even) { background:#fafbfc; }
+.g2-rcrit .g2-c:first-child { box-shadow:inset 3px 0 0 #B91C1C; }
+.g2-c { flex:0 0 auto; box-sizing:border-box; padding:0 6px; font-size:12px; line-height:26px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; border-right:1px solid #f0f2f5; }
+.g2-c:focus { outline:2px solid var(--edv-orange,#E87722); outline-offset:-2px; }
+.g2-ed { cursor:text; }
+.g2-inp { width:100%; box-sizing:border-box; height:22px; padding:1px 4px; font-size:12px; border:1px solid var(--edv-slate,#3A4A60); border-radius:4px; }
+.g2-tl { flex:1 1 auto; overflow:auto; position:relative; }
+.g2-tin { position:relative; }
+.g2-thead { position:sticky; top:0; height:40px; background:#f4f6f7; border-bottom:1px solid #e4e8ee; z-index:2; }
+.g2-tmaj, .g2-tmin { position:absolute; box-sizing:border-box; border-left:1px solid #dfe3ea; font-size:11px; color:#4A5563; padding-left:3px; white-space:nowrap; overflow:hidden; }
+.g2-tmaj { top:0; height:20px; line-height:20px; font-weight:600; }
+.g2-tmin { top:20px; height:20px; line-height:20px; color:#6b7785; }
+.g2-svg { position:absolute; left:0; display:block; }
+.g2-zebra { fill:#fafbfc; }
+.g2-bar .g2-fill { fill:#3A4A60; }
+.g2-bar.g2-comp .g2-fill { fill:url(#g2hatch); stroke:#3A4A60; }
+.g2-bar.g2-crit .g2-fill, .g2-ms.g2-crit path { fill:#B91C1C; }
+.g2-bar.g2-sum .g2-fill { fill:#1F2A33; }
+.g2-ms path { fill:#3A4A60; }
+.g2-bar { cursor:grab; outline:none; }
+.g2-bar:focus .g2-fill, .g2-bar:focus path { stroke:var(--edv-orange,#E87722); stroke-width:2; }
+.g2-prog { fill:#1E7B45; }
+.g2-base { fill:none; stroke:#9AA4B2; stroke-dasharray:4 3; }
+.g2-rz { fill:transparent; cursor:ew-resize; }
+.g2-lh { fill:#fff; stroke:#3A4A60; cursor:crosshair; opacity:.0; }
+.g2-bar:hover .g2-lh, .g2-bar:focus .g2-lh { opacity:1; }
+.g2-link { fill:none; stroke:#6b7785; stroke-width:1; }
+.g2-link.g2-typed { stroke-dasharray:3 2; }
+.g2-tmp { stroke:var(--edv-orange,#E87722); stroke-width:2; stroke-dasharray:4 2; }
+.g2-today-l { stroke:#B45309; stroke-width:2; }
+.g2-ns { font-size:11px; fill:#6b7785; }
+.g2-tbl th, .g2-tbl td { white-space:nowrap; font-size:12px; }
+.g2-gcell { vertical-align:bottom; height:42px; min-width:34px; text-align:center; }
+.g2-gbar { display:block; margin:0 auto; width:14px; background:#3A4A60; }
+.g2-gbar.g2-over { background:#B91C1C; }
+.g2-net svg { display:block; }
+.g2-node rect { fill:#fff; stroke:#3A4A60; }
+.g2-node.g2-crit rect { stroke:#B91C1C; stroke-width:2; }
+.g2-node text { font-size:12px; fill:#1F2A33; }
+.g2-node .g2-nsub { font-size:10.5px; fill:#6b7785; }
+.g2-list { list-style:none; margin:0; padding:0; }
+.g2-li { padding:8px 4px; border-bottom:1px solid #f0f2f5; }
+.g2-li.g2-rcrit { box-shadow:inset 3px 0 0 #B91C1C; padding-left:8px; }
+.g2-open { background:none; border:none; padding:0; font:inherit; font-weight:600; color:#1F2A33; cursor:pointer; text-align:left; }
+@media (max-width: 560px) { .g2-split { height:auto !important; } .g2-grid { max-width:60%; } }
+@media (prefers-reduced-motion: reduce) { .g2-lh { transition:none; } }

@@ -1,4 +1,5 @@
 'use strict';
+const xpGate = require('../services/exportPolicy').gate;   // P9 / B7 — one export policy (allow / mask / deny + export log + watermark)
 // ─────────────────────────────────────────────────────────────────────────
 // Activity Tracker routes — extracted from server.js (E-A01b, expert audit 2026-11-05).
 // /api/tracker/{load,save,import-dept-meetings,export,reset,delete-year}: same paths, same
@@ -143,7 +144,7 @@ module.exports = function trackerRoutes(deps) {
   // POST /api/tracker/export — generate PPTX server-side and return as download
   // Requires executive or super_admin role (same as exec report export)
   // RBAC audit 2026-10-02 (A2): the button shows for tracker-admin; the route now agrees.
-  router.post('/api/tracker/export', requireReportSession, requireRole(['admin', 'tracker-admin']), async (req, res) => {
+  router.post('/api/tracker/export', requireReportSession, requireRole(['admin', 'tracker-admin']), xpGate('tracker.pptx'), async (req, res) => {
     try {
       if (!trackerDb)   return res.status(503).json({ error: 'Tracker module not available' });
       if (!trackerPptx) return res.status(503).json({ error: 'PPTX module not available' });

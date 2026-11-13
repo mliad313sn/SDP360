@@ -12,12 +12,12 @@
   "expiry"
  ],
  "counts": {
-  "report_config": 262,
+  "report_config": 265,
   "planned": 9,
   "governance_policies": 37,
   "environment": 62,
   "pseudo": 4,
-  "dark": 128,
+  "dark": 131,
   "dark_complete": 0
  },
  "frozen_lots_source": "CLAUDE.md (tools/deploy/frozen-lots.json absent on this branch)",
@@ -1019,6 +1019,30 @@
    "prerequisites": null
   },
   {
+   "key": "export_policy_strict",
+   "source": "report_config",
+   "kind": "setting",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": "Data owner + Security",
+   "recommended": "`1` once the data owner + security adopt the strict sensitivity matrix of `services/exportPolicy.js` (PROPOSED: viewer refused on the PV / pre-brief / action-register exports, fleet risk register admin tier only, amounts in every export for the admin tier + finance-viewer only — ends the portfolio committee-member exception). Rollback: `0`",
+   "reference": "P9-B7",
+   "prerequisites": null
+  },
+  {
+   "key": "export_watermark_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": "Security",
+   "recommended": "`1` with the strict policy (user + UTC timestamp on CSV / HTML / XLSX / PPTX; PDF and JSON carry it as a header only). Rollback: `0`",
+   "reference": "P9-B7",
+   "prerequisites": null
+  },
+  {
    "key": "field_outbox_resolve_enabled",
    "source": "report_config",
    "kind": "arm switch",
@@ -1796,6 +1820,18 @@
    "owner_role": "Finance",
    "recommended": "an explicit rate table (JSON `{target, rates, as_of, source}`) only if Finance wants a converted portfolio total next to the per-currency figures; empty = no converted view (never guessed)",
    "reference": "W1-EVM",
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_gantt_v2_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": "PMO",
+   "recommended": "PROPOSED `1` once the PMO has tried it on a pilot project: the Plan tab shows the interactive, virtualised Gantt (zoom day/week/month/quarter, drag to move, drag the edge to resize, drag the handle to link FS, undo/redo, inline grid edits of name/duration/start/predecessors/% complete with the row version — a 409 reloads), plus Task usage / Resource usage / Resource graph / Network / List (the list is the fallback at 560 px). Writes go through the existing task route and plan-write guard only. `0` = today's read-only SVG Gantt. Rollback: `0` (nothing stored by the switch)",
+   "reference": "W2-UI",
    "prerequisites": null
   },
   {
@@ -5418,6 +5454,62 @@
    ]
   },
   {
+   "key": "export_policy_strict",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": "Data owner + Security",
+   "reference": "P9-B7",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
+   "key": "export_watermark_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": "Security",
+   "reference": "P9-B7",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
    "key": "field_outbox_resolve_enabled",
    "source": "report_config",
    "default": "0",
@@ -6375,6 +6467,34 @@
    "default": "0",
    "owner_role": "PMO + Finance",
    "reference": "W1-EVM",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
+   "key": "ppm_gantt_v2_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": "PMO",
+   "reference": "W2-UI",
    "prerequisites": null,
    "decision": {
     "owner": null,

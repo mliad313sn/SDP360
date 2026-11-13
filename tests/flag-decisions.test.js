@@ -24,7 +24,7 @@ test('JSON covers every report_config key, policy and env variable; secrets carr
   assert.ok(j.environment.some((e) => e.key === 'AI_PROVIDER'));
 });
 
-test('every dark switch is in the decisions list, including today\'s lots (P2..P8, D2, D3) and the pseudo-rows', () => {
+test('every dark switch is in the decisions list, including today\'s lots (P2..P9, D2, D3) and the pseudo-rows', () => {
   const j = JSON.parse(read(FR.OUT_JSON));
   const dark = new Set(j.dark.map((d) => d.key));
   const { DEFAULTS, _SECRET_BLANK_KEEP } = require('../services/reportConfig');
@@ -37,6 +37,7 @@ test('every dark switch is in the decisions list, including today\'s lots (P2..P
     'decision_motive_required', 'soft_delete_two_person', 'breakglass_timebox_enabled', // P6
     'ppm_timesheet_approval_enabled', 'ppm_cr_simulation_enabled', 'portfolio_sensitive_projects', 'roadmap_audience_publication_enabled', // P7
     'wan_sla_claims_enabled',                                                          // P8
+    'export_policy_strict', 'export_watermark_enabled',                                // P9
     'value_scoreboard_enabled', 'exec_pack_portfolio_slide', 'exec_view_min_cell',    // D2 / D3
     'frozen:tracker_green_band_90', 'frozen:installer_safety_parity', 'sla_wan_config.notify.enabled',
   ]) assert.ok(dark.has(k), `${k} missing from the dark list`);
