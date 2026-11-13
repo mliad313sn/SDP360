@@ -78,7 +78,7 @@ metric is absent from that file and `--check` fails).
 | `commitments.serious_unowned` | commitments | count | untriaged | — | — | — | — | — | — | `services/commitmentMetrics.js` | — |
 | `commitments.serious_overdue` | commitments | count | untriaged | — | — | — | — | — | — | `services/commitmentMetrics.js` | — |
 | `commitments.technical_vs_verified` | commitments | % | untriaged | — | — | — | — | — | — | `services/commitmentMetrics.js` | — |
-| `governance.decision_cycle_days` | governance | days | untriaged | — | — | — | — | — | — | `services/decisionCycle.js` | 1 file(s) |
+| `governance.decision_cycle_days` | governance | days | untriaged | — | — | — | — | — | — | `services/decisionCycle.js`<br>`services/valueScoreboard.js` | 1 file(s) |
 
 ## Metrics named by no widget, rule, page or server code
 

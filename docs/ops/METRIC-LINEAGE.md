@@ -1107,4 +1107,4 @@ Metrics: **53** · named by no code outside tests (decision pending): **10**
 | Certification | not certified — F-DATA-11 pending |
 | Versioned contract | kpi_policies (adopted version read at run time — not in this file) |
 | Freshness | not tracked (no sync job feeds this module) |
-| Consumers | server code: `services/decisionCycle.js` · tests: 1 file(s) |
+| Consumers | server code: `services/decisionCycle.js`<br>server code: `services/valueScoreboard.js` · tests: 1 file(s) |
