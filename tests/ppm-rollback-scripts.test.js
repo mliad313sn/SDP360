@@ -22,7 +22,9 @@ const PPM = ['010_roadmap', '011_roadmap_project', '039_native_ppm', '043_portfo
   // P7a / B3 + B6 — sensitive flag + audience-scoped roadmap publications
   '101_portfolio_sensitive_roadmap_audience',
   // P7 / B4-B5 — timesheet week approval + change-request simulation
-  '102_ppm_timesheets_cr_simulation'];
+  '102_ppm_timesheets_cr_simulation',
+  // W4 (PPM parity, enterprise) — per-project roles + append-only comments with @mentions
+  '108_ppm_roles_comments'];
 
 async function snapshot(pg) {
   const q = async (sql) => (await pg.prepare(sql).all()).map((r) => Object.values(r).join('|'));

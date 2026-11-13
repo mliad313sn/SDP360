@@ -11,6 +11,7 @@
 //   E-P08 ppm_annual_pack_enabled    GET /api/governance/ppm/annual-pack.xlsx?year=YYYY  DRAFT pack (money rule; RFI sheet committee)
 //   R2-WORKBENCH (team, time, change requests): routes/governanceWorkbench.js, registered at the end of this file
 //   W1-EVM ppm_evm_enabled           earned value (project / portfolio / task fields): routes/governanceEvm.js, same
+//   W4 ppm_project_roles_enabled / ppm_comments_enabled: routes/governanceCollab.js (roles, comments + @mentions)
 //   GET  /api/governance/ppm/features  which of these switches are on (the pages show a tab / panel only then)
 // Paths live under /api/governance/ppm/ so they never collide with /portfolio/:kind.
 const { fail: httpFail } = require('../services/httpError');
@@ -29,7 +30,8 @@ module.exports = function governancePpmRoutes(router, h) {
       const c = await cfg();
       res.json({ ok: true, capacity: on(c, 'ppm_capacity_view'), budget_periods: on(c, 'ppm_budget_periods_enabled'), benefit_owner_link: on(c, 'benefit_owner_link_enabled'), benefit_value_class: on(c, 'benefit_value_class_enabled'), raci: on(c, 'ppm_raci_enabled'), templates: on(c, 'ppm_templates_enabled'), annual_pack: on(c, 'ppm_annual_pack_enabled'),
         team: on(c, 'ppm_project_team_enabled'), time_entries: on(c, 'ppm_time_entries_enabled'), change_requests: on(c, 'ppm_change_requests_enabled'), evm: on(c, 'ppm_evm_enabled'), portfolio_views: on(c, 'portfolio_views_enabled'), roadmap_publication: on(c, 'roadmap_publication_enabled'), schedule_v2: on(c, 'ppm_schedule_engine_v2_ui'),
-        timesheets: on(c, 'ppm_time_entries_enabled') && on(c, 'ppm_timesheet_approval_enabled'), cr_simulation: on(c, 'ppm_change_requests_enabled') && on(c, 'ppm_cr_simulation_enabled') });
+        timesheets: on(c, 'ppm_time_entries_enabled') && on(c, 'ppm_timesheet_approval_enabled'), cr_simulation: on(c, 'ppm_change_requests_enabled') && on(c, 'ppm_cr_simulation_enabled'),
+        project_roles: on(c, 'ppm_project_roles_enabled'), comments: on(c, 'ppm_comments_enabled'), agile_board: on(c, 'ppm_agile_board_enabled'), roadmap_nnl: on(c, 'ppm_roadmap_nnl_enabled'), offline_edit: on(c, 'ppm_offline_edit_enabled') });   // W4
     } catch (e) { fail(res, e); }
   });
 
@@ -151,4 +153,6 @@ module.exports = function governancePpmRoutes(router, h) {
   require('./governanceWorkbench')(router, h);
   // W1-EVM (PPM parity E-EVM-1): earned value — routes/governanceEvm.js (switch ppm_evm_enabled)
   require('./governanceEvm')(router, h);
+  // W4 (PPM parity, enterprise): project roles + comments with @mentions — routes/governanceCollab.js
+  require('./governanceCollab')(router, h);
 };

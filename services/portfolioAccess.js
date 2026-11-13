@@ -46,18 +46,22 @@ const _holdsSite = (user, sites) => { const mine = userSites.siteIds(user); retu
 const isSensitive = (project) => !!project && (project.sensitive === true || Number(project.sensitive) === 1);
 /** memberProjectIds: ids of the projects where the user is a named team member (ppm_project_members.user_id). */
 const _isMember = (project, ctx) => (ctx.memberProjectIds || []).map(Number).includes(Number(project.id));
+// W4 — a user holding a PROJECT ROLE on a project (ppm_project_members.ppm_role) reads it while the PROPOSED switch
+// ppm_project_roles_enabled = '1' (ctx.rolesOn, ctx.roleMemberProjectIds). '0' = today: the role means nothing.
+const _isRoleMember = (project, ctx) => !!ctx.rolesOn && !!project && (ctx.roleMemberProjectIds || []).map(Number).includes(Number(project.id));
 
-/** ctx: { scopeOn, sensitiveOn, isCommittee, isAdmin, extraSites, memberProjectIds } */
+/** ctx: { scopeOn, sensitiveOn, isCommittee, isAdmin, extraSites, memberProjectIds, rolesOn, roleMemberProjectIds } */
 function canReadProject(user, project, ctx = {}) {
   if (ctx.sensitiveOn && isSensitive(project)) {
     if (ctx.isCommittee || ctx.isAdmin) return true;
-    if (ownerMatches(project, user) || _isMember(project, ctx)) return true;
+    if (ownerMatches(project, user) || _isMember(project, ctx) || _isRoleMember(project, ctx)) return true;
     const sites = projectSiteIds(project, ctx.extraSites);
     return sites.length > 0 && _holdsSite(user, sites);   // group-level sensitive: committee, owner and members only
   }
   if (!ctx.scopeOn) return true;                       // today: every session reads every project
   if (ctx.isCommittee || ctx.isAdmin) return true;
   if (!project) return false;
+  if (_isRoleMember(project, ctx)) return true;        // W4 — a named project role opens reading this project
   const sites = projectSiteIds(project, ctx.extraSites);
   if (!sites.length) return true;                      // group-level project
   if (_holdsSite(user, sites)) return true;

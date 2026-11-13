@@ -19,7 +19,9 @@
 <script nonce="%%CSP_NONCE%%" src="lib/urlFilters.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/portfolioViews.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/portfolioMine.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/ppmRoadmapNnl.js"></script>
 <style nonce="%%CSP_NONCE%%">
+  .nnl { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:10px; } .nnl-col { background:#f4f6f7; border-radius:10px; padding:8px; } .nnl-col h3 { margin:0 0 6px; font-size:13px; } .nnl-col ul { margin:0; padding-left:16px; font-size:12.5px; }
   body { margin:0; background:var(--color-background,#f4f6f7); color:#1F2A33; font-family:var(--font-sans,"Libre Franklin",system-ui,sans-serif); font-size:14px; }
   .wrap { max-width:1360px; margin:0 auto; padding:24px; }
   h1 { margin:0 0 4px; font-size:22px; color:var(--edv-slate,#3A4A60); } h2 { margin:0 0 10px; font-size:15px; color:#3A4A60; } .sub { font-size:13px; color:#6b7785; margin-bottom:14px; }
@@ -72,6 +74,8 @@
   <div class="panel"><h2>Schedule (projects &amp; milestones)</h2>
     <nav class="bar" id="pf-views" aria-label="Portfolio views" hidden><a class="btn pf-view primary" href="?view=timeline" data-view="timeline" aria-current="page">Timeline</a> <a class="btn pf-view" href="?view=list" data-view="list">List</a> <a class="btn pf-view" href="?view=board" data-view="board">Board</a></nav>
     <div id="list-view" hidden></div><div id="board" hidden></div><div id="timeline"></div><p class="muted">Keyboard: Tab to a project key, then the arrow keys move between projects and Enter opens the project page. The table view holds the same data.</p><details><summary class="muted">Table view (dates, plan, alerts)</summary><div class="scroll" id="gantt"></div></details></div>
+  <!-- W4 (PPM parity) — Now / Next / Later, only while ppm_roadmap_nnl_enabled = '1' (a pure grouping of the projects shown) -->
+  <div class="panel" id="nnl-panel" hidden><h2>Roadmap — now, next, later</h2><div class="scroll" id="nnl"></div></div>
   <div class="panel"><h2>Resource conflicts</h2><div class="scroll" id="conflicts"></div></div>
   <div class="panel"><h2>Resource pressure per person and week</h2><div class="scroll" id="pressure"></div></div>
   <div class="panel" id="capacity-panel" hidden><h2>Capacity per site and week</h2><div class="scroll" id="capacity"></div></div>
@@ -237,7 +241,7 @@
       // E-P06 — project templates (switch ppm_templates_enabled; 404 while off = panel stays hidden)
       loadTemplates();
       // E-P08 — the annual DRAFT pack link exists only while ppm_annual_pack_enabled is on
-      api("/api/governance/ppm/features").then(function (f) { $("annual-panel").hidden = !f.annual_pack; VIEWS_ON = !!f.portfolio_views; drawViews(); }).catch(function () { $("annual-panel").hidden = true; });
+      api("/api/governance/ppm/features").then(function (f) { $("annual-panel").hidden = !f.annual_pack; VIEWS_ON = !!f.portfolio_views; drawViews(); if (f.roadmap_nnl && window.PpmRoadmapNnl) { $("nnl").innerHTML = window.PpmRoadmapNnl.html(window.PpmRoadmapNnl.group(v.projects || [], { today: new Date().toISOString().slice(0, 10) }), esc); $("nnl-panel").hidden = false; } }).catch(function () { $("annual-panel").hidden = true; });
       BOARD = { gantt: v.gantt, stages: v.stages || [] };
       var plans = {}; (v.plans || []).forEach(function (x) { plans[x.project_id] = x; });
       var stages = v.stages || [];

@@ -7,6 +7,9 @@
 (function (root) {
   'use strict';
   const STATIC = {
+    // W4 — Now / Next / Later panel (texts of lib/ppmRoadmapNnl.js)
+    'Roadmap — now, next, later': 'Feuille de route — maintenant, ensuite, plus tard', 'Now': 'Maintenant', 'Next': 'Ensuite', 'Later': 'Plus tard', 'Not scheduled': 'Non planifié',
+    'None.': 'Aucun.', 'late': 'en retard',
     // B3 / B6 (P7a)
     'Show': 'Afficher', 'My projects': 'Mes projets', 'All projects': 'Tous les projets',
     'Totals and money still cover every project you may read.': 'Les totaux et les montants couvrent toujours tous les projets que vous pouvez lire.',
