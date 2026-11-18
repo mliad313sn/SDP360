@@ -72,7 +72,7 @@ jobs:
           echo /usr/lib/postgresql/17/bin >> "$GITHUB_PATH"
       # E-Q01 — Python for the deck renderer test (tests/exec-pptx-python.test.js): pinned interpreter +
       # pinned packages from tools/exec-pptx/requirements.txt. Test tooling only — never in the package.
-      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
       - name: Python packages for the deck renderer (pinned requirements)
