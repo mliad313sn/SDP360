@@ -13,6 +13,10 @@ All lots are RELAUNCHED from base `94265ac` (= `11d831a` + handoff notes). The t
 results as reference for what each lot found; their SHAs no longer exist.
 **New rule: merge + push each lot as soon as it reports** (only the designated branch may be pushed, so that is the
 only durable store). Never leave finished work only in a local branch.
+Relaunched agent ids (2026-11-19): P01 a1ba43df417509253, P02 a16d92f1476537c9a, P03 aa04c3d3a094e25a1,
+P04 a1b5bf21c70f35f4c, P05 a97869d74924ca653 (resumed, base 11d831a), P06 a5c044dc4be11d7f8,
+P07 acff067ab54912f98, P08 aac6337a596ce8f15, P09 a6d3fa1430bb26ed5, P10 a1278946d9e25df2a.
+Relaunch prompts = launch prompt + "RELAUNCH" paragraph (summary of the first run); base e8900a7.
 
 ## Where things stand
 - Working checkout: `/home/user/SDP360` (was `/home/user/fixinst`, local branch `sdp-waves`). Push with
