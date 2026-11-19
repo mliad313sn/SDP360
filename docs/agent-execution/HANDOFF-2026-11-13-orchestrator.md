@@ -109,3 +109,12 @@ node tools/test/run-all.js > /home/user/suite.log 2>&1     # full suite, ~18 min
 - Gate owners (21 dossiers).
 - PPM: RAG thresholds, phase model, gate approvers, report recipients, .mpp converter, Jira/Azure DevOps service accounts.
 - Every switch stays off until a lot is approved.
+
+## 2026-11-19 15:20 UTC — CI green, P11 launched
+- CI run 353 on 7eee8955: test + e2e GREEN (after: e2e fix merge 4651cf33, test timeout 35 min, CSP-JOURNEYS + persona matrix regenerated).
+- P11 frozen SHA 7eee8955568c0bcab2a6329f838ee432ffca9fd1, LOCAL tag qual-p11-7eee8955 (not pushed). No merge to the trunk during the run.
+- Six AI seats, clean clones /home/user/qual/<seat> (docs/agent-execution removed except gate-dossiers), findings to /home/user/qual/out/<seat>.md:
+  security ae0c79a210f9fa62e · data-kpi a3915dc5ae6ee49fe · ppm a394d7d8cfff89615 · operations a461af565cb6faa63 ·
+  ux-field a0459067130c16691 · audit a1f0f45fcef94685a. Briefs: /home/user/tools-orch/p11-seats.json (ephemeral; template in this note's history).
+- After the seats report: consolidate into docs/agent-execution/P11-readiness-report.md + residual-risk register + per-lot AI recommendation;
+  P0/P1 → back to implementation and restart P11 at a new SHA.
