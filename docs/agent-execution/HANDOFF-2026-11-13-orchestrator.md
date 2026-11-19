@@ -118,3 +118,13 @@ node tools/test/run-all.js > /home/user/suite.log 2>&1     # full suite, ~18 min
   ux-field a0459067130c16691 · audit a1f0f45fcef94685a. Briefs: /home/user/tools-orch/p11-seats.json (ephemeral; template in this note's history).
 - After the seats report: consolidate into docs/agent-execution/P11-readiness-report.md + residual-risk register + per-lot AI recommendation;
   P0/P1 → back to implementation and restart P11 at a new SHA.
+
+## 2026-11-19 19:40 UTC — P11 round 1 done, fixes merged, round 2 launched
+- Round 1 report: docs/agent-execution/P11-readiness-report.md (+ seat files in docs/agent-execution/p11/round1-7eee8955/).
+- Fixes merged: fix1 (group-run share/read, CSAT null), fix2 (survey+assets truncation guard, /ready probe), fix3 (plan bounds,
+  resilient portfolio, EVM AC), fix4 (field outbox 409, action conflicts, SW no /api/ cache), fix5 (commitment four-eyes, todo guard,
+  run-scoped DB sweep) + flag-register recursive scan + full-suite drift. CI run 363 GREEN on b2e85cd0.
+- Round 2 frozen SHA b2e85cd08860a57526442797ac711e2fc9defc3a (local tag qual-p11-b2e85cd0). Seat outputs: /home/user/qual/out/r2-<seat>.md.
+  Agents: security aa10d194af71193b0 · data-kpi affdf8cccfafb8e7c · ppm a63fe916fd46f058e · operations acb4c7d7b3a3cba2a ·
+  ux-field a308901ad6e898332 · audit a3bd131a7eb43ddc5. Open human decision from round 1: SEC-F2 committee money.
+- PG local: max_connections raised to 400 (env only).
