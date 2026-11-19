@@ -72,10 +72,40 @@ function timePhase(cost, a, b) {
   return out;
 }
 
+// ── P11 R2-2: the engine phases by ARITHMETIC, never by enumerating days ───────────────────────────────────────────
+// A per-day map costs one entry per calendar day of the baseline window: a baseline to year 2200 (in bounds) or 9999
+// (a legacy row) took seconds to minutes per read and blocked the server. The same linear spread is computed in O(1)
+// per question (how many spread days up to a date, inside a month) — the figures are identical to the per-day map.
+// timePhase() above stays as the per-day reference helper (tests); the engine uses phaseOf().
+const dayIdx = (d) => Math.floor(ms(d) / DAY);
+const mod7 = (n) => ((n % 7) + 7) % 7;
+/** Mon–Fri days among day indices [0, n) — day 0 = 1970-01-01, a Thursday; valid for negative n too. */
+function _wdBefore(n) { let c = Math.floor(n / 7) * 5; for (let i = 0, r = mod7(n); i < r; i++) { const w = (4 + i) % 7; if (w !== 0 && w !== 6) c++; } return c; }
+const _wdIn = (a, b) => (a > b ? 0 : _wdBefore(b + 1) - _wdBefore(a));
+/** The linear spread of `cost` over [a, b] (working days; a weekend-only window over its calendar days), or null. */
+function phaseOf(cost, a, b) {
+  const c = num(cost), x = day(a), y = day(b);
+  if (c == null || !x || !y || ms(x) > ms(y)) return null;
+  const i0 = dayIdx(x), i1 = dayIdx(y), wd = _wdIn(i0, i1);
+  return { cost: c, i0, i1, weekdays: wd > 0, n: wd > 0 ? wd : i1 - i0 + 1 };
+}
+/** spread days of a phase inside day indices [a, b]. */
+function _unitsIn(ph, a, b) { const lo = Math.max(ph.i0, a), hi = Math.min(ph.i1, b); if (lo > hi) return 0; return ph.weekdays ? _wdIn(lo, hi) : hi - lo + 1; }
 /** Σ of the phased amounts on days ≤ statusDate (null when the phasing is unknown). */
-const cumulativeTo = (phased, statusDate) => (phased == null ? null : Object.keys(phased).reduce((s, d) => (d <= statusDate ? s + phased[d] : s), 0));
-/** phased amounts summed per month → { 'YYYY-MM': amount }. */
-function byMonth(phased) { const out = {}; for (const d of Object.keys(phased || {})) out[month(d)] = (out[month(d)] || 0) + phased[d]; return out; }
+const cumulativeTo = (ph, statusDate) => (ph == null ? null : ph.cost * _unitsIn(ph, ph.i0, dayIdx(statusDate)) / ph.n);
+/** phased amounts summed per month → { 'YYYY-MM': amount } (one step per month of the window). */
+function byMonth(ph) {
+  const out = {}; if (!ph) return out;
+  const d0 = new Date(ph.i0 * DAY), d1 = new Date(ph.i1 * DAY);
+  for (let y = d0.getUTCFullYear(), m = d0.getUTCMonth(); y < d1.getUTCFullYear() || (y === d1.getUTCFullYear() && m <= d1.getUTCMonth()); m === 11 ? (y++, m = 0) : m++) {
+    const u = _unitsIn(ph, Math.floor(Date.UTC(y, m, 1) / DAY), Math.floor(Date.UTC(y, m + 1, 0) / DAY));
+    if (u > 0) out[`${String(y).padStart(4, '0')}-${String(m + 1).padStart(2, '0')}`] = ph.cost * u / ph.n;
+  }
+  return out;
+}
+// The S-curve answers at most this many monthly points (years 1970..2200, the plan bounds of ADR-P11-F1); a longer
+// window (legacy row) is cut around the status month and flagged `s_curve_truncated`.
+const MAX_CURVE_MONTHS = (2200 - 1970 + 1) * 12;
 
 /** The fraction of a month's working days that are ≤ statusDate (0 before the month, 1 after it). */
 function monthFractionTo(period, statusDate) {
@@ -237,7 +267,7 @@ function projectEvm({ project = {}, tasks = [], evmFields = {}, baselinePayload 
     const be = day(t.baseline_end) || (fz ? day(fz.baseline_end || fz.end_date) : null);
     const bac = num(f.baseline_cost);
     const currency = f.cost_currency && /^[A-Z]{3}$/.test(f.cost_currency) ? f.cost_currency : null;
-    const phased = bac == null ? null : timePhase(bac, bs, be);
+    const phased = bac == null ? null : phaseOf(bac, bs, be);
     const pv = cumulativeTo(phased, sd);
     const frac = earnedFraction(t, f, sd);
     const ev = bac == null || frac == null ? null : bac * frac;
@@ -277,6 +307,17 @@ function projectEvm({ project = {}, tasks = [], evmFields = {}, baselinePayload 
     if (!es.length) continue;
     const f = F(t.id);
     extras.push({ id: Number(t.id), kind, currency: f.cost_currency && /^[A-Z]{3}$/.test(f.cost_currency) ? f.cost_currency : null,
+      capex_opex: COST_CLASSES.includes(f.capex_opex) ? f.capex_opex : null, _entries: es, _rate: num(f.cost_rate), hours: _hoursOf(es) });
+  }
+  // P11 R2-1: hours on a task that is no longer in the plan (soft-deleted, or hidden under a soft-deleted parent) are
+  // money already spent — they stay in AC at that task's rate (its fields, else the ones the store attached to the entry)
+  const known = new Set((tasks || []).filter(Boolean).map((t) => Number(t.id)));
+  for (const [id, all] of entries) {
+    if (known.has(id)) continue;
+    const es = all.filter((e) => day(e.day) && day(e.day) <= sd);
+    if (!es.length) continue;
+    const f0 = F(id), f = Object.keys(f0).length ? f0 : (es[0] || {});
+    extras.push({ id, kind: 'deleted', currency: f.cost_currency && /^[A-Z]{3}$/.test(f.cost_currency) ? f.cost_currency : null,
       capex_opex: COST_CLASSES.includes(f.capex_opex) ? f.capex_opex : null, _entries: es, _rate: num(f.cost_rate), hours: _hoursOf(es) });
   }
   const extrasNoCurrency = extras.filter((x) => !x.currency);
@@ -325,6 +366,7 @@ function projectEvm({ project = {}, tasks = [], evmFields = {}, baselinePayload 
       if (items.some((l) => _hoursOf(l._entries) == null)) reasons.push('hours_unknown');
       if (xs.some((x) => x.kind === 'cancelled')) reasons.push('actuals_on_cancelled_tasks');
       if (xs.some((x) => x.kind === 'summary')) reasons.push('actuals_on_summary_tasks');
+      if (extras.some((x) => x.kind === 'deleted' && (x.currency === cur || !x.currency))) reasons.push('actuals_on_deleted_tasks');   // P11 R2-1
       if (extrasNoCurrency.length) reasons.push('actuals_currency_unknown');
     }
     const fv = (forecastView.currencies || []).find((c) => c.currency === cur);
@@ -336,7 +378,9 @@ function projectEvm({ project = {}, tasks = [], evmFields = {}, baselinePayload 
       split[cls] = xs.length || xx.length ? { tasks: xs.length, bac: r2(sumOf(xs, 'bac')), pv: r2(sumOf(xs, 'pv')), ev: r2(sumOf(xs, 'ev')), ac: acts.length || extrasNoCurrency.length ? null : r2(_acFromHours([...xs, ...xx])) } : null;
     }
     const raw = { currency: cur, bac, pv, ev, ac, eac_forecast };
-    return { currency: cur, ...indicators(raw), sources, reasons, coverage: { leaves: leaves.length, costed_in_currency: ls.length, uncosted_task_ids: uncosted }, capex_opex: split, s_curve: sCurve({ leaves: ls, acItems: extrasNoCurrency.length ? null : [...ls, ...extras.filter((x) => x.currency === cur)], base, acts, sd, tasksComplete, bac, ev }), _raw: raw };
+    const curve = sCurve({ leaves: ls, acItems: extrasNoCurrency.length ? null : [...ls, ...extras.filter((x) => x.currency === cur)], base, acts, sd, tasksComplete, bac, ev });
+    if (curve.truncated) reasons.push('s_curve_truncated');   // P11 R2-2
+    return { currency: cur, ...indicators(raw), sources, reasons, coverage: { leaves: leaves.length, costed_in_currency: ls.length, uncosted_task_ids: uncosted }, capex_opex: split, s_curve: curve, _raw: raw };
   });
   return {
     project_id: project.id == null ? null : Number(project.id), status_date: sd, ev_methods: EV_METHODS,
@@ -361,11 +405,18 @@ function sCurve({ leaves, acItems, base, acts, sd, tasksComplete, bac, ev }) {
   if (acts.length) for (const r of acts) acByMonth[r.period] = (acByMonth[r.period] || 0) + num(r.amount);
   const months = [...new Set([...Object.keys(pvByMonth), ...Object.keys(acByMonth), month(sd)])].sort();
   if (!months.length || (base.length === 0 && !tasksComplete && !acts.length)) return [];
-  const all = [], first = months[0], last = months[months.length - 1];
-  for (let y = Number(first.slice(0, 4)), m = Number(first.slice(5, 7)); `${y}-${String(m).padStart(2, '0')}` <= last; m === 12 ? (y++, m = 1) : m++) all.push(`${y}-${String(m).padStart(2, '0')}`);
+  const first = months[0], last = months[months.length - 1];
+  const mIdx = (p) => Number(p.slice(0, 4)) * 12 + Number(p.slice(5, 7)) - 1;
+  const pOf = (i) => `${String(Math.floor(i / 12)).padStart(4, '0')}-${String((i % 12) + 1).padStart(2, '0')}`;
+  // P11 R2-2: never more than MAX_CURVE_MONTHS points; a longer window is cut around the status month (flagged)
+  let lo = mIdx(first), hi = mIdx(last); const truncated = hi - lo + 1 > MAX_CURVE_MONTHS;
+  if (truncated) { const s = mIdx(month(sd)); lo = Math.max(lo, Math.min(s, hi) - Math.floor(MAX_CURVE_MONTHS / 2)); hi = Math.min(hi, lo + MAX_CURVE_MONTHS - 1); }
+  const all = []; for (let i = lo; i <= hi; i++) all.push(pOf(i));
   const acFromTasks = !acts.length;
   let cpv = 0, cac = 0;
-  return all.map((p) => {
+  if (truncated) for (const k of Object.keys(pvByMonth)) if (k < all[0]) cpv += pvByMonth[k];   // the cut months still count
+  if (truncated) for (const k of Object.keys(acByMonth)) if (k < all[0]) cac += acByMonth[k];
+  const out = all.map((p) => {
     cpv += pvByMonth[p] || 0;
     let acv = null;
     if (p <= month(sd)) {
@@ -376,6 +427,8 @@ function sCurve({ leaves, acItems, base, acts, sd, tasksComplete, bac, ev }) {
     }
     return { period: p, pv: r2(base.length || tasksComplete ? cpv : null), ev: p === month(sd) ? r2(ev) : null, ac: r2(acv), bac: r2(bac) };
   });
+  if (truncated) out.truncated = true;
+  return out;
 }
 
 /**
@@ -393,4 +446,4 @@ function portfolioEvm(projects, { rates = null } = {}) {
   return { programmes, currencies, converted: rates ? convert(currencies, rates) : null, never_summed_across_currencies: true, certification: CERTIFICATION };
 }
 
-module.exports = { CERTIFICATION, EV_METHODS, DEFAULT_EV_METHOD, COST_CLASSES, workingDays, spreadDays, timePhase, monthFractionTo, earnedFraction, indicators, rollupByCurrency, convert, projectEvm, portfolioEvm, sCurve };
+module.exports = { CERTIFICATION, MAX_CURVE_MONTHS, EV_METHODS, DEFAULT_EV_METHOD, COST_CLASSES, workingDays, spreadDays, timePhase, monthFractionTo, earnedFraction, indicators, rollupByCurrency, convert, projectEvm, portfolioEvm, sCurve, phaseOf };

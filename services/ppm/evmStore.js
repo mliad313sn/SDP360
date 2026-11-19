@@ -47,11 +47,16 @@ function makeEvmStore(db, gov, { now = () => new Date().toISOString() } = {}) {
     return (await P(`SELECT project_id, period, currency, kind, amount FROM ppm_budget_periods WHERE project_id IN (${inList(p)}) ORDER BY project_id, currency, period, kind`).all(...p))
       .map((r) => ({ project_id: Number(r.project_id), period: r.period, currency: r.currency, kind: r.kind, amount: num(r.amount) }));
   }
-  /** Time entries of LIVE tasks (a soft-deleted task's hours are not served). */
+  /**
+   * Time entries of every task of the projects, INCLUDING soft-deleted tasks (P11 R2-1: hours already logged are money
+   * already spent — the engine keeps them in AC, flagged `actuals_on_deleted_tasks`). Such an entry carries the task's
+   * rate / currency / cost class, since the caller only reads the EVM fields of the live tasks.
+   */
   async function timeEntriesFor(projectIds) {
     const p = ids(projectIds); if (!p.length) return [];
-    return (await P(`SELECT e.task_id, e.day, e.hours, t.project_id FROM ppm_time_entries e JOIN portfolio_tasks t ON t.id = e.task_id WHERE t.project_id IN (${inList(p)}) AND t.deleted_at IS NULL ORDER BY e.task_id, e.day`).all(...p))
-      .map((r) => ({ task_id: Number(r.task_id), project_id: Number(r.project_id), day: r.day, hours: num(r.hours) }));
+    return (await P(`SELECT e.task_id, e.day, e.hours, t.project_id, t.deleted_at, v.cost_rate, v.cost_currency, v.capex_opex FROM ppm_time_entries e JOIN portfolio_tasks t ON t.id = e.task_id LEFT JOIN ppm_task_evm v ON v.task_id = e.task_id WHERE t.project_id IN (${inList(p)}) ORDER BY e.task_id, e.day`).all(...p))
+      .map((r) => ({ task_id: Number(r.task_id), project_id: Number(r.project_id), day: r.day, hours: num(r.hours),
+        ...(r.deleted_at ? { task_deleted: true } : {}), cost_rate: num(r.cost_rate), cost_currency: r.cost_currency || null, capex_opex: r.capex_opex || null }));
   }
   /** The latest baseline version payload per project (frozen task dates), or nothing. */
   async function latestBaselinesFor(projectIds) {
