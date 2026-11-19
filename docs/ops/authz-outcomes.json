@@ -344,7 +344,7 @@
   "GET /api/inspection/repeat-findings": "UUUNNNNNNNNNNNNNNNFFNNN",
   "GET /api/integrations/analytics": "UUUFFFFFFFFFFFFFFFFFFFA",
   "GET /api/kpi-policies": "UUUAAAAAAAAAAAAAAAFFAAA",
-  "GET /api/kpi-policies/:id": "UUUAAAAAAAAAAAAAAAFFAAA",
+  "GET /api/kpi-policies/:id": "UUUNAAAAAAAAAAAAAAFFAAA",
   "GET /api/kpi-policies/:id/diff": "UUUEEEEEEEEEEEEEEEFFEEE",
   "GET /api/kpi-policies/catalogue": "UUUAAAAAAAAAAAAAAAFFAAA",
   "GET /api/kpi-policies/effective/:metric": "UUUAAAAAAAAAAAAAAAFFAAA",
