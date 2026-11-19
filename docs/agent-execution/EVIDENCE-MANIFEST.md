@@ -169,7 +169,7 @@ not the browser-checked level.
 | `docs/agent-execution/G24-DOSSIER-GO-NOGO-FR.md` | G24 | code+test | pending | pending | `0130ead17d7d988951b2adfb2777ec34fd98c24e587b96fbe6fee9e569474cbc` |
 | `docs/agent-execution/G24.md` | G24 | code+test | pending | pending | `2349897316ae9dd2908e50fa872042b53a905f48a9b8854085ff07b8cc2c4ac2` |
 | `docs/agent-execution/HANDOFF-2026-11-13-orchestrator.md` | — (reference) | — | — | — | `3c45bf7fac5be15d5f4c96ae855ce3f2f74f66e3140da5cadbb441dd7ea4d91e` |
-| `docs/agent-execution/INVENTORY-STRICT.md` | — (reference) | — | — | — | `5c611f3a76bbebcf9a932f67394ef2a4a08fec97435c0429c4d7fd8c627bf9ea` |
+| `docs/agent-execution/INVENTORY-STRICT.md` | — (reference) | — | — | — | `968d1b699d649f2851491a7c30c0adc40fd62d74609814287a49b383b0e52b65` |
 | `docs/agent-execution/P02-authz-outcomes.md` | P02 | code+test | pending | pending | `1b3c7c2278a4e5d1a5aa0ca98da31cd64a54cf2d18ee5287ec685243e58ffc81` |
 | `docs/agent-execution/P03-switch-lots.md` | P03 | code+test | pending | pending | `99419412678af916494549fa3c6ef56f7c4f4d94aab09482c800dcccf93caa39` |
 | `docs/agent-execution/P04-ppm-certification.md` | P04 | code+test | pending | pending | `ce601c12654f688fbed18b2feb9a2bdc42734d19de01075a2292838c4e74cca3` |
@@ -189,6 +189,7 @@ not the browser-checked level.
 | `docs/agent-execution/P11-fix2-operations-F01-F02-F03.md` | P11 | code+test | pending | pending | `e5241d0045472e7aaf1e93bb4b97da00d32308cf89c605d63bee50795e7997f8` |
 | `docs/agent-execution/P11-fix4-ux-field-F1-F2-F3.md` | P11 | code+test | pending | pending | `20ba1155af1d55a95b823dcb3ba090a6166c127a64d7dc64a27f4b099940b295` |
 | `docs/agent-execution/P11-fix9-NEW-1.md` | P11 | code+test | pending | pending | `83f309ec23e4e81317829a0cf41eaf747eed3fd81b991be731645c5c2c5dd4ce` |
+| `docs/agent-execution/P11-r2-fix6.md` | P11 | code+test | pending | pending | `89b042252deafa49334ea9b41a8799943f6c39d6d583e2096c3c204f85c4917d` |
 | `docs/agent-execution/P11-r2-ux-field-fixes.md` | P11 | code+test | pending | pending | `0b100d191aca5ce94c6395923e413b56c6b9db8004bfac47121eaa0e6325566e` |
 | `docs/agent-execution/P11-readiness-report.md` | P11 | code+test | pending | pending | `4f3c8d3eca95fcadaa91a598875240256691c5b0cc605e1e474c62de18fb20f9` |
 | `docs/agent-execution/PERF-BASELINE.md` | — (reference) | — | — | — | `87bb8122e2371fc4f53c2daadf8773c755a1eecda166e62dcbd0c6c862362ab9` |
@@ -202,8 +203,8 @@ not the browser-checked level.
 
 | File | SHA-256 |
 |---|---|
-| `docs/agent-execution/INVENTORY.json` | `1ccb21730ddc5da5ccc72907cec486f5e33a4c419fc39f07781fa62762c7d8e4` |
-| `docs/agent-execution/INVENTORY.md` | `efc3d1bf2f348713a5da5b465e56a8a778e5e48e8b37bf7b9341a289c03f33a0` |
+| `docs/agent-execution/INVENTORY.json` | `6ad11479d55124652da9c1028bccff2144424ca3d15f26c5dd70db57e5332173` |
+| `docs/agent-execution/INVENTORY.md` | `8aef8a02e18e79043049a2642afc8fa1a7c29eacd271a302bc560a24180d96c3` |
 | `docs/agent-execution/TRACEABILITY.md` | `bab98d60573cc653947f1acead471e8655cbc78134969e91ee7f281ff9876c0a` |
 | `docs/ops/AUTHZ-MATRIX.md` | `8f4d10b7f7a9686440e7599786f4d7fec8671890043b86a98803be18353430ce` |
 | `docs/ops/FLAG-REGISTER.md` | `4a145c26f90e239e49070684b4ec5d860d14039a05e3ce1aeddac3352b63a0db` |
