@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | ne bloque que le déploiement général |
 | À décider après | aucune |
-| SHA cible | `dd4b7332` |
+| SHA cible | `44292164` |
 | Généré | 2026-11-19 |
 
 ## 1. La question à trancher
@@ -33,7 +33,7 @@ Quelles définitions d'indicateurs, quels seuils RAG et quel modèle de score de
 
 | Lot | Preuve attendue | Statut |
 |---|---|---|
-| P08 | Dossier de certification des indicateurs : un dossier par indicateur, test de parité, balayage des valeurs inconnues | attendue — absente de l'arbre au SHA cible (`docs/agent-execution/P08-*.md`) |
+| P08 | Dossier de certification des indicateurs : un dossier par indicateur, test de parité, balayage des valeurs inconnues | livrée: `docs/agent-execution/P08-kpi-certification.md` (f0bf3c56, `f6fa35ee2b87b2f0`), `docs/agent-execution/P08-kpi-dossiers.md` (81ea0b81, `43c1fe4686ea0ce8`), `docs/agent-execution/P08-unknown-sweep.md` (a061dd46, `80ade81034a702d4`) |
 
 ## 3. Ce qui n'est pas prouvé, et pourquoi
 

@@ -1,6 +1,6 @@
 # Gate dossiers — index and critical path / Dossiers des portes — index et chemin critique
 
-Target SHA / SHA cible: `dd4b7332` · Generated / Généré: 2026-11-19 · Source: `tools/release/gate-dossiers.source.js`
+Target SHA / SHA cible: `44292164` · Generated / Généré: 2026-11-19 · Source: `tools/release/gate-dossiers.source.js`
 
 **No decision cell is filled by these dossiers. Every gate below is NO-GO until its approver fills its row in `docs/sdp360/completion/RELEASE-GATES.md`.**
 **Aucune case de décision n'est remplie par ces dossiers. Chaque porte ci-dessous est NO-GO tant que son approbateur n'a pas rempli sa ligne.**
@@ -15,7 +15,7 @@ Target SHA / SHA cible: `dd4b7332` · Generated / Généré: 2026-11-19 · Sourc
 
 | # | Gate | Porte | Blocks / Bloque | Decide after / Après | Evidence (cited / awaited) | EN | FR |
 |---|---|---|---|---|---|---|---|
-| 1 | KPI definitions, thresholds and score | Définitions des indicateurs, seuils et score | blocks general deployment only / ne bloque que le déploiement général | — | 7 / 1 | [EN](en/G06-kpi-definitions-thresholds.md) | [FR](fr/G06-kpi-definitions-thresholds.md) |
+| 1 | KPI definitions, thresholds and score | Définitions des indicateurs, seuils et score | blocks general deployment only / ne bloque que le déploiement général | — | 7 / 0 | [EN](en/G06-kpi-definitions-thresholds.md) | [FR](fr/G06-kpi-definitions-thresholds.md) |
 | 2 | Legal and commercial | Juridique et commercial | blocks distribution outside Endeavour only / ne bloque que la diffusion hors d'Endeavour | — | 4 / 0 | [EN](en/G16-legal-commercial.md) | [FR](fr/G16-legal-commercial.md) |
 | 3 | QA: CI green and skipped tests reviewed | QA : CI verte et tests sautés revus | blocks the two-site pilot on the TEST instance / bloque le pilote sur deux sites (instance de TEST) | — | 5 / 1 | [EN](en/G19-qa-ci-green.md) | [FR](fr/G19-qa-ci-green.md) |
 | 4 | Security: access policy and authorization matrix | Sécurité : politique d'accès et matrice d'autorisation | blocks the two-site pilot on the TEST instance / bloque le pilote sur deux sites (instance de TEST) | G19 | 7 / 2 | [EN](en/G01-security-access-policy.md) | [FR](fr/G01-security-access-policy.md) |

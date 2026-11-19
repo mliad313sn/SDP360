@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks general deployment only |
 | Decide after | none |
-| Target SHA | `dd4b7332` |
+| Target SHA | `44292164` |
 | Generated | 2026-11-19 |
 
 ## 1. Question to decide
@@ -33,7 +33,7 @@ Which KPI definitions, RAG thresholds and site-score model become official — e
 
 | From lot | Expected evidence | Status |
 |---|---|---|
-| P08 | KPI certification pack: one dossier per KPI, parity test, unknown-value sweep | awaited — not in the tree at the target SHA (`docs/agent-execution/P08-*.md`) |
+| P08 | KPI certification pack: one dossier per KPI, parity test, unknown-value sweep | delivered: `docs/agent-execution/P08-kpi-certification.md` (f0bf3c56, `f6fa35ee2b87b2f0`), `docs/agent-execution/P08-kpi-dossiers.md` (81ea0b81, `43c1fe4686ea0ce8`), `docs/agent-execution/P08-unknown-sweep.md` (a061dd46, `80ade81034a702d4`) |
 
 ## 3. Not evidenced, and why
 
