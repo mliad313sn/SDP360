@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 5388,
+ "total": 5398,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 18,
@@ -495,7 +495,7 @@
   "ppm-gantt-v2-page.smoke.test.js": 6,
   "ppm-mpp-converter.test.js": 5,
   "ppm-mspdi.test.js": 2,
-  "ppm-offline-queue.test.js": 5,
+  "ppm-offline-queue.test.js": 7,
   "ppm-p7b-pure.test.js": 5,
   "ppm-p7b.smoke.test.js": 3,
   "ppm-plan-integrity.test.js": 4,
@@ -828,6 +828,9 @@
   "session-security.smoke.test.js": 7,
   "shell-logout-no-inline.test.js": 3,
   "supply-chain-xlsx.test.js": 3,
-  "p09-adoption-kit.test.js": 2
+  "p09-adoption-kit.test.js": 2,
+  "ppm-p04-kits.test.js": 3,
+  "ppm-p04-reconcile.smoke.test.js": 1,
+  "ppm-p04-rollups.test.js": 4
  }
 }

@@ -36,9 +36,10 @@ function depsOf(t) {
 
 /**
  * @param {{tasks:object[], schedule:object|null, statusDate:string, deadline?:string|null, calendar?:object|null,
- *          criticalTestDays?:number}} input
+ *          engineOpts?:object|null, criticalTestDays?:number}} input  (engineOpts = the options the schedule was computed with;
+ *          the critical-path probe re-runs the engine with them — task calendars, levelling, hours per day)
  */
-function dcma14({ tasks, schedule, statusDate, deadline = null, calendar = null, criticalTestDays = 600 }) {
+function dcma14({ tasks, schedule, statusDate, deadline = null, calendar = null, engineOpts = null, criticalTestDays = 600 }) {
   const rows = (tasks || []).filter((t) => t && t.id != null);
   const parents = new Set(rows.map((t) => (t.parent_id == null ? null : Number(t.parent_id))).filter((x) => x != null));
   const leaves = rows.filter((t) => !parents.has(Number(t.id)));
@@ -131,7 +132,7 @@ function dcma14({ tasks, schedule, statusDate, deadline = null, calendar = null,
     else {
       const r = S.get(crit);
       const probe = rows.map((t) => (Number(t.id) === crit ? { ...t, duration_days: (r && r.duration_days != null ? r.duration_days : 0) + criticalTestDays, end_date: null, schedule_mode: 'auto' } : t));
-      const s2 = ENGINE.schedule(probe, { anchor: schedule.anchor, deadline, calendar });
+      const s2 = ENGINE.schedule(probe, { ...(engineOpts || {}), anchor: schedule.anchor, deadline, calendar });
       const moved = s2 && s2.project_finish ? wdBetween(schedule.project_finish, s2.project_finish) : null;
       point(12, 'Critical path test', 'working days the finish moved for a ' + criticalTestDays + '-day delay', '= ' + criticalTestDays, { value: moved, count: moved, of: criticalTestDays, pass: moved === criticalTestDays, basis: moved == null ? 'the probe could not be scheduled' : null, details: [crit] });
     }

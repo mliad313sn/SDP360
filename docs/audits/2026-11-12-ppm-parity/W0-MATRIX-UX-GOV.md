@@ -1,5 +1,7 @@
 # W0 gap matrix — PPM UX, governance, collaboration, performance, security, agile (modules C · F · G · H · I · K · L + T1–T11)
 
+> **P04 (2026-11-19):** this matrix is the W0 baseline ("parity" = the target, not a claim). The current status of every row, with file:line at HEAD, is in `docs/agent-execution/P04-ppm-certification.md` §3. NOT CERTIFIED.
+
 - **Head:** `55dc67c` (worktree `/home/user/fixinst`, local branch `sdp-waves`) — "Regenerate inventories after the UAT-F merge".
 - **Nature:** **read-only audit.** No code changed, nothing committed. One ad-hoc micro-benchmark was run from the scratchpad (not committed).
 - **Evidence run:** `project-schedule`, `ppm-baseline`, `ppm-project-lifecycle.smoke`, `ppm-workbench`, `ppm-workbench.smoke`,

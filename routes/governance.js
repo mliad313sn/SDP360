@@ -723,13 +723,15 @@ module.exports = function governanceRoutes(deps) {
       const bens = (d.benefits || []).map((b) => BEN.visibleBenefit(b, { money, asOf: new Date().toISOString(), classes: clsOn }));
       // B4 — "plan updated X days ago": latest of the ledger and the plan rows; null = unknown (never 0)
       const FR = require('../services/ppm/planFreshness');
+      // P04 — the plan reads the SAME engine input as the W2 /schedule route (calendars / levelling only while their switch is on)
+      const ein = await require('../services/ppm/engineInput').loadEngineInput({ S: require('../services/ppm/engineStore').makeEngineStore(rdb().pgHandle(), store), d, cfg: gcfg });
       const fresh = FR.freshness((await FR.planUpdatedAt(rdb().pgHandle(), [p.id]))[p.id], new Date().toISOString());
       res.json({ ok: true, committee: !!isCommittee(u), can_gate: !!isCommittee(u), can_edit_plan: projectRole && !isCommittee(u) ? ['pm', 'scheduler'].includes(projectRole) : PA.canEditPlan(u, p, pctx), can_see_history: !!money, money_hidden: !money,
         ...(ctx.rolesOn ? { project_role: projectRole } : {}),
         project, objective: d.objective, extra_sites: d.extra_sites, tasks: d.tasks, milestones: d.milestones, deliverables: d.deliverables, risks: d.risks.map(PE.riskView),
         benefits: bens, ...(clsOn ? { benefit_totals: BEN.benefitTotals(bens), benefit_classes: { value_classes: BEN.VALUE_CLASSES, bases: BEN.BASES, source_kinds: BEN.SOURCE_KINDS } } : {}), me: Number(u.id),
         ...(mvRole ? { money_verifier_role: mvRole, holds_money_verifier_role: holdsExactly(u, mvRole) } : {}),   // F-PRODUCT-04: who may verify a money benefit
-        plan: SCH.scheduleView(d.tasks, { anchor: p.start_date || null, deadline: p.finish_deadline || null }), variance: SCH.varianceOf(p), resource_conflicts: SCH.resourceConflicts(d.tasks, members), resource_coverage: SCH.resourceCoverage(d.tasks, members),
+        plan: SCH.scheduleView(ein.engineTasks, ein.opts), variance: SCH.varianceOf(p), resource_conflicts: SCH.resourceConflicts(d.tasks, members), resource_coverage: SCH.resourceCoverage(d.tasks, members),
         stages: SCH.STAGES, allowed_stages, gate_counts: d.gate_ctx, risk_kinds: store.RISK_KINDS, plan_freshness: fresh, as_of: new Date().toISOString() });
     } catch (e) { fail(res, e); }
   });
