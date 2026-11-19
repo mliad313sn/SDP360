@@ -128,3 +128,14 @@ node tools/test/run-all.js > /home/user/suite.log 2>&1     # full suite, ~18 min
   Agents: security aa10d194af71193b0 · data-kpi affdf8cccfafb8e7c · ppm a63fe916fd46f058e · operations acb4c7d7b3a3cba2a ·
   ux-field a308901ad6e898332 · audit a3bd131a7eb43ddc5. Open human decision from round 1: SEC-F2 committee money.
 - PG local: max_connections raised to 400 (env only).
+
+## 2026-11-19 21:15 UTC — P11 round 2 done, round-2 fixes merged, round 3 launched
+- Round 2 report appended to docs/agent-execution/P11-readiness-report.md; seat files docs/agent-execution/p11/round2-b2e85cd0/.
+- Round-2 fixes merged: fix 6 (requests/CAB self-heal, anchored truncation guard + migration sync/113, /ready read-only, report
+  subscriptions scoped), fix 7 (EVM deleted-task actuals, 409 HAS_ACTUALS, rebaseline bounds, constant-time EVM), fix 8 (inspection
+  action statuses, field replay exact-match, French refusals), fix 9 (commitment four-eyes over full history) + full-suite fix 5ffdd57a.
+- CI run 370 GREEN on ead6efb6. Round 3 frozen SHA ead6efb6439296a34915b7d9a47f7011cd15fa82 (local tag qual-p11-ead6efb6).
+  Seat outputs /home/user/qual/out/r3-<seat>.md. Agents: security aeb9d6132237e620a · data-kpi a47133f8796a38520 · ppm ade976aae83f8edcd ·
+  operations a205a84d6fbe8af14 · ux-field a1dd829991e313d89 · audit a61c45618c62dede1.
+- Container restarts happen: PG max_connections must be re-set to 400 after a restart (env only); drop leftover test DBs when idle.
+- Human step pending: run `node tools/field/inspection-action-status-check.js` on the live DB; SEC-F2 committee-money decision.
