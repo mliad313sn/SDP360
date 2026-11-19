@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 5320,
+ "total": 5321,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 18,
@@ -411,6 +411,7 @@
   "origin-guard.test.js": 2,
   "p06-extraction-characterization.test.js": 1,
   "p06-named-guards.test.js": 4,
+  "p06-reports-db-surface.test.js": 1,
   "p6-decisions-access.smoke.test.js": 8,
   "page-head.test.js": 20,
   "page-states-adoption.test.js": 5,
