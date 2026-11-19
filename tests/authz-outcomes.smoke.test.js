@@ -27,7 +27,7 @@ before(async () => {
   const readRuns = ONLY ? [] : await core.runSwitches(w, 'read');
   const writeRuns = ONLY ? [] : await core.runSwitches(w, 'write');
   const writes = await core.probeOutcomes(w, { filter: (r) => r.method !== 'GET' && inOnly(r) });
-  out = { ...reads, routes: { ...reads.routes, ...writes.routes }, money: [...reads.money, ...writes.money], moneyKnown: [...reads.moneyKnown, ...writes.moneyKnown].sort(),
+  out = { ...reads, routes: { ...reads.routes, ...writes.routes }, money: [...reads.money, ...writes.money], moneyKeys: reads.moneyKeys, moneyKnown: [...reads.moneyKnown, ...writes.moneyKnown].sort(),
     unscanned: [...reads.unscanned, ...writes.unscanned],
     stats: { requests: reads.stats.requests + writes.stats.requests, retries: reads.stats.retries + writes.stats.retries, ms: reads.stats.ms + writes.stats.ms, scanned: reads.stats.scanned, readerHits: reads.stats.readerHits } };
   swRead = core.compareSwitches(out, readRuns);
@@ -54,6 +54,7 @@ test('outcome invariants: anonymous / deactivated / revoked refused, business-on
 test('amounts: no amount sentinel in a 2xx body (JSON, xlsx, pptx) served to a non-money persona (known committee exception aside)', () => {
   if (out.unscanned.length) console.log('# unscanned binary 2xx bodies: ' + out.unscanned.join(', '));
   console.log(`# money scan: ${out.stats.scanned} non-reader 2xx bodies scanned, ${out.stats.readerHits} reader bodies carry a sentinel (positive control), known exception hits: ${out.moneyKnown.join(' | ')}`);
+  if (out.moneyKeys.length) console.log('# money-named keys with a non-zero value in non-reader 2xx JSON (review list): ' + out.moneyKeys.join(' | '));
   assert.equal(out.money.length, 0, fmt(out.money));
   if (ONLY) return;
   assert.ok(out.stats.readerHits >= 5, 'positive control: money readers must see the seeded amounts (scan not vacuous)');

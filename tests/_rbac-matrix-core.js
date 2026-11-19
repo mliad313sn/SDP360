@@ -561,6 +561,20 @@ const B_BODIES = {
   'POST /api/governance/ppm/project/:id/comments': { body: 'p02 probe comment' },
 };
 
+// Key-based scan (informational, reviewed in the dossier): a money-named key carrying a non-zero number in a JSON 2xx
+// body served to a non-money persona. The sentinel scan above is the failing check; this one finds amounts the
+// fixture did not seed.
+const MONEY_KEY_RE = /^(purchase_cost|current_book_value|total_cost_of_ownership|operational_cost|purchase_cost_usd|book_value_usd|tco_usd|budget|spent|budget_amount|actual_cost|planned_cost|cost|amount|mrc|credit_amount|credit_due|eac|bac)$/i;
+function _moneyKeys(obj, out = new Set(), depth = 0) {
+  if (!obj || typeof obj !== 'object' || depth > 6) return out;
+  if (Array.isArray(obj)) { for (const x of obj.slice(0, 200)) _moneyKeys(x, out, depth + 1); return out; }
+  for (const [k, v] of Object.entries(obj)) {
+    if (MONEY_KEY_RE.test(k) && v != null && v !== '' && Number(String(v).replace(/[ ,]/g, '')) !== 0 && Number.isFinite(Number(String(v).replace(/[ ,]/g, '')))) out.add(k);
+    else if (v && typeof v === 'object') _moneyKeys(v, out, depth + 1);
+  }
+  return out;
+}
+
 function _moneyText(res) {
   if (res.text) return res.text;
   const t = res.type || '';
@@ -596,7 +610,7 @@ async function probeOutcomes(w, opts = {}) {
     const b = siteBUrl(r.path, s, w);
     if (b) jobs.push({ key: r.key + ' [B]', method: r.method, url: b, r, body: B_BODIES[r.key] });
   }
-  const routes = {}, money = [], moneyKnown = [], unscanned = new Set();
+  const routes = {}, money = [], moneyKnown = [], unscanned = new Set(), moneyKeys = new Set();
   const stats = { jobs: jobs.length, requests: 0, retries: 0, ms: 0, scanned: 0, readerHits: 0 };
   const t0 = Date.now();
   // Phase 1: GETs (read-only) concurrently. Phase 2: mutating methods STRICTLY in sequence (fixed order, DELETE last),
@@ -619,6 +633,7 @@ async function probeOutcomes(w, opts = {}) {
         const text = _moneyText(res);
         if (!text && res.buf && res.buf.length) unscanned.add(j.key + ' (' + (res.type || '?').split(';')[0] + ')');
         const hit = MONEY_SENTINELS.find((x) => text.includes(x));
+        if (res.json) for (const mk of _moneyKeys(res.json)) moneyKeys.add(`${j.key} :: ${mk} as ${p.key}`);
         if (hit && KNOWN_OUTCOME_MONEY.some((k) => k.persona === p.key && k.re.test(j.r.key))) moneyKnown.push(`${j.key} as ${p.key}`);
         else if (hit) money.push(`MONEY ${j.key} as ${p.key}: amount sentinel ${hit} in a 2xx body`);
         if (text) stats.scanned++;
@@ -629,7 +644,7 @@ async function probeOutcomes(w, opts = {}) {
   await pool(gets, opts.concurrency || 8, run);
   for (const j of writes) await run(j);
   stats.ms = Date.now() - t0;
-  return { personas: personas.map((p) => p.key), routes, money, moneyKnown: moneyKnown.sort(), unscanned: [...unscanned].sort(), stats, loginAfterDeactivation: w.extra.loginAfterDeactivation };
+  return { personas: personas.map((p) => p.key), routes, money, moneyKnown: moneyKnown.sort(), moneyKeys: [...moneyKeys].sort(), unscanned: [...unscanned].sort(), stats, loginAfterDeactivation: w.extra.loginAfterDeactivation };
 }
 
 /** Compare two outcome maps. widening = refusal → pass for a persona; narrowing = pass → refusal. */
