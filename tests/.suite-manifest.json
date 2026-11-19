@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 5336,
+ "total": 5359,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 18,
@@ -688,7 +688,7 @@
   "site-open-actions-route.smoke.test.js": 3,
   "site-open-report-actions.test.js": 3,
   "site-report-actions.test.js": 3,
-  "site-report-adapters.test.js": 10,
+  "site-report-adapters.test.js": 11,
   "site-report-deps.test.js": 23,
   "site-report-helpdesk-weekly.test.js": 4,
   "site-report.test.js": 21,
@@ -817,6 +817,12 @@
   "workspace-profiles.test.js": 8,
   "workspace-routes.smoke.test.js": 3,
   "zoho-sync-truncation-guard.test.js": 3,
-  "zoho-sync-udf.test.js": 3
+  "zoho-sync-udf.test.js": 3,
+  "figure-parity-all-kpis.test.js": 2,
+  "kpi-dossiers.test.js": 3,
+  "kpi-reconcile-source.test.js": 4,
+  "kpi-side-by-side.test.js": 7,
+  "kpi-unknown-sweep.test.js": 3,
+  "site-code-readiness.test.js": 3
  }
 }

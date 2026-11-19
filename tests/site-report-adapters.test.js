@@ -91,3 +91,9 @@ test('adaptInspectionAggregate on junk → zeros, never throws', () => {
   assert.strictEqual(r.inspections_done, 0);
   assert.strictEqual(r.findings_critical_major, 0);
 });
+
+test('P08 unknown sweep: signoff_pct null (no PV held) stays null — never printed as 0 %', () => {
+  const r = A.adaptMeetingsSummary({ available: true, kpis: { pvs_held: 0, signoff_pct: null }, departments: [] });
+  assert.strictEqual(r.kpis.signoff_pct, null);
+  assert.strictEqual(r.kpis.pvs_held, 0);          // counts keep their measured zero
+});

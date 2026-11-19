@@ -1713,7 +1713,8 @@ async function _getSiteMonthlyMeetingSummaryPg(siteCode, year, month) {
       resolved_month:  iss.resolved_m || 0,
       new_month:       iss.new_m     || 0,
       escalations_open:iss.esc_open  || 0,
-      signoff_pct:     Number(cad.pvs || 0) > 0 ? Math.round((Number(sign.signed || 0) / Number(cad.pvs)) * 100) : 0,
+      // P08 unknown sweep — no PV held = nothing to sign: not measured (null), never a confident 0 %
+      signoff_pct:     Number(cad.pvs || 0) > 0 ? Math.round((Number(sign.signed || 0) / Number(cad.pvs)) * 100) : null,
       overdue_actions_count: Number(actOverdue.n || 0),
     },
     departments,

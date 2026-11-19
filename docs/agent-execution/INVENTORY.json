@@ -15,7 +15,7 @@
   "jobs": 33,
   "jobs_without_test_reference": 0,
   "migrations": 102,
-  "test_files": 816
+  "test_files": 822
  },
  "pages": [
   {
@@ -3203,6 +3203,7 @@
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
+    "tests/figure-parity-all-kpis.test.js",
     "tests/figure-parity-five-surfaces.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
@@ -3219,6 +3220,7 @@
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
+    "tests/figure-parity-all-kpis.test.js",
     "tests/figure-parity-five-surfaces.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
@@ -3235,6 +3237,7 @@
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
+    "tests/figure-parity-all-kpis.test.js",
     "tests/figure-parity-five-surfaces.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
@@ -3251,6 +3254,7 @@
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
+    "tests/figure-parity-all-kpis.test.js",
     "tests/figure-parity-five-surfaces.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
@@ -3267,6 +3271,7 @@
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
+    "tests/figure-parity-all-kpis.test.js",
     "tests/figure-parity-five-surfaces.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
@@ -3283,6 +3288,7 @@
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
+    "tests/figure-parity-all-kpis.test.js",
     "tests/figure-parity-five-surfaces.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
@@ -3299,6 +3305,7 @@
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
+    "tests/figure-parity-all-kpis.test.js",
     "tests/figure-parity-five-surfaces.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
@@ -3315,6 +3322,7 @@
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
+    "tests/figure-parity-all-kpis.test.js",
     "tests/figure-parity-five-surfaces.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
@@ -3331,6 +3339,7 @@
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
+    "tests/figure-parity-all-kpis.test.js",
     "tests/figure-parity-five-surfaces.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
@@ -3347,6 +3356,7 @@
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
+    "tests/figure-parity-all-kpis.test.js",
     "tests/figure-parity-five-surfaces.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
@@ -3363,6 +3373,7 @@
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
+    "tests/figure-parity-all-kpis.test.js",
     "tests/figure-parity-five-surfaces.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
@@ -3420,6 +3431,7 @@
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
     "tests/dashboards-routes.smoke.test.js",
+    "tests/figure-parity-all-kpis.test.js",
     "tests/figure-parity-five-surfaces.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/publication-freshness.smoke.test.js"
@@ -8035,6 +8047,7 @@
     "tests/analytics-logic.test.js",
     "tests/analytics-metrics-authz.smoke.test.js",
     "tests/business-only-boundary.smoke.test.js",
+    "tests/figure-parity-all-kpis.test.js",
     "tests/figure-parity-five-surfaces.test.js",
     "tests/kpi-targets.smoke.test.js",
     "tests/metrics-routes.smoke.test.js",
@@ -8054,6 +8067,7 @@
     "tests/analytics-logic.test.js",
     "tests/analytics-metrics-authz.smoke.test.js",
     "tests/business-only-boundary.smoke.test.js",
+    "tests/figure-parity-all-kpis.test.js",
     "tests/figure-parity-five-surfaces.test.js",
     "tests/kpi-targets.smoke.test.js",
     "tests/metrics-routes.smoke.test.js",
@@ -13013,6 +13027,7 @@
     "tests/engagement-routes.smoke.test.js",
     "tests/engagement-store.test.js",
     "tests/ext-api.smoke.test.js",
+    "tests/figure-parity-all-kpis.test.js",
     "tests/figure-parity-five-surfaces.test.js",
     "tests/publication-freshness.smoke.test.js"
    ]
@@ -13542,6 +13557,7 @@
    "id": "JB-assets-sync",
    "job": "assets.sync",
    "tests": [
+    "tests/figure-parity-all-kpis.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/pg-migrate-from-111.test.js",
     "tests/pilot-metrics-value.test.js",
@@ -13667,6 +13683,7 @@
    "tests": [
     "tests/connector-health-routes.smoke.test.js",
     "tests/connector-health.test.js",
+    "tests/figure-parity-all-kpis.test.js",
     "tests/jobs-meraki-skip.test.js",
     "tests/pilot-metrics.test.js",
     "tests/publish-gate.test.js",
@@ -13710,6 +13727,7 @@
    "job": "opmanager.availability",
    "tests": [
     "tests/connector-health.test.js",
+    "tests/figure-parity-all-kpis.test.js",
     "tests/sync-jobs-registry.test.js",
     "tests/sync-skip-semantics.test.js"
    ]
@@ -13758,6 +13776,7 @@
    "id": "JB-zoho-change-cab",
    "job": "zoho.change_cab",
    "tests": [
+    "tests/figure-parity-all-kpis.test.js",
     "tests/sync-schedule.test.js"
    ]
   },
@@ -13769,6 +13788,7 @@
     "tests/catalogue-dry-run.test.js",
     "tests/connector-health.test.js",
     "tests/data-quality.test.js",
+    "tests/figure-parity-all-kpis.test.js",
     "tests/figure-parity-five-surfaces.test.js",
     "tests/governance-policy.test.js",
     "tests/health-deps.smoke.test.js",
@@ -13794,6 +13814,7 @@
    "id": "JB-zoho-survey",
    "job": "zoho.survey",
    "tests": [
+    "tests/figure-parity-all-kpis.test.js",
     "tests/health-deps.smoke.test.js",
     "tests/sync-jobs-registry.test.js"
    ]

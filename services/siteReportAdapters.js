@@ -26,7 +26,7 @@ function adaptMeetingsSummary(ms) {
       open_issues: n(k.open_issues), high_open: n(k.high_open),
       resolved: n(k.resolved_month), new: n(k.new_month),
       escalations: n(k.escalations_open),
-      signoff_pct: n(k.signoff_pct),
+      signoff_pct: k.signoff_pct == null ? null : n(k.signoff_pct),   // P08: null = no PV held, never 0 %
       overdue_actions_count: n(k.overdue_actions_count),
     },
   };
