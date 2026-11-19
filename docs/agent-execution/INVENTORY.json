@@ -10,12 +10,12 @@
   "pages_without_entry_point": 3,
   "pages_with_inline_scripts": 46,
   "routes": 753,
-  "routes_without_test_reference": 32,
+  "routes_without_test_reference": 31,
   "routes_in_server_js": 209,
   "jobs": 33,
   "jobs_without_test_reference": 0,
   "migrations": 102,
-  "test_files": 809
+  "test_files": 811
  },
  "pages": [
   {
@@ -3884,7 +3884,9 @@
    "path": "/api/executive-new-pptx",
    "file": "server.js",
    "line": 6373,
-   "tests": []
+   "tests": [
+    "tests/boot-integrity.test.js"
+   ]
   },
   {
    "id": "RT-POST-api-feedback-id-triage",
@@ -8410,6 +8412,7 @@
     "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
+    "tests/boot-integrity.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -8502,6 +8505,7 @@
     "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
+    "tests/boot-integrity.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -8594,6 +8598,7 @@
     "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
+    "tests/boot-integrity.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -8686,6 +8691,7 @@
     "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
+    "tests/boot-integrity.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -8778,6 +8784,7 @@
     "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
+    "tests/boot-integrity.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -8870,6 +8877,7 @@
     "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
+    "tests/boot-integrity.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -8962,6 +8970,7 @@
     "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
+    "tests/boot-integrity.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -9054,6 +9063,7 @@
     "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
+    "tests/boot-integrity.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -9146,6 +9156,7 @@
     "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
+    "tests/boot-integrity.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -9238,6 +9249,7 @@
     "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
+    "tests/boot-integrity.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -9330,6 +9342,7 @@
     "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
+    "tests/boot-integrity.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -9422,6 +9435,7 @@
     "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
+    "tests/boot-integrity.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -9514,6 +9528,7 @@
     "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
+    "tests/boot-integrity.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -9606,6 +9621,7 @@
     "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
+    "tests/boot-integrity.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -9698,6 +9714,7 @@
     "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
+    "tests/boot-integrity.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -9790,6 +9807,7 @@
     "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
+    "tests/boot-integrity.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -9882,6 +9900,7 @@
     "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
+    "tests/boot-integrity.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -9974,6 +9993,7 @@
     "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
+    "tests/boot-integrity.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -10066,6 +10086,7 @@
     "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
+    "tests/boot-integrity.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -10158,6 +10179,7 @@
     "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
+    "tests/boot-integrity.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -10250,6 +10272,7 @@
     "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
+    "tests/boot-integrity.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -10342,6 +10365,7 @@
     "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
+    "tests/boot-integrity.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -10434,6 +10458,7 @@
     "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
+    "tests/boot-integrity.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -10526,6 +10551,7 @@
     "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
+    "tests/boot-integrity.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -10897,6 +10923,7 @@
    "file": "server.js",
    "line": 6252,
    "tests": [
+    "tests/boot-integrity.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-read-scope.smoke.test.js"
@@ -10909,6 +10936,7 @@
    "file": "server.js",
    "line": 6264,
    "tests": [
+    "tests/boot-integrity.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-read-scope.smoke.test.js"
@@ -10921,6 +10949,7 @@
    "file": "server.js",
    "line": 6319,
    "tests": [
+    "tests/boot-integrity.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-read-scope.smoke.test.js"
@@ -10933,6 +10962,7 @@
    "file": "server.js",
    "line": 6172,
    "tests": [
+    "tests/boot-integrity.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-read-scope.smoke.test.js"
@@ -10945,6 +10975,7 @@
    "file": "server.js",
    "line": 6348,
    "tests": [
+    "tests/boot-integrity.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-read-scope.smoke.test.js"
@@ -10957,6 +10988,7 @@
    "file": "server.js",
    "line": 6241,
    "tests": [
+    "tests/boot-integrity.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-read-scope.smoke.test.js"
@@ -11444,6 +11476,7 @@
     "tests/authz-matrix-json.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/await-precedence.test.js",
+    "tests/boot-integrity.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/capability-registry.test.js",
     "tests/commitments-routes.smoke.test.js",

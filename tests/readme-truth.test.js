@@ -78,3 +78,13 @@ test('PILOT-PROFILE.md: every built switch exists in DEFAULTS with the stated de
   }
   assert.ok(built >= 2, 'expected at least the A-08 switches as built');
 });
+
+test('P01 — README size block equals the inventory tool output (pages, routes, jobs, migrations, tests)', () => {
+  const inv = require('../tools/agent/inventory');
+  const a = readme.indexOf(inv.README_BEGIN);
+  const b = readme.indexOf(inv.README_END);
+  assert.ok(a >= 0 && b > a, 'README.md must carry the generated inventory block markers');
+  const committed = readme.slice(a, b + inv.README_END.length);
+  assert.strictEqual(committed, inv.readmeBlock(inv.build()),
+    'README.md size block is stale — run node tools/agent/inventory.js and commit');
+});

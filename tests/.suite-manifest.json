@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 5318,
+ "total": 5324,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 18,
@@ -116,6 +116,7 @@
   "bind-cors-cookie.test.js": 6,
   "body-default.test.js": 3,
   "boot-config.test.js": 4,
+  "boot-integrity.test.js": 2,
   "brand-buttons.test.js": 4,
   "business-only-boundary.smoke.test.js": 6,
   "business-roles.test.js": 4,
@@ -539,7 +540,7 @@
   "rbac-ui-gates.test.js": 10,
   "rbac-write-scope.smoke.test.js": 12,
   "read-scope-express5.smoke.test.js": 5,
-  "readme-truth.test.js": 7,
+  "readme-truth.test.js": 8,
   "ready-probe.smoke.test.js": 4,
   "reconcile-assets.test.js": 24,
   "reconcile-history-readers.test.js": 8,
@@ -632,6 +633,7 @@
   "role-demotion.test.js": 11,
   "route-matrix-probe-order.test.js": 1,
   "router-stack.test.js": 3,
+  "rules-trunk-branch.test.js": 3,
   "safe-filename.test.js": 7,
   "safe-url.test.js": 14,
   "sbom.test.js": 4,

@@ -213,13 +213,21 @@ test('R8 hole 4 FIXED: a manual trigger while the scheduled run holds the lease 
   assert.equal(manualCalls, 0, 'the manual run never started');
 
   // free lease → started, recorded under the scheduled job's name, force passed through
+  const before = await pg().prepare(`SELECT COALESCE(MAX(id), 0) AS m FROM sync_runs WHERE job='zoho.requests'`).get();
   const res2 = fakeRes(); let forced = null;
   const ok = await startManualSync(res2, 'requests', { ...d, sync: { ...d.sync, syncRequestData: async (o) => { forced = o; return { upserted: 2 }; } } }, { force: true }, { syncModule });
   assert.deepEqual(ok, { job: 'zoho.requests' });
-  await new Promise((r) => setTimeout(r, 50));
+  // The manual run is fire-and-forget. A fixed 50 ms sleep raced it under a loaded full suite (the run had not
+  // recorded its row yet → flake that passed in isolation). Poll for the terminal run row instead.
+  const lastRun = () => pg().prepare(`SELECT status FROM sync_runs WHERE job='zoho.requests' AND id > ? ORDER BY id DESC LIMIT 1`).get(Number(before.m));
+  let last = null;
+  for (const t0 = Date.now(); Date.now() - t0 < 10000;) {
+    last = await lastRun();
+    if (forced && last && last.status !== 'running') break;
+    await new Promise((r) => setTimeout(r, 20));
+  }
   assert.deepEqual(forced, { force: true });
-  const last = await pg().prepare(`SELECT status FROM sync_runs WHERE job='zoho.requests' ORDER BY id DESC LIMIT 1`).get();
-  assert.equal(last.status, 'ok');
+  assert.equal(last && last.status, 'ok');
 
   const res3 = fakeRes();
   assert.equal(await startManualSync(res3, 'nope', d, {}, { syncModule }), null);

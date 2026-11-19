@@ -1,6 +1,6 @@
 # SDP360 non-negotiable project boundaries
 
-- Repo under review: `mliad313sn/SDP360`; target branch `claude/sdp360-consolidation`. Confirm HEAD, status and permissions before action.
+- Repo under review: `mliad313sn/SDP360`; trunk (working line) `claude/sdp-dashboard-analysis-55b1oy` until a human creates a protected `main` from it (proposal: `docs/agent-execution/BASELINE-*.md`). The former consolidation line is fully merged into the trunk and is history. Confirm HEAD, status and permissions before action. `tests/rules-trunk-branch.test.js` fails if a rules file names any other branch.
 - Data contracts: source-of-record ServiceDesk Plus/Analytics; OpManager infra; Meraki WAN/SLA remains supported; native project/program/portfolio. Do not create connectors to Pronto, OT/HSE, ISP, Nutanix, external backup platform, or Defender API. Existing manual asset reconciliation is not permission to add Defender API. External PPM-tool connectors (MS Project/.mpp, P6, Jira, Azure DevOps…) are ALLOWED since 2026-11-12 (user decision), but only as optional extras: the native project/program/portfolio tool must remain fully usable on its own, and no native feature may depend on an external PPM tool.
 - DB strategy: PostgreSQL only, PG17 target, migration-first, no destructive live migrations. Feature toggles and dry-run for data-changing work.
 - A number with no source is `UNKNOWN` (null), never 0/green. Finance values and KPI thresholds only certified when real evidence exists.
