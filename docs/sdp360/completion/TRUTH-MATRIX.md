@@ -39,7 +39,7 @@ state: the CI, the Windows runners and the synthetic UAT panel prove the softwar
 | Finance read-only role | ✓ | ✓ | ✓ | `tests/assets-money-scope.smoke.test.js` | holder to name |
 | Third-party licences | ✓ | ✓ | ✓ | `tools/release/licence-inventory.js`, `LICENCE-INVENTORY.csv` | Legal: bundled installers' redistribution, external use (LICENSE) |
 
-## Tests not executed in CI (11 skips) and why
+## Tests not executed in CI (10 skips at the latest full run) and why
 
 | Tests | Reason | How to run them |
 |---|---|---|
@@ -63,3 +63,16 @@ node tools/release/licence-inventory.js
 ```bash
 PG_ADMIN_URL=<disposable cluster> node tools/pg/restore-rehearsal.js --rows 100000
 ```
+
+## Refresh — P01, trunk `claude/sdp-dashboard-analysis-55b1oy` at `e8900a7` (2026-11-19)
+
+Re-run of the evidence commands above on a disposable local PostgreSQL. No status column was upgraded: field-validated,
+deployed and business-accepted stay empty.
+
+| Command | Result |
+|---|---|
+| `node tools/test/run-all.js` | not re-run by P01 (ten parallel agents share the disk); orchestrator's latest full run at `06f2cf2`: 5,311 tests, 5,298 pass, 3 fail, 10 skipped — causes in `docs/agent-execution/BASELINE-e8900a7.md` |
+| `node tools/security/secret-scan.js --history` | no credential in the tracked files; 3 credential-shaped additions in history (`5f82968`, `214c0d1`, `92a6a68`) — the EX-01 rotation/history decision stays open |
+| `node tools/release/licence-inventory.js` | ran; `LICENCE-INVENTORY.csv` unchanged |
+| `node tools/pg/restore-rehearsal.js --rows 100000` | 12 PASS, 0 FAIL (218 tables, 100,186 rows, checksums and audit-chain heads match, broken dump refused) |
+| every file cited in the Evidence column | exists at `e8900a7` (`.git/last-deployed` and `prod-snapshot/` are deliberately absent) |
