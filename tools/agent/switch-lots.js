@@ -7,6 +7,7 @@
 //   node tools/agent/switch-lots.js --check         exits 1 when the plan is invalid or the Markdown is out of date
 //   node tools/agent/switch-lots.js --lot=L01 --force   prints the SDP_FORCE_SWITCHES value for that lot
 //   node tools/agent/switch-lots.js --lot=L01 --tests   prints the targeted test files for that lot (one per line)
+//   --lot=L02+L03 merges lots for a pairwise run (both lots' switches forced together)
 //
 // QUALIFY, NOT DECIDE: the plan is an agent proposal. Owner, canary site, dates, thresholds and rollback-trigger
 // values are never written here — they belong to docs/ops/flag-decisions.json, filled by humans.
@@ -327,8 +328,11 @@ function build({ root = ROOT } = {}) {
 function main(argv = process.argv.slice(2)) {
   const lotArg = argv.find((a) => a.startsWith('--lot='));
   if (lotArg) {
-    const plan = readJson(PLAN); const lot = plan.lots.find((l) => l.id === lotArg.slice(6));
-    if (!lot) { process.stderr.write(`unknown lot ${lotArg.slice(6)}\n`); return 2; }
+    // --lot=L02+L03 merges lots (pairwise run: both lots' switches forced together, both lots' tests)
+    const plan = readJson(PLAN); const ids = lotArg.slice(6).split('+');
+    const parts = ids.map((id) => plan.lots.find((l) => l.id === id));
+    if (parts.some((l) => !l)) { process.stderr.write(`unknown lot in ${lotArg.slice(6)}\n`); return 2; }
+    const lot = { id: ids.join('+'), switches: parts.flatMap((l) => l.switches) };
     if (argv.includes('--force')) { process.stdout.write(forceValue(lot) + '\n'); return 0; }
     if (argv.includes('--tests')) { const sc = scan(lot.switches); process.stdout.write(lotTests(lot, sc).join('\n') + '\n'); return 0; }
     process.stdout.write(lot.switches.join('\n') + '\n'); return 0;
