@@ -20,6 +20,8 @@ const SITE_SCOPE_HELPERS = ['_siteReadDenied', '_siteCodeReadDenied', '_userSite
 const INLINE_HELPERS = { isAdmin: ['admin'], isSuper: ['super_admin'], isCommittee: ['admin', 'committee-member'], isBuilder: ['admin', 'tracker-admin'],
   isPublisher: ['admin', 'dashboard-publisher'], isField: ['admin', 'editor', 'field-tech'], isAuthor: ['admin', 'report-author'],
   _canReadMoney: ['admin', 'finance-viewer'], _adminTier: ['admin'], canEditSite: ['admin'] };
+// P06 — named guards checked inside handlers (services/namedGuards.js, catalogued in capabilityRegistry.NAMED_GUARDS).
+for (const g of require('../../services/capabilityRegistry').NAMED_GUARDS) if (g.kind !== 'route') INLINE_HELPERS[g.name] = [...g.roles];
 
 function walkRoutes(stack, prefix = '', out = []) {
   for (const layer of stack || []) {

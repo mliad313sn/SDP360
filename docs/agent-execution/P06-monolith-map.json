@@ -2,20 +2,14 @@
  "generated_by": "tools/agent/monolith-map.js",
  "window_days": 30,
  "server": {
-  "lines": 6915,
-  "inline_routes": 207,
+  "lines": 5716,
+  "inline_routes": 159,
   "by_domain": [
    {
     "domain": "reports/auth",
     "items": 4,
     "lines": 66,
     "recent_commits_max": 6
-   },
-   {
-    "domain": "assets",
-    "items": 41,
-    "lines": 678,
-    "recent_commits_max": 5
    },
    {
     "domain": "reports/helpdesk-charts",
@@ -163,8 +157,8 @@
    },
    {
     "domain": "admin",
-    "items": 4,
-    "lines": 129,
+    "items": 1,
+    "lines": 103,
     "recent_commits_max": 1
    },
    {
@@ -210,12 +204,6 @@
     "recent_commits_max": 1
    },
    {
-    "domain": "reports/asset-reminders",
-    "items": 1,
-    "lines": 19,
-    "recent_commits_max": 1
-   },
-   {
     "domain": "reports/recipients",
     "items": 3,
     "lines": 17,
@@ -243,24 +231,6 @@
     "domain": "sites",
     "items": 2,
     "lines": 16,
-    "recent_commits_max": 1
-   },
-   {
-    "domain": "reports/scoreboard",
-    "items": 1,
-    "lines": 12,
-    "recent_commits_max": 1
-   },
-   {
-    "domain": "reports/weekly",
-    "items": 1,
-    "lines": 12,
-    "recent_commits_max": 1
-   },
-   {
-    "domain": "reports/asset-group",
-    "items": 1,
-    "lines": 12,
     "recent_commits_max": 1
    },
    {
@@ -598,69 +568,10 @@
    },
    {
     "method": "GET",
-    "path": "/api/admin/backup-schedule",
-    "domain": "admin",
-    "line": 1206,
-    "end": 1215,
-    "lines": 10,
-    "guards": [
-     "requireReportSession"
-    ],
-    "helpers": [
-     "backupSchedule",
-     "_requireSuperAdminInline"
-    ],
-    "tests": [
-     "critical-routes.smoke.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "POST",
-    "path": "/api/admin/backup-schedule",
-    "domain": "admin",
-    "line": 1216,
-    "end": 1223,
-    "lines": 8,
-    "guards": [
-     "requireReportSession"
-    ],
-    "helpers": [
-     "express",
-     "backupSchedule",
-     "_requireSuperAdminInline"
-    ],
-    "tests": [
-     "critical-routes.smoke.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "POST",
-    "path": "/api/admin/backup-now",
-    "domain": "admin",
-    "line": 1224,
-    "end": 1231,
-    "lines": 8,
-    "guards": [
-     "requireReportSession"
-    ],
-    "helpers": [
-     "express",
-     "backupSchedule",
-     "_requireSuperAdminInline"
-    ],
-    "tests": [
-     "critical-routes.smoke.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "GET",
     "path": "/executive.html",
     "domain": "page:executive",
-    "line": 1348,
-    "end": 1350,
+    "line": 1313,
+    "end": 1315,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -679,8 +590,8 @@
     "method": "GET",
     "path": "/exec-view.html",
     "domain": "page:exec-view",
-    "line": 1355,
-    "end": 1357,
+    "line": 1320,
+    "end": 1322,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -699,8 +610,8 @@
     "method": "GET",
     "path": "/site-report.html",
     "domain": "page:site-report",
-    "line": 1362,
-    "end": 1364,
+    "line": 1327,
+    "end": 1329,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -717,8 +628,8 @@
     "method": "GET",
     "path": "/no-access.html",
     "domain": "page:no-access",
-    "line": 1367,
-    "end": 1369,
+    "line": 1332,
+    "end": 1334,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -734,8 +645,8 @@
     "method": "GET",
     "path": "/site-awareness.html",
     "domain": "page:site-awareness",
-    "line": 1370,
-    "end": 1372,
+    "line": 1335,
+    "end": 1337,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -750,8 +661,8 @@
     "method": "GET",
     "path": "/it-review.html",
     "domain": "page:it-review",
-    "line": 1377,
-    "end": 1379,
+    "line": 1342,
+    "end": 1344,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -768,8 +679,8 @@
     "method": "GET",
     "path": "/login.html",
     "domain": "page:login",
-    "line": 1384,
-    "end": 1386,
+    "line": 1349,
+    "end": 1351,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -790,8 +701,8 @@
     "method": "GET",
     "path": "/",
     "domain": "root",
-    "line": 1389,
-    "end": 1391,
+    "line": 1354,
+    "end": 1356,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -804,8 +715,8 @@
     "method": "GET",
     "path": "/analytics.html",
     "domain": "page:analytics",
-    "line": 1394,
-    "end": 1396,
+    "line": 1359,
+    "end": 1361,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -824,8 +735,8 @@
     "method": "GET",
     "path": "/reports.html",
     "domain": "page:reports",
-    "line": 1399,
-    "end": 1401,
+    "line": 1364,
+    "end": 1366,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -854,8 +765,8 @@
     "method": "GET",
     "path": "/executive-report.html",
     "domain": "page:executive-report",
-    "line": 1404,
-    "end": 1406,
+    "line": 1369,
+    "end": 1371,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -875,8 +786,8 @@
     "method": "GET",
     "path": "/inspection.html",
     "domain": "page:inspection",
-    "line": 1411,
-    "end": 1413,
+    "line": 1376,
+    "end": 1378,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -891,8 +802,8 @@
     "method": "GET",
     "path": "/inspection-actions.html",
     "domain": "page:inspection-actions",
-    "line": 1416,
-    "end": 1418,
+    "line": 1381,
+    "end": 1383,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -908,8 +819,8 @@
     "method": "GET",
     "path": "/assets.html",
     "domain": "page:assets",
-    "line": 1421,
-    "end": 1423,
+    "line": 1386,
+    "end": 1388,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -928,8 +839,8 @@
     "method": "GET",
     "path": "/wan.html",
     "domain": "page:wan",
-    "line": 1424,
-    "end": 1426,
+    "line": 1389,
+    "end": 1391,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -949,8 +860,8 @@
     "method": "GET",
     "path": "/wan-health.html",
     "domain": "page:wan-health",
-    "line": 1428,
-    "end": 1430,
+    "line": 1393,
+    "end": 1395,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -966,8 +877,8 @@
     "method": "GET",
     "path": "/infra-health.html",
     "domain": "page:infra-health",
-    "line": 1431,
-    "end": 1433,
+    "line": 1396,
+    "end": 1398,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -984,8 +895,8 @@
     "method": "GET",
     "path": "/wan-sla.html",
     "domain": "page:wan-sla",
-    "line": 1434,
-    "end": 1436,
+    "line": 1399,
+    "end": 1401,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -1001,8 +912,8 @@
     "method": "GET",
     "path": "/itsm-roadmap.html",
     "domain": "page:itsm-roadmap",
-    "line": 1439,
-    "end": 1441,
+    "line": 1404,
+    "end": 1406,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -1018,8 +929,8 @@
     "method": "GET",
     "path": "/assets-hygiene.html",
     "domain": "page:assets-hygiene",
-    "line": 1443,
-    "end": 1445,
+    "line": 1408,
+    "end": 1410,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -1035,8 +946,8 @@
     "method": "GET",
     "path": "/assets-finance.html",
     "domain": "page:assets-finance",
-    "line": 1446,
-    "end": 1448,
+    "line": 1411,
+    "end": 1413,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -1051,8 +962,8 @@
     "method": "GET",
     "path": "/inspections.html",
     "domain": "page:inspections",
-    "line": 1450,
-    "end": 1452,
+    "line": 1415,
+    "end": 1417,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -1067,8 +978,8 @@
     "method": "GET",
     "path": "/activity-tracker.html",
     "domain": "page:activity-tracker",
-    "line": 1459,
-    "end": 1461,
+    "line": 1424,
+    "end": 1426,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -1084,8 +995,8 @@
     "method": "GET",
     "path": "/help.html",
     "domain": "page:help",
-    "line": 1465,
-    "end": 1467,
+    "line": 1430,
+    "end": 1432,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -1103,8 +1014,8 @@
     "method": "GET",
     "path": "/itsm-integrations-plan.html",
     "domain": "page:itsm-integrations-plan",
-    "line": 1470,
-    "end": 1476,
+    "line": 1435,
+    "end": 1441,
     "lines": 7,
     "guards": [],
     "helpers": [
@@ -1122,8 +1033,8 @@
     "method": "GET",
     "path": "/meetings.html",
     "domain": "page:meetings",
-    "line": 1486,
-    "end": 1486,
+    "line": 1451,
+    "end": 1451,
     "lines": 1,
     "guards": [],
     "helpers": [
@@ -1139,8 +1050,8 @@
     "method": "GET",
     "path": "/meeting.html",
     "domain": "page:meeting",
-    "line": 1487,
-    "end": 1487,
+    "line": 1452,
+    "end": 1452,
     "lines": 1,
     "guards": [],
     "helpers": [
@@ -1157,8 +1068,8 @@
     "method": "GET",
     "path": "/meetings-issues.html",
     "domain": "page:meetings-issues",
-    "line": 1488,
-    "end": 1488,
+    "line": 1453,
+    "end": 1453,
     "lines": 1,
     "guards": [],
     "helpers": [
@@ -1174,8 +1085,8 @@
     "method": "GET",
     "path": "/meetings-actions.html",
     "domain": "page:meetings-actions",
-    "line": 1489,
-    "end": 1489,
+    "line": 1454,
+    "end": 1454,
     "lines": 1,
     "guards": [],
     "helpers": [
@@ -1191,8 +1102,8 @@
     "method": "GET",
     "path": "/site-actions.html",
     "domain": "page:site-actions",
-    "line": 1491,
-    "end": 1491,
+    "line": 1456,
+    "end": 1456,
     "lines": 1,
     "guards": [],
     "helpers": [
@@ -1213,8 +1124,8 @@
     "method": "GET",
     "path": "/system-logs.html",
     "domain": "page:system-logs",
-    "line": 1492,
-    "end": 1492,
+    "line": 1457,
+    "end": 1457,
     "lines": 1,
     "guards": [],
     "helpers": [
@@ -1229,8 +1140,8 @@
     "method": "GET",
     "path": "/meetings-unsigned.html",
     "domain": "page:meetings-unsigned",
-    "line": 1493,
-    "end": 1493,
+    "line": 1458,
+    "end": 1458,
     "lines": 1,
     "guards": [],
     "helpers": [
@@ -1245,8 +1156,8 @@
     "method": "GET",
     "path": "/meetings-council.html",
     "domain": "page:meetings-council",
-    "line": 1494,
-    "end": 1494,
+    "line": 1459,
+    "end": 1459,
     "lines": 1,
     "guards": [],
     "helpers": [
@@ -1261,8 +1172,8 @@
     "method": "GET",
     "path": "/meetings-compliance.html",
     "domain": "page:meetings-compliance",
-    "line": 1495,
-    "end": 1495,
+    "line": 1460,
+    "end": 1460,
     "lines": 1,
     "guards": [],
     "helpers": [
@@ -1277,8 +1188,8 @@
     "method": "GET",
     "path": "/meetings-import.html",
     "domain": "page:meetings-import",
-    "line": 1496,
-    "end": 1496,
+    "line": 1461,
+    "end": 1461,
     "lines": 1,
     "guards": [],
     "helpers": [
@@ -1293,8 +1204,8 @@
     "method": "GET",
     "path": "/meetings-progress.html",
     "domain": "page:meetings-progress",
-    "line": 1497,
-    "end": 1497,
+    "line": 1462,
+    "end": 1462,
     "lines": 1,
     "guards": [],
     "helpers": [
@@ -1309,8 +1220,8 @@
     "method": "GET",
     "path": "/meetings-insights.html",
     "domain": "page:meetings-insights",
-    "line": 1498,
-    "end": 1498,
+    "line": 1463,
+    "end": 1463,
     "lines": 1,
     "guards": [],
     "helpers": [
@@ -1326,8 +1237,8 @@
     "method": "GET",
     "path": "/meetings-setup.html",
     "domain": "page:meetings-setup",
-    "line": 1499,
-    "end": 1499,
+    "line": 1464,
+    "end": 1464,
     "lines": 1,
     "guards": [],
     "helpers": [
@@ -1342,8 +1253,8 @@
     "method": "GET",
     "path": "/api/ping",
     "domain": "ping",
-    "line": 1613,
-    "end": 1613,
+    "line": 1578,
+    "end": 1578,
     "lines": 1,
     "guards": [],
     "helpers": [],
@@ -1358,8 +1269,8 @@
     "method": "GET",
     "path": "/api/sync/status",
     "domain": "sync",
-    "line": 1622,
-    "end": 1653,
+    "line": 1587,
+    "end": 1618,
     "lines": 32,
     "guards": [
      "requireReportSession"
@@ -1376,8 +1287,8 @@
     "method": "POST",
     "path": "/api/sync/trigger/assets",
     "domain": "sync",
-    "line": 1665,
-    "end": 1669,
+    "line": 1630,
+    "end": 1634,
     "lines": 5,
     "guards": [
      "requireReportSession",
@@ -1396,8 +1307,8 @@
     "method": "POST",
     "path": "/api/sync/trigger/:job",
     "domain": "sync",
-    "line": 1671,
-    "end": 1682,
+    "line": 1636,
+    "end": 1647,
     "lines": 12,
     "guards": [
      "requireReportSession",
@@ -1418,913 +1329,10 @@
    },
    {
     "method": "GET",
-    "path": "/api/assets/inventory",
-    "domain": "assets",
-    "line": 1708,
-    "end": 1738,
-    "lines": 31,
-    "guards": [
-     "requireReportSession"
-    ],
-    "helpers": [
-     "_canReadMoney",
-     "_stripAssetMoney",
-     "_assetMoneyOpts"
-    ],
-    "tests": [
-     "_rbac-matrix-core.js",
-     "assets-inventory-usd.smoke.test.js",
-     "assets-money-scope.smoke.test.js",
-     "assets-routes.smoke.test.js",
-     "business-only-boundary.smoke.test.js"
-    ],
-    "recent_commits": 3
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/lookups",
-    "domain": "assets",
-    "line": 1740,
-    "end": 1747,
-    "lines": 8,
-    "guards": [
-     "requireReportSession"
-    ],
-    "helpers": [],
-    "tests": [
-     "assets-money-scope.smoke.test.js",
-     "assets-routes.smoke.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/summary",
-    "domain": "assets",
-    "line": 1773,
-    "end": 1782,
-    "lines": 10,
-    "guards": [
-     "requireReportSession"
-    ],
-    "helpers": [
-     "_logAssetsView"
-    ],
-    "tests": [
-     "assets-money-scope.smoke.test.js",
-     "assets-routes.smoke.test.js",
-     "assets-usage-log.smoke.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/export.xlsx",
-    "domain": "assets",
-    "line": 1788,
-    "end": 1813,
-    "lines": 26,
-    "guards": [
-     "requireReportSession",
-     "requireMoneyRead",
-     "_xp('assets.inventory')"
-    ],
-    "helpers": [
-     "_xp",
-     "_logAssetEvent",
-     "_assetMoneyOpts"
-    ],
-    "tests": [
-     "_rbac-matrix-core.js",
-     "assets-money-scope.smoke.test.js",
-     "assets-usage-log.smoke.test.js"
-    ],
-    "recent_commits": 3
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/sync-status",
-    "domain": "assets",
-    "line": 1821,
-    "end": 1829,
-    "lines": 9,
-    "guards": [
-     "requireReportSession"
-    ],
-    "helpers": [
-     "sync"
-    ],
-    "tests": [
-     "assets-freshness.test.js",
-     "assets-sync-status.smoke.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/hygiene/summary",
-    "domain": "assets",
-    "line": 1843,
-    "end": 1850,
-    "lines": 8,
-    "guards": [
-     "requireReportSession"
-    ],
-    "helpers": [
-     "_assetHygieneFilters"
-    ],
-    "tests": [
-     "assets-hygiene-routes.smoke.test.js",
-     "assets-money-scope.smoke.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/hygiene/exceptions",
-    "domain": "assets",
-    "line": 1852,
-    "end": 1864,
-    "lines": 13,
-    "guards": [
-     "requireReportSession"
-    ],
-    "helpers": [
-     "_assetHygieneFilters"
-    ],
-    "tests": [
-     "assets-hygiene-routes.smoke.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/hygiene/export.xlsx",
-    "domain": "assets",
-    "line": 1869,
-    "end": 1890,
-    "lines": 22,
-    "guards": [
-     "requireReportSession",
-     "_xp('assets.hygiene')"
-    ],
-    "helpers": [
-     "_xp",
-     "_assetHygieneFilters"
-    ],
-    "tests": [
-     "assets-hygiene-routes.smoke.test.js"
-    ],
-    "recent_commits": 2
-   },
-   {
-    "method": "POST",
-    "path": "/api/assets/hygiene/send",
-    "domain": "assets",
-    "line": 1895,
-    "end": 1906,
-    "lines": 12,
-    "guards": [
-     "requireReportSession",
-     "requireSuperAdmin"
-    ],
-    "helpers": [],
-    "tests": [
-     "assets-hygiene-routes.smoke.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "POST",
-    "path": "/api/reports/scoreboard/send",
-    "domain": "reports/scoreboard",
-    "line": 1912,
-    "end": 1923,
-    "lines": 12,
-    "guards": [
-     "requireReportSession",
-     "requireSuperAdmin"
-    ],
-    "helpers": [],
-    "tests": [
-     "asset-group-route.smoke.test.js",
-     "weekly-send-route.smoke.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "POST",
-    "path": "/api/reports/weekly/send",
-    "domain": "reports/weekly",
-    "line": 1937,
-    "end": 1948,
-    "lines": 12,
-    "guards": [
-     "requireReportSession",
-     "requireSuperAdmin"
-    ],
-    "helpers": [],
-    "tests": [
-     "weekly-send-route.smoke.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "POST",
-    "path": "/api/reports/asset-group/send",
-    "domain": "reports/asset-group",
-    "line": 1957,
-    "end": 1968,
-    "lines": 12,
-    "guards": [
-     "requireReportSession",
-     "requireSuperAdmin"
-    ],
-    "helpers": [],
-    "tests": [
-     "asset-group-route.smoke.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "POST",
-    "path": "/api/reports/asset-reminders/send",
-    "domain": "reports/asset-reminders",
-    "line": 1978,
-    "end": 1996,
-    "lines": 19,
-    "guards": [
-     "requireReportSession",
-     "requireSuperAdmin"
-    ],
-    "helpers": [],
-    "tests": [
-     "asset-reminders-route.smoke.test.js",
-     "reports-admin-asset-reminders.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/hardware/summary",
-    "domain": "assets",
-    "line": 2011,
-    "end": 2018,
-    "lines": 8,
-    "guards": [
-     "requireReportSession"
-    ],
-    "helpers": [
-     "_assetHardwareFilters"
-    ],
-    "tests": [
-     "assets-hardware-routes.smoke.test.js",
-     "assets-money-scope.smoke.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/hardware/exceptions",
-    "domain": "assets",
-    "line": 2020,
-    "end": 2032,
-    "lines": 13,
-    "guards": [
-     "requireReportSession"
-    ],
-    "helpers": [
-     "_assetHardwareFilters"
-    ],
-    "tests": [
-     "assets-hardware-routes.smoke.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/hardware/export.xlsx",
-    "domain": "assets",
-    "line": 2037,
-    "end": 2058,
-    "lines": 22,
-    "guards": [
-     "requireReportSession",
-     "_xp('assets.hardware')"
-    ],
-    "helpers": [
-     "_xp",
-     "_assetHardwareFilters"
-    ],
-    "tests": [
-     "assets-hardware-routes.smoke.test.js"
-    ],
-    "recent_commits": 2
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/finance/summary",
-    "domain": "assets",
-    "line": 2115,
-    "end": 2127,
-    "lines": 13,
-    "guards": [
-     "requireReportSession",
-     "requireMoneyRead"
-    ],
-    "helpers": [
-     "_assetFinanceFilters",
-     "_assetMoneyOpts",
-     "_assetCertifyOpts"
-    ],
-    "tests": [
-     "_rbac-matrix-core.js",
-     "assets-finance-routes.smoke.test.js",
-     "assets-money-scope.smoke.test.js",
-     "authz-matrix-json.test.js",
-     "inventory-strict.test.js",
-     "rbac-mutation.smoke.test.js",
-     "uat-amdec-multinational-data.test.js",
-     "uat-amdec-org-models.smoke.test.js",
-     "workspace-profiles-grants-nothing-matrix.smoke.test.js",
-     "workspace-profiles-grants-nothing.smoke.test.js"
-    ],
-    "recent_commits": 4
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/finance/export.xlsx",
-    "domain": "assets",
-    "line": 2130,
-    "end": 2148,
-    "lines": 19,
-    "guards": [
-     "requireReportSession",
-     "requireMoneyRead",
-     "_xp('assets.finance')"
-    ],
-    "helpers": [
-     "_xp",
-     "_assetFinanceFilters",
-     "_assetMoneyOpts",
-     "_assetCertifyOpts",
-     "_certificationSheet"
-    ],
-    "tests": [
-     "_rbac-matrix-core.js",
-     "assets-finance-routes.smoke.test.js",
-     "finance-certification.smoke.test.js"
-    ],
-    "recent_commits": 5
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/finance/outliers",
-    "domain": "assets",
-    "line": 2153,
-    "end": 2162,
-    "lines": 10,
-    "guards": [
-     "requireReportSession",
-     "requireMoneyRead"
-    ],
-    "helpers": [
-     "_assetFinanceFilters",
-     "_assetMoneyOpts"
-    ],
-    "tests": [
-     "asset-cost-outliers.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/finance/outliers/export.xlsx",
-    "domain": "assets",
-    "line": 2163,
-    "end": 2178,
-    "lines": 16,
-    "guards": [
-     "requireReportSession",
-     "requireMoneyRead",
-     "_xp('assets.finance_outliers')"
-    ],
-    "helpers": [
-     "_xp",
-     "_assetFinanceFilters",
-     "_assetMoneyOpts"
-    ],
-    "tests": [
-     "asset-cost-outliers.test.js"
-    ],
-    "recent_commits": 2
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/licences/summary",
-    "domain": "assets",
-    "line": 2180,
-    "end": 2187,
-    "lines": 8,
-    "guards": [
-     "requireReportSession",
-     "requireMoneyRead"
-    ],
-    "helpers": [
-     "_assetLicenceFilters"
-    ],
-    "tests": [
-     "assets-finance-routes.smoke.test.js",
-     "assets-money-scope.smoke.test.js"
-    ],
-    "recent_commits": 2
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/licences/exceptions",
-    "domain": "assets",
-    "line": 2189,
-    "end": 2200,
-    "lines": 12,
-    "guards": [
-     "requireReportSession",
-     "requireMoneyRead"
-    ],
-    "helpers": [
-     "_assetLicenceFilters"
-    ],
-    "tests": [
-     "assets-finance-routes.smoke.test.js"
-    ],
-    "recent_commits": 2
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/licences/export.xlsx",
-    "domain": "assets",
-    "line": 2205,
-    "end": 2226,
-    "lines": 22,
-    "guards": [
-     "requireReportSession",
-     "requireMoneyRead",
-     "_xp('assets.licences')"
-    ],
-    "helpers": [
-     "_xp",
-     "_assetLicenceFilters"
-    ],
-    "tests": [
-     "_rbac-matrix-core.js",
-     "assets-finance-routes.smoke.test.js"
-    ],
-    "recent_commits": 3
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/software/summary",
-    "domain": "assets",
-    "line": 2240,
-    "end": 2247,
-    "lines": 8,
-    "guards": [
-     "requireReportSession"
-    ],
-    "helpers": [
-     "_assetSoftwareFilters"
-    ],
-    "tests": [
-     "assets-software-routes.smoke.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/software/exceptions",
-    "domain": "assets",
-    "line": 2249,
-    "end": 2260,
-    "lines": 12,
-    "guards": [
-     "requireReportSession"
-    ],
-    "helpers": [
-     "_assetSoftwareFilters"
-    ],
-    "tests": [
-     "assets-software-routes.smoke.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/software/export.xlsx",
-    "domain": "assets",
-    "line": 2265,
-    "end": 2286,
-    "lines": 22,
-    "guards": [
-     "requireReportSession",
-     "_xp('assets.software')"
-    ],
-    "helpers": [
-     "_xp",
-     "_assetSoftwareFilters"
-    ],
-    "tests": [
-     "assets-software-routes.smoke.test.js"
-    ],
-    "recent_commits": 2
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/progress/leaderboard",
-    "domain": "assets",
-    "line": 2300,
-    "end": 2309,
-    "lines": 10,
-    "guards": [
-     "requireReportSession"
-    ],
-    "helpers": [],
-    "tests": [
-     "assets-effort-routes.smoke.test.js",
-     "assets-money-scope.smoke.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/progress/trend",
-    "domain": "assets",
-    "line": 2311,
-    "end": 2323,
-    "lines": 13,
-    "guards": [
-     "requireReportSession"
-    ],
-    "helpers": [
-     "_assetProgressFilters"
-    ],
-    "tests": [
-     "assets-effort-routes.smoke.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "POST",
-    "path": "/api/assets/progress/snapshot",
-    "domain": "assets",
-    "line": 2327,
-    "end": 2334,
-    "lines": 8,
-    "guards": [
-     "requireReportSession",
-     "requireAdmin"
-    ],
-    "helpers": [],
-    "tests": [
-     "assets-effort-routes.smoke.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/reconcile/",
-    "domain": "assets",
-    "line": 2404,
-    "end": 2414,
-    "lines": 11,
-    "guards": [
-     "requireReportSession"
-    ],
-    "helpers": [
-     "path"
-    ],
-    "tests": [
-     "rbac-write-scope.smoke.test.js",
-     "reconcile-routes.smoke.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/reconcile/summary",
-    "domain": "assets",
-    "line": 2417,
-    "end": 2432,
-    "lines": 16,
-    "guards": [
-     "requireReportSession"
-    ],
-    "helpers": [
-     "_reconcileView"
-    ],
-    "tests": [
-     "reconcile-routes.smoke.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/reconcile/gaps",
-    "domain": "assets",
-    "line": 2434,
-    "end": 2443,
-    "lines": 10,
-    "guards": [
-     "requireReportSession"
-    ],
-    "helpers": [
-     "_reconcileView"
-    ],
-    "tests": [
-     "reconcile-routes.smoke.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "POST",
-    "path": "/api/assets/reconcile/preview",
-    "domain": "assets",
-    "line": 2473,
-    "end": 2484,
-    "lines": 12,
-    "guards": [
-     "requireReportSession",
-     "requireAdmin"
-    ],
-    "helpers": [
-     "_reconcileParse",
-     "_reconcileError"
-    ],
-    "tests": [
-     "reconcile-routes.smoke.test.js"
-    ],
-    "recent_commits": 0
-   },
-   {
-    "method": "POST",
-    "path": "/api/assets/reconcile/import",
-    "domain": "assets",
-    "line": 2486,
-    "end": 2510,
-    "lines": 25,
-    "guards": [
-     "requireReportSession",
-     "requireAdmin"
-    ],
-    "helpers": [
-     "_reconcileView",
-     "_reconcileParse",
-     "_reconcileError"
-    ],
-    "tests": [
-     "reconcile-routes.smoke.test.js"
-    ],
-    "recent_commits": 0
-   },
-   {
-    "method": "POST",
-    "path": "/api/assets/reconcile/decision",
-    "domain": "assets",
-    "line": 2516,
-    "end": 2530,
-    "lines": 15,
-    "guards": [
-     "requireReportSession",
-     "requireRole('editor')"
-    ],
-    "helpers": [],
-    "tests": [
-     "rbac-write-scope.smoke.test.js",
-     "reconcile-routes.smoke.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/reconcile/history",
-    "domain": "assets",
-    "line": 2535,
-    "end": 2549,
-    "lines": 15,
-    "guards": [
-     "requireReportSession"
-    ],
-    "helpers": [],
-    "tests": [
-     "reconcile-routes.smoke.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "POST",
-    "path": "/api/assets/reconcile/snapshot",
-    "domain": "assets",
-    "line": 2553,
-    "end": 2563,
-    "lines": 11,
-    "guards": [
-     "requireReportSession",
-     "requireAdmin"
-    ],
-    "helpers": [
-     "_reconcileView"
-    ],
-    "tests": [
-     "reconcile-routes.smoke.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/reconcile/export.xlsx",
-    "domain": "assets",
-    "line": 2565,
-    "end": 2630,
-    "lines": 66,
-    "guards": [
-     "requireReportSession",
-     "_xp('assets.reconcile')"
-    ],
-    "helpers": [
-     "_xp",
-     "_reconcileView"
-    ],
-    "tests": [
-     "reconcile-routes.smoke.test.js"
-    ],
-    "recent_commits": 2
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/depreciation/summary",
-    "domain": "assets",
-    "line": 2677,
-    "end": 2696,
-    "lines": 20,
-    "guards": [
-     "requireReportSession",
-     "requireMoneyRead"
-    ],
-    "helpers": [
-     "_assetMoneyOpts",
-     "_assetCertifyOpts",
-     "_assetDeprecFilters",
-     "_deprecConfig"
-    ],
-    "tests": [
-     "_rbac-matrix-core.js",
-     "assets-depreciation-routes.smoke.test.js",
-     "assets-finance-routes.smoke.test.js",
-     "assets-money-scope.smoke.test.js"
-    ],
-    "recent_commits": 4
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/depreciation/schedule",
-    "domain": "assets",
-    "line": 2698,
-    "end": 2712,
-    "lines": 15,
-    "guards": [
-     "requireReportSession",
-     "requireMoneyRead"
-    ],
-    "helpers": [
-     "_assetMoneyOpts",
-     "_assetDeprecFilters",
-     "_deprecConfig"
-    ],
-    "tests": [
-     "assets-depreciation-routes.smoke.test.js",
-     "assets-money-scope.smoke.test.js"
-    ],
-    "recent_commits": 3
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/depreciation-config",
-    "domain": "assets",
-    "line": 2714,
-    "end": 2721,
-    "lines": 8,
-    "guards": [
-     "requireReportSession"
-    ],
-    "helpers": [
-     "_deprecConfig"
-    ],
-    "tests": [
-     "assets-depreciation-routes.smoke.test.js",
-     "assets-money-scope.smoke.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "PUT",
-    "path": "/api/assets/depreciation-config",
-    "domain": "assets",
-    "line": 2723,
-    "end": 2736,
-    "lines": 14,
-    "guards": [
-     "requireReportSession",
-     "requireSuperAdmin"
-    ],
-    "helpers": [
-     "_validDeprecCfg",
-     "reportConfig"
-    ],
-    "tests": [
-     "assets-depreciation-routes.smoke.test.js",
-     "assets-money-scope.smoke.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/investment/history",
-    "domain": "assets",
-    "line": 2762,
-    "end": 2773,
-    "lines": 12,
-    "guards": [
-     "requireReportSession",
-     "requireMoneyRead"
-    ],
-    "helpers": [
-     "_assetMoneyOpts",
-     "_assetCertifyOpts",
-     "_assetInvestmentFilters"
-    ],
-    "tests": [
-     "assets-finance-routes.smoke.test.js",
-     "assets-investment-routes.smoke.test.js",
-     "assets-money-scope.smoke.test.js"
-    ],
-    "recent_commits": 4
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/investment/forecast",
-    "domain": "assets",
-    "line": 2775,
-    "end": 2794,
-    "lines": 20,
-    "guards": [
-     "requireReportSession",
-     "requireMoneyRead"
-    ],
-    "helpers": [
-     "_assetMoneyOpts",
-     "_assetCertifyOpts",
-     "_deprecConfig",
-     "_assetInvestmentFilters",
-     "_assetUpliftPct"
-    ],
-    "tests": [
-     "assets-finance-routes.smoke.test.js",
-     "assets-investment-routes.smoke.test.js",
-     "assets-money-scope.smoke.test.js"
-    ],
-    "recent_commits": 4
-   },
-   {
-    "method": "GET",
-    "path": "/api/assets/investment/export.xlsx",
-    "domain": "assets",
-    "line": 2800,
-    "end": 2852,
-    "lines": 53,
-    "guards": [
-     "requireReportSession",
-     "requireMoneyRead",
-     "_xp('assets.investment')"
-    ],
-    "helpers": [
-     "_xp",
-     "_assetMoneyOpts",
-     "_assetCertifyOpts",
-     "_certificationSheet",
-     "_deprecConfig",
-     "_assetInvestmentFilters",
-     "_assetUpliftPct"
-    ],
-    "tests": [
-     "_rbac-matrix-core.js",
-     "assets-investment-routes.smoke.test.js"
-    ],
-    "recent_commits": 5
-   },
-   {
-    "method": "GET",
     "path": "/health",
     "domain": "page:health",
-    "line": 2854,
-    "end": 2864,
+    "line": 1655,
+    "end": 1665,
     "lines": 11,
     "guards": [],
     "helpers": [
@@ -2351,8 +1359,8 @@
     "method": "GET",
     "path": "/api/change",
     "domain": "change",
-    "line": 2902,
-    "end": 2917,
+    "line": 1703,
+    "end": 1718,
     "lines": 16,
     "guards": [
      "requireReportSession"
@@ -2365,8 +1373,8 @@
     "method": "GET",
     "path": "/api/cab",
     "domain": "cab",
-    "line": 2924,
-    "end": 2939,
+    "line": 1725,
+    "end": 1740,
     "lines": 16,
     "guards": [
      "requireReportSession"
@@ -2379,8 +1387,8 @@
     "method": "GET",
     "path": "/api/metrics/change",
     "domain": "metrics",
-    "line": 2960,
-    "end": 2970,
+    "line": 1761,
+    "end": 1771,
     "lines": 11,
     "guards": [
      "requireReportSession",
@@ -2398,8 +1406,8 @@
     "method": "GET",
     "path": "/api/metrics/cab",
     "domain": "metrics",
-    "line": 2981,
-    "end": 2991,
+    "line": 1782,
+    "end": 1792,
     "lines": 11,
     "guards": [
      "requireReportSession",
@@ -2417,8 +1425,8 @@
     "method": "GET",
     "path": "/api/metrics/survey",
     "domain": "metrics",
-    "line": 3002,
-    "end": 3016,
+    "line": 1803,
+    "end": 1817,
     "lines": 15,
     "guards": [
      "requireReportSession",
@@ -2438,8 +1446,8 @@
     "method": "GET",
     "path": "/api/metrics/requests",
     "domain": "metrics",
-    "line": 3029,
-    "end": 3047,
+    "line": 1830,
+    "end": 1848,
     "lines": 19,
     "guards": [
      "requireReportSession",
@@ -2462,8 +1470,8 @@
     "method": "GET",
     "path": "/api/metrics/request-filter-options",
     "domain": "metrics",
-    "line": 3054,
-    "end": 3059,
+    "line": 1855,
+    "end": 1860,
     "lines": 6,
     "guards": [
      "requireReportSession",
@@ -2479,8 +1487,8 @@
     "method": "GET",
     "path": "/api/requests",
     "domain": "requests",
-    "line": 3074,
-    "end": 3093,
+    "line": 1875,
+    "end": 1894,
     "lines": 20,
     "guards": [
      "requireReportSession"
@@ -2495,8 +1503,8 @@
     "method": "GET",
     "path": "/api/orgs",
     "domain": "orgs",
-    "line": 3095,
-    "end": 3101,
+    "line": 1896,
+    "end": 1902,
     "lines": 7,
     "guards": [
      "requireReportSession",
@@ -2517,8 +1525,8 @@
     "method": "GET",
     "path": "/api/debug/raw-test",
     "domain": "debug",
-    "line": 3104,
-    "end": 3128,
+    "line": 1905,
+    "end": 1929,
     "lines": 25,
     "guards": [
      "requireReportSession",
@@ -2539,8 +1547,8 @@
     "method": "GET",
     "path": "/api/workspaces",
     "domain": "workspaces",
-    "line": 3130,
-    "end": 3136,
+    "line": 1931,
+    "end": 1937,
     "lines": 7,
     "guards": [
      "requireReportSession",
@@ -2562,8 +1570,8 @@
     "method": "GET",
     "path": "/api/views",
     "domain": "views",
-    "line": 3138,
-    "end": 3144,
+    "line": 1939,
+    "end": 1945,
     "lines": 7,
     "guards": [
      "requireReportSession",
@@ -2584,8 +1592,8 @@
     "method": "POST",
     "path": "/api/cache/clear",
     "domain": "cache",
-    "line": 3146,
-    "end": 3150,
+    "line": 1947,
+    "end": 1951,
     "lines": 5,
     "guards": [
      "requireReportSession",
@@ -2604,8 +1612,8 @@
     "method": "POST",
     "path": "/api/admin/refresh-major-incident-udfs",
     "domain": "admin",
-    "line": 3174,
-    "end": 3276,
+    "line": 1975,
+    "end": 2077,
     "lines": 103,
     "guards": [
      "requireReportSession",
@@ -2624,8 +1632,8 @@
     "method": "GET",
     "path": "/api/cache/status",
     "domain": "cache",
-    "line": 3279,
-    "end": 3298,
+    "line": 2080,
+    "end": 2099,
     "lines": 20,
     "guards": [
      "requireReportSession"
@@ -2645,8 +1653,8 @@
     "method": "GET",
     "path": "/api/data/major-incidents",
     "domain": "data",
-    "line": 3345,
-    "end": 3370,
+    "line": 2146,
+    "end": 2171,
     "lines": 26,
     "guards": [
      "requireReportSession"
@@ -2665,8 +1673,8 @@
     "method": "GET",
     "path": "/api/data/change-table",
     "domain": "data",
-    "line": 3372,
-    "end": 3397,
+    "line": 2173,
+    "end": 2198,
     "lines": 26,
     "guards": [
      "requireReportSession"
@@ -2685,8 +1693,8 @@
     "method": "GET",
     "path": "/api/data/first-response",
     "domain": "data",
-    "line": 3405,
-    "end": 3440,
+    "line": 2206,
+    "end": 2241,
     "lines": 36,
     "guards": [
      "requireReportSession"
@@ -2704,8 +1712,8 @@
     "method": "GET",
     "path": "/api/data/sla-trend",
     "domain": "data",
-    "line": 3445,
-    "end": 3470,
+    "line": 2246,
+    "end": 2271,
     "lines": 26,
     "guards": [
      "requireReportSession"
@@ -2725,8 +1733,8 @@
     "method": "GET",
     "path": "/api/data/sla-by-category",
     "domain": "data",
-    "line": 3475,
-    "end": 3500,
+    "line": 2276,
+    "end": 2301,
     "lines": 26,
     "guards": [
      "requireReportSession"
@@ -2744,8 +1752,8 @@
     "method": "GET",
     "path": "/api/data/group-requests",
     "domain": "data",
-    "line": 3518,
-    "end": 3538,
+    "line": 2319,
+    "end": 2339,
     "lines": 21,
     "guards": [
      "requireReportSession"
@@ -2763,8 +1771,8 @@
     "method": "GET",
     "path": "/api/data/emergency-changes",
     "domain": "data",
-    "line": 3540,
-    "end": 3560,
+    "line": 2341,
+    "end": 2361,
     "lines": 21,
     "guards": [
      "requireReportSession"
@@ -2782,8 +1790,8 @@
     "method": "GET",
     "path": "/api/data/ageing",
     "domain": "data",
-    "line": 3562,
-    "end": 3582,
+    "line": 2363,
+    "end": 2383,
     "lines": 21,
     "guards": [
      "requireReportSession"
@@ -2803,8 +1811,8 @@
     "method": "GET",
     "path": "/api/data/incident-vs-sr",
     "domain": "data",
-    "line": 3584,
-    "end": 3604,
+    "line": 2385,
+    "end": 2405,
     "lines": 21,
     "guards": [
      "requireReportSession"
@@ -2822,8 +1830,8 @@
     "method": "GET",
     "path": "/api/data/cab-approvals",
     "domain": "data",
-    "line": 3606,
-    "end": 3626,
+    "line": 2407,
+    "end": 2427,
     "lines": 21,
     "guards": [
      "requireReportSession"
@@ -2841,8 +1849,8 @@
     "method": "GET",
     "path": "/api/data/cab-recommendations",
     "domain": "data",
-    "line": 3628,
-    "end": 3648,
+    "line": 2429,
+    "end": 2449,
     "lines": 21,
     "guards": [
      "requireReportSession"
@@ -2860,8 +1868,8 @@
     "method": "GET",
     "path": "/api/data/submission-channels",
     "domain": "data",
-    "line": 3924,
-    "end": 3949,
+    "line": 2725,
+    "end": 2750,
     "lines": 26,
     "guards": [
      "requireReportSession"
@@ -2876,8 +1884,8 @@
     "method": "GET",
     "path": "/api/data/requests-raw",
     "domain": "data",
-    "line": 3966,
-    "end": 3987,
+    "line": 2767,
+    "end": 2788,
     "lines": 22,
     "guards": [
      "requireReportSession"
@@ -2895,8 +1903,8 @@
     "method": "GET",
     "path": "/api/data/monthly-summary",
     "domain": "data",
-    "line": 3989,
-    "end": 4025,
+    "line": 2790,
+    "end": 2826,
     "lines": 37,
     "guards": [
      "requireReportSession"
@@ -2913,8 +1921,8 @@
     "method": "GET",
     "path": "/api/data/ageing-by-site",
     "domain": "data",
-    "line": 4034,
-    "end": 4075,
+    "line": 2835,
+    "end": 2876,
     "lines": 42,
     "guards": [
      "requireReportSession"
@@ -2930,8 +1938,8 @@
     "method": "GET",
     "path": "/api/data/ageing-by-group",
     "domain": "data",
-    "line": 4084,
-    "end": 4135,
+    "line": 2885,
+    "end": 2936,
     "lines": 52,
     "guards": [
      "requireReportSession"
@@ -2947,8 +1955,8 @@
     "method": "POST",
     "path": "/api/ai/analyze",
     "domain": "ai",
-    "line": 4374,
-    "end": 4401,
+    "line": 3175,
+    "end": 3202,
     "lines": 28,
     "guards": [
      "requireReportSession",
@@ -2973,8 +1981,8 @@
     "method": "GET",
     "path": "/api/sample/:viewId",
     "domain": "sample",
-    "line": 4404,
-    "end": 4410,
+    "line": 3205,
+    "end": 3211,
     "lines": 7,
     "guards": [
      "requireReportSession",
@@ -2996,8 +2004,8 @@
     "method": "POST",
     "path": "/api/meridian/sync",
     "domain": "meridian",
-    "line": 4594,
-    "end": 4600,
+    "line": 3395,
+    "end": 3401,
     "lines": 7,
     "guards": [
      "requireReportSession",
@@ -3016,8 +2024,8 @@
     "method": "GET",
     "path": "/api/reports/recipients",
     "domain": "reports/recipients",
-    "line": 4601,
-    "end": 4604,
+    "line": 3402,
+    "end": 3405,
     "lines": 4,
     "guards": [
      "requireReportSession",
@@ -3035,8 +2043,8 @@
     "method": "PUT",
     "path": "/api/reports/recipients/:site",
     "domain": "reports/recipients",
-    "line": 4605,
-    "end": 4608,
+    "line": 3406,
+    "end": 3409,
     "lines": 4,
     "guards": [
      "requireReportSession",
@@ -3054,8 +2062,8 @@
     "method": "POST",
     "path": "/api/reports/recipients/suggest",
     "domain": "reports/recipients",
-    "line": 4611,
-    "end": 4619,
+    "line": 3412,
+    "end": 3420,
     "lines": 9,
     "guards": [
      "requireReportSession",
@@ -3073,8 +2081,8 @@
     "method": "GET",
     "path": "/api/reports/schedule",
     "domain": "reports/schedule",
-    "line": 4620,
-    "end": 4623,
+    "line": 3421,
+    "end": 3424,
     "lines": 4,
     "guards": [
      "requireReportSession",
@@ -3092,8 +2100,8 @@
     "method": "PUT",
     "path": "/api/reports/schedule",
     "domain": "reports/schedule",
-    "line": 4624,
-    "end": 4627,
+    "line": 3425,
+    "end": 3428,
     "lines": 4,
     "guards": [
      "requireReportSession",
@@ -3111,8 +2119,8 @@
     "method": "GET",
     "path": "/api/reports/exec-editorial",
     "domain": "reports/exec-editorial",
-    "line": 4654,
-    "end": 4664,
+    "line": 3455,
+    "end": 3465,
     "lines": 11,
     "guards": [
      "requireReportSession",
@@ -3131,8 +2139,8 @@
     "method": "PUT",
     "path": "/api/reports/exec-editorial",
     "domain": "reports/exec-editorial",
-    "line": 4666,
-    "end": 4679,
+    "line": 3467,
+    "end": 3480,
     "lines": 14,
     "guards": [
      "requireReportSession",
@@ -3151,8 +2159,8 @@
     "method": "GET",
     "path": "/api/reports/site-data",
     "domain": "reports/site-data",
-    "line": 4681,
-    "end": 4696,
+    "line": 3482,
+    "end": 3497,
     "lines": 16,
     "guards": [
      "requireReportSession"
@@ -3172,8 +2180,8 @@
     "method": "POST",
     "path": "/api/reports/action/:uid/merge",
     "domain": "reports/action",
-    "line": 4751,
-    "end": 4764,
+    "line": 3552,
+    "end": 3565,
     "lines": 14,
     "guards": [
      "requireReportSession"
@@ -3196,8 +2204,8 @@
     "method": "POST",
     "path": "/api/reports/action/:uid/unmerge",
     "domain": "reports/action",
-    "line": 4765,
-    "end": 4773,
+    "line": 3566,
+    "end": 3574,
     "lines": 9,
     "guards": [
      "requireReportSession"
@@ -3220,8 +2228,8 @@
     "method": "POST",
     "path": "/api/reports/action/:uid/status",
     "domain": "reports/action",
-    "line": 4776,
-    "end": 4792,
+    "line": 3577,
+    "end": 3593,
     "lines": 17,
     "guards": [
      "requireReportSession"
@@ -3245,8 +2253,8 @@
     "method": "POST",
     "path": "/api/reports/action/:uid/relineage",
     "domain": "reports/action",
-    "line": 4796,
-    "end": 4816,
+    "line": 3597,
+    "end": 3617,
     "lines": 21,
     "guards": [
      "requireReportSession"
@@ -3269,8 +2277,8 @@
     "method": "GET",
     "path": "/api/reports/:id/importable-actions",
     "domain": "reports",
-    "line": 4820,
-    "end": 4842,
+    "line": 3621,
+    "end": 3643,
     "lines": 23,
     "guards": [
      "requireReportSession"
@@ -3328,6 +2336,7 @@
      "login-limit-failures-only.smoke.test.js",
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
+     "p06-extraction-characterization.test.js",
      "p6-decisions-access.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
@@ -3370,8 +2379,8 @@
     "method": "GET",
     "path": "/api/reports/review-data",
     "domain": "reports/review-data",
-    "line": 4849,
-    "end": 4891,
+    "line": 3650,
+    "end": 3692,
     "lines": 43,
     "guards": [
      "requireReportSession",
@@ -3390,8 +2399,8 @@
     "method": "POST",
     "path": "/api/reports/send",
     "domain": "reports/send",
-    "line": 4903,
-    "end": 4946,
+    "line": 3704,
+    "end": 3747,
     "lines": 44,
     "guards": [
      "requireReportSession",
@@ -3413,8 +2422,8 @@
     "method": "POST",
     "path": "/api/reports/auth/login",
     "domain": "reports/auth",
-    "line": 4951,
-    "end": 4999,
+    "line": 3752,
+    "end": 3800,
     "lines": 49,
     "guards": [],
     "helpers": [
@@ -3440,8 +2449,8 @@
     "method": "POST",
     "path": "/api/reports/auth/logout",
     "domain": "reports/auth",
-    "line": 5001,
-    "end": 5006,
+    "line": 3802,
+    "end": 3807,
     "lines": 6,
     "guards": [
      "requireReportSession"
@@ -3460,8 +2469,8 @@
     "method": "GET",
     "path": "/api/reports/auth/me",
     "domain": "reports/auth",
-    "line": 5008,
-    "end": 5008,
+    "line": 3809,
+    "end": 3809,
     "lines": 1,
     "guards": [
      "requireReportSession"
@@ -3484,8 +2493,8 @@
     "method": "GET",
     "path": "/api/auth/config",
     "domain": "auth",
-    "line": 5044,
-    "end": 5052,
+    "line": 3845,
+    "end": 3853,
     "lines": 9,
     "guards": [],
     "helpers": [
@@ -3500,8 +2509,8 @@
     "method": "GET",
     "path": "/api/auth/sso/login",
     "domain": "auth",
-    "line": 5055,
-    "end": 5067,
+    "line": 3856,
+    "end": 3868,
     "lines": 13,
     "guards": [],
     "helpers": [
@@ -3518,8 +2527,8 @@
     "method": "GET",
     "path": "/api/auth/sso/callback",
     "domain": "auth",
-    "line": 5070,
-    "end": 5128,
+    "line": 3871,
+    "end": 3929,
     "lines": 59,
     "guards": [],
     "helpers": [
@@ -3540,8 +2549,8 @@
     "method": "POST",
     "path": "/api/reports/auth/change-password",
     "domain": "reports/auth",
-    "line": 5131,
-    "end": 5140,
+    "line": 3932,
+    "end": 3941,
     "lines": 10,
     "guards": [
      "requireReportSession"
@@ -3558,8 +2567,8 @@
     "method": "GET",
     "path": "/api/reports/departments",
     "domain": "reports/departments",
-    "line": 5150,
-    "end": 5158,
+    "line": 3951,
+    "end": 3959,
     "lines": 9,
     "guards": [
      "requireReportSession"
@@ -3576,8 +2585,8 @@
     "method": "POST",
     "path": "/api/reports/departments",
     "domain": "reports/departments",
-    "line": 5160,
-    "end": 5171,
+    "line": 3961,
+    "end": 3972,
     "lines": 12,
     "guards": [
      "requireReportSession",
@@ -3597,8 +2606,8 @@
     "method": "PUT",
     "path": "/api/reports/departments/:id",
     "domain": "reports/departments",
-    "line": 5173,
-    "end": 5189,
+    "line": 3974,
+    "end": 3990,
     "lines": 17,
     "guards": [
      "requireReportSession",
@@ -3618,8 +2627,8 @@
     "method": "DELETE",
     "path": "/api/reports/departments/:id",
     "domain": "reports/departments",
-    "line": 5191,
-    "end": 5204,
+    "line": 3992,
+    "end": 4005,
     "lines": 14,
     "guards": [
      "requireReportSession",
@@ -3637,8 +2646,8 @@
     "method": "GET",
     "path": "/api/reports/current-week",
     "domain": "reports/current-week",
-    "line": 5207,
-    "end": 5213,
+    "line": 4008,
+    "end": 4014,
     "lines": 7,
     "guards": [
      "requireReportSession"
@@ -3653,8 +2662,8 @@
     "method": "GET",
     "path": "/api/reports",
     "domain": "reports",
-    "line": 5217,
-    "end": 5235,
+    "line": 4018,
+    "end": 4036,
     "lines": 19,
     "guards": [
      "requireReportSession"
@@ -3712,6 +2721,7 @@
      "login-limit-failures-only.smoke.test.js",
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
+     "p06-extraction-characterization.test.js",
      "p6-decisions-access.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
@@ -3754,8 +2764,8 @@
     "method": "POST",
     "path": "/api/reports/ensure",
     "domain": "reports/ensure",
-    "line": 5238,
-    "end": 5258,
+    "line": 4039,
+    "end": 4059,
     "lines": 21,
     "guards": [
      "requireReportSession"
@@ -3777,8 +2787,8 @@
     "method": "GET",
     "path": "/api/reports/:id/carry-over-actions",
     "domain": "reports",
-    "line": 5261,
-    "end": 5268,
+    "line": 4062,
+    "end": 4069,
     "lines": 8,
     "guards": [
      "requireReportSession"
@@ -3834,6 +2844,7 @@
      "login-limit-failures-only.smoke.test.js",
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
+     "p06-extraction-characterization.test.js",
      "p6-decisions-access.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
@@ -3876,8 +2887,8 @@
     "method": "GET",
     "path": "/api/reports/:id/action-weeks",
     "domain": "reports",
-    "line": 5271,
-    "end": 5283,
+    "line": 4072,
+    "end": 4084,
     "lines": 13,
     "guards": [
      "requireReportSession"
@@ -3933,6 +2944,7 @@
      "login-limit-failures-only.smoke.test.js",
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
+     "p06-extraction-characterization.test.js",
      "p6-decisions-access.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
@@ -3975,8 +2987,8 @@
     "method": "GET",
     "path": "/api/reports/:id/actions-from/:source_report_id",
     "domain": "reports",
-    "line": 5286,
-    "end": 5304,
+    "line": 4087,
+    "end": 4105,
     "lines": 19,
     "guards": [
      "requireReportSession"
@@ -4032,6 +3044,7 @@
      "login-limit-failures-only.smoke.test.js",
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
+     "p06-extraction-characterization.test.js",
      "p6-decisions-access.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
@@ -4074,8 +3087,8 @@
     "method": "GET",
     "path": "/api/reports/:id/asset-followups",
     "domain": "reports",
-    "line": 5375,
-    "end": 5399,
+    "line": 4176,
+    "end": 4200,
     "lines": 25,
     "guards": [
      "requireReportSession"
@@ -4134,6 +3147,7 @@
      "login-limit-failures-only.smoke.test.js",
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
+     "p06-extraction-characterization.test.js",
      "p6-decisions-access.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
@@ -4176,8 +3190,8 @@
     "method": "PUT",
     "path": "/api/reports/:id/asset-review",
     "domain": "reports",
-    "line": 5406,
-    "end": 5437,
+    "line": 4207,
+    "end": 4238,
     "lines": 32,
     "guards": [
      "requireReportSession"
@@ -4238,6 +3252,7 @@
      "login-limit-failures-only.smoke.test.js",
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
+     "p06-extraction-characterization.test.js",
      "p6-decisions-access.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
@@ -4280,8 +3295,8 @@
     "method": "GET",
     "path": "/api/reports/:id/site-open-actions",
     "domain": "reports",
-    "line": 5441,
-    "end": 5456,
+    "line": 4242,
+    "end": 4257,
     "lines": 16,
     "guards": [
      "requireReportSession"
@@ -4337,6 +3352,7 @@
      "login-limit-failures-only.smoke.test.js",
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
+     "p06-extraction-characterization.test.js",
      "p6-decisions-access.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
@@ -4379,8 +3395,8 @@
     "method": "GET",
     "path": "/api/reports/:id/light-weeks",
     "domain": "reports",
-    "line": 5459,
-    "end": 5466,
+    "line": 4260,
+    "end": 4267,
     "lines": 8,
     "guards": [
      "requireReportSession"
@@ -4436,6 +3452,7 @@
      "login-limit-failures-only.smoke.test.js",
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
+     "p06-extraction-characterization.test.js",
      "p6-decisions-access.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
@@ -4478,8 +3495,8 @@
     "method": "GET",
     "path": "/api/reports/:id/lights-from/:source_report_id",
     "domain": "reports",
-    "line": 5469,
-    "end": 5481,
+    "line": 4270,
+    "end": 4282,
     "lines": 13,
     "guards": [
      "requireReportSession"
@@ -4535,6 +3552,7 @@
      "login-limit-failures-only.smoke.test.js",
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
+     "p06-extraction-characterization.test.js",
      "p6-decisions-access.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
@@ -4577,8 +3595,8 @@
     "method": "GET",
     "path": "/api/reports/:id/carry-over-infra",
     "domain": "reports",
-    "line": 5484,
-    "end": 5491,
+    "line": 4285,
+    "end": 4292,
     "lines": 8,
     "guards": [
      "requireReportSession"
@@ -4634,6 +3652,7 @@
      "login-limit-failures-only.smoke.test.js",
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
+     "p06-extraction-characterization.test.js",
      "p6-decisions-access.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
@@ -4676,8 +3695,8 @@
     "method": "GET",
     "path": "/api/reports/:id/audit",
     "domain": "reports",
-    "line": 5497,
-    "end": 5503,
+    "line": 4298,
+    "end": 4304,
     "lines": 7,
     "guards": [
      "requireReportSession",
@@ -4734,6 +3753,7 @@
      "login-limit-failures-only.smoke.test.js",
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
+     "p06-extraction-characterization.test.js",
      "p6-decisions-access.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
@@ -4776,8 +3796,8 @@
     "method": "GET",
     "path": "/api/reports/helpdesk-live",
     "domain": "reports/helpdesk-live",
-    "line": 5517,
-    "end": 5571,
+    "line": 4318,
+    "end": 4372,
     "lines": 55,
     "guards": [
      "requireReportSession"
@@ -4796,8 +3816,8 @@
     "method": "GET",
     "path": "/api/reports/helpdesk-charts",
     "domain": "reports/helpdesk-charts",
-    "line": 5576,
-    "end": 5771,
+    "line": 4377,
+    "end": 4572,
     "lines": 196,
     "guards": [
      "requireReportSession"
@@ -4816,8 +3836,8 @@
     "method": "GET",
     "path": "/api/reports/technicians",
     "domain": "reports/technicians",
-    "line": 5774,
-    "end": 5784,
+    "line": 4575,
+    "end": 4585,
     "lines": 11,
     "guards": [
      "requireReportSession"
@@ -4832,8 +3852,8 @@
     "method": "GET",
     "path": "/api/reports/system-log",
     "domain": "reports/system-log",
-    "line": 5798,
-    "end": 5803,
+    "line": 4599,
+    "end": 4604,
     "lines": 6,
     "guards": [
      "requireReportSession"
@@ -4857,8 +3877,8 @@
     "method": "GET",
     "path": "/api/reports/system-log/analytics",
     "domain": "reports/system-log",
-    "line": 5804,
-    "end": 5807,
+    "line": 4605,
+    "end": 4608,
     "lines": 4,
     "guards": [
      "requireReportSession"
@@ -4875,8 +3895,8 @@
     "method": "GET",
     "path": "/api/reports/system-log/export.json",
     "domain": "reports/system-log",
-    "line": 5808,
-    "end": 5815,
+    "line": 4609,
+    "end": 4616,
     "lines": 8,
     "guards": [
      "requireReportSession",
@@ -4896,8 +3916,8 @@
     "method": "GET",
     "path": "/api/reports/system-log/export.csv",
     "domain": "reports/system-log",
-    "line": 5816,
-    "end": 5826,
+    "line": 4617,
+    "end": 4627,
     "lines": 11,
     "guards": [
      "requireReportSession",
@@ -4919,8 +3939,8 @@
     "method": "GET",
     "path": "/api/reports/:id",
     "domain": "reports",
-    "line": 5829,
-    "end": 5836,
+    "line": 4630,
+    "end": 4637,
     "lines": 8,
     "guards": [
      "requireReportSession"
@@ -4976,6 +3996,7 @@
      "login-limit-failures-only.smoke.test.js",
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
+     "p06-extraction-characterization.test.js",
      "p6-decisions-access.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
@@ -5018,8 +4039,8 @@
     "method": "GET",
     "path": "/api/reports/:id/open-changes",
     "domain": "reports",
-    "line": 5839,
-    "end": 5847,
+    "line": 4640,
+    "end": 4648,
     "lines": 9,
     "guards": [
      "requireReportSession"
@@ -5075,6 +4096,7 @@
      "login-limit-failures-only.smoke.test.js",
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
+     "p06-extraction-characterization.test.js",
      "p6-decisions-access.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
@@ -5117,8 +4139,8 @@
     "method": "GET",
     "path": "/api/sites/:siteId/open-changes",
     "domain": "sites",
-    "line": 5850,
-    "end": 5857,
+    "line": 4651,
+    "end": 4658,
     "lines": 8,
     "guards": [
      "requireReportSession"
@@ -5134,8 +4156,8 @@
     "method": "GET",
     "path": "/api/reports/:id/active-incidents",
     "domain": "reports",
-    "line": 5863,
-    "end": 5871,
+    "line": 4664,
+    "end": 4672,
     "lines": 9,
     "guards": [
      "requireReportSession"
@@ -5191,6 +4213,7 @@
      "login-limit-failures-only.smoke.test.js",
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
+     "p06-extraction-characterization.test.js",
      "p6-decisions-access.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
@@ -5233,8 +4256,8 @@
     "method": "GET",
     "path": "/api/sites/:siteId/active-incidents",
     "domain": "sites",
-    "line": 5880,
-    "end": 5887,
+    "line": 4681,
+    "end": 4688,
     "lines": 8,
     "guards": [
      "requireReportSession"
@@ -5250,8 +4273,8 @@
     "method": "DELETE",
     "path": "/api/reports/:id",
     "domain": "reports",
-    "line": 5890,
-    "end": 5907,
+    "line": 4691,
+    "end": 4708,
     "lines": 18,
     "guards": [
      "requireReportSession"
@@ -5309,6 +4332,7 @@
      "login-limit-failures-only.smoke.test.js",
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
+     "p06-extraction-characterization.test.js",
      "p6-decisions-access.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
@@ -5351,8 +4375,8 @@
     "method": "PUT",
     "path": "/api/reports/:id/infra",
     "domain": "reports",
-    "line": 5910,
-    "end": 5922,
+    "line": 4711,
+    "end": 4723,
     "lines": 13,
     "guards": [
      "requireReportSession"
@@ -5412,6 +4436,7 @@
      "login-limit-failures-only.smoke.test.js",
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
+     "p06-extraction-characterization.test.js",
      "p6-decisions-access.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
@@ -5454,8 +4479,8 @@
     "method": "PUT",
     "path": "/api/reports/:id/helpdesk",
     "domain": "reports",
-    "line": 5925,
-    "end": 5935,
+    "line": 4726,
+    "end": 4736,
     "lines": 11,
     "guards": [
      "requireReportSession"
@@ -5514,6 +4539,7 @@
      "login-limit-failures-only.smoke.test.js",
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
+     "p06-extraction-characterization.test.js",
      "p6-decisions-access.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
@@ -5556,8 +4582,8 @@
     "method": "PUT",
     "path": "/api/reports/:id/lights",
     "domain": "reports",
-    "line": 5938,
-    "end": 5949,
+    "line": 4739,
+    "end": 4750,
     "lines": 12,
     "guards": [
      "requireReportSession"
@@ -5616,6 +4642,7 @@
      "login-limit-failures-only.smoke.test.js",
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
+     "p06-extraction-characterization.test.js",
      "p6-decisions-access.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
@@ -5658,8 +4685,8 @@
     "method": "PUT",
     "path": "/api/reports/:id/actions",
     "domain": "reports",
-    "line": 5989,
-    "end": 6014,
+    "line": 4790,
+    "end": 4815,
     "lines": 26,
     "guards": [
      "requireReportSession"
@@ -5719,6 +4746,7 @@
      "login-limit-failures-only.smoke.test.js",
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
+     "p06-extraction-characterization.test.js",
      "p6-decisions-access.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
@@ -5761,8 +4789,8 @@
     "method": "PUT",
     "path": "/api/reports/:id/status",
     "domain": "reports",
-    "line": 6017,
-    "end": 6055,
+    "line": 4818,
+    "end": 4856,
     "lines": 39,
     "guards": [
      "requireReportSession"
@@ -5823,6 +4851,7 @@
      "login-limit-failures-only.smoke.test.js",
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
+     "p06-extraction-characterization.test.js",
      "p6-decisions-access.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
@@ -5865,8 +4894,8 @@
     "method": "PUT",
     "path": "/api/reports/:id/reassign-week",
     "domain": "reports",
-    "line": 6060,
-    "end": 6091,
+    "line": 4861,
+    "end": 4892,
     "lines": 32,
     "guards": [
      "requireReportSession"
@@ -5926,6 +4955,7 @@
      "login-limit-failures-only.smoke.test.js",
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
+     "p06-extraction-characterization.test.js",
      "p6-decisions-access.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
@@ -5968,8 +4998,8 @@
     "method": "GET",
     "path": "/api/reports/:id/pptx",
     "domain": "reports",
-    "line": 6110,
-    "end": 6137,
+    "line": 4911,
+    "end": 4938,
     "lines": 28,
     "guards": [
      "requireReportSession",
@@ -6030,6 +5060,7 @@
      "login-limit-failures-only.smoke.test.js",
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
+     "p06-extraction-characterization.test.js",
      "p6-decisions-access.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
@@ -6072,8 +5103,8 @@
     "method": "GET",
     "path": "/api/reports/monthly/all-sites/:year/:month/pptx",
     "domain": "reports/monthly",
-    "line": 6141,
-    "end": 6169,
+    "line": 4942,
+    "end": 4970,
     "lines": 29,
     "guards": [
      "requireReportSession",
@@ -6093,8 +5124,8 @@
     "method": "GET",
     "path": "/api/reports/monthly/:site_id/:year/:month/pptx",
     "domain": "reports/monthly",
-    "line": 6172,
-    "end": 6201,
+    "line": 4973,
+    "end": 5002,
     "lines": 30,
     "guards": [
      "requireReportSession",
@@ -6116,8 +5147,8 @@
     "method": "GET",
     "path": "/api/reports/weekly-summary/:year/:week/pptx",
     "domain": "reports/weekly-summary",
-    "line": 6204,
-    "end": 6238,
+    "line": 5005,
+    "end": 5039,
     "lines": 35,
     "guards": [
      "requireReportSession",
@@ -6138,8 +5169,8 @@
     "method": "GET",
     "path": "/api/reports/monthly/:site_id/:year/:month",
     "domain": "reports/monthly",
-    "line": 6241,
-    "end": 6247,
+    "line": 5042,
+    "end": 5048,
     "lines": 7,
     "guards": [
      "requireReportSession"
@@ -6157,8 +5188,8 @@
     "method": "GET",
     "path": "/api/reports/monthly/:site_id/:year/:month/edits",
     "domain": "reports/monthly",
-    "line": 6252,
-    "end": 6258,
+    "line": 5053,
+    "end": 5059,
     "lines": 7,
     "guards": [
      "requireReportSession"
@@ -6176,8 +5207,8 @@
     "method": "POST",
     "path": "/api/reports/monthly/:site_id/:year/:month/edits",
     "domain": "reports/monthly",
-    "line": 6264,
-    "end": 6283,
+    "line": 5065,
+    "end": 5084,
     "lines": 20,
     "guards": [
      "requireReportSession"
@@ -6199,8 +5230,8 @@
     "method": "GET",
     "path": "/api/reports/yearly/:site_id/:year",
     "domain": "reports/yearly",
-    "line": 6287,
-    "end": 6293,
+    "line": 5088,
+    "end": 5094,
     "lines": 7,
     "guards": [
      "requireReportSession"
@@ -6215,8 +5246,8 @@
     "method": "GET",
     "path": "/api/reports/objectives/:site_id/:year",
     "domain": "reports/objectives",
-    "line": 6297,
-    "end": 6303,
+    "line": 5098,
+    "end": 5104,
     "lines": 7,
     "guards": [
      "requireReportSession"
@@ -6233,8 +5264,8 @@
     "method": "POST",
     "path": "/api/reports/objectives/:site_id/:year",
     "domain": "reports/objectives",
-    "line": 6307,
-    "end": 6316,
+    "line": 5108,
+    "end": 5117,
     "lines": 10,
     "guards": [
      "requireReportSession"
@@ -6254,8 +5285,8 @@
     "method": "GET",
     "path": "/api/reports/monthly/:site_id/:year/:month/pptx-v2",
     "domain": "reports/monthly",
-    "line": 6319,
-    "end": 6344,
+    "line": 5120,
+    "end": 5145,
     "lines": 26,
     "guards": [
      "requireReportSession",
@@ -6277,8 +5308,8 @@
     "method": "GET",
     "path": "/api/reports/monthly/:site_id/:year/:month/site-template/pptx",
     "domain": "reports/monthly",
-    "line": 6348,
-    "end": 6367,
+    "line": 5149,
+    "end": 5168,
     "lines": 20,
     "guards": [
      "requireReportSession",
@@ -6299,8 +5330,8 @@
     "method": "POST",
     "path": "/api/executive-new-pptx",
     "domain": "executive-new-pptx",
-    "line": 6373,
-    "end": 6413,
+    "line": 5174,
+    "end": 5214,
     "lines": 41,
     "guards": [
      "requireReportSession",
@@ -6319,8 +5350,8 @@
     "method": "GET",
     "path": "/api/notes",
     "domain": "notes",
-    "line": 6419,
-    "end": 6428,
+    "line": 5220,
+    "end": 5229,
     "lines": 10,
     "guards": [
      "requireReportSession"
@@ -6337,8 +5368,8 @@
     "method": "POST",
     "path": "/api/notes",
     "domain": "notes",
-    "line": 6430,
-    "end": 6441,
+    "line": 5231,
+    "end": 5242,
     "lines": 12,
     "guards": [
      "requireReportSession",
@@ -6358,8 +5389,8 @@
     "method": "POST",
     "path": "/api/save-charts",
     "domain": "save-charts",
-    "line": 6444,
-    "end": 6450,
+    "line": 5245,
+    "end": 5251,
     "lines": 7,
     "guards": [
      "requireReportSession",
@@ -6378,8 +5409,8 @@
     "method": "POST",
     "path": "/api/save-pptx",
     "domain": "save-pptx",
-    "line": 6453,
-    "end": 6467,
+    "line": 5254,
+    "end": 5268,
     "lines": 15,
     "guards": [
      "requireReportSession",
@@ -6396,8 +5427,8 @@
     "method": "GET",
     "path": "/api/dashboard/presets",
     "domain": "dashboard",
-    "line": 6513,
-    "end": 6529,
+    "line": 5314,
+    "end": 5330,
     "lines": 17,
     "guards": [
      "requireReportSession"
@@ -6414,8 +5445,8 @@
     "method": "PUT",
     "path": "/api/dashboard/presets",
     "domain": "dashboard",
-    "line": 6535,
-    "end": 6553,
+    "line": 5336,
+    "end": 5354,
     "lines": 19,
     "guards": [
      "requireReportSession",
@@ -6433,8 +5464,8 @@
     "method": "GET",
     "path": "/api/dashboard/groups/discovered",
     "domain": "dashboard",
-    "line": 6558,
-    "end": 6570,
+    "line": 5359,
+    "end": 5371,
     "lines": 13,
     "guards": [
      "requireReportSession",
@@ -6452,8 +5483,8 @@
     "method": "POST",
     "path": "/api/reports/exec-pptx",
     "domain": "reports/exec-pptx",
-    "line": 6572,
-    "end": 6708,
+    "line": 5373,
+    "end": 5509,
     "lines": 137,
     "guards": [
      "requireReportSession",

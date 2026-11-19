@@ -133,4 +133,14 @@ function forRoute(method, path, roles) {
   return best || cands.find((c) => !c.routes.length) || null;
 }
 
-module.exports = { CAPABILITIES, PROJECT_ROLES, RISKS: Object.freeze(['low', 'med', 'high', 'critical']), get, list, byRoles, forRoute };
+// P06 — named authorisation guards (services/namedGuards.js) that used to be anonymous closures in server.js.
+// Listed so P02 and the authz walker can resolve them by name; each maps onto an existing capability with the
+// same role set (tests/p06-named-guards.test.js) — naming a guard never adds a right.
+const NAMED_GUARDS = Object.freeze([
+  Object.freeze({ name: 'requireMoneyRead', kind: 'route', module: 'services/namedGuards.js', roles: Object.freeze(['admin', 'finance-viewer']), capability: 'finance.read' }),
+  Object.freeze({ name: 'canReadMoney', kind: 'predicate', module: 'services/namedGuards.js', roles: Object.freeze(['admin', 'finance-viewer']), capability: 'finance.read' }),
+  Object.freeze({ name: 'requireSuperAdminInline', kind: 'inline', module: 'services/namedGuards.js', roles: Object.freeze(['super_admin']), capability: 'platform.override' }),
+]);
+function namedGuard(name) { return NAMED_GUARDS.find((g) => g.name === name) || null; }
+
+module.exports = { CAPABILITIES, PROJECT_ROLES, NAMED_GUARDS, namedGuard, RISKS: Object.freeze(['low', 'med', 'high', 'critical']), get, list, byRoles, forRoute };

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 'use strict';
+/* eslint-disable security/detect-unsafe-regex -- dev-only static scanner over repository source files, never request input */
 // P06 — map of the two monoliths (server.js inline routes, reports-db.js exports).
 // For each server.js route block: method, path, domain, guards on the call line, top-level server.js
 // helpers it closes over, the test files that name its path, and how many distinct commits in the
