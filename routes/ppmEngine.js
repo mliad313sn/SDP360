@@ -63,11 +63,8 @@ module.exports = function ppmEngineRoutes(router, h) {
     const rates = s.resources && money ? await S.ratesFor(resources.map((r) => r.id)) : [];
     const pe = s.calendars ? await S.projectEngine(pid) : { calendar_id: null };
     const ctx = s.calendars ? await S.calendarsCtx() : { calendars: [], exceptions: [], siteHolidays: [] };
-    const ec = CAL.engineCalendars({ tasks, projectCalendarId: pe.calendar_id, taskFields: s.calendars ? tf : {}, assignments: s.calendars ? assignments : [], resources: s.calendars ? resources : [], calendarsCtx: ctx });
-    const hpd = ec.hours_per_day || 8;
-    const engineTasks = tasks.map((t) => ({ ...t, calendar_id: ec.effective[t.id] && ec.effective[t.id].calendar_id != null ? ec.effective[t.id].calendar_id : null,
-      leveling_delay_days: s.leveling && !clearExisting ? (tf[t.id] ? tf[t.id].leveling_delay_days : null) : null, priority: tf[t.id] ? tf[t.id].priority : null }));
-    const sopts = { anchor: d.project.start_date || null, deadline: d.project.finish_deadline || null, calendar: ec.calendar, calendars: ec.calendars, statusDate: sd, hoursPerDay: hpd };
+    // P04: the same pure builder the project page plan and the W3 views use (services/ppm/engineInput.js)
+    const { engineTasks, opts: sopts, ec, hpd } = require('../services/ppm/engineInput').buildEngineInput({ d, s, tf, assignments, resources, pe, ctx, statusDate: sd, clearExisting });
     const schedule = ENGINE.schedule(engineTasks, levelingDelays ? { ...sopts, levelingDelays } : sopts);
     const specOf = (tid) => { const e = ec.effective[tid]; return e && e.calendar_id != null ? ec.calendars[e.calendar_id] : ec.calendar; };
     const resCal = (r) => ENGINE.makeCalendar(r && s.calendars && r.calendar_id != null && ec.calendars[r.calendar_id] ? ec.calendars[r.calendar_id] : (r && s.calendars && r.calendar_id != null ? CAL.specOf(CAL.resolveCalendar(r.calendar_id, ctx)) : ec.calendar));
