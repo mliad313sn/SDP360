@@ -8,7 +8,8 @@
 // shows a shortcut to the task's page (click 1) and that page opens for the profile's roles without an error
 // (the task control itself is click 2 or 3 inside the page). It does NOT prove the task can be completed.
 //
-// roles: the minimal role set whose defaultProfile() is that profile. site: true = the account carries site A.
+// roles: the minimal role set whose defaultProfile() is that profile (choose: true = the person picks it in
+// workspace settings instead). site: true = the account carries site A.
 const PROFILE_TASKS = [
   { id: 'administrator', roles: ['super_admin'], site: false, tasks: [
     { en: 'Check that the integrations (SDP, OpManager, Meraki) are fresh', fr: 'Vérifier la fraîcheur des intégrations (SDP, OpManager, Meraki)', href: 'integrations.html' },
@@ -42,11 +43,15 @@ const PROFILE_TASKS = [
     { en: 'Read the asset finance (book value, forecast)', fr: 'Lire la finance du parc (valeur comptable, prévision)', href: 'assets.html#finance' },
     { en: 'Compare project budget and actuals', fr: 'Comparer budget et réalisé des projets', href: 'portfolio.html' },
     { en: 'Produce the finance report', fr: 'Produire le rapport finance', href: 'report-studio.html' }] },
-  { id: 'governance', roles: ['audit-viewer'], site: false, tasks: [
+  // Finding P09-F1: an audit-viewer-only account defaults to this profile but cannot open policies.html (admin |
+  // committee-member); it sees 2 of the 3 tasks. The journey uses a committee member who CHOOSES this profile.
+  { id: 'governance', roles: ['committee-member', 'audit-viewer'], choose: true, site: false, tasks: [
     { en: 'Prepare the governance meeting agenda', fr: 'Préparer l’ordre du jour de la réunion de gouvernance', href: 'cockpit.html' },
     { en: 'Check that the minutes (PV) are signed', fr: 'Vérifier que les PV sont signés', href: 'meetings.html' },
     { en: 'Review the governance policies', fr: 'Revoir les politiques de gouvernance', href: 'policies.html' }] },
-  { id: 'analyst', roles: ['dashboard-publisher'], site: false, tasks: [
+  // Finding P09-F2: a dashboard-publisher-only account defaults to this profile but cannot open analytics.html
+  // (admin | scorecard-viewer); it sees 2 of the 3 tasks. The journey uses a scorecard viewer who CHOOSES it.
+  { id: 'analyst', roles: ['scorecard-viewer', 'dashboard-publisher'], choose: true, site: false, tasks: [
     { en: 'Open or publish a dashboard', fr: 'Ouvrir ou publier un tableau de bord', href: 'dashboards.html' },
     { en: 'Analyse ticket and change trends', fr: 'Analyser les tendances des tickets et des changements', href: 'analytics.html' },
     { en: 'Build a report from the studio', fr: 'Construire un rapport depuis le studio', href: 'report-studio.html' }] },

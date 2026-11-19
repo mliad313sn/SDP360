@@ -15,6 +15,7 @@ function profileJourney(name, ids) {
     for (const id of ids) {
       const prof = PROFILE_TASKS.find((p) => p.id === id);
       const me = await person(app, 'p09_' + id, prof.roles, prof.site ? world.siteA : null);
+      if (prof.choose) { const pr = await world.call('PUT', '/api/workspace/prefs', me.token, { profile: id }); assert.strictEqual(pr.status, 200, id + ' choose profile ' + pr.status); }
       const ws = await world.call('GET', '/api/workspace/me', me.token);
       assert.strictEqual(ws.status, 200, id + ' workspace ' + ws.status);
       assert.strictEqual(ws.j.profile, id, id + ': default profile is ' + ws.j.profile);
