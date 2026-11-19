@@ -172,5 +172,5 @@ async function main() {
   }
 }
 
-module.exports = { assertThrowaway, summarisePlan, renderMarkdown, HOT };
+module.exports = { assertThrowaway, summarisePlan, renderMarkdown, HOT, seed, explainAll };
 if (require.main === module) main().catch((e) => { console.error('[explain-hot] ' + e.message); process.exit(1); });
