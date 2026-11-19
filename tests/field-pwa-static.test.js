@@ -27,3 +27,14 @@ test('index.html: no inline script or handler, external app.js, manifest linked,
   assert.match(app, /report_token/); assert.ok(!/Date\.now\(\)\s*\)\s*;\s*\/\/ as.of/.test(app));
   assert.match(app, /PUT.*\/api\/field\/outbox\//s, 'envelopes go through the idempotent PUT');
 });
+
+test('P11 F-3/F-1/F-2: the service worker never stores an /api/ answer; field ids are collision-resistant; action changes carry base_status', () => {
+  const sw = read('field/sw.js');
+  const apiBranch = sw.slice(sw.indexOf("url.pathname.startsWith('/api/')"), sw.indexOf('return;', sw.indexOf("url.pathname.startsWith('/api/')")));
+  assert.ok(apiBranch.length > 0, 'the /api/ branch exists');
+  assert.ok(!/caches\.|\.put\(|caches\.match/.test(apiBranch), 'the /api/ branch neither stores nor serves a cached answer');
+  const app = read('field/app.js');
+  assert.ok(!/Math\.random\(\) \* 9000/.test(app), 'no 4-digit random inspection id');
+  assert.match(app, /function fieldInspectionId\(d\) \{ return 'EM-IT-' \+ .*uuid\(\)/);
+  assert.match(app, /base_status: a\.status/, 'an action change says which status the phone saw');
+});

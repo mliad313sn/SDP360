@@ -1,9 +1,11 @@
 /* Step 10 — field app service worker. App shell = cache-first (versioned cache, old caches dropped on
-   activate); API = network-first with a cache fallback for GET only; writes NEVER go through the
-   service worker (the app's IndexedDB outbox owns retries). Bump CACHE_VERSION on every deploy of
-   the field app. */
+   activate); API answers are NEVER cached (P11 F-3: a cached /api/ answer outlived its session, so the next
+   person on a shared phone kept the previous user's bootstrap/dashboard at rest) — offline, the app reads
+   its own per-user IndexedDB copy; writes NEVER go through the service worker (the app's IndexedDB outbox
+   owns retries). Bump CACHE_VERSION on every deploy of the field app: activating a new version also drops
+   the caches of older versions, /api/ entries included. */
 'use strict';
-const CACHE_VERSION = 'field-v9';   // G3-UX UAT-OI-04: index.html badge + app.js
+const CACHE_VERSION = 'field-v10';  // P11 F-3: /api/ no longer cached (older caches dropped on activate)
 const SHELL = ['/field/index.html', '/field/app.js', '/field/styles.css', '/field/manifest.webmanifest', '/field/icon.svg', '/field/i18n.js', '/field/storage.js', '/lib/i18nText.js', '/_tokens.css'];
 
 self.addEventListener('install', (e) => {
@@ -18,9 +20,9 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   if (url.origin !== self.location.origin) return;
   if (url.pathname.startsWith('/api/')) {
-    // network-first; a cached answer is served ONLY when the network fails, flagged by header
-    e.respondWith(fetch(req).then((res) => { if (res.ok) caches.open(CACHE_VERSION).then((c) => c.put(req, res.clone())); return res; })
-      .catch(() => caches.match(req).then((hit) => hit ? new Response(hit.body, { status: hit.status, headers: Object.assign({ 'x-field-cache': 'stale' }, Object.fromEntries(hit.headers)) }) : new Response(JSON.stringify({ ok: false, error: 'offline', offline: true }), { status: 503, headers: { 'content-type': 'application/json' } }))));
+    // network only, never stored: offline answers a 503 {offline:true} the app understands (it then falls back on
+    // its own per-user copy of the bootstrap)
+    e.respondWith(fetch(req).catch(() => new Response(JSON.stringify({ ok: false, error: 'offline', offline: true }), { status: 503, headers: { 'content-type': 'application/json' } })));
     return;
   }
   e.respondWith(caches.match(req).then((hit) => hit || fetch(req).then((res) => { if (res.ok && (url.pathname.startsWith('/field/') || url.pathname === '/lib/i18nText.js')) caches.open(CACHE_VERSION).then((c) => c.put(req, res.clone())); return res; })));

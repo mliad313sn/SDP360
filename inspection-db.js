@@ -426,6 +426,16 @@ function getInspectionStatus(id) {
   return _getInspectionStatusPg(id);
 }
 
+// P11 F-1 — what the field outbox needs before it may write an inspection id: the stored status, author and
+// meta (state_json) of a LIVE row, or null when the id is free. A deleted row is left to saveInspection (409).
+async function getInspectionForFieldReplay(id) {
+  if (!id) return null;
+  const r = await pgHandle().prepare('SELECT status, site_code, created_by, state_json FROM insp_inspections WHERE id = ? AND deleted_at IS NULL').get(id);
+  if (!r) return null;
+  let meta = null; try { meta = (JSON.parse(r.state_json || '{}') || {}).meta || null; } catch (_) { meta = null; }
+  return { status: r.status || 'draft', site_code: r.site_code, created_by: r.created_by == null ? null : Number(r.created_by), meta };
+}
+
 // { status, site_code } of an inspection, or null — the route checks a scoped user's
 // site before a delete / single export (RBAC audit 2026-10-02, lot 4b).
 function getInspectionHeader(id) {
@@ -511,7 +521,9 @@ function getActionParent(actionId) {
 }
 async function _getActionParentPg(actionId) {
   return (await pgHandle().prepare(`
-    SELECT i.site_code AS site_code, i.status AS inspection_status
+    SELECT i.site_code AS site_code, i.status AS inspection_status, a.status AS action_status,
+           (SELECT to_char(max(u.created_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') FROM insp_action_updates u
+             WHERE u.action_id = a.id AND u.status_change IS NOT NULL AND u.status_change <> '') AS last_status_change_at
       FROM insp_actions a JOIN insp_inspections i ON i.id = a.inspection_id
      WHERE a.id = ? AND i.deleted_at IS NULL
   `).get(actionId)) || null;
@@ -1079,7 +1091,7 @@ module.exports = {
   getInspectionTrashRow, listDeletedInspections, restoreInspection, purgeDeletedInspections,
   aggregate,
   getSiteScoreInputs, _computeInspectionScoreInputs,
-  listActions, addActionUpdate, listActionUpdates, getActionParent, verifyAction, listRecentFindings,
+  listActions, addActionUpdate, listActionUpdates, getActionParent, getInspectionForFieldReplay, verifyAction, listRecentFindings,
   exportRows,
   resetLookups,
   siteNameToCode,

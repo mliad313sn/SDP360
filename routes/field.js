@@ -157,6 +157,15 @@ module.exports = function fieldRoutes(deps) {
         }
         it.photos = out;
       }
+      // P11 F-1 — the field path CREATES inspections; it never rewrites one it did not create. An id that already
+      // exists (a submitted / closed record, another person's draft, or an accidental id collision) is a 409 kept on
+      // the phone as a conflict. The only existing row accepted is this user's own capture replayed unchanged
+      // (a send whose answer was lost): same author, identical meta.
+      const existing = idb().getInspectionForFieldReplay ? await idb().getInspectionForFieldReplay(p.meta.f_id) : null;
+      if (existing) {
+        const sameCapture = existing.created_by === Number(u.id) && existing.meta && F.stableJson(existing.meta) === F.stableJson(p.meta);
+        if (!sameCapture) throw Object.assign(new Error(`inspection ${String(p.meta.f_id).slice(0, 60)} already exists on the server (${existing.status}) — it is not changed from the field app; capture a new inspection`), { code: 'CONFLICT' });
+      }
       const r = await idb().saveInspection(p, codes, u.id, { allowRefs });
       return { inspection_id: (r && r.id) || p.meta.f_id || null };
     },
@@ -168,7 +177,7 @@ module.exports = function fieldRoutes(deps) {
       if (Array.isArray(allowed) && !allowed.length) throw Object.assign(new Error('no writable unit for your account'), { code: 'FORBIDDEN' });
       return trackerStore.saveEntries(p.key, p.cells, { user: u, def: pub.definition, lockClosed: true, allowedUnits: allowed, source: 'field' });
     },
-    async action(u, p) {
+    async action(u, p, env) {
       const err = F.validateActionPayload(p); if (err) throw Object.assign(new Error(err), { code: 'INVALID' });
       // A-05: old phones / queued envelopes send 'closed' (not a md_statuses code) → 'resolved'
       if (p.source === 'meetings' && p.status_change) p = { ...p, status_change: statusTransfer.normalizeMeetingStatus(p.status_change) };
@@ -177,6 +186,17 @@ module.exports = function fieldRoutes(deps) {
       const codes = await moduleCodes(u);
       if (codes !== null && !userSites.inScope(parent.site_code, codes)) throw Object.assign(new Error(`action belongs to ${parent.site_code}`), { code: 'FORBIDDEN' });
       const tErr = statusTransfer.validate(p.status_change, p.body, p.helpdesk_ticket); if (tErr) throw Object.assign(new Error(tErr), { code: 'INVALID' });
+      // P11 F-2 — a status change made on the server after the phone saw the action is never overwritten (409):
+      // the phone sends the status it saw (base_status); an envelope queued before that field existed is compared
+      // on its queue time with the last server status change. A comment only changes nothing and never conflicts.
+      if (p.status_change) {
+        const norm = (v) => String(v == null ? '' : v).trim().toLowerCase();
+        const now = parent.action_status;
+        let changed = false;
+        if (p.base_status != null && String(p.base_status) !== '') changed = norm(now) !== norm(p.base_status);
+        else if (env && env.client_ts && parent.last_status_change_at) changed = Date.parse(parent.last_status_change_at) > Date.parse(env.client_ts);
+        if (changed && norm(now) !== norm(p.status_change)) throw Object.assign(new Error(`this action was changed on the server since it was queued (now ${String(now || '—').slice(0, 40)}) — check it before sending again`), { code: 'CONFLICT' });
+      }
       await mod.addActionUpdate(Number(p.id), { author_id: u.id, author_name: u.full_name || u.username, body: p.body || '', status_change: p.status_change || null, helpdesk_ticket: p.helpdesk_ticket || null });
       return { action_id: Number(p.id), status: p.status_change || null };
     },
@@ -224,9 +244,12 @@ module.exports = function fieldRoutes(deps) {
       const claimId = await store.claim(env.uuid, { kind: env.kind });
       if (!claimId) return res.status(409).json({ ok: false, in_progress: true, status: 'applying', error: 'this entry is being applied — try again in a moment' });
       let status = 'applied', result = null, code = 200;
-      try { result = await APPLY[env.kind](u, env.payload); }
+      try { result = await APPLY[env.kind](u, env.payload, env); }
       catch (e) {
-        if (e.code === 'INVALID' || e.code === 'FORBIDDEN' || e.code === 'REJECTED' || e.code === 'WRITE_DISABLED') { status = 'rejected'; result = { error: e.message, errors: e.errors || undefined }; code = e.code === 'FORBIDDEN' ? 403 : e.code === 'INVALID' ? 400 : 200; }
+        // P11 F-1/F-2 — a conflict (the record changed elsewhere, or the id already exists) is terminal and a 409:
+        // the phone keeps the entry as 'conflict' with the reason; nothing is written
+        if (e.code === 'CONFLICT') { status = 'rejected'; result = { error: e.message, conflict: true }; code = 409; }
+        else if (e.code === 'INVALID' || e.code === 'FORBIDDEN' || e.code === 'REJECTED' || e.code === 'WRITE_DISABLED') { status = 'rejected'; result = { error: e.message, errors: e.errors || undefined }; code = e.code === 'FORBIDDEN' ? 403 : e.code === 'INVALID' ? 400 : 200; }
         // a ticket whose outcome is unknown (SDP may have created it before the error) is NOT retried: a retry would
         // create a second request. It is refused with a reason to check SDP; other kinds stay retryable.
         else if (env.kind === 'ticket') { status = 'rejected'; result = { error: 'outcome unknown — check ServiceDesk Plus before sending again', outcome_unknown: true, correlation_id: logError(e, req, 500) }; code = 200; }

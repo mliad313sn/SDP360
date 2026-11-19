@@ -2,8 +2,10 @@
 // Step 10 — PURE rules of the offline field outbox. An outbox item is an ENVELOPE the phone queued
 // while offline: { uuid, kind, payload, client_ts, device }. The server applies it exactly once
 // (idempotent on uuid), records the result, and the phone deletes the item on any terminal answer.
-// Conflict policy (arbitration 3): LAST WRITE WINS for inspections and actions; tracker cells obey
-// the closed-month lock (a closed slot is kept as stored, counted `blocked`). Photos are capped at
+// Conflict policy: a change made elsewhere is a 409, never overwritten (P11 F-1/F-2) — an inspection
+// envelope only CREATES (an id that already exists is a conflict, except the same capture replayed by its
+// author); an action status change carries the status the phone saw (base_status) and is refused when the
+// server moved since. Tracker cells obey the closed-month lock (a closed slot is kept as stored, counted `blocked`). Photos are capped at
 // MAX_PHOTO_BYTES (arbitration 4) and travel in CHUNKS so a connectivity drop never loses a whole
 // photo — a missing chunk is re-sent, never the file.
 
@@ -14,7 +16,7 @@ const MAX_PHOTO_BYTES = 300 * 1024;
 const CHUNK_BYTES = 64 * 1024;
 const MAX_CHUNKS = 64;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-7][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const CONFLICT_POLICY = { inspection: 'last-write-wins', action: 'last-write-wins', tracker: 'last-write-wins + closed-month lock', ticket: 'create-once' };
+const CONFLICT_POLICY = { inspection: 'create-only (existing id = 409)', action: 'base-status check (changed elsewhere = 409)', tracker: 'last-write-wins + closed-month lock', ticket: 'create-once' };
 
 /** @returns {{ok:boolean, errors:string[]}} */
 function validateEnvelope(env) {

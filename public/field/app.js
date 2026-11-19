@@ -259,12 +259,15 @@
   // G19 — a second tap while an entry is being queued does nothing (no duplicate entry from a double tap)
   var busy = false;
   function once(btn, fn) { return function () { if (busy) return; busy = true; if (btn) btn.disabled = true; Promise.resolve().then(fn).catch(function (e) { msg(e.message, 'err'); }).then(function () { busy = false; if (btn) btn.disabled = false; }); }; }
+  // P11 F-1 — a field id carries 48 random bits (was 4 digits: two captures of one site on one day could collide
+  // and the later one replaced the earlier). Same EM-IT-<date>- prefix; the server accepts any id it has not seen.
+  function fieldInspectionId(d) { return 'EM-IT-' + d.toISOString().slice(0, 10).replace(/-/g, '') + '-F' + uuid().replace(/-/g, '').slice(0, 12).toUpperCase(); }
   function queueInspection() {
     var s = curSite(); if (!s || !s.inspection_code) return msg(FT('Pick a site with an inspection code first.'), 'err');
     var cat = $('i-cat').value, items = {}, n = 0;
     document.querySelectorAll('#i-items button[aria-pressed="true"]').forEach(function (b) { items[cat + '__' + b.dataset.ix] = { status: b.dataset.st, notes: '' }; n++; });
     if (!n && !draftPhotos.length) return msg(FT('Mark at least one item or add a photo.'), 'err');
-    var d = new Date(), id = 'EM-IT-' + d.toISOString().slice(0, 10).replace(/-/g, '') + '-' + Math.floor(Math.random() * 9000 + 1000);
+    var d = new Date(), id = fieldInspectionId(d);
     var firstKey = Object.keys(items)[0] || (cat + '__0'); items[firstKey] = items[firstKey] || { status: 'ok', notes: '' };
     items[firstKey].photos = draftPhotos.map(function (p) { return { upload_ref: p.ref, caption: '' }; });
     var uploads = draftPhotos.map(function (p) { return { ref: p.ref, b64: p.b64, mime: p.mime, size: p.size, name: p.name, item: firstKey }; });
@@ -333,7 +336,7 @@
     p.then(function (j) {
       if (!j) return; if (TRANSFER.indexOf(st) >= 0 && !j.note) return msg(FT('A justification is required for this status.'), 'err');
       if (st === 'helpdesk_ticket' && !j.ticket) return msg(FT('The SDP ticket number is required.'), 'err');
-      var payload = { source: a.source, id: a.id, status_change: st, body: j.note || 'Closed from the field app' };
+      var payload = { source: a.source, id: a.id, base_status: a.status == null ? null : a.status, status_change: st, body: j.note || 'Closed from the field app' };
       if (j.ticket) payload.helpdesk_ticket = j.ticket;
       if (busy) return; busy = true;
       return queue('action', payload, (a.source === 'inspection' ? 'Inspection' : 'Meeting') + ' action #' + a.id + ' → ' + st)
@@ -350,7 +353,14 @@
   // ── field dashboard (published `field-site`, data from the dashboards API) ───────
   function loadDash() {
     var s = curSite(); if (!s) return;
+    // P11 F-3 — offline, the last answer is read from this user's own IndexedDB copy (the service worker never
+    // stores /api/ answers, so another person's dashboard can never be shown)
+    var dk = 'dash:' + me + ':' + s.id;
     api('/api/dashboards/field-site/data?site=' + encodeURIComponent(s.id)).then(function (j) {
+      if (j.ok) { kvSet(dk, j); return j; }
+      if (j.__status === 503 && j.offline) return kvGet(dk).then(function (c) { if (c) { c.__stale = true; return c; } return j; });
+      return j;
+    }).then(function (j) {
       if (!j.ok) { $('d-widgets').textContent = j.error || FT('unavailable'); return; }
       var html = '', asOf = null;
       Object.keys(j.widgets || {}).forEach(function (k) { var w = j.widgets[k]; if (w.as_of && (!asOf || w.as_of > asOf)) asOf = w.as_of; var v = w.value == null ? '—' : (w.display || w.value); html += '<div class="tile"><div class="n">' + esc(v) + (w.unit ? '<small> ' + esc(w.unit) + '</small>' : '') + '</div><div class="l">' + esc(w.title || k) + (w.rag ? ' <span class="pill ' + esc(String(w.rag).toLowerCase()) + '">' + esc(w.rag) + '</span>' : '') + '</div></div>'; });
@@ -380,6 +390,11 @@
       if (['applied_before', 'unknown_outcome', 'needs_review'].indexOf(stateOf(e)) >= 0) return;
       if (stateOf(e) === 'unknown_author' && !window.confirm(FT('Send this entry under your own name? Its original author is unknown.') + '\n' + (e.label || e.kind))) return;
       var copy = Object.assign({}, e, { uuid: uuid(), state: 'pending', last_error: null, resent_from: e.uuid, user: me });
+      // P11 F-1/F-2 — "Send again" on a conflict is the user's decision after reading the reason: an action change
+      // is re-sent against the server's current status (no base_status, queued now); an inspection whose id already
+      // exists is re-sent as a NEW inspection (new id) — the stored record is never rewritten from the phone.
+      if (stateOf(e) === 'conflict' && e.kind === 'action') { copy.payload = Object.assign({}, e.payload); delete copy.payload.base_status; copy.client_ts = new Date().toISOString(); }
+      if (stateOf(e) === 'conflict' && e.kind === 'inspection' && e.payload && e.payload.meta) { copy.payload = Object.assign({}, e.payload, { meta: Object.assign({}, e.payload.meta, { f_id: fieldInspectionId(new Date()) }) }); copy.label = String(e.label || '').replace(String(e.payload.meta.f_id), copy.payload.meta.f_id); }
       return obSwap(id, copy).then(function () { renderOutbox(); flush(); });
     });
   });
