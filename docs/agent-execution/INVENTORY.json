@@ -15,7 +15,7 @@
   "jobs": 33,
   "jobs_without_test_reference": 0,
   "migrations": 102,
-  "test_files": 808
+  "test_files": 810
  },
  "pages": [
   {
@@ -107,6 +107,7 @@
     "tests/analytics-logic.test.js",
     "tests/analytics-metrics-authz.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
+    "tests/csp-journey-report.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
     "tests/page-head.test.js",
@@ -462,6 +463,7 @@
    "tests": [
     "tests/api-key-injection.smoke.test.js",
     "tests/csp-headers.smoke.test.js",
+    "tests/csp-journey-report.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/csv-safe.test.js",
     "tests/deck-builder-gate.test.js",
@@ -498,6 +500,7 @@
    "tests": [
     "tests/a11y-legacy-ratchet.test.js",
     "tests/api-key-injection.smoke.test.js",
+    "tests/csp-journey-report.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/exec-charts-v2.test.js",
     "tests/exec-nav-consolidated.test.js",
@@ -594,7 +597,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 329783,
+   "bytes": 330056,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/csp-strict-pages-config.test.js",
@@ -679,6 +682,7 @@
     "tests/api-key-injection.smoke.test.js",
     "tests/charts-static.test.js",
     "tests/csp-headers.smoke.test.js",
+    "tests/csp-journey-report.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/csp-report.smoke.test.js",
     "tests/csp-strict-pages-config.test.js",
@@ -788,6 +792,7 @@
    "inline_scripts": 2,
    "bytes": 211546,
    "tests": [
+    "tests/csp-journey-report.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
     "tests/inspection-delete-client.test.js",
@@ -996,6 +1001,7 @@
    "bytes": 18071,
    "tests": [
     "tests/brand-buttons.test.js",
+    "tests/csp-candidate-pages.smoke.test.js",
     "tests/csp-headers.smoke.test.js",
     "tests/csp-journey-report.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
@@ -1599,6 +1605,7 @@
     "tests/auth-roles-refresh.test.js",
     "tests/charts-static.test.js",
     "tests/csp-headers.smoke.test.js",
+    "tests/csp-journey-report.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/csp-report.smoke.test.js",
     "tests/csv-guard-coverage.test.js",
@@ -2011,6 +2018,7 @@
     "tests/analytics-logic.test.js",
     "tests/analytics-metrics-authz.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
+    "tests/csp-journey-report.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
   },
@@ -12788,6 +12796,7 @@
    "tests": [
     "tests/api-key-injection.smoke.test.js",
     "tests/csp-headers.smoke.test.js",
+    "tests/csp-journey-report.test.js",
     "tests/csv-safe.test.js",
     "tests/deck-builder-gate.test.js",
     "tests/exec-deck-payload.test.js",
@@ -12802,6 +12811,7 @@
    "line": 1348,
    "tests": [
     "tests/api-key-injection.smoke.test.js",
+    "tests/csp-journey-report.test.js",
     "tests/exec-scorecard-registry-parity.test.js",
     "tests/first-usable.test.js",
     "tests/page-usage.test.js",
@@ -12987,6 +12997,7 @@
     "tests/a11y-static.test.js",
     "tests/api-key-injection.smoke.test.js",
     "tests/csp-headers.smoke.test.js",
+    "tests/csp-journey-report.test.js",
     "tests/csp-report.smoke.test.js",
     "tests/csp-strict-pages-config.test.js",
     "tests/csv-safe.test.js",
@@ -13033,6 +13044,7 @@
    "file": "server.js",
    "line": 1411,
    "tests": [
+    "tests/csp-journey-report.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
   },
@@ -13088,6 +13100,7 @@
    "file": "server.js",
    "line": 1384,
    "tests": [
+    "tests/csp-candidate-pages.smoke.test.js",
     "tests/csp-headers.smoke.test.js",
     "tests/csp-journey-report.test.js",
     "tests/csp-report.smoke.test.js",
@@ -13267,6 +13280,7 @@
     "tests/api-key-injection.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/csp-headers.smoke.test.js",
+    "tests/csp-journey-report.test.js",
     "tests/csp-report.smoke.test.js",
     "tests/csv-guard-coverage.test.js",
     "tests/first-usable.test.js",

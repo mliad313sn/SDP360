@@ -20,7 +20,7 @@
 | jobs | 33 |
 | jobs without test reference | 0 |
 | migrations | 102 |
-| test files | 808 |
+| test files | 810 |
 
 ## Pages
 
@@ -28,7 +28,7 @@
 |---|---|---|---|---:|---:|
 | PG-access | public/access.html | any | no | 0 | 7 |
 | PG-activity-tracker | public/activity-tracker.html | any | yes | 0 | 6 |
-| PG-analytics | public/analytics.html | admin / scorecard-viewer | yes | 1 | 8 |
+| PG-analytics | public/analytics.html | admin / scorecard-viewer | yes | 1 | 9 |
 | PG-assets-finance | public/assets-finance.html | UNKNOWN | no | 1 | 2 |
 | PG-assets-hygiene | public/assets-hygiene.html | UNKNOWN | no | 1 | 3 |
 | PG-assets | public/assets.html | any | yes | 10 | 16 |
@@ -40,23 +40,23 @@
 | PG-dashboards | public/dashboards.html | any | yes | 1 | 13 |
 | PG-data-quality | public/data-quality.html | admin | yes | 0 | 2 |
 | PG-exec-view | public/exec-view.html | public | no | 1 | 8 |
-| PG-executive-report | public/executive-report.html | super_admin | yes | 1 | 11 |
-| PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 15 |
+| PG-executive-report | public/executive-report.html | super_admin | yes | 1 | 12 |
+| PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 16 |
 | PG-finance | public/finance.html | admin / finance-viewer / finance-verifier | yes | 0 | 3 |
 | PG-handoffs | public/handoffs.html | any | yes | 1 | 9 |
 | PG-help | public/help.html | any | yes | 1 | 10 |
 | PG-home | public/home.html | any | yes | 0 | 15 |
-| PG-index | public/index.html | any | yes | 1 | 31 |
+| PG-index | public/index.html | any | yes | 1 | 32 |
 | PG-infra-health | public/infra-health.html | any | yes | 2 | 6 |
 | PG-inspection-actions | public/inspection-actions.html | any | no | 1 | 6 |
-| PG-inspection | public/inspection.html | any | no | 2 | 7 |
+| PG-inspection | public/inspection.html | any | no | 2 | 8 |
 | PG-inspections | public/inspections.html | any | yes | 1 | 8 |
 | PG-integrations | public/integrations.html | any | yes | 1 | 4 |
 | PG-it-review | public/it-review.html | executive / scorecard-viewer | yes | 2 | 8 |
 | PG-itsm-integrations-plan | public/itsm-integrations-plan.html | UNKNOWN | no | 0 | 5 |
 | PG-itsm-roadmap | public/itsm-roadmap.html | super_admin | no | 1 | 5 |
 | PG-kpi-builder | public/kpi-builder.html | any | no | 0 | 2 |
-| PG-login | public/login.html | public | no | 1 | 12 |
+| PG-login | public/login.html | public | no | 1 | 13 |
 | PG-meeting | public/meeting.html | any | no | 1 | 13 |
 | PG-meetings-actions | public/meetings-actions.html | any | no | 2 | 9 |
 | PG-meetings-compliance | public/meetings-compliance.html | any | no | 2 | 4 |
@@ -75,7 +75,7 @@
 | PG-portfolio | public/portfolio.html | any | yes | 1 | 16 |
 | PG-project | public/project.html | any | no | 1 | 20 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 3 |
-| PG-reports | public/reports.html | any | yes | 2 | 37 |
+| PG-reports | public/reports.html | any | yes | 2 | 38 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 4 |
 | PG-site-actions | public/site-actions.html | any | yes | 1 | 17 |
 | PG-site-awareness | public/site-awareness.html | site-business / group-business / executive | yes | 2 | 5 |
