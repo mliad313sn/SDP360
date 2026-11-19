@@ -595,7 +595,7 @@
     if (!user) return '';
     const name = user.full_name || user.username || '—';
     const role = user.role || '—';
-    return `<div class="shell-user-pill" title="${T('Click to log out')}" onclick="window.__logout && window.__logout()">
+    return `<div class="shell-user-pill" title="${T('Click to log out')}">
       <span class="shell-user-initial" aria-hidden="true">${escapeHtml(String(name || '?').trim().charAt(0).toUpperCase())}</span>
       <span class="shell-user-name">${escapeHtml(name)}</span>
       <span class="shell-user-role">${escapeHtml(role)}</span>
@@ -922,6 +922,8 @@
       return;
     }
     if (e.target.closest('.shell-feedback-btn')) { e.preventDefault(); openFeedback(); return; }
+    // P07 — log out through this delegated listener (no inline handler: pages served with the nonce-only script-src)
+    if (e.target.closest('.shell-user-pill')) { if (window.__logout) window.__logout(); return; }
     if (e.target.closest('.shell-search-btn')) {
       e.preventDefault();
       const box = document.getElementById('shell-search');

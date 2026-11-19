@@ -10,14 +10,14 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 |---|---:|
 | routes | 753 |
 | routes not measurable | 3 |
-| routes without strict test | 68 |
+| routes without strict test | 67 |
 | critical routes | 208 |
-| critical routes without strict test | 18 |
+| critical routes without strict test | 17 |
 | writes without strict test | 23 |
 | jobs | 33 |
 | jobs without strict test | 0 |
-| test sources | 875 |
-| without strict test access | 4 |
+| test sources | 879 |
+| without strict test access | 3 |
 | without strict test finance | 2 |
 | without strict test export | 6 |
 | without strict test audit | 5 |
@@ -40,7 +40,6 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 | GET | `/api/meetings/progress/export-pptx` | export, read | routes/meetings.js |
 | GET | `/api/reports/monthly/:site_id/:year/:month/pptx-v2` | export, read | server.js |
 | GET | `/api/reports/monthly/:site_id/:year/:month/pptx` | export, read | server.js |
-| GET | `/api/reports/sessions/active` | access, read | routes/adminUsers.js |
 | GET | `/api/roadmap/evidence/catalogue` | audit, read | routes/roadmap.js |
 | GET | `/api/roadmap/evidence/incidents` | audit, read | routes/roadmap.js |
 | GET | `/api/roadmap/evidence/platform` | audit, read | routes/roadmap.js |
@@ -118,7 +117,7 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 
 | Class | Routes | Without strict test |
 |---|---:|---:|
-| access | 66 | 4 |
+| access | 66 | 3 |
 | finance | 40 | 2 |
 | export | 64 | 6 |
 | audit | 21 | 5 |

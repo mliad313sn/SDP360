@@ -10,12 +10,12 @@
   "pages_without_entry_point": 3,
   "pages_with_inline_scripts": 46,
   "routes": 753,
-  "routes_without_test_reference": 31,
+  "routes_without_test_reference": 30,
   "routes_in_server_js": 161,
   "jobs": 33,
   "jobs_without_test_reference": 0,
   "migrations": 102,
-  "test_files": 822
+  "test_files": 826
  },
  "pages": [
   {
@@ -107,6 +107,7 @@
     "tests/analytics-logic.test.js",
     "tests/analytics-metrics-authz.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
+    "tests/csp-journey-report.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
     "tests/page-head.test.js",
@@ -462,6 +463,7 @@
    "tests": [
     "tests/api-key-injection.smoke.test.js",
     "tests/csp-headers.smoke.test.js",
+    "tests/csp-journey-report.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/csv-safe.test.js",
     "tests/deck-builder-gate.test.js",
@@ -498,6 +500,7 @@
    "tests": [
     "tests/a11y-legacy-ratchet.test.js",
     "tests/api-key-injection.smoke.test.js",
+    "tests/csp-journey-report.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/exec-charts-v2.test.js",
     "tests/exec-nav-consolidated.test.js",
@@ -594,7 +597,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 329783,
+   "bytes": 330056,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/csp-strict-pages-config.test.js",
@@ -679,6 +682,7 @@
     "tests/api-key-injection.smoke.test.js",
     "tests/charts-static.test.js",
     "tests/csp-headers.smoke.test.js",
+    "tests/csp-journey-report.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/csp-report.smoke.test.js",
     "tests/csp-strict-pages-config.test.js",
@@ -788,6 +792,7 @@
    "inline_scripts": 2,
    "bytes": 211546,
    "tests": [
+    "tests/csp-journey-report.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
     "tests/inspection-delete-client.test.js",
@@ -996,6 +1001,7 @@
    "bytes": 18071,
    "tests": [
     "tests/brand-buttons.test.js",
+    "tests/csp-candidate-pages.smoke.test.js",
     "tests/csp-headers.smoke.test.js",
     "tests/csp-journey-report.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
@@ -1590,7 +1596,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 546026,
+   "bytes": 546032,
    "tests": [
     "tests/a11y-legacy-ratchet.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
@@ -1599,6 +1605,7 @@
     "tests/auth-roles-refresh.test.js",
     "tests/charts-static.test.js",
     "tests/csp-headers.smoke.test.js",
+    "tests/csp-journey-report.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/csp-report.smoke.test.js",
     "tests/csv-guard-coverage.test.js",
@@ -2011,6 +2018,7 @@
     "tests/analytics-logic.test.js",
     "tests/analytics-metrics-authz.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
+    "tests/csp-journey-report.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
   },
@@ -3050,6 +3058,7 @@
    "file": "server.js",
    "line": 3845,
    "tests": [
+    "tests/session-security.smoke.test.js",
     "tests/sso-routes.smoke.test.js"
    ]
   },
@@ -8516,6 +8525,7 @@
     "tests/route-matrix-probe-order.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
+    "tests/session-security.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/site-actions-p5.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
@@ -8610,6 +8620,7 @@
     "tests/route-matrix-probe-order.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
+    "tests/session-security.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/site-actions-p5.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
@@ -8704,6 +8715,7 @@
     "tests/route-matrix-probe-order.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
+    "tests/session-security.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/site-actions-p5.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
@@ -8798,6 +8810,7 @@
     "tests/route-matrix-probe-order.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
+    "tests/session-security.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/site-actions-p5.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
@@ -8892,6 +8905,7 @@
     "tests/route-matrix-probe-order.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
+    "tests/session-security.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/site-actions-p5.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
@@ -8986,6 +9000,7 @@
     "tests/route-matrix-probe-order.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
+    "tests/session-security.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/site-actions-p5.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
@@ -9080,6 +9095,7 @@
     "tests/route-matrix-probe-order.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
+    "tests/session-security.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/site-actions-p5.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
@@ -9174,6 +9190,7 @@
     "tests/route-matrix-probe-order.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
+    "tests/session-security.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/site-actions-p5.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
@@ -9268,6 +9285,7 @@
     "tests/route-matrix-probe-order.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
+    "tests/session-security.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/site-actions-p5.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
@@ -9362,6 +9380,7 @@
     "tests/route-matrix-probe-order.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
+    "tests/session-security.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/site-actions-p5.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
@@ -9456,6 +9475,7 @@
     "tests/route-matrix-probe-order.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
+    "tests/session-security.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/site-actions-p5.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
@@ -9550,6 +9570,7 @@
     "tests/route-matrix-probe-order.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
+    "tests/session-security.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/site-actions-p5.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
@@ -9644,6 +9665,7 @@
     "tests/route-matrix-probe-order.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
+    "tests/session-security.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/site-actions-p5.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
@@ -9738,6 +9760,7 @@
     "tests/route-matrix-probe-order.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
+    "tests/session-security.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/site-actions-p5.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
@@ -9832,6 +9855,7 @@
     "tests/route-matrix-probe-order.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
+    "tests/session-security.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/site-actions-p5.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
@@ -9926,6 +9950,7 @@
     "tests/route-matrix-probe-order.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
+    "tests/session-security.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/site-actions-p5.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
@@ -10020,6 +10045,7 @@
     "tests/route-matrix-probe-order.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
+    "tests/session-security.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/site-actions-p5.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
@@ -10114,6 +10140,7 @@
     "tests/route-matrix-probe-order.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
+    "tests/session-security.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/site-actions-p5.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
@@ -10208,6 +10235,7 @@
     "tests/route-matrix-probe-order.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
+    "tests/session-security.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/site-actions-p5.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
@@ -10302,6 +10330,7 @@
     "tests/route-matrix-probe-order.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
+    "tests/session-security.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/site-actions-p5.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
@@ -10396,6 +10425,7 @@
     "tests/route-matrix-probe-order.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
+    "tests/session-security.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/site-actions-p5.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
@@ -10490,6 +10520,7 @@
     "tests/route-matrix-probe-order.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
+    "tests/session-security.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/site-actions-p5.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
@@ -10584,6 +10615,7 @@
     "tests/route-matrix-probe-order.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
+    "tests/session-security.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/site-actions-p5.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
@@ -10678,6 +10710,7 @@
     "tests/route-matrix-probe-order.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
+    "tests/session-security.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/site-actions-p5.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
@@ -10804,6 +10837,7 @@
     "tests/login-limit-failures-only.smoke.test.js",
     "tests/origin-guard.test.js",
     "tests/p6-decisions-access.smoke.test.js",
+    "tests/session-security.smoke.test.js",
     "tests/sso-routes.smoke.test.js",
     "tests/ui-policy-me.smoke.test.js"
    ]
@@ -10816,7 +10850,8 @@
    "line": 3802,
    "tests": [
     "tests/auth-cookie.smoke.test.js",
-    "tests/route-matrix-probe-order.test.js"
+    "tests/route-matrix-probe-order.test.js",
+    "tests/session-security.smoke.test.js"
    ]
   },
   {
@@ -10832,6 +10867,7 @@
     "tests/auth-roles-refresh.test.js",
     "tests/e2e-outbound-guard.test.js",
     "tests/multi-site-editor.smoke.test.js",
+    "tests/session-security.smoke.test.js",
     "tests/ui-policy-me.smoke.test.js",
     "tests/workspace-profiles-grants-nothing.smoke.test.js"
    ]
@@ -11203,10 +11239,11 @@
    "method": "DELETE",
    "path": "/api/reports/sessions/:token",
    "file": "routes/adminUsers.js",
-   "line": 207,
+   "line": 209,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
-    "tests/route-matrix-probe-order.test.js"
+    "tests/route-matrix-probe-order.test.js",
+    "tests/session-security.smoke.test.js"
    ]
   },
   {
@@ -11214,8 +11251,10 @@
    "method": "GET",
    "path": "/api/reports/sessions/active",
    "file": "routes/adminUsers.js",
-   "line": 174,
-   "tests": []
+   "line": 176,
+   "tests": [
+    "tests/session-security.smoke.test.js"
+   ]
   },
   {
    "id": "RT-POST-api-reports-site-actions-bulk-status",
@@ -11608,6 +11647,7 @@
     "tests/route-matrix-probe-order.test.js",
     "tests/server-routes-smoke.test.js",
     "tests/server-size-budget.test.js",
+    "tests/session-security.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/site-actions-p5.smoke.test.js",
     "tests/site-actions-routes.smoke.test.js",
@@ -12908,6 +12948,7 @@
    "tests": [
     "tests/api-key-injection.smoke.test.js",
     "tests/csp-headers.smoke.test.js",
+    "tests/csp-journey-report.test.js",
     "tests/csv-safe.test.js",
     "tests/deck-builder-gate.test.js",
     "tests/exec-deck-payload.test.js",
@@ -12922,6 +12963,7 @@
    "line": 1313,
    "tests": [
     "tests/api-key-injection.smoke.test.js",
+    "tests/csp-journey-report.test.js",
     "tests/exec-scorecard-registry-parity.test.js",
     "tests/first-usable.test.js",
     "tests/page-usage.test.js",
@@ -13108,6 +13150,7 @@
     "tests/a11y-static.test.js",
     "tests/api-key-injection.smoke.test.js",
     "tests/csp-headers.smoke.test.js",
+    "tests/csp-journey-report.test.js",
     "tests/csp-report.smoke.test.js",
     "tests/csp-strict-pages-config.test.js",
     "tests/csv-safe.test.js",
@@ -13154,6 +13197,7 @@
    "file": "server.js",
    "line": 1376,
    "tests": [
+    "tests/csp-journey-report.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
   },
@@ -13209,6 +13253,7 @@
    "file": "server.js",
    "line": 1349,
    "tests": [
+    "tests/csp-candidate-pages.smoke.test.js",
     "tests/csp-headers.smoke.test.js",
     "tests/csp-journey-report.test.js",
     "tests/csp-report.smoke.test.js",
@@ -13388,6 +13433,7 @@
     "tests/api-key-injection.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/csp-headers.smoke.test.js",
+    "tests/csp-journey-report.test.js",
     "tests/csp-report.smoke.test.js",
     "tests/csv-guard-coverage.test.js",
     "tests/first-usable.test.js",

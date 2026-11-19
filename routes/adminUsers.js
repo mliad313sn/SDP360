@@ -171,6 +171,8 @@ router.delete('/api/reports/users/:id', requireReportSession, requireSuperAdmin,
 // View: admin+ (matches the Users-card RBAC — same operational scope).
 // Force-logout: super_admin only (destructive action; could kick the
 // wrong session in a multi-tab scenario).
+// P07 — opaque reference to a session (sha-256 of the token): enough to target it, useless to replay it.
+const sessionRef = (t) => 'ref-' + require('crypto').createHash('sha256').update(String(t || '')).digest('hex');
 router.get('/api/reports/sessions/active', requireReportSession, requireSuperAdmin, async (req, res) => {
   try {
     const idle = Math.max(1, Math.min(1440, parseInt(req.query.idle_minutes || '5', 10) || 5));
@@ -180,7 +182,7 @@ router.get('/api/reports/sessions/active', requireReportSession, requireSuperAdm
     // back only when the operator explicitly clicks Force Logout.
     const safe = sessions.map(s => ({
       token_preview: (s.token || '').slice(0, 8) + '…',
-      token:         s.token,                    // used by DELETE; not rendered as-is
+      session_ref:   sessionRef(s.token),        // P07: DELETE by reference — no bearer token reaches the browser or a URL
       user_id:       s.user_id,
       username:      s.username,
       full_name:     s.full_name,
@@ -211,8 +213,14 @@ router.delete('/api/reports/sessions/:token', requireReportSession, (req, res, n
   next();
 }, async (req, res) => {
   try {
-    const token = decodeURIComponent(req.params.token || '');
+    let token = decodeURIComponent(req.params.token || '');
     if (!token) return res.status(400).json({ error: 'token is required' });
+    // P07 — a session_ref (from GET /sessions/active) is resolved here; a full token is still accepted (API clients).
+    if (/^ref-[a-f0-9]{64}$/.test(token)) {
+      const hit = ((await rdb.listActiveSessions(1440)) || []).find((s) => sessionRef(s.token) === token);
+      if (!hit) return res.status(404).json({ error: 'Session not found (already ended?)' });
+      token = hit.token;
+    }
     // Defensive: prevent kicking your own session by accident. The
     // client-side UI also greys the button on is_self rows.
     if (token === require('../services/sessionAuth').sessionToken(req)) {

@@ -18,7 +18,7 @@
 //   * --remove only touches the ids of the inventory, only on the database the inventory names, and only rows whose
 //     label still starts with "DEMO" (a hand-edited inventory cannot delete a real row).
 //
-//   PG_URL=postgres://…/sdp_demo node tools/demo/seed-demo.js [--inventory=demo-inventory.json] [--i-know-this-is-a-test-db]
+//   PG_URL=postgres://…/sdp_demo node tools/demo/seed-demo.js [--inventory=demo-inventory.json] [--i-know-this-is-a-test-db] [--pentest]
 //   PG_URL=postgres://…/sdp_demo node tools/demo/seed-demo.js --remove [--inventory=demo-inventory.json]
 // The connection string comes from the environment only (never a command-line argument: it carries a password).
 // Passwords of the synthetic people are random per run and printed once to stdout; they are never written to a file.
@@ -70,12 +70,32 @@ const ROLES = [
   { key: 'executive', roles: ['executive'], site: null },
   { key: 'editor_b', roles: ['editor'], site: 'B' },
 ];
+// P07 — `--pentest`: one more synthetic account per remaining role and per scope edge case, so an independent tester
+// gets the full matrix of docs/ops/AUTHZ-MATRIX.md on the TEST instance. Same safety, same inventory, same removal.
+const PENTEST_ROLES = [
+  { key: 'viewer', roles: ['viewer'], site: 'A' },
+  { key: 'admin', roles: ['admin'], site: null },
+  { key: 'super_admin', roles: ['super_admin'], site: null },
+  { key: 'field_tech', roles: ['viewer', 'field-tech'], site: 'A' },
+  { key: 'tracker_admin', roles: ['viewer', 'tracker-admin'], site: null },
+  { key: 'tracker_editor', roles: ['viewer', 'tracker-editor'], site: 'A' },
+  { key: 'audit_viewer', roles: ['viewer', 'audit-viewer'], site: null },
+  { key: 'scorecard', roles: ['viewer', 'scorecard-viewer'], site: null },
+  { key: 'site_business', roles: ['site-business'], site: 'A' },
+  { key: 'group_business', roles: ['group-business'], site: null },
+  { key: 'publisher', roles: ['viewer', 'dashboard-publisher'], site: null },
+  { key: 'kpi_committee', roles: ['viewer', 'kpi-committee'], site: null },
+  { key: 'fin_verifier', roles: ['viewer', 'finance-verifier'], site: null },
+  { key: 'editor_ab', roles: ['editor'], site: 'A', extra: ['B'] },
+  { key: 'editor_nosite', roles: ['editor'], site: null },
+  { key: 'deactivated', roles: ['editor'], site: 'A', inactive: true },
+];
 
 /**
  * Seed the synthetic organisation. deps: { rdb (initialised reports-db), gov (governance store), dash (dashboard store) }.
  * → { inventory, users: { key: {id, username, password, full_name, roles} }, ids }
  */
-async function seedDemo({ rdb, gov, dash, tag = crypto.randomBytes(3).toString('hex'), nativeChangeRequests = false } = {}) {
+async function seedDemo({ rdb, gov, dash, tag = crypto.randomBytes(3).toString('hex'), nativeChangeRequests = false, pentest = false } = {}) {
   const pg = rdb.pgHandle();
   const inv = { label: 'SYNTHETIC DEMO — not real data', version: 1, created_at: new Date().toISOString(), tag,
     ids: { sites: [], users: [], programmes: [], objectives: [], projects: [], rfis: [], dashboards: [] },
@@ -88,10 +108,13 @@ async function seedDemo({ rdb, gov, dash, tag = crypto.randomBytes(3).toString('
   ids.siteA = Number(siteA.id); ids.siteB = Number(siteB.id);
   // people
   const users = {};
-  for (const r of ROLES) {
+  const siteOf = (k) => (k === 'A' ? ids.siteA : k === 'B' ? ids.siteB : null);
+  for (const r of pentest ? [...ROLES, ...PENTEST_ROLES] : ROLES) {
     const u = { username: `demo_${r.key}_${tag}`, full_name: `${LABEL} ${r.key} (synthetic)`, password: pw(), roles: r.roles };
-    const res = await rdb.createUser({ username: u.username, full_name: u.full_name, password: u.password, roles: r.roles, site_id: r.site === 'A' ? ids.siteA : r.site === 'B' ? ids.siteB : null });
+    const res = await rdb.createUser({ username: u.username, full_name: u.full_name, password: u.password, roles: r.roles, site_id: siteOf(r.site),
+      ...(r.extra ? { extra_site_ids: r.extra.map(siteOf) } : {}) });
     u.id = Number(res.lastID || (await pg.prepare('SELECT id FROM users WHERE username=?').get(u.username)).id);
+    if (r.inactive) { await rdb.updateUser(u.id, { full_name: u.full_name, site_id: siteOf(r.site), active: 0 }); u.active = 0; }
     inv.ids.users.push(u.id); users[r.key] = u;
   }
   const actor = { id: users.pmo.id, username: users.pmo.username, full_name: users.pmo.full_name };
@@ -215,18 +238,18 @@ async function main(argv = process.argv.slice(2), { log = console.log } = {}) {
   const dash = require(path.join(ROOT, 'services', 'dashboardStore.js')).makeDashboardStore({ prepare: (sql) => rdb.pgHandle().prepare(sql) }, { isPg: true });
   // R2-WB-01 — the native change request only where the target already switched it on (no switch is flipped here)
   const nativeChangeRequests = String((await require(path.join(ROOT, 'services', 'reportConfig.js')).getConfig(rdb.db)).ppm_change_requests_enabled) === '1';
-  const r = await seedDemo({ rdb, gov, dash, nativeChangeRequests });
+  const r = await seedDemo({ rdb, gov, dash, nativeChangeRequests, pentest: argv.includes('--pentest') });
   const inventory = { ...r.inventory, database: target.database, schema: target.schema };
   if (bootAdmin) { inventory.bootstrap_admin = bootAdmin.user; inventory.retained_by_design = [...inventory.retained_by_design, `first admin ${bootAdmin.user} (the database's own admin; drop the throwaway database to remove it)`]; }
   fs.writeFileSync(invPath, JSON.stringify(inventory, null, 2));
   log(`[demo] SYNTHETIC organisation created on ${target.database}/${target.schema}; inventory → ${invPath}`);
   if (bootAdmin) log(`  first admin  ${bootAdmin.user}  password: ${bootAdmin.pass}  (only if the database was empty)`);
-  for (const [k, u] of Object.entries(r.users)) log(`  ${k.padEnd(12)} ${u.username}  password: ${u.password}  roles: ${u.roles.join(', ')}`);
+  for (const [k, u] of Object.entries(r.users)) log(`  ${k.padEnd(14)} ${u.username}  password: ${u.password}  roles: ${u.roles.join(', ')}${u.active === 0 ? '  (DEACTIVATED)' : ''}`);
   log(`  project id ${r.ids.project} · /project.html?id=${r.ids.project} · remove with --remove --inventory=${invPath}`);
   return { ...r, inventory };
 }
 
-module.exports = { classifyTarget, assertSafeTarget, targetIdentity, seedDemo, removeDemo, main, LABEL, FLAG };
+module.exports = { classifyTarget, assertSafeTarget, targetIdentity, seedDemo, removeDemo, main, LABEL, FLAG, ROLES, PENTEST_ROLES };
 
 if (require.main === module) {
   main().then(() => process.exit(0), (e) => { console.error('[demo] ' + e.message); process.exit(e.code && String(e.code).startsWith('REFUSED') ? 2 : 1); });

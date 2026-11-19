@@ -82,3 +82,24 @@ test('R2-WB-01: with nativeChangeRequests the demo change request is a native on
   await D.removeDemo({ rdb, inventory: inv, target });
   assert.equal(Number((await pg.prepare('SELECT COUNT(*) AS n FROM ppm_change_requests').get()).n), 0, 'change requests cascaded with the project');
 });
+
+test('P07 --pentest: one account per role in the authorisation matrix, plus multi-site / site-less / deactivated; removed with the rest', async () => {
+  const pg = rdb.pgHandle();
+  const target = await D.targetIdentity(pg);
+  const gov = require('../routes/governance').createStore(rdb); await gov.init();
+  const r = await D.seedDemo({ rdb, gov, dash: null, tag: 't3', pentest: true });
+  const covered = new Set(Object.values(r.users).flatMap((u) => u.roles));
+  const matrixRoles = require('../docs/ops/authz-matrix.json').roles;
+  assert.deepEqual(matrixRoles.filter((x) => !covered.has(x)), [], 'every role of the matrix has an account');
+  const all = (await rdb.listUsers()) || [];
+  const byName = (k) => all.find((u) => u.username === r.users[k].username);
+  assert.equal(Number(byName('deactivated').active), 0, 'deactivated account is inactive');
+  assert.equal(Number(byName('viewer').active), 1);
+  assert.equal(byName('editor_nosite').site_id, null);
+  assert.ok((byName('editor_ab').extra_site_ids || []).map(Number).includes(r.ids.siteB), 'multi-site editor has site B as extra');
+  assert.equal(await rdb.login(r.users.deactivated.username, r.users.deactivated.password), null, 'deactivated account cannot sign in');
+  const inv = { ...r.inventory, database: target.database, schema: target.schema };
+  assert.ok(!JSON.stringify(inv).includes(r.users.super_admin.password), 'no password in the inventory');
+  const out = await D.removeDemo({ rdb, inventory: inv, target });
+  assert.equal(out.removed.users, D.ROLES.length + D.PENTEST_ROLES.length);
+});

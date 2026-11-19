@@ -77,7 +77,7 @@ Journeys: 44 — strict 0, enforceable 10, blocked 34, unknown 0.
 | `/dashboards.html` | 1 | 0 | blocked | — |
 | `/executive.html` | 1 | 65 | blocked | — |
 | `/field/index.html` | 0 | 0 | enforceable | — |
-| `/help.html` | 1 | 2 | blocked | — |
+| `/help.html` | 1 | 0 | blocked | — |
 | `/home.html` | 0 | 0 | enforceable | — |
 | `/index.html` | 1 | 51 | blocked | — |
 | `/infra-health.html` | 2 | 0 | blocked | — |
@@ -94,6 +94,88 @@ Journeys: 44 — strict 0, enforceable 10, blocked 34, unknown 0.
 | `/system-logs.html` | 1 | 0 | blocked | — |
 | `/wan.html` | 3 | 0 | blocked | — |
 | `/workspace-settings.html` | 0 | 0 | enforceable | — |
+
+## All pages (P07 inventory)
+
+Every page under `public/`, journeys or not. **Script-built handlers** counts `on…=""` attributes written inside a JS string
+(innerHTML / template) by the page's own inline scripts and by the same-origin scripts it loads with `src` — these are blocked
+by the nonce-only policy just like handlers in the markup. **Nonce** = rendered through `sendHtmlPage`, so its inline `<script>`
+tags receive the request nonce. **candidate** = nothing a static scan can see would be blocked; it is a proposal for
+`report_config.csp_strict_pages` after a report-only run, not an approval.
+
+Pages: 63 — strict 2, candidate 55, blocked 6.
+
+| Page | Inline scripts | Markup handlers | Script-built handlers | Nonce | Readiness |
+|---|---|---|---|---|---|
+| `/access.html` | 0 | 0 | 0 | yes | candidate |
+| `/activity-tracker.html` | 0 | 0 | 0 | yes | candidate |
+| `/analytics.html` | 1 | 16 | 0 | yes | blocked |
+| `/assets-finance.html` | 1 | 0 | 0 | yes | candidate |
+| `/assets-hygiene.html` | 1 | 0 | 0 | yes | candidate |
+| `/assets.html` | 10 | 0 | 0 | yes | candidate |
+| `/cockpit.html` | 1 | 0 | 0 | yes | candidate |
+| `/commitments.html` | 1 | 0 | 0 | yes | candidate |
+| `/connector-health.html` | 0 | 0 | 0 | yes | candidate |
+| `/coverage.html` | 0 | 0 | 0 | yes | candidate |
+| `/dashboard-composer.html` | 1 | 0 | 0 | yes | candidate |
+| `/dashboards.html` | 1 | 0 | 0 | yes | candidate |
+| `/data-quality.html` | 0 | 0 | 0 | yes | candidate |
+| `/exec-view.html` | 1 | 0 | 0 | yes | strict |
+| `/executive-report.html` | 1 | 50 | 8 | yes | blocked |
+| `/executive.html` | 1 | 65 | 10 | yes | blocked |
+| `/field/index.html` | 0 | 0 | 0 | no | candidate |
+| `/finance.html` | 0 | 0 | 0 | yes | candidate |
+| `/handoffs.html` | 1 | 0 | 0 | yes | candidate |
+| `/help.html` | 1 | 0 | 0 | yes | candidate |
+| `/home.html` | 0 | 0 | 0 | yes | candidate |
+| `/index.html` | 1 | 51 | 5 | yes | blocked |
+| `/infra-health.html` | 2 | 0 | 0 | yes | candidate |
+| `/inspection-actions.html` | 1 | 0 | 0 | yes | candidate |
+| `/inspection.html` | 2 | 40 | 19 | yes | blocked |
+| `/inspections.html` | 1 | 0 | 0 | yes | candidate |
+| `/integrations.html` | 1 | 0 | 0 | yes | candidate |
+| `/it-review.html` | 2 | 0 | 0 | yes | candidate |
+| `/itsm-integrations-plan.html` | 0 | 0 | 0 | yes | candidate |
+| `/itsm-roadmap.html` | 1 | 0 | 0 | yes | candidate |
+| `/kpi-builder.html` | 0 | 0 | 0 | yes | candidate |
+| `/login.html` | 1 | 0 | 0 | yes | strict |
+| `/meeting.html` | 1 | 0 | 0 | yes | candidate |
+| `/meetings-actions.html` | 2 | 0 | 0 | yes | candidate |
+| `/meetings-compliance.html` | 2 | 0 | 0 | yes | candidate |
+| `/meetings-council.html` | 2 | 0 | 0 | yes | candidate |
+| `/meetings-import.html` | 2 | 0 | 0 | yes | candidate |
+| `/meetings-insights.html` | 2 | 0 | 0 | yes | candidate |
+| `/meetings-issues.html` | 2 | 0 | 0 | yes | candidate |
+| `/meetings-progress.html` | 2 | 0 | 0 | yes | candidate |
+| `/meetings-setup.html` | 1 | 0 | 0 | yes | candidate |
+| `/meetings-unsigned.html` | 2 | 0 | 0 | yes | candidate |
+| `/meetings.html` | 2 | 0 | 0 | yes | candidate |
+| `/no-access.html` | 0 | 0 | 0 | yes | candidate |
+| `/notifications.html` | 1 | 0 | 0 | yes | candidate |
+| `/obligations.html` | 0 | 0 | 0 | yes | candidate |
+| `/policies.html` | 1 | 0 | 0 | yes | candidate |
+| `/portfolio.html` | 1 | 0 | 0 | yes | candidate |
+| `/project.html` | 1 | 0 | 0 | yes | candidate |
+| `/report-studio.html` | 1 | 0 | 0 | yes | candidate |
+| `/reports.html` | 2 | 184 | 80 (lib/reports-backups.js (1)) | yes | blocked |
+| `/rfi.html` | 1 | 0 | 0 | yes | candidate |
+| `/site-actions.html` | 1 | 0 | 0 | yes | candidate |
+| `/site-awareness.html` | 2 | 0 | 0 | yes | candidate |
+| `/site-report.html` | 0 | 0 | 0 | yes | candidate |
+| `/system-logs.html` | 1 | 0 | 0 | yes | candidate |
+| `/tracker-builder.html` | 1 | 0 | 0 | yes | candidate |
+| `/trackers.html` | 1 | 0 | 0 | yes | candidate |
+| `/value-scoreboard.html` | 0 | 0 | 0 | yes | candidate |
+| `/wan-health.html` | 0 | 0 | 0 | yes | candidate |
+| `/wan-sla.html` | 0 | 0 | 0 | yes | candidate |
+| `/wan.html` | 3 | 0 | 0 | yes | candidate |
+| `/workspace-settings.html` | 0 | 0 | 0 | yes | candidate |
+
+Candidate list (PROPOSED value for `csp_strict_pages`, not applied — default stays empty):
+
+```
+/access.html,/activity-tracker.html,/assets-finance.html,/assets-hygiene.html,/assets.html,/cockpit.html,/commitments.html,/connector-health.html,/coverage.html,/dashboard-composer.html,/dashboards.html,/data-quality.html,/field/index.html,/finance.html,/handoffs.html,/help.html,/home.html,/infra-health.html,/inspection-actions.html,/inspections.html,/integrations.html,/it-review.html,/itsm-integrations-plan.html,/itsm-roadmap.html,/kpi-builder.html,/meeting.html,/meetings-actions.html,/meetings-compliance.html,/meetings-council.html,/meetings-import.html,/meetings-insights.html,/meetings-issues.html,/meetings-progress.html,/meetings-setup.html,/meetings-unsigned.html,/meetings.html,/no-access.html,/notifications.html,/obligations.html,/policies.html,/portfolio.html,/project.html,/report-studio.html,/rfi.html,/site-actions.html,/site-awareness.html,/site-report.html,/system-logs.html,/tracker-builder.html,/trackers.html,/value-scoreboard.html,/wan-health.html,/wan-sla.html,/wan.html,/workspace-settings.html
+```
 
 ## Order of work (proposal)
 
