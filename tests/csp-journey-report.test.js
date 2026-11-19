@@ -58,3 +58,37 @@ test('the committed docs/security/CSP-JOURNEYS.md is up to date and covers every
   const r = R.build(c);
   assert.equal(r.pages.find((p) => p.url === '/login.html').state, 'strict');
 });
+
+// P07 — page inventory: handlers built by script text, nonce-served pages, readiness of every page.
+test('scanScriptText counts on*="" written inside JS strings, ignores comments and property assignment', () => {
+  assert.equal(R.scanScriptText(`el.innerHTML = '<b onclick="x()">' + "<i onchange='y'>"; el.onclick = f; // onclick="z"\n/* onload="q" */`), 2);
+  assert.equal(R.scanScriptText('const t = `<a onmouseover=\\"u\\">`;'), 1);
+  assert.equal(R.scanScriptText('btn.addEventListener("click", go); const url = "https://x.example/a";'), 0);
+});
+
+test('nonceServedPages reads sendHtmlPage calls and the page loop', () => {
+  const s = `sendHtmlPage(res, 'a.html', true, 'x');\nfor (const _p of ['b.html', 'c.html']) app.get('/' + _p, (req, res) => sendHtmlPage(res, _p, false, 'x'));`;
+  assert.deepEqual([...R.nonceServedPages(s)].sort(), ['a.html', 'b.html', 'c.html']);
+});
+
+test('inventoryPages: candidate needs no markup handler, no script-built handler, and inline scripts only when nonce-served', () => {
+  const files = { 'public/ok.html': '<script src="lib/clean.js"></script><script>go()</script>', 'public/raw.html': '<script>go()</script>',
+    'public/dyn.html': '<script src="lib/dirty.js"></script>', 'public/mk.html': '<button onclick="x()">', 'public/login.html': '<script>1</script>',
+    'public/lib/clean.js': 'el.onclick = f;', 'public/lib/dirty.js': 'el.innerHTML = "<a onclick=\\"z()\\">";' };
+  const inv = R.inventoryPages({ files: ['public/ok.html', 'public/raw.html', 'public/dyn.html', 'public/mk.html', 'public/login.html'],
+    read: (r) => files[r], exists: (r) => r in files, served: new Set(['ok.html', 'dyn.html', 'mk.html', 'login.html']), strict: ['/login.html'] });
+  const by = Object.fromEntries(inv.map((x) => [x.url, x]));
+  assert.equal(by['/ok.html'].readiness, 'candidate');
+  assert.equal(by['/raw.html'].readiness, 'blocked', 'inline script not nonce-served');
+  assert.equal(by['/dyn.html'].readiness, 'blocked');
+  assert.deepEqual(by['/dyn.html'].offenders, ['lib/dirty.js (1)']);
+  assert.equal(by['/mk.html'].readiness, 'blocked');
+  assert.equal(by['/login.html'].readiness, 'strict');
+});
+
+test('ratchet: the blocked set of the real inventory never grows (extract a handler, do not add one)', () => {
+  const BLOCKED_AT_P07 = ['/analytics.html', '/executive-report.html', '/executive.html', '/help.html', '/index.html', '/inspection.html', '/reports.html'];
+  const blocked = R.collect().inventory.filter((x) => x.readiness === 'blocked').map((x) => x.url);
+  const added = blocked.filter((u) => !BLOCKED_AT_P07.includes(u));
+  assert.deepEqual(added, [], 'newly blocked page(s) — remove the inline handler or the script-built on*="" string');
+});

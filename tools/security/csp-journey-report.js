@@ -31,6 +31,50 @@ function scanPage(src) {
   return { inline_scripts, inline_handlers };
 }
 
+/** P07 — inline handlers BUILT by script text (an on*="" attribute inside a JS string: innerHTML / template). Comments ignored. */
+function scanScriptText(js) {
+  const t = String(js || '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:\\])\/\/[^\n]*/g, '$1');
+  return (t.match(/\son[a-z]{3,}\s*=\s*\\?["'`]/g) || []).length;
+}
+/** Pages rendered through sendHtmlPage (server.js + routes/*.js): only these get the per-request nonce on their inline <script> tags. */
+function nonceServedPages(serverSrc) {
+  const s = String(serverSrc || '');
+  const out = new Set([...s.matchAll(/sendHtmlPage\(res,\s*'([\w.-]+\.html)'/g)].map((m) => m[1]));
+  for (const m of s.matchAll(/for \(const _p of \[([^\]]+)\]\)[^\n]*sendHtmlPage/g)) for (const n of m[1].matchAll(/'([\w.-]+\.html)'/g)) out.add(n[1]);
+  return out;
+}
+/**
+ * P07 — every page under public/: inline scripts, HTML inline handlers, handlers built by script (its own inline scripts
+ * and the same-origin scripts it loads by src), whether the server nonces its inline scripts. readiness:
+ * strict (already enforced), candidate (nothing the nonce-only policy would block, as far as a static scan can tell),
+ * blocked. A static scan cannot see scripts loaded later at run time: a report-only run stays the proof.
+ */
+function inventoryPages({ files, read, exists, served, strict }) {
+  const rows = [];
+  for (const rel of files) {
+    const src = read(rel);
+    const base = scanPage(src);
+    const own = [...src.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/gi)].map((m) => m[1]).join('\n');
+    let built = scanScriptText(own);
+    const offenders = [];
+    for (const m of src.matchAll(/<script[^>]*\bsrc=["']([^"']+)["']/g)) {
+      const u = m[1].split('?')[0];
+      if (u.startsWith('//') || /^[a-z]{2,10}:/i.test(u)) continue;   // another origin (or a scheme): not ours to scan
+      const f = path.posix.join(path.posix.dirname(rel), u.replace(/^\//, u.startsWith('/') ? '../'.repeat(rel.split('/').length - 2) : ''));
+      const norm = u.startsWith('/') ? 'public' + u : path.posix.normalize(f);
+      if (!exists(norm)) continue;
+      const n = scanScriptText(read(norm));
+      if (n) { built += n; offenders.push(norm.replace(/^public\//, '') + ' (' + n + ')'); }
+    }
+    const url = '/' + rel.replace(/^public\//, '');
+    const nonced = served.has(rel.replace(/^public\//, ''));
+    const readiness = strict.includes(url) ? 'strict'
+      : (base.inline_handlers === 0 && built === 0 && (base.inline_scripts === 0 || nonced)) ? 'candidate' : 'blocked';
+    rows.push({ url, inline_scripts: base.inline_scripts, inline_handlers: base.inline_handlers, script_built_handlers: built, nonce_served: nonced, readiness, offenders });
+  }
+  return rows.sort((a, b) => a.url.localeCompare(b.url));
+}
+
 /** Rows of the journey table: { persona, journey, pages: ['public/x.html', …] }. */
 function parseJourneys(md) {
   const out = [];
@@ -62,7 +106,7 @@ function countViolations(json) {
  * @param {{journeys:Array, pages:Object<string,{inline_scripts:number,inline_handlers:number}>, strict:string[], violations?:Map|null}} i
  * pages is keyed by 'public/x.html'. violations null = not measured (shown as "—", never 0).
  */
-function build({ journeys, pages, strict, violations = null }) {
+function build({ journeys, pages, strict, violations = null, inventory = null }) {
   const url = (p) => '/' + p.replace(/^public\//, '');
   const pageRow = (p) => {
     const s = pages[p] || null;
@@ -78,7 +122,7 @@ function build({ journeys, pages, strict, violations = null }) {
   });
   const used = [...new Set(journeys.flatMap((j) => j.pages))].sort().map(pageRow);
   const count = (st) => rows.filter((r) => r.state === st).length;
-  return { rows, pages: used, totals: { journeys: rows.length, strict: count('strict'), enforceable: count('enforceable'), blocked: count('blocked'), unknown: count('unknown') }, measured: !!violations };
+  return { inventory, rows, pages: used, totals: { journeys: rows.length, strict: count('strict'), enforceable: count('enforceable'), blocked: count('blocked'), unknown: count('unknown') }, measured: !!violations };
 }
 
 function render(r) {
@@ -99,6 +143,21 @@ function render(r) {
   for (const x of r.rows) L.push(`| ${cell(x.persona)} | ${cell(x.journey)} | ${x.pages.map((p) => '`' + p.url + '`').join(', ')} | ${x.state} | ${x.blockers.map((b) => '`' + b + '`').join(', ') || '—'} |`);
   L.push('', '## Pages used by the journeys', '', '| Page | Inline scripts | Inline handlers | State | Report-only violations |', '|---|---|---|---|---|');
   for (const p of r.pages) L.push(`| \`${p.url}\` | ${n(p.inline_scripts)} | ${n(p.inline_handlers)} | ${p.state} | ${n(p.violations)} |`);
+  if (r.inventory) {
+    const inv = r.inventory;
+    const c = (st) => inv.filter((x) => x.readiness === st).length;
+    L.push('', '## All pages (P07 inventory)', '',
+      'Every page under `public/`, journeys or not. **Script-built handlers** counts `on…=""` attributes written inside a JS string',
+      '(innerHTML / template) by the page\'s own inline scripts and by the same-origin scripts it loads with `src` — these are blocked',
+      'by the nonce-only policy just like handlers in the markup. **Nonce** = rendered through `sendHtmlPage`, so its inline `<script>`',
+      'tags receive the request nonce. **candidate** = nothing a static scan can see would be blocked; it is a proposal for',
+      '`report_config.csp_strict_pages` after a report-only run, not an approval.', '',
+      `Pages: ${inv.length} — strict ${c('strict')}, candidate ${c('candidate')}, blocked ${c('blocked')}.`, '',
+      '| Page | Inline scripts | Markup handlers | Script-built handlers | Nonce | Readiness |', '|---|---|---|---|---|---|');
+    for (const x of inv) L.push(`| \`${x.url}\` | ${x.inline_scripts} | ${x.inline_handlers} | ${x.script_built_handlers}${x.offenders.length ? ' (' + x.offenders.join(', ') + ')' : ''} | ${x.nonce_served ? 'yes' : 'no'} | ${x.readiness} |`);
+    L.push('', 'Candidate list (PROPOSED value for `csp_strict_pages`, not applied — default stays empty):', '',
+      '```', inv.filter((x) => x.readiness === 'candidate').map((x) => x.url).join(',') || '(none)', '```');
+  }
   L.push('', '## Order of work (proposal)', '',
     '1. Journeys whose pages are all enforceable: run report-only, then list the pages in `csp_strict_pages`.',
     '2. Blocked pages with the fewest inline handlers first (extract to an external file — E-A02), one journey at a time.',
@@ -113,7 +172,19 @@ function collect() {
     const f = path.join(ROOT, p);
     pages[p] = fs.existsSync(f) ? scanPage(fs.readFileSync(f, 'utf8')) : null;
   }
-  return { journeys, pages, strict: STRICT_PAGES.slice() };
+  const PUB = path.join(ROOT, 'public');
+  const files = [];
+  (function walk(dir) {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (e.isDirectory()) { if (!['vendor', 'node_modules', 'dashboard-preview', 'design-system'].includes(e.name)) walk(path.join(dir, e.name)); }
+      else if (e.name.endsWith('.html')) files.push(path.relative(ROOT, path.join(dir, e.name)).split(path.sep).join('/'));
+    }
+  })(PUB);
+  const routeSrc = fs.readdirSync(path.join(ROOT, 'routes')).filter((f) => f.endsWith('.js')).map((f) => fs.readFileSync(path.join(ROOT, 'routes', f), 'utf8'));
+  const served = nonceServedPages([fs.readFileSync(path.join(ROOT, 'server.js'), 'utf8'), ...routeSrc].join('\n'));
+  const inventory = inventoryPages({ files: files.sort(), read: (r) => fs.readFileSync(path.join(ROOT, r), 'utf8'),
+    exists: (r) => fs.existsSync(path.join(ROOT, r)), served, strict: STRICT_PAGES.slice() });
+  return { journeys, pages, strict: STRICT_PAGES.slice(), inventory };
 }
 
 if (require.main === module) {
@@ -131,4 +202,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { scanPage, parseJourneys, countViolations, build, render, collect, OUT };
+module.exports = { scanPage, scanScriptText, nonceServedPages, inventoryPages, parseJourneys, countViolations, build, render, collect, OUT };

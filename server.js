@@ -202,7 +202,7 @@ app.use((req, res, next) => {
       // previews (dashboard-preview/, design-system/) still pull React + Babel from a CDN.
       (isDevPreview
         ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' unpkg.com cdn.jsdelivr.net cdnjs.cloudflare.com"
-        : "script-src 'self' 'unsafe-inline'"),
+        : sessionAuth.scriptSrc(res.locals.nonce, sessionAuth.isStrictCspPath(path))),   // P07: csp_strict_pages applies to the tracker too
       "style-src 'self' 'unsafe-inline'",
       "font-src 'self' data:",
       "img-src 'self' data:",
