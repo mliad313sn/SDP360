@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 5329,
+ "total": 5332,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 18,
@@ -676,6 +676,7 @@
   "site-awareness-roles.test.js": 2,
   "site-awareness-routes.smoke.test.js": 14,
   "site-code-onboarding.test.js": 5,
+  "site-code-readiness.test.js": 3,
   "site-code-registry.smoke.test.js": 2,
   "site-code-shadow.test.js": 5,
   "site-fold-sla-definition.test.js": 7,
