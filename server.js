@@ -5047,7 +5047,7 @@ app.get('/api/auth/config', async (req, res) => {
     sso_enabled:    !!s.ready,
     mode:           s.mode,
     password_login: s.mode !== 'only',
-    breakglass_user: s.mode === 'only' ? s.breakglassUser : null,
+    breakglass_user: null,   // P07: the emergency account name is never published to anonymous visitors (no client reads it)
   });
 });
 

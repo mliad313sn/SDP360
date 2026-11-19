@@ -98,6 +98,7 @@ test('sso_mode only: password refused for normal accounts (even with the right p
   assert.ok(cookieTok(bg));
   const cfgRes = await (await fetch(base + '/api/auth/config')).json();
   assert.equal(cfgRes.password_login, false);
+  assert.equal(cfgRes.breakglass_user, null, 'the break-glass account name is never published to anonymous visitors');
   await new Promise((r) => setTimeout(r, 100));
   const rows = await rdb.listSystemLog({ category: 'auth', limit: 50 });
   const list = Array.isArray(rows) ? rows : (rows && rows.rows) || [];
