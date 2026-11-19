@@ -15,7 +15,7 @@
   "jobs": 33,
   "jobs_without_test_reference": 0,
   "migrations": 102,
-  "test_files": 808
+  "test_files": 809
  },
  "pages": [
   {
@@ -602,6 +602,7 @@
     "tests/help-recent-updates.test.js",
     "tests/help-teams-sla-section.test.js",
     "tests/i18n-coverage.test.js",
+    "tests/p09-adoption-kit.test.js",
     "tests/ppm-visuals.test.js",
     "tests/project-page.test.js",
     "tests/ui-design-ratchet.test.js",
