@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks general deployment only |
 | Decide after | [G01](G01-security-access-policy.md) Security: access policy and authorization matrix · [G02](G02-threat-model-findings.md) Security: threat model and findings |
-| Target SHA | `5283e348` |
+| Target SHA | `c2f9acd5` |
 | Generated | 2026-11-19 |
 
 ## 1. Question to decide
@@ -30,7 +30,7 @@ Will an independent penetration test be run before general deployment, or do you
 | From lot | Expected evidence | Status |
 |---|---|---|
 | P07 | Pentest readiness (closure report) | delivered: `docs/agent-execution/P07-security-closure.md` (06a369c1, `d11eb355b50431bf`) |
-| P02 | Authorization outcome probe | delivered: `docs/agent-execution/P02-authz-outcomes.md` (33be01d2, `a7f93738ae02d638`) |
+| P02 | Authorization outcome probe | delivered: `docs/agent-execution/P02-authz-outcomes.md` (9007a5c4, `1b3c7c2278a4e5d1`) |
 
 ## 3. Not evidenced, and why
 
