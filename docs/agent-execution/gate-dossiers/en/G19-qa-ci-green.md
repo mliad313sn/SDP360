@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks the two-site pilot on the TEST instance |
 | Decide after | none |
-| Target SHA | `bc1eb79f` |
+| Target SHA | `4e12afea` |
 | Generated | 2026-11-19 |
 
 ## 1. Question to decide
@@ -22,7 +22,7 @@ Is the continuous integration green on the target SHA, and do you accept each sk
 | Evidence | What it shows | Regenerate / re-run | Last changed (commit, date) | Content hash |
 |---|---|---|---|---|
 | `.github/workflows/ci.yml` | CI jobs (unit, browser journeys) | `manual` | a1208217, 2026-11-19 | `1e629a1b51faf736` |
-| `tests/.suite-manifest.json` | Reviewed per-file test census | `npm test -- --update-manifest` | bc1eb79f, 2026-11-19 | `391933815739b226` |
+| `tests/.suite-manifest.json` | Reviewed per-file test census | `npm test -- --update-manifest` | 38a01a34, 2026-11-19 | `10ef7c1a8a95e547` |
 | `tests/.skip-allowlist.json` | Each allowed skip and its reason | `manual` | 090d541f, 2026-11-06 | `d0fb199d188863a5` |
 | `tools/test/run-all.js` | Full suite runner | `node tools/test/run-all.js` | 95a84168, 2026-10-29 | `11d56229bbc5e9c5` |
 | `docs/agent-execution/DELIVERY-QUALITY.md` | Delivery quality metrics | `node tools/release/delivery-metrics.js` | f5acdadf, 2026-11-06 | `1aca3f9dbc393523` |
