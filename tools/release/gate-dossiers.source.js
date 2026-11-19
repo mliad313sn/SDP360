@@ -1,0 +1,526 @@
+'use strict';
+// P10 — the ONE source of the release-gate decision dossiers (French + English).
+// tools/release/gate-dossiers.js renders it into docs/agent-execution/gate-dossiers/{en,fr}/ and an index.
+//
+// Rules for editing this file:
+//   - Never write a decision, an approver's name, an approval date, a threshold value or a signature here.
+//     Those belong to people, in docs/sdp360/completion/RELEASE-GATES.md.
+//   - Every evidence path must exist in the tree (the generator refuses a missing one).
+//   - "awaited" globs name the files a parallel lot is expected to deliver; when the file lands, the dossier
+//     becomes stale until regenerated, and the delivered file is then cited with its hash.
+//   - `row` must be the exact text of the "Gate" cell in RELEASE-GATES.md.
+
+const ev = (path, cmd, en, fr) => ({ path, cmd, what: { en, fr } });
+const aw = (lot, glob, en, fr) => ({ lot, glob, what: { en, fr } });
+const L = (en, fr) => ({ en, fr });
+const S = (en, fr) => ({ en, fr });
+
+const T = 'node --test --test-force-exit'; // run with the NODE_OPTIONS of docs/agent-execution/prompt-pack/preamble.md
+
+const blocks = {
+  pilot: S('blocks the two-site pilot on the TEST instance', 'bloque le pilote sur deux sites (instance de TEST)'),
+  'pilot-if': S('blocks the pilot only if its feature is in the pilot scope', 'ne bloque le pilote que si sa fonction est dans le périmètre du pilote'),
+  general: S('blocks general deployment only', 'ne bloque que le déploiement général'),
+  market: S('blocks distribution outside Endeavour only', 'ne bloque que la diffusion hors d\'Endeavour'),
+};
+
+const NOT_NOW_EN = 'Not now — the gate stays NO-GO; ';
+const NOT_NOW_FR = 'Pas maintenant — la porte reste NO-GO ; ';
+
+const gates = [
+  {
+    id: 'G01', slug: 'security-access-policy',
+    row: 'Security — access policy CG-01/CG-02, authz matrix (G-03…G-08)',
+    short: S('Security: access policy and authorization matrix', 'Sécurité : politique d\'accès et matrice d\'autorisation'),
+    approver: S('Information Security', 'Sécurité de l\'information'),
+    blocks: 'pilot', depends: ['G19'],
+    question: S(
+      'Do the access rules (site perimeter for business accounts CG-01, no fleet-wide reads of meetings and inspections CG-02, and the route × role matrix) match the access policy you want enforced for the pilot users?',
+      'Les règles d\'accès (périmètre de site des comptes métier CG-01, plus de lecture de toute la flotte pour les réunions et inspections CG-02, matrice route × rôle) correspondent-elles à la politique d\'accès que vous voulez appliquer aux utilisateurs du pilote ?'),
+    evidence: [
+      ev('docs/ops/authz-matrix.json', 'AUTHZ_MATRIX_UPDATE=1 ' + T + ' tests/authz-matrix-json.test.js', 'Machine-readable route × guard × capability matrix, regenerated from the code', 'Matrice route × garde × capacité lisible par machine, régénérée depuis le code'),
+      ev('docs/ops/AUTHZ-MATRIX.md', 'AUTHZ_MATRIX_UPDATE=1 ' + T + ' tests/authz-route-matrix.test.js', 'Human-readable matrix of every API route and the role it requires', 'Matrice lisible de chaque route d\'API et du rôle exigé'),
+      ev('tests/authz-route-matrix.test.js', T + ' tests/authz-route-matrix.test.js', 'Fails when a route is added or its guard changes without regenerating the matrix', 'Échoue si une route est ajoutée ou si sa garde change sans régénérer la matrice'),
+      ev('tests/authz-enforce.test.js', T + ' tests/authz-enforce.test.js', 'Capability enforcement behaviour', 'Comportement de l\'application des capacités'),
+      ev('docs/sdp360/completion/AUTHZ-OBJECT-MATRIX.csv', 'manual (object-level review)', 'Object-level access matrix (who may read or write which object)', 'Matrice d\'accès par objet (qui lit ou écrit quel objet)'),
+      ev('docs/ops/PORTFOLIO-ACCESS-MATRIX.md', 'manual', 'Portfolio/project access rules', 'Règles d\'accès portefeuille/projet'),
+      ev('docs/sdp360/consolidation/02-GAP-AND-RISK-REGISTER.md', 'manual', 'CG-01 and CG-02 findings and their fix status', 'Constats CG-01 et CG-02 et leur état de correction'),
+    ],
+    awaited: [
+      aw('P02', 'docs/agent-execution/P02-*.md', 'Authorization outcome probe report (every route × persona, observed status codes)', 'Rapport de la sonde des résultats d\'autorisation (chaque route × persona, codes observés)'),
+      aw('P02', 'docs/ops/authz-outcomes.json', 'Outcome snapshot used by the probe test', 'Instantané des résultats utilisé par le test de la sonde'),
+    ],
+    notEvidenced: L(
+      ['No independent tester has exercised the rules; every test was written by the delivery agents.', 'The matrix proves which guard each route declares; whether each persona actually gets the expected answer is the P02 outcome probe (awaited).', 'Department-level grants (D-14) are not built: the model is site-only.'],
+      ['Aucun testeur indépendant n\'a éprouvé les règles ; tous les tests ont été écrits par les agents de livraison.', 'La matrice prouve la garde déclarée par chaque route ; que chaque persona obtienne la réponse attendue relève de la sonde P02 (attendue).', 'Les droits par département (D-14) ne sont pas construits : le modèle est par site uniquement.']),
+    options: L(
+      ['GO for the pilot with the site-only model — pilot users see only their site.', 'GO with conditions — e.g. a named list of routes to restrict first, or the P02 probe re-run on the pilot SHA.', NOT_NOW_EN + 'no pilot user can be given an account.'],
+      ['GO pour le pilote avec le modèle par site — les utilisateurs pilotes ne voient que leur site.', 'GO sous conditions — par exemple une liste nommée de routes à restreindre d\'abord, ou la sonde P02 rejouée sur le SHA du pilote.', NOT_NOW_FR + 'aucun compte pilote ne peut être ouvert.']),
+    risks: L(
+      ['An access rule the tests do not cover leaks another site\'s data.', 'Admin-tier accounts are unrestricted by design; their number is a separate decision (role audit).'],
+      ['Une règle d\'accès non couverte par les tests laisse voir les données d\'un autre site.', 'Les comptes du palier admin sont sans restriction par conception ; leur nombre est une décision distincte (audit des rôles).']),
+    supply: L(
+      ['Name and date in the RELEASE-GATES row.', 'The list of pilot accounts and their roles.', 'Whether department-level access (D-14) is required before or after the pilot.'],
+      ['Nom et date dans la ligne de RELEASE-GATES.', 'La liste des comptes pilotes et de leurs rôles.', 'Si l\'accès par département (D-14) est exigé avant ou après le pilote.']),
+  },
+  {
+    id: 'G02', slug: 'threat-model-findings',
+    row: 'Security — threat model and findings register (G27)',
+    short: S('Security: threat model and findings', 'Sécurité : modèle de menace et constats'),
+    approver: S('Information Security', 'Sécurité de l\'information'),
+    blocks: 'pilot', depends: ['G01'],
+    question: S(
+      'Do you accept the residual risks of the threat model and the findings register, including the historical database credential (EX-01) that must be rotated before real data is loaded?',
+      'Acceptez-vous les risques résiduels du modèle de menace et du registre des constats, y compris l\'identifiant de base historique (EX-01) à faire tourner avant tout chargement de données réelles ?'),
+    evidence: [
+      ev('docs/security/THREAT-MODEL.md', 'manual (STRIDE per entry point)', 'STRIDE threat model built from the code, with the owner of each residual risk', 'Modèle de menace STRIDE construit depuis le code, avec le responsable de chaque risque résiduel'),
+      ev('docs/agent-execution/SEC-01.md', 'manual', 'Security review findings and dependency advisories', 'Constats de la revue de sécurité et avis sur les dépendances'),
+      ev('docs/security/EX-01-CREDENTIAL-INCIDENT.md', 'manual', 'Historical credential in the installer configuration — open human gate', 'Identifiant historique dans la configuration de l\'installeur — porte humaine ouverte'),
+      ev('docs/security/ROTATION-RECORD.md', 'manual', 'Where a rotation is recorded once a person has done it', 'Où une rotation est consignée une fois faite par une personne'),
+      ev('tools/security/secret-scan.js', 'node tools/security/secret-scan.js', 'Secret scanner over the tree', 'Scanner de secrets sur l\'arbre'),
+      ev('docs/security/CSP-JOURNEYS.md', 'node tools/security/csp-journey-report.js', 'Content-Security-Policy observations per journey', 'Observations de Content-Security-Policy par parcours'),
+    ],
+    awaited: [aw('P07', 'docs/agent-execution/P07-*.md', 'Security closure report (findings closed or proposed, CSP strict-page proposal)', 'Rapport de clôture sécurité (constats clos ou proposés, proposition de pages CSP strictes)')],
+    notEvidenced: L(
+      ['The threat model is not a penetration test (that is G18).', 'EX-01 is not rotated: only a person with the credentials can do it.', 'The strict Content-Security-Policy is proposed per page but not switched on.'],
+      ['Le modèle de menace n\'est pas un test d\'intrusion (c\'est G18).', 'EX-01 n\'est pas tourné : seule une personne disposant des accès peut le faire.', 'La Content-Security-Policy stricte est proposée page par page mais pas activée.']),
+    options: L(
+      ['Accept the residual risks for the pilot, with EX-01 rotation as a precondition.', 'Accept a subset and name the findings that must close first.', NOT_NOW_EN + 'no real data may be loaded.'],
+      ['Accepter les risques résiduels pour le pilote, avec la rotation EX-01 comme préalable.', 'Accepter une partie et nommer les constats à clore d\'abord.', NOT_NOW_FR + 'aucune donnée réelle ne peut être chargée.']),
+    risks: L(
+      ['Until EX-01 is rotated, anyone with the old history can reach a database that used that credential.', 'Inline scripts remain allowed on pages not yet moved to the strict policy.'],
+      ['Tant qu\'EX-01 n\'est pas tourné, quiconque dispose de l\'ancien historique peut atteindre une base qui utilisait cet identifiant.', 'Les scripts en ligne restent autorisés sur les pages pas encore passées à la politique stricte.']),
+    supply: L(
+      ['Confirmation, with date, that EX-01 was rotated (entry in ROTATION-RECORD.md).', 'The owner who accepts each residual risk.', 'Decision on the strict-CSP page list after a report-only period.'],
+      ['Confirmation datée de la rotation d\'EX-01 (ligne dans ROTATION-RECORD.md).', 'Le responsable qui accepte chaque risque résiduel.', 'Décision sur la liste des pages CSP strictes après une période en mode rapport.']),
+  },
+  {
+    id: 'G03', slug: 'cab-dependencies-postgres-only',
+    row: 'CAB — dependency release D-11 (CG-05) and PostgreSQL-only cutover PO-08',
+    short: S('CAB: dependency upgrade and PostgreSQL-only cutover', 'CAB : mise à jour des dépendances et passage à PostgreSQL seul'),
+    approver: S('CAB', 'CAB'),
+    blocks: 'pilot', depends: ['G19'],
+    question: S(
+      'May the release that carries the dependency upgrades (D-11) and runs on PostgreSQL only (no SQLite fallback, PO-08) be installed on the TEST instance?',
+      'La version qui porte les mises à jour de dépendances (D-11) et ne fonctionne que sur PostgreSQL (plus de repli SQLite, PO-08) peut-elle être installée sur l\'instance de TEST ?'),
+    evidence: [
+      ev('docs/agent-execution/DEPS-TRIAGE.md', 'manual', 'Dependency triage ledger (proposals, nothing merged by the agent)', 'Registre de tri des dépendances (propositions, rien de fusionné par l\'agent)'),
+      ev('tests/postgres-only.test.js', T + ' tests/postgres-only.test.js', 'Proves there is no SQLite dependency or fork left', 'Prouve qu\'il ne reste ni dépendance ni branche SQLite'),
+      ev('services/backendGuard.js', 'manual', 'The server refuses to start without PG_URL', 'Le serveur refuse de démarrer sans PG_URL'),
+      ev('tests/dependency-sources.test.js', T + ' tests/dependency-sources.test.js', 'Dependency source pinning checks', 'Contrôles de l\'origine des dépendances'),
+      ev('tests/pg-migrate.test.js', T + ' tests/pg-migrate.test.js', 'Migrations apply in order and are journaled', 'Les migrations s\'appliquent dans l\'ordre et sont journalisées'),
+      ev('docs/ops/rehearsals/2026-10-29-local-pg16.md', 'node tools/pg/restore-rehearsal.js', 'Local PostgreSQL rehearsal on synthetic data', 'Répétition PostgreSQL locale sur données synthétiques'),
+      ev('docs/sdp360/consolidation/03-DECISIONS-AND-ASSUMPTIONS.md', 'manual', 'PO-08 and D-11 as recorded', 'PO-08 et D-11 tels que consignés'),
+    ],
+    awaited: [aw('P01', 'docs/agent-execution/P01-*.md', 'Single baseline: branch, SHA and full-suite result the release is built from', 'Référence unique : branche, SHA et résultat de suite complète sur lesquels la version est construite')],
+    notEvidenced: L(
+      ['No rehearsal on the real TEST server; rehearsals ran on a local PostgreSQL 16 with synthetic data (target is PostgreSQL 17).', 'Upstream changelogs of the upgraded packages were not re-read offline.'],
+      ['Aucune répétition sur le vrai serveur de TEST ; les répétitions ont tourné sur un PostgreSQL 16 local avec données synthétiques (la cible est PostgreSQL 17).', 'Les notes de version des paquets mis à jour n\'ont pas été relues hors ligne.']),
+    options: L(
+      ['Approve installation on TEST only.', 'Approve with conditions (e.g. rehearse migration on a PostgreSQL 17 copy first).', NOT_NOW_EN + 'the pilot cannot start because nothing runs without PostgreSQL.'],
+      ['Approuver l\'installation sur TEST uniquement.', 'Approuver sous conditions (par exemple répéter la migration sur une copie PostgreSQL 17 d\'abord).', NOT_NOW_FR + 'le pilote ne peut pas démarrer car rien ne tourne sans PostgreSQL.']),
+    risks: L(
+      ['A migration behaves differently on PostgreSQL 17 than on the 16 used in rehearsal.', 'Rollback means restoring a dump (no SQLite fallback).'],
+      ['Une migration se comporte autrement sur PostgreSQL 17 que sur le 16 utilisé en répétition.', 'Revenir en arrière signifie restaurer un dump (pas de repli SQLite).']),
+    supply: L(['CAB reference and date.', 'The target SHA approved for TEST.', 'The installation window.'], ['Référence et date du CAB.', 'Le SHA cible approuvé pour TEST.', 'La fenêtre d\'installation.']),
+  },
+  {
+    id: 'G04', slug: 'signing-key-ci-shas',
+    row: 'Signing key and CI action SHAs D-12 (G-09)',
+    short: S('Signing key and pinned CI actions', 'Clé de signature et actions CI épinglées'),
+    approver: S('Information Security + CI owner', 'Sécurité de l\'information + responsable CI'),
+    blocks: 'general', depends: ['G03'],
+    question: S(
+      'Which key signs the release packages, who holds it, and are the CI actions pinned to verified commit SHAs?',
+      'Quelle clé signe les paquets de version, qui la détient, et les actions CI sont-elles épinglées sur des SHA vérifiés ?'),
+    evidence: [
+      ev('tests/update-package-signature.test.js', T + ' tests/update-package-signature.test.js', 'Package signature verification behaviour', 'Comportement de la vérification de signature des paquets'),
+      ev('tools/manifest-public.pem', 'manual', 'Public key currently shipped (not a production key decision)', 'Clé publique actuellement livrée (pas une décision de clé de production)'),
+      ev('.github/workflows/ci.yml', 'manual', 'CI workflow and its action references', 'Workflow CI et ses références d\'actions'),
+      ev('tests/ci-config.test.js', T + ' tests/ci-config.test.js', 'Checks on the CI configuration', 'Contrôles de la configuration CI'),
+      ev('tools/release/sbom.js', 'node tools/release/sbom.js', 'Software bill of materials generator', 'Générateur de nomenclature logicielle (SBOM)'),
+    ],
+    awaited: [],
+    notEvidenced: L(['No production signing key exists; generating and holding it is a human act.', 'Pinned SHAs have not been verified by the CI owner against upstream.'], ['Aucune clé de signature de production n\'existe ; la créer et la détenir est un acte humain.', 'Les SHA épinglés n\'ont pas été vérifiés par le responsable CI auprès des sources.']),
+    options: L(['Approve a key custodian and the SHA list.', 'Approve unsigned TEST packages only, signed release later.', NOT_NOW_EN + 'no signed release can be produced.'], ['Approuver un détenteur de clé et la liste des SHA.', 'Approuver des paquets de TEST non signés uniquement, version signée plus tard.', NOT_NOW_FR + 'aucune version signée ne peut être produite.']),
+    risks: L(['An unsigned package can be swapped in transit.', 'An unpinned action can change under the build.'], ['Un paquet non signé peut être substitué en transit.', 'Une action non épinglée peut changer sous la construction.']),
+    supply: L(['Key custodian name and storage location (never the key itself).', 'Verified SHA list.'], ['Nom du détenteur de la clé et lieu de stockage (jamais la clé).', 'Liste des SHA vérifiés.']),
+  },
+  {
+    id: 'G05', slug: 'backup-restore-rpo-rto',
+    row: 'Backup / restore RPO-RTO (G-11)',
+    short: S('Backup and restore (RPO/RTO)', 'Sauvegarde et restauration (RPO/RTO)'),
+    approver: S('CAB + SRE', 'CAB + SRE'),
+    blocks: 'pilot', depends: ['G03'],
+    question: S(
+      'What data loss (RPO) and restore time (RTO) do you accept, and is the restore drill evidence enough to load pilot data?',
+      'Quelle perte de données (RPO) et quel délai de restauration (RTO) acceptez-vous, et la preuve d\'exercice de restauration suffit-elle pour charger les données du pilote ?'),
+    evidence: [
+      ev('docs/ops/restore-drills/2026-10-21.md', 'node tools/pg/restore-drill.js', 'Restore drill: row counts equal on the restored copy (synthetic database)', 'Exercice de restauration : comptes de lignes égaux sur la copie restaurée (base synthétique)'),
+      ev('tools/pg/restore-drill.js', 'node tools/pg/restore-drill.js', 'Drill tool', 'Outil d\'exercice'),
+      ev('tests/restore-drill.test.js', T + ' tests/restore-drill.test.js', 'Drill tool behaviour', 'Comportement de l\'outil d\'exercice'),
+      ev('tests/backup-encrypt.test.js', T + ' tests/backup-encrypt.test.js', 'Encrypted backup behaviour', 'Comportement de la sauvegarde chiffrée'),
+      ev('docs/ops/REPLICA-RESTORE.md', 'manual', 'Replica and restore procedure', 'Procédure réplica et restauration'),
+      ev('docs/ops/rehearsals/2026-10-29-local-pg16-g04.md', 'node tools/pg/restore-rehearsal.js', 'Local rehearsal with timings', 'Répétition locale avec durées'),
+      ev('docs/ops/SLO-PROPOSAL.md', 'manual', 'Proposed indicators; every target UNKNOWN', 'Indicateurs proposés ; chaque cible INCONNUE'),
+    ],
+    awaited: [],
+    notEvidenced: L(['No drill on the TEST server or on PostgreSQL 17.', 'RPO and RTO values are not chosen; the drill measures, it does not set a target.'], ['Aucun exercice sur le serveur de TEST ni sur PostgreSQL 17.', 'Les valeurs de RPO et RTO ne sont pas choisies ; l\'exercice mesure, il ne fixe pas de cible.']),
+    options: L(['Set RPO/RTO and require one drill on TEST before data load.', 'Accept the local drill for the pilot only.', NOT_NOW_EN + 'pilot data cannot be loaded safely.'], ['Fixer RPO/RTO et exiger un exercice sur TEST avant le chargement.', 'Accepter l\'exercice local pour le pilote seulement.', NOT_NOW_FR + 'les données du pilote ne peuvent pas être chargées en sécurité.']),
+    risks: L(['A restore never practised on the target host fails when needed.', 'A backup restored on another host needs the same SDP_CONFIG_KEY.'], ['Une restauration jamais pratiquée sur l\'hôte cible échoue le jour où on en a besoin.', 'Une sauvegarde restaurée sur un autre hôte exige la même SDP_CONFIG_KEY.']),
+    supply: L(['RPO and RTO values.', 'Backup storage location and its owner.', 'Date of the TEST drill.'], ['Valeurs de RPO et RTO.', 'Emplacement des sauvegardes et son responsable.', 'Date de l\'exercice sur TEST.']),
+  },
+  {
+    id: 'G06', slug: 'kpi-definitions-thresholds',
+    row: 'KPI definitions, thresholds, score D-01/02/03 (G-12)',
+    short: S('KPI definitions, thresholds and score', 'Définitions des indicateurs, seuils et score'),
+    approver: S('KPI Committee', 'Comité des indicateurs'),
+    blocks: 'general', depends: [],
+    question: S(
+      'Which KPI definitions, RAG thresholds and site-score model become official — everything shown until then is labelled unapproved?',
+      'Quelles définitions d\'indicateurs, quels seuils RAG et quel modèle de score de site deviennent officiels — tout ce qui est affiché d\'ici là est marqué non approuvé ?'),
+    evidence: [
+      ev('docs/ops/SCORE-METHODOLOGY.md', 'node tools/agent/score-methodology.js --check', 'Score methodology generated from the code; D-03 open', 'Méthodologie du score générée depuis le code ; D-03 ouverte'),
+      ev('docs/ops/METRIC-LINEAGE.md', 'manual', 'Where each metric comes from', 'D\'où vient chaque indicateur'),
+      ev('docs/sdp360/completion/KPI-DISPUTES.md', 'manual', 'Known disagreements between formulas', 'Désaccords connus entre formules'),
+      ev('services/metricRegistry.js', 'manual', 'KPI dictionary', 'Dictionnaire des indicateurs'),
+      ev('tests/kpi-policy-engine.test.js', T + ' tests/kpi-policy-engine.test.js', 'Threshold policy engine behaviour', 'Comportement du moteur de politiques de seuils'),
+      ev('tests/kpi-rag.test.js', T + ' tests/kpi-rag.test.js', 'Server-side RAG thresholds', 'Seuils RAG côté serveur'),
+      ev('docs/ai-decisions/ADR-C31-kpi-policy-builder.md', 'manual', 'Decision record for the policy builder', 'Décision technique du constructeur de politiques'),
+    ],
+    awaited: [aw('P08', 'docs/agent-execution/P08-*.md', 'KPI certification pack: one dossier per KPI, parity test, unknown-value sweep', 'Dossier de certification des indicateurs : un dossier par indicateur, test de parité, balayage des valeurs inconnues')],
+    notEvidenced: L(['No threshold is chosen; RAG bands shown are proposals.', 'Two score models coexist and disagree on some sites (by design).', '2026 historical figures are not reconciled (D-10, see G12).'], ['Aucun seuil n\'est choisi ; les bandes RAG affichées sont des propositions.', 'Deux modèles de score coexistent et divergent sur certains sites (par conception).', 'Les chiffres historiques 2026 ne sont pas rapprochés (D-10, voir G12).']),
+    options: L(['Approve definitions and thresholds per KPI.', 'Run the pilot with uncertified scores clearly labelled, decide after.', NOT_NOW_EN + 'no score may be published as official.'], ['Approuver définitions et seuils indicateur par indicateur.', 'Faire le pilote avec des scores non certifiés clairement marqués, décider ensuite.', NOT_NOW_FR + 'aucun score ne peut être publié comme officiel.']),
+    risks: L(['A threshold chosen without pilot data colours sites wrongly.', 'Sites compare a score the committee has not endorsed.'], ['Un seuil choisi sans données de pilote colore mal les sites.', 'Les sites comparent un score que le comité n\'a pas validé.']),
+    supply: L(['Approved definition and threshold per KPI.', 'Choice of reference site score (D-03).'], ['Définition et seuil approuvés par indicateur.', 'Choix du score de site de référence (D-03).']),
+  },
+  {
+    id: 'G07', slug: 'closure-policy-commitments',
+    row: 'Closure policy D-04 (G-17/G-18) — incl. who is told about A01/A02 escalations',
+    short: S('Closure policy for commitments', 'Politique de clôture des engagements'),
+    approver: S('Business/control owners + Committee', 'Responsables métier/contrôle + Comité'),
+    blocks: 'pilot-if', depends: ['G06'],
+    question: S(
+      'Who may verify and close a commitment, who accepts residual risk, and who is told when A01/A02 escalations fire — before commitments_enabled is turned on?',
+      'Qui peut vérifier et clore un engagement, qui accepte le risque résiduel, et qui est prévenu quand les escalades A01/A02 se déclenchent — avant d\'activer commitments_enabled ?'),
+    evidence: [
+      ev('docs/sdp360/completion/GOVERNANCE-POLICIES.md', 'manual', 'Every governance rule as a parameter, with its default', 'Chaque règle de gouvernance comme paramètre, avec sa valeur par défaut'),
+      ev('docs/sdp360/completion/GOVERNANCE-LIFECYCLE.md', 'manual', 'Commitment lifecycle', 'Cycle de vie des engagements'),
+      ev('tests/commitment-lifecycle.test.js', T + ' tests/commitment-lifecycle.test.js', 'Lifecycle rules', 'Règles du cycle de vie'),
+      ev('tests/commitment-escalation.test.js', T + ' tests/commitment-escalation.test.js', 'Escalation rules', 'Règles d\'escalade'),
+      ev('tests/commitments-routes.smoke.test.js', T + ' tests/commitments-routes.smoke.test.js', 'Routes answer 404 while the switch is off', 'Les routes répondent 404 tant que l\'interrupteur est éteint'),
+      ev('docs/ops/FLAG-REGISTER.json', 'node tools/agent/flag-register.js', 'Switch register: default, owner (to be named)', 'Registre des interrupteurs : défaut, responsable (à nommer)'),
+    ],
+    awaited: [aw('P03', 'docs/agent-execution/P03-*.md', 'Switch activation lots (which lot carries commitments_enabled)', 'Lots d\'activation des interrupteurs (quel lot porte commitments_enabled)')],
+    notEvidenced: L(['No business owner has named verifiers or escalation recipients.', 'Tested with synthetic personas only.'], ['Aucun responsable métier n\'a nommé de vérificateurs ni de destinataires d\'escalade.', 'Testé uniquement avec des personas synthétiques.']),
+    options: L(['Approve the policy and enable the switch on TEST.', 'Approve the policy, keep the switch off for the pilot.', NOT_NOW_EN + 'commitments stay hidden (routes answer 404).'], ['Approuver la politique et activer l\'interrupteur sur TEST.', 'Approuver la politique, garder l\'interrupteur éteint pour le pilote.', NOT_NOW_FR + 'les engagements restent masqués (les routes répondent 404).']),
+    risks: L(['Technical completion read as business closure.', 'Escalations sent to nobody, or to the wrong people.'], ['Une fin technique lue comme une clôture métier.', 'Des escalades envoyées à personne, ou aux mauvaises personnes.']),
+    supply: L(['Verifier roles per site.', 'Escalation recipients for A01/A02.', 'Service window before escalation.'], ['Rôles vérificateurs par site.', 'Destinataires des escalades A01/A02.', 'Fenêtre de service avant escalade.']),
+  },
+  {
+    id: 'G08', slug: 'handoffs',
+    row: 'Handoffs (G-22) — enable, notification recipients, user↔department mapping if wanted',
+    short: S('Interdepartmental handoffs', 'Passations entre départements'),
+    approver: S('Sponsor / PO + Committee', 'Sponsor / PO + Comité'),
+    blocks: 'pilot-if', depends: ['G07'],
+    question: S(
+      'Should handoffs between departments be enabled, who is notified, and do you want a user-to-department mapping?',
+      'Faut-il activer les passations entre départements, qui est notifié, et voulez-vous une correspondance utilisateur-département ?'),
+    evidence: [
+      ev('docs/sdp360/completion/HANDOFF-STATE-MACHINE.md', 'manual', 'Handoff state machine; status IMPLEMENTED · TESTED', 'Machine d\'états des passations ; statut IMPLÉMENTÉ · TESTÉ'),
+      ev('tests/handoff-lifecycle.test.js', T + ' tests/handoff-lifecycle.test.js', 'Lifecycle rules', 'Règles du cycle de vie'),
+      ev('tests/handoffs.smoke.test.js', T + ' tests/handoffs.smoke.test.js', 'Routes and switch behaviour', 'Comportement des routes et de l\'interrupteur'),
+    ],
+    awaited: [aw('P03', 'docs/agent-execution/P03-*.md', 'Switch activation lots (handoffs_enabled, handoff_notify_enabled)', 'Lots d\'activation (handoffs_enabled, handoff_notify_enabled)')],
+    notEvidenced: L(['Not field-validated, not deployed, not accepted.', 'No recipient list.'], ['Non validé sur le terrain, non déployé, non accepté.', 'Aucune liste de destinataires.']),
+    options: L(['Enable handoffs without notifications first.', 'Enable both with named recipients.', NOT_NOW_EN + 'routes keep answering 404.'], ['Activer les passations sans notifications d\'abord.', 'Activer les deux avec des destinataires nommés.', NOT_NOW_FR + 'les routes continuent de répondre 404.']),
+    risks: L(['Handoffs sent to a person who has left.', 'Notification noise.'], ['Passations envoyées à une personne partie.', 'Bruit de notifications.']),
+    supply: L(['Recipients.', 'Mapping source if wanted.'], ['Destinataires.', 'Source de la correspondance si voulue.']),
+  },
+  {
+    id: 'G09', slug: 'dashboard-tracker-reviewers',
+    row: 'Dashboard and tracker reviewers (G-23/G-24, DEC-6.x) — who reviews which audience',
+    short: S('Dashboard and tracker reviewers', 'Relecteurs des tableaux de bord et trackers'),
+    approver: S('Committee', 'Comité'),
+    blocks: 'pilot-if', depends: ['G06'],
+    question: S(
+      'Who reviews a dashboard or tracker before it is published to each audience, so publication no longer needs an admin override?',
+      'Qui relit un tableau de bord ou un tracker avant sa publication à chaque public, pour que la publication n\'exige plus de dérogation admin ?'),
+    evidence: [
+      ev('tests/publish-gate.test.js', T + ' tests/publish-gate.test.js', 'Publication gate behaviour', 'Comportement de la porte de publication'),
+      ev('docs/sdp360/05-SOP-DASHBOARDS-AND-TRACKERS.md', 'manual', 'Procedure for dashboards and trackers', 'Procédure des tableaux de bord et trackers'),
+      ev('docs/ops/WIDGET-CATALOGUE.md', 'manual', 'Widget catalogue', 'Catalogue des widgets'),
+      ev('tests/dashboard-design.test.js', T + ' tests/dashboard-design.test.js', 'Design checks on definitions', 'Contrôles de conception des définitions'),
+    ],
+    awaited: [aw('P03', 'docs/agent-execution/P03-*.md', 'Switch activation lots (publication switches)', 'Lots d\'activation (interrupteurs de publication)')],
+    notEvidenced: L(['No reviewer named per audience.', 'DEC-6.x design decisions still open.'], ['Aucun relecteur nommé par public.', 'Décisions de conception DEC-6.x encore ouvertes.']),
+    options: L(['Name reviewers per audience.', 'Keep admin-only publication for the pilot.', NOT_NOW_EN + 'only admins publish.'], ['Nommer des relecteurs par public.', 'Garder la publication réservée aux admins pour le pilote.', NOT_NOW_FR + 'seuls les admins publient.']),
+    risks: L(['A wrong figure published to executives.'], ['Un chiffre faux publié à la direction.']),
+    supply: L(['Reviewer per audience.'], ['Relecteur par public.']),
+  },
+  {
+    id: 'G10', slug: 'report-authority-channels',
+    row: 'Report authority and channels D-13 (G-13/G-25)',
+    short: S('Report authority and channels', 'Autorité des rapports et canaux'),
+    approver: S('Reporting owner', 'Responsable des rapports'),
+    blocks: 'general', depends: ['G06'],
+    question: S(
+      'Who may release each catalogue report as authoritative, and through which channels (e-mail, Teams, SharePoint) — every outbound channel ships disarmed?',
+      'Qui peut diffuser chaque rapport du catalogue comme faisant foi, et par quels canaux (e-mail, Teams, SharePoint) — chaque canal sortant est livré désarmé ?'),
+    evidence: [
+      ev('docs/sdp360/completion/REPORT-ALERT-CATALOGUE.md', 'manual', 'Report and alert catalogue (R01–R16)', 'Catalogue des rapports et alertes (R01–R16)'),
+      ev('tests/report-release.smoke.test.js', T + ' tests/report-release.smoke.test.js', 'Report release behaviour', 'Comportement de la diffusion des rapports'),
+      ev('tests/publish-sharepoint-mock.test.js', T + ' tests/publish-sharepoint-mock.test.js', 'SharePoint publication against a mock only', 'Publication SharePoint contre une simulation uniquement'),
+      ev('tests/e2e-outbound-guard.test.js', T + ' tests/e2e-outbound-guard.test.js', 'Nothing leaves the server during tests', 'Rien ne sort du serveur pendant les tests'),
+      ev('docs/ai-decisions/ADR-G16-outbound-alerts-armed-off.md', 'manual', 'Outbound alerts ship disarmed', 'Les alertes sortantes sont livrées désarmées'),
+      ev('docs/ai-decisions/ADR-P9-export-policy.md', 'manual', 'Export policy', 'Politique d\'export'),
+    ],
+    awaited: [],
+    notEvidenced: L(['No real channel tested (SharePoint is mocked).', 'No reporting owner named per report.'], ['Aucun canal réel testé (SharePoint est simulé).', 'Aucun responsable nommé par rapport.']),
+    options: L(['Name authority per report and arm channels one by one.', 'Internal (in-app) reports only for the pilot.', NOT_NOW_EN + 'no report leaves the application.'], ['Nommer l\'autorité par rapport et armer les canaux un par un.', 'Rapports internes (dans l\'application) seulement pour le pilote.', NOT_NOW_FR + 'aucun rapport ne sort de l\'application.']),
+    risks: L(['A draft report reaches an external audience.'], ['Un rapport brouillon atteint un public externe.']),
+    supply: L(['Authority per report.', 'Channel credentials (entered by a person, never by the agent).'], ['Autorité par rapport.', 'Identifiants des canaux (saisis par une personne, jamais par l\'agent).']),
+  },
+  {
+    id: 'G11', slug: 'pilot-sites-field-uat',
+    row: 'Pilot sites D-05 and field UAT (G-16/G-35)',
+    short: S('Pilot sites and field acceptance', 'Sites pilotes et recette terrain'),
+    approver: S('Sponsor + Group IT', 'Sponsor + IT Groupe'),
+    blocks: 'pilot', depends: ['G01', 'G02', 'G05', 'G12'],
+    question: S(
+      'Which two sites run the pilot, with which named users, and what result of the field acceptance test lets you say GO or NO-GO at its end?',
+      'Quels deux sites font le pilote, avec quels utilisateurs nommés, et quel résultat de recette terrain vous permettra de dire GO ou NO-GO à la fin ?'),
+    evidence: [
+      ev('docs/ops/pilot/PILOT-PROFILE.md', 'manual', 'Switch values proposed for the pilot (not approved)', 'Valeurs d\'interrupteurs proposées pour le pilote (non approuvées)'),
+      ev('docs/ops/pilot/FIELD-DEVICE-UAT.md', 'manual', 'Field device acceptance protocol', 'Protocole de recette des appareils terrain'),
+      ev('docs/ops/pilot/PILOT-MEASUREMENT.md', 'node tools/pilot/pilot-metrics.js', 'What the pilot measures and how', 'Ce que le pilote mesure et comment'),
+      ev('docs/ops/pilot/TEST-INSTANCE.md', 'manual', 'TEST instance description', 'Description de l\'instance de TEST'),
+      ev('tests/field-no-silent-loss.test.js', T + ' tests/field-no-silent-loss.test.js', 'Offline field capture never silently loses a record', 'La saisie terrain hors ligne ne perd jamais un enregistrement en silence'),
+      ev('tests/pilot-metrics.test.js', T + ' tests/pilot-metrics.test.js', 'Pilot measurement tool', 'Outil de mesure du pilote'),
+      ev('docs/sdp360/completion/UAT-PANEL-2026-10-29.md', 'manual', 'AI review panel (not real users)', 'Panel de revue IA (pas de vrais utilisateurs)'),
+    ],
+    awaited: [aw('P09', 'docs/agent-execution/P09-*.md', 'Adoption and field readiness kit (runbook S1–S10, training, journeys)', 'Kit d\'adoption et de préparation terrain (procédure S1–S10, formation, parcours)')],
+    notEvidenced: L(['No pilot has run: no real user, no real device, no site data.', 'The UAT panel was AI seats, not people.'], ['Aucun pilote n\'a eu lieu : aucun vrai utilisateur, aucun vrai appareil, aucune donnée de site.', 'Le panel de recette était composé de sièges IA, pas de personnes.']),
+    options: L(['Name two sites and users, start the pilot on TEST.', 'Name one site first.', NOT_NOW_EN + 'nothing is field-validated.'], ['Nommer deux sites et leurs utilisateurs, démarrer le pilote sur TEST.', 'Nommer un premier site seulement.', NOT_NOW_FR + 'rien n\'est validé sur le terrain.']),
+    risks: L(['Pilot sites unrepresentative of the fleet.', 'Network conditions not covered by tests.'], ['Sites pilotes non représentatifs de la flotte.', 'Conditions réseau non couvertes par les tests.']),
+    supply: L(['Two site names and an optional offline-readiness site.', 'Named pilot users.', 'Success criteria for the pilot GO/NO-GO.'], ['Deux noms de sites et un site optionnel de préparation hors ligne.', 'Utilisateurs pilotes nommés.', 'Critères de succès pour le GO/NO-GO du pilote.']),
+  },
+  {
+    id: 'G12', slug: 'data-owner-fixtures-history',
+    row: 'Data owner — anonymised fixtures (G-15), 2026 history D-10',
+    short: S('Data owner: anonymised data and 2026 history', 'Propriétaire des données : données anonymisées et historique 2026'),
+    approver: S('Data owners', 'Propriétaires des données'),
+    blocks: 'pilot', depends: ['G02'],
+    question: S(
+      'May real data be loaded on TEST for the pilot, may an anonymised extract be produced for tests, and who reconciles the 2026 historical figures?',
+      'Des données réelles peuvent-elles être chargées sur TEST pour le pilote, un extrait anonymisé peut-il être produit pour les tests, et qui rapproche les chiffres historiques 2026 ?'),
+    evidence: [
+      ev('docs/ops/ANONYMISED-SNAPSHOT.md', 'manual', 'Anonymisation procedure; no extract exists', 'Procédure d\'anonymisation ; aucun extrait n\'existe'),
+      ev('tests/anonymize-snapshot.test.js', T + ' tests/anonymize-snapshot.test.js', 'Anonymiser behaviour on synthetic data', 'Comportement de l\'anonymiseur sur données synthétiques'),
+      ev('tests/.skip-allowlist.json', 'manual', 'Tests skipped for lack of an approved snapshot', 'Tests sautés faute d\'extrait approuvé'),
+      ev('docs/ops/RETENTION-INVENTORY.md', 'node tools/security/retention-inventory.js', 'Retention inventory', 'Inventaire de conservation'),
+      ev('docs/sdp360/2027/02-DECISION-LOG.md', 'manual', 'D-10 historical figures decision (open)', 'Décision D-10 sur les chiffres historiques (ouverte)'),
+    ],
+    awaited: [],
+    notEvidenced: L(['No anonymised extract was produced or approved.', 'Historical figures are shown only as attributed references.'], ['Aucun extrait anonymisé n\'a été produit ni approuvé.', 'Les chiffres historiques ne sont montrés que comme références attribuées.']),
+    options: L(['Authorise real data on TEST and an anonymised extract.', 'Authorise real data on TEST only.', NOT_NOW_EN + 'the pilot runs on synthetic data only, which proves little.'], ['Autoriser les données réelles sur TEST et un extrait anonymisé.', 'Autoriser les données réelles sur TEST seulement.', NOT_NOW_FR + 'le pilote tourne sur données synthétiques, ce qui prouve peu.']),
+    risks: L(['Personal data in a test environment with weaker controls.'], ['Données personnelles dans un environnement de test moins contrôlé.']),
+    supply: L(['Data owner per source.', 'Approval of the anonymisation rules.', 'Reconciliation owner for D-10.'], ['Propriétaire par source.', 'Approbation des règles d\'anonymisation.', 'Responsable du rapprochement D-10.']),
+  },
+  {
+    id: 'G13', slug: 'connectors-dashkey-clients',
+    row: 'Connectors D-07/D-08/D-09, dash-key clients D-15 (D-06 Meraki: kept by requester decision)',
+    short: S('Connectors and dash-key clients', 'Connecteurs et clients à clé'),
+    approver: S('Platform/infra owners', 'Responsables plateforme/infra'),
+    blocks: 'pilot-if', depends: ['G01'],
+    question: S(
+      'Which connector changes do you approve (Meridian retirement D-07, 4MyPeople lookup D-08, Microsoft 365 calendar D-09), and who calls the dash-key-only routes (D-15) so they can be restricted? Meraki stays (D-06).',
+      'Quels changements de connecteurs approuvez-vous (retrait de Meridian D-07, recherche 4MyPeople D-08, calendrier Microsoft 365 D-09), et qui appelle les routes à clé seule (D-15) pour pouvoir les restreindre ? Meraki reste (D-06).'),
+    evidence: [
+      ev('docs/sdp360/completion/CONNECTOR-REGISTER.csv', 'manual', 'Connector register', 'Registre des connecteurs'),
+      ev('docs/agent-execution/CONNECTOR-QUALIFICATION-2026-11-12.md', 'manual', 'Connector qualification', 'Qualification des connecteurs'),
+      ev('docs/sdp360/completion/DASHKEY-CLIENTS.md', 'node tools/security/dashkey-consumers.js', 'The 16 dash-key-only routes', 'Les 16 routes à clé seule'),
+      ev('tests/dashkey-only-routes.smoke.test.js', T + ' tests/dashkey-only-routes.smoke.test.js', 'Pins the dash-key-only list', 'Fige la liste des routes à clé seule'),
+      ev('tests/connector-register.test.js', T + ' tests/connector-register.test.js', 'Excluded-connector audit', 'Audit des connecteurs exclus'),
+      ev('docs/ai-decisions/ADR-A20-meridian-retirement.md', 'manual', 'Meridian retirement proposal', 'Proposition de retrait de Meridian'),
+    ],
+    awaited: [],
+    notEvidenced: L(['No platform owner has listed external callers of the dash key.', 'Connector reads were not run against production sources by the agent.'], ['Aucun responsable n\'a listé les appelants externes de la clé.', 'Les lectures des connecteurs n\'ont pas été jouées par l\'agent contre les sources de production.']),
+    options: L(['Approve each connector decision separately.', 'Keep connectors as they are for the pilot.', NOT_NOW_EN + 'dash-key routes stay open as today.'], ['Approuver chaque décision de connecteur séparément.', 'Garder les connecteurs en l\'état pour le pilote.', NOT_NOW_FR + 'les routes à clé restent ouvertes comme aujourd\'hui.']),
+    risks: L(['Restricting a route breaks a scheduled job nobody listed.'], ['Restreindre une route casse une tâche planifiée que personne n\'avait listée.']),
+    supply: L(['List of dash-key callers.', 'Decision per connector.'], ['Liste des appelants de la clé.', 'Décision par connecteur.']),
+  },
+  {
+    id: 'G14', slug: 'finance-budgets-benefits',
+    row: 'Finance — budgets and benefits (G14)',
+    short: S('Finance: budgets and benefits', 'Finance : budgets et bénéfices'),
+    approver: S('Finance', 'Finance'),
+    blocks: 'pilot-if', depends: ['G06'],
+    question: S(
+      'May budget, actual and benefit figures be shown as certified, and under which currency and rate rules?',
+      'Les montants de budget, de réalisé et de bénéfices peuvent-ils être affichés comme certifiés, et selon quelles règles de devise et de taux ?'),
+    evidence: [
+      ev('docs/ops/FINANCE-CURRENCY-RULES.md', 'manual', 'Every money path and the Finance decision pending', 'Chaque chemin monétaire et la décision Finance en attente'),
+      ev('docs/ai-decisions/ADR-P2-finance-certification-and-actuals.md', 'manual', 'Finance certification design', 'Conception de la certification financière'),
+      ev('tests/finance-certification.test.js', T + ' tests/finance-certification.test.js', 'Certification behaviour', 'Comportement de la certification'),
+      ev('tests/portfolio-benefits.test.js', T + ' tests/portfolio-benefits.test.js', 'Benefit tracking behaviour', 'Comportement du suivi des bénéfices'),
+      ev('docs/sdp360/completion/TCO-TEMPLATE.csv', 'manual', 'TCO template', 'Modèle de coût total'),
+    ],
+    awaited: [aw('P04', 'docs/agent-execution/P04-*.md', 'PPM certification report (finance checks included)', 'Rapport de certification PPM (contrôles financiers inclus)')],
+    notEvidenced: L(['No Finance-validated figure; amounts are uncertified.', 'Exchange rate source not approved.'], ['Aucun montant validé par la Finance ; les montants sont non certifiés.', 'Source du taux de change non approuvée.']),
+    options: L(['Approve currency rules and certify per project.', 'Show amounts as uncertified during the pilot.', NOT_NOW_EN + 'amounts stay uncertified.'], ['Approuver les règles de devise et certifier par projet.', 'Afficher les montants comme non certifiés pendant le pilote.', NOT_NOW_FR + 'les montants restent non certifiés.']),
+    risks: L(['A converted amount read as an accounting figure.'], ['Un montant converti lu comme un chiffre comptable.']),
+    supply: L(['Rate source.', 'Certifier role.'], ['Source du taux.', 'Rôle certificateur.']),
+  },
+  {
+    id: 'G15', slug: 'product-business-acceptance',
+    row: 'Product — business acceptance',
+    short: S('Product: business acceptance', 'Produit : acceptation métier'),
+    approver: S('Sponsor / PO', 'Sponsor / PO'),
+    blocks: 'general', depends: ['G11', 'G21', 'G06'],
+    question: S(
+      'After the pilot, does the product do what the business needs well enough to deploy to all sites?',
+      'Après le pilote, le produit fait-il ce dont le métier a besoin suffisamment bien pour être déployé sur tous les sites ?'),
+    evidence: [
+      ev('docs/sdp360/completion/TRUTH-MATRIX.md', 'manual', 'Truth matrix: what is implemented, tested, validated', 'Matrice de vérité : ce qui est implémenté, testé, validé'),
+      ev('docs/ops/PERSONA-JOURNEYS.md', 'manual', 'Persona to journey map', 'Correspondance persona-parcours'),
+      ev('docs/audits/2026-11-12-enterprise-review/UAT-COMITE-UTILISATEURS.md', 'manual', 'AI user-committee review (not real users)', 'Revue d\'un comité utilisateurs IA (pas de vrais utilisateurs)'),
+      ev('docs/agent-execution/G24-DOSSIER-GO-NOGO-FR.md', T + ' tests/release-dossier.test.js', 'Earlier GO/NO-GO dossier (pilot conditional, production NO-GO)', 'Dossier GO/NO-GO antérieur (pilote conditionnel, production NO-GO)'),
+    ],
+    awaited: [aw('P09', 'docs/agent-execution/P09-*.md', 'Adoption kit and profile tasks', 'Kit d\'adoption et tâches par profil'), aw('P04', 'docs/agent-execution/P04-*.md', 'PPM certification report', 'Rapport de certification PPM')],
+    notEvidenced: L(['No pilot result, no usage data from real users.'], ['Aucun résultat de pilote, aucune donnée d\'usage de vrais utilisateurs.']),
+    options: L(['Accept for general deployment.', 'Accept a subset of modules.', NOT_NOW_EN + 'deployment stays limited to the pilot.'], ['Accepter pour le déploiement général.', 'Accepter un sous-ensemble de modules.', NOT_NOW_FR + 'le déploiement reste limité au pilote.']),
+    risks: L(['Low adoption after deployment.'], ['Faible adoption après déploiement.']),
+    supply: L(['Acceptance criteria and pilot report review.'], ['Critères d\'acceptation et revue du rapport de pilote.']),
+  },
+  {
+    id: 'G16', slug: 'legal-commercial',
+    row: 'Legal / commercial (G-38/G-39)',
+    short: S('Legal and commercial', 'Juridique et commercial'),
+    approver: S('Legal + commercial lead', 'Juridique + responsable commercial'),
+    blocks: 'market', depends: [],
+    question: S(
+      'May SDP360 and its bundled third-party components be distributed outside Endeavour, and under which licence?',
+      'SDP360 et ses composants tiers embarqués peuvent-ils être diffusés hors d\'Endeavour, et sous quelle licence ?'),
+    evidence: [
+      ev('docs/sdp360/completion/RIGHTS-REGISTER.md', 'manual', 'Rights register; internal use only until Legal decides', 'Registre des droits ; usage interne tant que le Juridique n\'a pas tranché'),
+      ev('docs/sdp360/completion/LICENCE-INVENTORY.csv', 'node tools/release/licence-inventory.js --csv docs/sdp360/completion/LICENCE-INVENTORY.csv', 'Third-party licence inventory', 'Inventaire des licences tierces'),
+      ev('tests/licence-inventory.test.js', T + ' tests/licence-inventory.test.js', 'Inventory stays in sync with the lockfile', 'L\'inventaire reste aligné sur le lockfile'),
+      ev('LICENSE', 'manual', 'Current licence (internal use)', 'Licence actuelle (usage interne)'),
+    ],
+    awaited: [],
+    notEvidenced: L(['EDB and Microsoft redistribution terms not reviewed by Legal.', 'Ownership of contributed code not confirmed.'], ['Termes de redistribution EDB et Microsoft non revus par le Juridique.', 'Propriété du code contribué non confirmée.']),
+    options: L(['Keep internal use only.', 'Authorise distribution under a named licence.', NOT_NOW_EN + 'internal use only (no effect on the pilot).'], ['Garder l\'usage interne seulement.', 'Autoriser la diffusion sous une licence nommée.', NOT_NOW_FR + 'usage interne seulement (sans effet sur le pilote).']),
+    risks: L(['Redistributing a bundled component outside its terms.'], ['Redistribuer un composant embarqué hors de ses termes.']),
+    supply: L(['Legal opinion and licence choice.'], ['Avis juridique et choix de licence.']),
+  },
+  {
+    id: 'G17', slug: 'production-deployment',
+    row: 'Production deployment GO/NO-GO',
+    short: S('Production deployment', 'Mise en production'),
+    approver: S('CAB', 'CAB'),
+    blocks: 'general', depends: ['G01', 'G02', 'G03', 'G04', 'G05', 'G15', 'G18', 'G19', 'G20'],
+    question: S(
+      'With every release gate it depends on signed, may the target SHA be deployed to production?',
+      'Toutes les portes dont elle dépend étant signées, le SHA cible peut-il être mis en production ?'),
+    evidence: [
+      ev('docs/sdp360/completion/RELEASE-RUNBOOK-2026-10-29.md', 'manual', 'Release runbook', 'Procédure de mise en production'),
+      ev('docs/INSTALLER.md', 'manual', 'Installer guide', 'Guide de l\'installeur'),
+      ev('docs/ops/INSTALLATION.md', 'manual', 'Installation procedure', 'Procédure d\'installation'),
+      ev('docs/ops/EXPLOITATION.md', 'manual', 'Operations guide', 'Guide d\'exploitation'),
+      ev('docs/agent-execution/G24-DOSSIER-GO-NOGO-FR.md', T + ' tests/release-dossier.test.js', 'Earlier dossier: production NO-GO', 'Dossier antérieur : production NO-GO'),
+    ],
+    awaited: [],
+    notEvidenced: L(['No upstream gate is signed.', 'No installer end-to-end run on the TEST instance.'], ['Aucune porte amont n\'est signée.', 'Aucun essai de bout en bout de l\'installeur sur l\'instance de TEST.']),
+    options: L(['GO once all dependencies are signed.', 'GO for a subset of sites.', NOT_NOW_EN + 'production stays on the current version.'], ['GO une fois toutes les dépendances signées.', 'GO pour un sous-ensemble de sites.', NOT_NOW_FR + 'la production reste sur la version actuelle.']),
+    risks: L(['Deploying with an unsigned upstream gate.'], ['Déployer avec une porte amont non signée.']),
+    supply: L(['CAB reference, window, rollback owner.'], ['Référence CAB, fenêtre, responsable du retour arrière.']),
+  },
+  {
+    id: 'G18', slug: 'penetration-test',
+    row: 'Penetration test / accepted analysis (E-B05, X-B-03)',
+    short: S('Penetration test', 'Test d\'intrusion'),
+    approver: S('Information Security', 'Sécurité de l\'information'),
+    blocks: 'general', depends: ['G01', 'G02'],
+    question: S(
+      'Will an independent penetration test be run before general deployment, or do you accept the analysis without one?',
+      'Un test d\'intrusion indépendant sera-t-il mené avant le déploiement général, ou acceptez-vous l\'analyse sans test ?'),
+    evidence: [
+      ev('docs/security/PENTEST-SCOPE.md', 'manual', 'Proposed rules of engagement and scenarios', 'Règles d\'engagement et scénarios proposés'),
+      ev('docs/security/THREAT-MODEL.md', 'manual', 'Threat model', 'Modèle de menace'),
+      ev('tools/qa/route-matrix.js', 'node tools/qa/route-matrix.js', 'Route inventory for testers', 'Inventaire des routes pour les testeurs'),
+    ],
+    awaited: [aw('P07', 'docs/agent-execution/P07-*.md', 'Pentest readiness (closure report)', 'Préparation au test d\'intrusion (rapport de clôture)'), aw('P02', 'docs/agent-execution/P02-*.md', 'Authorization outcome probe', 'Sonde des résultats d\'autorisation')],
+    notEvidenced: L(['No test has been run; the scope is unsigned.'], ['Aucun test n\'a été mené ; le périmètre n\'est pas signé.']),
+    options: L(['Commission a test with the proposed scope.', 'Accept the analysis with named compensating controls.', NOT_NOW_EN + 'general deployment stays blocked.'], ['Commander un test avec le périmètre proposé.', 'Accepter l\'analyse avec des contrôles compensatoires nommés.', NOT_NOW_FR + 'le déploiement général reste bloqué.']),
+    risks: L(['Unknown vulnerabilities in production.'], ['Vulnérabilités inconnues en production.']),
+    supply: L(['Testers, dates, environment, TEST accounts.'], ['Testeurs, dates, environnement, comptes de TEST.']),
+  },
+  {
+    id: 'G19', slug: 'qa-ci-green',
+    row: 'QA lead — CI green on the target SHA, skipped tests reviewed (E-B05)',
+    short: S('QA: CI green and skipped tests reviewed', 'QA : CI verte et tests sautés revus'),
+    approver: S('QA lead', 'Responsable QA'),
+    blocks: 'pilot', depends: [],
+    question: S(
+      'Is the continuous integration green on the target SHA, and do you accept each skipped test and its reason?',
+      'L\'intégration continue est-elle verte sur le SHA cible, et acceptez-vous chaque test sauté et sa raison ?'),
+    evidence: [
+      ev('.github/workflows/ci.yml', 'manual', 'CI jobs (unit, browser journeys)', 'Tâches CI (unitaires, parcours navigateur)'),
+      ev('tests/.suite-manifest.json', 'npm test -- --update-manifest', 'Reviewed per-file test census', 'Recensement revu des tests par fichier'),
+      ev('tests/.skip-allowlist.json', 'manual', 'Each allowed skip and its reason', 'Chaque saut autorisé et sa raison'),
+      ev('tools/test/run-all.js', 'node tools/test/run-all.js', 'Full suite runner', 'Lanceur de la suite complète'),
+      ev('docs/agent-execution/DELIVERY-QUALITY.md', 'node tools/release/delivery-metrics.js', 'Delivery quality metrics', 'Indicateurs de qualité de livraison'),
+    ],
+    awaited: [aw('P01', 'docs/agent-execution/P01-*.md', 'Single baseline with the full-suite result on one SHA', 'Référence unique avec le résultat de suite complète sur un SHA')],
+    notEvidenced: L(['The last recorded full suite (orchestrator handoff) had 3 failures and CI was red; a green run on the target SHA is still to be produced after merging P01–P10.'], ['La dernière suite complète consignée (passation de l\'orchestrateur) avait 3 échecs et la CI était rouge ; une exécution verte sur le SHA cible reste à produire après la fusion de P01–P10.']),
+    options: L(['Accept CI green and the skip list.', 'Accept with named skips to lift before deployment.', NOT_NOW_EN + 'no build can go to TEST.'], ['Accepter la CI verte et la liste des sauts.', 'Accepter avec des sauts nommés à lever avant déploiement.', NOT_NOW_FR + 'aucune version ne peut aller sur TEST.']),
+    risks: L(['A skipped test hides a defect.'], ['Un test sauté cache un défaut.']),
+    supply: L(['Link to the green CI run on the target SHA.'], ['Lien vers l\'exécution CI verte sur le SHA cible.']),
+  },
+  {
+    id: 'G20', slug: 'capacity-load-soak',
+    row: 'Capacity — load / soak result accepted (E-B05)',
+    short: S('Capacity: load and soak', 'Capacité : charge et endurance'),
+    approver: S('SRE + DBA', 'SRE + DBA'),
+    blocks: 'general', depends: ['G03'],
+    question: S(
+      'Is the measured behaviour under load acceptable for all sites, and what latency and error budgets do you set?',
+      'Le comportement mesuré sous charge est-il acceptable pour tous les sites, et quels budgets de latence et d\'erreurs fixez-vous ?'),
+    evidence: [
+      ev('docs/ops/LOAD-TEST.md', 'node tools/test/load.js', 'Load harness; no threshold set', 'Banc de charge ; aucun seuil fixé'),
+      ev('tests/load-harness.test.js', T + ' tests/load-harness.test.js', 'Harness behaviour', 'Comportement du banc'),
+      ev('docs/agent-execution/PERF-BASELINE.md', 'node tools/test/perf-baseline.js', 'Performance observation on synthetic data', 'Observation de performance sur données synthétiques'),
+      ev('docs/ops/CAPACITY-DATA-CONTRACT.md', 'manual', 'Capacity data contract', 'Contrat de données de capacité'),
+      ev('docs/agent-execution/EXPLAIN-SYNTHETIC.md', 'node tools/pg/explain-hot.js', 'Query plans on synthetic data', 'Plans de requêtes sur données synthétiques'),
+    ],
+    awaited: [aw('P05', 'docs/agent-execution/P05-*.md', 'Performance budgets and service-level proposal with load results', 'Proposition de budgets de performance et de niveaux de service avec résultats de charge')],
+    notEvidenced: L(['No soak on production-like volume or hardware.', 'No budget chosen.'], ['Aucune endurance sur volume ou matériel proche de la production.', 'Aucun budget choisi.']),
+    options: L(['Set budgets and accept the result.', 'Run a soak on TEST first.', NOT_NOW_EN + 'general deployment stays blocked.'], ['Fixer les budgets et accepter le résultat.', 'Lancer une endurance sur TEST d\'abord.', NOT_NOW_FR + 'le déploiement général reste bloqué.']),
+    risks: L(['Slow pages at month-end peaks.'], ['Pages lentes aux pics de fin de mois.']),
+    supply: L(['Latency and error budgets.', 'Expected user count per site.'], ['Budgets de latence et d\'erreurs.', 'Nombre d\'utilisateurs attendu par site.']),
+  },
+  {
+    id: 'G21', slug: 'business-witness-project',
+    row: 'Business witness project (E-B05)',
+    short: S('Business witness project', 'Projet témoin métier'),
+    approver: S('PMO', 'PMO'),
+    blocks: 'pilot', depends: ['G11'],
+    question: S(
+      'Which real project is run end to end in the native project tool during the pilot as the witness, and who certifies the result?',
+      'Quel vrai projet est mené de bout en bout dans l\'outil projet natif pendant le pilote comme témoin, et qui certifie le résultat ?'),
+    evidence: [
+      ev('docs/audits/2026-11-12-ppm-parity/README.md', 'manual', 'PPM parity audit', 'Audit de parité PPM'),
+      ev('docs/ppm/W2-ENGINE-CONTRACT.md', 'manual', 'Scheduling engine contract', 'Contrat du moteur de planification'),
+      ev('docs/ai-decisions/ADR-G11-native-ppm.md', 'manual', 'Native PPM decision', 'Décision PPM natif'),
+      ev('tests/ppm-evm.test.js', T + ' tests/ppm-evm.test.js', 'Earned value behaviour', 'Comportement de la valeur acquise'),
+    ],
+    awaited: [aw('P04', 'docs/agent-execution/P04-*.md', 'PPM certification (status, interop and witness kits)', 'Certification PPM (statut, kits d\'interopérabilité et de témoin)')],
+    notEvidenced: L(['No witness project chosen; PPM is not certified.'], ['Aucun projet témoin choisi ; le PPM n\'est pas certifié.']),
+    options: L(['Name a witness project and its PM.', 'Run the pilot without PPM.', NOT_NOW_EN + 'PPM stays uncertified.'], ['Nommer un projet témoin et son chef de projet.', 'Faire le pilote sans PPM.', NOT_NOW_FR + 'le PPM reste non certifié.']),
+    risks: L(['A real project depends on an uncertified tool.'], ['Un vrai projet dépend d\'un outil non certifié.']),
+    supply: L(['Project name, project manager, certification criteria.'], ['Nom du projet, chef de projet, critères de certification.']),
+  },
+];
+
+module.exports = { blocks, gates };
