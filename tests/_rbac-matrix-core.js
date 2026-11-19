@@ -69,7 +69,7 @@ function request(base, method, p, token, body, timeoutMs = 15000) {
         const buf = Buffer.concat(chunks);
         const text = /json|text|html/.test(res.headers['content-type'] || '') ? buf.toString('utf8') : '';
         let json = null; try { json = JSON.parse(text); } catch (_) { /* not json */ }
-        resolve({ status: res.statusCode, text, json, type: res.headers['content-type'] || '', bytes: buf.length });
+        resolve({ status: res.statusCode, text, json, type: res.headers['content-type'] || '', bytes: buf.length, buf });
       });
     });
     r.on('timeout', () => { r.destroy(); resolve({ status: 'timeout', text: '' }); });
@@ -89,7 +89,7 @@ async function pool(items, n, fn) {
 }
 
 /** Boot server.js in-process on the file's throwaway PostgreSQL, create sites A (Hounde/HGO) + B (Sabodala/SGO) and the personas. */
-async function bootWorld({ prefix = 'a0' } = {}) {
+async function bootWorld({ prefix = 'a0', outcome = false } = {}) {
   process.env.SDP_TEST_NO_RATE_LIMIT = '1';
   const quiet = console.log; console.log = () => {};
   let app;
@@ -113,11 +113,12 @@ async function bootWorld({ prefix = 'a0' } = {}) {
     tok[p.key] = (await rdb.login(username, password)).token;
     users[p.key] = ((await rdb.listUsers()) || []).find((u) => u.username === username);
   }
+  const extra = outcome ? await _outcomePersonas(rdb, prefix, A, B, tok, users) : null;
   let server;
   await new Promise((r) => { server = http.createServer(app).listen(0, '127.0.0.1', r); });
   const base = 'http://127.0.0.1:' + server.address().port;
   const send = (method, p, t, body) => request(base, method, p, t, body);
-  return { app, rdb, A, B, tok, users, base, send, matrix: loadMatrix(), close: () => server && server.close() };
+  return { app, rdb, A, B, tok, users, base, send, extra, prefix, matrix: loadMatrix(), close: () => server && server.close() };
 }
 
 const personaOf = (key) => PERSONAS.find((p) => p.key === key);
@@ -440,5 +441,229 @@ async function checkServerTimestamps(w) {
   return v;
 }
 
-module.exports = { seedScope, checkSitePerimeter, checkFrozen, checkServerTimestamps, KNOWN_MONEY_DEVIATIONS, splitKnown, MONEY_KEYS, BUDGET, seedMoney, checkMoneyMasking, decisionSnapshot, checkWorkspaceGrantsNothing, FLAG_KEEP_OFF, MATRIX_PATH, PERSONAS, BUSINESS, personaOf, expectedAllow, loadMatrix, concrete, request, pool, bootWorld,
+// ── P02 — authorization OUTCOME probe: every method of every route × 23 personas ─────────────────────────────
+// The role-guard sweep above can only predict routes whose rule is a guard. ~460 session-gated routes decide INSIDE
+// the handler; their allow/deny outcome is observed here, frozen in docs/ops/authz-outcomes.json and compared on every
+// run (tests/authz-outcomes.smoke.test.js): an outcome that moves from a refusal to a pass is a WIDENING and fails.
+// Outcome codes: A 2xx/3xx · V other 4xx (handler ran, input refused) · E 5xx · T timeout · S not executed (unsafe for
+// that persona, see OUTCOME_EXEC_SKIP) · U 401 · F 403 · N 404. Refusal class = U F N; pass class = A V E T.
+const OUTCOMES_PATH = path.join(__dirname, '..', 'docs', 'ops', 'authz-outcomes.json');
+const OUTCOME_FEATURE_ROLES = ['tracker-admin', 'tracker-editor', 'report-author', 'audit-viewer', 'scorecard-viewer', 'dashboard-publisher', 'committee-member', 'field-tech', 'finance-viewer', 'kpi-committee', 'finance-verifier'];
+// Probe order = column order of every outcome string. Least privileged first.
+const OUTCOME_PERSONAS = [
+  { key: 'anon', roles: [], site: null, note: 'no session' },
+  { key: 'deact', roles: ['viewer'], site: 'A', note: 'account deactivated after login (token kept)' },
+  { key: 'revoked', roles: ['viewer'], site: 'A', note: 'session revoked (logout) — token kept' },
+  { key: 'viewA', roles: ['viewer'], site: 'A' },
+  { key: 'edNoSite', roles: ['editor'], site: null },
+  { key: 'edA', roles: ['editor'], site: 'A' },
+  { key: 'edAB', roles: ['editor'], site: 'A', extra: ['B'] },
+  ...OUTCOME_FEATURE_ROLES.map((r) => ({ key: 'f:' + r, roles: [r], site: 'A', note: 'feature role alone' })),
+  { key: 'sbizA', roles: ['site-business'], site: 'A' },
+  { key: 'gbiz', roles: ['group-business'], site: null },
+  { key: 'admin', roles: ['admin'], site: null },
+  { key: 'exec', roles: ['executive'], site: null },
+  { key: 'super', roles: ['super_admin'], site: null },
+];
+const REFUSAL = new Set(['U', 'F', 'N']);
+const PASS = new Set(['A', 'V', 'E', 'T']);
+const ADMIN_TIER_KEYS = ['admin', 'exec', 'super'];
+// Routes whose EXECUTION would cost the probe its own determinism or do something heavy / outbound (backup, sync,
+// reset, send). Admin-tier personas are recorded 'S' on these (not executed); every other persona is still probed —
+// and must be refused. Session-ending routes are probed with a throwaway token so the persona keeps its session.
+const OUTCOME_EXEC_SKIP = /\/backup-now$|\/backup-schedule$|\/reset$|\/sync(\/|$)|\/trigger\/|\/send$|\/test-smtp$|\/import\/commit$|\/notify\/send$/;
+// Money sentinels seeded by seedMoney (asset XOF amounts + portfolio budget). Seen in a non-reader's 2xx body = leak.
+const MONEY_SENTINELS = ['987654', '987,654', '987 654', '1234567', '1,234,567', '765432', '765,432'];
+const MONEY_READER_KEYS = ['admin', 'exec', 'super', 'f:finance-viewer'];
+// Recorded exception (GAP-MATRIX invariant 2, policy decision pending — proposal in docs/ai-decisions/): the
+// committee-member reads portfolio amounts. Matched by route-key regexp.
+const KNOWN_OUTCOME_MONEY = [
+  { persona: 'f:committee-member', re: /^GET \/api\/governance\/portfolio(\/|$)/, reason: 'committee-member money exception (policy pending)' },
+  { persona: 'f:committee-member', re: /^GET \/api\/governance\/ppm\/project\/:id\/budget-periods$/, reason: 'committee-member money exception (policy pending)' },
+];
+
+async function _outcomePersonas(rdb, prefix, A, B, tok, users) {
+  const pw = (u) => `${u}-pass-0000`;
+  const make = async (p) => {
+    const username = `${prefix}-o-${p.key.replace(/[^a-z0-9-]/gi, '_')}`;
+    const site_id = p.site === 'A' ? A.id : p.site === 'B' ? B.id : null;
+    const extra_site_ids = (p.extra || []).map((x) => (x === 'B' ? B.id : A.id));
+    try { await rdb.createUser({ username, full_name: username, password: pw(username), role: p.roles[0], roles: p.roles, site_id, extra_site_ids }); } catch (_) { /* rerun */ }
+    const login = await rdb.login(username, pw(username));
+    const user = ((await rdb.listUsers()) || []).find((u) => u.username === username);
+    return { username, token: login && login.token, user, site_id };
+  };
+  const out = { loginAfterDeactivation: null };
+  for (const p of OUTCOME_PERSONAS) {
+    if (p.key === 'anon') { tok.anon = null; continue; }
+    if (tok[p.key] !== undefined && !['deact', 'revoked'].includes(p.key)) continue;   // canonical persona already exists
+    const m = await make(p);
+    tok[p.key] = m.token; users[p.key] = m.user;
+    if (p.key === 'deact') {
+      await rdb.updateUser(m.user.id, { full_name: m.username, site_id: m.site_id, active: 0 });
+      out.loginAfterDeactivation = !!(await rdb.login(m.username, pw(m.username)));
+    }
+    if (p.key === 'revoked') await rdb.logout(m.token);
+  }
+  out.fresh = async (key) => {   // a throwaway token for session-ending routes
+    const p = OUTCOME_PERSONAS.find((x) => x.key === key);
+    if (!p || !p.roles.length || ['deact', 'revoked'].includes(key)) return tok[key];
+    const u = users[key]; if (!u) return tok[key];
+    const r = await rdb.login(u.username, pw(u.username));
+    return r ? r.token : tok[key];
+  };
+  return out;
+}
+
+function outcomeCode(res) {
+  const s = res.status;
+  if (s === 'timeout') return 'T';
+  if (typeof s !== 'number') return 'E';
+  if (s === 401) return 'U';
+  if (s === 403) return 'F';
+  if (s === 404) return 'N';
+  if (s < 400) return 'A';
+  if (s < 500) return 'V';
+  return 'E';
+}
+
+/** Site-B object ids substituted into a route for a cross-site probe ('[B]' rows). null when the route has none. */
+function siteBUrl(p, s, w) {
+  const m = [
+    [/^\/api\/reports\/action\/:uid/, s.uidB],
+    [/^\/api\/reports\/(monthly|yearly|objectives)\/:site_id/, w.B.id],
+    [/^\/api\/reports\/:id(\/|$)/, s.rB && s.rB.id],
+    [/^\/api\/meetings\/actions\/:id/, s.pvB && s.pvB.actions && s.pvB.actions[0] && s.pvB.actions[0].id],
+    [/^\/api\/meetings\/issues\/:id/, s.pvB && s.pvB.issues && s.pvB.issues[0] && s.pvB.issues[0].id],
+    [/^\/api\/meetings\/:id(\/|$)/, s.pvB && s.pvB.id],
+    [/^\/api\/inspection\/actions\/:id/, s.insB && s.insB.actions && s.insB.actions[0] && s.insB.actions[0].id],
+    [/^\/api\/inspection\/:id(\/|$)/, s.insB && s.insB.id],
+    [/^\/api\/governance\/portfolio\/project\/:id/, s.pB],
+    [/^\/api\/governance\/ppm\/project\/:id/, s.pB],
+    [/^\/api\/sites\/:siteId/, w.B.id],
+  ];
+  if (p.includes(',')) return null;
+  for (const [re, id] of m) {
+    if (!re.test(p) || id == null) continue;
+    const i = p.indexOf('/:', p.search(re) >= 0 ? 0 : 0);
+    const first = p.slice(i + 2).split('/')[0];
+    return concrete(p.replace('/:' + first, '/' + encodeURIComponent(String(id))));
+  }
+  return null;
+}
+
+function _moneyText(res) {
+  if (res.text) return res.text;
+  const t = res.type || '';
+  if (!res.buf || !res.buf.length) return '';
+  try {
+    const XLSX = require('xlsx');
+    if (/spreadsheet|excel/.test(t)) {
+      const wb = XLSX.read(res.buf, { type: 'buffer' });
+      return wb.SheetNames.map((n) => XLSX.utils.sheet_to_csv(wb.Sheets[n])).join('\n');
+    }
+    if (/presentation|wordprocessing|zip/.test(t)) {
+      const z = XLSX.CFB.read(res.buf, { type: 'buffer' });
+      return z.FileIndex.filter((f) => /\.xml$/.test(f.name) && f.content).map((f) => Buffer.from(f.content).toString('utf8')).join('\n');
+    }
+    if (/csv|plain/.test(t)) return res.buf.toString('utf8');
+  } catch (_) { return ''; }
+  return '';   // pdf and other binaries: not scanned (listed in the report as unscanned)
+}
+
+/**
+ * Run the outcome probe. Returns { routes: {key: codes}, money: [violations], unscanned: [keys], stats }.
+ * opts: { keys:Set (subset), personas:[keys] (subset), concurrency }
+ */
+async function probeOutcomes(w, opts = {}) {
+  if (!w.extra) throw new Error('bootWorld({ outcome: true }) required');
+  await seedMoney(w);
+  const s = await seedScope(w);
+  const personas = OUTCOME_PERSONAS.filter((p) => !opts.personas || opts.personas.includes(p.key));
+  const rows = w.matrix.routes.filter((r) => r.path.startsWith('/api') && (!opts.keys || opts.keys.has(r.key)));
+  const jobs = [];
+  for (const r of rows) {
+    jobs.push({ key: r.key, method: r.method, url: concrete(r.path), r });
+    const b = siteBUrl(r.path, s, w);
+    if (b) jobs.push({ key: r.key + ' [B]', method: r.method, url: b, r });
+  }
+  const routes = {}, money = [], moneyKnown = [], unscanned = new Set();
+  const stats = { jobs: jobs.length, requests: 0, ms: 0, scanned: 0, readerHits: 0 };
+  const t0 = Date.now();
+  // GETs first (read-only, concurrent); then mutating methods, one route at a time per worker, personas in order.
+  const order = [...jobs.filter((j) => j.method === 'GET'), ...jobs.filter((j) => j.method !== 'GET')];
+  await pool(order, opts.concurrency || 8, async (j) => {
+    let codes = '';
+    for (const p of personas) {
+      if (ADMIN_TIER_KEYS.includes(p.key) && j.method !== 'GET' && OUTCOME_EXEC_SKIP.test(j.r.path) && expectedAllow(j.r, p)) { codes += 'S'; continue; }
+      const token = SESSION_ENDING.has(j.r.key) ? await w.extra.fresh(p.key) : w.tok[p.key];
+      const res = await w.send(j.method, j.url, token);
+      stats.requests++;
+      const c = outcomeCode(res);
+      codes += c;
+      if (c === 'A' && j.method === 'GET' && MONEY_READER_KEYS.includes(p.key) && MONEY_SENTINELS.some((x) => _moneyText(res).includes(x))) stats.readerHits++;
+      if (c === 'A' && j.method === 'GET' && !MONEY_READER_KEYS.includes(p.key)) {
+        const text = _moneyText(res);
+        if (!text && res.buf && res.buf.length) unscanned.add(j.key + ' (' + (res.type || '?').split(';')[0] + ')');
+        const hit = MONEY_SENTINELS.find((x) => text.includes(x));
+        if (hit && KNOWN_OUTCOME_MONEY.some((k) => k.persona === p.key && k.re.test(j.r.key))) moneyKnown.push(`${j.key} as ${p.key}`);
+        else if (hit) money.push(`MONEY ${j.key} as ${p.key}: amount sentinel ${hit} in a 2xx body`);
+        if (text) stats.scanned++;
+      }
+    }
+    routes[j.key] = codes;
+  });
+  stats.ms = Date.now() - t0;
+  return { personas: personas.map((p) => p.key), routes, money, moneyKnown: moneyKnown.sort(), unscanned: [...unscanned].sort(), stats, loginAfterDeactivation: w.extra.loginAfterDeactivation };
+}
+
+/** Compare two outcome maps. widening = refusal → pass for a persona; narrowing = pass → refusal. */
+function diffOutcomes(base, cur, personas) {
+  const widen = [], narrow = [], added = [], removed = [];
+  for (const k of Object.keys(cur)) {
+    if (!(k in base)) { added.push(k); continue; }
+    const a = base[k], b = cur[k];
+    for (let i = 0; i < personas.length; i++) {
+      if (a[i] === b[i] || a[i] === 'S' || b[i] === 'S') continue;
+      if (REFUSAL.has(a[i]) && PASS.has(b[i])) widen.push(`${k} as ${personas[i]}: ${a[i]} → ${b[i]}`);
+      else if (PASS.has(a[i]) && REFUSAL.has(b[i])) narrow.push(`${k} as ${personas[i]}: ${a[i]} → ${b[i]}`);
+    }
+  }
+  for (const k of Object.keys(base)) if (!(k in cur)) removed.push(k);
+  return { widen, narrow, added, removed };
+}
+
+/** Invariants every outcome map must satisfy, whatever the snapshot says. */
+function checkOutcomeInvariants(out, matrix) {
+  const v = [];
+  const idx = (k) => out.personas.indexOf(k);
+  const byKey = new Map(matrix.routes.map((r) => [r.key, r]));
+  for (const [k, codes] of Object.entries(out.routes)) {
+    const r = byKey.get(k.replace(/ \[B\]$/, ''));
+    if (!r || r.gate === 'public') continue;
+    for (const p of ['anon', 'deact', 'revoked']) { const c = codes[idx(p)]; if (c !== undefined && !(c === 'U' || c === 'F')) v.push(`OUTCOME ${k} as ${p}: ${c} (expected 401/403)`); }
+    for (const p of ['sbizA', 'gbiz']) { const c = codes[idx(p)]; if (c !== undefined && !r.business_allowed && c !== 'F') v.push(`OUTCOME ${k} as ${p}: ${c} (business-only must get 403)`); }
+    // a role-guarded route: every persona its guards refuse gets 403 (the guard answers first)
+    if (r.guards.some((g) => g.roles)) {
+      for (const p of OUTCOME_PERSONAS) {
+        const c = codes[idx(p.key)]; if (c === undefined || !p.roles.length || ['deact', 'revoked'].includes(p.key)) continue;
+        if (!expectedAllow(r, p) && c !== 'F') v.push(`OUTCOME ${k} as ${p.key}: ${c} (role guard must refuse with 403)`);
+      }
+    }
+  }
+  if (out.loginAfterDeactivation) v.push('OUTCOME a deactivated account can still log in');
+  return v;
+}
+
+function serializeOutcomes(out, extraHead = {}) {
+  const head = Object.assign({ schema: 'sdp360.authz-outcomes/1', generated_by: 'AUTHZ_OUTCOMES_UPDATE=1 node --test tests/authz-outcomes.smoke.test.js',
+    legend: 'A 2xx/3xx · V other 4xx · E 5xx · T timeout · S not executed · U 401 · F 403 · N 404 — refusal = U F N',
+    world: 'functional *_enabled switches armed (bootWorld), authorization switches at default; ids :id→1, other params→ZZZ; "[B]" rows use site-B object ids',
+    personas: out.personas }, extraHead);
+  const keys = Object.keys(out.routes).sort();
+  return JSON.stringify(head, null, 1).slice(0, -2) + ',\n "routes": {\n' + keys.map((k) => '  ' + JSON.stringify(k) + ': ' + JSON.stringify(out.routes[k])).join(',\n') + '\n }\n}\n';
+}
+
+module.exports = { OUTCOMES_PATH, OUTCOME_PERSONAS, OUTCOME_FEATURE_ROLES, OUTCOME_EXEC_SKIP, KNOWN_OUTCOME_MONEY, MONEY_SENTINELS, REFUSAL, PASS, outcomeCode, siteBUrl, probeOutcomes, diffOutcomes, checkOutcomeInvariants, serializeOutcomes,
+  seedScope, checkSitePerimeter, checkFrozen, checkServerTimestamps, KNOWN_MONEY_DEVIATIONS, splitKnown, MONEY_KEYS, BUDGET, seedMoney, checkMoneyMasking, decisionSnapshot, checkWorkspaceGrantsNothing, FLAG_KEEP_OFF, MATRIX_PATH, PERSONAS, BUSINESS, personaOf, expectedAllow, loadMatrix, concrete, request, pool, bootWorld,
   checkRoleGuards, checkAnonymous, checkBusinessLock, isBusinessOnly, originalHasRole };
