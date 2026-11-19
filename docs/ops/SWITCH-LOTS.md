@@ -58,7 +58,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `ui_role_landing` | Owner (UI policy) | — | — | — | — | — | 5 | 2 |
 | `ui_home_queue` | Owner (UI policy) | after a browser review in EN and FR at 320 px: Home shows one queue of the person's own work read from the existing per-site readers  | — | — | portfolio_benefits, portfolio_milestones, portfolio_objectives, portfolio_programmes, portfolio_projects, portfolio_tasks +2 | — | 8 | 6 |
 | `ui_home_blocks` | Owner (UI policy) | after a browser review: per-block states and per-card reload on Home | — | — | — | — | 2 | 2 |
-| `commitments_enabled` | to be named | — | — | — | action_items, audit_log, commitments, connector_fix_tasks, field_outbox, gov_control_tests +22 | yes | 21 | 12 |
+| `commitments_enabled` | to be named | — | — | — | action_items, audit_log, commitments, connector_fix_tasks, field_outbox, gov_control_tests +22 | yes | 22 | 12 |
 | `mywork_awaiting_me_enabled` | Product owner | once the product owner has compared it with the review | `commitments_enabled` | — | portfolio_benefits, portfolio_milestones, portfolio_objectives, portfolio_programmes, portfolio_projects, portfolio_tasks +2 | — | 4 | 2 |
 | `ui_data_quality_page` | Data owner | A data steward per source to act on the board. | — | admin | — | — | 2 | 2 |
 | `ui_nav_active_from_url` | Owner (UI policy) | — | — | — | — | — | 2 | 2 |
@@ -84,9 +84,9 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `ppm_project_roles_enabled` | PMO | once the PMO decides who holds which PROJECT role  | `ppm_project_team_enabled` | admin | — | — | 8 | 2 |
 | `ppm_raci_enabled` | PMO | — | — | — | — | — | 3 | 1 |
 | `ppm_raid_enabled` | PMO + Finance | once the PMO wants the RAID log  | — | admin, finance-viewer | — | — | 6 | 1 |
-| `ppm_project_rag_enabled` | PMO | once the PMO adopts a composite project RAG  | — | — | — | — | 5 | 1 |
+| `ppm_project_rag_enabled` | PMO | once the PMO adopts a composite project RAG  | — | — | — | — | 5 | 2 |
 | `ppm_project_report_enabled` | PMO | once the PMO wants the project status report on demand  | — | admin, finance-viewer | — | — | 3 | 1 |
-| `ppm_simplified_view_enabled` | PMO | once the PMO wants the Simplified ↔ Expert switch on the project page  | — | admin, finance-viewer | — | — | 5 | 1 |
+| `ppm_simplified_view_enabled` | PMO | once the PMO wants the Simplified ↔ Expert switch on the project page  | — | admin, finance-viewer | — | — | 5 | 2 |
 
 ## Dossier L03 — PMO journey — change control, baselines and gates
 
@@ -106,7 +106,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `ppm_cr_simulation_enabled` | PMO | once the PMO wants change requests decided on simulated numbers: a request may list task changes  | `ppm_change_requests_enabled`, `ppm_rebaseline_enabled` | — | portfolio_deliverables, portfolio_objectives, portfolio_programmes, portfolio_projects | — | 4 | 2 |
 | `ppm_gate_checklist_enabled` | PMO | once the PMO defines gate checklists: per project and target stage, required artifacts  | — | — | — | — | 7 | 1 |
 | `ppm_baseline_slots_enabled` | PMO | once the PMO wants MS-Project-style comparison points: Baseline, Baseline1 | — | — | — | — | 4 | 1 |
-| `ppm_dcma_enabled` | PMO / scheduler | once the PMO wants the DCMA 14-point schedule quality check on the Plan tab  | — | — | — | — | 3 | 1 |
+| `ppm_dcma_enabled` | PMO / scheduler | once the PMO wants the DCMA 14-point schedule quality check on the Plan tab  | — | — | — | — | 3 | 2 |
 | `ppm_templates_enabled` | PMO (template validation is a human act) | once the PMO names who validates templates  | — | — | — | — | 4 | 1 |
 | `portfolio_editor_plan_writes` | Owner (access policy) | — | — | — | — | — | 6 | 4 |
 
@@ -122,11 +122,11 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 
 | Switch | Who decides (register) | Human prerequisite (register text) | Depends on | Roles named | Tables touched | Job | Consumer files | Tests naming it |
 |---|---|---|---|---|---|---|---|---|
-| `ppm_schedule_engine_v2_ui` | PMO | once the PMO wants to enter scheduling data on tasks  | — | editor | — | — | 5 | 1 |
+| `ppm_schedule_engine_v2_ui` | PMO | once the PMO wants to enter scheduling data on tasks  | — | editor | — | — | 6 | 2 |
 | `ppm_gantt_v2_enabled` | PMO | once the PMO has tried it on a pilot project: the Plan tab shows the interactive, virtualised Gantt  | — | — | — | — | 3 | 1 |
-| `ppm_calendars_enabled` | PMO | once the PMO wants schedules on real working time: project / task / resource calendars  | — | — | — | — | 4 | 1 |
-| `ppm_resources_enabled` | PMO + Finance | once the PMO maintains an enterprise resource pool: work / material / cost resources  | — | — | — | — | 4 | 1 |
-| `ppm_leveling_enabled` | PMO | once the PMO wants levelling proposals: delay-only, priority-based  | `ppm_resources_enabled` | — | — | — | 4 | 1 |
+| `ppm_calendars_enabled` | PMO | once the PMO wants schedules on real working time: project / task / resource calendars  | — | — | — | — | 5 | 2 |
+| `ppm_resources_enabled` | PMO + Finance | once the PMO maintains an enterprise resource pool: work / material / cost resources  | — | — | — | — | 5 | 1 |
+| `ppm_leveling_enabled` | PMO | once the PMO wants levelling proposals: delay-only, priority-based  | `ppm_resources_enabled` | — | — | — | 5 | 1 |
 | `ppm_capacity_view` | PMO + capacity owner (to be named) | once the PMO accepts the team-load reading  | — | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +16 | — | 5 | 1 |
 | `ppm_agile_board_enabled` | PMO | once the PMO wants a board view: a Board tab on the project page with the work packages  | — | — | — | — | 1 | 0 |
 | `ppm_roadmap_nnl_enabled` | PMO | once the PMO wants a Now / Next / Later roadmap on the portfolio  | — | — | — | — | 2 | 0 |
@@ -213,7 +213,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `controls_register_enabled` | GRC owner + Security owner | once GRC names who adopts controls  | — | — | gov_control_tests, gov_controls, site_module_codes, sites | — | 4 | 1 |
 | `pir_reviews_enabled` | Incident manager + business sponsor | once the Incident manager names who signs a post-incident review and the business sponsor per major incident  | — | — | — | — | 3 | 1 |
 | `problem_candidates_enabled` | Problem owner + Owner | once a problem owner is named  | — | — | — | — | 1 | 1 |
-| `handoffs_enabled` | to be named | — | — | — | portfolio_benefits, portfolio_milestones, portfolio_objectives, portfolio_programmes, portfolio_projects, portfolio_tasks +2 | — | 9 | 5 |
+| `handoffs_enabled` | to be named | — | — | — | portfolio_benefits, portfolio_milestones, portfolio_objectives, portfolio_programmes, portfolio_projects, portfolio_tasks +2 | — | 10 | 5 |
 | `shift_handover_enabled` | Site IT lead + Owner | once the incoming / outgoing people of each shift are on the duty roster  | — | — | — | — | 3 | 1 |
 | `a01_missing_due_date` | Commitments owner (D-04) | — | `commitments_enabled` | — | — | — | 3 | 1 |
 
@@ -238,7 +238,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `chart_annotations_enabled` | Owner (UI policy) | after a browser review | — | — | — | — | 4 | 1 |
 | `dashboard_red_action_links` | Owner (UI policy) + PMO | — | `commitments_enabled` | — | — | — | 4 | 2 |
 | `value_scoreboard_enabled` | Owner (UI policy) + KPI committee | once the committee agrees the value contract  | — | super_admin, admin | value_scoreboard_snapshots | — | 4 | 2 |
-| `ui_i18n_pages` | Owner (D-2) | — | — | — | — | — | 37 | 5 |
+| `ui_i18n_pages` | Owner (D-2) | — | — | — | — | — | 43 | 5 |
 
 ## Dossier L10 — Reporting rhythm — reminders, drift and deck clarity
 
@@ -512,7 +512,7 @@ Hub files excluded: `public/portfolio.html`, `public/project.html`, `routes/gove
 | L01 × L05 | `benefit_owner_link_enabled` | `workspace_profiles_enabled` | `public/lib/home-page.js` | — |
 | L01 × L05 | `commitments_enabled` | `ppm_timesheet_approval_enabled` | — | users |
 | L01 × L08 | `commitments_enabled` | `controls_register_enabled` | `routes/policies.js`, `services/controlRegister.js` | gov_control_tests, gov_controls, site_module_codes |
-| L01 × L08 | `commitments_enabled` | `handoffs_enabled` | `public/help.html`, `routes/handoffs.js`, `routes/obligations.js`, `services/governanceValues.js` | — |
+| L01 × L08 | `commitments_enabled` | `handoffs_enabled` | `public/help.html`, `routes/handoffs.js`, `routes/obligations.js`, `services/governanceValues.js`, `tools/release/gate-dossiers.source.js` | — |
 | L01 × L08 | `commitments_enabled` | `obligations_include_decisions` | `routes/obligations.js` | — |
 | L01 × L08 | `commitments_enabled` | `pir_reviews_enabled` | `routes/commitments.js` | — |
 | L01 × L08 | `commitments_enabled` | `problem_candidates_enabled` | `routes/commitments.js` | — |

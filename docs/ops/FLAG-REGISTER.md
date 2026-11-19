@@ -377,7 +377,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 |---|---|---|---|---|
 | `AI_PROVIDER` | switch | off (no AI call) | Owner | server.js |
 | `ANTHROPIC_API_KEY` | secret | (secret — not shown) | to be named | server.js |
-| `AUDIT_RISK_RETENTION_MONTHS` | setting | see the reading file | to be named | reports-db.js |
+| `AUDIT_RISK_RETENTION_MONTHS` | setting | see the reading file | to be named | services/systemLogStore.js |
 | `BIND_HOST` | setting | see the reading file | to be named | services/netBinding.js |
 | `CORS_EXTRA_ORIGINS` | setting | see the reading file | to be named | services/netBinding.js |
 | `DASHBOARD_API_KEY` | secret | (secret — not shown) | to be named | services/apiKey.js |
