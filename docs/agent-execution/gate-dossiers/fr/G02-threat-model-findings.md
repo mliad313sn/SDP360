@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | bloque le pilote sur deux sites (instance de TEST) |
 | À décider après | [G01](G01-security-access-policy.md) Sécurité : politique d'accès et matrice d'autorisation |
-| SHA cible | `44292164` |
+| SHA cible | `07f9c65f` |
 | Généré | 2026-11-19 |
 
 ## 1. La question à trancher
@@ -21,18 +21,18 @@ Acceptez-vous les risques résiduels du modèle de menace et du registre des con
 
 | Preuve | Ce qu'elle montre | Régénérer / rejouer | Dernière modification (commit, date) | Empreinte |
 |---|---|---|---|---|
-| `docs/security/THREAT-MODEL.md` | Modèle de menace STRIDE construit depuis le code, avec le responsable de chaque risque résiduel | `manual (STRIDE per entry point)` | d6ec303e, 2026-11-04 | `f5213b43e7054d97` |
+| `docs/security/THREAT-MODEL.md` | Modèle de menace STRIDE construit depuis le code, avec le responsable de chaque risque résiduel | `manual (STRIDE per entry point)` | 06a369c1, 2026-11-19 | `9ec7bf8e71c8c107` |
 | `docs/agent-execution/SEC-01.md` | Constats de la revue de sécurité et avis sur les dépendances | `manual` | 668764c7, 2026-11-05 | `d1ac9fa1250da820` |
 | `docs/security/EX-01-CREDENTIAL-INCIDENT.md` | Identifiant historique dans la configuration de l'installeur — porte humaine ouverte | `manual` | 7576d012, 2026-10-29 | `c940ae12a71398f0` |
 | `docs/security/ROTATION-RECORD.md` | Où une rotation est consignée une fois faite par une personne | `manual` | d5d3b82f, 2026-11-06 | `9f8be1b68b704da5` |
 | `tools/security/secret-scan.js` | Scanner de secrets sur l'arbre | `node tools/security/secret-scan.js` | cf2b8ae3, 2026-10-29 | `6efe7f2db825d61e` |
-| `docs/security/CSP-JOURNEYS.md` | Observations de Content-Security-Policy par parcours | `node tools/security/csp-journey-report.js` | d6a7f2bb, 2026-11-12 | `677f02f8b878ca5b` |
+| `docs/security/CSP-JOURNEYS.md` | Observations de Content-Security-Policy par parcours | `node tools/security/csp-journey-report.js` | ee102613, 2026-11-19 | `08ddc8e7b2e55cf1` |
 
 **Preuves attendues des lots parallèles**
 
 | Lot | Preuve attendue | Statut |
 |---|---|---|
-| P07 | Rapport de clôture sécurité (constats clos ou proposés, proposition de pages CSP strictes) | attendue — absente de l'arbre au SHA cible (`docs/agent-execution/P07-*.md`) |
+| P07 | Rapport de clôture sécurité (constats clos ou proposés, proposition de pages CSP strictes) | livrée: `docs/agent-execution/P07-security-closure.md` (06a369c1, `d11eb355b50431bf`) |
 
 ## 3. Ce qui n'est pas prouvé, et pourquoi
 

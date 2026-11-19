@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks the two-site pilot on the TEST instance |
 | Decide after | [G01](G01-security-access-policy.md) Security: access policy and authorization matrix |
-| Target SHA | `44292164` |
+| Target SHA | `07f9c65f` |
 | Generated | 2026-11-19 |
 
 ## 1. Question to decide
@@ -21,18 +21,18 @@ Do you accept the residual risks of the threat model and the findings register, 
 
 | Evidence | What it shows | Regenerate / re-run | Last changed (commit, date) | Content hash |
 |---|---|---|---|---|
-| `docs/security/THREAT-MODEL.md` | STRIDE threat model built from the code, with the owner of each residual risk | `manual (STRIDE per entry point)` | d6ec303e, 2026-11-04 | `f5213b43e7054d97` |
+| `docs/security/THREAT-MODEL.md` | STRIDE threat model built from the code, with the owner of each residual risk | `manual (STRIDE per entry point)` | 06a369c1, 2026-11-19 | `9ec7bf8e71c8c107` |
 | `docs/agent-execution/SEC-01.md` | Security review findings and dependency advisories | `manual` | 668764c7, 2026-11-05 | `d1ac9fa1250da820` |
 | `docs/security/EX-01-CREDENTIAL-INCIDENT.md` | Historical credential in the installer configuration — open human gate | `manual` | 7576d012, 2026-10-29 | `c940ae12a71398f0` |
 | `docs/security/ROTATION-RECORD.md` | Where a rotation is recorded once a person has done it | `manual` | d5d3b82f, 2026-11-06 | `9f8be1b68b704da5` |
 | `tools/security/secret-scan.js` | Secret scanner over the tree | `node tools/security/secret-scan.js` | cf2b8ae3, 2026-10-29 | `6efe7f2db825d61e` |
-| `docs/security/CSP-JOURNEYS.md` | Content-Security-Policy observations per journey | `node tools/security/csp-journey-report.js` | d6a7f2bb, 2026-11-12 | `677f02f8b878ca5b` |
+| `docs/security/CSP-JOURNEYS.md` | Content-Security-Policy observations per journey | `node tools/security/csp-journey-report.js` | ee102613, 2026-11-19 | `08ddc8e7b2e55cf1` |
 
 **Evidence awaited from parallel lots**
 
 | From lot | Expected evidence | Status |
 |---|---|---|
-| P07 | Security closure report (findings closed or proposed, CSP strict-page proposal) | awaited — not in the tree at the target SHA (`docs/agent-execution/P07-*.md`) |
+| P07 | Security closure report (findings closed or proposed, CSP strict-page proposal) | delivered: `docs/agent-execution/P07-security-closure.md` (06a369c1, `d11eb355b50431bf`) |
 
 ## 3. Not evidenced, and why
 

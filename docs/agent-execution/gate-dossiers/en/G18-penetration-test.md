@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks general deployment only |
 | Decide after | [G01](G01-security-access-policy.md) Security: access policy and authorization matrix · [G02](G02-threat-model-findings.md) Security: threat model and findings |
-| Target SHA | `44292164` |
+| Target SHA | `07f9c65f` |
 | Generated | 2026-11-19 |
 
 ## 1. Question to decide
@@ -21,15 +21,15 @@ Will an independent penetration test be run before general deployment, or do you
 
 | Evidence | What it shows | Regenerate / re-run | Last changed (commit, date) | Content hash |
 |---|---|---|---|---|
-| `docs/security/PENTEST-SCOPE.md` | Proposed rules of engagement and scenarios | `manual` | d5d3b82f, 2026-11-06 | `db7f13ea8aee411c` |
-| `docs/security/THREAT-MODEL.md` | Threat model | `manual` | d6ec303e, 2026-11-04 | `f5213b43e7054d97` |
+| `docs/security/PENTEST-SCOPE.md` | Proposed rules of engagement and scenarios | `manual` | 06a369c1, 2026-11-19 | `d63900610ad9b804` |
+| `docs/security/THREAT-MODEL.md` | Threat model | `manual` | 06a369c1, 2026-11-19 | `9ec7bf8e71c8c107` |
 | `tools/qa/route-matrix.js` | Route inventory for testers | `node tools/qa/route-matrix.js` | 30243287, 2026-11-12 | `948b64b63268ba22` |
 
 **Evidence awaited from parallel lots**
 
 | From lot | Expected evidence | Status |
 |---|---|---|
-| P07 | Pentest readiness (closure report) | awaited — not in the tree at the target SHA (`docs/agent-execution/P07-*.md`) |
+| P07 | Pentest readiness (closure report) | delivered: `docs/agent-execution/P07-security-closure.md` (06a369c1, `d11eb355b50431bf`) |
 | P02 | Authorization outcome probe | awaited — not in the tree at the target SHA (`docs/agent-execution/P02-*.md`) |
 
 ## 3. Not evidenced, and why

@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | ne bloque que le déploiement général |
 | À décider après | [G01](G01-security-access-policy.md) Sécurité : politique d'accès et matrice d'autorisation · [G02](G02-threat-model-findings.md) Sécurité : modèle de menace et constats |
-| SHA cible | `44292164` |
+| SHA cible | `07f9c65f` |
 | Généré | 2026-11-19 |
 
 ## 1. La question à trancher
@@ -21,15 +21,15 @@ Un test d'intrusion indépendant sera-t-il mené avant le déploiement général
 
 | Preuve | Ce qu'elle montre | Régénérer / rejouer | Dernière modification (commit, date) | Empreinte |
 |---|---|---|---|---|
-| `docs/security/PENTEST-SCOPE.md` | Règles d'engagement et scénarios proposés | `manual` | d5d3b82f, 2026-11-06 | `db7f13ea8aee411c` |
-| `docs/security/THREAT-MODEL.md` | Modèle de menace | `manual` | d6ec303e, 2026-11-04 | `f5213b43e7054d97` |
+| `docs/security/PENTEST-SCOPE.md` | Règles d'engagement et scénarios proposés | `manual` | 06a369c1, 2026-11-19 | `d63900610ad9b804` |
+| `docs/security/THREAT-MODEL.md` | Modèle de menace | `manual` | 06a369c1, 2026-11-19 | `9ec7bf8e71c8c107` |
 | `tools/qa/route-matrix.js` | Inventaire des routes pour les testeurs | `node tools/qa/route-matrix.js` | 30243287, 2026-11-12 | `948b64b63268ba22` |
 
 **Preuves attendues des lots parallèles**
 
 | Lot | Preuve attendue | Statut |
 |---|---|---|
-| P07 | Préparation au test d'intrusion (rapport de clôture) | attendue — absente de l'arbre au SHA cible (`docs/agent-execution/P07-*.md`) |
+| P07 | Préparation au test d'intrusion (rapport de clôture) | livrée: `docs/agent-execution/P07-security-closure.md` (06a369c1, `d11eb355b50431bf`) |
 | P02 | Sonde des résultats d'autorisation | attendue — absente de l'arbre au SHA cible (`docs/agent-execution/P02-*.md`) |
 
 ## 3. Ce qui n'est pas prouvé, et pourquoi
