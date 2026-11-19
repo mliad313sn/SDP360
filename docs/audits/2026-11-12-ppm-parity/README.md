@@ -4,6 +4,7 @@
 - **Detail matrices (per requirement, with file:line and test evidence):**
   - [`W0-MATRIX-ENGINE.md`](W0-MATRIX-ENGINE.md): architecture model, A WBS, B scheduling/CPM, D resources, E EVM and financials, J interoperability, stub scan.
   - [`W0-MATRIX-UX-GOV.md`](W0-MATRIX-UX-GOV.md): C Gantt and views, F simplified view and executive dashboard, G governance, H collaboration and reporting, I performance and offline, K security and localisation, L agile and roadmaps.
+- **P04 re-audit (2026-11-19):** `docs/agent-execution/P04-ppm-certification.md` — 141 rows at HEAD: 35 IMPLEMENTED (live) · 42 IMPLEMENTED behind a switch that is off · 53 PARTIAL · 11 MISSING (W0: 20 / 65 / 56). T1–T11: PASS 5 (engine level) · PARTIAL 6 · MISSING 0. **Still NOT CERTIFIED** (two human checks and the PROPOSED thresholds open). "Parity" in this folder names the programme's TARGET, never a claim.
 - **Status:** **NOT CERTIFIED.** Not one T1–T11 certification test passes in the sense required. Nothing here claims parity with MS Project.
 
 ## 1. Totals

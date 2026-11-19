@@ -1,5 +1,7 @@
 # W0 — MS-Project parity gap matrix: architecture, WBS, scheduling, resources, EVM, interop
 
+> **P04 (2026-11-19):** this matrix is the W0 baseline ("parity" = the target, not a claim). The current status of every row, with file:line at HEAD, is in `docs/agent-execution/P04-ppm-certification.md` §3. NOT CERTIFIED.
+
 - **Head audited:** `55dc67c` (local branch `sdp-waves`, worktree `/home/user/fixinst`)
 - **Nature:** READ-ONLY audit. No code, schema or data was changed. This file is the only output and is left uncommitted.
 - **Scope (this half):** architecture model · A (WBS) · B (scheduling/CPM) · D (resources/capacity) · E (EVM & financials) · J (interoperability) · stub scan.
