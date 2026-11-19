@@ -71,6 +71,20 @@
     'Board — work packages by status': 'Tableau — lots de travail par statut', 'Stage gates': 'Jalons de décision', 'History (append-only ledger)': 'Historique (registre en ajout seul)',
     'Project sections': 'Sections du projet', 'e.g. network engineer': 'ex. ingénieur réseau', 'Legend of the schedule': 'Légende du planning', 'Baseline version': 'Version de référence',
     'e.g. unplanned downtime': 'ex. arrêts non planifiés', 'e.g. hours / month': 'ex. heures / mois',
+    // W3 governance panels (P09: French coverage restored)
+    'View': 'Vue', 'Simplified': 'Simplifiée', 'Expert': 'Expert', 'Simplified project view': 'Vue simplifiée du projet',
+    'Print schedule': 'Imprimer le planning', 'Page by page with the legend (landscape).': 'Page par page avec la légende (paysage).',
+    'Schedule quality — DCMA 14-point check': 'Qualité du planning — contrôle DCMA en 14 points',
+    'Status report': 'Rapport d’avancement', 'Printable report': 'Rapport imprimable', 'Excel': 'Excel',
+    'Amounts only for the admin tier and the finance role.': 'Montants réservés au niveau admin et au rôle finance.',
+    'RAID log — response, review, exposure': 'Registre RAID — réponse, revue, exposition',
+    'Entry id (empty = new)': 'Identifiant de l’entrée (vide = nouvelle)', 'Response': 'Réponse', 'Review date': 'Date de revue',
+    'Probability % (empty = unknown)': 'Probabilité % (vide = inconnue)', 'Depends on (dependency)': 'Dépend de (dépendance)',
+    'Impact amount (empty = unknown)': 'Montant de l’impact (vide = inconnu)', 'Mitigation': 'Atténuation', 'Save RAID entry': 'Enregistrer l’entrée RAID',
+    'Gate checklists and sign-off': 'Listes de contrôle des jalons de décision et validation', 'Define a checklist (committee)': 'Définir une liste de contrôle (comité)',
+    'Entering stage': 'Étape d’entrée',
+    'Definition (JSON: items [{key, label, kind: artifact | check}], approvers [{user_id} | {role}], rule all | quorum, quorum)': 'Définition (JSON : items [{key, label, kind: artifact | check}], approvers [{user_id} | {role}], rule all | quorum, quorum)',
+    'Save checklist': 'Enregistrer la liste de contrôle', 'Redefining a checklist asks for fresh sign-offs.': 'Redéfinir une liste de contrôle demande de nouvelles validations.',
   };
   // Texts built in JS (lib/ppmCollabUi.js, lib/ppmBoard.js) — translated when they appear on the page.
   const RUNTIME_KEYS = {

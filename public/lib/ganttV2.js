@@ -101,7 +101,7 @@
       raf = 0;
       var svg = el.querySelector('.g2-svg'), gin = el.querySelector('.g2-gin'); if (!svg || !gin) return;
       var w = win(), out = [], grid = [], i;
-      out.push('<defs><pattern id="g2hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="#cfd6e0"/><line x1="0" y1="0" x2="0" y2="6" stroke="#3A4A60" stroke-width="2"/></pattern><marker id="g2arr" viewBox="0 0 6 6" refX="6" refY="3" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#6b7785"/></marker></defs>');
+      out.push('<defs><pattern id="g2hatch" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect class="g2-hatch-bg" width="6" height="6"/><line x1="0" y1="0" x2="0" y2="6" class="g2-hatch-line" stroke-width="2"/></pattern><marker id="g2arr" viewBox="0 0 6 6" refX="6" refY="3" markerWidth="6" markerHeight="6" orient="auto"><path class="g2-arrow" d="M0,0 L6,3 L0,6 z"/></marker></defs>');
       for (i = w.start; i < w.end; i++) if (i % 2) out.push('<rect class="g2-zebra" x="0" y="' + (i * ROW_H) + '" width="' + L.width + '" height="' + ROW_H + '"/>');
       for (i = w.start; i < w.end; i++) {
         var r = rows[i], b = L.bars[i];
@@ -172,7 +172,7 @@
       var edges = net.edges.map(function (e) { var a = at[e.from], z = at[e.to]; var x1 = a.x + a.w, y1 = a.y + a.h / 2, x2 = z.x, y2 = z.y + z.h / 2, mx = (x1 + x2) / 2; return '<path class="g2-link" d="M' + x1 + ',' + y1 + ' C' + mx + ',' + y1 + ' ' + mx + ',' + y2 + ' ' + x2 + ',' + y2 + '" marker-end="url(#g2arrn)"/>'; }).join('');
       var nodes = net.nodes.map(function (nd) { var lbl = nd.name + ' · ' + (nd.start || '—') + ' → ' + (nd.end || '—'); return '<g class="g2-node' + (nd.critical ? ' g2-crit' : '') + '" data-task="' + esc(nd.id) + '" tabindex="-1" role="img" aria-label="' + esc(lbl) + '"><rect x="' + nd.x + '" y="' + nd.y + '" width="' + nd.w + '" height="' + nd.h + '" rx="6"/><text x="' + (nd.x + 6) + '" y="' + (nd.y + 18) + '">' + esc(String(nd.name).slice(0, 24)) + '</text><text class="g2-nsub" x="' + (nd.x + 6) + '" y="' + (nd.y + 36) + '">' + esc('#' + nd.id + ' · ' + (nd.start || '—') + ' → ' + (nd.end || '—')) + '</text></g>'; }).join('');
       return (rows.length > MAX ? '<p class="muted">' + esc(T('Only the first 400 tasks are drawn; use the list or the Gantt for the rest.')) + '</p>' : '') +
-        '<div class="g2-net scroll"><svg width="' + net.width + '" height="' + net.height + '" role="group" aria-label="' + esc(T('Network diagram')) + '"><defs><marker id="g2arrn" viewBox="0 0 6 6" refX="6" refY="3" markerWidth="6" markerHeight="6" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#6b7785"/></marker></defs>' + edges + nodes + '</svg></div>';
+        '<div class="g2-net scroll"><svg width="' + net.width + '" height="' + net.height + '" role="group" aria-label="' + esc(T('Network diagram')) + '"><defs><marker id="g2arrn" viewBox="0 0 6 6" refX="6" refY="3" markerWidth="6" markerHeight="6" orient="auto"><path class="g2-arrow" d="M0,0 L6,3 L0,6 z"/></marker></defs>' + edges + nodes + '</svg></div>';
     }
     function listHtml() {
       return '<ul class="g2-list">' + rows.map(function (r) {

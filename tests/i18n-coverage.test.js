@@ -95,6 +95,7 @@ const ALLOW = {
     'on_track · at_risk · planned · active · done · open': 'status codes typed into the field', 'helpdesk.resolution_sla_pct': 'metric key example' },
   'rfi.html': { 'NET-12': 'project key example (placeholder)' },
   'project.html': Object.assign(Object.fromEntries(['todo', 'in_progress', 'blocked', 'done', 'cancelled', 'planned', 'open', 'closed', 'risk', 'issue', 'assumption',
+    'dependency', 'avoid', 'mitigate', 'transfer', 'accept', 'exploit', 'escalate', 'approval', 'on_hold', 'closure', 'proposal',
     'ASAP', 'ALAP', 'SNET', 'SNLT', 'FNET', 'FNLT', 'MSO', 'MFO'].map((k) => [k, CODE])),
   { 'id:FS|SS|FF|SF±lag': 'link syntax placeholder (typed as is)', 'USD': 'ISO currency code placeholder', 'https://…': 'URL placeholder' }),
   // C-26 — site and IT-group names are data (option labels the filters match on), never translated.
