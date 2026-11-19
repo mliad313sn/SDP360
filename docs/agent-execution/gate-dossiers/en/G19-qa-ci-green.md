@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks the two-site pilot on the TEST instance |
 | Decide after | none |
-| Target SHA | `4e12afea` |
+| Target SHA | `618792958792523db40d1835b860586955bbf3be` |
 | Generated | 2026-11-19 |
 
 ## 1. Question to decide
@@ -22,9 +22,9 @@ Is the continuous integration green on the target SHA, and do you accept each sk
 | Evidence | What it shows | Regenerate / re-run | Last changed (commit, date) | Content hash |
 |---|---|---|---|---|
 | `.github/workflows/ci.yml` | CI jobs (unit, browser journeys) | `manual` | a1208217, 2026-11-19 | `1e629a1b51faf736` |
-| `tests/.suite-manifest.json` | Reviewed per-file test census | `npm test -- --update-manifest` | 38a01a34, 2026-11-19 | `10ef7c1a8a95e547` |
+| `tests/.suite-manifest.json` | Reviewed per-file test census | `npm test -- --update-manifest` | a8a31c3e, 2026-11-19 | `1076946f78f43740` |
 | `tests/.skip-allowlist.json` | Each allowed skip and its reason | `manual` | 090d541f, 2026-11-06 | `d0fb199d188863a5` |
-| `tools/test/run-all.js` | Full suite runner | `node tools/test/run-all.js` | 95a84168, 2026-10-29 | `11d56229bbc5e9c5` |
+| `tools/test/run-all.js` | Full suite runner | `node tools/test/run-all.js` | a8a31c3e, 2026-11-19 | `b8e6013f1d72bc84` |
 | `docs/agent-execution/DELIVERY-QUALITY.md` | Delivery quality metrics | `node tools/release/delivery-metrics.js` | f5acdadf, 2026-11-06 | `1aca3f9dbc393523` |
 
 **Evidence awaited from parallel lots**

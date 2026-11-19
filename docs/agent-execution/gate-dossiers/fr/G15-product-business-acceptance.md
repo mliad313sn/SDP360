@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | ne bloque que le déploiement général |
 | À décider après | [G11](G11-pilot-sites-field-uat.md) Sites pilotes et recette terrain · [G21](G21-business-witness-project.md) Projet témoin métier · [G06](G06-kpi-definitions-thresholds.md) Définitions des indicateurs, seuils et score |
-| SHA cible | `4e12afea` |
+| SHA cible | `618792958792523db40d1835b860586955bbf3be` |
 | Généré | 2026-11-19 |
 
 ## 1. La question à trancher
