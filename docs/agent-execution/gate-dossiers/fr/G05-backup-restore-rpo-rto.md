@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | bloque le pilote sur deux sites (instance de TEST) |
 | À décider après | [G03](G03-cab-dependencies-postgres-only.md) CAB : mise à jour des dépendances et passage à PostgreSQL seul |
-| SHA cible | `67ca975a` |
+| SHA cible | `61ee2cf2` |
 | Généré | 2026-11-19 |
 
 ## 1. La question à trancher
@@ -27,7 +27,7 @@ Quelle perte de données (RPO) et quel délai de restauration (RTO) acceptez-vou
 | `tests/backup-encrypt.test.js` | Comportement de la sauvegarde chiffrée | `node --test --test-force-exit tests/backup-encrypt.test.js` | f44591ae, 2026-10-28 | `7013fc06ff3c0b19` |
 | `docs/ops/REPLICA-RESTORE.md` | Procédure réplica et restauration | `manual` | de418131, 2026-10-21 | `7c73dcacf7dbb71c` |
 | `docs/ops/rehearsals/2026-10-29-local-pg16-g04.md` | Répétition locale avec durées | `node tools/pg/restore-rehearsal.js` | 95a84168, 2026-10-29 | `83405a53694f863a` |
-| `docs/ops/SLO-PROPOSAL.md` | Indicateurs proposés ; chaque cible INCONNUE | `manual` | f5b3d8b2, 2026-11-06 | `316ddc6d2ed6eb09` |
+| `docs/ops/SLO-PROPOSAL.md` | Indicateurs proposés ; chaque cible INCONNUE | `manual` | 4f225458, 2026-11-19 | `332e1e07cb05be84` |
 
 ## 3. Ce qui n'est pas prouvé, et pourquoi
 

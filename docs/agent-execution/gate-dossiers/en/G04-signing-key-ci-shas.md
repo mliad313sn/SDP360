@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks general deployment only |
 | Decide after | [G03](G03-cab-dependencies-postgres-only.md) CAB: dependency upgrade and PostgreSQL-only cutover |
-| Target SHA | `67ca975a` |
+| Target SHA | `61ee2cf2` |
 | Generated | 2026-11-19 |
 
 ## 1. Question to decide
@@ -23,7 +23,7 @@ Which key signs the release packages, who holds it, and are the CI actions pinne
 |---|---|---|---|---|
 | `tests/update-package-signature.test.js` | Package signature verification behaviour | `node --test --test-force-exit tests/update-package-signature.test.js` | 6cb63aac, 2026-10-21 | `6de8613ddf017101` |
 | `tools/manifest-public.pem` | Public key currently shipped (not a production key decision) | `manual` | 6cb63aac, 2026-10-21 | `96a5d1a57f291c4c` |
-| `.github/workflows/ci.yml` | CI workflow and its action references | `manual` | 09bbb9c4, 2026-11-12 | `4fbe26a213d06e7d` |
+| `.github/workflows/ci.yml` | CI workflow and its action references | `manual` | 532bfbde, 2026-11-19 | `f149177b07dd822b` |
 | `tests/ci-config.test.js` | Checks on the CI configuration | `node --test --test-force-exit tests/ci-config.test.js` | d51b714f, 2026-11-06 | `a48a78087437f513` |
 | `tools/release/sbom.js` | Software bill of materials generator | `node tools/release/sbom.js` | ee8b7a0c, 2026-11-12 | `73d25c84e6ac3228` |
 

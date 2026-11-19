@@ -1,6 +1,6 @@
 # Gate dossiers — index and critical path / Dossiers des portes — index et chemin critique
 
-Target SHA / SHA cible: `67ca975a` · Generated / Généré: 2026-11-19 · Source: `tools/release/gate-dossiers.source.js`
+Target SHA / SHA cible: `61ee2cf2` · Generated / Généré: 2026-11-19 · Source: `tools/release/gate-dossiers.source.js`
 
 **No decision cell is filled by these dossiers. Every gate below is NO-GO until its approver fills its row in `docs/sdp360/completion/RELEASE-GATES.md`.**
 **Aucune case de décision n'est remplie par ces dossiers. Chaque porte ci-dessous est NO-GO tant que son approbateur n'a pas rempli sa ligne.**
@@ -29,7 +29,7 @@ Target SHA / SHA cible: `67ca975a` · Generated / Généré: 2026-11-19 · Sourc
 | 12 | Backup and restore (RPO/RTO) | Sauvegarde et restauration (RPO/RTO) | blocks the two-site pilot on the TEST instance / bloque le pilote sur deux sites (instance de TEST) | G03 | 7 / 0 | [EN](en/G05-backup-restore-rpo-rto.md) | [FR](fr/G05-backup-restore-rpo-rto.md) |
 | 13 | Interdepartmental handoffs | Passations entre départements | blocks the pilot only if its feature is in the pilot scope / ne bloque le pilote que si sa fonction est dans le périmètre du pilote | G07 | 3 / 1 | [EN](en/G08-handoffs.md) | [FR](fr/G08-handoffs.md) |
 | 14 | Connectors and dash-key clients | Connecteurs et clients à clé | blocks the pilot only if its feature is in the pilot scope / ne bloque le pilote que si sa fonction est dans le périmètre du pilote | G01 | 6 / 0 | [EN](en/G13-connectors-dashkey-clients.md) | [FR](fr/G13-connectors-dashkey-clients.md) |
-| 15 | Capacity: load and soak | Capacité : charge et endurance | blocks general deployment only / ne bloque que le déploiement général | G03 | 5 / 1 | [EN](en/G20-capacity-load-soak.md) | [FR](fr/G20-capacity-load-soak.md) |
+| 15 | Capacity: load and soak | Capacité : charge et endurance | blocks general deployment only / ne bloque que le déploiement général | G03 | 5 / 0 | [EN](en/G20-capacity-load-soak.md) | [FR](fr/G20-capacity-load-soak.md) |
 | 16 | Data owner: anonymised data and 2026 history | Propriétaire des données : données anonymisées et historique 2026 | blocks the two-site pilot on the TEST instance / bloque le pilote sur deux sites (instance de TEST) | G02 | 5 / 0 | [EN](en/G12-data-owner-fixtures-history.md) | [FR](fr/G12-data-owner-fixtures-history.md) |
 | 17 | Penetration test | Test d'intrusion | blocks general deployment only / ne bloque que le déploiement général | G01, G02 | 3 / 1 | [EN](en/G18-penetration-test.md) | [FR](fr/G18-penetration-test.md) |
 | 18 | Pilot sites and field acceptance | Sites pilotes et recette terrain | blocks the two-site pilot on the TEST instance / bloque le pilote sur deux sites (instance de TEST) | G01, G02, G05, G12 | 7 / 0 | [EN](en/G11-pilot-sites-field-uat.md) | [FR](fr/G11-pilot-sites-field-uat.md) |

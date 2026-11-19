@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks general deployment only |
 | Decide after | [G03](G03-cab-dependencies-postgres-only.md) CAB: dependency upgrade and PostgreSQL-only cutover |
-| Target SHA | `67ca975a` |
+| Target SHA | `61ee2cf2` |
 | Generated | 2026-11-19 |
 
 ## 1. Question to decide
@@ -21,7 +21,7 @@ Is the measured behaviour under load acceptable for all sites, and what latency 
 
 | Evidence | What it shows | Regenerate / re-run | Last changed (commit, date) | Content hash |
 |---|---|---|---|---|
-| `docs/ops/LOAD-TEST.md` | Load harness; no threshold set | `node tools/test/load.js` | 10d740d5, 2026-11-06 | `53f53d38530825af` |
+| `docs/ops/LOAD-TEST.md` | Load harness; no threshold set | `node tools/test/load.js` | 4f225458, 2026-11-19 | `3848f046fcf8c7b8` |
 | `tests/load-harness.test.js` | Harness behaviour | `node --test --test-force-exit tests/load-harness.test.js` | 10d740d5, 2026-11-06 | `392a026b45e56610` |
 | `docs/agent-execution/PERF-BASELINE.md` | Performance observation on synthetic data | `node tools/test/perf-baseline.js` | 84b66a54, 2026-11-06 | `87bb8122e2371fc4` |
 | `docs/ops/CAPACITY-DATA-CONTRACT.md` | Capacity data contract | `manual` | 98cc8b50, 2026-11-12 | `2789abf32313a7a5` |
@@ -31,7 +31,7 @@ Is the measured behaviour under load acceptable for all sites, and what latency 
 
 | From lot | Expected evidence | Status |
 |---|---|---|
-| P05 | Performance budgets and service-level proposal with load results | awaited — not in the tree at the target SHA (`docs/agent-execution/P05-*.md`) |
+| P05 | Performance budgets and service-level proposal with load results | delivered: `docs/agent-execution/P05-performance.md` (4f225458, `695c3a66d87087a6`) |
 
 ## 3. Not evidenced, and why
 

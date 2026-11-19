@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks the two-site pilot on the TEST instance |
 | Decide after | [G03](G03-cab-dependencies-postgres-only.md) CAB: dependency upgrade and PostgreSQL-only cutover |
-| Target SHA | `67ca975a` |
+| Target SHA | `61ee2cf2` |
 | Generated | 2026-11-19 |
 
 ## 1. Question to decide
@@ -27,7 +27,7 @@ What data loss (RPO) and restore time (RTO) do you accept, and is the restore dr
 | `tests/backup-encrypt.test.js` | Encrypted backup behaviour | `node --test --test-force-exit tests/backup-encrypt.test.js` | f44591ae, 2026-10-28 | `7013fc06ff3c0b19` |
 | `docs/ops/REPLICA-RESTORE.md` | Replica and restore procedure | `manual` | de418131, 2026-10-21 | `7c73dcacf7dbb71c` |
 | `docs/ops/rehearsals/2026-10-29-local-pg16-g04.md` | Local rehearsal with timings | `node tools/pg/restore-rehearsal.js` | 95a84168, 2026-10-29 | `83405a53694f863a` |
-| `docs/ops/SLO-PROPOSAL.md` | Proposed indicators; every target UNKNOWN | `manual` | f5b3d8b2, 2026-11-06 | `316ddc6d2ed6eb09` |
+| `docs/ops/SLO-PROPOSAL.md` | Proposed indicators; every target UNKNOWN | `manual` | 4f225458, 2026-11-19 | `332e1e07cb05be84` |
 
 ## 3. Not evidenced, and why
 
