@@ -2957,32 +2957,43 @@ async function _getCalendarMonthlyHelpdeskPg(site_id, year, month, opts = {}) {
   const CD = tz ? '(created_time::timestamptz AT TIME ZONE ?)::date' : 'created_time::date';
   const gft = tz ? [...groups, tz, from, tz, to] : [...groups, from, to];
   const DR = `tech_group IN (${inClause}) AND ${CD}>=?::date AND ${CD}<=?::date`;
-  const total = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR}`).get(...gft)).n;
   // UAT ITSM-03: no ticket → no closure rate (null), never a red 0 %.
   // F-DATA-07: no ticket → no SLA base either (null = not measured, never a 0 denominator).
   // A7: the incl-open rate and the open & breached counts are measured as of the month's exclusive end (or now).
   const SD = require('./services/slaDefinition');
   const slaAsOf = SD.monthAsOfIso(year, month, opts && opts.now);
-  const A7_NULL = { sla_res_open_breached:null, sla_reply_open_breached:null, sla_res_den_incl_open:null, sla_reply_den_incl_open:null,
-    sla_res_pct_incl_open:null, sla_reply_pct_incl_open:null, sla_as_of:slaAsOf, sla_definition:'closed_only' };
-  if (!total) return { inbound:0, closed:0, close_pct:null, sla_res_pct:null, sla_reply_pct:null, sla_res_den:null, sla_reply_den:null, ...A7_NULL, source:'calendar' };
-  const closed         = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND pending_status=0`).get(...gft)).n;
   // UAT ITSM-05 (same rule as the Helpdesk page, dashboard-shared.isResOverdue): a cancelled ticket and a
   // ticket with no SLA rule (overdue_status NULL) are neither met nor missed — out of the SLA denominator.
   const NOT_CANCELLED = `LOWER(COALESCE(request_status,'')) NOT IN ('cancelled','canceled')`;
-  const slaClosed      = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND pending_status=0 AND overdue_status IS NOT NULL AND ${NOT_CANCELLED}`).get(...gft)).n;
-  const slaResOkClosed = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND pending_status=0 AND overdue_status=0 AND ${NOT_CANCELLED}`).get(...gft)).n;
   // UAT ITSM-04: a responded ticket is late only when its flag SAYS so (true / 1 / yes) — as on the
   // Helpdesk page; an empty flag is not a breach.
-  const rplyOk    = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND responded_time IS NOT NULL AND responded_time!='' AND LOWER(COALESCE(first_response_overdue,'')) NOT IN ('true','1','yes')`).get(...gft)).n;
-  const rplyTotal = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND responded_time IS NOT NULL AND responded_time!=''`).get(...gft)).n;
-  const resOpenBr = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND ${SD.OPEN_RES_BREACHED_SQL}`).get(...gft, slaAsOf)).n;
-  const frOpenBr  = (await H.prepare(`SELECT COUNT(*) as n FROM request_records WHERE ${DR} AND ${SD.OPEN_FR_BREACHED_SQL}`).get(...gft)).n;
+  const RESP = "responded_time IS NOT NULL AND responded_time!=''";
+  // P05 — ONE scan of the month's tickets instead of eleven (the all-sites monthly deck read this per site:
+  // 22 s on the 100 000-ticket rehearsal set). Each FILTER is the WHERE of the statement it replaces, so the
+  // figures are unchanged — pinned by tests/perf-calendar-helpdesk-scan.test.js. The slaAsOf placeholder sits
+  // in the SELECT list, before the WHERE placeholders.
+  const agg = await H.prepare(`SELECT COUNT(*) AS total,
+    COUNT(*) FILTER (WHERE pending_status=0) AS closed,
+    COUNT(*) FILTER (WHERE pending_status=0 AND overdue_status IS NOT NULL AND ${NOT_CANCELLED}) AS sla_closed,
+    COUNT(*) FILTER (WHERE pending_status=0 AND overdue_status=0 AND ${NOT_CANCELLED}) AS sla_res_ok_closed,
+    COUNT(*) FILTER (WHERE ${RESP} AND LOWER(COALESCE(first_response_overdue,'')) NOT IN ('true','1','yes')) AS rply_ok,
+    COUNT(*) FILTER (WHERE ${RESP}) AS rply_total,
+    COUNT(*) FILTER (WHERE ${SD.OPEN_RES_BREACHED_SQL}) AS res_open_br,
+    COUNT(*) FILTER (WHERE ${SD.OPEN_FR_BREACHED_SQL}) AS fr_open_br,
+    AVG(EXTRACT(EPOCH FROM (assigned_time::timestamptz - created_time::timestamptz))/3600) FILTER (WHERE assigned_time IS NOT NULL AND assigned_time!='') AS avg_tta,
+    AVG(EXTRACT(EPOCH FROM (responded_time::timestamptz - created_time::timestamptz))/3600) FILTER (WHERE ${RESP}) AS avg_fr,
+    AVG(EXTRACT(EPOCH FROM (COALESCE(resolved_time,completed_time)::timestamptz - created_time::timestamptz))/86400) FILTER (WHERE COALESCE(resolved_time,completed_time) IS NOT NULL) AS avg_rt
+    FROM request_records WHERE ${DR}`).get(slaAsOf, ...gft);
+  const total = Number(agg.total) || 0;
+  const A7_NULL = { sla_res_open_breached:null, sla_reply_open_breached:null, sla_res_den_incl_open:null, sla_reply_den_incl_open:null,
+    sla_res_pct_incl_open:null, sla_reply_pct_incl_open:null, sla_as_of:slaAsOf, sla_definition:'closed_only' };
+  if (!total) return { inbound:0, closed:0, close_pct:null, sla_res_pct:null, sla_reply_pct:null, sla_res_den:null, sla_reply_den:null, ...A7_NULL, source:'calendar' };
+  const closed = Number(agg.closed), slaClosed = Number(agg.sla_closed), slaResOkClosed = Number(agg.sla_res_ok_closed);
+  const rplyOk = Number(agg.rply_ok), rplyTotal = Number(agg.rply_total);
+  const resOpenBr = Number(agg.res_open_br), frOpenBr = Number(agg.fr_open_br);
   const dRes = require('./public/lib/slaDual').dual({ den: slaClosed, violated: slaClosed - slaResOkClosed, openBreached: resOpenBr }, 0);
   const dFr  = require('./public/lib/slaDual').dual({ den: rplyTotal, violated: rplyTotal - rplyOk, openBreached: frOpenBr }, 0);
-  const avgTtaRow = await H.prepare(`SELECT AVG(EXTRACT(EPOCH FROM (assigned_time::timestamptz - created_time::timestamptz))/3600) as v FROM request_records WHERE ${DR} AND assigned_time IS NOT NULL AND assigned_time!=''`).get(...gft);
-  const avgFrRow  = await H.prepare(`SELECT AVG(EXTRACT(EPOCH FROM (responded_time::timestamptz - created_time::timestamptz))/3600) as v FROM request_records WHERE ${DR} AND responded_time IS NOT NULL AND responded_time!=''`).get(...gft);
-  const avgRtRow  = await H.prepare(`SELECT AVG(EXTRACT(EPOCH FROM (COALESCE(resolved_time,completed_time)::timestamptz - created_time::timestamptz))/86400) as v FROM request_records WHERE ${DR} AND COALESCE(resolved_time,completed_time) IS NOT NULL`).get(...gft);
+  const avgTtaRow = { v: agg.avg_tta }, avgFrRow = { v: agg.avg_fr }, avgRtRow = { v: agg.avg_rt };
   return {
     inbound: total, closed,
     close_pct: Math.round(closed / total * 100),

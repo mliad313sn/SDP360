@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 5312,
+ "total": 5313,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 18,
@@ -418,6 +418,7 @@
   "password-work-factor.test.js": 5,
   "pending-status-derivation.test.js": 5,
   "perf-baseline.test.js": 4,
+  "perf-calendar-helpdesk-scan.test.js": 1,
   "persona-matrix.test.js": 4,
   "pg-adapter.test.js": 6,
   "pg-alloc-unspecified.test.js": 5,

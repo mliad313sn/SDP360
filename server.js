@@ -6143,8 +6143,9 @@ app.get('/api/reports/monthly/all-sites/:year/:month/pptx', requireReportSession
   try {
     const { year, month } = req.params;
     const sites = (await rdb.listSites()).filter(s => s.active);
-    const allData = [];
-    for (const site of sites) {
+    // P05 — the sites are read concurrently (they were read one after the other); the order of the
+    // deck is the order of `sites`, exactly as before. The connection pool bounds the concurrency.
+    const allData = await Promise.all(sites.map(async (site) => {
       const monthlyData = await rdb.getMonthlyData(site.id, parseInt(year), parseInt(month));
       const edits      = await rdb.getMonthlyEdits(site.id, parseInt(year), parseInt(month));
       const objectives = await rdb.getAnnualObjectives(site.id, parseInt(year));
@@ -6152,9 +6153,9 @@ app.get('/api/reports/monthly/all-sites/:year/:month/pptx', requireReportSession
       const _aGroups   = (site.zoho_group || '').split(',').map(g => g.trim()).filter(Boolean);
       const openChanges     = await rdb.getOpenChangesForSite(_aGroups);
       const activeIncidents = await rdb.getActiveMajorIncidentsForSite(_aGroups);
-      allData.push({ site, monthlyData, edits, objectives, yearlyData, openChanges, activeIncidents,
-        meetingsSummary: await _meetingsSummaryForSite(site.name, year, month) });
-    }
+      return { site, monthlyData, edits, objectives, yearlyData, openChanges, activeIncidents,
+        meetingsSummary: await _meetingsSummaryForSite(site.name, year, month) };
+    }));
     if (allData.length === 0) return res.status(404).json({ error: 'No active sites found' });
     const buf = await rpptxMonthly.generateAllSitesMonthlyPptx(allData, parseInt(year), parseInt(month));
     const monthName = new Date(parseInt(year), parseInt(month)-1, 1).toLocaleString('en', { month: 'long' });
