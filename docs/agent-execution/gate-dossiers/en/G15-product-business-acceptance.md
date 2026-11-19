@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks general deployment only |
 | Decide after | [G11](G11-pilot-sites-field-uat.md) Pilot sites and field acceptance · [G21](G21-business-witness-project.md) Business witness project · [G06](G06-kpi-definitions-thresholds.md) KPI definitions, thresholds and score |
-| Target SHA | `23a31d11` |
+| Target SHA | `2b35374c` |
 | Generated | 2026-11-19 |
 
 ## 1. Question to decide
@@ -21,7 +21,7 @@ After the pilot, does the product do what the business needs well enough to depl
 
 | Evidence | What it shows | Regenerate / re-run | Last changed (commit, date) | Content hash |
 |---|---|---|---|---|
-| `docs/sdp360/completion/TRUTH-MATRIX.md` | Truth matrix: what is implemented, tested, validated | `manual` | 3baf3701, 2026-10-29 | `537fba2d44103383` |
+| `docs/sdp360/completion/TRUTH-MATRIX.md` | Truth matrix: what is implemented, tested, validated | `manual` | 5dc0c25c, 2026-11-19 | `f4318da0bef49eb8` |
 | `docs/ops/PERSONA-JOURNEYS.md` | Persona to journey map | `manual` | d6a7f2bb, 2026-11-12 | `894ea753f0fbb104` |
 | `docs/audits/2026-11-12-enterprise-review/UAT-COMITE-UTILISATEURS.md` | AI user-committee review (not real users) | `manual` | d6a7f2bb, 2026-11-12 | `222de56c07458f00` |
 | `docs/agent-execution/G24-DOSSIER-GO-NOGO-FR.md` | Earlier GO/NO-GO dossier (pilot conditional, production NO-GO) | `node --test --test-force-exit tests/release-dossier.test.js` | d6695109, 2026-11-05 | `0130ead17d7d9889` |
