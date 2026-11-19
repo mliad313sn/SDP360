@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 5323,
+ "total": 5325,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 18,
@@ -248,6 +248,7 @@
   "field-store.test.js": 8,
   "field-task-timing.test.js": 3,
   "field-ticket-site-scope.test.js": 2,
+  "figure-parity-all-kpis.test.js": 2,
   "figure-parity-five-surfaces.test.js": 5,
   "finance-certification.smoke.test.js": 8,
   "finance-certification.test.js": 6,
