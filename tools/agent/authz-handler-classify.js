@@ -95,6 +95,9 @@ function draft(app, prev) {
     routes };
 }
 
+// Exported before the CLI block: authz-walk.js requires this module back (load()), so exports must exist first.
+module.exports = { CLASSES, SIGNALS, PATH, staticSignals, wrapperSource, inScope, load, serialize, draft };
+
 if (require.main === module) {
   const walker = require('./authz-walk');
   const d = draft(walker.bootApp(), load());
@@ -103,4 +106,3 @@ if (require.main === module) {
   process.exit(0);
 }
 
-module.exports = { CLASSES, SIGNALS, PATH, staticSignals, wrapperSource, inScope, load, serialize, draft };
