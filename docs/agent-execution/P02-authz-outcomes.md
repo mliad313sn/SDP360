@@ -134,6 +134,16 @@ pass**. `readme-truth` + `test-runner-guard`: 7/7. `npx eslint .`: clean. `node 
 `--strict` exit 0. `tests/.suite-manifest.json`: +2 files (5 + 3 tests, total 5 320). **Full suite not re-run by this agent**
 (parallel-agent rule) — cite the orchestrator's merge run.
 
+## 8a. Follow-up 2026-11-19 — one non-deterministic row fixed
+
+`GET /api/kpi-policies/:id` as `viewA` flipped N ↔ A between runs. Cause: `GET /api/kpi-policies` seeds the imported
+policies lazily (`kpiPolicyStore.ensureSeed()` inside `list()`); in the concurrent GET phase the first persona's request
+for policy 1 raced that seed. Fix (`probeOutcomes`): one sequential super_admin pass over the GET rows, in fixed order,
+results discarded, before anything is measured — every lazy seed happens first, the probe describes a warmed system.
+No outcome is masked: the row is now `A` for viewA like every other signed-in persona (reading a policy is open by design;
+editing / adopting stays kpi-committee). Snapshot regenerated (only that row changed), then two consecutive compare runs:
+5/5 pass each.
+
 ## 8. Limits (stated, not hidden)
 
 - A status class does not see a filtered list (same 200, fewer rows): list scoping stays the job of the cross-site sweeps.

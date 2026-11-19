@@ -641,6 +641,15 @@ async function probeOutcomes(w, opts = {}) {
     }
     routes[j.key] = codes;
   };
+  // Prime once per world: some GETs seed lazily on first use (e.g. GET /api/kpi-policies → kpiPolicyStore.ensureSeed()
+  // creates the imported policies). Run concurrently, the first-ever request of another GET (GET /api/kpi-policies/:id
+  // as the first persona) raced that seed and flipped N ↔ A between runs. One sequential super_admin pass over the GETs,
+  // in fixed order, results discarded, makes every lazy seed happen before anything is measured — the probe then
+  // describes a warmed system, which is what a user meets.
+  if (!w.outcomePrimed && gets.length) {
+    w.outcomePrimed = true;
+    for (const j of gets) await w.send('GET', j.url, w.tok.super);
+  }
   await pool(gets, opts.concurrency || 8, run);
   for (const j of writes) await run(j);
   stats.ms = Date.now() - t0;
