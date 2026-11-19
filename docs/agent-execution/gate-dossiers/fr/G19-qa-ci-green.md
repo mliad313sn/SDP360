@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | bloque le pilote sur deux sites (instance de TEST) |
 | À décider après | aucune |
-| SHA cible | `c2f9acd5` |
+| SHA cible | `e29e8525` |
 | Généré | 2026-11-19 |
 
 ## 1. La question à trancher
@@ -21,7 +21,7 @@ L'intégration continue est-elle verte sur le SHA cible, et acceptez-vous chaque
 
 | Preuve | Ce qu'elle montre | Régénérer / rejouer | Dernière modification (commit, date) | Empreinte |
 |---|---|---|---|---|
-| `.github/workflows/ci.yml` | Tâches CI (unitaires, parcours navigateur) | `manual` | 532bfbde, 2026-11-19 | `f149177b07dd822b` |
+| `.github/workflows/ci.yml` | Tâches CI (unitaires, parcours navigateur) | `manual` | a1208217, 2026-11-19 | `1e629a1b51faf736` |
 | `tests/.suite-manifest.json` | Recensement revu des tests par fichier | `npm test -- --update-manifest` | dca7df89, 2026-11-19 | `464d2ebfee2277c2` |
 | `tests/.skip-allowlist.json` | Chaque saut autorisé et sa raison | `manual` | 090d541f, 2026-11-06 | `d0fb199d188863a5` |
 | `tools/test/run-all.js` | Lanceur de la suite complète | `node tools/test/run-all.js` | 95a84168, 2026-10-29 | `11d56229bbc5e9c5` |
