@@ -371,19 +371,20 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `reports.override_reason_min` | `10` | int | yes | yes | to be named |
 | `reports.withdraw_reason_min` | `5` | int | yes | yes | to be named |
 
-## 4. Environment variables (62) — read in *.js, services/, routes/
+## 4. Environment variables (65) — read in *.js, services/, routes/
 
 | Variable | Kind | Default when unset | Owner | Read in |
 |---|---|---|---|---|
 | `AI_PROVIDER` | switch | off (no AI call) | Owner | server.js |
 | `ANTHROPIC_API_KEY` | secret | (secret — not shown) | to be named | server.js |
+| `AUDIT_RETENTION_MONTHS` | setting | see the reading file | to be named | services/sync/jobs.js |
 | `AUDIT_RISK_RETENTION_MONTHS` | setting | see the reading file | to be named | services/systemLogStore.js |
 | `BIND_HOST` | setting | see the reading file | to be named | services/netBinding.js |
 | `CORS_EXTRA_ORIGINS` | setting | see the reading file | to be named | services/netBinding.js |
 | `DASHBOARD_API_KEY` | secret | (secret — not shown) | to be named | services/apiKey.js |
 | `DASH_PASS` | secret | (secret — not shown) | to be named | reports-db.js, server.js |
 | `DASH_USER` | setting | see the reading file | to be named | reports-db.js, server.js |
-| `DATABASE_URL` | setting | see the reading file | to be named | assets-db.js, inspection-db.js, meetings-db.js, reports-db.js (+3) |
+| `DATABASE_URL` | setting | see the reading file | to be named | assets-db.js, inspection-db.js, meetings-db.js, reports-db.js (+4) |
 | `DEBUG` | setting | see the reading file | to be named | services/dashboardData.js |
 | `ENTRA_CLIENT_ID` | setting | see the reading file | to be named | services/ssoSettings.js |
 | `ENTRA_CLIENT_SECRET` | secret | (secret — not shown) | to be named | services/ssoSettings.js |
@@ -402,8 +403,9 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `MANAGE_PS1` | setting | see the reading file | to be named | services/backupSchedule.js |
 | `NODE_ENV` | setting | see the reading file | to be named | server.js, services/apiKey.js, services/configSecrets.js |
 | `ORG_ID` | setting | see the reading file | to be named | server.js |
+| `PATH` | setting | see the reading file | to be named | services/ppm/mppConverter.js |
 | `PG_POOL_MAX` | setting | see the reading file | to be named | services/pgDb.js |
-| `PG_URL` | setting | see the reading file | to be named | assets-db.js, inspection-db.js, meetings-db.js, reports-db.js (+4) |
+| `PG_URL` | setting | see the reading file | to be named | assets-db.js, inspection-db.js, meetings-db.js, reports-db.js (+5) |
 | `PM2_NAME` | setting | see the reading file | to be named | services/serviceControl.js |
 | `PORT` | setting | see the reading file | to be named | server.js |
 | `REPORT_BROWSER` | setting | see the reading file | to be named | services/reportRender.js |
@@ -412,12 +414,13 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `REQUIRE_CONFIG_KEY` | setting | see the reading file | to be named | services/backendGuard.js |
 | `REQUIRE_POSTGRES` | setting | see the reading file | to be named | server.js, services/backendGuard.js |
 | `SDP_ALLOW_PLAINTEXT_SECRETS` | switch | see the reading file | to be named | services/configSecrets.js |
-| `SDP_BACKUP_DIR` | switch | see the reading file | to be named | services/backupSchedule.js |
+| `SDP_BACKUP_DIR` | switch | see the reading file | to be named | services/backupSchedule.js, services/sync/jobs.js |
+| `SDP_BACKUP_KEEP` | switch | see the reading file | to be named | services/sync/jobs.js |
 | `SDP_BACKUP_KEY` | secret | (secret — not shown) | to be named | services/backup.js, services/dbRestore.js |
 | `SDP_CONFIG_BOX_VERSION` | switch | unset = 2 (`enc:v2`) | Security owner | services/configSecrets.js |
 | `SDP_CONFIG_KEY` | secret | (secret — not shown) | to be named | services/backendGuard.js, services/configSecrets.js |
 | `SDP_CSP_REPORT_ONLY` | switch | unset (no report-only header, no /api/security/csp-report) | Security owner | services/cspReport.js |
-| `SDP_DATA_DIR` | switch | see the reading file | to be named | assets-db.js, inspection-db.js, meetings-db.js, reports-db.js (+4) |
+| `SDP_DATA_DIR` | switch | see the reading file | to be named | assets-db.js, inspection-db.js, meetings-db.js, reports-db.js (+5) |
 | `SDP_PDF_SANDBOX` | switch | unset (PDF render keeps --no-sandbox) | Security owner | services/reportRender.js |
 | `SDP_QUAL_CFG_TTL_MS` | switch | see the reading file | to be named | services/qualificationStore.js |
 | `SDP_SERVICE` | switch | see the reading file | to be named | services/serviceControl.js |
@@ -428,7 +431,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `SSO_ENABLED` | switch | see the reading file | to be named | services/ssoSettings.js |
 | `SSO_GROUP_MAP` | setting | see the reading file | to be named | services/ssoSettings.js |
 | `SSO_MODE` | setting | see the reading file | to be named | services/ssoSettings.js |
-| `SYNC_TRUNCATION_TOLERANCE_PCT` | setting | see the reading file | to be named | zoho-sync.js |
+| `SYNC_TRUNCATION_TOLERANCE_PCT` | setting | see the reading file | to be named | services/sync/truncationGuard.js |
 | `WORKSPACE_ID` | setting | see the reading file | to be named | server.js |
 | `ZOHO_CLIENT_ID` | setting | see the reading file | to be named | server.js |
 | `ZOHO_CLIENT_SECRET` | secret | (secret — not shown) | to be named | server.js, services/analyticsSettings.js |

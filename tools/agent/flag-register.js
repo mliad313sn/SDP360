@@ -59,7 +59,11 @@ function readProfile(text) {
 function scanEnv(root = ROOT) {
   const files = [];
   for (const f of fs.readdirSync(root)) if (/\.js$/.test(f)) files.push(f);
-  for (const d of ['services', 'routes']) for (const f of fs.readdirSync(path.join(root, d))) if (/\.js$/.test(f)) files.push(d + '/' + f);
+  // Recursive (2026-11-19): a sub-folder (services/sync/, services/ppm/…) holds env reads too — a flat scan
+  // silently dropped SYNC_TRUNCATION_TOLERANCE_PCT once the guard moved to services/sync/truncationGuard.js.
+  const walk = (d) => { for (const e of fs.readdirSync(path.join(root, d), { withFileTypes: true })) {
+    if (e.isDirectory()) walk(d + '/' + e.name); else if (/\.js$/.test(e.name)) files.push(d + '/' + e.name); } };
+  for (const d of ['services', 'routes']) walk(d);
   const seen = new Map();
   for (const f of files.sort()) {
     const src = fs.readFileSync(path.join(root, f), 'utf8');
