@@ -15,7 +15,7 @@
   "jobs": 33,
   "jobs_without_test_reference": 0,
   "migrations": 102,
-  "test_files": 839
+  "test_files": 841
  },
  "pages": [
   {
@@ -468,6 +468,7 @@
     "tests/csv-safe.test.js",
     "tests/deck-builder-gate.test.js",
     "tests/exec-deck-payload.test.js",
+    "tests/exec-pptx-csat-null.test.js",
     "tests/i18n-coverage.test.js",
     "tests/page-usage.test.js",
     "tests/rbac-ui-gates.test.js",
@@ -3832,6 +3833,7 @@
     "tests/engagement-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/report-release.smoke.test.js",
+    "tests/report-run-group-share.smoke.test.js",
     "tests/roadmap-audience.smoke.test.js"
    ]
   },
@@ -3845,6 +3847,7 @@
     "tests/engagement-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/report-release.smoke.test.js",
+    "tests/report-run-group-share.smoke.test.js",
     "tests/roadmap-audience.smoke.test.js"
    ]
   },
@@ -3858,6 +3861,7 @@
     "tests/engagement-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/report-release.smoke.test.js",
+    "tests/report-run-group-share.smoke.test.js",
     "tests/roadmap-audience.smoke.test.js"
    ]
   },
@@ -3871,6 +3875,7 @@
     "tests/engagement-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/report-release.smoke.test.js",
+    "tests/report-run-group-share.smoke.test.js",
     "tests/roadmap-audience.smoke.test.js"
    ]
   },
@@ -8371,10 +8376,11 @@
    "method": "GET",
    "path": "/api/report-studio/runs/:id.:fmt",
    "file": "routes/reportStudio.js",
-   "line": 107,
+   "line": 114,
    "tests": [
     "tests/express5-route-syntax.test.js",
     "tests/report-release.smoke.test.js",
+    "tests/report-run-group-share.smoke.test.js",
     "tests/report-studio-routes.smoke.test.js"
    ]
   },
@@ -8383,10 +8389,11 @@
    "method": "POST",
    "path": "/api/report-studio/runs/:id/commentary/regenerate",
    "file": "routes/reportStudio.js",
-   "line": 157,
+   "line": 164,
    "tests": [
     "tests/express5-route-syntax.test.js",
     "tests/report-release.smoke.test.js",
+    "tests/report-run-group-share.smoke.test.js",
     "tests/report-studio-routes.smoke.test.js"
    ]
   },
@@ -8395,10 +8402,11 @@
    "method": "PUT",
    "path": "/api/report-studio/runs/:id/commentary",
    "file": "routes/reportStudio.js",
-   "line": 151,
+   "line": 158,
    "tests": [
     "tests/express5-route-syntax.test.js",
     "tests/report-release.smoke.test.js",
+    "tests/report-run-group-share.smoke.test.js",
     "tests/report-studio-routes.smoke.test.js"
    ]
   },
@@ -8407,10 +8415,11 @@
    "method": "POST",
    "path": "/api/report-studio/runs/:id/publish",
    "file": "routes/reportStudio.js",
-   "line": 128,
+   "line": 135,
    "tests": [
     "tests/express5-route-syntax.test.js",
     "tests/report-release.smoke.test.js",
+    "tests/report-run-group-share.smoke.test.js",
     "tests/report-studio-routes.smoke.test.js"
    ]
   },
@@ -8419,10 +8428,11 @@
    "method": "POST",
    "path": "/api/report-studio/runs/:id/review",
    "file": "routes/reportStudio.js",
-   "line": 122,
+   "line": 129,
    "tests": [
     "tests/express5-route-syntax.test.js",
     "tests/report-release.smoke.test.js",
+    "tests/report-run-group-share.smoke.test.js",
     "tests/report-studio-routes.smoke.test.js"
    ]
   },
@@ -8431,10 +8441,11 @@
    "method": "POST",
    "path": "/api/report-studio/runs/:id/withdraw",
    "file": "routes/reportStudio.js",
-   "line": 164,
+   "line": 171,
    "tests": [
     "tests/express5-route-syntax.test.js",
     "tests/report-release.smoke.test.js",
+    "tests/report-run-group-share.smoke.test.js",
     "tests/report-studio-routes.smoke.test.js"
    ]
   },
@@ -8443,10 +8454,11 @@
    "method": "GET",
    "path": "/api/report-studio/runs/:id",
    "file": "routes/reportStudio.js",
-   "line": 120,
+   "line": 127,
    "tests": [
     "tests/express5-route-syntax.test.js",
     "tests/report-release.smoke.test.js",
+    "tests/report-run-group-share.smoke.test.js",
     "tests/report-studio-routes.smoke.test.js"
    ]
   },
@@ -8455,10 +8467,11 @@
    "method": "GET",
    "path": "/api/report-studio/runs",
    "file": "routes/reportStudio.js",
-   "line": 98,
+   "line": 104,
    "tests": [
     "tests/express5-route-syntax.test.js",
     "tests/report-release.smoke.test.js",
+    "tests/report-run-group-share.smoke.test.js",
     "tests/report-studio-routes.smoke.test.js"
    ]
   },
@@ -8467,7 +8480,7 @@
    "method": "GET",
    "path": "/api/report-studio/stats",
    "file": "routes/reportStudio.js",
-   "line": 171,
+   "line": 178,
    "tests": [
     "tests/report-studio-routes.smoke.test.js"
    ]
@@ -8477,7 +8490,7 @@
    "method": "POST",
    "path": "/api/report-studio/templates/:key/generate",
    "file": "routes/reportStudio.js",
-   "line": 74,
+   "line": 80,
    "tests": [
     "tests/report-release.smoke.test.js",
     "tests/report-studio-routes.smoke.test.js"
@@ -8488,7 +8501,7 @@
    "method": "DELETE",
    "path": "/api/report-studio/templates/:key",
    "file": "routes/reportStudio.js",
-   "line": 72,
+   "line": 78,
    "tests": [
     "tests/report-release.smoke.test.js",
     "tests/report-studio-routes.smoke.test.js"
@@ -8499,7 +8512,7 @@
    "method": "GET",
    "path": "/api/report-studio/templates",
    "file": "routes/reportStudio.js",
-   "line": 67,
+   "line": 73,
    "tests": [
     "tests/report-release.smoke.test.js",
     "tests/report-studio-routes.smoke.test.js"
@@ -8510,7 +8523,7 @@
    "method": "PUT",
    "path": "/api/report-studio/templates",
    "file": "routes/reportStudio.js",
-   "line": 71,
+   "line": 77,
    "tests": [
     "tests/report-release.smoke.test.js",
     "tests/report-studio-routes.smoke.test.js"
@@ -13043,6 +13056,7 @@
     "tests/csv-safe.test.js",
     "tests/deck-builder-gate.test.js",
     "tests/exec-deck-payload.test.js",
+    "tests/exec-pptx-csat-null.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
   },
@@ -13557,6 +13571,7 @@
     "tests/export-share-boundary.smoke.test.js",
     "tests/portfolio-benefits.test.js",
     "tests/report-release.smoke.test.js",
+    "tests/report-run-group-share.smoke.test.js",
     "tests/roadmap-audience.smoke.test.js",
     "tests/shared-code-report.test.js"
    ]

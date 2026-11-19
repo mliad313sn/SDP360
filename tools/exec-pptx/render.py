@@ -142,9 +142,9 @@ _DEFAULTS = {
 # tiles can print an em dash when the payload asks for it (_unknown_as_dash). Default path
 # formats exactly as before.
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from kpi_fmt import unknown_kpis, pct_text, num_text, null_kpis, is_null, verdict_mark  # noqa: E402
+from kpi_fmt import unknown_kpis, pct_text, num_text, null_kpis, survey_null_kpis, is_null, verdict_mark  # noqa: E402
 _UNKNOWN_KPIS = unknown_kpis(K)
-K['_null_set'] = null_kpis(K)   # F-DATA-06 — not measured: em dash, no verdict (before the defaults below)
+K['_null_set'] = null_kpis(K) | survey_null_kpis(K)   # F-DATA-06 / P11-F-01 — not measured: em dash, no verdict (before the defaults below)
 for k, v in _DEFAULTS.items():
     # Both missing keys AND explicit-None values get the default. The
     # browser payload + server enricher will frequently send `null` for
@@ -1407,14 +1407,18 @@ _add_pic_fit(s, _chart('csat_donut', figsize=(4.7, 4.7), data_fn=_draw_csat_donu
 
 # CSAT card — caption + colour now reflect whether the value is above
 # or below the 80% target instead of always saying "above target".
+_csat_known   = not is_null(K, 'csat_pct')   # P11-F-01 — no survey figure: em dash, no target verdict
 _csat_pct_val = K.get('csat_pct', 0) or 0
 _csat_above   = _csat_pct_val >= 80
-_csat_caption = "Target ≥ 80%  ✓  above target" if _csat_above else (
-    f"Target ≥ 80%  ⚠  {80 - _csat_pct_val:.1f}pp below target"
-)
-_csat_accent  = GREEN if _csat_above else AMBER
+if not _csat_known:
+    _csat_caption, _csat_accent = "Target ≥ 80%  ·  not measured this month", GRAY
+else:
+    _csat_caption = "Target ≥ 80%  ✓  above target" if _csat_above else (
+        f"Target ≥ 80%  ⚠  {80 - _csat_pct_val:.1f}pp below target"
+    )
+    _csat_accent  = GREEN if _csat_above else AMBER
 kpi_tile(s, Inches(5.1), Inches(1.55), Inches(3.85), Inches(2.0),
-         "CSAT (% Satisfied)", f"{_csat_pct_val}%",
+         "CSAT (% Satisfied)", f"{_csat_pct_val}%" if _csat_known else "—",
          _csat_caption, accent=_csat_accent, value_color=_csat_accent, value_size=42)
 # Sub-line: survey-level context. Deliberately does NOT print a "N satisfied /
 # M dissatisfied" count — those counts are the NPS buckets (>=90 / <70), so
@@ -1433,7 +1437,7 @@ add_text(s, Inches(5.30), Inches(3.10), Inches(3.6), Inches(0.3),
 # from the 1-5 rating. The user's audit showed NPS=41 IS available
 # in the payload — the old tile unconditionally said "NPS not measured".
 _nps_val = K.get('nps_proxy', 0) or 0
-if _nps_val:
+if not is_null(K, 'nps_proxy'):   # P11-F-01 — a measured NPS (0 included) is shown; only "not measured" falls back
     _nps_above = _nps_val >= 30
     _nps_caption = "Target ≥ 30  ✓  above target" if _nps_above else (
         f"Target ≥ 30  ⚠  {30 - _nps_val} below target"
@@ -1447,7 +1451,7 @@ if _nps_val:
 else:
     _avg_score = K.get('csat_avg_score', 0) or 0
     kpi_tile(s, Inches(9.10), Inches(1.55), Inches(3.85), Inches(2.0),
-             "AVG SURVEY SCORE", f"{_avg_score:.1f}%",
+             "AVG SURVEY SCORE", num_text(K, 'csat_avg_score', '%', '.1f'),
              "Overall ticket-resolution rating",
              accent=BLUE, value_color=BLUE, value_size=42)
     add_text(s, Inches(9.30), Inches(3.10), Inches(3.6), Inches(0.3),
@@ -1520,18 +1524,20 @@ if not _csat_comment:
     _csat_nr = K.get('csat_no_rating', 0)
     _csat_avg= K.get('csat_avg_score', 0) or 0
     _csat_target = '✓' if _csat_p >= 80 else '⚠ below target'
+    # P11-F-01 — an unmeasured CSAT / average is said to be unmeasured; it is never quoted as 0 %.
+    _csat_txt = f"CSAT {_csat_p}% (target ≥80% {_csat_target})" if not is_null(K, 'csat_pct') else "CSAT not measured"
+    _avg_txt  = f"Avg overall score {_csat_avg:.1f}%." if not is_null(K, 'csat_avg_score') else "Avg overall score not measured."
     if _csat_n == 0:
         _csat_comment = (
             f"{MONTH} survey: 0 responses captured this month — push for survey "
-            f"completion via SDP closure email automation. Last known CSAT was "
-            f"{_csat_p}%. NPS not tracked in current survey instrument."
+            f"completion via SDP closure email automation. "
+            + (f"CSAT this month {_csat_p}%. " if not is_null(K, 'csat_pct') else "No CSAT figure this month. ")
+            + "NPS not tracked in current survey instrument."
         )
     else:
         _csat_comment = (
-            f"{MONTH} survey: {_csat_n} responses, CSAT {_csat_p}% "
-            f"(target ≥80% {_csat_target}). {_csat_s} satisfied / "
-            f"{_csat_d} dissatisfied / {_csat_nr} no-rating. Avg overall "
-            f"score {_csat_avg:.1f}%. NPS questions not present in this "
+            f"{MONTH} survey: {_csat_n} responses, {_csat_txt}. {_csat_s} satisfied / "
+            f"{_csat_d} dissatisfied / {_csat_nr} no-rating. {_avg_txt} NPS questions not present in this "
             f"survey — measure via direct survey item next cycle. Focus: "
             f"address {_csat_d} dissatisfied responses with proactive FRT "
             f"triage and status-update cadence on long-running tickets."

@@ -20,7 +20,7 @@
 | jobs | 33 |
 | jobs without test reference | 0 |
 | migrations | 102 |
-| test files | 839 |
+| test files | 841 |
 
 ## Pages
 
@@ -40,7 +40,7 @@
 | PG-dashboards | public/dashboards.html | any | yes | 1 | 13 |
 | PG-data-quality | public/data-quality.html | admin | yes | 0 | 2 |
 | PG-exec-view | public/exec-view.html | public | no | 1 | 8 |
-| PG-executive-report | public/executive-report.html | super_admin | yes | 1 | 12 |
+| PG-executive-report | public/executive-report.html | super_admin | yes | 1 | 13 |
 | PG-executive | public/executive.html | executive / scorecard-viewer | yes | 1 | 16 |
 | PG-finance | public/finance.html | admin / finance-viewer / finance-verifier | yes | 0 | 3 |
 | PG-handoffs | public/handoffs.html | any | yes | 1 | 9 |

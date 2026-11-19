@@ -60,9 +60,15 @@ module.exports = function reportStudioRoutes(deps) {
     const r = await store.getRun(req.params.id); if (!r) { res.status(404).json({ ok: false, error: 'run not found' }); return null; }
     const u = req.reportUser;
     if (write && !isAuthor(u)) { res.status(403).json({ ok: false, error: 'report-author or admin role required' }); return null; }
-    if (!isAuthor(u)) { if (r.status !== 'published') { res.status(403).json({ ok: false, error: 'draft runs are visible to authors only' }); return null; } if (r.site_id != null && !userSites.hasSite(u, r.site_id)) { res.status(403).json({ ok: false, error: 'run belongs to another site' }); return null; } }
+    if (!isAuthor(u)) { if (r.status !== 'published') { res.status(403).json({ ok: false, error: 'draft runs are visible to authors only' }); return null; } if (r.site_id != null && !userSites.hasSite(u, r.site_id)) { res.status(403).json({ ok: false, error: 'run belongs to another site' }); return null; }
+      if (r.site_id == null && !groupRunReadable(u, await store.getTemplate(r.template_key))) { res.status(403).json({ ok: false, error: 'a group-wide report is visible to its audience only' }); return null; } }
     return r;
   }
+  // P11-F1: a group-wide run (site_id NULL) is not "every site's" run. A non-author reads it only when the
+  // template's audience is the governance council and the account is a committee member; executive packs
+  // (and anything else) stay with the authors (admin tier / report-author). Never widens: authors are
+  // handled before this check and site runs keep the site rule above.
+  function groupRunReadable(u, t) { return !!(t && t.audience === 'council' && rdb().userHasRole(u, 'committee-member')); }
 
   router.get('/api/report-studio/templates', requireReportSession, async (req, res) => {
     try { const author = isAuthor(req.reportUser); const dashboards = dashStore ? (await dashStore.list({ status: 'published' })).map(d => ({ key: d.key, title: d.title || (d.definition && d.definition.title) || d.key, audience: d.definition && d.definition.audience })) : [];
@@ -98,6 +104,7 @@ module.exports = function reportStudioRoutes(deps) {
   router.get('/api/report-studio/runs', requireReportSession, async (req, res) => {
     try { const u = req.reportUser; const author = isAuthor(u); const ids = author ? null : userSites.siteIds(u).map(Number);
       let rows = await store.listRuns({ templateKey: req.query.template || null, siteIds: ids, status: req.query.status ? String(req.query.status).split(',') : (author ? null : 'published'), limit: req.query.limit });
+      if (!author && rows.some(r => r.site_id == null)) { const tpl = new Map(); for (const r of rows) if (r.site_id == null && !tpl.has(r.template_key)) tpl.set(r.template_key, await store.getTemplate(r.template_key)); rows = rows.filter(r => r.site_id != null || groupRunReadable(u, tpl.get(r.template_key))); }   // P11-F1
       res.json({ ok: true, author, runs: rows.map(r => ({ ...r, html: undefined })) }); } catch (e) { fail(res, e); }
   });
   // Express-5 safe (path-to-regexp v8 rejects inline `:fmt(a|b)` groups): the allowed formats are checked
