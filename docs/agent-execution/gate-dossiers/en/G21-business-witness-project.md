@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks the two-site pilot on the TEST instance |
 | Decide after | [G11](G11-pilot-sites-field-uat.md) Pilot sites and field acceptance |
-| Target SHA | `a2f24a5d` |
+| Target SHA | `67ca975a` |
 | Generated | 2026-11-19 |
 
 ## 1. Question to decide
@@ -21,7 +21,7 @@ Which real project is run end to end in the native project tool during the pilot
 
 | Evidence | What it shows | Regenerate / re-run | Last changed (commit, date) | Content hash |
 |---|---|---|---|---|
-| `docs/audits/2026-11-12-ppm-parity/README.md` | PPM parity audit | `manual` | 15747970, 2026-11-13 | `3c657f7a7c30addf` |
+| `docs/audits/2026-11-12-ppm-parity/README.md` | PPM parity audit | `manual` | 22297777, 2026-11-19 | `ff260eeeb2e1fa2d` |
 | `docs/ppm/W2-ENGINE-CONTRACT.md` | Scheduling engine contract | `manual` | e1980be4, 2026-11-13 | `c804f7098180f0fb` |
 | `docs/ai-decisions/ADR-G11-native-ppm.md` | Native PPM decision | `manual` | a559483d, 2026-10-29 | `ffb3fd79864b574e` |
 | `tests/ppm-evm.test.js` | Earned value behaviour | `node --test --test-force-exit tests/ppm-evm.test.js` | 434b7434, 2026-11-12 | `e8ee5fb5d340a676` |
@@ -30,7 +30,7 @@ Which real project is run end to end in the native project tool during the pilot
 
 | From lot | Expected evidence | Status |
 |---|---|---|
-| P04 | PPM certification (status, interop and witness kits) | awaited — not in the tree at the target SHA (`docs/agent-execution/P04-*.md`) |
+| P04 | PPM certification (status, interop and witness kits) | delivered: `docs/agent-execution/P04-ppm-certification.md` (34acf361, `ce601c12654f688f`) |
 
 ## 3. Not evidenced, and why
 

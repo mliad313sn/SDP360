@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks the pilot only if its feature is in the pilot scope |
 | Decide after | [G06](G06-kpi-definitions-thresholds.md) KPI definitions, thresholds and score |
-| Target SHA | `a2f24a5d` |
+| Target SHA | `67ca975a` |
 | Generated | 2026-11-19 |
 
 ## 1. Question to decide
@@ -31,7 +31,7 @@ May budget, actual and benefit figures be shown as certified, and under which cu
 
 | From lot | Expected evidence | Status |
 |---|---|---|
-| P04 | PPM certification report (finance checks included) | awaited — not in the tree at the target SHA (`docs/agent-execution/P04-*.md`) |
+| P04 | PPM certification report (finance checks included) | delivered: `docs/agent-execution/P04-ppm-certification.md` (34acf361, `ce601c12654f688f`) |
 
 ## 3. Not evidenced, and why
 

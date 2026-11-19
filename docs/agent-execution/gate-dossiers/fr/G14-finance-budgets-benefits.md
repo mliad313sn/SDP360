@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | ne bloque le pilote que si sa fonction est dans le périmètre du pilote |
 | À décider après | [G06](G06-kpi-definitions-thresholds.md) Définitions des indicateurs, seuils et score |
-| SHA cible | `a2f24a5d` |
+| SHA cible | `67ca975a` |
 | Généré | 2026-11-19 |
 
 ## 1. La question à trancher
@@ -31,7 +31,7 @@ Les montants de budget, de réalisé et de bénéfices peuvent-ils être affich�
 
 | Lot | Preuve attendue | Statut |
 |---|---|---|
-| P04 | Rapport de certification PPM (contrôles financiers inclus) | attendue — absente de l'arbre au SHA cible (`docs/agent-execution/P04-*.md`) |
+| P04 | Rapport de certification PPM (contrôles financiers inclus) | livrée: `docs/agent-execution/P04-ppm-certification.md` (34acf361, `ce601c12654f688f`) |
 
 ## 3. Ce qui n'est pas prouvé, et pourquoi
 
