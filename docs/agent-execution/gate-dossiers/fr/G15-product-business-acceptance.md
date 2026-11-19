@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | ne bloque que le déploiement général |
 | À décider après | [G11](G11-pilot-sites-field-uat.md) Sites pilotes et recette terrain · [G21](G21-business-witness-project.md) Projet témoin métier · [G06](G06-kpi-definitions-thresholds.md) Définitions des indicateurs, seuils et score |
-| SHA cible | `d9d4185f` |
+| SHA cible | `5283e348` |
 | Généré | 2026-11-19 |
 
 ## 1. La question à trancher
@@ -22,7 +22,7 @@ Après le pilote, le produit fait-il ce dont le métier a besoin suffisamment bi
 | Preuve | Ce qu'elle montre | Régénérer / rejouer | Dernière modification (commit, date) | Empreinte |
 |---|---|---|---|---|
 | `docs/sdp360/completion/TRUTH-MATRIX.md` | Matrice de vérité : ce qui est implémenté, testé, validé | `manual` | 5dc0c25c, 2026-11-19 | `f4318da0bef49eb8` |
-| `docs/ops/PERSONA-JOURNEYS.md` | Correspondance persona-parcours | `manual` | d6a7f2bb, 2026-11-12 | `894ea753f0fbb104` |
+| `docs/ops/PERSONA-JOURNEYS.md` | Correspondance persona-parcours | `manual` | 5283e348, 2026-11-19 | `ce32b3188c0da647` |
 | `docs/audits/2026-11-12-enterprise-review/UAT-COMITE-UTILISATEURS.md` | Revue d'un comité utilisateurs IA (pas de vrais utilisateurs) | `manual` | d6a7f2bb, 2026-11-12 | `222de56c07458f00` |
 | `docs/agent-execution/G24-DOSSIER-GO-NOGO-FR.md` | Dossier GO/NO-GO antérieur (pilote conditionnel, production NO-GO) | `node --test --test-force-exit tests/release-dossier.test.js` | d6695109, 2026-11-05 | `0130ead17d7d9889` |
 
