@@ -11,7 +11,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-24.04   # pinned: Playwright 1.56 had no Chromium build for ubuntu-latest (26.04); kept for 1.64 until a 26.04 run is proven
-    timeout-minutes: 20
+    timeout-minutes: 35   # 2026-11-19: suite grew past 18 min (P02 authz outcome probe ~4 min, P03/P05/P07 tests)
     env:
       # reports-db refuses first boot without a bootstrap admin; throwaway values for the CI test databases.
       DASH_USER: ci-admin
