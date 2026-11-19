@@ -1305,7 +1305,8 @@ function Stop-NoServiceProbe {
     }
 }
 function Test-AppProbe {
-    $url = 'http://localhost:' + $AppPort + '/api/auth/config'
+    # /ready reads the database (503 when unreachable); the auth-config route answered 200 with a dead DB (P11 F-02)
+    $url = 'http://localhost:' + $AppPort + '/ready'
     for ($i = 1; $i -le 3; $i++) {
         try {
             $r = Invoke-WebRequest -UseBasicParsing -Uri $url -TimeoutSec 10

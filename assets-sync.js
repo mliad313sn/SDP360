@@ -1,9 +1,11 @@
 'use strict';
+const { assertNotTruncated } = require('./services/sync/truncationGuard');
 // fetchView is the server.js primitive, injected by init(): fetchView(viewId, maxRows) → { rows }.
 // RECON FACT (2026-07-17): the AP /data endpoint ignores maxRows and returns the WHOLE view,
 // or times out on a huge one (software_installations = 121k took 13.6 min → past fetchView's
 // 120s cap, which is why it moved to sub-project C). So for A's 5 small views this is a plain
-// single fetch that returns everything, fast. No truncation guard — the API doesn't truncate.
+// single fetch that returns everything, fast. The API does not truncate by itself, but a view can come
+// back partial (mid-rescan): syncAssetView applies the shared truncation guard before replacing.
 // The hardCap is only a data-gone-wrong tripwire (a view should not suddenly be 10x its size);
 // a slow/huge view fails via fetchView's timeout (throws), and the engine (Task 2) keeps the
 // table intact on any throw.
@@ -42,9 +44,16 @@ async function syncAssetView(def, { fetchView, replaceTable, countRows, markSucc
     // a view mid-rescan) would otherwise DELETE the live table and insert nothing — total silent data
     // loss recorded as a clean sync. Refuse to full-replace a currently-POPULATED table with zero rows.
     // A first-ever sync (existing count 0) with an empty fetch is fine — it writes nothing.
-    if (mapped.length === 0 && (await countRows(def.table)) > 0) {
-      throw new Error(`${def.job}: fetch returned 0 rows but table has rows — refusing to wipe`);
+    const stored = await countRows(def.table);
+    if (mapped.length === 0 && stored > 0) {
+      const e = new Error(`${def.job}: fetch returned 0 rows but table has rows — refusing to wipe`);
+      e.transient = true; e.truncation = true;
+      throw e;
     }
+    // P11 F-03: a NON-empty partial view (2 rows for 2 473 stored) used to full-replace the table and
+    // be recorded as a success — and that night's effort snapshot / asset_first_seen were computed from
+    // it. Same tolerance rule as the Zoho reconcilers (SYNC_TRUNCATION_TOLERANCE_PCT, default 20 %).
+    assertNotTruncated(def.job, mapped.length, stored);
     const n = await replaceTable(def.table, Object.values(def.columns), mapped);  // DELETE+INSERT, one tx
     await markSuccess(def.job, n);
     return n;

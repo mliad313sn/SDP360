@@ -15,7 +15,7 @@
   "jobs": 33,
   "jobs_without_test_reference": 0,
   "migrations": 102,
-  "test_files": 841
+  "test_files": 843
  },
  "pages": [
   {
@@ -3060,6 +3060,7 @@
    "file": "server.js",
    "line": 3846,
    "tests": [
+    "tests/sdp-manager-probe.test.js",
     "tests/session-security.smoke.test.js",
     "tests/sso-routes.smoke.test.js"
    ]
@@ -13526,7 +13527,8 @@
     "tests/api-key-injection.smoke.test.js",
     "tests/authz-route-matrix.test.js",
     "tests/installer-upgrade-order.test.js",
-    "tests/ready-probe.smoke.test.js"
+    "tests/ready-probe.smoke.test.js",
+    "tests/sdp-manager-probe.test.js"
    ]
   },
   {

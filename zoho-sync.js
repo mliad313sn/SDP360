@@ -22,7 +22,7 @@
 'use strict';
 
 const {
-  getLastSyncAt, markSyncSuccess, markSyncError, countTable,
+  getLastSyncAt, markSyncSuccess, markSyncError, countTable, listSurveyResultIds,
   upsertChangeBatch, upsertCABBatch,
   upsertSurveyResultBatch, upsertSurveyAnswerBatch,
   reconcileChangeRecords, reconcileCABApprovals, reconcileSurveyResults,
@@ -233,19 +233,9 @@ const EXPECTED_REQUEST_COLS = [
 
 
 // ── Truncation guard (Step 1, 2026-10-19) ─────────────────────────
-// Every Zoho job downloads the WHOLE view and then deletes local rows whose id is absent
-// from the download (reconcile*). A truncated or partial export therefore used to cascade
-// into a mass delete. Before any reconciliation, refuse a fetch that is smaller than the
-// local table by more than `tolerancePct` (default 20 %). The error is marked transient so
-// the runner retries later instead of applying it.
-function assertNotTruncated(job, fetched, stored, tolerancePct = Number(process.env.SYNC_TRUNCATION_TOLERANCE_PCT || 20)) {
-  const tol = Math.max(0, Math.min(90, Number(tolerancePct) || 0)) / 100;
-  if (stored > 0 && fetched < stored * (1 - tol)) {
-    const e = new Error(`${job}: fetched ${fetched} rows but ${stored} are stored (−${Math.round(100 - fetched / stored * 100)} %) — export looks truncated, refusing to reconcile`);
-    e.transient = true; e.truncation = true;
-    throw e;
-  }
-}
+// Shared with assets-sync.js since P11 F-03: services/sync/truncationGuard.js. Called before EVERY
+// reconcile below (change, cab, survey, requests) — a partial export must never mass-delete.
+const { assertNotTruncated } = require('./services/sync/truncationGuard');
 
 // ── SYNC: CHANGE + CAB ────────────────────────────────────────────
 
@@ -450,9 +440,16 @@ async function syncSurveyData() {
     // Build live result ID set for reconciliation
     const liveResultIds = new Set(allResults.map(r => r['Result ID']).filter(Boolean));
 
-    // Incremental: only process results sent since last sync
+    // P11 F-01 — refuse a partial export BEFORE any write: the reconcile below deletes every
+    // stored result (and its answers) absent from this download.
+    assertNotTruncated(`${JOB}/results`, liveResultIds.size, await countTable('survey_results'));
+
+    // Incremental: results sent since last sync, PLUS any live result missing locally (a row
+    // lost to an earlier partial run would otherwise never come back — its sent date is old).
+    const storedIds = lastSync ? await listSurveyResultIds() : null;
     const newResults = lastSync
       ? allResults.filter(r => {
+          if (r['Result ID'] && !storedIds.has(r['Result ID'])) return true;
           const sent = parseZohoDate(r['Survey Sent on']);
           return isNew(sent, lastSync);
         })
