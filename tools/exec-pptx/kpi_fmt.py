@@ -30,6 +30,17 @@ def null_kpis(K):
     return {k for k in NULLABLE_KPIS if k in listed and K.get(k) is None}
 
 
+# P11-F-01 — survey KPIs the server never computes: a None from the browser always means "no survey figure this
+# month" (no responses, no rating question). They are not measured whatever _null_kpis says, so the slide prints an
+# em dash with no target verdict. A measured 0 (responses exist, nobody satisfied) stays 0.
+SURVEY_KPIS = ('csat_pct', 'csat_avg_score', 'nps_proxy')
+
+
+def survey_null_kpis(K):
+    """Survey keys missing or None — call BEFORE the defaults are applied."""
+    return {k for k in SURVEY_KPIS if K.get(k) is None}
+
+
 def is_null(K, key):
     return key in (K.get('_null_set') or ())
 
