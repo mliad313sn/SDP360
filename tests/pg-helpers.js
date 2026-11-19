@@ -90,6 +90,14 @@ function schemaCtxFrom(baseUrl, schema) {
   return { url, schema: name, name: null, adminUrl: null };
 }
 
+// Throwaway database name. Under tools/test/run-all.js the name carries the run id (SDP_TEST_RUN_ID) so the
+// end-of-run sweep drops only this run's databases, never a concurrent runner's (P11 AUD-8).
+function testDbName() {
+  const rand = Math.random().toString(36).slice(2, 8).replace(/[^a-z0-9]/g, '') || 'x';
+  const run = process.env.SDP_TEST_RUN_ID;
+  return 'sdp_tracker_test_' + (run && /^[a-z0-9]{1,16}$/.test(run) ? run + '_' : '') + rand;
+}
+
 // Returns a connection context for an isolated run, or null if Postgres is unreachable.
 // Preference order: a real throwaway DATABASE when an admin URL works (best isolation),
 // otherwise a throwaway SCHEMA on PG_URL (no extra rights needed).
@@ -99,7 +107,7 @@ async function provisionTestDb() {
   catch (e) { admin = null; }
   if (admin) {
     try {
-      const name = 'sdp_tracker_test_' + Math.random().toString(36).slice(2, 8);
+      const name = testDbName();
       // Collation like CI (postgres image = en_US.utf8) and prod (English Windows locale): a
       // linguistic collation ignores punctuation in TEXT comparisons, which a C cluster hides
       // (CI-only failure of 2026-10-28). SDP_TEST_PG_LOCALE overrides; '' keeps the cluster
@@ -163,4 +171,4 @@ async function dropTestDb(ctx) {
   await admin.query(`DROP DATABASE IF EXISTS ${ctx.name} WITH (FORCE)`);
   await admin.end();
 }
-module.exports = { provisionTestDb, dropTestDb, redactUrl, pgUnavailable, schemaCtxFrom };
+module.exports = { provisionTestDb, dropTestDb, redactUrl, pgUnavailable, schemaCtxFrom, testDbName };

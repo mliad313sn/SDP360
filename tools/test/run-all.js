@@ -23,8 +23,11 @@ const evFile = path.join(os.tmpdir(), 'sdp-test-events-' + process.pid + '.jsonl
 const preload = ['--require ' + JSON.stringify(path.join(__dirname, 'blocking-stdio.js')),
   '--require ' + JSON.stringify(path.join(testsDir, '_default-env.js')),
   '--import ' + JSON.stringify(require('url').pathToFileURL(path.join(testsDir, '_pg-boot.mjs')).href)].join(' ');
+// P11 AUD-8: every throwaway database of this run carries this id, so the end-of-run sweep drops only ours
+const runId = require('crypto').randomBytes(4).toString('hex');
 const env = Object.assign({}, process.env, {
   NODE_OPTIONS: ((process.env.NODE_OPTIONS || '') + ' ' + preload).trim(),
+  SDP_TEST_RUN_ID: runId,
 });
 const r = spawnSync(process.execPath, [
   '--test', '--test-force-exit',
@@ -35,7 +38,7 @@ const r = spawnSync(process.execPath, [
 ], { cwd: root, stdio: 'inherit', env });
 
 try {   // throwaway PostgreSQL databases from tests/_pg-boot.mjs
-  spawnSync(process.execPath, [path.join(__dirname, 'drop-test-dbs.js')], { cwd: root, stdio: 'inherit', env: process.env });
+  spawnSync(process.execPath, [path.join(__dirname, 'drop-test-dbs.js'), '--run=' + runId], { cwd: root, stdio: 'inherit', env: process.env });
 } catch (_) {}
 let events = [];
 try { events = parseEvents(fs.readFileSync(evFile, 'utf8')); } catch {}

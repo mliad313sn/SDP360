@@ -103,7 +103,10 @@ node --test --test-force-exit tests/pg-tracker.test.js
 ```
 
 Tests provision an isolated `sdp_tracker_test_<rand>` database per run via
-`PG_ADMIN_URL` and drop it afterwards — they never touch a shared DB.
+`PG_ADMIN_URL` and drop it afterwards — they never touch a shared DB. Under `npm test`
+(`tools/test/run-all.js`) the name is `sdp_tracker_test_<runid>_<rand>` and the end-of-run sweep
+(`drop-test-dbs.js --run=<runid>`) drops only that run's databases, so two runners can share a
+cluster. `node tools/test/drop-test-dbs.js` without `--run` still sweeps every idle test database.
 
 ## Data copy (one-shot)
 
