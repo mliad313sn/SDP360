@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks general deployment only |
 | Decide after | none |
-| Target SHA | `ccaeb0a3` |
+| Target SHA | `906ee4cb` |
 | Generated | 2026-11-19 |
 
 ## 1. Question to decide
