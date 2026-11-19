@@ -7,7 +7,9 @@
 //   • technical completion (→ awaiting_verification) is NOT closure; only an independent
 //     reviewer reaches verified_closed.
 //   • the verifier is never the accountable owner, never an execution owner and never the
-//     creator — a super_admin included (no self-verification).
+//     creator — a super_admin included (no self-verification). The identities at submission
+//     (c.submission, recorded by the store when the work reaches awaiting_verification) count too,
+//     so re-pointing owner / reviewer after submission cannot open a self-verification (P11 AUD-1).
 //   • a high / critical commitment cannot leave `captured` (nor become `committed`) without an
 //     accountable owner, a due date (or an approved exception) and a treatment plan.
 //   • a source system's "closed" status never produces verified_closed (sourceStatusSuggestion).
@@ -52,6 +54,11 @@ const _is = (actor, who) => { const w = _s(who); return !!w && _ids(actor).inclu
 function isSelf(c, actor) {
   if (!c || !actor) return false;
   if (_is(actor, c.accountable_owner) || _execs(c).some((e) => _is(actor, e)) || _is(actor, c.created_by)) return true;
+  // P11 AUD-1: the people recorded when the work was submitted for verification (submitter, owner, executors,
+  // creator at that moment) stay excluded even if the fields were re-pointed afterwards
+  const sub = c.submission;
+  if (sub && (_is(actor, sub.submitted_by) || _is(actor, sub.accountable_owner) || _is(actor, sub.created_by)
+    || _execs(sub).some((e) => _is(actor, e)))) return true;
   // ADR-006: a deputy never satisfies four-eyes against the person they replace — standing in for the
   // owner, an executor or the creator counts as being them
   return (actor.principals || []).some((p) => isSelf(c, p));

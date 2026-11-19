@@ -58,7 +58,22 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
   }
   const row = (r) => r && ({ ...r, id: Number(r.id), site_id: r.site_id == null ? null : Number(r.site_id), version: Number(r.version), execution_owners: P_(r.execution_owners) });
 
-  async function getRaw(id) { return row(await P('SELECT * FROM commitments WHERE id=?').get(Number(id))); }
+  // P11 AUD-1 — who submitted the current verification round and who owned / executed / created the work then.
+  // Read from the append-only (hash-chained) event that moved the commitment to awaiting_verification; an older
+  // event without the snapshot still yields its actor as the submitter.
+  async function submissionOf(cid) {
+    const e = await P("SELECT actor, details FROM commitment_events WHERE commitment_id=? AND action='transition' AND to_status='awaiting_verification' ORDER BY id DESC LIMIT 1").get(Number(cid));
+    if (!e) return null;
+    let d = null; try { d = e.details ? JSON.parse(e.details) : null; } catch (_) { d = null; }
+    const sub = d && d.submission ? d.submission : {};
+    return { submitted_by: sub.submitted_by || e.actor || null, accountable_owner: sub.accountable_owner || null,
+      execution_owners: Array.isArray(sub.execution_owners) ? sub.execution_owners : [], created_by: sub.created_by || null };
+  }
+  async function getRaw(id) {
+    const c = row(await P('SELECT * FROM commitments WHERE id=?').get(Number(id)));
+    if (c) c.submission = await submissionOf(c.id);
+    return c;
+  }
   async function get(id) {
     const c = await getRaw(id); if (!c) return null;
     c.links = (await P('SELECT id, source_system, source_id, relation, created_by, created_at FROM commitment_source_links WHERE commitment_id=? ORDER BY id').all(c.id)).map((l) => ({ ...l, id: Number(l.id) }));
@@ -186,10 +201,25 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
     if (dueChanged && c.due_date && !str(reason)) throw bad('a reason is required to change the due date');
     const mv = dueChanged ? L.dueMoveCheck(c, f.due_date, { isAdmin, policy }) : null; if (mv) throw typed(mv.code, mv.error, mv.status);
     if (dueChanged && !c.baseline_due_date) f.baseline_due_date = f.due_date;
+    // P11 AUD-1 — while (or after) work awaits verification, the reviewer may not be re-pointed to someone who
+    // owns, executes, created or submitted it (the verify check refuses them anyway; this stops the set-up).
+    if (f.reviewer && c.submission) {
+      const probe = { username: f.reviewer };
+      if (L.isSelf({ ...c, ...f, execution_owners: f.execution_owners !== undefined ? P_(f.execution_owners) : c.execution_owners }, probe))
+        throw typed('FORBIDDEN', 'the reviewer cannot be the owner, an executor, the creator or the submitter of this commitment', 403);
+    }
+    // owner / executors / reviewer changes keep their old and new values in the event log (P11 AUD-1)
+    const changes = {};
+    for (const k of ['accountable_owner', 'execution_owners', 'reviewer']) {
+      if (f[k] === undefined) continue;
+      const from = k === 'execution_owners' ? c.execution_owners : (c[k] == null ? null : c[k]);
+      const to = k === 'execution_owners' ? P_(f[k]) : f[k];
+      if (JSON.stringify(from) !== JSON.stringify(to)) changes[k] = { from, to };
+    }
     await tx(async () => {
       await bump(c, expectedVersion, f);
       await event(c.id, user, dueChanged ? 'due_date_changed' : 'updated', c.status, c.status,
-        { fields: Object.keys(f), ...(dueChanged ? { from: c.due_date, to: f.due_date, reason: str(reason, 500) } : {}) });
+        { fields: Object.keys(f), ...(Object.keys(changes).length ? { changes } : {}), ...(dueChanged ? { from: c.due_date, to: f.due_date, reason: str(reason, 500) } : {}) });
     });
     return get(c.id);
   }
@@ -209,7 +239,12 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
         const n = await P('SELECT COUNT(*) AS n FROM closure_verifications WHERE commitment_id=?').get(c.id);
         await insert('closure_verifications', { commitment_id: c.id, attempt: Number(n.n) + 1, reviewer: actorName(actor), decision, reason: str(reason, 2000), at: t });
       }
-      await event(c.id, actor, 'transition', c.status, to, reason ? { reason: str(reason, 2000) } : null);
+      // P11 AUD-1 — record who submitted and who owned the work at submission; verification checks against it
+      const submission = to === 'awaiting_verification'
+        ? { submitted_by: actorName(actor), accountable_owner: c.accountable_owner || null, execution_owners: c.execution_owners || [], created_by: c.created_by || null }
+        : null;
+      const det = { ...(reason ? { reason: str(reason, 2000) } : {}), ...(submission ? { submission } : {}) };
+      await event(c.id, actor, 'transition', c.status, to, Object.keys(det).length ? det : null);
     });
     return get(c.id);
   }

@@ -113,3 +113,44 @@ test('pg: critical finding scenario (A01/A02, reject, verify, reopen)', async (t
   const s = makeCommitmentStore({ prepare: (sql) => rdb.pgHandle().prepare(sql) }, { isPg: true });
   try { await s.init(); await scenario2(s); } finally { await dropTestDb(ctx); }
 });
+
+// P11 AUD-1 — four-eyes bypass: the accountable owner, as site editor, re-points accountable_owner and
+// reviewer while the commitment is awaiting verification, then verifies it himself. The identities at
+// submission are recorded and checked; owner / reviewer changes keep their old and new values.
+async function scenarioAud1(s) {
+  const own = { id: 7, username: 'it.owner', canEdit: true, isAdmin: false };
+  const a = await s.create({ kind: 'issue', title: 'Firewall rule review', site_id: 3, accountable_owner: 'it.owner', reviewer: 'biz.reviewer' }, { user: { id: 9, username: 'coord.x', canEdit: true } });
+  const id = a.commitment.id;
+  let c = await s.transition(id, 'committed', { actor: own, expectedVersion: 1 });
+  c = await s.transition(id, 'in_progress', { actor: own, expectedVersion: c.version });
+  c = await s.transition(id, 'awaiting_verification', { actor: own, expectedVersion: c.version });
+  await assert.rejects(async () => s.transition(id, 'verified_closed', { actor: own, expectedVersion: c.version }), (e) => e.status === 403, 'self-verify refused');
+  // the repro: re-point owner + reviewer, then verify
+  let blocked = false;
+  try { c = await s.update(id, { accountable_owner: 'someone.else', reviewer: 'it.owner' }, { user: own, expectedVersion: c.version }); }
+  catch (e) { blocked = true; assert.ok(e.status === 400 || e.status === 403, 'refused with a client error'); }
+  if (!blocked) await assert.rejects(async () => s.transition(id, 'verified_closed', { actor: own, expectedVersion: c.version }), (e) => e.status === 403, 'submitter cannot verify after re-pointing');
+  c = await s.get(id);
+  assert.notEqual(c.status, 'verified_closed');
+  // a legitimate change of reviewer is allowed and logged with old and new values; the submitter still cannot verify
+  c = await s.update(id, { reviewer: 'other.reviewer' }, { user: own, expectedVersion: c.version });
+  const ev = c.events.filter((e) => e.action === 'updated').pop();
+  assert.deepEqual(ev.details.changes.reviewer, { from: 'biz.reviewer', to: 'other.reviewer' });
+  c = await s.update(id, { accountable_owner: 'someone.else' }, { user: own, expectedVersion: c.version });
+  assert.deepEqual(c.events.filter((e) => e.action === 'updated').pop().details.changes.accountable_owner, { from: 'it.owner', to: 'someone.else' });
+  await assert.rejects(async () => s.transition(id, 'verified_closed', { actor: { ...own, username: 'it.owner' }, expectedVersion: c.version }), (e) => e.status === 403, 'owner at submission cannot verify');
+  const sub = c.events.find((e) => e.to_status === 'awaiting_verification');
+  assert.equal(sub.details.submission.submitted_by, 'it.owner');
+  assert.equal(sub.details.submission.accountable_owner, 'it.owner');
+  c = await s.transition(id, 'verified_closed', { actor: { id: 8, username: 'other.reviewer' }, expectedVersion: c.version });
+  assert.equal(c.verified_by, 'other.reviewer');
+}
+
+test('pg: AUD-1 owner cannot re-point owner/reviewer and self-verify', async (t) => {
+  const ctx = await provisionTestDb(); if (!ctx) return t.skip('no pg');
+  process.env.PG_URL = ctx.url; process.env.REPORTS_BACKEND = 'postgres';
+  const rdb = require('../reports-db'); await rdb.initPgReports();
+  await require('../db/migrate').migrateAtBoot({ log: () => {} });
+  const s = makeCommitmentStore({ prepare: (sql) => rdb.pgHandle().prepare(sql) }, { isPg: true });
+  try { await s.init(); await scenarioAud1(s); } finally { await dropTestDb(ctx); }
+});

@@ -36,7 +36,7 @@ function classifyTarget({ database, schema } = {}) {
   const db = String(database || '').toLowerCase(), sc = String(schema || '').toLowerCase();
   const testSchema = /^sdp_test_[a-z0-9]+$/.test(sc);
   const productionLike = PROD_DBS.includes(db) || /prod/.test(db);
-  const throwawayDb = /^sdp_tracker_test_[a-z0-9]+$/.test(db) || /(^|_)(demo|test|sandbox|throwaway)(_|$)/.test(db);
+  const throwawayDb = /^sdp_tracker_test_[a-z0-9_]+$/.test(db) || /(^|_)(demo|test|sandbox|throwaway)(_|$)/.test(db);
   if (testSchema) return { throwaway: true, productionLike, reason: `pinned to throwaway schema ${sc}` };
   if (productionLike) return { throwaway: false, productionLike: true, reason: `database ${db || '(unknown)'} looks like production` };
   if (throwawayDb) return { throwaway: true, productionLike: false, reason: `database ${db} is named as a throwaway` };
