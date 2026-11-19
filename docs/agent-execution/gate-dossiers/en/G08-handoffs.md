@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks the pilot only if its feature is in the pilot scope |
 | Decide after | [G07](G07-closure-policy-commitments.md) Closure policy for commitments |
-| Target SHA | `789ccd9a` |
+| Target SHA | `dca7df89` |
 | Generated | 2026-11-19 |
 
 ## 1. Question to decide
@@ -29,7 +29,7 @@ Should handoffs between departments be enabled, who is notified, and do you want
 
 | From lot | Expected evidence | Status |
 |---|---|---|
-| P03 | Switch activation lots (handoffs_enabled, handoff_notify_enabled) | awaited — not in the tree at the target SHA (`docs/agent-execution/P03-*.md`) |
+| P03 | Switch activation lots (handoffs_enabled, handoff_notify_enabled) | delivered: `docs/agent-execution/P03-switch-lots.md` (e3a38ce3, `99419412678af916`) |
 
 ## 3. Not evidenced, and why
 

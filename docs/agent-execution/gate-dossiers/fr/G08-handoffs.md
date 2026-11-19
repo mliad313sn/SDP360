@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | ne bloque le pilote que si sa fonction est dans le périmètre du pilote |
 | À décider après | [G07](G07-closure-policy-commitments.md) Politique de clôture des engagements |
-| SHA cible | `789ccd9a` |
+| SHA cible | `dca7df89` |
 | Généré | 2026-11-19 |
 
 ## 1. La question à trancher
@@ -29,7 +29,7 @@ Faut-il activer les passations entre départements, qui est notifié, et voulez-
 
 | Lot | Preuve attendue | Statut |
 |---|---|---|
-| P03 | Lots d'activation (handoffs_enabled, handoff_notify_enabled) | attendue — absente de l'arbre au SHA cible (`docs/agent-execution/P03-*.md`) |
+| P03 | Lots d'activation (handoffs_enabled, handoff_notify_enabled) | livrée: `docs/agent-execution/P03-switch-lots.md` (e3a38ce3, `99419412678af916`) |
 
 ## 3. Ce qui n'est pas prouvé, et pourquoi
 

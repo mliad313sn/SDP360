@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks the pilot only if its feature is in the pilot scope |
 | Decide after | [G06](G06-kpi-definitions-thresholds.md) KPI definitions, thresholds and score |
-| Target SHA | `789ccd9a` |
+| Target SHA | `dca7df89` |
 | Generated | 2026-11-19 |
 
 ## 1. Question to decide
@@ -32,7 +32,7 @@ Who may verify and close a commitment, who accepts residual risk, and who is tol
 
 | From lot | Expected evidence | Status |
 |---|---|---|
-| P03 | Switch activation lots (which lot carries commitments_enabled) | awaited — not in the tree at the target SHA (`docs/agent-execution/P03-*.md`) |
+| P03 | Switch activation lots (which lot carries commitments_enabled) | delivered: `docs/agent-execution/P03-switch-lots.md` (e3a38ce3, `99419412678af916`) |
 
 ## 3. Not evidenced, and why
 
