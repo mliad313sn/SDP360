@@ -13,7 +13,7 @@ of the pages it renders: treat it as a candidate only after a report-only run sh
 
 Violations: not measured in this file (“—”). Run with `--violations <export.json>` after a report-only period to add observed counts.
 
-Journeys: 44 — strict 0, enforceable 10, blocked 34, unknown 0.
+Journeys: 45 — strict 0, enforceable 11, blocked 34, unknown 0.
 
 ## Journeys
 
@@ -63,6 +63,7 @@ Journeys: 44 — strict 0, enforceable 10, blocked 34, unknown 0.
 | Field technician (UAT-F seat 6, simulation, SIMULATED network) | Field app at 390 px in French, offline capture then sync, no report/PV write, Home at 390 px, field profile | `/field/index.html` | enforceable | — |
 | Super admin / IT operations (UAT-F seat 7, simulation) | Admin console, security journal, source freshness, users and redacted config, controlled roadmap publication, department crosswalk, workspac | `/reports.html`, `/workspace-settings.html` | blocked | `/reports.html` |
 | Site business user (UAT-F seat 8, simulation) | Site IT status, neighbour site refused, no write and no internal list, internal queue never queried, French at 320 px, business profile | `/site-awareness.html` | blocked | `/site-awareness.html` |
+| Every profile (11 profiles × 3 tasks) | Open each of the profile's three task pages from Home in one click, without error (FR + EN task list: `tests/e2e/fixtures/profile-tasks.js`) | `/home.html` | enforceable | — |
 
 ## Pages used by the journeys
 

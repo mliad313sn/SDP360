@@ -68,6 +68,7 @@ Expected first click = the action page when it differs from the start page (a **
 | Site IT Lead | Field technician (UAT-F seat 6, simulation, SIMULATED network) | Field app at 390 px in French, offline capture then sync, no report/PV write, Home at 390 px, field profile | `public/field/index.html` | in-page control | `tests/e2e/uat-s6-field-technician.spec.js` |
 | — | Super admin / IT operations (UAT-F seat 7, simulation) | Admin console, security journal, source freshness, users and redacted config, controlled roadmap publication, department crosswalk, workspace settings, admin at 320 px | `public/reports.html` | `public/workspace-settings.html` | `tests/e2e/uat-s7-super-admin.spec.js` |
 | — | Site business user (UAT-F seat 8, simulation) | Site IT status, neighbour site refused, no write and no internal list, internal queue never queried, French at 320 px, business profile | `public/site-awareness.html` | in-page control | `tests/e2e/uat-s8-site-business.spec.js` |
+| — | Every profile (11 profiles × 3 tasks) | Open each of the profile's three task pages from Home in one click, without error (FR + EN task list: `tests/e2e/fixtures/profile-tasks.js`) | `public/home.html` | `each task page` | `tests/e2e/p09-profile-tasks-a.spec.js`, `tests/e2e/p09-profile-tasks-b.spec.js` (P09) |
 
 ## 3. Usability tasks (protocol)
 
