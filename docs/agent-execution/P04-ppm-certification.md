@@ -180,7 +180,7 @@ beyond certification fixes).
 | H8 | PARTIAL | **PARTIAL** | `routes/ppmEngine.js:25` | ppm-engine-routes.smoke | MSPDI / XER export (OFF); no external token API for projects |
 | I1 | MISSING | **PARTIAL** | `public/lib/ganttCore.js:208` | tools/ppm/bench-gantt-browser.js (P04) | windowed (OFF): ≤ 41 bars of 5,000 in the DOM; headless p50 frame 2–4 × the plain-scroll baseline — 60 fps NOT met |
 | I2 | PARTIAL | **IMPLEMENTED** | `services/ppm/scheduleEngine.js:175` | ppm-schedule-engine "benchmark: 10 000 tasks…" | full recompute < 1 s (not incremental) |
-| I3 | MISSING | **PARTIAL** | `tools/ppm/bench-gantt-browser.js:5` | tools/ppm/bench-gantt-browser.js (P04) | 30-cycle soak: heap flat (≈ 6 MB); a 10-minute soak on a real screen = human |
+| I3 | MISSING | **PARTIAL** | `tools/ppm/bench-gantt-browser.js:5` | tools/ppm/bench-gantt-browser.js (P04) | 300-cycle (~7 min) headless soak: heap flat 5.7–7.2 MB; a 10-minute soak on a real screen = human |
 | I4 | MISSING | **PARTIAL (OFF)** | `public/lib/ppmOfflineQueue.js:79` | ppm-offline-queue (7) | task / milestone edits only; no low-bandwidth mode; field acceptance = human |
 | I5 | MISSING | **IMPLEMENTED (OFF)** | `public/lib/ppmOfflineQueue.js:115` | ppm-concurrency.smoke; ppm-offline-queue | detection ON (409); merge screen OFF |
 | K1 | PARTIAL | **IMPLEMENTED (OFF)** | `services/ppm/projectRoles.js:39` | ppm-project-roles; ppm-w4-enterprise.smoke | ppm_project_roles_enabled |
@@ -214,7 +214,7 @@ Gantt v2 browser bench — 5000 tasks, 157.0.8103.78 (headless)
 ```
 
 - **Windowing: PASS** — of 5,000 rows only 31–41 bars and 186 grid cells exist in the DOM at any time.
-- **Memory: PASS** — heap flat across the soak (no growth over the last half). A long soak — `--soak=300` (300 × re-mount + 1 s full scroll, about 10 minutes, run 2026-11-19 11:45→) — stayed between 5.7 and 7.2 MB, last 6.0 MB, growth over the last half −0.3 MB, no page error.
+- **Memory: PASS** — heap flat across the soak (no growth over the last half). A long soak — `--soak=300` (300 × re-mount + 1 s full scroll, about 7 minutes wall clock, run 2026-11-19 11:45→11:52 — shorter than the request's 10-minute soak; the 10-minute real-screen run stays a human step) — stayed between 5.7 and 7.2 MB, last 6.0 MB, growth over the last half −0.3 MB, no page error.
 - **60 fps: NOT MET.** The long-soak run (lighter machine load) measured its 10 s scroll at p50 16.7 ms, p95 66.7 ms, 199 of 362 frames > 16.7 ms; the run above p50 66.6 ms, p95 200 ms — the figure moves with the sandbox load, more than half of the frames miss 16.7 ms in both. A plain 130,000-px div scrolls at p50 16.7 ms in the same browser; the Gantt runs at p50 33–67 ms
   (p95 133–200 ms), with the main thread busy the whole run. A CPU profile shows `paint()` (`public/lib/ganttV2.js`)
   spending about 12 ms of script per frame rebuilding the visible SVG through `innerHTML`, plus style / layout of an SVG
