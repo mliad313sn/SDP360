@@ -12,6 +12,11 @@
 //              or belongs to another project (PARENT_OTHER_PROJECT), nor make a loop (PARENT_CYCLE)
 //   links      a task cannot depend on one of its ancestors or descendants (DEPENDS_ON_HIERARCHY): the summary
 //              rolls its children up, a finish-to-start link between them is a contradiction (MS Project refuses it)
+//   range      (P11 F1, ADR docs/ai-decisions/ADR-P11-F1-plan-value-bounds.md) every date of a plan item — the dated
+//              fields above plus deadline / constraint_date / finish_deadline — lies in years 1970..2200 (DATE_RANGE);
+//              duration_days is 0..36 500 working days (DURATION_RANGE); a link lag is −36 500..36 500 (LAG_RANGE).
+//              Beyond them the schedule engine cannot place the task (it stops at year 3065 and clamps before 1970)
+//              and a single typo used to make every portfolio read fail.
 //
 // Only what the write CHANGES is checked (incremental): a legacy row that already breaks a rule stays editable for
 // its other fields (status, owner…) — `tools/pg/ppm-integrity-report.js` lists those rows for a person to fix.
@@ -20,6 +25,14 @@ const DATE_FIELDS = {
   task: ['start_date', 'end_date', 'baseline_start', 'baseline_end', 'forecast_end', 'actual_start', 'actual_end'],
   project: ['start_date', 'end_date', 'baseline_start', 'baseline_end', 'forecast_end', 'actual_start', 'actual_end'],
   milestone: ['due_date', 'baseline_date', 'done_at'],
+};
+// P11 F1 — plan value bounds (ADR-P11-F1). 1970 = the engine's day 0 (earlier days are clamped, not scheduled);
+// 2200 and 36 500 working days (~140 calendar years) keep a single task far inside the engine's year-3065 guard.
+const RANGE = Object.freeze({ minYear: 1970, maxYear: 2200, maxDurationDays: 36500, maxLagAbs: 36500 });
+const RANGE_DATE_FIELDS = {
+  task: ['deadline', 'constraint_date'],
+  project: ['finish_deadline'],
+  milestone: [],
 };
 const DATE_PAIRS = [['start_date', 'end_date'], ['baseline_start', 'baseline_end'], ['actual_start', 'actual_end']];
 const ISO_DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
@@ -60,6 +73,34 @@ function dateProblem(kind, patch, before = null) {
     const s = merged[a], e = merged[b];
     if (s == null || s === '' || e == null || e === '' || !isValidDate(s) || !isValidDate(e)) continue;
     if (_day(e) < _day(s)) return _p('DATE_ORDER', `${b} (${_day(e)}) is before ${a} (${_day(s)})`, { field: b });
+  }
+  return null;
+}
+
+/**
+ * Range problems of one write (P11 F1). `patch` = only the fields this write CHANGES (a legacy out-of-range value
+ * stays editable for its other fields). Returns the first problem or null. An unparsable date is left to dateProblem.
+ */
+function rangeProblem(kind, patch) {
+  const fields = (DATE_FIELDS[kind] || []).concat(RANGE_DATE_FIELDS[kind] || []);
+  const p = patch || {};
+  for (const f of fields) {
+    const v = p[f];
+    if (v === undefined || v === null || v === '') continue;
+    const m = ISO_DAY.exec(String(v).trim().slice(0, 10)); if (!m) continue;
+    const y = Number(m[1]);
+    if (y < RANGE.minYear || y > RANGE.maxYear) return _p('DATE_RANGE', `${f} must lie between ${RANGE.minYear} and ${RANGE.maxYear}, got ${String(v).slice(0, 10)}`, { field: f });
+  }
+  if (kind !== 'task') return null;
+  if (p.duration_days !== undefined && p.duration_days !== null && p.duration_days !== '') {
+    const d = Number(p.duration_days);
+    if (!Number.isFinite(d) || d < 0 || d > RANGE.maxDurationDays) return _p('DURATION_RANGE', `duration_days must be between 0 and ${RANGE.maxDurationDays} working days, got ${String(p.duration_days).slice(0, 20)}`, { field: 'duration_days' });
+  }
+  let links = p.dependency_links;
+  if (typeof links === 'string') { try { links = JSON.parse(links); } catch (_) { links = null; } }
+  for (const l of Array.isArray(links) ? links : []) {
+    const lag = Number(l && l.lag);
+    if (l && l.lag != null && (!Number.isFinite(lag) || Math.abs(lag) > RANGE.maxLagAbs)) return _p('LAG_RANGE', `a link lag must be between -${RANGE.maxLagAbs} and ${RANGE.maxLagAbs}, got ${String(l.lag).slice(0, 20)}`, { field: 'dependency_links' });
   }
   return null;
 }
@@ -140,4 +181,4 @@ function findIntegrityIssues({ projects = [], tasks = [], milestones = [] } = {}
 }
 function _onlyDates(kind, r) { const o = {}; for (const f of DATE_FIELDS[kind]) if (r[f] != null && r[f] !== '') o[f] = String(r[f]); return o; }
 
-module.exports = { DATE_FIELDS, DATE_PAIRS, isValidDate, dateProblem, hierarchyProblem, ancestors, findIntegrityIssues };
+module.exports = { DATE_FIELDS, DATE_PAIRS, RANGE, RANGE_DATE_FIELDS, isValidDate, dateProblem, rangeProblem, hierarchyProblem, ancestors, findIntegrityIssues };

@@ -13,7 +13,9 @@
 //   • EV per task by its method: '0_100' · '50_50' · 'percent_complete' (default, today-compatible) · 'physical_pct'.
 //   • AC: the project's monthly ACTUAL budget periods (months ≤ the status month) when it has any in that currency,
 //     otherwise costed time entries (hours × the task's hourly rate, days ≤ the status date). An entry on a task with
-//     no rate makes AC unknown (never "free hours").
+//     no rate, or of unknown hours, makes AC unknown (never "free hours"). P11 F2 (ADR-P11-F2): money already spent
+//     stays in AC — hours on a CANCELLED task (out of BAC/PV/EV) and hours on a SUMMARY task (at its own rate; its
+//     budget is never added) are counted, each flagged by a reason code; such hours with no currency make AC unknown.
 //   • Indicators: SV=EV−PV · CV=EV−AC · SPI=EV/PV · CPI=EV/AC · EAC=BAC/CPI (default) with variants AC+(BAC−EV) and
 //     AC+(BAC−EV)/(CPI×SPI) and the budget-period forecast · ETC=EAC−AC · VAC=BAC−EAC · TCPI=(BAC−EV)/(BAC−AC).
 //   • Currencies are never added together. A converted view exists only when an explicit rate table is supplied, and
@@ -186,8 +188,16 @@ function convert(rows, table) {
 function _acFromHours(leaves, upTo = null) {
   const withHours = leaves.filter((l) => l._entries && l._entries.length);
   if (!withHours.length || withHours.some((l) => l._rate == null)) return null;
-  return withHours.reduce((s, l) => s + l._entries.filter((e) => !upTo || day(e.day) <= upTo).reduce((h, e) => h + (num(e.hours) || 0), 0) * l._rate, 0);
+  let total = 0;
+  for (const l of withHours) {
+    let h = 0;
+    for (const e of l._entries) { if (upTo && day(e.day) > upTo) continue; const v = num(e.hours); if (v == null) return null; h += v; }   // unknown hours ≠ 0 h
+    total += h * l._rate;
+  }
+  return total;
 }
+/** Σ hours of entries, or null when one of them is unknown. */
+const _hoursOf = (es) => { let h = 0; for (const e of es) { const v = num(e.hours); if (v == null) return null; h += v; } return h; };
 
 /** live leaves and summaries of a task list (cancelled tasks are out of the earned value: no budget, no work). */
 function _tree(tasks) {
@@ -233,16 +243,17 @@ function projectEvm({ project = {}, tasks = [], evmFields = {}, baselinePayload 
     const ev = bac == null || frac == null ? null : bac * frac;
     // AC from this task's time entries (≤ status date): none → unknown; hours without a rate → unknown
     const es = (entries.get(Number(t.id)) || []).filter((e) => day(e.day) && day(e.day) <= sd);
-    const rate = num(f.cost_rate), hours = es.reduce((s, e) => s + (num(e.hours) || 0), 0);
-    const ac = !es.length || rate == null ? null : hours * rate;
+    const rate = num(f.cost_rate), hours = _hoursOf(es);
+    const ac = !es.length || rate == null || hours == null ? null : hours * rate;
     const reasons = [];
     if (bac == null) reasons.push('no_baseline_cost');
     else if (!currency) reasons.push('no_cost_currency');
     if (bac != null && phased == null) reasons.push('no_baseline_dates');
     if (frac == null) reasons.push('progress_unknown');
     if (es.length && rate == null) reasons.push('hours_without_rate');
+    if (es.length && hours == null) reasons.push('hours_unknown');
     const capex = COST_CLASSES.includes(f.capex_opex) ? f.capex_opex : null;
-    taskRows.set(Number(t.id), { id: Number(t.id), parent_id: t.parent_id == null ? null : Number(t.parent_id), name: t.name || null, leaf: true, currency, capex_opex: capex, ev_method: evMethod(f), earned_fraction: r4(frac), baseline_start: bs, baseline_end: be, hours_to_date: es.length ? r2(hours) : null, phased, _entries: es, _rate: rate, bac, pv, ev, ac, reasons });
+    taskRows.set(Number(t.id), { id: Number(t.id), parent_id: t.parent_id == null ? null : Number(t.parent_id), name: t.name || null, leaf: true, currency, capex_opex: capex, ev_method: evMethod(f), earned_fraction: r4(frac), baseline_start: bs, baseline_end: be, hours_to_date: es.length && hours != null ? r2(hours) : null, phased, _entries: es, _rate: rate, bac, pv, ev, ac, reasons });
   }
   // ── summaries (leaf → summary, per currency; a summary's own figures are never added to its children's) ──────
   const summaryOf = (id) => {
@@ -256,11 +267,25 @@ function projectEvm({ project = {}, tasks = [], evmFields = {}, baselinePayload 
     return { id: Number(t.id), name: t.name || null, leaves: leaves.length, uncosted_leaves: uncosted, currencies: uncosted ? [] : rollupByCurrency(leaves) };
   });
 
+  // ── P11 F2: money already spent on tasks outside the leaf set (cancelled tasks, summary tasks) ─────────────────
+  const extras = [];
+  for (const t of tasks || []) {
+    if (!t) continue;
+    const kind = t.status === 'cancelled' ? 'cancelled' : (!isLeaf(t.id) ? 'summary' : null);
+    if (!kind) continue;
+    const es = (entries.get(Number(t.id)) || []).filter((e) => day(e.day) && day(e.day) <= sd);
+    if (!es.length) continue;
+    const f = F(t.id);
+    extras.push({ id: Number(t.id), kind, currency: f.cost_currency && /^[A-Z]{3}$/.test(f.cost_currency) ? f.cost_currency : null,
+      capex_opex: COST_CLASSES.includes(f.capex_opex) ? f.capex_opex : null, _entries: es, _rate: num(f.cost_rate), hours: _hoursOf(es) });
+  }
+  const extrasNoCurrency = extras.filter((x) => !x.currency);
+
   // ── project, per currency ───────────────────────────────────────────────────────────────────────────────────
   const leaves = [...taskRows.values()];
   const uncosted = leaves.filter((l) => !l.currency).map((l) => l.id);
   const bp = (budgetPeriods || []).filter((r) => r && /^\d{4}-\d{2}$/.test(String(r.period)) && /^[A-Z]{3}$/.test(String(r.currency)) && num(r.amount) != null);
-  const currencies = [...new Set([...leaves.map((l) => l.currency).filter(Boolean), ...bp.map((r) => r.currency)])].sort();
+  const currencies = [...new Set([...leaves.map((l) => l.currency).filter(Boolean), ...bp.map((r) => r.currency), ...extras.map((x) => x.currency).filter(Boolean)])].sort();
   const BP = require('../ppmBudgetPeriods');
   const forecastView = BP.view(bp, { asOf: sd });
   const results = currencies.map((cur) => {
@@ -291,22 +316,27 @@ function projectEvm({ project = {}, tasks = [], evmFields = {}, baselinePayload 
       ac = acts.filter((r) => r.period <= month(sd)).reduce((s, r) => s + num(r.amount), 0);
       sources.ac = 'budget_periods';
     } else {
-      const withHours = ls.filter((l) => l.hours_to_date != null);
-      const noRate = withHours.filter((l) => l.ac == null);
-      ac = _acFromHours(ls);
+      const xs = extras.filter((x) => x.currency === cur);
+      const items = [...ls.filter((l) => l._entries.length), ...xs];
+      ac = extrasNoCurrency.length ? null : _acFromHours(items);
       sources.ac = 'time_entries';
-      if (!withHours.length) reasons.push('no_actuals');
-      if (noRate.length) reasons.push('hours_without_rate');
+      if (!items.length && !extrasNoCurrency.length) reasons.push('no_actuals');
+      if (items.some((l) => l._rate == null)) reasons.push('hours_without_rate');
+      if (items.some((l) => _hoursOf(l._entries) == null)) reasons.push('hours_unknown');
+      if (xs.some((x) => x.kind === 'cancelled')) reasons.push('actuals_on_cancelled_tasks');
+      if (xs.some((x) => x.kind === 'summary')) reasons.push('actuals_on_summary_tasks');
+      if (extrasNoCurrency.length) reasons.push('actuals_currency_unknown');
     }
     const fv = (forecastView.currencies || []).find((c) => c.currency === cur);
     const eac_forecast = fv && fv.remaining_forecast != null ? fv.eac : null;
     const split = {};
     for (const cls of [...COST_CLASSES, 'unclassified']) {
       const xs = ls.filter((l) => (l.capex_opex || 'unclassified') === cls);
-      split[cls] = xs.length ? { tasks: xs.length, bac: r2(sumOf(xs, 'bac')), pv: r2(sumOf(xs, 'pv')), ev: r2(sumOf(xs, 'ev')), ac: acts.length ? null : r2(_acFromHours(xs)) } : null;
+      const xx = extras.filter((x) => x.currency === cur && (x.capex_opex || 'unclassified') === cls);   // P11 F2
+      split[cls] = xs.length || xx.length ? { tasks: xs.length, bac: r2(sumOf(xs, 'bac')), pv: r2(sumOf(xs, 'pv')), ev: r2(sumOf(xs, 'ev')), ac: acts.length || extrasNoCurrency.length ? null : r2(_acFromHours([...xs, ...xx])) } : null;
     }
     const raw = { currency: cur, bac, pv, ev, ac, eac_forecast };
-    return { currency: cur, ...indicators(raw), sources, reasons, coverage: { leaves: leaves.length, costed_in_currency: ls.length, uncosted_task_ids: uncosted }, capex_opex: split, s_curve: sCurve({ leaves: ls, base, acts, sd, tasksComplete, bac, ev }), _raw: raw };
+    return { currency: cur, ...indicators(raw), sources, reasons, coverage: { leaves: leaves.length, costed_in_currency: ls.length, uncosted_task_ids: uncosted }, capex_opex: split, s_curve: sCurve({ leaves: ls, acItems: extrasNoCurrency.length ? null : [...ls, ...extras.filter((x) => x.currency === cur)], base, acts, sd, tasksComplete, bac, ev }), _raw: raw };
   });
   return {
     project_id: project.id == null ? null : Number(project.id), status_date: sd, ev_methods: EV_METHODS,
@@ -323,7 +353,7 @@ function projectEvm({ project = {}, tasks = [], evmFields = {}, baselinePayload 
  * status month (progress has no history — a past EV point is null, never interpolated); AC is known up to the status
  * month and null after it.
  */
-function sCurve({ leaves, base, acts, sd, tasksComplete, bac, ev }) {
+function sCurve({ leaves, acItems, base, acts, sd, tasksComplete, bac, ev }) {
   const pvByMonth = {};
   if (base.length) for (const r of base) pvByMonth[r.period] = (pvByMonth[r.period] || 0) + num(r.amount);
   else if (tasksComplete) for (const l of leaves) { const m = byMonth(l.phased); for (const k of Object.keys(m)) pvByMonth[k] = (pvByMonth[k] || 0) + m[k]; }
@@ -341,7 +371,7 @@ function sCurve({ leaves, base, acts, sd, tasksComplete, bac, ev }) {
     if (p <= month(sd)) {
       if (acFromTasks) {
         const end = iso(Date.UTC(Number(p.slice(0, 4)), Number(p.slice(5, 7)), 0));
-        acv = _acFromHours(leaves, end < sd ? end : sd);
+        acv = acItems === null ? null : _acFromHours(acItems || leaves, end < sd ? end : sd);   // P11 F2: same spent money as AC
       } else { cac += acByMonth[p] || 0; acv = cac; }
     }
     return { period: p, pv: r2(base.length || tasksComplete ? cpv : null), ev: p === month(sd) ? r2(ev) : null, ac: r2(acv), bac: r2(bac) };

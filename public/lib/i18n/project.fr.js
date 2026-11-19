@@ -88,6 +88,8 @@
   };
   // Texts built in JS (lib/ppmCollabUi.js, lib/ppmBoard.js) — translated when they appear on the page.
   const RUNTIME_KEYS = {
+    '— (plan cannot be computed)': '— (plan impossible à calculer)',
+    'The plan cannot be computed: a task date, duration or lag is beyond the supported range (years 1970–2200, at most 36 500 working days). Correct the task to compute the schedule.': 'Le plan ne peut pas être calculé : une date, une durée ou un décalage de tâche sort de la plage prise en charge (années 1970–2200, au plus 36 500 jours ouvrés). Corrigez la tâche pour calculer le planning.',
     'To do': 'À faire', 'In progress': 'En cours', 'Blocked': 'Bloquée', 'Done': 'Terminée', 'Cancelled': 'Annulée', 'Other status': 'Autre statut', 'Move to': 'Déplacer vers',
     'Work packages are the tasks without sub-tasks; a summary task rolls up from its children. Drag a card, or use “Move to”.':
       'Les lots de travail sont les tâches sans sous-tâche ; une tâche récapitulative se calcule à partir de ses enfants. Glissez une carte, ou utilisez « Déplacer vers ».',

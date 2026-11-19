@@ -567,6 +567,11 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     for (const f of PI.DATE_FIELDS[kind]) if (vals[f] !== undefined && !(before && same(vals[f], before[f]))) datePatch[f] = vals[f];
     const dp = PI.dateProblem(kind, datePatch, before);
     if (dp) throw Object.assign(new Error(dp.error), { code: 'INVALID', reason: dp.code });
+    // P11 F1 — bounds (years 1970..2200, duration 0..36 500 working days, |lag| <= 36 500) on what this write changes
+    const rangePatch = { ...datePatch };
+    for (const f of (PI.RANGE_DATE_FIELDS[kind] || []).concat(kind === 'task' ? ['duration_days', 'dependency_links'] : [])) if (vals[f] !== undefined && !(before && same(vals[f], before[f]))) rangePatch[f] = vals[f];
+    const rp = PI.rangeProblem(kind, rangePatch);
+    if (rp) throw Object.assign(new Error(rp.error), { code: 'INVALID', reason: rp.code });
     if (kind !== 'task') return;
     const pid = vals.project_id != null ? Number(vals.project_id) : before ? Number(before.project_id) : null;
     const parent = vals.parent_id !== undefined ? vals.parent_id : (before ? before.parent_id : null);
