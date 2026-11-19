@@ -16,7 +16,7 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 | writes without strict test | 23 |
 | jobs | 33 |
 | jobs without strict test | 0 |
-| test sources | 864 |
+| test sources | 869 |
 | without strict test access | 4 |
 | without strict test finance | 2 |
 | without strict test export | 6 |
@@ -51,7 +51,7 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 | Method | Path | Classes | File |
 |---|---|---|---|
 | POST | `/api/admin/refresh-major-incident-udfs` | write | server.js |
-| GET | `/api/assets/reconcile/` | read | server.js |
+| GET | `/api/assets/reconcile/` | read | routes/assets.js |
 | GET | `/api/cab` | read | server.js |
 | GET | `/api/change` | read | server.js |
 | PUT | `/api/dashboard/presets` | write | server.js |
@@ -123,4 +123,4 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 | export | 64 | 6 |
 | audit | 21 | 5 |
 | destructive | 36 | 2 |
-<!-- structure c493572f8cc24d8d -->
+<!-- structure 48ee0195dceb73a0 -->

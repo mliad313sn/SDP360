@@ -16,11 +16,11 @@
 | pages with inline scripts | 46 |
 | routes | 753 |
 | routes without test reference | 31 |
-| routes in server js | 209 |
+| routes in server js | 161 |
 | jobs | 33 |
 | jobs without test reference | 0 |
 | migrations | 102 |
-| test files | 811 |
+| test files | 816 |
 
 ## Pages
 
@@ -162,37 +162,37 @@
 
 | Id | Method | Path | File:line |
 |---|---|---|---|
-| RT-POST-api-admin-refresh-major-incident-udfs | POST | `/api/admin/refresh-major-incident-udfs` | server.js:3174 |
-| RT-GET-api-cab | GET | `/api/cab` | server.js:2924 |
-| RT-GET-api-change | GET | `/api/change` | server.js:2902 |
-| RT-GET-api-data-ageing-by-group | GET | `/api/data/ageing-by-group` | server.js:4084 |
-| RT-GET-api-data-ageing-by-site | GET | `/api/data/ageing-by-site` | server.js:4034 |
-| RT-GET-api-data-cab-approvals | GET | `/api/data/cab-approvals` | server.js:3606 |
-| RT-GET-api-data-cab-recommendations | GET | `/api/data/cab-recommendations` | server.js:3628 |
-| RT-GET-api-data-change-table | GET | `/api/data/change-table` | server.js:3372 |
-| RT-GET-api-data-emergency-changes | GET | `/api/data/emergency-changes` | server.js:3540 |
-| RT-GET-api-data-first-response | GET | `/api/data/first-response` | server.js:3405 |
-| RT-GET-api-data-group-requests | GET | `/api/data/group-requests` | server.js:3518 |
-| RT-GET-api-data-incident-vs-sr | GET | `/api/data/incident-vs-sr` | server.js:3584 |
-| RT-GET-api-data-major-incidents | GET | `/api/data/major-incidents` | server.js:3345 |
-| RT-GET-api-data-monthly-summary | GET | `/api/data/monthly-summary` | server.js:3989 |
-| RT-GET-api-data-sla-by-category | GET | `/api/data/sla-by-category` | server.js:3475 |
+| RT-POST-api-admin-refresh-major-incident-udfs | POST | `/api/admin/refresh-major-incident-udfs` | server.js:1975 |
+| RT-GET-api-cab | GET | `/api/cab` | server.js:1725 |
+| RT-GET-api-change | GET | `/api/change` | server.js:1703 |
+| RT-GET-api-data-ageing-by-group | GET | `/api/data/ageing-by-group` | server.js:2885 |
+| RT-GET-api-data-ageing-by-site | GET | `/api/data/ageing-by-site` | server.js:2835 |
+| RT-GET-api-data-cab-approvals | GET | `/api/data/cab-approvals` | server.js:2407 |
+| RT-GET-api-data-cab-recommendations | GET | `/api/data/cab-recommendations` | server.js:2429 |
+| RT-GET-api-data-change-table | GET | `/api/data/change-table` | server.js:2173 |
+| RT-GET-api-data-emergency-changes | GET | `/api/data/emergency-changes` | server.js:2341 |
+| RT-GET-api-data-first-response | GET | `/api/data/first-response` | server.js:2206 |
+| RT-GET-api-data-group-requests | GET | `/api/data/group-requests` | server.js:2319 |
+| RT-GET-api-data-incident-vs-sr | GET | `/api/data/incident-vs-sr` | server.js:2385 |
+| RT-GET-api-data-major-incidents | GET | `/api/data/major-incidents` | server.js:2146 |
+| RT-GET-api-data-monthly-summary | GET | `/api/data/monthly-summary` | server.js:2790 |
+| RT-GET-api-data-sla-by-category | GET | `/api/data/sla-by-category` | server.js:2276 |
 | RT-GET-api-integration-fmp-readiness | GET | `/api/integration/fmp/readiness` | routes/fourmypeople.js:31 |
 | RT-GET-api-meetings-import-incubation-template | GET | `/api/meetings/import/incubation-template` | routes/meetings.js:806 |
 | RT-POST-api-meetings-import-incubation-commit | POST | `/api/meetings/import/incubation/commit` | routes/meetings.js:846 |
 | RT-POST-api-meetings-import-incubation-preview | POST | `/api/meetings/import/incubation/preview` | routes/meetings.js:819 |
 | RT-GET-api-meetings-progress-export-pptx | GET | `/api/meetings/progress/export-pptx` | routes/meetings.js:922 |
-| RT-GET-api-reports-helpdesk-live | GET | `/api/reports/helpdesk-live` | server.js:5517 |
+| RT-GET-api-reports-helpdesk-live | GET | `/api/reports/helpdesk-live` | server.js:4318 |
 | RT-GET-api-reports-sessions-active | GET | `/api/reports/sessions/active` | routes/adminUsers.js:174 |
-| RT-GET-api-reports-technicians | GET | `/api/reports/technicians` | server.js:5774 |
+| RT-GET-api-reports-technicians | GET | `/api/reports/technicians` | server.js:4575 |
 | RT-POST-api-reports-test-smtp | POST | `/api/reports/test-smtp` | routes/adminConfig.js:177 |
 | RT-GET-api-risk-register-config-unmapped | GET | `/api/risk-register-config/unmapped` | routes/riskRegister.js:130 |
 | RT-GET-api-roadmap-evidence-catalogue | GET | `/api/roadmap/evidence/catalogue` | routes/roadmap.js:56 |
 | RT-GET-api-roadmap-evidence-incidents | GET | `/api/roadmap/evidence/incidents` | routes/roadmap.js:73 |
 | RT-GET-api-roadmap-evidence-platform | GET | `/api/roadmap/evidence/platform` | routes/roadmap.js:64 |
-| RT-POST-api-save-pptx | POST | `/api/save-pptx` | server.js:6453 |
+| RT-POST-api-save-pptx | POST | `/api/save-pptx` | server.js:5254 |
 | RT-POST-api-tracker-import-dept-meetings | POST | `/api/tracker/import-dept-meetings` | routes/tracker.js:109 |
-| RT-GET- | GET | `/` | server.js:1389 |
+| RT-GET- | GET | `/` | server.js:1354 |
 
 ## Scheduled jobs
 
