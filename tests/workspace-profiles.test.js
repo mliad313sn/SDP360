@@ -52,7 +52,8 @@ test('the destination catalogue carries the same role lists as the shell NAV (dr
     const roles = m[1].split(',').map((s) => s.trim().replace(/^'|'$/g, '')).filter(Boolean);
     assert.deepEqual(d.roles, roles, `${id} roles drifted from the shell`);
   }
-  assert.match(fs.readFileSync(path.join(__dirname, '..', 'server.js'), 'utf8'), /function _canReadMoney/);
+  // P06 (2026-11-19) moved the money predicate from server.js to services/namedGuards.js.
+  assert.match(fs.readFileSync(path.join(__dirname, '..', 'services', 'namedGuards.js'), 'utf8'), /function canReadMoney/);
 });
 
 test('default profile follows the hierarchical role first, then feature roles', () => {

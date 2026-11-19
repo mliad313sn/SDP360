@@ -218,7 +218,7 @@ router.delete('/api/reports/sessions/:token', requireReportSession, (req, res, n
     // P07 — a session_ref (from GET /sessions/active) is resolved here; a full token is still accepted (API clients).
     if (/^ref-[a-f0-9]{64}$/.test(token)) {
       const hit = ((await rdb.listActiveSessions(1440)) || []).find((s) => sessionRef(s.token) === token);
-      if (!hit) return res.status(404).json({ error: 'Session not found (already ended?)' });
+      if (!hit) return fail(res, typed('NOT_FOUND', 'Session not found (already ended?)'));
       token = hit.token;
     }
     // Defensive: prevent kicking your own session by accident. The

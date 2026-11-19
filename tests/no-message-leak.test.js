@@ -18,7 +18,7 @@ const LEAK = /\.json\((?:[^()]|\([^()]*\))*\b(e|err|error)\.message\b/;
 // Deliberate, reviewed: these 4xx bodies carry a validation message meant for the user
 // (MissingColumnError names the absent CSV column; the Teams SLA card refuses an unsafe URL and says why).
 const ALLOWED = [
-  'server.js :: if (e instanceof MissingColumnError) return res.status(400).json({ error: e.message, column: e.column, source: e.source });',
+  'routes/assets.js :: if (e instanceof MissingColumnError) return res.status(400).json({ error: e.message, column: e.column, source: e.source });',
   "routes/teamsSla.js :: catch (e) { return res.status(400).json({ error: `${k}: ${e.message}` }); }",
   "routes/teamsSla.js :: catch (e) { return res.status(400).json({ error: `Webhook URL for ${group}: ${e.message}` }); }",
   "routes/teamsSla.js :: if (e && e.code === safeUrl.UNSAFE) return res.status(400).json({ error: `Webhook URL refused: ${e.message}` });",

@@ -58,6 +58,7 @@ in `tests/e2e/` must appear in this table.
 | Field technician (UAT-F seat 6, simulation, SIMULATED network) | `field-tech`, one site | Field app at 390 px in French, offline capture then sync, no report/PV write, Home at 390 px, field profile | `public/field/index.html` | `public/field/index.html` | `tests/e2e/uat-s6-field-technician.spec.js` |
 | Super admin / IT operations (UAT-F seat 7, simulation) | `super_admin` | Admin console, security journal, source freshness, users and redacted config, controlled roadmap publication, department crosswalk, workspace settings, admin at 320 px | `public/reports.html` | `public/workspace-settings.html` | `tests/e2e/uat-s7-super-admin.spec.js` |
 | Site business user (UAT-F seat 8, simulation) | `site-business`, one site | Site IT status, neighbour site refused, no write and no internal list, internal queue never queried, French at 320 px, business profile | `public/site-awareness.html` | `public/site-awareness.html` | `tests/e2e/uat-s8-site-business.spec.js` |
+| Every profile (11 profiles × 3 tasks) | an account holding the full role set that chooses each profile (P09) | Open each of the profile's three task pages from Home in one click, without error (FR + EN task list: `tests/e2e/fixtures/profile-tasks.js`) | `public/home.html` | each task page | `tests/e2e/p09-profile-tasks-a.spec.js`, `tests/e2e/p09-profile-tasks-b.spec.js` (P09) |
 
 ## Coverage summary
 
