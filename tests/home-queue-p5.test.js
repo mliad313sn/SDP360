@@ -52,6 +52,7 @@ test('pending: absent = switched off (unknown), null = not measured, a missing p
   const part = mk({ access: { count: 1, items: [{ id: 4, ref: 'AR-4', title: 'finance-viewer', link: 'access.html' }] }, change_requests: null, gates: { count: 0, items: [] }, rfis: { count: 0, items: [] }, tasks: { count: 1, items: [{ id: 't9', ref: 'P-1', title: 'Late', due_date: '2026-11-01', overdue: true, link: 'project.html?id=1' }] } });
   await part.loadAll();
   assert.equal(part.state.pending.state, 'partial', 'one part not measured → partial, never 0');
+  assert.equal(part.state.pending.detail, '4 of 5 parts', 'a partial of parts says parts, not sites');
   const v = part.view();
   const t = v.items.find((x) => x.source === 'pending' && x.sub === 'tasks');
   assert.equal(t.href, 'project.html?id=1'); assert.equal(t.overdue, true); assert.equal(t.key, 'tasks:t9');
@@ -69,6 +70,7 @@ test('obligations: a weekly report not submitted and empty tracker cells become 
   const q = HQ.createQueue({ sites, fetchJson: async () => ok({ rows: [], groups: {}, commitments: [] }), asOf: AS });
   await q.loadAll();
   assert.equal(q.state.obligations.state, 'partial', 'SGO not measured');
+  assert.match(q.state.obligations.detail, /^\d+ of \d+ parts$/, 'obligations count parts (report + tracker per site), not sites');
   const lines = q.view().items.filter((x) => x.source === 'obligations');
   assert.deepStrictEqual(lines.map((x) => x.sub).sort(), ['tracker', 'weekly']);
   const w = lines.find((x) => x.sub === 'weekly');

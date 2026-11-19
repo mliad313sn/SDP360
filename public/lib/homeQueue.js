@@ -62,7 +62,7 @@
       retry: 'Try again', late: 'late', due: 'due', owner: 'owner', noOwner: 'no owner', register: 'register', empty: 'Nothing open in the sources that answered.',
       limits: 'Limits: up to {s} sites and {n} items are shown. For the full list, open the {reg}.', regLink: 'Site Actions register',
       more: '{shown} of {total} items shown', sitesMore: '{n} more site(s) not read', noCode: 'no site code', off: 'not switched on',
-      sitesOk: '{ok} of {all} sites', unread: 'could not be read', asOf: 'kept from {t}', items: '{n} item(s)', announce: 'Queue: {n} item(s) loaded' },
+      sitesOk: '{ok} of {all} sites', partsOk: '{ok} of {all} parts', unread: 'could not be read', asOf: 'kept from {t}', items: '{n} item(s)', announce: 'Queue: {n} item(s) loaded' },
     fr: { title: 'Ma file de travail', sub: 'Votre travail ouvert sur vos sites, le plus à risque d\'abord. Chaque source se charge seule.',
       src: { meetings: 'Actions de réunion', inspections: 'Actions d\'inspection', report: 'Suivis de rapport', commitments: 'Engagements', awaiting: 'En attente de moi', pending: 'Approbations & projets', obligations: 'Obligations du site' },
       aw: { commitments: 'engagement à vérifier', handoffs: 'passation à accepter', benefits: 'bénéfice à vérifier', decisions: 'décision due', pvs: 'PV à signer',
@@ -74,7 +74,7 @@
       retry: 'Réessayer', late: 'en retard', due: 'échéance', owner: 'responsable', noOwner: 'sans responsable', register: 'registre', empty: 'Rien d\'ouvert dans les sources qui ont répondu.',
       limits: 'Limites : {s} sites et {n} éléments au plus sont affichés. Pour la liste complète, ouvrez le {reg}.', regLink: 'registre des actions du site',
       more: '{shown} éléments affichés sur {total}', sitesMore: '{n} autre(s) site(s) non lu(s)', noCode: 'pas de code de site', off: 'non activé',
-      sitesOk: '{ok} sites sur {all}', unread: 'source illisible', asOf: 'conservé depuis {t}', items: '{n} élément(s)', announce: 'File : {n} élément(s) chargé(s)' },
+      sitesOk: '{ok} sites sur {all}', partsOk: '{ok} parties sur {all}', unread: 'source illisible', asOf: 'conservé depuis {t}', items: '{n} élément(s)', announce: 'File : {n} élément(s) chargé(s)' },
   };
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -269,7 +269,7 @@
         st[source] = { state: 'stale', items: prev.items, detail: fill(L[lang].asOf, { t: prev.loadedAt }), loadedAt: prev.loadedAt };
       } else {
         var detail = null;
-        if (res.state === 'partial') detail = fill(L[lang].sitesOk, { ok: res.ok, all: res.all });
+        if (res.state === 'partial') detail = fill(res.unit === 'parts' ? L[lang].partsOk : L[lang].sitesOk, { ok: res.ok, all: res.all });
         else if (res.reason === 'off') detail = L[lang].off;
         else if (res.reason === 'nocode') detail = L[lang].noCode;
         else if (res.detail) detail = res.detail;
@@ -327,7 +327,7 @@
       if (aw === null) { settle('awaiting', { state: 'unknown' }); return Promise.resolve(); }
       var r = fromAwaiting(aw, asOf);
       if (r.missing === r.parts) settle('awaiting', { state: 'unknown' });
-      else if (r.missing) settle('awaiting', { state: 'partial', ok: r.parts - r.missing, all: r.parts, items: r.items });
+      else if (r.missing) settle('awaiting', { state: 'partial', unit: 'parts', ok: r.parts - r.missing, all: r.parts, items: r.items });
       else settle('awaiting', { state: 'available', items: r.items });
       return Promise.resolve();
     }
@@ -336,7 +336,7 @@
       if (px === null) { settle('pending', { state: 'unknown' }); return Promise.resolve(); }
       var r = fromPending(px, asOf);
       if (r.missing === r.parts) settle('pending', { state: 'unknown' });
-      else if (r.missing) settle('pending', { state: 'partial', ok: r.parts - r.missing, all: r.parts, items: r.items });
+      else if (r.missing) settle('pending', { state: 'partial', unit: 'parts', ok: r.parts - r.missing, all: r.parts, items: r.items });
       else settle('pending', { state: 'available', items: r.items });
       return Promise.resolve();
     }
@@ -344,7 +344,7 @@
       if (sites == null) { settle('obligations', { state: 'unknown' }); return Promise.resolve(); }
       var r = fromObligations(sites, asOf, lang);
       if (!r.measured) settle('obligations', { state: 'unknown', reason: sites.length ? null : 'nocode' });
-      else if (r.missing) settle('obligations', { state: 'partial', ok: r.measured, all: r.measured + r.missing, items: r.items });
+      else if (r.missing) settle('obligations', { state: 'partial', unit: 'parts', ok: r.measured, all: r.measured + r.missing, items: r.items });
       else settle('obligations', { state: 'available', items: r.items });
       return Promise.resolve();
     }

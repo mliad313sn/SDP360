@@ -24,7 +24,10 @@ const NO_SHELL = new Set(['field/index']);
 // SHRINK (tests/reflow-known.test.js pins its size). A problem not listed fails the journey; a listed entry that
 // no longer fails also fails it (remove it from the list). Screenshots are for a person; nothing is auto-approved.
 // Routes that answer 404 by design while their switch is off (the page hides the panel on a 404).
-const EXPECTED_404 = ['/api/inspection/repeat-findings'];   // insp_repeat_findings = '0'
+const EXPECTED_404 = [
+  '/api/inspection/repeat-findings',        // insp_repeat_findings = '0'
+  '/api/analytics/wan/sla/claims/status',   // wan_sla_claims_enabled = '0' — wan.html shows the Claims tab only on a 200 (routes/wanSlaClaims.js)
+];
 const KNOWN = require('./fixtures/reflow-known.json').known;
 
 // A handful of recent tickets so the Helpdesk page renders its charts and tables (an empty page hides the
@@ -61,7 +64,7 @@ runJourney('V1 viewport matrix key pages layout and console', async ({ app, base
       // F-UX-04 — a 404 that IS the documented "switch off" answer is not a console defect
       if (/status of 404/.test(m.text()) && EXPECTED_404.some((u) => loc.includes(u))) return;
       if (/ERR_BLOCKED_BY_CLIENT/.test(m.text()) && j.rec.external.unexpected.length === 0 && (classify(loc) !== 'unexpected')) return;
-      errs.push(m.text().slice(0, 200));
+      errs.push(m.text().slice(0, 200) + (loc ? ' @ ' + loc.replace(base, '') : ''));
     });
     page.on('pageerror', (e) => errs.push('uncaught: ' + String(e && e.message || e).slice(0, 200)));
     await login(page, world.users.sa, '/home.html');
