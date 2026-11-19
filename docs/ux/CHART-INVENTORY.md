@@ -45,13 +45,13 @@ Files scanned: **131** · inline <style> blocks: **57** · hex literals: **5576*
 | `public/meeting.html` | 84791 | 1 | 105 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/meetings-actions.html` | 45581 | 1 | 102 | 1 | bar×2 doughnut×3 line×1 | 0 | 3 | yes | — | — | doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/meetings-compliance.html` | 20620 | 1 | 68 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/meetings-council.html` | 19892 | 1 | 57 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/meetings-council.html` | 20317 | 1 | 57 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/meetings-import.html` | 73538 | 1 | 136 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/meetings-insights.html` | 43821 | 1 | 105 | 1 | bar×3 doughnut×1 line×1 | 0 | 1 | yes | — | — | doughnut/pie → ordered horizontal bars with values and population % (§5.2 "répartition de catégories"); chart without a data table → add ChartTable (same population and period); hex literals → _tokens.css variables |
 | `public/meetings-issues.html` | 32065 | 1 | 80 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/meetings-progress.html` | 33143 | 1 | 106 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/meetings-progress.html` | 33570 | 1 | 106 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/meetings-setup.html` | 24836 | 1 | 58 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/meetings-unsigned.html` | 18795 | 1 | 62 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
+| `public/meetings-unsigned.html` | 19222 | 1 | 62 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/meetings.html` | 33931 | 1 | 87 | 0 | — | 0 | 0 | — | — | yes | hex literals → _tokens.css variables |
 | `public/no-access.html` | 1625 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/notifications.html` | 11179 | 1 | 41 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
