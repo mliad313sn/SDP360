@@ -22,7 +22,8 @@
 'use strict';
 
 const {
-  getLastSyncAt, markSyncSuccess, markSyncError, countTable, listSurveyResultIds,
+  getLastSyncAt, markSyncSuccess, markSyncError, countTable, listSurveyResultIds, listStoredIds,
+  truncationAnchorStore,
   upsertChangeBatch, upsertCABBatch,
   upsertSurveyResultBatch, upsertSurveyAnswerBatch,
   reconcileChangeRecords, reconcileCABApprovals, reconcileSurveyResults,
@@ -235,7 +236,9 @@ const EXPECTED_REQUEST_COLS = [
 // ── Truncation guard (Step 1, 2026-10-19) ─────────────────────────
 // Shared with assets-sync.js since P11 F-03: services/sync/truncationGuard.js. Called before EVERY
 // reconcile below (change, cab, survey, requests) — a partial export must never mass-delete.
-const { assertNotTruncated } = require('./services/sync/truncationGuard');
+const { assertNotTruncated, guardWithAnchor } = require('./services/sync/truncationGuard');
+// N-02: every reconcile below compares against max(stored, last confirmed count), not just stored.
+const _guard = async (key, fetched, table) => guardWithAnchor(key, fetched, await countTable(table), truncationAnchorStore);
 
 // ── SYNC: CHANGE + CAB ────────────────────────────────────────────
 
@@ -335,8 +338,12 @@ async function syncChangeCab() {
     // Build live CAB ID set
     const liveCabIds = new Set(cabRows.map(r => r['Approval ID']).filter(Boolean));
 
+    // N-01 (P11 round 2): plus any live approval missing locally — a row lost to an earlier
+    // partial run inside the tolerance would otherwise never come back (its requested time is old).
+    const storedCabIds = lastSync ? await listStoredIds('cab_approvals') : null;
     const newCabRows = lastSync
       ? cabRows.filter(r => {
+          if (r['Approval ID'] && !storedCabIds.has(String(r['Approval ID']))) return true;
           const requested = parseZohoDate(r['Recommendation Requested Time']);
           return isNew(requested, lastSync);
         })
@@ -365,8 +372,8 @@ async function syncChangeCab() {
     // ── Reconciliation (deletion detection) ──────────────────────
     // Every FULL_SYNC_EVERY runs we do a full reconcile to detect Zoho deletions.
     // We pass a dummy meta object based on the last_sync_at to decide.
-    assertNotTruncated(`${JOB}/change`, changeRows.length, await countTable('change_records'));
-    assertNotTruncated(`${JOB}/cab`, cabRows.length, await countTable('cab_approvals'));
+    const commitChangeAnchor = await _guard(`${JOB}/change`, changeRows.length, 'change_records');
+    const commitCabAnchor    = await _guard(`${JOB}/cab`, cabRows.length, 'cab_approvals');
     let changeDeleted = 0;
     let cabDeleted    = 0;
     const isFullSync  = !lastSync; // first run is always a full sync (no cursor yet)
@@ -386,6 +393,8 @@ async function syncChangeCab() {
         console.log(`[Sync] change_cab — reconciliation removed ${changeDeleted} Change + ${cabDeleted} CAB stale records`);
       }
     }
+
+    await commitChangeAnchor(); await commitCabAnchor();
 
     const totalUpserted = changeUpserted + cabUpserted;
     const totalDeleted  = changeDeleted + cabDeleted;
@@ -442,7 +451,7 @@ async function syncSurveyData() {
 
     // P11 F-01 — refuse a partial export BEFORE any write: the reconcile below deletes every
     // stored result (and its answers) absent from this download.
-    assertNotTruncated(`${JOB}/results`, liveResultIds.size, await countTable('survey_results'));
+    const commitSurveyAnchor = await _guard(`${JOB}/results`, liveResultIds.size, 'survey_results');
 
     // Incremental: results sent since last sync, PLUS any live result missing locally (a row
     // lost to an earlier partial run would otherwise never come back — its sent date is old).
@@ -518,6 +527,7 @@ async function syncSurveyData() {
 
     // ── Reconciliation: purge results deleted in Zoho ────────────
     const surveyDeleted = await reconcileSurveyResults(liveResultIds);
+    await commitSurveyAnchor();
     if (surveyDeleted > 0) {
       console.log(`[Sync] survey — reconciliation removed ${surveyDeleted} stale Survey Results (+answers)`);
     }
@@ -619,9 +629,16 @@ async function syncRequestData({ force = false } = {}) {
     const _tmpl = r => r['Request Template'] || r['Template'] || '';
     const _isMajorIncident = r =>
       /major\s*incident/i.test(r['Request Type'] || '') || /major\s*incident/i.test(_tmpl(r));
+    // N-01 (P11 round 2): plus every live ticket missing locally. A partial export inside the
+    // truncation tolerance deletes the absent tickets; their Last Updated Time is old, so without
+    // this the next healthy run never re-inserted them (1000 → 810, only a forced sync restored).
+    const _rid = r => String(r['Request ID'] || r['RequestID'] || '').trim();
+    const storedReqIds = lastSync ? await listStoredIds('request_records') : null;
     const newRows = lastSync
       ? allRows.filter(r => {
           if (_isMajorIncident(r)) return true;   // always refresh MIs
+          const id = _rid(r);
+          if (id && !storedReqIds.has(id)) return true;   // self-heal: live but missing locally
           const updated = parseZohoDate(r['Last Updated Time']) || parseZohoDate(r['Created Time']);
           return isNew(updated, lastSync);
         })
@@ -670,8 +687,9 @@ async function syncRequestData({ force = false } = {}) {
     console.log(`[Sync] requests — upserted ${upserted} Request records`);
 
     // ── Reconciliation (deletion detection) ──────────────────────
-    assertNotTruncated(JOB, allRows.length, await countTable('request_records'));
+    const commitReqAnchor = await _guard(JOB, liveIds.size, 'request_records');
     const deleted = await reconcileRequestRecords(liveIds);
+    await commitReqAnchor();
     if (deleted > 0) {
       console.log(`[Sync] requests — reconciliation removed ${deleted} stale records`);
     }

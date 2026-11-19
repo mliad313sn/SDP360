@@ -1,5 +1,5 @@
 'use strict';
-const { assertNotTruncated } = require('./services/sync/truncationGuard');
+const { guardWithAnchor } = require('./services/sync/truncationGuard');
 // fetchView is the server.js primitive, injected by init(): fetchView(viewId, maxRows) → { rows }.
 // RECON FACT (2026-07-17): the AP /data endpoint ignores maxRows and returns the WHOLE view,
 // or times out on a huge one (software_installations = 121k took 13.6 min → past fetchView's
@@ -36,7 +36,7 @@ const DEFAULT_MAP = (row, def) => {
 
 // Sync ONE view: fetch (before the tx, so a throw never empties the table) -> map -> drop
 // PK-less rows -> full-replace in one transaction -> markSuccess. Any throw -> markError + rethrow.
-async function syncAssetView(def, { fetchView, replaceTable, countRows, markSuccess, markError }) {
+async function syncAssetView(def, { fetchView, replaceTable, countRows, markSuccess, markError, anchorStore }) {
   try {
     const raw = await fetchAll(def.viewId, fetchView, { maxRows: def.maxRows || 20000 });
     const mapped = raw.map(r => DEFAULT_MAP(r, def)).filter(m => m[def.pkCol]);   // drop rows missing PK
@@ -53,8 +53,11 @@ async function syncAssetView(def, { fetchView, replaceTable, countRows, markSucc
     // P11 F-03: a NON-empty partial view (2 rows for 2 473 stored) used to full-replace the table and
     // be recorded as a success — and that night's effort snapshot / asset_first_seen were computed from
     // it. Same tolerance rule as the Zoho reconcilers (SYNC_TRUNCATION_TOLERANCE_PCT, default 20 %).
-    assertNotTruncated(def.job, mapped.length, stored);
+    // P11 round 2 N-02: compared against max(stored, last confirmed count) when an anchor store is
+    // wired (live deps), so repeated partial views cannot ratchet the table down night after night.
+    const commitAnchor = await guardWithAnchor(def.job, mapped.length, stored, anchorStore);
     const n = await replaceTable(def.table, Object.values(def.columns), mapped);  // DELETE+INSERT, one tx
+    await commitAnchor();
     await markSuccess(def.job, n);
     return n;
   } catch (e) {
@@ -84,6 +87,7 @@ function _defaultDeps() {
     countRows:    adb.countRows,
     markSuccess:  rdb.markSyncSuccess,
     markError:    rdb.markSyncError,
+    anchorStore:  rdb.truncationAnchorStore,
   };
 }
 
