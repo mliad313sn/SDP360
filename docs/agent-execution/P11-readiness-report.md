@@ -71,3 +71,46 @@ at a new frozen SHA once fix 5 is merged and CI is green.**
 All 21 RELEASE-GATES rows. Critical path for a two-site pilot (from the gate dossiers): G19 QA/CI → G01 access policy →
 G03 CAB → G02 threat model + secret rotation → G05 backup/restore → G12 data owner → G11 pilot sites + field
 acceptance → G21 business witness project. Plus: pentest rules of engagement, Finance G14, KPI definitions G-12.
+
+---
+
+# Round 2 — frozen SHA `b2e85cd08860a57526442797ac711e2fc9defc3a` (CI run 363 green)
+
+> AI panel report — not an independent human review, not a decision. Seat reports: `docs/agent-execution/p11/round2-b2e85cd0/`.
+
+## Round-1 P1 re-verification (original repros re-run)
+
+| ID | Round-2 verdict |
+|---|---|
+| SEC-F1 group-run share/read | FIXED |
+| SEC-F2 committee money | NOT FIXED — **human policy decision** (Finance + InfoSec) |
+| DATA-F-01 CSAT 0 % when unmeasured | FIXED |
+| OPS-F-01 survey truncation · OPS-F-03 assets partial view | FIXED |
+| OPS-F-02 manager probe on /ready | FIXED (PowerShell side read only, no pwsh) |
+| PPM-F1 extreme task value | FIXED |
+| PPM-F2 EVM actual cost | PARTIAL → residual R2-1 (deleted tasks) fixed after round 2 (fix 7) |
+| UX-F-1 field overwrite | PARTIAL → residual F-6 (same-author replay) fixed after round 2 (fix 8) |
+| AUD-1 commitment four-eyes | PARTIAL → residual NEW-1 (owner re-pointing before submission) **fix 9 in progress** |
+
+## New round-2 findings: P0 = 0, P1 = 4
+
+| ID | Finding | Status |
+|---|---|---|
+| OPS-N-01 (P1) | Requests sync deletes tickets for good when an export is short by < 20 % | **fix 6 in progress** (with N-02 ratchet, N-03 /ready on read-only DB, SEC-R2-N1 report subscriptions) |
+| PPM-R2-1 (P1, L05 only) | Deleting a task drops its logged hours from EVM AC | **Fixed** (fix 7: 409 HAS_ACTUALS on hard delete; soft-deleted tasks' hours kept) + R2-2 rebaseline bounds / constant-time EVM |
+| UX-F-5 (P1) | Field app stores demand/ticket/lowercase cancelled on inspection actions → wrong overdue counts | **Fixed** (fix 8) — human step: run `node tools/field/inspection-action-status-check.js` on the live DB, owners close/cancel listed rows |
+| AUD-NEW-1 (P1, behind `commitments_enabled`) | Former owner can still verify (re-point before submission) | **fix 9 in progress** |
+
+Remaining P2/P3 (not fixed, carried to the residual-risk register): SEC-F3/F4/F5, DATA-F-02..F-05, F-10..F-13, OPS-F-04/F-05/N-04/N-05,
+PPM F3–F6/R2-4/R2-5, AUD-2/AUD-4/AUD-5..9 + describe.skip gap, UX-F-4 remainder (meetings justification text), UX A4.
+
+## Round-2 per-lot recommendation (AI panel recommendation, not a decision)
+| Lot | Recommendation |
+|---|---|
+| Today's portfolio (default switches), L02, L09 UX side, L11 (ops side) | GO PILOT |
+| L01 | CONDITIONAL — NO-GO for `commitments_enabled` / `mywork_awaiting_me_enabled` until fix 9 merged and verified |
+| L03, L04, L06, L07, L08, L10, L12, L13 | CONDITIONAL |
+| L05 time, money, benefits | **NO-GO** until Finance gate G14 + SEC-F2 decision |
+| Group IT deck | CONDITIONAL (was NO-GO in round 1) |
+
+All 21 RELEASE-GATES rows remain empty; `flag-decisions.json` has 0 entries. Round 3 runs once fixes 6 and 9 are merged and CI is green.
