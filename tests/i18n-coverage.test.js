@@ -32,6 +32,10 @@ const TRANSLATED_PAGES = {
   'executive.html': { dict: 'I18N_FR_EXECUTIVE', file: 'executive.fr.js', runtimeInSource: true },
   // W4 (PPM parity, enterprise) — the project page; its runtime keys also cover lib/ppmCollabUi.js + lib/ppmBoard.js
   'project.html': { dict: 'I18N_FR_PROJECT', file: 'project.fr.js' },
+  // P09 — first pass of the meetings list pages (static markup; their JS-built rows are the next pass).
+  'meetings-unsigned.html': { dict: 'I18N_FR_MEETINGS_UNSIGNED', file: 'meetings-unsigned.fr.js' },
+  'meetings-council.html': { dict: 'I18N_FR_MEETINGS_COUNCIL', file: 'meetings-council.fr.js' },
+  'meetings-progress.html': { dict: 'I18N_FR_MEETINGS_PROGRESS', file: 'meetings-progress.fr.js' },
 };
 
 // A-09b — whole regions of a translated page left out of the coverage check, with the reason. Each marker
@@ -95,6 +99,7 @@ const ALLOW = {
     'on_track · at_risk · planned · active · done · open': 'status codes typed into the field', 'helpdesk.resolution_sla_pct': 'metric key example' },
   'rfi.html': { 'NET-12': 'project key example (placeholder)' },
   'project.html': Object.assign(Object.fromEntries(['todo', 'in_progress', 'blocked', 'done', 'cancelled', 'planned', 'open', 'closed', 'risk', 'issue', 'assumption',
+    'dependency', 'avoid', 'mitigate', 'transfer', 'accept', 'exploit', 'escalate', 'approval', 'on_hold', 'closure', 'proposal',
     'ASAP', 'ALAP', 'SNET', 'SNLT', 'FNET', 'FNLT', 'MSO', 'MFO'].map((k) => [k, CODE])),
   { 'id:FS|SS|FF|SF±lag': 'link syntax placeholder (typed as is)', 'USD': 'ISO currency code placeholder', 'https://…': 'URL placeholder' }),
   // C-26 — site and IT-group names are data (option labels the filters match on), never translated.
@@ -130,8 +135,8 @@ const UNTRANSLATED = {
   'dashboard-composer.html': 'admin authoring, English', 'report-studio.html': 'report authoring, English',
   'tracker-builder.html': 'admin authoring, English', 'notifications.html': 'not a coordinator field page yet',
   'inspections.html': 'list page — next pass', 'inspection-actions.html': 'list page — next pass', 'meetings.html': 'list page — next pass',
-  'meetings-actions.html': 'list page — next pass', 'meetings-council.html': 'list page — next pass', 'meetings-issues.html': 'list page — next pass',
-  'meetings-progress.html': 'list page — next pass', 'meetings-setup.html': 'admin setup — next pass', 'meetings-unsigned.html': 'list page — next pass',
+  'meetings-actions.html': 'list page — next pass', 'meetings-issues.html': 'list page — next pass',
+  'meetings-setup.html': 'admin setup — next pass',
 };
 
 const norm = (t) => t.replace(/\s+/g, ' ').trim();

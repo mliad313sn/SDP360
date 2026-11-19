@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 5379,
+ "total": 5388,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 18,
@@ -293,7 +293,7 @@
   "html-lang-mirror.test.js": 4,
   "html-pages-before-static.test.js": 2,
   "http-error.test.js": 6,
-  "i18n-coverage.test.js": 43,
+  "i18n-coverage.test.js": 49,
   "i18n-inline-glossary.test.js": 5,
   "i18n-shell-charts.test.js": 7,
   "i18n-text.test.js": 6,
@@ -457,7 +457,7 @@
   "pg-tracker-store.test.js": 1,
   "pg-tracker.test.js": 10,
   "pilot-metrics-value.test.js": 6,
-  "pilot-metrics.test.js": 14,
+  "pilot-metrics.test.js": 15,
   "pilot-observed.test.js": 6,
   "pir-review.smoke.test.js": 2,
   "pir-review.test.js": 3,
@@ -827,6 +827,7 @@
   "csp-candidate-pages.smoke.test.js": 2,
   "session-security.smoke.test.js": 7,
   "shell-logout-no-inline.test.js": 3,
-  "supply-chain-xlsx.test.js": 3
+  "supply-chain-xlsx.test.js": 3,
+  "p09-adoption-kit.test.js": 2
  }
 }

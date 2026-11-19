@@ -57,9 +57,9 @@
   .pim-cell[disabled] { cursor:default; color:#9AA4B2; } td.pim-high .pim-cell:not([disabled]) { background:#fde2e2; border-color:#B91C1C; } td.pim-medium .pim-cell:not([disabled]) { background:#fdecc8; border-color:#B45309; } td.pim-low .pim-cell:not([disabled]) { background:#e3f1e8; border-color:#1E7B45; }
   td.pr-over { background:#fde2e2; color:#7f1d1d; }
   /* W4 — board, comments, offline banner */
-  .pb-board { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; } .pb-col { background:#f4f6f7; border-radius:10px; padding:8px; min-height:80px; } .pb-col h3 { margin:0 0 6px; font-size:13px; }
-  .pb-list, .cm-list { list-style:none; margin:0; padding:0; } .pb-card { background:#fff; border:1px solid #e4e8ee; border-radius:8px; padding:6px 8px; margin-bottom:6px; } .pb-card[draggable=true] { cursor:grab; } .pb-name { font-weight:600; font-size:12.5px; } .pb-lane, .pb-meta { font-size:11.5px; color:#6b7785; } .pb-move { font-size:11px; }
-  .cm-list li { border-bottom:1px solid #f0f2f5; padding:6px 0; } .cm-body { white-space:pre-wrap; } #offline-banner { background:#fff7ed; border:1px solid #fdba74; border-radius:10px; padding:8px 12px; margin-bottom:10px; } .merge { border-top:1px solid #fed7aa; padding-top:6px; margin-top:6px; }
+  .pb-board { display:grid; grid-template-columns:repeat(auto-fit,minmax(180px,1fr)); gap:10px; } .pb-col { background:var(--color-bg); border-radius:10px; padding:8px; min-height:80px; } .pb-col h3 { margin:0 0 6px; font-size:13px; }
+  .pb-list, .cm-list { list-style:none; margin:0; padding:0; } .pb-card { background:var(--color-card); border:1px solid var(--color-border); border-radius:8px; padding:6px 8px; margin-bottom:6px; } .pb-card[draggable=true] { cursor:grab; } .pb-name { font-weight:600; font-size:12.5px; } .pb-lane, .pb-meta { font-size:11.5px; color:var(--color-text-muted); } .pb-move { font-size:11px; }
+  .cm-list li { border-bottom:1px solid var(--color-border); padding:6px 0; } .cm-body { white-space:pre-wrap; } #offline-banner { background:var(--color-primary-bg); border:1px solid var(--edv-orange-50); border-radius:10px; padding:8px 12px; margin-bottom:10px; } .merge { border-top:1px solid var(--edv-orange-50); padding-top:6px; margin-top:6px; }
 </style>
 </head>
 <body>

@@ -163,3 +163,22 @@ test('report follow-ups: created = first report of the lineage, closed only when
   assert.equal(P.hoursBetween(out[0].created_at, out[0].closed_at), 192);
   assert.equal(out[0].user_id, 1);
 });
+
+// P09 step 6 — page usage reaches the pilot report from the page_viewed rows, without re-entry.
+test('page usage: distinct users per site × role tier × ISO week × page; window and site filter; no data stays "no data"', () => {
+  const pageViews = [
+    { user_id: 1, page: 'site-actions', tier: 'editor', ts: '2026-11-03T08:00:00Z' },
+    { user_id: 1, page: 'site-actions', tier: 'editor', ts: '2026-11-04T08:00:00Z' },   // same user, same week → counted once
+    { user_id: 2, page: 'site-actions', tier: 'admin', ts: '2026-11-03T09:00:00Z' },
+    { user_id: 1, page: 'home', tier: 'editor', ts: '2026-11-10T08:00:00Z' },           // outside the window
+  ];
+  const rep = P.buildReport({ from: '2026-11-02', to: '2026-11-08', users, pageViews, metrics: [], nowMs: NOW });
+  const rows = rep.sections.page_usage.rows;
+  assert.deepEqual(rows.map((r) => [r.site, r.persona, r.page, r.n]), [['Hounde', 'editor', 'site-actions', 1], ['Mana', 'admin', 'site-actions', 1]]);
+  const only = P.buildReport({ from: '2026-11-02', to: '2026-11-08', users, pageViews, siteSet: new Set(['hounde']), metrics: [], nowMs: NOW });
+  assert.equal(only.sections.page_usage.rows.length, 1);
+  assert.match(P.toMarkdown(rep), /## Page usage[\s\S]*\| Hounde \| editor \| 2026-W45 \| site-actions \| 1 \|/);
+  assert.match(P.toCsv(rep), /^page_usage,Hounde,editor,2026-W45,1,1,.*site-actions$/m);
+  const empty = P.buildReport({ from: '2026-11-02', to: '2026-11-08', users, metrics: [], nowMs: NOW });
+  assert.match(P.toMarkdown(empty), /## Page usage[^#]*\nno data/);
+});
