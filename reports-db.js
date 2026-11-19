@@ -4397,10 +4397,17 @@ function getSyncStatus() {
 }
 
 /** Row count of one hot-path table — used by the Zoho truncation guard (Step 1). Whitelisted. */
-const _COUNTABLE = new Set(['request_records', 'change_records', 'cab_approvals', 'survey_responses', 'survey_answers']);
+// 'survey_results' replaces a never-existing 'survey_responses' entry (P11 F-01: the survey guard counts it).
+const _COUNTABLE = new Set(['request_records', 'change_records', 'cab_approvals', 'survey_results', 'survey_answers']);
 function countTable(table) {
   if (!_COUNTABLE.has(table)) throw new Error(`countTable: table not allowed: ${table}`);
   return pgHandle().prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().then(r => Number(r && r.n) || 0);
+}
+
+/** Result ids already stored — lets the survey sync re-insert live results missing locally (P11 F-01). */
+async function listSurveyResultIds() {
+  const rows = await pgHandle().prepare('SELECT result_id FROM survey_results').all();
+  return new Set(rows.map(r => r.result_id));
 }
 
 /** Get last_sync_at for a single job (used by zoho-sync.js as the incremental cursor) */
@@ -5691,7 +5698,7 @@ module.exports = {
   // Audit trail
   logAudit, getReportAuditLog,
   // Sync metadata
-  getSyncStatus, getLastSyncAt, markSyncSuccess, markSyncError, countTable,
+  getSyncStatus, getLastSyncAt, markSyncSuccess, markSyncError, countTable, listSurveyResultIds,
   // Change & CAB upsert
   upsertChangeBatch, upsertCABBatch,
   // Survey upsert
