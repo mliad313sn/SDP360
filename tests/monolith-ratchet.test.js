@@ -10,7 +10,7 @@ const path = require('node:path');
 
 const CEILINGS = {
   'server.js': { lines: 5716, inlineRoutes: 161 },   // 2026-11-19 P06: 6915 lines / 207 routes at e8900a7
-  'reports-db.js': { lines: 5860 },                  // 2026-11-19 P06 baseline at e8900a7
+  'reports-db.js': { lines: 5714 },                  // 2026-11-19 P06: 5860 at e8900a7 -> 5714 (system log + rate-limit stores moved to services/)
 };
 
 for (const [file, c] of Object.entries(CEILINGS)) {

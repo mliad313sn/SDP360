@@ -5505,7 +5505,7 @@
   ]
  },
  "reports_db": {
-  "lines": 5860,
+  "lines": 5714,
   "exports": 218,
   "by_domain": [
    {
@@ -5516,26 +5516,14 @@
    },
    {
     "domain": "misc",
-    "items": 186,
-    "lines": 1022,
-    "recent_commits_max": 2
-   },
-   {
-    "domain": "rate-limit",
-    "items": 3,
-    "lines": 17,
+    "items": 181,
+    "lines": 993,
     "recent_commits_max": 2
    },
    {
     "domain": "sites",
     "items": 3,
     "lines": 80,
-    "recent_commits_max": 1
-   },
-   {
-    "domain": "system-log",
-    "items": 5,
-    "lines": 64,
     "recent_commits_max": 1
    },
    {
@@ -8443,194 +8431,9 @@
     "recent_commits": 1
    },
    {
-    "name": "_isRiskAction",
-    "line": 5613,
-    "end": 5614,
-    "lines": 2,
-    "tables": [],
-    "domain": "misc",
-    "tests": [
-     "sso-db.test.js",
-     "system-log.test.js"
-    ],
-    "recent_commits": 0
-   },
-   {
-    "name": "_redactKeys",
-    "line": 5616,
-    "end": 5617,
-    "lines": 2,
-    "tables": [],
-    "domain": "misc",
-    "tests": [
-     "system-log.test.js"
-    ],
-    "recent_commits": 0
-   },
-   {
-    "name": "_logCtx",
-    "line": 5618,
-    "end": 5623,
-    "lines": 6,
-    "tables": [],
-    "domain": "misc",
-    "tests": [
-     "field-ticket-site-scope.test.js",
-     "figure-parity-five-surfaces.test.js"
-    ],
-    "recent_commits": 0
-   },
-   {
-    "name": "rateLimitBump",
-    "line": 5632,
-    "end": 5634,
-    "lines": 3,
-    "tables": [],
-    "domain": "rate-limit",
-    "tests": [
-     "rate-limit.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "name": "rateLimitPeek",
-    "line": 5648,
-    "end": 5652,
-    "lines": 5,
-    "tables": [
-     "rate_limit_hits"
-    ],
-    "domain": "rate-limit",
-    "tests": [],
-    "recent_commits": 1
-   },
-   {
-    "name": "rateLimitReset",
-    "line": 5653,
-    "end": 5661,
-    "lines": 9,
-    "tables": [
-     "rate_limit_hits"
-    ],
-    "domain": "rate-limit",
-    "tests": [],
-    "recent_commits": 2
-   },
-   {
-    "name": "GOVERNANCE_LOG_CATEGORIES",
-    "line": 5662,
-    "end": 5662,
-    "lines": 1,
-    "tables": [],
-    "domain": "misc",
-    "tests": [],
-    "recent_commits": 1
-   },
-   {
-    "name": "purgeSystemLog",
-    "line": 5663,
-    "end": 5670,
-    "lines": 8,
-    "tables": [
-     "system_log"
-    ],
-    "domain": "system-log",
-    "tests": [],
-    "recent_commits": 1
-   },
-   {
-    "name": "logEvent",
-    "line": 5671,
-    "end": 5688,
-    "lines": 18,
-    "tables": [],
-    "domain": "misc",
-    "tests": [
-     "access-denied-log.smoke.test.js",
-     "access-store.test.js",
-     "ai-commentary-stale.test.js",
-     "asset-review-routes.smoke.test.js",
-     "assets-usage-log.smoke.test.js",
-     "authz-enforce.test.js",
-     "capability-registry.test.js",
-     "config-change-journal.test.js",
-     "csp-report.smoke.test.js",
-     "dashkey-only-routes.smoke.test.js",
-     "field-store.test.js",
-     "field-ticket-site-scope.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "name": "countSystemLog",
-    "line": 5702,
-    "end": 5706,
-    "lines": 5,
-    "tables": [
-     "system_log"
-    ],
-    "domain": "system-log",
-    "tests": [
-     "asset-review-routes.smoke.test.js",
-     "assets-usage-log.smoke.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "name": "listSystemLog",
-    "line": 5707,
-    "end": 5712,
-    "lines": 6,
-    "tables": [
-     "system_log"
-    ],
-    "domain": "system-log",
-    "tests": [
-     "access-denied-log.smoke.test.js",
-     "asset-review-routes.smoke.test.js",
-     "assets-usage-log.smoke.test.js",
-     "config-change-journal.smoke.test.js",
-     "csp-report.smoke.test.js",
-     "dashkey-only-routes.smoke.test.js",
-     "feedback.smoke.test.js",
-     "field-routes.smoke.test.js",
-     "field-task-timing.test.js",
-     "identity-log.smoke.test.js",
-     "pg-reports-auth.test.js",
-     "restore-drill-admin-card.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "name": "getSystemLogAnalytics",
-    "line": 5713,
-    "end": 5739,
-    "lines": 27,
-    "tables": [
-     "system_log"
-    ],
-    "domain": "system-log",
-    "tests": [
-     "system-log.test.js"
-    ],
-    "recent_commits": 1
-   },
-   {
-    "name": "_backfillSystemLogFromAudit",
-    "line": 5740,
-    "end": 5757,
-    "lines": 18,
-    "tables": [
-     "audit_log"
-    ],
-    "domain": "system-log",
-    "tests": [],
-    "recent_commits": 1
-   },
-   {
     "name": "db",
-    "line": 5758,
-    "end": 5762,
+    "line": 5612,
+    "end": 5616,
     "lines": 5,
     "tables": [],
     "domain": "misc",

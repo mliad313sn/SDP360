@@ -91,15 +91,13 @@ server.js: 5716 lines, 159 inline route registrations.
 | page:meetings-setup | 1 | 1 | 0 |
 | ping | 1 | 1 | 0 |
 
-reports-db.js: 5860 lines, 218 exported names, 218 mapped definitions.
+reports-db.js: 5714 lines, 218 exported names, 205 mapped definitions.
 
 | reports-db.js domain (first table named) | functions | lines | max distinct commits (window) |
 |---|---:|---:|---:|
 | action_items | 2 | 130 | 4 |
-| misc | 186 | 1022 | 2 |
-| rate-limit | 3 | 17 | 2 |
+| misc | 181 | 993 | 2 |
 | sites | 3 | 80 | 1 |
-| system-log | 5 | 64 | 1 |
 | wan_circuit_contracts | 4 | 39 | 1 |
 | wan_outages | 3 | 27 | 1 |
 | survey_results | 1 | 23 | 1 |
