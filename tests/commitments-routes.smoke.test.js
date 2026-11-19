@@ -187,6 +187,21 @@ test('self-verification refused for a super_admin; stale version → 409; eviden
   const page = await get('/commitments.html', editor); assert.equal(page.status, 200);
 });
 
+test('P11 NEW-1: the owner cannot re-point owner + reviewer before submission and then verify (HTTP)', async () => {
+  let c = (await (await send('POST', '/api/commitments', editor, { kind: 'issue', title: 'NEW-1 HTTP probe', site_id: hounde,
+    accountable_owner: 'cm_editor', execution_owners: ['it.tech'], reviewer: 'cm_reviewer' })).json()).commitment;
+  for (const to of ['committed', 'in_progress']) c = (await (await send('POST', `/api/commitments/${c.id}/transition`, editor, { to, version: c.version })).json()).commitment;
+  const put = await send('PUT', `/api/commitments/${c.id}`, editor, { version: c.version, accountable_owner: 'someone.else', reviewer: 'cm_editor' });
+  assert.equal(put.status, 403, 'reviewer cannot be set to the owner');
+  let r = await send('PUT', `/api/commitments/${c.id}`, editor, { version: c.version, accountable_owner: 'someone.else' });
+  assert.equal(r.status, 200); c = (await r.json()).commitment;
+  assert.equal((await send('PUT', `/api/commitments/${c.id}`, editor, { version: c.version, reviewer: 'cm_editor' })).status, 403, 'a former owner cannot become reviewer');
+  c = (await (await send('POST', `/api/commitments/${c.id}/transition`, editor, { to: 'awaiting_verification', version: c.version })).json()).commitment;
+  assert.equal(c.status, 'awaiting_verification');
+  assert.equal((await send('POST', `/api/commitments/${c.id}/transition`, editor, { to: 'verified_closed', version: c.version })).status, 403, 'the former owner cannot verify');
+  assert.equal((await send('POST', `/api/commitments/${c.id}/transition`, superT, { to: 'verified_closed', version: c.version })).status, 200, 'an independent admin still verifies');
+});
+
 test('G09: approved due-date exceptions have their own register, with active / lapsed state', async () => {
   let c = (await (await send('POST', '/api/commitments', editor, { kind: 'inspection_finding', severity: 'high', title: 'G09 exception register check', site_id: hounde, reviewer: 'cm_reviewer' })).json()).commitment;
   const before = (await (await get('/api/commitments?exceptions=1', superT)).json()).commitments.length;

@@ -9,7 +9,9 @@
 //   • the verifier is never the accountable owner, never an execution owner and never the
 //     creator — a super_admin included (no self-verification). The identities at submission
 //     (c.submission, recorded by the store when the work reaches awaiting_verification) count too,
-//     so re-pointing owner / reviewer after submission cannot open a self-verification (P11 AUD-1).
+//     so re-pointing owner / reviewer after submission cannot open a self-verification (P11 AUD-1); and so
+//     does everyone who has EVER held one of those roles (c.history, from the event log), so re-pointing
+//     BEFORE submission cannot either (P11 NEW-1). The reviewer field can never be set to one of them.
 //   • a high / critical commitment cannot leave `captured` (nor become `committed`) without an
 //     accountable owner, a due date (or an approved exception) and a treatment plan.
 //   • a source system's "closed" status never produces verified_closed (sourceStatusSuggestion).
@@ -59,6 +61,10 @@ function isSelf(c, actor) {
   const sub = c.submission;
   if (sub && (_is(actor, sub.submitted_by) || _is(actor, sub.accountable_owner) || _is(actor, sub.created_by)
     || _execs(sub).some((e) => _is(actor, e)))) return true;
+  // P11 NEW-1: anyone who has EVER been owner, executor, creator or submitter (c.history, derived by the store
+  // from the append-only event log) — re-pointing the fields BEFORE submission opens no self-verification either
+  const h = c.history;
+  if (h && ['owners', 'executors', 'creators', 'submitters'].some((k) => (Array.isArray(h[k]) ? h[k] : []).some((w) => _is(actor, w)))) return true;
   // ADR-006: a deputy never satisfies four-eyes against the person they replace — standing in for the
   // owner, an executor or the creator counts as being them
   return (actor.principals || []).some((p) => isSelf(c, p));

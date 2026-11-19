@@ -154,3 +154,62 @@ test('pg: AUD-1 owner cannot re-point owner/reviewer and self-verify', async (t)
   const s = makeCommitmentStore({ prepare: (sql) => rdb.pgHandle().prepare(sql) }, { isPg: true });
   try { await s.init(); await scenarioAud1(s); } finally { await dropTestDb(ctx); }
 });
+
+// P11 round 2 NEW-1 — the accountable owner re-points owner AND reviewer BEFORE submission (no submission
+// snapshot exists yet), the executor submits normally, the former owner then verifies. Segregation of duties:
+// nobody who has EVER been owner, executor, creator or submitter may verify / reject / accept the risk, and the
+// reviewer may never be set to one of them, at any status. Older events carrying only field names count their
+// actor as a past owner.
+async function scenarioNew1(s, rawDb) {
+  const coord = { id: 9, username: 'coord.x', canEdit: true, isAdmin: false };
+  const own = { id: 7, username: 'it.owner', canEdit: true, isAdmin: false };
+  const exe = { id: 6, username: 'it.exec', canEdit: true, isAdmin: false };
+  const a = await s.create({ kind: 'issue', title: 'Firewall rule review (NEW-1)', site_id: 3, accountable_owner: 'it.owner', execution_owners: ['it.exec'], reviewer: 'biz.reviewer' }, { user: coord });
+  const id = a.commitment.id;
+  let c = await s.transition(id, 'committed', { actor: own, expectedVersion: 1 });
+  c = await s.transition(id, 'in_progress', { actor: own, expectedVersion: c.version });
+  // the exact NEW-1 set-up: before submission, re-point owner away and reviewer onto oneself
+  await assert.rejects(async () => s.update(id, { accountable_owner: 'someone.else', reviewer: 'it.owner' }, { user: own, expectedVersion: c.version }),
+    (e) => e.status === 403, 'reviewer may not be set to the (current or past) owner');
+  // the two-step variant: first move ownership away (allowed, logged with from/to), then name oneself reviewer
+  c = await s.update(id, { accountable_owner: 'someone.else' }, { user: own, expectedVersion: c.version });
+  assert.deepEqual(c.events.filter((e) => e.action === 'updated').pop().details.changes.accountable_owner, { from: 'it.owner', to: 'someone.else' });
+  await assert.rejects(async () => s.update(id, { reviewer: 'it.owner' }, { user: own, expectedVersion: c.version }), (e) => e.status === 403, 'a former owner cannot become reviewer');
+  await assert.rejects(async () => s.update(id, { reviewer: 'IT.Exec' }, { user: own, expectedVersion: c.version }), (e) => e.status === 403, 'an executor cannot become reviewer');
+  await assert.rejects(async () => s.update(id, { reviewer: 'coord.x' }, { user: own, expectedVersion: c.version }), (e) => e.status === 403, 'the creator cannot become reviewer');
+  // the executor submits normally; the former owner (as admin tier too) may not verify, reject or accept the risk
+  c = await s.transition(id, 'awaiting_verification', { actor: exe, expectedVersion: c.version });
+  for (const to of ['verified_closed', 'rejected_for_rework', 'accepted_risk_exception']) {
+    await assert.rejects(async () => s.transition(id, to, { actor: own, expectedVersion: c.version, reason: 'x' }), (e) => e.status === 403, `former owner: ${to}`);
+    await assert.rejects(async () => s.transition(id, to, { actor: { ...own, isAdmin: true }, expectedVersion: c.version, reason: 'x' }), (e) => e.status === 403, `former owner as admin: ${to}`);
+  }
+  await assert.rejects(async () => s.transition(id, 'verified_closed', { actor: { ...exe, isAdmin: true }, expectedVersion: c.version }), (e) => e.status === 403, 'submitter cannot verify');
+  // a submitter, even after the round, can never be named reviewer
+  await assert.rejects(async () => s.update(id, { reviewer: 'it.exec' }, { user: coord, expectedVersion: c.version }), (e) => e.status === 403);
+  // an independent reviewer still closes it
+  c = await s.transition(id, 'verified_closed', { actor: { id: 2, username: 'biz.reviewer' }, expectedVersion: c.version });
+  assert.equal(c.status, 'verified_closed'); assert.equal(c.verified_by, 'biz.reviewer');
+
+  // legacy: an owner change logged before {from,to} existed (fields only) — its actor counts as a past owner
+  const b = await s.create({ kind: 'issue', title: 'Legacy re-point (NEW-1)', site_id: 3, accountable_owner: 'someone.else', reviewer: 'biz.reviewer' }, { user: coord });
+  await rawDb.prepare("INSERT INTO commitment_events (commitment_id, at, actor, action, from_status, to_status, details) VALUES (?,?,?,?,?,?,?)")
+    .run(b.commitment.id, '2026-10-01T00:00:00Z', 'legacy.owner', 'updated', 'captured', 'captured', JSON.stringify({ fields: ['accountable_owner'] }));
+  await assert.rejects(async () => s.update(b.commitment.id, { reviewer: 'legacy.owner' }, { user: coord, expectedVersion: b.commitment.version }), (e) => e.status === 403);
+  let d = await s.transition(b.commitment.id, 'committed', { actor: coord, expectedVersion: b.commitment.version });
+  d = await s.transition(b.commitment.id, 'in_progress', { actor: coord, expectedVersion: d.version });
+  d = await s.transition(b.commitment.id, 'awaiting_verification', { actor: { id: 11, username: 'it.tech' , canEdit: true }, expectedVersion: d.version });
+  await assert.rejects(async () => s.transition(b.commitment.id, 'verified_closed', { actor: { id: 12, username: 'legacy.owner', isAdmin: true }, expectedVersion: d.version }), (e) => e.status === 403, 'legacy past owner cannot verify');
+  // unrelated edits stay possible
+  d = await s.update(b.commitment.id, { title: 'Legacy re-point (NEW-1) — renamed' }, { user: coord, expectedVersion: d.version });
+  assert.equal(d.status, 'awaiting_verification');
+}
+
+test('pg: NEW-1 a former owner cannot become reviewer nor verify (owner re-pointed before submission)', async (t) => {
+  const ctx = await provisionTestDb(); if (!ctx) return t.skip('no pg');
+  process.env.PG_URL = ctx.url; process.env.REPORTS_BACKEND = 'postgres';
+  const rdb = require('../reports-db'); await rdb.initPgReports();
+  await require('../db/migrate').migrateAtBoot({ log: () => {} });
+  const h = { prepare: (sql) => rdb.pgHandle().prepare(sql) };
+  const s = makeCommitmentStore(h, { isPg: true });
+  try { await s.init(); await scenarioNew1(s, h); } finally { await dropTestDb(ctx); }
+});

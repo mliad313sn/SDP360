@@ -188,6 +188,7 @@ not the browser-checked level.
 | `docs/agent-execution/P11-fix1-share-and-csat.md` | P11 | code+test | pending | pending | `759b4f8940f0882832c2bb06aad35b13af063b0b9e5e27875c2e5ab22acc0599` |
 | `docs/agent-execution/P11-fix2-operations-F01-F02-F03.md` | P11 | code+test | pending | pending | `e5241d0045472e7aaf1e93bb4b97da00d32308cf89c605d63bee50795e7997f8` |
 | `docs/agent-execution/P11-fix4-ux-field-F1-F2-F3.md` | P11 | code+test | pending | pending | `20ba1155af1d55a95b823dcb3ba090a6166c127a64d7dc64a27f4b099940b295` |
+| `docs/agent-execution/P11-fix9-NEW-1.md` | P11 | code+test | pending | pending | `83f309ec23e4e81317829a0cf41eaf747eed3fd81b991be731645c5c2c5dd4ce` |
 | `docs/agent-execution/P11-r2-ux-field-fixes.md` | P11 | code+test | pending | pending | `0b100d191aca5ce94c6395923e413b56c6b9db8004bfac47121eaa0e6325566e` |
 | `docs/agent-execution/P11-readiness-report.md` | P11 | code+test | pending | pending | `4f3c8d3eca95fcadaa91a598875240256691c5b0cc605e1e474c62de18fb20f9` |
 | `docs/agent-execution/PERF-BASELINE.md` | — (reference) | — | — | — | `87bb8122e2371fc4f53c2daadf8773c755a1eecda166e62dcbd0c6c862362ab9` |
