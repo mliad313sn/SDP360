@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | bloque le pilote sur deux sites (instance de TEST) |
 | À décider après | [G19](G19-qa-ci-green.md) QA : CI verte et tests sautés revus |
-| SHA cible | `2b35374c` |
+| SHA cible | `dd4b7332` |
 | Généré | 2026-11-19 |
 
 ## 1. La question à trancher
@@ -21,8 +21,8 @@ Les règles d'accès (périmètre de site des comptes métier CG-01, plus de lec
 
 | Preuve | Ce qu'elle montre | Régénérer / rejouer | Dernière modification (commit, date) | Empreinte |
 |---|---|---|---|---|
-| `docs/ops/authz-matrix.json` | Matrice route × garde × capacité lisible par machine, régénérée depuis le code | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-matrix-json.test.js` | 40cb7ec9, 2026-11-13 | `f0addc24b48ce348` |
-| `docs/ops/AUTHZ-MATRIX.md` | Matrice lisible de chaque route d'API et du rôle exigé | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-route-matrix.test.js` | 40cb7ec9, 2026-11-13 | `4008c9ffaa0e3d2d` |
+| `docs/ops/authz-matrix.json` | Matrice route × garde × capacité lisible par machine, régénérée depuis le code | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-matrix-json.test.js` | d234f386, 2026-11-19 | `bb3f57b765cb42e0` |
+| `docs/ops/AUTHZ-MATRIX.md` | Matrice lisible de chaque route d'API et du rôle exigé | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-route-matrix.test.js` | d234f386, 2026-11-19 | `8f4d10b7f7a96864` |
 | `tests/authz-route-matrix.test.js` | Échoue si une route est ajoutée ou si sa garde change sans régénérer la matrice | `node --test --test-force-exit tests/authz-route-matrix.test.js` | 4c7cde73, 2026-11-12 | `5af87df254c4a16d` |
 | `tests/authz-enforce.test.js` | Comportement de l'application des capacités | `node --test --test-force-exit tests/authz-enforce.test.js` | 30243287, 2026-11-12 | `9298b189390ba23a` |
 | `docs/sdp360/completion/AUTHZ-OBJECT-MATRIX.csv` | Matrice d'accès par objet (qui lit ou écrit quel objet) | `manual (object-level review)` | 040c228f, 2026-10-28 | `ed72b52d09da051b` |
