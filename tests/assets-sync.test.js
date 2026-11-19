@@ -27,9 +27,26 @@ test('full-replace inserts the mapped rows', async () => {
   ]);
 });
 
-test('full-replace REPLACES (a smaller second sync drops the vanished row)', async () => {
+const rowsN = (n) => Array.from({ length: n }, (_, i) => ({ 'Asset ID': 'B' + i, 'State': 'In Use', 'Site': 'MANA' }));
+
+test('full-replace REPLACES (a smaller second sync within tolerance drops the vanished rows)', async () => {
+  await syncAssetView(assetsDef, deps(async () => ({ rows: rowsN(10) })));
+  await syncAssetView(assetsDef, deps(async () => ({ rows: rowsN(9) })));   // −10 % < 20 % tolerance
+  assert.strictEqual((await db.prepare('SELECT COUNT(*) c FROM assets').get()).c, 9);
+});
+
+test('P11 F-03: a PARTIAL view (shrink beyond tolerance) is refused, table untouched, markError called', async () => {
+  await adb.replaceTable(assetsDef.table, Object.values(assetsDef.columns), []);
+  await syncAssetView(assetsDef, deps(async () => ({ rows: rowsN(100) })));
+  let errored = false, success = false;
+  const d = { ...deps(async () => ({ rows: rowsN(2) }), async () => { errored = true; }), markSuccess: async () => { success = true; } };
+  await assert.rejects(() => syncAssetView(assetsDef, d), (e) => e.truncation === true && e.transient === true);
+  assert.strictEqual((await db.prepare('SELECT COUNT(*) c FROM assets').get()).c, 100, '100 rows survive a 2-row partial view');
+  assert.ok(errored, 'markError called');
+  assert.ok(!success, 'never recorded as a success');
+  // reset to the 1-row state the following tests expect
+  await adb.replaceTable(assetsDef.table, Object.values(assetsDef.columns), []);
   await syncAssetView(assetsDef, deps(async () => ({ rows: [rowsV1[0]] })));
-  assert.strictEqual((await db.prepare('SELECT COUNT(*) c FROM assets').get()).c, 1);
 });
 
 test('a failed fetch leaves the existing table UNTOUCHED and calls markError', async () => {
