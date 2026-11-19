@@ -10,16 +10,16 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 |---|---:|
 | routes | 753 |
 | routes not measurable | 3 |
-| routes without strict test | 70 |
+| routes without strict test | 68 |
 | critical routes | 208 |
-| critical routes without strict test | 20 |
-| writes without strict test | 24 |
+| critical routes without strict test | 18 |
+| writes without strict test | 23 |
 | jobs | 33 |
 | jobs without strict test | 0 |
-| test sources | 861 |
+| test sources | 863 |
 | without strict test access | 4 |
 | without strict test finance | 2 |
-| without strict test export | 8 |
+| without strict test export | 6 |
 | without strict test audit | 5 |
 | without strict test destructive | 2 |
 
@@ -28,7 +28,6 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 | Method | Path | Classes | File |
 |---|---|---|---|
 | POST | `/api/access/templates/:id/retire` | access, write | routes/access.js |
-| POST | `/api/executive-new-pptx` | export, write | server.js |
 | GET | `/api/finance/actuals/batches/:id` | finance, read | routes/finance.js |
 | GET | `/api/finance/actuals/batches` | finance, read | routes/finance.js |
 | POST | `/api/governance/cadences/:id/restore` | audit, destructive, write | routes/softDelete.js |
@@ -41,7 +40,6 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 | GET | `/api/meetings/progress/export-pptx` | export, read | routes/meetings.js |
 | GET | `/api/reports/monthly/:site_id/:year/:month/pptx-v2` | export, read | server.js |
 | GET | `/api/reports/monthly/:site_id/:year/:month/pptx` | export, read | server.js |
-| GET | `/api/reports/monthly/:site_id/:year/:month/site-template/pptx` | export, read | server.js |
 | GET | `/api/reports/sessions/active` | access, read | routes/adminUsers.js |
 | GET | `/api/roadmap/evidence/catalogue` | audit, read | routes/roadmap.js |
 | GET | `/api/roadmap/evidence/incidents` | audit, read | routes/roadmap.js |
@@ -122,7 +120,7 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 |---|---:|---:|
 | access | 66 | 4 |
 | finance | 40 | 2 |
-| export | 64 | 8 |
+| export | 64 | 6 |
 | audit | 21 | 5 |
 | destructive | 36 | 2 |
 <!-- structure c493572f8cc24d8d -->

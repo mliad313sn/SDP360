@@ -1,11 +1,11 @@
-# Release runbook — governance consolidation (branch `claude/sdp360-consolidation`)
+# Release runbook — governance consolidation (trunk `claude/sdp-dashboard-analysis-55b1oy`; written on the consolidation line, since merged)
 
 Every step below is a human gate (CAB, DBA, committee). Each one is prepared, scripted and tested; nothing
 here was run against production. Order matters.
 
 | # | Step | Who | How | Proof it is ready |
 |---|---|---|---|---|
-| 1 | Review and merge | Release owner | PR from `claude/sdp360-consolidation` to `main` | CI green on the head; full suite 2,918 tests on PostgreSQL, 0 failed |
+| 1 | Review and merge | Release owner | PR from `claude/sdp-dashboard-analysis-55b1oy` to a protected `main` (human creates it; commands in `docs/agent-execution/BASELINE-*.md`) | CI green on the head; full suite 2,918 tests on PostgreSQL, 0 failed |
 | 2 | Backup | DBA | `node tools/pg/dump-db.js` (or the nightly encrypted backup) | `docs/DB_RECOVERY.md` |
 | 3 | Deploy | Ops (CAB) | **Existing production (pm2):** ZIP from `tools/deploy/make-deploy-zip.ps1` → `_apply_on_prod.cmd` → `pm2 stop` / wait / `pm2 start` (never `reload`) → `tools/deploy/mark-deployed.cmd`; installer files stay out (DEC-2). **New server, or after the TEST-instance run of the installer:** `SDP-Dashboard-Setup-<v>.exe` (wizard, or `/VERYSILENT` with `SDP_SETUP_PGSUPERPASS` in the environment); later updates through SDP Dashboard Manager ▸ Updates or `node tools\sdp-manager.js update <package.zip>` (backup first, automatic rollback on a failed probe) | `docs/sop/SOP-deploy.md`; `docs/INSTALLER-V2.md` and the Windows CI job `Installer` (build + end-to-end install, repair, restore, uninstall) |
 | 4 | Migrations 027 → 038 | automatic at boot (`db/migrate.js`) | additive, idempotent; 034 chains the existing audit rows once | CI step "Apply schema migrations on a fresh database" |

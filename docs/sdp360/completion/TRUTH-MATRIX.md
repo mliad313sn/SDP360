@@ -1,6 +1,6 @@
 # SDP360 — truth matrix (EX-00)
 
-Reference: branch `claude/sdp360-consolidation`, 2026-10-29. Re-run the evidence commands below to refresh it;
+Reference: trunk `claude/sdp-dashboard-analysis-55b1oy` (refreshed by P01, see `docs/agent-execution/BASELINE-*.md`; first written 2026-10-29 on the consolidation line, since merged into the trunk). Re-run the evidence commands below to refresh it;
 never upgrade a status by hand.
 
 **Statuses** — each column needs its own evidence; a later column never implies an earlier one is done.

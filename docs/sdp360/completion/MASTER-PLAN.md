@@ -43,7 +43,7 @@ The review's evidence predates three facts. Each one updates the plan:
 
 ## 3. Dependency-ordered execution (agent work only)
 
-Waves follow the review's §7. "Agent" means work Claude can do on `claude/sdp360-consolidation`. "Gate" means
+Waves follow the review's §7. "Agent" means work Claude can do on the trunk `claude/sdp-dashboard-analysis-55b1oy` (the consolidation line it was written on is merged into it). "Gate" means
 the item waits on a person. Gated items never block independent agent work.
 
 | Wave | Order | Item | Agent deliverable | Waits on |

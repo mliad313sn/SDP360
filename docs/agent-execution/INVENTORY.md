@@ -15,12 +15,12 @@
 | pages without entry point | 3 |
 | pages with inline scripts | 46 |
 | routes | 753 |
-| routes without test reference | 32 |
+| routes without test reference | 31 |
 | routes in server js | 209 |
 | jobs | 33 |
 | jobs without test reference | 0 |
 | migrations | 102 |
-| test files | 808 |
+| test files | 810 |
 
 ## Pages
 
@@ -177,7 +177,6 @@
 | RT-GET-api-data-major-incidents | GET | `/api/data/major-incidents` | server.js:3345 |
 | RT-GET-api-data-monthly-summary | GET | `/api/data/monthly-summary` | server.js:3989 |
 | RT-GET-api-data-sla-by-category | GET | `/api/data/sla-by-category` | server.js:3475 |
-| RT-POST-api-executive-new-pptx | POST | `/api/executive-new-pptx` | server.js:6373 |
 | RT-GET-api-integration-fmp-readiness | GET | `/api/integration/fmp/readiness` | routes/fourmypeople.js:31 |
 | RT-GET-api-meetings-import-incubation-template | GET | `/api/meetings/import/incubation-template` | routes/meetings.js:806 |
 | RT-POST-api-meetings-import-incubation-commit | POST | `/api/meetings/import/incubation/commit` | routes/meetings.js:846 |
