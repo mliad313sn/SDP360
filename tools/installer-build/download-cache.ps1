@@ -9,6 +9,7 @@
 #   python-3.12*-embed-amd64.zip   python.org embeddable runtime
 #   get-pip.py                     bootstrap.pypa.io
 #   wheels\*.whl                   pip download matplotlib python-pptx pillow
+#   xlsx-<ver>.tgz                 SheetJS tarball (vendor URL), verified vs lockfile sha512
 #   pm2-global\                    COPIED from this box's %APPDATA%\npm
 #                                  (node_modules\pm2 + pm2* shims). npm pack
 #                                  tarballs have NO transitive deps and
@@ -41,7 +42,7 @@ if (-not (Test-Path $cache)) { New-Item -ItemType Directory -Path $cache -Force 
 
 $results = New-Object System.Collections.ArrayList
 function Report($item, $state, $detail) {
-    $c = switch ($state) { 'DOWNLOADED' {'Green'} 'COPIED' {'Green'} 'SKIPPED' {'Gray'} 'EXTRACTED' {'Green'} default {'Yellow'} }
+    $c = switch ($state) { 'DOWNLOADED' {'Green'} 'COPIED' {'Green'} 'SKIPPED' {'Gray'} 'EXTRACTED' {'Green'} 'VERIFIED' {'Green'} 'MISMATCH' {'Red'} default {'Yellow'} }
     Write-Host ("  [{0}] {1} - {2}" -f $state, $item, $detail) -ForegroundColor $c
     [void]$results.Add([pscustomobject]@{ Item = $item; State = $state; Detail = $detail })
 }
@@ -116,6 +117,34 @@ if ((Test-Path $wheels) -and (Get-ChildItem $wheels -Filter 'matplotlib*.whl' -E
     } else {
         Report 'PPTX wheels' 'UNAVAILABLE' 'no python on this box to run pip download'
     }
+}
+
+# --- 4b) xlsx (SheetJS) tarball - not on the npm registry ---------------------
+# package.json installs xlsx from a vendor tarball URL. Keep an offline copy next to the other
+# installers and verify it against the lockfile integrity (sha512) before it is kept: a CDN that
+# disappears or changes the bytes must never reach a bundle silently. (P07 supply chain)
+try {
+    $lock = Get-Content (Join-Path $here '..\..\package-lock.json') -Raw | ConvertFrom-Json
+    $xl = $lock.packages.'node_modules/xlsx'
+    $xlName = 'xlsx-' + $xl.version + '.tgz'
+    $xlDest = Join-Path $cache $xlName
+    if ($xl.resolved -and $xl.integrity -and $xl.integrity.StartsWith('sha512-')) {
+        if (Get-File $xl.resolved $xlDest 'xlsx tarball') {
+            $sha = [System.Security.Cryptography.SHA512]::Create()
+            $fs = [System.IO.File]::OpenRead($xlDest)
+            try { $got = 'sha512-' + [Convert]::ToBase64String($sha.ComputeHash($fs)) } finally { $fs.Close() }
+            if ($got -ne $xl.integrity) {
+                Remove-Item $xlDest -Force
+                Report 'xlsx tarball' 'MISMATCH' ('integrity differs from package-lock.json - file deleted (' + $xl.resolved + ')')
+            } else {
+                Report 'xlsx tarball' 'VERIFIED' ($xlName + ' matches the lockfile sha512')
+            }
+        }
+    } else {
+        Report 'xlsx tarball' 'UNAVAILABLE' 'package-lock.json has no resolved URL / sha512 integrity for xlsx'
+    }
+} catch {
+    Report 'xlsx tarball' 'UNAVAILABLE' ('cannot read package-lock.json: ' + $_.Exception.Message)
 }
 
 # --- 5) pm2 offline global tree (COPY from this box, never npm install) -------
