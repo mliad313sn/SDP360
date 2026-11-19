@@ -41,6 +41,7 @@ not the browser-checked level.
 | `docs/agent-execution/A-26.md` | A-26 | code+test | pending | pending | `0b5b3f0c8a11687e9bfe8443fd270759da246dd27d8cbd5ca3460276a1e0d1e8` |
 | `docs/agent-execution/A-27.md` | A-27 | code+test | pending | pending | `b0b39891af572658666b498186b317a12d42dc8790ddaa463147ecb13b5a4653` |
 | `docs/agent-execution/A-28.md` | A-28 | code+test | pending | pending | `93c78127df165c307f864b5873f057f453eb39748decb6eeb45d4bb9e5b6b6a1` |
+| `docs/agent-execution/A0-RULE-COVERAGE.md` | — (reference) | — | — | — | `9c21217c1e8d65814dfc7e9115ca2abba352ceff664ad8a2c86e249347f3ff20` |
 | `docs/agent-execution/AMDEC.md` | — (reference) | — | — | — | `bbd1ffd61f16b21d4733d54cdb621126aabe8c8c5e46a47a2998e9ef318f0d5d` |
 | `docs/agent-execution/B-01.md` | B-01 | code+test | pending | pending | `abb8f83880e275e57b88ed536bc6691af6bc9fa00b462a191008862ea179a538` |
 | `docs/agent-execution/B-02.md` | B-02 | code+test | pending | pending | `f1b5a48f59a64d35940d63de47f5665f84e7c8235a5e664c5e5d8cbad8656d63` |
@@ -51,6 +52,7 @@ not the browser-checked level.
 | `docs/agent-execution/B-07.md` | B-07 | code+test | pending | pending | `54cb4dacc994cc09c9beda66982bcec9f4e3959c50542121545165639d47c592` |
 | `docs/agent-execution/B-08.md` | B-08 | code+test | pending | pending | `e7108d6ec6ea193b46c45912b78835ee2ab831d2419a43de62dccd972ad69c77` |
 | `docs/agent-execution/B-09.md` | B-09 | code+test | pending | pending | `e89b5fd29c4a61a3334cdc9233b416224c854ac6e57e7d0e82cae72dc926e684` |
+| `docs/agent-execution/BASELINE-e8900a7.md` | — (reference) | — | — | — | `4e0f3d6c558aaa9c251c592da4ba32a2d85bae8e56f79fb73be8eaddac1fb1e0` |
 | `docs/agent-execution/C-01.md` | C-01 | code+test | pending | pending | `7b180e279c444edf29371cec8919c3d215e1b761ffa8c67694d572a864c4bccd` |
 | `docs/agent-execution/C-02.md` | C-02 | code+test | pending | pending | `af5d04469cc7b33d972cfc73e5d470507d7b86d739b1a286b31e8e14d216ae26` |
 | `docs/agent-execution/C-03.md` | C-03 | code+test | pending | pending | `b56066dd4cb769384c1271cb977992ac9e57f6c83c357fcb67a8ad2f935322ba` |
@@ -88,7 +90,7 @@ not the browser-checked level.
 | `docs/agent-execution/D-0406.md` | — (reference) | — | — | — | `1ca2f3341f2657d0c2845ac158a4bfe26748827bb933243b6c02b9675af6ec9b` |
 | `docs/agent-execution/D-070910.md` | — (reference) | — | — | — | `a2944197927f3c3cff2deb968c54c027587f3669f824a6994493f8ba9ecd1a51` |
 | `docs/agent-execution/DELIVERY-QUALITY.md` | — (reference) | — | — | — | `1aca3f9dbc393523a8e283fd55236b8b4e137415062a3963a5c1351eedb7155c` |
-| `docs/agent-execution/DEPS-TRIAGE.md` | — (reference) | — | — | — | `45f236ba2e4756c1494af8beef42f8a0522a087ab63ab974db29af2b091d206b` |
+| `docs/agent-execution/DEPS-TRIAGE.md` | — (reference) | — | — | — | `8a2b7888644d603edd683c79c532ce8255d93537df913f714327a5287b9a228f` |
 | `docs/agent-execution/E-W0-SRV.md` | — (reference) | — | — | — | `861207120229bfdd6f63c160b57908feab5e008ffc55932b705df87e9bcfca1d` |
 | `docs/agent-execution/E-W1-DATA.md` | — (reference) | — | — | — | `0f1e135312a175eefefa3e7c95502fd1c5b636fb67606bc3c4393b5551ec9a82` |
 | `docs/agent-execution/E-W1-FIELD.md` | — (reference) | — | — | — | `eb5feaff07b15d25bebe9044f0c16057a5401aa30521a01c2f856664e8b87cc3` |
@@ -105,6 +107,7 @@ not the browser-checked level.
 | `docs/agent-execution/E-W2-SRV.md` | — (reference) | — | — | — | `3f28834b2e03a90e583ad2d7cd78d73b2e7679b99d663bdf1d8c605f53f5e70c` |
 | `docs/agent-execution/E-W2-UX.md` | — (reference) | — | — | — | `30c8772baa241af289f2047634de8b7ba836db0ab8a6b9f6d012bfe716f21a52` |
 | `docs/agent-execution/EXPLAIN-SYNTHETIC.md` | — (reference) | — | — | — | `540ce1ac9f95d3826020106b96f157fe00f8e405d2a34734e92ac7c215efc153` |
+| `docs/agent-execution/F-A0.md` | — (reference) | — | — | — | `6af931e44a3b3a0ea6889874a066927f59a73d3da1e07f8507d7e67a5bc7a381` |
 | `docs/agent-execution/F-F1-DATA.md` | — (reference) | — | — | — | `340b10f58463de198ad34598cd74776a0ea29f4e79eff02da5d4ed284732d5d7` |
 | `docs/agent-execution/F-F1-GOV.md` | — (reference) | — | — | — | `0cf5154527c948985cb87a0fc84084ead9eca1d61bca6fd2b1a35e101a21a84a` |
 | `docs/agent-execution/F-F1-OPS.md` | — (reference) | — | — | — | `4fbd2a4ecea613b2552ae7704861926d3b9c6cc92b041b524165b9b2645e31d2` |
@@ -112,12 +115,33 @@ not the browser-checked level.
 | `docs/agent-execution/F-F1-SEC.md` | — (reference) | — | — | — | `f163ffb2ceaefba735a1c0ad6c258a395c936cb35c3fa85f7ddf83e64a0222f6` |
 | `docs/agent-execution/F-F1-SYNC.md` | — (reference) | — | — | — | `29aa97c26ce4e93c170b07a546e720cce9a139b76a2bc5e7838ee0f30c6eb1b1` |
 | `docs/agent-execution/F-F2-UX.md` | — (reference) | — | — | — | `a44bde2db9d9cabddfbfb331675e0bb16638d941ce28bbe8252fc79fedf92736` |
+| `docs/agent-execution/F-G1-SYNC.md` | — (reference) | — | — | — | `4907e9e2ee52930068382eecf26e2d20fb5753ce2369a77e3d48888fefafe064` |
+| `docs/agent-execution/F-G2-PLATFORM.md` | — (reference) | — | — | — | `bda79b972538dda912372fcb6b16dbb36fb7b076d1ac2a91cda8662f359ca02e` |
+| `docs/agent-execution/F-G3-UX.md` | — (reference) | — | — | — | `27eec40b082b67815f1e8fb41e7d5fb2b46e0da6612942fc6480f0eaf6f97d54` |
+| `docs/agent-execution/F-G4-CI.md` | — (reference) | — | — | — | `52f1155c1dfb90a9965d39ce0b3345ee3a98e072448bb6ea6cdceb70fdc5a20f` |
+| `docs/agent-execution/F-P2-FINANCE.md` | — (reference) | — | — | — | `0f0cd9c206f2430c00f725c140fca62ccccd43a8edf5ac45320020678d09919a` |
+| `docs/agent-execution/F-P3-HELPDESK.md` | — (reference) | — | — | — | `d34723bab1e316ef88dc2e620a5012cd7fafd9cd432421916bd5ad4a00e19191` |
 | `docs/agent-execution/F-P4-CONNECTORS.md` | — (reference) | — | — | — | `f10f28fbe1199cde9c9d569eb461783970670cb7b835f71b9bafad226471da73` |
+| `docs/agent-execution/F-P5-HOME.md` | — (reference) | — | — | — | `c8120ce0c7536e2f6ec926cb212fed0f7b8fed617842a7598a3c978576cad73a` |
+| `docs/agent-execution/F-P6-DECISIONS.md` | — (reference) | — | — | — | `dcad237321043f2b258f0e78b0bd5eb054ac1bb6c712f267fe5c7d24ad53406a` |
+| `docs/agent-execution/F-P7A-PORTFOLIO.md` | — (reference) | — | — | — | `c023da30b77d0202d416cbdc4e9966b6abd1df3aef25a5822d3d92bbace32eef` |
+| `docs/agent-execution/F-P7B-PLAN.md` | — (reference) | — | — | — | `b6f0c7503b476bd15f169dc65dc9560afa123a28d0cb180baf64fe22dd9be54e` |
+| `docs/agent-execution/F-P8-SLACLAIMS.md` | — (reference) | — | — | — | `601bb846a26b51c289604f0f2c00f615946fcdd0be1f69bbd88949216ef6f2c1` |
 | `docs/agent-execution/F-R1-DEMO.md` | — (reference) | — | — | — | `3dcf2ab4ba14e9624214e1f23dd6f1e30286a2bd64cbd021bce5b55551e41766` |
 | `docs/agent-execution/F-R1-PROFILES.md` | — (reference) | — | — | — | `ba31f907fdf42da5ea30c4efe631ed5191f6c214cb1d96cc36f420d3d403d7b4` |
 | `docs/agent-execution/F-R2-QUEUE.md` | — (reference) | — | — | — | `d27174c129766cb36f0d0dec6e33a9a93952536f0fcaaf8e359ff75f3c408494` |
 | `docs/agent-execution/F-R2-WORKBENCH.md` | — (reference) | — | — | — | `2224e56c8d256e44acd04ffb4f7bb2bec8a3048d6fb39c5f181d207de04f8e88` |
 | `docs/agent-execution/F-UAT.md` | — (reference) | — | — | — | `df8fc03dcbee834bbedd6b6b2f835fb9eeab0a1a989bc8698d39b6d2a73ad806` |
+| `docs/agent-execution/F-W1-ENGINE.md` | — (reference) | — | — | — | `541aa42825c922a0fb31f77e3b62ec03bfb5409b5ce9b60bbf5b4106c008d1af` |
+| `docs/agent-execution/F-W1-EVM.md` | — (reference) | — | — | — | `9d6d8cea8b804943e1fce523f900bc359de04f8ada14909367a00fbf2631975d` |
+| `docs/agent-execution/F-W1-INTEGRITY.md` | — (reference) | — | — | — | `028c9736c64384848711c950cf5222c2b09b1438764b0872c16d31fe7b2bec49` |
+| `docs/agent-execution/F-p10-sustain.md` | — (reference) | — | — | — | `d7b8fc910567382cb7e6200a6c8b3b67ba859ed819171edc98a17830bf4bf15a` |
+| `docs/agent-execution/F-p9-export.md` | — (reference) | — | — | — | `675fff453ef7fe39908ce9ff1350583367123dbd3015c46f744565d1c5c74c03` |
+| `docs/agent-execution/F-w2-engine.md` | — (reference) | — | — | — | `9496f761d2cc7a3148f6fb3f3ee0fa4e3bad7ca75ad7c3e829fabf5ebbbdc3fd` |
+| `docs/agent-execution/F-w2-ui.md` | — (reference) | — | — | — | `438dec92fe008d41ff4309e8c16e2af253cca0ca4b77115f7e5dfa02f56e7d0b` |
+| `docs/agent-execution/F-w3-governance.md` | — (reference) | — | — | — | `c4ed39b77862060c183678d460c8d2135b07fc61d7185bd60a9b04fdeab58f35` |
+| `docs/agent-execution/F-w4-connectors.md` | — (reference) | — | — | — | `2b2e1486c8029b083c88617df8b6d8065734e6df490f64f08f2ec772718e537a` |
+| `docs/agent-execution/F-w4-enterprise.md` | — (reference) | — | — | — | `38e2dff18b9e0a398d0f7fc8e87e7e464e7267d75c1a5fbc941463e1d2adfd65` |
 | `docs/agent-execution/G00.md` | G00 | code+test | pending | pending | `851fd0ca5460f8907fc678153f3984ef56facd75f643cbb4676e3f97643f1210` |
 | `docs/agent-execution/G01.md` | G01 | code+test | pending | pending | `2fbce7e79960cc4e55ecc9101df2256a5df921d0a3e8bf08df363a77ae935bea` |
 | `docs/agent-execution/G02.md` | G02 | code+test | pending | pending | `933b84b8c361d4129e97e0e4203d2ee759da8891d428727599d549e287ac4f9c` |
@@ -144,10 +168,25 @@ not the browser-checked level.
 | `docs/agent-execution/G23.md` | G23 | code+test | pending | pending | `322c1fe31a3cee472f3b2157bc5237c7948d635c49dfac2770a0cc29a8a6ca1d` |
 | `docs/agent-execution/G24-DOSSIER-GO-NOGO-FR.md` | G24 | code+test | pending | pending | `0130ead17d7d988951b2adfb2777ec34fd98c24e587b96fbe6fee9e569474cbc` |
 | `docs/agent-execution/G24.md` | G24 | code+test | pending | pending | `2349897316ae9dd2908e50fa872042b53a905f48a9b8854085ff07b8cc2c4ac2` |
-| `docs/agent-execution/INVENTORY-STRICT.md` | — (reference) | — | — | — | `2370024879b74cc6f283a426e2fa23466371cd67f8f999f86e69fd6e580e3442` |
+| `docs/agent-execution/HANDOFF-2026-11-13-orchestrator.md` | — (reference) | — | — | — | `0474096143402657245d361e94cdca7b93a11d5ac64d28da31ef47e46743a29f` |
+| `docs/agent-execution/INVENTORY-STRICT.md` | — (reference) | — | — | — | `c8256c295dbd006a3c4f7d3ddea0491347d5fc63f0e63588f3d7a6d66417b198` |
+| `docs/agent-execution/P02-authz-outcomes.md` | P02 | code+test | pending | pending | `a7f93738ae02d638073f6e915e85acde8a0d7e5a8a1aa979c0ecdfa1d9cf9c32` |
+| `docs/agent-execution/P03-switch-lots.md` | P03 | code+test | pending | pending | `99419412678af916494549fa3c6ef56f7c4f4d94aab09482c800dcccf93caa39` |
+| `docs/agent-execution/P04-ppm-certification.md` | P04 | code+test | pending | pending | `ce601c12654f688fbed18b2feb9a2bdc42734d19de01075a2292838c4e74cca3` |
+| `docs/agent-execution/P05-performance.md` | P05 | code+test | pending | pending | `695c3a66d87087a6444f116e22ff27afb1c999a3876fd457b87ec19c62ed99f1` |
+| `docs/agent-execution/P06-CLAUDE-md-proposed.md` | P06 | code+test | pending | pending | `fff1d075d1ae8afbe4c4999f1b6e31f2727e7e16c588ed373cea8f1b8627bfef` |
+| `docs/agent-execution/P06-monolith-map.md` | P06 | code+test | pending | pending | `3c92337b9e50aac48ca9091c99a71d7ca2d5b07a5867f74d5c59f49675c11c48` |
+| `docs/agent-execution/P06-monolith.md` | P06 | code+test | pending | pending | `7bbffd54b87683586e9116bfd0095544a0108ce82416849ae36e5222bfd9eacf` |
+| `docs/agent-execution/P07-security-closure.md` | P07 | code+test | pending | pending | `d11eb355b50431bf1079f78a67dae052446ffd1bcd51bafd8bf6a856da9b7c2b` |
+| `docs/agent-execution/P08-kpi-certification.md` | P08 | code+test | pending | pending | `f6fa35ee2b87b2f0722b3bfe5ce5592251c13ce86287ad12394bd097d211b264` |
+| `docs/agent-execution/P08-kpi-dossiers.md` | P08 | code+test | pending | pending | `43c1fe4686ea0ce83587ebbd55b67fd9699d0cb5466acc89168074b9819f7a88` |
+| `docs/agent-execution/P08-unknown-sweep.md` | P08 | code+test | pending | pending | `80ade81034a702d4b187e2ba4db9eb4ade05b0c39a0bebfb6d3289714bb6ceb5` |
+| `docs/agent-execution/P09-PAGE-INVENTORY.md` | P09 | code+test | pending | pending | `7ecfa653793cfa75a837d8995f381a03dcd20c8c5f76bd9b7f85054842fd1141` |
+| `docs/agent-execution/P09-adoption-kit.md` | P09 | code+test | pending | pending | `8246fb83ee6409fc87ec55235daf09386dd24fcc7509ae392e649aff81bb1081` |
+| `docs/agent-execution/P10-gate-dossiers.md` | P10 | code+test | pending | pending | `20c3eb48b5a799f93ababe903e956ed4e6d32bcfb182098d86317fa8aec282b6` |
 | `docs/agent-execution/PERF-BASELINE.md` | — (reference) | — | — | — | `87bb8122e2371fc4f53c2daadf8773c755a1eecda166e62dcbd0c6c862362ab9` |
 | `docs/agent-execution/PLAN-REVIEW-2026-11-04.md` | — (reference) | — | — | — | `73b5994a781123a7e22e1d57ea59ca90bfb3f1e422d4fd044d7c7cabaa4b688e` |
-| `docs/agent-execution/README.md` | — (reference) | — | — | — | `e14a8dba7b676abb850b9b635d11222d957165d90a3011e4d7989dedfd12838b` |
+| `docs/agent-execution/README.md` | — (reference) | — | — | — | `7e6459fc7a791b7ca8eeb5bf01defd3d59dab502015fbca1c7f505b256674ca4` |
 | `docs/agent-execution/SDP360_GOALS_READY_TO_PASTE_EN.md` | — (reference) | — | — | — | `55b1a23305249331cbcb7b65545e4b39a26fa7f0f2aadaf22e88b613ff85738e` |
 | `docs/agent-execution/SDP360_ROADMAP_FR.md` | — (reference) | — | — | — | `47562d34f182c0725d042d12041a93ad299e822ea40d53d44c4dee5e0bd88ec2` |
 | `docs/agent-execution/SEC-01.md` | — (reference) | — | — | — | `d1ac9fa1250da820a3480db52ebdbb26bfea63de2f0f8f52268a7f30ffa5ef7f` |
@@ -156,9 +195,9 @@ not the browser-checked level.
 
 | File | SHA-256 |
 |---|---|
-| `docs/agent-execution/INVENTORY.json` | `2cf61c0fa4dce33f26fb499b368b1f6a693d562c4e7d47c380fb030a4c385548` |
-| `docs/agent-execution/INVENTORY.md` | `1784e007a951166d974e8a45ffc97de52169a22a97f43a0120f8eafcffc393aa` |
+| `docs/agent-execution/INVENTORY.json` | `e9573dd6ae380f25576438189911ed4ee859023e2a64de40c4bfd20c4497e864` |
+| `docs/agent-execution/INVENTORY.md` | `55f963deb8e3559a13ac73b7c95347c61c4d04ee3af225c6f383de1b45c7f028` |
 | `docs/agent-execution/TRACEABILITY.md` | `bab98d60573cc653947f1acead471e8655cbc78134969e91ee7f281ff9876c0a` |
-| `docs/ops/AUTHZ-MATRIX.md` | `d587824ca5278c6f2b7ff38a30e18367e21b211a91a898d581ee3aa98ec01376` |
-| `docs/ops/FLAG-REGISTER.md` | `f46caa66084d59685896ef00d70fccef3a019be403016c4d275ad7433a884fbd` |
-| `docs/ops/METRIC-WIDGET-MAP.md` | `535dd66e053f38643623d03b6a6320cee025eba0c5f813c4d9b573935b87e639` |
+| `docs/ops/AUTHZ-MATRIX.md` | `8f4d10b7f7a9686440e7599786f4d7fec8671890043b86a98803be18353430ce` |
+| `docs/ops/FLAG-REGISTER.md` | `7c4c8c05caa9e8c59c09a2d3fbdaf5b5aa4ced6aed17855030b3e1a0584a49c5` |
+| `docs/ops/METRIC-WIDGET-MAP.md` | `d08da715d201636353228f628d952829ce319e64953e0b44b9ad561160765f13` |
