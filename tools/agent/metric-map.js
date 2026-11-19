@@ -45,7 +45,7 @@ const esc = (k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const keyRe = (k) => new RegExp('(^|[^\\w.])' + esc(k) + '(?![\\w.])');
 
 // Files that only DEFINE metrics or serve any of them generically — listed once, never per metric.
-const DEFINERS = new Set(['services/metricRegistry.js', 'tools/agent/metric-map.js']);
+const DEFINERS = new Set(['services/metricRegistry.js', 'tools/agent/metric-map.js', 'tools/kpi/dossiers.js', 'tools/kpi/side-by-side.js']);   // P08: the committee dossier generators describe metrics, they do not consume them
 const GENERIC = [
   ['routes/metrics.js', 'GET /api/metrics/* — resolves any registered key'],
   ['routes/dashboards.js', 'dashboard viewer/composer API — any metric a published definition names'],

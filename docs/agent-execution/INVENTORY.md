@@ -20,7 +20,7 @@
 | jobs | 33 |
 | jobs without test reference | 0 |
 | migrations | 102 |
-| test files | 808 |
+| test files | 814 |
 
 ## Pages
 
@@ -202,7 +202,7 @@
 | JB-access-emergency-expiry | access.emergency_expiry | 1 |
 | JB-access-entra-deprovision | access.entra_deprovision | 1 |
 | JB-access-grant-expiry | access.grant_expiry | 2 |
-| JB-assets-sync | assets.sync | 6 |
+| JB-assets-sync | assets.sync | 7 |
 | JB-audit-chain-verify | audit.chain_verify | 2 |
 | JB-audit-retention | audit.retention | 3 |
 | JB-commitments-escalate | commitments.escalate | 1 |
@@ -218,17 +218,17 @@
 | JB-governance-agenda-drafts | governance.agenda_drafts | 1 |
 | JB-governance-ppm-alerts | governance.ppm_alerts | 1 |
 | JB-handoffs-escalate | handoffs.escalate | 1 |
-| JB-meraki-wan | meraki.wan | 9 |
+| JB-meraki-wan | meraki.wan | 10 |
 | JB-meraki-wan-events | meraki.wan_events | 1 |
 | JB-meraki-wan-events-5m | meraki.wan_events_5m | 1 |
 | JB-meraki-wan-poller | meraki.wan_poller | 2 |
 | JB-meridian-resources | meridian.resources | 1 |
-| JB-opmanager-availability | opmanager.availability | 3 |
+| JB-opmanager-availability | opmanager.availability | 4 |
 | JB-publish-connectors | publish.connectors | 2 |
 | JB-reports-monthly | reports.monthly | 1 |
 | JB-reports-weekly | reports.weekly | 2 |
 | JB-softdelete-purge | softdelete.purge | 2 |
 | JB-teams-sla-poll | teams.sla_poll | 3 |
-| JB-zoho-change-cab | zoho.change_cab | 1 |
-| JB-zoho-requests | zoho.requests | 23 |
-| JB-zoho-survey | zoho.survey | 2 |
+| JB-zoho-change-cab | zoho.change_cab | 2 |
+| JB-zoho-requests | zoho.requests | 24 |
+| JB-zoho-survey | zoho.survey | 3 |
