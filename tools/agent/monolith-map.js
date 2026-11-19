@@ -109,13 +109,18 @@ function mapReportsDb(since) {
     if (m) defs.push({ name: m[1] || m[2], i });
   });
   const bl = blame('reports-db.js');
+  const byName = new Map(defs.map((d, k) => [d.name, { i: d.i, end: (k + 1 < defs.length ? defs[k + 1].i : exp) - 1 }]));
+  const implBody = (n) => { const r = byName.get(n); return r ? L.slice(r.i, r.end + 1).join('\n') : ''; };
   const fns = [];
   defs.forEach((d, k) => {
     if (!names.has(d.name)) return;
     const end = (k + 1 < defs.length ? defs[k + 1].i : exp) - 1;
-    const body = L.slice(d.i, end + 1).join('\n');
-    const tables = [...new Set((body.match(/\b(?:FROM|INTO|UPDATE|JOIN)\s+([a-z_][a-z0-9_]+)/gi) || [])
-      .map((x) => x.split(/\s+/)[1].toLowerCase()))].filter((t) => !['select', 'set', 'the', 'json_each'].includes(t));
+    let body = L.slice(d.i, end + 1).join('\n');
+    // public functions are often thin dispatchers to a _<name>Pg implementation — read that body too
+    for (const m of body.matchAll(/\b(_[A-Za-z0-9_$]+Pg)\(/g)) { const b = implBody(m[1]); if (b) body += '\n' + b; }
+    const code = body.replace(/\/\/.*$/gm, '');
+    const tables = [...new Set((code.match(/\b(?:FROM|INTO|UPDATE|JOIN)\s+([a-z_][a-z0-9_]+)/g) || [])
+      .map((x) => x.split(/\s+/)[1]))].filter((t) => !['select', 'set', 'the', 'json_each', 'jsonb_each', 'generate_series'].includes(t));
     const domain = /system_log|SystemLog/.test(d.name) ? 'system-log' : /RateLimit|rate_limit/i.test(d.name + body.slice(0, 400)) ? 'rate-limit'
       : (tables[0] || 'misc');
     fns.push({ name: d.name, line: d.i + 1, end: end + 1, lines: end - d.i + 1, tables, domain,

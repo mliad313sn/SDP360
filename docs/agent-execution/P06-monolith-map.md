@@ -95,21 +95,41 @@ reports-db.js: 5714 lines, 218 exported names, 205 mapped definitions.
 
 | reports-db.js domain (first table named) | functions | lines | max distinct commits (window) |
 |---|---:|---:|---:|
-| action_items | 2 | 130 | 4 |
-| misc | 181 | 993 | 2 |
-| sites | 3 | 80 | 1 |
+| action_items | 8 | 155 | 4 |
+| misc | 58 | 569 | 2 |
+| users | 11 | 60 | 2 |
+| request_records | 19 | 93 | 1 |
+| sites | 15 | 85 | 1 |
+| weekly_reports | 13 | 68 | 1 |
+| survey_results | 6 | 54 | 1 |
+| wan_outages | 6 | 39 | 1 |
 | wan_circuit_contracts | 4 | 39 | 1 |
-| wan_outages | 3 | 27 | 1 |
-| survey_results | 1 | 23 | 1 |
+| change_records | 6 | 28 | 1 |
+| weeks | 5 | 22 | 1 |
 | weekly_report_submissions | 2 | 21 | 1 |
+| sessions | 4 | 18 | 1 |
+| cab_approvals | 4 | 17 | 1 |
+| infra_kpis | 2 | 16 | 1 |
+| action_departments | 4 | 15 | 1 |
+| sync_metadata | 4 | 15 | 1 |
+| user_roles | 2 | 13 | 1 |
+| audit_log | 2 | 13 | 1 |
+| roadmap_training | 3 | 12 | 1 |
 | survey_answers | 1 | 11 | 1 |
-| another | 1 | 10 | 1 |
-| microsoft | 1 | 6 | 1 |
-| migration | 1 | 6 | 1 |
-| sync_metadata | 1 | 5 | 1 |
-| reactivation | 1 | 4 | 1 |
-| existing | 1 | 4 | 1 |
-| analytics | 1 | 53 | 0 |
-| claude | 1 | 45 | 0 |
+| exec_mi_summary | 2 | 10 | 1 |
+| site_module_codes | 3 | 9 | 1 |
+| roadmap_objectives | 2 | 8 | 1 |
+| roadmap_deliverables | 2 | 8 | 1 |
+| exec_view_editorial | 2 | 7 | 1 |
+| exec_report_editorial | 2 | 7 | 1 |
+| wan_subsite_networks | 2 | 7 | 1 |
+| annual_objectives | 2 | 7 | 1 |
+| user_sites | 2 | 6 | 1 |
+| monthly_reports | 2 | 6 | 1 |
+| infra_metric_snapshots | 1 | 4 | 1 |
+| wan_link_snapshots | 1 | 4 | 1 |
+| helpdesk_data | 1 | 4 | 1 |
+| lights | 1 | 4 | 1 |
+| report_asset_review | 1 | 3 | 1 |
 
 Per-route and per-function detail (helpers closed over, tests naming the path or function): `P06-monolith-map.json`.
