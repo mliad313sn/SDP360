@@ -141,6 +141,11 @@ jobs:
         if: always()
         continue-on-error: true
         run: node tools/test/perf-baseline.js --dir=e2e-artifacts --print
+      - name: Performance budgets (warn mode until approved)
+        if: always()
+        env:
+          PERF_BUDGETS_BLOCKING: ${{ vars.PERF_BUDGETS_BLOCKING || '0' }}
+        run: node tools/test/perf-budget-check.js --e2e=e2e-artifacts
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: always()
         with:

@@ -45,6 +45,10 @@ test('compose: readings become shares, pending field entries are not counted', (
   assert.strictEqual(r.items.sign_in.window, 'since_server_start');
   assert.strictEqual(r.items.sign_in.login_failed_30d, 10);
   assert.strictEqual(r.items.sync_freshness.value, 100);
+  // a job first seen 1 h ago with a 2 h window is fully fresh (history starts at its first ok run)
+  const young = S.compose({ sync: [{ job: 'j', freshness_hours: 2, ok_times: [new Date(NOW.getTime() - H).toISOString()] }] }, NOW);
+  assert.strictEqual(young.items.sync_freshness.value, 100);
+  assert.strictEqual(young.items.sync_freshness.jobs[0].measured_from, new Date(NOW.getTime() - H).toISOString());
   assert.strictEqual(r.items.scheduled_delivery.value, 90);
   assert.strictEqual(r.items.field_apply.value, 75);          // 6 of 8 settled
   assert.strictEqual(r.items.database_latency.value, 50);     // p95 of 5 samples = the largest

@@ -38,7 +38,12 @@ function compose(raw = {}, now = new Date()) {
     c ? 'in-process counter since the server started (a restart empties it)' : 'no counter on this server',
     { window: c ? 'since_server_start' : null, since: c ? c.started_at : null, answers: c ? c.login.total : null,
       login_success_30d: auth ? auth.success : null, login_failed_30d: auth ? auth.failed : null });
-  const jobs = (raw.sync || []).map((j) => ({ job: j.job, freshness_hours: j.freshness_hours, fresh_pct: freshShare(j.ok_times, j.freshness_hours, from, to) }));
+  // A job's history starts at its first recorded ok run: a database younger than 30 days is not read as 30 days stale.
+  const jobs = (raw.sync || []).map((j) => {
+    const first = Math.min(...(j.ok_times || []).map(toMs).filter((x) => x != null));
+    const start = Number.isFinite(first) ? Math.max(from, first) : from;
+    return { job: j.job, freshness_hours: j.freshness_hours, measured_from: new Date(start).toISOString(), fresh_pct: freshShare(j.ok_times, j.freshness_hours, start, to) };
+  });
   const fp = jobs.map((j) => j.fresh_pct).filter((x) => x != null);
   const sync = item('share of time each sync job was inside its freshness window (worst job)', fp.length ? Math.min(...fp) : null, '%',
     raw.sync ? 'sync_runs ok runs in the window + the last ok run before it' : 'sync_runs unreadable', { jobs });

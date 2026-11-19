@@ -1,0 +1,28 @@
+{
+ "status": "PROPOSED by the agent (P05) — not approved. The SRE / service owner approves, changes or rejects each figure.",
+ "approved_by": null,
+ "approved_at": null,
+ "mode": "warn — tools/test/perf-budget-check.js prints over-budget classes and exits 0; the repository variable PERF_BUDGETS_BLOCKING=1 makes it fail the build",
+ "measured_on": "docs/agent-execution/P05-performance.md — 100 000-ticket rehearsal set, one 4 vCPU sandbox, server and load harness in separate processes",
+ "api_route_classes": {
+  "page_data": { "p95_ms": 800, "error_rate_pct": 1, "five_xx_max": 0,
+   "routes": ["GET /api/reports", "GET /api/reports/:id", "GET /api/data/requests-raw", "GET /api/meetings/list", "GET /api/inspection/list", "GET /api/health/deps"],
+   "basis": "the vision figure (API p95 < 800 ms); observed p95 451 ms with 5 sessions and no deck, 1 160 ms when decks run in the same process" },
+  "sync": { "p95_ms": 800, "error_rate_pct": 1, "five_xx_max": 0,
+   "routes": ["GET /api/sync/status"],
+   "basis": "same as page data (a status read); observed p95 243 ms without decks, 777 ms with decks" },
+  "write": { "p95_ms": 1000, "error_rate_pct": 1, "five_xx_max": 0,
+   "routes": ["PUT /api/reports/:id/infra", "PUT /api/field/outbox/:id"],
+   "basis": "observed p95 502 ms without decks rounded up with headroom; the field envelope of the run is a rejected test envelope (400 by design), see the report" },
+  "export": { "p95_ms": 2000, "error_rate_pct": 1, "five_xx_max": 0,
+   "routes": ["GET /api/risk-register-export"],
+   "basis": "observed p95 304 ms without decks, 603 ms with decks; a file a person waits for, so more headroom than page data" },
+  "deck_generation": { "p95_ms": 10000, "error_rate_pct": 1, "five_xx_max": 0,
+   "routes": ["GET /api/reports/:id/pptx", "GET /api/reports/monthly/all-sites/:y/:m/pptx"],
+   "basis": "single all-sites monthly deck 3.3–3.8 s after the P05 fix (22 s before); 5 decks at once p95 15.3 s — over this figure, which is the point: decks run in the request process" }
+ },
+ "page_classes": {
+  "page": { "p95_ms": 3000,
+   "basis": "the vision figure (first usable page < 3 s), read from the browser-journey artefacts (first_usable_ms p95, load p95 when absent); worst page counts" }
+ }
+}

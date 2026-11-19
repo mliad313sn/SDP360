@@ -112,7 +112,7 @@ function renderMarkdown(agg, meta) {
   for (const [k, s] of Object.entries(agg.steps)) L.push(`| ${k} | ${s.n} | ${f(s.p50)} | ${f(s.p95)} | ${f(s.p99)} | ${s.errors} | ${s.five_xx} | ${Object.entries(s.statuses).map(([c, n]) => `${c}×${n}`).join(' ')} |`);
   L.push('', '## API latency per route template (F-UX-05) — observation only, no threshold', '', '| Route | n | p50 (ms) | p95 (ms) | p99 (ms) |', '|---|---|---|---|---|');
   for (const [k, s] of Object.entries(agg.routes || {})) L.push(`| ${k} | ${s.n} | ${f(s.p50)} | ${f(s.p95)} | ${f(s.p99)} |`);
-  L.push('', '## Per route class (P05 budgets) — observation only', '', '| Class | n | p50 (ms) | p95 (ms) | p99 (ms) | error % | 5xx |', '|---|---|---|---|---|---|---|');
+  L.push('', '## Per route class (P05) — observation only; the class comparison is a separate checker', '', '| Class | n | p50 (ms) | p95 (ms) | p99 (ms) | error % | 5xx |', '|---|---|---|---|---|---|---|');
   for (const [k, s] of Object.entries(agg.classes || {})) L.push(`| ${k} | ${s.n} | ${f(s.p50)} | ${f(s.p95)} | ${f(s.p99)} | ${f(s.error_rate_pct)} | ${s.five_xx} |`);
   return L.join('\n') + '\n';
 }
