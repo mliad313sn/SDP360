@@ -69,9 +69,36 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
     return { submitted_by: sub.submitted_by || e.actor || null, accountable_owner: sub.accountable_owner || null,
       execution_owners: Array.isArray(sub.execution_owners) ? sub.execution_owners : [], created_by: sub.created_by || null };
   }
+  // P11 NEW-1 — segregation of duties over the WHOLE life of the commitment, not only the current round:
+  // everyone who has EVER been accountable owner, execution owner, creator or submitter, derived from the
+  // append-only event log. owner / executor changes carry {from,to} since AUD-1; an older change that only
+  // lists the field names counts its actor as a past owner / executor (the previous value is unknown).
+  async function historyOf(c) {
+    const h = { owners: [], executors: [], creators: [], submitters: [] };
+    const add = (k, v) => { for (const x of (Array.isArray(v) ? v : [v])) if (x != null && String(x).trim()) h[k].push(String(x)); };
+    add('owners', c.accountable_owner); add('executors', c.execution_owners); add('creators', c.created_by);
+    const evs = await P('SELECT actor, action, to_status, details FROM commitment_events WHERE commitment_id=? ORDER BY id').all(Number(c.id));
+    for (const e of evs) {
+      let d = null; try { d = e.details ? JSON.parse(e.details) : null; } catch (_) { d = null; }
+      if (e.action === 'created') add('creators', e.actor);
+      if (e.action === 'transition' && e.to_status === 'awaiting_verification') {
+        add('submitters', e.actor);
+        const sub = d && d.submission;
+        if (sub) { add('submitters', sub.submitted_by); add('owners', sub.accountable_owner); add('executors', sub.execution_owners); add('creators', sub.created_by); }
+      }
+      if (e.action !== 'updated' && e.action !== 'due_date_changed') continue;
+      const ch = (d && d.changes) || {};
+      const fields = Array.isArray(d && d.fields) ? d.fields : [];
+      for (const [k, bucket] of [['accountable_owner', 'owners'], ['execution_owners', 'executors']]) {
+        if (ch[k]) { add(bucket, ch[k].from); add(bucket, ch[k].to); }
+        else if (fields.includes(k)) add(bucket, e.actor); // legacy event: no old value recorded
+      }
+    }
+    return h;
+  }
   async function getRaw(id) {
     const c = row(await P('SELECT * FROM commitments WHERE id=?').get(Number(id)));
-    if (c) c.submission = await submissionOf(c.id);
+    if (c) { c.submission = await submissionOf(c.id); c.history = await historyOf(c); }
     return c;
   }
   async function get(id) {
@@ -201,12 +228,13 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
     if (dueChanged && c.due_date && !str(reason)) throw bad('a reason is required to change the due date');
     const mv = dueChanged ? L.dueMoveCheck(c, f.due_date, { isAdmin, policy }) : null; if (mv) throw typed(mv.code, mv.error, mv.status);
     if (dueChanged && !c.baseline_due_date) f.baseline_due_date = f.due_date;
-    // P11 AUD-1 — while (or after) work awaits verification, the reviewer may not be re-pointed to someone who
-    // owns, executes, created or submitted it (the verify check refuses them anyway; this stops the set-up).
-    if (f.reviewer && c.submission) {
+    // P11 AUD-1 / NEW-1 — at ANY status the reviewer may not be set to someone who owns, executes, created or
+    // submitted the work, now or at any earlier point (event-log history), nor to an owner / executor named by
+    // this very patch (the verify check refuses them anyway; this stops the set-up).
+    if (f.reviewer) {
       const probe = { username: f.reviewer };
       if (L.isSelf({ ...c, ...f, execution_owners: f.execution_owners !== undefined ? P_(f.execution_owners) : c.execution_owners }, probe))
-        throw typed('FORBIDDEN', 'the reviewer cannot be the owner, an executor, the creator or the submitter of this commitment', 403);
+        throw typed('FORBIDDEN', 'the reviewer cannot be a current or past owner, executor, creator or submitter of this commitment', 403);
     }
     // owner / executors / reviewer changes keep their old and new values in the event log (P11 AUD-1)
     const changes = {};
