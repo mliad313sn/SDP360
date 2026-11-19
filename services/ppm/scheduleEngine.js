@@ -493,7 +493,9 @@ function schedule(tasks, opts = {}) {
       driver: sum ? { type: 'rollup' } : driver[i],
     };
     if (sum) {
-      const lv = collect(i).map((j) => ({ ...list[j], _duration: assumed[j] ? null : D[j] }));
+      // P04 (T4): a cancelled leaf is inactive — it never weighs in the summary's work or % complete (the same rule as
+      // the project KPI card, services/ppm/projectKpis.scheduleComplete), so the root row and the card agree
+      const lv = collect(i).filter((j) => list[j].status !== 'cancelled').map((j) => ({ ...list[j], _duration: assumed[j] ? null : D[j] }));
       const works = lv.map((x) => numOrNull(x.effort_hours));
       const known = works.filter((w) => w != null);
       const rp = rollupProgress(lv);
