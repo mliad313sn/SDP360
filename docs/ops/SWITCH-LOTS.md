@@ -56,9 +56,9 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 |---|---|---|---|---|---|---|---|---|
 | `workspace_profiles_enabled` | PO | once the PO confirms the 11 profiles and their first destinations — presentation profiles  | — | — | — | — | 9 | 7 |
 | `ui_role_landing` | Owner (UI policy) | — | — | — | — | — | 5 | 2 |
-| `ui_home_queue` | Owner (UI policy) | after a browser review in EN and FR at 320 px: Home shows one queue of the person's own work read from the existing per-site readers  | — | — | portfolio_benefits, portfolio_milestones, portfolio_objectives, portfolio_programmes, portfolio_projects, portfolio_tasks +2 | — | 8 | 5 |
+| `ui_home_queue` | Owner (UI policy) | after a browser review in EN and FR at 320 px: Home shows one queue of the person's own work read from the existing per-site readers  | — | — | portfolio_benefits, portfolio_milestones, portfolio_objectives, portfolio_programmes, portfolio_projects, portfolio_tasks +2 | — | 8 | 6 |
 | `ui_home_blocks` | Owner (UI policy) | after a browser review: per-block states and per-card reload on Home | — | — | — | — | 2 | 2 |
-| `commitments_enabled` | to be named | — | — | — | action_items, audit_log, commitments, connector_fix_tasks, field_outbox, gov_control_tests +22 | yes | 21 | 11 |
+| `commitments_enabled` | to be named | — | — | — | action_items, audit_log, commitments, connector_fix_tasks, field_outbox, gov_control_tests +22 | yes | 21 | 12 |
 | `mywork_awaiting_me_enabled` | Product owner | once the product owner has compared it with the review | `commitments_enabled` | — | portfolio_benefits, portfolio_milestones, portfolio_objectives, portfolio_programmes, portfolio_projects, portfolio_tasks +2 | — | 4 | 2 |
 | `ui_data_quality_page` | Data owner | A data steward per source to act on the board. | — | admin | — | — | 2 | 2 |
 | `ui_nav_active_from_url` | Owner (UI policy) | — | — | — | — | — | 2 | 2 |
@@ -236,7 +236,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `ui_small_multiples` | Owner (UI policy) | after a browser review of the widget) | — | — | — | — | 3 | 2 |
 | `ui_url_filters` | Owner (UI policy) | — | — | — | — | — | 2 | 2 |
 | `chart_annotations_enabled` | Owner (UI policy) | after a browser review | — | — | — | — | 4 | 1 |
-| `dashboard_red_action_links` | Owner (UI policy) + PMO | — | `commitments_enabled` | — | — | — | 4 | 1 |
+| `dashboard_red_action_links` | Owner (UI policy) + PMO | — | `commitments_enabled` | — | — | — | 4 | 2 |
 | `value_scoreboard_enabled` | Owner (UI policy) + KPI committee | once the committee agrees the value contract  | — | super_admin, admin | value_scoreboard_snapshots | — | 4 | 2 |
 | `ui_i18n_pages` | Owner (D-2) | — | — | — | — | — | 37 | 5 |
 
