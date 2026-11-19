@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks distribution outside Endeavour only |
 | Decide after | none |
-| Target SHA | `618792958792523db40d1835b860586955bbf3be` |
+| Target SHA | `49eb11ef` |
 | Generated | 2026-11-19 |
 
 ## 1. Question to decide

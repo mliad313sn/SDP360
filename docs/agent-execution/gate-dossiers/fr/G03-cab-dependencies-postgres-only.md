@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | bloque le pilote sur deux sites (instance de TEST) |
 | À décider après | [G19](G19-qa-ci-green.md) QA : CI verte et tests sautés revus |
-| SHA cible | `618792958792523db40d1835b860586955bbf3be` |
+| SHA cible | `49eb11ef` |
 | Généré | 2026-11-19 |
 
 ## 1. La question à trancher

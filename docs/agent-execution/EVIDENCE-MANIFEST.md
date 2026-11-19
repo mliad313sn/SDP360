@@ -169,7 +169,7 @@ not the browser-checked level.
 | `docs/agent-execution/G24-DOSSIER-GO-NOGO-FR.md` | G24 | code+test | pending | pending | `0130ead17d7d988951b2adfb2777ec34fd98c24e587b96fbe6fee9e569474cbc` |
 | `docs/agent-execution/G24.md` | G24 | code+test | pending | pending | `2349897316ae9dd2908e50fa872042b53a905f48a9b8854085ff07b8cc2c4ac2` |
 | `docs/agent-execution/HANDOFF-2026-11-13-orchestrator.md` | — (reference) | — | — | — | `c866b9a87357563c19b7613318f40e92e2b405edd3e9a8f8a11899b47b1b15ae` |
-| `docs/agent-execution/INVENTORY-STRICT.md` | — (reference) | — | — | — | `0a771a5381ef20983632508623c65f4bd7cbe5191bb7ca50955ad747f869a9a7` |
+| `docs/agent-execution/INVENTORY-STRICT.md` | — (reference) | — | — | — | `bd02099c905d0c1c7c9f9d005fc57631ad471bc0d752de99999c64ccc1c42ba2` |
 | `docs/agent-execution/P02-authz-outcomes.md` | P02 | code+test | pending | pending | `1b3c7c2278a4e5d1a5aa0ca98da31cd64a54cf2d18ee5287ec685243e58ffc81` |
 | `docs/agent-execution/P03-switch-lots.md` | P03 | code+test | pending | pending | `99419412678af916494549fa3c6ef56f7c4f4d94aab09482c800dcccf93caa39` |
 | `docs/agent-execution/P04-ppm-certification.md` | P04 | code+test | pending | pending | `ce601c12654f688fbed18b2feb9a2bdc42734d19de01075a2292838c4e74cca3` |
@@ -199,9 +199,9 @@ not the browser-checked level.
 
 | File | SHA-256 |
 |---|---|
-| `docs/agent-execution/INVENTORY.json` | `4d5387c8a024f453e4a4e5f1177504b8f5866ad67f8d758fd958121784142208` |
-| `docs/agent-execution/INVENTORY.md` | `1a9c917cedd80650d2e25880071aa27fb62c883e37062ba756f9db562b9917cb` |
+| `docs/agent-execution/INVENTORY.json` | `140828ae3f93db1112006c16bc20cdf3701ae526a327d240d69488af95d1ea83` |
+| `docs/agent-execution/INVENTORY.md` | `4daebd877d7197e830bb3ba51b6e2087676ae207dba7242f070ec8351b2f0945` |
 | `docs/agent-execution/TRACEABILITY.md` | `bab98d60573cc653947f1acead471e8655cbc78134969e91ee7f281ff9876c0a` |
 | `docs/ops/AUTHZ-MATRIX.md` | `8f4d10b7f7a9686440e7599786f4d7fec8671890043b86a98803be18353430ce` |
-| `docs/ops/FLAG-REGISTER.md` | `7c4c8c05caa9e8c59c09a2d3fbdaf5b5aa4ced6aed17855030b3e1a0584a49c5` |
+| `docs/ops/FLAG-REGISTER.md` | `4a145c26f90e239e49070684b4ec5d860d14039a05e3ce1aeddac3352b63a0db` |
 | `docs/ops/METRIC-WIDGET-MAP.md` | `d08da715d201636353228f628d952829ce319e64953e0b44b9ad561160765f13` |
