@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 5477,
+ "total": 5485,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 18,
@@ -849,6 +849,8 @@
   "zoho-sync-survey-truncation.test.js": 3,
   "sdp-manager-probe.test.js": 3,
   "ppm-evm-actuals.test.js": 4,
+  "ppm-evm-r2.test.js": 5,
+  "ppm-r2-actuals-rebaseline.smoke.test.js": 3,
   "ppm-schedule-bounds.smoke.test.js": 4
  }
 }

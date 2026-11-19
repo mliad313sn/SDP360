@@ -901,6 +901,19 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     if (tasks.some((t) => !mine.has(t.id))) throw Object.assign(new Error('a task does not belong to this project'), { code: 'INVALID', status: 400 });
     const newStart = bs === undefined ? p.baseline_start : bs, newEnd = be === undefined ? p.baseline_end : be;
     if (newStart && newEnd && newStart > newEnd) throw Object.assign(new Error('the baseline start is after its end'), { code: 'INVALID', status: 400 });
+    // P11 R2-2 — the re-baseline applies the same plan bounds as the ordinary write (ADR-P11-F1): dates in 1970..2200,
+    // a task baseline end not before its start. Only the values this re-baseline writes are checked.
+    const PI = require('./ppm/planIntegrity');
+    const bounds = (kind, patch) => { const rp = PI.rangeProblem(kind, patch); if (rp) throw Object.assign(new Error(rp.error), { code: 'INVALID', status: 400, reason: rp.code }); };
+    bounds('project', { ...(bs !== undefined ? { baseline_start: bs } : {}), ...(be !== undefined ? { baseline_end: be } : {}) });
+    if (tasks.length) {
+      const cur = new Map((await P(`SELECT id, baseline_start, baseline_end FROM portfolio_tasks WHERE project_id=? AND deleted_at IS NULL`).all(pid)).map((r) => [Number(r.id), r]));
+      for (const t of tasks) {
+        bounds('task', { ...(t.start !== undefined ? { baseline_start: t.start } : {}), ...(t.end !== undefined ? { baseline_end: t.end } : {}) });
+        const c = cur.get(t.id) || {}, s0 = t.start !== undefined ? t.start : c.baseline_start, e0 = t.end !== undefined ? t.end : c.baseline_end;
+        if (s0 && e0 && String(s0).slice(0, 10) > String(e0).slice(0, 10)) throw Object.assign(new Error(`task ${t.id}: the baseline start is after its end`), { code: 'INVALID', status: 400, reason: 'DATE_ORDER' });
+      }
+    }
     return tx(async () => {
       await P(`UPDATE portfolio_projects SET baseline_start=?, baseline_end=?, updated_at=?, version=version+1 WHERE id=?`).run(newStart || null, newEnd || null, now(), pid);
       for (const t of tasks) {
@@ -943,8 +956,26 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     // A-19c — opts.soft (route: soft_delete_enabled) stamps the node; its subtree is hidden, not stamped. A kind whose
     // table has no deleted_at (B-08 benefit) keeps the hard delete — it follows its project instead.
     if (opts.soft && softDelete.TABLES[T.table]) return softDelete.stamp(db, T.table, Number(id), { by: opts.user && opts.user.id, reason: opts.reason, now: new Date(now()) });
+    // P11 R2-1 — a hard delete cascades ppm_time_entries away (FK ON DELETE CASCADE): money already spent would vanish
+    // from earned-value AC. Refused while any task below carries hours; a soft delete keeps them (ADR-P11-R2).
+    const spent = await actualsUnder(kind, id);
+    if (spent) throw Object.assign(new Error(`this ${kind} has ${spent} logged time entr${spent === 1 ? 'y' : 'ies'} (money already spent) — a hard delete would erase them; turn soft delete on (soft_delete_enabled) to delete it, or move / cancel the work instead`), { code: 'CONFLICT', status: 409, reason: 'HAS_ACTUALS', expose: true });
     await P(`DELETE FROM ${T.table} WHERE id=?`).run(Number(id));
     return true;
+  }
+  /** Number of ppm_time_entries rows a hard delete of this node would cascade away (0 when the table is absent). */
+  async function actualsUnder(kind, id) {
+    const n = Number(id);
+    const q = {
+      task: `WITH RECURSIVE sub(id) AS (SELECT id FROM portfolio_tasks WHERE id=? UNION SELECT t.id FROM portfolio_tasks t JOIN sub ON t.parent_id = sub.id)
+        SELECT COUNT(*) AS n FROM ppm_time_entries WHERE task_id IN (SELECT id FROM sub)`,
+      project: `SELECT COUNT(*) AS n FROM ppm_time_entries e JOIN portfolio_tasks t ON t.id = e.task_id WHERE t.project_id=?`,
+      objective: `SELECT COUNT(*) AS n FROM ppm_time_entries e JOIN portfolio_tasks t ON t.id = e.task_id JOIN portfolio_projects p ON p.id = t.project_id WHERE p.objective_id=?`,
+      programme: `SELECT COUNT(*) AS n FROM ppm_time_entries e JOIN portfolio_tasks t ON t.id = e.task_id JOIN portfolio_projects p ON p.id = t.project_id JOIN portfolio_objectives o ON o.id = p.objective_id WHERE o.programme_id=?`,
+    }[kind];
+    if (!q) return 0;
+    const r = await P(q).get(n);
+    return Number((r && r.n) || 0);
   }
   async function restorePortfolio(kind, id, opts = {}) {
     const T = TABLES[kind]; if (!T || !softDelete.TABLES[T.table]) throw Object.assign(new Error('unknown portfolio entity'), { code: 'INVALID' });
@@ -971,6 +1002,8 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       for (const r of await P(`SELECT id FROM ${t} WHERE deleted_at IS NOT NULL AND deleted_at < ? ORDER BY deleted_at`).all(cutoff)) {
         ids.push(`${kind}:${r.id}`);
         if (!apply) continue;
+        const spent = await actualsUnder(kind, r.id);   // P11 R2-1: the purge never erases money already spent
+        if (spent) { skipped.push({ id: `${kind}:${r.id}`, reason: `has ${spent} logged time entries (money already spent) — kept soft-deleted` }); continue; }
         try { if (Number((await P(`DELETE FROM ${t} WHERE id=? AND deleted_at IS NOT NULL AND deleted_at < ?`).run(Number(r.id), cutoff) || {}).changes) > 0) purged++; }
         catch (e) { skipped.push({ id: `${kind}:${r.id}`, reason: /append.only|baseline/i.test(String(e.message)) ? 'has approved baselines (append-only) — kept soft-deleted' : String(e.message).slice(0, 200) }); }
       }
