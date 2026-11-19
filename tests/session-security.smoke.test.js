@@ -66,9 +66,9 @@ test('reuse after logout: the token is refused on the next request', async () =>
 
 test('forced logout: a super_admin ends another session; the user is refused at once; a viewer cannot force-logout', async () => {
   const pw = await mkUser('ss-kill');
-  const tok = cookieTok(await login('ss-kill', pw));
+  const tok = (await rdb.login('ss-kill', pw)).token;   // HTTP login budget (10 per window) kept for the tests about sign-in
   const vpw = await mkUser('ss-viewer');
-  const vtok = cookieTok(await login('ss-viewer', vpw));
+  const vtok = (await rdb.login('ss-viewer', vpw)).token;
   assert.equal((await fetch(base + '/api/reports/sessions/' + encodeURIComponent(tok), { method: 'DELETE', headers: H(vtok) })).status, 403);
   assert.equal((await me(tok)).status, 200, 'still alive after the refused attempt');
   assert.equal((await fetch(base + '/api/reports/sessions/' + encodeURIComponent(tok), { method: 'DELETE', headers: H(superTok) })).status, 200);
@@ -109,4 +109,24 @@ test('sso_mode only, break-glass unset: nobody can sign in with a password (lock
   assert.equal((await login(process.env.DASH_USER, process.env.DASH_PASS)).status, 403);
   await setSso('', '');
   assert.equal((await login(process.env.DASH_USER, process.env.DASH_PASS)).status, 200, 'back to today');
+});
+
+test('the active-sessions list never returns a bearer token; force-logout works by session_ref (no token in a URL)', async () => {
+  const pw = await mkUser('ss-ref');
+  const tok = (await rdb.login('ss-ref', pw)).token;
+  assert.equal((await me(tok)).status, 200);
+  const r = await fetch(base + '/api/reports/sessions/active?idle_minutes=60', { headers: H(superTok) });
+  assert.equal(r.status, 200);
+  const text = await r.text();
+  assert.ok(!text.includes(tok), 'a full session token is in the list');
+  assert.ok(!text.includes(superTok), 'the caller\'s own token is in the list');
+  const row = JSON.parse(text).sessions.find((s) => s.username === 'ss-ref');
+  assert.ok(row && /^ref-[a-f0-9]{64}$/.test(row.session_ref), 'session_ref present');
+  const ownRef = 'ref-' + require('crypto').createHash('sha256').update(superTok).digest('hex');
+  const self = JSON.parse(text).sessions.find((s) => s.session_ref === ownRef);
+  assert.ok(self && self.is_self);
+  assert.equal((await fetch(base + '/api/reports/sessions/' + self.session_ref, { method: 'DELETE', headers: H(superTok) })).status, 400, 'own session refused by ref too');
+  assert.equal((await fetch(base + '/api/reports/sessions/ref-' + '0'.repeat(64), { method: 'DELETE', headers: H(superTok) })).status, 404, 'unknown ref');
+  assert.equal((await fetch(base + '/api/reports/sessions/' + row.session_ref, { method: 'DELETE', headers: H(superTok) })).status, 200);
+  assert.equal((await me(tok)).status, 401);
 });

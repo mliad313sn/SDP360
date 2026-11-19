@@ -6705,7 +6705,7 @@ async function loadActiveSessions() {
       } else if (s.is_self) {
         actionHtml = '<button class="btn btn-secondary btn-sm" disabled title="That\'s you — use the regular Logout">⛔ You</button>';
       } else {
-        actionHtml = `<button class="btn btn-danger btn-sm" onclick="forceLogoutSession(${escJsonAttr(s.token)},${escJsonAttr(s.username)})">⛔ Force logout</button>`;
+        actionHtml = `<button class="btn btn-danger btn-sm" onclick="forceLogoutSession(${escJsonAttr(s.session_ref)},${escJsonAttr(s.username)})">⛔ Force logout</button>`;
       }
       return `<tr>
         <td><strong>${esc(s.username)}</strong></td>
