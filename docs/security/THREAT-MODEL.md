@@ -1,6 +1,6 @@
 # SDP360 — threat model and risk ledger (G03)
 
-Status 2026-10-29. Method: STRIDE per entry point, built from the code (not from the documentation). Each
+Status 2026-10-29, findings 21-25 added 2026-11-19 (P07). Method: STRIDE per entry point, built from the code (not from the documentation). Each
 mitigation names the file that implements it and the test that proves it. A residual risk names the owner who
 must accept or close it. **Not a penetration test**: nothing here was run against a live system (G21 rule).
 
@@ -81,6 +81,11 @@ No critical or high finding. Medium/low findings and their fix (all with a regre
 | 18 | (G20, P3) if the user directory had never loaded, the proxy sent text without the name list | the proxy answers 503 until the directory is loaded | `tests/ai-proxy-sanitize.smoke.test.js` |
 | 19 | (G19, P3) logout left another page's cached API answers on a shared phone | logout waits (at most 3 s) for the API cache and the field cache to be cleared; unsent entries are kept with their author | code review (no browser test) |
 | 20 | (G31) the Analytics data API (`/api/metrics/{requests,change,cab,survey,request-filter-options}`) needed only a session while its page is `admin\|scorecard-viewer` — any viewer/editor could read fleet or another site's aggregates directly | the five routes carry the page's role gate server-side (403 otherwise); the authorisation matrix now lists every guard on a route | `tests/analytics-metrics-authz.smoke.test.js`, `tests/authz-route-matrix.test.js` |
+| 21 | (P07, P2) the active-sessions list returned every session's full bearer token to the super_admin browser and the force-logout put it in the URL path (reverse-proxy access logs) | the list carries `session_ref` (sha-256 of the token); the DELETE resolves it; a full token is still accepted for API clients | `tests/session-security.smoke.test.js` |
+| 22 | (P07, P3) `GET /api/auth/config` published the break-glass account name to anonymous visitors in `sso_mode=only` | always `null` (no client read it) | `tests/session-security.smoke.test.js` |
+| 23 | (P07, P3) `csp_strict_pages` had no effect on `/activity-tracker.html` (a path override rewrote the header) | the override uses the same strict / normal script-src decision | `tests/csp-candidate-pages.smoke.test.js` |
+| 24 | (P07, P3) the shell's log-out pill used an inline `onclick` — logout would have stopped working on any page moved to the strict CSP | delegated listener; inventory now counts handlers built inside JS strings | `tests/shell-logout-no-inline.test.js`, `tests/csp-journey-report.test.js` |
+| 25 | (P07, open) the dev previews `/dashboard-preview/` and `/design-system/` run on the production origin with `unsafe-eval` and three CDN origins; the update ZIP excludes them, the full installer (`git archive`) ships them | **open — release owner**: exclude them from the installer bundle (or serve them only when a dev switch is on) | — |
 
 Still open from this review, with owner: an admin action to resolve an entry stuck in `applying` (today only the
 phone flags it "to check" after 15 minutes) — PO; an expired session that never logs out keeps its cache until the
