@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | bloque le pilote sur deux sites (instance de TEST) |
 | À décider après | [G19](G19-qa-ci-green.md) QA : CI verte et tests sautés revus |
-| SHA cible | `61ee2cf2` |
+| SHA cible | `f8ecd313` |
 | Généré | 2026-11-19 |
 
 ## 1. La question à trancher
@@ -21,7 +21,7 @@ Les règles d'accès (périmètre de site des comptes métier CG-01, plus de lec
 
 | Preuve | Ce qu'elle montre | Régénérer / rejouer | Dernière modification (commit, date) | Empreinte |
 |---|---|---|---|---|
-| `docs/ops/authz-matrix.json` | Matrice route × garde × capacité lisible par machine, régénérée depuis le code | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-matrix-json.test.js` | d234f386, 2026-11-19 | `bb3f57b765cb42e0` |
+| `docs/ops/authz-matrix.json` | Matrice route × garde × capacité lisible par machine, régénérée depuis le code | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-matrix-json.test.js` | f8ecd313, 2026-11-19 | `49839b3bbc68e9df` |
 | `docs/ops/AUTHZ-MATRIX.md` | Matrice lisible de chaque route d'API et du rôle exigé | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-route-matrix.test.js` | d234f386, 2026-11-19 | `8f4d10b7f7a96864` |
 | `tests/authz-route-matrix.test.js` | Échoue si une route est ajoutée ou si sa garde change sans régénérer la matrice | `node --test --test-force-exit tests/authz-route-matrix.test.js` | 4c7cde73, 2026-11-12 | `5af87df254c4a16d` |
 | `tests/authz-enforce.test.js` | Comportement de l'application des capacités | `node --test --test-force-exit tests/authz-enforce.test.js` | 30243287, 2026-11-12 | `9298b189390ba23a` |
@@ -33,8 +33,8 @@ Les règles d'accès (périmètre de site des comptes métier CG-01, plus de lec
 
 | Lot | Preuve attendue | Statut |
 |---|---|---|
-| P02 | Rapport de la sonde des résultats d'autorisation (chaque route × persona, codes observés) | attendue — absente de l'arbre au SHA cible (`docs/agent-execution/P02-*.md`) |
-| P02 | Instantané des résultats utilisé par le test de la sonde | attendue — absente de l'arbre au SHA cible (`docs/ops/authz-outcomes.json`) |
+| P02 | Rapport de la sonde des résultats d'autorisation (chaque route × persona, codes observés) | livrée: `docs/agent-execution/P02-authz-outcomes.md` (33be01d2, `a7f93738ae02d638`) |
+| P02 | Instantané des résultats utilisé par le test de la sonde | livrée: `docs/ops/authz-outcomes.json` (befbe013, `7a1196f49a6ead0a`) |
 
 ## 3. Ce qui n'est pas prouvé, et pourquoi
 

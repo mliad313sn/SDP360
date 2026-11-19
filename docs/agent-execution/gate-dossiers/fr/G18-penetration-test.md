@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | ne bloque que le déploiement général |
 | À décider après | [G01](G01-security-access-policy.md) Sécurité : politique d'accès et matrice d'autorisation · [G02](G02-threat-model-findings.md) Sécurité : modèle de menace et constats |
-| SHA cible | `61ee2cf2` |
+| SHA cible | `f8ecd313` |
 | Généré | 2026-11-19 |
 
 ## 1. La question à trancher
@@ -30,7 +30,7 @@ Un test d'intrusion indépendant sera-t-il mené avant le déploiement général
 | Lot | Preuve attendue | Statut |
 |---|---|---|
 | P07 | Préparation au test d'intrusion (rapport de clôture) | livrée: `docs/agent-execution/P07-security-closure.md` (06a369c1, `d11eb355b50431bf`) |
-| P02 | Sonde des résultats d'autorisation | attendue — absente de l'arbre au SHA cible (`docs/agent-execution/P02-*.md`) |
+| P02 | Sonde des résultats d'autorisation | livrée: `docs/agent-execution/P02-authz-outcomes.md` (33be01d2, `a7f93738ae02d638`) |
 
 ## 3. Ce qui n'est pas prouvé, et pourquoi
 
