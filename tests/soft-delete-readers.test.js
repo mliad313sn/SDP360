@@ -71,6 +71,7 @@ const ALLOW = {
     listDeletedPortfolio: 'admin trash listing: deleted rows only',
     purgeDeletedPortfolio: 'purge: deleted rows past retention only',
     removePortfolio: 'ledger read before the delete (filtered when soft) and the hard delete itself',
+    actualsUnder: 'P11 R2-1: counts the time entries a HARD delete / purge would cascade away — deleted rows included on purpose',
   },
 };
 

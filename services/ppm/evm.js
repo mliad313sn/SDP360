@@ -16,6 +16,10 @@
 //     no rate, or of unknown hours, makes AC unknown (never "free hours"). P11 F2 (ADR-P11-F2): money already spent
 //     stays in AC — hours on a CANCELLED task (out of BAC/PV/EV) and hours on a SUMMARY task (at its own rate; its
 //     budget is never added) are counted, each flagged by a reason code; such hours with no currency make AC unknown.
+//     P11 R2-1 (ADR-P11-R2): hours of a task no longer in the plan (soft-deleted, or under a soft-deleted parent) stay
+//     in AC too, flagged `actuals_on_deleted_tasks` (a hard delete of a task with hours is refused upstream).
+//   • P11 R2-2: phasing is arithmetic (spread days counted in O(1), the S-curve in O(leaves + months), at most
+//     MAX_CURVE_MONTHS points, cut around the status month and flagged `s_curve_truncated`) — no read enumerates days.
 //   • Indicators: SV=EV−PV · CV=EV−AC · SPI=EV/PV · CPI=EV/AC · EAC=BAC/CPI (default) with variants AC+(BAC−EV) and
 //     AC+(BAC−EV)/(CPI×SPI) and the budget-period forecast · ETC=EAC−AC · VAC=BAC−EAC · TCPI=(BAC−EV)/(BAC−AC).
 //   • Currencies are never added together. A converted view exists only when an explicit rate table is supplied, and
@@ -93,15 +97,16 @@ function phaseOf(cost, a, b) {
 function _unitsIn(ph, a, b) { const lo = Math.max(ph.i0, a), hi = Math.min(ph.i1, b); if (lo > hi) return 0; return ph.weekdays ? _wdIn(lo, hi) : hi - lo + 1; }
 /** Σ of the phased amounts on days ≤ statusDate (null when the phasing is unknown). */
 const cumulativeTo = (ph, statusDate) => (ph == null ? null : ph.cost * _unitsIn(ph, ph.i0, dayIdx(statusDate)) / ph.n);
-/** phased amounts summed per month → { 'YYYY-MM': amount } (one step per month of the window). */
-function byMonth(ph) {
-  const out = {}; if (!ph) return out;
-  const d0 = new Date(ph.i0 * DAY), d1 = new Date(ph.i1 * DAY);
-  for (let y = d0.getUTCFullYear(), m = d0.getUTCMonth(); y < d1.getUTCFullYear() || (y === d1.getUTCFullYear() && m <= d1.getUTCMonth()); m === 11 ? (y++, m = 0) : m++) {
-    const u = _unitsIn(ph, Math.floor(Date.UTC(y, m, 1) / DAY), Math.floor(Date.UTC(y, m + 1, 0) / DAY));
-    if (u > 0) out[`${String(y).padStart(4, '0')}-${String(m + 1).padStart(2, '0')}`] = ph.cost * u / ph.n;
-  }
-  return out;
+const mOfDay = (i) => { const d = new Date(i * DAY); return d.getUTCFullYear() * 12 + d.getUTCMonth(); };   // month index y*12+m
+const mFirstDay = (mi) => Math.floor(Date.UTC(Math.floor(mi / 12), mi % 12, 1) / DAY);
+const mLastDay = (mi) => Math.floor(Date.UTC(Math.floor(mi / 12), (mi % 12) + 1, 0) / DAY);
+const mLabel = (mi) => `${String(Math.floor(mi / 12)).padStart(4, '0')}-${String((mi % 12) + 1).padStart(2, '0')}`;
+/** the first / last month index carrying spread days of a phase (a month with no spread day is skipped). */
+function _phaseMonths(ph) {
+  let lo = mOfDay(ph.i0), hi = mOfDay(ph.i1);
+  if (_unitsIn(ph, mFirstDay(lo), mLastDay(lo)) === 0) lo++;
+  if (hi >= lo && _unitsIn(ph, mFirstDay(hi), mLastDay(hi)) === 0) hi--;
+  return [lo, hi];
 }
 // The S-curve answers at most this many monthly points (years 1970..2200, the plan bounds of ADR-P11-F1); a longer
 // window (legacy row) is cut around the status month and flagged `s_curve_truncated`.
@@ -398,31 +403,43 @@ function projectEvm({ project = {}, tasks = [], evmFields = {}, baselinePayload 
  * month and null after it.
  */
 function sCurve({ leaves, acItems, base, acts, sd, tasksComplete, bac, ev }) {
-  const pvByMonth = {};
-  if (base.length) for (const r of base) pvByMonth[r.period] = (pvByMonth[r.period] || 0) + num(r.amount);
-  else if (tasksComplete) for (const l of leaves) { const m = byMonth(l.phased); for (const k of Object.keys(m)) pvByMonth[k] = (pvByMonth[k] || 0) + m[k]; }
-  const acByMonth = {};
-  if (acts.length) for (const r of acts) acByMonth[r.period] = (acByMonth[r.period] || 0) + num(r.amount);
-  const months = [...new Set([...Object.keys(pvByMonth), ...Object.keys(acByMonth), month(sd)])].sort();
-  if (!months.length || (base.length === 0 && !tasksComplete && !acts.length)) return [];
-  const first = months[0], last = months[months.length - 1];
+  if (base.length === 0 && !tasksComplete && !acts.length) return [];
   const mIdx = (p) => Number(p.slice(0, 4)) * 12 + Number(p.slice(5, 7)) - 1;
-  const pOf = (i) => `${String(Math.floor(i / 12)).padStart(4, '0')}-${String((i % 12) + 1).padStart(2, '0')}`;
-  // P11 R2-2: never more than MAX_CURVE_MONTHS points; a longer window is cut around the status month (flagged)
-  let lo = mIdx(first), hi = mIdx(last); const truncated = hi - lo + 1 > MAX_CURVE_MONTHS;
-  if (truncated) { const s = mIdx(month(sd)); lo = Math.max(lo, Math.min(s, hi) - Math.floor(MAX_CURVE_MONTHS / 2)); hi = Math.min(hi, lo + MAX_CURVE_MONTHS - 1); }
-  const all = []; for (let i = lo; i <= hi; i++) all.push(pOf(i));
+  const fromLeaves = !base.length && tasksComplete;
+  // P11 R2-2: the month range is found from the phase bounds (no day or month enumeration), then cut to at most
+  // MAX_CURVE_MONTHS points around the status month; the months cut before the window still count in the cumulative.
+  const ranges = [mIdx(month(sd))];
+  for (const r of base) ranges.push(mIdx(r.period));
+  for (const r of acts) ranges.push(mIdx(r.period));
+  if (fromLeaves) for (const l of leaves) if (l.phased) { const [a, b] = _phaseMonths(l.phased); if (a <= b) ranges.push(a, b); }
+  let lo = Math.min(...ranges), hi = Math.max(...ranges); const truncated = hi - lo + 1 > MAX_CURVE_MONTHS;
+  if (truncated) { const st = mIdx(month(sd)); lo = Math.max(lo, Math.min(st, hi) - Math.floor(MAX_CURVE_MONTHS / 2)); hi = Math.min(hi, lo + MAX_CURVE_MONTHS - 1); }
+  const pvByMonth = {}; let cpv = 0, cac = 0;
+  if (base.length) for (const r of base) { const k = mIdx(r.period); if (k < lo) cpv += num(r.amount); else pvByMonth[r.period] = (pvByMonth[r.period] || 0) + num(r.amount); }
+  // cumulative PV of the leaves at each month end in O(leaves + months): inside a leaf's window its cumulative is
+  // slope × (spread days up to the month end) + offset, after it the whole cost — summed with difference arrays
+  const n = hi - lo + 2, slopeW = new Float64Array(n), slopeC = new Float64Array(n), off = new Float64Array(n);
+  const addRange = (arr, from, to, v) => { const f = Math.max(from, lo), t = Math.min(to, hi); if (f > t) return; arr[f - lo] += v; arr[t - lo + 1] -= v; };
+  if (!base.length && tasksComplete) for (const l of leaves) {
+    const ph = l.phased; if (!ph) continue;
+    const ma = mOfDay(ph.i0), mb = mOfDay(ph.i1), k = ph.cost / ph.n;
+    if (ph.weekdays) { addRange(slopeW, ma, mb - 1, k); addRange(off, ma, mb - 1, -k * _wdBefore(ph.i0)); }
+    else { addRange(slopeC, ma, mb - 1, k); addRange(off, ma, mb - 1, -k * ph.i0); }
+    addRange(off, mb, hi, ph.cost);
+  }
+  let sW = 0, sC = 0, sO = 0;
+  const leafCum = (mi) => { const e = mLastDay(mi) + 1; sW += slopeW[mi - lo]; sC += slopeC[mi - lo]; sO += off[mi - lo]; return sW * _wdBefore(e) + sC * e + sO; };
+  const acByMonth = {};
+  if (acts.length) for (const r of acts) { if (mIdx(r.period) < lo) cac += num(r.amount); else acByMonth[r.period] = (acByMonth[r.period] || 0) + num(r.amount); }
+  const all = []; for (let i = lo; i <= hi; i++) all.push(mLabel(i));
   const acFromTasks = !acts.length;
-  let cpv = 0, cac = 0;
-  if (truncated) for (const k of Object.keys(pvByMonth)) if (k < all[0]) cpv += pvByMonth[k];   // the cut months still count
-  if (truncated) for (const k of Object.keys(acByMonth)) if (k < all[0]) cac += acByMonth[k];
-  const out = all.map((p) => {
-    cpv += pvByMonth[p] || 0;
+  const out = all.map((p, i) => {
+    if (base.length) cpv += pvByMonth[p] || 0; else if (tasksComplete) cpv = leafCum(lo + i);
     let acv = null;
     if (p <= month(sd)) {
       if (acFromTasks) {
-        const end = iso(Date.UTC(Number(p.slice(0, 4)), Number(p.slice(5, 7)), 0));
-        acv = acItems === null ? null : _acFromHours(acItems || leaves, end < sd ? end : sd);   // P11 F2: same spent money as AC
+        const endD = iso(Date.UTC(Number(p.slice(0, 4)), Number(p.slice(5, 7)), 0));
+        acv = acItems === null ? null : _acFromHours(acItems || leaves, endD < sd ? endD : sd);   // P11 F2: same spent money as AC
       } else { cac += acByMonth[p] || 0; acv = cac; }
     }
     return { period: p, pv: r2(base.length || tasksComplete ? cpv : null), ev: p === month(sd) ? r2(ev) : null, ac: r2(acv), bac: r2(bac) };
