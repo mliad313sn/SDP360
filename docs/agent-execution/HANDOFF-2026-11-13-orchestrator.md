@@ -16,6 +16,10 @@ only durable store). Never leave finished work only in a local branch.
 Relaunched agent ids (2026-11-19): P01 a1ba43df417509253, P02 a16d92f1476537c9a, P03 aa04c3d3a094e25a1,
 P04 a1b5bf21c70f35f4c, P05 a97869d74924ca653 (resumed, base 11d831a), P06 a5c044dc4be11d7f8,
 P07 acff067ab54912f98, P08 aac6337a596ce8f15, P09 a6d3fa1430bb26ed5, P10 a1278946d9e25df2a.
+MERGED + PUSHED after relaunch (2026-11-19): P10 495c9d7e, P01 2b35374c, P06 dd4b7332, P08 44292164, P07 07f9c65f,
+P09 a2f24a5d, P04 67ca975a, P05 61ee2cf2 (+ ceiling reconcile). Still running: P02, P03.
+Orchestrator helpers (ephemeral, recreate if lost): postmerge = take theirs on generated docs, union the manifest,
+regen inventory/authz/CSP journeys, commit, regen gate dossiers at the merge sha, commit.
 Relaunch prompts = launch prompt + "RELAUNCH" paragraph (summary of the first run); base e8900a7.
 
 ## Where things stand
