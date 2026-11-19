@@ -16,9 +16,9 @@
 // switch (a report_config switch decides — 404 while off) · none (any signed-in non-business account; note required).
 const CLASSES = ['role', 'site', 'ownership', 'switch'];
 const SIGNALS = {
-  role: /userHasRole|\bis(Admin|Super|Committee|Builder|Publisher|Field|Author|Exec)\w*\(|_adminTier\(|_canReadMoney\(|canSeeMoney\(|canReadMoney\(|adminOr403\(|_requireSuperAdminInline\(|committeeOnly\(|requireCommittee\(|moneyStrict\(|moneyVerifier\(|refuseMoneyBenefit\(|refusePlanWrite\(|superOnly|exportPolicyGate|canRun\(|\.roles\b|planWrite\(|mayManage\(|\.decide\(/,
-  site: /_siteScope|_listSite|scopeOf\(|siteIds\(|hasSite\(|canEditSite\(|_userInspectionSites?\(|_userMeetingsSites?\(|_meetingsImportScope|scopeIds\(|writableUnits|_scopeOr403|rfiScope|[sS]iteCodeReadDenied|_readDenied|readableProject|readableTask|viewFor\(|_siteReadDenied|_userSiteGroups|_authorize(Report|Site|Action)Write|_sitelessWriteDenied|userSites\.|scopeSites|accessCtx|canReadProject|writeProject\(|siteScope|site_ids|writeCells\(/,
-  ownership: /_ownInspectionOr403|actorOf\(|visibleRun\(|loadVisible\(|seesCadence|visibleDecisions|listSubscriptions|unreadCount|created_by\s*[!=]==|owner\w*\s*[!=]==|user_id\s*[!=]==|\.id\s*[!=]==\s*(req\.reportUser|u|user)\.id|reportUser\.id\s*[!=]==|WHERE[^`]*user_id\s*=\s*\?|loadSession\(/,
+  role: /userHasRole|\bis(Admin|Super|Committee|Builder|Publisher|Field|Author|Exec)\w*\(|_adminTier\(|_canReadMoney\(|canSeeMoney\(|canReadMoney\(|adminOr403\(|_requireSuperAdminInline\(|committeeOnly\(|requireCommittee\(|moneyStrict\(|moneyVerifier\(|refuseMoneyBenefit\(|refusePlanWrite\(|superOnly|exportPolicyGate|canRun\(|\.roles\b|planWrite\(|mayManage\(|\.decide\(|incubationSource\(|loadDef\(|dashboardData\(/,
+  site: /_siteScope|_listSite|scopeOf\(|siteIds\(|hasSite\(|canEditSite\(|_userInspectionSites?\(|_userMeetingsSites?\(|_meetingsImportScope|scopeIds\(|writableUnits|_scopeOr403|rfiScope|[sS]iteCodeReadDenied|_readDenied|readableProject|readableTask|viewFor\(|_siteReadDenied|_userSiteGroups|_authorize(Report|Site|Action)Write|_sitelessWriteDenied|userSites\.|scopeSites|accessCtx|canReadProject|writeProject\(|siteScope|site_ids|writeCells\(|incubationSource\(|dashboardData\(|authorizedSiteId\(|\bproject\(req, res\)/,
+  ownership: /_ownInspectionOr403|actorOf\(|visibleRun\(|loadVisible\(|seesCadence|visibleDecisions|listSubscriptions|unreadCount|created_by\s*[!=]==|owner\w*\s*[!=]==|user_id\s*[!=]==|\.id\s*[!=]==\s*(req\.reportUser|u|user)\.id|reportUser\.id\s*[!=]==|WHERE[^`]*user_id\s*=\s*\?|loadSession\(|unsubscribe\(req\.reportUser\.id|verifyRfi\(|checkCapability\(req\.reportUser/,
   switch: /\benabled\(|pubGate|pirEnabled|_enabled\b|lifecycle\(|gateParam|async function gate|\bgate\(req|\bon\(res\)/,
 };
 const PATH = require('path').join(__dirname, '..', '..', 'docs', 'ops', 'authz-handler-checks.json');
@@ -29,9 +29,32 @@ function _src(route) {
   return s;
 }
 
-/** Static signals of one route's handler chain → sorted class list. */
-function staticSignals(route, walker = require('./authz-walk')) {
-  const src = _src(route);
+/**
+ * Source of the path-wrapper middlewares that run before a route: route layers registered on a path ARRAY or regexp
+ * (e.g. the central site-read guard of server.js, the meetings read-scope wrapper) whose path matches this route.
+ */
+function wrapperSource(app, route) {
+  const { routerStack } = require('../../services/routerStack');
+  const url = route.path.replace(/:([A-Za-z_]+)/g, (m, n) => (/id\b|Id$|uid|key|token/i.test(n) ? '1' : 'x'));
+  let out = '', done = false;
+  (function visit(stack) {
+    for (const l of stack || []) {
+      if (done) return;
+      if (l.name === 'router' && l.handle && l.handle.stack) { visit(l.handle.stack); continue; }
+      if (!l.route) continue;
+      const p = l.route.path, m = route.method.toLowerCase();
+      if (typeof p === 'string') { if (p === route.path && (l.route.methods[m] || l.route.methods._all)) done = true; continue; }
+      if (!(l.route.methods[m] || l.route.methods._all)) continue;
+      let hit = false; try { hit = !!l.match(url); } catch (_) { hit = false; }
+      if (hit) for (const x of l.route.stack) { try { out += Function.prototype.toString.call(x.handle) + '\n'; } catch (_) { /* native */ } }
+    }
+  })(routerStack(app));
+  return out;
+}
+
+/** Static signals of one route's handler chain (+ path wrappers) → sorted class list. */
+function staticSignals(route, walker = require('./authz-walk'), app = null) {
+  const src = _src(route) + (app ? wrapperSource(app, route) : '');
   const out = CLASSES.filter((c) => SIGNALS[c].test(src));
   if (route.method === 'GET' && walker.CENTRAL_SITE_READ.some((re) => re.test(route.path)) && !out.includes('site')) out.push('site');
   return out.sort((a, b) => CLASSES.indexOf(a) - CLASSES.indexOf(b));
@@ -61,7 +84,7 @@ function draft(app, prev) {
   const walker = require('./authz-walk');
   const routes = {};
   for (const r of inScope(app, walker)) {
-    const sig = staticSignals(r, walker);
+    const sig = staticSignals(r, walker, app);
     const old = prev && prev.routes && prev.routes[r.key];
     if (old && old.reviewed) { routes[r.key] = old; continue; }
     routes[r.key] = { checks: sig, note: old && old.note ? old.note : (sig.length ? 'static signals: ' + sig.join(', ') : ''), reviewed: false };
@@ -80,4 +103,4 @@ if (require.main === module) {
   process.exit(0);
 }
 
-module.exports = { CLASSES, SIGNALS, PATH, staticSignals, inScope, load, serialize, draft };
+module.exports = { CLASSES, SIGNALS, PATH, staticSignals, wrapperSource, inScope, load, serialize, draft };

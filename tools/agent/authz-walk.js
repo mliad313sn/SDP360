@@ -95,7 +95,7 @@ const PUBLIC = {
 const GLOBAL_GATE_PREFIXES = ['/api/data/', '/api/survey/', '/api/sync/', '/api/dashboard/', '/api/ai/', '/api/risk-register-config', '/api/admin/', '/api/exec/', '/api/analytics/', '/api/integrations/', '/api/meetings/', '/api/inspection/', '/api/tracker/', '/api/assets/', '/api/roadmap/', '/api/teams-sla/', '/api/metrics/', '/api/fmp/', '/api/meridian/', '/api/sites', '/api/reconcile', '/api/4mp', '/api/site-awareness', '/api/changes', '/api/major-incidents', '/api/weeks', '/api/exec-pptx', '/api/ping'];
 // Central site-read guard of server.js (app.get([_REPORT_ID_READ, _SITE_ID_READ])) — a GET under these paths is
 // site-scoped before its own handler runs.
-const CENTRAL_SITE_READ = [/^\/api\/reports\/:id(\/|$)/, /^\/api\/(?:reports\/(?:monthly|yearly|objectives)|sites)\/:(?:site_?id|id|site)(\/|$)/];
+const CENTRAL_SITE_READ = [/^\/api\/reports\/:id(\/|$)/, /^\/api\/(?:reports\/(?:monthly|yearly|objectives)|sites)\/:(?:site_?[iI]d|id|site)(\/|$)/];
 // Handler-source markers of an amount-bearing answer (masked below the money readers).
 const MONEY_MARKERS = ['requireMoneyRead', '_canReadMoney(', '_stripAssetMoney', 'canSeeMoney(', "'finance-viewer'", 'readsMoney', 'canReadMoney('];
 

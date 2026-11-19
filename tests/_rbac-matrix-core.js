@@ -566,7 +566,7 @@ function _moneyText(res) {
       const z = XLSX.CFB.read(res.buf, { type: 'buffer' });
       return z.FileIndex.filter((f) => /\.xml$/.test(f.name) && f.content).map((f) => Buffer.from(f.content).toString('utf8')).join('\n');
     }
-    if (/csv|plain/.test(t)) return res.buf.toString('utf8');
+    if (/csv|plain|xml|octet-stream/.test(t)) return res.buf.toString('utf8');   // MSPDI xml, P6 XER (text) too
   } catch (_) { return ''; }
   return '';   // pdf and other binaries: not scanned (listed in the report as unscanned)
 }
@@ -590,9 +590,12 @@ async function probeOutcomes(w, opts = {}) {
   const routes = {}, money = [], moneyKnown = [], unscanned = new Set();
   const stats = { jobs: jobs.length, requests: 0, ms: 0, scanned: 0, readerHits: 0 };
   const t0 = Date.now();
-  // GETs first (read-only, concurrent); then mutating methods, one route at a time per worker, personas in order.
-  const order = [...jobs.filter((j) => j.method === 'GET'), ...jobs.filter((j) => j.method !== 'GET')];
-  await pool(order, opts.concurrency || 8, async (j) => {
+  // Phase 1: GETs (read-only) concurrently. Phase 2: mutating methods STRICTLY in sequence (fixed order, DELETE last),
+  // personas in column order — a write by one persona can change what the next request finds, so concurrency here
+  // would make the snapshot order-dependent.
+  const gets = jobs.filter((j) => j.method === 'GET');
+  const writes = [...jobs.filter((j) => j.method !== 'GET' && j.method !== 'DELETE'), ...jobs.filter((j) => j.method === 'DELETE')];
+  const run = async (j) => {
     let codes = '';
     for (const p of personas) {
       if (ADMIN_TIER_KEYS.includes(p.key) && j.method !== 'GET' && OUTCOME_EXEC_SKIP.test(j.r.path) && expectedAllow(j.r, p)) { codes += 'S'; continue; }
@@ -612,7 +615,9 @@ async function probeOutcomes(w, opts = {}) {
       }
     }
     routes[j.key] = codes;
-  });
+  };
+  await pool(gets, opts.concurrency || 8, run);
+  for (const j of writes) await run(j);
   stats.ms = Date.now() - t0;
   return { personas: personas.map((p) => p.key), routes, money, moneyKnown: moneyKnown.sort(), unscanned: [...unscanned].sort(), stats, loginAfterDeactivation: w.extra.loginAfterDeactivation };
 }
