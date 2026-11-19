@@ -46,3 +46,11 @@ test('app.js messages go through the dictionary (no bare English status message 
   for (const m of app.matchAll(/FT\('([^']+)'\)/g)) assert.ok(m[1] in dict, `FT('${m[1]}') has no French entry`);
   assert.doesNotMatch(app, /msg\('[A-Z]/, 'every msg() text is translated');
 });
+
+test('P11 r2 F-4: app.js raises no bare English error text, and server refusal reasons have French text', () => {
+  const app = fs.readFileSync(path.join(DIR, 'app.js'), 'utf8');
+  const { dict } = loadDict();
+  assert.doesNotMatch(app, /new Error\('[A-Za-z]/, 'every thrown message goes through FT()');
+  for (const r of ['inspection_exists', 'action_changed', 'inspection_action_status']) assert.match(app, new RegExp("reason === '" + r + "'"), r + ' translated');
+  assert.ok(dict['This action was changed on the server since it was queued — check it before sending again.']);
+});

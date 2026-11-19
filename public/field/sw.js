@@ -5,7 +5,7 @@
    owns retries). Bump CACHE_VERSION on every deploy of the field app: activating a new version also drops
    the caches of older versions, /api/ entries included. */
 'use strict';
-const CACHE_VERSION = 'field-v10';  // P11 F-3: /api/ no longer cached (older caches dropped on activate)
+const CACHE_VERSION = 'field-v11';  // P11 r2: inspection action buttons, French refusals, dialog Cancel (F-3: /api/ never cached)
 const SHELL = ['/field/index.html', '/field/app.js', '/field/styles.css', '/field/manifest.webmanifest', '/field/icon.svg', '/field/i18n.js', '/field/storage.js', '/lib/i18nText.js', '/_tokens.css'];
 
 self.addEventListener('install', (e) => {

@@ -432,8 +432,8 @@ async function getInspectionForFieldReplay(id) {
   if (!id) return null;
   const r = await pgHandle().prepare('SELECT status, site_code, created_by, state_json FROM insp_inspections WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!r) return null;
-  let meta = null; try { meta = (JSON.parse(r.state_json || '{}') || {}).meta || null; } catch (_) { meta = null; }
-  return { status: r.status || 'draft', site_code: r.site_code, created_by: r.created_by == null ? null : Number(r.created_by), meta };
+  let state = null; try { state = JSON.parse(r.state_json || '{}') || {}; } catch (_) { state = null; }
+  return { status: r.status || 'draft', site_code: r.site_code, created_by: r.created_by == null ? null : Number(r.created_by), meta: state ? state.meta || null : null, state };
 }
 
 // { status, site_code } of an inspection, or null — the route checks a scoped user's
@@ -506,6 +506,22 @@ function aggregate(opts = {}) {
  * closed inspection, and the register must be able to close a stale one.
  * (Site-scoping for editors is enforced at the route layer.)
  */
+// P11 r2 F-5 — the inspection corrective-action vocabulary. The transfer statuses of meetings (demand,
+// helpdesk_ticket) do NOT apply to inspection actions. A case / spacing variant ('cancelled', 'in progress',
+// 'in_progress') maps to the canonical code; anything else is refused (null) so no write path can store a status
+// the open / overdue counts and the home queue do not know.
+const ACTION_STATUSES = Object.freeze(['Open', 'In Progress', 'Closed', 'Cancelled']);
+const _ACTION_STATUS_KEY = new Map(ACTION_STATUSES.map((s) => [s.toLowerCase().replace(/[\s_-]+/g, ''), s]));
+function normalizeActionStatus(v) {
+  if (v == null) return null;
+  return _ACTION_STATUS_KEY.get(String(v).trim().toLowerCase().replace(/[\s_-]+/g, '')) || null;
+}
+function _actionStatusError(v) {
+  const e = new Error(`"${String(v).slice(0, 40)}" is not an inspection action status (Open, In Progress, Closed, Cancelled)`);
+  e.code = 'VALIDATION'; e.status = 400; e.expose = true; e.reason = 'inspection_action_status';
+  return e;
+}
+
 function addActionUpdate(actionId, opts = {}) {
   return _addActionUpdatePg(actionId, opts);
 }
@@ -572,7 +588,7 @@ async function exportRows(opts = {}) {
            i.inspection_date, a.ord, a.description, a.linked_item, a.priority,
            a.owner, a.due_date, a.status, a.notes, a.created_at, a.closed_at
       FROM insp_actions a JOIN insp_inspections i ON i.id = a.inspection_id${wi}
-     ORDER BY CASE WHEN a.status IN ('Closed','Cancelled') THEN 1 ELSE 0 END, a.due_date, a.id`).all(...p);
+     ORDER BY CASE WHEN lower(a.status) IN ('closed','cancelled') THEN 1 ELSE 0 END, a.due_date, a.id`).all(...p);
   return { inspections, findings, actions };
 }
 
@@ -772,6 +788,13 @@ async function _saveInspectionPg(state, userSiteCode, createdBy, { allowRefs = n
     throw new Error(`Cross-site save blocked: user is scoped to ${userSiteCode}, inspection is for ${siteCode || 'no site'}`);
   }
 
+  // P11 r2 F-5 — every stored action status belongs to the inspection vocabulary (case variants normalised)
+  for (const a of (Array.isArray(state.actions) ? state.actions : [])) {
+    if (!a || a.status == null || a.status === '') continue;
+    const canon = normalizeActionStatus(a.status);
+    if (!canon) throw _actionStatusError(a.status);
+    a.status = canon;
+  }
   const areaText = meta.f_area || '';
   const areaCode = await _resolveAreaCodePg(H, areaText);
   const existing = await H.prepare('SELECT id, site_code, state_json, deleted_at FROM insp_inspections WHERE id = ?').get(id);
@@ -938,14 +961,14 @@ async function _aggregatePg(opts = {}) {
   const actionsOpen = await H.prepare(`
     SELECT COUNT(*) AS n
       FROM insp_actions a JOIN insp_inspections i ON i.id = a.inspection_id
-      ${w} ${w ? 'AND' : 'WHERE'} a.status != 'Closed' AND a.status != 'Cancelled'`).get(params);
+      ${w} ${w ? 'AND' : 'WHERE'} lower(a.status) NOT IN ('closed','cancelled')`).get(params);
 
   const overdue = await H.prepare(`
     SELECT COUNT(*) AS n
       FROM insp_actions a JOIN insp_inspections i ON i.id = a.inspection_id
       ${w} ${w ? 'AND' : 'WHERE'} a.due_date IS NOT NULL
             AND a.due_date < to_char(current_date,'YYYY-MM-DD')
-            AND a.status != 'Closed' AND a.status != 'Cancelled'`).get(params);
+            AND lower(a.status) NOT IN ('closed','cancelled')`).get(params);
 
   const monthly = await H.prepare(`
     SELECT substr(inspection_date, 1, 7) AS ym, COUNT(*) AS n
@@ -961,6 +984,11 @@ async function _aggregatePg(opts = {}) {
 
 async function _addActionUpdatePg(actionId, opts = {}) {
   const H = pgHandle();
+  if (opts.status_change != null && opts.status_change !== '') {
+    const canon = normalizeActionStatus(opts.status_change);
+    if (!canon) throw _actionStatusError(opts.status_change);
+    opts = { ...opts, status_change: canon };
+  }
   const action = await H.prepare('SELECT id, status FROM insp_actions WHERE id = ?').get(actionId);
   if (!action) throw new Error('Action not found');
   await H.runTransaction(async () => {
@@ -993,7 +1021,7 @@ async function _listActionsPg(opts = {}) {
   if (opts.priority) { where.push('a.priority = @priority');            params.priority = opts.priority; }
   if (opts.owner)    { where.push('a.owner ILIKE @owner');              params.owner = '%' + opts.owner + '%'; }
   if (opts.overdue) {
-    where.push("a.due_date IS NOT NULL AND a.due_date < to_char(current_date,'YYYY-MM-DD') AND a.status != 'Closed' AND a.status != 'Cancelled'");
+    where.push("a.due_date IS NOT NULL AND a.due_date < to_char(current_date,'YYYY-MM-DD') AND lower(a.status) NOT IN ('closed','cancelled')");
   }
   if (opts.from)     { where.push('i.inspection_date >= @from'); params.from = opts.from; }
   if (opts.to)       { where.push('i.inspection_date <= @to');   params.to = opts.to; }
@@ -1011,7 +1039,7 @@ async function _listActionsPg(opts = {}) {
     FROM insp_actions a JOIN insp_inspections i ON i.id = a.inspection_id
     ${w}
     ORDER BY
-      CASE WHEN a.status IN ('Closed','Cancelled') THEN 1 ELSE 0 END,
+      CASE WHEN lower(a.status) IN ('closed','cancelled') THEN 1 ELSE 0 END,
       CASE WHEN a.due_date IS NULL THEN 1 ELSE 0 END,
       a.due_date ASC, i.inspection_date DESC
     LIMIT @limit OFFSET @offset`).all(params);
@@ -1091,7 +1119,7 @@ module.exports = {
   getInspectionTrashRow, listDeletedInspections, restoreInspection, purgeDeletedInspections,
   aggregate,
   getSiteScoreInputs, _computeInspectionScoreInputs,
-  listActions, addActionUpdate, listActionUpdates, getActionParent, getInspectionForFieldReplay, verifyAction, listRecentFindings,
+  listActions, addActionUpdate, listActionUpdates, ACTION_STATUSES, normalizeActionStatus, getActionParent, getInspectionForFieldReplay, verifyAction, listRecentFindings,
   exportRows,
   resetLookups,
   siteNameToCode,

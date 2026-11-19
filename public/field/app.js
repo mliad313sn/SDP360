@@ -43,7 +43,7 @@
   // "[object IDBRequest]" (site select left unselected → "Pick a site…", no inspection could be queued),
   // low-bandwidth mode came up ON and a missing offline cache was taken for a bootstrap.
   function isReq(o) { return !!o && typeof o === 'object' && 'readyState' in o && 'result' in o && 'onsuccess' in o; }
-  function tx(store, mode, fn) { return idb().then(function (d) { return new Promise(function (res, rej) { var t = d.transaction(store, mode), s = t.objectStore(store), out = fn(s); t.oncomplete = function () { res(isReq(out) ? out.result : out); }; t.onerror = function () { rej(t.error); }; t.onabort = function () { rej(t.error || new Error('transaction aborted')); }; }); }); }
+  function tx(store, mode, fn) { return idb().then(function (d) { return new Promise(function (res, rej) { var t = d.transaction(store, mode), s = t.objectStore(store), out = fn(s); t.oncomplete = function () { res(isReq(out) ? out.result : out); }; t.onerror = function () { rej(t.error); }; t.onabort = function () { rej(t.error || new Error(FT('Phone storage transaction aborted.'))); }; }); }); }
   var kvGet = function (k) { return tx('kv', 'readonly', function (s) { return s.get(k); }); };
   var kvSet = function (k, v) { return tx('kv', 'readwrite', function (s) { s.put(v, k); }); };
   var obAll = function () { return tx('outbox', 'readonly', function (s) { return s.getAll(); }); };
@@ -70,16 +70,16 @@
   function bootstrap() {
     return api('/api/field/bootstrap').then(function (j) {
       // a cached answer from the service worker may belong to the previous user of this phone: refuse it
-      if (j.ok && j.__stale && !(j.user && j.user.username === me)) throw new Error('cached data of another user');
+      if (j.ok && j.__stale && !(j.user && j.user.username === me)) throw new Error(FT('The cached data belongs to another user.'));
       if (j.ok && !j.__stale && j.user && j.user.username && j.user.username !== me) {
         sessionMismatch = true;
         msg(FT('This phone is signed in as another person — sign in again. Nothing is sent meanwhile.'), 'err');
         location.href = '../login.html?next=' + encodeURIComponent('/field/index.html');
-        throw new Error('session of another user');
+        throw new Error(FT('This phone is signed in as another person — sign in again. Nothing is sent meanwhile.'));
       }
       if (j.ok) { B = j; kvSet('bootstrap:' + me, j); kvSet('bootstrap_at:' + me, new Date().toISOString()); pageView(); return B; }
-      if (j.__status === 401) { location.href = '../login.html?next=' + encodeURIComponent('/field/index.html'); throw new Error('login'); }
-      throw new Error(j.error || 'bootstrap failed');
+      if (j.__status === 401) { location.href = '../login.html?next=' + encodeURIComponent('/field/index.html'); throw new Error(FT('Session expired — sign in again. Nothing was lost: your entries are kept on this phone.')); }
+      throw new Error(j.error || FT('The server data could not be loaded.'));
     }).catch(function (e) { return kvGet('bootstrap:' + me).then(function (c) { if (!c) throw e; B = c; msg(FT('Working from cached data (offline).'), ''); return B; }); });
   }
   function renderHome() {
@@ -174,6 +174,15 @@
   }
   // G19 — one failing entry never blocks the others: a 401 stops the sync (sign in again), a refusal of a photo
   // upload marks this entry refused, anything else (network, a proxy HTML page) marks it 'failed' and moves on
+  // P11 r2 F-4 — the server names WHY it refused (`reason` + `detail`); the phone says it in the user's language and
+  // falls back to the server text only for a reason it does not know
+  function refusalText(j) {
+    var r = (j && j.result) || {}, d = r.detail || {};
+    if (r.reason === 'inspection_exists') return FT('This inspection already exists on the server and is not changed from the field app — capture a new inspection.') + (d.status ? ' (' + FT('server status:') + ' ' + d.status + ')' : '');
+    if (r.reason === 'action_changed') return FT('This action was changed on the server since it was queued — check it before sending again.') + (d.now ? ' (' + FT('now:') + ' ' + d.now + ')' : '');
+    if (r.reason === 'inspection_action_status') return FT('An inspection action can only be closed or cancelled from the field app.');
+    return String(r.error || (j && j.error) || (j && j.status) || FT('refused'));
+  }
   function entryError(e, err) {
     if (err && err.status === 401) { msg(FT('Session expired — sign in again. Nothing was lost: your entries are kept on this phone.'), 'err'); return true; }
     if (err && err.notJson) { e.state = 'failed'; e.last_error = FT(PORTAL_MSG); msg(FT(PORTAL_MSG), 'err'); return obPut(e).then(function () {}); }
@@ -199,7 +208,7 @@
       if (j.ok || (j.duplicate && j.status === 'applied')) { msg(FT('Synced: ') + (e.label || e.kind), 'ok'); return obDel(e.uuid).then(function () {}); }
       // refused or conflicting: kept on the phone with the reason, until the user decides
       e.state = j.__status === 409 ? (j.status === 'applied' ? 'applied_before' : 'conflict') : 'rejected';
-      e.last_error = String((j.result && j.result.error) || j.error || j.status || 'refused').slice(0, 300);
+      e.last_error = refusalText(j).slice(0, 300);
       msg(FT('Refused: ') + (e.label || e.kind) + ' — ' + e.last_error, 'err');
       return obPut(e).then(function () {});
     });
@@ -247,11 +256,11 @@
         var q = 0.8, out;
         do { out = c.toDataURL('image/jpeg', q); q -= 0.1; } while (out.length * 0.75 > cap && q > 0.3);
         var b64 = out.split(',')[1], size = Math.floor(b64.length * 3 / 4) - (b64.endsWith('==') ? 2 : b64.endsWith('=') ? 1 : 0);
-        if (size > cap) return rej(new Error('photo still over ' + Math.round(cap / 1024) + ' KB after compression'));
+        if (size > cap) return rej(new Error(FT('Photo still too large after compression (limit, KB):') + ' ' + Math.round(cap / 1024)));
         res({ b64: b64, mime: 'image/jpeg', size: size, name: (file.name || 'photo').replace(/\.[^.]+$/, '') + '.jpg' });
       };
-      img.onerror = function () { rej(new Error('cannot read image')); };
-      rd.onerror = function () { rej(new Error('cannot read image')); };
+      img.onerror = function () { rej(new Error(FT('Cannot read the image.'))); };
+      rd.onerror = function () { rej(new Error(FT('Cannot read the image.'))); };
       rd.onload = function () { img.src = rd.result; };
       rd.readAsDataURL(file);
     });
@@ -319,12 +328,16 @@
   }
 
   // ── actions + ticket ─────────────────────────────────────────────────────────────
-  var TRANSFER = ['demand', 'helpdesk_ticket', 'cancelled'];
+  var TRANSFER = ['demand', 'helpdesk_ticket', 'cancelled', 'Cancelled'];   // a justification is asked for each
   function renderActions() {
     var s = curSite(), acts = (B.actions || []).filter(function (a) { return !s || a.site === s.inspection_code; });
     $('a-list').innerHTML = acts.length ? acts.map(function (a, i) {
       var closeVal = a.source === 'inspection' ? 'Closed' : 'resolved';
-      return '<div class="item"><div><span class="pill ' + (a.due_date && a.due_date < new Date().toISOString().slice(0, 10) ? 'red' : 'slate') + '">' + esc(a.source) + '</span> ' + esc(a.description) + ' <span class="muted">' + esc(a.owner || '') + ' · ' + FT('due') + ' ' + esc(a.due_date || '—') + ' · ' + esc(a.status) + '</span></div><div class="row"><button type="button" data-a="' + i + '" data-st="' + closeVal + '">' + FT('Close') + '</button><button type="button" data-a="' + i + '" data-st="helpdesk_ticket">' + FT('→ Ticket') + '</button><button type="button" data-a="' + i + '" data-st="demand">' + FT('→ Demand') + '</button><button type="button" data-a="' + i + '" data-st="cancelled" class="danger">' + FT('Cancel') + '</button></div></div>';
+      // P11 r2 F-5 — an inspection action is closed or cancelled ('Cancelled', its own vocabulary); the transfer
+      // statuses (→ Ticket / → Demand) exist for meeting actions only
+      var transfer = a.source === 'inspection' ? '' : '<button type="button" data-a="' + i + '" data-st="helpdesk_ticket">' + FT('→ Ticket') + '</button><button type="button" data-a="' + i + '" data-st="demand">' + FT('→ Demand') + '</button>';
+      var cancelVal = a.source === 'inspection' ? 'Cancelled' : 'cancelled';
+      return '<div class="item"><div><span class="pill ' + (a.due_date && a.due_date < new Date().toISOString().slice(0, 10) ? 'red' : 'slate') + '">' + esc(a.source) + '</span> ' + esc(a.description) + ' <span class="muted">' + esc(a.owner || '') + ' · ' + FT('due') + ' ' + esc(a.due_date || '—') + ' · ' + esc(a.status) + '</span></div><div class="row"><button type="button" data-a="' + i + '" data-st="' + closeVal + '">' + FT('Close') + '</button>' + transfer + '<button type="button" data-a="' + i + '" data-st="' + cancelVal + '" class="danger">' + FT('Cancel') + '</button></div></div>';
     }).join('') : FT('No open action for this site.');
     $('a-list').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { actionChange(acts[Number(b.dataset.a)], b.dataset.st); }); });
   }
