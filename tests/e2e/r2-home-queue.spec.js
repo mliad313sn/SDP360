@@ -25,12 +25,14 @@ runJourney('R2 Home queue S1 and single active destination', async ({ base, worl
     await page.waitForFunction(() => !document.querySelector('#hmQueue [aria-busy="true"]'), null, { timeout: 20000 }).catch(() => {});
     const q = await page.evaluate(() => {
       const box = document.getElementById('hmQueue');
-      return { text: box.innerText, links: [...box.querySelectorAll('.hq-list a')].map((a) => a.getAttribute('href')), states: [...box.querySelectorAll('.hq-state')].map((s) => s.getAttribute('aria-label')) };
+      return { text: box.innerText, links: [...box.querySelectorAll('.hq-list a')].map((a) => a.getAttribute('href')), states: [...box.querySelectorAll('.hq-state')].map((s) => s.getAttribute('aria-label')),
+        // one state per queue source (P5 added Approvals & projects + Site obligations: 7, see tests/home-queue-p5.test.js)
+        nSources: (window.HomeQueue && window.HomeQueue.SOURCES || []).length };
     });
     assert.match(q.text, /E2E overdue action/, 'site A action listed');
     assert.ok(!/site B secret/.test(q.text), 'site B action never listed');
     assert.ok(q.links.some((h) => /^meeting\.html\?id=\d+$/.test(h)), 'authorised deep link');
-    assert.ok(q.states.length === 5 && q.states.every((s) => /^(Available|Unknown|Stale|Partial|Not allowed|Loading)/.test(s)), JSON.stringify(q.states));
+    assert.ok(q.states.length === q.nSources && q.nSources === 7 && q.states.every((s) => /^(Available|Unknown|Stale|Partial|Not allowed|Loading)/.test(s)), JSON.stringify(q.states));
     assert.match(q.text, /late/);
     const bad = layout.judge(await page.evaluate(layout.measure), { shell: true });
     assert.deepStrictEqual(bad, [], 'layout at ' + w + ' px');

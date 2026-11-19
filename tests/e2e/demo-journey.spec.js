@@ -73,9 +73,14 @@ runJourney('DEMO two-site synthetic journey: Home → portfolio → project → 
   await pmo.waitForSelector('#task-row-' + ids.t3, { state: 'attached', timeout: 20000 });
   const cells = async (tid) => pmo.$$eval('#task-row-' + tid + ' td', (tds) => tds.map((td) => td.textContent.trim()));
   const r2 = await cells(ids.t2), r3 = await cells(ids.t3);
-  assert.equal(r2[8], '0 %', 'measured zero progress shows 0 %'); assert.equal(r2[9], '0 h', 'measured zero effort shows 0 h');
-  assert.equal(r3[8], '—', 'unknown progress shows —, never 0'); assert.equal(r3[9], '—', 'unknown effort shows —');
-  assert.match(r2[14] || '', new RegExp('#' + ids.t1), 'dependency shown on the plan');
+  // Columns are located by their header, not by position: the plan table grew a column (Free float, W1-ENGINE)
+  // and a positional index silently read the Critical column as Progress.
+  const heads = await pmo.$$eval('#plan-table thead th', (ths) => ths.map((th) => th.textContent.trim()));
+  const col_ = (h) => { const i = heads.indexOf(h); assert.ok(i >= 0, 'plan column "' + h + '" present: ' + heads.join(' | ')); return i; };
+  const cProg = col_('Progress'), cEff = col_('Effort'), cDep = col_('Depends on');
+  assert.equal(r2[cProg], '0 %', 'measured zero progress shows 0 %'); assert.equal(r2[cEff], '0 h', 'measured zero effort shows 0 h');
+  assert.equal(r3[cProg], '—', 'unknown progress shows —, never 0'); assert.equal(r3[cEff], '—', 'unknown effort shows —');
+  assert.match(r2[cDep] || '', new RegExp('#' + ids.t1), 'dependency shown on the plan');
   await j.measure(pmo, 'project-plan');
 
   // 2. Export: the workbook carries the same figures as the screen's API, zero vs unknown preserved
