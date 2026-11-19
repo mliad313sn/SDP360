@@ -1,0 +1,3187 @@
+{
+ "GET /api/assets/inventory as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/inventory as viewer": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "array": 2,
+   "first": {
+    "acquisition_date": "string",
+    "asset_id": "string",
+    "asset_name": "string",
+    "asset_tag": "null",
+    "barcode": "null",
+    "created_time": "null",
+    "days_since_scan": "string",
+    "department": "string",
+    "last_audit_status": "string",
+    "last_scan_source": "null",
+    "last_successful_audit_time": "string",
+    "manufacturer": "string",
+    "monitor_count": "number",
+    "months_since_acquisition": "null",
+    "product": "null",
+    "product_type": "string",
+    "ram_total_gb": "number",
+    "serial_number": "string",
+    "site": "string",
+    "site_id": "null",
+    "state": "string",
+    "system_disk_free_pct": "null",
+    "system_disk_gb": "null",
+    "user_name": "string",
+    "warranty_expiry": "null"
+   }
+  }
+ },
+ "GET /api/assets/inventory as editor": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "array": 2,
+   "first": {
+    "acquisition_date": "string",
+    "asset_id": "string",
+    "asset_name": "string",
+    "asset_tag": "null",
+    "barcode": "null",
+    "created_time": "null",
+    "days_since_scan": "string",
+    "department": "string",
+    "last_audit_status": "string",
+    "last_scan_source": "null",
+    "last_successful_audit_time": "string",
+    "manufacturer": "string",
+    "monitor_count": "number",
+    "months_since_acquisition": "null",
+    "product": "null",
+    "product_type": "string",
+    "ram_total_gb": "number",
+    "serial_number": "string",
+    "site": "string",
+    "site_id": "null",
+    "state": "string",
+    "system_disk_free_pct": "null",
+    "system_disk_gb": "null",
+    "user_name": "string",
+    "warranty_expiry": "null"
+   }
+  }
+ },
+ "GET /api/assets/inventory as finance": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "array": 2,
+   "first": {
+    "acquisition_date": "string",
+    "asset_id": "string",
+    "asset_name": "string",
+    "asset_tag": "null",
+    "barcode": "null",
+    "book_value_usd": "null",
+    "created_time": "null",
+    "current_book_value": "null",
+    "days_since_scan": "string",
+    "department": "string",
+    "last_audit_status": "string",
+    "last_scan_source": "null",
+    "last_successful_audit_time": "string",
+    "manufacturer": "string",
+    "monitor_count": "number",
+    "months_since_acquisition": "null",
+    "operational_cost": "null",
+    "product": "null",
+    "product_type": "string",
+    "purchase_cost": "string",
+    "purchase_cost_usd": "number",
+    "ram_total_gb": "number",
+    "serial_number": "string",
+    "site": "string",
+    "site_id": "null",
+    "state": "string",
+    "system_disk_free_pct": "null",
+    "system_disk_gb": "null",
+    "tco_usd": "null",
+    "total_cost_of_ownership": "null",
+    "user_name": "string",
+    "warranty_expiry": "null"
+   }
+  }
+ },
+ "GET /api/assets/inventory as super_admin": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "array": 2,
+   "first": {
+    "acquisition_date": "string",
+    "asset_id": "string",
+    "asset_name": "string",
+    "asset_tag": "null",
+    "barcode": "null",
+    "book_value_usd": "null",
+    "created_time": "null",
+    "current_book_value": "null",
+    "days_since_scan": "string",
+    "department": "string",
+    "last_audit_status": "string",
+    "last_scan_source": "null",
+    "last_successful_audit_time": "string",
+    "manufacturer": "string",
+    "monitor_count": "number",
+    "months_since_acquisition": "null",
+    "operational_cost": "null",
+    "product": "null",
+    "product_type": "string",
+    "purchase_cost": "string",
+    "purchase_cost_usd": "number",
+    "ram_total_gb": "number",
+    "serial_number": "string",
+    "site": "string",
+    "site_id": "null",
+    "state": "string",
+    "system_disk_free_pct": "null",
+    "system_disk_gb": "null",
+    "tco_usd": "null",
+    "total_cost_of_ownership": "null",
+    "user_name": "string",
+    "warranty_expiry": "null"
+   }
+  }
+ },
+ "GET /api/assets/lookups as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/lookups as viewer": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "manufacturers": {
+    "array": 2,
+    "first": "string"
+   },
+   "product_types": {
+    "array": 2,
+    "first": "string"
+   },
+   "sites": {
+    "array": 2,
+    "first": "string"
+   },
+   "states": {
+    "array": 2,
+    "first": "string"
+   }
+  }
+ },
+ "GET /api/assets/lookups as editor": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "manufacturers": {
+    "array": 2,
+    "first": "string"
+   },
+   "product_types": {
+    "array": 2,
+    "first": "string"
+   },
+   "sites": {
+    "array": 2,
+    "first": "string"
+   },
+   "states": {
+    "array": 2,
+    "first": "string"
+   }
+  }
+ },
+ "GET /api/assets/lookups as finance": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "manufacturers": {
+    "array": 2,
+    "first": "string"
+   },
+   "product_types": {
+    "array": 2,
+    "first": "string"
+   },
+   "sites": {
+    "array": 2,
+    "first": "string"
+   },
+   "states": {
+    "array": 2,
+    "first": "string"
+   }
+  }
+ },
+ "GET /api/assets/lookups as super_admin": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "manufacturers": {
+    "array": 2,
+    "first": "string"
+   },
+   "product_types": {
+    "array": 2,
+    "first": "string"
+   },
+   "sites": {
+    "array": 2,
+    "first": "string"
+   },
+   "states": {
+    "array": 2,
+    "first": "string"
+   }
+  }
+ },
+ "GET /api/assets/summary as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/summary as viewer": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "by_state": {
+    "Discovered": "number",
+    "In Use": "number"
+   },
+   "total": "number"
+  }
+ },
+ "GET /api/assets/summary as editor": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "by_state": {
+    "Discovered": "number",
+    "In Use": "number"
+   },
+   "total": "number"
+  }
+ },
+ "GET /api/assets/summary as finance": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "by_state": {
+    "Discovered": "number",
+    "In Use": "number"
+   },
+   "total": "number"
+  }
+ },
+ "GET /api/assets/summary as super_admin": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "by_state": {
+    "Discovered": "number",
+    "In Use": "number"
+   },
+   "total": "number"
+  }
+ },
+ "GET /api/assets/export.xlsx as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/export.xlsx as viewer": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Forbidden — required role(s): admin or finance-viewer"
+ },
+ "GET /api/assets/export.xlsx as editor": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Forbidden — required role(s): admin or finance-viewer"
+ },
+ "GET /api/assets/export.xlsx as finance": {
+  "status": 200,
+  "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "cd": "attachment; filename=\"assets.xlsx\""
+ },
+ "GET /api/assets/export.xlsx as super_admin": {
+  "status": 200,
+  "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "cd": "attachment; filename=\"assets.xlsx\""
+ },
+ "GET /api/assets/sync-status as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/sync-status as viewer": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "last_sync": "null",
+   "next_cron": "string",
+   "server_time": "string"
+  }
+ },
+ "GET /api/assets/sync-status as editor": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "last_sync": "null",
+   "next_cron": "string",
+   "server_time": "string"
+  }
+ },
+ "GET /api/assets/sync-status as finance": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "last_sync": "null",
+   "next_cron": "string",
+   "server_time": "string"
+  }
+ },
+ "GET /api/assets/sync-status as super_admin": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "last_sync": "null",
+   "next_cron": "string",
+   "server_time": "string"
+  }
+ },
+ "GET /api/assets/hygiene/summary as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/hygiene/summary as viewer": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "by_kind": {
+    "discovered": "number",
+    "ghost": "number",
+    "lifecycle_exception": "number",
+    "never_scanned": "number",
+    "no_age": "number",
+    "no_asset_tag": "number",
+    "no_cost": "number",
+    "no_owner": "number"
+   },
+   "by_site": {
+    "array": 2,
+    "first": {
+     "age_pct": "number",
+     "age_present": "number",
+     "completeness": "number",
+     "cost_pct": "number",
+     "cost_present": "number",
+     "owner_pct": "number",
+     "owner_present": "number",
+     "scan_pct": "number",
+     "scan_present": "number",
+     "site": "string",
+     "total": "number"
+    }
+   },
+   "by_state": {
+    "Discovered": "number",
+    "In Use": "number"
+   },
+   "scan_freshness": {
+    "d30_90": "number",
+    "d7_30": "number",
+    "never": "number",
+    "over90": "number",
+    "under7": "number"
+   },
+   "total": "number"
+  }
+ },
+ "GET /api/assets/hygiene/summary as editor": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "by_kind": {
+    "discovered": "number",
+    "ghost": "number",
+    "lifecycle_exception": "number",
+    "never_scanned": "number",
+    "no_age": "number",
+    "no_asset_tag": "number",
+    "no_cost": "number",
+    "no_owner": "number"
+   },
+   "by_site": {
+    "array": 2,
+    "first": {
+     "age_pct": "number",
+     "age_present": "number",
+     "completeness": "number",
+     "cost_pct": "number",
+     "cost_present": "number",
+     "owner_pct": "number",
+     "owner_present": "number",
+     "scan_pct": "number",
+     "scan_present": "number",
+     "site": "string",
+     "total": "number"
+    }
+   },
+   "by_state": {
+    "Discovered": "number",
+    "In Use": "number"
+   },
+   "scan_freshness": {
+    "d30_90": "number",
+    "d7_30": "number",
+    "never": "number",
+    "over90": "number",
+    "under7": "number"
+   },
+   "total": "number"
+  }
+ },
+ "GET /api/assets/hygiene/summary as finance": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "by_kind": {
+    "discovered": "number",
+    "ghost": "number",
+    "lifecycle_exception": "number",
+    "never_scanned": "number",
+    "no_age": "number",
+    "no_asset_tag": "number",
+    "no_cost": "number",
+    "no_owner": "number"
+   },
+   "by_site": {
+    "array": 2,
+    "first": {
+     "age_pct": "number",
+     "age_present": "number",
+     "completeness": "number",
+     "cost_pct": "number",
+     "cost_present": "number",
+     "owner_pct": "number",
+     "owner_present": "number",
+     "scan_pct": "number",
+     "scan_present": "number",
+     "site": "string",
+     "total": "number"
+    }
+   },
+   "by_state": {
+    "Discovered": "number",
+    "In Use": "number"
+   },
+   "scan_freshness": {
+    "d30_90": "number",
+    "d7_30": "number",
+    "never": "number",
+    "over90": "number",
+    "under7": "number"
+   },
+   "total": "number"
+  }
+ },
+ "GET /api/assets/hygiene/summary as super_admin": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "by_kind": {
+    "discovered": "number",
+    "ghost": "number",
+    "lifecycle_exception": "number",
+    "never_scanned": "number",
+    "no_age": "number",
+    "no_asset_tag": "number",
+    "no_cost": "number",
+    "no_owner": "number"
+   },
+   "by_site": {
+    "array": 2,
+    "first": {
+     "age_pct": "number",
+     "age_present": "number",
+     "completeness": "number",
+     "cost_pct": "number",
+     "cost_present": "number",
+     "owner_pct": "number",
+     "owner_present": "number",
+     "scan_pct": "number",
+     "scan_present": "number",
+     "site": "string",
+     "total": "number"
+    }
+   },
+   "by_state": {
+    "Discovered": "number",
+    "In Use": "number"
+   },
+   "scan_freshness": {
+    "d30_90": "number",
+    "d7_30": "number",
+    "never": "number",
+    "over90": "number",
+    "under7": "number"
+   },
+   "total": "number"
+  }
+ },
+ "GET /api/assets/hygiene/exceptions?kind=discovered as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/hygiene/exceptions?kind=discovered as viewer": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "array": 1,
+   "first": {
+    "asset_id": "string",
+    "asset_name": "string",
+    "days_since_scan": "null",
+    "last_audit_status": "null",
+    "last_scan_source": "null",
+    "manufacturer": "string",
+    "product": "null",
+    "product_type": "string",
+    "serial_number": "string",
+    "site": "string",
+    "state": "string"
+   }
+  }
+ },
+ "GET /api/assets/hygiene/exceptions?kind=discovered as editor": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "array": 1,
+   "first": {
+    "asset_id": "string",
+    "asset_name": "string",
+    "days_since_scan": "null",
+    "last_audit_status": "null",
+    "last_scan_source": "null",
+    "manufacturer": "string",
+    "product": "null",
+    "product_type": "string",
+    "serial_number": "string",
+    "site": "string",
+    "state": "string"
+   }
+  }
+ },
+ "GET /api/assets/hygiene/exceptions?kind=discovered as finance": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "array": 1,
+   "first": {
+    "asset_id": "string",
+    "asset_name": "string",
+    "days_since_scan": "null",
+    "last_audit_status": "null",
+    "last_scan_source": "null",
+    "manufacturer": "string",
+    "product": "null",
+    "product_type": "string",
+    "serial_number": "string",
+    "site": "string",
+    "state": "string"
+   }
+  }
+ },
+ "GET /api/assets/hygiene/exceptions?kind=discovered as super_admin": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "array": 1,
+   "first": {
+    "asset_id": "string",
+    "asset_name": "string",
+    "days_since_scan": "null",
+    "last_audit_status": "null",
+    "last_scan_source": "null",
+    "manufacturer": "string",
+    "product": "null",
+    "product_type": "string",
+    "serial_number": "string",
+    "site": "string",
+    "state": "string"
+   }
+  }
+ },
+ "GET /api/assets/hygiene/exceptions?kind=nope as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/hygiene/exceptions?kind=nope as viewer": {
+  "status": 400,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "unknown kind"
+ },
+ "GET /api/assets/hygiene/exceptions?kind=nope as editor": {
+  "status": 400,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "unknown kind"
+ },
+ "GET /api/assets/hygiene/exceptions?kind=nope as finance": {
+  "status": 400,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "unknown kind"
+ },
+ "GET /api/assets/hygiene/exceptions?kind=nope as super_admin": {
+  "status": 400,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "unknown kind"
+ },
+ "GET /api/assets/hygiene/export.xlsx as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/hygiene/export.xlsx as viewer": {
+  "status": 200,
+  "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "cd": "attachment; filename=\"assets-hygiene.xlsx\""
+ },
+ "GET /api/assets/hygiene/export.xlsx as editor": {
+  "status": 200,
+  "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "cd": "attachment; filename=\"assets-hygiene.xlsx\""
+ },
+ "GET /api/assets/hygiene/export.xlsx as finance": {
+  "status": 200,
+  "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "cd": "attachment; filename=\"assets-hygiene.xlsx\""
+ },
+ "GET /api/assets/hygiene/export.xlsx as super_admin": {
+  "status": 200,
+  "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "cd": "attachment; filename=\"assets-hygiene.xlsx\""
+ },
+ "GET /api/assets/hardware/summary as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/hardware/summary as viewer": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "by_kind": {
+    "full_disk": "number",
+    "low_ram": "number",
+    "no_real_monitor": "number",
+    "refresh_due": "number"
+   },
+   "by_site": {
+    "array": 2,
+    "first": {
+     "full_disk": "number",
+     "low_ram": "number",
+     "no_real_monitor": "number",
+     "refresh_due": "number",
+     "site": "string",
+     "total": "number"
+    }
+   },
+   "monitors": {
+    "avg_real": "number",
+    "with_real": "number"
+   },
+   "total": "number"
+  }
+ },
+ "GET /api/assets/hardware/summary as editor": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "by_kind": {
+    "full_disk": "number",
+    "low_ram": "number",
+    "no_real_monitor": "number",
+    "refresh_due": "number"
+   },
+   "by_site": {
+    "array": 2,
+    "first": {
+     "full_disk": "number",
+     "low_ram": "number",
+     "no_real_monitor": "number",
+     "refresh_due": "number",
+     "site": "string",
+     "total": "number"
+    }
+   },
+   "monitors": {
+    "avg_real": "number",
+    "with_real": "number"
+   },
+   "total": "number"
+  }
+ },
+ "GET /api/assets/hardware/summary as finance": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "by_kind": {
+    "full_disk": "number",
+    "low_ram": "number",
+    "no_real_monitor": "number",
+    "refresh_due": "number"
+   },
+   "by_site": {
+    "array": 2,
+    "first": {
+     "full_disk": "number",
+     "low_ram": "number",
+     "no_real_monitor": "number",
+     "refresh_due": "number",
+     "site": "string",
+     "total": "number"
+    }
+   },
+   "monitors": {
+    "avg_real": "number",
+    "with_real": "number"
+   },
+   "total": "number"
+  }
+ },
+ "GET /api/assets/hardware/summary as super_admin": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "by_kind": {
+    "full_disk": "number",
+    "low_ram": "number",
+    "no_real_monitor": "number",
+    "refresh_due": "number"
+   },
+   "by_site": {
+    "array": 2,
+    "first": {
+     "full_disk": "number",
+     "low_ram": "number",
+     "no_real_monitor": "number",
+     "refresh_due": "number",
+     "site": "string",
+     "total": "number"
+    }
+   },
+   "monitors": {
+    "avg_real": "number",
+    "with_real": "number"
+   },
+   "total": "number"
+  }
+ },
+ "GET /api/assets/hardware/exceptions?kind=low_ram as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/hardware/exceptions?kind=low_ram as viewer": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "array": 0,
+   "first": null
+  }
+ },
+ "GET /api/assets/hardware/exceptions?kind=low_ram as editor": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "array": 0,
+   "first": null
+  }
+ },
+ "GET /api/assets/hardware/exceptions?kind=low_ram as finance": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "array": 0,
+   "first": null
+  }
+ },
+ "GET /api/assets/hardware/exceptions?kind=low_ram as super_admin": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "array": 0,
+   "first": null
+  }
+ },
+ "GET /api/assets/hardware/exceptions?kind=nope as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/hardware/exceptions?kind=nope as viewer": {
+  "status": 400,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "unknown kind"
+ },
+ "GET /api/assets/hardware/exceptions?kind=nope as editor": {
+  "status": 400,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "unknown kind"
+ },
+ "GET /api/assets/hardware/exceptions?kind=nope as finance": {
+  "status": 400,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "unknown kind"
+ },
+ "GET /api/assets/hardware/exceptions?kind=nope as super_admin": {
+  "status": 400,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "unknown kind"
+ },
+ "GET /api/assets/hardware/export.xlsx as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/hardware/export.xlsx as viewer": {
+  "status": 200,
+  "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "cd": "attachment; filename=\"assets-hardware.xlsx\""
+ },
+ "GET /api/assets/hardware/export.xlsx as editor": {
+  "status": 200,
+  "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "cd": "attachment; filename=\"assets-hardware.xlsx\""
+ },
+ "GET /api/assets/hardware/export.xlsx as finance": {
+  "status": 200,
+  "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "cd": "attachment; filename=\"assets-hardware.xlsx\""
+ },
+ "GET /api/assets/hardware/export.xlsx as super_admin": {
+  "status": 200,
+  "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "cd": "attachment; filename=\"assets-hardware.xlsx\""
+ },
+ "GET /api/assets/finance/summary as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/finance/summary as viewer": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Forbidden — required role(s): admin or finance-viewer"
+ },
+ "GET /api/assets/finance/summary as editor": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Forbidden — required role(s): admin or finance-viewer"
+ },
+ "GET /api/assets/finance/summary as finance": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "by_site": {
+    "array": 2,
+    "first": {
+     "asset_count": "number",
+     "book_value_usd": "number",
+     "operational_cost_usd": "number",
+     "pct_depreciated": "number",
+     "purchase_cost_usd": "number",
+     "refresh_due": "number",
+     "site": "string",
+     "tco_usd": "number"
+    }
+   },
+   "certification": {
+    "certified": "boolean",
+    "eligible": "number",
+    "excluded_rows": "number",
+    "min_pct": "number",
+    "min_sites": "number",
+    "pct": "number",
+    "reason": "string",
+    "sites_covered": "number",
+    "sites_total": "number",
+    "total": "number"
+   },
+   "certify_display": "string",
+   "coverage_by_site": {
+    "array": 2,
+    "first": {
+     "eligible": "number",
+     "pct": "number",
+     "site": "string",
+     "total": "number"
+    }
+   },
+   "fleet": {
+    "asset_count": "number",
+    "book_value_usd": "number",
+    "operational_cost_usd": "number",
+    "pct_depreciated": "number",
+    "purchase_cost_usd": "number",
+    "refresh_due": "number",
+    "site": "null",
+    "tco_usd": "number"
+   },
+   "rate": "number"
+  }
+ },
+ "GET /api/assets/finance/summary as super_admin": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "by_site": {
+    "array": 2,
+    "first": {
+     "asset_count": "number",
+     "book_value_usd": "number",
+     "operational_cost_usd": "number",
+     "pct_depreciated": "number",
+     "purchase_cost_usd": "number",
+     "refresh_due": "number",
+     "site": "string",
+     "tco_usd": "number"
+    }
+   },
+   "certification": {
+    "certified": "boolean",
+    "eligible": "number",
+    "excluded_rows": "number",
+    "min_pct": "number",
+    "min_sites": "number",
+    "pct": "number",
+    "reason": "string",
+    "sites_covered": "number",
+    "sites_total": "number",
+    "total": "number"
+   },
+   "certify_display": "string",
+   "coverage_by_site": {
+    "array": 2,
+    "first": {
+     "eligible": "number",
+     "pct": "number",
+     "site": "string",
+     "total": "number"
+    }
+   },
+   "fleet": {
+    "asset_count": "number",
+    "book_value_usd": "number",
+    "operational_cost_usd": "number",
+    "pct_depreciated": "number",
+    "purchase_cost_usd": "number",
+    "refresh_due": "number",
+    "site": "null",
+    "tco_usd": "number"
+   },
+   "rate": "number"
+  }
+ },
+ "GET /api/assets/finance/export.xlsx as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/finance/export.xlsx as viewer": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Forbidden — required role(s): admin or finance-viewer"
+ },
+ "GET /api/assets/finance/export.xlsx as editor": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Forbidden — required role(s): admin or finance-viewer"
+ },
+ "GET /api/assets/finance/export.xlsx as finance": {
+  "status": 200,
+  "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "cd": "attachment; filename=\"assets-finance.xlsx\""
+ },
+ "GET /api/assets/finance/export.xlsx as super_admin": {
+  "status": 200,
+  "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "cd": "attachment; filename=\"assets-finance.xlsx\""
+ },
+ "GET /api/assets/finance/outliers as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/finance/outliers as viewer": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Forbidden — required role(s): admin or finance-viewer"
+ },
+ "GET /api/assets/finance/outliers as editor": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Forbidden — required role(s): admin or finance-viewer"
+ },
+ "GET /api/assets/finance/outliers as finance": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "count": "number",
+   "excluded_from_totals": "boolean",
+   "factor": "number",
+   "rows": {
+    "array": 0,
+    "first": null
+   }
+  }
+ },
+ "GET /api/assets/finance/outliers as super_admin": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "count": "number",
+   "excluded_from_totals": "boolean",
+   "factor": "number",
+   "rows": {
+    "array": 0,
+    "first": null
+   }
+  }
+ },
+ "GET /api/assets/finance/outliers/export.xlsx as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/finance/outliers/export.xlsx as viewer": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Forbidden — required role(s): admin or finance-viewer"
+ },
+ "GET /api/assets/finance/outliers/export.xlsx as editor": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Forbidden — required role(s): admin or finance-viewer"
+ },
+ "GET /api/assets/finance/outliers/export.xlsx as finance": {
+  "status": 200,
+  "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "cd": "attachment; filename=\"assets-cost-outliers.xlsx\""
+ },
+ "GET /api/assets/finance/outliers/export.xlsx as super_admin": {
+  "status": 200,
+  "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "cd": "attachment; filename=\"assets-cost-outliers.xlsx\""
+ },
+ "GET /api/assets/licences/summary as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/licences/summary as viewer": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Forbidden — required role(s): admin or finance-viewer"
+ },
+ "GET /api/assets/licences/summary as editor": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Forbidden — required role(s): admin or finance-viewer"
+ },
+ "GET /api/assets/licences/summary as finance": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "by_family": {},
+   "by_site": {},
+   "by_state": {},
+   "expiry": {
+    "expired": "number",
+    "expiring_90": "number",
+    "no_expiry": "number",
+    "ok": "number"
+   },
+   "total": "number"
+  }
+ },
+ "GET /api/assets/licences/summary as super_admin": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "by_family": {},
+   "by_site": {},
+   "by_state": {},
+   "expiry": {
+    "expired": "number",
+    "expiring_90": "number",
+    "no_expiry": "number",
+    "ok": "number"
+   },
+   "total": "number"
+  }
+ },
+ "GET /api/assets/licences/exceptions?kind=expired as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/licences/exceptions?kind=expired as viewer": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Forbidden — required role(s): admin or finance-viewer"
+ },
+ "GET /api/assets/licences/exceptions?kind=expired as editor": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Forbidden — required role(s): admin or finance-viewer"
+ },
+ "GET /api/assets/licences/exceptions?kind=expired as finance": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "array": 0,
+   "first": null
+  }
+ },
+ "GET /api/assets/licences/exceptions?kind=expired as super_admin": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "array": 0,
+   "first": null
+  }
+ },
+ "GET /api/assets/licences/export.xlsx as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/licences/export.xlsx as viewer": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Forbidden — required role(s): admin or finance-viewer"
+ },
+ "GET /api/assets/licences/export.xlsx as editor": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Forbidden — required role(s): admin or finance-viewer"
+ },
+ "GET /api/assets/licences/export.xlsx as finance": {
+  "status": 200,
+  "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "cd": "attachment; filename=\"assets-licences.xlsx\""
+ },
+ "GET /api/assets/licences/export.xlsx as super_admin": {
+  "status": 200,
+  "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "cd": "attachment; filename=\"assets-licences.xlsx\""
+ },
+ "GET /api/assets/software/summary as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/software/summary as viewer": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "by_compliance": {
+    "compliant": "number",
+    "not_metered": "number",
+    "over_licensed": "number",
+    "under_licensed": "number"
+   },
+   "by_manufacturer": {
+    "array": 0,
+    "first": null
+   },
+   "installs_vs_allowed": {
+    "ok": "number",
+    "over": "number",
+    "under": "number"
+   },
+   "managed": "number",
+   "total": "number"
+  }
+ },
+ "GET /api/assets/software/summary as editor": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "by_compliance": {
+    "compliant": "number",
+    "not_metered": "number",
+    "over_licensed": "number",
+    "under_licensed": "number"
+   },
+   "by_manufacturer": {
+    "array": 0,
+    "first": null
+   },
+   "installs_vs_allowed": {
+    "ok": "number",
+    "over": "number",
+    "under": "number"
+   },
+   "managed": "number",
+   "total": "number"
+  }
+ },
+ "GET /api/assets/software/summary as finance": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "by_compliance": {
+    "compliant": "number",
+    "not_metered": "number",
+    "over_licensed": "number",
+    "under_licensed": "number"
+   },
+   "by_manufacturer": {
+    "array": 0,
+    "first": null
+   },
+   "installs_vs_allowed": {
+    "ok": "number",
+    "over": "number",
+    "under": "number"
+   },
+   "managed": "number",
+   "total": "number"
+  }
+ },
+ "GET /api/assets/software/summary as super_admin": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "by_compliance": {
+    "compliant": "number",
+    "not_metered": "number",
+    "over_licensed": "number",
+    "under_licensed": "number"
+   },
+   "by_manufacturer": {
+    "array": 0,
+    "first": null
+   },
+   "installs_vs_allowed": {
+    "ok": "number",
+    "over": "number",
+    "under": "number"
+   },
+   "managed": "number",
+   "total": "number"
+  }
+ },
+ "GET /api/assets/software/exceptions?kind=under_licensed as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/software/exceptions?kind=under_licensed as viewer": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "array": 0,
+   "first": null
+  }
+ },
+ "GET /api/assets/software/exceptions?kind=under_licensed as editor": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "array": 0,
+   "first": null
+  }
+ },
+ "GET /api/assets/software/exceptions?kind=under_licensed as finance": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "array": 0,
+   "first": null
+  }
+ },
+ "GET /api/assets/software/exceptions?kind=under_licensed as super_admin": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "array": 0,
+   "first": null
+  }
+ },
+ "GET /api/assets/software/export.xlsx as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/software/export.xlsx as viewer": {
+  "status": 200,
+  "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "cd": "attachment; filename=\"assets-software.xlsx\""
+ },
+ "GET /api/assets/software/export.xlsx as editor": {
+  "status": 200,
+  "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "cd": "attachment; filename=\"assets-software.xlsx\""
+ },
+ "GET /api/assets/software/export.xlsx as finance": {
+  "status": 200,
+  "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "cd": "attachment; filename=\"assets-software.xlsx\""
+ },
+ "GET /api/assets/software/export.xlsx as super_admin": {
+  "status": 200,
+  "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "cd": "attachment; filename=\"assets-software.xlsx\""
+ },
+ "GET /api/assets/progress/leaderboard as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/progress/leaderboard as viewer": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "min_assets": "number",
+   "most_improved": "null",
+   "needs_attention": "null",
+   "ranked_count": "number",
+   "rows": {
+    "array": 0,
+    "first": null
+   }
+  }
+ },
+ "GET /api/assets/progress/leaderboard as editor": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "min_assets": "number",
+   "most_improved": "null",
+   "needs_attention": "null",
+   "ranked_count": "number",
+   "rows": {
+    "array": 0,
+    "first": null
+   }
+  }
+ },
+ "GET /api/assets/progress/leaderboard as finance": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "min_assets": "number",
+   "most_improved": "null",
+   "needs_attention": "null",
+   "ranked_count": "number",
+   "rows": {
+    "array": 0,
+    "first": null
+   }
+  }
+ },
+ "GET /api/assets/progress/leaderboard as super_admin": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "min_assets": "number",
+   "most_improved": "null",
+   "needs_attention": "null",
+   "ranked_count": "number",
+   "rows": {
+    "array": 0,
+    "first": null
+   }
+  }
+ },
+ "GET /api/assets/progress/trend as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/progress/trend as viewer": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "dates": {
+    "array": 0,
+    "first": null
+   },
+   "sites": {
+    "array": 0,
+    "first": null
+   }
+  }
+ },
+ "GET /api/assets/progress/trend as editor": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "dates": {
+    "array": 0,
+    "first": null
+   },
+   "sites": {
+    "array": 0,
+    "first": null
+   }
+  }
+ },
+ "GET /api/assets/progress/trend as finance": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "dates": {
+    "array": 0,
+    "first": null
+   },
+   "sites": {
+    "array": 0,
+    "first": null
+   }
+  }
+ },
+ "GET /api/assets/progress/trend as super_admin": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "dates": {
+    "array": 0,
+    "first": null
+   },
+   "sites": {
+    "array": 0,
+    "first": null
+   }
+  }
+ },
+ "GET /api/assets/reconcile/collector.ps1 as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/reconcile/collector.ps1 as viewer": {
+  "status": 200,
+  "ct": "text/plain",
+  "cd": "attachment; filename=\"Collect-ADComputers.ps1\""
+ },
+ "GET /api/assets/reconcile/collector.ps1 as editor": {
+  "status": 200,
+  "ct": "text/plain",
+  "cd": "attachment; filename=\"Collect-ADComputers.ps1\""
+ },
+ "GET /api/assets/reconcile/collector.ps1 as finance": {
+  "status": 200,
+  "ct": "text/plain",
+  "cd": "attachment; filename=\"Collect-ADComputers.ps1\""
+ },
+ "GET /api/assets/reconcile/collector.ps1 as super_admin": {
+  "status": 200,
+  "ct": "text/plain",
+  "cd": "attachment; filename=\"Collect-ADComputers.ps1\""
+ },
+ "GET /api/assets/reconcile/defender.kql as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/reconcile/defender.kql as viewer": {
+  "status": 200,
+  "ct": "text/plain",
+  "cd": "attachment; filename=\"DeviceInfo.kql\""
+ },
+ "GET /api/assets/reconcile/defender.kql as editor": {
+  "status": 200,
+  "ct": "text/plain",
+  "cd": "attachment; filename=\"DeviceInfo.kql\""
+ },
+ "GET /api/assets/reconcile/defender.kql as finance": {
+  "status": 200,
+  "ct": "text/plain",
+  "cd": "attachment; filename=\"DeviceInfo.kql\""
+ },
+ "GET /api/assets/reconcile/defender.kql as super_admin": {
+  "status": 200,
+  "ct": "text/plain",
+  "cd": "attachment; filename=\"DeviceInfo.kql\""
+ },
+ "GET /api/assets/reconcile/summary as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/reconcile/summary as viewer": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "by_ou": {
+    "array": 0,
+    "first": null
+   },
+   "by_site": {
+    "array": 0,
+    "first": null
+   },
+   "by_type": {},
+   "counts": {
+    "external_kept": "number",
+    "external_total": "number",
+    "gaps": "number",
+    "gaps_decided": "number",
+    "gaps_open": "number",
+    "ous_touched": "number",
+    "retirement_applicable": "boolean",
+    "retirement_candidates": "number",
+    "retirement_excluded_never_scanned": "number",
+    "retirement_excluded_not_joinable": "number",
+    "retirement_excluded_off_network": "number",
+    "retirement_excluded_renamed": "number",
+    "sdp_total": "number",
+    "sites_touched": "number",
+    "sources_present": {
+     "array": 0,
+     "first": null
+    }
+   },
+   "excluded": {
+    "disabled": "number",
+    "future": "number",
+    "no_date": "number",
+    "stale": "number"
+   },
+   "imports": {
+    "array": 0,
+    "first": null
+   },
+   "window": {
+    "as_of": "string",
+    "recent_days": "number",
+    "stale_days": "number"
+   }
+  }
+ },
+ "GET /api/assets/reconcile/summary as editor": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "by_ou": {
+    "array": 0,
+    "first": null
+   },
+   "by_site": {
+    "array": 0,
+    "first": null
+   },
+   "by_type": {},
+   "counts": {
+    "external_kept": "number",
+    "external_total": "number",
+    "gaps": "number",
+    "gaps_decided": "number",
+    "gaps_open": "number",
+    "ous_touched": "number",
+    "retirement_applicable": "boolean",
+    "retirement_candidates": "number",
+    "retirement_excluded_never_scanned": "number",
+    "retirement_excluded_not_joinable": "number",
+    "retirement_excluded_off_network": "number",
+    "retirement_excluded_renamed": "number",
+    "sdp_total": "number",
+    "sites_touched": "number",
+    "sources_present": {
+     "array": 0,
+     "first": null
+    }
+   },
+   "excluded": {
+    "disabled": "number",
+    "future": "number",
+    "no_date": "number",
+    "stale": "number"
+   },
+   "imports": {
+    "array": 0,
+    "first": null
+   },
+   "window": {
+    "as_of": "string",
+    "recent_days": "number",
+    "stale_days": "number"
+   }
+  }
+ },
+ "GET /api/assets/reconcile/summary as finance": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "by_ou": {
+    "array": 0,
+    "first": null
+   },
+   "by_site": {
+    "array": 0,
+    "first": null
+   },
+   "by_type": {},
+   "counts": {
+    "external_kept": "number",
+    "external_total": "number",
+    "gaps": "number",
+    "gaps_decided": "number",
+    "gaps_open": "number",
+    "ous_touched": "number",
+    "retirement_applicable": "boolean",
+    "retirement_candidates": "number",
+    "retirement_excluded_never_scanned": "number",
+    "retirement_excluded_not_joinable": "number",
+    "retirement_excluded_off_network": "number",
+    "retirement_excluded_renamed": "number",
+    "sdp_total": "number",
+    "sites_touched": "number",
+    "sources_present": {
+     "array": 0,
+     "first": null
+    }
+   },
+   "excluded": {
+    "disabled": "number",
+    "future": "number",
+    "no_date": "number",
+    "stale": "number"
+   },
+   "imports": {
+    "array": 0,
+    "first": null
+   },
+   "window": {
+    "as_of": "string",
+    "recent_days": "number",
+    "stale_days": "number"
+   }
+  }
+ },
+ "GET /api/assets/reconcile/summary as super_admin": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "by_ou": {
+    "array": 0,
+    "first": null
+   },
+   "by_site": {
+    "array": 0,
+    "first": null
+   },
+   "by_type": {},
+   "counts": {
+    "external_kept": "number",
+    "external_total": "number",
+    "gaps": "number",
+    "gaps_decided": "number",
+    "gaps_open": "number",
+    "ous_touched": "number",
+    "retirement_applicable": "boolean",
+    "retirement_candidates": "number",
+    "retirement_excluded_never_scanned": "number",
+    "retirement_excluded_not_joinable": "number",
+    "retirement_excluded_off_network": "number",
+    "retirement_excluded_renamed": "number",
+    "sdp_total": "number",
+    "sites_touched": "number",
+    "sources_present": {
+     "array": 0,
+     "first": null
+    }
+   },
+   "excluded": {
+    "disabled": "number",
+    "future": "number",
+    "no_date": "number",
+    "stale": "number"
+   },
+   "imports": {
+    "array": 0,
+    "first": null
+   },
+   "window": {
+    "as_of": "string",
+    "recent_days": "number",
+    "stale_days": "number"
+   }
+  }
+ },
+ "GET /api/assets/reconcile/gaps as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/reconcile/gaps as viewer": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "gaps": {
+    "array": 0,
+    "first": null
+   },
+   "retirement_candidates": {
+    "array": 0,
+    "first": null
+   },
+   "retirement_review": {
+    "array": 0,
+    "first": null
+   },
+   "window": {
+    "as_of": "string",
+    "recent_days": "number",
+    "stale_days": "number"
+   }
+  }
+ },
+ "GET /api/assets/reconcile/gaps as editor": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "gaps": {
+    "array": 0,
+    "first": null
+   },
+   "retirement_candidates": {
+    "array": 0,
+    "first": null
+   },
+   "retirement_review": {
+    "array": 0,
+    "first": null
+   },
+   "window": {
+    "as_of": "string",
+    "recent_days": "number",
+    "stale_days": "number"
+   }
+  }
+ },
+ "GET /api/assets/reconcile/gaps as finance": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "gaps": {
+    "array": 0,
+    "first": null
+   },
+   "retirement_candidates": {
+    "array": 0,
+    "first": null
+   },
+   "retirement_review": {
+    "array": 0,
+    "first": null
+   },
+   "window": {
+    "as_of": "string",
+    "recent_days": "number",
+    "stale_days": "number"
+   }
+  }
+ },
+ "GET /api/assets/reconcile/gaps as super_admin": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "gaps": {
+    "array": 0,
+    "first": null
+   },
+   "retirement_candidates": {
+    "array": 0,
+    "first": null
+   },
+   "retirement_review": {
+    "array": 0,
+    "first": null
+   },
+   "window": {
+    "as_of": "string",
+    "recent_days": "number",
+    "stale_days": "number"
+   }
+  }
+ },
+ "GET /api/assets/reconcile/history as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/reconcile/history as viewer": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "imports": {
+    "array": 0,
+    "first": null
+   },
+   "months": "number",
+   "points": {
+    "array": 0,
+    "first": null
+   },
+   "series_by_site": {}
+  }
+ },
+ "GET /api/assets/reconcile/history as editor": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "imports": {
+    "array": 0,
+    "first": null
+   },
+   "months": "number",
+   "points": {
+    "array": 0,
+    "first": null
+   },
+   "series_by_site": {}
+  }
+ },
+ "GET /api/assets/reconcile/history as finance": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "imports": {
+    "array": 0,
+    "first": null
+   },
+   "months": "number",
+   "points": {
+    "array": 0,
+    "first": null
+   },
+   "series_by_site": {}
+  }
+ },
+ "GET /api/assets/reconcile/history as super_admin": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "imports": {
+    "array": 0,
+    "first": null
+   },
+   "months": "number",
+   "points": {
+    "array": 0,
+    "first": null
+   },
+   "series_by_site": {}
+  }
+ },
+ "GET /api/assets/reconcile/export.xlsx as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/reconcile/export.xlsx as viewer": {
+  "status": 200,
+  "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "cd": "attachment; filename=\"reconciliation_2026-11-19.xlsx\""
+ },
+ "GET /api/assets/reconcile/export.xlsx as editor": {
+  "status": 200,
+  "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "cd": "attachment; filename=\"reconciliation_2026-11-19.xlsx\""
+ },
+ "GET /api/assets/reconcile/export.xlsx as finance": {
+  "status": 200,
+  "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "cd": "attachment; filename=\"reconciliation_2026-11-19.xlsx\""
+ },
+ "GET /api/assets/reconcile/export.xlsx as super_admin": {
+  "status": 200,
+  "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "cd": "attachment; filename=\"reconciliation_2026-11-19.xlsx\""
+ },
+ "GET /api/assets/depreciation/summary as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/depreciation/summary as viewer": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Forbidden — required role(s): admin or finance-viewer"
+ },
+ "GET /api/assets/depreciation/summary as editor": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Forbidden — required role(s): admin or finance-viewer"
+ },
+ "GET /api/assets/depreciation/summary as finance": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "asOf": "string",
+   "by_site": {
+    "array": 2,
+    "first": {
+     "asset_count": "number",
+     "computed_book_value_usd": "number",
+     "pct_depreciated": "number",
+     "purchase_cost_usd": "number",
+     "sdp_book_value_usd": "number",
+     "site": "string"
+    }
+   },
+   "certification": {
+    "certified": "boolean",
+    "eligible": "number",
+    "excluded_rows": "number",
+    "min_pct": "number",
+    "min_sites": "number",
+    "pct": "number",
+    "reason": "string",
+    "sites_covered": "number",
+    "sites_total": "number",
+    "total": "number"
+   },
+   "certify_display": "string",
+   "coverage_by_site": {
+    "array": 2,
+    "first": {
+     "eligible": "number",
+     "pct": "number",
+     "site": "string",
+     "total": "number"
+    }
+   },
+   "fleet": {
+    "asset_count": "number",
+    "computed_book_value_usd": "number",
+    "pct_depreciated": "number",
+    "purchase_cost_usd": "number",
+    "sdp_book_value_usd": "number",
+    "site": "null"
+   },
+   "rate": "number"
+  }
+ },
+ "GET /api/assets/depreciation/summary as super_admin": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "asOf": "string",
+   "by_site": {
+    "array": 2,
+    "first": {
+     "asset_count": "number",
+     "computed_book_value_usd": "number",
+     "pct_depreciated": "number",
+     "purchase_cost_usd": "number",
+     "sdp_book_value_usd": "number",
+     "site": "string"
+    }
+   },
+   "certification": {
+    "certified": "boolean",
+    "eligible": "number",
+    "excluded_rows": "number",
+    "min_pct": "number",
+    "min_sites": "number",
+    "pct": "number",
+    "reason": "string",
+    "sites_covered": "number",
+    "sites_total": "number",
+    "total": "number"
+   },
+   "certify_display": "string",
+   "coverage_by_site": {
+    "array": 2,
+    "first": {
+     "eligible": "number",
+     "pct": "number",
+     "site": "string",
+     "total": "number"
+    }
+   },
+   "fleet": {
+    "asset_count": "number",
+    "computed_book_value_usd": "number",
+    "pct_depreciated": "number",
+    "purchase_cost_usd": "number",
+    "sdp_book_value_usd": "number",
+    "site": "null"
+   },
+   "rate": "number"
+  }
+ },
+ "GET /api/assets/depreciation/schedule as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/depreciation/schedule as viewer": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Forbidden — required role(s): admin or finance-viewer"
+ },
+ "GET /api/assets/depreciation/schedule as editor": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Forbidden — required role(s): admin or finance-viewer"
+ },
+ "GET /api/assets/depreciation/schedule as finance": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "asOf": "string",
+   "book_value_usd": {
+    "array": 3,
+    "first": "number"
+   },
+   "rate": "number",
+   "years": {
+    "array": 3,
+    "first": "number"
+   }
+  }
+ },
+ "GET /api/assets/depreciation/schedule as super_admin": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "asOf": "string",
+   "book_value_usd": {
+    "array": 3,
+    "first": "number"
+   },
+   "rate": "number",
+   "years": {
+    "array": 3,
+    "first": "number"
+   }
+  }
+ },
+ "GET /api/assets/depreciation-config as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/depreciation-config as viewer": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "by_type": {
+    "Computer": {
+     "method": "string",
+     "salvage_pct": "number",
+     "useful_life_months": "number"
+    },
+    "Desktop": {
+     "method": "string",
+     "salvage_pct": "number",
+     "useful_life_months": "number"
+    },
+    "Laptop": {
+     "method": "string",
+     "salvage_pct": "number",
+     "useful_life_months": "number"
+    },
+    "Network": {
+     "method": "string",
+     "salvage_pct": "number",
+     "useful_life_months": "number"
+    },
+    "Server": {
+     "method": "string",
+     "salvage_pct": "number",
+     "useful_life_months": "number"
+    },
+    "Smartphone": {
+     "method": "string",
+     "salvage_pct": "number",
+     "useful_life_months": "number"
+    }
+   },
+   "default": {
+    "method": "string",
+    "salvage_pct": "number",
+    "useful_life_months": "number"
+   }
+  }
+ },
+ "GET /api/assets/depreciation-config as editor": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "by_type": {
+    "Computer": {
+     "method": "string",
+     "salvage_pct": "number",
+     "useful_life_months": "number"
+    },
+    "Desktop": {
+     "method": "string",
+     "salvage_pct": "number",
+     "useful_life_months": "number"
+    },
+    "Laptop": {
+     "method": "string",
+     "salvage_pct": "number",
+     "useful_life_months": "number"
+    },
+    "Network": {
+     "method": "string",
+     "salvage_pct": "number",
+     "useful_life_months": "number"
+    },
+    "Server": {
+     "method": "string",
+     "salvage_pct": "number",
+     "useful_life_months": "number"
+    },
+    "Smartphone": {
+     "method": "string",
+     "salvage_pct": "number",
+     "useful_life_months": "number"
+    }
+   },
+   "default": {
+    "method": "string",
+    "salvage_pct": "number",
+    "useful_life_months": "number"
+   }
+  }
+ },
+ "GET /api/assets/depreciation-config as finance": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "by_type": {
+    "Computer": {
+     "method": "string",
+     "salvage_pct": "number",
+     "useful_life_months": "number"
+    },
+    "Desktop": {
+     "method": "string",
+     "salvage_pct": "number",
+     "useful_life_months": "number"
+    },
+    "Laptop": {
+     "method": "string",
+     "salvage_pct": "number",
+     "useful_life_months": "number"
+    },
+    "Network": {
+     "method": "string",
+     "salvage_pct": "number",
+     "useful_life_months": "number"
+    },
+    "Server": {
+     "method": "string",
+     "salvage_pct": "number",
+     "useful_life_months": "number"
+    },
+    "Smartphone": {
+     "method": "string",
+     "salvage_pct": "number",
+     "useful_life_months": "number"
+    }
+   },
+   "default": {
+    "method": "string",
+    "salvage_pct": "number",
+    "useful_life_months": "number"
+   }
+  }
+ },
+ "GET /api/assets/depreciation-config as super_admin": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "by_type": {
+    "Computer": {
+     "method": "string",
+     "salvage_pct": "number",
+     "useful_life_months": "number"
+    },
+    "Desktop": {
+     "method": "string",
+     "salvage_pct": "number",
+     "useful_life_months": "number"
+    },
+    "Laptop": {
+     "method": "string",
+     "salvage_pct": "number",
+     "useful_life_months": "number"
+    },
+    "Network": {
+     "method": "string",
+     "salvage_pct": "number",
+     "useful_life_months": "number"
+    },
+    "Server": {
+     "method": "string",
+     "salvage_pct": "number",
+     "useful_life_months": "number"
+    },
+    "Smartphone": {
+     "method": "string",
+     "salvage_pct": "number",
+     "useful_life_months": "number"
+    }
+   },
+   "default": {
+    "method": "string",
+    "salvage_pct": "number",
+    "useful_life_months": "number"
+   }
+  }
+ },
+ "GET /api/assets/investment/history as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/investment/history as viewer": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Forbidden — required role(s): admin or finance-viewer"
+ },
+ "GET /api/assets/investment/history as editor": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Forbidden — required role(s): admin or finance-viewer"
+ },
+ "GET /api/assets/investment/history as finance": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "certify_display": "string",
+   "coverage": {
+    "hardware": {
+     "by_site": {
+      "array": 2,
+      "first": "object"
+     },
+     "certification": {
+      "certified": "boolean",
+      "eligible": "number",
+      "excluded_rows": "number",
+      "min_pct": "number",
+      "min_sites": "number",
+      "pct": "number",
+      "reason": "string",
+      "sites_covered": "number",
+      "sites_total": "number",
+      "total": "number"
+     },
+     "eligible": "number",
+     "excluded": {
+      "no_cost": "number",
+      "no_date": "number"
+     },
+     "pct": "number",
+     "total": "number"
+    },
+    "software": {
+     "eligible": "number",
+     "excluded": {
+      "no_cost": "number",
+      "no_date": "number"
+     },
+     "pct": "number",
+     "total": "number"
+    }
+   },
+   "years": {
+    "array": 1,
+    "first": {
+     "cumulative_usd": "number",
+     "hardware_usd": "number",
+     "software_usd": "number",
+     "total_usd": "number",
+     "year": "number"
+    }
+   }
+  }
+ },
+ "GET /api/assets/investment/history as super_admin": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "certify_display": "string",
+   "coverage": {
+    "hardware": {
+     "by_site": {
+      "array": 2,
+      "first": "object"
+     },
+     "certification": {
+      "certified": "boolean",
+      "eligible": "number",
+      "excluded_rows": "number",
+      "min_pct": "number",
+      "min_sites": "number",
+      "pct": "number",
+      "reason": "string",
+      "sites_covered": "number",
+      "sites_total": "number",
+      "total": "number"
+     },
+     "eligible": "number",
+     "excluded": {
+      "no_cost": "number",
+      "no_date": "number"
+     },
+     "pct": "number",
+     "total": "number"
+    },
+    "software": {
+     "eligible": "number",
+     "excluded": {
+      "no_cost": "number",
+      "no_date": "number"
+     },
+     "pct": "number",
+     "total": "number"
+    }
+   },
+   "years": {
+    "array": 1,
+    "first": {
+     "cumulative_usd": "number",
+     "hardware_usd": "number",
+     "software_usd": "number",
+     "total_usd": "number",
+     "year": "number"
+    }
+   }
+  }
+ },
+ "GET /api/assets/investment/forecast as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/investment/forecast as viewer": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Forbidden — required role(s): admin or finance-viewer"
+ },
+ "GET /api/assets/investment/forecast as editor": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Forbidden — required role(s): admin or finance-viewer"
+ },
+ "GET /api/assets/investment/forecast as finance": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "certify_display": "string",
+   "hardware": {
+    "beyond_horizon": {
+     "count": "number",
+     "usd": "number"
+    },
+    "coverage": {
+     "by_site": {
+      "array": 2,
+      "first": "object"
+     },
+     "certification": {
+      "certified": "boolean",
+      "eligible": "number",
+      "excluded_rows": "number",
+      "min_pct": "number",
+      "min_sites": "number",
+      "pct": "number",
+      "reason": "string",
+      "sites_covered": "number",
+      "sites_total": "number",
+      "total": "number"
+     },
+     "eligible": "number",
+     "excluded": {
+      "no_cost": "number",
+      "no_date": "number",
+      "no_life": "number"
+     },
+     "pct": "number",
+     "total": "number"
+    },
+    "due_now": {
+     "count": "number",
+     "replacement_usd": "number"
+    },
+    "total_forecast_usd": "number",
+    "years": {
+     "array": 0,
+     "first": null
+    }
+   },
+   "software": {
+    "beyond_horizon": {
+     "count": "number",
+     "usd": "number"
+    },
+    "coverage": {
+     "eligible": "number",
+     "excluded": {
+      "no_cost": "number",
+      "no_expiry": "number"
+     },
+     "pct": "number",
+     "total": "number"
+    },
+    "due_now": {
+     "count": "number",
+     "renewal_usd": "number"
+    },
+    "recurring_count": "number",
+    "total_forecast_usd": "number",
+    "years": {
+     "array": 0,
+     "first": null
+    }
+   },
+   "uplift_pct": "number"
+  }
+ },
+ "GET /api/assets/investment/forecast as super_admin": {
+  "status": 200,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "certify_display": "string",
+   "hardware": {
+    "beyond_horizon": {
+     "count": "number",
+     "usd": "number"
+    },
+    "coverage": {
+     "by_site": {
+      "array": 2,
+      "first": "object"
+     },
+     "certification": {
+      "certified": "boolean",
+      "eligible": "number",
+      "excluded_rows": "number",
+      "min_pct": "number",
+      "min_sites": "number",
+      "pct": "number",
+      "reason": "string",
+      "sites_covered": "number",
+      "sites_total": "number",
+      "total": "number"
+     },
+     "eligible": "number",
+     "excluded": {
+      "no_cost": "number",
+      "no_date": "number",
+      "no_life": "number"
+     },
+     "pct": "number",
+     "total": "number"
+    },
+    "due_now": {
+     "count": "number",
+     "replacement_usd": "number"
+    },
+    "total_forecast_usd": "number",
+    "years": {
+     "array": 0,
+     "first": null
+    }
+   },
+   "software": {
+    "beyond_horizon": {
+     "count": "number",
+     "usd": "number"
+    },
+    "coverage": {
+     "eligible": "number",
+     "excluded": {
+      "no_cost": "number",
+      "no_expiry": "number"
+     },
+     "pct": "number",
+     "total": "number"
+    },
+    "due_now": {
+     "count": "number",
+     "renewal_usd": "number"
+    },
+    "recurring_count": "number",
+    "total_forecast_usd": "number",
+    "years": {
+     "array": 0,
+     "first": null
+    }
+   },
+   "uplift_pct": "number"
+  }
+ },
+ "GET /api/assets/investment/export.xlsx as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/assets/investment/export.xlsx as viewer": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Forbidden — required role(s): admin or finance-viewer"
+ },
+ "GET /api/assets/investment/export.xlsx as editor": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Forbidden — required role(s): admin or finance-viewer"
+ },
+ "GET /api/assets/investment/export.xlsx as finance": {
+  "status": 200,
+  "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "cd": "attachment; filename=\"assets-investment.xlsx\""
+ },
+ "GET /api/assets/investment/export.xlsx as super_admin": {
+  "status": 200,
+  "ct": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "cd": "attachment; filename=\"assets-investment.xlsx\""
+ },
+ "POST /api/assets/hygiene/send as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "POST /api/assets/hygiene/send as viewer": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "super_admin only"
+ },
+ "POST /api/reports/scoreboard/send as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Not authenticated"
+ },
+ "POST /api/reports/scoreboard/send as viewer": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "super_admin only"
+ },
+ "POST /api/reports/weekly/send as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Not authenticated"
+ },
+ "POST /api/reports/weekly/send as viewer": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "super_admin only"
+ },
+ "POST /api/reports/asset-group/send as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Not authenticated"
+ },
+ "POST /api/reports/asset-group/send as viewer": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "super_admin only"
+ },
+ "POST /api/reports/asset-reminders/send as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Not authenticated"
+ },
+ "POST /api/reports/asset-reminders/send as viewer": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "super_admin only"
+ },
+ "POST /api/assets/progress/snapshot as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "POST /api/assets/progress/snapshot as viewer": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Admin only"
+ },
+ "POST /api/assets/reconcile/preview as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "POST /api/assets/reconcile/preview as viewer": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Admin only"
+ },
+ "POST /api/assets/reconcile/import as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "POST /api/assets/reconcile/import as viewer": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Admin only"
+ },
+ "POST /api/assets/reconcile/decision as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "POST /api/assets/reconcile/decision as viewer": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Forbidden — required role(s): editor"
+ },
+ "POST /api/assets/reconcile/snapshot as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "POST /api/assets/reconcile/snapshot as viewer": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Admin only"
+ },
+ "PUT /api/assets/depreciation-config as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "PUT /api/assets/depreciation-config as viewer": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "super_admin only"
+ },
+ "GET /api/admin/backup-schedule as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "GET /api/admin/backup-schedule as viewer": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "super_admin only"
+ },
+ "POST /api/admin/backup-schedule as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "POST /api/admin/backup-schedule as viewer": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "super_admin only"
+ },
+ "POST /api/admin/backup-now as anon": {
+  "status": 401,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "Unauthorized"
+ },
+ "POST /api/admin/backup-now as viewer": {
+  "status": 403,
+  "ct": "application/json",
+  "cd": null,
+  "body": {
+   "error": "string"
+  },
+  "error": "super_admin only"
+ }
+}
