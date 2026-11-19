@@ -144,3 +144,14 @@ test('F-2 residual: no base_status + no client_ts on an action never changed on 
   assert.equal(r.status, 200);
   assert.equal((await stored(act.id)).status, 'Closed');
 });
+
+test('F-5 repair note: the read-only check lists out-of-vocabulary rows and writes nothing', async () => {
+  const act = await overdueAction('F5 repair check');
+  await rdb.db.prepare("UPDATE insp_actions SET status = 'demand' WHERE id = ?").run(act.id);
+  const tool = require('../tools/field/inspection-action-status-check');
+  const out = await tool.run([], { db: idb.pgHandle(), normalize: idb.normalizeActionStatus, log: () => {} });
+  const row = out.rows.find((r) => r.id === act.id);
+  assert.deepEqual([row.status, row.maps_to, row.needs_decision], ['demand', null, true]);
+  assert.ok(out.rows.some((r) => r.status === 'cancelled' && r.maps_to === 'Cancelled'), 'legacy lowercase row maps to Cancelled');
+  assert.equal((await stored(act.id)).status, 'demand', 'dry run: nothing written');
+});

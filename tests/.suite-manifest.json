@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 5477,
+ "total": 5490,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 18,
@@ -238,7 +238,9 @@
   "feature-matrix.test.js": 5,
   "feedback-shell.test.js": 3,
   "feedback.smoke.test.js": 2,
-  "field-french.test.js": 4,
+  "field-actions-dialog-browser.test.js": 1,
+  "field-french.test.js": 5,
+  "field-inspection-action-status.smoke.test.js": 11,
   "field-no-silent-loss.test.js": 4,
   "field-outbox-conflict.smoke.test.js": 6,
   "field-outbox.test.js": 5,

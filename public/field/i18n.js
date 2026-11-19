@@ -51,6 +51,17 @@
     'A justification is required for this status.': 'Une justification est obligatoire pour ce statut.',
     'The SDP ticket number is required.': 'Le numéro de ticket SDP est obligatoire.', 'Subject required.': 'Objet obligatoire.',
     'No widget': 'Aucun indicateur', '— (not measured)': '— (non mesuré)', 'cached': 'cache', 'unavailable': 'indisponible',
+    // P11 r2 F-4 — refusals and the app's own errors
+    'The cached data belongs to another user.': 'Les données en cache appartiennent à un autre utilisateur.',
+    'The server data could not be loaded.': 'Les données du serveur n’ont pas pu être chargées.',
+    'Photo still too large after compression (limit, KB):': 'Photo encore trop lourde après compression (limite, Ko) :',
+    'Phone storage transaction aborted.': 'Opération de stockage du téléphone interrompue.',
+    'Cannot read the image.': 'Impossible de lire l’image.',
+    'This inspection already exists on the server and is not changed from the field app — capture a new inspection.': 'Cette inspection existe déjà sur le serveur et n’est pas modifiée depuis l’application terrain — saisissez une nouvelle inspection.',
+    'server status:': 'statut serveur :',
+    'This action was changed on the server since it was queued — check it before sending again.': 'Cette action a été modifiée sur le serveur depuis sa mise en file — vérifiez-la avant de la renvoyer.',
+    'now:': 'actuellement :',
+    'An inspection action can only be closed or cancelled from the field app.': 'Une action d’inspection ne peut être que clôturée ou annulée depuis l’application terrain.',
     'Photo added': 'Photo ajoutée', 'ok': 'ok', 'minor': 'mineur', 'major': 'majeur', 'critical': 'critique', 'na': 'n/a',
   };
   window.FT = function (s) { return window.I18nText ? window.I18nText.t(s) : s; };

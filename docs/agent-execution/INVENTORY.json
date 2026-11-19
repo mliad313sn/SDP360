@@ -15,7 +15,7 @@
   "jobs": 33,
   "jobs_without_test_reference": 0,
   "migrations": 102,
-  "test_files": 848
+  "test_files": 850
  },
  "pages": [
   {
@@ -692,6 +692,7 @@
     "tests/dashboard-preview-demo.test.js",
     "tests/dashboard-shared-sla-rates.test.js",
     "tests/evidence-baseline.test.js",
+    "tests/field-actions-dialog-browser.test.js",
     "tests/field-french.test.js",
     "tests/field-pwa-static.test.js",
     "tests/field-queue-badge-browser.test.js",
@@ -4040,6 +4041,7 @@
    "file": "routes/field.js",
    "line": 77,
    "tests": [
+    "tests/field-actions-dialog-browser.test.js",
     "tests/field-queue-badge-browser.test.js",
     "tests/field-review-step-browser.test.js",
     "tests/field-routes.smoke.test.js",
@@ -4053,8 +4055,10 @@
    "method": "PUT",
    "path": "/api/field/outbox/:uuid",
    "file": "routes/field.js",
-   "line": 230,
+   "line": 246,
    "tests": [
+    "tests/field-actions-dialog-browser.test.js",
+    "tests/field-inspection-action-status.smoke.test.js",
     "tests/field-outbox-conflict.smoke.test.js",
     "tests/field-review-step-browser.test.js",
     "tests/field-routes.smoke.test.js",
@@ -4069,6 +4073,8 @@
    "file": "routes/field.js",
    "line": 111,
    "tests": [
+    "tests/field-actions-dialog-browser.test.js",
+    "tests/field-inspection-action-status.smoke.test.js",
     "tests/field-outbox-conflict.smoke.test.js",
     "tests/field-review-step-browser.test.js",
     "tests/field-routes.smoke.test.js",
@@ -4081,7 +4087,7 @@
    "method": "PUT",
    "path": "/api/field/uploads/:id/chunks/:idx",
    "file": "routes/field.js",
-   "line": 305,
+   "line": 322,
    "tests": [
     "tests/emergency-access.smoke.test.js",
     "tests/field-routes.smoke.test.js",
@@ -4093,7 +4099,7 @@
    "method": "POST",
    "path": "/api/field/uploads/:id/complete",
    "file": "routes/field.js",
-   "line": 314,
+   "line": 331,
    "tests": [
     "tests/emergency-access.smoke.test.js",
     "tests/field-routes.smoke.test.js",
@@ -4105,7 +4111,7 @@
    "method": "GET",
    "path": "/api/field/uploads/:id",
    "file": "routes/field.js",
-   "line": 302,
+   "line": 319,
    "tests": [
     "tests/emergency-access.smoke.test.js",
     "tests/field-routes.smoke.test.js",
@@ -4117,7 +4123,7 @@
    "method": "POST",
    "path": "/api/field/uploads",
    "file": "routes/field.js",
-   "line": 284,
+   "line": 301,
    "tests": [
     "tests/emergency-access.smoke.test.js",
     "tests/field-routes.smoke.test.js",
@@ -7153,6 +7159,7 @@
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/field-inspection-action-status.smoke.test.js",
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
@@ -7180,6 +7187,7 @@
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/field-inspection-action-status.smoke.test.js",
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
@@ -7207,6 +7215,7 @@
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/field-inspection-action-status.smoke.test.js",
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
@@ -7234,6 +7243,7 @@
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/field-inspection-action-status.smoke.test.js",
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
@@ -7257,6 +7267,7 @@
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
+    "tests/field-inspection-action-status.smoke.test.js",
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
@@ -7273,6 +7284,7 @@
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
+    "tests/field-inspection-action-status.smoke.test.js",
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
@@ -7289,6 +7301,7 @@
    "tests": [
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
+    "tests/field-inspection-action-status.smoke.test.js",
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
@@ -13289,6 +13302,7 @@
     "tests/csp-strict-pages-config.test.js",
     "tests/csv-safe.test.js",
     "tests/evidence-baseline.test.js",
+    "tests/field-actions-dialog-browser.test.js",
     "tests/field-pwa-static.test.js",
     "tests/field-queue-badge-browser.test.js",
     "tests/field-review-step-browser.test.js",
