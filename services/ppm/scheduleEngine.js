@@ -69,7 +69,7 @@ function makeCalendar(spec) {
   const ordA = [0]; const idx = [];
   let built = 0;   // ordA covers days [0, built]
   const grow = (target) => {
-    if (target > MAX_DAY) throw Object.assign(new Error('schedule beyond the supported range (year 3065)'), { code: 'SCHEDULE_RANGE' });
+    if (target > MAX_DAY) throw Object.assign(new Error('schedule beyond the supported range (year 3065): a task date, duration or lag is too large'), { code: 'SCHEDULE_RANGE', status: 422, expose: true });   // P11 F1: typed (422), never an opaque 500
     for (; built < target; built++) { const w = isWork(built); if (w) idx.push(built); ordA.push(ordA[built] + (w ? 1 : 0)); }
   };
   const ord = (d) => { if (d <= 0) return 0; if (d > built) grow(d + 4096); return ordA[d]; };

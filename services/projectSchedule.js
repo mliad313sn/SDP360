@@ -186,4 +186,21 @@ function stageGate(project, to, actor, ctx = {}) {
   return null;
 }
 
-module.exports = { actualHours, charterText, scheduleView, dependencyProblem, criticalPath, resourceConflicts, resourceCoverage, varianceOf, STAGES, GATES, stageGate, days };
+/**
+ * P11 F1 — guarded variants for READS that cover several projects or must open whatever the plan holds: a schedule the
+ * engine cannot compute (SCHEDULE_RANGE, or any unexpected engine error) yields { result: null, error: {code, message} }
+ * — the plan is UNKNOWN, never an empty path. A dependency cycle keeps today's { result: null } without an error.
+ */
+function _safe(fn) {
+  return (tasks, opts) => {
+    try { return { result: fn(tasks, opts), error: null }; }
+    catch (e) {
+      const code = e && e.code === 'SCHEDULE_RANGE' ? 'SCHEDULE_RANGE' : 'SCHEDULE_FAILED';
+      return { result: null, error: { code, message: code === 'SCHEDULE_RANGE' ? 'the plan holds a date or a duration beyond the supported range: correct the task to compute the schedule' : 'the schedule could not be computed' } };
+    }
+  };
+}
+const criticalPathSafe = _safe(criticalPath);
+const scheduleViewSafe = _safe(scheduleView);
+
+module.exports = { actualHours, charterText, scheduleView, scheduleViewSafe, criticalPathSafe, dependencyProblem, criticalPath, resourceConflicts, resourceCoverage, varianceOf, STAGES, GATES, stageGate, days };

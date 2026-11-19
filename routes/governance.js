@@ -544,7 +544,9 @@ module.exports = function governanceRoutes(deps) {
     // G11 — plan per project: WBS tasks, critical path, baseline / forecast / actual; one resource view across projects
     const SCH = require('../services/projectSchedule');
     const tasks = pf.tasks || [];
-    const plans = pf.projects.map(p => { const t = tasks.filter(x => x.project_id === p.id); const cp = SCH.criticalPath(t, { anchor: p.start_date || null, deadline: p.finish_deadline || null }); return { project_id: p.id, key: p.key, stage: p.stage || null, tasks: t.length, open_tasks: t.filter(x => !['done', 'cancelled'].includes(x.status)).length, critical_path: cp ? cp.path : null, critical_length_days: cp ? cp.length_days : null, variance: SCH.varianceOf(p) }; });
+    // P11 F1 — one project whose plan cannot be scheduled (a value beyond the engine's range) reads as unknown with
+    // its reason; it never takes the whole portfolio down for every user.
+    const plans = pf.projects.map(p => { const t = tasks.filter(x => x.project_id === p.id); const sch = SCH.criticalPathSafe(t, { anchor: p.start_date || null, deadline: p.finish_deadline || null }); const cp = sch.result; return { project_id: p.id, key: p.key, stage: p.stage || null, tasks: t.length, open_tasks: t.filter(x => !['done', 'cancelled'].includes(x.status)).length, critical_path: cp ? cp.path : null, critical_length_days: cp ? cp.length_days : null, ...(sch.error ? { schedule_error: sch.error } : {}), variance: SCH.varianceOf(p) }; });
     return { ...pf, objective_views: views, gantt, risks, plans, resource_conflicts: SCH.resourceConflicts(tasks), resource_coverage: SCH.resourceCoverage(tasks), stages: SCH.STAGES, summary: PE.portfolioSummary({ programmes: pf.programmes, objectiveViews: views, gantt, risks: pf.risks }), as_of: now.toISOString() };
   }
   // G12 — amounts are read by the committee, the admin tier and the finance role; everyone else sees the plan without money.
@@ -726,12 +728,13 @@ module.exports = function governanceRoutes(deps) {
       // P04 — the plan reads the SAME engine input as the W2 /schedule route (calendars / levelling only while their switch is on)
       const ein = await require('../services/ppm/engineInput').loadEngineInput({ S: require('../services/ppm/engineStore').makeEngineStore(rdb().pgHandle(), store), d, cfg: gcfg });
       const fresh = FR.freshness((await FR.planUpdatedAt(rdb().pgHandle(), [p.id]))[p.id], new Date().toISOString());
+      const planSch = SCH.scheduleViewSafe(ein.engineTasks, ein.opts);   // P11 F1 — the page opens so the PM can fix the task
       res.json({ ok: true, committee: !!isCommittee(u), can_gate: !!isCommittee(u), can_edit_plan: projectRole && !isCommittee(u) ? ['pm', 'scheduler'].includes(projectRole) : PA.canEditPlan(u, p, pctx), can_see_history: !!money, money_hidden: !money,
         ...(ctx.rolesOn ? { project_role: projectRole } : {}),
         project, objective: d.objective, extra_sites: d.extra_sites, tasks: d.tasks, milestones: d.milestones, deliverables: d.deliverables, risks: d.risks.map(PE.riskView),
         benefits: bens, ...(clsOn ? { benefit_totals: BEN.benefitTotals(bens), benefit_classes: { value_classes: BEN.VALUE_CLASSES, bases: BEN.BASES, source_kinds: BEN.SOURCE_KINDS } } : {}), me: Number(u.id),
         ...(mvRole ? { money_verifier_role: mvRole, holds_money_verifier_role: holdsExactly(u, mvRole) } : {}),   // F-PRODUCT-04: who may verify a money benefit
-        plan: SCH.scheduleView(ein.engineTasks, ein.opts), variance: SCH.varianceOf(p), resource_conflicts: SCH.resourceConflicts(d.tasks, members), resource_coverage: SCH.resourceCoverage(d.tasks, members),
+        plan: planSch.result, ...(planSch.error ? { plan_error: planSch.error } : {}), variance: SCH.varianceOf(p), resource_conflicts: SCH.resourceConflicts(d.tasks, members), resource_coverage: SCH.resourceCoverage(d.tasks, members),
         stages: SCH.STAGES, allowed_stages, gate_counts: d.gate_ctx, risk_kinds: store.RISK_KINDS, plan_freshness: fresh, as_of: new Date().toISOString() });
     } catch (e) { fail(res, e); }
   });

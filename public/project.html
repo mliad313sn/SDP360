@@ -503,7 +503,7 @@
       ["Progress", n(p.progress_pct, " %")],
       ["Plan freshness", esc(window.PpmWorkbench ? window.PpmWorkbench.freshnessText(V.plan_freshness) : "—") + (V.plan_freshness && V.plan_freshness.plan_updated_at ? " <span class=\"muted\">(" + esc(String(V.plan_freshness.plan_updated_at).slice(0, 10)) + ")</span>" : "")],   // B4
       ["Open tasks", n(open) + " / " + n(V.tasks.length)],
-      ["Critical path", V.plan ? n(V.plan.length_days, " working d") : "— (dependency loop)"],
+      ["Critical path", V.plan ? n(V.plan.length_days, " working d") : V.plan_error ? "— (plan cannot be computed)" : "— (dependency loop)"],
       ["Open high risks", n(V.gate_counts && V.gate_counts.openRisksHigh)]];
     var money = V.money_hidden ? "<span class=\"muted\">restricted to the committee, the admin tier and the finance role</span>" : (p.budget != null ? n(p.spent) + " / " + n(p.budget) + " " + esc(p.currency || "USD") + (p.currency_defaulted === 1 || !p.currency ? " <small class=\"muted\">(default, not confirmed)</small>" : "") : "—");   // F-DATA-10
     $("overview").innerHTML = "<div class=\"tiles\">" + tiles.map(function (t) { return "<div class=\"tile\"><div class=\"tl\">" + esc(t[0]) + "</div><div class=\"tn\" style=\"font-size:15px\">" + t[1] + "</div></div>"; }).join("") + "</div>" +
@@ -548,7 +548,7 @@
     var rows = taskOrder(V.tasks), anchor = V.plan && V.plan.anchor;
     renderBaselines();
     var assumed = rows.filter(function (r) { var pl = planOf(r.t.id); return pl && pl.assumed_duration; }).length;
-    $("plan-note").innerHTML = (V.plan ? "" : "<p class=\"refusal\">The dependencies form a loop: the plan cannot be computed.</p>") +
+    $("plan-note").innerHTML = (V.plan ? "" : V.plan_error ? "<p class=\"refusal\">The plan cannot be computed: a task date, duration or lag is beyond the supported range (years 1970–2200, at most 36 500 working days). Correct the task to compute the schedule.</p>" : "<p class=\"refusal\">The dependencies form a loop: the plan cannot be computed.</p>") +
       (anchor ? "Scheduled in working days (Mon–Fri) from " + esc(anchor) + " (project start, else the earliest task start); an entered start on an automatic task is a start-no-earlier-than, a manual task keeps its dates. " : "No project start and no dated task: the plan is shown in relative working days only, not as dates. ") +
       (V.plan && V.plan.warnings && V.plan.warnings.length ? "<b>" + n(V.plan.warnings.length) + " scheduling warning(s):</b> " + V.plan.warnings.slice(0, 5).map(function (w) { return (w.task_id != null ? "#" + n(w.task_id) + " " : "") + esc(w.message); }).join(" · ") + ". " : "") +
       (assumed ? "<b>" + n(assumed) + " task(s) have no duration</b> — counted as 1 day by the critical path (“duration unknown”). " : "") +
