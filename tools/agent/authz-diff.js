@@ -10,7 +10,7 @@
 // PURE core (diffMatrix) is exported for tests/authz-matrix-json.test.js.
 
 // The fields of a route row that make up its authorisation rule (what a reviewer must sign off).
-const RULE_FIELDS = ['gate', 'guards', 'capabilities', 'allowed_roles', 'inline_roles', 'site_scope', 'site_scoped', 'money_bearing', 'business_allowed'];
+const RULE_FIELDS = ['gate', 'guards', 'capabilities', 'allowed_roles', 'inline_roles', 'site_scope', 'site_scoped', 'money_bearing', 'business_allowed', 'handler_check'];
 
 const _j = (v) => JSON.stringify(v === undefined ? null : v);
 
@@ -58,6 +58,7 @@ function widenings(diff) {
   for (const c of diff.changed) for (const f of c.fields) {
     if (f.field === 'allowed_roles' && f.gained && f.gained.length) out.push(`${c.key}: roles gained ${f.gained.join(', ')}`);
     if (f.field === 'site_scope' && f.lost && f.lost.length) out.push(`${c.key}: site-scope helper removed ${f.lost.join(', ')}`);
+    if (f.field === 'handler_check' && f.lost && f.lost.some((x) => x !== 'none' && x !== 'UNDECLARED')) out.push(`${c.key}: declared in-handler check removed ${f.lost.filter((x) => x !== 'none' && x !== 'UNDECLARED').join(', ')}`);
     if (f.field === 'site_scoped' && f.before === true && f.after === false) out.push(`${c.key}: no longer site-scoped`);
     if (f.field === 'money_bearing' && f.before === true && f.after === false) out.push(`${c.key}: no longer marked amount-bearing`);
     if (f.field === 'gate' && f.after === 'public') out.push(`${c.key}: became public`);

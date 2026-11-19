@@ -552,6 +552,15 @@ function siteBUrl(p, s, w) {
   return null;
 }
 
+// Valid bodies for '[B]' writes whose handler validates input BEFORE its site check — without them every persona
+// gets 400 and the site check is never reached by the probe (see the dossier: "V-masked" rows).
+const B_BODIES = {
+  'PUT /api/reports/:id/status': { status: 'in_progress' },
+  'PUT /api/reports/:id/reassign-week': { year: 2026, week: 31 },
+  'POST /api/meetings/:id/sign': { which: 'site_it' },
+  'POST /api/governance/ppm/project/:id/comments': { body: 'p02 probe comment' },
+};
+
 function _moneyText(res) {
   if (res.text) return res.text;
   const t = res.type || '';
@@ -580,15 +589,15 @@ async function probeOutcomes(w, opts = {}) {
   await seedMoney(w);
   const s = await seedScope(w);
   const personas = OUTCOME_PERSONAS.filter((p) => !opts.personas || opts.personas.includes(p.key));
-  const rows = w.matrix.routes.filter((r) => r.path.startsWith('/api') && (!opts.keys || opts.keys.has(r.key)));
+  const rows = w.matrix.routes.filter((r) => r.path.startsWith('/api') && (!opts.keys || opts.keys.has(r.key)) && (!opts.filter || opts.filter(r)));
   const jobs = [];
   for (const r of rows) {
     jobs.push({ key: r.key, method: r.method, url: concrete(r.path), r });
     const b = siteBUrl(r.path, s, w);
-    if (b) jobs.push({ key: r.key + ' [B]', method: r.method, url: b, r });
+    if (b) jobs.push({ key: r.key + ' [B]', method: r.method, url: b, r, body: B_BODIES[r.key] });
   }
   const routes = {}, money = [], moneyKnown = [], unscanned = new Set();
-  const stats = { jobs: jobs.length, requests: 0, ms: 0, scanned: 0, readerHits: 0 };
+  const stats = { jobs: jobs.length, requests: 0, retries: 0, ms: 0, scanned: 0, readerHits: 0 };
   const t0 = Date.now();
   // Phase 1: GETs (read-only) concurrently. Phase 2: mutating methods STRICTLY in sequence (fixed order, DELETE last),
   // personas in column order — a write by one persona can change what the next request finds, so concurrency here
@@ -600,7 +609,8 @@ async function probeOutcomes(w, opts = {}) {
     for (const p of personas) {
       if (ADMIN_TIER_KEYS.includes(p.key) && j.method !== 'GET' && OUTCOME_EXEC_SKIP.test(j.r.path) && expectedAllow(j.r, p)) { codes += 'S'; continue; }
       const token = SESSION_ENDING.has(j.r.key) ? await w.extra.fresh(p.key) : w.tok[p.key];
-      const res = await w.send(j.method, j.url, token);
+      let res = await w.send(j.method, j.url, token, j.body);
+      for (let t = 0; t < 2 && (res.status === 'error' || res.status === 'timeout'); t++) { stats.retries++; res = await w.send(j.method, j.url, token, j.body); }   // transport hiccup, not an outcome
       stats.requests++;
       const c = outcomeCode(res);
       codes += c;
@@ -660,6 +670,72 @@ function checkOutcomeInvariants(out, matrix) {
   return v;
 }
 
+// ── P02 step 4 — an authorization switch may NARROW access, never widen it ─────────────────────────────────────
+// Each run turns ONE switch on, re-probes the routes it can affect, and compares with the baseline map: a cell that
+// was a 401/403 at baseline and is a pass with the switch on is a widening (404 baseline cells are skipped: after the
+// baseline write phase they can depend on state). Declared widenings are the switch's PURPOSE and are listed here.
+const ACTIVE_KEYS = OUTCOME_PERSONAS.map((p) => p.key).filter((k) => !['anon', 'deact', 'revoked', 'sbizA', 'gbiz'].includes(k));
+const GOV = (r) => r.path.startsWith('/api/governance/');
+const NOT_DELETE = (r) => r.method !== 'GET' && r.method !== 'DELETE';
+const ENFORCE_ALL = () => ({ authz_enforce_caps: require('../services/capabilityRegistry').list().map((c) => c.id).join(',') });
+// phase 'read' runs right after the GET baseline; phase 'write' runs BEFORE the write baseline (DELETE rows excluded so
+// the fixtures the baseline needs survive). The order is fixed, so the snapshot stays deterministic.
+const AUTHZ_SWITCHES = [
+  { key: 'portfolio_site_scope_reads', value: '1', phase: 'read', filter: (r) => GOV(r) && r.method === 'GET' },
+  { key: 'portfolio_sensitive_projects', value: '1', phase: 'read', filter: (r) => GOV(r) && r.method === 'GET', prepare: async (w) => {
+    const s = await seedScope(w); await w.send('PUT', `/api/governance/portfolio/project/${s.pB}/sensitive`, w.tok.admin, { sensitive: true }); } },
+  { key: 'authz_capability_mode', value: 'enforce', phase: 'read', also: ENFORCE_ALL, filter: (r) => r.method === 'GET' && r.guards.some((g) => g.roles) },
+  { key: 'portfolio_executive_readonly', value: '1', phase: 'write', filter: (r) => GOV(r) && NOT_DELETE(r) },
+  // PURPOSE: an editor writes the plan of a project of its own site(s). Site-B bodies stay refused: checkSitePerimeter.
+  { key: 'portfolio_editor_plan_writes', value: '1', phase: 'write', filter: (r) => GOV(r) && NOT_DELETE(r),
+    allow: (cell) => ['edA', 'edAB'].includes(cell.persona) && /^(PUT|POST) \/api\/governance\/(portfolio|ppm)\//.test(cell.key) },
+  { key: 'authz_capability_mode', value: 'enforce', phase: 'write', also: ENFORCE_ALL, filter: (r) => NOT_DELETE(r) && r.guards.some((g) => g.roles) },
+];
+
+/** Run the switches of one phase; returns [{sw, out}] (no comparison yet). */
+async function runSwitches(w, phase) {
+  const rc = require('../services/reportConfig');
+  const runs = [];
+  for (const sw of AUTHZ_SWITCHES.filter((x) => x.phase === phase)) {
+    const before = await rc.getConfig(w.rdb.db);
+    const patch = Object.assign({ [sw.key]: sw.value }, sw.also ? sw.also() : {});
+    const restore = {}; for (const k of Object.keys(patch)) restore[k] = before[k] == null ? '' : String(before[k]);
+    await rc.setConfig(w.rdb.db, patch, 'p02-switch');
+    require('../services/authzShadow')._resetCache && require('../services/authzShadow')._resetCache();
+    try {
+      if (sw.prepare) await sw.prepare(w);
+      runs.push({ sw, out: await probeOutcomes(w, { filter: sw.filter, personas: ACTIVE_KEYS }) });
+    } finally {
+      await rc.setConfig(w.rdb.db, restore, 'p02-switch');
+      require('../services/authzShadow')._resetCache && require('../services/authzShadow')._resetCache();
+    }
+  }
+  return runs;
+}
+
+/** Compare switch runs with the baseline map: refusal 401/403 → pass = widening (unless declared). */
+function compareSwitches(base, runs) {
+  const v = [], report = [];
+  const col = (k) => base.personas.indexOf(k);
+  for (const { sw, out } of runs) {
+    let widened = 0, allowed = 0, narrowed = 0;
+    for (const [k, codes] of Object.entries(out.routes)) {
+      const b = base.routes[k]; if (!b) continue;
+      out.personas.forEach((p, i) => {
+        const was = b[col(p)], now = codes[i];
+        if (was === undefined || was === 'S' || now === 'S') return;
+        if ((was === 'U' || was === 'F') && PASS.has(now)) {
+          if (sw.allow && sw.allow({ key: k, persona: p })) { allowed++; return; }
+          widened++; v.push(`SWITCH ${sw.key}=${sw.value} (${sw.phase}) WIDENS ${k} as ${p}: ${was} → ${now}`);
+        } else if (PASS.has(was) && REFUSAL.has(now)) narrowed++;
+      });
+    }
+    report.push({ switch: sw.key, value: sw.value, phase: sw.phase, rows: Object.keys(out.routes).length, requests: out.stats.requests, widened, declared_widenings: allowed, narrowed });
+  }
+  v.report = report;
+  return v;
+}
+
 function serializeOutcomes(out, extraHead = {}) {
   const head = Object.assign({ schema: 'sdp360.authz-outcomes/1', generated_by: 'AUTHZ_OUTCOMES_UPDATE=1 node --test tests/authz-outcomes.smoke.test.js',
     legend: 'A 2xx/3xx · V other 4xx · E 5xx · T timeout · S not executed · U 401 · F 403 · N 404 — refusal = U F N',
@@ -669,6 +745,6 @@ function serializeOutcomes(out, extraHead = {}) {
   return JSON.stringify(head, null, 1).slice(0, -2) + ',\n "routes": {\n' + keys.map((k) => '  ' + JSON.stringify(k) + ': ' + JSON.stringify(out.routes[k])).join(',\n') + '\n }\n}\n';
 }
 
-module.exports = { OUTCOMES_PATH, OUTCOME_PERSONAS, OUTCOME_FEATURE_ROLES, OUTCOME_EXEC_SKIP, KNOWN_OUTCOME_MONEY, MONEY_SENTINELS, REFUSAL, PASS, outcomeCode, siteBUrl, probeOutcomes, diffOutcomes, checkOutcomeInvariants, serializeOutcomes,
+module.exports = { B_BODIES, AUTHZ_SWITCHES, ACTIVE_KEYS, runSwitches, compareSwitches, OUTCOMES_PATH, OUTCOME_PERSONAS, OUTCOME_FEATURE_ROLES, OUTCOME_EXEC_SKIP, KNOWN_OUTCOME_MONEY, MONEY_SENTINELS, REFUSAL, PASS, outcomeCode, siteBUrl, probeOutcomes, diffOutcomes, checkOutcomeInvariants, serializeOutcomes,
   seedScope, checkSitePerimeter, checkFrozen, checkServerTimestamps, KNOWN_MONEY_DEVIATIONS, splitKnown, MONEY_KEYS, BUDGET, seedMoney, checkMoneyMasking, decisionSnapshot, checkWorkspaceGrantsNothing, FLAG_KEEP_OFF, MATRIX_PATH, PERSONAS, BUSINESS, personaOf, expectedAllow, loadMatrix, concrete, request, pool, bootWorld,
   checkRoleGuards, checkAnonymous, checkBusinessLock, isBusinessOnly, originalHasRole };
