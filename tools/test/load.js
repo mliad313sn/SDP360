@@ -43,7 +43,7 @@ function parseArgs(argv) {
     target: get('target', 'http://127.0.0.1:3456'), confirm: get('target-confirm', null),
     sessions: num('sessions', 5, 1, 50), duration: num('duration', 30, 1, 24 * 3600),
     scenarios: String(get('scenarios', 'reports,helpdesk,field,export')).split(',').map((s) => s.trim()).filter(Boolean),
-    pid: get('pid', null), out: get('out', null), json: get('json', null),
+    pid: get('pid', null), out: get('out', null), json: get('json', null), pgStat: get('pg-stat-url', null),
   };
 }
 
@@ -59,11 +59,23 @@ function percentile(values, p) {
 const ROUTES = {
   'reports.list': 'GET /api/reports', 'reports.open': 'GET /api/reports/:id', 'reports.save_section': 'PUT /api/reports/:id/infra',
   'helpdesk.data': 'GET /api/data/requests-raw', 'field.envelope': 'PUT /api/field/outbox/:id', 'export.risk_register': 'GET /api/risk-register-export',
+  // P05 — the route classes of the performance budgets (docs/ops/perf-budgets.json)
+  'pages.meetings': 'GET /api/meetings/list', 'pages.inspections': 'GET /api/inspection/list',
+  'pages.sync_status': 'GET /api/sync/status', 'pages.health_deps': 'GET /api/health/deps',
+  'deck.weekly': 'GET /api/reports/:id/pptx', 'deck.all_sites_monthly': 'GET /api/reports/monthly/all-sites/:y/:m/pptx',
 };
 const routeOf = (step) => ROUTES[step] || step;
+// P05 — every step belongs to one budget class; an unlisted step is 'other' (reported, never budgeted).
+const CLASSES = {
+  'reports.list': 'page_data', 'reports.open': 'page_data', 'helpdesk.data': 'page_data',
+  'pages.meetings': 'page_data', 'pages.inspections': 'page_data', 'pages.health_deps': 'page_data',
+  'pages.sync_status': 'sync', 'reports.save_section': 'write', 'field.envelope': 'write',
+  'export.risk_register': 'export', 'deck.weekly': 'deck_generation', 'deck.all_sites_monthly': 'deck_generation',
+};
+const classOf = (step) => CLASSES[step] || 'other';
 
 /** Pure aggregation: samples [{step, ms, status}] → per-step and overall statistics. */
-function aggregate(samples, { durationSec = null, rss = [] } = {}) {
+function aggregate(samples, { durationSec = null, rss = [], conns = [] } = {}) {
   const by = {};
   for (const s of samples) (by[s.step] = by[s.step] || []).push(s);
   const stat = (list) => {
@@ -77,9 +89,14 @@ function aggregate(samples, { durationSec = null, rss = [] } = {}) {
   const steps = {}; for (const k of Object.keys(by).sort()) steps[k] = stat(by[k]);
   const byRoute = {}; for (const x of samples) (byRoute[routeOf(x.step)] = byRoute[routeOf(x.step)] || []).push(x);
   const routes = {}; for (const k of Object.keys(byRoute).sort()) routes[k] = stat(byRoute[k]);
+  const byClass = {}; for (const x of samples) (byClass[classOf(x.step)] = byClass[classOf(x.step)] || []).push(x);
+  const classes = {}; for (const k of Object.keys(byClass).sort()) classes[k] = stat(byClass[k]);
   const rssKb = rss.filter((x) => Number.isFinite(x));
-  return { overall: stat(samples), steps, routes, throughput_rps: durationSec ? Math.round(samples.length / durationSec * 10) / 10 : null,
-    rss_kb: rssKb.length ? { first: rssKb[0], last: rssKb[rssKb.length - 1], max: Math.max(...rssKb) } : null };
+  const cs = conns.filter((c) => c && Number.isFinite(c.total));
+  const pool = cs.length ? { samples: cs.length, total_max: Math.max(...cs.map((c) => c.total)), active_max: Math.max(...cs.map((c) => c.active)),
+    active_p95: percentile(cs.map((c) => c.active), 95), waiting_lock_max: Math.max(...cs.map((c) => c.waiting)) } : null;
+  return { overall: stat(samples), steps, routes, classes, throughput_rps: durationSec ? Math.round(samples.length / durationSec * 10) / 10 : null,
+    rss_kb: rssKb.length ? { first: rssKb[0], last: rssKb[rssKb.length - 1], max: Math.max(...rssKb) } : null, pool };
 }
 
 function renderMarkdown(agg, meta) {
@@ -89,11 +106,14 @@ function renderMarkdown(agg, meta) {
     `- Target: ${meta.target} · sessions: ${meta.sessions} · duration: ${meta.duration} s · scenarios: ${meta.scenarios.join(', ')}`,
     `- Generated: ${meta.at} · commit: ${meta.commit || 'UNKNOWN'} · server started at: ${meta.started_at || 'UNKNOWN'}`,
     `- Requests: ${agg.overall.n} · throughput: ${f(agg.throughput_rps)} req/s · errors: ${agg.overall.errors} (${f(agg.overall.error_rate_pct)} %) · 5xx: ${agg.overall.five_xx}`,
-    `- Server RSS: ${agg.rss_kb ? `${Math.round(agg.rss_kb.first / 1024)} MB at start → ${Math.round(agg.rss_kb.last / 1024)} MB at end (max ${Math.round(agg.rss_kb.max / 1024)} MB)` : 'UNKNOWN (pass --pid=<server pid>; the server exposes no memory figure)'}`, '',
+    `- Server RSS: ${agg.rss_kb ? `${Math.round(agg.rss_kb.first / 1024)} MB at start → ${Math.round(agg.rss_kb.last / 1024)} MB at end (max ${Math.round(agg.rss_kb.max / 1024)} MB)` : 'UNKNOWN (pass --pid=<server pid>; the server exposes no memory figure)'}`,
+    `- DB connections (pg_stat_activity, this database): ${agg.pool ? `max ${agg.pool.total_max} open · max ${agg.pool.active_max} active (p95 ${f(agg.pool.active_p95)}) · max ${agg.pool.waiting_lock_max} waiting on a lock · ${agg.pool.samples} samples` : 'UNKNOWN (pass --pg-stat-url)'}`, '',
     '| Step | n | p50 (ms) | p95 (ms) | p99 (ms) | errors | 5xx | statuses |', '|---|---|---|---|---|---|---|---|'];
   for (const [k, s] of Object.entries(agg.steps)) L.push(`| ${k} | ${s.n} | ${f(s.p50)} | ${f(s.p95)} | ${f(s.p99)} | ${s.errors} | ${s.five_xx} | ${Object.entries(s.statuses).map(([c, n]) => `${c}×${n}`).join(' ')} |`);
   L.push('', '## API latency per route template (F-UX-05) — observation only, no threshold', '', '| Route | n | p50 (ms) | p95 (ms) | p99 (ms) |', '|---|---|---|---|---|');
   for (const [k, s] of Object.entries(agg.routes || {})) L.push(`| ${k} | ${s.n} | ${f(s.p50)} | ${f(s.p95)} | ${f(s.p99)} |`);
+  L.push('', '## Per route class (P05) — observation only; the class comparison is a separate checker', '', '| Class | n | p50 (ms) | p95 (ms) | p99 (ms) | error % | 5xx |', '|---|---|---|---|---|---|---|');
+  for (const [k, s] of Object.entries(agg.classes || {})) L.push(`| ${k} | ${s.n} | ${f(s.p50)} | ${f(s.p95)} | ${f(s.p99)} | ${f(s.error_rate_pct)} | ${s.five_xx} |`);
   return L.join('\n') + '\n';
 }
 
@@ -105,12 +125,30 @@ function request(base, method, path, { token, body } = {}) {
     const t0 = process.hrtime.bigint();
     const req = lib.request(u, { method, agent: false, headers: Object.assign({ accept: 'application/json' }, token ? { 'x-report-token': token } : {}, data ? { 'content-type': 'application/json', 'content-length': data.length } : {}) }, (res) => {
       const chunks = []; res.on('data', (c) => chunks.push(c));
-      res.on('end', () => { const ms = Number((process.hrtime.bigint() - t0) / 1000000n); const buf = Buffer.concat(chunks); let json = null; try { json = JSON.parse(buf.toString('utf8')); } catch (_) { /* not JSON */ } resolve({ status: res.statusCode, ms, json, bytes: buf.length }); });
+      res.on('end', () => { const ms = Number((process.hrtime.bigint() - t0) / 1000000n); const buf = Buffer.concat(chunks); let json = null; try { json = JSON.parse(buf.toString('utf8')); } catch (_) { /* not JSON */ } resolve({ status: res.statusCode, ms, json, bytes: buf.length, headers: res.headers }); });
     });
-    req.on('error', () => resolve({ status: 0, ms: Number((process.hrtime.bigint() - t0) / 1000000n), json: null, bytes: 0 }));
+    req.on('error', () => resolve({ status: 0, ms: Number((process.hrtime.bigint() - t0) / 1000000n), json: null, bytes: 0, headers: {} }));
     req.setTimeout(60000, () => req.destroy(new Error('timeout')));
     if (data) req.write(data); req.end();
   });
+}
+// P05 — the session token now arrives only in the httpOnly report_token cookie (the JSON body no longer
+// carries it), so the harness reads it from Set-Cookie.
+function tokenFromSetCookie(h) {
+  for (const c of [].concat(h || [])) { const m = /(?:^|;\s*)report_token=([^;]+)/.exec(String(c)); if (m) return decodeURIComponent(m[1]); }
+  return null;
+}
+// P05 — connection-pool saturation seen from PostgreSQL (the server exposes no pool gauge): open,
+// active and lock-waiting connections on the target database, excluding this sampler.
+let _pgc = null;
+async function readConns(url) {
+  try {
+    if (!_pgc) { const { Client } = require('pg'); _pgc = new Client({ connectionString: url }); await _pgc.connect(); }
+    const r = await _pgc.query(`SELECT COUNT(*)::int AS total, COUNT(*) FILTER (WHERE state='active')::int AS active,
+      COUNT(*) FILTER (WHERE wait_event_type='Lock')::int AS waiting FROM pg_stat_activity
+      WHERE datname = current_database() AND pid <> pg_backend_pid()`);
+    return r.rows[0];
+  } catch (_) { return null; }
 }
 function readRssKb(pid) { try { const m = /VmRSS:\s+(\d+)\s+kB/.exec(fs.readFileSync(`/proc/${Number(pid)}/status`, 'utf8')); return m ? Number(m[1]) : null; } catch (_) { return null; } }
 
@@ -138,6 +176,18 @@ async function session(base, token, opt, deadline, samples) {
       } else if (sc === 'helpdesk') rec('helpdesk.data', await request(base, 'GET', '/api/data/requests-raw', { token }));
       else if (sc === 'field') rec('field.envelope', await request(base, 'PUT', `/api/field/outbox/${crypto.randomUUID()}`, { token, body: { kind: 'action', client_ts: new Date().toISOString(), device: 'load-harness', payload: fieldPayload() } }));
       else if (sc === 'export') rec('export.risk_register', await request(base, 'GET', `/api/risk-register-export?month=${month}`, { token }));
+      else if (sc === 'pages') {
+        rec('pages.meetings', await request(base, 'GET', '/api/meetings/list', { token }));
+        rec('pages.inspections', await request(base, 'GET', '/api/inspection/list', { token }));
+        rec('pages.sync_status', await request(base, 'GET', '/api/sync/status', { token }));
+        rec('pages.health_deps', await request(base, 'GET', '/api/health/deps', { token }));
+      } else if (sc === 'deck') {
+        const l = await request(base, 'GET', '/api/reports', { token });
+        const first = Array.isArray(l.json) ? l.json[0] : (l.json && Array.isArray(l.json.reports) ? l.json.reports[0] : null);
+        if (first && first.id) rec('deck.weekly', await request(base, 'GET', `/api/reports/${first.id}/pptx`, { token }));
+        const [y, m] = String(process.env.LOAD_DECK_MONTH || '2025-02').split('-');
+        rec('deck.all_sites_monthly', await request(base, 'GET', `/api/reports/monthly/all-sites/${y}/${Number(m)}/pptx`, { token }));
+      }
     }
   }
 }
@@ -151,19 +201,24 @@ async function main(argv = process.argv.slice(2)) {
     if (!process.env.LOAD_USER || !process.env.LOAD_PASS) throw new Error('LOAD_USER + LOAD_PASS (a throwaway account) or LOAD_TOKENS are required');
     for (let i = 0; i < opt.sessions; i++) {
       const r = await request(base, 'POST', '/api/reports/auth/login', { body: { username: process.env.LOAD_USER, password: process.env.LOAD_PASS } });
-      if (!r.json || !r.json.token) throw new Error(`login ${i + 1} failed with HTTP ${r.status} (the login limiter allows 10 per 15 min)`);
-      tokens.push(r.json.token);
+      const tok = (r.json && r.json.token) || tokenFromSetCookie(r.headers && r.headers['set-cookie']);
+      if (!tok) throw new Error(`login ${i + 1} failed with HTTP ${r.status} (the login limiter allows 10 per 15 min)`);
+      tokens.push(tok);
     }
   }
   const ver = await request(base, 'GET', '/api/health/version', { token: tokens[0] });
   const samples = []; const rss = [];
   if (opt.pid) rss.push(readRssKb(opt.pid));
   const timer = opt.pid ? setInterval(() => rss.push(readRssKb(opt.pid)), 5000) : null;
+  const conns = [];
+  const ctimer = opt.pgStat ? setInterval(() => { readConns(opt.pgStat).then((c) => c && conns.push(c)); }, 2000) : null;
   const t0 = Date.now(); const deadline = t0 + opt.duration * 1000;
   await Promise.all(Array.from({ length: opt.sessions }, (_, i) => session(base, tokens[i % tokens.length], opt, deadline, samples)));
   if (timer) clearInterval(timer);
+  if (ctimer) clearInterval(ctimer);
+  if (_pgc) { await _pgc.end().catch(() => {}); _pgc = null; }
   if (opt.pid) rss.push(readRssKb(opt.pid));
-  const agg = aggregate(samples, { durationSec: (Date.now() - t0) / 1000, rss });
+  const agg = aggregate(samples, { durationSec: (Date.now() - t0) / 1000, rss, conns });
   let commit = null; try { commit = require('child_process').execFileSync('git', ['rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).trim(); } catch (_) { /* no git */ }
   const meta = { target: base, sessions: opt.sessions, duration: opt.duration, scenarios: opt.scenarios, at: new Date().toISOString(), commit, started_at: ver.json && ver.json.started_at };
   const md = renderMarkdown(agg, meta);
@@ -173,5 +228,5 @@ async function main(argv = process.argv.slice(2)) {
   return agg;
 }
 
-module.exports = { assertTarget, parseArgs, percentile, aggregate, renderMarkdown, LOCAL, ROUTES, routeOf, __main: main };
+module.exports = { assertTarget, parseArgs, percentile, aggregate, renderMarkdown, LOCAL, ROUTES, routeOf, CLASSES, classOf, tokenFromSetCookie, readConns, __main: main };
 if (require.main === module) main().catch((e) => { console.error('[load] ' + e.message); process.exit(2); });

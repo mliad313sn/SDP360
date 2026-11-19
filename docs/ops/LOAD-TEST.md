@@ -59,3 +59,12 @@ make before any conclusion.
 - Choose the staging host and window for a real run (`--target-confirm`), and who is told.
 - Set SLO targets (latency per step, error rate, memory growth over a soak) — none are proposed here.
 - A soak of several hours on production-like volumes (restored copy, data owner's agreement).
+
+## P05 rehearsal — 2026-11-19 (100 000 tickets, separate processes)
+
+See `docs/agent-execution/P05-performance.md`. New in the harness: the session token is read from the
+`report_token` cookie, `--pg-stat-url=<db url>` samples connection-pool use from `pg_stat_activity`,
+scenarios `pages` and `deck`, and a per-class table (page_data, sync, write, export, deck_generation) that
+`tools/test/perf-budget-check.js` compares with the PROPOSED budgets in `docs/ops/perf-budgets.json`.
+`tools/test/scale-run.js` prepares the rehearsal database, prints the server environment, runs the plans
+and the restore drill, and drops the database.

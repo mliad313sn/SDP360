@@ -21,5 +21,10 @@ data directory's free disk. A reading the server does not have is `unknown` — 
 | Backups | age of the last ok `db.backup` run; restore drill within its window | `/api/health/deps` `items.backup`, `items.restore_drill` | UNKNOWN — to be approved by SRE |
 | Disk | data-dir free space | `/api/health/deps` `items.disk.free_pct` — the 10 % line in the code is a PROPOSITION only | UNKNOWN — to be approved by SRE |
 
+**30-day readings (P05):** `GET /api/health/deps` → `sli_30d` (`services/sliReadings.js`) gives one value per row
+above with its basis and window; sign-in 5xx and `SELECT 1` latency are in-process counters whose window is
+"since server start". Availability stays `null` until the external probe described in
+`docs/agent-execution/P05-performance.md` §6 exists. Targets are still UNKNOWN.
+
 Left for a person: approving each target and error budget, choosing who is paged, and wiring an
 external probe to `GET /ready` (no monitoring connector exists in this repository).

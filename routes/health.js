@@ -34,6 +34,8 @@ router.get('/ready', async (req, res) => {
     if (rdb) {
       const rows = await rdb.getSyncStatus();
       db = true;
+      // P05 — one SELECT 1 timing for the database-latency SLI (sli_30d). Never fails the probe; the answer is unchanged.
+      try { const t0 = process.hrtime.bigint(); await rdb.pgHandle().prepare('SELECT 1 AS ok').get(); require('../services/sliCounters').recordDbLatency(Number(process.hrtime.bigint() - t0) / 1e6); } catch (_) { /* reading optional */ }
       for (const r of rows || []) {
         const t = r && r.last_sync_at;
         if (t && (!last_job_at || String(t) > String(last_job_at))) last_job_at = t;
@@ -103,7 +105,7 @@ router.get('/api/health/deps', requireReportSession, async (req, res) => {
   const r = { tokenState: null, config: null, syncRows: null, restoreDrill: null, disk: null, pg: null };
   const { FRESHNESS_HOURS } = require('../services/sync/jobs');
   r.freshness = FRESHNESS_HOURS;
-  try { const t0 = process.hrtime.bigint(); await rdb.pgHandle().prepare('SELECT 1 AS ok').get(); r.pg = { latency_ms: Number((process.hrtime.bigint() - t0) / 1000000n) }; }
+  try { const t0 = process.hrtime.bigint(); await rdb.pgHandle().prepare('SELECT 1 AS ok').get(); r.pg = { latency_ms: Number((process.hrtime.bigint() - t0) / 1000000n) }; require('../services/sliCounters').recordDbLatency(Number(process.hrtime.bigint() - t0) / 1e6); }
   catch (e) { r.pg = { error: e.message }; }
   try { const ts = getTokenState && getTokenState(); if (ts) r.tokenState = { accessToken: !!ts.accessToken, expiresAt: ts.expiresAt, lastRefreshError: !!ts.lastRefreshError }; } catch (_) { /* unknown */ }
   try { r.config = await require('../services/reportConfig').getConfig(rdb.db); } catch (_) { /* unknown */ }
@@ -118,7 +120,13 @@ router.get('/api/health/deps', requireReportSession, async (req, res) => {
     const st = fs.statfsSync(fs.existsSync(dir) ? dir : require('path').join(__dirname, '..'));
     r.disk = { free_bytes: st.bavail * st.bsize, total_bytes: st.blocks * st.bsize };
   } catch (_) { /* unknown */ }
-  res.json(require('../services/healthDeps').compose(r));
+  const out = require('../services/healthDeps').compose(r);
+  // P05 — 30-day SLI readings (docs/ops/SLO-PROPOSAL.md); observation only, every target UNKNOWN.
+  try {
+    const S = require('../services/sliReadings');
+    out.sli_30d = await S.gather({ pg: rdb.pgHandle(), counters: require('../services/sliCounters').snapshot(), freshness: FRESHNESS_HOURS });
+  } catch (_) { out.sli_30d = null; }
+  res.json(out);
 });
 
   return router;
