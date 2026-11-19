@@ -67,6 +67,13 @@ const MEASURES = [
     sources: ['system_log'],
   },
   {
+    key: 'page_usage', label: 'Page usage (distinct users per page)', unit: 'users',
+    definition: 'distinct users who opened a page in the ISO week, from the page_viewed rows the shell writes '
+      + '(one row per user × page × day, routes/pageUsage.js). Persona column = the role tier recorded on the day of the '
+      + 'view; site = the user\'s site. A visit is NOT business activity (see active users). No target is set.',
+    sources: ['system_log (category ux, action page_viewed)', 'users'],
+  },
+  {
     key: 'metrics_unknown_or_stale', label: 'Pilot metrics UNKNOWN or stale', unit: '%',
     definition: 'share of published metric-registry entries whose source module has never synced (UNKNOWN) or is past '
       + 'its freshness limit (STALE), with the limits of services/publishGate.js SOURCES; modules typed into the app '
@@ -290,6 +297,21 @@ function buildReport(o = {}) {
     sections.field_task_time = { rows: _sortRows([...g.values()].map((b) => ({ site: b.site, persona: b.persona, week: b.week, n: b.v.length, median_s: round1(median(b.v)), p75_s: round1(quantile(b.v, 0.75)) }))) };
   }
 
+  // P09 — page usage per site × tier × week × page (distinct users).
+  {
+    const g = new Map();
+    for (const v of o.pageViews || []) {
+      if (v == null || v.user_id == null || !v.page || !_inWindow(v.ts, from, to)) continue;
+      const site = _site(userSite(v.user_id)); if (!_siteOk(site, siteSet)) continue;
+      const persona = String(v.tier || 'unknown'), week = isoWeek(v.ts), page = String(v.page);
+      const k = `${site}\u0000${persona}\u0000${week}\u0000${page}`;
+      if (!g.has(k)) g.set(k, { site, persona, week, page, users: new Set() });
+      g.get(k).users.add(Number(v.user_id));
+    }
+    const rows = [...g.values()].map((b) => ({ site: b.site, persona: b.persona, week: b.week, page: b.page, n: b.users.size }));
+    sections.page_usage = { rows: rows.sort((a, b) => a.site.localeCompare(b.site) || a.persona.localeCompare(b.persona) || a.week.localeCompare(b.week) || a.page.localeCompare(b.page)) };
+  }
+
   // Registry freshness share (as of the run date).
   sections.metrics_unknown_or_stale = freshnessShare(o.metrics, o.lastOk, o.nowMs, o.policy);
 
@@ -338,6 +360,7 @@ function toMarkdown(rep) {
     if (!s.rows.length) { out.push('no data'); }
     else if (m.key === 'active_users') out.push(_mdTable(['Site', 'Persona', 'Week', 'Active users'], s.rows.map((r) => [r.site, r.persona, r.week, r.n])));
     else if (m.key === 'field_task_time') out.push(_mdTable(['Site', 'Kind', 'Week', 'n', 'Median (s)', 'p75 (s)'], s.rows.map((r) => [r.site, r.persona, r.week, r.n, r.median_s, r.p75_s])));
+    else if (m.key === 'page_usage') out.push(_mdTable(['Site', 'Role tier', 'Week', 'Page', 'Users'], s.rows.map((r) => [r.site, r.persona, r.week, r.page, r.n])));
     else if (m.key === 'field_outcomes') out.push(_mdTable(['Site', 'Persona', 'Week', 'Applied', 'Refused', 'Failed', 'Pending', 'Conflicted'], s.rows.map((r) => [r.site, r.persona, r.week, r.applied, r.refused, r.failed, r.pending, r.conflicted == null ? 'not recorded' : r.conflicted])));
     else out.push(_mdTable(['Site', 'Persona', 'Week', 'n', 'Median (h)', 'Before'], s.rows.map((r) => [r.site, r.persona, r.week, r.n, r.median_h == null ? 'no data' : r.median_h, r.before])));
     if (m.key === 'active_users') {
@@ -365,6 +388,7 @@ function toCsv(rep) {
       rows++;
       if (m.key === 'active_users') lines.push([m.key, r.site, r.persona, r.week, r.n, r.n, '', '', '', '', '', '', ''].map(_csv).join(','));
       else if (m.key === 'field_outcomes') lines.push([m.key, r.site, r.persona, r.week, r.applied + r.refused + r.failed + r.pending, '', '', r.applied, r.refused, r.failed, r.pending, r.conflicted, ''].map(_csv).join(','));
+      else if (m.key === 'page_usage') lines.push([m.key, r.site, r.persona, r.week, r.n, r.n, '', '', '', '', '', '', r.page].map(_csv).join(','));
       else if (m.key === 'field_task_time') lines.push([m.key, r.site, r.persona, r.week, r.n, r.median_s, '', '', '', '', '', '', 'p75=' + r.p75_s].map(_csv).join(','));
       else if (m.key === 'metrics_unknown_or_stale') lines.push([m.key, '', r.module, '', r.metrics, '', '', '', '', '', '', '', r.state].map(_csv).join(','));
       else lines.push([m.key, r.site, r.persona, r.week, r.n, r.median_h, r.before, '', '', '', '', '', ''].map(_csv).join(','));

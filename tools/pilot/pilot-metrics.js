@@ -91,6 +91,10 @@ async function collect(client, { from, to }) {
     if (!d || d.task_ms == null) continue;
     fieldTiming.push({ site: d.site || null, kind: String(r.action).replace(/^field_/, '').replace(/_applied$/, ''), ts: r.ts, task_ms: d.task_ms });
   }
+  // P09 — page_viewed rows (user id + role tier only, never a name) → page usage per week
+  const pvRows = await q(client, `SELECT actor_id AS user_id, target AS page, details, ts FROM system_log
+                                  WHERE category = 'ux' AND action = 'page_viewed' AND actor_id IS NOT NULL AND substr(ts,1,10) BETWEEN $1 AND $2`, [from, to], missing, 'system_log');
+  const pageViews = pvRows.map((r) => { let d = null; try { d = typeof r.details === 'string' ? JSON.parse(r.details) : r.details; } catch (_) { d = null; } return { user_id: r.user_id, page: r.page, ts: r.ts, tier: d && d.tier ? d.tier : 'unknown' }; });
   const syncRows = await q(client, `SELECT job, MAX(COALESCE(finished_at, started_at)) AS last_ok FROM sync_runs WHERE status = 'ok' GROUP BY job`, [], missing, 'sync_runs');
   const lastOk = {}; for (const r of syncRows) lastOk[r.job] = r.last_ok;
   const sites = await q(client, `SELECT s.name, c.code FROM sites s LEFT JOIN site_module_codes c ON c.site_id = s.id`, [], missing, 'sites');
@@ -98,7 +102,7 @@ async function collect(client, { from, to }) {
   const commitments = await q(client, `SELECT status, created_at, technical_completed_at, verified_at FROM commitments`, [], missing, 'commitments');
   const ce = await q(client, `SELECT value FROM report_config WHERE key = 'commitments_enabled'`, [], missing, 'report_config');
   const commitmentsEnabled = !!(ce[0] && String(ce[0].value) === '1');
-  return { users, events, reports, pvActions, closures, field, fieldTiming, lastOk, sites, commitments, commitmentsEnabled, missing: [...new Set(missing)] };
+  return { users, events, reports, pvActions, closures, field, fieldTiming, pageViews, lastOk, sites, commitments, commitmentsEnabled, missing: [...new Set(missing)] };
 }
 
 // action_items carry no creation time: a group (lineage root) is created when its first report was
@@ -171,7 +175,7 @@ async function run({ argv = process.argv.slice(2), env = process.env, client = n
     }
     const metrics = require('../../services/metricRegistry').SEED.map((m) => ({ key: m.key, module: m.module, status: m.status }));
     const rep = P.buildReport({ from: o.from, to: o.to, siteSet: siteSetFor(o.site, d.sites), users: d.users, events: d.events, reports: d.reports,
-      pvActions: d.pvActions, closures: d.closures, field: d.field, fieldTiming: d.fieldTiming, metrics, lastOk: d.lastOk, nowMs: now.getTime(),
+      pvActions: d.pvActions, closures: d.closures, field: d.field, fieldTiming: d.fieldTiming, pageViews: d.pageViews, metrics, lastOk: d.lastOk, nowMs: now.getTime(),
       generatedAt: now.toISOString(), pseudonymKey: env.PILOT_PSEUDONYM_KEY || null });
     let md = P.toMarkdown(rep);
     if (d.missing.length) md += `\nTables not found in this database (counted as no data): ${d.missing.join(', ')}\n`;

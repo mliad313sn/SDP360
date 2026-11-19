@@ -1,15 +1,14 @@
 'use strict';
-// P09 — shared body of tests/e2e/p09-profile-tasks-{a,b}.spec.js. For each profile in the slice: create a synthetic
+// P09 — shared steps of tests/e2e/p09-profile-tasks-{a,b}.spec.js. For each profile in the slice: create a synthetic
 // account with the profile's minimal roles, turn workspace profiles on (throwaway database), open the landing page and
 // check that every task page is ONE click away (a shortcut on home.html, or the landing page itself) and opens without
 // a page error. AI-run on a synthetic organisation — NOT user acceptance; task choice is a PROPOSAL (D-P09-4).
 const assert = require('node:assert');
-const { runJourney } = require('./harness');
 const { person } = require('./uat');
 const { PROFILE_TASKS } = require('./profile-tasks');
 
-function profileJourney(name, ids) {
-  runJourney(name, async ({ app, world, browser, j, login, base }) => {
+function profileSteps(ids) {
+  return async ({ app, world, browser, j, login, base }) => {
     await world.setConfig({ workspace_profiles_enabled: '1' });
     const report = [];
     for (const id of ids) {
@@ -47,7 +46,7 @@ function profileJourney(name, ids) {
       } finally { await ctx.close(); }
     }
     j.rec.p09_profile_tasks = report;
-  }, { timeout: 600000 });
+  };
 }
 
-module.exports = { profileJourney };
+module.exports = { profileSteps };
