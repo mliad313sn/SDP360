@@ -2,9 +2,21 @@
 
 Read this first to resume. Short on purpose.
 
+## 2026-11-19 — CONTAINER RESET (read first)
+The cloud container was replaced while waiting on a usage limit. Lost: `/home/user/fixinst`, all worktrees
+`/home/user/w/*`, every local `qual/*` branch (P01–P04, P06–P10 DONE work was never pushed — the preamble forbade
+it), the scratchpad, node_modules, the PG cluster contents. Survived: only the remote branch.
+Recovery done: checkout is now `/home/user/SDP360` on branch `claude/sdp-dashboard-analysis-55b1oy`;
+`npm ci`; `service postgresql start`; role `sdptest` recreated (local-only). Pack + preamble are now IN THE REPO:
+`docs/agent-execution/prompt-pack/{prompt-pack.md,preamble.md}` (the assessment docx was not recoverable).
+All lots are RELAUNCHED from base `94265ac` (= `11d831a` + handoff notes). The table below lists the previous
+results as reference for what each lot found; their SHAs no longer exist.
+**New rule: merge + push each lot as soon as it reports** (only the designated branch may be pushed, so that is the
+only durable store). Never leave finished work only in a local branch.
+
 ## Where things stand
-- Working checkout: `/home/user/fixinst`, local branch `sdp-waves`. Push with
-  `git push origin sdp-waves:claude/sdp-dashboard-analysis-55b1oy` (the GitHub default branch; no `main`).
+- Working checkout: `/home/user/SDP360` (was `/home/user/fixinst`, local branch `sdp-waves`). Push with
+  `git push origin HEAD:claude/sdp-dashboard-analysis-55b1oy` (the GitHub default branch; no `main`).
 - Pushed head: `11d831a` (all goal-programme lots + PPM W1–W4 incl. connectors merged).
   After that, local commit `06f2cf2` (Gantt `outline:none` fix) is already in history before `11d831a`.
 - Last full suite (at `06f2cf2`, pre-connectors): 5311 tests, 5298 pass, **3 fail**, 10 skipped:
@@ -16,7 +28,7 @@ Read this first to resume. Short on purpose.
   Read that log; a journey failure is likely in W3/W4 project.html changes.
 
 ## Prompt-pack lots (agents, worktrees `/home/user/w/<lot>`, branches `qual/<lot>`, base `11d831a`)
-Shared rules: `$S/ppack-preamble.md`. Pack: `$S/prompt-pack.md`. Assessment: `$S/assessment.txt`.
+Shared rules: `docs/agent-execution/prompt-pack/preamble.md`. Pack: `docs/agent-execution/prompt-pack/prompt-pack.md`. Assessment: `$S/assessment.txt`.
 (`$S` = `/tmp/claude-0/-home-user/29383f9d-be53-578b-8518-d98e0b66dcb7/scratchpad` — ephemeral; the pack is also the user upload.)
 
 | Lot | Status | Head | Notes for merge |
