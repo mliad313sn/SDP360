@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks the two-site pilot on the TEST instance |
 | Decide after | [G01](G01-security-access-policy.md) Security: access policy and authorization matrix |
-| Target SHA | `dca7df89` |
+| Target SHA | `d9d4185f` |
 | Generated | 2026-11-19 |
 
 ## 1. Question to decide
