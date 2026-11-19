@@ -88,10 +88,13 @@ test('strict (PROPOSED) refuses the viewer action register and the fleet risk re
 
 test('every delivered export is logged under category export', async () => {
   await setCfg({ export_policy_strict: '0' });
+  // Only rows written by THIS export: an earlier test (strict matrix) logs the same action for the same actor, and the
+  // log write is fire-and-forget — waiting on "any row" could pick that older strict row (flake seen in a full run).
+  const t0 = new Date(Date.now() - 1000).toISOString();
   const r = await get('/api/reports/site-actions/export.xlsx?site=HGO', tok['xp-edA']); assert.equal(r.status, 200); await r.arrayBuffer();
   let rows = [];
   for (let i = 0; i < 30; i++) {
-    rows = await rdb.db.prepare(`SELECT actor, action, target, details FROM system_log WHERE category = 'export' AND actor = ? ORDER BY ts DESC`).all('xp-edA');
+    rows = await rdb.db.prepare(`SELECT actor, action, target, details FROM system_log WHERE category = 'export' AND actor = ? AND ts >= ? ORDER BY ts DESC`).all('xp-edA', t0);
     if (rows.some((x) => x.action === 'export_reports.site_actions')) break;
     await new Promise((s) => setTimeout(s, 100));
   }

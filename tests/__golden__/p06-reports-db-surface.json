@@ -137,6 +137,7 @@
  "listSiteMerakiMap": "function",
  "listSiteModuleCodes": "function",
  "listSites": "function",
+ "listSurveyResultIds": "async",
  "listSystemLog": "async",
  "listUnlabelledStaleOutages": "function",
  "listUsers": "function",

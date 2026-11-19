@@ -61,7 +61,7 @@ module.exports = function reportStudioRoutes(deps) {
     const u = req.reportUser;
     if (write && !isAuthor(u)) { res.status(403).json({ ok: false, error: 'report-author or admin role required' }); return null; }
     if (!isAuthor(u)) { if (r.status !== 'published') { res.status(403).json({ ok: false, error: 'draft runs are visible to authors only' }); return null; } if (r.site_id != null && !userSites.hasSite(u, r.site_id)) { res.status(403).json({ ok: false, error: 'run belongs to another site' }); return null; }
-      if (r.site_id == null && !groupRunReadable(u, await store.getTemplate(r.template_key))) { res.status(403).json({ ok: false, error: 'a group-wide report is visible to its audience only' }); return null; } }
+      if (r.site_id == null && !groupRunReadable(u, await store.getTemplate(r.template_key))) { httpFail(res, new Error('a group-wide report is visible to its audience only'), 403, { ok: false }); return null; } }
     return r;
   }
   // P11-F1: a group-wide run (site_id NULL) is not "every site's" run. A non-author reads it only when the
