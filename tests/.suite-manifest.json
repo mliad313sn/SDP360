@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 5416,
+ "total": 5438,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 18,
@@ -836,6 +836,10 @@
   "perf-calendar-helpdesk-scan.test.js": 1,
   "sli-readings.test.js": 5,
   "authz-handler-checks.test.js": 3,
-  "authz-outcomes.smoke.test.js": 5
+  "authz-outcomes.smoke.test.js": 5,
+  "force-switches.test.js": 2,
+  "switch-expiry.test.js": 2,
+  "switch-lots-rollback.test.js": 13,
+  "switch-lots.test.js": 5
  }
 }

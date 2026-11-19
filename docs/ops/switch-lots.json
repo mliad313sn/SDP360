@@ -1,0 +1,409 @@
+{
+ "_readme": "AGENT-AUTHORED PROPOSAL (P03, prompt-pack). Every lot is PROPOSED; nothing here is a decision or an approval. Owner, canary site, dates, thresholds and rollback-trigger values are deliberately absent — they are human fields (docs/ops/flag-decisions.json). Validated and rendered by node tools/agent/switch-lots.js (--check in tests/switch-lots.test.js).",
+ "max_lot_size": 10,
+ "expiry": {
+  "max_days_on_without_decision": null,
+  "_note": "N is the owner's to set (prompt-pack P03 step 7). While null the expiry test is not armed and says so; the pure check is unit-tested with fixtures."
+ },
+ "lots": [
+  {
+   "id": "L01",
+   "title": "Daily work journey",
+   "status": "PROPOSED",
+   "order_note": "Suggested first lot (prompt-pack P03).",
+   "profiles": "Every signed-in person (site coordinators, site IT, technicians, managers); data stewards for the data-quality board",
+   "changes": "Workspace profiles and settings page; Home shows one queue of the person's own work, per-block states, an 'Awaiting me' list; commitments become a register; role landing page; menu active entry from the address and site carried in links; data-quality board for the admin tier; feedback button.",
+   "risk": "low-medium (AI estimate): presentation and read-only queues; every reader keeps its own site check. commitments_enabled opens a new write surface (commitments register).",
+   "metric_candidate": "value-scoreboard: share of pilot users opening Home ▸ My work weekly; first-click success (FIRST-CLICK-PROTOCOL) on the daily tasks",
+   "switches": [
+    "workspace_profiles_enabled",
+    "ui_role_landing",
+    "ui_home_queue",
+    "ui_home_blocks",
+    "commitments_enabled",
+    "mywork_awaiting_me_enabled",
+    "ui_data_quality_page",
+    "ui_nav_active_from_url",
+    "ui_nav_carry_site",
+    "ui_feedback_enabled"
+   ]
+  },
+  {
+   "id": "L02",
+   "title": "PMO journey — portfolio and project reading",
+   "status": "PROPOSED",
+   "order_note": "Suggested second lot (prompt-pack P03).",
+   "profiles": "PMO, project managers, committee members, site editors reading their site's projects",
+   "changes": "Portfolio scoped to the reader's sites, list/board views, 'My projects' default, named project team and project roles, RACI per task, RAID log, composite project RAG, on-demand project report, Simplified/Expert switch.",
+   "risk": "medium (AI estimate): portfolio_site_scope_reads changes who reads which project (narrows reads to own sites); project roles feed capability checks.",
+   "metric_candidate": "share of active projects with a named team and an up-to-date RAG at the monthly committee",
+   "switches": [
+    "portfolio_site_scope_reads",
+    "portfolio_views_enabled",
+    "portfolio_my_projects_default",
+    "ppm_project_team_enabled",
+    "ppm_project_roles_enabled",
+    "ppm_raci_enabled",
+    "ppm_raid_enabled",
+    "ppm_project_rag_enabled",
+    "ppm_project_report_enabled",
+    "ppm_simplified_view_enabled"
+   ]
+  },
+  {
+   "id": "L03",
+   "title": "PMO journey — change control, baselines and gates",
+   "status": "PROPOSED",
+   "profiles": "PMO, committee, project managers; site editors (plan writes)",
+   "changes": "Baseline written at approval, committee re-baseline, change requests (with simulation), gate checklists, MS-Project-style baseline slots, DCMA schedule check, templates; editors of the project's site may write plans.",
+   "risk": "HIGH (AI estimate): portfolio_editor_plan_writes WIDENS write access (site editors write plans that only the committee writes today) — STOP-AND-REPORT, access-policy owner decision required.",
+   "metric_candidate": "share of schedule changes going through a change request; number of re-baselines per project per quarter",
+   "switches": [
+    "ppm_baseline_versions",
+    "ppm_rebaseline_enabled",
+    "ppm_change_requests_enabled",
+    "ppm_cr_simulation_enabled",
+    "ppm_gate_checklist_enabled",
+    "ppm_baseline_slots_enabled",
+    "ppm_dcma_enabled",
+    "ppm_templates_enabled",
+    "portfolio_editor_plan_writes"
+   ]
+  },
+  {
+   "id": "L04",
+   "title": "PMO journey — scheduling, resources and collaboration",
+   "status": "PROPOSED",
+   "profiles": "PMO, schedulers, project managers, project teams",
+   "changes": "Task scheduling editor (modes, constraints, link types), interactive Gantt, calendars, resource pool and levelling proposals, team-load (capacity) view, board view, Now/Next/Later roadmap, append-only comments with in-app mentions.",
+   "risk": "medium (AI estimate): interactive Gantt writes through the existing task route and plan-write guard; capacity meaning undefined until CAPACITY-DATA-CONTRACT is signed.",
+   "metric_candidate": "share of pilot projects with a dependency-linked schedule; levelling proposals accepted vs rejected",
+   "switches": [
+    "ppm_schedule_engine_v2_ui",
+    "ppm_gantt_v2_enabled",
+    "ppm_calendars_enabled",
+    "ppm_resources_enabled",
+    "ppm_leveling_enabled",
+    "ppm_capacity_view",
+    "ppm_agile_board_enabled",
+    "ppm_roadmap_nnl_enabled",
+    "ppm_comments_enabled"
+   ]
+  },
+  {
+   "id": "L05",
+   "title": "PMO journey — time, money and benefits",
+   "status": "PROPOSED",
+   "profiles": "PMO, Finance controller, finance-viewer, benefit owners, CIO (annual pack)",
+   "changes": "Time entries and timesheet approval, earned value, budget periods, actuals FILE import (dry run first), mandatory currency, finance certification by a named verifier, benefit value classes and benefit owners as users, annual planning pack (draft).",
+   "risk": "HIGH (AI estimate): money surfaces — money stays admin tier + finance-viewer; certification must never be shown without a named verifier; actuals import is a manual file, never a Pronto connector (boundary).",
+   "metric_candidate": "share of projects with actuals reconciled to budget periods each month; certified vs uncertified money tiles",
+   "switches": [
+    "ppm_time_entries_enabled",
+    "ppm_timesheet_approval_enabled",
+    "ppm_evm_enabled",
+    "ppm_budget_periods_enabled",
+    "actuals_import_enabled",
+    "finance_currency_required",
+    "finance_certification_enabled",
+    "benefit_value_class_enabled",
+    "benefit_owner_link_enabled",
+    "ppm_annual_pack_enabled"
+   ]
+  },
+  {
+   "id": "L06",
+   "title": "PMO journey — optional plan exchange (extras)",
+   "status": "PROPOSED",
+   "profiles": "PMO and project teams that plan in an external tool; IT admin (credentials)",
+   "changes": "MSPDI XML and P6 XER exchange, .mpp import through a locally installed converter, read-only Jira / Azure DevOps pulls, offline task edits queued on the project page.",
+   "risk": "medium (AI estimate): optional extras only (boundary 2026-11-12: the native tool must stay fully usable alone); Jira/AzDO need credentials (human); offline edits need a field test.",
+   "metric_candidate": "number of plans exchanged without manual re-keying; offline queue items stuck (should be zero)",
+   "switches": [
+    "ppm_mspdi_enabled",
+    "ppm_xer_enabled",
+    "ppm_mpp_import_enabled",
+    "ppm_jira_sync_enabled",
+    "ppm_azdo_sync_enabled",
+    "ppm_offline_edit_enabled"
+   ]
+  },
+  {
+   "id": "L07",
+   "title": "Roadmap publication and portfolio sensitivity",
+   "status": "PROPOSED",
+   "profiles": "Service & Support Manager, PMO publication owner, committee, exec readers of the monthly pack, incubation coordinators",
+   "changes": "Publish Roadmap Manager into the portfolio (dry run → apply → parity), audience snapshots with optional public link (never amounts), soft delete with two-person rule for portfolio nodes, sensitive projects, portfolio slide in the exec pack, incubation-born RFIs in the queue.",
+   "risk": "medium (AI estimate): public share link for site/programme snapshots (never amounts — to verify in the lot run); soft delete is the rollback of a publication.",
+   "metric_candidate": "roadmap parity checks clean after publication; snapshots published per audience",
+   "switches": [
+    "soft_delete_enabled",
+    "soft_delete_two_person",
+    "roadmap_publication_enabled",
+    "roadmap_audience_publication_enabled",
+    "portfolio_sensitive_projects",
+    "exec_pack_portfolio_slide",
+    "incubation_rfi_link_enabled"
+   ]
+  },
+  {
+   "id": "L08",
+   "title": "Governance cadence — decisions, reviews, handovers",
+   "status": "PROPOSED",
+   "profiles": "Governance committee chair, committee members, site managers, incident and problem owners, site IT leads (shifts)",
+   "changes": "Decision lifecycle and mandatory motive, site obligations count decisions, draft Monday agendas (nothing sent), controls register (candidates), post-incident reviews, problem candidates, handoffs register, shift handover, A01 escalation of commitments without a due date.",
+   "risk": "medium (AI estimate): new mandatory fields change daily gestures; nothing is sent (handoff notifications stay dark in the keep list).",
+   "metric_candidate": "share of committee decisions with owner + due date + motive; handoffs accepted within the shift",
+   "switches": [
+    "decision_lifecycle_enforced",
+    "decision_motive_required",
+    "obligations_include_decisions",
+    "agenda_cron_enabled",
+    "controls_register_enabled",
+    "pir_reviews_enabled",
+    "problem_candidates_enabled",
+    "handoffs_enabled",
+    "shift_handover_enabled",
+    "a01_missing_due_date"
+   ]
+  },
+  {
+   "id": "L09",
+   "title": "KPI trust — read-only explanations on dashboards",
+   "status": "PROPOSED",
+   "profiles": "All dashboard readers; KPI committee",
+   "changes": "Base population line, sample-size warnings (only once a min_sample is adopted), definition drawer, metric explanation, small multiples, shareable URL filters, human-entered chart notes with a source, red-tile → action links (needs commitments), value scoreboard, translated pages.",
+   "risk": "low (AI estimate): display only, no figure the server did not send; nothing is certified by showing a definition.",
+   "metric_candidate": "drill/definition-drawer opens per week; questions to the KPI committee about 'what does this number mean'",
+   "switches": [
+    "ui_kpi_base_line",
+    "ui_kpi_sample_size",
+    "ui_kpi_definition_drawer",
+    "metric_explain_enabled",
+    "ui_small_multiples",
+    "ui_url_filters",
+    "chart_annotations_enabled",
+    "dashboard_red_action_links",
+    "value_scoreboard_enabled",
+    "ui_i18n_pages"
+   ]
+  },
+  {
+   "id": "L10",
+   "title": "Reporting rhythm — reminders, drift and deck clarity",
+   "status": "PROPOSED",
+   "profiles": "Site coordinators, Service & Support Manager, reporting owner, admins, HR/department heads (roll-up)",
+   "changes": "Report drift banner, 'Other (n)' bucket on deck charts, alert digest grouped by rule, in-app schedule reminders, weekly-report nudges, action-ageing reminders, connector health page, department roll-up.",
+   "risk": "low-medium (AI estimate): in-app only; deck output changes (golden fingerprint expected to move for exec_deck_other_bucket).",
+   "metric_candidate": "weekly reports submitted on time (WEEKLY-REPORT-STOPWATCH); overdue site actions",
+   "switches": [
+    "report_drift_banner",
+    "exec_deck_other_bucket",
+    "alert_group_by_rule",
+    "schedule_reminders_enabled",
+    "weekly_report_nudges_enabled",
+    "action_aging_reminders_enabled",
+    "connector_health_page_enabled",
+    "department_rollup_enabled"
+   ]
+  },
+  {
+   "id": "L11",
+   "title": "Site operations evidence — inspections, field, assets, WAN",
+   "status": "PROPOSED",
+   "profiles": "Inspection owner, technicians (field app), Finance, Network owner",
+   "changes": "Repeat findings, independent verification of Critical/High corrective actions, field review step and task timing baseline, certified asset-money display, WAN SLA contract evidence required, WAN SLA claims register.",
+   "risk": "medium (AI estimate): money display (admin tier + finance-viewer only); claims e-mail never leaves while the WAN notify arm is dark.",
+   "metric_candidate": "share of Critical/High actions independently verified; field form time per task (baseline only)",
+   "switches": [
+    "insp_repeat_findings",
+    "insp_action_verify_enabled",
+    "field_review_step",
+    "field_task_timing",
+    "asset_money_certify_display",
+    "wan_sla_require_contract_evidence",
+    "wan_sla_claims_enabled"
+   ]
+  },
+  {
+   "id": "L12",
+   "title": "Access security hardening",
+   "status": "PROPOSED",
+   "profiles": "Security owner, super_admins, every account (sign-in), direction (executive read-only), data owner (exports)",
+   "changes": "Per-account sign-in throttle and failures-only limiter, nightly grant expiry, approval before a grant, emergency access, break-glass time box, recertification campaign (answers recorded only), executive read-only portfolio, strict export policy and watermark.",
+   "risk": "HIGH (AI estimate): can lock people out (throttle, approvals, read-only direction); break-glass must stay possible.",
+   "metric_candidate": "expired grants ended per night; sign-in lock-outs reported to the helpdesk",
+   "switches": [
+    "auth_account_throttle_enabled",
+    "login_limit_failures_only",
+    "access_grant_expiry_job",
+    "access_require_approval",
+    "emergency_access_enabled",
+    "breakglass_timebox_enabled",
+    "access_recert_enabled",
+    "portfolio_executive_readonly",
+    "export_policy_strict",
+    "export_watermark_enabled"
+   ]
+  },
+  {
+   "id": "L13",
+   "title": "Operations resilience — sync drift, delivery failures, restore, identity",
+   "status": "PROPOSED",
+   "profiles": "Platform/ops owner, data owners per flow, Information Security, data owner (site codes)",
+   "changes": "Drift alerts through the existing sync alert path, delivery-failure alerts, full restore drill (TEST instance), Entra deprovisioning DRY RUN, controlled 409 on shared site codes.",
+   "risk": "medium (AI estimate): alerts use the already-armed sync alert path (recipients needed); site_code_shared_block refuses saves until the data owner fixes shared codes.",
+   "metric_candidate": "sync drift alerts acknowledged; restore drill RTO measured (no threshold set here)",
+   "switches": [
+    "sync_drift_alerts",
+    "delivery_failure_alert_enabled",
+    "restore_drill_full",
+    "entra_deprovision_enabled",
+    "site_code_shared_block"
+   ]
+  }
+ ],
+ "keep": {
+  "armed_in_production": {
+   "reason": "Outbound send. The code default is dark but CLAUDE.md (2026-09-23) records it ARMED in production; the owner must record a keep decision for the production value — not a lot activation.",
+   "switches": [
+    "weekly_report_send_enabled",
+    "scoreboard_send_enabled",
+    "hygiene_send_enabled",
+    "asset_group_send_enabled"
+   ]
+  },
+  "outbound": {
+   "reason": "Sends something outside the server (e-mail, Teams, webhook, scheduled publication, source-system write). Stays dark until a reviewed recipient list, a dry run and the notifications_stop test (alert_external_enabled prerequisite) — a separate outbound decision, not a journey lot.",
+   "switches": [
+    "alert_external_enabled",
+    "asset_new_alert_enabled",
+    "asset_reminder_send_enabled",
+    "commitment_notify_enabled",
+    "handoff_notify_enabled",
+    "teams_sla_enabled",
+    "publish_cron_enabled",
+    "ppm_report_send_enabled",
+    "sla_wan_config.notify.enabled"
+   ]
+  },
+  "source_system_write": {
+   "reason": "Writes to ServiceDesk Plus. Boundary: source systems are read-only. Keep dark; any activation is a CAB/owner decision outside this plan.",
+   "switches": [
+    "sdp_api_write_enabled"
+   ]
+  },
+  "kill_switch": {
+   "reason": "Emergency stop for every notification; dark is its correct resting state.",
+   "switches": [
+    "notifications_stop"
+   ]
+  },
+  "not_a_switch": {
+   "reason": "A setting or a recorded fact, not a behaviour switch — the register counts it as dark only because its default is '0'. PROPOSED: exclude it from the dark list in tools/agent/flag-register.js (reclassification; no code removal).",
+   "switches": [
+    "smtp_secure",
+    "asset_replacement_uplift_pct",
+    "group_report_to_confirmed",
+    "exec_view_min_cell",
+    "tracker_engine_cutover"
+   ]
+  },
+  "irreversible_or_destructive": {
+   "reason": "Deletes, revokes or migrates one way; keep dark until the named prerequisite has run on TEST and the owner decides.",
+   "switches": [
+    "soft_delete_purge_enabled",
+    "entra_deprovision_apply",
+    "access_recert_apply",
+    "roadmap_redirect_to_portfolio"
+   ]
+  },
+  "committee_policy": {
+   "reason": "Changes a published number or an official policy; needs an adopted committee decision (DEC/D-xx) first — not an activation lot.",
+   "switches": [
+    "kpi_policy_enforced",
+    "site_codes_from_registry",
+    "sla_headline_definition",
+    "metric_programme_readers",
+    "dashboard_decision_kpis_seed",
+    "ui_exec_charts_v2",
+    "ppm_alerts_enabled",
+    "asset_cost_outlier_exclude"
+   ]
+  },
+  "external_precondition": {
+   "reason": "Waits for a fact that does not exist yet (privacy notice, HSE evidence, non-UTC site, AI provider, real-device field sessions, installer E2E on TEST).",
+   "switches": [
+    "ux_event_telemetry",
+    "qualification_check_enabled",
+    "site_local_calendar",
+    "ai_commentary_stale_block",
+    "field_outbox_resolve_enabled",
+    "frozen:installer_safety_parity"
+   ]
+  }
+ },
+ "retire": [
+  {
+   "key": "frozen:tracker_green_band_90",
+   "reason": "Pseudo-switch for a frozen deployment lot. The sibling repository's CLAUDE.md (step 5, DEC-4, 2026-10-22) records the tracker freeze as RELEASED and the files shipped by hand. If the owner confirms production carries commit 437a80f, the entry is dead.",
+   "remove": "the FROZEN_FALLBACK entry in tools/agent/flag-register.js (no product code)"
+  },
+  {
+   "key": "frozen:tracker_weighted_donut",
+   "reason": "Same release as above (commit b681083, App.jsx).",
+   "remove": "the FROZEN_FALLBACK entry in tools/agent/flag-register.js (no product code)"
+  },
+  {
+   "key": "opmanager_tls_insecure",
+   "reason": "Superseded by opmanager_ca_bundle (the client logs a warning telling the operator to paste the CA bundle and set it back to 0). Turning it on disables TLS verification; it has no place in an activation lot.",
+   "remove": "the key in services/reportConfig.js DEFAULTS, the tlsInsecure branch in services/opmanagerClient.js and the admin field — only after the owner confirms production value is 0 and a CA bundle is pasted"
+  }
+ ],
+ "dependencies_extra": {
+  "a01_missing_due_date": [
+   "commitments_enabled"
+  ],
+  "mywork_awaiting_me_enabled": [
+   "commitments_enabled"
+  ],
+  "export_watermark_enabled": [
+   "export_policy_strict"
+  ],
+  "ppm_evm_enabled": [
+   "ppm_baseline_versions"
+  ],
+  "access_recert_apply": [
+   "access_recert_enabled"
+  ],
+  "entra_deprovision_apply": [
+   "entra_deprovision_enabled"
+  ],
+  "soft_delete_purge_enabled": [
+   "soft_delete_enabled"
+  ],
+  "ppm_report_send_enabled": [
+   "ppm_project_report_enabled"
+  ],
+  "roadmap_redirect_to_portfolio": [
+   "roadmap_publication_enabled"
+  ],
+  "commitment_notify_enabled": [
+   "commitments_enabled"
+  ],
+  "handoff_notify_enabled": [
+   "handoffs_enabled"
+  ],
+  "wan_sla_claims_enabled": [
+   "wan_sla_require_contract_evidence"
+  ]
+ },
+ "dependencies_soft": {
+  "ppm_comments_enabled": [
+   "notifications_stop"
+  ],
+  "wan_sla_claims_enabled": [
+   "sla_wan_config.notify.enabled"
+  ]
+ }
+}
