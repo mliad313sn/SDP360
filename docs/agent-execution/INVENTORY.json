@@ -1133,7 +1133,7 @@
    "parent": "meetings.html",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 19892,
+   "bytes": 20317,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -1245,7 +1245,7 @@
    "parent": "meeting.html",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 33143,
+   "bytes": 33570,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -1296,7 +1296,7 @@
    "parent": "meetings.html",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 18795,
+   "bytes": 19222,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -1473,7 +1473,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 44981,
+   "bytes": 44989,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/allocation-contract.test.js",
@@ -1517,7 +1517,7 @@
    "parent": "meeting.html",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 92407,
+   "bytes": 92510,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/allocation-contract.test.js",
