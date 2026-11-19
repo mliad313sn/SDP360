@@ -633,6 +633,7 @@ async function checkZohoViewSchema() {
   return results;
 }
 
+app.use(require('./services/sliCounters').loginCounter);   // P05 — sign-in SLI: counts login answers by status (no body, no user)
 // Zoho view schema health check — routes/health.js (M12-a).
 app.use(require('./routes/health')({ express, checkZohoViewSchema, requireReportSession, getRdb: () => rdb, getBuild: () => APP_VERSION, getTokenState: () => tokenState, getProvenance: () => PROVENANCE }));
 
