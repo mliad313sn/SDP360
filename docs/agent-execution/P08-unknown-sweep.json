@@ -1,0 +1,448 @@
+{
+ "generated_by": "tools/kpi/unknown-sweep.js --write",
+ "rules": [
+  {
+   "id": "comment",
+   "why": "Inside a comment — no code."
+  },
+  {
+   "id": "driver_rowcount",
+   "why": "Rows affected reported by the database driver (sqlite `changes` / pg `rowCount`): absent means nothing was written."
+  },
+  {
+   "id": "tally",
+   "why": "Counter / accumulator initialiser: the first occurrence of a key starts at 0 before +1 / +n. Nothing unknown is involved."
+  },
+  {
+   "id": "ordering",
+   "why": "Sort comparator / ranking key only — never displayed as a figure."
+  },
+  {
+   "id": "sequence",
+   "why": "Next version / reference / ordinal number (max + 1): an identifier, not a measure."
+  },
+  {
+   "id": "parameter",
+   "why": "Request / layout / policy parameter defaulting (offset, limit, horizon, cooldown, grace, tolerance, coordinates): not a measured value."
+  },
+  {
+   "id": "sql_flag",
+   "why": "SQL null-key or boolean normalisation (COALESCE(flag,0)=1, COALESCE(site_id,0)=? to match a NULL site, COALESCE(MAX(id),0) for an empty table) — no figure is produced."
+  },
+  {
+   "id": "time_parse",
+   "why": "Date / time component parsing (missing seconds = 0, cache timestamp absent = never) — not a KPI."
+  },
+  {
+   "id": "engine_input",
+   "why": "Activity-tracker engine input cell: an empty month cell IS an entry of 0 in the engine contract (byte-identical twin of engine.js)."
+  },
+  {
+   "id": "count_field",
+   "why": "Count of rows read from a COUNT/SUM (zero rows = a measured zero, the SQL SUM of no row being NULL). The enclosing block is null / absent when the source is not measured (the gate is upstream), so this 0 is never \"unknown\"."
+  }
+ ],
+ "total_hits": 430,
+ "reviewed": {
+  "inspection-pptx.js|8ab38856e9f6|1": {
+   "verdict": "justified",
+   "note": "Count from inspection-db.aggregate (SQL COUNT, always a number); the deck is only built when the aggregate exists.",
+   "text": "{ label: 'OPEN ACT.', value: agg.open_actions || 0, accent: C.amber, sub: 'not yet closed' },"
+  },
+  "meetings-db.js|e3d27838f222|1": {
+   "verdict": "fixed",
+   "note": "signoff_pct now null when no PV was held (was 0). The inner `|| 0` read COUNT columns (a measured zero), guarded by pvs > 0.",
+   "text": "signoff_pct: Number(cad.pvs || 0) > 0 ? Math.round((Number(sign.signed || 0) / Number(cad.pvs)) * 100) : null,"
+  },
+  "meetings-import-incubation.js|be8e5ed1de8f|1": {
+   "verdict": "justified",
+   "note": "Spreadsheet row number in an import error message (0 = unknown row) — not a figure.",
+   "text": "out.errors.push({ row: m.__row || 0, msg: `Skipped ${m.header.reference}: row has validation errors` });"
+  },
+  "meetings-import-incubation.js|45a41bed8947|1": {
+   "verdict": "justified",
+   "note": "Spreadsheet row number in an import error message — not a figure.",
+   "text": "out.errors.push({ row: m.__row || 0, msg: `Save failed for ${m.header.reference}: ${e.message}` });"
+  },
+  "meetings-import.js|45a41bed8947|1": {
+   "verdict": "justified",
+   "note": "Spreadsheet row number in an import error message — not a figure.",
+   "text": "out.errors.push({ row: m.__row || 0, msg: `Save failed for ${m.header.reference}: ${e.message}` });"
+  },
+  "reports-db.js|d4876e1f481b|1": {
+   "verdict": "justified",
+   "note": "oldest_days is null when the list is empty; an item without a date contributes 0 to the max of the others (the max is a lower bound, documented here).",
+   "text": "oldest_days: list.length ? Math.max(...list.map(c => c.age_days || 0)) : null,"
+  },
+  "reports-db.js|d40d86524744|1": {
+   "verdict": "justified",
+   "note": "COUNT(*) of survey sends — measured zero.",
+   "text": "const totalSent = sendCounts.total_sent || 0;"
+  },
+  "reports-db.js|b33cb850c29d|1": {
+   "verdict": "justified",
+   "note": "COUNT of responded sends — measured zero.",
+   "text": "const totalResponded = sendCounts.total_responded || 0;"
+  },
+  "reports-db.js|72d0c9dc4da7|1": {
+   "verdict": "justified",
+   "note": "Guarded by scored > 0 (null otherwise); satisfied is a COUNT.",
+   "text": "const csatPct = scored ? Math.round((tot.satisfied || 0) / scored * 100) : null;"
+  },
+  "reports-db.js|2845e898cac5|1": {
+   "verdict": "justified",
+   "note": "Guarded by scored > 0 (null otherwise); AVG over scored rows is non-null when scored > 0.",
+   "text": "const avgScore = scored ? Math.round((tot.avg_score || 0) * 10) / 10 : null;"
+  },
+  "reports-db.js|b789486c221b|1": {
+   "verdict": "justified",
+   "note": "COUNT of scored responses; every ratio below is guarded by sc > 0.",
+   "text": "const sc = r.scored || 0;"
+  },
+  "reports-db.js|248a7508ae90|1": {
+   "verdict": "justified",
+   "note": "Guarded by sc > 0 (null otherwise).",
+   "text": "avgRating: sc ? Math.round((r.avg_score || 0) * 10) / 10 : null,"
+  },
+  "reports-db.js|f89a00c84516|1": {
+   "verdict": "justified",
+   "note": "Guarded by sc > 0 (null otherwise).",
+   "text": "csatPct: sc ? Math.round((r.satisfied || 0) / sc * 100) : null,"
+  },
+  "reports-db.js|e79c8b5b6b8c|1": {
+   "verdict": "justified",
+   "note": "COUNT of scored responses — measured zero.",
+   "text": "totalResponses: tot.total_responses || 0, // scored responses (legacy semantics — CSAT/NPS source)"
+  },
+  "reports-db.js|02fd3e64cf80|1": {
+   "verdict": "justified",
+   "note": "Every converted column is COUNT(*) or SUM(CASE … THEN 1 ELSE 0) — never NULL on a returned group.",
+   "text": "const num = (r) => { for (const k of Object.keys(r)) if (k !== 'grp' && k !== 'ym') r[k] = Number(r[k]) || 0; return r; };"
+  },
+  "reports-pptx-shared.js|32a9150f69e0|1": {
+   "verdict": "justified",
+   "note": "Trend arrays built by meetings-db with backfilled months: a month with no issue opened/closed is a measured 0.",
+   "text": "const pairs = tr.months.map((m, i) => `${m}: ${tr.opened[i] || 0}↑/${tr.closed[i] || 0}↓`).join(' ');"
+  },
+  "risk-register-export.js|768e1d535fc7|1": {
+   "verdict": "justified",
+   "note": "Occurrence count: a site × domain with no classified incident IS 0 occurrences (the register lists every site).",
+   "text": "const count = siteCounts[domain.label] || 0;"
+  },
+  "routes/ppmEngine.js|627fb466ca81|1": {
+   "verdict": "justified",
+   "note": "MS Project export: link lag absent = 0 days (MSPDI default) — schedule data, not a KPI.",
+   "text": "predecessors: (t.depends_on || []).filter((d) => ids.has(Number(d))).map((d) => { const l = links.get(Number(d)) || {}; return { uid: Number(d), type: l.type || 'FS', lag: l.lag || 0, lag_unit: ENGINE.lagUnit(l.lag_unit)"
+  },
+  "routes/siteAwareness.js|4e9abfe9816c|1": {
+   "verdict": "justified",
+   "note": "Target parameter (dept_target, 3) — not a measure; a missing target gives \"no target\" downstream.",
+   "text": "const target = Number(k.dept_target) || 0;"
+  },
+  "routes/siteAwareness.js|8fb8c481f19b|1": {
+   "verdict": "justified",
+   "note": "Counts only; success_pct keeps null explicitly on the same line.",
+   "text": "emergency: chg.emergency || 0, success_pct: (chg.success_pct == null ? null : chg.success_pct), window_days: 90 },"
+  },
+  "routes/siteAwareness.js|91a19cbe6cc5|1": {
+   "verdict": "proposed-fix (human/owner decision; today kept)",
+   "note": "tracker ps2() itself returns 0 for a pillar with no active activity (frozen engine twin, engine.js:235); the `|| 0` only guards NaN. Showing null instead needs an engine-contract change in BOTH twins — owner decision.",
+   "text": "const pillarScores = pillars.map((p) => ({ name: p, pct: Math.round((trackerScore.ps2(D, code, p, yr, mo) || 0) * 100) }));"
+  },
+  "server.js|7e782bf93e8e|1": {
+   "verdict": "justified",
+   "note": "Rate-limit counter (writes per IP) — not a figure.",
+   "text": "const written = _denyWrites.get(ip) || 0;"
+  },
+  "server.js|826f6610fbe3|1": {
+   "verdict": "justified",
+   "note": "Sync bookkeeping counter; null syncMeta already gives 0 = \"never synced\" in an admin status payload, freshness is reported separately.",
+   "text": "sync_count: syncMeta ? (syncMeta.sync_count || 0) : 0,"
+  },
+  "server.js|afd096d75d7d|1": {
+   "verdict": "justified",
+   "note": "Sync bookkeeping counter (rows deleted last run) — not a KPI.",
+   "text": "deleted_last_run: syncMeta ? (syncMeta.deleted_count || 0) : 0,"
+  },
+  "server.js|6f11580b5ac5|1": {
+   "verdict": "justified",
+   "note": "parseInt of an Analytics pivot cell \"Total Requests\" (empty = 0 requests in that cell).",
+   "text": "return { tier: curTier, site: curSite, count: parseInt(r['Total Requests'])||0 };"
+  },
+  "server.js|05b2656ce232|1": {
+   "verdict": "justified",
+   "note": "parseInt of an Analytics pivot cell \"Total Requests\"; slaComp on the same line is parsed separately (null when empty).",
+   "text": "return { tier: curTier, site: curSite, group: curGroup, count: parseInt(r['Total Requests'])||0, slaComp: parseFloat(r['SLA Compliance %'])||null };"
+  },
+  "server.js|65f3062b8b9c|1": {
+   "verdict": "justified",
+   "note": "Action count per report week (Map of COUNTs): a week with no action IS 0.",
+   "text": "res.json({ weeks: weeks.map(w => ({ ...w, action_count: counts.get(w.report_id) || 0 })) });"
+  },
+  "services/assetForecast.js|62f4294660cb|1": {
+   "verdict": "justified",
+   "note": "After the money gate (currency resolved, amount > 0) toUsd cannot return null; the `|| 0` is a NaN guard. Coverage % travels separately.",
+   "text": "const usd = ctx.toUsd(r.purchase_cost, r.site) || 0;"
+  },
+  "services/assetForecast.js|02cd57886c0f|1": {
+   "verdict": "justified",
+   "note": "Year bucket of the forecast: a year with no eligible asset sums to 0 (coverage banner states the base).",
+   "text": "const hardware_usd = Math.round(hwByYear.get(y) || 0);"
+  },
+  "services/assetForecast.js|600fb935d167|1": {
+   "verdict": "justified",
+   "note": "Year bucket: a year with no eligible licence sums to 0 (coverage banner states the base).",
+   "text": "const software_usd = Math.round(swByYear.get(y) || 0);"
+  },
+  "services/assetForecast.js|5aeda74038a9|1": {
+   "verdict": "justified",
+   "note": "After the money gate, toUsd cannot be null; NaN guard.",
+   "text": "const costUsd = ctx.toUsd(r.purchase_cost, r.site) || 0;"
+  },
+  "services/dashboardCsv.js|efe7b1682895|1": {
+   "verdict": "justified",
+   "note": "Severity ordering of freshness states — ranking key only.",
+   "text": "for (const s of (v && v.sources) || []) { const cur = byModule.get(s.module); if (cur == null || (ORDER[s.state] || 0) > (ORDER[cur] || 0)) byModule.set(s.module, s.state); }"
+  },
+  "services/deckGovernanceV2.js|edb86e79fd6e|1": {
+   "verdict": "justified",
+   "note": "Fidelity port of the author's governance deck v2 scoring (dimPts): an absent measure scores the lowest band by his model. Pinned by tests/deck-governance-v2.test.js. A null-aware variant is a KPI-committee question (dispute D-02 family).",
+   "text": "const find = Number(m.findPerInsp) || 0;"
+  },
+  "services/deckGovernanceV2.js|04aa66bb212b|1": {
+   "verdict": "justified",
+   "note": "Same fidelity port (dimPts) — see :39.",
+   "text": "const fix = Number(m.fixPct) || 0;"
+  },
+  "services/deckGovernanceV2.js|80ca973e27cc|1": {
+   "verdict": "justified",
+   "note": "Same fidelity port (dimPts) — see :39.",
+   "text": "meetings: _band(Number(m.meetings) || 0, 8, 6),"
+  },
+  "services/deckGovernanceV2.js|ed33144f0818|1": {
+   "verdict": "justified",
+   "note": "Same fidelity port (dimPts) — see :39.",
+   "text": "capture: _band(Number(m.capture) || 0, 1.5, 0.5),"
+  },
+  "services/deckGovernanceV2.js|f4ec430ede44|1": {
+   "verdict": "justified",
+   "note": "Same fidelity port (dimPts) — see :39.",
+   "text": "inspections: _band(Number(m.inspections) || 0, 4, 2),"
+  },
+  "services/deckGovernanceV2.js|770438f15fcc|1": {
+   "verdict": "justified",
+   "note": "Same fidelity port (dimPts). Note: signoff comes from meets.length ? … : 0 (no meeting = 0 %, the author's model). Listed for the committee with D-02.",
+   "text": "signoff: _band(Number(m.signoff) || 0, 70, 40),"
+  },
+  "services/deckGovernanceV2.js|3794a95e6fc4|1": {
+   "verdict": "justified",
+   "note": "Ground-rule check (meetings ≥ 12, inspections ≥ 1): absent = rule not met, the author's model.",
+   "text": "return ((Number(m.meetings) || 0) >= 12 && incOk && (Number(m.inspections) || 0) >= 1)"
+  },
+  "services/deckSiteImpact.js|86bc798e13a1|1": {
+   "verdict": "justified",
+   "note": "Rows exist only for sites with tickets > 0, so fleetTickets > 0 and _pct is never null here; NaN guard.",
+   "text": "workload_pct: _pct(s.tickets || 0, fleetTickets) || 0,"
+  },
+  "services/deckSiteImpact.js|41dfeed1400a|1": {
+   "verdict": "justified",
+   "note": "Share of the fleet's missed SLAs: when the fleet missed none, every site's share is a measured 0 (no bar).",
+   "text": "miss_pct: _pct(s.missed || 0, fleetMissed) || 0,"
+  },
+  "services/deckSiteImpact.js|13edeb03a1d9|1": {
+   "verdict": "justified",
+   "note": "Counts inside a ratio that is null-guarded (closed ? … : null).",
+   "text": "ontime_pct: (s.closed || 0) ? _pct(s.on_time || 0, s.closed || 0) : null,"
+  },
+  "services/deckSiteImpact.js|97bab38667a4|1": {
+   "verdict": "justified",
+   "note": "Row exists only when tickets > 0 → denominator non-zero; NaN guard.",
+   "text": "incident_pct: _pct(s.incidents || 0, s.tickets || 0) || 0,"
+  },
+  "services/deckSiteImpact.js|ebe1648f3255|1": {
+   "verdict": "proposed-fix (human/owner decision; today kept)",
+   "note": "Empty deck (no site with a ticket) prints 0 % fleet incident rate; pinned by tests/deck-site-impact.test.js \"degrades safely\". PROPOSED: null (\"—\"). Display change on the Group IT deck → owner decision.",
+   "text": "const fleet_incident_pct = _pct(fleetIncidents, fleetTickets) || 0;"
+  },
+  "services/engagementStore.js|de9fdabcfcf4|1": {
+   "verdict": "justified",
+   "note": "API call log: response time absent = 0 ms recorded (telemetry, not a KPI).",
+   "text": "async function logCall(consumerId, { path, status, ms }) { await insert('api_calls', ['consumer_id', 'path', 'status', 'ms', 'called_at'], [Number(consumerId), String(path || '').slice(0, 300), Number(status) || 0, Numbe"
+  },
+  "services/execSummary.js|4a1adac00dd7|1": {
+   "verdict": "justified",
+   "note": "COUNT of active major incidents (reader returns a list length).",
+   "text": "status: { level, active_major_incidents: d.activeMajorIncidents || 0 },"
+  },
+  "services/moneyCoverage.js|116efc3ad727|1": {
+   "verdict": "justified",
+   "note": "Count of sites in a certification sentence (sites_covered is a COUNT).",
+   "text": "return `Non certifié — couvre ${cert.sites_covered || 0} site(s) / ${pct} % du parc ` +"
+  },
+  "services/opmAvailability.js|7cb85be0c2f4|1": {
+   "verdict": "justified",
+   "note": "Per-row durations in an Analytics availability row: an empty duration cell = no time in that state; the availability figure is null when the total is 0 (line 105 guard).",
+   "text": "const mu = parseDuration(r.uptime_dur) || 0, md = parseDuration(r.downtime_dur) || 0, mp = parseDuration(r.dependent_dur) || 0;"
+  },
+  "services/opmAvailability.js|c4bc696aa623|1": {
+   "verdict": "justified",
+   "note": "Guard: availability is computed only when some time was measured; otherwise null.",
+   "text": "if ((up || 0) + (down || 0) + (dep || 0) > 0) {"
+  },
+  "services/ppm/evm.js|3b25ec8612e2|1": {
+   "verdict": "justified",
+   "note": "Sum of timesheet hours: an entry without hours contributes nothing (tally).",
+   "text": "return withHours.reduce((s, l) => s + l._entries.filter((e) => !upTo || day(e.day) <= upTo).reduce((h, e) => h + (num(e.hours) || 0), 0) * l._rate, 0);"
+  },
+  "services/ppm/evm.js|edd3a8dba8d6|1": {
+   "verdict": "justified",
+   "note": "Sum of timesheet hours (tally); rate stays null-aware.",
+   "text": "const rate = num(f.cost_rate), hours = es.reduce((s, e) => s + (num(e.hours) || 0), 0);"
+  },
+  "services/ppm/governanceW3Store.js|f093fb3e8618|1": {
+   "verdict": "justified",
+   "note": "Identifier stringification (id 0 = none) — not a figure.",
+   "text": "return String((r && r.id) || 0);"
+  },
+  "services/ppm/mspdi.js|771e40e56cb7|1": {
+   "verdict": "justified",
+   "note": "MSPDI XML parsing defaults (schedule exchange) — not a KPI.",
+   "text": "rates: kids(kid(r, 'Rates'), 'Rate').map((x) => { const n = (k) => { const v = txt(x, k); return v == null ? null : Number(v); }; return { table: RATE_TABLES[int(txt(x, 'RateTable')) || 0], from: dateOf(txt(x, 'RatesFrom"
+  },
+  "services/ppm/mspdi.js|ff3dab77b512|1": {
+   "verdict": "justified",
+   "note": "MSPDI XML parsing defaults — not a KPI.",
+   "text": "return { uid: int(txt(a, 'UID')), task_uid: int(txt(a, 'TaskUID')), resource_uid: int(txt(a, 'ResourceUID')), units_pct: u == null ? null : r2(Number(u) * 100), work_hours: wm == null ? null : r2(wm / 60), contour: CONTO"
+  },
+  "services/ppm/mspdi.js|ec905ad17e6c|1": {
+   "verdict": "justified",
+   "note": "MSPDI XML export defaults (lag 0) — not a KPI.",
+   "text": "predecessors: (t.predecessors || []).map((p) => ({ uid: Number(p.uid), type: LINK_CODE[String(p.type || 'FS').toUpperCase()] != null ? String(p.type || 'FS').toUpperCase() : 'FS', lag: nnum(p.lag) || 0, lag_unit: LAG_FMT"
+  },
+  "services/ppm/resources.js|400e7376f730|1": {
+   "verdict": "justified",
+   "note": "Scheduling engine: missing duration = 0-day milestone (CPM convention) — not a KPI.",
+   "text": "const cal = calOf(row.id), D = row.duration_days || 0, s0 = cal.ord(ENGINE.toDay(row.es_date)) + shift;"
+  },
+  "services/ppm/xer.js|f0814f42b290|1": {
+   "verdict": "justified",
+   "note": "Primavera XER calendar string template literal \"(0||…\" — no JavaScript || at all.",
+   "text": "const day = (d) => { const iso = d === 1 ? 7 : d - 1; return c.workdays.includes(iso) ? `(0||${d}()((0||0(s|08:00|f|12:00)())(0||1(s|13:00|f|17:00)())))` : `(0||${d}()())`; };"
+  },
+  "services/ppm/xer.js|ddb652318934|1": {
+   "verdict": "justified",
+   "note": "Primavera XER calendar string template literal — no JavaScript ||.",
+   "text": "for (const e of c.exceptions) for (let d = e.from; d <= e.to; d = nextDay(d)) exc.push(`(0||${k++}(d|${dateToSerial(d)})(${e.working ? '(0||0(s|08:00|f|12:00)())(0||1(s|13:00|f|17:00)())' : ''}))`);"
+  },
+  "services/ppmBudgetPeriods.js|f789c861e1e7|1": {
+   "verdict": "justified",
+   "note": "EAC is null when BOTH sides are unknown; one missing side counts 0 by the PPM convention (no actual yet / no remaining forecast). Coverage of actuals is reported separately.",
+   "text": "const eac = actual_to_date == null && remaining_forecast == null ? null : Math.round(((actual_to_date || 0) + (remaining_forecast || 0)) * 100) / 100;"
+  },
+  "services/reconcileView.js|cadeaa70af35|1": {
+   "verdict": "justified",
+   "note": "Duplicate-serial test (count > 1) — boolean.",
+   "text": "return !!s && (serialCount.get(s) || 0) > 1;"
+  },
+  "services/reconcileView.js|d32ab87c0f80|1": {
+   "verdict": "justified",
+   "note": "Total machines per OU (Map of counts) — measured zero.",
+   "text": ".map((e) => Object.assign(e, { total: totalByDn.get(e.ou_dn) || 0 }))"
+  },
+  "services/reportAnalysis.js|39578cacd438|1": {
+   "verdict": "justified",
+   "note": "Count of overdue items / max age for a finding text; only emitted when od > 0.",
+   "text": "const od = (w.items || []).filter(i => i.overdue).length; if (od) findings.push({ kind: 'overdue_actions', id, title: w.title, n: od, oldest: Math.max(0, ...(w.items || []).map(i => Number(i.age_days) || 0)) });"
+  },
+  "services/reportPayload.js|cc99a9f08b6c|1": {
+   "verdict": "justified",
+   "note": "Tracker input cell: an empty month IS an entry of 0 in the engine contract (same as engine.js gi()).",
+   "text": "const v = months[month - 1] || 0;"
+  },
+  "services/reportPayload.js|808caa987f26|1": {
+   "verdict": "proposed-fix (human/owner decision; today kept)",
+   "note": "avg_score of the tracker block on the Group IT deck: the fleet trend returns 0 for a period with no scored site, so \"Avg Score 0 %\" can mean \"no data\". PROPOSED: null + render.py \"—\" (render.py must accept None — tools/exec-pptx, other area). Owner decision.",
+   "text": "out.avg_score = out.trends.fleet[TREND_LEN - 1] || 0;"
+  },
+  "services/reportPayload.js|033a324025a9|1": {
+   "verdict": "justified",
+   "note": "Comparison guard (\"server value > 0 wins over a browser 0\") — no figure produced.",
+   "text": "&& (enriched[renderKey] || 0) > 0) {"
+  },
+  "services/reportPayload.js|0b75eff783a1|1": {
+   "verdict": "justified",
+   "note": "Comparison guard (KEEP_SERVER_WHEN_BROWSER_IS_ZERO) — no figure produced.",
+   "text": "if (browserVal === 0 && (enriched[key] || 0) > 0) return; // keep server"
+  },
+  "services/reportStore.js|0c47909e326a|1": {
+   "verdict": "justified",
+   "note": "Report-run row mapping: deviation counter / ids — not a KPI.",
+   "text": "const runRow = (r, { full = false } = {}) => r && ({ ...r, id: Number(r.id), site_id: r.site_id == null ? null : Number(r.site_id), deviation: Number(r.deviation) || 0, figures: full ? P_(r.figures, null) : undefined, an"
+  },
+  "services/reportStore.js|b3c3592e8371|1": {
+   "verdict": "justified",
+   "note": "Insert parameters (ids, flags) — not a KPI.",
+   "text": "[String(templateKey), siteId == null ? null : Number(siteId), windowLabel || null, 'draft', J(figures), J(analysis), J(commentary), html || null, provider || null, Number(deviation) || 0, user ? user.id : null, now()]);"
+  },
+  "services/reportStore.js|8017a2d7c27d|1": {
+   "verdict": "justified",
+   "note": "Status update parameters — not a KPI.",
+   "text": "const p = { status }; if (status === 'reviewed' || status === 'rejected') { p.reviewed_by = user ? user.id : null; p.reviewed_at = now(); p.review_note = note == null ? null : String(note).slice(0, 2000); if (rating != n"
+  },
+  "services/reviewDashboard.js|75e53e0c7b37|1": {
+   "verdict": "justified",
+   "note": "Fidelity port of the author's IT Review renderVals (MTTR sparkline: month without resolution = 0). Pinned by tests/review-fidelity.test.js (72 combos) — changing it breaks the port; committee/author question.",
+   "text": "return median(v) || 0;"
+  },
+  "services/roadmapEvidence.js|29bfdad811e5|1": {
+   "verdict": "justified",
+   "note": "Hygiene by_kind count (absent kind = 0 gaps); completeness is null when total = 0.",
+   "text": "return v == null ? 0 : (Number(v) || 0);"
+  },
+  "services/roadmapEvidence.js|654e12d183c6|1": {
+   "verdict": "justified",
+   "note": "COUNT of SDP assets; coverage % is computed only when an import exists (null / \"—\" otherwise).",
+   "text": "sdp_total: Number(sdpTotal) || 0,"
+  },
+  "services/roadmapEvidence.js|2e7e2724ce28|1": {
+   "verdict": "justified",
+   "note": "Guarded by total > 0 (null otherwise); n is a COUNT.",
+   "text": "const pct = (n) => (total > 0 ? Math.round((100 * (Number(n) || 0)) / total) : null);"
+  },
+  "services/scoreboardAliases.js|7fa3d59373ee|1": {
+   "verdict": "proposed-fix (human/owner decision; today kept)",
+   "note": "Effort mean per meetings code: a label with a null effort_score counts as 0 and drags the mean down (known limit, CLAUDE.md 2026-07-22). PROPOSED: skip null scores (n not incremented). Changes the scoreboard figure → committee/owner decision.",
+   "text": "cur.sum += Number(r.effort_score) || 0;"
+  },
+  "services/siteActionsRegister.js|545a23da5ddf|1": {
+   "verdict": "justified",
+   "note": "Open actions per issue (Map of COUNTs) — measured zero.",
+   "text": "open_actions: openByIssue.get(i.id) || 0,"
+  },
+  "services/siteReportAdapters.js|53fe2746f7f3|1": {
+   "verdict": "justified",
+   "note": "Worst finding status search; null when nothing inspected (done = 0).",
+   "text": "const worst = _RISK_ORDER.find(s => (byStatus[s] || 0) > 0) || (done > 0 ? 'low' : null);"
+  },
+  "services/sync/jobs.js|c311a8a15054|1": {
+   "verdict": "justified",
+   "note": "Sync bookkeeping: rows written by the job (failOnZero flags a 0) — not a KPI.",
+   "text": "job: legacyJob('opmanager.availability', () => req('opmanager/sync-availability').main({ fetchView: d.fetchView }), { failOnZero: true, rowsOf: (x) => Number((x && (x.rows ?? x.devices)) || 0) }) },"
+  },
+  "services/sync/jobs.js|fb0c4eb51ae0|1": {
+   "verdict": "justified",
+   "note": "Sync bookkeeping counter — not a KPI.",
+   "text": "list.push({ name: 'access.entra_deprovision', cron: '55 3 * * *', freshnessHours: 30, optional: true, job: legacyJob('access.entra_deprovision', () => entraDeprovisionRun(d), { maxAttempts: 1, rowsOf: (x) => Number((x &&"
+  },
+  "zoho-sync.js|8d8eff2cffeb|1": {
+   "verdict": "justified",
+   "note": "Zoho export cell \"Service Request\" (0/1 flag; empty = 0).",
+   "text": "service_request: parseInt(r['Service Request'] ?? '0', 10) || 0,"
+  },
+  "zoho-sync.js|63684a20abf3|1": {
+   "verdict": "justified",
+   "note": "Zoho export cell \"Reopen Count\" (empty = never reopened).",
+   "text": "reopen_count: parseInt(r['Reopen Count'] || '0', 10) || 0,"
+  }
+ }
+}

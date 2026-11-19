@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 5312,
+ "total": 5316,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 18,
@@ -342,6 +342,7 @@
   "kpi-rag.test.js": 7,
   "kpi-request-sla.test.js": 4,
   "kpi-targets.smoke.test.js": 2,
+  "kpi-unknown-sweep.test.js": 3,
   "landing.test.js": 8,
   "licence-inventory.test.js": 3,
   "limit-clamp.test.js": 2,
@@ -680,7 +681,7 @@
   "site-open-actions-route.smoke.test.js": 3,
   "site-open-report-actions.test.js": 3,
   "site-report-actions.test.js": 3,
-  "site-report-adapters.test.js": 10,
+  "site-report-adapters.test.js": 11,
   "site-report-deps.test.js": 23,
   "site-report-helpdesk-weekly.test.js": 4,
   "site-report.test.js": 21,
