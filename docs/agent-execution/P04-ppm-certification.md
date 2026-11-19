@@ -214,8 +214,8 @@ Gantt v2 browser bench — 5000 tasks, 157.0.8103.78 (headless)
 ```
 
 - **Windowing: PASS** — of 5,000 rows only 31–41 bars and 186 grid cells exist in the DOM at any time.
-- **Memory: PASS** — heap flat across the soak (no growth over the last half). SOAKLINE
-- **60 fps: NOT MET.** A plain 130,000-px div scrolls at p50 16.7 ms in the same browser; the Gantt runs at p50 33–67 ms
+- **Memory: PASS** — heap flat across the soak (no growth over the last half). A long soak — `--soak=300` (300 × re-mount + 1 s full scroll, about 10 minutes, run 2026-11-19 11:45→) — stayed between 5.7 and 7.2 MB, last 6.0 MB, growth over the last half −0.3 MB, no page error.
+- **60 fps: NOT MET.** The long-soak run (lighter machine load) measured its 10 s scroll at p50 16.7 ms, p95 66.7 ms, 199 of 362 frames > 16.7 ms; the run above p50 66.6 ms, p95 200 ms — the figure moves with the sandbox load, more than half of the frames miss 16.7 ms in both. A plain 130,000-px div scrolls at p50 16.7 ms in the same browser; the Gantt runs at p50 33–67 ms
   (p95 133–200 ms), with the main thread busy the whole run. A CPU profile shows `paint()` (`public/lib/ganttV2.js`)
   spending about 12 ms of script per frame rebuilding the visible SVG through `innerHTML`, plus style / layout of an SVG
   sized to the whole plan (5,000 × 26 px tall). The same ratio holds at 1,000 tasks, so it is the per-frame repaint, not
