@@ -57,9 +57,11 @@ router.get('/ready', async (req, res) => {
       } catch (_) { /* run log optional for readiness */ }
     }
   } catch (e) { db = false; }
-  // Healthy answer keeps the public shape {ok, db, last_job_at}; `writable:false` is added only when read-only.
-  if (db && writable === false) return res.status(503).json({ ok: false, db, writable: false, last_job_at });
-  res.status(db ? 200 : 503).json({ ok: db, db, last_job_at });
+  // Healthy answer keeps the public shape {ok, db, last_job_at}; a read-only primary answers 503 with
+  // `writable:false` plus an `error` code (one response path — the probe body is not an httpError.fail body).
+  const readOnly = db && writable === false;
+  const body = readOnly ? { ok: false, db, writable: false, error: 'read_only', last_job_at } : { ok: db, db, last_job_at };
+  res.status(db && !readOnly ? 200 : 503).json(body);
 });
 
 router.get('/api/health/version', requireReportSession, (req, res) => {

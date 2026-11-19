@@ -203,7 +203,7 @@ not the browser-checked level.
 
 | File | SHA-256 |
 |---|---|
-| `docs/agent-execution/INVENTORY.json` | `6ad11479d55124652da9c1028bccff2144424ca3d15f26c5dd70db57e5332173` |
+| `docs/agent-execution/INVENTORY.json` | `8b1d43ae60c5e45f7d28d7153471faf5908f32e2f304e3f47ed293b0bded5b3e` |
 | `docs/agent-execution/INVENTORY.md` | `8aef8a02e18e79043049a2642afc8fa1a7c29eacd271a302bc560a24180d96c3` |
 | `docs/agent-execution/TRACEABILITY.md` | `bab98d60573cc653947f1acead471e8655cbc78134969e91ee7f281ff9876c0a` |
 | `docs/ops/AUTHZ-MATRIX.md` | `8f4d10b7f7a9686440e7599786f4d7fec8671890043b86a98803be18353430ce` |

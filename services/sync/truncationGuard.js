@@ -12,11 +12,17 @@
 // without limit (100 → 81 → 66 → 54 …). The baseline is now max(stored, anchor), where the anchor
 // is the last count the source CONFIRMED (see nextAnchor): a lossy run never lowers it, so the
 // cumulative loss since the last confirmed count is bounded by the tolerance.
+function _anchorOrNull(v) {
+  if (v == null || v === '') return null;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
 function assertNotTruncated(job, fetched, stored, tolerancePct = Number(process.env.SYNC_TRUNCATION_TOLERANCE_PCT || 20), opts = {}) {
   const tol = Math.max(0, Math.min(90, Number(tolerancePct) || 0)) / 100;
-  const anchor = Number(opts && opts.anchor) || 0;
+  const anchor = _anchorOrNull(opts && opts.anchor);   // null = never anchored → stored-only baseline
   // stored = 0 = first run / rebuild: always accepted (nothing to delete).
-  const baseline = stored > 0 ? Math.max(stored, anchor) : 0;
+  const baseline = stored > 0 ? (anchor == null ? stored : Math.max(stored, anchor)) : 0;
   if (baseline > 0 && fetched < baseline * (1 - tol)) {
     const vs = baseline > stored ? `${stored} are stored, last confirmed count ${baseline}` : `${stored} are stored`;
     const e = new Error(`${job}: fetched ${fetched} rows but ${vs} (−${Math.round(100 - fetched / baseline * 100)} %) — export looks truncated, refusing to reconcile`);
@@ -30,7 +36,8 @@ function assertNotTruncated(job, fetched, stored, tolerancePct = Number(process.
 // exports agree on the lower count). A run that deleted rows never lowers the anchor.
 function nextAnchor(prevAnchor, fetched, stored) {
   if (fetched >= stored) return fetched;
-  return Math.max(Number(prevAnchor) || 0, stored);
+  const prev = _anchorOrNull(prevAnchor);
+  return prev == null ? stored : Math.max(prev, stored);
 }
 
 // Read the anchor, check, and return a commit function to call AFTER the reconcile succeeded.

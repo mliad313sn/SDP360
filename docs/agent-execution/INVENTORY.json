@@ -7179,7 +7179,7 @@
    "method": "GET",
    "path": "/api/health/deps",
    "file": "routes/health.js",
-   "line": 109,
+   "line": 111,
    "tests": [
     "tests/health-deps.smoke.test.js",
     "tests/sli-readings.test.js"
@@ -7190,7 +7190,7 @@
    "method": "GET",
    "path": "/api/health/restore-drill",
    "file": "routes/health.js",
-   "line": 93,
+   "line": 95,
    "tests": [
     "tests/restore-drill-admin-card.test.js"
    ]
@@ -7200,7 +7200,7 @@
    "method": "GET",
    "path": "/api/health/version",
    "file": "routes/health.js",
-   "line": 65,
+   "line": 67,
    "tests": [
     "tests/health-version.smoke.test.js"
    ]
@@ -7210,7 +7210,7 @@
    "method": "GET",
    "path": "/api/health/views",
    "file": "routes/health.js",
-   "line": 76,
+   "line": 78,
    "tests": [
     "tests/api-key-injection.smoke.test.js"
    ]

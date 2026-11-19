@@ -10,7 +10,7 @@ const path = require('node:path');
 
 const CEILINGS = {
   'server.js': { lines: 5718, inlineRoutes: 161 },   // 2026-11-19 P05 merge +2 (concurrent deck reads); P06: 6915 lines / 207 routes at e8900a7
-  'reports-db.js': { lines: 5732 },                  // 2026-11-19 P11 fix 2 +7 (listSurveyResultIds: survey truncation guard restores missing live results); P05 merge +11 (single-scan calendar helpdesk reader); P06: 5860 at e8900a7 -> 5714 (system log + rate-limit stores moved to services/)
+  'reports-db.js': { lines: 5730 },                  // 2026-11-19 P11 round-2 cleanup: sync-state readers moved to services/syncStateStore.js (5750 -> 5730); 2026-11-19 P11 fix 2 +7 (listSurveyResultIds: survey truncation guard restores missing live results); P05 merge +11 (single-scan calendar helpdesk reader); P06: 5860 at e8900a7 -> 5714 (system log + rate-limit stores moved to services/)
 };
 
 for (const [file, c] of Object.entries(CEILINGS)) {

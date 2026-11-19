@@ -4404,28 +4404,7 @@ function countTable(table) {
   return pgHandle().prepare(`SELECT COUNT(*) AS n FROM ${table}`).get().then(r => Number(r && r.n) || 0);
 }
 
-/** Ids already stored in one synced table — lets a sync re-insert live rows missing locally
- *  (P11 F-01 survey; round 2 N-01 requests + CAB). Whitelisted table → id column. */
-const _STORED_ID_COL = { survey_results: 'result_id', request_records: 'request_id', cab_approvals: 'approval_id' };
-async function listStoredIds(table) {
-  const col = _STORED_ID_COL[table];
-  if (!col) throw new Error(`listStoredIds: table not allowed: ${table}`);
-  const rows = await pgHandle().prepare(`SELECT ${col} AS id FROM ${table}`).all();
-  return new Set(rows.map(r => String(r.id)));
-}
-function listSurveyResultIds() { return listStoredIds('survey_results'); }
-
-/** Truncation-guard anchors (P11 round 2 N-02, db/postgres/sync/113_truncation_anchors.sql). */
-async function getTruncationAnchor(key) {
-  const row = await pgHandle().prepare('SELECT anchor_count FROM sync_truncation_anchors WHERE guard_key = ?').get(key);
-  return row ? Number(row.anchor_count) : null;
-}
-async function setTruncationAnchor(key, n) {
-  await pgHandle().prepare(`INSERT INTO sync_truncation_anchors (guard_key, anchor_count, updated_at) VALUES (?, ?, ?)
-    ON CONFLICT (guard_key) DO UPDATE SET anchor_count = EXCLUDED.anchor_count, updated_at = EXCLUDED.updated_at`)
-    .run(key, Math.max(0, Math.round(Number(n) || 0)), new Date().toISOString());
-}
-const truncationAnchorStore = { get: getTruncationAnchor, set: setTruncationAnchor };
+// listStoredIds / listSurveyResultIds / truncation anchors live in services/syncStateStore.js (re-exported below).
 
 /** Get last_sync_at for a single job (used by zoho-sync.js as the incremental cursor) */
 function getLastSyncAt(jobName) {
@@ -5641,6 +5620,7 @@ async function _getRequestFilterOptionsPg() {
 const { _isRiskAction, _redactKeys, _logCtx, logEvent, purgeSystemLog, GOVERNANCE_LOG_CATEGORIES,
   listSystemLog, countSystemLog, getSystemLogAnalytics, _backfillSystemLogFromAudit } = require('./services/systemLogStore').createSystemLogStore({ handle: pgHandle });
 const { rateLimitBump, rateLimitPeek, rateLimitReset } = require('./services/rateLimitStore').createRateLimitStore({ handle: pgHandle });
+const { listStoredIds, listSurveyResultIds, getTruncationAnchor, setTruncationAnchor, truncationAnchorStore } = require('./services/syncStateStore').createSyncStateStore({ handle: pgHandle });
 
 // PostgreSQL is the only database (PO-08). `db` stays exported as an opaque handle for the
 // services that take one (reportConfig, reportDirectory, …); it forwards to the pg pool.

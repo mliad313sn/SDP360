@@ -88,16 +88,20 @@ test('strict (PROPOSED) refuses the viewer action register and the fleet risk re
 
 test('every delivered export is logged under category export', async () => {
   await setCfg({ export_policy_strict: '0' });
-  // Only rows written by THIS export: an earlier test (strict matrix) logs the same action for the same actor, and the
-  // log write is fire-and-forget — waiting on "any row" could pick that older strict row (flake seen in a full run).
-  const t0 = new Date(Date.now() - 1000).toISOString();
-  const r = await get('/api/reports/site-actions/export.xlsx?site=HGO', tok['xp-edA']); assert.equal(r.status, 200); await r.arrayBuffer();
+  // A dedicated actor that no other test uses: the strict-matrix test logs the same action for xp-edA with strict:true,
+  // and the log write is fire-and-forget (res 'finish'), so its row can land AFTER this test starts — a time window
+  // (ts >= t0) could not tell the two apart (flake seen in two full runs). Rows of xp-edLog can only come from here.
+  const u = 'xp-edLog';
+  await rdb.createUser({ username: u, full_name: u, password: u + '-pw-0000', roles: ['editor'], site_id: A.id });
+  const t = (await rdb.login(u, u + '-pw-0000')).token;
+  const r = await get('/api/reports/site-actions/export.xlsx?site=HGO', t); assert.equal(r.status, 200); await r.arrayBuffer();
   let rows = [];
-  for (let i = 0; i < 30; i++) {
-    rows = await rdb.db.prepare(`SELECT actor, action, target, details FROM system_log WHERE category = 'export' AND actor = ? AND ts >= ? ORDER BY ts DESC`).all('xp-edA', t0);
+  for (let i = 0; i < 50; i++) {
+    rows = await rdb.db.prepare(`SELECT actor, action, target, details FROM system_log WHERE category = 'export' AND actor = ? ORDER BY ts DESC`).all(u);
     if (rows.some((x) => x.action === 'export_reports.site_actions')) break;
     await new Promise((s) => setTimeout(s, 100));
   }
+  assert.equal(rows.length, 1, 'exactly one export logged for the dedicated actor');
   const row = rows.find((x) => x.action === 'export_reports.site_actions');
   assert.ok(row, 'export logged');
   const d = JSON.parse(row.details);

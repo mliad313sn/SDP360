@@ -33,7 +33,7 @@ test('writable primary: 200 with the unchanged public shape', async () => {
 test('default_transaction_read_only=on: 503, writable:false', async () => {
   const r = await probe(stubRdb({ ro: 'on' }));
   assert.equal(r.status, 503);
-  assert.equal(r.json.ok, false); assert.equal(r.json.db, true); assert.equal(r.json.writable, false);
+  assert.equal(r.json.ok, false); assert.equal(r.json.db, true); assert.equal(r.json.writable, false); assert.equal(r.json.error, 'read_only');
 });
 
 test('standby in recovery: 503', async () => {
