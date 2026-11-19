@@ -113,16 +113,23 @@ async function sendDigest({ store, rdb, mailer, digest = 'daily', baseUrl = '', 
 async function generateScheduledReports({ cadence, reportStore, dashStore, engStore, registry, deps, rdb, aiProvider, aiCall, baseUrl, now = new Date() }) {
   const { generateRun } = require('./reportGenerator');
   const templates = (await reportStore.listTemplates()).filter(t => t.cadence === cadence);
-  const sites = ((await rdb.listSites({ includeInactive: false })) || []).map(s => ({ id: Number(s.id), name: s.name })); let runs = 0, notified = 0;
+  const sites = ((await rdb.listSites({ includeInactive: false })) || []).map(s => ({ id: Number(s.id), name: s.name })); let runs = 0, notified = 0, withheld = 0;
+  // P11 r2 R2-N1 — every notification re-checks the run against the subscriber's CURRENT roles and sites
+  // (the old `s.site_id` filter read a column the subscriptions table does not have: it never applied).
+  const vis = require('./reportVisibility');
+  let usersById = null;
+  const users = async () => (usersById = usersById || await vis.loadUsers(rdb));
   for (const t of templates) {
     const d = await dashStore.published(t.dashboard_key); if (!d) continue;
     const targets = t.audience === 'site' ? sites : [null];
     for (const site of targets) {
       const run = await generateRun({ template: t, site, sites, window: null, dashboardDef: d.definition, registry, deps, rdb, aiProvider, aiCall, baseUrl, user: null, store: reportStore, now }); runs++;
-      for (const s of await engStore.subscribersOf('report_template', t.key)) { if (site && s.site_id != null && Number(s.site_id) !== site.id) continue; await engStore.notify({ userId: s.user_id, kind: 'report', title: `${t.name}${site ? ' — ' + site.name : ''} ready for review`, body: run.analysis && run.analysis.headline, link: `${baseUrl}/report-studio.html?run=${run.id}`, sourceKind: 'report_run', sourceRef: run.id }); notified++; }
+      const runView = { site_id: run.site_id != null ? Number(run.site_id) : (site ? site.id : null), status: run.status || 'draft', template_key: t.key };
+      const { allowed, withheld: w } = await vis.readableSubscribers(engStore, rdb, runView, t, users); withheld += w;
+      for (const s of allowed) { await engStore.notify({ userId: s.user_id, kind: 'report', title: `${t.name}${site ? ' — ' + site.name : ''} ready for review`, body: run.analysis && run.analysis.headline, link: `${baseUrl}/report-studio.html?run=${run.id}`, sourceKind: 'report_run', sourceRef: run.id }); notified++; }
     }
   }
-  return { templates: templates.length, runs, notified, rows: runs };
+  return { templates: templates.length, runs, notified, withheld, rows: runs };
 }
 
 /** Connectors — each self-skips without its configuration (counted in `skipped`). */

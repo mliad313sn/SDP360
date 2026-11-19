@@ -2,7 +2,9 @@
 // E-Q03 (audit X-Q-03) — reports.weekly / reports.monthly, the two scheduled jobs that had no test reference.
 // What they really do (services/engagementJobs.js generateScheduledReports): for every report template of the
 // cadence whose dashboard is PUBLISHED, generate one run (one per active site for a site template) and notify the
-// template's subscribers in-app (site-scoped subscribers only for their site). They send no e-mail themselves.
+// template's subscribers in-app — only those who may read the run (P11 r2 R2-N1: same rule as the report
+// studio — the generated runs are drafts, so authors only; a site account never hears of another site).
+// They send no e-mail themselves.
 // Stores and the generator are fakes; no database.
 const test = require('node:test');
 const assert = require('node:assert');
@@ -43,22 +45,27 @@ function fakes() {
     { key: 'monthly-pack', name: 'Monthly', cadence: 'monthly', audience: 'group', dashboard_key: 'group' },
   ] };
   const dashStore = { published: async (k) => (k === 'unpublished' ? null : { definition: { key: k } }) };
-  const subs = { 'site-weekly-pack': [{ user_id: 10, site_id: 1 }, { user_id: 11, site_id: null }], 'group-weekly': [{ user_id: 12, site_id: null }], 'monthly-pack': [] };
+  const subs = { 'site-weekly-pack': [{ user_id: 10, site_id: 1 }, { user_id: 11, site_id: null }], 'group-weekly': [{ user_id: 12, site_id: null }, { user_id: 13, site_id: null }], 'monthly-pack': [] };
   const engStore = { subscribersOf: async (kind, key) => { assert.equal(kind, 'report_template'); return subs[key] || []; }, notify: async (n) => { notes.push(n); } };
-  const rdb = { listSites: async (o) => { assert.deepEqual(o, { includeInactive: false }); return [{ id: 1, name: 'Hounde' }, { id: '2', name: 'Mana' }]; } };
+  // 10 = site-1 viewer (pre-fix subscription), 11 = report author, 12 = report author, 13 = deactivated author
+  const users = [{ id: 10, site_id: 1, roles: ['viewer'], active: 1 }, { id: 11, site_id: null, roles: ['report-author'], active: 1 },
+    { id: 12, site_id: null, roles: ['admin'], active: 1 }, { id: 13, site_id: null, roles: ['admin'], active: 0 }];
+  const rdb = { listSites: async (o) => { assert.deepEqual(o, { includeInactive: false }); return [{ id: 1, name: 'Hounde' }, { id: '2', name: 'Mana' }]; },
+    listUsers: async () => users, userHasRole: require('../reports-db').userHasRole };
   return { generated, notes, reportStore, dashStore, engStore, rdb };
 }
 
-test('generateScheduledReports weekly: only the cadence\'s templates with a published dashboard; one run per site; site subscribers only for their site', async () => {
+test('generateScheduledReports weekly: only the cadence\'s templates with a published dashboard; one run per site; only subscribers who may read the draft run', async () => {
   const f = fakes();
   const orig = RG.generateRun;
   RG.generateRun = async (o) => { f.generated.push({ t: o.template.key, site: o.site && o.site.name }); return { id: 'run' + f.generated.length, analysis: { headline: 'h' } }; };
   try {
     const out = await EJ.generateScheduledReports({ cadence: 'weekly', reportStore: f.reportStore, dashStore: f.dashStore, engStore: f.engStore, registry: {}, deps: {}, rdb: f.rdb, aiProvider: 'off', aiCall: null, baseUrl: 'https://dash.test' });
-    assert.deepEqual(out, { templates: 3, runs: 3, notified: 4, rows: 3 });
+    assert.deepEqual(out, { templates: 3, runs: 3, notified: 3, withheld: 3, rows: 3 });
     assert.deepEqual(f.generated, [{ t: 'site-weekly-pack', site: 'Hounde' }, { t: 'site-weekly-pack', site: 'Mana' }, { t: 'group-weekly', site: undefined }]);
     const who = f.notes.map((n) => [n.userId, n.title]);
-    assert.deepEqual(who, [[10, 'Site pack — Hounde ready for review'], [11, 'Site pack — Hounde ready for review'], [11, 'Site pack — Mana ready for review'], [12, 'Group pack ready for review']]);
+    // the site-1 viewer is not told about drafts (not even its own site); the deactivated author is skipped
+    assert.deepEqual(who, [[11, 'Site pack — Hounde ready for review'], [11, 'Site pack — Mana ready for review'], [12, 'Group pack ready for review']]);
     assert.ok(f.notes.every((n) => n.kind === 'report' && n.sourceKind === 'report_run' && /^https:\/\/dash\.test\/report-studio\.html\?run=run\d$/.test(n.link)));
   } finally { RG.generateRun = orig; }
 });
@@ -69,8 +76,8 @@ test('generateScheduledReports monthly: a cadence with no subscriber generates b
   RG.generateRun = async (o) => { f.generated.push(o.template.key); return { id: 'r', analysis: null }; };
   try {
     const out = await EJ.generateScheduledReports({ cadence: 'monthly', reportStore: f.reportStore, dashStore: f.dashStore, engStore: f.engStore, registry: {}, deps: {}, rdb: f.rdb, baseUrl: '' });
-    assert.deepEqual(out, { templates: 1, runs: 1, notified: 0, rows: 1 });
+    assert.deepEqual(out, { templates: 1, runs: 1, notified: 0, withheld: 0, rows: 1 });
     const none = await EJ.generateScheduledReports({ cadence: 'quarterly', reportStore: f.reportStore, dashStore: f.dashStore, engStore: f.engStore, registry: {}, deps: {}, rdb: f.rdb });
-    assert.deepEqual(none, { templates: 0, runs: 0, notified: 0, rows: 0 });
+    assert.deepEqual(none, { templates: 0, runs: 0, notified: 0, withheld: 0, rows: 0 });
   } finally { RG.generateRun = orig; }
 });

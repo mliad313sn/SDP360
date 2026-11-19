@@ -19,8 +19,8 @@
 | routes in server js | 161 |
 | jobs | 33 |
 | jobs without test reference | 0 |
-| migrations | 102 |
-| test files | 848 |
+| migrations | 103 |
+| test files | 851 |
 
 ## Pages
 
@@ -224,7 +224,7 @@
 | JB-opmanager-availability | opmanager.availability | 4 |
 | JB-publish-connectors | publish.connectors | 2 |
 | JB-reports-monthly | reports.monthly | 1 |
-| JB-reports-weekly | reports.weekly | 2 |
+| JB-reports-weekly | reports.weekly | 3 |
 | JB-softdelete-purge | softdelete.purge | 2 |
 | JB-teams-sla-poll | teams.sla_poll | 3 |
 | JB-zoho-change-cab | zoho.change_cab | 2 |
