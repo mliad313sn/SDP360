@@ -53,7 +53,15 @@ module.exports = function engagementRoutes(deps) {
 
   // ── subscriptions ───────────────────────────────────────────────────────────────
   router.get('/api/engagement/subscriptions', requireReportSession, async (req, res) => { try { res.json({ ok: true, subscriptions: await store.listSubscriptions(req.reportUser.id), kinds: store.SUB_KINDS, channels: store.CHANNELS, digests: store.DIGESTS }); } catch (e) { fail(res, e); } });
-  router.post('/api/engagement/subscriptions', requireReportSession, json, async (req, res) => { try { const id = await store.subscribe(req.reportUser.id, req.body || {}); res.json({ ok: true, id, subscriptions: await store.listSubscriptions(req.reportUser.id) }); } catch (e) { fail(res, e); } });
+  router.post('/api/engagement/subscriptions', requireReportSession, json, async (req, res) => { try {
+    // P11 r2 R2-N1 — following a report template needs the template's audience (site / council / authors).
+    const b = req.body || {};
+    if (b.kind === 'report_template') {
+      const t = reportStore && b.target_key ? await reportStore.getTemplate(String(b.target_key)) : null;
+      if (!t) return httpFail(res, new Error('unknown report template'), 404, { ok: false });
+      if (!require('../services/reportVisibility').canSubscribeTemplate(rdb(), req.reportUser, t)) return httpFail(res, new Error('this report template is not open to your account'), 403, { ok: false });
+    }
+    const id = await store.subscribe(req.reportUser.id, req.body || {}); res.json({ ok: true, id, subscriptions: await store.listSubscriptions(req.reportUser.id) }); } catch (e) { fail(res, e); } });
   router.delete('/api/engagement/subscriptions/:id', requireReportSession, async (req, res) => { try { await store.unsubscribe(req.reportUser.id, req.params.id); res.json({ ok: true }); } catch (e) { fail(res, e); } });
 
   // ── alert rules (admin) ─────────────────────────────────────────────────────────

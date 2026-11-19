@@ -14,8 +14,8 @@
   "routes_in_server_js": 161,
   "jobs": 33,
   "jobs_without_test_reference": 0,
-  "migrations": 102,
-  "test_files": 852
+  "migrations": 103,
+  "test_files": 855
  },
  "pages": [
   {
@@ -3684,7 +3684,7 @@
    "method": "GET",
    "path": "/api/engagement/alert-noise",
    "file": "routes/engagement.js",
-   "line": 73,
+   "line": 81,
    "tests": [
     "tests/engagement-routes.smoke.test.js"
    ]
@@ -3714,7 +3714,7 @@
    "method": "DELETE",
    "path": "/api/engagement/consumers/:id",
    "file": "routes/engagement.js",
-   "line": 126,
+   "line": 134,
    "tests": [
     "tests/api-contract-ext.test.js",
     "tests/engagement-routes.smoke.test.js",
@@ -3727,7 +3727,7 @@
    "method": "GET",
    "path": "/api/engagement/consumers",
    "file": "routes/engagement.js",
-   "line": 124,
+   "line": 132,
    "tests": [
     "tests/api-contract-ext.test.js",
     "tests/engagement-routes.smoke.test.js",
@@ -3740,7 +3740,7 @@
    "method": "POST",
    "path": "/api/engagement/consumers",
    "file": "routes/engagement.js",
-   "line": 125,
+   "line": 133,
    "tests": [
     "tests/api-contract-ext.test.js",
     "tests/engagement-routes.smoke.test.js",
@@ -3753,7 +3753,7 @@
    "method": "PUT",
    "path": "/api/engagement/firings/:id",
    "file": "routes/engagement.js",
-   "line": 70,
+   "line": 78,
    "tests": [
     "tests/engagement-routes.smoke.test.js"
    ]
@@ -3763,7 +3763,7 @@
    "method": "GET",
    "path": "/api/engagement/firings",
    "file": "routes/engagement.js",
-   "line": 69,
+   "line": 77,
    "tests": [
     "tests/engagement-routes.smoke.test.js"
    ]
@@ -3803,7 +3803,7 @@
    "method": "DELETE",
    "path": "/api/engagement/rules/:key",
    "file": "routes/engagement.js",
-   "line": 62,
+   "line": 70,
    "tests": [
     "tests/engagement-routes.smoke.test.js"
    ]
@@ -3813,7 +3813,7 @@
    "method": "POST",
    "path": "/api/engagement/rules/evaluate",
    "file": "routes/engagement.js",
-   "line": 63,
+   "line": 71,
    "tests": [
     "tests/engagement-routes.smoke.test.js"
    ]
@@ -3823,7 +3823,7 @@
    "method": "GET",
    "path": "/api/engagement/rules",
    "file": "routes/engagement.js",
-   "line": 60,
+   "line": 68,
    "tests": [
     "tests/engagement-routes.smoke.test.js"
    ]
@@ -3833,7 +3833,7 @@
    "method": "PUT",
    "path": "/api/engagement/rules",
    "file": "routes/engagement.js",
-   "line": 61,
+   "line": 69,
    "tests": [
     "tests/engagement-routes.smoke.test.js"
    ]
@@ -3843,7 +3843,7 @@
    "method": "GET",
    "path": "/api/engagement/share/:id/receipts",
    "file": "routes/engagement.js",
-   "line": 98,
+   "line": 106,
    "tests": [
     "tests/engagement-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
@@ -3857,7 +3857,7 @@
    "method": "DELETE",
    "path": "/api/engagement/share/:id",
    "file": "routes/engagement.js",
-   "line": 97,
+   "line": 105,
    "tests": [
     "tests/engagement-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
@@ -3871,7 +3871,7 @@
    "method": "GET",
    "path": "/api/engagement/share",
    "file": "routes/engagement.js",
-   "line": 96,
+   "line": 104,
    "tests": [
     "tests/engagement-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
@@ -3885,7 +3885,7 @@
    "method": "POST",
    "path": "/api/engagement/share",
    "file": "routes/engagement.js",
-   "line": 85,
+   "line": 93,
    "tests": [
     "tests/engagement-routes.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
@@ -3899,7 +3899,7 @@
    "method": "GET",
    "path": "/api/engagement/stats",
    "file": "routes/engagement.js",
-   "line": 82,
+   "line": 90,
    "tests": [
     "tests/engagement-routes.smoke.test.js"
    ]
@@ -3909,9 +3909,10 @@
    "method": "DELETE",
    "path": "/api/engagement/subscriptions/:id",
    "file": "routes/engagement.js",
-   "line": 57,
+   "line": 65,
    "tests": [
-    "tests/engagement-routes.smoke.test.js"
+    "tests/engagement-routes.smoke.test.js",
+    "tests/report-subscription-scope.smoke.test.js"
    ]
   },
   {
@@ -3921,7 +3922,8 @@
    "file": "routes/engagement.js",
    "line": 55,
    "tests": [
-    "tests/engagement-routes.smoke.test.js"
+    "tests/engagement-routes.smoke.test.js",
+    "tests/report-subscription-scope.smoke.test.js"
    ]
   },
   {
@@ -3931,7 +3933,8 @@
    "file": "routes/engagement.js",
    "line": 56,
    "tests": [
-    "tests/engagement-routes.smoke.test.js"
+    "tests/engagement-routes.smoke.test.js",
+    "tests/report-subscription-scope.smoke.test.js"
    ]
   },
   {
@@ -7176,7 +7179,7 @@
    "method": "GET",
    "path": "/api/health/deps",
    "file": "routes/health.js",
-   "line": 102,
+   "line": 109,
    "tests": [
     "tests/health-deps.smoke.test.js",
     "tests/sli-readings.test.js"
@@ -7187,7 +7190,7 @@
    "method": "GET",
    "path": "/api/health/restore-drill",
    "file": "routes/health.js",
-   "line": 86,
+   "line": 93,
    "tests": [
     "tests/restore-drill-admin-card.test.js"
    ]
@@ -7197,7 +7200,7 @@
    "method": "GET",
    "path": "/api/health/version",
    "file": "routes/health.js",
-   "line": 58,
+   "line": 65,
    "tests": [
     "tests/health-version.smoke.test.js"
    ]
@@ -7207,7 +7210,7 @@
    "method": "GET",
    "path": "/api/health/views",
    "file": "routes/health.js",
-   "line": 69,
+   "line": 76,
    "tests": [
     "tests/api-key-injection.smoke.test.js"
    ]
@@ -8496,7 +8499,7 @@
    "method": "POST",
    "path": "/api/report-studio/runs/:id/commentary/regenerate",
    "file": "routes/reportStudio.js",
-   "line": 164,
+   "line": 165,
    "tests": [
     "tests/express5-route-syntax.test.js",
     "tests/report-release.smoke.test.js",
@@ -8509,7 +8512,7 @@
    "method": "PUT",
    "path": "/api/report-studio/runs/:id/commentary",
    "file": "routes/reportStudio.js",
-   "line": 158,
+   "line": 159,
    "tests": [
     "tests/express5-route-syntax.test.js",
     "tests/report-release.smoke.test.js",
@@ -8548,7 +8551,7 @@
    "method": "POST",
    "path": "/api/report-studio/runs/:id/withdraw",
    "file": "routes/reportStudio.js",
-   "line": 171,
+   "line": 172,
    "tests": [
     "tests/express5-route-syntax.test.js",
     "tests/report-release.smoke.test.js",
@@ -8587,7 +8590,7 @@
    "method": "GET",
    "path": "/api/report-studio/stats",
    "file": "routes/reportStudio.js",
-   "line": 178,
+   "line": 179,
    "tests": [
     "tests/report-studio-routes.smoke.test.js"
    ]
@@ -13319,6 +13322,7 @@
     "tests/health-deps.smoke.test.js",
     "tests/health-deps.test.js",
     "tests/health-version.smoke.test.js",
+    "tests/ready-readonly.test.js",
     "tests/restore-drill-admin-card.test.js",
     "tests/sli-readings.test.js",
     "tests/sync-routes.smoke.test.js",
@@ -13636,6 +13640,7 @@
     "tests/authz-route-matrix.test.js",
     "tests/installer-upgrade-order.test.js",
     "tests/ready-probe.smoke.test.js",
+    "tests/ready-readonly.test.js",
     "tests/sdp-manager-probe.test.js"
    ]
   },
@@ -13669,7 +13674,7 @@
    "method": "GET",
    "path": "/share/:token",
    "file": "routes/engagement.js",
-   "line": 101,
+   "line": 109,
    "tests": [
     "tests/backup-encrypt.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -14016,7 +14021,8 @@
    "job": "reports.weekly",
    "tests": [
     "tests/inventory-strict.test.js",
-    "tests/jobs-reports-send.test.js"
+    "tests/jobs-reports-send.test.js",
+    "tests/report-subscription-scope.smoke.test.js"
    ]
   },
   {
@@ -14481,6 +14487,10 @@
   {
    "id": "MG-sync-086-lock-token",
    "file": "db/postgres/sync/086_lock_token.sql"
+  },
+  {
+   "id": "MG-sync-113-truncation-anchors",
+   "file": "db/postgres/sync/113_truncation_anchors.sql"
   },
   {
    "id": "MG-tracker-001-init",

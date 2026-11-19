@@ -25,14 +25,19 @@ module.exports = function healthRoutes(deps) {
 // sync_metadata stamps carry no zone (UTC by convention, as routes/sync.js reads them); sync_runs stamps are ISO.
 const _ms = (t) => { const s = String(t); const n = Date.parse(/[zZ]|[+-]\d\d:?\d\d$/.test(s) ? s : s.replace(' ', 'T') + 'Z'); return Number.isFinite(n) ? n : -Infinity; };
 
-// Readiness: can we reach the database? When was the last job marked successful (legacy sync_metadata OR runner sync_runs)?
+// Readiness: can we reach — and write to — the database? When was the last job marked successful (legacy sync_metadata OR runner sync_runs)?
 // `getSyncStatus` is a dual-backend dispatcher (Promise on PostgreSQL) → awaited.
 router.get('/ready', async (req, res) => {
-  let db = false, last_job_at = null;
+  let db = false, last_job_at = null, writable = null;
   try {
     const rdb = getRdb && getRdb();
     if (rdb) {
       const rows = await rdb.getSyncStatus();
+      // P11 r2 N-03 — reachable is not enough: a database left read-only (PG_URL on the standby replica after a
+      // restore/failover, or default_transaction_read_only=on) answers SELECTs while every login fails with 500.
+      // /ready gates sdp-manager auto-rollback/restore, so it must say "not ready" then. One cheap catalogue read.
+      const w = await rdb.pgHandle().prepare("SELECT pg_is_in_recovery() AS rec, current_setting('transaction_read_only') AS ro").get();
+      writable = !!w && w.rec !== true && w.rec !== 't' && String(w.ro).toLowerCase() !== 'on';
       db = true;
       // P05 — one SELECT 1 timing for the database-latency SLI (sli_30d). Never fails the probe; the answer is unchanged.
       try { const t0 = process.hrtime.bigint(); await rdb.pgHandle().prepare('SELECT 1 AS ok').get(); require('../services/sliCounters').recordDbLatency(Number(process.hrtime.bigint() - t0) / 1e6); } catch (_) { /* reading optional */ }
@@ -52,6 +57,8 @@ router.get('/ready', async (req, res) => {
       } catch (_) { /* run log optional for readiness */ }
     }
   } catch (e) { db = false; }
+  // Healthy answer keeps the public shape {ok, db, last_job_at}; `writable:false` is added only when read-only.
+  if (db && writable === false) return res.status(503).json({ ok: false, db, writable: false, last_job_at });
   res.status(db ? 200 : 503).json({ ok: db, db, last_job_at });
 });
 

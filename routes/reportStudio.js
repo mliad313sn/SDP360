@@ -68,7 +68,7 @@ module.exports = function reportStudioRoutes(deps) {
   // template's audience is the governance council and the account is a committee member; executive packs
   // (and anything else) stay with the authors (admin tier / report-author). Never widens: authors are
   // handled before this check and site runs keep the site rule above.
-  function groupRunReadable(u, t) { return !!(t && t.audience === 'council' && rdb().userHasRole(u, 'committee-member')); }
+  function groupRunReadable(u, t) { return require('../services/reportVisibility').groupRunReadable(rdb(), u, t); }   // shared with subscriptions (R2-N1)
 
   router.get('/api/report-studio/templates', requireReportSession, async (req, res) => {
     try { const author = isAuthor(req.reportUser); const dashboards = dashStore ? (await dashStore.list({ status: 'published' })).map(d => ({ key: d.key, title: d.title || (d.definition && d.definition.title) || d.key, audience: d.definition && d.definition.audience })) : [];
@@ -152,7 +152,8 @@ module.exports = function reportStudioRoutes(deps) {
       try { sha = store.recordPublication ? await store.recordPublication(await store.getRun(r.id), { override }) : null; }
       catch (e) { await store.setStatus(r.id, 'reviewed', { user: { id: r.reviewed_by }, note: r.review_note }); throw e; }   // never a published run without its frozen record
       log(req, 'report_published', r.id, { override: !!override, html_sha256: sha });
-      if (deps.engStore) { for (const s of await deps.engStore.subscribersOf('report_template', r.template_key)) await deps.engStore.notify({ userId: s.user_id, kind: 'report', title: `Report published: ${r.template_key}`, body: out.analysis && out.analysis.headline, link: `${await baseUrl()}/report-studio.html?run=${r.id}`, sourceKind: 'report_run', sourceRef: r.id }); }
+      // P11 r2 R2-N1 — only subscribers who may read this run now (site scope + audience) are notified.
+      if (deps.engStore) { const { allowed } = await require('../services/reportVisibility').readableSubscribers(deps.engStore, rdb(), { ...r, status: 'published' }, await store.getTemplate(r.template_key)); for (const s of allowed) await deps.engStore.notify({ userId: s.user_id, kind: 'report', title: `Report published: ${r.template_key}`, body: out.analysis && out.analysis.headline, link: `${await baseUrl()}/report-studio.html?run=${r.id}`, sourceKind: 'report_run', sourceRef: r.id }); }
       res.json({ ok: true, run: { ...out, html: undefined } }); } catch (e) { fail(res, e); }
   });
   router.put('/api/report-studio/runs/:id/commentary', requireReportSession, json, async (req, res) => {
