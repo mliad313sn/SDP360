@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks general deployment only |
 | Decide after | [G11](G11-pilot-sites-field-uat.md) Pilot sites and field acceptance · [G21](G21-business-witness-project.md) Business witness project · [G06](G06-kpi-definitions-thresholds.md) KPI definitions, thresholds and score |
-| Target SHA | `07f9c65f` |
+| Target SHA | `a2f24a5d` |
 | Generated | 2026-11-19 |
 
 ## 1. Question to decide
@@ -30,7 +30,7 @@ After the pilot, does the product do what the business needs well enough to depl
 
 | From lot | Expected evidence | Status |
 |---|---|---|
-| P09 | Adoption kit and profile tasks | awaited — not in the tree at the target SHA (`docs/agent-execution/P09-*.md`) |
+| P09 | Adoption kit and profile tasks | delivered: `docs/agent-execution/P09-PAGE-INVENTORY.md` (9a58489a, `7ecfa653793cfa75`), `docs/agent-execution/P09-adoption-kit.md` (c9bab46d, `8246fb83ee6409fc`) |
 | P04 | PPM certification report | awaited — not in the tree at the target SHA (`docs/agent-execution/P04-*.md`) |
 
 ## 3. Not evidenced, and why
