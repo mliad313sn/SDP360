@@ -97,7 +97,7 @@ const PUBLIC = {
 const GLOBAL_GATE_PREFIXES = ['/api/data/', '/api/survey/', '/api/sync/', '/api/dashboard/', '/api/ai/', '/api/risk-register-config', '/api/admin/', '/api/exec/', '/api/analytics/', '/api/integrations/', '/api/meetings/', '/api/inspection/', '/api/tracker/', '/api/assets/', '/api/roadmap/', '/api/teams-sla/', '/api/metrics/', '/api/fmp/', '/api/meridian/', '/api/sites', '/api/reconcile', '/api/4mp', '/api/site-awareness', '/api/changes', '/api/major-incidents', '/api/weeks', '/api/exec-pptx', '/api/ping'];
 // Central site-read guard of server.js (app.get([_REPORT_ID_READ, _SITE_ID_READ])) — a GET under these paths is
 // site-scoped before its own handler runs.
-const CENTRAL_SITE_READ = [/^\/api\/reports\/:id(\/|$)/, /^\/api\/(?:reports\/(?:monthly|yearly|objectives)|sites)\/:(?:site_?id|id|site)(\/|$)/];
+const CENTRAL_SITE_READ = [/^\/api\/reports\/:id(\/|$)/, /^\/api\/(?:reports\/(?:monthly|yearly|objectives)|sites)\/:(?:site_?[iI]d|id|site)(\/|$)/];
 // Handler-source markers of an amount-bearing answer (masked below the money readers).
 const MONEY_MARKERS = ['requireMoneyRead', '_canReadMoney(', '_stripAssetMoney', 'canSeeMoney(', "'finance-viewer'", 'readsMoney', 'canReadMoney('];
 
@@ -122,6 +122,8 @@ function buildMatrix(app, deps = {}) {
   const routes = walkRoutes(require('../../services/routerStack').routerStack(app)).filter((r) => typeof r.path === 'string' && (r.path.startsWith('/api') || r.path === '/health' || r.path === '/ready'));
   const seen = new Set();
   const rows = [];
+  // P02 — declared in-handler decision of session-gated routes with no role guard (docs/ops/authz-handler-checks.json).
+  const decl = deps.handlerChecks !== undefined ? deps.handlerChecks : require('./authz-handler-classify').load();
   for (const r of routes) {
     if (seen.has(r.key)) continue;   // first registration wins in Express
     seen.add(r.key);
@@ -150,6 +152,7 @@ function buildMatrix(app, deps = {}) {
       site_scoped: inl.scope.length > 0 || (r.method === 'GET' && CENTRAL_SITE_READ.some((re) => re.test(r.path))),
       money_bearing: MONEY_MARKERS.some((m) => src.includes(m)) || guards.some((g) => (g.roles || []).includes('finance-viewer')),
       business_allowed: businessAllowed,
+      ...(gate === 'session' && !guards.some((g) => g.roles) ? { handler_check: _declared(decl, r.key) } : {}),
     });
   }
   rows.sort((a, b) => a.key.localeCompare(b.key));
@@ -161,9 +164,16 @@ function buildMatrix(app, deps = {}) {
     roles,
     capabilities: registry.list().map((c) => ({ id: c.id, risk: c.risk, scope: c.scope, legacy: [...c.legacy], inline: c.inline, requires_request: c.requires_request })),
     totals: { routes: rows.length, public: rows.filter((x) => x.gate === 'public').length, role_guarded: rows.filter((x) => x.guards.length).length,
-      site_scoped: rows.filter((x) => x.site_scoped).length, money_bearing: rows.filter((x) => x.money_bearing).length, reachable_by_role: byRole },
+      site_scoped: rows.filter((x) => x.site_scoped).length, money_bearing: rows.filter((x) => x.money_bearing).length,
+      handler_checked: rows.filter((x) => x.handler_check).length, handler_none: rows.filter((x) => x.handler_check && x.handler_check[0] === 'none').length, reachable_by_role: byRole },
     routes: rows,
   };
+}
+
+function _declared(decl, key) {
+  const e = decl && decl.routes && decl.routes[key];
+  if (!e) return ['UNDECLARED'];
+  return e.checks && e.checks.length ? [...e.checks] : ['none'];
 }
 
 const MATRIX_JSON_PATH = require('path').join(__dirname, '..', '..', 'docs', 'ops', 'authz-matrix.json');
