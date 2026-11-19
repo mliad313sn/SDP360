@@ -87,7 +87,7 @@ test('inventoryPages: candidate needs no markup handler, no script-built handler
 });
 
 test('ratchet: the blocked set of the real inventory never grows (extract a handler, do not add one)', () => {
-  const BLOCKED_AT_P07 = ['/analytics.html', '/executive-report.html', '/executive.html', '/help.html', '/index.html', '/inspection.html', '/reports.html'];
+  const BLOCKED_AT_P07 = ['/analytics.html', '/executive-report.html', '/executive.html', '/index.html', '/inspection.html', '/reports.html'];
   const blocked = R.collect().inventory.filter((x) => x.readiness === 'blocked').map((x) => x.url);
   const added = blocked.filter((u) => !BLOCKED_AT_P07.includes(u));
   assert.deepEqual(added, [], 'newly blocked page(s) — remove the inline handler or the script-built on*="" string');
