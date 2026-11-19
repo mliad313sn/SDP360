@@ -180,16 +180,19 @@ function restartService(dir, env) {
   require('../services/serviceControl').restart(env);
 }
 
-async function probeHealth(url, env, { timeoutMs = 60000 } = {}) {
+// P11 F-02: probe /ready (unauthenticated, reads the database, 503 when it is unreachable). The old
+// probe (the auth-config route) answered 200 with a dead database — restore then said "service answers"
+// and update skipped its auto-rollback.
+async function probeHealth(url, env, { timeoutMs = 60000, intervalMs = 2000, fetchImpl = fetch } = {}) {
   const deadline = Date.now() + timeoutMs;
   let last = 'no answer';
   while (Date.now() < deadline) {
     try {
-      const res = await fetch(url + '/api/auth/config');
+      const res = await fetchImpl(url + '/ready');
       if (res.ok) return { ok: true };
-      last = 'HTTP ' + res.status;
+      last = 'HTTP ' + res.status + (res.status === 503 ? ' (database not reachable)' : '');
     } catch (e) { last = e.message; }
-    await new Promise(r => setTimeout(r, 2000));
+    await new Promise(r => setTimeout(r, intervalMs));
   }
   return { ok: false, reason: last };
 }

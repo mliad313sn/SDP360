@@ -414,8 +414,8 @@ rem ---------------------------------------------------------------- 8  (inlined
 :health
 echo.
 call pm2 status %SVC% 2>nul || echo   pm2: NOT FOUND on PATH
-echo   HTTP probe http://localhost:%PORT%/api/auth/config ...
-powershell -NoProfile -Command "try { $r = Invoke-WebRequest -Uri 'http://localhost:%PORT%/api/auth/config' -UseBasicParsing -TimeoutSec 10; Write-Host ('  [OK] HTTP ' + $r.StatusCode + ' - service is answering.') } catch { Write-Host ('  [FAIL] ' + $_.Exception.Message) }"
+echo   HTTP probe http://localhost:%PORT%/ready ...
+powershell -NoProfile -Command "try { $r = Invoke-WebRequest -Uri 'http://localhost:%PORT%/ready' -UseBasicParsing -TimeoutSec 10; Write-Host ('  [OK] HTTP ' + $r.StatusCode + ' - service is answering.') } catch { Write-Host ('  [FAIL] ' + $_.Exception.Message) }"
 goto done
 
 rem ---------------------------------------------------------------- 9  (inlined; adapted from _sdp_admin.cmd :diag)
