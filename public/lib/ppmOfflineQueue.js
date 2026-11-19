@@ -5,7 +5,9 @@
  * project_id, body, base, at, state}, kept IN ORDER, removed only on a terminal answer. Here:
  *   kind   'task' | 'milestone' (the only plan rows with a row version, migration 092)
  *   body   the fields the person changed (+ id, project_id for a new row); never a whole row
- *   base   the value of those same fields (and the row version) as the person saw them when editing; null for a new row
+ *   base   the value of those same fields (and the row version) as the person saw them when editing; null for a new row.
+ *          An earlier queued edit of the same row and field replaces the base value (P04, T8: no false conflict
+ *          against the person's own earlier offline edit)
  * replay(queue, {send, current}) walks the queue in order:
  *   - send(entry, body) → {ok:true} → removed;  {status:409} → conflict check; network error ({network:true}) → stop
  *     (still offline: nothing is lost, the order is kept); any other refusal → the entry is marked 'refused' with the
@@ -44,7 +46,17 @@
         if (!e || KINDS.indexOf(e.kind) < 0) return Promise.reject(new Error('only task and milestone edits are queued'));
         var entry = { uuid: e.uuid || uuid(), kind: e.kind, id: e.id == null ? null : Number(e.id), project_id: e.project_id == null ? null : Number(e.project_id),
           body: e.body || {}, base: e.base || null, at: e.at || new Date().toISOString(), state: 'pending', code: null, conflicts: null };
-        return load().then(function (items) { items.push(entry); return save(items); }).then(function () { return entry; });
+        return load().then(function (items) {
+          // P04 (T8): an earlier queued edit of the SAME row and field is the person's own value — it becomes the base
+          // of this edit, so that replay does not report the person's own first edit as someone else's change.
+          if (entry.id != null && entry.base) {
+            items.forEach(function (x) {
+              if (x.kind !== entry.kind || x.id !== entry.id || (x.state !== 'pending' && x.state !== 'conflict')) return;
+              fieldsOf(entry.body).forEach(function (f) { if (Object.prototype.hasOwnProperty.call(x.body || {}, f) && x.body[f] !== undefined) entry.base[f] = x.body[f]; });
+            });
+          }
+          items.push(entry); return save(items);
+        }).then(function () { return entry; });
       },
       update: function (u, patch) { return load().then(function (items) { items.forEach(function (x, i) { if (x.uuid === u) items[i] = Object.assign({}, x, patch); }); return save(items); }); },
       remove: function (u) { return load().then(function (items) { return save(items.filter(function (x) { return x.uuid !== u; })); }); },

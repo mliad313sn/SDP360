@@ -59,3 +59,56 @@ test('a refusal other than 409 is kept and marked (never silently dropped)', asy
   const [e] = await q.list();
   assert.deepEqual([e.state, e.code], ['refused', 'OWN_TASK_ONLY']);
 });
+
+// P04 certification (T8) — defect found 2026-11-19: the page takes `base` from the cached SERVER row, so a second
+// offline edit of the same field of the same task (progress 20 → 40) was reported as a conflict against the person's
+// OWN first edit once it had been sent, and the merge screen's default ("theirs") silently dropped the newer value.
+test('T8: the same field edited twice offline replays without a false conflict and keeps the LAST value', async () => {
+  const q = OQ.makeQueue(memStore());
+  const row = { id: 9, version: 1, progress_pct: 0, name: 'Build' };
+  // the page always sends base = the cached server row (public/lib/ppmCollabUi.js enqueue)
+  await q.enqueue({ kind: 'task', id: 9, body: { id: 9, version: 1, progress_pct: 20 }, base: { version: 1, progress_pct: 0 } });
+  await q.enqueue({ kind: 'task', id: 9, body: { id: 9, version: 1, progress_pct: 40 }, base: { version: 1, progress_pct: 0 } });
+  await q.enqueue({ kind: 'task', id: 9, body: { id: 9, version: 1, name: 'Build v2' }, base: { version: 1, name: 'Build' } });
+  const server = { ...row };
+  const send = async (e, b) => {
+    if (b.version != null && Number(b.version) !== server.version) return { status: 409, code: 'STALE_VERSION' };
+    for (const k of Object.keys(b)) if (!['id', 'version'].includes(k)) server[k] = b[k];
+    server.version += 1; return { ok: true };
+  };
+  const r = await OQ.replay(q, { send, current: async () => ({ ...server }) });
+  assert.deepEqual([r.sent, r.conflicts, r.refused], [3, 0, 0], 'no false conflict');
+  assert.equal(server.progress_pct, 40, 'the last value wins, nothing lost');
+  assert.equal(server.name, 'Build v2');
+  assert.equal((await q.list()).length, 0);
+});
+
+test('T8: 50 offline edits over 10 tasks with one real concurrent change → 49 applied, 1 conflict shown, 0 lost', async () => {
+  const q = OQ.makeQueue(memStore());
+  const server = {}; for (let t = 1; t <= 10; t++) server[t] = { id: t, version: 1, progress_pct: 0, status: 'todo' };
+  const cache = JSON.parse(JSON.stringify(server));   // what the page cached before going offline
+  for (let i = 0; i < 50; i++) {
+    const t = (i % 10) + 1, f = i % 3 === 0 ? 'status' : 'progress_pct', v = f === 'status' ? ['todo', 'in_progress', 'done'][i % 3 === 0 ? (i / 3) % 3 : 0] : (i + 1) * 2;
+    await q.enqueue({ kind: 'task', id: t, body: { id: t, version: 1, [f]: v }, base: { version: 1, [f]: cache[t][f] } });
+  }
+  // someone else changes task 4's progress while the device is offline
+  server[4] = { ...server[4], progress_pct: 99, version: 2 };
+  const expected = {}; for (const e of await q.list()) for (const [k, v] of Object.entries(e.body)) if (!['id', 'version'].includes(k)) expected[e.id + ':' + k] = v;
+  const send = async (e, b) => {
+    const s = server[e.id];
+    if (b.version != null && Number(b.version) !== s.version) return { status: 409, code: 'STALE_VERSION' };
+    for (const k of Object.keys(b)) if (!['id', 'version'].includes(k)) s[k] = b[k];
+    s.version += 1; return { ok: true };
+  };
+  const r = await OQ.replay(q, { send, current: async (e) => ({ ...server[e.id] }) });
+  const left = await q.list();
+  assert.equal(r.refused, 0);
+  assert.equal(left.length, r.conflicts, 'every edit not applied is still on the device');
+  assert.ok(left.every((e) => e.state === 'conflict' && e.id === 4), 'only task 4 (the real concurrent change) conflicts');
+  assert.equal(r.sent + r.conflicts, 50, 'zero loss');
+  for (const [k, v] of Object.entries(expected)) {
+    const [id, f] = k.split(':');
+    if (Number(id) === 4 && f === 'progress_pct') continue;   // shown in the merge screen
+    assert.equal(String(server[id][f]), String(v), k + ' = the last offline value');
+  }
+});
