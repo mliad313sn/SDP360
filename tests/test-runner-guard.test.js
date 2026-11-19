@@ -72,3 +72,36 @@ test('G01: every allow-listed skip names an owner', () => {
   const allow = require('./.skip-allowlist.json');
   for (const [r, a] of Object.entries(allow.reasons)) { assert.ok(a.owner && a.owner.length > 5, r); assert.ok(Number.isInteger(a.max) && a.max >= 0, r); }   // E-Q01: max 0 = the reason is documented (dev boxes) but no skip is allowed in a guarded run
 });
+
+// P11 AUD-3 — a failing test marked `todo` used to pass the run: node exits 0, the reporter wrote ok:false with
+// skip:null, and the guard saw no problem. A todo now counts like a skip ("todo: <reason>") against the allow-list.
+test('AUD-3: a todo is counted like a skip and an unlisted todo fails the guard', () => {
+  const { checkSkips, census: cen } = require('../tools/test/guard');
+  const events = [{ file: A, ok: true, kind: 'test', skip: null }, { file: A, ok: false, kind: 'test', skip: null, todo: 'later' }];
+  const cs = cen(events);
+  assert.deepStrictEqual(cs['a.test.js'], { tests: 2, skipped: 1, reasons: { 'todo: later': 1 } });
+  const p = checkSkips(cs, { reasons: {} });
+  assert.strictEqual(p.length, 1); assert.match(p[0], /unlisted reason "todo: later"/);
+  assert.deepStrictEqual(checkSkips(cs, { reasons: { 'todo: later': { max: 1, owner: 'qa lead' } } }), []);
+  // an allow-listed todo is not a failure; any other ok:false is, even if the process exit code said 0
+  assert.strictEqual(check({ expectedFiles: [A], events, minTests: 1 }).ok, true);
+  const r = check({ expectedFiles: [A], events: [{ file: A, ok: false, kind: 'test' }], minTests: 1 });
+  assert.strictEqual(r.ok, false); assert.match(r.problems.join(' '), /1 test\(s\) failed/);
+});
+
+test('AUD-3: the file reporter carries the todo reason of a failing todo (reviewer repro)', () => {
+  const fs = require('fs'), os = require('os');
+  const { spawnSync } = require('child_process');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'aud3-'));
+  try {
+    const f = path.join(dir, 'todo.test.js'), out = path.join(dir, 'ev.jsonl');
+    fs.writeFileSync(f, "const test=require('node:test');const assert=require('node:assert');test('parked',{todo:'later'},()=>{assert.strictEqual(1,2);});\n");
+    const env = { ...process.env }; delete env.NODE_OPTIONS; delete env.NODE_TEST_CONTEXT;
+    const r = spawnSync(process.execPath, ['--test', '--test-reporter=' + path.resolve(__dirname, '../tools/test/file-reporter.mjs'), '--test-reporter-destination=' + out, f], { env, encoding: 'utf8' });
+    assert.strictEqual(r.status, 0, 'node itself exits 0 on a failing todo — the guard must catch it');
+    const { parseEvents: pe, census: cen, checkSkips } = require('../tools/test/guard');
+    const evts = pe(fs.readFileSync(out, 'utf8'));
+    assert.ok(evts.some((e) => e.todo === 'later'), 'reporter records the todo reason');
+    assert.match(checkSkips(cen(evts), { reasons: {} }).join(' '), /todo: later/);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});

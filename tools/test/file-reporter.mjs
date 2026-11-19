@@ -7,7 +7,9 @@ export default async function* fileReporter(source) {
       const d = ev.data || {};
       yield JSON.stringify({ ok: ev.type === 'test:pass', file: d.file || null,
         name: d.name, nesting: d.nesting, kind: (d.details && d.details.type) || 'test',
-        skip: d.skip === undefined ? null : (d.skip === true ? 'no reason given' : String(d.skip)) }) + '\n';
+        skip: d.skip === undefined ? null : (d.skip === true ? 'no reason given' : String(d.skip)),
+        // P11 AUD-3: a `todo` test does not fail node's exit code even when it fails — carry it so the guard counts it
+        todo: d.todo === undefined || d.todo === false ? null : (d.todo === true ? 'no reason given' : String(d.todo)) }) + '\n';
     }
   }
 }

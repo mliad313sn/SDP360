@@ -21,7 +21,7 @@ function summarize(events) {
     if (e.file) files.add(path.resolve(e.file));
     if (e.kind === 'suite') continue;
     tests++;
-    if (!e.ok) failed++;
+    if (!e.ok && !e.todo) failed++;   // a todo is judged by the skip allow-list (see census), not here
   }
   return { files, tests, failed };
 }
@@ -33,6 +33,8 @@ function check({ expectedFiles, events, minTests }) {
   if (missing.length) problems.push(missing.length + ' test file(s) produced no result: ' + missing.map((f) => path.basename(f)).join(', '));
   if (!Number.isFinite(minTests)) problems.push('tests/.min-test-count is missing or unreadable');
   else if (s.tests < minTests) problems.push('only ' + s.tests + ' tests reported, floor is ' + minTests + ' (tests/.min-test-count)');
+  // P11 AUD-3: a failed test is a failed run even when the process exit code says otherwise
+  if (s.failed) problems.push(s.failed + ' test(s) failed');
   return { ok: problems.length === 0, problems, missing, tests: s.tests, failed: s.failed, reportedFiles: s.files.size };
 }
 
@@ -49,7 +51,10 @@ function census(events) {
     const k = path.basename(e.file);
     const c = out[k] || (out[k] = { tests: 0, skipped: 0, reasons: {} });
     c.tests++;
-    if (e.skip) { c.skipped++; c.reasons[e.skip] = (c.reasons[e.skip] || 0) + 1; }
+    // P11 AUD-3: a `todo` (passing or failing) counts like a skip under the reason "todo: <reason>", so an
+    // unlisted todo fails the run through checkSkips exactly like an unlisted skip
+    const reason = e.skip || (e.todo ? 'todo: ' + e.todo : null);
+    if (reason) { c.skipped++; c.reasons[reason] = (c.reasons[reason] || 0) + 1; }
   }
   return out;
 }
@@ -83,6 +88,7 @@ function buildManifest(cs) {
 
 // tests/.skip-allowlist.json — every reason a test may be skipped for, with the most tests it may cover and
 // an owner. A skip under an unlisted reason, or more skips than allowed, fails the run: no hidden skip.
+// A `todo` test is listed as "todo: <reason>" and follows the same rule (P11 AUD-3).
 function checkSkips(cs, allow) {
   const problems = [];
   const reasons = (allow && allow.reasons) || {};
