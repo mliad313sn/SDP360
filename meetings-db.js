@@ -736,7 +736,9 @@ async function _getIssueParentPg(issueId) {
       FROM md_issues i JOIN md_meetings m ON m.id = i.meeting_id WHERE m.deleted_at IS NULL AND i.id = ?`).get(issueId)) || null;
 }
 async function _getActionParentPg(actionId) {
-  return (await pgHandle().prepare(`SELECT m.site_code AS site_code, m.status AS meeting_status
+  return (await pgHandle().prepare(`SELECT m.site_code AS site_code, m.status AS meeting_status, a.status AS action_status,
+      (SELECT to_char(max(u.created_at) AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') FROM md_action_updates u
+        WHERE u.action_id = a.id AND u.status_change IS NOT NULL AND u.status_change <> '') AS last_status_change_at
       FROM md_actions a JOIN md_meetings m ON m.id = a.meeting_id WHERE m.deleted_at IS NULL AND a.id = ?`).get(actionId)) || null;
 }
 
