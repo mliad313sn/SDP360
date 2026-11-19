@@ -80,10 +80,10 @@ test('signoff_pct — 1 of 2 PVs fully signed → 50', () => {
   assert.strictEqual(S.kpis.signoff_pct, 50);
 });
 
-test('signoff_pct is 0 when no PVs were held that month', async () => {
+test('signoff_pct is null (not measured, never 0) when no PVs were held that month — P08 unknown sweep', async () => {
   const none = (await mdb.getSiteMonthlyMeetingSummary('KPI', 2026, 3));
   assert.strictEqual(none.kpis.pvs_held, 0);
-  assert.strictEqual(none.kpis.signoff_pct, 0);
+  assert.strictEqual(none.kpis.signoff_pct, null);
 });
 
 test('overdue_actions_count counts overdue non-terminal actions only', () => {
