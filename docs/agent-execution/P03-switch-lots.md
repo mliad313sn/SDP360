@@ -80,7 +80,14 @@ Raw results (JSON lines per test) were kept in the agent scratchpad, not committ
 
 `docs/ops/SWITCH-LOTS.md` lists every cross-lot pair of switches sharing a non-hub consumer file or table (44 lot
 pairs). The four heaviest pairs were run with both lots forced together (`--lot=A+B`):
-see the section "Pairwise results" appended below. The remaining pairs are left for the orchestrator.
+results below. The remaining 40 lot pairs are left for the orchestrator.
+
+| Pair | Results | Fail | Failures not seen in either lot alone |
+|---|---|---|---|
+| L02+L03 | 136 | 15 | 2 — `portfolio-benefits` (money verifier) and `ppm-engine-routes` (W2 engine): both read a project as a viewer with no site; attributed to L02 `portfolio_site_scope_reads` narrowing reads (these files name only L03-L05 switches, so they did not run in L02 alone). AI attribution, **to confirm** — no amount was exposed in either. |
+| L03+L05 | 158 | 14 | 0 |
+| L10+L11 | 152 | 22 | 0 |
+| L11+L13 | 157 | 22 | 0 |
 
 ## Rollback rehearsal (step 4)
 
