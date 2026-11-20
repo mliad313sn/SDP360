@@ -4781,6 +4781,7 @@
    "default_when_unset": null,
    "owner_role": null,
    "read_in": [
+    "services/auditChain.js",
     "services/backendGuard.js",
     "services/configSecrets.js"
    ]

@@ -57,7 +57,7 @@ Files scanned: **149** · inline <style> blocks: **61** · hex literals: **5577*
 | `public/notifications.html` | 11618 | 1 | 41 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/obligations.html` | 3741 | 1 | 13 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/policies.html` | 25419 | 1 | 15 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/policy-center.html` | 6515 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/policy-center.html` | 7068 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/portfolio-decisions.html` | 3677 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/portfolio-phase2.html` | 2596 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/portfolio-register.html` | 5707 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
@@ -117,7 +117,7 @@ Files scanned: **149** · inline <style> blocks: **61** · hex literals: **5577*
 | `public/lib/pageView.js` | 764 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/parse-actions-csv.js` | 8439 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/policiesRoles.js` | 16086 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/policyCenterPage.js` | 21857 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/policyCenterPage.js` | 23296 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/portfolioDecisionsPage.js` | 10493 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/portfolioMine.js` | 2023 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/portfolioPhase2Page.js` | 10243 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
