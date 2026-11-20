@@ -10,7 +10,9 @@
 //   - a cited file changed since the manifest recorded its content hash;
 //   - a parallel lot delivered evidence the dossier still calls "awaited" (its glob now matches a new file);
 //   - the source, or the RELEASE-GATES rows, changed;
-//   - the committed Markdown is not what the source + manifest render to (hand edit).
+//   - the committed Markdown is not what the source + manifest render to (hand edit);
+//   - (P11 r6 R6-A3) a SCRIPT a dossier cites as a command (`node tools/….js`, `node --test tests/….js`) changed since
+//     the manifest recorded its content hash, or is gone — a re-run command is evidence too.
 // The renderer is pure (source + manifest -> text): git dates are captured into the manifest at generation time,
 // so the check is reproducible on a shallow CI clone.
 //
@@ -63,6 +65,19 @@ function resolveGlob(root, glob) {
   return names.filter((n) => re.test(n)).sort().map((n) => `${dir}/${n}`);
 }
 
+// P11 r6 R6-A3 — the script files the cited commands run: any tools/ tests/ scripts/ services/ db/ *.js|mjs|cjs token.
+const SCRIPT_RE = /(?:^|[\s"'`=])((?:tools|tests|scripts|services|db)\/[\w./-]+\.(?:mjs|cjs|js))(?=$|[\s"'`;)])/g;
+function scriptsInCommand(cmd) {
+  const out = []; let m; SCRIPT_RE.lastIndex = 0;
+  while ((m = SCRIPT_RE.exec(String(cmd || '')))) out.push(m[1]);
+  return out;
+}
+function allCitedScripts(source) {
+  const set = new Set();
+  for (const g of source.gates) for (const e of g.evidence) for (const p of scriptsInCommand(e.cmd)) set.add(p);
+  return [...set].sort();
+}
+
 function allCitedPaths(source) {
   const set = new Set();
   for (const g of source.gates) for (const e of g.evidence) set.add(e.path);
@@ -89,7 +104,15 @@ function collect(root, { withGit = true } = {}) {
     }
     evidence[p] = rec;
   }
+  const scripts = {};
+  const missingScripts = [];
+  for (const p of allCitedScripts(source)) {
+    if (!fs.existsSync(path.join(root, p))) { missingScripts.push(p); continue; }
+    scripts[p] = { sha256: sha256(readRel(root, p)) };
+  }
   return {
+    scripts,
+    missingScripts,
     source,
     rows: parseGateRows(gatesMd),
     gatesHash: sha256(gatesMd),
@@ -257,6 +280,7 @@ function buildManifest(c, targetSha, generated) {
     release_gates_sha256: c.gatesHash,
     rows: c.rows.map((r) => ({ gate: r.gate, scope: r.scope, decision: r.decision })),
     evidence: c.evidence,
+    scripts: c.scripts,
     awaited: c.awaited,
   };
 }
@@ -275,6 +299,12 @@ function checkStale(root = ROOT) {
     const m = manifest.evidence[p];
     if (!m) reasons.push(`evidence not recorded in the manifest: ${p}`);
     else if (m.sha256 !== rec.sha256) reasons.push(`cited evidence changed after the dossier was generated (dossier cites an older version): ${p}`);
+  }
+  for (const p of c.missingScripts) reasons.push(`a cited command runs a script missing from the tree: ${p}`);
+  for (const [p, rec] of Object.entries(c.scripts)) {
+    const m = (manifest.scripts || {})[p];
+    if (!m) reasons.push(`cited command script not recorded in the manifest: ${p}`);
+    else if (m.sha256 !== rec.sha256) reasons.push(`a script a cited command runs changed after the dossier was generated: ${p}`);
   }
   for (const [glob, list] of Object.entries(c.awaited)) {
     const before = (manifest.awaited || {})[glob] || [];
@@ -296,7 +326,7 @@ function checkStale(root = ROOT) {
 
 function generate(root = ROOT, { sha } = {}) {
   const c = collect(root, { withGit: true });
-  const errors = validate(c.source, c.rows).concat(c.missing.map((p) => `cited evidence missing: ${p}`));
+  const errors = validate(c.source, c.rows).concat(c.missing.map((p) => `cited evidence missing: ${p}`), c.missingScripts.map((p) => `a cited command runs a missing script: ${p}`));
   if (errors.length) throw new Error('gate dossiers: ' + errors.join('\n'));
   const targetSha = sha || git(root, ['rev-parse', '--short', 'HEAD']) || 'UNKNOWN';
   const generated = new Date().toISOString().slice(0, 10);
@@ -312,7 +342,7 @@ function generate(root = ROOT, { sha } = {}) {
   return { count: Object.keys(files).length - 1, targetSha };
 }
 
-module.exports = { parseGateRows, resolveGlob, collect, validate, dependencyOrder, pilotPath, renderAll, renderDossier, checkStale, generate, sha256, OUT_DIR, MANIFEST, GATES_MD, SOURCE };
+module.exports = { scriptsInCommand, allCitedScripts, parseGateRows, resolveGlob, collect, validate, dependencyOrder, pilotPath, renderAll, renderDossier, checkStale, generate, sha256, OUT_DIR, MANIFEST, GATES_MD, SOURCE };
 
 if (require.main === module) {
   const args = process.argv.slice(2);

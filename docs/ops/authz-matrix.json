@@ -441,15 +441,15 @@
   }
  ],
  "totals": {
-  "routes": 799,
+  "routes": 800,
   "public": 8,
-  "role_guarded": 279,
+  "role_guarded": 280,
   "site_scoped": 102,
   "money_bearing": 45,
   "handler_checked": 496,
   "handler_none": 71,
   "reachable_by_role": {
-   "super_admin": 785,
+   "super_admin": 786,
    "executive": 661,
    "admin": 654,
    "editor": 521,
@@ -1113,6 +1113,7 @@
   {"key":"POST /api/metrics/targets/:id/end","method":"POST","path":"/api/metrics/targets/:id/end","gate":"session","guards":[{"name":"requireSuper","roles":["super_admin"]}],"capabilities":["metrics.targets.set"],"allowed_roles":["super_admin"],"inline_roles":[],"site_scope":[],"site_scoped":false,"money_bearing":false,"business_allowed":false},
   {"key":"POST /api/notes","method":"POST","path":"/api/notes","gate":"session","guards":[{"name":"requireExecutiveOrSuperAdmin","roles":["executive"]}],"capabilities":["platform.sites.structure"],"allowed_roles":["super_admin","executive"],"inline_roles":[],"site_scope":[],"site_scoped":false,"money_bearing":false,"business_allowed":false},
   {"key":"POST /api/policy-center/import","method":"POST","path":"/api/policy-center/import","gate":"session","guards":[{"name":"requireSuperAdmin","roles":["super_admin"]}],"capabilities":["platform.settings.manage"],"allowed_roles":["super_admin"],"inline_roles":[],"site_scope":[],"site_scoped":false,"money_bearing":false,"business_allowed":false},
+  {"key":"POST /api/policy-center/operator-tokens","method":"POST","path":"/api/policy-center/operator-tokens","gate":"session","guards":[{"name":"requireSuperAdmin","roles":["super_admin"]}],"capabilities":["platform.settings.manage"],"allowed_roles":["super_admin"],"inline_roles":[],"site_scope":[],"site_scoped":false,"money_bearing":false,"business_allowed":false},
   {"key":"POST /api/policy-center/requests/:id/approve","method":"POST","path":"/api/policy-center/requests/:id/approve","gate":"session","guards":[{"name":"requireSuperAdmin","roles":["super_admin"]}],"capabilities":["platform.settings.manage"],"allowed_roles":["super_admin"],"inline_roles":["super_admin"],"site_scope":[],"site_scoped":false,"money_bearing":false,"business_allowed":false},
   {"key":"POST /api/policy-center/requests/:id/cancel","method":"POST","path":"/api/policy-center/requests/:id/cancel","gate":"session","guards":[{"name":"requireSuperAdmin","roles":["super_admin"]}],"capabilities":["platform.settings.manage"],"allowed_roles":["super_admin"],"inline_roles":["super_admin"],"site_scope":[],"site_scoped":false,"money_bearing":false,"business_allowed":false},
   {"key":"POST /api/policy-center/requests/:id/reject","method":"POST","path":"/api/policy-center/requests/:id/reject","gate":"session","guards":[{"name":"requireSuperAdmin","roles":["super_admin"]}],"capabilities":["platform.settings.manage"],"allowed_roles":["super_admin"],"inline_roles":["super_admin"],"site_scope":[],"site_scoped":false,"money_bearing":false,"business_allowed":false},

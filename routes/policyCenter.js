@@ -11,6 +11,8 @@
 //   POST /api/policy-center/requests/:id/approve|reject      a SECOND super_admin decides (pc-<n> | gp-<n>)     super_admin
 //   POST /api/policy-center/requests/:id/cancel              the requester withdraws                            super_admin
 //   GET  /api/policy-center/export[?format=csv]              effective policy set (secrets: set / not set)      super_admin
+//   POST /api/policy-center/operator-tokens                  one-time CLI operator token for the CALLER (P11 r6     super_admin
+//                                                            R6-A1): shown once, 10 minutes, consumed by activate-switches
 //   POST /api/policy-center/import                           environment profile — dry run first; applied only  super_admin
 //                                                            with confirm:true + the plan_hash of that dry run
 // Reads are super_admin only, like GET /api/reports/config (N-R4-2, P11 round 4): the center shows non-secret identity
@@ -191,6 +193,18 @@ module.exports = function policyCenterRoutes(deps) {
   router.post('/api/policy-center/requests/:id/approve', requireReportSession, requireSuperAdmin, enabled, json, decide('approve'));
   router.post('/api/policy-center/requests/:id/reject', requireReportSession, requireSuperAdmin, enabled, json, decide('reject'));
   router.post('/api/policy-center/requests/:id/cancel', requireReportSession, requireSuperAdmin, enabled, json, decide('cancel'));
+
+  // P11 r6 R6-A1 — a CLI operator token for the logged-in super_admin. tools/ops/activate-switches.js consumes it to
+  // learn who runs it: four-eyes requests it files carry THIS account as requester (never a typed --operator name), and
+  // the approval stays an act of another, independent super_admin in this page. The token is returned once.
+  router.post('/api/policy-center/operator-tokens', requireReportSession, requireSuperAdmin, enabled, json, async (req, res) => {
+    try {
+      const u = req.reportUser;
+      const out = await require('../services/operatorTokens').issue(rdb().pgHandle ? rdb().pgHandle() : rdb().db, u);
+      await log(req, { category: 'config', action: 'operator_token_issued', target: String(u.username || u.id), details: { token_id: out.id, expires_at: out.expires_at, purpose: 'activate-switches' }, risk: 1 });
+      res.json({ ok: true, token: out.token, expires_at: out.expires_at, ttl_minutes: out.ttl_minutes, username: u.username });
+    } catch (e) { fail(res, e); }
+  });
 
   // ── export / import ──────────────────────────────────────────────────────────────────────────
   async function effectiveSet() {

@@ -2,8 +2,8 @@
 
 > **Préparé par IA — à valider par les responsables nommés.** Version 1 · 2026-11-20 · SHA de référence de la
 > rédaction : `2fd10fe5` (branche de travail). Ce plan **propose** un ordre d'activation ; il ne décide rien.
-> Les recommandations par lot viennent du **panel IA** du rapport P11 (sièges IA, pas une revue humaine
-> indépendante). Aucun propriétaire, site, date, seuil ou résultat n'est rempli : chaque champ humain est vide.
+> Les recommandations par lot viennent du **panel IA** du rapport P11, tours 3 à 6 (sièges IA, pas une revue humaine
+> indépendante) ; mise à jour du 2026-11-20 avec les avis des tours 5 et 6. Aucun propriétaire, site, date, seuil ou résultat n'est rempli : chaque champ humain est vide.
 > Les décisions qui conditionnent chaque vague sont numérotées `HD-…` dans `docs/business-readiness/REGISTRE-DECISIONS-HUMAINES.md`.
 
 ## 0. En une page
@@ -15,7 +15,7 @@
 | Quoi | Le produit tel que livré (interrupteurs par défaut), puis des **lots** d'interrupteurs (`docs/ops/switch-lots.json`) en trois vagues. |
 | Comment | `node tools/ops/activate-switches.js` : plan (`--plan`), puis simulation (`--dry-run`), puis application, avec un fichier de retour arrière contrôlé à chaque application (empreinte sha256 enregistrée dans `system_log`, scellé HMAC quand `SDP_CONFIG_KEY` ou `SDP_BACKUP_KEY` est posée ; sans clé il est seulement contrôlé par empreinte, pas signé). |
 | Combien de temps | Proposition IA : 2 semaines de référence + 6 semaines de pilote (3 vagues × 2 semaines). Dates : champ humain. |
-| Ce qui reste interdit | Lot L05 (NO-GO), envois sortants (`K:outbound`), écriture dans ServiceDesk Plus (`K:source_system_write`, refusé par l'outil), Centre de contrôle des politiques (`policy_center_enabled`). |
+| Ce qui reste interdit | Lot L05 (NO-GO), envois sortants (`K:outbound`), écriture dans ServiceDesk Plus (`K:source_system_write`, refusé par l'outil), application par l'outil en ligne de commande d'un interrupteur « quatre yeux » sans demande authentifiée au Centre de contrôle des politiques (voir §3). Allumer `policy_center_enabled` reste la décision HD-S04. |
 
 ### Champs à remplir par les responsables (laisser vides tant que non décidés)
 
@@ -26,7 +26,7 @@
 | Site optionnel de préparation hors ligne | | Sponsor + IT Groupe (HD-G11) | | | | |
 | Responsable du pilote | | Sponsor | | | | |
 | Opérateur de l'instance de TEST (exécute `activate-switches`) | | SRE | | | | |
-| Second opérateur des interrupteurs « quatre yeux » (`--second-operator`, personne différente) | | Sécurité de l'information | | | | |
+| Second super_admin qui approuve dans le Centre des politiques les demandes « quatre yeux » déposées par l'opérateur (personne différente, indépendante) | | Sécurité de l'information | | | | |
 | Facilitateur (hors équipe de construction) | | Sponsor (HD-U04) | | | | |
 | Observateur | | Sponsor (HD-U04) | | | | |
 | Détenteur de `PILOT_PSEUDONYM_KEY` | | Sponsor (HD-U07) | | | | |
@@ -34,32 +34,34 @@
 | Mise en route vague 1 | | Responsable du pilote | | | | |
 | Fin du pilote | | Responsable du pilote | | | | |
 
-## 1. Recommandation consolidée par lot (panel IA, tours 3 et 4)
+## 1. Recommandation consolidée par lot (panel IA, tours 3 à 6)
 
-Règle de consolidation : on retient **l'avis le plus prudent** des sièges qui ont évalué le lot au tour 4
-(`docs/agent-execution/p11/round4-e43d11d5/`), et le tableau du tour 3 sinon (`docs/agent-execution/P11-readiness-report.md`).
-Les correctifs 14 à 18, fusionnés après le tour 4, **n'ont pas été revérifiés par un panel** : un constat « corrigé
-dans le code » n'est pas « vérifié ».
+Règle de consolidation : on retient **l'avis le plus prudent** des sièges qui ont évalué le lot au tour le plus récent
+(tour 6 au SHA `e82d95ba`, sinon tour 5 au SHA `3ee4dd23`, sinon tour 4 `docs/agent-execution/p11/round4-e43d11d5/`,
+sinon le tableau du tour 3 `docs/agent-execution/P11-readiness-report.md`). Les rapports des tours 5 et 6 sont tenus
+hors dépôt par le panel ; la colonne « Avis des sièges » les résume. Les correctifs 25 à 29, fusionnés **après** le
+tour 6, **n'ont pas été revérifiés par un panel** : un constat « corrigé dans le code » n'est pas « vérifié ».
 
-| Lot | Titre | Avis consolidé (IA) | Condition exacte | Décisions (registre) | Vague proposée |
-|---|---|---|---|---|---|
-| — | Produit par défaut (aucun interrupteur changé) | **GO PILOT** | aucune au-delà des portes du pilote | HD-G19, HD-G01, HD-G03, HD-G02, HD-G05, HD-G12, HD-G11, HD-G21 | 1 |
-| L01 | Parcours du travail quotidien | **GO PILOT conditionnel** | la politique de clôture G07 est adoptée (le lot ouvre le registre des engagements `commitments_enabled`) ; un responsable du tableau de qualité des données et une personne qui répond aux retours sont nommés | HD-G07, HD-O07, HD-O08, HD-S03 | 1 |
-| L02 | PMO — lecture du portefeuille | **CONDITIONAL** | SEC-F2 / R1-F2 tranché (montants lus par le comité) et consigné | HD-S01, HD-G21 | 2 |
-| L03 | PMO — maîtrise des changements, baselines, jalons | **CONDITIONAL** | le responsable de la politique d'accès accepte `portfolio_editor_plan_writes` (élargit l'écriture) ou le sort du lot | HD-S02, HD-C03, HD-P04, HD-P05 | 2 |
-| L09 | Confiance dans les indicateurs (lecture seule) | **CONDITIONAL** | minimum d'échantillon fixé ; aucun chiffre présenté comme certifié avant G06 ; L01 activé avant (dépendance `dashboard_red_action_links` → `commitments_enabled`) | HD-K06, HD-K04, HD-U01 | 2 |
-| L14 | PMO — registre d'intake, qualité, tableau exécutif | **CONDITIONAL** | listes de référence et règles de qualité revues par le PMO ; décision SEC-F2 ; le retour arrière ne restaure que la configuration, pas les données saisies entre-temps (F-18) | HD-P01, HD-P02, HD-P03, HD-K12, HD-S01 | 2 |
-| L15 | Atterrissage par profil (lot d'adoption B) | **NON ÉVALUÉ** par le panel (fusionné après le tour 4) | revue humaine ou nouveau passage du panel avant activation | HD-U11, HD-U06 | 2 |
-| L04 | PMO — planification, ressources, collaboration | **CONDITIONAL** | le PMO accepte la lenteur du nivellement (PPM-F4) sans budget de performance approuvé ; un responsable capacité est nommé | HD-P06, HD-P07, HD-P08 | 3 |
-| L08 | Cadence de gouvernance | **CONDITIONAL** | G07 adopté (dépendance `a01_missing_due_date` → `commitments_enabled`) ; G08 si les passations sont voulues ; signataires PIR et responsable problèmes nommés | HD-G07, HD-G08, HD-C01, HD-C02, HD-U18, HD-U19, HD-U20, HD-K11 | 3 |
-| L10 | Rythme de reporting | **CONDITIONAL** | N-09 (fraîcheur) corrigé dans le code par le correctif 17, à revérifier ; délais de rappel fixés | HD-U15, HD-U16, HD-C04 | 3 |
-| L11 | Preuves des opérations de site | **CONDITIONAL** | sondes « argent » sur les montants certifiés (R1-F5) ; seuils de certification Finance ; palier de rôle du technicien terrain | HD-F02, HD-F07, HD-U17, HD-U02, HD-O14 | 3 |
-| L12 | Durcissement des accès | **CONDITIONAL** | exercice de break-glass sur TEST ; porte InfoSec ; N-R4-1 corrigé (correctif 14) à revérifier | HD-S07, HD-S08, HD-S11, HD-S12 | 3 |
-| L05 | PMO — temps, argent, bénéfices | **NO-GO pour le pilote** | porte Finance G14 signée + SEC-F2 tranché + R4-1 revérifié ou accepté par la Finance | HD-G14, HD-S01, HD-F01, HD-F03, HD-F04, HD-F05 | exclu |
-| L06 | Échange de plans (extras) | **CONDITIONAL**, hors pilote | porte connecteurs G13 ; Jira / Azure DevOps restent des appels sortants sautés par l'outil | HD-G13 | exclu |
-| L07 | Publication de la feuille de route, sensibilité | **CONDITIONAL**, hors pilote | test de partage avec montants semés exécuté ; à activer avec L05 seulement (corbeille) | HD-S13, HD-C05 | exclu |
-| L16 | Portefeuille phase 2 (dépendances, demande et capacité, documents, score d'effort, scénarios, export BI) | **CONDITIONAL**, hors pilote (avis panel IA du tour 5, lot fusionné après le tour 4) | non planifié dans ce pilote ; avant toute vague : revue humaine du lot ; documents supprimés en corbeille et versionnés (migration 130) mais stockés sans antivirus (décision de l'opérateur) ; l'export BI passe par l'interrupteur « quatre yeux » `ext_api_portfolio_enabled` (second opérateur ou Centre des politiques) avec une clé d'API au périmètre `portfolio:read` ; seuils de capacité, échelle d'exposition et pondérations d'effort sont PROPOSÉS | HD-P13 | exclu |
-| L13 | Résilience des opérations | **CONDITIONAL**, hors pilote ; **NO-GO** pour activer `policy_center_enabled` | R4-A2 / N-10 revérifiés ; G05 signée ; deux interrupteurs sortants (`sync_drift_alerts`, `delivery_failure_alert_enabled`) | HD-S04, HD-O02, HD-O04, HD-G05 | exclu |
+| Lot | Titre | Avis des sièges (tour 6, IA) | Avis consolidé (IA) | Condition exacte | Décisions (registre) | Vague proposée |
+|---|---|---|---|---|---|---|
+| — | Produit par défaut (aucun interrupteur changé) | audit GO PILOT · PPM GO PILOT | **GO PILOT** | aucune au-delà des portes du pilote | HD-G19, HD-G01, HD-G03, HD-G02, HD-G05, HD-G12, HD-G11, HD-G21 | 1 |
+| L01 | Parcours du travail quotidien | sécurité GO PILOT · UX GO PILOT (anglais) · audit GO PILOT conditionnel (G07) | **GO PILOT conditionnel** | la politique de clôture G07 est adoptée (le lot ouvre `commitments_enabled`) ; un responsable du tableau de qualité des données et une personne qui répond aux retours sont nommés ; pages en français seulement après relecture du glossaire (UX D-2) | HD-G07, HD-O07, HD-O08, HD-S03 | 1 |
+| L02 | PMO — lecture du portefeuille | sécurité CONDITIONAL (R1-F2) · PPM GO PILOT | **CONDITIONAL** | SEC-F2 / R1-F2 tranché (montants lus par le comité) et consigné | HD-S01, HD-G21 | 2 |
+| L03 | PMO — maîtrise des changements, baselines, jalons | sécurité GO PILOT · PPM GO PILOT · audit CONDITIONAL (R6-A1) · opérations CONDITIONAL (O-4) | **GO PILOT conditionnel** | le responsable de la politique d'accès accepte `portfolio_editor_plan_writes` (HD-S02) ; l'interrupteur « quatre yeux » s'active **par une demande authentifiée au Centre des politiques** approuvée par un second super_admin (correctif 29, R6-A1, non revérifié par un panel) — donc après HD-S04 ; jamais par un second nom tapé | HD-S02, HD-S04, HD-C03, HD-P04, HD-P05 | 2 |
+| L09 | Confiance dans les indicateurs (lecture seule) | sécurité GO PILOT · données CONDITIONAL (F-26) | **CONDITIONAL** | F-26 (couleur helpdesk de la Vue Groupe sans les tickets ouverts en retard) **corrigé dans le code par le correctif 25**, à revérifier ; minimum d'échantillon fixé ; aucun chiffre présenté comme certifié avant G06 ; L01 activé avant (dépendance `dashboard_red_action_links` → `commitments_enabled`) | HD-K06, HD-K04, HD-U01 | 2 |
+| L14 | PMO — registre d'intake, qualité, tableau exécutif (lots portefeuille 1 à 5) | PPM GO PILOT conditionnel · données proche du GO (F-27) · UX GO PILOT · sécurité GO PILOT (lot 5) · audit CONDITIONAL (web uniquement) | **GO PILOT conditionnel à la confirmation du comité** | le comité confirme les politiques PROPOSÉES (champs gelés, règle d'usage unique des demandes de changement, « changement de devise = nouvelle baseline ») avant d'armer `ppm_business_case_freeze_enabled` ; listes de référence et règles de qualité revues par le PMO ; F-27 (carte projet) corrigé dans le code par le correctif 25, à revérifier ; décision SEC-F2 ; interrupteurs « quatre yeux » par demande authentifiée au Centre des politiques ; le retour arrière ne restaure que la configuration (F-18) | HD-P01, HD-P02, HD-P03, HD-K12, HD-S01, HD-S04 | 2 |
+| L15 | Atterrissage par profil (lot d'adoption B) | sécurité GO PILOT · UX GO PILOT (`ui_helpdesk_site_default` CONDITIONAL) · données CONDITIONAL (F-26) | **CONDITIONAL** | vérifier à l'activation les graphies du site dans le filtre Helpdesk (F-21, alias et mot entier livrés par le correctif 28, à revérifier) ; classement « pires sites » après revérification de F-26 | HD-U11, HD-U06 | 2 |
+| L04 | PMO — planification, ressources, collaboration | sécurité GO PILOT · PPM CONDITIONAL | **CONDITIONAL** | le PMO accepte la lenteur du nivellement (PPM-F4/F5/F8) sans budget de performance approuvé ; un responsable capacité est nommé | HD-P06, HD-P07, HD-P08 | 3 |
+| L08 | Cadence de gouvernance | sécurité GO PILOT · UX GO PILOT (flux de revue) · audit CONDITIONAL | **CONDITIONAL** | G07 adopté (dépendance `a01_missing_due_date` → `commitments_enabled`) ; G08 si les passations sont voulues ; signataires PIR et responsable problèmes nommés ; interrupteurs « quatre yeux » par demande authentifiée au Centre des politiques | HD-G07, HD-G08, HD-C01, HD-C02, HD-U18, HD-U19, HD-U20, HD-K11, HD-S04 | 3 |
+| L10 | Rythme de reporting | sécurité GO PILOT · opérations GO PILOT | **GO PILOT conditionnel** | délais de rappel fixés ; N-09 (fraîcheur) tenu au tour 6 | HD-U15, HD-U16, HD-C04 | 3 |
+| L11 | Preuves des opérations de site | sécurité CONDITIONAL (R1-F5) · UX GO PILOT · opérations GO PILOT | **CONDITIONAL** | sondes « argent » sur les montants certifiés (R1-F5) ; seuils de certification Finance ; palier de rôle du technicien terrain ; F-22 (réouverture depuis le formulaire d'une action fermée au téléphone) corrigé dans le code par le correctif 28, à revérifier — d'ici là, rouvrir dans le registre des actions ; interrupteurs « quatre yeux » par demande authentifiée | HD-F02, HD-F07, HD-U17, HD-U02, HD-O14, HD-S04 | 3 |
+| L12 | Durcissement des accès | sécurité CONDITIONAL | **CONDITIONAL** | exercice de break-glass sur TEST ; porte InfoSec ; N-R6-1 (le PUT générique peut désactiver `access_require_approval` avec un booléen) en cours de correction (correctif 26), **non fusionné ici** ; interrupteurs « quatre yeux » par demande authentifiée | HD-S07, HD-S08, HD-S11, HD-S12, HD-S04 | 3 |
+| L05 | PMO — temps, argent, bénéfices | sécurité CONDITIONAL · PPM CONDITIONAL · données NO-GO pour le pilote | **NO-GO pour le pilote** | porte Finance G14 signée + SEC-F2 tranché + R1-F5 / R4-1 revérifiés ou acceptés par la Finance | HD-G14, HD-S01, HD-F01, HD-F03, HD-F04, HD-F05 | exclu |
+| L06 | Échange de plans (extras) | sécurité CONDITIONAL · PPM CONDITIONAL | **CONDITIONAL**, hors pilote | porte connecteurs G13 ; Jira / Azure DevOps restent des appels sortants sautés par l'outil | HD-G13 | exclu |
+| L07 | Publication de la feuille de route, sensibilité | sécurité CONDITIONAL · PPM non évalué | **CONDITIONAL**, hors pilote | test de partage avec montants semés exécuté ; à activer avec L05 seulement (corbeille) | HD-S13, HD-C05 | exclu |
+| L16 | Portefeuille phase 2 (dépendances, demande et capacité, documents, score d'effort, scénarios, export BI) | sécurité GO PILOT · données proche du GO · PPM CONDITIONAL (R6-1) | **CONDITIONAL**, hors pilote | non planifié dans ce pilote ; avant toute vague : revue humaine du lot et R6-1 (panneau projet VERT contre groupe ROUGE) ; documents en corbeille et versionnés (migration 130) mais stockés sans antivirus (décision de l'opérateur) ; l'export BI passe par l'interrupteur « quatre yeux » `ext_api_portfolio_enabled` (demande authentifiée au Centre des politiques) avec une clé d'API au périmètre `portfolio:read` ; seuils de capacité, échelle d'exposition et pondérations d'effort sont PROPOSÉS | HD-P13 | exclu |
+| L13 | Résilience des opérations, dont `policy_center_enabled` | sécurité CONDITIONAL, NO-GO pour s'appuyer sur le double contrôle tant que N-R6-1 n'est pas corrigé · opérations CONDITIONAL (Centre : GO PILOT à l'activation) · données CONDITIONAL · audit CONDITIONAL | **CONDITIONAL**, hors pilote ; `policy_center_enabled` **CONDITIONAL** (était NO-GO) | G05 signée ; N-R6-1 corrigé (correctif 26, non fusionné ici) puis revérifié ; durcissement des droits d'audit appliqué (P4) et `SDP_LEDGER_SCHEMA` posé ; deux interrupteurs sortants (`sync_drift_alerts`, `delivery_failure_alert_enabled`) | HD-S04, HD-O02, HD-O04, HD-G05 | exclu |
+| — | Outil d'activation `activate-switches` | audit CONDITIONAL (R6-A1) · opérations GO PILOT hors « quatre yeux » | **GO PILOT** pour plan, simulation et lots sans « quatre yeux » ; **NO-GO** pour appliquer un lot « quatre yeux » par la ligne de commande tant que le correctif 29 (R6-A1) n'est pas fusionné, puis **seulement** par le flux authentifié (jeton opérateur + approbation web) | correctif 29 : `--second-operator` refusé, demande déposée au nom du compte qui a émis le jeton | HD-G01, HD-S04 | — |
 
 Groupes gardés éteints pendant tout le pilote : `K:outbound`, `K:armed_in_production` (maintien décidé à part,
 HD-O09), `K:committee_policy` (G06), `K:external_precondition`, `K:irreversible_or_destructive`. L'outil refuse en
@@ -89,13 +91,18 @@ Règles communes :
 - Le retour arrière **ne restaure que la configuration** : les données saisies pendant que l'interrupteur était allumé restent en base.
 - Ne jamais ajouter `--include-outbound` pendant le pilote.
 - Lots L03, L08, L11, L12, L14 (et L16, hors pilote) : ils contiennent un interrupteur « quatre yeux » (marqué `4EYES` par `--plan`,
-  règle du catalogue `docs/ops/policy-catalogue.json`). L'application est **refusée sans rien écrire** tant que
-  `--second-operator=<second opérateur>` ne nomme pas une **autre** personne, qui a relu le plan — le nom doit être
-  l'identifiant d'un compte **super_admin actif** de l'application, distinct de celui de `--operator` (un nom libre est
-  refusé) ; les deux noms (et l'identifiant du compte du second) sont écrits dans le journal et dans le fichier de retour arrière. Le retour arrière de ces interrupteurs vers leur
-  côté le moins strict demande aussi `--second-operator`. Si le Centre des politiques est allumé (`policy_center_enabled`),
-  l'outil n'écrit pas ces interrupteurs : il dépose une demande par interrupteur (demandeur = le compte super_admin de
-  `--operator`) et un second super_admin décide dans le centre.
+  règle du catalogue `docs/ops/policy-catalogue.json`). Depuis le correctif 29 (P11 tour 6, R6-A1 — un nom tapé n'est pas
+  une personne authentifiée) **l'outil n'applique jamais lui-même** un interrupteur « quatre yeux » :
+  1. le Centre des politiques doit être allumé (`policy_center_enabled`, décision HD-S04) ; sinon l'outil refuse sans rien écrire ;
+  2. l'opérateur, connecté à l'application avec **son propre** compte super_admin, ouvre `/policy-center.html` ▸
+     « Jeton opérateur pour l'outil CLI » et émet un jeton (usage unique, 10 minutes) ; sur le serveur, il le place dans
+     la variable `SDP_OPERATOR_TOKEN` et lance l'outil avec `--operator-token=env` (le jeton ne s'écrit jamais sur la ligne de commande) ;
+  3. l'outil dépose une demande par interrupteur **au nom du compte qui a émis le jeton** (le motif garde l'identifiant
+     du jeton, l'utilisateur du système et le poste) et écrit les autres interrupteurs du lot ;
+  4. un **second** super_admin, indépendant du premier (`services/approverProvenance.js`), approuve chaque demande dans
+     le centre ; le demandeur ne peut pas approuver sa propre demande.
+  `--second-operator` est refusé. Le retour arrière d'un interrupteur « quatre yeux » vers son côté le moins strict suit
+  le même chemin (une demande, pas une écriture).
 
 ### Vague 1 — produit par défaut + L01
 
@@ -120,9 +127,9 @@ Appliquer lot par lot, pas en bloc, pour qu'un retour arrière ne touche qu'un l
 ```
 node tools/ops/activate-switches.js --plan --lots=L02,L03,L09,L14,L15 --db-url=env
 node tools/ops/activate-switches.js --apply --lots=L02 --db-url=env --reason="Pilote vague 2 — HD-S01 tranché, réf. <réf.>" --operator=<opérateur>
-node tools/ops/activate-switches.js --apply --lots=L03 --db-url=env --reason="Pilote vague 2 — HD-S02 tranché, réf. <réf.>" --operator=<opérateur> --second-operator=<second opérateur>
+node tools/ops/activate-switches.js --apply --lots=L03 --db-url=env --reason="Pilote vague 2 — HD-S02 tranché, réf. <réf.>" --operator=<opérateur> --operator-token=env
 node tools/ops/activate-switches.js --apply --lots=L09 --db-url=env --reason="Pilote vague 2 — HD-K06 fixé, réf. <réf.>" --operator=<opérateur>
-node tools/ops/activate-switches.js --apply --lots=L14 --db-url=env --reason="Pilote vague 2 — HD-P01/P02/P03 revus, réf. <réf.>" --operator=<opérateur> --second-operator=<second opérateur>
+node tools/ops/activate-switches.js --apply --lots=L14 --db-url=env --reason="Pilote vague 2 — HD-P01/P02/P03 revus, réf. <réf.>" --operator=<opérateur> --operator-token=env
 node tools/ops/activate-switches.js --apply --lots=L15 --db-url=env --reason="Pilote vague 2 — HD-U11 revue faite, réf. <réf.>" --operator=<opérateur>
 ```
 
@@ -134,10 +141,10 @@ Si HD-S02 conclut « sortir `portfolio_editor_plan_writes` de L03 », le plan de
 ```
 node tools/ops/activate-switches.js --plan --lots=L04,L08,L10,L11,L12 --db-url=env
 node tools/ops/activate-switches.js --apply --lots=L04 --db-url=env --reason="Pilote vague 3 — HD-P06/P07 acceptés, réf. <réf.>" --operator=<opérateur>
-node tools/ops/activate-switches.js --apply --lots=L08 --db-url=env --reason="Pilote vague 3 — HD-G07/HD-G08, réf. <réf.>" --operator=<opérateur> --second-operator=<second opérateur>
+node tools/ops/activate-switches.js --apply --lots=L08 --db-url=env --reason="Pilote vague 3 — HD-G07/HD-G08, réf. <réf.>" --operator=<opérateur> --operator-token=env
 node tools/ops/activate-switches.js --apply --lots=L10 --db-url=env --reason="Pilote vague 3 — HD-U15/HD-U16, réf. <réf.>" --operator=<opérateur>
-node tools/ops/activate-switches.js --apply --lots=L11 --db-url=env --reason="Pilote vague 3 — HD-F02/HD-U17, réf. <réf.>" --operator=<opérateur> --second-operator=<second opérateur>
-node tools/ops/activate-switches.js --apply --lots=L12 --db-url=env --reason="Pilote vague 3 — exercice break-glass fait, réf. <réf.>" --operator=<opérateur> --second-operator=<second opérateur>
+node tools/ops/activate-switches.js --apply --lots=L11 --db-url=env --reason="Pilote vague 3 — HD-F02/HD-U17, réf. <réf.>" --operator=<opérateur> --operator-token=env
+node tools/ops/activate-switches.js --apply --lots=L12 --db-url=env --reason="Pilote vague 3 — exercice break-glass fait, réf. <réf.>" --operator=<opérateur> --operator-token=env
 ```
 
 L12 resserre les accès (refus 403 visibles par les utilisateurs) : prévenir la cohorte la veille.

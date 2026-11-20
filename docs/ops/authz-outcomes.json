@@ -774,6 +774,7 @@
   "POST /api/metrics/targets/:id/end": "UUUFFFFFFFFFFFFFFFFFFFV",
   "POST /api/notes": "UUUFFFFFFFFFFFFFFFFFFAA",
   "POST /api/policy-center/import": "UUUFFFFFFFFFFFFFFFFFFFV",
+  "POST /api/policy-center/operator-tokens": "UUUFFFFFFFFFFFFFFFFFFFA",
   "POST /api/policy-center/requests/:id/approve": "UUUFFFFFFFFFFFFFFFFFFFV",
   "POST /api/policy-center/requests/:id/cancel": "UUUFFFFFFFFFFFFFFFFFFFV",
   "POST /api/policy-center/requests/:id/reject": "UUUFFFFFFFFFFFFFFFFFFFV",

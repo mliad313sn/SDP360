@@ -14,7 +14,8 @@
 //   - a gate id (Gnn) that is neither a gate of the dossier source nor a label written in RELEASE-GATES.md;
 //   - an `activate-switches.js --apply` line without --lots / --reason, and any --lots value naming an unknown lot
 //     or a keep group the tool refuses whatever the flags;
-//   - a real (not --dry-run) `--apply` of a lot with a four-eyes switch (P11 r5 N-15) without --second-operator=;
+//   - a real (not --dry-run) `--apply` of a lot with a four-eyes switch (P11 r5 N-15) without --operator-token= (P11 r6
+//     R6-A1), or with the refused --second-operator=;
 //   - a repository path between backticks that does not exist;
 //   - a filled cell in a decision / name / date / signature column of a table that has a signature column;
 //   - a document without the label "Préparé par IA — à valider par les responsables nommés";
@@ -122,8 +123,11 @@ function scanText(text, known, file) {
         if (id === 'all') { if (line.includes('--apply')) out.push(`${file}: --apply --lots=all is not used in this pack`); continue; }
         if (id.startsWith('K:')) { if (REFUSED_GROUPS.includes(id.slice(2))) out.push(`${file}: keep group ${id} is refused by the tool`); continue; }
         if (!known.lots.has(id)) out.push(`${file}: --lots names unknown lot ${id}`);
-        else if (line.includes('--apply') && !line.includes('--dry-run') && !line.includes('--second-operator=') && known.fourEyesLots && known.fourEyesLots.has(id)) {
-          out.push(`${file}: --apply of ${id} (a four-eyes switch) without --second-operator=: ${line.trim()}`);
+        else if (line.includes('--apply') && !line.includes('--dry-run') && known.fourEyesLots && known.fourEyesLots.has(id)) {
+          // P11 r6 R6-A1 — the tool refuses --second-operator; a four-eyes lot is applied through an authenticated
+          // Policy Center request (--operator-token=…), approved by another super_admin in the web center
+          if (line.includes('--second-operator=')) out.push(`${file}: --apply of ${id} with --second-operator= (refused by the tool since P11 r6 R6-A1 — use --operator-token=env + the web Policy Center): ${line.trim()}`);
+          else if (!line.includes('--operator-token=')) out.push(`${file}: --apply of ${id} (a four-eyes switch) without --operator-token=: ${line.trim()}`);
         }
       }
     }

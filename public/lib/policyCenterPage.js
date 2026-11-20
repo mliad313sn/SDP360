@@ -16,6 +16,8 @@
       frMissing: '', owner: 'Owner role (PROPOSED)', consumers: 'Affects (files that read it)', notScanned: 'Not scanned — the key name is too generic.', none: 'none found',
       scope: 'Scope', platform: 'Platform', site: 'Site', value: 'New value', save: 'Save…', reset: 'Reset to recommended…', history: 'History', siteValues: 'Per-site values',
       who: 'Who', when: 'When', from: 'From', to: 'To', why: 'Reason', approver: 'Second person', noHistory: 'No change recorded.', approve: 'Approve…', reject: 'Reject…', cancel: 'Withdraw',
+      tokTitle: 'CLI operator token', tokBtn: 'Issue a token for me', tokIntro: 'For tools/ops/activate-switches.js: issue a one-time token (valid 10 minutes) for YOUR account. The tool files four-eyes changes as a request in your name; another super_admin approves them here. Never hand your token to someone else.',
+      tokShown: (u, exp) => `Token for ${u}, valid once until ${exp}. It is shown only now. On the server: set SDP_OPERATOR_TOKEN to it, then run the tool with --operator-token=env.`,
       noReq: 'Nothing is waiting.', reasonT: 'Why this change?', reasonL: 'Reason (kept in the history)', saved: 'Saved.', pendingMsg: 'Recorded as a request — another super_admin must approve it.',
       unchanged: 'Nothing changed.', managed: 'Changed in', kpiNote: 'KPI RAG policies are changed through the KPI policy builder and adopted by the KPI committee.',
       cov: (c) => `${c.catalogued} rules catalogued (${c.report_config} configuration keys, ${c.governance} governance policies), ${c.excluded} excluded with a reason.`,
@@ -34,6 +36,8 @@
       frMissing: '(description disponible en anglais seulement)', owner: 'Rôle responsable (PROPOSÉ)', consumers: 'Concerne (fichiers qui la lisent)', notScanned: 'Non analysé — nom de clé trop générique.', none: 'aucun trouvé',
       scope: 'Portée', platform: 'Plateforme', site: 'Site', value: 'Nouvelle valeur', save: 'Enregistrer…', reset: 'Revenir à la recommandation…', history: 'Historique', siteValues: 'Valeurs par site',
       who: 'Qui', when: 'Quand', from: 'Avant', to: 'Après', why: 'Motif', approver: 'Seconde personne', noHistory: 'Aucun changement enregistré.', approve: 'Approuver…', reject: 'Refuser…', cancel: 'Retirer',
+      tokTitle: 'Jeton opérateur pour l\'outil CLI', tokBtn: 'Émettre un jeton pour moi', tokIntro: 'Pour tools/ops/activate-switches.js : émettez un jeton à usage unique (valable 10 minutes) pour VOTRE compte. L\'outil dépose les changements à double contrôle comme une demande à votre nom ; un autre super_admin les approuve ici. Ne confiez jamais votre jeton à quelqu\'un d\'autre.',
+      tokShown: (u, exp) => `Jeton pour ${u}, valable une seule fois jusqu'à ${exp}. Il n'est affiché que maintenant. Sur le serveur : placez-le dans SDP_OPERATOR_TOKEN, puis lancez l'outil avec --operator-token=env.`,
       noReq: 'Rien en attente.', reasonT: 'Pourquoi ce changement ?', reasonL: 'Motif (conservé dans l\'historique)', saved: 'Enregistré.', pendingMsg: 'Enregistré comme demande — un autre super_admin doit l\'approuver.',
       unchanged: 'Rien n\'a changé.', managed: 'Se modifie dans', kpiNote: 'Les politiques RAG des indicateurs se modifient dans le constructeur de politiques KPI et sont adoptées par le comité KPI.',
       cov: (c) => `${c.catalogued} règles cataloguées (${c.report_config} clés de configuration, ${c.governance} politiques de gouvernance), ${c.excluded} exclues avec un motif.`,
@@ -174,6 +178,12 @@
   $('pcExportJson').addEventListener('click', async () => { try { const j = await api('GET', '/api/policy-center/export'); delete j._status; download('policy-set.json', JSON.stringify(j, null, 1), 'application/json'); } catch (e) { msg(e.message, false); } });
   $('pcExportCsv').addEventListener('click', async () => {
     try { const r = await fetch('/api/policy-center/export?format=csv', { credentials: 'same-origin', headers: hdr() }); if (!r.ok) throw new Error('HTTP ' + r.status); download('policy-set.csv', await r.text(), 'text/csv'); } catch (e) { msg(e.message, false); }
+  });
+  $('pcTokBtn').addEventListener('click', async () => {
+    try {
+      const j = await api('POST', '/api/policy-center/operator-tokens', {});
+      const out = $('pcTokOut'); out.hidden = false; out.textContent = S.tokShown(j.username, j.expires_at) + '\n\n' + j.token;
+    } catch (e) { msg(e.message, false); }
   });
   let lastPlan = null;
   function profileFromBox() { const j = JSON.parse($('pcProfile').value || '{}'); return j.profile || j; }

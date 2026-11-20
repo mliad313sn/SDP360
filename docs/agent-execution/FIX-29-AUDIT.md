@@ -1,0 +1,32 @@
+# P11 round 6 — fix lot fix/p11-r6-audit (audit / risk seat)
+
+AI-authored engineering evidence — not an independent human review. No approval, signature, production readiness or
+field acceptance is claimed, and no human cell of the business-readiness pack was filled. Base `7dcc0e66` (contains
+fixes 25, 27, 28). Findings from `/home/user/qual/out/r6-audit.md` (repro `r6imp.test.js`, `r6chain.test.js`). The new
+tests were run against the base tree and seen FAILING (8/8 of `audit-chain-r6` + the impersonation smoke), then passing.
+
+| Finding | Sev | Cause | Fix | Regression test |
+|---|---|---|---|---|
+| R6-A1 `activate-switches --operator=<colleague>` filed a four-eyes Policy Center request AS that colleague; the runner then approved it himself. `--second-operator` was an unauthenticated name | P2 | the requester was a username lookup; the second operator a typed name | Minimal secure version (ADR `docs/ai-decisions/ADR-P11-R6-operator-tokens.md`): the CLI never applies a four-eyes change; `--second-operator` is refused; a four-eyes step needs `policy_center_enabled = '1'` AND a one-time **operator token** issued by the logged-in super_admin for his own account (`POST /api/policy-center/operator-tokens`, super_admin, 404 while the center is off, sha256 stored, 10 min, single use, migration 136, `services/operatorTokens.js`). The token is read from `SDP_OPERATOR_TOKEN` / `env:VAR` / `file:PATH`, never the command line. Requests are filed as the token's account (re-checked active super_admin; `--operator` must match), the reason records token id + OS user + host, a `policy_change_requested` event is logged. Approval stays in the web center (requester refused, `approverProvenance` independence). Four-eyes rollback = a request too. Non-four-eyes lots unchanged. Policy Center page: "CLI operator token" card (EN/FR) | `tests/activate-switches-r6-impersonation.smoke.test.js` (pinned r6imp: typed colleague → refused; own token + `--operator=<colleague>` → refused; own token → filed as runner, self-approve 403, independent approve 200; route 404/403/401); `tests/activate-switches.test.js` (center off refused even with a token; token single use; dry run does not burn; literal token refused; request records token + OS; four-eyes rollback becomes a request) |
+| R6-A2 chain verify failed OPEN in the default state (missing anchor table skipped; unverifiable ledger counted ok; forged anchor rows accepted) | P3 (P2 until hardening) | `ok = every(x.ok !== false)`; anchors only used when found; no anchor integrity | `services/auditChain.js`: `status: ok|broken|unverifiable`, `ok` only for `ok`; anchors expected (migration 131 recorded or an anchor table in any schema) but not resolvable in the ledger schema → unverifiable; nightly throws (`audit_chain_unverifiable`) so the runner alerts. Anchor rows HMAC-signed with a key derived from `SDP_CONFIG_KEY` (migration 135 `sig`, also added by the hardening script); with the key, invalid or post-first-signed unsigned rows = forged (broken), baseline = highest signed anchor (replay-proof); without key → `anchor_integrity` says advisory. Documented in `docs/ops/EXPLOITATION.md` and the R5 ADR (Round 6 section) | `tests/audit-chain-r6.test.js` (6: r6chain shadow → unverifiable; one ledger unreadable → not ok; unsigned/forged anchors flagged; replay of older signed row cannot lower baseline; pure classifier; nightly throws) + `tests/audit-chain.test.js` unchanged and green |
+| R6-A3 a script cited only as a command was invisible to `gate-dossiers --check` | P3 | only evidence paths were hashed | `tools/release/gate-dossiers.js` extracts every `tools/ tests/ scripts/ services/ db/ *.js` token of the cited commands and records its content hash in `manifest.scripts`; changed / missing script → stale | `tests/gate-dossiers.test.js` (new test: change → stale naming the script; delete → stale) |
+| R6-A4 hyphenated `SDP_TEST_RUN_ID` silently ignored | P3 | — | already fixed by fix 25 on this tree (`sanitiseRunId` normalises `audit-r6` → `audit_r6`); confirmed by reading `tools/test/drop-test-dbs.js` / `tests/pg-helpers.js` | (fix 25) |
+| Business-readiness pack lag (round 5/6 opinions not reflected) | P3 | — | `PLAN-PILOTE.md` §1 rebuilt with per-seat round-6 opinions and the most prudent consolidation (L03 GO PILOT conditional on the authenticated center flow, L14 GO PILOT conditional on committee confirmation, L13 / `policy_center_enabled` CONDITIONAL (was NO-GO), L05 NO-GO, L09 conditional on F-26 fixed by fix 25 not re-verified, L16 CONDITIONAL out of pilot, CLI apply of four-eyes lots NO-GO until fix 29 then only via the token flow); §0/§3 and `RUNBOOK-EXPLOITATION.md` describe the token flow; register source HD-S04 / HD-G01 / HD-P13 / HD-U11 updated; `business-readiness-check` now refuses a four-eyes `--apply` without `--operator-token=` or with `--second-operator=`. Every human cell left blank; AI labels kept | `tests/business-readiness.test.js` (updated rule); `--write` / `--check` green |
+
+Changed authorisation rows: one new route `POST /api/policy-center/operator-tokens` (session + `requireSuperAdmin` +
+center switch) — `docs/ops/authz-matrix.json` / `AUTHZ-MATRIX.md` (800 routes) and `docs/ops/authz-outcomes.json`
+(`UUUFFFFFFFFFFFFFFFFFFFA`: anonymous refused, every non-super_admin profile refused, super_admin allowed).
+
+Commands run (PostgreSQL 17, `SDP_TEST_RUN_ID=fix29`, prescribed NODE_OPTIONS): new tests, `activate-switches*`,
+`policy-center-*`, `approver-provenance`, `audit-chain*`, `audit-grants-rehearsal`, `gate-dossiers`,
+`business-readiness`, `authz-*`, `error-shape`, `readme-truth`, `agent-inventory`, `inventory-*`. `npx eslint .` clean.
+Regenerated: inventory (+ strict), evidence manifest, `tests/.suite-manifest.json` (+9 tests: 6 + 2 new files, +1
+gate-dossiers), business-readiness register + checklist, authz matrix + outcomes, gate dossiers (last).
+
+Left open / human:
+- HD-S04: whether to turn the Policy Center on (until then the four-eyes lots cannot be activated at all).
+- N-R6-1 (generic PUT relaxes `access_require_approval` with a boolean) is fix 26's scope, not merged here.
+- Anchors stay advisory until `SDP_CONFIG_KEY` is set and the DBA applies `tools/pg/harden-audit-grants.sql`
+  (CAB step, P4 of the pilot plan); `SDP_LEDGER_SCHEMA` still to be set in the production `.env`.
+- A browser check of the Policy Center token card by a person is still owed (evidence here is code + test only).
+- None of fixes 25–29 has been re-verified by a P11 panel round.
