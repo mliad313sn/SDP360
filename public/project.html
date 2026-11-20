@@ -329,6 +329,7 @@
         <label>Definition (JSON: items [{key, label, kind: artifact | check}], approvers [{user_id} | {role}], rule all | quorum, quorum) <textarea id="w3-gd-json" rows="5" placeholder='{"items":[{"key":"charter","label":"Signed charter","kind":"artifact"}],"approvers":[{"role":"committee-member"}],"rule":"all"}'></textarea></label>
         <div class="bar"><button class="btn primary" id="w3-gd-save" type="button">Save checklist</button><span class="muted">Redefining a checklist asks for fresh sign-offs.</span></div></div></div>
     <!-- W3-GOVERNANCE end -->
+    <!-- PORTFOLIO LOT 5 — review workflow (ppm_review_workflow_enabled; lib/ppmReview.js renders it) --><div class="panel" id="review-panel" hidden></div>
   </section>
 
   <section id="pane-history" role="tabpanel" aria-labelledby="tab-history" hidden>
@@ -338,6 +339,7 @@
 <!-- W3-GOVERNANCE begin (script) --><script nonce="%%CSP_NONCE%%" src="lib/ppmGovernanceW3.js"></script><!-- W3-GOVERNANCE end -->
 <!-- PORTFOLIO LOT 1 (script) --><script nonce="%%CSP_NONCE%%" src="lib/ppmIntake.js"></script>
 <!-- PORTFOLIO LOT 2 (script) --><script nonce="%%CSP_NONCE%%" src="lib/ppmFieldHelp.js"></script>
+<!-- PORTFOLIO LOT 5 (script) --><script nonce="%%CSP_NONCE%%" src="lib/ppmReview.js"></script>
 <script nonce="%%CSP_NONCE%%">
 (function () {
   "use strict";
@@ -811,6 +813,7 @@
 
   // ---- gates ----------------------------------------------------------------------------------------------
   function renderGates() {
+    if (FEAT.review_workflow && window.PpmReview && V) window.PpmReview.mount(Object.assign(X(), { V: function () { return V; }, reload: load }));   // PORTFOLIO LOT 5
     var gs = V.allowed_stages || [], label = function (s) { return String(s).replace(/_/g, " "); };
     var needReason = gs.some(function (g) { return g.needs_reason && !g.refusal && V.can_gate; });
     $("gate-reason-box").hidden = !needReason;

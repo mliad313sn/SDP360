@@ -677,16 +677,43 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
         const before = await P(`SELECT * FROM portfolio_projects WHERE id=?`).get(id);
         if (!before) throw Object.assign(new Error('project not found'), { code: 'NOT_FOUND', status: 404 });
         // the baseline is frozen once the project passed its approval gate (a re-baseline is a decision, not an edit)
-        const gated = ['in_progress', 'on_hold', 'closure', 'closed'].includes(before.stage);
+        // PORTFOLIO LOT 5 — the extended stages join the same rules (handover / benefits_review are approved stages,
+        // idea / assessment are drafts); the lists equal today's six for a project that never left them
+        const SCHg = require('./projectSchedule');
+        const gated = SCHg.APPROVED_STAGES.includes(before.stage);
+        const draft = !before.stage || SCHg.DRAFT_STAGES.includes(before.stage);
         const changed = (k) => vals[k] !== undefined && String(vals[k] || '') !== String(before[k] || '');
         if (gated && ['baseline_end', 'baseline_start'].some(changed)) throw Object.assign(new Error('the baseline is frozen after approval'), { code: 'CONFLICT', status: 409, reason: 'BASELINE_FROZEN' });
         // separation of duties: once the approval gate is reached, who owns and who sponsors cannot be swapped
         // around an approval, and the status follows the stage (only a gate passage moves it)
-        if ((before.stage && before.stage !== 'proposal' && changed('owner')) || (gated && changed('sponsor'))) throw Object.assign(new Error('the owner is fixed once the project is submitted for approval, the sponsor once it is approved'), { code: 'CONFLICT', status: 409, reason: 'ROLES_FROZEN' });
-        if (before.stage && before.stage !== 'proposal' && changed('status')) throw Object.assign(new Error('the status follows the stage gates — use the stage action'), { code: 'CONFLICT', status: 409, reason: 'STATUS_BY_STAGE' });
+        if ((!draft && changed('owner')) || (gated && changed('sponsor'))) throw Object.assign(new Error('the owner is fixed once the project is submitted for approval, the sponsor once it is approved'), { code: 'CONFLICT', status: 409, reason: 'ROLES_FROZEN' });
+        if (!draft && changed('status')) throw Object.assign(new Error('the status follows the stage gates — use the stage action'), { code: 'CONFLICT', status: 409, reason: 'STATUS_BY_STAGE' });
+        const L5 = opts.lot5 || {};
+        // PORTFOLIO LOT 5 — ppm_business_case_freeze_enabled: approved business-case fields change only with an approved
+        // change request of this project, named in the write (services/ppm/reviewWorkflow.freezeRefusal)
+        let frozenCr = null;
+        if (L5.freeze && gated) {
+          const RW = require('./ppm/reviewWorkflow');
+          const moved = RW.FROZEN_FIELDS.filter((f) => vals[f] !== undefined && (['budget'].includes(f) ? !(vals[f] == null ? before[f] == null : before[f] != null && Number(before[f]) === Number(vals[f])) : String(vals[f] ?? '') !== String(before[f] ?? '')));
+          const crId = body && body.change_request_id != null && body.change_request_id !== '' ? Number(body.change_request_id) : null;
+          if (moved.length && crId != null && Number.isInteger(crId)) frozenCr = await P(`SELECT id, project_id, status FROM ppm_change_requests WHERE id=?`).get(crId);
+          const fr = RW.freezeRefusal(moved, id, frozenCr);
+          if (fr) throw Object.assign(new Error(fr.error), { code: 'CONFLICT', status: 409, reason: fr.code, expose: true });
+          if (!moved.length) frozenCr = null;
+        }
         const curFlag = _currencyFlag(vals, before);
         if (curFlag === 1 && opts.currencyRequired) throw _currencyRefused();
-        await updateRow(T.table, id, vals, projectCols, vopt);
+        const stampCols = L5.stamp && opts.user && opts.user.id != null ? ['updated_by'] : [];
+        if (stampCols.length) vals.updated_by = Number(opts.user.id);
+        await updateRow(T.table, id, vals, [...projectCols, ...stampCols], vopt);
+        // PORTFOLIO LOT 5 — ppm_field_audit_enabled: one ledger row per changed project field (old → new) that no
+        // existing audit row already carries (finance, roles, intake decision fields keep their own action)
+        if (L5.fieldAudit) {
+          const logged = new Set([...FINANCE_FIELDS, ...ROLE_FIELDS, ...(ik ? INTAKE_EVENT_FIELDS : []), 'updated_by']);
+          const cap = (v) => (v == null ? null : String(v).slice(0, 4000));
+          for (const f of Object.keys(vals)) if (!logged.has(f) && [...projectCols].includes(f) && changed(f)) await ppmEvent({ entity: 'project', entity_id: id, action: 'field_edit', field: f, old_value: cap(before[f]), new_value: cap(vals[f]), note: opts.reason || null }, opts.user);
+        }
+        if (frozenCr) await ppmEvent({ entity: 'project', entity_id: id, action: 'business_case_change', field: `cr:${frozenCr.id}`, old_value: null, new_value: frozenCr.status, note: opts.reason || null }, opts.user);
         if (ik) { for (const w of IF.intakeWarnings({ ...before, ...vals })) _warn(opts, w.code, w.message);
           for (const f of INTAKE_EVENT_FIELDS) if (changed(f)) await ppmEvent({ entity: 'project', entity_id: id, action: 'intake_edit', field: f, old_value: before[f], new_value: vals[f], note: opts.reason || null }, opts.user); }
         if (curFlag !== undefined) await P(`UPDATE portfolio_projects SET currency_defaulted=? WHERE id=?`).run(curFlag, Number(id));
@@ -724,6 +751,8 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     let nid;
     // UAT-F (S5-07): a new row whose key is already taken (live or soft-deleted) is a CONFLICT the person can act on
     // ("this key is already used"), not a raw 500 carrying the constraint name
+    if (kind === 'project' && opts.lot5 && opts.lot5.stamp && opts.user && opts.user.id != null) { vals.created_by = Number(opts.user.id); vals.updated_by = Number(opts.user.id); }   // PORTFOLIO LOT 5
+    if (kind === 'project' && opts.lot5 && opts.lot5.extended) vals.stage = 'idea';   // PORTFOLIO LOT 5 — extended lifecycle: a new project starts as an idea
     try { nid = await insert(T.table, [...Object.keys(vals), 'created_at', 'updated_at'], [...Object.values(vals), now(), now()]); }
     catch (e) { if (isDup(e)) throw Object.assign(new Error(`a ${kind} with this key already exists — open it to edit it, or choose another key`), { code: 'CONFLICT', status: 409 }); throw e; }
     if (kind === 'project') for (const f of FINANCE_FIELDS) if (vals[f] != null) await ppmEvent({ entity: 'project', entity_id: nid, action: 'finance_edit', field: f, old_value: null, new_value: vals[f], currency: vals.currency || 'USD', note: curFlagNew === 1 ? 'currency_defaulted=true' : null }, opts.user);
@@ -883,16 +912,20 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   }
   /** G11 — stage gate passage (rules in services/projectSchedule.stageGate), recorded in the ledger. */
   // A-27 — captureBaseline: the caller (route) passes report_config ppm_baseline_versions === '1'; the store reads no config.
-  async function moveProjectStage(id, to, { user, note, captureBaseline = false } = {}) {
+  // PORTFOLIO LOT 5 — extended: report_config ppm_extended_lifecycle_enabled (passed by the route); action names the
+  // ledger row ('stage' today; 'review_return' is ALSO written for a return for correction, never instead of it).
+  async function moveProjectStage(id, to, { user, note, captureBaseline = false, extended = false, stampUser = false } = {}) {
     const p = await P(`SELECT * FROM portfolio_projects WHERE id=? AND deleted_at IS NULL`).get(Number(id));   // A-19c
     if (!p) throw Object.assign(new Error('project not found'), { code: 'NOT_FOUND', status: 404 });
     const { openTasks, openRisksHigh } = await gateCounts(id);
-    const err = require('./projectSchedule').stageGate(p, to, user, { openTasks, openRisksHigh, note });
+    const SCH = require('./projectSchedule');
+    const err = SCH.stageGate(p, to, user, { openTasks, openRisksHigh, note }, { extended: !!extended });
     if (err) throw Object.assign(new Error(err.error), { code: 'CONFLICT', status: 409, reason: err.code });
-    const statusFor = { proposal: 'planned', approval: 'planned', in_progress: 'active', on_hold: 'on_hold', closure: 'active', closed: 'done' };
+    const statusFor = SCH.STATUS_FOR;
     const capture = !!captureBaseline && (p.stage || 'proposal') === 'approval' && to === 'in_progress';
     const move = async () => {
-      await updateRow('portfolio_projects', id, { stage: to, status: statusFor[to] }, ['stage', 'status']);
+      const stamp = stampUser && user && user.id != null ? { updated_by: Number(user.id) } : {};
+      await updateRow('portfolio_projects', id, { stage: to, status: statusFor[to], ...stamp }, ['stage', 'status', ...Object.keys(stamp)]);
       await ppmEvent({ entity: 'project', entity_id: id, action: 'stage', field: 'stage', old_value: p.stage, new_value: to, note }, user);
       if (capture) {
         // the plan approved at the gate becomes the task baselines where none was entered (never overwrites one)

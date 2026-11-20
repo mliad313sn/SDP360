@@ -79,12 +79,14 @@ module.exports = function governanceW3Routes(router, h) {
 
   // ---- stage-gate checklists ----------------------------------------------------------------------------------
   const GC = require('../services/ppm/gateChecklist');
-  const gateParam = (req, res) => { const g = String(req.params.gate || ''); if (!GC.STAGES.includes(g)) { httpFail(res, Object.assign(new Error('unknown stage ' + g), { reason: 'STAGE_UNKNOWN' }), 400, { ok: false, code: 'STAGE_UNKNOWN' }); return null; } return g; };
+  // PORTFOLIO LOT 5 — the extended stages are gates only while ppm_extended_lifecycle_enabled = '1' ('0' = today's six)
+  const stagesNow = async () => (on(await cfg(), 'ppm_extended_lifecycle_enabled') ? GC.EXT_STAGES : GC.STAGES);
+  const gateParam = async (req, res) => { const g = String(req.params.gate || ''); if (!(await stagesNow()).includes(g)) { httpFail(res, Object.assign(new Error('unknown stage ' + g), { reason: 'STAGE_UNKNOWN' }), 400, { ok: false, code: 'STAGE_UNKNOWN' }); return null; } return g; };
   router.get('/api/governance/ppm/project/:id/gates', requireReportSession, sw('ppm_gate_checklist_enabled'), async (req, res) => {
     try {
       const p = await project(req, res); if (!p) return;
       const s = w3(); const gates = [];
-      for (const g of GC.STAGES) gates.push(await s.evaluateGate(p.id, g));
+      for (const g of await stagesNow()) gates.push(await s.evaluateGate(p.id, g));
       const defs = await s.listChecklists(p.id);
       res.json({ ok: true, can_define: !!isCommittee(req.reportUser), me: Number(req.reportUser.id), gates, definitions: defs.map((d) => ({ gate_to: d.gate_to, version: d.version, definition: d.definition })), note: GC.LEGAL_NOTE });
     } catch (e) { fail(res, e); }
@@ -92,7 +94,7 @@ module.exports = function governanceW3Routes(router, h) {
   router.put('/api/governance/ppm/project/:id/gates/:gate', requireReportSession, sw('ppm_gate_checklist_enabled'), json, async (req, res) => {
     try {
       const p = await project(req, res); if (!p) return;
-      const g = gateParam(req, res); if (!g) return;
+      const g = await gateParam(req, res); if (!g) return;
       if (!isCommittee(req.reportUser)) return forbidden(res, 'the committee defines a gate checklist', 'COMMITTEE_ONLY');
       const cl = await w3().saveChecklist(p.id, g, req.body || {}, { user: req.reportUser });
       log(req, 'gate_checklist_defined', `project:${p.id}`, { gate: g, version: cl.version });
@@ -102,7 +104,7 @@ module.exports = function governanceW3Routes(router, h) {
   router.post('/api/governance/ppm/project/:id/gates/:gate/evidence', requireReportSession, sw('ppm_gate_checklist_enabled'), json, async (req, res) => {
     try {
       const p = await project(req, res); if (!p) return;
-      const g = gateParam(req, res); if (!g) return;
+      const g = await gateParam(req, res); if (!g) return;
       if (await refusePlanWrite(req, res, 'task', { body: { project_id: p.id } })) return;
       await w3().addEvidence(p.id, g, req.body || {}, { user: req.reportUser });
       log(req, 'gate_evidence', `project:${p.id}`, { gate: g, item: String((req.body && req.body.item_key) || '') });
@@ -112,13 +114,21 @@ module.exports = function governanceW3Routes(router, h) {
   router.post('/api/governance/ppm/project/:id/gates/:gate/signoff', requireReportSession, sw('ppm_gate_checklist_enabled'), json, async (req, res) => {
     try {
       const p = await project(req, res); if (!p) return;
-      const g = gateParam(req, res); if (!g) return;
+      const g = await gateParam(req, res); if (!g) return;
       const dec = GC.normaliseDecision(req.body || {});
       const cl = await w3().getChecklist(p.id, g); if (!cl) return notFound(res);
       const u = req.reportUser;
       const isOwner = require('../services/portfolioAccess').ownerMatches(p, u);
       const el = GC.eligibleSlots(cl.definition, u, (role) => !!rdb().userHasRole(u, role), isOwner);
       if (el.error) return forbidden(res, el.error.error, el.error.code);
+      // PORTFOLIO LOT 5 — ppm_review_workflow_enabled: an APPROVAL sign-off is refused to the requester of the cycle,
+      // the owner / sponsor (identity skeleton) and an approver not independent of the requester (fail closed)
+      if (dec.decision === 'approve' && on(await cfg(), 'ppm_review_workflow_enabled')) {
+        const R = require('../services/ppm/reviewStore').makeReviewStore(rdb().pgHandle(), store, { provenanceDb: rdb().db });
+        const f = await R.projectFacts(p.id);
+        const rr = f ? await R.decisionRefusal(f, u) : { code: 'REVIEW_CHECK_FAILED', error: 'project not found' };
+        if (rr) return forbidden(res, rr.error, rr.code);
+      }
       const r = await w3().addSignoff(p.id, g, dec, { user: u, eligible: el.slots });
       log(req, 'gate_signoff', `project:${p.id}`, { gate: g, decision: dec.decision, slot: r.slot });
       res.json({ ok: true, slot: r.slot, evaluation: await w3().evaluateGate(p.id, g) });

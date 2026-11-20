@@ -5,7 +5,7 @@ edit this file; fill the sidecar instead. A dark switch = a behaviour that is OF
 or a nested arm whose default is false). Turning one on is a human decision: the fields below are what that decision
 must name. The agent fills none of them (no owner, canary site, date or business threshold is ever invented).
 
-Dark switches: **161** · with every decision field filled: **0** · fields: `owner`, `risk`, `dependencies`, `canary_site`, `rollback_trigger`, `success_metric`, `decision_deadline`, `expiry`.
+Dark switches: **165** · with every decision field filled: **0** · fields: `owner`, `risk`, `dependencies`, `canary_site`, `rollback_trigger`, `success_metric`, `decision_deadline`, `expiry`.
 
 | Switch | Source | Owner role (profile) | Missing decision fields |
 |---|---|---|---|
@@ -84,6 +84,7 @@ Dark switches: **161** · with every decision field filled: **0** · fields: `ow
 | `ppm_baseline_slots_enabled` | report_config | PMO | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ppm_baseline_versions` | report_config | Committee | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ppm_budget_periods_enabled` | report_config | Finance + PMO | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
+| `ppm_business_case_freeze_enabled` | report_config | to be named | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ppm_calendars_enabled` | report_config | PMO | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ppm_capacity_view` | report_config | PMO + capacity owner (to be named) | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ppm_change_requests_enabled` | report_config | PMO | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
@@ -93,6 +94,8 @@ Dark switches: **161** · with every decision field filled: **0** · fields: `ow
 | `ppm_dcma_enabled` | report_config | PMO / scheduler | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ppm_dq_gate_enforced` | report_config | to be named | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ppm_evm_enabled` | report_config | PMO + Finance | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
+| `ppm_extended_lifecycle_enabled` | report_config | to be named | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
+| `ppm_field_audit_enabled` | report_config | to be named | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ppm_gantt_v2_enabled` | report_config | PMO | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ppm_gate_checklist_enabled` | report_config | PMO | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ppm_intake_register_enabled` | report_config | to be named | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
@@ -111,6 +114,7 @@ Dark switches: **161** · with every decision field filled: **0** · fields: `ow
 | `ppm_rebaseline_enabled` | report_config | Committee | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ppm_report_send_enabled` | report_config | PMO | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ppm_resources_enabled` | report_config | PMO + Finance | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
+| `ppm_review_workflow_enabled` | report_config | to be named | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ppm_roadmap_nnl_enabled` | report_config | PMO | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ppm_schedule_engine_v2_ui` | report_config | PMO | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `ppm_simplified_view_enabled` | report_config | PMO | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
