@@ -25,43 +25,78 @@ module.exports = function healthRoutes(deps) {
 // sync_metadata stamps carry no zone (UTC by convention, as routes/sync.js reads them); sync_runs stamps are ISO.
 const _ms = (t) => { const s = String(t); const n = Date.parse(/[zZ]|[+-]\d\d:?\d\d$/.test(s) ? s : s.replace(' ', 'T') + 'Z'); return Number.isFinite(n) ? n : -Infinity; };
 
+// P11 r3 N-06 — the readiness probe is anonymous and was unbounded: under a long table lock (migration, VACUUM FULL)
+// every /ready call hung on a pooled connection and 12 retrying probes drained the 10-connection pool, so sign-in hung
+// for everyone. Three bounds now:
+//   • the database work runs in ONE transaction with SET LOCAL statement_timeout / lock_timeout (READY_STMT_MS);
+//   • a single probe is in flight at a time — concurrent callers share its answer (at most one pool connection);
+//   • a hard timer (READY_STMT_MS + 1 s, covers waiting for a pool connection) answers 503 {error:'timeout'}.
+// A non-200 answer is reused for READY_FAIL_CACHE_MS so a retry storm during an outage costs nothing; a healthy
+// answer is never cached (last_job_at must move as soon as a job finishes).
+const READY_STMT_MS = Math.max(100, Number(process.env.SDP_READY_STATEMENT_TIMEOUT_MS) || 1000);
+const READY_FAIL_CACHE_MS = Math.max(0, Number(process.env.SDP_READY_FAIL_CACHE_MS ?? 2000));
+const TIMEOUT_CODES = new Set(['57014', '55P03']);   // query_canceled (statement_timeout), lock_not_available (lock_timeout)
+
 // Readiness: can we reach — and write to — the database? When was the last job marked successful (legacy sync_metadata OR runner sync_runs)?
 // `getSyncStatus` is a dual-backend dispatcher (Promise on PostgreSQL) → awaited.
-router.get('/ready', async (req, res) => {
-  let db = false, last_job_at = null, writable = null;
+async function readinessProbe() {
+  let db = false, last_job_at = null, writable = null, timedOut = false;
   try {
     const rdb = getRdb && getRdb();
     if (rdb) {
-      const rows = await rdb.getSyncStatus();
-      // P11 r2 N-03 — reachable is not enough: a database left read-only (PG_URL on the standby replica after a
-      // restore/failover, or default_transaction_read_only=on) answers SELECTs while every login fails with 500.
-      // /ready gates sdp-manager auto-rollback/restore, so it must say "not ready" then. One cheap catalogue read.
-      const w = await rdb.pgHandle().prepare("SELECT pg_is_in_recovery() AS rec, current_setting('transaction_read_only') AS ro").get();
-      writable = !!w && w.rec !== true && w.rec !== 't' && String(w.ro).toLowerCase() !== 'on';
-      db = true;
-      // P05 — one SELECT 1 timing for the database-latency SLI (sli_30d). Never fails the probe; the answer is unchanged.
-      try { const t0 = process.hrtime.bigint(); await rdb.pgHandle().prepare('SELECT 1 AS ok').get(); require('../services/sliCounters').recordDbLatency(Number(process.hrtime.bigint() - t0) / 1e6); } catch (_) { /* reading optional */ }
-      for (const r of rows || []) {
-        const t = r && r.last_sync_at;
-        if (t && (!last_job_at || String(t) > String(last_job_at))) last_job_at = t;
-      }
-      // F-ARCH-09 — jobs run by the shared runner (backup, audit, Meraki, …) never write sync_metadata: also read
-      // the newest SUCCESSFUL run of sync_runs (a skip or an error is not a success) and keep the later of the two.
-      // Unreadable run log → the legacy value stands; the probe never fails because of it.
-      try {
-        const sync = deps.sync || require('../services/sync');
-        await sync.ensureReady();
-        const store = sync.getStore();
-        const t = typeof store.lastOkAt === 'function' ? await store.lastOkAt() : null;
-        if (t && (!last_job_at || _ms(t) > _ms(last_job_at))) last_job_at = t;
-      } catch (_) { /* run log optional for readiness */ }
+      // The sync store's first use applies its DDL — never inside the time-boxed transaction below.
+      let sync = null;
+      try { sync = deps.sync || require('../services/sync'); await sync.ensureReady(); } catch (_) { sync = null; }
+      const h = rdb.pgHandle();
+      const work = async () => {
+        if (typeof h.runTransaction === 'function') {
+          await h.exec(`SET LOCAL statement_timeout = ${READY_STMT_MS}`);
+          await h.exec(`SET LOCAL lock_timeout = ${READY_STMT_MS}`);
+        }
+        const rows = await rdb.getSyncStatus();
+        // P11 r2 N-03 — reachable is not enough: a database left read-only (PG_URL on the standby replica after a
+        // restore/failover, or default_transaction_read_only=on) answers SELECTs while every login fails with 500.
+        // /ready gates sdp-manager auto-rollback/restore, so it must say "not ready" then. One cheap catalogue read.
+        const w = await h.prepare("SELECT pg_is_in_recovery() AS rec, current_setting('transaction_read_only') AS ro").get();
+        writable = !!w && w.rec !== true && w.rec !== 't' && String(w.ro).toLowerCase() !== 'on';
+        db = true;
+        // P05 — one SELECT 1 timing for the database-latency SLI (sli_30d). Never fails the probe; the answer is unchanged.
+        try { const t0 = process.hrtime.bigint(); await h.prepare('SELECT 1 AS ok').get(); require('../services/sliCounters').recordDbLatency(Number(process.hrtime.bigint() - t0) / 1e6); } catch (_) { /* reading optional */ }
+        for (const r of rows || []) {
+          const t = r && r.last_sync_at;
+          if (t && (!last_job_at || String(t) > String(last_job_at))) last_job_at = t;
+        }
+        // F-ARCH-09 — jobs run by the shared runner (backup, audit, Meraki, …) never write sync_metadata: also read
+        // the newest SUCCESSFUL run of sync_runs (a skip or an error is not a success) and keep the later of the two.
+        // Unreadable run log → the legacy value stands; the probe never fails because of it.
+        try {
+          const store = sync && sync.getStore();
+          const t = store && typeof store.lastOkAt === 'function' ? await store.lastOkAt() : null;
+          if (t && (!last_job_at || _ms(t) > _ms(last_job_at))) last_job_at = t;
+        } catch (_) { /* run log optional for readiness */ }
+      };
+      if (typeof h.runTransaction === 'function') await h.runTransaction(work); else await work();
     }
-  } catch (e) { db = false; }
+  } catch (e) { db = false; timedOut = !!(e && TIMEOUT_CODES.has(e.code)); }
   // Healthy answer keeps the public shape {ok, db, last_job_at}; a read-only primary answers 503 with
   // `writable:false` plus an `error` code (one response path — the probe body is not an httpError.fail body).
   const readOnly = db && writable === false;
+  if (timedOut) return { status: 503, body: { ok: false, db: false, error: 'timeout', last_job_at: null } };
   const body = readOnly ? { ok: false, db, writable: false, error: 'read_only', last_job_at } : { ok: db, db, last_job_at };
-  res.status(db && !readOnly ? 200 : 503).json(body);
+  return { status: db && !readOnly ? 200 : 503, body };
+}
+
+let _inflight = null;      // the one database probe running now (shared by every concurrent caller)
+let _lastFail = null;      // { at, answer } — a recent non-200 answer, reused for READY_FAIL_CACHE_MS
+router.get('/ready', async (req, res) => {
+  if (_lastFail && Date.now() - _lastFail.at < READY_FAIL_CACHE_MS) return res.status(_lastFail.answer.status).json(_lastFail.answer.body);
+  if (!_inflight) _inflight = readinessProbe().finally(() => { _inflight = null; });
+  let timer;
+  const timeout = new Promise((r) => { timer = setTimeout(() => r({ status: 503, body: { ok: false, db: false, error: 'timeout', last_job_at: null } }), READY_STMT_MS + 1000); });
+  const answer = await Promise.race([_inflight, timeout]);
+  clearTimeout(timer);
+  if (answer.status !== 200) _lastFail = { at: Date.now(), answer }; else _lastFail = null;
+  res.status(answer.status).json(answer.body);
 });
 
 router.get('/api/health/version', requireReportSession, (req, res) => {
