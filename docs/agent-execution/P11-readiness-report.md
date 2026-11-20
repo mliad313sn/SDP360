@@ -114,3 +114,36 @@ PPM F3–F6/R2-4/R2-5, AUD-2/AUD-4/AUD-5..9 + describe.skip gap, UX-F-4 remainde
 | Group IT deck | CONDITIONAL (was NO-GO in round 1) |
 
 All 21 RELEASE-GATES rows remain empty; `flag-decisions.json` has 0 entries. Round 3 runs once fixes 6 and 9 are merged and CI is green.
+
+---
+
+# Round 3 — frozen SHA `ead6efb6439296a34915b7d9a47f7011cd15fa82` (CI run 370 green)
+
+> AI panel report — not an independent human review, not a decision. Seat reports: `docs/agent-execution/p11/round3-ead6efb6/`.
+
+**Result: P0 = 0 and P1 = 0 open in code across all six seats.** All round-1 and round-2 P1 code findings are confirmed
+FIXED with their original repros. The only open P1 is the **policy decision SEC-F2** (committee members read portfolio amounts).
+
+| Seat | P0 | P1 | New P2 | Evidence |
+|---|---|---|---|---|
+| Security | 0 | 0 (+F2 policy) | N-R3-1 look-alike names bypass four-eyes | 7 verified / 2 not |
+| Data/KPI | 0 | 0 | F-14 alternating partial exports still ratchet | 6 / 1 partial / 1 not |
+| PPM | 0 | 0 | R3-1 impossible rebaseline dates; R3-2 AC lost on task move / project soft delete; R3-3 offline dependency overwrite | 5 / 0 failing |
+| Operations | 0 | 0 | N-02r guard ratchet (same as F-14); N-06 /ready drains the pool; N-08 freshness ignores dead jobs | 5 / 2 not |
+| UX/field | 0 | 0 | — (F-9 P3, P2 if field techs are viewer-tier) | 2 / 0 (42 journeys, 170 unit) |
+| Audit | 0 | 0 | R3-A1 6 append-only tables not hardened; R3-A2 default-ON switches ungoverned | 6 / 3 not |
+
+P2/P3 fixes in progress after round 3: fix 10 (sync guard F-14/N-02r, reconcile tool, migrator re-run, deck fallback),
+fix 11 (identity normalisation, audit grants, default-ON switch governance, small security/field items), fix 12 (PPM dates,
+AC on move/delete, offline compare, frozen timesheets), fix 13 (/ready timeout, freshness SLI, backup file selection,
+/health disclosure, plaintext backup refusal).
+
+## Round-3 per-lot recommendation (AI panel recommendation, not a decision)
+| Lot | Recommendation |
+|---|---|
+| Default switches, L01, L02, L03, L04, L09, L10, field outbox | GO PILOT (seat-level; L03: fix R3-1 before general deployment) |
+| L05 time, money, benefits | CONDITIONAL (was NO-GO): Finance gate G14 signed + R3-2 fixed or accepted + SEC-F2 decision |
+| L06, L07, L08, L11, L12, L13 | CONDITIONAL |
+
+**P11 stop condition (prompt pack step 5):** no P0/P1 left in code at the frozen SHA. The run ends when the human release
+committee has this report; it does not end with a release. All 21 RELEASE-GATES rows remain empty.
