@@ -163,3 +163,13 @@ node tools/test/run-all.js > /home/user/suite.log 2>&1     # full suite, ~18 min
 - CI green at 3ee4dd23; local full suite 5880/5881 at 015811d9 (the one failure fixed in 3ee4dd23).
 - **P11 round 5 launched at 3ee4dd23** (local tag `qual-p11-3ee4dd23`, outputs /home/user/qual/out/r5-<seat>.md).
 - Environment note: the container restarts silently — always `service postgresql start` (max_connections 400) before tests.
+
+## Update 2026-11-20 22:40 UTC (orchestrator)
+
+- Round 5 (3ee4dd23): P0 = 0, P1 = 3 (file-store backup, inspection action history, approver bypass by password
+  reset) → all fixed by fixes 19–24 with their P2/P3s. Round-5 seat reports in `docs/agent-execution/p11/round5-3ee4dd23/`.
+- CI green at e82d95ba (5955 tests + PG17 backup/restore/rollback rehearsal).
+- **P11 round 6 (confirmation) launched at e82d95ba** (tag `qual-p11-e82d95ba`, outputs /home/user/qual/out/r6-<seat>.md).
+- Human steps added by round 5: DBA applies the extended `tools/pg/harden-audit-grants.sql` (database ownership moves to
+  `sdp_audit_owner`); production `.env` needs `SDP_LEDGER_SCHEMA=public` and `SDP_CONFIG_KEY`; file-store backup
+  location/retention; second operator per four-eyes lot; who may reset a super_admin password (G01).
