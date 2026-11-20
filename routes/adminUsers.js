@@ -158,7 +158,7 @@ router.put('/api/reports/users/:id', requireReportSession, requireSuperAdmin, js
       // row, so it must exist before the reset account can be used to approve anything.
       try { await rdb.logEvent({ category: 'identity', action: 'password_reset', target, details: { user_id: id, by_admin: true, actor_is_target: Number(req.reportUser.id) === id }, risk: 1, ...rdb._logCtx(req) }); } catch {}
       // N-R5-5 — an admin reset revokes every session of the target (self-reset keeps the caller's current session)
-      try { revoked = (await rdb.revokeUserSessions(id, { exceptToken: Number(req.reportUser.id) === id ? require('../services/sessionAuth').sessionToken(req) : null })).deleted; } catch (e) { console.error('[users] session revocation failed:', e.message); }
+      try { revoked = (await require('../services/userSessions').revokeUserSessions(id, { exceptToken: Number(req.reportUser.id) === id ? require('../services/sessionAuth').sessionToken(req) : null })).deleted; } catch (e) { console.error('[users] session revocation failed:', e.message); }
     }
     const emergency = await _recordBreakGlass(req, id);
     res.json({ ok: true, ...(password ? { sessions_revoked: revoked } : {}), ...(emergency ? { emergency } : {}) });
