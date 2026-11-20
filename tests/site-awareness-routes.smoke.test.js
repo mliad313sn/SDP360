@@ -7,7 +7,7 @@ const assert = require('node:assert');
 const express = require('express');
 const http = require('node:http');
 
-function makeApp(sessionUser) {
+function makeApp(sessionUser, rdbOver) {
   const rdb = {
     listSites: () => [
       { id: 1, name: 'Hounde', zoho_group: 'Hounde IT Agents' },
@@ -20,6 +20,7 @@ function makeApp(sessionUser) {
     getSiteChangesWindow: () => ({ total: 5, executed: 4, successful: 3, failed: 1, cancelled: 0, pending: 1, emergency: 1, success_pct: 75 }),
     getSiteIdByModuleCode: () => ({ site_id: 1 }),
     getSiteOpenReportActions: () => ({ actions: [{ uid: 'x', task: 'Report follow-up', owner: 'IT', status: 'open' }] }),
+    ...(rdbOver || {}),
   };
   const inspectionDb = {
     siteNameToCode: (n) => ({ Hounde: 'HGO', Mana: 'MGO' }[n] || null),
@@ -93,6 +94,19 @@ test('helpdesk payload carries NO PII (no requester/technician/subject leakage)'
   const json = JSON.stringify(body);
   assert.ok(!/SECRET PERSON|SECRET TECH/.test(json), 'requester/technician names must be stripped');
   assert.ok(body.snapshot && body.snapshot.created === 10);
+});
+
+test('Adoption Lot A (item 12): weekly SLA compliance = closed on time ÷ closed (the Helpdesk ranking rule), not 100 − overdue ÷ created', async () => {
+  // Houndé-like week: 10 created, 8 closed, 4 overdue, all 4 closed → old figure 60 %, doctrine (and Helpdesk) 50 %
+  const app = makeApp({ id: 5, roles: ['site-business'], site_id: 1 },
+    { getSiteHelpdeskWindow: () => ({ created: 10, resolved: 8, backlog: 2, sla_overdue: 4, closed_overdue: 4, major_incidents: 0, top_categories: [] }) });
+  const { body } = await call(app, '/api/site-awareness/helpdesk');
+  assert.ok(body.weekly.length > 0);
+  for (const w of body.weekly) { assert.equal(w.res_sla_pct, 50); assert.equal(w.missed_pct, 40); }
+  const none = makeApp({ id: 5, roles: ['site-business'], site_id: 1 },
+    { getSiteHelpdeskWindow: () => ({ created: 3, resolved: 0, backlog: 3, sla_overdue: 0, closed_overdue: 0, major_incidents: 0, top_categories: [] }) });
+  const b2 = (await call(none, '/api/site-awareness/helpdesk')).body;
+  assert.equal(b2.weekly[0].res_sla_pct, null, 'nothing closed → nothing to judge (never 0 / 100)');
 });
 
 test('helpdesk payload includes a whitelisted 90-day changes block', async () => {

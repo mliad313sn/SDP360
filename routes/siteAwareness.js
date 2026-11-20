@@ -156,8 +156,13 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
       // _lastIsoWeeks expects a BARE 'YYYY-MM-DD' — a full ISO timestamp throws Invalid Date.
       for (const w of _lastIsoWeeks(now.toISOString().slice(0, 10), 6)) {
         const h = await rdb.getSiteHelpdeskWindow(gate.site_id, w.from, w.to);
+        // Adoption Lot A (item 12): "SLA compliance %" follows the KPI doctrine (closed AND on time ÷ closed), the SAME
+        // rule as the Helpdesk ranking — it used to be 100 − overdue ÷ CREATED, so Houndé read 60 % here vs 50 % there.
+        // missed_pct (overdue ÷ created) is kept for older callers; null when nothing to judge, never 0.
         weekly.push({ label: wl.isoWeekLabel(w, wMode), inbound: h.created, closed: h.resolved,
-          missed_pct: h.created ? Math.round((h.sla_overdue / h.created) * 1000) / 10 : null });
+          missed_pct: h.created ? Math.round((h.sla_overdue / h.created) * 1000) / 10 : null,
+          res_sla_pct: h.resolved ? Math.round(((h.resolved - (h.closed_overdue || 0)) / h.resolved) * 1000) / 10 : null,
+          closed_overdue: h.closed_overdue || 0 });
       }
 
       const groups = String(rs.helpdesk_group || '').split(',').map((g) => g.trim()).filter(Boolean);

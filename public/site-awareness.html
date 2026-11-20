@@ -388,6 +388,7 @@ W.defaults=O.defaults;window.Chart=W;});
     hd_volume:       { fr: 'Volume & SLA — 6 semaines',              en: 'Volume & SLA — 6 weeks' },
     c_sla_missed:    { fr: 'SLA manqué %',                           en: 'SLA missed %' },
     c_sla_comp:      { fr: 'Conformité SLA %',                       en: 'SLA compliance %' },
+    c_sla_def:       { fr: 'Tickets clos dans le délai ÷ tickets clos de la semaine (même règle que le classement du Helpdesk ; groupes Zoho du site)', en: 'Tickets closed on time ÷ tickets closed in the week (same rule as the Helpdesk ranking; the site\'s Zoho groups)' },
     c_sla_target:    { fr: 'Cible 90%',                              en: 'Target 90%' },
     // changes (90-day) section
     h_changes:       { fr: 'Changements — 90 jours',                 en: 'Changes — 90 days' },
@@ -568,7 +569,7 @@ W.defaults=O.defaults;window.Chart=W;});
         <td>${esc(w.label)}</td>
         <td class="sa-num">${fmtNum(w.inbound)}</td>
         <td class="sa-num">${fmtNum(w.closed)}</td>
-        <td class="sa-num">${w.missed_pct == null ? '<span class="sa-muted">—</span>' : fmtPct(Math.max(0, Math.min(100, 100 - w.missed_pct)))}</td>
+        <td class="sa-num" title="${esc(T('c_sla_def'))}">${w.res_sla_pct == null ? '<span class="sa-muted">—</span>' : fmtPct(w.res_sla_pct)}</td>
       </tr>`).join('') : `<tr><td colspan="4" class="sa-muted">${esc(T('nodata'))}.</td></tr>`;
 
     const mi = data.major_incidents || [];
@@ -590,14 +591,14 @@ W.defaults=O.defaults;window.Chart=W;});
 
   // 6-week combo: bars Received + Closed (left axis) + line Resolution SLA compliance % (right axis,
   // 0-100) with a dashed 90% target line — same framing as the deck report (compliance, not "missed").
-  // compliance = 100 − missed_pct; spanGaps:false so a null week breaks the line, never a false 0.
+  // compliance = closed on time ÷ closed (KPI doctrine, Adoption Lot A); spanGaps:false so a null week breaks the line, never a false 0.
   function renderHdChart(weekly) {
     if (_hdChart) { _hdChart.destroy(); _hdChart = null; }
     const panel = $('sa-hd-chart-panel');
     if (typeof Chart === 'undefined' || !weekly.length) { if (panel) panel.style.display = 'none'; return; }
     if (panel) panel.style.display = '';
     const labels = weekly.map(w => w.label);
-    const comp = weekly.map(w => w.missed_pct == null ? null : Math.max(0, Math.min(100, 100 - w.missed_pct)));
+    const comp = weekly.map(w => w.res_sla_pct == null ? null : w.res_sla_pct);   // Adoption Lot A: closed-on-time ÷ closed
     _hdChart = new Chart($('sa-hd-chart').getContext('2d'), {
       type: 'bar',
       data: {

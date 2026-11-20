@@ -21,6 +21,7 @@ test('created/resolved/backlog/sla_overdue', () => {
   assert.strictEqual(r.resolved, 3);       // pending_status = 0
   assert.strictEqual(r.backlog, 2);        // pending_status = 1
   assert.strictEqual(r.sla_overdue, 2);    // overdue_status = 1
+  assert.strictEqual(r.closed_overdue, 1); // Adoption Lot A: closed AND overdue (the doctrine's numerator)
 });
 
 test('major_incidents counts request_type OR template', () => {
@@ -40,5 +41,5 @@ test('recurring = (category / sub_category) with count >= 3', () => {
 
 test('empty rows → all-zero block, never throws', () => {
   const r = _computeSiteHelpdesk([]);
-  assert.deepStrictEqual(r, { created: 0, resolved: 0, backlog: 0, sla_overdue: 0, major_incidents: 0, top_categories: [], recurring: [], avg_resolution_h: null });
+  assert.deepStrictEqual(r, { created: 0, resolved: 0, backlog: 0, sla_overdue: 0, closed_overdue: 0, major_incidents: 0, top_categories: [], recurring: [], avg_resolution_h: null });
 });
