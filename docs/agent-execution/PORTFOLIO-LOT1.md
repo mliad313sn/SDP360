@@ -47,7 +47,7 @@ Command: `NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $P
 | `tests/i18n-coverage.test.js`, `tests/ui-design-ratchet.test.js`, `tests/a11y-static.test.js`, `tests/a11y-legacy-ratchet.test.js`, `tests/csp-no-inline-handlers-new-pages.test.js`, `tests/monolith-ratchet.test.js` | pass (CHART-INVENTORY regenerated) |
 | `tests/authz-matrix-json.test.js`, `tests/authz-route-matrix.test.js` | pass after `AUTHZ_MATRIX_UPDATE=1` |
 | `tests/authz-outcomes.smoke.test.js` | 5 pass after `AUTHZ_OUTCOMES_UPDATE=1` |
-| regression batch (see report) | see final run below |
+| regression: `governance-routes.smoke`, `switch-lots`, `switch-lots-rollback`, `flag-register`, `report-config`, `authz-handler-checks`, `authz-enforce`, `capability-registry`, `ppm-w3.smoke`, `portfolio-access-parity.smoke`, `portfolio-site-scope.smoke`, `await-precedence`, `project-page` (tab allowlist + intake), `ppm-raci-templates` | all pass (authz-handler-checks after declaring the catalogue route) |
 
 `npx eslint .` clean. Generated: `docs/ops/{authz-matrix.json,AUTHZ-MATRIX.md,authz-outcomes.json,FLAG-REGISTER.*,FLAG-DECISIONS-GAPS.md,SWITCH-LOTS.md}`,
 `docs/agent-execution/INVENTORY*`, `docs/ux/CHART-INVENTORY.md`, `tests/.suite-manifest.json` (+18 → 5550).
