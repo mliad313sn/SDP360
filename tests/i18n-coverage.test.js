@@ -131,6 +131,7 @@ const ALLOW = {
 const SELF_TRANSLATED = ['access.html', 'cockpit.html', 'coverage.html', 'commitments.html', 'handoffs.html', 'help.html', 'infra-health.html', 'meetings-compliance.html',
   'meetings-import.html', 'meetings-insights.html', 'obligations.html', 'policies.html', 'site-awareness.html', 'home.html', 'kpi-builder.html',
   'workspace-settings.html', 'policy-center.html',   // Policy Control Center — own EN/FR table in lib/policyCenterPage.js, language from the shell
+  'portfolio-register.html',   // PORTFOLIO LOT 3 — own EN/FR table in lib/portfolioRegister.js, language from the shell
   'value-scoreboard.html'];   // D2 (P10) — own EN/FR table in lib/value-scoreboard-page.js, language from the shell   // R1-PROFILES — own EN/FR table, language from the shell (like home.html)
 // Shell pages not translated yet, with the reason (A-09b covers the coordinator pages listed there).
 const UNTRANSLATED = {

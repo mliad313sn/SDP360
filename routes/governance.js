@@ -32,6 +32,7 @@ const { fail: httpFail, logError } = require('../services/httpError');
 //   GET  /api/governance/portfolio/deck.pptx · /workbook.xlsx (money only for canSeeMoney) · /exceptions (A11)
 //   POST /api/governance/roadmap-migration?apply=1    Roadmap Manager → portfolio (dry run by default)   super_admin
 //   W2-PPM (E-P03..E-P08): /api/governance/ppm/* in routes/governancePpm.js (each behind its PROPOSED switch)
+//   PORTFOLIO LOT 3: GET /api/governance/portfolio/register(.csv|.xlsx) in routes/governancePortfolioRegister.js (404 while ppm_portfolio_dashboard_v2_enabled = '0')
 //
 // Committee = admin tier OR feature role `committee-member`. Runner of a session = committee, or the
 // cadence's chair/secretary, or an editor of the cadence's site (services/userSites).
@@ -963,6 +964,7 @@ module.exports = function governanceRoutes(deps) {
   });
   require('./governanceIntake')(router, { rdb, reportConfig, requireReportSession, json, isAdmin, log });   // PORTFOLIO LOT 1
   require('./governancePpm')(router, { store, rdb, reportConfig, requireReportSession, json, isCommittee, canSeeMoney, viewFor, readableProject, readableHiddenProjects, refusePlanWrite, log });
+  require('./governancePortfolioRegister')(router, { store, rdb, reportConfig, requireReportSession, viewFor, canSeeMoney, log });   // PORTFOLIO LOT 3 (ppm_portfolio_dashboard_v2_enabled)
   // B6 (P7a) — audience-scoped roadmap publications (roadmap_audience_publication_enabled, 404 while '0')
   require('./governanceRoadmapAudience')(router, { store, rdb, reportConfig, requireReportSession, json, isCommittee, isAdmin, portfolioView, log });
   return router;
