@@ -57,7 +57,7 @@ Files scanned: **138** · inline <style> blocks: **58** · hex literals: **5576*
 | `public/notifications.html` | 11179 | 1 | 41 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/obligations.html` | 3741 | 1 | 13 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/policies.html` | 25419 | 1 | 15 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
-| `public/policy-center.html` | 6509 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/policy-center.html` | 6515 | 1 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/portfolio.html` | 45312 | 1 | 74 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/project.html` | 93832 | 1 | 79 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
 | `public/report-studio.html` | 18084 | 1 | 42 | 0 | — | 0 | 0 | — | — | — | hex literals → _tokens.css variables |
@@ -112,7 +112,7 @@ Files scanned: **138** · inline <style> blocks: **58** · hex literals: **5576*
 | `public/lib/pageView.js` | 764 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/parse-actions-csv.js` | 8439 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/policiesRoles.js` | 16086 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
-| `public/lib/policyCenterPage.js` | 21078 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
+| `public/lib/policyCenterPage.js` | 21857 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/portfolioMine.js` | 2023 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/portfolioViews.js` | 3669 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
 | `public/lib/ppmBoard.js` | 5556 | 0 | 0 | 0 | — | 0 | 0 | — | — | — | — |
