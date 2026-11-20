@@ -36,6 +36,17 @@ module.exports = function governanceReviewRoutes(router, h) {
   const isReviewer = (st, u) => st.reviewers.some((r) => r.user_id != null && Number(r.user_id) === Number(u && u.id));
   const isOwner = (p, u) => require('../services/portfolioAccess').ownerMatches(p, u);
 
+  /** P11 r5 F-19 — the accounts the committee may assign (the same rule the assign route enforces: active, neither
+   *  the requester, the owner nor the sponsor). Name + hierarchical role only — the committee already assigns by id. */
+  async function reviewerCandidates(p, requester) {
+    const users = await rdb().pgHandle().prepare(`SELECT id, username, full_name, email, role FROM users
+      WHERE COALESCE(active, 1) <> 0 ORDER BY lower(COALESCE(NULLIF(full_name, ''), username)) LIMIT 500`).all();
+    return users.filter((x) => {
+      const r = RW.selfApprovalRefusal({ id: Number(x.id), username: x.username, full_name: x.full_name, email: x.email }, p, requester);
+      return !r || r.code === 'REVIEW_REQUESTER_UNKNOWN';
+    }).map((x) => ({ id: Number(x.id), name: x.full_name || x.username, role: x.role || null }));
+  }
+
   router.get('/api/governance/portfolio/roles-catalogue', requireReportSession, sw, async (req, res) => {
     res.json({ ok: true, proposed: true, roles: RW.ROLE_CATALOGUE, note: 'PROPOSED mapping of the spec roles onto existing roles; no new authorisation system' });
   });
@@ -47,7 +58,8 @@ module.exports = function governanceReviewRoutes(router, h) {
       const requester = await rv().requesterOf(p);
       res.json({ ok: true, proposed: true, stage: p.stage || 'proposal', steps: RW.REVIEW_STEPS, decision_gate: RW.REVIEW_GATE, ...st,
         requester: requester ? { name: requester.name || null, known: requester.id != null } : null,
-        can_assign: committee, can_request: committee || isReviewer(st, u), can_respond: committee || isOwner(p, u), can_return: committee });
+        can_assign: committee, can_request: committee || isReviewer(st, u), can_respond: committee || isOwner(p, u), can_return: committee,
+        ...(committee ? { candidates: await reviewerCandidates(p, requester) } : {}) });
     } catch (e) { fail(res, e); }
   });
 

@@ -86,6 +86,7 @@
     // runtime (set by the page script)
     '⏳ Exporting…': '⏳ Export en cours…',
     'Source never synced — not measured': 'Source jamais synchronisée — non mesuré',   // Adoption Lot A (item 1)
+    'Your site is written several ways in the tickets — showing All Sites. Pick a spelling to filter.': 'Votre site est écrit de plusieurs façons dans les tickets — affichage de Tous les sites. Choisissez une graphie pour filtrer.',   // P11 r5 F-16 (built by lib/helpdeskSiteDefault.js, not in the page source)
   };
   root.I18N_FR_INDEX_RUNTIME = ['⏳ Exporting…', 'Source never synced — not measured'];
 })(typeof window !== 'undefined' ? window : globalThis);

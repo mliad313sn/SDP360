@@ -433,6 +433,8 @@ async function getInspectionForFieldReplay(id) {
   const r = await pgHandle().prepare('SELECT status, site_code, created_by, state_json FROM insp_inspections WHERE id = ? AND deleted_at IS NULL').get(id);
   if (!r) return null;
   let state = null; try { state = JSON.parse(r.state_json || '{}') || {}; } catch (_) { state = null; }
+  // P11 r5 F-15 — the server stamps the stored action ids into the form state; a phone replay never carries them
+  if (state && Array.isArray(state.actions)) state.actions = state.actions.map((a) => { if (!a || typeof a !== 'object') return a; const { id: _i, ...rest } = a; return rest; });
   return { status: r.status || 'draft', site_code: r.site_code, created_by: r.created_by == null ? null : Number(r.created_by), meta: state ? state.meta || null : null, state };
 }
 
@@ -750,6 +752,16 @@ async function _getInspectionPg(id, { includeDeleted = false } = {}) {
     SELECT id, ord, description, linked_item, priority, owner, due_date,
            status, notes, created_at, updated_at, closed_at, closed_by, verified_by, verified_at
       FROM insp_actions WHERE inspection_id = ? ORDER BY ord, id`).all(id);
+  // P11 r5 F-15 — the form state round-trips the stored action ids (the row with ord i is state.actions[i]); the
+  // status and owner shown are the stored ones, so a close made in the register or on a phone is what the form shows
+  if (stateBlob && Array.isArray(stateBlob.actions)) {
+    const byOrd = new Map(actions.map((a) => [Number(a.ord), a]));
+    stateBlob.actions = stateBlob.actions.map((a, i) => {
+      const r = byOrd.get(i);
+      if (!a || typeof a !== 'object' || !r) return a;
+      return { ...a, id: Number(r.id), status: r.status || a.status, owner: r.owner != null ? r.owner : a.owner };
+    });
+  }
 
   const photos = (await H.prepare(`
     SELECT id, finding_key, action_id, caption, mime_type, data_b64, file_ref, size_bytes
@@ -812,6 +824,7 @@ async function _saveInspectionPg(state, userSiteCode, createdBy, { allowRefs = n
   const allowed = new Set([...(existing ? _storedRefs(existing.state_json) : []), ...(allowRefs || [])]);
   _externalizeBlobs(state, id, allowed);
 
+  let actionIds = [];
   await H.runTransaction(async () => {
     if (existing) {
       await H.prepare(`
@@ -864,25 +877,13 @@ async function _saveInspectionPg(state, userSiteCode, createdBy, { allowRefs = n
              val.status || null, val.notes || null);
     }
 
-    // E-I06 — the form re-inserts every action: keep who closed / verified a still-Closed action (same ord + text).
-    const _kept = new Map((await H.prepare(`SELECT ord, description, closed_by, verified_by, verified_at, verify_note
-      FROM insp_actions WHERE inspection_id = ? AND (closed_by IS NOT NULL OR verified_at IS NOT NULL)`).all(id))
-      .map((k) => [String(k.ord) + '|' + String(k.description || ''), k]));
-    await H.prepare('DELETE FROM insp_actions WHERE inspection_id = ?').run(id);
-    let aix = 0;
-    for (const a of (state.actions || [])) {
-      const desc = a.desc || a.description || '';
-      const st = a.status || 'Open';
-      const k = st === 'Closed' ? _kept.get(String(aix) + '|' + desc) : null;
-      await H.prepare(`INSERT INTO insp_actions
-          (inspection_id, ord, description, linked_item, priority, owner, due_date, status, notes, closed_by, verified_by, verified_at, verify_note)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
-        .run(id, aix, desc, a.link || a.linked_item || '',
-             a.priority || 'Medium', a.owner || '', a.due || a.due_date || null,
-             st, a.notes || '', k ? k.closed_by : null, k ? k.verified_by : null, k ? k.verified_at : null, k ? k.verify_note : null);
-      aix++;
+    // P11 r5 F-15 — the form UPSERTS its actions by id (as saveMeeting does since audit F2). It used to DELETE and
+    // re-INSERT every row: each save gave the actions new ids, deleted their comment / status history
+    // (insp_action_updates, ON DELETE CASCADE) and turned a phone close queued against the old id into a final 403.
+    actionIds = await _upsertActionsPg(H, id, state.actions || [], existing && existing.state_json);
+    if (Array.isArray(state.actions) && state.actions.length) {
+      await H.prepare('UPDATE insp_inspections SET state_json = ? WHERE id = ?').run(JSON.stringify(state), id);
     }
-
     await H.prepare('DELETE FROM insp_photos WHERE inspection_id = ?').run(id);
     for (const [key, val] of Object.entries(state.items || {})) {
       if (!val || !Array.isArray(val.photos)) continue;
@@ -923,7 +924,92 @@ async function _saveInspectionPg(state, userSiteCode, createdBy, { allowRefs = n
     if (sigSite) await _runSig('site', meta.sign_site_name || '', meta.sign_site_date || null, sigSite);
   });
 
-  return { id, created: !existing };
+  return { id, created: !existing, action_ids: actionIds };
+}
+
+const _ACTION_TERMINAL = new Set(['Closed', 'Cancelled']);
+const _actNorm = (v) => String(v == null ? '' : v).trim().toLowerCase();
+
+/**
+ * P11 r5 F-15 — upsert the form's corrective actions for one inspection (inside the save transaction).
+ *  - match: a numeric `id` that belongs to THIS inspection, else (old form state / queued offline save without ids)
+ *    the first unmatched row with the same ord + text, then the same text; otherwise a new row.
+ *  - a status / owner the form did not change since its last save (same value as in the stored form state) keeps
+ *    the value the register or a phone set meanwhile — a stale tab never reverts a close.
+ *  - updated_at moves only on a real edit (the field replay reads it as "changed on the server").
+ *  - rows absent from the payload are deleted (their history goes with them, as the user removed the action).
+ * Returns the stored ids in form order.
+ */
+async function _upsertActionsPg(H, inspectionId, incoming, prevStateJson) {
+  const rows = await H.prepare(`SELECT id, ord, description, linked_item, priority, owner, due_date, status, notes,
+      closed_at, closed_by FROM insp_actions WHERE inspection_id = ? ORDER BY ord, id`).all(inspectionId);
+  let prevActions = [];
+  try { const ps = prevStateJson ? JSON.parse(prevStateJson) : null; prevActions = (ps && Array.isArray(ps.actions)) ? ps.actions : []; } catch (_) { prevActions = []; }
+  const byId = new Map(rows.map((r) => [Number(r.id), r]));
+  const used = new Set();
+  const list = Array.isArray(incoming) ? incoming : [];
+  const descOf = (a) => String((a && (a.desc != null ? a.desc : a.description)) || '');
+  const match = list.map((a) => {
+    const n = a && a.id != null && a.id !== '' ? Number(a.id) : NaN;
+    if (Number.isInteger(n) && byId.has(n) && !used.has(n)) { used.add(n); return byId.get(n); }
+    return null;
+  });
+  list.forEach((a, i) => {
+    if (match[i] || !a) return;
+    const d = descOf(a);
+    const r = rows.find((x) => !used.has(Number(x.id)) && Number(x.ord) === i && String(x.description || '') === d)
+      || rows.find((x) => !used.has(Number(x.id)) && String(x.description || '') === d);
+    if (r) { used.add(Number(r.id)); match[i] = r; }
+  });
+  for (const r of rows) {
+    if (!used.has(Number(r.id))) await H.prepare('DELETE FROM insp_actions WHERE id = ?').run(r.id);
+  }
+  const ids = [];
+  for (let i = 0; i < list.length; i++) {
+    const a = list[i] || {};
+    const desc = descOf(a);
+    const link = a.link || a.linked_item || '';
+    const prio = a.priority || 'Medium';
+    let owner = a.owner || '';
+    const due = a.due || a.due_date || null;
+    let st = a.status || 'Open';
+    const notes = a.notes || '';
+    const r = match[i];
+    if (!r) {
+      const ins = await H.prepare(`INSERT INTO insp_actions
+          (inspection_id, ord, description, linked_item, priority, owner, due_date, status, notes, closed_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 1 THEN to_char(now(),'YYYY-MM-DD HH24:MI:SS') ELSE NULL END)
+        RETURNING id`).get(inspectionId, i, desc, link, prio, owner, due, st, notes, _ACTION_TERMINAL.has(st) ? 1 : 0);
+      ids.push(Number(ins.id));
+      if (list[i] && typeof list[i] === 'object') list[i].id = Number(ins.id);
+      continue;
+    }
+    // three-way: base = what this form stored last time for the row (its old ord)
+    const base = prevActions[Number(r.ord)];
+    if (base && _actNorm(base.status || 'Open') === _actNorm(st) && _actNorm(r.status) !== _actNorm(st)) st = r.status || st;
+    if (base && _actNorm(base.owner) === _actNorm(owner) && _actNorm(r.owner) !== _actNorm(owner)) owner = r.owner || '';
+    const changed = String(r.description || '') !== desc || String(r.linked_item || '') !== link
+      || String(r.priority || '') !== prio || String(r.owner || '') !== owner || String(r.due_date || '') !== String(due || '')
+      || String(r.status || '') !== st || String(r.notes || '') !== notes;
+    const wasTerminal = _ACTION_TERMINAL.has(r.status);
+    const nowTerminal = _ACTION_TERMINAL.has(st);
+    // closed_at: kept while terminal, stamped on a new close, cleared on a reopen. closed_by / verification: kept only
+    // while Closed (E-I06); a reopen or a cancel clears them.
+    await H.prepare(`UPDATE insp_actions SET ord = ?, description = ?, linked_item = ?, priority = ?, owner = ?, due_date = ?,
+        status = ?, notes = ?,
+        closed_at = CASE WHEN ? = 0 THEN NULL WHEN ? = 1 THEN closed_at ELSE to_char(now(),'YYYY-MM-DD HH24:MI:SS') END,
+        closed_by = CASE WHEN ? = 'Closed' THEN closed_by ELSE NULL END,
+        verified_by = CASE WHEN ? = 'Closed' THEN verified_by ELSE NULL END,
+        verified_at = CASE WHEN ? = 'Closed' THEN verified_at ELSE NULL END,
+        verify_note = CASE WHEN ? = 'Closed' THEN verify_note ELSE NULL END,
+        updated_at = CASE WHEN ? = 1 THEN now() ELSE updated_at END
+      WHERE id = ?`).run(i, desc, link, prio, owner, due, st, notes,
+      nowTerminal ? 1 : 0, (wasTerminal && nowTerminal) ? 1 : 0, st, st, st, st, changed ? 1 : 0, r.id);
+    ids.push(Number(r.id));
+    // the stored form state carries what the row now holds: the next save's three-way base, and the ids
+    if (list[i] && typeof list[i] === 'object') Object.assign(list[i], { id: Number(r.id), status: st, owner });
+  }
+  return ids;
 }
 
 async function _deleteInspectionPg(id) {

@@ -63,7 +63,10 @@
     var g = pf && Array.isArray(pf.gantt) ? pf.gantt : null;
     if (!g) return null;
     var late = g.filter(function (p) { return p && (p.late === true || (typeof p.slip_days === 'number' && p.slip_days > 0)); });
-    return { total: late.length, items: late.slice(0, n || 5).map(function (p) { return { id: p.id, key: p.key || '', name: p.name || '', late: p.late === true, slip_days: typeof p.slip_days === 'number' ? p.slip_days : null }; }) };
+    // P11 r5 F-17: lateness is not measurable without an end date — count the open projects that have none
+    var open = g.filter(function (p) { return p && ['done', 'cancelled'].indexOf(String(p.status || '').toLowerCase()) < 0; });
+    var undated = open.filter(function (p) { return !(p.end || p.end_date) && late.indexOf(p) < 0; }).length;
+    return { total: late.length, open: open.length, undated: undated, items: late.slice(0, n || 5).map(function (p) { return { id: p.id, key: p.key || '', name: p.name || '', late: p.late === true, slip_days: typeof p.slip_days === 'number' ? p.slip_days : null }; }) };
   }
 
   function decisions(ov) {
@@ -77,6 +80,15 @@
   }
   function nm(t) { return '<span class="hm-nm">' + esc(t.nm) + '</span>'; }
 
+  // P11 r5 F-17 — "no late project" only for projects that can be late: every open project undated = not measured.
+  var UNDATED = { en: { none: '— not measured: no end date recorded ({n})', some: '{n} without end date — not measured' },
+    fr: { none: '— non mesuré : aucune date de fin saisie ({n})', some: '{n} sans date de fin — non mesuré(s)' } };
+  function lateNone(lp, lang, t) {
+    var u = UNDATED[lang === 'fr' ? 'fr' : 'en'];
+    if (lp.undated && lp.undated >= lp.open) return '<span class="hm-nm">' + esc(fill(u.none, { n: lp.undated })) + '</span>';
+    return esc(t.noLate) + (lp.undated ? ' <span class="hm-muted">(' + esc(fill(u.some, { n: lp.undated })) + ')</span>' : '');
+  }
+
   /** d = { worst (undefined = line not offered), late, decisions } */
   function groupHtml(d, lang) {
     var t = L(lang);
@@ -88,7 +100,7 @@
       parts.push(row(t.worst, 'site-awareness.html', v));
     }
     var lp = d.late;
-    parts.push(row(t.late, 'portfolio.html', !lp ? nm(t) : (lp.total === 0 ? esc(t.noLate)
+    parts.push(row(t.late, 'portfolio.html', !lp ? nm(t) : (lp.total === 0 ? lateNone(lp, lang, t)
       : '<b class="hm-late">' + lp.total + '</b><ul class="hm-pv">' + lp.items.map(function (p) { return '<li>' + esc(p.key ? p.key + ' — ' + p.name : p.name) + (p.slip_days ? ' <span class="hm-muted">+' + p.slip_days + ' j</span>' : '') + '</li>'; }).join('') + (lp.total > lp.items.length ? '<li class="hm-muted">' + esc(fill(t.more, { n: lp.total - lp.items.length })) + '</li>' : '') + '</ul>')));
     var dc = d.decisions;
     parts.push(row(t.dec, 'cockpit.html', !dc ? nm(t) : dc.open + ' ' + esc(t.open) + (dc.overdue == null ? '' : ' · ' + (dc.overdue > 0 ? '<span class="hm-late">' + dc.overdue + ' ' + esc(t.overdue) + '</span>' : dc.overdue + ' ' + esc(t.overdue)))));
