@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | bloque le pilote sur deux sites (instance de TEST) |
 | À décider après | [G19](G19-qa-ci-green.md) QA : CI verte et tests sautés revus |
-| SHA cible | `cbbd4863` |
+| SHA cible | `e49b554d` |
 | Généré | 2026-11-20 |
 
 ## 1. La question à trancher
@@ -21,8 +21,8 @@ Les règles d'accès (périmètre de site des comptes métier CG-01, plus de lec
 
 | Preuve | Ce qu'elle montre | Régénérer / rejouer | Dernière modification (commit, date) | Empreinte |
 |---|---|---|---|---|
-| `docs/ops/authz-matrix.json` | Matrice route × garde × capacité lisible par machine, régénérée depuis le code | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-matrix-json.test.js` | 2baea099, 2026-11-20 | `dc91a258b4af5c51` |
-| `docs/ops/AUTHZ-MATRIX.md` | Matrice lisible de chaque route d'API et du rôle exigé | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-route-matrix.test.js` | 2baea099, 2026-11-20 | `5b18b5c6b477d342` |
+| `docs/ops/authz-matrix.json` | Matrice route × garde × capacité lisible par machine, régénérée depuis le code | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-matrix-json.test.js` | 3ecb895d, 2026-11-20 | `b0cee550ecf2003e` |
+| `docs/ops/AUTHZ-MATRIX.md` | Matrice lisible de chaque route d'API et du rôle exigé | `AUTHZ_MATRIX_UPDATE=1 node --test --test-force-exit tests/authz-route-matrix.test.js` | 3ecb895d, 2026-11-20 | `4ea2ae0a1c681442` |
 | `tests/authz-route-matrix.test.js` | Échoue si une route est ajoutée ou si sa garde change sans régénérer la matrice | `node --test --test-force-exit tests/authz-route-matrix.test.js` | 4c7cde73, 2026-11-12 | `5af87df254c4a16d` |
 | `tests/authz-enforce.test.js` | Comportement de l'application des capacités | `node --test --test-force-exit tests/authz-enforce.test.js` | 30243287, 2026-11-12 | `9298b189390ba23a` |
 | `docs/sdp360/completion/AUTHZ-OBJECT-MATRIX.csv` | Matrice d'accès par objet (qui lit ou écrit quel objet) | `manual (object-level review)` | 040c228f, 2026-10-28 | `ed72b52d09da051b` |
@@ -34,7 +34,7 @@ Les règles d'accès (périmètre de site des comptes métier CG-01, plus de lec
 | Lot | Preuve attendue | Statut |
 |---|---|---|
 | P02 | Rapport de la sonde des résultats d'autorisation (chaque route × persona, codes observés) | livrée: `docs/agent-execution/P02-authz-outcomes.md` (9007a5c4, `1b3c7c2278a4e5d1`) |
-| P02 | Instantané des résultats utilisé par le test de la sonde | livrée: `docs/ops/authz-outcomes.json` (2baea099, `e5e0f011ae957ef2`) |
+| P02 | Instantané des résultats utilisé par le test de la sonde | livrée: `docs/ops/authz-outcomes.json` (3ecb895d, `73dcbf3057f9b5be`) |
 
 ## 3. Ce qui n'est pas prouvé, et pourquoi
 

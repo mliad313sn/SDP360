@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | ne bloque que le déploiement général |
 | À décider après | [G11](G11-pilot-sites-field-uat.md) Sites pilotes et recette terrain · [G21](G21-business-witness-project.md) Projet témoin métier · [G06](G06-kpi-definitions-thresholds.md) Définitions des indicateurs, seuils et score |
-| SHA cible | `cbbd4863` |
+| SHA cible | `e49b554d` |
 | Généré | 2026-11-20 |
 
 ## 1. La question à trancher
@@ -22,7 +22,7 @@ Après le pilote, le produit fait-il ce dont le métier a besoin suffisamment bi
 | Preuve | Ce qu'elle montre | Régénérer / rejouer | Dernière modification (commit, date) | Empreinte |
 |---|---|---|---|---|
 | `docs/sdp360/completion/TRUTH-MATRIX.md` | Matrice de vérité : ce qui est implémenté, testé, validé | `manual` | 5dc0c25c, 2026-11-19 | `f4318da0bef49eb8` |
-| `docs/ops/PERSONA-JOURNEYS.md` | Correspondance persona-parcours | `manual` | 5283e348, 2026-11-19 | `ce32b3188c0da647` |
+| `docs/ops/PERSONA-JOURNEYS.md` | Correspondance persona-parcours | `manual` | 7b6b0abb, 2026-11-20 | `33d8093051f71d12` |
 | `docs/audits/2026-11-12-enterprise-review/UAT-COMITE-UTILISATEURS.md` | Revue d'un comité utilisateurs IA (pas de vrais utilisateurs) | `manual` | d6a7f2bb, 2026-11-12 | `222de56c07458f00` |
 | `docs/agent-execution/G24-DOSSIER-GO-NOGO-FR.md` | Dossier GO/NO-GO antérieur (pilote conditionnel, production NO-GO) | `node --test --test-force-exit tests/release-dossier.test.js` | d6695109, 2026-11-05 | `0130ead17d7d9889` |
 
@@ -30,7 +30,7 @@ Après le pilote, le produit fait-il ce dont le métier a besoin suffisamment bi
 
 | Lot | Preuve attendue | Statut |
 |---|---|---|
-| P09 | Kit d'adoption et tâches par profil | livrée: `docs/agent-execution/P09-PAGE-INVENTORY.md` (db704a36, `8573d7b715775080`), `docs/agent-execution/P09-adoption-kit.md` (c9bab46d, `8246fb83ee6409fc`) |
+| P09 | Kit d'adoption et tâches par profil | livrée: `docs/agent-execution/P09-PAGE-INVENTORY.md` (7b6b0abb, `7461ba685f71e106`), `docs/agent-execution/P09-adoption-kit.md` (c9bab46d, `8246fb83ee6409fc`) |
 | P04 | Rapport de certification PPM | livrée: `docs/agent-execution/P04-ppm-certification.md` (34acf361, `ce601c12654f688f`) |
 
 ## 3. Ce qui n'est pas prouvé, et pourquoi

@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks general deployment only |
 | Decide after | [G11](G11-pilot-sites-field-uat.md) Pilot sites and field acceptance · [G21](G21-business-witness-project.md) Business witness project · [G06](G06-kpi-definitions-thresholds.md) KPI definitions, thresholds and score |
-| Target SHA | `cbbd4863` |
+| Target SHA | `e49b554d` |
 | Generated | 2026-11-20 |
 
 ## 1. Question to decide
@@ -22,7 +22,7 @@ After the pilot, does the product do what the business needs well enough to depl
 | Evidence | What it shows | Regenerate / re-run | Last changed (commit, date) | Content hash |
 |---|---|---|---|---|
 | `docs/sdp360/completion/TRUTH-MATRIX.md` | Truth matrix: what is implemented, tested, validated | `manual` | 5dc0c25c, 2026-11-19 | `f4318da0bef49eb8` |
-| `docs/ops/PERSONA-JOURNEYS.md` | Persona to journey map | `manual` | 5283e348, 2026-11-19 | `ce32b3188c0da647` |
+| `docs/ops/PERSONA-JOURNEYS.md` | Persona to journey map | `manual` | 7b6b0abb, 2026-11-20 | `33d8093051f71d12` |
 | `docs/audits/2026-11-12-enterprise-review/UAT-COMITE-UTILISATEURS.md` | AI user-committee review (not real users) | `manual` | d6a7f2bb, 2026-11-12 | `222de56c07458f00` |
 | `docs/agent-execution/G24-DOSSIER-GO-NOGO-FR.md` | Earlier GO/NO-GO dossier (pilot conditional, production NO-GO) | `node --test --test-force-exit tests/release-dossier.test.js` | d6695109, 2026-11-05 | `0130ead17d7d9889` |
 
@@ -30,7 +30,7 @@ After the pilot, does the product do what the business needs well enough to depl
 
 | From lot | Expected evidence | Status |
 |---|---|---|
-| P09 | Adoption kit and profile tasks | delivered: `docs/agent-execution/P09-PAGE-INVENTORY.md` (db704a36, `8573d7b715775080`), `docs/agent-execution/P09-adoption-kit.md` (c9bab46d, `8246fb83ee6409fc`) |
+| P09 | Adoption kit and profile tasks | delivered: `docs/agent-execution/P09-PAGE-INVENTORY.md` (7b6b0abb, `7461ba685f71e106`), `docs/agent-execution/P09-adoption-kit.md` (c9bab46d, `8246fb83ee6409fc`) |
 | P04 | PPM certification report | delivered: `docs/agent-execution/P04-ppm-certification.md` (34acf361, `ce601c12654f688f`) |
 
 ## 3. Not evidenced, and why
