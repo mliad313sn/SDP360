@@ -80,7 +80,7 @@ Green runs: all of the above + `shell-navigation`, `shell-nav-r4`, `exec-nav-con
 `error-text-fr`, `site-window-readers`, `site-report-helpdesk-weekly`, `p09-adoption-kit`, `persona-matrix`,
 `flag-register`, `switch-lots`, `traceability`, `metric-lineage`, `ui-design-ratchet`, `gate-dossiers`,
 `readme-truth`, `agent-inventory`, `test-runner-guard`, `authz-route-matrix`, `authz-outcomes.smoke` (regenerated).
-E2E journeys (Chromium): T1, T2, C1, R2, U3, U4, P09-A, P09-B, T7, UAT S1, S3, S4, S5, S6, S7, S8, demo journey.
+E2E journeys (Chromium), all green: T1, T2, C1, R2, U3, U4, P09-A, P09-B, T7, UAT S1, S3, S4, S5, S6, S7, S8, demo journey. Two were adapted to intended behaviour: UAT S7-07 (workspace-settings switch off → "not enabled" page instead of 404) and UAT S4-02 found that rows loaded without a sync record must not be masked (fixed in the page: mask only an empty, never-synced register).
 `npx eslint .` clean.
 
 ## Generated artefacts regenerated
