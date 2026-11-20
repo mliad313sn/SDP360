@@ -1,0 +1,25 @@
+# Business-readiness pack / Dossier de préparation métier
+
+> **Préparé par IA — à valider par les responsables nommés.** / **Prepared by AI — to be validated by the named owners.**
+> Nothing in this folder is an approval, a signature, a production-readiness claim or a field acceptance. Every
+> decision, name, date and signature cell is empty on purpose.
+
+| Document (FR) | What it is (EN) |
+|---|---|
+| [PLAN-PILOTE.md](PLAN-PILOTE.md) | Two-site pilot plan on the TEST instance: per-lot panel recommendation (consolidated, most cautious seat), three activation waves with the exact `activate-switches` plan / dry-run / apply / rollback commands, prerequisites, metrics from existing instruments, stop and rollback triggers. L05 is excluded (NO-GO); outbound sends, SDP write and the Policy Control Center stay off. |
+| [RECETTE-UAT.md](RECETTE-UAT.md) | Scenario-based UAT scripts for 8 personas on the default product and for each pilot lot, expected results, blank sign-off columns. Not yet played by anyone. |
+| [GUIDE-UTILISATEUR-PAR-PROFIL.md](GUIDE-UTILISATEUR-PAR-PROFIL.md) | One-page quick start per profile: landing page (shipped vs. pilot profile), three daily tasks with the shipped menu path, help sections. |
+| [RUNBOOK-EXPLOITATION.md](RUNBOOK-EXPLOITATION.md) | Day-1 / week-1 operations: install and update, backup and restore drill, monitoring (`/health`, `/ready`, sync health, SLI), switch activation and rollback, DBA audit-grant hardening, incident pointers, residual risks. |
+| [REGISTRE-DECISIONS-HUMAINES.md](REGISTRE-DECISIONS-HUMAINES.md) | Generated register of every pending human decision (decider role, options, AI recommendation, what it blocks, source), counted by decider. |
+| [CHECKLIST-GO-LIVE.md](CHECKLIST-GO-LIVE.md) | Generated go-live checklist: the 21 release gates, the evidence already in the repository, and what only humans can supply. |
+
+Regenerate and check / Régénérer et vérifier :
+
+```
+node tools/release/business-readiness-check.js --write
+node tools/release/business-readiness-check.js --check
+node --test --test-force-exit tests/business-readiness.test.js
+```
+
+The check refuses a stale switch key, an unknown lot or gate, a missing repository path, an `--apply` command without
+`--lots` / `--reason`, and any filled decision / name / date / signature cell.
