@@ -167,8 +167,9 @@ const GATES = Object.freeze({
  * @param {{username?:string, full_name?:string}} actor
  * @param {{openTasks?:number, openRisksHigh?:number, note?:string}} ctx
  */
-function stageGate(project, to, actor, ctx = {}) {
+function stageGate(project, to, actor, ctx = {}, opts = {}) {
   const from = project.stage || 'proposal';
+  if (opts.extended) return extendedGate(project, from, to, actor, ctx);
   if (!STAGES.includes(to)) return { code: 'STAGE_UNKNOWN', error: `unknown stage ${to}` };
   if (!(GATES[from] || []).includes(to)) return { code: 'STAGE_ORDER', error: `cannot go from ${from} to ${to}` };
   // the owner is free text: it may hold the username, the full name or the e-mail — any of them counts
@@ -183,6 +184,68 @@ function stageGate(project, to, actor, ctx = {}) {
   if (to === 'closure' && Number(ctx.openTasks) > 0) return { code: 'GATE_OPEN_TASKS', error: `${ctx.openTasks} task(s) still open` };
   if (to === 'closed' && Number(ctx.openRisksHigh) > 0) return { code: 'GATE_OPEN_RISKS', error: `${ctx.openRisksHigh} high risk(s) still open` };
   if ((to === 'on_hold' || (from === 'closure' && to === 'in_progress')) && !(ctx.note && String(ctx.note).trim().length >= 10)) return { code: 'GATE_REASON', error: 'a reason (10+ characters) is required' };
+  return null;
+}
+
+// PORTFOLIO LOT 5 (spec §15, §26) — the EXTENDED lifecycle, only while report_config ppm_extended_lifecycle_enabled = '1'
+// (the caller passes opts.extended). PROPOSED mapping onto today's gates (ADR-PORTFOLIO-LOT5): the spec's "Planned" is
+// today's `proposal`, "Submitted" (under review) is today's `approval`, "Approved → Delivery" is the existing
+// approval → in_progress gate (same rules + SoD), `closure` → `closed` unchanged. Added: idea, assessment (before
+// proposal), handover, benefits_review (between delivery and closure) and the exits deferred (reversible), rejected and
+// cancelled (terminal). Every rule of today's gates is kept; a backward move (return for correction) and every exit need
+// a reason; a decision taken from `approval` (approve, reject, defer) may be taken neither by the owner nor by the sponsor.
+// The status still follows the stage (STATUS_FOR). Nothing here moves a stage by itself.
+const EXT_STAGES = Object.freeze(['idea', 'assessment', 'proposal', 'approval', 'in_progress', 'on_hold', 'handover', 'benefits_review', 'closure', 'closed', 'deferred', 'rejected', 'cancelled']);
+const EXT_GATES = Object.freeze({
+  idea: ['assessment', 'rejected', 'cancelled'],
+  assessment: ['proposal', 'idea', 'deferred', 'rejected', 'cancelled'],
+  proposal: ['approval', 'assessment', 'deferred', 'cancelled'],
+  approval: ['in_progress', 'proposal', 'deferred', 'rejected', 'cancelled'],
+  in_progress: ['on_hold', 'handover', 'closure', 'cancelled'],
+  on_hold: ['in_progress', 'closure', 'cancelled'],
+  handover: ['benefits_review', 'in_progress'],
+  benefits_review: ['closure', 'handover'],
+  closure: ['closed', 'in_progress'],
+  closed: [],
+  deferred: ['assessment', 'proposal', 'cancelled'],
+  rejected: [],
+  cancelled: [],
+});
+/** The status a stage implies (today's six + the extended ones). */
+const STATUS_FOR = Object.freeze({ idea: 'planned', assessment: 'planned', proposal: 'planned', approval: 'planned', in_progress: 'active', on_hold: 'on_hold', handover: 'active', benefits_review: 'active', closure: 'active', closed: 'done', deferred: 'on_hold', rejected: 'cancelled', cancelled: 'cancelled' });
+/** Stages where the project is still a draft (owner editable): today proposal only; extended adds idea, assessment. */
+const DRAFT_STAGES = Object.freeze(['idea', 'assessment', 'proposal']);
+/** Stages after the approval gate (baseline, sponsor and — with the freeze switch — the business case are fixed). */
+const APPROVED_STAGES = Object.freeze(['in_progress', 'on_hold', 'handover', 'benefits_review', 'closure', 'closed']);
+const BACKWARD = new Set(['assessment>idea', 'proposal>assessment', 'approval>proposal', 'handover>in_progress', 'benefits_review>handover', 'closure>in_progress', 'deferred>assessment', 'deferred>proposal']);
+const EXITS = ['on_hold', 'deferred', 'rejected', 'cancelled'];
+const DECISIONS_FROM_APPROVAL = ['in_progress', 'deferred', 'rejected'];
+/** Does this move need a typed reason (10+ characters)? extended = the extended lifecycle switch. */
+function needsReason(from, to, extended) {
+  if (!extended) return to === 'on_hold' || (from === 'closure' && to === 'in_progress');
+  return EXITS.includes(to) || BACKWARD.has(`${from}>${to}`);
+}
+function gatesFor(extended) { return extended ? EXT_GATES : GATES; }
+function stagesFor(extended) { return extended ? EXT_STAGES : STAGES; }
+function extendedGate(project, from, to, actor, ctx) {
+  if (!EXT_STAGES.includes(to)) return { code: 'STAGE_UNKNOWN', error: `unknown stage ${to}` };
+  if (!(EXT_GATES[from] || []).includes(to)) return { code: 'STAGE_ORDER', error: `cannot go from ${from} to ${to}` };
+  const PA = require('./portfolioAccess');
+  const isOwner = PA.ownerMatches(project, actor);
+  const isSponsor = PA.ownerMatches({ owner: project.sponsor }, actor);
+  if (needsReason(from, to, true) && !(ctx.note && String(ctx.note).trim().length >= 10)) return { code: 'GATE_REASON', error: 'a reason (10+ characters) is required' };
+  if (to === 'proposal' && from === 'assessment' && !String(project.owner || '').trim()) return { code: 'GATE_OWNER', error: 'an IT owner is required before the project is planned' };
+  if (to === 'approval' && !(charterText(project.charter).trim().length >= 20)) return { code: 'GATE_CHARTER', error: 'a charter (objective, scope, benefits — 20+ characters) is required before approval' };
+  if (from === 'approval' && DECISIONS_FROM_APPROVAL.includes(to)) {
+    if (to === 'in_progress') {
+      if (!project.sponsor) return { code: 'GATE_SPONSOR', error: 'a sponsor is required' };
+      if (!project.start_date || !project.end_date || !project.baseline_end) return { code: 'GATE_BASELINE', error: 'start, end and baseline end dates are required (the baseline is frozen at approval)' };
+    }
+    if (isOwner) return { code: 'GATE_SOD', error: 'the project owner cannot decide on their own project' };
+    if (isSponsor) return { code: 'GATE_SOD_SPONSOR', error: 'the project sponsor cannot decide on the project they sponsor' };
+  }
+  if ((to === 'closure' || (to === 'handover' && from === 'in_progress')) && Number(ctx.openTasks) > 0) return { code: 'GATE_OPEN_TASKS', error: `${ctx.openTasks} task(s) still open` };
+  if (to === 'closed' && Number(ctx.openRisksHigh) > 0) return { code: 'GATE_OPEN_RISKS', error: `${ctx.openRisksHigh} high risk(s) still open` };
   return null;
 }
 
@@ -203,4 +266,5 @@ function _safe(fn) {
 const criticalPathSafe = _safe(criticalPath);
 const scheduleViewSafe = _safe(scheduleView);
 
-module.exports = { actualHours, charterText, scheduleView, scheduleViewSafe, criticalPathSafe, dependencyProblem, criticalPath, resourceConflicts, resourceCoverage, varianceOf, STAGES, GATES, stageGate, days };
+module.exports = { actualHours, charterText, scheduleView, scheduleViewSafe, criticalPathSafe, dependencyProblem, criticalPath, resourceConflicts, resourceCoverage, varianceOf, STAGES, GATES, stageGate, days,
+  EXT_STAGES, EXT_GATES, STATUS_FOR, DRAFT_STAGES, APPROVED_STAGES, needsReason, gatesFor, stagesFor };

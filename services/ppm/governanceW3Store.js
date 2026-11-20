@@ -27,7 +27,7 @@ function makeW3Store(db, gov, { now = () => new Date().toISOString() } = {}) {
   async function listChecklists(projectId) { return (await P(`SELECT * FROM ppm_gate_checklists WHERE project_id=? ORDER BY id`).all(Number(projectId))).map(checklistRow); }
   async function getChecklist(projectId, gateTo) { return checklistRow(await P(`SELECT * FROM ppm_gate_checklists WHERE project_id=? AND gate_to=?`).get(Number(projectId), String(gateTo))); }
   async function saveChecklist(projectId, gateTo, body, { user } = {}) {
-    if (!GC.STAGES.includes(gateTo)) throw Object.assign(new Error('unknown stage ' + gateTo), { code: 'INVALID', reason: 'STAGE_UNKNOWN', status: 400 });
+    if (!GC.EXT_STAGES.includes(gateTo)) throw Object.assign(new Error('unknown stage ' + gateTo), { code: 'INVALID', reason: 'STAGE_UNKNOWN', status: 400 });
     const def = GC.normaliseDefinition(body);
     return tx(async () => {
       const before = await getChecklist(projectId, gateTo);

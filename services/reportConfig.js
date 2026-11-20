@@ -504,6 +504,20 @@ Object.assign(DEFAULTS, { ppm_data_quality_enabled: '0', ppm_dq_gate_enforced: '
 //    the portfolio the reader may already read; amounts only for amount readers. Report definitions (unfunded, without
 //    owners, high risk, stalled = 90 days) are PROPOSED (services/ppm/portfolioRegister.js) — arming is a PMO decision.
 Object.assign(DEFAULTS, { ppm_portfolio_dashboard_v2_enabled: '0' });
+// ── PORTFOLIO LOT 5 (IT portfolio reconstruction spec §15, §26, §27, §28; migration 125) — PROPOSED, '0' = today.
+//    ppm_extended_lifecycle_enabled '1' → the stage gates also offer idea · assessment · handover · benefits_review and
+//      the exits deferred · rejected · cancelled (services/projectSchedule EXT_GATES): today's rules + SoD kept, the
+//      sponsor may not decide either, every exit / return needs a reason, the status still follows the stage. Turning it
+//      back to '0' leaves a project already in an extended stage unable to move (stop-and-report before doing so).
+//    ppm_review_workflow_enabled '1' → review actions (assign reviewer, request information, answer, return for
+//      correction, apply the PROPOSED six-step review checklist) + the §27 role catalogue, and a decision out of
+//      `approval` / an approval sign-off is REFUSED to the requester, the owner, the sponsor (identity skeleton) and an
+//      approver not independent of the requester (services/approverProvenance) — fail closed. Four-eyes gate.
+//    ppm_field_audit_enabled '1' → one ppm_events row per changed project field (old → new) + created_by / updated_by.
+//    ppm_business_case_freeze_enabled '1' → after the approval gate, charter / business need / expected value / budget
+//      / budget reference / budget approval date change only with an approved change request named in the write (409).
+//    Contributor project creation (spec §27 "site contributor") is NOT built: an access-policy owner decision.
+Object.assign(DEFAULTS, { ppm_extended_lifecycle_enabled: '0', ppm_review_workflow_enabled: '0', ppm_field_audit_enabled: '0', ppm_business_case_freeze_enabled: '0' });
 // ── W3-GOVERNANCE (PPM parity W3, migration 110) — PROPOSED, '0' = today (the routes answer 404, nothing is stored).
 //    ppm_simplified_view_enabled '1' → the project page offers a Simplified ↔ Expert switch (per-user preference):
 //    KPI cards (RAG, % schedule complete, budget burn for the admin tier + finance-viewer, risks / blockers, next

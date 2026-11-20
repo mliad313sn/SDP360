@@ -20,6 +20,8 @@
 const KINDS = ['artifact', 'check'];
 const RULES = ['all', 'quorum'];
 const STAGES = ['proposal', 'approval', 'in_progress', 'on_hold', 'closure', 'closed'];
+// PORTFOLIO LOT 5 — the extended lifecycle stages (only offered while ppm_extended_lifecycle_enabled = '1'; the route decides)
+const EXT_STAGES = require('../projectSchedule').EXT_STAGES;
 const bad = (msg, reason) => Object.assign(new Error(msg), { code: 'INVALID', reason, status: 400 });
 const LEGAL_NOTE = 'recorded approval (session identity, server time) — not a legal or identity-based signature';
 
@@ -149,4 +151,4 @@ function normaliseDecision(body) {
   return { decision, reason: reason ? reason.slice(0, 2000) : null };
 }
 
-module.exports = { normaliseDefinition, normaliseDecision, eligibleSlots, pickSlot, currentDecisions, evaluate, validLink, KINDS, RULES, STAGES, LEGAL_NOTE };
+module.exports = { normaliseDefinition, normaliseDecision, eligibleSlots, pickSlot, currentDecisions, evaluate, validLink, KINDS, RULES, STAGES, EXT_STAGES, LEGAL_NOTE };

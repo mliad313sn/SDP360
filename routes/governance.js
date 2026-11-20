@@ -33,6 +33,9 @@ const { fail: httpFail, logError } = require('../services/httpError');
 //   POST /api/governance/roadmap-migration?apply=1    Roadmap Manager → portfolio (dry run by default)   super_admin
 //   W2-PPM (E-P03..E-P08): /api/governance/ppm/* in routes/governancePpm.js (each behind its PROPOSED switch)
 //   PORTFOLIO LOT 3: GET /api/governance/portfolio/register(.csv|.xlsx) in routes/governancePortfolioRegister.js (404 while ppm_portfolio_dashboard_v2_enabled = '0')
+//   PORTFOLIO LOT 5: review workflow + roles catalogue in routes/governanceReview.js (404 while ppm_review_workflow_enabled = '0');
+//   the stage route reads ppm_extended_lifecycle_enabled (extended stages), ppm_review_workflow_enabled (self-approval
+//   refusal, fail closed) and the project PUT reads ppm_field_audit_enabled / ppm_business_case_freeze_enabled
 //
 // Committee = admin tier OR feature role `committee-member`. Runner of a session = committee, or the
 // cadence's chair/secretary, or an editor of the cadence's site (services/userSites).
@@ -691,7 +694,8 @@ module.exports = function governanceRoutes(deps) {
       if (kind === 'benefit' && req.body && String(cfgW.benefit_owner_link_enabled) !== '1') delete req.body.owner_user_id;   // E-P05: no link while off
       if (kind === 'benefit' && req.body && String(cfgW.benefit_value_class_enabled) !== '1') for (const f of BEN.CLASS_FIELDS) delete req.body[f];   // F-PRODUCT-03: the fields do not exist while off
       const warnings = [];   // F-DATA-10: an amount without a stated currency is a warning (a refusal with finance_currency_required = '1')
-      const id = await store.upsertPortfolio(kind, req.body, { user: req.reportUser, reason: req.body && req.body.reason, requireOwnerReason, allocUnspecified: cfgW.ppm_alloc_unspecified, warnings, currencyRequired: String(cfgW.finance_currency_required) === '1' }); log(req, 'portfolio_saved', `${kind}:${id}`); res.json({ ok: true, id, ...(warnings.length ? { warnings } : {}) });
+      const lot5 = kind === 'project' ? { fieldAudit: String(cfgW.ppm_field_audit_enabled) === '1', freeze: String(cfgW.ppm_business_case_freeze_enabled) === '1', stamp: String(cfgW.ppm_field_audit_enabled) === '1' || String(cfgW.ppm_review_workflow_enabled) === '1', extended: String(cfgW.ppm_extended_lifecycle_enabled) === '1' } : null;   // PORTFOLIO LOT 5
+      const id = await store.upsertPortfolio(kind, req.body, { user: req.reportUser, reason: req.body && req.body.reason, requireOwnerReason, allocUnspecified: cfgW.ppm_alloc_unspecified, warnings, currencyRequired: String(cfgW.finance_currency_required) === '1', lot5 }); log(req, 'portfolio_saved', `${kind}:${id}`); res.json({ ok: true, id, ...(warnings.length ? { warnings } : {}) });
     } catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.reason ? { code: e.reason } : {}) }); }
   });
   // PORTFOLIO LOT 2 — data-quality engine (services/ppm/dataQuality.js, pure). Two PROPOSED switches, both '0' = today:
@@ -710,9 +714,19 @@ module.exports = function governanceRoutes(deps) {
   async function w3GateRefusal(cfg, projectId, to) {
     if (String(cfg.ppm_gate_checklist_enabled) !== '1' || !Number.isInteger(Number(projectId))) return null;
     const p = await store.getProject(projectId); if (!p) return null;
-    if (!((require('../services/projectSchedule').GATES[p.stage || 'proposal'] || []).includes(to))) return null;   // stageGate reports the order
+    const gatesNow = require('../services/projectSchedule').gatesFor(String(cfg.ppm_extended_lifecycle_enabled) === '1');   // PORTFOLIO LOT 5
+    if (!((gatesNow[p.stage || 'proposal'] || []).includes(to))) return null;   // stageGate reports the order
     const ev = await require('../services/ppm/governanceW3Store').makeW3Store(rdb().pgHandle(), store).evaluateGate(Number(projectId), to);
     return ev.refusal || null;
+  }
+  /** PORTFOLIO LOT 5 — ppm_review_workflow_enabled: a decision out of `approval` (approve, reject, defer) is refused
+   *  when the decider submitted the project, is its owner / sponsor (identity skeleton) or is not independent of the
+   *  requester (approver provenance). Fail closed. '0' = today: null. */
+  async function reviewDecisionRefusal(cfg, projectId, to, user) {
+    if (String(cfg.ppm_review_workflow_enabled) !== '1' || !['in_progress', 'deferred', 'rejected'].includes(to)) return null;
+    const R = require('../services/ppm/reviewStore').makeReviewStore(rdb().pgHandle(), store, { provenanceDb: rdb().db });
+    const f = await R.projectFacts(projectId); if (!f || (f.stage || 'proposal') !== 'approval') return null;   // stageGate reports the order
+    return R.decisionRefusal(f, user);
   }
   router.post('/api/governance/portfolio/project/:id/stage', requireReportSession, requireCommittee, json, async (req, res) => {
     try { const cfg = await reportConfig.getConfig(rdb().db);
@@ -722,7 +736,10 @@ module.exports = function governanceRoutes(deps) {
       if (gr) return httpFail(res, Object.assign(new Error(gr.error), { reason: gr.code }), 409, { ok: false, code: gr.code });
       const dr = await dqGateRefusal(cfg, req.params.id, String((req.body && req.body.to) || ''));   // PORTFOLIO LOT 2
       if (dr) return httpFail(res, Object.assign(new Error(dr.error), { reason: dr.code }), 409, { ok: false, code: dr.code, blocking: dr.blocking });
-      const p = await store.moveProjectStage(req.params.id, String((req.body && req.body.to) || ''), { user: req.reportUser, note: req.body && req.body.note, captureBaseline: String(cfg.ppm_baseline_versions) === '1' }); log(req, 'project_stage', `project:${req.params.id}`, { to: p.stage }); res.json({ ok: true, project: { ...p, id: Number(p.id) } }); }
+      const rr = await reviewDecisionRefusal(cfg, req.params.id, String((req.body && req.body.to) || ''), req.reportUser);   // PORTFOLIO LOT 5
+      if (rr) return httpFail(res, Object.assign(new Error(rr.error), { reason: rr.code }), 409, { ok: false, code: rr.code });
+      const extended = String(cfg.ppm_extended_lifecycle_enabled) === '1';
+      const p = await store.moveProjectStage(req.params.id, String((req.body && req.body.to) || ''), { user: req.reportUser, note: req.body && req.body.note, captureBaseline: String(cfg.ppm_baseline_versions) === '1', extended, stampUser: String(cfg.ppm_field_audit_enabled) === '1' || String(cfg.ppm_review_workflow_enabled) === '1' }); log(req, 'project_stage', `project:${req.params.id}`, { to: p.stage }); res.json({ ok: true, project: { ...p, id: Number(p.id) } }); }
     catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.reason ? { code: e.reason } : {}) }); }
   });
   // A-14 — one project for the project page (public/project.html): plan (scheduleView), RAID, and the next stages
@@ -737,12 +754,14 @@ module.exports = function governanceRoutes(deps) {
       const p = d.project; const from = p.stage || 'proposal';
       const projectRole = ctx.rolesOn ? ((ctx.roleMemberships || []).find((m) => Number(m.project_id) === Number(p.id)) || {}).ppm_role || null : null;   // W4
       const money = canSeeMoney(u) && projectRole !== 'client';
-      const allowed_stages = (SCH.GATES[from] || []).map((to) => {
-        const needs_reason = to === 'on_hold' || (from === 'closure' && to === 'in_progress');
-        // the reason is typed at the moment of the move: the dry run assumes one so the OTHER checks show
-        return { to, needs_reason, refusal: SCH.stageGate(p, to, u, { ...d.gate_ctx, note: needs_reason ? 'reason given at the move' : undefined }) };
-      });
       const gcfg = await reportConfig.getConfig(rdb().db);   // W3-GOVERNANCE — the checklist refusal shows in the dry run too
+      const extended = String(gcfg.ppm_extended_lifecycle_enabled) === '1';   // PORTFOLIO LOT 5
+      const allowed_stages = (SCH.gatesFor(extended)[from] || []).map((to) => {
+        const needs_reason = SCH.needsReason(from, to, extended);
+        // the reason is typed at the moment of the move: the dry run assumes one so the OTHER checks show
+        return { to, needs_reason, refusal: SCH.stageGate(p, to, u, { ...d.gate_ctx, note: needs_reason ? 'reason given at the move' : undefined }, { extended }) };
+      });
+      for (const g of allowed_stages) if (!g.refusal) { const rr = await reviewDecisionRefusal(gcfg, p.id, g.to, u); if (rr) g.refusal = rr; }   // PORTFOLIO LOT 5
       for (const g of allowed_stages) if (!g.refusal) { const gr = await w3GateRefusal(gcfg, p.id, g.to); if (gr) g.refusal = gr; }
       for (const g of allowed_stages) if (!g.refusal) { const dr = await dqGateRefusal(gcfg, p.id, g.to, d); if (dr) g.refusal = dr; }   // PORTFOLIO LOT 2
       const dqBlock = String(gcfg.ppm_data_quality_enabled) === '1' ? { dq: { ...DQ.evaluate(p, { risks: d.risks, money }), proposed: true, policy: DQ.policy(), gate_enforced: String(gcfg.ppm_dq_gate_enforced) === '1' } } : {};
@@ -765,7 +784,7 @@ module.exports = function governanceRoutes(deps) {
         benefits: bens, ...(clsOn ? { benefit_totals: BEN.benefitTotals(bens), benefit_classes: { value_classes: BEN.VALUE_CLASSES, bases: BEN.BASES, source_kinds: BEN.SOURCE_KINDS } } : {}), me: Number(u.id),
         ...(mvRole ? { money_verifier_role: mvRole, holds_money_verifier_role: holdsExactly(u, mvRole) } : {}),   // F-PRODUCT-04: who may verify a money benefit
         plan: planSch.result, ...(planSch.error ? { plan_error: planSch.error } : {}), variance: SCH.varianceOf(p), resource_conflicts: SCH.resourceConflicts(d.tasks, members), resource_coverage: SCH.resourceCoverage(d.tasks, members),
-        stages: SCH.STAGES, allowed_stages, gate_counts: d.gate_ctx, risk_kinds: store.RISK_KINDS, plan_freshness: fresh, ...dqBlock, as_of: new Date().toISOString() });
+        stages: SCH.stagesFor(extended), allowed_stages, gate_counts: d.gate_ctx, risk_kinds: store.RISK_KINDS, plan_freshness: fresh, ...dqBlock, as_of: new Date().toISOString() });
     } catch (e) { fail(res, e); }
   });
   // ---- B-08 benefits: realised value (evidence link) + independent verification (catalogue A09) ------------------
@@ -965,6 +984,7 @@ module.exports = function governanceRoutes(deps) {
   require('./governanceIntake')(router, { rdb, reportConfig, requireReportSession, json, isAdmin, log });   // PORTFOLIO LOT 1
   require('./governancePpm')(router, { store, rdb, reportConfig, requireReportSession, json, isCommittee, canSeeMoney, viewFor, readableProject, readableHiddenProjects, refusePlanWrite, log });
   require('./governancePortfolioRegister')(router, { store, rdb, reportConfig, requireReportSession, viewFor, canSeeMoney, log });   // PORTFOLIO LOT 3 (ppm_portfolio_dashboard_v2_enabled)
+  require('./governanceReview')(router, { store, rdb, reportConfig, requireReportSession, json, isCommittee, readableProject, log });   // PORTFOLIO LOT 5 (ppm_review_workflow_enabled)
   // B6 (P7a) — audience-scoped roadmap publications (roadmap_audience_publication_enabled, 404 while '0')
   require('./governanceRoadmapAudience')(router, { store, rdb, reportConfig, requireReportSession, json, isCommittee, isAdmin, portfolioView, log });
   return router;

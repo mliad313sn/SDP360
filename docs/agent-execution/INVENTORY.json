@@ -9,13 +9,13 @@
   "pages_deep_link_only": 9,
   "pages_without_entry_point": 2,
   "pages_with_inline_scripts": 46,
-  "routes": 772,
+  "routes": 779,
   "routes_without_test_reference": 30,
   "routes_in_server_js": 160,
   "jobs": 33,
   "jobs_without_test_reference": 0,
-  "migrations": 107,
-  "test_files": 896
+  "migrations": 108,
+  "test_files": 899
  },
  "pages": [
   {
@@ -1641,7 +1641,7 @@
    "parent": "meeting.html",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 93832,
+   "bytes": 94254,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/allocation-contract.test.js",
@@ -1654,6 +1654,7 @@
     "tests/portfolio-benefits.test.js",
     "tests/portfolio-capacity-parity.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-lot5-page.test.js",
     "tests/ppm-budget-periods.test.js",
     "tests/ppm-capacity.test.js",
     "tests/ppm-comments.test.js",
@@ -4490,7 +4491,7 @@
    "method": "GET",
    "path": "/api/governance/cadences/:id/draft-agenda",
    "file": "routes/governance.js",
-   "line": 296,
+   "line": 299,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -4524,7 +4525,7 @@
    "method": "POST",
    "path": "/api/governance/cadences/:id/sessions",
    "file": "routes/governance.js",
-   "line": 258,
+   "line": 261,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -4541,7 +4542,7 @@
    "method": "DELETE",
    "path": "/api/governance/cadences/:id",
    "file": "routes/governance.js",
-   "line": 257,
+   "line": 260,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -4558,7 +4559,7 @@
    "method": "GET",
    "path": "/api/governance/cadences",
    "file": "routes/governance.js",
-   "line": 255,
+   "line": 258,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -4575,7 +4576,7 @@
    "method": "PUT",
    "path": "/api/governance/cadences",
    "file": "routes/governance.js",
-   "line": 256,
+   "line": 259,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -4632,7 +4633,7 @@
    "method": "GET",
    "path": "/api/governance/decisions/:id/history",
    "file": "routes/governance.js",
-   "line": 491,
+   "line": 494,
    "tests": [
     "tests/governance-c15.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -4646,7 +4647,7 @@
    "method": "PUT",
    "path": "/api/governance/decisions/:id",
    "file": "routes/governance.js",
-   "line": 475,
+   "line": 478,
    "tests": [
     "tests/governance-c15.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -4660,7 +4661,7 @@
    "method": "GET",
    "path": "/api/governance/decisions",
    "file": "routes/governance.js",
-   "line": 442,
+   "line": 445,
    "tests": [
     "tests/governance-c15.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
@@ -4674,7 +4675,7 @@
    "method": "GET",
    "path": "/api/governance/delete-requests",
    "file": "routes/governance.js",
-   "line": 243,
+   "line": 246,
    "tests": [
     "tests/p6-decisions-access.smoke.test.js"
    ]
@@ -4684,7 +4685,7 @@
    "method": "GET",
    "path": "/api/governance/department-crosswalk",
    "file": "routes/governance.js",
-   "line": 946,
+   "line": 965,
    "tests": [
     "tests/governance-routes.smoke.test.js"
    ]
@@ -4694,7 +4695,7 @@
    "method": "GET",
    "path": "/api/governance/department-rollup",
    "file": "routes/governance.js",
-   "line": 957,
+   "line": 976,
    "tests": [
     "tests/governance-routes.smoke.test.js"
    ]
@@ -4704,7 +4705,7 @@
    "method": "GET",
    "path": "/api/governance/engagement-delays",
    "file": "routes/governance.js",
-   "line": 450,
+   "line": 453,
    "tests": [
     "tests/governance-c15.smoke.test.js"
    ]
@@ -4787,7 +4788,7 @@
    "method": "GET",
    "path": "/api/governance/overview",
    "file": "routes/governance.js",
-   "line": 200,
+   "line": 203,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/adoption-lotb-home.test.js",
@@ -4801,7 +4802,7 @@
    "method": "GET",
    "path": "/api/governance/people",
    "file": "routes/governance.js",
-   "line": 246,
+   "line": 249,
    "tests": [
     "tests/governance-routes.smoke.test.js"
    ]
@@ -4918,6 +4919,7 @@
     "tests/portfolio-duplicate-key.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -4950,7 +4952,7 @@
    "method": "DELETE",
    "path": "/api/governance/portfolio/:kind/:id",
    "file": "routes/governance.js",
-   "line": 897,
+   "line": 916,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/actuals-import.smoke.test.js",
@@ -4965,6 +4967,7 @@
     "tests/portfolio-duplicate-key.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -4997,7 +5000,7 @@
    "method": "PUT",
    "path": "/api/governance/portfolio/:kind",
    "file": "routes/governance.js",
-   "line": 681,
+   "line": 684,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/actuals-import.smoke.test.js",
@@ -5012,6 +5015,7 @@
     "tests/portfolio-duplicate-key.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -5044,7 +5048,7 @@
    "method": "POST",
    "path": "/api/governance/portfolio/benefit/:id/realised",
    "file": "routes/governance.js",
-   "line": 796,
+   "line": 815,
    "tests": [
     "tests/finance-certification.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js"
@@ -5055,7 +5059,7 @@
    "method": "POST",
    "path": "/api/governance/portfolio/benefit/:id/verify",
    "file": "routes/governance.js",
-   "line": 797,
+   "line": 816,
    "tests": [
     "tests/finance-certification.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js"
@@ -5066,7 +5070,7 @@
    "method": "GET",
    "path": "/api/governance/portfolio/deck.pptx",
    "file": "routes/governance.js",
-   "line": 867,
+   "line": 886,
    "tests": [
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js"
@@ -5077,7 +5081,7 @@
    "method": "GET",
    "path": "/api/governance/portfolio/exceptions",
    "file": "routes/governance.js",
-   "line": 844,
+   "line": 863,
    "tests": [
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/ppm-baselines.smoke.test.js",
@@ -5089,13 +5093,14 @@
    "method": "GET",
    "path": "/api/governance/portfolio/project/:id/baselines",
    "file": "routes/governance.js",
-   "line": 815,
+   "line": 834,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -5127,13 +5132,14 @@
    "method": "GET",
    "path": "/api/governance/portfolio/project/:id/history",
    "file": "routes/governance.js",
-   "line": 890,
+   "line": 909,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -5165,13 +5171,248 @@
    "method": "POST",
    "path": "/api/governance/portfolio/project/:id/rebaseline",
    "file": "routes/governance.js",
-   "line": 824,
+   "line": 843,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
+    "tests/portfolio-register.smoke.test.js",
+    "tests/portfolio-sensitive.smoke.test.js",
+    "tests/portfolio-site-scope.smoke.test.js",
+    "tests/ppm-baselines.smoke.test.js",
+    "tests/ppm-concurrency.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
+    "tests/ppm-data-quality.smoke.test.js",
+    "tests/ppm-engine-routes.smoke.test.js",
+    "tests/ppm-evm.smoke.test.js",
+    "tests/ppm-intake.smoke.test.js",
+    "tests/ppm-p04-reconcile.smoke.test.js",
+    "tests/ppm-p7b.smoke.test.js",
+    "tests/ppm-project-lifecycle.smoke.test.js",
+    "tests/ppm-r2-actuals-rebaseline.smoke.test.js",
+    "tests/ppm-r3-actuals-dates.smoke.test.js",
+    "tests/ppm-r4-actuals-intake.smoke.test.js",
+    "tests/ppm-schedule-bounds.smoke.test.js",
+    "tests/ppm-team-picker.smoke.test.js",
+    "tests/ppm-w2.smoke.test.js",
+    "tests/ppm-w3.smoke.test.js",
+    "tests/ppm-w4-enterprise.smoke.test.js",
+    "tests/ppm-workbench.smoke.test.js",
+    "tests/roadmap-audience.smoke.test.js",
+    "tests/soft-delete-routes.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-POST-api-governance-portfolio-project-id-review-apply-template",
+   "method": "POST",
+   "path": "/api/governance/portfolio/project/:id/review/apply-template",
+   "file": "routes/governanceReview.js",
+   "line": 115,
+   "tests": [
+    "tests/governance-routes.smoke.test.js",
+    "tests/portfolio-access-parity.smoke.test.js",
+    "tests/portfolio-benefits.smoke.test.js",
+    "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
+    "tests/portfolio-register.smoke.test.js",
+    "tests/portfolio-sensitive.smoke.test.js",
+    "tests/portfolio-site-scope.smoke.test.js",
+    "tests/ppm-baselines.smoke.test.js",
+    "tests/ppm-concurrency.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
+    "tests/ppm-data-quality.smoke.test.js",
+    "tests/ppm-engine-routes.smoke.test.js",
+    "tests/ppm-evm.smoke.test.js",
+    "tests/ppm-intake.smoke.test.js",
+    "tests/ppm-p04-reconcile.smoke.test.js",
+    "tests/ppm-p7b.smoke.test.js",
+    "tests/ppm-project-lifecycle.smoke.test.js",
+    "tests/ppm-r2-actuals-rebaseline.smoke.test.js",
+    "tests/ppm-r3-actuals-dates.smoke.test.js",
+    "tests/ppm-r4-actuals-intake.smoke.test.js",
+    "tests/ppm-schedule-bounds.smoke.test.js",
+    "tests/ppm-team-picker.smoke.test.js",
+    "tests/ppm-w2.smoke.test.js",
+    "tests/ppm-w3.smoke.test.js",
+    "tests/ppm-w4-enterprise.smoke.test.js",
+    "tests/ppm-workbench.smoke.test.js",
+    "tests/roadmap-audience.smoke.test.js",
+    "tests/soft-delete-routes.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-POST-api-governance-portfolio-project-id-review-assign",
+   "method": "POST",
+   "path": "/api/governance/portfolio/project/:id/review/assign",
+   "file": "routes/governanceReview.js",
+   "line": 54,
+   "tests": [
+    "tests/governance-routes.smoke.test.js",
+    "tests/portfolio-access-parity.smoke.test.js",
+    "tests/portfolio-benefits.smoke.test.js",
+    "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
+    "tests/portfolio-register.smoke.test.js",
+    "tests/portfolio-sensitive.smoke.test.js",
+    "tests/portfolio-site-scope.smoke.test.js",
+    "tests/ppm-baselines.smoke.test.js",
+    "tests/ppm-concurrency.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
+    "tests/ppm-data-quality.smoke.test.js",
+    "tests/ppm-engine-routes.smoke.test.js",
+    "tests/ppm-evm.smoke.test.js",
+    "tests/ppm-intake.smoke.test.js",
+    "tests/ppm-p04-reconcile.smoke.test.js",
+    "tests/ppm-p7b.smoke.test.js",
+    "tests/ppm-project-lifecycle.smoke.test.js",
+    "tests/ppm-r2-actuals-rebaseline.smoke.test.js",
+    "tests/ppm-r3-actuals-dates.smoke.test.js",
+    "tests/ppm-r4-actuals-intake.smoke.test.js",
+    "tests/ppm-schedule-bounds.smoke.test.js",
+    "tests/ppm-team-picker.smoke.test.js",
+    "tests/ppm-w2.smoke.test.js",
+    "tests/ppm-w3.smoke.test.js",
+    "tests/ppm-w4-enterprise.smoke.test.js",
+    "tests/ppm-workbench.smoke.test.js",
+    "tests/roadmap-audience.smoke.test.js",
+    "tests/soft-delete-routes.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-POST-api-governance-portfolio-project-id-review-request-info",
+   "method": "POST",
+   "path": "/api/governance/portfolio/project/:id/review/request-info",
+   "file": "routes/governanceReview.js",
+   "line": 71,
+   "tests": [
+    "tests/governance-routes.smoke.test.js",
+    "tests/portfolio-access-parity.smoke.test.js",
+    "tests/portfolio-benefits.smoke.test.js",
+    "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
+    "tests/portfolio-register.smoke.test.js",
+    "tests/portfolio-sensitive.smoke.test.js",
+    "tests/portfolio-site-scope.smoke.test.js",
+    "tests/ppm-baselines.smoke.test.js",
+    "tests/ppm-concurrency.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
+    "tests/ppm-data-quality.smoke.test.js",
+    "tests/ppm-engine-routes.smoke.test.js",
+    "tests/ppm-evm.smoke.test.js",
+    "tests/ppm-intake.smoke.test.js",
+    "tests/ppm-p04-reconcile.smoke.test.js",
+    "tests/ppm-p7b.smoke.test.js",
+    "tests/ppm-project-lifecycle.smoke.test.js",
+    "tests/ppm-r2-actuals-rebaseline.smoke.test.js",
+    "tests/ppm-r3-actuals-dates.smoke.test.js",
+    "tests/ppm-r4-actuals-intake.smoke.test.js",
+    "tests/ppm-schedule-bounds.smoke.test.js",
+    "tests/ppm-team-picker.smoke.test.js",
+    "tests/ppm-w2.smoke.test.js",
+    "tests/ppm-w3.smoke.test.js",
+    "tests/ppm-w4-enterprise.smoke.test.js",
+    "tests/ppm-workbench.smoke.test.js",
+    "tests/roadmap-audience.smoke.test.js",
+    "tests/soft-delete-routes.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-POST-api-governance-portfolio-project-id-review-respond",
+   "method": "POST",
+   "path": "/api/governance/portfolio/project/:id/review/respond",
+   "file": "routes/governanceReview.js",
+   "line": 83,
+   "tests": [
+    "tests/governance-routes.smoke.test.js",
+    "tests/portfolio-access-parity.smoke.test.js",
+    "tests/portfolio-benefits.smoke.test.js",
+    "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
+    "tests/portfolio-register.smoke.test.js",
+    "tests/portfolio-sensitive.smoke.test.js",
+    "tests/portfolio-site-scope.smoke.test.js",
+    "tests/ppm-baselines.smoke.test.js",
+    "tests/ppm-concurrency.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
+    "tests/ppm-data-quality.smoke.test.js",
+    "tests/ppm-engine-routes.smoke.test.js",
+    "tests/ppm-evm.smoke.test.js",
+    "tests/ppm-intake.smoke.test.js",
+    "tests/ppm-p04-reconcile.smoke.test.js",
+    "tests/ppm-p7b.smoke.test.js",
+    "tests/ppm-project-lifecycle.smoke.test.js",
+    "tests/ppm-r2-actuals-rebaseline.smoke.test.js",
+    "tests/ppm-r3-actuals-dates.smoke.test.js",
+    "tests/ppm-r4-actuals-intake.smoke.test.js",
+    "tests/ppm-schedule-bounds.smoke.test.js",
+    "tests/ppm-team-picker.smoke.test.js",
+    "tests/ppm-w2.smoke.test.js",
+    "tests/ppm-w3.smoke.test.js",
+    "tests/ppm-w4-enterprise.smoke.test.js",
+    "tests/ppm-workbench.smoke.test.js",
+    "tests/roadmap-audience.smoke.test.js",
+    "tests/soft-delete-routes.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-POST-api-governance-portfolio-project-id-review-return",
+   "method": "POST",
+   "path": "/api/governance/portfolio/project/:id/review/return",
+   "file": "routes/governanceReview.js",
+   "line": 98,
+   "tests": [
+    "tests/governance-routes.smoke.test.js",
+    "tests/portfolio-access-parity.smoke.test.js",
+    "tests/portfolio-benefits.smoke.test.js",
+    "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
+    "tests/portfolio-register.smoke.test.js",
+    "tests/portfolio-sensitive.smoke.test.js",
+    "tests/portfolio-site-scope.smoke.test.js",
+    "tests/ppm-baselines.smoke.test.js",
+    "tests/ppm-concurrency.smoke.test.js",
+    "tests/ppm-connectors-routes.smoke.test.js",
+    "tests/ppm-data-quality.smoke.test.js",
+    "tests/ppm-engine-routes.smoke.test.js",
+    "tests/ppm-evm.smoke.test.js",
+    "tests/ppm-intake.smoke.test.js",
+    "tests/ppm-p04-reconcile.smoke.test.js",
+    "tests/ppm-p7b.smoke.test.js",
+    "tests/ppm-project-lifecycle.smoke.test.js",
+    "tests/ppm-r2-actuals-rebaseline.smoke.test.js",
+    "tests/ppm-r3-actuals-dates.smoke.test.js",
+    "tests/ppm-r4-actuals-intake.smoke.test.js",
+    "tests/ppm-schedule-bounds.smoke.test.js",
+    "tests/ppm-team-picker.smoke.test.js",
+    "tests/ppm-w2.smoke.test.js",
+    "tests/ppm-w3.smoke.test.js",
+    "tests/ppm-w4-enterprise.smoke.test.js",
+    "tests/ppm-workbench.smoke.test.js",
+    "tests/roadmap-audience.smoke.test.js",
+    "tests/soft-delete-routes.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-GET-api-governance-portfolio-project-id-review",
+   "method": "GET",
+   "path": "/api/governance/portfolio/project/:id/review",
+   "file": "routes/governanceReview.js",
+   "line": 43,
+   "tests": [
+    "tests/governance-routes.smoke.test.js",
+    "tests/portfolio-access-parity.smoke.test.js",
+    "tests/portfolio-benefits.smoke.test.js",
+    "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -5203,13 +5444,14 @@
    "method": "PUT",
    "path": "/api/governance/portfolio/project/:id/sensitive",
    "file": "routes/governance.js",
-   "line": 612,
+   "line": 615,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -5241,13 +5483,14 @@
    "method": "PUT",
    "path": "/api/governance/portfolio/project/:id/sites",
    "file": "routes/governance.js",
-   "line": 677,
+   "line": 680,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -5279,13 +5522,14 @@
    "method": "POST",
    "path": "/api/governance/portfolio/project/:id/stage",
    "file": "routes/governance.js",
-   "line": 717,
+   "line": 731,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -5317,13 +5561,14 @@
    "method": "GET",
    "path": "/api/governance/portfolio/project/:id",
    "file": "routes/governance.js",
-   "line": 731,
+   "line": 748,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -5385,7 +5630,7 @@
    "method": "GET",
    "path": "/api/governance/portfolio/report.html",
    "file": "routes/governance.js",
-   "line": 898,
+   "line": 917,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -5397,9 +5642,19 @@
    "method": "GET",
    "path": "/api/governance/portfolio/rfi/:id/history",
    "file": "routes/governance.js",
-   "line": 892,
+   "line": 911,
    "tests": [
     "tests/ppm-project-lifecycle.smoke.test.js"
+   ]
+  },
+  {
+   "id": "RT-GET-api-governance-portfolio-roles-catalogue",
+   "method": "GET",
+   "path": "/api/governance/portfolio/roles-catalogue",
+   "file": "routes/governanceReview.js",
+   "line": 39,
+   "tests": [
+    "tests/portfolio-lot5.smoke.test.js"
    ]
   },
   {
@@ -5407,7 +5662,7 @@
    "method": "GET",
    "path": "/api/governance/portfolio/workbook.xlsx",
    "file": "routes/governance.js",
-   "line": 872,
+   "line": 891,
    "tests": [
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
@@ -5421,7 +5676,7 @@
    "method": "GET",
    "path": "/api/governance/portfolio",
    "file": "routes/governance.js",
-   "line": 605,
+   "line": 608,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/actuals-import.smoke.test.js",
@@ -5436,6 +5691,7 @@
     "tests/portfolio-duplicate-key.smoke.test.js",
     "tests/portfolio-executive-readonly.smoke.test.js",
     "tests/portfolio-finance-currency.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/portfolio-sensitive.smoke.test.js",
     "tests/portfolio-site-scope.smoke.test.js",
@@ -5468,7 +5724,7 @@
    "method": "GET",
    "path": "/api/governance/ppm/annual-pack.xlsx",
    "file": "routes/governancePpm.js",
-   "line": 143,
+   "line": 144,
    "tests": [
     "tests/ppm-w2.smoke.test.js"
    ]
@@ -5522,7 +5778,7 @@
    "method": "GET",
    "path": "/api/governance/ppm/capacity",
    "file": "routes/governancePpm.js",
-   "line": 47,
+   "line": 48,
    "tests": [
     "tests/ppm-w2.smoke.test.js"
    ]
@@ -5558,6 +5814,7 @@
    "line": 32,
    "tests": [
     "tests/portfolio-benefits.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/portfolio-register.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-data-quality.smoke.test.js",
@@ -5580,6 +5837,7 @@
    "line": 137,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -5603,6 +5861,7 @@
    "line": 218,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -5626,6 +5885,7 @@
    "line": 313,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -5649,6 +5909,7 @@
    "line": 325,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -5669,9 +5930,10 @@
    "method": "GET",
    "path": "/api/governance/ppm/project/:id/budget-periods",
    "file": "routes/governancePpm.js",
-   "line": 63,
+   "line": 64,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -5692,9 +5954,10 @@
    "method": "PUT",
    "path": "/api/governance/ppm/project/:id/budget-periods",
    "file": "routes/governancePpm.js",
-   "line": 72,
+   "line": 73,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -5718,6 +5981,7 @@
    "line": 164,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -5741,6 +6005,7 @@
    "line": 218,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -5764,6 +6029,7 @@
    "line": 205,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -5787,6 +6053,7 @@
    "line": 177,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -5810,6 +6077,7 @@
    "line": 184,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -5833,6 +6101,7 @@
    "line": 51,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -5856,6 +6125,7 @@
    "line": 60,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -5879,6 +6149,7 @@
    "line": 70,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -5902,6 +6173,7 @@
    "line": 58,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -5922,9 +6194,10 @@
    "method": "POST",
    "path": "/api/governance/ppm/project/:id/gates/:gate/evidence",
    "file": "routes/governanceW3.js",
-   "line": 102,
+   "line": 104,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -5945,9 +6218,10 @@
    "method": "POST",
    "path": "/api/governance/ppm/project/:id/gates/:gate/signoff",
    "file": "routes/governanceW3.js",
-   "line": 112,
+   "line": 114,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -5968,9 +6242,10 @@
    "method": "PUT",
    "path": "/api/governance/ppm/project/:id/gates/:gate",
    "file": "routes/governanceW3.js",
-   "line": 92,
+   "line": 94,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -5991,9 +6266,10 @@
    "method": "GET",
    "path": "/api/governance/ppm/project/:id/gates",
    "file": "routes/governanceW3.js",
-   "line": 83,
+   "line": 85,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6017,6 +6293,7 @@
    "line": 270,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6040,6 +6317,7 @@
    "line": 286,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6063,6 +6341,7 @@
    "line": 259,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6086,6 +6365,7 @@
    "line": 69,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6109,6 +6389,7 @@
    "line": 393,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6132,6 +6413,7 @@
    "line": 432,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6155,6 +6437,7 @@
    "line": 41,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6175,9 +6458,10 @@
    "method": "GET",
    "path": "/api/governance/ppm/project/:id/raci.csv",
    "file": "routes/governancePpm.js",
-   "line": 93,
+   "line": 94,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6198,9 +6482,10 @@
    "method": "GET",
    "path": "/api/governance/ppm/project/:id/raci",
    "file": "routes/governancePpm.js",
-   "line": 86,
+   "line": 87,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6221,9 +6506,10 @@
    "method": "PUT",
    "path": "/api/governance/ppm/project/:id/raci",
    "file": "routes/governancePpm.js",
-   "line": 101,
+   "line": 102,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6247,6 +6533,7 @@
    "line": 60,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6267,9 +6554,10 @@
    "method": "GET",
    "path": "/api/governance/ppm/project/:id/raid",
    "file": "routes/governanceW3.js",
-   "line": 130,
+   "line": 140,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6290,9 +6578,10 @@
    "method": "PUT",
    "path": "/api/governance/ppm/project/:id/raid",
    "file": "routes/governanceW3.js",
-   "line": 138,
+   "line": 148,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6313,9 +6602,10 @@
    "method": "GET",
    "path": "/api/governance/ppm/project/:id/report.html",
    "file": "routes/governanceW3.js",
-   "line": 163,
+   "line": 173,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6336,9 +6626,10 @@
    "method": "GET",
    "path": "/api/governance/ppm/project/:id/report.xlsx",
    "file": "routes/governanceW3.js",
-   "line": 170,
+   "line": 180,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6362,6 +6653,7 @@
    "line": 36,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6385,6 +6677,7 @@
    "line": 28,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6408,6 +6701,7 @@
    "line": 98,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6431,6 +6725,7 @@
    "line": 48,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6454,6 +6749,7 @@
    "line": 79,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6477,6 +6773,7 @@
    "line": 59,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6500,6 +6797,7 @@
    "line": 50,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6523,6 +6821,7 @@
    "line": 67,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6546,6 +6845,7 @@
    "line": 156,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6569,6 +6869,7 @@
    "line": 148,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6592,6 +6893,7 @@
    "line": 120,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6615,6 +6917,7 @@
    "line": 95,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6638,6 +6941,7 @@
    "line": 106,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6661,6 +6965,7 @@
    "line": 56,
    "tests": [
     "tests/portfolio-executive-readonly.smoke.test.js",
+    "tests/portfolio-lot5.smoke.test.js",
     "tests/ppm-connectors-routes.smoke.test.js",
     "tests/ppm-engine-routes.smoke.test.js",
     "tests/ppm-evm.smoke.test.js",
@@ -6807,7 +7112,7 @@
    "method": "POST",
    "path": "/api/governance/ppm/templates/:id/approve",
    "file": "routes/governancePpm.js",
-   "line": 127,
+   "line": 128,
    "tests": [
     "tests/ppm-w2.smoke.test.js"
    ]
@@ -6817,7 +7122,7 @@
    "method": "POST",
    "path": "/api/governance/ppm/templates/:id/create-project",
    "file": "routes/governancePpm.js",
-   "line": 134,
+   "line": 135,
    "tests": [
     "tests/ppm-w2.smoke.test.js"
    ]
@@ -6827,7 +7132,7 @@
    "method": "GET",
    "path": "/api/governance/ppm/templates",
    "file": "routes/governancePpm.js",
-   "line": 115,
+   "line": 116,
    "tests": [
     "tests/ppm-w2.smoke.test.js"
    ]
@@ -6837,7 +7142,7 @@
    "method": "POST",
    "path": "/api/governance/ppm/templates",
    "file": "routes/governancePpm.js",
-   "line": 118,
+   "line": 119,
    "tests": [
     "tests/ppm-w2.smoke.test.js"
    ]
@@ -6877,7 +7182,7 @@
    "method": "GET",
    "path": "/api/governance/rfi/:id/lineage",
    "file": "routes/governance.js",
-   "line": 532,
+   "line": 535,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/export-share-boundary.smoke.test.js",
@@ -6895,7 +7200,7 @@
    "method": "POST",
    "path": "/api/governance/rfi/:id/to-project",
    "file": "routes/governance.js",
-   "line": 893,
+   "line": 912,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/export-share-boundary.smoke.test.js",
@@ -6913,7 +7218,7 @@
    "method": "POST",
    "path": "/api/governance/rfi/:id/verify",
    "file": "routes/governance.js",
-   "line": 503,
+   "line": 506,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/export-share-boundary.smoke.test.js",
@@ -6931,7 +7236,7 @@
    "method": "PUT",
    "path": "/api/governance/rfi/:id",
    "file": "routes/governance.js",
-   "line": 541,
+   "line": 544,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/export-share-boundary.smoke.test.js",
@@ -6949,7 +7254,7 @@
    "method": "GET",
    "path": "/api/governance/rfi/from-meeting/:id",
    "file": "routes/governance.js",
-   "line": 521,
+   "line": 524,
    "tests": [
     "tests/incubation-rfi-link.smoke.test.js"
    ]
@@ -6959,7 +7264,7 @@
    "method": "POST",
    "path": "/api/governance/rfi/from-meeting/:id",
    "file": "routes/governance.js",
-   "line": 524,
+   "line": 527,
    "tests": [
     "tests/incubation-rfi-link.smoke.test.js"
    ]
@@ -6969,7 +7274,7 @@
    "method": "GET",
    "path": "/api/governance/rfi",
    "file": "routes/governance.js",
-   "line": 501,
+   "line": 504,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/export-share-boundary.smoke.test.js",
@@ -6987,7 +7292,7 @@
    "method": "POST",
    "path": "/api/governance/rfi",
    "file": "routes/governance.js",
-   "line": 502,
+   "line": 505,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/export-share-boundary.smoke.test.js",
@@ -7025,7 +7330,7 @@
    "method": "POST",
    "path": "/api/governance/roadmap-migration",
    "file": "routes/governance.js",
-   "line": 913,
+   "line": 932,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/ppm-project-lifecycle.smoke.test.js",
@@ -7202,7 +7507,7 @@
    "method": "POST",
    "path": "/api/governance/sessions/:id/accept",
    "file": "routes/governance.js",
-   "line": 353,
+   "line": 356,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -7219,7 +7524,7 @@
    "method": "PUT",
    "path": "/api/governance/sessions/:id/actions/:aid",
    "file": "routes/governance.js",
-   "line": 324,
+   "line": 327,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -7236,7 +7541,7 @@
    "method": "POST",
    "path": "/api/governance/sessions/:id/actions",
    "file": "routes/governance.js",
-   "line": 321,
+   "line": 324,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -7253,7 +7558,7 @@
    "method": "PUT",
    "path": "/api/governance/sessions/:id/attendance",
    "file": "routes/governance.js",
-   "line": 283,
+   "line": 286,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -7270,7 +7575,7 @@
    "method": "POST",
    "path": "/api/governance/sessions/:id/cancel",
    "file": "routes/governance.js",
-   "line": 341,
+   "line": 344,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -7287,7 +7592,7 @@
    "method": "POST",
    "path": "/api/governance/sessions/:id/close",
    "file": "routes/governance.js",
-   "line": 337,
+   "line": 340,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -7304,7 +7609,7 @@
    "method": "POST",
    "path": "/api/governance/sessions/:id/decisions",
    "file": "routes/governance.js",
-   "line": 318,
+   "line": 321,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -7321,7 +7626,7 @@
    "method": "POST",
    "path": "/api/governance/sessions/:id/exception/approve",
    "file": "routes/governance.js",
-   "line": 348,
+   "line": 351,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -7338,7 +7643,7 @@
    "method": "POST",
    "path": "/api/governance/sessions/:id/items/:item/:op",
    "file": "routes/governance.js",
-   "line": 312,
+   "line": 315,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -7355,7 +7660,7 @@
    "method": "GET",
    "path": "/api/governance/sessions/:id/minutes.html",
    "file": "routes/governance.js",
-   "line": 378,
+   "line": 381,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -7372,7 +7677,7 @@
    "method": "GET",
    "path": "/api/governance/sessions/:id/minutes.pdf",
    "file": "routes/governance.js",
-   "line": 379,
+   "line": 382,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -7389,7 +7694,7 @@
    "method": "POST",
    "path": "/api/governance/sessions/:id/minutes/send",
    "file": "routes/governance.js",
-   "line": 383,
+   "line": 386,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -7406,7 +7711,7 @@
    "method": "POST",
    "path": "/api/governance/sessions/:id/reopen",
    "file": "routes/governance.js",
-   "line": 366,
+   "line": 369,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -7423,7 +7728,7 @@
    "method": "POST",
    "path": "/api/governance/sessions/:id/start",
    "file": "routes/governance.js",
-   "line": 309,
+   "line": 312,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -7440,7 +7745,7 @@
    "method": "GET",
    "path": "/api/governance/sessions/:id",
    "file": "routes/governance.js",
-   "line": 278,
+   "line": 281,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -7457,7 +7762,7 @@
    "method": "PUT",
    "path": "/api/governance/sessions/:id",
    "file": "routes/governance.js",
-   "line": 306,
+   "line": 309,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -7474,7 +7779,7 @@
    "method": "GET",
    "path": "/api/governance/sessions",
    "file": "routes/governance.js",
-   "line": 273,
+   "line": 276,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-c15.smoke.test.js",
@@ -15297,6 +15602,10 @@
   {
    "id": "MG-reports-120-policy-change-requests",
    "file": "db/postgres/reports/120_policy_change_requests.sql"
+  },
+  {
+   "id": "MG-reports-125-ppm-lifecycle-audit",
+   "file": "db/postgres/reports/125_ppm_lifecycle_audit.sql"
   },
   {
    "id": "MG-sync-000-upgrade-from-1-11",
