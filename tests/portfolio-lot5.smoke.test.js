@@ -226,11 +226,14 @@ test('business-case freeze: 409 after approval without an approved change reques
   // a request in another currency, or with no budget impact, does not unlock the budget
   const cr3 = await rdb.db.prepare(`INSERT INTO ppm_change_requests (project_id, title, reason, impact_budget, currency, status, created_at) VALUES (?, 'EUR', 'x', 50, 'EUR', 'approved', ?) RETURNING id`).get(id, new Date().toISOString());
   assert.equal((await put('project', T.pmo, { id, budget: 2150, change_request_id: Number(cr3.id) })).j.code, 'CHANGE_REQUEST_SCOPE');
-  const cr4 = await rdb.db.prepare(`INSERT INTO ppm_change_requests (project_id, title, reason, status, created_at) VALUES (?, 'Text only', 'x', 'approved', ?) RETURNING id`).get(id, new Date().toISOString());
+  // N-R6-2 — a text change needs a request that names the field: an unscoped one is refused, a scoped one applies
+  const cr4u = await rdb.db.prepare(`INSERT INTO ppm_change_requests (project_id, title, reason, status, created_at) VALUES (?, 'Unscoped', 'x', 'approved', ?) RETURNING id`).get(id, new Date().toISOString());
+  assert.equal((await put('project', T.pmo, { id, charter: CHARTER + ' v10', change_request_id: Number(cr4u.id) })).j.code, 'CHANGE_REQUEST_SCOPE');
+  const cr4 = await rdb.db.prepare(`INSERT INTO ppm_change_requests (project_id, title, reason, status, scope_fields, created_at) VALUES (?, 'Text only', 'x', 'approved', 'charter', ?) RETURNING id`).get(id, new Date().toISOString());
   assert.equal((await put('project', T.pmo, { id, budget: 2150, change_request_id: Number(cr4.id) })).j.code, 'CHANGE_REQUEST_SCOPE');
   assert.equal((await put('project', T.pmo, { id, charter: CHARTER + ' v10', change_request_id: Number(cr4.id) })).status, 200, 'a text change with an unused approved CR');
   // two concurrent edits naming one fresh request: exactly one wins
-  const cr5 = await rdb.db.prepare(`INSERT INTO ppm_change_requests (project_id, title, reason, status, created_at) VALUES (?, 'Race', 'x', 'approved', ?) RETURNING id`).get(id, new Date().toISOString());
+  const cr5 = await rdb.db.prepare(`INSERT INTO ppm_change_requests (project_id, title, reason, status, scope_fields, created_at) VALUES (?, 'Race', 'x', 'approved', 'charter', ?) RETURNING id`).get(id, new Date().toISOString());
   const race = await Promise.all([put('project', T.pmo, { id, charter: CHARTER + ' r1', change_request_id: Number(cr5.id) }), put('project', T.pmo, { id, charter: CHARTER + ' r2', change_request_id: Number(cr5.id) })]);
   assert.deepEqual(race.map((r) => r.status).sort(), [200, 409]);
   await sw({ ppm_business_case_freeze_enabled: '0' });

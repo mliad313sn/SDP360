@@ -87,7 +87,11 @@ test('business-case freeze: frozen fields need an approved change request of the
   assert.deepStrictEqual(r.fields, ['charter', 'budget']);
   assert.strictEqual(code(RW.freezeRefusal(['charter'], 1, { project_id: 1, status: 'proposed' })), 'BUSINESS_CASE_FROZEN');
   assert.strictEqual(code(RW.freezeRefusal(['charter'], 1, { project_id: 2, status: 'approved' })), 'BUSINESS_CASE_FROZEN');
-  assert.strictEqual(RW.freezeRefusal(['charter'], 1, { project_id: 1, status: 'approved' }), null);
+  // N-R6-2 — a text field unlocks only when the approved request names it (scope_fields)
+  assert.strictEqual(code(RW.freezeRefusal(['charter'], 1, { project_id: 1, status: 'approved' })), 'CHANGE_REQUEST_SCOPE');
+  assert.strictEqual(code(RW.freezeRefusal(['charter', 'business_need'], 1, { project_id: 1, status: 'approved', scope_fields: ['charter'] })), 'CHANGE_REQUEST_SCOPE');
+  assert.strictEqual(RW.freezeRefusal(['charter'], 1, { project_id: 1, status: 'approved', scope_fields: ['charter'] }), null);
+  assert.strictEqual(RW.freezeRefusal(['charter'], 1, { project_id: 1, status: 'approved', scope_fields: 'business_need,charter' }), null);
   assert.strictEqual(RW.freezeRefusal(['budget'], 1, { project_id: 1, status: 'applied', impact_budget: 100, currency: 'USD' }, { before: { budget: 500, currency: 'USD' }, vals: { budget: 600 } }), null);
 });
 

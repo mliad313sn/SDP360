@@ -136,7 +136,7 @@ function makeWorkbenchStore(db, gov, { now = () => new Date().toISOString() } = 
 
   // ── R2-WB-01 change requests ────────────────────────────────────────────────────────────────────────────────
   const _json = (v) => { if (v == null || v === '') return null; try { return JSON.parse(v); } catch (_) { return null; } };
-  const crRow = (r) => { if (!r) return r; const { task_changes_json, simulation_json, ...rest } = r; return { ...rest, id: Number(r.id), project_id: Number(r.project_id), impact_dates_days: n(r.impact_dates_days), impact_budget: n(r.impact_budget), author_id: n(r.author_id), assessed_by: n(r.assessed_by), decided_by: n(r.decided_by), applied_baseline_version: n(r.applied_baseline_version), task_changes: _json(task_changes_json), simulation: _json(simulation_json), simulated_at: r.simulated_at || null }; };
+  const crRow = (r) => { if (!r) return r; const { task_changes_json, simulation_json, ...rest } = r; return { ...rest, id: Number(r.id), project_id: Number(r.project_id), impact_dates_days: n(r.impact_dates_days), impact_budget: n(r.impact_budget), author_id: n(r.author_id), assessed_by: n(r.assessed_by), decided_by: n(r.decided_by), applied_baseline_version: n(r.applied_baseline_version), task_changes: _json(task_changes_json), simulation: _json(simulation_json), simulated_at: r.simulated_at || null, scope_fields: r.scope_fields ? String(r.scope_fields).split(',').filter(Boolean) : [] }; };
   async function listChangeRequests(projectId) { return (await P(`SELECT * FROM ppm_change_requests WHERE project_id=? ORDER BY id`).all(Number(projectId))).map(crRow); }
   async function listChangeRequestsFor(projectIds) {
     const ids = [...new Set((projectIds || []).map(Number).filter(Number.isInteger))];
@@ -149,8 +149,8 @@ function makeWorkbenchStore(db, gov, { now = () => new Date().toISOString() } = 
   async function createChangeRequest(projectId, body, { user, taskChanges = null } = {}) {
     const c = WB.normaliseChangeRequest(body), pid = Number(projectId);
     return tx(async () => {
-      const id = await insert('ppm_change_requests', ['project_id', 'title', 'reason', 'impact_dates_days', 'impact_budget', 'currency', 'status', 'author_id', 'author_name', 'created_at', ...(taskChanges && taskChanges.length ? ['task_changes_json'] : [])],
-        [pid, c.title, c.reason, c.impact_dates_days, c.impact_budget, c.currency, 'proposed', uid(user), actorName(user), now(), ...(taskChanges && taskChanges.length ? [JSON.stringify(taskChanges)] : [])]);
+      const id = await insert('ppm_change_requests', ['project_id', 'title', 'reason', 'impact_dates_days', 'impact_budget', 'currency', 'status', 'author_id', 'author_name', 'created_at', ...(c.scope_fields ? ['scope_fields'] : []), ...(taskChanges && taskChanges.length ? ['task_changes_json'] : [])],
+        [pid, c.title, c.reason, c.impact_dates_days, c.impact_budget, c.currency, 'proposed', uid(user), actorName(user), now(), ...(c.scope_fields ? [c.scope_fields] : []), ...(taskChanges && taskChanges.length ? [JSON.stringify(taskChanges)] : [])]);
       await gov.ppmEvent({ entity: 'project', entity_id: pid, action: 'change_request_proposed', field: `cr:${id}`, old_value: null, new_value: 'proposed', currency: c.currency, note: c.title }, user);
       return getChangeRequest(id);
     });

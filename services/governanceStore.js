@@ -711,7 +711,9 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       // P11 R5-2 — one transaction: a change request is consumed once, under a lock on its id (two concurrent edits
       // naming the same request cannot both use it).
       if (kind === 'project') return tx(async () => {
-        const before = await P(`SELECT * FROM portfolio_projects WHERE id=?`).get(id);
+        // P11 R6-2 — the project row is locked for the whole edit: two concurrent edits (two different change requests
+        // included) serialise, and the second one checks its budget against the first one's result (409 when stale).
+        const before = await P(`SELECT * FROM portfolio_projects WHERE id=? FOR UPDATE`).get(id);
         if (!before) throw Object.assign(new Error('project not found'), { code: 'NOT_FOUND', status: 404 });
         // the baseline is frozen once the project passed its approval gate (a re-baseline is a decision, not an edit)
         // PORTFOLIO LOT 5 — the extended stages join the same rules (handover / benefits_review are approved stages,
@@ -735,7 +737,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
           const crId = body && body.change_request_id != null && body.change_request_id !== '' ? Number(body.change_request_id) : null;
           if (moved.length && crId != null && Number.isInteger(crId)) {
             await P('SELECT pg_advisory_xact_lock(hashtext(?))').get(`ppm:change-request:${crId}`);
-            frozenCr = await P(`SELECT id, project_id, status, impact_budget, currency FROM ppm_change_requests WHERE id=?`).get(crId);
+            frozenCr = await P(`SELECT id, project_id, status, impact_budget, currency, scope_fields FROM ppm_change_requests WHERE id=?`).get(crId);
             // P11 R5-2 — a change request is used once: its first business-case edit is the ledger row below
             if (frozenCr) frozenCr.used = !!(await P(`SELECT 1 AS x FROM ppm_events WHERE entity='project' AND entity_id=? AND action='business_case_change' AND field=? LIMIT 1`).get(Number(id), `cr:${crId}`));
           }

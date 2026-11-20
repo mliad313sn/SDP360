@@ -74,7 +74,14 @@ function normaliseChangeRequest(body) {
   const currency = text(b.currency, 3) ? String(b.currency).trim().toUpperCase() : null;
   if (currency && !/^[A-Z]{3}$/.test(currency)) throw bad('BAD_CURRENCY', 'currency must be an ISO code such as USD or XOF');
   if (money != null && !currency) throw bad('CURRENCY_REQUIRED', 'an amount needs its currency (ISO code such as USD or XOF)');
-  return { title, reason, impact_dates_days: days, impact_budget: money, currency: money == null ? null : currency };
+  // N-R6-2 (P11 round 6) — the frozen business-case fields this request may change (budget stays bound by
+  // impact_budget, currency is never unlocked). Array or comma-separated string; unknown names are a 400.
+  const SCOPABLE = require('./ppm/reviewWorkflow').SCOPABLE_FIELDS;
+  const rawScope = b.scope_fields == null || b.scope_fields === '' ? [] : Array.isArray(b.scope_fields) ? b.scope_fields : String(b.scope_fields).split(',');
+  const scope = [...new Set(rawScope.map((f) => String(f == null ? '' : f).trim()).filter(Boolean))];
+  const unknown = scope.filter((f) => !SCOPABLE.includes(f));
+  if (unknown.length) throw bad('BAD_SCOPE', `scope_fields: ${unknown.join(', ')} — one of ${SCOPABLE.join(', ')} (the budget is unlocked by impact_budget, the currency never)`);
+  return { title, reason, impact_dates_days: days, impact_budget: money, currency: money == null ? null : currency, scope_fields: scope.length ? scope.join(',') : null };
 }
 
 /**

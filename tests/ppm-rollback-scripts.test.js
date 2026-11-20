@@ -44,7 +44,9 @@ const PPM = ['010_roadmap', '011_roadmap_project', '039_native_ppm', '043_portfo
   // PORTFOLIO LOT 6 — structured dependencies, residual risk, resource demand, effort factors, project documents
   '130_ppm_portfolio_phase2',
   // P11 r6 — TRUNCATE refusal on the audit chain anchors (additive trigger; proved the same way)
-  '132_audit_chain_anchor_truncate'];
+  '132_audit_chain_anchor_truncate',
+  // N-R6-2 (P11 round 6) — the frozen fields a change request names
+  '133_ppm_cr_scope_fields'];
 
 async function snapshot(pg) {
   const q = async (sql) => (await pg.prepare(sql).all()).map((r) => Object.values(r).join('|'));
