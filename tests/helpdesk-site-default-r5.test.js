@@ -6,8 +6,8 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const HSD = require('../public/lib/helpdeskSiteDefault');
 const SA = require('../public/lib/siteAliases');
-// the page's own filter (index.html matchPeriod): upper-case substring
-const covers = (opt, spelling) => String(spelling).toUpperCase().includes(String(opt).toUpperCase());
+// the page's own filter (index.html matchPeriod) — since P11 r6 F-21: alias fold + whole words (siteMatches)
+const covers = (opt, spelling) => HSD.siteMatches(spelling, opt, SA.siteFoldKey);
 
 test('a covering spelling is picked so no same-site spelling drops out', () => {
   for (const [opts, site] of [[['OUAGADOUGOU', 'Ouaga'], 'Ouagadougou'], [['LAFIGUE - SML', 'Lafigue'], 'Lafigue'], [['HOUNDE', 'Hounde Mine'], 'Hounde']]) {
@@ -18,11 +18,11 @@ test('a covering spelling is picked so no same-site spelling drops out', () => {
   }
 });
 
-test('no spelling covers the others → All Sites stays, the spellings are reported', () => {
+test('spellings with no common substring are covered by the alias fold (P11 r6 F-21); all are reported', () => {
   const r = HSD.pickResult(['all', 'HGO', 'Hounde Mine'], ['Hounde'], SA.siteFoldKey);
-  assert.strictEqual(r.option, null);
+  assert.strictEqual(r.option, 'HGO');
+  assert.ok(covers(r.option, 'Hounde Mine') && covers(r.option, 'HGO'));
   assert.deepStrictEqual(r.spellings.sort(), ['HGO', 'Hounde Mine']);
-  assert.strictEqual(HSD.pickOption(['all', 'HGO', 'Hounde Mine'], ['Hounde'], SA.siteFoldKey), null);
 });
 
 test('a single spelling still applies; no match still returns nothing', () => {

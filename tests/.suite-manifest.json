@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 5949,
+ "total": 5961,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 21,
@@ -923,6 +923,9 @@
   "helpdesk-site-default-r5.test.js": 3,
   "home-group-late-undated-r5.test.js": 2,
   "blob-backup-r6.test.js": 6,
-  "pg-boot-force-exit.test.js": 1
+  "pg-boot-force-exit.test.js": 1,
+  "field-r6-inspection-action-merge.smoke.test.js": 4,
+  "field-r6-transient-errors.test.js": 3,
+  "helpdesk-site-match-r6.test.js": 5
  }
 }

@@ -434,7 +434,7 @@ async function getInspectionForFieldReplay(id) {
   if (!r) return null;
   let state = null; try { state = JSON.parse(r.state_json || '{}') || {}; } catch (_) { state = null; }
   // P11 r5 F-15 — the server stamps the stored action ids into the form state; a phone replay never carries them
-  if (state && Array.isArray(state.actions)) state.actions = state.actions.map((a) => { if (!a || typeof a !== 'object') return a; const { id: _i, ...rest } = a; return rest; });
+  if (state && Array.isArray(state.actions)) state.actions = state.actions.map((a) => { if (!a || typeof a !== 'object') return a; const { id: _i, base_status: _b, base_owner: _o, ...rest } = a; return rest; });
   return { status: r.status || 'draft', site_code: r.site_code, created_by: r.created_by == null ? null : Number(r.created_by), meta: state ? state.meta || null : null, state };
 }
 
@@ -759,7 +759,10 @@ async function _getInspectionPg(id, { includeDeleted = false } = {}) {
     stateBlob.actions = stateBlob.actions.map((a, i) => {
       const r = byOrd.get(i);
       if (!a || typeof a !== 'object' || !r) return a;
-      return { ...a, id: Number(r.id), status: r.status || a.status, owner: r.owner != null ? r.owner : a.owner };
+      // P11 r6 F-22 — base_status / base_owner = what the form loaded; the next save compares the editor's
+      // value to them (a deliberate change wins, an untouched value keeps a later register / phone change)
+      const status = r.status || a.status; const owner = r.owner != null ? r.owner : a.owner;
+      return { ...a, id: Number(r.id), status, owner, base_status: status || 'Open', base_owner: owner == null ? '' : owner };
     });
   }
 
@@ -824,7 +827,7 @@ async function _saveInspectionPg(state, userSiteCode, createdBy, { allowRefs = n
   const allowed = new Set([...(existing ? _storedRefs(existing.state_json) : []), ...(allowRefs || [])]);
   _externalizeBlobs(state, id, allowed);
 
-  let actionIds = [];
+  let actionIds = [], keptServer = [], actionStates = [], keptAmbiguous = [];
   await H.runTransaction(async () => {
     if (existing) {
       await H.prepare(`
@@ -880,7 +883,8 @@ async function _saveInspectionPg(state, userSiteCode, createdBy, { allowRefs = n
     // P11 r5 F-15 — the form UPSERTS its actions by id (as saveMeeting does since audit F2). It used to DELETE and
     // re-INSERT every row: each save gave the actions new ids, deleted their comment / status history
     // (insp_action_updates, ON DELETE CASCADE) and turned a phone close queued against the old id into a final 403.
-    actionIds = await _upsertActionsPg(H, id, state.actions || [], existing && existing.state_json);
+    const up = await _upsertActionsPg(H, id, state.actions || [], existing && existing.state_json);
+    actionIds = up.ids; keptServer = up.kept; actionStates = up.states; keptAmbiguous = up.keptRows;
     if (Array.isArray(state.actions) && state.actions.length) {
       await H.prepare('UPDATE insp_inspections SET state_json = ? WHERE id = ?').run(JSON.stringify(state), id);
     }
@@ -924,7 +928,11 @@ async function _saveInspectionPg(state, userSiteCode, createdBy, { allowRefs = n
     if (sigSite) await _runSig('site', meta.sign_site_name || '', meta.sign_site_date || null, sigSite);
   });
 
-  return { id, created: !existing, action_ids: actionIds };
+  // kept_server_value: actions whose status / owner the save did not apply because the editor left the loaded
+  // value and the register / a phone changed it meanwhile — the form shows them and refreshes its copy.
+  // action_states: what each sent action now holds (the form's next base). kept_ambiguous: stored actions an
+  // id-less save could not match unambiguously, kept rather than deleted (P11 r6 F-23).
+  return { id, created: !existing, action_ids: actionIds, kept_server_value: keptServer, action_states: actionStates, kept_ambiguous: keptAmbiguous };
 }
 
 const _ACTION_TERMINAL = new Set(['Closed', 'Cancelled']);
@@ -954,18 +962,30 @@ async function _upsertActionsPg(H, inspectionId, incoming, prevStateJson) {
     if (Number.isInteger(n) && byId.has(n) && !used.has(n)) { used.add(n); return byId.get(n); }
     return null;
   });
-  list.forEach((a, i) => {
-    if (match[i] || !a) return;
-    const d = descOf(a);
-    const r = rows.find((x) => !used.has(Number(x.id)) && Number(x.ord) === i && String(x.description || '') === d)
-      || rows.find((x) => !used.has(Number(x.id)) && String(x.description || '') === d);
-    if (r) { used.add(Number(r.id)); match[i] = r; }
-  });
+  // P11 r6 F-23 — id-less rows (old local copies, queued offline saves) match by text only when that is
+  // unambiguous: the k-th incoming row with a text takes the k-th stored row with the same text (stored order),
+  // and only when the incoming and stored counts for that text are equal. Otherwise (a text repeated with a
+  // different count) the id-less rows become new rows and the stored rows with that text are KEPT, so no action
+  // and no history is ever attached to, or deleted for, the wrong row.
+  const keepAmbiguous = new Set();
+  const idlessByText = new Map();
+  list.forEach((a, i) => { if (match[i] || !a) return; const d = descOf(a); if (!idlessByText.has(d)) idlessByText.set(d, []); idlessByText.get(d).push(i); });
+  for (const [d, idxs] of idlessByText) {
+    const cands = rows.filter((x) => !used.has(Number(x.id)) && String(x.description || '') === d);
+    if (cands.length === 0) continue;
+    if (cands.length === 1 && idxs.length === 1) { used.add(Number(cands[0].id)); match[idxs[0]] = cands[0]; continue; }
+    if (cands.length === idxs.length) { idxs.forEach((i, k) => { used.add(Number(cands[k].id)); match[i] = cands[k]; }); continue; }
+    for (const x of cands) keepAmbiguous.add(Number(x.id));
+  }
   for (const r of rows) {
-    if (!used.has(Number(r.id))) await H.prepare('DELETE FROM insp_actions WHERE id = ?').run(r.id);
+    if (!used.has(Number(r.id)) && !keepAmbiguous.has(Number(r.id))) await H.prepare('DELETE FROM insp_actions WHERE id = ?').run(r.id);
   }
   const ids = [];
-  for (let i = 0; i < list.length; i++) {
+  const kept = [];
+  const states = [];
+  // kept-ambiguous rows keep their place after the form's rows (ords stay unique and ordered)
+  const formCount = list.length;
+  for (let i = 0; i < formCount; i++) {
     const a = list[i] || {};
     const desc = descOf(a);
     const link = a.link || a.linked_item || '';
@@ -981,13 +1001,24 @@ async function _upsertActionsPg(H, inspectionId, incoming, prevStateJson) {
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, CASE WHEN ? = 1 THEN to_char(now(),'YYYY-MM-DD HH24:MI:SS') ELSE NULL END)
         RETURNING id`).get(inspectionId, i, desc, link, prio, owner, due, st, notes, _ACTION_TERMINAL.has(st) ? 1 : 0);
       ids.push(Number(ins.id));
-      if (list[i] && typeof list[i] === 'object') list[i].id = Number(ins.id);
+      states.push({ id: Number(ins.id), status: st, owner });
+      if (list[i] && typeof list[i] === 'object') { list[i].id = Number(ins.id); delete list[i].base_status; delete list[i].base_owner; }
       continue;
     }
-    // three-way: base = what this form stored last time for the row (its old ord)
-    const base = prevActions[Number(r.ord)];
-    if (base && _actNorm(base.status || 'Open') === _actNorm(st) && _actNorm(r.status) !== _actNorm(st)) st = r.status || st;
-    if (base && _actNorm(base.owner) === _actNorm(owner) && _actNorm(r.owner) !== _actNorm(owner)) owner = r.owner || '';
+    // three-way merge of status / owner.
+    // P11 r6 F-22 — the base is the value the form LOADED for this action (base_status / base_owner, stamped by
+    // the read and refreshed after each save): a value the editor changed relative to it always wins; a value
+    // left as loaded keeps whatever the register or a phone stored meanwhile. Without a loaded base (old form
+    // state, offline copies from before the fix) the previous rule applies: the base is the stored form state.
+    const hasBase = a && Object.prototype.hasOwnProperty.call(a, 'base_status');
+    const prev = prevActions[Number(r.ord)];
+    const baseSt = hasBase ? a.base_status : (prev ? (prev.status || 'Open') : undefined);
+    const hasOwnerBase = a && Object.prototype.hasOwnProperty.call(a, 'base_owner');
+    const baseOw = hasOwnerBase ? a.base_owner : (prev ? prev.owner : undefined);
+    let keptHere = false;
+    if (baseSt !== undefined && _actNorm(baseSt || 'Open') === _actNorm(st) && _actNorm(r.status) !== _actNorm(st)) { st = r.status || st; keptHere = true; }
+    if (baseOw !== undefined && _actNorm(baseOw) === _actNorm(owner) && _actNorm(r.owner) !== _actNorm(owner)) { owner = r.owner || ''; keptHere = true; }
+    if (keptHere) kept.push(Number(r.id));
     const changed = String(r.description || '') !== desc || String(r.linked_item || '') !== link
       || String(r.priority || '') !== prio || String(r.owner || '') !== owner || String(r.due_date || '') !== String(due || '')
       || String(r.status || '') !== st || String(r.notes || '') !== notes;
@@ -1006,10 +1037,22 @@ async function _upsertActionsPg(H, inspectionId, incoming, prevStateJson) {
       WHERE id = ?`).run(i, desc, link, prio, owner, due, st, notes,
       nowTerminal ? 1 : 0, (wasTerminal && nowTerminal) ? 1 : 0, st, st, st, st, changed ? 1 : 0, r.id);
     ids.push(Number(r.id));
+    states.push({ id: Number(r.id), status: st, owner });
     // the stored form state carries what the row now holds: the next save's three-way base, and the ids
-    if (list[i] && typeof list[i] === 'object') Object.assign(list[i], { id: Number(r.id), status: st, owner });
+    if (list[i] && typeof list[i] === 'object') {
+      Object.assign(list[i], { id: Number(r.id), status: st, owner });
+      delete list[i].base_status; delete list[i].base_owner;
+    }
   }
-  return ids;
+  // kept-ambiguous rows go after the form's rows, and into the stored form state, so the form shows them (and a
+  // later save carries their ids instead of deleting them)
+  for (const r of rows) {
+    if (!keepAmbiguous.has(Number(r.id))) continue;
+    await H.prepare('UPDATE insp_actions SET ord = ? WHERE id = ?').run(list.length, r.id);
+    list.push({ id: Number(r.id), desc: r.description || '', link: r.linked_item || '', priority: r.priority || 'Medium',
+      owner: r.owner || '', due: r.due_date || '', status: r.status || 'Open', notes: r.notes || '' });
+  }
+  return { ids, kept, states, keptRows: [...keepAmbiguous] };
 }
 
 async function _deleteInspectionPg(id) {

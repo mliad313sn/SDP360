@@ -7,6 +7,12 @@
     // E-F02 — constrained networks
     'The network answered with a web page instead of the server (Wi-Fi sign-in page?) — the entry is kept and will be sent again.': 'Le réseau a répondu par une page web au lieu du serveur (page de connexion Wi-Fi ?) — la saisie est conservée et sera renvoyée.',
     'Sending': 'Envoi',
+    // P11 r6 F-24 — transient server answers (never the raw code on the phone)
+    'The server is busy — the entry is kept and will be sent again automatically.': 'Le serveur est occupé — la saisie est conservée et sera renvoyée automatiquement.',
+    'Too many requests to the server — the entry is kept and will be sent again automatically.': 'Trop de demandes au serveur — la saisie est conservée et sera renvoyée automatiquement.',
+    'Server error — the entry is kept and will be sent again automatically.': 'Erreur du serveur — la saisie est conservée et sera renvoyée automatiquement.',
+    'The server could not take the entry right now — it is kept and will be sent again automatically.': 'Le serveur n’a pas pu prendre la saisie pour le moment — elle est conservée et sera renvoyée automatiquement.',
+    'reference': 'référence',
     // E-F03 — review step
     'Check before queueing': 'Vérifier avant la mise en file', 'Queue it': 'Mettre en file', 'Correct': 'Corriger',
     'Items addressed': 'Points traités', 'Photos': 'Photos',

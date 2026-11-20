@@ -24,7 +24,7 @@
   function api(path, o) {
     o = o || {};
     return fetch(path, { method: o.method || 'GET', credentials: 'same-origin', headers: H(o.body ? { 'content-type': 'application/json' } : {}), body: o.body ? JSON.stringify(o.body) : undefined })
-      .then(function (r) { return r.json().catch(function () { return { error: 'HTTP ' + r.status + ' (not JSON — proxy or network page)', __notjson: true }; }).then(function (j) { j.__status = r.status; j.__stale = r.headers.get('x-field-cache') === 'stale'; return j; }); });
+      .then(function (r) { return r.json().catch(function () { return { error: 'HTTP ' + r.status + ' (not JSON — proxy or network page)', __notjson: true }; }).then(function (j) { j.__status = r.status; j.__stale = r.headers.get('x-field-cache') === 'stale'; j.__retryAfter = r.headers.get('retry-after'); return j; }); });
   }
   function uuid() { if (crypto.randomUUID) return crypto.randomUUID(); var b = crypto.getRandomValues(new Uint8Array(16)); b[6] = (b[6] & 0x0f) | 0x40; b[8] = (b[8] & 0x3f) | 0x80; var h = Array.from(b, function (x) { return x.toString(16).padStart(2, '0'); }).join(''); return h.slice(0, 8) + '-' + h.slice(8, 12) + '-' + h.slice(12, 16) + '-' + h.slice(16, 20) + '-' + h.slice(20); }
 
@@ -216,11 +216,30 @@
       default: return null;
     }
   }
+  // P11 r6 F-24 — a server-side hiccup (database busy, internal error, too many requests) is TRANSIENT: the entry is
+  // kept as "will retry", the phone says so in the user's language (never the raw code), and a retry is scheduled
+  function isTransient(status) { return status >= 500 || status === 429; }
+  function serverErrorText(status, code, ref) {
+    var t;
+    if (code === 'database_busy') t = FT('The server is busy — the entry is kept and will be sent again automatically.');
+    else if (status === 429 || code === 'rate_limited') t = FT('Too many requests to the server — the entry is kept and will be sent again automatically.');
+    else if (code === 'internal_error') t = FT('Server error — the entry is kept and will be sent again automatically.');
+    else t = FT('The server could not take the entry right now — it is kept and will be sent again automatically.');
+    return ref ? t + ' (' + FT('reference') + ' ' + String(ref).slice(0, 40) + ')' : t;
+  }
+  var retryTimer = null;
+  function scheduleRetry(afterSec) {
+    if (retryTimer) return;
+    var sec = Number(afterSec); if (!isFinite(sec) || sec < 5) sec = 5; if (sec > 120) sec = 120;
+    retryTimer = setTimeout(function () { retryTimer = null; flush(); }, sec * 1000);
+  }
   function entryError(e, err) {
     if (err && err.status === 401) { msg(FT('Session expired — sign in again. Nothing was lost: your entries are kept on this phone.'), 'err'); return true; }
     if (err && err.notJson) { e.state = 'failed'; e.last_error = FT(PORTAL_MSG); msg(FT(PORTAL_MSG), 'err'); return obPut(e).then(function () {}); }
-    e.state = err && err.status >= 400 && err.status < 500 ? 'rejected' : 'failed';
+    var transient = !(err && err.status >= 400 && err.status < 500) || (err && err.status === 429);
+    e.state = transient ? 'failed' : 'rejected';
     e.last_error = String((err && err.message) || err || 'error').slice(0, 300);
+    if (transient) scheduleRetry(err && err.retryAfter);
     return obPut(e).then(function () {});
   }
   function sendOne(e) {
@@ -237,7 +256,14 @@
         return obPut(e).then(function () {});
       }
       if ((j.result && j.result.outcome_unknown) || j.outcome_unknown) { e.state = 'unknown_outcome'; e.last_error = String((j.result && j.result.error) || 'outcome unknown').slice(0, 300); msg(FT('Check ServiceDesk Plus before recording this ticket again: ') + (e.label || e.kind), 'err'); return obPut(e).then(function () {}); }
-      if (j.__status >= 500) { e.state = 'failed'; e.last_error = j.error || 'server error'; return obPut(e).then(function () {}); }
+      if (isTransient(j.__status)) {
+        e.state = 'failed'; e.last_error = serverErrorText(j.__status, j.error, j.correlation_id);
+        scheduleRetry(j.__retryAfter);
+        // the database is busy: stop this round (the others would get the same answer) and retry later
+        var stopRound = j.error === 'database_busy' || j.__status === 429;
+        if (stopRound) msg(e.last_error, '');
+        return obPut(e).then(function () { return stopRound || undefined; });
+      }
       if (j.ok || (j.duplicate && j.status === 'applied')) { msg(FT('Synced: ') + (e.label || e.kind), 'ok'); return obDel(e.uuid).then(function () {}); }
       // refused or conflicting: kept on the phone with the reason, until the user decides
       e.state = j.__status === 409 ? (j.status === 'applied' ? 'applied_before' : 'conflict') : 'rejected';
@@ -248,7 +274,10 @@
   }
   // Photos: each draft photo {b64, mime, size, name, upload_id?} is uploaded in chunks; once done the
   // inspection payload references {upload_id} (server turns it into a blob ref).
-  function upErr(j) { var er = new Error(FT('Photo upload: ') + (j.error || ('HTTP ' + j.__status))); er.status = j.__status; er.notJson = !!j.__notjson; return er; }
+  function upErr(j) {
+    var text = !j.__notjson && isTransient(j.__status) ? serverErrorText(j.__status, j.error, j.correlation_id) : (j.error || ('HTTP ' + j.__status));
+    var er = new Error(FT('Photo upload: ') + text); er.status = j.__status; er.notJson = !!j.__notjson; er.retryAfter = j.__retryAfter; return er;
+  }
   function uploadPhotos(e) {
     if (!e.uploads || !e.uploads.length) return Promise.resolve();
     return e.uploads.reduce(function (p, ph) {
