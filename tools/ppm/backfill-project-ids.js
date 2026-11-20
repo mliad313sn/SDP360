@@ -86,6 +86,6 @@ async function main(argv = process.argv.slice(2)) {
 module.exports = { yearOf, plan, apply, pending, format };
 
 if (require.main === module) {
-  require('dotenv').config({ path: path.join(__dirname, '..', '..', '.env'), quiet: true });
+  require('dotenv').config({ quiet: true, path: path.join(__dirname, '..', '..', '.env') });
   main().catch((e) => { console.error('[backfill-project-ids] ' + (e && e.message)); process.exitCode = 1; });
 }

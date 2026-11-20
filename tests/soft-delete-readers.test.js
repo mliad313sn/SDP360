@@ -53,6 +53,7 @@ const ALLOW = {
     exportRows: 'WHERE comes from `wm`, always carrying m.deleted_at IS NULL',
   },
   'services/governanceStore.js': {
+    _nextProjectRef: 'a project id is never reused, even by a soft-deleted project: the collision check must see deleted rows',
     openSessionActions: 'WHERE comes from `where`, always seeded with c.deleted_at IS NULL',
     _projectGone: 'reads the deleted_at of the project chain on purpose (returns true when any is set)',
     projectDetail: 'objective read for a project already checked live by _projectGone',
