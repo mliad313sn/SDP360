@@ -580,6 +580,14 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     const moved = !!(before && vals.project_id != null && Number(vals.project_id) !== Number(before.project_id));
     const changed = { parent: !before || moved || (vals.parent_id !== undefined && !same(vals.parent_id, before.parent_id)), deps: !before || (vals.depends_on !== undefined && depKey(deps) !== depKey(P_(before.depends_on, []))) };
     if (moved && (await P(`SELECT id FROM portfolio_tasks WHERE parent_id=? AND deleted_at IS NULL`).get(id))) throw Object.assign(new Error('a task with sub-tasks cannot move to another project'), { code: 'INVALID', reason: 'PARENT_OTHER_PROJECT' });
+    // P11 R3-2 (ADR-P11-R3) — money already spent stays where it was spent: earned-value AC joins time entries to the
+    // task's CURRENT project, so moving a task that carries logged hours would take that money out of the source
+    // project's AC (and hand it to the target). Refused; the person cancels the task and creates the remaining work in
+    // the other project (its hours stay in the source project's AC, flagged actuals_on_cancelled_tasks).
+    if (moved) {
+      const spent = await actualsUnder('task', id);
+      if (spent) throw Object.assign(new Error(`this task has ${spent} logged time entr${spent === 1 ? 'y' : 'ies'} (money already spent in its project) — it cannot move to another project; cancel it and create the remaining work in the other project`), { code: 'CONFLICT', status: 409, reason: 'HAS_ACTUALS', expose: true });
+    }
     if (!changed.parent && !changed.deps) return;
     const rows = await P(`SELECT id, project_id, parent_id FROM portfolio_tasks WHERE project_id=? AND deleted_at IS NULL`).all(pid);
     if (parent != null && !rows.some((r) => Number(r.id) === Number(parent))) { const pr = await P(`SELECT id, project_id, parent_id FROM portfolio_tasks WHERE id=? AND deleted_at IS NULL`).get(Number(parent)); if (pr) rows.push(pr); }
@@ -893,9 +901,17 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     const err = BL().rebaselineCheck(p, user, body.reason);
     if (err) throw Object.assign(new Error(err.error), { code: 'CONFLICT', status: 409, reason: err.code });
     const pj = body.project || {};
-    const bs = pj.baseline_start !== undefined ? _day(pj.baseline_start) : pj.start_date !== undefined ? _day(pj.start_date) : undefined;
-    const be = pj.baseline_end !== undefined ? _day(pj.baseline_end) : pj.end_date !== undefined ? _day(pj.end_date) : undefined;
-    const tasks = (Array.isArray(body.tasks) ? body.tasks : []).map((t) => ({ id: Number(t && t.id), start: t && t.start_date !== undefined ? _day(t.start_date) : undefined, end: t && t.end_date !== undefined ? _day(t.end_date) : undefined }));
+    // P11 R3-1 — every date this re-baseline writes is a real calendar day, exactly like the ordinary write
+    // (planIntegrity.isValidDate: '2027-02-30', '2027-13-40', 'soon' → 400 DATE_INVALID), checked before anything else.
+    const PI = require('./ppm/planIntegrity');
+    const rbDay = (v, field) => {
+      if (v == null || v === '') return _day(v);
+      if (!PI.isValidDate(String(v))) throw Object.assign(new Error(`${field} must be a real date (YYYY-MM-DD), got "${String(v).slice(0, 40)}"`), { code: 'INVALID', status: 400, reason: 'DATE_INVALID' });
+      return _day(v);
+    };
+    const bs = pj.baseline_start !== undefined ? rbDay(pj.baseline_start, 'baseline_start') : pj.start_date !== undefined ? rbDay(pj.start_date, 'baseline_start') : undefined;
+    const be = pj.baseline_end !== undefined ? rbDay(pj.baseline_end, 'baseline_end') : pj.end_date !== undefined ? rbDay(pj.end_date, 'baseline_end') : undefined;
+    const tasks = (Array.isArray(body.tasks) ? body.tasks : []).map((t) => ({ id: Number(t && t.id), start: t && t.start_date !== undefined ? rbDay(t.start_date, 'baseline_start') : undefined, end: t && t.end_date !== undefined ? rbDay(t.end_date, 'baseline_end') : undefined }));
     if (tasks.some((t) => !Number.isInteger(t.id) || t.id <= 0)) throw Object.assign(new Error('every task needs its id'), { code: 'INVALID', status: 400 });
     const mine = new Set((await P(`SELECT id FROM portfolio_tasks WHERE project_id=? AND deleted_at IS NULL`).all(pid)).map((r) => Number(r.id)));
     if (tasks.some((t) => !mine.has(t.id))) throw Object.assign(new Error('a task does not belong to this project'), { code: 'INVALID', status: 400 });
@@ -903,7 +919,6 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     if (newStart && newEnd && newStart > newEnd) throw Object.assign(new Error('the baseline start is after its end'), { code: 'INVALID', status: 400 });
     // P11 R2-2 — the re-baseline applies the same plan bounds as the ordinary write (ADR-P11-F1): dates in 1970..2200,
     // a task baseline end not before its start. Only the values this re-baseline writes are checked.
-    const PI = require('./ppm/planIntegrity');
     const bounds = (kind, patch) => { const rp = PI.rangeProblem(kind, patch); if (rp) throw Object.assign(new Error(rp.error), { code: 'INVALID', status: 400, reason: rp.code }); };
     bounds('project', { ...(bs !== undefined ? { baseline_start: bs } : {}), ...(be !== undefined ? { baseline_end: be } : {}) });
     if (tasks.length) {
@@ -959,7 +974,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     // P11 R2-1 — a hard delete cascades ppm_time_entries away (FK ON DELETE CASCADE): money already spent would vanish
     // from earned-value AC. Refused while any task below carries hours; a soft delete keeps them (ADR-P11-R2).
     const spent = await actualsUnder(kind, id);
-    if (spent) throw Object.assign(new Error(`this ${kind} has ${spent} logged time entr${spent === 1 ? 'y' : 'ies'} (money already spent) — a hard delete would erase them; turn soft delete on (soft_delete_enabled) to delete it, or move / cancel the work instead`), { code: 'CONFLICT', status: 409, reason: 'HAS_ACTUALS', expose: true });
+    if (spent) throw Object.assign(new Error(`this ${kind} has ${spent} logged time entr${spent === 1 ? 'y' : 'ies'} (money already spent) — a hard delete would erase them; turn soft delete on (soft_delete_enabled) to delete it, or cancel the work instead`), { code: 'CONFLICT', status: 409, reason: 'HAS_ACTUALS', expose: true });
     await P(`DELETE FROM ${T.table} WHERE id=?`).run(Number(id));
     return true;
   }

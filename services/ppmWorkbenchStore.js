@@ -95,10 +95,15 @@ function makeWorkbenchStore(db, gov, { now = () => new Date().toISOString() } = 
   async function listTimesheetWeeks(projectId) {
     return (await P(`SELECT * FROM ppm_timesheet_weeks WHERE project_id=? ORDER BY week_start, person_key`).all(Number(projectId))).map((r) => ({ ...r, id: Number(r.id), project_id: Number(r.project_id), person_user_id: n(r.person_user_id), submitted_by: n(r.submitted_by), decided_by: n(r.decided_by), total_hours: n(r.total_hours) }));
   }
-  /** The weeks of a project (person × ISO week) built from its live time entries and the stored week states. */
+  /**
+   * The weeks of a project (person × ISO week) built from its time entries and the stored week states. P11 R3-4: the
+   * entries of a SOFT-DELETED task stay counted (flagged `deleted_task_hours` on the week) — hours already worked do not
+   * leave a week, a submitted / approved week's total never changes, and the week totals agree with the earned-value AC
+   * (services/ppm/evmStore.timeEntriesFor keeps the same entries).
+   */
   async function timesheetView(projectId) {
-    const entries = await P(`SELECT e.* FROM ppm_time_entries e JOIN portfolio_tasks t ON t.id = e.task_id WHERE t.project_id=? AND t.deleted_at IS NULL ORDER BY e.day, e.id`).all(Number(projectId));
-    return TS.groupWeeks(entries.map((r) => ({ ...r, hours: n(r.hours), person_user_id: n(r.person_user_id), created_by: n(r.created_by) })), await listTimesheetWeeks(projectId));
+    const entries = await P(`SELECT e.*, t.deleted_at AS task_deleted_at FROM ppm_time_entries e JOIN portfolio_tasks t ON t.id = e.task_id WHERE t.project_id=? ORDER BY e.day, e.id`).all(Number(projectId));
+    return TS.groupWeeks(entries.map(({ task_deleted_at, ...r }) => ({ ...r, hours: n(r.hours), person_user_id: n(r.person_user_id), created_by: n(r.created_by), ...(task_deleted_at ? { task_deleted: true } : {}) })), await listTimesheetWeeks(projectId));
   }
   /**
    * One step on a week. body: { week_start (any day of the week), person_key }. opts: { user, canPlanWrite, canDecide, note }.

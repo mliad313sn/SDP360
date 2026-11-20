@@ -58,6 +58,18 @@ function makeEvmStore(db, gov, { now = () => new Date().toISOString() } = {}) {
       .map((r) => ({ task_id: Number(r.task_id), project_id: Number(r.project_id), day: r.day, hours: num(r.hours),
         ...(r.deleted_at ? { task_deleted: true } : {}), cost_rate: num(r.cost_rate), cost_currency: r.cost_currency || null, capex_opex: r.capex_opex || null }));
   }
+  /**
+   * P11 R3-2 — projects hidden from the portfolio by a soft delete (their own, or their objective's / programme's) that
+   * still carry money already spent (time entries or monthly ACTUAL budget periods). The portfolio EVM keeps that spent
+   * money in AC, flagged `actuals_on_deleted_projects`. The caller filters them by the reader's scope.
+   */
+  async function hiddenProjectsWithActuals() {
+    return (await P(`SELECT p.*, o.programme_id AS programme_id FROM portfolio_projects p JOIN portfolio_objectives o ON o.id = p.objective_id JOIN portfolio_programmes g ON g.id = o.programme_id
+      WHERE (p.deleted_at IS NOT NULL OR o.deleted_at IS NOT NULL OR g.deleted_at IS NOT NULL)
+        AND (EXISTS (SELECT 1 FROM ppm_time_entries e JOIN portfolio_tasks t ON t.id = e.task_id WHERE t.project_id = p.id)
+          OR EXISTS (SELECT 1 FROM ppm_budget_periods b WHERE b.project_id = p.id AND b.kind = 'actual'))
+      ORDER BY p.id`).all()).map((r) => ({ ...r, id: Number(r.id), objective_id: r.objective_id == null ? null : Number(r.objective_id), programme_id: r.programme_id == null ? null : Number(r.programme_id) }));
+  }
   /** The latest baseline version payload per project (frozen task dates), or nothing. */
   async function latestBaselinesFor(projectIds) {
     const p = ids(projectIds); if (!p.length) return {};
@@ -80,7 +92,7 @@ function makeEvmStore(db, gov, { now = () => new Date().toISOString() } = {}) {
       return row(await P(`SELECT * FROM ppm_task_evm WHERE task_id=?`).get(tid));
     });
   }
-  return { fieldsFor, budgetPeriodsFor, timeEntriesFor, latestBaselinesFor, saveTaskFields };
+  return { fieldsFor, budgetPeriodsFor, timeEntriesFor, hiddenProjectsWithActuals, latestBaselinesFor, saveTaskFields };
 }
 
 module.exports = { makeEvmStore, normaliseEvmFields };

@@ -18,6 +18,8 @@
 //     budget is never added) are counted, each flagged by a reason code; such hours with no currency make AC unknown.
 //     P11 R2-1 (ADR-P11-R2): hours of a task no longer in the plan (soft-deleted, or under a soft-deleted parent) stay
 //     in AC too, flagged `actuals_on_deleted_tasks` (a hard delete of a task with hours is refused upstream).
+//     P11 R3-2: a project hidden by a soft delete keeps its spent money in the programme / portfolio AC
+//     (spentOnlyContribution, flagged `actuals_on_deleted_projects`); a task with hours cannot move project (upstream).
 //   • P11 R2-2: phasing is arithmetic (spread days counted in O(1), the S-curve in O(leaves + months), at most
 //     MAX_CURVE_MONTHS points, cut around the status month and flagged `s_curve_truncated`) — no read enumerates days.
 //   • Indicators: SV=EV−PV · CV=EV−AC · SPI=EV/PV · CPI=EV/AC · EAC=BAC/CPI (default) with variants AC+(BAC−EV) and
@@ -197,7 +199,8 @@ function rollupByCurrency(items) {
     const m = {}; for (const k of MEASURES) m[k] = sumOf(xs, k);
     const fc = xs.every((x) => x.eac_forecast != null) ? sumOf(xs, 'eac_forecast') : null;
     const unknown = {}; for (const k of MEASURES) unknown[k] = xs.filter((x) => x[k] == null).length;
-    return { currency: cur, contributors: xs.length, unknown, ...indicators({ ...m, eac_forecast: fc }) };
+    const del = xs.filter((x) => x.deleted_project).length;   // P11 R3-2
+    return { currency: cur, contributors: xs.length, unknown, ...indicators({ ...m, eac_forecast: fc }), ...(del ? { deleted_project_contributors: del, reasons: ['actuals_on_deleted_projects'] } : {}) };
   });
 }
 
@@ -449,6 +452,20 @@ function sCurve({ leaves, acItems, base, acts, sd, tasksComplete, bac, ev }) {
 }
 
 /**
+ * P11 R3-2 (ADR-P11-R3) — the contribution of a project hidden by a soft delete (its own, its objective's or its
+ * programme's) to a programme / portfolio rollup: money already spent stays in AC; the budget and the work ahead leave
+ * (BAC / PV / EV = 0, like a cancelled task: no work remains), so the forecast at completion is what was spent. An
+ * unknown AC (hours without a rate…) stays unknown — never smaller.
+ * @param {Array} rollupInput projectEvm(...).rollup_input of that project (computed with no live task)
+ */
+function spentOnlyContribution(rollupInput, { currencyUnknown = false } = {}) {
+  const out = (rollupInput || []).filter((x) => x && x.currency).map((x) => ({ currency: x.currency, bac: 0, pv: 0, ev: 0, ac: x.ac, eac_forecast: x.ac, deleted_project: true }));
+  // hours whose currency is unknown cannot be placed in a currency row: every AC of the rollup becomes unknown
+  if (currencyUnknown) out.push({ currency: null, deleted_project: true, currency_unknown: true });
+  return out;
+}
+
+/**
  * Programme / portfolio rollup from project results (projectEvm(...).rollup_input). Never across currencies; a
  * converted total only with `rates`.
  * @param {Array<{project_id, programme_id, rollup_input}>} projects
@@ -458,9 +475,16 @@ function portfolioEvm(projects, { rates = null } = {}) {
   const progs = {};
   for (const p of ps) { const k = p.programme_id == null ? 'none' : String(p.programme_id); (progs[k] = progs[k] || []).push(p); }
   const flat = (xs) => xs.flatMap((p) => (p.rollup_input || []));
-  const programmes = Object.keys(progs).sort().map((k) => ({ programme_id: k === 'none' ? null : Number(k), projects: progs[k].length, currencies: rollupByCurrency(flat(progs[k])) }));
-  const currencies = rollupByCurrency(flat(ps));
+  // P11 R3-2: spent money of a hidden project in an unknown currency → AC unknown in every currency (never smaller)
+  const roll = (items) => {
+    const rows = rollupByCurrency(items);
+    if (!items.some((x) => x && x.currency_unknown)) return rows;
+    return rows.map((r) => ({ ...indicators({ bac: r.bac, pv: r.pv, ev: r.ev, ac: null, eac_forecast: null }), currency: r.currency, contributors: r.contributors, unknown: { ...r.unknown, ac: r.unknown.ac + 1 },
+      deleted_project_contributors: r.deleted_project_contributors || 0, reasons: [...new Set([...(r.reasons || []), 'actuals_on_deleted_projects', 'actuals_currency_unknown'])] }));
+  };
+  const programmes = Object.keys(progs).sort().map((k) => ({ programme_id: k === 'none' ? null : Number(k), projects: progs[k].length, currencies: roll(flat(progs[k])) }));
+  const currencies = roll(flat(ps));
   return { programmes, currencies, converted: rates ? convert(currencies, rates) : null, never_summed_across_currencies: true, certification: CERTIFICATION };
 }
 
-module.exports = { CERTIFICATION, MAX_CURVE_MONTHS, EV_METHODS, DEFAULT_EV_METHOD, COST_CLASSES, workingDays, spreadDays, timePhase, monthFractionTo, earnedFraction, indicators, rollupByCurrency, convert, projectEvm, portfolioEvm, sCurve, phaseOf };
+module.exports = { CERTIFICATION, MAX_CURVE_MONTHS, EV_METHODS, DEFAULT_EV_METHOD, COST_CLASSES, workingDays, spreadDays, timePhase, monthFractionTo, earnedFraction, indicators, rollupByCurrency, convert, projectEvm, portfolioEvm, spentOnlyContribution, sCurve, phaseOf };
