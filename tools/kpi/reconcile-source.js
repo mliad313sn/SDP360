@@ -3,7 +3,8 @@
 // The DATA is the owner's (an export from ServiceDesk Plus / Analytics, AssetExplorer, Meraki); this tool and the
 // comparison sheet are the deliverable. Read-only: one SELECT per run, nothing written to the database.
 //
-//   node tools/kpi/reconcile-source.js --source=sdp_requests --export=requests.csv [--out=sheet.csv] [--tolerance=0]
+//   node tools/kpi/reconcile-source.js --source=sdp_requests --export=requests.csv [--out=sheet.csv] [--tolerance=0] [--date-order=dmy|mdy]
+//   exit 0 RECONCILED · 1 DIFFERENCES · 2 usage / wrong columns · 3 NOT_COMPARABLE (nothing readable to compare)
 //   node tools/kpi/reconcile-source.js --list                 the sources, their keys and the export columns read
 //
 // Database: PG_URL from the environment (the operator's box). Production data never leaves it; the sheet holds
@@ -13,13 +14,35 @@ const fs = require('fs');
 const path = require('path');
 
 const MON = { jan: 1, feb: 2, mar: 3, apr: 4, may: 5, jun: 6, jul: 7, aug: 8, sep: 9, oct: 10, nov: 11, dec: 12 };
-/** 'YYYY-MM' from an ISO date, 'DD Mon YYYY…', 'Mon DD, YYYY…' or 'DD/MM/YYYY' (day-first, the Zoho EU export); null otherwise. */
-function monthOf(v) {
+const SLASHED = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/;
+const DATE_ORDERS = ['dmy', 'mdy'];
+/** True for a slashed date that reads differently day-first and month-first (both parts ≤ 12 and different). */
+function isAmbiguousDate(v) {
+  const m = SLASHED.exec(String(v == null ? '' : v).trim()); if (!m) return false;
+  const a = Number(m[1]), b = Number(m[2]);
+  return a >= 1 && a <= 12 && b >= 1 && b <= 12 && a !== b;
+}
+/**
+ * 'YYYY-MM' from an ISO date, 'DD Mon YYYY…', 'Mon DD, YYYY…' or a slashed date; null otherwise.
+ * P11 F-04 — a slashed date is NEVER guessed: day-first only when the first part is > 12, month-first only when the
+ * second part is > 12, identical parts either way; anything else (01/10/2026) is ambiguous → null unless the operator
+ * states the export's order with { dateOrder: 'dmy' | 'mdy' } (CLI --date-order=).
+ */
+function monthOf(v, { dateOrder = null } = {}) {
   const s = String(v == null ? '' : v).trim(); if (!s) return null;
   let m = /^(\d{4})-(\d{2})/.exec(s); if (m) return `${m[1]}-${m[2]}`;
   m = /^(\d{1,2})[ -]([A-Za-z]{3})[a-z]*[ -,]+(\d{4})/.exec(s); if (m && MON[m[2].toLowerCase()]) return `${m[3]}-${String(MON[m[2].toLowerCase()]).padStart(2, '0')}`;
   m = /^([A-Za-z]{3})[a-z]* (\d{1,2}),? (\d{4})/.exec(s); if (m && MON[m[1].toLowerCase()]) return `${m[3]}-${String(MON[m[1].toLowerCase()]).padStart(2, '0')}`;
-  m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})/.exec(s); if (m) return `${m[3]}-${String(m[2]).padStart(2, '0')}`;
+  m = SLASHED.exec(s);
+  if (m) {
+    const a = Number(m[1]), b = Number(m[2]);
+    let month = null;
+    if (a > 12 && b >= 1 && b <= 12) month = b;                       // only day-first is possible
+    else if (b > 12 && a >= 1 && a <= 12) month = a;                  // only month-first is possible
+    else if (a === b && a >= 1 && a <= 12) month = a;                 // same either way
+    else if (a >= 1 && a <= 12 && b >= 1 && b <= 12) month = dateOrder === 'dmy' ? b : dateOrder === 'mdy' ? a : null;
+    return month ? `${m[3]}-${String(month).padStart(2, '0')}` : null;
+  }
   return null;
 }
 const num = (v) => { if (v == null || String(v).trim() === '' || /^n\/?a$/i.test(String(v).trim())) return null; const n = Number(String(v).replace(/[\s,$%]/g, '')); return Number.isFinite(n) ? n : null; };
@@ -30,15 +53,15 @@ const norm = (v) => String(v == null ? '' : v).trim().toLowerCase();
 const SOURCES = {
   sdp_requests: {
     label: 'ServiceDesk Plus requests (request_records) — count per month × support group, sum of reopen count',
-    columns: ['Created Time', 'Group', 'Reopen Count'],
-    key: (r) => { const m = monthOf(r['Created Time']); const g = norm(r['Group']); return m && g ? `${m} | ${g}` : null; },
+    columns: ['Created Time', 'Group', 'Reopen Count'], dateColumns: ['Created Time'],
+    key: (r, o) => { const m = monthOf(r['Created Time'], o); const g = norm(r['Group']); return m && g ? `${m} | ${g}` : null; },
     sum: (r) => num(r['Reopen Count']),
     sql: "SELECT substr(created_time,1,7) || ' | ' || LOWER(TRIM(tech_group)) AS key, COUNT(*) AS n, SUM(COALESCE(reopen_count,0)) AS s FROM request_records WHERE tech_group IS NOT NULL AND TRIM(tech_group) <> '' GROUP BY 1",
   },
   sdp_changes: {
     label: 'ServiceDesk Plus changes (change_records) — count per month × change group',
-    columns: ['Created Time', 'Group'],
-    key: (r) => { const m = monthOf(r['Created Time']); const g = norm(r['Group']); return m && g ? `${m} | ${g}` : null; },
+    columns: ['Created Time', 'Group'], dateColumns: ['Created Time'],
+    key: (r, o) => { const m = monthOf(r['Created Time'], o); const g = norm(r['Group']); return m && g ? `${m} | ${g}` : null; },
     sum: () => null,
     sql: "SELECT substr(created_time,1,7) || ' | ' || LOWER(TRIM(group_name)) AS key, COUNT(*) AS n, NULL AS s FROM change_records WHERE group_name IS NOT NULL AND TRIM(group_name) <> '' GROUP BY 1",
   },
@@ -60,10 +83,13 @@ const SOURCES = {
 };
 
 /** Pure: compare the export groups with the stored groups. tolerance = allowed |Δ count| (and |Δ sum| as a fraction). */
-function compare(exportRows, dbRows, spec, { tolerance = 0, sumTolerancePct = 0.5 } = {}) {
-  const src = new Map(); let unreadable = 0;
+// P11 F-10 — a comparison with no readable export row compared NOTHING: the verdict is NOT_COMPARABLE (exit 3),
+// never RECONCILED. Ambiguous dates (F-04) are counted apart and keep the verdict out of RECONCILED.
+function compare(exportRows, dbRows, spec, { tolerance = 0, sumTolerancePct = 0.5, dateOrder = null } = {}) {
+  const src = new Map(); let unreadable = 0, ambiguous = 0;
   for (const r of exportRows || []) {
-    const k = spec.key(r); if (!k) { unreadable++; continue; }
+    const k = spec.key(r, { dateOrder });
+    if (!k) { unreadable++; if (!dateOrder && (spec.dateColumns || []).some((c) => isAmbiguousDate(r[c]))) ambiguous++; continue; }
     const g = src.get(k) || { n: 0, s: null }; g.n++; const v = spec.sum(r); if (v != null) g.s = (g.s == null ? 0 : g.s) + v; src.set(k, g);
   }
   const db = new Map((dbRows || []).map((r) => [String(r.key), { n: Number(r.n), s: r.s == null ? null : Number(r.s) }]));
@@ -80,17 +106,27 @@ function compare(exportRows, dbRows, spec, { tolerance = 0, sumTolerancePct = 0.
     return { key: k, source_count: a ? a.n : null, sdp360_count: b ? b.n : null, delta_count: dn, source_sum: a ? a.s : null, sdp360_sum: b ? b.s : null, delta_sum: ds, status };
   });
   const totals = { groups: rows.length, match: rows.filter((r) => r.status === 'match').length, source_rows: (exportRows || []).length, unreadable_export_rows: unreadable,
+    ambiguous_dates: ambiguous,
     source_count: rows.reduce((t, r) => t + (r.source_count || 0), 0), sdp360_count: rows.reduce((t, r) => t + (r.sdp360_count || 0), 0) };
-  return { rows, totals, verdict: rows.every((r) => r.status === 'match') && !unreadable ? 'RECONCILED' : 'DIFFERENCES — owner review' };
+  const readable = totals.source_rows - unreadable;
+  const verdict = readable <= 0 ? 'NOT_COMPARABLE'
+    : rows.every((r) => r.status === 'match') && !unreadable ? 'RECONCILED' : 'DIFFERENCES — owner review';
+  return { rows, totals, verdict };
 }
 
-function parseCsv(text) {
+function _csvRows(text) {
   const out = []; let row = [], cell = '', q = false;
   const t = String(text).replace(/^﻿/, '');
   for (let i = 0; i < t.length; i++) { const c = t[i];
     if (q) { if (c === '"' && t[i + 1] === '"') { cell += '"'; i++; } else if (c === '"') q = false; else cell += c; continue; }
     if (c === '"') q = true; else if (c === ',') { row.push(cell); cell = ''; } else if (c === '\n') { row.push(cell.replace(/\r$/, '')); out.push(row); row = []; cell = ''; } else cell += c; }
   if (cell !== '' || row.length) { row.push(cell.replace(/\r$/, '')); out.push(row); }
+  return out;
+}
+/** The export's column names, read from the header line (works for an export with no data row). */
+function parseCsvHeader(text) { return (_csvRows(text)[0] || []).map((h) => h.trim()).filter((h) => h !== ''); }
+function parseCsv(text) {
+  const out = _csvRows(text);
   const head = (out.shift() || []).map((h) => h.trim());
   return out.filter((r) => r.some((x) => x !== '')).map((r) => Object.fromEntries(head.map((h, i) => [h, r[i]])));
 }
@@ -105,18 +141,27 @@ async function main(argv) {
   if (argv.includes('--list')) { for (const [k, s] of Object.entries(SOURCES)) console.log(`${k}: ${s.label}\n  export columns: ${s.columns.join(', ')}`); return 0; }
   const spec = SOURCES[arg('source')]; if (!spec) { console.error('--source= one of ' + Object.keys(SOURCES).join(', ')); return 2; }
   const file = arg('export'); if (!file || !fs.existsSync(file)) { console.error('--export=<the owner\'s source export, CSV>'); return 2; }
-  const rows = parseCsv(fs.readFileSync(file, 'utf8'));
-  const missing = spec.columns.filter((c) => rows.length && !(c in rows[0]));
+  const dateOrder = arg('date-order');
+  if (dateOrder != null && !DATE_ORDERS.includes(dateOrder)) { console.error(`--date-order= one of ${DATE_ORDERS.join(', ')}`); return 2; }
+  const text = fs.readFileSync(file, 'utf8');
+  const head = parseCsvHeader(text);
+  const missing = spec.columns.filter((c) => !head.includes(c));   // P11 F-10: from the header, even with zero rows
   if (missing.length) { console.error(`export is missing column(s): ${missing.join(', ')}`); return 2; }
+  const rows = parseCsv(text);
+  if (!rows.length) {   // P11 F-10: nothing to compare — say so before touching the database
+    console.log(JSON.stringify({ source: arg('source'), verdict: 'NOT_COMPARABLE', reason: 'the export has no data row' }, null, 1));
+    return 3;
+  }
   if (!process.env.PG_URL) { console.error('PG_URL is required (the operator\'s database, read-only use)'); return 2; }
   const { Client } = require('pg'); const c = new Client({ connectionString: process.env.PG_URL });
   await c.connect();
-  let db; try { await c.query('SET TRANSACTION READ ONLY').catch(() => {}); db = (await c.query(spec.sql)).rows; } finally { await c.end(); }
-  const r = compare(rows, db, spec, { tolerance: Number(arg('tolerance') || 0) });
+  // P11 F-10: SET TRANSACTION outside a transaction did nothing — the SELECT now runs in a READ ONLY transaction.
+  let db; try { await c.query('BEGIN READ ONLY'); db = (await c.query(spec.sql)).rows; await c.query('COMMIT'); } finally { await c.end(); }
+  const r = compare(rows, db, spec, { tolerance: Number(arg('tolerance') || 0), dateOrder });
   const out = arg('out'); if (out) fs.writeFileSync(path.resolve(out), sheet(r));
   console.log(JSON.stringify({ source: arg('source'), verdict: r.verdict, totals: r.totals, sheet: out || '(use --out= to write the comparison sheet)' }, null, 1));
-  return r.verdict === 'RECONCILED' ? 0 : 1;
+  return r.verdict === 'RECONCILED' ? 0 : r.verdict === 'NOT_COMPARABLE' ? 3 : 1;
 }
 
 if (require.main === module) main(process.argv.slice(2)).then((c) => process.exit(c), (e) => { console.error(e.message); process.exit(2); });
-module.exports = { SOURCES, compare, monthOf, parseCsv, sheet, main };
+module.exports = { SOURCES, compare, monthOf, isAmbiguousDate, parseCsv, parseCsvHeader, sheet, main };
