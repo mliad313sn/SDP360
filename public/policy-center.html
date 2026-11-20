@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Policy control center — Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="admin" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<style nonce="%%CSP_NONCE%%">
+  body { margin: 0; background: var(--color-bg); color: var(--color-text-strong); font-family: var(--font-sans); font-size: 14px; }
+  .pc-wrap { max-width: 1320px; margin: 0 auto; padding: var(--space-6) var(--space-6) var(--space-12); }
+  .pc-card { background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-4) var(--space-5); margin-bottom: var(--space-4); overflow-x: auto; }
+  @media (max-width: 640px) { .pc-wrap { padding: var(--space-4); } .pc-card { padding: var(--space-3); } }
+  h1 { margin: 0 0 var(--space-2); font-size: 22px; } h2 { font-size: 16px; margin: 0 0 var(--space-2); }
+  .pc-muted { color: var(--color-text-muted); font-size: 12.5px; }
+  .pc-bar { display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: center; }
+  input, select, button, textarea { font: inherit; }
+  input, select, textarea { padding: 4px 6px; border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); background: var(--color-card); color: var(--color-text-strong); }
+  button { border: 1px solid var(--color-border-strong); background: var(--color-card); color: var(--color-text-strong); border-radius: var(--radius-sm); padding: 4px 10px; cursor: pointer; }
+  button.pc-primary { background: var(--color-primary-fill); border-color: var(--color-primary-fill); color: var(--color-text-on-dark); }
+  button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, summary:focus-visible { outline: 2px solid var(--color-secondary); outline-offset: 2px; }
+  table { width: 100%; border-collapse: collapse; } th, td { padding: 6px 8px; border-bottom: 1px solid var(--color-border); text-align: left; vertical-align: top; font-size: 13px; }
+  .pc-key { font-family: var(--font-mono); font-size: 12px; }
+  .pc-tag { display: inline-block; border-radius: var(--radius-pill); padding: 1px 8px; font-size: 11px; font-weight: 700; margin: 0 4px 2px 0; background: var(--color-info-bg); color: var(--color-info); }
+  .pc-tag.dev { background: var(--color-warning-bg); color: var(--color-warning-text); }
+  .pc-tag.high { background: var(--color-danger-bg); color: var(--color-danger); }
+  .pc-tag.pend { background: var(--color-primary-bg); color: var(--color-primary); }
+  .pc-tag.ok { background: var(--color-success-bg); color: var(--color-success-text); }
+  .pc-msg { min-height: 18px; font-size: 13px; } .pc-err { color: var(--color-danger); } .pc-ok { color: var(--color-success-text); }
+  details.pc-rule > summary { cursor: pointer; list-style: revert; }
+  .pc-edit { display: grid; gap: var(--space-2); grid-template-columns: minmax(120px, 220px) 1fr; margin-top: var(--space-2); }
+  @media (max-width: 640px) { .pc-edit { grid-template-columns: 1fr; } }
+  .pc-pre { font-family: var(--font-mono); font-size: 12px; white-space: pre-wrap; word-break: break-word; }
+  .pc-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+  textarea.pc-json { width: 100%; min-height: 120px; font-family: var(--font-mono); font-size: 12px; }
+</style>
+</head>
+<body>
+<a class="edv-skip" href="#main">Skip to content</a>
+<div id="__shell" data-section="operations" data-current="policy-center"></div>
+<main id="main" class="pc-wrap">
+  <div class="pc-card">
+    <h1 data-i18n="title">Policy control center</h1>
+    <p class="pc-muted" data-i18n="intro">Every rule the platform applies, in one place. Each rule starts at its best-practice default (today's behaviour); change it to fit a site's reality, with a reason. Recommendations are proposals until a human approves them. High-risk changes need a second super_admin.</p>
+    <div class="pc-bar" role="search">
+      <label for="pcQ" class="pc-sr" data-i18n="search">Search</label>
+      <input id="pcQ" type="search" placeholder="Search a rule" data-i18n-placeholder="searchPh">
+      <label for="pcCat" data-i18n="category">Category</label><select id="pcCat"></select>
+      <label for="pcRisk" data-i18n="risk">Risk</label>
+      <select id="pcRisk"><option value="" data-i18n="all">All</option><option value="high" data-i18n="high">High</option><option value="medium" data-i18n="medium">Medium</option><option value="low" data-i18n="low">Low</option></select>
+      <label><input type="checkbox" id="pcDev"> <span data-i18n="onlyDev">Only rules that deviate from best practice</span></label>
+      <button type="button" id="pcExportJson" data-i18n="exportJson">Export JSON</button>
+      <button type="button" id="pcExportCsv" data-i18n="exportCsv">Export CSV</button>
+    </div>
+    <div class="pc-msg" id="pcMsg" role="status" aria-live="polite"></div>
+    <p class="pc-muted" id="pcCoverage"></p>
+  </div>
+  <div class="pc-card" id="pcReqCard">
+    <h2 data-i18n="requests">Changes awaiting a second super_admin</h2>
+    <div id="pcReqs"></div>
+  </div>
+  <div id="pcRules"></div>
+  <div class="pc-card" id="pcImportCard">
+    <h2 data-i18n="importTitle">Environment profile</h2>
+    <p class="pc-muted" data-i18n="importIntro">Paste a profile (the JSON export of another environment, or { "profile": { "values": {…}, "sites": { "&lt;site id&gt;": {…} } } }). A dry run shows what would change; nothing is applied until you confirm that exact plan. Secrets are never imported.</p>
+    <label for="pcProfile" class="pc-sr" data-i18n="profile">Profile</label>
+    <textarea id="pcProfile" class="pc-json"></textarea>
+    <div class="pc-bar"><button type="button" id="pcDry" data-i18n="dryRun">Dry run</button><button type="button" id="pcApply" class="pc-primary" disabled data-i18n="applyPlan">Apply this plan</button></div>
+    <div id="pcPlan"></div>
+  </div>
+</main>
+<script nonce="%%CSP_NONCE%%" src="lib/reasonDialog.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/errorText.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/policyCenterPage.js"></script>
+</body>
+</html>
