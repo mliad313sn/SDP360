@@ -20,7 +20,7 @@
 | jobs | 33 |
 | jobs without test reference | 0 |
 | migrations | 107 |
-| test files | 873 |
+| test files | 876 |
 
 ## Pages
 
@@ -74,7 +74,7 @@
 | PG-policies | public/policies.html | admin / committee-member | yes | 1 | 6 |
 | PG-policy-center | public/policy-center.html | admin | yes | 0 | 4 |
 | PG-portfolio | public/portfolio.html | any | yes | 1 | 18 |
-| PG-project | public/project.html | any | no | 1 | 21 |
+| PG-project | public/project.html | any | no | 1 | 22 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 4 |
 | PG-reports | public/reports.html | any | yes | 2 | 41 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 5 |

@@ -265,15 +265,17 @@
   },
   {
    "id": "L14",
-   "title": "PMO journey — portfolio intake register (portfolio spec Lot 1)",
+   "title": "PMO journey — portfolio intake register and data quality (portfolio spec Lots 1–2)",
    "status": "PROPOSED",
-   "order_note": "New lot (portfolio reconstruction spec, Lot 1). Prerequisite of the data-quality lot (spec Lot 2).",
+   "order_note": "New lot (portfolio reconstruction spec, Lots 1 and 2). Arm ppm_intake_register_enabled first; then ppm_data_quality_enabled (shadow) for a shadow period; ppm_dq_gate_enforced last, only after the PMO has approved the required set and the blocking checks.",
    "profiles": "PMO, committee members (who maintain projects), admin tier (reference lists), every project reader",
-   "changes": "Projects carry the intake fields (type, tags, priority, structured business need, expected value, delivery lead, indicative quarter + schedule confidence, budget status / approval date / reference, decision required, delivery effort, risk exposure, FTE, skills, workload notes, explicit TBC / not applicable / none-known states); new projects get an immutable PRJ-YYYY-NNN id; the admin tier maintains the reference lists; Intake tab with field guidance on the project page. Existing projects get ids only through tools/ppm/backfill-project-ids.js (dry run first).",
+   "changes": "Projects carry the intake fields (type, tags, priority, structured business need, expected value, delivery lead, indicative quarter + schedule confidence, budget status / approval date / reference, decision required, delivery effort, risk exposure, FTE, skills, workload notes, explicit TBC / not applicable / none-known states); new projects get an immutable PRJ-YYYY-NNN id; the admin tier maintains the reference lists; Intake tab with field guidance on the project page. Existing projects get ids only through tools/ppm/backfill-project-ids.js (dry run first). Lot 2: data-quality score per project and per site (Σ completed ÷ Σ required), blocking errors, the 16-item submission checklist (shadow); optional refusal of the proposal → approval move on a blocking error (invalid schedule, no IT owner).",
    "risk": "low-medium (AI estimate): additive columns, writes stay committee-only; the priority meanings, risk levels and effort bands are PROPOSED reference data the PMO must review before arming; the id backfill is permanent (ids are never reused).",
    "metric_candidate": "share of live projects with type, priority, business need, sponsor, IT owner and budget status filled; projects without an id after the backfill (should be zero)",
    "switches": [
-    "ppm_intake_register_enabled"
+    "ppm_intake_register_enabled",
+    "ppm_data_quality_enabled",
+    "ppm_dq_gate_enforced"
    ]
   }
  ],

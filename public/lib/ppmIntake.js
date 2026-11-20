@@ -80,6 +80,8 @@
     var V = ctx.V(), p = V.project, edit = !!V.committee, states = p.value_states || {};
     var bySec = {}; CAT.fields.forEach(function (f) { (bySec[f.section] = bySec[f.section] || []).push(f); });
     var h = '<h2>' + esc(t('title')) + '</h2><p class="in-note">' + esc(t('sub')) + '</p>' + (edit ? '' : '<p class="in-note">' + esc(t('readonly')) + '</p>');
+    // PORTFOLIO LOT 2 — data-quality panel + checklist (only when the read carries `dq`: ppm_data_quality_enabled)
+    if (V.dq && root.PpmFieldHelp) h += root.PpmFieldHelp.panel(V.dq, CAT.dq_guide, lang());
     CAT.sections.forEach(function (sec) {
       h += '<fieldset class="in-sec"><legend>' + esc(t(sec)) + '</legend>' + (bySec[sec] || []).map(function (f) { return fieldHtml(f, p, edit, states); }).join('');
       if (sec === 'schedule') h += '<p class="in-note">' + esc(t('duration')) + ': ' + (p.planned_duration_days == null ? esc(t('not_baselined')) : esc(p.planned_duration_days + ' ' + t('days'))) + '</p>';
@@ -90,6 +92,7 @@
     if (edit) h += '<div class="bar"><button class="btn primary" type="button" id="in-save">' + esc(t('save')) + '</button></div>';
     host.innerHTML = '<div class="panel in-panel">' + h + '</div>';
     host.querySelectorAll('.in-help-btn').forEach(function (b) { b.addEventListener('click', function () { var d = document.getElementById(b.getAttribute('aria-controls')); var open = d.hidden; d.hidden = !open; b.setAttribute('aria-expanded', open ? 'true' : 'false'); }); });
+    if (V.dq && root.PpmFieldHelp) root.PpmFieldHelp.wire(host);
     var sv = host.querySelector('#in-save'); if (sv) sv.addEventListener('click', function () { save(ctx, host); });
   }
 

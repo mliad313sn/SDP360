@@ -604,7 +604,9 @@ module.exports = function governanceRoutes(deps) {
   router.get('/api/governance/portfolio', requireReportSession, async (req, res) => { try { const { v, ctx, editable } = await viewFor(req.reportUser); const ro = PXR.enabled(await reportConfig.getConfig(rdb().db)) && PXR.isExecutiveOnly(req.reportUser);   // UAT-OI-05: the page hides edit controls it would refuse
     // B3 — "my projects" default (portfolio_my_projects_default): a PRESENTATION hint over what is already readable; "all" is offered to the admin tier, the committee and finance
     const mine = ctx.myDefault ? { my_projects: { ids: PA.myProjectIds(req.reportUser, v.projects, { extraSites: v.project_sites, memberProjectIds: ctx.memberProjectIds }), can_see_all: !!(ctx.isCommittee || ctx.isAdmin || rdb().userHasRole(req.reportUser, 'finance-viewer')) } } : {};
-    res.json({ ok: true, committee: !ro && isCommittee(req.reportUser), can_edit_plan_projects: !ro && editable, ...(ro ? { executive_read_only: true } : {}), ...(ctx.sensitiveOn && isCommittee(req.reportUser) && !ro ? { can_mark_sensitive: true } : {}), ...mine, ...(canSeeMoney(req.reportUser) ? v : stripMoney(v)) }); } catch (e) { fail(res, e); } });
+    const money = canSeeMoney(req.reportUser);
+    const dq = await dqOn('ppm_data_quality_enabled') ? { dq: DQ.portfolioBlock(v.projects, v.risks, { money }) } : {};   // PORTFOLIO LOT 2 (shadow, before the money strip)
+    res.json({ ok: true, committee: !ro && isCommittee(req.reportUser), can_edit_plan_projects: !ro && editable, ...(ro ? { executive_read_only: true } : {}), ...(ctx.sensitiveOn && isCommittee(req.reportUser) && !ro ? { can_mark_sensitive: true } : {}), ...mine, ...(money ? v : stripMoney(v)), ...dq }); } catch (e) { fail(res, e); } });
   // B3 — mark / unmark a project sensitive (committee / admin tier). The action exists only while portfolio_sensitive_projects = '1'.
   router.put('/api/governance/portfolio/project/:id/sensitive', requireReportSession, requireCommittee, json, async (req, res) => {
     try {
@@ -691,6 +693,18 @@ module.exports = function governanceRoutes(deps) {
       const id = await store.upsertPortfolio(kind, req.body, { user: req.reportUser, reason: req.body && req.body.reason, requireOwnerReason, allocUnspecified: cfgW.ppm_alloc_unspecified, warnings, currencyRequired: String(cfgW.finance_currency_required) === '1' }); log(req, 'portfolio_saved', `${kind}:${id}`); res.json({ ok: true, id, ...(warnings.length ? { warnings } : {}) });
     } catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.reason ? { code: e.reason } : {}) }); }
   });
+  // PORTFOLIO LOT 2 — data-quality engine (services/ppm/dataQuality.js, pure). Two PROPOSED switches, both '0' = today:
+  // ppm_data_quality_enabled adds a `dq` block to the portfolio / project reads (shadow, nothing refused);
+  // ppm_dq_gate_enforced refuses the proposal → approval move while a blocking check fails (invalid schedule, no IT owner).
+  const DQ = require('../services/ppm/dataQuality');
+  const dqOn = async (key) => String((await reportConfig.getConfig(rdb().db))[key]) === '1';
+  /** The data-quality refusal of a move to approval, or null (switch off / other target / no blocking error). */
+  async function dqGateRefusal(cfg, projectId, to, detail = null) {
+    if (String(cfg.ppm_dq_gate_enforced) !== '1' || to !== 'approval' || !Number.isInteger(Number(projectId))) return null;
+    const d = detail || await store.projectDetail(projectId); if (!d) return null;
+    if ((d.project.stage || 'proposal') !== 'proposal') return null;   // stageGate reports the order
+    return DQ.gateRefusal(d.project, { risks: d.risks });
+  }
   /** W3-GOVERNANCE — the refusal of the target stage's checklist, or null (switch off / no checklist / complete / bad order). */
   async function w3GateRefusal(cfg, projectId, to) {
     if (String(cfg.ppm_gate_checklist_enabled) !== '1' || !Number.isInteger(Number(projectId))) return null;
@@ -705,6 +719,8 @@ module.exports = function governanceRoutes(deps) {
       // sign-offs); never moves the stage by itself ('0' = today: no check). services/ppm/gateChecklist
       const gr = await w3GateRefusal(cfg, req.params.id, String((req.body && req.body.to) || ''));
       if (gr) return httpFail(res, Object.assign(new Error(gr.error), { reason: gr.code }), 409, { ok: false, code: gr.code });
+      const dr = await dqGateRefusal(cfg, req.params.id, String((req.body && req.body.to) || ''));   // PORTFOLIO LOT 2
+      if (dr) return httpFail(res, Object.assign(new Error(dr.error), { reason: dr.code }), 409, { ok: false, code: dr.code, blocking: dr.blocking });
       const p = await store.moveProjectStage(req.params.id, String((req.body && req.body.to) || ''), { user: req.reportUser, note: req.body && req.body.note, captureBaseline: String(cfg.ppm_baseline_versions) === '1' }); log(req, 'project_stage', `project:${req.params.id}`, { to: p.stage }); res.json({ ok: true, project: { ...p, id: Number(p.id) } }); }
     catch (e) { httpFail(res, e, undefined, { ok: false, ...(e.reason ? { code: e.reason } : {}) }); }
   });
@@ -727,6 +743,8 @@ module.exports = function governanceRoutes(deps) {
       });
       const gcfg = await reportConfig.getConfig(rdb().db);   // W3-GOVERNANCE — the checklist refusal shows in the dry run too
       for (const g of allowed_stages) if (!g.refusal) { const gr = await w3GateRefusal(gcfg, p.id, g.to); if (gr) g.refusal = gr; }
+      for (const g of allowed_stages) if (!g.refusal) { const dr = await dqGateRefusal(gcfg, p.id, g.to, d); if (dr) g.refusal = dr; }   // PORTFOLIO LOT 2
+      const dqBlock = String(gcfg.ppm_data_quality_enabled) === '1' ? { dq: { ...DQ.evaluate(p, { risks: d.risks, money }), proposed: true, policy: DQ.policy(), gate_enforced: String(gcfg.ppm_dq_gate_enforced) === '1' } } : {};
       const project = money ? p : intakeMoneyless({ ...p, budget: undefined, spent: undefined });
       // F-PRODUCT-03 / F-DATA-09 — class view + totals per class only while the switch is on (never added across classes)
       const clsOn = String((await reportConfig.getConfig(rdb().db)).benefit_value_class_enabled) === '1';
@@ -746,7 +764,7 @@ module.exports = function governanceRoutes(deps) {
         benefits: bens, ...(clsOn ? { benefit_totals: BEN.benefitTotals(bens), benefit_classes: { value_classes: BEN.VALUE_CLASSES, bases: BEN.BASES, source_kinds: BEN.SOURCE_KINDS } } : {}), me: Number(u.id),
         ...(mvRole ? { money_verifier_role: mvRole, holds_money_verifier_role: holdsExactly(u, mvRole) } : {}),   // F-PRODUCT-04: who may verify a money benefit
         plan: planSch.result, ...(planSch.error ? { plan_error: planSch.error } : {}), variance: SCH.varianceOf(p), resource_conflicts: SCH.resourceConflicts(d.tasks, members), resource_coverage: SCH.resourceCoverage(d.tasks, members),
-        stages: SCH.STAGES, allowed_stages, gate_counts: d.gate_ctx, risk_kinds: store.RISK_KINDS, plan_freshness: fresh, as_of: new Date().toISOString() });
+        stages: SCH.STAGES, allowed_stages, gate_counts: d.gate_ctx, risk_kinds: store.RISK_KINDS, plan_freshness: fresh, ...dqBlock, as_of: new Date().toISOString() });
     } catch (e) { fail(res, e); }
   });
   // ---- B-08 benefits: realised value (evidence link) + independent verification (catalogue A09) ------------------

@@ -12,7 +12,7 @@ or the plan breaks a rule (`tests/switch-lots.test.js`).
 
 | Dark switches in the register | In a lot | Keep dark | Retire (proposal) | Lots | Proposed count after decisions |
 |---|---|---|---|---|---|
-| 154 | 113 | 44 (of which 5 are not switches) | 3 | 14 | 146 dark entries if the 3 retirements and the 5 reclassifications are accepted (activations then lower it further, lot by lot) |
+| 156 | 115 | 44 (of which 5 are not switches) | 3 | 14 | 148 dark entries if the 3 retirements and the 5 reclassifications are accepted (activations then lower it further, lot by lot) |
 
 Plan checks: **clean** · dependency cycles: **0** · orphans (no code reads the key): **0**.
 
@@ -33,7 +33,7 @@ Plan checks: **clean** · dependency cycles: **0** · orphans (no code reads the
 | L11 | Site operations evidence — inspections, field, assets, WAN | 7 | PROPOSED |
 | L12 | Access security hardening | 10 | PROPOSED |
 | L13 | Operations resilience — sync drift, delivery failures, restore, identity | 6 | PROPOSED |
-| L14 | PMO journey — portfolio intake register (portfolio spec Lot 1) | 1 | PROPOSED — New lot (portfolio reconstruction spec, Lot 1). Prerequisite of the data-quality lot (spec Lot 2). |
+| L14 | PMO journey — portfolio intake register and data quality (portfolio spec Lots 1–2) | 3 | PROPOSED — New lot (portfolio reconstruction spec, Lots 1 and 2). Arm ppm_intake_register_enabled first; then ppm_data_quality_enabled (shadow) for a shadow period; ppm_dq_gate_enforced last, only after the PMO has approved the required set and the blocking checks. |
 
 Run a lot's targeted tests with its switches forced on (throwaway database only):
 
@@ -324,11 +324,11 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `site_code_shared_block` | Data owner + Owner | Decide who owns each shared site code (e.g. TND) and correct the data first; then test the controlled 409 and the editors' rights. | — | editor | — | — | 5 | 3 |
 | `policy_center_enabled` | to be named | — | — | — | — | — | 7 | 1 |
 
-## Dossier L14 — PMO journey — portfolio intake register (portfolio spec Lot 1)
+## Dossier L14 — PMO journey — portfolio intake register and data quality (portfolio spec Lots 1–2)
 
 - **Status**: PROPOSED. **Owner**: _(empty — human)_. **Canary site**: _(empty — human)_. **Decision date / expiry**: _(empty — human)_.
 - **Who sees a change**: PMO, committee members (who maintain projects), admin tier (reference lists), every project reader.
-- **What changes**: Projects carry the intake fields (type, tags, priority, structured business need, expected value, delivery lead, indicative quarter + schedule confidence, budget status / approval date / reference, decision required, delivery effort, risk exposure, FTE, skills, workload notes, explicit TBC / not applicable / none-known states); new projects get an immutable PRJ-YYYY-NNN id; the admin tier maintains the reference lists; Intake tab with field guidance on the project page. Existing projects get ids only through tools/ppm/backfill-project-ids.js (dry run first).
+- **What changes**: Projects carry the intake fields (type, tags, priority, structured business need, expected value, delivery lead, indicative quarter + schedule confidence, budget status / approval date / reference, decision required, delivery effort, risk exposure, FTE, skills, workload notes, explicit TBC / not applicable / none-known states); new projects get an immutable PRJ-YYYY-NNN id; the admin tier maintains the reference lists; Intake tab with field guidance on the project page. Existing projects get ids only through tools/ppm/backfill-project-ids.js (dry run first). Lot 2: data-quality score per project and per site (Σ completed ÷ Σ required), blocking errors, the 16-item submission checklist (shadow); optional refusal of the proposal → approval move on a blocking error (invalid schedule, no IT owner).
 - **Risk**: low-medium (AI estimate): additive columns, writes stay committee-only; the priority meanings, risk levels and effort bands are PROPOSED reference data the PMO must review before arming; the id backfill is permanent (ids are never reused).
 - **Metric that would show it worked** (candidate, no threshold): share of live projects with type, priority, business need, sponsor, IT owner and budget status filled; projects without an id after the backfill (should be zero).
 - **Rollback**: set every switch of the lot back to its default `0` (Admin or `setConfig`). Data written while on stays in place and is no longer shown or acted on; the rehearsal is `tests/switch-lots-rollback.test.js`. **Rollback trigger**: _(observable and threshold left to the owner)_.
@@ -337,6 +337,8 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | Switch | Who decides (register) | Human prerequisite (register text) | Depends on | Roles named | Tables touched | Job | Consumer files | Tests naming it |
 |---|---|---|---|---|---|---|---|---|
 | `ppm_intake_register_enabled` | to be named | once the PMO has reviewed the PROPOSED reference lists  | — | admin | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +19 | — | 13 | 1 |
+| `ppm_data_quality_enabled` | to be named | once `ppm_intake_register_enabled` is on: portfolio and project reads carry the data-quality block of the portfolio reconstruction spec  | `ppm_intake_register_enabled` | — | — | — | 4 | 0 |
+| `ppm_dq_gate_enforced` | to be named | only after the PMO has approved the required set and the blocking checks of `ppm_data_quality_enabled` and run it in shadow: the proposal → approval stage move is refused  | `ppm_data_quality_enabled` | — | — | — | 2 | 0 |
 
 ## Keep dark (with the reason)
 
@@ -463,6 +465,8 @@ Edges = a switch whose register text (recommended value or prerequisite) names a
 | `portfolio_sensitive_projects` | L07 | `portfolio_site_scope_reads` (L02) |
 | `ppm_change_requests_enabled` | L03 | `ppm_rebaseline_enabled` (L03) |
 | `ppm_cr_simulation_enabled` | L03 | `ppm_change_requests_enabled` (L03), `ppm_rebaseline_enabled` (L03) |
+| `ppm_data_quality_enabled` | L14 | `ppm_intake_register_enabled` (L14) |
+| `ppm_dq_gate_enforced` | L14 | `ppm_data_quality_enabled` (L14) |
 | `ppm_evm_enabled` | L05 | `ppm_baseline_versions` (L03) |
 | `ppm_leveling_enabled` | L04 | `ppm_resources_enabled` (L04) |
 | `ppm_project_roles_enabled` | L02 | `ppm_project_team_enabled` (L02) |

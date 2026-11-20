@@ -12,12 +12,12 @@
   "expiry"
  ],
  "counts": {
-  "report_config": 297,
+  "report_config": 299,
   "planned": 9,
   "governance_policies": 37,
   "environment": 69,
   "pseudo": 4,
-  "dark": 154,
+  "dark": 156,
   "dark_complete": 0,
   "live": 6
  },
@@ -1908,6 +1908,17 @@
    "prerequisites": null
   },
   {
+   "key": "ppm_data_quality_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": null,
+   "recommended": "`1` for a shadow period once `ppm_intake_register_enabled` is on: portfolio and project reads carry the data-quality block of the portfolio reconstruction spec (Lot 2) — the 19 checks of §20, project score = completed ÷ required fields, site score = Σ completed ÷ Σ required (never a mean of percentages), DQ RAG with PROPOSED bands (green 100 %, amber 80–99 %, red < 80 %, a blocking error → red), the 16-item §4.3 submission checklist with field help. Nothing is refused. The required set, the blocking checks and the bands are PROPOSED and must be reviewed by the PMO. `0` = no `dq` block anywhere.",
+   "prerequisites": null
+  },
+  {
    "key": "ppm_dcma_enabled",
    "source": "report_config",
    "kind": "arm switch",
@@ -1917,6 +1928,17 @@
    "owner_role": "PMO / scheduler",
    "recommended": "`1` once the PMO wants the DCMA 14-point schedule quality check on the Plan tab (published thresholds; points that need data the plan does not hold — link types / lags, hard constraints, resources, baselines, a deadline — read “not measurable”, never pass)",
    "reference": "W3-GOVERNANCE",
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_dq_gate_enforced",
+   "source": "report_config",
+   "kind": "setting",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": null,
+   "recommended": "`1` only after the PMO has approved the required set and the blocking checks of `ppm_data_quality_enabled` and run it in shadow: the proposal → approval stage move is refused (409 `GATE_DATA_QUALITY`) while a blocking check fails (invalid schedule, missing IT owner); the dry run on the project page shows the reason. Could block live approvals — keep `0` until then.",
    "prerequisites": null
   },
   {
@@ -7095,11 +7117,67 @@
    ]
   },
   {
+   "key": "ppm_data_quality_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": null,
+   "reference": null,
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
    "key": "ppm_dcma_enabled",
    "source": "report_config",
    "default": "0",
    "owner_role": "PMO / scheduler",
    "reference": "W3-GOVERNANCE",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
+   "key": "ppm_dq_gate_enforced",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": null,
+   "reference": null,
    "prerequisites": null,
    "decision": {
     "owner": null,

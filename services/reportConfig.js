@@ -483,6 +483,14 @@ Object.assign(DEFAULTS, { ppm_project_roles_enabled: '0', ppm_comments_enabled: 
 //    Existing projects get their id only through tools/ppm/backfill-project-ids.js (--dry-run default). Priority
 //    meanings, risk levels and effort bands are PROPOSED reference data, not approved policy. Arming is a PMO decision.
 Object.assign(DEFAULTS, { ppm_intake_register_enabled: '0' });
+// ── PORTFOLIO LOT 2 (IT portfolio reconstruction spec §4.3, §20) — PROPOSED, '0' = today. No migration (computed on read).
+//    ppm_data_quality_enabled '1' → portfolio and project reads carry a `dq` block (shadow): the 19 checks of spec §20,
+//    project score = completed ÷ required required fields, site score = Σ completed ÷ Σ required, DQ RAG (PROPOSED
+//    bands 100 / 80, a blocking error → red), the §4.3 submission checklist bound to the fields; nothing is refused.
+//    ppm_dq_gate_enforced '1' → the proposal → approval stage move is refused (409 GATE_DATA_QUALITY) while a blocking
+//    check fails (invalid schedule, missing IT owner). Separate so the PMO can shadow-test first. The required set,
+//    the blocking checks and the bands are PROPOSED policy (services/ppm/dataQuality.js) — arming is a PMO decision.
+Object.assign(DEFAULTS, { ppm_data_quality_enabled: '0', ppm_dq_gate_enforced: '0' });
 // ── W3-GOVERNANCE (PPM parity W3, migration 110) — PROPOSED, '0' = today (the routes answer 404, nothing is stored).
 //    ppm_simplified_view_enabled '1' → the project page offers a Simplified ↔ Expert switch (per-user preference):
 //    KPI cards (RAG, % schedule complete, budget burn for the admin tier + finance-viewer, risks / blockers, next

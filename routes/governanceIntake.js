@@ -4,6 +4,7 @@
 // today). ADR: docs/ai-decisions/ADR-PORTFOLIO-LOT1-intake-register.md.
 //   GET  /api/governance/intake/catalogue                      any session: field guidance (EN + FR), sections, value
 //                                                               states, the ACTIVE reference-list values per list
+//                                                               (+ dq_guide while ppm_data_quality_enabled = '1', Lot 2)
 //   GET  /api/governance/intake/lookups                        admin tier: every value incl. retired + live usage count
 //   PUT  /api/governance/intake/lookups/:domain                admin tier: create (new code) or update a value
 //   POST /api/governance/intake/lookups/:domain/:code/retire   admin tier: soft retire (never a physical delete)
@@ -29,7 +30,10 @@ module.exports = function governanceIntakeRoutes(router, h) {
 
   router.get('/api/governance/intake/catalogue', requireReportSession, sw, async (req, res) => {
     try {
-      res.json({ ok: true, proposed: true, fields: IF.GUIDE, sections: IF.SECTIONS, value_states: IF.STATES, state_fields: IF.STATE_FIELDS, none_known_only: IF.NONE_KNOWN_ONLY,
+      // PORTFOLIO LOT 2 — with ppm_data_quality_enabled = '1' the catalogue also carries the data-quality guide (checks,
+      // §4.3 checklist, the extra field entries, the PROPOSED policy); '0' = the Lot 1 response unchanged
+      const dqOn = String((await reportConfig.getConfig(rdb().db)).ppm_data_quality_enabled) === '1';
+      res.json({ ok: true, proposed: true, fields: IF.GUIDE, ...(dqOn ? { dq_guide: require('../services/ppm/fieldGuide').dqGuide() } : {}), sections: IF.SECTIONS, value_states: IF.STATES, state_fields: IF.STATE_FIELDS, none_known_only: IF.NONE_KNOWN_ONLY,
         business_need_parts: IF.NEED_PARTS, lookups: await store().byDomain(), colors: LK.COLORS, can_admin_lookups: !!isAdmin(req.reportUser) });
     } catch (e) { fail(res, e); }
   });

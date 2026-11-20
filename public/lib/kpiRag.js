@@ -42,6 +42,9 @@
     'sla-percent':       { scale: 'points', green: 90,   amber: 70,   source: 'docs/EXEC_PPTX_CHART_AUDIT.md CSAT bands' },
     'tracker-boolean':   { scale: 'ratio',  green: 1.0,  amber: 0.5,  source: 'engine.js BOOLEAN done / in progress' },
     'kpi-target':        { scale: 'target-ratio', green: 1.0, amber: 0.9, source: 'services/kpiTargets.js — value vs the per-site KPI target (committee #40)' },
+    // PORTFOLIO LOT 2 — PROPOSED (spec §20.2: green 100 %, amber 80–99 %, red < 80 %; a blocking error overrides to red
+    // in services/ppm/dataQuality.js). Not approved: a PMO decision.
+    'ppm-data-quality':  { scale: 'points', green: 100,  amber: 80,   proposed: true, status: 'PROPOSED', source: 'services/ppm/dataQuality.js — IT portfolio spec §20.2 (PROPOSED, not approved)' },
   };
 
   // A-11 — opts.emptyAs is OPT-IN: with no measurement at all, return it instead of 0
