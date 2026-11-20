@@ -3,6 +3,9 @@
 -- migration that builds on this one must be rolled back first (the DROPs carry no CASCADE, so an out-of-order run
 -- REFUSES instead of silently dropping a dependant). Afterwards:
 --   DELETE FROM schema_migrations WHERE id = 'reports/081_benefit_class_and_currency_flag.sql';
+-- One transaction (P11 r5 N-13): a failing statement rolls the whole script back; psql -f turns the final
+-- COMMIT of an aborted transaction into ROLLBACK, so a failure changes nothing.
+BEGIN;
 ALTER TABLE portfolio_projects DROP COLUMN IF EXISTS currency_defaulted;
 ALTER TABLE portfolio_benefits DROP COLUMN IF EXISTS verifier_role_required;
 ALTER TABLE portfolio_benefits DROP COLUMN IF EXISTS metric_key;
@@ -14,3 +17,4 @@ ALTER TABLE portfolio_benefits DROP COLUMN IF EXISTS baseline_period_to;
 ALTER TABLE portfolio_benefits DROP COLUMN IF EXISTS baseline_period_from;
 ALTER TABLE portfolio_benefits DROP COLUMN IF EXISTS basis;
 ALTER TABLE portfolio_benefits DROP COLUMN IF EXISTS value_class;
+COMMIT;

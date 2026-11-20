@@ -3,5 +3,9 @@
 -- history for good — export the claims (evidence packs) and take a pg_dump before. Nothing else depends on these tables.
 -- Afterwards:
 --   DELETE FROM schema_migrations WHERE id = 'reports/098_wan_sla_claims.sql';
+-- One transaction (P11 r5 N-13): a failing statement rolls the whole script back; psql -f turns the final
+-- COMMIT of an aborted transaction into ROLLBACK, so a failure changes nothing.
+BEGIN;
 DROP TABLE IF EXISTS wan_sla_claim_events;
 DROP TABLE IF EXISTS wan_sla_claims;
+COMMIT;

@@ -3,6 +3,9 @@
 -- project ids (PRJ-YYYY-NNN) and the portfolio reference lists for good — the projects themselves and their `key` STAY.
 -- Take a pg_dump before (the project ids are meant to be permanent). Afterwards:
 --   DELETE FROM schema_migrations WHERE id = 'reports/117_ppm_intake_register.sql';
+-- One transaction (P11 r5 N-13): a failing statement rolls the whole script back; psql -f turns the final
+-- COMMIT of an aborted transaction into ROLLBACK, so a failure changes nothing.
+BEGIN;
 DROP TABLE IF EXISTS ppm_lookup_values;
 DROP TABLE IF EXISTS ppm_project_ref_seq;
 DROP TRIGGER IF EXISTS portfolio_projects_ref_immutable ON portfolio_projects;
@@ -28,3 +31,4 @@ ALTER TABLE portfolio_projects DROP COLUMN IF EXISTS priority;
 ALTER TABLE portfolio_projects DROP COLUMN IF EXISTS tags;
 ALTER TABLE portfolio_projects DROP COLUMN IF EXISTS project_type;
 ALTER TABLE portfolio_projects DROP COLUMN IF EXISTS project_ref;
+COMMIT;
