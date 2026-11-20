@@ -187,7 +187,7 @@ not the browser-checked level.
 | `docs/agent-execution/P07-security-closure.md` | P07 | code+test | pending | pending | `d11eb355b50431bf1079f78a67dae052446ffd1bcd51bafd8bf6a856da9b7c2b` |
 | `docs/agent-execution/P08-kpi-certification.md` | P08 | code+test | pending | pending | `c6f7ad6bf671fdf67b4c2879bb124c54528ab8312abf7100946d108e56b68d49` |
 | `docs/agent-execution/P08-unknown-sweep.md` | P08 | code+test | pending | pending | `2823e1b20aa60048c27e6bc796e0bea4bf846d9a07b57c138d09f0391771df89` |
-| `docs/agent-execution/P09-PAGE-INVENTORY.md` | P09 | code+test | pending | pending | `5202d46f30131936830e5c4493b5119ac8b63bdf72d294141318a189d00a5ca7` |
+| `docs/agent-execution/P09-PAGE-INVENTORY.md` | P09 | code+test | pending | pending | `242aaec9fedf8f15b767d81e9d6a3eec1463c3016d98daa5ba610d38792b2d0b` |
 | `docs/agent-execution/P09-adoption-kit.md` | P09 | code+test | pending | pending | `8246fb83ee6409fc87ec55235daf09386dd24fcc7509ae392e649aff81bb1081` |
 | `docs/agent-execution/P10-gate-dossiers.md` | P10 | code+test | pending | pending | `20c3eb48b5a799f93ababe903e956ed4e6d32bcfb182098d86317fa8aec282b6` |
 | `docs/agent-execution/P11-R2-ppm-fix.md` | P11 | code+test | pending | pending | `d0b350bb851c15e251daa0d5dc9b84082fa359f3291207c81b8c0e759ae69a4e` |
