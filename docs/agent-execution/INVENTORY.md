@@ -19,8 +19,8 @@
 | routes in server js | 160 |
 | jobs | 33 |
 | jobs without test reference | 0 |
-| migrations | 111 |
-| test files | 919 |
+| migrations | 112 |
+| test files | 921 |
 
 ## Pages
 
@@ -192,7 +192,7 @@
 | RT-GET-api-meetings-progress-export-pptx | GET | `/api/meetings/progress/export-pptx` | routes/meetings.js:922 |
 | RT-GET-api-reports-helpdesk-live | GET | `/api/reports/helpdesk-live` | server.js:4319 |
 | RT-GET-api-reports-technicians | GET | `/api/reports/technicians` | server.js:4576 |
-| RT-POST-api-reports-test-smtp | POST | `/api/reports/test-smtp` | routes/adminConfig.js:185 |
+| RT-POST-api-reports-test-smtp | POST | `/api/reports/test-smtp` | routes/adminConfig.js:188 |
 | RT-GET-api-risk-register-config-unmapped | GET | `/api/risk-register-config/unmapped` | routes/riskRegister.js:130 |
 | RT-GET-api-roadmap-evidence-catalogue | GET | `/api/roadmap/evidence/catalogue` | routes/roadmap.js:56 |
 | RT-GET-api-roadmap-evidence-incidents | GET | `/api/roadmap/evidence/incidents` | routes/roadmap.js:73 |

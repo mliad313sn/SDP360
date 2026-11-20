@@ -91,14 +91,14 @@ test('apply + journal + rollback on the throwaway database', async () => {
     assert.ok(rb.entries.find((e) => e.key === 'ui_role_landing'));
     assert.ok(!/sdptest-local-only/.test(fs.readFileSync(res.rollback_file, 'utf8')), 'password never in the rollback file');
     // someone changes one switch after the activation: rollback leaves it alone unless --force
+    // (N-R6-1: a switch only stores 1/0 now, so the outside change is the switch turned back off)
     await rc.setConfig(rdb.db, { ui_role_landing: '0' }, 'someone');
-    await rc.setConfig(rdb.db, { ui_role_landing: '2' }, 'someone');
     // N-15: L13 turned policy_center_enabled on; rolling it back to '0' is the weaker side → a second person is needed
     await assert.rejects(A.main([`--rollback=${res.rollback_file}`, `--db-url=${url}`, '--operator=jdoe'], { ...quiet, ...(await liveDeps(url)) }), /policy_center_enabled[^]*second person/);
     const back = await A.main([`--rollback=${res.rollback_file}`, `--db-url=${url}`, '--operator=jdoe', '--second-operator=asmith'], { ...quiet, ...(await liveDeps(url)) });
     assert.ok(back.conflicts.some((c) => c.key === 'ui_role_landing'));
     cfg = await rc.getConfig(rdb.db);
-    assert.equal(cfg.commitments_enabled, '0'); assert.equal(cfg.mywork_awaiting_me_enabled, '0'); assert.equal(cfg.ui_role_landing, '2');
+    assert.equal(cfg.commitments_enabled, '0'); assert.equal(cfg.mywork_awaiting_me_enabled, '0'); assert.equal(cfg.ui_role_landing, '0');
     // a second apply of an already-on lot writes nothing new
     await A.main(['--apply', `--db-url=${url}`, '--lots=L01', `--rollback-dir=${dir}`, '--reason=second activation run'], { ...quiet, ...(await liveDeps(url)) });
     const again = await A.main(['--apply', `--db-url=${url}`, '--lots=L01', `--rollback-dir=${dir}`, '--dry-run'], { ...quiet, ...(await liveDeps(url)) });

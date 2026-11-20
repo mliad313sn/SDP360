@@ -102,7 +102,11 @@ test('R2-WB-02 workbook: no actual_hours column unless given; given = per task a
 
 test('R2-WB-01 normaliseChangeRequest: title, reason ≥ 10, whole days, an amount needs its currency', () => {
   assert.deepEqual(WB.normaliseChangeRequest({ title: 'Extend to site B', reason: 'scope change requested', impact_dates_days: '14', impact_budget: '2500', currency: 'usd' }),
-    { title: 'Extend to site B', reason: 'scope change requested', impact_dates_days: 14, impact_budget: 2500, currency: 'USD' });
+    { title: 'Extend to site B', reason: 'scope change requested', impact_dates_days: 14, impact_budget: 2500, currency: 'USD', scope_fields: null });
+  // N-R6-2 — the frozen fields a request may rewrite: array or comma list, unknown names (budget, currency) refused
+  assert.equal(WB.normaliseChangeRequest({ title: 'x', reason: 'a long enough reason', scope_fields: [' charter', 'business_need', 'charter'] }).scope_fields, 'charter,business_need');
+  assert.equal(WB.normaliseChangeRequest({ title: 'x', reason: 'a long enough reason', scope_fields: 'budget_reference' }).scope_fields, 'budget_reference');
+  for (const bad of ['budget', 'currency', 'name']) assert.throws(() => WB.normaliseChangeRequest({ title: 'x', reason: 'a long enough reason', scope_fields: bad }), (e) => e.reason === 'BAD_SCOPE', bad);
   assert.deepEqual(WB.normaliseChangeRequest({ title: 'x', reason: 'a long enough reason', impact_dates_days: '', impact_budget: null, currency: 'XOF' }).impact_budget, null, 'no amount = unknown, never 0');
   for (const [b, code] of [[{ reason: 'a long enough reason' }, 'TITLE_REQUIRED'], [{ title: 'x', reason: 'short' }, 'REASON_REQUIRED'], [{ title: 'x', reason: 'a long enough reason', impact_dates_days: 1.5 }, 'BAD_DAYS'],
     [{ title: 'x', reason: 'a long enough reason', impact_budget: 10 }, 'CURRENCY_REQUIRED'], [{ title: 'x', reason: 'a long enough reason', impact_budget: 10, currency: 'dollars' }, 'BAD_CURRENCY']]) {

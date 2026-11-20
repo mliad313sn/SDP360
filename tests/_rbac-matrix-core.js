@@ -10,6 +10,7 @@
 // Every check returns a list of violations (strings); an empty list = the rule holds. Checks never throw on a
 // violation, so the mutation test can assert "this deliberate break is detected".
 const http = require('http');
+const fetch = require('./_http-fetch');
 const fs = require('fs');
 const path = require('path');
 
@@ -202,6 +203,10 @@ async function checkBusinessLock(w, opts = {}) {
 // ── Invariant 2 — amounts visible only to the admin tier + finance-viewer (JSON, exports, portfolio) ──────────
 const MONEY_KEYS = ['purchase_cost', 'current_book_value', 'total_cost_of_ownership', 'operational_cost', 'purchase_cost_usd', 'book_value_usd', 'tco_usd'];
 const BUDGET = 987654;
+// P11 R6 (R1-F5) — sentinels of the Lots 1–6 money fields (seedMoney): budget reference, change-request impact, money document title
+const MONEY_REF_SENTINEL = 'BREF-5432109';
+const CR_IMPACT = 543210;
+const DOC_TITLE = 'Quote 4321098 USD';
 const MONEY_READERS = ['finA', 'admin', 'exec', 'super'];
 const NON_MONEY = ['viewA', 'edA', 'trkA', 'scoreA', 'fieldA', 'edNoSite', 'committee'];
 // Invariant 2 as written ("amounts visible only to the admin tier + finance-viewer") is NOT what the product does for a
@@ -231,6 +236,22 @@ async function seedMoney(w) {
   const proj = await put('project', { objective_id: obj.json && obj.json.id, key: 'a0-proj', name: 'A0 money project', site_id: w.A.id, owner: 'nobody',
     start_date: '2026-01-01', end_date: '2026-12-31', status: 'active', budget: BUDGET, spent: 1000, currency: 'USD' });
   w.money = { project: proj.json && proj.json.id, setup: [prog.status, obj.status, proj.status] };
+  // P11 R6 (R1-F5) — the money fields of portfolio Lots 1–6 carry their own sentinels: the budget reference (finance
+  // metadata, MONEY_ADJACENT), a change request's impact_budget, and the title of a money document (P11 R5-6: masked for
+  // a non-reader). The document is uploaded through its route (live only when ppm_documents_enabled is on — the lots-on
+  // probe); the others are written directly so the baseline probe scans them too.
+  const pid = w.money.project;
+  if (pid) {
+    const db = w.rdb.db;
+    await db.prepare('UPDATE portfolio_projects SET budget_reference=? WHERE id=?').run(MONEY_REF_SENTINEL, pid);
+    await db.prepare(`INSERT INTO ppm_change_requests (project_id, title, reason, impact_budget, currency, status, author_name, created_at) VALUES (?,?,?,?,?,?,?,?)`)
+      .run(pid, 'A0 money change', 'A0 money change for the probe', CR_IMPACT, 'USD', 'approved', 'probe', new Date().toISOString());
+    try {
+      const pdf = Buffer.concat([Buffer.from('%PDF-1.4\n'), Buffer.from('probe')]);
+      const r = await fetch(`${w.base}/api/governance/ppm/project/${pid}/documents?doc_type=vendor_quotation&title=${encodeURIComponent(DOC_TITLE)}`, { method: 'POST', headers: { 'x-report-token': w.tok.admin, 'content-type': 'application/pdf' }, body: pdf });
+      w.money.document = r.status;
+    } catch (_) { w.money.document = 'error'; }
+  }
   return w.money;
 }
 
@@ -473,13 +494,18 @@ const ADMIN_TIER_KEYS = ['admin', 'exec', 'super'];
 // and must be refused. Session-ending routes are probed with a throwaway token so the persona keeps its session.
 const OUTCOME_EXEC_SKIP = /\/backup-now$|\/backup-schedule$|\/reset$|\/sync(\/|$)|\/trigger\/|\/send$|\/test-smtp$|\/import\/commit$|\/notify\/send$/;
 // Money sentinels seeded by seedMoney (asset XOF amounts + portfolio budget). Seen in a non-reader's 2xx body = leak.
-const MONEY_SENTINELS = ['987654', '987,654', '987 654', '1234567', '1,234,567', '765432', '765,432'];
+const MONEY_SENTINELS = ['987654', '987,654', '987 654', '1234567', '1,234,567', '765432', '765,432',
+  'BREF-5432109', '543210', '543,210', '543 210', '4321098'];
 const MONEY_READER_KEYS = ['admin', 'exec', 'super', 'f:finance-viewer'];
 // Recorded exception (GAP-MATRIX invariant 2, policy decision pending — proposal in docs/ai-decisions/): the
 // committee-member reads portfolio amounts. Matched by route-key regexp.
 const KNOWN_OUTCOME_MONEY = [
   { persona: 'f:committee-member', re: /^GET \/api\/governance\/portfolio(\/|$)/, reason: 'committee-member money exception (policy pending)' },
   { persona: 'f:committee-member', re: /^GET \/api\/governance\/ppm\/project\/:id\/budget-periods$/, reason: 'committee-member money exception (policy pending)' },
+  // P11 R6 (R1-F5) — the same exception seen through the Lots 1–6 money sentinels: a change request's impact_budget and
+  // the title / file of a money document are amounts the committee reads (canSeeMoney) — not a separate decision.
+  { persona: 'f:committee-member', re: /^GET \/api\/governance\/ppm\/project\/:id\/changes$/, reason: 'committee-member money exception (policy pending)' },
+  { persona: 'f:committee-member', re: /^GET \/api\/governance\/ppm\/project\/:id\/documents(\/:docId\/download)?$/, reason: 'committee-member money exception (policy pending)' },
 ];
 
 async function _outcomePersonas(rdb, prefix, A, B, tok, users) {

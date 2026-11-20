@@ -83,8 +83,11 @@ router.get('/api/reports/config/history', requireReportSession, requireSuperAdmi
 });
 router.put('/api/reports/config', requireReportSession, requireSuperAdmin, async (req, res) => {
   try {
-    const body = { ...(req.body || {}) };
-    const reason = body.reason; delete body.reason;   // E-A07 — optional, stored with each journal row
+    const raw = { ...(req.body || {}) };
+    const reason = raw.reason; delete raw.reason;   // E-A07 — optional, stored with each journal row
+    // N-R6-1 — every check below (four-eyes guard, outbound URLs, journal) sees the value that will be STORED: a switch
+    // sent as a JSON boolean / "on" becomes '1'/'0', anything else for a switch is a 400 and nothing is written.
+    const body = reportConfig.canonicalPatch(raw);
     // SSO settings (mode / secret / tenant) are auth-critical. The endpoint is
     // requireAdmin (shared with SMTP etc.), so enforce super_admin server-side for
     // the SSO keys — the UI hide alone is not a boundary.

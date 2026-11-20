@@ -829,8 +829,40 @@ function getConfig(db, opts) {
 const _UPSERT = `INSERT INTO report_config (key, value, updated_at, updated_by)
   VALUES (?, ?, {NOW}, ?)
   ON CONFLICT(key) DO UPDATE SET value=excluded.value, updated_at=excluded.updated_at, updated_by=excluded.updated_by`;
+// N-R6-1 (P11 round 6) — a report_config switch ('0'/'1') is stored CANONICALLY. Every reader compares `=== '1'`
+// (some `!== '0'`), so a JSON boolean stored as "true" read as OFF while the four-eyes guard, which mapped true → '1',
+// saw "no change" and let one super_admin turn a strict control off. canonicalValue() is the ONE mapping: setConfig
+// stores what it returns and services/fourEyesGuard compares what it returns, so the value the guard checks is the
+// value that is stored is the value the readers see. A switch accepts true/false, 1/0, "1"/"0", "true"/"false",
+// "on"/"off", "yes"/"no" (trimmed, any case); anything else is a 400 — never stored.
+// Switch keys = keys whose default is '0'/'1' (the policy catalogue's `bool` type, tests/report-config-switch-canonical
+// keeps the two lists equal), minus the numeric keys that happen to default to 0/1.
+const NOT_SWITCH = new Set(['asset_replacement_uplift_pct', 'opm_rest_concurrency', 'exec_view_min_cell', 'site_codes_from_registry']);
+const SWITCH_KEYS = new Set(KEYS.filter((k) => (DEFAULTS[k] === '0' || DEFAULTS[k] === '1') && !NOT_SWITCH.has(k)));
+const _ON = new Set(['1', 'true', 'on', 'yes']), _OFF = new Set(['0', 'false', 'off', 'no']);
+function canonicalValue(key, v) {
+  if (SWITCH_KEYS.has(key)) {
+    const t = typeof v === 'boolean' ? (v ? '1' : '0') : (typeof v === 'number' || typeof v === 'string') ? String(v).trim().toLowerCase() : null;
+    if (t !== null && _ON.has(t)) return '1';
+    if (t !== null && _OFF.has(t)) return '0';
+    const e = require('./httpError').typed('VALIDATION', `${key}: a switch takes 1 or 0 (true/false, on/off accepted) — got ${JSON.stringify(v === undefined ? null : v)}`, 400);
+    e.key = key;
+    throw e;
+  }
+  if (v === undefined || v === null) return '';
+  return typeof v === 'object' ? JSON.stringify(v) : String(v);
+}
+/** The patch as it will be stored (config keys canonicalised, other keys — e.g. a `reason` — passed through). Throws 400. */
+function canonicalPatch(patch) {
+  const out = {};
+  for (const [k, v] of Object.entries(patch || {})) out[k] = KEYS.includes(k) ? canonicalValue(k, v) : v;
+  return out;
+}
+
 function setConfig(db, patch, user, opts) {
   const _key = _keyOf(opts);
+  try { patch = canonicalPatch(patch); }   // N-R6-1 — refuses (400) before anything is written
+  catch (e) { return Promise.reject(e); }
   // A blank smtp_pass means "keep the existing password" — the GET handler
   // redacts it to '', so a Save that doesn't retype it must NOT wipe the stored value.
   const clean = Object.entries(patch || {})
@@ -848,4 +880,4 @@ function setConfig(db, patch, user, opts) {
   })();
 }
 
-module.exports = { DEFAULTS, KEYS, _SECRET_BLANK_KEEP, getConfig, setConfig };
+module.exports = { DEFAULTS, KEYS, _SECRET_BLANK_KEEP, SWITCH_KEYS, canonicalValue, canonicalPatch, getConfig, setConfig };

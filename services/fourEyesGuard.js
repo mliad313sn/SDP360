@@ -27,7 +27,9 @@ function blockedKeys(cur, patch, o = {}) {
   return Object.keys(patch).filter((k) => {
     const e = by.get(k);
     if (!e || e.source !== 'report_config' || !e.four_eyes) return false;
-    const next = str(patch[k]), now = str(cur[k]);
+    // N-R6-1 — compare the value setConfig will actually STORE (reportConfig.canonicalValue, which also refuses a
+    // non-switch value for a switch with a 400), not a guard-local normalisation that the store did not share.
+    const next = require('./reportConfig').canonicalValue(k, patch[k]), now = str(cur[k]);
     if (next === now) return false;
     return o.anyChange ? true : PC.needsSecondPerson(e, now, next);
   });

@@ -76,6 +76,11 @@ const ROLE_CATALOGUE = Object.freeze([
 //     case is a committee re-baseline, not an edit (PROPOSED — for the committee to confirm).
 const FROZEN_FIELDS = Object.freeze(['charter', 'business_need', 'expected_value', 'budget', 'currency', 'budget_reference', 'budget_approval_date']);
 const CR_OK = ['approved', 'applied'];
+// N-R6-2 (P11 round 6) — a change request unlocks only the fields of its approved scope: `budget` through its
+// impact_budget (value-bound above), every other frozen field only when the request names it in scope_fields
+// (fixed at proposal, so the approver saw it). `currency` is never scopable.
+const SCOPABLE_FIELDS = Object.freeze(FROZEN_FIELDS.filter((f) => f !== 'budget' && f !== 'currency'));
+const scopeOf = (cr) => (Array.isArray(cr && cr.scope_fields) ? cr.scope_fields : String((cr && cr.scope_fields) || '').split(',')).map((f) => String(f).trim()).filter(Boolean);
 const numOrNull = (v) => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
 /**
  * @param {string[]} changed  field names whose value changes in this write
@@ -90,6 +95,8 @@ function freezeRefusal(changed, projectId, cr, ctx = {}) {
   if (fields.includes('currency')) return refuse('BUSINESS_CASE_FROZEN', 'the currency of an approved business case is frozen: a change request carries no exchange basis — re-baseline the business case through the committee');
   if (!(cr && Number(cr.project_id) === Number(projectId) && CR_OK.includes(cr.status))) return refuse('BUSINESS_CASE_FROZEN', `the approved business case is frozen (${fields.join(', ')}): raise a change request, have it approved, then send its change_request_id with the edit`);
   if (cr.used) return refuse('CHANGE_REQUEST_USED', `change request #${cr.id} was already applied to the business case — raise a new change request for a further change`);
+  const outside = fields.filter((f) => f !== 'budget' && !scopeOf(cr).includes(f));
+  if (outside.length) return refuse('CHANGE_REQUEST_SCOPE', `change request #${cr.id} does not name ${outside.join(', ')} in its approved scope — raise a change request that names ${outside.length > 1 ? 'them' : 'it'} (scope_fields)`);
   if (fields.includes('budget')) {
     const before = ctx.before || {}, vals = ctx.vals || {};
     const impact = numOrNull(cr.impact_budget), oldB = numOrNull(before.budget), newB = numOrNull(vals.budget);
@@ -135,4 +142,4 @@ function normaliseQuestion(v) { const s = text(v, 10, 2000); if (!s) throw bad('
 function normaliseAnswer(v) { const s = text(v, 3, 4000); if (!s) throw bad('an answer of 3 characters or more is required', 'ANSWER_REQUIRED'); return s; }
 function normaliseReason(v) { const s = text(v, 10, 2000); if (!s) throw bad('a reason of 10 characters or more is required', 'REASON_REQUIRED'); return s; }
 
-module.exports = { selfApprovalRefusal, reviewTemplate, REVIEW_STEPS, REVIEW_GATE, ROLE_CATALOGUE, FROZEN_FIELDS, freezeRefusal, reviewState, ACTIONS, STEP_KEYS, normaliseStep, normaliseQuestion, normaliseAnswer, normaliseReason };
+module.exports = { selfApprovalRefusal, reviewTemplate, REVIEW_STEPS, REVIEW_GATE, ROLE_CATALOGUE, FROZEN_FIELDS, SCOPABLE_FIELDS, freezeRefusal, reviewState, ACTIONS, STEP_KEYS, normaliseStep, normaliseQuestion, normaliseAnswer, normaliseReason };

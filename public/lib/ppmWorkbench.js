@@ -133,7 +133,7 @@
     return '<table><thead><tr><th>#</th><th>Change</th><th>Status</th><th>Dates impact</th><th>Money impact</th>' + (w.simulation ? '<th>Simulated impact</th>' : '') + '<th>Author</th><th>Decided by</th><th>Baseline</th><th>Next step</th></tr></thead><tbody>' + list.map(function (c) {
       var money = w.moneyHidden ? '<span class="muted">restricted</span>' : (c.impact_budget == null ? '—' : esc(String(c.impact_budget)) + ' ' + n(c.currency, esc));
       var steps = crSteps(c, w).map(function (k) { return '<button class="btn' + (k === 'reject' || k === 'withdraw' ? ' danger' : '') + '" type="button" data-cr="' + esc(String(c.id)) + '" data-cr-action="' + esc(k) + '">' + esc(CR_STEPS[k].label) + '</button>'; }).join(' ');
-      return '<tr><td>' + esc(String(c.id)) + '</td><td><b>' + esc(c.title) + '</b><br><span class="muted">' + n(c.reason, esc) + '</span></td><td><span class="pill">' + esc(c.status) + '</span></td><td>' + (c.impact_dates_days == null ? '—' : esc((c.impact_dates_days > 0 ? '+' : '') + c.impact_dates_days + ' d')) + '</td><td>' + money + '</td>' + (w.simulation ? '<td>' + impactHtml(c.simulation, esc, w.moneyHidden) + (w.canEdit && c.task_changes && c.task_changes.length && ['proposed', 'assessed', 'approved'].indexOf(c.status) >= 0 ? '<br><button class="btn" type="button" data-cr-sim="' + esc(String(c.id)) + '">Re-simulate</button>' : '') + '</td>' : '') + '<td>' + n(c.author_name, esc) + '</td><td>' + n(c.decided_by_name, esc) + '</td><td>' + (c.applied_baseline_version == null ? '—' : 'v' + esc(String(c.applied_baseline_version))) + '</td><td>' + (steps || '<span class="muted">—</span>') + '</td></tr>';
+      return '<tr><td>' + esc(String(c.id)) + '</td><td><b>' + esc(c.title) + '</b><br><span class="muted">' + n(c.reason, esc) + '</span>' + (c.scope_fields && c.scope_fields.length ? '<br><span class="muted">May rewrite: ' + esc(c.scope_fields.join(', ')) + '</span>' : '') + '</td><td><span class="pill">' + esc(c.status) + '</span></td><td>' + (c.impact_dates_days == null ? '—' : esc((c.impact_dates_days > 0 ? '+' : '') + c.impact_dates_days + ' d')) + '</td><td>' + money + '</td>' + (w.simulation ? '<td>' + impactHtml(c.simulation, esc, w.moneyHidden) + (w.canEdit && c.task_changes && c.task_changes.length && ['proposed', 'assessed', 'approved'].indexOf(c.status) >= 0 ? '<br><button class="btn" type="button" data-cr-sim="' + esc(String(c.id)) + '">Re-simulate</button>' : '') + '</td>' : '') + '<td>' + n(c.author_name, esc) + '</td><td>' + n(c.decided_by_name, esc) + '</td><td>' + (c.applied_baseline_version == null ? '—' : 'v' + esc(String(c.applied_baseline_version))) + '</td><td>' + (steps || '<span class="muted">—</span>') + '</td></tr>';
     }).join('') + '</tbody></table><p class="muted">The author never approves or rejects their own change. Applying a change with a dates impact writes a new baseline version (committee re-baseline).</p>';
   }
   var CHG = { ctx: null, who: {} };
@@ -146,12 +146,12 @@
     $('cr-save').setAttribute('data-wired', '1');
     $('cr-save').addEventListener('click', function () {
       var c = CHG.ctx, v = function (id) { var x = $(id).value.trim(); return x === '' ? null : x; };
-      var b = { title: v('cr-title'), reason: v('cr-reason'), impact_dates_days: v('cr-days') == null ? null : Number(v('cr-days')), impact_budget: v('cr-amount') == null ? null : Number(v('cr-amount')), currency: v('cr-cur') };
+      var b = { title: v('cr-title'), reason: v('cr-reason'), impact_dates_days: v('cr-days') == null ? null : Number(v('cr-days')), impact_budget: v('cr-amount') == null ? null : Number(v('cr-amount')), currency: v('cr-cur'), scope_fields: v('cr-scope') };
       if (CHG.who.simulation && $('cr-tasks') && v('cr-tasks') != null) {   // B5 — task changes, simulated by the server
         var tc = parseChangeLines($('cr-tasks').value); if (tc.error) { c.msg(tc.error, 'errors'); return; }
         b.task_changes = tc;
       }
-      c.api(url, { method: 'POST', body: JSON.stringify(b) }).then(function () { c.msg('Change request proposed.'); ['cr-title', 'cr-reason', 'cr-days', 'cr-amount', 'cr-cur', 'cr-tasks'].forEach(function (k) { if ($(k)) $(k).value = ''; }); CHG.draw(); }).catch(c.fail);
+      c.api(url, { method: 'POST', body: JSON.stringify(b) }).then(function () { c.msg('Change request proposed.'); ['cr-title', 'cr-reason', 'cr-days', 'cr-amount', 'cr-cur', 'cr-scope', 'cr-tasks'].forEach(function (k) { if ($(k)) $(k).value = ''; }); CHG.draw(); }).catch(c.fail);
     });
     $('changes').addEventListener('click', function (ev) {
       var sb = ev.target.closest && ev.target.closest('[data-cr-sim]');

@@ -309,6 +309,7 @@
         <label>Dates impact (days, + later / − earlier; empty = not known) <input id="cr-days" type="number" step="1"></label>
         <label id="cr-sim-box" style="grid-column:1/-1" hidden>Task changes to simulate (optional, one task per line: task id duration=5 effort=40 start=YYYY-MM-DD end=YYYY-MM-DD depends=3,4) <textarea id="cr-tasks" rows="3"></textarea></label>
         <span id="cr-money-box" class="row" style="grid-column:1/-1"><label>Money impact (empty = not known) <input id="cr-amount" type="number" step="any"></label><label>Currency (with an amount) <input id="cr-cur" placeholder="USD" maxlength="3"></label></span>
+        <label style="grid-column:1/-1">Business-case fields this change may rewrite (comma-separated; the budget follows the money impact) <input id="cr-scope" placeholder="charter, business_need, expected_value, budget_reference, budget_approval_date"></label>
       </div>
       <div class="bar"><button class="btn primary" id="cr-save" type="button">Propose the change</button></div></div>
   </section>
