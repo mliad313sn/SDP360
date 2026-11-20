@@ -12,7 +12,7 @@ or the plan breaks a rule (`tests/switch-lots.test.js`).
 
 | Dark switches in the register | In a lot | Keep dark | Retire (proposal) | Lots | Proposed count after decisions |
 |---|---|---|---|---|---|
-| 152 | 111 | 44 (of which 5 are not switches) | 3 | 13 | 144 dark entries if the 3 retirements and the 5 reclassifications are accepted (activations then lower it further, lot by lot) |
+| 153 | 112 | 44 (of which 5 are not switches) | 3 | 13 | 145 dark entries if the 3 retirements and the 5 reclassifications are accepted (activations then lower it further, lot by lot) |
 
 Plan checks: **clean** · dependency cycles: **0** · orphans (no code reads the key): **0**.
 
@@ -32,7 +32,7 @@ Plan checks: **clean** · dependency cycles: **0** · orphans (no code reads the
 | L10 | Reporting rhythm — reminders, drift and deck clarity | 8 | PROPOSED |
 | L11 | Site operations evidence — inspections, field, assets, WAN | 7 | PROPOSED |
 | L12 | Access security hardening | 10 | PROPOSED |
-| L13 | Operations resilience — sync drift, delivery failures, restore, identity | 5 | PROPOSED |
+| L13 | Operations resilience — sync drift, delivery failures, restore, identity | 6 | PROPOSED |
 
 Run a lot's targeted tests with its switches forced on (throwaway database only):
 
@@ -77,7 +77,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 
 | Switch | Who decides (register) | Human prerequisite (register text) | Depends on | Roles named | Tables touched | Job | Consumer files | Tests naming it |
 |---|---|---|---|---|---|---|---|---|
-| `portfolio_site_scope_reads` | Owner (access policy) | — | — | — | — | — | 6 | 8 |
+| `portfolio_site_scope_reads` | Owner (access policy) | — | — | — | — | — | 7 | 8 |
 | `portfolio_views_enabled` | PMO | once the PMO wants the portfolio read as a list or a board as well as the timeline  | — | — | — | — | 3 | 0 |
 | `portfolio_my_projects_default` | PMO | once the PMO wants the portfolio page to open on "My projects"  | — | admin, finance-viewer | — | — | 3 | 1 |
 | `ppm_project_team_enabled` | PMO | once the PMO wants a named team per project  | — | — | portfolio_deliverables, portfolio_objectives, portfolio_programmes, portfolio_projects | — | 5 | 3 |
@@ -108,7 +108,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `ppm_baseline_slots_enabled` | PMO | once the PMO wants MS-Project-style comparison points: Baseline, Baseline1 | — | — | — | — | 4 | 1 |
 | `ppm_dcma_enabled` | PMO / scheduler | once the PMO wants the DCMA 14-point schedule quality check on the Plan tab  | — | — | — | — | 3 | 2 |
 | `ppm_templates_enabled` | PMO (template validation is a human act) | once the PMO names who validates templates  | — | — | — | — | 4 | 1 |
-| `portfolio_editor_plan_writes` | Owner (access policy) | — | — | — | — | — | 6 | 4 |
+| `portfolio_editor_plan_writes` | Owner (access policy) | — | — | — | — | — | 7 | 4 |
 
 ## Dossier L04 — PMO journey — scheduling, resources and collaboration
 
@@ -190,7 +190,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `soft_delete_two_person` | Owner (retention policy) | once the retention owner wants deletions of portfolio nodes and cadences to need a reason  | `soft_delete_enabled` | admin | — | — | 4 | 3 |
 | `roadmap_publication_enabled` | Service & Support Manager | once the Service & Support Manager wants to publish the Roadmap Manager into the portfolio from the page  | `soft_delete_enabled` | — | portfolio_deliverables, portfolio_objectives, portfolio_programmes, portfolio_projects, roadmap_publications | — | 6 | 2 |
 | `roadmap_audience_publication_enabled` | PMO (publication owner) | once the PMO names the publication owner and the audiences to use: frozen roadmap snapshots per audience  | `roadmap_publication_enabled` | admin, finance-viewer | roadmap_publications | — | 6 | 2 |
-| `portfolio_sensitive_projects` | Owner (access policy) | once the access-policy owner decides who may mark a project sensitive  | `portfolio_site_scope_reads` | admin | — | — | 6 | 3 |
+| `portfolio_sensitive_projects` | Owner (access policy) | once the access-policy owner decides who may mark a project sensitive  | `portfolio_site_scope_reads` | admin | — | — | 7 | 3 |
 | `exec_pack_portfolio_slide` | Committee | once the committee wants portfolio highlights in the monthly Group IT pack: one slide  | — | admin, finance-viewer | change_records, request_records, sites | — | 2 | 2 |
 | `incubation_rfi_link_enabled` | PMO + Owner | once the PMO accepts incubation-born RFIs in the queue  | — | — | — | — | 4 | 1 |
 
@@ -209,7 +209,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `decision_lifecycle_enforced` | Governance committee chair | once the governance committee chair accepts the rule  | — | — | — | — | 3 | 2 |
 | `decision_motive_required` | Governance committee chair | once the governance committee chair wants a written motive on EVERY decision status change  | `decision_lifecycle_enforced` | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +17 | — | 3 | 3 |
 | `obligations_include_decisions` | Committee + Owner | — | — | — | — | — | 2 | 1 |
-| `agenda_cron_enabled` | Committee | — | — | — | — | yes | 5 | 2 |
+| `agenda_cron_enabled` | Committee | — | — | — | — | yes | 6 | 2 |
 | `controls_register_enabled` | GRC owner + Security owner | once GRC names who adopts controls  | — | — | gov_control_tests, gov_controls, site_module_codes, sites | — | 4 | 1 |
 | `pir_reviews_enabled` | Incident manager + business sponsor | once the Incident manager names who signs a post-incident review and the business sponsor per major incident  | — | — | — | — | 3 | 1 |
 | `problem_candidates_enabled` | Problem owner + Owner | once a problem owner is named  | — | — | — | — | 1 | 1 |
@@ -252,9 +252,9 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 
 | Switch | Who decides (register) | Human prerequisite (register text) | Depends on | Roles named | Tables touched | Job | Consumer files | Tests naming it |
 |---|---|---|---|---|---|---|---|---|
-| `report_drift_banner` | Owner (D-3) | — | — | — | — | — | 3 | 0 |
-| `exec_deck_other_bucket` | Reporting owner (PO P4) | — | — | — | change_records, request_records, sites | — | 3 | 1 |
-| `alert_group_by_rule` | Owner (alerting policy) | — | — | — | insp_inspections, md_meetings, meeting_cadences, notifications | — | 3 | 1 |
+| `report_drift_banner` | Owner (D-3) | — | — | — | — | — | 4 | 0 |
+| `exec_deck_other_bucket` | Reporting owner (PO P4) | — | — | — | change_records, request_records, sites | — | 4 | 1 |
+| `alert_group_by_rule` | Owner (alerting policy) | — | — | — | insp_inspections, md_meetings, meeting_cadences, notifications | — | 4 | 1 |
 | `schedule_reminders_enabled` | Site coordination owner | once the lead days are decided  | — | — | insp_inspections, md_meetings, meeting_cadences, notifications | yes | 3 | 1 |
 | `weekly_report_nudges_enabled` | Service & Support Manager | once the deadline below is decided — in-app nudges only  | — | — | notifications, weekly_reports, weeks | — | 1 | 2 |
 | `action_aging_reminders_enabled` | Service & Support Manager | once the delays below are decided — in-app reminders on site actions  | — | — | notifications | yes | 2 | 2 |
@@ -278,7 +278,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `field_review_step` | PO / adoption lead | after one session shows it does not slow the technician  | — | — | — | — | 2 | 2 |
 | `field_task_timing` | PO / adoption lead | only after the baseline  | — | — | action_items, audit_log, commitments, field_outbox, insp_actions, insp_inspections +11 | — | 4 | 2 |
 | `asset_money_certify_display` | Finance / IT management | — | — | — | — | — | 3 | 2 |
-| `wan_sla_require_contract_evidence` | Finance | once contracts are uploaded | — | — | wan_sla_claim_events, wan_sla_claims | — | 4 | 1 |
+| `wan_sla_require_contract_evidence` | Finance | once contracts are uploaded | — | — | wan_sla_claim_events, wan_sla_claims | — | 5 | 1 |
 | `wan_sla_claims_enabled` | Finance + Network owner | once Finance names the claim owner and the contract terms of that circuit are entered and reviewed  | `wan_sla_require_contract_evidence` | admin, finance-viewer | decisions, insp_actions, insp_inspections, md_actions, md_meetings, portfolio_projects +2 | — | 6 | 2 |
 
 ## Dossier L12 — Access security hardening
@@ -300,15 +300,15 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `emergency_access_enabled` | Security owner + Owner | once the super_admins who may grant and review are named  | — | super_admin, admin | access_emergencies, access_request_events, access_requests, deputies | yes | 5 | 2 |
 | `breakglass_timebox_enabled` | Security owner | once the security owner names the break-glass holder and SSO is `available` / `only` — a break-glass password sign-in then needs a reason  | — | admin | sessions | — | 2 | 3 |
 | `access_recert_enabled` | Security owner + site managers | once the Security owner schedules the first campaign  | — | — | — | — | 4 | 2 |
-| `portfolio_executive_readonly` | Owner + IAM | only after the PO / IAM decide that the direction reads the portfolio without changing it  | — | super_admin, executive, admin, committee-member | — | — | 2 | 1 |
-| `export_policy_strict` | Data owner + Security | once the data owner + security adopt the strict sensitivity matrix of `services/exportPolicy | — | admin, viewer, finance-viewer, committee-member | — | — | 1 | 2 |
-| `export_watermark_enabled` | Security | — | `export_policy_strict` | — | — | — | 2 | 2 |
+| `portfolio_executive_readonly` | Owner + IAM | only after the PO / IAM decide that the direction reads the portfolio without changing it  | — | super_admin, executive, admin, committee-member | — | — | 3 | 1 |
+| `export_policy_strict` | Data owner + Security | once the data owner + security adopt the strict sensitivity matrix of `services/exportPolicy | — | admin, viewer, finance-viewer, committee-member | — | — | 2 | 2 |
+| `export_watermark_enabled` | Security | — | `export_policy_strict` | — | — | — | 3 | 2 |
 
 ## Dossier L13 — Operations resilience — sync drift, delivery failures, restore, identity
 
 - **Status**: PROPOSED. **Owner**: _(empty — human)_. **Canary site**: _(empty — human)_. **Decision date / expiry**: _(empty — human)_.
 - **Who sees a change**: Platform/ops owner, data owners per flow, Information Security, data owner (site codes).
-- **What changes**: Drift alerts through the existing sync alert path, delivery-failure alerts, full restore drill (TEST instance), Entra deprovisioning DRY RUN, controlled 409 on shared site codes.
+- **What changes**: Drift alerts through the existing sync alert path, delivery-failure alerts, full restore drill (TEST instance), Entra deprovisioning DRY RUN, controlled 409 on shared site codes. Policy control center (one page over the existing rule stores; high-risk changes need a second super_admin).
 - **Risk**: medium (AI estimate): alerts use the already-armed sync alert path (recipients needed); site_code_shared_block refuses saves until the data owner fixes shared codes.
 - **Metric that would show it worked** (candidate, no threshold): sync drift alerts acknowledged; restore drill RTO measured (no threshold set here).
 - **Rollback**: set every switch of the lot back to its default `0` (Admin or `setConfig`). Data written while on stays in place and is no longer shown or acted on; the rehearsal is `tests/switch-lots-rollback.test.js`. **Rollback trigger**: _(observable and threshold left to the owner)_.
@@ -317,10 +317,11 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | Switch | Who decides (register) | Human prerequisite (register text) | Depends on | Roles named | Tables touched | Job | Consumer files | Tests naming it |
 |---|---|---|---|---|---|---|---|---|
 | `sync_drift_alerts` | Ops + data owner per flow | once each flow has an owner  | — | — | — | yes | 3 | 1 |
-| `delivery_failure_alert_enabled` | Platform owner (D-13) | once `sync_alert_recipients`  | — | — | report_sent_log, sync_runs | yes | 4 | 1 |
+| `delivery_failure_alert_enabled` | Platform owner (D-13) | once `sync_alert_recipients`  | — | — | report_sent_log, sync_runs | yes | 5 | 1 |
 | `restore_drill_full` | Operations owner | once a backup copy of `data/blobs` exists  | — | — | report_config, system_log | — | 1 | 1 |
 | `entra_deprovision_enabled` | Information Security + tenant administrator | only after the tenant administrator decides on the Graph `User | — | — | users | yes | 2 | 2 |
-| `site_code_shared_block` | Data owner + Owner | Decide who owns each shared site code (e.g. TND) and correct the data first; then test the controlled 409 and the editors' rights. | — | editor | — | — | 4 | 3 |
+| `site_code_shared_block` | Data owner + Owner | Decide who owns each shared site code (e.g. TND) and correct the data first; then test the controlled 409 and the editors' rights. | — | editor | — | — | 5 | 3 |
+| `policy_center_enabled` | to be named | — | — | — | — | — | 6 | 1 |
 
 ## Keep dark (with the reason)
 
@@ -467,7 +468,7 @@ Orphans (dark keys no code file reads, outside `services/reportConfig.js`): none
 
 Pairs of switches in different lots that share a consumer file or a table named in that file's SQL. Hub files read by more
 than 6 lot switches (and the two monoliths) are excluded: sharing them says nothing. File-level approximation.
-Hub files excluded: `public/portfolio.html`, `public/project.html`, `routes/governance.js`, `routes/governancePpm.js`, `routes/governanceW3.js`, `routes/governanceWorkbench.js`, `routes/myWork.js`, `server.js`, `services/reportCatalogue.js`, `services/sync/jobs.js`, `services/uiPolicy.js`. Hub tables excluded: decisions, meeting_cadences, portfolio_projects, portfolio_tasks, ppm_budget_periods, ppm_events, ppm_project_members, ppm_time_entries, sites.
+Hub files excluded: `public/portfolio.html`, `public/project.html`, `routes/governance.js`, `routes/governancePpm.js`, `routes/governanceW3.js`, `routes/governanceWorkbench.js`, `routes/myWork.js`, `server.js`, `services/reportCatalogue.js`, `services/sync/jobs.js`, `services/uiPolicy.js`, `tools/agent/policy-catalogue.js`. Hub tables excluded: decisions, meeting_cadences, portfolio_projects, portfolio_tasks, ppm_budget_periods, ppm_events, ppm_project_members, ppm_time_entries, sites.
 
 | Lot pair | Overlapping switch pairs |
 |---|---|
@@ -478,7 +479,7 @@ Hub files excluded: `public/portfolio.html`, `public/project.html`, `routes/gove
 | L01 × L10 | 3 |
 | L01 × L11 | 3 |
 | L01 × L12 | 1 |
-| L01 × L13 | 3 |
+| L01 × L13 | 4 |
 | L02 × L03 | 9 |
 | L02 × L04 | 1 |
 | L02 × L05 | 3 |
@@ -491,7 +492,7 @@ Hub files excluded: `public/portfolio.html`, `public/project.html`, `routes/gove
 | L03 × L08 | 4 |
 | L03 × L11 | 2 |
 | L03 × L12 | 2 |
-| L03 × L13 | 2 |
+| L03 × L13 | 4 |
 | L04 × L05 | 1 |
 | L04 × L06 | 4 |
 | L04 × L07 | 1 |
@@ -509,6 +510,7 @@ Hub files excluded: `public/portfolio.html`, `public/project.html`, `routes/gove
 | L07 × L13 | 1 |
 | L08 × L09 | 2 |
 | L08 × L11 | 1 |
+| L08 × L13 | 1 |
 | L09 × L10 | 1 |
 | L09 × L11 | 3 |
 | L10 × L11 | 8 |
@@ -543,6 +545,7 @@ Hub files excluded: `public/portfolio.html`, `public/project.html`, `routes/gove
 | L01 × L12 | `access_require_approval` | `commitments_enabled` | — | system_log |
 | L01 × L13 | `commitments_enabled` | `delivery_failure_alert_enabled` | — | sync_runs |
 | L01 × L13 | `commitments_enabled` | `entra_deprovision_enabled` | — | users |
+| L01 × L13 | `commitments_enabled` | `policy_center_enabled` | `public/help.html` | — |
 | L01 × L13 | `commitments_enabled` | `restore_drill_full` | — | report_config, system_log |
 | L02 × L03 | `portfolio_editor_plan_writes` | `portfolio_site_scope_reads` | `db/postgres/reports/043_portfolio_scope.sql`, `db/postgres_rollback/043_portfolio_scope_drop.sql`, `services/portfolioAccess.js`, `tools/agent/portfolio-access-matrix.js` | — |
 | L02 × L03 | `portfolio_editor_plan_writes` | `ppm_project_roles_enabled` | `services/portfolioAccess.js` | — |
@@ -591,6 +594,8 @@ Hub files excluded: `public/portfolio.html`, `public/project.html`, `routes/gove
 | L03 × L12 | `breakglass_timebox_enabled` | `ppm_change_requests_enabled` | — | sessions |
 | L03 × L13 | `entra_deprovision_enabled` | `ppm_change_requests_enabled` | — | users |
 | L03 × L13 | `entra_deprovision_enabled` | `ppm_rebaseline_enabled` | — | users |
+| L03 × L13 | `policy_center_enabled` | `ppm_baseline_versions` | `public/help.html` | — |
+| L03 × L13 | `policy_center_enabled` | `ppm_rebaseline_enabled` | `public/help.html` | — |
 | L04 × L05 | `finance_currency_required` | `ppm_capacity_view` | `services/governanceStore.js` | meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_objectives, portfolio_programmes, portfolio_project_sites, portfolio_risks, ppm_alert_state, ppm_raci, ppm_templates, rfi_requests, session_actions |
 | L04 × L06 | `ppm_calendars_enabled` | `ppm_mspdi_enabled` | `db/postgres_rollback/105_ppm_engine_w2_drop.sql`, `routes/ppmEngine.js` | — |
 | L04 × L06 | `ppm_leveling_enabled` | `ppm_mspdi_enabled` | `db/postgres_rollback/105_ppm_engine_w2_drop.sql`, `routes/ppmEngine.js` | — |
@@ -620,6 +625,7 @@ Hub files excluded: `public/portfolio.html`, `public/project.html`, `routes/gove
 | L08 × L09 | `dashboard_red_action_links` | `pir_reviews_enabled` | `routes/commitments.js` | — |
 | L08 × L09 | `dashboard_red_action_links` | `problem_candidates_enabled` | `routes/commitments.js` | — |
 | L08 × L11 | `controls_register_enabled` | `field_task_timing` | — | site_module_codes |
+| L08 × L13 | `handoffs_enabled` | `policy_center_enabled` | `public/help.html` | — |
 | L09 × L10 | `report_drift_banner` | `ui_i18n_pages` | `public/reports.html` | — |
 | L09 × L11 | `asset_money_certify_display` | `ui_i18n_pages` | `public/assets.html` | — |
 | L09 × L11 | `ui_i18n_pages` | `wan_sla_claims_enabled` | `public/wan.html` | — |
