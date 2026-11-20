@@ -65,7 +65,7 @@ test('project.html wires its handlers in JS (no inline on…= attributes) and us
   // 8 tabs always shown; the W2-PPM add-on tabs (Budget, RACI) and R2-WB-01 Changes are hidden until their switch answers
   const tabs = page.match(/<button[^>]*role="tab"[^>]*>/g) || [];
   assert.equal(tabs.filter((t) => !/\shidden[\s>]/.test(t)).length, 8);
-  assert.ok(tabs.filter((t) => /\shidden[\s>]/.test(t)).every((t) => /id="tab-(budget|raci|changes|board|comments|intake)"/.test(t)), 'only the add-on tabs are hidden (W4: board, comments; PORTFOLIO LOT 1: intake)');
+  assert.ok(tabs.filter((t) => /\shidden[\s>]/.test(t)).every((t) => /id="tab-(budget|raci|changes|board|comments|intake|p2deps|p2demand|p2docs)"/.test(t)), 'only the add-on tabs are hidden (W4: board, comments; PORTFOLIO LOT 1: intake; LOT 6: p2deps, p2demand, p2docs)');
   assert.match(script, /ArrowRight/); assert.match(script, /ArrowLeft/);
   assert.match(script, /\/api\/governance\/portfolio\/project\//);
 });
