@@ -473,6 +473,16 @@ Object.assign(DEFAULTS, { ppm_xer_enabled: '0', ppm_mpp_import_enabled: '0', ppm
 //    ppm_offline_edit_enabled '1' → project-page task / milestone edits made without a connection are queued in the
 //    browser, replayed with their row version, and a conflict opens a merge screen (keep mine / keep theirs per field).
 Object.assign(DEFAULTS, { ppm_project_roles_enabled: '0', ppm_comments_enabled: '0', ppm_agile_board_enabled: '0', ppm_roadmap_nnl_enabled: '0', ppm_offline_edit_enabled: '0' });
+// ── PORTFOLIO LOT 1 (IT portfolio reconstruction spec §5–§19, migration 114) — PROPOSED, '0' = today.
+//    ppm_intake_register_enabled '1' → projects carry the intake fields (type, tags, priority, structured business
+//    need, expected value, delivery lead, indicative quarter + schedule confidence, budget status / approval date /
+//    reference, decision required, delivery effort, risk exposure, average / peak FTE, skills, workload notes, explicit
+//    value states TBC / not applicable / none known), a new project gets an immutable PRJ-YYYY-NNN id, the admin tier
+//    maintains the portfolio reference lists, and the project page shows the intake sections with field guidance.
+//    '0': the columns are hidden from every project payload, ignored on writes, no id is generated, the routes 404.
+//    Existing projects get their id only through tools/ppm/backfill-project-ids.js (--dry-run default). Priority
+//    meanings, risk levels and effort bands are PROPOSED reference data, not approved policy. Arming is a PMO decision.
+Object.assign(DEFAULTS, { ppm_intake_register_enabled: '0' });
 // ── W3-GOVERNANCE (PPM parity W3, migration 110) — PROPOSED, '0' = today (the routes answer 404, nothing is stored).
 //    ppm_simplified_view_enabled '1' → the project page offers a Simplified ↔ Expert switch (per-user preference):
 //    KPI cards (RAG, % schedule complete, budget burn for the admin tier + finance-viewer, risks / blockers, next

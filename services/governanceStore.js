@@ -16,6 +16,7 @@ const RFI_STATUSES = ['submitted', 'triaged', 'accepted', 'scheduled', 'delivere
 const PROJECT_STATUSES = ['planned', 'active', 'on_hold', 'done', 'cancelled'];
 const CONFIDENCE = ['low', 'medium', 'high'];
 const softDelete = require('./softDelete');   // A-19c
+const IF = require('./ppm/intakeFields');   // PORTFOLIO LOT 1 (migration 114, switch ppm_intake_register_enabled)
 
 const J = (v) => (v == null ? null : JSON.stringify(v));
 const P_ = (s, d) => { if (s == null) return d; if (typeof s !== 'string') return s; try { return JSON.parse(s); } catch (_) { return d; } };
@@ -44,8 +45,24 @@ function _schedLinks(v) {
 }
 const _day = (v) => { if (v == null || v === '') return null; const d = String(v).slice(0, 10); if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) throw Object.assign(new Error('effective dates must be YYYY-MM-DD'), { code: 'INVALID' }); return d; };
 
-function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOString() } = {}) {
+function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOString(), intakeOn = async () => false } = {}) {
   if (!db) throw new Error('governanceStore needs a db handle');
+  // PORTFOLIO LOT 1 — intakeOn() = report_config ppm_intake_register_enabled === '1' (given by routes/governance
+  // createStore). Off (the default, and for every other caller): the intake columns are hidden from every project row
+  // this store returns, ignored on writes, and no project id is generated — the API is today's.
+  const _intakeVisible = async () => { try { return !!(await intakeOn()); } catch (_) { return false; } };
+  const _withoutIntake = (r) => { if (!r) return r; const o = { ...r }; for (const c of IF.INTAKE_COLS) delete o[c]; return o; };
+  /** PRJ-{YEAR}-{SEQ}: one atomic increment of the year's counter (row lock), skipping a number already taken (hand edit). */
+  async function _nextProjectRef(year) {
+    const y = Number(year);
+    for (let i = 0; i < 1000; i++) {
+      const r = await P(`INSERT INTO ppm_project_ref_seq (year, last_n) VALUES (?, 1) ON CONFLICT (year) DO UPDATE SET last_n = ppm_project_ref_seq.last_n + 1 RETURNING last_n`).get(y);
+      const ref = `PRJ-${y}-${String(Number(r.last_n)).padStart(3, '0')}`;
+      if (!(await P(`SELECT id FROM portfolio_projects WHERE project_ref=?`).get(ref))) return ref;
+    }
+    throw new Error('could not allocate a project id');
+  }
+  const _lookupCodes = () => require('./ppm/portfolioLookups').makeLookupStore(db, { now }).activeCodes();
   const P = (sql) => db.prepare(sql);
   const tx = (fn) => (typeof db.runTransaction === 'function' ? db.runTransaction(fn) : fn());
   async function init() {  }
@@ -359,7 +376,9 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   const taskRow = (r) => r && ({ ...idRow(r), dependency_links: P_(r.dependency_links, null), effort_driven: r.effort_driven == null ? null : Number(r.effort_driven), project_id: Number(r.project_id), parent_id: r.parent_id == null ? null : Number(r.parent_id), duration_days: num(r.duration_days), allocation_pct: num(r.allocation_pct), progress_pct: num(r.progress_pct), effort_hours: num(r.effort_hours), depends_on: P_(r.depends_on, []) });
   const RISK_KINDS = ['risk', 'issue', 'assumption'];   // A-14 RAID (dependencies live in depends_on, decisions in DEC-…)
   const riskRow = (r) => ({ ...idRow(r), project_id: Number(r.project_id), probability: Number(r.probability), impact: Number(r.impact), kind: r.kind || 'risk' });
-  const projectRow = (r) => ({ ...idRow(r), currency_defaulted: r.currency_defaulted == null ? null : Number(r.currency_defaulted), objective_id: Number(r.objective_id), site_id: r.site_id == null ? null : Number(r.site_id), progress_pct: num(r.progress_pct), budget: num(r.budget), spent: num(r.spent), depends_on: P_(r.depends_on, []), rfi_id: r.rfi_id == null ? null : Number(r.rfi_id) });
+  const projectRow = (r, ik = false) => _intakeShape({ ...idRow(r), currency_defaulted: r.currency_defaulted == null ? null : Number(r.currency_defaulted), objective_id: Number(r.objective_id), site_id: r.site_id == null ? null : Number(r.site_id), progress_pct: num(r.progress_pct), budget: num(r.budget), spent: num(r.spent), depends_on: P_(r.depends_on, []), rfi_id: r.rfi_id == null ? null : Number(r.rfi_id) }, r, ik);
+  /** PORTFOLIO LOT 1 — intake columns parsed when the switch is on, absent when it is off (today's payload). */
+  function _intakeShape(o, r, ik) { if (!ik) return _withoutIntake(o); return { ...o, ...IF.readIntake(r) }; }
   // B-08 — expected / realised benefits (migration 056). Values are numbers or null; money values are stripped by the route.
   const benefitRow = (r) => r && ({ ...idRow(r), project_id: Number(r.project_id), baseline_value: num(r.baseline_value), target_value: num(r.target_value), realised_value: num(r.realised_value),
     realised_by: r.realised_by == null ? null : Number(r.realised_by), verified_by: r.verified_by == null ? null : Number(r.verified_by), sort_order: num(r.sort_order), value_kind: r.value_kind || 'quantity',
@@ -369,6 +388,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   const SPEND_TYPES = ['capex', 'opex', 'mixed'];
   const FINANCE_FIELDS = ['budget', 'spent', 'currency', 'spend_type'];
   const ROLE_FIELDS = ['owner', 'sponsor'];
+  const INTAKE_EVENT_FIELDS = ['delivery_lead', 'priority', 'budget_status', 'budget_approval_date', 'budget_reference', 'decision_required'];   // PORTFOLIO LOT 1 — kept with old / new value
   /** G11/G12/G14 — one append-only, hash-chained ledger for gate passages, financial edits and RFI decisions. */
   async function ppmEvent(e, user) {
     await insert('ppm_events', ['entity', 'entity_id', 'action', 'field', 'old_value', 'new_value', 'currency', 'note', 'actor_id', 'actor', 'at'],
@@ -383,7 +403,8 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     const objectives = (await P(`SELECT * FROM portfolio_objectives WHERE deleted_at IS NULL ORDER BY programme_id, sort_order, name`).all()).map(r => ({ ...idRow(r), programme_id: Number(r.programme_id), weight: num(r.weight), progress_pct: num(r.progress_pct), evidence_target: num(r.evidence_target), evidence_hib: Number(r.evidence_hib) !== 0 }))
       .filter(o => progIds.has(o.programme_id));
     const objIds = new Set(objectives.map(r => r.id));
-    const projects = (await P(`SELECT * FROM portfolio_projects WHERE deleted_at IS NULL ORDER BY objective_id, start_date, name`).all()).map(projectRow)
+    const ik = await _intakeVisible();
+    const projects = (await P(`SELECT * FROM portfolio_projects WHERE deleted_at IS NULL ORDER BY objective_id, start_date, name`).all()).map((r) => projectRow(r, ik))
       .filter(p => objIds.has(Number(p.objective_id)));
     const projIds = new Set(projects.map(r => r.id));
     const live = (r) => projIds.has(Number(r.project_id));
@@ -462,7 +483,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     if (await _projectGone(pid)) return null;   // A-19c — a soft-deleted project (or ancestor) reads as missing
     const r = await P(`SELECT * FROM portfolio_projects WHERE id=? AND deleted_at IS NULL`).get(pid);
     if (!r) return null;
-    const project = projectRow(r);
+    const project = projectRow(r, await _intakeVisible());
     const milestones = (await P(`SELECT * FROM portfolio_milestones WHERE project_id=? AND deleted_at IS NULL ORDER BY sort_order, due_date`).all(pid)).map(m => ({ ...idRow(m), project_id: Number(m.project_id) }));
     const deliverables = (await P(`SELECT * FROM portfolio_deliverables WHERE project_id=? AND deleted_at IS NULL ORDER BY sort_order`).all(pid)).map(d => ({ ...idRow(d), project_id: Number(d.project_id), milestone_id: d.milestone_id == null ? null : Number(d.milestone_id) }));
     const risks = (await P(`SELECT * FROM portfolio_risks WHERE project_id=? AND deleted_at IS NULL ORDER BY id`).all(pid)).map(riskRow);
@@ -596,6 +617,9 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   }
   async function upsertPortfolio(kind, body, opts = {}) {
     const T = TABLES[kind]; if (!T) throw Object.assign(new Error('unknown portfolio entity'), { code: 'INVALID' });
+    // PORTFOLIO LOT 1 — with the switch on, business_sponsor / it_owner are the spec names of sponsor / owner
+    const ik = kind === 'project' && await _intakeVisible();
+    if (ik) body = IF.aliases(body);
     const vals = normalise(kind, body || {});
     const id = body && body.id ? Number(body.id) : null;
     // I-CONC-1 — the version the caller read (optional: absent = today's last-writer-wins)
@@ -620,6 +644,10 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       if (pid != null && (await P(`SELECT id FROM portfolio_projects WHERE id=?`).get(Number(pid))) && await _projectGone(pid)) throw softDelete.deletedConflict('project', { deleted_at: await _goneSince(pid) });
     }
     if (kind === 'task' || kind === 'project' || kind === 'milestone') await _integrityCheck(kind, id, vals);   // W1-INTEGRITY A-INT-1
+    // PORTFOLIO LOT 1 — intake fields (checked against the active reference lists, value states merged)
+    const intakeBefore = ik && id ? await P(`SELECT * FROM portfolio_projects WHERE id=?`).get(id) : null;
+    if (ik) Object.assign(vals, IF.normaliseIntake(body || {}, intakeBefore, await _lookupCodes()));
+    const projectCols = ik ? [...T.cols, ...IF.WRITABLE] : T.cols;
     if (id && kind === 'benefit') {
       const before = await getBenefit(id);
       if (!before) throw Object.assign(new Error('benefit not found'), { code: 'NOT_FOUND', status: 404 });
@@ -649,7 +677,9 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
         if (before.stage && before.stage !== 'proposal' && changed('status')) throw Object.assign(new Error('the status follows the stage gates — use the stage action'), { code: 'CONFLICT', status: 409, reason: 'STATUS_BY_STAGE' });
         const curFlag = _currencyFlag(vals, before);
         if (curFlag === 1 && opts.currencyRequired) throw _currencyRefused();
-        await updateRow(T.table, id, vals, T.cols, vopt);
+        await updateRow(T.table, id, vals, projectCols, vopt);
+        if (ik) { for (const w of IF.intakeWarnings({ ...before, ...vals })) _warn(opts, w.code, w.message);
+          for (const f of INTAKE_EVENT_FIELDS) if (changed(f)) await ppmEvent({ entity: 'project', entity_id: id, action: 'intake_edit', field: f, old_value: before[f], new_value: vals[f], note: opts.reason || null }, opts.user); }
         if (curFlag !== undefined) await P(`UPDATE portfolio_projects SET currency_defaulted=? WHERE id=?`).run(curFlag, Number(id));
         if (curFlag === 1) _warn(opts, 'CURRENCY_DEFAULTED', 'no currency was stated with the amount: it is recorded as ' + (before.currency || 'USD') + ' by default and shown "default, not confirmed" until a currency is sent');
         // G12 — every financial edit is kept with its old and new value
@@ -681,6 +711,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     if (kind === 'benefit') { _benefitClassCheck(vals); _benefitCurrency(vals, opts); }
     const curFlagNew = kind === 'project' ? _currencyFlag(vals, null) : undefined;
     if (curFlagNew === 1 && opts.currencyRequired) throw _currencyRefused();
+    if (ik) { vals.project_ref = await _nextProjectRef(String(now()).slice(0, 4)); for (const w of IF.intakeWarnings(vals)) _warn(opts, w.code, w.message); }
     let nid;
     // UAT-F (S5-07): a new row whose key is already taken (live or soft-deleted) is a CONFLICT the person can act on
     // ("this key is already used"), not a raw 500 carrying the constraint name
@@ -862,7 +893,8 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       }
     };
     await (capture ? tx(move) : move());
-    return P(`SELECT * FROM portfolio_projects WHERE id=?`).get(Number(id));
+    const after = await P(`SELECT * FROM portfolio_projects WHERE id=?`).get(Number(id));
+    return (await _intakeVisible()) ? after : _withoutIntake(after);
   }
   // ---- A-27 versioned baselines (portfolio_baselines, append-only, migration 045) -----------------------------------
   const BL = () => require('./ppmBaseline');
@@ -957,6 +989,8 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     // one INSERT carries the link: a concurrent second conversion hits the unique index and leaves nothing behind
     const vals = normalise('project', { objective_id: body.objective_id, key: body.key, name: body.name || r.title, owner: body.owner, site_id: r.site_id, charter: body.charter || r.problem, status: 'planned' });
     for (const k of ['objective_id', 'key', 'name']) if (vals[k] == null || vals[k] === '') throw Object.assign(new Error(`${k} is required`), { code: 'INVALID' });
+    // PORTFOLIO LOT 1 — the converted project gets its id, and the request's problem becomes the business need's problem
+    if (await _intakeVisible()) { vals.project_ref = await _nextProjectRef(String(now()).slice(0, 4)); if (r.problem && String(r.problem).trim()) vals.business_need = JSON.stringify({ problem: String(r.problem).trim().slice(0, 2000) }); }
     let pid;
     try { pid = await insert('portfolio_projects', [...Object.keys(vals), 'rfi_id', 'created_at', 'updated_at'], [...Object.values(vals), Number(rfiId), now(), now()]); }
     catch (e) { if (/uq_portfolio_projects_rfi|unique/i.test(String(e.message))) throw Object.assign(new Error('request already became a project'), { code: 'CONFLICT', status: 409 }); throw e; }

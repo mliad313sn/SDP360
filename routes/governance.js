@@ -44,7 +44,10 @@ const SA = require('../services/sessionAttendance');
 
 function createStore(rdbMod, { log = console.log } = {}) {
   const pg = rdbMod.REPORTS_BACKEND === 'postgres';
-  const st = require('../services/governanceStore').makeGovernanceStore(({ prepare: (sql) => rdbMod.pgHandle().prepare(sql), runTransaction: (fn) => rdbMod.pgHandle().runTransaction(fn) }), { isPg: pg });
+  // PORTFOLIO LOT 1 — the intake register switch (PROPOSED, '0' = today) decides whether project rows carry the intake
+  // fields, accept them on write and get a PRJ-YYYY-NNN id at creation (services/ppm/intakeFields.js)
+  const intakeOn = async () => String((await require('../services/reportConfig').getConfig(rdbMod.db)).ppm_intake_register_enabled) === '1';
+  const st = require('../services/governanceStore').makeGovernanceStore(({ prepare: (sql) => rdbMod.pgHandle().prepare(sql), runTransaction: (fn) => rdbMod.pgHandle().runTransaction(fn) }), { isPg: pg, intakeOn });
   
   st.initAtBoot = async () => { await st.init(); return []; };
   return st;
@@ -554,8 +557,16 @@ module.exports = function governanceRoutes(deps) {
   // (u.__ppmClient) before any money decision of the PPM routes, so the rule below reads it.
   const canSeeMoney = (u) => !(u && u.__ppmClient) && (isCommittee(u) || rdb().userHasRole(u, 'finance-viewer'));
   function stripMoney(v) {
-    const z = (o) => ({ ...o, budget: undefined, spent: undefined, budget_by_currency: undefined });
+    const z = (o) => intakeMoneyless({ ...o, budget: undefined, spent: undefined, budget_by_currency: undefined });
     return { ...v, projects: v.projects.map(z), gantt: v.gantt.map(z), summary: v.summary.map(z), benefits: (v.benefits || []).map((b) => BEN.visibleBenefit(b, { money: false })), money_hidden: true };
+  }
+  // PORTFOLIO LOT 1 — the budget's finance metadata (status, approval date, reference) follows the money rule too
+  const IFX = require('../services/ppm/intakeFields');
+  function intakeMoneyless(o) {
+    if (!o || !Object.keys(o).some((k) => IFX.MONEY_ADJACENT.includes(k) || k === 'value_states')) return o;
+    const out = { ...o }; for (const k of IFX.MONEY_ADJACENT) if (k in out) out[k] = undefined;
+    if (out.value_states && typeof out.value_states === 'object' && 'budget' in out.value_states) { const vs = { ...out.value_states }; delete vs.budget; out.value_states = vs; }
+    return out;
   }
   // A-15 — site scope + editor plan writes, both behind PROPOSED switches (off = today). Rules: services/portfolioAccess.
   const PA = require('../services/portfolioAccess');
@@ -716,7 +727,7 @@ module.exports = function governanceRoutes(deps) {
       });
       const gcfg = await reportConfig.getConfig(rdb().db);   // W3-GOVERNANCE — the checklist refusal shows in the dry run too
       for (const g of allowed_stages) if (!g.refusal) { const gr = await w3GateRefusal(gcfg, p.id, g.to); if (gr) g.refusal = gr; }
-      const project = money ? p : { ...p, budget: undefined, spent: undefined };
+      const project = money ? p : intakeMoneyless({ ...p, budget: undefined, spent: undefined });
       // F-PRODUCT-03 / F-DATA-09 — class view + totals per class only while the switch is on (never added across classes)
       const clsOn = String((await reportConfig.getConfig(rdb().db)).benefit_value_class_enabled) === '1';
       const mvRole = await moneyVerifierRole();
@@ -932,6 +943,7 @@ module.exports = function governanceRoutes(deps) {
       res.json({ ok: true, proposed: rows.some((r) => r.status === 'proposed'), sources: S.SOURCES, not_measured: data.not_measured, ...DX.rollup(data.values, DX.makeIndex(rows, { mdNames })) });
     } catch (e) { fail(res, e); }
   });
+  require('./governanceIntake')(router, { rdb, reportConfig, requireReportSession, json, isAdmin, log });   // PORTFOLIO LOT 1
   require('./governancePpm')(router, { store, rdb, reportConfig, requireReportSession, json, isCommittee, canSeeMoney, viewFor, readableProject, readableHiddenProjects, refusePlanWrite, log });
   // B6 (P7a) — audience-scoped roadmap publications (roadmap_audience_publication_enabled, 404 while '0')
   require('./governanceRoadmapAudience')(router, { store, rdb, reportConfig, requireReportSession, json, isCommittee, isAdmin, portfolioView, log });
