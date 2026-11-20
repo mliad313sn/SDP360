@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 5867,
+ "total": 5874,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 18,
@@ -900,15 +900,16 @@
   "adoption-lotb-home.test.js": 9,
   "adoption-lotb-landing.test.js": 5,
   "business-readiness.test.js": 8,
-  "portfolio-lot5-pure.test.js": 12,
+  "portfolio-lot5-pure.test.js": 13,
   "portfolio-lot5-page.test.js": 4,
   "portfolio-lot5.smoke.test.js": 8,
   "portfolio-lot4-alerts-cli.test.js": 3,
   "portfolio-lot4-page.test.js": 3,
   "portfolio-lot4-pure.test.js": 11,
   "portfolio-lot4.smoke.test.js": 3,
-  "portfolio-phase2-pure.test.js": 10,
+  "portfolio-phase2-pure.test.js": 12,
   "portfolio-phase2-page.test.js": 3,
-  "portfolio-phase2.smoke.test.js": 9
+  "portfolio-phase2.smoke.test.js": 9,
+  "portfolio-r5-ppm.smoke.test.js": 4
  }
 }

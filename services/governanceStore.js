@@ -702,7 +702,9 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
       return id;
     }
     if (id) {
-      if (kind === 'project') {
+      // P11 R5-2 — one transaction: a change request is consumed once, under a lock on its id (two concurrent edits
+      // naming the same request cannot both use it).
+      if (kind === 'project') return tx(async () => {
         const before = await P(`SELECT * FROM portfolio_projects WHERE id=?`).get(id);
         if (!before) throw Object.assign(new Error('project not found'), { code: 'NOT_FOUND', status: 404 });
         // the baseline is frozen once the project passed its approval gate (a re-baseline is a decision, not an edit)
@@ -725,8 +727,13 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
           const RW = require('./ppm/reviewWorkflow');
           const moved = RW.FROZEN_FIELDS.filter((f) => vals[f] !== undefined && (['budget'].includes(f) ? !(vals[f] == null ? before[f] == null : before[f] != null && Number(before[f]) === Number(vals[f])) : String(vals[f] ?? '') !== String(before[f] ?? '')));
           const crId = body && body.change_request_id != null && body.change_request_id !== '' ? Number(body.change_request_id) : null;
-          if (moved.length && crId != null && Number.isInteger(crId)) frozenCr = await P(`SELECT id, project_id, status FROM ppm_change_requests WHERE id=?`).get(crId);
-          const fr = RW.freezeRefusal(moved, id, frozenCr);
+          if (moved.length && crId != null && Number.isInteger(crId)) {
+            await P('SELECT pg_advisory_xact_lock(hashtext(?))').get(`ppm:change-request:${crId}`);
+            frozenCr = await P(`SELECT id, project_id, status, impact_budget, currency FROM ppm_change_requests WHERE id=?`).get(crId);
+            // P11 R5-2 — a change request is used once: its first business-case edit is the ledger row below
+            if (frozenCr) frozenCr.used = !!(await P(`SELECT 1 AS x FROM ppm_events WHERE entity='project' AND entity_id=? AND action='business_case_change' AND field=? LIMIT 1`).get(Number(id), `cr:${crId}`));
+          }
+          const fr = RW.freezeRefusal(moved, id, frozenCr, { before, vals });
           if (fr) throw Object.assign(new Error(fr.error), { code: 'CONFLICT', status: 409, reason: fr.code, expose: true });
           if (!moved.length) frozenCr = null;
         }
@@ -752,7 +759,7 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
         for (const f of ROLE_FIELDS) if (changed(f)) await ppmEvent({ entity: 'project', entity_id: id, action: 'role_edit', field: f, old_value: before[f], new_value: vals[f], note: opts.reason || null }, opts.user);
         for (const f of FINANCE_FIELDS) if (vals[f] !== undefined && !same(f)) await ppmEvent({ entity: 'project', entity_id: id, action: 'finance_edit', field: f, old_value: before[f], new_value: vals[f], currency: vals.currency || before.currency, note: [opts.reason || null, curFlag === 1 && ['budget', 'spent'].includes(f) ? 'currency_defaulted=true' : null].filter(Boolean).join(' · ') || null }, opts.user);
         return id;
-      }
+      });
       // E-P03 (X-P-01) — a task owner change is a traced reassignment in the hash-chained ledger (old, new, actor,
       // reason). The reason is required while ppm_capacity_view is on (opts.requireOwnerReason, decided by the route).
       if (kind === 'task' && vals.owner !== undefined) {

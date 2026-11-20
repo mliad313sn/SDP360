@@ -135,7 +135,9 @@ function portfolioView(projects, rows, { today } = {}) {
 function view(r, { byId, today } = {}) {
   const pred = r.predecessor_project_id == null ? null : Number(r.predecessor_project_id);
   const pp = pred != null && byId ? byId.get(pred) : null;
-  return { id: r.id == null ? null : Number(r.id), project_id: Number(r.project_id), predecessor_project_id: pred, predecessor_label: pp ? `${pp.key || ''} — ${pp.name || ''}`.trim() : (pred != null ? null : undefined),
+  // P11 N-R5-4 — a predecessor the reader cannot read is "another project": neither its name NOR its id is served
+  // (same rule as the loop message); predecessor_readable:false says a hidden project is there.
+  return { id: r.id == null ? null : Number(r.id), project_id: Number(r.project_id), predecessor_project_id: pp || !byId ? pred : null, predecessor_label: pp ? `${pp.key || ''} — ${pp.name || ''}`.trim() : (pred != null ? null : undefined),
     predecessor_readable: pred == null ? null : !!pp, external_category: r.external_category || null, description: r.description || null, owner: r.owner || null,
     status: r.status || 'open', target_date: r.target_date || null, criticality: r.criticality || null, flags: dqFlags(r, { today }) };
 }

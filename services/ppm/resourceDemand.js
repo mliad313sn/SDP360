@@ -36,11 +36,15 @@ function normalise(body) {
   const finish = b.finish_month == null || b.finish_month === '' ? null : String(b.finish_month);
   if ((start != null && !isMonth(start)) || (finish != null && !isMonth(finish))) throw bad('start_month / finish_month must be YYYY-MM', 'DATE_INVALID');
   if (start && finish && finish < start) throw bad('finish_month is before start_month', 'DATE_ORDER');
+  // P11 R5-5 — a window longer than the calendar can place is refused, never silently cut
+  if (start && finish && monthSpan(start, finish) > MAX_MONTHS) throw bad(`a demand window covers at most ${MAX_MONTHS} months — split the line`, 'DEMAND_WINDOW');
   const sourcing = b.sourcing == null || b.sourcing === '' ? null : String(b.sourcing);
   if (sourcing != null && !SOURCING.includes(sourcing)) throw bad('sourcing must be internal | external (empty = unknown)', 'DEMAND_SOURCING');
   const t = (v, m) => (v == null || String(v).trim() === '' ? null : String(v).trim().slice(0, m));
   return { skill, avg_fte: avg, peak_fte: peak, start_month: start, finish_month: finish, sourcing, owner: t(b.owner, 120), notes: t(b.notes, 2000) };
 }
+/** Number of calendar months from start to finish, both included. */
+function monthSpan(a, b) { const [ya, ma] = a.split('-').map(Number); const [yb, mb] = b.split('-').map(Number); return (yb - ya) * 12 + (mb - ma) + 1; }
 const addMonths = (ym, n) => { const [y, m] = ym.split('-').map(Number); const d = new Date(Date.UTC(y, m - 1 + n, 1)); return d.toISOString().slice(0, 7); };
 /** The months a line occupies (bounded). A line without a full window is not placed on the calendar (unknown). */
 function monthsOf(line, shift = 0) {
@@ -72,7 +76,7 @@ function evaluate(demand, capacity) {
  * shifts: {project_id: months} (scenario), exclude: Set of project ids (scenario). Lines with no avg FTE count as unknown.
  */
 function monthlyLoad(lines, { capacity = {}, shifts = {}, exclude = null } = {}) {
-  const cells = new Map(); const unplaced = []; const months = new Set();
+  const cells = new Map(); const unplaced = []; const truncated = []; const months = new Set();
   for (const l of lines || []) {
     if (exclude && exclude.has(Number(l.project_id))) continue;
     const ms = monthsOf(l, Number(shifts[Number(l.project_id)]) || 0);
@@ -80,6 +84,8 @@ function monthlyLoad(lines, { capacity = {}, shifts = {}, exclude = null } = {})
     if (!ms.length) continue;
     // P11 F-22: a dated line with no average FTE still occupies its months — as an UNKNOWN line of the cell, so the
     // cell's sum is a partial (lower-bound) figure and its RAG cannot be green or amber.
+    // a line stored before the window limit (R5-5) is placed on its first MAX_MONTHS months and SAID to be cut
+    if (monthSpan(l.start_month, l.finish_month) > MAX_MONTHS) truncated.push({ id: l.id == null ? null : Number(l.id), project_id: Number(l.project_id), skill: l.skill, months_placed: ms.length, months_requested: monthSpan(l.start_month, l.finish_month) });
     const sk = skillKey(l.skill);
     for (const m of ms) {
       months.add(m); const k = sk + '|' + m;
@@ -96,6 +102,6 @@ function monthlyLoad(lines, { capacity = {}, shifts = {}, exclude = null } = {})
     return { skill: c.skill, month: c.month, avg_fte: Math.round(c.avg_fte * 100) / 100, peak_fte: c.peak_unknown ? null : Math.round(c.peak_fte * 100) / 100, capacity_fte: cap, ...ev,
       unknown_lines: c.unknown_lines, partial: c.unknown_lines > 0, projects: [...c.projects].sort((a, b) => a - b) };
   });
-  return { months: [...months].sort(), cells: out, unplaced, over: out.filter((c) => c.rag === 'RED').length, policy: { name: RAG_POLICY, ...KpiRag.POLICIES[RAG_POLICY] } };
+  return { months: [...months].sort(), cells: out, unplaced, truncated, over: out.filter((c) => c.rag === 'RED').length, policy: { name: RAG_POLICY, ...KpiRag.POLICIES[RAG_POLICY] } };
 }
-module.exports = { SOURCING, MAX_LINES, RAG_POLICY, normalise, fte, monthsOf, parseCapacity, evaluate, monthlyLoad, skillKey, addMonths, isMonth };
+module.exports = { SOURCING, MAX_LINES, MAX_MONTHS, monthSpan, RAG_POLICY, normalise, fte, monthsOf, parseCapacity, evaluate, monthlyLoad, skillKey, addMonths, isMonth };

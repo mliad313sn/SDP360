@@ -142,10 +142,19 @@ module.exports = function governancePortfolioPhase2Routes(router, h) {
       res.json({ ok: true });
     } catch (e) { fail(res, e); }
   });
+  // P11 R5-3 — ppm_capacity_fte is ONE group-wide capacity. A reader who cannot see every project carrying demand would
+  // compare a partial demand with the whole group's capacity (a GREEN while the group is RED): their view gets no colour
+  // (capacity unknown for that comparison) and says it is partial. The group figures stay with the readers who see it all.
+  async function partialCapacity(projects, cap) {
+    const seen = new Set(projects.map((x) => Number(x.id)));
+    const partial = (await p2().demandProjectIds()).some((id) => !seen.has(id));
+    return partial ? { map: {}, flags: { partial: true, partial_note: 'partial view — capacity is group-wide, so no capacity verdict is shown on the projects you can read' } } : { map: cap.map, flags: { partial: false } };
+  }
   router.get('/api/governance/ppm/portfolio/capacity', requireReportSession, sw('ppm_resource_demand_enabled'), async (req, res) => {
     try {
       const projects = await readable(req); const cap = RD.parseCapacity(req.__p2cfg.ppm_capacity_fte);
-      res.json({ ok: true, ...RD.monthlyLoad(await p2().listDemand(projects.map((x) => x.id)), { capacity: cap.map }), capacity_configured: cap.configured, capacity_problems: cap.problems, as_of: new Date().toISOString() });
+      const pc = await partialCapacity(projects, cap);
+      res.json({ ok: true, ...RD.monthlyLoad(await p2().listDemand(projects.map((x) => x.id)), { capacity: pc.map }), capacity_configured: cap.configured, capacity_problems: cap.problems, ...pc.flags, as_of: new Date().toISOString() });
     } catch (e) { fail(res, e); }
   });
 
@@ -215,7 +224,8 @@ module.exports = function governancePortfolioPhase2Routes(router, h) {
       const projects = await readable(req); const pids = projects.map((x) => Number(x.id));
       const scenario = SC.normalise(req.body, pids); const cap = RD.parseCapacity(req.__p2cfg.ppm_capacity_fte);
       const pv = SD.portfolioView(projects, await p2().listDependencies(pids), { today: today() });
-      res.json({ ok: true, ...SC.simulate({ projects, lines: await p2().listDemand(pids), edges: pv.edges, capacity: cap.map, scenario }), capacity_configured: cap.configured });
+      const pc = await partialCapacity(projects, cap);
+      res.json({ ok: true, ...SC.simulate({ projects, lines: await p2().listDemand(pids), edges: pv.edges, capacity: pc.map, scenario }), capacity_configured: cap.configured, ...pc.flags });
     } catch (e) { fail(res, e); }
   });
 };

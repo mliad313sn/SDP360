@@ -41,7 +41,9 @@ const isMoneyType = (t) => MONEY_TYPES.includes(String(t));
 /** A row as served: metadata only, never the blob ref (no path leaves the server). */
 function view(r, { money = false } = {}) {
   const restricted = isMoneyType(r.doc_type) && !money;
-  return { id: Number(r.id), project_id: Number(r.project_id), doc_type: r.doc_type, title: r.title, version: Number(r.version), mime: r.mime, size_bytes: r.size_bytes == null ? null : Number(r.size_bytes),
+  // P11 R5-6 — the title of a document carrying amounts is masked for a non-amount reader ("Quote 1.2 M USD" is an
+  // amount); its type stays (it names the kind of document, never a figure)
+  return { id: Number(r.id), project_id: Number(r.project_id), doc_type: r.doc_type, title: restricted ? null : r.title, title_masked: restricted, version: Number(r.version), mime: r.mime, size_bytes: r.size_bytes == null ? null : Number(r.size_bytes),
     sha256: r.sha256 || null, uploaded_by_name: r.uploaded_by_name || null, uploaded_at: r.uploaded_at || null, restricted, download: !restricted };
 }
 /** Latest version per (type, title) first, then the older versions. */

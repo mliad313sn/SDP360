@@ -68,18 +68,37 @@ const ROLE_CATALOGUE = Object.freeze([
 
 // Business-case fields frozen once the project passed its approval gate (switch ppm_business_case_freeze_enabled).
 // A change needs an APPROVED (or applied) change request of the same project, named in the write. PROPOSED list.
-const FROZEN_FIELDS = Object.freeze(['charter', 'business_need', 'expected_value', 'budget', 'budget_reference', 'budget_approval_date']);
+// P11 R5-2 — `currency` is frozen too, and a change request:
+//   - is used ONCE (its first business-case edit leaves a `business_case_change` ledger row; a second use is refused);
+//   - unlocks the budget only to the value it approved: new budget = old budget + impact_budget, in the request's
+//     currency (a request without impact_budget does not unlock the budget);
+//   - never unlocks a currency change: a request carries no exchange basis, so re-denominating an approved business
+//     case is a committee re-baseline, not an edit (PROPOSED — for the committee to confirm).
+const FROZEN_FIELDS = Object.freeze(['charter', 'business_need', 'expected_value', 'budget', 'currency', 'budget_reference', 'budget_approval_date']);
 const CR_OK = ['approved', 'applied'];
+const numOrNull = (v) => (v == null || v === '' || !Number.isFinite(Number(v)) ? null : Number(v));
 /**
  * @param {string[]} changed  field names whose value changes in this write
- * @param {{status:string, project_id:number}|null} cr  the change request named in the write, if any
+ * @param {{status:string, project_id:number, impact_budget?:any, currency?:string, used?:boolean}|null} cr  the change request named in the write, if any
+ * @param {{before?:object, vals?:object}} [ctx]  the stored project row and the values being written (value binding)
  * @returns {null|{code:string, error:string, fields:string[]}}
  */
-function freezeRefusal(changed, projectId, cr) {
+function freezeRefusal(changed, projectId, cr, ctx = {}) {
   const fields = (changed || []).filter((f) => FROZEN_FIELDS.includes(f));
   if (!fields.length) return null;
-  if (cr && Number(cr.project_id) === Number(projectId) && CR_OK.includes(cr.status)) return null;
-  return { code: 'BUSINESS_CASE_FROZEN', error: `the approved business case is frozen (${fields.join(', ')}): raise a change request, have it approved, then send its change_request_id with the edit`, fields };
+  const refuse = (code, error) => ({ code, error, fields });
+  if (fields.includes('currency')) return refuse('BUSINESS_CASE_FROZEN', 'the currency of an approved business case is frozen: a change request carries no exchange basis — re-baseline the business case through the committee');
+  if (!(cr && Number(cr.project_id) === Number(projectId) && CR_OK.includes(cr.status))) return refuse('BUSINESS_CASE_FROZEN', `the approved business case is frozen (${fields.join(', ')}): raise a change request, have it approved, then send its change_request_id with the edit`);
+  if (cr.used) return refuse('CHANGE_REQUEST_USED', `change request #${cr.id} was already applied to the business case — raise a new change request for a further change`);
+  if (fields.includes('budget')) {
+    const before = ctx.before || {}, vals = ctx.vals || {};
+    const impact = numOrNull(cr.impact_budget), oldB = numOrNull(before.budget), newB = numOrNull(vals.budget);
+    const cur = vals.currency || before.currency || null;
+    if (impact == null) return refuse('CHANGE_REQUEST_SCOPE', `change request #${cr.id} approved no budget impact — it does not unlock the budget`);
+    if (cr.currency && cur && String(cr.currency) !== String(cur)) return refuse('CHANGE_REQUEST_SCOPE', `change request #${cr.id} is in ${cr.currency}, the project budget in ${cur}`);
+    if (oldB == null || newB == null || Math.abs(oldB + impact - newB) > 1e-6) return refuse('CHANGE_REQUEST_SCOPE', `change request #${cr.id} approved a budget change of ${impact}: the new budget must be ${oldB == null ? 'the old budget' : oldB} + ${impact}${oldB == null ? '' : ' = ' + (oldB + impact)}`);
+  }
+  return null;
 }
 
 // Review actions are ppm_events rows (entity 'project'): review_assign · info_request · info_response · review_return.

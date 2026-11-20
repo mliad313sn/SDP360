@@ -88,7 +88,20 @@ test('business-case freeze: frozen fields need an approved change request of the
   assert.strictEqual(code(RW.freezeRefusal(['charter'], 1, { project_id: 1, status: 'proposed' })), 'BUSINESS_CASE_FROZEN');
   assert.strictEqual(code(RW.freezeRefusal(['charter'], 1, { project_id: 2, status: 'approved' })), 'BUSINESS_CASE_FROZEN');
   assert.strictEqual(RW.freezeRefusal(['charter'], 1, { project_id: 1, status: 'approved' }), null);
-  assert.strictEqual(RW.freezeRefusal(['budget'], 1, { project_id: 1, status: 'applied' }), null);
+  assert.strictEqual(RW.freezeRefusal(['budget'], 1, { project_id: 1, status: 'applied', impact_budget: 100, currency: 'USD' }, { before: { budget: 500, currency: 'USD' }, vals: { budget: 600 } }), null);
+});
+
+test('P11 R5-2 — freeze: currency frozen, a change request is single-use and bound to its approved budget delta', () => {
+  const cr = { id: 3, project_id: 1, status: 'approved', impact_budget: 1000, currency: 'USD' };
+  const ctx = (b) => ({ before: { budget: 5000, currency: 'USD' }, vals: { budget: b } });
+  assert.strictEqual(code(RW.freezeRefusal(['currency'], 1, null)), 'BUSINESS_CASE_FROZEN');
+  assert.strictEqual(code(RW.freezeRefusal(['currency'], 1, cr)), 'BUSINESS_CASE_FROZEN');
+  assert.strictEqual(RW.freezeRefusal(['budget'], 1, cr, ctx(6000)), null);
+  assert.strictEqual(code(RW.freezeRefusal(['budget'], 1, cr, ctx(9000000))), 'CHANGE_REQUEST_SCOPE');
+  assert.strictEqual(code(RW.freezeRefusal(['budget'], 1, { ...cr, used: true }, ctx(6000))), 'CHANGE_REQUEST_USED');
+  assert.strictEqual(code(RW.freezeRefusal(['charter'], 1, { ...cr, used: true })), 'CHANGE_REQUEST_USED');
+  assert.strictEqual(code(RW.freezeRefusal(['budget'], 1, { ...cr, impact_budget: null }, ctx(6000))), 'CHANGE_REQUEST_SCOPE');
+  assert.strictEqual(code(RW.freezeRefusal(['budget'], 1, { ...cr, currency: 'EUR' }, ctx(6000))), 'CHANGE_REQUEST_SCOPE');
 });
 
 test('review state derives reviewers, open requests and returns from ledger rows', () => {
