@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks the two-site pilot on the TEST instance |
 | Decide after | [G02](G02-threat-model-findings.md) Security: threat model and findings |
-| Target SHA | `3b7687d3ffe47b21628b160ccdaf991b0938cbbb` |
+| Target SHA | `0613bb96` |
 | Generated | 2026-11-20 |
 
 ## 1. Question to decide
