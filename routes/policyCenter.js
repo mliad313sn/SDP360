@@ -35,7 +35,7 @@ module.exports = function policyCenterRoutes(deps) {
     try { if (String((await cfg()).policy_center_enabled) === '1') return next(); } catch (_) { /* off */ }
     return httpFail(res, typed('NOT_FOUND', 'not found', 404), 404, { ok: false });
   }
-  const log = (req, ev) => { try { rdb().logEvent({ ...ev, ...rdb()._logCtx(req) }); } catch (_) { /* best-effort */ } };
+  const log = async (req, ev) => { try { await rdb().logEvent({ ...ev, ...rdb()._logCtx(req) }); } catch (_) { /* best-effort: a log never breaks a change */ } };
   const URL_KEY = (k) => /(_url|_base_url|_accounts_url|_org_url)$/.test(k);
   const MIN_REASON = 5;
 
@@ -61,7 +61,7 @@ module.exports = function policyCenterRoutes(deps) {
     const sc = parseScope(entry, scope);
     if (entry.source === 'governance_policy') {
       const out = await gstore().set({ scope: sc, key: entry.key, value: reset ? null : value, reason: why, actor: actorOf(u) });
-      log(req, { category: 'governance', action: out.pending ? 'policy_change_proposed' : 'policy_changed', target: `${out.scope}:${out.key}`, details: { before: out.before, after: out.after, reason: why.slice(0, 300), via: 'policy_center', proposal: out.pending ? out.pending.id : undefined }, risk: out.relaxes ? 1 : 0 });
+      await log(req, { category: 'governance', action: out.pending ? 'policy_change_proposed' : 'policy_changed', target: `${out.scope}:${out.key}`, details: { before: out.before, after: out.after, reason: why.slice(0, 300), via: 'policy_center', proposal: out.pending ? out.pending.id : undefined }, risk: out.relaxes ? 1 : 0 });
       return out.pending ? { status: 'pending', request: 'gp-' + out.pending.id, before: out.before, after: out.after }
         : { status: JSON.stringify(out.before) === JSON.stringify(out.after) ? 'unchanged' : 'applied', before: out.before, after: out.after };
     }
@@ -78,7 +78,7 @@ module.exports = function policyCenterRoutes(deps) {
     if (PC.needsSecondPerson(entry, before, next)) {
       if (why.length < 10) throw typed('VALIDATION', 'a high-risk change needs a reason (10+ characters)', 400);
       const r = await cstore().create({ key: entry.key, scope: 'global', oldValue: before, newValue: next, reason: why, actor: actorOf(u) });
-      log(req, { category: 'config', action: 'policy_change_requested', target: entry.key, details: { request: r.id, from: before, to: next, reason: why.slice(0, 300) }, risk: 1 });
+      await log(req, { category: 'config', action: 'policy_change_requested', target: entry.key, details: { request: r.id, from: before, to: next, reason: why.slice(0, 300) }, risk: 1 });
       return { status: 'pending', request: 'pc-' + r.id, before, after: next };
     }
     await applyConfig(req, entry.key, before, next, why);
@@ -161,7 +161,7 @@ module.exports = function policyCenterRoutes(deps) {
       if (m[1] === 'gp') {
         if (decision === 'cancel') throw typed('VALIDATION', 'a governance proposal lapses on its own after 7 days; another super_admin can reject it', 400);
         const out = await gstore().decide(Number(m[2]), decision, { actor: { id: u.id, isSuper: isSuper(u) }, reason });
-        log(req, { category: 'governance', action: out.status === 'approved' ? 'policy_relaxed' : 'policy_relaxation_rejected', target: `${out.scope}:${out.key}`, details: { proposal: out.id, via: 'policy_center' }, risk: 1 });
+        await log(req, { category: 'governance', action: out.status === 'approved' ? 'policy_relaxed' : 'policy_relaxation_rejected', target: `${out.scope}:${out.key}`, details: { proposal: out.id, via: 'policy_center' }, risk: 1 });
         return res.json({ ok: true, request: 'gp-' + out.id, status: out.status });
       }
       const out = await cstore().decide(Number(m[2]), decision, { actor: actorOf(u), reason,
@@ -171,7 +171,7 @@ module.exports = function policyCenterRoutes(deps) {
           const next = PC.validateConfigValue(e, r.new_value);   // re-validated against today's rules
           await applyConfig(req, r.key, r.old_value, next, `approved request pc-${r.id} (requested by ${r.requested_by_name}): ${r.reason} | approval: ${String(reason || '').trim()}`);
         } });
-      log(req, { category: 'config', action: 'policy_change_' + out.status, target: out.key, details: { request: out.id, from: out.old_value, to: out.new_value, reason: String(reason || '').slice(0, 300) }, risk: 1 });
+      await log(req, { category: 'config', action: 'policy_change_' + out.status, target: out.key, details: { request: out.id, from: out.old_value, to: out.new_value, reason: String(reason || '').slice(0, 300) }, risk: 1 });
       res.json({ ok: true, request: 'pc-' + out.id, status: out.status });
     } catch (e) { fail(res, e); }
   };
@@ -192,7 +192,7 @@ module.exports = function policyCenterRoutes(deps) {
   router.get('/api/policy-center/export', requireReportSession, requireAdmin, enabled, async (req, res) => {
     try {
       const rows = await effectiveSet(); const at = new Date().toISOString();
-      log(req, { category: 'export', action: 'policy_center_export', target: 'policy_set', details: { format: req.query.format === 'csv' ? 'csv' : 'json', rows: rows.length } });
+      await log(req, { category: 'export', action: 'policy_center_export', target: 'policy_set', details: { format: req.query.format === 'csv' ? 'csv' : 'json', rows: rows.length } });
       if (req.query.format === 'csv') {
         const { neutralize } = require('../public/lib/csvSafe');
         const q = (v) => '"' + String(neutralize(v == null ? '' : typeof v === 'object' ? JSON.stringify(v) : v)).replace(/"/g, '""') + '"';
@@ -256,7 +256,7 @@ module.exports = function policyCenterRoutes(deps) {
         try { const out = await changeRule(req, PC.build().by.get(r.key), { scope: r.scope, value: r.proposed, reason: `profile "${String(profile.name || '').slice(0, 60)}": ${why}` }); results.push({ key: r.key, scope: r.scope, ...out }); }
         catch (err) { results.push({ key: r.key, scope: r.scope, status: 'error', error: err.message }); }
       }
-      log(req, { category: 'config', action: 'policy_profile_imported', target: 'policy_set', details: { name: profile.name || null, rows: rows.length, applied: results.filter((x) => x.status === 'applied').length, pending: results.filter((x) => x.status === 'pending').length, reason: why.slice(0, 300) }, risk: 1 });
+      await log(req, { category: 'config', action: 'policy_profile_imported', target: 'policy_set', details: { name: profile.name || null, rows: rows.length, applied: results.filter((x) => x.status === 'applied').length, pending: results.filter((x) => x.status === 'pending').length, reason: why.slice(0, 300) }, risk: 1 });
       res.json({ ok: true, dry_run: false, results, plan_hash });
     } catch (e) { fail(res, e); }
   });
