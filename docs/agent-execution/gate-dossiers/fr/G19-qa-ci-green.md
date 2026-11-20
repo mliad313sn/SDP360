@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | bloque le pilote sur deux sites (instance de TEST) |
 | À décider après | aucune |
-| SHA cible | `369072d2` |
+| SHA cible | `e1118e1d` |
 | Généré | 2026-11-20 |
 
 ## 1. La question à trancher
@@ -22,7 +22,7 @@ L'intégration continue est-elle verte sur le SHA cible, et acceptez-vous chaque
 | Preuve | Ce qu'elle montre | Régénérer / rejouer | Dernière modification (commit, date) | Empreinte |
 |---|---|---|---|---|
 | `.github/workflows/ci.yml` | Tâches CI (unitaires, parcours navigateur) | `manual` | a1208217, 2026-11-19 | `1e629a1b51faf736` |
-| `tests/.suite-manifest.json` | Recensement revu des tests par fichier | `npm test -- --update-manifest` | 4bda7065, 2026-11-20 | `dd0bb4a580614868` |
+| `tests/.suite-manifest.json` | Recensement revu des tests par fichier | `npm test -- --update-manifest` | d0b28752, 2026-11-20 | `3eace399a653431b` |
 | `tests/.skip-allowlist.json` | Chaque saut autorisé et sa raison | `manual` | 090d541f, 2026-11-06 | `d0fb199d188863a5` |
 | `tools/test/run-all.js` | Lanceur de la suite complète | `node tools/test/run-all.js` | a8a31c3e, 2026-11-19 | `b8e6013f1d72bc84` |
 | `docs/agent-execution/DELIVERY-QUALITY.md` | Indicateurs de qualité de livraison | `node tools/release/delivery-metrics.js` | f5acdadf, 2026-11-06 | `1aca3f9dbc393523` |

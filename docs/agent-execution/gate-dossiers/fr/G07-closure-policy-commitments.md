@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | ne bloque le pilote que si sa fonction est dans le périmètre du pilote |
 | À décider après | [G06](G06-kpi-definitions-thresholds.md) Définitions des indicateurs, seuils et score |
-| SHA cible | `369072d2` |
+| SHA cible | `e1118e1d` |
 | Généré | 2026-11-20 |
 
 ## 1. La question à trancher
@@ -26,7 +26,7 @@ Qui peut vérifier et clore un engagement, qui accepte le risque résiduel, et q
 | `tests/commitment-lifecycle.test.js` | Règles du cycle de vie | `node --test --test-force-exit tests/commitment-lifecycle.test.js` | 95780319, 2026-11-20 | `792909f87f5ccd7f` |
 | `tests/commitment-escalation.test.js` | Règles d'escalade | `node --test --test-force-exit tests/commitment-escalation.test.js` | 2054b544, 2026-10-28 | `f7858855a224b5c0` |
 | `tests/commitments-routes.smoke.test.js` | Les routes répondent 404 tant que l'interrupteur est éteint | `node --test --test-force-exit tests/commitments-routes.smoke.test.js` | 4ed787fe, 2026-11-20 | `8c2d946959276e1b` |
-| `docs/ops/FLAG-REGISTER.json` | Registre des interrupteurs : défaut, responsable (à nommer) | `node tools/agent/flag-register.js` | 369072d2, 2026-11-20 | `30fb253c5bc0f505` |
+| `docs/ops/FLAG-REGISTER.json` | Registre des interrupteurs : défaut, responsable (à nommer) | `node tools/agent/flag-register.js` | 8c7ff8f5, 2026-11-20 | `8e7be07b81d6d490` |
 
 **Preuves attendues des lots parallèles**
 
