@@ -93,7 +93,9 @@ test('apply + journal + rollback on the throwaway database', async () => {
     // someone changes one switch after the activation: rollback leaves it alone unless --force
     await rc.setConfig(rdb.db, { ui_role_landing: '0' }, 'someone');
     await rc.setConfig(rdb.db, { ui_role_landing: '2' }, 'someone');
-    const back = await A.main([`--rollback=${res.rollback_file}`, `--db-url=${url}`], { ...quiet, ...(await liveDeps(url)) });
+    // N-15: L13 turned policy_center_enabled on; rolling it back to '0' is the weaker side → a second person is needed
+    await assert.rejects(A.main([`--rollback=${res.rollback_file}`, `--db-url=${url}`, '--operator=jdoe'], { ...quiet, ...(await liveDeps(url)) }), /policy_center_enabled[^]*second person/);
+    const back = await A.main([`--rollback=${res.rollback_file}`, `--db-url=${url}`, '--operator=jdoe', '--second-operator=asmith'], { ...quiet, ...(await liveDeps(url)) });
     assert.ok(back.conflicts.some((c) => c.key === 'ui_role_landing'));
     cfg = await rc.getConfig(rdb.db);
     assert.equal(cfg.commitments_enabled, '0'); assert.equal(cfg.mywork_awaiting_me_enabled, '0'); assert.equal(cfg.ui_role_landing, '2');
@@ -184,4 +186,115 @@ test('r4: rollback of a key that had no report_config row deletes the row again'
     assert.equal(row, undefined, 'returned to absent, not pinned to a literal value');
     assert.equal((await rc.getConfig(rdb.db)).commitments_enabled, rc.DEFAULTS.commitments_enabled);
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+// P11 r5 N-15 — --apply wrote four-eyes switches (emergency_access_enabled, portfolio_editor_plan_writes…) with ONE
+// operator, bypassing the second-super_admin rule the Policy Center enforces in the UI. Now: a four-eyes step needs
+// --second-operator (a different person, both recorded), or — Policy Center on — becomes a center request, never a write.
+test('r5 N-15: four-eyes detection follows the Policy Center rule; the second operator must be another person', () => {
+  const plan = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'docs', 'ops', 'switch-lots.json'), 'utf8'));
+  const register = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'docs', 'ops', 'FLAG-REGISTER.json'), 'utf8'));
+  const cfg = Object.fromEntries(register.report_config.map((r) => [r.key, r.default]));
+  assert.equal(A.needsFourEyes(cfg, 'emergency_access_enabled', '1'), true);
+  assert.equal(A.needsFourEyes(cfg, 'portfolio_editor_plan_writes', '1'), true);
+  assert.equal(A.needsFourEyes(cfg, 'policy_center_enabled', '1'), false, 'towards the strict side: no second person');
+  assert.equal(A.needsFourEyes(cfg, 'commitments_enabled', '1'), false, 'not a four-eyes key');
+  const act = A.markFourEyes(A.buildActivation({ plan, register, lots: A.selectLots(plan, 'L12'), cfg }), cfg);
+  const fe = act.steps.filter((s) => s.four_eyes).map((s) => s.key).sort();
+  assert.deepEqual(fe, ['access_grant_expiry_job', 'access_recert_enabled', 'emergency_access_enabled', 'login_limit_failures_only']);
+  assert.match(A.renderPlan(act, { source: 'x' }), /emergency_access_enabled[^\n]*4EYES/);
+  assert.match(A.renderPlan(act, { source: 'x' }), /Four-eyes \(second super_admin required\): /);
+  // L01 has no four-eyes step: unchanged behaviour
+  const a1 = A.markFourEyes(A.buildActivation({ plan, register, lots: A.selectLots(plan, 'L01'), cfg }), cfg);
+  assert.equal(a1.steps.filter((s) => s.four_eyes).length, 0);
+  assert.equal(A.secondOperatorRefusal('jdoe', ''), 'missing');
+  assert.match(A.secondOperatorRefusal('J.Doe', ' j.doe '), /same person/);
+  assert.match(A.secondOperatorRefusal('', 'asmith'), /first operator is unknown/);
+  assert.equal(A.secondOperatorRefusal('jdoe', 'asmith'), null);
+  assert.equal(A.parseArgs(['--second-operator=asmith']).secondOperator, 'asmith');
+});
+
+async function resetLot(lotIds) {
+  const rdb = require('../reports-db');
+  const rc = require('../services/reportConfig');
+  const reg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'docs', 'ops', 'FLAG-REGISTER.json'), 'utf8'));
+  const plan = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'docs', 'ops', 'switch-lots.json'), 'utf8'));
+  const keys = A.selectLots(plan, lotIds).flatMap((l) => l.switches).filter((k) => !k.includes('.'));
+  await rc.setConfig(rdb.db, Object.fromEntries(keys.map((k) => [k, (reg.report_config.find((r) => r.key === k) || {}).default || '0'])), 'test');
+  return keys;
+}
+
+test('r5 N-15 (pg): L12 without --second-operator is refused and writes NOTHING; with it, both names are recorded', async () => {
+  const url = process.env.PG_URL;
+  const dir = tmp();
+  try {
+    const rdb = require('../reports-db');
+    const rc = require('../services/reportConfig');
+    await rc.setConfig(rdb.db, { policy_center_enabled: '0' }, 'test');
+    const keys = await resetLot('L12');
+    const before = await rc.getConfig(rdb.db);
+    await assert.rejects(A.main(['--apply', `--db-url=${url}`, '--lots=L12', `--rollback-dir=${dir}`, '--reason=L12 activation CAB-0042', '--operator=jdoe'], { ...quiet, ...(await liveDeps(url)) }),
+      /emergency_access_enabled[^]*second super_admin[^]*--second-operator[^]*nothing written/);
+    const mid = await rc.getConfig(rdb.db);
+    for (const k of keys) assert.equal(mid[k], before[k], `${k} untouched after the refusal`);
+    assert.equal(fs.readdirSync(dir).length, 0, 'no rollback file written');
+    await assert.rejects(A.main(['--apply', `--db-url=${url}`, '--lots=L12', `--rollback-dir=${dir}`, '--reason=L12 activation CAB-0042', '--operator=jdoe', '--second-operator= JDoe '], { ...quiet, ...(await liveDeps(url)) }),
+      /same person/);
+
+    const res = await A.main(['--apply', `--db-url=${url}`, '--lots=L12', `--rollback-dir=${dir}`, '--reason=L12 activation CAB-0042', '--operator=jdoe', '--second-operator=asmith'], { ...quiet, ...(await liveDeps(url)) });
+    assert.ok(res.applied.includes('emergency_access_enabled'));
+    assert.equal(res.second_operator, 'asmith');
+    assert.equal((await rc.getConfig(rdb.db)).emergency_access_enabled, '1');
+    const rb = JSON.parse(fs.readFileSync(res.rollback_file, 'utf8'));
+    assert.equal(rb.operator, 'jdoe'); assert.equal(rb.second_operator, 'asmith');
+    assert.equal(rb.sha256, A.rollbackHash(rb), 'the second operator is inside the signed content');
+    assert.equal(A.rollbackHash({ ...rb, second_operator: 'mallory' }) === rb.sha256, false, 'changing the second operator breaks the signature');
+    assert.equal(rb.entries.find((e) => e.key === 'emergency_access_enabled').four_eyes, true);
+    const { rows } = await rdb.listSystemLog({ category: 'config', action: 'config_changed' }, { limit: 500 });
+    const row = rows.find((r) => r.target === 'emergency_access_enabled' && r.actor === 'cli:activate-switches:jdoe');
+    assert.ok(row, 'journal row names the first operator');
+    assert.match(JSON.stringify(row), /second operator: asmith/, 'journal row names the second operator');
+    const { rows: files } = await rdb.listSystemLog({ category: 'config', action: 'switch_rollback_file' }, { limit: 50 });
+    assert.ok(files.some((f) => f.target === rb.sha256 && /asmith/.test(JSON.stringify(f))), 'the rollback-file event records the second operator');
+
+    // rolling the four-eyes keys back to their weaker side needs a second person too
+    await assert.rejects(A.main([`--rollback=${res.rollback_file}`, `--db-url=${url}`, '--operator=jdoe'], { ...quiet, ...(await liveDeps(url)) }), /second person/);
+    assert.equal((await rc.getConfig(rdb.db)).emergency_access_enabled, '1', 'refused rollback wrote nothing');
+    const back = await A.main([`--rollback=${res.rollback_file}`, `--db-url=${url}`, '--operator=jdoe', '--second-operator=asmith'], { ...quiet, ...(await liveDeps(url)) });
+    assert.ok(back.restored.includes('emergency_access_enabled'));
+    assert.equal((await rc.getConfig(rdb.db)).emergency_access_enabled, rc.DEFAULTS.emergency_access_enabled);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('r5 N-15 (pg): Policy Center on — four-eyes keys become center requests, the rest is written', async () => {
+  const url = process.env.PG_URL;
+  const dir = tmp();
+  const rdb = require('../reports-db');
+  const rc = require('../services/reportConfig');
+  try {
+    const keys = await resetLot('L12');
+    await rc.setConfig(rdb.db, { policy_center_enabled: '1' }, 'test');
+    // the requester of record must be an active super_admin account
+    await assert.rejects(A.main(['--apply', `--db-url=${url}`, '--lots=L12', `--rollback-dir=${dir}`, '--reason=L12 via policy center', '--operator=nobody-here'], { ...quiet, ...(await liveDeps(url)) }),
+      /active super_admin[^]*nothing written/);
+    const H = rdb.pgHandle();
+    const u = await H.prepare("INSERT INTO users (username, full_name, password_hash, salt, active) VALUES ('pc-super', 'PC Super', 'x', 'y', 1) RETURNING id").get();
+    await H.prepare("INSERT INTO user_roles (user_id, role) VALUES (?, 'super_admin')").run(u.id);
+    const res = await A.main(['--apply', `--db-url=${url}`, '--lots=L12', `--rollback-dir=${dir}`, '--reason=L12 via policy center', '--operator=pc-super'], { ...quiet, ...(await liveDeps(url)) });
+    const fe = ['access_grant_expiry_job', 'access_recert_enabled', 'emergency_access_enabled', 'login_limit_failures_only'];
+    assert.deepEqual(res.requested.map((r) => r.key).sort(), fe);
+    const cfg = await rc.getConfig(rdb.db);
+    for (const k of fe) assert.equal(cfg[k], rc.DEFAULTS[k], `${k} NOT written — awaiting a second super_admin`);
+    assert.equal(cfg.access_require_approval, '1', 'a non-four-eyes switch of the same lot is written');
+    assert.ok(!res.applied.some((k) => fe.includes(k)));
+    const reqs = await H.prepare("SELECT key, new_value, requested_by, status FROM policy_change_requests WHERE status = 'pending' ORDER BY key").all();
+    assert.deepEqual(reqs.map((r) => r.key), fe);
+    assert.ok(reqs.every((r) => Number(r.requested_by) === Number(u.id) && r.new_value === '1'));
+    const rb = JSON.parse(fs.readFileSync(res.rollback_file, 'utf8'));
+    assert.ok(!rb.entries.some((e) => fe.includes(e.key)), 'the rollback file lists only what was written');
+    void keys;
+  } finally {
+    await rc.setConfig(rdb.db, { policy_center_enabled: '0' }, 'test');
+    fs.rmSync(dir, { recursive: true, force: true });
+  }
 });

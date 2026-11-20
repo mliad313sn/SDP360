@@ -14,6 +14,7 @@
 //   - a gate id (Gnn) that is neither a gate of the dossier source nor a label written in RELEASE-GATES.md;
 //   - an `activate-switches.js --apply` line without --lots / --reason, and any --lots value naming an unknown lot
 //     or a keep group the tool refuses whatever the flags;
+//   - a real (not --dry-run) `--apply` of a lot with a four-eyes switch (P11 r5 N-15) without --second-operator=;
 //   - a repository path between backticks that does not exist;
 //   - a filled cell in a decision / name / date / signature column of a table that has a signature column;
 //   - a document without the label "Préparé par IA — à valider par les responsables nommés";
@@ -64,7 +65,18 @@ function loadKnown(root) {
   const { gates } = freshRequire(path.join(root, 'tools', 'release', 'gate-dossiers.source.js'));
   const gateIds = new Set(gates.map((g) => g.id));
   const gateLabels = new Set(read(root, 'docs/sdp360/completion/RELEASE-GATES.md').match(/\bG\d\d\b/g) || []);
-  return { switches, lots: new Set(plan.lots.map((l) => l.id)), keep: new Set(Object.keys(plan.keep || {})), gateIds, gateLabels, root };
+  // P11 r5 N-15 — lots whose activation (from the register defaults, outbound excluded) has a four-eyes step
+  const fourEyesLots = new Set();
+  try {
+    const A = freshRequire(path.join(root, 'tools', 'ops', 'activate-switches.js'));
+    const cfg = Object.fromEntries((reg.report_config || []).map((r) => [r.key, r.default]));
+    // every non-outbound switch of the lot, prerequisites aside (a lot refused from the defaults is applied later, after
+    // the lots it depends on — its four-eyes switches still need the second operator then)
+    for (const l of plan.lots) {
+      if (l.switches.some((k) => !A.OUTBOUND[k] && A.needsFourEyes(cfg, k, k in A.ON_VALUE ? A.ON_VALUE[k] : '1'))) fourEyesLots.add(l.id);
+    }
+  } catch (_) { /* the tool is unreadable: the other checks still run */ }
+  return { switches, lots: new Set(plan.lots.map((l) => l.id)), keep: new Set(Object.keys(plan.keep || {})), gateIds, gateLabels, fourEyesLots, root };
 }
 
 // ---------------------------------------------------------------------------------------------------------- scan
@@ -110,6 +122,9 @@ function scanText(text, known, file) {
         if (id === 'all') { if (line.includes('--apply')) out.push(`${file}: --apply --lots=all is not used in this pack`); continue; }
         if (id.startsWith('K:')) { if (REFUSED_GROUPS.includes(id.slice(2))) out.push(`${file}: keep group ${id} is refused by the tool`); continue; }
         if (!known.lots.has(id)) out.push(`${file}: --lots names unknown lot ${id}`);
+        else if (line.includes('--apply') && !line.includes('--dry-run') && !line.includes('--second-operator=') && known.fourEyesLots && known.fourEyesLots.has(id)) {
+          out.push(`${file}: --apply of ${id} (a four-eyes switch) without --second-operator=: ${line.trim()}`);
+        }
       }
     }
   }

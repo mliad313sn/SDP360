@@ -26,6 +26,7 @@
 | Site optionnel de préparation hors ligne | | Sponsor + IT Groupe (HD-G11) | | | | |
 | Responsable du pilote | | Sponsor | | | | |
 | Opérateur de l'instance de TEST (exécute `activate-switches`) | | SRE | | | | |
+| Second opérateur des interrupteurs « quatre yeux » (`--second-operator`, personne différente) | | Sécurité de l'information | | | | |
 | Facilitateur (hors équipe de construction) | | Sponsor (HD-U04) | | | | |
 | Observateur | | Sponsor (HD-U04) | | | | |
 | Détenteur de `PILOT_PSEUDONYM_KEY` | | Sponsor (HD-U07) | | | | |
@@ -86,6 +87,13 @@ Règles communes :
 - Un lot est refusé en entier si un prérequis n'est pas allumé (exemple : L09 sans L01).
 - Le retour arrière **ne restaure que la configuration** : les données saisies pendant que l'interrupteur était allumé restent en base.
 - Ne jamais ajouter `--include-outbound` pendant le pilote.
+- Lots L03, L08, L11, L12 et L14 : ils contiennent un interrupteur « quatre yeux » (marqué `4EYES` par `--plan`,
+  règle du catalogue `docs/ops/policy-catalogue.json`). L'application est **refusée sans rien écrire** tant que
+  `--second-operator=<second opérateur>` ne nomme pas une **autre** personne, qui a relu le plan ; les deux noms sont
+  écrits dans le journal et dans le fichier de retour arrière signé. Le retour arrière de ces interrupteurs vers leur
+  côté le moins strict demande aussi `--second-operator`. Si le Centre des politiques est allumé (`policy_center_enabled`),
+  l'outil n'écrit pas ces interrupteurs : il dépose une demande par interrupteur (demandeur = le compte super_admin de
+  `--operator`) et un second super_admin décide dans le centre.
 
 ### Vague 1 — produit par défaut + L01
 
@@ -110,9 +118,9 @@ Appliquer lot par lot, pas en bloc, pour qu'un retour arrière ne touche qu'un l
 ```
 node tools/ops/activate-switches.js --plan --lots=L02,L03,L09,L14,L15 --db-url=env
 node tools/ops/activate-switches.js --apply --lots=L02 --db-url=env --reason="Pilote vague 2 — HD-S01 tranché, réf. <réf.>" --operator=<opérateur>
-node tools/ops/activate-switches.js --apply --lots=L03 --db-url=env --reason="Pilote vague 2 — HD-S02 tranché, réf. <réf.>" --operator=<opérateur>
+node tools/ops/activate-switches.js --apply --lots=L03 --db-url=env --reason="Pilote vague 2 — HD-S02 tranché, réf. <réf.>" --operator=<opérateur> --second-operator=<second opérateur>
 node tools/ops/activate-switches.js --apply --lots=L09 --db-url=env --reason="Pilote vague 2 — HD-K06 fixé, réf. <réf.>" --operator=<opérateur>
-node tools/ops/activate-switches.js --apply --lots=L14 --db-url=env --reason="Pilote vague 2 — HD-P01/P02/P03 revus, réf. <réf.>" --operator=<opérateur>
+node tools/ops/activate-switches.js --apply --lots=L14 --db-url=env --reason="Pilote vague 2 — HD-P01/P02/P03 revus, réf. <réf.>" --operator=<opérateur> --second-operator=<second opérateur>
 node tools/ops/activate-switches.js --apply --lots=L15 --db-url=env --reason="Pilote vague 2 — HD-U11 revue faite, réf. <réf.>" --operator=<opérateur>
 ```
 
@@ -124,10 +132,10 @@ Si HD-S02 conclut « sortir `portfolio_editor_plan_writes` de L03 », le plan de
 ```
 node tools/ops/activate-switches.js --plan --lots=L04,L08,L10,L11,L12 --db-url=env
 node tools/ops/activate-switches.js --apply --lots=L04 --db-url=env --reason="Pilote vague 3 — HD-P06/P07 acceptés, réf. <réf.>" --operator=<opérateur>
-node tools/ops/activate-switches.js --apply --lots=L08 --db-url=env --reason="Pilote vague 3 — HD-G07/HD-G08, réf. <réf.>" --operator=<opérateur>
+node tools/ops/activate-switches.js --apply --lots=L08 --db-url=env --reason="Pilote vague 3 — HD-G07/HD-G08, réf. <réf.>" --operator=<opérateur> --second-operator=<second opérateur>
 node tools/ops/activate-switches.js --apply --lots=L10 --db-url=env --reason="Pilote vague 3 — HD-U15/HD-U16, réf. <réf.>" --operator=<opérateur>
-node tools/ops/activate-switches.js --apply --lots=L11 --db-url=env --reason="Pilote vague 3 — HD-F02/HD-U17, réf. <réf.>" --operator=<opérateur>
-node tools/ops/activate-switches.js --apply --lots=L12 --db-url=env --reason="Pilote vague 3 — exercice break-glass fait, réf. <réf.>" --operator=<opérateur>
+node tools/ops/activate-switches.js --apply --lots=L11 --db-url=env --reason="Pilote vague 3 — HD-F02/HD-U17, réf. <réf.>" --operator=<opérateur> --second-operator=<second opérateur>
+node tools/ops/activate-switches.js --apply --lots=L12 --db-url=env --reason="Pilote vague 3 — exercice break-glass fait, réf. <réf.>" --operator=<opérateur> --second-operator=<second opérateur>
 ```
 
 L12 resserre les accès (refus 403 visibles par les utilisateurs) : prévenir la cohorte la veille.
