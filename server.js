@@ -635,7 +635,8 @@ async function checkZohoViewSchema() {
 
 app.use(require('./services/sliCounters').loginCounter);   // P05 — sign-in SLI: counts login answers by status (no body, no user)
 // Zoho view schema health check — routes/health.js (M12-a).
-app.use(require('./routes/health')({ express, checkZohoViewSchema, requireReportSession, getRdb: () => rdb, getBuild: () => APP_VERSION, getTokenState: () => tokenState, getProvenance: () => PROVENANCE }));
+app.use(require('./routes/health')({ express, checkZohoViewSchema, requireReportSession, getRdb: () => rdb, getBuild: () => APP_VERSION, getTokenState: () => tokenState, getProvenance: () => PROVENANCE,
+  getHealthDetail: () => ({ orgId: CONFIG.orgId, workspaceId: CONFIG.workspaceId, surveySource: 'Analytics Plus view ' + SURVEY_VIEW_ID, surveyCacheAge: _surveyCache.ts ? Math.round((Date.now() - _surveyCache.ts) / 1000) + 's' : 'empty' }) }));
 
 // ── Startup behaviour (2026-05-28) ──────────────────────────────────────
 // Previously: on every pm2 restart, this fired all 3 syncs against Zoho
@@ -1653,17 +1654,7 @@ const _xp = (id, o) => require('./services/exportPolicy').gate(id, o);   // P9 /
 app.use(require('./routes/assets')({ express, requireReportSession, requireAdmin, requireSuperAdmin, requireRole, requireMoneyRead, canReadMoney }));
 app.use(require('./routes/digestSend')({ express, requireReportSession, requireSuperAdmin, getRdb: () => rdb }));
 
-app.get('/health', (req, res) => res.json({
-  status: 'ok', tokenValid: Date.now() < tokenState.expiresAt,
-  expiresAt: new Date(tokenState.expiresAt).toISOString(),
-  refreshCount: tokenState.refreshCount,
-  grantedScope: tokenState.grantedScope || 'unknown (not yet refreshed)',
-  lastRefreshError: tokenState.lastRefreshError || null,
-  orgId: CONFIG.orgId, workspaceId: CONFIG.workspaceId,
-  uptime: Math.round(process.uptime()) + 's',
-  surveySource:  'Analytics Plus view ' + SURVEY_VIEW_ID,
-  surveyCacheAge: _surveyCache.ts ? Math.round((Date.now() - _surveyCache.ts) / 1000) + 's' : 'empty',
-}));
+// GET /health (liveness, anonymous: {status, uptime} only — P11 F-04) lives in routes/health.js.
 
 // ── CHANGE / CAB DATA ENDPOINTS ──────────────────────────────────
 

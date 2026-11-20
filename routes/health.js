@@ -18,7 +18,7 @@ const { fail } = require('../services/httpError');
 //   app.use(require('./routes/health')({ express, checkZohoViewSchema, requireReportSession, getRdb }));
 // ─────────────────────────────────────────────────────────────────────────
 module.exports = function healthRoutes(deps) {
-  const { express, checkZohoViewSchema, requireReportSession, getRdb, getBuild, getTokenState, getProvenance } = deps;
+  const { express, checkZohoViewSchema, requireReportSession, getRdb, getBuild, getTokenState, getProvenance, getHealthDetail } = deps;
   const startedAt = new Date().toISOString();
   const router = express.Router();
 
@@ -99,6 +99,20 @@ router.get('/ready', async (req, res) => {
   res.status(answer.status).json(answer.body);
 });
 
+// P11 F-04 — UNAUTHENTICATED liveness probe (Docker / installer e2e poll it; exempt from the rate limiter in server.js).
+// It used to carry Zoho OAuth state (tokenValid, grantedScope, the raw lastRefreshError body), org/workspace ids and
+// the survey view id — none of which an anonymous caller needs. Now: {status, uptime} only, always 200 while the
+// process is up; 'degraded' = the last Zoho token refresh failed and no valid token is held. The detail moved to the
+// admin-tier GET /api/health/deps (`zoho_detail`). Readiness (DB reachable + writable) stays on /ready.
+router.get('/health', (req, res) => {
+  let status = 'ok';
+  try {
+    const ts = getTokenState && getTokenState();
+    if (ts && ts.lastRefreshError && !(ts.accessToken && Date.now() < Number(ts.expiresAt || 0))) status = 'degraded';
+  } catch (_) { /* unknown token state → liveness unaffected */ }
+  res.json({ status, uptime: Math.round(process.uptime()) + 's' });
+});
+
 router.get('/api/health/version', requireReportSession, (req, res) => {
   const out = { version: require('../package.json').version, build: (getBuild && getBuild()) || null,
     node: process.version, started_at: startedAt };
@@ -152,6 +166,16 @@ router.get('/api/health/deps', requireReportSession, async (req, res) => {
   try { const t0 = process.hrtime.bigint(); await rdb.pgHandle().prepare('SELECT 1 AS ok').get(); r.pg = { latency_ms: Number((process.hrtime.bigint() - t0) / 1000000n) }; require('../services/sliCounters').recordDbLatency(Number(process.hrtime.bigint() - t0) / 1e6); }
   catch (e) { r.pg = { error: e.message }; }
   try { const ts = getTokenState && getTokenState(); if (ts) r.tokenState = { accessToken: !!ts.accessToken, expiresAt: ts.expiresAt, lastRefreshError: !!ts.lastRefreshError }; } catch (_) { /* unknown */ }
+  // P11 F-04 — the Zoho detail that used to sit on the anonymous /health (admin tier only; never the token itself).
+  let zohoDetail = null;
+  try {
+    const ts = getTokenState && getTokenState();
+    const extra = (getHealthDetail && getHealthDetail()) || {};
+    if (ts) zohoDetail = { token_valid: !!ts.accessToken && Date.now() < Number(ts.expiresAt || 0), expires_at: ts.expiresAt ? new Date(ts.expiresAt).toISOString() : null,
+      refresh_count: ts.refreshCount == null ? null : ts.refreshCount, granted_scope: ts.grantedScope || null,
+      last_refresh_error: ts.lastRefreshError ? String(ts.lastRefreshError).slice(0, 300) : null,
+      org_id: extra.orgId || null, workspace_id: extra.workspaceId || null, survey_source: extra.surveySource || null, survey_cache_age: extra.surveyCacheAge || null };
+  } catch (_) { zohoDetail = null; }
   try { r.config = await require('../services/reportConfig').getConfig(rdb.db); } catch (_) { /* unknown */ }
   try { const sync = require('../services/sync'); await sync.ensureReady(); r.syncRows = await sync.getStore().health(); } catch (_) { /* unknown */ }
   try {
@@ -165,6 +189,7 @@ router.get('/api/health/deps', requireReportSession, async (req, res) => {
     r.disk = { free_bytes: st.bavail * st.bsize, total_bytes: st.blocks * st.bsize };
   } catch (_) { /* unknown */ }
   const out = require('../services/healthDeps').compose(r);
+  out.zoho_detail = zohoDetail;
   // P05 — 30-day SLI readings (docs/ops/SLO-PROPOSAL.md); observation only, every target UNKNOWN.
   try {
     const S = require('../services/sliReadings');
