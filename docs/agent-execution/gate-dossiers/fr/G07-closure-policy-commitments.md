@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | ne bloque le pilote que si sa fonction est dans le périmètre du pilote |
 | À décider après | [G06](G06-kpi-definitions-thresholds.md) Définitions des indicateurs, seuils et score |
-| SHA cible | `c912250aa0a83aaec2466ad7fda58c4710edd6ab` |
+| SHA cible | `801c0c84` |
 | Généré | 2026-11-20 |
 
 ## 1. La question à trancher
