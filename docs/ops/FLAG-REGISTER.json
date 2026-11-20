@@ -12,12 +12,12 @@
   "expiry"
  ],
  "counts": {
-  "report_config": 312,
+  "report_config": 319,
   "planned": 9,
   "governance_policies": 37,
   "environment": 70,
   "pseudo": 4,
-  "dark": 167,
+  "dark": 173,
   "dark_complete": 0,
   "live": 6
  },
@@ -1716,6 +1716,17 @@
    "prerequisites": null
   },
   {
+   "key": "ppm_alert_actions_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": null,
+   "recommended": "`1` after `ppm_decision_agenda_enabled`: the six management alerts of the portfolio spec (critical risk, high risk, unfunded — amount readers only —, decision bottleneck, missing delivery lead, schedule error) on the decisions page, and the committee assigns one by promoting it to a commitment (one per alert; escalation matrix; verified closure by a reviewer). In-app only: nothing is sent; the nightly notices still need `ppm_alerts_enabled`, e-mail still needs `alert_external_enabled`. Rules, severities and recommended actions are PROPOSED. `0` = every alert route 404s and the nightly list is today's.",
+   "prerequisites": null
+  },
+  {
    "key": "ppm_alert_blocked_days",
    "source": "report_config",
    "kind": "setting",
@@ -1725,6 +1736,17 @@
    "owner_role": "Committee",
    "recommended": "`5`",
    "reference": "A-27",
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_alert_decision_age_days",
+   "source": "report_config",
+   "kind": "setting",
+   "secret": false,
+   "default": "",
+   "dark": false,
+   "owner_role": null,
+   "recommended": "A number of days once the PMO sets one: an open project decision with no due date older than this is a decision bottleneck. Blank = the age rule is off (overdue and not-recorded decisions still raise). PROPOSED value to discuss: 14.",
    "prerequisites": null
   },
   {
@@ -1860,6 +1882,17 @@
    "prerequisites": null
   },
   {
+   "key": "ppm_business_case_freeze_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": null,
+   "recommended": "`1` once the PMO accepts the PROPOSED frozen list (charter, business need, expected value, budget, budget reference, budget approval date) and the change-request flow (`ppm_change_requests_enabled`): after the approval gate those fields change only with an approved change request of the project named in the write (409 `BUSINESS_CASE_FROZEN` otherwise; the change is a ledger row). Could block budget edits — keep `0` until then.",
+   "prerequisites": null
+  },
+  {
    "key": "ppm_calendars_enabled",
    "source": "report_config",
    "kind": "arm switch",
@@ -1954,6 +1987,17 @@
    "prerequisites": null
   },
   {
+   "key": "ppm_decision_agenda_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": null,
+   "recommended": "`1` after `ppm_intake_register_enabled`: `/portfolio-decisions.html` decision agenda (portfolio spec Lot 4) — projects with decision required yes / tbc and the decisions linked to them in the existing DEC register (authority, due date, status, outcome, decision date), required-but-not-recorded first; the committee records a decision about a project and its outcome. Status still moves through the decision lifecycle. The outcome list and the ordering are PROPOSED. `0` = every agenda route 404s and the decision payloads are today's.",
+   "prerequisites": null
+  },
+  {
    "key": "ppm_documents_enabled",
    "source": "report_config",
    "kind": "arm switch",
@@ -2019,6 +2063,28 @@
    "owner_role": "Finance",
    "recommended": "an explicit rate table (JSON `{target, rates, as_of, source}`) only if Finance wants a converted portfolio total next to the per-currency figures; empty = no converted view (never guessed)",
    "reference": "W1-EVM",
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_extended_lifecycle_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": null,
+   "recommended": "`1` once the PMO has reviewed the PROPOSED mapping: new projects start as `idea`, then `assessment` (needs an IT owner to be planned), today's `proposal` (Planned) and `approval` (Submitted), `in_progress`, then optionally `handover` (no open task) and `benefits_review` before `closure`; exits `deferred` (reversible), `rejected`, `cancelled`. Today's rules and SoD are kept, the sponsor may not decide either, every exit / return needs a reason, the status follows the stage. Turning it back to `0` leaves a project already in an extended stage unable to move — stop and report first.",
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_field_audit_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": null,
+   "recommended": "`1` early (low risk): every changed project field is kept in the append-only `ppm_events` ledger with its old and new value (the fields that already had their own row — finance, owner / sponsor, intake decision fields — keep it), and `created_by` / `updated_by` record the session user (portfolio spec Lot 5, §28). Shown in the project History tab (committee, admin tier, finance-viewer). `0` = today.",
    "prerequisites": null
   },
   {
@@ -2316,6 +2382,17 @@
    "owner_role": "PMO + Finance",
    "recommended": "`1` once the PMO maintains an enterprise resource pool: work / material / cost resources (site perimeter), rate tables A–E with effective dates and cost per use (committee, money-read rule, **non certifié** — rates are a Finance input), assignments with units / work / contour (flat, back / front loaded, double / early / late peak, bell, turtle), time-phased load and over-allocations; an unknown rate gives an unknown cost, never 0",
    "reference": "W2-ENGINE",
+   "prerequisites": null
+  },
+  {
+   "key": "ppm_review_workflow_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": null,
+   "recommended": "`1` (four-eyes) after `ppm_field_audit_enabled`: review panel on the Gates tab (assign a reviewer per PROPOSED step, request information, answer, return for correction, apply the PROPOSED six-step review checklist when `ppm_gate_checklist_enabled` is on), the §27 role catalogue, and a decision out of `approval` / an approval sign-off is refused to the person who submitted the project, the owner, the sponsor (identity skeleton) and an approver not independent of the requester (approver provenance) — fail closed: a project with no recorded submitter must be returned and resubmitted. Nothing is approved automatically.",
    "prerequisites": null
   },
   {
@@ -6996,6 +7073,34 @@
    ]
   },
   {
+   "key": "ppm_alert_actions_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": null,
+   "reference": null,
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
    "key": "ppm_alerts_enabled",
    "source": "report_config",
    "default": "0",
@@ -7141,6 +7246,34 @@
    "default": "0",
    "owner_role": "Finance + PMO",
    "reference": "E-P04",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
+   "key": "ppm_business_case_freeze_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": null,
+   "reference": null,
    "prerequisites": null,
    "decision": {
     "owner": null,
@@ -7360,6 +7493,34 @@
    ]
   },
   {
+   "key": "ppm_decision_agenda_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": null,
+   "reference": null,
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
    "key": "ppm_documents_enabled",
    "source": "report_config",
    "default": "0",
@@ -7449,6 +7610,62 @@
    "default": "0",
    "owner_role": "PMO + Finance",
    "reference": "W1-EVM",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
+   "key": "ppm_extended_lifecycle_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": null,
+   "reference": null,
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
+   "key": "ppm_field_audit_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": null,
+   "reference": null,
    "prerequisites": null,
    "decision": {
     "owner": null,
@@ -7981,6 +8198,34 @@
    "default": "0",
    "owner_role": "PMO + Finance",
    "reference": "W2-ENGINE",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
+   "key": "ppm_review_workflow_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": null,
+   "reference": null,
    "prerequisites": null,
    "decision": {
     "owner": null,
