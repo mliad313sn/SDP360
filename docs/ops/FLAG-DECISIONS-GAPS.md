@@ -5,7 +5,7 @@ edit this file; fill the sidecar instead. A dark switch = a behaviour that is OF
 or a nested arm whose default is false). Turning one on is a human decision: the fields below are what that decision
 must name. The agent fills none of them (no owner, canary site, date or business threshold is ever invented).
 
-Dark switches: **152** · with every decision field filled: **0** · fields: `owner`, `risk`, `dependencies`, `canary_site`, `rollback_trigger`, `success_metric`, `decision_deadline`, `expiry`.
+Dark switches: **153** · with every decision field filled: **0** · fields: `owner`, `risk`, `dependencies`, `canary_site`, `rollback_trigger`, `success_metric`, `decision_deadline`, `expiry`.
 
 | Switch | Source | Owner role (profile) | Missing decision fields |
 |---|---|---|---|
@@ -70,6 +70,7 @@ Dark switches: **152** · with every decision field filled: **0** · fields: `ow
 | `obligations_include_decisions` | report_config | Committee + Owner | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `opmanager_tls_insecure` | report_config | to be named | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `pir_reviews_enabled` | report_config | Incident manager + business sponsor | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
+| `policy_center_enabled` | report_config | to be named | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `portfolio_editor_plan_writes` | report_config | Owner (access policy) | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `portfolio_executive_readonly` | report_config | Owner + IAM | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |
 | `portfolio_my_projects_default` | report_config | PMO | owner, risk, dependencies, canary_site, rollback_trigger, success_metric, decision_deadline, expiry |

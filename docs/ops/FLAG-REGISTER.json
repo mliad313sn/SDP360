@@ -12,12 +12,12 @@
   "expiry"
  ],
  "counts": {
-  "report_config": 295,
+  "report_config": 296,
   "planned": 9,
   "governance_policies": 37,
   "environment": 69,
   "pseudo": 4,
-  "dark": 152,
+  "dark": 153,
   "dark_complete": 0,
   "live": 6
  },
@@ -1605,6 +1605,18 @@
    "owner_role": "Incident manager + business sponsor",
    "recommended": "`1` once the Incident manager names who signs a post-incident review and the business sponsor per major incident (the sign-off is a recorded human act by someone other than the author; nothing is sent)",
    "reference": "E-I03",
+   "prerequisites": null
+  },
+  {
+   "key": "policy_center_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "secret": false,
+   "default": "0",
+   "dark": true,
+   "owner_role": null,
+   "recommended": null,
+   "reference": null,
    "prerequisites": null
   },
   {
@@ -6517,6 +6529,34 @@
    "default": "0",
    "owner_role": "Incident manager + business sponsor",
    "reference": "E-I03",
+   "prerequisites": null,
+   "decision": {
+    "owner": null,
+    "risk": null,
+    "dependencies": null,
+    "canary_site": null,
+    "rollback_trigger": null,
+    "success_metric": null,
+    "decision_deadline": null,
+    "expiry": null
+   },
+   "missing": [
+    "owner",
+    "risk",
+    "dependencies",
+    "canary_site",
+    "rollback_trigger",
+    "success_metric",
+    "decision_deadline",
+    "expiry"
+   ]
+  },
+  {
+   "key": "policy_center_enabled",
+   "source": "report_config",
+   "default": "0",
+   "owner_role": null,
+   "reference": null,
    "prerequisites": null,
    "decision": {
     "owner": null,
