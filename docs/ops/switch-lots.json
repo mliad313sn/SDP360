@@ -341,6 +341,22 @@
     "field_outbox_resolve_enabled",
     "frozen:installer_safety_parity"
    ]
+  },
+  "live_by_default": {
+   "reason": "Shipped ON: the default '1' is today's behaviour (a safety guard, an operator alert, a policy that predates the switch, or a compatibility mode awaiting its own decision). Listed so that no switch ships ON without a recorded classification (P11 R3-A2). Turning one OFF is a decision of its owner (FLAG-REGISTER owner column), not of this plan.",
+   "switches": [
+    "meridian_enabled",
+    "never_send_unconfirmed",
+    "report_reassign_submitted",
+    "sync_alert_enabled",
+    "ui_inject_dash_key"
+   ]
+  },
+  "live_setting_not_a_switch": {
+   "reason": "A numeric setting whose value happens to be 1 (OpManager REST concurrency), not a behaviour switch. Kept so the live-switch check (P11 R3-A2) does not flag it; changing it is a tuning decision of the platform owner.",
+   "switches": [
+    "opm_rest_concurrency"
+   ]
   }
  },
  "retire": [

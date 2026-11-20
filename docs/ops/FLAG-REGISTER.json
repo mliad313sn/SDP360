@@ -18,7 +18,8 @@
   "environment": 65,
   "pseudo": 4,
   "dark": 152,
-  "dark_complete": 0
+  "dark_complete": 0,
+  "live": 6
  },
  "frozen_lots_source": "CLAUDE.md (tools/deploy/frozen-lots.json absent on this branch)",
  "report_config": [
@@ -9041,6 +9042,56 @@
     "decision_deadline",
     "expiry"
    ]
+  }
+ ],
+ "live": [
+  {
+   "key": "meridian_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "default": "1",
+   "owner_role": "Owner (D-5)",
+   "reference": "A-20"
+  },
+  {
+   "key": "never_send_unconfirmed",
+   "source": "report_config",
+   "kind": "setting",
+   "default": "1",
+   "owner_role": null,
+   "reference": null
+  },
+  {
+   "key": "opm_rest_concurrency",
+   "source": "report_config",
+   "kind": "setting",
+   "default": "1",
+   "owner_role": "Ops",
+   "reference": "A-18 (A-18b)"
+  },
+  {
+   "key": "report_reassign_submitted",
+   "source": "report_config",
+   "kind": "setting",
+   "default": "1",
+   "owner_role": "Owner (D-3)",
+   "reference": "A-24"
+  },
+  {
+   "key": "sync_alert_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "default": "1",
+   "owner_role": null,
+   "reference": null
+  },
+  {
+   "key": "ui_inject_dash_key",
+   "source": "report_config",
+   "kind": "setting",
+   "default": "1",
+   "owner_role": "Security owner",
+   "reference": "E-S02"
   }
  ],
  "sidecar_entries_without_switch": []

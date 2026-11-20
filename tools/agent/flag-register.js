@@ -174,6 +174,14 @@ function build({ root = ROOT } = {}) {
   for (const l of fl.lots) L.push(`| ${code('frozen:' + l.id)} | frozen lot | ${cell(l.today)} | ${cell(l.label + ' — ' + (l.commits || []).join(', ') + ' · ' + (l.files || []).join(', '))} | ${cell(l.reference)} |`);
   for (const a of arms) L.push(`| ${code(a.key)} | nested arm | ${code(JSON.stringify(a.default))} | ${cell(a.label)} | ${cell(a.reference)} |`);
   L.push('');
+  const live = Object.keys(DEFAULTS).filter((k) => String(DEFAULTS[k]) === '1').sort();
+  L.push(`## 6. Live switches (${live.length}) — report_config keys ON by default`);
+  L.push('');
+  L.push('Behaviour that runs today. Each must be classified in `docs/ops/switch-lots.json` (keep group with a reason, or');
+  L.push('retire); `tools/agent/switch-lots.js --check` fails on an unclassified one, so a new switch cannot ship ON unreviewed.');
+  L.push('');
+  L.push(live.length ? live.map(code).join(', ') : 'None.');
+  L.push('');
   return L.join('\n');
 }
 
@@ -257,7 +265,14 @@ function collect({ root = ROOT, sidecar } = {}) {
       prerequisites: r.prerequisites || null, decision, missing: DECISION_FIELDS.filter((f) => decision[f] == null) };
   });
   const dead = Object.keys(side.items).filter((k) => !known.has(k)).sort();
-  return { report_config, planned, governance, environment, pseudo, frozen_source: fl.source, dark, dead, sidecar_fields: DECISION_FIELDS };
+  // P11 round 3 R3-A2 — live switches: every report_config key whose default is '1' (behaviour ON today). Listed so a
+  // NEW switch shipped ON cannot pass unclassified: docs/ops/switch-lots.json must keep it (group with a reason) or
+  // retire it (tools/agent/switch-lots.js validate). The value '1' is never a secret, whatever the key name says.
+  const live = Object.keys(DEFAULTS).filter((k) => String(DEFAULTS[k]) === '1').sort().map((k) => {
+    const r = report_config.find((x) => x.key === k) || {};
+    return { key: k, source: 'report_config', kind: r.kind === 'secret' ? 'setting' : r.kind, default: '1', owner_role: r.owner_role || null, reference: r.reference || null };
+  });
+  return { report_config, planned, governance, environment, pseudo, frozen_source: fl.source, dark, live, dead, sidecar_fields: DECISION_FIELDS };
 }
 
 function buildJson(opts = {}) {
@@ -266,10 +281,10 @@ function buildJson(opts = {}) {
     generated_by: 'node tools/agent/flag-register.js (do not edit by hand; decision fields come from docs/ops/flag-decisions.json)',
     note: 'Every default is today\'s behaviour. Secrets carry no default (null). A decision field nobody filled is null — never invented. Recommended values are proposals, not approvals.',
     decision_fields: c.sidecar_fields,
-    counts: { report_config: c.report_config.length, planned: c.planned.length, governance_policies: c.governance.length, environment: c.environment.length, pseudo: c.pseudo.length, dark: c.dark.length, dark_complete: c.dark.filter((d) => !d.missing.length).length },
+    counts: { report_config: c.report_config.length, planned: c.planned.length, governance_policies: c.governance.length, environment: c.environment.length, pseudo: c.pseudo.length, dark: c.dark.length, dark_complete: c.dark.filter((d) => !d.missing.length).length, live: c.live.length },
     frozen_lots_source: c.frozen_source,
     report_config: c.report_config, planned: c.planned, governance_policies: c.governance, environment: c.environment, pseudo: c.pseudo,
-    dark: c.dark, sidecar_entries_without_switch: c.dead,
+    dark: c.dark, live: c.live, sidecar_entries_without_switch: c.dead,
   };
   return JSON.stringify(out, null, 1) + '\n';
 }

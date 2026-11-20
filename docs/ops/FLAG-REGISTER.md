@@ -453,3 +453,10 @@ Machine-readable copy: `docs/ops/FLAG-REGISTER.json`; decision fields still miss
 | `frozen:tracker_weighted_donut` | frozen lot | not in production: unweighted donut | Tracker attainment donut weighted by activity weight — b681083 · public/activity-tracker/App.jsx | CLAUDE.md "Deployment reality" (frozen 2026-09-04) |
 | `frozen:installer_safety_parity` | frozen lot | not in production: previous installer | Installer safety parity (red screens, backup before DROP, pre-restore point) — f6f0b12 · tools/installer/*, _sdp_admin.cmd, tools/pg/dump-db.js | CLAUDE.md "Deployment reality" (installer files behind the marker) |
 | `sla_wan_config.notify.enabled` | nested arm | `false` | WAN SLA operator / ISP notification (15 min) | WAN SLA V1 (2026-08-17) — Admin ▸ SLA WAN |
+
+## 6. Live switches (6) — report_config keys ON by default
+
+Behaviour that runs today. Each must be classified in `docs/ops/switch-lots.json` (keep group with a reason, or
+retire); `tools/agent/switch-lots.js --check` fails on an unclassified one, so a new switch cannot ship ON unreviewed.
+
+`meridian_enabled`, `never_send_unconfirmed`, `opm_rest_concurrency`, `report_reassign_submitted`, `sync_alert_enabled`, `ui_inject_dash_key`
