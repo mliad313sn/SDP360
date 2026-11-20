@@ -42,7 +42,7 @@
    "why": "Count of rows read from a COUNT/SUM (zero rows = a measured zero, the SQL SUM of no row being NULL). The enclosing block is null / absent when the source is not measured (the gate is upstream), so this 0 is never \"unknown\"."
   }
  ],
- "total_hits": 436,
+ "total_hits": 435,
  "reviewed": {
   "inspection-pptx.js|8ab38856e9f6|1": {
    "verdict": "justified",
@@ -289,15 +289,10 @@
    "note": "Guard: availability is computed only when some time was measured; otherwise null.",
    "text": "if ((up || 0) + (down || 0) + (dep || 0) > 0) {"
   },
-  "services/ppm/evm.js|3b25ec8612e2|1": {
+  "services/ppm/evm.js|bc90246576ec|1": {
    "verdict": "justified",
-   "note": "Sum of timesheet hours: an entry without hours contributes nothing (tally).",
-   "text": "return withHours.reduce((s, l) => s + l._entries.filter((e) => !upTo || day(e.day) <= upTo).reduce((h, e) => h + (num(e.hours) || 0), 0) * l._rate, 0);"
-  },
-  "services/ppm/evm.js|edd3a8dba8d6|1": {
-   "verdict": "justified",
-   "note": "Sum of timesheet hours (tally); rate stays null-aware.",
-   "text": "const rate = num(f.cost_rate), hours = es.reduce((s, e) => s + (num(e.hours) || 0), 0);"
+   "note": "Count of deleted-project contributors: absent field means none counted, so 0 is the measured count (not an unknown). AC itself stays null when unknown. Reviewed by AI (orchestrator, P11 fix 12 merge).",
+   "text": "deleted_project_contributors: r.deleted_project_contributors || 0, reasons: [...new Set([...(r.reasons || []), 'actuals_on_deleted_projects', 'actuals_currency_unknown'])] }));"
   },
   "services/ppm/governanceW3Store.js|f093fb3e8618|1": {
    "verdict": "justified",
