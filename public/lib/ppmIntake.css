@@ -1,0 +1,16 @@
+/* PORTFOLIO LOT 1 — Intake tab of project.html (lib/ppmIntake.js). Tokens of _tokens.css only, no raw colour. */
+.in-panel h2 { margin: 0 0 6px; }
+.in-sec { border: 1px solid var(--color-border); border-radius: 10px; padding: 10px 14px; margin: 0 0 12px; display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px 16px; }
+.in-sec legend { font-weight: 600; color: var(--color-text-strong); padding: 0 6px; }
+.in-field { display: flex; flex-direction: column; gap: 4px; }
+.in-label { font-size: 12px; color: var(--color-text-muted); }
+.in-ctl { display: flex; flex-direction: column; gap: 4px; }
+.in-ctl .in-state { align-self: flex-start; font-size: 12px; }
+.in-sub { font-size: 12px; color: var(--color-text-muted); display: flex; flex-direction: column; gap: 2px; }
+.in-help-btn { align-self: flex-start; width: 22px; height: 22px; padding: 0; border-radius: 50%; border: 1px solid var(--color-border-strong); background: var(--color-card); color: var(--color-text); cursor: pointer; font-size: 12px; line-height: 1; }
+.in-help-btn:focus-visible { outline: 2px solid var(--color-primary); outline-offset: 2px; }
+.in-help { background: var(--color-info-bg); border: 1px solid var(--color-border); border-radius: 8px; padding: 6px 10px; font-size: 12px; color: var(--color-text); }
+.in-help dl { margin: 0; } .in-help dt { font-weight: 600; margin-top: 4px; } .in-help dd { margin: 0; }
+.in-note { font-size: 12px; color: var(--color-text-muted); margin: 4px 0; }
+.in-check { font-size: 12px; color: var(--color-text); display: flex; flex-direction: row; gap: 6px; align-items: center; }
+.in-ref { font-weight: 700; color: var(--color-text-strong); }
