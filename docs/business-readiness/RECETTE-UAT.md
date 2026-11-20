@@ -44,8 +44,9 @@ un site), PMO (`committee-member`), finance (`finance-viewer`), comité (`commit
 | A2-02 | Reprise du réseau | Rétablir le réseau | La file s'envoie une seule fois ; l'inspection apparaît côté serveur, sans doublon | | | | |
 | A2-03 | Session expirée | Laisser la session expirer pendant l'envoi d'une photo | Message « Session expirée », l'envoi s'arrête avant l'entrée, rien n'est marqué envoyé | | | | |
 | A2-04 | Téléphone partagé | P01 met une saisie en file, P02 se connecte sur le même téléphone | Les entrées de P01 ne sont pas envoyées sous P02 | | | | |
-| A2-05 | Action d'un autre site (négatif) | Tenter de clôturer une action d'un autre site depuis l'application | Refus générique, sans nommer le site propriétaire | | | | |
-| A2-06 | Réouverture (négatif) | Tenter de rouvrir une action réunion déjà résolue depuis l'application terrain | Refus : seules les fins d'action (résolu, ticket, demande, annulé) sont acceptées | | | | |
+| A2-05 | Action d'un autre site (négatif) | Ouvrir la liste des actions de l'application terrain, puis comparer avec le registre web d'un autre site | Seules les actions ouvertes du site du technicien apparaissent ; aucune action d'un autre site n'est proposée à la clôture (le refus serveur d'un envoi fabriqué est couvert par le plan de test sécurité, pas par la recette) | | | | |
+| A2-06 | Réouverture (négatif) | Sur une action réunion déjà résolue (dans le registre web), chercher dans l'application terrain un moyen de la rouvrir | L'action résolue n'apparaît plus dans l'application terrain et aucun bouton de réouverture n'est proposé ; la réouverture se fait dans le registre web par un éditeur du site | | | | |
+| A2-07 | Ré-enregistrement de l'inspection pendant une clôture en file | Le technicien met en file (hors ligne) la clôture d'une action d'inspection ; pendant ce temps le coordinateur ajoute un commentaire sur cette action dans le registre, puis modifie une observation et clique « Save now » sur l'inspection ; le réseau du téléphone revient | Même action (même numéro) dans le registre ; le commentaire est toujours dans l'historique ; la clôture du téléphone s'applique (ou revient en « conflit » si l'action a été modifiée entre-temps), jamais « hors de votre périmètre » | | | | |
 
 ### A3. PMO
 

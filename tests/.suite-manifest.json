@@ -1,9 +1,9 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 5906,
+ "total": 5918,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
-  "a11y-static.test.js": 18,
+  "a11y-static.test.js": 21,
   "access-approver-policy.test.js": 4,
   "access-bundles.test.js": 3,
   "access-denied-log.smoke.test.js": 3,
@@ -916,6 +916,9 @@
   "authz-outcomes-lots-on.smoke.test.js": 5,
   "auth-db-busy.smoke.test.js": 4,
   "rollback-scripts-transactional.test.js": 2,
-  "blob-backup.test.js": 7
+  "blob-backup.test.js": 7,
+  "field-r5-inspection-action-upsert.smoke.test.js": 4,
+  "helpdesk-site-default-r5.test.js": 3,
+  "home-group-late-undated-r5.test.js": 2
  }
 }

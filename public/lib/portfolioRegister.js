@@ -63,7 +63,7 @@
   var T = {
     en: { title: 'Portfolio register', intro: 'One row per project, from the portfolio you may read. Unknown values show "—", never 0. Filters, sort and columns live in the address: copy the link to save or share a view.',
       kpis: 'Executive dashboard', total_projects: 'Total projects', data_quality: 'Data quality', critical_high: 'Critical + High', budget_identified: 'Budget identified', decisions_required: 'Decisions required',
-      drill: 'Show these projects', search: 'Search', filters: 'Filters', reset: 'Clear filters', reports: 'Standard reports', columns: 'Columns', exportCsv: 'Export CSV', exportXlsx: 'Export Excel',
+      drill: 'Show these projects', search: 'Search', filters: 'Filters', reset: 'Clear filters', apply: 'Apply filters', reports: 'Standard reports', columns: 'Columns', exportCsv: 'Export CSV', exportXlsx: 'Export Excel',
       rows: 'projects shown', of: 'of', none: 'No project matches these filters.', unknown: '—', yes: 'yes', no: 'no', bySite: 'By site', byPriority: 'By priority', status: 'Status',
       risk: 'Risk (high-risk projects)', budget: 'Budget (per currency, never added across currencies)', load: 'Monthly active load', proposed: 'PROPOSED rules — not approved policy',
       MONEY_HIDDEN: 'amounts are shown to the admin tier, the committee and finance', DQ_DISABLED: 'data quality is not switched on', INTAKE_DISABLED: 'the intake register is not switched on', NO_SCORE: 'no project has a score yet',
@@ -74,7 +74,7 @@
       dq_scope_with: 'Score includes the budget checks (amount reader).', dq_scope_without: 'Score without the budget checks: amounts are hidden for you, so those checks are left out.' },
     fr: { title: 'Registre du portefeuille', intro: 'Une ligne par projet, sur le portefeuille que vous pouvez lire. Une valeur inconnue s’affiche « — », jamais 0. Filtres, tri et colonnes sont dans l’adresse : copiez le lien pour enregistrer ou partager une vue.',
       kpis: 'Tableau de bord de direction', total_projects: 'Projets', data_quality: 'Qualité des données', critical_high: 'Critiques + hauts', budget_identified: 'Budget identifié', decisions_required: 'Décisions requises',
-      drill: 'Voir ces projets', search: 'Recherche', filters: 'Filtres', reset: 'Effacer les filtres', reports: 'Rapports types', columns: 'Colonnes', exportCsv: 'Exporter CSV', exportXlsx: 'Exporter Excel',
+      drill: 'Voir ces projets', search: 'Recherche', filters: 'Filtres', reset: 'Effacer les filtres', apply: 'Appliquer les filtres', reports: 'Rapports types', columns: 'Colonnes', exportCsv: 'Exporter CSV', exportXlsx: 'Exporter Excel',
       rows: 'projets affichés', of: 'sur', none: 'Aucun projet ne correspond à ces filtres.', unknown: '—', yes: 'oui', no: 'non', bySite: 'Par site', byPriority: 'Par priorité', status: 'Statut',
       risk: 'Risque (projets à risque élevé)', budget: 'Budget (par devise, jamais additionné entre devises)', load: 'Charge mensuelle active', proposed: 'Règles PROPOSÉES — non approuvées',
       MONEY_HIDDEN: 'les montants sont réservés au palier admin, au comité et à la finance', DQ_DISABLED: 'la qualité des données n’est pas activée', INTAKE_DISABLED: 'le registre d’intake n’est pas activé', NO_SCORE: 'aucun projet n’a encore de score',

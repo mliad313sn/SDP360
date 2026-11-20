@@ -133,6 +133,12 @@ test('review workflow: reviewers, information requests, return for correction', 
   assert.equal((await stage(rv, T.pmo, 'approval')).status, 200);
   const r0 = (await send('GET', `/api/governance/portfolio/project/${rv}/review`, T.pmo)).j;
   assert.equal(r0.requester.name, 'l5_pmo'); assert.equal(r0.steps.length, 6); assert.equal(r0.proposed, true);
+  // P11 r5 F-19 — the committee picks a reviewer by name: the eligible accounts (active, independent of the project)
+  const cand = (r0.candidates || []).map((c) => c.id);
+  assert.ok(cand.includes(U.l5_viewer), 'an independent account is offered');
+  assert.ok(!cand.includes(U.l5_owner) && !cand.includes(U.l5_pmo), 'the owner and the requester are not offered');
+  assert.ok((r0.candidates || []).every((c) => Object.keys(c).sort().join() === 'id,name,role'), 'name and role only');
+  assert.equal((await send('GET', `/api/governance/portfolio/project/${rv}/review`, T.owner)).j.candidates, undefined, 'only the committee gets the list');
   assert.equal((await send('GET', '/api/governance/portfolio/roles-catalogue', T.viewer)).status, 200);
   const A = (b, t = T.pmo) => send('POST', `/api/governance/portfolio/project/${rv}/review/assign`, t, b);
   assert.equal((await A({ step: 'budget_review', user_id: U.l5_owner })).j.code, 'REVIEWER_NOT_INDEPENDENT', 'the owner cannot review');

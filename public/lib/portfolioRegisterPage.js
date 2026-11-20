@@ -23,22 +23,23 @@
     if (!r.ok) { const e = new Error(j.error || ('HTTP ' + r.status)); e.status = r.status; throw e; }
     return j;
   }
-  const FILTERS = [['q', 'search'], ['year', 'Year'], ['site', 'Site'], ['project_type', 'Type'], ['priority', 'Priority'], ['status', 'Status'], ['risk', 'Risk'],
-    ['budget_status', 'Budget status'], ['decision_required', 'Decision required'], ['owner', 'IT owner'], ['delivery_lead', 'Delivery lead'], ['sponsor', 'Business sponsor']];
-  const label = (k, fallback) => { const c = PR.COLUMNS.find((x) => x.key === k); return T[k] || (c ? c[lang === 'fr' ? 'fr' : 'en'] : fallback); };
+  // [key, English fallback, French fallback] — the fallback is used only when no register column carries the label
+  const FILTERS = [['q', 'search', 'search'], ['year', 'Year', 'Année'], ['site', 'Site', 'Site'], ['project_type', 'Type', 'Type'], ['priority', 'Priority', 'Priorité'], ['status', 'Status', 'Statut'], ['risk', 'Risk', 'Risque'],
+    ['budget_status', 'Budget status', 'Statut budgétaire'], ['decision_required', 'Decision required', 'Décision requise'], ['owner', 'IT owner', 'Responsable IT'], ['delivery_lead', 'Delivery lead', 'Responsable de livraison'], ['sponsor', 'Business sponsor', 'Sponsor métier']];
+  const label = (k, en, fr) => { const c = PR.COLUMNS.find((x) => x.key === k); return T[k] || (c ? c[lang === 'fr' ? 'fr' : 'en'] : (lang === 'fr' && fr ? fr : en)); };
 
   function drawFilters(j) {
     const o = j.options || {};
-    const parts = FILTERS.map(([k, en]) => {
+    const parts = FILTERS.map(([k, en, fr]) => {
       if (k === 'q') return `<label>${esc(T.search)}<input type="search" id="pf_q" name="q" value="${esc((state.q || []).join(' '))}"></label>`;
       const opts = o[k]; if (!opts || !opts.length) return '';
       const sel = new Set(state[k] || []);
-      return `<label>${esc(label(k === 'risk' ? 'risk_exposure' : k, en))}<select multiple id="pf_${k}" name="${k}" aria-label="${esc(label(k === 'risk' ? 'risk_exposure' : k, en))}">${
+      return `<label>${esc(label(k === 'risk' ? 'risk_exposure' : k, en, fr))}<select multiple id="pf_${k}" name="${k}" aria-label="${esc(label(k === 'risk' ? 'risk_exposure' : k, en, fr))}">${
         opts.map((v) => { const val = typeof v === 'object' ? v.value : v, lab = typeof v === 'object' ? v.label : v; return `<option value="${esc(val)}"${sel.has(String(val)) ? ' selected' : ''}>${esc(lab)}</option>`; }).join('')}</select></label>`;
     });
     const reports = PR.REPORTS.filter((r) => !r.money || !j.money_hidden);
     parts.push(`<label>${esc(T.reports)}<select id="pf_report" name="report"><option value="">—</option>${reports.map((r) => `<option value="${esc(r.key)}"${state.report === r.key ? ' selected' : ''}>${esc(r[lang === 'fr' ? 'fr' : 'en'])}</option>`).join('')}</select></label>`);
-    parts.push(`<button type="submit" class="pr-btn">OK</button>`);
+    parts.push(`<button type="submit" class="pr-btn">${esc(T.apply || 'Apply filters')}</button>`);
     $('prFilters').innerHTML = parts.join('');
     $('prCols').innerHTML = PR.COLUMNS.filter((c) => !c.money || !j.money_hidden).map((c) => `<label><input type="checkbox" value="${esc(c.key)}"${(j.cols || []).includes(c.key) ? ' checked' : ''}${c.frozen ? ' disabled' : ''}> ${esc(c[lang === 'fr' ? 'fr' : 'en'])}</label>`).join('');
   }

@@ -149,7 +149,7 @@ not the browser-checked level.
 | `docs/agent-execution/FIX-16-DATA.md` | — (reference) | — | — | — | `d1770232806ed407bc5e54845f51aba3879df116c5a0a9922902c69a3924238d` |
 | `docs/agent-execution/FIX-17-OPS.md` | — (reference) | — | — | — | `d132ec385b8e69c71bd0868ca0aebf3dee3cc5b904cbd8c8455556652b8e0b1c` |
 | `docs/agent-execution/FIX-18-FIELD.md` | — (reference) | — | — | — | `7bc3f2e2c9601d193345730357b869661edf5f40c4535cdb091ebfb1769a95c1` |
-| `docs/agent-execution/FIX-22-OPS.md` | — (reference) | — | — | — | `e45a44ecbf9593a9ebb05ebc1fac2385b0964e07add35936922b0e23858dfbae` |
+| `docs/agent-execution/FIX-23-FIELD.md` | — (reference) | — | — | — | `a4920791ba0d400b89cae258efeb9eb3330cdf24ee087ba5829d2215380c118d` |
 | `docs/agent-execution/G00.md` | G00 | code+test | pending | pending | `851fd0ca5460f8907fc678153f3984ef56facd75f643cbb4676e3f97643f1210` |
 | `docs/agent-execution/G01.md` | G01 | code+test | pending | pending | `2fbce7e79960cc4e55ecc9101df2256a5df921d0a3e8bf08df363a77ae935bea` |
 | `docs/agent-execution/G02.md` | G02 | code+test | pending | pending | `933b84b8c361d4129e97e0e4203d2ee759da8891d428727599d549e287ac4f9c` |
@@ -220,8 +220,8 @@ not the browser-checked level.
 
 | File | SHA-256 |
 |---|---|
-| `docs/agent-execution/INVENTORY.json` | `966c29832c51b74cd2dc94ab1bebcab301dd9bdbaa8a83bd4e779fee57bbf9a5` |
-| `docs/agent-execution/INVENTORY.md` | `4023bd8c71a2f91a721bbd9dbd7b4384bf563e1a07f830a00398a6c50417e8b4` |
+| `docs/agent-execution/INVENTORY.json` | `c7d004aede0e5ec717c9e514205d4be71ed283880568ae7f82d59ee2ffd60879` |
+| `docs/agent-execution/INVENTORY.md` | `c3a9c5832e62081c4aa49bbde748a32b0e07e7d70a7048b8ddf57c7c428a8c2e` |
 | `docs/agent-execution/TRACEABILITY.md` | `bab98d60573cc653947f1acead471e8655cbc78134969e91ee7f281ff9876c0a` |
 | `docs/ops/AUTHZ-MATRIX.md` | `6f198d0ecada1022353b88f64c31e0d9287fd6fe92305b839297d696247e3a00` |
 | `docs/ops/FLAG-REGISTER.md` | `a7471e3cedc291c14ab006ef4fc07933bd414b473d9fbdd06ab0c6ae919eb0a9` |

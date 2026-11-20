@@ -734,6 +734,7 @@
     "tests/field-sw-no-api-cache-browser.test.js",
     "tests/first-usable.test.js",
     "tests/helpdesk-pareto-ranking.test.js",
+    "tests/helpdesk-site-default-r5.test.js",
     "tests/i18n-coverage.test.js",
     "tests/kpi-policy-routes.smoke.test.js",
     "tests/landing.test.js",
@@ -829,7 +830,7 @@
    "parent": "inspections.html",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 211913,
+   "bytes": 212420,
    "tests": [
     "tests/adoption-lota-labels.test.js",
     "tests/csp-journey-report.test.js",
@@ -1567,6 +1568,7 @@
    "inline_scripts": 0,
    "bytes": 3677,
    "tests": [
+    "tests/a11y-static.test.js",
     "tests/i18n-coverage.test.js",
     "tests/portfolio-lot4-page.test.js"
    ]
@@ -1593,6 +1595,7 @@
    "inline_scripts": 0,
    "bytes": 2596,
    "tests": [
+    "tests/a11y-static.test.js",
     "tests/i18n-coverage.test.js",
     "tests/portfolio-phase2-page.test.js"
    ]
@@ -1619,6 +1622,7 @@
    "inline_scripts": 0,
    "bytes": 5707,
    "tests": [
+    "tests/a11y-static.test.js",
     "tests/i18n-coverage.test.js",
     "tests/portfolio-register-page.test.js"
    ]
@@ -4261,6 +4265,7 @@
     "tests/adoption-lota-nav-authz.test.js",
     "tests/field-actions-dialog-browser.test.js",
     "tests/field-queue-badge-browser.test.js",
+    "tests/field-r5-inspection-action-upsert.smoke.test.js",
     "tests/field-review-step-browser.test.js",
     "tests/field-routes.smoke.test.js",
     "tests/field-storage-browser.test.js",
@@ -4279,6 +4284,7 @@
     "tests/field-inspection-action-status.smoke.test.js",
     "tests/field-outbox-conflict.smoke.test.js",
     "tests/field-r4-action-rules.smoke.test.js",
+    "tests/field-r5-inspection-action-upsert.smoke.test.js",
     "tests/field-review-step-browser.test.js",
     "tests/field-routes.smoke.test.js",
     "tests/field-task-timing.test.js",
@@ -4296,6 +4302,7 @@
     "tests/field-inspection-action-status.smoke.test.js",
     "tests/field-outbox-conflict.smoke.test.js",
     "tests/field-r4-action-rules.smoke.test.js",
+    "tests/field-r5-inspection-action-upsert.smoke.test.js",
     "tests/field-review-step-browser.test.js",
     "tests/field-routes.smoke.test.js",
     "tests/field-task-timing.test.js",
@@ -5362,7 +5369,7 @@
    "method": "POST",
    "path": "/api/governance/portfolio/project/:id/review/apply-template",
    "file": "routes/governanceReview.js",
-   "line": 115,
+   "line": 127,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -5402,7 +5409,7 @@
    "method": "POST",
    "path": "/api/governance/portfolio/project/:id/review/assign",
    "file": "routes/governanceReview.js",
-   "line": 54,
+   "line": 66,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -5442,7 +5449,7 @@
    "method": "POST",
    "path": "/api/governance/portfolio/project/:id/review/request-info",
    "file": "routes/governanceReview.js",
-   "line": 71,
+   "line": 83,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -5482,7 +5489,7 @@
    "method": "POST",
    "path": "/api/governance/portfolio/project/:id/review/respond",
    "file": "routes/governanceReview.js",
-   "line": 83,
+   "line": 95,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -5522,7 +5529,7 @@
    "method": "POST",
    "path": "/api/governance/portfolio/project/:id/review/return",
    "file": "routes/governanceReview.js",
-   "line": 98,
+   "line": 110,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -5562,7 +5569,7 @@
    "method": "GET",
    "path": "/api/governance/portfolio/project/:id/review",
    "file": "routes/governanceReview.js",
-   "line": 43,
+   "line": 54,
    "tests": [
     "tests/governance-routes.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
@@ -5814,7 +5821,7 @@
    "method": "GET",
    "path": "/api/governance/portfolio/roles-catalogue",
    "file": "routes/governanceReview.js",
-   "line": 39,
+   "line": 50,
    "tests": [
     "tests/portfolio-lot5.smoke.test.js"
    ]
@@ -8651,6 +8658,7 @@
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/field-inspection-action-status.smoke.test.js",
+    "tests/field-r5-inspection-action-upsert.smoke.test.js",
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
@@ -8680,6 +8688,7 @@
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/field-inspection-action-status.smoke.test.js",
+    "tests/field-r5-inspection-action-upsert.smoke.test.js",
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
@@ -8709,6 +8718,7 @@
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/field-inspection-action-status.smoke.test.js",
+    "tests/field-r5-inspection-action-upsert.smoke.test.js",
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
@@ -8738,6 +8748,7 @@
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/field-inspection-action-status.smoke.test.js",
+    "tests/field-r5-inspection-action-upsert.smoke.test.js",
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
@@ -8762,6 +8773,7 @@
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/field-inspection-action-status.smoke.test.js",
+    "tests/field-r5-inspection-action-upsert.smoke.test.js",
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
@@ -8779,6 +8791,7 @@
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/field-inspection-action-status.smoke.test.js",
+    "tests/field-r5-inspection-action-upsert.smoke.test.js",
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
@@ -8796,6 +8809,7 @@
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/field-inspection-action-status.smoke.test.js",
+    "tests/field-r5-inspection-action-upsert.smoke.test.js",
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
@@ -8907,6 +8921,7 @@
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
+    "tests/field-r5-inspection-action-upsert.smoke.test.js",
     "tests/inspection-routes.test.js",
     "tests/inspection-site-scope.smoke.test.js",
     "tests/inspection-verify.smoke.test.js",

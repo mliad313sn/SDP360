@@ -4477,7 +4477,13 @@ document.addEventListener('DOMContentLoaded', init);
     let ok = true;
     if (id && state) {
       try {
-        await postSave(state);
+        // P11 r5 F-15 — stamp the stored action ids back onto the form rows that were sent, so the next save
+        // updates the same actions (their history and any queued phone close stay attached to them)
+        const sentActions = Array.isArray(state.actions) ? state.actions.slice() : [];
+        const out = await postSave(state);
+        if (out && Array.isArray(out.action_ids)) {
+          sentActions.forEach((a, i) => { if (a && typeof a === 'object' && out.action_ids[i] != null) a.id = out.action_ids[i]; });
+        }
         dequeue(id);
         _promotedIds.add(id);
         _localDirty       = false;

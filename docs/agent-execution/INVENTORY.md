@@ -46,7 +46,7 @@
 | PG-handoffs | public/handoffs.html | any | yes | 1 | 10 |
 | PG-help | public/help.html | any | yes | 1 | 12 |
 | PG-home | public/home.html | any | yes | 0 | 19 |
-| PG-index | public/index.html | any | yes | 1 | 41 |
+| PG-index | public/index.html | any | yes | 1 | 42 |
 | PG-infra-health | public/infra-health.html | any | yes | 2 | 7 |
 | PG-inspection-actions | public/inspection-actions.html | any | no | 1 | 7 |
 | PG-inspection | public/inspection.html | any | no | 2 | 9 |
@@ -73,9 +73,9 @@
 | PG-obligations | public/obligations.html | any | yes | 0 | 5 |
 | PG-policies | public/policies.html | admin / committee-member | yes | 1 | 6 |
 | PG-policy-center | public/policy-center.html | super_admin | yes | 0 | 5 |
-| PG-portfolio-decisions | public/portfolio-decisions.html | any | no | 0 | 2 |
-| PG-portfolio-phase2 | public/portfolio-phase2.html | any | no | 0 | 2 |
-| PG-portfolio-register | public/portfolio-register.html | any | no | 0 | 2 |
+| PG-portfolio-decisions | public/portfolio-decisions.html | any | no | 0 | 3 |
+| PG-portfolio-phase2 | public/portfolio-phase2.html | any | no | 0 | 3 |
+| PG-portfolio-register | public/portfolio-register.html | any | no | 0 | 3 |
 | PG-portfolio | public/portfolio.html | any | yes | 1 | 22 |
 | PG-project | public/project.html | any | no | 1 | 24 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 4 |
