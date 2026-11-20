@@ -8,7 +8,7 @@
 (function (root) {
   'use strict';
   const STATIC = {
-    'Portfolio': 'Portefeuille', 'Intake': 'Fiche projet', '▸ project': '▸ projet', 'Project': 'Projet',
+    'Portfolio': 'Portefeuille', 'Intake': 'Fiche projet', 'Dependencies': 'Dépendances', 'Resources': 'Ressources', 'Documents': 'Documents', '▸ project': '▸ projet', 'Project': 'Projet',
     'Charter, plan, milestones, risks and gates of one project. “—” means not measured, never 0 (help §25).': 'Charte, plan, jalons, risques et jalons de décision d’un projet. « — » signifie non mesuré, jamais 0 (aide §25).',
     'Overview': 'Vue d’ensemble', 'Charter': 'Charte', 'Plan': 'Plan', 'Milestones': 'Jalons', 'RAID': 'RAID', 'Benefits': 'Bénéfices', 'Budget': 'Budget',
     'RACI': 'RACI', 'Changes': 'Changements', 'Board': 'Tableau', 'Gates': 'Jalons de décision', 'Comments': 'Commentaires', 'History': 'Historique',

@@ -40,7 +40,9 @@ const PPM = ['010_roadmap', '011_roadmap_project', '039_native_ppm', '043_portfo
   // PORTFOLIO LOT 4 — project-linked decisions (authority / outcome / decision date) + alert → commitment link
   '121_ppm_decision_agenda_alerts',
   // PORTFOLIO LOT 5 — created_by / updated_by + gate checklists for the extended lifecycle stages
-  '125_ppm_lifecycle_audit'];
+  '125_ppm_lifecycle_audit',
+  // PORTFOLIO LOT 6 — structured dependencies, residual risk, resource demand, effort factors, project documents
+  '130_ppm_portfolio_phase2'];
 
 async function snapshot(pg) {
   const q = async (sql) => (await pg.prepare(sql).all()).map((r) => Object.values(r).join('|'));

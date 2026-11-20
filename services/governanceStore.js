@@ -402,7 +402,9 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   const idRow = (r) => r && ({ ...r, id: Number(r.id) });
   const taskRow = (r) => r && ({ ...idRow(r), dependency_links: P_(r.dependency_links, null), effort_driven: r.effort_driven == null ? null : Number(r.effort_driven), project_id: Number(r.project_id), parent_id: r.parent_id == null ? null : Number(r.parent_id), duration_days: num(r.duration_days), allocation_pct: num(r.allocation_pct), progress_pct: num(r.progress_pct), effort_hours: num(r.effort_hours), depends_on: P_(r.depends_on, []) });
   const RISK_KINDS = ['risk', 'issue', 'assumption'];   // A-14 RAID (dependencies live in depends_on, decisions in DEC-…)
-  const riskRow = (r) => ({ ...idRow(r), project_id: Number(r.project_id), probability: Number(r.probability), impact: Number(r.impact), kind: r.kind || 'risk' });
+  // PORTFOLIO LOT 6 — the residual / due-date columns (migration 130) are served only by services/ppm/portfolioPhase2Store
+  // (switch ppm_structured_dependencies_enabled); every existing risk payload keeps today's shape.
+  const riskRow = (r) => { const { residual_probability, residual_impact, due_date, ...rest } = r || {}; return { ...idRow(rest), project_id: Number(r.project_id), probability: Number(r.probability), impact: Number(r.impact), kind: r.kind || 'risk' }; };
   const projectRow = (r, ik = false) => _intakeShape({ ...idRow(r), currency_defaulted: r.currency_defaulted == null ? null : Number(r.currency_defaulted), objective_id: Number(r.objective_id), site_id: r.site_id == null ? null : Number(r.site_id), progress_pct: num(r.progress_pct), budget: num(r.budget), spent: num(r.spent), depends_on: P_(r.depends_on, []), rfi_id: r.rfi_id == null ? null : Number(r.rfi_id) }, r, ik);
   /** PORTFOLIO LOT 1 — intake columns parsed when the switch is on, absent when it is off (today's payload). */
   function _intakeShape(o, r, ik) { if (!ik) return _withoutIntake(o); return { ...o, ...IF.readIntake(r) }; }

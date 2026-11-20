@@ -60,7 +60,7 @@ Pages found: **88** HTML files under `public/` (65 top-level, 21 design-system s
 | `obligations.html` | any | yes | — (reached from shell) | self-translated | unknown | governance obligations vs policies.html | keep |
 | `policies.html` | admin, committee-member | yes | governance | self-translated | unknown |  | keep |
 | `policy-center.html` | super_admin | yes | — (reached from shell) | self-translated | unknown |  | keep |
-| `portfolio-decisions.html` | any | no | — (reached from portfolio.html) | self-translated | unknown |  | keep |
+| `portfolio-phase2.html` | any | no | — (reached from portfolio.html) | self-translated | unknown |  | keep |
 | `portfolio-register.html` | any | no | — (reached from portfolio.html) | self-translated | unknown |  | keep |
 | `portfolio.html` | any | yes | executive, pmo, finance | translated | unknown |  | keep |
 | `project.html` | any | no | — (reached from meeting.html) | translated | unknown |  | keep |

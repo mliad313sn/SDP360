@@ -13,7 +13,7 @@ of the pages it renders: treat it as a candidate only after a report-only run sh
 
 Violations: not measured in this file (“—”). Run with `--violations <export.json>` after a report-only period to add observed counts.
 
-Journeys: 46 — strict 0, enforceable 11, blocked 35, unknown 0.
+Journeys: 45 — strict 0, enforceable 11, blocked 34, unknown 0.
 
 ## Journeys
 
@@ -52,7 +52,6 @@ Journeys: 46 — strict 0, enforceable 11, blocked 35, unknown 0.
 | Site IT coordinator | Hand the shift over; it stays pending until the incoming person accepts it | `/coverage.html` | enforceable | — |
 | super_admin | Rotate a stored integration key: the old one stops working, no secret comes back to the browser or the journal; anonymous visitors never get | `/reports.html` | blocked | `/reports.html` |
 | Scorecard viewer | Read the executive scorecard without write powers | `/executive.html`, `/analytics.html` | blocked | `/executive.html`, `/analytics.html` |
-| Committee member (profile landing, Lot B) | Log in and land directly on the portfolio, the first page of the committee workspace profile, with no refused page on the way | `/login.html`, `/portfolio.html` | blocked | `/portfolio.html` |
 | Super admin | Share an Analytics view by its URL: the colleague opens the same filters (site, period, status, type), Back restores, Reset clears | `/home.html`, `/analytics.html` | blocked | `/analytics.html` |
 | Site editor | Leave a human note on a dashboard trend so readers see why a point moved (switch `chart_annotations_enabled`) | `/home.html`, `/dashboards.html` | blocked | `/dashboards.html` |
 | Committee member (Group IT, extra) | Prepare Friday's agenda from the cadence | `/cockpit.html` | blocked | `/cockpit.html` |
@@ -157,7 +156,7 @@ Pages: 66 — strict 5, candidate 55, blocked 6.
 | `/obligations.html` | 0 | 0 | 0 | yes | candidate |
 | `/policies.html` | 1 | 0 | 0 | yes | candidate |
 | `/policy-center.html` | 0 | 0 | 0 | yes | strict |
-| `/portfolio-decisions.html` | 0 | 0 | 0 | yes | strict |
+| `/portfolio-phase2.html` | 0 | 0 | 0 | yes | strict |
 | `/portfolio-register.html` | 0 | 0 | 0 | yes | strict |
 | `/portfolio.html` | 1 | 0 | 0 | yes | candidate |
 | `/project.html` | 1 | 0 | 0 | yes | candidate |

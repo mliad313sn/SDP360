@@ -300,6 +300,24 @@
     "ui_home_freshness_strip",
     "ui_helpdesk_site_default"
    ]
+  },
+  {
+   "id": "L16",
+   "title": "Portfolio phase 2 — structured dependencies & risks, resource demand & capacity, documents, effort scoring, scenarios, BI (portfolio spec Lot 6)",
+   "status": "PROPOSED",
+   "order_note": "Portfolio reconstruction spec Lot 6 (Phase 2), after L14 (ppm_intake_register_enabled first for the declared effort / risk fields). Arm one switch at a time, each after a PMO shadow review: ppm_structured_dependencies_enabled, then (optionally) run tools/ppm/backfill-project-dependencies.js as a dry run; ppm_resource_demand_enabled with ppm_capacity_fte set by the resource owner (unset = capacity unknown, no colour); ppm_effort_scoring_enabled; ppm_documents_enabled only after the operator has decided storage / retention / malware scanning; ppm_scenarios_enabled (read-only); ext_api_portfolio_enabled last — data owner + security decision, and an API consumer key with the portfolio:read scope.",
+   "profiles": "PMO, committee members, project editors under the plan-write rule, resource owners (capacity), every project reader (read views), BI consumers (external API keys with portfolio:read)",
+   "changes": "Project page: Dependencies tab (on another project or an external category; owner, status, target date, criticality; loops refused; flags) with risk exposure (4 PROPOSED levels, residual, due date, rollup); Resources tab (demand lines per skill, numeric FTE, monthly load vs capacity, effort score of seven factors); Documents tab (typed, versioned, content-checked, ≤ 10 MB, money documents restricted). /portfolio-phase2.html: monthly load vs capacity, exposure by project, cross-project loops / flags, effort scores, read-only scenario. External API: /ext/v1/portfolio/* and OData Portfolio* (non-sensitive projects, no amount, no person name).",
+   "risk": "low-medium (AI estimate): additive tables (migration 130), every write under the existing plan-write rule and in the ledger; capacity thresholds, exposure mapping, effort weights / bands and the document allow-list are PROPOSED; document storage has no malware scanning (operator decision); the external API exports project names and dates to a third-party tool.",
+   "metric_candidate": "share of active projects with at least one structured dependency or 'none known'; months over capacity per skill; external dependencies without an owner (should trend to zero); projects with a full effort score",
+   "switches": [
+    "ppm_structured_dependencies_enabled",
+    "ppm_resource_demand_enabled",
+    "ppm_effort_scoring_enabled",
+    "ppm_documents_enabled",
+    "ppm_scenarios_enabled",
+    "ext_api_portfolio_enabled"
+   ]
   }
  ],
  "keep": {

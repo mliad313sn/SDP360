@@ -14,13 +14,13 @@
 | pages deep link only | 9 |
 | pages without entry point | 2 |
 | pages with inline scripts | 46 |
-| routes | 784 |
+| routes | 797 |
 | routes without test reference | 30 |
 | routes in server js | 160 |
 | jobs | 33 |
 | jobs without test reference | 0 |
-| migrations | 109 |
-| test files | 904 |
+| migrations | 108 |
+| test files | 899 |
 
 ## Pages
 
@@ -73,7 +73,7 @@
 | PG-obligations | public/obligations.html | any | yes | 0 | 5 |
 | PG-policies | public/policies.html | admin / committee-member | yes | 1 | 6 |
 | PG-policy-center | public/policy-center.html | super_admin | yes | 0 | 5 |
-| PG-portfolio-decisions | public/portfolio-decisions.html | any | no | 0 | 2 |
+| PG-portfolio-phase2 | public/portfolio-phase2.html | any | no | 0 | 2 |
 | PG-portfolio-register | public/portfolio-register.html | any | no | 0 | 2 |
 | PG-portfolio | public/portfolio.html | any | yes | 1 | 21 |
 | PG-project | public/project.html | any | no | 1 | 23 |
@@ -105,7 +105,7 @@
 | public/assets-hygiene.html | — | — | — | assets.html | legacy redirect stub kept for old bookmarks → assets.html | assets.html |
 | public/assets.html | yes | — | assets-finance.html, assets-hygiene.html, lib/workspaceProfiles.js | — | — | shell |
 | public/cockpit.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
-| public/commitments.html | — | — | lib/dashboardRender.js, lib/portfolioDecisionsPage.js, site-actions.html | — | — | site-actions.html |
+| public/commitments.html | — | — | lib/dashboardRender.js, site-actions.html | — | — | site-actions.html |
 | public/connector-health.html | yes | — | lib/homeGroup.js | — | — | shell |
 | public/coverage.html | — | — | — | — | — | **NO ENTRY POINT** — duty coverage page — no menu entry, no link from another page |
 | public/dashboard-composer.html | — | — | dashboards.html | — | — | dashboards.html |
@@ -145,10 +145,10 @@
 | public/obligations.html | yes | — | home.html, site-actions.html | — | — | shell |
 | public/policies.html | yes | — | access.html, lib/workspaceProfiles.js | — | — | shell |
 | public/policy-center.html | yes | — | — | — | — | shell |
-| public/portfolio-decisions.html | — | — | portfolio.html | — | — | portfolio.html |
+| public/portfolio-phase2.html | — | — | portfolio.html | — | — | portfolio.html |
 | public/portfolio-register.html | — | — | portfolio.html | — | — | portfolio.html |
 | public/portfolio.html | yes | — | itsm-roadmap.html, lib/workspaceProfiles.js, project.html | — | — | shell |
-| public/project.html | — | — | lib/home-page.js, lib/portfolioRegister.js, lib/portfolioViews.js, lib/ppmRoadmapNnl.js (+2) | — | — | meeting.html |
+| public/project.html | — | — | lib/home-page.js, lib/portfolioPhase2Page.js, lib/portfolioRegister.js, lib/portfolioViews.js (+3) | — | — | meeting.html |
 | public/report-studio.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
 | public/reports.html | yes | — | access.html, site-report.html, wan.html | — | — | shell |
 | public/rfi.html | yes | — | meeting.html, portfolio.html | — | — | shell |

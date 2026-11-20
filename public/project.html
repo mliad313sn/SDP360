@@ -29,6 +29,7 @@
 <script nonce="%%CSP_NONCE%%" src="lib/ganttV2.js"></script>
 <!-- W3-GOVERNANCE begin (head) --><link rel="stylesheet" href="lib/ppmGovernanceW3.css"><!-- W3-GOVERNANCE end -->
 <!-- PORTFOLIO LOT 1 (head) --><link rel="stylesheet" href="lib/ppmIntake.css">
+<!-- PORTFOLIO LOT 6 (head) --><link rel="stylesheet" href="lib/ppmPhase2.css">
 <style nonce="%%CSP_NONCE%%">
   body { margin:0; background:var(--color-background,#f4f6f7); color:#1F2A33; font-family:var(--font-sans,"Libre Franklin",system-ui,sans-serif); font-size:14px; }
   .wrap { max-width:1360px; margin:0 auto; padding:24px; }
@@ -86,6 +87,7 @@
     <button type="button" role="tab" id="tab-raci" aria-controls="pane-raci" aria-selected="false" tabindex="-1" hidden>RACI</button>
     <button type="button" role="tab" id="tab-changes" aria-controls="pane-changes" aria-selected="false" tabindex="-1" hidden>Changes</button>
     <button type="button" role="tab" id="tab-board" aria-controls="pane-board" aria-selected="false" tabindex="-1" hidden>Board</button>
+    <!-- PORTFOLIO LOT 6 — Phase 2 tabs (each hidden unless its switch is on) --><button type="button" role="tab" id="tab-p2deps" aria-controls="pane-p2deps" aria-selected="false" tabindex="-1" hidden>Dependencies</button><button type="button" role="tab" id="tab-p2demand" aria-controls="pane-p2demand" aria-selected="false" tabindex="-1" hidden>Resources</button><button type="button" role="tab" id="tab-p2docs" aria-controls="pane-p2docs" aria-selected="false" tabindex="-1" hidden>Documents</button>
     <button type="button" role="tab" id="tab-gates" aria-controls="pane-gates" aria-selected="false" tabindex="-1">Gates</button>
     <button type="button" role="tab" id="tab-comments" aria-controls="pane-comments" aria-selected="false" tabindex="-1" hidden>Comments</button>
     <button type="button" role="tab" id="tab-history" aria-controls="pane-history" aria-selected="false" tabindex="-1">History</button>
@@ -319,6 +321,7 @@
     <div class="panel"><h2>Comments</h2><div id="comments"></div></div>
   </section>
 
+  <!-- PORTFOLIO LOT 6 — Phase 2 panes (lib/ppmPhase2.js renders them) --><section id="pane-p2deps" role="tabpanel" aria-labelledby="tab-p2deps" hidden><div id="p2-deps"></div></section><section id="pane-p2demand" role="tabpanel" aria-labelledby="tab-p2demand" hidden><div id="p2-demand"></div></section><section id="pane-p2docs" role="tabpanel" aria-labelledby="tab-p2docs" hidden><div id="p2-docs"></div></section>
   <section id="pane-gates" role="tabpanel" aria-labelledby="tab-gates" hidden>
     <div class="panel"><h2>Stage gates</h2><div id="gates"></div>
       <div id="gate-reason-box" hidden><label>Reason (10 characters or more) <textarea id="gate-reason" rows="2"></textarea></label></div></div>
@@ -340,6 +343,7 @@
 <!-- PORTFOLIO LOT 1 (script) --><script nonce="%%CSP_NONCE%%" src="lib/ppmIntake.js"></script>
 <!-- PORTFOLIO LOT 2 (script) --><script nonce="%%CSP_NONCE%%" src="lib/ppmFieldHelp.js"></script>
 <!-- PORTFOLIO LOT 5 (script) --><script nonce="%%CSP_NONCE%%" src="lib/ppmReview.js"></script>
+<!-- PORTFOLIO LOT 6 (script) --><script nonce="%%CSP_NONCE%%" src="lib/ppmPhase2.js"></script>
 <script nonce="%%CSP_NONCE%%">
 (function () {
   "use strict";
@@ -391,7 +395,7 @@
   var V = null;
   // W2-PPM — which PROPOSED switches are on (each new tab / prompt exists only then); an error = all off (today)
   var FEAT = {};
-  api("/api/governance/ppm/features").then(function (f) { FEAT = f || {}; if (FEAT.budget_periods) addTab("budget", "gates"); if (FEAT.benefit_owner_link) linkOwners(); if (FEAT.benefit_value_class) { $("b-class-box").hidden = false; if (V) renderBenefits(); } if (FEAT.raci) addTab("raci", "gates"); if (FEAT.intake_register) { addTab("intake", "plan"); if (V && (window.location.hash || "") === "#intake") showTab("intake"); } if (FEAT.change_requests) addTab("changes", "gates"); if (V && ["budget", "raci", "changes"].indexOf((window.location.hash || "").slice(1)) >= 0 && TABS.indexOf(window.location.hash.slice(1)) >= 0) showTab(window.location.hash.slice(1)); if (FEAT.team && V) mountTeam(); if (FEAT.time_entries && V && $("tab-plan").getAttribute("aria-selected") === "true") { mountTime(); if (FEAT.timesheets) mountTimesheets(); } if (FEAT.templates && V && V.committee) $("tpl-save-box").hidden = false; if (FEAT.schedule_v2 && V && V.can_edit_plan) fillTask(); if (FEAT.gantt_v2 && V && $("tab-plan").getAttribute("aria-selected") === "true") renderPlan(); mountW4(); }).catch(function () { FEAT = {}; });
+  api("/api/governance/ppm/features").then(function (f) { FEAT = f || {}; if (FEAT.budget_periods) addTab("budget", "gates"); if (FEAT.benefit_owner_link) linkOwners(); if (FEAT.benefit_value_class) { $("b-class-box").hidden = false; if (V) renderBenefits(); } if (FEAT.raci) addTab("raci", "gates"); if (FEAT.intake_register) { addTab("intake", "plan"); if (V && (window.location.hash || "") === "#intake") showTab("intake"); } if (FEAT.change_requests) addTab("changes", "gates"); if (V && ["budget", "raci", "changes"].indexOf((window.location.hash || "").slice(1)) >= 0 && TABS.indexOf(window.location.hash.slice(1)) >= 0) showTab(window.location.hash.slice(1)); if (FEAT.team && V) mountTeam(); if (FEAT.time_entries && V && $("tab-plan").getAttribute("aria-selected") === "true") { mountTime(); if (FEAT.timesheets) mountTimesheets(); } if (FEAT.templates && V && V.committee) $("tpl-save-box").hidden = false; if (FEAT.schedule_v2 && V && V.can_edit_plan) fillTask(); if (FEAT.gantt_v2 && V && $("tab-plan").getAttribute("aria-selected") === "true") renderPlan(); mountW4(); mountP2(); }).catch(function () { FEAT = {}; });
 
   // ---- tabs (role=tablist, arrows / Home / End, deep link #tab) ---------------------------------------------
   // Extension point: later goals (baselines, benefits) add a tab button + a pane + an entry in RENDER.
@@ -414,6 +418,11 @@
     if (V && window.PpmConnectorsUi && (FEAT.xer || FEAT.mpp_import || FEAT.jira_sync || FEAT.azdo_sync)) window.PpmConnectorsUi.mount({ pid: PID, feat: FEAT, V: V, msg: msg, api: api, reload: load });
     var h = (window.location.hash || "").slice(1); if (V && (h === "board" || h === "comments") && TABS.indexOf(h) >= 0) showTab(h);
   }
+  // PORTFOLIO LOT 6 — Dependencies / Resources / Documents tabs, each only while its switch is on
+  RENDER.p2deps = function () { if (window.PpmPhase2 && V) window.PpmPhase2.mountDeps(X()); };
+  RENDER.p2demand = function () { if (window.PpmPhase2 && V) window.PpmPhase2.mountDemand(X(), FEAT); };
+  RENDER.p2docs = function () { if (window.PpmPhase2 && V) window.PpmPhase2.mountDocs(X()); };
+  function mountP2() { if (FEAT.structured_dependencies) addTab("p2deps", "gates"); if (FEAT.resource_demand) addTab("p2demand", "gates"); if (FEAT.documents) addTab("p2docs", "gates"); var h = (window.location.hash || "").slice(1); if (V && ["p2deps", "p2demand", "p2docs"].indexOf(h) >= 0 && TABS.indexOf(h) >= 0) showTab(h); }
   RENDER.intake = function () { if (window.PpmIntake && V) window.PpmIntake.mount(Object.assign(X(), { V: function () { return V; }, reload: load })); };   // PORTFOLIO LOT 1
   RENDER.raci = function () { if (window.PpmExtras) window.PpmExtras.mountRaci(Object.assign(X(), { canEdit: !!(V && V.can_edit_plan) })); };
   // R2-WB-04 — the Team panel (Overview) exists only while ppm_project_team_enabled is on

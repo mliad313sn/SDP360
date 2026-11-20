@@ -22,6 +22,7 @@ const GUARDED = {
   'services/governanceStore.js': ['meeting_cadences', 'meeting_sessions', 'portfolio_programmes', 'portfolio_objectives', 'portfolio_projects',
     'portfolio_tasks', 'portfolio_milestones', 'portfolio_deliverables', 'portfolio_risks'],
   'routes/governanceRoles.js': ['meeting_cadences'],
+  'services/ppm/portfolioPhase2Store.js': ['ppm_project_dependencies', 'ppm_project_demand', 'ppm_project_documents', 'portfolio_risks', 'portfolio_projects'],   // PORTFOLIO LOT 6
 };
 
 // file → function name → reason it may read deleted rows / gets its filter elsewhere
@@ -76,6 +77,7 @@ const ALLOW = {
     deletedTaskRow: 'P11 R4-4: read-only listing of a soft-deleted task\'s hours (still counted, R3-4) — deleted rows only, project checked live',
     actualPeriodsUnder: 'P11 R4-1: counts the ACTUAL budget periods a HARD delete / purge would cascade away — deleted rows included on purpose',
   },
+  'services/ppm/portfolioPhase2Store.js': { addDocument: 'next version number reads every row incl. deleted ones on purpose: a version number is never reused' },
 };
 
 function enclosingFn(src, pos) {

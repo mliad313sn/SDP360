@@ -8,15 +8,15 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 
 | Item | Count |
 |---|---:|
-| routes | 784 |
+| routes | 797 |
 | routes not measurable | 3 |
-| routes without strict test | 64 |
-| critical routes | 214 |
+| routes without strict test | 66 |
+| critical routes | 220 |
 | critical routes without strict test | 17 |
-| writes without strict test | 22 |
+| writes without strict test | 23 |
 | jobs | 33 |
 | jobs without strict test | 0 |
-| test sources | 960 |
+| test sources | 955 |
 | without strict test access | 3 |
 | without strict test finance | 2 |
 | without strict test export | 6 |
@@ -67,9 +67,11 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 | GET | `/api/data/monthly-summary` | read | server.js |
 | GET | `/api/data/sla-by-category` | read | server.js |
 | POST | `/api/governance/policies/proposals/:id/reject` | write | routes/policies.js |
-| POST | `/api/governance/portfolio/project/:id/review/apply-template` | write | routes/governanceReview.js |
 | POST | `/api/governance/ppm/project/:id/changes/:cid/simulate` | write | routes/governanceWorkbench.js |
 | GET | `/api/governance/ppm/project/:id/dcma` | read | routes/governanceW3.js |
+| POST | `/api/governance/ppm/project/:id/gates/:gate/signoff` | write | routes/governanceW3.js |
+| PUT | `/api/governance/ppm/project/:id/gates/:gate` | write | routes/governanceW3.js |
+| GET | `/api/governance/ppm/project/:id/gates` | read | routes/governanceW3.js |
 | PUT | `/api/governance/ppm/project/:id/raci` | write | routes/governancePpm.js |
 | GET | `/api/governance/ppm/project/:id/rag` | read | routes/governanceW3.js |
 | GET | `/api/governance/ppm/project/:id/raid` | read | routes/governanceW3.js |
@@ -114,9 +116,9 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 
 | Class | Routes | Without strict test |
 |---|---:|---:|
-| access | 67 | 3 |
+| access | 66 | 3 |
 | finance | 40 | 2 |
-| export | 67 | 6 |
+| export | 71 | 6 |
 | audit | 23 | 5 |
-| destructive | 37 | 2 |
-<!-- structure a1a7eddbff8e764d -->
+| destructive | 40 | 2 |
+<!-- structure 050f3eae83c0b2fe -->

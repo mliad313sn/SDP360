@@ -10,11 +10,23 @@ const ENTITIES = {
   Sites: { key: 'Id', props: { Id: 'Edm.Int32', Name: 'Edm.String', Country: 'Edm.String', Active: 'Edm.Boolean' } },
 };
 
-function serviceDocument(base) { return { '@odata.context': `${base}/$metadata`, value: Object.keys(ENTITIES).map(n => ({ name: n, kind: 'EntitySet', url: n })) }; }
+// PORTFOLIO LOT 6 — portfolio entity sets, published ONLY while report_config ext_api_portfolio_enabled = '1' (the
+// caller passes { portfolio: true }). No amount and no person's name is a property of any of them (money is never
+// exported through the external API; owners stay inside the platform). Non-sensitive projects only (routes/extApi.js).
+const PORTFOLIO_ENTITIES = {
+  PortfolioProjects: { key: 'Id', props: { Id: 'Edm.Int32', Ref: 'Edm.String', Key: 'Edm.String', Name: 'Edm.String', SiteId: 'Edm.Int32', Site: 'Edm.String', Status: 'Edm.String', Stage: 'Edm.String', Priority: 'Edm.String', StartDate: 'Edm.String', EndDate: 'Edm.String', ProgressPct: 'Edm.Double', RiskExposure: 'Edm.String', OpenRisks: 'Edm.Int32', EffortScore: 'Edm.Int32', EffortBand: 'Edm.String', DemandAvgFte: 'Edm.Double' } },
+  PortfolioDependencyLinks: { key: 'Id', props: { Id: 'Edm.Int32', ProjectId: 'Edm.Int32', PredecessorProjectId: 'Edm.Int32', ExternalCategory: 'Edm.String', Status: 'Edm.String', TargetDate: 'Edm.String', Criticality: 'Edm.String' } },
+  PortfolioDemands: { key: 'Id', props: { Id: 'Edm.Int32', ProjectId: 'Edm.Int32', Skill: 'Edm.String', AvgFte: 'Edm.Double', PeakFte: 'Edm.Double', StartMonth: 'Edm.String', FinishMonth: 'Edm.String', Sourcing: 'Edm.String' } },
+};
+const setsOf = (o = {}) => (o.portfolio ? { ...ENTITIES, ...PORTFOLIO_ENTITIES } : ENTITIES);
+const entityOf = (set) => (Object.prototype.hasOwnProperty.call(ENTITIES, set) ? ENTITIES[set] : Object.prototype.hasOwnProperty.call(PORTFOLIO_ENTITIES, set) ? PORTFOLIO_ENTITIES[set] : null);
 
-function metadataXml() {
-  const types = Object.entries(ENTITIES).map(([n, e]) => `<EntityType Name="${n.replace(/s$/, '')}"><Key><PropertyRef Name="${e.key}"/></Key>${Object.entries(e.props).map(([p, t]) => `<Property Name="${p}" Type="${t}"${p === e.key ? ' Nullable="false"' : ''}/>`).join('')}</EntityType>`).join('');
-  const sets = Object.keys(ENTITIES).map(n => `<EntitySet Name="${n}" EntityType="${NS}.${n.replace(/s$/, '')}"/>`).join('');
+function serviceDocument(base, o) { return { '@odata.context': `${base}/$metadata`, value: Object.keys(setsOf(o)).map(n => ({ name: n, kind: 'EntitySet', url: n })) }; }
+
+function metadataXml(o) {
+  const ALL = setsOf(o);
+  const types = Object.entries(ALL).map(([n, e]) => `<EntityType Name="${n.replace(/s$/, '')}"><Key><PropertyRef Name="${e.key}"/></Key>${Object.entries(e.props).map(([p, t]) => `<Property Name="${p}" Type="${t}"${p === e.key ? ' Nullable="false"' : ''}/>`).join('')}</EntityType>`).join('');
+  const sets = Object.keys(ALL).map(n => `<EntitySet Name="${n}" EntityType="${NS}.${n.replace(/s$/, '')}"/>`).join('');
   return `<?xml version="1.0" encoding="utf-8"?><edmx:Edmx Version="4.0" xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx"><edmx:DataServices><Schema Namespace="${NS}" xmlns="http://docs.oasis-open.org/odata/ns/edm">${types}<EntityContainer Name="Container">${sets}</EntityContainer></Schema></edmx:DataServices></edmx:Edmx>`;
 }
 
@@ -25,7 +37,7 @@ const FORBIDDEN_PROPS = new Set(['__proto__', 'constructor', 'prototype']);
 const invalid = (msg) => Object.assign(new Error(msg), { code: 'INVALID' });
 function assertProp(set, prop, where) {
   const name = String(prop || '').trim();
-  if (!name || FORBIDDEN_PROPS.has(name) || !set || !Object.prototype.hasOwnProperty.call(ENTITIES[set] ? ENTITIES[set].props : {}, name)) throw invalid(`unknown property in ${where}: ${name.slice(0, 40)}`);
+  if (!name || FORBIDDEN_PROPS.has(name) || !set || !Object.prototype.hasOwnProperty.call(entityOf(set) ? entityOf(set).props : {}, name)) throw invalid(`unknown property in ${where}: ${name.slice(0, 40)}`);
   return name;
 }
 
@@ -45,7 +57,7 @@ function parseFilter(expr, set = null) {
 
 /** Apply the query options to rows → OData response body. */
 function collection(base, set, rows, q = {}) {
-  if (!ENTITIES[set]) throw Object.assign(new Error('unknown entity set'), { code: 'NOT_FOUND' });
+  if (!entityOf(set)) throw Object.assign(new Error('unknown entity set'), { code: 'NOT_FOUND' });
   let out = rows.filter(parseFilter(q.$filter, set));
   if (q.$orderby) { const [rawProp, dir] = String(q.$orderby).trim().split(/\s+/); const prop = assertProp(set, rawProp, '$orderby'); if (dir && !/^(asc|desc)$/i.test(dir)) throw invalid('unsupported $orderby direction'); out = out.slice().sort((a, b) => (a[prop] > b[prop] ? 1 : a[prop] < b[prop] ? -1 : 0) * (String(dir).toLowerCase() === 'desc' ? -1 : 1)); }
   const total = out.length;
@@ -57,4 +69,4 @@ function collection(base, set, rows, q = {}) {
   return body;
 }
 
-module.exports = { ENTITIES, NS, FORBIDDEN_PROPS, serviceDocument, metadataXml, parseFilter, assertProp, collection };
+module.exports = { ENTITIES, PORTFOLIO_ENTITIES, NS, FORBIDDEN_PROPS, serviceDocument, metadataXml, parseFilter, assertProp, collection };

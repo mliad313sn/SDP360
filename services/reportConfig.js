@@ -531,6 +531,25 @@ Object.assign(DEFAULTS, { ppm_extended_lifecycle_enabled: '0', ppm_review_workfl
 //    Every rule, severity, recommended action and the outcome list are PROPOSED (services/ppmAlerts.js,
 //    services/ppm/decisionAgenda.js) — arming is a PMO decision.
 Object.assign(DEFAULTS, { ppm_decision_agenda_enabled: '0', ppm_alert_actions_enabled: '0', ppm_alert_decision_age_days: '' });
+// ── PORTFOLIO LOT 6 (IT portfolio reconstruction spec §12, §13, §16, §17, §29, §33 — Phase 2, migration 130) — PROPOSED,
+//    every switch '0' = today (the routes answer 404, nothing is stored, the project page shows no extra tab).
+//    ppm_structured_dependencies_enabled '1' → relational project dependencies (on another project OR an external
+//      category; owner, status, target date, criticality; loops refused; flags such as an external dependency without
+//      an owner), the legacy depends_on JSON read alongside; residual risk + due date on the existing risk register
+//      and the 4-level exposure (PROPOSED mapping) with a project / portfolio rollup.
+//    ppm_resource_demand_enabled '1' → demand lines per skill (numeric average / peak FTE, window, internal / external,
+//      owner) and the monthly load against ppm_capacity_fte (JSON {skill: fte, "*": fte}; '' = capacity UNKNOWN →
+//      no colour). Thresholds = the PROPOSED kpiRag policy 'ppm-capacity'.
+//    ppm_effort_scoring_enabled '1' → the seven-factor effort score under the delivery-effort category (PROPOSED equal
+//      weights, ppm_effort_weights JSON overrides; '' = PROPOSED) — a suggested band, never applied automatically.
+//    ppm_documents_enabled '1' → typed, versioned project documents in the filesystem blob store (allow-listed types,
+//      content checked against the declared type, ≤ 10 MB, soft delete); money documents downloadable by amount readers only.
+//    ppm_scenarios_enabled '1' → read-only portfolio what-if (shift / leave out projects → load vs capacity and
+//      dependency conflicts); nothing is written.
+//    ext_api_portfolio_enabled '1' → portfolio entity sets on the external API (/ext/v1/portfolio/*, OData Portfolio*),
+//      per-consumer key with the scope portfolio:read; non-sensitive projects only, never an amount, never a person's name.
+//    Arming each is a PMO decision (ext_api_portfolio_enabled: data owner + security).
+Object.assign(DEFAULTS, { ppm_structured_dependencies_enabled: '0', ppm_resource_demand_enabled: '0', ppm_effort_scoring_enabled: '0', ppm_documents_enabled: '0', ppm_scenarios_enabled: '0', ext_api_portfolio_enabled: '0', ppm_capacity_fte: '', ppm_effort_weights: '' });
 // ── W3-GOVERNANCE (PPM parity W3, migration 110) — PROPOSED, '0' = today (the routes answer 404, nothing is stored).
 //    ppm_simplified_view_enabled '1' → the project page offers a Simplified ↔ Expert switch (per-user preference):
 //    KPI cards (RAG, % schedule complete, budget burn for the admin tier + finance-viewer, risks / blockers, next
