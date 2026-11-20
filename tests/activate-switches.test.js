@@ -106,9 +106,19 @@ test('apply + journal + rollback on the throwaway database', async () => {
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });
 
+// P11 r6 O-4 — the second operator must be a real active super_admin account: the live tests create one.
+async function ensureAccount(username, { role = 'super_admin', active = 1 } = {}) {
+  const H = require('../reports-db').pgHandle();
+  let u = await H.prepare('SELECT id FROM users WHERE lower(username) = lower(?)').get(username);
+  if (!u) u = await H.prepare("INSERT INTO users (username, full_name, password_hash, salt, active) VALUES (?, ?, 'x', 'y', ?) RETURNING id").get(username, username.toUpperCase(), active);
+  if (role) await H.prepare('INSERT INTO user_roles (user_id, role) VALUES (?, ?) ON CONFLICT DO NOTHING').run(u.id, role);
+  return Number(u.id);
+}
+
 async function liveDeps() {
   const rdb = require('../reports-db');
   const rc = require('../services/reportConfig');
+  await ensureAccount('asmith');
   return {
     getConfig: () => rc.getConfig(rdb.db),
     setConfig: (patch) => rc.setConfig(rdb.db, patch, 'cli:activate-switches'),
@@ -335,7 +345,8 @@ test('r5: --apply writes os_user + host and the HMAC seal into the rollback file
     const plan = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'docs', 'ops', 'switch-lots.json'), 'utf8'));
     const lot = plan.lots.find((l) => l.id === 'L15') || plan.lots[0];
     const d = { log: () => {}, getConfig: async () => ({ ...cfg }), setConfig: async (p) => Object.assign(cfg, p), logEvent: async (e) => events.push(e),
-      storedKeys: async () => new Set(Object.keys(cfg)), osIdentity: { os_user: 'svc_ops', host: 'SRV01' }, rollbackKnown: async () => true };
+      storedKeys: async () => new Set(Object.keys(cfg)), osIdentity: { os_user: 'svc_ops', host: 'SRV01' }, rollbackKnown: async () => true,
+      operatorAccount: async (n) => ({ asmith: { id: 7, username: 'asmith', name: 'A Smith' }, jdoe: { id: 3, username: 'jdoe', name: 'J Doe' } })[String(n).toLowerCase()] || null };
     const r = await A.main(['--apply', '--db-url=postgres://x', `--lots=${lot.id}`, '--reason=pilot wave test CAB-0', `--rollback-dir=${dir}`, '--operator=jdoe', '--include-outbound', '--second-operator=asmith'], d);
     assert.ok(r.rollback_file, 'a rollback file was written: ' + JSON.stringify(r).slice(0, 300));
     const rb = JSON.parse(fs.readFileSync(r.rollback_file, 'utf8'));
@@ -344,4 +355,36 @@ test('r5: --apply writes os_user + host and the HMAC seal into the rollback file
     const ev = events.find((e) => e.action === 'switch_rollback_file');
     assert.equal(ev.details.os_user, 'svc_ops'); assert.equal(ev.details.host, 'SRV01'); assert.equal(ev.details.sealed, true);
   } finally { if (prev === undefined) delete process.env.SDP_CONFIG_KEY; else process.env.SDP_CONFIG_KEY = prev; fs.rmSync(dir, { recursive: true, force: true }); }
+});
+
+// P11 r6 O-4 — `--second-operator=x` was accepted as free text: any one-character name satisfied four-eyes.
+test('r6 O-4 (pg): the second operator must be an existing ACTIVE super_admin account, distinct from --operator', async () => {
+  const url = process.env.PG_URL;
+  const dir = tmp();
+  try {
+    const rdb = require('../reports-db');
+    const rc = require('../services/reportConfig');
+    await rc.setConfig(rdb.db, { policy_center_enabled: '0' }, 'test');
+    await resetLot('L12');
+    const deps = { ...quiet, ...(await liveDeps(url)) };
+    const run = (second, op = 'jdoe') => A.main(['--apply', `--db-url=${url}`, '--lots=L12', `--rollback-dir=${dir}`, '--reason=L12 activation CAB-0099', `--operator=${op}`, `--second-operator=${second}`], deps);
+    await assert.rejects(run('x'), /"x" is not the username of an active super_admin account[^]*nothing written/, 'free text refused');
+    await ensureAccount('plain-editor', { role: 'editor' });
+    await assert.rejects(run('plain-editor'), /not the username of an active super_admin/, 'an editor is not a valid second operator');
+    await ensureAccount('gone-super', { active: 0 });
+    await assert.rejects(run('gone-super'), /not the username of an active super_admin/, 'an inactive account is refused');
+    const aid = await ensureAccount('asmith');
+    await assert.rejects(run('ASMITH', 'asmith'), /same person/, 'the same account, any case, is refused');
+    await assert.rejects(run('asmith', 'a.smith'), /same person/, 'a look-alike spelling of the operator is refused');
+    assert.equal(fs.readdirSync(dir).length, 0, 'nothing written by the refusals');
+    assert.equal((await rc.getConfig(rdb.db)).emergency_access_enabled, rc.DEFAULTS.emergency_access_enabled);
+    const res = await run('asmith');
+    assert.equal(res.second_operator, 'asmith'); assert.equal(res.second_operator_id, aid);
+    const rb = JSON.parse(fs.readFileSync(res.rollback_file, 'utf8'));
+    assert.equal(rb.second_operator_id, aid);
+    assert.equal(rb.sha256, A.rollbackHash(rb));
+    assert.notEqual(A.rollbackHash({ ...rb, second_operator_id: aid + 1 }), rb.sha256, 'the account id is inside the checksummed content');
+    const { rows } = await rdb.listSystemLog({ category: 'config', action: 'config_changed' }, { limit: 500 });
+    assert.ok(rows.some((r) => r.target === 'emergency_access_enabled' && new RegExp(`user id ${aid}`).test(JSON.stringify(r))), 'journal row carries the account id');
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 });

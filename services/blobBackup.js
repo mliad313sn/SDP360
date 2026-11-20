@@ -39,19 +39,53 @@ function defaultBlobRoot(env = process.env) {
   return path.join(env.SDP_DATA_DIR ? path.resolve(env.SDP_DATA_DIR) : path.join(__dirname, '..', 'data'), 'blobs');
 }
 
-/** Relative refs (forward slashes) of every regular file under root, sorted; null when root does not exist. */
-function listStore(root, { fsx = fs } = {}) {
+/**
+ * P11 r6 O-2 — enumerate the store EXACTLY as services/blobStore.js serves it: blobStore reads through links, so a
+ * folder moved to another place and reached through a symlink / Windows junction is still served. The walk therefore
+ * FOLLOWS a linked directory or file when its real path is inside `allowedRoot` (default: the data directory that holds
+ * the store), and REFUSES (throws, code BLOB_LINK_OUTSIDE) a link that points outside it — a backup that silently
+ * skipped a served subtree was the bug. A link back to one of its own ancestors is a cycle (code BLOB_LINK_CYCLE).
+ * A dangling link serves nothing and is reported, not archived.
+ * @returns {null|{ refs: string[], links: {ref:string,target:string}[], dangling: string[] }}
+ */
+function listStoreDetailed(root, { fsx = fs, allowedRoot = null } = {}) {
   if (!root || !fsx.existsSync(root)) return null;
-  const out = [];
-  const walk = (dir, rel) => {
+  const real = (p) => (typeof fsx.realpathSync === 'function' ? fsx.realpathSync(p) : path.resolve(p));
+  const rootReal = real(root);
+  const allowed = real(allowedRoot || path.dirname(path.resolve(root)));
+  const inside = (p) => { const r = path.relative(allowed, p); return r === '' || (!r.startsWith('..') && !path.isAbsolute(r)); };
+  const refs = []; const links = []; const dangling = [];
+  const walk = (dir, rel, ancestors) => {
     for (const e of fsx.readdirSync(dir, { withFileTypes: true })) {
       const r = rel ? rel + '/' + e.name : e.name;
-      if (e.isDirectory()) walk(path.join(dir, e.name), r);
-      else if (e.isFile()) out.push(r);
+      const abs = path.join(dir, e.name);
+      let isDir = e.isDirectory(), isFile = e.isFile(), dirReal = null;
+      if (e.isSymbolicLink && e.isSymbolicLink()) {
+        let st, target;
+        try { st = fsx.statSync(abs); target = real(abs); } catch (_) { dangling.push(r); continue; }
+        if (!inside(target)) {
+          const err = new Error(`file store: "${r}" is a link to ${target}, outside the data directory ${allowed} — refusing to back up a store that is partly elsewhere (move the folder back, or point SDP_DATA_DIR at a directory that contains it)`);
+          err.code = 'BLOB_LINK_OUTSIDE'; err.transient = false; throw err;
+        }
+        links.push({ ref: r, target });
+        isDir = st.isDirectory(); isFile = st.isFile(); dirReal = isDir ? target : null;
+      }
+      if (isDir) {
+        const dr = dirReal || real(abs);
+        if (ancestors.has(dr)) { const err = new Error(`file store: "${r}" links back to one of its own parent folders (${dr}) — a link cycle cannot be archived`); err.code = 'BLOB_LINK_CYCLE'; err.transient = false; throw err; }
+        const next = new Set(ancestors); next.add(dr);
+        walk(abs, r, next);
+      } else if (isFile) refs.push(r);
     }
   };
-  walk(root, '');
-  return out.sort();
+  walk(root, '', new Set([rootReal]));
+  return { refs: refs.sort(), links, dangling };
+}
+
+/** Relative refs (forward slashes) of every file the app serves under root, sorted; null when root does not exist. */
+function listStore(root, { fsx = fs, allowedRoot = null } = {}) {
+  const d = listStoreDetailed(root, { fsx, allowedRoot });
+  return d ? d.refs : null;
 }
 
 const sha256 = (b) => crypto.createHash('sha256').update(b).digest('hex');
@@ -66,24 +100,50 @@ function _writeRecord(fsx, fd, type, box) {
  * Write the archive of `root` to `file` (atomically: `<file>.part` then rename).
  * @returns {{ file, count, total_bytes, encrypted, manifest }}
  */
-function writeArchive({ root, file, key = null, fsx = fs, now = new Date() }) {
-  const refs = listStore(root, { fsx }) || [];
+function writeArchive({ root, file, key = null, fsx = fs, now = new Date(), allowedRoot = null }) {
+  const listed = listStoreDetailed(root, { fsx, allowedRoot });
+  const refs = listed ? listed.refs : [];
   const part = file + '.part';
   const fd = fsx.openSync(part, 'w');
-  const files = []; let total = 0;
+  const files = []; const vanished = []; let total = 0; let closed = false;
   try {
     fsx.writeSync(fd, key ? MAGIC_ENC : MAGIC_PLAIN);
     for (const ref of refs) {
-      const data = fsx.readFileSync(path.join(root, ...ref.split('/')));
+      let data;
+      // P11 r6 O-3 — a file deleted between the walk and the read (an inspection delete during the backup) is normal
+      // activity: it is recorded as vanished in the manifest, never a reason to abort the whole run.
+      try { data = fsx.readFileSync(path.join(root, ...ref.split('/'))); }
+      catch (e) { if (e && (e.code === 'ENOENT' || e.code === 'ENOTDIR')) { vanished.push(ref); continue; } throw e; }
       const r = Buffer.from(ref, 'utf8'); const len = Buffer.alloc(4); len.writeUInt32BE(r.length, 0);
       _writeRecord(fsx, fd, T_FILE, _box(Buffer.concat([len, r, data]), key));
       files.push({ ref, size: data.length, sha256: sha256(data) }); total += data.length;
     }
-    const manifest = { version: 1, created_at: now.toISOString(), count: files.length, total_bytes: total, files };
+    const manifest = { version: 1, created_at: now.toISOString(), count: files.length, total_bytes: total, files,
+      ...(vanished.length ? { vanished } : {}), ...(listed && listed.links.length ? { links: listed.links.map((l) => l.ref) } : {}), ...(listed && listed.dangling.length ? { dangling: listed.dangling } : {}) };
     _writeRecord(fsx, fd, T_MANIFEST, _box(Buffer.from(JSON.stringify(manifest), 'utf8'), key));
-  } finally { fsx.closeSync(fd); }
-  fsx.renameSync(part, file);
-  return { file, count: files.length, total_bytes: total, encrypted: !!key, manifest: { count: files.length, total_bytes: total, files } };
+    fsx.closeSync(fd); closed = true;
+    fsx.renameSync(part, file);
+  } catch (e) {
+    // P11 r6 O-3 — never leave a full-size `.part` behind a failed run
+    if (!closed) { try { fsx.closeSync(fd); } catch (_) { /* already closed */ } }
+    try { fsx.unlinkSync(part); } catch (_) { /* best effort */ }
+    throw e;
+  }
+  return { file, count: files.length, total_bytes: total, encrypted: !!key, vanished, links: listed ? listed.links : [], dangling: listed ? listed.dangling : [],
+    manifest: { count: files.length, total_bytes: total, files } };
+}
+
+/** ref → { size, sha256 } of every ref that still exists under root (read through links, like the app). */
+function hashStore(root, refs, { fsx = fs } = {}) {
+  const out = {};
+  for (const ref of refs || []) {
+    const abs = path.resolve(root, ...String(ref).split('/'));
+    const rel = path.relative(path.resolve(root), abs);
+    if (!rel || rel.startsWith('..') || path.isAbsolute(rel)) continue;
+    let b; try { b = fsx.readFileSync(abs); } catch (_) { continue; }
+    out[ref] = { size: b.length, sha256: sha256(b) };
+  }
+  return out;
 }
 
 /**
@@ -176,11 +236,29 @@ function restoreArchive(file, { key = null, target, allowNonEmpty = false, fsx =
   return { ...c, target };
 }
 
-function pruneArchives(dir, { keep = 14, prefix = PREFIX, fsx = fs } = {}) {
-  let names = [];
-  try { names = fsx.readdirSync(dir).filter((n) => isArchiveName(n, prefix)); } catch (_) { return []; }
-  names.sort();
+const LEFTOVER_PART_AGE_MS = 6 * 3600 * 1000;
+/**
+ * Keep the newest `keep` archives. P11 r6 O-3 — leftovers of failed runs are pruned too: a `.rejected` archive older
+ * than the oldest kept archive (and never more than `keep` of them), a `.part` older than that or untouched for 6 h
+ * (a running backup's `.part` is fresh and is left alone).
+ */
+function pruneArchives(dir, { keep = 14, prefix = PREFIX, fsx = fs, nowMs = Date.now() } = {}) {
+  let all = [];
+  try { all = fsx.readdirSync(dir); } catch (_) { return []; }
+  const names = all.filter((n) => isArchiveName(n, prefix)).sort();
   const doomed = names.slice(0, Math.max(0, names.length - keep));
+  const kept = names.slice(doomed.length);
+  const oldestKept = kept.length ? stampOf(kept[0]) : null;
+  const leftRe = new RegExp('^' + _escRe(prefix) + '_\\d{8}T\\d{6}Z\\.blobs(?:\\.enc)?\\.(part|rejected)$');
+  const rejected = all.filter((n) => leftRe.test(n) && n.endsWith('.rejected')).sort();
+  const parts = all.filter((n) => leftRe.test(n) && n.endsWith('.part'));
+  const older = (n) => oldestKept && stampOf(n) < oldestKept;
+  rejected.forEach((n, i) => { if (older(n) || i < rejected.length - keep) doomed.push(n); });
+  for (const n of parts) {
+    let stale = older(n);
+    if (!stale) { try { stale = nowMs - fsx.statSync(path.join(dir, n)).mtimeMs > LEFTOVER_PART_AGE_MS; } catch (_) { stale = false; } }
+    if (stale) doomed.push(n);
+  }
   for (const n of doomed) { try { fsx.unlinkSync(path.join(dir, n)); } catch (_) { /* best effort */ } }
   return doomed;
 }
@@ -200,11 +278,10 @@ function archiveFor(dir, dumpFile, { prefix = PREFIX, fsx = fs } = {}) {
  * The file-store half of a backup run. Store absent → { present:false } (nothing to lose). Otherwise writes, verifies
  * (quarantining a bad archive as `.rejected`, non-transient failure), copies off-site when asked.
  */
-function backupStore({ root, dir, stamp, key = null, offsitePath = '', fsx = fs, now = new Date() }) {
-  const refs = listStore(root, { fsx });
-  if (refs == null) return { present: false, root };
+function backupStore({ root, dir, stamp, key = null, offsitePath = '', fsx = fs, now = new Date(), allowedRoot = null }) {
+  if (!root || !fsx.existsSync(root)) return { present: false, root };
   const file = path.join(dir, archiveNameFor(stamp, { encrypted: !!key }));
-  const w = writeArchive({ root, file, key, fsx, now });
+  const w = writeArchive({ root, file, key, fsx, now, allowedRoot });
   const v = verifyArchive(file, { key, fsx });
   if (!v.ok || v.count !== w.count) {
     let quarantined = null;
@@ -217,8 +294,55 @@ function backupStore({ root, dir, stamp, key = null, offsitePath = '', fsx = fs,
     try { offsite = backup.copyOffsite(file, String(offsitePath).trim(), { fsx }); }
     catch (e2) { const e = new Error(`off-site copy of the file-store archive failed (${String(offsitePath).trim()}): ${e2.message}`); e.transient = true; e.file = file; throw e; }
   }
-  return { present: true, file, count: w.count, total_bytes: w.total_bytes, encrypted: w.encrypted, offsite };
+  return { present: true, file, count: w.count, total_bytes: w.total_bytes, encrypted: w.encrypted, offsite, vanished: w.vanished, links: w.links.map((l) => l.ref), dangling: w.dangling };
 }
 
-module.exports = { PREFIX, isArchiveName, archiveNameFor, stampOf, defaultBlobRoot, listStore, writeArchive, readArchive,
-  compareWithManifest, verifyArchive, restoreArchive, pruneArchives, archiveFor, backupStore };
+// ── P11 r6 O-1 — off the server's event loop ──────────────────────────────────────────────────────────────────────
+// db.backup and db.restore_drill run INSIDE the web server (services/sync/jobs.js). Reading, compressing, encrypting
+// and hashing a multi-GB photo store synchronously froze every request and /ready for minutes. The heavy work runs in
+// a child process (services/blobBackupWorker.js, same synchronous engine) while the server awaits it. The key travels
+// on the child's stdin, never on a command line. An injected fsx (tests) keeps the in-process path.
+const WORKER = path.join(__dirname, 'blobBackupWorker.js');
+function runWorker(op, args = {}, { key = null, env = process.env, spawn = null } = {}) {
+  return new Promise((resolve, reject) => {
+    const cp = (spawn || require('child_process').spawn)(process.execPath, [WORKER], { env, stdio: ['pipe', 'pipe', 'pipe'], windowsHide: true });
+    const out = []; const err = [];
+    cp.stdout.on('data', (d) => out.push(d));
+    cp.stderr.on('data', (d) => { if (err.length < 64) err.push(d); });
+    cp.on('error', (e) => { const x = new Error(`file-store worker could not start: ${e.message}`); x.transient = true; reject(x); });
+    cp.on('close', (code) => {
+      let msg = null;
+      try { msg = JSON.parse(Buffer.concat(out).toString('utf8')); } catch (_) { msg = null; }
+      if (msg && msg.ok) return resolve(msg.result);
+      if (msg && msg.error) { const x = new Error(msg.error.message); for (const k of ['transient', 'code', 'file']) if (msg.error[k] !== undefined) x[k] = msg.error[k]; return reject(x); }
+      const x = new Error(`file-store worker ${op} failed (exit ${code}): ${Buffer.concat(err).toString('utf8').trim().slice(-300)}`); x.transient = false; reject(x);
+    });
+    cp.stdin.on('error', () => { /* child died early — reported by close */ });
+    cp.stdin.end(JSON.stringify({ op, args, keyHex: key ? Buffer.from(key).toString('hex') : null }));
+  });
+}
+const _inProcess = (fsx) => fsx && fsx !== fs;
+/** backupStore, run in a child process (or in-process when an fsx is injected). */
+async function backupStoreAsync(o) {
+  if (_inProcess(o.fsx)) return backupStore(o);
+  const { key, fsx, env, spawn, now, ...rest } = o; void fsx; void now;
+  return runWorker('backup-store', rest, { key, env, spawn });
+}
+/**
+ * The drill's file-store inputs (live refs as the app serves them, their hashes, the archive read back), computed in a
+ * child process. A link refused by the walk comes back as listError (the drill fails on it), never as "no store".
+ */
+async function drillFilesAsync({ root, archive = null, key = null, allowedRoot = null, fsx = null, env, spawn } = {}) {
+  if (_inProcess(fsx)) return drillFiles({ root, archive, key, allowedRoot, fsx });
+  return runWorker('drill-files', { root, archive, allowedRoot }, { key, env, spawn });
+}
+function drillFiles({ root, archive = null, key = null, allowedRoot = null, fsx = fs }) {
+  let liveRefs = null, listError = null;
+  try { liveRefs = listStore(root, { fsx, allowedRoot }); } catch (e) { listError = e.message; }
+  const liveHashes = liveRefs ? hashStore(root, liveRefs, { fsx }) : {};
+  const verify = archive ? verifyArchive(archive, { key, fsx }) : null;
+  return { liveRefs, liveHashes, listError, verify };
+}
+
+module.exports = { PREFIX, isArchiveName, archiveNameFor, stampOf, defaultBlobRoot, listStore, listStoreDetailed, hashStore, writeArchive, readArchive,
+  compareWithManifest, verifyArchive, restoreArchive, pruneArchives, archiveFor, backupStore, backupStoreAsync, drillFiles, drillFilesAsync, runWorker };

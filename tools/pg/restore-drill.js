@@ -35,7 +35,6 @@
 
 const fs = require('fs');
 const path = require('path');
-const { spawnSync } = require('child_process');
 
 const ROOT = path.join(__dirname, '..', '..');
 if (require.main === module) require('dotenv').config({ quiet: true, path: path.join(ROOT, '.env') });
@@ -94,33 +93,41 @@ async function provisionTarget({ env, liveUrl, Client }) {
 }
 
 /** psql < sql, password via env only. Returns { status, stderr }. */
-function restoreWithPsql(targetUrl, sql, { env, spawn = spawnSync } = {}) {
+// P11 r6 O-1 — the monthly drill runs inside the web server: without an injected spawn, psql runs as an ASYNC child
+// (the SQL streamed to its stdin), so a long restore no longer freezes requests and /ready. An injected spawn keeps the
+// synchronous contract (tests). Returns { status, stderr } (a promise in the default case).
+function restoreWithPsql(targetUrl, sql, { env, spawn = null } = {}) {
   const psql = findPgBin('psql', 'PG_PSQL', env);
   const { args, env: childEnv } = pgArgsFromUrl(targetUrl, { env, defaultUser: 'postgres' });
-  const r = spawn(psql, [...args, '--no-password', '-X', '-q', '-v', 'ON_ERROR_STOP=0', '-f', '-'],
-    { env: childEnv, input: sql, encoding: 'utf8', maxBuffer: 1024 * 1024 * 1024, timeout: 60 * 60 * 1000 });
-  if (r.error) throw new Error(`psql could not be started (${psql}): ${r.error.message}`);
-  return { status: r.status, stderr: r.stderr || '' };
+  const argv = [...args, '--no-password', '-X', '-q', '-v', 'ON_ERROR_STOP=0', '-f', '-'];
+  if (spawn) {
+    const r = spawn(psql, argv, { env: childEnv, input: sql, encoding: 'utf8', maxBuffer: 1024 * 1024 * 1024, timeout: 60 * 60 * 1000 });
+    if (r.error) throw new Error(`psql could not be started (${psql}): ${r.error.message}`);
+    return { status: r.status, stderr: r.stderr || '' };
+  }
+  return new Promise((resolve, reject) => {
+    const cp = require('child_process').spawn(psql, argv, { env: childEnv, windowsHide: true });
+    let stderr = ''; let started = true;
+    const t = setTimeout(() => { try { cp.kill(); } catch (_) { /* gone */ } }, 60 * 60 * 1000);
+    cp.stdout.on('data', () => { /* -q: nothing useful */ });
+    cp.stderr.on('data', (d) => { if (stderr.length < 4 * 1024 * 1024) stderr += d; });
+    cp.on('error', (e) => { started = false; clearTimeout(t); reject(new Error(`psql could not be started (${psql}): ${e.message}`)); });
+    cp.on('close', (code) => { clearTimeout(t); if (started) resolve({ status: code, stderr }); });
+    cp.stdin.on('error', () => { /* psql exited early — its status says why */ });
+    cp.stdin.end(sql);
+  });
 }
 
 // ── F-ARCH-05 — full-service I/O helpers ───────────────────────────────────────────────────
 const crypto = require('crypto');
 function defaultBlobRoot(env = process.env) { return path.join(env.SDP_DATA_DIR ? path.resolve(env.SDP_DATA_DIR) : path.join(ROOT, 'data'), 'blobs'); }
 
-/** Relative refs ("module/owner/file", forward slashes) of every file under `root`; null when root is unreadable. */
-function listFiles(root) {
-  if (!root || !fs.existsSync(root)) return null;
-  const out = [];
-  const walk = (dir, rel) => {
-    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
-      const r = rel ? rel + '/' + e.name : e.name;
-      if (e.isDirectory()) walk(path.join(dir, e.name), r);
-      else if (e.isFile()) out.push(r);
-    }
-  };
-  walk(root, '');
-  return out.sort();
-}
+/**
+ * Relative refs ("module/owner/file", forward slashes) of every file the app serves under `root`; null when absent.
+ * P11 r6 O-2 — the same walk as the backup's (services/blobBackup.listStore): linked folders inside the data directory
+ * are followed exactly as blobStore serves them; a link outside it throws (the drill then fails on it).
+ */
+function listFiles(root) { return require('../../services/blobBackup').listStore(root); }
 function hashFile(file) { const b = fs.readFileSync(file); return { sha256: crypto.createHash('sha256').update(b).digest('hex'), size: b.length }; }
 /** ref → {sha256,size} for `refs` that exist under `root` (a ref escaping the root is ignored). */
 function hashRefs(root, refs) {
@@ -238,9 +245,10 @@ async function run(o = {}) {
   const BB = require('../../services/blobBackup');
   const blobRoot = o.blobRoot || defaultBlobRoot(env);
   const blobArchive = o.blobArchive || BB.archiveFor(dir, dumpFile);
-  const liveRefs = listFiles(blobRoot);
-  const verify = blobArchive ? BB.verifyArchive(blobArchive, { key }) : null;
-  const files = drill.fileStoreStep({ liveRefs, liveHashes: liveRefs ? hashRefs(blobRoot, liveRefs) : {}, archiveName: blobArchive, verify });
+  // P11 r6 O-1 — listing, hashing and the archive read-back run in a child process (the drill runs in the server).
+  const fsr = await BB.drillFilesAsync({ root: blobRoot, archive: blobArchive, key, env: process.env });
+  const verify = fsr.verify;
+  const files = drill.fileStoreStep({ liveRefs: fsr.liveRefs, liveHashes: fsr.liveHashes || {}, archiveName: blobArchive, verify, listError: fsr.listError });
   log(`[restore-drill] file store: ${files.status === 'ok' ? 'ok' : 'FAILED'} — ${files.detail}`);
 
   // live counts first (closest to the dump in time)
@@ -262,7 +270,7 @@ async function run(o = {}) {
     const t0 = Date.now();
     const body = target.kind === 'schema' ? Buffer.from(drill.rewriteSchema(sql.toString('utf8'), target.schema), 'utf8') : sql;
     if (target.kind === 'schema') notes.push('Throwaway-schema fallback: no PG_ADMIN_URL with CREATEDB → the dump was rewritten from `public.` to the drill schema (documented limitation; a throwaway database is the preferred target).');
-    const r = restoreWithPsql(target.url, body, { env, spawn: o.spawn });
+    const r = await restoreWithPsql(target.url, body, { env, spawn: o.spawn });
     durationMs = Date.now() - t0;
     psql = drill.summarizePsqlErrors(r.stderr);
     if (r.status !== 0) notes.push(`psql exited ${r.status}`);

@@ -53,6 +53,9 @@ function main(argv = process.argv.slice(2), env = process.env, out = (s) => proc
   if (!get('load') && !get('e2e')) { out('[perf-budgets] nothing to check (pass --load=<json> and/or --e2e=<dir>)'); return blocking ? 1 : 0; }
   for (const r of rows) out(`[perf-budgets] ${r.status === 'over' ? 'OVER  ' : r.status === 'within' ? 'within' : 'no sample'} ${r.class}${r.detail ? ' — ' + r.detail : ''}${r.observed_p95_ms != null ? ` (p95 ${r.observed_p95_ms} ms, budget ${r.budget_p95_ms} ms)` : ''}`);
   const over = rows.filter((r) => r.status === 'over').length;
+  // P11 r6 O-5 — a load file that measured nothing ("no sample" everywhere) is not a pass in blocking mode.
+  const measured = rows.filter((r) => r.status === 'within' || r.status === 'over').length;
+  if (!measured) { out(`[perf-budgets] no class was measured (${rows.length} class(es), all "no sample")${blocking ? ' — blocking mode fails' : ''}`); if (blocking) return 1; }
   if (over && !blocking) out(`[perf-budgets] ${over} class(es) over budget — warning only (PERF_BUDGETS_BLOCKING is not 1)`);
   return over && blocking ? 1 : 0;
 }

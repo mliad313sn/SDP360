@@ -90,8 +90,9 @@ Règles communes :
 - Ne jamais ajouter `--include-outbound` pendant le pilote.
 - Lots L03, L08, L11, L12, L14 (et L16, hors pilote) : ils contiennent un interrupteur « quatre yeux » (marqué `4EYES` par `--plan`,
   règle du catalogue `docs/ops/policy-catalogue.json`). L'application est **refusée sans rien écrire** tant que
-  `--second-operator=<second opérateur>` ne nomme pas une **autre** personne, qui a relu le plan ; les deux noms sont
-  écrits dans le journal et dans le fichier de retour arrière. Le retour arrière de ces interrupteurs vers leur
+  `--second-operator=<second opérateur>` ne nomme pas une **autre** personne, qui a relu le plan — le nom doit être
+  l'identifiant d'un compte **super_admin actif** de l'application, distinct de celui de `--operator` (un nom libre est
+  refusé) ; les deux noms (et l'identifiant du compte du second) sont écrits dans le journal et dans le fichier de retour arrière. Le retour arrière de ces interrupteurs vers leur
   côté le moins strict demande aussi `--second-operator`. Si le Centre des politiques est allumé (`policy_center_enabled`),
   l'outil n'écrit pas ces interrupteurs : il dépose une demande par interrupteur (demandeur = le compte super_admin de
   `--operator`) et un second super_admin décide dans le centre.

@@ -156,5 +156,7 @@ test('r4: an undersized dump is quarantined as .rejected and never selected as t
   assert.ok(names[0].endsWith('.sql.rejected'), names[0]);
   assert.equal(B.isDumpName(names[0]), false);
   assert.equal(B.latestDump(dir), null);
-  assert.deepEqual(B.prune(dir, { keep: 0 }), [], 'never pruned either');
+  // P11 r6 O-3: kept for diagnosis within retention (keep >= 1), pruned beyond it (it used to be kept forever)
+  assert.deepEqual(B.prune(dir, { keep: 1 }), [], 'kept within retention');
+  assert.equal(B.prune(dir, { keep: 0 }).length, 1, 'pruned beyond retention');
 });

@@ -28,7 +28,8 @@ test('main: warn mode exits 0 on an over-budget class, blocking mode exits 1', (
   assert.strictEqual(PB.main([`--budgets=${budgets}`, `--load=${load}`], {}, out), 0);
   assert.ok(lines.some((l) => /WARN mode/.test(l)) && lines.some((l) => /OVER/.test(l)));
   assert.strictEqual(PB.main([`--budgets=${budgets}`, `--load=${load}`], { PERF_BUDGETS_BLOCKING: '1' }, () => {}), 1);
-  assert.strictEqual(PB.main([`--budgets=${budgets}`, `--e2e=${path.join(dir, 'none')}`], { PERF_BUDGETS_BLOCKING: '1' }, () => {}), 0);
+  // P11 r6 O-5: an e2e directory with no page measured is "nothing measured" — blocking mode fails (it used to pass)
+  assert.strictEqual(PB.main([`--budgets=${budgets}`, `--e2e=${path.join(dir, 'none')}`], { PERF_BUDGETS_BLOCKING: '1' }, () => {}), 1);
   fs.rmSync(dir, { recursive: true, force: true });
 });
 
@@ -96,5 +97,20 @@ test('F-07b: a bare path is the load file; blocking mode with nothing to check f
   assert.ok(lines.some((l) => /OVER/.test(l)) && !lines.some((l) => /nothing to check/.test(l)));
   assert.strictEqual(PB.main([`--budgets=${budgets}`], { PERF_BUDGETS_BLOCKING: '1' }, () => {}), 1, 'blocking + nothing to check = fail');
   assert.strictEqual(PB.main([`--budgets=${budgets}`], {}, () => {}), 0, 'warn mode stays 0');
+  fs.rmSync(dir, { recursive: true, force: true });
+});
+
+// P11 r6 O-5 — a load file whose classes are all "no sample" passed a blocking gate (every missing class passed).
+test('r6 O-5: blocking mode fails when no class was measured; warn mode reports it and stays 0', () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'p05-budget-empty-'));
+  const budgets = path.join(dir, 'b.json'); const empty = path.join(dir, 'e.json'); const some = path.join(dir, 's.json');
+  fs.writeFileSync(budgets, JSON.stringify({ status: 'PROPOSED', approved_by: null, api_route_classes: { page_data: { p95_ms: 1000 }, write: { p95_ms: 1000 } } }));
+  fs.writeFileSync(empty, JSON.stringify({ classes: {} }));
+  fs.writeFileSync(some, JSON.stringify({ classes: { page_data: { n: 3, p95: 50 } } }));
+  const lines = [];
+  assert.strictEqual(PB.main([`--budgets=${budgets}`, `--load=${empty}`], { PERF_BUDGETS_BLOCKING: '1' }, (s) => lines.push(s)), 1, 'nothing measured = fail');
+  assert.ok(lines.some((l) => /no class was measured/.test(l)));
+  assert.strictEqual(PB.main([`--budgets=${budgets}`, `--load=${empty}`], {}, () => {}), 0, 'warn mode stays 0');
+  assert.strictEqual(PB.main([`--budgets=${budgets}`, `--load=${some}`], { PERF_BUDGETS_BLOCKING: '1' }, () => {}), 0, 'one class measured within budget passes');
   fs.rmSync(dir, { recursive: true, force: true });
 });
