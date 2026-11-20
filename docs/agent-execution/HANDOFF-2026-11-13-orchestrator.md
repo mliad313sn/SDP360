@@ -154,3 +154,12 @@ node tools/test/run-all.js > /home/user/suite.log 2>&1     # full suite, ~18 min
   data-kpi, ppm, operations, ux-field, audit.
 - Open human decisions unchanged (SEC-F2, G14, lot approvals, …) plus: turning on `policy_center_enabled`,
   catalogue risk/four-eyes review, KPI committee items from Lot A, activation of outbound / access / money switches.
+
+## Update 2026-11-20 20:20 UTC (orchestrator)
+
+- Round 4 (e43d11d5): P0 = 0, P1 = 2 (both Policy Center, off by default) → fixed by fixes 14–18 with all P2/P3.
+- Merged since: portfolio Lots 2–6 (migrations reports/121, 125, 130; switches in L14 and new L16), adoption Lot B (L15),
+  business-readiness pack (`docs/business-readiness/`, 109 pending human decisions, all human cells blank).
+- CI green at 3ee4dd23; local full suite 5880/5881 at 015811d9 (the one failure fixed in 3ee4dd23).
+- **P11 round 5 launched at 3ee4dd23** (local tag `qual-p11-3ee4dd23`, outputs /home/user/qual/out/r5-<seat>.md).
+- Environment note: the container restarts silently — always `service postgresql start` (max_connections 400) before tests.
