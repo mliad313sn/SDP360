@@ -94,8 +94,9 @@ function schemaCtxFrom(baseUrl, schema) {
 // end-of-run sweep drops only this run's databases, never a concurrent runner's (P11 AUD-8).
 function testDbName() {
   const rand = Math.random().toString(36).slice(2, 8).replace(/[^a-z0-9]/g, '') || 'x';
-  const run = process.env.SDP_TEST_RUN_ID;
-  return 'sdp_tracker_test_' + (run && /^[a-z0-9]{1,16}$/.test(run) ? run + '_' : '') + rand;
+  // P11 r6 — sanitised, never ignored: a run id with hyphens ('data-kpi-r6') used to drop the tag silently
+  const run = require('../tools/test/drop-test-dbs').sanitiseRunId(process.env.SDP_TEST_RUN_ID);
+  return 'sdp_tracker_test_' + (run ? run + '_' : '') + rand;
 }
 
 // Returns a connection context for an isolated run, or null if Postgres is unreachable.

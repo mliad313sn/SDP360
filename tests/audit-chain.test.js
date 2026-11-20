@@ -38,8 +38,12 @@ test('the nightly job is registered, mandatory and fails on a broken chain', () 
 
 // P11 round 5 AUD-2 — the nightly verify compares the chain with the previous day's anchor (migration 131).
 async function seedAnchored(n) {
-  await require('./_pg-fresh').truncate(['minutes_history', 'audit_chain_anchors']);
   const rdb = require('../reports-db'); const db = rdb.pgHandle(); const AC = require('../services/auditChain');
+  // migration 132 refuses TRUNCATE on the anchors: the fixture lifts it for its own reset (system_log too, so the
+  // r6 "anchor history missing" check starts from a clean history)
+  await db.exec('ALTER TABLE audit_chain_anchors DISABLE TRIGGER audit_chain_anchors_no_truncate');
+  try { await require('./_pg-fresh').truncate(['minutes_history', 'audit_chain_anchors', 'system_log']); }
+  finally { await db.exec('ALTER TABLE audit_chain_anchors ENABLE TRIGGER audit_chain_anchors_no_truncate'); }
   for (let i = 1; i <= n; i++) await db.prepare("INSERT INTO minutes_history (session_id, action, actor_id, at, reason) VALUES (?, 'accepted', 1, ?, ?)").run(9, `2026-11-0${i}T10:00:00Z`, 'a' + i);
   const v = await AC.verify(db); assert.equal(v.ok, true); assert.equal(v.anchors, true);
   assert.ok((await AC.recordAnchors(db, v)) >= 1);
@@ -89,6 +93,29 @@ test('nightly(): anchors a good chain, refuses to anchor (and throws on) a broke
   await db.exec('TRUNCATE minutes_history');
   await assert.rejects(AC.nightly(rdb), /audit chain broken: .*minutes_history/);
   assert.equal(Number((await db.prepare("SELECT COUNT(*) AS n FROM audit_chain_anchors WHERE table_name='minutes_history'").get()).n), before + 1, 'no anchor over a broken chain');
+});
+
+test('P11 r6: the anchors refuse TRUNCATE (migration 132), and an emptied anchor table reads "anchor history missing"', async () => {
+  const { db, AC } = await seedAnchored(3);
+  await assert.rejects(db.exec('TRUNCATE audit_chain_anchors'), /append-only table audit_chain_anchors: TRUNCATE refused/);
+  await assert.rejects(db.exec('DELETE FROM audit_chain_anchors'), /append-only/);
+  assert.equal((await AC.verify(db)).ok, true, 'the anchors are intact');
+  // an owner who disables the trigger and empties the anchors (no RESTART IDENTITY): the sequence remembers
+  await db.exec('ALTER TABLE audit_chain_anchors DISABLE TRIGGER audit_chain_anchors_no_truncate');
+  try { await db.exec('TRUNCATE audit_chain_anchors'); } finally { await db.exec('ALTER TABLE audit_chain_anchors ENABLE TRIGGER audit_chain_anchors_no_truncate'); }
+  let t = (await AC.verify(db)).tables.find((x) => x.table === 'minutes_history');
+  assert.equal(t.ok, false, 'no anchor left is not OK'); assert.match(t.anchor_error, /anchor history missing/);
+  // ... even with RESTART IDENTITY, once the nightly job had logged the ledger as anchored (system_log)
+  const rdb = require('../reports-db');
+  await seedAnchored(3);
+  await AC.nightly(rdb);
+  await db.exec('ALTER TABLE audit_chain_anchors DISABLE TRIGGER audit_chain_anchors_no_truncate');
+  try { await db.exec('TRUNCATE audit_chain_anchors RESTART IDENTITY'); } finally { await db.exec('ALTER TABLE audit_chain_anchors ENABLE TRIGGER audit_chain_anchors_no_truncate'); }
+  t = (await AC.verify(db)).tables.find((x) => x.table === 'minutes_history');
+  assert.equal(t.ok, false); assert.match(t.anchor_error, /anchor history missing/);
+  // a ledger that was never anchored and holds no rows is not flagged
+  const other = (await AC.verify(db)).tables.find((x) => x.table === 'wan_sla_claim_events');
+  assert.notEqual(other && other.ok, false);
 });
 
 test('R5-A3: a shadow ledger earlier on the search_path is reported (reads are schema-qualified)', async () => {

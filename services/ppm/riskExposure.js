@@ -8,7 +8,8 @@
 // Project exposure = the highest level among its OPEN risks (kind risk / issue), residual when given, else inherent.
 // P11 F-23 — this file is the ONE "high risk" rule of the portfolio: isHigh(r) (open, kind risk | issue, effective level
 // residual-first high | critical; unknown score → not high, never "low") is used by the Lot 3 register
-// (portfolioRegister), the Lot 4 alerts (ppmAlerts high_risk) and portfolioEvidence.riskView (step-8 summary, deck).
+// (portfolioRegister), the Lot 4 alerts (ppmAlerts high_risk), portfolioEvidence.riskView (step-8 summary, deck), and
+// since r6 F-27 the project page card (projectKpis high_risks) and the stage-gate count (governanceStore.gateCounts).
 // P11 F-22 — a rollup with unknown-score risks does not claim a low / medium level: level null, level_at_least = the
 // highest known level, partial = true. A known high / critical is never hidden by an unknown sibling.
 const LEVELS = Object.freeze(['low', 'medium', 'high', 'critical']);
@@ -32,8 +33,11 @@ function normaliseResidual(body) {
   if (due != null && !isDay(due)) throw bad('due_date must be YYYY-MM-DD', 'DATE_INVALID');
   return { residual_probability: one('residual_probability'), residual_impact: one('residual_impact'), due_date: due };
 }
-const isOpen = (r) => String(r.status || 'open') !== 'closed' && r.deleted_at == null;
-const inScope = (r) => r.kind !== 'assumption';
+// P11 r6 F-28 — case-normalised; every terminal status (not only exactly 'closed') is not open. The writers store
+// open | closed only (raid.js, governanceStore); the list covers legacy / imported text.
+const TERMINAL = Object.freeze(['closed', 'mitigated', 'resolved', 'cancelled', 'canceled', 'done', 'retired']);
+const isOpen = (r) => !TERMINAL.includes(String(r.status || 'open').trim().toLowerCase()) && r.deleted_at == null;
+const inScope = (r) => String(r.kind || 'risk').trim().toLowerCase() !== 'assumption';
 /** Effective level of one risk: residual when both residual scores are known, else inherent; null when unknown. */
 const effective = (r) => level(r.residual_probability, r.residual_impact) || level(r.probability, r.impact);
 /** P11 F-23 — the shared high-risk predicate: open, kind risk | issue, effective level high | critical. */
@@ -49,7 +53,7 @@ function view(r, { today } = {}) {
 /** Project rollup over its risks (assumptions ignored). level null when no open risk carries a known level. */
 function rollup(risks, { today } = {}) {
   const vs = (risks || []).filter(inScope).map((r) => view(r, { today }));
-  const open = vs.filter((v) => v.status !== 'closed');
+  const open = vs.filter((v) => isOpen(v));
   const counts = { low: 0, medium: 0, high: 0, critical: 0, unknown: 0 };
   let top = null;
   for (const v of open) { const l = v.effective_exposure; if (!l) { counts.unknown += 1; continue; } counts[l] += 1; if (!top || RANK[l] > RANK[top]) top = l; }
@@ -65,4 +69,4 @@ function portfolio(projects, risks, { today } = {}) {
   for (const r of rows) totals[r.level || 'unknown'] += 1;
   return { rows, totals, mapping: MAPPING };
 }
-module.exports = { LEVELS, MAPPING, level, effective, isOpen, isHigh, normaliseResidual, view, rollup, portfolio };
+module.exports = { LEVELS, MAPPING, TERMINAL, level, effective, isOpen, isHigh, normaliseResidual, view, rollup, portfolio };

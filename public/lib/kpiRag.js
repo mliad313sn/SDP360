@@ -47,6 +47,10 @@
     'ppm-data-quality':  { scale: 'points', green: 100,  amber: 80,   proposed: true, status: 'PROPOSED', source: 'services/ppm/dataQuality.js — IT portfolio spec §20.2 (PROPOSED, not approved)' },
     // PORTFOLIO LOT 6 — PROPOSED capacity thresholds on capacity ÷ demand (spec §17): green ≥ 1.18 (≤ ~85 % utilised),
     // amber ≥ 1.0 (85–100 %), red = over capacity. Not approved: a PMO / resource-owner decision.
+    // P11 r6 F-26 — PROPOSED Vue Groupe helpdesk cell bands (services/siteHelpdeskSla.fleetCell): on-time share of the
+    // closed tickets AND share of the window not open-and-overdue, worst of the two. The former cell's < 5 % / < 15 %
+    // missed cut-offs, kept verbatim. Not approved: a KPI Committee decision (G06).
+    'helpdesk-fleet-sla': { scale: 'ratio', green: 0.95, amber: 0.85, proposed: true, status: 'PROPOSED', source: 'services/siteHelpdeskSla.js fleetCell (PROPOSED, not approved — G06)' },
     'ppm-capacity':      { scale: 'ratio',  green: 1.18, amber: 1.0,  proposed: true, status: 'PROPOSED', source: 'services/ppm/resourceDemand.js — IT portfolio spec §17 (PROPOSED, not approved)' },
   };
 

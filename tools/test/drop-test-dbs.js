@@ -13,11 +13,19 @@
 //               worktree or terminal) and is left alone; set SDP_TEST_SWEEP_FORCE=1 to drop it anyway.
 const { Client } = require('pg');
 
+/** P11 r6 — a run id as it appears in a database name: lower-case, every run of other characters becomes '_', no
+ *  leading / trailing '_', at most 16 characters. '' when nothing usable is left. 'data-kpi-r6' → 'data_kpi_r6' (it was
+ *  silently ignored, so that run's databases carried no tag). The random suffix after it is pure [a-z0-9], so a run's
+ *  pattern never matches another run's databases. */
+function sanitiseRunId(runId) {
+  return String(runId == null ? '' : runId).toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+/, '').slice(0, 16).replace(/_+$/, '');
+}
 /** Names this sweep may drop: one run's databases, or every test database when runId is empty. */
 function namePattern(runId) {
   if (!runId) return /^sdp_tracker_test_[a-z0-9_]+$/;
-  if (!/^[a-z0-9]{1,16}$/.test(String(runId))) throw new Error('invalid run id (expected 1-16 [a-z0-9])');
-  return new RegExp('^sdp_tracker_test_' + runId + '_[a-z0-9]+$');
+  const id = sanitiseRunId(runId);
+  if (!id) throw new Error('invalid run id (nothing left after keeping [a-z0-9_])');
+  return new RegExp('^sdp_tracker_test_' + id + '_[a-z0-9]+$');
 }
 
 async function sweep(adminUrl = process.env.PG_ADMIN_URL, { force = process.env.SDP_TEST_SWEEP_FORCE === '1', runId = null } = {}) {
@@ -39,7 +47,7 @@ async function sweep(adminUrl = process.env.PG_ADMIN_URL, { force = process.env.
   } finally { await c.end(); }
   return n;
 }
-module.exports = { sweep, namePattern };
+module.exports = { sweep, namePattern, sanitiseRunId };
 if (require.main === module) {
   const arg = process.argv.slice(2).find((a) => a.startsWith('--run='));
   sweep(undefined, { runId: arg ? arg.slice(6) : null }).then((n) => console.log('[test-db] dropped ' + n));

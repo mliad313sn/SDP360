@@ -11,6 +11,7 @@
 //   Initiation = proposal · Planning = approval · Execution = in_progress, on_hold · Closure = closure, closed.
 
 const ENGINE = require('./scheduleEngine');
+const RE = require('./riskExposure');   // P11 r6 F-27 — the one high-risk rule
 
 const PHASES = Object.freeze([
   { key: 'initiation', label: 'Initiation', stages: ['proposal'] },
@@ -79,8 +80,9 @@ function worstIndex(evm, key) {
  */
 function projectSummary({ project, tasks, milestones, risks, schedule, evm, rag, gates, today, calendar }) {
   const sc = scheduleComplete(tasks || [], schedule);
-  const openRisks = (risks || []).filter((r) => r.status === 'open' && (r.kind || 'risk') === 'risk');
-  const highRisks = openRisks.filter((r) => Number(r.probability) * Number(r.impact) >= 6);
+  const openRisks = (risks || []).filter((r) => RE.isOpen(r) && String(r.kind || 'risk').toLowerCase() === 'risk');
+  // P11 r6 F-27 — the ONE high-risk rule (riskExposure.isHigh: open risks AND issues, residual first, unknown never high)
+  const highRisks = (risks || []).filter(RE.isHigh);
   const blocked = leavesOf(tasks || []).filter((t) => t.status === 'blocked');
   const ms = (milestones || []).filter((m) => m.status !== 'done' && m.due_date).map((m) => ({ id: Number(m.id), name: m.name, due_date: String(m.due_date).slice(0, 10), baseline_date: m.baseline_date || null, owner: m.owner || null }))
     .sort((a, b) => (a.due_date < b.due_date ? -1 : a.due_date > b.due_date ? 1 : a.id - b.id));

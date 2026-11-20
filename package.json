@@ -11,6 +11,7 @@
     "test": "node tools/test/run-all.js",
     "test:e2e": "node tools/test/run-e2e.js",
     "test:unit": "node --test --test-force-exit tests/*.test.js --test-name-pattern \"^(?!.*smoke)\"",
+    "test:coverage:ppm": "node --test --test-force-exit --experimental-test-coverage --test-coverage-include=services/ppm/** --test-coverage-include=services/portfolio*.js --test-coverage-include=routes/governancePortfolio*.js tests/ppm-*.test.js tests/portfolio-*.test.js",
     "test:sdp360": "node --test --test-force-exit tests/sync-*.test.js tests/kpi-rag.test.js tests/tracker-definitions.test.js tests/dashboard-widgets.test.js",
     "lint": "eslint ."
   },

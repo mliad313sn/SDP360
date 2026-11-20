@@ -80,12 +80,21 @@ test('R5-3 — a site-scoped reader\'s capacity view is partial: no colour, part
     for (const p of [P1, P2]) { const r = await send('POST', `/api/governance/ppm/project/${p}/demand`, T.pmo, { skill: 'Zeta engineer', avg_fte: 1, peak_fte: 1, start_month: '2031-01', finish_month: '2031-01' }); assert.strictEqual(r.status, 200, r.txt); }
     const cell = (j) => (j.cells || []).find((c) => c.skill === 'zeta engineer' && c.month === '2031-01');
     const a = (await send('GET', '/api/governance/ppm/portfolio/capacity', T.pmo)).j;
-    assert.equal(a.partial, false); assert.equal(cell(a).avg_fte, 2); assert.equal(cell(a).rag, 'RED');
+    assert.equal(a.view_partial, false); assert.equal(a.partial, undefined, 'R6-4: one name per meaning'); assert.equal(cell(a).avg_fte, 2); assert.equal(cell(a).rag, 'RED');
     const b = (await send('GET', '/api/governance/ppm/portfolio/capacity', T.siteViewer)).j;
-    assert.equal(b.partial, true); assert.match(b.partial_note, /group-wide/);
+    assert.equal(b.view_partial, true); assert.match(b.view_partial_note, /group-wide/); assert.equal(cell(b).partial, false, 'the cell flag keeps its own meaning (unknown lines)');
     assert.equal(cell(b).avg_fte, 1); assert.equal(cell(b).rag, 'NA', 'no GREEN on a partial demand'); assert.equal(cell(b).utilisation_pct, null);
+    // P11 r6 R6-1 — the PROJECT panel: P1's 1 FTE is a partial of the group cell (2 FTE, RED): no colour, flagged
+    const pd = (await send('GET', `/api/governance/ppm/project/${P1}/demand`, T.pmo)).j;
+    const pc = (pd.load.cells || []).find((c) => c.skill === 'zeta engineer' && c.month === '2031-01');
+    assert.equal(pc.avg_fte, 1); assert.equal(pc.rag, 'NA', 'never GREEN while the group cell is RED'); assert.equal(pc.utilisation_pct, null);
+    assert.equal(pc.shared_with_other_projects, true); assert.equal(pd.view_partial, true); assert.match(pd.view_partial_note, /group-wide/);
+    // a skill only P1 demands keeps its verdict against the capacity
+    assert.strictEqual((await send('POST', `/api/governance/ppm/project/${P1}/demand`, T.pmo, { skill: 'Solo skill', avg_fte: 1, start_month: '2031-02', finish_month: '2031-02' })).status, 200);
+    const solo = ((await send('GET', `/api/governance/ppm/project/${P1}/demand`, T.pmo)).j.load.cells || []).find((c) => c.skill === 'solo skill');
+    assert.equal(solo.shared_with_other_projects, false); assert.equal(solo.rag, 'GREEN', 'alone in its cell: 1 / 1.5 FTE');
     const s = (await send('POST', '/api/governance/ppm/portfolio/scenario', T.siteViewer, { shifts: [] })).j;
-    assert.equal(s.partial, true); assert.ok(s.baseline.cells.every((c) => c.rag === 'NA'));
+    assert.equal(s.view_partial, true); assert.ok(s.baseline.cells.every((c) => c.rag === 'NA'));
     // R5-5 — a window longer than the calendar places is refused, never silently cut
     const w = await send('POST', `/api/governance/ppm/project/${P1}/demand`, T.pmo, { skill: 'Long skill', avg_fte: 1, start_month: '2030-01', finish_month: '2039-12' });
     assert.equal(w.status, 400, w.txt); assert.equal(w.j.code, 'DEMAND_WINDOW');

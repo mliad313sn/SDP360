@@ -176,6 +176,8 @@ test('F-25: quoted dynamic DROP, DROP DOMAIN and DROP OWNED are destructive (run
     assert.equal(destructiveDdl(sql), true, sql);
     assert.equal(rerunOnChange(sql), false, sql);
   }
-  for (const sql of ['DROP INDEX IF EXISTS ix;', "COMMENT ON COLUMN t.c IS 'drop-in replacement';", 'DROP FUNCTION f() CASCADE;']) assert.equal(destructiveDdl(sql), false, sql);
+  for (const sql of ['DROP INDEX IF EXISTS ix;', "COMMENT ON COLUMN t.c IS 'drop-in replacement';", 'DROP FUNCTION IF EXISTS f();']) assert.equal(destructiveDdl(sql), false, sql);
+  // P11 r6 F-25: DROP FUNCTION … CASCADE drops dependent generated columns / views → destructive (run-once) since fix 25
+  assert.equal(destructiveDdl('DROP FUNCTION f() CASCADE;'), true);
   for (const m of listMigrations()) assert.equal(destructiveDdl(m.sql), false, m.id);
 });

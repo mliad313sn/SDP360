@@ -67,6 +67,7 @@ table.sa-fleet-tbl tbody tr:hover td{background:#F5F8FB}
 .sa-rag{display:inline-flex;align-items:center;gap:7px}
 .sa-rag-dot{width:9px;height:9px;border-radius:50%;flex:none}
 .sa-rag-val{font-variant-numeric:tabular-nums}
+.sa-rag-oo{font-size:11px;color:#3A4A60;white-space:nowrap}
 .sa-rag-pill{display:inline-block;min-width:52px;text-align:center;font-size:10.5px;font-weight:700;padding:3px 10px;border-radius:999px;letter-spacing:.05em;text-transform:uppercase}
 .sa-chart-wrap{position:relative;height:280px}
 .sa-chart-wrap--donut{height:250px}
@@ -479,6 +480,8 @@ W.defaults=O.defaults;window.Chart=W;});
     g_windows:       { fr: 'Assistance : 30 j glissants · Installations : 90 j · Réunions : mois en cours · Actions : à l’instant T · Projets : dernier mois noté',
                        en: 'Support: rolling 30 d · Facilities: 90 d · Meetings: current month · Actions: point-in-time · Projects: latest scored month' },
     gc_helpdesk:     { fr: 'Assistance',                             en: 'Support' },
+    g_open_overdue:  { fr: '{n} ouverts en retard',                  en: '{n} open overdue' },
+    g_hd_tip:        { fr: 'Clos en retard / clos (taux de SLA de résolution des tickets clos), puis les tickets encore ouverts déjà en retard. La couleur est la pire des deux (seuils PROPOSÉS, non approuvés) ; une forte charge ouverte en retard plafonne aussi la couleur globale du site.', en: 'Closed late / closed (Resolution SLA of the closed tickets), then the open tickets already overdue. The colour is the worse of the two (PROPOSED bands, not approved); a high open overdue load also caps the site\'s overall colour.' },
     gc_inspections:  { fr: 'Installations',                          en: 'Facilities' },
     gc_meetings:     { fr: 'Réunions',                               en: 'Meetings' },
     gc_actions:      { fr: 'Actions',                                en: 'Actions' },
@@ -673,8 +676,12 @@ W.defaults=O.defaults;window.Chart=W;});
     const c = cell || { rag: 'na', value: null };
     const color = RAG_COLORS[c.rag] || RAG_COLORS.na;
     const val = (c.value == null || c.value === '') ? '—' : c.value;
-    return `<span class="sa-rag"><span class="sa-rag-dot" style="background:${color}"></span>`
-      + `<span class="sa-rag-val">${esc(val)}</span>${trendChip(c.trend)}</span>`;
+    // P11 r6 F-26 — the helpdesk cell carries the open tickets already overdue next to the closed-only rate
+    const oo = (typeof c.open_overdue === 'number' && c.open_overdue > 0)
+      ? ` <span class="sa-rag-oo">· ${esc(T('g_open_overdue').replace('{n}', c.open_overdue))}</span>` : '';
+    const tip = (typeof c.open_overdue === 'number') ? ` title="${esc(T('g_hd_tip'))}"` : '';
+    return `<span class="sa-rag"${tip}><span class="sa-rag-dot" style="background:${color}"></span>`
+      + `<span class="sa-rag-val">${esc(val)}</span>${oo}${trendChip(c.trend)}</span>`;
   }
   function ragPill(rag) {
     const r = rag || 'na';

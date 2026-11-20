@@ -19,13 +19,20 @@ test('AUD-8: test database names carry the run id when SDP_TEST_RUN_ID is set', 
     delete process.env.SDP_TEST_RUN_ID;
     assert.match(testDbName(), /^sdp_tracker_test_[a-z0-9]+$/);
     process.env.SDP_TEST_RUN_ID = 'BAD;drop';
-    assert.match(testDbName(), /^sdp_tracker_test_[a-z0-9]+$/, 'an unsafe run id is ignored');
+    assert.match(testDbName(), /^sdp_tracker_test_bad_drop_[a-z0-9]+$/, 'an unsafe run id is sanitised, never injected');
+    process.env.SDP_TEST_RUN_ID = 'data-kpi-r6';   // P11 r6: hyphens used to drop the tag silently
+    assert.match(testDbName(), /^sdp_tracker_test_data_kpi_r6_[a-z0-9]+$/);
+    assert.ok(namePattern('data-kpi-r6').test(testDbName()), 'the run sweep matches the sanitised name');
+    process.env.SDP_TEST_RUN_ID = ';;;';
+    assert.match(testDbName(), /^sdp_tracker_test_[a-z0-9]+$/, 'nothing usable left → untagged');
   } finally { if (prev === undefined) delete process.env.SDP_TEST_RUN_ID; else process.env.SDP_TEST_RUN_ID = prev; }
   assert.ok(namePattern('r1a2b3').test('sdp_tracker_test_r1a2b3_xyz'));
   assert.ok(!namePattern('r1a2b3').test('sdp_tracker_test_r9_xyz'));
   assert.ok(!namePattern('r1a2b3').test('sdp_tracker_test_abcdef'));
   assert.ok(namePattern(null).test('sdp_tracker_test_abcdef') && namePattern(null).test('sdp_tracker_test_r1a2b3_xyz'), 'standalone = every test database');
-  assert.throws(() => namePattern('x;y'), /run id/);
+  assert.ok(namePattern('x;y').test('sdp_tracker_test_x_y_abc'), 'sanitised like the provisioner');
+  assert.ok(!namePattern('data_kpi').test('sdp_tracker_test_data_kpi_r6_abc'), 'a run never matches a longer run id');
+  assert.throws(() => namePattern(';;'), /run id/);
 });
 
 test('AUD-8: a run-scoped sweep drops only this run\'s idle databases', async (t) => {

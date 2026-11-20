@@ -47,7 +47,7 @@ async function buildDeck(view, { money: showMoney = false, exceptions = [], asOf
   s.addText(`IT committee · as of ${dash(at && String(at).slice(0, 10))}`, { x: X, y: 2.6, w: W, h: 0.45, fontSize: 16, color: C.grey, fontFace: 'Calibri' });
   const open = projects.filter((p) => !['done', 'cancelled'].includes(p.status));
   const slipping = projects.filter((p) => { const d = varianceOf(p).finish_variance_days; return d != null && d > 0; }).length;
-  const tiles = [['Programmes', summary.length], ['Open projects', open.length], ['Late vs baseline', slipping], ['High risks open', risks.filter((r) => r.status === 'open' && r.severity === 'high').length], ['Exceptions', (exceptions || []).length]];
+  const tiles = [['Programmes', summary.length], ['Open projects', open.length], ['Late vs baseline', slipping], ['High risks open', risks.filter(require('./ppm/riskExposure').isHigh).length], ['Exceptions', (exceptions || []).length]];
   const tw = (W - 0.1 * (tiles.length - 1)) / tiles.length;
   tiles.forEach(([label, val], i) => {
     const x = X + i * (tw + 0.1);

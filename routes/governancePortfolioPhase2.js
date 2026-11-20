@@ -15,6 +15,8 @@
 //  ppm_resource_demand_enabled
 //   GET/POST /api/governance/ppm/project/:id/demand · PUT/DELETE …/demand/:lineId
 //   GET    /api/governance/ppm/portfolio/capacity                    monthly load per skill vs ppm_capacity_fte (PROPOSED RAG)
+//          view_partial (response) = the reader's scope misses demand → no colour; cell.partial = the cell holds
+//          unknown_lines lines without an FTE (sum is a lower bound). Two meanings, two names (P11 r6 R6-4).
 //  ppm_effort_scoring_enabled
 //   GET/PUT /api/governance/ppm/project/:id/effort · GET /api/governance/ppm/portfolio/effort
 //  ppm_documents_enabled
@@ -120,7 +122,24 @@ module.exports = function governancePortfolioPhase2Routes(router, h) {
     try {
       const p = await project(req, res); if (!p) return;
       const lines = await p2().listDemand([p.id]); const cap = RD.parseCapacity(req.__p2cfg.ppm_capacity_fte);
-      res.json({ ok: true, lines, load: RD.monthlyLoad(lines.map((l) => ({ ...l })), { capacity: cap.map }), capacity_configured: cap.configured, sourcing: RD.SOURCING });
+      const load = RD.monthlyLoad(lines.map((l) => ({ ...l })), { capacity: cap.map });
+      // P11 r6 (PPM R6-1) — capacity is GROUP-wide: one project's demand in a skill × month that other projects also
+      // demand is a partial of the group cell, so it gets no colour against that capacity (rag NA, utilisation null),
+      // never a GREEN while the group cell is RED. The group lines are read server-side only (no other project's figure
+      // is returned); a cell this project alone demands keeps its verdict.
+      const others = (await p2().demandProjectIds()).filter((id) => id !== Number(p.id));
+      let shared = 0;
+      if (others.length && load.cells.length) {
+        const group = RD.monthlyLoad(await p2().listDemand(others), { capacity: {} });
+        const busy = new Set(group.cells.map((c) => c.skill + '|' + c.month));
+        for (const c of load.cells) {
+          c.shared_with_other_projects = busy.has(c.skill + '|' + c.month);
+          if (c.shared_with_other_projects) { c.rag = 'NA'; c.utilisation_pct = null; shared += 1; }
+        }
+        load.over = load.cells.filter((c) => c.rag === 'RED').length;
+      } else { for (const c of load.cells) c.shared_with_other_projects = false; }
+      res.json({ ok: true, lines, load, capacity_configured: cap.configured, sourcing: RD.SOURCING,
+        view_partial: shared > 0, ...(shared > 0 ? { view_partial_note: 'other projects also demand these skills in these months; capacity is group-wide, so those months get no colour here — see the portfolio capacity view' } : {}) });
     } catch (e) { fail(res, e); }
   });
   async function saveDemand(req, res, lineId) {
@@ -148,7 +167,9 @@ module.exports = function governancePortfolioPhase2Routes(router, h) {
   async function partialCapacity(projects, cap) {
     const seen = new Set(projects.map((x) => Number(x.id)));
     const partial = (await p2().demandProjectIds()).some((id) => !seen.has(id));
-    return partial ? { map: {}, flags: { partial: true, partial_note: 'partial view — capacity is group-wide, so no capacity verdict is shown on the projects you can read' } } : { map: cap.map, flags: { partial: false } };
+    // P11 r6 (PPM R6-4) — view_partial = the READER's scope misses demand (whole response); a cell's own `partial` keeps
+    // its meaning "the cell sum is a lower bound: unknown_lines lines without an FTE" (services/ppm/resourceDemand.js).
+    return partial ? { map: {}, flags: { view_partial: true, view_partial_note: 'partial view — capacity is group-wide, so no capacity verdict is shown on the projects you can read' } } : { map: cap.map, flags: { view_partial: false } };
   }
   router.get('/api/governance/ppm/portfolio/capacity', requireReportSession, sw('ppm_resource_demand_enabled'), async (req, res) => {
     try {

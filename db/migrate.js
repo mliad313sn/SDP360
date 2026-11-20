@@ -44,10 +44,11 @@ function writesData(sql) {
   return false;
 }
 /** P11 F-20 — True when the script carries destructive DDL (comments stripped): DROP TABLE / COLUMN / SCHEMA / VIEW /
- *  MATERIALIZED VIEW / SEQUENCE / TYPE / DATABASE / DOMAIN (CASCADE drops the typed columns) / OWNED, also inside a quoted
- *  dynamic EXECUTE (P11 F-25), or a column type change (ALTER [COLUMN] x [SET DATA] TYPE). Re-running
+ *  MATERIALIZED VIEW / SEQUENCE / TYPE / DATABASE / DOMAIN (CASCADE drops the typed columns) / OWNED / EXTENSION, ALTER TYPE
+ *  … DROP ATTRIBUTE, any DROP … CASCADE (dependent objects go with it), also inside a quoted or dollar-quoted dynamic
+ *  EXECUTE or a concat()-built string (P11 F-25, r6), or a column type change (ALTER [COLUMN] x [SET DATA] TYPE). Re-running
  *  one of these on a live database loses data, so an edited applied script that contains one is never re-executed
- *  (same run-once class as a data write). DROP INDEX / TRIGGER / CONSTRAINT / FUNCTION / POLICY stay re-runnable:
+ *  (same run-once class as a data write). DROP INDEX / TRIGGER / CONSTRAINT / FUNCTION / POLICY (without CASCADE) stay re-runnable:
  *  the script re-creates them. */
 function destructiveDdl(sql) {
   const code = String(sql).replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/--[^\n]*/g, ' ');
@@ -55,12 +56,20 @@ function destructiveDdl(sql) {
   for (const raw of code.split(';')) {
     // P11 F-25: quotes become separators, so a dynamic EXECUTE 'DROP TABLE x' / format('DROP …') is tokenised like
     // plain DDL ('DROP → DROP). A data string that contains "drop table" only appears in a data write (run-once anyway).
-    const tk = raw.replace(/"/g, '').replace(/['(]/g, ' ').toUpperCase().split(/\s+/).filter(Boolean);
+    // P11 r6 F-25: dollar-quote delimiters ($$, $q$, $tag$) and commas are separators too, so EXECUTE $q$DROP TABLE x$q$
+    // and concat('DROP', ' TABLE x') tokenise like plain DDL.
+    const tk = raw.replace(/"/g, '').replace(/\$[A-Za-z_0-9]*\$/g, ' ').replace(/['(),]/g, ' ').toUpperCase().split(/\s+/).filter(Boolean);
+    const altType = tk.some((t, n) => t === 'ALTER' && tk[n + 1] === 'TYPE');
     const altTable = tk.some((t, n) => t === 'ALTER' && tk[n + 1] === 'TABLE');   // also inside a DO block
     for (let i = 0; i < tk.length; i++) {
       if (tk[i] === 'DROP') {
         const w = tk[i + 1];
-        if (['TABLE', 'COLUMN', 'SCHEMA', 'VIEW', 'MATERIALIZED', 'SEQUENCE', 'TYPE', 'DATABASE', 'DOMAIN', 'OWNED'].includes(w)) return true;
+        if (['TABLE', 'COLUMN', 'SCHEMA', 'VIEW', 'MATERIALIZED', 'SEQUENCE', 'TYPE', 'DATABASE', 'DOMAIN', 'OWNED', 'EXTENSION'].includes(w)) return true;
+        // P11 r6 F-25 — ALTER TYPE t DROP ATTRIBUTE a (drops the attribute's data in every typed column)
+        if (altType && w === 'ATTRIBUTE') return true;
+        // DROP FUNCTION / any object … CASCADE drops the dependent objects (generated columns, typed columns, views):
+        // the script does not re-create those, so it is run-once
+        if (tk.slice(i + 1).includes('CASCADE')) return true;
         // ALTER TABLE t DROP [IF EXISTS] x — COLUMN keyword optional; DROP CONSTRAINT / DEFAULT / NOT NULL … are not destructive
         if (altTable && w && !KEEP.has(w)) return true;
       }
