@@ -11,8 +11,8 @@
     en: { title: 'Feedback on this page', kind: 'Type', problem: 'Problem', idea: 'Idea', question: 'Question', text: 'Your message',
       anon: 'Send anonymously (only your role and site are kept)', send: 'Send', cancel: 'Cancel', sent: 'Thank you — your feedback was recorded.',
       empty: 'Please write a message.', fail: 'Could not send: ' },
-    fr: { title: 'Retour sur cette page', kind: 'Type', problem: 'Problème', idea: 'Idée', question: 'Question', text: 'Votre message',
-      anon: 'Envoyer anonymement (seuls votre rôle et votre site sont gardés)', send: 'Envoyer', cancel: 'Annuler', sent: 'Merci — votre retour est enregistré.',
+    fr: { title: 'Votre avis sur cette page', kind: 'Type', problem: 'Problème', idea: 'Idée', question: 'Question', text: 'Votre message',
+      anon: 'Envoyer anonymement (seuls votre rôle et votre site sont gardés)', send: 'Envoyer', cancel: 'Annuler', sent: 'Merci — votre avis est enregistré.',
       empty: 'Écrivez un message.', fail: "Envoi impossible : " },
   };
   const T = L[lang === 'fr' ? 'fr' : 'en'];

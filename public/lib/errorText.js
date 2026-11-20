@@ -66,6 +66,9 @@
     [/committee only/i, () => 'Réservé au comité.'],
     [/Access denied|not one of your sites|another site/i, () => 'Accès refusé : cet élément appartient à un autre site.'],
     [/title/i, () => 'Le titre est obligatoire.'],
+    // Adoption Lot A (item 4): the generic refusals reuse the wording of no-access.html instead of raw English.
+    [/^forbidden(?:\s*[—-]\s*required role\(s\):\s*(.*))?$/i, (m) => (m[1] ? `Vous n’avez pas accès à ces données (rôle requis : ${m[1]}). Demandez l’accès depuis la page « Mon accès ».` : 'Vous n’avez pas accès à ces données. Demandez l’accès depuis la page « Mon accès ».')],
+    [/^not found$/i, () => 'Cette fonction n’est pas activée, ou l’élément n’existe pas.'],
   ];
   function fr(message) { const m0 = String(message == null ? '' : message); for (const [re, f] of RULES) { const m = m0.match(re); if (m) return f(m); } return m0; }
   root.ErrorText = { fr, RULES };

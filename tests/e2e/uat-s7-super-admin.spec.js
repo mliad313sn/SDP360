@@ -53,7 +53,8 @@ runJourney('UAT S7 super_admin / IT operations (simulation, not acceptance)', as
     await c.flow('S7-07', 'Page Réglages d’espace (sans effet sur les droits)', async () => {
       const p = await c.page(me, '/workspace-settings.html', {});
       try {
-        if (pass === 'A') { assert.strictEqual(p.__status, 404); return c.off('page 404 (switch off)'); }
+        // Adoption Lot A: switch off → the French "feature not enabled" page (no-access.html?reason=off), not a raw 404
+        if (pass === 'A') { assert.strictEqual(p.__status, 200); assert.match(p.url(), /no-access\.html\?page=workspace-settings&reason=off/); return c.off('page « fonction non activée » (switch off)'); }
         await p.waitForSelector('#wsForm:not([hidden])', { timeout: 15000 });
         assert.deepStrictEqual(p.__errs, []);
         const n = await p.evaluate(() => document.querySelectorAll('#wsProfile option').length);

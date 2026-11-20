@@ -5,6 +5,7 @@
   'use strict';
   root.I18N_FR_DASHBOARDS = {
     'Dashboards': 'Tableaux de bord',
+    'not entered': 'non saisi',   // Adoption Lot A (item 2) — tracker month with no entry
     'Published dashboards — every figure comes from the KPI dictionary and is dated.':
       'Tableaux de bord publiés — chaque chiffre vient du dictionnaire des KPI et porte sa date.',
     'Period': 'Période', 'Apply': 'Appliquer', 'Edit in composer': 'Modifier dans le compositeur',

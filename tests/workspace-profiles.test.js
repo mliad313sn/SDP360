@@ -26,7 +26,7 @@ test('the 11 profiles carry the roles and destinations of REBUILD-SPEC R1', () =
     operations: [['admin', 'editor'], ['home', 'dashboard', 'site-actions', 'assets']],
     coordinator: [['editor', 'report-author'], ['home', 'site-actions', 'inspections', 'meetings']],
     field: [['editor', 'field-tech'], ['home', 'field', 'inspections', 'site-actions']],
-    pmo: [['admin', 'committee-member'], ['home', 'portfolio', 'cockpit', 'tracker']],
+    pmo: [['admin', 'committee-member'], ['home', 'portfolio', 'cockpit', 'report-studio', 'tracker']],
     finance: [['admin', 'finance-viewer'], ['home', 'finance-assets', 'portfolio', 'report-studio']],
     governance: [['admin', 'committee-member', 'audit-viewer', 'kpi-committee'], ['home', 'cockpit', 'meetings', 'policies']],
     analyst: [['admin', 'scorecard-viewer', 'dashboard-publisher'], ['home', 'dashboards', 'analytics', 'report-studio']],

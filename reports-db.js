@@ -362,16 +362,9 @@ function _zFirstSun(yr) {
   return d;
 }
 
+// Adoption Lot A (item 3): the Zoho week has ONE definition, shared with the browser (public/lib/reportingWeek.js).
 function getISOWeek(date) {
-  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
-  d.setUTCHours(0, 0, 0, 0);
-  let yr = d.getUTCFullYear();
-  let fs = _zFirstSun(yr);
-  if (d < fs) { yr--; fs = _zFirstSun(yr); }
-  return {
-    week: Math.floor((d - fs) / (7 * 86400000)) + 1,
-    year: yr
-  };
+  return require('./public/lib/reportingWeek').weekOf(date);
 }
 
 // AMDEC 2026-11-05 (AM-06): number of Zoho weeks (W01 = first Sunday) in a year — 52 or 53.
@@ -401,10 +394,7 @@ function ensureWeek(year, week) {
 
 // Report period = PREVIOUS week (what's being filled during the current week)
 function getPreviousWeek() {
-  const now  = new Date();
-  const prev = new Date(now);
-  prev.setDate(prev.getDate() - 7);
-  return getISOWeek(prev);
+  return require('./public/lib/reportingWeek').dueWeek(new Date());
 }
 
 // ── AUTH HELPERS ──────────────────────────────────────────────────
@@ -1229,7 +1219,9 @@ async function _setWanSubsiteNetworksPg(rows) {
 // Pure aggregation core — exported for tests. `rows` are request_records rows
 // already scoped to the site's groups + the calendar month.
 function _computeSiteHelpdesk(rows) {
-  const out = { created: 0, resolved: 0, backlog: 0, sla_overdue: 0, major_incidents: 0, top_categories: [], recurring: [] };
+  // closed_overdue (Adoption Lot A, item 12): closed AND overdue — the numerator of the doctrine's
+  // Resolution SLA % = (closed − closed_overdue) ÷ closed (docs/sop/SOP-kpi-sla.md), shared with the Helpdesk ranking.
+  const out = { created: 0, resolved: 0, backlog: 0, sla_overdue: 0, closed_overdue: 0, major_incidents: 0, top_categories: [], recurring: [] };
   out.avg_resolution_h = null;   // null = nothing resolved with both timestamps (never a fake 0 h)
   if (!rows || !rows.length) return out;
   const cat = new Map(), sub = new Map();
@@ -1239,7 +1231,7 @@ function _computeSiteHelpdesk(rows) {
     if (r.pending_status === 0) out.resolved++; else out.backlog++;
     // overdue_status is TRI-state: 1 / 0 / NULL (NULL = no SLA rule applies).
     // Keep the strict === 1 — do not "simplify" to !== 0, which counts NULLs.
-    if (r.overdue_status === 1) out.sla_overdue++;
+    if (r.overdue_status === 1) { out.sla_overdue++; if (r.pending_status === 0) out.closed_overdue++; }
     if (r.pending_status === 0) {
       const end = Date.parse(r.resolved_time || r.completed_time || ''), start = Date.parse(r.created_time || '');
       if (Number.isFinite(end) && Number.isFinite(start) && end >= start) { resH += (end - start) / 3600000; resN++; }

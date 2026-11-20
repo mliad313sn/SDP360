@@ -328,6 +328,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 <script src="lib/actionGroups.js"></script>
 <script src="lib/siteOnboardingCard.js"></script>
 <script src="lib/statusTransfer.js"></script>
+<script src="lib/reportingWeek.js"></script>
 <script src="lib/wanLineMatch.js"></script>
 <script src="lib/infraPrefill.js"></script>
 <!-- E-A02 — first slice of the inline script: the Backups & recovery admin cards (globals kept on window) -->
@@ -386,15 +387,15 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       <div id="chpwd-error" style="display:none;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:8px 12px;font-size:12px;color:#dc2626;margin-bottom:14px"></div>
       <div id="chpwd-success" style="display:none;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:8px 12px;font-size:12px;color:#16a34a;margin-bottom:14px"></div>
       <div style="margin-bottom:14px">
-        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px">Current Password</label>
+        <label for="chpwd-current" style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px">Current Password</label>
         <input type="password" id="chpwd-current" placeholder="Your current password" style="width:100%;padding:9px 12px;border:1.5px solid #e5e7eb;border-radius:6px;font-size:13px">
       </div>
       <div style="margin-bottom:14px">
-        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px">New Password</label>
+        <label for="chpwd-new" style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px">New Password</label>
         <input type="password" id="chpwd-new" placeholder="At least 8 characters" style="width:100%;padding:9px 12px;border:1.5px solid #e5e7eb;border-radius:6px;font-size:13px">
       </div>
       <div style="margin-bottom:22px">
-        <label style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px">Confirm New Password</label>
+        <label for="chpwd-confirm" style="display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:5px">Confirm New Password</label>
         <input type="password" id="chpwd-confirm" placeholder="Repeat new password" style="width:100%;padding:9px 12px;border:1.5px solid #e5e7eb;border-radius:6px;font-size:13px">
       </div>
       <div style="display:flex;gap:10px;justify-content:flex-end">
@@ -424,11 +425,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       </div>
       <p style="font-size:0.85rem;color:#6b7a99;margin:0 0 12px 34px">Pick a group + week, then open the in-app editor to fill or update that week's report (helpdesk KPIs, lights, actions, comments). Saves to the database — used by the All-Sites Summary below.</p>
       <div class="week-bar" id="week-bar" style="margin-left:34px">
-        <label>Group</label>
+        <label for="sel-site">Group</label>
         <select id="sel-site" onchange="onSiteWeekChange()"></select>
-        <label>Year</label>
+        <label for="sel-year">Year</label>
         <input id="sel-year" type="number" style="width:80px" min="2024" max="2030" onchange="onSiteWeekChange()">
-        <label>Week</label>
+        <label for="sel-week">Week</label>
         <input id="sel-week" type="number" style="width:70px" min="1" max="53" onchange="onSiteWeekChange()">
         <div class="week-badge" id="week-range-badge">—</div>
         <div class="spacer"></div>
@@ -450,15 +451,15 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
           <p style="font-size:0.82rem;color:#6b7a99;margin-bottom:14px">7-slide PPTX for one site. Edit lights / actions / objectives in the <strong>Monthly</strong> tab first, then export.</p>
           <div class="form-row cols-3" style="gap:10px;align-items:flex-end;margin-bottom:14px">
             <div class="form-group" style="margin-bottom:0">
-              <label>Site</label>
+              <label for="monthly-site">Site</label>
               <select id="monthly-site"></select>
             </div>
             <div class="form-group" style="margin-bottom:0">
-              <label>Year</label>
+              <label for="monthly-year">Year</label>
               <input id="monthly-year" type="number" min="2024" max="2030" style="width:80px">
             </div>
             <div class="form-group" style="margin-bottom:0">
-              <label>Month</label>
+              <label for="monthly-month">Month</label>
               <select id="monthly-month">
                 <option value="1">January</option><option value="2">February</option>
                 <option value="3">March</option><option value="4">April</option>
@@ -490,11 +491,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
           <p style="font-size:0.82rem;color:#6b7a99;margin-bottom:14px">Aggregates every site's submitted weekly report for the chosen week into one consolidated PPTX.</p>
           <div class="form-row cols-3" style="gap:10px;align-items:flex-end">
             <div class="form-group" style="margin-bottom:0">
-              <label>Year</label>
+              <label for="summary-year">Year</label>
               <input id="summary-year" type="number" min="2024" max="2030" style="width:80px">
             </div>
             <div class="form-group" style="margin-bottom:0">
-              <label>Week</label>
+              <label for="summary-week">Week</label>
               <input id="summary-week" type="number" min="1" max="53" style="width:70px">
             </div>
             <div class="form-group" style="margin-bottom:0">
@@ -514,8 +515,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       </div>
       <div id="rl-filters" style="display:none;margin:0 0 10px 34px;gap:8px;align-items:center;flex-wrap:wrap;font-size:0.82rem">
         <select id="rl-site" onchange="loadReportList(0)" title="Filter the list by site"><option value="">All my sites</option></select>
-        <input id="rl-year" type="number" min="2024" max="2035" placeholder="Year" style="width:80px" onchange="loadReportList(0)">
-        <input id="rl-week" type="number" min="1" max="53" placeholder="Week" style="width:70px" onchange="loadReportList(0)">
+        <input id="rl-year" aria-label="Year" type="number" min="2024" max="2035" placeholder="Year" style="width:80px" onchange="loadReportList(0)">
+        <input id="rl-week" aria-label="Week" type="number" min="1" max="53" placeholder="Week" style="width:70px" onchange="loadReportList(0)">
       </div>
       <div class="report-list" id="report-list-grid" style="margin-left:34px"></div>
       <div id="rl-pager" style="display:none;margin:10px 0 0 34px;gap:10px;align-items:center;font-size:0.82rem">
@@ -610,7 +611,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
             <button class="btn btn-primary" id="btn-fetch-hd" onclick="fetchHelpdeskLive()"><i class="icon icon-refresh-cw"></i>Load Groups</button>
             <span id="hd-fetch-status-manual" style="font-size:0.82rem;color:#6b7a99">Click to load available groups, then select one to see charts</span>
             <div style="margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-              <label style="font-size:0.82rem;font-weight:600;color:#6b7a99">Group:</label>
+              <label for="hd-group-select" style="font-size:0.82rem;font-weight:600;color:#6b7a99">Group:</label>
               <select id="hd-group-select" onchange="hdWeekOffset=0;fetchHelpdeskCharts()"
                 style="padding:5px 10px;border:1.5px solid var(--border);border-radius:6px;font-size:0.82rem;color:#1a2233;background:#fff;min-width:200px;cursor:pointer">
                 <option value="">— select a group —</option>
@@ -659,7 +660,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
               </div>
               <!-- Manual input + add -->
               <div style="display:flex;gap:8px">
-                <input type="text" id="hd-break-input" placeholder="Type name (e.g. Oumar — annual leave)…" style="flex:1" onkeydown="if(event.key==='Enter'){addBreakTech(this.value);event.preventDefault();}">
+                <input type="text" id="hd-break-input" aria-label="Technician on leave or absent" placeholder="Type name (e.g. Oumar — annual leave)…" style="flex:1" onkeydown="if(event.key==='Enter'){addBreakTech(this.value);event.preventDefault();}">
                 <button class="btn btn-secondary btn-sm" onclick="addBreakTech(document.getElementById('hd-break-input').value)" style="white-space:nowrap">+ Add</button>
               </div>
               <!-- Pool of all known techs in group -->
@@ -673,7 +674,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
             <h4 style="font-size:0.85rem;color:#6b7a99;margin-bottom:12px;font-weight:600">📝 Comments <span style="font-size:0.7rem;font-weight:400;color:#94a3b8">(auto-filled from charts — editable)</span></h4>
             <div class="form-group">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-                <label style="margin-bottom:0">General Comments on Metrics</label>
+                <label for="hd-comments" style="margin-bottom:0">General Comments on Metrics</label>
                 <button class="btn btn-secondary btn-sm" onclick="autoFillComments('metrics',true)"
                   title="Regenerate from chart data (overwrites current text)"
                   style="font-size:0.72rem;padding:3px 10px;white-space:nowrap;opacity:0.7">↺ Regenerate</button>
@@ -682,7 +683,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
             </div>
             <div class="form-group">
               <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px">
-                <label style="margin-bottom:0">SLA Comments</label>
+                <label for="hd-sla-comments" style="margin-bottom:0">SLA Comments</label>
                 <button class="btn btn-secondary btn-sm" onclick="autoFillComments('sla',true)"
                   title="Regenerate from SLA & violation data (overwrites current text)"
                   style="font-size:0.72rem;padding:3px 10px;white-space:nowrap;opacity:0.7">↺ Regenerate</button>
@@ -778,7 +779,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <button class="btn btn-secondary btn-sm" id="btn-import-modules" onclick="openImportFromModules()" style="margin-left:8px">&#8629; Import from Meetings / Inspections</button>
         <button class="btn btn-secondary btn-sm" onclick="downloadActionsTemplate()" style="margin-left:10px" title="Download a CSV template with column headers + 3 sample rows"><i class="icon icon-download"></i>CSV Template</button>
         <button class="btn btn-secondary btn-sm" onclick="document.getElementById('actions-csv-file').click()" style="margin-left:6px" title="Bulk-import action items from a CSV file">⬆ Import CSV</button>
-        <input type="file" id="actions-csv-file" accept=".csv,text/csv" style="display:none" onchange="onActionsCsvSelected(event)">
+        <input type="file" id="actions-csv-file" aria-label="Import CSV" accept=".csv,text/csv" style="display:none" onchange="onActionsCsvSelected(event)">
         <a href="#" onclick="event.preventDefault(); showCsvAllowedValuesModal();" style="margin-left:8px;font-size:0.78rem;color:#6b7a99;text-decoration:none" title="Allowed values reference">ℹ Allowed values</a>
         <div style="margin-top:18px">
           <button class="btn btn-primary" onclick="saveSection(3)"><i class="icon icon-save"></i>Save Action Items</button>
@@ -858,11 +859,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <h3><span class="section-num">5</span> Parc informatique</h3>
         <div id="asset-review-body"><div style="color:#94a3b8;font-style:italic">Chargement…</div></div>
         <div class="form-group" style="margin-top:12px">
-          <label>Traité cette semaine</label>
+          <label for="ar-handled-note">Traité cette semaine</label>
           <textarea id="ar-handled-note" rows="3" style="width:100%" placeholder="Ex. 3 PC étiquetés, 2 utilisateurs affectés…"></textarea>
         </div>
         <div class="form-group">
-          <label>Plan / blocages</label>
+          <label for="ar-plan-note">Plan / blocages</label>
           <textarea id="ar-plan-note" rows="3" style="width:100%" placeholder="Ex. coûts en attente de la comptabilité…"></textarea>
         </div>
         <div style="margin-top:10px"><button class="btn btn-primary btn-sm" id="ar-save-btn" onclick="saveSection(4)">Enregistrer</button></div>
@@ -931,15 +932,15 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
     <div class="card" style="margin-bottom:16px;padding:14px 18px">
       <div class="form-row cols-4" style="gap:12px;align-items:flex-end">
         <div class="form-group" style="margin-bottom:0">
-          <label>Site</label>
+          <label for="mr-site">Site</label>
           <select id="mr-site"></select>
         </div>
         <div class="form-group" style="margin-bottom:0">
-          <label>Year</label>
+          <label for="mr-year">Year</label>
           <input id="mr-year" type="number" min="2024" max="2030" style="width:80px">
         </div>
         <div class="form-group" style="margin-bottom:0">
-          <label>Month</label>
+          <label for="mr-month">Month</label>
           <select id="mr-month">
             <option value="1">January</option><option value="2">February</option>
             <option value="3">March</option><option value="4">April</option>
@@ -1287,13 +1288,13 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 
       <div class="form-row cols-2" style="max-width:520px">
         <div class="form-group">
-          <label>Month *</label>
+          <label for="ev-month">Month *</label>
           <input type="month" id="ev-month" onchange="loadExecEditorial()">
         </div>
       </div>
 
       <div class="form-group">
-        <label>Monthly highlights <span style="font-weight:400;color:#6b7a99">— one bullet per line, max 4 lines</span></label>
+        <label for="ev-highlights">Monthly highlights <span style="font-weight:400;color:#6b7a99">— one bullet per line, max 4 lines</span></label>
         <textarea id="ev-highlights" rows="4" placeholder="e.g. Restored WAN redundancy at Houndé&#10;Closed 3 major incidents within SLA"></textarea>
       </div>
 
@@ -1359,7 +1360,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       </h3>
       <div id="bk-status" style="margin-bottom:14px;font-size:0.9rem;color:#6b7a99">Loading…</div>
       <div class="form-row cols-2" style="max-width:640px">
-        <div class="form-group"><label>Daily DB backup time</label><input type="time" id="bk-daily" value="02:00"></div>
+        <div class="form-group"><label for="bk-daily">Daily DB backup time</label><input type="time" id="bk-daily" value="02:00"></div>
         <div class="form-group"><label>Weekly full backup</label>
           <div style="display:flex;gap:8px">
             <select id="bk-weekly-day" style="flex:1">
@@ -1370,8 +1371,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         </div>
       </div>
       <div class="form-row cols-2" style="max-width:640px">
-        <div class="form-group"><label>Keep full backups</label><input type="number" id="bk-ret-full" value="8" min="1" max="99"></div>
-        <div class="form-group"><label>Keep DB-only backups</label><input type="number" id="bk-ret-db" value="14" min="1" max="99"></div>
+        <div class="form-group"><label for="bk-ret-full">Keep full backups</label><input type="number" id="bk-ret-full" value="8" min="1" max="99"></div>
+        <div class="form-group"><label for="bk-ret-db">Keep DB-only backups</label><input type="number" id="bk-ret-db" value="14" min="1" max="99"></div>
       </div>
       <div style="display:flex;gap:10px;align-items:center;margin:6px 0 16px">
         <button class="btn btn-primary btn-sm" onclick="saveBackupSchedule(true)">💾 Save &amp; enable</button>
@@ -1429,7 +1430,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
            Click "+ Map" to pre-fill the add modal. -->
       <div id="rr-unmapped-strip" style="margin:8px 0 16px;padding:10px 14px;background:#FFF8F0;border:1px solid #FED7AA;border-radius:8px;display:none">
         <div style="display:flex;gap:10px;align-items:center;margin-bottom:6px">
-          <label style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#D97706">Unmapped sites for</label>
+          <label for="rr-unmapped-month" style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#D97706">Unmapped sites for</label>
           <input type="month" id="rr-unmapped-month" style="padding:4px 8px;font-size:12px;border:1px solid #E2E5EA;border-radius:4px">
           <button class="btn btn-secondary btn-sm" onclick="loadRrUnmappedSites()">Refresh</button>
           <span id="rr-unmapped-empty" style="display:none;font-size:11px;color:#0F766E;font-style:italic;margin-left:auto">All mapped 🎉</span>
@@ -1498,8 +1499,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
              fields on the Email panel and these fields persist together). -->
         <h4 style="margin:18px 0 6px">Group report recipients</h4>
         <div class="form-row cols-2" style="max-width:720px">
-          <div class="form-group"><label>Group report — To</label><input id="cfg-group-to" type="text"></div>
-          <div class="form-group"><label>Group report — CC</label><input id="cfg-group-cc" type="text"></div>
+          <div class="form-group"><label for="cfg-group-to">Group report — To</label><input id="cfg-group-to" type="text"></div>
+          <div class="form-group"><label for="cfg-group-cc">Group report — CC</label><input id="cfg-group-cc" type="text"></div>
         </div>
         <div class="form-group"><label style="font-weight:400"><input type="checkbox" id="cfg-group-to-confirmed"> Group report "To" address is confirmed</label></div>
         <div class="modal-actions" style="justify-content:flex-start;gap:10px;align-items:center">
@@ -1532,26 +1533,26 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 
       <div class="form-row cols-2" style="max-width:720px">
         <div class="form-group">
-          <label>Transport</label>
+          <label for="cfg-transport">Transport</label>
           <select id="cfg-transport">
             <option value="smtp">SMTP</option>
             <option value="graph">Microsoft Graph</option>
           </select>
         </div>
         <div class="form-group">
-          <label>Formats <span style="font-weight:400;color:#6b7a99">— comma-separated (e.g. html,pdf)</span></label>
+          <label for="cfg-formats">Formats <span style="font-weight:400;color:#6b7a99">— comma-separated (e.g. html,pdf)</span></label>
           <input id="cfg-formats" type="text" placeholder="html,pdf">
         </div>
       </div>
 
       <h4 style="margin:14px 0 6px">SMTP</h4>
       <div class="form-row cols-2" style="max-width:720px">
-        <div class="form-group"><label>Host</label><input id="cfg-smtp-host" type="text" placeholder="smtp.office365.com"></div>
-        <div class="form-group"><label>Port</label><input id="cfg-smtp-port" type="text" placeholder="587"></div>
+        <div class="form-group"><label for="cfg-smtp-host">Host</label><input id="cfg-smtp-host" type="text" placeholder="smtp.office365.com"></div>
+        <div class="form-group"><label for="cfg-smtp-port">Port</label><input id="cfg-smtp-port" type="text" placeholder="587"></div>
       </div>
       <div class="form-row cols-2" style="max-width:720px">
-        <div class="form-group"><label>User</label><input id="cfg-smtp-user" type="text"></div>
-        <div class="form-group"><label>Password</label><input id="cfg-smtp-pass" type="password" placeholder="Leave blank to keep the stored password"></div>
+        <div class="form-group"><label for="cfg-smtp-user">User</label><input id="cfg-smtp-user" type="text"></div>
+        <div class="form-group"><label for="cfg-smtp-pass">Password</label><input id="cfg-smtp-pass" type="password" placeholder="Leave blank to keep the stored password"></div>
       </div>
       <div class="form-group">
         <label style="font-weight:400"><input type="checkbox" id="cfg-smtp-secure"> Use implicit TLS/SSL (secure)</label>
@@ -1564,16 +1565,16 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 
       <h4 style="margin:14px 0 6px">Addressing</h4>
       <div class="form-row cols-2" style="max-width:720px">
-        <div class="form-group"><label>From</label><input id="cfg-from" type="text" placeholder="IT Reports &lt;it-reports@edv-ops.com&gt;"></div>
-        <div class="form-group"><label>Reply-to</label><input id="cfg-reply-to" type="text"></div>
+        <div class="form-group"><label for="cfg-from">From</label><input id="cfg-from" type="text" placeholder="IT Reports &lt;it-reports@edv-ops.com&gt;"></div>
+        <div class="form-group"><label for="cfg-reply-to">Reply-to</label><input id="cfg-reply-to" type="text"></div>
       </div>
-      <div class="form-group" style="max-width:352px"><label>Default email domain</label><input id="cfg-default-domain" type="text" placeholder="edv-ops.com"></div>
+      <div class="form-group" style="max-width:352px"><label for="cfg-default-domain">Default email domain</label><input id="cfg-default-domain" type="text" placeholder="edv-ops.com"></div>
       <!-- Turns figures in the emails into links the reader can act on (today:
            the weekly report's asset non-conformities → the Assets worklist).
            LEAVE IT EMPTY rather than guess: every consumer degrades to plain
            text, and a wrong origin ships dead links in mail already delivered. -->
       <div class="form-group" style="max-width:520px">
-        <label>Public dashboard URL <span style="font-weight:400;color:#6b7a99">— used for links inside emails; leave empty to send plain figures</span></label>
+        <label for="cfg-public-base-url">Public dashboard URL <span style="font-weight:400;color:#6b7a99">— used for links inside emails; leave empty to send plain figures</span></label>
         <input id="cfg-public-base-url" type="text" placeholder="https://itops-dashboard.edv-ops.com">
       </div>
 
@@ -1600,7 +1601,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <code>docs/SSO_ENTRA_SETUP.md</code>. Changes apply within a minute (no restart).
       </p>
       <div class="form-group">
-        <label>Mode</label>
+        <label for="cfg-sso-mode">Mode</label>
         <select id="cfg-sso-mode">
           <option value="">— (use .env / default: off)</option>
           <option value="off">off — password login only</option>
@@ -1609,25 +1610,25 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         </select>
       </div>
       <div class="form-group">
-        <label>Directory (tenant) ID</label>
+        <label for="cfg-entra-tenant">Directory (tenant) ID</label>
         <input type="text" id="cfg-entra-tenant" placeholder="e.g. 12345678-90ab-cdef-1234-567890abcdef" autocomplete="off">
       </div>
       <div class="form-group">
-        <label>Application (client) ID</label>
+        <label for="cfg-entra-client">Application (client) ID</label>
         <input type="text" id="cfg-entra-client" placeholder="app registration client ID" autocomplete="off">
       </div>
       <div class="form-group">
-        <label>Client secret</label>
+        <label for="cfg-entra-secret">Client secret</label>
         <input type="password" id="cfg-entra-secret" placeholder="leave blank to keep the stored secret" autocomplete="new-password">
         <small style="color:#6b7a99">Stored encrypted-at-rest in the DB config; never echoed back. Blank on save = keep the existing value.</small>
       </div>
       <div class="form-group">
-        <label>Redirect URI</label>
+        <label for="cfg-entra-redirect">Redirect URI</label>
         <input type="text" id="cfg-entra-redirect" placeholder="https://itops-dashboard.edv-ops.com/api/auth/sso/callback" autocomplete="off">
         <small style="color:#6b7a99">Must exactly match a Redirect URI registered on the Entra app.</small>
       </div>
       <div class="form-group">
-        <label>Break-glass user</label>
+        <label for="cfg-sso-breakglass">Break-glass user</label>
         <input type="text" id="cfg-sso-breakglass" placeholder="admin" autocomplete="off">
         <small style="color:#6b7a99">This username can still sign in with a password when mode is <strong>only</strong>.</small>
       </div>
@@ -1657,16 +1658,16 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       <p id="cfg-meridian-retired" style="display:none;color:#b45309;font-weight:600">Connecteur retiré (meridian_enabled = 0)</p>
       <div id="cfg-meridian-fields">
       <div class="form-group">
-        <label>Meridian base URL</label>
+        <label for="cfg-meridian-base">Meridian base URL</label>
         <input type="text" id="cfg-meridian-base" placeholder="https://meridian.edv-ops.com" autocomplete="off">
         <small style="color:#6b7a99">Origin only, no trailing slash. SDP appends <code>/v1/resources/sync</code> and <code>/v1/links</code>.</small>
       </div>
       <div class="form-group">
-        <label>Outbound API key (SDP → Meridian)</label>
+        <label for="cfg-meridian-out">Outbound API key (SDP → Meridian)</label>
         <input type="password" id="cfg-meridian-out" placeholder="leave blank to keep the stored key" autocomplete="new-password">
       </div>
       <div class="form-group">
-        <label>Inbound API key (Meridian → SDP)</label>
+        <label for="cfg-meridian-in">Inbound API key (Meridian → SDP)</label>
         <input type="password" id="cfg-meridian-in" placeholder="leave blank to keep the stored key" autocomplete="new-password">
         <small style="color:#6b7a99">Meridian must send this as <code>X-API-Key</code> to <code>GET /api/actions/open</code>. Unset ⇒ that endpoint is inert (401).</small>
       </div>
@@ -1696,21 +1697,21 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 
       <h4 style="margin:14px 0 6px;color:#3A4A60">Meraki (WAN)</h4>
       <div class="form-group">
-        <label>Meraki base URL</label>
+        <label for="cfg-meraki-base">Meraki base URL</label>
         <input type="text" id="cfg-meraki-base" placeholder="https://api.meraki.com/api/v1" autocomplete="off">
         <small style="color:#6b7a99">Origin + <code>/api/v1</code>. Leave as the default unless you use a regional shard.</small>
       </div>
       <div class="form-group">
-        <label>Meraki organization ID</label>
+        <label for="cfg-meraki-org">Meraki organization ID</label>
         <input type="text" id="cfg-meraki-org" placeholder="e.g. 123456" autocomplete="off">
         <small style="color:#6b7a99">The <strong>numeric</strong> id from Organization → Settings, or from <code>GET /organizations</code> with your API key. NOT the <code>/o/&lt;slug&gt;</code> in the dashboard URL — that's a different id.</small>
       </div>
       <div class="form-group">
-        <label>Meraki API key (read-only)</label>
+        <label for="cfg-meraki-key">Meraki API key (read-only)</label>
         <input type="password" id="cfg-meraki-key" placeholder="leave blank to keep the stored key" autocomplete="new-password">
       </div>
       <div class="form-group">
-        <label>Missing-interval policy</label>
+        <label for="cfg-meraki-policy">Missing-interval policy</label>
         <select id="cfg-meraki-policy">
           <option value="down">down — a gap counts as an outage (default)</option>
           <option value="unknown">unknown — a gap is excluded from % Time Up</option>
@@ -1718,12 +1719,12 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <small style="color:#6b7a99">Set to whichever value <code>calibrate.js</code> reconciles against Meraki's own "% Time Up".</small>
       </div>
       <div class="form-group">
-        <label>« % Time Up » — seuil de perte (down si perte ≥ %)</label>
+        <label for="cfg-wan-timeup-loss">« % Time Up » — seuil de perte (down si perte ≥ %)</label>
         <input type="number" id="cfg-wan-timeup-loss" min="1" max="100" placeholder="100" autocomplete="off" style="max-width:120px">
         <small style="color:#6b7a99"><b>100</b> = règle « loss&lt;100 » (défaut, trop tolérant). Valeur calibrée le 04/09/2026 sur le « % Time Up » de Meraki : <b>5</b> (vide = 100). Tant que la valeur n’est pas &lt; 100, WAN Health affiche un bandeau « non calibré ». Puis <b>Sync WAN now</b> et recharge WAN Health.</small>
       </div>
       <div class="form-group">
-        <label>« % Time Up » — timeout latence (down si latence &gt; ms ; vide = aucun)</label>
+        <label for="cfg-wan-timeup-lat">« % Time Up » — timeout latence (down si latence &gt; ms ; vide = aucun)</label>
         <input type="number" id="cfg-wan-timeup-lat" min="100" placeholder="(aucun)" autocomplete="off" style="max-width:140px">
         <small style="color:#6b7a99">Optionnel — compte un intervalle très lent comme down (les timeouts que Meraki voit, ex. &gt; 1000).</small>
       </div>
@@ -1734,7 +1735,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         Défauts <b>G.711 filaire</b>. Après tout changement : <b>Sync WAN now</b> puis recharge WAN Health.
       </p>
       <div class="form-group">
-        <label>Codec de référence <small style="color:#6b7a99">sensibilité à la perte</small></label>
+        <label for="cfg-mos-codec">Codec de référence <small style="color:#6b7a99">sensibilité à la perte</small></label>
         <select id="cfg-mos-codec" style="max-width:260px">
           <option value="2.5">G.711 (2.5 pts R / 1 % perte) — défaut</option>
           <option value="4">G.729 (4 pts R / 1 % perte) — plus sévère</option>
@@ -1742,7 +1743,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <small style="color:#6b7a99">G.711 = téléphonie « pleine bande » (cas normal en entreprise). G.729 = codec compressé, plus sensible à la perte.</small>
       </div>
       <div class="form-group">
-        <label>Facteur d'avantage <b>A</b> (satellite / VSAT)</label>
+        <label for="cfg-mos-advantage">Facteur d'avantage <b>A</b> (satellite / VSAT)</label>
         <input type="number" id="cfg-mos-advantage" min="0" max="20" step="1" placeholder="0" autocomplete="off" style="max-width:120px">
         <small style="color:#6b7a99"><b>0</b> = filaire (défaut). Un lien <b>satellite/VSAT</b> tolère plus de latence → mettre <b>10-20</b> remonte le MOS. S'applique à <b>tous</b> les liens (pas encore par site).</small>
       </div>
@@ -1754,11 +1755,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         stays empty.
       </p>
       <div class="form-group">
-        <label>Analytics availability view id</label>
+        <label for="cfg-opm-view">Analytics availability view id</label>
         <input type="text" id="cfg-opm-view" placeholder="e.g. 106803000000123456" autocomplete="off">
       </div>
       <div class="form-group">
-        <label>Stale after (days)</label>
+        <label for="cfg-opm-stale">Stale after (days)</label>
         <input type="number" id="cfg-opm-stale" min="1" placeholder="9" autocomplete="off" style="max-width:120px">
         <small style="color:#6b7a99">A KPI whose <code>data_through</code> is older than this is flagged stale in the report/dashboard.</small>
       </div>
@@ -1770,20 +1771,20 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         The API key and the CA bundle are write-only (never echoed back; blank = keep stored).
       </p>
       <div class="form-group">
-        <label>OpManager base URL</label>
+        <label for="cfg-opm-base">OpManager base URL</label>
         <input type="text" id="cfg-opm-base" placeholder="https://opmanager.example.local:8061" autocomplete="off">
       </div>
       <div class="form-group">
-        <label>Allowed outbound hosts (comma-separated, exact or <code>*.suffix</code>)</label>
+        <label for="cfg-outbound-allow">Allowed outbound hosts (comma-separated, exact or <code>*.suffix</code>)</label>
         <input type="text" id="cfg-outbound-allow" placeholder="opmanager.corp.local, 10.20.30.40" autocomplete="off">
         <div style="font-size:0.85rem;margin-top:4px;color:#6b7a99">Every webhook / API URL must be https and public. A trusted internal host (private address) is only reachable when listed here — Teams webhook hosts are always allowed.</div>
       </div>
       <div class="form-group">
-        <label>OpManager API key (read-only)</label>
+        <label for="cfg-opm-key">OpManager API key (read-only)</label>
         <input type="password" id="cfg-opm-key" placeholder="leave blank to keep the stored key" autocomplete="new-password">
       </div>
       <div class="form-group">
-        <label>TLS certificate verification</label>
+        <label for="cfg-opm-tls">TLS certificate verification</label>
         <select id="cfg-opm-tls" style="max-width:420px">
           <option value="0">Verified (default) — reject an untrusted certificate</option>
           <option value="1">Insecure — accept any certificate (NOT recommended)</option>
@@ -1791,7 +1792,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <div id="cfg-opm-tls-state" style="font-size:0.85rem;margin-top:4px;color:#6b7a99"></div>
       </div>
       <div class="form-group">
-        <label>Internal CA bundle (PEM) — optional</label>
+        <label for="cfg-opm-ca">Internal CA bundle (PEM) — optional</label>
         <textarea id="cfg-opm-ca" rows="3" placeholder="-----BEGIN CERTIFICATE-----&#10;… leave blank to keep the stored bundle" autocomplete="off" style="width:100%;box-sizing:border-box;font-family:monospace;font-size:0.75rem"></textarea>
         <small style="color:#6b7a99">Paste the CA that signed the OpManager certificate. Type <code>_CLEAR_</code> to remove the stored bundle.</small>
       </div>
@@ -1847,14 +1848,14 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       <h4 style="margin:14px 0 6px;color:#3A4A60">Global</h4>
       <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
         <div class="form-group">
-          <label>Clock start</label>
+          <label for="sla-clock-start">Clock start</label>
           <select id="sla-clock-start">
             <option value="notification">notification — clock starts when the ISP is notified</option>
             <option value="detection">detection — clock starts at outage detection</option>
           </select>
         </div>
         <div class="form-group">
-          <label>Simultaneous overlap (min)</label>
+          <label for="sla-overlap">Simultaneous overlap (min)</label>
           <input type="number" id="sla-overlap" min="0" style="width:120px" placeholder="5" autocomplete="off">
         </div>
       </div>
@@ -1867,12 +1868,12 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         <small style="color:#6b7a99">When unticked, no notification email is ever sent — regardless of per-circuit ISP addresses.</small>
       </div>
       <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
-        <div class="form-group"><label>Trigger after (min)</label><input type="number" id="sla-notify-trigger" min="0" style="width:120px" placeholder="15" autocomplete="off"></div>
-        <div class="form-group"><label>Poll every (min)</label><input type="number" id="sla-notify-poll" min="1" style="width:120px" placeholder="5" autocomplete="off"></div>
-        <div class="form-group"><label>From name</label><input type="text" id="sla-notify-from" style="width:180px" placeholder="SDP NOC" autocomplete="off"></div>
+        <div class="form-group"><label for="sla-notify-trigger">Trigger after (min)</label><input type="number" id="sla-notify-trigger" min="0" style="width:120px" placeholder="15" autocomplete="off"></div>
+        <div class="form-group"><label for="sla-notify-poll">Poll every (min)</label><input type="number" id="sla-notify-poll" min="1" style="width:120px" placeholder="5" autocomplete="off"></div>
+        <div class="form-group"><label for="sla-notify-from">From name</label><input type="text" id="sla-notify-from" style="width:180px" placeholder="SDP NOC" autocomplete="off"></div>
       </div>
       <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
-        <div class="form-group" style="min-width:300px"><label>Service desk (en copie) <small style="color:#6b7a99">crée / alimente le ticket</small></label><input type="email" id="sla-notify-sd" style="width:100%;box-sizing:border-box" placeholder="oneitsupport@endeavourmining.com" autocomplete="off"></div>
+        <div class="form-group" style="min-width:300px"><label for="sla-notify-sd">Service desk (en copie) <small style="color:#6b7a99">crée / alimente le ticket</small></label><input type="email" id="sla-notify-sd" style="width:100%;box-sizing:border-box" placeholder="oneitsupport@endeavourmining.com" autocomplete="off"></div>
       </div>
       <div style="display:flex;gap:18px;flex-wrap:wrap;margin:4px 0 2px">
         <label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="sla-notify-cc-coord" style="width:auto"><span>Coordinateur du site en copie</span></label>
@@ -1882,12 +1883,12 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       <small style="color:#6b7a99;display:block;margin-bottom:8px">Coupure → à l'<b>ISP</b>, avec coordinateur + service desk en copie. Rétablissement → à l'ISP + coordinateur (pas au service desk par défaut, pour ne pas créer de 2ᵉ ticket). Jamais d'email à l'ISP si les <b>2 uplinks</b> tombent (panne site/électrique).</small>
 
       <div class="form-group">
-        <label>Event types <small style="color:#6b7a99">comma-separated</small></label>
+        <label for="sla-event-types">Event types <small style="color:#6b7a99">comma-separated</small></label>
         <input type="text" id="sla-event-types" style="width:100%;box-sizing:border-box" placeholder="wan_1_up, wan_1_down, wan_2_up, wan_2_down, uplink_change" autocomplete="off">
       </div>
       <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end">
-        <div class="form-group"><label>Reconcile tolerance (min)</label><input type="number" id="sla-ingest-reconcile" min="0" style="width:150px" placeholder="60" autocomplete="off"></div>
-        <div class="form-group"><label>Stale open (hours)</label><input type="number" id="sla-ingest-stale" min="0" style="width:150px" placeholder="24" autocomplete="off"></div>
+        <div class="form-group"><label for="sla-ingest-reconcile">Reconcile tolerance (min)</label><input type="number" id="sla-ingest-reconcile" min="0" style="width:150px" placeholder="60" autocomplete="off"></div>
+        <div class="form-group"><label for="sla-ingest-stale">Stale open (hours)</label><input type="number" id="sla-ingest-stale" min="0" style="width:150px" placeholder="24" autocomplete="off"></div>
       </div>
 
       <h4 style="margin:18px 0 6px;color:#3A4A60">Tiers</h4>
@@ -1947,11 +1948,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
         </span>
       </h3>
       <div class="form-group" style="max-width:560px">
-        <label>Taux XOF→USD <span style="font-weight:400;color:#6b7a99">— asset costs are in XOF; Finance surfaces show USD</span></label>
+        <label for="hyg-xof-usd-rate">Taux XOF→USD <span style="font-weight:400;color:#6b7a99">— asset costs are in XOF; Finance surfaces show USD</span></label>
         <input type="number" id="hyg-xof-usd-rate" step="0.00001" min="0" style="width:160px;padding:6px 8px;border:1px solid #E2E5EA;border-radius:4px" placeholder="0.00165">
       </div>
       <div class="form-group" style="max-width:560px">
-        <label>Uplift prix de remplacement (%/an) <span style="font-weight:400;color:#6b7a99">— Investment forecast: 0 = like-for-like, e.g. 3 = +3%/an</span></label>
+        <label for="finance-uplift-pct">Uplift prix de remplacement (%/an) <span style="font-weight:400;color:#6b7a99">— Investment forecast: 0 = like-for-like, e.g. 3 = +3%/an</span></label>
         <input type="number" id="finance-uplift-pct" step="0.5" min="0" style="width:160px;padding:6px 8px;border:1px solid #E2E5EA;border-radius:4px" placeholder="0">
       </div>
       <div class="modal-actions" style="justify-content:flex-start;gap:10px;align-items:center">
@@ -1972,9 +1973,9 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 
       <h4 style="margin:6px 0 8px">Default policy</h4>
       <div class="form-row cols-3" style="max-width:720px">
-        <div class="form-group"><label>Method</label><select id="dep-def-method"></select></div>
-        <div class="form-group"><label>Useful life (months)</label><input type="number" id="dep-def-life" min="1" step="1" placeholder="48"></div>
-        <div class="form-group"><label>Salvage %</label><input type="number" id="dep-def-salvage" min="0" max="100" step="0.1" placeholder="0"></div>
+        <div class="form-group"><label for="dep-def-method">Method</label><select id="dep-def-method"></select></div>
+        <div class="form-group"><label for="dep-def-life">Useful life (months)</label><input type="number" id="dep-def-life" min="1" step="1" placeholder="48"></div>
+        <div class="form-group"><label for="dep-def-salvage">Salvage %</label><input type="number" id="dep-def-salvage" min="0" max="100" step="0.1" placeholder="0"></div>
       </div>
 
       <h4 style="margin:16px 0 6px">Per-type overrides
@@ -2016,7 +2017,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       </div>
 
       <div class="form-group" style="max-width:560px">
-        <label>Recipients <span style="font-weight:400;color:#6b7a99">— one address per line (or comma-separated)</span></label>
+        <label for="hyg-recipients">Recipients <span style="font-weight:400;color:#6b7a99">— one address per line (or comma-separated)</span></label>
         <textarea id="hyg-recipients" rows="4" style="width:100%;padding:6px 8px;border:1px solid #E2E5EA;border-radius:4px;font-family:inherit" placeholder="group-it@edv-ops.com&#10;cmdb-owner@edv-ops.com"></textarea>
       </div>
       <div class="form-group"><label style="font-weight:400"><input type="checkbox" id="hyg-enabled"> <strong>Arm sending</strong> — enable the scheduled + send-now digest</label></div>
@@ -2060,16 +2061,16 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       <h4 style="margin:14px 0 6px">1 · Accès API ServiceDesk Plus Cloud</h4>
       <div style="font-size:0.8rem;color:#6b7a99;margin-bottom:8px">Client OAuth Zoho (« Self Client ») avec le scope <code>SDPOnDemand.requests.READ</code>.</div>
       <div class="form-row">
-        <div class="form-group"><label>URL de l'API</label><input type="text" id="tsla-base" placeholder="https://oneitsupport.endeavourmining.com/app/itdesk/api/v3"></div>
-        <div class="form-group"><label>Serveur OAuth Zoho</label><input type="text" id="tsla-accounts" placeholder="https://accounts.zoho.com"></div>
+        <div class="form-group"><label for="tsla-base">URL de l'API</label><input type="text" id="tsla-base" placeholder="https://oneitsupport.endeavourmining.com/app/itdesk/api/v3"></div>
+        <div class="form-group"><label for="tsla-accounts">Serveur OAuth Zoho</label><input type="text" id="tsla-accounts" placeholder="https://accounts.zoho.com"></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>Client ID</label><input type="text" id="tsla-client-id" autocomplete="off"></div>
-        <div class="form-group"><label>Client secret <span id="tsla-secret-state" style="font-weight:400;color:#6b7a99"></span></label><input type="password" id="tsla-client-secret" autocomplete="new-password" placeholder="(vide = conserver)"></div>
+        <div class="form-group"><label for="tsla-client-id">Client ID</label><input type="text" id="tsla-client-id" autocomplete="off"></div>
+        <div class="form-group"><label for="tsla-client-secret">Client secret <span id="tsla-secret-state" style="font-weight:400;color:#6b7a99"></span></label><input type="password" id="tsla-client-secret" autocomplete="new-password" placeholder="(vide = conserver)"></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>Refresh token <span id="tsla-refresh-state" style="font-weight:400;color:#6b7a99"></span></label><input type="password" id="tsla-refresh" autocomplete="new-password" placeholder="(vide = conserver)"></div>
-        <div class="form-group"><label>Filtre « tickets ouverts »</label><input type="text" id="tsla-filter" placeholder="Open_System"></div>
+        <div class="form-group"><label for="tsla-refresh">Refresh token <span id="tsla-refresh-state" style="font-weight:400;color:#6b7a99"></span></label><input type="password" id="tsla-refresh" autocomplete="new-password" placeholder="(vide = conserver)"></div>
+        <div class="form-group"><label for="tsla-filter">Filtre « tickets ouverts »</label><input type="text" id="tsla-filter" placeholder="Open_System"></div>
       </div>
 
       <h4 style="margin:14px 0 6px">2 · Canaux Teams par groupe</h4>
@@ -2083,17 +2084,17 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 
       <h4 style="margin:14px 0 6px">3 · Règles</h4>
       <div class="form-row">
-        <div class="form-group"><label>Âge maximal des tickets pris en compte (jours)</label>
+        <div class="form-group"><label for="tsla-max-age">Âge maximal des tickets pris en compte (jours)</label>
           <input type="number" id="tsla-max-age" min="0" step="1" placeholder="30">
           <div style="font-size:0.75rem;color:#6b7a99;margin-top:3px">Les tickets créés avant sont ignorés (0 = sans limite) — et la lecture de l'API s'arrête là.</div></div>
-        <div class="form-group"><label>Anti-doublon</label>
+        <div class="form-group"><label for="tsla-dedup">Anti-doublon</label>
           <select id="tsla-dedup">
             <option value="once">Une seule alerte par ticket et par type (actuel)</option>
             <option value="per_due">Nouvelle alerte si SDP replanifie l'échéance</option>
           </select>
           <div style="font-size:0.75rem;color:#6b7a99;margin-top:3px">« Une seule alerte » = comportement d'origine.</div></div>
       </div>
-      <div class="form-group"><label>Statuts qui suspendent le SLA (un par ligne, nom exact)</label>
+      <div class="form-group"><label for="tsla-paused">Statuts qui suspendent le SLA (un par ligne, nom exact)</label>
         <textarea id="tsla-paused" rows="4" style="width:100%;font-size:12px" placeholder="On Hold&#10;Awaiting Reply&#10;Approval pending&#10;PO Raised&#10;Pending Verification"></textarea>
         <div style="font-size:0.75rem;color:#6b7a99;margin-top:3px">Vide = règle d'origine (expression <code>paused_status</code>, qui attrape aussi p. ex. « Approval received »). Rempli = seuls ces noms exacts (sans tenir compte de la casse) suspendent l'alerte. L'indicateur « chrono arrêté » de SDP reste prioritaire. Vérifier la liste avec l'Aperçu (répartition par statut) avant de l'enregistrer.</div></div>
       <div style="font-size:0.8rem;color:#6b7a99;margin-bottom:8px">
@@ -2123,16 +2124,16 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       </div>
       <div id="an-status" style="font-size:0.82rem;margin-bottom:12px"></div>
       <div class="form-row">
-        <div class="form-group"><label>Client ID <span class="an-src" data-f="clientId"></span></label><input type="text" id="an-client-id" autocomplete="off"></div>
-        <div class="form-group"><label>Client secret <span class="an-src" data-f="clientSecret"></span></label><input type="password" id="an-client-secret" autocomplete="new-password" placeholder="(vide = conserver)"></div>
+        <div class="form-group"><label for="an-client-id">Client ID <span class="an-src" data-f="clientId"></span></label><input type="text" id="an-client-id" autocomplete="off"></div>
+        <div class="form-group"><label for="an-client-secret">Client secret <span class="an-src" data-f="clientSecret"></span></label><input type="password" id="an-client-secret" autocomplete="new-password" placeholder="(vide = conserver)"></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>Refresh token <span class="an-src" data-f="refreshToken"></span></label><input type="password" id="an-refresh" autocomplete="new-password" placeholder="(vide = conserver)"></div>
-        <div class="form-group"><label>Serveur OAuth Zoho <span class="an-src" data-f="accountsUrl"></span></label><input type="text" id="an-accounts" placeholder="https://accounts.zoho.com"></div>
+        <div class="form-group"><label for="an-refresh">Refresh token <span class="an-src" data-f="refreshToken"></span></label><input type="password" id="an-refresh" autocomplete="new-password" placeholder="(vide = conserver)"></div>
+        <div class="form-group"><label for="an-accounts">Serveur OAuth Zoho <span class="an-src" data-f="accountsUrl"></span></label><input type="text" id="an-accounts" placeholder="https://accounts.zoho.com"></div>
       </div>
       <div class="form-row">
-        <div class="form-group"><label>Workspace ID <span class="an-src" data-f="workspaceId"></span></label><input type="text" id="an-workspace"></div>
-        <div class="form-group"><label>Organisation ID <span class="an-src" data-f="orgId"></span></label><input type="text" id="an-org"></div>
+        <div class="form-group"><label for="an-workspace">Workspace ID <span class="an-src" data-f="workspaceId"></span></label><input type="text" id="an-workspace"></div>
+        <div class="form-group"><label for="an-org">Organisation ID <span class="an-src" data-f="orgId"></span></label><input type="text" id="an-org"></div>
       </div>
       <div class="modal-actions" style="justify-content:flex-start;gap:10px;align-items:center;margin:12px 0">
         <button class="btn btn-primary" onclick="saveAnalyticsApiCard()">Enregistrer</button>
@@ -2227,7 +2228,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       </div>
 
       <div class="form-group" style="max-width:560px">
-        <label>Recipients <span style="font-weight:400;color:#6b7a99">— one address per line (or comma-separated)</span></label>
+        <label for="agp-recipients">Recipients <span style="font-weight:400;color:#6b7a99">— one address per line (or comma-separated)</span></label>
         <textarea id="agp-recipients" rows="4" style="width:100%;padding:6px 8px;border:1px solid #E2E5EA;border-radius:4px;font-family:inherit" placeholder="it-management@edv-ops.com&#10;cio@edv-ops.com"></textarea>
       </div>
       <div class="form-group"><label style="font-weight:400"><input type="checkbox" id="agp-enabled"> <strong>Arm sending</strong> — enable the scheduled + send-now digest</label></div>
@@ -2299,11 +2300,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
     <h2 id="rr-alias-modal-title">New Site Mapping</h2>
     <input type="hidden" id="rr-alias-modal-original">
     <div class="form-group">
-      <label>SDP site label (exact text from helpdesk tickets) *</label>
+      <label for="rr-alias-modal-label">SDP site label (exact text from helpdesk tickets) *</label>
       <input id="rr-alias-modal-label" type="text" placeholder="e.g. HOUNDE, Sabodala, MANA…">
     </div>
     <div class="form-group">
-      <label>Risk Register code *</label>
+      <label for="rr-alias-modal-code">Risk Register code *</label>
       <select id="rr-alias-modal-code">
         <option value="">— Select code —</option>
       </select>
@@ -2325,25 +2326,25 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
     <h2 id="recipient-modal-title">Add site recipient</h2>
     <input type="hidden" id="rcp-original-site">
     <div class="form-row cols-2">
-      <div class="form-group"><label>Site code *</label><input id="rcp-site-code" type="text" placeholder="e.g. HGO"></div>
-      <div class="form-group"><label>Site name</label><input id="rcp-site-name" type="text" placeholder="e.g. Houndé"></div>
+      <div class="form-group"><label for="rcp-site-code">Site code *</label><input id="rcp-site-code" type="text" placeholder="e.g. HGO"></div>
+      <div class="form-group"><label for="rcp-site-name">Site name</label><input id="rcp-site-name" type="text" placeholder="e.g. Houndé"></div>
     </div>
     <div class="form-row cols-2">
-      <div class="form-group"><label>Coordinator name</label><input id="rcp-coord-name" type="text"></div>
-      <div class="form-group"><label>Coordinator email</label><input id="rcp-coord-email" type="email"></div>
+      <div class="form-group"><label for="rcp-coord-name">Coordinator name</label><input id="rcp-coord-name" type="text"></div>
+      <div class="form-group"><label for="rcp-coord-email">Coordinator email</label><input id="rcp-coord-email" type="email"></div>
     </div>
     <div class="form-group"><label style="font-weight:400"><input type="checkbox" id="rcp-coord-confirmed"> Coordinator email confirmed</label></div>
     <div class="form-row cols-2">
-      <div class="form-group"><label>Facility manager name</label><input id="rcp-fm-name" type="text"></div>
-      <div class="form-group"><label>Facility manager email</label><input id="rcp-fm-email" type="email"></div>
+      <div class="form-group"><label for="rcp-fm-name">Facility manager name</label><input id="rcp-fm-name" type="text"></div>
+      <div class="form-group"><label for="rcp-fm-email">Facility manager email</label><input id="rcp-fm-email" type="email"></div>
     </div>
     <div class="form-group"><label style="font-weight:400"><input type="checkbox" id="rcp-fm-confirmed"> FM email confirmed</label></div>
     <div class="form-row cols-2">
-      <div class="form-group"><label>Responsable parc (nom)</label><input id="rcp-am-name" type="text"></div>
-      <div class="form-group"><label>Responsable parc (e-mail)</label><input id="rcp-am-email" type="email"></div>
+      <div class="form-group"><label for="rcp-am-name">Responsable parc (nom)</label><input id="rcp-am-name" type="text"></div>
+      <div class="form-group"><label for="rcp-am-email">Responsable parc (e-mail)</label><input id="rcp-am-email" type="email"></div>
     </div>
     <div class="form-group"><label style="font-weight:400"><input type="checkbox" id="rcp-am-confirmed"> E-mail responsable parc confirmé</label></div>
-    <div class="form-group"><label>CC emails <span style="font-weight:400;color:#6b7a99">— comma-separated</span></label><input id="rcp-cc" type="text"></div>
+    <div class="form-group"><label for="rcp-cc">CC emails <span style="font-weight:400;color:#6b7a99">— comma-separated</span></label><input id="rcp-cc" type="text"></div>
     <div class="form-group"><label style="font-weight:400"><input type="checkbox" id="rcp-active" checked> Active</label></div>
     <div class="modal-actions">
       <button class="btn btn-secondary" onclick="closeRecipientModal()">Cancel</button>
@@ -2373,8 +2374,8 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
          choice on the Schedule tab is a CADENCE (how often the CLI runs),
          not a different report. -->
     <div class="form-row cols-2">
-      <div class="form-group"><label>Month</label><select id="snd-month"></select></div>
-      <div class="form-group"><label>Year</label><select id="snd-year"></select></div>
+      <div class="form-group"><label for="snd-month">Month</label><select id="snd-month"></select></div>
+      <div class="form-group"><label for="snd-year">Year</label><select id="snd-year"></select></div>
     </div>
     <p style="margin:-4px 0 12px;font-size:0.8rem;color:#6b7a99">
       Monthly site report for the selected month. The Schedule tab's weekly/monthly
@@ -2417,21 +2418,21 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
     <input type="hidden" id="modal-user-id">
     <div class="form-row cols-2">
       <div class="form-group">
-        <label>Username *</label>
+        <label for="modal-username">Username *</label>
         <input id="modal-username" type="text" placeholder="jdoe">
       </div>
       <div class="form-group">
-        <label>Full Name *</label>
+        <label for="modal-fullname">Full Name *</label>
         <input id="modal-fullname" type="text" placeholder="Jean Doe">
       </div>
     </div>
     <div class="form-group">
-      <label id="modal-pw-label">Password *</label>
+      <label for="modal-password" id="modal-pw-label">Password *</label>
       <input id="modal-password" type="password" placeholder="Leave blank to keep unchanged">
     </div>
     <div class="form-row cols-2">
       <div class="form-group">
-        <label>Site (leave blank for admin access)</label>
+        <label for="modal-site">Site (leave blank for admin access)</label>
         <select id="modal-site">
           <option value="">— All Sites (Admin) —</option>
         </select>
@@ -2499,11 +2500,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       </div>
     </div>
     <div class="form-group">
-      <label>Email <span style="color:#94a3b8;font-weight:400;text-transform:none">(for Microsoft SSO — corporate address)</span></label>
+      <label for="modal-email">Email <span style="color:#94a3b8;font-weight:400;text-transform:none">(for Microsoft SSO — corporate address)</span></label>
       <input type="email" id="modal-email" placeholder="first.last@edv-ops.com" autocomplete="off">
     </div>
     <div class="form-group">
-      <label>Status</label>
+      <label for="modal-active">Status</label>
       <select id="modal-active">
         <option value="1">Active</option>
         <option value="0">Disabled</option>
@@ -2526,7 +2527,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
       directory before saving. Blank = no SSO for that user.
     </p>
     <div class="form-group" style="display:flex;align-items:center;gap:10px">
-      <label style="margin:0">Email domain</label>
+      <label for="emap-domain" style="margin:0">Email domain</label>
       <input type="text" id="emap-domain" value="edv-ops.com" style="max-width:220px" oninput="emapResuggest()">
       <button class="btn btn-secondary btn-sm" onclick="emapResuggest(true)" title="Re-fill blank emails from the current domain">Re-suggest blanks</button>
     </div>
@@ -2551,20 +2552,20 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
     <h2 id="site-modal-title">New Site</h2>
     <input type="hidden" id="site-modal-id">
     <div class="form-group">
-      <label>Name * <span id="site-modal-name-hint" style="font-size:0.75rem;color:#6b7a99;font-weight:400"></span></label>
+      <label for="site-modal-name">Name * <span id="site-modal-name-hint" style="font-size:0.75rem;color:#6b7a99;font-weight:400"></span></label>
       <input id="site-modal-name" type="text" placeholder="e.g. Lafigue" maxlength="60">
     </div>
     <div class="form-group">
-      <label>Zoho Group Name</label>
+      <label for="site-modal-zoho">Zoho Group Name</label>
       <input id="site-modal-zoho" type="text" placeholder="e.g. Lafigue IT Agents">
     </div>
     <div class="form-row cols-2">
       <div class="form-group">
-        <label>Sort Order</label>
+        <label for="site-modal-order">Sort Order</label>
         <input id="site-modal-order" type="number" min="0" max="999" value="0">
       </div>
       <div class="form-group">
-        <label>Status</label>
+        <label for="site-modal-active">Status</label>
         <select id="site-modal-active">
           <option value="1">Active</option>
           <option value="0">Inactive</option>
@@ -2573,11 +2574,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
     </div>
     <div class="form-row cols-2" id="site-modal-master" style="display:none">
       <div class="form-group">
-        <label>Time zone <span style="font-size:0.75rem;color:var(--color-text-muted);font-weight:400">(IANA, e.g. Africa/Abidjan · empty = UTC)</span></label>
+        <label for="site-modal-tz">Time zone <span style="font-size:0.75rem;color:var(--color-text-muted);font-weight:400">(IANA, e.g. Africa/Abidjan · empty = UTC)</span></label>
         <input id="site-modal-tz" type="text" placeholder="empty = UTC (today's behaviour)" maxlength="64">
       </div>
       <div class="form-group">
-        <label>Country</label>
+        <label for="site-modal-country">Country</label>
         <input id="site-modal-country" type="text" disabled>
         <div style="font-size:0.72rem;color:var(--color-text-muted)">Set in Governance ▸ site hierarchy (two-person rule).</div>
       </div>
@@ -2600,16 +2601,16 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
     <h2 id="dept-modal-title">New Department</h2>
     <input type="hidden" id="dept-modal-id">
     <div class="form-group">
-      <label>Name *</label>
+      <label for="dept-modal-name">Name *</label>
       <input id="dept-modal-name" type="text" placeholder="e.g. Logistics" maxlength="60">
     </div>
     <div class="form-row cols-2">
       <div class="form-group">
-        <label>Sort Order</label>
+        <label for="dept-modal-order">Sort Order</label>
         <input id="dept-modal-order" type="number" min="0" max="999" value="0">
       </div>
       <div class="form-group">
-        <label>Status</label>
+        <label for="dept-modal-active">Status</label>
         <select id="dept-modal-active">
           <option value="1">Active</option>
           <option value="0">Inactive</option>
@@ -2634,12 +2635,12 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:var(--light-bg);color:va
 
     <div class="form-row cols-2" style="gap:12px">
       <div class="form-group">
-        <label>Year</label>
+        <label for="cw-new-year">Year</label>
         <input id="cw-new-year" type="number" min="2024" max="2030" style="width:100%"
           oninput="updateChangeWeekPreview()">
       </div>
       <div class="form-group">
-        <label>Week number</label>
+        <label for="cw-new-week">Week number</label>
         <input id="cw-new-week" type="number" min="1" max="53" style="width:100%"
           oninput="updateChangeWeekPreview()">
       </div>
@@ -2831,24 +2832,16 @@ async function initApp() {
     populateSiteSelects();
   } catch(e) { toast('Failed to load sites', 'error'); }
 
-  // Default week = previous completed week (current week - 1)
-  // Coordinators always report on the week that just ended (full data, SLA settled).
+  // Default week = the week the report is DUE (Adoption Lot A, item 3). /api/reports/current-week already returns that
+  // week (the previous, completed one — public/lib/reportingWeek.js dueWeek); stepping back once more here used to
+  // default to the week BEFORE it (W44 while Home said W45). Same helper on Home, this picker and the Helpdesk labels.
   try {
     const w = await api('GET', '/api/reports/current-week');
-    // Step back one week; handle year-boundary (W01 → last week of previous year)
-    let defYear = w.year;
-    let defWeek = w.week - 1;
-    if (defWeek < 1) {
-      defYear -= 1;
-      // Last week of previous year = how many Sundays fit before Jan 1 of current year
-      const fsThisYear = _cwFirstSun(w.year);
-      const fsPrevYear = _cwFirstSun(defYear);
-      defWeek = Math.round((fsThisYear - fsPrevYear) / (7 * 86400000));
-    }
-    const prev = _cwWeekRange(defYear, defWeek);
+    const defYear = w.year;
+    const defWeek = w.week;
     document.getElementById('sel-year').value = defYear;
     document.getElementById('sel-week').value = defWeek;
-    document.getElementById('week-range-badge').textContent = `${prev.label} (${prev.start} → ${prev.end})`;
+    document.getElementById('week-range-badge').textContent = _weekBadge(defYear, defWeek);
     // Sync summary card week defaults (admin) — keep on current week for summary
     const sy = document.getElementById('summary-year');
     const sw = document.getElementById('summary-week');
@@ -2954,8 +2947,7 @@ function onSiteWeekChange() {
   const year = parseInt(document.getElementById('sel-year').value);
   const week = parseInt(document.getElementById('sel-week').value);
   if (year && week) {
-    const r = _cwWeekRange(year, week);
-    document.getElementById('week-range-badge').textContent = `${r.label} (${r.start} \u2192 ${r.end})`;
+    document.getElementById('week-range-badge').textContent = _weekBadge(year, week);
   }
 }
 
@@ -3206,18 +3198,19 @@ function collectAssetReview() {
 
 // ── Change Week modal ──────────────────────────────────────────────
 // Client-side Zoho Sunday-start week range calculation (mirrors reports-db.js)
-function _cwFirstSun(yr) {
-  const d = new Date(yr, 0, 1);
-  const dow = d.getDay();
-  if (dow !== 0) d.setDate(d.getDate() + (7 - dow));
-  return d;
-}
 function _cwWeekRange(year, week) {
-  const fs  = _cwFirstSun(year);
-  const s   = new Date(fs); s.setDate(fs.getDate() + (week - 1) * 7);
-  const e   = new Date(s);  e.setDate(s.getDate() + 6);
-  const fmt = d => d.toISOString().slice(0, 10);
-  return { start: fmt(s), end: fmt(e), label: `W${String(week).padStart(2,'0')} ${year}` };
+  // Adoption Lot A (item 3): the shared Zoho-week helper (UTC — the old local-date version could slip a day).
+  const r = window.ReportingWeek ? window.ReportingWeek.range(year, week) : { start: '', end: '' };
+  return { start: r.start, end: r.end, label: `W${String(week).padStart(2,'0')} ${year}` };
+}
+// "W45 2026 · W45 (08–14 Nov) · report due" — every week label carries its dates; the due week says so.
+function _weekBadge(year, week) {
+  const RW = window.ReportingWeek;
+  if (!RW) { const r = _cwWeekRange(year, week); return `${r.label} (${r.start} \u2192 ${r.end})`; }
+  const fr = (document.documentElement.lang || '').toLowerCase().startsWith('fr');
+  const due = RW.dueWeek(new Date());
+  const isDue = Number(year) === due.year && Number(week) === due.week;
+  return `${RW.label(year, week, fr ? 'fr' : 'en')} ${year}` + (isDue ? (fr ? ' · rapport dû' : ' · report due') : '');
 }
 
 function openChangeWeekModal() {

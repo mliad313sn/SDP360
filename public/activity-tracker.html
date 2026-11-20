@@ -7,7 +7,8 @@
 
 <!-- Auth gate. Sets window.__authUser + window.__userHasRole before
      the app boots. -->
-<script src="auth.js" data-require="any"></script>
+<!-- Adoption Lot A (item 4): page gate = the data route's roles (GET /api/tracker/load) → French no-access page, not a raw "Forbidden". -->
+<script src="auth.js" data-require="admin|tracker-admin|tracker-editor"></script>
 
 <!-- Canonical EDV brand tokens (matches every other live page). -->
 <link rel="stylesheet" href="_tokens.css">

@@ -46,7 +46,9 @@
     var k = d || {}; var o = opts || {};
     var extra = (o.baseLine ? DR.baseLine(k) : '') + (k.action_href ? DR.actionLink(k.action_href) : '');
     var label = '<div class="edv-kpi-label">' + esc(k.label || '') + '</div>';
-    if (!isNum(k.value)) {
+    // Adoption Lot A (item 1): a source that NEVER synced (freshness UNKNOWN) measured nothing — its "0" is not a
+    // reading. Show "—" + "Source never synced", like an absent value (a STALE source keeps its last number, greyed).
+    if (!isNum(k.value) || k.freshness === 'UNKNOWN') {
       return '<div class="edv-kpi-card edv-quiet rag-na">' + label + '<div class="edv-kpi-value">' + NOT_MEASURED + '</div>' + DR.staleBadge(k) + extra + '</div>';
     }
     var stale = !!k.freshness && k.freshness !== 'FRESH';

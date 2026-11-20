@@ -4,8 +4,8 @@
   "pages": 63,
   "pages_without_test_reference": 0,
   "pages_without_declared_role": 6,
-  "pages_not_in_navigation": 30,
-  "pages_not_in_shell_or_module_tabs": 21,
+  "pages_not_in_navigation": 29,
+  "pages_not_in_shell_or_module_tabs": 20,
   "pages_deep_link_only": 9,
   "pages_without_entry_point": 2,
   "pages_with_inline_scripts": 46,
@@ -15,7 +15,7 @@
   "jobs": 33,
   "jobs_without_test_reference": 0,
   "migrations": 107,
-  "test_files": 868
+  "test_files": 872
  },
  "pages": [
   {
@@ -54,7 +54,9 @@
    "id": "PG-activity-tracker",
    "page": "public/activity-tracker.html",
    "requires": [
-    "any"
+    "admin",
+    "tracker-admin",
+    "tracker-editor"
    ],
    "in_navigation": true,
    "entry_points": {
@@ -71,8 +73,9 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 0,
-   "bytes": 2849,
+   "bytes": 3023,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/csp-headers.smoke.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/csp-report.smoke.test.js",
@@ -104,6 +107,7 @@
    "inline_scripts": 1,
    "bytes": 60140,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/analytics-logic.test.js",
     "tests/analytics-metrics-authz.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -186,8 +190,10 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 10,
-   "bytes": 204045,
+   "bytes": 206615,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-truth.test.js",
     "tests/agent-inventory.test.js",
     "tests/asset-hygiene-visuals.test.js",
     "tests/asset-reminder-report.test.js",
@@ -229,6 +235,7 @@
    "bytes": 41281,
    "tests": [
     "tests/a11y-static.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/governance-c15.smoke.test.js",
     "tests/governance-links.test.js",
     "tests/home-queue.test.js",
@@ -291,6 +298,7 @@
    "inline_scripts": 0,
    "bytes": 4083,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/connector-health-routes.smoke.test.js",
     "tests/i18n-coverage.test.js"
    ]
@@ -373,6 +381,7 @@
    "bytes": 30239,
    "tests": [
     "tests/a11y-static.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/chart-annotations.test.js",
     "tests/dashboard-time-truth.test.js",
     "tests/dashboard-widget-truth.test.js",
@@ -407,6 +416,7 @@
    "inline_scripts": 0,
    "bytes": 2733,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/data-quality.smoke.test.js",
     "tests/i18n-coverage.test.js"
    ]
@@ -461,6 +471,7 @@
    "inline_scripts": 1,
    "bytes": 472416,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/api-key-injection.smoke.test.js",
     "tests/csp-headers.smoke.test.js",
     "tests/csp-journey-report.test.js",
@@ -500,6 +511,7 @@
    "bytes": 601032,
    "tests": [
     "tests/a11y-legacy-ratchet.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/api-key-injection.smoke.test.js",
     "tests/csp-journey-report.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
@@ -522,8 +534,7 @@
    "page": "public/finance.html",
    "requires": [
     "admin",
-    "finance-viewer",
-    "finance-verifier"
+    "finance-viewer"
    ],
    "in_navigation": true,
    "entry_points": {
@@ -539,8 +550,9 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 0,
-   "bytes": 8829,
+   "bytes": 8812,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/agent-inventory.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js"
@@ -570,6 +582,7 @@
    "bytes": 19556,
    "tests": [
     "tests/a11y-static.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/i18n-coverage.test.js",
     "tests/i18n-inline-glossary.test.js",
     "tests/my-work.test.js",
@@ -600,6 +613,7 @@
    "inline_scripts": 1,
    "bytes": 334985,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/csp-strict-pages-config.test.js",
     "tests/help-assets-section.test.js",
@@ -636,9 +650,11 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 0,
-   "bytes": 6995,
+   "bytes": 7062,
    "tests": [
     "tests/a11y-static.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/feedback.smoke.test.js",
     "tests/home-page-blocks.test.js",
     "tests/home-queue-page.test.js",
@@ -677,10 +693,14 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 128893,
+   "bytes": 130013,
    "tests": [
     "tests/a11y-legacy-ratchet.test.js",
     "tests/a11y-static.test.js",
+    "tests/adoption-lota-labels.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-truth.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/api-key-injection.smoke.test.js",
     "tests/charts-static.test.js",
     "tests/csp-headers.smoke.test.js",
@@ -735,6 +755,7 @@
    "inline_scripts": 2,
    "bytes": 33759,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/csp-journey-report.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -763,7 +784,7 @@
    "parent": "inspections.html",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 45810,
+   "bytes": 46260,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -794,8 +815,9 @@
    "parent": "inspections.html",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 211546,
+   "bytes": 211913,
    "tests": [
+    "tests/adoption-lota-labels.test.js",
     "tests/csp-journey-report.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -827,8 +849,10 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 39566,
+   "bytes": 40887,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-truth.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/home-queue-page.test.js",
     "tests/i18n-coverage.test.js",
@@ -843,7 +867,7 @@
    "id": "PG-integrations",
    "page": "public/integrations.html",
    "requires": [
-    "any"
+    "admin"
    ],
    "in_navigation": true,
    "entry_points": {
@@ -859,9 +883,10 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 17928,
+   "bytes": 18060,
    "tests": [
     "tests/a11y-static.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/i18n-coverage.test.js",
     "tests/shell-navigation.test.js",
     "tests/ui-design-ratchet.test.js"
@@ -890,6 +915,7 @@
    "inline_scripts": 2,
    "bytes": 109850,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/exec-nav-consolidated.test.js",
     "tests/i18n-coverage.test.js",
@@ -962,9 +988,9 @@
    "requires": [
     "any"
    ],
-   "in_navigation": false,
+   "in_navigation": true,
    "entry_points": {
-    "shell": false,
+    "shell": true,
     "module_tab": false,
     "linked_from": [
      "lib/policyCenterPage.js"
@@ -973,12 +999,14 @@
     "deep_link_only": null,
     "known_dead_end": null
    },
-   "parent": "lib/policyCenterPage.js",
+   "parent": "shell",
    "reachable": true,
    "inline_scripts": 0,
    "bytes": 12850,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/i18n-coverage.test.js",
+    "tests/inventory-reachability.test.js",
     "tests/policy-center-catalogue.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
@@ -1049,8 +1077,9 @@
    "parent": "meetings-actions.html",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 84791,
+   "bytes": 85199,
    "tests": [
+    "tests/adoption-lota-labels.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/governance-c15.smoke.test.js",
     "tests/governance-links.test.js",
@@ -1084,7 +1113,7 @@
    "parent": "meetings.html",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 45581,
+   "bytes": 46027,
    "tests": [
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
@@ -1228,8 +1257,9 @@
    "parent": "meetings.html",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 32065,
+   "bytes": 32688,
    "tests": [
+    "tests/adoption-lota-labels.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
     "tests/meeting-status-options.test.js",
@@ -1339,8 +1369,10 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 33931,
+   "bytes": 35691,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-truth.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
     "tests/inventory-strict.test.js",
@@ -1400,6 +1432,7 @@
    "bytes": 11179,
    "tests": [
     "tests/a11y-static.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/i18n-coverage.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
@@ -1427,6 +1460,7 @@
    "inline_scripts": 0,
    "bytes": 3741,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/i18n-coverage.test.js",
     "tests/obligations-decisions.test.js",
     "tests/shell-nav-r4.test.js",
@@ -1458,6 +1492,7 @@
    "bytes": 25419,
    "tests": [
     "tests/a11y-static.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/i18n-coverage.test.js",
     "tests/no-native-dialogs.test.js",
     "tests/p6-decisions-access.smoke.test.js",
@@ -1515,6 +1550,7 @@
    "bytes": 45312,
    "tests": [
     "tests/a11y-static.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/allocation-contract.test.js",
     "tests/chart-a11y.test.js",
     "tests/i18n-coverage.test.js",
@@ -1605,6 +1641,7 @@
    "bytes": 18084,
    "tests": [
     "tests/a11y-static.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/i18n-coverage.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
@@ -1631,10 +1668,13 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 546032,
+   "bytes": 548810,
    "tests": [
     "tests/a11y-legacy-ratchet.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-labels.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/api-key-injection.smoke.test.js",
     "tests/assets-freshness.test.js",
     "tests/auth-roles-refresh.test.js",
@@ -1697,6 +1737,7 @@
    "bytes": 12560,
    "tests": [
     "tests/a11y-static.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/i18n-coverage.test.js",
     "tests/project-page.test.js",
     "tests/ui-design-ratchet.test.js"
@@ -1726,6 +1767,7 @@
    "inline_scripts": 1,
    "bytes": 41652,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/csp-journey-report.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/csp-strict-pages-config.test.js",
@@ -1768,8 +1810,9 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 71960,
+   "bytes": 72289,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
     "tests/landing.test.js",
@@ -1827,6 +1870,7 @@
    "inline_scripts": 1,
    "bytes": 19348,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
     "tests/ui-design-ratchet.test.js"
@@ -1884,6 +1928,7 @@
    "bytes": 15561,
    "tests": [
     "tests/a11y-static.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/i18n-coverage.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
@@ -1908,6 +1953,7 @@
    "inline_scripts": 0,
    "bytes": 2716,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/i18n-coverage.test.js",
     "tests/value-scoreboard-routes.smoke.test.js"
    ]
@@ -1988,6 +2034,7 @@
    "inline_scripts": 3,
    "bytes": 55013,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/agent-inventory.test.js",
     "tests/csp-headers.smoke.test.js",
     "tests/csp-journey-report.test.js",
@@ -2346,7 +2393,7 @@
    "method": "POST",
    "path": "/api/admin/refresh-major-incident-udfs",
    "file": "server.js",
-   "line": 1967,
+   "line": 1969,
    "tests": []
   },
   {
@@ -2364,7 +2411,7 @@
    "method": "POST",
    "path": "/api/ai/analyze",
    "file": "server.js",
-   "line": 3167,
+   "line": 3169,
    "tests": [
     "tests/ai-analyze-guard.test.js",
     "tests/ai-proxy-sanitize.smoke.test.js"
@@ -2377,6 +2424,7 @@
    "file": "routes/opmanager.js",
    "line": 164,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/infra-health-routes.smoke.test.js"
    ]
   },
@@ -2577,6 +2625,7 @@
    "file": "routes/opmanager.js",
    "line": 226,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/opm-routes.smoke.test.js",
     "tests/wan-sla-routes.smoke.test.js",
     "tests/wan-timeup-default.test.js",
@@ -2803,6 +2852,7 @@
    "file": "routes/assets.js",
    "line": 31,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/assets-inventory-usd.smoke.test.js",
     "tests/assets-money-scope.smoke.test.js",
     "tests/assets-routes.smoke.test.js",
@@ -3091,7 +3141,7 @@
    "method": "GET",
    "path": "/api/auth/config",
    "file": "server.js",
-   "line": 3837,
+   "line": 3839,
    "tests": [
     "tests/sdp-manager-probe.test.js",
     "tests/session-security.smoke.test.js",
@@ -3103,7 +3153,7 @@
    "method": "GET",
    "path": "/api/auth/sso/callback",
    "file": "server.js",
-   "line": 3863,
+   "line": 3865,
    "tests": [
     "tests/sso-entra.test.js",
     "tests/sso-routes.smoke.test.js",
@@ -3115,7 +3165,7 @@
    "method": "GET",
    "path": "/api/auth/sso/login",
    "file": "server.js",
-   "line": 3848,
+   "line": 3850,
    "tests": [
     "tests/sso-routes.smoke.test.js"
    ]
@@ -3125,7 +3175,7 @@
    "method": "GET",
    "path": "/api/cab",
    "file": "server.js",
-   "line": 1717,
+   "line": 1719,
    "tests": []
   },
   {
@@ -3133,7 +3183,7 @@
    "method": "POST",
    "path": "/api/cache/clear",
    "file": "server.js",
-   "line": 1939,
+   "line": 1941,
    "tests": [
     "tests/critical-routes.smoke.test.js"
    ]
@@ -3143,7 +3193,7 @@
    "method": "GET",
    "path": "/api/cache/status",
    "file": "server.js",
-   "line": 2072,
+   "line": 2074,
    "tests": [
     "tests/api-key-injection.smoke.test.js",
     "tests/critical-routes.smoke.test.js"
@@ -3154,7 +3204,7 @@
    "method": "GET",
    "path": "/api/change",
    "file": "server.js",
-   "line": 1695,
+   "line": 1697,
    "tests": []
   },
   {
@@ -3204,6 +3254,7 @@
    "file": "routes/connectorHealth.js",
    "line": 31,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/connector-health-routes.smoke.test.js"
    ]
   },
@@ -3212,7 +3263,7 @@
    "method": "GET",
    "path": "/api/dashboard/groups/discovered",
    "file": "server.js",
-   "line": 5352,
+   "line": 5356,
    "tests": [
     "tests/deck-builder-gate.smoke.test.js"
    ]
@@ -3222,8 +3273,9 @@
    "method": "GET",
    "path": "/api/dashboard/presets",
    "file": "server.js",
-   "line": 5307,
+   "line": 5311,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/server-routes-smoke.test.js"
    ]
   },
@@ -3232,8 +3284,9 @@
    "method": "PUT",
    "path": "/api/dashboard/presets",
    "file": "server.js",
-   "line": 5329,
+   "line": 5333,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/server-routes-smoke.test.js"
    ]
   },
@@ -3244,6 +3297,7 @@
    "file": "routes/dashboards.js",
    "line": 210,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -3262,6 +3316,7 @@
    "file": "routes/dashboards.js",
    "line": 206,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -3280,6 +3335,7 @@
    "file": "routes/dashboards.js",
    "line": 242,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -3298,6 +3354,7 @@
    "file": "routes/dashboards.js",
    "line": 285,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -3316,6 +3373,7 @@
    "file": "routes/dashboards.js",
    "line": 274,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -3334,6 +3392,7 @@
    "file": "routes/dashboards.js",
    "line": 261,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -3352,6 +3411,7 @@
    "file": "routes/dashboards.js",
    "line": 164,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -3370,6 +3430,7 @@
    "file": "routes/dashboards.js",
    "line": 168,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -3388,6 +3449,7 @@
    "file": "routes/dashboards.js",
    "line": 295,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -3406,6 +3468,7 @@
    "file": "routes/dashboards.js",
    "line": 156,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -3424,6 +3487,7 @@
    "file": "routes/dashboards.js",
    "line": 221,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -3483,6 +3547,7 @@
    "file": "routes/dashboards.js",
    "line": 74,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/chart-annotations-routes.smoke.test.js",
     "tests/dashboard-composer-page.test.js",
@@ -3499,8 +3564,9 @@
    "method": "GET",
    "path": "/api/data-quality",
    "file": "routes/dataQuality.js",
-   "line": 20,
+   "line": 22,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/data-quality.smoke.test.js"
    ]
   },
@@ -3509,7 +3575,7 @@
    "method": "GET",
    "path": "/api/data/ageing-by-group",
    "file": "server.js",
-   "line": 2877,
+   "line": 2879,
    "tests": []
   },
   {
@@ -3517,7 +3583,7 @@
    "method": "GET",
    "path": "/api/data/ageing-by-site",
    "file": "server.js",
-   "line": 2827,
+   "line": 2829,
    "tests": []
   },
   {
@@ -3525,7 +3591,7 @@
    "method": "GET",
    "path": "/api/data/ageing",
    "file": "server.js",
-   "line": 2355,
+   "line": 2357,
    "tests": [
     "tests/inventory-strict.test.js"
    ]
@@ -3535,7 +3601,7 @@
    "method": "GET",
    "path": "/api/data/cab-approvals",
    "file": "server.js",
-   "line": 2399,
+   "line": 2401,
    "tests": []
   },
   {
@@ -3543,7 +3609,7 @@
    "method": "GET",
    "path": "/api/data/cab-recommendations",
    "file": "server.js",
-   "line": 2421,
+   "line": 2423,
    "tests": []
   },
   {
@@ -3551,7 +3617,7 @@
    "method": "GET",
    "path": "/api/data/change-table",
    "file": "server.js",
-   "line": 2165,
+   "line": 2167,
    "tests": []
   },
   {
@@ -3559,7 +3625,7 @@
    "method": "GET",
    "path": "/api/data/emergency-changes",
    "file": "server.js",
-   "line": 2333,
+   "line": 2335,
    "tests": []
   },
   {
@@ -3567,7 +3633,7 @@
    "method": "GET",
    "path": "/api/data/first-response",
    "file": "server.js",
-   "line": 2198,
+   "line": 2200,
    "tests": []
   },
   {
@@ -3575,7 +3641,7 @@
    "method": "GET",
    "path": "/api/data/group-requests",
    "file": "server.js",
-   "line": 2311,
+   "line": 2313,
    "tests": []
   },
   {
@@ -3583,7 +3649,7 @@
    "method": "GET",
    "path": "/api/data/incident-vs-sr",
    "file": "server.js",
-   "line": 2377,
+   "line": 2379,
    "tests": []
   },
   {
@@ -3591,7 +3657,7 @@
    "method": "GET",
    "path": "/api/data/major-incidents",
    "file": "server.js",
-   "line": 2138,
+   "line": 2140,
    "tests": []
   },
   {
@@ -3599,7 +3665,7 @@
    "method": "GET",
    "path": "/api/data/monthly-summary",
    "file": "server.js",
-   "line": 2782,
+   "line": 2784,
    "tests": []
   },
   {
@@ -3607,8 +3673,9 @@
    "method": "GET",
    "path": "/api/data/requests-raw",
    "file": "server.js",
-   "line": 2759,
+   "line": 2761,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/server-routes-smoke.test.js"
    ]
   },
@@ -3617,7 +3684,7 @@
    "method": "GET",
    "path": "/api/data/sla-by-category",
    "file": "server.js",
-   "line": 2268,
+   "line": 2270,
    "tests": []
   },
   {
@@ -3625,7 +3692,7 @@
    "method": "GET",
    "path": "/api/data/sla-trend",
    "file": "server.js",
-   "line": 2238,
+   "line": 2240,
    "tests": [
     "tests/server-routes-smoke.test.js"
    ]
@@ -3635,7 +3702,7 @@
    "method": "GET",
    "path": "/api/data/submission-channels",
    "file": "server.js",
-   "line": 2717,
+   "line": 2719,
    "tests": [
     "tests/server-routes-smoke.test.js"
    ]
@@ -3645,7 +3712,7 @@
    "method": "GET",
    "path": "/api/debug/raw-test",
    "file": "server.js",
-   "line": 1897,
+   "line": 1899,
    "tests": [
     "tests/sec01-route-roles.smoke.test.js"
    ]
@@ -3786,6 +3853,7 @@
    "file": "routes/engagement.js",
    "line": 78,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/engagement-routes.smoke.test.js"
    ]
   },
@@ -3796,6 +3864,7 @@
    "file": "routes/engagement.js",
    "line": 77,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/engagement-routes.smoke.test.js"
    ]
   },
@@ -3826,6 +3895,7 @@
    "file": "routes/engagement.js",
    "line": 48,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/engagement-routes.smoke.test.js"
    ]
   },
@@ -4003,7 +4073,7 @@
    "method": "POST",
    "path": "/api/executive-new-pptx",
    "file": "server.js",
-   "line": 5167,
+   "line": 5171,
    "tests": [
     "tests/boot-integrity.test.js"
    ]
@@ -4075,6 +4145,7 @@
    "file": "routes/field.js",
    "line": 77,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/field-actions-dialog-browser.test.js",
     "tests/field-queue-badge-browser.test.js",
     "tests/field-review-step-browser.test.js",
@@ -4242,6 +4313,7 @@
    "line": 113,
    "tests": [
     "tests/actuals-import.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/finance-certification.smoke.test.js"
    ]
   },
@@ -4263,6 +4335,7 @@
    "line": 67,
    "tests": [
     "tests/actuals-import.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/finance-certification.smoke.test.js"
    ]
   },
@@ -4274,6 +4347,7 @@
    "line": 95,
    "tests": [
     "tests/actuals-import.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/finance-certification.smoke.test.js"
    ]
   },
@@ -4660,6 +4734,7 @@
    "file": "routes/governance.js",
    "line": 199,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/governance-routes.smoke.test.js"
@@ -4746,6 +4821,7 @@
    "file": "routes/policies.js",
    "line": 146,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/governance-policy-groups.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/governance-roles.smoke.test.js",
@@ -4759,6 +4835,7 @@
    "file": "routes/policies.js",
    "line": 162,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/governance-policy-groups.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/governance-roles.smoke.test.js",
@@ -4774,6 +4851,7 @@
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/actuals-import.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/finance-certification.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
@@ -4815,6 +4893,7 @@
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/actuals-import.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/finance-certification.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
@@ -4856,6 +4935,7 @@
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/actuals-import.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/finance-certification.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
@@ -5223,6 +5303,7 @@
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/actuals-import.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/finance-certification.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
@@ -6614,6 +6695,7 @@
    "file": "routes/governance.js",
    "line": 531,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
     "tests/incubation-rfi-link.smoke.test.js",
@@ -6631,6 +6713,7 @@
    "file": "routes/governance.js",
    "line": 874,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
     "tests/incubation-rfi-link.smoke.test.js",
@@ -6648,6 +6731,7 @@
    "file": "routes/governance.js",
    "line": 502,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
     "tests/incubation-rfi-link.smoke.test.js",
@@ -6665,6 +6749,7 @@
    "file": "routes/governance.js",
    "line": 540,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
     "tests/incubation-rfi-link.smoke.test.js",
@@ -6702,6 +6787,7 @@
    "file": "routes/governance.js",
    "line": 500,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
     "tests/incubation-rfi-link.smoke.test.js",
@@ -6719,6 +6805,7 @@
    "file": "routes/governance.js",
    "line": 501,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
     "tests/incubation-rfi-link.smoke.test.js",
@@ -7276,6 +7363,7 @@
    "file": "routes/handoffs.js",
    "line": 152,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/governance-roles.smoke.test.js",
@@ -7290,6 +7378,7 @@
    "file": "routes/handoffs.js",
    "line": 140,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/governance-roles.smoke.test.js",
@@ -7304,6 +7393,7 @@
    "file": "routes/handoffs.js",
    "line": 110,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/governance-roles.smoke.test.js",
@@ -7328,6 +7418,7 @@
    "file": "routes/handoffs.js",
    "line": 98,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/governance-roles.smoke.test.js",
@@ -7342,6 +7433,7 @@
    "file": "routes/handoffs.js",
    "line": 113,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/governance-policy-routes.smoke.test.js",
     "tests/governance-roles.smoke.test.js",
@@ -7398,6 +7490,7 @@
    "file": "routes/inspection.js",
    "line": 449,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/commitment-source-scope.smoke.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -7426,6 +7519,7 @@
    "file": "routes/softDelete.js",
    "line": 28,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/commitment-source-scope.smoke.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -7454,6 +7548,7 @@
    "file": "routes/inspection.js",
    "line": 401,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/commitment-source-scope.smoke.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -7482,6 +7577,7 @@
    "file": "routes/inspection.js",
    "line": 170,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/commitment-source-scope.smoke.test.js",
     "tests/commitments-routes.smoke.test.js",
@@ -7594,6 +7690,7 @@
    "file": "routes/inspection.js",
    "line": 176,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/inspection-routes.test.js",
@@ -7728,6 +7825,7 @@
    "file": "routes/kpiPolicies.js",
    "line": 185,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/critical-routes.smoke.test.js",
     "tests/kpi-policy-routes.smoke.test.js",
     "tests/uat-amdec-workflows.smoke.test.js"
@@ -7740,6 +7838,7 @@
    "file": "routes/kpiPolicies.js",
    "line": 163,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/critical-routes.smoke.test.js",
     "tests/kpi-policy-routes.smoke.test.js",
     "tests/uat-amdec-workflows.smoke.test.js"
@@ -7752,6 +7851,7 @@
    "file": "routes/kpiPolicies.js",
    "line": 182,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/critical-routes.smoke.test.js",
     "tests/kpi-policy-routes.smoke.test.js",
     "tests/uat-amdec-workflows.smoke.test.js"
@@ -7764,6 +7864,7 @@
    "file": "routes/kpiPolicies.js",
    "line": 150,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/critical-routes.smoke.test.js",
     "tests/kpi-policy-routes.smoke.test.js",
     "tests/uat-amdec-workflows.smoke.test.js"
@@ -7776,6 +7877,7 @@
    "file": "routes/kpiPolicies.js",
    "line": 179,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/critical-routes.smoke.test.js",
     "tests/kpi-policy-routes.smoke.test.js",
     "tests/uat-amdec-workflows.smoke.test.js"
@@ -7838,6 +7940,7 @@
    "file": "routes/kpiPolicies.js",
    "line": 69,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/critical-routes.smoke.test.js",
     "tests/kpi-policy-routes.smoke.test.js",
     "tests/uat-amdec-workflows.smoke.test.js"
@@ -7850,6 +7953,7 @@
    "file": "routes/kpiPolicies.js",
    "line": 170,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/critical-routes.smoke.test.js",
     "tests/kpi-policy-routes.smoke.test.js",
     "tests/uat-amdec-workflows.smoke.test.js"
@@ -7872,6 +7976,7 @@
    "file": "routes/myWork.js",
    "line": 120,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/feedback.smoke.test.js",
     "tests/home-queue-extra-route.smoke.test.js",
     "tests/home-queue-page.test.js",
@@ -7891,6 +7996,7 @@
    "line": 893,
    "tests": [
     "tests/access-revocation.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/critical-routes.smoke.test.js",
     "tests/cross-site-object-writes.smoke.test.js",
@@ -7927,6 +8033,7 @@
    "line": 41,
    "tests": [
     "tests/access-revocation.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/critical-routes.smoke.test.js",
     "tests/cross-site-object-writes.smoke.test.js",
@@ -7963,6 +8070,7 @@
    "line": 408,
    "tests": [
     "tests/access-revocation.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/critical-routes.smoke.test.js",
     "tests/cross-site-object-writes.smoke.test.js",
@@ -7999,6 +8107,7 @@
    "line": 609,
    "tests": [
     "tests/access-revocation.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/critical-routes.smoke.test.js",
     "tests/cross-site-object-writes.smoke.test.js",
@@ -8035,6 +8144,7 @@
    "line": 445,
    "tests": [
     "tests/access-revocation.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/critical-routes.smoke.test.js",
     "tests/cross-site-object-writes.smoke.test.js",
@@ -8070,6 +8180,7 @@
    "file": "routes/meetings.js",
    "line": 346,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
@@ -8086,6 +8197,7 @@
    "file": "routes/meetings.js",
    "line": 322,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
@@ -8255,6 +8367,7 @@
    "line": 169,
    "tests": [
     "tests/access-revocation.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/cross-site-object-writes.smoke.test.js",
     "tests/read-scope-express5.smoke.test.js"
@@ -8396,7 +8509,7 @@
    "method": "POST",
    "path": "/api/meridian/sync",
    "file": "server.js",
-   "line": 3387,
+   "line": 3389,
    "tests": [
     "tests/meridian-retired.test.js"
    ]
@@ -8408,6 +8521,7 @@
    "file": "routes/metrics.js",
    "line": 54,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/analytics-charts.test.js",
     "tests/analytics-logic.test.js",
     "tests/analytics-metrics-authz.smoke.test.js",
@@ -8428,6 +8542,7 @@
    "file": "routes/metrics.js",
    "line": 95,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/analytics-charts.test.js",
     "tests/analytics-logic.test.js",
     "tests/analytics-metrics-authz.smoke.test.js",
@@ -8446,7 +8561,7 @@
    "method": "GET",
    "path": "/api/metrics/cab",
    "file": "server.js",
-   "line": 1774,
+   "line": 1776,
    "tests": [
     "tests/analytics-charts.test.js",
     "tests/analytics-logic.test.js",
@@ -8458,7 +8573,7 @@
    "method": "GET",
    "path": "/api/metrics/change",
    "file": "server.js",
-   "line": 1753,
+   "line": 1755,
    "tests": [
     "tests/analytics-charts.test.js",
     "tests/analytics-logic.test.js",
@@ -8480,7 +8595,7 @@
    "method": "GET",
    "path": "/api/metrics/request-filter-options",
    "file": "server.js",
-   "line": 1847,
+   "line": 1849,
    "tests": [
     "tests/analytics-metrics-authz.smoke.test.js"
    ]
@@ -8490,8 +8605,9 @@
    "method": "GET",
    "path": "/api/metrics/requests",
    "file": "server.js",
-   "line": 1822,
+   "line": 1824,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/analytics-charts.test.js",
     "tests/analytics-logic.test.js",
     "tests/analytics-metrics-authz.smoke.test.js",
@@ -8505,7 +8621,7 @@
    "method": "GET",
    "path": "/api/metrics/survey",
    "file": "server.js",
-   "line": 1795,
+   "line": 1797,
    "tests": [
     "tests/analytics-charts.test.js",
     "tests/analytics-logic.test.js",
@@ -8547,7 +8663,7 @@
    "method": "GET",
    "path": "/api/notes",
    "file": "server.js",
-   "line": 5213,
+   "line": 5217,
    "tests": [
     "tests/sec01-route-roles.smoke.test.js"
    ]
@@ -8557,7 +8673,7 @@
    "method": "POST",
    "path": "/api/notes",
    "file": "server.js",
-   "line": 5224,
+   "line": 5228,
    "tests": [
     "tests/sec01-route-roles.smoke.test.js"
    ]
@@ -8569,6 +8685,7 @@
    "file": "routes/obligations.js",
    "line": 18,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/obligations.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
     "tests/uat-governance-users.smoke.test.js"
@@ -8579,7 +8696,7 @@
    "method": "GET",
    "path": "/api/orgs",
    "file": "server.js",
-   "line": 1888,
+   "line": 1890,
    "tests": [
     "tests/api-key-injection.smoke.test.js",
     "tests/sec01-route-roles.smoke.test.js"
@@ -8590,7 +8707,7 @@
    "method": "GET",
    "path": "/api/ping",
    "file": "server.js",
-   "line": 1580,
+   "line": 1582,
    "tests": [
     "tests/api-key-injection.smoke.test.js",
     "tests/auth-cookie.smoke.test.js",
@@ -8868,6 +8985,7 @@
    "file": "routes/reportStudio.js",
    "line": 80,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/report-release.smoke.test.js",
     "tests/report-studio-routes.smoke.test.js"
    ]
@@ -8879,6 +8997,7 @@
    "file": "routes/reportStudio.js",
    "line": 78,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/report-release.smoke.test.js",
     "tests/report-studio-routes.smoke.test.js"
    ]
@@ -8890,6 +9009,7 @@
    "file": "routes/reportStudio.js",
    "line": 73,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/report-release.smoke.test.js",
     "tests/report-studio-routes.smoke.test.js"
    ]
@@ -8901,6 +9021,7 @@
    "file": "routes/reportStudio.js",
    "line": 77,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/report-release.smoke.test.js",
     "tests/report-studio-routes.smoke.test.js"
    ]
@@ -8910,7 +9031,7 @@
    "method": "GET",
    "path": "/api/reports/:id/action-weeks",
    "file": "server.js",
-   "line": 4064,
+   "line": 4068,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -8919,6 +9040,8 @@
     "tests/action-import-window.smoke.test.js",
     "tests/action-relineage.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/agent-inventory.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -9007,7 +9130,7 @@
    "method": "GET",
    "path": "/api/reports/:id/actions-from/:source_report_id",
    "file": "server.js",
-   "line": 4079,
+   "line": 4083,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -9016,6 +9139,8 @@
     "tests/action-import-window.smoke.test.js",
     "tests/action-relineage.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/agent-inventory.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -9104,7 +9229,7 @@
    "method": "PUT",
    "path": "/api/reports/:id/actions",
    "file": "server.js",
-   "line": 4782,
+   "line": 4786,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -9113,6 +9238,8 @@
     "tests/action-import-window.smoke.test.js",
     "tests/action-relineage.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/agent-inventory.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -9201,7 +9328,7 @@
    "method": "GET",
    "path": "/api/reports/:id/active-incidents",
    "file": "server.js",
-   "line": 4656,
+   "line": 4660,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -9210,6 +9337,8 @@
     "tests/action-import-window.smoke.test.js",
     "tests/action-relineage.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/agent-inventory.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -9298,7 +9427,7 @@
    "method": "GET",
    "path": "/api/reports/:id/asset-followups",
    "file": "server.js",
-   "line": 4168,
+   "line": 4172,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -9307,6 +9436,8 @@
     "tests/action-import-window.smoke.test.js",
     "tests/action-relineage.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/agent-inventory.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -9395,7 +9526,7 @@
    "method": "PUT",
    "path": "/api/reports/:id/asset-review",
    "file": "server.js",
-   "line": 4199,
+   "line": 4203,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -9404,6 +9535,8 @@
     "tests/action-import-window.smoke.test.js",
     "tests/action-relineage.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/agent-inventory.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -9492,7 +9625,7 @@
    "method": "GET",
    "path": "/api/reports/:id/audit",
    "file": "server.js",
-   "line": 4290,
+   "line": 4294,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -9501,6 +9634,8 @@
     "tests/action-import-window.smoke.test.js",
     "tests/action-relineage.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/agent-inventory.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -9589,7 +9724,7 @@
    "method": "GET",
    "path": "/api/reports/:id/carry-over-actions",
    "file": "server.js",
-   "line": 4054,
+   "line": 4058,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -9598,6 +9733,8 @@
     "tests/action-import-window.smoke.test.js",
     "tests/action-relineage.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/agent-inventory.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -9686,7 +9823,7 @@
    "method": "GET",
    "path": "/api/reports/:id/carry-over-infra",
    "file": "server.js",
-   "line": 4277,
+   "line": 4281,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -9695,6 +9832,8 @@
     "tests/action-import-window.smoke.test.js",
     "tests/action-relineage.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/agent-inventory.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -9783,7 +9922,7 @@
    "method": "PUT",
    "path": "/api/reports/:id/helpdesk",
    "file": "server.js",
-   "line": 4718,
+   "line": 4722,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -9792,6 +9931,8 @@
     "tests/action-import-window.smoke.test.js",
     "tests/action-relineage.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/agent-inventory.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -9880,7 +10021,7 @@
    "method": "GET",
    "path": "/api/reports/:id/importable-actions",
    "file": "server.js",
-   "line": 3613,
+   "line": 3615,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -9889,6 +10030,8 @@
     "tests/action-import-window.smoke.test.js",
     "tests/action-relineage.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/agent-inventory.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -9986,6 +10129,8 @@
     "tests/action-import-window.smoke.test.js",
     "tests/action-relineage.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/agent-inventory.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -10074,7 +10219,7 @@
    "method": "PUT",
    "path": "/api/reports/:id/infra",
    "file": "server.js",
-   "line": 4703,
+   "line": 4707,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -10083,6 +10228,8 @@
     "tests/action-import-window.smoke.test.js",
     "tests/action-relineage.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/agent-inventory.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -10180,6 +10327,8 @@
     "tests/action-import-window.smoke.test.js",
     "tests/action-relineage.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/agent-inventory.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -10268,7 +10417,7 @@
    "method": "GET",
    "path": "/api/reports/:id/light-weeks",
    "file": "server.js",
-   "line": 4252,
+   "line": 4256,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -10277,6 +10426,8 @@
     "tests/action-import-window.smoke.test.js",
     "tests/action-relineage.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/agent-inventory.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -10365,7 +10516,7 @@
    "method": "GET",
    "path": "/api/reports/:id/lights-from/:source_report_id",
    "file": "server.js",
-   "line": 4262,
+   "line": 4266,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -10374,6 +10525,8 @@
     "tests/action-import-window.smoke.test.js",
     "tests/action-relineage.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/agent-inventory.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -10462,7 +10615,7 @@
    "method": "PUT",
    "path": "/api/reports/:id/lights",
    "file": "server.js",
-   "line": 4731,
+   "line": 4735,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -10471,6 +10624,8 @@
     "tests/action-import-window.smoke.test.js",
     "tests/action-relineage.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/agent-inventory.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -10559,7 +10714,7 @@
    "method": "GET",
    "path": "/api/reports/:id/open-changes",
    "file": "server.js",
-   "line": 4632,
+   "line": 4636,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -10568,6 +10723,8 @@
     "tests/action-import-window.smoke.test.js",
     "tests/action-relineage.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/agent-inventory.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -10656,7 +10813,7 @@
    "method": "GET",
    "path": "/api/reports/:id/pptx",
    "file": "server.js",
-   "line": 4903,
+   "line": 4907,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -10665,6 +10822,8 @@
     "tests/action-import-window.smoke.test.js",
     "tests/action-relineage.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/agent-inventory.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -10753,7 +10912,7 @@
    "method": "PUT",
    "path": "/api/reports/:id/reassign-week",
    "file": "server.js",
-   "line": 4853,
+   "line": 4857,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -10762,6 +10921,8 @@
     "tests/action-import-window.smoke.test.js",
     "tests/action-relineage.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/agent-inventory.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -10850,7 +11011,7 @@
    "method": "GET",
    "path": "/api/reports/:id/site-open-actions",
    "file": "server.js",
-   "line": 4234,
+   "line": 4238,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -10859,6 +11020,8 @@
     "tests/action-import-window.smoke.test.js",
     "tests/action-relineage.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/agent-inventory.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -10947,7 +11110,7 @@
    "method": "PUT",
    "path": "/api/reports/:id/status",
    "file": "server.js",
-   "line": 4810,
+   "line": 4814,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -10956,6 +11119,8 @@
     "tests/action-import-window.smoke.test.js",
     "tests/action-relineage.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/agent-inventory.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -11044,7 +11209,7 @@
    "method": "DELETE",
    "path": "/api/reports/:id",
    "file": "server.js",
-   "line": 4683,
+   "line": 4687,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -11053,6 +11218,8 @@
     "tests/action-import-window.smoke.test.js",
     "tests/action-relineage.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/agent-inventory.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -11141,7 +11308,7 @@
    "method": "GET",
    "path": "/api/reports/:id",
    "file": "server.js",
-   "line": 4622,
+   "line": 4626,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -11150,6 +11317,8 @@
     "tests/action-import-window.smoke.test.js",
     "tests/action-relineage.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/agent-inventory.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -11238,7 +11407,7 @@
    "method": "POST",
    "path": "/api/reports/action/:uid/merge",
    "file": "server.js",
-   "line": 3544,
+   "line": 3546,
    "tests": [
     "tests/action-relineage.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
@@ -11253,7 +11422,7 @@
    "method": "POST",
    "path": "/api/reports/action/:uid/relineage",
    "file": "server.js",
-   "line": 3589,
+   "line": 3591,
    "tests": [
     "tests/action-relineage.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
@@ -11268,7 +11437,7 @@
    "method": "POST",
    "path": "/api/reports/action/:uid/status",
    "file": "server.js",
-   "line": 3569,
+   "line": 3571,
    "tests": [
     "tests/action-relineage.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
@@ -11283,7 +11452,7 @@
    "method": "POST",
    "path": "/api/reports/action/:uid/unmerge",
    "file": "server.js",
-   "line": 3558,
+   "line": 3560,
    "tests": [
     "tests/action-relineage.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
@@ -11321,7 +11490,7 @@
    "method": "POST",
    "path": "/api/reports/auth/change-password",
    "file": "server.js",
-   "line": 3924,
+   "line": 3926,
    "tests": [
     "tests/critical-routes.smoke.test.js"
    ]
@@ -11331,7 +11500,7 @@
    "method": "POST",
    "path": "/api/reports/auth/login",
    "file": "server.js",
-   "line": 3744,
+   "line": 3746,
    "tests": [
     "tests/auth-cookie.smoke.test.js",
     "tests/export-share-boundary.smoke.test.js",
@@ -11350,7 +11519,7 @@
    "method": "POST",
    "path": "/api/reports/auth/logout",
    "file": "server.js",
-   "line": 3794,
+   "line": 3796,
    "tests": [
     "tests/auth-cookie.smoke.test.js",
     "tests/route-matrix-probe-order.test.js",
@@ -11362,7 +11531,7 @@
    "method": "GET",
    "path": "/api/reports/auth/me",
    "file": "server.js",
-   "line": 3801,
+   "line": 3803,
    "tests": [
     "tests/access-revocation.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -11422,8 +11591,9 @@
    "method": "GET",
    "path": "/api/reports/current-week",
    "file": "server.js",
-   "line": 4000,
+   "line": 4002,
    "tests": [
+    "tests/adoption-lota-week.test.js",
     "tests/critical-routes.smoke.test.js"
    ]
   },
@@ -11432,7 +11602,7 @@
    "method": "DELETE",
    "path": "/api/reports/departments/:id",
    "file": "server.js",
-   "line": 3984,
+   "line": 3986,
    "tests": [
     "tests/departments-routes.smoke.test.js",
     "tests/inventory-strict.test.js",
@@ -11444,7 +11614,7 @@
    "method": "PUT",
    "path": "/api/reports/departments/:id",
    "file": "server.js",
-   "line": 3966,
+   "line": 3968,
    "tests": [
     "tests/departments-routes.smoke.test.js",
     "tests/inventory-strict.test.js",
@@ -11456,7 +11626,7 @@
    "method": "GET",
    "path": "/api/reports/departments",
    "file": "server.js",
-   "line": 3943,
+   "line": 3945,
    "tests": [
     "tests/departments-routes.smoke.test.js",
     "tests/inventory-strict.test.js",
@@ -11468,7 +11638,7 @@
    "method": "POST",
    "path": "/api/reports/departments",
    "file": "server.js",
-   "line": 3953,
+   "line": 3955,
    "tests": [
     "tests/departments-routes.smoke.test.js",
     "tests/inventory-strict.test.js",
@@ -11480,7 +11650,7 @@
    "method": "POST",
    "path": "/api/reports/ensure",
    "file": "server.js",
-   "line": 4031,
+   "line": 4035,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/multi-site-editor.smoke.test.js",
@@ -11494,7 +11664,7 @@
    "method": "GET",
    "path": "/api/reports/exec-editorial",
    "file": "server.js",
-   "line": 3447,
+   "line": 3449,
    "tests": [
     "tests/deck-builder-gate.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js"
@@ -11505,7 +11675,7 @@
    "method": "PUT",
    "path": "/api/reports/exec-editorial",
    "file": "server.js",
-   "line": 3459,
+   "line": 3461,
    "tests": [
     "tests/deck-builder-gate.smoke.test.js",
     "tests/exec-report-editorial-routes.smoke.test.js"
@@ -11516,7 +11686,7 @@
    "method": "POST",
    "path": "/api/reports/exec-pptx",
    "file": "server.js",
-   "line": 5366,
+   "line": 5370,
    "tests": [
     "tests/deck-builder-gate.smoke.test.js"
    ]
@@ -11526,7 +11696,7 @@
    "method": "GET",
    "path": "/api/reports/helpdesk-charts",
    "file": "server.js",
-   "line": 4369,
+   "line": 4373,
    "tests": [
     "tests/report-read-scope.smoke.test.js"
    ]
@@ -11536,7 +11706,7 @@
    "method": "GET",
    "path": "/api/reports/helpdesk-live",
    "file": "server.js",
-   "line": 4310,
+   "line": 4314,
    "tests": []
   },
   {
@@ -11544,7 +11714,7 @@
    "method": "GET",
    "path": "/api/reports/monthly/:site_id/:year/:month/edits",
    "file": "server.js",
-   "line": 5046,
+   "line": 5050,
    "tests": [
     "tests/boot-integrity.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
@@ -11557,7 +11727,7 @@
    "method": "POST",
    "path": "/api/reports/monthly/:site_id/:year/:month/edits",
    "file": "server.js",
-   "line": 5058,
+   "line": 5062,
    "tests": [
     "tests/boot-integrity.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
@@ -11570,7 +11740,7 @@
    "method": "GET",
    "path": "/api/reports/monthly/:site_id/:year/:month/pptx-v2",
    "file": "server.js",
-   "line": 5113,
+   "line": 5117,
    "tests": [
     "tests/boot-integrity.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
@@ -11583,7 +11753,7 @@
    "method": "GET",
    "path": "/api/reports/monthly/:site_id/:year/:month/pptx",
    "file": "server.js",
-   "line": 4966,
+   "line": 4970,
    "tests": [
     "tests/boot-integrity.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
@@ -11596,7 +11766,7 @@
    "method": "GET",
    "path": "/api/reports/monthly/:site_id/:year/:month/site-template/pptx",
    "file": "server.js",
-   "line": 5142,
+   "line": 5146,
    "tests": [
     "tests/boot-integrity.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
@@ -11609,7 +11779,7 @@
    "method": "GET",
    "path": "/api/reports/monthly/:site_id/:year/:month",
    "file": "server.js",
-   "line": 5035,
+   "line": 5039,
    "tests": [
     "tests/boot-integrity.test.js",
     "tests/cross-site-write-sweep.smoke.test.js",
@@ -11622,7 +11792,7 @@
    "method": "GET",
    "path": "/api/reports/monthly/all-sites/:year/:month/pptx",
    "file": "server.js",
-   "line": 4934,
+   "line": 4938,
    "tests": [
     "tests/report-read-scope.smoke.test.js"
    ]
@@ -11632,7 +11802,7 @@
    "method": "GET",
    "path": "/api/reports/objectives/:site_id/:year",
    "file": "server.js",
-   "line": 5091,
+   "line": 5095,
    "tests": [
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js"
@@ -11643,7 +11813,7 @@
    "method": "POST",
    "path": "/api/reports/objectives/:site_id/:year",
    "file": "server.js",
-   "line": 5101,
+   "line": 5105,
    "tests": [
     "tests/cross-site-write-sweep.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js"
@@ -11654,7 +11824,7 @@
    "method": "PUT",
    "path": "/api/reports/recipients/:site",
    "file": "server.js",
-   "line": 3398,
+   "line": 3400,
    "tests": [
     "tests/reporting-routes.smoke.test.js"
    ]
@@ -11664,7 +11834,7 @@
    "method": "POST",
    "path": "/api/reports/recipients/suggest",
    "file": "server.js",
-   "line": 3404,
+   "line": 3406,
    "tests": [
     "tests/reporting-routes.smoke.test.js"
    ]
@@ -11674,7 +11844,7 @@
    "method": "GET",
    "path": "/api/reports/recipients",
    "file": "server.js",
-   "line": 3394,
+   "line": 3396,
    "tests": [
     "tests/reporting-routes.smoke.test.js"
    ]
@@ -11684,9 +11854,10 @@
    "method": "GET",
    "path": "/api/reports/review-data",
    "file": "server.js",
-   "line": 3642,
+   "line": 3644,
    "tests": [
     "tests/access-why.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/authz-enforce.test.js",
     "tests/review-page.smoke.test.js",
     "tests/uat-amdec-org-models.smoke.test.js"
@@ -11697,7 +11868,7 @@
    "method": "GET",
    "path": "/api/reports/schedule",
    "file": "server.js",
-   "line": 3413,
+   "line": 3415,
    "tests": [
     "tests/reporting-routes.smoke.test.js"
    ]
@@ -11707,7 +11878,7 @@
    "method": "PUT",
    "path": "/api/reports/schedule",
    "file": "server.js",
-   "line": 3417,
+   "line": 3419,
    "tests": [
     "tests/reporting-routes.smoke.test.js"
    ]
@@ -11729,7 +11900,7 @@
    "method": "POST",
    "path": "/api/reports/send",
    "file": "server.js",
-   "line": 3696,
+   "line": 3698,
    "tests": [
     "tests/asset-group-route.smoke.test.js",
     "tests/report-send-route.smoke.test.js",
@@ -11797,6 +11968,7 @@
    "file": "routes/siteActions.js",
    "line": 122,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/commitments-routes.smoke.test.js",
     "tests/export-policy-routes.smoke.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
@@ -11813,7 +11985,7 @@
    "method": "GET",
    "path": "/api/reports/site-data",
    "file": "server.js",
-   "line": 3474,
+   "line": 3476,
    "tests": [
     "tests/agent-inventory.test.js",
     "tests/reporting-routes.smoke.test.js",
@@ -11888,7 +12060,7 @@
    "method": "GET",
    "path": "/api/reports/system-log/analytics",
    "file": "server.js",
-   "line": 4597,
+   "line": 4601,
    "tests": [
     "tests/system-log-routes.smoke.test.js"
    ]
@@ -11898,7 +12070,7 @@
    "method": "GET",
    "path": "/api/reports/system-log/export.csv",
    "file": "server.js",
-   "line": 4609,
+   "line": 4613,
    "tests": [
     "tests/export-share-boundary.smoke.test.js",
     "tests/inventory-strict.test.js",
@@ -11910,7 +12082,7 @@
    "method": "GET",
    "path": "/api/reports/system-log/export.json",
    "file": "server.js",
-   "line": 4601,
+   "line": 4605,
    "tests": [
     "tests/system-log-routes.smoke.test.js"
    ]
@@ -11920,8 +12092,9 @@
    "method": "GET",
    "path": "/api/reports/system-log",
    "file": "server.js",
-   "line": 4591,
+   "line": 4595,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/authz-matrix-json.test.js",
     "tests/export-share-boundary.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -11936,7 +12109,7 @@
    "method": "GET",
    "path": "/api/reports/technicians",
    "file": "server.js",
-   "line": 4567,
+   "line": 4571,
    "tests": []
   },
   {
@@ -11959,6 +12132,7 @@
     "tests/access-routes.smoke.test.js",
     "tests/access-why.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/capability-registry.test.js",
     "tests/emergency-access.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -11981,6 +12155,7 @@
     "tests/access-routes.smoke.test.js",
     "tests/access-why.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/capability-registry.test.js",
     "tests/emergency-access.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -12013,6 +12188,7 @@
     "tests/access-routes.smoke.test.js",
     "tests/access-why.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/capability-registry.test.js",
     "tests/emergency-access.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -12035,6 +12211,7 @@
     "tests/access-routes.smoke.test.js",
     "tests/access-why.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/capability-registry.test.js",
     "tests/emergency-access.smoke.test.js",
     "tests/identity-log.smoke.test.js",
@@ -12050,7 +12227,7 @@
    "method": "GET",
    "path": "/api/reports/weekly-summary/:year/:week/pptx",
    "file": "server.js",
-   "line": 4998,
+   "line": 5002,
    "tests": [
     "tests/report-read-scope.smoke.test.js"
    ]
@@ -12071,7 +12248,7 @@
    "method": "GET",
    "path": "/api/reports/yearly/:site_id/:year",
    "file": "server.js",
-   "line": 5081,
+   "line": 5085,
    "tests": [
     "tests/access-revocation.smoke.test.js"
    ]
@@ -12081,7 +12258,7 @@
    "method": "GET",
    "path": "/api/reports",
    "file": "server.js",
-   "line": 4010,
+   "line": 4014,
    "tests": [
     "tests/access-denied-log.smoke.test.js",
     "tests/access-revocation.smoke.test.js",
@@ -12090,6 +12267,8 @@
     "tests/action-import-window.smoke.test.js",
     "tests/action-relineage.smoke.test.js",
     "tests/admin-superadmin-gate.smoke.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/agent-inventory.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/api-key-injection.smoke.test.js",
@@ -12178,7 +12357,7 @@
    "method": "GET",
    "path": "/api/requests",
    "file": "server.js",
-   "line": 1867,
+   "line": 1869,
    "tests": [
     "tests/server-routes-smoke.test.js"
    ]
@@ -12477,7 +12656,7 @@
    "method": "GET",
    "path": "/api/sample/:viewId",
    "file": "server.js",
-   "line": 3197,
+   "line": 3199,
    "tests": [
     "tests/api-sample-guard.smoke.test.js",
     "tests/server-size-budget.test.js"
@@ -12488,7 +12667,7 @@
    "method": "POST",
    "path": "/api/save-charts",
    "file": "server.js",
-   "line": 5238,
+   "line": 5242,
    "tests": [
     "tests/sec01-route-roles.smoke.test.js"
    ]
@@ -12498,7 +12677,7 @@
    "method": "POST",
    "path": "/api/save-pptx",
    "file": "server.js",
-   "line": 5247,
+   "line": 5251,
    "tests": []
   },
   {
@@ -12547,7 +12726,7 @@
    "method": "GET",
    "path": "/api/site-awareness/actions",
    "file": "routes/siteAwareness.js",
-   "line": 285,
+   "line": 290,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -12557,7 +12736,7 @@
    "method": "GET",
    "path": "/api/site-awareness/audit",
    "file": "routes/siteAwareness.js",
-   "line": 518,
+   "line": 523,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -12567,7 +12746,7 @@
    "method": "GET",
    "path": "/api/site-awareness/fleet",
    "file": "routes/siteAwareness.js",
-   "line": 402,
+   "line": 407,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -12587,7 +12766,7 @@
    "method": "GET",
    "path": "/api/site-awareness/inspections",
    "file": "routes/siteAwareness.js",
-   "line": 187,
+   "line": 192,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -12597,7 +12776,7 @@
    "method": "GET",
    "path": "/api/site-awareness/meetings",
    "file": "routes/siteAwareness.js",
-   "line": 241,
+   "line": 246,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -12609,6 +12788,7 @@
    "file": "routes/siteAwareness.js",
    "line": 126,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/business-only-boundary.smoke.test.js",
     "tests/site-awareness-routes.smoke.test.js",
     "tests/uat-amdec-org-models.smoke.test.js"
@@ -12619,7 +12799,7 @@
    "method": "GET",
    "path": "/api/site-awareness/tracker",
    "file": "routes/siteAwareness.js",
-   "line": 346,
+   "line": 351,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -12629,7 +12809,7 @@
    "method": "GET",
    "path": "/api/sites/:siteId/active-incidents",
    "file": "server.js",
-   "line": 4673,
+   "line": 4677,
    "tests": [
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js"
@@ -12640,7 +12820,7 @@
    "method": "GET",
    "path": "/api/sites/:siteId/open-changes",
    "file": "server.js",
-   "line": 4643,
+   "line": 4647,
    "tests": [
     "tests/cross-site-read-sweep.smoke.test.js",
     "tests/cross-site-write-sweep.smoke.test.js"
@@ -12653,6 +12833,7 @@
    "file": "routes/survey.js",
    "line": 674,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/survey-perimeter.smoke.test.js",
     "tests/survey-routes.smoke.test.js"
    ]
@@ -12726,6 +12907,7 @@
    "file": "routes/survey.js",
    "line": 144,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/survey-perimeter.smoke.test.js",
     "tests/survey-routes.smoke.test.js"
    ]
@@ -12768,6 +12950,7 @@
    "file": "routes/survey.js",
    "line": 647,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/survey-perimeter.smoke.test.js",
     "tests/survey-routes.smoke.test.js"
    ]
@@ -12800,7 +12983,7 @@
    "method": "GET",
    "path": "/api/sync/status",
    "file": "server.js",
-   "line": 1589,
+   "line": 1591,
    "tests": [
     "tests/server-routes-smoke.test.js"
    ]
@@ -12810,7 +12993,7 @@
    "method": "POST",
    "path": "/api/sync/trigger/:job",
    "file": "server.js",
-   "line": 1638,
+   "line": 1640,
    "tests": [
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/assets-routes.smoke.test.js",
@@ -12822,7 +13005,7 @@
    "method": "POST",
    "path": "/api/sync/trigger/assets",
    "file": "server.js",
-   "line": 1632,
+   "line": 1634,
    "tests": [
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/assets-routes.smoke.test.js"
@@ -12928,6 +13111,7 @@
    "file": "routes/tracker.js",
    "line": 40,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/multi-site-editor.smoke.test.js",
     "tests/tracker-load-scope.smoke.test.js",
     "tests/tracker-roles-client.test.js",
@@ -12965,7 +13149,7 @@
    "method": "POST",
    "path": "/api/tracker/save",
    "file": "server.js",
-   "line": 3344,
+   "line": 3346,
    "tests": [
     "tests/business-only-boundary.smoke.test.js",
     "tests/tracker-routes.smoke.test.js",
@@ -12981,6 +13165,7 @@
    "file": "routes/trackers.js",
    "line": 154,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -12991,6 +13176,7 @@
    "file": "routes/trackers.js",
    "line": 186,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13001,6 +13187,7 @@
    "file": "routes/trackers.js",
    "line": 197,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13011,6 +13198,7 @@
    "file": "routes/trackers.js",
    "line": 232,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13021,6 +13209,7 @@
    "file": "routes/trackers.js",
    "line": 229,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13031,6 +13220,7 @@
    "file": "routes/trackers.js",
    "line": 221,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13041,6 +13231,7 @@
    "file": "routes/trackers.js",
    "line": 167,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13051,6 +13242,7 @@
    "file": "routes/trackers.js",
    "line": 178,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13061,6 +13253,7 @@
    "file": "routes/trackers.js",
    "line": 180,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13071,6 +13264,7 @@
    "file": "routes/trackers.js",
    "line": 209,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13081,6 +13275,7 @@
    "file": "routes/trackers.js",
    "line": 164,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13091,6 +13286,7 @@
    "file": "routes/trackers.js",
    "line": 212,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13101,6 +13297,7 @@
    "file": "routes/trackers.js",
    "line": 200,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13111,6 +13308,7 @@
    "file": "routes/trackers.js",
    "line": 201,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13121,6 +13319,7 @@
    "file": "routes/trackers.js",
    "line": 179,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13131,6 +13330,7 @@
    "file": "routes/trackers.js",
    "line": 183,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13141,6 +13341,7 @@
    "file": "routes/trackers.js",
    "line": 142,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13151,6 +13352,7 @@
    "file": "routes/trackers.js",
    "line": 145,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13221,6 +13423,7 @@
    "file": "routes/trackers.js",
    "line": 94,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13251,6 +13454,7 @@
    "file": "routes/pageUsage.js",
    "line": 42,
    "tests": [
+    "tests/authz-matrix-json.test.js",
     "tests/page-usage-routes.smoke.test.js",
     "tests/page-usage.test.js"
    ]
@@ -13302,6 +13506,7 @@
    "file": "routes/valueScoreboard.js",
    "line": 37,
    "tests": [
+    "tests/adoption-lota-nav-authz.test.js",
     "tests/value-scoreboard-routes.smoke.test.js"
    ]
   },
@@ -13310,7 +13515,7 @@
    "method": "GET",
    "path": "/api/views",
    "file": "server.js",
-   "line": 1931,
+   "line": 1933,
    "tests": [
     "tests/sec01-route-roles.smoke.test.js"
    ]
@@ -13320,7 +13525,7 @@
    "method": "GET",
    "path": "/api/workspace/me",
    "file": "routes/workspace.js",
-   "line": 38,
+   "line": 40,
    "tests": [
     "tests/home-queue-page.test.js",
     "tests/workspace-mounted.smoke.test.js",
@@ -13334,7 +13539,7 @@
    "method": "DELETE",
    "path": "/api/workspace/prefs",
    "file": "routes/workspace.js",
-   "line": 67,
+   "line": 69,
    "tests": [
     "tests/authz-matrix-json.test.js",
     "tests/workspace-profiles-grants-nothing.smoke.test.js",
@@ -13346,7 +13551,7 @@
    "method": "PUT",
    "path": "/api/workspace/prefs",
    "file": "routes/workspace.js",
-   "line": 52,
+   "line": 54,
    "tests": [
     "tests/authz-matrix-json.test.js",
     "tests/workspace-profiles-grants-nothing.smoke.test.js",
@@ -13358,7 +13563,7 @@
    "method": "GET",
    "path": "/api/workspaces",
    "file": "server.js",
-   "line": 1923,
+   "line": 1925,
    "tests": [
     "tests/api-key-injection.smoke.test.js",
     "tests/sec01-route-roles.smoke.test.js"
@@ -13392,6 +13597,7 @@
    "file": "server.js",
    "line": 1388,
    "tests": [
+    "tests/adoption-lota-truth.test.js",
     "tests/asset-reminder-report.test.js",
     "tests/assets-freshness.test.js",
     "tests/csv-safe.test.js",
@@ -13425,7 +13631,7 @@
    "method": "GET",
    "path": "/data-quality.html",
    "file": "routes/dataQuality.js",
-   "line": 18,
+   "line": 20,
    "tests": [
     "tests/data-quality.smoke.test.js"
    ]
@@ -13642,6 +13848,7 @@
    "file": "routes/myWork.js",
    "line": 118,
    "tests": [
+    "tests/adoption-lota-week.test.js",
     "tests/my-work-route.smoke.test.js",
     "tests/shell-nav-r4.test.js",
     "tests/shell-navigation.test.js",
@@ -13658,6 +13865,9 @@
    "tests": [
     "tests/a11y-legacy-ratchet.test.js",
     "tests/a11y-static.test.js",
+    "tests/adoption-lota-nav-authz.test.js",
+    "tests/adoption-lota-truth.test.js",
+    "tests/adoption-lota-week.test.js",
     "tests/api-key-injection.smoke.test.js",
     "tests/csp-headers.smoke.test.js",
     "tests/csp-journey-report.test.js",
@@ -13720,6 +13930,7 @@
    "file": "server.js",
    "line": 1417,
    "tests": [
+    "tests/adoption-lota-truth.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
   },
@@ -13780,7 +13991,7 @@
    "method": "GET",
    "path": "/meeting.html",
    "file": "server.js",
-   "line": 1454,
+   "line": 1456,
    "tests": [
     "tests/incubation-editor-client.test.js",
     "tests/meeting-status-options.test.js",
@@ -13792,7 +14003,7 @@
    "method": "GET",
    "path": "/meetings-actions.html",
    "file": "server.js",
-   "line": 1456,
+   "line": 1458,
    "tests": [
     "tests/meeting-status-options.test.js",
     "tests/ui-design-ratchet.test.js"
@@ -13803,7 +14014,7 @@
    "method": "GET",
    "path": "/meetings-compliance.html",
    "file": "server.js",
-   "line": 1462,
+   "line": 1464,
    "tests": [
     "tests/ui-design-ratchet.test.js"
    ]
@@ -13813,7 +14024,7 @@
    "method": "GET",
    "path": "/meetings-council.html",
    "file": "server.js",
-   "line": 1461,
+   "line": 1463,
    "tests": [
     "tests/ui-design-ratchet.test.js"
    ]
@@ -13823,7 +14034,7 @@
    "method": "GET",
    "path": "/meetings-import.html",
    "file": "server.js",
-   "line": 1463,
+   "line": 1465,
    "tests": [
     "tests/ui-design-ratchet.test.js"
    ]
@@ -13833,7 +14044,7 @@
    "method": "GET",
    "path": "/meetings-insights.html",
    "file": "server.js",
-   "line": 1465,
+   "line": 1467,
    "tests": [
     "tests/i18n-inline-glossary.test.js",
     "tests/ui-design-ratchet.test.js"
@@ -13844,7 +14055,7 @@
    "method": "GET",
    "path": "/meetings-issues.html",
    "file": "server.js",
-   "line": 1455,
+   "line": 1457,
    "tests": [
     "tests/meeting-status-options.test.js",
     "tests/ui-design-ratchet.test.js"
@@ -13855,7 +14066,7 @@
    "method": "GET",
    "path": "/meetings-progress.html",
    "file": "server.js",
-   "line": 1464,
+   "line": 1466,
    "tests": [
     "tests/ui-design-ratchet.test.js"
    ]
@@ -13865,7 +14076,7 @@
    "method": "GET",
    "path": "/meetings-setup.html",
    "file": "server.js",
-   "line": 1466,
+   "line": 1468,
    "tests": [
     "tests/ui-design-ratchet.test.js"
    ]
@@ -13875,7 +14086,7 @@
    "method": "GET",
    "path": "/meetings-unsigned.html",
    "file": "server.js",
-   "line": 1460,
+   "line": 1462,
    "tests": [
     "tests/ui-design-ratchet.test.js"
    ]
@@ -13885,8 +14096,9 @@
    "method": "GET",
    "path": "/meetings.html",
    "file": "server.js",
-   "line": 1453,
+   "line": 1455,
    "tests": [
+    "tests/adoption-lota-truth.test.js",
     "tests/inventory-strict.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
@@ -13955,6 +14167,7 @@
    "file": "server.js",
    "line": 1366,
    "tests": [
+    "tests/adoption-lota-week.test.js",
     "tests/api-key-injection.smoke.test.js",
     "tests/auth-roles-refresh.test.js",
     "tests/csp-headers.smoke.test.js",
@@ -14000,7 +14213,7 @@
    "method": "GET",
    "path": "/site-actions.html",
    "file": "server.js",
-   "line": 1458,
+   "line": 1460,
    "tests": [
     "tests/csp-journey-report.test.js",
     "tests/csp-strict-pages-config.test.js",
@@ -14038,7 +14251,7 @@
    "method": "GET",
    "path": "/system-logs.html",
    "file": "server.js",
-   "line": 1459,
+   "line": 1461,
    "tests": [
     "tests/ui-design-ratchet.test.js"
    ]
@@ -14095,7 +14308,7 @@
    "method": "GET",
    "path": "/workspace-settings.html",
    "file": "routes/workspace.js",
-   "line": 36,
+   "line": 38,
    "tests": [
     "tests/workspace-mounted.smoke.test.js",
     "tests/workspace-routes.smoke.test.js"

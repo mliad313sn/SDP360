@@ -193,7 +193,9 @@
         { id: 'inspections', group: 'Governance',  label: 'Inspections',        icon: ICON_LIB['clipboard-check'], href: 'inspections.html',      roles: ['any'] },
         { id: 'meetings', group: 'Governance',     label: 'Meetings Decisions', icon: ICON_LIB.users,              href: 'meetings.html',         roles: ['any'] },
         { id: 'site-actions', group: 'Governance', label: 'Site Actions',       icon: ICON_LIB.check,              href: 'site-actions.html',     roles: ['any'] },
-        { id: 'tracker', group: 'Plan & track',      label: 'Activity Tracker',   icon: ICON_LIB.target,             href: 'activity-tracker.html', roles: ['any'] },
+        // Adoption Lot A (item 4): menu roles = the route's roles (routes/tracker.js GET /api/tracker/load requireRole) —
+        // the entry used to show for every profile and 10 of 15 then read a raw English "Forbidden".
+        { id: 'tracker', group: 'Plan & track',      label: 'Activity Tracker',   icon: ICON_LIB.target,             href: 'activity-tracker.html', roles: ['admin', 'tracker-admin', 'tracker-editor'] },
         { id: 'trackers', group: 'Plan & track',     label: 'Trackers',           icon: ICON_LIB.activity,            href: 'trackers.html',         roles: ['any'],
           lean_roles: ['admin', 'tracker-admin', 'dashboard-publisher'], lean_group: 'Configure' },
         { id: 'dashboards', group: 'Report & share',   label: 'Dashboards',         icon: ICON_LIB.gauge,              href: 'dashboards.html',       roles: ['any'] },
@@ -204,12 +206,16 @@
         { id: 'rfi', group: 'Plan & track',          label: 'RFI register',       icon: ICON_LIB.lightbulb,          href: 'rfi.html',              roles: ['any'], lean_hidden: true },
         { id: 'report-studio', group: 'Report & share', label: 'Report studio',     icon: ICON_LIB['file-text'],       href: 'report-studio.html',    roles: ['any'],
           lean_roles: ['editor', 'report-author', 'committee-member', 'finance-viewer', 'scorecard-viewer'] },
-        { id: 'finance', group: 'Report & share',  label: 'Finance certification', icon: ICON_LIB['clipboard-check'], href: 'finance.html',         roles: ['admin', 'finance-viewer', 'finance-verifier'], policy: 'finance_page', lean_hidden: true },
+        // Adoption Lot A (item 4): GET /api/finance/certifications reads money (admin / finance-viewer); a finance-verifier who
+        // cannot read the amounts cannot certify either (routes/finance.js) — the entry follows the read rule.
+        { id: 'finance', group: 'Report & share',  label: 'Finance certification', icon: ICON_LIB['clipboard-check'], href: 'finance.html',         roles: ['admin', 'finance-viewer'], policy: 'finance_page', lean_hidden: true },
         { id: 'notifications', group: 'Report & share', label: 'Notifications',     icon: ICON_LIB['alert-circle'],    href: 'notifications.html',    roles: ['any'], lean_hidden: true },
         { id: 'handoffs', group: 'Governance',     label: 'Handoffs',           icon: ICON_LIB.users,              href: 'handoffs.html',         roles: ['any'], lean_hidden: true },
         { id: 'obligations', group: 'Governance',  label: 'Site obligations',   icon: ICON_LIB['clipboard-check'], href: 'obligations.html',      roles: ['any'], lean_hidden: true },
         { id: 'policies', group: 'Configure',     label: 'Governance policies', icon: ICON_LIB['clipboard-check'], href: 'policies.html',        roles: ['admin', 'committee-member'] },
         { id: 'policy-center', group: 'Configure', label: 'Policy control center', icon: ICON_LIB['clipboard-check'], href: 'policy-center.html', roles: ['admin'], policy: 'policy_center_page', lean_hidden: true },
+        // Adoption Lot A (item 6): the KPI committee's tool had no entry point (URL or Ctrl+K only).
+        { id: 'kpi-builder', group: 'Configure',  label: 'KPI policies',       icon: ICON_LIB['clipboard-check'], href: 'kpi-builder.html',      roles: ['admin', 'kpi-committee'] },
         { id: 'integrations', group: 'Configure', label: 'Integrations',       icon: ICON_LIB.zap,                href: 'integrations.html',     roles: ['admin'] },
         { id: 'connector-health', group: 'Configure', label: 'Connector health', icon: ICON_LIB.zap,              href: 'connector-health.html', roles: ['admin'], policy: 'connector_health_page', lean_hidden: true },
         { id: 'data-quality', group: 'Configure', label: 'Data quality',       icon: ICON_LIB['clipboard-check'], href: 'data-quality.html',     roles: ['admin'], policy: 'data_quality_page' },
@@ -295,7 +301,8 @@
       icon:   ICON_LIB['book-open'],
       href:   'help.html',
       target: '_blank',
-      roles:  ['any'],
+      // Adoption Lot A (item 18): business-only accounts may read the manual too (auth.js lets help.html through).
+      roles:  ['any', 'site-business', 'group-business'],
       title:  'User manual'
     }
   ];
@@ -305,9 +312,9 @@
     if (!Array.isArray(roles)) return false;
     // 'any' grants every logged-in user EXCEPT a business-only account (GM/FM): those see only
     // "Ma Vue Site" (which lists explicit business roles), never the IT-internal 'any' items.
-    if (roles.includes('any')) return !window.__isBusinessOnly;
+    if (roles.includes('any') && !window.__isBusinessOnly) return true;
     const check = window.__userHasRole || (() => false);
-    return roles.some(r => check(r));
+    return roles.some(r => r !== 'any' && check(r));
   }
   // May the user open this page? (drives the finder and workspaces)
   function mayOpen(it) {
@@ -396,7 +403,7 @@
     'Deck Builder': 'Générateur de présentations', 'Executive Home': 'Accueil direction', 'Executive Scorecard': 'Tableau de bord direction',
     'Field app': 'Application terrain', 'Governance policies': 'Règles de gouvernance', 'Policy control center': 'Centre de contrôle des politiques', 'Group IT': 'IT Groupe',
     'Handoffs': 'Demandes inter-services', 'IT Review': 'Revue IT', 'Infrastructure Health': 'Santé des infrastructures',
-    'Inspections': 'Inspections', 'Integrations': 'Intégrations', 'Meeting Cockpit': 'Cockpit de réunion',
+    'Inspections': 'Inspections', 'Integrations': 'Intégrations', 'KPI policies': 'Politiques KPI', 'Meeting Cockpit': 'Cockpit de réunion',
     'Meetings Decisions': 'Réunions et décisions', 'Notifications': 'Notifications', 'Portfolio & projects': 'Portefeuille et projets',
     'Portfolio': 'Portefeuille', 'RFI register': 'Registre des demandes', 'Report studio': 'Studio de rapports', 'Settings': 'Paramètres',
     'Site Actions': 'Actions du site', 'Site IT': 'IT du site', 'Site Overview': 'Vue du site', 'Site Reports': 'Rapports de site',
@@ -413,8 +420,8 @@
     'Find a page — e.g. inspections, portfolio': 'Rechercher une page — ex. inspections, portefeuille',
     'Breadcrumb': "Fil d'Ariane", 'Click to log out': 'Cliquer pour se déconnecter', 'Primary': 'Navigation principale',
     'No page found': 'Aucune page trouvée', 'Language': 'Langue', 'Skip to content': 'Aller au contenu',
-    'Data quality': 'Qualité des données', 'Feedback': 'Retour', 'Send feedback on this page': 'Envoyer un retour sur cette page',
-    'My workspace': 'Mon espace', 'My workspace — profile, order of my pages, density, default site': 'Mon espace — profil, ordre de mes pages, densité, site par défaut',
+    'Data quality': 'Qualité des données', 'Feedback': 'Votre avis', 'Send feedback on this page': 'Donner votre avis sur cette page',
+    'Business': 'Métier', 'My workspace': 'Mon espace', 'My workspace — profile, order of my pages, density, default site': 'Mon espace — profil, ordre de mes pages, densité, site par défaut',
   };
   function shellLang() {
     try { const s = localStorage.getItem('sdp_lang'); if (s === 'fr' || s === 'en') return s; } catch (_) { /* storage blocked */ }
@@ -595,7 +602,8 @@
   function renderUserPill(user) {
     if (!user) return '';
     const name = user.full_name || user.username || '—';
-    const role = user.role || '—';
+    // Adoption Lot A (item 18): a business-only account reads "Métier" / "Business", not its technical tier "viewer".
+    const role = window.__isBusinessOnly ? T('Business') : (user.role || '—');
     return `<div class="shell-user-pill" title="${T('Click to log out')}">
       <span class="shell-user-initial" aria-hidden="true">${escapeHtml(String(name || '?').trim().charAt(0).toUpperCase())}</span>
       <span class="shell-user-name">${escapeHtml(name)}</span>

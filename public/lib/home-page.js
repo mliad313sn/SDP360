@@ -47,13 +47,18 @@
   const nm = blocksOn ? stateHtml('not-measured') : `<span class="hm-nm">${esc(T.nm)}</span>`;
   const row = (k, href, v) => `<li><span class="hm-k">${href ? `<a href="${esc(href)}">${esc(k)}</a>` : esc(k)}</span><span class="hm-v">${v}</span></li>`;
 
+  // Adoption Lot A (item 4): the tracker page reads GET /api/tracker/load (admin / tracker-admin / tracker-editor) —
+  // no link for anyone else (it led to a raw "Forbidden"); the count stays visible.
+  const trackerOk = (() => { try { const h = window.__userHasRole; return !!(h && (h('admin') || h('tracker-admin') || h('tracker-editor'))); } catch (_) { return false; } })();
   function siteCard(s) {
     const code = encodeURIComponent(s.code || '');
     const a = s.actions;
     const actions = !a ? nm : (a.open === 0 ? esc(T.none)
       : `${a.open} ${esc(T.open)}${a.overdue ? ` · <span class="hm-late">${a.overdue} ${esc(T.overdue)}</span>` : ''}${a.oldest_days != null ? ` · ${esc(T.oldest)} ${a.oldest_days} ${esc(T.days)}` : ''}`);
     const w = s.weekly_report;
-    const report = !w ? nm : `${esc(w.week_label || '')} — ${w.status === 'ready' ? `<span class="hm-late">${esc(T.labels[w.label] || w.label)}</span>` : esc(T.labels[w.label] || w.label)}`;
+    // Adoption Lot A (item 3): "W45 (08–14 nov.)" — the same week, labelled with its dates, as the report picker.
+    const wl = w && w.year && w.week && window.ReportingWeek ? window.ReportingWeek.label(w.year, w.week, lang === 'fr' ? 'fr' : 'en') + ' ' + w.year : (w && w.week_label) || '';
+    const report = !w ? nm : `${esc(wl)} — ${w.status === 'ready' ? `<span class="hm-late">${esc(T.labels[w.label] || w.label)}</span>` : esc(T.labels[w.label] || w.label)}`;
     const u = s.unsigned_pvs;
     const pvs = !u ? nm : (u.count === 0 ? esc(T.allSigned) : `<b>${u.count}</b><ul class="hm-pv">${u.items.map((m) => `<li><a href="meeting.html?id=${encodeURIComponent(m.id)}">${esc(m.reference || m.id)}</a> <span class="hm-muted">${esc(m.meeting_date || '')}</span></li>`).join('')}</ul>`);
     const i = s.last_inspection;
@@ -72,7 +77,7 @@
         ${row(T.report, w && w.report_id ? `reports.html?report=${encodeURIComponent(w.report_id)}` : 'reports.html', report)}
         ${row(T.unsigned, s.code ? `meetings-unsigned.html?site=${code}` : 'meetings-unsigned.html', pvs)}
         ${row(T.insp, 'inspections.html', insp)}
-        ${row(T.tracker, 'activity-tracker.html', trk)}
+        ${row(T.tracker, trackerOk ? 'activity-tracker.html' : null, trk)}
         ${row(T.benefits, 'portfolio.html', ben)}
       </ul></section>`;
   }

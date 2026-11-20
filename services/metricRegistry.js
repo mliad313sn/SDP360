@@ -225,7 +225,10 @@ const READERS = {
   async 'tracker.site'(d, { site, win }) {
     const code = (await codeFor(d, site)).tracker_code; if (!code) return null;
     const D = await d.tracker.loadTracker(); if (!D || !(D.activeSites || []).includes(code)) return null;
-    const s = d.trackerScore.ss(D, code, win.year || new Date().getUTCFullYear(), win.month || new Date().getUTCMonth() + 1);
+    const yr = win.year || new Date().getUTCFullYear(), mo = win.month || new Date().getUTCMonth() + 1;
+    // Adoption Lot A (item 2): nothing entered for this month → not measured (null): no RED, no alert.
+    if (require('./trackerMonthState').notEntered(D, code, yr, mo)) return { score_pct: null, g: null, a: null, r: null, not_entered: true };
+    const s = d.trackerScore.ss(D, code, yr, mo);
     return { score_pct: s.active ? Math.round(s.avg * 100) : null, g: s.g, a: s.a, r: s.r };
   },
   async 'tracker.fleet'(d, { win }) {

@@ -85,6 +85,7 @@
     'Replies ÷ closed tickets created in the month': 'Réponses ÷ tickets clos créés dans le mois',
     // runtime (set by the page script)
     '⏳ Exporting…': '⏳ Export en cours…',
+    'Source never synced — not measured': 'Source jamais synchronisée — non mesuré',   // Adoption Lot A (item 1)
   };
-  root.I18N_FR_INDEX_RUNTIME = ['⏳ Exporting…'];
+  root.I18N_FR_INDEX_RUNTIME = ['⏳ Exporting…', 'Source never synced — not measured'];
 })(typeof window !== 'undefined' ? window : globalThis);

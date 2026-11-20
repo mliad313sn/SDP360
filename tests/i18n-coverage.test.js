@@ -36,6 +36,12 @@ const TRANSLATED_PAGES = {
   'meetings-unsigned.html': { dict: 'I18N_FR_MEETINGS_UNSIGNED', file: 'meetings-unsigned.fr.js' },
   'meetings-council.html': { dict: 'I18N_FR_MEETINGS_COUNCIL', file: 'meetings-council.fr.js' },
   'meetings-progress.html': { dict: 'I18N_FR_MEETINGS_PROGRESS', file: 'meetings-progress.fr.js' },
+  // Adoption Lot A (item 11) — the list pages coordinators and technicians open every day (static markup + scope wording).
+  'inspections.html': { dict: 'I18N_FR_INSPECTIONS', file: 'inspections.fr.js' },
+  'inspection-actions.html': { dict: 'I18N_FR_INSPECTION_ACTIONS', file: 'inspection-actions.fr.js' },
+  'meetings.html': { dict: 'I18N_FR_MEETINGS', file: 'meetings.fr.js' },
+  'meetings-actions.html': { dict: 'I18N_FR_MEETINGS_ACTIONS', file: 'meetings-actions.fr.js' },
+  'meetings-issues.html': { dict: 'I18N_FR_MEETINGS_ISSUES', file: 'meetings-issues.fr.js' },
 };
 
 // A-09b — whole regions of a translated page left out of the coverage check, with the reason. Each marker
@@ -134,8 +140,6 @@ const UNTRANSLATED = {
   'connector-health.html': 'P4/A2 admin connector-health board (admin tier only), English with French status words (désarmé)',
   'dashboard-composer.html': 'admin authoring, English', 'report-studio.html': 'report authoring, English',
   'tracker-builder.html': 'admin authoring, English', 'notifications.html': 'not a coordinator field page yet',
-  'inspections.html': 'list page — next pass', 'inspection-actions.html': 'list page — next pass', 'meetings.html': 'list page — next pass',
-  'meetings-actions.html': 'list page — next pass', 'meetings-issues.html': 'list page — next pass',
   'meetings-setup.html': 'admin setup — next pass',
 };
 

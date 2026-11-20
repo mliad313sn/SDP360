@@ -16,6 +16,7 @@
 <link rel="stylesheet" href="module-tabs.css">
 <script nonce="%%CSP_NONCE%%" src="module-tabs.js"></script>
 <script nonce="%%CSP_NONCE%%" src="lib/pageHead.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/siteScope.js"></script>
 
 <style nonce="%%CSP_NONCE%%">
   body {
@@ -503,9 +504,18 @@
     pager:   { page: 1, pageSize: DEFAULT_PAGE_SIZE, total: 0 },
   };
 
+  // Adoption Lot A (item 5): a site-less, non-admin account reads NO site (server scope) — say so instead of "0".
+  const SCOPE = window.SiteScope ? window.SiteScope.of(window.__authUser, window.__userHasRole) : { none: false, canWrite: true };
   function renderKpis(agg) {
     const m = agg.meetings || {};
     const i = agg.issues || {};
+    if (SCOPE.none) {
+      document.getElementById('mdKpis').innerHTML = `<div class="md-kpi md-kpi--neutral" style="grid-column:1/-1">
+        <div class="md-kpi__label">No site in your scope</div>
+        <div class="md-kpi__value">—</div>
+        <div class="md-kpi__sub">Your account reads no site, so these figures are not measured for you. Ask an administrator to add your site.</div></div>`;
+      return;
+    }
     const tiles = [
       { l: 'Meetings YTD',          v: m.total_meetings    || 0, a: 'neutral', s: 'all sites' },
       { l: 'Signed',                v: m.signed_count      || 0, a: 'success', s: 'finalised PVs' },
@@ -558,6 +568,11 @@
         <span></span>
       </div>`;
 
+    if (!rows.length && SCOPE.none) {
+      document.getElementById('mdTable').innerHTML = header + '<div class="md-empty">No site in your scope — no meeting can be listed for your account.</div>';
+      document.getElementById('mdSubcount').textContent = '—';
+      return;
+    }
     if (!rows.length) {
       document.getElementById('mdTable').innerHTML = header + '<div class="md-empty">No meetings match the current filter — try widening the date range or use “+ New meeting”.</div>';
       document.getElementById('mdSubcount').textContent = '0 meetings';
@@ -715,6 +730,9 @@
   // (GET /api/meetings/export.xlsx, requireAdmin) enforces regardless. Dumps
   // every table — Meetings · Issues · Actions · Projects — like the inspection
   // module's full export.
+  // Adoption Lot A (item 5): create / import are hidden from accounts that cannot write (read-only auditor, viewer,
+  // site-less editor) — the server refuses them anyway.
+  if (!SCOPE.canWrite) for (const id of ['mdNewBtn', 'mdImportBtn']) { const b = document.getElementById(id); if (b) b.hidden = true; }
   (function wireExport() {
     const xl = document.getElementById('mdExportBtn');
     if (!xl || !(window.__userHasRole && window.__userHasRole('editor'))) return;   // RBAC lot 4c: limited to their site server-side
@@ -773,5 +791,10 @@
   else reveal();
 })();
 </script>
+<!-- Adoption Lot A (item 11) — French dictionary, INERT unless report_config ui_i18n_pages='1' (boot.js checks window.__uiPolicy). -->
+<script nonce="%%CSP_NONCE%%" src="lib/i18nText.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/i18n/common.fr.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/i18n/meetings.fr.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/i18n/boot.js" data-dict="I18N_FR_MEETINGS"></script>
 </body>
 </html>

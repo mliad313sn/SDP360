@@ -38,7 +38,8 @@ const PROFILE_TASKS = [
   { id: 'pmo', roles: ['committee-member'], site: false, tasks: [
     { en: 'Review the portfolio before the committee', fr: 'Revoir le portefeuille avant le comité', href: 'portfolio.html' },
     { en: 'Run the committee meeting from the cockpit', fr: 'Conduire le comité depuis le cockpit', href: 'cockpit.html' },
-    { en: 'Check the activity tracker of the month', fr: 'Contrôler le suivi des activités du mois', href: 'activity-tracker.html' }] },
+    // Adoption Lot A (item 4): was "Check the activity tracker" — a dead end, the tracker API is admin / tracker-* only.
+    { en: 'Produce the monthly portfolio report', fr: 'Produire le rapport mensuel du portefeuille', href: 'report-studio.html' }] },
   { id: 'finance', roles: ['finance-viewer'], site: false, tasks: [
     { en: 'Read the asset finance (book value, forecast)', fr: 'Lire la finance du parc (valeur comptable, prévision)', href: 'assets.html#finance' },
     { en: 'Compare project budget and actuals', fr: 'Comparer budget et réalisé des projets', href: 'portfolio.html' },

@@ -33,7 +33,9 @@ module.exports = function workspaceRoutes(deps) {
     return all.filter((s) => mine.includes(s.id));
   }
 
-  router.get('/workspace-settings.html', gate, (req, res) => deps.sendHtmlPage(res, 'workspace-settings.html', false, 'Workspace settings unavailable'));
+  // Adoption Lot A (item 4 / review #20): switch off → the French "feature not enabled" page, not a raw {"error":"Not found"}.
+  const pageGate = async (req, res, next) => ((await enabled()) ? next() : res.redirect(302, '/no-access.html?page=workspace-settings&reason=off'));
+  router.get('/workspace-settings.html', pageGate, (req, res) => deps.sendHtmlPage(res, 'workspace-settings.html', false, 'Workspace settings unavailable'));
 
   router.get('/api/workspace/me', requireReportSession, gate, async (req, res) => {
     try {

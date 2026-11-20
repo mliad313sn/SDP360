@@ -132,8 +132,33 @@ test('F02: trackerRag resolves per-site G/A/R + score via tracker-pptx ss/fleetS
   const pp = require('../tracker-pptx');
   const hg = pp.ss(D, 'HGO', 2026, 6);
   assert.deepEqual({ g: t.rows[0].g, a: t.rows[0].a, r: t.rows[0].r, s: t.rows[0].score_pct }, { g: hg.g, a: hg.a, r: hg.r, s: Math.round(hg.avg * 100) });
-  assert.equal(t.fleet.avg_pct, Math.round(pp.fleetStats(D, ['HGO', 'ITY'], 2026, 6).avg * 100));
+  // Adoption Lot A (item 2): ITY typed nothing for June (A1 June = 0, A2 Jan only) → "not entered", out of the fleet mean
+  assert.equal(t.rows[1].not_entered, true); assert.equal(t.rows[1].score_pct, null); assert.equal(t.rows[1].rag, 'NA');
+  assert.equal(t.fleet.avg_pct, Math.round(pp.fleetStats(D, ['HGO'], 2026, 6).avg * 100));
+  assert.equal(t.fleet.not_entered, 1);
   assert.equal(t.totals.g, t.rows.reduce((s, r) => s + r.g, 0));
+});
+
+test('Adoption Lot A (item 2): a month with no entry is "not entered" (never RED, no alert); a partial month is scored as before', async () => {
+  const TMS = require('../services/trackerMonthState');
+  // HGO typed Jan–May, nothing in June → June not entered; MGO typed A1 only in June → partial
+  const D = trackerD({ inputs: { HGO: [[1, 1, 1, 1, 1, 0], [1]], MGO: [[0, 0, 0, 0, 0, 2], [0]] } });
+  assert.equal(TMS.monthState(D, 'HGO', 2026, 6).state, 'not_entered');
+  assert.equal(TMS.monthState(D, 'MGO', 2026, 6).state, 'partial');
+  assert.equal(TMS.monthState(D, 'HGO', 2026, 1).state, 'entered');
+  const pp = require('../tracker-pptx');
+  assert.ok(pp.ss(D, 'HGO', 2026, 6).active > 0, 'before Lot A the empty month still produced a score (year to date)');
+  // registry reader (metrics + the nightly alert tracker.site.red): null score, so rag_in RED never matches
+  const d = { tracker: { loadTracker: async () => D }, trackerScore: pp, codeFor: async () => ({ tracker_code: 'HGO' }) };
+  const v = await MR.READERS['tracker.site'](d, { site: 1, win: { year: 2026, month: 6 } });
+  assert.equal(v.score_pct, null); assert.equal(v.not_entered, true);
+  assert.notEqual(MR.ragFor(reg.get('tracker.site_score_pct'), v.score_pct), 'RED');
+  const vm = await MR.READERS['tracker.site']({ ...d, codeFor: async () => ({ tracker_code: 'MGO' }) }, { site: 2, win: { year: 2026, month: 6 } });
+  assert.equal(vm.score_pct, Math.round(pp.ss(D, 'MGO', 2026, 6).avg * 100), 'partial month: scored exactly as before (rule PROPOSED to the KPI committee)');
+  const r = await DD.resolveWidgets({ def: { widgets: [{ id: 't', type: 'trackerRag', tracker: 'it-activity', layout: L(0, 0) }] },
+    sites: [{ id: 1, name: 'Hounde' }], site: 1, window: '2026-06', reg, dd: dd(D), rdb: null, now: NOW });
+  assert.equal(r.t.rows[0].not_entered, true); assert.equal(r.t.rows[0].rag, 'NA'); assert.equal(r.t.fleet.avg_pct, null);
+  assert.match(R.trackerHtml(r.t), /not entered/); assert.doesNotMatch(R.trackerHtml(r.t), /rag-red|>R</);
 });
 
 test('F02: trackerRag with no input for the period is NO_DATA — not a row of zeros', async () => {

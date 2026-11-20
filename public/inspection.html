@@ -1088,19 +1088,19 @@ body.submission-locked .submit-row::before{
     <div class="section-body">
       <div class="grid grid-4">
         <div class="field">
-          <label>Inspection ID <span class="fr">/ Référence</span></label>
+          <label for="f_id">Inspection ID <span class="fr">/ Référence</span></label>
           <input type="text" id="f_id" class="mono" readonly />
         </div>
         <div class="field">
-          <label>Date <span class="req">*</span></label>
+          <label for="f_date">Date <span class="req">*</span></label>
           <input type="date" id="f_date" required />
         </div>
         <div class="field">
-          <label>Time <span class="fr">/ Heure</span></label>
+          <label for="f_time">Time <span class="fr">/ Heure</span></label>
           <input type="time" id="f_time" />
         </div>
         <div class="field">
-          <label>Type</label>
+          <label for="f_type">Type</label>
           <select id="f_type">
             <option value="Routine">Routine / Routinière</option>
             <option value="Pre-Audit">Pre-Audit / Pré-Audit</option>
@@ -1116,7 +1116,7 @@ body.submission-locked .submit-row::before{
 
       <div class="grid grid-3">
         <div class="field">
-          <label>Site <span class="req">*</span></label>
+          <label for="f_site">Site <span class="req">*</span></label>
           <select id="f_site" required>
             <option value="">— Select / Sélectionner —</option>
             <optgroup label="Mine Sites">
@@ -1138,7 +1138,7 @@ body.submission-locked .submit-row::before{
           </select>
         </div>
         <div class="field">
-          <label>Area / Zone <span class="req">*</span></label>
+          <label for="f_area">Area / Zone <span class="req">*</span></label>
           <select id="f_area">
             <option value="">— Select / Sélectionner —</option>
             <optgroup label="Server / IT Rooms">
@@ -1180,7 +1180,7 @@ body.submission-locked .submit-row::before{
           </select>
         </div>
         <div class="field">
-          <label>Specific Location <span class="fr">/ Localisation précise</span></label>
+          <label for="f_loc">Specific Location <span class="fr">/ Localisation précise</span></label>
           <div class="input-with-mic">
             <input type="text" id="f_loc" placeholder="e.g. Building B-2, Rack R-04" />
             <button class="mic-btn mic-btn-input" type="button" title="Tap to dictate / Appuyer pour dicter" onclick="toggleDictationField('f_loc', this)">🎤</button>
@@ -1192,7 +1192,7 @@ body.submission-locked .submit-row::before{
 
       <div class="grid grid-3">
         <div class="field">
-          <label>Lead Inspector <span class="req">*</span></label>
+          <label for="f_inspector">Lead Inspector <span class="req">*</span></label>
           <div class="combobox" data-combobox="people" data-target="f_inspector" data-sheet-title="Pick lead inspector / Choisir l'inspecteur">
             <input type="text" id="f_inspector" placeholder="Pick a technician or type a name" autocomplete="off" />
             <button type="button" class="combobox-chevron" tabindex="-1" aria-label="Show suggestions">▾</button>
@@ -1200,11 +1200,11 @@ body.submission-locked .submit-row::before{
           </div>
         </div>
         <div class="field">
-          <label>Role <span class="fr">/ Fonction</span></label>
+          <label for="f_role">Role <span class="fr">/ Fonction</span></label>
           <input type="text" id="f_role" list="insp_roles_list" placeholder="e.g. Site IT Manager, Group IT, IT Coordinator" />
         </div>
         <div class="field">
-          <label>Accompanied by <span class="fr">/ Accompagné par</span></label>
+          <label for="f_witness">Accompanied by <span class="fr">/ Accompagné par</span></label>
           <div class="combobox" data-combobox="people" data-target="f_witness" data-sheet-title="Pick accompanying person / Choisir l'accompagnant">
             <input type="text" id="f_witness" placeholder="Pick a technician or type a name" autocomplete="off" />
             <button type="button" class="combobox-chevron" tabindex="-1" aria-label="Show suggestions">▾</button>
@@ -1217,7 +1217,7 @@ body.submission-locked .submit-row::before{
 
       <div class="grid grid-2">
         <div class="field">
-          <label>Weather / Conditions</label>
+          <label for="f_weather">Weather / Conditions</label>
           <input type="text" id="f_weather" list="weather_presets" placeholder="Pick a preset or type your own" />
           <datalist id="weather_presets">
             <option value="Hot dry, dusty / Saison sèche, poussière"></option>
@@ -1232,13 +1232,13 @@ body.submission-locked .submit-row::before{
           </datalist>
         </div>
         <div class="field">
-          <label>Last Inspection Date <span class="fr">/ Dernière inspection</span></label>
+          <label for="f_lastdate">Last Inspection Date <span class="fr">/ Dernière inspection</span></label>
           <input type="date" id="f_lastdate" />
         </div>
       </div>
 
       <div class="field field-with-mic" style="margin-top:14px">
-        <label>Scope &amp; Objectives <span class="fr">/ Périmètre &amp; objectifs</span></label>
+        <label for="f_scope">Scope &amp; Objectives <span class="fr">/ Périmètre &amp; objectifs</span></label>
         <textarea id="f_scope" placeholder="Briefly describe what is being inspected and why / Décrire brièvement le périmètre et les motifs"></textarea>
         <button class="mic-btn" type="button" title="Tap to dictate / Appuyer pour dicter" onclick="toggleDictationField('f_scope',this)">🎤</button>
       </div>
@@ -1268,7 +1268,7 @@ body.submission-locked .submit-row::before{
     </div>
 
     <div class="filter-bar">
-      <input type="text" id="searchBox" placeholder="🔍 Search items / Rechercher (e.g. fire, battery, leaky, VSAT...)" oninput="applyFilters()" />
+      <input type="text" id="searchBox" aria-label="Search checklist items" placeholder="🔍 Search items / Rechercher (e.g. fire, battery, leaky, VSAT...)" oninput="applyFilters()" />
       <div class="filter-chips" id="filterChips">
         <button class="chip active" data-filter="all" onclick="setFilter('all')">All <span class="n" id="cnt_all">0</span></button>
         <button class="chip" data-filter="issues" onclick="setFilter('issues')" style="border-color:#fca5a5;color:#7f1d1d">Issues only <span class="n" id="cnt_issues">0</span></button>
@@ -1292,7 +1292,7 @@ body.submission-locked .submit-row::before{
 
       <div class="grid grid-2">
         <div class="field">
-          <label>Overall Risk Rating <span class="fr">/ Niveau de risque global</span></label>
+          <label for="f_risk">Overall Risk Rating <span class="fr">/ Niveau de risque global</span></label>
           <select id="f_risk">
             <option value="">— Select —</option>
             <option>🟢 Low / Faible</option>
@@ -1302,7 +1302,7 @@ body.submission-locked .submit-row::before{
           </select>
         </div>
         <div class="field">
-          <label>Operational Impact <span class="fr">/ Impact opérationnel</span></label>
+          <label for="f_impact">Operational Impact <span class="fr">/ Impact opérationnel</span></label>
           <select id="f_impact">
             <option value="">— Select —</option>
             <option>None / Aucun</option>
@@ -1315,13 +1315,13 @@ body.submission-locked .submit-row::before{
       </div>
 
       <div class="field field-with-mic" style="margin-top:14px">
-        <label>Key Observations <span class="fr">/ Observations clés</span></label>
+        <label for="f_obs">Key Observations <span class="fr">/ Observations clés</span></label>
         <textarea id="f_obs" rows="4" placeholder="Top findings, themes, root causes / Constats principaux, thèmes, causes"></textarea>
         <button class="mic-btn" type="button" title="Tap to dictate / Appuyer pour dicter" onclick="toggleDictationField('f_obs',this)">🎤</button>
       </div>
 
       <div class="field field-with-mic" style="margin-top:14px">
-        <label>Positive Findings <span class="fr">/ Points positifs</span></label>
+        <label for="f_pos">Positive Findings <span class="fr">/ Points positifs</span></label>
         <textarea id="f_pos" rows="2" placeholder="What is working well / Ce qui fonctionne bien"></textarea>
         <button class="mic-btn" type="button" title="Tap to dictate / Appuyer pour dicter" onclick="toggleDictationField('f_pos',this)">🎤</button>
       </div>
@@ -1364,8 +1364,8 @@ body.submission-locked .submit-row::before{
         <div class="sign-box">
           <strong style="font-size:12px;text-transform:uppercase;letter-spacing:.8px">Inspector / Inspecteur</strong>
           <div class="grid grid-2" style="margin-top:10px">
-            <div class="field"><label>Name</label><input type="text" id="sign_insp_name" /></div>
-            <div class="field"><label>Date</label><input type="date" id="sign_insp_date" /></div>
+            <div class="field"><label for="sign_insp_name">Name</label><input type="text" id="sign_insp_name" /></div>
+            <div class="field"><label for="sign_insp_date">Date</label><input type="date" id="sign_insp_date" /></div>
           </div>
           <label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-2);margin:10px 0 4px">Signature</label>
           <canvas class="sig-pad" id="sig_inspector" data-key="sig_inspector" width="800" height="120"></canvas>
@@ -1377,8 +1377,8 @@ body.submission-locked .submit-row::before{
         <div class="sign-box">
           <strong style="font-size:12px;text-transform:uppercase;letter-spacing:.8px">Site Acknowledgement / Validation Site</strong>
           <div class="grid grid-2" style="margin-top:10px">
-            <div class="field"><label>Name</label><input type="text" id="sign_site_name" /></div>
-            <div class="field"><label>Date</label><input type="date" id="sign_site_date" /></div>
+            <div class="field"><label for="sign_site_name">Name</label><input type="text" id="sign_site_name" /></div>
+            <div class="field"><label for="sign_site_date">Date</label><input type="date" id="sign_site_date" /></div>
           </div>
           <label style="display:block;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.8px;color:var(--ink-2);margin:10px 0 4px">Signature</label>
           <canvas class="sig-pad" id="sig_site" data-key="sig_site" width="800" height="120"></canvas>
@@ -1390,7 +1390,7 @@ body.submission-locked .submit-row::before{
       </div>
 
       <div class="field" style="margin-top:18px">
-        <label>Distribution / Diffusion</label>
+        <label for="f_dist">Distribution / Diffusion</label>
         <input type="text" id="f_dist" placeholder="Site IT Manager, Group IT, GM, HSE, ..." />
       </div>
     </div>

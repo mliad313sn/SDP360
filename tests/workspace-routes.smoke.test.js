@@ -61,7 +61,7 @@ test('migration 078 created user_workspace_prefs with its foreign keys', async (
 
 test('off (default) → page and every API route answer 404, nothing is written', async () => {
   assert.equal((await reportConfig.getConfig(rdb.db)).workspace_profiles_enabled, '0');
-  assert.equal((await req('GET', '/workspace-settings.html')).status, 404);
+  assert.equal((await req('GET', '/workspace-settings.html')).status, 302, 'Adoption Lot A: the French "not enabled" page, not a raw 404');
   assert.equal(pageCalls, 0);
   assert.equal((await req('GET', '/api/workspace/me', tokens['wsp-viewer'])).status, 404);
   assert.equal((await req('PUT', '/api/workspace/prefs', tokens['wsp-viewer'], { profile: 'reader' })).status, 404);

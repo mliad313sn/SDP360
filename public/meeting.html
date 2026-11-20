@@ -478,74 +478,74 @@
 
         <div class="pv-row pv-row--three">
           <div class="pv-field">
-            <label>Site <em>· Site</em><span class="req">*</span></label>
+            <label for="hSite">Site <em>· Site</em><span class="req">*</span></label>
             <select id="hSite"></select>
           </div>
           <div class="pv-field">
-            <label>Department <em>· Département</em><span class="req">*</span></label>
+            <label for="hDept">Department <em>· Département</em><span class="req">*</span></label>
             <select id="hDept"></select>
           </div>
           <div class="pv-field">
-            <label>Intake source <em>· Origine</em></label>
+            <label for="hIntake">Intake source <em>· Origine</em></label>
             <select id="hIntake"></select>
           </div>
         </div>
 
         <div class="pv-row pv-row--three">
           <div class="pv-field">
-            <label><span data-only="pv">Meeting date <em>· Date de réunion</em></span><span data-only="inc">Session start <em>· Début de session</em></span><span class="req">*</span></label>
+            <label for="hDate"><span data-only="pv">Meeting date <em>· Date de réunion</em></span><span data-only="inc">Session start <em>· Début de session</em></span><span class="req">*</span></label>
             <input type="date" id="hDate">
           </div>
           <div class="pv-field" data-only="inc">
-            <label>Session end <em>· Fin de session</em></label>
+            <label for="incEnd">Session end <em>· Fin de session</em></label>
             <input type="date" id="incEnd">
           </div>
           <div class="pv-field" data-only="pv">
-            <label>Duration (minutes) <em>· Durée</em></label>
+            <label for="hDuration">Duration (minutes) <em>· Durée</em></label>
             <input type="number" id="hDuration" min="0" step="5" placeholder="60">
           </div>
           <div class="pv-field">
-            <label>Meeting status <em>· Statut</em></label>
+            <label for="hStatus">Meeting status <em>· Statut</em></label>
             <select id="hStatus"></select>
           </div>
         </div>
 
         <div class="pv-row pv-row--three" data-only="inc">
           <div class="pv-field">
-            <label>Incubatee <em>· Incubé</em></label>
+            <label for="incIncubator">Incubatee <em>· Incubé</em></label>
             <input type="text" id="incIncubator" placeholder="Business person hosted in IT">
           </div>
           <div class="pv-field">
-            <label>Incubatee title <em>· Fonction de l'incubé</em></label>
+            <label for="incIncubatorTitle">Incubatee title <em>· Fonction de l'incubé</em></label>
             <input type="text" id="incIncubatorTitle" placeholder="Geologist, Mine planner, …">
           </div>
           <div class="pv-field">
-            <label>Duration <em>· Durée</em></label>
+            <label for="incDuration">Duration <em>· Durée</em></label>
             <input type="text" id="incDuration" placeholder="e.g. 2 days · 2 jours">
           </div>
         </div>
 
         <div class="pv-row">
           <div class="pv-field">
-            <label><span data-only="pv">Department head <em>· Chef de département</em></span><span data-only="inc">Incubation manager <em>· Manager d'incubation</em></span></label>
+            <label for="hDeptHead"><span data-only="pv">Department head <em>· Chef de département</em></span><span data-only="inc">Incubation manager <em>· Manager d'incubation</em></span></label>
             <input type="text" id="hDeptHead" list="pvPeopleList" placeholder="Full name">
           </div>
           <div class="pv-field" data-only="pv">
-            <label>Title <em>· Fonction</em></label>
+            <label for="hDeptHeadTitle">Title <em>· Fonction</em></label>
             <input type="text" id="hDeptHeadTitle" placeholder="Mining Manager, Plant Superintendent, …">
           </div>
         </div>
 
         <div class="pv-row pv-row--single">
           <div class="pv-field">
-            <label><span data-only="pv">Site IT Lead <em>· Pilote IT site</em></span><span data-only="inc">IT manager <em>· Manager IT</em></span></label>
+            <label for="hItLead"><span data-only="pv">Site IT Lead <em>· Pilote IT site</em></span><span data-only="inc">IT manager <em>· Manager IT</em></span></label>
             <input type="text" id="hItLead" list="pvPeopleList" placeholder="Full name">
           </div>
         </div>
 
         <div class="pv-row pv-row--single">
           <div class="pv-field">
-            <label>Other attendees <em>· Autres participants</em></label>
+            <label for="hAttendees">Other attendees <em>· Autres participants</em></label>
             <textarea id="hAttendees" placeholder="One per line, or comma-separated"></textarea>
           </div>
         </div>
@@ -570,7 +570,7 @@
         </div>
         <div class="pv-row pv-row--single">
           <div class="pv-field">
-            <label>Description <em>· Description</em></label>
+            <label for="incDesc">Description <em>· Description</em></label>
             <textarea id="incDesc" style="min-height:110px" placeholder="One paragraph describing the department or occupation"></textarea>
           </div>
         </div>
@@ -602,19 +602,19 @@
         </div>
         <div class="pv-row pv-row--single">
           <div class="pv-field">
-            <label>Priority 1 <em>· Priorité 1</em></label>
+            <label for="hPrio1">Priority 1 <em>· Priorité 1</em></label>
             <textarea id="hPrio1" placeholder="e.g. Reduce truck downtime by 20 % this quarter."></textarea>
           </div>
         </div>
         <div class="pv-row pv-row--single">
           <div class="pv-field">
-            <label>Priority 2 <em>· Priorité 2</em></label>
+            <label for="hPrio2">Priority 2 <em>· Priorité 2</em></label>
             <textarea id="hPrio2"></textarea>
           </div>
         </div>
         <div class="pv-row pv-row--single">
           <div class="pv-field">
-            <label>Priority 3 <em>· Priorité 3</em></label>
+            <label for="hPrio3">Priority 3 <em>· Priorité 3</em></label>
             <textarea id="hPrio3"></textarea>
           </div>
         </div>
@@ -668,22 +668,22 @@
 
         <div class="pv-row">
           <div class="pv-field">
-            <label><span data-only="pv">Dept Head signed at <em>· Chef département signé le</em></span><span data-only="inc">Incubation manager signed at <em>· Manager d'incubation signé le</em></span></label>
+            <label for="hDeptHeadSigned"><span data-only="pv">Dept Head signed at <em>· Chef département signé le</em></span><span data-only="inc">Incubation manager signed at <em>· Manager d'incubation signé le</em></span></label>
             <input type="text" id="hDeptHeadSigned" readonly>
           </div>
           <div class="pv-field">
-            <label><span data-only="pv">Site IT Lead signed at <em>· Pilote IT signé le</em></span><span data-only="inc">IT manager signed at <em>· Manager IT signé le</em></span></label>
+            <label for="hItLeadSigned"><span data-only="pv">Site IT Lead signed at <em>· Pilote IT signé le</em></span><span data-only="inc">IT manager signed at <em>· Manager IT signé le</em></span></label>
             <input type="text" id="hItLeadSigned" readonly>
           </div>
         </div>
 
         <div class="pv-row">
           <div class="pv-field">
-            <label><span data-only="pv">Next meeting date <em>· Date prochaine réunion</em></span><span data-only="inc">Next session <em>· Prochaine session</em></span></label>
+            <label for="hNextDate"><span data-only="pv">Next meeting date <em>· Date prochaine réunion</em></span><span data-only="inc">Next session <em>· Prochaine session</em></span></label>
             <input type="date" id="hNextDate">
           </div>
           <div class="pv-field">
-            <label>Next meeting location <em>· Lieu prochaine réunion</em></label>
+            <label for="hNextLoc">Next meeting location <em>· Lieu prochaine réunion</em></label>
             <input type="text" id="hNextLoc" placeholder="Site / Teams / Hybrid">
           </div>
         </div>
@@ -728,18 +728,18 @@
         </div>
         <div class="pv-row pv-row--single" style="margin-bottom:8px">
           <div class="pv-field">
-            <label>Target issue</label>
+            <label for="pvQuickIssue">Target issue</label>
             <select id="pvQuickIssue"><option value="">—</option></select>
           </div>
         </div>
         <div class="pv-row pv-row--single" style="margin-bottom:8px">
           <div class="pv-field">
-            <label>Status change <em>· optional</em></label>
+            <label for="pvQuickStatus">Status change <em>· optional</em></label>
             <select id="pvQuickStatus"><option value="">— keep current —</option></select>
           </div>
         </div>
         <div class="pv-quick__head">Comment</div>
-        <textarea id="pvQuickBody" placeholder="What changed since last meeting?"></textarea>
+        <textarea id="pvQuickBody" aria-label="Comment" placeholder="What changed since last meeting?"></textarea>
         <div class="pv-quick__foot">
           <button class="btn-primary" type="button" id="pvQuickPost">Post</button>
         </div>

@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 5600,
+ "total": 5634,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 18,
@@ -171,7 +171,7 @@
   "dashboard-shared-sla-rates.test.js": 5,
   "dashboard-store.test.js": 5,
   "dashboard-time-truth.test.js": 12,
-  "dashboard-widget-truth.test.js": 13,
+  "dashboard-widget-truth.test.js": 14,
   "dashboard-widgets.test.js": 11,
   "dashboards-routes.smoke.test.js": 9,
   "dashkey-only-routes.smoke.test.js": 6,
@@ -296,7 +296,7 @@
   "html-lang-mirror.test.js": 4,
   "html-pages-before-static.test.js": 2,
   "http-error.test.js": 6,
-  "i18n-coverage.test.js": 49,
+  "i18n-coverage.test.js": 59,
   "i18n-inline-glossary.test.js": 5,
   "i18n-shell-charts.test.js": 7,
   "i18n-text.test.js": 6,
@@ -330,7 +330,7 @@
   "installer-secrets-key.test.js": 7,
   "installer-upgrade-order.test.js": 11,
   "installer-v2-static.test.js": 13,
-  "integrations-plan-gate.smoke.test.js": 3,
+  "integrations-plan-gate.smoke.test.js": 4,
   "inventory-reachability.test.js": 4,
   "inventory-strict.test.js": 6,
   "it-review-tokens.test.js": 3,
@@ -681,7 +681,7 @@
   "site-actions-register.test.js": 15,
   "site-actions-routes.smoke.test.js": 5,
   "site-awareness-roles.test.js": 2,
-  "site-awareness-routes.smoke.test.js": 14,
+  "site-awareness-routes.smoke.test.js": 15,
   "site-code-onboarding.test.js": 5,
   "site-code-registry.smoke.test.js": 2,
   "site-code-shadow.test.js": 5,
@@ -869,6 +869,10 @@
   "ppm-intake-ui.test.js": 4,
   "ppm-intake.smoke.test.js": 6,
   "policy-center-catalogue.test.js": 6,
-  "policy-center-routes.smoke.test.js": 6
+  "policy-center-routes.smoke.test.js": 6,
+  "adoption-lota-week.test.js": 5,
+  "adoption-lota-nav-authz.test.js": 3,
+  "adoption-lota-truth.test.js": 7,
+  "adoption-lota-labels.test.js": 6
  }
 }

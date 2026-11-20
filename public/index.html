@@ -164,6 +164,7 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
 <script src="lib/siteAliases.js"></script>
 <script src="lib/slaDual.js"></script>
 <script src="lib/dashboard-shared.js"></script>
+<script src="lib/reportingWeek.js"></script>
 <script src="lib/trustLabel.js"></script>
 <!-- EDV brand tokens MUST load before _shell.css so the shell CSS variables resolve -->
 <link rel="stylesheet" href="fonts.css">
@@ -238,7 +239,7 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
   </div>
   <span class="filter-sep"></span>
   <span class="filter-label">Site</span>
-  <select class="flt" id="fSite" onchange="applyFilters()"><option value="all">All Sites</option></select>
+  <select class="flt" id="fSite" aria-label="Site" onchange="applyFilters()"><option value="all">All Sites</option></select>
   <span class="filter-sep"></span>
   <span class="filter-label">Group</span>
   <div class="grp-widget" id="grpWidget">
@@ -259,10 +260,10 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
   </div>
   <span class="filter-sep"></span>
   <span class="filter-label">Category</span>
-  <select class="flt" id="fCat" onchange="applyFilters()"><option value="all">All Categories</option></select>
+  <select class="flt" id="fCat" aria-label="Category" onchange="applyFilters()"><option value="all">All Categories</option></select>
   <span class="filter-sep"></span>
   <span class="filter-label">Priority</span>
-  <select class="flt" id="fPri" onchange="applyFilters()">
+  <select class="flt" id="fPri" aria-label="Priority" onchange="applyFilters()">
     <option value="all">All Priorities</option>
     <option value="Critical">Critical</option>
     <option value="High">High</option>
@@ -271,7 +272,7 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
   </select>
   <span class="filter-sep"></span>
   <span class="filter-label" id="periodLabel">Report Week</span>
-  <select class="flt" id="fPeriod" onchange="applyFilters()" style="min-width:200px"></select>
+  <select class="flt" id="fPeriod" aria-labelledby="periodLabel" onchange="applyFilters()" style="min-width:200px"></select>
   <span class="filter-sep"></span>
   <!-- 4 multi-select filters added 2026-06-09 (status/type/impact/mode).
        Each widget uses the same dropdown-checkbox pattern as the Group
@@ -326,7 +327,7 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
   </div>
   <span class="filter-sep"></span>
   <span class="filter-label">Trend</span>
-  <select class="flt" id="fTrend" onchange="applyFilters()" style="min-width:100px">
+  <select class="flt" id="fTrend" aria-label="Trend" onchange="applyFilters()" style="min-width:100px">
     <option value="8">8 wks</option>
     <option value="12" selected>12 wks</option>
     <option value="16">16 wks</option>
@@ -540,7 +541,12 @@ function lastCompleteWk(){
 function fmtD(d){return d.toLocaleDateString('en-GB',{day:'2-digit',month:'short'});}
 function wkLabel(yr,wk){
   const s=wkStart(yr,wk),e=wkEnd(yr,wk);
-  return 'W'+String(wk).padStart(2,'0')+' '+yr+'  ('+fmtD(s)+'–'+fmtD(e)+')';
+  // Adoption Lot A (item 3): the week in progress (this dashboard's default, live tickets) and the week the weekly
+  // report is due (Home + report picker) say which is which — same helper as Home and reports.html.
+  let tag='';
+  try{const RW=window.ReportingWeek,n=new Date(),c=RW.currentWeek(n),d=RW.dueWeek(n),fr=(document.documentElement.lang||'').startsWith('fr');
+    if(+yr===c.year&&+wk===c.week)tag=fr?' · en cours':' · in progress';else if(+yr===d.year&&+wk===d.week)tag=fr?' · rapport dû':' · report due';}catch(_){tag='';}
+  return 'W'+String(wk).padStart(2,'0')+' '+yr+'  ('+fmtD(s)+'–'+fmtD(e)+')'+tag;
 }
 
 // ── Date parser  "15 Dec 2024, 08:34:03 AM" ───────────────────────────────
@@ -788,6 +794,12 @@ function deltaAbs(cur,prev,loBetter,u){
 function setH(id,v){const e=document.getElementById(id);if(e)e.innerHTML=v;}
 
 function renderKPIs(r,c){
+  // Adoption Lot A (item 1): no ticket ever loaded AND no data date = the ServiceDesk source never synced → every tile
+  // reads "—" (not measured), never a 0 that looks like a quiet week.
+  if(!RAW.length&&!window.__dataTs){
+    ['inbound','closed','frsla','ressla','assign','reply','res','close'].forEach(k=>{setH('k-'+k,'—');setH('k-'+k+'-sub','Source never synced — not measured');});
+    return;
+  }
   const cLbl=' vs '+pCmpLabel(CMP_P);
   setH('k-inbound',r.n);
   setH('k-inbound-sub',delta(r.n,c.n,false)+' &nbsp; prev: '+c.n+cLbl);

@@ -44,7 +44,7 @@ test('tree: the only pages without an entry point are the KNOWN_DEAD_ENDS ratche
   assert.deepEqual(added, [], 'new page(s) with no entry point — link them, or allow-list them as deep-link only WITH a reason');
   const fixed = known.filter((p) => !dead.includes(p));
   assert.deepEqual(fixed, [], 'page(s) now reachable — remove them from KNOWN_DEAD_ENDS (the ratchet only shrinks)');
-  assert.ok(known.length <= 3, 'KNOWN_DEAD_ENDS may only shrink (3 on 2026-11-06)');
+  assert.ok(known.length <= 2, 'KNOWN_DEAD_ENDS may only shrink (3 on 2026-11-06; 2 on 2026-11-20 — Adoption Lot A gave kpi-builder.html a menu entry)');
   for (const [k, v] of Object.entries({ ...I.DEEP_LINK_ONLY, ...I.KNOWN_DEAD_ENDS })) assert.ok(v && v.length > 10, k + ' carries a reason');
 });
 

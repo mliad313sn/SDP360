@@ -8,6 +8,7 @@
 (function (root) {
   'use strict';
   const STATIC = {
+    'Search checklist items': 'Rechercher dans la liste de contrôle',   // a11y label (Adoption Lot A, item 10)
     'IT Site Inspection — Mining Operations': '', 'Inspection Site IT — Opérations Minières': 'Inspection Site IT — Opérations Minières',
     '+ New': '+ Nouvelle', '📤 Share': '📤 Partager',
     '⚠️ Fonctionnalités limitées — Ouvrez ce formulaire dans Chrome / Limited features': '⚠️ Fonctionnalités limitées — Ouvrez ce formulaire dans Chrome',

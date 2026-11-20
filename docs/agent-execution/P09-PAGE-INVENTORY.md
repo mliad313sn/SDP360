@@ -12,7 +12,7 @@ Pages found: **85** HTML files under `public/` (62 top-level, 21 design-system s
 | Page | Roles required | In nav | Owner profile(s) | French | Usage 30 d | Overlap | Proposal |
 |---|---|---|---|---|---|---|---|
 | `access.html` | any | no | — (reached from no-access.html) | self-translated | unknown |  | keep |
-| `activity-tracker.html` | any | yes | pmo | translated | unknown |  | keep |
+| `activity-tracker.html` | admin, tracker-admin, tracker-editor | yes | pmo | translated | unknown |  | keep |
 | `analytics.html` | admin, scorecard-viewer | yes | analyst | translated | unknown | overlaps index.html (ticket trends) and dashboards.html | keep (analyst depth); review after usage data |
 | `assets-finance.html` | UNKNOWN | no | — (reached from assets.html) | — | unknown | redirect stub → assets.html#finance | retire after one release of bookmark grace |
 | `assets-hygiene.html` | UNKNOWN | no | — (reached from assets.html) | — | unknown | redirect stub → assets.html#hygiene | retire after one release of bookmark grace |
@@ -29,39 +29,39 @@ Pages found: **85** HTML files under `public/` (62 top-level, 21 design-system s
 | `executive-report.html` | super_admin | yes | — (reached from shell) | English (pending) | unknown | deck builder; overlaps report-studio.html for generation | keep until report-studio covers the Group IT deck |
 | `executive.html` | executive, scorecard-viewer | yes | — (reached from shell) | translated | unknown | executive scorecard vs dashboards.html?key=exec-home vs it-review.html (three executive surfaces) | merge candidate: keep it-review + exec-home, fold scorecard tabs (needs C-09 page-usage data) |
 | `field/index.html` | ? | no | field | — | unknown | offline field app | keep |
-| `finance.html` | admin, finance-viewer, finance-verifier | yes | — (reached from shell) | English (pending) | unknown |  | keep |
+| `finance.html` | admin, finance-viewer | yes | — (reached from shell) | English (pending) | unknown |  | keep |
 | `handoffs.html` | any | yes | — (reached from shell) | self-translated | unknown | overlaps commitments.html | review with commitments.html |
 | `help.html` | any | yes | — (reached from shell) | self-translated | unknown |  | keep |
 | `home.html` | any | yes | administrator, executive, operations, coordinator, field, pmo, finance, governance, analyst, reader | self-translated | unknown |  | keep |
 | `index.html` | any | yes | administrator, operations, reader | translated | unknown |  | keep |
 | `infra-health.html` | any | yes | — (reached from shell) | self-translated | unknown | overlaps wan.html (infra availability) | keep (LAN/WLAN/servers vs WAN) |
-| `inspection-actions.html` | any | no | — (reached from inspections.html) | English (pending) | unknown |  | keep |
+| `inspection-actions.html` | any | no | — (reached from inspections.html) | translated | unknown |  | keep |
 | `inspection.html` | any | no | — (reached from inspections.html) | translated | unknown |  | keep |
-| `inspections.html` | any | yes | coordinator, field | English (pending) | unknown |  | keep |
-| `integrations.html` | any | yes | administrator | English (pending) | unknown |  | keep |
+| `inspections.html` | any | yes | coordinator, field | translated | unknown |  | keep |
+| `integrations.html` | admin | yes | administrator | English (pending) | unknown |  | keep |
 | `it-review.html` | executive, scorecard-viewer | yes | executive | English (pending) | unknown | overlaps executive.html (same audience, same KPIs) | keep (faithful port the executive reads) |
 | `itsm-integrations-plan.html` | UNKNOWN | no | — (reached from itsm-roadmap.html) | — | unknown | meeting document rendered as a page | move to docs (proposal) |
 | `itsm-roadmap.html` | super_admin | no | — (reached from ?) | — | unknown | personal tool of the service manager (outside nav by design) | keep |
-| `kpi-builder.html` | any | no | — (reached from ?) | self-translated | unknown | not reachable; overlaps dashboard-composer.html | reach or retire |
+| `kpi-builder.html` | any | yes | — (reached from shell) | self-translated | unknown | not reachable; overlaps dashboard-composer.html | reach or retire |
 | `login.html` | public | no | — (reached from executive-report.html) | — | unknown |  | keep |
 | `meeting.html` | any | no | — (reached from meetings-actions.html) | translated | unknown |  | keep |
-| `meetings-actions.html` | any | no | — (reached from meetings.html) | English (pending) | unknown |  | keep |
+| `meetings-actions.html` | any | no | — (reached from meetings.html) | translated | unknown |  | keep |
 | `meetings-compliance.html` | any | no | — (reached from meetings.html) | self-translated | unknown | 5 Engagements also shown in meetings-insights.html heatmap | merge-into: meetings-insights.html (proposal) |
 | `meetings-council.html` | any | no | — (reached from meetings.html) | translated | unknown | escalations also in meetings-issues.html (escalate filter) | merge-into: meetings-issues.html as a view (proposal) |
 | `meetings-import.html` | editor | no | — (reached from meetings.html) | self-translated | unknown |  | keep |
 | `meetings-insights.html` | any | no | — (reached from meetings.html) | self-translated | unknown |  | keep |
-| `meetings-issues.html` | any | no | — (reached from meetings.html) | English (pending) | unknown |  | keep |
+| `meetings-issues.html` | any | no | — (reached from meetings.html) | translated | unknown |  | keep |
 | `meetings-progress.html` | any | no | — (reached from meeting.html) | translated | unknown | pre-brief also reachable from cockpit.html agenda | keep (deep-linked from meeting.html) |
 | `meetings-setup.html` | any | no | — (reached from meetings.html) | English (pending) | unknown |  | keep |
 | `meetings-unsigned.html` | any | no | — (reached from meetings.html) | translated | unknown | unsigned PVs also on home.html "awaiting me" | keep (bulk signing) |
-| `meetings.html` | any | yes | coordinator, governance | English (pending) | unknown |  | keep |
+| `meetings.html` | any | yes | coordinator, governance | translated | unknown |  | keep |
 | `no-access.html` | any | no | — (reached from auth.js) | — | unknown |  | keep |
 | `notifications.html` | any | yes | — (reached from shell) | English (pending) | unknown |  | keep |
 | `obligations.html` | any | yes | — (reached from shell) | self-translated | unknown | governance obligations vs policies.html | keep |
 | `policies.html` | admin, committee-member | yes | governance | self-translated | unknown |  | keep |
 | `portfolio.html` | any | yes | executive, pmo, finance | translated | unknown |  | keep |
 | `project.html` | any | no | — (reached from meeting.html) | translated | unknown |  | keep |
-| `report-studio.html` | any | yes | finance, analyst | English (pending) | unknown | overlaps executive-report.html | keep |
+| `report-studio.html` | any | yes | pmo, finance, analyst | English (pending) | unknown | overlaps executive-report.html | keep |
 | `reports.html` | any | yes | — (reached from shell) | translated | unknown |  | keep |
 | `rfi.html` | any | yes | — (reached from shell) | translated | unknown |  | keep |
 | `site-actions.html` | any | yes | operations, coordinator, field, reader | translated | unknown |  | keep |

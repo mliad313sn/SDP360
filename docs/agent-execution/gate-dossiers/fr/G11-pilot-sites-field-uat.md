@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | bloque le pilote sur deux sites (instance de TEST) |
 | À décider après | [G01](G01-security-access-policy.md) Sécurité : politique d'accès et matrice d'autorisation · [G02](G02-threat-model-findings.md) Sécurité : modèle de menace et constats · [G05](G05-backup-restore-rpo-rto.md) Sauvegarde et restauration (RPO/RTO) · [G12](G12-data-owner-fixtures-history.md) Propriétaire des données : données anonymisées et historique 2026 |
-| SHA cible | `d379e75f` |
+| SHA cible | `6457dcfa` |
 | Généré | 2026-11-20 |
 
 ## 1. La question à trancher
@@ -21,7 +21,7 @@ Quels deux sites font le pilote, avec quels utilisateurs nommés, et quel résul
 
 | Preuve | Ce qu'elle montre | Régénérer / rejouer | Dernière modification (commit, date) | Empreinte |
 |---|---|---|---|---|
-| `docs/ops/pilot/PILOT-PROFILE.md` | Valeurs d'interrupteurs proposées pour le pilote (non approuvées) | `manual` | 5cc56558, 2026-11-20 | `98578b2b2a8fce9b` |
+| `docs/ops/pilot/PILOT-PROFILE.md` | Valeurs d'interrupteurs proposées pour le pilote (non approuvées) | `manual` | 40cb7ec9, 2026-11-13 | `bbfc4b9dc2c40f6f` |
 | `docs/ops/pilot/FIELD-DEVICE-UAT.md` | Protocole de recette des appareils terrain | `manual` | 123bbb9e, 2026-11-06 | `a8a6d3349b817775` |
 | `docs/ops/pilot/PILOT-MEASUREMENT.md` | Ce que le pilote mesure et comment | `node tools/pilot/pilot-metrics.js` | 0cedb940, 2026-11-12 | `4379002a25bde6c2` |
 | `docs/ops/pilot/TEST-INSTANCE.md` | Description de l'instance de TEST | `manual` | 247500f0, 2026-11-04 | `753ce5e6e2924cbb` |
@@ -33,7 +33,7 @@ Quels deux sites font le pilote, avec quels utilisateurs nommés, et quel résul
 
 | Lot | Preuve attendue | Statut |
 |---|---|---|
-| P09 | Kit d'adoption et de préparation terrain (procédure S1–S10, formation, parcours) | livrée: `docs/agent-execution/P09-PAGE-INVENTORY.md` (9a58489a, `7ecfa653793cfa75`), `docs/agent-execution/P09-adoption-kit.md` (c9bab46d, `8246fb83ee6409fc`) |
+| P09 | Kit d'adoption et de préparation terrain (procédure S1–S10, formation, parcours) | livrée: `docs/agent-execution/P09-PAGE-INVENTORY.md` (6457dcfa, `653d8535901a4484`), `docs/agent-execution/P09-adoption-kit.md` (c9bab46d, `8246fb83ee6409fc`) |
 
 ## 3. Ce qui n'est pas prouvé, et pourquoi
 
