@@ -6,21 +6,21 @@
 
 | Item | Count |
 |---|---:|
-| pages | 63 |
+| pages | 64 |
 | pages without test reference | 0 |
 | pages without declared role | 6 |
-| pages not in navigation | 29 |
-| pages not in shell or module tabs | 20 |
+| pages not in navigation | 30 |
+| pages not in shell or module tabs | 21 |
 | pages deep link only | 9 |
 | pages without entry point | 2 |
 | pages with inline scripts | 46 |
-| routes | 769 |
+| routes | 772 |
 | routes without test reference | 30 |
 | routes in server js | 160 |
 | jobs | 33 |
 | jobs without test reference | 0 |
 | migrations | 107 |
-| test files | 891 |
+| test files | 894 |
 
 ## Pages
 
@@ -73,7 +73,8 @@
 | PG-obligations | public/obligations.html | any | yes | 0 | 5 |
 | PG-policies | public/policies.html | admin / committee-member | yes | 1 | 6 |
 | PG-policy-center | public/policy-center.html | super_admin | yes | 0 | 5 |
-| PG-portfolio | public/portfolio.html | any | yes | 1 | 18 |
+| PG-portfolio-register | public/portfolio-register.html | any | no | 0 | 2 |
+| PG-portfolio | public/portfolio.html | any | yes | 1 | 19 |
 | PG-project | public/project.html | any | no | 1 | 22 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 4 |
 | PG-reports | public/reports.html | any | yes | 2 | 41 |
@@ -143,8 +144,9 @@
 | public/obligations.html | yes | — | home.html, site-actions.html | — | — | shell |
 | public/policies.html | yes | — | access.html, lib/workspaceProfiles.js | — | — | shell |
 | public/policy-center.html | yes | — | — | — | — | shell |
+| public/portfolio-register.html | — | — | portfolio.html | — | — | portfolio.html |
 | public/portfolio.html | yes | — | itsm-roadmap.html, lib/workspaceProfiles.js, project.html | — | — | shell |
-| public/project.html | — | — | lib/home-page.js, lib/portfolioViews.js, lib/ppmRoadmapNnl.js, meeting.html (+1) | — | — | meeting.html |
+| public/project.html | — | — | lib/home-page.js, lib/portfolioRegister.js, lib/portfolioViews.js, lib/ppmRoadmapNnl.js (+2) | — | — | meeting.html |
 | public/report-studio.html | yes | — | lib/workspaceProfiles.js | — | — | shell |
 | public/reports.html | yes | — | access.html, site-report.html, wan.html | — | — | shell |
 | public/rfi.html | yes | — | meeting.html, portfolio.html | — | — | shell |

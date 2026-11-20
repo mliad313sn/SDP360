@@ -491,6 +491,14 @@ Object.assign(DEFAULTS, { ppm_intake_register_enabled: '0' });
 //    check fails (invalid schedule, missing IT owner). Separate so the PMO can shadow-test first. The required set,
 //    the blocking checks and the bands are PROPOSED policy (services/ppm/dataQuality.js) — arming is a PMO decision.
 Object.assign(DEFAULTS, { ppm_data_quality_enabled: '0', ppm_dq_gate_enforced: '0' });
+// ── PORTFOLIO LOT 3 (IT portfolio reconstruction spec §21, §23.1, §24.5, §30) — PROPOSED, '0' = today. No migration.
+//    ppm_portfolio_dashboard_v2_enabled '1' → /portfolio-register.html + GET /api/governance/portfolio/register(.csv|.xlsx):
+//    register table (search, multi-filter, sort, column choice, saved views = URL filters, frozen ID / site / name),
+//    the five executive KPI cards with drill-through, site / priority / status / risk / budget analyses (per currency,
+//    never added across currencies), monthly active load, standard reports, exports keeping the filters. Read-only, over
+//    the portfolio the reader may already read; amounts only for amount readers. Report definitions (unfunded, without
+//    owners, high risk, stalled = 90 days) are PROPOSED (services/ppm/portfolioRegister.js) — arming is a PMO decision.
+Object.assign(DEFAULTS, { ppm_portfolio_dashboard_v2_enabled: '0' });
 // ── W3-GOVERNANCE (PPM parity W3, migration 110) — PROPOSED, '0' = today (the routes answer 404, nothing is stored).
 //    ppm_simplified_view_enabled '1' → the project page offers a Simplified ↔ Expert switch (per-user preference):
 //    KPI cards (RAG, % schedule complete, budget burn for the admin tier + finance-viewer, risks / blockers, next

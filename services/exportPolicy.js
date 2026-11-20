@@ -84,6 +84,7 @@ const CATALOGUE = Object.freeze({
   'governance.oversight':       { module: 'governance', formats: ['csv', 'json'], amounts: 'none', today: 'committee' },
   'governance.portfolio_deck':  { module: 'governance', formats: ['pptx'], amounts: 'masked', legacyMoney: 'committee', today: 'session; amounts admin tier + committee + finance-viewer' },
   'governance.portfolio_workbook': { module: 'governance', formats: ['xlsx'], amounts: 'masked', legacyMoney: 'committee', today: 'session; amounts admin tier + committee + finance-viewer' },
+  'governance.portfolio_register': { module: 'governance', formats: ['csv', 'xlsx'], amounts: 'masked', legacyMoney: 'committee', today: 'session; amounts admin tier + committee + finance-viewer (PORTFOLIO LOT 3, ppm_portfolio_dashboard_v2_enabled)' },
   'governance.portfolio_report':{ module: 'governance', formats: ['html'], amounts: 'masked', legacyMoney: 'committee', today: 'session; amounts admin tier + committee + finance-viewer' },
   'governance.raci':            { module: 'governance', formats: ['csv'],  amounts: 'none',  today: 'session + project read' },
   'governance.project_report':  { module: 'governance', formats: ['html', 'xlsx'], amounts: 'masked', today: 'switch ppm_project_report_enabled + project read; amounts admin tier + finance-viewer (W3)' },

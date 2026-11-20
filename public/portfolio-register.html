@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portfolio register — Endeavour Mining IT</title>
+<link rel="stylesheet" href="_tokens.css">
+<link rel="stylesheet" href="brand/icons.css">
+<link rel="stylesheet" href="brand/components.css">
+<link rel="stylesheet" href="_shell.css">
+<script nonce="%%CSP_NONCE%%" src="brand/icons.js"></script>
+<script nonce="%%CSP_NONCE%%" src="auth.js" data-require="any" data-redirect="login.html"></script>
+<script nonce="%%CSP_NONCE%%" src="_shell.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/urlFilters.js"></script>
+<script nonce="%%CSP_NONCE%%" src="lib/portfolioRegister.js"></script>
+<style nonce="%%CSP_NONCE%%">
+  body { margin: 0; background: var(--color-bg); color: var(--color-text-strong); font-family: var(--font-sans); font-size: 14px; }
+  .pr-wrap { max-width: 1440px; margin: 0 auto; padding: var(--space-6) var(--space-6) var(--space-12); }
+  .pr-card { background: var(--color-card); border: 1px solid var(--color-border); border-radius: var(--radius-lg); padding: var(--space-4) var(--space-5); margin-bottom: var(--space-4); }
+  @media (max-width: 640px) { .pr-wrap { padding: var(--space-4); } .pr-card { padding: var(--space-3); } }
+  h1 { margin: 0 0 var(--space-2); font-size: 22px; } h2 { font-size: 16px; margin: 0 0 var(--space-2); } h3 { font-size: 13px; margin: 0 0 var(--space-1); color: var(--color-text-muted); }
+  .pr-muted { color: var(--color-text-muted); font-size: 12.5px; }
+  .pr-unk { color: var(--color-text-muted); }
+  .pr-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: var(--space-3); }
+  .pr-kpi { border: 1px solid var(--color-border); border-radius: var(--radius-md); padding: var(--space-3); background: var(--color-card); }
+  .pr-kpi-v { font-size: 22px; font-weight: 700; margin: var(--space-1) 0; }
+  .pr-drill { font-size: 12.5px; }
+  .pr-bar { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: flex-end; }
+  .pr-bar label { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--color-text-muted); }
+  input, select, button { font: inherit; }
+  input, select { padding: 4px 6px; border: 1px solid var(--color-border-strong); border-radius: var(--radius-sm); background: var(--color-card); color: var(--color-text-strong); }
+  select[multiple] { min-width: 150px; min-height: 72px; }
+  .pr-btn { display: inline-block; border: 1px solid var(--color-border-strong); background: var(--color-card); color: var(--color-text-strong); border-radius: var(--radius-sm); padding: 4px 10px; cursor: pointer; text-decoration: none; font-size: 13px; }
+  a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible, .pr-scroll:focus-visible { outline: 2px solid var(--color-secondary); outline-offset: 2px; }
+  .pr-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(380px, 1fr)); gap: var(--space-4); }
+  .pr-mini, .pr-table { border-collapse: collapse; width: 100%; } .pr-mini th, .pr-mini td { padding: 4px 6px; border-bottom: 1px solid var(--color-border); text-align: left; font-size: 12.5px; vertical-align: top; }
+  .pr-scroll { overflow: auto; max-height: 70vh; border: 1px solid var(--color-border); border-radius: var(--radius-md); }
+  .pr-table th, .pr-table td { padding: 6px 8px; border-bottom: 1px solid var(--color-border); text-align: left; font-size: 12.5px; vertical-align: top; white-space: normal; min-width: 90px; background: var(--color-card); }
+  .pr-table tbody tr:nth-child(even) td, .pr-table tbody tr:nth-child(even) th { background: var(--color-bg); }
+  .pr-table thead th { position: sticky; top: 0; z-index: 2; background: var(--color-primary-fill); color: var(--color-text-on-dark); font-weight: 700; }
+  .pr-table thead th a { color: inherit; text-decoration: none; }
+  .pr-table .pr-frz { position: sticky; z-index: 1; }
+  .pr-table thead .pr-frz { z-index: 3; }
+  .pr-table .pr-frz0 { left: 0; min-width: 120px; } .pr-table .pr-frz1 { left: 120px; min-width: 110px; } .pr-table .pr-frz2 { left: 230px; min-width: 200px; border-right: 2px solid var(--color-border-strong); }
+  .pr-num { text-align: right; }
+  .pr-cols { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-4); margin-top: var(--space-2); }
+  .pr-cols label { display: flex; gap: 4px; align-items: center; font-size: 12.5px; }
+  .pr-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+</style>
+</head>
+<body>
+<a class="edv-skip" href="#main">Skip to content</a>
+<div id="__shell" data-section="operations" data-current="portfolio"></div>
+<main id="main" class="pr-wrap">
+  <div class="pr-card">
+    <h1 id="prTitle">Portfolio register</h1>
+    <p class="pr-muted" id="prIntro"></p>
+    <p class="pr-muted" id="prMeta" role="status" aria-live="polite"></p>
+  </div>
+  <div class="pr-card" id="prFilterCard" hidden>
+    <h2 id="prFiltersH"></h2>
+    <form class="pr-bar" id="prFilters"></form>
+    <details><summary id="prColsH"></summary><div class="pr-cols" id="prCols"></div></details>
+    <p class="pr-bar"><a class="pr-btn" id="prReset" href="?"></a><a class="pr-btn" id="prCsv" href="#"></a><a class="pr-btn" id="prXlsx" href="#"></a></p>
+  </div>
+  <div class="pr-card" id="prKpiCard" hidden><h2 id="prKpisH"></h2><div id="prKpis"></div><p class="pr-muted" id="prReports"></p></div>
+  <div class="pr-card" id="prTableCard" hidden><h2 id="prRowsH"></h2><div id="prTable"></div></div>
+  <div class="pr-grid" id="prAnalyses" hidden></div>
+</main>
+<script nonce="%%CSP_NONCE%%" src="lib/portfolioRegisterPage.js"></script>
+</body>
+</html>
