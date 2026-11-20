@@ -15,7 +15,7 @@
   "report_config": 299,
   "planned": 9,
   "governance_policies": 37,
-  "environment": 69,
+  "environment": 70,
   "pseudo": 4,
   "dark": 156,
   "dark_complete": 0,
@@ -4348,6 +4348,17 @@
    "owner_role": null,
    "read_in": [
     "services/ppm/mppConverter.js"
+   ]
+  },
+  {
+   "key": "PG_POOL_ACQUIRE_TIMEOUT_MS",
+   "source": "environment",
+   "kind": "setting",
+   "secret": false,
+   "default_when_unset": null,
+   "owner_role": null,
+   "read_in": [
+    "services/pgDb.js"
    ]
   },
   {

@@ -6,7 +6,7 @@ data-steward and decision-SLA cell below is deliberately empty**: no name, no de
 the delivery team or an agent. R = responsible, A = accountable (one per row), C = consulted, I = informed.
 
 Sources: the product domains (below), 14 connectors from `docs/sdp360/completion/CONNECTOR-REGISTER.csv`, and
-**208 switches whose owner is "to be named"** in `docs/ops/FLAG-REGISTER.md`, grouped into 80 areas.
+**209 switches whose owner is "to be named"** in `docs/ops/FLAG-REGISTER.md`, grouped into 80 areas.
 
 ## 1. Product domains
 
@@ -41,7 +41,7 @@ Sources: the product domains (below), 14 connectors from `docs/sdp360/completion
 | C13 | Defender, AD and Entra device exports | ACTIVE (manual) | Infrastructure owner | | | | | | |
 | C14 | Microsoft Graph — Entra leaver check (users/{id} accountEnabled) | DORMANT (entra_deprovision_enabled 0; needs User.Read.All application consent — human gate 2) | Information Security | | | | | | |
 
-## 3. Switches with no owner yet — 208, by area
+## 3. Switches with no owner yet — 209, by area
 
 | Area | Switches | Count | R | A | C | I | Data steward | Decision SLA |
 |---|---|---|---|---|---|---|---|---|
@@ -62,7 +62,7 @@ Sources: the product domains (below), 14 connectors from `docs/sdp360/completion
 | Environment variables · node | `NODE_ENV` | 1 | | | | | | |
 | Environment variables · org | `ORG_ID` | 1 | | | | | | |
 | Environment variables · path | `PATH` | 1 | | | | | | |
-| Environment variables · pg | `PG_POOL_MAX` `PG_URL` | 2 | | | | | | |
+| Environment variables · pg | `PG_POOL_ACQUIRE_TIMEOUT_MS` `PG_POOL_MAX` `PG_URL` | 3 | | | | | | |
 | Environment variables · pm2 | `PM2_NAME` | 1 | | | | | | |
 | Environment variables · port | `PORT` | 1 | | | | | | |
 | Environment variables · report | `REPORT_BROWSER` `REPORT_PDF_TIMEOUT_MS` `REPORT_SEND_TIMEOUT_MS` | 3 | | | | | | |

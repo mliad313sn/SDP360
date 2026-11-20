@@ -375,7 +375,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `reports.override_reason_min` | `10` | int | yes | yes | to be named |
 | `reports.withdraw_reason_min` | `5` | int | yes | yes | to be named |
 
-## 4. Environment variables (69) — read in *.js, services/, routes/
+## 4. Environment variables (70) — read in *.js, services/, routes/
 
 | Variable | Kind | Default when unset | Owner | Read in |
 |---|---|---|---|---|
@@ -408,6 +408,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `NODE_ENV` | setting | see the reading file | to be named | server.js, services/apiKey.js, services/configSecrets.js |
 | `ORG_ID` | setting | see the reading file | to be named | server.js |
 | `PATH` | setting | see the reading file | to be named | services/ppm/mppConverter.js |
+| `PG_POOL_ACQUIRE_TIMEOUT_MS` | setting | see the reading file | to be named | services/pgDb.js |
 | `PG_POOL_MAX` | setting | see the reading file | to be named | services/pgDb.js |
 | `PG_URL` | setting | see the reading file | to be named | assets-db.js, inspection-db.js, meetings-db.js, reports-db.js (+5) |
 | `PM2_NAME` | setting | see the reading file | to be named | services/serviceControl.js |
