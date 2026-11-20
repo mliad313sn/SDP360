@@ -144,9 +144,12 @@ module.exports = function commitmentsRoutes(deps) {
   router.get('/commitments.html', (req, res) => deps.sendHtmlPage(res, 'commitments.html', false, 'Commitments page unavailable'));
 
   const base = '/api/commitments';
+  // ACTIVATE-ALL qualification — a ?site= filter is a site id; a code or any other text used to reach SQL as NaN (500).
+  const badSite = (q) => q != null && q !== '' && !/^[1-9][0-9]{0,9}$/.test(String(q));
   router.get(base, requireReportSession, enabled, async (req, res) => {
     try {
       const u = req.reportUser;
+      if (badSite(req.query.site)) return httpFail(res, typed('VALIDATION', 'site must be a site id', 400), 400, { ok: false });
       const rows = await store.list({ siteIds: isAdmin(u) ? null : userSites.siteIds(u), named: isAdmin(u) ? [] : identities(u),
         status: req.query.status || null, kind: req.query.kind || null, site: req.query.site || null, exceptions: req.query.exceptions === '1' });
       if (req.query.metric && await redLinksOn()) {   // E-K03 — "Open actions (k)" of one red figure
@@ -161,6 +164,7 @@ module.exports = function commitmentsRoutes(deps) {
     try {
       const u = req.reportUser;
       let scope = isAdmin(u) ? null : userSites.siteIds(u);
+      if (badSite(req.query.site)) return httpFail(res, typed('VALIDATION', 'site must be a site id', 400), 400, { ok: false });
       if (req.query.site) { const s = Number(req.query.site); if (scope && !scope.includes(s)) return res.status(403).json({ error: 'Access denied: another site' }); scope = [s]; }
       const out = require('../services/commitmentMetrics').summary(await store.metricRows({ siteIds: scope }));
       res.json({ status: 'draft — pending committee', ...out });
