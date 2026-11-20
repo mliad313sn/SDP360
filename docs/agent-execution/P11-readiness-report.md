@@ -147,3 +147,24 @@ AC on move/delete, offline compare, frozen timesheets), fix 13 (/ready timeout, 
 
 **P11 stop condition (prompt pack step 5):** no P0/P1 left in code at the frozen SHA. The run ends when the human release
 committee has this report; it does not end with a release. All 21 RELEASE-GATES rows remain empty.
+
+## Round 4 — frozen SHA e43d11d5 (2026-11-20) — AI panel, not an independent human review
+
+Six AI seats, clean clones without docs/agent-execution narratives (gate dossiers copied back). Seat reports:
+`docs/agent-execution/p11/round4-e43d11d5/r4-<seat>.md`.
+
+| Seat | P0 | P1 | New P2 | Round-3 items re-tested |
+|---|---|---|---|---|
+| security | 0 | 0 (R1-F2 remains a policy decision) | N-R4-1 Policy Center four-eyes bypass; N-R4-2 center reads open to admin | N-R3-1, N-R3-3, R2-N2 fixed; R2-N3 partial |
+| data-kpi | 0 | 0 | F-16 site SLA % ≠ ranking rule (Lot A, ships ON); F-02/F-05 partial | F-14, F-03, F-10, F-04 fixed |
+| ppm | 0 | 0 | R4-1 budget-period actuals lost on delete/purge | R3-1..R3-4, R1-F3 fixed |
+| operations | 0 | 1 — N-10 Policy Center catalogue not shipped in packages (four-eyes keys drop to 0) | N-09 freshness SLI ignores failures before first success | all 6 fixed |
+| ux-field | 0 | 0 | F-10 conditional (field-tech reopens meetings action) | F-8 fixed; F-9, R2-N3 inspection-only; F-4 partial |
+| audit | 0 | 1 — R4-A2 Policy Center four-eyes bypass (legacy config PUT, self-made second super_admin, reset to weak default) | R4-A1 app role can DROP ledgers; R4-A4 activate-switches without `--lots` arms all | R3-A1 fixed; R3-A2 partial |
+
+Both P1s concern the Policy Control Center, which is **off by default** (`policy_center_enabled='0'`); neither
+affects a live path today. The panel's AI recommendation is **NO-GO for turning the center on** until they are fixed.
+
+Corrections in progress (branches, not yet merged): fix 14 (security + N-10 + R4-A2), fix 15 (PPM), fix 16
+(data/KPI), fix 17 (operations + R4-A1/A3/A4), fix 18 (field/UX). Human gates: all 21 RELEASE-GATES rows remain
+empty; nothing in this report is an approval.
