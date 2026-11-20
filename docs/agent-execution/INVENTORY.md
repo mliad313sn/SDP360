@@ -14,13 +14,13 @@
 | pages deep link only | 9 |
 | pages without entry point | 2 |
 | pages with inline scripts | 46 |
-| routes | 777 |
+| routes | 784 |
 | routes without test reference | 30 |
 | routes in server js | 160 |
 | jobs | 33 |
 | jobs without test reference | 0 |
-| migrations | 108 |
-| test files | 900 |
+| migrations | 109 |
+| test files | 904 |
 
 ## Pages
 
@@ -76,7 +76,7 @@
 | PG-portfolio-decisions | public/portfolio-decisions.html | any | no | 0 | 2 |
 | PG-portfolio-register | public/portfolio-register.html | any | no | 0 | 2 |
 | PG-portfolio | public/portfolio.html | any | yes | 1 | 21 |
-| PG-project | public/project.html | any | no | 1 | 22 |
+| PG-project | public/project.html | any | no | 1 | 23 |
 | PG-report-studio | public/report-studio.html | any | yes | 1 | 4 |
 | PG-reports | public/reports.html | any | yes | 2 | 41 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 5 |
