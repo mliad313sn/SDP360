@@ -1,0 +1,236 @@
+<title>SDP360 — Rapport exécutif</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=Source+Sans+3:wght@400;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column (~72ch) with a wide band for tables; status encoded by pills, not colour alone. */
+:root{
+  --bg:#f6f7f8; --surface:#ffffff; --fg:#1b2129; --muted:#5a6573; --line:#d9dee4;
+  --accent:#1f5f8b; --accent-soft:#e3eef6;
+  --ok:#1e7a46; --ok-bg:#e2f3e9; --warn:#9a5b00; --warn-bg:#fbefd9; --bad:#b4232c; --bad-bg:#fbe3e4; --na:#5a6573; --na-bg:#eceff2;
+  --f-display:"Archivo", "Helvetica Neue", Arial, sans-serif;
+  --f-body:"Source Sans 3", "Segoe UI", Roboto, sans-serif;
+  --f-mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12161b; --surface:#1a2027; --fg:#e7ebef; --muted:#9aa6b2; --line:#2c343d;
+  --accent:#6fb0de; --accent-soft:#1d2d3a;
+  --ok:#5fcf8f; --ok-bg:#163223; --warn:#f0b35a; --warn-bg:#35280f; --bad:#f07a80; --bad-bg:#3a1a1d; --na:#9aa6b2; --na-bg:#232a32; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12161b; --surface:#1a2027; --fg:#e7ebef; --muted:#9aa6b2; --line:#2c343d;
+  --accent:#6fb0de; --accent-soft:#1d2d3a;
+  --ok:#5fcf8f; --ok-bg:#163223; --warn:#f0b35a; --warn-bg:#35280f; --bad:#f07a80; --bad-bg:#3a1a1d; --na:#9aa6b2; --na-bg:#232a32; color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:16px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:2rem 4rem}
+.wrap{max-width:980px;margin:0 auto;display:grid;gap:2.5rem}
+.read{max-width:72ch}
+h1,h2,h3{font-family:var(--f-display);text-wrap:balance;line-height:1.2;margin:0}
+h1{font-size:clamp(1.8rem,4vw,2.5rem);font-weight:700}
+h2{font-size:1.4rem;font-weight:700;padding-bottom:.4rem;border-bottom:2px solid var(--accent)}
+h3{font-size:1.05rem;font-weight:600}
+p{margin:0}
+section{display:grid;gap:1rem}
+.eyebrow{font-family:var(--f-mono);font-size:.78rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.meta{display:flex;flex-wrap:wrap;gap:.5rem 1.25rem;color:var(--muted);font-size:.92rem}
+.meta code{font-family:var(--f-mono);font-size:.85rem;color:var(--fg)}
+.verdict{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--warn);padding:1rem 1.25rem;display:grid;gap:.5rem}
+.figs{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.75rem}
+.fig{background:var(--surface);border:1px solid var(--line);padding:.8rem 1rem;display:grid;gap:.15rem}
+.fig b{font-family:var(--f-display);font-size:1.6rem;font-variant-numeric:tabular-nums}
+.fig span{color:var(--muted);font-size:.85rem}
+.tbl{overflow-x:auto;background:var(--surface);border:1px solid var(--line)}
+table{border-collapse:collapse;width:100%;font-size:.93rem}
+th,td{text-align:left;vertical-align:top;padding:.6rem .8rem;border-bottom:1px solid var(--line)}
+th{font-family:var(--f-display);font-weight:600;font-size:.82rem;letter-spacing:.03em;text-transform:uppercase;color:var(--muted);background:var(--bg)}
+tr:last-child td{border-bottom:0}
+td.n{font-variant-numeric:tabular-nums;white-space:nowrap}
+.pill{display:inline-block;font-family:var(--f-mono);font-size:.75rem;font-weight:500;padding:.1rem .5rem;border-radius:3px;white-space:nowrap}
+.ok{color:var(--ok);background:var(--ok-bg)} .warn{color:var(--warn);background:var(--warn-bg)}
+.bad{color:var(--bad);background:var(--bad-bg)} .na{color:var(--na);background:var(--na-bg)}
+ul{margin:0;padding-left:1.2rem;display:grid;gap:.35rem}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:1rem}
+.card{background:var(--surface);border:1px solid var(--line);padding:1rem 1.15rem;display:grid;gap:.6rem;min-width:0}
+.note{color:var(--muted);font-size:.88rem}
+footer{color:var(--muted);font-size:.85rem;border-top:1px solid var(--line);padding-top:1rem}
+</style>
+
+<div class="wrap">
+
+<header style="display:grid;gap:.75rem">
+  <p class="eyebrow">Programme SDP360 · Endeavour Mining · Group IT</p>
+  <h1>SDP360 — Rapport exécutif</h1>
+  <div class="meta">
+    <span>Date : 20 novembre 2026</span>
+    <span>Version applicative : <code>2.0.0-alpha.14</code></span>
+    <span>Version examinée : <code>ead6efb6</code> (CI verte, exécution 370)</span>
+  </div>
+  <p class="note">Rapport rédigé par l'IA à partir du dépôt et des revues automatisées. Ce n'est ni une revue humaine indépendante, ni une décision de mise en production.</p>
+</header>
+
+<section>
+  <h2>Synthèse</h2>
+  <div class="verdict read">
+    <p><b>Position : système construit, qualification en cours, pas encore prêt pour un pilote.</b></p>
+    <p>SDP360 couvre aujourd'hui le pilotage opérationnel IT des sites miniers, la gouvernance et la gestion native de projets et portefeuilles. Le code est testé (5 536 tests, CI verte) et a passé deux tours de revue IA indépendante. Tous les défauts bloquants trouvés en code ont été corrigés. Le passage au pilote dépend désormais surtout de décisions humaines : 21 portes de validation sont encore vides.</p>
+  </div>
+  <div class="figs" aria-label="Chiffres clés">
+    <div class="fig"><b>62</b><span>pages</span></div>
+    <div class="fig"><b>753</b><span>routes d'API</span></div>
+    <div class="fig"><b>33</b><span>tâches planifiées</span></div>
+    <div class="fig"><b>103</b><span>migrations PostgreSQL</span></div>
+    <div class="fig"><b>5 536</b><span>tests (855 fichiers)</span></div>
+    <div class="fig"><b>152</b><span>fonctions livrées désactivées</span></div>
+  </div>
+</section>
+
+<section>
+  <h2>Capacités actuelles</h2>
+  <p class="read">Ce que le système fait déjà en production ou peut faire avec les réglages par défaut.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Domaine</th><th>Capacités</th><th>Sources de données</th></tr></thead>
+    <tbody>
+      <tr><td>Helpdesk et ITSM</td><td>Tableaux de bord tickets, SLA de réponse et de résolution, changements et CAB, incidents majeurs, satisfaction (CSAT/NPS), fiche de performance direction</td><td>ServiceDesk Plus / Zoho Analytics (lecture seule)</td></tr>
+      <tr><td>Rapports de site</td><td>Rapports hebdomadaires et mensuels par site, decks PowerPoint, e-mails aux coordinateurs, studio de rapports, rapport exécutif Group IT</td><td>Base SDP360, données ITSM</td></tr>
+      <tr><td>Opérations de site</td><td>Inspections avec photos et signatures, application terrain hors ligne, registre des actions correctives, suivi d'activité IT (4 piliers)</td><td>Saisie terrain, base SDP360</td></tr>
+      <tr><td>Réunions et gouvernance</td><td>Procès-verbaux départementaux, escalades au conseil, 5 engagements, décisions, engagements à double contrôle, passations de quart, registre des risques</td><td>Base SDP360</td></tr>
+      <tr><td>Parc informatique</td><td>Inventaire, hygiène des données, finance et licences, prévision d'investissement, rapprochement SDP × AD × Entra × Defender (import manuel)</td><td>AssetExplorer via Analytics, exports AD/Entra</td></tr>
+      <tr><td>Infrastructure et réseau</td><td>Disponibilité LAN/WLAN/serveurs, santé WAN par lien, SLA opérateur et refacturation, alertes SLA dans Teams</td><td>OpManager, Meraki (lecture seule)</td></tr>
+      <tr><td>Projets et portefeuilles</td><td>Portefeuilles, programmes, projets, planification par chemin critique, lignes de base, ressources, valeur acquise, travail hors ligne. Échanges MS Project, P6, Jira et Azure DevOps en option</td><td>Outil natif SDP360</td></tr>
+      <tr><td>Direction et indicateurs</td><td>Espace direction, composeur de tableaux de bord, dictionnaire de 46+ indicateurs, vue SharePoint publique, API externe et OData</td><td>Registre d'indicateurs SDP360</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section>
+  <h2>Fonctionnalités prêtes mais désactivées</h2>
+  <p class="read">152 fonctions sont livrées mais restent éteintes par défaut. Elles sont regroupées en 13 lots d'activation, que la direction peut allumer lot par lot. Chaque lot doit être approuvé par une personne nommée, avec un site pilote, une date et un critère de retour arrière. L'IA ne remplit aucun de ces champs.</p>
+  <div class="tbl"><table>
+    <thead><tr><th>Lot</th><th>Objet</th><th class="n">Fonctions</th><th>Avis de l'IA (tour 2)</th></tr></thead>
+    <tbody>
+      <tr><td>L01</td><td>Parcours de travail quotidien</td><td class="n">10</td><td><span class="pill warn">CONDITIONNEL</span></td></tr>
+      <tr><td>L02</td><td>Lecture du portefeuille et des projets (PMO)</td><td class="n">10</td><td><span class="pill ok">GO PILOTE</span></td></tr>
+      <tr><td>L03</td><td>Contrôle des changements, lignes de base, jalons</td><td class="n">9</td><td><span class="pill warn">CONDITIONNEL</span></td></tr>
+      <tr><td>L04</td><td>Planification, ressources, collaboration</td><td class="n">9</td><td><span class="pill warn">CONDITIONNEL</span></td></tr>
+      <tr><td>L05</td><td>Temps, argent, bénéfices</td><td class="n">10</td><td><span class="pill bad">NO-GO</span></td></tr>
+      <tr><td>L06</td><td>Échange de plans avec outils externes (option)</td><td class="n">6</td><td><span class="pill warn">CONDITIONNEL</span></td></tr>
+      <tr><td>L07</td><td>Publication de la feuille de route, projets sensibles</td><td class="n">7</td><td><span class="pill warn">CONDITIONNEL</span></td></tr>
+      <tr><td>L08</td><td>Cadence de gouvernance</td><td class="n">10</td><td><span class="pill warn">CONDITIONNEL</span></td></tr>
+      <tr><td>L09</td><td>Confiance dans les indicateurs</td><td class="n">10</td><td><span class="pill warn">CONDITIONNEL</span></td></tr>
+      <tr><td>L10</td><td>Rythme de reporting, rappels</td><td class="n">8</td><td><span class="pill warn">CONDITIONNEL</span></td></tr>
+      <tr><td>L11</td><td>Preuves terrain : inspections, actifs, WAN</td><td class="n">7</td><td><span class="pill warn">CONDITIONNEL</span></td></tr>
+      <tr><td>L12</td><td>Renforcement de la sécurité des accès</td><td class="n">10</td><td><span class="pill warn">CONDITIONNEL</span></td></tr>
+      <tr><td>L13</td><td>Résilience : synchronisations, restauration, identité</td><td class="n">5</td><td><span class="pill warn">CONDITIONNEL</span></td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">L05 reste en NO-GO tant que la porte Finance (G14) n'est pas signée et que la question des montants visibles par le comité n'est pas tranchée.</p>
+</section>
+
+<section>
+  <h2>Améliorations livrées</h2>
+  <p class="read">Le programme de qualification (lots P01 à P11) est passé du mode « construire » au mode « qualifier ». Principaux apports :</p>
+  <div class="two">
+    <div class="card"><h3>Socle et vérité</h3><ul>
+      <li>Une seule base de référence, documents de règles alignés sur la branche réelle.</li>
+      <li>Test de démarrage : deux fichiers source absents identifiés (2 routes en 503).</li>
+      <li><code>server.js</code> réduit de 6 915 à 5 718 lignes, plafond verrouillé par test.</li>
+    </ul></div>
+    <div class="card"><h3>Sécurité et accès</h3><ul>
+      <li>Sonde automatique : 753 routes × 23 profils, contrôlée par mutation (5/5 failles détectées).</li>
+      <li>Jetons de session plus jamais envoyés au navigateur ; compte de secours plus exposé.</li>
+      <li>Liens de partage public restreints aux rapports que l'auteur peut partager.</li>
+    </ul></div>
+    <div class="card"><h3>Fiabilité des données</h3><ul>
+      <li>Garde-fous sur toutes les synchronisations : un export partiel ne supprime plus rien et les lignes perdues reviennent seules.</li>
+      <li>Valeur inconnue affichée « — », jamais 0 % (CSAT, signatures).</li>
+      <li>Dossier par indicateur, définitions contestées calculées côte à côte.</li>
+    </ul></div>
+    <div class="card"><h3>Performance et exploitation</h3><ul>
+      <li>Deck mensuel tous sites : de 22 s à environ 3,5 s.</li>
+      <li>Restauration complète vérifiée : 218 tables, 0 écart.</li>
+      <li>Sonde de santé qui détecte une base arrêtée ou en lecture seule.</li>
+    </ul></div>
+    <div class="card"><h3>Gestion de projets</h3><ul>
+      <li>Une saisie extrême ne peut plus faire tomber le portefeuille.</li>
+      <li>Le coût réel conserve l'argent déjà dépensé, même après suppression ou annulation.</li>
+      <li>Calcul de valeur acquise borné : 11 ms au lieu de 12,9 s dans le pire cas.</li>
+    </ul></div>
+    <div class="card"><h3>Terrain et adoption</h3><ul>
+      <li>Application terrain : aucun écrasement silencieux, conflits signalés, aucune donnée d'API en cache.</li>
+      <li>42 parcours navigateur verts, fiches de formation par profil, kit pilote.</li>
+      <li>Double contrôle des engagements étendu à tout l'historique.</li>
+    </ul></div>
+  </div>
+</section>
+
+<section>
+  <h2>État de la qualification (P11)</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Tour</th><th>Version</th><th class="n">P0</th><th class="n">P1 trouvés</th><th>Suite donnée</th></tr></thead>
+    <tbody>
+      <tr><td>Tour 1</td><td><code>7eee8955</code></td><td class="n">0</td><td class="n">9</td><td>8 corrigés ; 1 décision humaine (montants comité)</td></tr>
+      <tr><td>Tour 2</td><td><code>b2e85cd0</code></td><td class="n">0</td><td class="n">4 nouveaux</td><td>4 corrigés ; corrections du tour 1 confirmées</td></tr>
+      <tr><td>Tour 3</td><td><code>ead6efb6</code></td><td class="n">—</td><td class="n">—</td><td><span class="pill na">EN PAUSE</span> limite d'usage, reprise prévue après 23 h UTC</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">P0 : défaut critique (sécurité, perte de données, chiffre faux présenté comme vrai). P1 : à corriger avant pilote. Les défauts P2 et P3 restants sont listés dans le registre des risques résiduels du rapport de préparation.</p>
+</section>
+
+<section>
+  <h2>Facteurs habilitants</h2>
+  <div class="two">
+    <div class="card"><h3>Socle technique</h3><ul>
+      <li>PostgreSQL seul, schéma piloté par 103 migrations idempotentes ; cible PostgreSQL 17.</li>
+      <li>Architecture modulaire : 59 modules de routes, dépendances injectées.</li>
+      <li>Intégration continue bloquante : tests unitaires, parcours navigateur, analyse de sécurité, secrets, dépendances.</li>
+      <li>Sauvegarde chiffrée et répétition de restauration automatisées.</li>
+    </ul></div>
+    <div class="card"><h3>Gouvernance de la livraison</h3><ul>
+      <li>Toute nouvelle fonction est livrée éteinte, activable par lot, avec retour arrière testé (13/13).</li>
+      <li>Matrice d'accès générée et vérifiée à chaque changement.</li>
+      <li>21 dossiers de passage générés en français et en anglais, avec preuves citées et date de fraîcheur.</li>
+      <li>Revues IA indépendantes en plusieurs tours, toujours étiquetées comme telles.</li>
+    </ul></div>
+    <div class="card"><h3>Intégrations</h3><ul>
+      <li>Lecture seule : ServiceDesk Plus / Analytics, OpManager, Meraki, Microsoft Entra.</li>
+      <li>Connecteurs projets externes en option uniquement ; l'outil natif reste autonome.</li>
+      <li>Hors périmètre par principe : Pronto, OT/HSE, opérateurs, Nutanix, sauvegarde externe, API Defender.</li>
+    </ul></div>
+    <div class="card"><h3>Limites connues de la preuve</h3><ul>
+      <li>Tests locaux sur PostgreSQL 16 (la CI tourne sur 17).</li>
+      <li>Scripts d'installation PowerShell vérifiés statiquement seulement.</li>
+      <li>Données synthétiques ; aucun test d'endurance d'une heure ni test à volume de production.</li>
+    </ul></div>
+  </div>
+</section>
+
+<section>
+  <h2>Décisions attendues de la direction</h2>
+  <div class="tbl"><table>
+    <thead><tr><th>Décision</th><th>Responsable</th><th>Effet</th></tr></thead>
+    <tbody>
+      <tr><td>Montants du portefeuille visibles par les membres du comité</td><td>Sécurité + Finance</td><td>Débloque L02 et L05</td></tr>
+      <tr><td>Signer la porte Finance G14 et nommer un vérificateur</td><td>Finance</td><td>Lève le NO-GO sur L05</td></tr>
+      <tr><td>Approuver les lots d'activation (responsable, site pilote, dates)</td><td>Direction IT</td><td>Allume les fonctions lot par lot</td></tr>
+      <tr><td>Politique d'accès, modèle de menaces, rotation des secrets</td><td>Sécurité</td><td>Portes G01 et G02</td></tr>
+      <tr><td>Objectifs de reprise (RPO/RTO) et capacité</td><td>Exploitation</td><td>Portes G05 et capacité</td></tr>
+      <tr><td>Sites pilotes, cohorte, dates ; recette terrain</td><td>Sponsor du pilote</td><td>Portes G11 et G21</td></tr>
+      <tr><td>Définitions d'indicateurs contestées D-01 à D-03, seuils</td><td>Comité KPI</td><td>Porte G-12</td></tr>
+      <tr><td>Créer et protéger la branche principale ; sort des 2 fichiers manquants et du build installé</td><td>Responsable du dépôt</td><td>Porte QA/CI (G19)</td></tr>
+    </tbody>
+  </table></div>
+  <p class="note">Action immédiate sur la base de production : exécuter <code>node tools/field/inspection-action-status-check.js</code> (lecture seule), puis faire clore les actions d'inspection signalées par leurs responsables.</p>
+</section>
+
+<section>
+  <h2>Prochaines étapes</h2>
+  <ul class="read">
+    <li>Reprendre le tour 3 de la revue IA après la remise à zéro de la limite d'usage ; corriger tout défaut P0 ou P1 et refiger une version.</li>
+    <li>Remettre le rapport de préparation consolidé au comité de validation humain.</li>
+    <li>Sur décision, activer L02 sur deux sites pilotes, avec le kit de formation et la mesure d'usage déjà en place.</li>
+    <li>Traiter les défauts P2 restants avant tout déploiement général.</li>
+  </ul>
+</section>
+
+<footer>Sources : inventaire généré du dépôt (<code>docs/agent-execution/INVENTORY.json</code>), registre des fonctions (<code>docs/ops/FLAG-REGISTER.json</code>), plan des lots (<code>docs/ops/SWITCH-LOTS.md</code>), rapport de préparation P11 (<code>docs/agent-execution/P11-readiness-report.md</code>). Recommandations rédigées par l'IA, à soumettre au comité ; aucune approbation n'est présumée.</footer>
+
+</div>
