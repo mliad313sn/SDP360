@@ -188,3 +188,25 @@ shared four-eyes guard on every config-writing route, approver independence afte
 revoked on admin reset, lots-on authz probe; encrypted file-store backup verified by the restore drill, 503 on DB
 stall, transactional rollbacks, second operator for four-eyes activations; inspection actions upserted (history
 kept). **Fix 24** (audit R5-A2, R5-A3/AUD-2, P3s) in progress. All human gates remain empty.
+
+## Round 6 — frozen SHA e82d95ba (2026-11-20) — AI panel, not an independent human review
+
+Seat reports: `docs/agent-execution/p11/round6-e82d95ba/r6-<seat>.md` (plus the operations load-run log).
+
+| Seat | P0 | P1 | New P2 | Round-5 re-check |
+|---|---|---|---|---|
+| security | 0 | 0 (R1-F2 policy) | N-R6-1 four-eyes guard bypassed by a boolean spelling of a switch value | N-R5-1/2/3 fixed |
+| data-kpi | 0 | 0 | F-26 fleet SLA cell misleading (regression from fix 19); F-27 risk rule edge case | F-21, F-23 fixed |
+| ppm | 0 | 0 | R6-1 demand panel totals | R5-1..R5-4 fixed |
+| operations | 0 | 0 | O-1 backup can block the event loop; O-2 file-store backup follows symlinks | N-12..N-15 fixed (N-14 for the default layout) |
+| ux-field | 0 | 0 | F-22 a refused reopen was dropped silently | F-15, F-16 fixed |
+| audit | 0 | 0 | R6-A1 CLI activation can name another operator; R6-A2 audit chain should fail closed; R6-A3 dossier script hashes | R5-A1..A3 fixed |
+
+**First round with P0 = 0 and P1 = 0 on every seat.** Corrections: fix 25 (F-26, F-27, R6-1), fix 26 (N-R6-1
+canonical switch values before the guard, change requests bound to the fields they name, concurrent CR edits
+serialised) merged; fix 27 (O-1, O-2) and fix 28 (F-22) merged; fix 29 (R6-A1..A3) in progress.
+
+**AI panel recommendation (advisory only, not an approval):** GO PILOT for the default product and lots L01,
+L02, L03, L10, L11, L15, L16 and the business-readiness pack; L14 pending committee confirmation of the
+freeze/change-request policy; L13 conditional; NO-GO for four-eyes CLI activation until R6-A1 lands and for L05
+until Finance gate G14 is signed. All 21 RELEASE-GATES rows and the ~110 human decisions remain empty.
