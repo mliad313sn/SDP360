@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | ne bloque le pilote que si sa fonction est dans le périmètre du pilote |
 | À décider après | [G01](G01-security-access-policy.md) Sécurité : politique d'accès et matrice d'autorisation |
-| SHA cible | `801c0c84` |
+| SHA cible | `3b7687d3ffe47b21628b160ccdaf991b0938cbbb` |
 | Généré | 2026-11-20 |
 
 ## 1. La question à trancher
