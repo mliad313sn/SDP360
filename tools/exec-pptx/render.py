@@ -1985,7 +1985,7 @@ else:
     _pastel_tile(_tkx(0), _ty, _tw, _th, str(_tk.get('green', 0)), "GREEN",        GREEN,  _GRN_BG, GREEN)
     _pastel_tile(_tkx(1), _ty, _tw, _th, str(_tk.get('amber', 0)), "AMBER",        _AMB_D, _AMB_BG, _AMB_D)
     _pastel_tile(_tkx(2), _ty, _tw, _th, str(_tk.get('red',   0)), "RED",          RED,    _RED_BG, RED)
-    _pastel_tile(_tkx(3), _ty, _tw, _th, f"{avg_sc}%",             "AVG SCORE",    _TEAL,  _TEAL_BG, _TEAL)
+    _pastel_tile(_tkx(3), _ty, _tw, _th, f"{avg_sc}%" if avg_sc is not None else "—", "AVG SCORE", _TEAL, _TEAL_BG, _TEAL)  # P11 F-02: null = not measured
     _bd_str = f"{'+' if best_d > 0 else ''}{best_d}pp"
     _pastel_tile(_tkx(4), _ty, _tw, _th, _bd_str,
                  f"BEST Δ ({best_site})" if best_site else "BEST Δ", _BLU, _BLU_BG, _BLU)
@@ -2064,7 +2064,7 @@ else:
         y = gy0
         sc     = site.get('score', 0)
         sc_col = GREEN if sc >= 65 else AMBER if sc >= 55 else RED
-        d      = site.get('delta_pp', 0) or 0
+        d      = site.get('delta_pp')   # P11 F-02: None = previous month not measured → "—"
         add_rect(s, x, y, card_w, Inches(0.07), sc_col)
         add_rect(s, x, y + Inches(0.07), card_w, card_h - Inches(0.07), WHITE, line=RGBColor(0xE5, 0xE7, 0xEB))
         # code + subtitle
@@ -2076,9 +2076,9 @@ else:
         # score + delta pill
         add_text(s, x + Inches(0.12), y + Inches(0.58), Inches(1.2), Inches(0.46),
                  f"{sc}%", size=22, bold=True, color=sc_col)
-        d_txt = f"{'+' if d > 0 else ''}{d}pp"
+        d_txt = f"{'+' if d > 0 else ''}{d}pp" if d is not None else "— pp"
         delta_pill(s, x + Inches(1.25), y + Inches(0.70), d_txt,
-                   kind='good' if d > 0 else 'bad' if d < 0 else 'neutral',
+                   kind='neutral' if d is None else 'good' if d > 0 else 'bad' if d < 0 else 'neutral',
                    w=card_w - Inches(1.37), h=Inches(0.24), size=8)
         # G/A/R badges
         _by2 = y + Inches(1.08); _pw = (cw - 0.24 - 0.10) / 3
@@ -2155,12 +2155,15 @@ if _tr_months and _tr_pillars:
             ax.axhspan(0, 55,   color='#DC2626', alpha=0.05)
             ax.axhspan(55, 65,  color='#F59E0B', alpha=0.05)
             ax.axhspan(65, 100, color='#16A34A', alpha=0.05)
-            ax.plot(_tr_months, series,
+            _vals = [float('nan') if v is None else v for v in series]   # P11 F-02: a gap, not 0 %
+            ax.plot(_tr_months, _vals,
                     color=color, linewidth=2.8,
                     marker='o', markersize=7, markerfacecolor=color,
                     markeredgecolor='white', markeredgewidth=1.5)
             # Point labels
             for i, v in enumerate(series):
+                if v is None:
+                    continue
                 ax.text(i, v + 3.5, f'{v}%', ha='center', fontsize=9,
                         color='#1A3A5F', fontweight='bold')
             ax.set_ylim(0, 105)
@@ -2188,7 +2191,7 @@ if _tr_months and _tr_pillars:
         series = _tr_pillars.get(p) or []
         if len(series) != len(_tr_months):
             # Pad to match (server should already, but be defensive)
-            series = ([0] * (len(_tr_months) - len(series))) + list(series)
+            series = ([None] * (len(_tr_months) - len(series))) + list(series)
         row = i // 2; col = i % 2
         x = gx0 + (cell_w + gap) * col
         y = gy0 + (cell_h + gap) * row
@@ -2204,11 +2207,11 @@ if _tr_months and _tr_pillars:
                  cell_w - Inches(0.25), Inches(0.30),
                  pillar_disp, size=11, bold=True, color=NAVY)
         # Latest value pill on the right of the header
-        latest = series[-1] if series else 0
-        latest_col = GREEN if latest >= 65 else AMBER if latest >= 55 else RED
+        latest = series[-1] if series else None
+        latest_col = GRAY if latest is None else GREEN if latest >= 65 else AMBER if latest >= 55 else RED
         add_text(s, x + cell_w - Inches(0.85), y + Inches(0.08),
                  Inches(0.75), Inches(0.30),
-                 f"{latest}%", size=12, bold=True, color=latest_col,
+                 f"{latest}%" if latest is not None else "—", size=12, bold=True, color=latest_col,
                  align=PP_ALIGN.RIGHT)
 
         # Chart
@@ -2221,9 +2224,9 @@ if _tr_months and _tr_pillars:
 
     # Bottom commentary — synthesise from trends (no AI dependency)
     def _trend_dir(series):
-        if len(series) < 2 or series[-1] == 0: return None
-        # last vs trailing average (excluding last)
-        prior = series[:-1]
+        if len(series) < 2 or series[-1] is None or series[-1] == 0: return None
+        # last vs trailing average (excluding last); unmeasured months (None) are left out — P11 F-02
+        prior = [v for v in series[:-1] if v is not None]
         if not prior: return None
         baseline = sum(prior) / len(prior)
         diff = series[-1] - baseline
