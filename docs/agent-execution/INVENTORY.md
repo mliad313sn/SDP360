@@ -20,7 +20,7 @@
 | jobs | 33 |
 | jobs without test reference | 0 |
 | migrations | 107 |
-| test files | 873 |
+| test files | 877 |
 
 ## Pages
 
@@ -46,7 +46,7 @@
 | PG-handoffs | public/handoffs.html | any | yes | 1 | 10 |
 | PG-help | public/help.html | any | yes | 1 | 12 |
 | PG-home | public/home.html | any | yes | 0 | 17 |
-| PG-index | public/index.html | any | yes | 1 | 38 |
+| PG-index | public/index.html | any | yes | 1 | 39 |
 | PG-infra-health | public/infra-health.html | any | yes | 2 | 7 |
 | PG-inspection-actions | public/inspection-actions.html | any | no | 1 | 6 |
 | PG-inspection | public/inspection.html | any | no | 2 | 9 |
@@ -79,7 +79,7 @@
 | PG-reports | public/reports.html | any | yes | 2 | 41 |
 | PG-rfi | public/rfi.html | any | yes | 1 | 5 |
 | PG-site-actions | public/site-actions.html | any | yes | 1 | 18 |
-| PG-site-awareness | public/site-awareness.html | site-business / group-business / executive | yes | 2 | 6 |
+| PG-site-awareness | public/site-awareness.html | site-business / group-business / executive | yes | 2 | 7 |
 | PG-site-report | public/site-report.html | UNKNOWN | no | 0 | 6 |
 | PG-system-logs | public/system-logs.html | super_admin | yes | 1 | 4 |
 | PG-tracker-builder | public/tracker-builder.html | admin / tracker-admin | no | 1 | 4 |

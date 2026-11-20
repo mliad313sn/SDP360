@@ -15,7 +15,7 @@
   "jobs": 33,
   "jobs_without_test_reference": 0,
   "migrations": 107,
-  "test_files": 873
+  "test_files": 877
  },
  "pages": [
   {
@@ -693,7 +693,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 1,
-   "bytes": 130013,
+   "bytes": 130132,
    "tests": [
     "tests/a11y-legacy-ratchet.test.js",
     "tests/a11y-static.test.js",
@@ -728,6 +728,7 @@
     "tests/login-next-redirect.test.js",
     "tests/page-states-adoption.test.js",
     "tests/report-figures-parity.test.js",
+    "tests/reporting-week-dst.test.js",
     "tests/sdp-manager.smoke.test.js",
     "tests/site-fold-sla-definition.test.js",
     "tests/sla-tile-definitions.test.js",
@@ -1810,13 +1811,14 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 2,
-   "bytes": 72289,
+   "bytes": 73416,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/csp-no-inline-handlers-new-pages.test.js",
     "tests/i18n-coverage.test.js",
     "tests/landing.test.js",
     "tests/shell-navigation.test.js",
+    "tests/site-awareness-sla-parity.test.js",
     "tests/ui-design-ratchet.test.js"
    ]
   },
@@ -12726,7 +12728,7 @@
    "method": "GET",
    "path": "/api/site-awareness/actions",
    "file": "routes/siteAwareness.js",
-   "line": 290,
+   "line": 297,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -12736,7 +12738,7 @@
    "method": "GET",
    "path": "/api/site-awareness/audit",
    "file": "routes/siteAwareness.js",
-   "line": 523,
+   "line": 530,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -12746,7 +12748,7 @@
    "method": "GET",
    "path": "/api/site-awareness/fleet",
    "file": "routes/siteAwareness.js",
-   "line": 407,
+   "line": 414,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -12766,7 +12768,7 @@
    "method": "GET",
    "path": "/api/site-awareness/inspections",
    "file": "routes/siteAwareness.js",
-   "line": 192,
+   "line": 199,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -12776,7 +12778,7 @@
    "method": "GET",
    "path": "/api/site-awareness/meetings",
    "file": "routes/siteAwareness.js",
-   "line": 246,
+   "line": 253,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -12799,7 +12801,7 @@
    "method": "GET",
    "path": "/api/site-awareness/tracker",
    "file": "routes/siteAwareness.js",
-   "line": 351,
+   "line": 358,
    "tests": [
     "tests/site-awareness-routes.smoke.test.js"
    ]
@@ -13884,6 +13886,7 @@
     "tests/first-usable.test.js",
     "tests/landing.test.js",
     "tests/login-next-redirect.test.js",
+    "tests/reporting-week-dst.test.js",
     "tests/sdp-manager.smoke.test.js",
     "tests/trust-label.test.js",
     "tests/ui-design-ratchet.test.js"

@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | ne bloque le pilote que si sa fonction est dans le périmètre du pilote |
 | À décider après | [G07](G07-closure-policy-commitments.md) Politique de clôture des engagements |
-| SHA cible | `1bda2211` |
+| SHA cible | `098d2f1e` |
 | Généré | 2026-11-20 |
 
 ## 1. La question à trancher
