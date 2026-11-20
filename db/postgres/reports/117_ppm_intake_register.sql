@@ -11,7 +11,7 @@
 --                        applicable ≠ none known (spec §31.10). A state is only stored while the field value is NULL.
 --   business_need        JSON {current_situation, impact, problem, required_outcome} (spec §7.1)
 --   tags                 JSON list of short strings (secondary classification, spec §6)
--- Rollback: db/postgres_rollback/114_ppm_intake_register_drop.sql (manual).
+-- Rollback: db/postgres_rollback/117_ppm_intake_register_drop.sql (manual).
 ALTER TABLE portfolio_projects ADD COLUMN IF NOT EXISTS project_ref TEXT;
 ALTER TABLE portfolio_projects ADD COLUMN IF NOT EXISTS project_type TEXT;
 ALTER TABLE portfolio_projects ADD COLUMN IF NOT EXISTS tags TEXT;

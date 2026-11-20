@@ -1,5 +1,5 @@
 'use strict';
-// PORTFOLIO LOT 1 (spec §5–§18, §31.10) — the project intake fields: which columns exist (migration 114), how a write
+// PORTFOLIO LOT 1 (spec §5–§18, §31.10) — the project intake fields: which columns exist (migration 117), how a write
 // is checked (pure: no I/O, the active reference-list codes are passed in), the explicit value-state convention, the
 // warnings a write returns, and the field guidance catalogue (spec §4, EN + FR) the project page shows.
 // Used by services/governanceStore.js only while report_config ppm_intake_register_enabled = '1'.
@@ -16,7 +16,7 @@
 
 const LIST_FIELDS = ['project_type', 'priority', 'schedule_confidence', 'budget_status', 'decision_required', 'delivery_effort', 'risk_exposure'];
 const TEXT_FIELDS = { expected_value: 4000, delivery_lead: 120, budget_reference: 120, required_skills: 1000, workload_notes: 4000 };
-/** Columns of portfolio_projects added by migration 114 (project_ref is generated, never written by a client). */
+/** Columns of portfolio_projects added by migration 117 (project_ref is generated, never written by a client). */
 const INTAKE_COLS = ['project_ref', 'project_type', 'tags', 'priority', 'business_need', 'expected_value', 'delivery_lead', 'indicative_quarter', 'schedule_confidence',
   'budget_status', 'budget_approval_date', 'budget_reference', 'decision_required', 'delivery_effort', 'risk_exposure', 'avg_fte', 'peak_fte', 'required_skills', 'workload_notes', 'value_states'];
 /** Columns a client may write (everything but the generated id). */

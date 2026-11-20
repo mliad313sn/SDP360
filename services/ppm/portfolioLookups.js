@@ -1,7 +1,7 @@
 'use strict';
 // PORTFOLIO LOT 1 (spec §19) — the portfolio reference lists (project types, priorities, budget statuses, project
 // statuses, decision values, delivery effort, risk exposure, schedule confidence), table ppm_lookup_values
-// (migration 114). Read and written only while report_config ppm_intake_register_enabled = '1' (the routes answer 404
+// (migration 117). Read and written only while report_config ppm_intake_register_enabled = '1' (the routes answer 404
 // otherwise). Pure rules first (validateValue, FIELD_DOMAIN), then a small store over a pgDb-shaped handle.
 //
 // Rules:

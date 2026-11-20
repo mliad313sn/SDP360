@@ -473,7 +473,7 @@ Object.assign(DEFAULTS, { ppm_xer_enabled: '0', ppm_mpp_import_enabled: '0', ppm
 //    ppm_offline_edit_enabled '1' → project-page task / milestone edits made without a connection are queued in the
 //    browser, replayed with their row version, and a conflict opens a merge screen (keep mine / keep theirs per field).
 Object.assign(DEFAULTS, { ppm_project_roles_enabled: '0', ppm_comments_enabled: '0', ppm_agile_board_enabled: '0', ppm_roadmap_nnl_enabled: '0', ppm_offline_edit_enabled: '0' });
-// ── PORTFOLIO LOT 1 (IT portfolio reconstruction spec §5–§19, migration 114) — PROPOSED, '0' = today.
+// ── PORTFOLIO LOT 1 (IT portfolio reconstruction spec §5–§19, migration 117) — PROPOSED, '0' = today.
 //    ppm_intake_register_enabled '1' → projects carry the intake fields (type, tags, priority, structured business
 //    need, expected value, delivery lead, indicative quarter + schedule confidence, budget status / approval date /
 //    reference, decision required, delivery effort, risk exposure, average / peak FTE, skills, workload notes, explicit

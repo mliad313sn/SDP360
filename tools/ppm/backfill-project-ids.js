@@ -1,5 +1,5 @@
 'use strict';
-// PORTFOLIO LOT 1 — give the existing projects their permanent id PRJ-{YEAR}-{SEQ} (migration 114).
+// PORTFOLIO LOT 1 — give the existing projects their permanent id PRJ-{YEAR}-{SEQ} (migration 117).
 //
 //   node tools/ppm/backfill-project-ids.js              DRY RUN (default): lists the ids it would give, writes nothing
 //   node tools/ppm/backfill-project-ids.js --dry-run    same

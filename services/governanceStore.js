@@ -16,7 +16,7 @@ const RFI_STATUSES = ['submitted', 'triaged', 'accepted', 'scheduled', 'delivere
 const PROJECT_STATUSES = ['planned', 'active', 'on_hold', 'done', 'cancelled'];
 const CONFIDENCE = ['low', 'medium', 'high'];
 const softDelete = require('./softDelete');   // A-19c
-const IF = require('./ppm/intakeFields');   // PORTFOLIO LOT 1 (migration 114, switch ppm_intake_register_enabled)
+const IF = require('./ppm/intakeFields');   // PORTFOLIO LOT 1 (migration 117, switch ppm_intake_register_enabled)
 
 const J = (v) => (v == null ? null : JSON.stringify(v));
 const P_ = (s, d) => { if (s == null) return d; if (typeof s !== 'string') return s; try { return JSON.parse(s); } catch (_) { return d; } };

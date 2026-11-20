@@ -1,8 +1,8 @@
--- MANUAL rollback of db/postgres/reports/114_ppm_intake_register.sql. Kept OUTSIDE db/postgres/ so the migrator never
+-- MANUAL rollback of db/postgres/reports/117_ppm_intake_register.sql. Kept OUTSIDE db/postgres/ so the migrator never
 -- applies it. Set report_config ppm_intake_register_enabled to '0' first (the default). Removes the intake fields, the
 -- project ids (PRJ-YYYY-NNN) and the portfolio reference lists for good — the projects themselves and their `key` STAY.
 -- Take a pg_dump before (the project ids are meant to be permanent). Afterwards:
---   DELETE FROM schema_migrations WHERE id = 'reports/114_ppm_intake_register.sql';
+--   DELETE FROM schema_migrations WHERE id = 'reports/117_ppm_intake_register.sql';
 DROP TABLE IF EXISTS ppm_lookup_values;
 DROP TABLE IF EXISTS ppm_project_ref_seq;
 DROP TRIGGER IF EXISTS portfolio_projects_ref_immutable ON portfolio_projects;
