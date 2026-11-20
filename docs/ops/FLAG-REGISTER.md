@@ -371,7 +371,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `reports.override_reason_min` | `10` | int | yes | yes | to be named |
 | `reports.withdraw_reason_min` | `5` | int | yes | yes | to be named |
 
-## 4. Environment variables (65) — read in *.js, services/, routes/
+## 4. Environment variables (66) — read in *.js, services/, routes/
 
 | Variable | Kind | Default when unset | Owner | Read in |
 |---|---|---|---|---|
@@ -431,6 +431,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `SSO_ENABLED` | switch | see the reading file | to be named | services/ssoSettings.js |
 | `SSO_GROUP_MAP` | setting | see the reading file | to be named | services/ssoSettings.js |
 | `SSO_MODE` | setting | see the reading file | to be named | services/ssoSettings.js |
+| `SYNC_TRUNCATION_SHRINK_CONFIRMATIONS` | setting | see the reading file | to be named | services/sync/truncationGuard.js |
 | `SYNC_TRUNCATION_TOLERANCE_PCT` | setting | see the reading file | to be named | services/sync/truncationGuard.js |
 | `WORKSPACE_ID` | setting | see the reading file | to be named | server.js |
 | `ZOHO_CLIENT_ID` | setting | see the reading file | to be named | server.js |

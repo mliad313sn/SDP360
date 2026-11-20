@@ -6,15 +6,15 @@
 //       Contract now: a healthy run re-inserts every live row missing locally.
 // N-02: the guard compared each fetch to the CURRENT local count, so successive sub-tolerance
 //       partial exports ratcheted a table down (100 → 81 → 66 → 54 …). Contract now: the baseline is
-//       max(stored, last confirmed count); a lossy run never lowers it; a genuine shrink is accepted
-//       once two consecutive exports agree on the lower count.
-// F-14 (P11 r3): a run with fetched ≥ stored but < anchor used to reset the anchor to that partial
-//       count, so ALTERNATING partial exports still ratcheted (1000 → 810 → 820 → 660 …). Contract
-//       now: only fetched ≥ anchor, or two consecutive exports agreeing on the same lower count, move it.
+//       max(stored, last confirmed count); a lossy run never lowers it.
+// F-14 / N-02r (P11 r3): a run with fetched ≥ stored but < anchor used to reset the anchor to that partial
+//       count, so ALTERNATING, growing-by-one or REPEATED partial exports still ratcheted (1000 → 810 →
+//       820 → 660 …, 100 → 81 → 81 → 66 …). Contract now: only fetched ≥ anchor moves it; a lower count is
+//       pending until an operator confirms it (or the opt-in SRE policy SYNC_TRUNCATION_SHRINK_CONFIRMATIONS).
 const test = require('node:test');
 const assert = require('node:assert');
 const { truncate } = require('./_pg-fresh');
-const { assertNotTruncated, nextAnchor, nextAnchorState, guardWithAnchor } = require('../services/sync/truncationGuard');
+const { assertNotTruncated, nextAnchor, nextAnchorState, confirmShrink, shrinkConfirmations, guardWithAnchor } = require('../services/sync/truncationGuard');
 
 // ── pure ─────────────────────────────────────────────────────────────────────────────────────
 test('guard baseline = max(stored, anchor); stored 0 still accepts anything', () => {
@@ -28,7 +28,14 @@ test('nextAnchorState: only a confirmed count moves the anchor; a lossy run neve
   const st = (anchor, pending = null, agree = 0) => ({ anchor, pending, agree });
   assert.deepEqual(nextAnchorState(null, 100, 0), st(100));            // first run
   assert.deepEqual(nextAnchorState(st(100), 81, 100), st(100, 81, 1));  // lossy run: keeps the pre-loss count, 81 pending
-  assert.deepEqual(nextAnchorState(st(100, 81, 1), 81, 81), st(81));    // second consecutive export agrees → genuine shrink
+  assert.deepEqual(nextAnchorState(st(100, 81, 1), 81, 81), st(100, 81, 2), 'agreement alone never lowers it by default (N-02r)');
+  assert.deepEqual(nextAnchorState(st(100, 81, 1), 81, 81, { confirmations: 2 }), st(81), 'policy N=2: two agreeing exports lower it');
+  assert.deepEqual(confirmShrink(st(100, 81, 2)), st(81), 'operator confirmation of the pending count');
+  assert.deepEqual(confirmShrink(st(100), 70), st(70));
+  assert.throws(() => confirmShrink(st(100)), /no pending count/);
+  assert.equal(shrinkConfirmations({}), 0);
+  assert.equal(shrinkConfirmations({ SYNC_TRUNCATION_SHRINK_CONFIRMATIONS: '1' }), 0, 'one run is never a confirmation');
+  assert.equal(shrinkConfirmations({ SYNC_TRUNCATION_SHRINK_CONFIRMATIONS: '3' }), 3);
   assert.deepEqual(nextAnchorState(st(100), 120, 100), st(120));        // growth
   assert.deepEqual(nextAnchorState(null, 81, 100), st(100, 81, 1));     // no anchor yet: the stored count before the loss
   assert.deepEqual(nextAnchorState(100, 100, 100), st(100), 'legacy numeric anchor read as a state');
@@ -58,6 +65,36 @@ test('F-14: pure ratchet model 100 → 81, 82, 66, 67, 54, 55, 44 stays bounded'
   }
   assert.equal(state.anchor, 100);
   assert.ok(stored >= 80, `stored ${stored} fell below the tolerance of the confirmed count`);
+});
+
+// Pure replay of an export sequence through guard + anchor: returns accepted fetches, final stored and anchor.
+function replay(seq, start = 100, opts = {}) {
+  let stored = start, state = nextAnchorState(null, start, 0, opts);
+  const accepted = [];
+  for (const f of seq) {
+    try { assertNotTruncated('j', f, stored, 20, { anchor: state.anchor }); } catch (e) { assert.ok(e.truncation); continue; }
+    state = nextAnchorState(state, f, stored, opts); stored = f; accepted.push(f);
+  }
+  return { accepted, stored, anchor: state.anchor };
+}
+
+test('N-02r: a REPEATED partial export (deterministic cap) never ratchets: 100 → 81, 81, 66, 66, 54, 54, 44, 44', () => {
+  const r = replay([81, 81, 66, 66, 54, 54, 44, 44]);
+  assert.deepEqual(r.accepted, [81, 81]);
+  assert.equal(r.anchor, 100);
+  assert.ok(r.stored >= 80);
+});
+
+test('N-02r: a partial export growing by one row per run never ratchets: 100 → 81, 82, 83, 66, 67, 54, 44', () => {
+  const r = replay([81, 82, 83, 66, 67, 54, 44]);
+  assert.deepEqual(r.accepted, [81, 82, 83]);
+  assert.equal(r.anchor, 100);
+});
+
+test('policy N=2 (opt-in): a genuine shrink seen twice lowers the anchor, still bounded per step', () => {
+  const r = replay([85, 85, 70], 100, { confirmations: 2 });
+  assert.deepEqual(r.accepted, [85, 85, 70]);
+  assert.equal(r.anchor, 85, '70 is pending, not yet confirmed');
 });
 
 test('guardWithAnchor: a failing anchor store never blocks a sync', async () => {
@@ -131,6 +168,16 @@ test('F-14: requests 1000 → 810 → 820 → 660 → 670 → 540 — the 660 ru
   assert.equal(Number(a.anchor_count), 1000, 'anchor still the confirmed count');
 });
 
+test('N-02r: requests repeated cap 1000 → 810, 810, 660, 660 — refused from 660, anchor stays 1000', async () => {
+  await truncate(['request_records', 'sync_metadata', 'sync_truncation_anchors']);
+  feed.req = REQ; await sync.syncRequestData();
+  const refused = [];
+  for (const k of [810, 810, 660, 660]) { feed.req = REQ.slice(0, k); const err = await run(sync.syncRequestData); refused.push(!!(err && err.truncation)); }
+  assert.deepEqual(refused, [false, false, true, true]);
+  assert.equal(await n('request_records'), 810);
+  assert.equal((await rdb.truncationAnchorStore.get('requests')).anchor, 1000);
+});
+
 test('N-02: survey ratchet repro (100 → 81 → 66 …) is stopped at the second run; healthy run restores', async () => {
   await truncate(['survey_results', 'survey_answers', 'sync_metadata', 'sync_truncation_anchors']);
   const set = (rows) => { feed['106803000000002079'] = rows; feed['106803000000002076'] = rows.map((_, i) => mkAns(i)); };
@@ -145,13 +192,20 @@ test('N-02: survey ratchet repro (100 → 81 → 66 …) is stopped at the secon
   assert.equal(await n('survey_results'), 100);
 });
 
-test('N-02: a genuine shrink is accepted once two consecutive exports agree on it', async () => {
+test('N-02r: a repeated partial survey export cannot lower the anchor; an operator-confirmed shrink can', async () => {
   await truncate(['survey_results', 'survey_answers', 'sync_metadata', 'sync_truncation_anchors']);
   const set = (rows) => { feed['106803000000002079'] = rows; feed['106803000000002076'] = rows.map((_, i) => mkAns(i)); };
   set(RES); await sync.syncSurveyData();
   set(RES.slice(0, 85)); await sync.syncSurveyData();
-  await sync.syncSurveyData();                       // same 85 again → confirmed
-  set(RES.slice(0, 70)); assert.equal(await run(sync.syncSurveyData), null, '70 vs confirmed 85 is inside the tolerance');
+  await sync.syncSurveyData();                       // same 85 again — agreement is not a confirmation
+  set(RES.slice(0, 70));
+  const err = await run(sync.syncSurveyData);
+  assert.ok(err && err.truncation, '70 vs confirmed 100 refused');
+  assert.equal(await n('survey_results'), 85);
+  const st = await rdb.truncationAnchorStore.get('survey/results');
+  assert.deepEqual(st, { anchor: 100, pending: 85, agree: 2 });
+  await rdb.truncationAnchorStore.set('survey/results', confirmShrink(st));   // the operator gesture
+  assert.equal(await run(sync.syncSurveyData), null, '70 vs operator-confirmed 85 is inside the tolerance');
   assert.equal(await n('survey_results'), 70);
 });
 
@@ -179,4 +233,19 @@ test('N-02: assets full-replace cannot ratchet when the live anchor store is wir
   await syncAssetView(def, deps(81));
   await assert.rejects(() => syncAssetView(def, deps(66)), (e) => e.truncation === true);
   assert.equal(await adb.countRows(def.table), 81);
+});
+
+test('tools/sync/confirm-shrink.js: dry run by default, --apply lowers the anchor to the pending count', async () => {
+  await truncate(['sync_truncation_anchors']);
+  await rdb.truncationAnchorStore.set('fx/job', { anchor: 100, pending: 85, agree: 2 });
+  const cli = require('../tools/sync/confirm-shrink');
+  const out = []; const io = { log: (s) => out.push(s), err: (s) => out.push('ERR ' + s) };
+  assert.equal(await cli.main(['--job=fx/job'], io), 0);
+  assert.equal((await rdb.truncationAnchorStore.get('fx/job')).anchor, 100, 'dry run writes nothing');
+  assert.equal(await cli.main(['--job=fx/job', '--apply'], io), 0);
+  assert.deepEqual(await rdb.truncationAnchorStore.get('fx/job'), { anchor: 85, pending: null, agree: 0 });
+  assert.equal(await cli.main(['--job=fx/job', '--apply'], io), 2, 'nothing pending any more: refuses without --count');
+  assert.equal(await cli.main(['--job=fx/job', '--count=-3'], io), 2);
+  assert.equal(await cli.main(['--job=nope'], io), 2);
+  assert.match(out.join('\n'), /anchor 100 → 85/);
 });

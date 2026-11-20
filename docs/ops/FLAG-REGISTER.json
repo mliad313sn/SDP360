@@ -15,7 +15,7 @@
   "report_config": 295,
   "planned": 9,
   "governance_policies": 37,
-  "environment": 65,
+  "environment": 66,
   "pseudo": 4,
   "dark": 152,
   "dark_complete": 0
@@ -4619,6 +4619,17 @@
    "owner_role": null,
    "read_in": [
     "services/ssoSettings.js"
+   ]
+  },
+  {
+   "key": "SYNC_TRUNCATION_SHRINK_CONFIRMATIONS",
+   "source": "environment",
+   "kind": "setting",
+   "secret": false,
+   "default_when_unset": null,
+   "owner_role": null,
+   "read_in": [
+    "services/sync/truncationGuard.js"
    ]
   },
   {
