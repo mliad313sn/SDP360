@@ -219,4 +219,4 @@ not the browser-checked level.
 | `docs/agent-execution/TRACEABILITY.md` | `bab98d60573cc653947f1acead471e8655cbc78134969e91ee7f281ff9876c0a` |
 | `docs/ops/AUTHZ-MATRIX.md` | `f5d428793c5545015d56d7c2536a4c58bf992474961e5196007419f0fcbbf3ad` |
 | `docs/ops/FLAG-REGISTER.md` | `14bc036c87712a620d7e1bf6ed3d9dd539ca8f7754f0c7904a4d2f9907676ceb` |
-| `docs/ops/METRIC-WIDGET-MAP.md` | `8890ac9c1dd5c54667161a168dbb456516e4916d96d29de2a1f36ae8a7e707ca` |
+| `docs/ops/METRIC-WIDGET-MAP.md` | `0182748fc8573c3995b593fc0801c13c51ba31868941e2b4a62942a71a3f71fe` |
