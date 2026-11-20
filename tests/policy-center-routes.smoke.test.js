@@ -26,6 +26,8 @@ before(async () => {
   hounde = sites.find((s) => /hounde/i.test(s.name)).id; mana = sites.find((s) => /^mana$/i.test(s.name)).id;
   const mk = async (k, roles, site) => { const u = 'pc_' + k; try { await rdb.createUser({ username: u, full_name: u, password: u + 'pass1234', roles, site_id: site }); } catch {} T[k] = (await rdb.login(u, u + 'pass1234')).token; };
   await mk('super', ['super_admin']); await mk('super2', ['super_admin']); await mk('admin', ['admin']); await mk('viewer', ['viewer'], hounde);
+  // super2 is an established account (outside the approver cooling-off window — services/approverProvenance.js)
+  await rdb.db.prepare("UPDATE users SET created_at = now() - interval '30 days' WHERE username = 'pc_super2'").run();
   await RC.setConfig(rdb.db, { smtp_pass: 'S3cret-value-xyz', smtp_host: 'mail.example.org' }, 'test');
   await new Promise((r) => { server = http.createServer(app).listen(0, '127.0.0.1', r); });
   base = 'http://127.0.0.1:' + server.address().port;
@@ -44,14 +46,15 @@ test('switch off (default): page and every API answer 404, nothing is written', 
   await RC.setConfig(rdb.db, { policy_center_enabled: '1' }, 'test');
 });
 
-test('who: anonymous refused, viewer 403, admin reads but cannot write; secrets never returned', async () => {
+test('who: anonymous refused, viewer and admin 403 (reads are super_admin only, N-R4-2); secrets never returned', async () => {
   assert.ok([401, 403].includes((await send('GET', '/api/policy-center/catalogue')).status));
   assert.strictEqual((await send('GET', '/api/policy-center/catalogue', T.viewer)).status, 403);
-  const r = await send('GET', '/api/policy-center/catalogue', T.admin);
+  assert.strictEqual((await send('GET', '/api/policy-center/catalogue', T.admin)).status, 403);
+  const r = await send('GET', '/api/policy-center/catalogue', T.super);
   assert.strictEqual(r.status, 200);
   const txt = await r.text(); const j = JSON.parse(txt);
   assert.ok(!txt.includes('S3cret-value-xyz'), 'a stored secret never leaves the server');
-  assert.strictEqual(j.can_write, false);
+  assert.strictEqual(j.can_write, true);
   const sp = j.rules.find((x) => x.key === 'smtp_pass');
   assert.strictEqual(sp.current, null); assert.strictEqual(sp.secret_set, true);
   assert.ok(j.rules.length >= 300 && j.coverage.missing.length === 0);
@@ -70,11 +73,11 @@ test('a low-risk change applies at once, needs a reason, is validated and journa
   const ok = await put(T.super, 'ui_week_labels', { value: 'explicit', reason: 'site prefers ISO labels' });
   assert.strictEqual(ok.status, 200); assert.strictEqual((await ok.json()).status, 'applied');
   assert.strictEqual((await cfg()).ui_week_labels, 'explicit');
-  const h = await (await send('GET', '/api/policy-center/rules/ui_week_labels/history', T.admin)).json();
+  const h = await (await send('GET', '/api/policy-center/rules/ui_week_labels/history', T.super)).json();
   assert.ok(h.history.some((x) => x.from === 'legacy' && x.to === 'explicit' && /site prefers ISO labels/.test(x.reason) && x.who === 'pc_super'));
   const rs = await (await put(T.super, 'ui_week_labels', { reset: true, reason: 'back to recommended' })).json();
   assert.strictEqual(rs.status, 'applied'); assert.strictEqual((await cfg()).ui_week_labels, 'legacy');
-  const c = await (await send('GET', '/api/policy-center/catalogue', T.admin)).json();
+  const c = await (await send('GET', '/api/policy-center/catalogue', T.super)).json();
   assert.strictEqual(c.rules.find((x) => x.key === 'ui_week_labels').deviates, false);
 });
 
@@ -84,7 +87,7 @@ test('four-eyes: a high-risk change away from the default becomes a request a SE
   assert.strictEqual(r.status, 202); const { request } = await r.json(); assert.match(request, /^pc-\d+$/);
   assert.strictEqual((await cfg()).hygiene_send_enabled, '0', 'nothing applied yet');
   assert.strictEqual((await put(T.super2, 'hygiene_send_enabled', { value: '1', reason: 'duplicate request here' })).status, 409);
-  const list = await (await send('GET', '/api/policy-center/requests', T.admin)).json();
+  const list = await (await send('GET', '/api/policy-center/requests', T.super)).json();
   assert.ok(list.requests.some((x) => x.id === request && x.status === 'pending'));
   assert.strictEqual((await send('POST', `/api/policy-center/requests/${request}/approve`, T.super, { reason: 'self' })).status, 403, 'requester cannot approve');
   assert.strictEqual((await send('POST', `/api/policy-center/requests/${request}/approve`, T.admin, { reason: 'admin' })).status, 403);
@@ -93,13 +96,13 @@ test('four-eyes: a high-risk change away from the default becomes a request a SE
   assert.strictEqual((await cfg()).hygiene_send_enabled, '1');
   const logged = await rdb.db.prepare("SELECT COUNT(*) AS n FROM system_log WHERE action='policy_change_approved' AND target='hygiene_send_enabled'").get();
   assert.ok(Number(logged.n) >= 1);
-  // back to the default is immediate (the safe direction)
+  // disarming (towards the catalogue's strict value '0') is immediate; a reset to a WEAK default is not (N-R4-1)
   assert.strictEqual((await (await put(T.super, 'hygiene_send_enabled', { value: '0', reason: 'pilot over, disarm' })).json()).status, 'applied');
   // stale guard: the value changed between request and approval → refused, marked stale
   const r2 = await (await put(T.super, 'hygiene_send_enabled', { value: '1', reason: 'arm again for the second pilot' })).json();
   await RC.setConfig(rdb.db, { hygiene_send_enabled: '1' }, 'someone-else');
   assert.strictEqual((await send('POST', `/api/policy-center/requests/${r2.request}/approve`, T.super2, { reason: 'late approval' })).status, 409);
-  const st = await (await send('GET', '/api/policy-center/requests?status=stale', T.admin)).json();
+  const st = await (await send('GET', '/api/policy-center/requests?status=stale', T.super)).json();
   assert.ok(st.requests.some((x) => x.id === r2.request));
   await RC.setConfig(rdb.db, { hygiene_send_enabled: '0' }, 'test');
   // withdraw: only the requester
@@ -115,18 +118,18 @@ test('per-site override (governance policy) is read by the consumer resolver for
   GP.shared().invalidate && GP.shared().invalidate();
   assert.strictEqual((await GP.forContext({ siteId: hounde }))['handoffs.reason_min'], 12, 'the resolver consumers call sees the site value');
   assert.strictEqual((await GP.forContext({ siteId: mana }))['handoffs.reason_min'], GP.DEFAULTS['handoffs.reason_min'], 'other sites unchanged');
-  const c = await (await send('GET', '/api/policy-center/catalogue', T.admin)).json();
+  const c = await (await send('GET', '/api/policy-center/catalogue', T.super)).json();
   assert.deepStrictEqual(c.rules.find((x) => x.key === 'handoffs.reason_min').site_deviations, [Number(hounde)]);
   assert.strictEqual((await put(T.super, 'freshness.helpdesk_hours', { value: 4, scope: `site:${hounde}`, reason: 'site scope on a source rule' })).status, 400);
   assert.strictEqual((await put(T.super, 'ui_week_labels', { value: 'explicit', scope: `site:${hounde}`, reason: 'site scope on a global key' })).status, 400);
-  const h = await (await send('GET', '/api/policy-center/rules/handoffs.reason_min/history', T.admin)).json();
+  const h = await (await send('GET', '/api/policy-center/rules/handoffs.reason_min/history', T.super)).json();
   assert.ok(h.history.some((x) => x.scope === `site:${hounde}` && /low-bandwidth/.test(x.reason)));
 });
 
 test('export (JSON/CSV) carries no secret; profile import is dry-run first and applies only the confirmed plan', async () => {
-  const csv = await (await send('GET', '/api/policy-center/export?format=csv', T.admin)).text();
+  const csv = await (await send('GET', '/api/policy-center/export?format=csv', T.super)).text();
   assert.ok(!csv.includes('S3cret-value-xyz')); assert.ok(csv.includes('"smtp_pass"') && csv.includes('(set)'));
-  const ex = await (await send('GET', '/api/policy-center/export', T.admin)).json();
+  const ex = await (await send('GET', '/api/policy-center/export', T.super)).json();
   assert.ok(!('smtp_pass' in ex.profile.values));
   const profile = { name: 'remote site', values: { ui_week_labels: 'explicit', smtp_pass: 'x', nope_key: '1', sync_truncation_tolerance_pct: '500', hygiene_send_enabled: '1' }, sites: { [mana]: { 'handoffs.reason_min': 9 } } };
   assert.strictEqual((await send('POST', '/api/policy-center/import', T.admin, { profile })).status, 403);

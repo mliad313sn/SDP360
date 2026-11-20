@@ -29,7 +29,7 @@ test('entries are honest: code defaults, PROPOSED recommendations, scopes only w
   const e = b.by.get('hygiene_send_enabled');
   assert.strictEqual(e.default, RC.DEFAULTS.hygiene_send_enabled);
   assert.deepStrictEqual(e.scopes, ['global'], 'report_config is read globally only');
-  assert.strictEqual(e.four_eyes, true); assert.strictEqual(e.four_eyes_rule, 'away_from_default');
+  assert.strictEqual(e.four_eyes, true); assert.strictEqual(e.four_eyes_rule, 'towards_strict'); assert.strictEqual(e.strict_value, '0');
   assert.ok(e.consumers.includes('tools/reports/send-hygiene.js'), 'consumers come from the repository scan');
   for (const x of b.entries) {
     if (x.recommendation) assert.strictEqual(x.recommendation.status, 'PROPOSED', x.key);
@@ -60,10 +60,10 @@ test('validation: enum, bool, bounds, json, secrets, control characters', () => 
   assert.strictEqual(PC.validateConfigValue(b.by.get('a10_gate_lead_days'), ''), '', 'empty = off where the default is empty');
 });
 
-test('four-eyes: only a high-risk report_config change AWAY from the default needs a second person', () => {
+test('four-eyes: a high-risk report_config change needs a second person unless it moves towards the stricter value', () => {
   const e = PC.build().by.get('hygiene_send_enabled');
   assert.strictEqual(PC.needsSecondPerson(e, '0', '1'), true);
-  assert.strictEqual(PC.needsSecondPerson(e, '1', '0'), false, 'back to the best-practice default is immediate');
+  assert.strictEqual(PC.needsSecondPerson(e, '1', '0'), false, 'disarming (towards the strict value) is immediate');
   assert.strictEqual(PC.needsSecondPerson(e, '1', '1'), false);
   assert.strictEqual(PC.needsSecondPerson(PC.build().by.get('ui_week_labels'), 'legacy', 'explicit'), false, 'low-risk rule');
 });

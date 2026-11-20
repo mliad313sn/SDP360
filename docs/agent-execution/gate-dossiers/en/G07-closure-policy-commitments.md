@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks the pilot only if its feature is in the pilot scope |
 | Decide after | [G06](G06-kpi-definitions-thresholds.md) KPI definitions, thresholds and score |
-| Target SHA | `0dc831c0` |
+| Target SHA | `95780319` |
 | Generated | 2026-11-20 |
 
 ## 1. Question to decide
@@ -23,10 +23,10 @@ Who may verify and close a commitment, who accepts residual risk, and who is tol
 |---|---|---|---|---|
 | `docs/sdp360/completion/GOVERNANCE-POLICIES.md` | Every governance rule as a parameter, with its default | `manual` | 68780d5b, 2026-11-05 | `a31f78303695bbcd` |
 | `docs/sdp360/completion/GOVERNANCE-LIFECYCLE.md` | Commitment lifecycle | `manual` | f69d7fa2, 2026-10-28 | `040eb0f33a500f96` |
-| `tests/commitment-lifecycle.test.js` | Lifecycle rules | `node --test --test-force-exit tests/commitment-lifecycle.test.js` | 7c2ecba2, 2026-11-20 | `15d4a5ad75643af2` |
+| `tests/commitment-lifecycle.test.js` | Lifecycle rules | `node --test --test-force-exit tests/commitment-lifecycle.test.js` | 95780319, 2026-11-20 | `792909f87f5ccd7f` |
 | `tests/commitment-escalation.test.js` | Escalation rules | `node --test --test-force-exit tests/commitment-escalation.test.js` | 2054b544, 2026-10-28 | `f7858855a224b5c0` |
 | `tests/commitments-routes.smoke.test.js` | Routes answer 404 while the switch is off | `node --test --test-force-exit tests/commitments-routes.smoke.test.js` | 4ed787fe, 2026-11-20 | `8c2d946959276e1b` |
-| `docs/ops/FLAG-REGISTER.json` | Switch register: default, owner (to be named) | `node tools/agent/flag-register.js` | b658c9a1, 2026-11-20 | `f0968fb96ee7a606` |
+| `docs/ops/FLAG-REGISTER.json` | Switch register: default, owner (to be named) | `node tools/agent/flag-register.js` | c64c1a9b, 2026-11-20 | `289c534e9e14c1e3` |
 
 **Evidence awaited from parallel lots**
 

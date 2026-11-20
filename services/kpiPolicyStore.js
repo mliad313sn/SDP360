@@ -28,6 +28,8 @@ function makeKpiPolicyStore(db, { now = () => new Date().toISOString(), knownKey
   };
   const getRow = async (id) => norm(await P('SELECT * FROM kpi_policies WHERE id=?').get(Number(id)));
   async function get(id) {
+    const n = Number(id);   // P11 N-R4-4 — a non-numeric id is a bad request (400), never a bigint "NaN" SQL error (500)
+    if (!Number.isSafeInteger(n) || n < 1) throw typed('VALIDATION', 'policy id must be a positive integer', 400);
     const p = await getRow(id);
     if (!p) throw typed('NOT_FOUND', 'policy not found', 404);
     return p;

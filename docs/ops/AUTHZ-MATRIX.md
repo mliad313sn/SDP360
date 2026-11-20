@@ -329,10 +329,10 @@ inside the handler (`userHasRole` / `isAdmin`-style helpers) · **Site scope** =
 | `GET /api/obligations` | requireReportSession | — | admin | userSites |
 | `GET /api/orgs` | requireReportSession + requireSuperAdmin(super_admin) | platform.settings.manage | — | — |
 | `GET /api/ping` | global /api gate (session or page key) | — | — | — |
-| `GET /api/policy-center/catalogue` | requireReportSession + requireAdmin(admin) | ops.operate | super_admin | — |
-| `GET /api/policy-center/export` | requireReportSession + requireAdmin(admin) | ops.operate | — | — |
-| `GET /api/policy-center/requests` | requireReportSession + requireAdmin(admin) | ops.operate | — | — |
-| `GET /api/policy-center/rules/:key/history` | requireReportSession + requireAdmin(admin) | ops.operate | — | — |
+| `GET /api/policy-center/catalogue` | requireReportSession + requireSuperAdmin(super_admin) | platform.settings.manage | super_admin | — |
+| `GET /api/policy-center/export` | requireReportSession + requireSuperAdmin(super_admin) | platform.settings.manage | — | — |
+| `GET /api/policy-center/requests` | requireReportSession + requireSuperAdmin(super_admin) | platform.settings.manage | — | — |
+| `GET /api/policy-center/rules/:key/history` | requireReportSession + requireSuperAdmin(super_admin) | platform.settings.manage | — | — |
 | `GET /api/qualifications` | requireReportSession | — | admin | — |
 | `GET /api/qualifications/check` | requireReportSession | — | — | — |
 | `GET /api/qualifications/kinds` | requireReportSession | — | super_admin | — |

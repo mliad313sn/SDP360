@@ -37,6 +37,13 @@ const EXCLUDE_PREFIXES = [
   'tools/docs/', 'tools/build/', 'tools/exec-pptx/fixtures/', 'tools/exec-pptx/refs/', 'prod-snapshot/',
   'public/dashboard-preview/', 'public/design-system/', 'tools/installer/tests/', 'tools/dev/',
 ];
+// Files under an excluded prefix that the server READS at runtime (P11 N-10): they ship anyway. Without the policy
+// catalogue the Policy Center would lose its four-eyes rules in a packaged install (it now fails closed instead).
+const RUNTIME_DOCS = new Set([
+  'docs/ops/policy-catalogue.json',                  // services/policyCatalogue.js
+  'docs/ops/FLAG-REGISTER.json',                     // services/policyCatalogue.js (PROPOSED recommendations, owner roles)
+  'docs/sdp360/completion/CONNECTOR-REGISTER.csv',   // services/connectorReadings.js (connector owners)
+]);
 const EXCLUDE_FILES = new Set([
   '.gitignore', '.gitattributes', '.editorconfig', 'CLAUDE.md', 'CHANGELOG.md', 'README.md', 'DOTENV.example',
   'package-lock.json', 'nodemon.json', '_deploy.cmd', 'Dockerfile', 'docker-compose.yml',
@@ -49,6 +56,7 @@ const BUNDLES = ['public/activity-tracker/dist/app.js'];
 function listRuntimeFiles(root = ROOT) {
   const out = execFileSync('git', ['ls-files', '-z'], { cwd: root }).toString('utf8').split('\0').filter(Boolean);
   return out.filter(p => {
+    if (RUNTIME_DOCS.has(p)) return true;
     if (EXCLUDE_FILES.has(p)) return false;
     if (EXCLUDE_PREFIXES.some(x => p.startsWith(x))) return false;
     if (pkgSvc.isProtected(p)) return false;
@@ -102,4 +110,4 @@ if (require.main === module) {
     .catch(e => { console.error('[package] FAILED:', e.message); process.exit(1); });
 }
 
-module.exports = { listRuntimeFiles, buildPackage, EXCLUDE_PREFIXES };
+module.exports = { RUNTIME_DOCS, listRuntimeFiles, buildPackage, EXCLUDE_PREFIXES };

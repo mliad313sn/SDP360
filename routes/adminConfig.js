@@ -1,5 +1,5 @@
 'use strict';
-const { fail } = require('../services/httpError');
+const { fail, typed } = require('../services/httpError');
 // ─────────────────────────────────────────────────────────────────────────
 // Report config + integrations routes (/api/reports/config, /api/integrations/analytics*, /api/reports/test-smtp) — extracted from server.js (fiche M12-a, 2026-10-20), same
 // dependency-injection pattern as routes/inspection.js. Handlers are byte-for-byte
@@ -112,6 +112,16 @@ router.put('/api/reports/config', requireReportSession, requireSuperAdmin, async
     // that re-sends an unchanged URL cannot block an unrelated save; the send-time guard in the
     // clients re-checks every call anyway. Each change is journalled as scheme+host only.
     const cur = await reportConfig.getConfig(rdb.db);
+    // N-R4-1 (P11 round 4): while the Policy Center is on, a four-eyes rule changes only through its request flow —
+    // this legacy door would otherwise let one super_admin change it instantly. Only a key whose value actually
+    // CHANGES is refused (admin cards re-send unchanged fields); with the center off nothing changes here.
+    if (String(cur.policy_center_enabled) === '1') {
+      const PC = require('../services/policyCatalogue');
+      const fe = Object.keys(body).filter((k) => { const e = PC.build().by.get(k); return e && e.source === 'report_config' && e.four_eyes && String(body[k] == null ? '' : body[k]) !== String(cur[k] == null ? '' : cur[k]); });
+      if (fe.length) {
+        return fail(res, typed('CONFLICT', `four-eyes rule${fe.length > 1 ? 's' : ''} ${fe.join(', ')}: the Policy Center is on — change ${fe.length > 1 ? 'them' : 'it'} through PUT /api/policy-center/rules/<key> (a second super_admin approves when needed)`, 409), undefined, { four_eyes_keys: fe, policy_center: '/policy-center.html' });
+      }
+    }
     const denied = await checkOutboundUrls(body, cur);
     if (denied) return res.status(400).json({ error: denied });
     const out = await reportConfig.setConfig(rdb.db, body, req.reportUser?.username);

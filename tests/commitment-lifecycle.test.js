@@ -115,3 +115,25 @@ test('N-R3-1: look-alike owner identities count as the actor (refusal side), nev
   assert.equal(L.isReviewer(aw({ reviewer: 'alіce' }), { ...alice, isAdmin: false }), false, 'homoglyph is no grant');
   assert.equal(L.isReviewer(aw({ reviewer: 'alice​' }), { ...alice, isAdmin: false }), true, 'an invisible character does not hide a real grant');
 });
+
+// P11 round 4 N-R4-3 — Latin look-alikes outside Cyrillic / Greek (Latin alpha ɑ U+0251, small capitals, dotless /
+// stroked letters) also count as the actor on the REFUSAL side; the grant side stays strict.
+test('N-R4-3: Latin-alpha and other Latin confusables count as the actor (refusal side), never as a grant', () => {
+  const alice = { id: 21, username: 'alice', full_name: 'Alice A', email: 'alice@corp.example', isAdmin: true };
+  const aw = (o) => ({ status: 'awaiting_verification', severity: 'medium', accountable_owner: 'bob', execution_owners: ['bob.x'], created_by: 'carol', reviewer: 'alice', due_date: '2026-11-30', treatment_plan: 'p', ...o });
+  for (const v of ['ɑlice', 'ᴀlice', 'aʟice', 'ɑʟɪᴄᴇ', 'ałice', 'alicɛ']) {
+    assert.equal(L.skeletonKey(v), 'alice', `skeleton of ${JSON.stringify(v)}`);
+    assert.equal(L.isSelf(aw({ accountable_owner: v }), alice), true, `owner ${JSON.stringify(v)} is alice`);
+    assert.equal(L.checkTransition(aw({ accountable_owner: v }), 'verified_closed', alice).ok, false);
+  }
+  assert.equal(L.isReviewer(aw({ reviewer: 'ɑlice' }), { ...alice, isAdmin: false }), false, 'Latin-alpha reviewer is no grant');
+  assert.notEqual(L.identityKey('ɑlice'), 'alice', 'identityKey (grant side) stays strict');
+});
+
+test('N-R4-3: the Policy Center requester refusal folds the same look-alikes', () => {
+  const { makePolicyChangeStore } = require('../services/policyChangeStore');
+  const s = makePolicyChangeStore(() => ({ prepare: () => ({ get: async () => null, all: async () => [], run: async () => ({}) }) }));
+  const req = { requested_by: 7, requested_by_name: 'ɑlice' };
+  assert.equal(s.samePerson(req, { id: 8, username: 'alice' }), true);
+  assert.equal(s.samePerson(req, { id: 8, username: 'alicia' }), false);
+});

@@ -91,7 +91,17 @@ function check(cat, src = sources()) {
   for (const k of Object.keys(keys)) if (!known.has(k)) stale.push(k);
   for (const [k, why] of Object.entries(excluded)) { if (!known.has(k)) stale.push(k); if (String(why || '').trim().length < 10) noReason.push(k); }
   const badCat = Object.entries(keys).filter(([, e]) => !(cat.categories || {})[e.category]).map(([k]) => k);
-  return { missing, stale, noReason, badCat };
+  // N-R4-1: strict_value / strict_direction only on a four-eyes key; a direction is higher|lower; a strict value must be
+  // one of the values the consumer accepts (when the catalogue lists them)
+  const badStrict = Object.entries(keys).filter(([, e]) => {
+    const hasV = e.strict_value != null, hasD = e.strict_direction != null;
+    if (!hasV && !hasD) return false;
+    if (!e.four_eyes || (hasV && hasD)) return true;
+    if (hasD && !['higher', 'lower'].includes(e.strict_direction)) return true;
+    if (hasV && Array.isArray(e.allowed) && !e.allowed.map(String).includes(String(e.strict_value))) return true;
+    return false;
+  }).map(([k]) => k);
+  return { missing, stale, noReason, badCat, badStrict };
 }
 
 function bootstrap(cat, src = sources()) {
@@ -144,11 +154,16 @@ if (require.main === module) {
     console.log(`[policy-catalogue] ${n} entr${n === 1 ? 'y' : 'ies'} added — review the diff`);
   }
   const r = check(cat);
-  const bad = r.missing.length + r.stale.length + r.noReason.length + r.badCat.length;
+  // P11 N-10: the catalogue is runtime data — the update package must carry it (else the center fails closed)
+  let notShipped = [];
+  try { const M = require(path.join(ROOT, 'tools', 'deploy', 'make-update-package')); notShipped = ['docs/ops/policy-catalogue.json', 'docs/ops/FLAG-REGISTER.json'].filter((f) => !M.RUNTIME_DOCS.has(f)); } catch (_) { notShipped = []; }
+  if (notShipped.length) console.log('runtime file not in the update package (tools/deploy/make-update-package.js RUNTIME_DOCS):\n  ' + notShipped.join('\n  '));
+  const bad = r.missing.length + r.stale.length + r.noReason.length + r.badCat.length + r.badStrict.length + notShipped.length;
   if (r.missing.length) console.log('missing (add an entry or an exclusion with a reason):\n  ' + r.missing.join('\n  '));
   if (r.stale.length) console.log('stale (key no longer in the code):\n  ' + r.stale.join('\n  '));
   if (r.noReason.length) console.log('excluded without a reason:\n  ' + r.noReason.join('\n  '));
   if (r.badCat.length) console.log('unknown category:\n  ' + r.badCat.join('\n  '));
+  if (r.badStrict.length) console.log('bad strict_value / strict_direction (four-eyes keys only; higher|lower; within allowed):\n  ' + r.badStrict.join('\n  '));
   if (bad) process.exit(1);
   console.log(`[policy-catalogue] OK — ${Object.keys(cat.keys).length} catalogued, ${Object.keys(cat.excluded).length} excluded with a reason`);
 }

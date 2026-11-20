@@ -117,3 +117,37 @@ Reads: admin tier only; writes: super_admin only; anonymous refused. No existing
 - Reviewing the engineering risk / four-eyes classification in `policy-catalogue.json` (130 high, 77 four-eyes).
 - French descriptions for the 293 report_config keys (content work; the code has English comments only).
 - Business recommendations for the 142 rules showing "no recommendation yet".
+
+---
+
+## Fix 14 — P11 round 4 security findings (N-R4-1, N-R4-2, N-R4-4, N-R4-3) + operations N-10 (AI evidence)
+
+**AI evidence, not an independent human review.** Branch `fix/p11-r4-security`, worktree `/home/user/w/fix14`. No push,
+merge, tag, live system or human decision field touched. Each new test was run against the unfixed code first (FAIL)
+and after the fix (PASS) — the unfixed run used `git stash` of the non-test files.
+
+| Finding | Fix | Test (fails before, passes after) |
+|---|---|---|
+| N-R4-1 (P2) four-eyes relaxable by one super_admin (reset to weak default; legacy PUT) | `docs/ops/policy-catalogue.json` gives 41 four-eyes keys a `strict_value` / `strict_direction`; `needsSecondPerson` is immediate ONLY towards it; reset to a weak default → request; a four-eyes key with no strict side → always a second person (fail closed). `policy_center_enabled` is now four-eyes (strict '1'). Legacy `PUT /api/reports/config` refuses a CHANGED four-eyes key with typed 409 `CONFLICT` while the center is on (unchanged with it off; re-sent unchanged fields still save). Catalogue tool refuses bad strict markers. | `tests/policy-center-four-eyes-direction.test.js` (4), `tests/policy-center-four-eyes-bypass.smoke.test.js` tests 2–3 |
+| N-R4-2 (P2) center reads open to admin | catalogue / export / requests / history `requireSuperAdmin`; page + nav entry super_admin; ADR §10 | bypass smoke test 4; `policy-center-routes.smoke` updated |
+| N-R4-4 (P3) hostile input → 500 | kpi diff validates `against` + ids; `kpiPolicyStore.get` refuses non-integer ids (400); tracker rollback validates `n`; `removePortfolio` unknown kind typed `INVALID`; `reportSchedule` validation errors typed; `reports-db.getReport` returns null for a non-numeric id (`/api/reports/action-departments` → 404 instead of 500) | `tests/hostile-input-r4.smoke.test.js` (5) |
+| N-R4-3 (P3) Latin-alpha confusable | Latin look-alikes (ɑ, IPA letters, small capitals, stroked/dotless) added to the refusal-side skeleton; the Policy Center requester refusal now uses `skeletonKey`. `identityKey` (also used to GRANT reviewer rights and resolve accounts) deliberately stays strict. | `tests/commitment-lifecycle.test.js` two N-R4-3 tests |
+| N-10 (P1, operations) catalogue under `docs/` absent from packaged installs | `tools/deploy/make-update-package.js` `RUNTIME_DOCS` ships `docs/ops/policy-catalogue.json`, `docs/ops/FLAG-REGISTER.json`, `docs/sdp360/completion/CONNECTOR-REGISTER.csv`; `policyCatalogue.build()` fails closed when the catalogue is missing/corrupt (every editable report_config rule four-eyes, `catalogue_missing` + page error); catalogue tool refuses a catalogue not in the package | `tests/policy-center-packaged.test.js` (4, incl. a scan of `path.join(…,'docs',…)` runtime reads) |
+
+| R4-A2(b) (P1, audit seat) requester creates a second super_admin who approves | `services/approverProvenance.js` checked on every center approval: approver created / role-changed by the requester (ever, or through a chain ≤ 4) → 403; account created or granted super_admin < 7 days ago with no named author → 403 (provenance unknown); unreadable journal → 403. Refusals journalled (`policy_approval_refused`). Test set-ups backdate their second super_admin by 30 days (an established account). | `tests/policy-center-four-eyes-bypass.smoke.test.js` test 5 (exact repro: `POST /api/reports/users` helper_x → approve 403; chain, promotion, ghost account refused; established super2 approves); `tests/approver-provenance.test.js` (3) |
+
+Changed authz outcome rows (`docs/ops/authz-outcomes.json`): policy-center catalogue/export/requests `…FFFFFFAAA` →
+`…FFFFFFFFA` and history `…NNN` → `…FFN` (admin tier now 403); E→V (500 → 400) on
+`DELETE /api/governance/portfolio/:kind/:id`, `GET /api/kpi-policies/:id/diff`, `POST /api/trackers/:key/rollback/:n`,
+`PUT /api/reports/schedule`. `AUTHZ-MATRIX.md` / `authz-matrix.json`: the 4 center reads move from
+`requireAdmin`/`ops.operate` to `requireSuperAdmin`/`platform.settings.manage`.
+
+Runs: targeted batch 428/428 (policy-center, authz-enforce/handler-checks, error-shape, report-config*, commitment*,
+kpi-polic*, tracker*, trackers, governance*, report-schedule*, schedule-reminders, export-policy-routes.smoke, a11y,
+i18n, no-native-dialogs); post-N-10 batch 213/213 (policy-center incl. packaged, hostile, update-package, switch-lots,
+readme-truth, test-runner-guard, flag-register, inventory, authz matrices, route-authz, rbac-ui-gates);
+authz-outcomes 5/5. `npx eslint .` clean. Full suite not run (orchestrator).
+
+Not solved here (recorded): `tools/ops/activate-switches.js` and direct DB writes bypass four-eyes (operator with DB
+credentials); the strict side of each key is an engineering classification for Information Security to review;
+R1-F2/F3/F4/F5 untouched (human decisions); R2-N3 residual unchanged.

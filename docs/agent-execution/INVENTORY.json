@@ -15,7 +15,7 @@
   "jobs": 33,
   "jobs_without_test_reference": 0,
   "migrations": 107,
-  "test_files": 877
+  "test_files": 882
  },
  "pages": [
   {
@@ -1503,7 +1503,7 @@
    "id": "PG-policy-center",
    "page": "public/policy-center.html",
    "requires": [
-    "admin"
+    "super_admin"
    ],
    "in_navigation": true,
    "entry_points": {
@@ -1517,7 +1517,7 @@
    "parent": "shell",
    "reachable": true,
    "inline_scripts": 0,
-   "bytes": 6509,
+   "bytes": 6515,
    "tests": [
     "tests/a11y-static.test.js",
     "tests/i18n-coverage.test.js",
@@ -4856,6 +4856,7 @@
     "tests/adoption-lota-nav-authz.test.js",
     "tests/finance-certification.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
@@ -4900,6 +4901,7 @@
     "tests/adoption-lota-nav-authz.test.js",
     "tests/finance-certification.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
@@ -4944,6 +4946,7 @@
     "tests/adoption-lota-nav-authz.test.js",
     "tests/finance-certification.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
@@ -5328,6 +5331,7 @@
     "tests/adoption-lota-nav-authz.test.js",
     "tests/finance-certification.smoke.test.js",
     "tests/governance-routes.smoke.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/p6-decisions-access.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/portfolio-benefits.smoke.test.js",
@@ -7866,7 +7870,7 @@
    "method": "POST",
    "path": "/api/integrations/analytics/test",
    "file": "routes/adminConfig.js",
-   "line": 159,
+   "line": 169,
    "tests": [
     "tests/e2e-outbound-guard.test.js",
     "tests/teams-sla-admin-card.test.js"
@@ -7877,7 +7881,7 @@
    "method": "GET",
    "path": "/api/integrations/analytics",
    "file": "routes/adminConfig.js",
-   "line": 130,
+   "line": 140,
    "tests": [
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/e2e-outbound-guard.test.js",
@@ -7890,7 +7894,7 @@
    "method": "PUT",
    "path": "/api/integrations/analytics",
    "file": "routes/adminConfig.js",
-   "line": 143,
+   "line": 153,
    "tests": [
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/e2e-outbound-guard.test.js",
@@ -7903,10 +7907,11 @@
    "method": "POST",
    "path": "/api/kpi-policies/:id/decide",
    "file": "routes/kpiPolicies.js",
-   "line": 185,
+   "line": 188,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/critical-routes.smoke.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/kpi-policy-routes.smoke.test.js",
     "tests/uat-amdec-workflows.smoke.test.js"
    ]
@@ -7920,6 +7925,7 @@
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/critical-routes.smoke.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/kpi-policy-routes.smoke.test.js",
     "tests/uat-amdec-workflows.smoke.test.js"
    ]
@@ -7929,10 +7935,11 @@
    "method": "POST",
    "path": "/api/kpi-policies/:id/propose",
    "file": "routes/kpiPolicies.js",
-   "line": 182,
+   "line": 185,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/critical-routes.smoke.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/kpi-policy-routes.smoke.test.js",
     "tests/uat-amdec-workflows.smoke.test.js"
    ]
@@ -7946,6 +7953,7 @@
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/critical-routes.smoke.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/kpi-policy-routes.smoke.test.js",
     "tests/uat-amdec-workflows.smoke.test.js"
    ]
@@ -7955,10 +7963,11 @@
    "method": "PUT",
    "path": "/api/kpi-policies/:id",
    "file": "routes/kpiPolicies.js",
-   "line": 179,
+   "line": 182,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/critical-routes.smoke.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/kpi-policy-routes.smoke.test.js",
     "tests/uat-amdec-workflows.smoke.test.js"
    ]
@@ -8022,6 +8031,7 @@
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/critical-routes.smoke.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/kpi-policy-routes.smoke.test.js",
     "tests/uat-amdec-workflows.smoke.test.js"
    ]
@@ -8031,10 +8041,11 @@
    "method": "POST",
    "path": "/api/kpi-policies",
    "file": "routes/kpiPolicies.js",
-   "line": 170,
+   "line": 173,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
     "tests/critical-routes.smoke.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/kpi-policy-routes.smoke.test.js",
     "tests/uat-amdec-workflows.smoke.test.js"
    ]
@@ -8799,8 +8810,9 @@
    "method": "GET",
    "path": "/api/policy-center/catalogue",
    "file": "routes/policyCenter.js",
-   "line": 97,
+   "line": 99,
    "tests": [
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
   },
@@ -8809,8 +8821,9 @@
    "method": "GET",
    "path": "/api/policy-center/export",
    "file": "routes/policyCenter.js",
-   "line": 192,
+   "line": 205,
    "tests": [
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
   },
@@ -8819,7 +8832,7 @@
    "method": "POST",
    "path": "/api/policy-center/import",
    "file": "routes/policyCenter.js",
-   "line": 243,
+   "line": 256,
    "tests": [
     "tests/policy-center-routes.smoke.test.js"
    ]
@@ -8829,8 +8842,9 @@
    "method": "POST",
    "path": "/api/policy-center/requests/:id/approve",
    "file": "routes/policyCenter.js",
-   "line": 178,
+   "line": 191,
    "tests": [
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
   },
@@ -8839,8 +8853,9 @@
    "method": "POST",
    "path": "/api/policy-center/requests/:id/cancel",
    "file": "routes/policyCenter.js",
-   "line": 180,
+   "line": 193,
    "tests": [
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
   },
@@ -8849,8 +8864,9 @@
    "method": "POST",
    "path": "/api/policy-center/requests/:id/reject",
    "file": "routes/policyCenter.js",
-   "line": 179,
+   "line": 192,
    "tests": [
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
   },
@@ -8859,8 +8875,9 @@
    "method": "GET",
    "path": "/api/policy-center/requests",
    "file": "routes/policyCenter.js",
-   "line": 142,
+   "line": 144,
    "tests": [
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
   },
@@ -8869,8 +8886,9 @@
    "method": "GET",
    "path": "/api/policy-center/rules/:key/history",
    "file": "routes/policyCenter.js",
-   "line": 116,
+   "line": 118,
    "tests": [
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
   },
@@ -8879,8 +8897,9 @@
    "method": "PUT",
    "path": "/api/policy-center/rules/:key",
    "file": "routes/policyCenter.js",
-   "line": 133,
+   "line": 135,
    "tests": [
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/policy-center-routes.smoke.test.js"
    ]
   },
@@ -9156,6 +9175,7 @@
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -9166,6 +9186,7 @@
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
     "tests/p6-decisions-access.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
@@ -9255,6 +9276,7 @@
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -9265,6 +9287,7 @@
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
     "tests/p6-decisions-access.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
@@ -9354,6 +9377,7 @@
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -9364,6 +9388,7 @@
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
     "tests/p6-decisions-access.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
@@ -9453,6 +9478,7 @@
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -9463,6 +9489,7 @@
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
     "tests/p6-decisions-access.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
@@ -9552,6 +9579,7 @@
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -9562,6 +9590,7 @@
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
     "tests/p6-decisions-access.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
@@ -9651,6 +9680,7 @@
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -9661,6 +9691,7 @@
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
     "tests/p6-decisions-access.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
@@ -9750,6 +9781,7 @@
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -9760,6 +9792,7 @@
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
     "tests/p6-decisions-access.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
@@ -9849,6 +9882,7 @@
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -9859,6 +9893,7 @@
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
     "tests/p6-decisions-access.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
@@ -9948,6 +9983,7 @@
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -9958,6 +9994,7 @@
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
     "tests/p6-decisions-access.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
@@ -10047,6 +10084,7 @@
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -10057,6 +10095,7 @@
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
     "tests/p6-decisions-access.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
@@ -10146,6 +10185,7 @@
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -10156,6 +10196,7 @@
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
     "tests/p6-decisions-access.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
@@ -10245,6 +10286,7 @@
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -10255,6 +10297,7 @@
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
     "tests/p6-decisions-access.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
@@ -10344,6 +10387,7 @@
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -10354,6 +10398,7 @@
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
     "tests/p6-decisions-access.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
@@ -10443,6 +10488,7 @@
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -10453,6 +10499,7 @@
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
     "tests/p6-decisions-access.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
@@ -10542,6 +10589,7 @@
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -10552,6 +10600,7 @@
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
     "tests/p6-decisions-access.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
@@ -10641,6 +10690,7 @@
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -10651,6 +10701,7 @@
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
     "tests/p6-decisions-access.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
@@ -10740,6 +10791,7 @@
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -10750,6 +10802,7 @@
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
     "tests/p6-decisions-access.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
@@ -10839,6 +10892,7 @@
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -10849,6 +10903,7 @@
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
     "tests/p6-decisions-access.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
@@ -10938,6 +10993,7 @@
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -10948,6 +11004,7 @@
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
     "tests/p6-decisions-access.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
@@ -11037,6 +11094,7 @@
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -11047,6 +11105,7 @@
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
     "tests/p6-decisions-access.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
@@ -11136,6 +11195,7 @@
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -11146,6 +11206,7 @@
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
     "tests/p6-decisions-access.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
@@ -11235,6 +11296,7 @@
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -11245,6 +11307,7 @@
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
     "tests/p6-decisions-access.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
@@ -11334,6 +11397,7 @@
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -11344,6 +11408,7 @@
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
     "tests/p6-decisions-access.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
@@ -11433,6 +11498,7 @@
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -11443,6 +11509,7 @@
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
     "tests/p6-decisions-access.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
@@ -11492,6 +11559,7 @@
     "tests/action-relineage.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/home-queue-p5.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/status-transfer.smoke.test.js"
@@ -11507,6 +11575,7 @@
     "tests/action-relineage.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/home-queue-p5.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/status-transfer.smoke.test.js"
@@ -11522,6 +11591,7 @@
     "tests/action-relineage.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/home-queue-p5.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/status-transfer.smoke.test.js"
@@ -11537,6 +11607,7 @@
     "tests/action-relineage.smoke.test.js",
     "tests/audit-report-write-auth.smoke.test.js",
     "tests/home-queue-p5.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
     "tests/site-actions-merge.smoke.test.js",
     "tests/status-transfer.smoke.test.js"
@@ -11644,6 +11715,7 @@
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/config-change-journal.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/reporting-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
     "tests/workspace-profiles-grants-nothing-matrix.smoke.test.js",
@@ -11660,6 +11732,7 @@
     "tests/admin-superadmin-gate.smoke.test.js",
     "tests/analytics-integration-routes.smoke.test.js",
     "tests/config-change-journal.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/reporting-routes.smoke.test.js",
     "tests/teams-sla-routes.smoke.test.js",
     "tests/workspace-profiles-grants-nothing-matrix.smoke.test.js",
@@ -11950,6 +12023,7 @@
    "file": "server.js",
    "line": 3415,
    "tests": [
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/reporting-routes.smoke.test.js"
    ]
   },
@@ -11960,6 +12034,7 @@
    "file": "server.js",
    "line": 3419,
    "tests": [
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/reporting-routes.smoke.test.js"
    ]
   },
@@ -12197,7 +12272,7 @@
    "method": "POST",
    "path": "/api/reports/test-smtp",
    "file": "routes/adminConfig.js",
-   "line": 177,
+   "line": 187,
    "tests": []
   },
   {
@@ -12218,6 +12293,7 @@
     "tests/identity-log.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/multi-site-editor.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/uat-amdec-org-models.smoke.test.js",
     "tests/workspace-profiles-grants-nothing-matrix.smoke.test.js"
@@ -12241,6 +12317,7 @@
     "tests/identity-log.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/multi-site-editor.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/uat-amdec-org-models.smoke.test.js",
     "tests/workspace-profiles-grants-nothing-matrix.smoke.test.js"
@@ -12274,6 +12351,7 @@
     "tests/identity-log.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/multi-site-editor.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/uat-amdec-org-models.smoke.test.js",
     "tests/workspace-profiles-grants-nothing-matrix.smoke.test.js"
@@ -12297,6 +12375,7 @@
     "tests/identity-log.smoke.test.js",
     "tests/inventory-strict.test.js",
     "tests/multi-site-editor.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/uat-amdec-org-models.smoke.test.js",
     "tests/workspace-profiles-grants-nothing-matrix.smoke.test.js"
@@ -12383,6 +12462,7 @@
     "tests/home-queue-p5.test.js",
     "tests/home-queue-two-sites.smoke.test.js",
     "tests/home-queue.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/identity-log.smoke.test.js",
     "tests/importable-actions.smoke.test.js",
     "tests/infra-auto-route.smoke.test.js",
@@ -12393,6 +12473,7 @@
     "tests/origin-guard.test.js",
     "tests/p06-extraction-characterization.test.js",
     "tests/p6-decisions-access.smoke.test.js",
+    "tests/policy-center-four-eyes-bypass.smoke.test.js",
     "tests/portfolio-access-parity.smoke.test.js",
     "tests/rbac-write-scope.smoke.test.js",
     "tests/report-action-status.smoke.test.js",
@@ -13246,6 +13327,7 @@
    "line": 154,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13254,9 +13336,10 @@
    "method": "GET",
    "path": "/api/trackers/:key/entries",
    "file": "routes/trackers.js",
-   "line": 186,
+   "line": 187,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13265,9 +13348,10 @@
    "method": "PUT",
    "path": "/api/trackers/:key/entries",
    "file": "routes/trackers.js",
-   "line": 197,
+   "line": 198,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13276,9 +13360,10 @@
    "method": "GET",
    "path": "/api/trackers/:key/export.pptx",
    "file": "routes/trackers.js",
-   "line": 232,
+   "line": 233,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13287,9 +13372,10 @@
    "method": "GET",
    "path": "/api/trackers/:key/export.xlsx",
    "file": "routes/trackers.js",
-   "line": 229,
+   "line": 230,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13298,9 +13384,10 @@
    "method": "POST",
    "path": "/api/trackers/:key/import",
    "file": "routes/trackers.js",
-   "line": 221,
+   "line": 222,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13312,6 +13399,7 @@
    "line": 167,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13323,6 +13411,7 @@
    "line": 178,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13334,6 +13423,7 @@
    "line": 180,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13342,9 +13432,10 @@
    "method": "GET",
    "path": "/api/trackers/:key/score",
    "file": "routes/trackers.js",
-   "line": 209,
+   "line": 210,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13356,6 +13447,7 @@
    "line": 164,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13364,9 +13456,10 @@
    "method": "POST",
    "path": "/api/trackers/:key/sync",
    "file": "routes/trackers.js",
-   "line": 212,
+   "line": 213,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13375,9 +13468,10 @@
    "method": "GET",
    "path": "/api/trackers/:key/targets",
    "file": "routes/trackers.js",
-   "line": 200,
+   "line": 201,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13386,9 +13480,10 @@
    "method": "PUT",
    "path": "/api/trackers/:key/targets",
    "file": "routes/trackers.js",
-   "line": 201,
+   "line": 202,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13400,6 +13495,7 @@
    "line": 179,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13408,9 +13504,10 @@
    "method": "DELETE",
    "path": "/api/trackers/:key",
    "file": "routes/trackers.js",
-   "line": 183,
+   "line": 184,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13422,6 +13519,7 @@
    "line": 142,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13433,6 +13531,7 @@
    "line": 145,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -13504,6 +13603,7 @@
    "line": 94,
    "tests": [
     "tests/adoption-lota-nav-authz.test.js",
+    "tests/hostile-input-r4.smoke.test.js",
     "tests/trackers-routes.smoke.test.js"
    ]
   },
@@ -14219,7 +14319,7 @@
    "method": "GET",
    "path": "/policy-center.html",
    "file": "routes/policyCenter.js",
-   "line": 95,
+   "line": 97,
    "tests": [
     "tests/policy-center-routes.smoke.test.js"
    ]

@@ -1,6 +1,6 @@
 {
  "note": "Reviewed per-file test census. Regenerate only after a reviewed green run: npm test -- --update-manifest",
- "total": 5661,
+ "total": 5684,
  "files": {
   "a11y-legacy-ratchet.test.js": 3,
   "a11y-static.test.js": 18,
@@ -133,7 +133,7 @@
   "commitment-backfill.test.js": 3,
   "commitment-escalation.test.js": 5,
   "commitment-exposure.test.js": 3,
-  "commitment-lifecycle.test.js": 8,
+  "commitment-lifecycle.test.js": 10,
   "commitment-source-scope.smoke.test.js": 4,
   "commitment-store.test.js": 5,
   "commitments-routes.smoke.test.js": 11,
@@ -878,6 +878,11 @@
   "ppm-data-quality-pure.test.js": 10,
   "ppm-data-quality.smoke.test.js": 3,
   "ppm-data-quality-ui.test.js": 3,
-  "ppm-r4-actuals-intake.smoke.test.js": 4
+  "ppm-r4-actuals-intake.smoke.test.js": 4,
+  "policy-center-four-eyes-direction.test.js": 4,
+  "policy-center-four-eyes-bypass.smoke.test.js": 5,
+  "policy-center-packaged.test.js": 4,
+  "hostile-input-r4.smoke.test.js": 5,
+  "approver-provenance.test.js": 3
  }
 }

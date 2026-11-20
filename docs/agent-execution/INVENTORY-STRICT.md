@@ -11,12 +11,12 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 | routes | 769 |
 | routes not measurable | 3 |
 | routes without strict test | 66 |
-| critical routes | 210 |
+| critical routes | 211 |
 | critical routes without strict test | 17 |
 | writes without strict test | 23 |
 | jobs | 33 |
 | jobs without strict test | 0 |
-| test sources | 932 |
+| test sources | 937 |
 | without strict test access | 3 |
 | without strict test finance | 2 |
 | without strict test export | 6 |
@@ -119,6 +119,6 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 | access | 66 | 3 |
 | finance | 40 | 2 |
 | export | 65 | 6 |
-| audit | 22 | 5 |
+| audit | 23 | 5 |
 | destructive | 37 | 2 |
-<!-- structure e6418978b9fc4639 -->
+<!-- structure e6c333a03a015b50 -->

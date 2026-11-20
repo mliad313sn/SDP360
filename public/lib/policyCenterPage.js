@@ -20,7 +20,8 @@
       unchanged: 'Nothing changed.', managed: 'Changed in', kpiNote: 'KPI RAG policies are changed through the KPI policy builder and adopted by the KPI committee.',
       cov: (c) => `${c.catalogued} rules catalogued (${c.report_config} configuration keys, ${c.governance} governance policies), ${c.excluded} excluded with a reason.`,
       planCols: ['Rule', 'Scope', 'Current', 'Proposed', 'Action'], applied: 'Applied', switchOff: 'The policy center is switched off (policy_center_enabled).',
-      scopesGlobal: 'Platform only', scopesSite: 'Platform or one site', fourEyesRule: { away_from_default: 'Moving away from the default needs a second super_admin.', governance_store: 'Relaxing this protected rule needs a second super_admin.', kpi_policy_builder: 'Adopted by the KPI committee.' },
+      catMissing: 'The policy catalogue could not be read on this server: every rule now needs a second super_admin until the file docs/ops/policy-catalogue.json is restored.',
+      scopesGlobal: 'Platform only', scopesSite: 'Platform or one site', fourEyesRule: { towards_strict: 'Only a change towards the stricter value is immediate; anything else (a reset to the default included) needs a second super_admin.', second_person_always: 'Every change needs a second super_admin.', governance_store: 'Relaxing this protected rule needs a second super_admin.', kpi_policy_builder: 'Adopted by the KPI committee.' },
     },
     fr: {
       title: 'Centre de contrôle des politiques', search: 'Rechercher', searchPh: 'Rechercher une règle', category: 'Catégorie', risk: 'Risque', all: 'Toutes', high: 'Élevé', medium: 'Moyen', low: 'Faible',
@@ -37,7 +38,8 @@
       unchanged: 'Rien n\'a changé.', managed: 'Se modifie dans', kpiNote: 'Les politiques RAG des indicateurs se modifient dans le constructeur de politiques KPI et sont adoptées par le comité KPI.',
       cov: (c) => `${c.catalogued} règles cataloguées (${c.report_config} clés de configuration, ${c.governance} politiques de gouvernance), ${c.excluded} exclues avec un motif.`,
       planCols: ['Règle', 'Portée', 'Actuelle', 'Proposée', 'Action'], applied: 'Appliqué', switchOff: 'Le centre des politiques est désactivé (policy_center_enabled).',
-      scopesGlobal: 'Plateforme seulement', scopesSite: 'Plateforme ou un site', fourEyesRule: { away_from_default: 'S\'écarter de la valeur par défaut exige un second super_admin.', governance_store: 'Assouplir cette règle protégée exige un second super_admin.', kpi_policy_builder: 'Adoptée par le comité KPI.' },
+      catMissing: 'Le catalogue des règles est illisible sur ce serveur : toute règle exige désormais un second super_admin jusqu\'à ce que le fichier docs/ops/policy-catalogue.json soit rétabli.',
+      scopesGlobal: 'Plateforme seulement', scopesSite: 'Plateforme ou un site', fourEyesRule: { towards_strict: 'Seul un changement vers la valeur la plus stricte est immédiat ; tout autre changement (y compris le retour à la valeur par défaut) exige un second super_admin.', second_person_always: 'Tout changement exige un second super_admin.', governance_store: 'Assouplir cette règle protégée exige un second super_admin.', kpi_policy_builder: 'Adoptée par le comité KPI.' },
     },
   }[lang];
   if (lang === 'fr') document.documentElement.lang = 'fr';
@@ -71,6 +73,7 @@
     sel.innerHTML = `<option value="">${esc(S.all)}</option>` + Object.entries(data.categories).map(([k, c]) => `<option value="${esc(k)}">${esc(c[lang] || c.en)}</option>`).join('');
     sel.value = keep;
     $('pcCoverage').textContent = S.cov(data.coverage);
+    if (data.catalogue_missing) msg(S.catMissing, false);   // P11 N-10: fail closed, and say so
     $('pcImportCard').hidden = !data.can_write;
     render(); loadRequests();
   }
