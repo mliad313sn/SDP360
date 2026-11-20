@@ -126,6 +126,7 @@ test('harden-audit-grants.sql: the app role reads and appends, never edits, dele
       } finally { await app.end(); }
     } finally {
       await admin.query(`ALTER ROLE ${role} IN DATABASE "${dbName}" RESET ALL`).catch(() => {});
+      await admin.query(`REVOKE ALL ON DATABASE "${dbName}" FROM ${role}`).catch(() => {});
       await admin.query('ALTER TABLE audit_chain_anchors OWNER TO current_user').catch(() => {});
       if (datOwner) await admin.query(`ALTER DATABASE "${dbName}" OWNER TO "${datOwner}"`).catch(() => {});
       if (nspOwner) await admin.query(`ALTER SCHEMA ${schema} OWNER TO "${nspOwner}"`).catch(() => {});
@@ -134,6 +135,7 @@ test('harden-audit-grants.sql: the app role reads and appends, never edits, dele
       for (const fn of ['sdp_append_only()', 'sdp_hash_chain()', 'sdp_chain_payload(jsonb)']) await admin.query(`ALTER FUNCTION ${fn} OWNER TO current_user`).catch(() => {});
       await admin.query(`REVOKE ALL ON SCHEMA ${schema} FROM ${role}`).catch(() => {});
       for (const tb of TABLES) await admin.query(`REVOKE ALL ON ${tb} FROM ${role}`).catch(() => {});
+      await admin.query(`REVOKE ALL ON audit_chain_anchors FROM ${role}`).catch(() => {});
       await admin.query(`REVOKE ALL ON ALL SEQUENCES IN SCHEMA ${schema} FROM ${role}`).catch(() => {});
       await admin.query(`DROP ROLE IF EXISTS ${role}`).catch(() => {});
     }
