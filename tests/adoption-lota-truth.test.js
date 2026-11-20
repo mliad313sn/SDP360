@@ -72,3 +72,9 @@ test('item 17: page-view telemetry is open to business-only accounts (writes the
   assert.ok(!g.isAllowed('/ux/page-usage'), 'the usage READ stays super_admin, closed to business');
   assert.ok(!g.isAllowed('/ux/event'));
 });
+
+test('item 1: Helpdesk without a single synced ticket shows "—" on every tile, never a quiet-week 0', () => {
+  const src = read('public/index.html');
+  assert.match(src, /if\(!RAW\.length&&!window\.__dataTs\)\{/);
+  assert.match(src, /Source never synced — not measured/);
+});

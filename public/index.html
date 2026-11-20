@@ -794,6 +794,12 @@ function deltaAbs(cur,prev,loBetter,u){
 function setH(id,v){const e=document.getElementById(id);if(e)e.innerHTML=v;}
 
 function renderKPIs(r,c){
+  // Adoption Lot A (item 1): no ticket ever loaded AND no data date = the ServiceDesk source never synced → every tile
+  // reads "—" (not measured), never a 0 that looks like a quiet week.
+  if(!RAW.length&&!window.__dataTs){
+    ['inbound','closed','frsla','ressla','assign','reply','res','close'].forEach(k=>{setH('k-'+k,'—');setH('k-'+k+'-sub','Source never synced — not measured');});
+    return;
+  }
   const cLbl=' vs '+pCmpLabel(CMP_P);
   setH('k-inbound',r.n);
   setH('k-inbound-sub',delta(r.n,c.n,false)+' &nbsp; prev: '+c.n+cLbl);
