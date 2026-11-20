@@ -21,7 +21,7 @@ test('every dark switch is classified exactly once; lots stay PROPOSED, at most 
   const deps = sl.dependencies(register, plan, register.dark.map((d) => d.key));
   const v = sl.validate(register, plan, deps);
   assert.deepEqual(v.errors, []);
-  assert.equal(Object.keys(v.classOf).length, register.dark.length);
+  assert.equal(Object.keys(v.classOf).length, register.dark.length + (register.live || []).length);
   for (const l of plan.lots) { assert.ok(l.switches.length <= 10, l.id); assert.equal(l.status, 'PROPOSED'); assert.equal(l.owner, undefined); assert.equal(l.canary_site, undefined); }
   assert.ok(plan.retire.length >= 1, 'the run must propose at least one retirement (fewer switches)');
 });
@@ -55,4 +55,32 @@ test('a lot test list always carries the authorization set; the force value name
   const files = sl.lotTests(lot, sc);
   for (const t of sl.AUTHZ_TESTS) if (fs.existsSync(path.join(ROOT, t))) assert.ok(files.includes(t), t);
   assert.equal(sl.forceValue(lot).split(',').length, lot.switches.length);
+});
+
+// P11 round 3 R3-A2 — a NEW switch shipped ON ('1', live behaviour) used to pass every governance check: the
+// register only listed default-'0' switches as needing a classification. Now the register lists every report_config
+// key defaulting to '1' (`live`) and the plan must classify each in the keep list (group with a reason) or retire it.
+test('R3-A2: every default-ON report_config key is in the register live list and kept with a reason in the plan', () => {
+  const { DEFAULTS } = require('../services/reportConfig');
+  const on = Object.keys(DEFAULTS).filter((k) => String(DEFAULTS[k]) === '1').sort();
+  assert.ok(Array.isArray(register.live), 'FLAG-REGISTER.json carries a live list');
+  assert.deepEqual(register.live.map((l) => l.key).sort(), on, 'live = every key defaulting to 1');
+  const deps = sl.dependencies(register, plan, register.dark.map((d) => d.key));
+  const v = sl.validate(register, plan, deps);
+  for (const k of on) assert.match(String(v.classOf[k] || ''), /^(keep:|retire)/, `${k} is kept (or retired)`);
+  for (const [g, grp] of Object.entries(plan.keep)) assert.ok(String(grp.reason || '').trim().length > 20, `keep group ${g} states a reason`);
+});
+
+test('R3-A2: an unlisted switch defaulting ON fails the plan (the round-3 throwaway attack)', () => {
+  const { DEFAULTS } = require('../services/reportConfig');
+  const fr = require('../tools/agent/flag-register');
+  DEFAULTS.zz_r3_live_enabled = '1';
+  let reg;
+  try { reg = JSON.parse(fr.buildJson()); } finally { delete DEFAULTS.zz_r3_live_enabled; }
+  assert.ok(reg.live.some((l) => l.key === 'zz_r3_live_enabled'), 'the register sees the new default-ON switch');
+  const v = sl.validate(reg, plan, sl.dependencies(reg, plan, reg.dark.map((d) => d.key)));
+  assert.ok(v.errors.some((e) => /zz_r3_live_enabled/.test(e) && /ON by default/.test(e)), JSON.stringify(v.errors));
+  // and putting it in a lot is refused too (a lot forces '1'; a default-ON switch needs a keep decision)
+  const p = clone(plan); p.lots[0].switches.push('zz_r3_live_enabled');
+  assert.ok(sl.validate(reg, p, sl.dependencies(reg, p, reg.dark.map((d) => d.key))).errors.some((e) => /zz_r3_live_enabled/.test(e)));
 });

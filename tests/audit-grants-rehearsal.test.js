@@ -10,7 +10,32 @@ const path = require('path');
 const crypto = require('crypto');
 const { Client } = require('pg');
 
-const TABLES = ['governance_policy_history', 'handoff_events', 'commitment_events', 'closure_verifications', 'minutes_history', 'governance_role_events'];
+// P11 round 3 R3-A1 — the list is derived from the code (services/auditChain.js), never re-typed here: the script
+// once covered 6 of the 12 hash-chained tables and this test pinned the same 6.
+const TABLES = [...require('../services/auditChain').TABLES];
+const SCRIPT = path.join(__dirname, '..', 'tools', 'pg', 'harden-audit-grants.sql');
+const scriptTables = () => {
+  const m = fs.readFileSync(SCRIPT, 'utf8').match(/set_config\('sdp\.audit_tables',\s*'([^']*)'/);
+  return m ? m[1].split(',').map((x) => x.trim()).filter(Boolean) : [];
+};
+
+test('harden-audit-grants.sql covers exactly the hash-chained audit tables of services/auditChain.js', () => {
+  assert.deepEqual([...scriptTables()].sort(), [...TABLES].sort());
+  // no table list may be hard-coded elsewhere in the script (one list, read through sdp.audit_tables)
+  assert.ok(!/ARRAY\['/.test(fs.readFileSync(SCRIPT, 'utf8')), 'the script iterates sdp.audit_tables, not a literal array');
+});
+
+test('every hash-chained table in the migrated schema is in auditChain.TABLES and is append-only', async () => {
+  const c = new Client({ connectionString: process.env.PG_URL }); await c.connect();
+  try {
+    const sch = (await c.query('SELECT current_schema() AS s')).rows[0].s;
+    const trig = (await c.query(`SELECT c.relname AS t, tg.tgname AS g FROM pg_trigger tg JOIN pg_class c ON c.oid = tg.tgrelid
+      JOIN pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = $1 AND NOT tg.tgisinternal`, [sch])).rows;
+    const chained = [...new Set(trig.filter((r) => r.g === r.t + '_hash_chain').map((r) => r.t))].sort();
+    assert.deepEqual(chained, [...TABLES].sort(), 'hash-chained tables in the schema = auditChain.TABLES');
+    for (const t of TABLES) assert.ok(trig.some((r) => r.t === t && r.g === t + '_append_only'), `${t} is append-only`);
+  } finally { await c.end(); }
+});
 
 test('harden-audit-grants.sql: the app role reads and appends, never edits, deletes or disables triggers', async (t) => {
   const url = process.env.PG_URL;
@@ -25,7 +50,7 @@ test('harden-audit-grants.sql: the app role reads and appends, never edits, dele
       await admin.query(`GRANT USAGE ON SCHEMA ${schema} TO ${role}`);
       // today the app role OWNS its tables: reproduce that, then run the script as written for psql
       for (const tb of TABLES) await admin.query(`ALTER TABLE ${tb} OWNER TO ${role}`);
-      const sql = fs.readFileSync(path.join(__dirname, '..', 'tools', 'pg', 'harden-audit-grants.sql'), 'utf8')
+      const sql = fs.readFileSync(SCRIPT, 'utf8')
         .split('\n').filter((l) => !l.startsWith('\\')).join('\n').replace(/:'app_role'/g, `'${role}'`);
       await admin.query(sql);
       const owners = (await admin.query(`SELECT tablename, tableowner FROM pg_tables WHERE schemaname = $1 AND tablename = ANY($2)`, [schema, TABLES])).rows;
@@ -42,6 +67,11 @@ test('harden-audit-grants.sql: the app role reads and appends, never edits, dele
         await assert.rejects(app.query('DELETE FROM minutes_history'), /permission denied|append-only/);
         await assert.rejects(app.query('ALTER TABLE minutes_history DISABLE TRIGGER minutes_history_append_only'), /must be owner|permission denied/);
         await assert.rejects(app.query('TRUNCATE governance_role_events'), /permission denied/);
+        // R3-A1 — the ledgers the script used to miss
+        for (const tb of ['ppm_events', 'report_publications', 'weekly_report_submissions', 'access_request_events', 'finance_certification_events', 'wan_sla_claim_events']) {
+          await assert.rejects(app.query(`TRUNCATE ${tb}`), /permission denied/, `TRUNCATE ${tb}`);
+          await assert.rejects(app.query(`ALTER TABLE ${tb} DISABLE TRIGGER ${tb}_append_only`), /must be owner|permission denied/, `DISABLE TRIGGER ${tb}`);
+        }
         // security review: the trigger functions are not the app role's to replace either
         await assert.rejects(app.query("CREATE OR REPLACE FUNCTION sdp_append_only() RETURNS trigger LANGUAGE plpgsql AS $f$ BEGIN RETURN NEW; END $f$"), /must be owner|permission denied/);
         await assert.rejects(app.query("CREATE OR REPLACE FUNCTION sdp_hash_chain() RETURNS trigger LANGUAGE plpgsql AS $f$ BEGIN RETURN NEW; END $f$"), /must be owner|permission denied/);

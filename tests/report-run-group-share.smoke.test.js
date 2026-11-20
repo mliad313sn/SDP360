@@ -29,7 +29,7 @@ before(async () => {
   rdb = require('../reports-db');
   const sites = await rdb.listSites({ includeInactive: false });
   siteA = Number(sites[0].id);
-  const mk = async (u, roles, site) => { const x = await rdb.createUser({ username: u, full_name: u, password: u + '-pass-0000', roles, site_id: site }); ids[u] = x && x.id; return (await rdb.login(u, u + '-pass-0000')).token; };
+  const mk = async (u, roles, site) => { const x = await rdb.createUser({ username: u, full_name: u, password: u + '-pass-0000', roles, site_id: site }); ids[u] = x && Number(x.id ?? x.lastID); return (await rdb.login(u, u + '-pass-0000')).token; };
   tok.admin = await mk('rrgs-admin', ['admin']);
   tok.editor = await mk('rrgs-ed', ['editor'], siteA);
   tok.viewer = await mk('rrgs-vw', ['viewer'], siteA);
@@ -73,6 +73,25 @@ test('a link to a group run minted by a non-admin before the fix is dead at view
   const l = await eng.createShareLink({ targetKind: 'report_run', targetKey: String(execRun), siteId: null, user: edUser });
   const v = await get('/share/' + l.token); assert.equal(v.status, 404);
   assert.ok(!(await v.text()).includes('GROUP-EXEC-SECRET'));
+});
+
+// P11 round 3 R2-N2 — the view-time check used the creator's CURRENT roles: a pre-fix link minted by an editor on a
+// group-wide run revived when that editor was later promoted. The creator's admin tier is now recorded WHEN the link
+// is minted (share_links.creator_admin) and both must hold: admin at creation AND admin now.
+test('R2-N2: a pre-fix editor link stays dead after the editor is promoted; a demoted admin\'s link dies', async () => {
+  const x = await rdb.createUser({ username: 'rrgs-ed2', full_name: 'rrgs-ed2', password: 'rrgs-ed2-pass-0000', roles: ['editor'], site_id: siteA });
+  const l = await eng.createShareLink({ targetKind: 'report_run', targetKey: String(execRun), siteId: null, user: { id: Number(x.lastID), roles: ['editor'] } });
+  assert.equal((await get('/share/' + l.token)).status, 404, 'dead while editor');
+  await rdb.setUserRoles(Number(x.lastID), ['admin']);
+  const v = await get('/share/' + l.token);
+  assert.equal(v.status, 404, 'still dead after promotion'); assert.ok(!(await v.text()).includes('GROUP-EXEC-SECRET'));
+  // an admin link keeps working while the creator stays admin, and dies when they are demoted
+  const y = await rdb.createUser({ username: 'rrgs-ad2', full_name: 'rrgs-ad2', password: 'rrgs-ad2-pass-0000', roles: ['admin'] });
+  const t = (await rdb.login('rrgs-ad2', 'rrgs-ad2-pass-0000')).token;
+  const j = await (await post('/api/engagement/share', t, { target_kind: 'report_run', target_key: String(execRun) })).json();
+  assert.equal((await get('/share/' + j.token)).status, 200);
+  await rdb.setUserRoles(Number(y.lastID), ['editor']);
+  assert.equal((await get('/share/' + j.token)).status, 404, 'demoted admin: link dead');
 });
 
 test('in-app read: viewer/editor refused on executive group run (single + list); committee member reads the council run only', async () => {

@@ -168,6 +168,10 @@ module.exports = function fieldRoutes(deps) {
       if (existing) {
         const sameCapture = existing.created_by === Number(u.id) && existing.state
           && F.stableJson(existing.state) === F.stableJson(p) && String(existing.status || 'draft') === String(p.status || 'draft');
+        // P11 r3 R2-N3 — an id of ANOTHER site's inspection gets the same refusal without its status (no oracle on
+        // a record the caller may not read); within the caller's scope the status helps them understand the 409
+        const ownScope = codes === null || userSites.inScope(existing.site_code, codes);
+        if (!sameCapture && !ownScope) throw Object.assign(new Error('this inspection id is already used on the server — it is not changed from the field app; capture a new inspection'), { code: 'CONFLICT', reason: 'inspection_exists' });
         if (!sameCapture) throw Object.assign(new Error(`inspection ${String(p.meta.f_id).slice(0, 60)} already exists on the server (${existing.status}) — it is not changed from the field app; capture a new inspection`), { code: 'CONFLICT', reason: 'inspection_exists', detail: { status: String(existing.status || '').slice(0, 40) } });
       }
       const r = await idb().saveInspection(p, codes, u.id, { allowRefs });
@@ -190,6 +194,9 @@ module.exports = function fieldRoutes(deps) {
       if (p.source === 'inspection' && p.status_change) {
         const canon = idb().normalizeActionStatus(p.status_change);
         if (!canon) throw Object.assign(new Error(`"${String(p.status_change).slice(0, 40)}" is not an inspection action status (Open, In Progress, Closed, Cancelled)`), { code: 'INVALID', reason: 'inspection_action_status' });
+        // P11 r3 F-9 — from the field app an inspection action is only CLOSED or CANCELLED (what the app offers); a
+        // reopen or a move to In Progress is the web register's job (editor of the site)
+        if (!['Closed', 'Cancelled'].includes(canon)) throw Object.assign(new Error(`an inspection action can only be closed or cancelled from the field app (not "${canon}")`), { code: 'INVALID', reason: 'inspection_action_status' });
         p = { ...p, status_change: canon };
       }
       const mod = p.source === 'meetings' ? mdb() : idb();
@@ -266,7 +273,9 @@ module.exports = function fieldRoutes(deps) {
         // the phone keeps the entry as 'conflict' with the reason; nothing is written
         // P11 r2 F-4 — `reason` (+ `detail`) lets the phone show the refusal in the user's language
         if (e.code === 'CONFLICT') { status = 'rejected'; result = { error: e.message, conflict: true, reason: e.reason || undefined, detail: e.detail || undefined }; code = 409; }
-        else if (e.code === 'INVALID' || e.code === 'FORBIDDEN' || e.code === 'REJECTED' || e.code === 'WRITE_DISABLED') { status = 'rejected'; result = { error: e.message, errors: e.errors || undefined, reason: e.reason || undefined }; code = e.code === 'FORBIDDEN' ? 403 : e.code === 'INVALID' ? 400 : 200; }
+        // P11 r3 F-8 — a typed VALIDATION error (e.g. an out-of-vocabulary action status inside an inspection) is a
+        // client error like INVALID: terminal 400, never 'failed' (which the phone would retry forever)
+        else if (e.code === 'INVALID' || e.code === 'VALIDATION' || e.code === 'FORBIDDEN' || e.code === 'REJECTED' || e.code === 'WRITE_DISABLED') { status = 'rejected'; result = { error: e.message, errors: e.errors || undefined, reason: e.reason || undefined }; code = e.code === 'FORBIDDEN' ? 403 : (e.code === 'INVALID' || e.code === 'VALIDATION') ? 400 : 200; }
         // a ticket whose outcome is unknown (SDP may have created it before the error) is NOT retried: a retry would
         // create a second request. It is refused with a reason to check SDP; other kinds stay retryable.
         else if (env.kind === 'ticket') { status = 'rejected'; result = { error: 'outcome unknown — check ServiceDesk Plus before sending again', outcome_unknown: true, correlation_id: logError(e, req, 500) }; code = 200; }

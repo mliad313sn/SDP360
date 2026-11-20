@@ -137,7 +137,7 @@ async function scenarioAud1(s) {
   const ev = c.events.filter((e) => e.action === 'updated').pop();
   assert.deepEqual(ev.details.changes.reviewer, { from: 'biz.reviewer', to: 'other.reviewer' });
   c = await s.update(id, { accountable_owner: 'someone.else' }, { user: own, expectedVersion: c.version });
-  assert.deepEqual(c.events.filter((e) => e.action === 'updated').pop().details.changes.accountable_owner, { from: 'it.owner', to: 'someone.else' });
+  assert.deepEqual(c.events.filter((e) => e.action === 'updated').pop().details.changes.accountable_owner, { from: 'it.owner', to: 'someone.else', by: 'it.owner' });
   await assert.rejects(async () => s.transition(id, 'verified_closed', { actor: { ...own, username: 'it.owner' }, expectedVersion: c.version }), (e) => e.status === 403, 'owner at submission cannot verify');
   const sub = c.events.find((e) => e.to_status === 'awaiting_verification');
   assert.equal(sub.details.submission.submitted_by, 'it.owner');
@@ -173,7 +173,7 @@ async function scenarioNew1(s, rawDb) {
     (e) => e.status === 403, 'reviewer may not be set to the (current or past) owner');
   // the two-step variant: first move ownership away (allowed, logged with from/to), then name oneself reviewer
   c = await s.update(id, { accountable_owner: 'someone.else' }, { user: own, expectedVersion: c.version });
-  assert.deepEqual(c.events.filter((e) => e.action === 'updated').pop().details.changes.accountable_owner, { from: 'it.owner', to: 'someone.else' });
+  assert.deepEqual(c.events.filter((e) => e.action === 'updated').pop().details.changes.accountable_owner, { from: 'it.owner', to: 'someone.else', by: 'it.owner' });
   await assert.rejects(async () => s.update(id, { reviewer: 'it.owner' }, { user: own, expectedVersion: c.version }), (e) => e.status === 403, 'a former owner cannot become reviewer');
   await assert.rejects(async () => s.update(id, { reviewer: 'IT.Exec' }, { user: own, expectedVersion: c.version }), (e) => e.status === 403, 'an executor cannot become reviewer');
   await assert.rejects(async () => s.update(id, { reviewer: 'coord.x' }, { user: own, expectedVersion: c.version }), (e) => e.status === 403, 'the creator cannot become reviewer');
@@ -212,4 +212,49 @@ test('pg: NEW-1 a former owner cannot become reviewer nor verify (owner re-point
   const h = { prepare: (sql) => rdb.pgHandle().prepare(sql) };
   const s = makeCommitmentStore(h, { isPg: true });
   try { await s.init(); await scenarioNew1(s, h); } finally { await dropTestDb(ctx); }
+});
+
+// P11 round 3 N-R3-1 + four-eyes alias (P3) — (a) whoever re-points the owner / executors is recorded in the event
+// and counts as a past owner / executor: Alice setting the owner to a look-alike she controls ("alice<ZWSP>",
+// "al<Cyrillic i>ce") cannot then verify; (b) a reviewer value that NAMES an account (its e-mail alias) is resolved
+// to that account, so a former owner cannot be named reviewer through their e-mail.
+async function scenarioR3(s, rawDb) {
+  await rawDb.prepare("INSERT INTO users (username, full_name, password_hash, salt, role, active, email) VALUES ('it.owner','Ivo Owner','x','x','editor',1,'it.owner@corp.example')").run();
+  const coord = { id: 9, username: 'coord.x', canEdit: true, isAdmin: false };
+  const alice = { id: 21, username: 'alice', full_name: 'Alice A', email: 'alice@corp.example', canEdit: true, isAdmin: true };
+  const exe = { id: 6, username: 'it.exec', canEdit: true, isAdmin: false };
+  for (const look of ['alice​', 'alіce', 'Bob B']) {
+    const a = await s.create({ kind: 'issue', title: `Look-alike ${JSON.stringify(look)}`, site_id: 3, accountable_owner: 'bob', execution_owners: ['it.exec'], reviewer: 'alice' }, { user: coord });
+    let c = await s.update(a.commitment.id, { accountable_owner: look }, { user: alice, expectedVersion: 1 });
+    const ev = c.events.filter((e) => e.action === 'updated').pop();
+    assert.equal(ev.details.changes.accountable_owner.by, 'alice', 'the actor of an owner change is recorded');
+    c = await s.transition(c.id, 'committed', { actor: exe, expectedVersion: c.version });
+    c = await s.transition(c.id, 'in_progress', { actor: exe, expectedVersion: c.version });
+    c = await s.transition(c.id, 'awaiting_verification', { actor: exe, expectedVersion: c.version });
+    await assert.rejects(async () => s.transition(c.id, 'verified_closed', { actor: alice, expectedVersion: c.version }), (e) => e.status === 403, `re-pointer cannot verify (${JSON.stringify(look)})`);
+  }
+  // executors re-pointed by the actor count too
+  const b = await s.create({ kind: 'issue', title: 'Executor re-point', site_id: 3, accountable_owner: 'bob', execution_owners: ['it.exec'], reviewer: 'alice' }, { user: coord });
+  let d = await s.update(b.commitment.id, { execution_owners: ['alіce'] }, { user: alice, expectedVersion: 1 });
+  d = await s.transition(d.id, 'committed', { actor: exe, expectedVersion: d.version });
+  d = await s.transition(d.id, 'in_progress', { actor: exe, expectedVersion: d.version });
+  d = await s.transition(d.id, 'awaiting_verification', { actor: exe, expectedVersion: d.version });
+  await assert.rejects(async () => s.transition(d.id, 'verified_closed', { actor: alice, expectedVersion: d.version }), (e) => e.status === 403);
+  // alias: the former owner it.owner cannot be named reviewer through the account's e-mail
+  const a2 = await s.create({ kind: 'issue', title: 'Alias reviewer', site_id: 3, accountable_owner: 'it.owner', reviewer: 'biz.reviewer' }, { user: coord });
+  let e2 = await s.update(a2.commitment.id, { accountable_owner: 'someone.else' }, { user: coord, expectedVersion: 1 });
+  await assert.rejects(async () => s.update(e2.id, { reviewer: 'IT.Owner@corp.example' }, { user: coord, expectedVersion: e2.version }), (e) => e.status === 403, 'e-mail alias of a former owner refused');
+  await assert.rejects(async () => s.update(e2.id, { reviewer: 'it.owner​@corp.example' }, { user: coord, expectedVersion: e2.version }), (e) => e.status === 403, 'look-alike alias refused');
+  e2 = await s.update(e2.id, { reviewer: 'biz.other' }, { user: coord, expectedVersion: e2.version });
+  assert.equal(e2.reviewer, 'biz.other', 'an unrelated reviewer is still accepted');
+}
+
+test('pg: N-R3-1 look-alike owner set by the verifier, and a former owner\'s e-mail alias as reviewer, are refused', async (t) => {
+  const ctx = await provisionTestDb(); if (!ctx) return t.skip('no pg');
+  process.env.PG_URL = ctx.url; process.env.REPORTS_BACKEND = 'postgres';
+  const rdb = require('../reports-db'); await rdb.initPgReports();
+  await require('../db/migrate').migrateAtBoot({ log: () => {} });
+  const h = { prepare: (sql) => rdb.pgHandle().prepare(sql) };
+  const s = makeCommitmentStore(h, { isPg: true });
+  try { await s.init(); await scenarioR3(s, h); } finally { await dropTestDb(ctx); }
 });
