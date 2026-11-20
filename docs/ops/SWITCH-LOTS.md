@@ -324,7 +324,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `restore_drill_full` | Operations owner | once a backup copy of `data/blobs` exists  | — | — | report_config, system_log | — | 1 | 1 |
 | `entra_deprovision_enabled` | Information Security + tenant administrator | only after the tenant administrator decides on the Graph `User | — | — | users | yes | 3 | 2 |
 | `site_code_shared_block` | Data owner + Owner | Decide who owns each shared site code (e.g. TND) and correct the data first; then test the controlled 409 and the editors' rights. | — | editor | — | — | 5 | 3 |
-| `policy_center_enabled` | to be named | — | — | — | — | — | 9 | 2 |
+| `policy_center_enabled` | to be named | — | — | — | — | — | 9 | 4 |
 
 ## Dossier L14 — PMO journey — portfolio intake register, data quality, register and executive dashboard, decision agenda and management alerts, lifecycle / review / audit (portfolio spec Lots 1–5)
 
@@ -340,14 +340,14 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 |---|---|---|---|---|---|---|---|---|
 | `ppm_intake_register_enabled` | to be named | once the PMO has reviewed the PROPOSED reference lists  | — | admin | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +20 | — | 19 | 5 |
 | `ppm_data_quality_enabled` | to be named | once `ppm_intake_register_enabled` is on: portfolio and project reads carry the data-quality block of the portfolio reconstruction spec  | `ppm_intake_register_enabled` | — | — | — | 7 | 2 |
-| `ppm_dq_gate_enforced` | to be named | only after the PMO has approved the required set and the blocking checks of `ppm_data_quality_enabled` and run it in shadow: the proposal → approval stage move is refused  | `ppm_data_quality_enabled` | — | — | — | 5 | 1 |
-| `ppm_portfolio_dashboard_v2_enabled` | to be named | after `ppm_intake_register_enabled`  | `ppm_data_quality_enabled`, `ppm_intake_register_enabled` | executive | — | — | 6 | 1 |
+| `ppm_dq_gate_enforced` | to be named | only after the PMO has approved the required set and the blocking checks of `ppm_data_quality_enabled` and run it in shadow: the proposal → approval stage move is refused  | `ppm_data_quality_enabled` | — | — | — | 5 | 2 |
+| `ppm_portfolio_dashboard_v2_enabled` | to be named | after `ppm_intake_register_enabled`  | `ppm_data_quality_enabled`, `ppm_intake_register_enabled` | executive | — | — | 6 | 2 |
 | `ppm_field_audit_enabled` | to be named | — | — | admin, finance-viewer | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +20 | — | 6 | 1 |
 | `ppm_extended_lifecycle_enabled` | to be named | once the PMO has reviewed the PROPOSED mapping: new projects start as `idea`, then `assessment`  | — | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +20 | — | 9 | 1 |
-| `ppm_review_workflow_enabled` | to be named | after `ppm_field_audit_enabled`: review panel on the Gates tab  | `ppm_field_audit_enabled`, `ppm_gate_checklist_enabled` | — | users | — | 8 | 1 |
+| `ppm_review_workflow_enabled` | to be named | after `ppm_field_audit_enabled`: review panel on the Gates tab  | `ppm_field_audit_enabled`, `ppm_gate_checklist_enabled` | — | users | — | 8 | 2 |
 | `ppm_business_case_freeze_enabled` | to be named | once the PMO accepts the PROPOSED frozen list  | `ppm_change_requests_enabled` | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +19 | — | 5 | 1 |
 | `ppm_decision_agenda_enabled` | to be named | after `ppm_intake_register_enabled`: `/portfolio-decisions | `ppm_intake_register_enabled` | — | — | — | 7 | 1 |
-| `ppm_alert_actions_enabled` | to be named | after `ppm_decision_agenda_enabled`: the six management alerts of the portfolio spec  | `ppm_decision_agenda_enabled` | — | — | — | 8 | 2 |
+| `ppm_alert_actions_enabled` | to be named | after `ppm_decision_agenda_enabled`: the six management alerts of the portfolio spec  | `ppm_decision_agenda_enabled` | — | — | — | 8 | 3 |
 
 ## Dossier L15 — Adoption Lot B — each profile lands on its job
 
@@ -361,7 +361,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 
 | Switch | Who decides (register) | Human prerequisite (register text) | Depends on | Roles named | Tables touched | Job | Consumer files | Tests naming it |
 |---|---|---|---|---|---|---|---|---|
-| `ui_role_landing_profiles` | Pilot owner (UI policy) | — | — | executive | — | — | 4 | 3 |
+| `ui_role_landing_profiles` | Pilot owner (UI policy) | — | — | executive | — | — | 4 | 4 |
 | `ui_home_group_variant` | Pilot owner (UI policy) | — | — | — | — | — | 3 | 3 |
 | `ui_home_freshness_strip` | Pilot owner (UI policy) | — | — | admin | — | — | 4 | 3 |
 | `ui_helpdesk_site_default` | Pilot owner (UI policy) | — | — | admin | — | — | 3 | 3 |
@@ -381,7 +381,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 | `ppm_structured_dependencies_enabled` | to be named | after `ppm_intake_register_enabled`, for a PMO shadow period: the project page gets a Dependencies tab — each dependency is on another project OR an external category  | `ppm_intake_register_enabled` | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +19 | — | 6 | 2 |
 | `ppm_resource_demand_enabled` | to be named | once the resource owner has set `ppm_capacity_fte`  | — | — | — | — | 5 | 2 |
 | `ppm_effort_scoring_enabled` | to be named | — | — | — | — | — | 5 | 1 |
-| `ppm_documents_enabled` | to be named | only after the operator has decided document storage, retention and malware scanning: typed, versioned project documents in the filesystem blob store  | — | — | — | — | 6 | 2 |
+| `ppm_documents_enabled` | to be named | only after the operator has decided document storage, retention and malware scanning: typed, versioned project documents in the filesystem blob store  | — | — | — | — | 6 | 3 |
 | `ppm_scenarios_enabled` | to be named | — | `ppm_resource_demand_enabled`, `ppm_structured_dependencies_enabled` | — | — | — | 3 | 2 |
 | `ext_api_portfolio_enabled` | dependencies | — | — | — | alert_firings, alert_rules, alert_state, api_calls, api_consumers, notification_comments +4 | — | 4 | 1 |
 
