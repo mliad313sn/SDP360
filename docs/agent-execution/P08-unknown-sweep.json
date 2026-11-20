@@ -42,7 +42,7 @@
    "why": "Count of rows read from a COUNT/SUM (zero rows = a measured zero, the SQL SUM of no row being NULL). The enclosing block is null / absent when the source is not measured (the gate is upstream), so this 0 is never \"unknown\"."
   }
  ],
- "total_hits": 435,
+ "total_hits": 439,
  "reviewed": {
   "inspection-pptx.js|8ab38856e9f6|1": {
    "verdict": "justified",
@@ -423,6 +423,11 @@
    "verdict": "justified",
    "note": "COUNT(*) FILTER always returns a number; || 0 only guards NaN. A failed query is null via the catch (raw.auth = null), never 0. Reviewed by AI (orchestrator, P05 merge).",
    "text": "raw.auth = { success: Number(r.s) || 0, failed: Number(r.f) || 0 };"
+  },
+  "services/sliReadings.js|da6a23513b35|1": {
+   "verdict": "justified",
+   "note": "Error COUNT per job in the window: a job absent from the error query had zero errors measured. Freshness itself stays null for a job that never succeeded (N-08). Reviewed by AI (orchestrator, P11 fix 13 merge).",
+   "text": ".map((j) => ({ job: j, freshness_hours: freshness[j], ok_times: by[j] || [], errors: errBy[j] || 0, optional: !!(opt && opt.has && opt.has(j)) }));"
   },
   "services/sync/jobs.js|c311a8a15054|1": {
    "verdict": "justified",
