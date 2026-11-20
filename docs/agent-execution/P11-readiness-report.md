@@ -168,3 +168,23 @@ affects a live path today. The panel's AI recommendation is **NO-GO for turning 
 Corrections in progress (branches, not yet merged): fix 14 (security + N-10 + R4-A2), fix 15 (PPM), fix 16
 (data/KPI), fix 17 (operations + R4-A1/A3/A4), fix 18 (field/UX). Human gates: all 21 RELEASE-GATES rows remain
 empty; nothing in this report is an approval.
+
+## Round 5 — frozen SHA 3ee4dd23 (2026-11-20) — AI panel, not an independent human review
+
+Seat reports: `docs/agent-execution/p11/round5-3ee4dd23/r5-<seat>.md`.
+
+| Seat | P0 | P1 | New P2 | Round-4 re-check |
+|---|---|---|---|---|
+| security | 0 | 0 (R1-F2 policy) | N-R5-1 Teams SLA route flips a four-eyes key; N-R5-2 approver independence bypass by password reset; N-R5-3 freeze CR reuse | N-R4-2/3/4 fixed; N-R4-1 partial |
+| data-kpi | 0 | 0 | F-21 card ≠ drill list; F-23 three "high risk" rules | F-16, F-02, F-05 (+F-17/18/19) fixed |
+| ppm | 0 | 0 | R5-1 dependency loops; R5-2 freeze bypass; R5-3 partial capacity verdict; R5-4 = F-21 | R4-1..R4-4 fixed |
+| operations | 0 | 1 — N-14 file store not backed up, drill green on DB only | N-12 DB stall answered 401; N-13 non-transactional rollbacks; N-15 activation tool skips four-eyes | N-10, N-09 and audit items fixed; N-11 partial |
+| ux-field | 0 | 1 — F-15 inspection save recreated corrective actions (history lost, phone close refused) | F-16 Helpdesk site default drops spellings | F-10/11/4/2/13/14 fixed; F-12 partial |
+| audit | 0 | 1 — R5-A1 = N-R5-2 | R5-A2 field-audit switch one-person off; R5-A3 shadow schema + no daily anchor | R4-A1..A4 fixed |
+
+**Corrections merged** (fixes 19–23, all with failing-first tests): card counts equal their drill lists and one
+shared high-risk rule; dependency cycles impossible, single-use value-bound change requests, currency frozen;
+shared four-eyes guard on every config-writing route, approver independence after credential resets, sessions
+revoked on admin reset, lots-on authz probe; encrypted file-store backup verified by the restore drill, 503 on DB
+stall, transactional rollbacks, second operator for four-eyes activations; inspection actions upserted (history
+kept). **Fix 24** (audit R5-A2, R5-A3/AUD-2, P3s) in progress. All human gates remain empty.
