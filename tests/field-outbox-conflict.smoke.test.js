@@ -34,15 +34,16 @@ before(async () => {
 });
 after(() => server && server.close());
 const put = (n, env) => fetch(base + '/api/field/outbox/' + U(n), { method: 'PUT', headers: { 'x-report-token': tech, 'content-type': 'application/json' }, body: JSON.stringify(env) });
-const meta = (id, extra) => ({ f_id: id, f_site: `${hounde.name} (HGO)`, f_date: '2026-10-19', f_time: '09:00', f_area: 'dc', f_inspector: 'Tech', f_type: 'routine', ...extra });
+const fieldId = require('./_field-id');
+const meta = (id, extra) => ({ f_id: fieldId(id), f_site: `${hounde.name} (HGO)`, f_date: '2026-10-19', f_time: '09:00', f_area: 'dc', f_inspector: 'Tech', f_type: 'routine', ...extra });
 const row = (id) => rdb.db.prepare('SELECT status, key_observations FROM insp_inspections WHERE id = ?').get(id);
 
 test('F-1: a field envelope reusing the id of a SUBMITTED inspection → 409, row unchanged (still submitted)', async () => {
   await idb.saveInspection({ meta: meta('EM-IT-20261019-0202', { f_obs: 'ORIGINAL OBS' }), items: {}, actions: [], status: 'submitted' }, null, 1);
-  const before = await row('EM-IT-20261019-0202'); assert.equal(before.status, 'submitted');
+  const before = await row(fieldId('EM-IT-20261019-0202')); assert.equal(before.status, 'submitted');
   const r = await put(1, { kind: 'inspection', author: 'fc_tech', payload: { meta: meta('EM-IT-20261019-0202', { f_obs: 'overwritten' }), items: {} } });
   assert.equal(r.status, 409); const j = await r.json(); assert.equal(j.ok, false); assert.equal(j.status, 'rejected'); assert.equal(j.result.conflict, true);
-  assert.deepEqual(await row('EM-IT-20261019-0202'), before, 'stored inspection untouched');
+  assert.deepEqual(await row(fieldId('EM-IT-20261019-0202')), before, 'stored inspection untouched');
   const again = await (await put(1, { kind: 'inspection', author: 'fc_tech', payload: { meta: meta('EM-IT-20261019-0202', { f_obs: 'overwritten' }), items: {} } })).json();
   assert.equal(again.duplicate, true); assert.equal(again.status, 'rejected', 'terminal: never retried into the record');
 });
@@ -50,22 +51,22 @@ test('F-1: a field envelope reusing the id of a SUBMITTED inspection → 409, ro
 test('F-1: an existing DRAFT of another author (accidental id collision) → 409; an identical replay of its own capture applies', async () => {
   await idb.saveInspection({ meta: meta('EM-IT-20261019-0303', { f_obs: 'web draft' }), items: {}, actions: [] }, null, 1);
   const r = await put(2, { kind: 'inspection', author: 'fc_tech', payload: { meta: meta('EM-IT-20261019-0303', { f_obs: 'field capture' }), items: {}, status: 'submitted' } });
-  assert.equal(r.status, 409); assert.equal((await row('EM-IT-20261019-0303')).key_observations, 'web draft');
+  assert.equal(r.status, 409); assert.equal((await row(fieldId('EM-IT-20261019-0303'))).key_observations, 'web draft');
   // the same capture saved earlier by this user (e.g. the ledger answer was lost) is replayed identically → applied
   const m = meta('EM-IT-20261019-0404', { f_obs: 'mine' });
   await idb.saveInspection({ meta: m, items: {}, actions: [], status: 'submitted' }, ['HGO'], techId);
   const ok = await (await put(3, { kind: 'inspection', author: 'fc_tech', payload: { meta: m, items: {}, actions: [], status: 'submitted' } })).json();
-  assert.equal(ok.ok, true); assert.equal(ok.result.inspection_id, 'EM-IT-20261019-0404');
+  assert.equal(ok.ok, true); assert.equal(ok.result.inspection_id, fieldId('EM-IT-20261019-0404'));
   // but the same author changing the content of an already-stored id is still a conflict (never a silent rewrite)
   const chg = await put(4, { kind: 'inspection', author: 'fc_tech', payload: { meta: { ...m, f_obs: 'changed' }, items: {}, status: 'submitted' } });
-  assert.equal(chg.status, 409); assert.equal((await row('EM-IT-20261019-0404')).key_observations, 'mine');
+  assert.equal(chg.status, 409); assert.equal((await row(fieldId('EM-IT-20261019-0404'))).key_observations, 'mine');
 });
 
 test('F-1: a brand-new id still applies; a soft-deleted id is a 409 conflict, not a retry loop', async () => {
   const ok = await (await put(5, { kind: 'inspection', author: 'fc_tech', payload: { meta: meta('EM-IT-20261019-F0A1B2C3D4E5'), items: {}, status: 'submitted' } })).json();
   assert.equal(ok.ok, true);
   await idb.saveInspection({ meta: meta('EM-IT-20261019-0505'), items: {}, actions: [] }, null, 1);
-  await idb.deleteInspection('EM-IT-20261019-0505', { soft: true, by: 'admin', reason: 'test' });
+  await idb.deleteInspection(fieldId('EM-IT-20261019-0505'), { soft: true, by: 'admin', reason: 'test' });
   const del = await put(6, { kind: 'inspection', author: 'fc_tech', payload: { meta: meta('EM-IT-20261019-0505'), items: {} } });
   assert.equal(del.status, 409, 'deleted id: terminal conflict (was a 500 + endless retry)');
   assert.equal((await del.json()).status, 'rejected');

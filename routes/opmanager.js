@@ -500,7 +500,7 @@ module.exports = function opmanagerRoutes(deps) {
     try {
       const body = req.body;
       if (!body || typeof body !== 'object' || Array.isArray(body)) return res.status(400).json({ error: 'body must be an object' });
-      await reportConfig.setConfig(rdb.db, { sla_wan_config: JSON.stringify(body) }, req.reportUser && req.reportUser.username);
+      await require('../services/fourEyesGuard').guardedSetConfig(rdb.db, { sla_wan_config: JSON.stringify(body) }, req.reportUser && req.reportUser.username);
       res.json({ ok: true });
     } catch (e) { fail(res, e, undefined, { ok: false }); }
   });

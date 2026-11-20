@@ -34,7 +34,8 @@ before(async () => {
 });
 after(() => server && server.close());
 const put = (n, env) => fetch(base + '/api/field/outbox/' + U(n), { method: 'PUT', headers: { 'x-report-token': tech, 'content-type': 'application/json' }, body: JSON.stringify(env) });
-const meta = (id, site) => ({ f_id: id, f_site: site || `${hounde.name} (HGO)`, f_date: '2026-10-19', f_time: '09:00', f_area: 'dc', f_inspector: 'Tech', f_type: 'routine' });
+const fieldId = require('./_field-id');
+const meta = (id, site) => ({ f_id: fieldId(id), f_site: site || `${hounde.name} (HGO)`, f_date: '2026-10-19', f_time: '09:00', f_area: 'dc', f_inspector: 'Tech', f_type: 'routine' });
 const mtg = async (desc, status, site = 'HGO', date = '2026-10-09') => { const s = await mdb.saveMeeting({ header: { site_code: site, department: 'IT', meeting_date: date, status: 'draft' }, actions: [{ description: desc, status }] }, null, 1); return (await mdb.getMeeting(s.id)).actions[0]; };
 const mst = async (id) => (await mdb.getActionParent(id)).action_status;
 const inspAct = async (id, desc, site, code) => { await idb.saveInspection({ meta: meta(id, site), items: {}, actions: [{ description: desc, owner: 'x', due: '2026-10-30', priority: 'High', status: 'Open' }] }, null, 1); return (await idb.listActions({ site: code || 'HGO' })).find((x) => x.description === desc); };
@@ -79,7 +80,7 @@ test('F-2 residual: an action re-created by the inspection editor after the enve
   const id = 'EM-IT-20261019-R4F2';
   await idb.saveInspection({ meta: meta(id), items: {}, actions: [{ description: 'R4F editor path', owner: 'Tech', due: '2026-10-30', priority: 'High', status: 'Open' }] }, null, 1);
   const queuedAt = new Date(Date.now() - 3600e3).toISOString();
-  const rec = await idb.getInspection(id);
+  const rec = await idb.getInspection(fieldId(id));
   await idb.saveInspection({ ...rec.state, actions: (rec.state.actions || []).map((a) => ({ ...a, status: 'In Progress' })) }, null, 1);
   const a = (await idb.listActions({ site: 'HGO' })).find((x) => x.description === 'R4F editor path');
   const r = await put(12, { kind: 'action', author: 'r4f_tech', client_ts: queuedAt, payload: { source: 'inspection', id: a.id, status_change: 'Closed', body: 'done' } });

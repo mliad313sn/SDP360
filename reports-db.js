@@ -816,6 +816,15 @@ async function _listActiveSessionsPg(idleMinutes) {
     ORDER BY last_seen DESC
   `).all(m);
 }
+// N-R5-5 (P11 round 5) — an administrator's password reset revokes every session of the target (a reset used to evict
+// a compromised account must log the attacker out). `exceptToken` keeps the caller's own session on a self-reset.
+async function revokeUserSessions(userId, { exceptToken = null } = {}) {
+  const H = pgHandle();
+  const r = exceptToken
+    ? await H.prepare('DELETE FROM sessions WHERE user_id = ? AND token <> ?').run(Number(userId), String(exceptToken))
+    : await H.prepare('DELETE FROM sessions WHERE user_id = ?').run(Number(userId));
+  return { deleted: r.changes };
+}
 async function _forceLogoutByTokenPg(token) {
   const r = await pgHandle().prepare(`DELETE FROM sessions WHERE token = ?`).run(token);
   return { deleted: r.changes };
@@ -5642,7 +5651,7 @@ module.exports = {
   findUserByEntra, linkUserEntra, createSessionForUser,
   updateUserProfileFromEntra, setUserEmail,
   // Active-sessions observability (admin card on reports.html#admin)
-  listActiveSessions, forceLogoutByToken,
+  listActiveSessions, forceLogoutByToken, revokeUserSessions,
   // Multi-role RBAC helpers
   getUserRoles, setUserRoles, userHasRole,
   ROLE_HIERARCHY, FEATURE_ROLES_KNOWN, unknownRoles,

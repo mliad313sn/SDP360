@@ -25,7 +25,8 @@ before(async () => {
 after(() => srv && srv.close());
 
 const U = (n) => `3a1e4c3a-9b7d-4e21-a3f5-0c8d1e2f3a${String(n).padStart(2, '0')}`;
-const env = (id) => ({ kind: 'inspection', meta: { task_ms: 95000 }, payload: { meta: { f_id: id, f_site: `${site.name} (HGO)`, f_date: '2026-11-05', f_area: 'dc', f_inspector: 'T', f_type: 'routine' }, items: {}, actions: [] } });
+const fieldId = require('./_field-id');
+const env = (id) => ({ kind: 'inspection', meta: { task_ms: 95000 }, payload: { meta: { f_id: fieldId(id), f_site: `${site.name} (HGO)`, f_date: '2026-11-05', f_area: 'dc', f_inspector: 'T', f_type: 'routine' }, items: {}, actions: [] } });
 const put = (n, body) => fetch(base + '/api/field/outbox/' + U(n), { method: 'PUT', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
 // the route logs fire-and-forget: poll briefly for the row
 async function logRow(uuid) {

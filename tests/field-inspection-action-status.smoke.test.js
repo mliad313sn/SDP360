@@ -39,7 +39,8 @@ before(async () => {
 });
 after(() => server && server.close());
 const put = (n, env) => fetch(base + '/api/field/outbox/' + U(n), { method: 'PUT', headers: { 'x-report-token': tech, 'content-type': 'application/json' }, body: JSON.stringify(env) });
-const meta = (id, extra) => ({ f_id: id, f_site: `${hounde.name} (HGO)`, f_date: '2026-10-19', f_time: '09:00', f_area: 'dc', f_inspector: 'Tech', f_type: 'routine', ...extra });
+const fieldId = require('./_field-id');
+const meta = (id, extra) => ({ f_id: fieldId(id), f_site: `${hounde.name} (HGO)`, f_date: '2026-10-19', f_time: '09:00', f_area: 'dc', f_inspector: 'Tech', f_type: 'routine', ...extra });
 const rowFull = (id) => rdb.db.prepare('SELECT status, state_json FROM insp_inspections WHERE id = ?').get(id);
 
 let _seq = 0;
@@ -197,9 +198,27 @@ test('R2-N3: an existing inspection id of another site → 409 without status; o
   assert.equal(j.result.reason, 'inspection_exists');
   assert.equal(j.result.detail, undefined, 'no detail');
   assert.ok(!/submitted/i.test(JSON.stringify(j)), 'no status leaked: ' + JSON.stringify(j));
-  assert.equal((await rdb.db.prepare('SELECT status, site_code FROM insp_inspections WHERE id = ?').get(other)).site_code, 'MGO', 'foreign row untouched');
+  assert.equal((await rdb.db.prepare('SELECT status, site_code FROM insp_inspections WHERE id = ?').get(fieldId(other))).site_code, 'MGO', 'foreign row untouched');
   const own = 'EM-IT-20261019-N302';
   await idb.saveInspection({ meta: meta(own, {}), items: {}, actions: [], status: 'submitted' }, null, 1);
   const r2 = await put(37, { kind: 'inspection', author: 'fis_tech', payload: { meta: meta(own, {}), items: {} } });
   assert.equal(r2.status, 409); assert.equal((await r2.json()).result.detail.status, 'submitted');
 });
+
+// P11 round 5 (R2-N3 residual, reviewer repro r5-probe): a foreign EXISTING id answered 409 while an UNUSED id answered
+// 200 — an oracle on another site's inspection ids. Both now get the same refusal; only field-app ids create.
+test('R2-N3 r5: a foreign existing id and an unused non-field id get the IDENTICAL refusal; a field-app id still creates', async () => {
+  const foreign = 'EM-IT-20261101-R5B1';
+  await idb.saveInspection({ meta: { f_id: foreign, f_site: 'Mana (MGO)', f_date: '2026-11-01', f_time: '09:00', f_area: 'dc', f_inspector: 'X', f_type: 'routine' }, items: {}, actions: [], status: 'submitted' }, null, 1);
+  const env = (id) => ({ kind: 'inspection', author: 'fis_tech', payload: { meta: { ...meta('x', {}), f_id: id }, items: {}, actions: [] } });
+  const a = await put(38, env(foreign));
+  const b = await put(39, env('EM-IT-20261101-R5NOPE'));
+  assert.equal(a.status, 409); assert.equal(b.status, a.status, 'same status');
+  const ja = (await a.json()).result, jb = (await b.json()).result;
+  assert.deepEqual(jb, ja, 'same body: ' + JSON.stringify([ja, jb]));
+  assert.equal(ja.reason, 'inspection_exists');
+  assert.equal(await rowFull('EM-IT-20261101-R5NOPE'), undefined, 'nothing created for the unused id');
+  const c = await put(40, env(fieldId('EM-IT-20261101-R5NEW')));
+  assert.equal(c.status, 200, 'a field-app id is applied');
+});
+

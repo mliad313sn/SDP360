@@ -960,7 +960,7 @@ module.exports = function assetsRoutes(deps) {
     try {
       const reportConfig = require('../services/reportConfig');
       const rdb = require('../reports-db');
-      await reportConfig.setConfig(rdb.db, { asset_depreciation_config: JSON.stringify(cfg) }, req.reportUser?.username);
+      await require('../services/fourEyesGuard').guardedSetConfig(rdb.db, { asset_depreciation_config: JSON.stringify(cfg) }, req.reportUser?.username);
       res.json(cfg);
     } catch (e) {
       console.error('[api/assets/depreciation-config PUT]', e.message);

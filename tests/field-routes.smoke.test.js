@@ -66,30 +66,30 @@ test('outbox PUT: bad envelope 400, tracker applied once (replay = duplicate), o
 });
 
 test('photo upload: over cap 400, chunks → complete → blob ref; inspection envelope with the upload is applied and the photo stored', async () => {
-  assert.equal((await send('POST', '/api/field/uploads', tech, { owner_id: 'EM-IT-20261019-0001', mime: 'image/jpeg', size: 400 * 1024 })).status, 400);
+  assert.equal((await send('POST', '/api/field/uploads', tech, { owner_id: 'EM-IT-20261019-F000000000001', mime: 'image/jpeg', size: 400 * 1024 })).status, 400);
   const bytes = Buffer.alloc(70 * 1024, 0x41);
-  const up = (await (await send('POST', '/api/field/uploads', tech, { owner_id: 'EM-IT-20261019-0001', name: 'rack.jpg', mime: 'image/jpeg', size: bytes.length })).json()).upload;
+  const up = (await (await send('POST', '/api/field/uploads', tech, { owner_id: 'EM-IT-20261019-F000000000001', name: 'rack.jpg', mime: 'image/jpeg', size: bytes.length })).json()).upload;
   assert.equal(up.chunks_total, 2); assert.deepEqual(up.missing, [0, 1]);
   assert.equal((await send('POST', `/api/field/uploads/${up.id}/complete`, tech)).status, 400, 'cannot complete with chunks missing');
   assert.equal((await get(`/api/field/uploads/${up.id}`, other)).status, 404, 'another user cannot see it');
   for (const i of [1, 0]) { const c = await (await send('PUT', `/api/field/uploads/${up.id}/chunks/${i}`, tech, { data: bytes.subarray(i * up.chunk_bytes, (i + 1) * up.chunk_bytes).toString('base64') })).json(); assert.equal(c.ok, true); }
   const done = await (await send('POST', `/api/field/uploads/${up.id}/complete`, tech)).json(); assert.equal(done.upload.status, 'done'); assert.match(done.upload.ref, /^field\/u\d+\/\d+-[0-9a-f-]{36}\./, 'stored under a server-chosen name, never the client owner_id / name');
   assert.equal((await (await send('POST', `/api/field/uploads/${up.id}/complete`, tech)).json()).duplicate, true);
-  const meta = { f_id: 'EM-IT-20261019-0001', f_site: `${hounde.name} (HGO)`, f_date: '2026-10-19', f_area: 'dc', f_inspector: 'Tech', f_type: 'routine' };
-  const notMine = await put(14, tech, { kind: 'inspection', author: 'somebody-else', payload: { meta: { ...meta, f_id: 'EM-IT-20261019-0004' }, items: {} } });
+  const meta = { f_id: 'EM-IT-20261019-F000000000001', f_site: `${hounde.name} (HGO)`, f_date: '2026-10-19', f_area: 'dc', f_inspector: 'Tech', f_type: 'routine' };
+  const notMine = await put(14, tech, { kind: 'inspection', author: 'somebody-else', payload: { meta: { ...meta, f_id: 'EM-IT-20261019-F000000000004' }, items: {} } });
   assert.equal(notMine.status, 403, 'an entry recorded by another person is not applied under this session');
-  const forged = await put(13, tech, { kind: 'inspection', payload: { meta: { ...meta, f_id: 'EM-IT-20261019-0003' }, items: { 'net-04': { status: 'ok', photos: [{ __blob: 'inspection/EM-IT-OTHER/sig-inspector.png' }] } } } });
+  const forged = await put(13, tech, { kind: 'inspection', payload: { meta: { ...meta, f_id: 'EM-IT-20261019-F000000000003' }, items: { 'net-04': { status: 'ok', photos: [{ __blob: 'inspection/EM-IT-OTHER/sig-inspector.png' }] } } } });
   assert.equal(forged.status, 400, 'a phone cannot name a stored file');
   const inline = await put(10, tech, { kind: 'inspection', payload: { meta, items: { net__0: { status: 'ok', photos: [{ dataUrl: 'data:image/jpeg;base64,QUJD' }] } } } });
   assert.equal(inline.status, 400, 'inline data URLs are refused on the field path');
   const ok = await (await put(11, tech, { kind: 'inspection', payload: { meta, items: { net__0: { status: 'major', notes: 'hot', photos: [{ upload_id: up.id, caption: 'rack' }] } }, actions: [], status: 'submitted' } })).json();
-  assert.equal(ok.ok, true); assert.equal(ok.result.inspection_id, 'EM-IT-20261019-0001');
-  const rec = await idb.getInspection('EM-IT-20261019-0001'); assert.equal(rec.header.site_code, 'HGO'); assert.equal(rec.photos.length, 1); assert.equal(rec.photos[0].size_bytes, bytes.length);
-  const wrong = await put(12, tech, { kind: 'inspection', payload: { meta: { ...meta, f_id: 'EM-IT-20261019-0002', f_site: 'Mana (MGO)' }, items: {} } }); assert.equal(wrong.status, 403, 'another site is refused');
+  assert.equal(ok.ok, true); assert.equal(ok.result.inspection_id, 'EM-IT-20261019-F000000000001');
+  const rec = await idb.getInspection('EM-IT-20261019-F000000000001'); assert.equal(rec.header.site_code, 'HGO'); assert.equal(rec.photos.length, 1); assert.equal(rec.photos[0].size_bytes, bytes.length);
+  const wrong = await put(12, tech, { kind: 'inspection', payload: { meta: { ...meta, f_id: 'EM-IT-20261019-F000000000002', f_site: 'Mana (MGO)' }, items: {} } }); assert.equal(wrong.status, 403, 'another site is refused');
 });
 
 test('actions + tickets: transfer without justification 400, close applied through the module writer, ticket rejected while write disabled (terminal, not a retry)', async () => {
-  const a = await idb.saveInspection({ meta: { f_id: 'EM-IT-20261019-0009', f_site: `${hounde.name} (HGO)`, f_date: '2026-10-19', f_area: 'dc', f_inspector: 'T' }, items: {}, actions: [{ description: 'Replace UPS battery', owner: 'Tech', due: '2026-10-30', priority: 'High', status: 'Open' }] }, null, 1);
+  const a = await idb.saveInspection({ meta: { f_id: 'EM-IT-20261019-F000000000009', f_site: `${hounde.name} (HGO)`, f_date: '2026-10-19', f_area: 'dc', f_inspector: 'T' }, items: {}, actions: [{ description: 'Replace UPS battery', owner: 'Tech', due: '2026-10-30', priority: 'High', status: 'Open' }] }, null, 1);
   const act = (await idb.listActions({ site: 'HGO' })).find(x => /UPS/.test(x.description)); assert.ok(act);
   assert.equal((await put(20, tech, { kind: 'action', payload: { source: 'inspection', id: act.id, status_change: 'cancelled' } })).status, 400);
   assert.equal((await put(21, other, { kind: 'action', payload: { source: 'inspection', id: act.id, status_change: 'Closed' } })).status, 403, 'Mana editor cannot touch a Hounde action');
@@ -122,7 +122,7 @@ test('E-F01 admin outbox: list (admin only, no payload), resolve 404 while off, 
   // a ticket stuck in applying (a crashed send) and an inspection stuck in applying
   const tkPayload = { subject: 'Stuck ticket' };
   await st.receive({ uuid: U(40), userId: techUser.id, kind: 'ticket', payloadHash: F.payloadHash(tkPayload) }); await st.claim(U(40), { kind: 'ticket' });
-  const meta = { f_id: 'EM-IT-20261019-0040', f_site: `${hounde.name} (HGO)`, f_date: '2026-10-19', f_area: 'dc', f_inspector: 'Tech', f_type: 'routine' };
+  const meta = { f_id: 'EM-IT-20261019-F000000000040', f_site: `${hounde.name} (HGO)`, f_date: '2026-10-19', f_area: 'dc', f_inspector: 'Tech', f_type: 'routine' };
   const inspEnv = { kind: 'inspection', payload: { meta, items: { net__0: { status: 'ok', notes: 'secret note' } }, actions: [] } };
   await st.receive({ uuid: U(41), userId: techUser.id, kind: 'inspection', payloadHash: F.payloadHash(inspEnv.payload) }); await st.claim(U(41), { kind: 'inspection' });
 
@@ -183,7 +183,7 @@ test('E-F02 route level: a slow apply → the concurrent second send gets 409 in
   const meta = (id) => ({ f_id: id, f_site: `${hounde.name} (HGO)`, f_date: '2026-10-19', f_area: 'dc', f_inspector: 'Tech', f_type: 'routine' });
   try {
     assert.ok(me && Number(me.id) === Number(techUser.id));
-    const env = { kind: 'inspection', payload: { meta: meta('EM-IT-20261019-0050'), items: {}, actions: [] } };
+    const env = { kind: 'inspection', payload: { meta: meta('EM-IT-20261019-F000000000050'), items: {}, actions: [] } };
     const first = putTo(50, env);
     await new Promise((r) => setTimeout(r, 100));
     const second = await putTo(50, env);
@@ -192,7 +192,7 @@ test('E-F02 route level: a slow apply → the concurrent second send gets 409 in
     const again = await (await putTo(50, env)).json(); assert.equal(again.duplicate, true); assert.equal(again.status, 'applied');
     assert.equal(calls, 1, 'applied exactly once');
     mode = 'throw'; calls = 0;
-    const env2 = { kind: 'inspection', payload: { meta: meta('EM-IT-20261019-0051'), items: {}, actions: [] } };
+    const env2 = { kind: 'inspection', payload: { meta: meta('EM-IT-20261019-F000000000051'), items: {}, actions: [] } };
     const f1 = await putTo(51, env2); assert.equal(f1.status, 500); assert.equal((await f1.json()).status, 'failed');
     assert.equal((await st.getOutbox(U(51))).status, 'failed', 'a transient failure stays retryable');
     const f2 = await (await putTo(51, env2)).json(); assert.equal(f2.ok, true); assert.equal(f2.duplicate, false);
