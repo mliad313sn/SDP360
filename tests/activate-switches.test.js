@@ -23,7 +23,8 @@ test('plan: dependency order, outbound skipped, prerequisite refuses the lot', (
   const { buildActivation } = A;
   const plan = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'docs', 'ops', 'switch-lots.json'), 'utf8'));
   const register = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'docs', 'ops', 'FLAG-REGISTER.json'), 'utf8'));
-  const cfg = { ...require('../services/reportConfig').DEFAULTS };
+  // the register's defaults (not the in-memory DEFAULTS, which tools/test/force-switches.js may have changed)
+  const cfg = Object.fromEntries(register.report_config.map((r) => [r.key, r.default]));
   // L05 alone: ppm_evm_enabled needs ppm_baseline_versions (L03) → the whole lot is refused
   let act = buildActivation({ plan, register, lots: A.selectLots(plan, 'L05'), cfg });
   assert.equal(act.lots[0].status, 'refused');
@@ -71,7 +72,11 @@ test('apply + journal + rollback on the throwaway database', async () => {
   try {
     const rdb = require('../reports-db');
     const rc = require('../services/reportConfig');
-    await rdb.pgHandle().exec("DELETE FROM report_config WHERE key IN ('commitments_enabled','mywork_awaiting_me_enabled','ui_role_landing','sync_drift_alerts','site_code_shared_block')");
+    // every L01 + L13 switch at its shipped value (written, so a forced in-memory default cannot leak in)
+    const reg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'docs', 'ops', 'FLAG-REGISTER.json'), 'utf8'));
+    const plan = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'docs', 'ops', 'switch-lots.json'), 'utf8'));
+    const keys = A.selectLots(plan, 'L01,L13').flatMap((l) => l.switches);
+    await rc.setConfig(rdb.db, Object.fromEntries(keys.map((k) => [k, (reg.report_config.find((r) => r.key === k) || {}).default || '0'])), 'test');
     const res = await A.main(['--apply', `--db-url=${url}`, '--lots=L01,L13', `--rollback-dir=${dir}`, '--reason=test'], { ...quiet, ...(await liveDeps(url)) });
     assert.ok(res.applied.includes('commitments_enabled'));
     assert.ok(res.applied.indexOf('commitments_enabled') < res.applied.indexOf('mywork_awaiting_me_enabled'));
