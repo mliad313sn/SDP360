@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | bloque le pilote sur deux sites (instance de TEST) |
 | À décider après | [G01](G01-security-access-policy.md) Sécurité : politique d'accès et matrice d'autorisation · [G02](G02-threat-model-findings.md) Sécurité : modèle de menace et constats · [G05](G05-backup-restore-rpo-rto.md) Sauvegarde et restauration (RPO/RTO) · [G12](G12-data-owner-fixtures-history.md) Propriétaire des données : données anonymisées et historique 2026 |
-| SHA cible | `6d41071a` |
+| SHA cible | `9f12d681` |
 | Généré | 2026-11-20 |
 
 ## 1. La question à trancher

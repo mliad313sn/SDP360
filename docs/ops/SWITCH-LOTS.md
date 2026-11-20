@@ -12,7 +12,7 @@ or the plan breaks a rule (`tests/switch-lots.test.js`).
 
 | Dark switches in the register | In a lot | Keep dark | Retire (proposal) | Lots | Proposed count after decisions |
 |---|---|---|---|---|---|
-| 153 | 112 | 38 (of which 5 are not switches) | 3 | 14 | 145 dark entries if the 3 retirements and the 5 reclassifications are accepted (activations then lower it further, lot by lot) |
+| 153 | 112 | 44 (of which 5 are not switches) | 3 | 14 | 145 dark entries if the 3 retirements and the 5 reclassifications are accepted (activations then lower it further, lot by lot) |
 
 Plan checks: **clean** · dependency cycles: **0** · orphans (no code reads the key): **0**.
 
@@ -416,6 +416,22 @@ Waits for a fact that does not exist yet (privacy notice, HSE evidence, non-UTC 
 - `ai_commentary_stale_block` — decides: Owner (AI) + KPI committee
 - `field_outbox_resolve_enabled` — decides: PO + site IT
 - `frozen:installer_safety_parity` — decides: Owner (deployment)
+
+### live by default (5)
+
+Shipped ON: the default '1' is today's behaviour (a safety guard, an operator alert, a policy that predates the switch, or a compatibility mode awaiting its own decision). Listed so that no switch ships ON without a recorded classification (P11 R3-A2). Turning one OFF is a decision of its owner (FLAG-REGISTER owner column), not of this plan.
+
+- `meridian_enabled` — decides: to be named
+- `never_send_unconfirmed` — decides: to be named
+- `report_reassign_submitted` — decides: to be named
+- `sync_alert_enabled` — decides: to be named
+- `ui_inject_dash_key` — decides: to be named
+
+### live setting not a switch (1)
+
+A numeric setting whose value happens to be 1 (OpManager REST concurrency), not a behaviour switch. Kept so the live-switch check (P11 R3-A2) does not flag it; changing it is a tuning decision of the platform owner.
+
+- `opm_rest_concurrency` — decides: to be named
 
 ## Retire list (proposals — no code was deleted)
 
