@@ -155,3 +155,51 @@ test('F-5 repair note: the read-only check lists out-of-vocabulary rows and writ
   assert.ok(out.rows.some((r) => r.status === 'cancelled' && r.maps_to === 'Cancelled'), 'legacy lowercase row maps to Cancelled');
   assert.equal((await stored(act.id)).status, 'demand', 'dry run: nothing written');
 });
+
+// P11 round 3 F-8 — an out-of-vocabulary action status INSIDE an inspection envelope was a typed VALIDATION error the
+// outbox did not map: 500 + 'failed' (= retried forever by the phone). It is a terminal refusal: 400, 'rejected'.
+test('F-8: an inspection envelope carrying an invalid action status → 400 rejected (terminal), nothing stored, resend = duplicate', async () => {
+  const m = meta('EM-IT-20261019-F801', {});
+  const env = { kind: 'inspection', author: 'fis_tech', payload: { meta: m, items: {}, actions: [{ description: 'x', owner: 'Tech', due: '2026-12-01', priority: 'High', status: 'demand' }] } };
+  const r = await put(30, env);
+  assert.equal(r.status, 400);
+  const j = await r.json(); assert.equal(j.status, 'rejected');
+  assert.equal(await rowFull(m.f_id), undefined, 'nothing stored');
+  const again = await put(30, env);
+  assert.equal(again.status, 200); const j2 = await again.json(); assert.equal(j2.duplicate, true); assert.equal(j2.status, 'rejected', 'terminal, never retried');
+});
+
+// P11 round 3 F-9 — the field route let a viewer-tier field tech REOPEN or move an inspection action although the app
+// only offers close / cancel (and the web register needs editor for the same change). Only Closed / Cancelled.
+test('F-9: a field tech cannot reopen or move an inspection action from the field path (Closed / Cancelled only)', async () => {
+  const act = await overdueAction('F9 reopen');
+  let r = await put(31, { kind: 'action', author: 'fis_tech', payload: { source: 'inspection', id: act.id, base_status: 'Open', status_change: 'Closed', body: 'done' } });
+  assert.equal(r.status, 200); assert.equal((await stored(act.id)).status, 'Closed');
+  for (const [n, st] of [[32, 'Open'], [33, 'In Progress'], [34, 'in progress']]) {
+    r = await put(n, { kind: 'action', author: 'fis_tech', payload: { source: 'inspection', id: act.id, base_status: 'Closed', status_change: st, body: 'reopen' } });
+    assert.equal(r.status, 400, st);
+    const j = await r.json(); assert.equal(j.result.reason, 'inspection_action_status');
+    assert.equal((await stored(act.id)).status, 'Closed', st + ': stays closed');
+  }
+  // a comment without a status change is still accepted
+  r = await put(35, { kind: 'action', author: 'fis_tech', payload: { source: 'inspection', id: act.id, body: 'photo added on site' } });
+  assert.equal(r.status, 200);
+});
+
+// P11 round 3 R2-N3 — the 409 for an existing inspection id disclosed the status of ANOTHER site's inspection. For an id
+// outside the caller's scope the conflict is generic: no status in the message, no detail.
+test('R2-N3: an existing inspection id of another site → 409 without status; own-site id keeps its status hint', async () => {
+  const other = 'EM-IT-20261019-N301';
+  await idb.saveInspection({ meta: { ...meta(other, {}), f_site: 'Mana (MGO)' }, items: {}, actions: [], status: 'submitted' }, null, 1);
+  const r = await put(36, { kind: 'inspection', author: 'fis_tech', payload: { meta: meta(other, {}), items: {} } });
+  assert.equal(r.status, 409);
+  const j = await r.json();
+  assert.equal(j.result.reason, 'inspection_exists');
+  assert.equal(j.result.detail, undefined, 'no detail');
+  assert.ok(!/submitted/i.test(JSON.stringify(j)), 'no status leaked: ' + JSON.stringify(j));
+  assert.equal((await rdb.db.prepare('SELECT status, site_code FROM insp_inspections WHERE id = ?').get(other)).site_code, 'MGO', 'foreign row untouched');
+  const own = 'EM-IT-20261019-N302';
+  await idb.saveInspection({ meta: meta(own, {}), items: {}, actions: [], status: 'submitted' }, null, 1);
+  const r2 = await put(37, { kind: 'inspection', author: 'fis_tech', payload: { meta: meta(own, {}), items: {} } });
+  assert.equal(r2.status, 409); assert.equal((await r2.json()).result.detail.status, 'submitted');
+});
