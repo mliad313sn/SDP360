@@ -160,6 +160,7 @@ const gates = [
       ev('tools/pg/restore-drill.js', 'node tools/pg/restore-drill.js', 'Drill tool', 'Outil d\'exercice'),
       ev('tests/restore-drill.test.js', T + ' tests/restore-drill.test.js', 'Drill tool behaviour', 'Comportement de l\'outil d\'exercice'),
       ev('tests/backup-encrypt.test.js', T + ' tests/backup-encrypt.test.js', 'Encrypted backup behaviour', 'Comportement de la sauvegarde chiffrée'),
+      ev('tests/blob-backup.test.js', T + ' tests/blob-backup.test.js', 'File store (photos, signatures, uploads, documents) archived with the dump and checked by the drill (count + SHA-256)', 'Stock de fichiers (photos, signatures, téléversements, documents) archivé avec le dump et vérifié par l\'exercice (nombre + SHA-256)'),
       ev('docs/ops/REPLICA-RESTORE.md', 'manual', 'Replica and restore procedure', 'Procédure réplica et restauration'),
       ev('docs/ops/rehearsals/2026-10-29-local-pg16-g04.md', 'node tools/pg/restore-rehearsal.js', 'Local rehearsal with timings', 'Répétition locale avec durées'),
       ev('docs/ops/SLO-PROPOSAL.md', 'manual', 'Proposed indicators; every target UNKNOWN', 'Indicateurs proposés ; chaque cible INCONNUE'),
@@ -168,7 +169,7 @@ const gates = [
     notEvidenced: L(['No drill on the TEST server or on PostgreSQL 17.', 'RPO and RTO values are not chosen; the drill measures, it does not set a target.'], ['Aucun exercice sur le serveur de TEST ni sur PostgreSQL 17.', 'Les valeurs de RPO et RTO ne sont pas choisies ; l\'exercice mesure, il ne fixe pas de cible.']),
     options: L(['Set RPO/RTO and require one drill on TEST before data load.', 'Accept the local drill for the pilot only.', NOT_NOW_EN + 'pilot data cannot be loaded safely.'], ['Fixer RPO/RTO et exiger un exercice sur TEST avant le chargement.', 'Accepter l\'exercice local pour le pilote seulement.', NOT_NOW_FR + 'les données du pilote ne peuvent pas être chargées en sécurité.']),
     risks: L(['A restore never practised on the target host fails when needed.', 'A backup restored on another host needs the same SDP_CONFIG_KEY.'], ['Une restauration jamais pratiquée sur l\'hôte cible échoue le jour où on en a besoin.', 'Une sauvegarde restaurée sur un autre hôte exige la même SDP_CONFIG_KEY.']),
-    supply: L(['RPO and RTO values.', 'Backup storage location and its owner.', 'Date of the TEST drill.'], ['Valeurs de RPO et RTO.', 'Emplacement des sauvegardes et son responsable.', 'Date de l\'exercice sur TEST.']),
+    supply: L(['RPO and RTO values.', 'Backup storage location and its owner.', 'Retention of the file-store archives (same count as the dumps by default).', 'Date of the TEST drill.'], ['Valeurs de RPO et RTO.', 'Emplacement des sauvegardes et son responsable.', 'Rétention des archives du stock de fichiers (même nombre que les dumps par défaut).', 'Date de l\'exercice sur TEST.']),
   },
   {
     id: 'G06', slug: 'kpi-definitions-thresholds',

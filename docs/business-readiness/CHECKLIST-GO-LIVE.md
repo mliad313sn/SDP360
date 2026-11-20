@@ -15,7 +15,7 @@
 | G01 | Sécurité : politique d'accès et matrice d'autorisation | Sécurité de l'information | pilote | 7 | 3 | vide → NO-GO | `docs/agent-execution/gate-dossiers/fr/G01-security-access-policy.md` |
 | G02 | Sécurité : modèle de menace et constats | Sécurité de l'information | pilote | 6 | 3 | vide → NO-GO | `docs/agent-execution/gate-dossiers/fr/G02-threat-model-findings.md` |
 | G03 | CAB : mise à jour des dépendances et passage à PostgreSQL seul | CAB | pilote | 7 | 3 | vide → NO-GO | `docs/agent-execution/gate-dossiers/fr/G03-cab-dependencies-postgres-only.md` |
-| G05 | Sauvegarde et restauration (RPO/RTO) | CAB + SRE | pilote | 7 | 3 | vide → NO-GO | `docs/agent-execution/gate-dossiers/fr/G05-backup-restore-rpo-rto.md` |
+| G05 | Sauvegarde et restauration (RPO/RTO) | CAB + SRE | pilote | 8 | 4 | vide → NO-GO | `docs/agent-execution/gate-dossiers/fr/G05-backup-restore-rpo-rto.md` |
 | G11 | Sites pilotes et recette terrain | Sponsor + IT Groupe | pilote | 7 | 3 | vide → NO-GO | `docs/agent-execution/gate-dossiers/fr/G11-pilot-sites-field-uat.md` |
 | G12 | Propriétaire des données : données anonymisées et historique 2026 | Propriétaires des données | pilote | 5 | 3 | vide → NO-GO | `docs/agent-execution/gate-dossiers/fr/G12-data-owner-fixtures-history.md` |
 | G19 | QA : CI verte et tests sautés revus | Responsable QA | pilote | 5 | 1 | vide → NO-GO | `docs/agent-execution/gate-dossiers/fr/G19-qa-ci-green.md` |
@@ -113,6 +113,7 @@
 - `tools/pg/restore-drill.js` — Outil d'exercice
 - `tests/restore-drill.test.js` — Comportement de l'outil d'exercice
 - `tests/backup-encrypt.test.js` — Comportement de la sauvegarde chiffrée
+- `tests/blob-backup.test.js` — Stock de fichiers (photos, signatures, téléversements, documents) archivé avec le dump et vérifié par l'exercice (nombre + SHA-256)
 - `docs/ops/REPLICA-RESTORE.md` — Procédure réplica et restauration
 - `docs/ops/rehearsals/2026-10-29-local-pg16-g04.md` — Répétition locale avec durées
 - `docs/ops/SLO-PROPOSAL.md` — Indicateurs proposés ; chaque cible INCONNUE
@@ -123,6 +124,7 @@
 |---|---|---|---|---|
 | Valeurs de RPO et RTO. | | | | |
 | Emplacement des sauvegardes et son responsable. | | | | |
+| Rétention des archives du stock de fichiers (même nombre que les dumps par défaut). | | | | |
 | Date de l'exercice sur TEST. | | | | |
 
 ## G11 — Sites pilotes et recette terrain

@@ -22,9 +22,10 @@ Quelle perte de données (RPO) et quel délai de restauration (RTO) acceptez-vou
 | Preuve | Ce qu'elle montre | Régénérer / rejouer | Dernière modification (commit, date) | Empreinte |
 |---|---|---|---|---|
 | `docs/ops/restore-drills/2026-10-21.md` | Exercice de restauration : comptes de lignes égaux sur la copie restaurée (base synthétique) | `node tools/pg/restore-drill.js` | de418131, 2026-10-21 | `c6515dbb34f803de` |
-| `tools/pg/restore-drill.js` | Outil d'exercice | `node tools/pg/restore-drill.js` | 98cbb877, 2026-11-12 | `e482dcbae50733c2` |
+| `tools/pg/restore-drill.js` | Outil d'exercice | `node tools/pg/restore-drill.js` | 98cbb877, 2026-11-12 | `6fc2735a9b555642` |
 | `tests/restore-drill.test.js` | Comportement de l'outil d'exercice | `node --test --test-force-exit tests/restore-drill.test.js` | f001ec01, 2026-11-12 | `5df8903f7cc56426` |
 | `tests/backup-encrypt.test.js` | Comportement de la sauvegarde chiffrée | `node --test --test-force-exit tests/backup-encrypt.test.js` | 756c1fa0, 2026-11-20 | `f170d86f6e1322dc` |
+| `tests/blob-backup.test.js` | Stock de fichiers (photos, signatures, téléversements, documents) archivé avec le dump et vérifié par l'exercice (nombre + SHA-256) | `node --test --test-force-exit tests/blob-backup.test.js` | uncommitted, uncommitted | `28e0285a89518d4c` |
 | `docs/ops/REPLICA-RESTORE.md` | Procédure réplica et restauration | `manual` | de418131, 2026-10-21 | `7c73dcacf7dbb71c` |
 | `docs/ops/rehearsals/2026-10-29-local-pg16-g04.md` | Répétition locale avec durées | `node tools/pg/restore-rehearsal.js` | 95a84168, 2026-10-29 | `83405a53694f863a` |
 | `docs/ops/SLO-PROPOSAL.md` | Indicateurs proposés ; chaque cible INCONNUE | `manual` | 4f225458, 2026-11-19 | `332e1e07cb05be84` |
@@ -49,6 +50,7 @@ Quelle perte de données (RPO) et quel délai de restauration (RTO) acceptez-vou
 
 - Valeurs de RPO et RTO.
 - Emplacement des sauvegardes et son responsable.
+- Rétention des archives du stock de fichiers (même nombre que les dumps par défaut).
 - Date de l'exercice sur TEST.
 
 ---
