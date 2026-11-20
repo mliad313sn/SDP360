@@ -21,7 +21,7 @@
     'Open or Create a Weekly Report': 'Ouvrir ou créer un rapport hebdomadaire',
     "Pick a group + week, then open the in-app editor to fill or update that week's report (helpdesk KPIs, lights, actions, comments). Saves to the database — used by the All-Sites Summary below.":
       "Choisissez un groupe et une semaine, puis ouvrez l'éditeur pour remplir ou mettre à jour le rapport de cette semaine (KPI helpdesk, faits marquants, actions, commentaires). Enregistré en base — utilisé par la synthèse tous sites ci-dessous.",
-    'Group': 'Groupe', 'Year': 'Année', 'Week': 'Semaine', 'Open / Create Report': 'Ouvrir / créer le rapport',
+    'Group': 'Groupe', 'Year': 'Année', 'Week': 'Semaine', 'Technician on leave or absent': 'Technicien en congé ou absent', 'Open / Create Report': 'Ouvrir / créer le rapport',
     'Export PPTX': 'Exporter en PPTX', 'Generate slide decks from saved report data': 'Générer les présentations à partir des rapports enregistrés',
     '📅 Monthly Site Report': '📅 Rapport mensuel du site', '7-slide PPTX for one site. Edit lights / actions / objectives in the': 'PPTX de 7 diapositives pour un site. Modifiez faits marquants / actions / objectifs dans l’onglet',
     'Monthly': 'Mensuel', 'tab first, then export.': 'd’abord, puis exportez.', 'Month': 'Mois',
@@ -59,7 +59,7 @@
     '(open tickets only · auto-populated)': '(tickets ouverts seulement · rempli automatiquement)', 'Save Lights': 'Enregistrer les faits marquants',
     'Action Items & Follow-ups': 'Actions et suivis', 'Task / Action': 'Tâche / action', 'Due Date': 'Échéance', '+ Add Action': '+ Ajouter une action',
     '↵ Import open actions from a previous week': '↵ Importer les actions ouvertes d’une semaine précédente', '↵ Import from Meetings / Inspections': '↵ Importer depuis Réunions / Inspections',
-    'CSV Template': 'Modèle CSV', '⬆ Import CSV': '⬆ Importer un CSV', 'ℹ Allowed values': 'ℹ Valeurs autorisées', 'Save Action Items': 'Enregistrer les actions',
+    'CSV Template': 'Modèle CSV', '⬆ Import CSV': '⬆ Importer un CSV', 'Import CSV': 'Importer un CSV', 'ℹ Allowed values': 'ℹ Valeurs autorisées', 'Save Action Items': 'Enregistrer les actions',
     'Download a CSV template with column headers + 3 sample rows': 'Télécharger un modèle CSV avec les en-têtes et 3 lignes d’exemple',
     'Bulk-import action items from a CSV file': 'Importer des actions en masse depuis un fichier CSV', 'Allowed values reference': 'Référence des valeurs autorisées',
     'Report Status': 'Statut du rapport', 'Weekly PPTX': 'PPTX hebdomadaire', '✅ Submit Report': '✅ Soumettre le rapport', '↩ Revert to Draft': '↩ Repasser en brouillon',

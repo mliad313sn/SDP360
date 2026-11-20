@@ -239,7 +239,7 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
   </div>
   <span class="filter-sep"></span>
   <span class="filter-label">Site</span>
-  <select class="flt" id="fSite" onchange="applyFilters()"><option value="all">All Sites</option></select>
+  <select class="flt" id="fSite" aria-label="Site" onchange="applyFilters()"><option value="all">All Sites</option></select>
   <span class="filter-sep"></span>
   <span class="filter-label">Group</span>
   <div class="grp-widget" id="grpWidget">
@@ -260,10 +260,10 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
   </div>
   <span class="filter-sep"></span>
   <span class="filter-label">Category</span>
-  <select class="flt" id="fCat" onchange="applyFilters()"><option value="all">All Categories</option></select>
+  <select class="flt" id="fCat" aria-label="Category" onchange="applyFilters()"><option value="all">All Categories</option></select>
   <span class="filter-sep"></span>
   <span class="filter-label">Priority</span>
-  <select class="flt" id="fPri" onchange="applyFilters()">
+  <select class="flt" id="fPri" aria-label="Priority" onchange="applyFilters()">
     <option value="all">All Priorities</option>
     <option value="Critical">Critical</option>
     <option value="High">High</option>
@@ -272,7 +272,7 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
   </select>
   <span class="filter-sep"></span>
   <span class="filter-label" id="periodLabel">Report Week</span>
-  <select class="flt" id="fPeriod" onchange="applyFilters()" style="min-width:200px"></select>
+  <select class="flt" id="fPeriod" aria-labelledby="periodLabel" onchange="applyFilters()" style="min-width:200px"></select>
   <span class="filter-sep"></span>
   <!-- 4 multi-select filters added 2026-06-09 (status/type/impact/mode).
        Each widget uses the same dropdown-checkbox pattern as the Group
@@ -327,7 +327,7 @@ select.flt:focus{outline:2px solid var(--orange);border-color:transparent}
   </div>
   <span class="filter-sep"></span>
   <span class="filter-label">Trend</span>
-  <select class="flt" id="fTrend" onchange="applyFilters()" style="min-width:100px">
+  <select class="flt" id="fTrend" aria-label="Trend" onchange="applyFilters()" style="min-width:100px">
     <option value="8">8 wks</option>
     <option value="12" selected>12 wks</option>
     <option value="16">16 wks</option>
