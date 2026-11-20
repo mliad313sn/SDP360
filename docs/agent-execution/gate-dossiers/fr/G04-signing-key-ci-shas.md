@@ -10,7 +10,7 @@
 | Case de décision dans RELEASE-GATES.md | vide — cette porte est **NO-GO** tant que l'approbateur ne l'a pas remplie. Ce dossier ne remplit rien. |
 | Ce que cette porte bloque | ne bloque que le déploiement général |
 | À décider après | [G03](G03-cab-dependencies-postgres-only.md) CAB : mise à jour des dépendances et passage à PostgreSQL seul |
-| SHA cible | `fc6f37f3` |
+| SHA cible | `c912250aa0a83aaec2466ad7fda58c4710edd6ab` |
 | Généré | 2026-11-20 |
 
 ## 1. La question à trancher
@@ -23,7 +23,7 @@ Quelle clé signe les paquets de version, qui la détient, et les actions CI son
 |---|---|---|---|---|
 | `tests/update-package-signature.test.js` | Comportement de la vérification de signature des paquets | `node --test --test-force-exit tests/update-package-signature.test.js` | 6cb63aac, 2026-10-21 | `6de8613ddf017101` |
 | `tools/manifest-public.pem` | Clé publique actuellement livrée (pas une décision de clé de production) | `manual` | 6cb63aac, 2026-10-21 | `96a5d1a57f291c4c` |
-| `.github/workflows/ci.yml` | Workflow CI et ses références d'actions | `manual` | a1208217, 2026-11-19 | `1e629a1b51faf736` |
+| `.github/workflows/ci.yml` | Workflow CI et ses références d'actions | `manual` | e78442fe, 2026-11-20 | `a1ec9b1da029c585` |
 | `tests/ci-config.test.js` | Contrôles de la configuration CI | `node --test --test-force-exit tests/ci-config.test.js` | d51b714f, 2026-11-06 | `a48a78087437f513` |
 | `tools/release/sbom.js` | Générateur de nomenclature logicielle (SBOM) | `node tools/release/sbom.js` | ee8b7a0c, 2026-11-12 | `73d25c84e6ac3228` |
 
