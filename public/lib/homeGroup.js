@@ -20,13 +20,13 @@
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
   var T = {
     en: { group: 'Across the group', worst: 'Sites needing attention', late: 'Late or slipped projects', dec: 'Decisions',
-      nm: '— not measured', noAlert: 'no site in red or amber', noLate: 'no late project', open: 'open', overdue: 'overdue',
+      nm: '— not measured', noAlert: 'no site in red or amber', coverage: '{m} measured · {u} not measured', noLate: 'no late project', open: 'open', overdue: 'overdue',
       red: 'red', amber: 'amber', more: '+ {n} more', fresh: 'Data sources', never: 'never synced', last: 'last collection',
       groupNote: 'You have no site of your own: this card shows the group. Each line opens the page that explains it.',
       freshNote: 'Last successful collection per source. A source that never collected has no figure anywhere.',
       states: { ok: 'up to date', partial: 'partial', stale: 'late', error: 'error', not_configured: 'not configured', disarmed: 'disarmed', unknown: 'unknown' } },
     fr: { group: 'À l\'échelle du groupe', worst: 'Sites à surveiller', late: 'Projets en retard ou décalés', dec: 'Décisions',
-      nm: '— non mesuré', noAlert: 'aucun site en rouge ni en orange', noLate: 'aucun projet en retard', open: 'ouvertes', overdue: 'en retard',
+      nm: '— non mesuré', noAlert: 'aucun site en rouge ni en orange', coverage: '{m} mesuré(s) · {u} non mesuré(s)', noLate: 'aucun projet en retard', open: 'ouvertes', overdue: 'en retard',
       red: 'rouge', amber: 'orange', more: '+ {n} autre(s)', fresh: 'Sources de données', never: 'jamais synchronisé', last: 'dernière collecte',
       groupNote: 'Vous n\'avez pas de site en propre : cette carte montre le groupe. Chaque ligne ouvre la page qui l\'explique.',
       freshNote: 'Dernière collecte réussie par source. Une source jamais collectée n\'a de chiffre nulle part.',
@@ -54,7 +54,8 @@
     var reds = function (r) { var c = r.cells || {}; return Object.keys(c).filter(function (k) { return c[k] && c[k].rag === 'red'; }).length; };
     var alert = measured.filter(function (r) { return RAG_RANK[r.overall_rag]; })
       .sort(function (a, b) { return (RAG_RANK[b.overall_rag] - RAG_RANK[a.overall_rag]) || (reds(b) - reds(a)) || String(a.site_name || '').localeCompare(String(b.site_name || '')); });
-    return { total: alert.length, items: alert.slice(0, n || 3).map(function (r) { return { site_id: r.site_id, name: r.site_name || ('#' + r.site_id), rag: r.overall_rag, red_cells: reds(r) }; }) };
+    // P11 F-22: coverage travels with the verdict — "no site in red or amber" is only true of the MEASURED sites.
+    return { total: alert.length, measured: measured.length, unmeasured: rows.length - measured.length, items: alert.slice(0, n || 3).map(function (r) { return { site_id: r.site_id, name: r.site_name || ('#' + r.site_id), rag: r.overall_rag, red_cells: reds(r) }; }) };
   }
 
   /** Late projects of the portfolio answer: the server's own flags (gantt `late` / `slip_days`, the same rule as the
@@ -83,8 +84,9 @@
     var parts = [];
     if (d.worst !== undefined) {
       var w = d.worst;
-      var v = !w ? nm(t) : (w.total === 0 ? esc(t.noAlert)
-        : '<b>' + w.total + '</b><ul class="hm-pv">' + w.items.map(function (s) { return '<li>' + esc(s.name) + ' <span class="hm-muted">' + esc(s.rag === 'red' ? t.red : t.amber) + '</span></li>'; }).join('') + '</ul>');
+      var cov = w && w.unmeasured ? ' <span class="hm-muted">(' + esc(fill(t.coverage, { m: w.measured, u: w.unmeasured })) + ')</span>' : '';
+      var v = !w ? nm(t) : (w.total === 0 ? esc(t.noAlert) + cov
+        : '<b>' + w.total + '</b>' + cov + '<ul class="hm-pv">' + w.items.map(function (s) { return '<li>' + esc(s.name) + ' <span class="hm-muted">' + esc(s.rag === 'red' ? t.red : t.amber) + '</span></li>'; }).join('') + '</ul>');
       parts.push(row(t.worst, 'site-awareness.html', v));
     }
     var lp = d.late;

@@ -29,13 +29,9 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
 
   // ── Fleet-view RAG helpers (DISPLAY-only thresholds; grey 'na' when no code/no data) ──
   const _cell = (rag, value) => ({ rag: rag || 'na', value: (value == null ? null : value) });
-  // helpdesk: SLA-overdue share of last-30-day created. na when no created.
-  function ragHelpdesk(created, sla_overdue) {
-    if (!created) return _cell('na', (sla_overdue || 0) + '/' + (created || 0));
-    const rate = sla_overdue / created;
-    const rag = rate < 0.05 ? 'green' : (rate < 0.15 ? 'amber' : 'red');
-    return _cell(rag, sla_overdue + '/' + created);
-  }
+  // helpdesk (P11 F-24): Resolution SLA of the CLOSED tickets of the window — services/siteHelpdeskSla.fleetCell, the
+  // same closed-only doctrine as the site view (cancelled / open / no-rule tickets out of the base). na when nothing closed.
+  function ragHelpdesk(hw) { const c = require('../services/siteHelpdeskSla').fleetCell(hw); return _cell(c.rag, c.value); }
   // inspections: conformity = ok/(ok+minor+major+critical+opp). na when base 0.
   function ragInspections(findingStatus) {
     const f = { ok: 0, minor: 0, major: 0, critical: 0, opp: 0 };
@@ -437,6 +433,8 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
       const hp1 = h0, hp0 = _d(Date.now() - 60 * 86400000);             // helpdesk prev 30-day
       const ip1 = i0, ip0 = _d(Date.now() - 180 * 86400000);           // inspections prev 90-day
       let pcy = cy, pcm = cm - 1; if (pcm < 1) { pcm = 12; pcy = cy - 1; }  // meetings prev calendar month
+      let slaDefinition = 'flag';
+      try { slaDefinition = (await require('../services/reportConfig').getConfig(rdb.db)).helpdesk_sla_definition || 'flag'; } catch (_) { /* default rule */ }
 
       const rows = await Promise.all(sites.map(async (s) => {
         const cells = { helpdesk: _cell('na', null), inspections: _cell('na', null),
@@ -447,10 +445,10 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
           const rs = resolveSite(deps, s.site_id) || {};
           site_name = rs.site_name || site_name;
 
-          // helpdesk — 30-day SLA-overdue share.
+          // helpdesk — 30-day Resolution SLA of closed tickets (configured helpdesk_sla_definition).
           try {
-            const hw = (await rdb.getSiteHelpdeskWindow(s.site_id, h0, h1)) || {};
-            cells.helpdesk = ragHelpdesk(hw.created || 0, hw.sla_overdue || 0);
+            const hw = (await rdb.getSiteHelpdeskWindow(s.site_id, h0, h1, { slaDefinition })) || {};
+            cells.helpdesk = ragHelpdesk(hw);
           } catch (_) {}
 
           // inspections — 90-day conformity.
@@ -504,7 +502,7 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
           // P2 — previous-period cells for the 4 recomputable modules → per-cell + overall Δ.
           // Best-effort: any reader that throws leaves that module's Δ null (no chip).
           const prev = { helpdesk: null, inspections: null, meetings: null, tracker: null };
-          try { const hw2 = (await rdb.getSiteHelpdeskWindow(s.site_id, hp0, hp1)) || {}; prev.helpdesk = ragHelpdesk(hw2.created || 0, hw2.sla_overdue || 0); } catch (_) {}
+          try { const hw2 = (await rdb.getSiteHelpdeskWindow(s.site_id, hp0, hp1, { slaDefinition })) || {}; prev.helpdesk = ragHelpdesk(hw2); } catch (_) {}
           try { if (rs.inspection_code && inspectionDb && typeof inspectionDb.aggregate === 'function') { const a2 = (await inspectionDb.aggregate({ site: rs.inspection_code, from: ip0, to: ip1 })) || {}; prev.inspections = ragInspections(a2.findingStatus); } } catch (_) {}
           try { if (rs.meetings_code && meetingsDb && typeof meetingsDb.getSiteMonthlyMeetingSummary === 'function') { const s2 = (await meetingsDb.getSiteMonthlyMeetingSummary(rs.meetings_code, pcy, pcm)) || {}; prev.meetings = ragMeetings(s2.kpis, s2.departments); } } catch (_) {}
           try { if (rs.tracker_code && D && trackerScore && tp && tp.found) { let py = tp.yr, pm = tp.mo - 1; if (pm < 1) { pm = 12; py--; } const pv = trackerScore.ss(D, rs.tracker_code, py, pm) || {}; prev.tracker = ragTracker(pv.avg == null ? null : pv.avg); } } catch (_) {}

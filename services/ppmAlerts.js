@@ -101,7 +101,7 @@ function findExceptions(view, { today, blockedDays = 5, slipDays = 10, capacity 
 // Read only while report_config ppm_alert_actions_enabled = '1' (PROPOSED, default '0'). EVERY RULE, SEVERITY AND
 // RECOMMENDED ACTION BELOW IS PROPOSED (a PMO decision, not approved policy). No second formula:
 //   critical_risk          declared risk exposure 'critical' (Lot 1 intake field)
-//   high_risk              declared 'high' OR at least one open high-severity register risk (portfolioEvidence.riskView)
+//   high_risk              declared 'high' OR at least one open high register risk/issue (ppm/riskExposure.isHigh: residual first, unknown ≠ low)
 //                          — the Lot 3 register "high risk" rule minus the projects already raised as critical_risk
 //   unfunded               budget status in portfolioRegister.UNFUNDED (the Lot 3 report rule); amount readers only
 //   decision_bottleneck    decision required = 'yes' and no decision recorded for the project; or a linked OPEN
@@ -143,7 +143,7 @@ function managementCoverage(view, { money = false, decisions = undefined } = {})
 function findManagementAlerts(view, { today, money = false, decisions = null, decisionAgeDays = null } = {}) {
   const T = _iso(today); if (!T) throw new Error('findManagementAlerts needs today (YYYY-MM-DD)');
   const DQ = require('./ppm/dataQuality');
-  const PE = require('./portfolioEvidence');
+  const RX = require('./ppm/riskExposure');
   const { UNFUNDED } = require('./ppm/portfolioRegister');
   const v = view || {};
   const live = (p) => !!p && !p.deleted_at && p.stage !== 'closed' && !DONE.includes(p.status);
@@ -160,7 +160,7 @@ function findManagementAlerts(view, { today, money = false, decisions = null, de
     if ('risk_exposure' in p) {
       if (p.risk_exposure === 'critical') add('critical_risk', 'project', pid, p, `${label(p)}: risk exposure declared critical`, 'risk_exposure=critical');
       else {
-        const open = (v.risks || []).filter((r) => Number(r.project_id) === pid && r.status === 'open' && !r.deleted_at && (r.kind == null || r.kind === 'risk')).map(PE.riskView).filter((r) => r.severity === 'high');
+        const open = (v.risks || []).filter((r) => Number(r.project_id) === pid && RX.isHigh(r));   // P11 F-23: the one rule
         if (p.risk_exposure === 'high' || open.length) add('high_risk', 'project', pid, p, `${label(p)}: ${p.risk_exposure === 'high' ? 'risk exposure declared high' : ''}${p.risk_exposure === 'high' && open.length ? ', ' : ''}${open.length ? open.length + ' open high-severity risk(s)' : ''}`, p.risk_exposure === 'high' ? 'risk_exposure=high' : 'open_high_risks=' + open.length);
       }
     }

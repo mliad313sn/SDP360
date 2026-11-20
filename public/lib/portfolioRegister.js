@@ -70,7 +70,8 @@
       count: 'Projects', pct: '% of portfolio', fte: 'FTE', fte_unknown: 'FTE unknown', sites: 'Sites', unfunded: 'Unfunded', high_risk: 'High risk', dq: 'DQ',
       on_hold: 'On hold', stalled: 'Stalled in stage', avg_stage_age: 'Average days in stage', approved_not_started: 'In approval, not started', in_progress_without_lead: 'In progress without a delivery lead',
       month: 'Month', active: 'Active', critical: 'Critical', very_large: 'Very large', undated: 'projects without dates are not in the monthly load', total: 'Total', approved: 'Approved', requested: 'Requested', not_budgeted: 'Not budgeted', tbc: 'TBC',
-      key: 'Value', loadErr: 'Could not load', off: 'This page is not switched on.' },
+      key: 'Value', loadErr: 'Could not load', off: 'This page is not switched on.',
+      dq_scope_with: 'Score includes the budget checks (amount reader).', dq_scope_without: 'Score without the budget checks: amounts are hidden for you, so those checks are left out.' },
     fr: { title: 'Registre du portefeuille', intro: 'Une ligne par projet, sur le portefeuille que vous pouvez lire. Une valeur inconnue s’affiche « — », jamais 0. Filtres, tri et colonnes sont dans l’adresse : copiez le lien pour enregistrer ou partager une vue.',
       kpis: 'Tableau de bord de direction', total_projects: 'Projets', data_quality: 'Qualité des données', critical_high: 'Critiques + hauts', budget_identified: 'Budget identifié', decisions_required: 'Décisions requises',
       drill: 'Voir ces projets', search: 'Recherche', filters: 'Filtres', reset: 'Effacer les filtres', reports: 'Rapports types', columns: 'Colonnes', exportCsv: 'Exporter CSV', exportXlsx: 'Exporter Excel',
@@ -80,7 +81,8 @@
       count: 'Projets', pct: '% du portefeuille', fte: 'ETP', fte_unknown: 'ETP inconnus', sites: 'Sites', unfunded: 'Non financés', high_risk: 'Risque élevé', dq: 'QD',
       on_hold: 'En attente', stalled: 'Bloqués dans l’étape', avg_stage_age: 'Jours moyens dans l’étape', approved_not_started: 'En approbation, non démarrés', in_progress_without_lead: 'En cours sans responsable de réalisation',
       month: 'Mois', active: 'Actifs', critical: 'Critiques', very_large: 'Très grands', undated: 'les projets sans dates ne figurent pas dans la charge mensuelle', total: 'Total', approved: 'Approuvé', requested: 'Demandé', not_budgeted: 'Non budgété', tbc: 'À confirmer',
-      key: 'Valeur', loadErr: 'Chargement impossible', off: 'Cette page n’est pas activée.' },
+      key: 'Valeur', loadErr: 'Chargement impossible', off: 'Cette page n’est pas activée.',
+      dq_scope_with: 'Score avec les contrôles budgétaires (lecteur des montants).', dq_scope_without: 'Score sans les contrôles budgétaires : les montants vous sont masqués, ces contrôles sont donc exclus.' },
   };
   function dash(v, esc) { return v == null || v === '' ? '—' : esc(String(v)); }
   function cell(r, c, esc, t) {
@@ -95,12 +97,14 @@
     if (typeof v === 'object') { var ks = Object.keys(v); return ks.length ? ks.map(function (k) { return esc(Number(v[k]).toLocaleString('en-US') + ' ' + k); }).join('<br>') : '—'; }
     return esc(String(v));
   }
-  /** KPI cards: each a link to its drill-through (same filters, merged into the current address). */
+  /** KPI cards: each a link to its drill-through. P11 F-21: k.drill is the exact patch merged into the current address
+   *  (list keys already intersected with the active filters server-side), and k.count is the size of that list. */
   function kpiHtml(kpis, o) {
     var esc = o.esc, t = o.T, merge = o.merge || function () { return '?'; };
     return '<div class="pr-kpis">' + (kpis || []).map(function (k) {
       var val = k.value == null ? '<span class="pr-unk">—</span>' : (k.unit === 'money' ? money(k.value, esc) : esc(String(k.value)) + (k.unit === '%' ? ' %' : ''));
       var why = k.value == null && k.reason ? '<div class="pr-muted">' + esc(t[k.reason] || k.reason) + '</div>' : '';
+      if (k.scope) why += '<div class="pr-muted">' + esc(k.scope === 'with_budget_checks' ? t.dq_scope_with : t.dq_scope_without) + '</div>';   // P11 F-22
       var link = k.drill ? '<a class="pr-drill" href="' + esc(merge(k.drill)) + '">' + esc(t.drill) + ' (' + esc(String(k.count == null ? '—' : k.count)) + ')</a>' : '';
       return '<section class="pr-kpi" aria-label="' + esc(t[k.key] || k.key) + '"><h3>' + esc(t[k.key] || k.key) + '</h3><div class="pr-kpi-v">' + val + '</div>' + why + link + '</section>';
     }).join('') + '</div>';
