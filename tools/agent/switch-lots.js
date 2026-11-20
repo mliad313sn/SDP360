@@ -121,19 +121,21 @@ function cycles(deps) {
 function validate(register, plan, deps) {
   const errors = []; const warnings = [];
   const dark = register.dark.map((d) => d.key);
+  const live = (register.live || []).map((d) => d.key);   // P11 R3-A2 — default-ON switches
   const defaults = new Map(register.dark.map((d) => [d.key, d.default]));
   const classOf = {}; const lotIndex = {};
   const put = (k, c) => { if (classOf[k]) errors.push(`${k} is classified twice (${classOf[k]} and ${c})`); classOf[k] = c; };
   plan.lots.forEach((l, i) => {
     if (l.switches.length > plan.max_lot_size) errors.push(`${l.id} has ${l.switches.length} switches (max ${plan.max_lot_size})`);
     if (l.status !== 'PROPOSED') errors.push(`${l.id} status must stay PROPOSED (a human approves a lot, not the plan)`);
-    for (const k of l.switches) { put(k, l.id); lotIndex[k] = i; if (defaults.has(k) && defaults.get(k) !== '0') errors.push(`${k} (lot ${l.id}) is not a '0'/'1' switch (default ${defaults.get(k)}) — it cannot be forced on as '1'`); }
+    for (const k of l.switches) { put(k, l.id); lotIndex[k] = i; if (live.includes(k)) errors.push(`${k} (lot ${l.id}) is ON by default ('1') — a lot forces switches on; record a keep decision instead`); if (defaults.has(k) && defaults.get(k) !== '0') errors.push(`${k} (lot ${l.id}) is not a '0'/'1' switch (default ${defaults.get(k)}) — it cannot be forced on as '1'`); }
     for (const f of ['owner', 'canary_site', 'decision_deadline', 'expiry', 'threshold', 'rollback_threshold']) if (l[f] != null) errors.push(`${l.id} carries the human field "${f}" — leave it to docs/ops/flag-decisions.json`);
   });
   for (const [g, v] of Object.entries(plan.keep)) for (const k of v.switches) put(k, `keep:${g}`);
   for (const r of plan.retire) put(r.key, 'retire');
   for (const k of dark) if (!classOf[k]) errors.push(`${k} is dark in the register but not classified (lot, keep or retire)`);
-  for (const k of Object.keys(classOf)) if (!dark.includes(k)) errors.push(`${k} is classified but is not a dark switch in the register (regenerate the register or remove it)`);
+  for (const k of live) if (!classOf[k]) errors.push(`${k} is ON by default ('1') in the register but not classified — keep it (group with a reason) or retire it`);
+  for (const k of Object.keys(classOf)) if (!dark.includes(k) && !live.includes(k)) errors.push(`${k} is classified but is not a dark switch in the register (regenerate the register or remove it)`);
   for (const [k, ds] of Object.entries(deps)) {
     if (!(k in lotIndex)) continue;
     for (const d of ds) {

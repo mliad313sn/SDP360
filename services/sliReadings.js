@@ -39,14 +39,28 @@ function compose(raw = {}, now = new Date()) {
     { window: c ? 'since_server_start' : null, since: c ? c.started_at : null, answers: c ? c.login.total : null,
       login_success_30d: auth ? auth.success : null, login_failed_30d: auth ? auth.failed : null });
   // A job's history starts at its first recorded ok run: a database younger than 30 days is not read as 30 days stale.
+  // P11 r3 N-08 — a declared job with NO ok run is never dropped: failing in the window → 0 % (measured: never fresh);
+  // no run at all → null 'never_ok' (unknown); an optional job that only self-skips → 'not_configured', outside the
+  // worst-job reading. The worst job is the minimum of the measured values, but it is null (unknown) when an unknown
+  // job could be worse — unless a measured job is already at 0.
   const jobs = (raw.sync || []).map((j) => {
-    const first = Math.min(...(j.ok_times || []).map(toMs).filter((x) => x != null));
-    const start = Number.isFinite(first) ? Math.max(from, first) : from;
+    const okTimes = (j.ok_times || []).map(toMs).filter((x) => x != null);
+    if (!okTimes.length) {
+      const failing = Number(j.errors) > 0;
+      const status = failing ? 'failing' : (j.optional ? 'not_configured' : 'never_ok');
+      return { job: j.job, freshness_hours: j.freshness_hours, measured_from: null, fresh_pct: failing ? 0 : null, status };
+    }
+    const first = Math.min(...okTimes);
+    const start = Math.max(from, first);
     return { job: j.job, freshness_hours: j.freshness_hours, measured_from: new Date(start).toISOString(), fresh_pct: freshShare(j.ok_times, j.freshness_hours, start, to) };
   });
   const fp = jobs.map((j) => j.fresh_pct).filter((x) => x != null);
-  const sync = item('share of time each sync job was inside its freshness window (worst job)', fp.length ? Math.min(...fp) : null, '%',
-    raw.sync ? 'sync_runs ok runs in the window + the last ok run before it' : 'sync_runs unreadable', { jobs });
+  const unknown = jobs.filter((j) => j.status === 'never_ok').map((j) => j.job);
+  const worst = fp.length ? Math.min(...fp) : null;
+  const syncValue = worst === 0 ? 0 : (unknown.length ? null : worst);
+  const syncBasis = !raw.sync ? 'sync_runs unreadable'
+    : 'sync_runs ok runs in the window + the last ok run before it' + (unknown.length ? `; never succeeded, so the worst job is unknown: ${unknown.join(', ')}` : '');
+  const sync = item('share of time each sync job was inside its freshness window (worst job)', syncValue, '%', syncBasis, { jobs });
   const d = raw.delivery || null;
   const delivery = item('share of send attempts recorded ok/resent', d ? pct(d.ok, d.ok + d.fail) : null, '%',
     d ? 'report_sent_log — attempts, not due sends (the schedule is not replayed)' : 'report_sent_log unreadable', { ok: d ? d.ok : null, fail: d ? d.fail : null });
@@ -76,7 +90,7 @@ function compose(raw = {}, now = new Date()) {
   };
 }
 
-async function gather({ pg, now = new Date(), counters = null, freshness = {} } = {}) {
+async function gather({ pg, now = new Date(), counters = null, freshness = {}, optional = null } = {}) {
   const fromIso = new Date(now.getTime() - WINDOW_DAYS * DAY).toISOString();
   const raw = { counters };
   const all = async (sql, ...p) => pg.prepare(sql).all(...p);
@@ -91,7 +105,16 @@ async function gather({ pg, now = new Date(), counters = null, freshness = {} } 
       UNION ALL SELECT job, MAX(finished_at) FROM sync_runs WHERE status='ok' AND finished_at < ? GROUP BY job`, fromIso, fromIso);
     const by = {};
     for (const r of rows) (by[r.job] = by[r.job] || []).push(r.finished_at);
-    raw.sync = Object.keys(by).sort().filter((j) => freshness[j] != null).map((j) => ({ job: j, freshness_hours: freshness[j], ok_times: by[j] }));
+    // errors in the window per job (a job that never succeeded but keeps failing is dead, not unknown)
+    const errBy = {};
+    try {
+      const er = await all(`SELECT job, COUNT(*) FILTER (WHERE status='error') AS errors FROM sync_runs WHERE started_at >= ? GROUP BY job`, fromIso);
+      for (const r of er || []) if (r && r.job != null) errBy[r.job] = Number(r.errors) || 0;
+    } catch (_) { /* errors unknown → treated as 0: a never-ok job then reads unknown, never green */ }
+    const opt = optional || require('./sync/jobs').OPTIONAL;
+    // every DECLARED job (freshness window) is listed — not only those with an ok run (N-08)
+    raw.sync = Object.keys(freshness).filter((j) => freshness[j] != null).sort()
+      .map((j) => ({ job: j, freshness_hours: freshness[j], ok_times: by[j] || [], errors: errBy[j] || 0, optional: !!(opt && opt.has && opt.has(j)) }));
   } catch (_) { raw.sync = null; }
   try {
     const r = await one(`SELECT COUNT(*) FILTER (WHERE status='ok' AND started_at >= ?) AS ok, COUNT(*) FILTER (WHERE status='error' AND started_at >= ?) AS failed,

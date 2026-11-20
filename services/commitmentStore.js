@@ -40,7 +40,7 @@ function sniffOk(buf, mime) {
   }
 }
 
-function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOString(), blobs = null } = {}) {
+function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOString(), blobs = null, resolveUser = null } = {}) {
   if (!db) throw new Error('commitmentStore needs a db handle');
   const P = (sql) => db.prepare(sql);
   const tx = async (fn) => (db.runTransaction ? db.runTransaction(fn) : fn());
@@ -90,11 +90,24 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
       const ch = (d && d.changes) || {};
       const fields = Array.isArray(d && d.fields) ? d.fields : [];
       for (const [k, bucket] of [['accountable_owner', 'owners'], ['execution_owners', 'executors']]) {
-        if (ch[k]) { add(bucket, ch[k].from); add(bucket, ch[k].to); }
+        // P11 round 3 N-R3-1: whoever re-pointed the field counts as a past holder of it too ('by'; older
+        // {from,to} events without it fall back to the event's actor) — re-pointing the owner to a look-alike
+        // or to a name one controls never opens a self-verification
+        if (ch[k]) { add(bucket, ch[k].from); add(bucket, ch[k].to); add(bucket, ch[k].by || e.actor); }
         else if (fields.includes(k)) add(bucket, e.actor); // legacy event: no old value recorded
       }
     }
     return h;
+  }
+  // The single active account whose username or e-mail is this value (normalised: case, invisible characters,
+  // compatibility forms). Unknown or ambiguous → null. An injected resolver wins; the default reads `users`.
+  async function accountFor(text) {
+    const k = L.identityKey(text); if (!k) return null;
+    try {
+      if (resolveUser) return (await resolveUser(text)) || null;
+      const rows = await P('SELECT id, username, email, full_name FROM users WHERE COALESCE(active,1) <> 0 AND (lower(username)=? OR lower(email)=?)').all(k, k);
+      return rows && rows.length === 1 ? { ...rows[0], id: Number(rows[0].id) } : null;
+    } catch (_) { return null; }   // no users table (store used on its own) = no resolution, the raw value stands
   }
   async function getRaw(id) {
     const c = row(await P('SELECT * FROM commitments WHERE id=?').get(Number(id)));
@@ -232,7 +245,10 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
     // submitted the work, now or at any earlier point (event-log history), nor to an owner / executor named by
     // this very patch (the verify check refuses them anyway; this stops the set-up).
     if (f.reviewer) {
-      const probe = { username: f.reviewer };
+      // P11 round 3 (P3) — a reviewer value that names an account (its username or e-mail alias) is checked with
+      // ALL that account's identities, so a former owner cannot be named reviewer through another alias
+      const acct = await accountFor(f.reviewer);
+      const probe = acct ? { id: acct.id, username: acct.username, email: acct.email, full_name: acct.full_name } : { username: f.reviewer };
       if (L.isSelf({ ...c, ...f, execution_owners: f.execution_owners !== undefined ? P_(f.execution_owners) : c.execution_owners }, probe))
         throw typed('FORBIDDEN', 'the reviewer cannot be a current or past owner, executor, creator or submitter of this commitment', 403);
     }
@@ -242,7 +258,7 @@ function makeCommitmentStore(db, { isPg = false, now = () => new Date().toISOStr
       if (f[k] === undefined) continue;
       const from = k === 'execution_owners' ? c.execution_owners : (c[k] == null ? null : c[k]);
       const to = k === 'execution_owners' ? P_(f[k]) : f[k];
-      if (JSON.stringify(from) !== JSON.stringify(to)) changes[k] = { from, to };
+      if (JSON.stringify(from) !== JSON.stringify(to)) changes[k] = { from, to, ...(k !== 'reviewer' ? { by: actorName(user) } : {}) };
     }
     await tx(async () => {
       await bump(c, expectedVersion, f);

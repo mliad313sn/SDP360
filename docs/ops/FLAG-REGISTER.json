@@ -15,10 +15,11 @@
   "report_config": 295,
   "planned": 9,
   "governance_policies": 37,
-  "environment": 65,
+  "environment": 69,
   "pseudo": 4,
   "dark": 152,
-  "dark_complete": 0
+  "dark_complete": 0,
+  "live": 6
  },
  "frozen_lots_source": "CLAUDE.md (tools/deploy/frozen-lots.json absent on this branch)",
  "report_config": [
@@ -4424,6 +4425,17 @@
    ]
   },
   {
+   "key": "SDP_BACKUP_ALLOW_PLAINTEXT",
+   "source": "environment",
+   "kind": "switch",
+   "secret": false,
+   "default_when_unset": null,
+   "owner_role": null,
+   "read_in": [
+    "services/backup.js"
+   ]
+  },
+  {
    "key": "SDP_BACKUP_DIR",
    "source": "environment",
    "kind": "switch",
@@ -4534,6 +4546,28 @@
    ]
   },
   {
+   "key": "SDP_READY_FAIL_CACHE_MS",
+   "source": "environment",
+   "kind": "switch",
+   "secret": false,
+   "default_when_unset": null,
+   "owner_role": null,
+   "read_in": [
+    "routes/health.js"
+   ]
+  },
+  {
+   "key": "SDP_READY_STATEMENT_TIMEOUT_MS",
+   "source": "environment",
+   "kind": "switch",
+   "secret": false,
+   "default_when_unset": null,
+   "owner_role": null,
+   "read_in": [
+    "routes/health.js"
+   ]
+  },
+  {
    "key": "SDP_SERVICE",
    "source": "environment",
    "kind": "switch",
@@ -4619,6 +4653,17 @@
    "owner_role": null,
    "read_in": [
     "services/ssoSettings.js"
+   ]
+  },
+  {
+   "key": "SYNC_TRUNCATION_SHRINK_CONFIRMATIONS",
+   "source": "environment",
+   "kind": "setting",
+   "secret": false,
+   "default_when_unset": null,
+   "owner_role": null,
+   "read_in": [
+    "services/sync/truncationGuard.js"
    ]
   },
   {
@@ -9041,6 +9086,56 @@
     "decision_deadline",
     "expiry"
    ]
+  }
+ ],
+ "live": [
+  {
+   "key": "meridian_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "default": "1",
+   "owner_role": "Owner (D-5)",
+   "reference": "A-20"
+  },
+  {
+   "key": "never_send_unconfirmed",
+   "source": "report_config",
+   "kind": "setting",
+   "default": "1",
+   "owner_role": null,
+   "reference": null
+  },
+  {
+   "key": "opm_rest_concurrency",
+   "source": "report_config",
+   "kind": "setting",
+   "default": "1",
+   "owner_role": "Ops",
+   "reference": "A-18 (A-18b)"
+  },
+  {
+   "key": "report_reassign_submitted",
+   "source": "report_config",
+   "kind": "setting",
+   "default": "1",
+   "owner_role": "Owner (D-3)",
+   "reference": "A-24"
+  },
+  {
+   "key": "sync_alert_enabled",
+   "source": "report_config",
+   "kind": "arm switch",
+   "default": "1",
+   "owner_role": null,
+   "reference": null
+  },
+  {
+   "key": "ui_inject_dash_key",
+   "source": "report_config",
+   "kind": "setting",
+   "default": "1",
+   "owner_role": "Security owner",
+   "reference": "E-S02"
   }
  ],
  "sidecar_entries_without_switch": []

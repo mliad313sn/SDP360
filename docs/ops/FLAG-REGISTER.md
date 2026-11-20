@@ -371,7 +371,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `reports.override_reason_min` | `10` | int | yes | yes | to be named |
 | `reports.withdraw_reason_min` | `5` | int | yes | yes | to be named |
 
-## 4. Environment variables (65) — read in *.js, services/, routes/
+## 4. Environment variables (69) — read in *.js, services/, routes/
 
 | Variable | Kind | Default when unset | Owner | Read in |
 |---|---|---|---|---|
@@ -414,6 +414,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `REQUIRE_CONFIG_KEY` | setting | see the reading file | to be named | services/backendGuard.js |
 | `REQUIRE_POSTGRES` | setting | see the reading file | to be named | server.js, services/backendGuard.js |
 | `SDP_ALLOW_PLAINTEXT_SECRETS` | switch | see the reading file | to be named | services/configSecrets.js |
+| `SDP_BACKUP_ALLOW_PLAINTEXT` | switch | see the reading file | to be named | services/backup.js |
 | `SDP_BACKUP_DIR` | switch | see the reading file | to be named | services/backupSchedule.js, services/sync/jobs.js |
 | `SDP_BACKUP_KEEP` | switch | see the reading file | to be named | services/sync/jobs.js |
 | `SDP_BACKUP_KEY` | secret | (secret — not shown) | to be named | services/backup.js, services/dbRestore.js |
@@ -423,6 +424,8 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `SDP_DATA_DIR` | switch | see the reading file | to be named | assets-db.js, inspection-db.js, meetings-db.js, reports-db.js (+5) |
 | `SDP_PDF_SANDBOX` | switch | unset (PDF render keeps --no-sandbox) | Security owner | services/reportRender.js |
 | `SDP_QUAL_CFG_TTL_MS` | switch | see the reading file | to be named | services/qualificationStore.js |
+| `SDP_READY_FAIL_CACHE_MS` | switch | see the reading file | to be named | routes/health.js |
+| `SDP_READY_STATEMENT_TIMEOUT_MS` | switch | see the reading file | to be named | routes/health.js |
 | `SDP_SERVICE` | switch | see the reading file | to be named | services/serviceControl.js |
 | `SDP_TEST_NO_RATE_LIMIT` | switch | see the reading file | to be named | server.js |
 | `SESSION_COOKIE_SECURE` | switch | unset | Security owner | server.js |
@@ -431,6 +434,7 @@ answer and the `set-ui-policy.js` dry run repeat them when the switch is moved t
 | `SSO_ENABLED` | switch | see the reading file | to be named | services/ssoSettings.js |
 | `SSO_GROUP_MAP` | setting | see the reading file | to be named | services/ssoSettings.js |
 | `SSO_MODE` | setting | see the reading file | to be named | services/ssoSettings.js |
+| `SYNC_TRUNCATION_SHRINK_CONFIRMATIONS` | setting | see the reading file | to be named | services/sync/truncationGuard.js |
 | `SYNC_TRUNCATION_TOLERANCE_PCT` | setting | see the reading file | to be named | services/sync/truncationGuard.js |
 | `WORKSPACE_ID` | setting | see the reading file | to be named | server.js |
 | `ZOHO_CLIENT_ID` | setting | see the reading file | to be named | server.js |
@@ -453,3 +457,10 @@ Machine-readable copy: `docs/ops/FLAG-REGISTER.json`; decision fields still miss
 | `frozen:tracker_weighted_donut` | frozen lot | not in production: unweighted donut | Tracker attainment donut weighted by activity weight — b681083 · public/activity-tracker/App.jsx | CLAUDE.md "Deployment reality" (frozen 2026-09-04) |
 | `frozen:installer_safety_parity` | frozen lot | not in production: previous installer | Installer safety parity (red screens, backup before DROP, pre-restore point) — f6f0b12 · tools/installer/*, _sdp_admin.cmd, tools/pg/dump-db.js | CLAUDE.md "Deployment reality" (installer files behind the marker) |
 | `sla_wan_config.notify.enabled` | nested arm | `false` | WAN SLA operator / ISP notification (15 min) | WAN SLA V1 (2026-08-17) — Admin ▸ SLA WAN |
+
+## 6. Live switches (6) — report_config keys ON by default
+
+Behaviour that runs today. Each must be classified in `docs/ops/switch-lots.json` (keep group with a reason, or
+retire); `tools/agent/switch-lots.js --check` fails on an unclassified one, so a new switch cannot ship ON unreviewed.
+
+`meridian_enabled`, `never_send_unconfirmed`, `opm_rest_concurrency`, `report_reassign_submitted`, `sync_alert_enabled`, `ui_inject_dash_key`

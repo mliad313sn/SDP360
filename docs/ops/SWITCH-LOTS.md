@@ -12,7 +12,7 @@ or the plan breaks a rule (`tests/switch-lots.test.js`).
 
 | Dark switches in the register | In a lot | Keep dark | Retire (proposal) | Lots | Proposed count after decisions |
 |---|---|---|---|---|---|
-| 152 | 111 | 38 (of which 5 are not switches) | 3 | 13 | 144 dark entries if the 3 retirements and the 5 reclassifications are accepted (activations then lower it further, lot by lot) |
+| 152 | 111 | 44 (of which 5 are not switches) | 3 | 13 | 144 dark entries if the 3 retirements and the 5 reclassifications are accepted (activations then lower it further, lot by lot) |
 
 Plan checks: **clean** · dependency cycles: **0** · orphans (no code reads the key): **0**.
 
@@ -100,8 +100,8 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 
 | Switch | Who decides (register) | Human prerequisite (register text) | Depends on | Roles named | Tables touched | Job | Consumer files | Tests naming it |
 |---|---|---|---|---|---|---|---|---|
-| `ppm_baseline_versions` | Committee | — | — | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +17 | — | 7 | 2 |
-| `ppm_rebaseline_enabled` | Committee | — | — | — | portfolio_deliverables, portfolio_objectives, portfolio_programmes, portfolio_projects, portfolio_tasks, ppm_change_requests +4 | — | 7 | 4 |
+| `ppm_baseline_versions` | Committee | — | — | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +17 | — | 7 | 3 |
+| `ppm_rebaseline_enabled` | Committee | — | — | — | portfolio_deliverables, portfolio_objectives, portfolio_programmes, portfolio_projects, portfolio_tasks, ppm_change_requests +4 | — | 7 | 5 |
 | `ppm_change_requests_enabled` | PMO | once the PMO adopts a change-control step on projects  | `ppm_rebaseline_enabled` | — | dashboard_definition_versions, dashboard_definitions, portfolio_benefits, portfolio_deliverables, portfolio_milestones, portfolio_objectives +9 | — | 7 | 2 |
 | `ppm_cr_simulation_enabled` | PMO | once the PMO wants change requests decided on simulated numbers: a request may list task changes  | `ppm_change_requests_enabled`, `ppm_rebaseline_enabled` | — | portfolio_deliverables, portfolio_objectives, portfolio_programmes, portfolio_projects | — | 4 | 2 |
 | `ppm_gate_checklist_enabled` | PMO | once the PMO defines gate checklists: per project and target stage, required artifacts  | — | — | — | — | 7 | 1 |
@@ -144,9 +144,9 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 
 | Switch | Who decides (register) | Human prerequisite (register text) | Depends on | Roles named | Tables touched | Job | Consumer files | Tests naming it |
 |---|---|---|---|---|---|---|---|---|
-| `ppm_time_entries_enabled` | PMO + PO | once the PMO wants actual hours per task  | — | — | portfolio_deliverables, portfolio_objectives, portfolio_programmes, portfolio_projects | — | 5 | 4 |
-| `ppm_timesheet_approval_enabled` | PMO | once the PMO wants approved hours: the Plan tab gains "Timesheet weeks"  | `ppm_time_entries_enabled` | — | portfolio_deliverables, portfolio_objectives, portfolio_programmes, portfolio_projects, portfolio_tasks, ppm_change_requests +4 | — | 7 | 2 |
-| `ppm_evm_enabled` | PMO + Finance | once the PMO and Finance agree to read earned value  | `ppm_baseline_versions` | — | — | — | 6 | 3 |
+| `ppm_time_entries_enabled` | PMO + PO | once the PMO wants actual hours per task  | — | — | portfolio_deliverables, portfolio_objectives, portfolio_programmes, portfolio_projects | — | 5 | 5 |
+| `ppm_timesheet_approval_enabled` | PMO | once the PMO wants approved hours: the Plan tab gains "Timesheet weeks"  | `ppm_time_entries_enabled` | — | portfolio_deliverables, portfolio_objectives, portfolio_programmes, portfolio_projects, portfolio_tasks, ppm_change_requests +4 | — | 7 | 3 |
+| `ppm_evm_enabled` | PMO + Finance | once the PMO and Finance agree to read earned value  | `ppm_baseline_versions` | — | — | — | 6 | 4 |
 | `ppm_budget_periods_enabled` | Finance + PMO | once Finance agrees the period grid  | — | — | — | — | 5 | 2 |
 | `actuals_import_enabled` | Finance controller + PMO | once Finance supplies the Pronto export layout and the rate source: dated FX rates  | `ppm_budget_periods_enabled` | admin | portfolio_projects, ppm_budget_periods | — | 5 | 3 |
 | `finance_currency_required` | Finance controller | once Finance requires a stated currency on every amount  | — | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +17 | — | 2 | 2 |
@@ -186,7 +186,7 @@ NODE_OPTIONS="--require $PWD/tools/test/blocking-stdio.js --require $PWD/tests/_
 
 | Switch | Who decides (register) | Human prerequisite (register text) | Depends on | Roles named | Tables touched | Job | Consumer files | Tests naming it |
 |---|---|---|---|---|---|---|---|---|
-| `soft_delete_enabled` | Owner (retention policy) | — | — | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +17 | — | 13 | 8 |
+| `soft_delete_enabled` | Owner (retention policy) | — | — | — | decisions, meeting_cadences, meeting_sessions, minutes_history, portfolio_baselines, portfolio_benefits +17 | — | 13 | 9 |
 | `soft_delete_two_person` | Owner (retention policy) | once the retention owner wants deletions of portfolio nodes and cadences to need a reason  | `soft_delete_enabled` | admin | — | — | 4 | 3 |
 | `roadmap_publication_enabled` | Service & Support Manager | once the Service & Support Manager wants to publish the Roadmap Manager into the portfolio from the page  | `soft_delete_enabled` | — | portfolio_deliverables, portfolio_objectives, portfolio_programmes, portfolio_projects, roadmap_publications | — | 6 | 2 |
 | `roadmap_audience_publication_enabled` | PMO (publication owner) | once the PMO names the publication owner and the audiences to use: frozen roadmap snapshots per audience  | `roadmap_publication_enabled` | admin, finance-viewer | roadmap_publications | — | 6 | 2 |
@@ -401,6 +401,22 @@ Waits for a fact that does not exist yet (privacy notice, HSE evidence, non-UTC 
 - `ai_commentary_stale_block` — decides: Owner (AI) + KPI committee
 - `field_outbox_resolve_enabled` — decides: PO + site IT
 - `frozen:installer_safety_parity` — decides: Owner (deployment)
+
+### live by default (5)
+
+Shipped ON: the default '1' is today's behaviour (a safety guard, an operator alert, a policy that predates the switch, or a compatibility mode awaiting its own decision). Listed so that no switch ships ON without a recorded classification (P11 R3-A2). Turning one OFF is a decision of its owner (FLAG-REGISTER owner column), not of this plan.
+
+- `meridian_enabled` — decides: to be named
+- `never_send_unconfirmed` — decides: to be named
+- `report_reassign_submitted` — decides: to be named
+- `sync_alert_enabled` — decides: to be named
+- `ui_inject_dash_key` — decides: to be named
+
+### live setting not a switch (1)
+
+A numeric setting whose value happens to be 1 (OpManager REST concurrency), not a behaviour switch. Kept so the live-switch check (P11 R3-A2) does not flag it; changing it is a tuning decision of the platform owner.
+
+- `opm_rest_concurrency` — decides: to be named
 
 ## Retire list (proposals — no code was deleted)
 

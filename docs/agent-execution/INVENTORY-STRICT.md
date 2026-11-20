@@ -10,13 +10,13 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 |---|---:|
 | routes | 753 |
 | routes not measurable | 3 |
-| routes without strict test | 66 |
+| routes without strict test | 65 |
 | critical routes | 208 |
 | critical routes without strict test | 17 |
-| writes without strict test | 23 |
+| writes without strict test | 22 |
 | jobs | 33 |
 | jobs without strict test | 0 |
-| test sources | 910 |
+| test sources | 918 |
 | without strict test access | 3 |
 | without strict test finance | 2 |
 | without strict test export | 6 |
@@ -77,7 +77,6 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 | GET | `/api/governance/ppm/project/:id/raid` | read | routes/governanceW3.js |
 | PUT | `/api/governance/ppm/project/:id/raid` | write | routes/governanceW3.js |
 | GET | `/api/governance/ppm/project/:id/report.html` | read | routes/governanceW3.js |
-| POST | `/api/governance/ppm/project/:id/timesheets/:action` | write | routes/governanceWorkbench.js |
 | GET | `/api/integration/fmp/readiness` | read | routes/fourmypeople.js |
 | GET | `/api/meetings/import/incubation-template` | read | routes/meetings.js |
 | POST | `/api/meetings/import/incubation/commit` | write | routes/meetings.js |
@@ -121,4 +120,4 @@ Classes come from the declaration (method, path, guard names): `access`, `financ
 | export | 64 | 6 |
 | audit | 21 | 5 |
 | destructive | 36 | 2 |
-<!-- structure 48ee0195dceb73a0 -->
+<!-- structure 5cde1c3430fb1a27 -->

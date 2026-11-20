@@ -96,3 +96,40 @@ test('sliCounters: counts login answers by status and keeps a bounded latency ri
   assert.strictEqual(C.snapshot().db_latency_ms.length, C.MAX);
   C._reset();
 });
+
+// P11 round 3 N-08 — a declared job that never succeeded was dropped from the list, so "worst job" read 100 % while
+// a job was dead. A declared job with no ok run: failing (errors in the window) → 0 %; never ran / no result → null
+// (unknown, and the worst-job value cannot be stated above 0); an optional job that only self-skips → listed as
+// not configured, outside the worst-job reading.
+test('gather: a declared job that never succeeded is listed and pulls the worst-job value down, never 100', async () => {
+  const okHourly = Array.from({ length: 24 }, (_, i) => ({ job: 'zoho.helpdesk_lite', finished_at: new Date(NOW.getTime() - i * H).toISOString() }));
+  const mk = (errRows) => ({ prepare: (sql) => ({
+    get: async () => ({ n: 0 }),
+    all: async () => (/status='error'/.test(sql) ? errRows : okHourly),
+  }) });
+  const freshness = { 'zoho.helpdesk_lite': 2, 'zoho.requests': 3, 'meraki.wan': 30 };
+  const optional = new Set(['meraki.wan']);
+  // zoho.requests ran and failed in the window, never ok → 0 %
+  const failing = await S.gather({ pg: mk([{ job: 'zoho.requests', errors: 5 }]), now: NOW, freshness, optional });
+  const fj = Object.fromEntries(failing.items.sync_freshness.jobs.map((j) => [j.job, j]));
+  assert.ok(fj['zoho.requests'], 'the dead job is listed');
+  assert.strictEqual(fj['zoho.requests'].fresh_pct, 0);
+  assert.strictEqual(failing.items.sync_freshness.value, 0);
+  assert.strictEqual(fj['meraki.wan'].fresh_pct, null);
+  assert.strictEqual(fj['meraki.wan'].status, 'not_configured');
+  // zoho.requests never ran at all → unknown: the worst job cannot be read as 100
+  const silent = await S.gather({ pg: mk([]), now: NOW, freshness, optional });
+  const sj = Object.fromEntries(silent.items.sync_freshness.jobs.map((j) => [j.job, j]));
+  assert.strictEqual(sj['zoho.requests'].fresh_pct, null);
+  assert.strictEqual(sj['zoho.requests'].status, 'never_ok');
+  assert.strictEqual(silent.items.sync_freshness.value, null);
+  assert.match(silent.items.sync_freshness.basis, /never/);
+});
+
+test('compose: only optional not-configured jobs besides a fresh one → the fresh value stands', () => {
+  const r = S.compose({ sync: [
+    { job: 'a', freshness_hours: 2, ok_times: [new Date(NOW.getTime() - H).toISOString()] },
+    { job: 'b', freshness_hours: 2, ok_times: [], errors: 0, optional: true },
+  ] }, NOW);
+  assert.strictEqual(r.items.sync_freshness.value, 100);
+});

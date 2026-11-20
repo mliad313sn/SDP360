@@ -62,6 +62,7 @@ function groupWeeks(entries, weeks) {
     const s = slot(pk, ws, e);
     const h = Number(e.hours);
     if (Number.isFinite(h)) s.hours = Math.round(((s.hours || 0) + h) * 100) / 100;
+    if (e.task_deleted && Number.isFinite(h)) s.deleted_task_hours = Math.round(((s.deleted_task_hours || 0) + h) * 100) / 100;   // P11 R3-4: counted, flagged
     s.entries += 1;
     if (e.created_by != null && !s.entrants.includes(Number(e.created_by))) s.entrants.push(Number(e.created_by));
   }
