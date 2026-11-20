@@ -53,6 +53,11 @@
    "decided_by": null,
    "decision_ref": null
   },
+  "helpdesk.window_resolution_sla_pct": {
+   "status": "untriaged",
+   "decided_by": null,
+   "decision_ref": null
+  },
   "helpdesk.avg_resolution_h": {
    "status": "untriaged",
    "decided_by": null,

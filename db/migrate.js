@@ -43,11 +43,40 @@ function writesData(sql) {
   }
   return false;
 }
+/** P11 F-20 — True when the script carries destructive DDL (comments stripped): DROP TABLE / COLUMN / SCHEMA / VIEW /
+ *  MATERIALIZED VIEW / SEQUENCE / TYPE / DATABASE, or a column type change (ALTER [COLUMN] x [SET DATA] TYPE). Re-running
+ *  one of these on a live database loses data, so an edited applied script that contains one is never re-executed
+ *  (same run-once class as a data write). DROP INDEX / TRIGGER / CONSTRAINT / FUNCTION / POLICY stay re-runnable:
+ *  the script re-creates them. */
+function destructiveDdl(sql) {
+  const code = String(sql).replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/--[^\n]*/g, ' ');
+  const KEEP = new Set(['CONSTRAINT', 'DEFAULT', 'NOT', 'IDENTITY', 'EXPRESSION', 'TRIGGER']);
+  for (const raw of code.split(';')) {
+    const tk = raw.replace(/"/g, '').toUpperCase().split(/\s+/).filter(Boolean);
+    const altTable = tk.some((t, n) => t === 'ALTER' && tk[n + 1] === 'TABLE');   // also inside a DO block
+    for (let i = 0; i < tk.length; i++) {
+      if (tk[i] === 'DROP') {
+        const w = tk[i + 1];
+        if (['TABLE', 'COLUMN', 'SCHEMA', 'VIEW', 'MATERIALIZED', 'SEQUENCE', 'TYPE', 'DATABASE'].includes(w)) return true;
+        // ALTER TABLE t DROP [IF EXISTS] x — COLUMN keyword optional; DROP CONSTRAINT / DEFAULT / NOT NULL … are not destructive
+        if (altTable && w && !KEEP.has(w)) return true;
+      }
+      if (tk[i] === 'ALTER') {   // ALTER [COLUMN] x [SET DATA] TYPE …
+        let k = i + 1;
+        if (tk[k] === 'COLUMN') k++;
+        k++;
+        if (tk[k] === 'SET' && tk[k + 1] === 'DATA') k += 2;
+        if (tk[k] === 'TYPE') return true;
+      }
+    }
+  }
+  return false;
+}
 /** May an applied script whose bytes changed be executed again? */
 function rerunOnChange(sql) {
   if (_hasLine(sql, RUN_ONCE_MARKER)) return false;
   if (_hasLine(sql, RERUN_MARKER)) return true;
-  return !writesData(sql);
+  return !writesData(sql) && !destructiveDdl(sql);
 }
 // Apply order between areas (reports first: other areas reference sites/users).
 const AREA_ORDER = ['reports', 'tracker', 'meetings', 'inspection', 'assets', 'sync'];
@@ -182,7 +211,7 @@ async function migrateAtBoot({ env = process.env, log = console.log } = {}) {
   try { return await migrate(pg, { log }); } finally { await pg.close(); }
 }
 
-module.exports = { migrate, status, listMigrations, migrateAtBoot, ensureJournal, ROOT, AREA_ORDER, RERUN_MARKER, RUN_ONCE_MARKER, writesData, rerunOnChange };
+module.exports = { migrate, status, listMigrations, migrateAtBoot, ensureJournal, ROOT, AREA_ORDER, RERUN_MARKER, RUN_ONCE_MARKER, writesData, destructiveDdl, rerunOnChange };
 
 if (require.main === module) {
   (async () => {

@@ -518,9 +518,10 @@ async function _changes(filters) {
 //     },
 //     commentary: []                (placeholder for AI/manual annotations)
 //   }
-// P11 F-02 — null = not measured: an activity with no input for the month is NOT scored (it used to count red),
-// a site with nothing measured is left out (it used to score 0), and a fleet / pillar / average over nothing is
-// null (it used to be 0 %). A stored value — a stored 0 included — is a measurement. loadTracker() is a Promise on
+// P11 F-02 — null = not measured: a site with no stored input for any active activity up to the month is left out
+// (it used to score 0), and a fleet / pillar / average over nothing is null (it used to be 0 %). A stored value — a
+// stored 0 included — is a measurement. Round 4: a measured site is scored by the tracker engine (tracker-pptx
+// score / ss — cumulative value vs pro-rated target), the same figures as the browser's tracker block. loadTracker() is a Promise on
 // PostgreSQL: it is awaited (unawaited, the fallback always threw and returned the all-zero default).
 async function _tracker(filters, deps = {}) {
   const tdb = deps.trackerDb !== undefined ? deps.trackerDb : trackerDb;
@@ -533,38 +534,39 @@ async function _tracker(filters, deps = {}) {
   try {
     const D = await tdb.loadTracker();
     const activeSites = (D.activeSites && D.activeSites.length) ? D.activeSites : (D.sites || []);
-    const _ragOf = (v, target) => {
-      const t = target || 1;
-      if (v >= t)        return 'g';
-      if (v >= t / 2)    return 'a';
-      return 'r';
-    };
-    const _scoreOf = (g, a, r) => (g + a + r) > 0 ? Math.round((g / (g + a + r)) * 100) : null;
+    // P11 F-02 (round 4) — ONE formula: the activity-tracker engine twin (tracker-pptx.js score / ss, byte-identical to
+    // public/activity-tracker/engine.js). It scores the CUMULATIVE value against the PRO-RATED target (the old
+    // fallback scored one month's value against the ANNUAL target, so an on-track COUNT activity read red / 0 %).
+    // Null rule kept: a site with no stored input for any active activity up to the month is NOT measured (left
+    // out); once a site is measured the engine contract applies (an empty cell is an entry of 0, as on the page).
+    const Engine = require('../tracker-pptx');
+    const _pct = (x) => (x == null || !Number.isFinite(x) ? null : Math.round(x * 100));
+    const _TAG = { GREEN: 'g', AMBER: 'a', RED: 'r' };
     const _SHORT_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const _measured = (siteCode, year, month) => (D.activities || []).some((act, ix) => {
+      const tgt = (D.targets || {})[siteCode]?.[ix];
+      if (!tgt || !tgt.active) return false;
+      const cells = (D.inputs || {})[year]?.[siteCode]?.[ix] || [];
+      for (let m = 0; m < month; m++) { const raw = cells[m]; if (raw != null && raw !== '' && Number.isFinite(Number(raw))) return true; }
+      return false;
+    });
 
-    // Compute counts (g/a/r) at a specific (year, month) for a given site.
-    // Returns null when targets/inputs absent. Reused by trend loop below.
+    // Site at (year, month): engine counts + engine site score; nActive 0 = not measured.
     const _scoreSiteAt = (siteCode, year, month) => {
+      const pillarBreakdown = {};
+      if (!_measured(siteCode, year, month)) return { g: 0, a: 0, r: 0, score: null, nActive: 0, pillarBreakdown, pScores: {} };
+      const sm = Engine.ss(D, siteCode, year, month);
       let g = 0, a = 0, r = 0;
-      let nActive = 0;
-      const pillarBreakdown = {};   // for pillar trend roll-up
-      (D.activities || []).forEach((act, ix) => {
-        const tgt = (D.targets || {})[siteCode]?.[ix];
-        if (!tgt || !tgt.active) return;
-        const months = (D.inputs || {})[year]?.[siteCode]?.[ix] || [];
-        const raw = months[month - 1];
-        if (raw == null || raw === '' || !Number.isFinite(Number(raw))) return;   // no input = not measured
-        nActive++;
-        const v   = Number(raw);
-        const tag = _ragOf(v, tgt.target);
-        if (tag === 'g') g++;
-        else if (tag === 'a') a++;
-        else r++;
+      sm.sc.forEach((act) => {
+        const tag = act.on ? _TAG[act.rg] : null;
+        if (!tag) return;   // inactive / not yet started (N/A) — not scored
+        if (tag === 'g') g++; else if (tag === 'a') a++; else r++;
         const pillar = act.pillar || 'Other';
         if (!pillarBreakdown[pillar]) pillarBreakdown[pillar] = { g: 0, a: 0, r: 0 };
         pillarBreakdown[pillar][tag]++;
       });
-      return { g, a, r, score: _scoreOf(g, a, r), nActive, pillarBreakdown };
+      const nActive = g + a + r;
+      return { g, a, r, score: nActive ? _pct(sm.avg) : null, nActive, pillarBreakdown, pScores: sm.pScores || {} };
     };
 
     // Build the trailing 6-month window ending at filters.{year, month}
@@ -596,24 +598,26 @@ async function _tracker(filters, deps = {}) {
         if (r.nActive === 0) return;
         // Per-site trend point
         out.trends.sites[siteCode][pIx] = r.score;
-        // Per-pillar trend accumulator — aggregate across active sites
-        Object.entries(r.pillarBreakdown).forEach(([pname, t]) => {
+        // Per-pillar trend accumulator — the engine pillar score (ps2) averaged over the measured sites
+        Object.entries(r.pScores).forEach(([pname, v]) => {
           pillarNames.add(pname);
           const arr = (out.trends.pillars[pname] = out.trends.pillars[pname] || []);
-          // We need TOTALS to compute the pillar score across all sites
-          // for this period — store {g,a,r} sums then convert to %
-          while (arr.length < TREND_LEN) arr.push({ g: 0, a: 0, r: 0 });
-          arr[pIx].g += t.g; arr[pIx].a += t.a; arr[pIx].r += t.r;
+          while (arr.length < TREND_LEN) arr.push({ sum: 0, n: 0 });
+          arr[pIx].sum += v; arr[pIx].n++;
         });
 
         // CURRENT-month aggregate (last period in trendPeriods)
         if (pIx === TREND_LEN - 1) {
           out.green += r.g; out.amber += r.a; out.red += r.r;
           Object.entries(r.pillarBreakdown).forEach(([pname, t]) => {
-            if (!pillarTally[pname]) pillarTally[pname] = { g: 0, a: 0, r: 0 };
+            if (!pillarTally[pname]) pillarTally[pname] = { g: 0, a: 0, r: 0, sum: 0, n: 0 };
             pillarTally[pname].g += t.g;
             pillarTally[pname].a += t.a;
             pillarTally[pname].r += t.r;
+          });
+          Object.entries(r.pScores).forEach(([pname, v]) => {
+            if (!pillarTally[pname]) pillarTally[pname] = { g: 0, a: 0, r: 0, sum: 0, n: 0 };
+            pillarTally[pname].sum += v; pillarTally[pname].n++;
           });
 
           const prev = trendPeriods[TREND_LEN - 2];
@@ -633,7 +637,7 @@ async function _tracker(filters, deps = {}) {
     // Convert pillar trend accumulators to percentages
     Object.keys(out.trends.pillars).forEach(pname => {
       out.trends.pillars[pname] = out.trends.pillars[pname].map(
-        b => _scoreOf(b.g, b.a, b.r)
+        b => (b.n ? _pct(b.sum / b.n) : null)
       );
     });
 
@@ -659,7 +663,7 @@ async function _tracker(filters, deps = {}) {
         green:  t.g,
         amber:  t.a,
         red:    t.r,
-        score:  _scoreOf(t.g, t.a, t.r),
+        score:  t.n ? _pct(t.sum / t.n) : null,
         weight: weights[name] || 0,
       };
     });
@@ -994,8 +998,8 @@ async function build(browserPayload, opts = {}) {
   ]);
   // Prefer the browser-built tracker block: executive-report.html scores the
   // tracker with the faithful engine (cumulative + per-KPI-type via
-  // _trkSiteSummary), whereas _tracker() below scores a single month crudely
-  // (all-red). Fall back to _tracker() only when the browser didn't send one.
+  // _trkSiteSummary). _tracker() below scores with the same engine twin (tracker-pptx.js, P11 F-02 round 4);
+  // it is the fallback only when the browser didn't send one.
   const tracker     = browserPayload.tracker || await _tracker(dbFilters);
 
   // v14 deck — Governance (slides 13/14). Only computed for deck='v14'

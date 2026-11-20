@@ -96,17 +96,25 @@ test('helpdesk payload carries NO PII (no requester/technician/subject leakage)'
   assert.ok(body.snapshot && body.snapshot.created === 10);
 });
 
-test('Adoption Lot A (item 12): weekly SLA compliance = closed on time ÷ closed (the Helpdesk ranking rule), not 100 − overdue ÷ created', async () => {
-  // Houndé-like week: 10 created, 8 closed, 4 overdue, all 4 closed → old figure 60 %, doctrine (and Helpdesk) 50 %
+test('Adoption Lot A (item 12) + P11 F-16: weekly SLA compliance is the reader\'s res_sla_pct (no formula in the route)', async () => {
+  // Houndé-like week through the REAL pure core: 10 created, 8 closed, 4 of them overdue → doctrine 50 % (was 60 %).
+  const rows = [...Array(4)].map(() => ({ pending_status: 0, overdue_status: 1, request_status: 'Closed' }))
+    .concat([...Array(4)].map(() => ({ pending_status: 0, overdue_status: 0, request_status: 'Closed' })))
+    .concat([...Array(2)].map(() => ({ pending_status: 1, overdue_status: 0, request_status: 'Open' })));
+  const seen = [];
   const app = makeApp({ id: 5, roles: ['site-business'], site_id: 1 },
-    { getSiteHelpdeskWindow: () => ({ created: 10, resolved: 8, backlog: 2, sla_overdue: 4, closed_overdue: 4, major_incidents: 0, top_categories: [] }) });
+    { getSiteHelpdeskWindow: (_s, _f, _t, opts) => { seen.push(opts && opts.slaDefinition); return require('../reports-db')._computeSiteHelpdesk(rows, opts); } });
   const { body } = await call(app, '/api/site-awareness/helpdesk');
   assert.ok(body.weekly.length > 0);
-  for (const w of body.weekly) { assert.equal(w.res_sla_pct, 50); assert.equal(w.missed_pct, 40); }
+  for (const w of body.weekly) { assert.equal(w.res_sla_pct, 50); assert.equal(w.missed_pct, 40); assert.equal(w.open_overdue, 0); assert.equal(w.res_sla_den, 8); }
+  assert.ok(seen.includes('flag'), 'the configured helpdesk_sla_definition (default flag) reaches the reader');
   const none = makeApp({ id: 5, roles: ['site-business'], site_id: 1 },
-    { getSiteHelpdeskWindow: () => ({ created: 3, resolved: 0, backlog: 3, sla_overdue: 0, closed_overdue: 0, major_incidents: 0, top_categories: [] }) });
+    { getSiteHelpdeskWindow: () => ({ created: 3, resolved: 0, backlog: 3, sla_overdue: 0, closed_overdue: 0, res_sla_pct: null, major_incidents: 0, top_categories: [] }) });
   const b2 = (await call(none, '/api/site-awareness/helpdesk')).body;
   assert.equal(b2.weekly[0].res_sla_pct, null, 'nothing closed → nothing to judge (never 0 / 100)');
+  const legacy = makeApp({ id: 5, roles: ['site-business'], site_id: 1 },
+    { getSiteHelpdeskWindow: () => ({ created: 10, resolved: 8, backlog: 2, sla_overdue: 4, closed_overdue: 4, major_incidents: 0, top_categories: [] }) });
+  assert.equal((await call(legacy, '/api/site-awareness/helpdesk')).body.weekly[0].res_sla_pct, null, 'a reader without the field → UNKNOWN, never recomputed here');
 });
 
 test('helpdesk payload includes a whitelisted 90-day changes block', async () => {

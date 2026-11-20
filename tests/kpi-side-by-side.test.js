@@ -1,6 +1,6 @@
 'use strict';
 // P08 §2 — each disputed definition, computed both ways on ONE fictitious dataset through the production code.
-// The numbers below are the committee evidence (docs/agent-execution/P08-kpi-dossiers.md); nothing is chosen.
+// The numbers below are the committee evidence (docs/kpi/baselines/P08-kpi-dossiers.md); nothing is chosen.
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const SBS = require('../tools/kpi/side-by-side');

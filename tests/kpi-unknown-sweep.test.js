@@ -1,6 +1,6 @@
 'use strict';
 // P08 §5 — ratchet: every server-side `|| 0` / `?? 0` / `COALESCE(…, 0)` is justified by a rule of
-// tools/kpi/unknown-sweep.js or by a reviewed note in docs/agent-execution/P08-unknown-sweep.json.
+// tools/kpi/unknown-sweep.js or by a reviewed note in docs/kpi/baselines/P08-unknown-sweep.json.
 // A NEW hit fails here until it is classified (or fixed): unknown is never silently 0.
 const test = require('node:test');
 const assert = require('node:assert/strict');

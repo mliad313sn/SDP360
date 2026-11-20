@@ -6,7 +6,7 @@ const assert = require('node:assert/strict');
 const fs = require('fs');
 const DS = require('../tools/kpi/dossiers');
 
-test('docs/agent-execution/P08-kpi-dossiers.md is up to date with the registry', () => {
+test('docs/kpi/baselines/P08-kpi-dossiers.md is up to date with the registry', () => {
   // P11 F-05: a tree without the evidence folder says so instead of an ENOENT stack
   assert.ok(fs.existsSync(DS.OUT), `dossier file is missing: ${DS.OUT} — regenerate it with node tools/kpi/dossiers.js (not a formula regression)`);
   const cur = fs.readFileSync(DS.OUT, 'utf8').replace(/\r\n/g, '\n').trim();

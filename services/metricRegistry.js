@@ -41,6 +41,9 @@ const SEED = [
   M('helpdesk.window_resolved', 'Tickets resolved (window)', 'Tickets résolus (fenêtre)', 'helpdesk', 'count', 'COUNT resolved in [from,to]', 'week', null, 'helpdesk.window', 'resolved', { source: 'reports-db.getSiteHelpdeskWindow' }),
   M('helpdesk.window_overdue', 'Overdue tickets (window)', 'Tickets en retard (fenêtre)', 'helpdesk', 'count', 'COUNT created in window with overdue_status set', 'week', null, 'helpdesk.window', 'overdue', { hib: false, source: 'reports-db.getSiteHelpdeskWindow' }),
   M('helpdesk.window_major_incidents', 'Major incidents raised', 'Incidents majeurs ouverts', 'helpdesk', 'count', 'COUNT major incidents created in window (template / request type)', 'week', null, 'helpdesk.window', 'major_incidents', { hib: false, source: 'reports-db.getSiteHelpdeskWindow' }),
+  // P11 F-16/F-17 — the site view's weekly "SLA compliance %": the doctrine of helpdesk.resolution_sla_pct on the window reader
+  // (created-in-window cohort, closed tickets with an SLA rule, cancelled excluded, missed per helpdesk_sla_definition).
+  M('helpdesk.window_resolution_sla_pct', 'Resolution SLA (window)', 'SLA de résolution (fenêtre)', 'helpdesk', '%', '(closed AND NOT missed) / closed with an SLA rule × 100 over tickets created in [from,to]; cancelled excluded; missed = helpdesk_sla_definition; null when nothing closed', 'week', 'sla-percent', 'helpdesk.window', 'res_sla_pct', { source: 'reports-db.getSiteHelpdeskWindow' }),
   M('helpdesk.avg_resolution_h', 'Average resolution time', 'Temps moyen de résolution', 'helpdesk', 'hours', 'mean(resolved_time − created_time) over resolved tickets; null when none resolved', 'week', null, 'helpdesk.window', 'avg_resolution_h', { hib: false, source: 'reports-db.getSiteHelpdeskWindow' }),
   // Meetings — 5 Engagements, trailing window (insights default = 6 months).
   M('meetings.pvs_held', 'Department reviews held', 'PV tenus', 'meetings', 'count', 'COUNT md_meetings for the site in the window', 'rolling3m', null, 'meetings.insights_site', 'meetings_count', { owner: 'site-coordinator', source: 'meetings-db.insights' }),
@@ -175,7 +178,9 @@ const READERS = {
     return r && r.total ? r : null;                 // no change in the window: nothing to judge, never 0 %
   },
   async 'helpdesk.window'(d, { site, win }) {
-    const r = await d.rdb.getSiteHelpdeskWindow(site, win.from, win.to);
+    let slaDefinition = 'flag';   // P11 F-16: res_sla_pct follows the configured helpdesk_sla_definition, as the site view does
+    try { slaDefinition = (await require('./reportConfig').getConfig(d.rdb.db)).helpdesk_sla_definition || 'flag'; } catch (_) { /* default rule */ }
+    const r = await d.rdb.getSiteHelpdeskWindow(site, win.from, win.to, { slaDefinition });
     if (!r || r.scoped === false) return null;   // site without a Zoho group: not measured, never 0
     return { ...r, overdue: r.sla_overdue };      // UAT ITSM-02: the registry field is `overdue`
   },
@@ -290,6 +295,7 @@ async function assetLabelsFor(d, site) {
 // excluded; responded tickets) since G4-CI; null there (no base) → base null ("base not measured").
 const BASES = {
   'helpdesk.resolution_sla_pct': { field: 'sla_res_den', label: 'closed tickets with an SLA rule (cancelled excluded)' },
+  'helpdesk.window_resolution_sla_pct': { field: 'res_sla_den', label: 'closed tickets with an SLA rule (cancelled excluded)' },
   'helpdesk.first_reply_sla_pct': { field: 'sla_reply_den', label: 'responded tickets' },
   'helpdesk.closure_pct': { field: 'inbound', label: 'tickets created' },
   'inspection.conformity_pct': { field: 'applicable_n', label: 'applicable findings' },
