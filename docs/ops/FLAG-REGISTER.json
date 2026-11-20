@@ -12,12 +12,12 @@
   "expiry"
  ],
  "counts": {
-  "report_config": 296,
+  "report_config": 297,
   "planned": 9,
   "governance_policies": 37,
   "environment": 69,
   "pseudo": 4,
-  "dark": 153,
+  "dark": 154,
   "dark_complete": 0,
   "live": 6
  },
