@@ -61,6 +61,8 @@ test('refusals: no db url, production without operator flag', async () => {
   assert.match(A.writeRefusal({}, {}), /--db-url/);
   assert.match(A.writeRefusal({ dbUrl: 'x' }, { NODE_ENV: 'production' }), /operator/);
   assert.equal(A.writeRefusal({ dbUrl: 'x', operator: true }, { NODE_ENV: 'production' }), null);
+  const saved0 = process.env.PG_URL; process.env.PG_URL = 'postgres://u:p@h/db';
+  try { assert.equal(A.parseArgs(['--db-url=env']).dbUrl, 'postgres://u:p@h/db', '--db-url=env reads PG_URL'); } finally { process.env.PG_URL = saved0; }
   const saved = process.env.NODE_ENV; process.env.NODE_ENV = 'production';
   try { await assert.rejects(A.main(['--apply', '--db-url=postgres://x', '--lots=L01'], quiet), /operator/); }
   finally { if (saved === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = saved; }

@@ -10,6 +10,9 @@ if (require.main === module) require('dotenv').config({ quiet: true, path: requi
 //        [--reason="…"] [--rollback-dir=DIR] [--dry-run] [--i-am-the-operator]
 //   node tools/ops/activate-switches.js --rollback=FILE --db-url=URL [--force] [--i-am-the-operator]
 //
+// --db-url=env reads PG_URL (or DATABASE_URL) from the environment / the app's .env, so the password never sits on a
+// command line (process listings and shell history keep command lines). Prefer it on a real instance.
+//
 // --lots accepts L01..L13, `all` (= the 13 lots) and keep groups as pseudo-lots `K:<group>` (K:outbound,
 // K:armed_in_production, K:committee_policy, K:external_precondition, K:irreversible_or_destructive). Three keep
 // groups are REFUSED whatever the flags: K:source_system_write (boundary: source systems are read-only),
@@ -256,7 +259,7 @@ function parseArgs(argv) {
     else if (a === '--i-am-the-operator') o.operator = true;
     else if (a === '--force') o.force = true;
     else if (a.startsWith('--lots=')) o.lots = a.slice(7);
-    else if (a.startsWith('--db-url=')) o.dbUrl = a.slice(9);
+    else if (a.startsWith('--db-url=')) o.dbUrl = a.slice(9) === 'env' ? (process.env.PG_URL || process.env.DATABASE_URL || '') : a.slice(9);
     else if (a.startsWith('--rollback=')) o.rollback = a.slice(11);
     else if (a.startsWith('--rollback-dir=')) o.rollbackDir = a.slice(15);
     else if (a.startsWith('--reason=')) o.reason = a.slice(9);
