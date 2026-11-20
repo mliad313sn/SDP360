@@ -14,13 +14,13 @@
     en: { title: 'Portfolio capacity and scenarios', intro: 'Resource load against capacity, risk exposure, dependencies between projects, effort scores and a read-only what-if. Thresholds, levels and weights are proposed, not approved policy.',
       cap: 'Monthly resource load', risk: 'Risk exposure by project', deps: 'Dependencies between projects', eff: 'Delivery effort scores', scen: 'Scenario (read-only what-if)',
       skill: 'Skill', month: 'Month', avg: 'Average FTE', capacity: 'Capacity FTE', util: 'Utilisation', projects: 'Projects', cap_unknown: 'Capacity not configured: no colour is given (unknown, not green).', over: 'over capacity',
-      project: 'Project', level: 'Exposure', open: 'Open', overdue: 'Overdue', declared: 'Declared', loops: 'Loops', none: 'None.', flagged: 'Flagged dependencies', partial: 'includes a project you cannot see',
+      project: 'Project', level: 'Exposure', open: 'Open', overdue: 'Overdue', declared: 'Declared', loops: 'Loops', none: 'None.', flagged: 'Flagged dependencies', partial: 'includes a project you cannot see', view_partial: 'Partial view: some projects with demand are outside what you can read, and capacity is group-wide, so no capacity colour is shown.',
       score: 'Score', band: 'Suggested band', mismatch: 'differs', shift: 'Shift (months)', exclude: 'Leave out', run: 'Run the scenario', baseline: 'Baseline', scenario: 'Scenario', delta: 'Change',
       conflicts: 'Dependency conflicts', over_cells: 'Over-capacity months', ro: 'Nothing is saved: the projects, dates and demand stay as they are.', nothing: 'No Phase 2 view is switched on for this portfolio.' },
     fr: { title: 'Capacité du portefeuille et scénarios', intro: 'Charge en ressources face à la capacité, exposition aux risques, dépendances entre projets, scores d’effort et une simulation en lecture seule. Seuils, niveaux et pondérations sont proposés, pas une politique approuvée.',
       cap: 'Charge mensuelle en ressources', risk: 'Exposition aux risques par projet', deps: 'Dépendances entre projets', eff: 'Scores d’effort de réalisation', scen: 'Scénario (simulation en lecture seule)',
       skill: 'Compétence', month: 'Mois', avg: 'ETP moyen', capacity: 'Capacité ETP', util: 'Utilisation', projects: 'Projets', cap_unknown: 'Capacité non configurée : aucune couleur n’est donnée (inconnu, pas vert).', over: 'au-delà de la capacité',
-      project: 'Projet', level: 'Exposition', open: 'Ouverts', overdue: 'En retard', declared: 'Déclaré', loops: 'Boucles', none: 'Aucune.', flagged: 'Dépendances signalées', partial: 'inclut un projet que vous ne voyez pas',
+      project: 'Projet', level: 'Exposition', open: 'Ouverts', overdue: 'En retard', declared: 'Déclaré', loops: 'Boucles', none: 'Aucune.', flagged: 'Dépendances signalées', partial: 'inclut un projet que vous ne voyez pas', view_partial: 'Vue partielle : des projets avec une demande sont hors de votre périmètre et la capacité est celle du groupe, donc aucune couleur de capacité n’est donnée.',
       score: 'Score', band: 'Tranche suggérée', mismatch: 'diffère', shift: 'Décalage (mois)', exclude: 'Écarter', run: 'Lancer le scénario', baseline: 'Référence', scenario: 'Scénario', delta: 'Écart',
       conflicts: 'Conflits de dépendances', over_cells: 'Mois au-delà de la capacité', ro: 'Rien n’est enregistré : projets, dates et besoins restent inchangés.', nothing: 'Aucune vue de la phase 2 n’est activée pour ce portefeuille.' },
   };
@@ -41,7 +41,7 @@
   async function cap() {
     const d = await api('/api/governance/ppm/portfolio/capacity'); show('p2Cap');
     const rows = (d.cells || []).map((c) => `<tr><td>${esc(c.skill)}</td><td>${esc(c.month)}</td><td class="p2-num">${esc(c.avg_fte)}</td><td class="p2-num">${esc(dash(c.capacity_fte))}</td><td class="p2-num">${esc(c.utilisation_pct == null ? '—' : c.utilisation_pct + ' %')}</td><td><span class="p2-rag p2-${esc(c.rag)}">${esc(c.rag)}</span></td><td>${esc(c.projects.length)}</td></tr>`);
-    $('p2CapBody').innerHTML = (d.capacity_configured ? '' : `<p class="p2-note">${esc(T.cap_unknown)}</p>`) + `<p>${esc(d.over)} ${esc(T.over)}</p>` + (rows.length ? table(T.cap, [T.skill, T.month, T.avg, T.capacity, T.util, 'RAG', T.projects], rows) : `<p class="p2-note">${esc(T.none)}</p>`);
+    $('p2CapBody').innerHTML = (d.capacity_configured ? '' : `<p class="p2-note">${esc(T.cap_unknown)}</p>`) + (d.view_partial ? `<p class="p2-note">${esc(T.view_partial)}</p>` : '') + `<p>${esc(d.over)} ${esc(T.over)}</p>` + (rows.length ? table(T.cap, [T.skill, T.month, T.avg, T.capacity, T.util, 'RAG', T.projects], rows) : `<p class="p2-note">${esc(T.none)}</p>`);
   }
   async function risk() {
     const d = await api('/api/governance/ppm/portfolio/risk-exposure'); show('p2Risk');

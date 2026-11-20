@@ -189,7 +189,7 @@ test('A-14: the owner sees GATE_SOD for in_progress in allowed_stages and the PO
   assert.equal(h.needs_reason, true); assert.equal(h.refusal, null, 'the dry run assumes the reason typed at the move');
 });
 
-test('A-14: RAID kinds and task fields are validated; only an open high RISK blocks closed (today rule)', async () => {
+test('A-14: RAID kinds and task fields are validated; an open high risk OR issue blocks closed (P11 r6 F-27: the shared isHigh rule)', async () => {
   const obj = await a14Fixture('raid');
   const pid = (await put('project', T.pmo, { objective_id: obj, key: 'A14-R', name: 'raid', owner: 'pp_pmo', sponsor: 'CIO', charter: 'A plain-text charter long enough to pass', start_date: '2027-01-01', end_date: '2027-03-01', baseline_end: '2027-03-01' })).j.id;
   assert.equal((await put('risk', T.pmo, { project_id: pid, title: 'a', kind: 'assumption', probability: 1, impact: 1 })).status, 200);
@@ -200,10 +200,14 @@ test('A-14: RAID kinds and task fields are validated; only an open high RISK blo
   assert.equal((await put('task', T.pmo, { project_id: pid, name: 'x', progress_pct: 100, effort_hours: 0, status: 'done' })).status, 200);
   const iss = (await put('risk', T.pmo, { project_id: pid, title: 'Vendor late', kind: 'issue', probability: 3, impact: 3 })).j.id;
   for (const [to, t] of [['approval', T.pmo], ['in_progress', T.cio], ['closure', T.cio]]) assert.equal((await send('POST', `/api/governance/portfolio/project/${pid}/stage`, t, { to })).status, 200, to);
+  // P11 r6 F-27 — the gate reads riskExposure.isHigh like the register and the alerts: the open high ISSUE blocks too
+  assert.equal((await getP(pid, T.cio)).j.allowed_stages.find((s) => s.to === 'closed').refusal.code, 'GATE_OPEN_RISKS', 'the open high issue counts');
   const rk = (await put('risk', T.pmo, { project_id: pid, title: 'Data loss', probability: 3, impact: 3 })).j.id;
   assert.equal((await getP(pid, T.cio)).j.allowed_stages.find((s) => s.to === 'closed').refusal.code, 'GATE_OPEN_RISKS');
   await put('risk', T.pmo, { id: rk, status: 'closed' });
-  assert.equal((await getP(pid, T.cio)).j.allowed_stages.find((s) => s.to === 'closed').refusal, null, 'the open high issue does not count');
+  assert.equal((await getP(pid, T.cio)).j.allowed_stages.find((s) => s.to === 'closed').refusal.code, 'GATE_OPEN_RISKS', 'the issue is still open and high');
+  await put('risk', T.pmo, { id: iss, status: 'Closed' });   // case-normalised by the writer (F-28)
+  assert.equal((await getP(pid, T.cio)).j.allowed_stages.find((s) => s.to === 'closed').refusal, null, 'nothing open and high is left');
   assert.equal((await send('POST', `/api/governance/portfolio/project/${pid}/stage`, T.cio, { to: 'closed' })).status, 200);
   assert.ok(iss);
 });

@@ -53,7 +53,8 @@ function view(row, details, { today, money }) {
   const exposure = amt != null && pp != null ? Math.round(amt * pp) / 100 : null;
   const out = {
     id: Number(row.id), project_id: Number(row.project_id), kind: row.kind || 'risk', title: row.title, probability: p, impact: i, score,
-    severity: score == null ? null : score >= 6 ? 'high' : score >= 3 ? 'medium' : 'low',
+    // P11 r6 F-27 — the inherent level from the ONE mapping (riskExposure.level); 'critical' reads 'high' here as before
+    severity: (function () { const l = require('./riskExposure').level(p, i); return l == null ? null : l === 'critical' ? 'high' : l; })(),
     owner: row.owner || null, status: row.status, mitigation: row.mitigation || null,
     response: d.response || null, review_date: d.review_date || null,
     review_overdue: !!(d.review_date && row.status === 'open' && today && d.review_date < today),

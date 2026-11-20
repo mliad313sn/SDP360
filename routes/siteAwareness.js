@@ -29,9 +29,15 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
 
   // ── Fleet-view RAG helpers (DISPLAY-only thresholds; grey 'na' when no code/no data) ──
   const _cell = (rag, value) => ({ rag: rag || 'na', value: (value == null ? null : value) });
-  // helpdesk (P11 F-24): Resolution SLA of the CLOSED tickets of the window — services/siteHelpdeskSla.fleetCell, the
-  // same closed-only doctrine as the site view (cancelled / open / no-rule tickets out of the base). na when nothing closed.
-  function ragHelpdesk(hw) { const c = require('../services/siteHelpdeskSla').fleetCell(hw); return _cell(c.rag, c.value); }
+  // helpdesk (P11 F-24 / r6 F-26): services/siteHelpdeskSla.fleetCell — the closed-only Resolution SLA rate, coloured by
+  // the worst of the closed band and the open-overdue band; open_overdue and the overall cap ride along.
+  function ragHelpdesk(hw) {
+    const c = require('../services/siteHelpdeskSla').fleetCell(hw);
+    const cell = _cell(c.rag, c.value);
+    cell.open_overdue = c.open_overdue;
+    if (c.cap) cell.cap = c.cap;
+    return cell;
+  }
   // inspections: conformity = ok/(ok+minor+major+critical+opp). na when base 0.
   function ragInspections(findingStatus) {
     const f = { ok: 0, minor: 0, major: 0, critical: 0, opp: 0 };
@@ -75,14 +81,9 @@ module.exports = function siteAwarenessRoutes({ express, requireReportSession, r
     return _cell(rag, Math.round(pct) + '%');
   }
   // overall roll-up over NON-na cells (green=2/amber=1/red=0). all-na → na.
-  function rollupRag(cells) {
-    const scored = Object.values(cells).map((c) => c && c.rag)
-      .filter((r) => r === 'green' || r === 'amber' || r === 'red')
-      .map((r) => (r === 'green' ? 2 : (r === 'amber' ? 1 : 0)));
-    if (!scored.length) return 'na';
-    const pct = (scored.reduce((a, b) => a + b, 0) / scored.length) / 2;
-    return pct >= 0.75 ? 'green' : (pct >= 0.5 ? 'amber' : 'red');
-  }
+  // overall verdict (P11 r6 F-26): services/siteAwarenessFleet.rollupRag — mean of the scored cells, capped by a
+  // cell's `cap` (the helpdesk cell's open-overdue band).
+  const rollupRag = require('../services/siteAwarenessFleet').rollupRag;
   // RAG ordinal + month-over-month direction. Higher RAG = better, so 'up' is always an
   // improvement. Returns null when either period is na (nothing to compare) — the frontend
   // then shows no chip. Used for the Group View's retroactive Δ (P2).

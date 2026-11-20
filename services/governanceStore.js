@@ -401,7 +401,8 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
   // ── portfolio ─────────────────────────────────────────────────────────────────────
   const idRow = (r) => r && ({ ...r, id: Number(r.id) });
   const taskRow = (r) => r && ({ ...idRow(r), dependency_links: P_(r.dependency_links, null), effort_driven: r.effort_driven == null ? null : Number(r.effort_driven), project_id: Number(r.project_id), parent_id: r.parent_id == null ? null : Number(r.parent_id), duration_days: num(r.duration_days), allocation_pct: num(r.allocation_pct), progress_pct: num(r.progress_pct), effort_hours: num(r.effort_hours), depends_on: P_(r.depends_on, []) });
-  const RISK_KINDS = ['risk', 'issue', 'assumption'];   // A-14 RAID (dependencies live in depends_on, decisions in DEC-…)
+  const RISK_KINDS = ['risk', 'issue', 'assumption'];
+  const RISK_STATUSES = ['open', 'closed'];   // P11 r6 F-28 — the RAID writer's vocabulary (services/ppm/raid.js)   // A-14 RAID (dependencies live in depends_on, decisions in DEC-…)
   // PORTFOLIO LOT 6 — the residual / due-date columns (migration 130) are served only by services/ppm/portfolioPhase2Store
   // (switch ppm_structured_dependencies_enabled); every existing risk payload keeps today's shape.
   const riskRow = (r) => { const { residual_probability, residual_impact, due_date, ...rest } = r || {}; return { ...idRow(rest), project_id: Number(r.project_id), probability: Number(r.probability), impact: Number(r.impact), kind: r.kind || 'risk' }; };
@@ -528,12 +529,13 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     const benefits = await listBenefits(pid);
     return { project, objective: objective ? { ...idRow(objective), programme_id: Number(objective.programme_id) } : null, milestones, deliverables, risks, tasks, benefits, extra_sites: await projectSites(pid), gate_ctx: await gateCounts(pid) };
   }
-  /** The counts the stage gates read: open tasks, open high (P×I >= 6) risks — only kind = 'risk' (today's rule). */
+  /** The counts the stage gates read: open tasks, open high risks — P11 r6 F-27: the ONE high-risk rule
+   *  (services/ppm/riskExposure.isHigh: open, kind risk | issue, residual level first, unknown score never high). */
   async function gateCounts(id) {
     // A-19c: live tasks only — a sub-task of a soft-deleted task is hidden with it, so it does not block a gate either
     const openTasks = _liveTaskTree(await P(`SELECT id, parent_id, status FROM portfolio_tasks WHERE project_id=? AND deleted_at IS NULL`).all(Number(id)))
       .filter(t => !['done', 'cancelled'].includes(t.status)).length;
-    const openRisksHigh = (await P(`SELECT probability, impact FROM portfolio_risks WHERE project_id=? AND deleted_at IS NULL AND status='open' AND COALESCE(kind,'risk')='risk'`).all(Number(id))).filter(r => Number(r.probability) * Number(r.impact) >= 6).length;
+    const openRisksHigh = (await P(`SELECT kind, status, probability, impact, residual_probability, residual_impact, deleted_at FROM portfolio_risks WHERE project_id=? AND deleted_at IS NULL`).all(Number(id))).filter(require('./ppm/riskExposure').isHigh).length;
     return { openTasks, openRisksHigh };
   }
   async function planRow(kind, id) { const T = TABLES[kind]; if (!T || !T.cols.includes('project_id')) return null; const r = await P(`SELECT id, project_id FROM ${T.table} WHERE id=?${softDelete.TABLES[T.table] ? ' AND deleted_at IS NULL' : ''}`).get(Number(id)); /* benefits have no deleted_at: they follow their project */ return r && !(await _projectGone(r.project_id)) ? { id: Number(r.id), project_id: Number(r.project_id) } : null; }
@@ -574,6 +576,10 @@ function makeGovernanceStore(db, { isPg = false, now = () => new Date().toISOStr
     if (kind === 'task' && out.allocation_pct != null && !(out.allocation_pct >= 0 && out.allocation_pct <= 100)) throw Object.assign(new Error('allocation_pct must be 0..100'), { code: 'INVALID' });
     if (kind === 'task' && out.progress_pct != null && !(out.progress_pct >= 0 && out.progress_pct <= 100)) throw Object.assign(new Error('progress_pct must be 0..100'), { code: 'INVALID' });
     if (kind === 'task' && out.effort_hours != null && !(Number.isFinite(out.effort_hours) && out.effort_hours >= 0)) throw Object.assign(new Error('effort_hours must be a positive number (leave empty when unknown)'), { code: 'INVALID' });
+    // P11 r6 F-28 — the generic writer stores the RAID status vocabulary only (raid.js): open | closed, case-normalised.
+    // Anything else (Closed, mitigated, free text) used to land as text the shared high-risk rule then read as open.
+    if (kind === 'risk' && out.status != null) { out.status = String(out.status).trim().toLowerCase(); if (!RISK_STATUSES.includes(out.status)) throw Object.assign(new Error('risk status must be ' + RISK_STATUSES.join(' | ')), { code: 'INVALID', reason: 'BAD_STATUS' }); }
+    if (kind === 'risk' && out.kind != null) out.kind = String(out.kind).trim().toLowerCase();
     if (kind === 'risk' && body.kind !== undefined && !RISK_KINDS.includes(out.kind)) throw Object.assign(new Error('kind must be ' + RISK_KINDS.join(' | ')), { code: 'INVALID' });
     if (kind === 'project' && out.spend_type && !SPEND_TYPES.includes(out.spend_type)) throw Object.assign(new Error('spend_type must be capex | opex | mixed'), { code: 'INVALID' });
     if (kind === 'project' && out.currency != null && !/^[A-Z]{3}$/.test(out.currency)) throw Object.assign(new Error('currency must be an ISO code such as USD or XOF'), { code: 'INVALID' });

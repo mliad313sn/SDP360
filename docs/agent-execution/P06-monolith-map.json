@@ -2,85 +2,31 @@
  "generated_by": "tools/agent/monolith-map.js",
  "window_days": 30,
  "server": {
-  "lines": 5716,
-  "inline_routes": 159,
+  "lines": 5718,
+  "inline_routes": 158,
   "by_domain": [
    {
     "domain": "reports/auth",
     "items": 4,
     "lines": 66,
-    "recent_commits_max": 6
+    "recent_commits_max": 3
    },
    {
     "domain": "reports/helpdesk-charts",
     "items": 1,
     "lines": 196,
-    "recent_commits_max": 3
-   },
-   {
-    "domain": "reports/exec-pptx",
-    "items": 1,
-    "lines": 137,
-    "recent_commits_max": 3
-   },
-   {
-    "domain": "auth",
-    "items": 3,
-    "lines": 81,
-    "recent_commits_max": 3
-   },
-   {
-    "domain": "ai",
-    "items": 1,
-    "lines": 28,
-    "recent_commits_max": 3
-   },
-   {
-    "domain": "reports/ensure",
-    "items": 1,
-    "lines": 21,
-    "recent_commits_max": 3
-   },
-   {
-    "domain": "data",
-    "items": 16,
-    "lines": 445,
-    "recent_commits_max": 2
-   },
-   {
-    "domain": "reports",
-    "items": 23,
-    "lines": 396,
     "recent_commits_max": 2
    },
    {
     "domain": "reports/monthly",
     "items": 7,
-    "lines": 139,
+    "lines": 140,
     "recent_commits_max": 2
    },
    {
-    "domain": "metrics",
-    "items": 5,
-    "lines": 62,
-    "recent_commits_max": 2
-   },
-   {
-    "domain": "dashboard",
-    "items": 3,
-    "lines": 49,
-    "recent_commits_max": 2
-   },
-   {
-    "domain": "executive-new-pptx",
+    "domain": "reports/exec-pptx",
     "items": 1,
-    "lines": 41,
-    "recent_commits_max": 2
-   },
-   {
-    "domain": "reports/weekly-summary",
-    "items": 1,
-    "lines": 35,
+    "lines": 137,
     "recent_commits_max": 2
    },
    {
@@ -90,9 +36,9 @@
     "recent_commits_max": 2
    },
    {
-    "domain": "debug",
+    "domain": "ai",
     "items": 1,
-    "lines": 25,
+    "lines": 28,
     "recent_commits_max": 2
    },
    {
@@ -102,81 +48,39 @@
     "recent_commits_max": 2
    },
    {
-    "domain": "reports/exec-editorial",
-    "items": 2,
-    "lines": 25,
-    "recent_commits_max": 2
-   },
-   {
-    "domain": "notes",
-    "items": 2,
-    "lines": 22,
-    "recent_commits_max": 2
-   },
-   {
-    "domain": "reports/site-data",
+    "domain": "reports/ensure",
     "items": 1,
-    "lines": 16,
+    "lines": 21,
     "recent_commits_max": 2
    },
    {
-    "domain": "save-pptx",
+    "domain": "page:itsm-integrations-plan",
     "items": 1,
-    "lines": 15,
+    "lines": 9,
     "recent_commits_max": 2
    },
    {
-    "domain": "orgs",
-    "items": 1,
-    "lines": 7,
-    "recent_commits_max": 2
-   },
-   {
-    "domain": "workspaces",
-    "items": 1,
-    "lines": 7,
-    "recent_commits_max": 2
-   },
-   {
-    "domain": "views",
-    "items": 1,
-    "lines": 7,
-    "recent_commits_max": 2
-   },
-   {
-    "domain": "meridian",
-    "items": 1,
-    "lines": 7,
-    "recent_commits_max": 2
-   },
-   {
-    "domain": "save-charts",
-    "items": 1,
-    "lines": 7,
-    "recent_commits_max": 2
-   },
-   {
-    "domain": "admin",
-    "items": 1,
-    "lines": 103,
+    "domain": "data",
+    "items": 16,
+    "lines": 445,
     "recent_commits_max": 1
    },
    {
-    "domain": "reports/action",
-    "items": 4,
-    "lines": 61,
+    "domain": "reports",
+    "items": 23,
+    "lines": 396,
     "recent_commits_max": 1
    },
    {
-    "domain": "reports/helpdesk-live",
-    "items": 1,
-    "lines": 55,
+    "domain": "auth",
+    "items": 3,
+    "lines": 81,
     "recent_commits_max": 1
    },
    {
-    "domain": "reports/departments",
-    "items": 4,
-    "lines": 52,
+    "domain": "metrics",
+    "items": 5,
+    "lines": 62,
     "recent_commits_max": 1
    },
    {
@@ -186,27 +90,39 @@
     "recent_commits_max": 1
    },
    {
-    "domain": "reports/send",
-    "items": 1,
-    "lines": 44,
-    "recent_commits_max": 1
-   },
-   {
-    "domain": "reports/review-data",
-    "items": 1,
-    "lines": 43,
-    "recent_commits_max": 1
-   },
-   {
-    "domain": "requests",
-    "items": 1,
-    "lines": 20,
-    "recent_commits_max": 1
-   },
-   {
-    "domain": "reports/recipients",
+    "domain": "dashboard",
     "items": 3,
-    "lines": 17,
+    "lines": 49,
+    "recent_commits_max": 1
+   },
+   {
+    "domain": "executive-new-pptx",
+    "items": 1,
+    "lines": 41,
+    "recent_commits_max": 1
+   },
+   {
+    "domain": "reports/weekly-summary",
+    "items": 1,
+    "lines": 35,
+    "recent_commits_max": 1
+   },
+   {
+    "domain": "debug",
+    "items": 1,
+    "lines": 25,
+    "recent_commits_max": 1
+   },
+   {
+    "domain": "reports/exec-editorial",
+    "items": 2,
+    "lines": 25,
+    "recent_commits_max": 1
+   },
+   {
+    "domain": "notes",
+    "items": 2,
+    "lines": 22,
     "recent_commits_max": 1
    },
    {
@@ -216,37 +132,37 @@
     "recent_commits_max": 1
    },
    {
-    "domain": "change",
+    "domain": "reports/site-data",
     "items": 1,
     "lines": 16,
     "recent_commits_max": 1
    },
    {
-    "domain": "cab",
+    "domain": "save-pptx",
     "items": 1,
-    "lines": 16,
+    "lines": 15,
     "recent_commits_max": 1
    },
    {
-    "domain": "sites",
-    "items": 2,
-    "lines": 16,
-    "recent_commits_max": 1
-   },
-   {
-    "domain": "reports/technicians",
+    "domain": "reports/current-week",
     "items": 1,
-    "lines": 11,
+    "lines": 9,
     "recent_commits_max": 1
    },
    {
-    "domain": "reports/schedule",
-    "items": 2,
-    "lines": 8,
+    "domain": "orgs",
+    "items": 1,
+    "lines": 7,
     "recent_commits_max": 1
    },
    {
-    "domain": "page:itsm-integrations-plan",
+    "domain": "workspaces",
+    "items": 1,
+    "lines": 7,
+    "recent_commits_max": 1
+   },
+   {
+    "domain": "views",
     "items": 1,
     "lines": 7,
     "recent_commits_max": 1
@@ -258,7 +174,7 @@
     "recent_commits_max": 1
    },
    {
-    "domain": "reports/current-week",
+    "domain": "meridian",
     "items": 1,
     "lines": 7,
     "recent_commits_max": 1
@@ -270,10 +186,52 @@
     "recent_commits_max": 1
    },
    {
+    "domain": "save-charts",
+    "items": 1,
+    "lines": 7,
+    "recent_commits_max": 1
+   },
+   {
     "domain": "page:no-access",
     "items": 1,
     "lines": 3,
     "recent_commits_max": 1
+   },
+   {
+    "domain": "admin",
+    "items": 1,
+    "lines": 103,
+    "recent_commits_max": 0
+   },
+   {
+    "domain": "reports/action",
+    "items": 4,
+    "lines": 61,
+    "recent_commits_max": 0
+   },
+   {
+    "domain": "reports/helpdesk-live",
+    "items": 1,
+    "lines": 55,
+    "recent_commits_max": 0
+   },
+   {
+    "domain": "reports/departments",
+    "items": 4,
+    "lines": 52,
+    "recent_commits_max": 0
+   },
+   {
+    "domain": "reports/send",
+    "items": 1,
+    "lines": 44,
+    "recent_commits_max": 0
+   },
+   {
+    "domain": "reports/review-data",
+    "items": 1,
+    "lines": 43,
+    "recent_commits_max": 0
    },
    {
     "domain": "exec",
@@ -282,9 +240,45 @@
     "recent_commits_max": 0
    },
    {
-    "domain": "page:health",
+    "domain": "requests",
+    "items": 1,
+    "lines": 20,
+    "recent_commits_max": 0
+   },
+   {
+    "domain": "reports/recipients",
+    "items": 3,
+    "lines": 17,
+    "recent_commits_max": 0
+   },
+   {
+    "domain": "change",
+    "items": 1,
+    "lines": 16,
+    "recent_commits_max": 0
+   },
+   {
+    "domain": "cab",
+    "items": 1,
+    "lines": 16,
+    "recent_commits_max": 0
+   },
+   {
+    "domain": "sites",
+    "items": 2,
+    "lines": 16,
+    "recent_commits_max": 0
+   },
+   {
+    "domain": "reports/technicians",
     "items": 1,
     "lines": 11,
+    "recent_commits_max": 0
+   },
+   {
+    "domain": "reports/schedule",
+    "items": 2,
+    "lines": 8,
     "recent_commits_max": 0
    },
    {
@@ -515,8 +509,8 @@
     "method": "GET",
     "path": "/api/exec/summary",
     "domain": "exec",
-    "line": 1148,
-    "end": 1170,
+    "line": 1152,
+    "end": 1174,
     "lines": 23,
     "guards": [],
     "helpers": [
@@ -533,8 +527,8 @@
     "method": "GET",
     "path": "/api/exec/editorial",
     "domain": "exec",
-    "line": 1175,
-    "end": 1180,
+    "line": 1179,
+    "end": 1184,
     "lines": 6,
     "guards": [
      "requireReportSession",
@@ -550,8 +544,8 @@
     "method": "PUT",
     "path": "/api/exec/editorial",
     "domain": "exec",
-    "line": 1184,
-    "end": 1193,
+    "line": 1188,
+    "end": 1197,
     "lines": 10,
     "guards": [
      "requireReportSession",
@@ -570,8 +564,8 @@
     "method": "GET",
     "path": "/executive.html",
     "domain": "page:executive",
-    "line": 1313,
-    "end": 1315,
+    "line": 1317,
+    "end": 1319,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -579,6 +573,7 @@
     ],
     "tests": [
      "api-key-injection.smoke.test.js",
+     "csp-journey-report.test.js",
      "exec-scorecard-registry-parity.test.js",
      "first-usable.test.js",
      "page-usage.test.js",
@@ -590,8 +585,8 @@
     "method": "GET",
     "path": "/exec-view.html",
     "domain": "page:exec-view",
-    "line": 1320,
-    "end": 1322,
+    "line": 1324,
+    "end": 1326,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -610,8 +605,8 @@
     "method": "GET",
     "path": "/site-report.html",
     "domain": "page:site-report",
-    "line": 1327,
-    "end": 1329,
+    "line": 1331,
+    "end": 1333,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -628,8 +623,8 @@
     "method": "GET",
     "path": "/no-access.html",
     "domain": "page:no-access",
-    "line": 1332,
-    "end": 1334,
+    "line": 1336,
+    "end": 1338,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -645,14 +640,15 @@
     "method": "GET",
     "path": "/site-awareness.html",
     "domain": "page:site-awareness",
-    "line": 1335,
-    "end": 1337,
+    "line": 1339,
+    "end": 1341,
     "lines": 3,
     "guards": [],
     "helpers": [
      "sendHtmlPage"
     ],
     "tests": [
+     "p11-r6-data-fixes.test.js",
      "ui-design-ratchet.test.js"
     ],
     "recent_commits": 0
@@ -661,8 +657,8 @@
     "method": "GET",
     "path": "/it-review.html",
     "domain": "page:it-review",
-    "line": 1342,
-    "end": 1344,
+    "line": 1346,
+    "end": 1348,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -679,14 +675,15 @@
     "method": "GET",
     "path": "/login.html",
     "domain": "page:login",
-    "line": 1349,
-    "end": 1351,
+    "line": 1353,
+    "end": 1355,
     "lines": 3,
     "guards": [],
     "helpers": [
      "sendHtmlPage"
     ],
     "tests": [
+     "csp-candidate-pages.smoke.test.js",
      "csp-headers.smoke.test.js",
      "csp-journey-report.test.js",
      "csp-report.smoke.test.js",
@@ -701,8 +698,8 @@
     "method": "GET",
     "path": "/",
     "domain": "root",
-    "line": 1354,
-    "end": 1356,
+    "line": 1358,
+    "end": 1360,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -715,8 +712,8 @@
     "method": "GET",
     "path": "/analytics.html",
     "domain": "page:analytics",
-    "line": 1359,
-    "end": 1361,
+    "line": 1363,
+    "end": 1365,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -727,6 +724,7 @@
      "analytics-logic.test.js",
      "analytics-metrics-authz.smoke.test.js",
      "api-key-injection.smoke.test.js",
+     "csp-journey-report.test.js",
      "ui-design-ratchet.test.js"
     ],
     "recent_commits": 0
@@ -735,17 +733,19 @@
     "method": "GET",
     "path": "/reports.html",
     "domain": "page:reports",
-    "line": 1364,
-    "end": 1366,
+    "line": 1368,
+    "end": 1370,
     "lines": 3,
     "guards": [],
     "helpers": [
      "sendHtmlPage"
     ],
     "tests": [
+     "adoption-lota-week.test.js",
      "api-key-injection.smoke.test.js",
      "auth-roles-refresh.test.js",
      "csp-headers.smoke.test.js",
+     "csp-journey-report.test.js",
      "csp-report.smoke.test.js",
      "csv-guard-coverage.test.js",
      "first-usable.test.js",
@@ -765,8 +765,8 @@
     "method": "GET",
     "path": "/executive-report.html",
     "domain": "page:executive-report",
-    "line": 1369,
-    "end": 1371,
+    "line": 1373,
+    "end": 1375,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -775,9 +775,11 @@
     "tests": [
      "api-key-injection.smoke.test.js",
      "csp-headers.smoke.test.js",
+     "csp-journey-report.test.js",
      "csv-safe.test.js",
      "deck-builder-gate.test.js",
      "exec-deck-payload.test.js",
+     "exec-pptx-csat-null.test.js",
      "ui-design-ratchet.test.js"
     ],
     "recent_commits": 0
@@ -786,14 +788,15 @@
     "method": "GET",
     "path": "/inspection.html",
     "domain": "page:inspection",
-    "line": 1376,
-    "end": 1378,
+    "line": 1380,
+    "end": 1382,
     "lines": 3,
     "guards": [],
     "helpers": [
      "sendHtmlPage"
     ],
     "tests": [
+     "csp-journey-report.test.js",
      "ui-design-ratchet.test.js"
     ],
     "recent_commits": 0
@@ -802,8 +805,8 @@
     "method": "GET",
     "path": "/inspection-actions.html",
     "domain": "page:inspection-actions",
-    "line": 1381,
-    "end": 1383,
+    "line": 1385,
+    "end": 1387,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -819,14 +822,15 @@
     "method": "GET",
     "path": "/assets.html",
     "domain": "page:assets",
-    "line": 1386,
-    "end": 1388,
+    "line": 1390,
+    "end": 1392,
     "lines": 3,
     "guards": [],
     "helpers": [
      "sendHtmlPage"
     ],
     "tests": [
+     "adoption-lota-truth.test.js",
      "asset-reminder-report.test.js",
      "assets-freshness.test.js",
      "csv-safe.test.js",
@@ -839,8 +843,8 @@
     "method": "GET",
     "path": "/wan.html",
     "domain": "page:wan",
-    "line": 1389,
-    "end": 1391,
+    "line": 1393,
+    "end": 1395,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -860,8 +864,8 @@
     "method": "GET",
     "path": "/wan-health.html",
     "domain": "page:wan-health",
-    "line": 1393,
-    "end": 1395,
+    "line": 1397,
+    "end": 1399,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -877,8 +881,8 @@
     "method": "GET",
     "path": "/infra-health.html",
     "domain": "page:infra-health",
-    "line": 1396,
-    "end": 1398,
+    "line": 1400,
+    "end": 1402,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -895,8 +899,8 @@
     "method": "GET",
     "path": "/wan-sla.html",
     "domain": "page:wan-sla",
-    "line": 1399,
-    "end": 1401,
+    "line": 1403,
+    "end": 1405,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -912,8 +916,8 @@
     "method": "GET",
     "path": "/itsm-roadmap.html",
     "domain": "page:itsm-roadmap",
-    "line": 1404,
-    "end": 1406,
+    "line": 1408,
+    "end": 1410,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -929,8 +933,8 @@
     "method": "GET",
     "path": "/assets-hygiene.html",
     "domain": "page:assets-hygiene",
-    "line": 1408,
-    "end": 1410,
+    "line": 1412,
+    "end": 1414,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -946,8 +950,8 @@
     "method": "GET",
     "path": "/assets-finance.html",
     "domain": "page:assets-finance",
-    "line": 1411,
-    "end": 1413,
+    "line": 1415,
+    "end": 1417,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -962,14 +966,15 @@
     "method": "GET",
     "path": "/inspections.html",
     "domain": "page:inspections",
-    "line": 1415,
-    "end": 1417,
+    "line": 1419,
+    "end": 1421,
     "lines": 3,
     "guards": [],
     "helpers": [
      "sendHtmlPage"
     ],
     "tests": [
+     "adoption-lota-truth.test.js",
      "ui-design-ratchet.test.js"
     ],
     "recent_commits": 0
@@ -978,8 +983,8 @@
     "method": "GET",
     "path": "/activity-tracker.html",
     "domain": "page:activity-tracker",
-    "line": 1424,
-    "end": 1426,
+    "line": 1428,
+    "end": 1430,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -995,8 +1000,8 @@
     "method": "GET",
     "path": "/help.html",
     "domain": "page:help",
-    "line": 1430,
-    "end": 1432,
+    "line": 1434,
+    "end": 1436,
     "lines": 3,
     "guards": [],
     "helpers": [
@@ -1014,9 +1019,9 @@
     "method": "GET",
     "path": "/itsm-integrations-plan.html",
     "domain": "page:itsm-integrations-plan",
-    "line": 1435,
-    "end": 1441,
-    "lines": 7,
+    "line": 1439,
+    "end": 1447,
+    "lines": 9,
     "guards": [],
     "helpers": [
      "getCookie",
@@ -1027,20 +1032,21 @@
      "integrations-plan-gate.smoke.test.js",
      "ui-design-ratchet.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 2
    },
    {
     "method": "GET",
     "path": "/meetings.html",
     "domain": "page:meetings",
-    "line": 1451,
-    "end": 1451,
+    "line": 1457,
+    "end": 1457,
     "lines": 1,
     "guards": [],
     "helpers": [
      "sendHtmlPage"
     ],
     "tests": [
+     "adoption-lota-truth.test.js",
      "inventory-strict.test.js",
      "ui-design-ratchet.test.js"
     ],
@@ -1050,8 +1056,8 @@
     "method": "GET",
     "path": "/meeting.html",
     "domain": "page:meeting",
-    "line": 1452,
-    "end": 1452,
+    "line": 1458,
+    "end": 1458,
     "lines": 1,
     "guards": [],
     "helpers": [
@@ -1068,8 +1074,8 @@
     "method": "GET",
     "path": "/meetings-issues.html",
     "domain": "page:meetings-issues",
-    "line": 1453,
-    "end": 1453,
+    "line": 1459,
+    "end": 1459,
     "lines": 1,
     "guards": [],
     "helpers": [
@@ -1085,8 +1091,8 @@
     "method": "GET",
     "path": "/meetings-actions.html",
     "domain": "page:meetings-actions",
-    "line": 1454,
-    "end": 1454,
+    "line": 1460,
+    "end": 1460,
     "lines": 1,
     "guards": [],
     "helpers": [
@@ -1102,8 +1108,8 @@
     "method": "GET",
     "path": "/site-actions.html",
     "domain": "page:site-actions",
-    "line": 1456,
-    "end": 1456,
+    "line": 1462,
+    "end": 1462,
     "lines": 1,
     "guards": [],
     "helpers": [
@@ -1124,8 +1130,8 @@
     "method": "GET",
     "path": "/system-logs.html",
     "domain": "page:system-logs",
-    "line": 1457,
-    "end": 1457,
+    "line": 1463,
+    "end": 1463,
     "lines": 1,
     "guards": [],
     "helpers": [
@@ -1140,8 +1146,8 @@
     "method": "GET",
     "path": "/meetings-unsigned.html",
     "domain": "page:meetings-unsigned",
-    "line": 1458,
-    "end": 1458,
+    "line": 1464,
+    "end": 1464,
     "lines": 1,
     "guards": [],
     "helpers": [
@@ -1156,8 +1162,8 @@
     "method": "GET",
     "path": "/meetings-council.html",
     "domain": "page:meetings-council",
-    "line": 1459,
-    "end": 1459,
+    "line": 1465,
+    "end": 1465,
     "lines": 1,
     "guards": [],
     "helpers": [
@@ -1172,8 +1178,8 @@
     "method": "GET",
     "path": "/meetings-compliance.html",
     "domain": "page:meetings-compliance",
-    "line": 1460,
-    "end": 1460,
+    "line": 1466,
+    "end": 1466,
     "lines": 1,
     "guards": [],
     "helpers": [
@@ -1188,8 +1194,8 @@
     "method": "GET",
     "path": "/meetings-import.html",
     "domain": "page:meetings-import",
-    "line": 1461,
-    "end": 1461,
+    "line": 1467,
+    "end": 1467,
     "lines": 1,
     "guards": [],
     "helpers": [
@@ -1204,8 +1210,8 @@
     "method": "GET",
     "path": "/meetings-progress.html",
     "domain": "page:meetings-progress",
-    "line": 1462,
-    "end": 1462,
+    "line": 1468,
+    "end": 1468,
     "lines": 1,
     "guards": [],
     "helpers": [
@@ -1220,8 +1226,8 @@
     "method": "GET",
     "path": "/meetings-insights.html",
     "domain": "page:meetings-insights",
-    "line": 1463,
-    "end": 1463,
+    "line": 1469,
+    "end": 1469,
     "lines": 1,
     "guards": [],
     "helpers": [
@@ -1237,8 +1243,8 @@
     "method": "GET",
     "path": "/meetings-setup.html",
     "domain": "page:meetings-setup",
-    "line": 1464,
-    "end": 1464,
+    "line": 1470,
+    "end": 1470,
     "lines": 1,
     "guards": [],
     "helpers": [
@@ -1253,14 +1259,15 @@
     "method": "GET",
     "path": "/api/ping",
     "domain": "ping",
-    "line": 1578,
-    "end": 1578,
+    "line": 1584,
+    "end": 1584,
     "lines": 1,
     "guards": [],
     "helpers": [],
     "tests": [
      "api-key-injection.smoke.test.js",
      "auth-cookie.smoke.test.js",
+     "auth-db-busy.smoke.test.js",
      "dashkey-only-routes.smoke.test.js"
     ],
     "recent_commits": 0
@@ -1269,8 +1276,8 @@
     "method": "GET",
     "path": "/api/sync/status",
     "domain": "sync",
-    "line": 1587,
-    "end": 1618,
+    "line": 1593,
+    "end": 1624,
     "lines": 32,
     "guards": [
      "requireReportSession"
@@ -1281,14 +1288,14 @@
     "tests": [
      "server-routes-smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "POST",
     "path": "/api/sync/trigger/assets",
     "domain": "sync",
-    "line": 1630,
-    "end": 1634,
+    "line": 1636,
+    "end": 1640,
     "lines": 5,
     "guards": [
      "requireReportSession",
@@ -1307,8 +1314,8 @@
     "method": "POST",
     "path": "/api/sync/trigger/:job",
     "domain": "sync",
-    "line": 1636,
-    "end": 1647,
+    "line": 1642,
+    "end": 1653,
     "lines": 12,
     "guards": [
      "requireReportSession",
@@ -1329,66 +1336,38 @@
    },
    {
     "method": "GET",
-    "path": "/health",
-    "domain": "page:health",
-    "line": 1655,
-    "end": 1665,
-    "lines": 11,
-    "guards": [],
-    "helpers": [
-     "CONFIG",
-     "tokenState",
-     "SURVEY_VIEW_ID",
-     "_surveyCache"
-    ],
-    "tests": [
-     "agent-inventory.test.js",
-     "api-key-injection.smoke.test.js",
-     "authz-route-matrix.test.js",
-     "governance-policy-routes.smoke.test.js",
-     "health-deps.smoke.test.js",
-     "health-deps.test.js",
-     "health-version.smoke.test.js",
-     "restore-drill-admin-card.test.js",
-     "sync-routes.smoke.test.js",
-     "sync-skip-semantics.test.js"
-    ],
-    "recent_commits": 0
-   },
-   {
-    "method": "GET",
     "path": "/api/change",
     "domain": "change",
-    "line": 1703,
-    "end": 1718,
+    "line": 1699,
+    "end": 1714,
     "lines": 16,
     "guards": [
      "requireReportSession"
     ],
     "helpers": [],
     "tests": [],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/cab",
     "domain": "cab",
-    "line": 1725,
-    "end": 1740,
+    "line": 1721,
+    "end": 1736,
     "lines": 16,
     "guards": [
      "requireReportSession"
     ],
     "helpers": [],
     "tests": [],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/metrics/change",
     "domain": "metrics",
-    "line": 1761,
-    "end": 1771,
+    "line": 1757,
+    "end": 1767,
     "lines": 11,
     "guards": [
      "requireReportSession",
@@ -1400,14 +1379,14 @@
      "analytics-logic.test.js",
      "analytics-metrics-authz.smoke.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "method": "GET",
     "path": "/api/metrics/cab",
     "domain": "metrics",
-    "line": 1782,
-    "end": 1792,
+    "line": 1778,
+    "end": 1788,
     "lines": 11,
     "guards": [
      "requireReportSession",
@@ -1419,14 +1398,14 @@
      "analytics-logic.test.js",
      "analytics-metrics-authz.smoke.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "method": "GET",
     "path": "/api/metrics/survey",
     "domain": "metrics",
-    "line": 1803,
-    "end": 1817,
+    "line": 1799,
+    "end": 1813,
     "lines": 15,
     "guards": [
      "requireReportSession",
@@ -1440,14 +1419,14 @@
      "analytics-logic.test.js",
      "analytics-metrics-authz.smoke.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "method": "GET",
     "path": "/api/metrics/requests",
     "domain": "metrics",
-    "line": 1830,
-    "end": 1848,
+    "line": 1826,
+    "end": 1844,
     "lines": 19,
     "guards": [
      "requireReportSession",
@@ -1457,6 +1436,7 @@
      "buildDataFreshness"
     ],
     "tests": [
+     "adoption-lota-nav-authz.test.js",
      "analytics-charts.test.js",
      "analytics-logic.test.js",
      "analytics-metrics-authz.smoke.test.js",
@@ -1464,14 +1444,14 @@
      "server-routes-smoke.test.js",
      "uat-amdec-org-models.smoke.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "method": "GET",
     "path": "/api/metrics/request-filter-options",
     "domain": "metrics",
-    "line": 1855,
-    "end": 1860,
+    "line": 1851,
+    "end": 1856,
     "lines": 6,
     "guards": [
      "requireReportSession",
@@ -1481,14 +1461,14 @@
     "tests": [
      "analytics-metrics-authz.smoke.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "method": "GET",
     "path": "/api/requests",
     "domain": "requests",
-    "line": 1875,
-    "end": 1894,
+    "line": 1871,
+    "end": 1890,
     "lines": 20,
     "guards": [
      "requireReportSession"
@@ -1497,14 +1477,14 @@
     "tests": [
      "server-routes-smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/orgs",
     "domain": "orgs",
-    "line": 1896,
-    "end": 1902,
+    "line": 1892,
+    "end": 1898,
     "lines": 7,
     "guards": [
      "requireReportSession",
@@ -1519,14 +1499,14 @@
      "api-key-injection.smoke.test.js",
      "sec01-route-roles.smoke.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "method": "GET",
     "path": "/api/debug/raw-test",
     "domain": "debug",
-    "line": 1905,
-    "end": 1929,
+    "line": 1901,
+    "end": 1925,
     "lines": 25,
     "guards": [
      "requireReportSession",
@@ -1541,14 +1521,14 @@
     "tests": [
      "sec01-route-roles.smoke.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "method": "GET",
     "path": "/api/workspaces",
     "domain": "workspaces",
-    "line": 1931,
-    "end": 1937,
+    "line": 1927,
+    "end": 1933,
     "lines": 7,
     "guards": [
      "requireReportSession",
@@ -1564,14 +1544,14 @@
      "api-key-injection.smoke.test.js",
      "sec01-route-roles.smoke.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "method": "GET",
     "path": "/api/views",
     "domain": "views",
-    "line": 1939,
-    "end": 1945,
+    "line": 1935,
+    "end": 1941,
     "lines": 7,
     "guards": [
      "requireReportSession",
@@ -1586,14 +1566,14 @@
     "tests": [
      "sec01-route-roles.smoke.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "method": "POST",
     "path": "/api/cache/clear",
     "domain": "cache",
-    "line": 1947,
-    "end": 1951,
+    "line": 1943,
+    "end": 1947,
     "lines": 5,
     "guards": [
      "requireReportSession",
@@ -1612,8 +1592,8 @@
     "method": "POST",
     "path": "/api/admin/refresh-major-incident-udfs",
     "domain": "admin",
-    "line": 1975,
-    "end": 2077,
+    "line": 1971,
+    "end": 2073,
     "lines": 103,
     "guards": [
      "requireReportSession",
@@ -1626,14 +1606,14 @@
      "fetchView"
     ],
     "tests": [],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/cache/status",
     "domain": "cache",
-    "line": 2080,
-    "end": 2099,
+    "line": 2076,
+    "end": 2095,
     "lines": 20,
     "guards": [
      "requireReportSession"
@@ -1653,8 +1633,8 @@
     "method": "GET",
     "path": "/api/data/major-incidents",
     "domain": "data",
-    "line": 2146,
-    "end": 2171,
+    "line": 2142,
+    "end": 2167,
     "lines": 26,
     "guards": [
      "requireReportSession"
@@ -1667,14 +1647,14 @@
      "fetchView"
     ],
     "tests": [],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/data/change-table",
     "domain": "data",
-    "line": 2173,
-    "end": 2198,
+    "line": 2169,
+    "end": 2194,
     "lines": 26,
     "guards": [
      "requireReportSession"
@@ -1687,14 +1667,14 @@
      "fetchView"
     ],
     "tests": [],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/data/first-response",
     "domain": "data",
-    "line": 2206,
-    "end": 2241,
+    "line": 2202,
+    "end": 2237,
     "lines": 36,
     "guards": [
      "requireReportSession"
@@ -1706,14 +1686,14 @@
      "fetchView"
     ],
     "tests": [],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/data/sla-trend",
     "domain": "data",
-    "line": 2246,
-    "end": 2271,
+    "line": 2242,
+    "end": 2267,
     "lines": 26,
     "guards": [
      "requireReportSession"
@@ -1727,14 +1707,14 @@
     "tests": [
      "server-routes-smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/data/sla-by-category",
     "domain": "data",
-    "line": 2276,
-    "end": 2301,
+    "line": 2272,
+    "end": 2297,
     "lines": 26,
     "guards": [
      "requireReportSession"
@@ -1746,14 +1726,14 @@
      "fetchView"
     ],
     "tests": [],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/data/group-requests",
     "domain": "data",
-    "line": 2319,
-    "end": 2339,
+    "line": 2315,
+    "end": 2335,
     "lines": 21,
     "guards": [
      "requireReportSession"
@@ -1765,14 +1745,14 @@
      "fetchView"
     ],
     "tests": [],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/data/emergency-changes",
     "domain": "data",
-    "line": 2341,
-    "end": 2361,
+    "line": 2337,
+    "end": 2357,
     "lines": 21,
     "guards": [
      "requireReportSession"
@@ -1784,14 +1764,14 @@
      "fetchView"
     ],
     "tests": [],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/data/ageing",
     "domain": "data",
-    "line": 2363,
-    "end": 2383,
+    "line": 2359,
+    "end": 2379,
     "lines": 21,
     "guards": [
      "requireReportSession"
@@ -1805,14 +1785,14 @@
     "tests": [
      "inventory-strict.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/data/incident-vs-sr",
     "domain": "data",
-    "line": 2385,
-    "end": 2405,
+    "line": 2381,
+    "end": 2401,
     "lines": 21,
     "guards": [
      "requireReportSession"
@@ -1824,14 +1804,14 @@
      "fetchView"
     ],
     "tests": [],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/data/cab-approvals",
     "domain": "data",
-    "line": 2407,
-    "end": 2427,
+    "line": 2403,
+    "end": 2423,
     "lines": 21,
     "guards": [
      "requireReportSession"
@@ -1843,14 +1823,14 @@
      "fetchView"
     ],
     "tests": [],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/data/cab-recommendations",
     "domain": "data",
-    "line": 2429,
-    "end": 2449,
+    "line": 2425,
+    "end": 2445,
     "lines": 21,
     "guards": [
      "requireReportSession"
@@ -1862,14 +1842,14 @@
      "fetchView"
     ],
     "tests": [],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/data/submission-channels",
     "domain": "data",
-    "line": 2725,
-    "end": 2750,
+    "line": 2721,
+    "end": 2746,
     "lines": 26,
     "guards": [
      "requireReportSession"
@@ -1878,14 +1858,14 @@
     "tests": [
      "server-routes-smoke.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "method": "GET",
     "path": "/api/data/requests-raw",
     "domain": "data",
-    "line": 2767,
-    "end": 2788,
+    "line": 2763,
+    "end": 2784,
     "lines": 22,
     "guards": [
      "requireReportSession"
@@ -1895,16 +1875,17 @@
      "getRawRequestRows"
     ],
     "tests": [
+     "adoption-lota-nav-authz.test.js",
      "server-routes-smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/data/monthly-summary",
     "domain": "data",
-    "line": 2790,
-    "end": 2826,
+    "line": 2786,
+    "end": 2822,
     "lines": 37,
     "guards": [
      "requireReportSession"
@@ -1915,14 +1896,14 @@
      "getRawRequestRows"
     ],
     "tests": [],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/data/ageing-by-site",
     "domain": "data",
-    "line": 2835,
-    "end": 2876,
+    "line": 2831,
+    "end": 2872,
     "lines": 42,
     "guards": [
      "requireReportSession"
@@ -1932,14 +1913,14 @@
      "fetchView"
     ],
     "tests": [],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/data/ageing-by-group",
     "domain": "data",
-    "line": 2885,
-    "end": 2936,
+    "line": 2881,
+    "end": 2932,
     "lines": 52,
     "guards": [
      "requireReportSession"
@@ -1949,14 +1930,14 @@
      "fetchView"
     ],
     "tests": [],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "POST",
     "path": "/api/ai/analyze",
     "domain": "ai",
-    "line": 3175,
-    "end": 3202,
+    "line": 3171,
+    "end": 3198,
     "lines": 28,
     "guards": [
      "requireReportSession",
@@ -1975,14 +1956,14 @@
      "ai-analyze-guard.test.js",
      "ai-proxy-sanitize.smoke.test.js"
     ],
-    "recent_commits": 3
+    "recent_commits": 2
    },
    {
     "method": "GET",
     "path": "/api/sample/:viewId",
     "domain": "sample",
-    "line": 3205,
-    "end": 3211,
+    "line": 3201,
+    "end": 3207,
     "lines": 7,
     "guards": [
      "requireReportSession",
@@ -2004,8 +1985,8 @@
     "method": "POST",
     "path": "/api/meridian/sync",
     "domain": "meridian",
-    "line": 3395,
-    "end": 3401,
+    "line": 3394,
+    "end": 3400,
     "lines": 7,
     "guards": [
      "requireReportSession",
@@ -2018,14 +1999,14 @@
     "tests": [
      "meridian-retired.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "method": "GET",
     "path": "/api/reports/recipients",
     "domain": "reports/recipients",
-    "line": 3402,
-    "end": 3405,
+    "line": 3401,
+    "end": 3404,
     "lines": 4,
     "guards": [
      "requireReportSession",
@@ -2037,14 +2018,14 @@
     "tests": [
      "reporting-routes.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "PUT",
     "path": "/api/reports/recipients/:site",
     "domain": "reports/recipients",
-    "line": 3406,
-    "end": 3409,
+    "line": 3405,
+    "end": 3408,
     "lines": 4,
     "guards": [
      "requireReportSession",
@@ -2056,14 +2037,14 @@
     "tests": [
      "reporting-routes.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "POST",
     "path": "/api/reports/recipients/suggest",
     "domain": "reports/recipients",
-    "line": 3412,
-    "end": 3420,
+    "line": 3411,
+    "end": 3419,
     "lines": 9,
     "guards": [
      "requireReportSession",
@@ -2075,14 +2056,14 @@
     "tests": [
      "reporting-routes.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/reports/schedule",
     "domain": "reports/schedule",
-    "line": 3421,
-    "end": 3424,
+    "line": 3420,
+    "end": 3423,
     "lines": 4,
     "guards": [
      "requireReportSession",
@@ -2092,16 +2073,17 @@
      "reportSchedule"
     ],
     "tests": [
+     "hostile-input-r4.smoke.test.js",
      "reporting-routes.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "PUT",
     "path": "/api/reports/schedule",
     "domain": "reports/schedule",
-    "line": 3425,
-    "end": 3428,
+    "line": 3424,
+    "end": 3427,
     "lines": 4,
     "guards": [
      "requireReportSession",
@@ -2111,16 +2093,17 @@
      "reportSchedule"
     ],
     "tests": [
+     "hostile-input-r4.smoke.test.js",
      "reporting-routes.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/reports/exec-editorial",
     "domain": "reports/exec-editorial",
-    "line": 3455,
-    "end": 3465,
+    "line": 3454,
+    "end": 3464,
     "lines": 11,
     "guards": [
      "requireReportSession",
@@ -2133,14 +2116,14 @@
      "deck-builder-gate.smoke.test.js",
      "exec-report-editorial-routes.smoke.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "method": "PUT",
     "path": "/api/reports/exec-editorial",
     "domain": "reports/exec-editorial",
-    "line": 3467,
-    "end": 3480,
+    "line": 3466,
+    "end": 3479,
     "lines": 14,
     "guards": [
      "requireReportSession",
@@ -2153,14 +2136,14 @@
      "deck-builder-gate.smoke.test.js",
      "exec-report-editorial-routes.smoke.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "method": "GET",
     "path": "/api/reports/site-data",
     "domain": "reports/site-data",
-    "line": 3482,
-    "end": 3497,
+    "line": 3481,
+    "end": 3496,
     "lines": 16,
     "guards": [
      "requireReportSession"
@@ -2174,14 +2157,14 @@
      "uat-amdec-multinational-data.test.js",
      "uat-amdec-workflows.smoke.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "method": "POST",
     "path": "/api/reports/action/:uid/merge",
     "domain": "reports/action",
-    "line": 3552,
-    "end": 3565,
+    "line": 3551,
+    "end": 3564,
     "lines": 14,
     "guards": [
      "requireReportSession"
@@ -2194,18 +2177,19 @@
      "action-relineage.smoke.test.js",
      "audit-report-write-auth.smoke.test.js",
      "home-queue-p5.test.js",
+     "hostile-input-r4.smoke.test.js",
      "report-action-status.smoke.test.js",
      "site-actions-merge.smoke.test.js",
      "status-transfer.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "POST",
     "path": "/api/reports/action/:uid/unmerge",
     "domain": "reports/action",
-    "line": 3566,
-    "end": 3574,
+    "line": 3565,
+    "end": 3573,
     "lines": 9,
     "guards": [
      "requireReportSession"
@@ -2218,18 +2202,19 @@
      "action-relineage.smoke.test.js",
      "audit-report-write-auth.smoke.test.js",
      "home-queue-p5.test.js",
+     "hostile-input-r4.smoke.test.js",
      "report-action-status.smoke.test.js",
      "site-actions-merge.smoke.test.js",
      "status-transfer.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "POST",
     "path": "/api/reports/action/:uid/status",
     "domain": "reports/action",
-    "line": 3577,
-    "end": 3593,
+    "line": 3576,
+    "end": 3592,
     "lines": 17,
     "guards": [
      "requireReportSession"
@@ -2243,18 +2228,19 @@
      "action-relineage.smoke.test.js",
      "audit-report-write-auth.smoke.test.js",
      "home-queue-p5.test.js",
+     "hostile-input-r4.smoke.test.js",
      "report-action-status.smoke.test.js",
      "site-actions-merge.smoke.test.js",
      "status-transfer.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "POST",
     "path": "/api/reports/action/:uid/relineage",
     "domain": "reports/action",
-    "line": 3597,
-    "end": 3617,
+    "line": 3596,
+    "end": 3616,
     "lines": 21,
     "guards": [
      "requireReportSession"
@@ -2267,18 +2253,19 @@
      "action-relineage.smoke.test.js",
      "audit-report-write-auth.smoke.test.js",
      "home-queue-p5.test.js",
+     "hostile-input-r4.smoke.test.js",
      "report-action-status.smoke.test.js",
      "site-actions-merge.smoke.test.js",
      "status-transfer.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/reports/:id/importable-actions",
     "domain": "reports",
-    "line": 3621,
-    "end": 3643,
+    "line": 3620,
+    "end": 3642,
     "lines": 23,
     "guards": [
      "requireReportSession"
@@ -2295,6 +2282,8 @@
      "action-import-window.smoke.test.js",
      "action-relineage.smoke.test.js",
      "admin-superadmin-gate.smoke.test.js",
+     "adoption-lota-nav-authz.test.js",
+     "adoption-lota-week.test.js",
      "agent-inventory.test.js",
      "analytics-integration-routes.smoke.test.js",
      "api-key-injection.smoke.test.js",
@@ -2304,11 +2293,14 @@
      "asset-review-status.smoke.test.js",
      "audit-report-write-auth.smoke.test.js",
      "auth-cookie.smoke.test.js",
+     "auth-db-busy.smoke.test.js",
      "auth-roles-refresh.test.js",
      "authz-enforce.test.js",
      "authz-matrix-json.test.js",
+     "authz-outcomes-lots-on.smoke.test.js",
      "authz-route-matrix.test.js",
      "await-precedence.test.js",
+     "boot-integrity.test.js",
      "business-only-boundary.smoke.test.js",
      "capability-registry.test.js",
      "commitments-routes.smoke.test.js",
@@ -2328,6 +2320,7 @@
      "home-queue-p5.test.js",
      "home-queue-two-sites.smoke.test.js",
      "home-queue.test.js",
+     "hostile-input-r4.smoke.test.js",
      "identity-log.smoke.test.js",
      "importable-actions.smoke.test.js",
      "infra-auto-route.smoke.test.js",
@@ -2337,12 +2330,15 @@
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
      "p06-extraction-characterization.test.js",
+     "p11-r5-security.smoke.test.js",
      "p6-decisions-access.smoke.test.js",
+     "policy-center-four-eyes-bypass.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-action-status.smoke.test.js",
      "report-audit-log-client.test.js",
      "report-helpdesk-write.smoke.test.js",
+     "report-period-params.smoke.test.js",
      "report-read-scope.smoke.test.js",
      "report-revert-admin.smoke.test.js",
      "report-send-route.smoke.test.js",
@@ -2354,11 +2350,13 @@
      "route-matrix-probe-order.test.js",
      "server-routes-smoke.test.js",
      "server-size-budget.test.js",
+     "session-security.smoke.test.js",
      "site-actions-merge.smoke.test.js",
      "site-actions-p5.smoke.test.js",
      "site-actions-routes.smoke.test.js",
      "site-open-actions-route.smoke.test.js",
      "sites-routes.smoke.test.js",
+     "sli-readings.test.js",
      "sso-routes.smoke.test.js",
      "status-transfer.smoke.test.js",
      "system-log-routes.smoke.test.js",
@@ -2373,14 +2371,14 @@
      "workspace-profiles-grants-nothing-matrix.smoke.test.js",
      "workspace-profiles-grants-nothing.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/reports/review-data",
     "domain": "reports/review-data",
-    "line": 3650,
-    "end": 3692,
+    "line": 3649,
+    "end": 3691,
     "lines": 43,
     "guards": [
      "requireReportSession",
@@ -2389,18 +2387,19 @@
     "helpers": [],
     "tests": [
      "access-why.smoke.test.js",
+     "adoption-lota-nav-authz.test.js",
      "authz-enforce.test.js",
      "review-page.smoke.test.js",
      "uat-amdec-org-models.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "POST",
     "path": "/api/reports/send",
     "domain": "reports/send",
-    "line": 3704,
-    "end": 3747,
+    "line": 3703,
+    "end": 3746,
     "lines": 44,
     "guards": [
      "requireReportSession",
@@ -2416,14 +2415,14 @@
      "reporting-send.smoke.test.js",
      "weekly-send-route.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "POST",
     "path": "/api/reports/auth/login",
     "domain": "reports/auth",
-    "line": 3752,
-    "end": 3800,
+    "line": 3751,
+    "end": 3799,
     "lines": 49,
     "guards": [],
     "helpers": [
@@ -2435,22 +2434,25 @@
     ],
     "tests": [
      "auth-cookie.smoke.test.js",
+     "auth-db-busy.smoke.test.js",
      "export-share-boundary.smoke.test.js",
      "login-account-throttle.smoke.test.js",
      "login-limit-failures-only.smoke.test.js",
      "origin-guard.test.js",
      "p6-decisions-access.smoke.test.js",
+     "session-security.smoke.test.js",
+     "sli-readings.test.js",
      "sso-routes.smoke.test.js",
      "ui-policy-me.smoke.test.js"
     ],
-    "recent_commits": 6
+    "recent_commits": 3
    },
    {
     "method": "POST",
     "path": "/api/reports/auth/logout",
     "domain": "reports/auth",
-    "line": 3802,
-    "end": 3807,
+    "line": 3801,
+    "end": 3806,
     "lines": 6,
     "guards": [
      "requireReportSession"
@@ -2461,16 +2463,17 @@
     "tests": [
      "_rbac-matrix-core.js",
      "auth-cookie.smoke.test.js",
-     "route-matrix-probe-order.test.js"
+     "route-matrix-probe-order.test.js",
+     "session-security.smoke.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/reports/auth/me",
     "domain": "reports/auth",
-    "line": 3809,
-    "end": 3809,
+    "line": 3808,
+    "end": 3808,
     "lines": 1,
     "guards": [
      "requireReportSession"
@@ -2481,9 +2484,12 @@
      "access-revocation.smoke.test.js",
      "api-key-injection.smoke.test.js",
      "auth-cookie.smoke.test.js",
+     "auth-db-busy.smoke.test.js",
      "auth-roles-refresh.test.js",
+     "authz-outcomes-lots-on.smoke.test.js",
      "e2e-outbound-guard.test.js",
      "multi-site-editor.smoke.test.js",
+     "session-security.smoke.test.js",
      "ui-policy-me.smoke.test.js",
      "workspace-profiles-grants-nothing.smoke.test.js"
     ],
@@ -2493,24 +2499,26 @@
     "method": "GET",
     "path": "/api/auth/config",
     "domain": "auth",
-    "line": 3845,
-    "end": 3853,
+    "line": 3844,
+    "end": 3852,
     "lines": 9,
     "guards": [],
     "helpers": [
      "ssoSettings"
     ],
     "tests": [
+     "sdp-manager-probe.test.js",
+     "session-security.smoke.test.js",
      "sso-routes.smoke.test.js"
     ],
-    "recent_commits": 0
+    "recent_commits": 1
    },
    {
     "method": "GET",
     "path": "/api/auth/sso/login",
     "domain": "auth",
-    "line": 3856,
-    "end": 3868,
+    "line": 3855,
+    "end": 3867,
     "lines": 13,
     "guards": [],
     "helpers": [
@@ -2527,8 +2535,8 @@
     "method": "GET",
     "path": "/api/auth/sso/callback",
     "domain": "auth",
-    "line": 3871,
-    "end": 3929,
+    "line": 3870,
+    "end": 3928,
     "lines": 59,
     "guards": [],
     "helpers": [
@@ -2543,14 +2551,14 @@
      "sso-routes.smoke.test.js",
      "sso-settings.test.js"
     ],
-    "recent_commits": 3
+    "recent_commits": 0
    },
    {
     "method": "POST",
     "path": "/api/reports/auth/change-password",
     "domain": "reports/auth",
-    "line": 3932,
-    "end": 3941,
+    "line": 3931,
+    "end": 3940,
     "lines": 10,
     "guards": [
      "requireReportSession"
@@ -2561,14 +2569,14 @@
     "tests": [
      "critical-routes.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/reports/departments",
     "domain": "reports/departments",
-    "line": 3951,
-    "end": 3959,
+    "line": 3950,
+    "end": 3958,
     "lines": 9,
     "guards": [
      "requireReportSession"
@@ -2579,14 +2587,14 @@
      "inventory-strict.test.js",
      "server-routes-smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "POST",
     "path": "/api/reports/departments",
     "domain": "reports/departments",
-    "line": 3961,
-    "end": 3972,
+    "line": 3960,
+    "end": 3971,
     "lines": 12,
     "guards": [
      "requireReportSession",
@@ -2600,14 +2608,14 @@
      "inventory-strict.test.js",
      "server-routes-smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "PUT",
     "path": "/api/reports/departments/:id",
     "domain": "reports/departments",
-    "line": 3974,
-    "end": 3990,
+    "line": 3973,
+    "end": 3989,
     "lines": 17,
     "guards": [
      "requireReportSession",
@@ -2621,14 +2629,14 @@
      "inventory-strict.test.js",
      "server-routes-smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "DELETE",
     "path": "/api/reports/departments/:id",
     "domain": "reports/departments",
-    "line": 3992,
-    "end": 4005,
+    "line": 3991,
+    "end": 4004,
     "lines": 14,
     "guards": [
      "requireReportSession",
@@ -2640,20 +2648,21 @@
      "inventory-strict.test.js",
      "server-routes-smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/reports/current-week",
     "domain": "reports/current-week",
-    "line": 4008,
-    "end": 4014,
-    "lines": 7,
+    "line": 4007,
+    "end": 4015,
+    "lines": 9,
     "guards": [
      "requireReportSession"
     ],
     "helpers": [],
     "tests": [
+     "adoption-lota-week.test.js",
      "critical-routes.smoke.test.js"
     ],
     "recent_commits": 1
@@ -2662,8 +2671,8 @@
     "method": "GET",
     "path": "/api/reports",
     "domain": "reports",
-    "line": 4018,
-    "end": 4036,
+    "line": 4019,
+    "end": 4037,
     "lines": 19,
     "guards": [
      "requireReportSession"
@@ -2680,6 +2689,8 @@
      "action-import-window.smoke.test.js",
      "action-relineage.smoke.test.js",
      "admin-superadmin-gate.smoke.test.js",
+     "adoption-lota-nav-authz.test.js",
+     "adoption-lota-week.test.js",
      "agent-inventory.test.js",
      "analytics-integration-routes.smoke.test.js",
      "api-key-injection.smoke.test.js",
@@ -2689,11 +2700,14 @@
      "asset-review-status.smoke.test.js",
      "audit-report-write-auth.smoke.test.js",
      "auth-cookie.smoke.test.js",
+     "auth-db-busy.smoke.test.js",
      "auth-roles-refresh.test.js",
      "authz-enforce.test.js",
      "authz-matrix-json.test.js",
+     "authz-outcomes-lots-on.smoke.test.js",
      "authz-route-matrix.test.js",
      "await-precedence.test.js",
+     "boot-integrity.test.js",
      "business-only-boundary.smoke.test.js",
      "capability-registry.test.js",
      "commitments-routes.smoke.test.js",
@@ -2713,6 +2727,7 @@
      "home-queue-p5.test.js",
      "home-queue-two-sites.smoke.test.js",
      "home-queue.test.js",
+     "hostile-input-r4.smoke.test.js",
      "identity-log.smoke.test.js",
      "importable-actions.smoke.test.js",
      "infra-auto-route.smoke.test.js",
@@ -2722,12 +2737,15 @@
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
      "p06-extraction-characterization.test.js",
+     "p11-r5-security.smoke.test.js",
      "p6-decisions-access.smoke.test.js",
+     "policy-center-four-eyes-bypass.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-action-status.smoke.test.js",
      "report-audit-log-client.test.js",
      "report-helpdesk-write.smoke.test.js",
+     "report-period-params.smoke.test.js",
      "report-read-scope.smoke.test.js",
      "report-revert-admin.smoke.test.js",
      "report-send-route.smoke.test.js",
@@ -2739,11 +2757,13 @@
      "route-matrix-probe-order.test.js",
      "server-routes-smoke.test.js",
      "server-size-budget.test.js",
+     "session-security.smoke.test.js",
      "site-actions-merge.smoke.test.js",
      "site-actions-p5.smoke.test.js",
      "site-actions-routes.smoke.test.js",
      "site-open-actions-route.smoke.test.js",
      "sites-routes.smoke.test.js",
+     "sli-readings.test.js",
      "sso-routes.smoke.test.js",
      "status-transfer.smoke.test.js",
      "system-log-routes.smoke.test.js",
@@ -2758,14 +2778,14 @@
      "workspace-profiles-grants-nothing-matrix.smoke.test.js",
      "workspace-profiles-grants-nothing.smoke.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "method": "POST",
     "path": "/api/reports/ensure",
     "domain": "reports/ensure",
-    "line": 4039,
-    "end": 4059,
+    "line": 4040,
+    "end": 4060,
     "lines": 21,
     "guards": [
      "requireReportSession"
@@ -2781,14 +2801,14 @@
      "uat-amdec-org-models.smoke.test.js",
      "uat-governance-users.smoke.test.js"
     ],
-    "recent_commits": 3
+    "recent_commits": 2
    },
    {
     "method": "GET",
     "path": "/api/reports/:id/carry-over-actions",
     "domain": "reports",
-    "line": 4062,
-    "end": 4069,
+    "line": 4063,
+    "end": 4070,
     "lines": 8,
     "guards": [
      "requireReportSession"
@@ -2803,6 +2823,8 @@
      "action-import-window.smoke.test.js",
      "action-relineage.smoke.test.js",
      "admin-superadmin-gate.smoke.test.js",
+     "adoption-lota-nav-authz.test.js",
+     "adoption-lota-week.test.js",
      "agent-inventory.test.js",
      "analytics-integration-routes.smoke.test.js",
      "api-key-injection.smoke.test.js",
@@ -2812,11 +2834,14 @@
      "asset-review-status.smoke.test.js",
      "audit-report-write-auth.smoke.test.js",
      "auth-cookie.smoke.test.js",
+     "auth-db-busy.smoke.test.js",
      "auth-roles-refresh.test.js",
      "authz-enforce.test.js",
      "authz-matrix-json.test.js",
+     "authz-outcomes-lots-on.smoke.test.js",
      "authz-route-matrix.test.js",
      "await-precedence.test.js",
+     "boot-integrity.test.js",
      "business-only-boundary.smoke.test.js",
      "capability-registry.test.js",
      "commitments-routes.smoke.test.js",
@@ -2836,6 +2861,7 @@
      "home-queue-p5.test.js",
      "home-queue-two-sites.smoke.test.js",
      "home-queue.test.js",
+     "hostile-input-r4.smoke.test.js",
      "identity-log.smoke.test.js",
      "importable-actions.smoke.test.js",
      "infra-auto-route.smoke.test.js",
@@ -2845,12 +2871,15 @@
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
      "p06-extraction-characterization.test.js",
+     "p11-r5-security.smoke.test.js",
      "p6-decisions-access.smoke.test.js",
+     "policy-center-four-eyes-bypass.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-action-status.smoke.test.js",
      "report-audit-log-client.test.js",
      "report-helpdesk-write.smoke.test.js",
+     "report-period-params.smoke.test.js",
      "report-read-scope.smoke.test.js",
      "report-revert-admin.smoke.test.js",
      "report-send-route.smoke.test.js",
@@ -2862,11 +2891,13 @@
      "route-matrix-probe-order.test.js",
      "server-routes-smoke.test.js",
      "server-size-budget.test.js",
+     "session-security.smoke.test.js",
      "site-actions-merge.smoke.test.js",
      "site-actions-p5.smoke.test.js",
      "site-actions-routes.smoke.test.js",
      "site-open-actions-route.smoke.test.js",
      "sites-routes.smoke.test.js",
+     "sli-readings.test.js",
      "sso-routes.smoke.test.js",
      "status-transfer.smoke.test.js",
      "system-log-routes.smoke.test.js",
@@ -2881,14 +2912,14 @@
      "workspace-profiles-grants-nothing-matrix.smoke.test.js",
      "workspace-profiles-grants-nothing.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/reports/:id/action-weeks",
     "domain": "reports",
-    "line": 4072,
-    "end": 4084,
+    "line": 4073,
+    "end": 4085,
     "lines": 13,
     "guards": [
      "requireReportSession"
@@ -2903,6 +2934,8 @@
      "action-import-window.smoke.test.js",
      "action-relineage.smoke.test.js",
      "admin-superadmin-gate.smoke.test.js",
+     "adoption-lota-nav-authz.test.js",
+     "adoption-lota-week.test.js",
      "agent-inventory.test.js",
      "analytics-integration-routes.smoke.test.js",
      "api-key-injection.smoke.test.js",
@@ -2912,11 +2945,14 @@
      "asset-review-status.smoke.test.js",
      "audit-report-write-auth.smoke.test.js",
      "auth-cookie.smoke.test.js",
+     "auth-db-busy.smoke.test.js",
      "auth-roles-refresh.test.js",
      "authz-enforce.test.js",
      "authz-matrix-json.test.js",
+     "authz-outcomes-lots-on.smoke.test.js",
      "authz-route-matrix.test.js",
      "await-precedence.test.js",
+     "boot-integrity.test.js",
      "business-only-boundary.smoke.test.js",
      "capability-registry.test.js",
      "commitments-routes.smoke.test.js",
@@ -2936,6 +2972,7 @@
      "home-queue-p5.test.js",
      "home-queue-two-sites.smoke.test.js",
      "home-queue.test.js",
+     "hostile-input-r4.smoke.test.js",
      "identity-log.smoke.test.js",
      "importable-actions.smoke.test.js",
      "infra-auto-route.smoke.test.js",
@@ -2945,12 +2982,15 @@
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
      "p06-extraction-characterization.test.js",
+     "p11-r5-security.smoke.test.js",
      "p6-decisions-access.smoke.test.js",
+     "policy-center-four-eyes-bypass.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-action-status.smoke.test.js",
      "report-audit-log-client.test.js",
      "report-helpdesk-write.smoke.test.js",
+     "report-period-params.smoke.test.js",
      "report-read-scope.smoke.test.js",
      "report-revert-admin.smoke.test.js",
      "report-send-route.smoke.test.js",
@@ -2962,11 +3002,13 @@
      "route-matrix-probe-order.test.js",
      "server-routes-smoke.test.js",
      "server-size-budget.test.js",
+     "session-security.smoke.test.js",
      "site-actions-merge.smoke.test.js",
      "site-actions-p5.smoke.test.js",
      "site-actions-routes.smoke.test.js",
      "site-open-actions-route.smoke.test.js",
      "sites-routes.smoke.test.js",
+     "sli-readings.test.js",
      "sso-routes.smoke.test.js",
      "status-transfer.smoke.test.js",
      "system-log-routes.smoke.test.js",
@@ -2981,14 +3023,14 @@
      "workspace-profiles-grants-nothing-matrix.smoke.test.js",
      "workspace-profiles-grants-nothing.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/reports/:id/actions-from/:source_report_id",
     "domain": "reports",
-    "line": 4087,
-    "end": 4105,
+    "line": 4088,
+    "end": 4106,
     "lines": 19,
     "guards": [
      "requireReportSession"
@@ -3003,6 +3045,8 @@
      "action-import-window.smoke.test.js",
      "action-relineage.smoke.test.js",
      "admin-superadmin-gate.smoke.test.js",
+     "adoption-lota-nav-authz.test.js",
+     "adoption-lota-week.test.js",
      "agent-inventory.test.js",
      "analytics-integration-routes.smoke.test.js",
      "api-key-injection.smoke.test.js",
@@ -3012,11 +3056,14 @@
      "asset-review-status.smoke.test.js",
      "audit-report-write-auth.smoke.test.js",
      "auth-cookie.smoke.test.js",
+     "auth-db-busy.smoke.test.js",
      "auth-roles-refresh.test.js",
      "authz-enforce.test.js",
      "authz-matrix-json.test.js",
+     "authz-outcomes-lots-on.smoke.test.js",
      "authz-route-matrix.test.js",
      "await-precedence.test.js",
+     "boot-integrity.test.js",
      "business-only-boundary.smoke.test.js",
      "capability-registry.test.js",
      "commitments-routes.smoke.test.js",
@@ -3036,6 +3083,7 @@
      "home-queue-p5.test.js",
      "home-queue-two-sites.smoke.test.js",
      "home-queue.test.js",
+     "hostile-input-r4.smoke.test.js",
      "identity-log.smoke.test.js",
      "importable-actions.smoke.test.js",
      "infra-auto-route.smoke.test.js",
@@ -3045,12 +3093,15 @@
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
      "p06-extraction-characterization.test.js",
+     "p11-r5-security.smoke.test.js",
      "p6-decisions-access.smoke.test.js",
+     "policy-center-four-eyes-bypass.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-action-status.smoke.test.js",
      "report-audit-log-client.test.js",
      "report-helpdesk-write.smoke.test.js",
+     "report-period-params.smoke.test.js",
      "report-read-scope.smoke.test.js",
      "report-revert-admin.smoke.test.js",
      "report-send-route.smoke.test.js",
@@ -3062,11 +3113,13 @@
      "route-matrix-probe-order.test.js",
      "server-routes-smoke.test.js",
      "server-size-budget.test.js",
+     "session-security.smoke.test.js",
      "site-actions-merge.smoke.test.js",
      "site-actions-p5.smoke.test.js",
      "site-actions-routes.smoke.test.js",
      "site-open-actions-route.smoke.test.js",
      "sites-routes.smoke.test.js",
+     "sli-readings.test.js",
      "sso-routes.smoke.test.js",
      "status-transfer.smoke.test.js",
      "system-log-routes.smoke.test.js",
@@ -3081,14 +3134,14 @@
      "workspace-profiles-grants-nothing-matrix.smoke.test.js",
      "workspace-profiles-grants-nothing.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/reports/:id/asset-followups",
     "domain": "reports",
-    "line": 4176,
-    "end": 4200,
+    "line": 4177,
+    "end": 4201,
     "lines": 25,
     "guards": [
      "requireReportSession"
@@ -3106,6 +3159,8 @@
      "action-import-window.smoke.test.js",
      "action-relineage.smoke.test.js",
      "admin-superadmin-gate.smoke.test.js",
+     "adoption-lota-nav-authz.test.js",
+     "adoption-lota-week.test.js",
      "agent-inventory.test.js",
      "analytics-integration-routes.smoke.test.js",
      "api-key-injection.smoke.test.js",
@@ -3115,11 +3170,14 @@
      "asset-review-status.smoke.test.js",
      "audit-report-write-auth.smoke.test.js",
      "auth-cookie.smoke.test.js",
+     "auth-db-busy.smoke.test.js",
      "auth-roles-refresh.test.js",
      "authz-enforce.test.js",
      "authz-matrix-json.test.js",
+     "authz-outcomes-lots-on.smoke.test.js",
      "authz-route-matrix.test.js",
      "await-precedence.test.js",
+     "boot-integrity.test.js",
      "business-only-boundary.smoke.test.js",
      "capability-registry.test.js",
      "commitments-routes.smoke.test.js",
@@ -3139,6 +3197,7 @@
      "home-queue-p5.test.js",
      "home-queue-two-sites.smoke.test.js",
      "home-queue.test.js",
+     "hostile-input-r4.smoke.test.js",
      "identity-log.smoke.test.js",
      "importable-actions.smoke.test.js",
      "infra-auto-route.smoke.test.js",
@@ -3148,12 +3207,15 @@
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
      "p06-extraction-characterization.test.js",
+     "p11-r5-security.smoke.test.js",
      "p6-decisions-access.smoke.test.js",
+     "policy-center-four-eyes-bypass.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-action-status.smoke.test.js",
      "report-audit-log-client.test.js",
      "report-helpdesk-write.smoke.test.js",
+     "report-period-params.smoke.test.js",
      "report-read-scope.smoke.test.js",
      "report-revert-admin.smoke.test.js",
      "report-send-route.smoke.test.js",
@@ -3165,11 +3227,13 @@
      "route-matrix-probe-order.test.js",
      "server-routes-smoke.test.js",
      "server-size-budget.test.js",
+     "session-security.smoke.test.js",
      "site-actions-merge.smoke.test.js",
      "site-actions-p5.smoke.test.js",
      "site-actions-routes.smoke.test.js",
      "site-open-actions-route.smoke.test.js",
      "sites-routes.smoke.test.js",
+     "sli-readings.test.js",
      "sso-routes.smoke.test.js",
      "status-transfer.smoke.test.js",
      "system-log-routes.smoke.test.js",
@@ -3184,14 +3248,14 @@
      "workspace-profiles-grants-nothing-matrix.smoke.test.js",
      "workspace-profiles-grants-nothing.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "PUT",
     "path": "/api/reports/:id/asset-review",
     "domain": "reports",
-    "line": 4207,
-    "end": 4238,
+    "line": 4208,
+    "end": 4239,
     "lines": 32,
     "guards": [
      "requireReportSession"
@@ -3211,6 +3275,8 @@
      "action-import-window.smoke.test.js",
      "action-relineage.smoke.test.js",
      "admin-superadmin-gate.smoke.test.js",
+     "adoption-lota-nav-authz.test.js",
+     "adoption-lota-week.test.js",
      "agent-inventory.test.js",
      "analytics-integration-routes.smoke.test.js",
      "api-key-injection.smoke.test.js",
@@ -3220,11 +3286,14 @@
      "asset-review-status.smoke.test.js",
      "audit-report-write-auth.smoke.test.js",
      "auth-cookie.smoke.test.js",
+     "auth-db-busy.smoke.test.js",
      "auth-roles-refresh.test.js",
      "authz-enforce.test.js",
      "authz-matrix-json.test.js",
+     "authz-outcomes-lots-on.smoke.test.js",
      "authz-route-matrix.test.js",
      "await-precedence.test.js",
+     "boot-integrity.test.js",
      "business-only-boundary.smoke.test.js",
      "capability-registry.test.js",
      "commitments-routes.smoke.test.js",
@@ -3244,6 +3313,7 @@
      "home-queue-p5.test.js",
      "home-queue-two-sites.smoke.test.js",
      "home-queue.test.js",
+     "hostile-input-r4.smoke.test.js",
      "identity-log.smoke.test.js",
      "importable-actions.smoke.test.js",
      "infra-auto-route.smoke.test.js",
@@ -3253,12 +3323,15 @@
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
      "p06-extraction-characterization.test.js",
+     "p11-r5-security.smoke.test.js",
      "p6-decisions-access.smoke.test.js",
+     "policy-center-four-eyes-bypass.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-action-status.smoke.test.js",
      "report-audit-log-client.test.js",
      "report-helpdesk-write.smoke.test.js",
+     "report-period-params.smoke.test.js",
      "report-read-scope.smoke.test.js",
      "report-revert-admin.smoke.test.js",
      "report-send-route.smoke.test.js",
@@ -3270,11 +3343,13 @@
      "route-matrix-probe-order.test.js",
      "server-routes-smoke.test.js",
      "server-size-budget.test.js",
+     "session-security.smoke.test.js",
      "site-actions-merge.smoke.test.js",
      "site-actions-p5.smoke.test.js",
      "site-actions-routes.smoke.test.js",
      "site-open-actions-route.smoke.test.js",
      "sites-routes.smoke.test.js",
+     "sli-readings.test.js",
      "sso-routes.smoke.test.js",
      "status-transfer.smoke.test.js",
      "system-log-routes.smoke.test.js",
@@ -3289,14 +3364,14 @@
      "workspace-profiles-grants-nothing-matrix.smoke.test.js",
      "workspace-profiles-grants-nothing.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/reports/:id/site-open-actions",
     "domain": "reports",
-    "line": 4242,
-    "end": 4257,
+    "line": 4243,
+    "end": 4258,
     "lines": 16,
     "guards": [
      "requireReportSession"
@@ -3311,6 +3386,8 @@
      "action-import-window.smoke.test.js",
      "action-relineage.smoke.test.js",
      "admin-superadmin-gate.smoke.test.js",
+     "adoption-lota-nav-authz.test.js",
+     "adoption-lota-week.test.js",
      "agent-inventory.test.js",
      "analytics-integration-routes.smoke.test.js",
      "api-key-injection.smoke.test.js",
@@ -3320,11 +3397,14 @@
      "asset-review-status.smoke.test.js",
      "audit-report-write-auth.smoke.test.js",
      "auth-cookie.smoke.test.js",
+     "auth-db-busy.smoke.test.js",
      "auth-roles-refresh.test.js",
      "authz-enforce.test.js",
      "authz-matrix-json.test.js",
+     "authz-outcomes-lots-on.smoke.test.js",
      "authz-route-matrix.test.js",
      "await-precedence.test.js",
+     "boot-integrity.test.js",
      "business-only-boundary.smoke.test.js",
      "capability-registry.test.js",
      "commitments-routes.smoke.test.js",
@@ -3344,6 +3424,7 @@
      "home-queue-p5.test.js",
      "home-queue-two-sites.smoke.test.js",
      "home-queue.test.js",
+     "hostile-input-r4.smoke.test.js",
      "identity-log.smoke.test.js",
      "importable-actions.smoke.test.js",
      "infra-auto-route.smoke.test.js",
@@ -3353,12 +3434,15 @@
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
      "p06-extraction-characterization.test.js",
+     "p11-r5-security.smoke.test.js",
      "p6-decisions-access.smoke.test.js",
+     "policy-center-four-eyes-bypass.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-action-status.smoke.test.js",
      "report-audit-log-client.test.js",
      "report-helpdesk-write.smoke.test.js",
+     "report-period-params.smoke.test.js",
      "report-read-scope.smoke.test.js",
      "report-revert-admin.smoke.test.js",
      "report-send-route.smoke.test.js",
@@ -3370,11 +3454,13 @@
      "route-matrix-probe-order.test.js",
      "server-routes-smoke.test.js",
      "server-size-budget.test.js",
+     "session-security.smoke.test.js",
      "site-actions-merge.smoke.test.js",
      "site-actions-p5.smoke.test.js",
      "site-actions-routes.smoke.test.js",
      "site-open-actions-route.smoke.test.js",
      "sites-routes.smoke.test.js",
+     "sli-readings.test.js",
      "sso-routes.smoke.test.js",
      "status-transfer.smoke.test.js",
      "system-log-routes.smoke.test.js",
@@ -3389,14 +3475,14 @@
      "workspace-profiles-grants-nothing-matrix.smoke.test.js",
      "workspace-profiles-grants-nothing.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/reports/:id/light-weeks",
     "domain": "reports",
-    "line": 4260,
-    "end": 4267,
+    "line": 4261,
+    "end": 4268,
     "lines": 8,
     "guards": [
      "requireReportSession"
@@ -3411,6 +3497,8 @@
      "action-import-window.smoke.test.js",
      "action-relineage.smoke.test.js",
      "admin-superadmin-gate.smoke.test.js",
+     "adoption-lota-nav-authz.test.js",
+     "adoption-lota-week.test.js",
      "agent-inventory.test.js",
      "analytics-integration-routes.smoke.test.js",
      "api-key-injection.smoke.test.js",
@@ -3420,11 +3508,14 @@
      "asset-review-status.smoke.test.js",
      "audit-report-write-auth.smoke.test.js",
      "auth-cookie.smoke.test.js",
+     "auth-db-busy.smoke.test.js",
      "auth-roles-refresh.test.js",
      "authz-enforce.test.js",
      "authz-matrix-json.test.js",
+     "authz-outcomes-lots-on.smoke.test.js",
      "authz-route-matrix.test.js",
      "await-precedence.test.js",
+     "boot-integrity.test.js",
      "business-only-boundary.smoke.test.js",
      "capability-registry.test.js",
      "commitments-routes.smoke.test.js",
@@ -3444,6 +3535,7 @@
      "home-queue-p5.test.js",
      "home-queue-two-sites.smoke.test.js",
      "home-queue.test.js",
+     "hostile-input-r4.smoke.test.js",
      "identity-log.smoke.test.js",
      "importable-actions.smoke.test.js",
      "infra-auto-route.smoke.test.js",
@@ -3453,12 +3545,15 @@
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
      "p06-extraction-characterization.test.js",
+     "p11-r5-security.smoke.test.js",
      "p6-decisions-access.smoke.test.js",
+     "policy-center-four-eyes-bypass.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-action-status.smoke.test.js",
      "report-audit-log-client.test.js",
      "report-helpdesk-write.smoke.test.js",
+     "report-period-params.smoke.test.js",
      "report-read-scope.smoke.test.js",
      "report-revert-admin.smoke.test.js",
      "report-send-route.smoke.test.js",
@@ -3470,11 +3565,13 @@
      "route-matrix-probe-order.test.js",
      "server-routes-smoke.test.js",
      "server-size-budget.test.js",
+     "session-security.smoke.test.js",
      "site-actions-merge.smoke.test.js",
      "site-actions-p5.smoke.test.js",
      "site-actions-routes.smoke.test.js",
      "site-open-actions-route.smoke.test.js",
      "sites-routes.smoke.test.js",
+     "sli-readings.test.js",
      "sso-routes.smoke.test.js",
      "status-transfer.smoke.test.js",
      "system-log-routes.smoke.test.js",
@@ -3489,14 +3586,14 @@
      "workspace-profiles-grants-nothing-matrix.smoke.test.js",
      "workspace-profiles-grants-nothing.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/reports/:id/lights-from/:source_report_id",
     "domain": "reports",
-    "line": 4270,
-    "end": 4282,
+    "line": 4271,
+    "end": 4283,
     "lines": 13,
     "guards": [
      "requireReportSession"
@@ -3511,6 +3608,8 @@
      "action-import-window.smoke.test.js",
      "action-relineage.smoke.test.js",
      "admin-superadmin-gate.smoke.test.js",
+     "adoption-lota-nav-authz.test.js",
+     "adoption-lota-week.test.js",
      "agent-inventory.test.js",
      "analytics-integration-routes.smoke.test.js",
      "api-key-injection.smoke.test.js",
@@ -3520,11 +3619,14 @@
      "asset-review-status.smoke.test.js",
      "audit-report-write-auth.smoke.test.js",
      "auth-cookie.smoke.test.js",
+     "auth-db-busy.smoke.test.js",
      "auth-roles-refresh.test.js",
      "authz-enforce.test.js",
      "authz-matrix-json.test.js",
+     "authz-outcomes-lots-on.smoke.test.js",
      "authz-route-matrix.test.js",
      "await-precedence.test.js",
+     "boot-integrity.test.js",
      "business-only-boundary.smoke.test.js",
      "capability-registry.test.js",
      "commitments-routes.smoke.test.js",
@@ -3544,6 +3646,7 @@
      "home-queue-p5.test.js",
      "home-queue-two-sites.smoke.test.js",
      "home-queue.test.js",
+     "hostile-input-r4.smoke.test.js",
      "identity-log.smoke.test.js",
      "importable-actions.smoke.test.js",
      "infra-auto-route.smoke.test.js",
@@ -3553,12 +3656,15 @@
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
      "p06-extraction-characterization.test.js",
+     "p11-r5-security.smoke.test.js",
      "p6-decisions-access.smoke.test.js",
+     "policy-center-four-eyes-bypass.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-action-status.smoke.test.js",
      "report-audit-log-client.test.js",
      "report-helpdesk-write.smoke.test.js",
+     "report-period-params.smoke.test.js",
      "report-read-scope.smoke.test.js",
      "report-revert-admin.smoke.test.js",
      "report-send-route.smoke.test.js",
@@ -3570,11 +3676,13 @@
      "route-matrix-probe-order.test.js",
      "server-routes-smoke.test.js",
      "server-size-budget.test.js",
+     "session-security.smoke.test.js",
      "site-actions-merge.smoke.test.js",
      "site-actions-p5.smoke.test.js",
      "site-actions-routes.smoke.test.js",
      "site-open-actions-route.smoke.test.js",
      "sites-routes.smoke.test.js",
+     "sli-readings.test.js",
      "sso-routes.smoke.test.js",
      "status-transfer.smoke.test.js",
      "system-log-routes.smoke.test.js",
@@ -3589,14 +3697,14 @@
      "workspace-profiles-grants-nothing-matrix.smoke.test.js",
      "workspace-profiles-grants-nothing.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/reports/:id/carry-over-infra",
     "domain": "reports",
-    "line": 4285,
-    "end": 4292,
+    "line": 4286,
+    "end": 4293,
     "lines": 8,
     "guards": [
      "requireReportSession"
@@ -3611,6 +3719,8 @@
      "action-import-window.smoke.test.js",
      "action-relineage.smoke.test.js",
      "admin-superadmin-gate.smoke.test.js",
+     "adoption-lota-nav-authz.test.js",
+     "adoption-lota-week.test.js",
      "agent-inventory.test.js",
      "analytics-integration-routes.smoke.test.js",
      "api-key-injection.smoke.test.js",
@@ -3620,11 +3730,14 @@
      "asset-review-status.smoke.test.js",
      "audit-report-write-auth.smoke.test.js",
      "auth-cookie.smoke.test.js",
+     "auth-db-busy.smoke.test.js",
      "auth-roles-refresh.test.js",
      "authz-enforce.test.js",
      "authz-matrix-json.test.js",
+     "authz-outcomes-lots-on.smoke.test.js",
      "authz-route-matrix.test.js",
      "await-precedence.test.js",
+     "boot-integrity.test.js",
      "business-only-boundary.smoke.test.js",
      "capability-registry.test.js",
      "commitments-routes.smoke.test.js",
@@ -3644,6 +3757,7 @@
      "home-queue-p5.test.js",
      "home-queue-two-sites.smoke.test.js",
      "home-queue.test.js",
+     "hostile-input-r4.smoke.test.js",
      "identity-log.smoke.test.js",
      "importable-actions.smoke.test.js",
      "infra-auto-route.smoke.test.js",
@@ -3653,12 +3767,15 @@
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
      "p06-extraction-characterization.test.js",
+     "p11-r5-security.smoke.test.js",
      "p6-decisions-access.smoke.test.js",
+     "policy-center-four-eyes-bypass.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-action-status.smoke.test.js",
      "report-audit-log-client.test.js",
      "report-helpdesk-write.smoke.test.js",
+     "report-period-params.smoke.test.js",
      "report-read-scope.smoke.test.js",
      "report-revert-admin.smoke.test.js",
      "report-send-route.smoke.test.js",
@@ -3670,11 +3787,13 @@
      "route-matrix-probe-order.test.js",
      "server-routes-smoke.test.js",
      "server-size-budget.test.js",
+     "session-security.smoke.test.js",
      "site-actions-merge.smoke.test.js",
      "site-actions-p5.smoke.test.js",
      "site-actions-routes.smoke.test.js",
      "site-open-actions-route.smoke.test.js",
      "sites-routes.smoke.test.js",
+     "sli-readings.test.js",
      "sso-routes.smoke.test.js",
      "status-transfer.smoke.test.js",
      "system-log-routes.smoke.test.js",
@@ -3689,14 +3808,14 @@
      "workspace-profiles-grants-nothing-matrix.smoke.test.js",
      "workspace-profiles-grants-nothing.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/reports/:id/audit",
     "domain": "reports",
-    "line": 4298,
-    "end": 4304,
+    "line": 4299,
+    "end": 4305,
     "lines": 7,
     "guards": [
      "requireReportSession",
@@ -3712,6 +3831,8 @@
      "action-import-window.smoke.test.js",
      "action-relineage.smoke.test.js",
      "admin-superadmin-gate.smoke.test.js",
+     "adoption-lota-nav-authz.test.js",
+     "adoption-lota-week.test.js",
      "agent-inventory.test.js",
      "analytics-integration-routes.smoke.test.js",
      "api-key-injection.smoke.test.js",
@@ -3721,11 +3842,14 @@
      "asset-review-status.smoke.test.js",
      "audit-report-write-auth.smoke.test.js",
      "auth-cookie.smoke.test.js",
+     "auth-db-busy.smoke.test.js",
      "auth-roles-refresh.test.js",
      "authz-enforce.test.js",
      "authz-matrix-json.test.js",
+     "authz-outcomes-lots-on.smoke.test.js",
      "authz-route-matrix.test.js",
      "await-precedence.test.js",
+     "boot-integrity.test.js",
      "business-only-boundary.smoke.test.js",
      "capability-registry.test.js",
      "commitments-routes.smoke.test.js",
@@ -3745,6 +3869,7 @@
      "home-queue-p5.test.js",
      "home-queue-two-sites.smoke.test.js",
      "home-queue.test.js",
+     "hostile-input-r4.smoke.test.js",
      "identity-log.smoke.test.js",
      "importable-actions.smoke.test.js",
      "infra-auto-route.smoke.test.js",
@@ -3754,12 +3879,15 @@
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
      "p06-extraction-characterization.test.js",
+     "p11-r5-security.smoke.test.js",
      "p6-decisions-access.smoke.test.js",
+     "policy-center-four-eyes-bypass.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-action-status.smoke.test.js",
      "report-audit-log-client.test.js",
      "report-helpdesk-write.smoke.test.js",
+     "report-period-params.smoke.test.js",
      "report-read-scope.smoke.test.js",
      "report-revert-admin.smoke.test.js",
      "report-send-route.smoke.test.js",
@@ -3771,11 +3899,13 @@
      "route-matrix-probe-order.test.js",
      "server-routes-smoke.test.js",
      "server-size-budget.test.js",
+     "session-security.smoke.test.js",
      "site-actions-merge.smoke.test.js",
      "site-actions-p5.smoke.test.js",
      "site-actions-routes.smoke.test.js",
      "site-open-actions-route.smoke.test.js",
      "sites-routes.smoke.test.js",
+     "sli-readings.test.js",
      "sso-routes.smoke.test.js",
      "status-transfer.smoke.test.js",
      "system-log-routes.smoke.test.js",
@@ -3790,14 +3920,14 @@
      "workspace-profiles-grants-nothing-matrix.smoke.test.js",
      "workspace-profiles-grants-nothing.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/reports/helpdesk-live",
     "domain": "reports/helpdesk-live",
-    "line": 4318,
-    "end": 4372,
+    "line": 4319,
+    "end": 4373,
     "lines": 55,
     "guards": [
      "requireReportSession"
@@ -3810,14 +3940,14 @@
      "start"
     ],
     "tests": [],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/reports/helpdesk-charts",
     "domain": "reports/helpdesk-charts",
-    "line": 4377,
-    "end": 4572,
+    "line": 4378,
+    "end": 4573,
     "lines": 196,
     "guards": [
      "requireReportSession"
@@ -3830,14 +3960,14 @@
     "tests": [
      "report-read-scope.smoke.test.js"
     ],
-    "recent_commits": 3
+    "recent_commits": 2
    },
    {
     "method": "GET",
     "path": "/api/reports/technicians",
     "domain": "reports/technicians",
-    "line": 4575,
-    "end": 4585,
+    "line": 4576,
+    "end": 4586,
     "lines": 11,
     "guards": [
      "requireReportSession"
@@ -3846,14 +3976,14 @@
      "getRawRequestRows"
     ],
     "tests": [],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/reports/system-log",
     "domain": "reports/system-log",
-    "line": 4599,
-    "end": 4604,
+    "line": 4600,
+    "end": 4605,
     "lines": 6,
     "guards": [
      "requireReportSession"
@@ -3863,6 +3993,7 @@
      "_syslogFilters"
     ],
     "tests": [
+     "adoption-lota-nav-authz.test.js",
      "authz-matrix-json.test.js",
      "export-share-boundary.smoke.test.js",
      "identity-log.smoke.test.js",
@@ -3871,14 +4002,14 @@
      "workspace-profiles-grants-nothing-matrix.smoke.test.js",
      "workspace-profiles-grants-nothing.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/reports/system-log/analytics",
     "domain": "reports/system-log",
-    "line": 4605,
-    "end": 4608,
+    "line": 4606,
+    "end": 4609,
     "lines": 4,
     "guards": [
      "requireReportSession"
@@ -3889,14 +4020,14 @@
     "tests": [
      "system-log-routes.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/reports/system-log/export.json",
     "domain": "reports/system-log",
-    "line": 4609,
-    "end": 4616,
+    "line": 4610,
+    "end": 4617,
     "lines": 8,
     "guards": [
      "requireReportSession",
@@ -3916,8 +4047,8 @@
     "method": "GET",
     "path": "/api/reports/system-log/export.csv",
     "domain": "reports/system-log",
-    "line": 4617,
-    "end": 4627,
+    "line": 4618,
+    "end": 4628,
     "lines": 11,
     "guards": [
      "requireReportSession",
@@ -3939,8 +4070,8 @@
     "method": "GET",
     "path": "/api/reports/:id",
     "domain": "reports",
-    "line": 4630,
-    "end": 4637,
+    "line": 4631,
+    "end": 4638,
     "lines": 8,
     "guards": [
      "requireReportSession"
@@ -3955,6 +4086,8 @@
      "action-import-window.smoke.test.js",
      "action-relineage.smoke.test.js",
      "admin-superadmin-gate.smoke.test.js",
+     "adoption-lota-nav-authz.test.js",
+     "adoption-lota-week.test.js",
      "agent-inventory.test.js",
      "analytics-integration-routes.smoke.test.js",
      "api-key-injection.smoke.test.js",
@@ -3964,11 +4097,14 @@
      "asset-review-status.smoke.test.js",
      "audit-report-write-auth.smoke.test.js",
      "auth-cookie.smoke.test.js",
+     "auth-db-busy.smoke.test.js",
      "auth-roles-refresh.test.js",
      "authz-enforce.test.js",
      "authz-matrix-json.test.js",
+     "authz-outcomes-lots-on.smoke.test.js",
      "authz-route-matrix.test.js",
      "await-precedence.test.js",
+     "boot-integrity.test.js",
      "business-only-boundary.smoke.test.js",
      "capability-registry.test.js",
      "commitments-routes.smoke.test.js",
@@ -3988,6 +4124,7 @@
      "home-queue-p5.test.js",
      "home-queue-two-sites.smoke.test.js",
      "home-queue.test.js",
+     "hostile-input-r4.smoke.test.js",
      "identity-log.smoke.test.js",
      "importable-actions.smoke.test.js",
      "infra-auto-route.smoke.test.js",
@@ -3997,12 +4134,15 @@
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
      "p06-extraction-characterization.test.js",
+     "p11-r5-security.smoke.test.js",
      "p6-decisions-access.smoke.test.js",
+     "policy-center-four-eyes-bypass.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-action-status.smoke.test.js",
      "report-audit-log-client.test.js",
      "report-helpdesk-write.smoke.test.js",
+     "report-period-params.smoke.test.js",
      "report-read-scope.smoke.test.js",
      "report-revert-admin.smoke.test.js",
      "report-send-route.smoke.test.js",
@@ -4014,11 +4154,13 @@
      "route-matrix-probe-order.test.js",
      "server-routes-smoke.test.js",
      "server-size-budget.test.js",
+     "session-security.smoke.test.js",
      "site-actions-merge.smoke.test.js",
      "site-actions-p5.smoke.test.js",
      "site-actions-routes.smoke.test.js",
      "site-open-actions-route.smoke.test.js",
      "sites-routes.smoke.test.js",
+     "sli-readings.test.js",
      "sso-routes.smoke.test.js",
      "status-transfer.smoke.test.js",
      "system-log-routes.smoke.test.js",
@@ -4033,14 +4175,14 @@
      "workspace-profiles-grants-nothing-matrix.smoke.test.js",
      "workspace-profiles-grants-nothing.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/reports/:id/open-changes",
     "domain": "reports",
-    "line": 4640,
-    "end": 4648,
+    "line": 4641,
+    "end": 4649,
     "lines": 9,
     "guards": [
      "requireReportSession"
@@ -4055,6 +4197,8 @@
      "action-import-window.smoke.test.js",
      "action-relineage.smoke.test.js",
      "admin-superadmin-gate.smoke.test.js",
+     "adoption-lota-nav-authz.test.js",
+     "adoption-lota-week.test.js",
      "agent-inventory.test.js",
      "analytics-integration-routes.smoke.test.js",
      "api-key-injection.smoke.test.js",
@@ -4064,11 +4208,14 @@
      "asset-review-status.smoke.test.js",
      "audit-report-write-auth.smoke.test.js",
      "auth-cookie.smoke.test.js",
+     "auth-db-busy.smoke.test.js",
      "auth-roles-refresh.test.js",
      "authz-enforce.test.js",
      "authz-matrix-json.test.js",
+     "authz-outcomes-lots-on.smoke.test.js",
      "authz-route-matrix.test.js",
      "await-precedence.test.js",
+     "boot-integrity.test.js",
      "business-only-boundary.smoke.test.js",
      "capability-registry.test.js",
      "commitments-routes.smoke.test.js",
@@ -4088,6 +4235,7 @@
      "home-queue-p5.test.js",
      "home-queue-two-sites.smoke.test.js",
      "home-queue.test.js",
+     "hostile-input-r4.smoke.test.js",
      "identity-log.smoke.test.js",
      "importable-actions.smoke.test.js",
      "infra-auto-route.smoke.test.js",
@@ -4097,12 +4245,15 @@
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
      "p06-extraction-characterization.test.js",
+     "p11-r5-security.smoke.test.js",
      "p6-decisions-access.smoke.test.js",
+     "policy-center-four-eyes-bypass.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-action-status.smoke.test.js",
      "report-audit-log-client.test.js",
      "report-helpdesk-write.smoke.test.js",
+     "report-period-params.smoke.test.js",
      "report-read-scope.smoke.test.js",
      "report-revert-admin.smoke.test.js",
      "report-send-route.smoke.test.js",
@@ -4114,11 +4265,13 @@
      "route-matrix-probe-order.test.js",
      "server-routes-smoke.test.js",
      "server-size-budget.test.js",
+     "session-security.smoke.test.js",
      "site-actions-merge.smoke.test.js",
      "site-actions-p5.smoke.test.js",
      "site-actions-routes.smoke.test.js",
      "site-open-actions-route.smoke.test.js",
      "sites-routes.smoke.test.js",
+     "sli-readings.test.js",
      "sso-routes.smoke.test.js",
      "status-transfer.smoke.test.js",
      "system-log-routes.smoke.test.js",
@@ -4133,14 +4286,14 @@
      "workspace-profiles-grants-nothing-matrix.smoke.test.js",
      "workspace-profiles-grants-nothing.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/sites/:siteId/open-changes",
     "domain": "sites",
-    "line": 4651,
-    "end": 4658,
+    "line": 4652,
+    "end": 4659,
     "lines": 8,
     "guards": [
      "requireReportSession"
@@ -4150,14 +4303,14 @@
      "cross-site-read-sweep.smoke.test.js",
      "cross-site-write-sweep.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/reports/:id/active-incidents",
     "domain": "reports",
-    "line": 4664,
-    "end": 4672,
+    "line": 4665,
+    "end": 4673,
     "lines": 9,
     "guards": [
      "requireReportSession"
@@ -4172,6 +4325,8 @@
      "action-import-window.smoke.test.js",
      "action-relineage.smoke.test.js",
      "admin-superadmin-gate.smoke.test.js",
+     "adoption-lota-nav-authz.test.js",
+     "adoption-lota-week.test.js",
      "agent-inventory.test.js",
      "analytics-integration-routes.smoke.test.js",
      "api-key-injection.smoke.test.js",
@@ -4181,11 +4336,14 @@
      "asset-review-status.smoke.test.js",
      "audit-report-write-auth.smoke.test.js",
      "auth-cookie.smoke.test.js",
+     "auth-db-busy.smoke.test.js",
      "auth-roles-refresh.test.js",
      "authz-enforce.test.js",
      "authz-matrix-json.test.js",
+     "authz-outcomes-lots-on.smoke.test.js",
      "authz-route-matrix.test.js",
      "await-precedence.test.js",
+     "boot-integrity.test.js",
      "business-only-boundary.smoke.test.js",
      "capability-registry.test.js",
      "commitments-routes.smoke.test.js",
@@ -4205,6 +4363,7 @@
      "home-queue-p5.test.js",
      "home-queue-two-sites.smoke.test.js",
      "home-queue.test.js",
+     "hostile-input-r4.smoke.test.js",
      "identity-log.smoke.test.js",
      "importable-actions.smoke.test.js",
      "infra-auto-route.smoke.test.js",
@@ -4214,12 +4373,15 @@
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
      "p06-extraction-characterization.test.js",
+     "p11-r5-security.smoke.test.js",
      "p6-decisions-access.smoke.test.js",
+     "policy-center-four-eyes-bypass.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-action-status.smoke.test.js",
      "report-audit-log-client.test.js",
      "report-helpdesk-write.smoke.test.js",
+     "report-period-params.smoke.test.js",
      "report-read-scope.smoke.test.js",
      "report-revert-admin.smoke.test.js",
      "report-send-route.smoke.test.js",
@@ -4231,11 +4393,13 @@
      "route-matrix-probe-order.test.js",
      "server-routes-smoke.test.js",
      "server-size-budget.test.js",
+     "session-security.smoke.test.js",
      "site-actions-merge.smoke.test.js",
      "site-actions-p5.smoke.test.js",
      "site-actions-routes.smoke.test.js",
      "site-open-actions-route.smoke.test.js",
      "sites-routes.smoke.test.js",
+     "sli-readings.test.js",
      "sso-routes.smoke.test.js",
      "status-transfer.smoke.test.js",
      "system-log-routes.smoke.test.js",
@@ -4250,14 +4414,14 @@
      "workspace-profiles-grants-nothing-matrix.smoke.test.js",
      "workspace-profiles-grants-nothing.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/sites/:siteId/active-incidents",
     "domain": "sites",
-    "line": 4681,
-    "end": 4688,
+    "line": 4682,
+    "end": 4689,
     "lines": 8,
     "guards": [
      "requireReportSession"
@@ -4267,14 +4431,14 @@
      "cross-site-read-sweep.smoke.test.js",
      "cross-site-write-sweep.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "DELETE",
     "path": "/api/reports/:id",
     "domain": "reports",
-    "line": 4691,
-    "end": 4708,
+    "line": 4692,
+    "end": 4709,
     "lines": 18,
     "guards": [
      "requireReportSession"
@@ -4291,6 +4455,8 @@
      "action-import-window.smoke.test.js",
      "action-relineage.smoke.test.js",
      "admin-superadmin-gate.smoke.test.js",
+     "adoption-lota-nav-authz.test.js",
+     "adoption-lota-week.test.js",
      "agent-inventory.test.js",
      "analytics-integration-routes.smoke.test.js",
      "api-key-injection.smoke.test.js",
@@ -4300,11 +4466,14 @@
      "asset-review-status.smoke.test.js",
      "audit-report-write-auth.smoke.test.js",
      "auth-cookie.smoke.test.js",
+     "auth-db-busy.smoke.test.js",
      "auth-roles-refresh.test.js",
      "authz-enforce.test.js",
      "authz-matrix-json.test.js",
+     "authz-outcomes-lots-on.smoke.test.js",
      "authz-route-matrix.test.js",
      "await-precedence.test.js",
+     "boot-integrity.test.js",
      "business-only-boundary.smoke.test.js",
      "capability-registry.test.js",
      "commitments-routes.smoke.test.js",
@@ -4324,6 +4493,7 @@
      "home-queue-p5.test.js",
      "home-queue-two-sites.smoke.test.js",
      "home-queue.test.js",
+     "hostile-input-r4.smoke.test.js",
      "identity-log.smoke.test.js",
      "importable-actions.smoke.test.js",
      "infra-auto-route.smoke.test.js",
@@ -4333,12 +4503,15 @@
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
      "p06-extraction-characterization.test.js",
+     "p11-r5-security.smoke.test.js",
      "p6-decisions-access.smoke.test.js",
+     "policy-center-four-eyes-bypass.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-action-status.smoke.test.js",
      "report-audit-log-client.test.js",
      "report-helpdesk-write.smoke.test.js",
+     "report-period-params.smoke.test.js",
      "report-read-scope.smoke.test.js",
      "report-revert-admin.smoke.test.js",
      "report-send-route.smoke.test.js",
@@ -4350,11 +4523,13 @@
      "route-matrix-probe-order.test.js",
      "server-routes-smoke.test.js",
      "server-size-budget.test.js",
+     "session-security.smoke.test.js",
      "site-actions-merge.smoke.test.js",
      "site-actions-p5.smoke.test.js",
      "site-actions-routes.smoke.test.js",
      "site-open-actions-route.smoke.test.js",
      "sites-routes.smoke.test.js",
+     "sli-readings.test.js",
      "sso-routes.smoke.test.js",
      "status-transfer.smoke.test.js",
      "system-log-routes.smoke.test.js",
@@ -4369,14 +4544,14 @@
      "workspace-profiles-grants-nothing-matrix.smoke.test.js",
      "workspace-profiles-grants-nothing.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "PUT",
     "path": "/api/reports/:id/infra",
     "domain": "reports",
-    "line": 4711,
-    "end": 4723,
+    "line": 4712,
+    "end": 4724,
     "lines": 13,
     "guards": [
      "requireReportSession"
@@ -4395,6 +4570,8 @@
      "action-import-window.smoke.test.js",
      "action-relineage.smoke.test.js",
      "admin-superadmin-gate.smoke.test.js",
+     "adoption-lota-nav-authz.test.js",
+     "adoption-lota-week.test.js",
      "agent-inventory.test.js",
      "analytics-integration-routes.smoke.test.js",
      "api-key-injection.smoke.test.js",
@@ -4404,11 +4581,14 @@
      "asset-review-status.smoke.test.js",
      "audit-report-write-auth.smoke.test.js",
      "auth-cookie.smoke.test.js",
+     "auth-db-busy.smoke.test.js",
      "auth-roles-refresh.test.js",
      "authz-enforce.test.js",
      "authz-matrix-json.test.js",
+     "authz-outcomes-lots-on.smoke.test.js",
      "authz-route-matrix.test.js",
      "await-precedence.test.js",
+     "boot-integrity.test.js",
      "business-only-boundary.smoke.test.js",
      "capability-registry.test.js",
      "commitments-routes.smoke.test.js",
@@ -4428,6 +4608,7 @@
      "home-queue-p5.test.js",
      "home-queue-two-sites.smoke.test.js",
      "home-queue.test.js",
+     "hostile-input-r4.smoke.test.js",
      "identity-log.smoke.test.js",
      "importable-actions.smoke.test.js",
      "infra-auto-route.smoke.test.js",
@@ -4437,12 +4618,15 @@
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
      "p06-extraction-characterization.test.js",
+     "p11-r5-security.smoke.test.js",
      "p6-decisions-access.smoke.test.js",
+     "policy-center-four-eyes-bypass.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-action-status.smoke.test.js",
      "report-audit-log-client.test.js",
      "report-helpdesk-write.smoke.test.js",
+     "report-period-params.smoke.test.js",
      "report-read-scope.smoke.test.js",
      "report-revert-admin.smoke.test.js",
      "report-send-route.smoke.test.js",
@@ -4454,11 +4638,13 @@
      "route-matrix-probe-order.test.js",
      "server-routes-smoke.test.js",
      "server-size-budget.test.js",
+     "session-security.smoke.test.js",
      "site-actions-merge.smoke.test.js",
      "site-actions-p5.smoke.test.js",
      "site-actions-routes.smoke.test.js",
      "site-open-actions-route.smoke.test.js",
      "sites-routes.smoke.test.js",
+     "sli-readings.test.js",
      "sso-routes.smoke.test.js",
      "status-transfer.smoke.test.js",
      "system-log-routes.smoke.test.js",
@@ -4473,14 +4659,14 @@
      "workspace-profiles-grants-nothing-matrix.smoke.test.js",
      "workspace-profiles-grants-nothing.smoke.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "method": "PUT",
     "path": "/api/reports/:id/helpdesk",
     "domain": "reports",
-    "line": 4726,
-    "end": 4736,
+    "line": 4727,
+    "end": 4737,
     "lines": 11,
     "guards": [
      "requireReportSession"
@@ -4498,6 +4684,8 @@
      "action-import-window.smoke.test.js",
      "action-relineage.smoke.test.js",
      "admin-superadmin-gate.smoke.test.js",
+     "adoption-lota-nav-authz.test.js",
+     "adoption-lota-week.test.js",
      "agent-inventory.test.js",
      "analytics-integration-routes.smoke.test.js",
      "api-key-injection.smoke.test.js",
@@ -4507,11 +4695,14 @@
      "asset-review-status.smoke.test.js",
      "audit-report-write-auth.smoke.test.js",
      "auth-cookie.smoke.test.js",
+     "auth-db-busy.smoke.test.js",
      "auth-roles-refresh.test.js",
      "authz-enforce.test.js",
      "authz-matrix-json.test.js",
+     "authz-outcomes-lots-on.smoke.test.js",
      "authz-route-matrix.test.js",
      "await-precedence.test.js",
+     "boot-integrity.test.js",
      "business-only-boundary.smoke.test.js",
      "capability-registry.test.js",
      "commitments-routes.smoke.test.js",
@@ -4531,6 +4722,7 @@
      "home-queue-p5.test.js",
      "home-queue-two-sites.smoke.test.js",
      "home-queue.test.js",
+     "hostile-input-r4.smoke.test.js",
      "identity-log.smoke.test.js",
      "importable-actions.smoke.test.js",
      "infra-auto-route.smoke.test.js",
@@ -4540,12 +4732,15 @@
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
      "p06-extraction-characterization.test.js",
+     "p11-r5-security.smoke.test.js",
      "p6-decisions-access.smoke.test.js",
+     "policy-center-four-eyes-bypass.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-action-status.smoke.test.js",
      "report-audit-log-client.test.js",
      "report-helpdesk-write.smoke.test.js",
+     "report-period-params.smoke.test.js",
      "report-read-scope.smoke.test.js",
      "report-revert-admin.smoke.test.js",
      "report-send-route.smoke.test.js",
@@ -4557,11 +4752,13 @@
      "route-matrix-probe-order.test.js",
      "server-routes-smoke.test.js",
      "server-size-budget.test.js",
+     "session-security.smoke.test.js",
      "site-actions-merge.smoke.test.js",
      "site-actions-p5.smoke.test.js",
      "site-actions-routes.smoke.test.js",
      "site-open-actions-route.smoke.test.js",
      "sites-routes.smoke.test.js",
+     "sli-readings.test.js",
      "sso-routes.smoke.test.js",
      "status-transfer.smoke.test.js",
      "system-log-routes.smoke.test.js",
@@ -4576,14 +4773,14 @@
      "workspace-profiles-grants-nothing-matrix.smoke.test.js",
      "workspace-profiles-grants-nothing.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "PUT",
     "path": "/api/reports/:id/lights",
     "domain": "reports",
-    "line": 4739,
-    "end": 4750,
+    "line": 4740,
+    "end": 4751,
     "lines": 12,
     "guards": [
      "requireReportSession"
@@ -4601,6 +4798,8 @@
      "action-import-window.smoke.test.js",
      "action-relineage.smoke.test.js",
      "admin-superadmin-gate.smoke.test.js",
+     "adoption-lota-nav-authz.test.js",
+     "adoption-lota-week.test.js",
      "agent-inventory.test.js",
      "analytics-integration-routes.smoke.test.js",
      "api-key-injection.smoke.test.js",
@@ -4610,11 +4809,14 @@
      "asset-review-status.smoke.test.js",
      "audit-report-write-auth.smoke.test.js",
      "auth-cookie.smoke.test.js",
+     "auth-db-busy.smoke.test.js",
      "auth-roles-refresh.test.js",
      "authz-enforce.test.js",
      "authz-matrix-json.test.js",
+     "authz-outcomes-lots-on.smoke.test.js",
      "authz-route-matrix.test.js",
      "await-precedence.test.js",
+     "boot-integrity.test.js",
      "business-only-boundary.smoke.test.js",
      "capability-registry.test.js",
      "commitments-routes.smoke.test.js",
@@ -4634,6 +4836,7 @@
      "home-queue-p5.test.js",
      "home-queue-two-sites.smoke.test.js",
      "home-queue.test.js",
+     "hostile-input-r4.smoke.test.js",
      "identity-log.smoke.test.js",
      "importable-actions.smoke.test.js",
      "infra-auto-route.smoke.test.js",
@@ -4643,12 +4846,15 @@
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
      "p06-extraction-characterization.test.js",
+     "p11-r5-security.smoke.test.js",
      "p6-decisions-access.smoke.test.js",
+     "policy-center-four-eyes-bypass.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-action-status.smoke.test.js",
      "report-audit-log-client.test.js",
      "report-helpdesk-write.smoke.test.js",
+     "report-period-params.smoke.test.js",
      "report-read-scope.smoke.test.js",
      "report-revert-admin.smoke.test.js",
      "report-send-route.smoke.test.js",
@@ -4660,11 +4866,13 @@
      "route-matrix-probe-order.test.js",
      "server-routes-smoke.test.js",
      "server-size-budget.test.js",
+     "session-security.smoke.test.js",
      "site-actions-merge.smoke.test.js",
      "site-actions-p5.smoke.test.js",
      "site-actions-routes.smoke.test.js",
      "site-open-actions-route.smoke.test.js",
      "sites-routes.smoke.test.js",
+     "sli-readings.test.js",
      "sso-routes.smoke.test.js",
      "status-transfer.smoke.test.js",
      "system-log-routes.smoke.test.js",
@@ -4679,14 +4887,14 @@
      "workspace-profiles-grants-nothing-matrix.smoke.test.js",
      "workspace-profiles-grants-nothing.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "PUT",
     "path": "/api/reports/:id/actions",
     "domain": "reports",
-    "line": 4790,
-    "end": 4815,
+    "line": 4791,
+    "end": 4816,
     "lines": 26,
     "guards": [
      "requireReportSession"
@@ -4705,6 +4913,8 @@
      "action-import-window.smoke.test.js",
      "action-relineage.smoke.test.js",
      "admin-superadmin-gate.smoke.test.js",
+     "adoption-lota-nav-authz.test.js",
+     "adoption-lota-week.test.js",
      "agent-inventory.test.js",
      "analytics-integration-routes.smoke.test.js",
      "api-key-injection.smoke.test.js",
@@ -4714,11 +4924,14 @@
      "asset-review-status.smoke.test.js",
      "audit-report-write-auth.smoke.test.js",
      "auth-cookie.smoke.test.js",
+     "auth-db-busy.smoke.test.js",
      "auth-roles-refresh.test.js",
      "authz-enforce.test.js",
      "authz-matrix-json.test.js",
+     "authz-outcomes-lots-on.smoke.test.js",
      "authz-route-matrix.test.js",
      "await-precedence.test.js",
+     "boot-integrity.test.js",
      "business-only-boundary.smoke.test.js",
      "capability-registry.test.js",
      "commitments-routes.smoke.test.js",
@@ -4738,6 +4951,7 @@
      "home-queue-p5.test.js",
      "home-queue-two-sites.smoke.test.js",
      "home-queue.test.js",
+     "hostile-input-r4.smoke.test.js",
      "identity-log.smoke.test.js",
      "importable-actions.smoke.test.js",
      "infra-auto-route.smoke.test.js",
@@ -4747,12 +4961,15 @@
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
      "p06-extraction-characterization.test.js",
+     "p11-r5-security.smoke.test.js",
      "p6-decisions-access.smoke.test.js",
+     "policy-center-four-eyes-bypass.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-action-status.smoke.test.js",
      "report-audit-log-client.test.js",
      "report-helpdesk-write.smoke.test.js",
+     "report-period-params.smoke.test.js",
      "report-read-scope.smoke.test.js",
      "report-revert-admin.smoke.test.js",
      "report-send-route.smoke.test.js",
@@ -4764,11 +4981,13 @@
      "route-matrix-probe-order.test.js",
      "server-routes-smoke.test.js",
      "server-size-budget.test.js",
+     "session-security.smoke.test.js",
      "site-actions-merge.smoke.test.js",
      "site-actions-p5.smoke.test.js",
      "site-actions-routes.smoke.test.js",
      "site-open-actions-route.smoke.test.js",
      "sites-routes.smoke.test.js",
+     "sli-readings.test.js",
      "sso-routes.smoke.test.js",
      "status-transfer.smoke.test.js",
      "system-log-routes.smoke.test.js",
@@ -4783,14 +5002,14 @@
      "workspace-profiles-grants-nothing-matrix.smoke.test.js",
      "workspace-profiles-grants-nothing.smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "PUT",
     "path": "/api/reports/:id/status",
     "domain": "reports",
-    "line": 4818,
-    "end": 4856,
+    "line": 4819,
+    "end": 4857,
     "lines": 39,
     "guards": [
      "requireReportSession"
@@ -4810,6 +5029,8 @@
      "action-import-window.smoke.test.js",
      "action-relineage.smoke.test.js",
      "admin-superadmin-gate.smoke.test.js",
+     "adoption-lota-nav-authz.test.js",
+     "adoption-lota-week.test.js",
      "agent-inventory.test.js",
      "analytics-integration-routes.smoke.test.js",
      "api-key-injection.smoke.test.js",
@@ -4819,11 +5040,14 @@
      "asset-review-status.smoke.test.js",
      "audit-report-write-auth.smoke.test.js",
      "auth-cookie.smoke.test.js",
+     "auth-db-busy.smoke.test.js",
      "auth-roles-refresh.test.js",
      "authz-enforce.test.js",
      "authz-matrix-json.test.js",
+     "authz-outcomes-lots-on.smoke.test.js",
      "authz-route-matrix.test.js",
      "await-precedence.test.js",
+     "boot-integrity.test.js",
      "business-only-boundary.smoke.test.js",
      "capability-registry.test.js",
      "commitments-routes.smoke.test.js",
@@ -4843,6 +5067,7 @@
      "home-queue-p5.test.js",
      "home-queue-two-sites.smoke.test.js",
      "home-queue.test.js",
+     "hostile-input-r4.smoke.test.js",
      "identity-log.smoke.test.js",
      "importable-actions.smoke.test.js",
      "infra-auto-route.smoke.test.js",
@@ -4852,12 +5077,15 @@
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
      "p06-extraction-characterization.test.js",
+     "p11-r5-security.smoke.test.js",
      "p6-decisions-access.smoke.test.js",
+     "policy-center-four-eyes-bypass.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-action-status.smoke.test.js",
      "report-audit-log-client.test.js",
      "report-helpdesk-write.smoke.test.js",
+     "report-period-params.smoke.test.js",
      "report-read-scope.smoke.test.js",
      "report-revert-admin.smoke.test.js",
      "report-send-route.smoke.test.js",
@@ -4869,11 +5097,13 @@
      "route-matrix-probe-order.test.js",
      "server-routes-smoke.test.js",
      "server-size-budget.test.js",
+     "session-security.smoke.test.js",
      "site-actions-merge.smoke.test.js",
      "site-actions-p5.smoke.test.js",
      "site-actions-routes.smoke.test.js",
      "site-open-actions-route.smoke.test.js",
      "sites-routes.smoke.test.js",
+     "sli-readings.test.js",
      "sso-routes.smoke.test.js",
      "status-transfer.smoke.test.js",
      "system-log-routes.smoke.test.js",
@@ -4888,14 +5118,14 @@
      "workspace-profiles-grants-nothing-matrix.smoke.test.js",
      "workspace-profiles-grants-nothing.smoke.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "method": "PUT",
     "path": "/api/reports/:id/reassign-week",
     "domain": "reports",
-    "line": 4861,
-    "end": 4892,
+    "line": 4862,
+    "end": 4893,
     "lines": 32,
     "guards": [
      "requireReportSession"
@@ -4914,6 +5144,8 @@
      "action-import-window.smoke.test.js",
      "action-relineage.smoke.test.js",
      "admin-superadmin-gate.smoke.test.js",
+     "adoption-lota-nav-authz.test.js",
+     "adoption-lota-week.test.js",
      "agent-inventory.test.js",
      "analytics-integration-routes.smoke.test.js",
      "api-key-injection.smoke.test.js",
@@ -4923,11 +5155,14 @@
      "asset-review-status.smoke.test.js",
      "audit-report-write-auth.smoke.test.js",
      "auth-cookie.smoke.test.js",
+     "auth-db-busy.smoke.test.js",
      "auth-roles-refresh.test.js",
      "authz-enforce.test.js",
      "authz-matrix-json.test.js",
+     "authz-outcomes-lots-on.smoke.test.js",
      "authz-route-matrix.test.js",
      "await-precedence.test.js",
+     "boot-integrity.test.js",
      "business-only-boundary.smoke.test.js",
      "capability-registry.test.js",
      "commitments-routes.smoke.test.js",
@@ -4947,6 +5182,7 @@
      "home-queue-p5.test.js",
      "home-queue-two-sites.smoke.test.js",
      "home-queue.test.js",
+     "hostile-input-r4.smoke.test.js",
      "identity-log.smoke.test.js",
      "importable-actions.smoke.test.js",
      "infra-auto-route.smoke.test.js",
@@ -4956,12 +5192,15 @@
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
      "p06-extraction-characterization.test.js",
+     "p11-r5-security.smoke.test.js",
      "p6-decisions-access.smoke.test.js",
+     "policy-center-four-eyes-bypass.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-action-status.smoke.test.js",
      "report-audit-log-client.test.js",
      "report-helpdesk-write.smoke.test.js",
+     "report-period-params.smoke.test.js",
      "report-read-scope.smoke.test.js",
      "report-revert-admin.smoke.test.js",
      "report-send-route.smoke.test.js",
@@ -4973,11 +5212,13 @@
      "route-matrix-probe-order.test.js",
      "server-routes-smoke.test.js",
      "server-size-budget.test.js",
+     "session-security.smoke.test.js",
      "site-actions-merge.smoke.test.js",
      "site-actions-p5.smoke.test.js",
      "site-actions-routes.smoke.test.js",
      "site-open-actions-route.smoke.test.js",
      "sites-routes.smoke.test.js",
+     "sli-readings.test.js",
      "sso-routes.smoke.test.js",
      "status-transfer.smoke.test.js",
      "system-log-routes.smoke.test.js",
@@ -4992,14 +5233,14 @@
      "workspace-profiles-grants-nothing-matrix.smoke.test.js",
      "workspace-profiles-grants-nothing.smoke.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "method": "GET",
     "path": "/api/reports/:id/pptx",
     "domain": "reports",
-    "line": 4911,
-    "end": 4938,
+    "line": 4912,
+    "end": 4939,
     "lines": 28,
     "guards": [
      "requireReportSession",
@@ -5019,6 +5260,8 @@
      "action-import-window.smoke.test.js",
      "action-relineage.smoke.test.js",
      "admin-superadmin-gate.smoke.test.js",
+     "adoption-lota-nav-authz.test.js",
+     "adoption-lota-week.test.js",
      "agent-inventory.test.js",
      "analytics-integration-routes.smoke.test.js",
      "api-key-injection.smoke.test.js",
@@ -5028,11 +5271,14 @@
      "asset-review-status.smoke.test.js",
      "audit-report-write-auth.smoke.test.js",
      "auth-cookie.smoke.test.js",
+     "auth-db-busy.smoke.test.js",
      "auth-roles-refresh.test.js",
      "authz-enforce.test.js",
      "authz-matrix-json.test.js",
+     "authz-outcomes-lots-on.smoke.test.js",
      "authz-route-matrix.test.js",
      "await-precedence.test.js",
+     "boot-integrity.test.js",
      "business-only-boundary.smoke.test.js",
      "capability-registry.test.js",
      "commitments-routes.smoke.test.js",
@@ -5052,6 +5298,7 @@
      "home-queue-p5.test.js",
      "home-queue-two-sites.smoke.test.js",
      "home-queue.test.js",
+     "hostile-input-r4.smoke.test.js",
      "identity-log.smoke.test.js",
      "importable-actions.smoke.test.js",
      "infra-auto-route.smoke.test.js",
@@ -5061,12 +5308,15 @@
      "multi-site-editor.smoke.test.js",
      "origin-guard.test.js",
      "p06-extraction-characterization.test.js",
+     "p11-r5-security.smoke.test.js",
      "p6-decisions-access.smoke.test.js",
+     "policy-center-four-eyes-bypass.smoke.test.js",
      "portfolio-access-parity.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-action-status.smoke.test.js",
      "report-audit-log-client.test.js",
      "report-helpdesk-write.smoke.test.js",
+     "report-period-params.smoke.test.js",
      "report-read-scope.smoke.test.js",
      "report-revert-admin.smoke.test.js",
      "report-send-route.smoke.test.js",
@@ -5078,11 +5328,13 @@
      "route-matrix-probe-order.test.js",
      "server-routes-smoke.test.js",
      "server-size-budget.test.js",
+     "session-security.smoke.test.js",
      "site-actions-merge.smoke.test.js",
      "site-actions-p5.smoke.test.js",
      "site-actions-routes.smoke.test.js",
      "site-open-actions-route.smoke.test.js",
      "sites-routes.smoke.test.js",
+     "sli-readings.test.js",
      "sso-routes.smoke.test.js",
      "status-transfer.smoke.test.js",
      "system-log-routes.smoke.test.js",
@@ -5097,15 +5349,15 @@
      "workspace-profiles-grants-nothing-matrix.smoke.test.js",
      "workspace-profiles-grants-nothing.smoke.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "method": "GET",
     "path": "/api/reports/monthly/all-sites/:year/:month/pptx",
     "domain": "reports/monthly",
-    "line": 4942,
-    "end": 4970,
-    "lines": 29,
+    "line": 4943,
+    "end": 4972,
+    "lines": 30,
     "guards": [
      "requireReportSession",
      "requireAdmin",
@@ -5113,7 +5365,8 @@
     ],
     "helpers": [
      "_xp",
-     "_meetingsSummaryForSite"
+     "_meetingsSummaryForSite",
+     "_pp"
     ],
     "tests": [
      "report-read-scope.smoke.test.js"
@@ -5124,8 +5377,8 @@
     "method": "GET",
     "path": "/api/reports/monthly/:site_id/:year/:month/pptx",
     "domain": "reports/monthly",
-    "line": 4973,
-    "end": 5002,
+    "line": 4975,
+    "end": 5004,
     "lines": 30,
     "guards": [
      "requireReportSession",
@@ -5133,22 +5386,24 @@
     ],
     "helpers": [
      "_xp",
-     "_meetingsSummaryForSite"
+     "_meetingsSummaryForSite",
+     "_pp"
     ],
     "tests": [
      "_rbac-matrix-core.js",
+     "boot-integrity.test.js",
      "cross-site-write-sweep.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-read-scope.smoke.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "method": "GET",
     "path": "/api/reports/weekly-summary/:year/:week/pptx",
     "domain": "reports/weekly-summary",
-    "line": 5005,
-    "end": 5039,
+    "line": 5007,
+    "end": 5041,
     "lines": 35,
     "guards": [
      "requireReportSession",
@@ -5158,26 +5413,30 @@
     "helpers": [
      "_xp",
      "_assetReviewForPptx",
-     "_meetingsSummaryForSite"
+     "_meetingsSummaryForSite",
+     "_pp"
     ],
     "tests": [
      "report-read-scope.smoke.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "method": "GET",
     "path": "/api/reports/monthly/:site_id/:year/:month",
     "domain": "reports/monthly",
-    "line": 5042,
-    "end": 5048,
+    "line": 5044,
+    "end": 5050,
     "lines": 7,
     "guards": [
      "requireReportSession"
     ],
-    "helpers": [],
+    "helpers": [
+     "_pp"
+    ],
     "tests": [
      "_rbac-matrix-core.js",
+     "boot-integrity.test.js",
      "cross-site-write-sweep.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-read-scope.smoke.test.js"
@@ -5188,15 +5447,18 @@
     "method": "GET",
     "path": "/api/reports/monthly/:site_id/:year/:month/edits",
     "domain": "reports/monthly",
-    "line": 5053,
-    "end": 5059,
+    "line": 5055,
+    "end": 5061,
     "lines": 7,
     "guards": [
      "requireReportSession"
     ],
-    "helpers": [],
+    "helpers": [
+     "_pp"
+    ],
     "tests": [
      "_rbac-matrix-core.js",
+     "boot-integrity.test.js",
      "cross-site-write-sweep.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-read-scope.smoke.test.js"
@@ -5207,8 +5469,8 @@
     "method": "POST",
     "path": "/api/reports/monthly/:site_id/:year/:month/edits",
     "domain": "reports/monthly",
-    "line": 5065,
-    "end": 5084,
+    "line": 5067,
+    "end": 5086,
     "lines": 20,
     "guards": [
      "requireReportSession"
@@ -5216,10 +5478,12 @@
     "helpers": [
      "express",
      "_authorizeSiteWrite",
-     "validateActionItems"
+     "validateActionItems",
+     "_pp"
     ],
     "tests": [
      "_rbac-matrix-core.js",
+     "boot-integrity.test.js",
      "cross-site-write-sweep.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-read-scope.smoke.test.js"
@@ -5230,13 +5494,15 @@
     "method": "GET",
     "path": "/api/reports/yearly/:site_id/:year",
     "domain": "reports/yearly",
-    "line": 5088,
-    "end": 5094,
+    "line": 5090,
+    "end": 5096,
     "lines": 7,
     "guards": [
      "requireReportSession"
     ],
-    "helpers": [],
+    "helpers": [
+     "_pp"
+    ],
     "tests": [
      "access-revocation.smoke.test.js"
     ],
@@ -5246,13 +5512,15 @@
     "method": "GET",
     "path": "/api/reports/objectives/:site_id/:year",
     "domain": "reports/objectives",
-    "line": 5098,
-    "end": 5104,
+    "line": 5100,
+    "end": 5106,
     "lines": 7,
     "guards": [
      "requireReportSession"
     ],
-    "helpers": [],
+    "helpers": [
+     "_pp"
+    ],
     "tests": [
      "_rbac-matrix-core.js",
      "cross-site-write-sweep.smoke.test.js",
@@ -5264,15 +5532,16 @@
     "method": "POST",
     "path": "/api/reports/objectives/:site_id/:year",
     "domain": "reports/objectives",
-    "line": 5108,
-    "end": 5117,
+    "line": 5110,
+    "end": 5119,
     "lines": 10,
     "guards": [
      "requireReportSession"
     ],
     "helpers": [
      "express",
-     "_authorizeSiteWrite"
+     "_authorizeSiteWrite",
+     "_pp"
     ],
     "tests": [
      "_rbac-matrix-core.js",
@@ -5285,8 +5554,8 @@
     "method": "GET",
     "path": "/api/reports/monthly/:site_id/:year/:month/pptx-v2",
     "domain": "reports/monthly",
-    "line": 5120,
-    "end": 5145,
+    "line": 5122,
+    "end": 5147,
     "lines": 26,
     "guards": [
      "requireReportSession",
@@ -5294,44 +5563,48 @@
     ],
     "helpers": [
      "_xp",
-     "_meetingsSummaryForSite"
+     "_meetingsSummaryForSite",
+     "_pp"
     ],
     "tests": [
      "_rbac-matrix-core.js",
+     "boot-integrity.test.js",
      "cross-site-write-sweep.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-read-scope.smoke.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "method": "GET",
     "path": "/api/reports/monthly/:site_id/:year/:month/site-template/pptx",
     "domain": "reports/monthly",
-    "line": 5149,
-    "end": 5168,
+    "line": 5151,
+    "end": 5170,
     "lines": 20,
     "guards": [
      "requireReportSession",
      "_xp('reports.monthly_pptx')"
     ],
     "helpers": [
-     "_xp"
+     "_xp",
+     "_pp"
     ],
     "tests": [
      "_rbac-matrix-core.js",
+     "boot-integrity.test.js",
      "cross-site-write-sweep.smoke.test.js",
      "rbac-write-scope.smoke.test.js",
      "report-read-scope.smoke.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "method": "POST",
     "path": "/api/executive-new-pptx",
     "domain": "executive-new-pptx",
-    "line": 5174,
-    "end": 5214,
+    "line": 5176,
+    "end": 5216,
     "lines": 41,
     "guards": [
      "requireReportSession",
@@ -5343,15 +5616,17 @@
      "CONFIG",
      "_xp"
     ],
-    "tests": [],
-    "recent_commits": 2
+    "tests": [
+     "boot-integrity.test.js"
+    ],
+    "recent_commits": 1
    },
    {
     "method": "GET",
     "path": "/api/notes",
     "domain": "notes",
-    "line": 5220,
-    "end": 5229,
+    "line": 5222,
+    "end": 5231,
     "lines": 10,
     "guards": [
      "requireReportSession"
@@ -5368,8 +5643,8 @@
     "method": "POST",
     "path": "/api/notes",
     "domain": "notes",
-    "line": 5231,
-    "end": 5242,
+    "line": 5233,
+    "end": 5244,
     "lines": 12,
     "guards": [
      "requireReportSession",
@@ -5383,14 +5658,14 @@
     "tests": [
      "sec01-route-roles.smoke.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "method": "POST",
     "path": "/api/save-charts",
     "domain": "save-charts",
-    "line": 5245,
-    "end": 5251,
+    "line": 5247,
+    "end": 5253,
     "lines": 7,
     "guards": [
      "requireReportSession",
@@ -5403,14 +5678,14 @@
     "tests": [
      "sec01-route-roles.smoke.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "method": "POST",
     "path": "/api/save-pptx",
     "domain": "save-pptx",
-    "line": 5254,
-    "end": 5268,
+    "line": 5256,
+    "end": 5270,
     "lines": 15,
     "guards": [
      "requireReportSession",
@@ -5421,14 +5696,14 @@
      "path"
     ],
     "tests": [],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "method": "GET",
     "path": "/api/dashboard/presets",
     "domain": "dashboard",
-    "line": 5314,
-    "end": 5330,
+    "line": 5316,
+    "end": 5332,
     "lines": 17,
     "guards": [
      "requireReportSession"
@@ -5437,16 +5712,17 @@
      "groupPresets"
     ],
     "tests": [
+     "adoption-lota-nav-authz.test.js",
      "server-routes-smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "PUT",
     "path": "/api/dashboard/presets",
     "domain": "dashboard",
-    "line": 5336,
-    "end": 5354,
+    "line": 5338,
+    "end": 5356,
     "lines": 19,
     "guards": [
      "requireReportSession",
@@ -5456,16 +5732,17 @@
      "groupPresets"
     ],
     "tests": [
+     "adoption-lota-nav-authz.test.js",
      "server-routes-smoke.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 0
    },
    {
     "method": "GET",
     "path": "/api/dashboard/groups/discovered",
     "domain": "dashboard",
-    "line": 5359,
-    "end": 5371,
+    "line": 5361,
+    "end": 5373,
     "lines": 13,
     "guards": [
      "requireReportSession",
@@ -5477,14 +5754,14 @@
     "tests": [
      "deck-builder-gate.smoke.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "method": "POST",
     "path": "/api/reports/exec-pptx",
     "domain": "reports/exec-pptx",
-    "line": 5373,
-    "end": 5509,
+    "line": 5375,
+    "end": 5511,
     "lines": 137,
     "guards": [
      "requireReportSession",
@@ -5500,13 +5777,13 @@
     "tests": [
      "deck-builder-gate.smoke.test.js"
     ],
-    "recent_commits": 3
+    "recent_commits": 2
    }
   ]
  },
  "reports_db": {
-  "lines": 5714,
-  "exports": 218,
+  "lines": 5730,
+  "exports": 223,
   "by_domain": [
    {
     "domain": "action_items",
@@ -5517,13 +5794,13 @@
    {
     "domain": "misc",
     "items": 58,
-    "lines": 569,
-    "recent_commits_max": 2
+    "lines": 566,
+    "recent_commits_max": 3
    },
    {
-    "domain": "users",
-    "items": 11,
-    "lines": 60,
+    "domain": "sync_metadata",
+    "items": 4,
+    "lines": 16,
     "recent_commits_max": 2
    },
    {
@@ -5541,7 +5818,13 @@
    {
     "domain": "weekly_reports",
     "items": 13,
-    "lines": 68,
+    "lines": 72,
+    "recent_commits_max": 1
+   },
+   {
+    "domain": "users",
+    "items": 11,
+    "lines": 60,
     "recent_commits_max": 1
    },
    {
@@ -5600,12 +5883,6 @@
    },
    {
     "domain": "action_departments",
-    "items": 4,
-    "lines": 15,
-    "recent_commits_max": 1
-   },
-   {
-    "domain": "sync_metadata",
     "items": 4,
     "lines": 15,
     "recent_commits_max": 1
@@ -5863,20 +6140,21 @@
    },
    {
     "name": "getISOWeek",
-    "line": 365,
-    "end": 378,
-    "lines": 14,
+    "line": 366,
+    "end": 371,
+    "lines": 6,
     "tables": [],
     "domain": "misc",
     "tests": [
+     "adoption-lota-week.test.js",
      "uat-amdec-multinational-data.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 2
    },
    {
     "name": "zohoWeeksInYear",
-    "line": 379,
-    "end": 384,
+    "line": 372,
+    "end": 377,
     "lines": 6,
     "tables": [],
     "domain": "misc",
@@ -5887,12 +6165,13 @@
    },
    {
     "name": "getWeekRange",
-    "line": 385,
-    "end": 397,
+    "line": 378,
+    "end": 390,
     "lines": 13,
     "tables": [],
     "domain": "misc",
     "tests": [
+     "adoption-lota-week.test.js",
      "send-asset-reminders.test.js",
      "site-open-report-actions.test.js",
      "uat-amdec-multinational-data.test.js"
@@ -5901,8 +6180,8 @@
    },
    {
     "name": "ensureWeek",
-    "line": 398,
-    "end": 402,
+    "line": 391,
+    "end": 395,
     "lines": 5,
     "tables": [
      "weeks"
@@ -5915,21 +6194,22 @@
    },
    {
     "name": "getPreviousWeek",
-    "line": 403,
-    "end": 417,
-    "lines": 15,
+    "line": 396,
+    "end": 407,
+    "lines": 12,
     "tables": [],
     "domain": "misc",
     "tests": [
+     "adoption-lota-week.test.js",
      "send-asset-reminders.test.js",
      "send-weekly-cli.test.js"
     ],
-    "recent_commits": 0
+    "recent_commits": 1
    },
    {
     "name": "ROLE_HIERARCHY",
-    "line": 418,
-    "end": 418,
+    "line": 408,
+    "end": 408,
     "lines": 1,
     "tables": [],
     "domain": "misc",
@@ -5942,8 +6222,8 @@
    },
    {
     "name": "FEATURE_ROLES_KNOWN",
-    "line": 419,
-    "end": 422,
+    "line": 409,
+    "end": 412,
     "lines": 4,
     "tables": [],
     "domain": "misc",
@@ -5960,8 +6240,8 @@
    },
    {
     "name": "unknownRoles",
-    "line": 423,
-    "end": 426,
+    "line": 413,
+    "end": 416,
     "lines": 4,
     "tables": [],
     "domain": "misc",
@@ -5970,8 +6250,8 @@
    },
    {
     "name": "getUserRoles",
-    "line": 440,
-    "end": 442,
+    "line": 430,
+    "end": 432,
     "lines": 3,
     "tables": [
      "user_roles"
@@ -5985,8 +6265,8 @@
    },
    {
     "name": "setUserRoles",
-    "line": 453,
-    "end": 462,
+    "line": 443,
+    "end": 452,
     "lines": 10,
     "tables": [
      "user_roles",
@@ -6011,8 +6291,8 @@
    },
    {
     "name": "userHasRole",
-    "line": 463,
-    "end": 494,
+    "line": 453,
+    "end": 484,
     "lines": 32,
     "tables": [],
     "domain": "misc",
@@ -6028,14 +6308,14 @@
      "exec-pack-portfolio.test.js",
      "exec-routes.smoke.test.js",
      "field-ticket-site-scope.test.js",
-     "figure-parity-five-surfaces.test.js"
+     "figure-parity-all-kpis.test.js"
     ],
     "recent_commits": 1
    },
    {
     "name": "REPORTS_BACKEND",
-    "line": 495,
-    "end": 495,
+    "line": 485,
+    "end": 485,
     "lines": 1,
     "tables": [],
     "domain": "misc",
@@ -6057,8 +6337,8 @@
    },
    {
     "name": "initPgReports",
-    "line": 497,
-    "end": 618,
+    "line": 487,
+    "end": 608,
     "lines": 122,
     "tables": [
      "action_items",
@@ -6077,24 +6357,24 @@
     "domain": "action_items",
     "tests": [
      "_pg-boot.mjs",
+     "auth-db-busy.smoke.test.js",
      "commitment-backfill-pg.test.js",
      "commitment-store.test.js",
+     "perf-calendar-helpdesk-scan.test.js",
      "pg-alloc-unspecified.test.js",
      "pg-dashboard-store.test.js",
      "pg-field-store.test.js",
      "pg-governance-store.test.js",
      "pg-ppm-w2-store.test.js",
      "pg-report-asset-review.test.js",
-     "pg-report-engagement-store.test.js",
-     "pg-reporting.test.js",
-     "pg-reports-aggregates.test.js"
+     "pg-report-engagement-store.test.js"
     ],
     "recent_commits": 4
    },
    {
     "name": "pgHandle",
-    "line": 676,
-    "end": 683,
+    "line": 666,
+    "end": 673,
     "lines": 8,
     "tables": [],
     "domain": "misc",
@@ -6107,17 +6387,17 @@
      "access-routes.smoke.test.js",
      "access-store.test.js",
      "access-why.smoke.test.js",
+     "activate-switches.test.js",
      "actuals-import.smoke.test.js",
      "audit-chain.test.js",
-     "authz-enforce.test.js",
-     "chart-annotations-routes.smoke.test.js"
+     "auth-db-busy.smoke.test.js"
     ],
     "recent_commits": 1
    },
    {
     "name": "sessionHours",
-    "line": 747,
-    "end": 748,
+    "line": 737,
+    "end": 738,
     "lines": 2,
     "tables": [],
     "domain": "misc",
@@ -6126,8 +6406,8 @@
    },
    {
     "name": "login",
-    "line": 749,
-    "end": 752,
+    "line": 739,
+    "end": 742,
     "lines": 4,
     "tables": [
      "users",
@@ -6152,8 +6432,8 @@
    },
    {
     "name": "validateSession",
-    "line": 753,
-    "end": 756,
+    "line": 743,
+    "end": 746,
     "lines": 4,
     "tables": [
      "sessions",
@@ -6174,8 +6454,8 @@
    },
    {
     "name": "logout",
-    "line": 757,
-    "end": 761,
+    "line": 747,
+    "end": 751,
     "lines": 5,
     "tables": [
      "sessions"
@@ -6185,16 +6465,19 @@
      "_rbac-matrix-core.js",
      "access-revocation.smoke.test.js",
      "auth-cookie.smoke.test.js",
+     "auth-db-busy.smoke.test.js",
+     "field-sw-no-api-cache-browser.test.js",
      "pg-reports-auth.test.js",
      "route-matrix-probe-order.test.js",
+     "session-security.smoke.test.js",
      "system-log.test.js"
     ],
     "recent_commits": 1
    },
    {
     "name": "listActiveSessions",
-    "line": 804,
-    "end": 809,
+    "line": 794,
+    "end": 799,
     "lines": 6,
     "tables": [
      "sessions",
@@ -6209,8 +6492,8 @@
    },
    {
     "name": "forceLogoutByToken",
-    "line": 810,
-    "end": 812,
+    "line": 800,
+    "end": 802,
     "lines": 3,
     "tables": [
      "sessions"
@@ -6223,8 +6506,8 @@
    },
    {
     "name": "getUserExtraSiteIds",
-    "line": 845,
-    "end": 847,
+    "line": 835,
+    "end": 837,
     "lines": 3,
     "tables": [
      "user_sites"
@@ -6235,8 +6518,8 @@
    },
    {
     "name": "setUserExtraSites",
-    "line": 853,
-    "end": 855,
+    "line": 843,
+    "end": 845,
     "lines": 3,
     "tables": [
      "user_sites",
@@ -6248,8 +6531,8 @@
    },
    {
     "name": "safeUser",
-    "line": 876,
-    "end": 893,
+    "line": 866,
+    "end": 883,
     "lines": 18,
     "tables": [],
     "domain": "misc",
@@ -6260,8 +6543,8 @@
    },
    {
     "name": "listUsers",
-    "line": 894,
-    "end": 897,
+    "line": 884,
+    "end": 887,
     "lines": 4,
     "tables": [
      "users",
@@ -6288,8 +6571,8 @@
    },
    {
     "name": "createUser",
-    "line": 898,
-    "end": 902,
+    "line": 888,
+    "end": 892,
     "lines": 5,
     "tables": [
      "users"
@@ -6313,8 +6596,8 @@
    },
    {
     "name": "changePassword",
-    "line": 903,
-    "end": 906,
+    "line": 893,
+    "end": 896,
     "lines": 4,
     "tables": [
      "users"
@@ -6328,8 +6611,8 @@
    },
    {
     "name": "updateUser",
-    "line": 907,
-    "end": 920,
+    "line": 897,
+    "end": 910,
     "lines": 14,
     "tables": [
      "users",
@@ -6337,6 +6620,7 @@
     ],
     "domain": "users",
     "tests": [
+     "_rbac-matrix-core.js",
      "access-store.test.js",
      "emergency-access.smoke.test.js",
      "password-work-factor.test.js",
@@ -6346,12 +6630,12 @@
      "sso-login.test.js",
      "uat-amdec-org-models.smoke.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "name": "findUserByEntra",
-    "line": 934,
-    "end": 940,
+    "line": 924,
+    "end": 930,
     "lines": 7,
     "tables": [
      "users"
@@ -6362,12 +6646,12 @@
      "sso-db.test.js",
      "sso-login.test.js"
     ],
-    "recent_commits": 2
+    "recent_commits": 1
    },
    {
     "name": "linkUserEntra",
-    "line": 948,
-    "end": 953,
+    "line": 938,
+    "end": 943,
     "lines": 6,
     "tables": [
      "users"
@@ -6382,8 +6666,8 @@
    },
    {
     "name": "updateUserProfileFromEntra",
-    "line": 955,
-    "end": 957,
+    "line": 945,
+    "end": 947,
     "lines": 3,
     "tables": [
      "users"
@@ -6396,8 +6680,8 @@
    },
    {
     "name": "setUserEmail",
-    "line": 967,
-    "end": 969,
+    "line": 957,
+    "end": 959,
     "lines": 3,
     "tables": [
      "users"
@@ -6410,8 +6694,8 @@
    },
    {
     "name": "createSessionForUser",
-    "line": 976,
-    "end": 980,
+    "line": 966,
+    "end": 970,
     "lines": 5,
     "tables": [
      "users",
@@ -6426,8 +6710,8 @@
    },
    {
     "name": "deleteUser",
-    "line": 1017,
-    "end": 1021,
+    "line": 1007,
+    "end": 1011,
     "lines": 5,
     "tables": [
      "users"
@@ -6441,8 +6725,8 @@
    },
    {
     "name": "listSites",
-    "line": 1113,
-    "end": 1115,
+    "line": 1103,
+    "end": 1105,
     "lines": 3,
     "tables": [
      "sites"
@@ -6466,8 +6750,8 @@
    },
    {
     "name": "getSiteIdByModuleCode",
-    "line": 1131,
-    "end": 1133,
+    "line": 1121,
+    "end": 1123,
     "lines": 3,
     "tables": [
      "site_module_codes",
@@ -6492,8 +6776,8 @@
    },
    {
     "name": "listSiteModuleCodes",
-    "line": 1150,
-    "end": 1152,
+    "line": 1140,
+    "end": 1142,
     "lines": 3,
     "tables": [
      "site_module_codes",
@@ -6518,8 +6802,8 @@
    },
    {
     "name": "listSiteMerakiMap",
-    "line": 1167,
-    "end": 1169,
+    "line": 1157,
+    "end": 1159,
     "lines": 3,
     "tables": [
      "sites",
@@ -6533,8 +6817,8 @@
    },
    {
     "name": "setSiteMerakiCode",
-    "line": 1177,
-    "end": 1179,
+    "line": 1167,
+    "end": 1169,
     "lines": 3,
     "tables": [
      "site_module_codes"
@@ -6548,8 +6832,8 @@
    },
    {
     "name": "listWanSubsiteNetworks",
-    "line": 1191,
-    "end": 1193,
+    "line": 1181,
+    "end": 1183,
     "lines": 3,
     "tables": [
      "wan_subsite_networks",
@@ -6564,8 +6848,8 @@
    },
    {
     "name": "setWanSubsiteNetworks",
-    "line": 1214,
-    "end": 1217,
+    "line": 1204,
+    "end": 1207,
     "lines": 4,
     "tables": [
      "wan_subsite_networks"
@@ -6579,21 +6863,23 @@
    },
    {
     "name": "_computeSiteHelpdesk",
-    "line": 1231,
-    "end": 1268,
-    "lines": 38,
+    "line": 1221,
+    "end": 1264,
+    "lines": 44,
     "tables": [],
     "domain": "misc",
     "tests": [
+     "site-awareness-routes.smoke.test.js",
+     "site-awareness-sla-parity.test.js",
      "site-helpdesk.test.js",
      "site-window-readers.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 3
    },
    {
     "name": "getSiteHelpdeskMonthly",
-    "line": 1269,
-    "end": 1272,
+    "line": 1265,
+    "end": 1268,
     "lines": 4,
     "tables": [
      "sites",
@@ -6607,8 +6893,8 @@
    },
    {
     "name": "getSiteHelpdeskWindow",
-    "line": 1300,
-    "end": 1304,
+    "line": 1296,
+    "end": 1300,
     "lines": 5,
     "tables": [
      "sites",
@@ -6619,6 +6905,7 @@
      "reference-org-shape.test.js",
      "review-dashboard.test.js",
      "site-awareness-routes.smoke.test.js",
+     "site-awareness-sla-parity.test.js",
      "site-local-calendar-readers.test.js",
      "site-report-helpdesk-weekly.test.js",
      "site-window-readers.test.js",
@@ -6630,8 +6917,8 @@
    },
    {
     "name": "_bucketSiteImpact",
-    "line": 1329,
-    "end": 1348,
+    "line": 1325,
+    "end": 1344,
     "lines": 20,
     "tables": [],
     "domain": "misc",
@@ -6642,8 +6929,8 @@
    },
    {
     "name": "getSiteImpactCounts",
-    "line": 1351,
-    "end": 1353,
+    "line": 1347,
+    "end": 1349,
     "lines": 3,
     "tables": [],
     "domain": "misc",
@@ -6652,8 +6939,8 @@
    },
    {
     "name": "_changeOutcome",
-    "line": 1379,
-    "end": 1423,
+    "line": 1375,
+    "end": 1419,
     "lines": 45,
     "tables": [],
     "domain": "misc",
@@ -6665,8 +6952,8 @@
    },
    {
     "name": "_computeSiteChanges",
-    "line": 1424,
-    "end": 1457,
+    "line": 1420,
+    "end": 1453,
     "lines": 34,
     "tables": [],
     "domain": "misc",
@@ -6680,8 +6967,8 @@
    },
    {
     "name": "getSiteChangesWindow",
-    "line": 1458,
-    "end": 1461,
+    "line": 1454,
+    "end": 1457,
     "lines": 4,
     "tables": [
      "sites",
@@ -6700,8 +6987,8 @@
    },
    {
     "name": "getChangesWindow",
-    "line": 1481,
-    "end": 1483,
+    "line": 1477,
+    "end": 1479,
     "lines": 3,
     "tables": [
      "change_records"
@@ -6716,8 +7003,8 @@
    },
    {
     "name": "getSiteOpenChanges",
-    "line": 1505,
-    "end": 1508,
+    "line": 1501,
+    "end": 1504,
     "lines": 4,
     "tables": [
      "sites",
@@ -6731,8 +7018,8 @@
    },
    {
     "name": "_computeOpenChanges",
-    "line": 1533,
-    "end": 1572,
+    "line": 1529,
+    "end": 1568,
     "lines": 40,
     "tables": [],
     "domain": "misc",
@@ -6743,8 +7030,8 @@
    },
    {
     "name": "_computeTechStats",
-    "line": 1573,
-    "end": 1596,
+    "line": 1569,
+    "end": 1592,
     "lines": 24,
     "tables": [],
     "domain": "misc",
@@ -6755,8 +7042,8 @@
    },
    {
     "name": "getSiteTechnicianStats",
-    "line": 1597,
-    "end": 1608,
+    "line": 1593,
+    "end": 1604,
     "lines": 12,
     "tables": [
      "sites",
@@ -6770,8 +7057,8 @@
    },
    {
     "name": "updateSiteGroup",
-    "line": 1624,
-    "end": 1626,
+    "line": 1620,
+    "end": 1622,
     "lines": 3,
     "tables": [
      "sites"
@@ -6784,8 +7071,8 @@
    },
    {
     "name": "createSite",
-    "line": 1631,
-    "end": 1634,
+    "line": 1627,
+    "end": 1630,
     "lines": 4,
     "tables": [
      "sites"
@@ -6809,8 +7096,8 @@
    },
    {
     "name": "updateSite",
-    "line": 1653,
-    "end": 1658,
+    "line": 1649,
+    "end": 1654,
     "lines": 6,
     "tables": [
      "sites"
@@ -6823,8 +7110,8 @@
    },
    {
     "name": "getSiteMasterRows",
-    "line": 1680,
-    "end": 1687,
+    "line": 1676,
+    "end": 1683,
     "lines": 8,
     "tables": [
      "sites",
@@ -6836,8 +7123,8 @@
    },
    {
     "name": "setSiteActive",
-    "line": 1688,
-    "end": 1692,
+    "line": 1684,
+    "end": 1688,
     "lines": 5,
     "tables": [
      "sites"
@@ -6850,8 +7137,8 @@
    },
    {
     "name": "ensureReport",
-    "line": 1693,
-    "end": 1696,
+    "line": 1689,
+    "end": 1692,
     "lines": 4,
     "tables": [
      "weekly_reports"
@@ -6875,9 +7162,9 @@
    },
    {
     "name": "getReport",
-    "line": 1697,
+    "line": 1693,
     "end": 1700,
-    "lines": 4,
+    "lines": 8,
     "tables": [
      "weekly_reports",
      "weeks",
@@ -7918,10 +8205,10 @@
      "kpi-policy-engine.test.js",
      "metric-registry-integrity.test.js",
      "metrics-registry.test.js",
+     "perf-calendar-helpdesk-scan.test.js",
      "pg-reports-aggregates.test.js",
      "scoreboard-data.test.js",
-     "sla-dual-pg.test.js",
-     "state-badge.test.js"
+     "site-awareness-sla-parity.test.js"
     ],
     "recent_commits": 1
    },
@@ -7943,8 +8230,8 @@
    },
    {
     "name": "getMonthlyHelpdeskHistory",
-    "line": 3071,
-    "end": 3073,
+    "line": 3082,
+    "end": 3084,
     "lines": 3,
     "tables": [
      "request_records"
@@ -7961,8 +8248,8 @@
    },
    {
     "name": "fmtDowntime",
-    "line": 3143,
-    "end": 3195,
+    "line": 3154,
+    "end": 3206,
     "lines": 53,
     "tables": [],
     "domain": "misc",
@@ -7971,8 +8258,8 @@
    },
    {
     "name": "getAgeingBySiteDB",
-    "line": 3196,
-    "end": 3201,
+    "line": 3207,
+    "end": 3212,
     "lines": 6,
     "tables": [
      "request_records"
@@ -7986,8 +8273,8 @@
    },
    {
     "name": "getAgeingByGroupDB",
-    "line": 3251,
-    "end": 3255,
+    "line": 3262,
+    "end": 3266,
     "lines": 5,
     "tables": [
      "request_records"
@@ -8001,8 +8288,8 @@
    },
    {
     "name": "getFirstResponseTrendDB",
-    "line": 3312,
-    "end": 3318,
+    "line": 3323,
+    "end": 3329,
     "lines": 7,
     "tables": [
      "request_records"
@@ -8015,8 +8302,8 @@
    },
    {
     "name": "getCustomerVoiceDB",
-    "line": 3385,
-    "end": 3392,
+    "line": 3396,
+    "end": 3403,
     "lines": 8,
     "tables": [
      "survey_results"
@@ -8029,8 +8316,8 @@
    },
    {
     "name": "getSlaTrendDB",
-    "line": 3503,
-    "end": 3508,
+    "line": 3514,
+    "end": 3519,
     "lines": 6,
     "tables": [
      "request_records"
@@ -8044,8 +8331,8 @@
    },
    {
     "name": "getSlaByCategoryDB",
-    "line": 3558,
-    "end": 3570,
+    "line": 3569,
+    "end": 3581,
     "lines": 13,
     "tables": [
      "request_records"
@@ -8058,8 +8345,8 @@
    },
    {
     "name": "getGroupRequestsDB",
-    "line": 3619,
-    "end": 3622,
+    "line": 3630,
+    "end": 3633,
     "lines": 4,
     "tables": [
      "request_records"
@@ -8072,8 +8359,8 @@
    },
    {
     "name": "getEmergencyChangesDB",
-    "line": 3651,
-    "end": 3654,
+    "line": 3662,
+    "end": 3665,
     "lines": 4,
     "tables": [
      "change_records"
@@ -8086,8 +8373,8 @@
    },
    {
     "name": "getAgeingSummaryDB",
-    "line": 3695,
-    "end": 3699,
+    "line": 3706,
+    "end": 3710,
     "lines": 5,
     "tables": [
      "request_records"
@@ -8100,8 +8387,8 @@
    },
    {
     "name": "getIncidentVsSrDB",
-    "line": 3760,
-    "end": 3764,
+    "line": 3771,
+    "end": 3775,
     "lines": 5,
     "tables": [
      "request_records"
@@ -8114,8 +8401,8 @@
    },
    {
     "name": "getCabApprovalsDB",
-    "line": 3806,
-    "end": 3810,
+    "line": 3817,
+    "end": 3821,
     "lines": 5,
     "tables": [
      "cab_approvals",
@@ -8129,8 +8416,8 @@
    },
    {
     "name": "getCabRecommendationsDB",
-    "line": 3876,
-    "end": 3879,
+    "line": 3887,
+    "end": 3890,
     "lines": 4,
     "tables": [
      "cab_approvals",
@@ -8144,8 +8431,8 @@
    },
    {
     "name": "getCustomerVoiceByDimensionDB",
-    "line": 3942,
-    "end": 3947,
+    "line": 3953,
+    "end": 3958,
     "lines": 6,
     "tables": [
      "survey_results",
@@ -8159,8 +8446,8 @@
    },
    {
     "name": "getMajorIncidentsHistory",
-    "line": 4045,
-    "end": 4051,
+    "line": 4056,
+    "end": 4062,
     "lines": 7,
     "tables": [
      "request_records"
@@ -8174,8 +8461,8 @@
    },
    {
     "name": "getChangeRecordsHistory",
-    "line": 4176,
-    "end": 4180,
+    "line": 4187,
+    "end": 4191,
     "lines": 5,
     "tables": [
      "sites",
@@ -8189,8 +8476,8 @@
    },
    {
     "name": "getHelpdesk6MonthHistory",
-    "line": 4307,
-    "end": 4309,
+    "line": 4318,
+    "end": 4320,
     "lines": 3,
     "tables": [
      "weeks",
@@ -8206,8 +8493,8 @@
    },
    {
     "name": "getWeekSummaryData",
-    "line": 4364,
-    "end": 4366,
+    "line": 4375,
+    "end": 4377,
     "lines": 3,
     "tables": [
      "weekly_reports",
@@ -8222,33 +8509,35 @@
    },
    {
     "name": "getSyncStatus",
-    "line": 4384,
-    "end": 4388,
-    "lines": 5,
+    "line": 4395,
+    "end": 4400,
+    "lines": 6,
     "tables": [
      "sync_metadata"
     ],
     "domain": "sync_metadata",
     "tests": [
      "pg-reports-hot.test.js",
+     "ready-readonly.test.js",
+     "ready-timeout.test.js",
      "restore-drill-admin-card.test.js"
     ],
-    "recent_commits": 1
+    "recent_commits": 2
    },
    {
     "name": "countTable",
-    "line": 4390,
-    "end": 4395,
-    "lines": 6,
+    "line": 4402,
+    "end": 4409,
+    "lines": 8,
     "tables": [],
     "domain": "misc",
     "tests": [],
-    "recent_commits": 1
+    "recent_commits": 3
    },
    {
     "name": "getLastSyncAt",
-    "line": 4396,
-    "end": 4398,
+    "line": 4410,
+    "end": 4412,
     "lines": 3,
     "tables": [
      "sync_metadata"
@@ -8264,8 +8553,8 @@
    },
    {
     "name": "markSyncSuccess",
-    "line": 4412,
-    "end": 4415,
+    "line": 4426,
+    "end": 4429,
     "lines": 4,
     "tables": [
      "sync_metadata"
@@ -8280,8 +8569,8 @@
    },
    {
     "name": "markSyncError",
-    "line": 4432,
-    "end": 4434,
+    "line": 4446,
+    "end": 4448,
     "lines": 3,
     "tables": [
      "sync_metadata"
@@ -8294,8 +8583,8 @@
    },
    {
     "name": "upsertChangeBatch",
-    "line": 4451,
-    "end": 4455,
+    "line": 4465,
+    "end": 4469,
     "lines": 5,
     "tables": [],
     "domain": "misc",
@@ -8307,8 +8596,8 @@
    },
    {
     "name": "upsertCABBatch",
-    "line": 4456,
-    "end": 4463,
+    "line": 4470,
+    "end": 4477,
     "lines": 8,
     "tables": [],
     "domain": "misc",
@@ -8320,8 +8609,8 @@
    },
    {
     "name": "upsertSurveyResultBatch",
-    "line": 4517,
-    "end": 4521,
+    "line": 4531,
+    "end": 4535,
     "lines": 5,
     "tables": [],
     "domain": "misc",
@@ -8333,8 +8622,8 @@
    },
    {
     "name": "upsertSurveyAnswerBatch",
-    "line": 4522,
-    "end": 4526,
+    "line": 4536,
+    "end": 4540,
     "lines": 5,
     "tables": [],
     "domain": "misc",
@@ -8346,14 +8635,15 @@
    },
    {
     "name": "upsertRequestBatch",
-    "line": 4566,
-    "end": 4570,
+    "line": 4580,
+    "end": 4584,
     "lines": 5,
     "tables": [],
     "domain": "misc",
     "tests": [
      "ageing-excludes-closed.test.js",
      "exec-routes.smoke.test.js",
+     "perf-calendar-helpdesk-scan.test.js",
      "pg-reports-aggregates.test.js",
      "pg-reports-hot.test.js",
      "pg-reports-rr.test.js",
@@ -8363,8 +8653,8 @@
    },
    {
     "name": "upsertRequestUdfBatch",
-    "line": 4619,
-    "end": 4623,
+    "line": 4633,
+    "end": 4637,
     "lines": 5,
     "tables": [
      "request_records"
@@ -8379,8 +8669,8 @@
    },
    {
     "name": "reconcileChangeRecords",
-    "line": 4645,
-    "end": 4651,
+    "line": 4659,
+    "end": 4665,
     "lines": 7,
     "tables": [],
     "domain": "misc",
@@ -8389,8 +8679,8 @@
    },
    {
     "name": "reconcileCABApprovals",
-    "line": 4652,
-    "end": 4659,
+    "line": 4666,
+    "end": 4673,
     "lines": 8,
     "tables": [],
     "domain": "misc",
@@ -8399,8 +8689,8 @@
    },
    {
     "name": "reconcileSurveyResults",
-    "line": 4660,
-    "end": 4666,
+    "line": 4674,
+    "end": 4680,
     "lines": 7,
     "tables": [
      "survey_results",
@@ -8414,8 +8704,8 @@
    },
    {
     "name": "reconcileRequestRecords",
-    "line": 4667,
-    "end": 4673,
+    "line": 4681,
+    "end": 4687,
     "lines": 7,
     "tables": [],
     "domain": "misc",
@@ -8426,8 +8716,8 @@
    },
    {
     "name": "getChangeRecords",
-    "line": 4703,
-    "end": 4705,
+    "line": 4717,
+    "end": 4719,
     "lines": 3,
     "tables": [
      "change_records"
@@ -8440,8 +8730,8 @@
    },
    {
     "name": "getCABApprovals",
-    "line": 4715,
-    "end": 4717,
+    "line": 4729,
+    "end": 4731,
     "lines": 3,
     "tables": [
      "cab_approvals"
@@ -8454,8 +8744,8 @@
    },
    {
     "name": "getSurveyResults",
-    "line": 4726,
-    "end": 4728,
+    "line": 4740,
+    "end": 4742,
     "lines": 3,
     "tables": [
      "survey_results"
@@ -8468,8 +8758,8 @@
    },
    {
     "name": "getSurveyAnswers",
-    "line": 4737,
-    "end": 4747,
+    "line": 4751,
+    "end": 4761,
     "lines": 11,
     "tables": [
      "survey_answers",
@@ -8483,8 +8773,8 @@
    },
    {
     "name": "getSurveyResultsForVoice",
-    "line": 4751,
-    "end": 4756,
+    "line": 4765,
+    "end": 4770,
     "lines": 6,
     "tables": [],
     "domain": "misc",
@@ -8495,8 +8785,8 @@
    },
    {
     "name": "getSurveyVoiceAnswers",
-    "line": 4763,
-    "end": 4769,
+    "line": 4777,
+    "end": 4783,
     "lines": 7,
     "tables": [],
     "domain": "misc",
@@ -8507,8 +8797,8 @@
    },
    {
     "name": "getSurveyVoiceTilesDB",
-    "line": 4770,
-    "end": 4792,
+    "line": 4784,
+    "end": 4806,
     "lines": 23,
     "tables": [
      "survey_results",
@@ -8520,8 +8810,8 @@
    },
    {
     "name": "getRequestRecords",
-    "line": 4793,
-    "end": 4795,
+    "line": 4807,
+    "end": 4809,
     "lines": 3,
     "tables": [
      "request_records"
@@ -8534,8 +8824,8 @@
    },
    {
     "name": "getRequestRecordsSince",
-    "line": 4811,
-    "end": 4813,
+    "line": 4825,
+    "end": 4827,
     "lines": 3,
     "tables": [
      "request_records"
@@ -8548,8 +8838,8 @@
    },
    {
     "name": "getSubmissionChannelsDB",
-    "line": 4820,
-    "end": 4822,
+    "line": 4834,
+    "end": 4836,
     "lines": 3,
     "tables": [
      "request_records"
@@ -8562,8 +8852,8 @@
    },
    {
     "name": "getSurveyKpisDB",
-    "line": 4847,
-    "end": 4849,
+    "line": 4861,
+    "end": 4863,
     "lines": 3,
     "tables": [],
     "domain": "misc",
@@ -8576,8 +8866,8 @@
    },
    {
     "name": "getChangeMetrics",
-    "line": 4887,
-    "end": 4893,
+    "line": 4901,
+    "end": 4907,
     "lines": 7,
     "tables": [
      "change_records"
@@ -8595,8 +8885,8 @@
    },
    {
     "name": "getCABMetrics",
-    "line": 4977,
-    "end": 4981,
+    "line": 4991,
+    "end": 4995,
     "lines": 5,
     "tables": [
      "cab_approvals"
@@ -8609,8 +8899,8 @@
    },
    {
     "name": "getSurveyMetrics",
-    "line": 5031,
-    "end": 5037,
+    "line": 5045,
+    "end": 5051,
     "lines": 7,
     "tables": [
      "survey_results"
@@ -8623,8 +8913,8 @@
    },
    {
     "name": "getRequestMetrics",
-    "line": 5099,
-    "end": 5101,
+    "line": 5113,
+    "end": 5115,
     "lines": 3,
     "tables": [
      "request_records"
@@ -8641,8 +8931,8 @@
    },
    {
     "name": "getCatalogueStats",
-    "line": 5176,
-    "end": 5178,
+    "line": 5190,
+    "end": 5192,
     "lines": 3,
     "tables": [
      "request_records"
@@ -8655,8 +8945,8 @@
    },
    {
     "name": "getMonthlyReport",
-    "line": 5197,
-    "end": 5199,
+    "line": 5211,
+    "end": 5213,
     "lines": 3,
     "tables": [
      "monthly_reports"
@@ -8669,8 +8959,8 @@
    },
    {
     "name": "getMonthlyEdits",
-    "line": 5210,
-    "end": 5217,
+    "line": 5224,
+    "end": 5231,
     "lines": 8,
     "tables": [
      "weeks",
@@ -8687,8 +8977,8 @@
    },
    {
     "name": "saveMonthlyEdits",
-    "line": 5259,
-    "end": 5261,
+    "line": 5273,
+    "end": 5275,
     "lines": 3,
     "tables": [
      "monthly_reports"
@@ -8702,8 +8992,8 @@
    },
    {
     "name": "getAnnualObjectives",
-    "line": 5280,
-    "end": 5282,
+    "line": 5294,
+    "end": 5296,
     "lines": 3,
     "tables": [
      "annual_objectives"
@@ -8717,8 +9007,8 @@
    },
    {
     "name": "saveAnnualObjectives",
-    "line": 5292,
-    "end": 5295,
+    "line": 5306,
+    "end": 5309,
     "lines": 4,
     "tables": [
      "annual_objectives"
@@ -8732,8 +9022,8 @@
    },
    {
     "name": "getYearlySummary",
-    "line": 5317,
-    "end": 5319,
+    "line": 5331,
+    "end": 5333,
     "lines": 3,
     "tables": [
      "weeks",
@@ -8749,8 +9039,8 @@
    },
    {
     "name": "logAudit",
-    "line": 5349,
-    "end": 5358,
+    "line": 5363,
+    "end": 5372,
     "lines": 10,
     "tables": [
      "audit_log"
@@ -8765,8 +9055,8 @@
    },
    {
     "name": "recordReportSubmission",
-    "line": 5371,
-    "end": 5379,
+    "line": 5385,
+    "end": 5393,
     "lines": 9,
     "tables": [
      "weekly_report_submissions"
@@ -8777,8 +9067,8 @@
    },
    {
     "name": "lastReportSubmission",
-    "line": 5380,
-    "end": 5391,
+    "line": 5394,
+    "end": 5405,
     "lines": 12,
     "tables": [
      "weekly_report_submissions",
@@ -8790,8 +9080,8 @@
    },
    {
     "name": "getReportAuditLog",
-    "line": 5392,
-    "end": 5394,
+    "line": 5406,
+    "end": 5408,
     "lines": 3,
     "tables": [
      "audit_log"
@@ -8805,8 +9095,8 @@
    },
    {
     "name": "getOpenChangesForSite",
-    "line": 5411,
-    "end": 5414,
+    "line": 5425,
+    "end": 5428,
     "lines": 4,
     "tables": [
      "change_records"
@@ -8820,8 +9110,8 @@
    },
    {
     "name": "getActiveMajorIncidentsForSite",
-    "line": 5442,
-    "end": 5447,
+    "line": 5456,
+    "end": 5461,
     "lines": 6,
     "tables": [
      "request_records"
@@ -8839,8 +9129,8 @@
    },
    {
     "name": "getUpcomingChanges",
-    "line": 5540,
-    "end": 5546,
+    "line": 5554,
+    "end": 5560,
     "lines": 7,
     "tables": [
      "change_records"
@@ -8853,8 +9143,8 @@
    },
    {
     "name": "getRequestFilterOptions",
-    "line": 5590,
-    "end": 5592,
+    "line": 5604,
+    "end": 5606,
     "lines": 3,
     "tables": [
      "request_records"
@@ -8867,8 +9157,8 @@
    },
    {
     "name": "db",
-    "line": 5612,
-    "end": 5616,
+    "line": 5627,
+    "end": 5631,
     "lines": 5,
     "tables": [],
     "domain": "misc",

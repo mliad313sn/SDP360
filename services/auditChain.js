@@ -30,6 +30,28 @@ async function lastAnchor(db, schema, table) {
   return db.prepare(`SELECT last_id, head, row_count, anchored_at FROM ${qual(schema, ANCHOR_TABLE)} WHERE table_name = ? ORDER BY id DESC LIMIT 1`).get(table);
 }
 
+/** P11 r6 — were anchors ever written for this ledger? Read from the anchor table's identity sequence (anchors were
+ *  written at all) and from the system_log 'audit_chain_anchor' events (this ledger was anchored ok). A TRUNCATE of the
+ *  anchors (possible before tools/pg/harden-audit-grants.sql, now also refused by migration 132's trigger) therefore no
+ *  longer leaves a chain check that compares nothing and passes. Best-effort: an unreadable source counts as "unknown",
+ *  never as "anchored". */
+async function anchorHistory(db, schema) {
+  const out = { written: false, tables: new Set() };
+  try {
+    const r = await db.prepare(`SELECT pg_sequence_last_value(pg_get_serial_sequence(?, 'id')::regclass) AS v`).get(qual(schema, ANCHOR_TABLE));
+    out.written = r && r.v != null;
+  } catch (_) { /* no privilege / no sequence: unknown */ }
+  try {
+    const rows = await db.prepare(`SELECT details FROM ${qual(schema, 'system_log')} WHERE action = 'audit_chain_anchor' ORDER BY id DESC LIMIT 400`).all();
+    for (const row of rows) {
+      let d = null; try { d = typeof row.details === 'string' ? JSON.parse(row.details) : row.details; } catch (_) { d = null; }
+      if (!d || !(Number(d.anchored) > 0) || !Array.isArray(d.tables)) continue;
+      for (const x of d.tables) if (x && x.ok === true && x.rows != null) out.tables.add(x.table);
+    }
+  } catch (_) { /* no system_log: unknown */ }
+  return out;
+}
+
 /** Compare the live rows with the last anchor; returns null when the chain extends it, else the reason. */
 function anchorBreak(rows, anchor) {
   if (!anchor) return null;
@@ -51,6 +73,9 @@ async function verify(db, opts = {}) {
     try { hasAnchors = !!(await db.prepare('SELECT to_regclass(?) AS r').get(qual(schema, ANCHOR_TABLE))).r; } catch (_) { hasAnchors = false; }
   }
   const out = [];
+  const history = hasAnchors ? await anchorHistory(db, schema) : { written: false, tables: new Set() };
+  let anchorRows = null;
+  if (hasAnchors) { try { anchorRows = Number((await db.prepare(`SELECT COUNT(*) AS n FROM ${qual(schema, ANCHOR_TABLE)}`).get()).n); } catch (_) { anchorRows = null; } }
   for (const t of TABLES) {
     try {
       const res = await db.prepare('SELECT to_regclass(?)::oid::text AS q, to_regclass(?)::oid::text AS u').get(qual(schema, t), t);
@@ -66,7 +91,12 @@ async function verify(db, opts = {}) {
         FROM ${qual(schema, t)} x ORDER BY id`).all();
       const bad = rows.find((r) => !r.row_hash || r.calc !== r.row_hash || (r.prev_hash || null) !== (r.expected_prev || null));
       const anchor = hasAnchors ? await lastAnchor(db, schema, t) : null;
-      const brk = anchorBreak(rows, anchor);
+      let brk = anchorBreak(rows, anchor);
+      // P11 r6 — no anchor for a ledger that holds rows, while anchors were written before (the whole anchor table is
+      // empty although its sequence moved, or this ledger was logged as anchored): the anchor history is missing.
+      if (!brk && !anchor && rows.length && (history.tables.has(t) || (history.written && anchorRows === 0))) {
+        brk = 'anchor history missing — anchors were written before and none is left for this ledger (anchor table emptied?)';
+      }
       const last = rows.length ? rows[rows.length - 1] : null;
       out.push({ table: t, rows: rows.length, ok: !bad && !brk, first_broken_id: bad ? Number(bad.id) : null,
         head: last ? last.row_hash : null, last_id: last ? Number(last.id) : null,
@@ -101,4 +131,4 @@ async function nightly(rdb) {
   return { rows: r.tables.reduce((n, x) => n + (x.rows || 0), 0), anchored };
 }
 
-module.exports = { TABLES, ANCHOR_TABLE, verify, recordAnchors, anchorBreak, ledgerSchema, nightly };
+module.exports = { TABLES, ANCHOR_TABLE, verify, recordAnchors, anchorBreak, anchorHistory, ledgerSchema, nightly };

@@ -42,7 +42,9 @@ const PPM = ['010_roadmap', '011_roadmap_project', '039_native_ppm', '043_portfo
   // PORTFOLIO LOT 5 — created_by / updated_by + gate checklists for the extended lifecycle stages
   '125_ppm_lifecycle_audit',
   // PORTFOLIO LOT 6 — structured dependencies, residual risk, resource demand, effort factors, project documents
-  '130_ppm_portfolio_phase2'];
+  '130_ppm_portfolio_phase2',
+  // P11 r6 — TRUNCATE refusal on the audit chain anchors (additive trigger; proved the same way)
+  '132_audit_chain_anchor_truncate'];
 
 async function snapshot(pg) {
   const q = async (sql) => (await pg.prepare(sql).all()).map((r) => Object.values(r).join('|'));
