@@ -10,7 +10,7 @@
 | Decision cell in RELEASE-GATES.md | empty — this gate is **NO-GO** until the approver fills it. This dossier fills nothing. |
 | What this gate blocks | blocks the two-site pilot on the TEST instance |
 | Decide after | [G19](G19-qa-ci-green.md) QA: CI green and skipped tests reviewed |
-| Target SHA | `e49b554d` |
+| Target SHA | `369072d2` |
 | Generated | 2026-11-20 |
 
 ## 1. Question to decide
